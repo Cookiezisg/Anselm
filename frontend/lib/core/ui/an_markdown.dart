@@ -4,6 +4,7 @@ import 'package:gpt_markdown/custom_widgets/markdown_config.dart' show GptMarkdo
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import '../../i18n/strings.g.dart';
+import '../design/an_fonts.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
@@ -78,7 +79,7 @@ enum AnMarkdownScale {
 /// 阅读档=720 阅读列+消息泡;嵌入档=住在窗/岛台/预览里的 markdown,零新字号。流式:text 纯 prop、未闭合围栏容忍;
 /// SelectionArea 归调用方;无动画。
 class AnMarkdown extends StatelessWidget {
-  const AnMarkdown(this.text, {this.onLinkTap, this.scale = AnMarkdownScale.reading, super.key});
+  const AnMarkdown(this.text, {this.onLinkTap, this.scale = AnMarkdownScale.reading, this.prose, super.key});
 
   /// Markdown source — grows during streaming; stateless, so a longer string is just a rebuild.
   /// markdown 源——流式增长;无状态,换更长的串即重渲。
@@ -93,6 +94,14 @@ class AnMarkdown extends StatelessWidget {
   /// answer, the message bubble, the document/memory MAIN reading面) omit it → reading; markdown that lives
   /// INSIDE a window / island stage / preview passes [AnMarkdownScale.embedded]. 尺度档:默认阅读档;窗/岛台/预览走嵌入档。
   final AnMarkdownScale scale;
+
+  /// The CONTENT (②) font override — the serif / system face the chat MESSAGE BUBBLE layers over its
+  /// prose (from `contentFaceProvider`). `null` = the default sans (follow the UI face) → zero change,
+  /// so every EMBEDDED / chrome call site (tool cards, previews) stays on the UI face untouched. Applies
+  /// to prose ONLY (body / headings / lists / tables); fenced + inline code stay mono (the code axis
+  /// governs them). 内容字体覆盖:仅 chat 消息泡传衬线/系统脸;null=默认 sans(跟随 UI 脸)→零改,嵌入/chrome
+  /// 调用点不受影响;只覆盖 prose,代码块与内联码守 mono(代码轴管)。
+  final AnFace? prose;
 
   bool get _embedded => scale == AnMarkdownScale.embedded;
 
@@ -139,12 +148,15 @@ class AnMarkdown extends StatelessWidget {
     // (Notion-calibrated prose air); embedded = the 13 chrome body + a SINGLE 15-w400 h1/h2, with h3–h6
     // folded onto a 13-w400 rung. Zero new sizes — every rung is an existing AnText token. 双档:阅读=15 正文
     // +22/18/15 标题(1.6 行高);嵌入=13 正文+单一 15-w400 h1/h2、h3–h6 并入 13-w400 档。零新字号。
-    final body = (_embedded ? AnText.body : AnText.reading).copyWith(color: c.ink);
-    final h1 = (_embedded ? AnText.readingH3 : AnText.readingH1).copyWith(color: c.ink);
-    final h2 = (_embedded ? AnText.readingH3 : AnText.readingH2).copyWith(color: c.ink);
+    // `prose` (the CONTENT ② face) is layered onto the PROSE rungs only — body / headings / lists /
+    // tables — via [applyContentFace]; null (sans) is a pass-through. Code (fenced + inline) is never
+    // touched here — the code axis governs it. prose 脸只覆盖 prose 档(正文/标题/列表/表);null=直通;代码不碰。
+    final body = applyContentFace(prose, (_embedded ? AnText.body : AnText.reading)).copyWith(color: c.ink);
+    final h1 = applyContentFace(prose, (_embedded ? AnText.readingH3 : AnText.readingH1)).copyWith(color: c.ink);
+    final h2 = applyContentFace(prose, (_embedded ? AnText.readingH3 : AnText.readingH2)).copyWith(color: c.ink);
     // h4–h6 fold onto ONE rung with h3: reading = readingH3 (15-w400); embedded = the body re-weighted to
     // w400 (13, same size as the embedded body — hierarchy from weight + the _AnHTag top-space). h4–h6 并入 h3。
-    final h456 = (_embedded ? AnText.body.weight(AnText.emphasisWeight) : AnText.readingH3).copyWith(color: c.ink);
+    final h456 = applyContentFace(prose, (_embedded ? AnText.body.weight(AnText.emphasisWeight) : AnText.readingH3)).copyWith(color: c.ink);
     return GptMarkdownTheme(
       // The factory back-fills UNSPECIFIED fields from a fresh Material ThemeData, not ours — specify
       // every field. 工厂对未指定字段用全新 Material ThemeData 兜底——所有字段显式给值。
@@ -243,7 +255,7 @@ class AnMarkdown extends StatelessWidget {
     final header = rows.firstWhere((r) => r.isHeader, orElse: () => rows.first);
     final cols = header.fields.length;
     if (cols == 0) return const SizedBox.shrink();
-    final tableBase = _embedded ? AnText.body : AnText.reading; // header/body share ONE scale rung 同档
+    final tableBase = applyContentFace(prose, _embedded ? AnText.body : AnText.reading); // header/body share ONE scale rung 同档
     final bodyStyle = tableBase.copyWith(color: c.ink);
     final headerStyle = tableBase.weight(AnText.emphasisWeight).copyWith(color: c.ink);
     List<Widget> cells(CustomTableRow row, TextStyle rowStyle) => [
@@ -275,7 +287,7 @@ class AnMarkdown extends StatelessWidget {
             // Scale-sized tabular figures so markers match the prose rung AND multi-digit numbers align
             // down a long list. 记号随当前档 + 等宽数字,长列表序号齐位。
             child: Text('$no.',
-                style: (_embedded ? AnText.body : AnText.reading)
+                style: applyContentFace(prose, (_embedded ? AnText.body : AnText.reading))
                     .copyWith(fontFeatures: const [FontFeature.tabularFigures()], color: context.colors.inkFaint)),
           ),
           Flexible(child: child),
@@ -289,7 +301,7 @@ class AnMarkdown extends StatelessWidget {
         children: [
           Padding(
             padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s8),
-            child: Text('•', style: (_embedded ? AnText.body : AnText.reading).copyWith(color: context.colors.inkFaint)),
+            child: Text('•', style: applyContentFace(prose, (_embedded ? AnText.body : AnText.reading)).copyWith(color: context.colors.inkFaint)),
           ),
           Flexible(child: child),
         ],

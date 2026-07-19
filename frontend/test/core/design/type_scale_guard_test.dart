@@ -26,9 +26,16 @@ void main() {
   // The single source of type sizes — the only file allowed to name a raw size / a `wght` axis value.
   // 字号单源——唯一可写裸字号 / wght 轴值的文件。
   const sizeSource = 'lib/core/design/typography.dart';
-  // Code syntax highlighting rides its own font system (bold keywords/args) — outside the two-weight
-  // UI rule by design. 代码高亮自成字体体系(粗关键字/参数),按设计不入两档 UI 规。
-  const weightExceptions = {'lib/core/ui/syntax_highlighter.dart'};
+  // Two files legitimately name `fontWeight:` outside the two-weight ramp:
+  //  • syntax_highlighter.dart — code highlighting rides its own font system (bold keywords/args).
+  //  • an_fonts.dart — AnFace.on()'s system-face rebuild (copyWith can't NULL fontFamily) FAITHFULLY
+  //    copies BOTH the source fontWeight AND its fontVariations, so it never has the pinned-axis bug this
+  //    rule guards against (it preserves the exact weight, not re-weights it). 代码高亮自成字体体系;
+  //    an_fonts 的系统脸重建忠实拷贝 fontWeight+fontVariations 双轴(copyWith 无法清空 family),非钉轴 bug。
+  const weightExceptions = {
+    'lib/core/ui/syntax_highlighter.dart',
+    'lib/core/design/an_fonts.dart',
+  };
 
   // fontSize: <number> — a raw literal (identifiers like `AnSize.iconSm` are fine). 裸字号字面。
   final rawSize = RegExp(r'fontSize:\s*[0-9]');

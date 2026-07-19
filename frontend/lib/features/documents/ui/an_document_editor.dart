@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/design/an_fonts.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/editor/an_editor.dart';
 import '../../../core/entity/mention_source.dart';
+import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_doc_header.dart';
 import '../../../i18n/strings.g.dart';
@@ -20,7 +23,7 @@ import '../../../i18n/strings.g.dart';
 /// 原生文档视图:**同滚列**(头随正文同滚于一个外层滚动;大标题真滚走,浮层头折叠才诚实),正文=AnEditor
 /// (shrinkWrap,页滚动归本件);吐 markdown(宿主防抖存)、报滚动位 + 活动标题,应答 scrollToTop/scrollToHeading;
 /// 标题坐标经 viewport reveal-offset 在编辑器内容空间↔页面滚动空间换算(对布局不敏感)。
-class AnDocumentEditor extends StatefulWidget {
+class AnDocumentEditor extends ConsumerStatefulWidget {
   const AnDocumentEditor({
     required this.crumbs,
     required this.name,
@@ -63,10 +66,10 @@ class AnDocumentEditor extends StatefulWidget {
   final ValueChanged<Map<String, dynamic>>? onMetaChanged;
 
   @override
-  State<AnDocumentEditor> createState() => AnDocumentEditorState();
+  ConsumerState<AnDocumentEditor> createState() => AnDocumentEditorState();
 }
 
-class AnDocumentEditorState extends State<AnDocumentEditor> {
+class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
   final ScrollController _scroll = ScrollController();
   final GlobalKey<AnEditorState> _editorKey = GlobalKey<AnEditorState>();
   final GlobalKey _headerKey = GlobalKey();
@@ -187,6 +190,10 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
     // scrollable. The 720 reading measure is a computed symmetric SliverPadding on both slivers.
     // 单一外层 CustomScrollView:shrinkWrap 的 SuperEditor 是 sliver(盒宿主嵌不了——固定头时代的约束),
     // 头与编辑器同列同滚,光标跟随自动滚驱动本滚动;720 阅读列=两 sliver 对称算距。
+    // The CONTENT (②) font axis — HOT: the documents editor body + big title layer the serif / system
+    // face over their reading styles (null = default sans). Watching here rebuilds the header + re-memoizes
+    // the editor stylesheet on a live switch. 内容字体轴(热):正文+大标题覆盖衬线/系统脸(null=默认 sans);watch 即切换。
+    final prose = ref.watch(contentFaceProvider);
     return LayoutBuilder(builder: (context, box) {
       final side = box.maxWidth > AnSize.content // ≡ _measure + 2×pageX 恒等
           ? (box.maxWidth - _measure) / 2
@@ -200,7 +207,7 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
             // [_headerKey] subtree so the measured [headerHeight] stays content-only (collapse-threshold
             // parity with the entity ocean). 顶 pad 让出虚化带(同 AnPage),置于 _headerKey 外→量得头高仍是纯内容(与 entity 折叠阈同源)。
             padding: EdgeInsets.only(top: _headTopPad, left: side, right: side),
-            sliver: SliverToBoxAdapter(child: KeyedSubtree(key: _headerKey, child: _header(context))),
+            sliver: SliverToBoxAdapter(child: KeyedSubtree(key: _headerKey, child: _header(context, prose))),
           ),
           SliverPadding(
             padding: hpad,
@@ -211,6 +218,7 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
               mentionSource: widget.mentionSource,
               onChangedMarkdown: widget.onChangedMarkdown,
               shrinkWrap: true,
+              prose: prose,
             ),
           ),
         ],
@@ -221,7 +229,7 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
   // The reading-scale header is the [AnDocHeader] primitive (A-113 — the arrangement lives in gallery,
   // not invented here); this feature only supplies the data + wires the metadata callback + the empty-field
   // guides (空字段引导律). 阅读尺度头=AnDocHeader 原语,本 feature 喂数据+接元数据回调+空字段引导词。
-  Widget _header(BuildContext context) {
+  Widget _header(BuildContext context, AnFace? prose) {
     final t = context.t;
     return AnDocHeader(
       crumbs: widget.crumbs,
@@ -235,6 +243,7 @@ class AnDocumentEditorState extends State<AnDocumentEditor> {
       showTags: widget.showTags,
       addTagLabel: t.documents.addTag,
       onMetaChanged: widget.onMetaChanged,
+      prose: prose,
     );
   }
 }

@@ -121,10 +121,16 @@ flutter:
   assets:
     - assets/brand/
     - assets/fonts/
-  # Bundled fonts so the bilingual UI + code render deterministically on every machine (no drift
-  # from whatever is installed). MiSans VF = UI face (Latin + Simplified Chinese); JetBrains Mono =
-  # code face. Both variable. See core/design/typography.dart.
-  # 随包字体,每台机器渲染同一字面:MiSans VF=UI(Latin+简中);JetBrains Mono=代码。皆变量字体。
+  # Bundled fonts so the bilingual UI + code render deterministically on every machine (no drift from
+  # whatever is installed). The DEFAULTS (zero-config) are the first family of each font axis (see
+  # core/design/an_fonts.dart): Inter+MiSans = UI face (Latin + Simplified Chinese); JetBrains Mono =
+  # code face. The rest are OPT-IN alternates the machine-level font axes select — the CONTENT-serif
+  # face (Source Han Serif SC, Light+Regular = our w300/w400) and the code faces (Fira Code / Cascadia
+  # Code). All OFL except MiSans (Xiaomi's own license — attribution satisfied in Settings → About →
+  # Fonts + MiSans-License.txt). See core/design/typography.dart.
+  # 随包字体,每台机器同字面:默认=各轴首项(Inter+MiSans=UI、JetBrains Mono=代码);其余=字体轴按需选的替
+  # 补——内容衬线(思源宋 SC,Light+Regular=w300/w400)、代码脸(Fira/Cascadia)。除 MiSans(小米自有许可,
+  # 致谢在 About→字体 + MiSans-License.txt)外皆 OFL。见 core/design/an_fonts.dart。
   fonts:
     - family: Inter
       fonts:
@@ -135,6 +141,25 @@ flutter:
     - family: JetBrains Mono
       fonts:
         - asset: assets/fonts/JetBrainsMono.ttf
+    # CONTENT-serif face (② 内容轴 = 衬线). Source Han Serif SC (OFL), Latin + Simplified Chinese in ONE
+    # face — Light (w300) + Regular (w400) map to our two-weight prose ladder (body w300 / emphasis w400),
+    # so serif reading has real weight contrast. Chosen over a Newsreader-led chain because the bundled
+    # Newsreader is a single-weight brand asset (no Light). 内容衬线脸:思源宋 SC(拉丁+简中同脸),Light/Regular
+    # 对位两字重 prose,故衬线阅读有真字重对比;不用 Newsreader 领衔(它是单字重品牌资产、无 Light)。
+    - family: Source Han Serif SC
+      fonts:
+        - asset: assets/fonts/SourceHanSerifSC-Light.otf
+          weight: 300
+        - asset: assets/fonts/SourceHanSerifSC-Regular.otf
+          weight: 400
+    # CODE faces (③ 代码轴 alternates). Single Regular each (bold synthesized, as JetBrains Mono already is).
+    # 代码脸替补:各一 Regular(粗体合成,与 JetBrains Mono 同)。
+    - family: Fira Code
+      fonts:
+        - asset: assets/fonts/FiraCode-Regular.ttf
+    - family: Cascadia Code
+      fonts:
+        - asset: assets/fonts/CascadiaCode.ttf
     # Newsreader (OFL) = BRAND wordmark ONLY (the "Anselm" lockup) — a deliberate brand-asset exception to the
     # two-weight UI rule; never a UI text face. 品牌 wordmark 专用(Anselm 锁定组合),两字重 UI 铁律的品牌资产例外,不作 UI 文本。
     - family: Newsreader

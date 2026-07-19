@@ -30,7 +30,7 @@ audience: [human, ai]
 
 | 段 | 面板 | 文件 | 是什么 |
 |---|---|---|---|
-| 偏好 | **通用** General | `panels/general_panel.dart` | 主题三档(含 dark)+ 缩放六档(镜像 `WindowZoom`)+ 语言**单项双写**(UI locale 即时 + `workspace.language` PATCH,失败回滚)+ 记住窗口 + 开机自启 + 自动检查更新。 |
+| 偏好 | **通用** General | `panels/general_panel.dart` | 主题三档(含 dark)+ 缩放六档(镜像 `WindowZoom`)+ **字体三轴**(机器级偏好,`AnDropdown` 三行:①UI 内置/系统 · ②内容 无衬线/衬线/系统 · ③代码 JetBrains Mono/Fira Code/Cascadia Code/系统 mono;内容轴**即时切换**、UI+代码轴 desc 标「**重启后生效**」;机制见 [`design-system.md`](../design-system.md) `an_fonts.dart` 节)+ 语言**单项双写**(UI locale 即时 + `workspace.language` PATCH,失败回滚)+ 记住窗口 + 开机自启 + 自动检查更新。 |
 | 偏好 | **通知** Notifications | `panels/notifications_panel.dart` | 三档级别(全部 / 仅需处理 / 静音,「需你处理永远送达」并入级别行 desc)+ OS / 应用内两开关 + 切静音一次性确认;组头 = 徽章头(面板大题不复述)。喂 `ToastDispatcher` 三闸,详见 [`notifications`](notifications.md)。 |
 | 偏好 | **对话** Chat | `panels/chat_panel.dart` | 右岛自动登台三档(与 chat 的 `followModeProvider` **同一份状态**)+ 发送键两档 + webFetchMode(workspace PATCH)+「默认对话模型 → 模型与密钥」**标准可点行**(AnRow + hover 箭头,单源链不重复渲);首组徽章头、混域逐节域徽。 |
 | 资源 | **模型与密钥** Models&keys | `panels/models_keys_panel.dart` | 旗舰面板,**四区**(0719 重构):①受管免费档卡(未开通 CTA / 配额 meter / 预算横幅)②提供商区——**品牌 logo 密钥行**(受管锁顶 + 探测点尾端常驻 + Test/Edit/Delete hover,**行点击 = 编辑**),添加流程从**厂家 logo 网格**起步(ollama/custom baseUrl 硬必填才解锁保存),保存即 `:test`(飞行中转圈)③场景默认三行——收起一句话摘要,点开进**可复用三段面板 `ModelPickerPanel`**(凭证→模型[上下文窗+视觉/文档徽]→原生 knobs 通用渲染[enum 下拉/bool 开关/int 数字,default 预填],应用 `{apiKeyId,modelId,options}`;零可用引导跳密钥区)④搜索区(search 类 key 一层默认选择)。`KeyForm` 仍是 **S-3 状态机**(首次 POST 绑 id、此后一律 PATCH;secret 提交即清)。未配默认对话模型 = 人话句 + `MODEL_NOT_CONFIGURED` 收 tooltip。 |
@@ -42,7 +42,7 @@ audience: [human, ai]
 | 系统 | **高级限额** Limits | `panels/limits_panel.dart` | **schema 驱动**(`GET /limits/schema` → group AnSection + 每字段 AnSettingRow:点路径 `_valueAt` / 提交构部分嵌套 PATCH / modified 竖条 + 单项重置);越界回滚到服务端真相;零复刻 Go 常量。整面载入失败 = AnState 人话句(ApiException.message),wire 码 / 原始错收 tooltip,重试 sm outline 钮。 |
 | 系统 | **网络** Network | `panels/network_panel.dart` | 三 proxy 字段(http/https/no_proxy)水化 + 整体替换 PATCH(**有真实改动才可保存**——dirty 比对已载配置)+ 重启注记归 `AnCallout`(warn,不裸奔)+ 全机域徽。 |
 | 系统 | **快捷键** Shortcuts | `panels/shortcuts_panel.dart` | 6 全局命令逐行(**静息 = 逐键小帽** `[⌘][B]`,20 高 mono 12、行回 32 节律;点帽录下一组合键 [须带修饰键 / 冲突则拒并说明 / Esc 取消] + modified 竖条 + 单项重置 + 全部重置);**宽板形态归录制/冲突态专属**(录制蓝框 accent / 冲突 danger)。见下「全局快捷键」。 |
-| 系统 | **关于** About | `panels/about_panel.dart` | 版本区(app 版本行 + **检查更新钮钉行尾** + 引擎版本行)+ **v1 更新检查**(独立裸 Dio 查 GitHub Releases、semver 比较、三面)+ 诊断行(复制钮钉行尾)。 |
+| 系统 | **关于** About | `panels/about_panel.dart` | 版本区(app 版本行 + **检查更新钮钉行尾** + 引擎版本行)+ **v1 更新检查**(独立裸 Dio 查 GitHub Releases、semver 比较、三面)+ 诊断行(复制钮钉行尾)+ **字体致谢行**(`fontsCredit`——履行 MiSans「软件中注明」许可义务:列随包 Inter/MiSans/JetBrains Mono/思源宋 SC/Fira Code/Cascadia Code/Newsreader,MiSans © 小米依自有许可、余皆 OFL;协议全文随 `assets/fonts/*-OFL.txt`+`MiSans-License.txt`)。 |
 
 > 原语 gallery-first:`AnSwitch` / `AnSegmented` / `AnSettingRow`(modified 竖条 + hover 单项重置)/ `AnScopeBadge`(三域徽)/ `AnTypeToConfirm`(红框危险卡,输精确名解锁)/ `AnSecretField` / `AnMeter` / `AnKvRow` / `AnKeycap`(逐键帽紧凑档)/ `AnBrandIcon.brand` + 品牌注册表(`brand_registry.dart`)均先进 gallery 再被面板组装。
 >
@@ -52,7 +52,7 @@ audience: [human, ai]
 
 rail 搜索框从**面板粒度**升到**设置项粒度**——输入「代理」→ rail 列表变为匹配项结果(`网络` 组下「HTTP 代理」「HTTPS 代理」「绕过代理」行);点结果 = 跳该面板 + 滚动到该项 + 洗亮(`AnWashHighlight`,scheduler 深跳同款配方)。
 
-- **声明式索引** `model/settings_search.dart`:`settingsSearchIndex` = 每个可搜索**设置项**的 `{panel, anchor, labelOf, hintOf}` 声明。索引按**当前 locale** 的 label + hint 建(中文界面搜中文、英文搜英文)。**`ownedKeys` 不是可用种子**——13 面板仅 4 个声明机器键、网络例子一个都没有,故搜索走本索引、不搭机器键表。内容是动态数据的面板(模型与密钥 / MCP / 记忆 / 工作区 / schema 驱动的限额 / 带健康门的沙箱)不声明项——它们经目录**仍按面板名可搜**(向下兼容);此索引只收静态配置行(通用 / 通知 / 对话 / 网络 / 存储 / 快捷键 / 关于共约 31 项)。
+- **声明式索引** `model/settings_search.dart`:`settingsSearchIndex` = 每个可搜索**设置项**的 `{panel, anchor, labelOf, hintOf}` 声明。索引按**当前 locale** 的 label + hint 建(中文界面搜中文、英文搜英文)。**`ownedKeys` 不是可用种子**——13 面板仅 4 个声明机器键、网络例子一个都没有,故搜索走本索引、不搭机器键表。内容是动态数据的面板(模型与密钥 / MCP / 记忆 / 工作区 / schema 驱动的限额 / 带健康门的沙箱)不声明项——它们经目录**仍按面板名可搜**(向下兼容);此索引只收静态配置行(通用[含字体三轴] / 通知 / 对话 / 网络 / 存储 / 快捷键 / 关于[含字体致谢]共约 35 项)。
 - **分组规则** `buildSettingsSearchGroups`(纯函数):按面板目录序;面板名命中**或**任一项命中即收入;面板名命中时其**全部**项都出(搜类别见全部——「搜网络既出面板头行也出其下项」),否则只出 label/hint 命中的项。头行恒为面板本身(跳面板命中 → 旧的面板粒度搜索向下兼容,连不声明项的面板亦然)。空 query → 显目录;无匹配 → 一句安静句 `searchNoMatch`。
 - **定位锚 + 跳转** `ui/settings_anchor.dart` + `state/settings_jump_provider.dart`:每个可搜索行在其面板里被 `SettingsAnchor(item:…)` 包住(静息=纯透传、零布局变化)。结果点击 → 先 `select(panel)`、再 `settingsJumpProvider.request(anchor)`;目标面板挂载后其匹配锚 `Scrollable.ensureVisible`(坐浮层头之下)+ 一次性 `AnWashHighlight`(换 key 重跑)后放开目标(重搜同项可再触发)。目标外置(锚不持有)——点击处与锚互不相识,同 chat 的 `transcriptJumpProvider`。
 - **搜索框抽出** `ui/settings_rail.dart`:rail 自持 `AnRailFilterField` + query 态,`AnSidebarList` 新增 `showFilter:false` 让同一个框驱动「目录 / 结果」两态(有 query → 结果 `ListView`:面板头行 `AnRow` 跳面板 + 项行 `AnRow`(depth 1 leadless)跳转洗亮)。

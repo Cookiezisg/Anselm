@@ -8,6 +8,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/gestures.dart';
 import 'package:anselm/app/router.dart';
+import 'package:anselm/core/design/an_fonts.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/platform/window_fullscreen.dart';
@@ -145,6 +146,13 @@ void main() {
     await _load('MiSans', 'assets/fonts/MiSansVF.ttf');
     await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
     await _load('Newsreader', 'assets/fonts/Newsreader.ttf'); // brand wordmark (FULLSCREEN=true frames) 品牌 wordmark
+    // The font-axis alternates (② content serif / ③ code faces) — loaded so FONTCONTENT/FONTCODE frames
+    // render the real face. Source Han Serif SC ships Light (w300) + Regular (w400) under ONE family.
+    // 字体轴替补:内容衬线 + 代码脸;思源宋两档同族。
+    await _load('Source Han Serif SC', 'assets/fonts/SourceHanSerifSC-Light.otf');
+    await _load('Source Han Serif SC', 'assets/fonts/SourceHanSerifSC-Regular.otf');
+    await _load('Fira Code', 'assets/fonts/FiraCode-Regular.ttf');
+    await _load('Cascadia Code', 'assets/fonts/CascadiaCode.ttf');
     final cache = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev';
     await _load('packages/lucide_icons_flutter/Lucide300',
         '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf');
@@ -181,8 +189,24 @@ void main() {
     // sandbox tombstones, 0719 审计误诊为 demo 断线). A copied list always rots; the shared list can't.
     // 唯一 override 源=demoOverrides()(与 make demo/perf harness 共用)。旧手抄子集漂移过两次(先漏
     // scheduler,再漏整个 settings 缝——capture 打到无后端的 Live repo,六面板假「坏」)。抄的清单必烂。
+    // Font axes (WRK: 字体三轴) — `--dart-define=FONTCONTENT=serif` / `FONTCODE=firaCode` / `FONTUI=system`
+    // seed the machine prefs (② content is hot, read via contentFaceProvider) and boot-apply the restart
+    // axes (① UI / ③ code) exactly as main()/demo_main() do, so a frame shows the chosen faces. 字体轴帧:
+    // dart-define 种偏好(内容热) + applyAtBoot(UI/代码重启轴),与真启动同路径。
+    const fontUi = String.fromEnvironment('FONTUI', defaultValue: 'bundled');
+    const fontContent = String.fromEnvironment('FONTCONTENT', defaultValue: 'sans');
+    const fontCode = String.fromEnvironment('FONTCODE', defaultValue: 'jetbrainsMono');
+    final prefs = SettingsPrefs.inMemory({
+      SettingsKeys.fontUi.key: fontUi,
+      SettingsKeys.fontContent.key: fontContent,
+      SettingsKeys.fontCode.key: fontCode,
+    });
+    AnFonts.applyAtBoot(ui: fontUi, code: fontCode);
+    if (fontUi != 'bundled' || fontContent != 'sans' || fontCode != 'jetbrainsMono') {
+      outName = '${outName}_font-$fontUi-$fontContent-$fontCode';
+    }
     await tester.pumpWidget(ProviderScope(
-      overrides: demoOverrides(SettingsPrefs.inMemory(), demoNotificationRepository()),
+      overrides: demoOverrides(prefs, demoNotificationRepository()),
       child: TranslationProvider(child: const _CaptureApp()),
     ));
     await tester.pump();

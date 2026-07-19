@@ -52,6 +52,7 @@ final List<SettingsCatalogEntry> settingsCatalog = [
       SettingsKeys.theme, SettingsKeys.locale, SettingsKeys.windowZoom,
       SettingsKeys.windowRemember, SettingsKeys.windowBounds,
       SettingsKeys.launchAtStartup, SettingsKeys.updateCheck,
+      SettingsKeys.fontUi, SettingsKeys.fontContent, SettingsKeys.fontCode,
     ],
   ),
   SettingsCatalogEntry(

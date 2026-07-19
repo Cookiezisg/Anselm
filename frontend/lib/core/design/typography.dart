@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'an_fonts.dart';
+
 /// Typography — a modular scale anchored on a 13px UI body. [uiFamily] = BUNDLED Inter (the
 /// variable font, wght 100–900), the Latin/numeral face; CJK glyphs fall through to BUNDLED MiSans
 /// (VF, wght 150–700) first in [uiFallback] — BOTH ship in the bundle, so the bilingual UI renders
@@ -61,25 +63,19 @@ import 'package:flutter/material.dart';
 ///   `.weight()`(裸 copyWith(fontWeight:) 会被钉死的 wght 轴覆盖);新 prose 面靠 AnMarkdown 对照板
 ///   (`capture_md_parity.dart`)肉眼验。
 abstract final class AnText {
-  static const String uiFamily = 'Inter'; // BUNDLED VF (assets/fonts/InterVariable.ttf) 随包变量字体
-  static const List<String> uiFallback = [
-    'MiSans', // BUNDLED — the CJK face (deterministic across machines) 随包中文字面,跨机器确定
-    'PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans', 'sans-serif',
-  ];
-  static const String monoFamily = 'JetBrains Mono'; // BUNDLED (assets/fonts) — deterministic code face 随包,代码字面确定
-  // MiSans FIRST: the bundled JetBrains Mono already owns every latin/mono glyph, so the only
-  // job of the fallback head is CJK — Chinese inside mono contexts (code comments, tool prose
-  // results, terminal output) must hit the BUNDLED CJK face deterministically. Platform monos
-  // stay as tail insurance only; ahead of MiSans they'd shadow it non-deterministically (the
-  // test binding resolves unknown families to the FlutterTest font, whose sparse cmap turns
-  // select CJK into solid boxes).
-  // MiSans 置首:随包 JetBrains Mono 已覆盖全部拉丁/等宽字形,回退链头部唯一职责是 CJK——mono 语境
-  // 的中文(代码注释/工具散文结果/终端输出)必须**确定性**落随包中文字面。平台 mono 只作尾部保险;
-  // 排在 MiSans 前会不确定地遮蔽它(测试绑定把未知族解析成 FlutterTest 字体,其稀疏 cmap 把个别
-  // CJK 渲成实心块)。
-  static const List<String> monoFallback = [
-    'MiSans', 'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace',
-  ];
+  // The UI (①) + code (③) FAMILIES delegate to the [AnFonts] font axes — the SINGLE source both this
+  // ladder and [AnTheme] read. Default (no boot) = the bundled bilingual faces (Inter + MiSans / JetBrains
+  // Mono), so an untouched install is today's app byte-for-byte. These are the RESTART axes: [AnFonts]
+  // resolves them ONCE before runApp; because they feed the `static final` styles below (materialized on
+  // first access, after boot), a changed choice takes effect on the NEXT launch (settings says「重启后
+  // 生效」). The CONTENT (②) axis is separate + HOT — the prose surfaces layer its face at build time and
+  // never touch this ladder (see an_fonts.dart / contentFaceProvider). UI/代码族委托 AnFonts 字体轴(本阶梯
+  // 与 AnTheme 的唯一源);默认=随包双拼(现状);此二为重启轴(启动前解析一次,喂下方 static final 样式)。内容轴另
+  // 走热路,prose 面 build 期覆盖、不碰本阶梯。
+  static String? get uiFamily => AnFonts.ui.family;
+  static List<String> get uiFallback => AnFonts.ui.fallback;
+  static String? get monoFamily => AnFonts.mono.family;
+  static List<String> get monoFallback => AnFonts.mono.fallback;
 
   // TWO-WEIGHT RULE — the WHOLE UI uses exactly two MiSans weights: [bodyWeight] (Light w300) for normal
   // text and [emphasisWeight] (Regular w400) for EVERYTHING emphasized (headings, titles, labels, nav).
@@ -95,19 +91,19 @@ abstract final class AnText {
   // than the display text it replaced. With both, Text and field render identically.
   // 字重阶梯锚 Light(w300)。每个样式同时给 fontWeight + 显式 wght 变量轴——Text 认 fontWeight,但 TextField
   // 只在显式指定轴时才渲染对的字重,否则编辑框比展示文字更粗更宽。两者都给 → Text 与输入框完全一致。
-  static const TextStyle h1 = TextStyle(
+  static final TextStyle h1 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 32, height: 1.25, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.5,
   );
-  static const TextStyle h2 = TextStyle(
+  static final TextStyle h2 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 24, height: 1.25, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.3,
   );
-  static const TextStyle h3 = TextStyle(
+  static final TextStyle h3 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 20, height: 1.3, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.2,
   );
-  static const TextStyle strong = TextStyle(
+  static final TextStyle strong = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 16, height: 1.4, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], // emphasis = Regular 强调=Regular
   );
@@ -118,11 +114,11 @@ abstract final class AnText {
   /// that spot). 18/1.0 pairs with the 16px naked mark; plain (no tracking/embellishment, 拍板). Colour is
   /// applied at the call site. 品牌 wordmark:Newsreader(OFL 衬线)排的「Anselm」——UI 字族 + 两字重铁律的**唯一**刻意例外
   /// (identity 资产、非 UI 文本);仅 AnWindowControls 品牌锁定组合用(全屏/Win-Linux 无 OS 红绿灯处)。18/1.0 配 16 裸 mark;纯净无点缀;色在调用处给。
-  static const TextStyle wordmark = TextStyle(
+  static final TextStyle wordmark = TextStyle(
     fontFamily: 'Newsreader',
     fontSize: 18, height: 1.0, fontWeight: FontWeight.w400,
   );
-  static const TextStyle body = TextStyle(
+  static final TextStyle body = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // the UI anchor — Light 正文锚·Light
   );
@@ -133,7 +129,7 @@ abstract final class AnText {
   /// surfaces (AnMarkdown + the document ocean), NOT the dense 32px-row UI chrome. 阅读列正文:15px w300、
   /// 行高 1.6(24px 行盒,与 12 块间距成 2:1)。比 13 密集 UI 锚**高一档**(业界阶梯:侧栏 13-14/正文 15-16),
   /// 导航与内容不再同声。仅 prose 阅读面用(AnMarkdown+文档海洋),密集 UI chrome 不用。
-  static const TextStyle reading = TextStyle(
+  static final TextStyle reading = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 15, height: 1.6, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)],
   );
@@ -143,27 +139,27 @@ abstract final class AnText {
   /// never heavier weight (two-weight rule). The dense-UI chrome ladder ([h1] 32/[h2] 24/[h3] 20/[strong]
   /// 16) is a SEPARATE axis and does not move. 阅读列标题阶梯(文档内 h1 22/h2 18/h3 15 强调;页大标题仍
   /// [h2] 24)。只用 w400——层级靠字号+颜色(两字重铁律)。密集 UI 的标题阶梯是独立轴、不动。
-  static const TextStyle readingH1 = TextStyle(
+  static final TextStyle readingH1 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 22, height: 1.3, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.2,
   );
-  static const TextStyle readingH2 = TextStyle(
+  static final TextStyle readingH2 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 18, height: 1.35, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)],
   );
-  static const TextStyle readingH3 = TextStyle(
+  static final TextStyle readingH3 = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 15, height: 1.5, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)],
   );
-  static const TextStyle label = TextStyle(
+  static final TextStyle label = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // Light 标签·Light
   );
-  static const TextStyle meta = TextStyle(
+  static final TextStyle meta = TextStyle(
     fontFamily: uiFamily, fontFamilyFallback: uiFallback,
     fontSize: 12, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // muted secondary — Light 次级·Light
   );
-  static const TextStyle mono = TextStyle(
+  static final TextStyle mono = TextStyle(
     fontFamily: monoFamily, fontFamilyFallback: monoFallback,
     fontSize: 13, height: 1.5, fontWeight: FontWeight.w400,
   );
@@ -174,7 +170,7 @@ abstract final class AnText {
   /// row-aligned (WRK-040 §4 — AnCodeEditor/AnVersionDiff switch both via `reading`). Distinct from
   /// [mono] (13/1.5, inline ids) — code blocks want the looser leading.
   /// 代码面样式:mono · 12px(meta)· 行高 1.6(prose);行号列与代码区共用之保对齐。区别于 mono(13/1.5 内联 id)。
-  static const TextStyle code = TextStyle(
+  static final TextStyle code = TextStyle(
     fontFamily: monoFamily, fontFamilyFallback: monoFallback,
     fontSize: 12, height: 1.6, fontWeight: FontWeight.w400,
   );
@@ -184,7 +180,7 @@ abstract final class AnText {
   /// leading, row-embedded inline mono wants the row's rhythm. The one-rung-down twin of the
   /// [mono](13/1.5, inline ids) ↔ [code](12/1.6, code blocks) split. 内联 mono:code 的 12px + 更紧
   /// 行高 1.4,给单行行内内容(工具 target / 行内 id);代码块用 1.6、行内用行节奏。
-  static const TextStyle codeInline = TextStyle(
+  static final TextStyle codeInline = TextStyle(
     fontFamily: monoFamily, fontFamilyFallback: monoFallback,
     fontSize: 12, height: 1.4, fontWeight: FontWeight.w400,
   );
@@ -197,7 +193,7 @@ abstract final class AnText {
   /// the terminal-twin identity. 内容档代码块:mono 13/1.6,比 [code] 高一档,给 15 内容列里**人读**
   /// 的代码(markdown/doc 代码块、实体源码/提示、版本 diff);13/15=0.87 恰为业界 prose:code 比。机器窗
   /// (tool 卡/json 树/终端/甘特/画布)钦定守 [code] 12——终端孪生身份。
-  static const TextStyle codeReading = TextStyle(
+  static final TextStyle codeReading = TextStyle(
     fontFamily: monoFamily, fontFamilyFallback: monoFallback,
     fontSize: 13, height: 1.6, fontWeight: FontWeight.w400,
   );

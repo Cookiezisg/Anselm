@@ -516,6 +516,22 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override String get themeDesc => '跟随系统将随 macOS 外观自动切换';
 	@override String get zoom => '界面缩放';
 	@override String get zoomDesc => '整体缩放界面,与 ⌘+ / ⌘− / ⌘0 同步';
+	@override String get fonts => '字体';
+	@override String get fontUi => '界面字体';
+	@override String get fontUiDesc => '整个界面。内置=Inter+MiSans(双语,各机一致);跟随系统=操作系统字体(macOS San Francisco · Windows Segoe UI)。重启后生效。';
+	@override String get fontContent => '内容字体';
+	@override String get fontContentDesc => '仅 chat 消息与文档正文。衬线=思源宋 SC(拉丁+简体中文)。即时生效。';
+	@override String get fontCode => '代码字体';
+	@override String get fontCodeDesc => '一切等宽处——代码块、终端、diff、ID 等。重启后生效。';
+	@override String get fontBundled => '内置';
+	@override String get fontSystem => '跟随系统';
+	@override String get fontSans => '无衬线(内置)';
+	@override String get fontSerif => '衬线';
+	@override String get fontJetBrainsMono => 'JetBrains Mono';
+	@override String get fontFiraCode => 'Fira Code';
+	@override String get fontCascadia => 'Cascadia Code';
+	@override String get fontSystemMono => '跟随系统等宽';
+	@override String get fontRestartHint => '重启后生效';
 	@override String get language => '语言';
 	@override String get languageRow => '语言';
 	@override String get languageDesc => '同时设定界面语言与当前工作区的 AI 输出语言';
@@ -1880,6 +1896,8 @@ class _Translations$settings$about$zh_CN extends Translations$settings$about$en 
 	@override String get copyDiagnostics => '复制诊断信息';
 	@override String get copied => '已复制';
 	@override String get diagDesc => '复制版本与环境信息,便于报告问题';
+	@override String get fonts => '字体';
+	@override String get fontsCredit => '随包字体:Inter、MiSans、JetBrains Mono、思源宋 SC、Fira Code、Cascadia Code、Newsreader。MiSans © 小米公司,依 MiSans 字体许可协议使用;其余依 SIL 开放字体许可(OFL)。';
 }
 
 // Path: settings.mem
@@ -4022,6 +4040,22 @@ extension on TranslationsZhCn {
 			'settings.themeDesc' => '跟随系统将随 macOS 外观自动切换',
 			'settings.zoom' => '界面缩放',
 			'settings.zoomDesc' => '整体缩放界面,与 ⌘+ / ⌘− / ⌘0 同步',
+			'settings.fonts' => '字体',
+			'settings.fontUi' => '界面字体',
+			'settings.fontUiDesc' => '整个界面。内置=Inter+MiSans(双语,各机一致);跟随系统=操作系统字体(macOS San Francisco · Windows Segoe UI)。重启后生效。',
+			'settings.fontContent' => '内容字体',
+			'settings.fontContentDesc' => '仅 chat 消息与文档正文。衬线=思源宋 SC(拉丁+简体中文)。即时生效。',
+			'settings.fontCode' => '代码字体',
+			'settings.fontCodeDesc' => '一切等宽处——代码块、终端、diff、ID 等。重启后生效。',
+			'settings.fontBundled' => '内置',
+			'settings.fontSystem' => '跟随系统',
+			'settings.fontSans' => '无衬线(内置)',
+			'settings.fontSerif' => '衬线',
+			'settings.fontJetBrainsMono' => 'JetBrains Mono',
+			'settings.fontFiraCode' => 'Fira Code',
+			'settings.fontCascadia' => 'Cascadia Code',
+			'settings.fontSystemMono' => '跟随系统等宽',
+			'settings.fontRestartHint' => '重启后生效',
 			'settings.language' => '语言',
 			'settings.languageRow' => '语言',
 			'settings.languageDesc' => '同时设定界面语言与当前工作区的 AI 输出语言',
@@ -4124,6 +4158,8 @@ extension on TranslationsZhCn {
 			'settings.keys.docsBadge' => '文档',
 			'settings.keys.noCapsGuide' => '还没有可用模型——先添加一把探测通过的密钥',
 			'settings.keys.searchSection' => '搜索',
+			_ => null,
+		} ?? switch (path) {
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',
 			'settings.ws.newWorkspace' => '新建工作区',
@@ -4140,8 +4176,6 @@ extension on TranslationsZhCn {
 			'settings.ws.typeNameHint' => ({required Object name}) => '输入「${name}」以确认',
 			'settings.ws.confirmDelete' => '永久删除',
 			'settings.ws.lastOne' => '唯一的工作区不可删除',
-			_ => null,
-		} ?? switch (path) {
 			'settings.ws.deleteFailed' => '删除失败',
 			'settings.ws.blobUnknown' => '体积未知',
 			'settings.ws.statsLoading' => '正在盘点内容…',
@@ -4158,6 +4192,8 @@ extension on TranslationsZhCn {
 			'settings.about.copyDiagnostics' => '复制诊断信息',
 			'settings.about.copied' => '已复制',
 			'settings.about.diagDesc' => '复制版本与环境信息,便于报告问题',
+			'settings.about.fonts' => '字体',
+			'settings.about.fontsCredit' => '随包字体:Inter、MiSans、JetBrains Mono、思源宋 SC、Fira Code、Cascadia Code、Newsreader。MiSans © 小米公司,依 MiSans 字体许可协议使用;其余依 SIL 开放字体许可(OFL)。',
 			'settings.mem.section' => '记忆',
 			'settings.mem.filterAll' => '全部',
 			'settings.mem.filterPinned' => '已固定',

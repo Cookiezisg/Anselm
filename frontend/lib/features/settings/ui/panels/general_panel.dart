@@ -74,6 +74,51 @@ class GeneralPanel extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: AnSpace.s24),
+        // ① UI · ② content · ③ code — three ORTHOGONAL machine-level font axes (see core/design/an_fonts.dart).
+        // Defaults = today's bundled faces. Content is HOT (instant); UI + code are RESTART-applied and say so
+        // in their desc. 三正交字体轴(机器级):默认=现状随包脸;内容即时,UI+代码重启生效(desc 已言明)。
+        AnSection(
+          label: t.settings.fonts,
+          variant: AnSectionVariant.quiet,
+          children: [
+            _FontDropdownRow(
+              item: SettingsItem.generalFontUi,
+              label: t.settings.fontUi,
+              desc: t.settings.fontUiDesc,
+              settingsKey: SettingsKeys.fontUi,
+              options: [
+                AnDropdownOption(value: 'bundled', label: t.settings.fontBundled),
+                AnDropdownOption(value: 'system', label: t.settings.fontSystem),
+              ],
+            ),
+            const SizedBox(height: AnSpace.s4),
+            _FontDropdownRow(
+              item: SettingsItem.generalFontContent,
+              label: t.settings.fontContent,
+              desc: t.settings.fontContentDesc,
+              settingsKey: SettingsKeys.fontContent,
+              options: [
+                AnDropdownOption(value: 'sans', label: t.settings.fontSans),
+                AnDropdownOption(value: 'serif', label: t.settings.fontSerif),
+                AnDropdownOption(value: 'system', label: t.settings.fontSystem),
+              ],
+            ),
+            const SizedBox(height: AnSpace.s4),
+            _FontDropdownRow(
+              item: SettingsItem.generalFontCode,
+              label: t.settings.fontCode,
+              desc: t.settings.fontCodeDesc,
+              settingsKey: SettingsKeys.fontCode,
+              options: [
+                AnDropdownOption(value: 'jetbrainsMono', label: t.settings.fontJetBrainsMono),
+                AnDropdownOption(value: 'firaCode', label: t.settings.fontFiraCode),
+                AnDropdownOption(value: 'cascadiaCode', label: t.settings.fontCascadia),
+                AnDropdownOption(value: 'system', label: t.settings.fontSystemMono),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: AnSpace.s24),
         AnSection(
           label: t.settings.language,
           variant: AnSectionVariant.quiet,
@@ -186,6 +231,50 @@ class GeneralPanel extends ConsumerWidget {
   void _setLaunchAtLogin(WidgetRef ref, bool value) {
     ref.read(boolSettingProvider(SettingsKeys.launchAtStartup).notifier).set(value);
     applyLaunchAtLogin(value);
+  }
+}
+
+/// One font-axis row — an [AnDropdown] over a [stringSettingProvider] key (the axis's wire value), with
+/// reset-to-default. The UI + code axes are restart-applied, but the change persists instantly; the row's
+/// [desc] carries the「重启后生效」note (the network-proxy precedent), so this widget stays axis-agnostic.
+/// 一条字体轴行:AnDropdown 绑 string 偏好键 + 复位;UI/代码轴重启生效(偏好即时持久,重启提示在 desc);本件轴无关。
+class _FontDropdownRow extends ConsumerWidget {
+  const _FontDropdownRow({
+    required this.item,
+    required this.label,
+    required this.desc,
+    required this.settingsKey,
+    required this.options,
+  });
+
+  final String item;
+  final String label;
+  final String desc;
+  final SettingsKey<String> settingsKey;
+  final List<AnDropdownOption<String>> options;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
+    final value = ref.watch(stringSettingProvider(settingsKey));
+    return SettingsAnchor(
+      item: item,
+      child: AnSettingRow(
+        label: label,
+        desc: desc,
+        modified: value != settingsKey.def,
+        onReset: () => ref.read(stringSettingProvider(settingsKey).notifier).reset(),
+        resetLabel: t.settings.resetToDefault,
+        child: SizedBox(
+          width: AnSize.ctlSlotLg,
+          child: AnDropdown<String>(
+            options: options,
+            value: value,
+            onChanged: (v) => ref.read(stringSettingProvider(settingsKey).notifier).set(v),
+          ),
+        ),
+      ),
+    );
   }
 }
 

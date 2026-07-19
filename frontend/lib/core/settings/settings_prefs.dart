@@ -161,6 +161,14 @@ abstract final class SettingsKeys {
   static const notifyOs = SettingsKey<bool>('an.notify.os', true);
   static const notifyToast = SettingsKey<bool>('an.notify.toast', true);
 
+  // ── fonts 字体 (WRK: 三正交字体轴, machine-level) ──
+  // Wire values are the FIRST option of each axis = today's bundled faces (zero-perception default).
+  // ① UI + ③ code are RESTART-applied (an_fonts.dart / applyAtBoot); ② content is HOT (contentFaceProvider).
+  // 线值=各轴首项=现状随包脸(零感知默认);①UI+③代码=重启生效,②内容=热切换。
+  static const fontUi = SettingsKey<String>('an.font.ui', 'bundled'); // bundled|system
+  static const fontContent = SettingsKey<String>('an.font.content', 'sans'); // sans|serif|system
+  static const fontCode = SettingsKey<String>('an.font.code', 'jetbrainsMono'); // jetbrainsMono|firaCode|cascadiaCode|system
+
   // ── chat 对话 ──
   static const chatSendKey = SettingsKey<String>('an.chat.sendKey', 'enter'); // enter|cmdEnter
   static const chatAutoStage = SettingsKey<String>('an.stage.follow', 'always'); // never|conversation|always
@@ -175,6 +183,7 @@ abstract final class SettingsKeys {
   static const List<SettingsKey<dynamic>> all = [
     sideCollapsed, sideWidth, rightWidth, ocean, settingsPanel,
     theme, locale, windowZoom, windowRemember, windowBounds, launchAtStartup, updateCheck,
+    fontUi, fontContent, fontCode,
     notifyLevel, notifyOs, notifyToast,
     chatSendKey, chatAutoStage, chatShowArchived, chatShowGroupCount, chatShowTime,
     shortcuts,

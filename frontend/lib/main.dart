@@ -17,6 +17,7 @@ import 'core/platform/window_zoom.dart';
 import 'core/process/backend_controller.dart';
 import 'core/process/master_key.dart';
 import 'core/router/navigation.dart';
+import 'core/design/an_fonts.dart';
 import 'core/runtime.dart';
 import 'core/settings/settings_prefs.dart';
 import 'i18n/strings.g.dart';
@@ -40,6 +41,13 @@ Future<void> main() async {
     // consumer read synchronously. 中央偏好在开窗前载入:几何恢复要用,此后全员同步读。
     final prefs = await SettingsPrefs.load();
     WindowZoom.useSettingsPrefs(prefs); // zoom persists via the central prefs, not a private key
+    // Resolve the RESTART font axes (① UI / ③ code) ONCE before runApp — the persisted choice is baked
+    // into AnText's `static final` styles on first build. The ② content axis is HOT (contentFaceProvider),
+    // NOT booted here. 启动前解析重启字体轴一次(烤进 AnText final 样式);内容轴热、不在此。
+    AnFonts.applyAtBoot(
+      ui: prefs.getString(SettingsKeys.fontUi),
+      code: prefs.getString(SettingsKeys.fontCode),
+    );
     // C-030: create the sidecar controller + kick its spawn off NOW, so the Go backend boots in PARALLEL
     // with window init + the first frame instead of serially after them (the health-wait was the cold-
     // start long pole). The startup gate's start() on first read is IDEMPOTENT, so it JOINS this in-flight

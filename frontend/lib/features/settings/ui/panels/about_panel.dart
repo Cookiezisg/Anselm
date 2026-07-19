@@ -76,6 +76,18 @@ class AboutPanel extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: AnSpace.s24),
+        // Font credits — satisfies the MiSans license's「specifically note in the software that MiSans
+        // Fonts was used」obligation (the rest of the bundle is OFL; full texts in assets/fonts/*-OFL.txt +
+        // MiSans-License.txt). 字体致谢——履行 MiSans 许可「软件中注明使用了 MiSans」义务(其余 OFL)。
+        SettingsAnchor(
+          item: SettingsItem.aboutFonts,
+          child: AnSettingRow(
+            label: t.settings.about.fonts,
+            desc: t.settings.about.fontsCredit,
+            child: const SizedBox.shrink(),
+          ),
+        ),
+        const SizedBox(height: AnSpace.s24),
         SettingsAnchor(
           item: SettingsItem.aboutDiagnostics,
           child: AnSettingRow(

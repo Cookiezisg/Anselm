@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import '../design/an_fonts.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
@@ -38,6 +39,7 @@ class AnDocHeader extends StatelessWidget {
     this.showTags = true,
     this.addTagLabel,
     this.onMetaChanged,
+    this.prose,
     super.key,
   });
 
@@ -81,6 +83,11 @@ class AnDocHeader extends StatelessWidget {
   /// title/description/tags still render but commits are inert. 元数据编辑回调(宿主 diff+存);null=只读渲染。
   final ValueChanged<Map<String, dynamic>>? onMetaChanged;
 
+  /// The CONTENT (②) font override for the reading-column title + description (the「含文档大标题」clause of
+  /// the content axis辖区) — from `contentFaceProvider`. `null` = default sans. The crumb + tags stay on the
+  /// UI face (chrome). 大标题+描述的内容字体覆盖(内容轴辖区「含文档大标题」);null=默认 sans;面包屑+标签守 UI 脸。
+  final AnFace? prose;
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -100,7 +107,7 @@ class AnDocHeader extends StatelessWidget {
             enabled: nameEditable,
             startEditing: autofocusName,
             placeholder: namePlaceholder,
-            style: AnText.readingH1.copyWith(color: c.ink),
+            style: applyContentFace(prose, AnText.readingH1).copyWith(color: c.ink),
             minHeight: AnSize.islandHead,
             // A doc page: an idle click elsewhere while renaming should SAVE (not silently drop). 点别处即存。
             commitOnTapOutside: true,
@@ -110,7 +117,7 @@ class AnDocHeader extends StatelessWidget {
           AnInlineEdit(
             value: description,
             placeholder: descriptionPlaceholder,
-            style: AnText.reading.copyWith(color: c.inkMuted),
+            style: applyContentFace(prose, AnText.reading).copyWith(color: c.inkMuted),
             commitOnTapOutside: true,
             onCommit: (v) => meta('description', v),
           ),

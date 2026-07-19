@@ -1066,6 +1066,54 @@ class Translations$settings$en {
 	/// en: 'Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0'
 	String get zoomDesc => 'Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0';
 
+	/// en: 'Fonts'
+	String get fonts => 'Fonts';
+
+	/// en: 'Interface font'
+	String get fontUi => 'Interface font';
+
+	/// en: 'The whole interface. Bundled = Inter + MiSans (bilingual, identical on every machine); System = your OS font (macOS San Francisco · Windows Segoe UI). Applies after a restart.'
+	String get fontUiDesc => 'The whole interface. Bundled = Inter + MiSans (bilingual, identical on every machine); System = your OS font (macOS San Francisco · Windows Segoe UI). Applies after a restart.';
+
+	/// en: 'Content font'
+	String get fontContent => 'Content font';
+
+	/// en: 'Chat message text and the document body only. Serif = Source Han Serif (Latin + 简体中文). Applies instantly.'
+	String get fontContentDesc => 'Chat message text and the document body only. Serif = Source Han Serif (Latin + 简体中文). Applies instantly.';
+
+	/// en: 'Code font'
+	String get fontCode => 'Code font';
+
+	/// en: 'Every monospace surface — code blocks, terminals, diffs, ids. Applies after a restart.'
+	String get fontCodeDesc => 'Every monospace surface — code blocks, terminals, diffs, ids. Applies after a restart.';
+
+	/// en: 'Bundled'
+	String get fontBundled => 'Bundled';
+
+	/// en: 'System'
+	String get fontSystem => 'System';
+
+	/// en: 'Sans (bundled)'
+	String get fontSans => 'Sans (bundled)';
+
+	/// en: 'Serif'
+	String get fontSerif => 'Serif';
+
+	/// en: 'JetBrains Mono'
+	String get fontJetBrainsMono => 'JetBrains Mono';
+
+	/// en: 'Fira Code'
+	String get fontFiraCode => 'Fira Code';
+
+	/// en: 'Cascadia Code'
+	String get fontCascadia => 'Cascadia Code';
+
+	/// en: 'System mono'
+	String get fontSystemMono => 'System mono';
+
+	/// en: 'Takes effect after a restart'
+	String get fontRestartHint => 'Takes effect after a restart';
+
 	/// en: 'Language'
 	String get language => 'Language';
 
@@ -4505,6 +4553,12 @@ class Translations$settings$about$en {
 
 	/// en: 'Copies version and environment info for bug reports'
 	String get diagDesc => 'Copies version and environment info for bug reports';
+
+	/// en: 'Fonts'
+	String get fonts => 'Fonts';
+
+	/// en: 'Bundled: Inter, MiSans, JetBrains Mono, Source Han Serif SC, Fira Code, Cascadia Code, Newsreader. MiSans © Xiaomi Inc., used under the MiSans Font License; the rest under the SIL Open Font License.'
+	String get fontsCredit => 'Bundled: Inter, MiSans, JetBrains Mono, Source Han Serif SC, Fira Code, Cascadia Code, Newsreader. MiSans © Xiaomi Inc., used under the MiSans Font License; the rest under the SIL Open Font License.';
 }
 
 // Path: settings.mem
@@ -7509,6 +7563,22 @@ extension on Translations {
 			'settings.themeDesc' => 'System follows the macOS appearance',
 			'settings.zoom' => 'UI zoom',
 			'settings.zoomDesc' => 'Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0',
+			'settings.fonts' => 'Fonts',
+			'settings.fontUi' => 'Interface font',
+			'settings.fontUiDesc' => 'The whole interface. Bundled = Inter + MiSans (bilingual, identical on every machine); System = your OS font (macOS San Francisco · Windows Segoe UI). Applies after a restart.',
+			'settings.fontContent' => 'Content font',
+			'settings.fontContentDesc' => 'Chat message text and the document body only. Serif = Source Han Serif (Latin + 简体中文). Applies instantly.',
+			'settings.fontCode' => 'Code font',
+			'settings.fontCodeDesc' => 'Every monospace surface — code blocks, terminals, diffs, ids. Applies after a restart.',
+			'settings.fontBundled' => 'Bundled',
+			'settings.fontSystem' => 'System',
+			'settings.fontSans' => 'Sans (bundled)',
+			'settings.fontSerif' => 'Serif',
+			'settings.fontJetBrainsMono' => 'JetBrains Mono',
+			'settings.fontFiraCode' => 'Fira Code',
+			'settings.fontCascadia' => 'Cascadia Code',
+			'settings.fontSystemMono' => 'System mono',
+			'settings.fontRestartHint' => 'Takes effect after a restart',
 			'settings.language' => 'Language',
 			'settings.languageRow' => 'Language',
 			'settings.languageDesc' => 'Sets both the UI language and this workspace\'s AI output language',
@@ -7611,6 +7681,8 @@ extension on Translations {
 			'settings.keys.docsBadge' => 'Docs',
 			'settings.keys.noCapsGuide' => 'No usable models yet — add a key that passes its probe first',
 			'settings.keys.searchSection' => 'Search',
+			_ => null,
+		} ?? switch (path) {
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',
 			'settings.ws.newWorkspace' => 'New workspace',
@@ -7627,8 +7699,6 @@ extension on Translations {
 			'settings.ws.typeNameHint' => ({required Object name}) => 'Type “${name}” to confirm',
 			'settings.ws.confirmDelete' => 'Delete forever',
 			'settings.ws.lastOne' => 'The only workspace can\'t be deleted',
-			_ => null,
-		} ?? switch (path) {
 			'settings.ws.deleteFailed' => 'Delete failed',
 			'settings.ws.blobUnknown' => 'size unknown',
 			'settings.ws.statsLoading' => 'Taking inventory…',
@@ -7645,6 +7715,8 @@ extension on Translations {
 			'settings.about.copyDiagnostics' => 'Copy diagnostics',
 			'settings.about.copied' => 'Copied',
 			'settings.about.diagDesc' => 'Copies version and environment info for bug reports',
+			'settings.about.fonts' => 'Fonts',
+			'settings.about.fontsCredit' => 'Bundled: Inter, MiSans, JetBrains Mono, Source Han Serif SC, Fira Code, Cascadia Code, Newsreader. MiSans © Xiaomi Inc., used under the MiSans Font License; the rest under the SIL Open Font License.',
 			'settings.mem.section' => 'Memories',
 			'settings.mem.filterAll' => 'All',
 			'settings.mem.filterPinned' => 'Pinned',

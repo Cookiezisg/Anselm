@@ -41,6 +41,7 @@ lib/core/contract/sandbox.dart	converged
 lib/core/contract/todo.dart	converged
 lib/core/contract/touchpoint.dart	converged
 lib/core/contract/workspace.dart	converged
+lib/core/design/an_fonts.dart	converged
 lib/core/design/colors.dart	converged
 lib/core/design/theme.dart	converged
 lib/core/design/tokens.dart	converged

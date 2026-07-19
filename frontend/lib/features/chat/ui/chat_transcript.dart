@@ -9,6 +9,7 @@ import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/messages/block_tree_reducer.dart';
 import '../../../core/perf/coalescing_notifier.dart';
+import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/conversation_transcript.dart';
@@ -480,11 +481,11 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         // the one open block re-parses). 开块仍在长(每 tick 新建);闭块终态按 id 缓存,复用同实例、不重解析。
         if (b.isOpen) {
           TranscriptProbe.hit('block-text-live');
-          return AnMarkdown(b.displayText);
+          return _AnswerMarkdown(b.displayText);
         }
         return _textCache.putIfAbsent(b.id, () {
           TranscriptProbe.hit('block-text-parse');
-          return AnMarkdown(b.displayText);
+          return _AnswerMarkdown(b.displayText);
         });
       case BlockKind.reasoning:
         return ChatThinking(
@@ -633,4 +634,21 @@ class _PendingRow extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// The chat MESSAGE BUBBLE markdown (辖区 of the CONTENT ② font axis) — a thin Consumer over [AnMarkdown]
+/// that reads `contentFaceProvider` so the assistant's prose switches to serif / system LIVE (no restart)
+/// while everything framing it (tool cards, chrome) stays on the UI face. It's cached by block id in the
+/// transcript (`_textCache`) exactly like the bare AnMarkdown was — being a ConsumerWidget, a cached
+/// instance still rebuilds when the face flips (Riverpod re-runs its element), so the perf win (settled
+/// prose isn't re-parsed every streaming tick) AND the live switch both hold. chat 消息泡 markdown(内容轴
+/// 辖区):薄 Consumer 读内容脸,助手 prose 即时切衬线/系统而 chrome 不变;按块 id 缓存如旧,face 变时缓存实例
+/// 仍重建(Riverpod),既保「已落定 prose 不逐 tick 重解析」又保即时切换。
+class _AnswerMarkdown extends ConsumerWidget {
+  const _AnswerMarkdown(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) => AnMarkdown(text, prose: ref.watch(contentFaceProvider));
 }

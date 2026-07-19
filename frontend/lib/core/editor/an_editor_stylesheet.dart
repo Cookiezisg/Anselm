@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:super_editor/super_editor.dart';
 
+import '../design/an_fonts.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
@@ -32,8 +33,12 @@ const double kMonoCellWidth = 8.05;
 /// 编辑器块样式表:从零写(绝不 copyWith defaultStylesheet——加规则会静默丢 maxWidth,E0 教训)。把 An prose
 /// 声搬上 super_editor:正文 reading 15/1.6/w300 ink、标题阶梯 readingH1/2/3(22/18/15,w400——层级靠字号+颜色
 /// 非更重字重)、唯一块间距 12(标题不对称:上多、贴其正文下紧)。颜色 build 期从 AnColors 闭包取(StyleRule 无 context)。
-Stylesheet buildAnEditorStylesheet(AnColors colors) {
-  TextStyle ink(TextStyle s) => s.copyWith(color: colors.ink);
+Stylesheet buildAnEditorStylesheet(AnColors colors, {AnFace? prose}) {
+  // The CONTENT (②) face layered onto PROSE block styles only (body / headings / blockquote / table) —
+  // null (sans) is a pass-through, so the default document renders exactly as today. The `code` block and
+  // the inline codeAttribution styler are NEVER faced (the code axis governs mono). prose 脸只覆盖 prose 块
+  // (正文/标题/引用/表);null=直通;代码块与内联码属性不覆盖(代码轴管 mono)。
+  TextStyle ink(TextStyle s) => applyContentFace(prose, s).copyWith(color: colors.ink);
 
   return Stylesheet(
     inlineTextStyler: (attributions, existingStyle) => anInlineTextStyler(colors, attributions, existingStyle),
@@ -41,7 +46,7 @@ Stylesheet buildAnEditorStylesheet(AnColors colors) {
     // widget builder — it's plain codeAttribution text with a rounded background painted beneath it by
     // AnTextComponent (paint-beneath). 提及药丸在前;行内代码不再走 widget builder,而是 codeAttribution 文本+底层圆角背景。
     inlineWidgetBuilders: [anMentionInlineWidgetBuilder, ...defaultInlineWidgetBuilderChain],
-    rules: _rules(colors, ink),
+    rules: _rules(colors, ink, prose),
   );
 }
 
@@ -145,7 +150,7 @@ bool _isHeaderNode(DocumentNode? node) {
       bt == header6Attribution;
 }
 
-List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
+List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink, AnFace? prose) {
   return [
       // Base cascade — the An reading measure (720) + the body voice every block inherits. Horizontal
       // padding is the CONTAINER's job (the reading column / ocean), so 0 here. In-app the host sliver's
@@ -252,12 +257,12 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
         const BlockSelector('blockquote'),
         (doc, node) => {
           Styles.padding: const CascadingPadding.only(top: AnFlow.block),
-          Styles.textStyle: AnText.reading.copyWith(color: colors.inkMuted),
+          Styles.textStyle: applyContentFace(prose, AnText.reading).copyWith(color: colors.inkMuted),
         },
       ),
 
       // Fenced code — the content-tier code voice (mono 13/1.6, ink); the framed white island is drawn
-      // by AnCodeBlockComponentBuilder. 围栏代码:内容档代码声(mono 13/1.6 ink);白岛框由组件画。
+      // by AnCodeBlockComponentBuilder. Never faced — the code axis (③) governs mono. 围栏代码守 mono(代码轴管)。
       StyleRule(
         const BlockSelector('code'),
         (doc, node) => {
@@ -274,9 +279,9 @@ List<StyleRule> _rules(AnColors colors, TextStyle Function(TextStyle) ink) {
         BlockSelector(tableBlockAttribution.name),
         (doc, node) => {
           Styles.padding: const CascadingPadding.only(top: AnFlow.block),
-          Styles.textStyle: AnText.reading.copyWith(color: colors.ink),
+          Styles.textStyle: applyContentFace(prose, AnText.reading).copyWith(color: colors.ink),
           TableStyles.border: TableBorder.all(color: colors.line, width: AnSize.hairline),
-          TableStyles.headerTextStyle: AnText.reading.weight(AnText.emphasisWeight).copyWith(color: colors.ink),
+          TableStyles.headerTextStyle: applyContentFace(prose, AnText.reading).weight(AnText.emphasisWeight).copyWith(color: colors.ink),
           TableStyles.cellPadding: const CascadingPadding.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6),
         },
       ),

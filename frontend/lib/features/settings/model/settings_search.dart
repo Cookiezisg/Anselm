@@ -11,6 +11,9 @@ abstract final class SettingsItem {
   // 通用 general
   static const generalTheme = 'general.theme';
   static const generalZoom = 'general.zoom';
+  static const generalFontUi = 'general.fontUi';
+  static const generalFontContent = 'general.fontContent';
+  static const generalFontCode = 'general.fontCode';
   static const generalLanguage = 'general.language';
   static const generalRememberWindow = 'general.rememberWindow';
   static const generalLaunchAtLogin = 'general.launchAtLogin';
@@ -52,6 +55,7 @@ abstract final class SettingsItem {
   static const aboutAppVersion = 'about.appVersion';
   static const aboutBackendVersion = 'about.backendVersion';
   static const aboutDiagnostics = 'about.diagnostics';
+  static const aboutFonts = 'about.fonts';
 }
 
 /// One searchable settings item — the panel it lives in, its jump [anchor] (matching the
@@ -95,6 +99,24 @@ final List<SettingsSearchItem> settingsSearchIndex = [
     anchor: SettingsItem.generalZoom,
     labelOf: (t) => t.settings.zoom,
     hintOf: (t) => t.settings.zoomDesc,
+  ),
+  SettingsSearchItem(
+    panel: SettingsPanel.general,
+    anchor: SettingsItem.generalFontUi,
+    labelOf: (t) => t.settings.fontUi,
+    hintOf: (t) => t.settings.fontUiDesc,
+  ),
+  SettingsSearchItem(
+    panel: SettingsPanel.general,
+    anchor: SettingsItem.generalFontContent,
+    labelOf: (t) => t.settings.fontContent,
+    hintOf: (t) => t.settings.fontContentDesc,
+  ),
+  SettingsSearchItem(
+    panel: SettingsPanel.general,
+    anchor: SettingsItem.generalFontCode,
+    labelOf: (t) => t.settings.fontCode,
+    hintOf: (t) => t.settings.fontCodeDesc,
   ),
   SettingsSearchItem(
     panel: SettingsPanel.general,
@@ -265,6 +287,12 @@ final List<SettingsSearchItem> settingsSearchIndex = [
     anchor: SettingsItem.aboutDiagnostics,
     labelOf: (t) => t.settings.about.diagnostics,
     hintOf: (t) => t.settings.about.diagDesc,
+  ),
+  SettingsSearchItem(
+    panel: SettingsPanel.about,
+    anchor: SettingsItem.aboutFonts,
+    labelOf: (t) => t.settings.about.fonts,
+    hintOf: (t) => t.settings.about.fontsCredit,
   ),
 ];
 

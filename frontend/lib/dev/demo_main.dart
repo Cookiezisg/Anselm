@@ -8,6 +8,7 @@ import 'package:scaled_app/scaled_app.dart';
 
 import '../app/router.dart';
 import '../app/window_setup.dart';
+import '../core/design/an_fonts.dart';
 import '../core/design/theme.dart';
 import '../core/overlay/an_overlay.dart';
 import '../core/platform/window_zoom.dart';
@@ -81,6 +82,8 @@ Future<void> main() async {
   // geometry) survives a relaunch, same as the app. demo 也用真持久偏好,与 app 同。
   final prefs = await SettingsPrefs.load();
   WindowZoom.useSettingsPrefs(prefs); // zoom persists via the central prefs, same as the app
+  // Resolve the RESTART font axes before runApp, same as the app (content axis stays hot). 同 app 启动前解析重启字体轴。
+  AnFonts.applyAtBoot(ui: prefs.getString(SettingsKeys.fontUi), code: prefs.getString(SettingsKeys.fontCode));
   await initWindow(title: 'Anselm · Demo (fixtures)', prefs: prefs);
   WindowZoom.restore(); // the persisted zoom, before the first frame 首帧前恢复持久化缩放
   // D-031 — a live toast a few seconds in: a background workflow «fails» and emits a durable danger

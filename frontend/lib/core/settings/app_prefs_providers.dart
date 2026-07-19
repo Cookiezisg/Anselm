@@ -2,6 +2,7 @@ import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../i18n/strings.g.dart';
+import '../design/an_fonts.dart';
 import 'follow_mode.dart';
 import 'settings_prefs.dart';
 
@@ -131,6 +132,18 @@ class StringSettingController extends Notifier<String> {
 final stringSettingProvider =
     NotifierProvider.family<StringSettingController, String, SettingsKey<String>>(
         StringSettingController.new);
+
+/// The CONTENT font axis (② 内容轴), HOT — the ONE reactive seam the prose reading surfaces (chat
+/// message bubble markdown + the documents editor body/title) read to layer a serif / system face over
+/// their reading styles. `null` = sans = FOLLOW the UI face already baked into [AnText] (a zero-touch
+/// pass-through), so the default install renders byte-for-byte as today. Watching the string pref makes
+/// the switch LIVE (no restart) — the surfaces build their styles at runtime. The UI (①) + code (③) axes
+/// are RESTART-applied at boot ([AnFonts.applyAtBoot]) and have NO runtime provider — the settings rows
+/// write the pref (persisted) and say「重启后生效」.
+/// 内容字体轴(热):prose 阅读面读它覆盖衬线/系统脸;null=sans=跟随已烤进 AnText 的 UI 脸(零改直通,默认=现状)。
+/// watch 串偏好→即时切换(样式运行时构造);UI/代码轴启动生效、无运行时 provider(面板写偏好+标「重启后生效」)。
+final contentFaceProvider = Provider<AnFace?>((ref) =>
+    AnFonts.contentOverrideFor(ref.watch(stringSettingProvider(SettingsKeys.fontContent))));
 
 /// The sidestage follow intent (default «每次»), persisted via [SettingsPrefs] (`an.stage.follow`,
 /// synchronous read). The chat sidestage head sets it; the settings chat panel mirrors it — one state,

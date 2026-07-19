@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:super_editor/super_editor.dart';
 
 import '../../i18n/strings.g.dart';
+import '../design/an_fonts.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
@@ -60,6 +61,7 @@ class AnEditor extends StatefulWidget {
     this.mentionSource,
     this.shrinkWrap = false,
     this.scrollController,
+    this.prose,
   }) : debugDocument = null;
 
   /// Seed the editor with a caller-built document (KNOWN node ids) so widget-tests can drive the robot's
@@ -73,7 +75,8 @@ class AnEditor extends StatefulWidget {
   })  : initialMarkdown = null,
         resolvedNames = const {},
         shrinkWrap = false,
-        scrollController = null;
+        scrollController = null,
+        prose = null;
 
   final MutableDocument? debugDocument;
 
@@ -100,6 +103,13 @@ class AnEditor extends StatefulWidget {
   /// The editor-owned scroll controller (standalone hosts, e.g. the harness, when NOT [shrinkWrap]).
   /// 编辑器自持滚动时的控制器(独立宿主用;shrinkWrap 时不传)。
   final ScrollController? scrollController;
+
+  /// The CONTENT (②) font override — the serif / system face layered over the editor's PROSE blocks
+  /// (body / headings / blockquote / table), from `contentFaceProvider`. `null` = the default sans → the
+  /// document renders exactly as today. Code blocks + inline code stay mono (the code axis governs them).
+  /// The stylesheet re-memoizes when this changes (a live switch). 内容字体覆盖:衬线/系统脸覆盖编辑器 prose 块;
+  /// null=默认 sans(=现状);代码块与内联码守 mono;变化时样式表重记忆(即时切换)。
+  final AnFace? prose;
 
   @override
   State<AnEditor> createState() => AnEditorState();
@@ -189,6 +199,7 @@ class AnEditorState extends State<AnEditor> {
   SelectionStyles? _selectionStyles;
   AnColors? _styleColors;
   String? _hintText; // the empty-doc placeholder (locale-dependent) — re-memoized when it changes
+  AnFace? _styleProse; // the CONTENT face the sheet was built with — re-memoized on a live switch 内容脸(切换即重建)
 
   // Serialize-on-idle: markdown serialization is O(document) — running it on EVERY keystroke (the change
   // listener) made each key pay a whole-document serialize. The autosave semantics only need the LAST state
@@ -483,10 +494,11 @@ class AnEditorState extends State<AnEditor> {
     // until the theme flips → same instances → SuperEditor skips the re-style. 样式表+组件建造器按主题稳定
     // 的 colors 记忆化:同实例→SuperEditor 跳全文档重跑 style pipeline。
     final hint = _t.documents.editorHint;
-    if (!identical(_styleColors, colors) || _hintText != hint) {
+    if (!identical(_styleColors, colors) || _hintText != hint || _styleProse != widget.prose) {
       _styleColors = colors;
       _hintText = hint;
-      _stylesheet = buildAnEditorStylesheet(colors);
+      _styleProse = widget.prose;
+      _stylesheet = buildAnEditorStylesheet(colors, prose: widget.prose);
       // The selection sweep colour — the An [AnColors.selection] token (semi-transparent accent), replacing
       // the package's hardcoded 0xFFACCEF7. Memoized with the stylesheet (same theme axis). 选区色走 token。
       _selectionStyles = SelectionStyles(selectionColor: colors.selection);
