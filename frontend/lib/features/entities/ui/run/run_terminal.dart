@@ -3,9 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/design/tokens.dart';
-import '../../../../core/model/status_state.dart' show AnStatus, AnTone;
-import '../../../../core/ui/an_chip.dart';
-import '../../../../core/ui/an_inspector_head.dart';
+import '../../../../core/model/status_state.dart' show AnStatus;
+import '../../../../core/ui/an_panel_head.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_code_block.dart';
 import '../../../../core/ui/an_term_viewport.dart';
@@ -130,32 +129,69 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
   Widget _head(BuildContext context, EntityRef sel, RunTerminalState state, EntityDetail? detail) {
     final r = context.t.entities.run;
     final name = detail?.name ?? sel.id;
-    final badge = _phaseBadge(context, state.phase);
-    // The unified right-island head band — icon + name + ✕ (the orphan verb sub-head + meta sub-row
-    // retire, 0719 拍板: the verb now lives on the editor card's run button, the meta on the settled
-    // bar). Only the live-status badge rides the subTrailingWidget slot. 统一右岛头带:图标+名+✕;孤儿
-    // 动词段头与 meta 次行退役(动词归编辑器卡钮、meta 归落定条),仅活状态徽留次行。
-    return AnInspectorHead(
+    // 三段式文法 §1+§2 (0719): the entity IDENTITY head — kind glyph + name, EVERY panel action collapsed
+    // into a single ⋯ (the debugger has none yet → no ⋯, 「无则暂缺」), the first-class ✕, and a quiet
+    // glance strip below (版本 · 今日执行 · 上次结果). The running/failed phase badge RETIRES: 「running」
+    // already reads from the streaming body + the stop CTA, 「failed」 from the callout + settled bar, and
+    // the last outcome from the glance's 「上次…」 — the head is pure identity (chat 侧幕同律).
+    // 实体身份头:kind 图标+名、面板动作全收 ⋯(调试台暂无→无 ⋯)、一等 ✕ + 速览带;活/失败徽退役(运行由
+    // 流式体+停止钮陈述、失败由 callout+落定条、上次结果由速览带),头纯身份。
+    return AnPanelHead(
       icon: AnIcons.byKey(sel.kind.scopeKind),
-      label: name,
-      subTrailingWidget: badge == null ? null : AnChip(badge.$1, tone: badge.$2),
+      title: name,
+      sub: _glance(context, sel, detail),
       onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
       closeSemantics: r.close,
     );
   }
 
-  /// The head badge speaks only while running or failed (0718 拍板「状态只在跑中/失败在场」): idle is
-  /// silence, and a settled ok already speaks through the settled bar — a second Done is an echo.
-  /// 头徽只在跑中/失败开口:idle 静默;ok 落定由落定条陈述,头上再来一个 Done 是回声。
-  (String, AnTone)? _phaseBadge(BuildContext context, RunPhase phase) {
-    final t = context.t;
-    return switch (phase) {
-      RunPhase.idle => null,
-      RunPhase.ok => null,
-      RunPhase.running => (t.status.run, AnTone.accent),
-      RunPhase.failed => (t.status.err, AnTone.danger),
-      RunPhase.cancelled => null, // settled bar's statusLabel carries it 落定条陈述
-    };
+  /// §2 GLANCE STRIP — one quiet `v{N} · 今天 {n} 次执行 · 上次{结果} {耗时}` line: the active version
+  /// number, today's execution count and the last run's outcome + elapsed, all AGGREGATED from the
+  /// already-watched [recentRunsProvider] bench ledger (≤5 rows) + the detail. Each segment renders ONLY
+  /// on real data (缺段不渲: a fresh entity with no runs shows just 「v{N}」, or nothing); all empty →
+  /// null → [AnPanelHead] draws no band (全空不渲). 「今天」counts the bench rows whose start is the local
+  /// today (bounded by the ledger's 5, so a very busy day under-reports — the bench is a glance, the full
+  /// history lives in Logs). 速览带:版本·今日执行·上次结果,全从已监听的 recentRuns(≤5)+detail 聚合;有数据
+  /// 才在、全空→null;「今天」数的是账内当天行(≤5 有界)。
+  Widget? _glance(BuildContext context, EntityRef sel, EntityDetail? detail) {
+    final c = context.colors;
+    final t = context.t.entities.run;
+    final segs = <String>[];
+    final ver = detail?.activeVersionNumber;
+    if (ver != null) segs.add('v$ver');
+    final runs = ref.watch(recentRunsProvider(sel)).value ?? const <RecentRun>[];
+    final now = DateTime.now();
+    final today = runs.where((run) {
+      final s = run.startedAt?.toLocal();
+      return s != null && s.year == now.year && s.month == now.month && s.day == now.day;
+    }).length;
+    if (today > 0) segs.add(t.glanceToday(n: today));
+    final last = runs.isNotEmpty ? runs.first : null;
+    if (last != null) {
+      // Only a SETTLED outcome speaks a 「上次…」 (ok/done · failed · cancelled) — a still-running last
+      // run is 「now」, not a past result, so it stays silent. 只落定结局开口;仍在跑不算上次结果。
+      final st = AnStatus.fromRaw(last.status);
+      String? word;
+      if (st == AnStatus.done) {
+        word = t.glanceLastOk;
+      } else if (st == AnStatus.err) {
+        word = t.glanceLastFailed;
+      } else if (last.status.toLowerCase() == 'cancelled') {
+        word = t.glanceLastCancelled;
+      }
+      if (word != null) {
+        segs.add(last.elapsedMs > 0
+            ? '$word ${fmtDuration(Duration(milliseconds: last.elapsedMs))}'
+            : word);
+      }
+    }
+    if (segs.isEmpty) return null;
+    return Text(
+      segs.join(' · '),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AnText.meta.copyWith(color: c.inkFaint),
+    );
   }
 
   /// The settled bar (落定条, AnStatBar 族): status word + elapsed; a workflow adds its flowrun id

@@ -36,10 +36,10 @@ class AnWindowControls extends StatelessWidget {
     // Left inset = [AnSize.btnPadXSm]: the SAME token the ocean-switcher insets its icon by, so the naked mark
     // lands on the nav ICON column below — NOT the slot/pill wrapper edge (拍板: 对齐图标本身, 不对齐那圈灰套). The
     // mark↔wordmark gap = [AnGap.inline], the same icon↔label gap the nav uses, so the wordmark rides the nav
-    // LABEL column too. Grey naked mark + Newsreader wordmark; vertical rhythm unchanged for now (deferred).
+    // LABEL column too. Grey naked mark + Newsreader wordmark.
     // 左内距 = btnPadXSm(switcher 给图标的同一 token),裸 mark 落到下方 nav 图标列、非套边;mark↔字 = AnGap.inline(nav 的 icon↔label 同 token),
-    // 字也落 nav 标签列。灰裸 mark + Newsreader wordmark;竖向节奏暂不动(留最后)。
-    return Padding(
+    // 字也落 nav 标签列。灰裸 mark + Newsreader wordmark。
+    final content = Padding(
       padding: const EdgeInsets.only(left: AnSize.btnPadXSm, right: AnSpace.s8),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -58,6 +58,25 @@ class AnWindowControls extends StatelessWidget {
             child: Text(context.t.appName, style: AnText.wordmark.copyWith(color: c.ink)),
           ),
         ],
+      ),
+    );
+    // Two residents, two alignments (拍板 0719). The traffic lights (and the control row that tracks them)
+    // sit on the lights' horizontal LINE; the brand that takes their place reads top-heavy there, so it drops
+    // to the band's OPTICAL centre ([AnSize.brandBandDrop]). On the fullscreen / Win-Linux swap that reveals
+    // it, the brand DRIFTS DOWN into that home (by [AnSize.brandBandDrop] over [AnMotion.fast]) + fades in, so
+    // the re-seat dissolves inside macOS's fullscreen zoom rather than popping; reduced-motion seats it
+    // instantly. The wordmark keeps its own [_wordmarkOpticalDrop] relative to the mark ON TOP of this drop.
+    // 两住户两对位(拍板 0719):红绿灯(及跟随它的控件行)落灯线;顶替灯位的品牌在灯线上显头重,故落带光学中心
+    // (brandBandDrop)。揭示它的全屏 / Win-Linux 切换里,品牌下滑 brandBandDrop 到位(AnMotion.fast)+淡入,让归位融进
+    // macOS 全屏动画而非硬跳;reduced 即时到位。wordmark 在此整体下移之上仍保自己相对 mark 的 _wordmarkOpticalDrop。
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast,
+      curve: AnMotion.easeOut,
+      child: content,
+      builder: (context, t, child) => Opacity(
+        opacity: t,
+        child: Transform.translate(offset: Offset(0, AnSize.brandBandDrop * t), child: child),
       ),
     );
   }

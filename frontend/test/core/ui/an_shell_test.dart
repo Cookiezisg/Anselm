@@ -316,6 +316,71 @@ void main() {
     expect(tester.getSize(find.byType(AnWindowControls)).width, 0);
   });
 
+  // --- brand optical-centre seating (0719) --------------------------------
+  // Two residents share the chrome band's control slot: the traffic lights (windowed macOS) hold the
+  // lights' LINE, while the brand that replaces them (fullscreen / Win-Linux) drops to the band's OPTICAL
+  // centre. WindowFullScreen.active=true reveals the brand on macOS; on Win/Linux it shows regardless — so
+  // these need no platform guard. The collapse control stays on the lights' line (only the brand moves).
+
+  testWidgets('fullscreen brand seats at the band optical centre — dropped below the lights-line collapse control',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    addTearDown(() => WindowFullScreen.active.value = false);
+    WindowFullScreen.active.value = true;
+
+    await tester.pumpWidget(wrap(AnShell(onToggleLeft: () {})));
+    await tester.pumpAndSettle(); // the drift-in transition settles at the optical centre
+
+    final brandCenter = tester.getCenter(find.byType(AnBrandIcon).first).dy;
+    final collapseCenter = tester.getCenter(find.byIcon(AnIcons.panelLeft).first).dy;
+    // The brand ALONE drops to the band's optical centre; the collapse control stays on the lights' line.
+    expect(brandCenter - collapseCenter, closeTo(AnSize.brandBandDrop, 1.0),
+        reason: 'brand seats brandBandDrop below the lights-line control (distinct alignment)');
+  });
+
+  testWidgets('reduced motion → the fullscreen brand seats at optical centre instantly (no drift-in)',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    addTearDown(() => WindowFullScreen.active.value = false);
+    WindowFullScreen.active.value = true;
+
+    await tester.pumpWidget(wrap(Builder(
+        builder: (context) => MediaQuery(
+            data: MediaQuery.of(context).copyWith(disableAnimations: true),
+            child: AnShell(onToggleLeft: () {})))));
+    await tester.pump(); // ONE frame — reduced motion is instant, no settle
+
+    final brandCenter = tester.getCenter(find.byType(AnBrandIcon).first).dy;
+    final collapseCenter = tester.getCenter(find.byIcon(AnIcons.panelLeft).first).dy;
+    expect(brandCenter - collapseCenter, closeTo(AnSize.brandBandDrop, 1.0),
+        reason: 'reduced motion lands the brand at its optical-centre home on the first frame');
+  });
+
+  testWidgets('fullscreen brand DRIFTS down into its optical-centre home (transition, not a pop)',
+      (tester) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    addTearDown(() => WindowFullScreen.active.value = false);
+    WindowFullScreen.active.value = true;
+
+    await tester.pumpWidget(wrap(AnShell(onToggleLeft: () {})));
+    await tester.pump(); // mount frame — the drift begins at the lights' line (drop ≈ 0)
+    final collapseCenter = tester.getCenter(find.byIcon(AnIcons.panelLeft).first).dy;
+    final startDrop = tester.getCenter(find.byType(AnBrandIcon).first).dy - collapseCenter;
+
+    await tester.pumpAndSettle();
+    final endDrop = tester.getCenter(find.byType(AnBrandIcon).first).dy - collapseCenter;
+
+    expect(startDrop, lessThan(endDrop - 1),
+        reason: 'the brand drifts DOWN over the transition rather than popping into place');
+    expect(endDrop, closeTo(AnSize.brandBandDrop, 1.0));
+  });
+
   test('minimum window keeps the ocean ≥ its min column even with the left island at max', () {
     // The right term is rightIslandMIN: at the window minimum the user can always narrow the right
     // island to fit (its live drag ceiling squeezes wider values honestly). 右项取右岛最小:最小窗下

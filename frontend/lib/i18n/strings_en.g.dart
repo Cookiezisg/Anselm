@@ -3405,6 +3405,15 @@ class Translations$scheduler$run$en {
 	/// en: 'Inspector'
 	String get inspectorTitle => 'Inspector';
 
+	/// en: 'next fire in $d'
+	String glanceNextFire({required Object d}) => 'next fire in ${d}';
+
+	/// en: '$pct% ok / 7d'
+	String glanceSuccess({required Object pct}) => '${pct}% ok / 7d';
+
+	/// en: '$n failing'
+	String glanceStreak({required Object n}) => '${n} failing';
+
 	/// en: 'Entry payload'
 	String get payloadHead => 'Entry payload';
 
@@ -3781,6 +3790,18 @@ class Translations$entities$run$en {
 	/// en: 'Cancelled'
 	String get cancelled => 'Cancelled';
 
+	/// en: '$n today'
+	String glanceToday({required Object n}) => '${n} today';
+
+	/// en: 'last ok'
+	String get glanceLastOk => 'last ok';
+
+	/// en: 'last failed'
+	String get glanceLastFailed => 'last failed';
+
+	/// en: 'last cancelled'
+	String get glanceLastCancelled => 'last cancelled';
+
 	/// en: 'Output'
 	String get outputHeading => 'Output';
 
@@ -4002,6 +4023,23 @@ class Translations$documents$props$en {
 
 	/// en: 'No pages link here yet.'
 	String get noBacklinks => 'No pages link here yet.';
+
+	/// en: 'Expand all'
+	String get expandAll => 'Expand all';
+
+	/// en: 'Collapse all'
+	String get collapseAll => 'Collapse all';
+
+	/// en: '$count chars'
+	String glanceChars({required Object count}) => '${count} chars';
+
+	/// en: '$n backlinks'
+	String glanceBacklinks({required Object n}) => '${n} backlinks';
+
+	/// en: 'Edited $rel'
+	String glanceEdited({required Object rel}) => 'Edited ${rel}';
+
+	late final Translations$documents$props$time$en time = Translations$documents$props$time$en.internal(_root);
 }
 
 // Path: documents.slash
@@ -6023,6 +6061,24 @@ class Translations$entities$graph$verb$en {
 	String get edit => 'edited';
 }
 
+// Path: documents.props.time
+class Translations$documents$props$time$en {
+	Translations$documents$props$time$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'today'
+	String get today => 'today';
+
+	/// en: 'yesterday'
+	String get yesterday => 'yesterday';
+
+	/// en: '$n days ago'
+	String daysAgo({required Object n}) => '${n} days ago';
+}
+
 /// The flat map containing all translations for locale <en>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -6861,6 +6917,9 @@ extension on Translations {
 			'scheduler.run.dossierTitle' => 'Run dossier',
 			'scheduler.run.kvStatus' => 'Status',
 			'scheduler.run.inspectorTitle' => 'Inspector',
+			'scheduler.run.glanceNextFire' => ({required Object d}) => 'next fire in ${d}',
+			'scheduler.run.glanceSuccess' => ({required Object pct}) => '${pct}% ok / 7d',
+			'scheduler.run.glanceStreak' => ({required Object n}) => '${n} failing',
 			'scheduler.run.payloadHead' => 'Entry payload',
 			'scheduler.run.pinnedRefsHead' => 'Pinned refs',
 			'scheduler.run.errorHead' => 'Error',
@@ -7054,11 +7113,11 @@ extension on Translations {
 			'startup.errorTitle' => 'Something went wrong',
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
 			'entities.kNew' => 'New',
+			_ => null,
+		} ?? switch (path) {
 			'entities.filter' => 'Search entities…',
 			'entities.errorTitle' => 'Couldn\'t load entities',
 			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
-			_ => null,
-		} ?? switch (path) {
 			'entities.retry' => 'Try again',
 			'entities.selectTitle' => 'Select an entity',
 			'entities.selectHint' => 'Choose a function, handler, agent, or workflow from the rail.',
@@ -7288,6 +7347,10 @@ extension on Translations {
 			'entities.run.cancel' => 'Cancel',
 			'entities.run.close' => 'Close run terminal',
 			'entities.run.cancelled' => 'Cancelled',
+			'entities.run.glanceToday' => ({required Object n}) => '${n} today',
+			'entities.run.glanceLastOk' => 'last ok',
+			'entities.run.glanceLastFailed' => 'last failed',
+			'entities.run.glanceLastCancelled' => 'last cancelled',
 			'entities.run.outputHeading' => 'Output',
 			'entities.run.resultHeading' => 'Result',
 			'entities.run.logsHeading' => 'Logs',
@@ -7387,6 +7450,14 @@ extension on Translations {
 			'documents.props.outline' => 'Outline',
 			'documents.props.backlinks' => 'Backlinks',
 			'documents.props.noBacklinks' => 'No pages link here yet.',
+			'documents.props.expandAll' => 'Expand all',
+			'documents.props.collapseAll' => 'Collapse all',
+			'documents.props.glanceChars' => ({required Object count}) => '${count} chars',
+			'documents.props.glanceBacklinks' => ({required Object n}) => '${n} backlinks',
+			'documents.props.glanceEdited' => ({required Object rel}) => 'Edited ${rel}',
+			'documents.props.time.today' => 'today',
+			'documents.props.time.yesterday' => 'yesterday',
+			'documents.props.time.daysAgo' => ({required Object n}) => '${n} days ago',
 			'documents.slash.text' => 'Text',
 			'documents.slash.h1' => 'Heading 1',
 			'documents.slash.h2' => 'Heading 2',
@@ -7556,6 +7627,8 @@ extension on Translations {
 			'settings.ws.typeNameHint' => ({required Object name}) => 'Type “${name}” to confirm',
 			'settings.ws.confirmDelete' => 'Delete forever',
 			'settings.ws.lastOne' => 'The only workspace can\'t be deleted',
+			_ => null,
+		} ?? switch (path) {
 			'settings.ws.deleteFailed' => 'Delete failed',
 			'settings.ws.blobUnknown' => 'size unknown',
 			'settings.ws.statsLoading' => 'Taking inventory…',
@@ -7571,8 +7644,6 @@ extension on Translations {
 			'settings.about.diagnostics' => 'Diagnostics',
 			'settings.about.copyDiagnostics' => 'Copy diagnostics',
 			'settings.about.copied' => 'Copied',
-			_ => null,
-		} ?? switch (path) {
 			'settings.about.diagDesc' => 'Copies version and environment info for bug reports',
 			'settings.mem.section' => 'Memories',
 			'settings.mem.filterAll' => 'All',

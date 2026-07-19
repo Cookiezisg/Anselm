@@ -56,6 +56,28 @@ String fmtClock(DateTime? d) {
   return '${two(l.hour)}:${two(l.minute)}:${two(l.second)}';
 }
 
+/// A COARSE calendar-day relative label — «今天 / 昨天 / N 天前 / 数字日期» past a week — for a "how recently
+/// was this touched" glance where sub-day precision is noise (a document's «last edited» band, unlike the
+/// chat rail's per-minute `conversationTimeLabel`). LOCAL calendar-day diff; older than 7 days → `y/m/d`
+/// numerics (locale-neutral). The phrase strings are INJECTED (not read from slang) so the formatter stays
+/// pure + unit-testable and callers scope their own i18n. 粗粒度日相对(今天/昨天/N天前/更老数字);本地日历天,
+/// >7 天→`年/月/日`;注入串保纯可测、各自 scope i18n。
+String fmtRelativeDay(
+  DateTime at,
+  DateTime now, {
+  required String today,
+  required String yesterday,
+  required String Function(int n) daysAgo,
+}) {
+  final a = at.toLocal();
+  final n = now.toLocal();
+  final days = DateTime(n.year, n.month, n.day).difference(DateTime(a.year, a.month, a.day)).inDays;
+  if (days <= 0) return today;
+  if (days == 1) return yesterday;
+  if (days <= 7) return daysAgo(days);
+  return '${a.year}/${a.month}/${a.day}';
+}
+
 /// A local `YYYY-MM-DD` date (no time). 本地日期(无时刻)。
 String fmtDate(DateTime? d) {
   if (d == null) return '';

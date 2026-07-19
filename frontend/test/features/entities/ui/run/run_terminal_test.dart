@@ -122,7 +122,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 250));
     await tester.pump(const Duration(milliseconds: 250));
     expect(find.byType(AnTermViewport), findsOneWidget); // scroll-back survives mid-run 运行中可回看
-    expect(find.text(t.status.run), findsOneWidget); // really still running 真在运行中
+    // Really still running — the head phase badge retired (三段式文法, WRK-073 批 3: pure-identity
+    // AnPanelHead), so the running signal is now the verb CTA flipping to «取消/Cancel». 头徽退役,
+    // 运行信号=动词钮翻成「取消」。
+    expect(find.widgetWithText(AnButton, t.entities.run.cancel), findsOneWidget);
     // Walk the remaining fixture steps (pumpAndSettle stops on idle frames, not pending timers).
     // 逐步走完剩余节奏(pumpAndSettle 不等挂起的 timer)。
     for (var i = 0; i < 4; i++) {

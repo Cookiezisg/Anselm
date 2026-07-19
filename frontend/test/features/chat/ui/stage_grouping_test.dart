@@ -2,6 +2,7 @@ import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/interaction.dart';
 import 'package:anselm/core/contract/touchpoint.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
@@ -30,13 +31,22 @@ FixtureChatRepository _repo() => FixtureChatRepository(conversations: [
       ),
     ]);
 
-Widget _host(FixtureChatRepository repo) => ProviderScope(
+Widget _host(FixtureChatRepository repo, {bool reduced = false}) => ProviderScope(
       overrides: [chatRepositoryProvider.overrideWithValue(repo)],
       child: TranslationProvider(
         child: MaterialApp(
           theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(width: 340, height: 680, child: StagePanel(conversationId: _conv)),
+          home: Builder(
+            builder: (context) {
+              final panel = Scaffold(
+                body: SizedBox(width: 340, height: 680, child: StagePanel(conversationId: _conv)),
+              );
+              // reduced → the fold reveal collapses instantly (AnExpandReveal double-gate). reduced=即时。
+              return reduced
+                  ? MediaQuery(
+                      data: MediaQuery.of(context).copyWith(disableAnimations: true), child: panel)
+                  : panel;
+            },
           ),
         ),
       ),
@@ -138,12 +148,49 @@ void main() {
       await _hydrate(tester);
 
       await tester.tap(find.text(t.chat.stage.groupJustNow)); // fold 刚刚
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(); // rebuild → the reveal starts collapsing 起帧
+      await tester.pump(const Duration(milliseconds: 400)); // past AnMotion.mid (240) → settled 收合完成
 
       expect(find.text('sync_inventory'), findsNothing);
       expect(find.text('reconcile'), findsNothing);
       expect(find.text(t.chat.stage.groupJustNow), findsOneWidget); // head stays 头留存
       expect(find.text('nightly_rollup'), findsOneWidget); // the 更早 tier untouched 更早档不动
+    });
+
+    testWidgets('folding rides the STANDARD collapse slide — a mid-frame still shows the rows (not instant)',
+        (tester) async {
+      final repo = _repo();
+      repo.touchpoints[_conv] = [
+        _tp('t1', 'function', 'fn_a', 'sync_inventory', TouchpointVerb.edited, const Duration(minutes: 1)),
+        _tp('t2', 'function', 'fn_b', 'reconcile', TouchpointVerb.executed, const Duration(minutes: 2)),
+        _tp('t3', 'workflow', 'wf_old', 'nightly_rollup', TouchpointVerb.viewed, const Duration(days: 3)),
+      ];
+      await tester.pumpWidget(_host(repo));
+      await _hydrate(tester);
+
+      await tester.tap(find.text(t.chat.stage.groupJustNow)); // fold 刚刚
+      await tester.pump(); // start the reveal 起帧
+      await tester.pump(AnMotion.fast); // 120ms into a 240ms collapse — MID-TRANSITION 半途
+      // The rows are still built (clipped by the reveal) — proof the fold ANIMATES, not an instant jump.
+      // 行仍在树(被 reveal 裁)——证明是滑动过渡、非瞬跳。
+      expect(find.text('sync_inventory'), findsOneWidget, reason: 'mid-collapse frame still holds the row');
+      await tester.pump(const Duration(milliseconds: 300)); // finish 收合完成
+      expect(find.text('sync_inventory'), findsNothing);
+    });
+
+    testWidgets('reduced motion → the fold is INSTANT (AnExpandReveal double-gate)', (tester) async {
+      final repo = _repo();
+      repo.touchpoints[_conv] = [
+        _tp('t1', 'function', 'fn_a', 'sync_inventory', TouchpointVerb.edited, const Duration(minutes: 1)),
+        _tp('t2', 'function', 'fn_b', 'reconcile', TouchpointVerb.executed, const Duration(minutes: 2)),
+        _tp('t3', 'workflow', 'wf_old', 'nightly_rollup', TouchpointVerb.viewed, const Duration(days: 3)),
+      ];
+      await tester.pumpWidget(_host(repo, reduced: true));
+      await _hydrate(tester);
+
+      await tester.tap(find.text(t.chat.stage.groupJustNow)); // fold 刚刚
+      await tester.pump(); // one frame — reduced sets the reveal to 0 instantly 一帧即收
+      expect(find.text('sync_inventory'), findsNothing, reason: 'reduced motion collapses instantly');
     });
 
     testWidgets('a collapsed tier FORCE-OPENS when a row inside it is (auto-)expanded (深跳/auto-expand lock)',
@@ -158,13 +205,16 @@ void main() {
       final container = _container(tester);
 
       container.read(stageGroupCollapseProvider(_conv).notifier).toggle('just'); // fold 刚刚
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(); // rebuild → collapse starts 起帧
+      await tester.pump(const Duration(milliseconds: 400)); // settled 收合完成
       expect(find.text('sync_inventory'), findsNothing);
 
       // The director / deep-jump programmatically EXPANDS a row inside the collapsed tier → the tier must
-      // force-open so the auto-expanded row is never hidden. 导演器/深跳展开折叠档内行 → 档自动展开、绝不藏。
+      // force-open (the reveal animates the same slide) so the auto-expanded row is never hidden.
+      // 导演器/深跳展开折叠档内行 → 档强制展开(reveal 播同一滑动)、绝不藏。
       container.read(stageExpansionProvider(_conv).notifier).open('function:fn_a');
-      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pump(); // rebuild → force-open starts 起帧
+      await tester.pump(const Duration(milliseconds: 400)); // settled 展开完成
       expect(find.text('sync_inventory'), findsOneWidget, reason: 'the collapsed tier force-opened');
     });
 

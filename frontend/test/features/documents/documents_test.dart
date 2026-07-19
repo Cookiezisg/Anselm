@@ -5,6 +5,9 @@ import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
+import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/features/documents/model/doc_outline.dart';
+import 'package:anselm/features/documents/state/doc_group_collapse.dart';
 import 'package:anselm/features/documents/ui/an_document_editor.dart';
 import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
 import 'package:anselm/core/ui/an_button.dart';
@@ -573,7 +576,7 @@ void main() {
       // File meta + backlinks stay; the page's OWN properties (name/description/tags) edit in the
       // CENTER under the big title now. 文件 meta+反链留;页自身属性(名/描述/标签)已归中心大标题下。
       expect(find.text('Modified'), findsOneWidget);
-      expect(find.text('BACKLINKS'), findsOneWidget); // AnGroupLabel 大写脸(批6 A-081)
+      expect(find.text('Backlinks'), findsOneWidget); // AnRow 组头文法(三段式文法 §3,批2)
       expect(find.text('Name'), findsNothing);
       expect(find.text('Tags'), findsNothing);
       expect(find.byType(EditableText), findsNothing); // nothing edits on this panel anymore 本岛无输入
@@ -611,7 +614,7 @@ void main() {
         ),
       ));
       await tester.pumpAndSettle();
-      expect(find.text('BACKLINKS'), findsOneWidget); // AnGroupLabel 大写脸(批6 A-081)
+      expect(find.text('Backlinks'), findsOneWidget); // AnRow 组头文法(三段式文法 §3,批2)
       expect(find.text('Playbooks'), findsOneWidget);
 
       await tester.tap(find.text('Playbooks'));
@@ -646,6 +649,177 @@ void main() {
     });
   });
 
+  // The three-segment grammar (三段式文法 §1–§3, batch 2, 用户 0719): one identity head + a §2 glance strip
+  // + §3 collapsible groups replacing the three orphan mini-titles. 一头三组替三孤儿标题。
+  group('DocumentsInspector · 三段式文法', () {
+    Widget host(FixtureDocumentsRepository repo, DocSelection sel,
+            {List<DocOutlineEntry> outline = const [], SettingsPrefs? prefs}) =>
+        ProviderScope(
+          overrides: [
+            documentsRepositoryProvider.overrideWithValue(repo),
+            selectedDocProvider.overrideWith(() => _PinnedSelection(sel)),
+            if (outline.isNotEmpty) docOutlineProvider.overrideWith(() => _PinnedOutline(outline)),
+            if (prefs != null) settingsPrefsProvider.overrideWithValue(prefs),
+          ],
+          child: TranslationProvider(
+            child: MaterialApp(
+              theme: AnTheme.light(),
+              home: const Scaffold(body: SizedBox(width: 320, height: 640, child: DocumentsInspector())),
+            ),
+          ),
+        );
+
+    FixtureDocumentsRepository linkedRepo() => FixtureDocumentsRepository(
+          documents: [
+            _doc('doc_a', null, 'Getting Started', 0, content: 'a page with a fair number of words here'),
+            _doc('doc_link', null, 'Playbooks', 1, content: 'see [[doc_a]] first'),
+          ],
+          skills: const [],
+        );
+
+    testWidgets('one head + three group heads (counts), no orphan uppercase titles', (tester) async {
+      await tester.pumpWidget(host(linkedRepo(), (isSkill: false, id: 'doc_a'),
+          outline: const [(level: 1, text: 'Alpha'), (level: 2, text: 'Beta')]));
+      await tester.pumpAndSettle();
+      // §1 head = the doc's NAME (identity), never a generic panel title. 身份头=页名。
+      expect(find.text('Getting Started'), findsWidgets);
+      // §3 group heads speak the AnRow language (normal case + count), NOT the retired orphan AnGroupLabel
+      // (uppercase). 组头 = AnRow 文法(非退役的孤儿大写标题)。
+      expect(find.text('Outline'), findsOneWidget);
+      expect(find.text('Properties'), findsOneWidget);
+      expect(find.text('Backlinks'), findsOneWidget);
+      expect(find.text('OUTLINE'), findsNothing);
+      expect(find.text('BACKLINKS'), findsNothing);
+      // Group bodies default-EXPANDED → their (untouched) content is present. 默认展开,组内内容原样在。
+      expect(find.text('Modified'), findsOneWidget); // properties KV
+      expect(find.text('Alpha'), findsOneWidget); // outline row
+      expect(find.text('Playbooks'), findsOneWidget); // backlink row
+    });
+
+    testWidgets('§2 glance: three segments (chars · backlinks · edited) when all carry signal', (tester) async {
+      await tester.pumpWidget(host(linkedRepo(), (isSkill: false, id: 'doc_a')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('chars'), findsOneWidget); // word/char count
+      expect(find.textContaining('backlinks'), findsOneWidget); // lower-case → the glance, not the «Backlinks» head
+      expect(find.textContaining('Edited'), findsOneWidget); // relative last-edited
+    });
+
+    testWidgets('§2 glance: a no-backlinks page drops the 反链 segment (零人话律)', (tester) async {
+      final repo = FixtureDocumentsRepository(
+        documents: [_doc('doc_solo', null, 'Solo', 0, content: 'just some words, nobody links here')],
+        skills: const [],
+      );
+      await tester.pumpWidget(host(repo, (isSkill: false, id: 'doc_solo')));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('chars'), findsOneWidget);
+      expect(find.textContaining('Edited'), findsOneWidget);
+      expect(find.textContaining('backlinks'), findsNothing); // omitted — zero backlinks 无信号段不渲
+    });
+
+    testWidgets('§2 glance: absent entirely with no selection (all-empty → no band)', (tester) async {
+      await tester.pumpWidget(ProviderScope(
+        overrides: [
+          documentsRepositoryProvider.overrideWithValue(_repo()),
+          selectedDocProvider.overrideWith(() => _PinnedSelection(null)), // nothing open 空选
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(
+            theme: AnTheme.light(),
+            home: const Scaffold(body: SizedBox(width: 320, height: 640, child: DocumentsInspector())),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(find.text('Nothing selected'), findsOneWidget); // the inset empty state 空态
+      expect(find.textContaining('Edited'), findsNothing);
+      expect(find.textContaining('chars'), findsNothing);
+    });
+
+    testWidgets('group fold: tapping a head collapses its body; re-tap restores it', (tester) async {
+      await tester.pumpWidget(host(linkedRepo(), (isSkill: false, id: 'doc_a')));
+      await tester.pumpAndSettle();
+      expect(find.text('Modified'), findsOneWidget); // Properties open by default
+      await tester.tap(find.text('Properties'));
+      await tester.pumpAndSettle();
+      expect(find.text('Modified'), findsNothing); // collapsed → body gone
+      await tester.tap(find.text('Properties'));
+      await tester.pumpAndSettle();
+      expect(find.text('Modified'), findsOneWidget); // re-expanded
+    });
+
+    testWidgets('a skill: head + Outline/Properties groups, no Backlinks; glance drops 反链', (tester) async {
+      final repo = FixtureDocumentsRepository(documents: const [], skills: [
+        Skill(
+            name: 'commit-helper',
+            description: 'x',
+            context: 'inline',
+            body: '# commit-helper\n\nsome body words',
+            updatedAt: _t),
+      ]);
+      await tester.pumpWidget(host(repo, (isSkill: true, id: 'commit-helper'),
+          outline: const [(level: 1, text: 'commit-helper')]));
+      await tester.pumpAndSettle();
+      expect(find.text('commit-helper'), findsWidgets); // §1 head = slug identity
+      expect(find.text('Outline'), findsOneWidget);
+      expect(find.text('Properties'), findsOneWidget);
+      expect(find.text('Backlinks'), findsNothing); // a skill has no backlinks group 无反链组
+      // The frontmatter form is the Properties body (kept mounted, default open). frontmatter 表单=属性组体。
+      expect(find.text('Context'), findsOneWidget);
+      expect(find.textContaining('chars'), findsOneWidget); // glance from body 字数走 body
+      expect(find.textContaining('backlinks'), findsNothing); // §2 零人话律: no 反链 segment
+    });
+
+    testWidgets('outline row tap fires the jump intent (existing linkage intact)', (tester) async {
+      final container = ProviderContainer(overrides: [
+        documentsRepositoryProvider.overrideWithValue(linkedRepo()),
+        selectedDocProvider.overrideWith(() => _PinnedSelection((isSkill: false, id: 'doc_a'))),
+        docOutlineProvider.overrideWith(() => _PinnedOutline(const [(level: 1, text: 'Alpha')])),
+      ]);
+      addTearDown(container.dispose);
+      await tester.pumpWidget(UncontrolledProviderScope(
+        container: container,
+        child: TranslationProvider(
+          child: MaterialApp(
+            theme: AnTheme.light(),
+            home: const Scaffold(body: SizedBox(width: 320, height: 640, child: DocumentsInspector())),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+      expect(container.read(outlineJumpProvider), isNull);
+      await tester.tap(find.text('Alpha'));
+      await tester.pump();
+      expect(container.read(outlineJumpProvider)?.index, 0); // jumped to heading 0 大纲联动不破坏
+    });
+  });
+
+  // The group-fold axis persists per-group via the declared `an.right.collapsed.` family. 折叠态持久化。
+  group('docGroupCollapseProvider', () {
+    test('default = all expanded; toggle persists; a fresh controller restores', () {
+      final prefs = SettingsPrefs.inMemory();
+      final c1 = ProviderContainer(overrides: [settingsPrefsProvider.overrideWithValue(prefs)]);
+      addTearDown(c1.dispose);
+      expect(c1.read(docGroupCollapseProvider), isEmpty); // nothing collapsed by default
+      c1.read(docGroupCollapseProvider.notifier).toggle(kDocGroupProps);
+      expect(c1.read(docGroupCollapseProvider).contains(kDocGroupProps), isTrue);
+      // Persisted to the declared family → a fresh controller over the SAME prefs restores the fold.
+      // 落盘到声明族 → 新控制器同 prefs 恢复折叠。
+      final c2 = ProviderContainer(overrides: [settingsPrefsProvider.overrideWithValue(prefs)]);
+      addTearDown(c2.dispose);
+      expect(c2.read(docGroupCollapseProvider).contains(kDocGroupProps), isTrue);
+    });
+
+    test('expandAll / collapseAll walk every group key', () {
+      final prefs = SettingsPrefs.inMemory();
+      final c = ProviderContainer(overrides: [settingsPrefsProvider.overrideWithValue(prefs)]);
+      addTearDown(c.dispose);
+      c.read(docGroupCollapseProvider.notifier).collapseAll();
+      expect(c.read(docGroupCollapseProvider), kDocGroups.toSet());
+      c.read(docGroupCollapseProvider.notifier).expandAll();
+      expect(c.read(docGroupCollapseProvider), isEmpty);
+    });
+  });
+
 }
 
 const _fnId = 'fn_0123456789abcdef';
@@ -671,9 +845,18 @@ class _FakeMentions implements MentionSource {
 
 class _PinnedSelection extends SelectedDocController {
   _PinnedSelection(this._seed);
-  final DocSelection _seed;
+  final DocSelection? _seed;
   @override
   DocSelection? build() => _seed;
+}
+
+/// Seeds [docOutlineProvider] (normally fed by the editor view, absent in an inspector-only test) so the
+/// Outline group renders. 播种大纲(编辑视图喂,纯检查器测缺席),使大纲组渲染。
+class _PinnedOutline extends DocOutlineController {
+  _PinnedOutline(this._seed);
+  final List<DocOutlineEntry> _seed;
+  @override
+  List<DocOutlineEntry> build() => _seed;
 }
 
 /// Pins [focusNewDocTitleProvider] to a seed so a title-autofocus flag can be tested without the rail's

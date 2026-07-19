@@ -12,7 +12,6 @@ import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_cast_row.dart';
 import '../../../../core/ui/an_code_editor.dart';
 import '../../../../core/ui/an_dropdown.dart';
-import '../../../../core/ui/an_keycap.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
 import '../../data/entity_labels.dart';
@@ -48,12 +47,15 @@ String runOriginLabel(Translations t, String origin) {
 /// input IS one JSON editor prefilled with a runnable example, with a Lambda/Postman toolbar — «哪里填哪个»
 /// disappears, the user changes a value and runs. Composed ENTIRELY from kit primitives (零手搓样式):
 /// [AnCodeEditor] seamless (frame + gutter + highlight, same as the document editor's embedded code
-/// block), [AnDropdown] ghost chips (payload source / handler method / workflow source), an [AnKeycap]
-/// ⌘↵ pair and an [AnButton] verb. The editor lives on the SESSION [RunDraftStore] as JSON TEXT; a
-/// keystroke lints live (bad JSON → a red line + the verb disabled); ⌘↵ submits from inside the editor.
+/// block), [AnDropdown] ghost chips (payload source / handler method / workflow source) and an
+/// [AnButton] verb. The editor lives on the SESSION [RunDraftStore] as JSON TEXT; a keystroke lints
+/// live (bad JSON → a red line + the verb disabled); ⌘↵ submits from inside the editor (0719 用户裁定:
+/// the toolbar's ⌘↵ keycap read as visual clutter next to Example▾/Method▾/verb — the CHORD itself
+/// stays wired, only its keycap glyph is gone).
 ///
 /// 调试台 JSON-first 输入卡:输入=一块预填可跑示例的 JSON 编辑器 + Lambda/Postman 工具条;全用原语拼(零手搓)。
-/// 逐键实时 lint(坏 JSON→红行 + 动词禁用);⌘↵ 在编辑器内提交。
+/// 逐键实时 lint(坏 JSON→红行 + 动词禁用);⌘↵ 在编辑器内提交(0719 用户裁定:工具条上的 ⌘↵ 键帽与
+/// Example▾/Method▾/动词钮太挤、视觉噪音,已删——快捷键本身照旧生效,只删键帽渲染)。
 class RunEditorCard extends ConsumerStatefulWidget {
   const RunEditorCard({required this.entityRef, super.key});
 
@@ -166,7 +168,7 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
     );
   }
 
-  // ── toolbar (Lambda/Postman 位形): payload source · kind chip … ⌘↵ · verb ──────────────────
+  // ── toolbar (Lambda/Postman 位形): payload source · kind chip … verb ─────────────────────────
   Widget _toolbar(BuildContext context, RunTerminalController c, RunTerminalState state, EntityDetail? detail) {
     final chips = <Widget>[Flexible(child: _payloadSourceChip(context, c))];
     if (widget.entityRef.kind == EntityKind.handler) {
@@ -183,14 +185,10 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
       children: [
         Expanded(child: Row(mainAxisSize: MainAxisSize.min, children: chips)),
         const SizedBox(width: AnSpace.s8),
-        AnKeycap(_chord, keys: const ['⌘', '↵'], onTap: () => _submit(c, state)),
-        const SizedBox(width: AnSpace.s8),
         _verbButton(context, c, state),
       ],
     );
   }
-
-  static const _chord = '⌘ ↵';
 
   /// Payload-source chip («示例 ▾» / a recent run): the default is the runnable example; picking a recent
   /// run fills its real input back (task ③ — Lambda 命名事件 / n8n pin 的轻量版). payload 来源 chip。

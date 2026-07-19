@@ -1376,6 +1376,9 @@ class _Translations$scheduler$run$zh_CN extends Translations$scheduler$run$en {
 	@override String get dossierTitle => '运行卷宗';
 	@override String get kvStatus => '状态';
 	@override String get inspectorTitle => '检查器';
+	@override String glanceNextFire({required Object d}) => '下次点火 ${d} 后';
+	@override String glanceSuccess({required Object pct}) => '近 7 天 ${pct}% 成功';
+	@override String glanceStreak({required Object n}) => '连败 ${n}';
 	@override String get payloadHead => '入口 payload';
 	@override String get pinnedRefsHead => '钉住的引用';
 	@override String get errorHead => '错误';
@@ -1565,6 +1568,10 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String get cancel => '取消';
 	@override String get close => '关闭运行终端';
 	@override String get cancelled => '已取消';
+	@override String glanceToday({required Object n}) => '今天 ${n} 次执行';
+	@override String get glanceLastOk => '上次成功';
+	@override String get glanceLastFailed => '上次失败';
+	@override String get glanceLastCancelled => '上次取消';
 	@override String get outputHeading => '输出';
 	@override String get resultHeading => '结果';
 	@override String get logsHeading => '日志';
@@ -1664,6 +1671,12 @@ class _Translations$documents$props$zh_CN extends Translations$documents$props$e
 	@override String get outline => '大纲';
 	@override String get backlinks => '反向链接';
 	@override String get noBacklinks => '还没有页面链接到这里。';
+	@override String get expandAll => '展开全部';
+	@override String get collapseAll => '收起全部';
+	@override String glanceChars({required Object count}) => '${count} 字';
+	@override String glanceBacklinks({required Object n}) => '${n} 反链';
+	@override String glanceEdited({required Object rel}) => '${rel}编辑';
+	@override late final _Translations$documents$props$time$zh_CN time = _Translations$documents$props$time$zh_CN._(_root);
 }
 
 // Path: documents.slash
@@ -2567,6 +2580,18 @@ class _Translations$entities$graph$verb$zh_CN extends Translations$entities$grap
 	@override String get edit => '编辑了';
 }
 
+// Path: documents.props.time
+class _Translations$documents$props$time$zh_CN extends Translations$documents$props$time$en {
+	_Translations$documents$props$time$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get today => '今天';
+	@override String get yesterday => '昨天';
+	@override String daysAgo({required Object n}) => '${n} 天前';
+}
+
 /// The flat map containing all translations for locale <zh-CN>.
 /// Only for edge cases! For simple maps, use the map function of this library.
 ///
@@ -3405,6 +3430,9 @@ extension on TranslationsZhCn {
 			'scheduler.run.dossierTitle' => '运行卷宗',
 			'scheduler.run.kvStatus' => '状态',
 			'scheduler.run.inspectorTitle' => '检查器',
+			'scheduler.run.glanceNextFire' => ({required Object d}) => '下次点火 ${d} 后',
+			'scheduler.run.glanceSuccess' => ({required Object pct}) => '近 7 天 ${pct}% 成功',
+			'scheduler.run.glanceStreak' => ({required Object n}) => '连败 ${n}',
 			'scheduler.run.payloadHead' => '入口 payload',
 			'scheduler.run.pinnedRefsHead' => '钉住的引用',
 			'scheduler.run.errorHead' => '错误',
@@ -3598,11 +3626,11 @@ extension on TranslationsZhCn {
 			'startup.errorTitle' => '出错了',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
+			_ => null,
+		} ?? switch (path) {
 			'entities.filter' => '搜索实体…',
 			'entities.errorTitle' => '无法加载实体',
 			'entities.errorHint' => '本地引擎没有返回实体列表。',
-			_ => null,
-		} ?? switch (path) {
 			'entities.retry' => '重试',
 			'entities.selectTitle' => '选择一个实体',
 			'entities.selectHint' => '从左侧选择一个函数、处理器、智能体或工作流。',
@@ -3832,6 +3860,10 @@ extension on TranslationsZhCn {
 			'entities.run.cancel' => '取消',
 			'entities.run.close' => '关闭运行终端',
 			'entities.run.cancelled' => '已取消',
+			'entities.run.glanceToday' => ({required Object n}) => '今天 ${n} 次执行',
+			'entities.run.glanceLastOk' => '上次成功',
+			'entities.run.glanceLastFailed' => '上次失败',
+			'entities.run.glanceLastCancelled' => '上次取消',
 			'entities.run.outputHeading' => '输出',
 			'entities.run.resultHeading' => '结果',
 			'entities.run.logsHeading' => '日志',
@@ -3931,6 +3963,14 @@ extension on TranslationsZhCn {
 			'documents.props.outline' => '大纲',
 			'documents.props.backlinks' => '反向链接',
 			'documents.props.noBacklinks' => '还没有页面链接到这里。',
+			'documents.props.expandAll' => '展开全部',
+			'documents.props.collapseAll' => '收起全部',
+			'documents.props.glanceChars' => ({required Object count}) => '${count} 字',
+			'documents.props.glanceBacklinks' => ({required Object n}) => '${n} 反链',
+			'documents.props.glanceEdited' => ({required Object rel}) => '${rel}编辑',
+			'documents.props.time.today' => '今天',
+			'documents.props.time.yesterday' => '昨天',
+			'documents.props.time.daysAgo' => ({required Object n}) => '${n} 天前',
 			'documents.slash.text' => '正文',
 			'documents.slash.h1' => '标题 1',
 			'documents.slash.h2' => '标题 2',
@@ -4100,6 +4140,8 @@ extension on TranslationsZhCn {
 			'settings.ws.typeNameHint' => ({required Object name}) => '输入「${name}」以确认',
 			'settings.ws.confirmDelete' => '永久删除',
 			'settings.ws.lastOne' => '唯一的工作区不可删除',
+			_ => null,
+		} ?? switch (path) {
 			'settings.ws.deleteFailed' => '删除失败',
 			'settings.ws.blobUnknown' => '体积未知',
 			'settings.ws.statsLoading' => '正在盘点内容…',
@@ -4115,8 +4157,6 @@ extension on TranslationsZhCn {
 			'settings.about.diagnostics' => '诊断',
 			'settings.about.copyDiagnostics' => '复制诊断信息',
 			'settings.about.copied' => '已复制',
-			_ => null,
-		} ?? switch (path) {
 			'settings.about.diagDesc' => '复制版本与环境信息,便于报告问题',
 			'settings.mem.section' => '记忆',
 			'settings.mem.filterAll' => '全部',

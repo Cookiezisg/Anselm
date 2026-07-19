@@ -172,7 +172,7 @@ Scheduler / 数据清洗 / fr_c3d4
 
 ## 6. 右岛 = 双脸检查器(仅 run 详情揭示)
 
-Overview/主页不占右岛(看板与页顶矩阵+行内速览自足,不为放而放);详情页右岛按需揭示,inspector 三元链加一支,零壳改:
+Overview/主页不占右岛(看板与页顶矩阵+行内速览自足,不为放而放);详情页右岛按需揭示,inspector 三元链加一支。**壳头=三段式文法**(WRK-073 批 3,0719):`_Face` 换 `AnPanelHead`(§1 身份头——scheduler 图标 + 脸标题 + ⋯[无面板级动作,replay/triage 是就地正文动作 → 无 ⋯] + ✕)+ **§2 速览带**——两脸共载**父 workflow 运营上下文** `下次点火 {d} 后 · 近 7 天 {r}% 成功 · 连败 {n}`,全读已挂 `schedulerRailProvider`(零新取:下次点火=rail 的 trigger-schedule 连接、成功率=flowrun-stats 7d 窗真实信号[stats 无 run 计数字段、`recent` 珠封顶 10,故用成功率而非「N 跑」——主页健康头同选]、连败=`consecutiveFailures`);每段真数据才在、全空→无带。两脸:
 
 - **无节点选中 = run 卷宗脸**(永不空白):pinned 闭包、replay 史、入口 payload、error 全文、`:triage` AI 诊断入口(202→conversationId 跳 chat)。
 - **选中节点 = 检查器脸**:头(kind+nodeId+状态+**迭代切换器 `#0 ▾`**,C 收编——循环节点逐迭代取证)→ 错误 callout 全文 → 输入/输出 AnJsonTree(AnCap 折叠,650KB 级物理隔离于此)→ 执行日志深链(execId→entities)→ 上游行跳转 → **parked = ApprovalGate 就地决** → 失败 = 就地 replay。Esc 清选区回卷宗脸。

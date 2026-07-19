@@ -9,8 +9,9 @@ import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_code_editor.dart';
 import 'package:anselm/core/ui/an_dropdown.dart';
-import 'package:anselm/core/ui/an_keycap.dart';
 import 'package:anselm/core/ui/an_ledger_row.dart';
+import 'package:anselm/core/ui/an_panel_head.dart';
+import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/state/run/recent_runs_provider.dart';
@@ -20,15 +21,17 @@ import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:anselm/features/entities/ui/run/run_terminal.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import '../../../../support/router_harness.dart';
 
 // The debugger v3 (JSON-first, 0719 拍板) under widget test: the input IS one prefilled JSON editor + a
-// Lambda/Postman toolbar (payload source · method/source chip · ⌘↵ · verb), values live as JSON TEXT in
-// per-dimension session buckets, live lint gates the verb, and the recent strip + «用这份输入» close the
-// loop (relative time · human origin · IO expand · wf deep-link).
+// Lambda/Postman toolbar (payload source · method/source chip · verb), values live as JSON TEXT in
+// per-dimension session buckets, live lint gates the verb, ⌘↵ submits from inside the editor (its
+// toolbar keycap glyph was removed later the same day — visual clutter, chord stays wired), and the
+// recent strip + «用这份输入» close the loop (relative time · human origin · IO expand · wf deep-link).
 
 final _t0 = DateTime.utc(2026, 6, 27);
 
@@ -254,10 +257,15 @@ void main() {
     expect(find.text(r.openRunPage), findsOneWidget); // the deep link, not inline IO 深链而非内联
   });
 
-  testWidgets('the ⌘↵ keycap submits (same _submit path as the shortcut)', (tester) async {
+  testWidgets('⌘↵ submits from inside the editor (0719 用户裁定: the toolbar keycap glyph is gone, the '
+      'chord itself stays wired)', (tester) async {
     await tester.pumpWidget(_host(_fix(), fnRef));
     await tester.pump(const Duration(milliseconds: 50));
-    await tester.tap(find.byType(AnKeycap));
+    await tester.tap(find.byType(TextField).first); // focus the JSON editor 聚焦编辑器
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.metaLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.metaLeft);
     await tester.pumpAndSettle();
     expect(find.text(t.status.done), findsOneWidget); // ran to ok
   });
@@ -272,5 +280,84 @@ void main() {
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.textContaining('·'), findsNothing); // no «最近执行 · N» head
     expect(find.byType(AnLedgerRow), findsNothing);
+  });
+
+  // ── 三段式文法 §1+§2 (0719): the debugger head is AnPanelHead (icon+name+⋯+✕) + a §2 glance strip.
+  // 调试台头=AnPanelHead + 速览带。
+  group('head 三段式文法 (§1+§2)', () {
+    FixtureEntityRepository glanceFix() {
+      final today = DateTime.now();
+      return FixtureEntityRepository(
+        runDelay: Duration.zero,
+        functions: [
+          FunctionEntity(
+            id: 'fn_g',
+            name: 'glance-fn',
+            createdAt: _t0,
+            updatedAt: _t0,
+            activeVersionId: 'fn_g_v3',
+            activeVersion: FunctionVersion(
+                id: 'fn_g_v3', functionId: 'fn_g', version: 3, createdAt: _t0, updatedAt: _t0),
+          ),
+          // A versioned entity with an EMPTY ledger — the glance is just «v{N}» (缺段不渲). 有版本无跑。
+          FunctionEntity(
+            id: 'fn_v',
+            name: 'versioned-only',
+            createdAt: _t0,
+            updatedAt: _t0,
+            activeVersionId: 'fn_v_v5',
+            activeVersion: FunctionVersion(
+                id: 'fn_v_v5', functionId: 'fn_v', version: 5, createdAt: _t0, updatedAt: _t0),
+          ),
+        ],
+        functionExecutions: {
+          // Newest-first (the ledger order the provider pages): today ok 12ms, today ok 9ms, an OLD
+          // failed one. today count = 2; last = ok 12ms. 新在前:今天 ok/ok + 一条旧的 failed。
+          'fn_g': [
+            FunctionExecution(
+                id: 'g0', functionId: 'fn_g', status: 'ok', triggeredBy: 'manual',
+                input: const {'x': 1}, elapsedMs: 12, startedAt: today, createdAt: today),
+            FunctionExecution(
+                id: 'g1', functionId: 'fn_g', status: 'ok', triggeredBy: 'manual',
+                input: const {'x': 1}, elapsedMs: 9,
+                startedAt: today.subtract(const Duration(hours: 2)), createdAt: today),
+            FunctionExecution(
+                id: 'g2', functionId: 'fn_g', status: 'failed', triggeredBy: 'manual',
+                input: const {'x': 1}, elapsedMs: 4, startedAt: _t0, createdAt: _t0),
+          ],
+        },
+      );
+    }
+
+    testWidgets('head = AnPanelHead (name title, NO ⋯ since the debugger has no panel action)',
+        (tester) async {
+      await tester.pumpWidget(_host(glanceFix(), const EntityRef(EntityKind.function, 'fn_g')));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.byType(AnPanelHead), findsOneWidget);
+      final head = tester.widget<AnPanelHead>(find.byType(AnPanelHead));
+      expect(head.title, 'glance-fn');
+      expect(head.menuEntries, isEmpty); // 无面板级动作 → no ⋯
+      expect(find.byIcon(AnIcons.more), findsNothing);
+    });
+
+    testWidgets('glance: v{N} · 今天 {n} 次执行 · 上次成功 {ms} (all three segments, real data)',
+        (tester) async {
+      await tester.pumpWidget(_host(glanceFix(), const EntityRef(EntityKind.function, 'fn_g')));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 50)); // recentRuns resolves
+      expect(find.textContaining('v3'), findsOneWidget);
+      expect(find.textContaining(r.glanceToday(n: 2)), findsOneWidget); // 今天 2 次执行 (g2 is old)
+      expect(find.textContaining(r.glanceLastOk), findsOneWidget); // last = g0 ok
+    });
+
+    testWidgets('glance omits absent segments — a versioned entity with no ledger shows only v{N}',
+        (tester) async {
+      await tester.pumpWidget(_host(glanceFix(), const EntityRef(EntityKind.function, 'fn_v')));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('v5'), findsOneWidget); // just the version — no today, no last (缺段不渲)
+      expect(find.textContaining('今天'), findsNothing);
+      expect(find.textContaining(r.glanceLastOk), findsNothing);
+    });
   });
 }

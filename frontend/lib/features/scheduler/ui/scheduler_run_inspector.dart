@@ -61,8 +61,12 @@ class SchedulerRunInspector extends ConsumerWidget {
   }
 }
 
-/// The island's shell — the SAME head + scrolling body every inspector wears (documents 先例;零壳改,
-/// §6「inspector 三元链加一支」). 岛壳:与其它检查器同一顶+同一滚动体。
+/// The island's shell — the SAME head + scrolling body both faces wear, now the right-island IDENTITY
+/// head (三段式文法 §1+§2, 0719): the scheduler glyph + title, EVERY panel action collapsed into a
+/// single ⋯ (the run inspector has none — replay/triage are contextual body actions, not panel chrome
+/// → no ⋯, 「无则暂缺」), the first-class ✕, and a quiet §2 glance strip below carrying the run's parent
+/// WORKFLOW operational context (下次点火 · 近 7 天成功率 · 连败). 岛壳:身份头(scheduler 图标+标题+⋯+✕)
+/// + 速览带(父 workflow 运营上下文)+ 同一滚动体。
 class _Face extends ConsumerWidget {
   const _Face({required this.title, required this.children});
 
@@ -73,9 +77,10 @@ class _Face extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) => Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AnInspectorHead(
+          AnPanelHead(
             icon: AnIcons.scheduler,
-            label: title,
+            title: title,
+            sub: _glance(context, ref),
             onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
             closeSemantics: context.t.shell.togglePanel,
           ),
@@ -92,6 +97,42 @@ class _Face extends ConsumerWidget {
           ),
         ],
       );
+}
+
+/// §2 GLANCE STRIP (三段式文法 §2, 0719) — the run's parent WORKFLOW operational context, read ENTIRELY
+/// off the already-mounted [schedulerRailProvider] (the rail is alive on the scheduler ocean, so this
+/// is ZERO new fetch — 最小手术): `下次点火 {d} 后 · 近 7 天 {r}% 成功 · 连败 {n}`. Next-fire = the rail's
+/// own trigger-schedule join (`nextFireByWorkflow`, rendered only when a FUTURE fire exists). The middle
+/// segment is the 7d SUCCESS RATE, not a literal run count: `flowrun-stats` carries no run-count field
+/// and its `recent` beads cap at 10, so a truthful 「N 跑」 is not derivable — the 7d windowed rate IS the
+/// honest signal (the home health head makes the same choice). Streak = `consecutiveFailures`. Each
+/// segment present ONLY on real data (缺段不渲); all empty → null → no band (全空不渲). 速览带=父 workflow
+/// 运营上下文,全读已挂 rail(零新取):下次点火·7d 成功率·连败;中段用成功率而非「N 跑」——stats 无 run 计数字段、
+/// recent 珠封顶 10,故真实跑数不可得,7d 成功率是诚实信号(主页健康头同选);有数据才在、全空→null。
+Widget? _glance(BuildContext context, WidgetRef ref) {
+  final c = context.colors;
+  final t = context.t.scheduler.run;
+  final sel = ref.watch(selectedSchedulerProvider);
+  if (sel is! SchedulerRun) return null;
+  final rail = ref.watch(schedulerRailProvider).value;
+  if (rail == null) return null;
+  final stats = rail.stats[sel.workflowId];
+  final nextFire = rail.nextFireByWorkflow[sel.workflowId];
+  final now = DateTime.now();
+  final segs = <String>[
+    if (nextFire != null && nextFire.isAfter(now))
+      t.glanceNextFire(d: fmtWaited(nextFire.difference(now))),
+    if (stats?.successRate != null)
+      t.glanceSuccess(pct: (stats!.successRate! * 100).round()),
+    if ((stats?.consecutiveFailures ?? 0) > 0) t.glanceStreak(n: stats!.consecutiveFailures),
+  ];
+  if (segs.isEmpty) return null;
+  return Text(
+    segs.join(' · '),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: AnText.meta.copyWith(color: c.inkFaint),
+  );
 }
 
 // ─────────────────────────────────── 卷宗脸(无选中) ───────────────────────────────────

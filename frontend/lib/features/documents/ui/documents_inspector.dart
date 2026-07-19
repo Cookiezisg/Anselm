@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/model/byte_format.dart';
 import '../../../core/model/status_state.dart';
@@ -12,13 +13,13 @@ import '../../../core/design/typography.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/right_panel.dart';
-import '../../../core/ui/an_divider.dart';
-import '../../../core/ui/an_kv.dart';
-import '../../../core/ui/an_group_label.dart';
 import '../../../core/ui/an_dropdown.dart';
+import '../../../core/ui/an_expand_reveal.dart';
 import '../../../core/ui/an_form_field.dart';
-import '../../../core/ui/an_inspector_head.dart';
 import '../../../core/ui/an_input.dart';
+import '../../../core/ui/an_kv.dart';
+import '../../../core/ui/an_menu.dart';
+import '../../../core/ui/an_panel_head.dart';
 import '../../../core/ui/an_row.dart';
 import '../../../core/ui/an_scroll_behavior.dart';
 import '../../../core/ui/an_skeleton.dart';
@@ -27,19 +28,24 @@ import '../../../core/ui/an_tags.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/document_repository.dart';
+import '../state/doc_group_collapse.dart';
 import '../state/document_state.dart';
 
-/// The Documents ocean's right-island PROPERTIES inspector. A page shows its metadata (name / description /
-/// tags, + read-only path·size·modified) saved via **partial PATCH**; a skill shows its frontmatter
-/// (description / context / agent / allowed tools / arguments / invocation toggles) saved via **PUT full
-/// replace** — the backend has no partial skill update, so every write re-sends the whole frontmatter AND the
-/// untouched body (which is why the loaded `body` is carried through). Edits debounce-save through the
-/// repository seam; a save invalidates the rail list so a rename shows up there, but NOT the open provider
-/// (the form keeps its cursor). No selection → an inset empty state.
+/// The Documents ocean's right-island inspector — the three-segment grammar (三段式文法 §1–§3, batch 2, 用户
+/// 0719): ONE identity head ([AnPanelHead]: doc/skill glyph · name · ⋯ · ✕) over a quiet §2 GLANCE strip
+/// (`N 字 · M 反链 · 昨天编辑`, signal-only) over §3 collapsible GROUPS (Outline / Properties / Backlinks,
+/// each an [AnRow] group head + a folded body) — retiring the three orphan mini-titles (Outline / Properties
+/// / Backlinks each an [AnGroupLabel] over a flat block). The group INTERNALS are untouched (the outline
+/// tree / KV meta rows / backlinks list / skill form — 动骨不动髓); only the chrome converged.
 ///
-/// 文档海洋右岛属性面板。页=元数据(name/desc/tags + 只读 path·size·modified)走分部 PATCH;skill=frontmatter
-/// (desc/context/agent/工具/参数/调用开关)走 PUT 全覆盖(后端无分部更新,每次重发整套 frontmatter + 原 body)。
-/// 编辑去抖保存;存后 invalidate rail 列表(改名可见)但不 invalidate open provider(表单保光标)。无选=空态。
+/// A page shows metadata (name / description / tags edit in the CENTER; this island shows read-only
+/// path·size·modified) via partial PATCH; a skill shows its frontmatter (config fields) via PUT full-replace
+/// (the backend has no partial skill update, so a write re-sends the whole frontmatter AND the untouched
+/// body). Fold state persists per-group ([docGroupCollapseProvider]); no selection → an inset empty state.
+///
+/// 文档海洋右岛检查器——三段式文法(§1 身份头 [AnPanelHead] + §2 速览带 + §3 可折叠三组),退役三孤儿小标题;
+/// 组内实现原样保留(动骨不动髓)。页=元数据(名/描述/标签归中心,本岛只读 path·size·modified)走分部 PATCH;
+/// skill=frontmatter 走 PUT 全覆盖;折叠态按组持久化;无选=空态。
 class DocumentsInspector extends ConsumerWidget {
   const DocumentsInspector({super.key});
 
@@ -47,6 +53,7 @@ class DocumentsInspector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final sel = ref.watch(selectedDocProvider);
     if (sel == null) {
+      // No selection → the head names the panel, no ⋯ (nothing to fold), no glance. 无选:头命名面板、无 ⋯ 无速览。
       return _InspectorShell(
         icon: AnIcons.doc,
         title: context.t.documents.props.title,
@@ -64,25 +71,36 @@ class DocumentsInspector extends ConsumerWidget {
   }
 }
 
-/// The shared inspector chrome — the head band carries the OPEN DOCUMENT'S NAME (the panel is "about this
-/// page", not a generic form; ✕ collapses the right island) over a scrolling s16 body whose FIRST section
-/// is the live outline. 共享外壳:头带=**打开文档的名字**(面板是「关于此页」,非泛型表单;✕ 收右岛)+ s16 滚动
-/// body,**首段=活大纲**。
+/// The shared inspector chrome (三段式文法 §1) — the [AnPanelHead] (icon · [title] · ⋯ · ✕) with the §2 glance
+/// [sub] band, over a scrolling body. [menuEntries] empty → no ⋯ (the empty state). Horizontal pad is ZERO
+/// (the island's 12px is the sole inset — the group heads land flush like the left island's rail rows).
+/// 共享外壳:身份头 + 速览带 + 滚动 body;menuEntries 空→无 ⋯;水平 0(岛 12 唯一内距,组头洗底)。
 class _InspectorShell extends ConsumerWidget {
-  const _InspectorShell({required this.icon, required this.title, required this.body});
+  const _InspectorShell({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.sub,
+    this.menuEntries = const <AnMenuEntry>[],
+  });
 
   final IconData icon;
   final String title;
   final Widget body;
+  final Widget? sub;
+  final List<AnMenuEntry> menuEntries;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        AnInspectorHead(
+        AnPanelHead(
           icon: icon,
-          label: title,
+          title: title,
+          menuEntries: menuEntries,
+          menuSemanticLabel: context.t.a11y.moreActions,
+          sub: sub,
           onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
           closeSemantics: context.t.shell.togglePanel,
         ),
@@ -92,7 +110,7 @@ class _InspectorShell extends ConsumerWidget {
             // No horizontal pad — the [AnIsland]'s 12px is the sole island inset (single-source law).
             // 水平 0:岛壳 12 即唯一岛级内距。
             child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: AnSpace.s16), child: body),
+                padding: const EdgeInsets.symmetric(vertical: AnSpace.s8), child: body),
           ),
         ),
       ],
@@ -100,12 +118,122 @@ class _InspectorShell extends ConsumerWidget {
   }
 }
 
-/// The open document's OUTLINE — its headings as an indented, tappable table of contents (fed live by the
-/// editor; a tap scrolls the editor to that heading; the entry the viewport is READING highlights live via
-/// [docOutlineActiveProvider]). Quietly absent when the document has no headings.
-/// 打开文档的大纲:标题作可点目录(编辑器活喂;点击滚到该标题;**视口正读的项实时高亮**);无标题时静默缺席。
-class _OutlineSection extends ConsumerWidget {
-  const _OutlineSection();
+/// The head ⋯ overflow (三段式文法 §1 — the panel action the collapsible-groups structure introduces):
+/// «展开全部» / «收起全部» over [docGroupCollapseProvider]. 头 ⋯:全展/全收。
+List<AnMenuEntry> _menuEntries(BuildContext context, WidgetRef ref) {
+  final p = context.t.documents.props;
+  return [
+    AnMenuItem(
+      label: p.expandAll,
+      icon: AnIcons.unfold,
+      onTap: () => ref.read(docGroupCollapseProvider.notifier).expandAll(),
+    ),
+    AnMenuItem(
+      label: p.collapseAll,
+      icon: AnIcons.fold,
+      onTap: () => ref.read(docGroupCollapseProvider.notifier).collapseAll(),
+    ),
+  ];
+}
+
+// ── §2 glance strip ──
+
+/// The number of NON-WHITESPACE code points in [content] — a coarse «字数» for the glance (raw markdown
+/// characters; a size proxy, not a linguistic word count). 非空白码点数(粗粒度字数,含 markdown 语法字符)。
+int _charCount(String content) => content.replaceAll(RegExp(r'\s+'), '').runes.length;
+
+/// A compact count: `840` / `2.4k` / `12k` (trailing `.0` stripped). 紧凑计数。
+String _compactCount(int n) {
+  if (n < 1000) return '$n';
+  final s = (n / 1000).toStringAsFixed(1);
+  return '${s.endsWith('.0') ? s.substring(0, s.length - 2) : s}k';
+}
+
+/// The §2 GLANCE strip — one quiet [AnText.meta] line of `N 字 · M 反链 · <rel>编辑`, each segment present
+/// ONLY when it carries signal (零人话律: chars/backlinks omitted at 0; «edited» always meaningful from
+/// updatedAt). Returns null when nothing has a value → [AnPanelHead] draws no band. 速览带:有信号才在段,全空→null。
+Widget? _glance(BuildContext context, {required int chars, required int backlinks, required DateTime updatedAt}) {
+  final c = context.colors;
+  final p = context.t.documents.props;
+  final rel = fmtRelativeDay(
+    updatedAt,
+    DateTime.now(),
+    today: p.time.today,
+    yesterday: p.time.yesterday,
+    daysAgo: (n) => p.time.daysAgo(n: n),
+  );
+  final segs = <String>[
+    if (chars > 0) p.glanceChars(count: _compactCount(chars)),
+    if (backlinks > 0) p.glanceBacklinks(n: backlinks),
+    p.glanceEdited(rel: rel),
+  ];
+  if (segs.isEmpty) return null;
+  return Text(
+    segs.join(' · '),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: AnText.meta.copyWith(color: c.inkFaint),
+  );
+}
+
+// ── §3 collapsible group ──
+
+/// One collapsible right-island GROUP (三段式文法 §3) — an [AnRow] group head (permanent chevron + count
+/// meta, no icon, no ⋯ — the SAME AnRow language as the left island's Pinned/Recents heads + the
+/// notification tray's time buckets) over its [child] body. Fold state lives in [docGroupCollapseProvider]
+/// keyed by [groupKey], persisted per-group (survives restart). [keepMounted] keeps the body in the tree
+/// while collapsed (via [Offstage], NO tree-removal) — for a body holding EDITABLE state (the skill form's
+/// debounced autosave + edit buffers, which tree-removal would drop mid-window and then stale-remount from
+/// the intentionally-un-refetched openSkillProvider); the default tree-removes via [AnExpandReveal]
+/// (read-only bodies — animated + a11y-clean). 可折叠组:AnRow 组头(常驻箭头+计数、无图标无 ⋯)+ 体;折叠态按
+/// groupKey 持久化。keepMounted=收起不卸载(Offstage,保编辑态,skill 表单用),默认 AnExpandReveal 卸载(只读体)。
+class _GroupSection extends ConsumerWidget {
+  const _GroupSection({
+    required this.groupKey,
+    required this.label,
+    required this.count,
+    required this.child,
+    this.keepMounted = false,
+  });
+
+  final String groupKey;
+  final String label;
+  final int count;
+  final Widget child;
+  final bool keepMounted;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final open = !ref.watch(docGroupCollapseProvider).contains(groupKey);
+    void toggle() => ref.read(docGroupCollapseProvider.notifier).toggle(groupKey);
+    // The body breathes below the head; the next group head is the separator (no dividers). 体在头下透气,组头即分隔。
+    final body = Padding(padding: const EdgeInsets.only(top: AnSpace.s2, bottom: AnSpace.s12), child: child);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnRow(
+          collapsible: true,
+          open: open,
+          label: label,
+          meta: '$count',
+          onSelect: toggle,
+          onToggle: toggle,
+        ),
+        if (keepMounted)
+          Offstage(offstage: !open, child: body)
+        else
+          AnExpandReveal(open: open, child: body),
+      ],
+    );
+  }
+}
+
+/// The open document/skill's OUTLINE group (三段式文法 §3) — its headings as an indented, tappable table of
+/// contents (fed live by the editor; a tap scrolls the editor to that heading; the entry the viewport is
+/// READING highlights live via [docOutlineActiveProvider]). Quietly ABSENT (no group) when there are no
+/// headings. 大纲组:标题作可点目录(编辑器活喂;点击滚到该标题;视口正读项实时高亮);无标题时整组静默缺席。
+class _OutlineGroup extends ConsumerWidget {
+  const _OutlineGroup();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -113,28 +241,28 @@ class _OutlineSection extends ConsumerWidget {
     if (outline.isEmpty) return const SizedBox.shrink();
     final active = ref.watch(docOutlineActiveProvider);
     // Indent RELATIVE to the shallowest heading present — a document whose sections start at h2 reads
-    // flush-left, not pre-indented one step. 缩进按最浅层级归一:从 h2 起头的文档顶格,不预缩一级。
+    // flush-left, not pre-indented one step. 缩进按最浅层级归一。
     var minLevel = 6;
     for (final e in outline) {
       if (e.level < minLevel) minLevel = e.level;
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        // The ONE group label (批6 A-081 — two hand-rolls with two different gaps unify). 唯一段标。
-        AnGroupLabel(context.t.documents.props.outline),
-        for (var i = 0; i < outline.length; i++)
-          AnRow(
-            depth: outline[i].level - minLevel,
-            label: outline[i].text,
-            leadless: true, // a TOC has no icons — the reserved slot reads as mystery indent 目录无图标,空槽=莫名缩进
-            selected: active == i,
-            onSelect: () => ref.read(outlineJumpProvider.notifier).jump(i),
-          ),
-        const SizedBox(height: AnSpace.s12),
-        const AnDivider(),
-        const SizedBox(height: AnSpace.s12),
-      ],
+    return _GroupSection(
+      groupKey: kDocGroupOutline,
+      label: context.t.documents.props.outline,
+      count: outline.length,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (var i = 0; i < outline.length; i++)
+            AnRow(
+              depth: outline[i].level - minLevel,
+              label: outline[i].text,
+              leadless: true, // a TOC has no icons — the reserved slot reads as mystery indent 目录无图标
+              selected: active == i,
+              onSelect: () => ref.read(outlineJumpProvider.notifier).jump(i),
+            ),
+        ],
+      ),
     );
   }
 }
@@ -165,34 +293,33 @@ class _DocProperties extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final doc = ref.watch(openDocumentProvider(id));
-    final name = doc.value?.name.trim() ?? '';
+    final loaded = doc.value;
+    final name = loaded?.name.trim() ?? '';
+    // The glance rides the LOADED doc + the (separately-async) backlink count; null while loading. 速览带走已载 doc + 反链数。
+    Widget? sub;
+    if (loaded != null) {
+      final backlinks = ref.watch(backlinksProvider(id)).value ?? const [];
+      sub = _glance(context,
+          chars: _charCount(loaded.content), backlinks: backlinks.length, updatedAt: loaded.updatedAt);
+    }
     return _InspectorShell(
       icon: AnIcons.doc,
       // The head IS the open page's name (falls back while loading / for the unnamed). 头=页名。
       title: name.isEmpty ? t.documents.untitled : name,
+      menuEntries: _menuEntries(context, ref),
+      sub: sub,
       body: doc.when(
         loading: () => const AnSkeleton.lines(5),
         error: (_, _) =>
             AnState(kind: AnStateKind.error, size: AnStateSize.inset, title: t.documents.loadFailed),
         // The island is "about this page" only: outline (live focus) / file meta / backlinks. The page's
-        // OWN properties (name/description/tags) edit in the CENTER under the big title. 右岛只谈「这一页」:
-        // 大纲(实时焦点)/文件 meta/反链;页自身属性(名/描述/标签)在中心大标题下编辑。
+        // OWN properties (name/description/tags) edit in the CENTER under the big title. 右岛只谈「这一页」。
         data: (doc) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _OutlineSection(),
-            // The family KV list (批6 A-082 — the hand-rolled fixed-column label-value retires;
-            // the path wraps: a flush-right ellipsis would cut its most useful tail). 族键值列
-            // (定宽列手搓退役;path 换行——贴右省略会砍最有用的尾段)。
-            AnKv(dense: true, rows: [
-              AnKvRow(t.documents.props.path, doc.path, mono: true, wrap: true),
-              AnKvRow(t.documents.props.size, formatBytes(doc.sizeBytes)),
-              AnKvRow(t.documents.props.modified, fmtDateTime(doc.updatedAt)),
-            ]),
-            const SizedBox(height: AnSpace.s12),
-            const AnDivider(),
-            const SizedBox(height: AnSpace.s12),
-            _Backlinks(id: doc.id),
+            const _OutlineGroup(),
+            _DocMetaGroup(doc: doc),
+            _BacklinksGroup(id: doc.id),
           ],
         ),
       ),
@@ -200,12 +327,38 @@ class _DocProperties extends ConsumerWidget {
   }
 }
 
-/// The document's BACKLINKS — pages whose bodies `[[id]]`-wikilink this one (incoming `link` edges, names
-/// hydrated server-side). A document row navigates to the linker; non-document linkers (a conversation, a
-/// workflow) render inert — their oceans own their navigation. 反向链接:正文 wikilink 指向本页的页面(入向
-/// link 边);文档行点击即导航,非文档链接方(对话/工作流)惰性展示——导航归其海洋。
-class _Backlinks extends ConsumerWidget {
-  const _Backlinks({required this.id});
+/// The page's PROPERTIES group (三段式文法 §3) — the read-only file meta (path · size · modified) as a family
+/// KV list (the page's editable name/description/tags live in the center header). 页属性组:只读文件 meta 键值列。
+class _DocMetaGroup extends StatelessWidget {
+  const _DocMetaGroup({required this.doc});
+
+  final DocumentNode doc;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    // The family KV list (批6 A-082): path wraps (a flush-right ellipsis would cut its most useful tail).
+    // 族键值列(path 换行,贴右省略会砍最有用的尾段)。
+    final rows = [
+      AnKvRow(t.documents.props.path, doc.path, mono: true, wrap: true),
+      AnKvRow(t.documents.props.size, formatBytes(doc.sizeBytes)),
+      AnKvRow(t.documents.props.modified, fmtDateTime(doc.updatedAt)),
+    ];
+    return _GroupSection(
+      groupKey: kDocGroupProps,
+      label: t.documents.props.title,
+      count: rows.length,
+      child: AnKv(dense: true, rows: rows),
+    );
+  }
+}
+
+/// The document's BACKLINKS group (三段式文法 §3) — pages whose bodies `[[id]]`-wikilink this one (incoming
+/// `link` edges, names hydrated server-side). A document row navigates to the linker; non-document linkers
+/// (a conversation, a workflow) render inert — their oceans own their navigation. Always present for a page
+/// (the empty body states «no pages link here yet»). 反链组:入向 link 边;文档行点击导航,非文档惰性;空态陈述。
+class _BacklinksGroup extends ConsumerWidget {
+  const _BacklinksGroup({required this.id});
 
   final String id;
 
@@ -214,29 +367,40 @@ class _Backlinks extends ConsumerWidget {
     final t = context.t;
     final c = context.colors;
     return ref.watch(backlinksProvider(id)).when(
-          loading: () => const AnSkeleton.lines(2),
+          loading: () => _GroupSection(
+            groupKey: kDocGroupBacklinks,
+            label: t.documents.props.backlinks,
+            count: 0,
+            child: const AnSkeleton.lines(2),
+          ),
           error: (_, _) => const SizedBox.shrink(), // quiet: backlinks are auxiliary 反链是辅助信息,静默降级
-          data: (links) => Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              AnGroupLabel(t.documents.props.backlinks),
-              if (links.isEmpty)
-                Text(t.documents.props.noBacklinks, style: AnText.meta.copyWith(color: c.inkFaint))
-              else
-                for (final link in links)
-                  AnRow(
-                    icon: AnIcons.byKey(link.fromKind),
-                    label: link.fromName.isEmpty ? link.fromId : link.fromName,
-                    onSelect: link.fromKind == 'document'
-                        ? () => context.go(documentLocation(link.fromId))
-                        : null,
+          data: (links) => _GroupSection(
+            groupKey: kDocGroupBacklinks,
+            label: t.documents.props.backlinks,
+            count: links.length,
+            child: links.isEmpty
+                ? Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
+                    child: Text(t.documents.props.noBacklinks,
+                        style: AnText.meta.copyWith(color: c.inkFaint)),
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final link in links)
+                        AnRow(
+                          icon: AnIcons.byKey(link.fromKind),
+                          label: link.fromName.isEmpty ? link.fromId : link.fromName,
+                          onSelect: link.fromKind == 'document'
+                              ? () => context.go(documentLocation(link.fromId))
+                              : null,
+                        ),
+                    ],
                   ),
-            ],
           ),
         );
   }
 }
-
 
 // ── skill frontmatter properties ──
 
@@ -248,22 +412,57 @@ class _SkillProperties extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
+    final skill = ref.watch(openSkillProvider(name));
+    final loaded = skill.value;
+    // A skill has no backlinks (the backend only parses `[[id]]` on documents) → the 反链 segment is omitted
+    // by 零人话律 (backlinks: 0). Glance = «N 字 · <rel>编辑». skill 无反链→段被 0 律省;速览带=字+编辑。
+    Widget? sub;
+    if (loaded != null) {
+      sub = _glance(context, chars: _charCount(loaded.body), backlinks: 0, updatedAt: loaded.updatedAt);
+    }
     return _InspectorShell(
       icon: AnIcons.skill,
       // The slug IS the identity — the head shows it directly. slug 即身份,头直显。
       title: name,
-      body: ref.watch(openSkillProvider(name)).when(
-            loading: () => const AnSkeleton.lines(6),
-            error: (_, _) =>
-                AnState(kind: AnStateKind.error, size: AnStateSize.inset, title: t.documents.loadFailed),
-            data: (skill) => Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                const _OutlineSection(),
-                _SkillForm(key: ValueKey(skill.name), skill: skill),
-              ],
-            ),
-          ),
+      menuEntries: _menuEntries(context, ref),
+      sub: sub,
+      body: skill.when(
+        loading: () => const AnSkeleton.lines(6),
+        error: (_, _) =>
+            AnState(kind: AnStateKind.error, size: AnStateSize.inset, title: t.documents.loadFailed),
+        data: (skill) => Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const _OutlineGroup(),
+            _SkillPropsGroup(skill: skill),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// The skill's PROPERTIES group (三段式文法 §3) — its frontmatter CONFIG form. [keepMounted] (Offstage, not
+/// tree-removed): the form holds a debounced autosave + edit buffers, and the open provider is deliberately
+/// never refetched mid-edit (cursor), so unmounting on collapse would drop a pending save and stale-remount.
+/// 技能属性组:frontmatter 配置表单;keepMounted(保态,收起不卸载,免丢在途保存/陈旧重挂)。
+class _SkillPropsGroup extends StatelessWidget {
+  const _SkillPropsGroup({required this.skill});
+
+  final Skill skill;
+
+  @override
+  Widget build(BuildContext context) {
+    final f = skill.frontmatter;
+    // The visible config fields: context, tools, arguments, model-invoke, user-invoke (+ agent iff fork).
+    // 可见配置字段数(fork 才有 agent)。
+    final count = 5 + (f.context == kSkillContextFork ? 1 : 0);
+    return _GroupSection(
+      groupKey: kDocGroupProps,
+      label: context.t.documents.props.title,
+      count: count,
+      keepMounted: true,
+      child: _SkillForm(key: ValueKey(skill.name), skill: skill),
     );
   }
 }
@@ -452,6 +651,3 @@ class _OnOff extends StatelessWidget {
         onChanged: (v) => onChanged(v),
       );
 }
-
-
-

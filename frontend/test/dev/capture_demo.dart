@@ -10,6 +10,7 @@ import 'package:flutter/gestures.dart';
 import 'package:anselm/app/router.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/platform/window_fullscreen.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/dev/demo_main.dart' show demoOverrides;
@@ -119,6 +120,10 @@ const _wsmenu = String.fromEnvironment('WSMENU');
 // Optional `--dart-define=NOTIFPICK=1` opens notifications THEN taps the settings gear — verify picking
 // an ocean dismisses the tray (settings shows, not notifications). 开通知再点设置齿轮,验选海洋即收起托盘。
 const _notifPick = String.fromEnvironment('NOTIFPICK');
+// Optional `--dart-define=FULLSCREEN=1` flips the platform fullscreen bit so the left-island chrome bar
+// shows the PRODUCT BRAND (mark + name) in place of the OS traffic lights — verify its band optical-centre
+// seating (0719). 强制全屏位:左岛 chrome 带显品牌标(替红绿灯),验带内光学居中。
+const _fullscreen = bool.fromEnvironment('FULLSCREEN');
 
 /// The capture root — the REAL [AppShell] driven by the REAL [buildAppRouter] (so routing is exercised
 /// exactly as `make app`); the `builder` wraps the routed shell in a keyed RepaintBoundary to grab. 截图根。
@@ -139,6 +144,7 @@ void main() {
     await _load('Inter', 'assets/fonts/InterVariable.ttf');
     await _load('MiSans', 'assets/fonts/MiSansVF.ttf');
     await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
+    await _load('Newsreader', 'assets/fonts/Newsreader.ttf'); // brand wordmark (FULLSCREEN=true frames) 品牌 wordmark
     final cache = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev';
     await _load('packages/lucide_icons_flutter/Lucide300',
         '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf');
@@ -150,6 +156,14 @@ void main() {
     tester.view.physicalSize = const Size(AnSize.windowInitialWidth * 2, AnSize.windowInitialHeight * 2);
     addTearDown(tester.view.reset);
 
+    // Reveal the left-island brand (macOS fullscreen hides the OS lights → the brand takes their slot). Set
+    // BEFORE pumping so it mounts fullscreen from frame 1; the many pumps below settle its drift-in.
+    // 揭示左岛品牌(全屏藏灯,品牌顶位);先设再泵,首帧即全屏,后续泵让下滑落定。
+    if (_fullscreen) {
+      WindowFullScreen.active.value = true;
+      addTearDown(() => WindowFullScreen.active.value = false);
+    }
+
     EntityKind? selKind;
     String? selId;
     var outName = 'demo';
@@ -159,6 +173,7 @@ void main() {
       selId = parts[1];
       outName = 'demo_$selId';
     }
+    if (_fullscreen) outName = '${outName}_brand';
 
     // ONE override source — demoOverrides(), shared with `make demo` and the perf harness. The old
     // hand-copied subset here drifted TWICE (scheduler once, then the whole settings seam: capture
@@ -316,6 +331,19 @@ void main() {
         await tester.pump(const Duration(milliseconds: 80));
       }
       outName = '${outName}_doc';
+      // `--dart-define=DOCFOLD=<组头 label>` (with DOC) taps that documents-inspector group head to collapse
+      // it — the 三段式文法 §3 fold frame (batch 2). DOCFOLD:折叠某组(如「属性」),截三段式折叠帧。
+      const docFold = String.fromEnvironment('DOCFOLD');
+      if (docFold.isNotEmpty) {
+        final head = find.text(docFold);
+        if (head.evaluate().isNotEmpty) {
+          await tester.tap(head.first, warnIfMissed: false);
+          for (var i = 0; i < 6; i++) {
+            await tester.pump(const Duration(milliseconds: 80)); // fold animates 折叠动画
+          }
+        }
+        outName = '${outName}_fold';
+      }
     }
 
     // Deep-link to a conversation (real navigation) so the rail highlights the selected row. Pump long

@@ -861,6 +861,9 @@
       "dossierTitle": "运行卷宗",
       "kvStatus": "状态",
       "inspectorTitle": "检查器",
+      "glanceNextFire": "下次点火 $d 后",
+      "glanceSuccess": "近 7 天 $pct% 成功",
+      "glanceStreak": "连败 $n",
       "payloadHead": "入口 payload",
       "pinnedRefsHead": "钉住的引用",
       "errorHead": "错误",
@@ -1358,6 +1361,10 @@
       "cancel": "取消",
       "close": "关闭运行终端",
       "cancelled": "已取消",
+      "glanceToday": "今天 $n 次执行",
+      "glanceLastOk": "上次成功",
+      "glanceLastFailed": "上次失败",
+      "glanceLastCancelled": "上次取消",
       "outputHeading": "输出",
       "resultHeading": "结果",
       "logsHeading": "日志",
@@ -1474,7 +1481,17 @@
       "emptyHint": "选一个页面或技能查看它的属性。",
       "outline": "大纲",
       "backlinks": "反向链接",
-      "noBacklinks": "还没有页面链接到这里。"
+      "noBacklinks": "还没有页面链接到这里。",
+      "expandAll": "展开全部",
+      "collapseAll": "收起全部",
+      "glanceChars": "$count 字",
+      "glanceBacklinks": "$n 反链",
+      "glanceEdited": "$rel编辑",
+      "time": {
+        "today": "今天",
+        "yesterday": "昨天",
+        "daysAgo": "$n 天前"
+      }
     },
     "slash": {
       "text": "正文",

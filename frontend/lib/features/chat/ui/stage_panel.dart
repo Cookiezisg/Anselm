@@ -384,12 +384,13 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   /// The flat display list (三段式文法 §3, 用户 0719 改判 kind→时间档——kind 轴 12 条 10 头「目录病」被否决):
   /// todo (row 0) · the ungrouped [top] active layer · then the settled Cast bucketed into three TIME tiers by
   /// each row's last-touched time (刚刚 = the current turn / a fixed 10-min window; 早些时候 = earlier today;
-  /// 更早 = past days), each a [_GroupHeadItem] with its [_EntityItem] rows when OPEN · then the load-more foot.
-  /// **Two anti-fragmentation rules**: an empty tier draws NO head; a SINGLE non-empty tier draws NO head at
-  /// all — bare rows (an all-刚刚 list needs no scaffolding, 零人话律; short threads stay a clean column, long
-  /// ones auto-layer). A tier FORCE-OPENS (never hides live / auto-expanded work) when it holds a live row or a
-  /// row the director/deep-jump has expanded (§3 test-lock). 按最后触碰时间分三档;空档免头、单档全裸行;含
-  /// live/展开行的档强制展开。
+  /// 更早 = past days), each a [_TierItem] (head + its rows under one collapse [AnExpandReveal]) · then the
+  /// load-more foot. **Two anti-fragmentation rules**: an empty tier is absent; a SINGLE non-empty tier draws
+  /// NO head at all — [_EntityItem] BARE rows (an all-刚刚 list needs no scaffolding, 零人话律; short threads
+  /// stay a clean column, long ones auto-layer). A tier FORCE-OPENS (never hides live / auto-expanded work)
+  /// when it holds a live row or a row the director/deep-jump has expanded — flipping `open` so the reveal
+  /// animates the same slide (§3 test-lock). 按最后触碰时间分三档;空档免头、单档全裸行;含 live/展开行的档强制
+  /// 展开(翻 open→播同一滑动)。
   List<_Item> _computeItems(StageState stage, TouchpointLedgerState ledger,
       ConversationTranscript transcript, Set<String> expanded, Set<String> collapsed, bool hasTodo) {
     final split = _computeRows(stage, ledger, transcript);
@@ -411,13 +412,16 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     for (final tierKey in nonEmpty) {
       final group = tiers[tierKey]!;
       if (grouped) {
+        // The whole tier (head + rows) is ONE list item so the fold rides a single [AnExpandReveal] (the kit
+        // standard collapse slide); force-open (a live row / a director / deep-jump auto-expand) flips `open`
+        // → the reveal animates the SAME slide. 整档一 item,折叠走单个 AnExpandReveal;强制展开也翻 open→播同一滑动。
         final forced = group.any((s) => s.live || expanded.contains(s.rowId));
         final open = forced || !collapsed.contains(tierKey);
-        items.add(_GroupHeadItem(tierKey: tierKey, count: group.length, open: open));
-        if (!open) continue;
-      }
-      for (final s in group) {
-        items.add(_EntityItem(s));
+        items.add(_TierItem(tierKey: tierKey, rows: group, open: open));
+      } else {
+        for (final s in group) {
+          items.add(_EntityItem(s));
+        }
       }
     }
     if (ledger.hasMore) items.add(const _FootItem());
@@ -502,10 +506,10 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
             subjectBlockId: stage.subject?.blockId,
           ),
         );
-      case _GroupHeadItem(:final tierKey, :final count, :final open):
+      case _TierItem(:final tierKey, :final rows, :final open):
         return KeyedSubtree(
           key: _keyFor('group:$tierKey'),
-          child: _GroupHead(conversationId: conversationId, tierKey: tierKey, count: count, open: open),
+          child: _buildTier(tierKey, rows, open, expanded, transcript, stage),
         );
       case _FootItem():
         // load-more foot — fires on becoming visible, DEFERRED out of build: loadMore() synchronously
@@ -517,10 +521,50 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
     }
   }
+
+  /// A grouped time tier as ONE list item: the [_GroupHead] over an [AnExpandReveal] wrapping the tier's rows,
+  /// so a fold/unfold — a user toggle OR a director / deep-jump force-open — rides the kit's STANDARD collapse
+  /// slide (chevron rotation [AnRow] + height slide [AnExpandReveal] play together; reduced double-gated inside
+  /// the reveal). LAZY (`.builder`): a collapsed tier never builds its rows — matching the pre-animation
+  /// behaviour + the row-body reveal nested within (ClipRect+Align nests safely, unlike AnimatedSize). The
+  /// per-row [GlobalKey]s stay put so the director's scroll-to-row still resolves once a tier is open. 分组档=
+  /// 单 item:组头 + AnExpandReveal 裹行,折叠走 kit 标准滑动(chevron 旋转 + 高度滑动同播,reduced 双闸);惰性,
+  /// 收起档不建行;行 GlobalKey 不变,档一开导演器滚动即命中。
+  Widget _buildTier(String tierKey, List<_RowSpec> rows, bool open, Set<String> expanded,
+      CoalescingNotifier<ConversationTranscript> transcript, StageState stage) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _GroupHead(conversationId: conversationId, tierKey: tierKey, count: rows.length, open: open),
+        AnExpandReveal.builder(
+          open: open,
+          childBuilder: (context) => Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final spec in rows)
+                KeyedSubtree(
+                  key: _keyFor(spec.rowId),
+                  child: _StageRow(
+                    conversationId: conversationId,
+                    spec: spec,
+                    open: expanded.contains(spec.rowId),
+                    transcript: transcript,
+                    stagePhase: stage.phase,
+                    subjectBlockId: stage.subject?.blockId,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 /// One display-list item (三段式文法 §3) — the accordion flattens to these so index math stays honest across
-/// todo / active-layer / group-head / grouped-row / foot. 展平列一项(分组后索引仍诚实)。
+/// todo / active-layer / tier-block / bare-row / foot. 展平列一项(分组后索引仍诚实)。
 sealed class _Item {
   const _Item();
 }
@@ -535,16 +579,17 @@ class _TopItem extends _Item {
   final _RowSpec spec;
 }
 
-/// A time-tier GROUP head (permanent chevron + count). [tierKey] = the [stageTierOrder] fold token; [open] is the
-/// RESOLVED state (user fold ∪ force-open). 时间档组头。
-class _GroupHeadItem extends _Item {
-  const _GroupHeadItem({required this.tierKey, required this.count, required this.open});
+/// A grouped time tier — its head + rows as ONE list item so the fold rides a single [AnExpandReveal].
+/// [tierKey] = the [stageTierOrder] fold token; [open] is the RESOLVED state (user fold ∪ force-open).
+/// 分组时间档(单 item,折叠走单 AnExpandReveal)。
+class _TierItem extends _Item {
+  const _TierItem({required this.tierKey, required this.rows, required this.open});
   final String tierKey;
-  final int count;
+  final List<_RowSpec> rows;
   final bool open;
 }
 
-/// A settled Cast row living inside its time tier. 落定 Cast 行(在其时间档内)。
+/// A BARE settled Cast row — the single-tier case (no head, no fold, so no reveal). 单档裸行(无头无折叠)。
 class _EntityItem extends _Item {
   const _EntityItem(this.spec);
   final _RowSpec spec;

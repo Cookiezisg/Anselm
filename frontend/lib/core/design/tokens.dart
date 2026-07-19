@@ -252,6 +252,20 @@ abstract final class AnSize {
   // verified constant, not the runtime query. 红绿灯居中带(灯心≈26);顶控对齐到 titlebar/2;getTitlebarHeight 返全带 66 会偏低,故用此验证常量。
   static const double titlebar = 52;
 
+  // The BRAND's optical-centre drop inside the [islandHead] chrome band — a DISTINCT alignment from the
+  // traffic-lights' line. The control row (collapse button, breadcrumb) tracks the lights' horizontal line
+  // (≈[titlebar]/2 from the window top → its centre lands ~18 from the band top). The brand that REPLACES
+  // the lights in fullscreen / Win-Linux reads top-heavy on that same line (breathing room piles up below),
+  // so the brand ALONE drops by this amount to the band's OPTICAL centre — the geometric centre of
+  // [islandHead] (22), nudged up a hair (→ ~21), i.e. ~this far below the lights' line. Paint-only, applied
+  // ONLY where the brand draws (AnWindowControls); the lights / collapse controls never move. Frame-calibrated
+  // (same class as the wordmark / caret optical nudges), NOT derived — a hand-set optical constant.
+  // 品牌标在 islandHead chrome 带内的光学居中下移——与红绿灯灯线对位区分。控件行(收起钮/面包屑)落灯线
+  // (≈titlebar/2 → 中心距带顶 ~18);全屏 / Win-Linux 顶替灯位的品牌在灯线上显头重(呼吸留白全堆在下),故品牌
+  // 单独下移此值落带光学中心(islandHead 几何中心 22 再微上一丝 → ~21,即灯线下约此距)。仅绘制、只作用于品牌
+  // 绘制处,灯 / 收起钮不动。真帧标定(同 wordmark / caret 光学微调一类)、非推导,手设光学常量。
+  static const double brandBandDrop = 3;
+
   // Shell envelope: 8px padding around the islands + 8px gaps between them.
   // 壳外廓:岛四周 8px 内距 + 岛间 8px 间距。
   static const double shellPad = AnSpace.s8;

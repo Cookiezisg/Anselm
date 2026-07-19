@@ -861,6 +861,9 @@
       "dossierTitle": "Run dossier",
       "kvStatus": "Status",
       "inspectorTitle": "Inspector",
+      "glanceNextFire": "next fire in $d",
+      "glanceSuccess": "$pct% ok / 7d",
+      "glanceStreak": "$n failing",
       "payloadHead": "Entry payload",
       "pinnedRefsHead": "Pinned refs",
       "errorHead": "Error",
@@ -1358,6 +1361,10 @@
       "cancel": "Cancel",
       "close": "Close run terminal",
       "cancelled": "Cancelled",
+      "glanceToday": "$n today",
+      "glanceLastOk": "last ok",
+      "glanceLastFailed": "last failed",
+      "glanceLastCancelled": "last cancelled",
       "outputHeading": "Output",
       "resultHeading": "Result",
       "logsHeading": "Logs",
@@ -1474,7 +1481,17 @@
       "emptyHint": "Select a page or skill to see its properties.",
       "outline": "Outline",
       "backlinks": "Backlinks",
-      "noBacklinks": "No pages link here yet."
+      "noBacklinks": "No pages link here yet.",
+      "expandAll": "Expand all",
+      "collapseAll": "Collapse all",
+      "glanceChars": "$count chars",
+      "glanceBacklinks": "$n backlinks",
+      "glanceEdited": "Edited $rel",
+      "time": {
+        "today": "today",
+        "yesterday": "yesterday",
+        "daysAgo": "$n days ago"
+      }
     },
     "slash": {
       "text": "Text",

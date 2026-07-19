@@ -411,6 +411,7 @@ lib/features/documents/data/document_fixtures.dart	converged
 lib/features/documents/data/document_repository.dart	converged
 lib/features/documents/data/documents_demo_fixture.dart	reviewed
 lib/features/documents/model/doc_outline.dart	converged
+lib/features/documents/state/doc_group_collapse.dart	converged
 lib/features/documents/state/document_state.dart	reviewed
 lib/features/documents/ui/an_document_editor.dart	converged
 lib/features/documents/ui/document_ocean.dart	converged

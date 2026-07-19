@@ -1,3 +1,6 @@
+import 'package:anselm/core/contract/entities/relation.dart';
+import 'package:anselm/core/contract/entities/scheduler_stats.dart';
+import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
@@ -721,6 +724,110 @@ void main() {
       final d = container.read(schedulerRunProvider('fr_run1')).value!;
       final fetch = d.nodes.firstWhere((n) => n.nodeId == 'fetch');
       expect(fetch.startedAt, isNotNull, reason: '真相行的戳不被无戳的 tick 占位抹掉');
+    });
+  });
+
+  // ── 三段式文法 §1+§2 (0719): the run inspector head is AnPanelHead + a §2 glance strip carrying the
+  // run's parent WORKFLOW operational context, read off the rail. 头=AnPanelHead + 父 workflow 速览带。
+  group('head 三段式文法 (§1+§2)', () {
+    // A repo whose rail returns real 7d stats (20% ok, 4 failing) + a future cron fire for wf_a, so
+    // all three glance segments render. 让三段速览段全渲的 repo。
+    StubSchedulerRepo glanceRepo() => StubSchedulerRepo(
+          workflows: [
+            SchedulerWorkflowRow(
+                id: 'wf_a', name: '数据清洗流水线', lifecycleState: 'active', updatedAt: _now),
+          ],
+          byWorkflow: const [
+            WorkflowRunStats(workflowId: 'wf_a', successRate: 0.2, consecutiveFailures: 4),
+          ],
+          triggers: [
+            TriggerEntity(
+                id: 'tr_cron',
+                name: 'nightly',
+                kind: TriggerSource.cron,
+                listening: true, // the rail joins next-fires only for LISTENING triggers 只连监听中
+                nextFireAt: _now.add(const Duration(hours: 2)),
+                createdAt: _now,
+                updatedAt: _now),
+          ],
+          edges: const [
+            EntityRelation(
+                id: 'rel_1',
+                kind: 'equip',
+                fromKind: 'workflow',
+                fromId: 'wf_a',
+                toKind: 'trigger',
+                toId: 'tr_cron',
+                toName: 'nightly'),
+          ],
+          graphByWorkflow: const {'wf_a': _activeGraph},
+          pinnedGraphByVersion: const {'wfv_pinned7': _graph},
+          runs: [
+            Flowrun(
+              id: 'fr_run1',
+              workflowId: 'wf_a',
+              versionId: 'wfv_pinned7',
+              origin: 'cron',
+              triggerId: 'tr_cron',
+              status: 'failed',
+              error: _runError,
+              startedAt: _now.subtract(const Duration(seconds: 60)),
+              completedAt: _now.subtract(const Duration(seconds: 51)),
+              updatedAt: _now,
+            ),
+          ],
+          nodesByRun: {
+            'fr_run1': [_node('analyze', 'failed', kind: 'agent', error: _nodeError)],
+          },
+        );
+
+    testWidgets('head = AnPanelHead (dossier title, NO ⋯ — replay/triage are body actions)',
+        (tester) async {
+      _desktop(tester);
+      await _pump(tester, glanceRepo());
+      final head = tester.widget<AnPanelHead>(
+          find.descendant(of: find.byType(SchedulerRunInspector), matching: find.byType(AnPanelHead)));
+      expect(head.title, t.scheduler.run.dossierTitle);
+      expect(head.menuEntries, isEmpty); // no panel-scoped action → no ⋯
+    });
+
+    testWidgets('§2 glance: 下次点火 · 近 7 天成功率 · 连败 (all read off the rail)', (tester) async {
+      _desktop(tester);
+      await _pump(tester, glanceRepo());
+      // The rail futures resolve on top of the run — pump a little more. 让 rail 落定。
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      final tr = t.scheduler.run;
+      expect(find.textContaining(tr.glanceSuccess(pct: 20)), findsOneWidget); // 近 7 天 20% 成功
+      expect(find.textContaining(tr.glanceStreak(n: 4)), findsOneWidget); // 连败 4
+      // The glance is ONE ' · '-joined Text — pull it and prove ALL THREE segments (next-fire · rate ·
+      // streak) are present, locale-agnostically (the next-fire duration word is clock-fragile).
+      // glance 是一条 ' · ' 拼接 Text:取它证三段齐(下次点火·成功率·连败),locale 无关。
+      final glance = tester
+          .widgetList<Text>(
+              find.descendant(of: find.byType(AnPanelHead), matching: find.byType(Text)))
+          .map((w) => w.data)
+          .whereType<String>()
+          .firstWhere((s) => s.contains(tr.glanceStreak(n: 4)));
+      final segs = glance.split(' · ');
+      expect(segs.length, 3, reason: '下次点火 · 成功率 · 连败 三段齐');
+      expect(segs.first, tr.glanceNextFire(d: segs.first.split(' ').last)); // first = next-fire
+    });
+
+    testWidgets('§2 glance omits absent segments — no rail stats → no band (全空不渲)', (tester) async {
+      _desktop(tester);
+      // _repo() seeds NO byWorkflow stats / triggers / edges → the rail has nothing for wf_a. 无 rail 数据。
+      await _pump(tester, _repo());
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 50));
+      }
+      final tr = t.scheduler.run;
+      expect(find.byType(AnPanelHead), findsOneWidget); // the head still stands 头还在
+      // No band at all — the head carries only its title Text (no glance segment). 无速览带,只剩标题。
+      expect(find.descendant(of: find.byType(AnPanelHead), matching: find.byType(Text)),
+          findsOneWidget);
+      expect(find.textContaining(tr.glanceStreak(n: 4)), findsNothing);
     });
   });
 }
