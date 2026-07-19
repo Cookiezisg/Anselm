@@ -472,6 +472,38 @@ void main() {
     });
   });
 
+  // ── 0719 真机三症状回归:pill↔card 形变必须保 TextField State ──
+  // The single↔multiline morph swaps subtrees; the GlobalKey reparent must carry EditableText's State
+  // across — focus held, caret intact, State identical. Without it the first wrap dropped focus+caret
+  // (用户 0719:「变多行光标就丢,点半天回不来」). 形变换子树,GlobalKey 搬家保状态:焦点在、光标不重置、State 同一。
+  testWidgets('pill→card morph keeps the SAME EditableText state (focus + caret survive the wrap)',
+      (tester) async {
+    final repo = FixtureChatRepository();
+    await tester.pumpWidget(_host(repo));
+    await tester.tap(find.byType(EditableText));
+    await tester.pump();
+    final before = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(before.widget.focusNode.hasFocus, isTrue);
+
+    // A newline forces the ≥2-line judgement → the multiline subtree. 换行强制多行子树。
+    await tester.enterText(find.byType(EditableText), 'line one\nline two');
+    await tester.pumpAndSettle();
+
+    final after = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(identical(before, after), isTrue,
+        reason: '形变必须 reparent 同一个 EditableText State——重建即丢焦点/光标/IME 会话');
+    expect(after.widget.focusNode.hasFocus, isTrue, reason: '跨形变焦点不丢');
+    final sel = after.textEditingValue.selection;
+    expect(sel.isValid && sel.isCollapsed && sel.baseOffset == 'line one\nline two'.length, isTrue,
+        reason: '光标停在文本末,未被重置');
+
+    // And back: card→pill (delete to one line) keeps it too. 删回单行同样保持。
+    await tester.enterText(find.byType(EditableText), 'one');
+    await tester.pumpAndSettle();
+    final back = tester.state<EditableTextState>(find.byType(EditableText));
+    expect(identical(before, back), isTrue, reason: '收回单行仍是同一 State');
+    expect(back.widget.focusNode.hasFocus, isTrue);
+  });
 }
 
 class _FakeMentions extends MentionSource {

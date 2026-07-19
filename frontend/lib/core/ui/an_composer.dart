@@ -76,11 +76,13 @@ class _AnComposerState extends State<AnComposer> {
   // row below — derived from the lg pair (row-box · iconLg-glyph) THE LEAD BUTTONS ACTUALLY USE, so it
   // self-heals if that tier retunes. 换行文字左内距,使其光学左缘与下排图标字形齐平;派生自 lead 按钮**实际用的**
   // lg 档(row 盒 · iconLg 形),该档重调即自愈。
-  static const double _wrapTextInset = (AnSize.row - AnSize.iconLg) / 2 - AnSize.hairline;
+  static const double _wrapTextInset =
+      (AnSize.row - AnSize.iconLg) / 2 - AnSize.hairline;
 
   // Internal scroll cap for the edit field — 7 reading lines (the 15/1.6 = 24px line box), then scroll.
   // 编辑区滚动上限:7 个阅读行盒(24px),超则内滚。
-  static final double _editMaxHeight = AnText.reading.fontSize! * AnText.reading.height! * 7;
+  static final double _editMaxHeight =
+      AnText.reading.fontSize! * AnText.reading.height! * 7;
 
   @override
   void initState() {
@@ -109,25 +111,42 @@ class _AnComposerState extends State<AnComposer> {
     super.dispose();
   }
 
-  void _onChange() => setState(() {}); // re-evaluate the pill↔card line count 重算行数
+  void _onChange() =>
+      setState(() {}); // re-evaluate the pill↔card line count 重算行数
   void _onFocus() => setState(() {}); // re-fade the focus halo 聚焦光环重淡
+
+  /// The ONE TextField identity across the pill↔card morph. The single-line and multiline rows are
+  /// DIFFERENT subtrees; without a GlobalKey the reflow would destroy and rebuild EditableText's
+  /// State — dropping focus, caret and the live IME session on the very first wrap (用户 0719 真机:
+  /// 「变多行光标就丢、点半天回不来」的根因). GlobalKey reparenting moves the element — state intact.
+  /// pill↔card 两棵子树里同一把 GlobalKey:无它则跨行即销毁重建 EditableText State——焦点/光标/IME
+  /// 会话全丢(用户 0719 真机根因);有它则 element 整体搬家、状态原样。
+  final GlobalKey _editKey = GlobalKey();
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final focused = widget.focusNode.hasFocus;
     final reduced = AnMotionPref.reduced(context);
-    final shape = reduced ? Duration.zero : AnMotion.slow; // box morph + height 形变+高度
+    final shape = reduced
+        ? Duration.zero
+        : AnMotion.slow; // box morph + height 形变+高度
     final feedback = reduced ? Duration.zero : AnMotion.fast; // focus 反馈
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final editWidth = (constraints.maxWidth - _singleLineReserve).clamp(80.0, double.infinity);
+        final editWidth = (constraints.maxWidth - _singleLineReserve).clamp(
+          80.0,
+          double.infinity,
+        );
         // multiline = TEXT wraps ≥2 lines (drives the reflow); tall = box is taller than one line for ANY
         // reason (wrap OR attachments) → card radius. 换行→reflow;高于一行(换行或附件)→卡片圆角。
-        final multiline = _countLines(widget.controller.text, AnText.reading, editWidth) >= 2;
+        final multiline =
+            _countLines(widget.controller.text, AnText.reading, editWidth) >= 2;
         final tall = multiline || widget.attachments != null;
-        final radius = BorderRadius.circular(tall ? AnRadius.card : AnRadius.pill);
+        final radius = BorderRadius.circular(
+          tall ? AnRadius.card : AnRadius.pill,
+        );
 
         final content = Column(
           mainAxisSize: MainAxisSize.min,
@@ -135,7 +154,10 @@ class _AnComposerState extends State<AnComposer> {
           children: [
             if (widget.attachments != null)
               Padding(
-                padding: const EdgeInsets.only(bottom: AnSpace.s8, left: AnSpace.s4),
+                padding: const EdgeInsets.only(
+                  bottom: AnSpace.s8,
+                  left: AnSpace.s4,
+                ),
                 child: widget.attachments!,
               ),
             multiline ? _multilineRow(context, c) : _singleRow(context, c),
@@ -146,13 +168,18 @@ class _AnComposerState extends State<AnComposer> {
         // sits BEHIND the white box so its interior is covered (only the outer ring shows, NO blue fill); the
         // accent border sits ON TOP so it reads on the edge. 解耦聚焦层(fast 淡入):辉光在白盒**背后**(内部被盖、
         // 只露外圈、无蓝内填),accent 描边在**上面**(只在边缘)。
-        Widget focusLayer({required BoxDecoration decoration}) => Positioned.fill(
+        Widget focusLayer({required BoxDecoration decoration}) =>
+            Positioned.fill(
               child: IgnorePointer(
                 child: AnimatedOpacity(
                   opacity: focused ? 1 : 0,
                   duration: feedback,
                   curve: AnMotion.easeOut,
-                  child: AnimatedContainer(duration: shape, curve: AnMotion.spring, decoration: decoration),
+                  child: AnimatedContainer(
+                    duration: shape,
+                    curve: AnMotion.spring,
+                    decoration: decoration,
+                  ),
                 ),
               ),
             );
@@ -162,7 +189,13 @@ class _AnComposerState extends State<AnComposer> {
             focusLayer(
               decoration: BoxDecoration(
                 borderRadius: radius,
-                boxShadow: [BoxShadow(color: c.accentSoft, spreadRadius: AnSpace.s2, blurRadius: AnSpace.s4)],
+                boxShadow: [
+                  BoxShadow(
+                    color: c.accentSoft,
+                    spreadRadius: AnSpace.s2,
+                    blurRadius: AnSpace.s4,
+                  ),
+                ],
               ),
             ),
             // 1 — the box itself (opaque white covers the glow's interior). 白盒盖住辉光内部。
@@ -172,13 +205,19 @@ class _AnComposerState extends State<AnComposer> {
               decoration: BoxDecoration(
                 color: c.surface,
                 borderRadius: radius,
-                border: Border.all(color: c.line, width: AnSize.hairline), // base border neutral 基础边中性
+                border: Border.all(
+                  color: c.line,
+                  width: AnSize.hairline,
+                ), // base border neutral 基础边中性
                 boxShadow: widget.floating ? c.shadowFloat : null,
               ),
               // 12 horizontal / 8 vertical — the 15-input proportion (modern chat composers run
               // 12-16h/10-12v; with the 32 lg controls the single-line pill lands at 50px, inside
               // the 44-52 industry band). 横 12 纵 8:15 号输入的配比(单行药丸高 50,业界 44-52)。
-              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
+              padding: const EdgeInsets.symmetric(
+                horizontal: AnSpace.s12,
+                vertical: AnSpace.s8,
+              ),
               // ONE size animation for the reflow / attachments height delta; radius co-times above. 一 size 动画。
               child: AnimatedSize(
                 duration: shape,
@@ -202,67 +241,74 @@ class _AnComposerState extends State<AnComposer> {
 
   // Single line: [lead · edit · tail]. 单行。
   Widget _singleRow(BuildContext context, AnColors c) => Row(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          ...widget.lead,
-          const SizedBox(width: AnSpace.s4),
-          Expanded(child: _editField(context, c)),
-          const SizedBox(width: AnSpace.s8),
-          _trailing(),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.center,
+    children: [
+      ...widget.lead,
+      const SizedBox(width: AnSpace.s4),
+      Expanded(child: _editField(context, c)),
+      const SizedBox(width: AnSpace.s8),
+      _trailing(),
+    ],
+  );
 
   // Multiline: edit on top, actions dropped to a row below. 多行:edit 占整行 + 钮组下移。
   Widget _multilineRow(BuildContext context, AnColors c) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(_wrapTextInset, 0, AnSpace.s6, 0),
-            child: _editField(context, c),
-          ),
-          const SizedBox(height: AnSpace.s4),
-          Row(children: [...widget.lead, const Spacer(), _trailing()]),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      Padding(
+        padding: const EdgeInsets.fromLTRB(_wrapTextInset, 0, AnSpace.s6, 0),
+        child: _editField(context, c),
+      ),
+      const SizedBox(height: AnSpace.s4),
+      Row(children: [...widget.lead, const Spacer(), _trailing()]),
+    ],
+  );
 
   // The trailing slot: send appears on first keystroke, swaps to stop while generating — scale+fade in ONE
   // switcher. `none` is a keyed empty box so the switch is a real cross-fade. 右侧:一个 switcher 管出现+send↔stop。
   Widget _trailing() => AnimatedSwitcher(
-        duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
-        transitionBuilder: (child, anim) => ScaleTransition(
-          scale: Tween<double>(begin: 0.8, end: 1).animate(anim),
-          child: FadeTransition(opacity: anim, child: child),
-        ),
-        child: widget.trailing ?? const SizedBox.shrink(key: ValueKey('none')),
-      );
+    duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
+    transitionBuilder: (child, anim) => ScaleTransition(
+      scale: Tween<double>(begin: 0.8, end: 1).animate(anim),
+      child: FadeTransition(opacity: anim, child: child),
+    ),
+    child: widget.trailing ?? const SizedBox.shrink(key: ValueKey('none')),
+  );
 
-  Widget _editField(BuildContext context, AnColors c) => ConstrainedBox(
-        constraints: BoxConstraints(maxHeight: _editMaxHeight), // 7 reading lines then internal scroll 7 行后内滚
-        child: TextField(
-          controller: widget.controller,
-          focusNode: widget.focusNode,
-          minLines: 1,
-          maxLines: null,
-          keyboardType: TextInputType.multiline,
-          textInputAction: TextInputAction.newline,
-          // The composer is a PROSE surface — the message a person writes reads on the 15 reading rung,
-          // matching the assistant bubble (AnMarkdown) it will sit beside. composer 是 prose 面:人写的
-          // 消息走 15 阅读档,与旁边的助手泡(AnMarkdown)同档。
-          style: AnText.reading.copyWith(color: c.ink),
-          cursorColor: c.ink,
-          cursorWidth: AnSize.caret,
-          // Hug the 15 glyphs (same fontSize+caretRise derivation as AnInput) — the default fills
-          // the whole 24px reading line box. 光标贴 15 字形(同 AnInput 推导),默认会顶满 24px 行盒。
-          cursorHeight: AnText.reading.fontSize! + AnSize.caretRise,
-          decoration: InputDecoration(
-            isCollapsed: true,
-            border: InputBorder.none,
-            hintText: widget.placeholder,
-            hintStyle: AnText.reading.copyWith(color: c.inkFaint),
-          ),
-          onTapOutside: (_) {}, // desktop: keep focus when clicking elsewhere 桌面:点外不失焦
+  Widget _editField(BuildContext context, AnColors c) => KeyedSubtree(
+    key:
+        _editKey, // reparent, never rebuild, across the pill↔card subtree swap 跨形变搬家不重建
+    child: ConstrainedBox(
+      constraints: BoxConstraints(
+        maxHeight: _editMaxHeight,
+      ), // 7 reading lines then internal scroll 7 行后内滚
+      child: TextField(
+        controller: widget.controller,
+        focusNode: widget.focusNode,
+        minLines: 1,
+        maxLines: null,
+        keyboardType: TextInputType.multiline,
+        textInputAction: TextInputAction.newline,
+        // The composer is a PROSE surface — the message a person writes reads on the 15 reading rung,
+        // matching the assistant bubble (AnMarkdown) it will sit beside. composer 是 prose 面:人写的
+        // 消息走 15 阅读档,与旁边的助手泡(AnMarkdown)同档。
+        style: AnText.reading.copyWith(color: c.ink),
+        cursorColor: c.ink,
+        cursorWidth: AnSize.caret,
+        // Hug the 15 glyphs (same fontSize+caretRise derivation as AnInput) — the default fills
+        // the whole 24px reading line box. 光标贴 15 字形(同 AnInput 推导),默认会顶满 24px 行盒。
+        cursorHeight: AnText.reading.fontSize! + AnSize.caretRise,
+        decoration: InputDecoration(
+          isCollapsed: true,
+          border: InputBorder.none,
+          hintText: widget.placeholder,
+          hintStyle: AnText.reading.copyWith(color: c.inkFaint),
         ),
-      );
+        onTapOutside:
+            (_) {}, // desktop: keep focus when clicking elsewhere 桌面:点外不失焦
+      ),
+    ),
+  );
 
   // Count the lines the text wraps to at [maxWidth] (soft-wrap aware) — drives the single↔multiline morph.
   // 行数估算驱动演变。
