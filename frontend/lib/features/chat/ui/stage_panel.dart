@@ -195,6 +195,11 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   /// 已自动展开过的 live block(每 live 一生一次)。
   final Set<String> _autoHandled = {};
 
+  /// 缺口B (0719) — the rowId each auto-opened subject expanded, so when the director CURTAINS that subject
+  /// (settle → breath → dismiss) we collapse EXACTLY the row we opened (never a row the user expanded). Keyed
+  /// by the subject's blockId; migrated when the itemId resolves. 自动展开行(供谢幕收起,只收自己开的)。
+  final Map<String, String> _autoOpenedRow = {};
+
   /// The user grabbed the scroll → suspend all auto-scroll until they return to the bottom (§4-3).
   /// 用户接管滚动 → 挂起自动滚,回底才恢复。
   bool _takeover = false;
@@ -242,6 +247,7 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     if (old.conversationId != widget.conversationId) {
       _takeover = false;
       _autoHandled.clear();
+      _autoOpenedRow.clear();
       _rowKeys.clear();
     }
   }
@@ -282,6 +288,23 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   // (block:<id> → kind:<itemId>) so the auto-opened row stays open across the key change.
   // 导演器登了新主角(follow 已放行):展开其行(粘性)+ 滚入视口一次;itemId 解出时迁移展开键。
   void _onDirector(StageState? prev, StageState next) {
+    // §4-4 (缺口B, 0719) — the director CURTAINED a settled subject: `following` phase, the settle breath
+    // (settleBreath ≈ dwell) elapsed, no live work to switch to, so the subject was dismissed (→ null). Collapse
+    // EXACTLY the row we auto-opened for it, so the settled stage animates back to a ledger row on the same
+    // AnExpandReveal slide. `pinned` / `failedHold` hold the subject (they never reach subject==null through the
+    // curtain), so they're naturally exempt — and we only ever close OUR auto-opened row, so a row the USER
+    // expanded is untouched. 导演器谢幕(following→停拍→无接场→收场):收起自动展开的那行,播同一 AnExpandReveal
+    // 收回台账行;pinned/失败定格不经此路故天然豁免;只收自己开的,用户自展的行不动。
+    if (prev != null &&
+        prev.subject != null &&
+        next.subject == null &&
+        prev.phase == StagePhase.following) {
+      final settledRow = _autoOpenedRow.remove(prev.subject!.blockId);
+      if (settledRow != null) {
+        ref.read(stageExpansionProvider(conversationId).notifier).close(settledRow);
+      }
+    }
+
     final subj = next.subject;
     if (subj == null) return;
     final block = subj.blockId;
@@ -295,12 +318,14 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         expNotifier.close(blockRow);
         expNotifier.open(resolvedRow);
         _autoHandled.add(block); // already handled — the migrate is the open 迁移即已处理
+        _autoOpenedRow[block] = resolvedRow; // migrate the curtain-collapse target 迁移谢幕收起目标
       }
     }
     if (!next.stageOpen || _autoHandled.contains(block)) return;
     _autoHandled.add(block);
     final rowId = resolvedRow ?? blockRow;
     expNotifier.open(rowId);
+    _autoOpenedRow[block] = rowId; // remember for the §4-4 curtain-collapse 记录供谢幕收起
     _scrollToRow(rowId);
   }
 

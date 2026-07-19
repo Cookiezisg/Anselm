@@ -2,13 +2,16 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// The sidestage accordion's EXPANDED row set (WRK-064) — externalized so it stays STICKY across the
 /// list's virtualization (a scrolled-away row's State is disposed, but its open/closed truth lives here).
-/// rowId = `'<kind>:<key>'` (the CastEntity id), or `'todo'` for the pinned task row. A row opened by the
-/// user — OR auto-opened by follow when a live activity enters — stays open until it's explicitly toggled
-/// again; nothing auto-collapses it (accordion心智 = 同屏可见, WRK-064 §8-3).
+/// rowId = `'<kind>:<key>'` (the CastEntity id), or `'todo'` for the pinned task row. A row the USER opened
+/// stays open until it's explicitly toggled again. A row FOLLOW auto-opened when a live activity entered is
+/// auto-COLLAPSED when the director curtains that activity (缺口B, 0719: settle → breath → the stage animates
+/// back to a ledger row); pinned / failed holds and user-opened rows are exempt (the curtain-collapse in
+/// [StagePanel]'s `_onDirector` only closes the exact row it auto-opened).
 ///
 /// 侧幕手风琴的展开行集(外置)——粘性跨列表虚拟化(滚走行 State 被 dispose,开合真相在此)。rowId=
-/// `'<kind>:<key>'`(CastEntity id)或置顶 todo 行 `'todo'`。用户(或 live 入场时 follow 自动)展开的行
-/// 一直开,只有再次 toggle 才收——绝不自动折叠。
+/// `'<kind>:<key>'`(CastEntity id)或置顶 todo 行 `'todo'`。用户展开的行一直开、只有再次 toggle 才收;follow
+/// 在 live 入场时自动展开的行,导演器谢幕该活动时自动收起(缺口B:落定→停拍→动画收回台账行),pinned/失败定格
+/// 与用户自展的行豁免(谢幕收起只关它自己自动展开的那行)。
 class StageExpansionController extends Notifier<Set<String>> {
   StageExpansionController(this.conversationId);
 

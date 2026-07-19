@@ -10,6 +10,7 @@ import '../core/shell/shell_chrome.dart';
 import '../core/ui/ui.dart';
 import '../features/chat/state/selected_conversation.dart';
 import '../features/chat/state/sidestage_activity_provider.dart';
+import '../features/chat/state/sidestage_auto_reveal.dart';
 import '../features/chat/state/stage_director_provider.dart';
 import '../features/chat/ui/stage_panel.dart';
 import '../features/chat/ui/chat_head.dart';
@@ -125,6 +126,12 @@ class AppShell extends ConsumerWidget {
     // right island + its panel-right toggle are activity-gated. 有 activity 才有右岛(+ toggle);Scenes 照旧。
     final chatHasActivity =
         chatConversation != null && ref.watch(sidestageActivityProvider(chatConversation));
+    // 缺口A (0719): drive the sidestage auto-reveal for the selected chat thread — a following FollowMode opens
+    // the (default-collapsed) island on the first staged activity, respecting a manual close. Bare-watched so it
+    // runs whether the island is open or closed. 侧幕自动揭示:跟随档下首个登台开(默认收起的)岛,尊重手动关。
+    if (chatConversation != null) {
+      ref.watch(sidestageAutoRevealProvider(chatConversation));
+    }
     // Scheduler reveals the island ONLY on the run flagship (WRK-069 §6) — the Overview board and
     // the operations home are self-sufficient, and revealing an inspector for them would be an
     // island for the island's sake. scheduler 仅在 run 旗舰揭示右岛:看板与运营主页自足,不为放而放。

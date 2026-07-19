@@ -82,7 +82,7 @@ void main() {
     expect(find.text(t.chat.stage.castEmpty), findsOneWidget);
   });
 
-  testWidgets('a streamed create_document auto-expands its live row to the document stage, then settles',
+  testWidgets('a streamed create_document auto-expands its live row, dwells on settle, then curtain-collapses',
       (tester) async {
     final repo = _repo();
     await tester.pumpWidget(_host(repo));
@@ -120,10 +120,17 @@ void main() {
               'entityName': 'runbook.md',
             }))));
     await tester.pump(const Duration(milliseconds: 100));
-    // Clean settle drops the live ribbon; the row (and its settled document stage) stay — nothing curtains
-    // it away (§8-3 落定不自动收). 干净落定去活丝带;行与落定文档舞台留存,绝不谢幕移除。
+    // 缺口B (0719) — the clean settle drops the live ribbon; the row DWELLS (settleBreath ≈ 1.8s) so the reader
+    // sees the settled result, its stage still on screen. 落定去活丝带;行停留(settleBreath≈1.8s)让人看清结果、舞台仍在。
     expect(find.text(t.feedback.cast.ribbonLive), findsNothing);
-    expect(find.byType(DocumentStageBody), findsOneWidget);
+    expect(find.byType(DocumentStageBody), findsOneWidget); // still expanded through the dwell 停留期仍展开
+
+    // After the dwell the director curtains the settled subject (following → idle) → the row WE auto-opened
+    // collapses back to a ledger row on the AnExpandReveal slide (缺口B). pinned / failed holds are exempt (they
+    // never reach this transition). 停留后导演器谢幕(following→idle)→ 自动展开的行动画收回台账行(pinned/失败豁免)。
+    await tester.pump(const Duration(milliseconds: 1900)); // past settleBreath (1800ms) → curtain fires 越过停留
+    await tester.pump(const Duration(milliseconds: 400)); // the reveal collapses 收起动画
+    expect(find.byType(DocumentStageBody), findsNothing); // the auto-opened stage curtained away 自动展开的舞台谢幕收起
   });
 
   testWidgets('load-more foot paginates WITHOUT a build-phase provider mutation (HIGH regression)',
