@@ -1,5 +1,7 @@
 import 'package:anselm/core/contract/notification.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/ui/an_row.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/notifications/data/notification_fixture.dart';
 import 'package:anselm/features/notifications/data/notification_providers.dart';
@@ -147,6 +149,25 @@ void main() {
     await tester.tap(find.text(t.notifications.today)); // collapse
     await tester.pump(); // a single frame — reduced → Duration.zero → immediate
     expect(find.byType(NotificationRow), findsNothing); // instant, no tween
+  });
+
+  testWidgets('geometry: bare AnRow heads share the rail column with the rows (block fills, content +s8; no +s4)', (tester) async {
+    await tester.pumpWidget(_host(FixtureNotificationRepository(seed: [_n('a')])));
+    await tester.pumpAndSettle();
+    final trayLeft = tester.getTopLeft(find.byType(NotificationTray)).dx;
+    // The head is a BARE AnRow — its hover block fills from the tray/island edge (no +s4 outer padding
+    // shifting it right). 组头裸 AnRow:块从托盘/岛边起(无 +s4 右推)。
+    final headRow = find.ancestor(of: find.text(t.notifications.today), matching: find.byType(AnRow));
+    expect(headRow, findsOneWidget);
+    expect(tester.getTopLeft(headRow).dx, trayLeft);
+    // The head chevron and the notification row's lead icon sit on ONE vertical line. The chevron is measured
+    // by CENTRE (an open head's chevron is rotated 90°, so its top-left corner is rotation-displaced); the
+    // row icon (unrotated) pins the column at the rail's s8 content inset. 组头 chevron 与行图标同竖线(chevron 取中心避旋转、
+    // 行图标取左缘锁 s8 内容列)。
+    final chevronCX = tester.getCenter(find.descendant(of: headRow, matching: find.byIcon(AnIcons.chevronRight))).dx;
+    final rowIcon = find.descendant(of: find.byType(NotificationRow), matching: find.byType(Icon)).first;
+    expect(tester.getCenter(rowIcon).dx, chevronCX);
+    expect(tester.getTopLeft(rowIcon).dx - trayLeft, AnSpace.s8);
   });
 
   testWidgets('a filter change re-keys instantly — filtered-out rows vanish with NO removal tween', (tester) async {

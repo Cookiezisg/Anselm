@@ -142,38 +142,36 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
       mainAxisSize: MainAxisSize.min,
       children: [
         // The «Needs you» head is the SAME primitive as the notification tray's time-bucket heads and the
-        // chat rail's Pinned/Recents head: an AnRow with a permanent lead chevron, count ↔ hover ⋯ in the
-        // trail, a rounded hover block, whole-row toggle — lifted to the tray's 12-left single source via a
-        // +s4 outer padding. 「待你处理」头=托盘时段头/chat rail 头同款 AnRow;+s4 外距抬到 12 左缘单源。
-        Padding(
-          padding: const EdgeInsetsDirectional.only(start: AnSpace.s4, end: AnSpace.s4),
-          child: AnRow(
-            collapsible: true,
-            open: _open,
-            label: t.notifications.needsYou,
-            meta: '${parked.length}',
-            onSelect: () => setState(() => _open = !_open),
-            onToggle: () => setState(() => _open = !_open),
-            // hover ⋯ = bulk decide (全部批准 / 全部拒绝). While a bulk decision is in flight the spinner
-            // rides the same trail slot (re-trigger is guarded in _bulkDecide). 忙态 spinner 骑同一尾槽。
-            actions: [
-              if (_bulkBusy)
-                const SizedBox(
-                  width: AnSize.controlSm,
-                  height: AnSize.controlSm,
-                  child: Center(child: AnSpinner(size: AnSize.iconSm)),
-                )
-              else
-                AnMenu(
-                  entries: [
-                    AnMenuItem(label: t.run.approveAll, icon: AnIcons.check, onTap: () => _bulkDecide('yes', parked)),
-                    AnMenuItem(label: t.run.rejectAll, icon: AnIcons.close, danger: true, onTap: () => _bulkDecide('no', parked)),
-                  ],
-                  anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.more,
-                      size: AnButtonSize.sm, semanticLabel: t.a11y.moreActions, onPressed: toggle),
-                ),
-            ],
-          ),
+        // chat rail's Pinned/Recents head, rendered EXACTLY like it: a BARE AnRow (no outer padding). The
+        // island gives the s12 gutter, so the hover block fills the island inner width and the chevron/count
+        // sit at the rail's s8 content inset — one column with the search field / tray heads / rows. 「待你处理」头=
+        // 裸 AnRow(无外距):hover 块吃满岛内宽、chevron/数字落 s8 内容列——与搜索框/时段头/行同一竖线。
+        AnRow(
+          collapsible: true,
+          open: _open,
+          label: t.notifications.needsYou,
+          meta: '${parked.length}',
+          onSelect: () => setState(() => _open = !_open),
+          onToggle: () => setState(() => _open = !_open),
+          // hover ⋯ = bulk decide (全部批准 / 全部拒绝). While a bulk decision is in flight the spinner
+          // rides the same trail slot (re-trigger is guarded in _bulkDecide). 忙态 spinner 骑同一尾槽。
+          actions: [
+            if (_bulkBusy)
+              const SizedBox(
+                width: AnSize.controlSm,
+                height: AnSize.controlSm,
+                child: Center(child: AnSpinner(size: AnSize.iconSm)),
+              )
+            else
+              AnMenu(
+                entries: [
+                  AnMenuItem(label: t.run.approveAll, icon: AnIcons.check, onTap: () => _bulkDecide('yes', parked)),
+                  AnMenuItem(label: t.run.rejectAll, icon: AnIcons.close, danger: true, onTap: () => _bulkDecide('no', parked)),
+                ],
+                anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.more,
+                    size: AnButtonSize.sm, semanticLabel: t.a11y.moreActions, onPressed: toggle),
+              ),
+          ],
         ),
         AnExpandReveal(
           open: _open,
@@ -185,7 +183,11 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
               children: [
                 for (final p in parked)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s4, AnSpace.s12, AnSpace.s4),
+                    // Card edge on the hover-block line: fill the island inner width (no horizontal inset —
+                    // the island's s12 gutter already sets the edge), so the card border aligns with the head
+                    // block + row blocks; the card's OWN inset gives its content breathing. 卡边=hover 块线(吃满岛内宽);
+                    // 卡内距管呼吸。
+                    padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
                     child: _ApprovalCard(parked: p),
                   ),
               ],

@@ -3,6 +3,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/overlay/an_overlay.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_card.dart';
+import 'package:anselm/core/ui/an_row.dart';
 import 'package:anselm/core/ui/an_input.dart';
 import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/core/ui/icons.dart';
@@ -163,6 +164,11 @@ void main() {
     await tester.pump();
     expect(find.text(t.notifications.needsYou), findsOneWidget); // the group head
     expect(find.byType(AnCard), findsNWidgets(2)); // 2 approval cards
+    // Geometry (rail law): the «Needs you» head is a BARE AnRow (block fills from the edge — no +s4 inset),
+    // and the approval cards fill to the SAME line (card edge = head hover-block edge). 头裸 AnRow、卡边=块线。
+    final headRow = find.ancestor(of: find.text(t.notifications.needsYou), matching: find.byType(AnRow));
+    final headLeft = tester.getTopLeft(headRow).dx;
+    expect(tester.getTopLeft(find.byType(AnCard).first).dx, headLeft);
     await tester.tap(find.text(t.notifications.needsYou)); // collapse
     await tester.pumpAndSettle();
     expect(find.byType(AnCard), findsNothing);

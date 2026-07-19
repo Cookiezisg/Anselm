@@ -15,10 +15,12 @@ import 'notification_row.dart';
 /// [AnRailFilterField] (search + a ⚙ display menu) over a scroll body of COLLAPSIBLE groups: an injected
 /// [approvalsBand] as the top «待你处理» group, then the notification feed time-bucketed into 今天/昨天/更早
 /// heads. Every head is an [AnRow] — EXACTLY the chat rail's Pinned/Recents head (a permanent lead chevron,
-/// count meta that swaps to a hover ⋯ bulk menu, a rounded hover block, whole-row toggle) — lifted to the
-/// tray's 12-left single source via a +s4 outer padding. The head ⋯ carries mark-all-read / mark-all-unread
-/// (the whole ledger). The retired chrome — the "Notifications" title, the divider, the top "Mark all read"
-/// button — is gone; its function moved into the head ⋯ menus.
+/// count meta that swaps to a hover ⋯ bulk menu, a rounded hover block, whole-row toggle), rendered BARE (no
+/// outer padding) so it obeys the SAME rail geometry as the search field + rows: the hover block fills the
+/// island inner width and the content column sits at the rail's +s8 content inset — one vertical line for the
+/// search magnifier, every head chevron, and every row icon. The head ⋯ carries mark-all-read /
+/// mark-all-unread (the whole ledger). The retired chrome — the "Notifications" title, the divider, the top
+/// "Mark all read" button — is gone; its function moved into the head ⋯ menus.
 ///
 /// **Collapse/expand rides the SAME rail mechanism as [AnSidebarList]** (0719 user follow-up: "the slide
 /// effect was lost"): the feed heads+rows are held in [_flat] locked to a [SliverAnimatedList] (GlobalKey).
@@ -35,8 +37,9 @@ import 'notification_row.dart';
 ///
 /// 铃托盘,1:1 照左岛 rail 行重造(0719):常驻 AnRailFilterField(搜索 + ⚙ 显示菜单)+ 可折叠组滚动体:注入的
 /// approvalsBand 作顶「待你处理」组,下接通知 feed 按今天/昨天/更早分组。每个组头就是 AnRow——与 chat rail 的
-/// 置顶/最近头一模一样(常驻箭头 lead + 数字 meta↔hover ⋯ 批量菜单 + 圆角 hover 块 + 整行折叠),经外 +s4 抬到
-/// 托盘 12 左缘单源。组头 ⋯ 带全部已读/全部未读(整本账)。退役 chrome(「通知」标题 / 分割线 / 顶「全部已读」钮)
+/// 置顶/最近头一模一样(常驻箭头 lead + 数字 meta↔hover ⋯ 批量菜单 + 圆角 hover 块 + 整行折叠),**裸放**(无外距)
+/// 遵 rail 几何律:hover 块吃满岛内宽、内容列落 +s8——搜索放大镜/每个组头 chevron/每行图标同一竖线。组头 ⋯ 带
+/// 全部已读/全部未读(整本账)。退役 chrome(「通知」标题 / 分割线 / 顶「全部已读」钮)
 /// 全去,功能并入组头 ⋯。**折叠/展开与 AnSidebarList 同一套 rail 机制**(0719 用户复验「展开收起的效果丢了」):
 /// feed 头+行持在 `_flat`、与 `SliverAnimatedList`(GlobalKey)锁步;**用户 toggle** 按同配方对该组连续行区间
 /// remove/insert(SizeTransition 顶锚,AnMotion.mid,reduced 即时)——真滑动、非瞬跳;**数据/过滤变**(刷新/loadMore/
@@ -185,22 +188,19 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
       SizeTransition(sizeFactor: animation, axisAlignment: -1, child: _entryWidget(context, entry));
 
   Widget _entryWidget(BuildContext context, _TrayEntry entry) => switch (entry) {
-        // The time-bucket head is the SAME primitive as the chat rail's Pinned/Recents head: an AnRow with a
-        // permanent lead chevron, count ↔ hover ⋯ in the trail, a rounded hover block, whole-row toggle. AnRow
-        // carries the rail's s8 imaginary-box inset; a +s4 outer padding lifts the content to the tray's
-        // 12-left single source so the chevron/count align with the notification rows / cards / band.
-        // 时段头=chat rail 置顶/最近头同款 AnRow;+s4 外距抬到托盘 12 左缘单源,与行/卡/带对齐。
-        _HeadEntry(:final bucket, :final label, :final count) => Padding(
-            padding: const EdgeInsetsDirectional.only(start: AnSpace.s4, end: AnSpace.s4),
-            child: AnRow(
-              collapsible: true,
-              open: _bucketOpen(bucket),
-              label: label,
-              meta: '$count',
-              onSelect: () => _toggleBucket(bucket),
-              onToggle: () => _toggleBucket(bucket),
-              actions: _markAllActions(context),
-            ),
+        // The time-bucket head is the SAME primitive as the chat rail's Pinned/Recents head, rendered EXACTLY
+        // like it: a BARE AnRow (no outer padding). The island already gives the s12 gutter, so AnRow's hover
+        // block fills the island inner width (block edge on the island edge) and its chevron/count sit at the
+        // rail's s8 content inset (+8) — one column with the search field + notification rows. 组头=裸 AnRow(无外距):
+        // 岛已给 s12 沟,hover 块吃满岛内宽、chevron/数字落 s8 内容列——与搜索框/通知行同一竖线。
+        _HeadEntry(:final bucket, :final label, :final count) => AnRow(
+            collapsible: true,
+            open: _bucketOpen(bucket),
+            label: label,
+            meta: '$count',
+            onSelect: () => _toggleBucket(bucket),
+            onToggle: () => _toggleBucket(bucket),
+            actions: _markAllActions(context),
           ),
         _RowEntry(:final item) => NotificationRow(
             item: item,

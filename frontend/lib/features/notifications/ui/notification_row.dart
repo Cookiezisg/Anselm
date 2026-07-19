@@ -65,8 +65,11 @@ class NotificationRow extends StatelessWidget {
           // row's hover reads as the SAME rounded gray block as every other hoverable list row. 整行 hover 用 AnRow 圆角(8),与别处一致。
           radius: AnRadius.button,
           child: Padding(
+            // Rail geometry law: the hover block (AnHoverSurface) fills the island inner width; the CONTENT
+            // column sits at the rail's s8 content inset — so the tone icon lines up with the chat rail's
+            // dot/icon and the tray heads' chevron (one vertical line). 内容列走 rail 的 s8 内距,图标与组头 chevron 同竖线。
             padding: const EdgeInsets.symmetric(
-              horizontal: AnSpace.s12,
+              horizontal: AnSpace.s8,
               vertical: AnSpace.s8,
             ),
             child: Row(
