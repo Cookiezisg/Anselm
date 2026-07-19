@@ -28,6 +28,8 @@ import 'package:anselm/features/notifications/state/notice_capsule_provider.dart
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/model/settings_catalog.dart';
 import 'package:anselm/features/settings/state/mcp_providers.dart';
+import 'package:anselm/features/settings/state/memories_provider.dart';
+import 'package:anselm/features/settings/state/settings_detail_provider.dart';
 import 'package:anselm/features/settings/state/settings_panel_provider.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_controller.dart';
@@ -138,6 +140,13 @@ const _mcpEmpty = bool.fromEnvironment('MCPEMPTY');
 // Optional `--dart-define=MCPHOVER=true` (with MCPEMPTY) hovers the first market card to reveal its
 // App-Store «安装» CTA (键盘可达 hover 揭示帧). 悬停首张市场卡,揭示安装钮。
 const _mcpHover = bool.fromEnvironment('MCPHOVER');
+// Optional `--dart-define=MEMEMPTY=true` (with OCEAN=settings PANEL=memory) empties the seeded memory
+// roster → the guiding-lead empty state (空态穿目标形态律, no «No memories yet» tombstone; filter +
+// search retire, the New button carries). 清空记忆名册,验空态引导句(非墓碑)。
+const _memEmpty = bool.fromEnvironment('MEMEMPTY');
+// Optional `--dart-define=MEMADD=true` (with OCEAN=settings PANEL=memory) pushes the manual-add form —
+// name + description + content + the create-only pin toggle. 推入手动添加表单(含建时 pin toggle)帧。
+const _memAdd = bool.fromEnvironment('MEMADD');
 
 /// The capture root — the REAL [AppShell] driven by the REAL [buildAppRouter] (so routing is exercised
 /// exactly as `make app`); the `builder` wraps the routed shell in a keyed RepaintBoundary to grab. 截图根。
@@ -289,6 +298,23 @@ void main() {
             await tester.pump(const Duration(milliseconds: 200)); // the CTA reveals 安装钮揭示
             outName = '${outName}_hover';
           }
+        }
+        // Empty the seeded memory roster → the guiding-lead empty state (空态穿目标形态律, no tombstone).
+        // 清空记忆名册→空态引导句。
+        if (panelName == 'memory' && _memEmpty) {
+          (container.read(settingsRepositoryProvider) as FixtureSettingsRepository).memories.clear();
+          await container.read(memoriesProvider.notifier).refresh();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          outName = '${outName}_empty';
+        }
+        // Push the manual-add form (name + description + content + the create-only pin toggle).
+        // 推入手动添加表单(含建时 pin toggle)。
+        if (panelName == 'memory' && _memAdd) {
+          container.read(settingsDetailProvider.notifier).push('addMemory');
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300));
+          outName = '${outName}_add';
         }
       }
       // `--dart-define=SEARCH=<query>` (with OCEAN=settings) types the query into the lifted-out rail

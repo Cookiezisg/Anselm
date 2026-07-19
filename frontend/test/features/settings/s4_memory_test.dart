@@ -81,6 +81,46 @@ void main() {
             label: t.settings.mem.pinTip));
   });
 
+  testWidgets('empty roster shows a guiding lead (no tombstone) and retires filter + search',
+      (tester) async {
+    final repo = FixtureSettingsRepository(); // zero memories 零记忆
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(MemoryPanel)));
+
+    // The guiding invitation, NOT a «No memories yet» dead end (空态穿目标形态律). 引导句而非墓碑。
+    expect(find.text(t.settings.mem.emptyLead), findsOneWidget);
+    // The pinned filter + search box are noise over zero rows → they retire (零计数律). 过滤/搜索退役。
+    expect(find.text(t.settings.mem.filterAll), findsNothing);
+    expect(find.byType(AnInput), findsNothing, reason: '零记忆时搜索框退役');
+    // The New button IS the add entry, always present. 新建钮即入口,恒在。
+    expect(find.text(t.settings.mem.newMemory), findsOneWidget);
+  });
+
+  testWidgets('create with the pin toggle lands a PINNED user memory', (tester) async {
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(MemoryPanel)));
+
+    await tester.tap(find.text(t.settings.mem.newMemory));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField).at(0), 'safety-rule');
+    await tester.enterText(find.byType(TextField).at(1), 'never rm -rf');
+    await tester.enterText(find.byType(TextField).at(2), 'the verbatim body');
+    // Toggle the create-only pin. 打开建时 pin(仅创建时可见)。
+    expect(find.byType(AnSwitch), findsOneWidget, reason: '创建表单有 pin toggle');
+    await tester.tap(find.byType(AnSwitch));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.settings.mem.save));
+    await tester.pumpAndSettle();
+
+    final row = repo.memories.single;
+    expect(row.name, 'safety-rule');
+    expect(row.pinned, isTrue, reason: '建时 pin 生效');
+    expect(row.source, 'user', reason: '用户手动添加 → source=user');
+  });
+
   testWidgets('create validates the slug; a good one lands in the roster', (tester) async {
     final repo = FixtureSettingsRepository();
     await tester.pumpWidget(_host(repo));
@@ -120,6 +160,8 @@ void main() {
     await tester.pumpAndSettle();
     final nameField = tester.widget<TextField>(find.byType(TextField).at(0));
     expect(nameField.enabled, isFalse, reason: '名称即文件名,编辑锁死');
+    // No create-time pin toggle on edit — pin is the roster's job (F147). 编辑不显建时 pin。
+    expect(find.byType(AnSwitch), findsNothing, reason: '编辑无建时 pin(F147 由名册 toggle 掌管)');
 
     await tester.enterText(find.byType(TextField).at(2), 'new content');
     await tester.pumpAndSettle();

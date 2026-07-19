@@ -50,7 +50,9 @@ class _RosterState extends ConsumerState<_Roster> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
+    final c = context.colors;
     final all = ref.watch(memoriesProvider).value ?? const <Memory>[];
+    final empty = all.isEmpty;
     final rows = all
         .where((m) => !_pinnedOnly || m.pinned)
         .where((m) =>
@@ -63,25 +65,31 @@ class _RosterState extends ConsumerState<_Roster> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Row(children: [
-          SizedBox(
-            width: AnSize.ctlSlot,
-            child: AnSegmented<bool>(
-              options: [
-                AnSegmentedOption(value: false, label: t.settings.mem.filterAll),
-                AnSegmentedOption(value: true, label: t.settings.mem.filterPinned),
-              ],
-              value: _pinnedOnly,
-              onChanged: (v) => setState(() => _pinnedOnly = v),
+          // With zero memories the pinned filter + search are noise (nothing to narrow) — they
+          // retire (零计数律, MCP 空态先例), leaving the New button as the sole add entry and the
+          // guiding lead below to carry the panel (空态穿目标形态律). 零记忆时过滤/搜索退役,新建钮独任入口。
+          if (!empty) ...[
+            SizedBox(
+              width: AnSize.ctlSlot,
+              child: AnSegmented<bool>(
+                options: [
+                  AnSegmentedOption(value: false, label: t.settings.mem.filterAll),
+                  AnSegmentedOption(value: true, label: t.settings.mem.filterPinned),
+                ],
+                value: _pinnedOnly,
+                onChanged: (v) => setState(() => _pinnedOnly = v),
+              ),
             ),
-          ),
-          const SizedBox(width: AnSpace.s12),
-          Expanded(
-            child: AnInput(
-              placeholder: t.settings.mem.searchHint,
-              onChanged: (v) => setState(() => _query = v.trim()),
+            const SizedBox(width: AnSpace.s12),
+            Expanded(
+              child: AnInput(
+                placeholder: t.settings.mem.searchHint,
+                onChanged: (v) => setState(() => _query = v.trim()),
+              ),
             ),
-          ),
-          const SizedBox(width: AnSpace.s12),
+            const SizedBox(width: AnSpace.s12),
+          ] else
+            const Spacer(),
           AnButton(
             label: t.settings.mem.newMemory,
             icon: AnIcons.plus,
@@ -91,12 +99,16 @@ class _RosterState extends ConsumerState<_Roster> {
           ),
         ]),
         const SizedBox(height: AnSpace.s16),
-        if (all.isEmpty)
-          // One quiet line — the New button above IS the guidance (零人话律). 一行安静句;
-          // 上方新建钮即引导,不另写解释文。
+        if (empty)
+          // A quiet invitation, NOT a «No memories yet» tombstone — the New button above IS the add
+          // entry it points at (空态穿目标形态律 + 零人话律). 安静引导句(非墓碑);上方新建钮即其指向的入口。
+          Text(t.settings.mem.emptyLead, style: AnText.label.copyWith(color: c.inkMuted))
+        else if (rows.isEmpty)
+          // A populated roster whose filter/search matched nothing — say so, don't render a void.
+          // 名册非空但过滤/搜索无命中:诚实说明,不留空白。
           AnState(
             kind: AnStateKind.empty,
-            title: t.settings.mem.empty,
+            title: t.settings.mem.noMatches,
             size: AnStateSize.inset,
           )
         else
@@ -192,6 +204,10 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
   bool _hydrated = false;
   bool _dirty = false;
   bool _saving = false;
+  // Create-only pin choice: a new memory can be pinned in one step. On an existing row the backend
+  // ignores body pinned (F147) and the roster's inline toggle owns it, so the field is hidden on edit.
+  // 仅创建时的 pin 选择:新记忆可一步置顶。既有行后端忽略 body pinned(F147)、由名册行内 toggle 掌管,故编辑时不渲。
+  bool _pinned = false;
   String? _error;
 
   bool get _creating => widget.name == null;
@@ -216,9 +232,11 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
       _error = null;
     });
     try {
-      await ref
-          .read(memoriesProvider.notifier)
-          .put(name, description: _desc.text.trim(), content: _content.text);
+      await ref.read(memoriesProvider.notifier).put(name,
+          description: _desc.text.trim(),
+          content: _content.text,
+          // pinned only bites at create; an edit's put ignores it server-side (F147). pin 仅建时生效。
+          pinned: _creating && _pinned);
       if (mounted) ref.read(settingsDetailProvider.notifier).pop();
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -299,6 +317,23 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
             ),
           ),
         ),
+        if (_creating) ...[
+          const SizedBox(height: AnSpace.s12),
+          // Create-only: pin the new memory to every conversation in one step (settings form-row
+          // grammar — horizontal label + hint + trailing switch). 仅建时:一步置顶新记忆(设置表单行文法)。
+          AnField(
+            label: t.settings.mem.pinned,
+            hint: t.settings.mem.pinTip,
+            child: AnSwitch(
+              value: _pinned,
+              onChanged: (v) => setState(() {
+                _pinned = v;
+                _dirty = true;
+              }),
+              semanticLabel: t.settings.mem.pinTip,
+            ),
+          ),
+        ],
         if (_error != null) ...[
           const SizedBox(height: AnSpace.s8),
           Text(_error!, style: AnText.label.copyWith(color: c.danger)),

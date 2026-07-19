@@ -4617,8 +4617,11 @@ class Translations$settings$mem$en {
 	/// en: 'Delete'
 	String get confirmDelete => 'Delete';
 
-	/// en: 'No memories yet'
-	String get empty => 'No memories yet';
+	/// en: 'Add your first memory — a fact the assistant recalls across conversations'
+	String get emptyLead => 'Add your first memory — a fact the assistant recalls across conversations';
+
+	/// en: 'No matching memories'
+	String get noMatches => 'No matching memories';
 
 	/// en: 'Discard unsaved changes?'
 	String get dirtyTitle => 'Discard unsaved changes?';
@@ -7739,7 +7742,8 @@ extension on Translations {
 			'settings.mem.deleteTitle' => 'Delete memory',
 			'settings.mem.deleteBody' => ({required Object name}) => 'Physically deletes the file for “${name}”. This can\'t be undone.',
 			'settings.mem.confirmDelete' => 'Delete',
-			'settings.mem.empty' => 'No memories yet',
+			'settings.mem.emptyLead' => 'Add your first memory — a fact the assistant recalls across conversations',
+			'settings.mem.noMatches' => 'No matching memories',
 			'settings.mem.dirtyTitle' => 'Discard unsaved changes?',
 			'settings.mem.dirtyBody' => 'The content has unsaved edits.',
 			'settings.mem.discard' => 'Discard',

@@ -14,10 +14,10 @@ class MemoriesController extends AsyncNotifier<List<Memory>> {
   Future<List<Memory>> build() => ref.watch(settingsRepositoryProvider).listMemories();
 
   Future<Memory> put(String name,
-      {required String description, required String content}) async {
+      {required String description, required String content, bool pinned = false}) async {
     final row = await ref
         .read(settingsRepositoryProvider)
-        .putMemory(name, description: description, content: content);
+        .putMemory(name, description: description, content: content, pinned: pinned);
     await _refresh();
     return row;
   }
@@ -35,6 +35,10 @@ class MemoriesController extends AsyncNotifier<List<Memory>> {
     await ref.read(settingsRepositoryProvider).deleteMemory(name);
     await _refresh();
   }
+
+  /// Re-read the roster in place (no loading flash) — mirrors [McpServersController.refresh]; used
+  /// after an out-of-band roster change (e.g. the capture harness clearing the seed). 就地重取名册。
+  Future<void> refresh() => _refresh();
 
   Future<void> _refresh() async {
     state = AsyncData(await ref.read(settingsRepositoryProvider).listMemories());

@@ -89,9 +89,11 @@ abstract class SettingsRepository {
   /// All memories, optionally pinned-only (bounded set). 全部记忆(可只取已固定)。
   Future<List<Memory>> listMemories({bool? pinned});
 
-  /// PUT create-or-update. UPDATE ignores pinned/source server-side (F147) — never send them from
-  /// an edit. 建或改;更新时后端忽略 pinned/source,编辑绝不送。
-  Future<Memory> putMemory(String name, {required String description, required String content});
+  /// PUT create-or-update. [pinned] + source are HONORED only at CREATE; an UPDATE ignores both
+  /// server-side (F147 — the roster's pin toggle owns updates), so [pinned] is a create-only choice.
+  /// 建或改;pinned/source 仅创建时生效,更新时后端忽略(F147:更新交给名册 pin 钮),故 pinned 只在建时有意义。
+  Future<Memory> putMemory(String name,
+      {required String description, required String content, bool pinned = false});
 
   Future<Memory> pinMemory(String name, {required bool pinned});
 
@@ -339,12 +341,13 @@ class LiveSettingsRepository implements SettingsRepository {
 
   @override
   Future<Memory> putMemory(String name,
-          {required String description, required String content}) =>
-      // source is REQUIRED at create and ignored on update (F147) — sending 'user' is safe on both
-      // paths (an AI-authored memory keeps source=ai when edited). 创建必带 source,更新被忽略——
-      // 恒送 user 两径皆安全(编辑 AI 记忆时 source 保留 ai)。
+          {required String description, required String content, bool pinned = false}) =>
+      // source + pinned are REQUIRED/HONORED at create and IGNORED on update (F147) — sending them is
+      // safe on both paths (an AI-authored memory keeps source=ai and its curated pin when edited;
+      // pin changes on existing rows go through the roster's :pin/:unpin toggle). 创建必带 source、
+      // pinned 建时生效,更新被忽略——恒送两径皆安全(编辑 AI 记忆保 source=ai 与既有 pin;改 pin 走名册 toggle)。
       api.putEntity('/api/v1/memories/$name', Memory.fromJson,
-          body: {'description': description, 'content': content, 'source': 'user'});
+          body: {'description': description, 'content': content, 'source': 'user', 'pinned': pinned});
 
   @override
   Future<Memory> pinMemory(String name, {required bool pinned}) => api
@@ -749,14 +752,17 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<Memory> putMemory(String name,
-      {required String description, required String content}) async {
+      {required String description, required String content, bool pinned = false}) async {
     final i = memories.indexWhere((m) => m.name == name);
     if (i >= 0) {
-      // UPDATE keeps pinned/source (F147). 更新保留 pinned/source。
+      // UPDATE keeps pinned/source (F147) — the incoming pinned is dropped, mirroring the backend.
+      // 更新保留 pinned/source(F147),传入 pinned 丢弃,与后端一致。
       return memories[i] =
           memories[i].copyWith(description: description, content: content);
     }
-    final m = Memory(name: name, description: description, content: content);
+    // CREATE honors pinned; source is user-authored (mirrors the Live PUT body). 建时应用 pinned;source=user。
+    final m = Memory(
+        name: name, description: description, content: content, pinned: pinned, source: 'user');
     memories.add(m);
     return m;
   }

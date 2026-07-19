@@ -1923,7 +1923,8 @@ class _Translations$settings$mem$zh_CN extends Translations$settings$mem$en {
 	@override String get deleteTitle => '删除记忆';
 	@override String deleteBody({required Object name}) => '将物理删除「${name}」的记忆文件,无法撤销。';
 	@override String get confirmDelete => '删除';
-	@override String get empty => '还没有记忆';
+	@override String get emptyLead => '添加第一条记忆——助手能跨对话回想起的事实';
+	@override String get noMatches => '没有匹配的记忆';
 	@override String get dirtyTitle => '放弃未保存的修改?';
 	@override String get dirtyBody => '内容有改动尚未保存。';
 	@override String get discard => '放弃';
@@ -4212,7 +4213,8 @@ extension on TranslationsZhCn {
 			'settings.mem.deleteTitle' => '删除记忆',
 			'settings.mem.deleteBody' => ({required Object name}) => '将物理删除「${name}」的记忆文件,无法撤销。',
 			'settings.mem.confirmDelete' => '删除',
-			'settings.mem.empty' => '还没有记忆',
+			'settings.mem.emptyLead' => '添加第一条记忆——助手能跨对话回想起的事实',
+			'settings.mem.noMatches' => '没有匹配的记忆',
 			'settings.mem.dirtyTitle' => '放弃未保存的修改?',
 			'settings.mem.dirtyBody' => '内容有改动尚未保存。',
 			'settings.mem.discard' => '放弃',
