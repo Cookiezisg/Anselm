@@ -1,9 +1,11 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_inspector.dart';
 import 'package:anselm/core/ui/an_inspector_head.dart';
 import 'package:anselm/core/ui/an_island.dart';
 import 'package:anselm/core/ui/an_row.dart';
+import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -32,6 +34,33 @@ void main() {
     final labelLeft = tester.getTopLeft(find.text('PROBE')).dx;
     expect(labelLeft - islandLeft(tester), moreOrLessEquals(AnSpace.s12, epsilon: 1),
         reason: 'head label flush with the island pad edge (single-source law)');
+  });
+
+  // The head's TRAILING edge obeys the SAME single-source law (0720「✕ 离右缘空太多」bug): the head added a
+  // trailing s8 on TOP of the island's s12, so the ✕ box sat at island+8 (8px further inboard than the left
+  // island's chrome-bar button). The trailing button box must sit FLUSH at the island content edge. 尾缘同律。
+  testWidgets('AnInspectorHead trailing ✕ box flush at the island content edge (no head trailing pad)',
+      (tester) async {
+    await tester.pumpWidget(host(AnInspectorHead(label: 'PROBE', onClose: () {}, closeSemantics: 'Close')));
+    await tester.pump();
+    final islandRight = tester.getRect(find.byType(AnIsland)).right;
+    final closeBox = find.ancestor(of: find.byIcon(AnIcons.close), matching: find.byType(AnButton));
+    expect(islandRight - tester.getRect(closeBox).right, moreOrLessEquals(AnSpace.s12, epsilon: 1),
+        reason: '✕ box flush at the island content edge (island 12 is the sole horizontal inset, both edges)');
+  });
+
+  testWidgets('a row-family row meta lands its RIGHT edge on the iron line (island + 20)', (tester) async {
+    await tester.pumpWidget(host(const AnInspector(
+      headless: true,
+      child: AnRow(leadless: true, label: 'row-label', meta: '×2'),
+    )));
+    await tester.pump();
+    final islandRight = tester.getRect(find.byType(AnIsland)).right;
+    // island 12 + AnRow's own s8 imaginary frame = 20 to the meta right edge (右缘铁线) — the SAME line the
+    // head's trailing ✕ glyph now lands on. 与头 ✕ 字形同一右缘铁线。
+    expect(islandRight - tester.getRect(find.text('×2')).right,
+        moreOrLessEquals(AnSpace.s12 + AnSpace.s8, epsilon: 1.5),
+        reason: 'row meta right edge on the iron line (island + 20), matching the left island rail');
   });
 
   testWidgets('AnInspector headless child fills to the island pad edge (island + 12)', (tester) async {

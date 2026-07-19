@@ -15,14 +15,15 @@ import 'icons.dart';
 /// divider — content follows directly.
 ///
 /// Geometry OBEYS the right-island inner-padding SINGLE SOURCE (same law as [AnInspectorHead]): the wrapping
-/// [AnIsland]'s 12px IS the sole island inset, so the head adds ZERO leading pad — its icon/title land on the
-/// island pad edge (the accordion rows below then indent their own s8, so the head super-heads them by one
-/// tier). Only a trailing s8 keeps the ✕ off the pad edge.
+/// [AnIsland]'s 12px IS the sole island inset on BOTH edges, so the head adds ZERO horizontal pad — its
+/// icon/title land on the leading island pad edge (the accordion rows below then indent their own s8, so the
+/// head super-heads them by one tier), and the trailing ✕/⋯ button box sits flush at the trailing island pad
+/// edge — 1:1 the left island's chrome-bar collapse button, its glyph landing ~on the row-family iron line.
 ///
 /// 右岛身份头(三段式文法 §1):前导 icon + 标题,尾端至多两钮——单个 ⋯ 溢出菜单收编一切面板级动作(头再不长一排
 /// 散钮=退役的「四钮杂」)+ 一等公民 ✕;可选 [sub] 速览带在头下一行同缩进(无信号传 null,零人话律由调用方定)。
-/// 不画分隔线。几何守右岛内距单源律(同 [AnInspectorHead]):岛壳 12 唯一,头前导 0——icon/标题落岛 pad 缘,下方行族
-/// 各自缩 s8,故头以一档超顶它们;仅尾 s8 让 ✕ 不贴 pad 缘。
+/// 不画分隔线。几何守右岛内距单源律(同 [AnInspectorHead]):岛壳 12 双缘唯一,头水平前后皆 0——icon/标题落前导
+/// pad 缘、尾 ✕/⋯ 钮盒齐平尾 pad 缘(1:1 左岛 chrome bar 收起钮,字形落行族右缘铁线附近),下方行族各自缩 s8。
 class AnPanelHead extends StatelessWidget {
   const AnPanelHead({
     required this.icon,
@@ -63,9 +64,15 @@ class AnPanelHead extends StatelessWidget {
     final close = onClose;
     final band = sub;
     return Padding(
-      // Head adds ZERO leading pad (island 12 is the sole inset); only a trailing s8 keeps ✕ off the edge —
-      // the same geometry [AnInspectorHead] draws. 头前导 0(岛 12 唯一内距),仅尾 s8;与 AnInspectorHead 同几何。
-      padding: const EdgeInsets.fromLTRB(0, AnSpace.s12, AnSpace.s8, AnSpace.s8),
+      // Head adds ZERO horizontal pad — the island's 12px is the SOLE island inset (single-source law), on
+      // BOTH edges. So the trailing ✕/⋯ button BOX sits flush at the island content edge, its md glyph 6px
+      // inboard — 1:1 the LEFT island's chrome-bar collapse button (box at island edge, glyph 18 from the
+      // outer edge), and the glyph lands ~on the row-family iron line (meta at island + 12 + 8). The retired
+      // trailing s8 double-inset the button (island 12 + head 8 = box 20, glyph 26 from the outer edge — the
+      // ✕ read 8px further inboard than the left island's, the「离右缘空太多」bug). 头水平前后都 0(岛 12 唯一,
+      // 双缘同律):尾 ✕/⋯ 钮盒齐平岛内容缘、md 字形 6px 内缩——1:1 左岛 chrome bar 收起钮;退役的尾 s8 双缩
+      // (岛 12+头 8=盒 20/字形 26,比左岛多缩 8px=「离右缘空太多」bug)。仅纵向 s8(不受水平单源律辖)。
+      padding: const EdgeInsets.fromLTRB(0, AnSpace.s12, 0, AnSpace.s8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

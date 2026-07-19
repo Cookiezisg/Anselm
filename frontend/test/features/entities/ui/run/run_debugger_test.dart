@@ -286,7 +286,13 @@ void main() {
   // 调试台头=AnPanelHead + 速览带。
   group('head 三段式文法 (§1+§2)', () {
     FixtureEntityRepository glanceFix() {
-      final today = DateTime.now();
+      // Anchor to LOCAL NOON of the current day, not raw now(): the two "today" runs are this one + one
+      // 2h earlier, and a now() within 2h of midnight pushed the earlier run into YESTERDAY — dropping the
+      // today count to 1 and failing the n=2 glance (a latent date-boundary flaky). Noon keeps both runs
+      // unambiguously the same calendar day at any wall-clock hour. 锚当天正午:近午夜时 -2h 会跨到昨天把
+      // 「今天」计数打成 1(潜伏的日界 flaky);正午让两跑任何时刻都同一天。
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day, 12);
       return FixtureEntityRepository(
         runDelay: Duration.zero,
         functions: [

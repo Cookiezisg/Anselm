@@ -71,12 +71,15 @@ class AnInspectorHead extends StatelessWidget {
         : null;
     final hasSub = leading != null || (stt != null && stt.isNotEmpty) || subTrailingWidget != null;
     return Padding(
-      // Right-island inner-padding SINGLE SOURCE: the wrapping [AnIsland]'s 12px IS the island inset, so the
-      // head adds ZERO leading pad — its label/glyph land on the island pad edge, flush with the body content
-      // box below (row-family text then indents its own s8). Only a trailing s8 keeps the ✕ off the pad edge.
-      // 右岛内距单源:岛壳 12 即唯一岛级内距,头前导 0(标签/字形落岛 pad 缘,与下方 body 内容框齐,行族文字自缩 s8);
-      // 仅尾 s8 让 ✕ 不贴 pad 缘。
-      padding: const EdgeInsets.fromLTRB(0, AnSpace.s12, AnSpace.s8, AnSpace.s8),
+      // Right-island inner-padding SINGLE SOURCE: the wrapping [AnIsland]'s 12px IS the island inset on BOTH
+      // edges, so the head adds ZERO horizontal pad — its label/glyph land on the leading island pad edge
+      // (flush with the body content box below; row-family text then indents its own s8), and the trailing
+      // ✕/actions button box sits flush at the trailing pad edge — 1:1 the left island's chrome-bar button,
+      // its glyph landing ~on the row-family iron line. The retired trailing s8 double-inset the ✕ (island 12
+      // + head 8 = box 20, glyph 26 from the outer edge — 8px further inboard than the left island's).
+      // 右岛内距单源:岛壳 12 双缘唯一,头水平前后皆 0——标签/字形落前导 pad 缘、尾 ✕/动作钮盒齐平尾 pad 缘
+      // (1:1 左岛 chrome bar,字形落行族右缘铁线附近);退役的尾 s8 双缩 ✕(岛 12+头 8=盒 20/字形 26,比左岛多缩 8px)。
+      padding: const EdgeInsets.fromLTRB(0, AnSpace.s12, 0, AnSpace.s8),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
