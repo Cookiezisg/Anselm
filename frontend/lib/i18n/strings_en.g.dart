@@ -4761,8 +4761,14 @@ class Translations$settings$mcp$en {
 	/// en: 'Install'
 	String get install => 'Install';
 
+	/// en: 'Install $name'
+	String installNamed({required Object name}) => 'Install ${name}';
+
 	/// en: 'Installing…'
 	String get installing => 'Installing…';
+
+	/// en: 'Install your first MCP server from the marketplace'
+	String get marketEmptyLead => 'Install your first MCP server from the marketplace';
 
 	/// en: 'Prerequisite'
 	String get prerequisite => 'Prerequisite';
@@ -7778,7 +7784,9 @@ extension on Translations {
 			'settings.mcp.searchMarket' => 'Search the marketplace…',
 			'settings.mcp.installed' => 'Installed',
 			'settings.mcp.install' => 'Install',
+			'settings.mcp.installNamed' => ({required Object name}) => 'Install ${name}',
 			'settings.mcp.installing' => 'Installing…',
+			'settings.mcp.marketEmptyLead' => 'Install your first MCP server from the marketplace',
 			'settings.mcp.prerequisite' => 'Prerequisite',
 			'settings.mcp.requiredMark' => 'required',
 			'settings.mcp.oauthConnect' => 'Connect & authorize',

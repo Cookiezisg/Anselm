@@ -242,7 +242,6 @@ class _McpMarketState extends ConsumerState<McpMarket> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
-    final c = context.colors;
     final entries = ref.watch(mcpRegistryProvider).value ?? const <McpRegistryEntry>[];
     final installed = {
       for (final s in ref.watch(mcpServersProvider).value ?? const <McpServerStatus>[]) s.name,
@@ -266,43 +265,145 @@ class _McpMarketState extends ConsumerState<McpMarket> {
         minColWidth: AnSize.block,
         children: [
           for (final e in rows)
-            AnCard(
-              selectable: true,
-              onSelect: () =>
-                  ref.read(settingsDetailProvider.notifier).push('mcpInstall', id: e.name),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  brandIconOr(mcpBrandFor(e.name),
-                      fallbackLabel: e.name.split('/').last, size: AnBrandSize.sm),
-                  const SizedBox(width: AnSpace.s8),
-                  Expanded(
-                    child: Text(e.name.split('/').last,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AnText.mono.copyWith(color: c.ink)),
-                  ),
-                  if (installed.contains(e.name.split('/').last))
-                    AnChip(t.settings.mcp.installed, tone: AnTone.ok),
-                ]),
-                if (e.description.isNotEmpty) ...[
-                  const SizedBox(height: AnSpace.s6),
-                  Text(e.description,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.meta.copyWith(color: c.inkMuted)),
-                ],
-                if (e.prerequisite.isNotEmpty) ...[
-                  const SizedBox(height: AnSpace.s6),
-                  AnChip(t.settings.mcp.prerequisite, tone: AnTone.warn,
-                      tooltip: e.prerequisite),
-                ],
-              ]),
+            _MarketCard(
+              key: ValueKey(e.name),
+              entry: e,
+              installed: installed.contains(e.name.split('/').last),
             ),
         ],
       ),
       if (rows.isEmpty)
         AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.settings.mcp.empty),
     ]);
+  }
+}
+
+/// One marketplace card (App-Store grammar). The whole card taps into the `:plan` install form (env
+/// collection / OAuth preserved — 既有能力不破坏); hover OR keyboard-focus reveals a primary «安装» CTA
+/// that installs IN PLACE with empty env (the one-click path). The install lifecycle rides on the card:
+/// [AnSpinner] while installing → the «已安装» chip once the roster refetch lands the row (no cross-list
+/// move needed) → an honest red line if it threw. An entry that needs keys lands as the backend's honest
+/// failed face — the whole-card tap then opens the form to collect them.
+///
+/// The CTA is always laid out + focusable (keyboard-reachable, AnInteractive/FocusRing 先例) but hidden
+/// by an INSTANT opacity swap when idle (kit grammar: reveals don't animate) and made inert so a rest
+/// click falls through to «open form»; hover/focus tracked via [AnHoverRegion] (scroll-freeze correct) +
+/// a non-focusable [Focus] wrapper reporting subtree focus (card OR CTA).
+///
+/// 市场卡(App Store 文法):整卡点进 :plan 安装表单(env/OAuth 表单保持);hover 或键盘 focus 揭示「安装」主
+/// CTA 就地空 env 装(一键径)。安装态链在卡上:转圈→名册重取落行后渲「已安装」→抛错则红句诚实。需密钥的
+/// 条目落后端 failed 诚实态,整卡点击再开表单填。CTA 常驻可聚焦、闲时即时 opacity 隐+惰化(点击透传给开表单)。
+class _MarketCard extends ConsumerStatefulWidget {
+  const _MarketCard({required this.entry, required this.installed, super.key});
+
+  final McpRegistryEntry entry;
+  final bool installed;
+
+  @override
+  ConsumerState<_MarketCard> createState() => _MarketCardState();
+}
+
+class _MarketCardState extends ConsumerState<_MarketCard> {
+  bool _hovered = false;
+  bool _focusWithin = false;
+  bool _installing = false;
+  String? _error;
+
+  String get _short => widget.entry.name.split('/').last;
+
+  void _openForm() =>
+      ref.read(settingsDetailProvider.notifier).push('mcpInstall', id: widget.entry.name);
+
+  Future<void> _quickInstall() async {
+    if (_installing) return;
+    setState(() {
+      _installing = true;
+      _error = null;
+    });
+    try {
+      // Empty env = the one-click path. On success the roster refetches → `installed` flips true → this
+      // card rebuilds into the «已安装» face. 空 env 一键装;成功后名册重取→installed 翻真→本卡自渲已装态。
+      await ref.read(mcpServersProvider.notifier).install(widget.entry.name, const {});
+    } on ApiException catch (e) {
+      // MCP_INSTALL_FAILED etc — the honest red line on the card (the row may still have landed failed).
+      // 安装失败:卡上红句诚实(行可能已落 failed)。
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _installing = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    final e = widget.entry;
+    final reveal = _hovered || _focusWithin;
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (has) => setState(() => _focusWithin = has),
+      child: AnHoverRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnCard(
+          selectable: true,
+          onSelect: _openForm,
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Row(children: [
+              brandIconOr(mcpBrandFor(e.name), fallbackLabel: _short, size: AnBrandSize.sm),
+              const SizedBox(width: AnSpace.s8),
+              Expanded(
+                child: Text(_short,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.mono.copyWith(color: c.ink)),
+              ),
+              const SizedBox(width: AnSpace.s8),
+              _trailing(t, reveal),
+            ]),
+            if (e.description.isNotEmpty) ...[
+              const SizedBox(height: AnSpace.s6),
+              Text(e.description,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.meta.copyWith(color: c.inkMuted)),
+            ],
+            if (e.prerequisite.isNotEmpty) ...[
+              const SizedBox(height: AnSpace.s6),
+              AnChip(t.settings.mcp.prerequisite, tone: AnTone.warn, tooltip: e.prerequisite),
+            ],
+            if (_error != null) ...[
+              const SizedBox(height: AnSpace.s6),
+              Text(_error!,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.meta.copyWith(color: c.danger)),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _trailing(Translations t, bool reveal) {
+    if (widget.installed) return AnChip(t.settings.mcp.installed, tone: AnTone.ok);
+    if (_installing) return AnSpinner(semanticLabel: t.settings.mcp.installing);
+    // Reveal-gated «安装» CTA — always laid out (no reflow) + focusable, INSTANT opacity, inert when
+    // hidden so a rest click falls through to the whole-card open-form. 揭示门控的安装钮:常驻不重排+可聚焦。
+    return IgnorePointer(
+      ignoring: !reveal,
+      child: Opacity(
+        opacity: reveal ? 1 : 0,
+        child: AnButton(
+          label: t.settings.mcp.install,
+          variant: AnButtonVariant.primary,
+          size: AnButtonSize.sm,
+          semanticLabel: t.settings.mcp.installNamed(name: _short),
+          onPressed: _quickInstall,
+        ),
+      ),
+    );
   }
 }
 

@@ -25,7 +25,9 @@ import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/notifications/data/notification_demo_fixture.dart';
 import 'package:anselm/features/notifications/state/notice_capsule_provider.dart';
+import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/model/settings_catalog.dart';
+import 'package:anselm/features/settings/state/mcp_providers.dart';
 import 'package:anselm/features/settings/state/settings_panel_provider.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_controller.dart';
@@ -129,6 +131,13 @@ const _fullscreen = bool.fromEnvironment('FULLSCREEN');
 // Optional `--dart-define=NOTICECAP=true` pushes one danger notice into the band-capsule queue after mount —
 // captures the chrome-band capsule (event notifications' ONLY floating surface, 0720). 顶带胶囊帧。
 const _noticeCap = bool.fromEnvironment('NOTICECAP');
+// Optional `--dart-define=MCPEMPTY=true` (with OCEAN=settings PANEL=mcp) empties the seeded MCP roster so
+// the panel body becomes the marketplace itself — the zero-MCP 空态承接市场 frame (quiet lead + full
+// market, no «已安装» group head). 清空 MCP 名册,验空态承接市场。
+const _mcpEmpty = bool.fromEnvironment('MCPEMPTY');
+// Optional `--dart-define=MCPHOVER=true` (with MCPEMPTY) hovers the first market card to reveal its
+// App-Store «安装» CTA (键盘可达 hover 揭示帧). 悬停首张市场卡,揭示安装钮。
+const _mcpHover = bool.fromEnvironment('MCPHOVER');
 
 /// The capture root — the REAL [AppShell] driven by the REAL [buildAppRouter] (so routing is exercised
 /// exactly as `make app`); the `builder` wraps the routed shell in a keyed RepaintBoundary to grab. 截图根。
@@ -259,6 +268,28 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         outName = '${outName}_$panelName';
+        // Empty the seeded MCP roster → the panel body becomes the marketplace itself (空态承接市场), then
+        // optionally hover the first market card to reveal its «安装» CTA. 清空名册→市场承接;可选悬停揭示安装钮。
+        if (panelName == 'mcp' && _mcpEmpty) {
+          (container.read(settingsRepositoryProvider) as FixtureSettingsRepository).mcpServers.clear();
+          await container.read(mcpServersProvider.notifier).refresh();
+          await tester.pump();
+          await tester.pump(const Duration(milliseconds: 300)); // roster flips to the 承接 market
+          outName = '${outName}_empty';
+          if (_mcpHover) {
+            WidgetsBinding.instance.focusManager.highlightStrategy =
+                FocusHighlightStrategy.alwaysTraditional;
+            final card = find.byType(AnCard).first; // the first market card
+            final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+            await g.addPointer(location: Offset.zero);
+            addTearDown(() => g.removePointer());
+            await tester.pump(); // register the pointer before moving 先泵注册指针
+            await g.moveTo(tester.getCenter(card));
+            await tester.pump();
+            await tester.pump(const Duration(milliseconds: 200)); // the CTA reveals 安装钮揭示
+            outName = '${outName}_hover';
+          }
+        }
       }
       // `--dart-define=SEARCH=<query>` (with OCEAN=settings) types the query into the lifted-out rail
       // filter → the item-level grouped results; add `JUMP=<label>` to click that result item and hold the

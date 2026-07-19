@@ -780,6 +780,10 @@ class FixtureSettingsRepository implements SettingsRepository {
   /// Script hook: what PUT/install lands as (honest failed faces). 脚本钩:落盘态。
   String nextMcpStatus = 'ready';
 
+  /// Script hook: throw on the next registry install (the in-card honest failure path — market card
+  /// shows the red line). 脚本钩:下次市场安装抛错(卡上红句诚实态测试)。
+  Object? failNextMcpInstall;
+
   @override
   Future<List<McpServerStatus>> listMcpServers() async => List.of(mcpServers);
 
@@ -823,6 +827,11 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<McpServerStatus> installMcp(String fullName, Map<String, String> env) async {
+    final f = failNextMcpInstall;
+    if (f != null) {
+      failNextMcpInstall = null;
+      throw f is Exception ? f : StateError('$f');
+    }
     final short = fullName.split('/').last;
     final row = McpServerStatus(
         id: 'mcp_fix${mcpServers.length}', name: short, status: nextMcpStatus);

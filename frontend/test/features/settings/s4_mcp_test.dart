@@ -1,11 +1,15 @@
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/mcp.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/state/mcp_providers.dart';
 import 'package:anselm/features/settings/state/settings_detail_provider.dart';
+import 'package:anselm/features/settings/ui/panels/mcp_forms.dart';
 import 'package:anselm/features/settings/ui/panels/mcp_panel.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -155,5 +159,85 @@ void main() {
     await tester.tap(find.text(t.settings.mcp.tabStderr));
     await tester.pumpAndSettle();
     expect(find.text(t.settings.mcp.noStderr), findsOneWidget);
+  });
+
+  testWidgets('zero MCP: the marketplace takes over the body — quiet lead + market, no installed group',
+      (tester) async {
+    final repo = FixtureSettingsRepository()
+      ..mcpRegistry.addAll(const [
+        McpRegistryEntry(name: 'io.github.upstash/context7', description: 'library docs'),
+        McpRegistryEntry(name: 'io.github.x/weather', description: 'forecasts'),
+      ]);
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(McpPanel)));
+
+    // The quiet lead + the embedded market body (its cards) render — the market 承接 the panel body. 引导句+市场卡在。
+    expect(find.text(t.settings.mcp.marketEmptyLead), findsOneWidget);
+    expect(find.byType(McpMarket), findsOneWidget, reason: '市场承接主体');
+    expect(find.text('context7'), findsOneWidget);
+    expect(find.text('weather'), findsOneWidget);
+    // The 浏览市场 button retires when empty (market is already the body); the old tombstone line is gone.
+    // 空态浏览钮退役;墓碑句不再是主体。
+    expect(find.text(t.settings.mcp.browse), findsNothing, reason: '空态浏览钮退役');
+    expect(find.text(t.settings.mcp.empty), findsNothing, reason: '墓碑句不再是空态主体');
+  });
+
+  testWidgets('market card: hover reveals the install CTA; a click installs in place → «已安装»',
+      (tester) async {
+    final repo = FixtureSettingsRepository()
+      ..mcpRegistry.add(const McpRegistryEntry(name: 'io.github.x/weather', description: 'forecasts'));
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(McpPanel)));
+
+    // The CTA is always laid out (no reflow) but hidden by an instant opacity swap until hover/focus.
+    // CTA 常驻布局(不重排),hover/focus 前即时 opacity 隐藏。
+    final installBtn = find.widgetWithText(AnButton, t.settings.mcp.install);
+    expect(installBtn, findsOneWidget);
+    double revealOpacity() => tester
+        .widget<Opacity>(find.ancestor(of: installBtn, matching: find.byType(Opacity)).first)
+        .opacity;
+    expect(revealOpacity(), 0, reason: '静息隐藏');
+
+    // Hover the card → the CTA reveals (opacity 1, hit-testable). 悬停揭示。
+    final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await g.addPointer(location: Offset.zero);
+    addTearDown(() => g.removePointer());
+    await tester.pump();
+    await g.moveTo(tester.getCenter(find.byType(AnCard).first));
+    await tester.pump();
+    expect(revealOpacity(), 1, reason: 'hover 揭示安装钮');
+
+    // Click install → in-card quick install lands the row; the roster then flips to the installed grid.
+    // 点安装→就地装落行;名册翻到已装网格。
+    await tester.tap(installBtn);
+    await tester.pumpAndSettle();
+    expect(repo.mcpServers.any((s) => s.name == 'weather'), isTrue, reason: '安装落短名行');
+    expect(find.text(t.settings.mcp.browse), findsOneWidget, reason: '装了第一个→已装区长出+浏览钮再现');
+  });
+
+  testWidgets('market card: a thrown install shows the honest red line in place; nothing lands',
+      (tester) async {
+    final repo = FixtureSettingsRepository()
+      ..mcpRegistry.add(const McpRegistryEntry(name: 'io.github.x/weather'))
+      ..failNextMcpInstall = const ApiException(
+          code: 'MCP_INSTALL_FAILED', message: 'needs API_KEY', httpStatus: 422);
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(McpPanel)));
+
+    // Hover so the CTA is hit-testable, then click it. 悬停使可点,再点。
+    final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await g.addPointer(location: Offset.zero);
+    addTearDown(() => g.removePointer());
+    await tester.pump();
+    await g.moveTo(tester.getCenter(find.byType(AnCard).first));
+    await tester.pump();
+    await tester.tap(find.widgetWithText(AnButton, t.settings.mcp.install));
+    await tester.pumpAndSettle();
+
+    expect(find.text('needs API_KEY'), findsOneWidget, reason: '安装失败卡上红句诚实');
+    expect(repo.mcpServers, isEmpty, reason: '抛错未落行,市场仍是主体');
   });
 }

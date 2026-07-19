@@ -1977,7 +1977,9 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String get searchMarket => '搜索市场…';
 	@override String get installed => '已安装';
 	@override String get install => '安装';
+	@override String installNamed({required Object name}) => '安装 ${name}';
 	@override String get installing => '安装中…';
+	@override String get marketEmptyLead => '从市场安装第一个 MCP 服务器';
 	@override String get prerequisite => '前置';
 	@override String get requiredMark => '必填';
 	@override String get oauthConnect => '连接并授权';
@@ -4255,7 +4257,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.searchMarket' => '搜索市场…',
 			'settings.mcp.installed' => '已安装',
 			'settings.mcp.install' => '安装',
+			'settings.mcp.installNamed' => ({required Object name}) => '安装 ${name}',
 			'settings.mcp.installing' => '安装中…',
+			'settings.mcp.marketEmptyLead' => '从市场安装第一个 MCP 服务器',
 			'settings.mcp.prerequisite' => '前置',
 			'settings.mcp.requiredMark' => '必填',
 			'settings.mcp.oauthConnect' => '连接并授权',

@@ -64,6 +64,7 @@ class _Roster extends ConsumerWidget {
       if (failed > 0) t.settings.mcp.statFailed(n: failed),
     ];
 
+    final empty = rows.isEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -76,13 +77,18 @@ class _Roster extends ConsumerWidget {
                     style: AnText.label.copyWith(color: c.inkMuted),
                   ),
           ),
-          AnButton(
-            label: t.settings.mcp.browse,
-            variant: AnButtonVariant.primary,
-            size: AnButtonSize.sm,
-            onPressed: () => ref.read(settingsDetailProvider.notifier).push('mcpMarket'),
-          ),
-          const SizedBox(width: AnSpace.s8),
+          // With nothing installed the marketplace IS the body below — the «浏览市场» button would only
+          // push the same list as a detail, so it retires until there's an installed roster to sit above.
+          // 空态市场即下方主体,浏览钮冗余 → 装了第一个后再现。
+          if (!empty) ...[
+            AnButton(
+              label: t.settings.mcp.browse,
+              variant: AnButtonVariant.primary,
+              size: AnButtonSize.sm,
+              onPressed: () => ref.read(settingsDetailProvider.notifier).push('mcpMarket'),
+            ),
+            const SizedBox(width: AnSpace.s8),
+          ],
           AnButton(
             label: t.settings.mcp.manualAdd,
             size: AnButtonSize.sm,
@@ -98,14 +104,17 @@ class _Roster extends ConsumerWidget {
           ),
         ]),
         const SizedBox(height: AnSpace.s16),
-        if (rows.isEmpty)
-          // One quiet line — the three affordances above are the guidance (零人话律). 一行安静句。
-          AnState(
-            kind: AnStateKind.empty,
-            title: t.settings.mcp.empty,
-            size: AnStateSize.inset,
-          )
-        else
+        if (empty) ...[
+          // Zero MCP → the marketplace takes over the panel body (empty-state-as-target-shape): a quiet
+          // one-line lead, then the FULL market (search + hover-install cards) top under the panel head.
+          // The «Installed» section — its group head included — simply does not render (零计数律); it grows
+          // in once the first server lands and the market retreats behind 浏览市场 (the branch above).
+          // 零 MCP → 市场承接面板主体(空态穿目标形态律):一句安静引导 + 全列市场;「已安装」区含组头整个不渲
+          // (零计数律),装了第一个才长出、市场退居浏览钮之后。
+          Text(t.settings.mcp.marketEmptyLead, style: AnText.label.copyWith(color: c.inkMuted)),
+          const SizedBox(height: AnSpace.s12),
+          const McpMarket(),
+        ] else
           // Installed = two-column brand cards (0719 重造): identity + status at the head, the
           // stats line under it, the honest error line when failed, ⋯ for the verbs. 已装=双列
           // 品牌卡:头行身份+状态点,下行统计,失败时诚实错误句,动词收 ⋯。
