@@ -43,7 +43,25 @@ var (
 	// ErrInvalidType: Emit with an empty event type.
 	// ErrInvalidType：Emit 时事件类型为空。
 	ErrInvalidType = errorspkg.New(errorspkg.KindInvalid, "NOTIFICATION_INVALID_TYPE", "notification type required (<domain>.<action>)")
+
+	// ErrInvalidWindow: a mark-all window bound (after/before) that isn't RFC3339 — a loud 422, the
+	// same verdict flowruns give a bad ?startedAfter, so a mistyped window never silently marks everything.
+	// ErrInvalidWindow：mark-all 窗口界（after/before）非 RFC3339——大声 422（同 flowrun 对坏 ?startedAfter 的判决），
+	// 打错的窗口界绝不静默地标掉一切。
+	ErrInvalidWindow = errorspkg.New(errorspkg.KindUnprocessable, "NOTIFICATION_INVALID_WINDOW", "invalid notification mark-all window bound (RFC3339 required)")
 )
+
+// MarkAllWindow bounds a bulk read-state change to a half-open [After, Before) slice of created_at (both
+// bounds UTC; a ZERO bound is unbounded — both zero = the whole ledger, the backward-compatible default a
+// bodyless call gets). The tray scopes a time-group's "mark all read/unread" to just that group's rows
+// with it, so clearing "Today" leaves the "Earlier" backlog untouched.
+//
+// MarkAllWindow 把批量读态变更限在 created_at 的半开窗 [After, Before)（两界皆 UTC；零界=不设界——两界皆零=整本
+// 账，即无 body 调用得到的向后兼容默认）。托盘用它把某时间组的「全部已读/未读」限在该组行，故清「今天」不动「更早」的积压。
+type MarkAllWindow struct {
+	After  time.Time
+	Before time.Time
+}
 
 // Emitter is the port any module calls to raise a lifecycle event on the notifications
 // stream. It has two tiers, because the stream carries two kinds of durable signal:
@@ -81,7 +99,7 @@ type Repository interface {
 	Save(ctx context.Context, n *Notification) error
 	List(ctx context.Context, cursor string, limit int) (items []*Notification, next string, err error)
 	MarkRead(ctx context.Context, id string) error
-	MarkAllRead(ctx context.Context) error
-	MarkAllUnread(ctx context.Context) error
+	MarkAllRead(ctx context.Context, window MarkAllWindow) error
+	MarkAllUnread(ctx context.Context, window MarkAllWindow) error
 	CountUnread(ctx context.Context) (int, error)
 }

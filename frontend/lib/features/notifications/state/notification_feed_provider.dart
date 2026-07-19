@@ -100,24 +100,31 @@ class NotificationFeedNotifier extends AsyncNotifier<NotificationFeedState>
     }
   }
 
-  /// Mark every row read. 全部已读。
-  Future<void> markAllRead() async {
-    _patchRead((_) => true);
-    ref.read(unreadCountProvider.notifier).markedAllRead();
+  /// Mark every row within [window] read (the tray passes a time-group's window; default = whole ledger).
+  /// Optimistically stamps readAt on the in-window rows. The badge: for the WHOLE ledger the post-count is a
+  /// known constant (0) so it zeros optimistically; for a WINDOW the ledger may still hold unread rows
+  /// OUTSIDE it (and beyond the loaded page), so the count is NOT known — it refetches the authoritative
+  /// COUNT (N0), never optimistically zeroing a badge that shouldn't reach 0.
+  /// 标窗口内行已读(托盘传时间组窗口,默认整本账):乐观盖 readAt。徽标:整本账后计数=0(乐观归零);窗口外可能仍有
+  /// 未读(且超出已载页),计数非已知常量→**重取权威 COUNT**(N0)、绝不把不该归零的徽标归零。
+  Future<void> markAllRead({MarkWindow window = MarkWindow.all}) async {
+    _patchRead((r) => window.contains(r.createdAt));
+    if (window.isAll) ref.read(unreadCountProvider.notifier).markedAllRead();
     try {
-      await _repo.markAllRead();
+      await _repo.markAllRead(window: window);
     } catch (_) {}
+    if (!window.isAll) await ref.read(unreadCountProvider.notifier).refresh();
   }
 
-  /// Mark every row UNREAD — the mirror of [markAllRead]. Optimistically clears readAt on the loaded rows,
-  /// then REFETCHES the authoritative unread-count (N0): unlike mark-all-read's optimistic zero, the
-  /// post-state count is NOT a known constant — the ledger's total may exceed the loaded window, so the
-  /// badge can only be reconciled by re-reading the authoritative COUNT, never fabricated locally.
-  /// 全部标未读——markAllRead 的镜像:乐观清本地行 readAt,再**重取权威 unread-count**(N0)——未读数非已知常量,只能重读对账。
-  Future<void> markAllUnread() async {
-    _patchUnread();
+  /// Mark every row within [window] UNREAD — the mirror of [markAllRead]. Optimistically clears readAt on the
+  /// loaded in-window rows, then REFETCHES the authoritative unread-count (N0): the post-state count is NOT a
+  /// known constant — the ledger's total may exceed the loaded window (and a window leaves rows outside it
+  /// read), so the badge can only be reconciled by re-reading the authoritative COUNT, never fabricated.
+  /// 标窗口内行未读——markAllRead 的镜像:乐观清窗口内本地行 readAt,再**重取权威 unread-count**(N0)——未读数非已知常量,只能重读对账。
+  Future<void> markAllUnread({MarkWindow window = MarkWindow.all}) async {
+    _patchUnread((r) => window.contains(r.createdAt));
     try {
-      await _repo.markAllUnread();
+      await _repo.markAllUnread(window: window);
     } catch (_) {}
     await ref.read(unreadCountProvider.notifier).refresh();
   }
@@ -132,11 +139,11 @@ class NotificationFeedNotifier extends AsyncNotifier<NotificationFeedState>
     state = AsyncData(cur.copyWith(rows: rows));
   }
 
-  void _patchUnread() {
+  void _patchUnread(bool Function(NotificationItem) match) {
     final cur = state.value;
     if (cur == null) return;
     final rows = [
-      for (final r in cur.rows) r.isUnread ? r : r.copyWith(readAt: null),
+      for (final r in cur.rows) (!r.isUnread && match(r)) ? r.copyWith(readAt: null) : r,
     ];
     state = AsyncData(cur.copyWith(rows: rows));
   }

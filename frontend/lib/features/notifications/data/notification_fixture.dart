@@ -45,18 +45,24 @@ class FixtureNotificationRepository implements NotificationRepository {
   }
 
   @override
-  Future<void> markAllRead() async {
+  Future<void> markAllRead({MarkWindow window = MarkWindow.all}) async {
+    // Only rows inside the window flip — the SAME [MarkWindow.contains] the live backend's WHERE encodes.
+    // 只标窗口内行——与真后端 WHERE 同一 MarkWindow.contains 语义。
     for (var i = 0; i < _rows.length; i++) {
-      if (_rows[i].isUnread) _rows[i] = _rows[i].copyWith(readAt: _stamp);
+      if (_rows[i].isUnread && window.contains(_rows[i].createdAt)) {
+        _rows[i] = _rows[i].copyWith(readAt: _stamp);
+      }
     }
   }
 
   @override
-  Future<void> markAllUnread() async {
-    // Mirror of markAllRead: clear readAt on every read row → unread. copyWith(readAt: null) sets null via
-    // freezed's sentinel. markAllRead 的镜像:清全部已读行的 readAt(freezed 哨兵设 null)。
+  Future<void> markAllUnread({MarkWindow window = MarkWindow.all}) async {
+    // Mirror of markAllRead: clear readAt on every read row IN THE WINDOW → unread. copyWith(readAt: null)
+    // sets null via freezed's sentinel. markAllRead 的镜像:清窗口内已读行的 readAt(freezed 哨兵设 null)。
     for (var i = 0; i < _rows.length; i++) {
-      if (!_rows[i].isUnread) _rows[i] = _rows[i].copyWith(readAt: null);
+      if (!_rows[i].isUnread && window.contains(_rows[i].createdAt)) {
+        _rows[i] = _rows[i].copyWith(readAt: null);
+      }
     }
   }
 

@@ -489,6 +489,7 @@ audience: [human, ai]
 |---|---|---|
 | `NOTIFICATION_INVALID_TYPE` | 400 | notification type required (<domain>.<action>) |
 | `NOTIFICATION_NOT_FOUND` | 404 | notification not found |
+| `NOTIFICATION_INVALID_WINDOW` | 422 | invalid notification mark-all window bound (RFC3339 required) |
 
 ### `domain/relation`
 

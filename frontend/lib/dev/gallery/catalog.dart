@@ -1175,6 +1175,10 @@ final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data
 
 // ── G6 — Overlays (dialog + toast) ──
 final GalleryCategory _g6Overlays = GalleryCategory('浮层 Overlays', AnIcons.more, [
+  GalleryItem('AnNoticeCapsule', '顶带通知胶囊:事件通知唯一浮层(右上事件 toast 退役)——白岛药丸住带中段,tone 点+一句话+查看尾;自驱登-停-退,hover 暂停', [
+    GallerySpecimen('danger', (_) => AnNoticeCapsule(text: '工作流「invoice_sync」运行失败', viewLabel: '查看', danger: true, hold: const Duration(days: 1), onTap: () {}, onDismissed: () {}), span: true),
+    GallerySpecimen('warn (all 级)', (_) => AnNoticeCapsule(text: '工作流「deploy」等待审批', viewLabel: '查看', danger: false, hold: const Duration(days: 1), onTap: () {}, onDismissed: () {}), span: true),
+  ]),
   GalleryItem('AnToast', '屏角瞬时提示:tone 色条 + action + 自动消隐;命令式 showToast()', [
     // Static, sticky specimens (duration: zero → no auto-dismiss) — the chip in every tone. 静态常驻 specimen。
     GallerySpecimen('neutral', (_) => AnToast(text: '已保存', duration: Duration.zero, onDismissed: () {}), span: true),

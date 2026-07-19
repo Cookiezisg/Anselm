@@ -138,6 +138,10 @@ func (s *Service) List(ctx context.Context, cursor string, limit int) ([]*notifi
 }
 
 func (s *Service) MarkRead(ctx context.Context, id string) error { return s.repo.MarkRead(ctx, id) }
-func (s *Service) MarkAllRead(ctx context.Context) error         { return s.repo.MarkAllRead(ctx) }
-func (s *Service) MarkAllUnread(ctx context.Context) error       { return s.repo.MarkAllUnread(ctx) }
-func (s *Service) CountUnread(ctx context.Context) (int, error)  { return s.repo.CountUnread(ctx) }
+func (s *Service) MarkAllRead(ctx context.Context, window notificationdomain.MarkAllWindow) error {
+	return s.repo.MarkAllRead(ctx, window)
+}
+func (s *Service) MarkAllUnread(ctx context.Context, window notificationdomain.MarkAllWindow) error {
+	return s.repo.MarkAllUnread(ctx, window)
+}
+func (s *Service) CountUnread(ctx context.Context) (int, error) { return s.repo.CountUnread(ctx) }

@@ -81,6 +81,7 @@ export 'an_island.dart';
 export 'an_json_tree.dart';
 export 'an_markdown.dart';
 export 'an_menu.dart';
+export 'an_notice_capsule.dart';
 export 'an_attachment_chip.dart';
 export 'an_mention_picker.dart';
 export 'an_menu_surface.dart';

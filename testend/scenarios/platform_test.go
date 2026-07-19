@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sunweilin/anselm/testend/harness"
 )
@@ -360,7 +361,24 @@ func TestPlatform_NotificationFlow(t *testing.T) {
 		t.Fatalf("mark-read did not lower unread: %d → %d", unread.Unread, afterOne.Unread)
 	}
 
-	// 全标已读 → 0。
+	// 按组标记(scheduler 0720):mark-all-read/unread 收可选 [after,before) 窗口 body,只标窗口内的行。所有通知都
+	// 刚落在此刻附近,故落在此刻**之外**的窗口标不到任何行(未读不变),非 RFC3339 界大声 422、绝不静默标一切。
+	future := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	past := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
+	wc.POST("/api/v1/notifications:mark-all-read", map[string]any{"after": future}).OK(t, nil)  // 未来下界 → 零行
+	wc.POST("/api/v1/notifications:mark-all-read", map[string]any{"before": past}).OK(t, nil)    // 过去上界 → 零行
+	var afterOutOfRange struct {
+		Unread int `json:"unread"`
+	}
+	wc.GET("/api/v1/notifications/unread-count").OK(t, &afterOutOfRange)
+	if afterOutOfRange.Unread != afterOne.Unread {
+		t.Fatalf("out-of-range windows must mark nothing: %d → %d", afterOne.Unread, afterOutOfRange.Unread)
+	}
+	// 非 RFC3339 界 → 422 NOTIFICATION_INVALID_WINDOW（打错的窗口界绝不退化成「标掉一切」）。
+	wc.POST("/api/v1/notifications:mark-all-read", map[string]any{"after": "not-a-timestamp"}).
+		Fail(t, 422, "NOTIFICATION_INVALID_WINDOW")
+
+	// 全标已读(无 body → 整本账、向后兼容) → 0。
 	wc.POST("/api/v1/notifications:mark-all-read", nil).OK(t, nil) // 集合级 :action(MD5)
 	var afterAll struct {
 		Unread int `json:"unread"`

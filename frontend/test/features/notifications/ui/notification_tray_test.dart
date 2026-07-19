@@ -19,13 +19,21 @@ import 'package:flutter_test/flutter_test.dart';
 // massive list doesn't throw.
 // 铃托盘照 rail 架构重造:退役 chrome + 可折叠组头 + mark-all 进 ⋯ 菜单 + 搜索/仅未读过滤 + 注入 band。
 
-NotificationItem _n(String id, {bool read = false, String name = 'fetch'}) => NotificationItem(
+NotificationItem _n(String id, {bool read = false, String name = 'fetch', DateTime? createdAt}) =>
+    NotificationItem(
       id: id,
       type: 'function.created',
       payload: {'name': name},
-      createdAt: DateTime.now().subtract(const Duration(minutes: 5)),
+      createdAt: createdAt ?? DateTime.now().subtract(const Duration(minutes: 5)),
       readAt: read ? DateTime.now() : null,
     );
+
+// A row that lands in the «昨天» bucket — yesterday at LOCAL noon (robust near midnight, unlike a raw
+// `now - 26h` which can slip into «更早»). 落在「昨天」组的行(昨日本地正午,近午夜也稳)。
+NotificationItem _yesterday(String id, {bool read = false}) {
+  final now = DateTime.now();
+  return _n(id, read: read, createdAt: DateTime(now.year, now.month, now.day - 1, 12));
+}
 
 Widget _host(FixtureNotificationRepository repo, {Widget? band, bool reduced = false}) => ProviderScope(
       overrides: [
@@ -60,7 +68,10 @@ Future<void> _openHeadMenu(WidgetTester tester, String headText) async {
   addTearDown(() => mouse.removePointer());
   await mouse.moveTo(tester.getCenter(find.text(headText)));
   await tester.pump(); // hover the head → ⋯ becomes hit-testable
-  final p = tester.getCenter(find.byIcon(AnIcons.more));
+  // Scope the ⋯ to THIS head's row — with multiple group heads on screen each renders its own ⋯ (the idle
+  // ones IgnorePointer'd), so a bare find.byIcon would be ambiguous. 按组头行圈定 ⋯(多组头时避歧义)。
+  final headRow = find.ancestor(of: find.text(headText), matching: find.byType(AnRow));
+  final p = tester.getCenter(find.descendant(of: headRow, matching: find.byIcon(AnIcons.more)));
   await mouse.moveTo(p);
   await tester.pump();
   await mouse.down(p);
@@ -102,6 +113,27 @@ void main() {
     // The read rows stay in the list (audit trail); the ⋯ persists (it now also offers mark-all-unread).
     // 已读行留列表(审计);⋯ 常驻(现也给「全部未读」)。
     expect(find.byType(NotificationRow), findsNWidgets(2));
+  });
+
+  testWidgets('a time-group ⋯ «mark all read» clears ONLY that group (0720: today ≠ earlier backlog)', (tester) async {
+    // One «今天» row + one «昨天» row → two group heads. Clearing the Today group must leave the Yesterday
+    // row unread — the head action carries just that group's [after, before) window. 组标记只清该组。
+    final repo = FixtureNotificationRepository(seed: [_n('t'), _yesterday('y')]);
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    expect(await repo.unreadCount(), 2);
+    expect(find.text(t.notifications.today), findsOneWidget);
+    expect(find.text(t.notifications.yesterday), findsOneWidget);
+
+    await _openHeadMenu(tester, t.notifications.today);
+    await tester.tap(find.text(t.notifications.markAllRead));
+    await tester.pumpAndSettle();
+
+    // Only the Today row flipped; the Yesterday backlog is untouched. 只清今天,昨天积压不动。
+    expect(await repo.unreadCount(), 1);
+    final rows = (await repo.listNotifications()).items;
+    expect(rows.firstWhere((r) => r.id == 't').isUnread, isFalse);
+    expect(rows.firstWhere((r) => r.id == 'y').isUnread, isTrue);
   });
 
   testWidgets('head ⋯ «mark all unread» re-marks the read ledger unread', (tester) async {

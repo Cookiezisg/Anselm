@@ -80,26 +80,43 @@ func (s *Store) MarkRead(ctx context.Context, id string) error {
 	return nil
 }
 
-// MarkAllRead stamps read_at on every unread notification in the workspace.
+// MarkAllRead stamps read_at on every unread notification within the window (whole ledger when unbounded).
 //
-// MarkAllRead 给该 workspace 所有未读通知盖 read_at。
-func (s *Store) MarkAllRead(ctx context.Context) error {
-	if _, err := s.repo.WhereNull("read_at").Update(ctx, "read_at", time.Now().UTC()); err != nil {
+// MarkAllRead 给窗口内所有未读通知盖 read_at（不设界=整本账）。
+func (s *Store) MarkAllRead(ctx context.Context, window notificationdomain.MarkAllWindow) error {
+	if _, err := windowed(s.repo.WhereNull("read_at"), window).Update(ctx, "read_at", time.Now().UTC()); err != nil {
 		return fmt.Errorf("notificationstore.MarkAllRead: %w", err)
 	}
 	return nil
 }
 
-// MarkAllUnread clears read_at on every read notification in the workspace — the exact mirror of
+// MarkAllUnread clears read_at on every read notification within the window — the exact mirror of
 // MarkAllRead (write NULL where non-null, vs write now() where null); a nil arg binds SQL NULL.
 //
-// MarkAllUnread 给该 workspace 所有已读通知清 read_at——MarkAllRead 的精确镜像（在非空处写 NULL，
+// MarkAllUnread 给窗口内所有已读通知清 read_at——MarkAllRead 的精确镜像（在非空处写 NULL，
 // 对称于在空处写 now()）；nil 参数绑定 SQL NULL。
-func (s *Store) MarkAllUnread(ctx context.Context) error {
-	if _, err := s.repo.WhereNotNull("read_at").Update(ctx, "read_at", nil); err != nil {
+func (s *Store) MarkAllUnread(ctx context.Context, window notificationdomain.MarkAllWindow) error {
+	if _, err := windowed(s.repo.WhereNotNull("read_at"), window).Update(ctx, "read_at", nil); err != nil {
 		return fmt.Errorf("notificationstore.MarkAllUnread: %w", err)
 	}
 	return nil
+}
+
+// windowed narrows a query to the half-open [After, Before) window on created_at (a zero bound = unbounded).
+// Plain column comparisons on UTC bounds — the flowrun started_at window idiom verbatim: bound and stored
+// values go through the same driver serialization, and a bare created_at predicate stays sargable on
+// idx_noti_ws_created (workspace equality + created_at range).
+//
+// windowed 把查询收到 created_at 上的半开窗 [After, Before)（零界=不设界）。裸列比较、界值 UTC——flowrun
+// started_at 窗的逐字翻版：界值与存储值走同一 driver 序列化，裸 created_at 谓词在 idx_noti_ws_created 上可走索引。
+func windowed(q *ormpkg.Query[notificationdomain.Notification], window notificationdomain.MarkAllWindow) *ormpkg.Query[notificationdomain.Notification] {
+	if !window.After.IsZero() {
+		q = q.Where("created_at >= ?", window.After)
+	}
+	if !window.Before.IsZero() {
+		q = q.Where("created_at < ?", window.Before)
+	}
+	return q
 }
 
 // CountUnread returns the unread count for the badge.

@@ -1,10 +1,11 @@
 import 'package:anselm/core/contract/notification.dart';
-import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/core/overlay/an_overlay.dart';
+import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/features/notifications/data/notification_fixture.dart';
 import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/notifications/data/os_notifier.dart';
 import 'package:anselm/features/notifications/state/app_focus_provider.dart';
+import 'package:anselm/features/notifications/state/notice_capsule_provider.dart';
 import 'package:anselm/features/notifications/state/toast_dispatcher.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/widgets.dart' show AppLifecycleState;
@@ -22,8 +23,9 @@ class _FakeOsNotifier implements OsNotifier {
   }
 }
 
-// The event→toast bridge. Pins: important (warn/danger) events pop a toast; neutral lifecycle stays
-// silent; danger = sticky, warn = 8s; a same-key storm is deduped to one toast.
+// The event→capsule bridge (用户 0720: the top-right toast is retired; the band capsule is the only
+// floating surface). Pins: danger → one capsule; warn on the default level → NO float (bell dot is its
+// presentation); 'all' level → warn pops too; neutral stays silent; storms dedup; unfocused → OS.
 
 NotificationItem _n(String type, Map<String, dynamic> payload) =>
     NotificationItem(id: 'x', type: type, payload: payload, createdAt: DateTime.utc(2026, 7, 6));
@@ -32,32 +34,47 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => LocaleSettings.setLocaleRaw('en'));
 
-  (ProviderContainer, FixtureNotificationRepository) setup() {
+  (ProviderContainer, FixtureNotificationRepository) setup({String? level}) {
     final repo = FixtureNotificationRepository(seed: const []);
-    final c = ProviderContainer(overrides: [notificationRepositoryProvider.overrideWithValue(repo)]);
+    final prefs = SettingsPrefs.inMemory();
+    if (level != null) prefs.setString(SettingsKeys.notifyLevel, level);
+    final c = ProviderContainer(overrides: [
+      notificationRepositoryProvider.overrideWithValue(repo),
+      settingsPrefsProvider.overrideWithValue(prefs),
+    ]);
     addTearDown(c.dispose);
     c.read(toastDispatcherProvider); // subscribe
     return (c, repo);
   }
 
-  List<AnToastData> toasts(ProviderContainer c) => c.read(overlayProvider).toasts;
+  List<CapsuleNotice> capsules(ProviderContainer c) => c.read(noticeCapsuleProvider);
 
-  test('an important (danger) event pops a sticky toast', () async {
+  test('a danger event pushes ONE band capsule (deep-link attached)', () async {
     final (c, repo) = setup();
     repo.emit(_n('workflow.run_failed', {'name': 'w', 'workflowId': 'wf_1', 'error': 'boom'}));
     await pumpEventQueue();
-    expect(toasts(c).length, 1);
-    expect(toasts(c).single.tone, AnTone.danger);
-    expect(toasts(c).single.duration, Duration.zero); // sticky
-    expect(toasts(c).single.text, contains('w'));
+    expect(capsules(c).length, 1);
+    expect(capsules(c).single.danger, isTrue);
+    expect(capsules(c).single.text, contains('w'));
+    expect(capsules(c).single.location, '/entities/workflow/wf_1');
+    // The legacy top-right toast never fires for events anymore. 旧右上事件 toast 退役。
+    expect(c.read(overlayProvider).toasts, isEmpty);
   });
 
-  test('a warn event pops an 8s toast', () async {
+  test('a warn event on the DEFAULT level floats nothing (bell dot is its presentation)', () async {
     final (c, repo) = setup();
     repo.emit(_n('workflow.approval_pending', {'name': 'deploy', 'workflowId': 'wf_2'}));
     await pumpEventQueue();
-    expect(toasts(c).single.tone, AnTone.warn);
-    expect(toasts(c).single.duration, const Duration(seconds: 8));
+    expect(capsules(c), isEmpty);
+    expect(c.read(overlayProvider).toasts, isEmpty);
+  });
+
+  test("level 'all': a warn event DOES pop a (non-danger) capsule", () async {
+    final (c, repo) = setup(level: 'all');
+    repo.emit(_n('workflow.approval_pending', {'name': 'deploy', 'workflowId': 'wf_2'}));
+    await pumpEventQueue();
+    expect(capsules(c).length, 1);
+    expect(capsules(c).single.danger, isFalse);
   });
 
   test('neutral lifecycle events stay SILENT (tray-only)', () async {
@@ -65,27 +82,27 @@ void main() {
     repo.emit(_n('function.created', {'name': 'fetch', 'functionId': 'fn_1'}));
     repo.emit(_n('agent.edited', {'name': 'triager', 'agentId': 'ag_1'}));
     await pumpEventQueue();
-    expect(toasts(c), isEmpty);
+    expect(capsules(c), isEmpty);
   });
 
-  test('a same-key storm is deduped to one toast', () async {
+  test('a same-key storm is deduped to one capsule', () async {
     final (c, repo) = setup();
     for (var i = 0; i < 5; i++) {
       repo.emit(_n('workflow.run_failed', {'name': 'w', 'workflowId': 'wf_1', 'error': 'boom $i'}));
     }
     await pumpEventQueue();
-    expect(toasts(c).length, 1); // deduped within the window
+    expect(capsules(c).length, 1); // deduped within the window
   });
 
-  test('different entities each get their own toast', () async {
+  test('different entities each get their own capsule', () async {
     final (c, repo) = setup();
     repo.emit(_n('workflow.run_failed', {'name': 'a', 'workflowId': 'wf_1', 'error': 'x'}));
     repo.emit(_n('handler.crashed', {'name': 'b', 'handlerId': 'hd_1'}));
     await pumpEventQueue();
-    expect(toasts(c).length, 2);
+    expect(capsules(c).length, 2);
   });
 
-  test('UNFOCUSED → an OS notification instead of an in-app toast', () async {
+  test('UNFOCUSED → an OS notification instead of a capsule', () async {
     final repo = FixtureNotificationRepository(seed: const []);
     final os = _FakeOsNotifier();
     final c = ProviderContainer(overrides: [
@@ -100,10 +117,24 @@ void main() {
 
     repo.emit(_n('workflow.run_failed', {'name': 'w', 'workflowId': 'wf_1', 'error': 'boom'}));
     await pumpEventQueue();
-    // The toast did NOT fire; the OS notifier did (with the composed body + a deep-link location).
-    expect(c.read(overlayProvider).toasts, isEmpty);
+    expect(capsules(c), isEmpty);
     expect(os.shows.length, 1);
     expect(os.shows.single.body, contains('w'));
     expect(os.shows.single.location, '/entities/workflow/wf_1');
+  });
+
+  test('queue is bounded: a burst keeps the showing head and the newest tail', () {
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final q = c.read(noticeCapsuleProvider.notifier);
+    for (var i = 0; i < 9; i++) {
+      q.push(CapsuleNotice(key: 'k$i', text: 't$i'));
+    }
+    final keys = c.read(noticeCapsuleProvider).map((n) => n.key).toList();
+    expect(keys.length, 5);
+    expect(keys.first, 'k0', reason: '在显头条保住');
+    expect(keys.last, 'k8', reason: '最新一条保住,裁的是中段最旧');
+    q.pop();
+    expect(c.read(noticeCapsuleProvider).first.key, isNot('k0'));
   });
 }

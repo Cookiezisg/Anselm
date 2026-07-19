@@ -9,13 +9,13 @@ review-due: 2026-10-05
 audience: [human, ai]
 ---
 
-# Feature:Notifications(通知中心 + 悬浮 toast)—— 当前形态
+# Feature:Notifications(通知中心 + 顶带胶囊)—— 当前形态
 
-> 左岛铃的两段式托盘 + 右上悬浮 toast + OS 原生通知,端到端落成。本篇 = **它现在是什么样**;**怎么一步步建的**(调研/词表台账/N0–N5 阶梯/决策)看建造账 [`WRK-058`](../../../archive/notifications/README.md);**DTO** 看 [`contract.md`](../contract.md);后端分径契约看 [`events.md`](../../backend/events.md) ⊞/⤳。
+> 左岛铃的两段式托盘 + 顶带通知胶囊 + OS 原生通知,端到端落成。本篇 = **它现在是什么样**;**怎么一步步建的**(调研/词表台账/N0–N5 阶梯/决策)看建造账 [`WRK-058`](../../../archive/notifications/README.md);**DTO** 看 [`contract.md`](../contract.md);后端分径契约看 [`events.md`](../../backend/events.md) ⊞/⤳。
 
 ## 一句话
 
-一个替你值守后台的收件箱:agent / workflow / 调度器在你不看时干了什么、坏了什么、等你什么——重要的当场**右上 toast**(app 未聚焦则走 **OS 原生通知**),半重要的进**左岛铃托盘**攒着,铃上红点,拉开一眼扫完,点一行跳到现场。
+一个替你值守后台的收件箱:agent / workflow / 调度器在你不看时干了什么、坏了什么、等你什么——重要的当场**顶带胶囊**(app 未聚焦则走 **OS 原生通知**),半重要的进**左岛铃托盘**攒着,铃上红点,拉开一眼扫完,点一行跳到现场。
 
 ## 后端分径(N0,通知的地基)
 
@@ -38,7 +38,7 @@ audience: [human, ai]
 | **通知行(建材)** | `features/notifications/ui/notification_row.dart` + `notification_copy.dart` | `NotificationRow` 纯展示件:`tone 图标 · {类}「{名}」{动词} · 相对时间` + 可选灰详情行(错误/依赖名)。**已读律(0719)**:**整行褪色是未读/已读唯一通道——无行首未读点**(`● ⚠`→`⚠`);kind/tone 图标=**唯一 lead 记号**(色管严重度:warn 琥珀 / danger 红)。未读=彩图标 + 墨字名(w400);已读=整行退 inkFaint、**留列表**(审计流)。hover=圆角灰块(`AnRadius.button`=8)+ 未读时换 mark-read 钩。文案 `notificationLine(item, t)`:后端不产文案故前端拥有 type→句子——compositional 生命周期(kind lead + 强调 name + verb)+ 重要 7 类 bespoke(danger/warn + detail)+ payload 分支(reconnected 按 status / attention 点亮·熄灭 / sandbox failed·ready / **`relation.dependency_broken` 标准主语句**见下)+ 未知 type 诚实兜底;`notificationLocation` 经 `panelLocationFor` 深链(无面板 kind 惰性、绝不死链)。三档 tone:neutral 灰 / warn 琥珀 / danger 红。 |
 | **通知 feed(托盘下段)** | `NotificationTray` | 时段分组(今天/昨天/更早,各组头 = `AnRow` 可折叠 + hover ⋯ 菜单)+ 逐行 `NotificationRow`(点=深链 + 顺手已读 / hover=mark-read)+ 空态(收起形、无墓碑)+ 无限下滑。**组头 ⋯ 菜单**(骑 `AnRow` 的数字↔hover ⋯ 槽)= 「全部已读」+「全部未读」——**均作用于全部通知**(一本账,逐组已读语义怪;用户 0719 定调),退役顶钮的新家。**两项恒在且幂等**:分页 feed 窗口无法权威回答「是否存在已读行」,门控会撒谎;退化态(全已读点已读 / 全未读点未读)是无害 no-op。全部未读 = mark-all-read 的镜像(后端 `POST /notifications:mark-all-unread`,清全部 read_at),按 N0 **重取权威 unread-count 对账**(未读数非已知常量、不可本地臆造)。 |
 | **待你处理(托盘上段)** | `features/entities/ui/flowrun_inbox.dart`(`sectioned` 模式) | 跨 run 审批收件箱作托盘首组:无待决则塌成空、有则可折叠 `AnRow`「待你处理」头(同款 rail 原语)+ `AnExpandReveal` 审批卡叠(`ApprovalGate`,共件化)。**组头 hover ⋯ 批量菜单** = 「全部批准 / 全部拒绝(danger)」(`_bulkBusy` 时同槽换 spinner)——**走 Overview 批量引擎同款**(`overlay.confirm` 点名每一项的确认弹窗 + 逐条 `decideApproval` 挂账 ok/lost-422/failed + 诚实汇总 toast 取最坏 tone + 重取;**绝不裸批**)。**星号 bug 修**:审批问题句(`result['rendered']`,如 `Deploy **v2.4.0** …`)经 `AnMarkdown(scale: embedded)` 渲、**粗为粗**不再字面星号。 |
-| **悬浮 toast(右上)** | `core/overlay/an_overlay.dart` + `features/notifications/state/toast_dispatcher.dart` | `AnOverlayHost` 锚**右上**(避开 macOS chrome 带,newest 顶插、cap 3);`AnToast` **hover 暂停消隐**(WCAG 2.2.1)。`ToastDispatcher`(core 事件→toast 桥):听流、只为 important(渲染 tone warn/danger)弹、neutral 静默归托盘;tone 定时长(danger 常驻/warn 8s)+「查看」深链;`(type,entityId)` 去抖窗吞风暴;**coalesce 只在 dispatcher 绝不进 gateway**。**焦点路由**(N4):派发时刻焦点快照——聚焦→toast / **未聚焦→OS 原生通知**。 |
+| **顶带通知胶囊** | `core/ui/an_notice_capsule.dart` + `features/notifications/state/notice_capsule_provider.dart` + `toast_dispatcher.dart` | **事件通知唯一浮层**(用户 0720 拍板:右上事件 toast 退役,浮层降级为例外——右上 `AnOverlayHost` 仍服务**操作反馈** showToast)。胶囊=白岛药丸住 `AnShell.bandNotice` 顶带中段槽(带高即 chrome,**永不盖工作内容/不顶布局**):tone 点(danger 红/warn 琥珀)+kind 图标+一句话+灰「查看」尾;自驱生命周期(淡入下滑 mid→停 `AnMotion.toast` hover 暂停 WCAG→淡出缩回 slow),点击深链、宿主出队递补;队列有界(cap 5,保在显头+最新尾)。**严重度分层**:danger→胶囊;warn(默认级)**不浮**——铃红点(权威 unread-count 驱动)即其呈现;`all` 级 warn/中性也弹;S1 应用内开关同闸,danger 穿透。`(type,entityId)` 去抖窗吞风暴;**焦点路由**不变:未聚焦→OS 原生通知。 |
 
 ## relation 句式归队（0719）
 
@@ -52,7 +52,7 @@ audience: [human, ai]
 
 - **唯一缝** `NotificationRepository`(`features/notifications/data/`):`LiveNotificationRepository`(`ApiClient` + `SseGateway`)/ `FixtureNotificationRepository`(内存 + 脚本化 emit/emitEcho/emitResync)/ `notificationRepositoryProvider` 单点 override。面:`listNotifications`(keyset)/ `markRead`/`markAllRead`/`unreadCount`(权威 COUNT)/ `signals`(实时 nudge)/ `resync`(410)。
 - **`NotificationSignal` 投影器**:notifications 流一帧的语义投影(type + durable + `inboxCandidate` + payload)。**关键裁决**:N0 后流上 Emit(落行)/Broadcast(仅帧)帧形一致、且 `memory.updated`(pin 仅帧 vs 内容落行)同 type 同 payload **不可分** → 前端**绝不能靠 type 判是否有新收件箱行**。故:`unreadCountProvider` **从不据帧 +1**,而是 inbox-worthy durable tick 去抖 **refetch 权威 COUNT** / 410 立即重读 / 本地 mark 乐观扣减;`inboxCandidate` 是纯**性能**过滤(滤确定仅帧的 conversation.*/document 树刷新,歧义 type 留候选免漏真行、代价=一次对账 refetch)。
-- **state**(`features/notifications/state/`):`unreadCountProvider`(AsyncNotifier,铃徽标真相)· `notificationFeedProvider`(AsyncNotifier + `KeysetQueryPaging`:首页 + inbox-worthy tick 去抖并首 refetch + 410 重翻 + markRead/All 乐观)· `toastDispatcherProvider`(事件→toast,app_shell eager watch 保活)· `appFocusedProvider`(焦点信号)。
+- **state**(`features/notifications/state/`):`unreadCountProvider`(AsyncNotifier,铃徽标真相)· `notificationFeedProvider`(AsyncNotifier + `KeysetQueryPaging`:首页 + inbox-worthy tick 去抖并首 refetch + 410 重翻 + markRead/All 乐观)· `toastDispatcherProvider`(事件→胶囊桥,_SessionServices postFrame 点火保活)· `noticeCapsuleProvider`(顶带胶囊队列)· `appFocusedProvider`(焦点信号)。
 - **DTO** `core/contract/notification.dart` `NotificationItem`(id/type/payload/readAt?[null=未读]/createdAt + domain·action·isUnread 读派生),只投影 Emit 落行档。
 - **shell 接线**:`app_shell._NotificationsTray` = `NotificationTray(approvalsBand: FlowrunInbox(sectioned: true))`(托盘持 rail chrome、app 壳注入审批带);铃徽标接 `unreadCountProvider`(footer 28px 铃格红点,非数字)。
 

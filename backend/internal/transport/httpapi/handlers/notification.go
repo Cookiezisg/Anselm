@@ -6,6 +6,7 @@ import (
 	"go.uber.org/zap"
 
 	notificationapp "github.com/sunweilin/anselm/backend/internal/app/notification"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
@@ -95,11 +96,49 @@ func (h *NotificationHandler) markRead(w http.ResponseWriter, r *http.Request, i
 	responsehttpapi.NoContent(w)
 }
 
-// MarkAllRead handles POST /api/v1/notifications:mark-all-read.
+// markAllBody is the OPTIONAL request body for :mark-all-read / :mark-all-unread — a half-open
+// [after, before) window on created_at (RFC3339). Absent body OR an absent field → an unbounded bound,
+// so a bodyless call marks the WHOLE ledger (backward compatible); the tray sends a time-group's window.
 //
-// MarkAllRead 处理 POST /api/v1/notifications:mark-all-read。
+// markAllBody 是 :mark-all-read / :mark-all-unread 的**可选** body——created_at 上的半开窗 [after, before)
+// （RFC3339）。无 body 或字段缺席 → 该界不设，故无 body 调用标**整本账**（向后兼容）；托盘发某时间组的窗口。
+type markAllBody struct {
+	After  string `json:"after"`
+	Before string `json:"before"`
+}
+
+// parseMarkAllWindow decodes the optional window body and normalizes each bound to UTC (a non-RFC3339
+// bound is a loud 422 NOTIFICATION_INVALID_WINDOW, reusing the flowrun parseListTime idiom); an empty body
+// leaves both bounds zero → the whole ledger.
+//
+// parseMarkAllWindow 解码可选窗口 body 并把每界归一到 UTC（非 RFC3339 界大声 422，复用 flowrun 的 parseListTime）；
+// 空 body 留两界为零 → 整本账。
+func (h *NotificationHandler) parseMarkAllWindow(r *http.Request) (notificationdomain.MarkAllWindow, error) {
+	var body markAllBody
+	if err := decodeJSONOptional(r, &body); err != nil {
+		return notificationdomain.MarkAllWindow{}, err
+	}
+	after, err := parseListTime(body.After, "after", notificationdomain.ErrInvalidWindow)
+	if err != nil {
+		return notificationdomain.MarkAllWindow{}, err
+	}
+	before, err := parseListTime(body.Before, "before", notificationdomain.ErrInvalidWindow)
+	if err != nil {
+		return notificationdomain.MarkAllWindow{}, err
+	}
+	return notificationdomain.MarkAllWindow{After: after, Before: before}, nil
+}
+
+// MarkAllRead handles POST /api/v1/notifications:mark-all-read (optional [after, before) window body).
+//
+// MarkAllRead 处理 POST /api/v1/notifications:mark-all-read（可选 [after, before) 窗口 body）。
 func (h *NotificationHandler) MarkAllRead(w http.ResponseWriter, r *http.Request) {
-	if err := h.svc.MarkAllRead(r.Context()); err != nil {
+	window, err := h.parseMarkAllWindow(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	if err := h.svc.MarkAllRead(r.Context(), window); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
@@ -110,7 +149,12 @@ func (h *NotificationHandler) MarkAllRead(w http.ResponseWriter, r *http.Request
 //
 // MarkAllUnread 处理 POST /api/v1/notifications:mark-all-unread（mark-all-read 的镜像）。
 func (h *NotificationHandler) MarkAllUnread(w http.ResponseWriter, r *http.Request) {
-	if err := h.svc.MarkAllUnread(r.Context()); err != nil {
+	window, err := h.parseMarkAllWindow(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	if err := h.svc.MarkAllUnread(r.Context(), window); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}

@@ -51,6 +51,7 @@ class AnShell extends StatelessWidget {
     this.onLeftWidthCommitted,
     this.head,
     this.headTrailing,
+    this.bandNotice,
     this.onToggleRight,
     this.rightActivity = false,
     this.titlebarHeight = AnSize.titlebar,
@@ -91,6 +92,12 @@ class AnShell extends StatelessWidget {
   /// per-ocean action (e.g. chat's scene/outline nav) lands RIGHT beside the right-island button rather than
   /// at the head content's far edge. 头尾内容:落在 head 与右岛钮之间,让每海洋动作(chat 场次导航)贴右岛钮左边。
   final Widget? headTrailing;
+
+  /// The chrome-band notice slot (the event capsule) — centered over the head band, hit-test only on
+  /// itself, z-above the breadcrumb (covering it for a few seconds is acceptable; it never covers WORK
+  /// content). Fed by the app layer (DIP — the kit stays feature-free). 顶带通知槽(事件胶囊):带上居中、
+  /// 仅自身可命中、z 在面包屑上(盖路径几秒可接受,绝不盖工作内容);app 层喂入(DIP,套件不沾 feature)。
+  final Widget? bandNotice;
 
   /// Toggle the right island manually (the panel-right button; shown only when [inspector] exists).
   /// 手动切换右岛(panel-right 钮,仅有 inspector 时显)。
@@ -150,6 +157,7 @@ class AnShell extends StatelessWidget {
                 ocean: ocean,
                 head: head,
                 headTrailing: headTrailing,
+                bandNotice: bandNotice,
                 showReopen: leftCollapsed,
                 onReopen: onToggleLeft,
                 controlInset: controlInset,
@@ -221,6 +229,7 @@ class _OceanRegion extends StatelessWidget {
     this.ocean,
     this.head,
     this.headTrailing,
+    this.bandNotice,
     required this.showReopen,
     this.onReopen,
     required this.showRightToggle,
@@ -232,6 +241,12 @@ class _OceanRegion extends StatelessWidget {
   final Widget? ocean;
   final Widget? head;
   final Widget? headTrailing;
+
+  /// The chrome-band notice slot (the event capsule) — centered over the head band, hit-test only on
+  /// itself, z-above the breadcrumb (covering it for a few seconds is acceptable; it never covers WORK
+  /// content). Fed by the app layer (DIP — the kit stays feature-free). 顶带通知槽(事件胶囊):带上居中、
+  /// 仅自身可命中、z 在面包屑上(盖路径几秒可接受,绝不盖工作内容);app 层喂入(DIP,套件不沾 feature)。
+  final Widget? bandNotice;
   final bool showReopen;
   final VoidCallback? onReopen;
   final bool showRightToggle;
@@ -352,6 +367,16 @@ class _OceanRegion extends StatelessWidget {
             ),
           ),
         ),
+        // Notice capsule layer (band middle, z-top): hit-test falls through everywhere except the
+        // capsule itself. 通知胶囊层(带中、z 顶):除胶囊自身外命中穿透。
+        if (bandNotice != null)
+          Positioned(
+            top: controlInset,
+            left: 0,
+            right: 0,
+            height: AnSize.control,
+            child: Align(child: bandNotice),
+          ),
       ],
     );
   }

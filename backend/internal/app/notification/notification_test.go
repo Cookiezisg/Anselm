@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -17,8 +18,10 @@ import (
 //
 // fakeRepo 是内存版 notificationdomain.Repository。
 type fakeRepo struct {
-	saved  []*notificationdomain.Notification
-	unread int
+	saved               []*notificationdomain.Notification
+	unread              int
+	markAllReadWindow   notificationdomain.MarkAllWindow
+	markAllUnreadWindow notificationdomain.MarkAllWindow
 }
 
 var _ notificationdomain.Repository = (*fakeRepo)(nil)
@@ -38,8 +41,14 @@ func (f *fakeRepo) MarkRead(_ context.Context, id string) error {
 	}
 	return notificationdomain.ErrNotFound
 }
-func (f *fakeRepo) MarkAllRead(_ context.Context) error        { return nil }
-func (f *fakeRepo) MarkAllUnread(_ context.Context) error      { return nil }
+func (f *fakeRepo) MarkAllRead(_ context.Context, w notificationdomain.MarkAllWindow) error {
+	f.markAllReadWindow = w
+	return nil
+}
+func (f *fakeRepo) MarkAllUnread(_ context.Context, w notificationdomain.MarkAllWindow) error {
+	f.markAllUnreadWindow = w
+	return nil
+}
 func (f *fakeRepo) CountUnread(_ context.Context) (int, error) { return f.unread, nil }
 
 // fakeBridge records published events and can force a push error.
@@ -237,17 +246,27 @@ func TestMarkRead_NotFound(t *testing.T) {
 	}
 }
 
-// Mark-all-read / mark-all-unread are collection-level ops that delegate straight to the repo and
-// push NO frame (symmetric — the unread badge reconciles by REST refetch, never off a stream frame).
-// 集合级全标已读/未读纯委派 repo、不推任何帧(对称——未读徽标靠 REST 重取对账、绝不据帧)。
+// Mark-all-read / mark-all-unread are collection-level ops that delegate straight to the repo (window and
+// all) and push NO frame (symmetric — the unread badge reconciles by REST refetch, never off a stream frame).
+// 集合级全标已读/未读纯委派 repo(连窗口一并透传)、不推任何帧(对称——未读徽标靠 REST 重取对账、绝不据帧)。
 func TestMarkAll_DelegatesWithoutFrame(t *testing.T) {
 	bridge := &fakeBridge{}
-	svc := NewService(&fakeRepo{}, bridge, zap.NewNop())
-	if err := svc.MarkAllRead(context.Background()); err != nil {
+	repo := &fakeRepo{}
+	svc := NewService(repo, bridge, zap.NewNop())
+	readWin := notificationdomain.MarkAllWindow{After: time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)}
+	if err := svc.MarkAllRead(context.Background(), readWin); err != nil {
 		t.Fatalf("mark-all-read: %v", err)
 	}
-	if err := svc.MarkAllUnread(context.Background()); err != nil {
+	unreadWin := notificationdomain.MarkAllWindow{Before: time.Date(2026, 7, 19, 0, 0, 0, 0, time.UTC)}
+	if err := svc.MarkAllUnread(context.Background(), unreadWin); err != nil {
 		t.Fatalf("mark-all-unread: %v", err)
+	}
+	// The window must reach the repo verbatim — the service is a pure passthrough, not a filter. 窗口逐字到 repo。
+	if !repo.markAllReadWindow.After.Equal(readWin.After) {
+		t.Errorf("mark-all-read window not forwarded: got %v, want %v", repo.markAllReadWindow.After, readWin.After)
+	}
+	if !repo.markAllUnreadWindow.Before.Equal(unreadWin.Before) {
+		t.Errorf("mark-all-unread window not forwarded: got %v, want %v", repo.markAllUnreadWindow.Before, unreadWin.Before)
 	}
 	if len(bridge.published) != 0 {
 		t.Errorf("mark-all-read/unread must push NO frame, got %d", len(bridge.published))

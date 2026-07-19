@@ -7,6 +7,7 @@ import '../../../core/contract/notification.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
+import '../data/notification_repository.dart';
 import '../state/notification_feed_provider.dart';
 import 'notification_copy.dart';
 import 'notification_row.dart';
@@ -19,7 +20,9 @@ import 'notification_row.dart';
 /// outer padding) so it obeys the SAME rail geometry as the search field + rows: the hover block fills the
 /// island inner width and the content column sits at the rail's +s8 content inset — one vertical line for the
 /// search magnifier, every head chevron, and every row icon. The head ⋯ carries mark-all-read /
-/// mark-all-unread (the whole ledger). The retired chrome — the "Notifications" title, the divider, the top
+/// mark-all-unread scoped to THAT time-group's window (clearing «今天» leaves the «更早» backlog untouched —
+/// a `[after, before)` window derived from the SAME day boundaries the bucketing uses, [NotificationDayBuckets]).
+/// The retired chrome — the "Notifications" title, the divider, the top
 /// "Mark all read" button — is gone; its function moved into the head ⋯ menus.
 ///
 /// **Collapse/expand rides the SAME rail mechanism as [AnSidebarList]** (0719 user follow-up: "the slide
@@ -39,7 +42,8 @@ import 'notification_row.dart';
 /// approvalsBand 作顶「待你处理」组,下接通知 feed 按今天/昨天/更早分组。每个组头就是 AnRow——与 chat rail 的
 /// 置顶/最近头一模一样(常驻箭头 lead + 数字 meta↔hover ⋯ 批量菜单 + 圆角 hover 块 + 整行折叠),**裸放**(无外距)
 /// 遵 rail 几何律:hover 块吃满岛内宽、内容列落 +s8——搜索放大镜/每个组头 chevron/每行图标同一竖线。组头 ⋯ 带
-/// 全部已读/全部未读(整本账)。退役 chrome(「通知」标题 / 分割线 / 顶「全部已读」钮)
+/// 全部已读/全部未读、**限该时间组窗口**(清「今天」不动「更早」的积压——窗口 `[after, before)` 与分桶共用同一日界
+/// NotificationDayBuckets)。退役 chrome(「通知」标题 / 分割线 / 顶「全部已读」钮)
 /// 全去,功能并入组头 ⋯。**折叠/展开与 AnSidebarList 同一套 rail 机制**(0719 用户复验「展开收起的效果丢了」):
 /// feed 头+行持在 `_flat`、与 `SliverAnimatedList`(GlobalKey)锁步;**用户 toggle** 按同配方对该组连续行区间
 /// remove/insert(SizeTransition 顶锚,AnMotion.mid,reduced 即时)——真滑动、非瞬跳;**数据/过滤变**(刷新/loadMore/
@@ -200,7 +204,7 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
             meta: '$count',
             onSelect: () => _toggleBucket(bucket),
             onToggle: () => _toggleBucket(bucket),
-            actions: _markAllActions(context),
+            actions: _markAllActions(context, bucket),
           ),
         _RowEntry(:final item) => NotificationRow(
             item: item,
@@ -261,12 +265,18 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
   }
 
   /// The head's hover-revealed bulk menu (rides AnRow's meta↔actions swap — count at rest, ⋯ on hover):
-  /// mark ALL read / ALL unread. Both act on the WHOLE ledger (not the bucket — one account; per-bucket
-  /// read state reads odd, user 0719 lean). Both items are ALWAYS present and idempotent: the loaded feed
-  /// window can't authoritatively answer "does any read row exist" across the paginated ledger, so gating
-  /// an item would risk lying; a degenerate click (mark-all-read when nothing's unread, mark-all-unread when
-  /// nothing's read) is a harmless no-op. 组头 hover ⋯:全部已读/未读(整本账);两项恒在且幂等(退化态=无害 no-op)。
-  List<Widget> _markAllActions(BuildContext context) {
+  /// mark THIS TIME-GROUP read / unread (user 0720: «全部已读» on a group clears only that group — clearing
+  /// «今天» must leave the «更早» backlog untouched). The action carries the bucket's `[after, before)` window,
+  /// computed from [NotificationDayBuckets] — the SAME day boundaries the bucketing uses, so a row's group and
+  /// the window its ⋯ sweeps can never disagree at a day edge. `now` is read INSIDE the tap (freshest — the
+  /// tray may sit open across midnight) rather than captured at build. The menu text stays «全部已读/未读» —
+  /// self-evident under the group head. Both items are ALWAYS present and idempotent: the loaded feed window
+  /// can't authoritatively answer "does any read row exist" across the paginated ledger, so gating an item
+  /// would risk lying; a degenerate click is a harmless no-op.
+  /// 组头 hover ⋯:标**该时间组**已读/未读(0720:组上的「全部已读」只清该组、清「今天」不动「更早」);动作带该组
+  /// `[after,before)` 窗口(NotificationDayBuckets——与分桶同一日界,行组与窗口在日界处绝不打架);now 在**点击时**读
+  /// (最新——托盘可能跨午夜常驻)。菜单文案仍「全部已读/未读」(组语境自明)。两项恒在且幂等(退化态=无害 no-op)。
+  List<Widget> _markAllActions(BuildContext context, int bucket) {
     final t = context.t;
     return [
       AnMenu(
@@ -274,12 +284,16 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
           AnMenuItem(
             label: t.notifications.markAllRead,
             icon: AnIcons.check,
-            onTap: () => ref.read(notificationFeedProvider.notifier).markAllRead(),
+            onTap: () => ref
+                .read(notificationFeedProvider.notifier)
+                .markAllRead(window: NotificationDayBuckets(DateTime.now()).windowOf(bucket)),
           ),
           AnMenuItem(
             label: t.notifications.markAllUnread,
             icon: AnIcons.undo,
-            onTap: () => ref.read(notificationFeedProvider.notifier).markAllUnread(),
+            onTap: () => ref
+                .read(notificationFeedProvider.notifier)
+                .markAllUnread(window: NotificationDayBuckets(DateTime.now()).windowOf(bucket)),
           ),
         ],
         anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.more,
@@ -298,10 +312,12 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
     if (_unreadOnly) visible = visible.where((r) => r.isUnread);
     if (q.isNotEmpty) visible = visible.where((r) => _matches(r, tr, q));
 
-    final now = DateTime.now();
+    // The SAME day boundaries the bulk-mark windows derive from ([NotificationDayBuckets]) — one分界源, so a
+    // row's bucket and the window its head's ⋯ sweeps can never disagree. 与批量标记窗口同一日界源。
+    final days = NotificationDayBuckets(DateTime.now());
     final buckets = <int, List<NotificationItem>>{};
     for (final r in visible) {
-      buckets.putIfAbsent(_bucket(r.createdAt.toLocal(), now), () => []).add(r);
+      buckets.putIfAbsent(days.bucketOf(r.createdAt.toLocal()), () => []).add(r);
     }
     for (final b in const [0, 1, 2]) {
       final bucketRows = buckets[b];
@@ -324,14 +340,43 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
     return hay.contains(q);
   }
 
-  int _bucket(DateTime d, DateTime now) {
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = today.subtract(const Duration(days: 1));
-    final day = DateTime(d.year, d.month, d.day);
-    if (!day.isBefore(today)) return 0;
-    if (!day.isBefore(yesterday)) return 1;
+}
+
+/// The LOCAL day boundaries that split the notification feed into today (0) / yesterday (1) / earlier (2) —
+/// the SINGLE source both the tray's time-bucketing ([bucketOf]) and each group's bulk-mark WINDOW ([windowOf])
+/// derive from, so a row's bucket and the window that bucket's ⋯ action sweeps can never disagree at a day
+/// edge. [now] is injected so the boundaries are unit-testable across time zones / day edges. The window
+/// bounds are the local midnights converted to their UTC instants (the wire + `createdAt` are UTC), matching
+/// the backend's `[after, before)` `created_at` comparison.
+///
+/// 把通知 feed 切成今天(0)/昨天(1)/更早(2)的**本地**日界——分桶(bucketOf)与每组批量标记窗口(windowOf)**共用的唯一**
+/// 源,故行的组与该组 ⋯ 扫的窗口在日界处绝不打架。now 注入→分界可单测(跨时区/跨日界)。窗口界=本地零点换成 UTC
+/// 时刻(线缆与 createdAt 皆 UTC),对齐后端 `[after, before)` 的 created_at 比较。
+@visibleForTesting
+class NotificationDayBuckets {
+  NotificationDayBuckets(DateTime now) : todayStart = DateTime(now.year, now.month, now.day);
+
+  /// Local midnight, start of today. 本地今日零点。
+  final DateTime todayStart;
+
+  /// Local midnight, start of yesterday. 本地昨日零点。
+  DateTime get yesterdayStart => todayStart.subtract(const Duration(days: 1));
+
+  /// Which bucket a LOCAL createdAt falls in (0 today / 1 yesterday / 2 earlier). 本地时间的时段归属。
+  int bucketOf(DateTime localCreatedAt) {
+    final day = DateTime(localCreatedAt.year, localCreatedAt.month, localCreatedAt.day);
+    if (!day.isBefore(todayStart)) return 0;
+    if (!day.isBefore(yesterdayStart)) return 1;
     return 2;
   }
+
+  /// The half-open UTC window a bucket's bulk-mark sweeps: today = `[今日零点, ∞)`, yesterday =
+  /// `[昨日零点, 今日零点)`, earlier = `(-∞, 昨日零点)` (null bound = unbounded). 组的批量标记窗口(UTC 半开)。
+  MarkWindow windowOf(int bucket) => switch (bucket) {
+        0 => MarkWindow(after: todayStart.toUtc()),
+        1 => MarkWindow(after: yesterdayStart.toUtc(), before: todayStart.toUtc()),
+        _ => MarkWindow(before: yesterdayStart.toUtc()),
+      };
 }
 
 sealed class _TrayEntry {

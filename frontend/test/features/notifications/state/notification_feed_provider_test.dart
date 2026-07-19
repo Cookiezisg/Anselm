@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/notification.dart';
 import 'package:anselm/features/notifications/data/notification_fixture.dart';
 import 'package:anselm/features/notifications/data/notification_providers.dart';
+import 'package:anselm/features/notifications/data/notification_repository.dart';
 import 'package:anselm/features/notifications/state/notification_feed_provider.dart';
 import 'package:anselm/features/notifications/state/unread_count_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -8,13 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 // The feed notifier. Pins: initial page, a durable inbox tick merges the new head (never fabricates off a
 // frame — refetches), a non-candidate echo does NOT merge, 410 reloads, mark-read/all are optimistic and
-// drop the badge.
+// drop the badge, and a WINDOWED mark-all scopes to just that time-group + reconciles the badge by refetch.
 
-NotificationItem _n(String id, {String type = 'function.created', bool read = false}) => NotificationItem(
+NotificationItem _n(String id, {String type = 'function.created', bool read = false, DateTime? createdAt}) =>
+    NotificationItem(
       id: id,
       type: type,
       payload: const {'name': 'x'},
-      createdAt: DateTime.utc(2026, 7, 6, 12),
+      createdAt: createdAt ?? DateTime.utc(2026, 7, 6, 12),
       readAt: read ? DateTime.utc(2026, 7, 6, 12) : null,
     );
 
@@ -95,5 +97,44 @@ void main() {
     expect(c.read(notificationFeedProvider).value!.rows.every((r) => r.isUnread), isTrue); // optimistic flip
     expect(c.read(unreadCountProvider).value, 3); // refetched authoritative count, not a local guess
     expect(await repo.unreadCount(), 3); // persisted
+  });
+
+  test('windowed markAllRead marks only in-window rows + REFETCHES the badge (never zeros past a window)', () async {
+    // Two time-groups: an "earlier" row + a "today" row. Clearing the "today" window must leave the earlier
+    // one unread — and the badge must reconcile to the authoritative COUNT (1), never optimistically zero.
+    final earlier = _n('earlier', createdAt: DateTime.utc(2026, 7, 18, 9));
+    final today = _n('today', createdAt: DateTime.utc(2026, 7, 20, 9));
+    final (c, repo) = setup([earlier, today]);
+    await c.read(notificationFeedProvider.future);
+    await c.read(unreadCountProvider.future); // 2 unread
+    expect(c.read(unreadCountProvider).value, 2);
+
+    await c
+        .read(notificationFeedProvider.notifier)
+        .markAllRead(window: MarkWindow(after: DateTime.utc(2026, 7, 20)));
+
+    final rows = c.read(notificationFeedProvider).value!.rows;
+    expect(rows.firstWhere((r) => r.id == 'today').isUnread, isFalse); // in-window → optimistically read
+    expect(rows.firstWhere((r) => r.id == 'earlier').isUnread, isTrue); // outside → untouched
+    expect(c.read(unreadCountProvider).value, 1); // refetched authoritative count (NOT zeroed)
+    expect(await repo.unreadCount(), 1); // persisted
+  });
+
+  test('windowed markAllUnread flips only in-window rows', () async {
+    final earlier = _n('earlier', read: true, createdAt: DateTime.utc(2026, 7, 18, 9));
+    final today = _n('today', read: true, createdAt: DateTime.utc(2026, 7, 20, 9));
+    final (c, repo) = setup([earlier, today]);
+    await c.read(notificationFeedProvider.future);
+    await c.read(unreadCountProvider.future); // 0 unread
+
+    await c
+        .read(notificationFeedProvider.notifier)
+        .markAllUnread(window: MarkWindow(after: DateTime.utc(2026, 7, 20)));
+
+    final rows = c.read(notificationFeedProvider).value!.rows;
+    expect(rows.firstWhere((r) => r.id == 'today').isUnread, isTrue); // in-window → unread
+    expect(rows.firstWhere((r) => r.id == 'earlier').isUnread, isFalse); // outside → stays read
+    expect(c.read(unreadCountProvider).value, 1); // authoritative refetch
+    expect(await repo.unreadCount(), 1);
   });
 }

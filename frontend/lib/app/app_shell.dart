@@ -27,6 +27,7 @@ import '../features/entities/ui/entity_ocean.dart';
 import '../features/entities/ui/entity_rail.dart';
 import '../features/entities/ui/flowrun_inbox.dart';
 import '../features/entities/ui/run/run_terminal.dart';
+import '../features/notifications/state/notice_capsule_provider.dart';
 import '../features/notifications/state/toast_dispatcher.dart';
 import '../features/scheduler/state/selected_scheduler.dart';
 import '../features/scheduler/ui/scheduler_ocean.dart';
@@ -291,6 +292,7 @@ class AppShell extends ConsumerWidget {
     return _SessionServices(
       child: AnShell(
         sidebar: sidebar,
+        bandNotice: const _BandNoticeHost(),
         // The center ocean is a LAZY IndexedStack (C-009): a visited ocean stays MOUNTED behind the fold,
         // so switching away and back is instant AND keeps its scroll offset / expansion state (the ternary
         // it replaced tore the tree down on every switch, losing all of it — Riverpod keepAlive preserved
@@ -486,4 +488,35 @@ class _SessionServicesState extends ConsumerState<_SessionServices> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+
+/// The band-capsule host — shows the notice queue's head as ONE self-timing [AnNoticeCapsule];
+/// dismiss/tap pops the queue so the next notice takes the band. Fed into [AnShell.bandNotice] (DIP:
+/// the kit slot stays feature-free). 顶带胶囊宿主:显示队首(自计时胶囊),收场/点击出队递补;经
+/// AnShell.bandNotice 喂入(DIP,套件槽不沾 feature)。
+class _BandNoticeHost extends ConsumerWidget {
+  const _BandNoticeHost();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final queue = ref.watch(noticeCapsuleProvider);
+    if (queue.isEmpty) return const SizedBox.shrink();
+    final n = queue.first;
+    return AnNoticeCapsule(
+      key: ValueKey(n.key),
+      text: n.text,
+      icon: n.icon,
+      danger: n.danger,
+      viewLabel: context.t.notifications.view,
+      onTap: n.location == null
+          ? null
+          : () {
+              final loc = n.location!;
+              ref.read(noticeCapsuleProvider.notifier).pop();
+              ref.read(goRouterProvider).go(loc);
+            },
+      onDismissed: () => ref.read(noticeCapsuleProvider.notifier).pop(),
+    );
+  }
 }

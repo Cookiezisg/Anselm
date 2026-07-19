@@ -3,15 +3,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/contract/notification.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/model/status_state.dart';
-import '../../../core/overlay/an_overlay.dart';
 import '../../../core/settings/settings_prefs.dart';
 import '../../../core/router/navigation.dart';
-import '../../../core/ui/an_toast.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/notification_providers.dart';
 import '../data/notification_signal.dart';
 import '../ui/notification_copy.dart';
 import 'app_focus_provider.dart';
+import 'notice_capsule_provider.dart';
 
 /// The event→toast bridge (WRK-058 N3). Listens to the notifications stream and pops a top-right toast
 /// for the IMPORTANT events only — a notification whose rendered [NotificationLine] tone is warn/danger
@@ -84,29 +83,26 @@ class ToastDispatcher extends Notifier<void> {
       return;
     }
 
-    // The in-app toast switch (S1): danger-level errors BYPASS it (honesty over quiet). 应用内 toast
-    // 开关:danger 级穿透(诚实高于安静)。
+    // Focused, in-app: the band CAPSULE is the only floating surface now (用户 0720 拍板 — the
+    // top-right toast is retired for events; floating culture demoted to the exception). Severity
+    // layering: danger → capsule; warn on the default level → NO float (the bell's red dot — driven
+    // by the authoritative unread-count — is its presentation); 'all' → warn/inbox-neutral pop too
+    // (the user explicitly opted into the firehose). The S1 in-app switch gates the capsule the same
+    // way it gated the toast; danger still bypasses it (honesty over quiet).
+    // 聚焦路径:顶带胶囊是唯一浮层(右上事件 toast 退役)。分层:danger→胶囊;warn(默认级)不浮——铃红点
+    // (权威 unread-count 驱动)即其呈现;all 级 warn/中性也弹(用户显式选的全量)。S1 应用内开关同闸胶囊,
+    // danger 穿透。
+    final wantsCapsule = line.tone == AnTone.danger || level == 'all';
+    if (!wantsCapsule) return;
     if (!prefs.getBool(SettingsKeys.notifyToast) && line.tone != AnTone.danger) return;
 
-    // Both sides speak AnTone now (批7 B-035/B-041) — no enum conversion, but the toast tone still clamps
-    // to warn/danger (an 'all'-level neutral inbox event pops as warn, never a toneless bar).
-    // 两侧同讲 AnTone(换算层消失),但仍钳制 warn/danger('all' 级中性事件弹 warn、不弹无调条)。
-    final tone = line.tone == AnTone.danger ? AnTone.danger : AnTone.warn;
-    // danger = sticky (must be seen/actioned); warn = the long event-notification tier (the user
-    // may be away — distinct from the 4s UI-feedback tier). danger 常驻 / warn 走事件通知长档。
-    final duration = line.tone == AnTone.danger ? Duration.zero : AnMotion.toastLong;
-
-    ref.read(overlayProvider.notifier).showToast(
-          text,
-          tone: tone,
-          duration: duration,
-          action: loc == null
-              ? null
-              : AnToastAction(
-                  label: t.notifications.view,
-                  onPressed: () => ref.read(goRouterProvider).go(loc),
-                ),
-        );
+    ref.read(noticeCapsuleProvider.notifier).push(CapsuleNotice(
+          key: '$key:$now',
+          text: text,
+          icon: line.icon,
+          danger: line.tone == AnTone.danger,
+          location: loc,
+        ));
   }
 
   String _osTitle(Translations t) => t.appName;

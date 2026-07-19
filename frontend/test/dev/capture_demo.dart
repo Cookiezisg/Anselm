@@ -24,6 +24,7 @@ import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/notifications/data/notification_demo_fixture.dart';
+import 'package:anselm/features/notifications/state/notice_capsule_provider.dart';
 import 'package:anselm/features/settings/model/settings_catalog.dart';
 import 'package:anselm/features/settings/state/settings_panel_provider.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -125,6 +126,9 @@ const _notifPick = String.fromEnvironment('NOTIFPICK');
 // shows the PRODUCT BRAND (mark + name) in place of the OS traffic lights — verify its band optical-centre
 // seating (0719). 强制全屏位:左岛 chrome 带显品牌标(替红绿灯),验带内光学居中。
 const _fullscreen = bool.fromEnvironment('FULLSCREEN');
+// Optional `--dart-define=NOTICECAP=true` pushes one danger notice into the band-capsule queue after mount —
+// captures the chrome-band capsule (event notifications' ONLY floating surface, 0720). 顶带胶囊帧。
+const _noticeCap = bool.fromEnvironment('NOTICECAP');
 
 /// The capture root — the REAL [AppShell] driven by the REAL [buildAppRouter] (so routing is exercised
 /// exactly as `make app`); the `builder` wraps the routed shell in a keyed RepaintBoundary to grab. 截图根。
@@ -530,6 +534,20 @@ void main() {
         await tester.pump(const Duration(milliseconds: 200));
         outName = '${outName}_notifheadhover';
       }
+    }
+
+    // Push a danger notice into the band-capsule queue — the capsule fades into the head band's middle
+    // (never covering work content). 压入一条 danger 通知,胶囊淡入顶带中段。
+    if (_noticeCap) {
+      container.read(noticeCapsuleProvider.notifier).push(const CapsuleNotice(
+            key: 'cap-demo',
+            text: '工作流「invoice_sync」运行失败',
+            danger: true,
+            location: '/entities/workflow/wf_digest',
+          ));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400)); // entrance settles 登场落定
+      outName = '${outName}_noticecap';
     }
 
     // Open the workspace quick-actions menu — verify it matches the trigger width. 打开 workspace 菜单,验等宽。
