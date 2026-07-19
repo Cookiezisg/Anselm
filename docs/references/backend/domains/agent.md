@@ -20,6 +20,7 @@ Agent **自己不写代码**：它是一份"LLM 员工配置"——提示词 + *
 **三个对象**：`Agent`（身份 + active 指针）→ `Version`（不可变快照：**prompt · skill(0-1) · knowledge(docIDs) · tools(ToolRef[]) · inputs/outputs 声明 · modelOverride**——可变配置全在版本上）→ `Execution`（一次运行的审计行 + **transcript**）。
 
 **版本模型与 function/handler 同构**（方案 A，见 [function.md](function.md)#2），但有两个**有意分化**：
+- **REST list `?search`**：`GET /agents?search=<term>` 服务端 `name` 大小写不敏感子串（orm `WhereLike`，与其余 3 实体 list 同构）。
 - **编辑是全量 Config 快照替换、非 ops**：agent 配置是声明式字段（无代码体），整体替换语义清晰；ops 增量是为代码体设计的。
 - **name 不强制 slug**：function/handler 的 name 是代码标识符（Python 入口/类名，强制 `^[a-z][a-z0-9_-]{0,63}$`）；agent 的 name 是展示身份（"You are <Name>"），可中文/空格。
 

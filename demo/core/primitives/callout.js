@@ -37,7 +37,11 @@
     `;
 
     render() {
-      const tone = TONES[this.attr("tone")] ? this.attr("tone") : "warn";
+      // 先折大小写再兜底：CSS tone 选择器是小写字面值，"Danger" 不归一会落空成默认 warn 橙、而非 danger 红。
+      const lc = String(this.attr("tone") || "").toLowerCase();
+      const tone = TONES[lc] ? lc : "warn";
+      // why：CSS tone 选择器是字面值，非法 tone 不命中会落空成裸条——归一回写属性让 CSS 命中
+      if (this.attr("tone") !== tone) this.setAttribute("tone", tone);
       const key = this.attr("icon") || TONE_ICON[tone];
       return `<div class="callout">`
         + `<span class="ico">${window.icon(key)}</span>`

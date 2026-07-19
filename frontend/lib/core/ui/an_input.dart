@@ -4,67 +4,235 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 
-/// A single-line text field in the design language: surface fill, hairline border, an
-/// ink (monochrome) focus ring. Optional [label] renders above as a muted caption.
-/// 单行输入:表面填充、细线边、墨色(单色)焦点环。可选 [label] 作上方弱化标题。
-class AnInput extends StatelessWidget {
+/// B2 — the value leaf. Single-line by default; [multiline] grows to a textarea; [mono] is the
+/// compact monospace variant; [block] fills width (kit-wide name, like AnButton/AnDropdown). Focus deepens
+/// (line → lineStrong) with a plain caret, NO blue ring/fill (monochrome). [enabled]/[readOnly]
+/// share the kit's disabled/muted vocabulary.
+///
+/// B2——值叶子。默认单行;multiline→文本域;mono→等宽紧凑;full→占满。聚焦克制:边描深(line→lineStrong)
+/// + 朴素光标,无蓝环/蓝底(单色)。enabled/readOnly 沿用套件禁用/静音语汇。
+class AnInput extends StatefulWidget {
   const AnInput({
-    super.key,
     this.controller,
-    this.label,
-    this.hint,
+    this.initialValue,
+    this.placeholder,
     this.onChanged,
+    this.onSubmitted,
+    this.onEditingComplete,
+    this.multiline = false,
+    this.mono = false,
+    this.block = false,
+    this.seamless = false,
+    this.compact = false,
+    this.semanticLabel,
     this.enabled = true,
-    this.obscureText = false,
-  });
+    this.readOnly = false,
+    this.focusNode,
+    this.autofocus = false,
+    this.onTapOutside,
+    this.tabular = false,
+    this.style,
+    super.key,
+  }) : assert(!(compact && multiline), 'compact is a single-line tier');
 
   final TextEditingController? controller;
-  final String? label;
-  final String? hint;
+  final String? initialValue;
+  final String? placeholder;
   final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+
+  /// Passed through to [TextField.onEditingComplete]. Pass `() {}` to SUPPRESS the framework default
+  /// (which unfocuses on Enter under `TextInputAction.done`) — a chaining input (tag add) keeps focus
+  /// so consecutive submits work; [onSubmitted] still fires. 透传;传空回调压掉 Enter 默认失焦(连加场景)。
+  final VoidCallback? onEditingComplete;
+  final bool multiline;
+  final bool mono;
+
+  /// Fill the bounded parent width (kit-wide name; AnButton/AnDropdown/AnActionGroup use the same).
+  /// 占满有界父宽(套件统一名)。
+  final bool block;
+
+  /// Borderless, text-height field for in-place edit — no box chrome, no min-height, so it occupies
+  /// the SAME footprint as the display text it replaces (no layout jump). Caller sizes the width.
+  /// 无边框、文字高的就地编辑字段——无框、无最小高,与被替换的展示文字同占位(不跳)。宽由调用方定。
+  final bool seamless;
+
+  /// The small-control tier (0718 拍板,AnPager 跳页格首用): [AnSize.controlSm] (24) box +
+  /// [AnSpace.s8] horizontal pad — sits flush in a strip of small controls (page-number buttons,
+  /// sm icon buttons) where the standard 28 box reads a head taller. Single-line only.
+  /// 紧凑档:24 盒+s8 内距,与小控件带(页码钮/sm 图标钮)同高齐坐——标准 28 盒在那里高出一头。仅单行。
+  final bool compact;
+
+  /// Screen-reader name for a field whose visible placeholder is a GLYPH, not a word (the pager's
+  /// «#») — a glyph hint leaves the reader guessing. Rendered as a labeled container around the
+  /// field; null = the hint speaks for itself (the default for word placeholders).
+  /// 读屏名:占位是记号(如「#」)而非词的字段必须另给名字,否则读屏只能念记号;null=占位词自足。
+  final String? semanticLabel;
   final bool enabled;
-  final bool obscureText;
+  final bool readOnly;
+  final FocusNode? focusNode;
+  final bool autofocus;
+
+  /// Pointer-down outside the field — for in-place edit's blur-commit. Wrap confirm buttons in a
+  /// [TextFieldTapRegion] so tapping them isn't "outside" (cancel-priority). 失焦提交;✓✕ 套 TapRegion 防误触。
+  final TapRegionCallback? onTapOutside;
+
+  /// Tabular figures (mono already implies it) — for value fields whose idle display is tabular, so
+  /// the idle ↔ editing digits stay same-width. 等宽数字(mono 已含);值字段 idle↔editing 数字同宽。
+  final bool tabular;
+
+  /// Text-style override (e.g. an H2 inline-rename field that must match a big title) — defaults to the
+  /// value-column / body style. The colour is still applied per readOnly/enabled. 文字样式覆写(默认值列/正文样式)。
+  final TextStyle? style;
+
+  @override
+  State<AnInput> createState() => _AnInputState();
+}
+
+class _AnInputState extends State<AnInput> {
+  TextEditingController? _ownController;
+  FocusNode? _ownFocus;
+  bool _focused = false;
+
+  // Cached (not getter-lazy) so listener management is deterministic across focusNode/controller
+  // swaps — a getter re-evaluated in dispose would remove the listener from the WRONG node.
+  // 缓存(非懒 getter):focusNode/controller 被父级替换时监听迁移确定,避免在错的节点上摘监听。
+  late TextEditingController _controller;
+  late FocusNode _focus;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = widget.controller ?? (_ownController = TextEditingController(text: widget.initialValue));
+    _focus = widget.focusNode ?? (_ownFocus = FocusNode());
+    _focus.addListener(_onFocusChange);
+  }
+
+  @override
+  void didUpdateWidget(AnInput old) {
+    super.didUpdateWidget(old);
+    if (widget.focusNode != old.focusNode) {
+      _focus.removeListener(_onFocusChange);
+      if (old.focusNode == null) {
+        _ownFocus?.dispose();
+        _ownFocus = null;
+      }
+      _focus = widget.focusNode ?? (_ownFocus = FocusNode());
+      _focus.addListener(_onFocusChange);
+      _focused = _focus.hasFocus;
+    }
+    if (widget.controller != old.controller) {
+      if (old.controller == null) {
+        _ownController?.dispose();
+        _ownController = null;
+      }
+      _controller = widget.controller ?? (_ownController = TextEditingController(text: widget.initialValue));
+    }
+  }
+
+  void _onFocusChange() {
+    if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
+  }
+
+  @override
+  void dispose() {
+    _focus.removeListener(_onFocusChange);
+    _ownController?.dispose();
+    _ownFocus?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    OutlineInputBorder border(Color color, double width) => OutlineInputBorder(
-          borderRadius: BorderRadius.circular(AnRadius.button),
-          borderSide: BorderSide(color: color, width: width),
-        );
+    // Tabular figures when mono OR [tabular] (原语 D): digits align + match a tabular display value
+    // digit-for-digit (idle ↔ editing same width) — via the shared value-column style. 等宽数字(走值列样式单源)。
+    final base = widget.style ??
+        (widget.mono ? AnText.value(mono: true) : (widget.tabular ? AnText.value() : AnText.body));
+    final style = base.copyWith(color: widget.readOnly ? c.inkFaint : c.ink);
+    final borderColor = _focused ? c.lineStrong : c.line;
 
     final field = TextField(
-      controller: controller,
-      enabled: enabled,
-      onChanged: onChanged,
-      obscureText: obscureText,
+      controller: _controller,
+      focusNode: _focus,
+      enabled: widget.enabled,
+      readOnly: widget.readOnly,
+      autofocus: widget.autofocus,
+      onChanged: widget.onChanged,
+      onSubmitted: widget.onSubmitted,
+      onEditingComplete: widget.onEditingComplete,
+      onTapOutside: widget.onTapOutside,
+      maxLines: widget.multiline ? null : 1,
+      minLines: widget.multiline ? 3 : 1,
+      expands: false,
       cursorColor: c.ink,
-      style: AnText.body.copyWith(color: c.ink),
+      cursorWidth: AnSize.caret,
+      // Hug the text, not the full line-height — derived from the EFFECTIVE style (fontSize + caretRise)
+      // so a style-overridden field (an H2-24 rename, a 15 content value) gets a caret that matches its
+      // glyphs, not the 13-body constant. MULTILINE DERIVES TOO: the old `multiline ? null` exemption
+      // ("the caret scales per line") had no ground — a field carries ONE style, so there is no per-line
+      // scale to follow; null just handed the caret to the platform (macOS lineBox+2 = 20.2, Win/Linux
+      // lineBox−4: a 6px cross-platform split), and [AnComposer] — also maxLines:null — has pinned a
+      // derived height all along with no ill effect. 按有效样式推导(fontSize+caretRise),大字改名/15 值的光标
+      // 随字走、不再钉死 13 号短光标。**多行同样推导**:旧的「多行随行缩放」豁免站不住——一个字段只有一种样式、
+      // 无「行」可缩放;传 null 只是把光标交给平台(macOS 行盒+2=20.2、Win/Linux 行盒−4,跨平台差 6px),
+      // 而同为 maxLines:null 的 AnComposer 一直钉死派生高、零副作用。
+      cursorHeight: (style.fontSize ?? AnText.body.fontSize)! + AnSize.caretRise,
+      style: style,
       decoration: InputDecoration(
         isDense: true,
-        filled: true,
-        fillColor: enabled ? c.surface : c.surfaceHover,
-        hintText: hint,
-        hintStyle: AnText.body.copyWith(color: c.inkFaint),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
-        enabledBorder: border(c.line, AnSize.hairline),
-        focusedBorder: border(c.accentLine, AnSize.focusRing),
-        disabledBorder: border(c.line, AnSize.hairline),
+        isCollapsed: true,
+        hintText: widget.placeholder,
+        hintStyle: style.copyWith(color: c.inkFaint),
+        border: InputBorder.none,
+        enabledBorder: InputBorder.none,
+        focusedBorder: InputBorder.none,
+        disabledBorder: InputBorder.none,
       ),
     );
 
-    if (label == null) return field;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Padding(
-          padding: const EdgeInsets.only(bottom: AnSpace.s4),
-          child: Text(label!, style: AnText.label.copyWith(color: c.inkMuted)),
-        ),
-        field,
-      ],
+    // Seamless: no box chrome, text-height — the caller constrains width (a Flexible, or AnLeadValue's
+    // value slot) so it slots in where the display text was, no jump. 无框、文字高:宽由调用方约束,原位替换、不跳。
+    if (widget.seamless) {
+      return _label(Opacity(opacity: widget.enabled ? 1 : AnOpacity.disabled, child: field));
+    }
+
+    final boxH = widget.compact ? AnSize.controlSm : AnSize.control;
+    final box = AnimatedContainer(
+      duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast, // focus-border fade = functional feedback 功能性反馈
+      height: widget.multiline ? null : boxH,
+      constraints: BoxConstraints(minHeight: widget.multiline ? AnSize.control * 2 : boxH),
+      padding: EdgeInsets.symmetric(
+        horizontal: widget.compact ? AnSpace.s8 : AnSpace.s12,
+        vertical: widget.multiline ? AnSpace.s8 : 0,
+      ),
+      alignment: widget.multiline ? Alignment.topLeft : Alignment.centerLeft,
+      decoration: BoxDecoration(
+        color: c.surface,
+        border: Border.all(color: borderColor, width: AnSize.hairline),
+        borderRadius: BorderRadius.circular(AnRadius.button),
+      ),
+      child: field,
     );
+
+    // block fills width — but only with a bounded parent; otherwise fall back to inputMin so an
+    // empty input doesn't collapse to a thin line (and doesn't crash unbounded).
+    // block 占满需有界父;否则退化到 inputMin,空输入不塌成细线、也不在无界处崩。
+    return _label(Opacity(
+      opacity: widget.enabled ? 1 : AnOpacity.disabled,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (widget.block && constraints.hasBoundedWidth) {
+            return SizedBox(width: double.infinity, child: box);
+          }
+          return SizedBox(width: AnSize.inputMin, child: box);
+        },
+      ),
+    ));
   }
+
+  /// Wrap in the screen-reader name when one is given (glyph-placeholder fields). 有读屏名才包。
+  Widget _label(Widget child) => widget.semanticLabel == null
+      ? child
+      : Semantics(container: true, label: widget.semanticLabel, child: child);
 }

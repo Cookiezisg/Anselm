@@ -56,6 +56,14 @@ type Request struct {
 	Tool           string          `json:"tool"` // the tool name (danger: gated tool; ask: "ask_user")
 	ConversationID string          `json:"conversationId,omitempty"`
 	Prompt         json.RawMessage `json:"prompt,omitempty"` // ask: {message, options}; danger: {summary, args}
+	// Resolved marks the SYMMETRIC "interaction cleared" signal (chat publishes it on the messages
+	// stream when a pending interaction is resolved) — false/absent on a pending Request, true on the
+	// resolution signal so the front end clears the prompt + the conversation's awaiting-input dot
+	// without reverse-inferring from the tool_result.
+	//
+	// Resolved 标记对称的「交互已清」信号（chat 在待决交互被解决时于 messages 流发）——pending Request 上 false/缺省，
+	// 解决信号上 true，使前端清提示 + 会话 awaiting 点而不靠 tool_result 反推。
+	Resolved bool `json:"resolved,omitempty"`
 }
 
 // Response is the human's decision.
@@ -203,6 +211,23 @@ func (b *Broker) Pending(conversationID string) []Request {
 		}
 	}
 	return out
+}
+
+// HasPending reports whether a conversation has ≥1 pending interaction — the cheap per-row predicate
+// the conversation list uses to derive AwaitingInput (short-circuits on the first match, unlike
+// Pending which allocates the full slice for the reconnect re-sync).
+//
+// HasPending 报告某对话是否有 ≥1 个待决交互——会话列表逐行派生 AwaitingInput 的廉价判定（首个匹配即短路，
+// 不像 Pending 为重连重同步分配整个切片）。
+func (b *Broker) HasPending(conversationID string) bool {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, w := range b.pending {
+		if w.req.ConversationID == conversationID {
+			return true
+		}
+	}
+	return false
 }
 
 type brokerKey struct{}

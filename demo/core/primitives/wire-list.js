@@ -5,9 +5,12 @@
 (function () {
   class AnWireList extends window.AnElement {
     static tag = "an-wire-list";
+    // why：keyph/exprph/addlabel 运行时可改——纳入 observed 才会重渲生效
+    static observed = ["keyph", "exprph", "addlabel"];
     static css = `
       :host { display: block; }
-      .list { display: flex; flex-direction: column; gap: var(--grid); }
+      /* why：行多时不撑爆容器，内部滚动 */
+      .list { display: flex; flex-direction: column; gap: var(--grid); max-height: calc(var(--row) * 8); overflow: auto; }
       .wire { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 2fr) auto; align-items: center; gap: var(--gap-tight); }
       .arr { color: var(--ink-3); }
     `;

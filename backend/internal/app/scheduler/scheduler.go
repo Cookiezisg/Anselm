@@ -83,6 +83,12 @@ type WorkflowReader interface {
 	GetActiveVersion(ctx context.Context, id string) (*workflowdomain.Version, error)
 	GetVersion(ctx context.Context, versionID string) (*workflowdomain.Version, error)
 	BuildPinClosure(ctx context.Context, g *workflowdomain.Graph) (map[string]string, error)
+	// NamesByIDs batch-resolves workflow display names (one WHERE id IN … query) for the inbox's
+	// enriched rows (工单④) — soft-deleted ids are simply absent and fall back to the bare id
+	// (the relation-domain Namer precedent). Already implemented by *workflowapp.Service.
+	// NamesByIDs 批量解析 workflow 显示名（一条 WHERE id IN… 查询），供收件箱 enrich 行（工单④）——
+	// 软删 id 直接缺席、回落裸 id（relation 域 Namer 先例）。*workflowapp.Service 已实现。
+	NamesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 }
 
 // ControlResolver / ApprovalResolver resolve a control/approval node's pinned logic for inline
@@ -97,22 +103,37 @@ type ApprovalResolver interface {
 	Resolve(ctx context.Context, id, versionID string) (*approvaldomain.Version, error)
 }
 
-// FiringInbox is the trigger firings surface the scheduler drains. ClaimFiring is the single-tx
-// claim: it claims a pending firing AND builds the flowrun in ONE transaction via the
-// create callback (so there is never a claimed-but-no-run strand). Satisfied by *triggerstore.Store.
-// nil-tolerant: a manual-only deployment (or a test) wires no inbox.
+// FiringInbox is the trigger firings surface the scheduler drains — and, since 工单⑭, reports on:
+// CountFirings is how RunStats answers the Overview's "错过 N" card without a second endpoint and
+// without a second window. ClaimFiring is the single-tx claim: it claims a pending firing AND builds
+// the flowrun in ONE transaction via the create callback (so there is never a claimed-but-no-run
+// strand). Satisfied by *triggerstore.Store. nil-tolerant: a manual-only deployment (or a test)
+// wires no inbox — and then there are no firings at all, so a zero missed count is the TRUTH rather
+// than a shrug.
 //
-// FiringInbox 是 scheduler 排空的 trigger firings 面。ClaimFiring 是单事务 claim：在一个
-// 事务内 claim pending firing + 经 create 回调建 flowrun（无 claimed-但-无-run 残留）。由
-// *triggerstore.Store 实现。允许 nil：纯手动部署（或测试）不接 inbox。
+// FiringInbox 是 scheduler 排空的 trigger firings 面——自工单⑭ 起也是它**报数**的面：CountFirings
+// 是 RunStats 回答 Overview「错过 N」牌的方式，无需第二个端点、也无需第二个窗口。ClaimFiring 是单事务
+// claim：在一个事务内 claim pending firing + 经 create 回调建 flowrun（无 claimed-但-无-run 残留）。
+// 由 *triggerstore.Store 实现。允许 nil：纯手动部署（或测试）不接 inbox——那时根本不存在 firing，故
+// missed 计数为 0 是**真相**、而非搪塞。
 type FiringInbox interface {
 	ListPendingFirings(ctx context.Context, limit int) ([]*triggerdomain.Firing, error)
+	// CountFirings counts the firings matching a filter (工单⑭) — the "错过 N" KPI card's number.
+	// CountFirings 数匹配 filter 的 firing（工单⑭）——「错过 N」KPI 牌的那个数字。
+	CountFirings(ctx context.Context, filter triggerdomain.FiringFilter) (int, error)
 	ClaimFiring(ctx context.Context, firingID string, create func(tx *ormpkg.DB) (string, error)) (string, error)
 	MarkFiringOutcome(ctx context.Context, firingID, status string) error
 	// SupersedeAllButNewestPending collapses a workflow's pending firings to the newest (buffer_one's
 	// keep-only-latest disposition), returning the survivor's id ("" if none) and the count superseded.
 	// SupersedeAllButNewestPending 把某 workflow 的待处理 firing 收敛到最新一条（buffer_one 只留最新），返存活者 id（无则 ""）与被 supersede 数。
 	SupersedeAllButNewestPending(ctx context.Context, workflowID string) (string, int64, error)
+	// TriggerKind resolves a trigger's source kind (cron/webhook/fsnotify/sensor) so claimFiring can
+	// stamp the run's origin — the firing row deliberately carries no kind (no denormalized column to
+	// drift). Best-effort at the call site: a lookup failure leaves origin NULL, never fails the run.
+	// TriggerKind 解析 trigger 的 source kind（cron/webhook/fsnotify/sensor）供 claimFiring 给 run 盖
+	// origin——firing 行刻意不带 kind（不冗余列、无可漂移）。调用侧 best-effort：查失败 origin 留 NULL，
+	// 绝不连累 run。
+	TriggerKind(ctx context.Context, triggerID string) (string, error)
 }
 
 // RunStore is the flowrun persistence the scheduler needs: the domain Repository plus the two
@@ -183,6 +204,7 @@ type Service struct {
 	advPending    map[string]bool // runID → a redrive was requested while it was in progress (re-walk once)
 	advQueued     map[string]bool // runID → sitting in advQueue awaiting a worker (dedup)
 	advStarted    bool            // worker pool running (false → enqueueAdvance drives inline)
+	advClosing    bool            // Shutdown set: drive() skips execution so StopPool's queue-drain doesn't run buffered runs
 	advQueue      chan advanceJob // worker job queue
 	advWG         sync.WaitGroup  // tracks live workers for shutdown
 }

@@ -63,6 +63,16 @@ func NewService(repo controldomain.Repository, notif notificationdomain.Emitter,
 // SetRelationSyncer 装配后注入 relation Service（避 init 环）。
 func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 
+// nameOfControl returns c.Name, or "" when c is nil (best-effort notify name never breaks business).
+//
+// nameOfControl 返 c.Name，c 为 nil 时返 ""（尽力而为的通知名绝不连累业务）。
+func nameOfControl(c *controldomain.ControlLogic) string {
+	if c == nil {
+		return ""
+	}
+	return c.Name
+}
+
 // publish emits a control lifecycle notification; nil emitter is a no-op.
 //
 // publish 发一条 control 生命周期通知；nil emitter 为 no-op。

@@ -40,11 +40,13 @@ func Open(pool *sql.DB) *DB {
 func (db *DB) handle() DBTX { return db.h }
 
 // Transaction runs fn inside one SQL transaction: commit on nil error, rollback
-// otherwise. A call already inside a transaction reuses the outer tx (flat
-// nesting — no savepoints), so composing transactional store methods is safe.
+// otherwise — including when fn panics (the panic still propagates). A call
+// already inside a transaction reuses the outer tx (flat nesting — no
+// savepoints), so composing transactional store methods is safe.
 //
-// Transaction 在单个 SQL 事务内执行 fn：nil 错误提交，否则回滚。已在事务内的调用
-// 复用外层 tx（扁平嵌套、无 savepoint），故组合多个事务型 store 方法是安全的。
+// Transaction 在单个 SQL 事务内执行 fn：nil 错误提交，否则回滚——fn panic 也回滚
+// （panic 照常上抛）。已在事务内的调用复用外层 tx（扁平嵌套、无 savepoint），故
+// 组合多个事务型 store 方法是安全的。
 func (db *DB) Transaction(ctx context.Context, fn func(tx *DB) error) error {
 	if db.pool == nil {
 		return fn(db) // already inside a tx — reuse it. 已在事务内——复用。
@@ -53,8 +55,20 @@ func (db *DB) Transaction(ctx context.Context, fn func(tx *DB) error) error {
 	if err != nil {
 		return fmt.Errorf("orm: begin tx: %w", err)
 	}
+	// Roll back on EVERY exit that did not commit — critically, a panic inside fn. Without
+	// this defer, a panic that some caller recovers on a non-cancellable ctx (reqctx.Detached
+	// is on the finalize path of every assistant turn) leaves the tx parked on the pool's ONLY
+	// connection (SetMaxOpenConns(1)): database/sql's awaitDone blocks on <-ctx.Done() forever,
+	// and every later DB call in the process hangs — the whole app bricks until restart.
+	// After a successful Commit this is a no-op: Rollback returns sql.ErrTxDone, discarded.
+	//
+	// 任何未提交的退出路径都必须回滚——最要命的是 fn 里的 panic。没有这个 defer，panic 被上层在
+	// 不可取消 ctx 上 recover（reqctx.Detached 就铺在每个 assistant 回合的 finalize 路径上）后，
+	// 事务永久占住池中唯一连接（SetMaxOpenConns(1)）：database/sql 的 awaitDone 在 <-ctx.Done()
+	// 上永久阻塞，此后进程里每次 DB 调用全部挂死——整库砖化、只能重启。Commit 成功后本 defer 是
+	// no-op：Rollback 返回 sql.ErrTxDone，此处丢弃。
+	defer func() { _ = sqlTx.Rollback() }()
 	if err := fn(&DB{h: sqlTx}); err != nil {
-		_ = sqlTx.Rollback()
 		return err
 	}
 	if err := sqlTx.Commit(); err != nil {

@@ -45,12 +45,25 @@ type (
 		// 能显示一句话摘要并标记 cautious / dangerous 调用——「纯信任」danger 处理的可见半边。
 		Summary string `json:"summary,omitempty"`
 		Danger  string `json:"danger,omitempty"`
+		// EntityName is the display name of the call's PRIMARY target entity (run_function→the function's
+		// name, invoke_agent→the agent's, …), resolved from the arg id via the touchpoint Namer at close.
+		// Rides the tool_call node like summary/danger so the UI reads "Run Function «sync_inventory»"
+		// instead of a bare id. Empty when the tool touches no nameable entity (the UI keeps the id).
+		//
+		// EntityName 是本次调用主目标实体的显示名(run_function→函数名、invoke_agent→agent 名…),关帧时经
+		// touchpoint Namer 从 arg id 解析。随 tool_call 节点上行(同 summary/danger),使 UI 读「Run Function
+		// «sync_inventory»」而非裸 id。工具无可命名目标时为空(UI 留 id)。
+		EntityName string `json:"entityName,omitempty"`
 	}
 )
 
 type toolAccum struct {
 	id, name string
 	args     strings.Builder
+	// entityName is the resolved display name of the call's primary target entity, stamped once at close
+	// (args are complete only then) so toolCallSnapshot + assembleBlocks can carry it. "" = no nameable
+	// target. entityName 是本次调用主目标实体的解析显示名,关帧时(args 此刻才全)盖一次供快照/落库携带;""=无可命名目标。
+	entityName string
 	// build (non-nil for a BuildTool call) mirrors this tool_call's arg delta onto the entities
 	// stream so the entity panel fills in live (SSE-C). nil for non-build calls.
 	//
@@ -233,6 +246,11 @@ func streamLLM(
 	closeReason(closeStatus)
 	for _, a := range accums {
 		if a.id != "" {
+			// Stamp the target entity's display name NOW (args are complete at close) so the durable
+			// snapshot + persisted block carry it. Best-effort — resolveToolTargetName returns "" for a
+			// tool with no nameable target (the UI keeps the id). 关帧时 args 已全,盖目标名供快照/落库;尽力而为。
+			_, args := parseToolArgs(a.args.String())
+			a.entityName = resolveToolTargetName(ctx, a.name, args)
 			em.close(ctx, a.id, closeStatus, toolCallSnapshot(a), "")
 		}
 		if a.build != nil {
@@ -265,10 +283,11 @@ func toolCallSnapshot(a *toolAccum) *streamdomain.Node {
 	return &streamdomain.Node{
 		Type: messagesdomain.BlockTypeToolCall,
 		Content: streamdomain.JSONContent(toolCallContent{
-			Name:      a.name,
-			Arguments: string(argsJSON),
-			Summary:   fields.Summary,
-			Danger:    string(fields.Danger),
+			Name:       a.name,
+			Arguments:  string(argsJSON),
+			Summary:    fields.Summary,
+			Danger:     string(fields.Danger),
+			EntityName: a.entityName,
 		}),
 	}
 }
@@ -312,6 +331,11 @@ func assembleBlocks(text string, reason reasonAccum, accums map[int]*toolAccum) 
 		}
 		if fields.Danger != "" {
 			attrs["danger"] = string(fields.Danger)
+		}
+		// entityName persists on the block too, so a DB-rebuilt history (after replay eviction) shows the
+		// target's name, matching the live snapshot. entityName 也落块,使 DB 重建历史(replay 淘汰后)显名、与 live 一致。
+		if a.entityName != "" {
+			attrs["entityName"] = a.entityName
 		}
 		blocks = append(blocks, messagesdomain.Block{
 			ID:      a.id,

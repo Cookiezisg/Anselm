@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"time"
 
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
@@ -66,11 +67,11 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 		return err
 	}
 	for {
-		// Bail if this drive was interrupted (KillWorkflow cancelled our ctx, or the app is shutting
-		// down). Not an error: the durable state is authoritative — kill already marked the run
-		// cancelled; a shutdown leaves it running for the next boot's Recover to re-walk.
-		// 若本次驱动被打断（KillWorkflow 取消了 ctx，或 app 关停）则退出。非错误：durable 状态为准——kill
-		// 已标 run cancelled；shutdown 留 run running 待下次 boot 的 Recover 重走。
+		// Bail if this drive was interrupted (:cancel / KillWorkflow cancelled our ctx, or the app is
+		// shutting down). Not an error: the durable state is authoritative — :cancel/kill already
+		// marked the run cancelled; a shutdown leaves it running for the next boot's Recover to re-walk.
+		// 若本次驱动被打断（:cancel / KillWorkflow 取消了 ctx，或 app 关停）则退出。非错误：durable 状态
+		// 为准——:cancel/kill 已标 run cancelled；shutdown 留 run running 待下次 boot 的 Recover 重走。
 		if ctx.Err() != nil {
 			return nil
 		}
@@ -91,12 +92,34 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 		if len(ready) == 0 {
 			break
 		}
+		// Queue stamp (工单⑫): the whole batch became ready at THIS walk turn — one instant for all
+		// its nodes. Held in memory and persisted on each row's single record-once INSERT (writeNode);
+		// a node later in the batch queues behind its siblings' sequential execution, so its
+		// ready→started gap is real waiting. A crash loses the stamp with the drive — the recovering
+		// walk recomputes ready and stamps anew (recovery is a new queue start, never pretend-seamless).
+		//
+		// 排队戳（工单⑫）：整批在**这一轮** walk 同一瞬变 ready。内存持有、随各行唯一一次 record-once
+		// INSERT 落盘（writeNode）；批内靠后的节点排在兄弟的顺序执行之后，其 ready→started 间隔是真实
+		// 等待。崩溃即随驱动丢戳——恢复的 walk 重算 ready 重新盖戳（恢复是新的排队起点、绝不伪装无缝）。
+		readyAt := time.Now().UTC()
 		advanced := false
 		staleRows := false
 		for _, rn := range ready {
-			row, status, err := s.runNode(ctx, run, senv, w, rn)
+			row, status, err := s.runNode(ctx, run, senv, w, rn, readyAt)
 			if err != nil {
 				return err
+			}
+			if status == nodeInterrupted {
+				// The drive was cancelled mid-node (:cancel / kill / shutdown): nothing was recorded
+				// (failNode's interrupted-bail) and nothing more may run. Bail WITHOUT ticking (a
+				// `failed` tick for a node that didn't fail would lie on the wire) and WITHOUT
+				// finalizing — the durable header is authoritative: :cancel/kill already wrote
+				// cancelled; a shutdown leaves it running for the next boot's Recover.
+				// 驱动在节点中途被取消（:cancel / kill / shutdown）：什么也没记（failNode 的
+				// interrupted-bail）、也不得再跑。**不发 tick**（给没失败的节点发 failed tick 是对线缆
+				// 撒谎）、**不 finalize** 即退——durable 头为准：:cancel/kill 已写 cancelled；shutdown
+				// 留 running 待下次 boot 的 Recover。
+				return nil
 			}
 			if row != nil {
 				rows = append(rows, row) // carry the just-written row into the next turn's walk
@@ -108,7 +131,7 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 				// 否则 computeReady 见无行会永远重排该节点。
 				staleRows = true
 			}
-			s.emitNodeProgress(ctx, run, rn, status) // SSE-C: workflow panel run terminal
+			s.emitNodeProgress(ctx, run, rn.node.ID, rn.iter, status, row) // SSE-C: workflow panel run terminal (+port)
 			if status == flowrundomain.NodeFailed {
 				return nil // fail-fast: the run was already marked failed inside failNode
 			}
@@ -130,22 +153,94 @@ func (s *Service) Advance(ctx context.Context, flowrunID string) error {
 
 // emitNodeProgress streams one node's terminal status onto the entities stream scoped to the
 // workflow, so the workflow panel shows a flowrun progressing node by node (SSE-C). A point Signal
-// keyed by flowrunId; the durable record is flowrun_nodes. nil bridge → no-op.
+// keyed by flowrunId; the durable record is flowrun_nodes. When the just-written row carries a
+// routing decision (control's chosen branch / approval's decision under the reserved __port key)
+// the tick carries it as `port` — the client renders the taken branch live without a lazy GET
+// per tick (R-11 retires). nil bridge → no-op.
 //
 // emitNodeProgress 把一个节点的终态流到 workflow scope 的 entities 流，使 workflow 面板逐节点显示 flowrun
-// 推进（SSE-C）。按 flowrunId 的点 Signal；耐久记录是 flowrun_nodes。nil bridge → no-op。
-func (s *Service) emitNodeProgress(ctx context.Context, run *flowrundomain.FlowRun, rn readyNode, status string) {
+// 推进（SSE-C）。按 flowrunId 的点 Signal；耐久记录是 flowrun_nodes。刚落的行携路由决策（control 选中分支 /
+// approval 决定，存保留键 __port 下）时 tick 以 `port` 捎带——客户端实时渲选中分支、免逐 tick 惰性 GET
+// （R-11 退役）。nil bridge → no-op。
+func (s *Service) emitNodeProgress(ctx context.Context, run *flowrundomain.FlowRun, nodeID string, iteration int, status string, row *flowrundomain.FlowRunNode) {
 	if s.entities == nil {
 		return
 	}
-	content, _ := json.Marshal(map[string]any{
+	payload := map[string]any{
 		"flowrunId": run.ID,
-		"nodeId":    rn.node.ID,
-		"iteration": rn.iter,
+		"nodeId":    nodeID,
+		"iteration": iteration,
 		"status":    status,
-	})
+	}
+	if row != nil {
+		// control routes under the reserved __port key; an approval's decision IS its port
+		// (edges route on yes/no). control 走保留键 __port；approval 的 decision 即其 port。
+		if port, _ := row.Result[flowrundomain.ResultKeyPort].(string); port != "" {
+			payload["port"] = port
+		} else if d, _ := row.Result[flowrundomain.ResultKeyDecision].(string); d != "" {
+			payload["port"] = d
+		}
+	}
+	content, _ := json.Marshal(payload)
 	// ephemeral=true：flowrun_nodes 行是重连真相，tick 仅实时呈现、丢弃无妨、不占 replay 环(E2)。
 	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: run.WorkflowID}, entitystreamapp.NodeRun, content, true)
+}
+
+// emitRunStarted streams a new flowrun's birth as a DURABLE Signal (node.type="run_started",
+// content {flowrunId, origin}, workflow scope) — the terminal's symmetric twin: a scheduler surface
+// tracking "what is running right now" must learn about a run born while it was disconnected
+// (cron fires with no panel open are the norm on a desktop app), so this enters the seq/replay
+// ring like run_terminal. Emitted at the two creation chokepoints only (StartRun / claimFiring);
+// :replay reopens an existing run and is not a birth.
+//
+// emitRunStarted 把新 flowrun 的诞生流成 **durable** Signal（node.type="run_started"、content
+// {flowrunId, origin}、workflow scope）——run_terminal 的对称孪生：追踪「现在有什么在跑」的调度面
+// 必须知道断连期间出生的 run（桌面 app 上无人看面板时的 cron 触发是常态），故与 run_terminal 一样
+// 入 seq/replay 环。只在两个创建咽喉发（StartRun / claimFiring）；:replay 重开既有 run、非诞生。
+func (s *Service) emitRunStarted(ctx context.Context, run *flowrundomain.FlowRun) {
+	if s.entities == nil {
+		return
+	}
+	// A NULL origin OMITS the key, exactly as the REST DTO does (`origin` is omitempty, and api.md
+	// binds clients to "render unknown on absence; never read an empty string"). It is reachable —
+	// claimFiring's TriggerKind lookup is best-effort and a soft-deleted trigger leaves the stamp
+	// NULL — so the same absent origin must not arrive as `""` here and as a missing key over REST:
+	// one NULL, one representation, or every client needs two ways to spell "unknown".
+	// origin 为 NULL 时**省略该键**，与 REST DTO 完全一致（`origin` 带 omitempty，且 api.md 约束客户端
+	// 「按缺席渲 unknown、绝不认空串」）。它是可达的——claimFiring 查 TriggerKind 是 best-effort，软删的
+	// trigger 会让这枚章留 NULL——故同一个「没有 origin」不能在这里是 `""`、在 REST 那边却是键缺席：
+	// 一个 NULL、一种表示法，否则每个客户端都得会两种「未知」的拼法。
+	content := map[string]any{"flowrunId": run.ID}
+	if run.Origin != nil && *run.Origin != "" {
+		content["origin"] = *run.Origin
+	}
+	body, _ := json.Marshal(content)
+	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: run.WorkflowID}, entitystreamapp.NodeRunStarted, body, false)
+}
+
+// emitRunTerminal streams a flowrun's terminal status as a DURABLE flowrun signal (seq + replay
+// ring, E2; run_started's symmetric twin): node ticks may be dropped, but "the run is over" must
+// survive a reconnect so a client tracking a run (the chat sidestage's trigger_workflow poll
+// fallback, the workflow cockpit) never spins on a terminal it missed. errMsg rides only a failed
+// terminal.
+//
+// emitRunTerminal 把 flowrun 终态作为 **durable** flowrun 信号流出（入 seq + replay 环，E2；
+// run_started 的对称孪生）：节点 tick 可丢，但「run 结束了」必须活过重连，使追踪 run 的客户端
+// （chat 侧幕 trigger_workflow 的 poll 兜底、workflow 驾驶舱）绝不因错过终态而空转。errMsg 只随
+// failed 终态。
+func (s *Service) emitRunTerminal(ctx context.Context, workflowID, flowrunID, status, errMsg string) {
+	if s.entities == nil {
+		return
+	}
+	payload := map[string]any{
+		"flowrunId": flowrunID,
+		"status":    status,
+	}
+	if errMsg != "" && status == flowrundomain.StatusFailed {
+		payload["error"] = errMsg
+	}
+	content, _ := json.Marshal(payload)
+	entitystreamapp.Signal(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindWorkflow, ID: workflowID}, entitystreamapp.NodeRunTerminal, content, false)
 }
 
 // finalize settles a run that has no ready nodes left: still-running if any node is parked (awaiting

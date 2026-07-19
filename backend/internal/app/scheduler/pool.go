@@ -187,6 +187,13 @@ func (s *Service) sendJob(q chan advanceJob, job advanceJob, runID string) {
 func (s *Service) drive(ctx context.Context, runID string) error {
 	s.advMu.Lock()
 	delete(s.advQueued, runID) // we're handling it now
+	if s.advClosing {
+		// Shutdown in progress: skip this (buffered) run rather than execute a full uninterrupted workflow
+		// on an uncancellable ctx. The run stays Running; boot Recover resumes it. See Shutdown's comment.
+		// 关停中:跳过这个（缓冲的）run,不在不可取消 ctx 上跑完整不可中断的 workflow。run 保持 Running;boot Recover 续。
+		s.advMu.Unlock()
+		return nil
+	}
 	if s.advInProgress[runID] {
 		s.advPending[runID] = true // another goroutine drives it — ask it to re-walk once
 		s.advMu.Unlock()

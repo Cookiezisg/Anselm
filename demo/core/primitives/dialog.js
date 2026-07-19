@@ -74,7 +74,9 @@
   function open(o) {
     o = o || {};
     ensureStyle();
-    if (active) active.close();
+    // why：supersede 旧实例必须【同步硬摘】——否则旧 mask 的退场动画延迟 ~300ms 才摘 DOM，
+    // 同帧重复 open 会在窗口内堆叠 N 个 .an-dialog-mask（用户主动 close 仍走动画，见 close(immediate)）。
+    if (active) active.close(true);
     var e = window.anEsc;
     var prevFocus = document.activeElement;
 
@@ -91,10 +93,10 @@
     );
     mask.appendChild(card);
 
-    // 内容：节点直接挂、串走 HTML（调用方信任的已拼好片段）。
+    // 内容契约：Node 直接挂（调用方自建富内容）；【串走 textContent 转义】——确认弹窗常嵌实体名等不可信文本，innerHTML 会 XSS。要富 HTML 就传 Node。
     var bodyEl = card.querySelector(".an-dialog-body");
     if (o.content instanceof Node) bodyEl.appendChild(o.content);
-    else if (o.content != null) bodyEl.innerHTML = String(o.content);
+    else if (o.content != null) bodyEl.textContent = String(o.content);
 
     // 底栏：用已有 <an-button> 原语拼，variant 透传；onClick 返回 false 阻止关闭。
     var footEl = card.querySelector(".an-dialog-foot");
@@ -138,7 +140,8 @@
     }
 
     var closed = false;
-    function close() {
+    // immediate=true：supersede 路径跳退场动画、同步硬摘 DOM（防同帧堆叠）；用户主动 close 不传、走动画。
+    function close(immediate) {
       if (closed) return; closed = true;
       document.removeEventListener("keydown", key, true);
       mask.removeEventListener("pointerdown", onMaskDown);
@@ -152,6 +155,7 @@
         if (prevFocus && prevFocus.focus) { try { prevFocus.focus(); } catch (_) {} }
         if (o.onClose) o.onClose();
       }
+      if (immediate) { remove(); return; }
       mask.addEventListener("transitionend", remove, { once: true });
       var d = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--d-mid"));
       setTimeout(remove, (Number.isFinite(d) ? d : 240) + 60);

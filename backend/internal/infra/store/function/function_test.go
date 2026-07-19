@@ -146,6 +146,24 @@ func TestFunction_ListPagination(t *testing.T) {
 	}
 }
 
+// TestFunction_ListSearch — the ?search filter is a case-insensitive name substring (WhereLike),
+// keyed the same as the other 3 entity stores.
+//
+// TestFunction_ListSearch —— ?search 是大小写不敏感的 name 子串（WhereLike），与另 3 个实体 store 同键。
+func TestFunction_ListSearch(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkFn(t, s, ctx, "fn_1", "Quarterly Report", "")
+	mkFn(t, s, ctx, "fn_2", "random helper", "")
+	rows, _, err := s.ListFunctions(ctx, functiondomain.ListFilter{Search: "REPORT"})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != "fn_1" {
+		t.Fatalf("search 'REPORT' (case-insensitive) should match only fn_1, got %d rows", len(rows))
+	}
+}
+
 func TestVersion_MaxAndByNumber(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

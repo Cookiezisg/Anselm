@@ -31,8 +31,18 @@ import (
 //
 // 复用 domain 载荷类型，使 handler 只依赖 app 包。
 type (
-	ListFilter  = conversationdomain.ListFilter
-	UpdateInput = conversationdomain.UpdateInput
+	ListFilter   = conversationdomain.ListFilter
+	UpdateInput  = conversationdomain.UpdateInput
+	ArchiveScope = conversationdomain.ArchiveScope
+)
+
+// Re-export the archive-scope constants so callers (the list_conversations tool) need only the app package.
+//
+// 复用归档范围常量，使调用方（list_conversations 工具）只依赖 app 包。
+const (
+	ArchiveActive   = conversationdomain.ArchiveActive
+	ArchiveArchived = conversationdomain.ArchiveArchived
+	ArchiveAll      = conversationdomain.ArchiveAll
 )
 
 // Service is the conversation CRUD application façade.
@@ -47,6 +57,10 @@ type Service struct {
 	// relations is the optional relation hook; nil disables edge purge + the Namer is harmless.
 	// relations 是可选 relation 钩子；nil 时禁用边清理、Namer 仍无害。
 	relations RelationSyncer
+
+	// touchpoints is the optional context-ledger hook; nil disables the ledger cascade on delete.
+	// touchpoints 是可选上下文台账钩子；nil 时禁用删除级联。
+	touchpoints TouchpointPurger
 
 	// canceler is the optional generation hook (chatapp, injected post-build like relations):
 	// Delete cancels any in-flight generation so a deleted conversation can't keep burning
@@ -64,6 +78,14 @@ type Service struct {
 	// querier 是可选在途生成读取器（chatapp，后注入）：Get/List 据它派生每行 IsGenerating，使刚连上的
 	// 客户端冷启动活动圆点。与 canceler 对称——同款 DIP 端口破 chat↔conversation 环。nil → IsGenerating 恒 false。
 	querier GeneratingQuerier
+
+	// awaitingQuerier is the optional pending-interaction reader (chatapp, injected post-build): Get/List
+	// derive each row's AwaitingInput from the in-memory humanloop broker so a freshly-connected client
+	// cold-starts its "needs you" dot. Mirrors querier exactly — same DIP port. nil → AwaitingInput false.
+	//
+	// awaitingQuerier 是可选待决-interaction 读取器（chatapp，后注入）：Get/List 据内存 humanloop broker 派生每行
+	// AwaitingInput，使刚连上的客户端冷启动「等你」点。与 querier 完全对称——同款 DIP 端口。nil → AwaitingInput 恒 false。
+	awaitingQuerier AwaitingInputQuerier
 
 	// docResolver is the optional document-existence hook (documentapp, injected post-build like
 	// relations/canceler): Update validates attachedDocuments against it so a dangling/deleted doc id is
@@ -129,18 +151,38 @@ type GeneratingQuerier interface {
 // SetGeneratingQuerier 构造后注入 chat 生成态读取器（与 SetGenerationCanceler 同款破环）。
 func (s *Service) SetGeneratingQuerier(q GeneratingQuerier) { s.querier = q }
 
-// markGenerating fills the derived IsGenerating flag on each row from the chat registry (no-op when
-// the querier is unwired). Pure in-memory reads — no DB/IO — so it is cheap even per-row in List.
+// AwaitingInputQuerier reports whether a conversation has ≥1 pending human-in-loop interaction
+// (chatapp.Service satisfies it via the in-memory humanloop broker). Short-circuits on the first match
+// so List can call it per-row cheaply.
 //
-// markGenerating 据 chat 登记给每行填派生 IsGenerating 标志（querier 未接时 no-op）。纯内存读、无
-// DB/IO，故即便 List 逐行也廉价。
-func (s *Service) markGenerating(rows ...*conversationdomain.Conversation) {
-	if s.querier == nil {
-		return
-	}
+// AwaitingInputQuerier 报告某对话是否有 ≥1 个待决人在环 interaction（chatapp.Service 经内存 humanloop
+// broker 满足之）。首个匹配即短路，使 List 可逐行廉价调用。
+type AwaitingInputQuerier interface {
+	HasAwaitingInteraction(conversationID string) bool
+}
+
+// SetAwaitingInputQuerier injects the chat pending-interaction reader post-construction (same
+// cycle-break as SetGeneratingQuerier).
+//
+// SetAwaitingInputQuerier 构造后注入 chat 待决-interaction 读取器（与 SetGeneratingQuerier 同款破环）。
+func (s *Service) SetAwaitingInputQuerier(q AwaitingInputQuerier) { s.awaitingQuerier = q }
+
+// markRuntime fills the derived runtime flags on each row — IsGenerating from the chat registry,
+// AwaitingInput from the humanloop broker — each independently a no-op when its querier is unwired.
+// Pure in-memory reads, no DB/IO, so it is cheap even per-row in List.
+//
+// markRuntime 给每行填派生运行时标志——IsGenerating 据 chat 登记、AwaitingInput 据 humanloop broker——各自在对应
+// querier 未接时 no-op。纯内存读、无 DB/IO，故即便 List 逐行也廉价。
+func (s *Service) markRuntime(rows ...*conversationdomain.Conversation) {
 	for _, c := range rows {
-		if c != nil {
+		if c == nil {
+			continue
+		}
+		if s.querier != nil {
 			c.IsGenerating = s.querier.IsGenerating(c.ID)
+		}
+		if s.awaitingQuerier != nil {
+			c.AwaitingInput = s.awaitingQuerier.HasAwaitingInteraction(c.ID)
 		}
 	}
 }
@@ -252,7 +294,7 @@ func (s *Service) Get(ctx context.Context, id string) (*conversationdomain.Conve
 	if err != nil {
 		return nil, err
 	}
-	s.markGenerating(c)
+	s.markRuntime(c)
 	return c, nil
 }
 
@@ -265,18 +307,32 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*conversationd
 	if err != nil {
 		return nil, "", err
 	}
-	s.markGenerating(rows...)
+	s.markRuntime(rows...)
 	return rows, next, nil
 }
 
-// TouchLastMessage records that a message just landed in a conversation — chat calls it on each
-// user turn so the list re-sorts by recent activity. A single cheap UPDATE; best-effort (a failed
-// touch only mis-sorts the list, never blocks the turn).
+// TouchLastMessage records that a message just landed in a conversation — chat calls it when a
+// message is added so the list re-sorts by recent activity and the unread flag tracks whether there is
+// an unseen assistant reply. `unread` is the new unread state (false on the user's own send, true on a
+// completed assistant finalize). A single cheap atomic UPDATE; best-effort (a failed touch only
+// mis-sorts / mis-flags, never blocks the turn).
 //
-// TouchLastMessage 记一条消息刚落入对话——chat 每个用户回合调，使列表按最近活跃重排。一次廉价 UPDATE；
-// best-effort（touch 失败只是列表排序略偏，绝不阻塞回合）。
-func (s *Service) TouchLastMessage(ctx context.Context, id string, t time.Time) error {
-	return s.repo.TouchLastMessage(ctx, id, t)
+// TouchLastMessage 记一条消息刚落入对话——chat 在消息加入时调,使列表按最近活跃重排、unread 标志跟踪有无未读
+// assistant 回复。unread 是新未读态（用户自己发送 false、assistant 完成终态 true）。一次廉价原子 UPDATE；
+// best-effort（touch 失败只是排序/标志略偏，绝不阻塞回合）。
+func (s *Service) TouchLastMessage(ctx context.Context, id string, t time.Time, unread bool) error {
+	return s.repo.TouchLastMessage(ctx, id, t, unread)
+}
+
+// MarkSeen clears a conversation's unread flag — the :seen action, called when the user opens a
+// thread without sending (a thin delegate to the repo's focused unread-only UPDATE). Does NOT go
+// through Update/emit: mark-seen is high-frequency (every open), single-user, and tells no other
+// client anything, so it deliberately broadcasts NO notification (would spam the SSE for nothing).
+//
+// MarkSeen 清某对话的 unread 标志——:seen 动作，用户没发消息只是打开线程时调（薄薄转发到 repo 的 unread-only UPDATE）。
+// 不走 Update/emit：mark-seen 高频（每次打开）、单用户、对别的客户端无意义，故刻意**不发任何通知**（否则白白刷爆 SSE）。
+func (s *Service) MarkSeen(ctx context.Context, id string) error {
+	return s.repo.MarkSeen(ctx, id)
 }
 
 // Update applies a PATCH (nil = leave; for ModelOverride nil = leave, &nil = clear, &(&ref) = set).
@@ -331,7 +387,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 	// Fill the derived flag so a PATCH (e.g. pinning a conversation mid-generation) returns the same
 	// accurate isGenerating the frontend sees in List/Get — never a stale false.
 	// 填派生标志，使 PATCH（如生成中置顶）返回与 List/Get 一致的准确 isGenerating，不返回过期 false。
-	s.markGenerating(c)
+	s.markRuntime(c)
 	return c, nil
 }
 
@@ -406,14 +462,18 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	}
 	s.emit(ctx, id, "deleted", nil)
 	s.purgeRelations(ctx, id)
+	s.purgeTouchpoints(ctx, id)
 	return nil
 }
 
-// emit raises a conversation.<action> notification (persisted + SSE signal); nil emitter is a
-// best-effort no-op, a soft-fail logs but never blocks the mutation.
+// emit broadcasts a conversation.<action> live signal (frame-only, NO inbox row) — every
+// conversation lifecycle change is a rail reconciliation echo (new/rename/pin/archive/…),
+// noise in the notification center; the rail re-reads the conversation's own row on the
+// signal. nil emitter is a best-effort no-op, a soft-fail logs but never blocks the mutation.
 //
-// emit 发一条 conversation.<动作> 通知（持久化 + SSE signal）；nil emitter 即 best-effort no-op，
-// 软失败只 log、绝不挡 mutation。
+// emit 广播一条 conversation.<动作> live signal（仅帧、**不落收件箱行**）——对话生命周期变更都是
+// rail 对账回声（新建/改名/置顶/归档…），进通知中心即噪音；rail 收信号后重读对话自身的行。
+// nil emitter 即 best-effort no-op，软失败只 log、绝不挡 mutation。
 func (s *Service) emit(ctx context.Context, convID, action string, extra map[string]any) {
 	s.notifySearch(ctx, convID)
 	if s.emitter == nil {
@@ -421,7 +481,7 @@ func (s *Service) emit(ctx context.Context, convID, action string, extra map[str
 	}
 	payload := map[string]any{"conversationId": convID}
 	maps.Copy(payload, extra)
-	if err := s.emitter.Emit(ctx, "conversation."+action, payload); err != nil {
+	if err := s.emitter.Broadcast(ctx, "conversation."+action, payload); err != nil {
 		s.log.Warn("conversation emit failed",
 			zap.String("conversationId", convID), zap.String("action", action), zap.Error(err))
 	}

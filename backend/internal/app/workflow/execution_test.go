@@ -13,9 +13,10 @@ import (
 // --- fake execution ports --------------------------------------------------
 
 type fakeBinder struct {
-	attach     []string // "triggerID|workflowID"
-	attachOnce []string
-	detach     []string
+	attach       []string // "triggerID|workflowID"
+	attachOnce   []string
+	attachReplay []string
+	detach       []string
 }
 
 func (f *fakeBinder) Attach(_ context.Context, t, w string) error {
@@ -24,6 +25,10 @@ func (f *fakeBinder) Attach(_ context.Context, t, w string) error {
 }
 func (f *fakeBinder) AttachOnce(_ context.Context, t, w string) error {
 	f.attachOnce = append(f.attachOnce, t+"|"+w)
+	return nil
+}
+func (f *fakeBinder) AttachReplay(_ context.Context, t, w string) error {
+	f.attachReplay = append(f.attachReplay, t+"|"+w)
 	return nil
 }
 func (f *fakeBinder) Detach(t, w string) { f.detach = append(f.detach, t+"|"+w) }
@@ -261,6 +266,52 @@ func TestEditRevert_RebindLiveListener(t *testing.T) {
 	}
 	if len(binder.detach) != nDetach || len(binder.attach) != nAttach {
 		t.Fatalf("inactive edit touched binder: detach=%v attach=%v", binder.detach, binder.attach)
+	}
+}
+
+// TestReattachActive_UsesReplayPath — scheduler 工单⑨: boot replay must re-engage listeners through
+// AttachReplay, NOT Attach. The distinction carries real weight: only a replayed reference was
+// listening before this process started, which is what entitles the misfire sweep to book the
+// downtime gap for it — routing boot through the live Attach would stamp a fresh attach epoch and
+// silently swallow every tick the shutdown ate. Inactive workflows are not reattached at all.
+//
+// TestReattachActive_UsesReplayPath — scheduler 工单⑨：boot 重放必须经 AttachReplay 重挂、**非** Attach。
+// 这个区分有真分量：只有被重放的引用在本进程启动前就在监听，这正是 misfire sweep 有资格为它记停机缺口的
+// 依据——把 boot 走实时 Attach 会盖上崭新的挂载纪元、静默吞掉关机吃下的每个刻度。未激活的 workflow 根本
+// 不该被重挂。
+func TestReattachActive_UsesReplayPath(t *testing.T) {
+	svc, ctx := newSvc(t, nil)
+	binder, runner := &fakeBinder{}, &fakeRunner{}
+	svc.SetExecutionPorts(binder, runner)
+
+	active, _, err := svc.Create(ctx, CreateInput{Name: "active_pipe", Ops: linearOps(t)})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if _, err := svc.Activate(ctx, active.ID); err != nil {
+		t.Fatalf("Activate: %v", err)
+	}
+	// A second workflow left inactive — boot must not resurrect its listener.
+	// 第二个 workflow 保持未激活——boot 不该复活它的 listener。
+	idle, _, err := svc.Create(ctx, CreateInput{Name: "idle_pipe", Ops: linearOps(t)})
+	if err != nil {
+		t.Fatalf("Create idle: %v", err)
+	}
+
+	// "Reboot": the in-memory registry is gone; replay what the DB says is active.
+	// 「重启」：内存注册表没了；按 DB 里的 active 重放。
+	binder.attach, binder.attachReplay = nil, nil
+	if err := svc.ReattachActive(ctx); err != nil {
+		t.Fatalf("ReattachActive: %v", err)
+	}
+	if !slices.Contains(binder.attachReplay, "trg_a|"+active.ID) {
+		t.Fatalf("boot must re-engage the active workflow via AttachReplay: %v", binder.attachReplay)
+	}
+	if len(binder.attach) != 0 {
+		t.Fatalf("boot must NOT use the live Attach path (it would reset the misfire epoch): %v", binder.attach)
+	}
+	if slices.Contains(binder.attachReplay, "trg_a|"+idle.ID) {
+		t.Fatalf("an inactive workflow must not be reattached: %v", binder.attachReplay)
 	}
 }
 

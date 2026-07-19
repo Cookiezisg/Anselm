@@ -1,0 +1,130 @@
+import 'package:flutter/widgets.dart';
+
+import '../design/colors.dart';
+import '../design/tokens.dart';
+import 'an_pop_surface.dart';
+import 'an_interactive.dart';
+
+/// The kit's single standard for a floating "pick one from a list" popover panel — shared by [AnMenu]
+/// (command / option menu) and [AnDropdown] (single-select). One source so every such popover reads
+/// identically: white [AnColors.surface] panel, hairline border, [AnRadius.chip] corner, pop shadow, and
+/// **`s4` padding on ALL sides** so each row's hover/selected pill floats INSET from the panel edge (never
+/// edge-to-edge). The caller wraps it in its own [ConstrainedBox] (the menu content-hugs via [IntrinsicWidth];
+/// the dropdown matches its trigger width) — width policy is per-consumer, the chrome is shared.
+///
+/// 浮层「列表单选」面板的统一标准——AnMenu(命令/选项)与 AnDropdown(单选)共用。单源:白面 + 发丝边 + chip 圆角 + 浮影,
+/// **四周 s4 内距**故每行 hover/选中药丸内缩悬浮(不贴边)。宽策略由调用方定(菜单 IntrinsicWidth 贴内容、下拉跟触发器宽),壳共享。
+class AnMenuSurface extends StatelessWidget {
+  const AnMenuSurface({required this.children, super.key});
+
+  /// The surface's own height estimate for [rows] standard menu rows — row height plus the s4
+  /// all-side inset. Popover positioners consume this instead of re-deriving the panel's geometry
+  /// (批7 B-019/020: three drifting hand-summed copies retire). 面板自报估高(rows×行高+四周 s4)——
+  /// 浮层定位方消费,不再各自拼几何。
+  static double estHeight(int rows) => rows * AnSize.row + AnSpace.s4 * 2;
+
+  /// Caret-anchored popover placement (A-104) — hang the panel BELOW the [anchor] by default, flip
+  /// ABOVE only when hanging below would overflow [layerHeight] AND above fits. The panel height is
+  /// [estHeight] of [rows] clamped to [AnSize.menuMaxHeight]. PURE geometry (no overlay/timing) — the
+  /// mention + slash overlays shared this exact math verbatim. 光标锚定弹层落点:默认下挂,仅下溢且上
+  /// 容时翻上;纯几何(不碰 overlay 时序),mention/slash 曾逐字重复此算。
+  static ({double left, double top}) caretPlacement({
+    required Rect anchor,
+    required int rows,
+    required double layerHeight,
+  }) {
+    final h = estHeight(rows).clamp(0.0, AnSize.menuMaxHeight);
+    final overflow = anchor.bottom + AnSpace.s4 + h > layerHeight;
+    final fitsAbove = anchor.top - AnSpace.s4 - h >= 0;
+    final top = (overflow && fitsAbove) ? anchor.top - AnSpace.s4 - h : anchor.bottom + AnSpace.s4;
+    return (left: anchor.left, top: top);
+  }
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnPopSurface(
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(AnRadius.chip),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(AnSpace.s4), // s4 ALL sides → rows inset, pill floats off the edge 四周 s4、药丸不贴边
+          child: FocusTraversalGroup(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: children,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The kit's single standard for ONE selectable popover row — shared by [AnMenu] items + [AnDropdown]
+/// options. Owns the row chrome so the hover / press / focus and selected feel are byte-identical: a
+/// [AnSize.row]-tall [AnInteractive] with the **rounded inset pill** ([AnRadius.button]) that fades in on
+/// hover/active ([AnColors.surfaceHover], or [AnColors.dangerSoft] when [danger]) via the alpha-0
+/// `whenActive` idiom, reduced-motion gated, and dimmed + inert when not [enabled]. The CONTENT (lead /
+/// label / meta / check arrangement) is the caller's [builder] (it differs: a menu puts the check in the
+/// lead, a dropdown in the trailing) — only the row surface is standardised. [active] is handed to the
+/// builder so it can brighten its own foreground.
+///
+/// 浮层可选行的统一标准——AnMenu 项 + AnDropdown 选项共用。统一行壳(hover/press/focus/选中手感一致):row 高的
+/// AnInteractive + **圆角内缩药丸**,hover/active 经 alpha-0 whenActive 淡入(danger 用 dangerSoft),reduced 门控,
+/// 禁用变暗惰化。内容(前导/标签/meta/勾的排布)由调用方 builder(菜单勾在前导、下拉勾在尾,各异),仅行壳标准化。
+class AnMenuRow extends StatelessWidget {
+  const AnMenuRow({
+    required this.onTap,
+    required this.builder,
+    this.enabled = true,
+    this.danger = false,
+    this.autofocus = false,
+    this.highlighted = false,
+    super.key,
+  });
+
+  final VoidCallback? onTap;
+
+  /// Builds the row content; [active] = hover / press / focus, so the builder can brighten its foreground.
+  /// 建行内容;active=hover/press/focus,供 builder 提亮前景。
+  final Widget Function(BuildContext context, bool active) builder;
+
+  final bool enabled;
+
+  /// Danger flavour — the hover/active fill uses [AnColors.dangerSoft] (the caller reds its text). 危险风味。
+  final bool danger;
+  final bool autofocus;
+
+  /// Externally-driven highlight (a typeahead's keyboard-active row, where FOCUS stays in the text
+  /// field — aria-activedescendant style): fills like hover without owning focus. Hover still works
+  /// independently. 外驱高亮(typeahead 键盘活动行,焦点留在输入框):同 hover 底色、不夺焦;hover 独立仍生效。
+  final bool highlighted;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnInteractive(
+      enabled: enabled,
+      autofocus: autofocus,
+      onTap: onTap,
+      builder: (context, states) {
+        final c = context.colors;
+        final active = states.isActive || highlighted;
+        final reduced = AnMotionPref.reduced(context);
+        // resting fill = same hue at alpha 0 (whenActive) → no dark-midpoint flash on the fade 静止底走 alpha-0 单源
+        final bg = danger ? c.dangerSoft.whenActive(active) : c.surfaceHover.whenActive(active);
+        return Opacity(
+          opacity: enabled ? 1 : AnOpacity.disabled,
+          child: AnimatedContainer(
+            duration: reduced ? Duration.zero : AnMotion.fast, // hover tint = functional micro-feedback 功能性微反馈
+            height: AnSize.row,
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
+            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.button)),
+            child: builder(context, active),
+          ),
+        );
+      },
+    );
+  }
+}

@@ -193,3 +193,118 @@ func (q *Query[T]) Page(ctx context.Context, cursor string, limit int) ([]*T, st
 	}
 	return rows, next, nil
 }
+
+// PageAsc returns one keyset page for a STRING-keyed, ASCENDING list — the counterpart of Page (which
+// is time-keyed + descending). The keyset column (set via PageKeyset) is compared case-INSENSITIVELY
+// (COLLATE NOCASE) so "A–Z" matches human intuition; the pk tiebreaker is ascending. Page itself is
+// left byte-for-byte unchanged, so every existing (time, DESC) List endpoint is untouched — this is a
+// purely additive second keyset path (principle #8: strengthen the foundation, don't hand-roll a
+// title cursor in a store). Requires the keyset + pk columns; the keyset column must be a string.
+// limit <= 0 → 50.
+//
+// The caller's .Order() MUST be `<keyset> COLLATE NOCASE ASC, <pk> ASC` (with any leading equality
+// clause like pinned-first), and any covering index MUST use the same COLLATE NOCASE — else pages
+// skip/duplicate (the keyset invariant, now collation-sensitive).
+//
+// PageAsc 返回**字符串键、升序**列表的一页 keyset——Page（时间键 + 降序）的对应物。keyset 列（PageKeyset 设）按
+// **大小写不敏感**（COLLATE NOCASE）比较，使「A–Z」符合人类直觉；pk tiebreaker 升序。Page 本身逐字不动，故每个
+// 既有 (time, DESC) List 端点零回归——纯 additive 的第二条 keyset 路径（原则 #8：强化地基、别在 store 手搓 title
+// 游标）。需 keyset + pk 列、keyset 列须为字符串。limit <= 0 取 50。调用方 .Order() 必须为
+// `<keyset> COLLATE NOCASE ASC, <pk> ASC`、覆盖索引也须同 COLLATE NOCASE——否则跨页漏/重。
+func (q *Query[T]) PageAsc(ctx context.Context, cursor string, limit int) ([]*T, string, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	ks := q.keyset
+	if ks == nil || q.meta.pk == nil {
+		return nil, "", fmt.Errorf("orm: PageAsc requires a string keyset (PageKeyset) + pk column on %s", q.table)
+	}
+
+	if cursor != "" {
+		var c paginationpkg.StringCursor
+		if err := paginationpkg.DecodeCursor(cursor, &c); err != nil {
+			return nil, "", fmt.Errorf("orm: page cursor: %w", err)
+		}
+		// Expanded keyset comparison: NOCASE on the keyset column + binary-ASC pk tiebreaker (the
+		// row-value form can't carry a clean per-column COLLATE). 展开式 keyset 比较（keyset 列 NOCASE、pk 升序）。
+		q.Where("("+ks.name+" COLLATE NOCASE > ? OR ("+ks.name+" COLLATE NOCASE = ? AND "+q.meta.pk.name+" > ?))", c.Key, c.Key, c.ID)
+	}
+	if q.order == "" {
+		q.order = ks.name + " COLLATE NOCASE ASC, " + q.meta.pk.name + " ASC"
+	}
+	q.limit = limit + 1
+
+	rows, err := q.Find(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var next string
+	if len(rows) > limit {
+		last := reflect.ValueOf(rows[limit-1]).Elem()
+		key, _ := last.Field(ks.index).Interface().(string)
+		id, _ := last.Field(q.meta.pk.index).Interface().(string)
+		next, err = paginationpkg.EncodeCursor(paginationpkg.StringCursor{Key: key, ID: id})
+		if err != nil {
+			return nil, "", fmt.Errorf("orm: page cursor encode: %w", err)
+		}
+		rows = rows[:limit]
+	}
+	return rows, next, nil
+}
+
+// PageTimeAsc returns one keyset page ordered by (keyset, pk) ASCENDING on a TIME keyset — the
+// third keyset path beside Page (time DESC) and PageAsc (string ASC). It exists for windowed
+// history reads (messages ?around= / ?dir=newer): the cursor tuple marks a floor, the page walks
+// forward in time. Page itself is byte-for-byte unchanged (every existing time-DESC List endpoint
+// is untouched); this is purely additive (principle #8: strengthen the foundation rather than
+// hand-roll an ASC keyset in a store). The keyset column is the created column by default or
+// whatever PageKeyset set. limit <= 0 → 50.
+//
+// PageTimeAsc 返回按 (keyset, pk) **升序**的一页 keyset、键为**时间**列——Page（时间降序）与
+// PageAsc（字符串升序）之外的第三条 keyset 路径。为窗口式历史读而生（messages ?around= /
+// ?dir=newer）：游标元组是下界、页沿时间向前走。Page 逐字不动（既有时间降序 List 端点零回归）、
+// 纯 additive（原则 #8：强化地基、不在 store 手搓升序 keyset）。keyset 列默认 created 列或
+// PageKeyset 所设。limit <= 0 取 50。
+func (q *Query[T]) PageTimeAsc(ctx context.Context, cursor string, limit int) ([]*T, string, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	ks := q.keyset
+	if ks == nil {
+		ks = q.meta.created
+	}
+	if ks == nil || q.meta.pk == nil {
+		return nil, "", fmt.Errorf("orm: PageTimeAsc requires a keyset (created or PageKeyset) + pk column on %s", q.table)
+	}
+
+	if cursor != "" {
+		var c paginationpkg.Cursor
+		if err := paginationpkg.DecodeCursor(cursor, &c); err != nil {
+			return nil, "", fmt.Errorf("orm: page cursor: %w", err)
+		}
+		q.Where("("+ks.name+", "+q.meta.pk.name+") > (?, ?)", c.Key, c.ID)
+	}
+	if q.order == "" {
+		q.order = ks.name + " ASC, " + q.meta.pk.name + " ASC"
+	}
+	q.limit = limit + 1
+
+	rows, err := q.Find(ctx)
+	if err != nil {
+		return nil, "", err
+	}
+
+	var next string
+	if len(rows) > limit {
+		last := reflect.ValueOf(rows[limit-1]).Elem()
+		key, _ := last.Field(ks.index).Interface().(time.Time)
+		id, _ := last.Field(q.meta.pk.index).Interface().(string)
+		next, err = paginationpkg.EncodeCursor(paginationpkg.Cursor{Key: key, ID: id})
+		if err != nil {
+			return nil, "", fmt.Errorf("orm: page cursor encode: %w", err)
+		}
+		rows = rows[:limit]
+	}
+	return rows, next, nil
+}

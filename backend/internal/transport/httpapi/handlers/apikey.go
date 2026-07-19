@@ -18,14 +18,15 @@ import (
 // （onboarding 用的静态 provider 目录）。
 type APIKeyHandler struct {
 	svc *apikeyapp.Service
+	dev bool
 	log *zap.Logger
 }
 
-func NewAPIKeyHandler(svc *apikeyapp.Service, log *zap.Logger) *APIKeyHandler {
+func NewAPIKeyHandler(svc *apikeyapp.Service, dev bool, log *zap.Logger) *APIKeyHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &APIKeyHandler{svc: svc, log: log.Named("handlers.apikey")}
+	return &APIKeyHandler{svc: svc, dev: dev, log: log.Named("handlers.apikey")}
 }
 
 func (h *APIKeyHandler) Register(mux Registrar) {
@@ -161,5 +162,5 @@ func (h *APIKeyHandler) test(w http.ResponseWriter, r *http.Request, id string) 
 //
 // ListProviders 返回静态 provider 目录，供 onboarding 配 key 的 UI。
 func (h *APIKeyHandler) ListProviders(w http.ResponseWriter, r *http.Request) {
-	responsehttpapi.Success(w, http.StatusOK, apikeyapp.ListProviders())
+	responsehttpapi.Success(w, http.StatusOK, apikeyapp.ListProviders(h.dev))
 }

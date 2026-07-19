@@ -149,3 +149,39 @@ func TestActivation_AppendAndSearch(t *testing.T) {
 		t.Fatalf("non-fired activation should keep ReturnValue: %+v", miss)
 	}
 }
+
+// TestSetTriggerPaused — 工单⑦: the targeted pause update persists + round-trips, repeating the
+// same value is a harmless no-op, and a miss (or another workspace's trigger) is ErrNotFound.
+//
+// TestSetTriggerPaused — 工单⑦：定点暂停更新持久 + 往返，重复设同值无害 no-op，未命中
+// （或别 workspace 的 trigger）ErrNotFound。
+func TestSetTriggerPaused(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkTrigger(t, s, ctx, "trg_1", "daily", triggerdomain.KindCron, map[string]any{"expression": "* * * * *"})
+
+	if err := s.SetTriggerPaused(ctx, "trg_1", true); err != nil {
+		t.Fatalf("pause: %v", err)
+	}
+	got, err := s.GetTrigger(ctx, "trg_1")
+	if err != nil || !got.Paused {
+		t.Fatalf("paused must persist: paused=%v err=%v", got.Paused, err)
+	}
+	// Idempotent repeat. 幂等重复。
+	if err := s.SetTriggerPaused(ctx, "trg_1", true); err != nil {
+		t.Fatalf("re-pause: %v", err)
+	}
+	if err := s.SetTriggerPaused(ctx, "trg_1", false); err != nil {
+		t.Fatalf("resume: %v", err)
+	}
+	if got, _ = s.GetTrigger(ctx, "trg_1"); got.Paused {
+		t.Fatalf("resume must persist paused=false")
+	}
+	// Miss and cross-workspace isolation both read as not-found. 未命中与跨 workspace 都是 not-found。
+	if err := s.SetTriggerPaused(ctx, "trg_missing", true); !errors.Is(err, triggerdomain.ErrNotFound) {
+		t.Fatalf("miss must be ErrNotFound, got %v", err)
+	}
+	if err := s.SetTriggerPaused(ctxWS("ws_2"), "trg_1", true); !errors.Is(err, triggerdomain.ErrNotFound) {
+		t.Fatalf("cross-workspace must be ErrNotFound, got %v", err)
+	}
+}

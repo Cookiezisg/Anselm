@@ -3,13 +3,18 @@
    能看出：哪个节点慢（条长）· 循环几轮（iters 多条 + ×N 徽）· 在哪 parked（虚框等待条）· 谁未起（future 占位）。点行 emit 'an-node-pick'{id}。 */
 (function () {
   const e = window.anEsc;
-  const SCLS = { done: "s-done", completed: "s-done", err: "s-err", failed: "s-err", parked: "s-park", future: "s-future" };
+  // 经 anState 折正大小写 + 别名（单一翻译路径），再映射 5 通用态 → 甘特条 CSS 类。
+  // why：未识别/大写 status 经 anState 落 idle（中性灰 s-future），绝不默认成 s-done 把失败节点画成绿色成功条。
+  const BARCLS = { done: "s-done", err: "s-err", wait: "s-park", run: "s-future", idle: "s-future" };
+  // 定位百分比钳进 [0,100]：越界值（脏 demo 数据）会让条飞出轨道，钳死即保证条始终在轨内
+  const pct = (v) => Math.min(100, Math.max(0, +v || 0));
 
   class AnNodeGantt extends window.AnElement {
     static tag = "an-node-gantt";
     static observed = [];
     static css = `
-      :host { display: block; }
+      /* 海量节点不撑爆容器：封顶 + 自滚（复用 graph-preview 定高 token，与内嵌运行视图同节奏） */
+      :host { display: block; max-height: var(--h-graph-preview); overflow: auto; }
       .row { display: grid; grid-template-columns: var(--lane-w) 1fr; align-items: center; column-gap: var(--sp-3);
         height: var(--row); padding: 0 var(--sp-2); border-radius: var(--r-btn); cursor: pointer; transition: background var(--d-fast); }
       .row:hover { background: var(--island-3); }
@@ -40,12 +45,12 @@
         const segs = (n.iters && n.iters.length) ? n.iters : ((+n.wPct || 0) > 0 ? [{ atPct: n.atPct, wPct: n.wPct }] : []);
         let bars;
         if (n.parked) {
-          bars = `<span class="bar s-park" style="left:${+n.atPct || 0}%;width:${Math.max(6, +n.wPct || 0)}%"><span class="pk">等待审批</span></span>`;
+          bars = `<span class="bar s-park" style="left:${pct(n.atPct)}%;width:${Math.max(6, pct(n.wPct))}%"><span class="pk">等待审批</span></span>`;
         } else if (!segs.length) {
           bars = `<span class="stub">未运行</span>`;
         } else {
-          const cls = SCLS[n.status] || "s-done";
-          bars = segs.map((s) => `<span class="bar ${cls}" style="left:${+s.atPct || 0}%;width:${Math.max(2, +s.wPct || 0)}%"></span>`).join("");
+          const cls = BARCLS[window.anState(n.status)] || "s-future";
+          bars = segs.map((s) => `<span class="bar ${cls}" style="left:${pct(s.atPct)}%;width:${Math.max(2, pct(s.wPct))}%"></span>`).join("");
         }
         const xn = (n.iters && n.iters.length > 1) ? `<span class="xn">×${n.iters.length}</span>` : "";
         return `<div class="row" data-id="${e(n.id)}"><div class="lab"><span class="ic">${ico}</span><span class="nm">${e(n.label || n.id)}</span>${xn}</div>`

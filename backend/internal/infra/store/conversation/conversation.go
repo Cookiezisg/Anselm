@@ -1,18 +1,18 @@
 // Package conversation is the orm-backed conversationdomain.Repository: a workspace-scoped,
 // soft-deleted thread table. Workspace isolation + soft-delete are automatic (orm fills/filters
-// from ctx), so no method hand-writes a predicate. List sorts pinned-first then most-recently-
-// active, keyset-paginated on (last_message_at, id).
+// from ctx), so no method hand-writes a predicate. List is always pinned-first; its secondary key
+// follows ListFilter.Sort — activity (last_message_at) / created (created_at) via Page, or name
+// (title COLLATE NOCASE) via PageAsc — each keyset-paginated on its own column.
 //
 // Package conversation 是 conversationdomain.Repository 的 orm 实现：按 workspace、软删的线程表。
-// workspace 隔离 + 软删自动（orm 据 ctx 填/过滤），故无方法手写谓词。List 置顶优先再最近活跃、按
-// (last_message_at, id) keyset 分页。
+// workspace 隔离 + 软删自动（orm 据 ctx 填/过滤），故无方法手写谓词。List 恒置顶优先；次键随 ListFilter.Sort——
+// activity（last_message_at）/ created（created_at）经 Page，或 name（title COLLATE NOCASE）经 PageAsc——各按自身列 keyset 分页。
 package conversation
 
 import (
 	"context"
 	"errors"
 	"fmt"
-	"strings"
 	"time"
 
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
@@ -41,9 +41,22 @@ var Schema = []string{
 		created_at               DATETIME NOT NULL,
 		updated_at               DATETIME NOT NULL,
 		last_message_at          DATETIME NOT NULL,
+		unread                   INTEGER NOT NULL DEFAULT 0,
 		deleted_at               DATETIME
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_list ON conversations(workspace_id, pinned DESC, last_message_at DESC, id DESC) WHERE deleted_at IS NULL`,
+	// sort=name covering index: pinned-first, then title A–Z (COLLATE NOCASE, matching the ORDER BY +
+	// keyset comparison), id ASC tiebreaker. Mirrors the activity index for the title-keyed page.
+	// sort=name 覆盖索引:置顶优先、再 title A–Z（COLLATE NOCASE，与 ORDER BY + keyset 比较一致）、id 升序 tiebreaker。
+	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_title ON conversations(workspace_id, pinned DESC, title COLLATE NOCASE ASC, id ASC) WHERE deleted_at IS NULL`,
+	// sort=created covering index: pinned-first, then created_at DESC, id DESC — matches the created-sort
+	// ORDER BY + keyset so a rail scrolled by creation order is an index range scan, not a full-workspace
+	// scan + temp-b-tree filesort (which the keyset cursor could not shrink). Sibling of the two above; a
+	// documented, reachable sort mode must not degrade to O(N²) on a long-lived thread list (R12 family).
+	// sort=created 覆盖索引:置顶优先、再 created_at DESC、id DESC——与 created 排序的 ORDER BY + keyset 一致,
+	// 使按创建序翻 rail 是索引区间扫而非全工作区扫 + 临时 b-tree filesort（keyset 游标无从收窄）。与上两条同族;
+	// 文档化且可达的排序模式不该在长期线程列表上退化成 O(N²)（R12 族）。
+	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_created ON conversations(workspace_id, pinned DESC, created_at DESC, id DESC) WHERE deleted_at IS NULL`,
 }
 
 // Store implements conversationdomain.Repository over pkg/orm.
@@ -92,24 +105,29 @@ func (s *Store) GetBatch(ctx context.Context, ids []string) ([]*conversationdoma
 	return rows, nil
 }
 
-// List returns one page: pinned-first then most-recently-active, keyset cursor on
-// (last_message_at, id). The cursor keys (last_message_at, id) only — the leading pinned partition
-// relies on all pins landing on page one (few, single-user), so it never drifts across pages.
-// PageKeyset aligns the cursor column with the ORDER BY's last_message_at (the keyset invariant).
+// List returns one page, pinned-first, with the secondary key chosen by filter.Sort (default
+// activity). The cursor keys only (sortColumn, id) — the leading pinned partition relies on all pins
+// landing on page one (few, single-user), so it never drifts across pages. PageKeyset aligns the
+// cursor column with the ORDER BY's sort column (the keyset invariant); the name path additionally
+// keeps that alignment collation-sensitive (COLLATE NOCASE on column, ORDER BY, and index alike).
 //
-// List 返一页：置顶优先再最近活跃，游标键 (last_message_at, id)。游标只键 (last_message_at, id)——
-// 置顶分区靠「所有置顶都落首页」（少、单用户）故不跨页漂移。PageKeyset 让游标列与 ORDER BY 的
-// last_message_at 对齐（keyset 不变量）。
+// List 返一页，置顶优先，次键由 filter.Sort 选（默认 activity）。游标只键 (sortColumn, id)——置顶分区靠
+// 「所有置顶都落首页」（少、单用户）故不跨页漂移。PageKeyset 让游标列与 ORDER BY 排序列对齐（keyset 不变量）；
+// name 路径另把这个对齐做成对 collation 敏感（列 / ORDER BY / 索引同 COLLATE NOCASE）。
 func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) ([]*conversationdomain.Conversation, string, error) {
 	q := s.repo.Query()
-	if filter.Archived == nil {
+	// Exactly one archived predicate per scope (or none for ArchiveAll). ArchiveAll is the rail's
+	// "show archived" mode — active + archived in one list, each row carrying its archived flag.
+	// 每个 scope 恰好一个 archived 谓词（ArchiveAll 不加）。ArchiveAll = rail「显示已归档」：活跃+归档同列、各带 archived 标志。
+	switch filter.Archive {
+	case conversationdomain.ArchiveArchived:
+		q = q.WhereEq("archived", true)
+	case conversationdomain.ArchiveAll:
+		// no archived predicate — both active and archived
+	default: // ArchiveActive
 		q = q.WhereEq("archived", false)
-	} else {
-		q = q.WhereEq("archived", *filter.Archived)
 	}
-	if term := strings.TrimSpace(filter.Search); term != "" {
-		q = q.Where("title LIKE ?", "%"+term+"%")
-	}
+	q = q.WhereLike("title", filter.Search)
 	// Sort is always pinned-first; the secondary key is recency (default) or creation order. The
 	// keyset cursor MUST key the same column the ORDER BY sorts by — PageKeyset aligns them, so the
 	// cursor's WHERE/encode track the chosen column (else pages skip/duplicate). Unknown/empty sort
@@ -117,23 +135,57 @@ func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) 
 	//
 	// 排序恒置顶优先；次键为最近活跃（默认）或创建序。keyset 游标必须键 ORDER BY 所按的同一列——PageKeyset
 	// 对齐之，使游标 WHERE/encode 跟选定列（否则跨页漏/重）。未知/空 sort → activity（不为 sort 笔误报 400）。
-	keyset := "last_message_at"
-	if filter.Sort == conversationdomain.ListSortCreated {
-		keyset = "created_at"
+	var (
+		rows []*conversationdomain.Conversation
+		next string
+		err  error
+	)
+	if filter.Sort == conversationdomain.ListSortName {
+		// Title A–Z (case-insensitive), pinned-first, id ASC tiebreaker — a STRING keyset via PageAsc
+		// (ascending). Order, keyset column, and the idx_conversations_ws_title index all agree on
+		// COLLATE NOCASE + direction (the keyset invariant, collation-sensitive here).
+		// title A–Z（大小写不敏感）、置顶优先、id 升序 tiebreaker——经 PageAsc 的字符串升序 keyset。Order / keyset 列 /
+		// idx_conversations_ws_title 索引三处在 COLLATE NOCASE + 方向上一致（keyset 不变量，此处对 collation 敏感）。
+		rows, next, err = q.Order("pinned DESC, title COLLATE NOCASE ASC, id ASC").PageKeyset("title").PageAsc(ctx, filter.Cursor, filter.Limit)
+	} else {
+		// activity (default) / created: time-keyed, pinned-first, descending via Page.
+		// activity（默认）/ created：时间键、置顶优先、降序，经 Page。
+		keyset := "last_message_at"
+		if filter.Sort == conversationdomain.ListSortCreated {
+			keyset = "created_at"
+		}
+		rows, next, err = q.Order("pinned DESC, "+keyset+" DESC, id DESC").PageKeyset(keyset).Page(ctx, filter.Cursor, filter.Limit)
 	}
-	rows, next, err := q.Order("pinned DESC, "+keyset+" DESC, id DESC").PageKeyset(keyset).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("conversationstore.List: %w", err)
 	}
 	return rows, next, nil
 }
 
-// TouchLastMessage sets last_message_at on one conversation (chat calls it when a message lands).
+// TouchLastMessage sets last_message_at and the unread flag on one conversation in ONE UPDATE (chat
+// calls it when a message lands). Folding unread into the same UPDATE keeps it atomic with the recency
+// bump — the user-send path (unread=false) can never half-commit into "your own message looks unread".
+// unread is not a sort/cursor key, so the partial list indexes are untouched.
 //
-// TouchLastMessage 把某对话的 last_message_at 设为 t（chat 在消息落地时调）。
-func (s *Store) TouchLastMessage(ctx context.Context, id string, t time.Time) error {
-	if _, err := s.repo.Query().WhereEq("id", id).Updates(ctx, map[string]any{"last_message_at": t}); err != nil {
+// TouchLastMessage 在一条 UPDATE 里设某对话的 last_message_at 与 unread 标志（chat 在消息落地时调）。把 unread 折进
+// 同一条 UPDATE 使其与 recency 刷新原子——用户发送路径（unread=false）绝不会半提交成「自己的消息看着未读」。unread 非
+// 排序/游标键，partial 列表索引不动。
+func (s *Store) TouchLastMessage(ctx context.Context, id string, t time.Time, unread bool) error {
+	if _, err := s.repo.Query().WhereEq("id", id).Updates(ctx, map[string]any{"last_message_at": t, "unread": unread}); err != nil {
 		return fmt.Errorf("conversationstore.TouchLastMessage: %w", err)
+	}
+	return nil
+}
+
+// MarkSeen clears the unread flag on one conversation (the :seen action — the user opened the thread
+// without sending). A single focused UPDATE on unread only; idempotent (an unknown id matches 0 rows
+// and returns nil). last_message_at is untouched, so opening a thread never reorders the list.
+//
+// MarkSeen 清某对话的 unread 标志（:seen 动作——用户没发、只是打开了线程）。只针对 unread 列的聚焦 UPDATE；幂等
+// （未知 id 匹配 0 行、返 nil）。不动 last_message_at，故打开线程绝不重排列表。
+func (s *Store) MarkSeen(ctx context.Context, id string) error {
+	if _, err := s.repo.Query().WhereEq("id", id).Updates(ctx, map[string]any{"unread": false}); err != nil {
+		return fmt.Errorf("conversationstore.MarkSeen: %w", err)
 	}
 	return nil
 }

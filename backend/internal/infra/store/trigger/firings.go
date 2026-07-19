@@ -9,6 +9,7 @@ import (
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // AppendFiring writes a pending firing. UNIQUE(workflow_id, trigger_id, dedup_key) makes a
@@ -41,6 +42,63 @@ func (s *Store) AppendFiring(ctx context.Context, f *triggerdomain.Firing) (*tri
 	return f, nil
 }
 
+// AppendMissedFiring books a missed firing dated at the tick it stands for (scheduler 工单⑨). It
+// reuses AppendFiring (same dedup-key idempotence — a tick that fired, or that a previous sweep
+// booked, keeps its row untouched), then backdates created_at: the orm stamps created=now on every
+// insert, which is right for a live fire but wrong for a tick recorded after the fact. The backdate
+// is a targeted raw UPDATE (no updated_at churn), and only ever touches the row this call created.
+//
+// AppendMissedFiring 记一条日期为其所代表刻度的 missed firing（scheduler 工单⑨）。它复用 AppendFiring
+// （同一 dedup 键幂等——已 fire 的、或上次 sweep 已记的刻度，其行原封不动），再回拨 created_at：orm 每次
+// 插入都盖 created=now，这对实时 fire 是对的、对事后补记的刻度是错的。回拨是定点裸 UPDATE（不搅
+// updated_at），且只碰本次调用新建的那行。
+func (s *Store) AppendMissedFiring(ctx context.Context, f *triggerdomain.Firing) (*triggerdomain.Firing, error) {
+	ws, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	tick := f.CreatedAt
+	f.Status = triggerdomain.FiringMissed
+	out, err := s.AppendFiring(ctx, f)
+	if err != nil {
+		return nil, err
+	}
+	if out.ID != f.ID || tick.IsZero() {
+		return out, nil // dedup hit (already accounted) — never re-date someone else's row. 去重命中——绝不改别人的行的日期。
+	}
+	if _, err := s.db.Exec(ctx,
+		`UPDATE trigger_firings SET created_at = ? WHERE id = ? AND workspace_id = ?`,
+		tick.UTC(), out.ID, ws); err != nil {
+		return nil, fmt.Errorf("triggerstore.AppendMissedFiring backdate: %w", err)
+	}
+	out.CreatedAt = tick.UTC()
+	return out, nil
+}
+
+// RequeueMissedFiring flips a booked `missed` firing back to `pending` — see the port's contract for
+// the two callers and why the row (not a second row) must become the run. The `status = 'missed'`
+// guard is the whole safety of it: a row that already reached pending/claimed/started is untouched,
+// so this can never re-run work that ran. created_at is deliberately left at the SCHEDULED tick the
+// row was backdated to (AppendMissedFiring) — the drain takes oldest-first, and a catch-up really is
+// the oldest thing waiting.
+//
+// RequeueMissedFiring 把已记账的 `missed` firing 翻回 `pending`——两个调用方、以及为什么必须是**这行**
+// （而非再开一行）变成那次 run，见端口契约。`status = 'missed'` 守卫就是它的全部安全性：已到
+// pending/claimed/started 的行原封不动，故绝不可能把跑过的活儿再跑一遍。created_at 刻意保持在该行被
+// 回拨到的**调度刻度**（AppendMissedFiring）——drain 最老优先，而补跑本就是等得最久的那个。
+// activation_id 由本次扇出补盖：sweep 记账时它是空的（记账不是一次动作），不盖则审计链断在这一行。
+func (s *Store) RequeueMissedFiring(ctx context.Context, firingID, activationID string) error {
+	if _, err := s.frs.WhereEq("id", firingID).
+		WhereEq("status", triggerdomain.FiringMissed).
+		Updates(ctx, map[string]any{
+			"status":        triggerdomain.FiringPending,
+			"activation_id": activationID,
+		}); err != nil {
+		return fmt.Errorf("triggerstore.RequeueMissedFiring: %w", err)
+	}
+	return nil
+}
+
 // ListPendingFirings returns pending firings oldest-first for the scheduler to drain.
 //
 // ListPendingFirings 返 pending firing（最老优先）供 scheduler 排空。
@@ -56,15 +114,21 @@ func (s *Store) ListPendingFirings(ctx context.Context, limit int) ([]*triggerdo
 	return rows, nil
 }
 
-// SearchFirings pages one trigger's firing inbox newest-first (the disposition surface).
+// firingQuery applies every FiringFilter predicate — the SINGLE place the filter's meaning is
+// expressed, shared by SearchFirings (the page) and CountFirings (the number). The "错过 N" KPI card
+// deep-links to the very list it counts, so a second copy of these predicates would be a bug with a
+// countdown on it: the card would say 3 and the list it opens would show 4. Cursor/Limit are the
+// page's alone and are NOT applied here.
 //
-// SearchFirings 分页某 trigger 的 firing 收件箱（最新优先，处置面）。
-func (s *Store) SearchFirings(ctx context.Context, filter triggerdomain.FiringFilter) ([]*triggerdomain.Firing, string, error) {
+// firingQuery 施加 FiringFilter 的每一条谓词——filter 语义的**唯一**居所，由 SearchFirings（一页）与
+// CountFirings（一个数）共用。「错过 N」KPI 牌深链到的正是它数的那个列表，故这些谓词若有第二份拷贝，
+// 那就是一个装了倒计时的 bug：牌上写 3、点开的列表显示 4。Cursor/Limit 只属于分页，不在此施加。
+func (s *Store) firingQuery(filter triggerdomain.FiringFilter) (*ormpkg.Query[triggerdomain.Firing], error) {
 	// Reject an out-of-enum status loudly (422) instead of silently matching zero rows (F168-M2, here
 	// extended to the firing inbox for F175-M7).
 	// 非枚举状态大声拒（422），而非静默匹配 0 行（F168-M2，此处为 F175-M7 延伸到 firing 收件箱）。
 	if filter.Status != "" && !slices.Contains(triggerdomain.FiringStatuses, filter.Status) {
-		return nil, "", triggerdomain.ErrInvalidFiringStatus.WithDetails(map[string]any{"allowed": triggerdomain.FiringStatuses, "got": filter.Status})
+		return nil, triggerdomain.ErrInvalidFiringStatus.WithDetails(map[string]any{"allowed": triggerdomain.FiringStatuses, "got": filter.Status})
 	}
 	q := s.frs.Query()
 	if filter.TriggerID != "" {
@@ -73,11 +137,61 @@ func (s *Store) SearchFirings(ctx context.Context, filter triggerdomain.FiringFi
 	if filter.Status != "" {
 		q = q.WhereEq("status", filter.Status)
 	}
+	// Half-open window [CreatedAfter, CreatedBefore) on created_at (scheduler 工单⑭) — the flowrun
+	// ListFilter started_at window VERBATIM. Plain column comparisons (no julianday wrapping): bound
+	// values and stored values go through the same driver serialization (UTC — the handler normalizes),
+	// and a bare created_at predicate stays sargable on idx_trf_ws_created / idx_trf_ws_status /
+	// idx_trf_ws_trigger (workspace equality + created_at range).
+	//
+	// created_at 上的半开窗 [CreatedAfter, CreatedBefore)（scheduler 工单⑭）——**逐字**是 flowrun
+	// ListFilter 的 started_at 窗。裸列比较（不包 julianday）：绑定值与存储值走同一 driver 序列化
+	// （UTC——handler 归一），裸 created_at 谓词在 idx_trf_ws_created / idx_trf_ws_status /
+	// idx_trf_ws_trigger 上可走索引（workspace 等值 + created_at 范围）。
+	if !filter.CreatedAfter.IsZero() {
+		q = q.Where("created_at >= ?", filter.CreatedAfter)
+	}
+	if !filter.CreatedBefore.IsZero() {
+		q = q.Where("created_at < ?", filter.CreatedBefore)
+	}
+	return q, nil
+}
+
+// SearchFirings pages the firing inbox newest-first (the disposition surface). An empty
+// filter.TriggerID spans the whole workspace — a firing is a workspace-level log row, and the
+// Overview's 24h schedule track asks exactly that question.
+//
+// SearchFirings 分页 firing 收件箱（最新优先，处置面）。filter.TriggerID 为空即跨整个 workspace——
+// firing 是 workspace 级日志行，Overview 的 24h 调度轨道问的正是这个问题。
+func (s *Store) SearchFirings(ctx context.Context, filter triggerdomain.FiringFilter) ([]*triggerdomain.Firing, string, error) {
+	q, err := s.firingQuery(filter)
+	if err != nil {
+		return nil, "", err
+	}
 	rows, next, err := q.Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("triggerstore.SearchFirings: %w", err)
 	}
 	return rows, next, nil
+}
+
+// CountFirings counts the firings SearchFirings would page through (Cursor/Limit ignored — a count
+// is not a page). It exists for the Overview's "错过 N" KPI card, which must never be an all-time
+// number: an ever-growing count of everything ever missed is a vanity number that says nothing about
+// today, so the caller always carries a window.
+//
+// CountFirings 数 SearchFirings 会翻过的那些 firing（Cursor/Limit 忽略——计数不是一页）。它为 Overview
+// 的「错过 N」KPI 牌而在，而那张牌**绝不**能是 all-time 数字：一个「有史以来错过多少」的只增计数是虚荣
+// 数字、对今天什么都没说，故调用方恒带窗口。
+func (s *Store) CountFirings(ctx context.Context, filter triggerdomain.FiringFilter) (int, error) {
+	q, err := s.firingQuery(filter)
+	if err != nil {
+		return 0, err
+	}
+	n, err := q.Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("triggerstore.CountFirings: %w", err)
+	}
+	return int(n), nil
 }
 
 // MarkFiringOutcome sets a non-started terminal status (skipped/superseded/shed) — every

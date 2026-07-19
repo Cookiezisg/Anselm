@@ -33,6 +33,7 @@ func (h *WorkspacesHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/workspaces", h.List)
 	mux.HandleFunc("POST /api/v1/workspaces", h.Create)
 	mux.HandleFunc("GET /api/v1/workspaces/{id}", h.Get)
+	mux.HandleFunc("GET /api/v1/workspaces/{id}/stats", h.Stats)
 	mux.HandleFunc("PATCH /api/v1/workspaces/{id}", h.Update)
 	mux.HandleFunc("DELETE /api/v1/workspaces/{id}", h.Delete)
 	// Per-scenario default model selection — a workspace-scoped preference (alongside language).
@@ -106,6 +107,19 @@ func (h *WorkspacesHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, ws)
+}
+
+// Stats serves the delete confirmation's content inventory (WRK-062 S-11) — counts + the dynamic
+// hazard (running flowruns / generating conversations) + blob bytes (-1 = walk over budget).
+//
+// Stats 供删除确认的内容盘点(S-11)——计数+动态危险(运行中 flowrun/生成中会话)+blob 字节(-1=超预算)。
+func (h *WorkspacesHandler) Stats(w http.ResponseWriter, r *http.Request) {
+	st, err := h.svc.Stats(r.Context(), r.PathValue("id"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, st)
 }
 
 func (h *WorkspacesHandler) Update(w http.ResponseWriter, r *http.Request) {

@@ -74,7 +74,16 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*triggerdomain.Tr
 // Edit patches name/description/config (not kind), re-validates, and re-registers the listener
 // if the trigger is currently hot (so a config change takes effect immediately).
 //
+// It writes through EditTrigger, NOT SaveTrigger: this is a read → validate → write, and the two
+// runtime columns (paused / missed_checked_at) move on their own clocks the whole time — a chat
+// agent editing a trigger while the user hits ⏸ is an ordinary Tuesday here, and a whole-row upsert
+// would answer it by putting the pause switch back on, forever (工单⑦/⑨).
+//
 // Edit 改 name/description/config（不改 kind），重校验，若 trigger 正热则重注册 listener（config 立即生效）。
+//
+// 它经 **EditTrigger** 落盘、**不是** SaveTrigger：这是「读→校验→写」，而两个运行时列（paused /
+// missed_checked_at）全程按自己的钟走——chat agent 正在改 trigger、用户同时按 ⏸ 在本项目是家常便饭，
+// 整行 upsert 会把用户按下的暂停开关重新弹起来，且永久（工单⑦/⑨）。
 func (s *Service) Edit(ctx context.Context, id string, in EditInput) (*triggerdomain.Trigger, error) {
 	t, err := s.repo.GetTrigger(ctx, id)
 	if err != nil {
@@ -101,12 +110,22 @@ func (s *Service) Edit(ctx context.Context, id string, in EditInput) (*triggerdo
 	if err := s.validate(ctx, t.Kind, t.Config); err != nil {
 		return nil, err
 	}
-	if err := s.repo.SaveTrigger(ctx, t); err != nil {
+	if err := s.repo.EditTrigger(ctx, t); err != nil {
 		return nil, err
 	}
 	s.notifySearch(ctx, t.ID)
 	s.syncSensorBinding(ctx, t)
 	s.restartIfListening(t)
+	// Re-read the runtime axis rather than echoing the read-time copies: the write above deliberately
+	// did not touch paused, so the response must not claim a `paused` this Edit never saw (a :pause
+	// that landed mid-edit is now the truth, and the wire's paused/listening/nextFireAt derive from
+	// it together — see attachRuntime).
+	// 运行时轴**重取**、不回声读时拷贝：上面的写刻意没碰 paused，故响应不能拿本次 Edit 没看见的
+	// `paused` 说事（中途落地的 `:pause` 才是真相，而线缆的 paused/listening/nextFireAt 三键同源于它
+	// ——见 attachRuntime）。
+	if fresh, err := s.repo.GetTrigger(ctx, id); err == nil {
+		t.Paused, t.MissedCheckedAt, t.UpdatedAt = fresh.Paused, fresh.MissedCheckedAt, fresh.UpdatedAt
+	}
 	s.attachRuntime(t)
 	return t, nil
 }

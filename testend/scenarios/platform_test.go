@@ -369,6 +369,18 @@ func TestPlatform_NotificationFlow(t *testing.T) {
 	if afterAll.Unread != 0 {
 		t.Fatalf("read-all left %d unread", afterAll.Unread)
 	}
+
+	// 全标未读（mark-all-read 的镜像）→ 未读回到全量行数。
+	var all []notif
+	wc.GET("/api/v1/notifications").OK(t, &all)
+	wc.POST("/api/v1/notifications:mark-all-unread", nil).OK(t, nil) // 集合级 :action(MD5)
+	var afterUnreadAll struct {
+		Unread int `json:"unread"`
+	}
+	wc.GET("/api/v1/notifications/unread-count").OK(t, &afterUnreadAll)
+	if afterUnreadAll.Unread != len(all) {
+		t.Fatalf("unread-all should restore full count %d, got %d", len(all), afterUnreadAll.Unread)
+	}
 }
 
 // ── sandbox ──────────────────────────────────────────────────────────────────

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -34,18 +35,30 @@ class SseConnection {
     required this.streamPath,
     required String baseUrl,
     required String? Function() workspaceId,
+    required String? Function() authToken,
+    Dio? dio,
+    Random? random,
   })  : _workspaceId = workspaceId,
-        _dio = Dio(BaseOptions(
-          baseUrl: baseUrl,
-          // No receive timeout: the stream is long-lived and the server pings every 15s.
-          // 无接收超时:流长生命周期,服务端每 15s ping。
-          receiveTimeout: null,
-          connectTimeout: const Duration(seconds: 10),
-        ));
+        _authToken = authToken,
+        _rng = random ?? Random(),
+        _dio = dio ??
+            Dio(BaseOptions(
+              baseUrl: baseUrl,
+              // No receive timeout: the stream is long-lived and the server pings every 15s.
+              // 无接收超时:流长生命周期,服务端每 15s ping。
+              receiveTimeout: null,
+              connectTimeout: const Duration(seconds: 10),
+            ));
 
   /// e.g. `/api/v1/messages/stream`.
   final String streamPath;
   final String? Function() _workspaceId;
+
+  /// Per-launch loopback bearer token (`ANSELM_AUTH_TOKEN`) — the backend requires it on the
+  /// SSE GETs too (loopback hardening). Callback-injected so this layer stays Riverpod-free.
+  /// 每次启动的 loopback bearer token;后端对 SSE GET 也强制(loopback 加固)。回调注入。
+  final String? Function() _authToken;
+  final Random _rng;
   final Dio _dio;
 
   final _envelopes = StreamController<StreamEnvelope>.broadcast();
@@ -112,6 +125,7 @@ class SseConnection {
   Future<void> _connectOnce() async {
     _cancel = CancelToken();
     final ws = _workspaceId();
+    final token = _authToken();
     final response = await _dio.get<ResponseBody>(
       streamPath,
       queryParameters: {if (ws != null && ws.isNotEmpty) 'workspaceID': ws},
@@ -119,6 +133,7 @@ class SseConnection {
         responseType: ResponseType.stream,
         headers: {
           'Accept': 'text/event-stream',
+          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
           if (_lastEventId != null) 'Last-Event-ID': _lastEventId,
         },
         // 410 (seq evicted) must reach us as a value, not a thrown DioException.
@@ -148,14 +163,24 @@ class SseConnection {
     }
   }
 
-  /// Capped exponential backoff with a fixed floor; jitter is unnecessary for a single
-  /// local connection (no thundering herd).
+  /// Capped exponential backoff WITH FULL JITTER (AWS Builders' Library "full jitter"): the
+  /// base doubles 500ms→10s cap, and we sleep a uniform random in [0, base]. Jitter DOES
+  /// matter despite one local connection — when the sidecar crash-restarts, all three streams
+  /// reconnect together (a mini thundering-herd), and a fixed delay would lock-step their
+  /// retries against the still-booting backend. (Corrects the ported note that called jitter
+  /// unnecessary — stage-(b) review finding.)
   ///
-  /// 带固定下限的上限指数退避;单条本地连接无需抖动(无惊群)。
+  /// 上限指数退避 + full jitter:base 500ms→10s 翻倍封顶,睡 [0,base] 均匀随机。即便单本地连接也
+  /// 需 jitter:sidecar 崩溃重启时三流齐重连(小惊群),固定延时会锁步重试、齐砸还在启动的后端。
   int _nextBackoff() {
     _backoffMs = _backoffMs == 0 ? 500 : (_backoffMs * 2).clamp(500, 10000);
-    return _backoffMs;
+    return _rng.nextInt(_backoffMs + 1); // uniform [0, base]
   }
+
+  /// Test hook for the (private) backoff sequence — asserts the doubling + 10s cap + jitter
+  /// upper bound deterministically with an injected [Random]. 退避序列测试钩子(注入 Random 定测)。
+  @visibleForTesting
+  int debugNextBackoff() => _nextBackoff();
 }
 
 /// Internal control-flow marker for a 410 resync (not an error surfaced to callers).

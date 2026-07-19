@@ -1,26 +1,22 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../core/design/theme.dart';
-import 'gallery_page.dart';
+import '../app/window_setup.dart';
+import '../i18n/strings.g.dart';
+import 'gallery/gallery_app.dart';
 
-/// Standalone entrypoint for the design gallery — bypasses the sidecar/backend health gate
-/// so the visual language can be reviewed with ZERO backend running:
-///   cd frontend && flutter run -t lib/dev/gallery_main.dart -d macos
-/// 设计画廊的独立入口——绕过 sidecar/后端健康门控,零后端即可验收视觉语言。
-void main() => runApp(const _GalleryApp());
-
-class _GalleryApp extends StatelessWidget {
-  const _GalleryApp();
-
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Anselm · Gallery',
-      theme: AnTheme.light(),
-      darkTheme: AnTheme.dark(),
-      themeMode: ThemeMode.light,
-      home: const GalleryPage(),
-    );
-  }
+/// Entry for `make gallery` — the component catalog in the real desktop window. Dev-only: no backend.
+/// Wrapped in a [ProviderScope] (G6 onward) so the overlay specimens can `ref.read(overlayProvider)` to
+/// fire toasts / confirm dialogs, mirroring the real app root (main.dart). 入口:真桌面窗组件目录。dev-only、无后端;
+/// G6 起裹 ProviderScope(浮层 specimen 经 ref.read(overlayProvider) 弹 toast/dialog,与真 app 根一致)。
+Future<void> main() async {
+  // Binding FIRST — useDeviceLocaleSync() reads WidgetsBinding.instance.platformDispatcher, so it
+  // throws (→ white window) if called before init. 必须先初始化 binding,否则 useDeviceLocaleSync 抛→白屏。
+  WidgetsFlutterBinding.ensureInitialized();
+  LocaleSettings.useDeviceLocaleSync();
+  await initWindow(title: 'Anselm · Gallery');
+  // Dev drive-by seams: --dart-define=GALLERY_CAT=<index> opens a category directly (real-machine perf
+  // verification navigates without UI scripting). 开发直达缝:GALLERY_CAT 直开类目(真机验证免 UI 脚本)。
+  const cat = int.fromEnvironment('GALLERY_CAT');
+  runApp(TranslationProvider(child: const ProviderScope(child: GalleryApp(initialCategory: cat))));
 }

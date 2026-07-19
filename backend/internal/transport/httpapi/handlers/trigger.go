@@ -2,6 +2,8 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -44,8 +46,48 @@ func (h *TriggerHandler) Register(mux Registrar) {
 	mux.HandleFunc("DELETE /api/v1/triggers/{id}", h.Delete)
 	mux.HandleFunc("POST /api/v1/triggers/{idAction}", h.postOnTrigger)
 	mux.HandleFunc("GET /api/v1/triggers/{id}/activations", h.ListActivations)
+	mux.HandleFunc("GET /api/v1/firings", h.ListFirings)
 	mux.HandleFunc("GET /api/v1/triggers/{id}/firings", h.ListFirings)
 	mux.HandleFunc("GET /api/v1/trigger-activations/{id}", h.GetActivation) // Log 单读路径变量统一 {id}(MD-id4)
+	mux.HandleFunc("GET /api/v1/trigger-schedule", h.Schedule)
+}
+
+// Schedule serves the forward-looking cron timeline (scheduler 工单⑧): every tick due within
+// ?within= (Go duration, default 168h, max 30d), capped at ?limit= (default 200, max 1000),
+// ascending. Bounded by the cap → N4 cursor-free; `truncated` reports an overflow honestly instead
+// of a silent short page. Only listening, non-paused cron triggers contribute — the other kinds
+// have no knowable next fire.
+//
+// Schedule 供给前瞻 cron 时间线（scheduler 工单⑧）：?within=（Go duration，默认 168h、上限 30d）内每个
+// 到期刻度，?limit= 封顶（默认 200、上限 1000），升序。有 cap 即有界 → N4 免游标；`truncated` 诚实报告
+// 溢出、而非静默给个短页。只有正在监听、未暂停的 cron trigger 有贡献——其余 kind 的下次 fire 不可知。
+func (h *TriggerHandler) Schedule(w http.ResponseWriter, r *http.Request) {
+	q := r.URL.Query()
+	var in triggerapp.ScheduleQuery
+	if v := q.Get("within"); v != "" {
+		d, err := time.ParseDuration(v)
+		if err != nil || d <= 0 {
+			responsehttpapi.FromDomainError(w, h.log, triggerdomain.ErrInvalidScheduleQuery.WithDetails(
+				map[string]any{"param": "within", "got": v}))
+			return
+		}
+		in.Within = d
+	}
+	if v := q.Get("limit"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 1 {
+			responsehttpapi.FromDomainError(w, h.log, triggerdomain.ErrInvalidScheduleQuery.WithDetails(
+				map[string]any{"param": "limit", "got": v}))
+			return
+		}
+		in.Limit = n
+	}
+	res, err := h.svc.Schedule(r.Context(), in)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, res)
 }
 
 func (h *TriggerHandler) Create(w http.ResponseWriter, r *http.Request) {
@@ -122,9 +164,14 @@ func (h *TriggerHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.NoContent(w)
 }
 
-// postOnTrigger dispatches POST /triggers/{id}:<action> (:fire / :iterate).
+// postOnTrigger dispatches POST /triggers/{id}:<action> (:fire / :pause / :resume / :iterate).
+// :pause / :resume are the runtime scheduling switch (scheduler 工单⑦): synchronous state flips,
+// idempotent (repeating is a harmless no-op), 200 with the bare post-action trigger (same shape as
+// PATCH) — paused=true reads with nextFireAt absent and listening=false.
 //
-// postOnTrigger 派发 POST /triggers/{id}:<action>（:fire / :iterate）。
+// postOnTrigger 派发 POST /triggers/{id}:<action>（:fire / :pause / :resume / :iterate）。
+// :pause / :resume 是运行时调度开关（scheduler 工单⑦）：同步状态翻转、幂等（重复无害 no-op），
+// 200 返动作后裸 trigger（与 PATCH 同形）——paused=true 时 nextFireAt 缺席、listening=false。
 func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -140,6 +187,20 @@ func (h *TriggerHandler) postOnTrigger(w http.ResponseWriter, r *http.Request) {
 		}
 		// 新产物 = activation;triggerId 已在 URL 路径、fired 被 202 蕴含 → 单产物 {id}
 		responsehttpapi.Success(w, http.StatusAccepted, map[string]any{"id": actID})
+	case "pause":
+		t, err := h.svc.Pause(r.Context(), id)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Success(w, http.StatusOK, t)
+	case "resume":
+		t, err := h.svc.Resume(r.Context(), id)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Success(w, http.StatusOK, t)
 	case "iterate":
 		iterateEntity(w, r, h.log, h.aispawn, mentiondomain.MentionTrigger, id)
 	default:
@@ -170,17 +231,75 @@ func (h *TriggerHandler) ListActivations(w http.ResponseWriter, r *http.Request)
 // the disposition surface behind "it fired, why didn't it run".
 //
 // ListFirings 分页 trigger 的 firing 收件箱（?status=…）——「触发了为什么没跑」的处置面。
+// ListFirings pages the firing inbox — "it fired, did the workflow run, and if not why not"
+// (started / skipped / superseded / shed / missed). ONE handler serving TWO URLs:
+//
+//   - GET /firings — WORKSPACE-LEVEL with an optional ?triggerId, mirroring GET /flowruns?workflowId
+//     verbatim. This one exists because a firing is a (trigger × workflow × activation) row, so
+//     "every firing in the last 24h" is a first-class question — it is what the Overview's schedule
+//     track asks, and no amount of paging one trigger at a time answers it without draining every
+//     trigger's whole ledger (scheduler 工单⑭).
+//   - GET /triggers/{id}/firings — the same query with the trigger taken from the path: one
+//     trigger's observability tab. An activation IS one trigger's log and is nested for the same
+//     reason.
+//
+// The two are ONE code path on purpose — the path id simply seeds the filter the query param
+// otherwise fills. A second handler would be a second grammar with a countdown on it.
+//
+// Filters compose with AND (工单⑭): ?triggerId (equality; ignored on the nested URL, which already
+// has one) · ?status (closed set, an out-of-enum value 422s with the allowed set rather than serving
+// a silent empty page) · ?createdAfter / ?createdBefore (RFC3339, half-open [after, before) on
+// created_at — the flowruns window grammar verbatim). N4 paged: firings are an unbounded log (a
+// per-minute cron writes 1,440 a day, forever), so this is cursor+limit — NOT a bounded-projection
+// exemption.
+//
+// ListFirings 分页 firing 收件箱——「它 fire 了，workflow 跑没跑、为什么没跑」（started/skipped/
+// superseded/shed/missed）。**一个** handler 服务**两个** URL：
+//
+//   - GET /firings——**workspace 级** + 可选 ?triggerId，**逐字**照 GET /flowruns?workflowId。它之所以
+//     存在：firing 是 (trigger × workflow × activation) 行，故「近 24h 的所有 firing」是一等问题——
+//     Overview 的调度轨道问的就是它，而「一个 trigger 一个 trigger 地翻」无论翻多少次都答不了它，除非把
+//     每个 trigger 的整本账都拖干（scheduler 工单⑭）。
+//   - GET /triggers/{id}/firings——同一个查询、trigger 取自路径：某一个 trigger 的观测 tab。activation
+//     **就是**某一 trigger 的日志，出于同样理由嵌套。
+//
+// 两者**刻意**是同一条代码路径——路径上的 id 只是替查询参数把 filter 填上。第二个 handler 就是第二套
+// 文法、且装着倒计时。
+//
+// 过滤 AND 组合（工单⑭）：?triggerId（等值；嵌套 URL 上忽略——它已经有一个了）· ?status（封闭集，枚举外
+// 值 422 带 allowed、而非端一个静默空页）· ?createdAfter/?createdBefore（RFC3339，created_at 上的半开窗
+// [after, before)——**逐字**是 flowruns 的窗口文法）。N4 分页：firing 是**无界**日志（每分钟的 cron 一天
+// 写 1,440 条、永远写下去），故是 cursor+limit——**不是**有界投影豁免那一类。
 func (h *TriggerHandler) ListFirings(w http.ResponseWriter, r *http.Request) {
 	p, err := responsehttpapi.ParsePage(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	query := r.URL.Query()
+	createdAfter, err := parseListTime(query.Get("createdAfter"), "createdAfter", triggerdomain.ErrInvalidFiringFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	createdBefore, err := parseListTime(query.Get("createdBefore"), "createdBefore", triggerdomain.ErrInvalidFiringFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	// The nested URL's path id wins; the flat URL has no {id} wildcard, so PathValue is "" there and
+	// the query param fills in. 嵌套 URL 的路径 id 优先；扁平 URL 无 {id} 通配、PathValue 为空，由查询参数补。
+	triggerID := r.PathValue("id")
+	if triggerID == "" {
+		triggerID = query.Get("triggerId")
+	}
 	rows, next, err := h.svc.SearchFirings(r.Context(), triggerdomain.FiringFilter{
-		TriggerID: r.PathValue("id"),
-		Status:    r.URL.Query().Get("status"),
-		Cursor:    p.Cursor,
-		Limit:     p.Limit,
+		TriggerID:     triggerID,
+		Status:        query.Get("status"),
+		CreatedAfter:  createdAfter,
+		CreatedBefore: createdBefore,
+		Cursor:        p.Cursor,
+		Limit:         p.Limit,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

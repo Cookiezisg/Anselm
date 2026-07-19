@@ -58,6 +58,31 @@ type Service struct {
 	// scenario 默认（API_KEY_NOT_FOUND）。与 ReferencesAPIKey（已挡删被默认引用的 key）对称——两向现一致。
 	// nil → 跳过存在性校验。（F153）
 	keyChecker modelrefapp.KeyExistenceChecker
+
+	// Stats ports (bootstrap, post-build; both optional — nil degrades honestly): blobSizer walks
+	// the workspace file tree under a time budget; generating snapshots chat's in-flight ids.
+	// stats 端口(bootstrap 后注入,皆可选、nil 诚实退化):blobSizer 带预算走文件树;generating 快照
+	// chat 在飞会话 id。
+	blobSizer  BlobSizer
+	generating GeneratingLister
+}
+
+// BlobSizer sums one workspace's stored blob bytes (ctx carries the workspace + the deadline).
+// BlobSizer 求一个 workspace 的 blob 总字节(ctx 带 workspace 与 deadline)。
+type BlobSizer interface {
+	TotalBytes(ctx context.Context) (int64, error)
+}
+
+// GeneratingLister snapshots the conversation ids with an in-flight assistant turn (chatapp).
+// GeneratingLister 快照在飞 assistant 回合的会话 id(chatapp)。
+type GeneratingLister func() []string
+
+// SetStatsPorts injects the stats dependencies (bootstrap, post-build).
+//
+// SetStatsPorts 注入 stats 依赖(bootstrap 后注入)。
+func (s *Service) SetStatsPorts(b BlobSizer, g GeneratingLister) {
+	s.blobSizer = b
+	s.generating = g
 }
 
 // Reaper destroys everything a workspace owns beyond its row: in-flight runs, trigger
@@ -165,6 +190,38 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*workspacedomain.
 // Get 按 id 取 workspace。
 func (s *Service) Get(ctx context.Context, id string) (*workspacedomain.Workspace, error) {
 	return s.repo.Get(ctx, id)
+}
+
+// Stats inventories one workspace — the delete confirmation's REAL numbers (WRK-062 S-11). Counts
+// come from the store in one batch; BlobBytes walks the file tree under a 500ms budget and reports
+// -1 on overrun (an honest "unknown"); the generating intersection uses chat's in-flight snapshot.
+// The path id is minted into ctx here — the route is workspace-exempt (it names its subject).
+//
+// Stats 盘点一个 workspace——删除确认的真数字(S-11)。计数 store 一批出;BlobBytes 500ms 预算内走文件树、
+// 超时报 -1(诚实「未知」);generating 交集用 chat 在飞快照。path id 在此铸进 ctx——路由属 workspace 豁免
+// (它自己点名对象)。
+func (s *Service) Stats(ctx context.Context, id string) (*workspacedomain.Stats, error) {
+	if _, err := s.repo.Get(ctx, id); err != nil {
+		return nil, err
+	}
+	ctx = reqctxpkg.SetWorkspaceID(ctx, id)
+	var generating []string
+	if s.generating != nil {
+		generating = s.generating()
+	}
+	st, err := s.repo.Stats(ctx, id, generating)
+	if err != nil {
+		return nil, err
+	}
+	st.BlobBytes = -1 // unknown until measured 量到前=未知
+	if s.blobSizer != nil {
+		walkCtx, cancel := context.WithTimeout(ctx, 500*time.Millisecond)
+		defer cancel()
+		if n, err := s.blobSizer.TotalBytes(walkCtx); err == nil {
+			st.BlobBytes = n
+		}
+	}
+	return st, nil
 }
 
 // List returns all workspaces (small set, no pagination).
@@ -310,6 +367,44 @@ func (s *Service) SetDefault(ctx context.Context, id, scenario string, ref *mode
 	}
 	s.log.Info("workspace default model set", zap.String("workspace_id", id), zap.String("scenario", scenario))
 	return w, nil
+}
+
+// SeedDefaultsIfUnset points every scenario default (dialogue/utility/agent) that is still UNSET at
+// ref, for the ctx workspace, in one Save. Free-tier provisioning calls this so the managed model is
+// the out-of-box default for all three scenarios — without it the columns stay NULL and utility-model
+// chores (auto-title, compaction) silently no-op. It only fills the blanks: a scenario a user has
+// already picked is left alone, so re-running on every boot never clobbers an explicit choice. ref is
+// our own managed ref (structural-check only, no keyChecker) — the caller ensured the key exists.
+//
+// SeedDefaultsIfUnset 把仍未设的 scenario 默认（dialogue/utility/agent）一次性设成 ref（ctx workspace）。
+// 免费档 provisioning 调它，使受管模型成三 scenario 的开箱默认——否则列恒 NULL、utility 杂活（自动标题、压缩）
+// 静默 no-op。只填空白：用户已选的 scenario 不动，故每次 boot 重跑绝不覆盖显式选择。ref 是自造受管 ref（仅结构
+// 校验、不过 keyChecker）——调用方已确保 key 存在。
+func (s *Service) SeedDefaultsIfUnset(ctx context.Context, ref modeldomain.ModelRef) error {
+	if err := ref.Validate(); err != nil {
+		return err
+	}
+	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return err
+	}
+	w, err := s.repo.Get(ctx, wsID)
+	if err != nil {
+		return err
+	}
+	changed := false
+	for _, scenario := range modeldomain.ListScenarios() {
+		if cur := w.DefaultFor(scenario); cur == nil || cur.IsZero() {
+			r := ref // fresh copy per scenario — never alias one *ModelRef across three columns
+			w.SetDefaultFor(scenario, &r)
+			changed = true
+		}
+	}
+	if !changed {
+		return nil
+	}
+	w.UpdatedAt = time.Now().UTC()
+	return s.repo.Save(ctx, w)
 }
 
 // DefaultSearchKeyID implements websearch.SearchKeyPicker: it returns the current

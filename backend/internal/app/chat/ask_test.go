@@ -56,7 +56,7 @@ func TestAsk_AcceptReturnsAnswer(t *testing.T) {
 		t.Fatalf("unexpected pending interaction: %+v", pending[0])
 	}
 
-	if err := svc.ResolveInteraction(ctx, pending[0].ToolCallID, humanloopapp.DecisionAccept, "staging"); err != nil {
+	if err := svc.ResolveInteraction(ctx, pending[0].ConversationID, pending[0].ToolCallID, humanloopapp.DecisionAccept, "staging"); err != nil {
 		t.Fatalf("ResolveInteraction: %v", err)
 	}
 	waitClose(t, bridge, asstID)
@@ -82,7 +82,7 @@ func TestAsk_Decline(t *testing.T) {
 
 	asstID, _ := svc.Send(ctx, "cv_1", SendInput{Content: "deploy"})
 	pending := waitPending(t, svc, "cv_1", 1)
-	if err := svc.ResolveInteraction(ctx, pending[0].ToolCallID, humanloopapp.DecisionDecline, ""); err != nil {
+	if err := svc.ResolveInteraction(ctx, pending[0].ConversationID, pending[0].ToolCallID, humanloopapp.DecisionDecline, ""); err != nil {
 		t.Fatalf("ResolveInteraction: %v", err)
 	}
 	waitClose(t, bridge, asstID)

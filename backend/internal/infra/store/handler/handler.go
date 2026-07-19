@@ -169,7 +169,7 @@ func (s *Store) GetHandlersByIDs(ctx context.Context, ids []string) ([]*handlerd
 }
 
 func (s *Store) ListHandlers(ctx context.Context, filter handlerdomain.ListFilter) ([]*handlerdomain.Handler, string, error) {
-	rows, next, err := s.hdls.Query().Page(ctx, filter.Cursor, filter.Limit)
+	rows, next, err := s.hdls.Query().WhereLike("name", filter.Search).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("handlerstore.ListHandlers: %w", err)
 	}

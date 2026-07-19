@@ -32,6 +32,35 @@ func (s *Service) purgeRelations(ctx context.Context, convID string) {
 	}
 }
 
+// TouchpointPurger is the subset of the touchpoint Service conversation consumes
+// (nil-tolerant) — the context ledger's cascade twin of RelationSyncer.
+//
+// TouchpointPurger 是 conversation 消费的 touchpoint Service 子集(nil-tolerant)——
+// 上下文台账的级联端口,与 RelationSyncer 同款。
+type TouchpointPurger interface {
+	PurgeConversation(ctx context.Context, conversationID string) error
+}
+
+// SetTouchpointPurger installs the ledger cascade post-construction (touchpoint does not
+// depend on conversation; the setter mirrors SetRelationSyncer for wiring symmetry).
+//
+// SetTouchpointPurger 装配后注入台账级联(touchpoint 不依赖 conversation;setter 与
+// SetRelationSyncer 同款、装配对称)。
+func (s *Service) SetTouchpointPurger(p TouchpointPurger) { s.touchpoints = p }
+
+// purgeTouchpoints cascade-removes the deleted conversation's context ledger.
+//
+// purgeTouchpoints 级联清除被删对话的上下文台账。
+func (s *Service) purgeTouchpoints(ctx context.Context, convID string) {
+	if s.touchpoints == nil {
+		return
+	}
+	if err := s.touchpoints.PurgeConversation(ctx, convID); err != nil {
+		s.log.Warn("touchpoint purge failed",
+			zap.String("conversationId", convID), zap.Error(err))
+	}
+}
+
 // NamesByIDs implements relation's Namer port for the conversation kind: id → display label
 // (Title, else a Summary preview, else a placeholder). relation's read-time hydrate calls it to
 // label conversation nodes/edges; a missing id simply gets no name (falls back to the raw id there).

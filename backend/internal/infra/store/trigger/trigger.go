@@ -9,11 +9,14 @@ package trigger
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"time"
 
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Schema is the trigger tables' DDL (idempotent, ordered) for bootstrap to collect via
@@ -38,6 +41,17 @@ var Schema = []string{
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_triggers_ws_name ON triggers(workspace_id, name) WHERE deleted_at IS NULL`,
 	`CREATE INDEX IF NOT EXISTS idx_triggers_ws_created ON triggers(workspace_id, created_at DESC, id DESC) WHERE deleted_at IS NULL`,
 
+	// Column evolution — persisted pause switch (scheduler 工单⑦) + misfire watermark (工单⑨).
+	// ADD COLUMN (not baked into the CREATE) so an existing install gains them on next boot; re-runs
+	// rely on db.Migrate treating "duplicate column name" as already-applied (same precedent as
+	// flowruns origin, 工单①).
+	//
+	// 列演化——持久化暂停开关（scheduler 工单⑦）+ misfire 水位（工单⑨）。用 ADD COLUMN（不并进 CREATE）
+	// 使已有安装下次启动补列；重复执行靠 db.Migrate 把 "duplicate column name" 视作已应用（同 flowruns
+	// origin 先例，工单①）。
+	`ALTER TABLE triggers ADD COLUMN paused INTEGER NOT NULL DEFAULT 0`,
+	`ALTER TABLE triggers ADD COLUMN missed_checked_at DATETIME`,
+
 	`CREATE TABLE IF NOT EXISTS trigger_firings (
 		id            TEXT PRIMARY KEY,
 		workspace_id  TEXT NOT NULL,
@@ -46,13 +60,49 @@ var Schema = []string{
 		activation_id TEXT NOT NULL DEFAULT '',
 		payload       TEXT NOT NULL DEFAULT '{}',
 		dedup_key     TEXT NOT NULL,
-		status        TEXT NOT NULL CHECK (status IN ('pending','claimed','started','skipped','superseded','shed')),
+		status        TEXT NOT NULL CHECK (status IN ('pending','claimed','started','skipped','superseded','shed','missed')),
 		flowrun_id    TEXT NOT NULL DEFAULT '',
 		created_at    DATETIME NOT NULL,
 		updated_at    DATETIME NOT NULL
 	)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_trf_dedup ON trigger_firings(workflow_id, trigger_id, dedup_key)`,
 	`CREATE INDEX IF NOT EXISTS idx_trf_pending ON trigger_firings(status, created_at) WHERE status = 'pending'`,
+
+	// The three READ indexes (scheduler 工单⑭). Until now NO index carried workspace_id, while the
+	// orm prepends `workspace_id = ?` to every query (D2) — so every firing read was a full scan +
+	// a temp b-tree sort, which only stayed invisible because nothing read this table at workspace
+	// scope. Plain additive CREATE INDEX (no table rebuild, outcome-idempotent).
+	//
+	// Each one is the ONLY index that makes some real query sargable — measured at 129,600 rows
+	// (a per-minute cron over 90d) + a second workspace + a rare trigger:
+	//   - ws_created  → the Overview 24h track (ws + created_at window, all statuses): 23.9ms → 802µs
+	//   - ws_status   → the "错过 N" count (COVERING: 15.8ms → 23µs) and its missed deep-link; decisive
+	//                   on a HEALTHY workspace, where `status=missed` matches nothing and any other
+	//                   index walks the whole ws to prove it (7.7ms → 31µs)
+	//   - ws_trigger  → the per-trigger firing strip. NOT optional: with ws_created present but this
+	//                   one absent, SQLite prefers walking ws_created for `trigger_id = ?` and a rare
+	//                   trigger's page costs 49.6ms — WORSE than the 14.4ms full scan it replaced.
+	//                   Adding ws_created without this would ship that regression (144µs with it).
+	// Write cost is irrelevant here: firing inserts are bounded by cron ticks (a few per second at
+	// worst), so three more b-tree writes per insert are microseconds on a cold path.
+	//
+	// 三条**读**索引（scheduler 工单⑭）。此前**没有任何**索引带 workspace_id，而 orm 给每条查询都前置
+	// `workspace_id = ?`（D2）——故每次 firing 读都是全表扫 + 临时 b-tree 排序，只因从没有人在 workspace
+	// 尺度读过这张表才一直没露馅。纯 additive CREATE INDEX（不重建表、结果幂等）。
+	//
+	// 每条都是某个真实查询**唯一**的可索引依靠——实测 129,600 行（每分钟 cron 跑 90 天）+ 第二个
+	// workspace + 一个稀有 trigger：
+	//   - ws_created  → Overview 24h 轨道（ws + created_at 窗、全状态）：23.9ms → 802µs
+	//   - ws_status   → 「错过 N」计数（**覆盖索引**：15.8ms → 23µs）与它的 missed 深链；在**健康**
+	//                   workspace 上决定性——那里 `status=missed` 一行都不匹配，而别的索引要走遍整个 ws
+	//                   才能证明这件事（7.7ms → 31µs）
+	//   - ws_trigger  → 逐 trigger firing 串。**并非可选**：有 ws_created 而无它时，SQLite 会为
+	//                   `trigger_id = ?` 选择走 ws_created，稀有 trigger 的一页要 49.6ms——**比它取代的
+	//                   14.4ms 全表扫更慢**。只加 ws_created 就是把这个回归发出去（有它则 144µs）。
+	// 写代价在此无关紧要：firing 插入受 cron 刻度限速（最坏每秒几条），每条多三次 b-tree 写是冷路径上的微秒。
+	`CREATE INDEX IF NOT EXISTS idx_trf_ws_created ON trigger_firings(workspace_id, created_at DESC, id DESC)`,
+	`CREATE INDEX IF NOT EXISTS idx_trf_ws_status ON trigger_firings(workspace_id, status, created_at DESC, id DESC)`,
+	`CREATE INDEX IF NOT EXISTS idx_trf_ws_trigger ON trigger_firings(workspace_id, trigger_id, created_at DESC, id DESC)`,
 
 	`CREATE TABLE IF NOT EXISTS trigger_activations (
 		id           TEXT PRIMARY KEY,
@@ -69,6 +119,59 @@ var Schema = []string{
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_tra_ws_trigger ON trigger_activations(workspace_id, trigger_id, created_at DESC, id DESC)`,
 }
+
+// FiringsMissedMarker / FiringsCheckRebuild: the status CHECK gained 'missed' (scheduler 工单⑨),
+// and SQLite cannot ALTER a CHECK — an existing install must REBUILD the table. bootstrap runs
+// this through db.MigrateRebuild, which is idempotent BY OUTCOME: it rebuilds only while the live
+// sqlite_master DDL lacks the marker, so a fresh install (CREATE above already carries 'missed')
+// and every post-rebuild boot are no-ops. Data is copied column-for-column; ALL FIVE indexes drop
+// with the old table and are recreated here — rebuild_test.go gates on the rebuilt index set being
+// identical to a fresh install's, so an index added to Schema and not to this list fails the build.
+//
+// FiringsMissedMarker / FiringsCheckRebuild：status CHECK 加词 'missed'（scheduler 工单⑨），而
+// SQLite 无法 ALTER CHECK——已有安装必须**重建**该表。bootstrap 经 db.MigrateRebuild 执行，靠
+// **结果幂等**：仅当 sqlite_master 里的现行 DDL 缺该标记词才重建，故全新安装（上方 CREATE 已含
+// 'missed'）与重建后的每次启动都是 no-op。数据逐列拷贝；**五条**索引全部随旧表落、在此重建——
+// rebuild_test.go 以「重建出的索引集 == 全新安装的索引集」为门禁，故往 Schema 加了索引却不加到本表
+// 会直接挂测。
+var (
+	FiringsMissedMarker = "'missed'"
+
+	FiringsCheckRebuild = []string{
+		`CREATE TABLE trigger_firings_rebuild (
+			id            TEXT PRIMARY KEY,
+			workspace_id  TEXT NOT NULL,
+			trigger_id    TEXT NOT NULL,
+			workflow_id   TEXT NOT NULL,
+			activation_id TEXT NOT NULL DEFAULT '',
+			payload       TEXT NOT NULL DEFAULT '{}',
+			dedup_key     TEXT NOT NULL,
+			status        TEXT NOT NULL CHECK (status IN ('pending','claimed','started','skipped','superseded','shed','missed')),
+			flowrun_id    TEXT NOT NULL DEFAULT '',
+			created_at    DATETIME NOT NULL,
+			updated_at    DATETIME NOT NULL
+		)`,
+		// Target columns spelled out: a bare INSERT … SELECT is POSITIONAL, so a column added to the
+		// CREATE above (or reordered) would silently copy values into the wrong columns of a real
+		// user's table. Naming both sides makes the copy fail loudly instead. rebuild_test.go proves
+		// the rebuilt shape is byte-for-byte the shape a fresh install gets.
+		//
+		// 目标列写全：裸 INSERT … SELECT 是**按位**的，上面 CREATE 加一列（或换序）就会把值静默灌进真实
+		// 用户表的错误列里。两侧都点名，则拷贝会大声失败而非错位。rebuild_test.go 证明重建出的形状与全新
+		// 安装拿到的形状逐列相同。
+		`INSERT INTO trigger_firings_rebuild
+			(id, workspace_id, trigger_id, workflow_id, activation_id, payload, dedup_key, status, flowrun_id, created_at, updated_at)
+			SELECT id, workspace_id, trigger_id, workflow_id, activation_id, payload, dedup_key, status, flowrun_id, created_at, updated_at
+			FROM trigger_firings`,
+		`DROP TABLE trigger_firings`,
+		`ALTER TABLE trigger_firings_rebuild RENAME TO trigger_firings`,
+		`CREATE UNIQUE INDEX idx_trf_dedup ON trigger_firings(workflow_id, trigger_id, dedup_key)`,
+		`CREATE INDEX idx_trf_pending ON trigger_firings(status, created_at) WHERE status = 'pending'`,
+		`CREATE INDEX idx_trf_ws_created ON trigger_firings(workspace_id, created_at DESC, id DESC)`,
+		`CREATE INDEX idx_trf_ws_status ON trigger_firings(workspace_id, status, created_at DESC, id DESC)`,
+		`CREATE INDEX idx_trf_ws_trigger ON trigger_firings(workspace_id, trigger_id, created_at DESC, id DESC)`,
+	}
+)
 
 // Store implements triggerdomain.Repository over pkg/orm.
 type Store struct {
@@ -102,6 +205,44 @@ func (s *Store) SaveTrigger(ctx context.Context, t *triggerdomain.Trigger) error
 	return nil
 }
 
+// EditTrigger patches only the author-editable entity columns — see the port's contract for WHY a
+// whole-row Save is wrong here (it would carry Edit's stale read-time copies of the runtime columns
+// back to disk, silently undoing a concurrent :pause). config/outputs are marshalled by hand:
+// Updates hands raw values to the driver, the orm only serialises `,json` fields on Create/Save
+// (agentstore.UpdateMeta precedent). 0 rows matched = no such trigger (the orm's workspace +
+// soft-delete filters apply) → ErrNotFound.
+//
+// EditTrigger 只改作者可编辑的实体列——**为什么**整行 Save 在此是错的见端口契约（它会把 Edit 读时的
+// 陈旧运行时列拷贝写回盘，静默抹掉并发的 `:pause`）。config/outputs 手工 marshal：Updates 把裸值直送
+// driver，orm 只在 Create/Save 上序列化 `,json` 字段（agentstore.UpdateMeta 先例）。匹配 0 行 = 无此
+// trigger（orm 的 workspace + 软删过滤生效）→ ErrNotFound。
+func (s *Store) EditTrigger(ctx context.Context, t *triggerdomain.Trigger) error {
+	cfg, err := json.Marshal(t.Config)
+	if err != nil {
+		return fmt.Errorf("triggerstore.EditTrigger: marshal config: %w", err)
+	}
+	outs, err := json.Marshal(t.Outputs)
+	if err != nil {
+		return fmt.Errorf("triggerstore.EditTrigger: marshal outputs: %w", err)
+	}
+	n, err := s.trgs.WhereEq("id", t.ID).Updates(ctx, map[string]any{
+		"name":        t.Name,
+		"description": t.Description,
+		"config":      string(cfg),
+		"outputs":     string(outs),
+	})
+	if err != nil {
+		if errors.Is(err, ormpkg.ErrConflict) {
+			return triggerdomain.ErrDuplicateName
+		}
+		return fmt.Errorf("triggerstore.EditTrigger: %w", err)
+	}
+	if n == 0 {
+		return triggerdomain.ErrNotFound
+	}
+	return nil
+}
+
 func (s *Store) GetTrigger(ctx context.Context, id string) (*triggerdomain.Trigger, error) {
 	t, err := s.trgs.Get(ctx, id)
 	if errors.Is(err, ormpkg.ErrNotFound) {
@@ -111,6 +252,20 @@ func (s *Store) GetTrigger(ctx context.Context, id string) (*triggerdomain.Trigg
 		return nil, fmt.Errorf("triggerstore.GetTrigger: %w", err)
 	}
 	return t, nil
+}
+
+// TriggerKind resolves a trigger's source kind for the scheduler's run-provenance stamp
+// (FiringInbox port). A soft-deleted trigger reads as not-found — its in-flight firings then run
+// with a NULL origin (best-effort at the caller), which is honest: the source is gone.
+//
+// TriggerKind 为 scheduler 的 run 溯源盖章解析 trigger 的 source kind（FiringInbox 端口）。软删的
+// trigger 读作 not-found——其在途 firing 以 NULL origin 跑（调用侧 best-effort），诚实：源已不在。
+func (s *Store) TriggerKind(ctx context.Context, id string) (string, error) {
+	t, err := s.GetTrigger(ctx, id)
+	if err != nil {
+		return "", err
+	}
+	return t.Kind, nil
 }
 
 func (s *Store) GetTriggerByName(ctx context.Context, name string) (*triggerdomain.Trigger, error) {
@@ -159,6 +314,48 @@ func (s *Store) ListAllTriggers(ctx context.Context) ([]*triggerdomain.Trigger, 
 		return nil, fmt.Errorf("triggerstore.ListAllTriggers: %w", err)
 	}
 	return rows, nil
+}
+
+// SetTriggerPaused flips the persisted pause switch alone (scheduler 工单⑦) — a targeted UPDATE
+// (orm stamps updated_at), never a whole-row Save, so it composes with concurrent Edits. 0 rows
+// matched = the trigger doesn't exist (workspace-scoped soft-delete filter applies) → ErrNotFound.
+//
+// SetTriggerPaused 只翻持久化暂停开关（scheduler 工单⑦）——定点 UPDATE（orm 盖 updated_at）、绝不整行
+// Save，与并发 Edit 可组合。匹配 0 行 = trigger 不存在（workspace 隔离 + 软删过滤生效）→ ErrNotFound。
+func (s *Store) SetTriggerPaused(ctx context.Context, id string, paused bool) error {
+	n, err := s.trgs.WhereEq("id", id).Update(ctx, "paused", paused)
+	if err != nil {
+		return fmt.Errorf("triggerstore.SetTriggerPaused: %w", err)
+	}
+	if n == 0 {
+		return triggerdomain.ErrNotFound
+	}
+	return nil
+}
+
+// AdvanceMissedWatermark moves missed_checked_at forward monotonically (scheduler 工单⑨). Raw SQL
+// on purpose: the orm Updates path always bumps updated_at, and the watermark advances on EVERY
+// cron fan-out — churning updated_at would turn the row's edit timestamp into noise. The guard
+// `missed_checked_at < ?` keeps out-of-order writers (fan-out vs sweep vs resume) from regressing
+// the watermark. 0 rows matched (missing/soft-deleted row, or an older `at`) is a harmless no-op.
+//
+// AdvanceMissedWatermark 单调推进 missed_checked_at（scheduler 工单⑨）。刻意用裸 SQL：orm 的 Updates
+// 一律刷 updated_at，而水位在**每次** cron 扇出时推进——搅动 updated_at 会让行的编辑时间成噪声。
+// `missed_checked_at < ?` 守卫使乱序写者（扇出/sweep/resume）不会把水位倒退。匹配 0 行（行不存在/
+// 软删、或 `at` 更旧）为无害 no-op。
+func (s *Store) AdvanceMissedWatermark(ctx context.Context, id string, at time.Time) error {
+	ws, err := reqctxpkg.RequireWorkspaceID(ctx)
+	if err != nil {
+		return err
+	}
+	if _, err := s.db.Exec(ctx,
+		`UPDATE triggers SET missed_checked_at = ?
+		 WHERE id = ? AND workspace_id = ? AND deleted_at IS NULL
+		   AND (missed_checked_at IS NULL OR missed_checked_at < ?)`,
+		at.UTC(), id, ws, at.UTC()); err != nil {
+		return fmt.Errorf("triggerstore.AdvanceMissedWatermark: %w", err)
+	}
+	return nil
 }
 
 func (s *Store) DeleteTrigger(ctx context.Context, id string) error {

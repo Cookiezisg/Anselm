@@ -1,0 +1,283 @@
+import 'package:anselm/core/contract/entities/agent.dart';
+import 'package:anselm/core/contract/entities/document.dart';
+import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/contract/entities/handler.dart';
+import 'package:anselm/core/contract/entities/skill.dart';
+import 'package:anselm/core/contract/entities/trigger.dart';
+import 'package:anselm/core/contract/entities/values.dart';
+import 'package:anselm/core/contract/mcp.dart';
+import 'package:anselm/core/contract/entities/workflow.dart';
+import 'package:anselm/features/chat/ui/stages/scene_from_truth.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+final _now = DateTime.utc(2026, 7, 10);
+
+// sceneFromTruth pure core (WRK-064): a settled entity's truth → a live:false StageScene the bespoke body
+// renders as «current truth». No Ref, no async — feeds a fixture DTO, asserts the synthesized scene.
+// 纯核心:真身→live:false 场景,喂 fixture DTO 断言合成。
+
+FunctionEntity _fn({String code = 'print(1)', bool noVersion = false}) {
+  final now = DateTime.utc(2026, 7, 10);
+  return FunctionEntity(
+    id: 'fn_1',
+    name: 'sync_inventory',
+    createdAt: now,
+    updatedAt: now,
+    activeVersion: noVersion
+        ? null
+        : FunctionVersion(id: 'v1', functionId: 'fn_1', version: 4, code: code, createdAt: now, updatedAt: now),
+  );
+}
+
+void main() {
+  test('function → a live:false scene whose session yields the code (create semantics, no edit target)', () {
+    final scene =
+        sceneFromTruth(kind: 'function', truth: _fn(code: 'def main():\n  return 1'), id: 'fn_1', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    expect(scene!.live, isFalse); // node.status=completed ⇒ not live
+    expect(scene.failed, isFalse); // phase=following ⇒ not failed-hold
+    expect(scene.editTargetId, isNull); // create_ semantics: no GET / no diff / no old stratum
+    expect(scene.session.liveStringNamed('code'), 'def main():\n  return 1');
+    expect(scene.subject.kind, 'function');
+    expect(scene.subject.itemId, 'fn_1');
+  });
+
+  test('function with no active version → null (caller degrades to the summary)', () {
+    expect(sceneFromTruth(kind: 'function', truth: _fn(noVersion: true), id: 'fn_1', conversationId: 'cv', rowId: 'r'),
+        isNull);
+  });
+
+  test('hasTruthStage gates the truth-stage kinds; the summary/pedestal/unreachable kinds stay out', () {
+    for (final k in ['function', 'workflow', 'control', 'approval', 'agent', 'handler', 'document', 'trigger', 'skill', 'mcp']) {
+      expect(hasTruthStage(k), isTrue, reason: k);
+    }
+    // attachment=pedestal · memory=noTouch(never a settled row) · subagent=B6 rehydration · conversation=no stage
+    for (final k in ['attachment', 'memory', 'subagent', 'conversation']) {
+      expect(hasTruthStage(k), isFalse, reason: k);
+    }
+  });
+
+  test('workflow → the final graph replayed as add_node / add_edge ops (the settled canvas)', () {
+    final wf = WorkflowEntity(
+      id: 'wf_1',
+      name: 'invoice_reconcile',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: WorkflowVersion(
+        id: 'v1',
+        workflowId: 'wf_1',
+        version: 1,
+        createdAt: _now,
+        updatedAt: _now,
+        graphParsed: Graph(
+          nodes: [
+            const Node(id: 'n1', kind: NodeKind.action, ref: 'pull_invoices'),
+            const Node(id: 'n2', kind: NodeKind.control, ref: 'amount_gate'),
+          ],
+          edges: [const Edge(id: 'e1', from: 'n1', to: 'n2', fromPort: 'ok')],
+        ),
+      ),
+    );
+    final scene = sceneFromTruth(kind: 'workflow', truth: wf, id: 'wf_1', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    expect(scene!.live, isFalse);
+    final ops = scene.session.arrayItemsAt(['ops']);
+    expect(ops.length, 3); // 2 add_node + 1 add_edge
+    final addNodes = ops.whereType<Map>().where((o) => o['op'] == 'add_node').toList();
+    expect(addNodes.length, 2);
+    expect((addNodes.first['node'] as Map)['kind'], 'action'); // NodeKind → its .name string
+  });
+
+  test('workflow with no active version / no graph → null', () {
+    final wf = WorkflowEntity(id: 'wf_1', name: 'x', createdAt: _now, updatedAt: _now);
+    expect(sceneFromTruth(kind: 'workflow', truth: wf, id: 'wf_1', conversationId: 'cv', rowId: 'r'), isNull);
+  });
+
+  test('agent → prompt + belt tools + knowledge in the session (modelOverride null projects to null)', () {
+    final ag = AgentEntity(
+      id: 'ag_1',
+      name: 'researcher',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: AgentVersion(
+        id: 'v1',
+        agentId: 'ag_1',
+        version: 2,
+        prompt: 'You are a research assistant.\nBe precise.',
+        knowledge: const ['doc_1'],
+        tools: const [ToolRef(ref: 'read', name: 'read'), ToolRef(ref: 'grep', name: 'grep')],
+        createdAt: _now,
+        updatedAt: _now,
+      ),
+    );
+    final scene = sceneFromTruth(kind: 'agent', truth: ag, id: 'ag_1', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    expect(scene!.session.liveStringNamed('prompt'), 'You are a research assistant.\nBe precise.');
+    expect(scene.session.arrayItemsAt(['tools']).length, 2);
+    expect(scene.session.arrayItemsAt(['knowledge']).length, 1);
+  });
+
+  test('document → an edit_document scene (editTargetId resolves) whose session yields the content', () {
+    final doc = DocumentNode(id: 'doc_1', name: '月度对账模板', content: '# 模板\n第一行', createdAt: _now, updatedAt: _now);
+    final scene = sceneFromTruth(kind: 'document', truth: doc, id: 'doc_1', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    expect(scene!.editTargetId, 'doc_1'); // edit_document → 'id' key → the byte badge / path light up
+    expect(scene.session.closedStringAt(['content']), '# 模板\n第一行');
+  });
+
+  test('handler → ops only for present bodies (empty init/shutdown fabricate no rail segment)', () {
+    final hd = HandlerEntity(
+      id: 'hd_1',
+      name: 'on_order_paid',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: HandlerVersion(
+        id: 'v1',
+        handlerId: 'hd_1',
+        version: 1,
+        initBody: '', // no init → no set_init op (else a phantom lit rail + empty editor)
+        shutdownBody: '', // no shutdown
+        methods: const [MethodSpec(name: 'run', streaming: false, body: 'return ok')],
+        createdAt: _now,
+        updatedAt: _now,
+      ),
+    );
+    final scene = sceneFromTruth(kind: 'handler', truth: hd, id: 'hd_1', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    final ops = scene!.session.arrayItemsAt(['ops']).whereType<Map>().toList();
+    expect(ops.map((o) => o['op']), ['add_method']); // no set_init / set_shutdown fabricated 无捏造轨段
+  });
+
+  test('handler with no init/shutdown/methods/schema → null (degrades to the summary)', () {
+    final hd = HandlerEntity(
+      id: 'hd_1',
+      name: 'x',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: HandlerVersion(id: 'v1', handlerId: 'hd_1', version: 1, createdAt: _now, updatedAt: _now),
+    );
+    expect(sceneFromTruth(kind: 'handler', truth: hd, id: 'hd_1', conversationId: 'cv', rowId: 'r'), isNull);
+  });
+
+  test('content-less versions degrade to the summary (empty graph / empty doc → null, not a blank stage)', () {
+    final wf = WorkflowEntity(
+      id: 'wf_1',
+      name: 'x',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: WorkflowVersion(
+          id: 'v1', workflowId: 'wf_1', version: 1, createdAt: _now, updatedAt: _now, graphParsed: const Graph()),
+    );
+    expect(sceneFromTruth(kind: 'workflow', truth: wf, id: 'wf_1', conversationId: 'cv', rowId: 'r'), isNull);
+    final emptyDoc = DocumentNode(id: 'd', name: 'x', content: '', createdAt: _now, updatedAt: _now);
+    expect(sceneFromTruth(kind: 'document', truth: emptyDoc, id: 'd', conversationId: 'cv', rowId: 'r'), isNull);
+  });
+
+  test('workflow add_node carries the node input CEL map (the discriminant drawer reads it)', () {
+    final wf = WorkflowEntity(
+      id: 'wf_1',
+      name: 'x',
+      createdAt: _now,
+      updatedAt: _now,
+      activeVersion: WorkflowVersion(
+        id: 'v1',
+        workflowId: 'wf_1',
+        version: 1,
+        createdAt: _now,
+        updatedAt: _now,
+        graphParsed: const Graph(
+          nodes: [Node(id: 'g', kind: NodeKind.control, ref: 'gate', input: {'rows': 'pull.result'})],
+          edges: [],
+        ),
+      ),
+    );
+    final scene = sceneFromTruth(kind: 'workflow', truth: wf, id: 'wf_1', conversationId: 'cv', rowId: 'r');
+    final node = (scene!.session.arrayItemsAt(['ops']).first as Map)['node'] as Map;
+    expect((node['input'] as Map)['rows'], 'pull.result');
+  });
+
+  test('skill → a create_skill scene carrying the frontmatter tools + full body', () {
+    final sk = Skill(
+      name: 'commit-helper',
+      context: 'inline',
+      body: '# Commit Helper\nWrite good messages.',
+      frontmatter: const Frontmatter(allowedTools: ['read', 'bash']),
+      updatedAt: _now,
+    );
+    final scene = sceneFromTruth(kind: 'skill', truth: sk, id: 'commit-helper', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    expect(scene!.editTargetId, isNull); // create_skill
+    expect(scene.session.liveStringNamed('body'), '# Commit Helper\nWrite good messages.');
+    expect(scene.session.arrayItemsAt(['allowedTools']).length, 2);
+  });
+
+  test('content-less skill degrades to the summary despite the backend-defaulted context', () {
+    // The backend defaults an empty context to 'inline' on every write, so context is never empty for an
+    // API-created skill — the guard must key off body + allowedTools ONLY, else an empty skill opens to a
+    // bare「inline」nameplate instead of the verb-history summary. 空 body 空 tools 即降摘要,不看 context。
+    final sk = Skill(
+      name: 'empty-skill',
+      context: 'inline',
+      body: '',
+      frontmatter: const Frontmatter(allowedTools: []),
+      updatedAt: _now,
+    );
+    expect(sceneFromTruth(kind: 'skill', truth: sk, id: 'empty-skill', conversationId: 'cv', rowId: 'r'), isNull);
+  });
+
+  test('mcp → a create_mcp scene carrying the tool shelf names; no tools → null', () {
+    final srv = McpServerStatus(id: 'mcp_1', name: 'github', status: 'ready', tools: const [
+      McpToolDef(name: 'create_issue'),
+      McpToolDef(name: 'list_repos'),
+    ]);
+    final scene = sceneFromTruth(kind: 'mcp', truth: srv, id: 'github', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    expect(scene!.session.arrayItemsAt(['tools']), containsAll(<String>['create_issue', 'list_repos']));
+    // McpStageBody's args-`tools` shelf fallback is GATED on exactly this synthetic name, so a live
+    // `mcp__srv__tool` execution never mislabels its own `tools` input arg. 回退门依赖此合成名。
+    expect(scene.subject.toolName, 'create_mcp');
+
+    final empty = McpServerStatus(id: 'mcp_2', name: 'idle', status: 'disconnected');
+    expect(sceneFromTruth(kind: 'mcp', truth: empty, id: 'idle', conversationId: 'cv', rowId: 'r'), isNull);
+  });
+
+  test('trigger → an edit_trigger scene carrying kind + config', () {
+    final trig = TriggerEntity(
+      id: 'trg_1',
+      name: 'github-push',
+      kind: TriggerSource.webhook,
+      config: const {'path': '/hooks/gh'},
+      createdAt: _now,
+      updatedAt: _now,
+    );
+    final scene = sceneFromTruth(kind: 'trigger', truth: trig, id: 'trg_1', conversationId: 'cv', rowId: 'r');
+    expect(scene, isNotNull);
+    expect(scene!.editTargetId, 'trg_1'); // edit_trigger → 'triggerId'
+    expect(scene.session.closedStringAt(['kind']), 'webhook'); // TriggerSource → .name
+  });
+
+  // C-026/007 — memoized by the truth instance so a settled stage re-render (any director/ledger change)
+  // doesn't re-encode the full truth + re-parse args. 按 truth 实例记忆化。
+  group('C-026 memoization by truth instance', () {
+    test('the SAME truth + rowId returns the SAME scene instance (identity)', () {
+      final truth = _fn(code: 'x=1');
+      final a = sceneFromTruth(kind: 'function', truth: truth, id: 'fn_1', conversationId: 'cv', rowId: 'r');
+      final b = sceneFromTruth(kind: 'function', truth: truth, id: 'fn_1', conversationId: 'cv', rowId: 'r');
+      expect(identical(a, b), isTrue, reason: '同真身+同 rowId→同 scene(缓存)');
+    });
+
+    test('a DIFFERENT truth instance recomputes', () {
+      final a = sceneFromTruth(kind: 'function', truth: _fn(code: 'x=1'), id: 'fn_1', conversationId: 'cv', rowId: 'r');
+      final b = sceneFromTruth(kind: 'function', truth: _fn(code: 'x=2'), id: 'fn_1', conversationId: 'cv', rowId: 'r');
+      expect(identical(a, b), isFalse);
+      expect(b!.session.liveStringNamed('code'), 'x=2', reason: '新真身内容生效');
+    });
+
+    test('the same truth with a DIFFERENT rowId recomputes (guard)', () {
+      final truth = _fn(code: 'x=1');
+      final a = sceneFromTruth(kind: 'function', truth: truth, id: 'fn_1', conversationId: 'cv', rowId: 'r1');
+      final b = sceneFromTruth(kind: 'function', truth: truth, id: 'fn_1', conversationId: 'cv', rowId: 'r2');
+      expect(identical(a, b), isFalse, reason: 'rowId 守卫→重算');
+    });
+  });
+}

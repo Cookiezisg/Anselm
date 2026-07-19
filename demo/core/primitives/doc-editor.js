@@ -50,7 +50,8 @@
       :host { display: block; position: relative; }
       .doc { outline: none; color: var(--ink); font-size: var(--t-body); line-height: var(--lh-doc); }
       /* 垂直节奏（best practice：标题"段前" >> "段后"——标题归属其后内容；top-only margin 免折叠歧义） */
-      .b { position: relative; margin-top: var(--sp-3); min-height: calc(var(--t-body) * var(--lh-doc)); }
+      /* overflow-wrap: anywhere —— 超长无空格标题/正文（URL/标识符）横破换行，不撑破文档列宽 */
+      .b { position: relative; margin-top: var(--sp-3); min-height: calc(var(--t-body) * var(--lh-doc)); overflow-wrap: anywhere; }
       .b:first-child { margin-top: 0; }
 
       /* 标题阶（h1 20 / h2 16 / h3 13bold）：自适应高度（去 min-height 幻影空白）、段前留白足、段后贴附引领内容 */
@@ -145,11 +146,14 @@
         if (ev.key === "/") setTimeout(() => this._slash(), 0);
       });
       // @ 提及：复用地基 AnMention（contenteditable 上 @→边打边滤→内联插 ref-pill；与 composer 同源、不再各抄一份）
-      this._mention = window.AnMention.attach(doc, {
-        mentions: () => this._mentions || [],
-        namespace: "doc-at",
-        getSelection: () => (this.shadowRoot.getSelection ? this.shadowRoot.getSelection() : window.getSelection()),
-      });
+      // 存在性守卫：地基未就绪（如独立加载某原语）不崩，仅退化掉 @ 提及能力
+      if (window.AnMention) {
+        this._mention = window.AnMention.attach(doc, {
+          mentions: () => this._mentions || [],
+          namespace: "doc-at",
+          getSelection: () => (this.shadowRoot.getSelection ? this.shadowRoot.getSelection() : window.getSelection()),
+        });
+      }
       // 左槽块手柄：悬停某块 → 手柄移到该块左侧并浮现；离开整个编辑器才隐
       const handle = this.$(".gutter");
       if (handle) {
@@ -164,9 +168,10 @@
         this.addEventListener("pointerleave", () => handle.classList.remove("show"));
         handle.addEventListener("click", () => {
           const block = this._handleBlock; if (!block) return;
+          if (!window.AnMenu) return;   // 地基未就绪：块菜单不可用，不崩
           window.AnMenu.open(handle, {
             items: SLASH, placement: "bottom", align: "start", namespace: "doc-add",
-            onPick: (type) => { type === "mention" ? this._mention.pick(this._addBelow(block, "p")) : this._addBelow(block, type); },
+            onPick: (type) => { type === "mention" && this._mention ? this._mention.pick(this._addBelow(block, "p")) : this._addBelow(block, type); },
           });
         });
       }
@@ -208,9 +213,10 @@
     _slash() {
       const block = this._curBlock();
       if (!block || (block.textContent || "").trim() !== "/") return;   // 仅当块内容恰为「/」（行首斜杠）才弹
+      if (!window.AnMenu) return;   // 地基未就绪：块菜单不可用，不崩
       window.AnMenu.open(block, {
         items: SLASH, placement: "bottom", align: "start", namespace: "doc-slash",
-        onPick: (type) => { this._stripTrailing(block, "/"); type === "mention" ? this._mention.pick(block) : this._applyBlock(block, type); },
+        onPick: (type) => { this._stripTrailing(block, "/"); type === "mention" && this._mention ? this._mention.pick(block) : this._applyBlock(block, type); },
       });
     }
     _applyBlock(block, type) {
@@ -226,6 +232,7 @@
     // @ 提及全套（caret 探测 / @query 删插 / picker）已上提到地基 AnMention（core/primitives/mention.js），见 hydrate 的 attach + _slash/gutter 的 this._mention.pick。
 
     _openCard(pill) {
+      if (!window.AnFloating) return;   // 地基未就绪：悬卡不可用，不崩
       this._hovered = pill;
       const kind = pill.getAttribute("kind"), id = pill.getAttribute("id"), label = pill.getAttribute("label");
       const FALLBACK = { doc: { label: "文档", icon: "doc" } };   // 纯提及 kind（非 9 实体）补标签/图标
@@ -239,7 +246,7 @@
         + `<div class="dc-f">点击跳转 · 悬停看卡片</div></div>`;
       window.AnFloating.open(pill, { content: card, placement: "top", align: "start", namespace: "doc-card", className: "dc-float" });
     }
-    _closeCard() { this._hovered = null; window.AnFloating.close("doc-card"); }
+    _closeCard() { this._hovered = null; if (window.AnFloating) window.AnFloating.close("doc-card"); }
   }
 
   window.AnElement.define(AnDocEditor);

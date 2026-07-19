@@ -1,0 +1,155 @@
+import '../../../core/contract/conversation.dart';
+import '../../../core/model/sidebar_model.dart';
+import '../../../core/model/status_state.dart';
+import '../../../core/ui/icons.dart';
+
+/// The lead status dot for a conversation rail row — or null for a plain active thread (no dot, the
+/// common case). Precedence, highest first:
+///   generating (blue, the only animated/breathing dot) > awaiting input (amber "needs you") >
+///   unread (green "answered while you were away") > archived (gray marker) > none.
+/// AWAITING wins over generating: a human-loop-blocked turn keeps `isGenerating` true (the blocked
+/// goroutine still holds the run slot) AND sets `awaitingInput` — so if generating were checked first,
+/// the "needs you" amber dot (the single most actionable state) would be permanently masked by blue.
+/// The archived gray dot is a static "this is archived" marker that only shows when the rail includes
+/// archived threads.
+///
+/// 会话 rail 行的前导状态点——普通活跃线程返 null(无点,常态)。优先级(高→低):**等你输入(琥珀「等你」,
+/// 最该被凸显)> 生成中(蓝、呼吸)> 未读(绿「你不在时答完了」)> 已归档(灰标记)> 无**。等你优先于生成中:被人闸
+/// 阻塞的回合后端 isGenerating 与 awaitingInput **同时为真**(阻塞的 goroutine 仍占 run 槽),若先判生成中,
+/// 「需要你」的琥珀点会被蓝点永久遮蔽。归档灰点是静态标记,仅当 rail 含归档时出现。
+AnStatus? conversationDot(Conversation c) {
+  if (c.awaitingInput) return AnStatus.wait;
+  if (c.isGenerating) return AnStatus.run;
+  if (c.hasUnread) return AnStatus.done;
+  if (c.archived) return AnStatus.idle;
+  return null;
+}
+
+/// The i18n strings for the relative-time row meta — injected (not read from slang) so the formatter
+/// stays pure + unit-testable without a Translations object. The widget binds these from `t.chat.time`.
+///
+/// 相对时间行 meta 的 i18n 串——注入(不直读 slang),使格式化纯、可单测、不依赖 Translations。widget 从 t.chat.time 绑。
+class ConvTimeStrings {
+  const ConvTimeStrings({
+    required this.justNow,
+    required this.yesterday,
+    required this.minutesAgo,
+    required this.hoursAgo,
+    required this.daysAgo,
+  });
+
+  final String justNow;
+  final String yesterday;
+  final String Function(int n) minutesAgo;
+  final String Function(int n) hoursAgo;
+  final String Function(int n) daysAgo;
+}
+
+/// The relative-time label for a row (just now / N min / N hr / yesterday / N days / a numeric date for
+/// older). Calendar-day based in LOCAL time; older than 7 days → `y/m/d` (locale-neutral numerics). This
+/// is the per-row timestamp; it does NOT drive grouping (the rail groups only Pinned vs Recents).
+///
+/// 行的相对时间(刚刚/N 分钟/N 小时/昨天/N 天/更老用数字日期)。本地日历日;>7 天 → `年/月/日`(纯数字)。仅是行时间戳,
+/// 不参与分组(rail 只分 置顶 / 最近 两组)。
+String conversationTimeLabel(DateTime atUtc, DateTime now, ConvTimeStrings s) {
+  final at = atUtc.toLocal();
+  final days = DateTime(now.year, now.month, now.day)
+      .difference(DateTime(at.year, at.month, at.day))
+      .inDays;
+  if (days <= 0) {
+    final mins = now.difference(at).inMinutes;
+    if (mins < 1) return s.justNow;
+    if (mins < 60) return s.minutesAgo(mins);
+    return s.hoursAgo(now.difference(at).inHours);
+  }
+  if (days == 1) return s.yesterday;
+  if (days <= 7) return s.daysAgo(days);
+  return '${at.year}/${at.month}/${at.day}';
+}
+
+/// The i18n labels the rail model needs — New/filter chrome, the two section labels (Pinned / Recents),
+/// and the time strings. Bundled so the pure builder takes one struct (mirrors entities' RailLabels).
+///
+/// rail 模型需的 i18n 标签——New/过滤 chrome、两个分节标签(置顶 / 最近)、时间串。打包成一个 struct 喂纯 builder(镜像 entities RailLabels)。
+class ConvRailLabels {
+  const ConvRailLabels({
+    required this.newLabel,
+    required this.filter,
+    required this.pinned,
+    required this.recents,
+    required this.time,
+  });
+
+  final String newLabel;
+  final String filter;
+  final String pinned;
+  final String recents;
+  final ConvTimeStrings time;
+}
+
+/// Project the loaded conversations onto a [SidebarModel] for [AnSidebarList], FULLY mirroring the
+/// entities rail: ONE [SidebarGroup] holding two icon'd, collapsible [SidebarType] sections — Pinned
+/// (pin icon) and Recents (history icon) — each with a count + its rows. There is exactly ONE head code
+/// path (the entities AnRow type head: icon lead, count right-aligned, rows indented), no bespoke flush
+/// head and no time buckets. Each row carries {id, title, relative-time meta, lead dot}. A section is
+/// emitted only when it has rows (no empty Pinned). Single-domain: NO client-side sort (the server
+/// orders via ConvSort → ?sort=), so rows keep arrival order within each section.
+///
+/// 把已加载对话投影成 SidebarModel 喂 AnSidebarList,**完整镜像 entities rail**:一个 SidebarGroup 持两个带 icon 的可折叠
+/// SidebarType——置顶(pin 图标)与 最近(history 图标)——各带计数 + 其行。**只有一条头路径**(entities 的 AnRow 类型头:图标 lead、
+/// 计数右对齐、行缩进),无自造 flush 头、无时间桶。每行={id, 标题, 相对时间 meta, 前导点}。单域:无客户端排序。
+///
+/// 分节发射规则(用户 0718 拍板 · 空态=满态收起的形状):**零对话**时**两组头都渲**(空的 置顶 + 最近)——它演示收起的
+/// 完整形状、教新人结构;**有数据但无置顶**时仍**藏空 置顶**(既有规则不动)。计数只在有货(n>0)时渲,空组头不显「0」。
+SidebarModel buildConversationRailModel(
+  List<Conversation> rows, {
+  required DateTime now,
+  required ConvRailLabels labels,
+  bool showCount = true,
+  bool showTime = true,
+  bool hasMore = false,
+  bool loadingMore = false,
+  bool loadMoreFailed = false,
+}) {
+  // showTime/showCount are the ⚙ "show time" / "show counts" toggles: a null meta/count renders nothing
+  // (AnRow omits the trailing time; the section head omits the count). showTime/showCount = ⚙ 开关:meta/count 为 null 则不渲。
+  // An un-titled thread (created, auto-title pending or failed) falls back to the same "New chat" word
+  // the head uses — a rail row must never render blank. 未命名线程回落「New chat」(与头一致),行绝不空白。
+  SidebarRow toRow(Conversation c) => SidebarRow(
+        id: c.id,
+        label: c.title.trim().isEmpty ? labels.newLabel : c.title,
+        meta: showTime ? conversationTimeLabel(c.lastMessageAt, now, labels.time) : null,
+        dot: conversationDot(c),
+      );
+
+  final pinned = [for (final c in rows) if (c.pinned) toRow(c)];
+  final recents = [for (final c in rows) if (!c.pinned) toRow(c)];
+  // Zero conversations = show BOTH heads (the collapsed shape of the full rail); with data, the "hide empty
+  // Pinned" rule holds. Count renders only when it has货 (n>0) — a "0" on an empty head is noise.
+  // 零对话=两组头都渲(满态收起形);有数据则藏空置顶。计数仅 n>0 时渲(空组头的「0」是噪声)。
+  final zeroData = rows.isEmpty;
+  int? count(int n) => showCount && n > 0 ? n : null;
+
+  return SidebarModel(
+    newLabel: labels.newLabel,
+    filterPlaceholder: labels.filter,
+    groups: [
+      SidebarGroup(types: [
+        if (pinned.isNotEmpty || zeroData)
+          SidebarType(label: labels.pinned, icon: AnIcons.pin, count: count(pinned.length), rows: pinned),
+        if (recents.isNotEmpty || zeroData)
+          SidebarType(
+            label: labels.recents,
+            icon: AnIcons.history,
+            count: count(recents.length),
+            pageKey: 'recents', // the single paginated axis (pinned all land on page one) 唯一分页轴
+            hasMore: hasMore,
+            loadingMore: loadingMore,
+            loadError: loadMoreFailed, // M9: failure = a manual retry row, never an auto-refire 失败=手动重试行
+
+            rows: recents,
+          ),
+      ]),
+    ],
+  );
+}

@@ -49,10 +49,24 @@ func (f *fakeRepo) Delete(_ context.Context, name string) error {
 	return nil
 }
 
-type fakeEmitter struct{ events []string }
+// events holds both tiers (what fired); persisted / broadcast split them so a test can
+// prove the pin echo took the frame-only tier while content writes persist an inbox row.
+// events 含两档；persisted / broadcast 分档,使测试证明 pin 回声走仅帧、内容写落收件箱行。
+type fakeEmitter struct {
+	events    []string
+	persisted []string
+	broadcast []string
+}
 
 func (f *fakeEmitter) Emit(_ context.Context, eventType string, _ map[string]any) error {
 	f.events = append(f.events, eventType)
+	f.persisted = append(f.persisted, eventType)
+	return nil
+}
+
+func (f *fakeEmitter) Broadcast(_ context.Context, eventType string, _ map[string]any) error {
+	f.events = append(f.events, eventType)
+	f.broadcast = append(f.broadcast, eventType)
 	return nil
 }
 
@@ -98,6 +112,36 @@ func TestUpsert_CreateThenUpdate_Notifies(t *testing.T) {
 	}
 	if len(em.events) != 2 || em.events[0] != "memory.created" || em.events[1] != "memory.updated" {
 		t.Errorf("notify events = %v, want [memory.created, memory.updated]", em.events)
+	}
+	// Content writes (created + content-update) are inbox-worthy — both persist a row. 内容写落行。
+	if len(em.persisted) != 2 || len(em.broadcast) != 0 {
+		t.Errorf("content writes must persist inbox rows, got persisted=%v broadcast=%v", em.persisted, em.broadcast)
+	}
+}
+
+// TestPin_EchoesFrameOnly — N0 fork: pin/unpin shares "memory.updated" with a content
+// write but is a user-action echo, so it takes the frame-only tier (a live signal, NO
+// inbox row) — the tier chosen at the setPinned callsite, not by action string.
+//
+// TestPin_EchoesFrameOnly — N0 分径:pin/unpin 与内容写共用 "memory.updated" 但是用户动作回声,
+// 走仅帧径(live signal、**不落行**)——档位在 setPinned 调用点选、非按 action 字符串。
+func TestPin_EchoesFrameOnly(t *testing.T) {
+	repo := newFakeRepo()
+	em := &fakeEmitter{}
+	svc := NewService(repo, em, zap.NewNop())
+	if _, err := svc.Upsert(context.Background(), UpsertInput{Name: "foo", Description: "d", Content: "c", Source: "ai"}); err != nil {
+		t.Fatal(err)
+	}
+	// created persisted a row; reset the ledger so we watch only the pin. reset 只看 pin。
+	em.events, em.persisted, em.broadcast = nil, nil, nil
+	if _, err := svc.Pin(context.Background(), "foo"); err != nil {
+		t.Fatalf("pin: %v", err)
+	}
+	if len(em.broadcast) != 1 || em.broadcast[0] != "memory.updated" {
+		t.Errorf("pin must broadcast memory.updated (frame-only), got broadcast=%v", em.broadcast)
+	}
+	if len(em.persisted) != 0 {
+		t.Errorf("pin must NOT persist an inbox row, got persisted=%v", em.persisted)
 	}
 }
 

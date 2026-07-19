@@ -118,6 +118,23 @@ func TestVersion_TrimProtectsActive(t *testing.T) {
 	}
 }
 
+// TestHandler_ListSearch — ?search is a case-insensitive name substring (WhereLike), same as the other 3 entity stores.
+//
+// TestHandler_ListSearch —— ?search 是大小写不敏感的 name 子串（WhereLike），与另 3 个实体 store 同键。
+func TestHandler_ListSearch(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkHandler(t, s, ctx, "hd_1", "Quarterly Report", "")
+	mkHandler(t, s, ctx, "hd_2", "random helper", "")
+	rows, _, err := s.ListHandlers(ctx, handlerdomain.ListFilter{Search: "REPORT"})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != "hd_1" {
+		t.Fatalf("search 'REPORT' should match only hd_1, got %d rows", len(rows))
+	}
+}
+
 func TestCalls_SaveListAggregates(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

@@ -23,6 +23,29 @@ const nodeTypeInteraction = "interaction"
 // 安全 no-op）。
 var ErrNoPendingInteraction = errorspkg.New(errorspkg.KindNotFound, "NO_PENDING_INTERACTION", "no pending interaction with that tool call id in this conversation")
 
+// ErrInvalidInteractionAction rejects a resolve carrying an action outside the closed decision set
+// (F168 family: out-of-enum → 422 with the valid set, never a silent misinterpretation). The loop's
+// gate is fail-safe — anything not approve/approve_always/accept is a denial — so a typo'd "aprove"
+// would SILENTLY deny a dangerous tool the user meant to approve; we reject it loudly instead. The
+// kind (danger vs ask) is still the loop's to interpret; this only guards against garbage.
+//
+// ErrInvalidInteractionAction 拒绝携带封闭决策集之外 action 的 resolve（F168 族：枚举外 → 422 带合法集,
+// 绝不静默误读）。loop 的门是 fail-safe——非 approve/approve_always/accept 一律拒——故拼错的 "aprove" 会
+// **静默拒掉**用户本想批准的危险工具;我们改为大声拒。kind(danger vs ask)仍由 loop 解读,这里只拦垃圾。
+var ErrInvalidInteractionAction = errorspkg.New(errorspkg.KindUnprocessable, "INTERACTION_INVALID_ACTION",
+	"action must be one of: approve, approve_always, deny, accept, decline").
+	WithDetails(map[string]any{"validActions": []string{
+		humanloopapp.DecisionApprove, humanloopapp.DecisionApproveAlways, humanloopapp.DecisionDeny,
+		humanloopapp.DecisionAccept, humanloopapp.DecisionDecline,
+	}})
+
+// validInteractionActions is the closed decision set (mirrors humanloop's Decision* constants).
+// validInteractionActions 是封闭决策集（镜像 humanloop 的 Decision* 常量）。
+var validInteractionActions = map[string]bool{
+	humanloopapp.DecisionApprove: true, humanloopapp.DecisionApproveAlways: true,
+	humanloopapp.DecisionDeny: true, humanloopapp.DecisionAccept: true, humanloopapp.DecisionDecline: true,
+}
+
 // interactionSurface is the humanloop.Surface chat injects into its broker: it pushes an EPHEMERAL
 // interaction signal on the messages stream (conversation scope, keyed by the tool_call id) so a
 // connected front end shows the prompt the instant a tool blocks. Ephemeral by design — a
@@ -39,18 +62,32 @@ func (s *Service) interactionSurface(ctx context.Context, req humanloopapp.Reque
 	})
 }
 
-// ResolveInteraction delivers a human decision to a tool/ask blocked in this conversation.
-// It just hands the decision to the broker — the gated tool / ask_user, blocked inside the running
-// turn's goroutine, wakes and interprets it (approve runs the tool; deny / decline feed back;
-// approve_always also session-whitelists). Returns ErrNoPendingInteraction if nothing is waiting.
+// ResolveInteraction delivers a human decision to a tool/ask blocked in this conversation. It hands
+// the decision to the broker — the gated tool / ask_user, blocked inside the running turn's goroutine,
+// wakes and interprets it (approve runs the tool; deny / decline feed back; approve_always also
+// session-whitelists) — then mirrors the pending signal with a resolved one so the front end clears
+// the prompt + the conversation's awaiting-input rail dot without reverse-inferring from the
+// tool_result. Returns ErrNoPendingInteraction if nothing is waiting.
 //
-// ResolveInteraction 把人的决定送给本对话中阻塞的工具/ask。它只是把决定交给 broker——被门工具 / ask_user
-// 阻塞在运行回合的 goroutine 里，醒来并解读它（approve 跑工具；deny / decline 反馈；approve_always 还会话白名单）。
-// 无等待项则返 ErrNoPendingInteraction。
-func (s *Service) ResolveInteraction(_ context.Context, toolCallID, action, answer string) error {
+// ResolveInteraction 把人的决定送给本对话中阻塞的工具/ask。它把决定交给 broker——被门工具 / ask_user 阻塞在运行
+// 回合的 goroutine 里，醒来并解读它（approve 跑工具；deny / decline 反馈；approve_always 还会话白名单）——再镜像
+// pending 信号发一条 resolved，使前端清提示 + 会话 awaiting rail 点而不靠 tool_result 反推。无等待项则返 ErrNoPendingInteraction。
+func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCallID, action, answer string) error {
+	if !validInteractionActions[action] {
+		return ErrInvalidInteractionAction
+	}
 	if s.broker == nil || !s.broker.Resolve(toolCallID, humanloopapp.Response{Action: action, Answer: answer}) {
 		return ErrNoPendingInteraction
 	}
+	// Symmetric ephemeral "interaction cleared" signal (same scope + node.type, resolved:true).
+	// 对称 ephemeral「交互已清」信号（同 scope + node.type、resolved:true）。
+	s.publishFrame(ctx, conversationID, toolCallID, streamdomain.Signal{
+		Node: streamdomain.Node{
+			Type:    nodeTypeInteraction,
+			Content: streamdomain.JSONContent(humanloopapp.Request{ToolCallID: toolCallID, ConversationID: conversationID, Resolved: true}),
+		},
+		Ephemeral: true,
+	})
 	return nil
 }
 
@@ -65,4 +102,14 @@ func (s *Service) PendingInteractions(_ context.Context, conversationID string) 
 		return nil
 	}
 	return s.broker.Pending(conversationID)
+}
+
+// HasAwaitingInteraction reports whether a conversation has ≥1 pending human interaction — the
+// conversation list's per-row AwaitingInput derive (chatapp satisfies conversationapp's
+// AwaitingInputQuerier). A cheap broker short-circuit; nil broker → false.
+//
+// HasAwaitingInteraction 报告某对话是否有 ≥1 个待决人机交互——会话列表逐行 AwaitingInput 派生（chatapp 满足
+// conversationapp 的 AwaitingInputQuerier）。廉价 broker 短路；nil broker → false。
+func (s *Service) HasAwaitingInteraction(conversationID string) bool {
+	return s.broker != nil && s.broker.HasPending(conversationID)
 }

@@ -1,0 +1,319 @@
+// matrix_test.go pins RunMatrix (scheduler 工单⑩): columns newest→oldest with the run's elapsed,
+// rows as the node-id union in first-appearance order (newest run's execution order first, older
+// runs' extra nodes appended), SPARSE cells, the loop-iteration aggregation (worst disposition
+// wins, ties to the latest turn), the canonical column order REGARDLESS of the request's id order,
+// workspace isolation (a foreign id silently absent), and the empty shape.
+//
+// matrix_test.go 钉死 RunMatrix（scheduler 工单⑩）：列新→旧带 run 耗时，行是 node id 并集按首次出现序
+// （最新 run 的执行序在前、更老 run 独有的节点追加在后），格**稀疏**，loop 迭代聚合（最坏处置胜、同档取
+// 最新轮），列序正典、**与请求 id 顺序无关**，workspace 隔离（异 workspace id 静默缺席），空形状。
+package flowrun
+
+import (
+	"context"
+	"database/sql"
+	"testing"
+	"time"
+
+	_ "github.com/glebarez/go-sqlite"
+
+	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+)
+
+// seedMatrixNode inserts one flowrun_nodes row with an exact started_at (the ordering key) — raw
+// INSERT because orm's ,created stamp would overwrite the history these tests depend on.
+//
+// seedMatrixNode 插一条带精确 started_at（排序键）的 flowrun_nodes 行——用裸 INSERT，因为 orm 的
+// ,created 戳会覆盖这些测试赖以存在的历史。
+func seedMatrixNode(t *testing.T, db *sql.DB, ws, rowID, flowrunID, nodeID, kind, status string, iter int, startedAt time.Time) {
+	t.Helper()
+	if _, err := db.Exec(
+		`INSERT INTO flowrun_nodes (id, workspace_id, flowrun_id, node_id, iteration, kind, status, created_at, started_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		rowID, ws, flowrunID, nodeID, iter, kind, status, startedAt, startedAt, startedAt,
+	); err != nil {
+		t.Fatalf("seed matrix node %s: %v", rowID, err)
+	}
+}
+
+func cellFor(m *flowrundomain.Matrix, runID, nodeID string) *flowrundomain.MatrixCell {
+	for _, c := range m.Cells {
+		if c.FlowRunID == runID && c.NodeID == nodeID {
+			return c
+		}
+	}
+	return nil
+}
+
+func rowIDs(m *flowrundomain.Matrix) []string {
+	out := make([]string, 0, len(m.Rows))
+	for _, r := range m.Rows {
+		out = append(out, r.NodeID)
+	}
+	return out
+}
+
+// The core shape: two runs of the same workflow, columns newest→oldest, rows in the newest run's
+// execution order, cells sparse.
+// 核心形状：同一 workflow 的两个 run，列新→旧，行按最新 run 的执行序，格稀疏。
+func TestRunMatrix_ColsRowsCellsShape(t *testing.T) {
+	store, db := newStatsStore(t)
+	ctx := ctxWS("ws_1")
+	base := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
+
+	older := base
+	olderDone := older.Add(2 * time.Second)
+	seedStatsRun(t, db, "ws_1", "fr_old", "wf_1", flowrundomain.StatusCompleted, older, &olderDone)
+	seedMatrixNode(t, db, "ws_1", "frn_o1", "fr_old", "seed", "trigger", flowrundomain.NodeCompleted, 0, older)
+	seedMatrixNode(t, db, "ws_1", "frn_o2", "fr_old", "fetch", "action", flowrundomain.NodeCompleted, 0, older.Add(time.Second))
+	// Only the older run has this node (later removed from the graph) — it must land BELOW the
+	// newest run's rows, never interleaved.
+	// 只有更老的 run 有这个节点（后来从图里删了）——它必须落在最新 run 各行**之下**、绝不交错。
+	seedMatrixNode(t, db, "ws_1", "frn_o3", "fr_old", "legacy", "action", flowrundomain.NodeCompleted, 0, older.Add(2*time.Second))
+
+	newer := base.Add(time.Hour)
+	newerDone := newer.Add(5 * time.Second)
+	seedStatsRun(t, db, "ws_1", "fr_new", "wf_1", flowrundomain.StatusFailed, newer, &newerDone)
+	seedMatrixNode(t, db, "ws_1", "frn_n1", "fr_new", "seed", "trigger", flowrundomain.NodeCompleted, 0, newer)
+	seedMatrixNode(t, db, "ws_1", "frn_n2", "fr_new", "fetch", "action", flowrundomain.NodeCompleted, 0, newer.Add(time.Second))
+	seedMatrixNode(t, db, "ws_1", "frn_n3", "fr_new", "save", "action", flowrundomain.NodeFailed, 0, newer.Add(2*time.Second))
+
+	// Request order deliberately oldest-first: the canonical (started_at, id) DESC output must win.
+	// 请求序故意旧在前：正典 (started_at, id) DESC 输出必须获胜。
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_old", "fr_new"}})
+	if err != nil {
+		t.Fatalf("RunMatrix: %v", err)
+	}
+
+	// Columns newest→oldest, with the run's own elapsed.
+	if len(m.Cols) != 2 || m.Cols[0].FlowRunID != "fr_new" || m.Cols[1].FlowRunID != "fr_old" {
+		t.Fatalf("cols must be newest→oldest, got %+v", m.Cols)
+	}
+	if m.Cols[0].Status != flowrundomain.StatusFailed {
+		t.Errorf("col status: got %q want failed", m.Cols[0].Status)
+	}
+	if m.Cols[0].ElapsedMs == nil || *m.Cols[0].ElapsedMs != 5000 {
+		t.Errorf("col elapsedMs: got %v want 5000", m.Cols[0].ElapsedMs)
+	}
+
+	// Rows: the newest run's execution order first, then the older run's extra node.
+	want := []string{"seed", "fetch", "save", "legacy"}
+	got := rowIDs(m)
+	if len(got) != len(want) {
+		t.Fatalf("rows: got %v want %v", got, want)
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("rows: got %v want %v", got, want)
+		}
+	}
+	if m.Rows[0].Kind != "trigger" || m.Rows[2].Kind != "action" {
+		t.Errorf("row kinds: got %+v", m.Rows)
+	}
+
+	// Cells are SPARSE: the newest run never reached `legacy`, the older never reached `save`.
+	// 格**稀疏**：最新 run 从未到达 `legacy`，更老的从未到达 `save`。
+	if c := cellFor(m, "fr_new", "legacy"); c != nil {
+		t.Errorf("sparse violated: fr_new/legacy has a cell %+v", c)
+	}
+	if c := cellFor(m, "fr_old", "save"); c != nil {
+		t.Errorf("sparse violated: fr_old/save has a cell %+v", c)
+	}
+	if len(m.Cells) != 6 {
+		t.Errorf("cells: got %d want 6 (3 per run)", len(m.Cells))
+	}
+	c := cellFor(m, "fr_new", "save")
+	if c == nil || c.Status != flowrundomain.NodeFailed || c.Iterations != 1 || c.Iteration != 0 {
+		t.Errorf("fr_new/save cell: got %+v", c)
+	}
+}
+
+// A loop node's iterations collapse into ONE cell showing the WORST disposition — a later green
+// turn must not erase turn 1's failure. The rank is about ATTENTION, not about agreeing with the
+// header: a cancelled run can carry a genuinely failed row (failNode wrote it, then lost the header
+// guard to the cancel), and that cell is honestly red on a grey column.
+//
+// loop 节点的各迭代坍缩成**一**格、显示**最坏**处置——后来的绿轮不能抹掉第 1 轮的失败。这个档排的是
+// **注意力**、不是「与头一致」：cancelled run **可以**带一条真failed 行（failNode 先写了它、随后输掉头
+// 守卫给了取消），那个格在灰色的列上诚实地渲红。
+func TestRunMatrix_IterationsAggregateWorstWins(t *testing.T) {
+	store, db := newStatsStore(t)
+	ctx := ctxWS("ws_1")
+	base := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
+	done := base.Add(9 * time.Second)
+	seedStatsRun(t, db, "ws_1", "fr_loop", "wf_1", flowrundomain.StatusFailed, base, &done)
+
+	seedMatrixNode(t, db, "ws_1", "frn_l0", "fr_loop", "step", "action", flowrundomain.NodeCompleted, 0, base)
+	seedMatrixNode(t, db, "ws_1", "frn_l1", "fr_loop", "step", "action", flowrundomain.NodeFailed, 1, base.Add(time.Second))
+	seedMatrixNode(t, db, "ws_1", "frn_l2", "fr_loop", "step", "action", flowrundomain.NodeCompleted, 2, base.Add(2*time.Second))
+
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_loop"}})
+	if err != nil {
+		t.Fatalf("RunMatrix: %v", err)
+	}
+	if len(m.Rows) != 1 || len(m.Cells) != 1 {
+		t.Fatalf("a loop node is ONE row and ONE cell, got rows=%d cells=%d", len(m.Rows), len(m.Cells))
+	}
+	c := m.Cells[0]
+	if c.Status != flowrundomain.NodeFailed {
+		t.Errorf("worst disposition must win: got %q want failed", c.Status)
+	}
+	if c.Iteration != 1 {
+		t.Errorf("cell must point at the WINNING turn: got iteration=%d want 1", c.Iteration)
+	}
+	if c.Iterations != 3 {
+		t.Errorf("iterations: got %d want 3", c.Iterations)
+	}
+}
+
+// parked outranks completed (the amber "awaiting a human" cell must survive earlier green turns),
+// and a same-rank tie goes to the LATEST turn.
+// parked 压过 completed（琥珀「等人」格必须在更早的绿轮之上存活），同档相持取**最新**轮。
+func TestRunMatrix_ParkedOutranksCompletedAndTieTakesLatest(t *testing.T) {
+	store, db := newStatsStore(t)
+	ctx := ctxWS("ws_1")
+	base := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
+	seedStatsRun(t, db, "ws_1", "fr_p", "wf_1", flowrundomain.StatusRunning, base, nil)
+	seedMatrixNode(t, db, "ws_1", "frn_p0", "fr_p", "gate", "approval", flowrundomain.NodeCompleted, 0, base)
+	seedMatrixNode(t, db, "ws_1", "frn_p1", "fr_p", "gate", "approval", flowrundomain.NodeParked, 1, base.Add(time.Second))
+	seedMatrixNode(t, db, "ws_1", "frn_t0", "fr_p", "tick", "action", flowrundomain.NodeCompleted, 0, base.Add(2*time.Second))
+	seedMatrixNode(t, db, "ws_1", "frn_t1", "fr_p", "tick", "action", flowrundomain.NodeCompleted, 1, base.Add(3*time.Second))
+
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_p"}})
+	if err != nil {
+		t.Fatalf("RunMatrix: %v", err)
+	}
+	gate := cellFor(m, "fr_p", "gate")
+	if gate == nil || gate.Status != flowrundomain.NodeParked || gate.Iteration != 1 {
+		t.Errorf("parked must outrank completed: got %+v", gate)
+	}
+	tick := cellFor(m, "fr_p", "tick")
+	if tick == nil || tick.Iteration != 1 || tick.Iterations != 2 {
+		t.Errorf("same-rank tie takes the latest turn: got %+v", tick)
+	}
+	// A still-running run has no completed_at → no elapsed, never a zero that reads as "instant".
+	// 仍在跑的 run 无 completed_at → 无耗时，绝不发会被读成「瞬时」的 0。
+	if m.Cols[0].ElapsedMs != nil {
+		t.Errorf("a running run must omit elapsedMs, got %v", *m.Cols[0].ElapsedMs)
+	}
+}
+
+// TestRunMatrix_CancelledRankIsNeutralNotGreenNotRed — the swept approval of a cancelled run is the
+// review's exhibit: it used to be written `failed`, so the matrix painted a RED cell on a grey
+// cancelled column (a false alarm — nothing failed). Recording it `cancelled` fixes that, but only
+// if the rank names it: falling into `default` would paint it GREEN, claiming an approval nobody
+// answered had completed. Neutral means neither — it outranks completed, and stays under failed.
+//
+// TestRunMatrix_CancelledRankIsNeutralNotGreenNotRed——cancelled run 被收割的审批正是复审的证物：它过去
+// 被写成 `failed`，故矩阵在灰色的 cancelled 列上涂出一个**红**格（假警报——什么都没失败）。记成
+// `cancelled` 修好了那个，但**前提是档里点名它**：落进 `default` 会把它涂**绿**，宣称一个没人回答的审批
+// 「完成了」。中性 = 两者皆非——它压过 completed，且留在 failed 之下。
+func TestRunMatrix_CancelledRankIsNeutralNotGreenNotRed(t *testing.T) {
+	store, db := newStatsStore(t)
+	ctx := ctxWS("ws_1")
+	base := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
+	done := base.Add(5 * time.Second)
+	seedStatsRun(t, db, "ws_1", "fr_c", "wf_1", flowrundomain.StatusCancelled, base, &done)
+
+	// `gate` ran a turn, then its next turn was parked and swept by the cancel.
+	seedMatrixNode(t, db, "ws_1", "frn_g0", "fr_c", "gate", "approval", flowrundomain.NodeCompleted, 0, base)
+	seedMatrixNode(t, db, "ws_1", "frn_g1", "fr_c", "gate", "approval", flowrundomain.NodeCancelled, 1, base.Add(time.Second))
+	// `boom` genuinely errored before the cancel landed — a real failure on a cancelled run.
+	seedMatrixNode(t, db, "ws_1", "frn_b0", "fr_c", "boom", "action", flowrundomain.NodeCancelled, 0, base.Add(2*time.Second))
+	seedMatrixNode(t, db, "ws_1", "frn_b1", "fr_c", "boom", "action", flowrundomain.NodeFailed, 1, base.Add(3*time.Second))
+
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_c"}})
+	if err != nil {
+		t.Fatalf("RunMatrix: %v", err)
+	}
+	gate := cellFor(m, "fr_c", "gate")
+	if gate == nil || gate.Status != flowrundomain.NodeCancelled || gate.Iteration != 1 {
+		t.Errorf("cancelled must outrank completed (green would claim a cut-off turn finished): got %+v", gate)
+	}
+	boom := cellFor(m, "fr_c", "boom")
+	if boom == nil || boom.Status != flowrundomain.NodeFailed || boom.Iteration != 1 {
+		t.Errorf("a real failure must outrank cancelled — that red is honest: got %+v", boom)
+	}
+}
+
+// The output column order is the canonical (started_at, id) DESC every run list renders,
+// REGARDLESS of the request's id order — a shuffled client order must not steer the row axis
+// (first-appearance scans the columns). Only the requested ids answer; siblings stay out.
+// 输出列序恒为所有 run 列表同款的正典 (started_at, id) DESC、**与请求 id 顺序无关**——客户端打乱的
+// 顺序不许左右行轴（首次出现扫描走的就是列）。只有请求的 id 作答；同胞 run 不掺入。
+func TestRunMatrix_CanonicalOrderRegardlessOfRequestOrder(t *testing.T) {
+	store, db := newStatsStore(t)
+	ctx := ctxWS("ws_1")
+	base := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
+	for i := 0; i < 5; i++ {
+		at := base.Add(time.Duration(i) * time.Hour)
+		done := at.Add(time.Second)
+		seedStatsRun(t, db, "ws_1", "fr_"+string(rune('a'+i)), "wf_1", flowrundomain.StatusCompleted, at, &done)
+		seedMatrixNode(t, db, "ws_1", "frn_"+string(rune('a'+i)), "fr_"+string(rune('a'+i)), "only", "action", flowrundomain.NodeCompleted, 0, at)
+	}
+	m, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_b", "fr_e", "fr_c"}})
+	if err != nil {
+		t.Fatalf("RunMatrix: %v", err)
+	}
+	if len(m.Cols) != 3 || m.Cols[0].FlowRunID != "fr_e" || m.Cols[1].FlowRunID != "fr_c" || m.Cols[2].FlowRunID != "fr_b" {
+		t.Fatalf("cols must be canonical newest→oldest regardless of request order, got %+v", m.Cols)
+	}
+	if len(m.Cells) != 3 {
+		t.Errorf("cells must cover exactly the requested runs: got %d want 3", len(m.Cells))
+	}
+	// Same-instant runs tiebreak on id DESC — the canonical order's second key.
+	// 同一时刻的 run 按 id DESC 决胜——正典序的第二把钥匙。
+	done := base.Add(time.Second)
+	seedStatsRun(t, db, "ws_1", "fr_z2", "wf_1", flowrundomain.StatusCompleted, base, &done)
+	seedStatsRun(t, db, "ws_1", "fr_z1", "wf_1", flowrundomain.StatusCompleted, base, &done)
+	m2, err := store.RunMatrix(ctx, flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_z1", "fr_z2"}})
+	if err != nil {
+		t.Fatalf("RunMatrix tiebreak: %v", err)
+	}
+	if len(m2.Cols) != 2 || m2.Cols[0].FlowRunID != "fr_z2" || m2.Cols[1].FlowRunID != "fr_z1" {
+		t.Fatalf("same-instant runs must tiebreak id DESC, got %+v", m2.Cols)
+	}
+}
+
+// A foreign-workspace id and an unknown id are silently ABSENT (never an error, never a leak) —
+// and a batch that resolves to nothing returns three EMPTY lists, never null (the client zips
+// over them unconditionally). A known id still answers alongside the absentees.
+// 异 workspace 的 id 与未知 id **静默缺席**（不报错、更不泄漏）——解析到空的一批返三个**空**列表、
+// 绝不 null。已知 id 在缺席者旁照常作答。
+func TestRunMatrix_IsolationAndEmptyShape(t *testing.T) {
+	store, db := newStatsStore(t)
+	base := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
+	done := base.Add(time.Second)
+	seedStatsRun(t, db, "ws_other", "fr_other", "wf_1", flowrundomain.StatusCompleted, base, &done)
+	seedMatrixNode(t, db, "ws_other", "frn_other", "fr_other", "n", "action", flowrundomain.NodeCompleted, 0, base)
+
+	m, err := store.RunMatrix(ctxWS("ws_1"), flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_other", "fr_unknown"}})
+	if err != nil {
+		t.Fatalf("RunMatrix: %v", err)
+	}
+	if len(m.Cols) != 0 || len(m.Rows) != 0 || len(m.Cells) != 0 {
+		t.Fatalf("another workspace's run leaked / unknown ids not empty: %+v", m)
+	}
+	if m.Cols == nil || m.Rows == nil || m.Cells == nil {
+		t.Fatal("empty matrix must be empty LISTS, never null")
+	}
+
+	seedStatsRun(t, db, "ws_1", "fr_mine", "wf_1", flowrundomain.StatusCompleted, base, &done)
+	seedMatrixNode(t, db, "ws_1", "frn_mine", "fr_mine", "n", "action", flowrundomain.NodeCompleted, 0, base)
+	m2, err := store.RunMatrix(ctxWS("ws_1"), flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_mine", "fr_other", "fr_unknown"}})
+	if err != nil {
+		t.Fatalf("RunMatrix mixed: %v", err)
+	}
+	if len(m2.Cols) != 1 || m2.Cols[0].FlowRunID != "fr_mine" {
+		t.Fatalf("known id must answer while absentees stay silent, got %+v", m2.Cols)
+	}
+}
+
+// A bare ctx (no workspace) must be rejected, not silently answered across workspaces (D2).
+// 裸 ctx（无 workspace）必须被拒、而非静默跨 workspace 作答（D2）。
+func TestRunMatrix_BareCtxRejected(t *testing.T) {
+	store, _ := newStatsStore(t)
+	if _, err := store.RunMatrix(context.Background(), flowrundomain.MatrixQuery{FlowrunIDs: []string{"fr_x"}}); err == nil {
+		t.Fatal("a bare ctx must be rejected (D2 workspace isolation)")
+	}
+}

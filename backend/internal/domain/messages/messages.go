@@ -293,6 +293,34 @@ type Repository interface {
 	// ListMessages 返回一个对话回合的一页 keyset（最新在前），每条 hydrate Blocks（REST 历史端点，N4 分页）。
 	ListMessages(ctx context.Context, conversationID, cursor string, limit int) (items []*Message, next string, err error)
 
+	// ListMessagesNewer returns one keyset page walking FORWARD in time from the cursor
+	// (`(created_at, id) > cursor`, oldest-first — the caller reverses for the wire) — the
+	// ?dir=newer continuation of an ?around= window.
+	//
+	// ListMessagesNewer 返回从 cursor 起沿时间**向前**走的一页 keyset（`(created_at, id) >
+	// cursor`、最旧在前——调用方为线缆反转）——?around= 窗口的 ?dir=newer 续翻。
+	ListMessagesNewer(ctx context.Context, conversationID, cursor string, limit int) (items []*Message, next string, err error)
+
+	// ListMessagesAround returns a Blocks-hydrated window of turns centered on target,
+	// newest-first, plus both continuation cursors ("" = that direction exhausted). limit is
+	// the window total around the target (target itself is extra, always included). A missing
+	// target — or one belonging to another conversation — is ErrMessageNotFound.
+	//
+	// ListMessagesAround 返回以 target 为中心、hydrate 过 Blocks 的一窗回合（最新在前）+ 双向
+	// 续翻游标（"" = 该方向已尽）。limit 是 target 前后的窗口总量（target 本身额外、恒返回）。
+	// target 缺失——或属别的对话——即 ErrMessageNotFound。
+	ListMessagesAround(ctx context.Context, conversationID, targetID string, limit int) (window []*Message, olderCursor, newerCursor string, hasOlder, hasNewer bool, err error)
+
+	// ListAnchorSource returns the anchors builder's lean projections: every turn row
+	// (oldest-first, NO Blocks hydrate) + only the anchor-relevant blocks (tool_call +
+	// compaction + user-turn text), seq-ascending. Assistant prose / tool_result / progress
+	// are never read.
+	//
+	// ListAnchorSource 返回 anchors 构建器的 lean 投影：全部回合行（最旧在前、**不** hydrate
+	// Blocks）+ 仅锚点相关 block（tool_call + compaction + user 回合 text），按 seq 升序。
+	// assistant 散文 / tool_result / progress 永不读盘。
+	ListAnchorSource(ctx context.Context, conversationID string) ([]*Message, []*Block, error)
+
 	// LoadThread returns the whole conversation, oldest-first, every turn with ALL Blocks hydrated
 	// — the full content path (UI reload, auto-title, compaction, subagent-trace read). Not
 	// paginated: a single local user's thread fits in memory.

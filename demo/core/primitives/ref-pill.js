@@ -16,6 +16,7 @@
         border-radius: var(--r-pill); border: var(--hairline) solid var(--line);
         background: var(--island); color: var(--ink-2);
         font-size: var(--t-meta); font-weight: 500; white-space: nowrap;
+        max-width: min(var(--w-block), 100%); overflow: hidden; text-overflow: ellipsis;
         transition: background var(--d-fast), color var(--d-fast);
       }
       :host([id]) .pill { cursor: pointer; }
@@ -25,7 +26,8 @@
     `;
     render() {
       const e = window.anEsc;
-      const kind = this.attr("kind", "");
+      // ENTITY_KINDS 键为小写：大小写不敏感匹配，"AGENT" 才能取到 agent 图标而非退到兜底。
+      const kind = this.attr("kind", "").toLowerCase();
       const K = window.ENTITY_KINDS || {};
       const ico = (K[kind] && K[kind].icon) || kind;
       return `<span class="pill"><span class="ico">${window.icon(ico, 12)}</span>${e(this.attr("label", ""))}</span>`;

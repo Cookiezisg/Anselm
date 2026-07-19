@@ -8,7 +8,7 @@ import (
 )
 
 func TestShellTools_NamesAndCount(t *testing.T) {
-	st := NewShellTools()
+	st := NewShellTools("")
 	if len(st.Tools) != 3 {
 		t.Fatalf("want 3 tools, got %d", len(st.Tools))
 	}
@@ -55,7 +55,7 @@ func TestCheckDangerous(t *testing.T) {
 }
 
 func TestBash_Foreground(t *testing.T) {
-	b := &Bash{mgr: NewProcessManager()}
+	b := &Bash{mgr: NewProcessManager("")}
 	out, err := b.Execute(context.Background(), `{"command":"echo hello-fg"}`)
 	if err != nil {
 		t.Fatalf("Execute: %v", err)
@@ -66,7 +66,7 @@ func TestBash_Foreground(t *testing.T) {
 }
 
 func TestBash_NonZeroExit(t *testing.T) {
-	b := &Bash{mgr: NewProcessManager()}
+	b := &Bash{mgr: NewProcessManager("")}
 	out, _ := b.Execute(context.Background(), `{"command":"exit 3"}`)
 	if !strings.Contains(out, "[exit code: 3]") {
 		t.Fatalf("got %q", out)
@@ -74,7 +74,7 @@ func TestBash_NonZeroExit(t *testing.T) {
 }
 
 func TestBash_Timeout(t *testing.T) {
-	b := &Bash{mgr: NewProcessManager()}
+	b := &Bash{mgr: NewProcessManager("")}
 	out, _ := b.Execute(context.Background(), `{"command":"sleep 5","timeout":100}`)
 	if !strings.Contains(out, "timed out") {
 		t.Fatalf("got %q", out)
@@ -87,7 +87,7 @@ func TestBash_Timeout(t *testing.T) {
 // TestBash_DangerBlocked 经 Execute 测，用一个被拦前缀（sudo）+ 即便执行也无害的命令（whoami），
 // 故即使拦截回退测试也安全。
 func TestBash_DangerBlocked(t *testing.T) {
-	b := &Bash{mgr: NewProcessManager()}
+	b := &Bash{mgr: NewProcessManager("")}
 	out, _ := b.Execute(context.Background(), `{"command":"sudo whoami"}`)
 	if !strings.Contains(out, "blocked") {
 		t.Fatalf("expected danger block, got %q", out)
@@ -106,7 +106,7 @@ func TestBash_Timeout_GrandchildHoldingPipe(t *testing.T) {
 	if testing.Short() {
 		t.Skip("spawns real processes")
 	}
-	b := &Bash{mgr: NewProcessManager()}
+	b := &Bash{mgr: NewProcessManager("")}
 	start := time.Now()
 	out, err := b.Execute(context.Background(), `{"command":"sleep 30 | sleep 30","timeout":200}`)
 	if err != nil {
@@ -126,7 +126,7 @@ func TestBash_Timeout_GrandchildHoldingPipe(t *testing.T) {
 // TestBash_NoCwdPersistence 证明 cd 不跨调用（无 cwd 状态）但单条命令内有效。
 func TestBash_NoCwdPersistence(t *testing.T) {
 	ctx := context.Background()
-	b := &Bash{mgr: NewProcessManager()}
+	b := &Bash{mgr: NewProcessManager("")}
 	if _, err := b.Execute(ctx, `{"command":"cd /tmp"}`); err != nil {
 		t.Fatalf("cd: %v", err)
 	}
@@ -149,7 +149,7 @@ func TestBash_NoCwdPersistence(t *testing.T) {
 
 func TestBash_BackgroundOutputKill(t *testing.T) {
 	ctx := context.Background()
-	mgr := NewProcessManager()
+	mgr := NewProcessManager("")
 	bash := &Bash{mgr: mgr}
 	out, err := bash.Execute(ctx, `{"command":"printf 'line1\nline2\n'","run_in_background":true}`)
 	if err != nil {
@@ -185,7 +185,7 @@ func TestBash_BackgroundOutputKill(t *testing.T) {
 
 func TestBashOutput_Filter(t *testing.T) {
 	ctx := context.Background()
-	mgr := NewProcessManager()
+	mgr := NewProcessManager("")
 	bash := &Bash{mgr: mgr}
 	out, _ := bash.Execute(ctx, `{"command":"printf 'apple\nbanana\ncherry\n'","run_in_background":true}`)
 	id := extractBashID(out)
@@ -205,7 +205,7 @@ func TestBashOutput_Filter(t *testing.T) {
 }
 
 func TestKillShell_UnknownIsHarmless(t *testing.T) {
-	kill := &KillShell{mgr: NewProcessManager()}
+	kill := &KillShell{mgr: NewProcessManager("")}
 	out, _ := kill.Execute(context.Background(), `{"bash_id":"bsh_ghost"}`)
 	if !strings.Contains(out, "not found") {
 		t.Fatalf("got %q", out)

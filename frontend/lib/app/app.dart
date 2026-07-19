@@ -1,127 +1,70 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 
-import '../core/design/colors.dart';
 import '../core/design/theme.dart';
-import '../core/design/tokens.dart';
-import '../core/design/typography.dart';
+import '../core/overlay/an_overlay.dart';
+import '../core/router/navigation.dart';
+import '../core/settings/app_prefs_providers.dart';
+import '../core/shortcuts/global_shortcuts.dart';
+import '../features/settings/ui/startup_update_check.dart';
 import '../i18n/strings.g.dart';
-import 'backend_controller.dart';
-import 'providers.dart';
-import 'router.dart';
+import 'app_startup_gate.dart';
+import 'workspace_gate.dart';
 
-/// Root widget. Gates the whole app on the sidecar's lifecycle (ADR 0004 §1): a single
-/// splash / crash / ready switch, NOT per-feature error handling. Once the backend is
-/// healthy, a nested ProviderScope injects the resolved base URL as the one
-/// runtime-determined override; everything below it (Dio, SSE gateway, repos) is built
-/// from it.
+/// The root widget (Phase 4.1 STEP 6) — a `MaterialApp.router` driven by [goRouterProvider] (deep-link
+/// `/entities/:kind/:id` + back/forward; the shell never remounts, see `app/router.dart`). The gates +
+/// overlay host live in the `builder`, NOT in `home`: `MaterialApp.router` has no `home`. The builder's
+/// `child` IS the `Router` widget, so while a gate withholds it the Router is not yet mounted; when the gate
+/// opens the Router mounts and resolves the pending/initial route — deep links still land correctly, just
+/// at gate-open. The gate must be HERE (inside MaterialApp.router) rather than wrapping it, so the router
+/// config is attached from launch and the gate only withholds the UI subtree until ready.
 ///
-/// 根 widget。整 app 门控于 sidecar 生命周期(ADR 0004 §1):单一 splash/crash/ready 切换,
-/// 非逐 feature 处理。后端健康后,嵌套 ProviderScope 注入解析后的 base URL 作唯一运行期 override;
-/// 其下一切(Dio、SSE gateway、repo)据之构建。
-class AnselmApp extends ConsumerWidget {
-  const AnselmApp({super.key});
+/// Wrap order (outer → inner): [AnOverlayHost] (registers the root navigator key — shared with the
+/// GoRouter, NOT passed to MaterialApp.router which has no `navigatorKey`) → [AppStartupGate] →
+/// [GlobalShortcuts] (the S6 rebindable command catalog) → autofocus [Focus] → [WorkspaceGate] → the
+/// routed `child` (the shell). [GlobalShortcuts] MUST sit ABOVE the autofocus [Focus] so the very first
+/// keystroke on cold start reaches the global chords (a CallbackShortcuts only fires for events bubbling
+/// up from a focused DESCENDANT). Kept thin: assembly (DI overrides) accretes in `main.dart`.
+///
+/// 根 widget(4.1 STEP 6)——MaterialApp.router 由 goRouterProvider 驱动(deep-link + 前进后退;壳永不重挂)。门控 + 浮层宿主
+/// 放 builder(非 home:.router 无 home)。builder 的 `child` **即 Router widget**:门控扣住它时 Router 尚未挂载,门控开启时 Router
+/// 挂载并解析待决/初始路由(deep-link 仍正确落地,只是在门控开启时)。门控须在此(MaterialApp.router 内、非外裹),使路由配置开机即接上、
+/// 门控只在就绪前扣住 UI 子树。包裹序(外→内):AnOverlayHost(注册 root navigator key,与 GoRouter 共享、不传给无此参数的 MaterialApp.router)
+/// → AppStartupGate → 缩放快捷键 → autofocus Focus(壳可见后才生效)→ WorkspaceGate → 路由 child(Router→壳)。
+class AnApp extends ConsumerWidget {
+  const AnApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final controller = ref.watch(backendControllerProvider);
-    return ValueListenableBuilder<BackendState>(
-      valueListenable: controller.state,
-      builder: (context, st, _) => switch (st.phase) {
-        BackendPhase.starting => _StatusApp(message: context.t.backend.starting),
-        BackendPhase.crashed => _StatusApp(
-            message: context.t.backend.crashedTitle,
-            detail: st.error,
-            onRetry: controller.start,
-          ),
-        BackendPhase.ready => ProviderScope(
-            overrides: [baseUrlProvider.overrideWithValue(st.baseUrl!)],
-            child: const _ReadyApp(),
-          ),
-      },
-    );
-  }
-}
+    final router = ref.watch(goRouterProvider);
+    final navigatorKey = ref.watch(rootNavigatorKeyProvider);
 
-/// The live app once the backend is healthy: MaterialApp.router over the desktop shell.
-///
-/// 后端健康后的 live app:MaterialApp.router 套桌面 shell。
-class _ReadyApp extends StatefulWidget {
-  const _ReadyApp();
-
-  @override
-  State<_ReadyApp> createState() => _ReadyAppState();
-}
-
-class _ReadyAppState extends State<_ReadyApp> {
-  late final GoRouter _router = buildRouter();
-
-  @override
-  Widget build(BuildContext context) {
     return MaterialApp.router(
+      title: context.t.appName,
       debugShowCheckedModeBanner: false,
-      title: 'Anselm',
       theme: AnTheme.light(),
+      // Dark ships with S1b (the lighting pass); the mode axis is wired NOW so the preference is
+      // honest end-to-end. 暗色随 S1b 点亮;mode 轴现在接好,偏好端到端诚实。
       darkTheme: AnTheme.dark(),
-      themeMode: ThemeMode.light, // light is the soul; dark is wired but not yet exposed 明亮为魂,暗色已接未启
+      themeMode: ref.watch(themeModeProvider),
+      // Material component-level localization follows the slang locale (previously unwired — the
+      // runtime language switch needs it). Material 组件级本地化跟随 slang(此前未接;运行时切语言需要)。
       locale: TranslationProvider.of(context).flutterLocale,
       supportedLocales: AppLocaleUtils.supportedLocales,
-      routerConfig: _router,
-    );
-  }
-}
-
-/// The splash / crash screen — a standalone MaterialApp so it themes + localizes before
-/// the backend is up. Shows a retry on crash.
-///
-/// splash / crash 屏——独立 MaterialApp,后端起来前即可主题化+本地化。crash 时给重试。
-class _StatusApp extends StatelessWidget {
-  const _StatusApp({required this.message, this.detail, this.onRetry});
-
-  final String message;
-  final String? detail;
-  final VoidCallback? onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final crashed = onRetry != null;
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AnTheme.light(),
-      home: Scaffold(
-        body: Center(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              if (!crashed)
-                const SizedBox(
-                  width: 22,
-                  height: 22,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              else
-                Icon(Icons.error_outline,
-                    color: AnColors.light.danger, size: 28),
-              const SizedBox(height: AnSpace.s16),
-              Text(message,
-                  style: Theme.of(context).textTheme.titleMedium),
-              if (detail != null) ...[
-                const SizedBox(height: AnSpace.s8),
-                ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
-                  child: Text(
-                    detail!,
-                    textAlign: TextAlign.center,
-                    style: AnText.meta.copyWith(color: AnColors.light.inkMuted),
-                  ),
-                ),
-              ],
-              if (onRetry != null) ...[
-                const SizedBox(height: AnSpace.s16),
-                FilledButton(onPressed: onRetry, child: Text(context.t.backend.retry)),
-              ],
-            ],
+      localizationsDelegates: GlobalMaterialLocalizations.delegates,
+      routerConfig: router,
+      builder: (context, child) => AnOverlayHost(
+        navigatorKey: navigatorKey,
+        child: AppStartupGate(
+          // The rebindable global command catalog (S6) — ABOVE the autofocus Focus so cold-start
+          // keystrokes reach it. Backend ready → cold-start resolves the workspace → the routed shell;
+          // the launch-time update check rides inside (one toast when a release is newer, 拍板 #7).
+          // 可改绑全局命令目录(S6)在 autofocus Focus 之上,冷启动按键即达。后端就绪 → 冷启动定工作区 → 路由壳。
+          child: GlobalShortcuts(
+            child: Focus(
+                autofocus: true,
+                child: WorkspaceGate(child: StartupUpdateCheck(child: child!))),
           ),
         ),
       ),

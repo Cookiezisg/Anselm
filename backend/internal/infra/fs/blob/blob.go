@@ -12,6 +12,7 @@ package blob
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -178,4 +179,39 @@ func isSHA256Hex(s string) bool {
 		}
 	}
 	return true
+}
+
+// TotalBytes walks the workspace's blob tree and sums file sizes — the stats endpoint's disk
+// figure. A missing directory is an honest 0 (nothing stored yet). The caller bounds the walk
+// with its ctx deadline; a ctx error aborts mid-walk.
+//
+// TotalBytes 走遍本 workspace 的 blob 树求和——stats 的磁盘数字。目录不存在=诚实 0(尚无存储)。
+// 调用方用 ctx deadline 圈预算;ctx 出错即中止。
+func (s *Store) TotalBytes(ctx context.Context) (int64, error) {
+	dir, err := s.dir(ctx)
+	if err != nil {
+		return 0, err
+	}
+	var total int64
+	err = filepath.WalkDir(dir, func(_ string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			return ctxErr
+		}
+		if d.Type().IsRegular() {
+			if info, err := d.Info(); err == nil {
+				total += info.Size()
+			}
+		}
+		return nil
+	})
+	if errors.Is(err, os.ErrNotExist) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, fmt.Errorf("blob.TotalBytes: %w", err)
+	}
+	return total, nil
 }

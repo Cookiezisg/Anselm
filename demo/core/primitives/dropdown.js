@@ -4,11 +4,13 @@
    为何弹层不自建：菜单原语已是“一组富行的 Floating”——勾选/meta/icon 全在 AnMenu 里，重造即违复用铁律。
    property（数组/对象只能走 property）：options=[{value,label,meta?,icon?}] · value。
    value 同步镜像为 attribute → 外部改值即重绘按钮回显。
+   variant=ghost：无边框/无底/贴内容的触发钮（设置页等「无边框靠留白」处复用本原语而非另搓 ghost 钮+裸 chevron）；caret/菜单/label 回显/富行全沿用。
+   menu-align（start 默认 / end）：菜单对齐锚点的边——右对齐控件（行尾下拉）走 end 防右溢出。
    交互：选中派发 composed CustomEvent 'an-change'{value}。壳可选用 <an-field label> 包外层。 */
 (function () {
   class AnDropdown extends window.AnElement {
     static tag = "an-dropdown";
-    static observed = ["value", "disabled", "block"];
+    static observed = ["value", "disabled", "block", "variant"];
     static css = `
       :host { display: inline-block; }
       :host([block]) { display: block; }
@@ -23,12 +25,21 @@
       }
       .dd:hover, :host([open]) .dd { border-color: var(--line-strong); }
       :host([disabled]) .dd { opacity: .4; }
+      /* ghost：脱框、贴内容、密集态（同 size=sm ghost 钮的 --ctl-sm/--t-meta/--btn-pad-x-sm），hover/open 仅淡底——设置页无边框触发钮单源 */
+      :host([variant="ghost"]) .dd {
+        width: auto; min-width: 0; height: var(--ctl-sm);
+        gap: var(--gap-tight); padding: 0 var(--btn-pad-x-sm);
+        background: none; border: var(--zero); color: var(--ink-2); font-size: var(--t-meta);
+        transition: background var(--d-fast), color var(--d-fast);
+      }
+      :host([variant="ghost"]) .dd:hover, :host([variant="ghost"][open]) .dd { background: var(--island-3); color: var(--ink); border-color: transparent; }
       /* label + meta 走基线对齐（非居中）——大小不同的字也落同一条字底线，杜绝肉眼可见的 0.x px 错位 */
       .main { flex: 1; min-width: 0; display: flex; align-items: baseline; gap: var(--gap); }
       .lab { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       .lab.is-placeholder { color: var(--ink-3); }
       .meta {
         flex: none; font-size: var(--t-meta); color: var(--ink-3);
+        max-width: var(--side-w); overflow: hidden; text-overflow: ellipsis;
         font-family: var(--mono); font-variant-numeric: tabular-nums;
       }
       .caret {
@@ -85,7 +96,7 @@
       window.AnMenu.open(anchor, {
         items,
         namespace: ns,                             // 每实例独占 ns → 多个 dropdown 并存不串台
-        align: "start",
+        align: this.attr("menu-align", "start"),   // 行尾右对齐控件走 end 防菜单右溢出
         placement: "bottom",
         onPick: (value) => { this.value = value; this.emit("an-change", { value }); },
         onClose: () => this.removeAttribute("open"),   // 浮层销毁（点外/Escape/选中）→ 复位 caret，复用地基 onClose

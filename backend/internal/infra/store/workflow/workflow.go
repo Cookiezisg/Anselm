@@ -140,7 +140,7 @@ func (s *Store) GetWorkflowsByIDs(ctx context.Context, ids []string) ([]*workflo
 }
 
 func (s *Store) ListWorkflows(ctx context.Context, filter workflowdomain.ListFilter) ([]*workflowdomain.Workflow, string, error) {
-	rows, next, err := s.wfs.Query().Page(ctx, filter.Cursor, filter.Limit)
+	rows, next, err := s.wfs.Query().WhereLike("name", filter.Search).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("workflowstore.ListWorkflows: %w", err)
 	}

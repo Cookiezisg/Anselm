@@ -56,7 +56,11 @@
   function editSelect(host, valueEl, rec, commit) {
     const wrap = document.createElement("span"); wrap.className = "edit";
     let done = false;
-    const finish = (ok, value) => { if (done) return; done = true; document.removeEventListener("pointerdown", onDoc, true); if (ok) commit(value); else host._render(); };
+    // 摘 document 级 pointerdown 监听（dropdown 外点关闭用）。host 重渲会换掉整棵 shadow innerHTML、令 wrap 脱离，
+    // 但挂在 document 上的 onDoc 不随之自摘——只在下次 pointerdown 经 !isConnected 才自愈。重渲前主动 cleanup 即可令监听同步摘除、不累积泄漏。
+    const cleanup = () => { if (done) return; done = true; document.removeEventListener("pointerdown", onDoc, true); };
+    const finish = (ok, value) => { if (done) return; cleanup(); if (ok) commit(value); else host._render(); };
+    host._selCleanup = cleanup;
     const dd = document.createElement("an-dropdown");
     dd.options = (rec.options || []).map((o) => (typeof o === "string" ? { value: o, label: o } : o));
     dd.value = rec.value;
@@ -100,6 +104,8 @@
       .grow { flex: 1 1 auto; min-width: var(--zero); }
       .c { min-width: 0; flex: 0 1 auto; display: flex; align-items: center; justify-content: flex-end; }
       .v { min-width: 0; font-size: var(--t-body); color: var(--ink-2); text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      /* wrap：长 value 换行多行自适应（observed 有 wrap，此前无 CSS 是死属性）——换行即左对齐、anywhere 断无空格长串 */
+      :host([wrap]) .v { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; text-align: left; }
       /* 铅笔：可编辑 + hover 才显；editing 时藏（:not([editing]) 直接挡掉 hover 揭示，让位 ✓✕） */
       .pencil { display: none; }
       :host([editable]:not([editing]):hover) .pencil { display: inline-flex; }
@@ -109,6 +115,9 @@
 
     set options(v) { this._options = Array.isArray(v) ? v : []; }
     get options() { return this._options || []; }
+
+    // 重渲前先摘 select 就地编辑遗留的 document 监听（见 editSelect）——否则 attr churn 会逐次叠加 pointerdown 监听泄漏
+    _render() { if (this._selCleanup) { this._selCleanup(); this._selCleanup = null; } super._render(); }
 
     render() {
       const e = window.anEsc;
@@ -135,8 +144,9 @@
       if (this._editing) return;  // 守卫：编辑中再触发不重入
       const vEl = this.$(".v"); if (!vEl) return;
       const commit = (value) => { this.setAttribute("value", value); this.emit("an-field-change", { label: this.attr("label"), value }); };
-      if ((this.attr("editor") || "input") === "select") { editSelect(this, vEl, { value: this.attr("value"), options: this._options || [] }, commit); return; }
+      // why：select 路径也置编辑锁——否则就地下拉浮层开着时再触发会换入第二个 an-dropdown 叠浮层（收尾必经重渲解锁）。
       this._editing = true;
+      if ((this.attr("editor") || "input") === "select") { editSelect(this, vEl, { value: this.attr("value"), options: this._options || [] }, commit); return; }
       this._finish = editText(this, vEl, this.attr("value"), commit, (on) => this.toggleAttribute("editing", on));
     }
   }
@@ -156,12 +166,17 @@
       .vwrap { min-width: 0; flex: 0 1 auto; display: flex; align-items: center; justify-content: flex-end; }
       .v { min-width: 0; color: var(--ink-3); font-size: var(--t-meta); line-height: var(--lh-ui); font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
       :host([mono]) .v { font-family: var(--mono); }
+      /* wrap：长 value 换行多行自适应（observed 有 wrap，此前无 CSS 是死属性）*/
+      :host([wrap]) .v { white-space: normal; overflow-wrap: anywhere; text-overflow: clip; text-align: left; }
       /* 铅笔：可编辑行 hover 显、editing 藏（:not(.editing) 直接挡掉 hover 揭示） */
       .pencil { display: none; }
       .row.editable:not(.editing):hover .pencil { display: inline-flex; }
       .row.editing .confirm { display: inline-flex; }
       ${EDIT_CSS}
     `;
+
+    // 重渲前先摘 select 就地编辑遗留的 document 监听（见 editSelect）——同 an-field，rows churn 不叠加 pointerdown 监听泄漏
+    _render() { if (this._selCleanup) { this._selCleanup(); this._selCleanup = null; } super._render(); }
 
     get rows() { return this._data(); }
     set rows(v) { this._rows = (Array.isArray(v) ? v : []).map(normRow); if (this.isConnected) this._render(); }
@@ -193,10 +208,12 @@
         const pencil = row.querySelector(".pencil");
         const start = () => {
           if (this._editing) return;
-          const vEl = row.querySelector(".v"), rec = this._rows[i];
+          const vEl = row.querySelector(".v"); if (!vEl) return;  // 守卫：上轮 select 已把 .v 换成下拉浮层（铅笔尚在），无 .v 即不再入（否则 replaceWith null 崩）
+          const rec = this._rows[i];
           const commit = (value) => this._commit(i, value);
-          if (rec.editor === "select") { editSelect(this, vEl, rec, commit); return; }
+          // why：select 路径也置编辑锁——同 field，浮层开着时再触发不叠第二个 an-dropdown（收尾必经重渲解锁）。
           this._editing = true;
+          if (rec.editor === "select") { editSelect(this, vEl, rec, commit); return; }
           this._finish = editText(this, vEl, rec.value, commit, (on) => row.classList.toggle("editing", on));
         };
         if (pencil) pencil.addEventListener("click", start);

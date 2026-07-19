@@ -41,6 +41,42 @@ func TestFunction_CreateRejections(t *testing.T) {
 	}
 }
 
+// TestFunction_ListSearch: 列表 ?search——服务端 name 大小写不敏感子串过滤(orm WhereLike,
+// 4 个实体 list 端点同构的 HTTP 层黑盒验收)。
+//
+// TestFunction_ListSearch: list ?search —— server-side case-insensitive name substring (orm WhereLike);
+// black-box acceptance for the HTTP layer shared by all 4 entity list endpoints.
+func TestFunction_ListSearch(t *testing.T) {
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-search"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	code := "def f() -> dict:\n    return {}\n"
+	fnCreate(t, wc, "quarterly_report", code)
+	fnCreate(t, wc, "random_helper", code)
+
+	// An uppercase term matches the lowercase slug — case-insensitive substring on name.
+	// 大写 term 命中小写 slug —— name 大小写不敏感子串。
+	var hit []struct {
+		Name string `json:"name"`
+	}
+	wc.GET("/api/v1/functions?search=REPORT").OK(t, &hit)
+	if len(hit) != 1 || hit[0].Name != "quarterly_report" {
+		t.Fatalf("search=REPORT should match only quarterly_report, got %v", hit)
+	}
+
+	// No search lists both (blank term = no filter).
+	// 无 search 列出两者（空 term = 不过滤）。
+	var all []struct {
+		Name string `json:"name"`
+	}
+	wc.GET("/api/v1/functions").OK(t, &all)
+	if len(all) != 2 {
+		t.Fatalf("no search should list both functions, got %d", len(all))
+	}
+}
+
 // TestFunction_RunLogsAndExecutions: A1 运行+执行记录核心——print 真落 logs、非零退出
 // 真失败、聚合徽标、列表轻装/详情带 logs、入参回读。
 func TestFunction_RunLogsAndExecutions(t *testing.T) {

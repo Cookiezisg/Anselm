@@ -1,9 +1,15 @@
-# slang i18n config. Strings live in lib/i18n/<locale>.i18n.json and are accessed
-# type-safely via `t.<key>` (no BuildContext, no hardcoded strings — CLAUDE.md i18n).
-# 文案在 lib/i18n/<locale>.i18n.json,经 `t.<key>` 类型安全访问(无 BuildContext、禁硬编码)。
+# slang i18n config. Type-safe strings generated from lib/i18n/*.i18n.json into strings.g.dart via
+# `dart run slang` (committed — deterministic, fresh checkout analyzes directly; NOT build_runner,
+# which clashed on assets). Base = en (fallback for any untranslated key); zh-CN is the bilingual
+# pair. Add a locale by dropping a strings_<locale>.i18n.json file.
+# slang i18n 配置:由 lib/i18n/*.i18n.json 经 `dart run slang` 生成 strings.g.dart(入库、不走 build_runner)。
+# base=en(未译键回退),zh-CN 为双语对;加语言只需放一个 strings_<locale>.i18n.json。
 base_locale: en
 input_directory: lib/i18n
-output_directory: lib/i18n
 input_file_pattern: .i18n.json
-output_file_name: translations.g.dart
+output_directory: lib/i18n
+output_file_name: strings.g.dart
 fallback_strategy: base_locale
+# Deterministic output — no "Built on <timestamp>" header, so the committed *.g.dart doesn't churn
+# on every `make verify` regen (codegen products are committed; must be reproducible). 去时间戳=可复现。
+timestamp: false

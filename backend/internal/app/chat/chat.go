@@ -22,12 +22,12 @@ import (
 	humanloopapp "github.com/sunweilin/anselm/backend/internal/app/humanloop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	toolsetpkg "github.com/sunweilin/anselm/backend/internal/app/tool/toolset"
+	touchpointapp "github.com/sunweilin/anselm/backend/internal/app/touchpoint"
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
-	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -79,12 +79,18 @@ type ConversationReader interface {
 	//
 	// Unarchive 清归档标志——Send 自动解档（给归档线程发消息即隐式唤回）。
 	Unarchive(ctx context.Context, id string) error
-	// TouchLastMessage records that a message just landed (Send calls it per user turn) so the
-	// conversation list re-sorts by recent activity. Best-effort — a failed touch only mis-sorts.
+	// TouchLastMessage records that a message just landed (chat calls it on the user turn AND the
+	// assistant finalize) so the conversation list re-sorts by recent activity and the unread flag tracks
+	// an unseen reply. `unread` is the new unread state: false on the user turn (sending is seeing), true
+	// on a COMPLETED assistant finalize. Best-effort.
 	//
-	// TouchLastMessage 记一条消息刚落地（Send 每用户回合调），使对话列表按最近活跃重排。best-effort——
-	// touch 失败只是排序略偏。
-	TouchLastMessage(ctx context.Context, id string, t time.Time) error
+	// TouchLastMessage 记一条消息刚落地（chat 在用户回合 + assistant 终态都调），使对话列表按最近活跃重排、unread
+	// 跟踪未读回复。unread 是新未读态：用户回合 false（发即是看）、assistant **完成**终态 true。best-effort。
+	TouchLastMessage(ctx context.Context, id string, t time.Time, unread bool) error
+	// MarkSeen clears the unread flag (chat's :seen action delegates here when the user opens a thread).
+	//
+	// MarkSeen 清 unread 标志（chat 的 :seen 动作在用户打开线程时转发至此）。
+	MarkSeen(ctx context.Context, id string) error
 }
 
 // ContentCapabilities is what the resolved model can natively ingest — supplied by the resolver
@@ -187,11 +193,11 @@ type Deps struct {
 	Catalog        CatalogProvider
 	Documents      DocumentRenderer
 	Todo           TodoReminder
-	Bridge         streamdomain.Bridge        // messages stream instance; nil → no live push (REST history still works)
-	EntitiesBridge streamdomain.Bridge        // entities stream (SSE-C): loop mirrors build tool_call deltas here; nil → no entity-panel live fill
-	Titler         ConversationTitler         // auto-title writer; nil → no auto-titling
-	Notifier       notificationdomain.Emitter // auto-title notification; nil → no notify
-	Compactor      Compactor                  // context compaction; nil → no compaction
+	Bridge         streamdomain.Bridge    // messages stream instance; nil → no live push (REST history still works)
+	EntitiesBridge streamdomain.Bridge    // entities stream (SSE-C): loop mirrors build tool_call deltas here; nil → no entity-panel live fill
+	Titler         ConversationTitler     // auto-title writer (also emits conversation.auto_titled); nil → no auto-titling
+	Compactor      Compactor              // context compaction; nil → no compaction
+	Touchpoints    *touchpointapp.Service // conversation context ledger; nil → no touch recording 对话触点台账
 }
 
 // Compactor compacts a conversation when it nears the model's context window (app/contextmgr).
@@ -309,7 +315,8 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if len(in.AttachmentIDs) > 0 {
 		attrs[attrAttachments] = in.AttachmentIDs
 	}
-	if snaps := s.resolveMentions(ctx, in.Mentions); len(snaps) > 0 {
+	snaps := s.resolveMentions(ctx, in.Mentions)
+	if len(snaps) > 0 {
 		attrs[attrMentions] = snaps // freeze-on-send: snapshot @-mentioned entities' content now
 	}
 	if len(attrs) > 0 {
@@ -324,10 +331,13 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	}
 	s.notifySearchMessage(ctx, conversationID, userMsg.ID)
 	s.emitUserMessage(ctx, conversationID, userMsg, in.Content)
-	// Bump the conversation's recency key so the list re-sorts by latest activity. Best-effort:
-	// a failed touch only mis-sorts the list, it must not fail the turn.
-	// 刷新对话最近活跃键，使列表按最新活动重排。best-effort：touch 失败只是排序略偏，绝不能让回合失败。
-	if err := s.deps.Conversations.TouchLastMessage(ctx, conversationID, time.Now().UTC()); err != nil {
+	s.recordSendTouches(ctx, conversationID, userMsg.ID, snaps, in.AttachmentIDs)
+	// Bump recency + clear unread (unread=false): the user is sending, so they have seen the thread —
+	// the touch and the seen-clear ride ONE atomic UPDATE so your own message can never look unread.
+	// Best-effort: a failed touch only mis-sorts the list, it must not fail the turn.
+	// 刷新 recency + 清未读（unread=false）：用户正在发送、即已看过该线程——touch 与清未读走同一条原子 UPDATE，
+	// 故自己的消息绝不会显未读。best-effort：touch 失败只是排序略偏，绝不能让回合失败。
+	if err := s.deps.Conversations.TouchLastMessage(ctx, conversationID, time.Now().UTC(), false); err != nil {
 		s.log.Warn("chat: touch last_message_at failed", zap.String("conversation", conversationID), zap.Error(err))
 	}
 
@@ -418,6 +428,27 @@ func (q *convQueue) setRunning(v bool) {
 // 走 :cancel 同款 per-conversation 队列登记；对拆卸竞争安全（缺失/已拆条目 → false，因拆卸在删除前于
 // q.mu 下清 running + 抽干 channel）。conversation.List/Get 调它填每行派生 IsGenerating，使重连客户端
 // 冷启动圆点。
+// GeneratingIDs snapshots the conversation ids with an in-flight assistant turn — the memory-state
+// side of the workspace stats endpoint (the store intersects them with one workspace's rows; ids
+// here span all workspaces). Same race posture as IsGenerating.
+//
+// GeneratingIDs 快照有在飞 assistant 回合的会话 id——workspace stats 的内存态一侧(store 与单个
+// workspace 的行求交;这里的 id 横跨全部 workspace)。竞态姿态同 IsGenerating。
+func (s *Service) GeneratingIDs() []string {
+	var ids []string
+	s.queues.Range(func(k, v any) bool {
+		q := v.(*convQueue)
+		q.mu.Lock()
+		live := q.running || len(q.ch) > 0
+		q.mu.Unlock()
+		if live {
+			ids = append(ids, k.(string))
+		}
+		return true
+	})
+	return ids
+}
+
 func (s *Service) IsGenerating(conversationID string) bool {
 	v, ok := s.queues.Load(conversationID)
 	if !ok {
@@ -522,6 +553,71 @@ func (s *Service) ListMessages(ctx context.Context, conversationID, cursor strin
 	return s.messages.ListMessages(ctx, conversationID, cursor, limit)
 }
 
+// ListMessagesNewer is ListMessages walking FORWARD in time — the ?dir=newer continuation of an
+// ?around= window. Same ownership pre-check; the store's oldest-first page is reversed here so
+// the wire keeps its single newest-first ordering rule (the around window's newerCursor feeds
+// this). An empty cursor is rejected (400): "newer than nothing" has no meaning — the first
+// page of history is ListMessages' job.
+//
+// ListMessagesNewer 是沿时间**向前**走的 ListMessages——?around= 窗口的 ?dir=newer 续翻。同款
+// 归属前置校验；store 的最旧在前页在此反转，线缆保持唯一的 newest-first 排序规则（around 窗口的
+// newerCursor 喂进这里）。空 cursor 拒绝（400）：「比无更新」无意义——历史首页是 ListMessages 的事。
+func (s *Service) ListMessagesNewer(ctx context.Context, conversationID, cursor string, limit int) ([]*messagesdomain.Message, string, error) {
+	if cursor == "" {
+		return nil, "", errorspkg.ErrInvalidRequest
+	}
+	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+		return nil, "", err
+	}
+	rows, next, err := s.messages.ListMessagesNewer(ctx, conversationID, cursor, limit)
+	if err != nil {
+		return nil, "", err
+	}
+	for i, j := 0, len(rows)-1; i < j; i, j = i+1, j-1 {
+		rows[i], rows[j] = rows[j], rows[i]
+	}
+	return rows, next, nil
+}
+
+// MessagesWindow is the ?around= deep-jump read: a newest-first window centered on TargetID plus
+// both continuation cursors — OlderCursor feeds the plain ?cursor= list, NewerCursor feeds
+// ?dir=newer ("" = that direction exhausted).
+//
+// MessagesWindow 是 ?around= 深跳读：以 TargetID 为中心的 newest-first 窗口 + 双向续翻游标——
+// OlderCursor 喂普通 ?cursor=、NewerCursor 喂 ?dir=newer（"" = 该方向已尽）。
+type MessagesWindow struct {
+	Messages    []*messagesdomain.Message
+	TargetID    string
+	OlderCursor string
+	NewerCursor string
+	HasOlder    bool
+	HasNewer    bool
+}
+
+// MessagesAround returns the deep-jump window centered on targetID (same ownership pre-check as
+// ListMessages; a target outside this conversation is MESSAGE_NOT_FOUND from the store — identity
+// anchoring, our anchor ids all come from within the transcript).
+//
+// MessagesAround 返回以 targetID 为中心的深跳窗口（与 ListMessages 同款归属前置校验；target 不属
+// 本对话由 store 返 MESSAGE_NOT_FOUND——身份锚点派，锚 id 全来自转录内）。
+func (s *Service) MessagesAround(ctx context.Context, conversationID, targetID string, limit int) (*MessagesWindow, error) {
+	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+		return nil, err
+	}
+	window, olderCursor, newerCursor, hasOlder, hasNewer, err := s.messages.ListMessagesAround(ctx, conversationID, targetID, limit)
+	if err != nil {
+		return nil, err
+	}
+	return &MessagesWindow{
+		Messages:    window,
+		TargetID:    targetID,
+		OlderCursor: olderCursor,
+		NewerCursor: newerCursor,
+		HasOlder:    hasOlder,
+		HasNewer:    hasNewer,
+	}, nil
+}
+
 // SystemPromptPreview builds the system prompt a turn in this conversation would receive — the
 // GET /system-prompt-preview endpoint (transparency / debugging). Reuses buildSystemPrompt; no
 // model is resolved (the prompt doesn't depend on the model).
@@ -583,6 +679,16 @@ func (s *Service) Cancel(_ context.Context, conversationID string) error {
 			return nil
 		}
 	}
+}
+
+// MarkSeen clears a conversation's unread flag — the POST /conversations/{id}:seen action, fired
+// when the user opens a thread. It is routed through chat (the {idAction} dispatcher lives on the
+// chat handler) but is pure conversation metadata, so it delegates straight to the conversation port.
+//
+// MarkSeen 清某对话的 unread 标志——POST /conversations/{id}:seen 动作，用户打开线程时触发。它经 chat 路由
+// （{idAction} 派发器在 chat handler 上）但纯属对话元数据，故直接转发到 conversation 端口。
+func (s *Service) MarkSeen(ctx context.Context, conversationID string) error {
+	return s.deps.Conversations.MarkSeen(ctx, conversationID)
 }
 
 // ForgetConversation drops a conversation's per-conversation chat state on delete — currently the

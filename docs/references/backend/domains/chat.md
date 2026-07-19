@@ -13,7 +13,7 @@ audience: [human, ai]
 
 ## 1. 定位
 
-把一条用户消息变成持久化回合、在工作区工具上驱动 ReAct 循环（`app/loop`）、实时推流、落盘结果。**它是枢纽但一无所有**：conversation/messages/tool/attachment/memory/document/catalog/todo/model 全部经 DIP 端口注入（loop 例外——chat 直接调 `loopapp.Run`、并作为 `loop.Host` 被其回调）——chat 用 fake LLM 即可整测。chat 无 domain 包（[messages](messages.md) 是中立内容模型）；自己的 HTTP 错误（`EMPTY_CONTENT`/`STREAM_IN_PROGRESS`/`NO_PENDING_INTERACTION`）就地用 errorspkg 定义。
+把一条用户消息变成持久化回合、在工作区工具上驱动 ReAct 循环（`app/loop`）、实时推流、落盘结果。**它是枢纽但一无所有**：conversation/messages/tool/attachment/memory/document/catalog/todo/model 全部经 DIP 端口注入（loop 例外——chat 直接调 `loopapp.Run`、并作为 `loop.Host` 被其回调）——chat 用 fake LLM 即可整测。chat 无 domain 包（[messages](messages.md) 是中立内容模型）；自己的 HTTP 错误（`EMPTY_CONTENT`/`STREAM_IN_PROGRESS`/`NO_PENDING_INTERACTION`/`INTERACTION_INVALID_ACTION`）就地用 errorspkg 定义。
 
 ## 2. 心智模型：每对话一条串行队列
 
@@ -28,20 +28,23 @@ audience: [human, ai]
 - **Tools 每步重算**：resident + `search_tools` + 本对话已 discovered 的 lazy 工具（记在 AgentState）；**AutoActivator**——LLM 直接点名 lazy 工具时自动标记 discovered（免先跑 search_tools）。
 - **ReminderProvider**：每步前注入 live todo 清单为临时 `<system-reminder>`（不污染持久历史）。
 - **WriteFinalize 在 Detached ctx**：用户中途关页也绝不留永久 streaming 孤儿；**硬崩溃**（kill -9）的孤儿由 boot 对账兜底（`SweepOrphans`——每 workspace 把 pending/streaming 行扫成 cancelled，messages 版 scheduler.Recover）。
-- 回合后（仍在队列槽内防竞态）：首回合自动起标题（utility 模型、best-effort）+ 同步触发上下文压缩检查（contextmgr）。**utility 未配时的全降级面**：起标题静默缺席、压缩跳过、WebFetch 摘要回退原文、search_blocks 精选落纯索引——对话主链路（dialogue 模型）不受影响，但这些静默缺席的归因口前端应在设置页提示「未配 utility 模型」。
+- **recency + 未读 watermark（经 `ConversationReader` 端口）**：Send 落 user 回合后 `TouchLastMessage(…, unread=false)`、WriteFinalize 落 assistant 回合后 `TouchLastMessage(…, unread = status==completed)`——**这条不对称就是未读信号**：用户发送=已读、完成的回复=未读、取消/出错终态=不算（queued-cancel 路径不调 Touch、不动 unread）。两次都把 unread 折进 last_message_at 的同一原子 UPDATE（自己的消息绝不半提交成未读）。端口另有 `MarkSeen`（`:seen` 动作用户打开线程时清 unread）。详见 [conversation.md](conversation.md) 的 hasUnread。
+- 回合后（仍在队列槽内防竞态）：首回合自动起标题（utility 模型、best-effort）+ 同步触发上下文压缩检查（contextmgr）。**utility 默认由 freetier provisioning 播种**——建 workspace / 每次 boot 自愈时把受管 DeepSeek 播成 dialogue/utility/agent 三 scenario 默认（只填未设、绝不覆盖用户显式选择，见 [support-services](support-services.md) 的 freetier），故 `ResolveUtility` 开箱即解析、起标题正常跑（否则 workspace 默认全 NULL → `MODEL_NOT_CONFIGURED` → 静默无标题）。标题据首条 user+assistant 摘要、**按对话语言**产出，经 `SetAutoTitle` 落 Title+AutoTitled 并发**单条** `conversation.auto_titled`（前端据此重读行 + 触发标题打字机；chat 不在 SetAutoTitle 之外重复通知）。utility 缺席（如播种失败）时的降级面：起标题静默缺席、压缩跳过、WebFetch 摘要回退原文、search_blocks 精选落纯索引。
 - maxSteps **实时读** `limits.Current().Agent.MaxSteps`（默认 25，`PATCH /limits` 热换下回合即生效；高于 agent invoke 默认的 `InvokeMaxTurns`=10——交互对话合理串更多步）；触顶诚实报 stop_reason `max_steps` + error_code `MAX_STEPS_REACHED` + "继续"提示。
 
 ## 4. 人在环
 
-危险工具（LLM 自报 dangerous）/ `ask_user` 在 loop 内**阻塞**于 humanloop broker。chat 注入的 Surface 把待决交互推成 messages 流的 **ephemeral** `interaction` 信号（即时弹出）；**broker 内存 pending 表是真相源**——重连客户端走 `GET .../interactions` 重新同步。`ResolveInteraction` 把人的决定交给 broker（approve 跑 / deny 反馈 / approve_always 加**对话级会话白名单**——active skill 的 allowed-tools 也是预授权来源）；重复 POST 安全（`NO_PENDING_INTERACTION` 404）。broker 经 ctx 流入嵌套 agent 运行（嵌套不冒泡，阻塞的 goroutine hold 整栈）。broker 是 **app 级单例**（比任一对话活得久），故 always-allow 白名单按 `conversationID` 键、**对话删除时经 `ForgetConversation` 钩子（conversation 删除级联调）整批清掉**——否则授权会越过删除永久泄漏在内存里（与 stream-stop 的 `Cancel` 区分：后者只停在途生成、对话仍活、保留白名单）。
+危险工具（LLM 自报 dangerous）/ `ask_user` 在 loop 内**阻塞**于 humanloop broker。chat 注入的 Surface 把待决交互推成 messages 流的 **ephemeral** `interaction` 信号（即时弹出）；**broker 内存 pending 表是真相源**——重连客户端走 `GET .../interactions` 重新同步。`ResolveInteraction` 先校验 action 属封闭决策集（approve/approve_always/deny/accept/decline，枚举外 → `422 INTERACTION_INVALID_ACTION` 带 `details.validActions`，先于 broker 查找就拒——loop 门是 fail-safe，非 approve 一律拒，故拼错的 action 不再无声拒掉一个危险工具），再把决定交给 broker（approve 跑 / deny 反馈 / approve_always 加**对话级会话白名单**——active skill 的 allowed-tools 也是预授权来源）；重复 POST 安全（`NO_PENDING_INTERACTION` 404）。broker 经 ctx 流入嵌套 agent 运行（嵌套不冒泡，阻塞的 goroutine hold 整栈）。broker 是 **app 级单例**（比任一对话活得久），故 always-allow 白名单按 `conversationID` 键、**对话删除时经 `ForgetConversation` 钩子（conversation 删除级联调）整批清掉**——否则授权会越过删除永久泄漏在内存里（与 stream-stop 的 `Cancel` 区分：后者只停在途生成、对话仍活、保留白名单）。
 
 ## 5. freeze-on-send（@提及）
 
-发送时**快照**被 @ 实体的内容（function 代码/handler 类/agent 描述/文档正文…经 mention registry 解析）进 user 回合 Attrs——之后实体再改不影响已发送回合的语境。渲染进 LLM 历史时从快照读。
+发送时**快照**被 @ 实体的内容（function 代码/handler 类/agent 描述/文档正文…经 mention registry 解析）进 user 回合 Attrs——之后实体再改不影响已发送回合的语境。渲染进 LLM 历史时从快照读。快照落定后 Send 同时把 @提及/附件记进**对话触点台账**（`mentioned`/`attached`，actor=user、锚 user 消息——`app/chat/touches.go`，best-effort；AI 侧触碰在 loop 工具咽喉记，见 [touchpoint.md](touchpoint.md)）。
 
 ## 6. 契约（引用）
 
-端点（send/cancel/interactions/usage/system-prompt-preview）→ [api.md](../api.md) · 码 3 个（`EMPTY_CONTENT` 400 / `STREAM_IN_PROGRESS` 409 / `NO_PENDING_INTERACTION` 404）→ [error-codes.md](../error-codes.md)。注：message 行的 `error_code` 字段（如 `LLM_RESOLVE_ERROR`/`MAX_STEPS_REACHED`）是**回合级错误码**（前端展示），与 HTTP wire code 是两个命名空间。
+端点（send/cancel/interactions/usage/system-prompt-preview/messages 三读形态[cursor·around·dir=newer]/anchors）→ [api.md](../api.md) · 码 4 个（`EMPTY_CONTENT` 400 / `STREAM_IN_PROGRESS` 409 / `NO_PENDING_INTERACTION` 404 / `INTERACTION_INVALID_ACTION` 422）→ [error-codes.md](../error-codes.md)。注：message 行的 `error_code` 字段（如 `LLM_RESOLVE_ERROR`/`MAX_STEPS_REACHED`）是**回合级错误码**（前端展示），与 HTTP wire code 是两个命名空间。
+
+**导航锚点（`GET /{id}/anchors`，场次条）**：`chatapp.ListAnchors` 归属前置校验后走 `ListAnchorSource` lean 扫描 → `buildAnchors` 建锚（oldest-first）→ 反转 newest-first → 内存 keyset 分页（游标键 `(at, blockId|messageId)`）。锚点分类学（业界收敛 + WRK-061）：**人类内容是主锚与硬边界**——`user`（回合首行节选 ≤120 rune）；锚点间连续非危险 tool_call 折叠为一条 `tools` 簇（count 计数、钉簇首块，跨回合可并）；`danger`（attrs.danger=dangerous 逐条露出，title=工具名·entityName）/ `compaction`（块型）/ `abnormal`（回合 status error/cancelled，title=stopReason→errorCode→status 回退）同样打断簇；`gate`（待决人闸）来自 broker.Pending——**无日志行的活状态**，只前置首页顶、不占 limit、置身 keyset 之外（重连本就重拉首页）。落在 chatapp（而非独立 service）正因 gate 只有 broker 可给。
 
 ## 7. 跨域集成
 

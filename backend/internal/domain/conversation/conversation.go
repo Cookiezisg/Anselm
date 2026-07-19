@@ -62,33 +62,85 @@ type Conversation struct {
 	// 由 app 层据 chat 登记（GeneratingQuerier）逐行填，使刚连上的客户端能冷启动活动圆点；线缆只读、
 	// 不进 PATCH。
 	IsGenerating bool `db:"-" json:"isGenerating"`
+
+	// AwaitingInput is a derived runtime flag (NOT persisted, db:"-"): true when this conversation has
+	// ≥1 pending human-in-loop interaction (an approve/answer the user must resolve before the turn
+	// continues). Filled per-row in the app layer from the in-memory humanloop broker
+	// (AwaitingInputQuerier), mirroring IsGenerating, so a freshly-connected client cold-starts its
+	// "needs you" rail dot. Pending interactions live ONLY in the broker (no DB table, intentionally
+	// ephemeral — a restart leaves none), so this is always derived, never stored. Read-only on the
+	// wire, never accepted in PATCH.
+	//
+	// AwaitingInput 是派生运行时标志（不落库，db:"-"）：该对话有 ≥1 个待决人在环 interaction（用户须批准/回答、
+	// 回合才续）时为 true。由 app 层据内存 humanloop broker（AwaitingInputQuerier）逐行填，镜像 IsGenerating，
+	// 使刚连上的客户端冷启动「等你」rail 点。待决 interaction 只活在 broker（无 DB 表、刻意 ephemeral——重启即无），
+	// 故恒派生、不落库。线缆只读、不进 PATCH。
+	AwaitingInput bool `db:"-" json:"awaitingInput"`
+
+	// Unread is a PERSISTED boolean (NOT db:"-"): true when a COMPLETED assistant reply has landed that
+	// the user has not yet seen — the "answered while you were away" rail dot (green). It is a stored
+	// flag, not a derived comparison: set true by the assistant-finalize TouchLastMessage (folded into
+	// the same UPDATE, so it is atomic with the recency bump), and cleared (false) on the user's own
+	// send (TouchLastMessage with unread=false — sending is seeing), on MarkSeen (the :seen action when
+	// the user opens the thread), and at creation (column default 0). A stored bool — NOT a timestamp /
+	// seq watermark — because this is a single-user, conversation-level binary: it needs no read-position
+	// granularity, and storing the answer directly sidesteps wall-clock comparison entirely (no NTP
+	// step-back / coarse-tick mis-flag). Survives restart (it is a column). System-write, wire read-only,
+	// never accepted in PATCH (like Summary / AutoTitled).
+	//
+	// Unread 是**持久布尔**（非 db:"-"）：有一条**完成的** assistant 回复落地、用户尚未看 → 为 true，即「你不在时答完了」
+	// 的 rail 绿点。它是存的标志、非派生比较：由 assistant 终态的 TouchLastMessage 置 true（折进同一条 UPDATE，故与
+	// recency 刷新原子），并在用户自己发送（TouchLastMessage unread=false——发即是看）、MarkSeen（用户打开线程的 :seen
+	// 动作）、创建（列默认 0）时清为 false。用存布尔、**非时间戳/seq watermark**——因为这是单用户、会话级的二元量：不需要
+	// 读位置粒度，且直接存答案彻底绕开墙上时钟比较（无 NTP 回拨 / 粗 tick 误判）。重启照样记得（是列）。系统写、线缆只读、
+	// 不进 PATCH（同 Summary / AutoTitled）。
+	Unread bool `db:"unread" json:"hasUnread"`
 }
 
-// ListFilter narrows the conversation list. Archived: nil = exclude archived (default),
-// &true = archived only, &false = active only. Search is a case-insensitive title LIKE.
+// ArchiveScope selects which archive states the conversation list returns. The zero value is
+// ArchiveActive (active-only) — the common default. It is an explicit 3-state enum, NOT an
+// overloaded *bool: the rail's "show archived" needs an ACTIVE+ARCHIVED-together mode that a
+// nil/true/false pointer cannot express (and whose absence silently broke list_conversations'
+// includeArchived). The store applies exactly one predicate per scope.
 //
-// ListFilter 收窄对话列表。Archived：nil = 排除已归档（默认），&true = 仅归档，&false = 仅活跃。
-// Search 是标题大小写不敏感 LIKE。
-// ListSort selects the conversation list ordering (always pinned-first within either). Empty
-// defaults to ListSortActivity. The keyset cursor tracks the chosen sort's column, so a client that
-// switches sort MUST drop its cursor (start a fresh page) — a cursor minted under one sort is
-// meaningless under the other.
+// ArchiveScope 选列表返回哪些归档态。零值 ArchiveActive（仅活跃）——常用默认。它是显式三态枚举、非
+// 重载 *bool：rail 的「显示已归档」要一个**活跃+归档同列**的模式，nil/true/false 指针表达不了
+// （其缺失正是 list_conversations 的 includeArchived 静默失效之因）。store 按每个 scope 套恰好一个谓词。
+type ArchiveScope string
+
+const (
+	ArchiveActive   ArchiveScope = ""         // active only (default / zero value)
+	ArchiveArchived ArchiveScope = "archived" // archived only
+	ArchiveAll      ArchiveScope = "all"      // both active and archived (rail "show archived" — archived rows carry archived=true for the gray dot)
+)
+
+// ListFilter narrows the conversation list. Archive selects the archive scope (default ArchiveActive
+// = active-only). Search is a case-insensitive title LIKE.
 //
-// ListSort 选对话列表排序（两者都置顶优先）。空 = ListSortActivity。keyset 游标随所选排序的列走，故
-// 客户端切换排序时**必须丢弃游标**（重新翻页）——一种排序下铸的游标在另一种下无意义。
+// ListFilter 收窄对话列表。Archive 选归档范围（默认 ArchiveActive = 仅活跃）。Search 是标题大小写不敏感 LIKE。
+// ListSort selects the conversation list ordering (always pinned-first within each). Empty defaults
+// to ListSortActivity. The keyset cursor tracks the chosen sort's column (activity/created walk a
+// time key descending via Page; name walks the title string ascending + NOCASE via PageAsc), so a
+// client that switches sort MUST drop its cursor (start a fresh page) — a cursor minted under one
+// sort is meaningless under another.
+//
+// ListSort 选对话列表排序（每种都置顶优先）。空 = ListSortActivity。keyset 游标随所选排序的列走（activity/created
+// 经 Page 走时间键降序；name 经 PageAsc 走 title 字符串升序 + NOCASE），故客户端切换排序时**必须丢弃游标**
+// （重新翻页）——一种排序下铸的游标在另一种下无意义。
 type ListSort string
 
 const (
 	ListSortActivity ListSort = "activity" // pinned-first, then last_message_at DESC — "recently chatted" (default)
 	ListSortCreated  ListSort = "created"  // pinned-first, then created_at DESC — "when opened"
+	ListSortName     ListSort = "name"     // pinned-first, then title A–Z (case-insensitive) — "by name"
 )
 
 type ListFilter struct {
-	Cursor   string
-	Limit    int
-	Search   string
-	Archived *bool
-	Sort     ListSort // "" → ListSortActivity
+	Cursor  string
+	Limit   int
+	Search  string
+	Archive ArchiveScope // "" → ArchiveActive (active only)
+	Sort    ListSort     // "" → ListSortActivity
 }
 
 // UpdateInput is the PATCH payload; a nil field is left unchanged. ModelOverride is a
@@ -139,11 +191,22 @@ type Repository interface {
 	GetBatch(ctx context.Context, ids []string) ([]*Conversation, error)
 	List(ctx context.Context, filter ListFilter) (items []*Conversation, next string, err error)
 	Update(ctx context.Context, c *Conversation) error
-	// TouchLastMessage sets last_message_at on one conversation (chat calls it when a message is
-	// added) — a single cheap UPDATE; the ORM ,updated tag also bumps updated_at, as expected.
+	// TouchLastMessage sets last_message_at AND the unread flag on one conversation (chat calls it when a
+	// message lands) — a single cheap UPDATE carrying recency + the unread bit atomically; the ORM
+	// ,updated tag also bumps updated_at. `unread` is the new unread state: false on the user's own send
+	// (sending is seeing), true on a COMPLETED assistant finalize (a reply to read), false on a
+	// non-completed terminal.
 	//
-	// TouchLastMessage 把某对话的 last_message_at 设为 t（chat 在消息加入时调）——一次廉价 UPDATE；
-	// ORM ,updated tag 顺带刷 updated_at，符合预期。
-	TouchLastMessage(ctx context.Context, id string, t time.Time) error
+	// TouchLastMessage 把某对话的 last_message_at 与 unread 标志一并设（chat 在消息落地时调）——一次廉价 UPDATE
+	// 原子带 recency + 未读位；ORM ,updated tag 顺带刷 updated_at。unread 是新未读态：用户自己发送时 false（发即是看）、
+	// assistant **完成**终态时 true（有回复待读）、非完成终态时 false。
+	TouchLastMessage(ctx context.Context, id string, t time.Time, unread bool) error
+	// MarkSeen clears the unread flag (the :seen action — the user opened the thread without sending).
+	// A single focused UPDATE on the unread column only; idempotent (a no-op on an unknown id returns
+	// nil). Does NOT touch last_message_at, so opening a thread never reorders the activity list.
+	//
+	// MarkSeen 清 unread 标志（:seen 动作——用户没发消息、只是打开了线程）。只针对 unread 列的聚焦 UPDATE；幂等
+	// （未知 id 上 no-op 返 nil）。不动 last_message_at，故打开线程绝不重排活跃列表。
+	MarkSeen(ctx context.Context, id string) error
 	SoftDelete(ctx context.Context, id string) error
 }

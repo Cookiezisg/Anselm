@@ -172,7 +172,7 @@ func (s *Store) GetFunctionsByIDs(ctx context.Context, ids []string) ([]*functio
 }
 
 func (s *Store) ListFunctions(ctx context.Context, filter functiondomain.ListFilter) ([]*functiondomain.Function, string, error) {
-	rows, next, err := s.fns.Query().Page(ctx, filter.Cursor, filter.Limit)
+	rows, next, err := s.fns.Query().WhereLike("name", filter.Search).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("functionstore.ListFunctions: %w", err)
 	}

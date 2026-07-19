@@ -9,7 +9,7 @@ import { join, extname, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = join(fileURLToPath(import.meta.url), "..", "..");   // demo/
-const PORT = 4192;
+const PORT = Number(process.env.PORT) || 4192;   // 默认 4192（dev 预览）；demo-test harness 注入隔离端口避撞
 const MIME = {
   ".html": "text/html; charset=utf-8", ".js": "text/javascript; charset=utf-8",
   ".mjs": "text/javascript; charset=utf-8", ".css": "text/css; charset=utf-8",

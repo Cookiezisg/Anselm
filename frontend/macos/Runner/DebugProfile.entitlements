@@ -6,11 +6,16 @@
 	<true/>
 	<key>com.apple.security.cs.allow-jit</key>
 	<true/>
-	<key>com.apple.security.network.server</key>
+	<!-- network.client: the app makes outbound HTTP/SSE to the sidecar over loopback (without it the
+	     sandbox blocks every request → the app hangs on "connecting"). network.server: the spawned Go
+	     sidecar (a child of this sandboxed app) listens on loopback. 客户端=app 出站 sidecar;服务端=子进程监听。 -->
+	<!-- user-selected.read-only: the composer's attachment picker (file_selector) + pasted/dropped
+	     files — the sandbox only grants what the user explicitly picked/dragged. 附件选择/粘贴/拖放的沙箱授权。 -->
+	<key>com.apple.security.files.user-selected.read-only</key>
 	<true/>
-	<!-- Outbound connections to the localhost Go backend (HTTP + 3 SSE streams).
-	     Without this the sandboxed app cannot reach 127.0.0.1. -->
 	<key>com.apple.security.network.client</key>
+	<true/>
+	<key>com.apple.security.network.server</key>
 	<true/>
 </dict>
 </plist>

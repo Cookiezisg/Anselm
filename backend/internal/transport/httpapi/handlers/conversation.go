@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 
@@ -67,12 +68,19 @@ type updateConversationRequest struct {
 
 // UnmarshalJSON detects whether `modelOverride` was present as a key (vs absent), to distinguish
 // "leave unchanged" from "explicitly clear to null" — the tristate the per-thread override needs.
+// It stays STRICT (DisallowUnknownFields) like decodeJSON: this custom unmarshal shadows the
+// transport's strict decoder, so without this a typo'd field (e.g. "titel") would silently no-op
+// instead of a 400 — the same silent-drop inconsistency every other PATCH rejects.
 //
 // UnmarshalJSON 探测 `modelOverride` 是否在 JSON 中出现（区分「不动」与「显式 null 清除」）——
-// 即线程级 override 需要的三态。
+// 即线程级 override 需要的三态。它像 decodeJSON 一样保持**严格**（DisallowUnknownFields）:此自定义
+// unmarshal 遮蔽了 transport 的严格解码器,不加则拼错的字段(如 "titel")会静默 no-op 而非 400——正是其余
+// PATCH 都拒的静默丢弃不一致。
 func (r *updateConversationRequest) UnmarshalJSON(data []byte) error {
 	type raw updateConversationRequest
-	if err := json.Unmarshal(data, (*raw)(r)); err != nil {
+	dec := json.NewDecoder(bytes.NewReader(data))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode((*raw)(r)); err != nil {
 		return err
 	}
 	var m map[string]json.RawMessage
@@ -103,22 +111,29 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	// archived: absent = exclude archived (default); "true"/"1" = archived only; else = active only.
-	// archived：缺省 = 排除已归档；"true"/"1" = 仅归档；其余 = 仅活跃。
-	var archived *bool
-	if v := q.Get("archived"); v != "" {
-		b := v == "true" || v == "1"
-		archived = &b
+	// archived: absent/else = active only (default); "true"/"1"/"archived" = archived only; "all" =
+	// both (the rail's "show archived" — archived rows carry archived=true for the gray dot).
+	// archived：缺省/其余 = 仅活跃（默认）；"true"/"1"/"archived" = 仅归档；"all" = 两者（rail「显示已归档」，归档行带 archived=true 供灰点）。
+	var archive conversationdomain.ArchiveScope
+	switch q.Get("archived") {
+	case "all":
+		archive = conversationdomain.ArchiveAll
+	case "true", "1", "archived":
+		archive = conversationdomain.ArchiveArchived
+	default:
+		archive = conversationdomain.ArchiveActive
 	}
-	// sort: "created" = pinned-first then creation order; anything else (incl absent) = "activity"
-	// (pinned-first then most-recently-active, the default). Switching sort resets pagination.
-	// sort："created" = 置顶优先再创建序；其余（含缺省）= "activity"（置顶优先再最近活跃，默认）。切换排序须重置分页。
+	// sort: "created" = pinned-first then creation order; "name" = pinned-first then title A–Z
+	// (case-insensitive); anything else (incl absent) = "activity" (pinned-first then most-recently-
+	// active, the default). Each sort keys its own keyset column, so switching sort MUST reset pagination.
+	// sort："created" = 置顶优先再创建序；"name" = 置顶优先再 title A–Z（大小写不敏感）；其余（含缺省）= "activity"
+	// （置顶优先再最近活跃，默认）。每种排序键各自的 keyset 列，故切换排序**必须重置分页**。
 	items, next, err := h.svc.List(r.Context(), conversationdomain.ListFilter{
-		Cursor:   p.Cursor,
-		Limit:    p.Limit,
-		Search:   q.Get("search"),
-		Archived: archived,
-		Sort:     conversationdomain.ListSort(q.Get("sort")),
+		Cursor:  p.Cursor,
+		Limit:   p.Limit,
+		Search:  q.Get("search"),
+		Archive: archive,
+		Sort:    conversationdomain.ListSort(q.Get("sort")),
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

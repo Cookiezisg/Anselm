@@ -11,11 +11,11 @@ import (
 )
 
 // NotificationHandler serves the notification center's REST surface (list / unread-count /
-// mark-read / mark-all-read) backed by the DB. The live notifications SSE subscription is served
-// by StreamHandler alongside the other two streams (one place for all three, E1).
+// mark-read / mark-all-read / mark-all-unread) backed by the DB. The live notifications SSE
+// subscription is served by StreamHandler alongside the other two streams (one place for all three, E1).
 //
-// NotificationHandler 提供通知中心的 REST 面（list / unread-count / mark-read / mark-all-read）走 DB。
-// 实时 notifications SSE 订阅由 StreamHandler 与另两条流统一提供（三流一处，E1）。
+// NotificationHandler 提供通知中心的 REST 面（list / unread-count / mark-read / mark-all-read /
+// mark-all-unread）走 DB。实时 notifications SSE 订阅由 StreamHandler 与另两条流统一提供（三流一处，E1）。
 type NotificationHandler struct {
 	svc *notificationapp.Service
 	log *zap.Logger
@@ -37,9 +37,10 @@ func NewNotificationHandler(svc *notificationapp.Service, log *zap.Logger) *Noti
 func (h *NotificationHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/notifications", h.List)
 	mux.HandleFunc("GET /api/v1/notifications/unread-count", h.UnreadCount)
-	// 非 CRUD 状态变更用 :action(N5):实体级 {id}:mark-read、集合级 :mark-all-read。
+	// 非 CRUD 状态变更用 :action(N5):实体级 {id}:mark-read、集合级 :mark-all-read / :mark-all-unread。
 	mux.HandleFunc("POST /api/v1/notifications/{idAction}", h.postOnNotification)
 	mux.HandleFunc("POST /api/v1/notifications:mark-all-read", h.MarkAllRead)
+	mux.HandleFunc("POST /api/v1/notifications:mark-all-unread", h.MarkAllUnread)
 }
 
 // postOnNotification dispatches the single entity-level action POST /notifications/{id}:mark-read.
@@ -99,6 +100,17 @@ func (h *NotificationHandler) markRead(w http.ResponseWriter, r *http.Request, i
 // MarkAllRead 处理 POST /api/v1/notifications:mark-all-read。
 func (h *NotificationHandler) MarkAllRead(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.MarkAllRead(r.Context()); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.NoContent(w)
+}
+
+// MarkAllUnread handles POST /api/v1/notifications:mark-all-unread (the mirror of mark-all-read).
+//
+// MarkAllUnread 处理 POST /api/v1/notifications:mark-all-unread（mark-all-read 的镜像）。
+func (h *NotificationHandler) MarkAllUnread(w http.ResponseWriter, r *http.Request) {
+	if err := h.svc.MarkAllUnread(r.Context()); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}

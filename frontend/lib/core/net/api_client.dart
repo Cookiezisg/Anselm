@@ -20,19 +20,37 @@ import '../contract/page.dart';
 /// envelope/error/分页。workspace 隔离经每请求的 `X-Anselm-Workspace-ID` header;客户端
 /// 体内绝不带 workspace_id。id 来源以回调注入,使本层不沾 Riverpod。
 class ApiClient {
-  ApiClient({required Dio dio, required String? Function() workspaceId})
-      : _dio = dio,
-        _workspaceId = workspaceId {
+  ApiClient({
+    required Dio dio,
+    required String? Function() workspaceId,
+    required String? Function() authToken,
+  })  : _dio = dio,
+        _workspaceId = workspaceId,
+        _authToken = authToken {
     _dio.interceptors.add(InterceptorsWrapper(onRequest: _onRequest));
   }
 
   final Dio _dio;
   final String? Function() _workspaceId;
 
+  /// The per-launch loopback bearer token (`ANSELM_AUTH_TOKEN`), injected as a callback so
+  /// this layer stays Riverpod-free. Attached as `Authorization: Bearer …` on every request
+  /// (loopback hardening — the backend RequireBearerToken middleware rejects requests without
+  /// it, incl. /health and the SSE GETs). Null until the sidecar supervisor has minted it.
+  ///
+  /// 每次启动的 loopback bearer token(`ANSELM_AUTH_TOKEN`),回调注入(本层不沾 Riverpod)。
+  /// 每请求挂 `Authorization: Bearer …`(loopback 加固——后端 RequireBearerToken 中间件拒绝无它的
+  /// 请求,含 /health 与 SSE GET)。sidecar supervisor 铸出前为 null。
+  final String? Function() _authToken;
+
   void _onRequest(RequestOptions options, RequestInterceptorHandler handler) {
     final ws = _workspaceId();
     if (ws != null && ws.isNotEmpty) {
       options.headers['X-Anselm-Workspace-ID'] = ws;
+    }
+    final token = _authToken();
+    if (token != null && token.isNotEmpty) {
+      options.headers['Authorization'] = 'Bearer $token';
     }
     handler.next(options);
   }
@@ -65,16 +83,72 @@ class ApiClient {
         return Page.fromBody(r.data ?? const {}, item);
       });
 
+  /// GET an OFFSET page: `{data:[…], total, hasMore}` → [OffsetPage] (WRK-070 B4, flowruns only).
+  ///
+  /// GET 一页 offset → [OffsetPage](仅 flowruns)。
+  Future<OffsetPage<T>> getOffsetPage<T>(
+    String path,
+    T Function(Map<String, dynamic>) item, {
+    Map<String, dynamic>? query,
+  }) =>
+      _send(() async {
+        final r = await _dio.get<Map<String, dynamic>>(path,
+            queryParameters: query);
+        return OffsetPage.fromBody(r.data ?? const {}, item);
+      });
+
+  /// GET a log page whose `data` is an object carrying a list + an aggregate sidecar:
+  /// `{data:{<listKey>:[…], aggregates:{…}}, nextCursor?, hasMore}` → [PageWithAggregate].
+  /// The execution / call log endpoints (MD2); [listKey] is `executions`/`calls`, and the
+  /// aggregate decoder reads the nested `aggregates` object (see callers).
+  ///
+  /// GET `data` 为对象(列表 + 聚合旁挂)的日志页 → [PageWithAggregate]。执行/调用日志端点(MD2);
+  /// [listKey] 为 `executions`/`calls`,聚合解码读嵌套的 `aggregates` 对象(见调用方)。
+  Future<PageWithAggregate<T, A>> getPageWithAggregate<T, A>(
+    String path,
+    String listKey,
+    T Function(Map<String, dynamic>) item,
+    A Function(Map<String, dynamic>) aggregate, {
+    Map<String, dynamic>? query,
+  }) =>
+      _send(() async {
+        final r = await _dio.get<Map<String, dynamic>>(path,
+            queryParameters: query);
+        return PageWithAggregate.fromBody(
+            r.data ?? const {}, listKey, item, aggregate);
+      });
+
   /// GET a raw envelope body (for composite reads like `{flowrun, nodes}` whose `data`
   /// is a multi-key object the caller destructures itself).
   ///
   /// GET 原始信封体(供 `{flowrun, nodes}` 这类 `data` 为多 key 对象、调用方自解的复合读)。
+  /// GET raw bytes (non-envelope endpoints — attachment content). 裸字节 GET(非 envelope,附件内容)。
+  Future<List<int>> getBytes(String path) => _send(() async {
+        final r = await _dio.get<List<int>>(path,
+            options: Options(responseType: ResponseType.bytes));
+        return r.data ?? const <int>[];
+      });
+
   Future<Map<String, dynamic>> getData(String path,
           {Map<String, dynamic>? query}) =>
       _send(() async {
         final r = await _dio.get<Map<String, dynamic>>(path,
             queryParameters: query);
         return _data(r.data);
+      });
+
+  /// GET the WHOLE envelope body — for reads whose coordinates ride top-level BESIDE `data`
+  /// (the `?around=` window envelope `{data, targetId, olderCursor?, newerCursor?, hasOlder,
+  /// hasNewer}`). [getData] strips to `data` and would drop them.
+  ///
+  /// GET **整个** envelope 体——供坐标在顶层与 `data` 并列的读(`?around=` 窗 envelope)。
+  /// [getData] 只剥 `data`、会丢坐标。
+  Future<Map<String, dynamic>> getEnvelope(String path,
+          {Map<String, dynamic>? query}) =>
+      _send(() async {
+        final r = await _dio.get<Map<String, dynamic>>(path,
+            queryParameters: query);
+        return r.data ?? const {};
       });
 
   /// POST returning a created/edited entity: `{data:<obj>}` → [parse]. Covers Create
@@ -113,7 +187,17 @@ class ApiClient {
   /// POST 返单产物 id 的异步动作 → id 字符串(MD3)。如发消息、`:trigger`、`:fire`、`:iterate`。
   Future<String> postForId(String path, {Object? body}) => _send(() async {
         final r = await _dio.post<Map<String, dynamic>>(path, data: body);
-        return _data(r.data)['id'] as String;
+        // Validate rather than bare-cast: a malformed 202 (missing/non-string id) must surface as a typed
+        // ApiException, not a raw TypeError escaping the typed-error contract. 校验非裸 cast,守 typed-error 契约。
+        final id = _data(r.data)['id'];
+        if (id is! String || id.isEmpty) {
+          throw ApiException(
+            code: AnselmErr.unknown,
+            message: 'response data had no id string',
+            httpStatus: 200,
+          );
+        }
+        return id;
       });
 
   /// POST a synchronous executor (`:run`/`:call`/`:invoke`) that returns a BARE result
@@ -130,6 +214,25 @@ class ApiClient {
   /// POST 无产物的 fire-and-forget(204)——如 `:reindex`、resolve。
   Future<void> postNoContent(String path, {Object? body}) =>
       _send(() async => _dio.post<void>(path, data: body));
+
+  /// POST returning a `{data:<obj>}` map (an action whose product is a small ad-hoc object, e.g.
+  /// `:provision` → `{provisioned}`). POST 返 data 对象(小型即席产物动作)。
+  Future<Map<String, dynamic>> postData(String path, {Object? body}) => _send(() async {
+        final r = await _dio.post<Map<String, dynamic>>(path, data: body);
+        return _data(r.data);
+      });
+
+  /// PUT returning the updated entity snapshot (sugar over [patchEntity] put:true). PUT 返实体快照。
+  Future<T> putEntity<T>(String path, T Function(Map<String, dynamic>) parse, {Object? body}) =>
+      patchEntity(path, parse, body: body, put: true);
+
+  /// DELETE returning the post-delete entity snapshot (e.g. clearing a workspace default returns
+  /// the fresh workspace row). DELETE 返删后实体快照(如清默认返新 workspace 行)。
+  Future<T> deleteEntity<T>(String path, T Function(Map<String, dynamic>) parse) =>
+      _send(() async {
+        final r = await _dio.delete<Map<String, dynamic>>(path);
+        return parse(_data(r.data));
+      });
 
   /// DELETE (204).
   Future<void> delete(String path) =>

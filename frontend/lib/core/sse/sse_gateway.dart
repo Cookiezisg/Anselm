@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'frame.dart';
 import 'sse_connection.dart';
 
@@ -35,13 +37,20 @@ enum StreamName {
 /// 帧流预分桶成 per-scope / per-kind broadcast 流,使订阅方挂上只载自己帧的流(否则每消费者对
 /// 原始流逐帧 `.where` 是 O(帧×订阅者) 的重建风暴)。
 class SseGateway {
-  SseGateway({required String baseUrl, required String? Function() workspaceId}) {
+  SseGateway({
+    required String baseUrl,
+    required String? Function() workspaceId,
+    required String? Function() authToken,
+    @visibleForTesting SseConnection Function(StreamName name)? connectionFactory,
+  }) {
     for (final name in StreamName.values) {
-      final conn = SseConnection(
-        streamPath: name.path,
-        baseUrl: baseUrl,
-        workspaceId: workspaceId,
-      );
+      final conn = connectionFactory?.call(name) ??
+          SseConnection(
+            streamPath: name.path,
+            baseUrl: baseUrl,
+            workspaceId: workspaceId,
+            authToken: authToken,
+          );
       _connections[name] = conn;
       conn.envelopes.listen((env) => _route(name, env));
     }

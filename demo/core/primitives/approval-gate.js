@@ -14,7 +14,11 @@
 
   class AnApprovalGate extends window.AnElement {
     static tag = "an-approval-gate";
-    static observed = ["flavor", "title", "tool", "danger", "summary", "args", "prompt", "options", "allow-reason", "placeholder", "settled"];
+    static observed = ["flavor", "title", "tool", "danger", "summary", "args", "prompt", "options", "ddl", "allow-reason", "placeholder", "settled"];
+
+    // why：options 经数组 prop 注入时含「|」的选项不会被裂开（attr 分隔符不可转义）
+    set options(v) { this._options = Array.isArray(v) ? v.slice() : null; if (this.isConnected) this._render(); }
+    get options() { return this._options || null; }
     static css = `
       :host { display: block; margin: var(--sp-3) 0; }
 
@@ -107,7 +111,8 @@
     // ask 味：ask_user 提问门（accept{answer}/decline）。渲 prompt.message + options 单选 chip 或文本框；【无】danger 徽/倒计时/reason。
     askHtml() {
       const prompt = this.attr("prompt") ? `<div class="sum">${e(this.attr("prompt"))}</div>` : "";
-      const opts = (this.attr("options") || "").split("|").filter(Boolean);
+      // 数组 prop 优先（含「|」的选项不裂）；回退到 attr「|」分隔（简单声明式用法）
+      const opts = this._options || (this.attr("options") || "").split("|").filter(Boolean);
       const optHtml = opts.length
         ? `<div class="ask-opts">${opts.map((o, k) => `<button type="button" class="ask-opt" data-opt="${k}">${e(o)}</button>`).join("")}</div>`
         : `<textarea class="reason ask-answer" rows="2" placeholder="${e(this.attr("placeholder", "输入你的回答…"))}"></textarea>`;

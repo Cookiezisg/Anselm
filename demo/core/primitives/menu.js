@@ -35,7 +35,7 @@
       .an-menu-lead { width: var(--lead); height: var(--lead); display: grid; place-items: center; color: var(--ink-3); }
       .an-menu-lead svg { display: block; width: var(--icon); height: var(--icon); }
       .an-menu-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-      .an-menu-meta { color: var(--ink-3); font-size: var(--t-meta); white-space: nowrap; font-variant-numeric: tabular-nums; }
+      .an-menu-meta { color: var(--ink-3); font-size: var(--t-meta); white-space: nowrap; max-width: var(--side-w); overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
     `;
     document.head.appendChild(s);
   }

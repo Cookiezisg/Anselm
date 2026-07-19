@@ -256,16 +256,31 @@ func TestAgentR2_RenameReresolutionAndFailFast(t *testing.T) {
 			{"name": "hello", "body": "return {\"ok\": True}", "description": "hello"},
 		},
 	})
-	clashAg := agCreate(t, wc, map[string]any{
+	// The collision surfaces at CREATE when mount resolution is already warm (F112's eager
+	// CheckHealth) or at INVOKE when the handler was still provisioning at write time — which
+	// side wins is a readiness race, and both are honest rejections citing the collision, so
+	// the scenario accepts either surface (pinning one made this test timing-flaky).
+	// 撞名在 create 就绪时即拒(F112 eager CheckHealth)、写入时 handler 还在开通则到 invoke 才拒——
+	// 哪面先到是就绪竞态,两面都是诚实且引撞名的拒绝,故场景两面都认(只钉一面曾让本测随时序抖)。
+	rClash := wc.Do("POST", "/api/v1/agents", map[string]any{
 		"name": "Clasher", "description": "x", "prompt": "x",
 		"tools": []map[string]any{
 			{"ref": clashFn, "name": "fn"},
 			{"ref": clashHd + ".hello", "name": "hd"},
 		},
 	})
-	clash := agInvoke(t, wc, clashAg, map[string]any{})
-	if clash.OK || clash.Status != "failed" || !strings.Contains(clash.ErrorMsg, "collides") {
-		t.Fatalf("name collision must fail the run citing the collision, got %+v", clash)
+	switch {
+	case rClash.Status == 422:
+		if rClash.Code != "AGENT_MOUNT_INVALID" || !strings.Contains(string(rClash.Raw), "collides") {
+			t.Fatalf("create-time rejection must cite the collision: %d %s", rClash.Status, rClash.Raw)
+		}
+	case rClash.Status < 300:
+		clash := agInvoke(t, wc, rClash.Field(t, "id"), map[string]any{})
+		if clash.OK || clash.Status != "failed" || !strings.Contains(clash.ErrorMsg, "collides") {
+			t.Fatalf("name collision must fail the run citing the collision, got %+v", clash)
+		}
+	default:
+		t.Fatalf("clash create unexpected: %d %s", rClash.Status, rClash.Raw)
 	}
 }
 

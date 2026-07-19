@@ -191,3 +191,216 @@ func TestLoad_MalformedFileFails(t *testing.T) {
 		t.Fatalf("want parse error, got %v", err)
 	}
 }
+
+// TestPatchNetwork: persist + reload round-trips the proxy config, applies the proxy env, and a
+// limits patch never drops the network block (both share fileShape). TestPatchNetwork:代理配置
+// 持久化+重载往返、应用代理 env,且 limits patch 绝不丢网络段(共用 fileShape)。
+func TestPatchNetwork(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	t.Setenv("HTTP_PROXY", "")
+	dir := t.TempDir()
+	s, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, err := s.PatchNetwork(Network{HTTPProxy: "http://127.0.0.1:7890", NoProxy: "localhost"}); err != nil {
+		t.Fatalf("PatchNetwork: %v", err)
+	}
+	if os.Getenv("HTTP_PROXY") != "http://127.0.0.1:7890" {
+		t.Errorf("proxy env not applied: %q", os.Getenv("HTTP_PROXY"))
+	}
+
+	// A limits patch must not wipe the network block. limits patch 不得抹掉网络段。
+	if _, err := s.PatchLimits(json.RawMessage(`{"agent":{"maxSteps":42}}`)); err != nil {
+		t.Fatalf("PatchLimits: %v", err)
+	}
+	s2, err := Load(dir)
+	if err != nil {
+		t.Fatalf("re-Load: %v", err)
+	}
+	if s2.Net().HTTPProxy != "http://127.0.0.1:7890" {
+		t.Errorf("network block lost after a limits patch: %+v", s2.Net())
+	}
+	if s2.Limits().Agent.MaxSteps != 42 {
+		t.Errorf("limits lost: %+v", s2.Limits())
+	}
+
+	// Clearing the proxy unsets the env. 清空即 unset。
+	if _, err := s2.PatchNetwork(Network{}); err != nil {
+		t.Fatalf("clear: %v", err)
+	}
+	if os.Getenv("HTTP_PROXY") != "" {
+		t.Errorf("proxy env not cleared: %q", os.Getenv("HTTP_PROXY"))
+	}
+}
+
+// --- retention (scheduler 工单⑬) ---------------------------------------------------------------
+
+// A fresh install reads back the server-held default — never a zero, which would silently mean
+// "keep forever" and disable the sweep on every new machine.
+// 全新安装读回服务端自持的默认——绝不是 0，那会静默地表示「永久保留」、在每台新机器上关掉清理。
+func TestRetention_DefaultOnFreshInstall(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	s, err := Load(t.TempDir())
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if got := s.Retention().RunRetentionDays; got != DefaultRunRetentionDays {
+		t.Fatalf("fresh install retention: got %d want %d", got, DefaultRunRetentionDays)
+	}
+}
+
+// ★ The load-bearing round trip: an explicit 0 means "keep forever" and MUST survive a restart.
+// If the block were value-typed (or zero-filled from the defaults on load), the next boot would
+// read the user's deliberate "forever" back as the 90d default and start deleting their history —
+// the present-zero-vs-absent bug (F115's family), here with data loss as the payload.
+//
+// ★ 承重的往返：显式的 0 表示「永久保留」、**必须**在重启后存活。若该段是值类型（或载入时从默认值补零），
+// 下次 boot 会把用户**刻意**的「永久」读回成 90d 默认、开始删他的历史——present-zero-vs-absent bug
+// （F115 家族），这次的载荷是**数据丢失**。
+func TestRetention_ExplicitForeverSurvivesReload(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	dir := t.TempDir()
+	s, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, err := s.PatchRetention(json.RawMessage(`{"runRetentionDays":0}`)); err != nil {
+		t.Fatalf("PatchRetention forever: %v", err)
+	}
+	s2, err := Load(dir)
+	if err != nil {
+		t.Fatalf("re-Load: %v", err)
+	}
+	if got := s2.Retention().RunRetentionDays; got != 0 {
+		t.Fatalf("an explicit forever (0) came back as %d — the sweep would delete real history", got)
+	}
+}
+
+// The merge base is the CURRENT value, so an empty patch is a faithful no-op rather than an
+// accidental "forever". 合并基底是**当前**值，故空 patch 是忠实的 no-op、而非意外的「永久」。
+func TestRetention_EmptyPatchIsNoOp(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	s, err := Load(t.TempDir())
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, err := s.PatchRetention(json.RawMessage(`{"runRetentionDays":30}`)); err != nil {
+		t.Fatalf("PatchRetention: %v", err)
+	}
+	got, err := s.PatchRetention(json.RawMessage(`{}`))
+	if err != nil {
+		t.Fatalf("empty PatchRetention: %v", err)
+	}
+	if got.RunRetentionDays != 30 {
+		t.Fatalf("an empty patch must keep the current line: got %d want 30", got.RunRetentionDays)
+	}
+}
+
+// Only the ONE physical constraint is enforced (a line cannot run backwards). A day count outside
+// the UI's 30/90/180 set is NOT rejected — that set is a product affordance, and enforcing it here
+// would be validation theatre (设计原则 #6). A typo'd key is a loud 400, not a silent no-op.
+//
+// 只强制**唯一**的物理约束（线不能倒着走）。UI 的 30/90/180 集之外的天数**不**拒——那个集是产品可供性，
+// 在此强制它是校验剧场（设计原则 #6）。拼错的键是大声的 400、不是静默 no-op。
+func TestRetention_ValidationIsPhysicalOnly(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	s, err := Load(t.TempDir())
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, err := s.PatchRetention(json.RawMessage(`{"runRetentionDays":-1}`)); !errors.Is(err, ErrRetentionInvalid) {
+		t.Fatalf("a negative line must reject with ErrRetentionInvalid, got %v", err)
+	}
+	if _, err := s.PatchRetention(json.RawMessage(`{"runRetentionDay":30}`)); !errors.Is(err, ErrRetentionInvalid) {
+		t.Fatalf("a typo'd key must 400 (strict decode), got %v", err)
+	}
+	// 60 is not in the UI's set but is physically fine — accepted.
+	if got, err := s.PatchRetention(json.RawMessage(`{"runRetentionDays":60}`)); err != nil || got.RunRetentionDays != 60 {
+		t.Fatalf("an off-menu but physical value must be accepted: got %+v err=%v", got, err)
+	}
+}
+
+// The retention-changed hook fires on a successful PATCH (bootstrap kicks the sweep with it) and
+// NOT on a rejected one — a 400 must never trigger a destructive pass.
+// retention-changed 钩子在**成功**的 PATCH 上触发（bootstrap 用它踢清理）、被拒的**不**触发——400 绝不能
+// 触发一趟破坏性的清理。
+func TestRetention_ChangeHookFiresOnlyOnSuccess(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	s, err := Load(t.TempDir())
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	fired := 0
+	s.SetOnRetentionChanged(func() { fired++ })
+	if _, err := s.PatchRetention(json.RawMessage(`{"runRetentionDays":30}`)); err != nil {
+		t.Fatalf("PatchRetention: %v", err)
+	}
+	if fired != 1 {
+		t.Fatalf("hook must fire on a successful patch: fired=%d", fired)
+	}
+	if _, err := s.PatchRetention(json.RawMessage(`{"runRetentionDays":-9}`)); err == nil {
+		t.Fatal("expected rejection")
+	}
+	if fired != 1 {
+		t.Fatalf("a rejected patch must NOT kick a sweep: fired=%d want 1", fired)
+	}
+}
+
+// Every block is written together: patching any one of the three must never drop the other two.
+// 所有段一起写：修补三段中的任何一段，绝不能丢掉另外两段。
+func TestRetention_CrossBlockPreservation(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	dir := t.TempDir()
+	s, err := Load(dir)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if _, err := s.PatchRetention(json.RawMessage(`{"runRetentionDays":180}`)); err != nil {
+		t.Fatalf("PatchRetention: %v", err)
+	}
+	if _, err := s.PatchNetwork(Network{HTTPProxy: "http://127.0.0.1:7890"}); err != nil {
+		t.Fatalf("PatchNetwork: %v", err)
+	}
+	if _, err := s.PatchLimits(json.RawMessage(`{"agent":{"maxSteps":42}}`)); err != nil {
+		t.Fatalf("PatchLimits: %v", err)
+	}
+	s2, err := Load(dir)
+	if err != nil {
+		t.Fatalf("re-Load: %v", err)
+	}
+	if got := s2.Retention().RunRetentionDays; got != 180 {
+		t.Errorf("retention lost after limits/network patches: got %d want 180", got)
+	}
+	if s2.Net().HTTPProxy != "http://127.0.0.1:7890" {
+		t.Errorf("network lost: %+v", s2.Net())
+	}
+	if s2.Limits().Agent.MaxSteps != 42 {
+		t.Errorf("limits lost: %+v", s2.Limits())
+	}
+	// And the reverse: a retention patch must not wipe the others.
+	if _, err := s2.PatchRetention(json.RawMessage(`{"runRetentionDays":30}`)); err != nil {
+		t.Fatalf("PatchRetention: %v", err)
+	}
+	s3, err := Load(dir)
+	if err != nil {
+		t.Fatalf("re-Load: %v", err)
+	}
+	if s3.Net().HTTPProxy != "http://127.0.0.1:7890" || s3.Limits().Agent.MaxSteps != 42 {
+		t.Errorf("a retention patch dropped a sibling block: net=%+v limits=%+v", s3.Net(), s3.Limits())
+	}
+	_, _ = s3.PatchNetwork(Network{}) // leave the process env clean for sibling tests
+}
+
+// A hand-edited file with a nonsensical line fails boot loudly — the limits stance, applied to the
+// block that DELETES data. 手编出的荒谬保留线让 boot 大声失败——limits 的立场，用在**删数据**的那一段上。
+func TestRetention_MalformedFileFailsBoot(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "settings.json"), []byte(`{"retention":{"runRetentionDays":-30}}`), 0o644); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	if _, err := Load(dir); err == nil {
+		t.Fatal("a negative retention line in the file must fail boot, not be silently ignored")
+	}
+}

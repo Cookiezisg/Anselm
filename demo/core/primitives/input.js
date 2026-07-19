@@ -38,6 +38,20 @@
       }
       return `<input class="input" placeholder="${ph}" value="${e(val)}"${flags}>`;
     }
+    // why：基类的 attributeChangedCallback 会全量重渲（重建 innerHTML），把用户正敲、尚未提交回 value 属性的文本抹掉。
+    // 非 value 的 attr 变更（如 disabled/full 切换）重渲前先从活 DOM 读回当前值同步进 value，render 据此重建即保留在编辑文本；
+    // 改的就是 value（宿主主动改值）则放行其覆盖。_syncing 防 setAttribute 自递归。
+    attributeChangedCallback(name, oldV, newV) {
+      if (name !== "value" && !this._syncing) {
+        const field = this.$(".input");
+        if (field && field.value !== this.attr("value", "")) {
+          this._syncing = true;
+          this.setAttribute("value", field.value);
+          this._syncing = false;
+        }
+      }
+      super.attributeChangedCallback(name, oldV, newV);
+    }
     hydrate() {
       // 受控叶子：把原生 input/change 收敛成对外 composed 'an-input'（feature 只听一个动词）
       const field = this.$(".input");

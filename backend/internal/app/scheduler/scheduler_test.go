@@ -98,6 +98,10 @@ type fakeWorkflows struct {
 	ver    *workflowdomain.Version
 	pins   map[string]string
 	getErr error // when set, GetWorkflow returns it (simulates a deleted workflow)
+
+	names      map[string]string // NamesByIDs source; nil → empty map (all names missing, 软删 shape)
+	namesCalls int               // NamesByIDs invocation count (the inbox batch-read guard)
+	namesIDs   []string          // ids the last NamesByIDs call received (dedup guard)
 }
 
 func (f *fakeWorkflows) GetWorkflow(context.Context, string) (*workflowdomain.Workflow, error) {
@@ -115,6 +119,17 @@ func (f *fakeWorkflows) GetVersion(context.Context, string) (*workflowdomain.Ver
 func (f *fakeWorkflows) BuildPinClosure(context.Context, *workflowdomain.Graph) (map[string]string, error) {
 	return f.pins, nil
 }
+func (f *fakeWorkflows) NamesByIDs(_ context.Context, ids []string) (map[string]string, error) {
+	f.namesCalls++
+	f.namesIDs = append([]string{}, ids...)
+	out := make(map[string]string, len(ids))
+	for _, id := range ids {
+		if n, ok := f.names[id]; ok {
+			out[id] = n
+		}
+	}
+	return out, nil
+}
 
 type fakeControl struct {
 	byID map[string][]controldomain.Branch
@@ -125,10 +140,15 @@ func (f *fakeControl) Resolve(_ context.Context, id, _ string) ([]controldomain.
 }
 
 type fakeApproval struct {
-	byID map[string]*approvaldomain.Version
+	mu           sync.Mutex // Resolve is reached from pool workers too (F174) — keep -race clean
+	byID         map[string]*approvaldomain.Version
+	resolveCalls int // Resolve invocation count (the inbox per-(ref,version) memoization guard)
 }
 
 func (f *fakeApproval) Resolve(_ context.Context, id, _ string) (*approvaldomain.Version, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.resolveCalls++
 	return f.byID[id], nil
 }
 

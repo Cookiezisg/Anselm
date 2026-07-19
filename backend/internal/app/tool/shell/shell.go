@@ -33,20 +33,24 @@ import (
 )
 
 // ShellTools bundles the shell system tools sharing one ProcessManager. The caller (host
-// assembly) must call Manager.Stop() on shutdown to reap background children.
+// assembly) must call Manager.Stop() on shutdown to reap background children, and
+// Manager.ReapStaleOnBoot() at boot to reap groups a prior ungraceful exit orphaned.
 //
-// ShellTools 是共享一个 ProcessManager 的 shell 系统工具集。调用方（host 装配）关停时
-// 须调 Manager.Stop() 回收后台子进程。
+// ShellTools 是共享一个 ProcessManager 的 shell 工具集。调用方（host 装配）关停时须调
+// Manager.Stop() 回收后台子进程，boot 时须调 Manager.ReapStaleOnBoot() 回收上次非优雅
+// 退出留下的孤儿进程组。
 type ShellTools struct {
 	Manager *ProcessManager
 	Tools   []toolapp.Tool
 }
 
-// NewShellTools wires Bash + BashOutput + KillShell over a fresh ProcessManager.
+// NewShellTools wires Bash + BashOutput + KillShell over a fresh ProcessManager whose
+// crash-recovery pid manifest lives under pidDir ("" disables persistence).
 //
-// NewShellTools 在一个新 ProcessManager 上装配 Bash + BashOutput + KillShell。
-func NewShellTools() *ShellTools {
-	mgr := NewProcessManager()
+// NewShellTools 在一个新 ProcessManager 上装配 Bash + BashOutput + KillShell；崩溃恢复
+// pid 清单落在 pidDir（"" 关闭持久化）。
+func NewShellTools(pidDir string) *ShellTools {
+	mgr := NewProcessManager(pidDir)
 	return &ShellTools{
 		Manager: mgr,
 		Tools: []toolapp.Tool{

@@ -28,7 +28,7 @@ func (b *recBridge) Subscribe(_ context.Context, _ int64) (<-chan streamdomain.E
 // TestBash_StreamsProgressUnderToolCall：流式 chat turn 上的前台 Bash 把合并 stdout/stderr 双写到
 // 嵌在其 tool_call 下的实时 `progress` 块（用户看输出滚动），而最终 tool_result 仍含完整输出。
 func TestBash_StreamsProgressUnderToolCall(t *testing.T) {
-	b := &Bash{mgr: NewProcessManager()}
+	b := &Bash{mgr: NewProcessManager("")}
 	bridge := &recBridge{}
 	ctx := reqctxpkg.SetToolCallID(reqctxpkg.SetConversationID(loopapp.WithBridge(context.Background(), bridge), "c1"), "tc1")
 
@@ -67,7 +67,7 @@ func TestBash_StreamsProgressUnderToolCall(t *testing.T) {
 // TestBash_NoProgressFramesOffStream：不在流式 turn（无 Bridge / 无 tool_call id），Bash 照常跑、不发
 // 任何帧——ToolProgress 静默 no-op。
 func TestBash_NoProgressFramesOffStream(t *testing.T) {
-	b := &Bash{mgr: NewProcessManager()}
+	b := &Bash{mgr: NewProcessManager("")}
 	out, err := b.Execute(context.Background(), `{"command":"echo plain"}`)
 	if err != nil || !strings.Contains(out, "plain") {
 		t.Fatalf("Execute off-stream: out=%q err=%v", out, err)

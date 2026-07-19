@@ -22,15 +22,33 @@ import (
 const (
 	maxTimeoutMS = 600_000
 
-	// waitDelay bounds how long Run/Wait keeps the I/O pipes open after the process exits or
+	// WaitDelay bounds how long Run/Wait keeps the I/O pipes open after the process exits or
 	// the context is cancelled. Without it, any surviving grandchild that inherited the stdout
 	// pipe (a daemon the command spawned, a pipeline member outliving a timeout kill) keeps
 	// cmd.Run blocked FOREVER — hanging the whole conversation turn beyond cancel's reach.
 	//
-	// waitDelay 限定进程退出或 ctx 取消后 Run/Wait 还保持 I/O 管道打开多久。不设它，任何继承了
+	// WHY 2s (T8, WRK-070): this is the shutdown chain's only floor that no ctx bounds — a
+	// cancelled turn (chat.Shutdown's wg.Wait) and a cancelled pool worker (StopPool) each
+	// return only after it, SERIALLY. The app gives the backend 8 seconds of SIGTERM grace
+	// (frontend backend_controller.dart `shutdownGrace`) and then escalates to SIGKILL —
+	// which orphans llama/MCP/handler children, background bash trees, and skips the WAL
+	// checkpoint, undoing every ordered-shutdown guarantee. The worst-case serial sum
+	// (drainShutdownGrace + 2×WaitDelay, see bootstrap) must stay strictly under 8s; the
+	// bootstrap golden test pins the inequality. The only cost of 2s vs 10s: trailing output
+	// a pipe-holding escapee writes after +2s is dropped from the tool result.
+	//
+	// WaitDelay 限定进程退出或 ctx 取消后 Run/Wait 还保持 I/O 管道打开多久。不设它，任何继承了
 	// stdout 管道的存活孙进程（命令拉起的 daemon、超时杀后残留的管道成员）会让 cmd.Run **永久**
 	// 阻塞——整个对话回合挂死、cancel 也救不回。
-	waitDelay = 10 * time.Second
+	//
+	// 为什么是 2s（T8，WRK-070）：它是关停链里唯一不受任何 ctx 约束的地板——被取消的对话回合
+	// （chat.Shutdown 的 wg.Wait）与被取消的池 worker（StopPool）各要等满它才返回，且是**串行**。
+	// app 侧只给后端 8 秒 SIGTERM 宽限（前端 backend_controller.dart `shutdownGrace`），超过即升级
+	// SIGKILL——llama/MCP/handler 子进程成孤儿、后台 bash 整树失管、WAL checkpoint 被跳过，有序
+	// 关停的一切保证前功尽弃。最坏串行和（drainShutdownGrace + 2×WaitDelay，见 bootstrap）必须
+	// 严格小于 8s；bootstrap 的 golden 测试钉死这条不等式。2s 相对 10s 的唯一代价：攥管道的
+	// 逃逸者在 +2s 后才写的尾部输出会从 tool result 里丢掉。
+	WaitDelay = 2 * time.Second
 )
 
 var (
@@ -135,12 +153,12 @@ func (t *Bash) runForeground(ctx context.Context, command string, timeout time.D
 
 	cmd := buildShellCmd(runCtx, command)
 	// Timeout / cancel must kill the whole process group, not just sh — and WaitDelay force-closes
-	// the pipes so Run returns even if something survives holding them (see waitDelay).
+	// the pipes so Run returns even if something survives holding them (see WaitDelay).
 	//
 	// 超时 / 取消必须杀整个进程组而非只杀 sh——WaitDelay 强制关管道，即使有谁攥着管道残活 Run 也能返回
-	// （见 waitDelay）。
+	// （见 WaitDelay）。
 	cmd.Cancel = func() error { return killProcessTree(cmd) }
-	cmd.WaitDelay = waitDelay
+	cmd.WaitDelay = WaitDelay
 
 	// Tee combined output to BOTH the result buffer (the final tool_result the LLM reads) AND a
 	// live progress stream, so the user watches stdout/stderr scroll in real time under the Bash
@@ -259,6 +277,10 @@ func (t *Bash) runBackground(command string) (string, error) {
 				proc.markErrored(err)
 			}
 		}
+		// Narrow the crash-recovery record now the direct child is reaped: gone if the whole
+		// group is dead, kept while grandchildren survive (see noteExited).
+		// 直接子进程已收尸,收窄崩溃恢复记录:整组死则删,孙进程幸存则留(见 noteExited)。
+		t.mgr.noteExited(proc)
 	}()
 
 	return fmt.Sprintf(

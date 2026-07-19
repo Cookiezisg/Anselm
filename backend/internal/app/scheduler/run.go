@@ -19,16 +19,22 @@ import (
 // StartInput parameterises a new run. WorkflowID is required; the rest are optional. EntryNode picks
 // the entry trigger node when a graph has several (manual path); TriggerID picks it by referenced
 // trg_ (firing path). Payload becomes the trigger node's result — the data the workflow reads as
-// `<triggerNode>.field`.
+// `<triggerNode>.field`. Origin/ConversationID are creation-time provenance (flowrundomain.RunOrigins):
+// every production caller stamps them — HTTP "Run now" = manual, the runner adapter derives
+// chat(+conversation) vs manual from ctx, claimFiring stamps the trigger's kind.
 //
 // StartInput 参数化一个新 run。WorkflowID 必填，其余可选。EntryNode 在多 trigger 图里选入口（手动）；
 // TriggerID 按引用的 trg_ 选（firing）。Payload 成为 trigger 节点的 result——workflow 读 `<trigger>.字段`。
+// Origin/ConversationID 是创建时溯源（flowrundomain.RunOrigins）：所有生产调用方逐个盖章——HTTP「Run now」
+// = manual、runner 适配器按 ctx 派生 chat(+conversation) 或 manual、claimFiring 盖 trigger 的 kind。
 type StartInput struct {
-	WorkflowID string
-	EntryNode  string // explicit entry node id (manual, multi-trigger)
-	TriggerID  string // entry by referenced trg_ (firing path)
-	Payload    map[string]any
-	FiringID   string // source firing (firing path); "" for manual
+	WorkflowID     string
+	EntryNode      string // explicit entry node id (manual, multi-trigger)
+	TriggerID      string // entry by referenced trg_ (firing path)
+	Payload        map[string]any
+	FiringID       string // source firing (firing path); "" for manual
+	Origin         string // run provenance ∈ flowrundomain.RunOrigins ("" only in tests → NULL)
+	ConversationID string // origin=chat: the conversation whose turn started the run
 }
 
 // StartRun is the manual-trigger path (UI/API "Run now"): build the run + seed its trigger node in
@@ -45,6 +51,7 @@ func (s *Service) StartRun(ctx context.Context, in StartInput) (string, error) {
 	if _, err := s.runs.CreateRunWithTrigger(ctx, run, trig); err != nil {
 		return "", fmt.Errorf("schedulerapp.StartRun: %w", err)
 	}
+	s.emitRunStarted(ctx, run) // durable birth signal, before any node tick — see emitRunStarted
 	// Manual path: drive INLINE on this request goroutine (the per-run guard makes it the sole driver of
 	// this fresh run — the pool never touches it), so StartRun still returns only after the run reaches
 	// terminal/parked. No head-of-line blocking here: one user, one run (F174).
@@ -90,6 +97,15 @@ func (s *Service) buildRun(ctx context.Context, in StartInput) (*flowrundomain.F
 		TriggerID:  in.TriggerID,
 		FiringID:   in.FiringID,
 		Status:     flowrundomain.StatusRunning,
+	}
+	// Provenance stamps: pointers so an unstamped run stays NULL (distinguishable from any real word),
+	// exactly like the pre-provenance rows the wire omits.
+	// 溯源盖章：指针使未盖章的 run 保持 NULL（与任何真值可区分），同线缆不发的旧行一致。
+	if in.Origin != "" {
+		run.Origin = &in.Origin
+	}
+	if in.ConversationID != "" {
+		run.ConversationID = &in.ConversationID
 	}
 	trig := &flowrundomain.FlowRunNode{
 		NodeID: entry.ID,
@@ -246,12 +262,25 @@ func (s *Service) claimFiring(ctx context.Context, f *triggerdomain.Firing) (str
 		}
 	}
 
+	// Provenance: a fired run's origin IS its trigger's source kind (one vocabulary — see
+	// flowrundomain.RunOrigins). Best-effort: a lookup failure (e.g. the trigger was deleted after
+	// firing) leaves origin NULL — provenance is presentation metadata and must never stall a run.
+	// 溯源：firing 起的 run，origin 即其 trigger 的 source kind（同一词表——见 flowrundomain.RunOrigins）。
+	// best-effort：查失败（如 firing 后 trigger 被删）origin 留 NULL——溯源是呈现元数据，绝不拖垮 run。
+	origin := ""
+	if kind, kerr := s.inbox.TriggerKind(fctx, f.TriggerID); kerr == nil {
+		origin = kind
+	} else {
+		s.log.Warn("schedulerapp.claimFiring: resolve trigger kind for provenance", zap.String("trigger", f.TriggerID), zap.Error(kerr))
+	}
+
 	// reads outside the tx (active version + pin + entry resolution).
 	run, trig, err := s.buildRun(fctx, StartInput{
 		WorkflowID: f.WorkflowID,
 		TriggerID:  f.TriggerID,
 		Payload:    f.Payload,
 		FiringID:   f.ID,
+		Origin:     origin,
 	})
 	if err != nil {
 		return "", fctx, err
@@ -269,6 +298,7 @@ func (s *Service) claimFiring(ctx context.Context, f *triggerdomain.Firing) (str
 		}
 		return "", fctx, fmt.Errorf("schedulerapp.claimFiring: claim: %w", err)
 	}
+	s.emitRunStarted(fctx, run) // durable birth signal at claim commit (phase-2 advance comes later)
 	return runID, fctx, nil
 }
 
@@ -377,6 +407,9 @@ func (s *Service) DecideApproval(ctx context.Context, flowrunID, nodeID, decisio
 	if !won {
 		return flowrundomain.ErrNodeNotParked // already decided / timed out — first-wins loser
 	}
+	if run, gerr := s.runs.GetRun(ctx, flowrunID); gerr == nil {
+		s.emitApprovalDecided(ctx, run, nodeID)
+	}
 	return s.drive(ctx, flowrunID) // manual path — inline (this run is parked, not pool-driven; sole driver)
 }
 
@@ -404,11 +437,16 @@ func (s *Service) CheckTimeouts(ctx context.Context, now time.Time) error {
 			s.log.Warn("schedulerapp.CheckTimeouts: resolve form", zap.String("ref", p.Ref), zap.Error(err))
 			continue
 		}
-		d, err := approvaldomain.ParseTimeout(form.Timeout)
-		if err != nil || d == 0 {
+		// DeadlineFrom is the single timeout-resolution semantic — the inbox's wire `deadline`
+		// (ListInbox, 工单④) derives from the same call, so the countdown a user sees and the
+		// sweep that fires agree by construction.
+		// DeadlineFrom 是唯一的超时解析语义——收件箱线缆 `deadline`（ListInbox，工单④）出自同一调用，
+		// 用户看到的倒计时与真正触发的扫描构造上一致。
+		deadline, ok := form.DeadlineFrom(p.CreatedAt)
+		if !ok {
 			continue // unparseable or never-times-out
 		}
-		if p.CreatedAt.Add(d).After(now) {
+		if deadline.After(now) {
 			continue // not yet due
 		}
 		if err := s.settleTimeout(ctx, run, p, form.TimeoutBehavior); err != nil {
@@ -428,6 +466,7 @@ func (s *Service) settleTimeout(ctx context.Context, run *flowrundomain.FlowRun,
 		if err != nil || !won {
 			return err
 		}
+		s.emitApprovalDecided(ctx, run, p.NodeID)
 		return s.markRunTerminal(ctx, run, flowrundomain.StatusFailed, fmt.Sprintf("approval %s timed out", p.NodeID))
 	}
 	decision := workflowdomain.ApprovalPortNo
@@ -438,8 +477,38 @@ func (s *Service) settleTimeout(ctx context.Context, run *flowrundomain.FlowRun,
 	if err != nil || !won {
 		return err
 	}
+	s.emitApprovalDecided(ctx, run, p.NodeID)
 	s.enqueueAdvance(ctx, p.FlowRunID) // pooled — CheckTimeouts must not block on the re-driven run (F174)
 	return nil
+}
+
+// emitApprovalDecided re-reads the just-resolved node row from disk (record-once truth) and emits
+// its tick with the decision port. Approvals need this dedicated emit: Advance never ticks them
+// past parked — the resolved row already exists when the run re-enters, so computeReady skips it
+// and emitNodeProgress never fires for the decided transition. Best-effort presentation (read
+// errors are swallowed; flowrun_nodes stays the reconnect truth).
+//
+// emitApprovalDecided 从盘重读刚落定的节点行（record-once 真相）、带决策 port 发其 tick。approval 需要
+// 这条专用 emit：Advance 从不 tick 它越过 parked——run 重入时已决行已存在，computeReady 跳过它、
+// emitNodeProgress 对「已决」转变永不触发。best-effort 呈现（读错吞掉；flowrun_nodes 仍是重连真相）。
+func (s *Service) emitApprovalDecided(ctx context.Context, run *flowrundomain.FlowRun, nodeID string) {
+	if s.entities == nil {
+		return
+	}
+	rows, err := s.runs.GetNodes(ctx, run.ID)
+	if err != nil {
+		return
+	}
+	var row *flowrundomain.FlowRunNode
+	for _, r := range rows {
+		if r.NodeID == nodeID && (row == nil || r.Iteration > row.Iteration) {
+			row = r
+		}
+	}
+	if row == nil {
+		return
+	}
+	s.emitNodeProgress(ctx, run, nodeID, row.Iteration, row.Status, row)
 }
 
 // Replay fixes a failed run: clear its failed node rows (a non-result), reopen the run to running +

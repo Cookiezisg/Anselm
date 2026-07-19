@@ -1,0 +1,180 @@
+import 'dart:convert';
+
+// fmtDuration was upstreamed to core/model/time_format.dart (WRK-069 S3 — the scheduler's run table
+// speaks the same duration voice; features 互不依赖). Re-exported so this file stays the entity
+// side's one formatting import. fmtDuration 上收 core(scheduler 同口径);再导出保本文件仍是实体侧
+// 唯一格式化入口。
+export '../../../core/model/time_format.dart' show fmtDuration;
+
+import '../../../core/contract/entities/function.dart';
+import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/values.dart';
+import '../../../core/contract/entities/workflow.dart';
+
+/// Pure formatting helpers shared by the detail state + UI (no widgets, no Flutter — lives in data so
+/// both layers may import it). 纯格式化助手(无 widget,放 data 供 state+ui 共用)。
+
+/// A handler has no single `code` field — its source is the class shape spread across imports / init /
+/// shutdown / each method body. Concatenate it ONCE here so the overview code view and the version diff
+/// show identical text. handler 无单一 code 字段,在此唯一拼接,使概览代码与版本 diff 同源。
+String handlerSourceOf(HandlerVersion v) {
+  final parts = <String>[
+    if (v.imports.trim().isNotEmpty) v.imports.trim(),
+    if (v.initBody.trim().isNotEmpty) 'def __init__(self):\n${_indent(v.initBody.trim())}',
+    if (v.shutdownBody.trim().isNotEmpty) 'def __del__(self):\n${_indent(v.shutdownBody.trim())}',
+    for (final m in v.methods)
+      'def ${m.name}(self):${m.body.trim().isEmpty ? ' ...' : '\n${_indent(m.body.trim())}'}',
+  ];
+  return parts.join('\n\n');
+}
+
+String _indent(String body) => body.split('\n').map((l) => '    $l').join('\n');
+
+/// Absolute timestamp `YYYY-MM-DD HH:MM` (deterministic — no timezone conversion, so tests are stable);
+/// null → em-dash. 绝对时间戳(确定性、不转时区);null → 破折号。
+String fmtTime(DateTime? t) {
+  if (t == null) return '—';
+  String two(int n) => n.toString().padLeft(2, '0');
+  return '${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
+}
+
+/// The decoded workflow graph for the overview stub. `graphParsed` is null in production (the backend
+/// sends only the raw `graph` blob), so fall back to decoding it; an unparseable blob → null (the
+/// overview then shows the graph section's error inset). 工作流图:graphParsed 生产为空 → 解析 raw blob。
+Graph? graphOf(WorkflowVersion v) {
+  if (v.graphParsed != null) return v.graphParsed;
+  if (v.graph.trim().isEmpty) return const Graph();
+  try {
+    return Graph.fromJson(jsonDecode(v.graph) as Map<String, dynamic>);
+  } catch (_) {
+    return null;
+  }
+}
+
+/// Pretty-print a JSON-ish value for a detail row; non-encodable → its toString. 美化 JSON(不可编码→toString)。
+String prettyJson(Object? value) {
+  if (value == null) return '—';
+  if (value is String) return value;
+  try {
+    return const JsonEncoder.withIndent('  ').convert(value);
+  } catch (_) {
+    return value.toString();
+  }
+}
+
+/// Pretty-print with a HARD length cap — a node result can be hundreds of KB (backend precedent: a
+/// 653KB flowrun-node dump), and dropping that into one non-scrolling Text janks/hangs the main
+/// thread. Truncates at [maxChars] with a trailing notice. 带硬上限的美化(节点 result 可达数百 KB,
+/// 灌进单个不滚 Text 会卡死主线程)——超 [maxChars] 截断 + 尾注。
+String prettyJsonCapped(Object? value, {int maxChars = 4000}) {
+  final full = prettyJson(value);
+  if (full.length <= maxChars) return full;
+  return '${full.substring(0, maxChars)}\n… (+${full.length - maxChars} chars)';
+}
+
+/// Structured (non-text) deltas of a function version vs its next-older neighbour, as short chips:
+/// signature fields (`+in name` / `−out name` / type changes), dependencies, python version. The code
+/// body is NOT summarized here — the text diff renders it. Pure + unit-testable.
+/// function 版本相对上一版的结构化变化小签(签名字段/依赖/py 版本);代码体不在此摘要(文本 diff 渲)。
+List<String> functionVersionSummary(FunctionVersion cur, FunctionVersion prev) {
+  final out = <String>[];
+  void diffFields(List<Field> a, List<Field> b, String tag) {
+    final an = {for (final f in a) f.name: f};
+    final bn = {for (final f in b) f.name: f};
+    for (final n in an.keys) {
+      if (!bn.containsKey(n)) {
+        out.add('+ $tag $n');
+      } else if (bn[n]!.type != an[n]!.type) {
+        out.add('$tag $n: ${bn[n]!.type}→${an[n]!.type}');
+      }
+    }
+    for (final n in bn.keys) {
+      if (!an.containsKey(n)) out.add('− $tag $n');
+    }
+  }
+
+  diffFields(cur.inputs, prev.inputs, 'in');
+  diffFields(cur.outputs, prev.outputs, 'out');
+  final curDeps = cur.dependencies.toSet();
+  final prevDeps = prev.dependencies.toSet();
+  for (final d in curDeps.difference(prevDeps)) {
+    out.add('+ dep $d');
+  }
+  for (final d in prevDeps.difference(curDeps)) {
+    out.add('− dep $d');
+  }
+  if (cur.pythonVersion != prev.pythonVersion) {
+    out.add('py ${prev.pythonVersion}→${cur.pythonVersion}');
+  }
+  return out;
+}
+
+/// Structured deltas of a workflow version's GRAPH vs its next-older neighbour, as short chips:
+/// nodes by id (`+ node x` / `− node x` / ref·kind changes), edges by ENDPOINTS+port (edge ids may
+/// be regenerated by editors — from→to(port) is the semantic identity). Unparseable side → no chips
+/// (the text diff still renders). Pure + unit-testable (WRK-055 W2).
+/// workflow 版本图结构小签:节点按 id(增/删/ref·kind 变),边按端点+口(边 id 会被编辑器重生成,
+/// from→to(口) 才是语义身份)。任一侧解析失败 → 无签(文本 diff 照渲)。纯函数可单测。
+List<String> workflowVersionSummary(WorkflowVersion cur, WorkflowVersion prev) {
+  final a = graphOf(cur), b = graphOf(prev);
+  if (a == null || b == null) return const [];
+  final out = <String>[];
+  final an = {for (final n in a.nodes) n.id: n};
+  final bn = {for (final n in b.nodes) n.id: n};
+  for (final id in an.keys) {
+    final n = an[id]!, o = bn[id];
+    if (o == null) {
+      out.add('+ node $id');
+    } else {
+      if (o.ref != n.ref) out.add('node $id: ${o.ref}→${n.ref}');
+      if (o.kind != n.kind) out.add('node $id: ${o.kind.name}→${n.kind.name}');
+    }
+  }
+  for (final id in bn.keys) {
+    if (!an.containsKey(id)) out.add('− node $id');
+  }
+  String ek(Edge e) =>
+      '${e.from}→${e.to}${(e.fromPort ?? '').isEmpty ? '' : ' (${e.fromPort})'}';
+  final ae = {for (final e in a.edges) ek(e)};
+  final be = {for (final e in b.edges) ek(e)};
+  for (final k in ae.difference(be)) {
+    out.add('+ edge $k');
+  }
+  for (final k in be.difference(ae)) {
+    out.add('− edge $k');
+  }
+  return out;
+}
+
+/// Pretty-print a raw JSON string for the version text diff (a compact one-line graph blob would
+/// LCS-diff as a single opaque line); invalid JSON → returned verbatim. 原始 JSON 串美化供文本 diff
+/// (紧凑单行 blob 的 LCS diff 只有一整行);非法 JSON 原样返回。
+String prettyJsonSource(String raw) {
+  if (raw.trim().isEmpty) return raw;
+  try {
+    return const JsonEncoder.withIndent('  ').convert(jsonDecode(raw));
+  } catch (_) {
+    return raw;
+  }
+}
+
+/// Page through GET /flowruns/{id} to the FULL node history — the page is newest-first and one page
+/// is not the whole run (a long loop overflows it; WRK-055 W3 契约). Caps at [maxPages] pages.
+/// 翻页拉全 flowrun 节点(页最新在前、一页非全量;长循环溢页)。封顶 [maxPages] 页防跑飞。
+Future<FlowrunComposite> fetchFlowrunFull(
+  Future<FlowrunComposite> Function(String id, {String? cursor, int? limit}) get,
+  String id, {
+  int maxPages = 20,
+}) async {
+  final first = await get(id, limit: 200);
+  final nodes = [...first.nodes];
+  var cursor = first.nextCursor;
+  var pages = 0;
+  while (cursor != null && pages < maxPages) {
+    final page = await get(id, cursor: cursor, limit: 200);
+    nodes.addAll(page.nodes);
+    cursor = page.nextCursor;
+    pages++;
+  }
+  return FlowrunComposite(flowrun: first.flowrun, nodes: nodes, nextCursor: null);
+}

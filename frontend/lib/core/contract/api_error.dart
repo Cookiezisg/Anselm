@@ -90,4 +90,20 @@ abstract final class AnselmErr {
 
   /// 422 — approval decision lost the first-wins race (already decided / timed out).
   static const approvalAlreadyDecided = 'APPROVAL_ALREADY_DECIDED';
+
+  /// 401 — the localhost backend rejected the per-launch bearer token (loopback hardening:
+  /// missing/wrong `ANSELM_AUTH_TOKEN`). The sidecar is misconfigured, NOT a workspace problem
+  /// — show a restart-backend banner, do NOT clear/reselect the workspace.
+  ///
+  /// 401 — 本地后端拒绝每次启动的 bearer token(loopback 加固:缺/错 `ANSELM_AUTH_TOKEN`)。
+  /// 是 sidecar 配置问题、非 workspace 问题——显示重启后端横幅,**不**清/重选 workspace。
+  static const unauthBadToken = 'UNAUTH_BAD_TOKEN';
+
+  /// 410 — an SSE resume cursor is older than the durable buffer still holds (evicted).
+  /// Registered here for one error catalog, but ACTED ON in the SSE layer: refetch REST truth,
+  /// then resubscribe from the latest durable seq (do NOT surface as a user error).
+  ///
+  /// 410 — SSE 续传游标比 durable buffer 现存的还旧(已淘汰)。此处登记入唯一错误目录,但**在
+  /// SSE 层处置**:重取 REST 真相、再从最新 durable seq 重订(不作为用户错误呈现)。
+  static const seqTooOld = 'SEQ_TOO_OLD';
 }

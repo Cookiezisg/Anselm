@@ -1,14 +1,16 @@
 // Package freetier provisions the built-in free-tier credential: it ensures every workspace has a
-// managed api_key row pointing at the Anselm gateway, minting a gwk_ install token on first run. It
-// deliberately does NOT set the row as a default model — routing prompts through the gateway needs
-// explicit user consent (frontend), so default-wiring goes through the normal default-models
-// endpoint after that consent. This package only guarantees the row (and thus the selectable model)
-// exists; everything it does is best-effort so a degraded free tier never breaks boot or onboarding.
+// managed api_key row pointing at the Anselm gateway, minting a gwk_ install token on first run, AND
+// seeds the managed model as the workspace's default for all three scenarios (dialogue/utility/agent)
+// so everything resolves out of the box. Seeding fills only UNSET scenarios (SeedDefaultsIfUnset), so
+// a user's explicit pick — once the frontend model-picker exists — is never clobbered by the boot
+// self-heal. Until that picker ships, the managed model IS the sensible default (there is no other
+// configured model). Everything is best-effort so a degraded free tier never breaks boot or onboarding.
 //
-// Package freetier 开通内置免费档凭证：确保每个 workspace 有一条指向 Anselm 网关的受管 api_key 行，首次
-// 运行铸 gwk_ install token。刻意不把它设为默认模型——把 prompt 经网关路由需用户显式同意（前端），故
-// 默认 wiring 经同意后的常规 default-models 端点。本包只保证那条行（及由此可选的模型）存在；所有动作
-// best-effort，降级的免费档绝不挂 boot 或 onboarding。
+// Package freetier 开通内置免费档凭证：确保每个 workspace 有一条指向 Anselm 网关的受管 api_key 行（首次
+// 运行铸 gwk_ install token），并把受管模型播成 workspace 三 scenario（dialogue/utility/agent）的默认，使
+// 一切开箱即解析。播种只填未设的 scenario（SeedDefaultsIfUnset），故用户显式选择——待前端模型选择器上线后
+// ——绝不被 boot 自愈覆盖。在该选择器上线前，受管模型就是合理默认（本无其他已配模型）。所有动作 best-effort，
+// 降级的免费档绝不挂 boot 或 onboarding。
 package freetier
 
 import (
@@ -16,11 +18,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 
 	"go.uber.org/zap"
 
 	apikeyapp "github.com/sunweilin/anselm/backend/internal/app/apikey"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
@@ -48,6 +52,15 @@ type Keys interface {
 	CreateManaged(ctx context.Context, in apikeyapp.ManagedCreateInput) (*apikeydomain.APIKey, error)
 }
 
+// Defaults is the workspace port for seeding scenario defaults (a subset of *workspaceapp.Service),
+// injected at wiring; nil → seeding skipped. Fills only unset scenarios (never clobbers a user pick).
+//
+// Defaults 是播种 scenario 默认的 workspace 端口（*workspaceapp.Service 的子集），装配时注入；nil → 跳过
+// 播种。只填未设 scenario（绝不覆盖用户选择）。
+type Defaults interface {
+	SeedDefaultsIfUnset(ctx context.Context, ref modeldomain.ModelRef) error
+}
+
 // Fingerprint returns a stable per-machine identifier (raw); the provisioner hashes it before it
 // leaves the device. cryptoinfra.MachineFingerprint satisfies it; an error (in-memory / test mode)
 // degrades the free tier to absent.
@@ -61,19 +74,20 @@ type Fingerprint func() (string, error)
 // Provisioner 确保每 workspace 有受管免费档凭证。
 type Provisioner struct {
 	keys      Keys
+	defaults  Defaults
 	installer Installer
 	fp        Fingerprint
 	log       *zap.Logger
 }
 
-// NewProvisioner wires dependencies; panics on nil logger.
+// NewProvisioner wires dependencies; panics on nil logger. defaults may be nil (seeding skipped).
 //
-// NewProvisioner 装配依赖；nil logger panic。
-func NewProvisioner(keys Keys, installer Installer, fp Fingerprint, log *zap.Logger) *Provisioner {
+// NewProvisioner 装配依赖；nil logger panic。defaults 可为 nil（跳过播种）。
+func NewProvisioner(keys Keys, defaults Defaults, installer Installer, fp Fingerprint, log *zap.Logger) *Provisioner {
 	if log == nil {
 		panic("freetier.NewProvisioner: logger is nil")
 	}
-	return &Provisioner{keys: keys, installer: installer, fp: fp, log: log.Named("freetierapp")}
+	return &Provisioner{keys: keys, defaults: defaults, installer: installer, fp: fp, log: log.Named("freetierapp")}
 }
 
 // EnsureForWorkspace idempotently guarantees the workspace has a managed anselm credential. It is
@@ -81,6 +95,24 @@ func NewProvisioner(keys Keys, installer Installer, fp Fingerprint, log *zap.Log
 // breaks boot or workspace creation. ctx MUST carry the workspace (the managed row is
 // workspace-scoped — orm stamps workspace_id on Save and filters List).
 //
+// ProvisionNow is the user-facing variant (POST /freetier:provision, WRK-062 S-7): same idempotent
+// ensure, but it REPORTS — true when a managed row exists afterwards (pre-existing or just created),
+// false when provisioning degraded (offline / gateway down / no fingerprint). Never errors for the
+// degraded paths (they are states, not faults); only a store failure propagates.
+//
+// ProvisionNow 是用户侧变体(POST /freetier:provision,S-7):同一幂等 ensure,但**报告结果**——之后存在
+// 受管行(原有或新建)返 true,开通降级(离线/网关挂/无指纹)返 false。降级路径不是错误、不抛;仅存储失败冒泡。
+func (p *Provisioner) ProvisionNow(ctx context.Context) (bool, error) {
+	if err := p.EnsureForWorkspace(ctx); err != nil {
+		return false, err
+	}
+	existing, _, err := p.keys.List(ctx, apikeydomain.ListFilter{Provider: providerName, Limit: 1})
+	if err != nil {
+		return false, fmt.Errorf("freetier.ProvisionNow: list: %w", err)
+	}
+	return len(existing) > 0, nil
+}
+
 // EnsureForWorkspace 幂等确保 workspace 有受管 anselm 凭证。契约 best-effort：每个失败路径都 log 并返
 // nil，使降级的免费档绝不挂 boot 或建 workspace。ctx 必须携带 workspace（受管行按 workspace 隔离——orm
 // 在 Save 时盖 workspace_id、List 时过滤）。
@@ -92,7 +124,10 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 		return nil
 	}
 	if len(existing) > 0 {
-		return nil // already provisioned
+		// Already provisioned — still seed defaults (self-heal a workspace whose key predates the
+		// seeding, or whose defaults were cleared). SeedDefaultsIfUnset is a no-op when all three are set.
+		p.seedDefaults(ctx, existing[0].ID)
+		return nil
 	}
 
 	// Privacy: send a one-way hash of the machine fingerprint, never the raw serial. No stable
@@ -111,14 +146,16 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 		return nil
 	}
 
-	if _, err := p.keys.CreateManaged(ctx, apikeyapp.ManagedCreateInput{
+	k, err := p.keys.CreateManaged(ctx, apikeyapp.ManagedCreateInput{
 		Provider:     providerName,
 		DisplayName:  displayName,
 		Key:          res.Token,
 		BaseURL:      llminfra.AnselmBaseURL,
 		TestResponse: llminfra.AnselmProbeBody(),
-	}); err != nil {
-		// A display-name UNIQUE conflict means a concurrent provision won the race → idempotent no-op.
+	})
+	if err != nil {
+		// A display-name UNIQUE conflict means a concurrent provision won the race → idempotent no-op
+		// (that winner — or the next boot's self-heal above — seeds the defaults).
 		if errors.Is(err, apikeydomain.ErrDisplayNameConflict) {
 			return nil
 		}
@@ -126,5 +163,22 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 		return nil
 	}
 	p.log.Info("free-tier provisioned (managed anselm key created)")
+	p.seedDefaults(ctx, k.ID)
 	return nil
+}
+
+// seedDefaults points the workspace's unset scenario defaults at the managed model (best-effort). It
+// runs on BOTH the fresh-create and already-provisioned paths so a workspace whose key predates the
+// seeding still self-heals on the next boot. nil defaults port / empty key → no-op.
+//
+// seedDefaults 把 workspace 未设的 scenario 默认指向受管模型（best-effort）。在新建与已开通两条路径都跑，
+// 使 key 早于播种的 workspace 也在下次 boot 自愈。defaults 端口 nil / key 空 → no-op。
+func (p *Provisioner) seedDefaults(ctx context.Context, keyID string) {
+	if p.defaults == nil || keyID == "" {
+		return
+	}
+	ref := modeldomain.ModelRef{APIKeyID: keyID, ModelID: llminfra.AnselmModelID}
+	if err := p.defaults.SeedDefaultsIfUnset(ctx, ref); err != nil {
+		p.log.Warn("free-tier: seeding workspace default models failed", zap.Error(err))
+	}
 }

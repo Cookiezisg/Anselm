@@ -99,9 +99,18 @@ func (r fakeResolver) ResolveUtility(_ context.Context) (Bundle, error) {
 }
 
 // fakeConvs returns one fixed conversation for any id (or err, if set, to simulate a foreign/missing id).
+// rec (when non-nil) streams the unread bit of every TouchLastMessage onto a channel, so a test can
+// assert the unread-watermark wiring across goroutines (the assistant finalize touch runs on the queue
+// goroutine, so a channel — not a slice — keeps the read race-free under -race).
 type fakeConvs struct {
 	conv *conversationdomain.Conversation
 	err  error
+	rec  *touchRec
+}
+
+// touchRec streams each TouchLastMessage's unread argument for cross-goroutine assertions.
+type touchRec struct {
+	unread chan bool
 }
 
 func (c fakeConvs) Get(_ context.Context, id string) (*conversationdomain.Conversation, error) {
@@ -288,6 +297,49 @@ func TestSend_EndToEnd(t *testing.T) {
 	// SSE: assistant message_start (Open) + message_stop (Close) both reached the bridge.
 	if !bridge.frameFor(asstID, streamdomain.Open{}) || !bridge.frameFor(asstID, streamdomain.Close{}) {
 		t.Fatalf("missing message_start/stop frames for %s", asstID)
+	}
+}
+
+// TestSend_UnreadWatermark proves the chat side of the unread watermark: the user's own send touches
+// the conversation with unread=false (your own message is never unread), then the COMPLETED assistant
+// finalize touches with unread=true (a reply to read). The two touches arrive in that order; capturing
+// them on a channel keeps the finalize touch (queue goroutine) race-free.
+//
+// TestSend_UnreadWatermark 证明未读 watermark 的 chat 侧：用户自己的发送以 unread=false touch 对话（自己的消息绝不未读），
+// 随后**完成**的 assistant 终态以 unread=true touch（有回复待读）。两次 touch 按此序到达；用 channel 捕获使终态 touch
+// （队列 goroutine）在 -race 下无竞争。
+func TestSend_UnreadWatermark(t *testing.T) {
+	bridge := newRecordBridge()
+	store := newStore(t)
+	rec := &touchRec{unread: make(chan bool, 8)}
+	svc := NewService(store, Deps{
+		Conversations: fakeConvs{conv: &conversationdomain.Conversation{SystemPrompt: "be concise"}, rec: rec},
+		Resolver:      fakeResolver{client: &fakeClient{script: textTurn()}},
+		Bridge:        bridge,
+	}, zap.NewNop())
+	ctx := ctxWS("ws_1")
+
+	asstID, err := svc.Send(ctx, "cv_1", SendInput{Content: "hi there"})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitClose(t, bridge, asstID)
+
+	recvUnread := func() bool {
+		t.Helper()
+		select {
+		case v := <-rec.unread:
+			return v
+		case <-time.After(2 * time.Second):
+			t.Fatal("timed out waiting for a TouchLastMessage")
+			return false
+		}
+	}
+	if recvUnread() {
+		t.Error("the user's own send must touch unread=false (your own message is never unread)")
+	}
+	if !recvUnread() {
+		t.Error("a completed assistant finalize must touch unread=true (a reply to read)")
 	}
 }
 
@@ -636,4 +688,14 @@ func TestSystemPromptPreview(t *testing.T) {
 
 func (f fakeConvs) Unarchive(context.Context, string) error { return nil }
 
-func (f fakeConvs) TouchLastMessage(context.Context, string, time.Time) error { return nil }
+func (f fakeConvs) TouchLastMessage(_ context.Context, _ string, _ time.Time, unread bool) error {
+	if f.rec != nil {
+		select {
+		case f.rec.unread <- unread:
+		default:
+		}
+	}
+	return nil
+}
+
+func (f fakeConvs) MarkSeen(context.Context, string) error { return nil }

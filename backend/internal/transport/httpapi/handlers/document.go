@@ -91,6 +91,19 @@ func (h *DocumentHandler) Tree(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	responsehttpapi.Success(w, http.StatusOK, documentTreeRows(rows))
+}
+
+// documentTreeRows projects live documents into the metadata-only tree rows. The body itself is
+// dropped (fetched per-node via GET /{id}), but a hasContent bool is surfaced so the sidebar can
+// tell an empty page apart from a written one without a content round-trip — it drives the tree
+// icon (empty page vs written doc). hasContent mirrors size_bytes>0, kept explicit so the wire
+// contract states intent rather than making the client reinterpret a byte count.
+//
+// documentTreeRows 把活跃文档投影成仅 metadata 的树行。正文本身丢弃（按节点经 GET /{id} 取），但浮出
+// hasContent bool，让侧栏无需拉正文即可分辨空白页与已写页——驱动树 icon（空页 vs 已写文档）。hasContent
+// 等价 size_bytes>0，保留显式字段让线缆契约陈述意图、而非让客户端把字节数重新解读一遍。
+func documentTreeRows(rows []*documentdomain.Document) []map[string]any {
 	out := make([]map[string]any, len(rows))
 	for i, d := range rows {
 		out[i] = map[string]any{
@@ -101,12 +114,13 @@ func (h *DocumentHandler) Tree(w http.ResponseWriter, r *http.Request) {
 			"path":        d.Path,
 			"position":    d.Position,
 			"sizeBytes":   d.SizeBytes,
+			"hasContent":  d.Content != "",
 			"tags":        d.Tags,
 			"createdAt":   d.CreatedAt,
 			"updatedAt":   d.UpdatedAt,
 		}
 	}
-	responsehttpapi.Success(w, http.StatusOK, out)
+	return out
 }
 
 func (h *DocumentHandler) Create(w http.ResponseWriter, r *http.Request) {

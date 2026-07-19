@@ -43,17 +43,19 @@ func Test_listConversations_EnumeratesAndPages(t *testing.T) {
 	if got.NextCursor != "cursor_page2" {
 		t.Fatalf("nextCursor must surface so a page isn't mistaken for the whole set, got %q", got.NextCursor)
 	}
-	// default excludes archived (active only).
-	if fm.gotFilter.Archived == nil || *fm.gotFilter.Archived != false {
-		t.Fatalf("default must filter to active only (Archived=&false), got %v", fm.gotFilter.Archived)
+	// default excludes archived (ArchiveActive = active only).
+	if fm.gotFilter.Archive != conversationdomain.ArchiveActive {
+		t.Fatalf("default must be ArchiveActive (active only), got %q", fm.gotFilter.Archive)
 	}
 
-	// includeArchived → no archived filter (all threads).
+	// includeArchived → ArchiveAll (active + archived together). Regression guard: the old code left
+	// the filter at the active-only default believing it meant "all", so includeArchived silently
+	// returned NO archived threads — the very bug ArchiveScope fixes.
 	if _, err := tool.Execute(context.Background(), `{"includeArchived":true}`); err != nil {
 		t.Fatalf("execute includeArchived: %v", err)
 	}
-	if fm.gotFilter.Archived != nil {
-		t.Fatalf("includeArchived must drop the archived filter (nil = all), got %v", *fm.gotFilter.Archived)
+	if fm.gotFilter.Archive != conversationdomain.ArchiveAll {
+		t.Fatalf("includeArchived must set ArchiveAll (active+archived), got %q", fm.gotFilter.Archive)
 	}
 }
 

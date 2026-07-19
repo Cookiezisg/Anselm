@@ -3,9 +3,9 @@
 // PLAN A9 逐格：SSE 协议面（durable 重连 fromSeq 续传 / 环淘汰 410 SEQ_TOO_OLD / entities
 // 流 build 镜像与 run 终端真到达）；limits **每字段** PATCH→对应行为真变（invokeMaxTurns /
 // llmIdleSec / bashDefaultTimeoutSec / bashOutputCapKB / attachmentMaxMB / webhookBodyMaxMB
-// ——maxSteps/triggerRatio/toolResultCapKB 已在 W4/W5 钉死）；通知全事件域（11 域 created
-// 族真到达 + 未读/已读）；sandbox runtime 装/删/gc/disk-usage；workspace 级联删除逐资产
-// 残留（12 类全建再删，索引/可达性全清）。
+// ——maxSteps/triggerRatio/toolResultCapKB 已在 W4/W5 钉死）；通知分径全域普查（events.md
+// 的 ⊞ 落行 / ⤳ 仅帧两档逐事件钉死，两个方向都会红 + 未读/已读）；sandbox runtime 装/删/gc/
+// disk-usage；workspace 级联删除逐资产残留（12 类全建再删，索引/可达性全清）。
 package scenarios
 
 import (
@@ -149,12 +149,28 @@ func TestPlatformR4_LimitsEveryField(t *testing.T) {
 
 	// agent.invokeMaxTurns：永不收口的 agent 在 2 轮被切，状态/stopReason 诚实。
 	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"invokeMaxTurns": 2}}).OK(t, nil)
+	// Pick the MOCK key by name — the workspace ALSO auto-provisions the managed free-tier key
+	// asynchronously, so [0] was a race: when the managed key sorted first, the agent scene
+	// routed to the REAL gateway, a real model answered and ended the loop naturally, and the
+	// max-turns cut never fired (this test then failed on live-network behavior).
+	// 按名取 mock key——workspace 还会异步自动开通托管 free-tier key,取 [0] 是竞态:托管 key 排前时
+	// agent 场景被路由到真网关,真模型答完自然收口,max-turns 切割永不触发(本测就此栽在真网络上)。
 	keyArr := []struct {
-		ID string `json:"id"`
+		ID          string `json:"id"`
+		DisplayName string `json:"displayName"`
 	}{}
 	wc.GET("/api/v1/api-keys").OK(t, &keyArr)
+	mockKeyID := ""
+	for _, k := range keyArr {
+		if k.DisplayName == "llmmock" {
+			mockKeyID = k.ID
+		}
+	}
+	if mockKeyID == "" {
+		t.Fatalf("mock key not found among %d workspace keys", len(keyArr))
+	}
 	wc.PUT("/api/v1/workspaces/"+wsOf(t, wc)+"/default-models/agent",
-		map[string]any{"apiKeyId": keyArr[0].ID, "modelId": agModel}).OK(t, nil)
+		map[string]any{"apiKeyId": mockKeyID, "modelId": agModel}).OK(t, nil)
 	fnLoop := fnCreate(t, wc, "loop_target", "def loop_target() -> dict:\n    return {}\n")
 	agID := agCreate(t, wc, map[string]any{
 		"name": "Endless", "description": "loops", "prompt": "loop",
@@ -193,14 +209,34 @@ func wsOf(t *testing.T, wc *harness.Client) string {
 	return rows[0].ID
 }
 
-// TestPlatformR4_NotificationAllDomains: 通知全事件域——11 个发射域各驱动一次 created 族，
-// 全部真到达列表 + 未读计数随之走、批量已读清零。
+// TestPlatformR4_NotificationAllDomains: 通知分径（N0）的**全域普查**——events.md 登记的
+// ⊞/⤳ 两档逐事件钉死。⊞ = Emit（落收件箱行 **+** 推 durable 帧）；⤳ = Broadcast（**只推帧、
+// 不落行**——rail/树的对账回声，其真相是实体自身状态，进收件箱即噪音）。
+//
+// 本测试在**两个方向**都会红，这正是 N0 那一刀的全部意义：
+//   - ⊞ 档某域不再落行 → 红（wantInbox 的 Eventually 超时）；
+//   - ⤳ 档某域**偷偷落了行** → 也红（wantFrameOnly 的行断言）。
+//
+// 事实源是 events.md 的 ⊞/⤳ 标记，不是「域前缀」——`document` 是唯一横跨两档的域
+// （created/updated/moved=⤳ 树刷新回声，deleted=⊞ 破坏性、AI 可删用户文档），按前缀断言
+// 表达不了这条分界，故逐**事件全名**断言。
+//
+// TestPlatformR4_NotificationAllDomains sweeps the whole N0 dispatch: every event type
+// registered ⊞ in events.md must persist an inbox row, and every ⤳ one must never persist a
+// row (frame only). It goes red in both directions — an Emit-tier domain that stops
+// persisting, AND a Broadcast-tier domain that starts persisting.
 func TestPlatformR4_NotificationAllDomains(t *testing.T) {
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "notif-ws"}).Field(t, "id")
 	wc := c.WS(wsID)
 	script := writeScriptedMCP(t)
+
+	// 订阅须早于驱动：⤳ 档不落行，故「它确实发生过」的唯一证据就是流上那条帧——没有这个证据，
+	// 下面的「无行」断言就是空断言（一个从未发生的事件当然不落行）。
+	// Subscribe BEFORE driving: a ⤳ event leaves no row, so its frame is the ONLY evidence it
+	// happened at all — without it the no-row assertion below would pass vacuously.
+	sNot := wc.Subscribe(t, "notifications")
 
 	fnCreate(t, wc, "notif_fn", "def notif_fn() -> dict:\n    return {}\n")
 	hdCreate(t, wc, "notif_hd", map[string]any{
@@ -223,45 +259,73 @@ func TestPlatformR4_NotificationAllDomains(t *testing.T) {
 	})
 	wc.POST("/api/v1/skills", map[string]any{"name": "notif_skill", "description": "d", "body": "b"}).OK(t, nil)
 	wc.PUT("/api/v1/memories/notif-mem", map[string]any{"description": "d", "content": "c", "source": "user"}).OK(t, nil)
-	wc.POST("/api/v1/documents", map[string]any{"name": "notif_doc", "content": "c"}).OK(t, nil)
+	// document 横跨两档：建=树刷新回声（⤳），删=破坏性、值得进收件箱（⊞）。两拍都驱动，才能
+	// 证明这条**域内**分界是活的。document straddles both tiers — drive create AND delete.
+	docID := wc.POST("/api/v1/documents", map[string]any{"name": "notif_doc", "content": "c"}).Field(t, "id")
+	wc.DELETE("/api/v1/documents/"+docID).OK(t, nil)
 	wc.POST("/api/v1/conversations", map[string]any{"title": "notif conv"}).OK(t, nil)
 	wc.PUT("/api/v1/mcp-servers/notifmcp", map[string]any{
 		"description": "d", "command": "python3", "args": []string{script},
 	}).OK(t, nil)
 
-	// 11 域的事件全部到达（<域>.created / installed 族）。
-	want := []string{
-		"function.", "handler.", "agent.", "control.", "approval.",
-		"workflow.", "skill.", "memory.", "document.", "conversation.", "mcp.",
+	// ⊞ Emit 档：落收件箱行 + 推帧（events.md P1「实体面」/P4/P5 各域表）。
+	wantInbox := []string{
+		"function.created", "handler.created", "agent.created", "control.created",
+		"approval.created", "workflow.created", "skill.created", "memory.created",
+		"mcp.installed", "document.deleted",
 	}
+	// ⤳ Broadcast 档：只推帧、**绝不落行**（events.md :88 document 建/改/移 · :98 conversation 全族）。
+	wantFrameOnly := []string{"conversation.created", "document.created"}
+
+	// 每条 ⤳ 帧真到达。**顺带把「无行」断言变成无时序缝的硬断言**：Emit 是先 `repo.Save` 落行、
+	// 后 `push` 推帧（app/notification/notification.go），故只要帧已到，倘若它走的是 Emit 档，
+	// 那条行此刻**必然已经在库里**——无需靠「等久一点」赌它没有迟到。
+	// Emit persists the row BEFORE pushing the frame, so observing the frame proves an
+	// Emit-tier row would already exist — the absence check below needs no timing slack.
+	for _, ty := range wantFrameOnly {
+		sNot.WaitFor(t, 30000, ty+" 必须真到达流（否则下面的无行断言是空断言）", ty)
+	}
+
 	type notifRow struct {
 		ID   string `json:"id"`
 		Type string `json:"type"`
 		Read bool   `json:"read"`
 	}
 	var page []notifRow
-	seen := map[string]bool{}
-	harness.Eventually(t, 20000, "all 11 domains notified", func() bool {
+	listTypes := func() map[string]bool {
 		page = nil
-		wc.GET("/api/v1/notifications?limit=100").OK(t, &page)
-		seen = map[string]bool{}
+		wc.GET("/api/v1/notifications?limit=200").OK(t, &page)
+		got := map[string]bool{}
 		for _, n := range page {
-			for _, w := range want {
-				if strings.HasPrefix(n.Type, w) {
-					seen[w] = true
-				}
-			}
+			got[n.Type] = true
 		}
-		if len(seen) != len(want) {
-			types := map[string]bool{}
-			for _, n := range page {
-				types[n.Type] = true
+		return got
+	}
+
+	// 方向一：⊞ 档全部落行。
+	var got map[string]bool
+	harness.Eventually(t, 30000, "every Emit-tier(⊞) event persists an inbox row", func() bool {
+		got = listTypes()
+		for _, w := range wantInbox {
+			if !got[w] {
+				return false
 			}
-			t.Logf("DEBUG seen=%v distinct types=%v", seen, types)
-			return false
 		}
 		return true
 	})
+
+	// 方向二：同一份已填满的 list 里，⤳ 档一行都没有。
+	for _, w := range wantFrameOnly {
+		if got[w] {
+			t.Errorf("%s 登记为 ⤳（仅帧、不落行，events.md）——它绝不能落收件箱行；got types=%v", w, got)
+		}
+	}
+	// conversation 是**全族**仅帧：任何 conversation.* 行都是分径破了。
+	for ty := range got {
+		if strings.HasPrefix(ty, "conversation.") {
+			t.Errorf("conversation.* 全族仅帧（events.md :98）——不得有任何收件箱行，found %q", ty)
+		}
+	}
 
 	// 未读计数 > 0 → 单条已读递减 → read-all 清零。
 	var unread struct {

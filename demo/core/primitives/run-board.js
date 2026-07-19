@@ -3,7 +3,6 @@
    本件真正专属的只有：左列表 ↔ 右 an-node-gantt 的【同步选中一个块】+ 看板 2 列外壳——点行切右甘特 + emit an-run-pick{id}（消费方据此切运行图 + 节点调试）；内嵌 an-node-gantt 的 an-node-pick 经 composed 冒泡至消费方。 */
 (function () {
   const e = window.anEsc;
-  const DOT = { running: "run", completed: "done", failed: "err", parked: "wait", cancelled: "idle" };
 
   class AnRunBoard extends window.AnElement {
     static tag = "an-run-board";
@@ -13,7 +12,7 @@
       .board { display: grid; grid-template-columns: var(--run-list-w) 1fr; align-items: stretch;
         border-radius: var(--r-card); background: var(--island); box-shadow: inset 0 0 0 var(--hairline) var(--line); overflow: hidden; }
       .runs { display: flex; flex-direction: column; min-width: 0; border-right: var(--hairline) solid var(--line); }
-      .gpane { display: flex; flex-direction: column; min-width: 0; }
+      .gpane { display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: auto; }
       .rhead, .ghead { flex: none; height: var(--ctl); display: flex; align-items: center; padding: 0 var(--sp-3);
         font-size: var(--t-meta); font-weight: 600; color: var(--ink-3); border-bottom: var(--hairline) solid var(--line); }
       .rlist { min-height: 0; overflow-y: auto; padding: var(--grid); }
@@ -27,13 +26,16 @@
 
     render() {
       const runs = this._runs || [];
-      const items = runs.map((r) => {
-        const hint = [r.trigger, r.when].filter(Boolean).join(" · ");
-        return `<an-row class="run" data-id="${e(r.id)}" dot="${DOT[r.status] || "idle"}" mono emphatic label="${e(r.id)}"`
-          + (hint ? ` hint="${e(hint)}"` : "")
-          + (r.replay ? ` meta="↻${e(String(r.replay))}"` : "")
-          + (r.id === this._sel ? " selected" : "") + "></an-row>";
-      }).join("");
+      // 还没有任何运行：左列塞空态而非裸空白（与全 demo 空集语汇统一）
+      const items = runs.length
+        ? runs.map((r) => {
+          const hint = [r.trigger, r.when].filter(Boolean).join(" · ");
+          return `<an-row class="run" data-id="${e(r.id)}" dot="${window.anState(r.status)}" mono emphatic label="${e(r.id)}"`
+            + (hint ? ` hint="${e(hint)}"` : "")
+            + (r.replay ? ` meta="↻${e(String(r.replay))}"` : "")
+            + (r.id === this._sel ? " selected" : "") + "></an-row>";
+        }).join("")
+        : `<an-state variant="empty" title="尚无运行" hint="触发此工作流后这里会列出每次运行"></an-state>`;
       return `<div class="board">`
         + `<div class="runs"><div class="rhead">运行 · ${runs.length} 次</div><div class="rlist">${items}</div></div>`
         + `<div class="gpane"><div class="ghead">节点甘特</div><an-node-gantt></an-node-gantt></div>`

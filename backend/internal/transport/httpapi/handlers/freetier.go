@@ -19,19 +19,37 @@ import (
 // 「剩 X / limit,某时重置」——install token 加密存后端,客户端无法直读网关,后端代理一次 live 读。与
 // /limits 同走 guarded(workspace 级:受管 key 按 workspace 隔离)。
 type FreetierHandler struct {
-	svc *freetierapp.QuotaReader
-	log *zap.Logger
+	svc         *freetierapp.QuotaReader
+	provisioner *freetierapp.Provisioner
+	log         *zap.Logger
 }
 
-func NewFreetierHandler(svc *freetierapp.QuotaReader, log *zap.Logger) *FreetierHandler {
+func NewFreetierHandler(svc *freetierapp.QuotaReader, provisioner *freetierapp.Provisioner, log *zap.Logger) *FreetierHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &FreetierHandler{svc: svc, log: log.Named("handlers.freetier")}
+	return &FreetierHandler{svc: svc, provisioner: provisioner, log: log.Named("handlers.freetier")}
 }
 
 func (h *FreetierHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/freetier/quota", h.Quota)
+	// Manual re-provision (WRK-062 S-7): the boot/OnCreated hooks are best-effort — this is the
+	// user-facing retry. Idempotent: an existing managed row short-circuits to provisioned:true.
+	// 手动重开通(S-7):boot/OnCreated 钩子 best-effort,这是用户侧重试口;幂等,已有受管行即短路。
+	mux.HandleFunc("POST /api/v1/freetier:provision", h.Provision)
+}
+
+type provisionResponse struct {
+	Provisioned bool `json:"provisioned"`
+}
+
+func (h *FreetierHandler) Provision(w http.ResponseWriter, r *http.Request) {
+	provisioned, err := h.provisioner.ProvisionNow(r.Context())
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, provisionResponse{Provisioned: provisioned})
 }
 
 type quotaResponse struct {

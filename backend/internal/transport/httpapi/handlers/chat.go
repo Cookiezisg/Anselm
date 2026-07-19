@@ -43,6 +43,7 @@ func (h *ChatHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/conversations/{id}/usage", h.Usage)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/interactions", h.ListInteractions)
 	mux.HandleFunc("POST /api/v1/conversations/{id}/interactions/{toolCallId}", h.ResolveInteraction)
+	mux.HandleFunc("GET /api/v1/conversations/{id}/anchors", h.Anchors)
 }
 
 // sendMessageRequest is the user turn: text + referenced attachments + @-mentions.
@@ -79,16 +80,78 @@ func (h *ChatHandler) Send(w http.ResponseWriter, r *http.Request) {
 }
 
 // List returns one keyset page of the conversation's history (newest-first), each message with
-// its blocks. N4 pagination via ?cursor & ?limit.
+// its blocks. N4 pagination via ?cursor & ?limit. Two extra query forms share the route:
+// ?around=<messageId> opens a deep-jump window centered on the target (bidirectional coordinates
+// in a window envelope; around is mutually exclusive with cursor and dir — only one read form
+// may be requested at a time), and ?dir=newer walks a cursor FORWARD in time (the window's
+// newerCursor continuation; requires a cursor). Every form keeps the same newest-first data
+// ordering — one rule, no direction-dependent reversals on the wire.
 //
-// List 返回对话历史的一页 keyset（最新在前），每条带 blocks。N4 分页经 ?cursor & ?limit。
+// List 返回对话历史的一页 keyset（最新在前），每条带 blocks。N4 分页经 ?cursor & ?limit。同路由
+// 另有两种查询形态：?around=<messageId> 开以目标为中心的深跳窗（窗 envelope 带双向坐标；around 与
+// cursor、dir **互斥**——一次只可请求一种读形态），?dir=newer 让 cursor 沿时间**向前**走（窗口
+// newerCursor 的续翻；必须带 cursor）。所有形态保持同一 newest-first 排序——单一规则，线缆无随
+// 方向反转。
 func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
 	p, err := responsehttpapi.ParsePage(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	items, next, err := h.svc.ListMessages(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
+	q := r.URL.Query()
+	around, dir := q.Get("around"), q.Get("dir")
+	if around != "" {
+		if p.Cursor != "" || dir != "" {
+			// The shared INVALID_REQUEST sentinel (wire codes are globally unique; the message detail
+			// rides details). 共享 sentinel(线缆码全局唯一;具体原因走 details)。
+			responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest.WithDetails(
+				map[string]any{"reason": "around is mutually exclusive with cursor and dir"}))
+			return
+		}
+		win, err := h.svc.MessagesAround(r.Context(), r.PathValue("id"), around, p.Limit)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Window(w, win.Messages, win.TargetID, win.OlderCursor, win.NewerCursor, win.HasOlder, win.HasNewer)
+		return
+	}
+	switch dir {
+	case "", "older":
+		items, next, err := h.svc.ListMessages(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Paged(w, items, next, next != "")
+	case "newer":
+		items, next, err := h.svc.ListMessagesNewer(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Paged(w, items, next, next != "")
+	default:
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest.WithDetails(
+			map[string]any{"reason": "dir must be omitted, 'older' or 'newer'"}))
+	}
+}
+
+// Anchors returns one keyset page of the conversation's navigation anchors (场次条), newest-first
+// — user turns (first-line excerpt), folded machine-action clusters, dangerous tool calls,
+// compaction marks, abnormal terminal turns; pending human gates ride the first page's top
+// (live broker state, outside the keyset). N4 pagination via ?cursor & ?limit.
+//
+// Anchors 返回对话导航锚点（场次条）的一页 keyset（最新在前）——user 回合（首行节选）、折叠的机器
+// 动作簇、危险工具调用、压缩标记、异常终态回合；待决人闸骑首页顶（broker 活状态、keyset 之外）。
+// N4 分页经 ?cursor & ?limit。
+func (h *ChatHandler) Anchors(w http.ResponseWriter, r *http.Request) {
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	items, next, err := h.svc.ListAnchors(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
@@ -96,19 +159,36 @@ func (h *ChatHandler) List(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Paged(w, items, next, next != "")
 }
 
-// postAction dispatches the conversation-level action POST /conversations/{id}:cancel.
+// postAction dispatches the conversation-level :action POSTs that share the {idAction} pattern
+// (Go 1.22 ServeMux allows ONE handler per pattern, so :cancel and :seen are switched here rather
+// than registered as separate routes). Both return 204; an unknown action is 404.
 //
-// postAction 派发对话级动作 POST /conversations/{id}:cancel。
+// postAction 派发共享 {idAction} 模式的对话级 :action（Go 1.22 ServeMux 每模式仅一处理器，故 :cancel 与 :seen
+// 在此 switch、而非各注册一条路由）。两者均返 204；未知动作 404。
 func (h *ChatHandler) postAction(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
-	if !ok || action != "cancel" {
+	if !ok {
 		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
-	// Cancel stops the conversation's running turn (204). Graceful no-op when nothing runs.
-	// Cancel 停止对话运行中的回合（204）。无运行回合时优雅 no-op。
-	if err := h.svc.Cancel(r.Context(), id); err != nil {
-		responsehttpapi.FromDomainError(w, h.log, err)
+	switch action {
+	case "cancel":
+		// Cancel stops the conversation's running turn (204). Graceful no-op when nothing runs.
+		// Cancel 停止对话运行中的回合（204）。无运行回合时优雅 no-op。
+		if err := h.svc.Cancel(r.Context(), id); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+	case "seen":
+		// Seen clears the unread flag (the user opened the thread). Idempotent (204) — a no-op on an
+		// unknown id, since the client only :seens a thread it is currently viewing.
+		// Seen 清未读标志（用户打开了线程）。幂等（204）——未知 id 上 no-op，因客户端只对正在看的线程 :seen。
+		if err := h.svc.MarkSeen(r.Context(), id); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+	default:
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 		return
 	}
 	responsehttpapi.NoContent(w)
@@ -135,12 +215,15 @@ func (h *ChatHandler) ListInteractions(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusOK, h.svc.PendingInteractions(r.Context(), r.PathValue("id")))
 }
 
-// ResolveInteraction delivers a human decision (approve / approve_always / deny / accept / decline)
-// to a tool blocked awaiting input in this conversation; 202 (the gated tool resumes + streams over
-// the messages SSE). NO_PENDING_INTERACTION (404) if nothing is waiting on that tool_call.
+// ResolveInteraction delivers a human decision (approve / approve_always / deny / accept / decline) to
+// a tool blocked awaiting input in this conversation. 204 (pure state change, no new product; the gated
+// tool resuming + streaming over the messages SSE is an async side effect, not the HTTP response).
+// An out-of-enum action → 422 INTERACTION_INVALID_ACTION; nothing waiting on that tool_call → 404
+// NO_PENDING_INTERACTION.
 //
 // ResolveInteraction 把人的决定（approve / approve_always / deny / accept / decline）送给本对话中阻塞等输入的
-// 工具；202（被门工具续跑 + 经 messages SSE 流式）。该 tool_call 无等待项则 NO_PENDING_INTERACTION (404)。
+// 工具。204（纯状态变更、无新产物；被门工具续跑 + 经 messages SSE 流式是异步副作用、非 HTTP 响应）。枚举外 action
+// → 422 INTERACTION_INVALID_ACTION；该 tool_call 无等待项则 404 NO_PENDING_INTERACTION。
 func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Action string `json:"action"` // approve | approve_always | deny | accept | decline
@@ -150,7 +233,7 @@ func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request)
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("toolCallId"), req.Action, req.Answer); err != nil {
+	if err := h.svc.ResolveInteraction(r.Context(), r.PathValue("id"), r.PathValue("toolCallId"), req.Action, req.Answer); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}

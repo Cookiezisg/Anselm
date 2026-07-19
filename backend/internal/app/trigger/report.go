@@ -18,16 +18,19 @@ import (
 // onReport is the ReportFunc handed to every listener. A listener only knows "my trigger did
 // X"; here the app resolves the trigger's workspace + listening workflows and turns the
 // report into an Activation (always) plus, when Fired, one Firing per workflow (fan-out).
-// A report racing in after Detach (listeners entry gone) is dropped.
+// A report racing in after Detach (listeners entry gone) or after Pause (entry marked paused —
+// the unregister may land a beat behind, scheduler 工单⑦) is dropped.
 //
 // onReport 是交给每个 listener 的 ReportFunc。listener 只知"我这个 trigger 做了 X"；app 在此解析 trigger
 // 的 workspace + 监听 workflow，把报告变成 Activation（总是）+ Fired 时每 workflow 一条 Firing（扇出）。
+// Detach 后（entry 已删）或 Pause 后（entry 已标暂停——unregister 可能慢半拍落地，scheduler 工单⑦）
+// 抢进来的报告一律丢弃。
 func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 	s.mu.RLock()
 	e, ok := s.listeners[triggerID]
-	if !ok {
+	if !ok || e.paused {
 		s.mu.RUnlock()
-		return // detached mid-flight — drop
+		return // detached / paused mid-flight — drop. 半途被摘 / 被暂停——丢弃。
 	}
 	wsID, kind := e.workspaceID, e.kind
 	workflows := make([]string, 0, len(e.workflows))
@@ -40,14 +43,51 @@ func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 	// Detached ctx 种入 trigger 的 workspace——listener 在请求之外触发。
 	ctx := reqctxpkg.Detached(wsID)
 	_ = s.fanOut(ctx, triggerID, kind, workflows, act)
+
+	// A delivered cron tick is ACCOUNTED — advance the misfire watermark past it (scheduler 工单⑨)
+	// so the sweep never re-books a tick that really fired. Done after the fan-out: the firing rows
+	// are the durable truth, and a crash between them and this write only costs a re-check whose
+	// dedup key already exists (AppendFiring is idempotent).
+	//
+	// 已送达的 cron 刻度即**已入账**——把 misfire 水位推过它（scheduler 工单⑨），使 sweep 绝不重记真
+	// fire 过的刻度。放在扇出之后：firing 行才是耐久真相，两者之间崩溃只损失一次复查、而其 dedup 键已
+	// 存在（AppendFiring 幂等）。
+	if kind == triggerdomain.KindCron && act.Fired {
+		if err := s.repo.AdvanceMissedWatermark(ctx, triggerID, time.Now()); err != nil {
+			s.log.Warn("triggerapp: advance misfire watermark", zapTrigger(triggerID), zapErr(err))
+		}
+	}
 }
 
 // fanOut writes one Activation (always) and, when the activity fired, one Firing per listening
 // workflow (each sharing the activity's dedup key so a re-materialized fire dedups per
 // workflow). The Activation is minted first so every Firing references it.
 //
+// The RETURN VALUE of AppendFiring is the contract here, not the absence of an error: the dedup key
+// may already be taken (idx_trf_dedup), in which case AppendFiring hands back the EXISTING row and
+// nil — a nil error means "the key is accounted for", never "your fire produced a run". So each
+// outcome is read off the row's status:
+//   - pending — a new row, or one already waiting: this fire is runnable. Count it.
+//   - missed — the misfire sweep called this tick a miss and the fire arrived anyway (the sweep
+//     ruled too early, or a catchup_one deliberately fires the tick it just booked). Overturn the
+//     verdict: requeue the row so the run really happens. Counting it while leaving it `missed` is
+//     precisely the lie this fixes — firingCount would say 1, the ledger would say "never ran", and
+//     the workflow would never run (工单⑨).
+//   - anything terminal (claimed/started/skipped/superseded/shed) — the tick already reached a
+//     disposition; a re-materialized fire adds no run, so it must not inflate firingCount either.
+//
 // fanOut 写一条 Activation（总是），动作触发时每监听 workflow 一条 Firing（共享 dedup key，使重复材化
 // 按 workflow 去重）。先 mint Activation 使每条 Firing 都能反指它。
+//
+// 此处的契约是 AppendFiring 的**返回值**、不是「没报错」：dedup 键可能已被占（idx_trf_dedup），那时
+// AppendFiring 交回**已存在**的行 + nil——nil 错误的意思是「这个键已有着落」，从来不是「你这次 fire 产生了
+// 一次 run」。故逐个结局按行的 status 读：
+//   - pending —— 新行，或已在等的行：本次 fire 可跑。计数。
+//   - missed —— misfire sweep 判了这个刻度错过、而 fire 还是来了（sweep 判早了；或 catchup_one 刻意补跑
+//     它刚记的那个刻度）。**推翻判词**：把行救回队列，让 run 真的发生。若一边计数一边把它留在 `missed`，
+//     那正是本处所修的谎——firingCount 说 1、台账说「从未跑」、而 workflow 永远不跑（工单⑨）。
+//   - 任一终态（claimed/started/skipped/superseded/shed）—— 该刻度已有处置；重复材化的 fire 不产生
+//     任何 run，故也绝不许把 firingCount 撑大。
 func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows []string, act triggerinfra.Activity) string {
 	actID := idgenpkg.New("tra")
 	fired := 0
@@ -57,15 +97,28 @@ func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows 
 			dedup = triggerID + "|" + strconv.FormatInt(time.Now().UnixNano(), 10)
 		}
 		for _, wfID := range workflows {
-			if _, err := s.repo.AppendFiring(ctx, &triggerdomain.Firing{
+			f, err := s.repo.AppendFiring(ctx, &triggerdomain.Firing{
 				TriggerID:    triggerID,
 				WorkflowID:   wfID,
 				ActivationID: actID,
 				Payload:      act.Payload,
 				DedupKey:     dedup,
-			}); err != nil {
+			})
+			if err != nil {
 				s.log.Warn("triggerapp: append firing failed", zapTrigger(triggerID), zap.String("workflowId", wfID), zapErr(err))
 				continue
+			}
+			if f.Status == triggerdomain.FiringMissed {
+				if err := s.repo.RequeueMissedFiring(ctx, f.ID, actID); err != nil {
+					s.log.Warn("triggerapp: requeue missed firing failed", zapTrigger(triggerID), zap.String("workflowId", wfID), zapErr(err))
+					continue
+				}
+				s.log.Info("triggerapp: a fire landed on a tick booked missed — requeued it as the run",
+					zapTrigger(triggerID), zap.String("workflowId", wfID), zap.String("firingId", f.ID))
+				f.Status = triggerdomain.FiringPending
+			}
+			if f.Status != triggerdomain.FiringPending {
+				continue // already dispositioned — this fire mints no run, so it counts as none.
 			}
 			fired++
 		}
@@ -107,14 +160,21 @@ func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows 
 
 // FireManual fires a trigger by hand (the fire_trigger tool / a test "ping it now"): it
 // fans out to whatever workflows currently listen (possibly none — then it's just a recorded
-// Activation with 0 firings).
+// Activation with 0 firings). A PAUSED trigger refuses loudly (422 TRIGGER_PAUSED) — pause means
+// "no new firings, period"; a manual fire slipping past the switch would betray it, and a silent
+// no-op would read as "fired but nothing ran" (scheduler 工单⑦).
 //
 // FireManual 手动触发一次（fire_trigger 工具 / 测试"立刻催它"）：扇给当前监听的 workflow（可能没有——
-// 那就只是一条 0 firing 的 Activation 记录）。
+// 那就只是一条 0 firing 的 Activation 记录）。**已暂停**的 trigger 大声拒（422 TRIGGER_PAUSED）——
+// 暂停 = 一个新 firing 都不许；手动 fire 绕过开关即背叛暂停，静默 no-op 则会被读作「触发了但没跑」
+// （scheduler 工单⑦）。
 func (s *Service) FireManual(ctx context.Context, triggerID string) (string, error) {
 	t, err := s.repo.GetTrigger(ctx, triggerID)
 	if err != nil {
 		return "", err
+	}
+	if t.Paused {
+		return "", triggerdomain.ErrPaused
 	}
 	s.mu.RLock()
 	var workflows []string
@@ -124,12 +184,35 @@ func (s *Service) FireManual(ctx context.Context, triggerID string) (string, err
 		}
 	}
 	s.mu.RUnlock()
+	// NOTE: a manual :fire deliberately does NOT advance the misfire watermark — it is not a
+	// scheduled tick, so it accounts for nothing on the cron timeline (工单⑨).
+	// 注：手动 :fire 刻意**不**推水位——它不是调度刻度，在 cron 时间线上什么都没入账（工单⑨）。
 	actID := s.fanOut(ctx, triggerID, t.Kind, workflows, triggerinfra.Activity{
 		Fired:    true,
 		Payload:  map[string]any{"manual": true},
 		DedupKey: triggerID + "|manual|" + strconv.FormatInt(time.Now().UnixNano(), 10),
 	})
 	return actID, nil
+}
+
+// listeningSince returns the workflows currently attached to triggerID with each one's attach epoch
+// (zero = listening since before this process) — the misfire sweep's per-workflow lower bound
+// (scheduler 工单⑨). Absent entry (not listening) → nil, and the sweep skips the trigger entirely.
+//
+// listeningSince 返回当前挂在 triggerID 上的 workflow 及各自的挂载纪元（零值 = 本进程之前就在监听）——
+// misfire sweep 的 per-workflow 下界（scheduler 工单⑨）。entry 不存在（未监听）→ nil，sweep 整个跳过该 trigger。
+func (s *Service) listeningSince(triggerID string) map[string]time.Time {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	e, ok := s.listeners[triggerID]
+	if !ok || e.paused {
+		return nil
+	}
+	out := make(map[string]time.Time, len(e.workflows))
+	for wf, since := range e.workflows {
+		out[wf] = since
+	}
+	return out
 }
 
 // detachOneShots drops every one-shot (staged) workflow among `workflows` that just received this

@@ -75,6 +75,80 @@ func TestKillWorkflow_CancelsParkedRun(t *testing.T) {
 	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusCancelled)
 }
 
+// losingRunStore makes ONE run's header guard lose, deterministically: the run reaches its natural
+// terminal an instant before the cancel's guarded UPDATE, so MarkRunTerminal matches 0 rows and
+// reports won=false. That interleaving is real (a node finishing as the user hits kill) but
+// unschedulable from a test, and RunStore being a port is the seam that makes it reproducible.
+//
+// losingRunStore 让**一个** run 的头守卫确定性地输：该 run 在 cancel 的守卫 UPDATE 前一瞬走到自己的自然
+// 终态，故 MarkRunTerminal 匹配 0 行、报 won=false。这个交错是真实的（用户按下 kill 的同时某节点跑完了），
+// 但在测试里排不出来——RunStore 是端口，这就是让它可复现的那道缝。
+type losingRunStore struct {
+	RunStore
+	loseFor string
+}
+
+func (l *losingRunStore) MarkRunTerminal(ctx context.Context, id, status, msg string) (bool, error) {
+	if id != l.loseFor {
+		return l.RunStore.MarkRunTerminal(ctx, id, status, msg)
+	}
+	// The natural terminal lands first and WINS the guard...
+	if _, err := l.RunStore.MarkRunTerminal(ctx, id, flowrundomain.StatusFailed, "natural failure"); err != nil {
+		return false, err
+	}
+	// ...so the caller's cancel finds 0 rows, exactly as the real guard would report it.
+	return false, nil
+}
+
+// TestKillWorkflow_GuardLoser_LeavesParkedRowAlone — the sweep is gated on WINNING the header guard,
+// and that gate is a correctness boundary, not etiquette. A loser's run reached its own terminal; if
+// that terminal is `failed`, the run is still replayable and its parked approval is still live — a
+// human can decide it after a :replay resurrects the run (which is exactly why the failRun path never
+// sweeps either). Sweeping it anyway would write a `cancelled` row onto a REPLAYABLE run, and
+// :replay cannot clear it (DeleteFailedNodes takes only failed rows, and D1 permits no third
+// delete): the approval would be permanently stuck, silently skipped by every subsequent re-walk.
+//
+// TestKillWorkflow_GuardLoser_LeavesParkedRowAlone——收割闸在「赢了头守卫」上，而那道闸是**正确性**边界、
+// 不是礼貌。输家的 run 走到的是它自己的终态；若那是 `failed`，run 仍可 replay、它的 parked 审批仍然活着
+// ——:replay 把 run 救回来后人仍可决策它（这也正是 failRun 路径同样从不收割的原因）。硬收割会把一条
+// `cancelled` 行写到一个**可 replay** 的 run 上，而 :replay 清不掉它（DeleteFailedNodes 只收 failed 行，
+// 且 D1 不容第三个删）：该审批就永久卡死、被之后每次重走静默跳过。
+func TestKillWorkflow_GuardLoser_LeavesParkedRowAlone(t *testing.T) {
+	g := workflowdomain.Graph{
+		Nodes: []workflowdomain.Node{
+			node("t", workflowdomain.NodeKindTrigger, "trg_1", nil),
+			node("ap", workflowdomain.NodeKindApproval, "apf_1", nil),
+		},
+		Edges: []workflowdomain.Edge{edge("e", "t", "", "ap")},
+	}
+	apf := &fakeApproval{byID: map[string]*approvaldomain.Version{"apf_1": {Template: "ok?"}}}
+	svc, store := mkSvc(t, g, newDisp(), nil, apf, "")
+	ctx := ctxWS("ws_1")
+
+	runID := mustRun(t, svc, ctx, map[string]any{})
+	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusRunning)
+
+	// Re-seat the service on a store whose guard loses for this run.
+	svc.runs = &losingRunStore{RunStore: store, loseFor: runID}
+
+	if _, err := svc.KillWorkflow(ctx, "wf_1"); err != nil {
+		t.Fatalf("KillWorkflow: %v", err)
+	}
+
+	// The natural terminal stands — kill did not clobber it.
+	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusFailed)
+
+	// And the parked row is UNTOUCHED: still parked, still in the inbox, still decidable.
+	// parked 行**没被碰**：仍 parked、仍在收件箱、仍可决策。
+	parked, _ := store.ListParkedNodes(ctx)
+	if len(parked) != 1 || parked[0].FlowRunID != runID {
+		t.Fatalf("the guard loser must not sweep a run it did not cancel: inbox=%+v", parked)
+	}
+	if parked[0].Status != flowrundomain.NodeParked {
+		t.Fatalf("parked row disposition = %q, want parked (untouched)", parked[0].Status)
+	}
+}
+
 // blockingAgentDispatcher's RunAgent signals that it entered, then blocks until its ctx is cancelled
 // — modelling a long agent stuck mid-run. This is exactly the case kill must interrupt.
 type blockingAgentDispatcher struct{ entered chan string }

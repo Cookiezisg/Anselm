@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -26,7 +27,31 @@ import (
 const (
 	fetchTimeout  = 30 * time.Second
 	maxFetchBytes = 1 << 20
+	// shellTextThreshold: below this many chars of readable text, a fetched HTML body is treated as a
+	// content-less JS-app shell (a real article/page has thousands; a SPA shell has ~title+meta only).
+	// 低于此可读文本字符数,把抓到的 HTML 当无内容 JS-app 外壳(真页面上千字,SPA 外壳仅标题+meta)。
+	shellTextThreshold = 200
 )
+
+// scriptStyleRe strips non-content blocks; tagRe strips remaining tags. Together they estimate the
+// human-readable text of an HTML body (for the content-less-shell guard). Cheap heuristic, not a parser.
+//
+// scriptStyleRe 剥非内容块;tagRe 剥余下标签。合起来估算 HTML body 的人类可读文本(供无内容外壳守卫)。廉价启发式、非解析器。
+var (
+	scriptStyleRe = regexp.MustCompile(`(?is)<(script|style|noscript|svg|template|head)\b[^>]*>.*?</(script|style|noscript|svg|template|head)>`)
+	tagRe         = regexp.MustCompile(`(?s)<[^>]+>`)
+)
+
+// visibleTextLen returns the approximate readable-text length of an HTML body: strip script/style/head
+// blocks, strip tags, collapse whitespace. Markdown (Jina mode) has no tags → returns its full length,
+// so this only flags local-mode HTML shells.
+//
+// visibleTextLen 返回 HTML body 的近似可读文本长度:剥 script/style/head 块、剥标签、折叠空白。markdown(Jina 模式)无标签 → 返其全长,故只标 local 模式 HTML 外壳。
+func visibleTextLen(content string) int {
+	s := scriptStyleRe.ReplaceAllString(content, " ")
+	s = tagRe.ReplaceAllString(s, " ")
+	return len(strings.Join(strings.Fields(s), " "))
+}
 
 // jinaEndpoint is the public Jina reader; var (not const) so tests can override.
 //
@@ -159,6 +184,20 @@ func (t *WebFetch) Execute(ctx context.Context, argsJSON string) (string, error)
 	}
 	if strings.TrimSpace(content) == "" {
 		return fmt.Sprintf("Fetched %s but body was empty.", args.URL), nil
+	}
+	// Content-less JS-app shell guard: the empty check above only catches a truly-empty body, not a
+	// JavaScript SPA whose HTML is meta + <script> with near-zero readable text. Feeding such a shell to
+	// the weak utility summariser makes it CONFABULATE page content from parametric memory and return it
+	// as if fetched — indistinguishable from a grounded answer (Phase 4 web HIGH: x.com/sama → invented
+	// tweets). Jina mode returns rendered markdown (real text) so this only trips on local-mode shells;
+	// return an honest, actionable message instead of summarising a shell.
+	//
+	// 无内容 JS-app 外壳守卫:上面的空检查只挡真空 body,挡不住 JS SPA——其 HTML 是 meta + <script>、可读文本近零。
+	// 把这种外壳喂给弱 utility 摘要器会让它**从参数记忆里编造**页面内容并当作抓到的返回,与有据答案无从区分
+	// (Phase 4 web HIGH:x.com/sama → 编造推文)。Jina 模式返回渲染后的 markdown(真文本)故只在 local 模式外壳触发;
+	// 返回诚实、可操作的提示,而非去摘要一个外壳。
+	if n := visibleTextLen(content); n < shellTextThreshold {
+		return fmt.Sprintf("Fetched %s, but the page has almost no readable text (%d chars) — it is likely a JavaScript app that renders in the browser, which local fetch cannot execute (so there is nothing to summarise, and summarising it would risk fabricated content). Try a server-rendered page or an API/RSS URL, or switch the workspace web-fetch mode to Jina.", args.URL, n), nil
 	}
 
 	summary, err := t.summarise(ctx, args.URL, args.Prompt, content)
@@ -357,7 +396,10 @@ Below is the fetched content (it may be markdown rendered by Jina or raw HTML):
 %s
 <<<CONTENT_END>>>
 
-Answer the user's request directly based on the content above. If the content does not contain the requested information, say so clearly.`,
+Answer the user's request using ONLY the content above. Rules:
+- Ground every statement in the content between the markers. Do NOT use any prior knowledge about the topic, the site, or the people/products mentioned — even if you think you know the answer, only report what the content literally says.
+- If the content does not contain the requested information, or is navigation/boilerplate/a JavaScript app shell with no real article text, respond EXACTLY: "The fetched page does not contain the requested information." Do not fabricate, guess, or fill gaps from memory.
+- Do not invent dates, quotes, headlines, numbers, or names that are not present verbatim in the content.`,
 		source, prompt, content)
 }
 

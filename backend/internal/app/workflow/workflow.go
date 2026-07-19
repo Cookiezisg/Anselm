@@ -96,13 +96,21 @@ type RelationSyncer interface {
 
 // Binder is the trigger listen-registry slice the execution-lifecycle actions drive (DIP →
 // *triggerapp.Service): Attach engages a continuous listener (activate), AttachOnce a one-shot
-// (stage), Detach disengages (deactivate / kill). Keyed by the entry trigger entity ref (trg_).
+// (stage), AttachReplay re-engages an ALREADY-EXISTING reference at boot, Detach disengages
+// (deactivate / kill). Keyed by the entry trigger entity ref (trg_). Attach vs AttachReplay is not
+// cosmetic: only the replay path was listening before this process started, which is what lets the
+// misfire sweep book the downtime gap for it and NOT for a workflow activated just now
+// (scheduler 工单⑨).
 //
 // Binder 是执行生命周期动作驱动的 trigger 监听注册切片（DIP → *triggerapp.Service）：Attach 挂持续监听
-// （激活）、AttachOnce 挂一次性（试运行）、Detach 摘（关掉激活 / 杀掉）。按入口 trigger 实体 ref（trg_）键。
+// （激活）、AttachOnce 挂一次性（试运行）、AttachReplay 在 boot 重挂**本已存在**的引用、Detach 摘（关掉
+// 激活 / 杀掉）。按入口 trigger 实体 ref（trg_）键。Attach 与 AttachReplay 之分非修辞：只有重放径在本进程
+// 启动前就在监听，这正是 misfire sweep 能为它记停机缺口、而**不**为刚激活的 workflow 记账的依据
+// （scheduler 工单⑨）。
 type Binder interface {
 	Attach(ctx context.Context, triggerID, workflowID string) error
 	AttachOnce(ctx context.Context, triggerID, workflowID string) error
+	AttachReplay(ctx context.Context, triggerID, workflowID string) error
 	Detach(triggerID, workflowID string)
 }
 
@@ -171,6 +179,16 @@ func (s *Service) SetRelationSyncer(r RelationSyncer) { s.relations = r }
 // （activate/stage/deactivate/trigger/kill）所需的两个协作者。装配时两服务齐备后接；避 workflow ↔
 // scheduler/trigger 的 DI 环。
 func (s *Service) SetExecutionPorts(b Binder, r Runner) { s.binder, s.runner = b, r }
+
+// nameOfWorkflow returns w.Name, or "" when w is nil (best-effort notify name never breaks business).
+//
+// nameOfWorkflow 返 w.Name，w 为 nil 时返 ""（尽力而为的通知名绝不连累业务）。
+func nameOfWorkflow(w *workflowdomain.Workflow) string {
+	if w == nil {
+		return ""
+	}
+	return w.Name
+}
 
 // publish emits a workflow lifecycle notification; nil emitter is a no-op.
 //

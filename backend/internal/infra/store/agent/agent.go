@@ -152,7 +152,7 @@ func (s *Store) GetByName(ctx context.Context, name string) (*agentdomain.Agent,
 }
 
 func (s *Store) ListAgents(ctx context.Context, filter agentdomain.ListFilter) ([]*agentdomain.Agent, string, error) {
-	rows, next, err := s.agents.Query().Page(ctx, filter.Cursor, filter.Limit)
+	rows, next, err := s.agents.Query().WhereLike("name", filter.Search).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("agentstore.ListAgents: %w", err)
 	}

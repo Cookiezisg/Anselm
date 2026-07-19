@@ -7,6 +7,7 @@ import (
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
 )
 
@@ -28,6 +29,16 @@ type dynamicTool struct {
 }
 
 var _ toolapp.Tool = (*dynamicTool)(nil)
+
+// TouchEntity self-reports the bound server for the conversation ledger (the loop's marker
+// interface) — the mcp_ id, converging with install_mcp_server's ledger key so one server
+// aggregates under one item id (the name-prefix fallback would split it, F166's dual-key wart).
+//
+// TouchEntity 为对话台账自报绑定 server(loop 标记接口)——报 mcp_ id,与 install_mcp_server 的
+// 台账键收敛,一个 server 聚成一个 item(名字前缀回退会劈成两行,F166 双键老疣)。
+func (t *dynamicTool) TouchEntity() (kind, id, name string) {
+	return relationdomain.EntityKindMCP, t.serverID, t.serverName
+}
 
 func (t *dynamicTool) Name() string                { return "mcp__" + t.serverName + "__" + t.toolName }
 func (t *dynamicTool) Description() string         { return t.description }

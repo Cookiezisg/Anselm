@@ -59,7 +59,8 @@ func (s *Service) UpdateConfig(ctx context.Context, handlerID string, partial ma
 	if err := s.repo.UpdateConfigEncrypted(ctx, handlerID, string(ciphertext)); err != nil {
 		return fmt.Errorf("handlerapp.UpdateConfig: %w", err)
 	}
-	s.publish(ctx, "config_updated", handlerID, nil)
+	h, _ := s.repo.GetHandler(ctx, handlerID)
+	s.publish(ctx, "config_updated", handlerID, map[string]any{"name": nameOfHandler(h)})
 	if _, rerr := s.manager.Restart(ctx, handlerID); rerr != nil {
 		s.log.Info("handlerapp.UpdateConfig: instance not restarted (likely still needs config)", zap.String("handlerId", handlerID), zap.Error(rerr))
 	}
@@ -73,7 +74,8 @@ func (s *Service) ClearConfig(ctx context.Context, handlerID string) error {
 	if err := s.repo.ClearConfig(ctx, handlerID); err != nil {
 		return fmt.Errorf("handlerapp.ClearConfig: %w", err)
 	}
-	s.publish(ctx, "config_cleared", handlerID, nil)
+	h, _ := s.repo.GetHandler(ctx, handlerID)
+	s.publish(ctx, "config_cleared", handlerID, map[string]any{"name": nameOfHandler(h)})
 	s.manager.Stop(ctx, handlerID)
 	return nil
 }

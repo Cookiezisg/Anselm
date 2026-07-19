@@ -1,73 +1,55 @@
 import 'package:flutter/material.dart';
 
 import 'colors.dart';
-import 'tokens.dart';
 import 'typography.dart';
 
-/// Assembles [ThemeData] from the design tokens. Two themes are produced (light is the
-/// soul; dark is structurally ready) by feeding ONE [AnColors] palette into: the Material
-/// [ColorScheme] (so stock widgets look right), the [TextTheme], divider/scrollbar themes,
-/// and the [AnColors] extension itself (for our own widgets via `context.colors`).
+/// Assembles [ThemeData] from the design tokens — the single bridge between our [AnColors] /
+/// [AnText] and Material. Registers [AnColors] as a ThemeExtension (read via `context.colors`),
+/// bakes the type scale + ink into the TextTheme, and strips Material's web-ish defaults
+/// (splashes, loose density) for a crisp native desktop feel.
 ///
-/// Deliberate desktop choices: no ink ripple (`NoSplash`) and compact density for a crisp,
-/// native — not webby — feel; the canvas (not white) is the scaffold background so white
-/// islands read as raised surfaces.
-///
-/// 由 token 装配 [ThemeData]。产出两套主题(明亮为魂、暗色已就绪):同一份 [AnColors] 喂给 Material
-/// [ColorScheme](让原生 widget 正常)、[TextTheme]、分割线/滚动条主题,以及 [AnColors] 扩展本身(供
-/// 自有 widget 经 `context.colors` 读)。桌面取舍:无墨波纹 + 紧凑密度 = 利落原生而非 web 感;脚手架背景
-/// 用 canvas(非纯白),让白色岛屿读作抬升表面。
+/// 由 token 装配 [ThemeData]——[AnColors]/[AnText] 与 Material 的唯一桥。注册 AnColors 扩展、
+/// 把字阶+墨色烤进 TextTheme、去掉 Material 的水波/松散密度,换利落原生桌面手感。
 abstract final class AnTheme {
-  static ThemeData light() => _build(AnColors.light, Brightness.light);
-  static ThemeData dark() => _build(AnColors.dark, Brightness.dark);
+  static ThemeData light() => _build(Brightness.light, AnColors.light, SyntaxColors.light, GraphColors.light);
+  static ThemeData dark() => _build(Brightness.dark, AnColors.dark, SyntaxColors.dark, GraphColors.dark);
 
-  static ThemeData _build(AnColors c, Brightness brightness) {
-    final scheme =
-        ColorScheme.fromSeed(seedColor: c.accent, brightness: brightness).copyWith(
-      primary: c.accent,
-      onPrimary: c.onAccent,
-      surface: c.surface,
-      onSurface: c.ink,
-      surfaceContainerLowest: c.surface,
-      surfaceContainerLow: c.surfaceSubtle,
-      surfaceContainer: c.surfaceHover,
-      surfaceContainerHigh: c.surfaceActive,
-      outline: c.lineStrong,
-      outlineVariant: c.line,
-      error: c.danger,
-      onError: c.onAccent,
-      scrim: c.scrim,
-    );
-
+  static ThemeData _build(Brightness brightness, AnColors c, SyntaxColors syntax, GraphColors graph) {
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
-      colorScheme: scheme,
-      extensions: [c],
       scaffoldBackgroundColor: c.canvas,
-      canvasColor: c.surface,
-      dividerColor: c.line,
-      visualDensity: VisualDensity.compact,
-      // Crisp desktop: no ripple, no highlight spread. 利落桌面:无波纹无高亮扩散。
+      // No Material ripples/overlays — our surfaces own their own hover/press via tokens. This
+      // also stops any Material leaf (TextField, future InkWell) flashing its default gray overlay.
+      // 去 Material 水波/叠加——我们的表面自管 hover/press;也杜绝 Material 叶子闪默认灰叠加。
       splashFactory: NoSplash.splashFactory,
-      splashColor: Colors.transparent,
-      highlightColor: Colors.transparent,
+      splashColor: const Color(0x00000000),
+      highlightColor: const Color(0x00000000),
+      hoverColor: const Color(0x00000000),
+      focusColor: const Color(0x00000000),
+      visualDensity: VisualDensity.standard,
+      // The caret + selection FLOOR for every Material text field (the An caret law's root). Without it
+      // Flutter falls back to the seeded `colorScheme.primary` — a hue that exists in NO token table
+      // (fromSeed derives it from accent) — for the caret, and to `primaryColor.withOpacity(0.40)` for the
+      // selection band. The band was the live bug: `TextField` has NO selectionColor parameter, so this
+      // theme is the ONLY seam that can give it — every field was painting the seeded ghost while the
+      // editor painted [AnColors.selection], two selection colours in one app. Fields still pass
+      // `cursorColor` explicitly (an_input / an_composer / an_secret_field / an_code_editor — same token,
+      // stated at the primitive); this is the net that catches anything that forgets.
+      // 每个 Material 字段的光标+选区地板(An 光标法的根):不设则 Flutter 回落到 fromSeed 派生的 primary
+      // (一个 token 表里根本不存在的色)当光标色、`primary.withOpacity(0.40)` 当选区带。选区带是真出血:
+      // TextField **没有** selectionColor 参数,此主题是唯一能给它的缝——此前全部字段画幽灵靛、而编辑器画
+      // AnColors.selection,同一 app 两种选区色。各字段仍显式传 cursorColor(同一 token,在原语处言明),
+      // 本条是兜住「忘了传」的网。
+      textSelectionTheme: TextSelectionThemeData(cursorColor: c.ink, selectionColor: c.selection),
+      fontFamily: AnText.uiFamily,
+      fontFamilyFallback: AnText.uiFallback,
       textTheme: AnText.textTheme(c.ink),
-      dividerTheme: DividerThemeData(color: c.line, thickness: 1, space: 1),
-      scrollbarTheme: ScrollbarThemeData(
-        thickness: const WidgetStatePropertyAll(6),
-        radius: const Radius.circular(AnRadius.pill),
-        thumbColor: WidgetStatePropertyAll(c.lineStrong),
-        thumbVisibility: const WidgetStatePropertyAll(false),
-      ),
-      tooltipTheme: TooltipThemeData(
-        waitDuration: const Duration(milliseconds: 400),
-        decoration: BoxDecoration(
-          color: c.ink,
-          borderRadius: BorderRadius.circular(AnRadius.button),
-        ),
-        textStyle: AnText.meta.copyWith(color: c.surface),
-      ),
+      extensions: <ThemeExtension<dynamic>>[c, syntax, graph],
+      colorScheme: ColorScheme.fromSeed(
+        seedColor: c.accent,
+        brightness: brightness,
+      ).copyWith(surface: c.surface, onSurface: c.ink),
     );
   }
 }

@@ -107,10 +107,21 @@ func (s *Service) SetNotifier(n notificationdomain.Emitter) { s.notif = n }
 //
 // emitNotif 发一条 mcp.<action> 通知（best-effort、nil 安全）。
 func (s *Service) emitNotif(ctx context.Context, action, name string) {
+	s.emitNotifWith(ctx, action, name, nil)
+}
+
+// emitNotifWith is emitNotif with extra payload fields (e.g. reconnect's outcome status).
+//
+// emitNotifWith 是带额外 payload 字段的 emitNotif（如 reconnect 的结局 status）。
+func (s *Service) emitNotifWith(ctx context.Context, action, name string, extra map[string]any) {
 	if s.notif == nil {
 		return
 	}
-	if err := s.notif.Emit(ctx, "mcp."+action, map[string]any{"name": name}); err != nil {
+	payload := map[string]any{"name": name}
+	for k, v := range extra {
+		payload[k] = v
+	}
+	if err := s.notif.Emit(ctx, "mcp."+action, payload); err != nil {
 		s.log.Warn("mcpapp.notify failed", zap.String("name", name), zap.String("action", action), zap.Error(err))
 	}
 }
@@ -186,8 +197,19 @@ func (s *Service) Reconnect(ctx context.Context, name string) (*mcpdomain.Server
 	cctx, cancel := context.WithTimeout(ctx, connectTimeout)
 	defer cancel()
 	_ = s.connectOne(cctx, srv) // failure → status=failed; caller sees lastError
-	s.emitNotif(ctx, "reconnected", srv.Name)
-	return s.GetServer(ctx, name)
+	// Reconnect fires whether the attempt succeeded or FAILED — so the notification must carry
+	// the outcome, else the center shows a bare "reconnected acme" that can't tell a recovery
+	// from a still-broken server. reconnect 成败都发,故通知须带结局,否则中心分不清恢复与仍坏。
+	st, err := s.GetServer(ctx, name)
+	extra := map[string]any{}
+	if err == nil && st != nil {
+		extra["status"] = st.Status
+		if st.LastError != "" {
+			extra["lastError"] = st.LastError
+		}
+	}
+	s.emitNotifWith(ctx, "reconnected", srv.Name, extra)
+	return st, err
 }
 
 // connectOne spawns/connects a server, caches tools/list, and flips status to ready. Caller

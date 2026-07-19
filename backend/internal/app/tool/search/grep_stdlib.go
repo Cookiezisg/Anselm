@@ -85,7 +85,7 @@ func (t *Grep) execStdlib(ctx context.Context, args grepArgs, isDir bool) (strin
 		return fmt.Sprintf("Invalid regex pattern: %v", err), nil
 	}
 
-	candidates, err := collectCandidates(args, isDir)
+	candidates, err := collectCandidates(ctx, args, isDir)
 	if err != nil {
 		return "", fmt.Errorf("Grep.execStdlib: %w", err)
 	}
@@ -118,7 +118,7 @@ func compileGrepRegex(args grepArgs) (*regexp.Regexp, error) {
 // collectCandidates returns absolute paths to scan; walks dir or scans single file, skipping noiseDirs.
 //
 // collectCandidates 返回扫描路径列表；目录走 WalkDir 单文件直接扫，跳过 noiseDirs。
-func collectCandidates(args grepArgs, isDir bool) ([]string, error) {
+func collectCandidates(ctx context.Context, args grepArgs, isDir bool) ([]string, error) {
 	if !isDir {
 		// Single-file search: type/glob filter still applies — empty result
 		// is a legitimate "no files matched filter" outcome.
@@ -131,6 +131,14 @@ func collectCandidates(args grepArgs, isDir bool) ([]string, error) {
 
 	var out []string
 	walkErr := filepath.WalkDir(args.Path, func(path string, d fs.DirEntry, err error) error {
+		// Abort the walk when the turn's ctx is cancelled (turn-cap / user stop): WalkDir fires this
+		// callback per entry, so returning ctx.Err() stops a huge-tree crawl promptly — otherwise the
+		// stdlib fallback (used only when ripgrep is absent) would ignore ctx like Glob's doublestar walk.
+		// 回合 ctx 取消（turn-cap / 用户 stop）时中止遍历：WalkDir 逐条目回调,返 ctx.Err() 及时停下大树爬取——
+		// 否则 stdlib 回退（仅无 ripgrep 时用）会像 Glob 的 doublestar 走法一样无视 ctx。
+		if ctx.Err() != nil {
+			return ctx.Err()
+		}
 		if err != nil {
 			if d != nil && d.IsDir() {
 				return filepath.SkipDir

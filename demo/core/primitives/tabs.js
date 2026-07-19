@@ -10,7 +10,9 @@
     static css = `
       :host { display: block; }
       :host([disabled]) { pointer-events: none; opacity: .4; }   /* 与 button/input 同语汇的禁用态 */
-      .strip { position: relative; display: flex; gap: var(--sp-4); }
+      /* 多 tab 横向滚（不撑破页）；隐滚动条保通透——tab flex:none 不被挤压、nowrap 文字完整 */
+      .strip { position: relative; display: flex; gap: var(--sp-4); overflow-x: auto; scrollbar-width: none; }
+      .strip::-webkit-scrollbar { display: none; }
       /* 弹簧滑块：绝对定位贴底，transform+width 双轴跟随选中 tab（唯一动效） */
       .slider {
         position: absolute; left: 0; bottom: 0; width: 0; height: var(--line-2);
@@ -18,7 +20,7 @@
         transition: transform var(--d-mid) var(--ease-spring), width var(--d-mid) var(--ease-spring);
       }
       .tab {
-        position: relative; display: inline-flex; align-items: center; gap: var(--gap-tight);
+        position: relative; display: inline-flex; align-items: center; gap: var(--gap-tight); flex: none;
         height: var(--tab-h); padding: 0 calc(var(--grid) / 2);
         color: var(--ink-3); font-size: var(--t-body); font-weight: 500; white-space: nowrap;
         transition: color var(--d-fast);

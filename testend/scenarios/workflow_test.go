@@ -212,8 +212,12 @@ func TestWorkflow_ApprovalParkDecideResume(t *testing.T) {
 	ns := wc.Subscribe(t, "notifications")
 
 	pubFn := fnCreate(t, wc, "publish_step", "def f(decision: str) -> dict:\n    return {\"published\": decision}\n")
+	// A 30d timeout so the enriched inbox row (scheduler 工单④) carries a deadline — far enough
+	// out that the sweep can never race this test's human decision.
+	// 30d 超时让 enrich 后的收件箱行（scheduler 工单④）带 deadline——远到扫描绝不会与本测试的人工决策竞速。
 	apfID := wc.POST("/api/v1/approvals", map[string]any{
 		"name": "spend_gate", "template": "approve {{ input.amt }}?", "allowReason": true,
+		"timeout": "30d", "timeoutBehavior": "reject",
 	}).Field(t, "id")
 
 	wfID := wfCreate(t, wc, "approval_pipe", []map[string]any{
@@ -240,8 +244,12 @@ func TestWorkflow_ApprovalParkDecideResume(t *testing.T) {
 	ns.WaitFor(t, 8000, "approval_pending summons the human", "workflow.approval_pending", runID)
 	var inbox struct {
 		Parked []struct {
-			FlowRunID string `json:"flowrunId"`
-			NodeID    string `json:"nodeId"`
+			FlowRunID    string     `json:"flowrunId"`
+			NodeID       string     `json:"nodeId"`
+			CreatedAt    time.Time  `json:"createdAt"`
+			WorkflowID   string     `json:"workflowId"`
+			WorkflowName string     `json:"workflowName"`
+			Deadline     *time.Time `json:"deadline"`
 		} `json:"parked"`
 	}
 	wc.GET("/api/v1/flowrun-inbox").OK(t, &inbox)
@@ -249,6 +257,22 @@ func TestWorkflow_ApprovalParkDecideResume(t *testing.T) {
 	for _, p := range inbox.Parked {
 		if p.FlowRunID == runID && p.NodeID == "human" {
 			found = true
+			// Enriched row (scheduler 工单④): workflow context joined from the run header + the
+			// absolute deadline = parkedAt + the approval version's timeout (30d).
+			// enrich 行（scheduler 工单④）：workflow 上下文 join 自 run 头 + 绝对期限 = parkedAt +
+			// approval 版本 timeout（30d）。
+			if p.WorkflowID != wfID {
+				t.Fatalf("inbox row must carry workflowId=%s, got %q", wfID, p.WorkflowID)
+			}
+			if p.WorkflowName != "approval_pipe" {
+				t.Fatalf("inbox row must carry the workflow display name, got %q", p.WorkflowName)
+			}
+			if p.Deadline == nil {
+				t.Fatalf("a timed approval's inbox row must carry a deadline: %+v", p)
+			}
+			if want := p.CreatedAt.Add(30 * 24 * time.Hour); !p.Deadline.Equal(want) {
+				t.Fatalf("deadline must be parkedAt+30d: got %v want %v", p.Deadline, want)
+			}
 		}
 	}
 	if !found {
@@ -322,4 +346,43 @@ func TestWorkflow_CrashRecovery(t *testing.T) {
 		_ = page
 		return strings.Contains(raw, `"status":"completed"`)
 	})
+}
+
+// TestWorkflow_RunProvenanceOriginManual — scheduler 工单① black-box: a manual "Run now"
+// (POST /flowruns) must stamp origin=manual on the run's wire row, with NO conversationId (that
+// pair rides only chat-born runs). The webhook/cron/fsnotify testends cover the fired origins.
+//
+// TestWorkflow_RunProvenanceOriginManual——工单①黑盒：手动「Run now」（POST /flowruns）必须在
+// run 线缆行上盖 origin=manual、且无 conversationId（那对键只随 chat 出生的 run）。webhook/cron/
+// fsnotify testend 覆盖 fired 来源。
+func TestWorkflow_RunProvenanceOriginManual(t *testing.T) {
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-origin"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	fnID := fnCreate(t, wc, "origin_step", "def f() -> dict:\n    return {\"ok\": True}\n")
+	wfID := wfCreate(t, wc, "origin_pipe", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "step", "kind": "action", "ref": fnID}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "step"}},
+	})
+
+	runID, status, _ := runAndWait(t, wc, wfID, map[string]any{}, 30000)
+	if status != "completed" {
+		t.Fatalf("run must complete, got %s", status)
+	}
+	var got struct {
+		Flowrun struct {
+			Origin         string `json:"origin"`
+			ConversationID string `json:"conversationId"`
+		} `json:"flowrun"`
+	}
+	wc.GET("/api/v1/flowruns/"+runID).OK(t, &got)
+	if got.Flowrun.Origin != "manual" {
+		t.Fatalf("origin = %q, want manual", got.Flowrun.Origin)
+	}
+	if got.Flowrun.ConversationID != "" {
+		t.Fatalf("manual run must carry no conversationId, got %q", got.Flowrun.ConversationID)
+	}
 }

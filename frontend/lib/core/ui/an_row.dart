@@ -1,85 +1,332 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import '../model/status_state.dart';
+import 'an_interactive.dart';
+import 'an_status_dot.dart';
+import 'icons.dart';
 
-/// The density workhorse: a 32px-tall list row with an optional leading icon slot, a title,
-/// and an optional trailing widget. Hover (gray wash) and selected (stronger wash + bold)
-/// states are explicit so list density stays crisp across the islands.
-/// 密度主力:32px 行,可选行首图标槽、标题、行尾件。hover(灰底)与 selected(更强底+加粗)显式,
-/// 使各岛列表密度利落。
-class AnRow extends StatefulWidget {
+/// C1 — the core list row: a three-column grid `[lead | label (1fr) | trail]`, alignment guaranteed by
+/// structure (never hand-measured). The lead is a status [dot] OR an [icon] that swaps to a chevron on
+/// row-hover (rotating 90° when [open]) for a [collapsible] tree node — and when a [collapsible] row has
+/// NO icon (dot/leadWidget also absent), the chevron is the PERMANENT lead (always shown, no hover swap;
+/// the notification tray / icon-free group heads). The trail stacks [meta] text and
+/// the hover-revealed [actions] at the SAME right anchor (opacity cross-fade, no reflow). [hint] makes a
+/// taller, top-aligned row whose hint wraps. [selected] tints the row; [emphatic] + selected adds an
+/// accent-soft fill + a left accent bar (run boards). [depth] indents per tree level; [mono] sets the
+/// label monospace; [passive] is a non-interactive row.
+///
+/// Interaction: a [collapsible] non-[passive] row toggles on the LEAD (chevron) and selects on the rest;
+/// other rows select on tap. The whole row is one [AnInteractive] (hover drives the lead + trail reveal;
+/// passive → not focusable). A [collapsible] row announces its `expanded` disclosure state; the keyboard
+/// expand/collapse (←/→, WAI-ARIA tree) is owned by the tree CONSUMER's roving focus (AnSidebarList), not
+/// AnRow — so AnRow gains no competing keyboard owner.
+///
+/// C1 列表核心行:三列网格 [lead | label 1fr | trail],对齐靠结构。lead = 状态点 或 icon(collapsible 行 hover 换
+/// chevron、open 转 90°)。trail = meta 与 hover 揭示的 actions 叠同一右锚(opacity 互换、不重排)。hint → 行变高顶对齐、
+/// hint 换行。selected 提墨;emphatic+selected = accentSoft 底 + 左 accent 条(run 看板)。depth 每级缩进;mono 等宽 label;
+/// passive 不可交互。交互:collapsible 非 passive 行点 lead 折叠、点其余选中;其它行点即选。整行一个 AnInteractive
+/// (hover 驱动 lead/trail 揭示;passive 不可聚焦;collapsible 行透 expanded 折叠态语义,键盘展开 ←/→ 归树消费方 AnSidebarList、不在 AnRow)。
+class AnRow extends StatelessWidget {
   const AnRow({
-    super.key,
-    required this.title,
-    this.leading,
-    this.trailing,
+    this.icon,
+    this.dot,
+    this.leadWidget,
+    required this.label,
+    this.labelWidget,
+    this.hint,
+    this.meta,
     this.selected = false,
-    this.onTap,
-  });
+    this.emphatic = false,
+    this.collapsible = false,
+    this.open = false,
+    this.passive = false,
+    this.depth = 0,
+    this.mono = false,
+    this.leadless = false,
+    this.actions = const [],
+    this.trailingDot,
+    this.onSelect,
+    this.onToggle,
+    super.key,
+  })  : assert(!leadless || (icon == null && dot == null && leadWidget == null && !collapsible),
+            'leadless drops the lead slot — it cannot carry an icon/dot/chevron. leadless 无 lead 槽,不可带图标/点/箭头。'),
+        // icon+dot may legally coexist (dot precedence, legacy sites); leadWidget is exclusive.
+        // icon+dot 合法共存(dot 优先,旧用点);leadWidget 独占槽。
+        assert(leadWidget == null || (icon == null && dot == null),
+            'leadWidget owns the lead slot — no icon/dot beside it. leadWidget 独占 lead 槽。');
 
-  final String title;
-  final IconData? leading;
-  final Widget? trailing;
+  final IconData? icon;
+  final AnStatus? dot;
+
+  /// Custom lead widget (a progress ring, a swatch) — seated in the SAME fixed [AnSize.icon] cell
+  /// as icon/dot (批6 A-073: the slot that used to force whole-row re-rolls). With [collapsible] it
+  /// hover-swaps for the chevron like an icon does. 自定义 lead(进度环/色点)——与 icon/dot 同定宽格;
+  /// collapsible 时与 icon 同法 hover 换箭头。
+  final Widget? leadWidget;
+
+  final String label;
+
+  /// Optional label OVERRIDE widget (e.g. a one-shot typewriter while a fresh auto-title lands) —
+  /// replaces the label Text only; [label] stays required as the row's semantic/filter identity.
+  /// label 覆盖件(如自动命名首落的打字机)——只换 label 文本;[label] 仍是行的语义/过滤身份。
+  final Widget? labelWidget;
+  final String? hint;
+  final String? meta;
   final bool selected;
-  final VoidCallback? onTap;
 
-  @override
-  State<AnRow> createState() => _AnRowState();
-}
+  /// Selected goes accent (accent-soft fill + left accent bar) — for list selection (run boards). 选中走 accent 强调。
+  final bool emphatic;
+  final bool collapsible;
+  final bool open;
 
-class _AnRowState extends State<AnRow> {
-  bool _hover = false;
+  /// Non-interactive (no hover tint, no tap, not focusable). 不可交互。
+  final bool passive;
+
+  /// Tree indent level (each adds [AnSize.iconLg]). 树缩进层级。
+  final int depth;
+  final bool mono;
+
+  /// Drop the lead ICON SLOT entirely — for icon-free lists (the outline TOC) where the reserved slot
+  /// reads as mystery indentation. Default keeps the slot so mixed lists stay column-aligned.
+  /// 整个去掉 lead 图标槽——无图标列表(大纲目录)里空槽读作莫名缩进;默认保留槽,混合列表纵向对齐。
+  final bool leadless;
+  final List<Widget> actions;
+
+  /// A persistent status dot pinned at the very end of the trail (after [meta]) — a live/gate signal that
+  /// stays visible at rest (unlike hover-revealed [actions]). Mirrors the rail's row signal dots.
+  /// 尾端常驻状态点(在 meta 之后)——静息也在的 live/gate 信号(异于 hover 才现的 actions),同 rail 行信号点。
+  final AnStatus? trailingDot;
+  final VoidCallback? onSelect;
+  final VoidCallback? onToggle;
+
+  bool get _hasHint => hint != null && hint!.isNotEmpty;
+  bool get _hasMeta => meta != null && meta!.isNotEmpty;
 
   @override
   Widget build(BuildContext context) {
-    final c = context.colors;
-    final bg = widget.selected
-        ? c.accentSoft
-        : (_hover ? c.surfaceHover : Colors.transparent);
+    // A collapsible row announces its disclosure state via `expanded` (screen readers say "collapsed/
+    // expanded") — null on non-collapsible rows (no false disclosure promise). The KEYBOARD expand/collapse
+    // (←/→, WAI-ARIA tree) is owned by the tree CONSUMER's roving-focus group (AnSidebarList), NOT baked
+    // into AnRow — so AnRow doesn't grow a competing keyboard owner. collapsible 行透 expanded(屏读播报折叠态);
+    // 键盘展开(←/→)归树消费方(AnSidebarList)的 roving 焦点组,不塞进 AnRow(避免双键盘属主)。
+    return AnInteractive(
+      onTap: passive ? null : onSelect,
+      selected: selected,
+      expanded: collapsible ? open : null,
+      cursor: passive ? MouseCursor.defer : null,
+      builder: (context, states) => _row(context, states.isActive && !passive),
+    );
+  }
 
-    return MouseRegion(
-      cursor: widget.onTap != null ? SystemMouseCursors.click : MouseCursor.defer,
-      onEnter: (_) => setState(() => _hover = true),
-      onExit: (_) => setState(() => _hover = false),
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onTap: widget.onTap,
-        child: AnimatedContainer(
-          duration: AnMotion.fast,
-          height: AnSize.row,
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(AnRadius.button),
-          ),
-          child: Row(
-            children: [
-              if (widget.leading != null) ...[
-                Icon(
-                  widget.leading,
-                  size: AnSize.icon,
-                  color: widget.selected ? c.ink : c.inkMuted,
-                ),
-                const SizedBox(width: AnSpace.s8),
-              ],
-              Expanded(
-                child: Text(
-                  widget.title,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.body.copyWith(
-                    color: c.ink,
-                    fontWeight: widget.selected ? FontWeight.w500 : FontWeight.w400,
-                  ),
-                ),
+  Widget _row(BuildContext context, bool active) {
+    final c = context.colors;
+    final reduced = AnMotionPref.reduced(context);
+
+    final Color bg;
+    if (emphatic && selected) {
+      bg = c.accentSoft;
+    } else if (selected) {
+      bg = c.surfaceActive;
+    } else {
+      bg = c.surfaceHover.whenActive(active);
+    }
+
+    final content = Row(
+      crossAxisAlignment: _hasHint ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      children: [
+        if (!leadless) ...[_lead(c, active, reduced), const SizedBox(width: AnSpace.s8)],
+        Expanded(child: _labelBlock(c, active)),
+        const SizedBox(width: AnSpace.s8),
+        _trail(c, active),
+      ],
+    );
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(AnRadius.button),
+      child: AnimatedContainer(
+        duration: reduced ? Duration.zero : AnMotion.fast, // hover tint = functional micro-feedback 功能性微反馈
+        constraints: BoxConstraints(minHeight: _hasHint ? AnSize.islandHead : AnSize.row),
+        color: bg,
+        // alignment:center — the minHeight floor makes this Stack taller than a short single-line content;
+        // RenderStack's default (topStart) would pin that content to the top (the "text sits high" bug). The
+        // positioned accent bar has top+bottom both set → tight full height, unaffected by alignment; a tall
+        // hint row (content ≥ minHeight) centres to a zero offset → natural. 居中:补 minHeight 撑高时短内容默认顶对齐。
+        child: Stack(
+          alignment: Alignment.center,
+          children: [
+            Padding(
+              padding: EdgeInsetsDirectional.only(
+                start: AnSpace.s8 + depth * AnSize.iconLg, // pad-row + per-level indent 缩进
+                end: AnSpace.s8,
+                top: _hasHint ? AnSpace.s4 : 0,
+                bottom: _hasHint ? AnSpace.s4 : 0,
               ),
-              if (widget.trailing != null) ...[
-                const SizedBox(width: AnSpace.s8),
-                widget.trailing!,
-              ],
-            ],
-          ),
+              child: content,
+            ),
+            // emphatic+selected: a left SOLID accent bar (demo `inset --line-2 0 0 var(--accent)` —
+            // solid accent, NOT the faint accentLine that AnCard's selected border uses). 左实心 accent 条(非淡线)。
+            if (emphatic && selected)
+              PositionedDirectional(
+                start: 0,
+                top: 0,
+                bottom: 0,
+                child: Container(width: AnSize.gripLine, color: c.accent),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _lead(AnColors c, bool active, bool reduced) {
+    final Widget glyph;
+    if (dot != null) {
+      glyph = ExcludeSemantics(child: AnStatusDot(dot!)); // status conveyed by the dot's own a11y elsewhere; here decorative 装饰
+    } else if (leadWidget != null && collapsible) {
+      // Custom lead hover-swaps for the chevron exactly like an icon (zero new metrics). 自定义 lead
+      // 与 icon 同法换箭头(零新度量)。
+      glyph = _HoverSwap(
+        alignment: Alignment.center,
+        showSecond: active,
+        first: leadWidget!,
+        second: AnimatedRotation(
+          duration: reduced ? Duration.zero : AnMotion.mid,
+          curve: AnMotion.spring,
+          turns: open ? 0.25 : 0,
+          child: Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint),
+        ),
+      );
+    } else if (leadWidget != null) {
+      // A custom lead may be INTERACTIVE (the memory pin) — it brings its own semantics; stripping
+      // them here would repeat the 批5 thumb-✕ a11y regression. 自定义 lead 可交互(pin),自带语义——
+      // 剥除=重蹈批5 缩略图 ✕ 覆辙。
+      glyph = leadWidget!;
+    } else if (collapsible && icon == null) {
+      // No icon to hover-swap FROM (a notification-tray / icon-free group head): the disclosure chevron is
+      // the PERMANENT lead — always shown at rest, rotating 90° when open (dot/leadWidget were caught above,
+      // so the slot is genuinely empty otherwise; a HoverSwap here would just fade in an already-present
+      // chevron). 无图标可换(托盘/无图标组头):披露箭头常驻、open 旋转;此处不 HoverSwap(没有可揭示的第二脸)。
+      glyph = AnimatedRotation(
+        duration: reduced ? Duration.zero : AnMotion.mid,
+        curve: AnMotion.spring,
+        turns: open ? 0.25 : 0,
+        child: Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint),
+      );
+    } else if (collapsible) {
+      // icon ↔ chevron swap on hover; chevron rotates 90° when open. icon↔chevron 互换 + 旋转。
+      glyph = _HoverSwap(
+        alignment: Alignment.center,
+        showSecond: active,
+        first: icon != null ? Icon(icon, size: AnSize.icon, color: c.inkFaint) : const SizedBox.shrink(),
+        second: AnimatedRotation(
+          duration: reduced ? Duration.zero : AnMotion.mid,
+          curve: AnMotion.spring, // demo --ease-spring (transform animates; opacity swap is instant) 旋转弹性、opacity 即时
+          turns: open ? 0.25 : 0,
+          child: Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint),
+        ),
+      );
+    } else {
+      glyph = icon != null
+          ? ExcludeSemantics(child: Icon(icon, size: AnSize.icon, color: c.inkFaint))
+          : const SizedBox.shrink();
+    }
+
+    final lead = SizedBox(width: AnSize.icon, height: AnSize.icon, child: Center(child: glyph));
+    // collapsible non-passive: the lead toggles; other taps fall through to the row's select. lead 折叠、其余选中。
+    if (collapsible && !passive && onToggle != null) {
+      return GestureDetector(behavior: HitTestBehavior.opaque, onTap: onToggle, child: lead);
+    }
+    return lead;
+  }
+
+  Widget _labelBlock(AnColors c, bool active) {
+    final strong = active || selected;
+    final labelStyle = (mono ? AnText.mono : AnText.body).copyWith(color: strong ? c.ink : c.inkMuted);
+    final labelText = labelWidget ??
+        Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: labelStyle);
+    if (!_hasHint) return labelText;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis,
+            style: (mono ? AnText.mono : AnText.body).copyWith(color: c.ink)), // hint row: label is full-ink hint 行 label 强墨
+        const SizedBox(height: AnSpace.s2),
+        Text(hint!, softWrap: true, style: AnText.meta.copyWith(color: c.inkFaint)), // hint wraps 多行
+      ],
+    );
+  }
+
+  Widget _trail(AnColors c, bool active) {
+    final metaWidget = _hasMeta
+        ? Text(meta!, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right,
+            style: AnText.metaTabular().copyWith(color: c.inkFaint))
+        : null;
+    // meta ↔ actions at the same right anchor; actions revealed on hover (opacity cross-fade, no reflow).
+    // meta↔actions 同右锚;hover 揭示 actions(opacity 交叉、不重排)。
+    final Widget? core = actions.isEmpty
+        ? metaWidget
+        : _HoverSwap(
+            alignment: Alignment.centerRight,
+            showSecond: active,
+            first: metaWidget ?? const SizedBox.shrink(),
+            second: Row(mainAxisSize: MainAxisSize.min, children: actions),
+          );
+    final td = trailingDot;
+    if (td == null) return core ?? const SizedBox.shrink();
+    // The persistent status dot rides after the meta/actions slot (excluded from a11y — the row's own
+    // label carries the meaning). 状态点在 meta/actions 之后常驻(a11y 排除,含义归行 label)。
+    return Row(mainAxisSize: MainAxisSize.min, children: [
+      if (core != null) ...[core, const SizedBox(width: AnSpace.s6)],
+      ExcludeSemantics(child: AnStatusDot(td)),
+    ]);
+  }
+}
+
+/// Two layers at one anchor, swapped by [showSecond] with NO reflow (both always laid out, so the slot
+/// width = max(first, second)). The opacity swap is INSTANT (demo: "opacity 互换即时,不入过渡" — only the
+/// chevron's ROTATION animates, handled by the caller). The hidden layer is made fully inert:
+/// [IgnorePointer] (opacity 0 doesn't stop hit-testing) + [ExcludeSemantics] (nor screen-reader) +
+/// [ExcludeFocus] (nor keyboard traversal — else an invisible action button becomes a focus trap). Used
+/// for AnRow's lead (icon↔chevron) + trail (meta↔actions).
+///
+/// 同位两层即时互换不重排(两层常驻、槽宽=max)。opacity 即时(demo 明示不入过渡;只 chevron 旋转动画、调用方管)。
+/// 隐藏层彻底惰化:IgnorePointer(opacity0 不自挡命中)+ ExcludeSemantics(屏读)+ ExcludeFocus(键盘遍历,
+/// 否则不可见动作钮成焦点陷阱)。AnRow 的 lead(icon↔chevron)+ trail(meta↔actions)复用。
+class _HoverSwap extends StatelessWidget {
+  const _HoverSwap({
+    required this.alignment,
+    required this.showSecond,
+    required this.first,
+    required this.second,
+  });
+
+  final AlignmentGeometry alignment;
+  final bool showSecond;
+  final Widget first;
+  final Widget second;
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(
+      alignment: alignment,
+      children: [
+        _layer(first, visible: !showSecond),
+        _layer(second, visible: showSecond),
+      ],
+    );
+  }
+
+  Widget _layer(Widget child, {required bool visible}) {
+    if (visible) return child;
+    // Hidden but still occupying its layout slot (no reflow on swap) — and fully inert. 隐藏但占位、彻底惰化。
+    return ExcludeFocus(
+      child: IgnorePointer(
+        child: ExcludeSemantics(
+          child: Opacity(opacity: 0, child: child),
         ),
       ),
     );

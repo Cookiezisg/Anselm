@@ -38,6 +38,34 @@
     for (var i = 1; i <= n; i++) s += '<i>' + i + '</i>';
     return s;
   }
+  // Why: 行号槽按逻辑行排（每行 1 行高），但 [wrap] 软换行后一条逻辑行占多个视觉行——
+  // 行号块仍按 1 行高堆叠 → 第 2 行起累计错位，号对不上对应代码行。
+  // 修：wrap 下逐行用 Range 量出每条逻辑行实际渲染高（含软换行），把对应 <i> 撑到等高、号顶对齐。
+  function syncGutter(gut, code) {
+    if (!gut || !code) return;
+    var lines = String(code.textContent).split('\n');
+    var walker = document.createTreeWalker(code, NodeFilter.SHOW_TEXT), nodes = [], nd;
+    while ((nd = walker.nextNode())) nodes.push(nd);
+    function locate(pos) {
+      var acc = 0;
+      for (var k = 0; k < nodes.length; k++) { var len = nodes[k].textContent.length; if (pos <= acc + len) return [nodes[k], pos - acc]; acc += len; }
+      var last = nodes[nodes.length - 1]; return last ? [last, last.textContent.length] : null;
+    }
+    // 单视觉行高（lh-prose × 字号，computed px）——逻辑行高 = 软换行视觉行数 × 行高，按行高整数倍走、避开半行 leading 的亚像素误差累积。
+    var lh = parseFloat(getComputedStyle(code).lineHeight) || 0;
+    var is = gut.querySelectorAll('i'), pos = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i], a = locate(pos), b = locate(pos + line.length), rows = 1;
+      if (a && b && lh) {
+        var rng = document.createRange(); rng.setStart(a[0], a[1]); rng.setEnd(b[0], b[1]);
+        var rects = rng.getClientRects(), tops = {};
+        for (var r = 0; r < rects.length; r++) tops[Math.round(rects[r].top)] = 1; // 按视觉行顶去重 → 软换行行数
+        var c = Object.keys(tops).length; if (c > rows) rows = c;
+      }
+      if (is[i]) is[i].style.height = lh ? (rows * lh) + 'px' : '';
+      pos += line.length + 1;
+    }
+  }
 
   class AnCodeEditor extends window.AnElement {
     static tag = "an-code-editor";
@@ -117,9 +145,16 @@
         '<div class="area"><pre class="pre"><code>' + highlight(code, this.attr("lang")) + '</code></pre>' + input + '</div>' +
         '</div></div>';
     }
+    // Why: 行号顶对齐只在 [wrap]（软换行）下需要逐行量高；非 wrap 静态等高已对齐。量高须待 layout，故 rAF。
+    _syncGut() {
+      if (!this.has("wrap") || this.has("inline")) return;
+      var self = this;
+      requestAnimationFrame(function () { syncGutter(self.$(".gut"), self.$(".pre code")); });
+    }
     hydrate() {
       var self = this;
       if (this._value == null) this._value = this.textContent || "";   // 仅首次从种子初始化（重渲不覆盖已编辑活值）
+      this._syncGut();
       var copyBtn = this.$('[data-act="copy"]');
       if (copyBtn) copyBtn.addEventListener("click", function () {
         // 复制成功才亮"已复制"——async 写入失败（无权限/非安全上下文）不谎报成功，且不抛未捕获 rejection
@@ -145,6 +180,7 @@
         self._value = input.value;
         var codeEl = self.$(".pre code"); if (codeEl) codeEl.innerHTML = highlight(input.value, self.attr("lang"));
         if (!self.has("inline")) { var g = self.$(".gut"); if (g) g.innerHTML = lineNos(input.value); }
+        self._syncGut();
       }
       input.addEventListener("input", function () { repaint(); self.emit("an-input", { value: input.value }); });
       input.addEventListener("scroll", function () { var pre = self.$(".pre"); if (pre) { pre.scrollTop = input.scrollTop; pre.scrollLeft = input.scrollLeft; } });
@@ -163,6 +199,7 @@
       var input = this.$(".input"); if (input) input.value = v;
       var codeEl = this.$(".pre code"); if (codeEl) codeEl.innerHTML = highlight(v, this.attr("lang"));
       if (!this.has("inline")) { var g = this.$(".gut"); if (g) g.innerHTML = lineNos(v); }
+      this._syncGut();
     }
     focus() { var i = this.$(".input"); if (i) i.focus(); }
   }

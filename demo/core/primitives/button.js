@@ -14,10 +14,13 @@
         display: inline-flex; align-items: center; justify-content: center; gap: var(--gap-tight);
         height: var(--ctl); padding: 0 var(--btn-pad-x); border-radius: var(--r-btn);
         font-size: var(--t-body); font-weight: 500; color: var(--ink-2); white-space: nowrap;
+        max-width: 100%;   /* 承宿主宽约束 → 配 .lbl 省略号，受限时长 label 截断而非撑破 */
         transition: background var(--d-fast), color var(--d-fast);
       }
       .ico { display: grid; place-items: center; flex: none; }
       .ico svg { width: var(--icon); height: var(--icon); }
+      /* label 仅在受限宽（block / 被父级 max-width 钳）时省略号截断；行内钮内容定宽、不触发——超长 label 不撑破布局 */
+      .lbl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
       :host([disabled]) button { opacity: .4; }
       button:hover { background: var(--island-3); color: var(--ink); }
       :host([variant="primary"]) button { background: var(--accent); color: var(--ink-on-accent); font-weight: 600; }
@@ -35,11 +38,15 @@
       :host([block]) button { width: 100%; justify-content: flex-start; }
     `;
     render() {
+      const isIcon = this.attr("variant") === "icon";
       const ic = this.attr("icon") ? `<span class="ico">${window.icon(this.attr("icon"))}</span>` : "";
-      const lbl = this.attr("variant") === "icon" ? "" : `<slot></slot>`;
-      const aria = this.attr("variant") === "icon" && this.textContent.trim()
-        ? ` aria-label="${window.anEsc(this.textContent.trim())}"` : "";
-      return `<button part="button"${aria}>${ic}${lbl}</button>`;
+      const lbl = isIcon ? "" : `<span class="lbl"><slot></slot></span>`;
+      // icon 钮无可见 label：优先 host 文本，否则按 icon 名兜底——不留无障碍空标签的图标钮
+      const ariaText = isIcon ? (this.textContent.trim() || window.anLabel(this.attr("icon", "button"))) : "";
+      const aria = ariaText ? ` aria-label="${window.anEsc(ariaText)}"` : "";
+      // why：:host([disabled]) 的 pointer-events:none 只挡鼠标；把原生 disabled 透传到内部 button，键盘 Tab+Enter 也不可触发
+      const dis = this.has("disabled") ? " disabled" : "";
+      return `<button part="button"${aria}${dis}>${ic}${lbl}</button>`;
     }
   }
   window.AnElement.define(AnButton);

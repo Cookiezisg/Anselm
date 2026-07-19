@@ -12,6 +12,22 @@ import (
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
+// nodeStamps carries one (node, iteration)'s scheduling timestamps through a drive (工单⑫), held
+// in memory only until writeNode persists them on the row's single record-once INSERT. readyAt is
+// the walk turn that computed the node ready (Advance stamps it per batch); startedAt is runNode's
+// entry — when the engine began processing the node (input CEL eval + dispatch; the execution
+// entity's own start lives on its audit row). An interrupted drive writes nothing, so the stamps
+// die with it — honest by construction.
+//
+// nodeStamps 携带一个 (节点,轮次) 的调度时间戳走完驱动（工单⑫），只在内存持有、直到 writeNode 随该行
+// 唯一一次 record-once INSERT 落盘。readyAt 是算出该节点 ready 的那轮 walk（Advance 按批盖）；startedAt
+// 是 runNode 入口——引擎开始处理该节点的时刻（input CEL 求值 + 派发；执行实体自身的起点在其审计行）。
+// 被打断的驱动什么都不写，戳随之消亡——构造上诚实。
+type nodeStamps struct {
+	readyAt   time.Time
+	startedAt time.Time
+}
+
 // runNode executes one ready (node, iteration) and writes its frn row, returning the resulting node
 // status (completed | parked | failed). action/agent are dispatched via the port; control/approval
 // are inline-evaluated. Any failure (input CEL, dispatch error, resolver error) fail-fasts: the node
@@ -23,14 +39,15 @@ import (
 // control/approval 内联求值。任何失败 fail-fast：节点行写 failed + run 标 failed。CEL 双轴：node.Input
 // 对 model-B scope（node-id 根）求值；control when/emit + approval template 读 `input`（节点解析出的
 // input map）。
-func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv *celpkg.ScopedEnv, w *walk, rn readyNode) (*flowrundomain.FlowRunNode, string, error) {
+func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv *celpkg.ScopedEnv, w *walk, rn readyNode, readyAt time.Time) (*flowrundomain.FlowRunNode, string, error) {
 	node := rn.node
 	iter := rn.iter
+	st := nodeStamps{readyAt: readyAt, startedAt: time.Now().UTC()} // queue segment = readyAt → here (工单⑫)
 	scope := w.scopeFor(run.ID, iter)
 
 	input, err := evalInput(senv, node, scope)
 	if err != nil {
-		return s.failNode(ctx, run, node, iter, fmt.Sprintf("input eval: %s", nodeErrText(err)))
+		return s.failNode(ctx, run, node, iter, fmt.Sprintf("input eval: %s", nodeErrText(err)), st)
 	}
 
 	// Flowrun identity rides ctx into the execution entity (function/handler/mcp/agent), whose
@@ -49,62 +66,70 @@ func (s *Service) runNode(ctx context.Context, run *flowrundomain.FlowRun, senv 
 	case workflowdomain.NodeKindAction:
 		result, err := s.dispatch.RunAction(ctx, node.Ref, run.PinnedRefs[entityIDOf(node.Ref)], input)
 		if err != nil {
-			return s.failNode(ctx, run, node, iter, fmt.Sprintf("action %s: %s", node.Ref, nodeErrText(err)))
+			return s.failNode(ctx, run, node, iter, fmt.Sprintf("action %s: %s", node.Ref, nodeErrText(err)), st)
 		}
-		return s.writeNode(ctx, run, node, iter, flowrundomain.NodeCompleted, result, "")
+		return s.writeNode(ctx, run, node, iter, flowrundomain.NodeCompleted, result, "", st)
 
 	case workflowdomain.NodeKindAgent:
 		result, err := s.dispatch.RunAgent(ctx, node.Ref, run.PinnedRefs[entityIDOf(node.Ref)], input)
 		if err != nil {
-			return s.failNode(ctx, run, node, iter, fmt.Sprintf("agent %s: %s", node.Ref, nodeErrText(err)))
+			return s.failNode(ctx, run, node, iter, fmt.Sprintf("agent %s: %s", node.Ref, nodeErrText(err)), st)
 		}
-		return s.writeNode(ctx, run, node, iter, flowrundomain.NodeCompleted, result, "")
+		return s.writeNode(ctx, run, node, iter, flowrundomain.NodeCompleted, result, "", st)
 
 	case workflowdomain.NodeKindControl:
 		port, emit, err := s.evalControl(ctx, run, node, input)
 		if err != nil {
-			return s.failNode(ctx, run, node, iter, nodeErrText(err))
+			return s.failNode(ctx, run, node, iter, nodeErrText(err), st)
 		}
-		return s.writeNode(ctx, run, node, iter, flowrundomain.NodeCompleted, flowrundomain.ControlResult(port, emit), "")
+		return s.writeNode(ctx, run, node, iter, flowrundomain.NodeCompleted, flowrundomain.ControlResult(port, emit), "", st)
 
 	case workflowdomain.NodeKindApproval:
 		result, err := s.renderApproval(ctx, run, node, input)
 		if err != nil {
-			return s.failNode(ctx, run, node, iter, nodeErrText(err))
+			return s.failNode(ctx, run, node, iter, nodeErrText(err), st)
 		}
-		row, status, werr := s.writeNode(ctx, run, node, iter, flowrundomain.NodeParked, result, "")
+		row, status, werr := s.writeNode(ctx, run, node, iter, flowrundomain.NodeParked, result, "", st)
 		if werr == nil {
 			// Summon the human: a parked approval blocks the run until someone decides — the
 			// inbox alone only helps whoever already checks it. At-least-once (a crash between
 			// write and advance may re-emit); a duplicate summons beats a silent stall.
 			// 唤人：parked 审批把 run 堵到有人决策——光有收件箱只帮到主动去看的人。at-least-once
 			// （写行与 advance 之间崩溃可能重发）；重复唤起好过静默卡死。
+			name := ""
+			if w, werr := s.workflows.GetWorkflow(ctx, run.WorkflowID); werr == nil && w != nil {
+				name = w.Name
+			}
 			s.notify(ctx, "workflow.approval_pending", map[string]any{
-				"workflowId": run.WorkflowID, "flowrunId": run.ID, "nodeId": node.ID,
+				"workflowId": run.WorkflowID, "flowrunId": run.ID, "nodeId": node.ID, "name": name,
 			})
 		}
 		return row, status, werr
 
 	default:
-		return s.failNode(ctx, run, node, iter, fmt.Sprintf("unschedulable node kind %q", node.Kind))
+		return s.failNode(ctx, run, node, iter, fmt.Sprintf("unschedulable node kind %q", node.Kind), st)
 	}
 }
 
 // writeNode upserts the node's terminal/parked row (record-once, first-wins). completed/failed stamp
-// completed_at; parked leaves it nil. Returns the persisted row so Advance can carry it into the next
-// walk turn without re-reading the whole node set from disk. On a record-once conflict (the row
-// already existed — only reachable via a crash-replay/concurrent race, never within one drive since
-// computeReady skips nodes that already have a row) it returns a nil row: Advance then re-reads the
-// authoritative set, so the in-memory working set never diverges from the durable truth.
+// completed_at; parked leaves it nil. The queue stamps (工单⑫) ride this single INSERT — a parked
+// row keeps them through its later ResolveParkedNode status flip. Returns the persisted row so
+// Advance can carry it into the next walk turn without re-reading the whole node set from disk. On a
+// record-once conflict (the row already existed — only reachable via a crash-replay/concurrent race,
+// never within one drive since computeReady skips nodes that already have a row) it returns a nil
+// row: Advance then re-reads the authoritative set, so the in-memory working set never diverges from
+// the durable truth.
 //
 // writeNode upsert 节点的终态/parked 行（record-once，first-wins）。completed/failed 打 completed_at；
-// parked 留 nil。返回持久化的行，使 Advance 能携带进下一轮 walk、不必从盘重读整套节点。record-once 冲突
+// parked 留 nil。排队戳（工单⑫）随这唯一一次 INSERT 落盘——parked 行经后续 ResolveParkedNode 翻状态时
+// 戳保留。返回持久化的行，使 Advance 能携带进下一轮 walk、不必从盘重读整套节点。record-once 冲突
 // （行已存在——只在崩溃重放/并发竞争可达，单次驱动内绝无，因 computeReady 跳过已有行的节点）时返 nil 行：
 // Advance 据此重读权威集，使内存工作集绝不偏离 durable 真相。
-func (s *Service) writeNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, status string, result map[string]any, errMsg string) (*flowrundomain.FlowRunNode, string, error) {
+func (s *Service) writeNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, status string, result map[string]any, errMsg string, st nodeStamps) (*flowrundomain.FlowRunNode, string, error) {
 	n := &flowrundomain.FlowRunNode{
 		FlowRunID: run.ID, NodeID: node.ID, Iteration: iter, Kind: node.Kind, Ref: node.Ref,
 		Status: status, Result: result, Error: errMsg,
+		ReadyAt: &st.readyAt, StartedAt: &st.startedAt,
 	}
 	if status != flowrundomain.NodeParked {
 		now := time.Now().UTC()
@@ -120,14 +145,37 @@ func (s *Service) writeNode(ctx context.Context, run *flowrundomain.FlowRun, nod
 	return n, status, nil
 }
 
+// nodeInterrupted is an INTERNAL pseudo-status (never persisted — not one of flowrun_nodes' CHECK
+// four): a node whose failure is an artifact of the drive's OWN cancellation. When :cancel /
+// KillWorkflow / Shutdown cancels the advance ctx, the blocked dispatch surfaces ctx.Err() as an
+// error — that is a NON-RESULT, not a node failure: recording it as a failed row would lie in the
+// memoization (the activity never ran to a real terminal) and pollute :replay's "clear failed rows"
+// semantics. The interrupted drive writes NOTHING; the run's terminal is owned by whoever cancelled
+// (:cancel/kill already wrote cancelled first; a shutdown leaves it running for boot Recover).
+//
+// nodeInterrupted 是**内部**伪状态（绝不落库——不在 flowrun_nodes CHECK 四值内）：节点的失败是驱动
+// **自身被取消**的产物。:cancel / KillWorkflow / Shutdown 取消 advance ctx 后，阻塞中的派发把
+// ctx.Err() 以 error 上呈——那是**非结果**、不是节点失败：记成 failed 行会在记忆化里撒谎（activity
+// 从未跑到真实终态）、并污染 :replay「清 failed 行」的语义。被打断的驱动**什么也不写**；run 终态归
+// 取消者所有（:cancel/kill 已先写 cancelled；shutdown 留 running 待 boot Recover）。
+const nodeInterrupted = "interrupted"
+
 // failNode writes the failed node row then fail-fasts the whole run: completed sibling rows stay
 // memoized; :replay clears the failed row and re-walks. Returns NodeFailed so the advance loop stops
-// (the row itself is unused — the loop bails on NodeFailed before carrying it).
+// (the row itself is unused — the loop bails on NodeFailed before carrying it). The interrupted-bail
+// comes first: a drive whose ctx has been cancelled records nothing (see nodeInterrupted) — keyed on
+// the DRIVE ctx, not errors.Is(err, context.Canceled), so a node's own internal timeout still
+// records a genuine failed row.
 //
 // failNode 写 failed 节点行后 fail-fast 整个 run：completed 兄弟行留作记忆化；:replay 清 failed 行
 // 重走。返 NodeFailed 使 advance 循环停（行本身不用——循环遇 NodeFailed 即 bail、不携带）。
-func (s *Service) failNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, reason string) (*flowrundomain.FlowRunNode, string, error) {
-	if _, _, err := s.writeNode(ctx, run, node, iter, flowrundomain.NodeFailed, nil, reason); err != nil {
+// interrupted-bail 在最前：ctx 已被取消的驱动什么都不记（见 nodeInterrupted）——判据是**驱动 ctx**、
+// 非 errors.Is(err, context.Canceled)，故节点自身内部超时仍记真实 failed 行。
+func (s *Service) failNode(ctx context.Context, run *flowrundomain.FlowRun, node *workflowdomain.Node, iter int, reason string, st nodeStamps) (*flowrundomain.FlowRunNode, string, error) {
+	if ctx.Err() != nil {
+		return nil, nodeInterrupted, nil // the drive was cancelled out from under this node — a non-result
+	}
+	if _, _, err := s.writeNode(ctx, run, node, iter, flowrundomain.NodeFailed, nil, reason, st); err != nil {
 		return nil, "", err
 	}
 	if err := s.markRunTerminal(ctx, run, flowrundomain.StatusFailed, fmt.Sprintf("node %s: %s", node.ID, reason)); err != nil {

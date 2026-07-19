@@ -14,9 +14,9 @@
 |---|---|
 | `status-dot` · `badge` | 5 态状态点（状态翻译单源）· 分类/状态药丸 |
 | `button` · `input` · `field` · `kv` | 按钮 4 变体 · 输入/多行 · 键值大行（`editable`/`wrap` 就地编辑+多行）· 紧凑键值列（`wrap` 长 value 多行自适应） |
-| `section` · `row` · `row-detail` · `page` · `info-card` · `group-label` | 段（`grid` → 响应式 2 列，内化原 render.js 手搓网格）· 核心行（三列网格；`hint` 多行 wrap；`emphatic` accent 选中皮肤[软底+左 accent 条] · `mono` 等宽标签 · `collapsible` 非 passive 行点 chevron 派 an-toggle/点标题派 an-select——树节点分流）· 可展开详情行（点行展开下方详情面板，内化原 render.js 手搓 panel+toggle）· 记录页骨架（`:host` flex:1/min-height:0 自填海面，sea 直返即可滚）· 无边信息卡 · uppercase-meta 小标题单源 |
+| `section` · `row` · `row-detail` · `page` · `info-card` · `an-card` · `an-brand-icon` · `group-label` | 段（`grid` → 响应式 2 列，内化原 render.js 手搓网格）· 核心行（三列网格；`hint` 多行 wrap；`emphatic` accent 选中皮肤[软底+左 accent 条] · `mono` 等宽标签 · `collapsible` 非 passive 行点 chevron 派 an-toggle/点标题派 an-select——树节点分流）· 可展开详情行（点行展开下方详情面板，内化原 render.js 手搓 panel+toggle）· 记录页骨架（`:host` flex:1/min-height:0 自填海面，sea 直返即可滚）· 无边信息卡 info-card · **有边卡 `an-card`（info-card「无边」的「有边」对偶：variant=accent/row/selectable[+selected 派 an-card-select]/pad；inset 描边+r-chip+island 皮肤；收口 settings/MCP/onboarding 8 处 bespoke 卡）** · **品牌图标 `an-brand-icon`（src 图 cover / svg 内联 logo 随 ink / glyph 字母兜底；size sm·md·lg + managed→accent + elevated→浮起阴影；收口 4 处图标框 + brandIcoHtml 串重抄 + onboarding 英雄 logo .ob-icon）** · uppercase-meta 小标题单源 |
 | 地基 `base.js` | AnElement 基类 + 共享糖：`anEsc`(转义) · `anLabel`(标识符人性化) · **`el(tag,attrs,…kids)`**（元素工厂，attrs 支持 on*/html/prop；全 feature/画廊经 `window.el` 复用，不再各抄——原散在 scheduler/documents/reference 三处） |
-| `tabs` · `segmented` | 页级视图切换（隐藏不销毁；实体页概览/版本）· 就地紧凑选项 |
+| `tabs` | 页级视图切换（隐藏不销毁；实体页概览/版本）。〔原 `an-segmented` 已删——紧凑选项统一走 `dropdown`(AnMenu)，全局无分段器〕 |
 | `floating`(模块) · `menu`(模块) · `model-picker`(模块) · `mention`(模块) | 锚定浮层引擎 · 菜单 · 模型/API 切换器（`AnModelPicker.open`：单浮层·两栏=左模型[按 provider 分组]右 keys，hover 可用模型→右栏列其 API key、点 key 选定「模型+key」；**避 AnMenu 嵌套子菜单**——嵌套浮层 hover 桥接/点外/Escape 栈风险大、且要改 AnFloating+AnMenu 殃及全局，单浮层两栏零嵌套同效；shell 左上角头「模型名」浅色钮用[chat 海洋，标题与 ⋯ 之间]） · @ 提及 picker（contenteditable 上 `@`→边打边滤→内联插 `an-ref-pill`；doc-editor / composer 同源，复用 AnMenu/AnFloating/ref-pill） |
 | `action-group` · `toolbar` · `ocean-header` | 动作组（`end`/`block`/`stack`/`compact` + `footer` 底部独立动作区变体[尾部带间距，替代各处手搓 margin 裸 div]）· 三段工具条（`bordered` 顶栏 variant）· 海洋页头（`editable` 标题就地改名，派 an-title-change） |
 | `right-island` · `sidebar-list` | 右岛内容壳（皮肤与左岛同源 `--shadow-float`/`--r-chip`；`headless` 不画头、交 slot 自绘——entity-workspace 用）· 左岛列表（New[`no-new` 可隐]+域内垂搜[实时过滤·命中祖先链自动展开]+排序+**可折叠大组** chat 式头 + **headless 类型**[无标题省头·scheduler]+**嵌套行树**[row.children 递归·点 chevron 折叠/点标题选中·`add`/`more` 行尾动作·documents 文档树复用此件而非另造]） |
@@ -30,7 +30,7 @@
 
 | Pattern | 状态 | 归宿 / 来源 | 哪需要 |
 |---|---|---|---|
-| `an-dropdown` | ✅ | 移植 design `dropdown.js`（= field + AnMenu） | models/providers/settings/onboarding/workspace |
+| `an-dropdown` | ✅ | 移植 design `dropdown.js`（= field + AnMenu）；`variant=ghost` 无边触发钮 + `menu-align` 收口 settings 全页手搓下拉(原 ghost 钮+裸 chevron) | models/providers/settings/onboarding/workspace |
 | `an-ref-pill` | ✅ | 移植 `ref-pill.js`（点击 → Intent.select） | chat @提及 · docs wikilink · mount-health · search |
 | `an-tags` | ✅ | 移植 `tags.js`（可增删 chip + health 点） | 实体 tags · skill allowed-tools · agent 挂载 |
 | `an-thin-table` | ✅ | 移植 `thin-table.js`（发丝表） | 执行/调用日志 · runtimes · provider 列表 |
@@ -55,14 +55,14 @@
 | `an-wire-list` | ✅ 🧩 | 已落 `core/primitives/wire-list.js`（key→expr 可增删接线行组，复用 an-input；focusout 收集 field→CEL map 派 an-wire-change） | 图编辑器节点 input 映射 · control when→port（an-branch-editor 复用其底座）|
 | `an-run-board` · `an-node-gantt` | ✅ 🪂 | 已落（scheduler 专属）：运行看板**只自画 2 列外壳 + 左右同步**，左列每条 run **复用 an-row**（dot 状态 + mono id + trigger·when hint + ↻replay meta + emphatic 选中），右 = 选中 run 的节点甘特；点行 emit an-run-pick · 节点甘特（self-drawn：单 run 逐节点时段条 + 循环 iters 多条 + ×N 徽 + parked 等待框 + future 占位、点行 emit an-node-pick） | scheduler 执行驾驶舱（选 workflow → run 看板 → 运行图 + 节点调试）|
 | `an-flowrun` | 🧩 ⬚ | 移植 `flowrun.js`（记忆化条 + park 挂审批） | scheduler durable 节点 |
-| `an-branch-editor` | 🧩 ⬚ | 新 pattern（复用 `an-wire-list` + code-editor[cel] + segmented） | control 的 CEL when→port 分支组 |
+| `an-branch-editor` | 🧩 ⬚ | 新 pattern（复用 `an-wire-list` + code-editor[cel] + `tabs`/`dropdown`） | control 的 CEL when→port 分支组 |
 | `an-search-results` | 🧩 ⬚ | 新 pattern（hit 行 + `<mark>` 高亮安全注入 + 折叠） | search 综搜/垂搜结果 |
 | `an-block-kit`（search） | 🧩 ⬚ | 新 pattern（积木接线单元，refHint→填节点） | workflow 编排挑可接线单元 |
 | `an-notification-inbox` | 🧩 ⬚ | 新 pattern + **通知类型→{图标,可操作} 单源表** | 需要你 / FYI 两段收件箱 |
 | `an-typewriter` | ✅ 🧩 | 已落 `core/primitives/typewriter.js`（纯视觉打字机：循环 type→停→delete→换句轮播；`.phrases` 数组属性 + attr `prefix` 恒定前缀 + attr `pause`[一句打满停留毫秒，chat 空态 5s]；光标闪烁复用 `--d-breath`、字号继承宿主；单 setTimeout 链 + disconnectedCallback 清 timer；打字节拍 SPEED/PAUSE_MS 为 JS 常量[CSS token 触达不到 JS]）。chat New-chat 居中落地问候用 | chat 空态时间问候轮播 |
 | `an-edit-affordance` | ✅ 🧩 | 已落 `core/primitives/edit-affordance.js`（就地编辑三连钮 铅笔→✓/✕ 单源，复用 an-button；`editing` 切铅笔↔✓✕[✓ 经 ::part 着 accent]；铅笔 click→`an-edit-start`、✓/✕ mousedown(preventDefault)→`an-edit-commit`/`an-edit-abort`[抢 contenteditable blur=提交 前定调、取消优先回滚]；可见性由父 hover/editing 揭示）。**收敛**：field/kv/ocean-header 原各手搓 .a-btn/.t-btn raw 钮，今统一用此件 | 任何 in-place 编辑（字段值 / kv 行 / 海洋标题改名） |
 | `an-composer` | ✅ 🧩 | 已落 `core/primitives/composer.js`（**演变型输入框**：单行 contenteditable + @ 提及内联药丸[复用地基 `AnMention`] + 附件 chip + 极简 icon 发送[与 @/附件 同款 icon 钮、空输入藏有输入现] + Enter 发送 / Shift+Enter 换行 / generating 切停止；border-radius 据高度 JS 演变[1 行=药丸→换行渐变到 --r-card→阈值后恒]；attr `pill`=浮起阴影修饰[landing 居中态]；派 an-send/an-stop/an-attach。模型切换不在此——已移至 shell 左上角头） | chat 输入条 · New-chat 居中落地（FLIP 滑到底） |
-| `an-stepper` | 🧩 ⬚ | 新建（线性多步外壳） | onboarding 向导 |
+| `an-stepper` | ✅ | 已落 `core/primitives/stepper.js`（步骤进度点：count + active(1-based)，<active=done 灰点 / =active=accent 胶囊 / >active=待激活；收口 onboarding `.ob-dots`/`dots()`） | onboarding 向导 |
 
 ## 四、Compose（无需新件，拼现有原语——约 60 范式，节选拼装规则）
 
@@ -73,7 +73,7 @@
 - 实体头多状态徽阵列（version/env/config/runtime/lifecycle）= `ocean-header` + `status-dot` + `badge` + `action-group`
 - handler config 表单 = `field` + `input`（按 init_args_schema 驱动）+ sensitive 掩码
 - 模型/工作区/APIKey 设置 = `field` + `dropdown` + `row` + `menu`(danger 删)
-- search 框 = `input`(q) + `segmented`/`tabs`(综搜↔垂搜) + `menu`(类型/标签/时间)
+- search 框 = `input`(q) + `tabs`(综搜↔垂搜) + `menu`(类型/标签/时间)
 - MCP server 列表 = `row` + `status-dot`(连接态映射 state-model) + `section`
 - memory / 文档树 / 通知行 = `sidebar-list` / `row`(label+hint+dot)
 - 面包屑 / 大纲 TOC / 反链 = `action-group`(crumb) · `right-island` + `row`(depth)
@@ -93,6 +93,5 @@
 - `--scrim`（dialog 遮罩，现为 `rgba(0,0,0,.28)` 裸 rgba，与 tokens 内 line/shadow 同写法）
 - `--d-shimmer: 1.5s`（block-tree / run-terminal 流光，现借 `--d-breath` 1.8s）
 - `--line-bold: 1.5px`（thin-table 表头粗线，现借 `--line-2` 2px）
-- segmented 轨道 `--inset` / 段缝 `--gap-hair: 2px` / 内距 `--pad-hair: 3px`（现借 `--island-3` / `--line-2` / `--focus-ring`）
 - pill 垂直内距 `--pad-pill-y: 2px`（现 `calc(--grid/2)`）
 - z-index 阶梯 `--z-float/--z-toast/--z-dialog`（现各模块裸整数 40/60/80，靠人工约定层级）

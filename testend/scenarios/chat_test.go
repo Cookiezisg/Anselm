@@ -265,6 +265,11 @@ func TestChat_HumanLoopDangerGate(t *testing.T) {
 	if page.Aggregates.OKCount != 1 {
 		t.Fatalf("approve must actually run the tool, executions=%+v", page.Aggregates)
 	}
+	// The approved execution lands in the conversation's context ledger. 批准的执行入触点台账。
+	harness.Eventually(t, 10000, "approved run books an executed touchpoint", func() bool {
+		rows := listTouchpoints(t, wc, conv1, "?verb=executed")
+		return len(rows) == 1 && rows[0].ItemID == fnID
+	})
 
 	// duplicate resolve → gone. 重复决议 → 404。
 	wc.Do("POST", "/api/v1/conversations/"+conv1+"/interactions/"+pending[0].ToolCallID,
@@ -290,6 +295,11 @@ func TestChat_HumanLoopDangerGate(t *testing.T) {
 	wc.GET("/api/v1/functions/"+fnID+"/executions").OK(t, &page)
 	if page.Aggregates.OKCount != 1 {
 		t.Fatalf("deny must NOT run the tool, executions=%+v", page.Aggregates)
+	}
+	// PHANTOM-TOUCH regression: a DENIED call must leave the ledger untouched (deny reads
+	// ok=true for the model, executed=false for the ledger). 拒绝调用不得留任何台账行。
+	if rows := listTouchpoints(t, wc, conv2, ""); len(rows) != 0 {
+		t.Fatalf("denied call must not book any touchpoint, got %+v", rows)
 	}
 	// The denial is fed back to the model as the tool outcome. 拒绝作为工具结果回喂模型。
 	dumps := mock.DumpsFor(dlgModel)
@@ -496,5 +506,262 @@ func TestChat_ErrorPaths(t *testing.T) {
 	turn = waitTurn(t, wc2, conv3, mid3, 20000)
 	if turn.Status == "completed" || turn.ErrorCode == "" {
 		t.Fatalf("unconfigured model must error the turn with a code, got %s code=%q", turn.Status, turn.ErrorCode)
+	}
+}
+
+// convRow is the wire shape of one conversation in GET /conversations (the rail row).
+//
+// convRow 是 GET /conversations 里一条对话的线缆形状（rail 行）。
+type convRow struct {
+	ID            string `json:"id"`
+	Title         string `json:"title"`
+	Pinned        bool   `json:"pinned"`
+	Archived      bool   `json:"archived"`
+	LastMessageAt string `json:"lastMessageAt"`
+	IsGenerating  bool   `json:"isGenerating"`
+	AwaitingInput bool   `json:"awaitingInput"`
+	HasUnread     bool   `json:"hasUnread"`
+}
+
+func listConvs(t *testing.T, wc *harness.Client) []convRow {
+	t.Helper()
+	var rows []convRow
+	wc.GET("/api/v1/conversations?limit=50").OK(t, &rows)
+	return rows
+}
+
+func findConv(rows []convRow, id string) (convRow, bool) {
+	for _, r := range rows {
+		if r.ID == id {
+			return r, true
+		}
+	}
+	return convRow{}, false
+}
+
+// TestChat_RailAwaitingInput: a pending human-loop interaction lights the conversation's awaitingInput
+// flag on the rail; resolving it clears the flag. Mirrors the derived isGenerating pattern over real
+// HTTP + the in-memory broker.
+//
+// TestChat_RailAwaitingInput：待决人在环 interaction 点亮对话 rail 的 awaitingInput；解决即清。镜像派生
+// isGenerating 那套，经真 HTTP + 内存 broker。
+func TestChat_RailAwaitingInput(t *testing.T) {
+	wc, mock := chatSetup(t, false)
+	fnID := fnCreate(t, wc, "await_probe", "def go() -> dict:\n    return {\"ok\": true}\n")
+	mock.Enqueue(dlgModel,
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{ID: "call_await", Name: "run_function", Args: map[string]any{
+			"functionId": fnID, "args": map[string]any{},
+			"summary": "Run the gated probe", "danger": "dangerous", "execution_group": 1,
+		}}}},
+		harness.LLMTurn{Text: "done after approval"},
+	)
+
+	convID := convCreate(t, wc, "awaiting")
+	mid := sendMsg(t, wc, convID, "do the dangerous thing")
+
+	var pending []struct {
+		ToolCallID string `json:"toolCallId"`
+	}
+	harness.Eventually(t, 15000, "danger interaction pends", func() bool {
+		pending = nil
+		wc.GET("/api/v1/conversations/"+convID+"/interactions").OK(t, &pending)
+		return len(pending) == 1
+	})
+	// While the interaction blocks, the rail row reports awaitingInput=true. 阻塞期间 rail 行 awaitingInput=true。
+	harness.Eventually(t, 5000, "rail awaitingInput true while an interaction is pending", func() bool {
+		row, ok := findConv(listConvs(t, wc), convID)
+		return ok && row.AwaitingInput
+	})
+
+	// Resolving clears it (broker pending drops → derived flag re-reads false). 解决即清（broker pending 移除 → 派生 false）。
+	wc.POST("/api/v1/conversations/"+convID+"/interactions/"+pending[0].ToolCallID,
+		map[string]any{"action": "approve"}).OK(t, nil)
+	waitTurn(t, wc, convID, mid, 20000)
+	harness.Eventually(t, 5000, "rail awaitingInput false after resolve", func() bool {
+		row, ok := findConv(listConvs(t, wc), convID)
+		return ok && !row.AwaitingInput
+	})
+}
+
+// TestChat_RailSortByName: ?sort=name orders conversations by title A–Z case-INSENSITIVELY
+// (COLLATE NOCASE) with id ASC as the same-title tiebreaker, and the keyset cursor walks that order
+// across pages with no skip/duplicate (including a same-title page boundary). "Banana" (capital)
+// landing between "apple" and "cherry" is the binary-vs-NOCASE discriminator — a regression dropping
+// NOCASE would surface it first. End-to-end over real HTTP + the title keyset (orm PageAsc).
+//
+// TestChat_RailSortByName：?sort=name 按 title A–Z **大小写不敏感**（COLLATE NOCASE）排序、id 升序为同名
+// tiebreaker，且 keyset 游标按该序跨页行进、不漏/不重（含同名页边界）。大写 "Banana" 落在 "apple" 与 "cherry"
+// 之间是 binary-vs-NOCASE 判别器——若回归丢了 NOCASE 它会冒到最前。经真 HTTP + title keyset（orm PageAsc）端到端。
+func TestChat_RailSortByName(t *testing.T) {
+	wc, _ := chatSetup(t, false)
+	// Created in a deliberately non-alphabetical order; name sort must reorder regardless of creation.
+	// 故意以非字母序创建；name 排序须无视创建序重排。
+	convCreate(t, wc, "cherry")
+	convCreate(t, wc, "Banana")
+	convCreate(t, wc, "apple")
+	d1 := convCreate(t, wc, "delta")
+	d2 := convCreate(t, wc, "delta")
+
+	// Full page: NOCASE order is apple < Banana < cherry < delta(×2). 全量页：NOCASE 序。
+	var rows []convRow
+	wc.GET("/api/v1/conversations?sort=name&limit=50").OK(t, &rows)
+	gotTitles := make([]string, len(rows))
+	for i, r := range rows {
+		gotTitles[i] = r.Title
+	}
+	wantTitles := []string{"apple", "Banana", "cherry", "delta", "delta"}
+	if fmt.Sprint(gotTitles) != fmt.Sprint(wantTitles) {
+		t.Fatalf("sort=name titles = %v, want %v (NOCASE: Banana between apple/cherry)", gotTitles, wantTitles)
+	}
+	// Same-title rows ordered by id ASC (the tiebreaker; server-assigned ids, so derive lo/hi).
+	// 同名行按 id 升序（tiebreaker；id 由服务端分配，故推导 lo/hi）。
+	lo, hi := d1, d2
+	if lo > hi {
+		lo, hi = hi, lo
+	}
+	if rows[3].ID != lo || rows[4].ID != hi {
+		t.Fatalf("same-title delta rows must be id-ASC, got [%s %s], want [%s %s]", rows[3].ID, rows[4].ID, lo, hi)
+	}
+
+	// Cursor walk at limit=2 reconstructs the exact order with no dup/miss; the same-title pair splits
+	// across the page-2/page-3 boundary, exercising the (title NOCASE = key AND id > cursorID) branch.
+	// 游标 limit=2 重建完整序、不漏/不重；同名对跨第2/3页边界，触发 (title NOCASE = key AND id > cursorID) 分支。
+	var walked []string
+	seen := map[string]bool{}
+	cursor := ""
+	pages := 0
+	for {
+		var page []convRow
+		url := "/api/v1/conversations?sort=name&limit=2"
+		if cursor != "" {
+			url += "&cursor=" + cursor
+		}
+		resp := wc.GET(url).OK(t, &page)
+		if len(page) > 2 {
+			t.Fatalf("page returned %d rows, limit was 2", len(page))
+		}
+		for _, r := range page {
+			if seen[r.ID] {
+				t.Errorf("duplicate %s across pages", r.ID)
+			}
+			seen[r.ID] = true
+			walked = append(walked, r.Title)
+		}
+		pages++
+		if pages > 10 {
+			t.Fatal("pagination did not terminate")
+		}
+		if !resp.HasMore || resp.NextCursor == "" {
+			break
+		}
+		cursor = resp.NextCursor
+	}
+	if fmt.Sprint(walked) != fmt.Sprint(wantTitles) {
+		t.Fatalf("cursor walk = %v, want %v (NOCASE keyset + id tiebreaker across boundary)", walked, wantTitles)
+	}
+	if pages != 3 {
+		t.Errorf("5 rows / page 2 → want 3 pages, got %d", pages)
+	}
+}
+
+// TestChat_RailUnread: a COMPLETED assistant reply flags the conversation hasUnread on the rail (you
+// were away while it answered → green dot); the user's own send is never unread; POST /{id}:seen (204)
+// clears it. End-to-end over real HTTP + the persisted unread column (survives a cold List re-read).
+//
+// TestChat_RailUnread：**完成**的 assistant 回复点亮 rail 的 hasUnread（你不在时它答完了 → 绿点）；用户自己的发送
+// 绝不未读；POST /{id}:seen（204）清之。经真 HTTP + 持久 unread 列端到端（冷 List 重读照样在）。
+func TestChat_RailUnread(t *testing.T) {
+	wc, mock := chatSetup(t, false)
+	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "The assistant has finished answering."})
+
+	convID := convCreate(t, wc, "unread probe")
+	// A brand-new conversation is seen. 全新对话已读。
+	if row, ok := findConv(listConvs(t, wc), convID); !ok || row.HasUnread {
+		t.Fatalf("a brand-new conversation must not be unread (found=%v hasUnread=%v)", ok, row.HasUnread)
+	}
+	mid := sendMsg(t, wc, convID, "answer me")
+	// The user's own send is never unread (the send folds unread=false into the recency touch).
+	// 用户自己的发送绝不未读（发送把 unread=false 折进 recency touch）。
+	if row, _ := findConv(listConvs(t, wc), convID); row.HasUnread {
+		t.Fatal("the user's own send must not be unread")
+	}
+	if turn := waitTurn(t, wc, convID, mid, 30000); turn.Status != "completed" {
+		t.Fatalf("turn must complete, got %s %s", turn.Status, turn.ErrorMessage)
+	}
+	// Once the assistant reply completes, the rail row reports hasUnread=true. 完成后 rail 行 hasUnread=true。
+	harness.Eventually(t, 10000, "a completed reply flags the conversation unread", func() bool {
+		row, ok := findConv(listConvs(t, wc), convID)
+		return ok && row.HasUnread && !row.IsGenerating
+	})
+	// POST :seen clears it (204 No Content), and a cold List re-read confirms (persisted column).
+	// POST :seen 清之（204），冷 List 重读确认（持久列）。
+	wc.POST("/api/v1/conversations/"+convID+":seen", nil).OK(t, nil)
+	if row, ok := findConv(listConvs(t, wc), convID); !ok || row.HasUnread {
+		t.Fatalf(":seen must clear hasUnread (found=%v hasUnread=%v)", ok, row.HasUnread)
+	}
+}
+
+// TestChat_RailArchivedAll: ?archived=all returns active + archived in ONE list (the rail's "show
+// archived" mode), each archived row carrying archived=true (→ the gray dot). The default excludes
+// archived; ?archived=true is archived-only. Guards the ArchiveScope 3-state enum end-to-end.
+//
+// TestChat_RailArchivedAll：?archived=all 把活跃+归档放**一个**列表返（rail「显示已归档」），归档行带 archived=true
+// （→灰点）。默认排除归档；?archived=true 仅归档。端到端守 ArchiveScope 三态枚举。
+func TestChat_RailArchivedAll(t *testing.T) {
+	wc, _ := chatSetup(t, false)
+	active := convCreate(t, wc, "active one")
+	arch := convCreate(t, wc, "archived one")
+	wc.Do("PATCH", "/api/v1/conversations/"+arch, map[string]any{"archived": true}).OK(t, nil)
+
+	// Default list excludes archived.
+	def := listConvs(t, wc)
+	if _, ok := findConv(def, arch); ok {
+		t.Fatal("default list must exclude archived")
+	}
+	if _, ok := findConv(def, active); !ok {
+		t.Fatal("default list must include the active conversation")
+	}
+
+	// ?archived=all returns BOTH; the archived row is flagged archived=true (drives the gray dot).
+	var all []convRow
+	wc.GET("/api/v1/conversations?archived=all&limit=50").OK(t, &all)
+	ra, okA := findConv(all, arch)
+	_, okV := findConv(all, active)
+	if !okA || !okV {
+		t.Fatalf("?archived=all must return both, got active=%v archived=%v", okV, okA)
+	}
+	if !ra.Archived {
+		t.Fatal("the archived row must carry archived=true (the rail draws the gray dot from it)")
+	}
+
+	// ?archived=true is archived-only.
+	var only []convRow
+	wc.GET("/api/v1/conversations?archived=true&limit=50").OK(t, &only)
+	if _, ok := findConv(only, active); ok {
+		t.Fatal("?archived=true must exclude active")
+	}
+	if _, ok := findConv(only, arch); !ok {
+		t.Fatal("?archived=true must include the archived conversation")
+	}
+}
+
+// TestChat_ConversationActionRouting guards the {idAction} dispatcher after :cancel was widened into a
+// switch to host :seen: :cancel still 204 (graceful no-op when nothing runs), :seen 204, an unknown
+// action 404 (N1 envelope).
+//
+// TestChat_ConversationActionRouting 守 {idAction} 派发器（:cancel 改 switch 以容纳 :seen 后）：:cancel 仍 204
+// （无运行回合时优雅 no-op）、:seen 204、未知动作 404（N1 envelope）。
+func TestChat_ConversationActionRouting(t *testing.T) {
+	wc, _ := chatSetup(t, false)
+	convID := convCreate(t, wc, "actions")
+
+	if resp := wc.Do("POST", "/api/v1/conversations/"+convID+":cancel", nil); resp.Status != 204 {
+		t.Errorf(":cancel must stay 204, got %d", resp.Status)
+	}
+	if resp := wc.Do("POST", "/api/v1/conversations/"+convID+":seen", nil); resp.Status != 204 {
+		t.Errorf(":seen must be 204, got %d", resp.Status)
+	}
+	if resp := wc.Do("POST", "/api/v1/conversations/"+convID+":bogus", nil); resp.Status != 404 {
+		t.Errorf("an unknown action must be 404, got %d body=%s", resp.Status, resp.Raw)
 	}
 }

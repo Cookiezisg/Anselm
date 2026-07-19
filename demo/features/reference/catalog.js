@@ -600,7 +600,7 @@ window.REF_CATALOG = [
       {
         "name": "下拉选择 dropdown",
         "tag": "an-dropdown",
-        "blurb": "受控单选下拉（替 select），options 走 property [{value,label,meta,icon}]，选中派发 an-change",
+        "blurb": "受控单选下拉（替 select），options 走 property [{value,label,meta,icon}]，选中派发 an-change；variant=ghost 无边触发钮(settings 全页用)/menu-align 控菜单对齐",
         "specimens": [
           {
             "label": "已选 + meta",
@@ -712,6 +712,19 @@ window.REF_CATALOG = [
                 }
               ]
             }
+          },
+          {
+            "label": "variant=ghost + menu-align=end（无边触发钮·settings 全页选择器）",
+            "tag": "an-dropdown",
+            "attrs": { "variant": "ghost", "value": "anthropic", "menu-align": "end" },
+            "props": {
+              "options": [
+                { "value": "anthropic", "label": "Anthropic · 个人 key", "meta": "claude", "icon": "agent" },
+                { "value": "openai", "label": "OpenAI · 团队 key", "meta": "gpt", "icon": "function" },
+                { "value": "fake", "label": "fake_llm", "meta": "0 token" }
+              ]
+            },
+            "center": true
           }
         ]
       },
@@ -1087,6 +1100,44 @@ window.REF_CATALOG = [
               }
             ]
           }
+        ]
+      },
+      {
+        "name": "卡片 card",
+        "tag": "an-card",
+        "blurb": "通用卡片容器（「有边」对偶 info-card「无边」）：inset 描边+r-chip+island 底，内容走默认 slot。variant=accent · row 横向 · selectable[+selected] 可选(点派 an-card-select) · pad=tight。收口 settings/MCP/onboarding 8 处 bespoke 卡皮肤。",
+        "specimens": [
+          { "label": "默认（有边·列）", "tag": "an-card", "span": true, "children": [ { "tag": "an-kv", "props": { "rows": [ ["状态", "就绪"], ["工具", "28"] ] } } ] },
+          { "label": "row 横向（icon+内容+尾）", "tag": "an-card", "span": true, "attrs": { "row": "" }, "children": [ { "tag": "an-brand-icon", "attrs": { "glyph": "An" } }, { "tag": "an-badge", "attrs": { "tone": "neutral" }, "text": "Anthropic · 个人 key" }, { "tag": "an-button", "attrs": { "variant": "icon", "size": "sm", "icon": "more" } } ] },
+          { "label": "accent 描边（编辑/聚焦态）", "tag": "an-card", "attrs": { "variant": "accent" }, "children": [ "accent 卡 · 建 key 配置态" ] },
+          { "label": "selectable（hover 出边）", "tag": "an-card", "attrs": { "selectable": "" }, "children": [ "可选卡" ] },
+          { "label": "selected（accent 选中边）", "tag": "an-card", "attrs": { "selectable": "", "selected": "" }, "children": [ "选中卡" ] },
+          { "label": "pad=tight 紧凑", "tag": "an-card", "attrs": { "pad": "tight" }, "children": [ "紧凑内距卡" ] }
+        ]
+      },
+      {
+        "name": "品牌图标 brand-icon",
+        "tag": "an-brand-icon",
+        "blurb": "品牌/项目图标单源：src 图(头像 cover+底) | svg 内联(logo 去底随 ink) | glyph 字母兜底(灰底)。size sm/md/lg · managed→accent · elevated→浮起阴影(onboarding 英雄 logo)。收口 4 处自绘图标框 + brandIcoHtml 串重抄 + onboarding .ob-icon。",
+        "specimens": [
+          { "label": "src 图（MCP 头像）", "tag": "an-brand-icon", "center": true, "attrs": { "src": "https://avatars.githubusercontent.com/u/9919?v=4" } },
+          { "label": "svg logo（随 ink）", "tag": "an-brand-icon", "center": true, "props": { "svg": (window.BRAND || {}).openai || "" } },
+          { "label": "glyph 字母", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "An" } },
+          { "label": "managed（accent 火花）", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "✦", "managed": "" } },
+          { "label": "size=sm", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "S", "size": "sm" } },
+          { "label": "size=lg（欢迎屏）", "tag": "an-brand-icon", "center": true, "attrs": { "glyph": "L", "size": "lg" } },
+          { "label": "size=lg + elevated（onboarding 英雄 logo·浮起阴影）", "tag": "an-brand-icon", "center": true, "props": { "svg": (window.BRAND || {}).openai || "" }, "attrs": { "size": "lg", "elevated": "" } }
+        ]
+      },
+      {
+        "name": "步骤点 stepper",
+        "tag": "an-stepper",
+        "blurb": "向导步骤进度点：count 个点，active(1-based)=accent 胶囊、<active=done 灰点、>active=待激活。收口 onboarding .ob-dots/dots()。",
+        "specimens": [
+          { "label": "1 / 3", "tag": "an-stepper", "center": true, "attrs": { "count": "3", "active": "1" } },
+          { "label": "2 / 3", "tag": "an-stepper", "center": true, "attrs": { "count": "3", "active": "2" } },
+          { "label": "3 / 3（末步）", "tag": "an-stepper", "center": true, "attrs": { "count": "3", "active": "3" } },
+          { "label": "count=5 · active=3", "tag": "an-stepper", "center": true, "attrs": { "count": "5", "active": "3" } }
         ]
       },
       {

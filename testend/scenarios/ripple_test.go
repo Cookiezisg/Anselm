@@ -22,6 +22,10 @@ type rpKind struct {
 	create func(t *testing.T, wc *harness.Client, name string) (id string)
 	rename func(t *testing.T, wc *harness.Client, id, name string)
 	del    func(t *testing.T, wc *harness.Client, id string)
+	// N0 通知分径:某些事件是仅帧 live signal、不落收件箱行(rail/树对账回声),故 REST list 里查不到。
+	// 零值=该事件落行、断言 REST 命中(实体 CRUD 默认如此)。
+	noCreateNotif bool // created 是仅帧(如 conversation/document 的建)——不断言 REST 行
+	noDeleteNotif bool // deleted 是仅帧(如 conversation 的删)——不断言 REST 行
 }
 
 // TestRippleR5_CreateRenameDeleteMatrix: 9 个可改名实体 × 3 操作 × 3 全扫面
@@ -133,7 +137,8 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 			},
 		},
 		{
-			kind: "document", domain: "document.",
+			// document.created/updated/moved 是仅帧树刷新回声(不落行);唯 deleted 落收件箱行(semi)。
+			kind: "document", domain: "document.", noCreateNotif: true,
 			create: func(t *testing.T, wc *harness.Client, name string) string {
 				return wc.POST("/api/v1/documents", map[string]any{"name": name, "content": "ripple body"}).Field(t, "id")
 			},
@@ -145,7 +150,8 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 			},
 		},
 		{
-			kind: "conversation", domain: "conversation.",
+			// conversation.* 全是 rail 对账回声——仅帧、不落收件箱行(建与删都不断言 REST 行)。
+			kind: "conversation", domain: "conversation.", noCreateNotif: true, noDeleteNotif: true,
 			create: func(t *testing.T, wc *harness.Client, name string) string {
 				return wc.POST("/api/v1/conversations", map[string]any{"title": name}).Field(t, "id")
 			},
@@ -219,7 +225,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 		if inCatalog && !catalogHas(id) {
 			t.Errorf("%s: created entity must enter the catalog coverage", k.kind)
 		}
-		if k.domain != "" {
+		if k.domain != "" && !k.noCreateNotif {
 			harness.Eventually(t, 10000, k.kind+" created notification", func() bool {
 				return notifHas(k.domain, "created")
 			})
@@ -250,7 +256,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 		if inCatalog && catalogHas(id) {
 			t.Errorf("%s: deleted entity must leave the catalog", k.kind)
 		}
-		if k.domain != "" {
+		if k.domain != "" && !k.noDeleteNotif {
 			harness.Eventually(t, 10000, k.kind+" deleted notification", func() bool {
 				return notifHas(k.domain, "deleted")
 			})
@@ -385,5 +391,87 @@ func TestRippleR5_ReferenceRipples(t *testing.T) {
 	r = wc.POST("/api/v1/workflows/"+wfID+":capability-check", nil)
 	if !strings.Contains(string(r.Data), fnID) {
 		t.Fatalf("same-name recreation must NOT satisfy the old ref: %s", r.Data)
+	}
+}
+
+// TestNotification_FrameOnlyFork: 钉死 N0 通知分径的端到端事实——**boring** 事件(对话生命周期)
+// 只在 notifications 流推一条 durable 帧、**不落收件箱行**(rail 对账回声,进收件箱即噪音);而**通知**
+// 事件(实体 CRUD,如 function.created)既推帧**又**落行(用户事后能在通知中心找到)。证据 = 同一份
+// REST list 快照里 function.created 在、conversation.created 不在,而两者都曾现于流。
+//
+// TestNotification_FrameOnlyFork pins the N0 fork end-to-end: a boring event (conversation
+// lifecycle) pushes ONLY a durable frame on the notifications stream — no inbox row — while a
+// real notification (entity CRUD like function.created) both pushes a frame AND persists a row.
+func TestNotification_FrameOnlyFork(t *testing.T) {
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "notif-fork"}).Field(t, "id")
+	wc := c.WS(wsID)
+
+	sNot := wc.Subscribe(t, "notifications")
+
+	// boring: a conversation is created — a rail reconciliation echo. 对话新建=rail 对账回声。
+	convCreate(t, wc, "fork-conv")
+	sNot.WaitFor(t, 10000, "conversation.created reaches the stream (frame)", "conversation.created")
+
+	// real: a function is created — inbox-worthy entity lifecycle. 函数新建=值得进收件箱的实体生命周期。
+	fnID := fnCreate(t, wc, "fork_fn", "def fork_fn() -> dict:\n    return {}\n")
+	sNot.WaitFor(t, 30000, "function.created reaches the stream (frame)", "function.created", fnID)
+
+	// The list-row for the function must appear (proves the inbox works + enough time has
+	// passed that any conversation row would also have landed). 函数行必现,证收件箱工作且时间足够。
+	listTypes := func() []string {
+		var rows []struct {
+			Type string `json:"type"`
+		}
+		wc.GET("/api/v1/notifications?limit=200").OK(t, &rows)
+		out := make([]string, len(rows))
+		for i, r := range rows {
+			out[i] = r.Type
+		}
+		return out
+	}
+	has := func(types []string, want string) bool {
+		for _, ty := range types {
+			if ty == want {
+				return true
+			}
+		}
+		return false
+	}
+	harness.Eventually(t, 10000, "function.created persists an inbox row", func() bool {
+		return has(listTypes(), "function.created")
+	})
+
+	// The fork: in that same populated list, the conversation event left NO row. 同一份 list 里对话事件无行。
+	types := listTypes()
+	if has(types, "conversation.created") {
+		t.Fatalf("conversation.created is boring (frame-only) — it must NOT persist an inbox row; list=%v", types)
+	}
+	// And no other conversation.* row snuck in either. 也无其它 conversation.* 行。
+	for _, ty := range types {
+		if strings.HasPrefix(ty, "conversation.") {
+			t.Fatalf("no conversation.* event may persist an inbox row, found %q", ty)
+		}
+	}
+
+	// N2a payload enrichment: the function.created row must carry the entity NAME so the notification
+	// center can render "Function «fork_fn» created" — not just the id. N2a:行 payload 带实体名。
+	var rows []struct {
+		Type    string         `json:"type"`
+		Payload map[string]any `json:"payload"`
+	}
+	wc.GET("/api/v1/notifications?limit=200").OK(t, &rows)
+	var named bool
+	for _, r := range rows {
+		if r.Type == "function.created" {
+			if r.Payload["name"] != "fork_fn" {
+				t.Fatalf("function.created payload must carry name=fork_fn, got %+v", r.Payload)
+			}
+			named = true
+		}
+	}
+	if !named {
+		t.Fatal("function.created row not found for the name-enrichment assertion")
 	}
 }

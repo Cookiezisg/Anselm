@@ -195,6 +195,16 @@ func lastEnvError(history []envfixapp.Attempt) string {
 	return history[len(history)-1].Error
 }
 
+// nameOfFunction returns f.Name, or "" when f is nil (best-effort notify name never breaks business).
+//
+// nameOfFunction 返 f.Name，f 为 nil 时返 ""（尽力而为的通知名绝不连累业务）。
+func nameOfFunction(f *functiondomain.Function) string {
+	if f == nil {
+		return ""
+	}
+	return f.Name
+}
+
 // publish emits a function lifecycle notification; nil emitter is a no-op.
 //
 // publish 发一条 function 生命周期通知；nil emitter 为 no-op。

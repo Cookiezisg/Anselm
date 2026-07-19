@@ -27,6 +27,7 @@ import (
 	relationstore "github.com/sunweilin/anselm/backend/internal/infra/store/relation"
 	sandboxstore "github.com/sunweilin/anselm/backend/internal/infra/store/sandbox"
 	todostore "github.com/sunweilin/anselm/backend/internal/infra/store/todo"
+	touchpointstore "github.com/sunweilin/anselm/backend/internal/infra/store/touchpoint"
 	triggerstore "github.com/sunweilin/anselm/backend/internal/infra/store/trigger"
 	workflowstore "github.com/sunweilin/anselm/backend/internal/infra/store/workflow"
 	workspacestore "github.com/sunweilin/anselm/backend/internal/infra/store/workspace"
@@ -48,6 +49,7 @@ type stores struct {
 	sandbox      *sandboxstore.Store
 	document     *documentstore.Store
 	todo         *todostore.Store
+	touchpoint   *touchpointstore.Store
 	attachment   *attachmentstore.Store
 	function     *functionstore.Store
 	handler      *handlerstore.Store
@@ -100,9 +102,11 @@ func newBuses() buses {
 }
 
 // openDB opens the SQLite database (DataDir empty → in-memory, for tests) and applies every
-// store's schema in one migration pass.
+// store's schema in one migration pass, then the table rebuilds that CREATE/ALTER cannot express.
+// A fresh file DB is born auto_vacuum=INCREMENTAL (buildDSN) so retention reclamation frees disk (T4).
 //
-// openDB 打开 SQLite（DataDir 空 → 内存库，供测试）并一趟应用每个 store 的 schema。
+// openDB 打开 SQLite（DataDir 空 → 内存库，供测试）并一趟应用每个 store 的 schema，再跑 CREATE/ALTER
+// 表达不了的表重建。全新文件库天生 auto_vacuum=INCREMENTAL（buildDSN），故保留回收真能腾磁盘（T4）。
 func openDB(dataDir string) (*ormpkg.DB, error) {
 	database, err := dbinfra.Open(dbinfra.Config{DataDir: dataDir})
 	if err != nil {
@@ -110,6 +114,25 @@ func openDB(dataDir string) (*ormpkg.DB, error) {
 	}
 	if err := dbinfra.Migrate(database, allSchemas()...); err != nil {
 		return nil, fmt.Errorf("bootstrap: migrate: %w", err)
+	}
+	// CHECK-widening rebuild (SQLite cannot ALTER a CHECK): trigger_firings' status gained 'missed'
+	// (scheduler 工单⑨). Idempotent by outcome — it inspects the live DDL and no-ops once the marker
+	// is there, so a fresh install (Migrate just created the current shape) never rebuilds. Must run
+	// AFTER Migrate: it needs the table to exist.
+	//
+	// CHECK 加词重建（SQLite 无法 ALTER CHECK）：trigger_firings 的 status 加了 'missed'（scheduler
+	// 工单⑨）。结果幂等——它查现行 DDL、标记词在即 no-op，故全新安装（Migrate 刚建成当前形状）绝不重建。
+	// 必须在 Migrate **之后**跑：它需要表已存在。
+	if err := dbinfra.MigrateRebuild(database, "trigger_firings", triggerstore.FiringsMissedMarker, triggerstore.FiringsCheckRebuild...); err != nil {
+		return nil, fmt.Errorf("bootstrap: migrate-rebuild: %w", err)
+	}
+	// Same mechanism, second table: flowrun_nodes' status gained 'cancelled' so a hand-stopped run's
+	// swept approval records its real disposition instead of impersonating a failure.
+	//
+	// 同一机制、第二张表：flowrun_nodes 的 status 加了 'cancelled'，使被手动停掉的 run 所收割的审批记
+	// 它**真实的**处置、而非假扮一次失败。
+	if err := dbinfra.MigrateRebuild(database, "flowrun_nodes", flowrunstore.NodesCancelledMarker, flowrunstore.NodesCheckRebuild...); err != nil {
+		return nil, fmt.Errorf("bootstrap: migrate-rebuild: %w", err)
 	}
 	return database, nil
 }
@@ -127,6 +150,7 @@ func allSchemas() []string {
 	s = append(s, sandboxstore.Schema...)
 	s = append(s, documentstore.Schema...)
 	s = append(s, todostore.Schema...)
+	s = append(s, touchpointstore.Schema...)
 	s = append(s, attachmentstore.Schema...)
 	s = append(s, functionstore.Schema...)
 	s = append(s, handlerstore.Schema...)
@@ -179,6 +203,7 @@ func buildStores(database *ormpkg.DB, enc cryptodomain.Encryptor, dataDir string
 		sandbox:      sandboxstore.New(database),
 		document:     documentstore.New(database),
 		todo:         todostore.New(database),
+		touchpoint:   touchpointstore.New(database),
 		attachment:   attachmentstore.New(database),
 		function:     functionstore.New(database),
 		handler:      handlerstore.New(database),

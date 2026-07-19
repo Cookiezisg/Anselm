@@ -1,0 +1,316 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import '../../../../core/design/tokens.dart';
+import '../../../../core/model/status_state.dart';
+import '../../../../core/overlay/an_overlay.dart';
+import '../../../../core/platform/launch_at_login.dart';
+import '../../../../core/platform/window_zoom.dart';
+import '../../../../core/settings/app_prefs_providers.dart';
+import '../../../../core/settings/settings_prefs.dart';
+import '../../../../core/ui/an_dropdown.dart';
+import '../../../../core/ui/an_scope_badge.dart';
+import '../../../../core/ui/an_section.dart';
+import '../../../../core/ui/an_segmented.dart';
+import '../../../../core/ui/an_setting_row.dart';
+import '../../../../core/ui/an_switch.dart';
+import '../../../../i18n/strings.g.dart';
+import '../../model/settings_search.dart';
+import '../../state/workspace_prefs_provider.dart';
+import '../settings_anchor.dart';
+
+/// ① 通用 — appearance / language / window & startup / updates (WRK-062 §3-①). Instant-apply
+/// throughout; the language row DOUBLE-WRITES (拍板 #2): UI locale (app scope) + the active
+/// workspace's AI output language, and says so in its description. A failed workspace PATCH rolls
+/// back and toasts. 通用面板:外观/语言/窗口与启动/更新。全即时生效;语言行**双写**(界面 locale +
+/// 当前工作区 AI 输出语言,描述言明);PATCH 失败回滚+toast。
+class GeneralPanel extends ConsumerWidget {
+  const GeneralPanel({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
+    final theme = ref.watch(themePreferenceProvider);
+    final locale = ref.watch(localePreferenceProvider);
+    final remember = ref.watch(boolSettingProvider(SettingsKeys.windowRemember));
+    final atLogin = ref.watch(boolSettingProvider(SettingsKeys.launchAtStartup));
+    final updateCheck = ref.watch(boolSettingProvider(SettingsKeys.updateCheck));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnSection(
+          label: t.settings.appearance,
+          variant: AnSectionVariant.quiet,
+          // ONE badge for the whole single-scope page (first section) — four identical «device»
+          // badges were a chain of noise; mixed-scope pages still badge per section (S-16).
+          // 单域页只在首组标一次域徽;混域页仍逐节标(S-16)。
+          actions: const [AnScopeBadge(AnSettingScope.device)],
+          children: [
+            SettingsAnchor(
+              item: SettingsItem.generalTheme,
+              child: AnSettingRow(
+                label: t.settings.theme,
+                desc: t.settings.themeDesc,
+                modified: theme != ThemePreference.light,
+                onReset: () => ref.read(themePreferenceProvider.notifier).set(ThemePreference.light),
+                resetLabel: t.settings.resetToDefault,
+                child: SizedBox(
+                  width: AnSize.ctlSlotLg,
+                  child: AnSegmented<ThemePreference>(
+                    options: [
+                      AnSegmentedOption(value: ThemePreference.light, label: t.settings.themeLight),
+                      AnSegmentedOption(value: ThemePreference.dark, label: t.settings.themeDark),
+                      AnSegmentedOption(value: ThemePreference.system, label: t.settings.themeSystem),
+                    ],
+                    value: theme,
+                    onChanged: (v) => ref.read(themePreferenceProvider.notifier).set(v),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: AnSpace.s4),
+            SettingsAnchor(item: SettingsItem.generalZoom, child: _ZoomRow(t: t)),
+          ],
+        ),
+        const SizedBox(height: AnSpace.s24),
+        // ① UI · ② content · ③ code — three ORTHOGONAL machine-level font axes (see core/design/an_fonts.dart).
+        // Defaults = today's bundled faces. Content is HOT (instant); UI + code are RESTART-applied and say so
+        // in their desc. 三正交字体轴(机器级):默认=现状随包脸;内容即时,UI+代码重启生效(desc 已言明)。
+        AnSection(
+          label: t.settings.fonts,
+          variant: AnSectionVariant.quiet,
+          children: [
+            _FontDropdownRow(
+              item: SettingsItem.generalFontUi,
+              label: t.settings.fontUi,
+              desc: t.settings.fontUiDesc,
+              settingsKey: SettingsKeys.fontUi,
+              options: [
+                AnDropdownOption(value: 'bundled', label: t.settings.fontBundled),
+                AnDropdownOption(value: 'system', label: t.settings.fontSystem),
+              ],
+            ),
+            const SizedBox(height: AnSpace.s4),
+            _FontDropdownRow(
+              item: SettingsItem.generalFontContent,
+              label: t.settings.fontContent,
+              desc: t.settings.fontContentDesc,
+              settingsKey: SettingsKeys.fontContent,
+              options: [
+                AnDropdownOption(value: 'sans', label: t.settings.fontSans),
+                AnDropdownOption(value: 'serif', label: t.settings.fontSerif),
+                AnDropdownOption(value: 'system', label: t.settings.fontSystem),
+              ],
+            ),
+            const SizedBox(height: AnSpace.s4),
+            _FontDropdownRow(
+              item: SettingsItem.generalFontCode,
+              label: t.settings.fontCode,
+              desc: t.settings.fontCodeDesc,
+              settingsKey: SettingsKeys.fontCode,
+              options: [
+                AnDropdownOption(value: 'jetbrainsMono', label: t.settings.fontJetBrainsMono),
+                AnDropdownOption(value: 'firaCode', label: t.settings.fontFiraCode),
+                AnDropdownOption(value: 'cascadiaCode', label: t.settings.fontCascadia),
+                AnDropdownOption(value: 'system', label: t.settings.fontSystemMono),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: AnSpace.s24),
+        AnSection(
+          label: t.settings.language,
+          variant: AnSectionVariant.quiet,
+          children: [
+            SettingsAnchor(
+              item: SettingsItem.generalLanguage,
+              child: AnSettingRow(
+                label: t.settings.languageRow,
+                desc: t.settings.languageDesc,
+                modified: locale != 'system',
+                onReset: () => _setLanguage(ref, context, 'system'),
+                resetLabel: t.settings.resetToDefault,
+                child: SizedBox(
+                  width: AnSize.ctlSlot,
+                  child: AnDropdown<String>(
+                    options: [
+                      AnDropdownOption(value: 'system', label: t.settings.langSystem),
+                      AnDropdownOption(value: 'en', label: t.settings.langEn),
+                      AnDropdownOption(value: 'zh-CN', label: t.settings.langZh),
+                    ],
+                    value: locale,
+                    onChanged: (v) => _setLanguage(ref, context, v),
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AnSpace.s24),
+        AnSection(
+          label: t.settings.window,
+          variant: AnSectionVariant.quiet,
+          children: [
+            SettingsAnchor(
+              item: SettingsItem.generalRememberWindow,
+              child: AnSettingRow(
+                label: t.settings.rememberWindow,
+                desc: t.settings.rememberWindowDesc,
+                modified: remember != SettingsKeys.windowRemember.def,
+                onReset: () =>
+                    ref.read(boolSettingProvider(SettingsKeys.windowRemember).notifier).reset(),
+                resetLabel: t.settings.resetToDefault,
+                child: AnSwitch(
+                  value: remember,
+                  onChanged: (v) =>
+                      ref.read(boolSettingProvider(SettingsKeys.windowRemember).notifier).set(v),
+                ),
+              ),
+            ),
+            const SizedBox(height: AnSpace.s4),
+            SettingsAnchor(
+              item: SettingsItem.generalLaunchAtLogin,
+              child: AnSettingRow(
+                label: t.settings.launchAtLogin,
+                desc: t.settings.launchAtLoginDesc,
+                modified: atLogin != SettingsKeys.launchAtStartup.def,
+                onReset: () => _setLaunchAtLogin(ref, false),
+                resetLabel: t.settings.resetToDefault,
+                child: AnSwitch(
+                  value: atLogin,
+                  onChanged: (v) => _setLaunchAtLogin(ref, v),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AnSpace.s24),
+        AnSection(
+          label: t.settings.updates,
+          variant: AnSectionVariant.quiet,
+          children: [
+            SettingsAnchor(
+              item: SettingsItem.generalUpdateCheck,
+              child: AnSettingRow(
+                label: t.settings.updateCheck,
+                desc: t.settings.updateCheckDesc,
+                modified: updateCheck != SettingsKeys.updateCheck.def,
+                onReset: () =>
+                    ref.read(boolSettingProvider(SettingsKeys.updateCheck).notifier).reset(),
+                resetLabel: t.settings.resetToDefault,
+                child: AnSwitch(
+                  value: updateCheck,
+                  onChanged: (v) =>
+                      ref.read(boolSettingProvider(SettingsKeys.updateCheck).notifier).set(v),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// The double-write (拍板 #2): UI locale now + the workspace's AI language. The workspace half is
+  /// best-effort-with-honesty: a failed PATCH rolls back (provider) and toasts. 双写:UI 即时,workspace
+  /// 侧失败回滚+toast。
+  void _setLanguage(WidgetRef ref, BuildContext context, String value) {
+    final t = Translations.of(context);
+    ref.read(localePreferenceProvider.notifier).set(value);
+    // Map the UI choice onto the backend's closed language set. `system` resolves to the device's
+    // best match. 映射到后端封闭语言集;system 解析设备最佳匹配。
+    final resolved = value == 'system'
+        ? (LocaleSettings.currentLocale == AppLocale.zhCn ? 'zh-CN' : 'en')
+        : value;
+    ref.read(workspacePrefsProvider.notifier).setLanguage(resolved).catchError((_) {
+      ref.read(overlayProvider.notifier).showToast(t.settings.patchFailed, tone: AnTone.danger);
+    });
+  }
+
+  void _setLaunchAtLogin(WidgetRef ref, bool value) {
+    ref.read(boolSettingProvider(SettingsKeys.launchAtStartup).notifier).set(value);
+    applyLaunchAtLogin(value);
+  }
+}
+
+/// One font-axis row — an [AnDropdown] over a [stringSettingProvider] key (the axis's wire value), with
+/// reset-to-default. The UI + code axes are restart-applied, but the change persists instantly; the row's
+/// [desc] carries the「重启后生效」note (the network-proxy precedent), so this widget stays axis-agnostic.
+/// 一条字体轴行:AnDropdown 绑 string 偏好键 + 复位;UI/代码轴重启生效(偏好即时持久,重启提示在 desc);本件轴无关。
+class _FontDropdownRow extends ConsumerWidget {
+  const _FontDropdownRow({
+    required this.item,
+    required this.label,
+    required this.desc,
+    required this.settingsKey,
+    required this.options,
+  });
+
+  final String item;
+  final String label;
+  final String desc;
+  final SettingsKey<String> settingsKey;
+  final List<AnDropdownOption<String>> options;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
+    final value = ref.watch(stringSettingProvider(settingsKey));
+    return SettingsAnchor(
+      item: item,
+      child: AnSettingRow(
+        label: label,
+        desc: desc,
+        modified: value != settingsKey.def,
+        onReset: () => ref.read(stringSettingProvider(settingsKey).notifier).reset(),
+        resetLabel: t.settings.resetToDefault,
+        child: SizedBox(
+          width: AnSize.ctlSlotLg,
+          child: AnDropdown<String>(
+            options: options,
+            value: value,
+            onChanged: (v) => ref.read(stringSettingProvider(settingsKey).notifier).set(v),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// UI zoom — mirrors [WindowZoom.factor] (a ValueNotifier, so the ⌘ shortcuts and this control stay
+/// in lockstep); steps beyond the live screen cap render disabled. 界面缩放:镜像 WindowZoom.factor
+/// (快捷键与本控件同步);超出当前屏 cap 的档渲 disabled。
+class _ZoomRow extends StatelessWidget {
+  const _ZoomRow({required this.t});
+
+  final Translations t;
+
+  @override
+  Widget build(BuildContext context) {
+    return ValueListenableBuilder<double>(
+      valueListenable: WindowZoom.factor,
+      builder: (context, factor, _) {
+        final cap = WindowZoom.maxFactor();
+        return AnSettingRow(
+          label: t.settings.zoom,
+          desc: t.settings.zoomDesc,
+          modified: factor != WindowZoom.defaultFactor,
+          onReset: WindowZoom.reset,
+          resetLabel: t.settings.resetToDefault,
+          child: SizedBox(
+            width: AnSize.ctlSlotLg,
+            child: AnSegmented<double>(
+              options: [
+                for (final s in WindowZoom.steps)
+                  AnSegmentedOption(value: s, label: '$s×', disabled: s > cap),
+              ],
+              value: factor,
+              onChanged: WindowZoom.set,
+            ),
+          ),
+        );
+      },
+    );
+  }
+}

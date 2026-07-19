@@ -201,7 +201,10 @@ func (s *Service) ReattachActive(ctx context.Context) error {
 			continue
 		}
 		for _, ref := range refs {
-			if err := s.binder.Attach(ctx, ref, w.ID); err != nil {
+			// AttachReplay (not Attach): this reference already existed before the restart, so the
+			// misfire sweep may account the downtime gap for it (scheduler 工单⑨).
+			// 用 AttachReplay（非 Attach）：该引用在重启前就存在，故 misfire sweep 可为它记停机缺口（工单⑨）。
+			if err := s.binder.AttachReplay(ctx, ref, w.ID); err != nil {
 				s.log.Warn("workflowapp.ReattachActive: attach", zap.String("workflow", w.ID), zap.String("trigger", ref), zap.Error(err))
 			}
 		}

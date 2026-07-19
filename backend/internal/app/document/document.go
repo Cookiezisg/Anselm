@@ -544,7 +544,15 @@ func (s *Service) publish(ctx context.Context, action string, d *documentdomain.
 	if d.ParentID != nil {
 		payload["parentId"] = *d.ParentID
 	}
-	if err := s.emitter.Emit(ctx, "document."+action, payload); err != nil {
+	// created/updated/moved are high-frequency tree-refresh echoes (frame-only, no inbox
+	// row); only the destructive delete — which the AI can drive on a user's document — is
+	// worth an inbox row. 建/改/移是高频树刷新回声（仅帧、不落行）；唯破坏性 delete（AI 可删用户
+	// 文档）值得落一条收件箱行。
+	send := s.emitter.Broadcast
+	if action == "deleted" {
+		send = s.emitter.Emit
+	}
+	if err := send(ctx, "document."+action, payload); err != nil {
 		s.log.Warn("document: emit notification failed", zap.String("action", action), zap.Error(err))
 	}
 }

@@ -280,7 +280,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agen
 	}
 	a.ActiveVersion = v
 	s.syncRelations(ctx, a, v)
-	s.publish(ctx, "created", agentID, map[string]any{"versionId": versionID, "version": 1})
+	s.publish(ctx, "created", agentID, map[string]any{"versionId": versionID, "version": 1, "name": a.Name})
 	return a, v, nil
 }
 
@@ -327,7 +327,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*agentdomain.Version,
 	a.ActiveVersionID = versionID
 	a.ActiveVersion = v
 	s.syncRelations(ctx, a, v)
-	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": nextN})
+	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": nextN, "name": a.Name})
 	return v, nil
 }
 
@@ -342,11 +342,12 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*ag
 	if err := s.repo.SetActiveVersion(ctx, id, v.ID); err != nil {
 		return nil, fmt.Errorf("agentapp.Revert: %w", err)
 	}
-	if a, gerr := s.repo.Get(ctx, id); gerr == nil {
+	a, _ := s.repo.Get(ctx, id)
+	if a != nil {
 		a.ActiveVersion = v
 		s.syncRelations(ctx, a, v)
 	}
-	s.publish(ctx, "reverted", id, map[string]any{"versionId": v.ID, "version": targetVersion})
+	s.publish(ctx, "reverted", id, map[string]any{"versionId": v.ID, "version": targetVersion, "name": nameOfAgent(a)})
 	return v, nil
 }
 
@@ -370,7 +371,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*agentdom
 	if err := s.repo.UpdateMeta(ctx, a); err != nil {
 		return nil, fmt.Errorf("agentapp.UpdateMeta: %w", err) // ErrNameConflict
 	}
-	s.publish(ctx, "updated", in.ID, nil)
+	s.publish(ctx, "updated", in.ID, map[string]any{"name": a.Name})
 	return a, nil
 }
 
@@ -378,11 +379,12 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*agentdom
 //
 // Delete 软删 agent 并清除其 relation 边。
 func (s *Service) Delete(ctx context.Context, id string) error {
+	a, _ := s.repo.Get(ctx, id)
 	if err := s.repo.SoftDelete(ctx, id); err != nil {
 		return fmt.Errorf("agentapp.Delete: %w", err)
 	}
 	s.purgeRelations(ctx, id)
-	s.publish(ctx, "deleted", id, nil)
+	s.publish(ctx, "deleted", id, map[string]any{"name": nameOfAgent(a)})
 	return nil
 }
 

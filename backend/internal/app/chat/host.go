@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -156,4 +157,13 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []messagesdomain.Bl
 	}
 	h.svc.notifySearchMessage(dctx, h.conversationID, h.assistantMsg.ID)
 	h.svc.emitMessageStop(dctx, h.conversationID, h.assistantMsg)
+	// Bump recency + flag unread. unread = true ONLY for a COMPLETED reply: a cancelled / errored
+	// terminal is not "a reply to read", and the user just cancelled it — so it stays seen (this is also
+	// why the queued-cancel path, which never calls TouchLastMessage, leaves unread alone). Best-effort:
+	// a failed touch only mis-sorts / mis-flags the list, it must never disturb the already-persisted turn.
+	// 刷新 recency + 标记未读。unread=true 仅对**完成**的回复：取消/出错的终态不是「待读的回复」、且用户刚取消了它——
+	// 故保持已读（这也是为何 queued-cancel 路径不调 TouchLastMessage、不动 unread）。best-effort：touch 失败只是排序/标志略偏。
+	if err := h.svc.deps.Conversations.TouchLastMessage(dctx, h.conversationID, time.Now().UTC(), status == messagesdomain.StatusCompleted); err != nil {
+		h.svc.log.Warn("chatapp.WriteFinalize: touch last_message failed", zap.String("conversation", h.conversationID), zap.Error(err))
+	}
 }

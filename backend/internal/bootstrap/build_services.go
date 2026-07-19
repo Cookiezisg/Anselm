@@ -33,6 +33,7 @@ import (
 	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
 	settingsapp "github.com/sunweilin/anselm/backend/internal/app/settings"
 	skillapp "github.com/sunweilin/anselm/backend/internal/app/skill"
+	storageapp "github.com/sunweilin/anselm/backend/internal/app/storage"
 	subagentapp "github.com/sunweilin/anselm/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/anselm/backend/internal/app/todo"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
@@ -60,11 +61,13 @@ import (
 	triggertool "github.com/sunweilin/anselm/backend/internal/app/tool/trigger"
 	webtool "github.com/sunweilin/anselm/backend/internal/app/tool/web"
 	workflowtool "github.com/sunweilin/anselm/backend/internal/app/tool/workflow"
+	touchpointapp "github.com/sunweilin/anselm/backend/internal/app/touchpoint"
 	triggerapp "github.com/sunweilin/anselm/backend/internal/app/trigger"
 	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
 	workspaceapp "github.com/sunweilin/anselm/backend/internal/app/workspace"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	touchpointdomain "github.com/sunweilin/anselm/backend/internal/domain/touchpoint"
 	cryptoinfra "github.com/sunweilin/anselm/backend/internal/infra/crypto"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
@@ -93,6 +96,7 @@ type services struct {
 	sandbox       *sandboxapp.Service
 	document      *documentapp.Service
 	todo          *todoapp.Service
+	touchpoint    *touchpointapp.Service
 	attachment    *attachmentapp.Service
 	function      *functionapp.Service
 	handler       *handlerapp.Service
@@ -105,6 +109,7 @@ type services struct {
 	workflow      *workflowapp.Service
 	scheduler     *schedulerapp.Service
 	settings      *settingsapp.Service
+	storage       *storageapp.Service
 	conversation  *conversationapp.Service
 	chat          *chatapp.Service
 	subagent      *subagentapp.Service
@@ -112,6 +117,11 @@ type services struct {
 	aispawn       *aispawnapp.Service
 	search        *searchapp.Service
 	shellMgr      *shelltool.ProcessManager // owns run_in_background children; Stop() reaps them on shutdown (R1)
+
+	// toolNames is the final toolset's name inventory, retained for the touchpoint catalog's
+	// exhaustiveness gate test (every tool must declare its ledger stance).
+	// toolNames 是定型工具集的名字清单,留给 touchpoint 目录穷尽性门禁测试(每个工具必须表态)。
+	toolNames []string
 }
 
 // toolsetHolder is a mutable ToolsProvider: the subagent Service and agent invoke-deps read the
@@ -136,7 +146,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	notif := notificationapp.NewService(st.notification, bus.notifications, log)
 	ws := workspaceapp.NewService(st.workspace, log)
 	keys := apikeyapp.NewService(st.apikey, inf.encryptor, apikeyapp.NewHTTPTester(http.DefaultClient), log)
-	freetier := freetierapp.NewProvisioner(keys, llminfra.NewInstallClient(), cryptoinfra.MachineFingerprint, log)
+	freetier := freetierapp.NewProvisioner(keys, ws, llminfra.NewInstallClient(), cryptoinfra.MachineFingerprint, log)
 	freetierQuota := freetierapp.NewQuotaReader(keys, llminfra.NewQuotaClient(), log)
 	modelCaps := modelapp.NewCapabilityService(keys, log)
 	cat := catalogapp.NewService(log)
@@ -214,13 +224,45 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Log:   log,
 	})
 
+	// touchpoint: the conversation context ledger. Namers mirror relation's registration (the
+	// SAME source-domain resolvers — one vocabulary) plus the ledger-only attachment namer;
+	// live signals ride the messages stream (conversation-anchored, like todo).
+	// touchpoint:对话上下文台账。Namers 镜像 relation 的注册(同一批 source-domain resolver——
+	// 一份词表)+ 台账独有的 attachment namer;实时信号走 messages 流(锚定对话,同 todo)。
+	tp := touchpointapp.NewService(touchpointapp.Config{
+		Repo:   st.touchpoint,
+		Bridge: bus.messages,
+		Namers: map[string]touchpointapp.Namer{
+			relationdomain.EntityKindFunction:     fn,
+			relationdomain.EntityKindHandler:      hd,
+			relationdomain.EntityKindAgent:        ag,
+			relationdomain.EntityKindControl:      ctl,
+			relationdomain.EntityKindApproval:     apf,
+			relationdomain.EntityKindWorkflow:     wf,
+			relationdomain.EntityKindTrigger:      trg,
+			relationdomain.EntityKindMCP:          mcp,
+			relationdomain.EntityKindSkill:        skill,
+			relationdomain.EntityKindDocument:     doc,
+			relationdomain.EntityKindConversation: conv,
+			touchpointdomain.ItemKindAttachment:   att,
+		},
+		Log: log,
+	})
+	conv.SetTouchpointPurger(tp)
+
 	// --- toolset: Resident (filesystem/search/shell) + Lazy (entity tools + web) ---
 	guard := pathguardpkg.NewDefault()
 	// Capture the struct, not just .Tools: its Manager owns every run_in_background child's process
 	// group, and App.Shutdown must call Manager.Stop() to reap them — else backgrounded jobs (and
-	// their whole trees) orphan on every backend exit (R1).
+	// their whole trees) orphan on every backend exit (R1). The pid manifest under dataDir is the
+	// crash half: Boot's ReapStaleOnBoot reaps groups that survived an ungraceful exit (T3).
 	// 留住整个 struct 而非只 .Tools：Manager 持每个后台子进程的进程组，Shutdown 须调 Manager.Stop() 回收（R1）。
-	shellTools := shelltool.NewShellTools()
+	// dataDir 下的 pid 清单是崩溃半：Boot 的 ReapStaleOnBoot 收割熬过非优雅退出的进程组（T3）。
+	shellPidDir := ""
+	if dataDir != "" {
+		shellPidDir = filepath.Join(dataDir, "shellpids")
+	}
+	shellTools := shelltool.NewShellTools(shellPidDir)
 	toolset := toolapp.Toolset{
 		Resident: concat(
 			filesystemtool.FilesystemTools(guard),
@@ -258,6 +300,10 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		subagenttool.NewTraceTool(st.messages),
 	)
 	holder.tools = toolset.All()
+	toolNames := make([]string, 0, len(holder.tools))
+	for _, t := range holder.tools {
+		toolNames = append(toolNames, t.Name())
+	}
 
 	// --- context compaction + chat (the dialogue surface) ---
 	ctxmgr := contextmgrapp.NewService(contextmgrapp.Deps{
@@ -287,8 +333,8 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Bridge:         bus.messages,
 		EntitiesBridge: bus.entities,
 		Titler:         conv,
-		Notifier:       notif,
 		Compactor:      ctxmgr,
+		Touchpoints:    tp,
 	}, log)
 
 	// D1 execution lifecycle: workflow drives the trigger binder (activate/stage/deactivate/kill engage
@@ -311,6 +357,10 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// List/Get derive each row's isGenerating from chat's in-flight registry (same post-build port).
 	// List/Get 据 chat 在途登记派生每行 isGenerating（同款后注入端口）。
 	conv.SetGeneratingQuerier(chat)
+	// List/Get also derive each row's awaitingInput from chat's humanloop broker (pending interactions),
+	// so the rail can show a "needs you" dot — same post-build port pattern.
+	// List/Get 同样据 chat 的 humanloop broker（待决 interaction）派生每行 awaitingInput，使 rail 显「等你」点——同款后注入端口。
+	conv.SetAwaitingInputQuerier(chat)
 	// Update validates attachedDocuments against live documents (reject a dangling/deleted doc id at
 	// attach time, 422 — F168-M5). doc was built before conv and does not depend on it, so no cycle.
 	// Update 据存活文档校验 attachedDocuments（attach 时拒悬挂/已删 doc id，422——F168-M5）。doc 先于 conv
@@ -325,6 +375,8 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ag.SetKeyChecker(keys)
 	conv.SetKeyChecker(keys)
 	ws.SetKeyChecker(keys)
+	// stats ports: blob walk + chat's in-flight snapshot (WRK-062 S-11). stats 端口。
+	ws.SetStatsPorts(st.blob, chat.GeneratingIDs)
 
 	// apikey delete-guard (RefScanner): refuse to delete a key still referenced, so the
 	// reference never dangles. Two real sources — a workspace's scenario default models /
@@ -472,6 +524,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	s := &services{
 		workspace: ws, apikey: keys, modelCaps: modelCaps, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
+		touchpoint: tp, toolNames: toolNames,
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,

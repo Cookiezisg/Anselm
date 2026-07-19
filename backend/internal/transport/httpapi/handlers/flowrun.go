@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"net/http"
+	"strconv"
+	"strings"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -12,13 +15,13 @@ import (
 )
 
 // FlowrunHandler hosts the durable-execution HTTP surface: list/inspect runs, start one manually
-// ("Run now"), replay a failed one, and decide a parked approval. A flowrun is a runtime record
-// (no version, no build) — so there is no Create-as-edit / :revert here; "create" is starting a run
-// and its body is the entry trigger's declared Outputs (the manual payload form).
+// ("Run now"), replay a failed one, cancel a running one, and decide a parked approval. A flowrun is
+// a runtime record (no version, no build) — so there is no Create-as-edit / :revert here; "create"
+// is starting a run and its body is the entry trigger's declared Outputs (the manual payload form).
 //
-// FlowrunHandler 持持久化执行的 HTTP 面：列/查 run、手动起一个（「Run now」）、replay 失败的、决策
-// parked 审批。flowrun 是运行时记录（无版本、无构建）——故无 Create-as-edit/:revert；「create」就是起
-// 一个 run，body 形如入口 trigger 声明的 Outputs（手动 payload 表单）。
+// FlowrunHandler 持持久化执行的 HTTP 面：列/查 run、手动起一个（「Run now」）、replay 失败的、cancel
+// 在跑的、决策 parked 审批。flowrun 是运行时记录（无版本、无构建）——故无 Create-as-edit/:revert；
+// 「create」就是起一个 run，body 形如入口 trigger 声明的 Outputs（手动 payload 表单）。
 type FlowrunHandler struct {
 	svc *schedulerapp.Service
 	log *zap.Logger
@@ -35,31 +38,162 @@ func (h *FlowrunHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/flowruns", h.List)
 	mux.HandleFunc("POST /api/v1/flowruns", h.Start)
 	mux.HandleFunc("GET /api/v1/flowrun-inbox", h.Inbox)
+	mux.HandleFunc("GET /api/v1/flowrun-stats", h.Stats)
+	mux.HandleFunc("GET /api/v1/flowrun-matrix", h.Matrix)
 	mux.HandleFunc("GET /api/v1/flowruns/{id}", h.Get)
+	mux.HandleFunc("GET /api/v1/flowruns/{id}/activity", h.Activity)
 	mux.HandleFunc("POST /api/v1/flowruns/{idAction}", h.postOnRun)
 	mux.HandleFunc("POST /api/v1/flowruns/{id}/approvals/{nodeAction}", h.postOnApproval)
 }
 
-// List pages a workspace's runs (newest-first), optionally filtered via ?workflowId and/or ?status (running|completed|failed|cancelled).
+// List pages a workspace's runs (newest-first). Filters compose with AND (scheduler 工单⑥):
+// ?workflowId / ?triggerId (equality), ?status / ?origin (closed sets — an out-of-enum value is a
+// loud 422 with the allowed set in Details), and ?startedAfter / ?startedBefore (RFC3339, the
+// half-open window [after, before) on started_at; a non-RFC3339 value is a loud 422).
 //
-// List 分页一个 workspace 的 run（最新优先），可选 ?workflowId / ?status 过滤。
+// List 分页一个 workspace 的 run（最新优先）。过滤 AND 组合（scheduler 工单⑥）：?workflowId /
+// ?triggerId（等值）、?status / ?origin（封闭集——枚举外值 422 大声拒、Details 带合法集）、
+// ?startedAfter / ?startedBefore（RFC3339，started_at 上的半开窗 [after, before)；非 RFC3339 一律 422）。
 func (h *FlowrunHandler) List(w http.ResponseWriter, r *http.Request) {
 	p, err := responsehttpapi.ParsePage(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	runs, next, err := h.svc.ListRuns(r.Context(), flowrundomain.ListFilter{
-		WorkflowID: r.URL.Query().Get("workflowId"),
-		Status:     r.URL.Query().Get("status"),
-		Cursor:     p.Cursor,
-		Limit:      p.Limit,
-	})
+	query := r.URL.Query()
+	startedAfter, err := parseListTime(query.Get("startedAfter"), "startedAfter", flowrundomain.ErrInvalidListFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	startedBefore, err := parseListTime(query.Get("startedBefore"), "startedBefore", flowrundomain.ErrInvalidListFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	completedAfter, err := parseListTime(query.Get("completedAfter"), "completedAfter", flowrundomain.ErrInvalidListFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	completedBefore, err := parseListTime(query.Get("completedBefore"), "completedBefore", flowrundomain.ErrInvalidListFilter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	// Two MUTUALLY EXCLUSIVE pagination modes (WRK-070 B4): the default keyset ?cursor, or the
+	// page-number ?offset the frontend's paginator (page numbers + jump-to-page) needs. Both at once
+	// is a loud 422 — picking one silently would page a caller a way it did not ask. The conflict is
+	// judged on PRESENCE (a non-empty offset alongside a non-empty cursor), before validating the
+	// offset value, so "I gave two modes" is the answer even when the offset value is also malformed.
+	//
+	// 两种**互斥**分页模式（WRK-070 B4）：默认 keyset ?cursor，或前端翻页器（页码 + 跳页）需要的页码
+	// ?offset。同时给两种是大声 422——静默择一会以调用方没要求的方式翻页。冲突按**存在性**判（非空
+	// offset 与非空 cursor 并存），在校验 offset 值**之前**，故即便 offset 值也畸形，答案仍是「你给了
+	// 两种模式」。
+	rawOffset := strings.TrimSpace(query.Get("offset"))
+	if rawOffset != "" && p.Cursor != "" {
+		responsehttpapi.FromDomainError(w, h.log, flowrundomain.ErrListCursorOffsetConflict)
+		return
+	}
+	offset, useOffset, err := parseOffset(rawOffset)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	filter := flowrundomain.ListFilter{
+		WorkflowID:      query.Get("workflowId"),
+		Status:          query.Get("status"),
+		TriggerID:       query.Get("triggerId"),
+		Origin:          query.Get("origin"),
+		StartedAfter:    startedAfter,
+		StartedBefore:   startedBefore,
+		CompletedAfter:  completedAfter,
+		CompletedBefore: completedBefore,
+		Cursor:          p.Cursor,
+		Limit:           p.Limit,
+		Offset:          offset,
+		UseOffset:       useOffset,
+	}
+	// Offset mode returns the SAME rows plus `total` (for the page count). Cursor mode's envelope is
+	// left byte-for-byte unchanged (Paged: {data, nextCursor?, hasMore} — no total) so no client
+	// reading it drifts.
+	// offset 模式返**同样**的行 + `total`（供页数）。cursor 模式信封逐字不变（Paged：{data, nextCursor?,
+	// hasMore}——无 total），故读它的 client 不漂移。
+	if useOffset {
+		runs, total, err := h.svc.ListRunsOffset(r.Context(), filter)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.OffsetPaged(w, runs, offset, total)
+		return
+	}
+	runs, next, err := h.svc.ListRuns(r.Context(), filter)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	responsehttpapi.Paged(w, runs, next, next != "")
+}
+
+// parseOffset parses ?offset for the page-number pagination mode (WRK-070 B4): absent/blank → not
+// offset mode (0, false, nil). A valid non-negative integer → (n, true, nil). Anything else
+// (non-numeric or negative) is a loud 422 reusing FLOWRUN_LIST_INVALID_FILTER — an offset is just
+// another list-filter parameter, and a bad value is the same "invalid filter value" as a bad
+// ?origin, so it shares the code with param=offset in Details (no second code for the same class of
+// mistake). Deliberately NOT ErrInvalidRequest (400, the ?limit path): offset is flowrun-list
+// grammar, so its rejection names the resource, matching the ?origin / window-bound stance.
+//
+// parseOffset 解析页码分页模式的 ?offset（WRK-070 B4）：缺席/空白 → 非 offset 模式（0, false, nil）。
+// 合法非负整数 → (n, true, nil)。其余（非数字或负数）大声 422、复用 FLOWRUN_LIST_INVALID_FILTER——
+// offset 只是又一个 list 过滤参数，坏值与坏 ?origin 是同一类「非法过滤值」，故共用此码、Details 带
+// param=offset（同类错误不另设第二个码）。刻意**不**用 ErrInvalidRequest（400，即 ?limit 路径）：
+// offset 是 flowrun 列表文法，其拒绝须点名资源，与 ?origin / 窗口界立场一致。
+func parseOffset(raw string) (offset int, useOffset bool, err error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return 0, false, nil
+	}
+	n, convErr := strconv.Atoi(raw)
+	if convErr != nil || n < 0 {
+		return 0, false, flowrundomain.ErrInvalidListFilter.WithDetails(map[string]any{
+			"param": "offset", "got": raw, "want": "non-negative integer",
+		})
+	}
+	return n, true, nil
+}
+
+// parseListTime parses one half-open window bound (?startedAfter / ?startedBefore on flowruns,
+// ?createdAfter / ?createdBefore on firings): absent → zero time (unbounded), RFC3339 → normalized
+// to UTC (stored timestamps are UTC — a mixed-zone bound would compare wrong as driver-serialized
+// text). Anything else is a loud 422 with the offending param + value in Details (scheduler 工单⑥,
+// reused verbatim by 工单⑭). Deliberately NOT the parseSince grammar: a window bound is an absolute
+// instant, not a look-back duration.
+//
+// The caller passes its own domain's sentinel because the code must name the resource the client is
+// actually listing — answering a bad ?createdAfter on /firings with FLOWRUN_LIST_INVALID_FILTER
+// would be a lie. The PARSING is one implementation on purpose: two resources with two spellings of
+// "an RFC3339 window bound" is how the two spellings start to drift.
+//
+// parseListTime 解析一个半开窗的界（flowruns 上的 ?startedAfter/?startedBefore、firings 上的
+// ?createdAfter/?createdBefore）：缺席 → 零值时间（不设界），RFC3339 → 归一到 UTC（存储时间戳是
+// UTC——混时区界经 driver 文本序列化会比错）。其余一律 422 大声拒、Details 带出错参数 + 原值
+// （scheduler 工单⑥，工单⑭ 逐字复用）。刻意不用 parseSince 文法：窗口界是绝对时刻、非回看时长。
+//
+// 调用方传自己域的 sentinel——码必须点名客户端**实际在列**的那个资源，拿
+// FLOWRUN_LIST_INVALID_FILTER 去答 /firings 上一个坏的 ?createdAfter 就是撒谎。而**解析**刻意只有
+// 一份实现：两个资源各写一套「RFC3339 窗口界」，正是两套写法开始漂移的方式。
+func parseListTime(raw, param string, invalid *errorspkg.Error) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	ts, err := time.Parse(time.RFC3339, raw)
+	if err != nil {
+		return time.Time{}, invalid.WithDetails(map[string]any{"param": param, "got": raw, "want": "RFC3339"})
+	}
+	return ts.UTC(), nil
 }
 
 // Start is the manual-trigger path ("Run now"): create + advance a run. The payload conforms to the
@@ -82,6 +216,7 @@ func (h *FlowrunHandler) Start(w http.ResponseWriter, r *http.Request) {
 		WorkflowID: req.WorkflowID,
 		EntryNode:  req.EntryNode,
 		Payload:    req.Payload,
+		Origin:     flowrundomain.OriginManual, // POST /flowruns IS the human "Run now" (run provenance)
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
@@ -107,9 +242,40 @@ func (h *FlowrunHandler) Get(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusOK, map[string]any{"flowrun": run, "nodes": nodes, "nextCursor": next})
 }
 
-// Inbox returns every parked approval node in the workspace (the approval inbox).
+// Activity pages a run's execution-log activity (scheduler 工单⑤) in gantt order (startedAt
+// ascending, N4 ?cursor&limit): rows {nodeId, iteration, kind, execId, status, startedAt, endedAt,
+// elapsedMs, readyAt?} — the four execution-log tables UNIONed by flowrun_id, readyAt joined off
+// the flowrun_nodes truth row (工单⑫; absent on pre-⑫ rows / no matching truth row). 404
+// FLOWRUN_NOT_FOUND when the run does not exist.
 //
-// Inbox 返 workspace 内所有 parked approval 节点（审批收件箱）。
+// Activity 分页一个 run 的执行日志活动（scheduler 工单⑤），甘特序（startedAt 升序，N4 ?cursor&limit）：
+// 行 {nodeId, iteration, kind, execId, status, startedAt, endedAt, elapsedMs, readyAt?}——四张执行
+// 日志表按 flowrun_id UNION、readyAt join 自 flowrun_nodes 真相行（工单⑫；⑫ 前旧行/无对应真相行则
+// 缺席）。run 不存在 404 FLOWRUN_NOT_FOUND。
+func (h *FlowrunHandler) Activity(w http.ResponseWriter, r *http.Request) {
+	p, err := responsehttpapi.ParsePage(r)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	rows, next, err := h.svc.ListActivity(r.Context(), r.PathValue("id"), p.Cursor, p.Limit)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Paged(w, rows, next, next != "")
+}
+
+// Inbox returns every parked approval node in the workspace (the approval inbox). Each row is the
+// parked node enriched with workflow context (scheduler 工单④): workflowId + workflowName (joined
+// from the run header; a soft-deleted workflow's name falls back to the bare id) + optional
+// deadline (parkedAt + the pinned approval version's timeout; absent when the form never times
+// out). Enrichment lives in the app service (ListInbox) — this handler just writes it.
+//
+// Inbox 返 workspace 内所有 parked approval 节点（审批收件箱）。每行 = parked 节点行 + workflow
+// 上下文 enrich（scheduler 工单④）：workflowId + workflowName（join 自 run 头；软删 workflow 名
+// 回落裸 id）+ 可空 deadline（parkedAt + 钉死 approval 版本 timeout；表永不超时则键缺席）。
+// enrich 住 app 服务（ListInbox）——本 handler 只负责写出。
 func (h *FlowrunHandler) Inbox(w http.ResponseWriter, r *http.Request) {
 	parked, err := h.svc.ListInbox(r.Context())
 	if err != nil {
@@ -119,9 +285,126 @@ func (h *FlowrunHandler) Inbox(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Success(w, http.StatusOK, map[string]any{"parked": parked})
 }
 
-// postOnRun dispatches POST /flowruns/{id}:<action> (only :replay today).
+// Stats is the operational statistics batch (scheduler 工单③): workspace totals + one health row
+// per ?workflowIds=<csv, ≤50 after dedup> workflow. ?recentN (default 10, clamped to 20) sizes the
+// per-workflow status beads; ?since (RFC3339 timestamp or look-back duration like 24h / 7d,
+// default 7d) opens the window and the OPTIONAL ?until (RFC3339 timestamp ONLY — an end-of-window
+// look-back is ambiguous, so the since duration grammar is deliberately not accepted; absent →
+// unbounded) closes it into [since, until), the single window for
+// completedSince/failedSince/successRate/avgElapsedMs/missed. A bounded batch — N4-exempt.
 //
-// postOnRun 派发 POST /flowruns/{id}:<action>（目前仅 :replay）。
+// Stats 是运营统计批查（scheduler 工单③）：workspace 聚合 + ?workflowIds=<csv,去重后 ≤50> 每
+// workflow 一条健康行。?recentN（默认 10、钳到 20）定逐 workflow 状态珠数；?since（RFC3339 时间戳
+// 或回看时长如 24h / 7d，默认 7d）开窗，可选的 ?until（**只**收 RFC3339 时间戳——末端回看有歧义故
+// 刻意不收 since 的时长文法；缺席 → 不设界）把它收成 [since, until)，统一
+// completedSince/failedSince/successRate/avgElapsedMs/missed 的窗口。有界批查——N4 分页豁免。
+func (h *FlowrunHandler) Stats(w http.ResponseWriter, r *http.Request) {
+	query := r.URL.Query()
+	recentN, err := parseRecentN(query.Get("recentN"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	since, err := parseSince(query.Get("since"), time.Now().UTC())
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	// until is an ABSOLUTE end bound only — parseListTime is the shared RFC3339 window-bound parser
+	// (absent → zero time = unbounded), carrying the stats domain's own sentinel so a bad value names
+	// the right resource. Deliberately NOT parseSince: a look-back "end" makes no sense.
+	// until 只是绝对上界——parseListTime 是共享的 RFC3339 窗口界解析器（缺席 → 零值 = 不设界），带 stats
+	// 域自己的 sentinel 使坏值点名正确资源。刻意不用 parseSince：末端的回看没有意义。
+	until, err := parseListTime(query.Get("until"), "until", flowrundomain.ErrStatsInvalidUntil)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	stats, err := h.svc.RunStats(r.Context(), flowrundomain.StatsQuery{
+		WorkflowIDs: splitCSV(query.Get("workflowIds")),
+		RecentN:     recentN,
+		Since:       since,
+		Until:       until,
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, stats)
+}
+
+// Matrix is the node×run status grid (scheduler 工单⑩): ?flowrunIds=<csv, ≤50 after dedup;
+// REQUIRED — an empty set is a 400, over-cap a loud 422> returns {cols, rows, cells} for exactly
+// those runs — columns in the canonical newest→oldest (started_at, id) DESC order REGARDLESS of
+// request order, rows the union of node ids in first-appearance order, cells SPARSE (a node a run
+// never reached has none). Unknown ids are silently absent (cols carry explicit keys). Which runs
+// are on screen is the client's business — it pages GET /flowruns with the time-range grammar and
+// batch-fetches the grid per page. Bounded batch — N4 pagination exempt.
+//
+// Matrix 是节点×run 状态格阵（scheduler 工单⑩）：?flowrunIds=<csv，去重后 ≤50；**必填**——空集 400、
+// 越上限大声 422> 返恰为这些 run 的 {cols, rows, cells}——列按正典新→旧 (started_at, id) DESC 序、
+// **与请求顺序无关**，行是 node id 并集按首次出现序，格**稀疏**（某 run 没跑到的节点无格）。未知 id
+// 静默缺席（cols 自带显式键）。哪些 run 在屏上是客户端的事——它按时间窗文法翻 GET /flowruns、逐页批取
+// 格阵。有界批查——N4 分页豁免。
+func (h *FlowrunHandler) Matrix(w http.ResponseWriter, r *http.Request) {
+	matrix, err := h.svc.RunMatrix(r.Context(), flowrundomain.MatrixQuery{
+		FlowrunIDs: splitCSV(r.URL.Query().Get("flowrunIds")),
+	})
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, matrix)
+}
+
+// parseRecentN parses ?recentN with the same semantics as a page limit (ParsePage): absent → 0
+// (the app applies the default), non-numeric or < 1 → ErrInvalidRequest; the upper clamp is the
+// app's.
+//
+// parseRecentN 解析 ?recentN，语义同 page limit（ParsePage）：缺席 → 0（app 应用默认），非数字或
+// <1 → ErrInvalidRequest；上限钳制归 app。
+func parseRecentN(raw string) (int, error) {
+	if raw == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n < 1 {
+		return 0, errorspkg.ErrInvalidRequest
+	}
+	return n, nil
+}
+
+// parseSince parses ?since as either an RFC3339 timestamp (absolute window start) or a positive
+// look-back duration — Go duration syntax (24h, 90m) plus the whole-days form <n>d the spec
+// speaks (7d). Absent → zero time (the app applies the 7d default). Anything else is a loud 422
+// with the offending value in Details.
+//
+// parseSince 解析 ?since：RFC3339 时间戳（窗口绝对起点）或正的回看时长——Go duration 语法（24h、
+// 90m）+ 规范口径的整天形 <n>d（7d）。缺席 → 零值时间（app 应用 7d 默认）。其余一律 422 大声拒、
+// Details 带原值。
+func parseSince(raw string, now time.Time) (time.Time, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return time.Time{}, nil
+	}
+	if ts, err := time.Parse(time.RFC3339, raw); err == nil {
+		return ts.UTC(), nil
+	}
+	if days, ok := strings.CutSuffix(raw, "d"); ok {
+		if n, err := strconv.Atoi(days); err == nil && n > 0 {
+			return now.Add(-time.Duration(n) * 24 * time.Hour), nil
+		}
+	} else if dur, err := time.ParseDuration(raw); err == nil && dur > 0 {
+		return now.Add(-dur), nil
+	}
+	return time.Time{}, flowrundomain.ErrStatsInvalidSince.WithDetails(map[string]any{"got": raw})
+}
+
+// postOnRun dispatches POST /flowruns/{id}:<action> (:replay | :cancel). Both respond 202 with the
+// run's post-action state in the same envelope shape as Get ({flowrun, first node page, nextCursor}).
+//
+// postOnRun 派发 POST /flowruns/{id}:<action>（:replay | :cancel）。两者都以 202 返动作后 run 态，
+// 信封形同 Get（{flowrun, 节点首页, nextCursor}）。
 func (h *FlowrunHandler) postOnRun(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -131,6 +414,16 @@ func (h *FlowrunHandler) postOnRun(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case "replay":
 		if err := h.svc.Replay(r.Context(), id); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		h.writeRun(w, r, id, func(w http.ResponseWriter, data any) { responsehttpapi.Success(w, http.StatusAccepted, data) })
+	case "cancel":
+		// Cancel a single running run (scheduler 工单②): only running is cancellable — anything else
+		// (including a first-wins loss to the run's natural terminal) is a clean 422.
+		// 取消单个 running run（scheduler 工单②）：仅 running 可取消——其余（含输给自然终态的
+		// first-wins 竞态）一律干净 422。
+		if err := h.svc.CancelRun(r.Context(), id); err != nil {
 			responsehttpapi.FromDomainError(w, h.log, err)
 			return
 		}

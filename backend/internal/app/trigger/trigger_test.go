@@ -45,6 +45,18 @@ func ctxWS(id string) context.Context { return reqctxpkg.SetWorkspaceID(context.
 
 func newTestService(t *testing.T) (*Service, *triggerstore.Store) {
 	t.Helper()
+	s, st, _ := newTestServiceDB(t)
+	return s, st
+}
+
+// newTestServiceDB is newTestService plus the raw handle — for tests that must age rows the API
+// cannot age (the misfire sweep's "the app was down since X"), mirroring the store-test precedent
+// of a raw UPDATE on created_at rather than a ForTest method on the production store.
+//
+// newTestServiceDB 是 newTestService 外加裸句柄——供必须把行做旧、而 API 做不到的测试（misfire sweep 的
+// 「app 自 X 起就停机」），照 store 测试先例用裸 UPDATE 改 created_at，而非往生产 store 上挂 ForTest 方法。
+func newTestServiceDB(t *testing.T) (*Service, *triggerstore.Store, *sql.DB) {
+	t.Helper()
 	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open: %v", err)
@@ -58,7 +70,7 @@ func newTestService(t *testing.T) (*Service, *triggerstore.Store) {
 	}
 	st := triggerstore.New(ormpkg.Open(sqlDB))
 	s := NewService(st, http.NewServeMux(), nopInvoker{}, zap.NewNop())
-	return s, st
+	return s, st, sqlDB
 }
 
 func mkCron(t *testing.T, s *Service, ctx context.Context, name string) *triggerdomain.Trigger {

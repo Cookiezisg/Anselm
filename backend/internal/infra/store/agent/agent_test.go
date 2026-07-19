@@ -80,6 +80,28 @@ func TestStore_WorkspaceIsolation(t *testing.T) {
 	}
 }
 
+// TestStore_ListSearch — ?search is a case-insensitive name substring (WhereLike), same as the other 3 entity stores.
+//
+// TestStore_ListSearch —— ?search 是大小写不敏感的 name 子串（WhereLike），与另 3 个实体 store 同键。
+func TestStore_ListSearch(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	now := time.Now().UTC()
+	if err := s.Create(ctx, &agentdomain.Agent{ID: "ag_1", Name: "Quarterly Report", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("create ag_1: %v", err)
+	}
+	if err := s.Create(ctx, &agentdomain.Agent{ID: "ag_2", Name: "random helper", CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("create ag_2: %v", err)
+	}
+	rows, _, err := s.ListAgents(ctx, agentdomain.ListFilter{Search: "REPORT"})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != "ag_1" {
+		t.Fatalf("search 'REPORT' should match only ag_1, got %d rows", len(rows))
+	}
+}
+
 func TestStore_ExecutionsPagingAggregates(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

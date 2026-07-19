@@ -1,0 +1,40 @@
+MiSans Font Intellectual Property License Agreement
+MiSans 字体知识产权许可协议
+
+Copyright © Xiaomi Inc. All rights reserved.
+MiSans is an intellectual product of Xiaomi Inc.
+
+Anselm bundles the MiSans font (MiSansVF.ttf) as the CJK face of its user
+interface, and — as required by the license below — SPECIFICALLY NOTES IN THE
+SOFTWARE that MiSans is used (see the app's Settings → About → Fonts credit).
+
+The full, canonical agreement is published by Xiaomi at:
+  https://hyperos.mi.com/font/en/download/   (English)
+  https://hyperos.mi.com/font/download/       (中文)
+
+Operative terms (as published by Xiaomi):
+
+  License grant. Xiaomi grants a non-transferable, non-exclusive, royalty-free,
+  revocable, worldwide copyright license to use MiSans Fonts, PROVIDED THAT you
+  specifically note in the software that MiSans Fonts was used.
+
+  Restrictions.
+   • You may not adapt or redevelop MiSans Fonts or any of its components.
+   • You may not separately lease, sublicense, give, loan or further distribute
+     MiSans Fonts or its components; nor redistribute or sell the font software
+     or any copies thereof.
+   • You must retain this copyright notice and the Agreement in any copies of
+     the MiSans fonts.
+   • You shall not use MiSans Fonts for any illegal purpose.
+
+  Exception. The distribution restriction does NOT apply to works you create
+  using the fonts (promotional materials, logos, applications, etc.) — those you
+  may distribute or sell.
+
+  Intellectual property. MiSans and the fonts contained therein are the
+  intellectual products of Xiaomi; no intellectual property rights are granted
+  beyond those expressly stated in the Agreement.
+
+This file reproduces the copyright notice and the operative terms so the bundle
+carries the Agreement alongside the font, and points to Xiaomi's canonical full
+text. In case of any discrepancy, Xiaomi's published Agreement governs.

@@ -11,10 +11,7 @@
 #   文档   docs     文档规范门禁（cmd/docs，GOVERNANCE §11 全套）
 #   出包   build    后端二进制 → bin/anselm-server
 #   门禁   verify   后端 pre-push：gofmt + vet + build + unit + docs（host 平台）
-#   前端   fe-gen   codegen（freezed/json/slang，build_runner）
-#          fe-analyze / fe-test  Flutter 静态分析 / 单测
-#          fe-verify Flutter pre-push：gen + analyze + test
-#          fe-run   起桌面 app（dev 挂到已跑后端）
+#   前端   见 frontend/Makefile（单词目标:make gallery / shell / run / verify / gen …，在 frontend/ 下跑）
 #   清理   clean    清 dev 数据目录
 #
 # ──────────────────────────────────────────────────────────────────
@@ -45,11 +42,9 @@ help:
 	@echo "  文档:   make docs     文档规范门禁（GOVERNANCE §11）"
 	@echo "  出包:   make build    后端二进制 → bin/anselm-server"
 	@echo "  门禁:   make verify   后端 pre-push（gofmt+vet+build+unit+docs）"
-	@echo "  前端:   make fe-gen   codegen（freezed/json/slang）"
-	@echo "          make fe-verify Flutter pre-push（gen+analyze+test）"
-	@echo "          make fe-run   起桌面 app（dev，先 make server）"
-	@echo "          make fe-gallery 起设计画廊（独立入口,零后端）"
-	@echo "  清理:   make clean    清 dev 数据（$(BACKEND_DATA_DIR)）"
+	@echo "  前端:   cd frontend && make help（单词目标:gallery / shell / run / verify / gen …）"
+	@echo "  清理:   make clean    清后端 dev 数据（$(BACKEND_DATA_DIR)）"
+	@echo "          make fe-clean 清前端可重建缓存（build/ + .dart_tool/，官方 flutter clean）"
 
 # ── 环境 ────────────────────────────────────────────────────────────
 
@@ -103,11 +98,14 @@ docs:
 
 # ── 出包 ────────────────────────────────────────────────────────────
 
-# build — 后端 host 二进制。TODO：打包时把它作为 sidecar 二进制随 Flutter app 分发（flutter build
-# <platform> + 把 anselm-server 放进 bundle，客户端经 ANSELM_ADDR 拉起，见 ADR 0004 §1）。
+# build — 后端 host 二进制。VERSION 经 ldflags 盖进 main.version(GET /api/v1/version 下发;
+# 默认取 git describe,无 tag 回落 dev-<sha>)。TODO：打包时把它作为 sidecar 二进制随 Flutter app
+# 分发（flutter build <platform> + 把 anselm-server 放进 bundle，客户端经 ANSELM_ADDR 拉起，
+# 见 ADR 0004 §1）。
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 build:
-	@cd backend && $(RUN) go build -o bin/anselm-server ./cmd/server
-	@echo "✓ backend/bin/anselm-server"
+	@cd backend && $(RUN) go build -ldflags "-X main.version=$(VERSION)" -o bin/anselm-server ./cmd/server
+	@echo "✓ backend/bin/anselm-server ($(VERSION))"
 
 # ── 门禁 ────────────────────────────────────────────────────────────
 
@@ -128,45 +126,30 @@ verify:
 	@echo ""
 	@echo "✓ verify 全绿（gofmt + vet + build + unit + docs）"
 
-# ── 前端（Flutter 桌面端，ADR 0004）────────────────────────────────────
-#
-# flutter 由 mise 提供（真·可写官方 SDK）。macOS 原生构建用系统 Xcode 工具链——mise 不像 nix
-# 那样注入编译器 wrapper,故 xcodebuild 环境干净（ADR 0005 记此取舍）。
-
-# fe-setup — 拉前端依赖（首次或改 pubspec 后）。
-fe-setup:
-	@cd frontend && $(RUN) flutter pub get
-
-# fe-gen — codegen：freezed/json_serializable/slang 经 build_runner 生成 *.g.dart / *.freezed.dart。
-# 注:本仓库 codegen 产物入库（源等价、deterministic），故 fresh checkout 直接 fe-analyze 即可；
-# 改了带注解的源或 i18n 文案后重跑本目标。
-fe-gen:
-	@cd frontend && $(RUN) flutter pub run build_runner build
-
-# fe-analyze — Flutter 静态分析（须净）。
-fe-analyze:
-	@cd frontend && $(RUN) flutter analyze
-
-# fe-test — Flutter 单测。
-fe-test:
-	@cd frontend && $(RUN) flutter test
-
-# fe-verify — 前端 pre-push 门禁：codegen + 分析净 + 单测绿。
-# （桌面真跑 fe-run 需完整 Xcode + CocoaPods，属机器层面、不入门禁。）
+# fe-verify — 前端 pre-push 门禁（委派到 frontend/Makefile）：codegen + flutter analyze 净 + flutter test 绿。
+# 与 verify（后端）分列、各自 pre-push（ADR 0004）。frontend 有独立 Makefile（`cd frontend && make help`）。
 fe-verify:
-	@cd frontend \
-		&& echo "→ fe codegen…"  && $(RUN) flutter pub run build_runner build \
-		&& echo "→ fe analyze…"  && $(RUN) flutter analyze \
-		&& echo "→ fe test…"     && $(RUN) flutter test \
-		&& echo "" && echo "✓ fe-verify 全绿（gen + analyze + test）"
+	@$(MAKE) -C frontend verify
 
-# fe-run — 起桌面 app（dev:挂到已跑后端,先 make server）。macOS 真跑需完整 Xcode + CocoaPods。
-fe-run:
-	@cd frontend && LANG=en_US.UTF-8 ANSELM_BACKEND_URL=http://127.0.0.1:$(BACKEND_PORT) $(RUN) flutter run -d macos
+# fe-clean — 清前端可重建缓存（委派到 frontend/Makefile clean = 官方 flutter clean，清 build/ + .dart_tool/）。
+# dev-time 缓存(build/test_cache kernel 缓存 + .dart_tool/flutter_build)无上限、从不驱逐,能累到十几 GB;
+# 缓存涨了手动跑一次(不入门禁,清了会拖慢下轮全量重编)。清后前端首次构建自动 pub get。
+fe-clean:
+	@$(MAKE) -C frontend clean
 
-# fe-gallery — 起设计画廊（独立入口,零后端:验收单色设计语言 + UI 套件）。macOS 真跑需完整 Xcode + CocoaPods。
-fe-gallery:
-	@cd frontend && LANG=en_US.UTF-8 $(RUN) flutter run -t lib/dev/gallery_main.dart -d macos
+# demo-test — 画廊全矩阵 Playwright 回归（reference.html 每组件×填充态逐件断言：
+# 无 console 错 / 无页面横向溢出 / 无 XSS 逃逸 / 元素已渲染 + app 冒烟 + disabled/dialog 专项）。
+# demo 是 web 端建设事实源——此为其回归网。harness 自起隔离端口 serve、跑完自清。
+# playwright 是 dev-only 未入库，首次 `cd demo && npm i`。与 verify/fe-verify 分列、不入 pre-push（需浏览器、按需手跑）。
+demo-test:
+	@cd demo && node tools/matrix.mjs
+
+demo-serve:
+	@cd demo && node tools/serve.mjs
+
+# 前端（Flutter 桌面端，ADR 0004）有独立 Makefile:`cd frontend && make help`
+# （单词目标:setup / gen / analyze / test / verify / run / gallery / shell）。
+# flutter 由 mise 提供（真·可写官方 SDK）;macOS 原生构建用系统 Xcode（ADR 0005）。
 
 # ── 清理 ────────────────────────────────────────────────────────────
 
@@ -176,5 +159,4 @@ clean: stop
 	@rm -rf $(BACKEND_DATA_DIR)
 	@echo "✓ 已清 $(BACKEND_DATA_DIR)"
 
-.PHONY: help setup server stop unit docs build verify clean testend evals \
-        fe-setup fe-gen fe-analyze fe-test fe-verify fe-run fe-gallery
+.PHONY: help setup server stop unit docs build verify fe-verify fe-clean demo-test demo-serve clean testend evals

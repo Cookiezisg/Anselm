@@ -33,6 +33,7 @@ audience: [human, ai]
 | Unauthorized | 401 | UnsupportedMedia | 415 | ClientClosed | 499 |
 | NotFound | 404 | RateLimited | 429 | Gone | 410 |
 | Conflict | 409 | BadGateway | 502 | Unavailable | 503 |
+| Forbidden | 403 | | | | |
 
 ## 命名规约 + 守卫
 
@@ -42,9 +43,12 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（298 码，按域）
+## 全量登记（319 码，按域）
 
-> `errorspkg.New` 机械抽取（282，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（5）。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（308，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 319。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+>
+> **复核方法**（本汇总数无机械守卫——`make docs` 只查结构/frontmatter/孤儿链接，`pkg/errors` 的 `standard_test.go` 只钉「一律走 `errorspkg.New`」+「码全局唯一」，**都不数总数**，故这三个数是**手工事实**、会随每次加码悄悄漂旧，改码时请一并重算）：
+> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 308 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 308 行 = 308 个唯一 code，全部在表；表 319 行 = 308 + 7 + 4，三数对齐）。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -52,6 +56,8 @@ audience: [human, ai]
 |---|---|---|
 | `INVALID_REQUEST` | 400 | invalid request（domain 逻辑前的格式/语义无效） |
 | `UNAUTH_NO_WORKSPACE` | 401 | unauthorized: no valid workspace id（隔离路由缺 ws；中间件 `RequireWorkspace` 兜、前端清 workspace 重选） |
+| `UNAUTH_BAD_TOKEN` | 401 | unauthorized: invalid or missing bearer token（loopback 加固：缺/错 `ANSELM_AUTH_TOKEN`；中间件 `RequireBearerToken`，仅 server 设 token 时强制；前端显示重启后端横幅、不清 workspace） |
+| `FORBIDDEN_BAD_HOST` | 403 | forbidden: request host is not loopback（防 DNS rebinding；中间件 `RequireLoopbackHost`，常开，仅放行 127.0.0.1/::1/localhost） |
 | `NOT_FOUND` | 404 | not found（路由 / 未知 :action / handler 派发未命中的统一兜底，S6） |
 | `INTERNAL_ERROR` | 500 | internal error（recover 的 panic；原始细节记日志、不上线缆） |
 | `STREAMING_UNSUPPORTED` | 500 | streaming not supported（SSE 端点遇非流式 ResponseWriter；`response/sse.go` 经 `FromDomainError` 发此 sentinel） |
@@ -85,6 +91,7 @@ audience: [human, ai]
 |---|---|---|
 | `EMPTY_CONTENT` | 400 | message has no text and no attachments |
 | `NO_PENDING_INTERACTION` | 404 | no pending interaction with that tool call id in this conversation |
+| `INTERACTION_INVALID_ACTION` | 422 | action must be one of: approve, approve_always, deny, accept, decline（details.validActions 带合法集） |
 | `STREAM_IN_PROGRESS` | 409 | this conversation already has an assistant turn running |
 
 ### `app/freetier`
@@ -98,6 +105,13 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `SETTINGS_LIMITS_INVALID` | 400 | limits values out of range |
+| `SETTINGS_RETENTION_INVALID` | 400 | runRetentionDays must be 0 (keep forever) or a positive number of days（scheduler 工单⑬——**唯一的物理约束**：线不能倒着走；未知字段/畸形 JSON 同码。UI 的 30/90/180/永久 值集是产品可供性、后端不强制，60 照收——拒它是校验剧场，设计原则 #6） |
+
+### `app/storage`
+
+| code | HTTP | message |
+|---|---|---|
+| `STORAGE_COMPACT_FAILED` | 500 | database compaction failed (VACUUM needs free scratch space roughly the size of the database)（T4/WRK-070——`POST /storage:compact` 的全量 `VACUUM` 跑不完，主因磁盘满、放不下约等于库大小的临时副本；库不动、可安全重试；底层 cause 记日志不上线缆） |
 
 ### `app/tool/agent`
 
@@ -298,7 +312,7 @@ audience: [human, ai]
 | `API_KEY_DISPLAY_NAME_CONFLICT` | 409 | display name already in use |
 | `API_KEY_INVALID_PROVIDER` | 400 | unknown provider |
 | `API_KEY_IN_USE` | 422 | api key is referenced and cannot be deleted（details.references: `[{kind,id,name}]`，kind=scenario_default/search_default/agent_override） |
-| `API_KEY_IMMUTABLE` | 422 | managed api key cannot be edited（内置受管 provider，如免费档 `anselm`） |
+| `API_KEY_IMMUTABLE` | 422 | managed api key cannot be edited or deleted（内置受管 provider，如免费档 `anselm`——PATCH 与 DELETE 对称守卫，S-1） |
 | `API_KEY_TEST_FAILED` | 422 | api key probe failed（details: latencyMs + reason） |
 | `API_KEY_NOT_FOUND` | 404 | api key not found（也由写时校验发出：agent/conversation modelOverride + workspace scenario default 引用不存在 apiKeyId 时即拒，非只 invoke 时，F153） |
 | `API_KEY_VALUE_REQUIRED` | 400 | key value is required |
@@ -371,9 +385,16 @@ audience: [human, ai]
 | `FLOWRUN_APPROVAL_NOT_PARKED` | 422 | approval node is not awaiting a decision |
 | `FLOWRUN_INVALID_DECISION` | 422 | approval decision must be 'yes' or 'no' |
 | `FLOWRUN_INVALID_STATUS` | 422 | flowrun status filter must be one of: running, completed, failed, cancelled (F168-M2; `details.allowed`) |
+| `FLOWRUN_LIST_INVALID_FILTER` | 422 | invalid flowrun list filter value（工单⑥＋⑮：`?origin` 越出 RunOrigins，或 `?startedAfter`/`?startedBefore`/`?completedAfter`/`?completedBefore` 非 RFC3339，或 `?offset` 非非负整数〔WRK-070 B4 页码分页——offset 只是又一个列表过滤参数,坏值与坏 `?origin` 同类,复用此码、`details.param=offset`,不另铸码〕；`details.param`/`got`，枚举再带 `allowed`——F168-M2 同立场，绝不静默空页） |
+| `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT` | 422 | flowrun list accepts either ?cursor (keyset) or ?offset (page number), not both（WRK-070 B4：`GET /flowruns` 同时给 `?cursor` 与 `?offset` 两种互斥分页模式——大声拒而非静默择一） |
 | `FLOWRUN_INVALID_ENTRY` | 422 | invalid or ambiguous trigger entry node |
+| `FLOWRUN_NOT_CANCELLABLE` | 422 | flowrun is not in a cancellable (running) state（工单② `:cancel`；含输给自然终态的 first-wins 竞态输家——已记录终态为准） |
 | `FLOWRUN_NOT_FOUND` | 404 | flowrun not found |
 | `FLOWRUN_NOT_REPLAYABLE` | 422 | flowrun is not in a replayable (failed) state |
+| `FLOWRUN_STATS_TOO_MANY_IDS` | 422 | flowrun-stats accepts at most 50 workflowIds per request (工单③ 有界批查上限；`details.allowed`/`details.got`) |
+| `FLOWRUN_MATRIX_TOO_MANY_IDS` | 422 | flowrun-matrix accepts at most 50 flowrunIds per request (工单⑩ 有界批查上限；`details.allowed`/`details.got`) |
+| `FLOWRUN_STATS_INVALID_SINCE` | 422 | since must be an RFC3339 timestamp or a look-back duration like 24h or 7d (`details.got`) |
+| `FLOWRUN_STATS_INVALID_UNTIL` | 422 | until must be an RFC3339 timestamp (工单③ 窗口不含上界——刻意只收绝对时刻、不收 since 的时长文法；`details.param`/`details.got`/`details.want`) |
 
 ### `domain/function`
 
@@ -537,21 +558,34 @@ audience: [human, ai]
 | `TODO_INVALID_STATUS` | 400 | invalid todo item status |
 | `TODO_TOO_MANY_ITEMS` | 400 | too many todo items |
 
+### `domain/touchpoint`
+
+| code | HTTP | message |
+|---|---|---|
+| `TP_INVALID_REF` | 400 | touchpoint requires conversation and item ids |
+| `TP_INVALID_KIND` | 400 | invalid touchpoint item kind |
+| `TP_INVALID_VERB` | 400 | invalid touchpoint verb |
+| `TP_INVALID_ACTOR` | 400 | invalid touchpoint actor |
+
 ### `domain/trigger`
 
 | code | HTTP | message |
 |---|---|---|
 | `TRIGGER_ACTIVATION_NOT_FOUND` | 404 | activation not found |
-| `TRIGGER_FIRING_INVALID_STATUS` | 422 | firing status filter must be one of: pending, claimed, started, skipped, superseded, shed |
+| `TRIGGER_FIRING_INVALID_FILTER` | 422 | invalid firing list filter value（工单⑭：`GET /firings` 的 `?createdAfter`/`?createdBefore` 非 RFC3339；`details.param`/`got`——与 `FLOWRUN_LIST_INVALID_FILTER` 同构但**刻意分码**：码必须点名调用方实际在列的资源，拿 flowrun 列表的码答 firings 就是撒谎） |
+| `TRIGGER_FIRING_INVALID_STATUS` | 422 | firing status filter must be one of: pending, claimed, started, skipped, superseded, shed, missed |
 | `TRIGGER_FIRING_NOT_PENDING` | 409 | firing already claimed |
 | `TRIGGER_INVALID_CEL` | 422 | invalid CEL expression |
 | `TRIGGER_INVALID_CONFIG` | 422 | invalid trigger config |
 | `TRIGGER_INVALID_CRON` | 422 | invalid cron expression — use a 5-field expression (minute granularity); @every and seconds are not supported |
 | `TRIGGER_INVALID_INTERVAL` | 422 | sensor interval below minimum |
 | `TRIGGER_INVALID_KIND` | 422 | unknown trigger kind |
+| `TRIGGER_INVALID_MISFIRE_POLICY` | 422 | misfirePolicy must be one of: skip, catchup_one（工单⑨：cron `config.misfirePolicy` 的封闭词表，create/edit 校验——写错的词绝不静默按默认 skip 走） |
 | `TRIGGER_LISTENER_UNAVAILABLE` | 503 | trigger listener not available |
 | `TRIGGER_NAME_DUPLICATE` | 409 | trigger name already exists |
 | `TRIGGER_NOT_FOUND` | 404 | trigger not found |
+| `TRIGGER_PAUSED` | 422 | trigger is paused — resume it before firing（工单⑦：`:fire`/fire_trigger 打在已暂停 trigger 上的大声拒——暂停 = 不再产生新 firing，手动催也不例外） |
+| `TRIGGER_SCHEDULE_INVALID_QUERY` | 422 | trigger-schedule query invalid — within must be a positive Go duration (e.g. 168h) and limit a positive integer（工单⑧：details 带 `param`/`got`；超上限的合法值**钳制**不报错，只有不可解析/非正才拒） |
 | `TRIGGER_SENSOR_TARGET_REQUIRED` | 422 | sensor requires a function or handler target |
 | `TRIGGER_SENSOR_TARGET_NOT_FOUND` | 422 | sensor target does not exist (dynamic — details carry targetKind/targetId) |
 | `TRIGGER_WEBHOOK_SECRET_MISMATCH` | 401 | webhook secret mismatch |

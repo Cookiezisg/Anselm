@@ -108,6 +108,7 @@
     const med = (id, adj) => { const ps = adj[id].map((x) => pos[x]).filter((v) => v != null); if (!ps.length) return pos[id]; ps.sort((a, b) => a - b); return ps[(ps.length - 1) >> 1]; };
     for (let p = 0; p < 8; p++) { const down = p % 2 === 0; (down ? [...layers.keys()] : [...layers.keys()].reverse()).forEach((li) => { const adj = down ? pred : succ; layers[li] = layers[li].map((id) => ({ id, m: med(id, adj) })).sort((a, b) => a.m - b.m).map((o) => o.id); layers[li].forEach((id, i) => (pos[id] = i)); }); }
     const horiz = dir === "LR", main = horiz ? NW + GAPX : NH + GAPY, cross = horiz ? NH + GAPY : NW + GAPX, maxLen = Math.max(...layers.map((L) => L.length));
+    // TODO：layout 无条件覆写 x/y，冲掉 node.pos 持久化拖拽位（须有 pos 时优先用 pos、缺省才自动布局）——改动风险大，留作后续
     layers.forEach((L, li) => { const off = (maxLen - L.length) * cross / 2; L.forEach((id, i) => { const node = nodeById(G, id), m = PAD + li * main, c = PAD + off + i * cross; if (horiz) { node.x = m; node.y = c; } else { node.x = c; node.y = m; } }); });
   }
   function mk(id, color, big) { const s = big ? "M0,0 L7.5,3.2 L0,6.4 Z" : "M0,0 L7,3 L0,6 Z", r = big ? 3.2 : 3, w = big ? 10 : 9; return `<marker id="${id}" markerWidth="${w}" markerHeight="${w}" refX="${big ? 8 : 7.5}" refY="${r}" orient="auto-start-reverse" markerUnits="userSpaceOnUse"><path d="${s}" fill="${color}"/></marker>`; }
@@ -160,7 +161,7 @@
       });
 
       S.G.nodes.forEach((n) => {
-        const k = KIND[n.kind] || KIND.action, st = (S.mode === "run" && S.run) ? (S.run.state[n.id] || "future") : "ready", ST = STATE[st] || STATE.ready, iters = (S.mode === "run" && S.run && S.run.iters[n.id]) || 0, selN = S.sel && S.sel.type === "node" && S.sel.id === n.id;
+        const k = KIND[n.kind] || KIND.action, st = (S.mode === "run" && S.run) ? String(S.run.state[n.id] || "future").toLowerCase() : "ready", ST = STATE[st] || STATE.ready, iters = (S.mode === "run" && S.run && S.run.iters[n.id]) || 0, selN = S.sel && S.sel.type === "node" && S.sel.id === n.id;
         const g = el("g", { class: "fg-node", transform: `translate(${n.x},${n.y})`, "data-id": n.id });
         if (iters > 1) { g.appendChild(el("rect", { x: 6, y: 6, width: NW, height: NH, rx: 14, fill: ST.fill, stroke: ST.ring, opacity: .35 })); g.appendChild(el("rect", { x: 3, y: 3, width: NW, height: NH, rx: 14, fill: ST.fill, stroke: ST.ring, opacity: .6 })); }
         const card = el("rect", { class: "fg-card", width: NW, height: NH, rx: 14, fill: ST.fill, stroke: selN ? "var(--accent)" : ST.ring, "stroke-width": selN ? 2 : (st === "running" || st === "failed" || st === "parked" ? 1.6 : 1), filter: "url(#fg-lift)" }); g.appendChild(card);
@@ -168,7 +169,8 @@
         if (st === "future") card.setAttribute("stroke-dasharray", "4 4");
         g.appendChild(el("rect", { x: 12, y: 17, width: 26, height: 26, rx: 8, fill: k.s }));
         const ig = el("svg", { x: 16, y: 21, width: 18, height: 18, viewBox: "0 0 24 24", fill: "none", stroke: k.c, "stroke-width": 2, "stroke-linecap": "round", "stroke-linejoin": "round" }); ig.innerHTML = iconInner(k.ico); g.appendChild(ig);
-        const id = el("text", { x: 48, y: 26, "font-size": 13.5, "font-weight": 600, fill: "var(--ink)" }); id.textContent = n.id; g.appendChild(id);
+        // why：长 id 截断防溢出卡片（SVG text 无 ellipsis，手截 + <title> 存全名 tooltip）——同 ref 行做法
+        const id = el("text", { x: 48, y: 26, "font-size": 13.5, "font-weight": 600, fill: "var(--ink)" }); id.textContent = (n.id || "").length > 17 ? n.id.slice(0, 16) + "…" : n.id; if ((n.id || "").length > 17) { const tt = el("title", {}); tt.textContent = n.id; id.appendChild(tt); } g.appendChild(id);
         const ref = el("text", { x: 48, y: 44, "font-size": 11.5, fill: "var(--ink-3)", "font-family": "var(--mono)" }); ref.textContent = (n.ref || "").length > 20 ? n.ref.slice(0, 19) + "…" : n.ref; g.appendChild(ref);
         if (S.mode === "run" && S.run) g.appendChild(el("circle", { cx: NW - 15, cy: 15, r: 4, fill: ST.c }));
         else if (n.retry) { g.appendChild(el("circle", { cx: NW - 16, cy: 16, r: 7.5, fill: "var(--warn-soft)" })); const rt = el("text", { x: NW - 16, y: 19.5, "text-anchor": "middle", "font-size": 9, "font-weight": 700, fill: "var(--warn)" }); rt.textContent = "↻"; g.appendChild(rt); }

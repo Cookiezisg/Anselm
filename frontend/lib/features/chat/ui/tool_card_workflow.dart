@@ -1,0 +1,291 @@
+import 'package:flutter/material.dart';
+
+import '../../../core/contract/entities/values.dart';
+import '../../../core/design/colors.dart';
+import '../../../core/design/tokens.dart';
+import '../../../core/design/typography.dart';
+
+import '../../../core/model/partial_json.dart';
+import '../../../core/ui/ui.dart';
+import '../../../i18n/strings.g.dart';
+import '../model/tool_card_state.dart';
+import '../model/tool_receipts.dart';
+import 'tool_card_skins.dart';
+
+/// F04 create_workflow — a two-act show, both acts inside the ONE body ([workflowBuildBody], behind the
+/// user's chevron — WRK-065: nothing auto-expands). Act one (in flight): the graph is NOT drawn
+/// (streaming re-layout would jitter — graph.md); instead an OP TICKER counts add_node / add_edge as
+/// [partialJsonEvents] surfaces each completed op, and a kind-coloured chip lights per node — the build is
+/// visible here. Act two (settled): the full graph is built from the ops and rendered by [AnGraphCanvas]
+/// — the SAME widget the entity page uses, so the tool-card graph is 1:1 with it (B5).
+///
+/// F04 create_workflow 两幕,同住**一个体**(在用户 chevron 后——WRK-065:绝不自动展开)。幕一(在飞):
+/// 不画图(流中重布局跳变),op ticker 数 add_node/add_edge、每节点亮一枚 kind 色 chip——生长感在此;
+/// 幕二(落定):ops 建全图,由 [AnGraphCanvas] 渲染(实体页同款 widget),故 tool 卡图与实体页 1:1(B5)。
+
+/// create_workflow's collapsed-row receipt: `v1 · 未激活` — inactive is EXPECTED (create → deactivated),
+/// so it's a WARN (「建了≠上线」的诚实半态),not a failure; the row nudges toward activate_workflow.
+/// create_workflow 回执:v1 · 未激活(inactive 是预期半态、warn 非失败,行提示去 activate)。
+ToolReceipt? workflowCreateReceipt(Translations t, ToolCardState state) {
+  final out = state.resultObj; // C-028: memoized decode 记忆化解码
+  if (out == null) return null;
+  final v = out['version'];
+  if (v == null) return null;
+  final inactive = out['lifecycleState'] == 'inactive' || out['active'] == false;
+  return inactive
+      ? (text: 'v$v · ${t.chat.tool.wfInactive}', tone: ToolReceiptTone.warn)
+      : (text: 'v$v', tone: ToolReceiptTone.none);
+}
+
+/// The NodeKind for a workflow op's `kind` string (forward-compat → unknown). op kind 串 → NodeKind。
+NodeKind workflowNodeKind(Object? k) => switch (k) {
+      'trigger' => NodeKind.trigger,
+      'action' => NodeKind.action,
+      'agent' => NodeKind.agent,
+      'control' => NodeKind.control,
+      'approval' => NodeKind.approval,
+      _ => NodeKind.unknown,
+    };
+
+// Memoized by the session's CLOSED-op count (C-042): the workflow stage + card rebuild this every merge
+// frame (60/s) while args stream, but the closed-ops set only GROWS when an op closes — many delta frames
+// in between leave it identical. Caching by count (ops only append per session, so count ⟺ set) returns
+// the SAME Graph instance when unchanged, so AnGraphCanvas.didUpdateWidget short-circuits its O(V+E) deep
+// compare + re-layout via identity. Content is unchanged → behaviour-identical. 按闭合 op 数记忆化:返回
+// 同一 Graph 实例,canvas 经 identity 跳深比较+重布局。
+final _wfOpsGraphCache = Expando<({int count, Graph graph})>('wfOpsGraph');
+
+/// Build a [Graph] from a create_workflow ops fragment (add_node / add_edge) — tolerant of a PARTIAL
+/// mid-stream fragment (only COMPLETED ops surface via [PartialJsonSession.arrayItemsAt]). For CREATE the ops ARE
+/// the whole graph (from zero); edit_workflow's after-graph needs the fetch seam (B2.6). 从 ops 建全图。
+Graph graphFromWorkflowOps(PartialJsonSession args) {
+  final ops = args.arrayItemsAt(['ops']);
+  final cached = _wfOpsGraphCache[args];
+  if (cached != null && cached.count == ops.length) return cached.graph;
+  final nodes = <Node>[];
+  final edges = <Edge>[];
+  for (final raw in ops) {
+    if (raw is! Map) continue;
+    switch (raw['op']) {
+      case 'add_node':
+        final n = raw['node'];
+        if (n is Map && n['id'] is String) {
+          nodes.add(Node(
+            id: n['id'] as String,
+            kind: workflowNodeKind(n['kind']),
+            ref: (n['ref'] ?? '').toString(),
+          ));
+        }
+      case 'add_edge':
+        final e = raw['edge'];
+        if (e is Map && e['id'] is String && e['from'] is String && e['to'] is String) {
+          edges.add(Edge(
+            id: e['id'] as String,
+            from: e['from'] as String,
+            to: e['to'] as String,
+            fromPort: e['fromPort'] as String?,
+          ));
+        }
+    }
+  }
+  final graph = Graph(nodes: nodes, edges: edges);
+  _wfOpsGraphCache[args] = (count: ops.length, graph: graph);
+  return graph;
+}
+
+typedef _OpCounts = ({int nodes, int edges, List<NodeKind> kinds});
+
+_OpCounts _countOps(PartialJsonSession args) {
+  var nodes = 0, edges = 0;
+  final kinds = <NodeKind>[];
+  for (final raw in args.arrayItemsAt(['ops'])) {
+    if (raw is! Map) continue;
+    if (raw['op'] == 'add_node') {
+      nodes++;
+      final n = raw['node'];
+      kinds.add(workflowNodeKind(n is Map ? n['kind'] : null));
+    } else if (raw['op'] == 'add_edge') {
+      edges++;
+    }
+  }
+  return (nodes: nodes, edges: edges, kinds: kinds);
+}
+
+/// Act one — the live OP TICKER (no graph while streaming): `节点 N · 边 M` + a kind-coloured dot per
+/// add_node op, lighting up as ops complete. 幕一 op ticker(流中不画图):计数 + kind 色点逐个亮。
+Widget _opTicker(BuildContext context, ToolCardState state) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  final counts = _countOps(state.argsSession);
+  if (counts.nodes == 0 && counts.edges == 0) return const SizedBox.shrink();
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      Text(t.chat.tool.wfGraphCounts(nodes: '${counts.nodes}', edges: '${counts.edges}'),
+          style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+      if (counts.kinds.isNotEmpty) ...[
+        const SizedBox(height: AnGap.stackTight),
+        Wrap(
+          spacing: AnGap.inline,
+          runSpacing: AnGap.stackTight,
+          children: [
+            // Family dot (the hand-rolled kind SQUARE retires — one dot voice, 批5 A-046). 族点。
+            for (final k in counts.kinds)
+              AnStatusDot.raw(nodeKindColor(context, k), size: AnSize.swatch),
+          ],
+        ),
+      ],
+    ],
+  );
+}
+
+// ── edit_workflow morph (WRK-056 §edit_workflow, ★pivot 场景「旧图变成新图」) ──
+
+/// The precise delta of an edit_workflow ops fragment — added / updated / deleted nodes + edge counts,
+/// derived ENTIRELY from the ops (add_node / update_node / delete_node / add_edge / update_edge /
+/// delete_edge), with ZERO before-graph dependency (the after-graph canvas needs the fetch seam, #50;
+/// this roster is the always-works baseline). edit_workflow 增量精确导出(零 before 依赖)。
+typedef WorkflowDelta = ({
+  List<Node> addedNodes,
+  List<String> updatedNodes,
+  List<String> deletedNodes,
+  int addedEdges,
+  int updatedEdges,
+  int deletedEdges,
+  bool metaOnly,
+});
+
+WorkflowDelta workflowEditDelta(PartialJsonSession args) {
+  final added = <Node>[];
+  final updated = <String>[];
+  final deleted = <String>[];
+  var addedE = 0, updatedE = 0, deletedE = 0;
+  var sawGraphOp = false;
+  for (final raw in args.arrayItemsAt(['ops'])) {
+    if (raw is! Map) continue;
+    switch (raw['op']) {
+      case 'add_node':
+        sawGraphOp = true;
+        final n = raw['node'];
+        if (n is Map && n['id'] is String) {
+          added.add(Node(id: n['id'] as String, kind: workflowNodeKind(n['kind']), ref: (n['ref'] ?? '').toString()));
+        }
+      case 'update_node':
+        sawGraphOp = true;
+        if (raw['id'] is String) updated.add(raw['id'] as String);
+      case 'delete_node':
+        sawGraphOp = true;
+        if (raw['id'] is String) deleted.add(raw['id'] as String);
+      case 'add_edge':
+        sawGraphOp = true;
+        addedE++;
+      case 'update_edge':
+        sawGraphOp = true;
+        updatedE++;
+      case 'delete_edge':
+        sawGraphOp = true;
+        deletedE++;
+    }
+  }
+  return (
+    addedNodes: added,
+    updatedNodes: updated,
+    deletedNodes: deleted,
+    addedEdges: addedE,
+    updatedEdges: updatedE,
+    deletedEdges: deletedE,
+    metaOnly: !sawGraphOp,
+  );
+}
+
+/// edit_workflow — the morph roster (pure-delta form, WRK-056 三级降级基线): a coloured legend
+/// (+added / ~updated / −deleted, nodes · edges) + the change chips (added = green kind chips /
+/// updated = amber id / deleted = red strikethrough), all from the ops — no fetch. The after-graph
+/// canvas + green-halo/pulse overlay is the enhancement (needs the fetch seam #50, a Consumer body
+/// that gallery-embedded cards can't host). meta-only edits say so honestly.
+/// edit_workflow morph 花名册(纯 delta 形):彩色图例 + 变更花名册(绿添/琥珀改/红删划线),全从 ops、
+/// 不 fetch;after 图画布 + 绿晕/脉冲覆层是增强(需取数缝 #50)。纯改元数据诚实说明。
+Widget editWorkflowBody(BuildContext context, ToolCardState state) {
+  final t = Translations.of(context);
+  final c = context.colors;
+  final d = workflowEditDelta(state.argsSession);
+
+  if (d.metaOnly && state.resultText.isNotEmpty) {
+    // Only set_meta ops — the graph didn't change. 仅 set_meta:图未变。
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      toolIntent(context, state),
+      Text(t.chat.tool.wfDeltaEmpty, style: AnText.label.copyWith(color: c.inkFaint)),
+      runStatBarOf(context, state),
+    ]);
+  }
+
+  final nodeParts = <String>[];
+  if (d.addedNodes.isNotEmpty) nodeParts.add('+${d.addedNodes.length}');
+  if (d.updatedNodes.isNotEmpty) nodeParts.add('~${d.updatedNodes.length}');
+  if (d.deletedNodes.isNotEmpty) nodeParts.add('−${d.deletedNodes.length}');
+  final edgeParts = <String>[];
+  if (d.addedEdges > 0) edgeParts.add('+${d.addedEdges}');
+  if (d.updatedEdges > 0) edgeParts.add('~${d.updatedEdges}');
+  if (d.deletedEdges > 0) edgeParts.add('−${d.deletedEdges}');
+
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      // No bottom padding on the summary — the family bar below brings its own top s6 (复审:
+      // 双距 12px,与同卡 metaOnly 分支不齐). summary 不带底距,条自带 s6。
+      toolIntent(context, state, gap: false),
+      // 批3 文法 #3: the ' · ' chain lives ONLY in the family bar. ' · ' 链只住当家条。
+      if (nodeParts.isNotEmpty || edgeParts.isNotEmpty)
+        AnStatBar(stats: [
+          if (nodeParts.isNotEmpty) AnStat('${nodeParts.join(' ')} ${t.chat.tool.wfNodeUnit}', tabular: true),
+          if (edgeParts.isNotEmpty) AnStat('${edgeParts.join(' ')} ${t.chat.tool.wfEdgeUnit}', tabular: true),
+        ]),
+      const SizedBox(height: AnGap.stackTight),
+      Wrap(
+        spacing: AnGap.inline,
+        runSpacing: AnGap.stackTight,
+        children: [
+          // Family chips (批5 A-047 — the hand-rolled morph shell retires; the alpha-0.5 border
+          // tint becomes the family's full tone stroke, 刻意裁决帧核). 族芯片:半透边→全 tone 边。
+          for (final n in d.addedNodes)
+            AnChip(n.ref.isEmpty ? n.id : n.ref, look: AnChipLook.outlined, tone: AnTone.ok, icon: nodeKindIcon(n.kind), mono: true),
+          for (final id in d.updatedNodes)
+            AnChip(id, look: AnChipLook.outlined, tone: AnTone.warn, icon: AnIcons.edit, mono: true),
+          for (final id in d.deletedNodes)
+            AnChip(id, look: AnChipLook.outlined, tone: AnTone.danger, icon: AnIcons.trash, mono: true, strikethrough: true),
+        ],
+      ),
+      Padding(
+        padding: const EdgeInsets.only(top: AnSpace.s6),
+        child: Text(t.chat.tool.wfMorphNote, style: AnText.meta.copyWith(color: c.inkFaint)),
+      ),
+      runStatBarOf(context, state),
+    ],
+  );
+}
+
+
+/// The create_workflow body — act one (in flight): the op ticker; act two (settled): intent · the
+/// workflow graph (1:1 with the entity page's AnGraphCanvas) · the result bar.
+/// create_workflow 体——幕一(在飞):op ticker;幕二(落定):意图 · 工作流图(与实体页 1:1)· 结果条。
+Widget workflowBuildBody(BuildContext context, ToolCardState state) {
+  if (toolLive(state)) return _opTicker(context, state);
+  final c = context.colors;
+  final graph = graphFromWorkflowOps(state.argsSession);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      toolIntent(context, state),
+      if (graph.nodes.isNotEmpty)
+        // 1:1 with the entity page's workflow graph (B5): the SAME AnGraphCanvas rendering (node cards,
+        // orthogonal edges, kind colours, auto-fit) in a framed preview, just at a compact tool-card height.
+        // The build sense lives in act one's op ticker; the settled graph is static like the entity preview.
+        // 与实体页 workflow 图 1:1:同款 AnGraphCanvas 渲染(节点卡/正交边/kind 色/auto-fit),framed 预览、卡内紧凑高;
+        // 生长感在幕一 op ticker,落定图与实体预览一样静态。
+        AnGraphCanvas(graph: graph, framed: true, framedHeight: AnSize.graphStage)
+      else if (state.argsText.isNotEmpty)
+        rawMonoWindow(context, state.argsText, color: c.inkMuted),
+      runStatBarOf(context, state),
+    ],
+  );
+}

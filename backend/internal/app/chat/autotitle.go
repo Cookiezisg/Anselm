@@ -23,7 +23,8 @@ const (
 // "output only the title" keeps small models from adding quotes / preamble.
 //
 // autoTitleSystem 指示 utility 模型产出裸标题。末尾措辞 +「只输出标题」使小模型不加引号 / 前言。
-const autoTitleSystem = "Generate a concise title (5-10 words) for the conversation below. " +
+const autoTitleSystem = "Generate a concise title (5-10 words) for the conversation below, " +
+	"written in the same language the conversation is in. " +
 	"Output only the title text — no quotes, no surrounding punctuation, no preamble."
 
 // maybeAutoTitle kicks off a background title for a conversation's FIRST turn (still untitled and
@@ -68,6 +69,9 @@ func (s *Service) autoTitle(conversationID, workspaceID string) {
 		return
 	}
 
+	// The workspace utility model (a small, cheap model, seeded to the managed default at
+	// provisioning). No utility default configured → MODEL_NOT_CONFIGURED, dropped best-effort.
+	// workspace utility 模型（小而廉价，provisioning 时已播成 managed 默认）。未配则 MODEL_NOT_CONFIGURED、best-effort 丢弃。
 	bundle, err := s.deps.Resolver.ResolveUtility(ctx)
 	if err != nil {
 		s.log.Warn("chatapp.autoTitle: resolve utility failed", zap.Error(err))
@@ -86,13 +90,14 @@ func (s *Service) autoTitle(conversationID, workspaceID string) {
 	if title == "" {
 		return
 	}
+	// SetAutoTitle persists Title+AutoTitled AND emits conversation.auto_titled on the
+	// notifications stream (the frontend re-reads the row + arms the title typewriter). That is
+	// the sole emit — chat no longer double-notifies.
+	// SetAutoTitle 落 Title+AutoTitled 并在 notifications 流发 conversation.auto_titled（前端据此重读
+	// 行 + 触发标题打字机）。这是唯一发信——chat 不再重复通知。
 	if err := s.deps.Titler.SetAutoTitle(ctx, conversationID, title); err != nil {
 		s.log.Warn("chatapp.autoTitle: set title failed", zap.Error(err))
 		return
-	}
-	if s.deps.Notifier != nil {
-		_ = s.deps.Notifier.Emit(ctx, "conversation.auto_titled",
-			map[string]any{"conversationId": conversationID, "title": title})
 	}
 }
 

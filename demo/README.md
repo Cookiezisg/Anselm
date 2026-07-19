@@ -41,7 +41,7 @@ demo/
 │   ├── base.js          # AnElement 基类（Shadow DOM + token + 生命周期）
 │   ├── icons.js         # 图标语法：领域 key → Lucide 名（单一映射）
 │   ├── vendor/          # 🔒 第三方 vendored（lucide.js 1715 图标 + LICENSE，门禁豁免）
-│   ├── primitives/      # 强制层原语（47 个 <an-*> custom element，CSS 内联在 static css；floating/menu/model-picker/mention/toast/dialog 6 个命令式浮层/交互模块）
+│   ├── primitives/      # 强制层原语（45 个 <an-*> custom element，CSS 内联在 static css；floating/menu/model-picker/mention/toast/dialog 6 个命令式浮层/交互模块）
 │   ├── config/          # 单源枚举：entity-kinds（9 kind）· state-model（状态翻译）
 │   ├── schema/          # 声明式：kind-schema（KIND_SCHEMA）· render（renderEntity 渲染器，L3 闭环）
 │   ├── patterns/        # 复合件（EntityCard/RunGraph 等，只由 primitives 拼，Phase 3）
@@ -51,7 +51,7 @@ demo/
 │   ├── sidebar.js       # <an-sidebar> 左岛（导航/轴/peek）
 │   └── app.js           # 装配根/控制器（manifest→nav，切海洋，注入 Intent）
 ├── features/<ocean>/    # 海洋（一文件夹一主人，只装配、零 bespoke CSS，Phase 3）
-└── tools/lint.mjs · serve.mjs   # L1 门禁脚本 · no-cache 预览服务
+└── tools/lint.mjs · serve.mjs · matrix.mjs   # L1 门禁 · no-cache 预览 · 全矩阵 Playwright 回归(make demo-test)
 ```
 
 ---
@@ -90,6 +90,9 @@ window.AnElement.define(AnXxx);
 
 ```bash
 node demo/tools/lint.mjs                 # L1 门禁（CI/pre-commit，非零退出=失败）
+make demo-test                           # 全矩阵回归：reference.html 每组件×填充态逐件 Playwright 断言
+                                         #   （无 console 错 / 页面横向溢出 / XSS 逃逸 + app 冒烟 + disabled/dialog 专项）
+                                         #   playwright 是 dev-only 未入库，首次 `cd demo && npm i`；自起隔离端口、跑完自清
 # 预览：preview_start name=demo → /app.html（完整三岛骨架）· /reference.html（原语规格台）
 ```
 **无头渲染器两坑**：① 默认态须正确渲染的属性禁进 transition；② 量布局前先 `preview_resize 1440 900`（视口偶尔塌 1px）。

@@ -1,5 +1,5 @@
 name: anselm
-description: "A new Flutter project."
+description: "Anselm — local-first agentic workflow platform · Flutter desktop client."
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -7,26 +7,161 @@ environment:
   sdk: ^3.11.5
 
 dependencies:
-  dio: ^5.9.2
-  fast_immutable_collections: ^11.2.0
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+  # Assembly-root state container (classic Riverpod, not codegen — see ADR 0004).
   flutter_riverpod: ^3.3.2
-  freezed_annotation: ^3.1.0
-  go_router: ^17.3.0
-  json_annotation: ^4.12.0
+  # Window GEOMETRY (size / min / center / resize) — the purpose-built desktop package; handles
+  # the Retina scale factor + live resize correctly. 窗口尺寸/最小/居中/缩放(scale 正确)。
+  window_manager: ^0.5.1
+  # macOS window CHROME only — frameless titlebar + taller titlebar (clickable centered traffic
+  # lights). Best-practice package, NOT hand-rolled (原则 #8). Sizing is window_manager's job.
+  # 仅 macOS 窗口外观:无边框 + 加高标题栏(灯居中可点)。尺寸归 window_manager。
+  macos_window_utils: ^1.5.0
+  # In-app UI zoom (Cmd +/-): scales the WHOLE UI reflow-correct (browser-style) by overriding
+  # the binding's view config — not Transform.scale / textScaler. 应内 UI 缩放(整体重排式)。
+  scaled_app: ^2.3.1
+  # Lightweight key/value persistence (zoom level, window prefs). 轻量持久化(缩放档/窗口偏好)。
+  shared_preferences: ^2.5.0
+  # UI glyphs — the whole Lucide set as IconData. The demo vendors the same set; we use the
+  # maintained package rather than re-vendoring (原则 #8). Semantic alias map = core/ui/icons.dart.
+  # UI 图标=整组 Lucide;用成熟包而非重新 vendored,语义别名表在 core/ui/icons.dart。
+  lucide_icons_flutter: ^3.1.14+2
+  # LLM-output markdown renderer with the richest builder surface (codeBuilder / highlightBuilder /
+  # imageBuilder / tableBuilder / onLinkTap / swappable components) — used ONLY through the AnMarkdown
+  # facade (core/ui), never raw. PINNED EXACT: upstream has broken builder signatures within a minor
+  # before; the facade keeps us vendorable if it stalls. LLM 输出 markdown 渲染器,builder 钩子面最全;
+  # 仅经 AnMarkdown 门面用、绝不裸用。钉死精确版本(上游曾在小版本内破坏 builder 签名;门面保可 vendor)。
+  gpt_markdown: 1.1.7
+  # Vector rendering for the bundled brand mark (assets/brand) + inline provider SVGs (currentColor).
+  # 矢量渲染:品牌标 + 内联 provider SVG(随 ink 着色)。
+  flutter_svg: ^2.3.0
+  # i18n — slang: type-safe `context.t.<key>` from lib/i18n/*.i18n.json. NO hardcoded CN/EN in code
+  # (CLAUDE.md 前端守则). Generated via `dart run slang` (NOT build_runner — avoids the asset clash).
+  # i18n=slang:类型安全 t.<key>,严禁硬编码中英文;`dart run slang` 生成(不走 build_runner)。
   slang: ^4.16.0
   slang_flutter: ^4.16.0
-  window_manager: ^0.5.1
+  # HTTP transport (REST ApiClient) + the long-lived SSE GET (ResponseType.stream). The one
+  # runtime dep the net + sse layers need. 网络传输:REST + 长连 SSE(均走 dio 流)。
+  dio: ^5.9.2
+  # Contract DTO codegen runtime annotations (@freezed / @Default / @JsonKey unknownEnumValue).
+  # 契约 DTO codegen 运行时注解(freezed 3.x + json 联合体 unknown 兜底)。
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.12.0
+  # Declarative desktop routing (AppShell + feature routes). 声明式路由(壳 + feature 路由)。
+  go_router: ^17.3.0
+  characters: ^1.4.1
+  file_selector: ^1.1.0
+  pasteboard: ^0.5.0
+  desktop_drop: ^0.7.1
+  mime: ^2.0.0
+  flutter_local_notifications: ^22.0.1
+  # Native document editor (the pivot off Milkdown-in-webview — a webview can only CSS-approximate the
+  # An primitives, never pixel-match them; super_editor renders every block as a REAL Flutter widget so
+  # each element is drawn with our own An widgets/tokens = true 1:1). PINNED EXACT: the dev channel has
+  # no semver, a caret would jump; companions (super_text_layout/attributed_text/overlord/follow_the_leader)
+  # come transitively, and the markdown codec (serialize/deserialize + table builder) ships inside this
+  # package's barrel. Used ONLY through a facade (lib/core/editor/, 原则 #8). dev.41+ references
+  # TextInputConnection.updateStyle, absent from this project's Flutter 3.41.9 → dev.40 is the newest
+  # compatible. 原生编辑器,钉死 dev 版;markdown 编解码随包内置;仅经 core/editor 门面用;
+  # dev.41+ 引用本 Flutter 没有的 TextInputConnection.updateStyle → 钉 dev.40(本机已验证可编)。
+  super_editor: 0.3.0-dev.40
+  # super_editor's text-layout companion (transitively resolved by super_editor) — pinned EXPLICIT because the
+  # facade uses it directly: the vendored AnTextComponent (lib/core/editor/an_editor_text_component.dart) rebuilds
+  # TextComponent's SuperText/ProseText/highlight layers to paint the paint-beneath inline-code background, and
+  # super_editor's barrel `show`-excludes those symbols. Also lets tests reach
+  # BlinkController.indeterminateAnimationsEnabled to halt the caret ticker (else pumpAndSettle hangs on the
+  # infinite blink). 编辑器门面直接用它(vendored AnTextComponent 重建 SuperText/高亮层画行内代码背景);barrel show 排除了这些符号。
+  super_text_layout: 0.1.21
+  url_launcher: ^6.3.2
+  launch_at_startup: ^0.5.1
+  package_info_plus: ^9.0.1
+  screen_retriever: ^0.2.2
+  flutter_secure_storage: ^10.3.1
+
+# super_editor is VENDORED (third_party/super_editor = the pub 0.3.0-dev.40 lib/ + pubspec + LICENSE,
+# copied verbatim) so ONE file — src/default_editor/layout_single_column/_presenter.dart — can be patched:
+# upstream's presenter rebuilds EVERY node's view model on ANY document change (O(document) per keystroke;
+# measured riding the 120Hz frame budget at 400 paragraphs, 5-9ms/key), the class is hard-constructed
+# inside SuperEditor (super_editor.dart:620, not injectable), and the pin cannot move (dev.41+ needs a
+# TextInputConnection API this Flutter lacks). The patched file's upstream original is md5-identical across
+# dev.40→52 (12 releases untouched), so re-vendoring on a future unpin is copy + re-apply with zero
+# conflict expected. Everything else in the copy is byte-identical to pub. See ADR 0009.
+# super_editor 走 VENDOR(third_party/=pub 版逐字拷贝),只为能改**一个文件**(_presenter.dart):上游任何
+# 文档变更都全量重建全部节点 vm(每键 O(文档);实测 400 段 5-9ms/键骑满 120Hz 预算),该类在 SuperEditor 内部
+# 硬构造不可注入,且钉死 dev.40 不能升(dev.41+ 用了本 Flutter 没有的 API)。被改文件的上游原件在 dev.40→52
+# 十二个版本 md5 恒同,将来解钉=重拷+重放补丁、预期零冲突。其余逐字同 pub。见 ADR 0009。
+dependency_overrides:
+  super_editor:
+    path: third_party/super_editor
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  # Deterministic virtual clock for timer/debounce tests (no real waits). 定时器/防抖测试的确定性虚拟时钟。
+  fake_async: ^1.3.0
+  # Codegen for contract DTOs (NOT slang — slang stays on its own `dart run slang`, see build.yaml).
+  # 契约 DTO 代码生成(不含 slang——slang 自走 dart run slang,见 build.yaml)。
   build_runner: ^2.15.0
   freezed: ^3.2.5
   json_serializable: ^6.14.0
-  slang_build_runner: ^4.16.0
+  # WidgetTester extensions from Flutter Bounty Hunters (same authors as super_editor) — ime.typeText,
+  # pressEnter/pressBackspace, doubleTapInParagraph/tripleTapInParagraph — for the editor interaction
+  # test matrix (Layer 1). Real IME/CJK composition still can't be automated (Flutter #131510 → manual).
+  # super_editor 同源测试扩展:打字/双三击等交互 widget-test;真 CJK 组字仍须真机(#131510)。
+  flutter_test_robots: ^0.0.24
 
 flutter:
   uses-material-design: true
+  # Bundled brand mark — the app icon SVG (pixel-F squircle), rendered in-UI by AnBrandIcon.
+  # 随包品牌标——app 图标 SVG,AnBrandIcon 在 UI 内渲染。
+  assets:
+    - assets/brand/
+    - assets/fonts/
+  # Bundled fonts so the bilingual UI + code render deterministically on every machine (no drift from
+  # whatever is installed). The DEFAULTS (zero-config) are the first family of each font axis (see
+  # core/design/an_fonts.dart): Inter+MiSans = UI face (Latin + Simplified Chinese); JetBrains Mono =
+  # code face. The rest are OPT-IN alternates the machine-level font axes select — the CONTENT-serif
+  # face (Source Han Serif SC, Light+Regular = our w300/w400) and the code faces (Fira Code / Cascadia
+  # Code). All OFL except MiSans (Xiaomi's own license — attribution satisfied in Settings → About →
+  # Fonts + MiSans-License.txt). See core/design/typography.dart.
+  # 随包字体,每台机器同字面:默认=各轴首项(Inter+MiSans=UI、JetBrains Mono=代码);其余=字体轴按需选的替
+  # 补——内容衬线(思源宋 SC,Light+Regular=w300/w400)、代码脸(Fira/Cascadia)。除 MiSans(小米自有许可,
+  # 致谢在 About→字体 + MiSans-License.txt)外皆 OFL。见 core/design/an_fonts.dart。
+  fonts:
+    - family: Inter
+      fonts:
+        - asset: assets/fonts/InterVariable.ttf
+    - family: MiSans
+      fonts:
+        - asset: assets/fonts/MiSansVF.ttf
+    - family: JetBrains Mono
+      fonts:
+        - asset: assets/fonts/JetBrainsMono.ttf
+    # CONTENT-serif face (② 内容轴 = 衬线). Source Han Serif SC (OFL), Latin + Simplified Chinese in ONE
+    # face — Light (w300) + Regular (w400) map to our two-weight prose ladder (body w300 / emphasis w400),
+    # so serif reading has real weight contrast. Chosen over a Newsreader-led chain because the bundled
+    # Newsreader is a single-weight brand asset (no Light). 内容衬线脸:思源宋 SC(拉丁+简中同脸),Light/Regular
+    # 对位两字重 prose,故衬线阅读有真字重对比;不用 Newsreader 领衔(它是单字重品牌资产、无 Light)。
+    - family: Source Han Serif SC
+      fonts:
+        - asset: assets/fonts/SourceHanSerifSC-Light.otf
+          weight: 300
+        - asset: assets/fonts/SourceHanSerifSC-Regular.otf
+          weight: 400
+    # CODE faces (③ 代码轴 alternates). Single Regular each (bold synthesized, as JetBrains Mono already is).
+    # 代码脸替补:各一 Regular(粗体合成,与 JetBrains Mono 同)。
+    - family: Fira Code
+      fonts:
+        - asset: assets/fonts/FiraCode-Regular.ttf
+    - family: Cascadia Code
+      fonts:
+        - asset: assets/fonts/CascadiaCode.ttf
+    # Newsreader (OFL) = BRAND wordmark ONLY (the "Anselm" lockup) — a deliberate brand-asset exception to the
+    # two-weight UI rule; never a UI text face. 品牌 wordmark 专用(Anselm 锁定组合),两字重 UI 铁律的品牌资产例外,不作 UI 文本。
+    - family: Newsreader
+      fonts:
+        - asset: assets/fonts/Newsreader.ttf

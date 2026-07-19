@@ -415,6 +415,12 @@ func (e *fakeEmitter) Emit(_ context.Context, eventType string, payload map[stri
 	return e.err
 }
 
+// relation.dependency_broken is inbox-worthy (Emit); Broadcast is unused here but part of
+// the port. relation.dependency_broken 走 Emit;Broadcast 本域不用、只为满足端口。
+func (e *fakeEmitter) Broadcast(ctx context.Context, eventType string, payload map[string]any) error {
+	return e.Emit(ctx, eventType, payload)
+}
+
 // TestPurgeEntity_EmitsDependencyBroken: deleting a depended-on entity raises ONE durable,
 // aggregated relation.dependency_broken notification naming exactly the incoming equip/link
 // dependents (hydrated + deduped) — NOT create-provenance, NOT the entity's own outgoing edges —

@@ -79,3 +79,32 @@ class PageWithAggregate<T, A> {
     );
   }
 }
+
+
+/// One OFFSET page (WRK-070 B4 — `GET /flowruns` only): `{data, total, hasMore}`, NO `nextCursor`.
+/// `total` = the full row count under the same filters — the pager's page-count truth. Mutually
+/// exclusive with cursor mode on the wire (同给 422); the two envelope shapes never intersect.
+///
+/// offset 页(仅 flowruns):`{data, total, hasMore}`、无 nextCursor;total=同过滤总行数(页数真相)。
+/// 与 cursor 模式线上互斥;两信封形不相交。
+class OffsetPage<T> {
+  const OffsetPage({required this.items, required this.total, required this.hasMore});
+
+  final List<T> items;
+  final int total;
+  final bool hasMore;
+
+  factory OffsetPage.fromBody(
+    Map<String, dynamic> body,
+    T Function(Map<String, dynamic>) item,
+  ) {
+    final data = (body['data'] as List<dynamic>? ?? const [])
+        .map((e) => item(e as Map<String, dynamic>))
+        .toList(growable: false);
+    return OffsetPage(
+      items: data,
+      total: body['total'] as int? ?? 0,
+      hasMore: body['hasMore'] as bool? ?? false,
+    );
+  }
+}

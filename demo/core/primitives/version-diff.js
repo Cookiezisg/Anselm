@@ -4,9 +4,15 @@
    API：prop before/after（旧/新文本，设入即重渲算 LCS + 计 +N/−N）；attr lang（透传 highlight）/ range（顶栏 "v3 → v4"）/ note（变更说明）/ bare（隐顶栏，内联场景）。
         最早版本 before 留空 → 整段以 ctx 渲染（着色不染增删）。静态 AnVersionDiff.lineDiff(a,b)→[op,text][] 纯算法可独立调。 */
 (function () {
+  // Why: LCS 是 O(m*n) 时间 + (m+1)*(n+1) DP 矩阵——超大 before/after（数千行）会撑爆内存、卡死 UI 线程。
+  // 设上限：行数积超阈则不算 LCS，退化为整段替换（旧全 del + 新全 add）——语义仍正确，只是不再求最小编辑。
+  const LCS_CELL_CAP = 4000000; // ~2000×2000 行；超此退化（量过 4M 已显著卡顿）
   // 行级 diff（LCS）——逆向 DP 求最长公共子序列、回溯出 ctx/add/del 序列。纯算法、无副作用、对外静态可调。
   function lineDiff(a, b) {
     const A = String(a == null ? "" : a).split("\n"), B = String(b == null ? "" : b).split("\n"), m = A.length, n = B.length;
+    if ((m + 1) * (n + 1) > LCS_CELL_CAP) {
+      const o = []; for (let i = 0; i < m; i++) o.push(["del", A[i]]); for (let j = 0; j < n; j++) o.push(["add", B[j]]); return o;
+    }
     const dp = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
     for (let i = m - 1; i >= 0; i--) for (let j = n - 1; j >= 0; j--) dp[i][j] = A[i] === B[j] ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
     const o = []; let i = 0, j = 0;

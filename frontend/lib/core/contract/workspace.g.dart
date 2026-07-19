@@ -1,0 +1,89 @@
+// GENERATED CODE - DO NOT MODIFY BY HAND
+
+part of 'workspace.dart';
+
+// **************************************************************************
+// JsonSerializableGenerator
+// **************************************************************************
+
+_ModelRef _$ModelRefFromJson(Map<String, dynamic> json) => _ModelRef(
+  apiKeyId: json['apiKeyId'] as String,
+  modelId: json['modelId'] as String,
+  options:
+      (json['options'] as Map<String, dynamic>?)?.map(
+        (k, e) => MapEntry(k, e as String),
+      ) ??
+      const <String, String>{},
+);
+
+Map<String, dynamic> _$ModelRefToJson(_ModelRef instance) => <String, dynamic>{
+  'apiKeyId': instance.apiKeyId,
+  'modelId': instance.modelId,
+  'options': instance.options,
+};
+
+_Workspace _$WorkspaceFromJson(Map<String, dynamic> json) => _Workspace(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  avatarColor: json['avatarColor'] as String?,
+  language: json['language'] as String,
+  defaultDialogue: json['defaultDialogue'] == null
+      ? null
+      : ModelRef.fromJson(json['defaultDialogue'] as Map<String, dynamic>),
+  defaultUtility: json['defaultUtility'] == null
+      ? null
+      : ModelRef.fromJson(json['defaultUtility'] as Map<String, dynamic>),
+  defaultAgent: json['defaultAgent'] == null
+      ? null
+      : ModelRef.fromJson(json['defaultAgent'] as Map<String, dynamic>),
+  defaultSearchKeyId: json['defaultSearchKeyId'] as String?,
+  webFetchMode: json['webFetchMode'] as String?,
+  lastUsedAt: json['lastUsedAt'] == null
+      ? null
+      : DateTime.parse(json['lastUsedAt'] as String),
+  createdAt: DateTime.parse(json['createdAt'] as String),
+  updatedAt: DateTime.parse(json['updatedAt'] as String),
+);
+
+Map<String, dynamic> _$WorkspaceToJson(_Workspace instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'name': instance.name,
+      'avatarColor': instance.avatarColor,
+      'language': instance.language,
+      'defaultDialogue': instance.defaultDialogue?.toJson(),
+      'defaultUtility': instance.defaultUtility?.toJson(),
+      'defaultAgent': instance.defaultAgent?.toJson(),
+      'defaultSearchKeyId': instance.defaultSearchKeyId,
+      'webFetchMode': instance.webFetchMode,
+      'lastUsedAt': instance.lastUsedAt?.toIso8601String(),
+      'createdAt': instance.createdAt.toIso8601String(),
+      'updatedAt': instance.updatedAt.toIso8601String(),
+    };
+
+_WorkspaceStats _$WorkspaceStatsFromJson(Map<String, dynamic> json) =>
+    _WorkspaceStats(
+      conversations: (json['conversations'] as num?)?.toInt() ?? 0,
+      functions: (json['functions'] as num?)?.toInt() ?? 0,
+      handlers: (json['handlers'] as num?)?.toInt() ?? 0,
+      agents: (json['agents'] as num?)?.toInt() ?? 0,
+      workflows: (json['workflows'] as num?)?.toInt() ?? 0,
+      documents: (json['documents'] as num?)?.toInt() ?? 0,
+      runningFlowruns: (json['runningFlowruns'] as num?)?.toInt() ?? 0,
+      generatingConversations:
+          (json['generatingConversations'] as num?)?.toInt() ?? 0,
+      blobBytes: (json['blobBytes'] as num?)?.toInt() ?? 0,
+    );
+
+Map<String, dynamic> _$WorkspaceStatsToJson(_WorkspaceStats instance) =>
+    <String, dynamic>{
+      'conversations': instance.conversations,
+      'functions': instance.functions,
+      'handlers': instance.handlers,
+      'agents': instance.agents,
+      'workflows': instance.workflows,
+      'documents': instance.documents,
+      'runningFlowruns': instance.runningFlowruns,
+      'generatingConversations': instance.generatingConversations,
+      'blobBytes': instance.blobBytes,
+    };

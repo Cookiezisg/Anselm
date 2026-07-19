@@ -22,6 +22,12 @@ func (f *recordingEmitter) Emit(_ context.Context, eventType string, _ map[strin
 	return nil
 }
 
+// Scheduler notifications (run_failed / approval_pending / attention_changed) are all
+// inbox-worthy (Emit); Broadcast records the same for completeness. 调度器通知皆走 Emit。
+func (f *recordingEmitter) Broadcast(ctx context.Context, eventType string, payload map[string]any) error {
+	return f.Emit(ctx, eventType, payload)
+}
+
 type recordingRecon struct {
 	attn []string // "true:<reason>" / "false:"
 }

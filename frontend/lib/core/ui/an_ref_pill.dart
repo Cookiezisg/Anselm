@@ -1,0 +1,97 @@
+import 'package:flutter/widgets.dart';
+
+import '../design/typography.dart';
+import 'an_chip.dart';
+import 'an_inline_capsule.dart';
+import 'entity_kind_visual.dart';
+import 'icons.dart';
+
+/// The target of a reference tap: the entity [kind] + its [id]. 提及目标:实体 kind + id。
+typedef AnRefTarget = ({String kind, String id});
+
+/// A3 — an entity-mention pill, since WRK-066 批5 a THIN PRESET over the chip family head
+/// ([AnChip], outlined look): its own knowledge is only the kind→glyph resolution
+/// ([AnIcons.entityKindGlyph], the kit's single open source with a visible "?" fallback), the
+/// localized kind word for the a11y label ("{kind}: {name}" — WCAG 1.4.1, kind never by glyph
+/// alone), and the interactivity GATE: a non-empty [id] makes a tappable mention coordinate
+/// (emits {kind,id} via [onTap] for the assembly layer — the primitive never navigates); an
+/// empty/null id is a plain annotation that deliberately swallows [onTap].
+///
+/// [AnRefPill.inline] is the second face: a baseline-hugging capsule for INSIDE running text
+/// (editor mentions, [[id]] pilled prose, CEL refs — A-029/030/042). The block chip (22-high box)
+/// cannot sit in a text line, so the inline face has its own light shell: soft accent fill, tag
+/// radius, the host's text style. Inline is DISPLAY-ONLY chrome — interactivity/IME belongs to the
+/// host (super_editor caret hit-testing breaks on nested gesture targets).
+///
+/// A3——实体提及药丸,批5 起为芯片族当家件(AnChip outlined)的**薄预设**:自有知识仅 kind→字形单源、
+/// a11y 类型词表(「{类型}: {名称}」,类型不靠字形单独)与交互闸门(id 非空=可点坐标,经 onTap 派
+/// {kind,id};空 id=纯标注、故意吞 onTap)。[AnRefPill.inline]=第二张脸:行内贴基线药囊(编辑器提及/
+/// [[id]] 散文/CEL 引用)——22 高块壳进不了文本行,行内脸自持轻壳(accentSoft 底+tag 圆角+宿主字体);
+/// **仅展示**,交互/IME 归宿主(嵌套手势会破 super_editor 光标命中)。
+class AnRefPill extends StatelessWidget {
+  const AnRefPill({required this.kind, required this.label, this.id, this.onTap, super.key})
+      : inline = false,
+        textStyle = null;
+
+  /// The baseline-hugging in-text face. 行内贴基线脸。
+  const AnRefPill.inline({required this.kind, required this.label, this.textStyle, super.key})
+      : inline = true,
+        id = null,
+        onTap = null;
+
+  final String kind;
+  final String label;
+
+  /// Non-empty = a tappable mention coordinate; empty / null = a plain annotation. 非空=可点坐标;空=纯标注。
+  final String? id;
+  final ValueChanged<AnRefTarget>? onTap;
+
+  final bool inline;
+
+  /// Inline face only: the host line's text style (defaults to the reading tier). 行内脸宿主字体。
+  final TextStyle? textStyle;
+
+  // [id] is the sole interactivity gate: a non-empty id makes a tappable coordinate. A null/empty id
+  // intentionally swallows [onTap] (a mention with no resolved target isn't navigable). id 是唯一交互闸门:空 id 故意吞掉 onTap。
+  bool get _interactive => id != null && id!.isNotEmpty && onTap != null;
+
+  // Localized kind word for the a11y prefix ("Agent: deploy-bot") — the ONE source is [entityKindWord]
+  // (core/ui/entity_kind_visual.dart), shared with AnRelationGraph. 类型词(a11y 前缀):单源 entityKindWord。
+  String _kindWord(BuildContext context) => entityKindWord(context, kind);
+
+  @override
+  Widget build(BuildContext context) {
+    if (inline) return _inline(context);
+    final semLabel = '${_kindWord(context)}: $label';
+    if (!_interactive) {
+      // Plain annotation: a single labelled node, not focusable (keyboard passes through) — the
+      // chip head only emits semantics on interactive chips. 纯标注:单节点标签、不可聚焦。
+      return Semantics(
+        label: semLabel,
+        child: ExcludeSemantics(
+          child: AnChip(label, look: AnChipLook.outlined, icon: AnIcons.entityKindGlyph(kind)),
+        ),
+      );
+    }
+    return AnChip(
+      label,
+      look: AnChipLook.outlined,
+      icon: AnIcons.entityKindGlyph(kind),
+      onTap: () => onTap!((kind: kind, id: id!)),
+      semanticLabel: semLabel,
+    );
+  }
+
+  // Rides the ONE inline-capsule shell (kind glyph fed as its icon) — a second in-text shell would
+  // be the disease this family cures. 骑唯一行内壳(kind 字形作 icon)——第二个文内壳=本族要治的病。
+  Widget _inline(BuildContext context) => Semantics(
+        label: '${_kindWord(context)}: $label',
+        child: ExcludeSemantics(
+          child: AnInlineCapsule(
+            label,
+            icon: AnIcons.entityKindGlyph(kind),
+            textStyle: (textStyle ?? AnText.reading),
+          ),
+        ),
+      );
+}

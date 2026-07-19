@@ -18,7 +18,6 @@ import 'frame.dart';
 /// 后端 SSE 线缆格式的增量解析器。逐行喂入,每个完整事件吐一个 [StreamEnvelope]。纯函数
 /// (无 IO),使整套重连状态机可对录制行 fixture 单测——评审标记为承载性的纪律。
 class SseEventParser {
-  String _event = '';
   String? _id;
   final StringBuffer _data = StringBuffer();
   bool _sawData = false;
@@ -56,8 +55,6 @@ class SseEventParser {
       if (value.startsWith(' ')) value = value.substring(1);
     }
     switch (field) {
-      case 'event':
-        _event = value;
       case 'id':
         _id = value;
       case 'data':
@@ -65,7 +62,7 @@ class SseEventParser {
         _data.write(value);
         _sawData = true;
       default:
-        break; // ignore unknown fields (retry, etc.)
+        break; // ignore unused fields — `event:` (always `stream`), `retry:`, unknown 忽略无用字段
     }
     return null;
   }
@@ -90,13 +87,8 @@ class SseEventParser {
   }
 
   void _reset() {
-    _event = '';
     _id = null;
     _data.clear();
     _sawData = false;
   }
-
-  // _event is captured for completeness/diagnostics; all our events are `event: stream`.
-  // ignore: unused_element
-  String get currentEvent => _event;
 }

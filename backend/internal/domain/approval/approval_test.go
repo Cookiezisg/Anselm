@@ -54,6 +54,25 @@ func TestParseTimeout(t *testing.T) {
 	}
 }
 
+// TestDeadlineFrom pins the single timeout-resolution semantic shared by the CheckTimeouts sweep
+// and the inbox wire deadline (工单④): parkedAt + timeout when set; ok=false for "" (never times
+// out) and for unparseable values (mirrors ParseTimeout's err/0 skip).
+func TestDeadlineFrom(t *testing.T) {
+	parked := time.Date(2026, 7, 16, 10, 0, 0, 0, time.UTC)
+
+	if got, ok := (&Version{Timeout: "30d"}).DeadlineFrom(parked); !ok || !got.Equal(parked.Add(30*24*time.Hour)) {
+		t.Errorf("30d: got %v ok=%v", got, ok)
+	}
+	if got, ok := (&Version{Timeout: "2h"}).DeadlineFrom(parked); !ok || !got.Equal(parked.Add(2*time.Hour)) {
+		t.Errorf("2h: got %v ok=%v", got, ok)
+	}
+	for _, timeout := range []string{"", "30x", "abc"} {
+		if _, ok := (&Version{Timeout: timeout}).DeadlineFrom(parked); ok {
+			t.Errorf("Timeout=%q must yield no deadline", timeout)
+		}
+	}
+}
+
 func TestIsValidTimeoutBehavior(t *testing.T) {
 	for _, b := range []string{"reject", "approve", "fail"} {
 		if !IsValidTimeoutBehavior(b) {

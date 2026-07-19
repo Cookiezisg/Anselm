@@ -15,6 +15,7 @@ const VersionCap = 50
 type ListFilter struct {
 	Cursor string
 	Limit  int
+	Search string // case-insensitive substring match on name; empty = no filter / 大小写不敏感 name 子串匹配；空 = 不过滤
 }
 
 // VersionListFilter is a cursor page request for one workflow's versions.

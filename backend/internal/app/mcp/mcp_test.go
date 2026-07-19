@@ -270,6 +270,54 @@ func TestReconnect_RefreshesStatus(t *testing.T) {
 	}
 }
 
+// recNotif records emitted notifications so a test can inspect the payload.
+type recNotif struct{ last map[string]any }
+
+func (r *recNotif) Emit(_ context.Context, _ string, payload map[string]any) error {
+	r.last = payload
+	return nil
+}
+func (r *recNotif) Broadcast(ctx context.Context, t string, p map[string]any) error {
+	return r.Emit(ctx, t, p)
+}
+
+// TestReconnect_NotifiesOutcome — reconnect fires whether the attempt succeeded or failed,
+// so the notification MUST carry the resulting status (else the center can't tell a recovery
+// from a still-broken server). reconnect 成败都发,故通知须带结局 status。
+func TestReconnect_NotifiesOutcome(t *testing.T) {
+	// success case: fresh client connects → status ready in the payload. 成功:status=ready。
+	rn := &recNotif{}
+	svc := svcWith(newFakeRepo(), ctx7Registry(), &fakeClient{tools: []mcpdomain.ToolDef{{Name: "t"}}})
+	svc.SetNotifier(rn)
+	ctx := ctxWS("ws_1")
+	if _, err := svc.InstallFromRegistry(ctx, "io.github.upstash/context7", nil); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if _, err := svc.Reconnect(ctx, "context7"); err != nil {
+		t.Fatalf("reconnect: %v", err)
+	}
+	if rn.last["name"] != "context7" || rn.last["status"] != mcpdomain.StatusReady {
+		t.Fatalf("reconnected payload must carry name + ready status, got %+v", rn.last)
+	}
+
+	// failure case: a client that errors on connect → status failed + lastError surfaced.
+	// 失败:status=failed + lastError 冒出。
+	rn2 := &recNotif{}
+	svc2 := svcWith(newFakeRepo(), ctx7Registry(), &fakeClient{initErr: errors.New("boom")})
+	svc2.SetNotifier(rn2)
+	if _, err := svc2.InstallFromRegistry(ctx, "io.github.upstash/context7", nil); err != nil {
+		// install may surface the connect error; the row still exists — reconnect below is what we test.
+		_ = err
+	}
+	_, _ = svc2.Reconnect(ctx, "context7")
+	if rn2.last["status"] != mcpdomain.StatusFailed {
+		t.Fatalf("failed reconnect must carry status=failed, got %+v", rn2.last)
+	}
+	if _, ok := rn2.last["lastError"]; !ok {
+		t.Errorf("failed reconnect payload should surface lastError, got %+v", rn2.last)
+	}
+}
+
 func TestRemove_StopsAndDeletes(t *testing.T) {
 	svc := svcWith(newFakeRepo(), ctx7Registry(), &fakeClient{})
 	ctx := ctxWS("ws_1")
@@ -326,5 +374,28 @@ func TestInstall_NameConflict(t *testing.T) {
 	_, err := svc.InstallFromRegistry(ctx, "io.github.upstash/context7", nil)
 	if !errors.Is(err, mcpdomain.ErrNameConflict) {
 		t.Fatalf("want ErrNameConflict on re-install, got %v", err)
+	}
+}
+
+// TestPlanFromRegistry: the wire plan mirrors Plan()'s pick without installing anything; envVars is
+// [] never nil; unknown entries error. 计划投影一致且零副作用;envVars 恒 [] 非 nil;未知条目报错。
+func TestPlanFromRegistry(t *testing.T) {
+	repo := newFakeRepo()
+	svc := svcWith(repo, ctx7Registry(), &fakeClient{})
+	plan, err := svc.PlanFromRegistry(ctxWS("ws_1"), "io.github.upstash/context7")
+	if err != nil {
+		t.Fatalf("plan: %v", err)
+	}
+	if plan.Transport != mcpdomain.TransportStdio {
+		t.Errorf("transport = %q, want stdio", plan.Transport)
+	}
+	if plan.EnvVars == nil {
+		t.Error("envVars must be [] not nil")
+	}
+	if n := len(repo.byID); n != 0 {
+		t.Errorf("plan must not install: repo has %d rows", n)
+	}
+	if _, err := svc.PlanFromRegistry(ctxWS("ws_1"), "io.github.nope/none"); err == nil {
+		t.Error("unknown entry must error")
 	}
 }

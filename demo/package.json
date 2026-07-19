@@ -1,0 +1,15 @@
+{
+  "name": "anselm-demo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Anselm demo —— web components 参考设计系统（web 端建设的事实源）。纯 HTML/JS/CSS 无构建；工具脚本（serve/lint/matrix）裸 Node，仅 matrix 全矩阵回归需 playwright（dev-only）。",
+  "type": "module",
+  "scripts": {
+    "serve": "node tools/serve.mjs",
+    "lint": "node tools/lint.mjs",
+    "test": "node tools/matrix.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.0"
+  }
+}

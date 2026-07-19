@@ -31,13 +31,13 @@ audience: [human, ai]
 | **软删** | 有 `deleted` 列且非 `Unscoped` → `Delete` 设 `deleted_at`、查询自动 `deleted_at IS NULL`；否则物理删 | D1；逃生 `Unscoped()` |
 | **时间戳** | `stamp`：`created`（首次/零值）+ `updated`（每次）自动设 | — |
 | **UNIQUE 冲突 → `ErrConflict`** | `writeErr` 翻译 SQLite 约束错 | 业务层不手搓（强化地基，CLAUDE 原则 #8） |
-| **keyset 分页** | `Page(cursor, limit)`：`(keyset, pk)` DESC 元组游标、`limit+1` 探下页；keyset 列默认 `created`、`PageKeyset(col)` 可改（如 conversation 的 `last_message_at`） | N4；`Page` 给**默认** `(created, pk)` DESC 序、**可被先前 `.Order()` 覆盖**（如 conversation 置顶优先）；`PageKeyset` 让游标列与 `.Order()` 排序列对齐 |
+| **keyset 分页** | `Page`（时间键、降序）/ `PageAsc`（字符串键、升序、`COLLATE NOCASE`）/ `PageTimeAsc`（时间键、**升序**——窗口式历史读的向前续翻）三条路径：`(keyset, pk)` 元组游标、`limit+1` 探下页；keyset 列默认 `created`、`PageKeyset(col)` 可改（`Page` 用 `time.Time` 列如 conversation 的 `last_message_at`；`PageAsc` 用字符串列如 `?sort=name` 的 `title`） | N4；两者都给**默认**序、**可被先前 `.Order()` 覆盖**（如 conversation 置顶优先）；`PageKeyset` 让游标列与 `.Order()` 排序列对齐；游标编码 `Cursor`（time）/ `StringCursor`（string），同紧凑线缆形状 `{c,i}` |
 
 ## 4. API 面
 
-- **链式入口**（Repo 简写 / `Query()` 起链）：`Where(raw, args…)` · `WhereEq` · `WhereIn`（空 vals → `1=0` 永假守卫）· `WhereNull` · `WhereNotNull` · `Order` · `Limit` · `Offset` · `Unscoped` · `CrossWorkspace`。
+- **链式入口**（Repo 简写 / `Query()` 起链）：`Where(raw, args…)` · `WhereEq` · `WhereIn`（空 vals → `1=0` 永假守卫）· `WhereNull` · `WhereNotNull` · `WhereLike`（`col LIKE '%term%'` 大小写不敏感子串；转义 `%`/`_` + `ESCAPE '\'` 使用户字面通配符不生效；空/纯空白 term = no-op，故调用方可直接传原始 search 输入）· `Order` · `Limit` · `Offset` · `Unscoped` · `CrossWorkspace`。
 - **终结**：读 `First`(无则 `ErrNotFound`)/`Find`/`Count`/`Exists`/`Pluck`(单列入 `*[]T`)/`Page`；写 `Create`/`Save`(按 pk upsert，保留 created)/`Update`(单列)/`Updates`(多列)/`Delete`；by-pk `Get`/`Delete`。
-- **`DB`**：`Open(pool)` · `Transaction`（**扁平嵌套**——已在 tx 内则复用、无 savepoint，故 store 方法可自由组合）· `Exec`（裸 SQL 写逃生口：DDL / PRAGMA / 一次性维护）· `Query`/`QueryRow`（裸读逃生口：行映射表达不了的 FTS5 虚表 / MATCH 排序 / snippet）· `Close`。
+- **`DB`**：`Open(pool)` · `Transaction`（**扁平嵌套**——已在 tx 内则复用、无 savepoint，故 store 方法可自由组合；**panic 安全**——fn 的任何未提交退出路径经 defer 回滚、panic 照常上抛，Commit 成功后该 defer 是 `sql.ErrTxDone` no-op。没有它，panic 被上层在不可取消 ctx（`reqctx.Detached`）上 recover 后，事务永久占住 `SetMaxOpenConns(1)` 的唯一连接 = 整库砖化，WRK-070 T7；守卫 `tx_test.go` 单连接真库 panic 穿透测）· `Exec`（裸 SQL 写逃生口：DDL / PRAGMA / 一次性维护）· `Query`/`QueryRow`（裸读逃生口：行映射表达不了的 FTS5 虚表 / MATCH 排序 / snippet）· `Close`。
 - **json 列**：`db:"…,json"` 经 `[]byte` 暂存自动 marshal/unmarshal。
 
 ## 5. 关键设计决策 / 边界
@@ -48,6 +48,8 @@ audience: [human, ai]
 - **扁平事务**（无 savepoint）= 组合多个事务型 store 方法安全。
 - **边界（可接受取舍）**：`Where`/`Order`/`Pluck`/`WhereEq` 的列名是**裸字符串**、不对 meta 校验——拼错是运行时错而非编译期。精简换灵活的取舍（要编译期列名安全得上重得多的 API，单用户本地不值）。
 - `Page` 给**默认** `(created, pk)` DESC 序，但**可被先前 `.Order()` 覆盖**（conversation 置顶优先列表 `pinned DESC, last_message_at DESC` 即如此）。游标默认键 `created`；当排序列不是 created 时用 **`PageKeyset(col)`** 把游标列对齐到该列（conversation 用 `last_message_at`），否则游标 WHERE 与 ORDER BY 不一致会跨页漏/重行。前导 `pinned DESC` 分区靠「置顶少、都在首页」成立（单用户）——是这个假设、而非默认序，让置顶优先安全。
+- **`PageAsc`** 是 `Page` 的**字符串键、升序**对应物（`?sort=name` 按 `title` A–Z）：keyset 列按 **`COLLATE NOCASE`** 比较（「A–Z」符合人类直觉、大小写不敏感），pk tiebreaker 升序；游标用 `StringCursor`（`c` 是普通字符串而非 RFC3339 时间）。**`Page` 逐字不动**——纯 additive 的第二条 keyset 路径，每个既有 `(time, DESC)` List 端点零回归（原则 #8：强化地基、别在 store 手搓 title 游标）。调用方 `.Order()` 必须为 `<keyset> COLLATE NOCASE ASC, <pk> ASC`、**覆盖索引也须同 `COLLATE NOCASE`**（如 `idx_conversations_ws_title`），否则跨页漏/重（keyset 不变量，此处对 collation 敏感）。
+- **`PageTimeAsc`** 是 `Page` 的**时间键、升序**镜像（第三条 keyset 路径）：游标元组是下界（`(keyset, pk) > (?, ?)`）、页沿时间向前走——为窗口式历史读而生（messages `?around=` 的新半 / `?dir=newer` 续翻：同一枚支点游标喂 `Page` 得严格更旧、喂 `PageTimeAsc` 得严格更新，支点行不落任何一半）。游标同 `Cursor`（time）；`Page` 逐字不动、纯 additive（原则 #8）。
 
 ## 6. 集成
 

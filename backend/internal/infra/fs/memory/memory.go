@@ -136,6 +136,14 @@ func (s *Store) Save(ctx context.Context, m *memorydomain.Memory) error {
 		_ = os.Remove(tmp)
 		return fmt.Errorf("memoryfs.Save rename: %w", err)
 	}
+	// Stamp UpdatedAt from the just-written file's mtime so the caller's returned struct matches what
+	// a later Get reads back (UpdatedAt IS the file mtime). Without this, Upsert/setPinned returned a
+	// zero-value UpdatedAt (0001-01-01) while GET showed the real time — the same resource, two answers.
+	// 从刚写文件的 mtime 盖 UpdatedAt,使调用方返回的结构与之后 Get 读回一致(UpdatedAt 即文件 mtime)。
+	// 否则 Upsert/setPinned 返回零值 UpdatedAt(0001-01-01)而 GET 显示真时间——同一资源两个答案。
+	if info, err := os.Stat(p); err == nil {
+		m.UpdatedAt = info.ModTime().UTC()
+	}
 	return nil
 }
 
