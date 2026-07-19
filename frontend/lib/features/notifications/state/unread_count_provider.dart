@@ -19,6 +19,14 @@ class UnreadCountNotifier extends AsyncNotifier<int> {
 
   @override
   Future<int> build() async {
+    // KNOWN cold-start noise (0719 记档): this watch is the first build-phase read of the live repo
+    // chain, whose startup-dirtied upstream (workspace→dio) flushes here and synchronously invalidates
+    // an earlier subscriber — Riverpod catches one "setState during build" per launch. Harmless (badge
+    // renders, no state lost); the true fix is flushing the repo chain before the gate swaps the shell
+    // in, a startup-order surgery deliberately not done in a night run. The toast-dispatcher sibling
+    // was moved off the build phase (_SessionServices) — this one must stay: the badge WATCHES.
+    // 已知冷启噪音:本 watch 是 build 期对 live repo 链的首读,启动期被标脏的上游在此 flush 并同步失效
+    // 更早的订阅者——Riverpod 每启动捕获一次,无害;治本=gate 换壳前先 flush repo 链(启动时序手术,记日间项)。
     final repo = ref.watch(notificationRepositoryProvider);
     final debounce = ref.watch(notificationDebounceProvider);
 
