@@ -200,6 +200,7 @@ lib/core/ui/an_menu_surface.dart	converged
 lib/core/ui/an_meter.dart	converged
 lib/core/ui/an_minimap_spine.dart	converged
 lib/core/ui/an_node_gantt.dart	reviewed
+lib/core/ui/an_notice_capsule.dart	converged
 lib/core/ui/an_ocean_header.dart	reviewed
 lib/core/ui/an_ocean_switcher.dart	converged
 lib/core/ui/an_page.dart	converged
@@ -490,6 +491,7 @@ lib/features/notifications/data/notification_repository.dart	converged
 lib/features/notifications/data/notification_signal.dart	converged
 lib/features/notifications/data/os_notifier.dart	reviewed
 lib/features/notifications/state/app_focus_provider.dart	converged
+lib/features/notifications/state/notice_capsule_provider.dart	converged
 lib/features/notifications/state/notification_feed_provider.dart	converged
 lib/features/notifications/state/notification_feed_state.dart	converged
 lib/features/notifications/state/toast_dispatcher.dart	reviewed
