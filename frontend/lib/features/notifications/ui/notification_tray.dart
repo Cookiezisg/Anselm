@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -19,6 +20,15 @@ import 'notification_row.dart';
 /// (the whole ledger). The retired chrome — the "Notifications" title, the divider, the top "Mark all read"
 /// button — is gone; its function moved into the head ⋯ menus.
 ///
+/// **Collapse/expand rides the SAME rail mechanism as [AnSidebarList]** (0719 user follow-up: "the slide
+/// effect was lost"): the feed heads+rows are held in [_flat] locked to a [SliverAnimatedList] (GlobalKey).
+/// A user TOGGLE remove/inserts that bucket's contiguous row range with a [SizeTransition] (`axisAlignment
+/// -1`, top-anchored) over [AnMotion.mid] (reduced → instant) — a real slide, never an instant jump; while
+/// a DATA/filter change (feed refresh / loadMore / mark-read / search / unread-only) re-flattens fresh under
+/// a NEW key with no insert/remove animation (the tween is only for user toggles). The «待你处理» band is a
+/// SEPARATE leading sliver — its own [AnExpandReveal] animates independently and its state survives feed
+/// churn (it is not inside the re-keyed animated list).
+///
 /// The approvals band is injected (not imported) because it belongs to the ENTITIES feature — the app shell
 /// composes it in, keeping features independent. Search filters the FEED content (the band hides while a
 /// query is active — approvals aren't "notification content"). "Unread only" is the ⚙ display toggle.
@@ -27,8 +37,12 @@ import 'notification_row.dart';
 /// approvalsBand 作顶「待你处理」组,下接通知 feed 按今天/昨天/更早分组。每个组头就是 AnRow——与 chat rail 的
 /// 置顶/最近头一模一样(常驻箭头 lead + 数字 meta↔hover ⋯ 批量菜单 + 圆角 hover 块 + 整行折叠),经外 +s4 抬到
 /// 托盘 12 左缘单源。组头 ⋯ 带全部已读/全部未读(整本账)。退役 chrome(「通知」标题 / 分割线 / 顶「全部已读」钮)
-/// 全去,功能并入组头 ⋯。approvalsBand 注入(非 import)——它属 entities feature,app 壳组合,features 保持独立。
-/// 搜索过滤 feed 内容(有 query 时藏 band);⚙ = 仅显示未读。
+/// 全去,功能并入组头 ⋯。**折叠/展开与 AnSidebarList 同一套 rail 机制**(0719 用户复验「展开收起的效果丢了」):
+/// feed 头+行持在 `_flat`、与 `SliverAnimatedList`(GlobalKey)锁步;**用户 toggle** 按同配方对该组连续行区间
+/// remove/insert(SizeTransition 顶锚,AnMotion.mid,reduced 即时)——真滑动、非瞬跳;**数据/过滤变**(刷新/loadMore/
+/// 已读/搜索/仅未读)换新 key 整重建、不插删动画。「待你处理」band 是独立首 sliver——自带 AnExpandReveal 动画、
+/// 状态不随 feed churn 重置(不在被换 key 的动画列表里)。approvalsBand 注入(非 import)——它属 entities feature,
+/// app 壳组合,features 保持独立。搜索过滤 feed 内容(有 query 时藏 band);⚙ = 仅显示未读。
 class NotificationTray extends ConsumerStatefulWidget {
   const NotificationTray({this.approvalsBand, super.key});
 
@@ -47,9 +61,16 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
   bool _unreadOnly = false;
   final Set<int> _collapsed = {}; // collapsed time buckets (0 today / 1 yesterday / 2 earlier) 折叠时段
 
+  // The FEED flat (heads + rows, band excluded — the band is its own leading sliver) held in lock-step with
+  // the SliverAnimatedList: a user toggle animates a precise sub-range; a data/filter change rebuilds it
+  // fresh under a new key. 展平 feed(头+行,不含 band)与 AnimatedList 锁步:toggle 动画精确子区间、数据变换 key 整重建。
+  late List<_TrayEntry> _flat;
+  GlobalKey<SliverAnimatedListState> _listKey = GlobalKey();
+
   @override
   void initState() {
     super.initState();
+    _flat = <_TrayEntry>[];
     _scroll.addListener(_maybeLoadMore);
   }
 
@@ -76,9 +97,31 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
     if (loc != null && context.mounted) context.go(loc);
   }
 
+  List<NotificationItem> _rowsFromProvider() =>
+      ref.read(notificationFeedProvider).value?.rows ?? const <NotificationItem>[];
+
+  // Re-flatten the FEED every build (a bounded feed — cheap, same as the pre-animation tray) and compare
+  // STRUCTURALLY to the held _flat. A real content change (a new/removed row, a mark-read flipping isUnread,
+  // search / unread-only) re-keys the SliverAnimatedList fresh → an instant rebuild, NO insert/remove tween
+  // (the tween is only for user toggles). An equal re-flatten leaves the animated list + its key untouched so
+  // a toggle's slide plays to completion. The compare is STRUCTURAL (not list-identity) on purpose: the feed
+  // provider hands new-but-equal `rows` lists (a post-settle emission), and an identity check false-re-keys
+  // mid-slide → the collapse would snap instead of sliding.
+  // 每 build 重展平(有界 feed、廉价,同动画前的托盘)并与 _flat **结构比对**:真内容变(增删行 / mark-read 翻 isUnread /
+  // 搜索 / 仅未读)换 key 整重建(即时、无插删动画,补间只给 toggle);等价重展平不动 key、让 toggle 滑动播完。用**结构比对**
+  // (非身份):feed provider 递「新身份、等价内容」的 rows,身份比对会误换 key 打断滑动→折叠变瞬跳。
+  void _syncFlat(List<NotificationItem> rows) {
+    final next = _feedEntries(rows, context.t);
+    if (listEquals(next, _flat)) return;
+    _flat = next;
+    _listKey = GlobalKey();
+  }
+
   @override
   Widget build(BuildContext context) {
     final t = context.t.notifications;
+    final async = ref.watch(notificationFeedProvider);
+    _syncFlat(async.value?.rows ?? const <NotificationItem>[]);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -97,15 +140,13 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
             ),
           ],
         ),
-        Expanded(child: _body(context)),
+        Expanded(child: _body(context, async)),
       ],
     );
   }
 
-  Widget _body(BuildContext context) {
+  Widget _body(BuildContext context, AsyncValue<dynamic> async) {
     final t = context.t.notifications;
-    final async = ref.watch(notificationFeedProvider);
-    final rows = async.value?.rows ?? const <NotificationItem>[];
     // First-screen outcomes ride the ONE rail resolver (same face as the conversation / entity rails); an
     // empty feed is not a state — it resolves to the (empty) list, no tombstone. 首屏态走唯一 rail 件,空 feed 直落空列表。
     return AnRailStates(
@@ -113,64 +154,111 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
       error: async.hasError && !async.hasValue,
       strings: AnRailStrings(errorTitle: t.errorTitle, errorHint: t.errorHint, retry: t.retry),
       onRetry: () => ref.invalidate(notificationFeedProvider),
-      builder: () => _list(context, rows),
+      builder: () => _list(context),
     );
   }
 
-  Widget _list(BuildContext context, List<NotificationItem> rows) {
-    final tr = context.t;
-    final hasMore = ref.watch(notificationFeedProvider.select((a) => a.value?.hasMore ?? false));
-    final loadingMore = ref.watch(notificationFeedProvider.select((a) => a.value?.loadingMore ?? false));
-    final items = _entries(rows, tr);
+  Widget _list(BuildContext context) {
+    // The band shows only when NOT searching (approvals aren't notification content); it is a SEPARATE
+    // leading sliver so its own AnExpandReveal + state survive the feed's re-key rebuilds. 搜索时藏 band;band 独立首 sliver。
+    final showBand = widget.approvalsBand != null && _query.trim().isEmpty;
     return ScrollConfiguration(
       behavior: const AnScrollBehavior(),
-      child: ListView.builder(
+      child: CustomScrollView(
         controller: _scroll,
-        // Keep the bottom breathing room off the last card / row. 底部留白。
-        padding: const EdgeInsets.only(bottom: AnSpace.s8),
-        itemCount: items.length + (hasMore ? 1 : 0),
-        itemBuilder: (context, i) {
-          if (i >= items.length) {
-            // loadMore tail (fires via the scroll listener); a dim spinner while a page lands. 分页尾。
-            return SizedBox(
-              height: AnSize.row,
-              child: loadingMore
-                  ? Center(child: AnSpinner(size: AnSize.iconSm, semanticLabel: context.t.a11y.loading))
-                  : const SizedBox.shrink(),
-            );
-          }
-          return switch (items[i]) {
-            _BandEntry() => widget.approvalsBand ?? const SizedBox.shrink(),
-            // The time-bucket head is the SAME primitive as the chat rail's Pinned/Recents head: an AnRow with
-            // a permanent lead chevron, count ↔ hover ⋯ in the trail, a rounded hover block, whole-row toggle.
-            // AnRow carries the rail's s8 imaginary-box inset; a +s4 outer padding lifts the content to the
-            // tray's 12-left single source so the chevron/count align with the notification rows / cards / band.
-            // 时段头=chat rail 置顶/最近头同款 AnRow;+s4 外距抬到托盘 12 左缘单源,与行/卡/带对齐。
-            _HeadEntry(:final bucket, :final label, :final count) => Padding(
-                padding: const EdgeInsetsDirectional.only(start: AnSpace.s4, end: AnSpace.s4),
-                child: AnRow(
-                  collapsible: true,
-                  open: _bucketOpen(bucket),
-                  label: label,
-                  meta: '$count',
-                  onSelect: () => _toggleBucket(bucket),
-                  onToggle: () => _toggleBucket(bucket),
-                  actions: _markAllActions(context),
-                ),
-              ),
-            _RowEntry(:final item) => NotificationRow(
-                item: item,
-                onTap: () => _open(item),
-                onMarkRead: () => ref.read(notificationFeedProvider.notifier).markRead(item.id),
-              ),
-          };
-        },
+        slivers: [
+          if (showBand) SliverToBoxAdapter(child: widget.approvalsBand!),
+          SliverAnimatedList(
+            key: _listKey,
+            initialItemCount: _flat.length,
+            itemBuilder: (context, index, animation) => _animatedEntry(context, _flat[index], animation),
+          ),
+          SliverToBoxAdapter(child: _tail(context)),
+        ],
       ),
     );
   }
 
-  void _toggleBucket(int bucket) => setState(
-      () => _collapsed.contains(bucket) ? _collapsed.remove(bucket) : _collapsed.add(bucket));
+  // Wraps an entry in the SliverAnimatedList's size tween so a collapse/expand slides its height (the rows
+  // slide up under their head; axisAlignment -1 anchors to the top — the rail slide). 折叠补间:行高滑动(-1 顶锚)。
+  Widget _animatedEntry(BuildContext context, _TrayEntry entry, Animation<double> animation) =>
+      SizeTransition(sizeFactor: animation, axisAlignment: -1, child: _entryWidget(context, entry));
+
+  Widget _entryWidget(BuildContext context, _TrayEntry entry) => switch (entry) {
+        // The time-bucket head is the SAME primitive as the chat rail's Pinned/Recents head: an AnRow with a
+        // permanent lead chevron, count ↔ hover ⋯ in the trail, a rounded hover block, whole-row toggle. AnRow
+        // carries the rail's s8 imaginary-box inset; a +s4 outer padding lifts the content to the tray's
+        // 12-left single source so the chevron/count align with the notification rows / cards / band.
+        // 时段头=chat rail 置顶/最近头同款 AnRow;+s4 外距抬到托盘 12 左缘单源,与行/卡/带对齐。
+        _HeadEntry(:final bucket, :final label, :final count) => Padding(
+            padding: const EdgeInsetsDirectional.only(start: AnSpace.s4, end: AnSpace.s4),
+            child: AnRow(
+              collapsible: true,
+              open: _bucketOpen(bucket),
+              label: label,
+              meta: '$count',
+              onSelect: () => _toggleBucket(bucket),
+              onToggle: () => _toggleBucket(bucket),
+              actions: _markAllActions(context),
+            ),
+          ),
+        _RowEntry(:final item) => NotificationRow(
+            item: item,
+            onTap: () => _open(item),
+            onMarkRead: () => ref.read(notificationFeedProvider.notifier).markRead(item.id),
+          ),
+      };
+
+  // The pagination tail (below the animated list): a dim spinner while a page lands (the loadMore itself is
+  // driven by the scroll listener) + the bottom breathing room off the last row. 分页尾 + 底部留白。
+  Widget _tail(BuildContext context) {
+    final loadingMore = ref.watch(notificationFeedProvider.select((a) => a.value?.loadingMore ?? false));
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (loadingMore)
+          SizedBox(
+            height: AnSize.row,
+            child: Center(child: AnSpinner(size: AnSize.iconSm, semanticLabel: context.t.a11y.loading)),
+          ),
+        const SizedBox(height: AnSpace.s8),
+      ],
+    );
+  }
+
+  // Fold/unfold a time bucket — the SAME recipe as AnSidebarList._toggle: the head + its rows are a
+  // contiguous range in _flat; a collapse remove-animates that range (reverse order so indices stay valid),
+  // an expand re-flattens + insert-animates the new rows — keeping _flat and the SliverAnimatedList in
+  // lock-step. Duration is reduced-gated. 折叠/展开时段=AnSidebarList._toggle 同配方;时长 reduced 门控。
+  void _toggleBucket(int bucket) {
+    final headIdx = _flat.indexWhere((e) => e is _HeadEntry && e.bucket == bucket);
+    if (headIdx < 0) return;
+    final state = _listKey.currentState;
+    final dur = AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid;
+    final collapsing = !_collapsed.contains(bucket);
+    if (collapsing) {
+      _collapsed.add(bucket);
+    } else {
+      _collapsed.remove(bucket);
+    }
+    final newFlat = _feedEntries(_rowsFromProvider(), context.t);
+    if (collapsing) {
+      final removedCount = _flat.length - newFlat.length;
+      final removed = _flat.sublist(headIdx + 1, headIdx + 1 + removedCount);
+      _flat = newFlat;
+      for (var i = headIdx + removedCount; i > headIdx; i--) {
+        final entry = removed[i - headIdx - 1];
+        state?.removeItem(i, (context, animation) => _animatedEntry(context, entry, animation), duration: dur);
+      }
+    } else {
+      final insertCount = newFlat.length - _flat.length;
+      _flat = newFlat;
+      for (var i = headIdx + 1; i <= headIdx + insertCount; i++) {
+        state?.insertItem(i, duration: dur);
+      }
+    }
+    setState(() {}); // refresh the toggled head's chevron (rotates over AnMotion.mid alongside the slide) 头箭头旋转
+  }
 
   /// The head's hover-revealed bulk menu (rides AnRow's meta↔actions swap — count at rest, ⋯ on hover):
   /// mark ALL read / ALL unread. Both act on the WHOLE ledger (not the bucket — one account; per-bucket
@@ -200,15 +288,11 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
     ];
   }
 
-  /// Flatten the feed into (band?) + collapsible time-bucket groups, honoring the search query + the
-  /// "unread only" filter. A collapsed bucket contributes only its head (its rows are omitted — instant
-  /// collapse, virtualization preserved). 展平成 (band?) + 可折叠时段组,尊重搜索 + 仅未读;折叠组只留头。
-  List<_TrayEntry> _entries(List<NotificationItem> rows, Translations tr) {
+  /// Flatten the FEED (band excluded) into collapsible time-bucket groups, honoring the search query + the
+  /// "unread only" filter. A collapsed bucket contributes only its head (its rows are omitted). 展平 feed 时段组。
+  List<_TrayEntry> _feedEntries(List<NotificationItem> rows, Translations tr) {
     final t = tr.notifications;
     final out = <_TrayEntry>[];
-    // The band shows only when NOT searching (approvals aren't notification content). 搜索时藏 band。
-    if (widget.approvalsBand != null && _query.trim().isEmpty) out.add(const _BandEntry());
-
     final q = _query.trim().toLowerCase();
     Iterable<NotificationItem> visible = rows;
     if (_unreadOnly) visible = visible.where((r) => r.isUnread);
@@ -254,18 +338,31 @@ sealed class _TrayEntry {
   const _TrayEntry();
 }
 
-class _BandEntry extends _TrayEntry {
-  const _BandEntry();
-}
-
 class _HeadEntry extends _TrayEntry {
   const _HeadEntry(this.bucket, this.label, this.count);
   final int bucket;
   final String label;
   final int count;
+
+  // Value equality so _syncFlat's structural listEquals detects a real count/label change (re-key) vs an
+  // equal re-flatten (keep the animated list). 值相等,让 listEquals 区分真变化与等价重展平。
+  @override
+  bool operator ==(Object other) =>
+      other is _HeadEntry && other.bucket == bucket && other.label == label && other.count == count;
+
+  @override
+  int get hashCode => Object.hash(bucket, label, count);
 }
 
 class _RowEntry extends _TrayEntry {
   const _RowEntry(this.item);
   final NotificationItem item;
+
+  // Value equality on the (freezed) item — a mark-read flips readAt → not equal → a re-key refreshes the row.
+  // 值相等(freezed item):mark-read 翻 readAt→不等→换 key 刷新该行。
+  @override
+  bool operator ==(Object other) => other is _RowEntry && other.item == item;
+
+  @override
+  int get hashCode => item.hashCode;
 }

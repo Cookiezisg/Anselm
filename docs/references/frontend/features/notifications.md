@@ -27,7 +27,8 @@ audience: [human, ai]
 
 - **搜索**过滤 feed 内容（匹配渲染后的行文本 lead+name+trail+detail）；**⚙ 显示菜单** = 「仅显示未读」toggle（`keepOpen`）。
 - **组头 = `AnRow`（1:1 chat rail 的 Pinned/Recents 头，0719 重造）**：每个组头就是**核心行原语** `AnRow`——**最左箭头常驻**（无图标 collapsible → 披露 chevron 是永久 lead、`open` 旋 90°、无 hover 互换）、**最右数字**（`meta`=计数）**hover 换 ⋯**（`AnRow` 的 meta↔actions 同锚互换白给）、**圆角 hover 块**（非直角）、**整行点击折叠**（`onSelect`+`onToggle` 双绑）。`AnRow` 自带 rail 的 s8 假想框内距；托盘的 **12 左缘单源**经 `+s4` 外层 padding 抬齐（组头 chevron/数字与通知行/审批卡/band 逐像素对齐）。**收起态无残留灰**：`AnRow` 底色 = `surfaceHover.whenActive(active)`（active=hover/press/focus），静息/收起（鼠标不悬停）态透明——修「收起后还是灰色」bug（旧 `AnGroupHead` 的病）。
-- **组结构**：`待你处理`（注入的审批带）→ `今天`/`昨天`/`更早`（feed 时段桶，每组只在有行时出现）。每组可折叠（整头 toggle）；有 query 时强制全展开。
+- **折叠/展开 = 左岛 rail 同一套滑动**（0719 用户复验「展开收起的效果丢了」补）：feed 头+行持在 `_flat`、与 `SliverAnimatedList`（GlobalKey）锁步——**用户 toggle** 按 `AnSidebarList._toggle` 同配方对该桶连续行区间 `removeItem`/`insertItem`（行包 `SizeTransition(sizeFactor, axisAlignment -1)` 顶锚 + 时长 `AnMotion.mid`、reduced→`Duration.zero`），真滑动、非瞬跳；chevron 的旋转与滑动同步。**数据/过滤变**（feed 刷新/loadMore/mark-read/搜索/仅未读）→ 换新 `GlobalKey` 整重建、不插删动画（补间只给 toggle）。判据用 **`listEquals` 结构比对**（非 rows 身份）——feed provider 会递「新身份、等价内容」的 list，身份比对会误换 key 打断滑动。「待你处理」band 是**独立首 sliver**（不在被换 key 的动画列表里），其 `AnExpandReveal` 动画与状态不随 feed churn 重置。
+- **组结构**：`待你处理`（注入的审批带，独立首 sliver）→ `今天`/`昨天`/`更早`（feed 时段桶，每组只在有行时出现）。每组可折叠（整头 toggle）；有 query 时强制全展开。
 - **跨 feature 组合**：`app_shell._NotificationsTray` = `NotificationTray(approvalsBand: FlowrunInbox(sectioned: true))`——托盘持 rail chrome，app 壳**注入**「待你处理」带（entities feature 件，非 import），features 保持独立。搜索激活时藏 band（审批非「通知内容」）。
 
 ## 四个面

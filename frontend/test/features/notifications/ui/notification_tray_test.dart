@@ -25,7 +25,7 @@ NotificationItem _n(String id, {bool read = false, String name = 'fetch'}) => No
       readAt: read ? DateTime.now() : null,
     );
 
-Widget _host(FixtureNotificationRepository repo, {Widget? band}) => ProviderScope(
+Widget _host(FixtureNotificationRepository repo, {Widget? band, bool reduced = false}) => ProviderScope(
       overrides: [
         notificationRepositoryProvider.overrideWithValue(repo),
         notificationDebounceProvider.overrideWithValue(Duration.zero),
@@ -33,7 +33,17 @@ Widget _host(FixtureNotificationRepository repo, {Widget? band}) => ProviderScop
       child: TranslationProvider(
         child: MaterialApp(
           theme: AnTheme.light(),
-          home: Scaffold(body: SizedBox(width: 320, height: 600, child: NotificationTray(approvalsBand: band))),
+          home: Scaffold(
+            body: Builder(builder: (context) {
+              Widget body = SizedBox(width: 320, height: 600, child: NotificationTray(approvalsBand: band));
+              // Reduced-motion host: AnMotionPref.reduced reads MediaQuery.disableAnimationsOf — the tray's
+              // collapse tween then resolves to Duration.zero (instant). reduced 宿主:折叠补间变即时。
+              if (reduced) {
+                body = MediaQuery(data: MediaQuery.of(context).copyWith(disableAnimations: true), child: body);
+              }
+              return body;
+            }),
+          ),
         ),
       ),
     );
@@ -111,6 +121,47 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(NotificationRow), findsNothing); // collapsed
     expect(find.text(t.notifications.today), findsOneWidget); // head persists
+  });
+
+  // Collapse/expand rides the SAME rail slide as AnSidebarList (a SliverAnimatedList SizeTransition), never
+  // an instant jump. 折叠/展开与左岛 rail 同一套滑动(SliverAnimatedList SizeTransition),非瞬跳。
+  testWidgets('collapsing a bucket SLIDES its rows out (SizeTransition mid-frame), not an instant jump', (tester) async {
+    await tester.pumpWidget(_host(FixtureNotificationRepository(seed: [_n('a'), _n('b')])));
+    await tester.pumpAndSettle();
+    expect(find.byType(NotificationRow), findsNWidgets(2));
+    await tester.tap(find.text(t.notifications.today)); // collapse
+    await tester.pump(); // kick off the removal tween
+    await tester.pump(const Duration(milliseconds: 60)); // mid-flight
+    final sliding = tester
+        .widgetList<SizeTransition>(find.byType(SizeTransition))
+        .where((s) => s.sizeFactor.value > 0.0 && s.sizeFactor.value < 1.0);
+    expect(sliding, isNotEmpty, reason: 'the rows must slide out under a SizeTransition — a unified rail slide, not a jump');
+    await tester.pumpAndSettle();
+    expect(find.byType(NotificationRow), findsNothing); // settles collapsed
+  });
+
+  testWidgets('reduced motion collapses instantly (no mid-flight slide)', (tester) async {
+    await tester.pumpWidget(_host(FixtureNotificationRepository(seed: [_n('a'), _n('b')]), reduced: true));
+    await tester.pumpAndSettle();
+    expect(find.byType(NotificationRow), findsNWidgets(2));
+    await tester.tap(find.text(t.notifications.today)); // collapse
+    await tester.pump(); // a single frame — reduced → Duration.zero → immediate
+    expect(find.byType(NotificationRow), findsNothing); // instant, no tween
+  });
+
+  testWidgets('a filter change re-keys instantly — filtered-out rows vanish with NO removal tween', (tester) async {
+    // A DATA/filter change re-flattens fresh under a new key (no insert/remove animation — the tween is only
+    // for user toggles). 数据/过滤变=换 key 整重建、不走插删动画(补间只给用户 toggle)。
+    await tester.pumpWidget(_host(FixtureNotificationRepository(seed: [_n('a', name: 'alpha'), _n('b', name: 'beta')])));
+    await tester.pumpAndSettle();
+    expect(find.byType(NotificationRow), findsNWidgets(2));
+    await tester.enterText(find.byType(EditableText), 'alpha'); // filter → re-key rebuild
+    await tester.pump(); // a single frame
+    expect(find.byType(NotificationRow), findsOneWidget); // gone in ONE frame (not shrinking under a tween)
+    final sliding = tester
+        .widgetList<SizeTransition>(find.byType(SizeTransition))
+        .where((s) => s.sizeFactor.value > 0.0 && s.sizeFactor.value < 1.0);
+    expect(sliding, isEmpty, reason: 'a filter change must re-key (instant), never run a removal tween');
   });
 
   testWidgets('search filters the feed by rendered content', (tester) async {
