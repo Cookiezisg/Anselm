@@ -27,12 +27,14 @@ audience: [human, ai]
 
 | 段 | 物 |
 |---|---|
-| 头带 | `AnInspectorHead` + **跟随三档菜单**(`_FollowMenu`:每次/每会话首次/从不,持久化 `fy.stage.follow`,settings 模块读同一 `followModeProvider`)+ 舞台开着时 ✕ 收场 |
+| 头带（§1 身份头 + §2 速览带,三段式文法 · 0719） | **`AnPanelHead`**(core/ui 原语):脉冲/活动 icon + 「活动」标题 + **单个 ⋯ 溢出菜单收编一切面板动作**(跟随三档[每次/每会话首次/从不,持久化 `fy.stage.follow`,settings 模块读同一 `followModeProvider`]· 展开全部 · 收起全部;退役旧「四小钮」) + ✕ 收岛。头下一行 **§2 速览带**:一行安静 `AnText.meta`「N 触点 · M 执行 · K 待你处理」——N=触点台账实体数、M=执行过的实体数、K=`pendingInteractionsProvider` 待决数;**零人话律=有真信号才在**(每段 `>0` 才现、全零整行不渲) |
 | 频道条 | `AnChannelStrip`(≥2 并发活动时,cap 4 + 溢出;点 tab=pin 换台;failed 挤台成红点 tab) |
 | 舞台 | `AnExpandReveal` 揭示 `_GenericStage`(眉+诚实丝带+kind 量身体);poll 型主体带**活运行卷**(`_RunProgressSection`:flowrun 节点 tick 逐行静落,AnLedgerRow 行+语义状态点(WRK-066 批6,字形三态退役)+选中 `port` accent 徽,≤12 行,durable 终态一行收卷);**exhibit 置位时让位 `ExhibitStage`**;舞台内滚动=pinned(阅读即持镜,只认用户手势) |
 | 药丸行 | `AnFollowPill`(gate 琥珀「AI 在等你决定」压一切 / live「AI 正在编辑 X」点回跟随) |
 | Rundown | `_RundownSection`(`AnTaskRing` 补弧 + `AnRundownList` 三态行,todo 整表帧,按 subagentId 分板) |
 | 演员表 | `_CastList`(触点台账 R-2 实体聚合行:`AnCastRow` 新鲜度晕+动词微词+×count;**hover 尾位换双微动作**「跳到发生处」(''=藏)/「去实体页」(无面板即藏);**点行=exhibit 登台**;主角行 R-6 静态脉点;**谢幕落账洗亮** ~1.8s 衰减) |
+
+> **§3 分组内容（三段式文法 · 0719）**：侧幕**落定 Cast**（触点台账实体行）按**时间三档**折叠（照通知托盘的精神、用对话的刻度）——**刚刚**（本回合）/ **早些时候**（今天更早）/ **更早**（跨天），键 = 行的最后触碰时间 `lastAt`（纯分类器 `sidestageTierKey`，`stage_group_collapse.dart`）；档序**刚刚→早些时候→更早**，档内**最新先**（复用台账 freshest-first 排序）。组头 = **AnRow 组头文法**（常驻箭头 lead + 计数 meta、**无 ⋯**，与左岛 Pinned/Recents 头、通知托盘时段组头**同一语言**）。**两条防碎律**：①空档不渲组头 ②**只剩一档时连组头都不渲**——整列裸行（全「刚刚」时分组即噪音，零人话律；短对话干净一列、长对话自动分层）。**todo 行 + 活/委派层（合成 live 行、落定 subagent）恒不分组置顶**（活层不与档折叠打架，保「live 骑顶」不变式）。档折叠态 `stageGroupCollapseProvider`（**与行级 `stageExpansionProvider` 正交**——档折叠=新顶层态、粘性手风琴管行内展开，两层互不干扰）；**含 live / 被自动展开（导演器/深跳）行的档强制展开**，绝不藏活（`test/features/chat/ui/stage_grouping_test.dart` 测锁）。**「刚刚」取径**：R-14 回合锚需 transcript 节点时间戳，但 `hydrateTurn` 丢弃 `createdAt`、`BlockNode` 无时间戳 → 回合锚在 accordion 数据上取不到 → 用**固定 10-min 窗**代「本回合」（用户 0719 授权的退化取径）。日界（早些时候 vs 更早）= 本地日历天。
 
 ## 2. 引擎与状态
 
@@ -55,7 +57,7 @@ fn(地层→OpTicker→活代码窗→落定真 diff 徽)/document(书脊+前缀
 
 ## 4.5 可发现性
 
-图标控件(目录钮/跟随三档/Cast 双微动作/exhibit 头动作/R-14 眉锚)全带 **`AnTooltip`**(kit 新原语:Flutter Tooltip 机制穿设计系统皮——岛面+发丝边+meta 档,500ms 才现,无箭头无富体;gallery 有 specimen)+ semanticLabel。
+图标控件(目录钮/头 ⋯ 溢出[跟随三档·展开/收起全部并入此]/Cast 双微动作/exhibit 头动作/R-14 眉锚)全带 **`AnTooltip`** 或 semanticLabel(kit 新原语:Flutter Tooltip 机制穿设计系统皮——岛面+发丝边+meta 档,500ms 才现,无箭头无富体;gallery 有 specimen)+ semanticLabel。
 
 ## 5. a11y 章
 

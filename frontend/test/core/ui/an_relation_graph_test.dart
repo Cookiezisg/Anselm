@@ -1,7 +1,9 @@
 import 'package:anselm/core/contract/entities/relation.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/graph/relation_graph_config.dart';
 import 'package:anselm/core/ui/an_relation_graph.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -36,6 +38,18 @@ Widget _host(Widget child, {Size size = const Size(700, 460)}) => TranslationPro
     );
 
 Finder _nodeFinder(String id) => find.byKey(ValueKey('relNode_$id'));
+
+// The ripple applies opacity via the node's root [Opacity] — read it to assert the decay tiers. 读节点根
+// Opacity 断言涟漪档。
+double _nodeOpacity(WidgetTester tester, String id) => tester
+    .widget<Opacity>(find.descendant(of: _nodeFinder(id), matching: find.byType(Opacity)).first)
+    .opacity;
+
+// The dot is the top-center hit target of the fixed slot (the label below is IgnorePointer). 点=槽顶部居中命中目标。
+Offset _dotOf(WidgetTester tester, String id) {
+  final r = tester.getRect(_nodeFinder(id));
+  return Offset(r.center.dx, r.top + 4);
+}
 
 void main() {
   tearDown(() {
@@ -140,5 +154,81 @@ void main() {
     await tester.pump();
     final box = tester.getSize(find.byType(AnRelationGraph));
     expect(box.height, 320);
+  });
+
+  group('ripple focus (v2 涟漪焦点星图)', () {
+    // fn_hub adjacency: wf_a, ag_a (hop 1); sk_a via ag_a (hop 2). fn_hub 邻接:wf_a/ag_a 一跳、sk_a 二跳。
+    testWidgets('opacity decays by graph distance from the focus', (tester) async {
+      await tester.pumpWidget(_host(AnRelationGraph(nodes: _nodes, edges: _edges, focusId: 'fn_hub')));
+      await tester.pump();
+      expect(_nodeOpacity(tester, 'fn_hub'), RelationGraphConfig.nodeOpacity(0), reason: 'focus = full');
+      expect(_nodeOpacity(tester, 'wf_a'), RelationGraphConfig.nodeOpacity(1), reason: 'one-hop');
+      expect(_nodeOpacity(tester, 'ag_a'), RelationGraphConfig.nodeOpacity(1), reason: 'one-hop');
+      expect(_nodeOpacity(tester, 'sk_a'), RelationGraphConfig.nodeOpacity(2), reason: 'two-hop');
+    });
+
+    testWidgets('no focusId → the ripple falls back to the highest-degree node', (tester) async {
+      await tester.pumpWidget(_host(AnRelationGraph(nodes: _nodes, edges: _edges)));
+      await tester.pump();
+      // fn_hub has the highest in-degree (equipped by wf_a + ag_a) → it is the default focus. fn_hub 入度最高=默认焦点。
+      expect(_nodeOpacity(tester, 'fn_hub'), RelationGraphConfig.nodeOpacity(0));
+    });
+
+    testWidgets('hover moves the ripple to the hovered node, leaving returns to the definitive focus',
+        (tester) async {
+      // FocusableActionDetector.onShowHoverHighlight only fires under the traditional (mouse) highlight
+      // strategy; the test binding defaults to touch. 强制鼠标高亮策略,否则 hover 回调不触发(测试默认 touch)。
+      final prevStrategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(() => FocusManager.instance.highlightStrategy = prevStrategy);
+
+      await tester.pumpWidget(_host(AnRelationGraph(nodes: _nodes, edges: _edges, focusId: 'fn_hub')));
+      await tester.pump();
+      expect(_nodeOpacity(tester, 'sk_a'), RelationGraphConfig.nodeOpacity(2), reason: 'far before hover');
+
+      final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      addTearDown(() => g.removePointer());
+      await g.addPointer(location: _dotOf(tester, 'sk_a')); // enter the dot
+      await tester.pumpAndSettle();
+      expect(_nodeOpacity(tester, 'sk_a'), RelationGraphConfig.nodeOpacity(0),
+          reason: 'hover = a temporary focus preview → the hovered node goes vivid');
+
+      await g.moveTo(const Offset(-800, -800)); // off every node
+      await tester.pumpAndSettle();
+      expect(_nodeOpacity(tester, 'sk_a'), RelationGraphConfig.nodeOpacity(2),
+          reason: 'moving off returns the ripple to the definitive focus');
+    });
+  });
+
+  group('interactions', () {
+    testWidgets('a background tap reports null (deselect / return to default focus)', (tester) async {
+      String? tapped = 'unset';
+      await tester.pumpWidget(_host(
+        AnRelationGraph(nodes: _nodes, edges: _edges, onNodeTap: (id) => tapped = id),
+      ));
+      await tester.pump();
+      // A tap on empty canvas inside the graph box (a corner clear of the fit-centered cloud). 图内空角一点。
+      final box = tester.getRect(find.byType(AnRelationGraph));
+      await tester.tapAt(box.topLeft + const Offset(6, 6));
+      await tester.pump();
+      expect(tapped, isNull);
+    });
+
+    testWidgets('a double tap fires the navigation intent', (tester) async {
+      String? navigated;
+      await tester.pumpWidget(_host(AnRelationGraph(
+        nodes: _nodes,
+        edges: _edges,
+        onNodeTap: (_) {},
+        onNodeDoubleTap: (id) => navigated = id,
+      )));
+      await tester.pump();
+      final dot = _dotOf(tester, 'fn_hub');
+      await tester.tapAt(dot);
+      await tester.pump(const Duration(milliseconds: 40));
+      await tester.tapAt(dot);
+      await tester.pump();
+      expect(navigated, 'fn_hub', reason: 'the second tap within the window fires the double-tap intent');
+    });
   });
 }

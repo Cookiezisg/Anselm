@@ -84,4 +84,16 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('HOME'), findsOneWidget);
   });
+
+  testWidgets('double-tapping a rail-kind node opens its detail page', (tester) async {
+    await tester.pumpWidget(_host());
+    await _settle(tester);
+    final r = tester.getRect(_node('fn_normalize'));
+    final dot = Offset(r.center.dx, r.top + 4);
+    await tester.tapAt(dot);
+    await tester.pump(const Duration(milliseconds: 40));
+    await tester.tapAt(dot); // second tap within the window → double-tap navigation
+    await tester.pumpAndSettle();
+    expect(find.text('DETAIL'), findsOneWidget, reason: 'double-tap → /entities/function/fn_normalize');
+  });
 }

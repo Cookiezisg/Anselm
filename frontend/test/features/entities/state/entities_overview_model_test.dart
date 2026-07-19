@@ -89,6 +89,37 @@ void main() {
     });
   });
 
+  group('mostRecentGraphNodeId (default ripple focus)', () {
+    final nodes = [_n('function', 'fn'), _n('agent', 'ag'), _n('workflow', 'wf')];
+
+    test('the most-recently-updated entity that is also a graph node', () {
+      final groups = [
+        _group(EntityKind.function, [_row(EntityKind.function, 'fn', DateTime(2026, 1, 1))]),
+        _group(EntityKind.agent, [_row(EntityKind.agent, 'ag', DateTime(2026, 6, 1))]), // newest
+        _group(EntityKind.workflow, [_row(EntityKind.workflow, 'wf', DateTime(2026, 3, 1))]),
+      ];
+      expect(mostRecentGraphNodeId(nodes, groups), 'ag');
+    });
+
+    test('skips recent rows that are not on the graph', () {
+      final groups = [
+        // Newest overall, but NOT a graph node → skipped for the newest that IS. 最新但不在图上→跳过。
+        _group(EntityKind.handler, [_row(EntityKind.handler, 'hd_offgraph', DateTime(2026, 9, 1))]),
+        _group(EntityKind.function, [_row(EntityKind.function, 'fn', DateTime(2026, 2, 1))]),
+      ];
+      expect(mostRecentGraphNodeId(nodes, groups), 'fn');
+    });
+
+    test('null when the rail has loaded no row on the graph (→ primitive degree fallback)', () {
+      final groups = [_group(EntityKind.handler, [_row(EntityKind.handler, 'hd_x', DateTime(2026))])];
+      expect(mostRecentGraphNodeId(nodes, groups), isNull);
+    });
+
+    test('null for an empty graph', () {
+      expect(mostRecentGraphNodeId(const [], const []), isNull);
+    });
+  });
+
   group('relationGroupsFor', () {
     final edges = [
       _e('equip', 'x', 'a'), // x equips a (a is referenced-by x)

@@ -1,12 +1,10 @@
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/entities/function.dart';
-import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/data/entity_repository.dart';
-import 'package:anselm/features/entities/state/detail/entity_detail_provider.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_controller.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_state.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
@@ -120,38 +118,22 @@ void main() {
     expect(c.read(runTerminalProvider(_fnRef)).phase, RunPhase.cancelled);
   });
 
-  test('bad JSON in an object field → inputError, no run', () async {
-    final t = DateTime.utc(2026, 6, 27);
-    final repo = FixtureEntityRepository(
-      runDelay: Duration.zero,
-      functions: [
-        FunctionEntity(
-          id: 'fn_1',
-          name: 'cfg',
-          createdAt: t,
-          updatedAt: t,
-          activeVersionId: 'fn_1_v1',
-          activeVersion: FunctionVersion(
-            id: 'fn_1_v1',
-            functionId: 'fn_1',
-            version: 1,
-            inputs: const [Field(name: 'cfg', type: 'object')],
-            createdAt: t,
-            updatedAt: t,
-          ),
-        ),
-      ],
-    );
-    final c = ProviderContainer(overrides: [entityRepositoryProvider.overrideWithValue(repo)]);
-    addTearDown(c.dispose);
-    c.listen(runTerminalProvider(_fnRef), (_, _) {});
-    await c.read(entityDetailProvider(_fnRef).future); // load detail so coercion sees the object field
-    final ctl = c.read(runTerminalProvider(_fnRef).notifier);
-    ctl.setField('cfg', '{not json');
+  test('invalid JSON text → payloadInvalid, no run (JSON-first coerce)', () async {
+    final (c, ctl) = _harness(FixtureEntityRepository(runDelay: Duration.zero), _fnRef);
+    ctl.setDraftText('{not json');
     await ctl.run();
     final st = c.read(runTerminalProvider(_fnRef));
-    expect(st.inputError, 'field:cfg');
+    expect(st.inputError, 'payloadInvalid');
     expect(st.phase, RunPhase.idle); // never ran
+  });
+
+  test('non-object JSON text → payloadObject, no run (top-level must be an object)', () async {
+    final (c, ctl) = _harness(FixtureEntityRepository(runDelay: Duration.zero), _fnRef);
+    ctl.setDraftText('[1, 2, 3]');
+    await ctl.run();
+    final st = c.read(runTerminalProvider(_fnRef));
+    expect(st.inputError, 'payloadObject');
+    expect(st.phase, RunPhase.idle);
   });
 
   test('family members are independent (a run on one does not touch another)', () async {

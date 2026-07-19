@@ -11,7 +11,9 @@ import '../../../../core/shell/right_panel.dart';
 import '../../../../core/shell/shell_chrome.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
+import '../../data/entity_kind.dart';
 import '../../state/entities_overview_model.dart';
+import '../../state/rail_model.dart';
 import '../../state/rel_graph_provider.dart';
 import 'graph_entity_card.dart';
 import 'graph_labels.dart';
@@ -108,12 +110,16 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
       data: (g) {
         // Default: structural (equip/link) only. Provenance toggle re-admits the full graph. 默认结构;溯源开=全图。
         final sub = _provenance ? (nodes: g.nodes, edges: g.edges) : structuralSubgraph(g);
+        final groups = ref.watch(railModelProvider);
         return AnRelationGraph(
           nodes: sub.nodes,
           edges: sub.edges,
           toolbar: true,
           hiddenKinds: _hidden,
           selectedId: sel?.$2,
+          // Default ripple focus (used when nothing is selected) = the most-recently-touched graph entity.
+          // 默认涟漪焦点(无选中时)=最近碰过的图上实体。
+          focusId: mostRecentGraphNodeId(sub.nodes, groups),
           revealId: _revealId,
           revealToken: _revealToken,
           nodeSemanticLabel: (n, deg) => relationNodeLabel(context, n, deg),
@@ -127,6 +133,12 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
             }
             final kind = sub.nodes.where((n) => n.id == id).map((n) => n.kind).firstOrNull;
             if (kind != null) _select(kind, id);
+          },
+          // Double tap → open the entity's detail page (rail kinds only; accessory kinds have no page here).
+          // 双击→进实体详情页(仅 rail kind;配件 kind 此海洋无页)。
+          onNodeDoubleTap: (id) {
+            final ek = entityKindFromWire(sub.nodes.where((n) => n.id == id).map((n) => n.kind).firstOrNull);
+            if (ek != null) context.go(entityLocation(ek, id));
           },
         );
       },

@@ -2660,6 +2660,24 @@ class Translations$chat$stage$en {
 	/// en: 'Collapse all'
 	String get collapseAll => 'Collapse all';
 
+	/// en: '$n touched'
+	String glanceTouched({required Object n}) => '${n} touched';
+
+	/// en: '$n executed'
+	String glanceExecuted({required Object n}) => '${n} executed';
+
+	/// en: '$n awaiting you'
+	String glanceNeedsYou({required Object n}) => '${n} awaiting you';
+
+	/// en: 'Just now'
+	String get groupJustNow => 'Just now';
+
+	/// en: 'Earlier today'
+	String get groupEarlierToday => 'Earlier today';
+
+	/// en: 'Earlier'
+	String get groupEarlier => 'Earlier';
+
 	/// en: 'Follow'
 	String get following => 'Follow';
 
@@ -3745,29 +3763,14 @@ class Translations$entities$run$en {
 	/// en: 'streaming'
 	String get streaming => 'streaming';
 
-	/// en: 'No inputs — run with no arguments.'
-	String get noInputs => 'No inputs — run with no arguments.';
-
-	/// en: 'Payload (JSON, optional)'
-	String get payload => 'Payload (JSON, optional)';
+	/// en: 'Example'
+	String get example => 'Example';
 
 	/// en: 'Payload must be valid JSON.'
 	String get payloadInvalid => 'Payload must be valid JSON.';
 
 	/// en: 'Payload must be a JSON object.'
 	String get payloadObject => 'Payload must be a JSON object.';
-
-	/// en: '$name must be valid JSON.'
-	String fieldInvalid({required Object name}) => '${name} must be valid JSON.';
-
-	/// en: 'true'
-	String get boolTrue => 'true';
-
-	/// en: 'false'
-	String get boolFalse => 'false';
-
-	/// en: 'Run again'
-	String get runAgain => 'Run again';
 
 	/// en: 'Cancel'
 	String get cancel => 'Cancel';
@@ -3808,8 +3811,8 @@ class Translations$entities$run$en {
 	/// en: '$inT in · $outT out'
 	String tokens({required Object inT, required Object outT}) => '${inT} in · ${outT} out';
 
-	/// en: '$ms ms'
-	String ms({required Object ms}) => '${ms} ms';
+	/// en: 'error'
+	String get errorHeading => 'error';
 
 	late final Translations$entities$run$danger$en danger = Translations$entities$run$danger$en.internal(_root);
 
@@ -3825,35 +3828,22 @@ class Translations$entities$run$en {
 	/// en: 'Manual'
 	String get sourceManual => 'Manual';
 
-	/// en: 'file path'
-	String get fsnotifyPathHint => 'file path';
-
-	/// en: 'event, e.g. create'
-	String get fsnotifyEventHint => 'event, e.g. create';
-
-	/// en: 'sensor value'
-	String get sensorValueHint => 'sensor value';
-
-	/// en: 'request body'
-	String get webhookBody => 'request body';
-
-	/// en: '{"invoice_id": "..."}'
-	String get webhookBodyHint => '{"invoice_id": "..."}';
-
-	/// en: '{ }'
-	String get payloadHint => '{ }';
-
 	/// en: 'Open run →'
 	String get openFlowrun => 'Open run →';
 
-	/// en: 'recent'
-	String get recent => 'recent';
+	/// en: 'Open run page →'
+	String get openRunPage => 'Open run page →';
 
-	/// en: 'Reproduce'
-	String get reproduce => 'Reproduce';
+	/// en: 'Recent · $n'
+	String recentCount({required Object n}) => 'Recent · ${n}';
+
+	/// en: 'Use this input'
+	String get reproduce => 'Use this input';
 
 	/// en: 'input'
 	String get inputHeading => 'input';
+
+	late final Translations$entities$run$origin$en origin = Translations$entities$run$origin$en.internal(_root);
 }
 
 // Path: entities.val
@@ -5979,6 +5969,39 @@ class Translations$entities$run$danger$en {
 	String get dangerous => 'Dangerous';
 }
 
+// Path: entities.run.origin
+class Translations$entities$run$origin$en {
+	Translations$entities$run$origin$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Manual'
+	String get manual => 'Manual';
+
+	/// en: 'Chat'
+	String get chat => 'Chat';
+
+	/// en: 'Agent'
+	String get agent => 'Agent';
+
+	/// en: 'Workflow'
+	String get workflow => 'Workflow';
+
+	/// en: 'Scheduled'
+	String get cron => 'Scheduled';
+
+	/// en: 'Webhook'
+	String get webhook => 'Webhook';
+
+	/// en: 'File change'
+	String get fsnotify => 'File change';
+
+	/// en: 'Sensor'
+	String get sensor => 'Sensor';
+}
+
 // Path: entities.graph.verb
 class Translations$entities$graph$verb$en {
 	Translations$entities$graph$verb$en.internal(this._root);
@@ -6524,6 +6547,12 @@ extension on Translations {
 		} ?? switch (path) {
 			'chat.stage.expandAll' => 'Expand all',
 			'chat.stage.collapseAll' => 'Collapse all',
+			'chat.stage.glanceTouched' => ({required Object n}) => '${n} touched',
+			'chat.stage.glanceExecuted' => ({required Object n}) => '${n} executed',
+			'chat.stage.glanceNeedsYou' => ({required Object n}) => '${n} awaiting you',
+			'chat.stage.groupJustNow' => 'Just now',
+			'chat.stage.groupEarlierToday' => 'Earlier today',
+			'chat.stage.groupEarlier' => 'Earlier',
 			'chat.stage.following' => 'Follow',
 			'chat.stage.pinned' => 'Pinned',
 			'chat.stage.live' => 'Live',
@@ -7028,14 +7057,14 @@ extension on Translations {
 			'entities.filter' => 'Search entities…',
 			'entities.errorTitle' => 'Couldn\'t load entities',
 			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
+			_ => null,
+		} ?? switch (path) {
 			'entities.retry' => 'Try again',
 			'entities.selectTitle' => 'Select an entity',
 			'entities.selectHint' => 'Choose a function, handler, agent, or workflow from the rail.',
 			'entities.sortLabel' => 'Sort',
 			'entities.sortRecent' => 'Recently active',
 			'entities.sortCreated' => 'Recently created',
-			_ => null,
-		} ?? switch (path) {
 			'entities.sortName' => 'Name',
 			'entities.displayLabel' => 'Display',
 			'entities.showCount' => 'Show counts',
@@ -7253,14 +7282,9 @@ extension on Translations {
 			'entities.detail.editor.refPickTool' => 'Tool…',
 			'entities.run.method' => 'Method',
 			'entities.run.streaming' => 'streaming',
-			'entities.run.noInputs' => 'No inputs — run with no arguments.',
-			'entities.run.payload' => 'Payload (JSON, optional)',
+			'entities.run.example' => 'Example',
 			'entities.run.payloadInvalid' => 'Payload must be valid JSON.',
 			'entities.run.payloadObject' => 'Payload must be a JSON object.',
-			'entities.run.fieldInvalid' => ({required Object name}) => '${name} must be valid JSON.',
-			'entities.run.boolTrue' => 'true',
-			'entities.run.boolFalse' => 'false',
-			'entities.run.runAgain' => 'Run again',
 			'entities.run.cancel' => 'Cancel',
 			'entities.run.close' => 'Close run terminal',
 			'entities.run.cancelled' => 'Cancelled',
@@ -7274,23 +7298,26 @@ extension on Translations {
 			'entities.run.noTrace' => 'Waiting for output…',
 			'entities.run.steps' => ({required Object n}) => '${n} steps',
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '${inT} in · ${outT} out',
-			'entities.run.ms' => ({required Object ms}) => '${ms} ms',
+			'entities.run.errorHeading' => 'error',
 			'entities.run.danger.cautious' => 'Cautious',
 			'entities.run.danger.dangerous' => 'Dangerous',
 			'entities.run.inboxEmpty' => 'No pending approvals',
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
 			'entities.run.source' => 'Source',
 			'entities.run.sourceManual' => 'Manual',
-			'entities.run.fsnotifyPathHint' => 'file path',
-			'entities.run.fsnotifyEventHint' => 'event, e.g. create',
-			'entities.run.sensorValueHint' => 'sensor value',
-			'entities.run.webhookBody' => 'request body',
-			'entities.run.webhookBodyHint' => '{"invoice_id": "..."}',
-			'entities.run.payloadHint' => '{ }',
 			'entities.run.openFlowrun' => 'Open run →',
-			'entities.run.recent' => 'recent',
-			'entities.run.reproduce' => 'Reproduce',
+			'entities.run.openRunPage' => 'Open run page →',
+			'entities.run.recentCount' => ({required Object n}) => 'Recent · ${n}',
+			'entities.run.reproduce' => 'Use this input',
 			'entities.run.inputHeading' => 'input',
+			'entities.run.origin.manual' => 'Manual',
+			'entities.run.origin.chat' => 'Chat',
+			'entities.run.origin.agent' => 'Agent',
+			'entities.run.origin.workflow' => 'Workflow',
+			'entities.run.origin.cron' => 'Scheduled',
+			'entities.run.origin.webhook' => 'Webhook',
+			'entities.run.origin.fsnotify' => 'File change',
+			'entities.run.origin.sensor' => 'Sensor',
 			'entities.val.yes' => 'yes',
 			'entities.val.no' => 'no',
 			'entities.overview.title' => 'Overview',
@@ -7544,12 +7571,12 @@ extension on Translations {
 			'settings.about.diagnostics' => 'Diagnostics',
 			'settings.about.copyDiagnostics' => 'Copy diagnostics',
 			'settings.about.copied' => 'Copied',
+			_ => null,
+		} ?? switch (path) {
 			'settings.about.diagDesc' => 'Copies version and environment info for bug reports',
 			'settings.mem.section' => 'Memories',
 			'settings.mem.filterAll' => 'All',
 			'settings.mem.filterPinned' => 'Pinned',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mem.newMemory' => 'New memory',
 			'settings.mem.name' => 'Name',
 			'settings.mem.nameHint' => 'starts lowercase; a-z 0-9 - _',

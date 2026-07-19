@@ -73,6 +73,7 @@ Anselm 前端 = 一个 **Flutter 桌面 app**,是内嵌 **Go sidecar** 的纯客
 | **Notifications(通知中心 + toast)** | ✅ | 左岛铃两段式托盘(待你处理 + 通知时间流)+ 右上悬浮 toast(important-only,hover 暂停)+ OS 原生通知(未聚焦时)。N0 后端分径(Emit 落行/Broadcast 仅帧)· N1 契约数据缝 · N2 托盘(后端补名字 + 行原语·文案 + 两段式接壳)· N3 toast(迁右上 + 事件→toast 派发器)· N4 OS 通知(DIP + 焦点路由)**全落**;真壳 E2E + macOS build 验证 | [`features/notifications`](../../references/frontend/features/notifications.md) · 建造史归档 [`WRK-058`](../../archive/notifications/README.md) |
 | **Phase 4.3 Scheduler** | 🔨 规范草案待拍板 | 中央调度器海洋(轴=workflow,rail=运营投影/Overview 看板/运营主页/run 旗舰详情+右岛双脸)。**超巨调研已完成**(2026-07-16,26-agent:6 后端契约+4 自家盘点+7 业界扫描→三哲学方案比稿→三判官→合成):终案=渐进披露主胎+活性军规宪法+矩阵降级收编;后端工单 10 张;建造批次 S0–S5;6 项 open questions 待用户拍板 | [`scheduler.md`](scheduler.md) |
 | **Phase 4.4 Documents** | ✅ | 文档+skill 两类 file-like 知识一海洋:树 rail 全 CRUD+拖拽 → **原生编辑器**(`core/editor/AnEditor`,super_editor 门面:同滚头/slash 11 命令/@ 药丸/划选条含 link/语法高亮/表格/`[[id]]`+语言标保真 codec)→ 右岛大纲·属性·反链 → SSE 树自刷新 → 路由化。编辑器史:super_editor→Milkdown-webview(废弃归档)→原生 super_editor(现行) | [`features/documents`](../../references/frontend/features/documents.md) · 归档 [`WRK-060`](../../archive/doc-editor-webview/README.md) |
+| **右岛三段式文法(全右岛收敛)** | 🔨 在建 | 用户 0719 定:右岛「小灰标题+平坦大块」寡淡 → **三段式文法**(§1 身份头 `AnPanelHead` icon+标题+⋯+✕ / §2 速览带有信号才在 / §3 分组内容 AnRow 组头,三处一语言)。**批 0+1 已落**(地基 `AnPanelHead` 原语 + chat「活动」范例田:头收编 ⋯+速览带+按 kind 分组);批 2 documents / 批 3 entities 调试台+scheduler open | [`right-island-grammar.md`](right-island-grammar.md) |
 
 ### 3.2 当前焦点 + 总路线(2026-07-08 用户拍板的执行序,逐段做完再进下一段)
 

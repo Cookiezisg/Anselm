@@ -83,6 +83,24 @@ void main() {
       expect(deg['wf_digest'] ?? 0, 0);
     });
 
+    // v2「涟漪焦点星图」 data battery: the seed must exercise COMPONENT PACKING — the structural subgraph
+    // spans ≥2 disconnected components (wf_onboard/hd_twilio hangs off nothing else). NOTE: there is no
+    // zero-degree ISOLATE in the seed by design — the backend never emits an entity with no relations
+    // (relation.go dedupes edge endpoints), so an isolate would misrepresent real data; the force engine's
+    // isolate band is locked by the gallery specimen + force_layout_test instead. 分量打包电池:结构子图≥2 分量;
+    // 刻意无零度孤点(后端不发无关系实体,加孤点=造假),孤点带由 gallery+force_layout_test 锁。
+    test('the structural subgraph spans ≥2 connected components (packing exercised)', () async {
+      final g = await repo.getRelGraph();
+      final sub = structuralSubgraph(g);
+      final comps = connectedComponents(
+        {for (final n in sub.nodes) n.id},
+        [for (final e in sub.edges) ForceEdge(e.fromId, e.toId)],
+      );
+      expect(comps.length, greaterThanOrEqualTo(2),
+          reason: 'wf_onboard/hd_twilio is a separate component → the packer runs');
+      expect(comps.every((c) => c.length >= 2), isTrue, reason: 'no degree-0 isolate in real data');
+    });
+
     test('provenance edges exist but are excluded from the observing (structural) subgraph', () async {
       final g = await repo.getRelGraph();
       expect(g.edges.any((e) => e.kind == 'create' || e.kind == 'edit'), isTrue, reason: '溯源边在数据里');

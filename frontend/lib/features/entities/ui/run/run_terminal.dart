@@ -17,7 +17,6 @@ import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_format.dart';
 import '../../data/entity_kind.dart';
-import '../../data/entity_labels.dart';
 import '../../state/detail/entity_detail.dart';
 import '../../state/detail/entity_detail_provider.dart';
 import '../../../../core/shell/right_panel.dart';
@@ -27,7 +26,6 @@ import '../../state/selected_entity.dart';
 import '../../../../core/run/approval_gate.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/typography.dart';
-import '../../../../core/model/time_format.dart';
 import '../../../../core/ui/an_status_dot.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_hover_region.dart';
@@ -35,8 +33,9 @@ import '../../../../core/ui/an_expand_reveal.dart';
 import '../../../../core/ui/an_ledger_row.dart';
 import '../../../../core/ui/an_stat_bar.dart';
 import '../../state/run/recent_runs_provider.dart';
+import '../../../../core/ui/an_cast_row.dart';
 import 'block_tree_view.dart';
-import 'run_input_form.dart';
+import 'run_editor_card.dart';
 
 /// The right-island run terminal (the headless [AnInspector] child) — bound to the SELECTED entity via the
 /// [runTerminalProvider] family. Head = entity + verb + a live status state machine + the run meta. Body =
@@ -108,11 +107,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    RunInputForm(
-                      key: ValueKey(sel),
-                      entityRef: sel,
-                      verbLabel: sel.kind.verbLabel(context.t),
-                    ),
+                    RunEditorCard(key: ValueKey(sel), entityRef: sel),
                     const SizedBox(height: AnSpace.s16),
                     ValueListenableBuilder<RunStream>(
                       valueListenable: controller.stream,
@@ -136,13 +131,13 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
     final r = context.t.entities.run;
     final name = detail?.name ?? sel.id;
     final badge = _phaseBadge(context, state.phase);
-    // The unified right-island head band (A-010 — the hand-rolled twin rows retire; the phase badge
-    // rides the new subTrailingWidget slot). 统一右岛头带;相位徽走新 subTrailingWidget 槽。
+    // The unified right-island head band — icon + name + ✕ (the orphan verb sub-head + meta sub-row
+    // retire, 0719 拍板: the verb now lives on the editor card's run button, the meta on the settled
+    // bar). Only the live-status badge rides the subTrailingWidget slot. 统一右岛头带:图标+名+✕;孤儿
+    // 动词段头与 meta 次行退役(动词归编辑器卡钮、meta 归落定条),仅活状态徽留次行。
     return AnInspectorHead(
       icon: AnIcons.byKey(sel.kind.scopeKind),
       label: name,
-      subLeading: sel.kind.verbLabel(context.t),
-      subTrailing: _metaLine(context, sel, state),
       subTrailingWidget: badge == null ? null : AnChip(badge.$1, tone: badge.$2),
       onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
       closeSemantics: r.close,
@@ -176,6 +171,10 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
       statusLabel: state.phase == RunPhase.cancelled ? r.cancelled : null,
       stats: [
         if (state.elapsedMs > 0) AnStat(fmtDuration(Duration(milliseconds: state.elapsedMs)), tabular: true),
+        // Agent run meta rides the settled bar now the head's meta sub-row retired. agent 运行 meta 归落定条。
+        if (sel.kind == EntityKind.agent && state.steps > 0) AnStat(r.steps(n: state.steps)),
+        if (sel.kind == EntityKind.agent && (state.tokensIn > 0 || state.tokensOut > 0))
+          AnStat(r.tokens(inT: state.tokensIn, outT: state.tokensOut)),
         if (sel.kind == EntityKind.workflow && state.flowrunId != null) AnStat(state.flowrunId!, tabular: true),
       ],
       chips: [
@@ -187,30 +186,6 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
           ),
       ],
     );
-  }
-
-  String _metaLine(BuildContext context, EntityRef sel, RunTerminalState state) {
-    if (!state.isTerminal) return '';
-    final r = context.t.entities.run;
-    final parts = <String>[];
-    switch (sel.kind) {
-      case EntityKind.control:
-      case EntityKind.approval:
-      case EntityKind.trigger:
-        break; // support kinds — no run meta 支撑 kind 无 run meta
-      case EntityKind.agent:
-        if (state.steps > 0) parts.add(r.steps(n: state.steps));
-        if (state.tokensIn > 0 || state.tokensOut > 0) {
-          parts.add(r.tokens(inT: state.tokensIn, outT: state.tokensOut));
-        }
-        if (state.elapsedMs > 0) parts.add(r.ms(ms: state.elapsedMs));
-      case EntityKind.workflow:
-        if (state.flowrunId != null) parts.add(state.flowrunId!);
-      case EntityKind.function:
-      case EntityKind.handler:
-        if (state.elapsedMs > 0) parts.add(r.ms(ms: state.elapsedMs));
-    }
-    return parts.join(' · ');
   }
 
   // ── body ────────────────────────────────────────────────────────────────────
@@ -370,7 +345,7 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
     if (rows.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s16),
-      child: AnSection(label: r.recent, variant: AnSectionVariant.quiet, children: [
+      child: AnSection(label: r.recentCount(n: rows.length), variant: AnSectionVariant.quiet, children: [
         for (final run in rows) _row(context, run),
       ]),
     );
@@ -380,6 +355,9 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
     final r = context.t.entities.run;
     final c = ref.read(runTerminalProvider(widget.entityRef).notifier);
     final hovered = _hovered == run.id;
+    // A workflow run's detail lives on the run page (the island never hosts a long run — task ⑤); every
+    // other kind expands to its I/O digest inline. wf 深链运行页(右岛不装长跑),余者内联展开 IO。
+    final isWorkflow = widget.entityRef.kind == EntityKind.workflow;
     return AnHoverRegion(
       onEnter: (_) => setState(() => _hovered = run.id),
       onExit: (_) => setState(() {
@@ -387,7 +365,9 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
       }),
       child: AnLedgerRow(
         lead: AnStatusDot(AnStatus.fromRaw(run.status)),
-        primary: fmtDateTime(run.startedAt),
+        // Relative time (刚刚 / 3 天前 / date) — the SAME voice the chat cast rows speak (core reuse).
+        // 相对时间,与 chat cast 行同口径(core 复用)。
+        primary: AnCastRow.timeLabel(context, run.startedAt ?? DateTime.now()),
         mono: false,
         chips: [
           // Single-line micro-labels (窄岛下不许折词成「workflo w」— 真机帧揪出). 微标不折行。
@@ -396,12 +376,14 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AnText.metaTabular().copyWith(color: context.colors.inkFaint)),
+          // The wire origin word spoken as human text (手动/调度/对话…), never «manual»/«cron». 来源人话。
           if (run.triggeredBy.isNotEmpty)
-            Text(run.triggeredBy,
+            Text(runOriginLabel(context.t, run.triggeredBy),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: AnText.meta.copyWith(color: context.colors.inkFaint)),
-          // The reproduce key slides out on hover (原位横向滑出,零跳变——大表动词同文法). 悬停滑出重现。
+          // «⎘ 用这份输入» slides out on hover — fills this run's input back into the editor (hd 连方法、
+          // wf 连来源). 悬停滑出「用这份输入」,回填该次输入进编辑器。
           AnExpandReveal(
             axis: Axis.horizontal,
             open: hovered,
@@ -411,7 +393,7 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
                 label: r.reproduce,
                 size: AnButtonSize.sm,
                 surface: true,
-                onPressed: () => c.reproduce(run),
+                onPressed: () => c.loadInput(run),
               ),
             ),
           ),
@@ -420,24 +402,38 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
         disclose: true,
         expanded: _open == run.id,
         onTap: () => setState(() => _open = _open == run.id ? null : run.id),
-        // Lazy I/O digest (C-006): input + output, capped pretty JSON. 惰性 IO 摘要。
-        expandBuilder: (_) => Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (run.input.isNotEmpty) ...[
-              Text(r.inputHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
-              const SizedBox(height: AnSpace.s4),
-              AnCodeBlock(prettyJsonCapped(run.input)),
-            ],
-            if (run.output != null) ...[
-              if (run.input.isNotEmpty) const SizedBox(height: AnSpace.s8),
-              Text(r.resultHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
-              const SizedBox(height: AnSpace.s4),
-              AnCodeBlock(prettyJsonCapped(run.output)),
-            ],
-          ],
-        ),
+        expandBuilder: (_) => isWorkflow
+            ? Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: AnButton(
+                  label: r.openRunPage,
+                  size: AnButtonSize.sm,
+                  onPressed: () => context.go('/scheduler/runs/${run.id}'),
+                ),
+              )
+            // Lazy I/O digest (C-006): input, then the error (failed) OR the result. 惰性 IO 摘要:输入 + 错误/结果。
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (run.input.isNotEmpty) ...[
+                    Text(r.inputHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+                    const SizedBox(height: AnSpace.s4),
+                    AnCodeBlock(prettyJsonCapped(run.input)),
+                  ],
+                  if ((run.errorMsg ?? '').isNotEmpty) ...[
+                    if (run.input.isNotEmpty) const SizedBox(height: AnSpace.s8),
+                    Text(r.errorHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+                    const SizedBox(height: AnSpace.s4),
+                    AnCallout(run.errorMsg!, severity: AnCalloutSeverity.danger),
+                  ] else if (run.output != null) ...[
+                    if (run.input.isNotEmpty) const SizedBox(height: AnSpace.s8),
+                    Text(r.resultHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+                    const SizedBox(height: AnSpace.s4),
+                    AnCodeBlock(prettyJsonCapped(run.output)),
+                  ],
+                ],
+              ),
       ),
     );
   }

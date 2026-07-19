@@ -18,6 +18,7 @@ import '../selected_entity.dart';
 import '../../data/entity_format.dart';
 import 'recent_runs_provider.dart';
 import 'run_draft_store.dart';
+import 'run_example.dart';
 import 'run_fields.dart';
 import 'run_terminal_state.dart';
 
@@ -82,12 +83,24 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     _poll = null;
   }
 
-  /// The current form input (raw values: String for text/number/object/array, bool for boolean), kept off
-  /// [state] so typing never rebuilds the lifecycle. Lives in the SESSION-LIVED [RunDraftStore] (调试台
-  /// 参数记忆, 0719 拍板): the controller is autoDispose, so an in-notifier map would forget on deselect —
-  /// the store keeps values per (entity, method|source) bucket for the whole app session.
-  /// 当前表单草稿——住 session 草稿库(autoDispose 下 notifier 内 map 会忘;库按 实体×方法|来源 分桶养全会话)。
-  Map<String, Object?> get draft => ref.read(runDraftStoreProvider).bucket(draftKey);
+  /// The current editor text (JSON-first, 0719 拍板): ONE JSON object the user edits directly, kept off
+  /// [state] so typing never rebuilds the lifecycle. Lives in the SESSION-LIVED [RunDraftStore] (autoDispose
+  /// would forget on deselect); a never-touched bucket is SEEDED here with a runnable example/template so
+  /// opening the panel already shows a concrete object. 当前编辑器文本(JSON-first):用户直接改的一份 JSON
+  /// 对象,住 session 草稿库;首次读到空桶即种入可跑示例/模板。
+  String get draftText {
+    final store = ref.read(runDraftStoreProvider);
+    final existing = store.textFor(draftKey);
+    if (existing != null) return existing;
+    final (seed, resolved) = _seed();
+    // Freeze the seed into the bucket only once it's RESOLVED — a workflow's payload template needs the
+    // picked trigger's KIND, which loads async: seeding the pre-load 'manual' fallback would freeze the
+    // wrong template + a stale timestamp. Until resolved, return a transient seed (recomputed on the
+    // rebuild the detail load triggers). fn/hd/ag are always resolved. 已解析才落种(wf 模板要触发源 kind、
+    // 异步载:过早冻会锁错模板+旧时戳);未解析返瞬态,detail 载入触发的重建里重算。fn/hd/ag 恒已解析。
+    if (resolved) store.seed(draftKey, seed);
+    return seed;
+  }
 
   /// The CURRENT bucket coordinate: hd varies by method, wf by source. 当前桶坐标。
   String get draftKey => switch (entityRef.kind) {
@@ -95,6 +108,31 @@ class RunTerminalController extends Notifier<RunTerminalState> {
         EntityKind.workflow => runDraftKey(entityRef, state.source),
         _ => runDraftKey(entityRef),
       };
+
+  /// The runnable seed for the CURRENT dimension + whether it is RESOLVED (safe to freeze): fn/hd/ag =
+  /// the declared-input example skeleton (always resolved); workflow = the picked source's fire-payload
+  /// template (resolved once the trigger's detail — and thus its KIND — has loaded). Pure generators.
+  /// 当前维度的可跑种子 + 是否已解析(可冻结):fn/hd/ag=声明入参示例骨架(恒解析);workflow=所选来源的
+  /// 点火 payload 模板(触发源 detail 载后解析)。
+  (String, bool) _seed() {
+    if (entityRef.kind == EntityKind.workflow) {
+      final resolved = state.source == 'manual' ||
+          ref.read(entityDetailProvider(EntityRef(EntityKind.trigger, state.source))).hasValue;
+      final text = workflowPayloadTemplateJson(
+        wfSourceKind(ref, entityRef, state.source),
+        now: DateTime.now(),
+      );
+      return (text, resolved);
+    }
+    // fn/hd/ag resolve once the entity detail (its declared inputs) has loaded — seeding an empty
+    // example off a not-yet-loaded detail would freeze `{}` forever. fn/hd/ag:detail 载后才解析(过早
+    // 会把空示例 {} 永久冻结)。
+    final async = ref.read(entityDetailProvider(entityRef));
+    return (
+      exampleJsonForFields(runInputFields(entityRef.kind, async.value, method: state.method)),
+      async.hasValue,
+    );
+  }
 
   @override
   RunTerminalState build() {
@@ -108,8 +146,8 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     return const RunTerminalState();
   }
 
-  /// Form text/bool field write — draft only, no rebuild (the inputs are uncontrolled). 表单字段写入(不重建)。
-  void setField(String name, Object? value) => draft[name] = value;
+  /// Per-keystroke editor write — draft only, no rebuild (the editor is uncontrolled). 逐键写入(不重建)。
+  void setDraftText(String text) => ref.read(runDraftStoreProvider).setText(draftKey, text);
 
   /// Handler method pick — in [state] because it swaps which fields render. 方法选择(在 state、换字段)。
   void setMethod(String method) {
@@ -122,29 +160,27 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     if (state.source != source) state = state.copyWith(source: source, inputError: null);
   }
 
-  /// The reproduce key (重现钥匙, 0719 拍板): fill the form back from a past execution — hd restores
-  /// the METHOD, wf restores the SOURCE, and the input lands in the exact seed shape (scalars→text,
-  /// bool→bool, structures→pretty JSON). The store bumps its revision so open forms re-seed.
-  /// 重现:把某次执行的输入原样回填(hd 连方法、wf 连来源);库自增版本使表单立即重播。
-  void reproduce(RecentRun run) {
+  /// Reset the CURRENT dimension's editor to its runnable example/template («示例», 0719 拍板) — the
+  /// payload-source chip's default fill. Regenerates and re-seeds (a fresh timestamp for a wf template).
+  /// 把当前维度重置回可跑示例/模板(payload 来源 chip 的默认填充),重新生成并重播种。
+  void loadExample() {
+    ref.read(runDraftStoreProvider).fill(draftKey, _seed().$1);
+    state = state.copyWith(inputError: null);
+  }
+
+  /// Fill the editor back from a past execution («用这份输入», 0719 拍板): hd restores the METHOD, wf
+  /// restores the SOURCE, and the input lands as pretty JSON directly editable in the editor. A flowrun
+  /// row does NOT project its entry payload, so wf re-seeds the restored source's template (the one part
+  /// the user re-supplies — 报告注明的唯一打折点). The store bumps its revision so an open editor re-seeds.
+  /// 用某次执行回填:hd 连方法、wf 连来源,输入成 pretty JSON 直填编辑器;wf 行未投影 payload → 重播来源模板。
+  void loadInput(RecentRun run) {
     if (entityRef.kind == EntityKind.handler && run.method.isNotEmpty) setMethod(run.method);
-    if (entityRef.kind == EntityKind.workflow) setSource(run.triggerId ?? 'manual');
-    final values = <String, Object?>{};
     if (entityRef.kind == EntityKind.workflow) {
-      // Flowrun rows don't project the entry payload — the source is restored, the payload is the
-      // one part the user re-supplies (报告注明的唯一打折点). wf 行未投影 payload:还原来源,payload 留手填。
+      setSource(run.triggerId ?? 'manual');
+      ref.read(runDraftStoreProvider).fill(draftKey, _seed().$1);
     } else {
-      run.input.forEach((k, v) {
-        values[k] = switch (v) {
-          bool b => b,
-          num n => '$n',
-          String t => t,
-          null => null,
-          _ => prettyJson(v),
-        };
-      });
+      ref.read(runDraftStoreProvider).fill(draftKey, prettyJson(run.input));
     }
-    ref.read(runDraftStoreProvider).reproduce(draftKey, values);
     state = state.copyWith(inputError: null);
   }
 
@@ -260,61 +296,21 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     _releaseRun = null;
   }
 
-  // Coerce the draft into the request by the entity's declared field types. workflow = one optional JSON
-  // payload; fn/ag/hd = per-field (object/array via jsonDecode, surfacing a parse error). 草稿→请求强转。
+  // Coerce the editor's JSON text into the request (JSON-first, 0719 拍板): parse → it must be a JSON
+  // OBJECT, since every verb's args/input/payload is an object. Empty text → an empty request (a no-arg
+  // run / a no-payload trigger). The same one path serves all four kinds — the editor IS the object.
+  // JSON-first 强转:解析编辑器文本→必须是 JSON 对象(四动词的 args/input/payload 皆对象);空→空请求;四 kind 同一径。
   (Map<String, Object?>, String?) _coerce() {
-    final detail = ref.read(entityDetailProvider(entityRef)).value;
-    if (entityRef.kind == EntityKind.workflow) {
-      // Payload by SOURCE (0718 拍板: the payload impersonates what the picked trigger releases):
-      // cron releases nothing → empty; fsnotify/sensor → their kind-template fields; webhook and
-      // manual → one JSON body. 按来源构造 payload:cron 空;fsnotify/sensor 走模板字段;webhook/手动=JSON。
-      switch (wfSourceKind(ref, entityRef, state.source)) {
-        case 'cron':
-          return (const {}, null);
-        case 'fsnotify':
-          final path = (draft['path'] as String?)?.trim() ?? '';
-          final event = (draft['event'] as String?)?.trim() ?? '';
-          return ({if (path.isNotEmpty) 'path': path, if (event.isNotEmpty) 'event': event}, null);
-        case 'sensor':
-          final raw = (draft['value'] as String?)?.trim() ?? '';
-          if (raw.isEmpty) return (const {}, null);
-          return ({'value': num.tryParse(raw) ?? raw}, null);
-        default: // webhook / manual — one JSON payload body 单 JSON 体
-          final raw = (draft['__payload__'] as String?)?.trim() ?? '';
-          if (raw.isEmpty) return (const {}, null);
-          final Object? decoded;
-          try {
-            decoded = jsonDecode(raw);
-          } catch (_) {
-            return (const {}, 'payloadInvalid');
-          }
-          if (decoded is! Map<String, dynamic>) return (const {}, 'payloadObject');
-          return (decoded, null);
-      }
+    final raw = draftText.trim();
+    if (raw.isEmpty) return (const {}, null);
+    final Object? decoded;
+    try {
+      decoded = jsonDecode(raw);
+    } catch (_) {
+      return (const {}, 'payloadInvalid');
     }
-    final req = <String, Object?>{};
-    for (final f in runInputFields(entityRef.kind, detail, method: state.method)) {
-      if (f.type == 'boolean') {
-        final b = draft[f.name];
-        if (b is bool) req[f.name] = b;
-        continue;
-      }
-      final raw = (draft[f.name] as String?)?.trim() ?? '';
-      if (raw.isEmpty) continue;
-      switch (f.type) {
-        case 'number':
-          req[f.name] = num.tryParse(raw) ?? raw;
-        case 'object' || 'array':
-          try {
-            req[f.name] = jsonDecode(raw);
-          } catch (_) {
-            return (const {}, 'field:${f.name}');
-          }
-        default:
-          req[f.name] = raw;
-      }
-    }
-    return (req, null);
+    if (decoded is! Map<String, dynamic>) return (const {}, 'payloadObject');
+    return (decoded, null);
   }
 
   void _onPanel(StreamEnvelope env) {

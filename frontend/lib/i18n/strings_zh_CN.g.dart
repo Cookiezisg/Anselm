@@ -1102,6 +1102,12 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get tasks => '待办';
 	@override String get expandAll => '展开全部';
 	@override String get collapseAll => '收起全部';
+	@override String glanceTouched({required Object n}) => '${n} 触点';
+	@override String glanceExecuted({required Object n}) => '${n} 执行';
+	@override String glanceNeedsYou({required Object n}) => '${n} 待你处理';
+	@override String get groupJustNow => '刚刚';
+	@override String get groupEarlierToday => '早些时候';
+	@override String get groupEarlier => '更早';
 	@override String get following => '跟随';
 	@override String get pinned => '已锁定';
 	@override String get live => '进行中';
@@ -1553,14 +1559,9 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	// Translations
 	@override String get method => '方法';
 	@override String get streaming => '流式';
-	@override String get noInputs => '无入参 —— 直接运行。';
-	@override String get payload => '载荷(JSON,可选)';
+	@override String get example => '示例';
 	@override String get payloadInvalid => '载荷必须是合法 JSON。';
 	@override String get payloadObject => '载荷必须是 JSON 对象。';
-	@override String fieldInvalid({required Object name}) => '${name} 必须是合法 JSON。';
-	@override String get boolTrue => 'true';
-	@override String get boolFalse => 'false';
-	@override String get runAgain => '再运行一次';
 	@override String get cancel => '取消';
 	@override String get close => '关闭运行终端';
 	@override String get cancelled => '已取消';
@@ -1574,22 +1575,18 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String get noTrace => '等待输出…';
 	@override String steps({required Object n}) => '${n} 步';
 	@override String tokens({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}';
-	@override String ms({required Object ms}) => '${ms} ms';
+	@override String get errorHeading => '错误';
 	@override late final _Translations$entities$run$danger$zh_CN danger = _Translations$entities$run$danger$zh_CN._(_root);
 	@override String get inboxEmpty => '没有待审批';
 	@override String get inboxEmptyHint => '等待决断的审批会出现在这里。';
 	@override String get source => '来源';
 	@override String get sourceManual => '手动';
-	@override String get fsnotifyPathHint => '文件路径';
-	@override String get fsnotifyEventHint => '事件,如 create';
-	@override String get sensorValueHint => '传感值';
-	@override String get webhookBody => '请求体';
-	@override String get webhookBodyHint => '{"invoice_id": "..."}';
-	@override String get payloadHint => '{ }';
 	@override String get openFlowrun => '打开 run →';
-	@override String get recent => '最近';
-	@override String get reproduce => '重现';
+	@override String get openRunPage => '在运行页打开 →';
+	@override String recentCount({required Object n}) => '最近执行 · ${n}';
+	@override String get reproduce => '用这份输入';
 	@override String get inputHeading => '输入';
+	@override late final _Translations$entities$run$origin$zh_CN origin = _Translations$entities$run$origin$zh_CN._(_root);
 }
 
 // Path: entities.val
@@ -2540,6 +2537,23 @@ class _Translations$entities$run$danger$zh_CN extends Translations$entities$run$
 	@override String get dangerous => '危险';
 }
 
+// Path: entities.run.origin
+class _Translations$entities$run$origin$zh_CN extends Translations$entities$run$origin$en {
+	_Translations$entities$run$origin$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get manual => '手动';
+	@override String get chat => '对话';
+	@override String get agent => '智能体';
+	@override String get workflow => '工作流';
+	@override String get cron => '调度';
+	@override String get webhook => 'Webhook';
+	@override String get fsnotify => '文件变更';
+	@override String get sensor => '传感器';
+}
+
 // Path: entities.graph.verb
 class _Translations$entities$graph$verb$zh_CN extends Translations$entities$graph$verb$en {
 	_Translations$entities$graph$verb$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -3077,6 +3091,12 @@ extension on TranslationsZhCn {
 		} ?? switch (path) {
 			'chat.stage.expandAll' => '展开全部',
 			'chat.stage.collapseAll' => '收起全部',
+			'chat.stage.glanceTouched' => ({required Object n}) => '${n} 触点',
+			'chat.stage.glanceExecuted' => ({required Object n}) => '${n} 执行',
+			'chat.stage.glanceNeedsYou' => ({required Object n}) => '${n} 待你处理',
+			'chat.stage.groupJustNow' => '刚刚',
+			'chat.stage.groupEarlierToday' => '早些时候',
+			'chat.stage.groupEarlier' => '更早',
 			'chat.stage.following' => '跟随',
 			'chat.stage.pinned' => '已锁定',
 			'chat.stage.live' => '进行中',
@@ -3581,14 +3601,14 @@ extension on TranslationsZhCn {
 			'entities.filter' => '搜索实体…',
 			'entities.errorTitle' => '无法加载实体',
 			'entities.errorHint' => '本地引擎没有返回实体列表。',
+			_ => null,
+		} ?? switch (path) {
 			'entities.retry' => '重试',
 			'entities.selectTitle' => '选择一个实体',
 			'entities.selectHint' => '从左侧选择一个函数、处理器、智能体或工作流。',
 			'entities.sortLabel' => '排序',
 			'entities.sortRecent' => '最近活跃',
 			'entities.sortCreated' => '最近创建',
-			_ => null,
-		} ?? switch (path) {
 			'entities.sortName' => '名称',
 			'entities.displayLabel' => '显示',
 			'entities.showCount' => '显示分组计数',
@@ -3806,14 +3826,9 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.refPickTool' => '选择工具…',
 			'entities.run.method' => '方法',
 			'entities.run.streaming' => '流式',
-			'entities.run.noInputs' => '无入参 —— 直接运行。',
-			'entities.run.payload' => '载荷(JSON,可选)',
+			'entities.run.example' => '示例',
 			'entities.run.payloadInvalid' => '载荷必须是合法 JSON。',
 			'entities.run.payloadObject' => '载荷必须是 JSON 对象。',
-			'entities.run.fieldInvalid' => ({required Object name}) => '${name} 必须是合法 JSON。',
-			'entities.run.boolTrue' => 'true',
-			'entities.run.boolFalse' => 'false',
-			'entities.run.runAgain' => '再运行一次',
 			'entities.run.cancel' => '取消',
 			'entities.run.close' => '关闭运行终端',
 			'entities.run.cancelled' => '已取消',
@@ -3827,23 +3842,26 @@ extension on TranslationsZhCn {
 			'entities.run.noTrace' => '等待输出…',
 			'entities.run.steps' => ({required Object n}) => '${n} 步',
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}',
-			'entities.run.ms' => ({required Object ms}) => '${ms} ms',
+			'entities.run.errorHeading' => '错误',
 			'entities.run.danger.cautious' => '谨慎',
 			'entities.run.danger.dangerous' => '危险',
 			'entities.run.inboxEmpty' => '没有待审批',
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
 			'entities.run.source' => '来源',
 			'entities.run.sourceManual' => '手动',
-			'entities.run.fsnotifyPathHint' => '文件路径',
-			'entities.run.fsnotifyEventHint' => '事件,如 create',
-			'entities.run.sensorValueHint' => '传感值',
-			'entities.run.webhookBody' => '请求体',
-			'entities.run.webhookBodyHint' => '{"invoice_id": "..."}',
-			'entities.run.payloadHint' => '{ }',
 			'entities.run.openFlowrun' => '打开 run →',
-			'entities.run.recent' => '最近',
-			'entities.run.reproduce' => '重现',
+			'entities.run.openRunPage' => '在运行页打开 →',
+			'entities.run.recentCount' => ({required Object n}) => '最近执行 · ${n}',
+			'entities.run.reproduce' => '用这份输入',
 			'entities.run.inputHeading' => '输入',
+			'entities.run.origin.manual' => '手动',
+			'entities.run.origin.chat' => '对话',
+			'entities.run.origin.agent' => '智能体',
+			'entities.run.origin.workflow' => '工作流',
+			'entities.run.origin.cron' => '调度',
+			'entities.run.origin.webhook' => 'Webhook',
+			'entities.run.origin.fsnotify' => '文件变更',
+			'entities.run.origin.sensor' => '传感器',
 			'entities.val.yes' => '是',
 			'entities.val.no' => '否',
 			'entities.overview.title' => '总览',
@@ -4097,12 +4115,12 @@ extension on TranslationsZhCn {
 			'settings.about.diagnostics' => '诊断',
 			'settings.about.copyDiagnostics' => '复制诊断信息',
 			'settings.about.copied' => '已复制',
+			_ => null,
+		} ?? switch (path) {
 			'settings.about.diagDesc' => '复制版本与环境信息,便于报告问题',
 			'settings.mem.section' => '记忆',
 			'settings.mem.filterAll' => '全部',
 			'settings.mem.filterPinned' => '已固定',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mem.newMemory' => '新建记忆',
 			'settings.mem.name' => '名称',
 			'settings.mem.nameHint' => '小写字母开头,可用 a-z 0-9 - _',

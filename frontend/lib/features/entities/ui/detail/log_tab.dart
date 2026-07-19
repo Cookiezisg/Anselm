@@ -111,7 +111,7 @@ class LogTab extends ConsumerWidget {
                 size: AnButtonSize.sm,
                 surface: true,
                 onPressed: () {
-                  ref.read(runTerminalProvider(entityRef).notifier).reproduce(row.run!);
+                  ref.read(runTerminalProvider(entityRef).notifier).loadInput(row.run!);
                   ref.read(rightPanelCollapsedProvider.notifier).set(false);
                 },
               ),

@@ -69,6 +69,7 @@ lib/core/graph/graph_edit_ops.dart	converged
 lib/core/graph/graph_model.dart	converged
 lib/core/graph/graph_run_state.dart	converged
 lib/core/graph/node_ref.dart	converged
+lib/core/graph/relation_graph_config.dart	converged
 lib/core/messages/args_session.dart	converged
 lib/core/messages/block_tree_reducer.dart	converged
 lib/core/messages/transcript_hydration.dart	converged
@@ -202,6 +203,7 @@ lib/core/ui/an_ocean_header.dart	reviewed
 lib/core/ui/an_ocean_switcher.dart	converged
 lib/core/ui/an_page.dart	converged
 lib/core/ui/an_pager.dart	pending
+lib/core/ui/an_panel_head.dart	converged
 lib/core/ui/an_path_chip.dart	converged
 lib/core/ui/an_pop_surface.dart	converged
 lib/core/ui/an_popover.dart	converged
@@ -344,6 +346,7 @@ lib/features/chat/state/selected_conversation.dart	converged
 lib/features/chat/state/sidestage_activity_provider.dart	pending
 lib/features/chat/state/stage_director_provider.dart	reviewed
 lib/features/chat/state/stage_expansion.dart	converged
+lib/features/chat/state/stage_group_collapse.dart	converged
 lib/features/chat/state/stage_truth.dart	converged
 lib/features/chat/state/title_reveals.dart	converged
 lib/features/chat/state/touchpoint_ledger.dart	reviewed
@@ -444,6 +447,7 @@ lib/features/entities/state/rail_sort.dart	converged
 lib/features/entities/state/rel_graph_provider.dart	converged
 lib/features/entities/state/run/recent_runs_provider.dart	converged
 lib/features/entities/state/run/run_draft_store.dart	converged
+lib/features/entities/state/run/run_example.dart	converged
 lib/features/entities/state/run/run_fields.dart	converged
 lib/features/entities/state/run/run_terminal_controller.dart	converged
 lib/features/entities/state/run/run_terminal_state.dart	converged
@@ -474,7 +478,7 @@ lib/features/entities/ui/graph/graph_entity_card.dart	converged
 lib/features/entities/ui/graph/graph_labels.dart	converged
 lib/features/entities/ui/overview/entities_overview.dart	converged
 lib/features/entities/ui/run/block_tree_view.dart	converged
-lib/features/entities/ui/run/run_input_form.dart	reviewed
+lib/features/entities/ui/run/run_editor_card.dart	converged
 lib/features/entities/ui/run/run_terminal.dart	converged
 lib/features/notifications/data/notification_demo_fixture.dart	reviewed
 lib/features/notifications/data/notification_fixture.dart	converged

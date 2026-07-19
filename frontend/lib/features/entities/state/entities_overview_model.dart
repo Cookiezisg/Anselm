@@ -90,6 +90,29 @@ RelationGroups relationGroupsFor(String id, List<EntityRelation> edges) => Relat
       links: [for (final e in edges) if (e.fromId == id && e.kind == 'link') e],
     );
 
+/// The default RIPPLE FOCUS for the relationship graph (v2「涟漪焦点星图」): the most-recently-touched entity
+/// that is ALSO a graph node. The relgraph snapshot is structure-only ([EntityNode] carries no timestamp),
+/// so freshness comes from the rail groups' loaded rows (`updatedAt`, the same signal the rail's default
+/// «recent» sort + the Overview's «最近更新» ledger use), cross-referenced with the graph's node id set.
+/// Null when the rail hasn't loaded yet or no recent row appears on the graph → the primitive falls back to
+/// the highest-degree node (the natural centre). Pure. 关系图默认涟漪焦点=最近碰过且在图上的实体 id;
+/// EntityNode 无时间戳→取 rail 已载行 updatedAt(与 rail recent 排序/总览最近更新同源),与图节点 id 交叉;
+/// rail 未载或无命中→null(原语回落入度最高)。
+String? mostRecentGraphNodeId(Iterable<EntityNode> nodes, List<RailGroup> groups) {
+  final ids = {for (final n in nodes) n.id};
+  if (ids.isEmpty) return null;
+  final rows = [
+    for (final g in groups) ...(g.state.value?.rows ?? const <EntityRow>[]),
+  ]..sort((a, b) {
+      final c = b.updatedAt.compareTo(a.updatedAt);
+      return c != 0 ? c : a.name.compareTo(b.name);
+    });
+  for (final r in rows) {
+    if (ids.contains(r.id)) return r.id;
+  }
+  return null;
+}
+
 List<EntityRow> recentEntities(List<RailGroup> groups, {int max = 5}) {
   final rows = [
     for (final g in groups) ...(g.state.value?.rows ?? const <EntityRow>[]),

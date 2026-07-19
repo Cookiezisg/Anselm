@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/touchpoint.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
@@ -18,9 +19,11 @@ import '../model/stage_director.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import '../state/conversation_stream_provider.dart';
+import '../state/pending_interactions_provider.dart';
 import '../state/rundown_provider.dart';
 import '../state/stage_director_provider.dart';
 import '../state/stage_expansion.dart';
+import '../state/stage_group_collapse.dart';
 import '../state/touchpoint_ledger.dart';
 import 'stages/attachment_pedestal.dart';
 import 'stages/scene_from_truth.dart';
@@ -70,15 +73,15 @@ class StagePanel extends ConsumerWidget {
     });
 
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      AnInspectorHead(
-        label: t.chat.stage.island,
-        // The follow three-notch + expand-all / collapse-all (all 16px, left-island icon language).
-        // 跟随三档 + 展开/收起全部(皆 16px,左岛 icon 语言)。
-        actions: [
-          _FollowMenu(),
-          _ExpandAllButton(conversationId: conversationId),
-          _CollapseAllButton(conversationId: conversationId),
-        ],
+      // §1 身份头 + §2 速览带(三段式文法, 0719): the activity/pulse identity glyph + title, EVERY panel action
+      // collapsed into ONE ⋯ (the retired「四钮杂」: follow three-notch · expand-all · collapse-all), a quiet
+      // glance strip below (触点·执行·待你处理,零人话律=有信号才在), then the first-class ✕. 身份头收编 ⋯ + 速览带。
+      AnPanelHead(
+        icon: AnIcons.activity,
+        title: t.chat.stage.island,
+        menuEntries: _panelMenuEntries(context, ref, conversationId),
+        menuSemanticLabel: t.a11y.moreActions,
+        sub: _glance(context, ref, conversationId),
         // ✕ collapses the right island (unified across every island, WRK-064). ✕ 收岛(统一)。
         onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
         closeSemantics: t.shell.togglePanel,
@@ -88,44 +91,72 @@ class StagePanel extends ConsumerWidget {
   }
 }
 
-/// The head's «展开全部» — opens the todo row + every ledger row. 展开全部。
-class _ExpandAllButton extends ConsumerWidget {
-  const _ExpandAllButton({required this.conversationId});
-
-  final String conversationId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = Translations.of(context);
-    return AnButton.iconOnly(
-      AnIcons.unfold,
-      semanticLabel: t.chat.stage.expandAll,
-      onPressed: () {
+/// The head ⋯ overflow (三段式文法 §1 — every panel action collapses here): the follow three-notch (a checked
+/// single-select radio group) then «展开全部» / «收起全部». Reads [followModeProvider] so the checks are live
+/// on the NEXT open (items close on pick). «展开全部» ALSO reveals every collapsed group (openAll) so no row
+/// expands behind a folded head; «收起全部» folds the row BODIES only (group heads + row heads stay — behavior-
+/// equivalent to the retired button). 头 ⋯:跟随三档(单选勾)+ 展开/收起全部;展开全部顺手掀组,收起全部只收行体。
+List<AnMenuEntry> _panelMenuEntries(BuildContext context, WidgetRef ref, String conversationId) {
+  final t = Translations.of(context);
+  final mode = ref.watch(followModeProvider);
+  String word(FollowMode m) => switch (m) {
+        FollowMode.always => t.chat.stage.follow.always,
+        FollowMode.firstPerConversation => t.chat.stage.follow.first,
+        FollowMode.never => t.chat.stage.follow.never,
+      };
+  return [
+    AnMenuSection(t.chat.stage.follow.label),
+    for (final m in FollowMode.values)
+      AnMenuItem(
+        label: word(m),
+        checked: mode == m,
+        onTap: () => ref.read(followModeProvider.notifier).set(m),
+      ),
+    AnMenuItem(
+      label: t.chat.stage.expandAll,
+      icon: AnIcons.unfold,
+      onTap: () {
         final ledger = ref.read(touchpointLedgerProvider(conversationId));
+        ref.read(stageGroupCollapseProvider(conversationId).notifier).openAll(); // reveal folds first 先掀组
         ref.read(stageExpansionProvider(conversationId).notifier).expandAll([
           'todo',
           for (final e in ledger.entities) '${e.kind}:${e.key}',
         ]);
       },
-    );
-  }
+    ),
+    AnMenuItem(
+      label: t.chat.stage.collapseAll,
+      icon: AnIcons.fold,
+      onTap: () => ref.read(stageExpansionProvider(conversationId).notifier).collapseAll(),
+    ),
+  ];
 }
 
-/// The head's «收起全部» — an explicit collapse that wins over the sticky-open rule. 收起全部。
-class _CollapseAllButton extends ConsumerWidget {
-  const _CollapseAllButton({required this.conversationId});
-
-  final String conversationId;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = Translations.of(context);
-    return AnButton.iconOnly(
-      AnIcons.fold,
-      semanticLabel: t.chat.stage.collapseAll,
-      onPressed: () => ref.read(stageExpansionProvider(conversationId).notifier).collapseAll(),
-    );
-  }
+/// The §2 GLANCE STRIP — one quiet [AnText.meta] line of `N 触点 · M 执行 · K 待你处理`, each segment present
+/// ONLY when its count > 0 (零人话律 = signal-only, never padded with zeros); ALL zero → null (no band). N =
+/// distinct things touched (the Cast size, `ledger.entities.length`); M = distinct things EXECUTED (entities
+/// carrying a `deleted`-free `executed` verb row); K = interactions still awaiting the user
+/// ([pendingInteractionsProvider]). Returns null → [AnPanelHead] draws no sub band. 速览带:有信号才在,全零→null。
+Widget? _glance(BuildContext context, WidgetRef ref, String conversationId) {
+  final c = context.colors;
+  final t = Translations.of(context);
+  final ledger = ref.watch(touchpointLedgerProvider(conversationId));
+  final pending = ref.watch(pendingInteractionsProvider(conversationId));
+  final n = ledger.entities.length;
+  final m = ledger.entities.where((e) => e.byVerb.containsKey(TouchpointVerb.executed)).length;
+  final k = pending.values.where((r) => r.isAwaiting).length;
+  final segs = <String>[
+    if (n > 0) t.chat.stage.glanceTouched(n: n),
+    if (m > 0) t.chat.stage.glanceExecuted(n: m),
+    if (k > 0) t.chat.stage.glanceNeedsYou(n: k),
+  ];
+  if (segs.isEmpty) return null;
+  return Text(
+    segs.join(' · '),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+    style: AnText.meta.copyWith(color: c.inkFaint),
+  );
 }
 
 /// One accordion row's spec — a ledger [entity] and/or a [view] (the live activity overlaying it), OR a
@@ -300,7 +331,12 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     });
   }
 
-  List<_RowSpec> _computeRows(
+  /// Split the sidestage into its TWO regions (三段式文法 §3): [top] = the ACTIVE / DELEGATED layer (synthetic
+  /// live rows + settled subagent runs) that always rides UNGROUPED above the fold — so the director's
+  /// auto-expand + the「live rides on top」invariant never fight a group; [ledger] = the SETTLED Cast that
+  /// [_computeItems] buckets into time tiers. 拆两区:top=活/委派层(合成 live+落定 subagent)恒不分组置顶;
+  /// ledger=落定 Cast(下由 _computeItems 按时间档分组)。
+  ({List<_RowSpec> top, List<_RowSpec> ledger}) _computeRows(
       StageState stage, TouchpointLedgerState ledger, ConversationTranscript transcript) {
     // Live activities by rowId (resolved itemId → kind:itemId; else block:<blockId> so it still shows +
     // can be auto-expanded — resolving migrates the key). 活动按 rowId(未解出用 blockId 键)。
@@ -316,13 +352,14 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
       addView(ch, gate: false);
     }
 
-    final specs = <_RowSpec>[];
+    final top = <_RowSpec>[];
+    final ledgerRows = <_RowSpec>[];
     final ledgerKeys = {for (final e in ledger.entities) '${e.kind}:${e.key}'};
     // Synthetic live rows (a live activity with no ledger row yet) ride on top, in insertion order
     // (subject first). 合成 live 行置顶(主角先)。
     for (final entry in viewByRow.entries) {
       if (!ledgerKeys.contains(entry.key)) {
-        specs.add(_RowSpec(rowId: entry.key, view: entry.value));
+        top.add(_RowSpec(rowId: entry.key, view: entry.value));
       }
     }
     // Third source (WRK-064 B6): SETTLED subagent runs. A `Subagent` tool_call has no touchpoint (never a
@@ -335,12 +372,56 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
       if (node.isOpen) continue; // a live subagent is the director's job 活的归 director
       final rid = 'block:${node.id}';
       if (viewByRow.containsKey(rid) || ledgerKeys.contains(rid)) continue;
-      specs.add(_RowSpec(rowId: rid, subagentNode: node));
+      top.add(_RowSpec(rowId: rid, subagentNode: node));
     }
+    // The settled Cast, freshest-first (the ledger's own sort) — time-tier grouped downstream. 落定 Cast(最新先)。
     for (final e in ledger.entities) {
-      specs.add(_RowSpec(rowId: '${e.kind}:${e.key}', entity: e, view: viewByRow['${e.kind}:${e.key}']));
+      ledgerRows.add(_RowSpec(rowId: '${e.kind}:${e.key}', entity: e, view: viewByRow['${e.kind}:${e.key}']));
     }
-    return specs;
+    return (top: top, ledger: ledgerRows);
+  }
+
+  /// The flat display list (三段式文法 §3, 用户 0719 改判 kind→时间档——kind 轴 12 条 10 头「目录病」被否决):
+  /// todo (row 0) · the ungrouped [top] active layer · then the settled Cast bucketed into three TIME tiers by
+  /// each row's last-touched time (刚刚 = the current turn / a fixed 10-min window; 早些时候 = earlier today;
+  /// 更早 = past days), each a [_GroupHeadItem] with its [_EntityItem] rows when OPEN · then the load-more foot.
+  /// **Two anti-fragmentation rules**: an empty tier draws NO head; a SINGLE non-empty tier draws NO head at
+  /// all — bare rows (an all-刚刚 list needs no scaffolding, 零人话律; short threads stay a clean column, long
+  /// ones auto-layer). A tier FORCE-OPENS (never hides live / auto-expanded work) when it holds a live row or a
+  /// row the director/deep-jump has expanded (§3 test-lock). 按最后触碰时间分三档;空档免头、单档全裸行;含
+  /// live/展开行的档强制展开。
+  List<_Item> _computeItems(StageState stage, TouchpointLedgerState ledger,
+      ConversationTranscript transcript, Set<String> expanded, Set<String> collapsed, bool hasTodo) {
+    final split = _computeRows(stage, ledger, transcript);
+    final items = <_Item>[];
+    if (hasTodo) items.add(const _TodoItem());
+    for (final s in split.top) {
+      items.add(_TopItem(s));
+    }
+    // Bucket into the three time tiers by lastAt (each list stays freshest-first — the ledger's own sort).
+    // 按 lastAt 分三时间档(各档仍最新先)。
+    final now = DateTime.now();
+    final tiers = {for (final k in stageTierOrder) k: <_RowSpec>[]};
+    for (final s in split.ledger) {
+      tiers[sidestageTierKey(s.entity!.lastAt, now)]!.add(s);
+    }
+    final nonEmpty = [for (final k in stageTierOrder) if (tiers[k]!.isNotEmpty) k];
+    // A single non-empty tier → bare rows, no heads (anti-目录病). 单档=裸行、无头。
+    final grouped = nonEmpty.length > 1;
+    for (final tierKey in nonEmpty) {
+      final group = tiers[tierKey]!;
+      if (grouped) {
+        final forced = group.any((s) => s.live || expanded.contains(s.rowId));
+        final open = forced || !collapsed.contains(tierKey);
+        items.add(_GroupHeadItem(tierKey: tierKey, count: group.length, open: open));
+        if (!open) continue;
+      }
+      for (final s in group) {
+        items.add(_EntityItem(s));
+      }
+    }
+    if (ledger.hasMore) items.add(const _FootItem());
+    return items;
   }
 
   @override
@@ -350,16 +431,17 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     final stage = ref.watch(stageDirectorProvider(conversationId));
     final ledger = ref.watch(touchpointLedgerProvider(conversationId));
     final expanded = ref.watch(stageExpansionProvider(conversationId));
+    final collapsed = ref.watch(stageGroupCollapseProvider(conversationId));
     final boards = ref.watch(rundownProvider(conversationId));
     final transcript = ref.watch(conversationStreamProvider(conversationId).notifier).transcript;
     _syncTranscript(transcript);
 
     final hasTodo = boards.values.any((b) => b.todos.isNotEmpty);
-    final rows = _computeRows(stage, ledger, transcript.value);
+    final items = _computeItems(stage, ledger, transcript.value, expanded, collapsed, hasTodo);
 
-    // Empty / loading / failed — only when there's nothing to show at all (no rows, no todo, no live).
-    // 空/加载/失败:仅当无行、无 todo、无 live。
-    if (rows.isEmpty && !hasTodo) {
+    // Empty / loading / failed — only when there's nothing to show at all (no group, no todo, no live/foot).
+    // 空/加载/失败:仅当全无(无组、无 todo、无 live/脚)。
+    if (items.isEmpty) {
       if (!ledger.hydrated && ledger.loading) {
         return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
       }
@@ -384,7 +466,6 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
       );
     }
 
-    final todoCount = hasTodo ? 1 : 0;
     return NotificationListener<ScrollNotification>(
       onNotification: _onScroll,
       child: ListView.builder(
@@ -393,41 +474,127 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         // accordion AnRow洗底 flush to the island pad edge like the LEFT island's rail rows (island 12 + row
         // s8 = text at 20). 水平 0:岛壳 12 即唯一岛级内距,行洗底到 pad 缘,与左岛逐像素同几何。
         padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
-        itemCount: todoCount + rows.length + (ledger.hasMore ? 1 : 0),
-        itemBuilder: (context, i) {
-          if (hasTodo && i == 0) {
-            return KeyedSubtree(
-              key: _keyFor('todo'),
-              child: _TodoRow(conversationId: conversationId, open: expanded.contains('todo')),
-            );
-          }
-          final idx = i - todoCount;
-          if (idx >= rows.length) {
-            // load-more foot — fires on becoming visible, DEFERRED out of build: loadMore() synchronously
-            // mutates the ledger provider this widget watches, and calling it inside itemBuilder (a build
-            // phase) trips Riverpod's «modify a provider while building» guard. 载更多脚:post-frame 延迟出
-            // build——loadMore 同步变异本 widget watch 的 provider,build 期直调会触发 Riverpod 守卫。
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) ref.read(touchpointLedgerProvider(conversationId).notifier).loadMore();
-            });
-            return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
-          }
-          final spec = rows[idx];
-          return KeyedSubtree(
-            key: _keyFor(spec.rowId),
-            child: _StageRow(
-              conversationId: conversationId,
-              spec: spec,
-              open: expanded.contains(spec.rowId),
-              transcript: transcript,
-              stagePhase: stage.phase,
-              subjectBlockId: stage.subject?.blockId,
-            ),
-          );
-        },
+        itemCount: items.length,
+        itemBuilder: (context, i) => _buildItem(context, items[i], expanded, transcript, stage),
       ),
     );
   }
+
+  Widget _buildItem(BuildContext context, _Item item, Set<String> expanded,
+      CoalescingNotifier<ConversationTranscript> transcript, StageState stage) {
+    switch (item) {
+      case _TodoItem():
+        return KeyedSubtree(
+          key: _keyFor('todo'),
+          child: _TodoRow(conversationId: conversationId, open: expanded.contains('todo')),
+        );
+      // A ungrouped active-layer row (live / settled subagent) OR a grouped settled Cast row — both render
+      // through the same [_StageRow]; only their placement differs. 活层行与分组 Cast 行同渲,仅位置异。
+      case _TopItem(:final spec) || _EntityItem(:final spec):
+        return KeyedSubtree(
+          key: _keyFor(spec.rowId),
+          child: _StageRow(
+            conversationId: conversationId,
+            spec: spec,
+            open: expanded.contains(spec.rowId),
+            transcript: transcript,
+            stagePhase: stage.phase,
+            subjectBlockId: stage.subject?.blockId,
+          ),
+        );
+      case _GroupHeadItem(:final tierKey, :final count, :final open):
+        return KeyedSubtree(
+          key: _keyFor('group:$tierKey'),
+          child: _GroupHead(conversationId: conversationId, tierKey: tierKey, count: count, open: open),
+        );
+      case _FootItem():
+        // load-more foot — fires on becoming visible, DEFERRED out of build: loadMore() synchronously
+        // mutates the ledger provider this widget watches, and calling it inside itemBuilder (a build phase)
+        // trips Riverpod's «modify a provider while building» guard. 载更多脚:post-frame 延迟(build 期直调触发守卫)。
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) ref.read(touchpointLedgerProvider(conversationId).notifier).loadMore();
+        });
+        return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
+    }
+  }
+}
+
+/// One display-list item (三段式文法 §3) — the accordion flattens to these so index math stays honest across
+/// todo / active-layer / group-head / grouped-row / foot. 展平列一项(分组后索引仍诚实)。
+sealed class _Item {
+  const _Item();
+}
+
+class _TodoItem extends _Item {
+  const _TodoItem();
+}
+
+/// An ungrouped ACTIVE-LAYER row — a synthetic live activity or a settled subagent run, riding above the fold.
+class _TopItem extends _Item {
+  const _TopItem(this.spec);
+  final _RowSpec spec;
+}
+
+/// A time-tier GROUP head (permanent chevron + count). [tierKey] = the [stageTierOrder] fold token; [open] is the
+/// RESOLVED state (user fold ∪ force-open). 时间档组头。
+class _GroupHeadItem extends _Item {
+  const _GroupHeadItem({required this.tierKey, required this.count, required this.open});
+  final String tierKey;
+  final int count;
+  final bool open;
+}
+
+/// A settled Cast row living inside its time tier. 落定 Cast 行(在其时间档内)。
+class _EntityItem extends _Item {
+  const _EntityItem(this.spec);
+  final _RowSpec spec;
+}
+
+class _FootItem extends _Item {
+  const _FootItem();
+}
+
+/// A top-level TIME-TIER group head (三段式文法 §3, 用户 0719 改判 kind→时间档) — the settled Cast buckets by
+/// last-touched time into 刚刚 / 早些时候 / 更早, the head speaking the SAME [AnRow] language as the left
+/// island's Pinned/Recents heads + the notification tray's time buckets (照通知托盘): a PERMANENT lead chevron
+/// (icon-free collapsible row) + a count meta, NO ⋯ — one grammar across left-island / tray / right-island.
+/// Fold state lives in [stageGroupCollapseProvider] keyed by the tier token (orthogonal to the row-level sticky
+/// accordion). 顶层时间档组头:常驻箭头 + 计数、无 ⋯,与左岛/托盘同一 AnRow 文法;折叠态按档 key 外置。
+class _GroupHead extends ConsumerWidget {
+  const _GroupHead({
+    required this.conversationId,
+    required this.tierKey,
+    required this.count,
+    required this.open,
+  });
+
+  final String conversationId;
+  final String tierKey;
+  final int count;
+  final bool open;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    void toggle() => ref.read(stageGroupCollapseProvider(conversationId).notifier).toggle(tierKey);
+    return AnRow(
+      collapsible: true,
+      open: open,
+      label: _tierLabel(context, tierKey),
+      meta: '$count',
+      onSelect: toggle,
+      onToggle: toggle,
+    );
+  }
+}
+
+/// The localized name of a time tier (三段式文法 §3). 时间档本地化名。
+String _tierLabel(BuildContext context, String tierKey) {
+  final t = Translations.of(context).chat.stage;
+  return switch (tierKey) {
+    'just' => t.groupJustNow,
+    'today' => t.groupEarlierToday,
+    _ => t.groupEarlier,
+  };
 }
 
 /// The todo board pinned as row zero — a progress-RING lead (blue = done), «Tasks» + done/total, a
@@ -763,41 +930,6 @@ class _GenericStageState extends State<_GenericStage> {
   }
 }
 
-/// The follow-mode three-notch menu on the sidestage head — the standing «AI 干活自动展开» consent, its
-/// pulse (activity) icon at the 16px chrome tier. 跟随三档菜单(activity 脉冲 icon)。
-class _FollowMenu extends ConsumerWidget {
-  const _FollowMenu();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = Translations.of(context);
-    final mode = ref.watch(followModeProvider);
-    String word(FollowMode m) => switch (m) {
-          FollowMode.always => t.chat.stage.follow.always,
-          FollowMode.firstPerConversation => t.chat.stage.follow.first,
-          FollowMode.never => t.chat.stage.follow.never,
-        };
-    return AnMenu(
-      anchorBuilder: (context, toggle, isOpen) => AnTooltip(
-        message: '${t.chat.stage.follow.label} · ${word(mode)}',
-        child: AnButton.iconOnly(
-          AnIcons.activity,
-          semanticLabel: '${t.chat.stage.follow.label} · ${word(mode)}',
-          onPressed: toggle,
-        ),
-      ),
-      entries: [
-        AnMenuSection(t.chat.stage.follow.label),
-        for (final m in FollowMode.values)
-          AnMenuItem(
-            label: word(m),
-            checked: mode == m,
-            onTap: () => ref.read(followModeProvider.notifier).set(m),
-          ),
-      ],
-    );
-  }
-}
 
 /// The live run scroll of a poll-type stage: the flowrun's node ticks, newest last — node id in mono, a
 /// status word, the taken `port` as a quiet accent badge; the durable terminal closes with one honest

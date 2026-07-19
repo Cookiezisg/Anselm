@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:math' as math;
 import 'dart:ui' show PointMode;
 
@@ -10,40 +11,44 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../graph/force_layout.dart';
+import '../graph/relation_graph_config.dart';
 import 'an_a11y.dart';
 import 'an_button.dart';
 import 'an_floating_bar.dart';
-import 'entity_kind_visual.dart';
 import 'icons.dart';
 
 /// The entity-relationship graph primitive — a force-directed node-link view of the workspace topology,
 /// for the Entities Overview (observing state = a [framed] preview inside the 720 column) and the
-/// full-page explore state. Same HYBRID architecture the design system mandates (§2, WRK-069 S5) and
-/// [AnGraphCanvas] already proves: identity-bearing NODES are real widgets (colour dot + label + focus +
-/// semantics — a painter's nodes can't be Tab-traversed on desktop), inert FURNITURE (edges + dot grid) is
-/// a cached [CustomPaint] underlay, and the viewport rides a plain [InteractiveViewer] (pan / wheel-zoom /
-/// pinch). Layout comes from the framework-free [ForceLayout] engine; this widget only DRIVES it (a Ticker
-/// during the drag squeeze, stopped at rest → zero repaint) and RENDERS it.
+/// full-page explore state. v2「涟漪焦点星图」(用户 0719 拍板): one FOCUS node (default = the most-recently-
+/// touched entity, [focusId], supplied by the caller since [EntityNode] has no timestamp) glows and sits a
+/// touch larger; colour intensity ripples OUT from it by graph distance — near = vivid, far fades to a quiet
+/// veil (hue never changes, only opacity). Hovering any node moves the ripple there as a preview; moving off
+/// returns it to the definitive focus. All colour / radius / ripple / force numbers live in
+/// [RelationGraphConfig]; this widget carries no visual literal.
 ///
-/// Selection is CONTROLLED ([selectedId] + [onNodeTap]) — the page derives it from the URL, the graph
-/// never owns it. Semantic sentences are caller callbacks ([nodeSemanticLabel] / [edgeSemanticLabel] /
-/// [semanticSummary]) exactly as [AnRunMatrix] takes its label callbacks (the primitive stays i18n-light;
-/// only the shared zoom chrome reads `t.a11y.graph*`).
+/// Same HYBRID architecture the design system mandates (§2) and [AnGraphCanvas] proves: identity-bearing
+/// NODES are real widgets (fog dot + label + focus + semantics), inert FURNITURE (edges + dot grid) is a
+/// cached [CustomPaint] underlay, and the viewport rides a plain [InteractiveViewer]. Layout comes from the
+/// framework-free [ForceLayout] engine (four forces + component packing); this widget only DRIVES it (a
+/// Ticker during the drag squeeze, stopped at rest → zero repaint) and RENDERS it.
 ///
-/// 实体关系图原语——力导向节点连线,呈现 workspace 拓扑,供 Entities 总览(观赏态=720 列内 framed 预览)与全页
-/// 探索态。混合架构(设计系统 §2 立法、AnGraphCanvas 已证):带身份的节点=真 widget(色点+标签+焦点+语义,
-/// 画布节点桌面上无法 Tab 遍历),惰性家具(边+点阵)=缓存 CustomPaint 底层,视口骑原生 InteractiveViewer。布局来自
-/// 框架无关的 ForceLayout;本 widget 只驱动它(拖拽挤压期一个 Ticker、静止即停→零重绘)+ 渲染。选中受控,语义句走
-/// 调用方回调(照 AnRunMatrix)。
+/// Selection stays CONTROLLED ([selectedId] + [onNodeTap]); a double-tap fires [onNodeDoubleTap] (→ open the
+/// entity page); a background tap reports null (→ deselect / return to the default focus). Semantic
+/// sentences are caller callbacks exactly as [AnRunMatrix] takes its label callbacks.
+///
+/// 实体关系图原语 v2 涟漪焦点星图:一个焦点(默认=最近碰过的实体 focusId,由调用方喂——EntityNode 无时间戳)发柔光、
+/// 稍大;色彩强度从它按图距离向外涟漪衰减(近浓远淡,色相不变、只降不透明度)。hover 任意节点=涟漪临时移过去预览,
+/// 移开回定焦。全部色/半径/涟漪/力系数在 RelationGraphConfig,本件零视觉字面量。混合架构(节点真 widget、家具缓存
+/// CustomPaint、视口原生 InteractiveViewer);布局来自 force_layout(四力+分量打包),本件只驱动(拖拽 Ticker、静止即停)
+/// +渲染。选中受控,双击开实体页,点空白报 null。
 ///
 /// A test hook fired each time a node widget BUILDS — the stop-frame test asserts a settled graph rebuilds
-/// nothing. 测试钩子:每个节点 build 触发——停帧测试据此断言 settled 图零重建。
+/// nothing. 测试钩子:每个节点 build 触发。
 abstract final class RelationGraphProbe {
   @visibleForTesting
   static void Function()? onNodeBuild;
 
-  /// Fired each simulation frame (one per Ticker tick). The stop-frame test counts these to prove the
-  /// sim stops at rest. 每仿真帧触发,停帧测试据此证明静止即停。
+  /// Fired each simulation frame (one per Ticker tick). 每仿真帧触发。
   @visibleForTesting
   static void Function()? onSimFrame;
 }
@@ -53,9 +58,11 @@ class AnRelationGraph extends StatefulWidget {
     required this.nodes,
     required this.edges,
     this.selectedId,
+    this.focusId,
     this.revealId,
     this.revealToken = 0,
     this.onNodeTap,
+    this.onNodeDoubleTap,
     this.hiddenKinds = const {},
     this.framed = false,
     this.framedHeight,
@@ -68,49 +75,52 @@ class AnRelationGraph extends StatefulWidget {
     super.key,
   });
 
-  /// The active node set for the current mode (observing = structural-node subset; explore = all, or all
-  /// + provenance). The primitive lays out + renders whatever it is given. 当前模式的活节点集。
+  /// The active node set for the current mode. 当前模式的活节点集。
   final List<EntityNode> nodes;
 
   /// The active edge set (already filtered to structural verbs / provenance by the caller). 活边集。
   final List<EntityRelation> edges;
 
-  /// Controlled selection — accent-ring the node with this id (an entity id, unique across kinds). 受控选中。
+  /// Controlled selection — accent-ring the node with this id. 受控选中。
   final String? selectedId;
 
-  /// Fly-to target — when [revealToken] changes, the viewport pans to CENTER this node (the explore
-  /// state's relation-group "逐行可点=图内 fly-to"). Distinct from [selectedId] so selecting a node the
-  /// user already clicked doesn't yank the viewport; only an explicit reveal pans. 飞到目标:revealToken 变时
-  /// 视口平移居中该节点(探索态关系分组点行 fly-to);与 selectedId 分开,避免选中已点节点也夺视口。
+  /// The DEFAULT ripple focus — the most-recently-touched entity's id, computed by the caller (the graph
+  /// node carries no timestamp). When nothing is selected/hovered the ripple emanates from here; if null (or
+  /// stale) the primitive falls back to the highest-degree node. 默认涟漪焦点=最近碰过实体 id(调用方算);
+  /// 无选中/hover 时涟漪从此发出,空/失效则回落入度最高节点。
+  final String? focusId;
+
+  /// Fly-to target — when [revealToken] changes, the viewport pans to CENTER this node. 飞到目标。
   final String? revealId;
   final int revealToken;
 
-  /// Node tap → id (a background tap reports null → deselect). 点节点→id(点空白→null 取消)。
+  /// Node tap → id (a background tap reports null → deselect / return to default focus). 点节点→id(点空白→null)。
   final ValueChanged<String?>? onNodeTap;
 
-  /// Kinds hidden by the explore legend — a RENDER-ONLY filter (the layout keeps them so positions stay
-  /// stable when a kind is toggled back on). 图例隐藏的 kind:仅渲染过滤(布局保留、切回时位置稳定)。
+  /// Node double-tap → id (→ open the entity page). 双击→id(进实体页)。
+  final ValueChanged<String>? onNodeDoubleTap;
+
+  /// Kinds hidden by the explore legend — a RENDER-ONLY filter. 图例隐藏的 kind:仅渲染过滤。
   final Set<String> hiddenKinds;
 
-  /// Observing flavour: a fixed-height hairline card that pans/zooms in its own box (no page width ask).
-  /// 观赏形态:定高 hairline 卡,框内平移缩放。
+  /// Observing flavour: a fixed-height hairline card. 观赏形态:定高 hairline 卡。
   final bool framed;
   final double? framedHeight;
 
   /// Explore flavour: show the floating zoom toolbar. 探索形态:显示悬浮缩放条。
   final bool toolbar;
 
-  /// Observing: hovering the box floats a corner "展开 ↗" that enters explore with no selection. 观赏:悬停浮出「展开」。
+  /// Observing: hovering the box floats a corner "展开 ↗". 观赏:悬停浮出「展开」。
   final VoidCallback? onExpand;
   final String? expandLabel;
 
-  /// Per-node a11y sentence (coordinates baked in — desktop a11y §2). `(node, inDegree) → String`. 节点语义句。
+  /// Per-node a11y sentence. 节点语义句。
   final String Function(EntityNode node, int inDegree)? nodeSemanticLabel;
 
-  /// Per-edge relation sentence — the hover tooltip + a11y. `(edge) → String`. 边关系句(hover tooltip + a11y)。
+  /// Per-edge relation sentence. 边关系句。
   final String Function(EntityRelation edge)? edgeSemanticLabel;
 
-  /// The container semantic summary (WRK-069 §2 — the whole-graph sentence a screen reader reads). 容器摘要句。
+  /// The container semantic summary. 容器摘要句。
   final String? semanticSummary;
 
   @override
@@ -118,28 +128,28 @@ class AnRelationGraph extends StatefulWidget {
 }
 
 class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProviderStateMixin {
-  static const double _minScale = 0.25;
-  static const double _maxScale = 2.5;
-  static const double _fitMaxScale = 1.45; // small graphs may fill the box rather than float tiny in it
-  static const double _fitMinScale = 0.3;
-  static const double _wheelScaleFactor = 666.6667;
+  // Interaction constants (NOT visual tuning — those live in RelationGraphConfig). 交互常量(非视觉调参)。
   static const double _tapSlop = 5.0;
   static const double _dragSlop = 3.0;
-  static const double _labelScaleThreshold = 0.5; // below this zoom, drop labels → dots only
-  static const double _minRadius = 5.5;
-  static const double _maxRadius = 15.0;
-  static const int _degreeCap = 6; // in-degree at which the radius saturates
-  static const double _sceneMargin = 84; // scene padding around the node cloud (fit headroom, not empty bulk)
   static const double _edgeHoverThreshold = 10; // scene px
+  static const int _doubleTapMs = 300;
+  static const double _slotW = 132; // fixed label slot width 定宽标签槽
 
   final TransformationController _tc = TransformationController();
   late ForceLayout _sim;
   String _signature = '';
 
-  // Positions are centered near origin; [_origin] translates to positive scene space and [_contentSize]
-  // sizes the unconstrained child. Recomputed only on a full re-settle (init / data change), NOT per
-  // frame, so the scene never jitters. 位置以原点为中心;_origin 平移到正场景坐标,_contentSize 定尺寸;仅整体
-  // 重 settle 时重算、非逐帧,故场景不抖。
+  // Adjacency (undirected) over the current edge set — the BFS the ripple hops walk. 无向邻接:涟漪 BFS 走它。
+  Map<String, List<String>> _adj = const {};
+  Set<String> _idSet = const {};
+
+  // Ripple hops from the effective focus — recomputed each build, read live by the edge painter. 涟漪跳数图。
+  Map<String, int> _hops = const {};
+
+  // The effective focus node's fog hue — ALL edges wear it (never ink); a faint grey fallback when there is
+  // no focus at all. Set each build, read live by the edge painter. 焦点节点雾彩色相:全图边都用它(绝不 ink)。
+  Color _focusColor = const Color(0x00000000);
+
   Offset _origin = Offset.zero;
   Size _contentSize = const Size(600, 400);
 
@@ -147,17 +157,11 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
   bool _fitted = false;
   bool _labelsHidden = false;
 
-  // The sim-frame pulse: bumped each Ticker tick → drives node Positioned re-layout + the edge painter's
-  // repaint, WITHOUT rebuilding node widgets (C-016 isolation). 仿真脉冲:逐 tick 自增→驱节点重定位 + 边重绘,
-  // 不重建节点 widget。
   final ValueNotifier<int> _frame = ValueNotifier(0);
   late final Ticker _ticker;
 
-  // Interaction state (hover / drag / roving cursor) — setState-guarded so a mouse-move that stays on the
-  // same node/edge is a no-op. 交互态:hover/拖拽/roving 光标,变了才 setState。
   String? _hoverNodeId;
   String? _hoverEdgeId;
-  Set<String> _oneHop = const {};
   bool _boxHover = false;
 
   String? _dragId;
@@ -165,9 +169,9 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
   bool _draggedThisPress = false;
   Offset? _tapDownViewport;
   String? _pressedNodeId;
+  String? _lastTapId;
+  int _lastTapMs = 0;
 
-  // Roving a11y — one FocusNode per node id, exactly one (the cursor) answers Tab (see AnRunMatrix).
-  // roving:每 node 一个 FocusNode,恰一个(光标)应 Tab。
   final Map<String, FocusNode> _focusNodes = {};
   String? _cursorId;
 
@@ -192,7 +196,6 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
         });
       }
     }
-    // A fly-to request (revealToken bump) pans the viewport to centre the target. 飞到请求:平移居中目标。
     if (old.revealToken != widget.revealToken && widget.revealId != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _centerOn(widget.revealId!);
@@ -221,8 +224,6 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     super.dispose();
   }
 
-  // A cheap structural key: node ids + edge endpoints (sorted). A rename (name-only change) does NOT
-  // re-layout. 廉价结构键:node id + 边端点(排序);改名不触发重布局。
   String _sigOf(List<EntityNode> nodes, List<EntityRelation> edges) {
     final ns = [for (final n in nodes) n.id]..sort();
     final es = [for (final e in edges) '${e.fromId}>${e.toId}']..sort();
@@ -231,27 +232,47 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
 
   void _rebuildSim() {
     _signature = _sigOf(widget.nodes, widget.edges);
+    _idSet = {for (final n in widget.nodes) n.id};
+    // Undirected adjacency for the ripple BFS. 涟漪 BFS 的无向邻接。
+    final adj = <String, List<String>>{for (final n in widget.nodes) n.id: []};
+    for (final e in widget.edges) {
+      adj[e.fromId]?.add(e.toId);
+      adj[e.toId]?.add(e.fromId);
+    }
+    _adj = adj;
+    // Collision radius bakes the label box in (RelationGraphConfig) so the layout keeps labels apart. 碰撞半径含标签盒。
+    final inDeg = _inDeg;
     _sim = ForceLayout(
-      nodes: [for (final n in widget.nodes) ForceNode(n.id)],
+      params: RelationGraphConfig.forceParams,
+      nodes: [
+        for (final n in widget.nodes)
+          ForceNode(
+            n.id,
+            radius: RelationGraphConfig.collisionRadius(
+              RelationGraphConfig.nodeRadius(inDeg[n.id] ?? 0),
+              n.name,
+            ),
+          ),
+      ],
       edges: [for (final e in widget.edges) ForceEdge(e.fromId, e.toId)],
     );
     _sim.settle(); // static first paint (deterministic, zero-repaint at rest); drag animates later
     _recomputeBounds();
-    // Prune focus nodes for departed ids. 剪掉已离场 id 的焦点节点。
-    final live = {for (final n in widget.nodes) n.id};
+    final live = _idSet;
     _focusNodes.removeWhere((k, v) {
       if (live.contains(k)) return false;
       v.dispose();
       return true;
     });
     if (_cursorId == null || !live.contains(_cursorId)) {
-      _cursorId = _defaultCursor();
+      _cursorId = _degreeFallback();
     }
     _fitted = false;
   }
 
-  // Default keyboard cursor = the most-referenced node (the natural centre), else the first by id. 默认光标=入度最高。
-  String? _defaultCursor() {
+  // Highest-degree node — the natural centre; the keyboard cursor's home and the ripple's fallback focus.
+  // 入度最高节点:光标之家 + 涟漪回落焦点。
+  String? _degreeFallback() {
     if (widget.nodes.isEmpty) return null;
     final deg = _inDeg;
     final ids = [for (final n in widget.nodes) n.id]..sort();
@@ -260,6 +281,43 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
   }
 
   Map<String, int> get _inDeg => inDegrees([for (final e in widget.edges) (from: e.fromId, to: e.toId)]);
+
+  // The definitive ripple focus, before the hover preview: selection, else the caller's default (most
+  // recent), else the highest-degree fallback. 定焦(hover 之前):选中→默认(最近)→入度回落。
+  String? _definitiveFocus() {
+    for (final f in [widget.selectedId, widget.focusId]) {
+      if (f != null && _idSet.contains(f)) return f;
+    }
+    return _degreeFallback();
+  }
+
+  // The EFFECTIVE focus = the hovered node (temporary preview) if any, else the definitive focus. 有效焦点。
+  String? _effectiveFocus() {
+    final h = _hoverNodeId;
+    if (h != null && _idSet.contains(h)) return h;
+    return _definitiveFocus();
+  }
+
+  // BFS graph distance (hop count) from [focus]; unreached nodes are absent (→ clamped to the far tier).
+  // 从焦点的 BFS 图距;未达节点缺席(→衰减到最远档)。
+  Map<String, int> _computeHops(String? focus) {
+    if (focus == null || !_adj.containsKey(focus)) return const {};
+    final hops = <String, int>{focus: 0};
+    final q = Queue<String>()..add(focus);
+    while (q.isNotEmpty) {
+      final cur = q.removeFirst();
+      final d = hops[cur]!;
+      for (final nb in _adj[cur] ?? const <String>[]) {
+        if (!hops.containsKey(nb)) {
+          hops[nb] = d + 1;
+          q.add(nb);
+        }
+      }
+    }
+    return hops;
+  }
+
+  int _hopOf(String id) => _hops[id] ?? (RelationGraphConfig.nodeOpacityByHop.length - 1);
 
   void _recomputeBounds() {
     final pos = _sim.positions;
@@ -274,16 +332,14 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
       maxX = math.max(maxX, p.dx);
       maxY = math.max(maxY, p.dy);
     }
-    _origin = Offset(_sceneMargin - minX, _sceneMargin - minY);
-    _contentSize = Size(maxX - minX + _sceneMargin * 2, maxY - minY + _sceneMargin * 2);
+    const m = RelationGraphConfig.sceneMargin;
+    _origin = Offset(m - minX, m - minY);
+    _contentSize = Size(maxX - minX + m * 2, maxY - minY + m * 2);
   }
 
   Offset _sceneOf(String id) => _sim.positionOf(id) + _origin;
 
-  double _radiusOf(String id) {
-    final d = (_inDeg[id] ?? 0).clamp(0, _degreeCap) / _degreeCap;
-    return _minRadius + (_maxRadius - _minRadius) * d;
-  }
+  double _visualRadiusOf(String id) => RelationGraphConfig.nodeRadius(_inDeg[id] ?? 0);
 
   double get _scale => _tc.value.entry(0, 0);
 
@@ -292,7 +348,7 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     RelationGraphProbe.onSimFrame?.call();
     final moved = _sim.tick();
     _frame.value++;
-    if (!moved) _ticker.stop(); // static-when-settled: stop → zero repaint (next drag restarts)
+    if (!moved) _ticker.stop();
   }
 
   void _wake() {
@@ -307,12 +363,13 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
   // ── fit / zoom ──────────────────────────────────────────────────────────
   void _fit() {
     if (_viewport == Size.zero) return;
+    const m = RelationGraphConfig.sceneMargin;
     var k = math.min(
-      (_viewport.width - _sceneMargin) / _contentSize.width,
-      (_viewport.height - _sceneMargin) / _contentSize.height,
+      (_viewport.width - m) / _contentSize.width,
+      (_viewport.height - m) / _contentSize.height,
     );
-    k = k.isFinite && k > 0 ? math.min(k, _fitMaxScale) : 1;
-    k = math.max(_fitMinScale, k);
+    k = k.isFinite && k > 0 ? math.min(k, RelationGraphConfig.fitMaxScale) : 1;
+    k = math.max(RelationGraphConfig.fitMinScale, k);
     final x = (_viewport.width - _contentSize.width * k) / 2;
     final y = (_viewport.height - _contentSize.height * k) / 2;
     _tc.value = Matrix4.identity()
@@ -323,7 +380,7 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
 
   void _zoomAt(Offset anchor, double factor) {
     final k = _scale;
-    final nk = (k * factor).clamp(_minScale, _maxScale);
+    final nk = (k * factor).clamp(RelationGraphConfig.minScale, RelationGraphConfig.maxScale);
     final r = nk / k;
     if (r == 1) return;
     _tc.value = (Matrix4.identity()
@@ -336,29 +393,17 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
 
   void _zoomBy(double f) => _zoomAt(Offset(_viewport.width / 2, _viewport.height / 2), f);
 
-  // Labels drop below a zoom threshold — only on the CROSSING (guarded) so a continuous wheel doesn't
-  // rebuild every frame. 缩放阈下藏标签,仅越界时(带门)rebuild、连续滚轮不逐帧重建。
   void _syncLabels() {
-    final hide = _scale < _labelScaleThreshold;
+    final hide = _scale < RelationGraphConfig.labelScaleThreshold;
     if (hide != _labelsHidden) setState(() => _labelsHidden = hide);
   }
 
   // ── hover ─────────────────────────────────────────────────────────────────
+  // Hovering a node moves the ripple there (temporary focus preview); leaving returns to the definitive
+  // focus. 涟漪临时移到 hover 的节点,移开回定焦。
   void _setHoverNode(String? id) {
     if (_hoverNodeId == id) return;
-    setState(() {
-      _hoverNodeId = id;
-      if (id == null) {
-        _oneHop = const {};
-      } else {
-        final s = <String>{id};
-        for (final e in widget.edges) {
-          if (e.fromId == id) s.add(e.toId);
-          if (e.toId == id) s.add(e.fromId);
-        }
-        _oneHop = s;
-      }
-    });
+    setState(() => _hoverNodeId = id);
   }
 
   void _onSceneHover(Offset scene) {
@@ -428,12 +473,8 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     return n;
   }
 
-  List<String> get _visibleIds =>
-      [for (final n in widget.nodes) if (!_hidden(n.kind)) n.id];
+  List<String> get _visibleIds => [for (final n in widget.nodes) if (!_hidden(n.kind)) n.id];
 
-  // Directional nearest-neighbour: from the cursor, pick the visible node best matching [dir] — inside a
-  // 90° cone, scored by along-axis distance + a perpendicular penalty. Off the cone → false (traversal
-  // escapes). 方向最近邻:光标出发,90° 锥内按轴向距 + 垂直惩罚选最优;锥外返 false 让遍历逃出。
   bool _move(TraversalDirection dir) {
     final from = _cursorId;
     if (from == null) return false;
@@ -450,9 +491,9 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
       if (id == from) continue;
       final v = _sceneOf(id) - origin;
       final along = v.dx * ax + v.dy * ay;
-      if (along <= 1) continue; // wrong side / same
+      if (along <= 1) continue;
       final perp = (v.dx * -ay + v.dy * ax).abs();
-      if (perp > along) continue; // outside the 90° cone
+      if (perp > along) continue;
       final score = along + perp * 2;
       if (score < bestScore) {
         bestScore = score;
@@ -468,12 +509,25 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     return true;
   }
 
-  String _nodeSentence(EntityNode n) =>
-      widget.nodeSemanticLabel?.call(n, _inDeg[n.id] ?? 0) ?? n.name;
+  String _nodeSentence(EntityNode n) => widget.nodeSemanticLabel?.call(n, _inDeg[n.id] ?? 0) ?? n.name;
 
   void _activate(String id) {
     setState(() => _cursorId = id);
     widget.onNodeTap?.call(id);
+  }
+
+  // A tap is a double-tap if it lands on the same node within the window; the double fires the navigation
+  // intent, the single fires selection. 同节点窗内二次点击=双击(导航),单击=选中。
+  void _tapNode(String id) {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (_lastTapId == id && now - _lastTapMs < _doubleTapMs) {
+      _lastTapId = null;
+      widget.onNodeDoubleTap?.call(id);
+      return;
+    }
+    _lastTapId = id;
+    _lastTapMs = now;
+    _activate(id);
   }
 
   // ── build ───────────────────────────────────────────────────────────────
@@ -481,6 +535,14 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
   Widget build(BuildContext context) {
     final c = context.colors;
     final gc = context.graphColors;
+
+    // Resolve the ripple focus, its hops, and its fog hue once per build; node widgets read their hop as a
+    // prop, the edge painter reads [_hops] + [_focusColor] live. 每 build 解一次涟漪焦点+跳数+雾彩色相。
+    final focus = _effectiveFocus();
+    _hops = _computeHops(focus);
+    final focusKind =
+        focus == null ? null : widget.nodes.where((n) => n.id == focus).map((n) => n.kind).firstOrNull;
+    _focusColor = focusKind == null ? gc.edge : RelationGraphConfig.fogColor(focusKind);
 
     final stage = ClipRect(
       child: LayoutBuilder(builder: (context, constraints) {
@@ -509,9 +571,9 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
             if (dragged) return;
             if (down == null || (e.localPosition - down).distance > _tapSlop) return;
             if (pressed != null) {
-              _activate(pressed);
+              _tapNode(pressed);
             } else {
-              widget.onNodeTap?.call(null); // background tap → deselect
+              widget.onNodeTap?.call(null); // background tap → deselect / return to default focus
             }
           },
           child: MouseRegion(
@@ -530,12 +592,12 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
                     transformationController: _tc,
                     constrained: false,
                     boundaryMargin: const EdgeInsets.all(double.infinity),
-                    minScale: _minScale,
-                    maxScale: _maxScale,
-                    scaleFactor: _wheelScaleFactor,
+                    minScale: RelationGraphConfig.minScale,
+                    maxScale: RelationGraphConfig.maxScale,
+                    scaleFactor: RelationGraphConfig.wheelScaleFactor,
                     panEnabled: _dragId == null,
                     onInteractionUpdate: (_) => _syncLabels(),
-                    child: _scene(context, c, gc),
+                    child: _sceneWidget(context, c, gc),
                   ),
                 ),
               ),
@@ -601,9 +663,7 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     );
   }
 
-  Widget _scene(BuildContext context, AnColors c, GraphColors gc) {
-    // Canvas text is geometry-locked; a11y font scaling would overflow — magnification is the zoom's job.
-    // 画布文本几何锁定,辅助字号放大会溢出——放大归缩放。
+  Widget _sceneWidget(BuildContext context, AnColors c, GraphColors gc) {
     return MediaQuery.withNoTextScaling(
       child: SizedBox(
         width: _contentSize.width,
@@ -616,53 +676,13 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
               child: IgnorePointer(
                 child: RepaintBoundary(
                   child: CustomPaint(
-                    painter: _EdgePainter(
-                      state: this,
-                      edge: gc.edge,
-                      ink: c.ink,
-                      accent: c.accent,
-                      repaint: _frame,
-                    ),
+                    painter: _EdgePainter(state: this, focusColor: _focusColor, repaint: _frame),
                   ),
                 ),
               ),
             ),
             for (final n in widget.nodes)
-              if (!_hidden(n.kind))
-                ValueListenableBuilder<int>(
-                  valueListenable: _frame,
-                  child: _RelationNode(
-                    key: ValueKey('relNode_${n.id}'),
-                    node: n,
-                    radius: _radiusOf(n.id),
-                    color: entityKindColor(context, n.kind),
-                    selected: n.id == widget.selectedId,
-                    dim: _hoverNodeId != null && !_oneHop.contains(n.id),
-                    hovered: _hoverNodeId == n.id,
-                    labelHidden: _labelsHidden,
-                    focusNode: _focusFor(n.id, cursor: n.id == _cursorId),
-                    semanticLabel: _nodeSentence(n),
-                    onActivate: () => _activate(n.id),
-                    onHover: (h) => _setHoverNode(h ? n.id : null),
-                    onPressStart: () => _pressedNodeId = n.id,
-                    onDragStart: () => _startDrag(n.id),
-                    onDragUpdate: _updateDrag,
-                    onDragEnd: _endDrag,
-                    dragSlop: _dragSlop,
-                  ),
-                  builder: (context, _, child) {
-                    final p = _sceneOf(n.id);
-                    final r = _radiusOf(n.id);
-                    // Fixed-width slot centered on the node position; the dot sits at top-center, label
-                    // below. 定宽槽居中于节点位:点在顶部居中,标签在下。
-                    return Positioned(
-                      left: p.dx - _slotW / 2,
-                      top: p.dy - r,
-                      width: _slotW,
-                      child: child!,
-                    );
-                  },
-                ),
+              if (!_hidden(n.kind)) _nodeWidget(n),
             if (_hoverEdgeId != null) _edgeTooltip(context, c),
           ]),
         ),
@@ -670,7 +690,47 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     );
   }
 
-  static const double _slotW = 132;
+  // One node's Positioned+draw pair. hop/focus/label are resolved at THIS build (the state's build), baked
+  // into the [_RelationNode] `child`; the ValueListenableBuilder only REPOSITIONS on each sim frame, never
+  // rebuilds the child — so drag stays zero-node-rebuild (C-016). 节点定位+渲染:hop/焦点/标签在本次 build 定,
+  // 烙进 child;帧仅重定位、不重建 child(拖拽零节点重建)。
+  Widget _nodeWidget(EntityNode n) {
+    final hop = _hopOf(n.id);
+    final labelVisible = !_labelsHidden &&
+        RelationGraphConfig.labelVisible(hop: hop, scale: _scale, nodeCount: _idSet.length);
+    return ValueListenableBuilder<int>(
+      valueListenable: _frame,
+      child: _RelationNode(
+        key: ValueKey('relNode_${n.id}'),
+        node: n,
+        radius: _visualRadiusOf(n.id),
+        color: RelationGraphConfig.fogColor(n.kind),
+        hop: hop,
+        focused: hop == 0,
+        selected: n.id == widget.selectedId,
+        labelVisible: labelVisible,
+        focusNode: _focusFor(n.id, cursor: n.id == _cursorId),
+        semanticLabel: _nodeSentence(n),
+        onActivate: () => _activate(n.id),
+        onHover: (h) => _setHoverNode(h ? n.id : null),
+        onPressStart: () => _pressedNodeId = n.id,
+        onDragStart: () => _startDrag(n.id),
+        onDragUpdate: _updateDrag,
+        onDragEnd: _endDrag,
+        dragSlop: _dragSlop,
+      ),
+      builder: (context, _, child) {
+        final p = _sceneOf(n.id);
+        final r = _visualRadiusOf(n.id) + RelationGraphConfig.focusRadiusBonus;
+        return Positioned(
+          left: p.dx - _slotW / 2,
+          top: p.dy - r,
+          width: _slotW,
+          child: child!,
+        );
+      },
+    );
+  }
 
   Widget _edgeTooltip(BuildContext context, AnColors c) {
     final edge = widget.edges.where((e) => e.id == _hoverEdgeId).firstOrNull;
@@ -713,9 +773,6 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
   }
 }
 
-/// Arrow-key navigation → nearest-neighbour hop; off the cone hands the intent back to the framework so
-/// the user escapes the graph rather than being trapped (the MenuAnchor/AnRunMatrix precedent). 方向键→最近邻;
-/// 锥外交还框架、用户逃出不被困。
 class _RelationDirectionalFocusAction extends DirectionalFocusAction {
   _RelationDirectionalFocusAction(this.state);
   final _AnRelationGraphState state;
@@ -727,18 +784,18 @@ class _RelationDirectionalFocusAction extends DirectionalFocusAction {
   }
 }
 
-/// One graph node — a kind-coloured dot (radius by in-degree) + a name label, a real widget so focus,
-/// tooltip and semantics come free. The dot is the only hit target (labels IgnorePointer so overlapping
-/// labels never steal a tap). 一个图节点:kind 色点(半径随入度)+ 名字标签,真 widget;点是唯一命中目标。
+/// One graph node — a fog-coloured dot (its opacity rippling by [hop] from the focus; the FOCUS at hop 0
+/// glows and grows) + a name label. A real widget so focus/tooltip/semantics come free; the dot is the only
+/// hit target (labels IgnorePointer). 一个图节点:fog 色点(不透明度随距焦点跳数 hop 涟漪,焦点发柔光并变大)+名字。
 class _RelationNode extends StatefulWidget {
   const _RelationNode({
     required this.node,
     required this.radius,
     required this.color,
+    required this.hop,
+    required this.focused,
     required this.selected,
-    required this.dim,
-    required this.hovered,
-    required this.labelHidden,
+    required this.labelVisible,
     required this.focusNode,
     required this.semanticLabel,
     required this.onActivate,
@@ -754,10 +811,10 @@ class _RelationNode extends StatefulWidget {
   final EntityNode node;
   final double radius;
   final Color color;
+  final int hop;
+  final bool focused;
   final bool selected;
-  final bool dim;
-  final bool hovered;
-  final bool labelHidden;
+  final bool labelVisible;
   final FocusNode focusNode;
   final String semanticLabel;
   final VoidCallback onActivate;
@@ -780,36 +837,67 @@ class _RelationNodeState extends State<_RelationNode> {
   Widget build(BuildContext context) {
     RelationGraphProbe.onNodeBuild?.call();
     final c = context.colors;
-    final r = widget.radius;
-    final opacity = widget.dim ? 0.28 : 1.0;
+    // Ripple: hue fixed, opacity fades by hop. The focus grows a touch and wears a soft fog halo; the first
+    // ring gets a fainter one. 涟漪:色相不变、不透明度随跳数淡;焦点稍大+柔光,一跳更弱柔光。
+    final opacity = RelationGraphConfig.nodeOpacity(widget.hop);
+    final r = widget.radius + (widget.focused ? RelationGraphConfig.focusRadiusBonus : 0);
 
+    final List<BoxShadow>? glow = widget.focused
+        ? [
+            BoxShadow(
+              color: widget.color.withValues(alpha: RelationGraphConfig.focusGlowAlpha),
+              blurRadius: RelationGraphConfig.focusGlowBlur,
+              spreadRadius: RelationGraphConfig.focusGlowSpread,
+            ),
+          ]
+        : widget.hop == 1
+            ? [
+                BoxShadow(
+                  color: widget.color.withValues(alpha: RelationGraphConfig.oneHopGlowAlpha),
+                  blurRadius: RelationGraphConfig.focusGlowBlur * 0.6,
+                ),
+              ]
+            : null;
+
+    // Every dot wears a canvas-coloured halo stroke (Obsidian/Gephi) so it lifts off the edge layer; a
+    // SELECTED node swaps it for the accent ring. 每个点画布色描边抬离边层;选中换 accent 环。
     final dot = Container(
       width: r * 2,
       height: r * 2,
       decoration: BoxDecoration(
         color: widget.color,
         shape: BoxShape.circle,
-        border: widget.selected
-            ? Border.all(color: c.accent, width: 2)
-            : (widget.hovered ? Border.all(color: c.ink, width: 1.4) : null),
-        boxShadow: widget.selected || widget.hovered ? c.shadowIsland : null,
+        border: Border.all(
+          color: widget.selected ? c.accent : c.canvas,
+          width: widget.selected ? 2 : RelationGraphConfig.nodeStroke,
+        ),
+        boxShadow: glow,
       ),
     );
 
-    final label = widget.labelHidden
-        ? const SizedBox.shrink()
-        : Padding(
+    // Text is EXEMPT from the no-ink rule (that bans LINES); the focus label is 13/emphasis ink, the ring
+    // muted, the rest faint. Re-weight via `.weight()` (VF pinned-axis rule). 文字不在禁 ink 之列(禁的是线)。
+    final labelStyle = (widget.focused ? AnText.label.weight(AnText.emphasisWeight) : AnText.meta).copyWith(
+      color: widget.selected
+          ? c.accent
+          : widget.focused
+              ? c.ink
+              : widget.hop <= 1
+                  ? c.inkMuted
+                  : c.inkFaint,
+    );
+    final label = widget.labelVisible
+        ? Padding(
             padding: const EdgeInsets.only(top: AnSpace.s4),
             child: Text(
               widget.node.name,
               maxLines: 1,
               textAlign: TextAlign.center,
               overflow: TextOverflow.ellipsis,
-              style: AnText.meta.copyWith(
-                color: widget.selected ? c.accent : c.inkMuted,
-              ),
+              style: labelStyle,
             ),
-          );
+          )
+        : const SizedBox.shrink();
 
     final interactive = FocusableActionDetector(
       focusNode: widget.focusNode,
@@ -830,8 +918,6 @@ class _RelationNodeState extends State<_RelationNode> {
       ),
     );
 
-    // Raw Listener owns the press for drag (slop separates a move from a tap) + records the pressed node
-    // for the viewport tap detector. 裸 Listener 掌管按下:slop 分拖/点 + 记按下节点供视口点击探测。
     final dotHit = Listener(
       behavior: HitTestBehavior.opaque,
       onPointerDown: (e) {
@@ -872,60 +958,55 @@ class _RelationNodeState extends State<_RelationNode> {
   }
 }
 
-/// Edge underlay — hairline grey polylines, NO arrowheads (direction is textualized in the tooltip/card).
-/// Reads live positions from the state each paint (repaint driven by the frame pulse). On node-hover the
-/// one-hop edges stay ink-ish and the rest fade; a hovered edge goes ink. 边底层:hairline 灰线、无箭头
-/// (方向文字化);逐帧读活位置;hover 节点时一跳边留深、其余淡,hover 边转 ink。
+/// Edge underlay — hairline polylines, NO arrowheads. EVERY edge wears the FOCUS node's fog hue (用户 0719
+/// 真机「黑腿」禁令: never ink/black — contrast is layering, not darkening); opacity ripples by the nearer
+/// endpoint's hop (focus-incident edges medium ~0.55, unrelated a faint fog texture), and the one edge under
+/// the cursor rides the same hue at [RelationGraphConfig.edgeHoverAlpha] + extra width. Reads live positions
+/// + the state's [_hops] each paint. 边底层:全用焦点节点雾彩色相(绝不 ink/黑,对比靠层次),不透明度随较近端点
+/// 跳数涟漪;光标下那条同色相高透明度+加宽。
 class _EdgePainter extends CustomPainter {
   _EdgePainter({
     required this.state,
-    required this.edge,
-    required this.ink,
-    required this.accent,
+    required this.focusColor,
     required Listenable repaint,
   }) : super(repaint: repaint);
 
   final _AnRelationGraphState state;
-  final Color edge;
-  final Color ink;
-  final Color accent;
+  final Color focusColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = state.widget;
-    final hoverNode = state._hoverNodeId;
     final hoverEdge = state._hoverEdgeId;
     for (final e in w.edges) {
       if (state._hidden(e.fromKind) || state._hidden(e.toKind)) continue;
       final a = state._sceneOf(e.fromId), b = state._sceneOf(e.toId);
-      final incident = hoverNode != null && (e.fromId == hoverNode || e.toId == hoverNode);
       final isHover = e.id == hoverEdge;
-      Color color;
-      double width;
+      final Color color;
+      final double width;
       if (isHover) {
-        color = ink;
-        width = 1.8;
-      } else if (hoverNode != null) {
-        color = incident ? accent.withValues(alpha: 0.75) : edge.withValues(alpha: 0.25);
-        width = incident ? 1.6 : 1.0;
+        color = focusColor.withValues(alpha: RelationGraphConfig.edgeHoverAlpha);
+        width = RelationGraphConfig.edgeWidthHover;
       } else {
-        color = edge;
-        width = 1.0;
+        final hop = math.min(state._hopOf(e.fromId), state._hopOf(e.toId));
+        color = focusColor.withValues(alpha: RelationGraphConfig.edgeOpacity(hop));
+        width = hop == 0 ? RelationGraphConfig.edgeWidthFocus : RelationGraphConfig.edgeWidth;
       }
-      canvas.drawLine(a, b, Paint()
-        ..color = color
-        ..strokeWidth = width
-        ..strokeCap = StrokeCap.round);
+      canvas.drawLine(
+          a,
+          b,
+          Paint()
+            ..color = color
+            ..strokeWidth = width
+            ..strokeCap = StrokeCap.round);
     }
   }
 
   @override
-  bool shouldRepaint(_EdgePainter old) =>
-      old.edge != edge || old.ink != ink || old.accent != accent || !identical(old.state, state);
+  bool shouldRepaint(_EdgePainter old) => old.focusColor != focusColor || !identical(old.state, state);
 }
 
-/// The screen-fixed dot-grid backdrop (same look as the workflow canvas / empty state). One batched
-/// drawPoints. 钉屏点阵背景(同 workflow 画布/空态);一次批量 drawPoints。
+/// The screen-fixed dot-grid backdrop. One batched drawPoints. 钉屏点阵背景;一次批量 drawPoints。
 class _GridPainter extends CustomPainter {
   const _GridPainter({required this.dot});
   final Color dot;

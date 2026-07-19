@@ -89,7 +89,7 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
           AnSection(
             label: t.overview.graphHead,
             variant: AnSectionVariant.plain,
-            children: [_graphSection(context, graphAsync)],
+            children: [_graphSection(context, graphAsync, groups)],
           ),
           AnSection(
             label: t.overview.recentHead,
@@ -101,7 +101,7 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
     );
   }
 
-  Widget _graphSection(BuildContext context, AsyncValue<EntityRelGraph> async) {
+  Widget _graphSection(BuildContext context, AsyncValue<EntityRelGraph> async, List<RailGroup> groups) {
     final t = context.t.entities;
     return async.when(
       loading: () => const AnDeferredLoading(child: AnSkeleton.card()),
@@ -118,16 +118,25 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
           nodes: sub.nodes,
           edges: sub.edges,
           framed: true,
+          // Default ripple focus = the most-recently-touched entity that's on the graph (rail freshness ⋈
+          // graph nodes). 默认涟漪焦点=最近碰过且在图上的实体。
+          focusId: mostRecentGraphNodeId(sub.nodes, groups),
           nodeSemanticLabel: (n, deg) => relationNodeLabel(context, n, deg),
           edgeSemanticLabel: (e) => relationEdgeLabel(context, e),
           semanticSummary: context.t.a11y
               .relationSummary(nodes: '${sub.nodes.length}', edges: '${sub.edges.length}'),
           expandLabel: t.overview.title,
           onExpand: () => context.go('/entities/graph'),
+          // Single tap on the preview → open the full-page explore state (pre-selected). 单击→全页探索(预选)。
           onNodeTap: (id) {
             if (id == null) return;
             final kind = kindOf[id];
             context.go(kind == null ? '/entities/graph' : '/entities/graph?sel=$kind:$id');
+          },
+          // Double tap → jump straight to the entity's detail page (rail kinds only). 双击→直进实体页(仅 rail kind)。
+          onNodeDoubleTap: (id) {
+            final ek = entityKindFromWire(kindOf[id]);
+            if (ek != null) context.go(entityLocation(ek, id));
           },
         );
       },

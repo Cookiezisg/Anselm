@@ -25,6 +25,8 @@ import 'package:anselm/features/notifications/data/notification_demo_fixture.dar
 import 'package:anselm/features/settings/model/settings_catalog.dart';
 import 'package:anselm/features/settings/state/settings_panel_provider.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
+import 'package:anselm/features/entities/state/run/run_terminal_controller.dart';
+import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -56,6 +58,13 @@ const _tapAdd = String.fromEnvironment('TAPADD');
 // Optional `--dart-define=RUN=1` opens the right-island run terminal (verb CTA) + executes, to capture
 // the STEP 5 run terminal with live output. Requires SEL. 打开右岛 run 终端并执行,截运行态。
 const _run = String.fromEnvironment('RUN');
+// Optional debugger v3 (JSON-first, 0719) acceptance facets on the selected executable entity's
+// right-island debugger — NO execution. `RUNSRC=<triggerId>` swaps a workflow's payload template
+// (fire-payload of that source); `RUNEXPAND=true` expands the first recent row (IO / error digest);
+// `RUNHOVER=true` reveals its «用这份输入» key. Requires SEL executable. 调试台 v3 验收帧(不执行)。
+const _runSrc = String.fromEnvironment('RUNSRC');
+const _runExpand = bool.fromEnvironment('RUNEXPAND');
+const _runHover = bool.fromEnvironment('RUNHOVER');
 // Optional `--dart-define=COLLAPSE=1` collapses the left island (verify reopen-after-lights layout). 收起左岛。
 const _collapse = String.fromEnvironment('COLLAPSE');
 // Optional `--dart-define=OCEAN=chat|scheduler|documents|settings` switches the ocean (verify the
@@ -569,6 +578,36 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 80));
         outName = '${outName}_$_vsel';
+      }
+    }
+
+    // Debugger v3 acceptance facets (no execution) on the selected executable entity's right island.
+    // 调试台 v3 验收帧(不执行)。
+    if (selKind != null && selKind.executable && (_runSrc.isNotEmpty || _runExpand || _runHover)) {
+      final entityRef = EntityRef(selKind, selId!);
+      if (_runSrc.isNotEmpty) {
+        container.read(runTerminalProvider(entityRef).notifier).setSource(_runSrc);
+        await tester.pump(const Duration(milliseconds: 60)); // trigger detail resolves → the template
+        await tester.pump();
+        outName = '${outName}_src';
+      }
+      if (_runHover) {
+        WidgetsBinding.instance.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+        await tester.pumpAndSettle(); // scroll idle so AnHoverRegion doesn't freeze the transition 滚动落定
+        final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+        await g.addPointer(location: Offset.zero);
+        addTearDown(g.removePointer);
+        await tester.pump(); // register the pointer before moving 先泵注册指针
+        await g.moveTo(tester.getCenter(find.byType(AnLedgerRow).first));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 400)); // «用这份输入» slides out
+        outName = '${outName}_hover';
+      }
+      if (_runExpand) {
+        // The LAST recent row is the failed one (its expand shows the red error line). 末行=失败行(红句)。
+        await tester.tap(find.byType(AnLedgerRow).last, warnIfMissed: false);
+        await tester.pumpAndSettle();
+        outName = '${outName}_expand';
       }
     }
 

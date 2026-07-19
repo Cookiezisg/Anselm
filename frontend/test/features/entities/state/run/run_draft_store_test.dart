@@ -3,8 +3,9 @@ import 'package:anselm/features/entities/state/run/run_draft_store.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// 调试台参数记忆 — the session draft store: buckets keyed by (entity, dimension), reproduce
-// overwrites a bucket and bumps the revision so open forms re-seed.
+// 调试台参数记忆 (JSON-first, 0719) — the session draft store: buckets keyed by (entity, dimension) hold
+// JSON TEXT; setText writes quietly (no notify — a keystroke must not rebuild), seed is a one-time
+// idempotent fill, and fill overwrites + bumps the revision so an open editor re-seeds.
 
 void main() {
   const fn = EntityRef(EntityKind.function, 'fn_1');
@@ -16,32 +17,40 @@ void main() {
     expect(runDraftKey(hd, 'recv'), isNot(runDraftKey(hd, 'send'))); // per-method buckets 按方法分桶
   });
 
-  test('bucket: same key → same live map; different dimension → isolated values', () {
+  test('textFor: null until seeded/edited; setText writes, isolated per dimension', () {
     final store = RunDraftStore();
-    store.bucket(runDraftKey(hd, 'send'))['to'] = 'a@b.c';
-    expect(store.bucket(runDraftKey(hd, 'send'))['to'], 'a@b.c'); // survives a re-read 重读仍在
-    expect(store.bucket(runDraftKey(hd, 'recv'))['to'], isNull); // the other method is untouched
+    expect(store.textFor(runDraftKey(hd, 'send')), isNull);
+    store.setText(runDraftKey(hd, 'send'), '{"to":"a@b.c"}');
+    expect(store.textFor(runDraftKey(hd, 'send')), '{"to":"a@b.c"}');
+    expect(store.textFor(runDraftKey(hd, 'recv')), isNull); // the other method is untouched
   });
 
-  test('reproduce: overwrites the bucket, bumps revision, notifies', () {
+  test('setText is QUIET (no notify — typing must not rebuild the lifecycle)', () {
     final store = RunDraftStore();
-    store.bucket(runDraftKey(fn))['text'] = 'old';
+    var notified = 0;
+    store.addListener(() => notified++);
+    store.setText(runDraftKey(fn), '{"a":1}');
+    expect(notified, 0);
+  });
+
+  test('seed is one-time idempotent (never clobbers an existing bucket)', () {
+    final store = RunDraftStore();
+    store.seed(runDraftKey(fn), '{"seed":1}');
+    store.seed(runDraftKey(fn), '{"seed":2}'); // second seed is a no-op 幂等
+    expect(store.textFor(runDraftKey(fn)), '{"seed":1}');
+  });
+
+  test('fill: overwrites the bucket, bumps revision, notifies (an open editor re-seeds)', () {
+    final store = RunDraftStore();
+    store.setText(runDraftKey(fn), 'old');
     var notified = 0;
     store.addListener(() => notified++);
     final r0 = store.revision;
 
-    store.reproduce(runDraftKey(fn), {'text': 'from-the-ledger', 'flag': true});
+    store.fill(runDraftKey(fn), '{"text":"from-the-ledger"}');
 
-    expect(store.bucket(runDraftKey(fn)), {'text': 'from-the-ledger', 'flag': true});
-    expect(store.revision, r0 + 1); // the form keys on this → uncontrolled inputs re-seed 重播种
+    expect(store.textFor(runDraftKey(fn)), '{"text":"from-the-ledger"}');
+    expect(store.revision, r0 + 1); // the editor keys on this → re-seeds 重播种
     expect(notified, 1);
-  });
-
-  test('reproduce copies the values (later caller mutation cannot leak in)', () {
-    final store = RunDraftStore();
-    final src = <String, Object?>{'text': 'v1'};
-    store.reproduce(runDraftKey(fn), src);
-    src['text'] = 'mutated';
-    expect(store.bucket(runDraftKey(fn))['text'], 'v1');
   });
 }

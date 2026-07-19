@@ -19,6 +19,7 @@ class RecentRun {
     this.triggeredBy = '',
     this.input = const {},
     this.output,
+    this.errorMsg,
     this.method = '',
     this.triggerId,
   });
@@ -30,6 +31,7 @@ class RecentRun {
   final String triggeredBy; // chat/agent/workflow/manual … or flowrun origin 来源微标
   final Map<String, Object?> input;
   final Object? output;
+  final String? errorMsg; // failed row's error — the ledger's error message (wf: the flowrun error) 失败错句
   final String method; // handler only 仅 handler
   final String? triggerId; // workflow only — restores the SOURCE on reproduce 仅 wf,重现还原来源
 }
@@ -56,6 +58,7 @@ final recentRunsProvider =
             triggeredBy: e.triggeredBy,
             input: e.input,
             output: e.output,
+            errorMsg: e.errorMessage,
           ),
       ];
     case EntityKind.handler:
@@ -70,6 +73,7 @@ final recentRunsProvider =
             triggeredBy: e.triggeredBy,
             input: e.input,
             output: e.output,
+            errorMsg: e.errorMessage,
             method: e.method,
           ),
       ];
@@ -85,6 +89,7 @@ final recentRunsProvider =
             triggeredBy: e.triggeredBy,
             input: e.input,
             output: e.output,
+            errorMsg: e.errorMessage,
           ),
       ];
     case EntityKind.workflow:
@@ -99,6 +104,7 @@ final recentRunsProvider =
                 ? r.completedAt!.difference(r.startedAt!).inMilliseconds
                 : 0,
             triggeredBy: r.origin ?? '',
+            errorMsg: r.error,
             triggerId: r.triggerId,
           ),
       ];

@@ -1,34 +1,32 @@
-import 'dart:math' as math;
+import 'dart:ui';
 
 import 'package:anselm/core/graph/force_layout.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Headless physics proofs for the force-directed layout engine (WRK-072 three engineering laws:
-/// determinism, static-when-settled, degree→radius). No widget/socket — pure model layer.
+/// Headless proofs for the v2 force-directed layout engine (WRK-072 涟漪焦点星图): four forces (adaptive
+/// spring / repulsion / collision / weak centering) + connected-component packing + zero-degree isolate band.
+/// No widget/socket — pure model layer. 无头证明:四力+分量打包+孤点带,纯模型层。
 void main() {
-  double edgeLen(ForceLayout l, String a, String b) =>
-      (l.positionOf(a) - l.positionOf(b)).distance;
+  double edgeLen(ForceLayout l, String a, String b) => (l.positionOf(a) - l.positionOf(b)).distance;
 
   group('ForceLayout — convergence', () {
     test('a single spring relaxes toward the ideal length', () {
       final l = ForceLayout(
-        nodes: [ForceNode('a'), ForceNode('b')],
+        nodes: [ForceNode('a', radius: 6), ForceNode('b', radius: 6)],
         edges: const [ForceEdge('a', 'b')],
       );
-      l.settle();
-      // Two nodes, one spring: repulsion pushes apart, spring pulls to rest — converges near idealLength.
+      // Two leaf nodes (deg 1): rest length == idealLength, collision (minSep 12) irrelevant at this scale.
       final len = edgeLen(l, 'a', 'b');
       expect((len - l.params.idealLength).abs(), lessThan(l.params.idealLength * 0.5),
           reason: 'settled edge length $len should be within 50% of ${l.params.idealLength}');
     });
 
-    test('settle terminates and leaves the sim settled', () {
+    test('the static layout is computed in the constructor and reports settled', () {
       final l = ForceLayout(
         nodes: [for (var i = 0; i < 12; i++) ForceNode('n$i')],
         edges: [for (var i = 1; i < 12; i++) ForceEdge('n0', 'n$i')], // a star
       );
-      l.settle();
-      expect(l.settled, isTrue);
+      expect(l.settled, isTrue, reason: 'layout is terminal at construction → Ticker never starts');
       expect(l.alpha, lessThan(l.params.alphaMin));
     });
 
@@ -37,27 +35,26 @@ void main() {
         nodes: [ForceNode('a'), ForceNode('b'), ForceNode('c')],
         edges: const [ForceEdge('a', 'b'), ForceEdge('b', 'c')],
       );
-      l.settle();
       final before = {for (final id in ['a', 'b', 'c']) id: l.positionOf(id)};
       final moved = l.tick();
-      expect(moved, isFalse, reason: 'a settled sim must report no displacement so the Ticker can stop');
+      expect(moved, isFalse, reason: 'a settled sim reports no displacement so the Ticker can stop');
       for (final id in ['a', 'b', 'c']) {
-        expect(l.positionOf(id), before[id], reason: 'no position changes after settle');
+        expect(l.positionOf(id), before[id]);
       }
     });
   });
 
   group('ForceLayout — determinism (law 1)', () {
     test('same nodes+edges settle to identical positions regardless of input order', () {
-      final nodesA = [ForceNode('a'), ForceNode('b'), ForceNode('c'), ForceNode('d')];
-      final nodesB = [ForceNode('d'), ForceNode('c'), ForceNode('b'), ForceNode('a')]; // reversed
       final edgesA = const [ForceEdge('a', 'b'), ForceEdge('b', 'c'), ForceEdge('c', 'd')];
       final edgesB = const [ForceEdge('c', 'd'), ForceEdge('a', 'b'), ForceEdge('b', 'c')]; // reordered
-      final l1 = ForceLayout(nodes: nodesA, edges: edgesA)..settle();
-      final l2 = ForceLayout(nodes: nodesB, edges: edgesB)..settle();
+      final l1 = ForceLayout(
+          nodes: [ForceNode('a'), ForceNode('b'), ForceNode('c'), ForceNode('d')], edges: edgesA);
+      final l2 = ForceLayout(
+          nodes: [ForceNode('d'), ForceNode('c'), ForceNode('b'), ForceNode('a')], edges: edgesB);
       for (final id in ['a', 'b', 'c', 'd']) {
         expect(l1.positionOf(id), l2.positionOf(id),
-            reason: 'phyllotaxis-by-sorted-id + stable summation → identical shape (no shuffle)');
+            reason: 'per-component phyllotaxis-by-sorted-id + stable summation → identical shape');
       }
     });
 
@@ -72,12 +69,33 @@ void main() {
     });
   });
 
+  group('ForceLayout — collision (no label/dot overlap)', () {
+    test('after settle no two field nodes overlap (dist ≥ radius sum, within relaxation tolerance)', () {
+      // A dense star of fat nodes forces the collision constraint to do real work. 胖节点密星逼碰撞真干活。
+      final l = ForceLayout(
+        nodes: [
+          ForceNode('hub', radius: 24),
+          for (var i = 0; i < 8; i++) ForceNode('leaf$i', radius: 24),
+        ],
+        edges: [for (var i = 0; i < 8; i++) ForceEdge('hub', 'leaf$i')],
+      );
+      final ids = ['hub', for (var i = 0; i < 8; i++) 'leaf$i'];
+      for (var a = 0; a < ids.length; a++) {
+        for (var b = a + 1; b < ids.length; b++) {
+          final d = edgeLen(l, ids[a], ids[b]);
+          expect(d, greaterThan(48 * 0.85),
+              reason: '${ids[a]}/${ids[b]} distance $d should clear the 48px radius sum');
+        }
+      }
+    });
+  });
+
   group('ForceLayout — pin / reheat (drag)', () {
     test('a pinned node holds its exact position while neighbors adjust', () {
       final l = ForceLayout(
         nodes: [ForceNode('a'), ForceNode('b'), ForceNode('c')],
         edges: const [ForceEdge('a', 'b'), ForceEdge('b', 'c')],
-      )..settle();
+      );
       const held = Offset(200, 200);
       l.pin('b', held);
       expect(l.settled, isFalse, reason: 'pin reheats the sim');
@@ -89,7 +107,7 @@ void main() {
       final l = ForceLayout(
         nodes: [ForceNode('a'), ForceNode('b')],
         edges: const [ForceEdge('a', 'b')],
-      )..settle();
+      );
       expect(l.settled, isTrue);
       l.reheat();
       expect(l.settled, isFalse);
@@ -97,31 +115,94 @@ void main() {
     });
   });
 
-  group('ForceLayout — disconnected components (law: bounded)', () {
-    test('two disconnected pairs stay bounded near the origin (gravity)', () {
+  group('ForceLayout — components + isolates', () {
+    test('two disconnected pairs stay bounded near the origin', () {
       final l = ForceLayout(
         nodes: [ForceNode('a'), ForceNode('b'), ForceNode('c'), ForceNode('d')],
         edges: const [ForceEdge('a', 'b'), ForceEdge('c', 'd')], // two islands
       );
-      l.settle();
       for (final id in ['a', 'b', 'c', 'd']) {
         final p = l.positionOf(id);
-        expect(p.distance, lessThan(2000), reason: 'gravity keeps islands from drifting to infinity');
+        expect(p.distance, lessThan(2000), reason: 'packing keeps islands bounded');
         expect(p.dx.isFinite && p.dy.isFinite, isTrue);
       }
     });
 
+    test('a zero-degree isolate sits in a band BELOW the cloud and never enters the field', () {
+      final l = ForceLayout(
+        nodes: [ForceNode('hub'), ForceNode('leaf'), ForceNode('iso')],
+        edges: const [ForceEdge('hub', 'leaf')], // iso has no edge → degree 0
+      );
+      final iso = l.positionOf('iso');
+      expect(iso.dx.isFinite && iso.dy.isFinite, isTrue);
+      expect(iso.dy, greaterThan(l.positionOf('hub').dy), reason: 'isolate band is below the cloud');
+      expect(iso.dy, greaterThan(l.positionOf('leaf').dy));
+      // Dragging a field node reheats the sim; the frozen isolate must not budge. 拖场内节点,冻结孤点不动。
+      l.pin('hub', const Offset(300, 0));
+      l.settle();
+      expect(l.positionOf('iso'), iso, reason: 'a frozen isolate is outside the force field');
+    });
+
     test('a single isolated node does not crash and stays finite', () {
       final l = ForceLayout(nodes: [ForceNode('solo')], edges: const []);
-      l.settle();
       final p = l.positionOf('solo');
       expect(p.dx.isFinite && p.dy.isFinite, isTrue);
     });
 
     test('empty graph settles trivially', () {
       final l = ForceLayout(nodes: const [], edges: const []);
-      l.settle();
       expect(l.positions, isEmpty);
+      expect(l.settled, isTrue);
+    });
+
+    test('all-isolate graph spreads to distinct band positions', () {
+      final l = ForceLayout(nodes: [for (var i = 0; i < 12; i++) ForceNode('n$i', radius: 6)], edges: const []);
+      final seen = <Offset>{};
+      for (var i = 0; i < 12; i++) {
+        final p = l.positionOf('n$i');
+        expect(seen.contains(p), isFalse, reason: 'isolates spread to distinct points');
+        seen.add(p);
+      }
+    });
+  });
+
+  group('connectedComponents — pure', () {
+    test('groups by union-find, deterministic order, singletons for isolates', () {
+      final comps = connectedComponents(
+        const ['a', 'b', 'c', 'd', 'e', 'f'],
+        const [ForceEdge('a', 'b'), ForceEdge('b', 'c'), ForceEdge('e', 'd')],
+      );
+      expect(comps, [
+        ['a', 'b', 'c'], // component ids sorted, components sorted by first id
+        ['d', 'e'],
+        ['f'], // an isolate is its own singleton
+      ]);
+    });
+
+    test('self-loops do not connect a node to anything', () {
+      final comps = connectedComponents(const ['x', 'y'], const [ForceEdge('x', 'x')]);
+      expect(comps, [
+        ['x'],
+        ['y'],
+      ]);
+    });
+  });
+
+  group('packBoxes — pure', () {
+    test('placed boxes never overlap and align to the input order', () {
+      const boxes = [Size(120, 80), Size(90, 90), Size(60, 40), Size(200, 50)];
+      final origins = packBoxes(boxes, gap: 20);
+      expect(origins.length, boxes.length);
+      Rect rect(int i) => origins[i] & boxes[i];
+      for (var a = 0; a < boxes.length; a++) {
+        for (var b = a + 1; b < boxes.length; b++) {
+          expect(rect(a).overlaps(rect(b)), isFalse, reason: 'box $a and box $b must not overlap');
+        }
+      }
+    });
+
+    test('empty input → empty output', () {
+      expect(packBoxes(const [], gap: 20), isEmpty);
     });
   });
 
@@ -131,26 +212,12 @@ void main() {
         (from: 'hub', to: 'a'),
         (from: 'hub', to: 'b'),
         (from: 'x', to: 'a'),
-        (from: 'self', to: 'self'), // ignored
+        (from: 'self', to: 'self'),
       ]);
       expect(d['a'], 2);
       expect(d['b'], 1);
       expect(d['hub'], isNull, reason: 'a pure source has in-degree 0 (renders smallest/faintest)');
       expect(d['self'], isNull);
-    });
-
-    test('phyllotaxis seed positions are all distinct (no overlap)', () {
-      final l = ForceLayout(
-        nodes: [for (var i = 0; i < 30; i++) ForceNode('n$i')],
-        edges: const [],
-      );
-      final seen = <Offset>{};
-      for (var i = 0; i < 30; i++) {
-        final p = l.positionOf('n$i');
-        expect(seen.contains(p), isFalse, reason: 'phyllotaxis spreads nodes to distinct points');
-        seen.add(p);
-      }
-      expect(math.max(seen.length, 0), 30);
     });
   });
 }

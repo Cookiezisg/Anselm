@@ -71,8 +71,9 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.text('sync_inventory'), findsOneWidget);
     expect(find.text('值班手册'), findsOneWidget);
-    // Each touchpoint is a left-island AnRow (WRK-064 — the sidestage speaks the rail's row language).
-    // 每个触点是一条左岛 AnRow。
+    // Each touchpoint is a left-island AnRow (WRK-064 — the sidestage speaks the rail's row language). Both
+    // touched `now` → one time tier (刚刚) → the anti-目录病 rule renders NO group head (single tier = bare
+    // rows, 三段式文法 §3, 用户 0719). So exactly 2 AnRows. 都在同一时间档(刚刚)→ 单档免组头 → 恰 2 行。
     expect(find.byType(AnRow), findsNWidgets(2));
 
     final empty = _repo();

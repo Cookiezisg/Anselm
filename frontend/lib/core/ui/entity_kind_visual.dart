@@ -1,42 +1,26 @@
 import 'package:flutter/widgets.dart';
 
 import '../../i18n/strings.g.dart';
-import '../design/colors.dart';
+import '../graph/relation_graph_config.dart';
 
 /// THE single source for an entity KIND's visual identity, keyed by its backend wire string — the 11-kind
 /// `EntityKind` vocabulary (relation/entitykind.go): the four Quadrinity (function/handler/agent/workflow),
 /// the three support kinds (trigger/control/approval), and the four accessory kinds (skill/mcp/document/
 /// conversation) that never reach the 7-value rail enum. It has two faces here — [entityKindColor] and
-/// [entityKindWord] — with the glyph twin at `AnIcons.entityKindGlyph`. Introduced for the Entities
-/// Overview relationship graph (WRK-072), which is the first surface to COLOR entity kinds (AnRefPill
-/// renders them monochrome-outlined). 实体 kind 视觉单源(按后端线缆值),色 + 本地化词;字形孪生在
-/// AnIcons.entityKindGlyph。为总览关系图引入——首个给实体 kind 上色的面。
+/// [entityKindWord] — with the glyph twin at `AnIcons.entityKindGlyph`. Consumed by the Entities Overview
+/// relationship graph (WRK-072), the only surface that COLORS entity kinds (AnRefPill renders them
+/// monochrome-outlined). 实体 kind 视觉单源(按后端线缆值),色 + 本地化词;字形孪生在 AnIcons.entityKindGlyph。
 ///
-/// COLOUR (拍板 · 报告在案): reuses design tokens ONLY — no new colour literals (原语 #8 / 收敛律:feature 不
-/// 私铸色表). The rule is "Quadrinity pop, supporting cast recedes": the four stars wear the four vivid brand
-/// hues (function=accent blue / handler=ok green / agent=teal / workflow=violet); the 配件 wear the alert
-/// family (trigger=amber / approval=red) or steel (control); the accessory file-like kinds recede to muted
-/// grey (skill/mcp/document) with conversation faintest (pure provenance). This ALIGNS agent=teal &
-/// approval=danger with the existing `nodeKindColor` (workflow-graph) source and deliberately DEVIATES on
-/// trigger (violet→amber) and control (warn→steel) so the four Quadrinity can claim the four vivid hues —
-/// the palette carries only ~6 distinct hues, fewer than 11 kinds, so icon+label are the primary
-/// disambiguators and colour is the coarse family grouping (categorical-colour best practice).
-Color entityKindColor(BuildContext context, String wireKind) {
-  final c = context.colors;
-  final gc = context.graphColors;
-  return switch (wireKind.toLowerCase()) {
-    'function' => c.accent,
-    'handler' => c.ok,
-    'agent' => gc.teal,
-    'workflow' => gc.violet,
-    'trigger' => c.warn,
-    'approval' => c.danger,
-    'control' => c.inkMuted,
-    'skill' || 'mcp' || 'document' || 'doc' => c.inkMuted,
-    'conversation' => c.inkFaint,
-    _ => c.inkFaint,
-  };
-}
+/// COLOUR (v2「涟漪焦点星图」, 用户 0719 拍板 · 报告在案): the graph gets a DEDICATED FOG palette that lives in
+/// [RelationGraphConfig.fogColor] — deliberately DIVORCED from the AnTone/AnStatus alert colours the v1
+/// graph borrowed (red/green/amber), which the user rejected as 「脏兮兮」. Kinds differ by HUE only at one
+/// low-saturation lightness (core Quadrinity 有彩 / scheduler family 暖 / knowledge+equipment accessories 贴灰,
+/// conversation shares the document grey); intensity is the orthogonal ripple axis the graph paints on top.
+/// This function forwards to that single fog table so the node dot, the legend chip and the explore card all
+/// read one source. `context` is retained for call-site stability (the fog palette is currently theme-
+/// independent). 图色板独立于 AnTone,单源=config 的雾彩表;此函数只转发。
+Color entityKindColor(BuildContext context, String wireKind) =>
+    RelationGraphConfig.fogColor(wireKind);
 
 /// The localized noun for an entity kind (a11y labels / relation sentences). Cases = the backend
 /// EntityKind wire (`document` not `doc`, incl. control/approval) — the contract vocab, not the demo's

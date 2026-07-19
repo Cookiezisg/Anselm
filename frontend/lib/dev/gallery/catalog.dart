@@ -900,6 +900,56 @@ final GalleryCategory _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', 
           ),
         ), stress: true, span: true),
   ]),
+  GalleryItem('AnPanelHead',
+      '右岛身份头(三段式文法 §1):icon + 标题 + ⋯(面板动作全收) + ✕;可选速览带在下一行(有信号才在);右侧至多两钮', [
+    GallerySpecimen('icon + title + ⋯ menu + glance strip', (_) => SizedBox(
+          width: 320,
+          child: AnIsland(
+            child: AnPanelHead(
+              icon: AnIcons.activity,
+              title: '活动',
+              menuSemanticLabel: '更多操作',
+              menuEntries: [
+                const AnMenuSection('自动登台'),
+                AnMenuItem(label: '每次都跟', checked: true, onTap: () {}),
+                AnMenuItem(label: '每会话首次', onTap: () {}),
+                AnMenuItem(label: '从不', onTap: () {}),
+                AnMenuItem(label: '展开全部', icon: AnIcons.unfold, onTap: () {}),
+                AnMenuItem(label: '收起全部', icon: AnIcons.fold, onTap: () {}),
+              ],
+              sub: Builder(builder: (context) => Text('12 触点 · 3 执行 · 1 待你处理',
+                  maxLines: 1, overflow: TextOverflow.ellipsis,
+                  style: AnText.meta.copyWith(color: context.colors.inkFaint))),
+              onClose: () {},
+              closeSemantics: 'Close',
+            ),
+          ),
+        ), span: true),
+    GallerySpecimen('icon + title + ✕ (no ⋯, no glance — 零人话律)', (_) => SizedBox(
+          width: 320,
+          child: AnIsland(
+            child: AnPanelHead(
+              icon: AnIcons.workflow,
+              title: '检查器',
+              onClose: () {},
+              closeSemantics: 'Close',
+            ),
+          ),
+        ), span: true),
+    GallerySpecimen('超长 title 省略', (_) => SizedBox(
+          width: 260,
+          child: AnIsland(
+            child: AnPanelHead(
+              icon: AnIcons.activity,
+              title: 'an-extremely-long-panel-title-that-must-ellipsis-and-hold-the-two-buttons',
+              menuSemanticLabel: 'More',
+              menuEntries: [AnMenuItem(label: '展开全部', icon: AnIcons.unfold, onTap: () {})],
+              onClose: () {},
+              closeSemantics: 'x',
+            ),
+          ),
+        ), stress: true, span: true),
+  ]),
   GalleryItem('AnPage', '海洋记录页:唯一滚动区 + 居中 720 内容列 + overlay 滚动条(头净空 pad)', [
     GallerySpecimen('page (scroll + centered col)', (_) => AnPage(
           child: Column(

@@ -1,14 +1,16 @@
+import 'dart:convert';
+
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/entities/relation.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
-import 'package:anselm/core/ui/an_chip.dart';
+import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_code_editor.dart';
 import 'package:anselm/core/ui/an_dropdown.dart';
-import 'package:anselm/core/ui/an_input.dart';
+import 'package:anselm/core/ui/an_keycap.dart';
 import 'package:anselm/core/ui/an_ledger_row.dart';
-import 'package:anselm/core/ui/an_switch.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/state/run/recent_runs_provider.dart';
@@ -23,11 +25,15 @@ import 'package:flutter_test/flutter_test.dart';
 
 import '../../../../support/router_harness.dart';
 
-// The debugger's three laws (0718 拍板) under widget test: the form mirrors the entity contract
-// (type-aware fields / method wheel / source picker with per-kind payload templates), values live in
-// per-dimension session buckets, and the recent strip + reproduce key close the loop.
+// The debugger v3 (JSON-first, 0719 拍板) under widget test: the input IS one prefilled JSON editor + a
+// Lambda/Postman toolbar (payload source · method/source chip · ⌘↵ · verb), values live as JSON TEXT in
+// per-dimension session buckets, live lint gates the verb, and the recent strip + «用这份输入» close the
+// loop (relative time · human origin · IO expand · wf deep-link).
 
 final _t0 = DateTime.utc(2026, 6, 27);
+
+Map<String, dynamic> _json(String s) => jsonDecode(s) as Map<String, dynamic>;
+AnCodeEditor _editor(WidgetTester tester) => tester.widget<AnCodeEditor>(find.byType(AnCodeEditor).first);
 
 FixtureEntityRepository _fix() => FixtureEntityRepository(
       runDelay: Duration.zero,
@@ -109,25 +115,23 @@ FixtureEntityRepository _fix() => FixtureEntityRepository(
             ),
         ],
       },
-      handlerCalls: {
-        'hd_1': [
-          HandlerCall(
-            id: 'hc_1',
-            handlerId: 'hd_1',
-            method: 'archive',
-            status: 'ok',
-            triggeredBy: 'manual',
-            input: const {'days': 30},
-            elapsedMs: 40,
+      flowruns: {
+        'wf_1': [
+          Flowrun(
+            id: 'fr_1',
+            workflowId: 'wf_1',
+            status: 'completed',
+            origin: 'cron',
             startedAt: _t0,
-            createdAt: _t0,
+            completedAt: _t0.add(const Duration(seconds: 9)),
+            updatedAt: _t0,
           ),
         ],
       },
     );
 
 Widget _host(FixtureEntityRepository repo, EntityRef sel) => routedHost(
-      Scaffold(body: SizedBox(width: 340, height: 900, child: const RunTerminal())),
+      Scaffold(body: SizedBox(width: 360, height: 900, child: const RunTerminal())),
       initialLocation: selectionLocation(sel.kind, sel.id),
       repository: repo,
     );
@@ -137,119 +141,136 @@ ProviderContainer _container(WidgetTester tester) =>
 
 void main() {
   final r = t.entities.run;
+  const fnRef = EntityRef(EntityKind.function, 'fn_1');
+  const hdRef = EntityRef(EntityKind.handler, 'hd_1');
+  const wfRef = EntityRef(EntityKind.workflow, 'wf_1');
 
-  testWidgets('fn form is the contract mirror: switch for bool, mono JSON area for object, description as placeholder',
-      (tester) async {
-    await tester.pumpWidget(_host(_fix(), const EntityRef(EntityKind.function, 'fn_1')));
+  testWidgets('fn: ONE JSON editor prefilled with the example skeleton (哪里填哪个消失)', (tester) async {
+    await tester.pumpWidget(_host(_fix(), fnRef));
     await tester.pump(const Duration(milliseconds: 50));
-    // Every declared input renders under its own name. 逐参数按名渲染。
-    for (final name in ['text', 'limit', 'strict', 'options']) {
-      expect(find.text(name), findsWidgets, reason: name);
-    }
-    expect(find.byType(AnSwitch), findsOneWidget); // boolean wears a switch 布尔=开关
-    final inputs = tester.widgetList<AnInput>(find.byType(AnInput)).toList();
-    expect(inputs.where((w) => w.multiline && w.mono), isNotEmpty); // object → mono JSON area
-    expect(inputs.map((w) => w.placeholder), contains('raw input')); // description IS the placeholder
-    // No Idle capsule anywhere (状态只在跑中/失败在场). Idle 胶囊死了。
-    expect(find.byType(AnChip), findsNothing);
+    final ed = _editor(tester);
+    expect(ed.lang, 'json');
+    expect(ed.editable && ed.seamless, isTrue); // seamless in-place JSON editor 同款嵌入代码块
+    final seed = _json(ed.code);
+    expect(seed.keys, containsAll(<String>['text', 'limit', 'strict', 'options']));
+    expect(seed['text'], ''); // string skeleton
+    expect(seed['limit'], 0); // number skeleton
+    expect(seed['strict'], false); // boolean skeleton
   });
 
-  testWidgets('hd: the method wheel regenerates the fields; drafts are remembered PER METHOD', (tester) async {
-    await tester.pumpWidget(_host(_fix(), const EntityRef(EntityKind.handler, 'hd_1')));
+  testWidgets('hd: the method chip re-seeds the example; drafts remembered PER METHOD', (tester) async {
+    await tester.pumpWidget(_host(_fix(), hdRef));
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump(); // post-frame default method
-    expect(find.byType(AnDropdown<String>), findsOneWidget); // the wheel 方向盘
-    expect(find.text('to'), findsOneWidget); // first method's field
-    expect(find.text('days'), findsNothing);
+    // payload-source chip + method chip = two ghost dropdowns. 两个 ghost 下拉。
+    expect(find.byType(AnDropdown<String>), findsNWidgets(2));
+    expect(_json(_editor(tester).code).keys, ['to']); // first method's schema 首方法示例
 
     final c = _container(tester);
-    const ref = EntityRef(EntityKind.handler, 'hd_1');
-    final ctrl = c.read(runTerminalProvider(ref).notifier);
-    ctrl.setField('to', 'ops@x.dev'); // type into the send bucket 往 send 桶打字
+    final ctrl = c.read(runTerminalProvider(hdRef).notifier);
+    ctrl.setDraftText('{"to":"ops@x.dev"}'); // type into the send bucket 往 send 桶打字
     ctrl.setMethod('archive');
     await tester.pump();
-    expect(find.text('days'), findsOneWidget); // fields regenerated wholesale 整体重生成
-    expect(find.text('to'), findsNothing);
+    expect(_json(_editor(tester).code).keys, ['days']); // archive's schema, re-seeded 整体重生成
 
-    // Switching back restores the exact draft (session bucket per method). 切回原样。
-    ctrl.setMethod('send');
+    ctrl.setMethod('send'); // switch back → the exact draft restores 切回原样
     await tester.pump();
     final store = c.read(runDraftStoreProvider);
-    expect(store.bucket(runDraftKey(ref, 'send'))['to'], 'ops@x.dev');
-    expect(store.bucket(runDraftKey(ref, 'archive')), isEmpty);
+    expect(store.textFor(runDraftKey(hdRef, 'send')), '{"to":"ops@x.dev"}');
+    expect(store.textFor(runDraftKey(hdRef, 'archive')), isNotNull); // its own seeded bucket
   });
 
-  testWidgets('wf source picker lists mounted triggers + manual; cron renders NO payload at all', (tester) async {
-    await tester.pumpWidget(_host(_fix(), const EntityRef(EntityKind.workflow, 'wf_1')));
+  testWidgets('wf: the source chip re-seeds the per-source FIRE-PAYLOAD template', (tester) async {
+    await tester.pumpWidget(_host(_fix(), wfRef));
     await tester.pump(const Duration(milliseconds: 50));
-    expect(find.byType(AnDropdown<String>), findsOneWidget); // the source picker 来源选择器
-    // manual (default) → one JSON payload area. 手动=单 JSON 框。
-    expect(find.text(r.payload), findsOneWidget);
+    expect(find.byType(AnDropdown<String>), findsNWidgets(2)); // payload + source
+    expect(_json(_editor(tester).code), <String, dynamic>{}); // manual (default) → a free {}
 
     final c = _container(tester);
-    const ref = EntityRef(EntityKind.workflow, 'wf_1');
-    final ctrl = c.read(runTerminalProvider(ref).notifier);
+    final ctrl = c.read(runTerminalProvider(wfRef).notifier);
 
     ctrl.setSource('tr_cron');
-    await tester.pump(const Duration(milliseconds: 50)); // trigger detail load
+    await tester.pump(const Duration(milliseconds: 50)); // trigger detail loads (kind resolves)
     await tester.pump();
-    expect(find.text(r.payload), findsNothing); // cron releases nothing — form honestly renders nothing
-    expect(find.byType(AnInput), findsNothing);
+    expect(_json(_editor(tester).code).keys, ['firedAt']); // cron → {firedAt} ONLY (real payload)
 
     ctrl.setSource('tr_fs');
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump();
-    expect(find.text('path'), findsOneWidget); // fsnotify template 模板字段
-    expect(find.text('event'), findsOneWidget);
+    expect(_json(_editor(tester).code).keys, containsAll(<String>['firedAt', 'path', 'eventKind']));
 
     ctrl.setSource('tr_hook');
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump();
-    expect(find.text(r.payload), findsOneWidget); // webhook = request body JSON
-    expect(find.text(r.webhookBody), findsOneWidget);
+    expect(_json(_editor(tester).code).keys,
+        containsAll(<String>['firedAt', 'method', 'path', 'headers', 'body']));
   });
 
-  testWidgets('recent strip: top-5 ledger rows render idle; a row expands to its IO', (tester) async {
-    await tester.pumpWidget(_host(_fix(), const EntityRef(EntityKind.function, 'fn_1')));
+  testWidgets('lint: invalid JSON disables the verb + shows a red line; valid re-enables', (tester) async {
+    await tester.pumpWidget(_host(_fix(), fnRef));
     await tester.pump(const Duration(milliseconds: 50));
-    await tester.pump(const Duration(milliseconds: 50)); // recent runs load
-    expect(find.text(r.recent), findsOneWidget);
-    expect(find.byType(AnLedgerRow), findsNWidgets(5)); // seeded 7 → strip caps at 5 只留五
-    await tester.tap(find.byType(AnLedgerRow).first);
+    await tester.enterText(find.byType(TextField).first, '{not json');
+    await tester.pump();
+    expect(find.text(r.payloadInvalid), findsOneWidget); // honest red line
+    final verb = t.entities.detail.verb.run;
+    expect(tester.widget<AnButton>(find.widgetWithText(AnButton, verb)).onPressed, isNull); // disabled
+  });
+
+  testWidgets('recent strip: top-5 rows, human origin word, expand to IO', (tester) async {
+    await tester.pumpWidget(_host(_fix(), fnRef));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 50)); // recent load
+    expect(find.text(r.recentCount(n: 5)), findsOneWidget); // «最近执行 · 5»
+    expect(find.byType(AnLedgerRow), findsNWidgets(5)); // seeded 7 → strip caps at 5
+    expect(find.text(r.origin.manual), findsWidgets); // «manual» spoken as human 手动
+    await tester.tap(find.byType(AnLedgerRow).at(1)); // an ok row 展开一行
     await tester.pumpAndSettle();
     expect(find.text(r.inputHeading), findsOneWidget);
-    expect(find.textContaining('run-0'), findsOneWidget); // that execution's raw input 原始输入
+    expect(find.textContaining('run-1'), findsWidgets); // that execution's raw input
   });
 
-  testWidgets('reproduce fills the draft from a past execution (method restored for hd)', (tester) async {
-    await tester.pumpWidget(_host(_fix(), const EntityRef(EntityKind.handler, 'hd_1')));
+  testWidgets('用这份输入: fills the editor from a past run (method restored for hd)', (tester) async {
+    await tester.pumpWidget(_host(_fix(), hdRef));
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump();
     final c = _container(tester);
-    const ref = EntityRef(EntityKind.handler, 'hd_1');
-    final ctrl = c.read(runTerminalProvider(ref).notifier);
-
-    ctrl.reproduce(const RecentRun(
+    final ctrl = c.read(runTerminalProvider(hdRef).notifier);
+    ctrl.loadInput(const RecentRun(
         id: 'hc_1', status: 'ok', method: 'archive', input: {'days': 30}, triggeredBy: 'manual'));
     await tester.pump();
-
-    expect(c.read(runTerminalProvider(ref)).method, 'archive'); // the wheel followed 方向盘跟随
+    expect(c.read(runTerminalProvider(hdRef)).method, 'archive'); // method followed 方法跟随
     final store = c.read(runDraftStoreProvider);
-    expect(store.bucket(runDraftKey(ref, 'archive'))['days'], '30'); // number lands as editable text
-    expect(find.text('days'), findsOneWidget); // fields regenerated for the restored method
+    expect(_json(store.textFor(runDraftKey(hdRef, 'archive'))!), {'days': 30}); // pretty JSON of the input
+    expect(_json(_editor(tester).code), {'days': 30}); // the editor shows it
+  });
+
+  testWidgets('wf recent row expands to «在运行页打开 →» (right island never hosts a long run)', (tester) async {
+    await tester.pumpWidget(_host(_fix(), wfRef));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pump(const Duration(milliseconds: 50)); // flowruns load
+    expect(find.byType(AnLedgerRow), findsOneWidget);
+    await tester.tap(find.byType(AnLedgerRow).first);
+    await tester.pumpAndSettle();
+    expect(find.text(r.openRunPage), findsOneWidget); // the deep link, not inline IO 深链而非内联
+  });
+
+  testWidgets('the ⌘↵ keycap submits (same _submit path as the shortcut)', (tester) async {
+    await tester.pumpWidget(_host(_fix(), fnRef));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.byType(AnKeycap));
+    await tester.pumpAndSettle();
+    expect(find.text(t.status.done), findsOneWidget); // ran to ok
   });
 
   testWidgets('recent strip stays SILENT when there is no ledger (no tombstone, no section)', (tester) async {
     final repo = FixtureEntityRepository(
       runDelay: Duration.zero,
-      functions: [
-        FunctionEntity(id: 'fn_2', name: 'bare', createdAt: _t0, updatedAt: _t0),
-      ],
+      functions: [FunctionEntity(id: 'fn_2', name: 'bare', createdAt: _t0, updatedAt: _t0)],
     );
     await tester.pumpWidget(_host(repo, const EntityRef(EntityKind.function, 'fn_2')));
     await tester.pump(const Duration(milliseconds: 50));
     await tester.pump(const Duration(milliseconds: 50));
-    expect(find.text(r.recent), findsNothing); // empty ledger = air 空账=空气
+    expect(find.textContaining('·'), findsNothing); // no «最近执行 · N» head
     expect(find.byType(AnLedgerRow), findsNothing);
   });
 }

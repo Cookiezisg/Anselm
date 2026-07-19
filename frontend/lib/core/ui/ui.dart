@@ -90,6 +90,7 @@ export 'an_meter.dart';
 export 'an_ocean_header.dart';
 export 'an_ocean_switcher.dart';
 export 'an_page.dart';
+export 'an_panel_head.dart';
 export 'an_popover.dart';
 export 'an_prose_table.dart';
 export 'an_radar_sweep.dart';
