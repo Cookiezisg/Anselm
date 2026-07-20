@@ -306,7 +306,7 @@ func TestSeedDefaultsIfUnset(t *testing.T) {
 		t.Fatalf("set dialogue: %v", err)
 	}
 	ctx := reqctxpkg.SetWorkspaceID(context.Background(), w.ID)
-	managed := modeldomain.ModelRef{APIKeyID: "aki_managed", ModelID: "deepseek-v4-flash"}
+	managed := modeldomain.ModelRef{APIKeyID: "aki_managed", ModelID: "anselm-auto"}
 	if err := s.SeedDefaultsIfUnset(ctx, managed); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
@@ -318,7 +318,7 @@ func TestSeedDefaultsIfUnset(t *testing.T) {
 		if err != nil {
 			t.Fatalf("pick %s: %v", sc, err)
 		}
-		if got.APIKeyID != "aki_managed" || got.ModelID != "deepseek-v4-flash" {
+		if got.APIKeyID != "aki_managed" || got.ModelID != "anselm-auto" {
 			t.Errorf("%s = %+v, want the seeded managed ref", sc, got)
 		}
 	}

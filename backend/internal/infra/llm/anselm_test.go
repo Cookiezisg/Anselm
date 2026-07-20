@@ -21,7 +21,7 @@ func TestAnselmProviderIdentity(t *testing.T) {
 		t.Errorf("DefaultBaseURL = %q, want %q", p.DefaultBaseURL(), AnselmBaseURL)
 	}
 	// Must be registered, else lookupProvider falls back to the openai dialect — whose
-	// DescribeModels parses /models with openaiSpecs and would drop deepseek-v4-flash.
+	// DescribeModels parses /models with openaiSpecs and would drop anselm-auto.
 	if _, ok := providerRegistry["anselm"]; !ok {
 		t.Fatal("anselm not registered in providerRegistry")
 	}
@@ -31,7 +31,7 @@ func TestAnselmBuildRequestInheritsDeepSeek(t *testing.T) {
 	// Embed inheritance: BuildRequest is deepseekProvider's, so the gwk_ token rides the Bearer
 	// path unchanged and tools are forwarded — the free tier is agentic.
 	httpReq, err := newAnselmProvider().BuildRequest(context.Background(), Request{
-		ModelID:  "deepseek-v4-flash",
+		ModelID:  AnselmModelID,
 		Key:      "gwk_secret",
 		BaseURL:  AnselmBaseURL,
 		Messages: []LLMMessage{{Role: RoleUser, Content: "hi"}},
@@ -52,10 +52,32 @@ func TestAnselmBuildRequestInheritsDeepSeek(t *testing.T) {
 	}
 }
 
+func TestAnselmBuildRequestCarriesGatewayMultimodalParts(t *testing.T) {
+	httpReq, err := newAnselmProvider().BuildRequest(context.Background(), Request{
+		ModelID: AnselmModelID, Key: "gwk_secret", BaseURL: AnselmBaseURL,
+		Messages: []LLMMessage{{Role: RoleUser, Parts: []ContentPart{
+			{Type: PartText, Text: "review these"},
+			{Type: PartImageURL, ImageURL: "data:image/png;base64,IMG"},
+			{Type: PartVideoURL, VideoURL: "data:video/mp4;base64,VIDEO"},
+			{Type: PartInputAudio, MediaType: "audio/mpeg", Data: "AUDIO"},
+		}}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := io.ReadAll(httpReq.Body)
+	body := string(raw)
+	for _, want := range []string{`"image_url"`, `"video_url"`, `"input_audio"`, `"format":"mp3"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("gateway wire missing %q: %s", want, body)
+		}
+	}
+}
+
 func TestAnselmDescribeModels(t *testing.T) {
-	// Gateway /models returns ids only; anselmSpecs must yield exactly deepseek-v4-flash,
-	// knob-free (the gateway strips thinking/reasoning_effort). Unknown ids are dropped.
-	raw := `{"object":"list","data":[{"id":"deepseek-v4-flash","object":"model"},{"id":"gpt-4o"}]}`
+	// Gateway /models returns ids only; anselmSpecs must yield exactly anselm-auto with the
+	// conservative public envelope. Unknown ids are dropped.
+	raw := `{"object":"list","data":[{"id":"anselm-auto","object":"model"},{"id":"gpt-4o"}]}`
 	models, err := DescribeModels("anselm", raw) // package-level → exercises registry lookup
 	if err != nil {
 		t.Fatal(err)
@@ -64,17 +86,20 @@ func TestAnselmDescribeModels(t *testing.T) {
 		t.Fatalf("got %d models, want 1: %+v", len(models), models)
 	}
 	m := models[0]
-	if m.ID != "deepseek-v4-flash" {
+	if m.ID != AnselmModelID {
 		t.Errorf("id = %q", m.ID)
 	}
 	if len(m.Knobs) != 0 {
 		t.Errorf("knobs = %+v, want none (gateway strips them)", m.Knobs)
 	}
-	if m.ContextWindow != 1_000_000 {
-		t.Errorf("ctx = %d, want 1000000", m.ContextWindow)
+	if m.ContextWindow != 262_144 || m.MaxOutput != 32_768 {
+		t.Errorf("window/output = %d/%d, want 262144/32768", m.ContextWindow, m.MaxOutput)
 	}
-	if m.Vision || m.NativeDocs {
-		t.Error("vision/docs should be false")
+	if !m.Vision || !m.Video || m.Audio || m.NativeDocs {
+		t.Errorf("capabilities = %+v, want image+video only", m)
+	}
+	if m.MaxMediaParts != 8 || m.MaxMediaBytes != 3*1024*1024 {
+		t.Errorf("media envelope = %d/%d, want 8/%d", m.MaxMediaParts, m.MaxMediaBytes, 3*1024*1024)
 	}
 }
 

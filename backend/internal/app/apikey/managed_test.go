@@ -8,7 +8,7 @@ import (
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 )
 
-const anselmModelsBody = `{"object":"list","data":[{"id":"deepseek-v4-flash","object":"model"}]}`
+const anselmModelsBody = `{"object":"list","data":[{"id":"anselm-auto","object":"model"}]}`
 
 func TestCreateManaged_SeedsOKProbeArchive(t *testing.T) {
 	s, repo := newSvc(nil)

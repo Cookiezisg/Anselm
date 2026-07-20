@@ -2,7 +2,9 @@ package contextmgr
 
 import (
 	"context"
+	"fmt"
 	"slices"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -119,6 +121,15 @@ func (s *Service) summarize(ctx context.Context, conversationID string, thread [
 		if len(ids) == 0 {
 			continue
 		}
+		if refs := attachmentRefs(m); len(refs) > 0 {
+			// The raw media will be removed from the next LLM request with this turn. Keep durable
+			// ids in the summary input so a later agent can truthfully say an attachment existed and
+			// use read_attachment instead of inventing details it can no longer see.
+			//
+			// 该回合压缩后，原始媒体将不再进入下一次 LLM 请求。把持久附件 id 写入摘要输入，使后续 agent
+			// 能诚实说明附件曾存在并可调用 read_attachment，而非编造已看不见的细节。
+			parts = append(parts, fmt.Sprintf("[attached media references: %s]", strings.Join(refs, ", ")))
+		}
 		archiveIDs = append(archiveIDs, ids...)
 		if msgMaxSeq > newWatermark {
 			newWatermark = msgMaxSeq
@@ -190,6 +201,53 @@ func pinnedBlock(b messagesdomain.Block) bool {
 
 func messagePinned(m *messagesdomain.Message) bool {
 	return slices.ContainsFunc(m.Blocks, pinnedBlock)
+}
+
+const attachmentsAttr = "attachments"
+
+// hasUncompactedAttachments reports whether step ①'s text-only estimate omits a native attachment
+// that would still be replayed by chat.LoadHistory. Only old, non-pinned turns matter: the recent
+// verbatim floor is intentionally never compacted.
+//
+// hasUncompactedAttachments 判断步骤①的纯文本估算是否遗漏一份仍会被 chat.LoadHistory 重放的原生附件。
+// 仅旧且未 pin 的回合需关心：最近逐字底线按设计永不压缩。
+func hasUncompactedAttachments(thread []*messagesdomain.Message, protectedFrom int, watermark int64) bool {
+	for mi := range protectedFrom {
+		m := thread[mi]
+		if m.SubagentID != "" || messagePinned(m) || len(attachmentRefs(m)) == 0 {
+			continue
+		}
+		for _, b := range m.Blocks {
+			if b.Type != messagesdomain.BlockTypeCompaction && b.Seq > watermark {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func attachmentRefs(m *messagesdomain.Message) []string {
+	if m == nil || m.Attrs == nil {
+		return nil
+	}
+	raw, ok := m.Attrs[attachmentsAttr]
+	if !ok {
+		return nil
+	}
+	switch refs := raw.(type) {
+	case []string:
+		return refs
+	case []any:
+		out := make([]string, 0, len(refs))
+		for _, ref := range refs {
+			if id, ok := ref.(string); ok && id != "" {
+				out = append(out, id)
+			}
+		}
+		return out
+	default:
+		return nil
+	}
 }
 
 // projectedBytes is how many content bytes a block contributes to LLM history under its role —

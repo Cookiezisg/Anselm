@@ -41,13 +41,13 @@ import '../../state/workspace_prefs_provider.dart';
 /// (quota meter / enable CTA) ② the PROVIDERS zone — brand-logo key rows (managed locked on top),
 /// the add flow starting from a vendor LOGO GRID, save auto-probes (`:test`) into the green/red
 /// status ③ scenario defaults — each row collapses to a one-line summary and expands into the
-/// reusable THREE-STAGE picker (credential → model [context window + vision] → native knobs
+/// reusable THREE-STAGE picker (credential → model [context window + capabilities] → native knobs
 /// rendered generically) applying `{apiKeyId, modelId, options}` ④ the search zone (search-category
 /// keys + the one-layer default pick). Every key mutation invalidates the capabilities catalog (S-15).
 ///
 /// 模型与密钥——资源旗舰,四区(0719 重构):①受管免费档卡(配额条/启用 CTA)②提供商区——品牌 logo
 /// 密钥行(受管行锁顶),添加流程从厂家 logo 网格起步,保存即探测(:test)落绿红状态 ③场景默认——
-/// 每行收起一句话摘要,点开进**可复用三段面板**(凭证→模型[上下文窗+视觉徽]→原生 knobs 通用渲染),
+/// 每行收起一句话摘要,点开进**可复用三段面板**(凭证→模型[上下文窗+能力徽]→原生 knobs 通用渲染),
 /// 应用 `{apiKeyId, modelId, options}` ④搜索区(search 类密钥+一层默认选择)。密钥变更皆
 /// invalidate 能力目录(S-15)。
 class ModelsKeysPanel extends ConsumerWidget {
@@ -849,6 +849,8 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
               meta: [
                 if (m.contextWindow > 0) fmtCtx(m.contextWindow),
                 if (m.vision) t.settings.keys.visionBadge,
+                if (m.video) t.settings.keys.videoBadge,
+                if (m.audio) t.settings.keys.audioBadge,
                 if (m.nativeDocs) t.settings.keys.docsBadge,
               ].join(' · '),
               selected: m.modelId == _modelId,

@@ -1616,7 +1616,7 @@
     "langZh": "简体中文",
     "keys": {
       "freeTier": "免费档",
-      "freeTierName": "Anselm Free · deepseek-v4-flash",
+      "freeTierName": "Anselm Free · 自动多模态",
       "freeUsage": "$used / $limit · $reset 重置",
       "freeUnavailable": "网关今日预算已满,明日恢复",
       "freeEnable": "启用免费档",
@@ -1674,6 +1674,8 @@
       "pickerChange": "修改",
       "pickerClose": "收起",
       "visionBadge": "视觉",
+      "videoBadge": "视频",
+      "audioBadge": "音频",
       "docsBadge": "文档",
       "noCapsGuide": "还没有可用模型——先添加一把探测通过的密钥",
       "searchSection": "搜索"

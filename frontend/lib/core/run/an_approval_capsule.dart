@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter/semantics.dart';
 
@@ -125,6 +127,7 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
   bool _entered = false;
   bool _announced = false;
   bool _verdictExitScheduled = false;
+  Timer? _verdictExitTimer;
 
   bool get _reduced => AnMotionPref.reduced(context);
 
@@ -188,6 +191,7 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
 
   @override
   void dispose() {
+    _verdictExitTimer?.cancel();
     _c.dispose();
     super.dispose();
   }
@@ -211,7 +215,10 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
   void _scheduleVerdictExit() {
     if (_verdictExitScheduled || _exiting) return;
     _verdictExitScheduled = true;
-    Future<void>.delayed(AnMotion.verdictDwell, _exit);
+    _verdictExitTimer = Timer(AnMotion.verdictDwell, () {
+      _verdictExitTimer = null;
+      _exit();
+    });
   }
 
   void _announce(String message, {bool assertive = false}) {
@@ -259,6 +266,8 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
   Future<void> _exit() async {
     if (_exiting || !mounted) return;
     _exiting = true;
+    _verdictExitTimer?.cancel();
+    _verdictExitTimer = null;
     widget.onExitStarted?.call();
     if (_reduced) {
       _c.value = 0;

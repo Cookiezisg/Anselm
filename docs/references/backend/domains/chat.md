@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-21
+review-due: 2026-10-19
 audience: [human, ai]
 ---
 
@@ -29,7 +29,7 @@ audience: [human, ai]
 - **ReminderProvider**：每步前注入 live todo 清单为临时 `<system-reminder>`（不污染持久历史）。
 - **WriteFinalize 在 Detached ctx**：用户中途关页也绝不留永久 streaming 孤儿；**硬崩溃**（kill -9）的孤儿由 boot 对账兜底（`SweepOrphans`——每 workspace 把 pending/streaming 行扫成 cancelled，messages 版 scheduler.Recover）。
 - **recency + 未读 watermark（经 `ConversationReader` 端口）**：Send 落 user 回合后 `TouchLastMessage(…, unread=false)`、WriteFinalize 落 assistant 回合后 `TouchLastMessage(…, unread = status==completed)`——**这条不对称就是未读信号**：用户发送=已读、完成的回复=未读、取消/出错终态=不算（queued-cancel 路径不调 Touch、不动 unread）。两次都把 unread 折进 last_message_at 的同一原子 UPDATE（自己的消息绝不半提交成未读）。端口另有 `MarkSeen`（`:seen` 动作用户打开线程时清 unread）。详见 [conversation.md](conversation.md) 的 hasUnread。
-- 回合后（仍在队列槽内防竞态）：首回合自动起标题（utility 模型、best-effort）+ 同步触发上下文压缩检查（contextmgr）。**utility 默认由 freetier provisioning 播种**——建 workspace / 每次 boot 自愈时把受管 DeepSeek 播成 dialogue/utility/agent 三 scenario 默认（只填未设、绝不覆盖用户显式选择，见 [support-services](support-services.md) 的 freetier），故 `ResolveUtility` 开箱即解析、起标题正常跑（否则 workspace 默认全 NULL → `MODEL_NOT_CONFIGURED` → 静默无标题）。标题据首条 user+assistant 摘要、**按对话语言**产出，经 `SetAutoTitle` 落 Title+AutoTitled 并发**单条** `conversation.auto_titled`（前端据此重读行 + 触发标题打字机；chat 不在 SetAutoTitle 之外重复通知）。utility 缺席（如播种失败）时的降级面：起标题静默缺席、压缩跳过、WebFetch 摘要回退原文、search_blocks 精选落纯索引。
+- 回合后（仍在队列槽内防竞态）：首回合自动起标题（utility 模型、best-effort）+ 同步触发上下文压缩检查（contextmgr）。**utility 默认由 freetier provisioning 播种**——建 workspace / 每次 boot 自愈时把受管 `anselm-auto` 播成 dialogue/utility/agent 三 scenario 默认（只填未设、绝不覆盖用户显式选择，见 [support-services](support-services.md) 的 freetier），故 `ResolveUtility` 开箱即解析、起标题正常跑（否则 workspace 默认全 NULL → `MODEL_NOT_CONFIGURED` → 静默无标题）。标题据首条 user+assistant 摘要、**按对话语言**产出，经 `SetAutoTitle` 落 Title+AutoTitled 并发**单条** `conversation.auto_titled`（前端据此重读行 + 触发标题打字机；chat 不在 SetAutoTitle 之外重复通知）。压缩的摘要水位统辖整回合：纯附件发送也持久一个空 text block，确保历史重放不丢；旧附件跨水位前会把持久附件 id 写入摘要输入，后续 agent 只能经 `read_attachment` 重读，而不会把已移出上下文的媒体细节编造出来。utility 缺席（如播种失败）时的降级面：起标题静默缺席、压缩跳过、WebFetch 摘要回退原文、search_blocks 精选落纯索引。
 - maxSteps **实时读** `limits.Current().Agent.MaxSteps`（默认 25，`PATCH /limits` 热换下回合即生效；高于 agent invoke 默认的 `InvokeMaxTurns`=10——交互对话合理串更多步）；触顶诚实报 stop_reason `max_steps` + error_code `MAX_STEPS_REACHED` + "继续"提示。
 
 ## 4. 人在环

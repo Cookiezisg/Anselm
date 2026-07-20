@@ -269,20 +269,29 @@ func toDeepSeekTools(defs []ToolDef) []dsTool {
 }
 
 type dsContentPart struct {
-	Type     string      `json:"type"`
-	Text     string      `json:"text,omitempty"`
-	ImageURL *dsImageURL `json:"image_url,omitempty"`
+	Type       string        `json:"type"`
+	Text       string        `json:"text,omitempty"`
+	ImageURL   *dsImageURL   `json:"image_url,omitempty"`
+	VideoURL   *dsVideoURL   `json:"video_url,omitempty"`
+	InputAudio *dsInputAudio `json:"input_audio,omitempty"`
 }
 type dsImageURL struct {
 	URL string `json:"url"`
 }
+type dsVideoURL struct {
+	URL string `json:"url"`
+}
+type dsInputAudio struct {
+	Data   string `json:"data"`
+	Format string `json:"format"`
+}
 
-// buildDeepSeekUserMsg renders a user turn: plain text, or multimodal content parts (text +
-// image_url, image carried as a data-URL for vision models). A part type this provider can't
-// carry inline (e.g. a PDF "file") is skipped — the attachment layer extracts those to text.
-// When NO image survives, the parts COLLAPSE back to a plain string: a text-only endpoint (the
-// anselm free-tier gateway inherits this builder) rejects array-form `content` outright, and the
-// frozen attachment replays every turn — array form would 400 that conversation forever.
+// buildDeepSeekUserMsg renders a user turn: plain text, or OpenAI-compatible multimodal parts.
+// The direct DeepSeek catalog only advertises vision today, while anselm's capability router also
+// accepts video/audio; keeping the neutral wire complete here lets the managed provider preserve
+// those parts without a second message encoder. A part this wire cannot carry (e.g. PDF "file") is
+// skipped — the attachment layer extracts it to text. When no native media survives, parts collapse
+// back to a plain string so text-only endpoints never receive an invalid array-form content.
 //
 // buildDeepSeekUserMsg 渲染 user 回合：纯文本，或多模态内容块（text + image_url，图为 data-URL，
 // 供视觉模型）。本 provider 无法内联承载的 part（如 PDF "file"）跳过——附件层为它抽成文本。
@@ -293,17 +302,25 @@ func buildDeepSeekUserMsg(m LLMMessage) (dsMessage, error) {
 		return dsMessage{Role: "user", Content: dsJSONString(m.Content)}, nil
 	}
 	parts := make([]dsContentPart, 0, len(m.Parts))
-	hasImage := false
+	hasMedia := false
 	for _, part := range m.Parts {
 		switch part.Type {
-		case "text":
-			parts = append(parts, dsContentPart{Type: "text", Text: part.Text})
-		case "image_url":
-			hasImage = true
-			parts = append(parts, dsContentPart{Type: "image_url", ImageURL: &dsImageURL{URL: part.ImageURL}})
+		case PartText:
+			parts = append(parts, dsContentPart{Type: PartText, Text: part.Text})
+		case PartImageURL:
+			hasMedia = true
+			parts = append(parts, dsContentPart{Type: PartImageURL, ImageURL: &dsImageURL{URL: part.ImageURL}})
+		case PartVideoURL:
+			hasMedia = true
+			parts = append(parts, dsContentPart{Type: PartVideoURL, VideoURL: &dsVideoURL{URL: part.VideoURL}})
+		case PartInputAudio:
+			if format := openAICompatibleAudioFormat(part.MediaType); format != "" && part.Data != "" {
+				hasMedia = true
+				parts = append(parts, dsContentPart{Type: PartInputAudio, InputAudio: &dsInputAudio{Data: part.Data, Format: format}})
+			}
 		}
 	}
-	if !hasImage {
+	if !hasMedia {
 		texts := make([]string, len(parts))
 		for i, p := range parts {
 			texts[i] = p.Text
@@ -315,6 +332,18 @@ func buildDeepSeekUserMsg(m LLMMessage) (dsMessage, error) {
 		return dsMessage{}, fmt.Errorf("llm.deepseek: marshal parts: %w", err)
 	}
 	return dsMessage{Role: "user", Content: raw}, nil
+}
+
+func openAICompatibleAudioFormat(mediaType string) string {
+	mediaType = strings.ToLower(strings.TrimSpace(strings.Split(mediaType, ";")[0]))
+	switch mediaType {
+	case "audio/wav", "audio/x-wav", "audio/wave":
+		return "wav"
+	case "audio/mpeg", "audio/mp3":
+		return "mp3"
+	default:
+		return ""
+	}
 }
 
 func dsJSONString(s string) json.RawMessage {

@@ -39,7 +39,10 @@ func NewAttachmentRenderer(svc AttachmentParts) chatapp.AttachmentRenderer {
 var _ chatapp.AttachmentRenderer = attachmentRenderer{}
 
 func (a attachmentRenderer) ToContentParts(ctx context.Context, ids []string, caps chatapp.ContentCapabilities) ([]llminfra.ContentPart, error) {
-	return a.svc.ToContentParts(ctx, ids, attachmentapp.Capabilities{Vision: caps.Vision, NativeDocs: caps.NativeDocs})
+	return a.svc.ToContentParts(ctx, ids, attachmentapp.Capabilities{
+		Vision: caps.Vision, Video: caps.Video, Audio: caps.Audio, NativeDocs: caps.NativeDocs,
+		MaxMediaParts: caps.MaxMediaParts, MaxMediaBytes: caps.MaxMediaBytes,
+	})
 }
 
 // DocStore is the slice of document.Service the document/knowledge renderers need.

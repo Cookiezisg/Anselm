@@ -34,7 +34,8 @@ type fakeCaps struct{}
 func (fakeCaps) List(context.Context) ([]modelapp.CapabilityView, error) {
 	return []modelapp.CapabilityView{{
 		Provider: "mock", ModelID: "default_model",
-		ContextWindow: 100000, MaxOutput: 8000, Vision: true, NativeDocs: true,
+		ContextWindow: 100000, MaxOutput: 8000, Vision: true, Video: true, Audio: true, NativeDocs: true,
+		MaxMediaParts: 3, MaxMediaBytes: 42,
 	}}, nil
 }
 
@@ -152,7 +153,8 @@ func TestModelInfoLookup_WindowAndCaps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveChat: %v", err)
 	}
-	if !b.Caps.Vision || !b.Caps.NativeDocs {
+	if !b.Caps.Vision || !b.Caps.Video || !b.Caps.Audio || !b.Caps.NativeDocs ||
+		b.Caps.MaxMediaParts != 3 || b.Caps.MaxMediaBytes != 42 {
 		t.Fatalf("chat Caps must come from the lookup, got %+v", b.Caps)
 	}
 }

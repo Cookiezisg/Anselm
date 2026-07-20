@@ -23,12 +23,15 @@ func (f *fakeParts) ToContentParts(_ context.Context, _ []string, caps attachmen
 func TestAttachmentRenderer_BridgesCaps(t *testing.T) {
 	fp := &fakeParts{}
 	r := NewAttachmentRenderer(fp)
-	// Vision true, NativeDocs false — asymmetric on purpose to catch a field swap.
-	if _, err := r.ToContentParts(context.Background(), []string{"att_1"}, chatapp.ContentCapabilities{Vision: true, NativeDocs: false}); err != nil {
+	// Deliberately asymmetric flags and a finite envelope catch a dropped/scrambled bridge field.
+	if _, err := r.ToContentParts(context.Background(), []string{"att_1"}, chatapp.ContentCapabilities{
+		Vision: true, Video: true, Audio: false, NativeDocs: false, MaxMediaParts: 3, MaxMediaBytes: 42,
+	}); err != nil {
 		t.Fatalf("ToContentParts: %v", err)
 	}
-	if !fp.gotCaps.Vision || fp.gotCaps.NativeDocs {
-		t.Fatalf("caps mis-bridged: got %+v, want {Vision:true, NativeDocs:false}", fp.gotCaps)
+	if !fp.gotCaps.Vision || !fp.gotCaps.Video || fp.gotCaps.Audio || fp.gotCaps.NativeDocs ||
+		fp.gotCaps.MaxMediaParts != 3 || fp.gotCaps.MaxMediaBytes != 42 {
+		t.Fatalf("caps mis-bridged: got %+v", fp.gotCaps)
 	}
 }
 

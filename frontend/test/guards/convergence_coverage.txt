@@ -203,6 +203,8 @@ lib/core/ui/an_meter.dart	converged
 lib/core/ui/an_minimap_spine.dart	converged
 lib/core/ui/an_node_gantt.dart	reviewed
 lib/core/ui/an_notice_capsule.dart	converged
+lib/core/ui/an_notice_close_affordance.dart	pending
+lib/core/ui/an_notice_island_frame.dart	pending
 lib/core/ui/an_notice_queue_tail.dart	converged
 lib/core/ui/an_ocean_header.dart	reviewed
 lib/core/ui/an_ocean_switcher.dart	converged
@@ -275,6 +277,7 @@ lib/core/ui/ui.dart	converged
 lib/core/workspace/workspace_bootstrap.dart	converged
 lib/core/workspace/workspace_switch.dart	converged
 lib/dev/demo_main.dart	reviewed
+lib/dev/demo_notice_showcase.dart	pending
 lib/dev/editor_harness_main.dart	reviewed
 lib/dev/gallery/an_batch_bar_specimens.dart	pending
 lib/dev/gallery/an_countdown_specimens.dart	pending

@@ -17,6 +17,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"path/filepath"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -152,11 +153,18 @@ func (s *Service) GC(ctx context.Context) (int, error) {
 // decide whether to hand a file over raw or degrade it. Both flags come from the caller (chat loop)
 // via the model catalog — this layer holds no model knowledge.
 //
-// Capabilities 告诉 ToContentParts 解析后的目标模型能原生接受什么，据此决定原样递交还是降级。两个
-// flag 都由调用方（chat loop）按模型目录传入——本层不持模型知识。
+// Capabilities 告诉 ToContentParts 解析后的目标模型能原生接受什么，据此决定原样递交还是降级。能力与
+// 单回合媒体额度都由调用方（chat loop）按模型目录传入——本层不持模型知识。
 type Capabilities struct {
-	Vision     bool // model can see images natively
-	NativeDocs bool // model can read an inline document (PDF) natively (anthropic / openai / gemini)
+	Vision     bool // model can see images natively / 模型能原生看图
+	Video      bool // model can inspect an inline video natively / 模型能原生看内联视频
+	Audio      bool // model can inspect an inline audio clip natively / 模型能原生听内联音频
+	NativeDocs bool // model can read an inline document (PDF) natively / 模型能原生读内联文档(PDF)
+	// Optional, per-turn decoded-media envelope. A zero value means no app-side cap was published
+	// by the resolved model. The renderer still leaves provider-specific validation to the provider.
+	// 可选的单回合解码媒体额度。零值表示解析模型未发布 app 侧上限；provider 专属校验仍由 provider 执行。
+	MaxMediaParts int
+	MaxMediaBytes int64
 }
 
 // ToContentParts resolves attachment ids into provider-agnostic LLM content parts for one user turn
@@ -167,7 +175,9 @@ type Capabilities struct {
 //   - text     → the file's content inlined as a text part (cheap, universal).
 //   - document → caps.NativeDocs ? a file part (PDF handed over raw, read natively) : sandbox
 //     text-extracted, token-capped text — with a placeholder note if no extractor / extraction fails.
-//   - audio/video/other → a text placeholder (those extractors are future Extractor plug-ins).
+//   - video → video_url when caps.Video and the attachment is an MP4; else a text note.
+//   - audio → input_audio when caps.Audio and it is WAV/MP3; else a text note.
+//   - other → a text placeholder.
 //
 // Order follows ids. A missing/unreadable blob is skipped with a warning — a stale id must never
 // fail the turn (best-effort, like a dangling mention).
@@ -195,6 +205,8 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		byID[a.ID] = a
 	}
 	out := make([]llminfra.ContentPart, 0, len(ids))
+	mediaParts := 0
+	var mediaBytes int64
 	for _, id := range ids {
 		a := byID[id]
 		if a == nil {
@@ -214,10 +226,35 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		}
 		switch a.Kind {
 		case attachmentdomain.KindImage:
-			if caps.Vision {
+			if caps.Vision && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartImageURL, ImageURL: dataURL(a.MimeType, data)})
+				mediaParts++
+				mediaBytes += int64(len(data))
 			} else {
-				out = append(out, textNote("image %q attached, but the current model has no vision", a.Filename))
+				out = append(out, unavailableMediaNote("image", a.Filename, caps.Vision, "vision", caps, mediaParts, mediaBytes, int64(len(data))))
+			}
+		case attachmentdomain.KindVideo:
+			if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
+				out = append(out, llminfra.ContentPart{Type: llminfra.PartVideoURL, VideoURL: dataURL("video/mp4", data)})
+				mediaParts++
+				mediaBytes += int64(len(data))
+			} else if caps.Video && normalizedMIME(a.MimeType) != "video/mp4" {
+				out = append(out, textNote("video %q attached, but this model accepts inline video only as MP4", a.Filename))
+			} else {
+				out = append(out, unavailableMediaNote("video", a.Filename, caps.Video, "video", caps, mediaParts, mediaBytes, int64(len(data))))
+			}
+		case attachmentdomain.KindAudio:
+			if caps.Audio && audioFormat(a.MimeType) != "" && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
+				out = append(out, llminfra.ContentPart{
+					Type: llminfra.PartInputAudio, MediaType: normalizedMIME(a.MimeType),
+					Data: base64.StdEncoding.EncodeToString(data),
+				})
+				mediaParts++
+				mediaBytes += int64(len(data))
+			} else if caps.Audio && audioFormat(a.MimeType) == "" {
+				out = append(out, textNote("audio %q attached, but this model accepts inline audio only as WAV or MP3", a.Filename))
+			} else {
+				out = append(out, unavailableMediaNote("audio", a.Filename, caps.Audio, "audio", caps, mediaParts, mediaBytes, int64(len(data))))
 			}
 		case attachmentdomain.KindText:
 			out = append(out, llminfra.ContentPart{Type: llminfra.PartText, Text: inlineText(a.Filename, data)})
@@ -232,11 +269,49 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 			} else {
 				out = append(out, s.extractDocPart(ctx, a, data))
 			}
-		default: // audio / video / other — those extractors are future Extractor plug-ins
+		default:
 			out = append(out, textNote("file %q (%s) attached; content extraction is not yet available", a.Filename, a.Kind))
 		}
 	}
 	return out, nil
+}
+
+func fitsMediaEnvelope(caps Capabilities, usedParts int, usedBytes, nextBytes int64) bool {
+	if caps.MaxMediaParts > 0 && usedParts >= caps.MaxMediaParts {
+		return false
+	}
+	return caps.MaxMediaBytes <= 0 || nextBytes <= caps.MaxMediaBytes-usedBytes
+}
+
+func unavailableMediaNote(kind, filename string, enabled bool, capability string, caps Capabilities, usedParts int, usedBytes, nextBytes int64) llminfra.ContentPart {
+	if !enabled {
+		return textNote("%s %q attached, but the current model has no native %s input", kind, filename, capability)
+	}
+	if caps.MaxMediaParts > 0 && usedParts >= caps.MaxMediaParts {
+		return textNote("%s %q attached, but the model's inline-media item limit was reached", kind, filename)
+	}
+	if caps.MaxMediaBytes > 0 && nextBytes > caps.MaxMediaBytes-usedBytes {
+		return textNote("%s %q attached, but it exceeds the model's inline-media size budget", kind, filename)
+	}
+	return textNote("%s %q attached, but it could not be sent natively", kind, filename)
+}
+
+func normalizedMIME(mime string) string {
+	if i := strings.IndexByte(mime, ';'); i >= 0 {
+		mime = mime[:i]
+	}
+	return strings.ToLower(strings.TrimSpace(mime))
+}
+
+func audioFormat(mime string) string {
+	switch normalizedMIME(mime) {
+	case "audio/wav", "audio/x-wav", "audio/wave":
+		return "wav"
+	case "audio/mpeg", "audio/mp3":
+		return "mp3"
+	default:
+		return ""
+	}
 }
 
 // dataURL builds a base64 data-URL ("data:<mime>;base64,<data>") for an inline image.

@@ -4281,8 +4281,8 @@ class Translations$settings$keys$en {
 	/// en: 'Free tier'
 	String get freeTier => 'Free tier';
 
-	/// en: 'Anselm Free · deepseek-v4-flash'
-	String get freeTierName => 'Anselm Free · deepseek-v4-flash';
+	/// en: 'Anselm Free · Auto multimodal'
+	String get freeTierName => 'Anselm Free · Auto multimodal';
 
 	/// en: '$used / $limit · resets $reset'
 	String freeUsage({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · resets ${reset}';
@@ -4454,6 +4454,12 @@ class Translations$settings$keys$en {
 
 	/// en: 'Vision'
 	String get visionBadge => 'Vision';
+
+	/// en: 'Video'
+	String get videoBadge => 'Video';
+
+	/// en: 'Audio'
+	String get audioBadge => 'Audio';
 
 	/// en: 'Docs'
 	String get docsBadge => 'Docs';
@@ -7655,7 +7661,7 @@ extension on Translations {
 			'settings.langEn' => 'English',
 			'settings.langZh' => '简体中文',
 			'settings.keys.freeTier' => 'Free tier',
-			'settings.keys.freeTierName' => 'Anselm Free · deepseek-v4-flash',
+			'settings.keys.freeTierName' => 'Anselm Free · Auto multimodal',
 			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · resets ${reset}',
 			'settings.keys.freeUnavailable' => 'Gateway day budget exhausted — back tomorrow',
 			'settings.keys.freeEnable' => 'Enable free tier',
@@ -7713,9 +7719,11 @@ extension on Translations {
 			'settings.keys.pickerChange' => 'Change',
 			'settings.keys.pickerClose' => 'Close',
 			'settings.keys.visionBadge' => 'Vision',
-			'settings.keys.docsBadge' => 'Docs',
+			'settings.keys.videoBadge' => 'Video',
 			_ => null,
 		} ?? switch (path) {
+			'settings.keys.audioBadge' => 'Audio',
+			'settings.keys.docsBadge' => 'Docs',
 			'settings.keys.noCapsGuide' => 'No usable models yet — add a key that passes its probe first',
 			'settings.keys.searchSection' => 'Search',
 			'settings.ws.section' => 'Workspaces',

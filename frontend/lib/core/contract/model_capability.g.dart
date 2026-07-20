@@ -35,7 +35,11 @@ _ModelCapability _$ModelCapabilityFromJson(Map<String, dynamic> json) =>
       contextWindow: (json['contextWindow'] as num?)?.toInt() ?? 0,
       maxOutput: (json['maxOutput'] as num?)?.toInt() ?? 0,
       vision: json['vision'] as bool? ?? false,
+      video: json['video'] as bool? ?? false,
+      audio: json['audio'] as bool? ?? false,
       nativeDocs: json['nativeDocs'] as bool? ?? false,
+      maxMediaParts: (json['maxMediaParts'] as num?)?.toInt() ?? 0,
+      maxMediaBytes: (json['maxMediaBytes'] as num?)?.toInt() ?? 0,
       knobs:
           (json['knobs'] as List<dynamic>?)
               ?.map((e) => ModelKnob.fromJson(e as Map<String, dynamic>))
@@ -53,6 +57,10 @@ Map<String, dynamic> _$ModelCapabilityToJson(_ModelCapability instance) =>
       'contextWindow': instance.contextWindow,
       'maxOutput': instance.maxOutput,
       'vision': instance.vision,
+      'video': instance.video,
+      'audio': instance.audio,
       'nativeDocs': instance.nativeDocs,
+      'maxMediaParts': instance.maxMediaParts,
+      'maxMediaBytes': instance.maxMediaBytes,
       'knobs': instance.knobs.map((e) => e.toJson()).toList(),
     };

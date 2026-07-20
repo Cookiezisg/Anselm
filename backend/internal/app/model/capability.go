@@ -30,8 +30,12 @@ type CapabilityView struct {
 	DisplayName   string        `json:"displayName"`
 	ContextWindow int           `json:"contextWindow"`
 	MaxOutput     int           `json:"maxOutput"`
-	Vision        bool          `json:"vision"`     // accepts image input natively
-	NativeDocs    bool          `json:"nativeDocs"` // accepts an inline document (PDF) natively
+	Vision        bool          `json:"vision"`     // accepts image input natively / 原生接收图片
+	Video         bool          `json:"video"`      // accepts native video input / 原生接收视频
+	Audio         bool          `json:"audio"`      // accepts native audio input / 原生接收音频
+	NativeDocs    bool          `json:"nativeDocs"` // accepts an inline document (PDF) natively / 原生接收内联文档(PDF)
+	MaxMediaParts int           `json:"maxMediaParts,omitempty"`
+	MaxMediaBytes int64         `json:"maxMediaBytes,omitempty"`
 	Knobs         []llmpkg.Knob `json:"knobs"`
 }
 
@@ -89,7 +93,11 @@ func (s *CapabilityService) List(ctx context.Context) ([]CapabilityView, error) 
 				ContextWindow: m.ContextWindow,
 				MaxOutput:     m.MaxOutput,
 				Vision:        m.Vision,
+				Video:         m.Video,
+				Audio:         m.Audio,
 				NativeDocs:    m.NativeDocs,
+				MaxMediaParts: m.MaxMediaParts,
+				MaxMediaBytes: m.MaxMediaBytes,
 				Knobs:         m.Knobs,
 			})
 		}

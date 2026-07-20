@@ -1,18 +1,16 @@
 package llm
 
-// anselmProvider is the built-in free-tier provider: the Anselm gateway, an OpenAI-wire proxy in
-// front of DeepSeek (api.anselm.website). It embeds deepseekProvider to inherit the ENTIRE DeepSeek
-// wire dialect verbatim — BuildRequest, ParseStream, the reasoning_content round-trip, tool-call
-// streaming — overriding only identity (Name/DefaultBaseURL) and the model catalog. The managed
-// api_key row (provider "anselm") carries the gwk_ install token as its Bearer key, so the
-// inherited BuildRequest authenticates with zero change. Tools flow through unchanged: the gateway
-// forwards them to DeepSeek, so the free tier is fully agentic.
+// anselmProvider is the built-in free-tier provider: the Anselm gateway, an OpenAI-wire capability
+// router (api.anselm.website). It embeds deepseekProvider for the compatible streaming parser,
+// reasoning_content round-trip and tool-call behavior; the gateway itself decides DeepSeek text vs
+// a multimodal upstream from the complete content history. The managed api_key row (provider
+// "anselm") carries the gwk_ install token as its Bearer key, so the inherited request transport
+// authenticates with zero change. Tools flow through unchanged, so the free tier stays agentic.
 //
-// anselmProvider 是内置免费档 provider：Anselm 网关（DeepSeek 前置的 OpenAI-wire 反代，api.anselm.website）。
-// embed deepseekProvider 原样继承整套 DeepSeek wire 方言——BuildRequest / ParseStream /
-// reasoning_content round-trip / tool-call 流式——仅覆盖身份与模型目录。受管 api_key 行（provider
-// "anselm"）以 gwk_ install token 作 Bearer key，故继承的 BuildRequest 零改即可鉴权。tools 原样透传：
-// 网关转发给 DeepSeek，免费档全 agentic。
+// anselmProvider 是内置免费档 provider：Anselm 网关（OpenAI-wire capability router，api.anselm.website）。
+// embed deepseekProvider 继承兼容的 BuildRequest / ParseStream / reasoning_content / tool-call 线缆，
+// 而网关按完整历史自行决定文本 DeepSeek 或图像/视频 Kimi。受管 api_key 行（provider "anselm"）以
+// gwk_ install token 作 Bearer key，故继承 transport 无需改动；tools 也可原样穿过统一入口。
 type anselmProvider struct {
 	*deepseekProvider
 }
@@ -34,17 +32,16 @@ const AnselmBaseURL = "https://api.anselm.website/v1"
 func (p *anselmProvider) Name() string           { return "anselm" }
 func (p *anselmProvider) DefaultBaseURL() string { return AnselmBaseURL }
 
-// anselmSpecs is the gateway's static catalog: exactly one model, deepseek-v4-flash (1M ctx /
-// 384K out), no vision/docs, and crucially no knobs — the gateway strips thinking/reasoning_effort,
-// so offering the picker those would be dead UI. Kept separate from deepseekSpecs precisely so the
-// DescribeModels override below yields knob-free entries.
+// anselmSpecs is the gateway's public capability envelope: exactly one logical model, anselm-auto.
+// Its text route is wider internally, but any native media routes to Kimi's 256K/32K envelope, so
+// the client must use that conservative window for context governance. Knobs stay empty because the
+// gateway owns reasoning behavior; exposing provider-native controls would be dead UI.
 //
-// anselmSpecs 是网关静态目录：仅 deepseek-v4-flash（1M/384K），无 vision/docs，且关键地无 knobs——网关
-// 剥离 thinking/reasoning_effort，给 picker 这些钮是死 UI。与 deepseekSpecs 分开，正是为让下面的
-// DescribeModels 覆盖产出无旋钮条目。
-var anselmSpecs = []modelSpec{
-	{AnselmModelID, 1_000_000, 384_000, nil, false, false},
-}
+// anselmSpecs 是网关公开能力外壳：唯一逻辑模型 anselm-auto。纯文本路由的内部窗口较宽，但任一原生媒体
+// 会进入 Kimi 的 256K/32K 外壳，客户端上下文治理必须采用这个保守窗口。网关拥有 reasoning 行为，故
+// knobs 保持为空，避免在 picker 展示无效 provider 控件。它与 deepseekSpecs 分开，确保下方 DescribeModels
+// 产出的是无旋钮的公开模型。
+var anselmSpecs = []modelSpec{{AnselmModelID, 262_144, 32_768, nil, true, false}}
 
 // DescribeModels parses the gateway's id-only /models body against anselmSpecs (NOT deepseekSpecs).
 // Overriding this is MANDATORY: without it the embedded deepseekProvider.DescribeModels would attach
@@ -55,15 +52,31 @@ var anselmSpecs = []modelSpec{
 // deepseekProvider.DescribeModels 会挂 dsKnobs()，给一个会剥离它们的网关在 picker 里显示死的
 // thinking/reasoning_effort 钮。
 func (p *anselmProvider) DescribeModels(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(anselmSpecs, raw), nil
+	models := describeFromSpecs(anselmSpecs, raw)
+	for i := range models {
+		// Current gateway accepts image + MP4 video. Audio stays in the common content protocol,
+		// but must remain unadvertised until a future audio upstream is wired.
+		//
+		// 当前网关接收图片与 MP4 视频。音频保留在公共内容协议中，但在未来接上音频上游前必须不对用户宣称可用。
+		models[i].Video = true
+		models[i].Audio = false
+		models[i].MaxMediaParts = 8
+		// The production gateway admits 5MiB request bodies and 3MiB decoded media. Publishing the
+		// decoded limit lets attachment rendering degrade locally before transport base64 expands it.
+		//
+		// 生产网关允许 5MiB 请求体与 3MiB 解码媒体。发布解码上限使附件渲染可在 base64 膨胀进传输层前本地降级。
+		models[i].MaxMediaBytes = 3 * 1024 * 1024
+	}
+	return models, nil
 }
 
-// AnselmModelID is the single model the free-tier gateway serves (it coerces any requested model to
-// this). Single source for anselmSpecs, the seeded probe body, and the managed key's pinned model id.
+// AnselmModelID is the single logical model the free-tier gateway serves. Its name is the gateway's
+// public alias, not either internal upstream model. It is the source for anselmSpecs, the seeded
+// probe body, and the managed key's pinned model id.
 //
 // AnselmModelID 是免费档网关唯一服务的模型（它把任何请求模型 coerce 成它）。anselmSpecs / 播种探测 body /
 // 受管 key 钉定模型 id 的单一事实源。
-const AnselmModelID = "deepseek-v4-flash"
+const AnselmModelID = "anselm-auto"
 
 // AnselmProbeBody returns the synthetic OpenAI /models body the free-tier provisioner seeds into the
 // managed key's probe archive, so the model module surfaces AnselmModelID without a live probe. It

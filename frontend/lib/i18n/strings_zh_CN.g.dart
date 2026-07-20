@@ -1793,7 +1793,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 
 	// Translations
 	@override String get freeTier => '免费档';
-	@override String get freeTierName => 'Anselm Free · deepseek-v4-flash';
+	@override String get freeTierName => 'Anselm Free · 自动多模态';
 	@override String freeUsage({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · ${reset} 重置';
 	@override String get freeUnavailable => '网关今日预算已满,明日恢复';
 	@override String get freeEnable => '启用免费档';
@@ -1851,6 +1851,8 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get pickerChange => '修改';
 	@override String get pickerClose => '收起';
 	@override String get visionBadge => '视觉';
+	@override String get videoBadge => '视频';
+	@override String get audioBadge => '音频';
 	@override String get docsBadge => '文档';
 	@override String get noCapsGuide => '还没有可用模型——先添加一把探测通过的密钥';
 	@override String get searchSection => '搜索';
@@ -4110,7 +4112,7 @@ extension on TranslationsZhCn {
 			'settings.langEn' => 'English',
 			'settings.langZh' => '简体中文',
 			'settings.keys.freeTier' => '免费档',
-			'settings.keys.freeTierName' => 'Anselm Free · deepseek-v4-flash',
+			'settings.keys.freeTierName' => 'Anselm Free · 自动多模态',
 			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · ${reset} 重置',
 			'settings.keys.freeUnavailable' => '网关今日预算已满,明日恢复',
 			'settings.keys.freeEnable' => '启用免费档',
@@ -4168,9 +4170,11 @@ extension on TranslationsZhCn {
 			'settings.keys.pickerChange' => '修改',
 			'settings.keys.pickerClose' => '收起',
 			'settings.keys.visionBadge' => '视觉',
-			'settings.keys.docsBadge' => '文档',
+			'settings.keys.videoBadge' => '视频',
 			_ => null,
 		} ?? switch (path) {
+			'settings.keys.audioBadge' => '音频',
+			'settings.keys.docsBadge' => '文档',
 			'settings.keys.noCapsGuide' => '还没有可用模型——先添加一把探测通过的密钥',
 			'settings.keys.searchSection' => '搜索',
 			'settings.ws.section' => '工作区',

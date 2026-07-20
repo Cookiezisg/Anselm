@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"iter"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -96,6 +97,20 @@ func (r fakeResolver) ResolveUtility(_ context.Context) (Bundle, error) {
 		Request:  llminfra.Request{ModelID: "fake-utility"},
 		Provider: "fake",
 	}, nil
+}
+
+// fakeAttachmentRenderer makes the history seam observable without involving the attachment
+// service or a file store.
+//
+// fakeAttachmentRenderer 让 history 接缝可观测，无需牵入 attachment service 或文件存储。
+type fakeAttachmentRenderer struct {
+	parts []llminfra.ContentPart
+	ids   []string
+}
+
+func (r *fakeAttachmentRenderer) ToContentParts(_ context.Context, ids []string, _ ContentCapabilities) ([]llminfra.ContentPart, error) {
+	r.ids = append([]string(nil), ids...)
+	return r.parts, nil
 }
 
 // fakeConvs returns one fixed conversation for any id (or err, if set, to simulate a foreign/missing id).
@@ -297,6 +312,57 @@ func TestSend_EndToEnd(t *testing.T) {
 	// SSE: assistant message_start (Open) + message_stop (Close) both reached the bridge.
 	if !bridge.frameFor(asstID, streamdomain.Open{}) || !bridge.frameFor(asstID, streamdomain.Close{}) {
 		t.Fatalf("missing message_start/stop frames for %s", asstID)
+	}
+}
+
+func TestSend_AttachmentOnlyPersistsAndReplays(t *testing.T) {
+	bridge := newRecordBridge()
+	svc, store := newSvc(t, &fakeClient{script: textTurn()}, bridge)
+	renderer := &fakeAttachmentRenderer{parts: []llminfra.ContentPart{{
+		Type:     llminfra.PartVideoURL,
+		VideoURL: "data:video/mp4;base64,AAAA",
+	}}}
+	svc.deps.Attachments = renderer
+	ctx := ctxWS("ws_1")
+
+	asstID, err := svc.Send(ctx, "cv_1", SendInput{AttachmentIDs: []string{"att_video_1"}})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitClose(t, bridge, asstID)
+
+	thread, err := store.LoadThread(ctx, "cv_1")
+	if err != nil {
+		t.Fatalf("LoadThread: %v", err)
+	}
+	var user *messagesdomain.Message
+	for _, m := range thread {
+		if m.Role == messagesdomain.RoleUser {
+			user = m
+			break
+		}
+	}
+	if user == nil || len(user.Blocks) != 1 || user.Blocks[0].Type != messagesdomain.BlockTypeText || user.Blocks[0].Content != "" {
+		t.Fatalf("attachment-only user turn must retain one empty text block, got %+v", user)
+	}
+
+	h := &chatHost{svc: svc, conversationID: "cv_1", assistantMsgID: asstID}
+	history, err := h.LoadHistory(ctx)
+	if err != nil {
+		t.Fatalf("LoadHistory: %v", err)
+	}
+	var replayed *llminfra.LLMMessage
+	for i := range history {
+		if history[i].Role == llminfra.RoleUser {
+			replayed = &history[i]
+			break
+		}
+	}
+	if replayed == nil || len(replayed.Parts) != 1 || replayed.Parts[0].Type != llminfra.PartVideoURL {
+		t.Fatalf("attachment-only user turn disappeared from LLM history: %+v", history)
+	}
+	if got, want := renderer.ids, []string{"att_video_1"}; !slices.Equal(got, want) {
+		t.Fatalf("renderer ids = %v, want %v", got, want)
 	}
 }
 

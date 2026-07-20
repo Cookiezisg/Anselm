@@ -101,7 +101,15 @@ type ConversationReader interface {
 // 渲染器消费以决定 image_url vs 文字、原生 PDF vs sandbox 抽文本。chat 拥有该类型，两侧互不 import。
 type ContentCapabilities struct {
 	Vision     bool
+	Video      bool
+	Audio      bool
 	NativeDocs bool
+	// MaxMediaParts / MaxMediaBytes are optional app-side guards for one rendered user turn.
+	// Zero means the provider did not publish a finite inline-media envelope.
+	// MaxMediaParts / MaxMediaBytes 是单个渲染 user 回合的可选 app 侧闸；零值表示 provider 未发布
+	// 有限内联媒体额度。
+	MaxMediaParts int
+	MaxMediaBytes int64
 }
 
 // Bundle is a ready-to-run LLM client + a pre-filled base Request (ModelID/Key/BaseURL/Options)
@@ -322,10 +330,13 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if len(attrs) > 0 {
 		userMsg.Attrs = attrs
 	}
-	var userBlocks []messagesdomain.Block
-	if in.Content != "" {
-		userBlocks = []messagesdomain.Block{{Type: messagesdomain.BlockTypeText, Content: in.Content}}
-	}
+	// Keep one (possibly empty) text block even for an attachment-only turn. LoadHistory uses a
+	// visible block as the durable turn boundary before it asks the attachment renderer for native
+	// parts; omitting it would make an image/video/audio-only message disappear on every replay.
+	//
+	// 纯附件回合也保留一个（可为空）的 text block。LoadHistory 先以可见 block 判断持久回合边界，随后才
+	// 调附件渲染器取原生 part；若此处省掉 block，纯图/视频/音频消息会在每次历史重放时消失。
+	userBlocks := []messagesdomain.Block{{Type: messagesdomain.BlockTypeText, Content: in.Content}}
 	if err := s.messages.CreateMessage(ctx, userMsg, userBlocks); err != nil {
 		return "", err
 	}

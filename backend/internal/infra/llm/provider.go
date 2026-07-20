@@ -164,8 +164,12 @@ type ModelInfo struct {
 	DisplayName   string `json:"displayName"`
 	ContextWindow int    `json:"contextWindow"`
 	MaxOutput     int    `json:"maxOutput"`
-	Vision        bool   `json:"vision"`     // accepts image input natively (OpenAI-compat image_url path)
-	NativeDocs    bool   `json:"nativeDocs"` // accepts an inline document (PDF) natively
+	Vision        bool   `json:"vision"`                  // accepts image input natively / 原生接收图片
+	Video         bool   `json:"video"`                   // accepts native video input / 原生接收视频
+	Audio         bool   `json:"audio"`                   // accepts native audio input / 原生接收音频
+	NativeDocs    bool   `json:"nativeDocs"`              // accepts an inline document (PDF) natively / 原生接收内联文档(PDF)
+	MaxMediaParts int    `json:"maxMediaParts,omitempty"` // 0 = provider-specific / no app-side cap；0=仅 provider 限制/无 app 侧上限
+	MaxMediaBytes int64  `json:"maxMediaBytes,omitempty"` // total decoded bytes; 0 = no app-side cap / 解码字节总数；0=无 app 侧上限
 	Knobs         []Knob `json:"knobs"`
 }
 

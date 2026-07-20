@@ -244,6 +244,44 @@ func TestSummarize_FoldsAndArchives(t *testing.T) {
 	}
 }
 
+func TestMaybeCompact_OldAttachmentForcesTraceableSummary(t *testing.T) {
+	// Native media is not a byte-for-token input. Even with a tiny text estimate, the old turn
+	// must cross the watermark so a future agent gets a durable attachment reference instead of
+	// silently replaying unbounded media forever.
+	//
+	// 原生媒体不是字节/token 输入。即使文本估算很小，旧回合也必须跨过水位线，使后续 agent 得到可追溯
+	// 的附件引用，而非永远静默重放无界媒体。
+	old := &messagesdomain.Message{
+		ID: "u_old", ConversationID: "cv", Role: messagesdomain.RoleUser,
+		Attrs: map[string]any{attachmentsAttr: []any{"att_video_1"}},
+		Blocks: []messagesdomain.Block{{
+			ID: "u_old_text", Seq: 1, Type: messagesdomain.BlockTypeText,
+			ContextRole: messagesdomain.ContextRoleHot,
+		}},
+	}
+	thread := []*messagesdomain.Message{old}
+	for i := range recentTurns {
+		thread = append(thread, trTurn("recent"+string(rune('a'+i)), int64(10+i), 80, "recent"))
+	}
+	msgs := &fakeMessages{thread: thread}
+	conv := &fakeConv{}
+	client := &fakeClient{out: "summary with attachment reference"}
+	svc := newSvc(msgs, conv, fakeWindow{window: 100}, client)
+
+	if err := svc.MaybeCompact(context.Background(), "cv"); err != nil {
+		t.Fatalf("MaybeCompact: %v", err)
+	}
+	if conv.setCalls != 1 || conv.watermark != 1 {
+		t.Fatalf("attachment turn must be summarized once through seq 1, calls=%d watermark=%d", conv.setCalls, conv.watermark)
+	}
+	if !strings.Contains(client.lastReq.Messages[0].Content, "att_video_1") {
+		t.Fatalf("summary prompt lost durable attachment reference: %q", client.lastReq.Messages[0].Content)
+	}
+	if archived := msgs.idsForRole(messagesdomain.ContextRoleArchived); !slices.Contains(archived, "u_old_text") {
+		t.Fatalf("attachment turn block must be archived after summary, got %v", archived)
+	}
+}
+
 func TestSummarize_NothingPastWatermark(t *testing.T) {
 	// Old turn already covered by the watermark → nothing to summarize.
 	old := trTurn("m1", 1, 100, "already covered")

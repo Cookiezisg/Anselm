@@ -220,6 +220,46 @@ func TestToContentParts_NonVisionDegradesImage(t *testing.T) {
 	}
 }
 
+func TestToContentParts_NativeVideoAndAudioRespectCapabilities(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	videoBytes := []byte("\x00\x00\x00\x18ftypisom video")
+	audioBytes := []byte("ID3\x04\x00\x00 audio")
+	video, _ := svc.Upload(ctx, "walkthrough.mp4", "video/mp4", videoBytes)
+	audio, _ := svc.Upload(ctx, "voice.mp3", "audio/mpeg", audioBytes)
+
+	parts, err := svc.ToContentParts(ctx, []string{video.ID, audio.ID}, Capabilities{Video: true, Audio: true})
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if len(parts) != 2 {
+		t.Fatalf("parts = %d, want 2", len(parts))
+	}
+	if parts[0].Type != llminfra.PartVideoURL || !strings.HasPrefix(parts[0].VideoURL, "data:video/mp4;base64,") {
+		t.Errorf("video part = %+v, want video_url data URI", parts[0])
+	}
+	if parts[1].Type != llminfra.PartInputAudio || parts[1].MediaType != "audio/mpeg" ||
+		parts[1].Data != base64.StdEncoding.EncodeToString(audioBytes) {
+		t.Errorf("audio part = %+v, want input_audio base64 payload", parts[1])
+	}
+}
+
+func TestToContentParts_MediaEnvelopeDegradesWithoutDroppingOrder(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	first, _ := svc.Upload(ctx, "first.png", "image/png", []byte("one"))
+	second, _ := svc.Upload(ctx, "second.png", "image/png", []byte("two"))
+
+	parts, err := svc.ToContentParts(ctx, []string{first.ID, second.ID}, Capabilities{Vision: true, MaxMediaParts: 1})
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if len(parts) != 2 || parts[0].Type != llminfra.PartImageURL || parts[1].Type != llminfra.PartText {
+		t.Fatalf("parts = %+v, want native first image + note for second", parts)
+	}
+	if !strings.Contains(parts[1].Text, "item limit") || !strings.Contains(parts[1].Text, "second.png") {
+		t.Errorf("budget note = %q, want second image + item limit", parts[1].Text)
+	}
+}
+
 func TestToContentParts_NotesMissingPreservingOrder(t *testing.T) {
 	svc, _, ctx := newSvc(t)
 	txt, _ := svc.Upload(ctx, "a.txt", "text/plain", []byte("A"))

@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-21
+review-due: 2026-10-19
 audience: [human, ai]
 ---
 
@@ -23,11 +23,11 @@ audience: [human, ai]
 
 ## freetier —— 内置免费档凭证 + 配额代理
 
-把每 workspace 接入 Anselm 网关（DeepSeek 前置 OpenAI-wire 反代，`api.anselm.website/v1`）的内置免费档。**provisioner**（boot 的 `forEachWorkspace` + `workspace.SetOnCreated` 钩子覆盖 boot 后新建 ws，幂等 best-effort）首启铸 `gwk_` install token（POST 网关 `/install`，发**机器指纹 SHA-256**、绝不传裸序列号），落一条受管 `anselm` api_key 行（经 apikey `CreateManaged`，跳 live 探针），**并把受管模型（`AnselmModelID`=`deepseek-v4-flash`）播成 workspace 三 scenario（dialogue/utility/agent）默认**（`workspace.SeedDefaultsIfUnset`——只填仍未设的 scenario、绝不覆盖用户显式选择；已开通路径也补播，故 key 早于播种的 ws 下次 boot 自愈其 NULL 默认），使一切开箱即解析（auto-title / compaction / agent invoke——前端模型选择器上线前，唯一已配的受管模型即合理默认）。降级铁律：每个失败路径 log 并返 nil（无指纹 / install 失败 / 持久化冲突 / 播种失败），免费档缺席绝不挂 boot/onboarding。**手动重试口** `POST /freetier:provision`（S-7，`Provisioner.ProvisionNow`）：同一幂等 ensure 但**报告结果**——事后存在受管行返 `{provisioned:true}`（原有或新建）、开通降级返 false（状态非错误、不抛）；设置页免费档卡的「启用」按钮消费。**配额代理**（`QuotaReader`，`GET /freetier/quota`）：List 定位受管 anselm 行 → `ResolveCredentialsByID` 解密其 `gwk_` token → `QuotaClient` 以 `Authorization: Bearer <gwk_>` 调网关 `GET /v1/quota`（与 chat 同一 token / 同一 bearer 鉴权），返 `{limit,used,remaining,resetAt,available}`（`remaining=limit-used` 钳 ≥0；`available` 还折网关全局日预算，故 remaining>0 仍可能 false）。客户端**无法直读**——install token AES-GCM 加密存后端、永不出明文（连 `get_model_config` 都脱敏），故持明文的后端代理之；只读、每请求一次、绝不改凭证（失效 token 现为网关鉴权错误、非本地翻行）。无受管行 → `FREETIER_NOT_PROVISIONED`（404，设置页据此隐藏免费档仪表、不渲染误导清零，G1）；网关自身失败原样冒泡 `LLM_AUTH_FAILED`（401/403 token 失效/封禁）/`LLM_RATE_LIMITED`（429）/`LLM_PROVIDER_ERROR`（其余，经 `classifyHTTPError`）。码 `FREETIER_NOT_PROVISIONED` 1；无自有表无 ID（骑 apikey 的 `aki_` 受管行）。
+把每 workspace 接入 Anselm 网关（按内容能力自动分流的 OpenAI-wire gateway，`api.anselm.website/v1`）的内置免费档。**provisioner**（boot 的 `forEachWorkspace` + `workspace.SetOnCreated` 钩子覆盖 boot 后新建 ws，幂等 best-effort）首启铸 `gwk_` install token（POST 网关 `/install`，发**机器指纹 SHA-256**、绝不传裸序列号），落一条受管 `anselm` api_key 行（经 apikey `CreateManaged`，跳 live 探针），**并把受管模型（`AnselmModelID`=`anselm-auto`）播成 workspace 三 scenario（dialogue/utility/agent）默认**（`workspace.SeedDefaultsIfUnset`——只填仍未设的 scenario、绝不覆盖用户显式选择；已开通路径也补播，故 key 早于播种的 ws 下次 boot 自愈其 NULL 默认），使一切开箱即解析（auto-title / compaction / agent invoke——唯一已配的受管模型即合理默认）。其公开能力是保守 `256K/32K`、图片+MP4 视频、每回合 8 个/3MiB 解码媒体；音频协议已预留但当前不宣传为可用。降级铁律：每个失败路径 log 并返 nil（无指纹 / install 失败 / 持久化冲突 / 播种失败），免费档缺席绝不挂 boot/onboarding。**手动重试口** `POST /freetier:provision`（S-7，`Provisioner.ProvisionNow`）：同一幂等 ensure 但**报告结果**——事后存在受管行返 `{provisioned:true}`（原有或新建）、开通降级返 false（状态非错误、不抛）；设置页免费档卡的「启用」按钮消费。**配额代理**（`QuotaReader`，`GET /freetier/quota`）：List 定位受管 anselm 行 → `ResolveCredentialsByID` 解密其 `gwk_` token → `QuotaClient` 以 `Authorization: Bearer <gwk_>` 调网关 `GET /v1/quota`（与 chat 同一 token / 同一 bearer 鉴权），返 `{limit,used,remaining,resetAt,available}`（`remaining=limit-used` 钳 ≥0；`available` 还折网关全局日预算，故 remaining>0 仍可能 false）。客户端**无法直读**——install token AES-GCM 加密存后端、永不出明文（连 `get_model_config` 都脱敏），故持明文的后端代理之；只读、每请求一次、绝不改凭证（失效 token 现为网关鉴权错误、非本地翻行）。无受管行 → `FREETIER_NOT_PROVISIONED`（404，设置页据此隐藏免费档仪表、不渲染误导清零，G1）；网关自身失败原样冒泡 `LLM_AUTH_FAILED`（401/403 token 失效/封禁）/`LLM_RATE_LIMITED`（429）/`LLM_PROVIDER_ERROR`（其余，经 `classifyHTTPError`）。码 `FREETIER_NOT_PROVISIONED` 1；无自有表无 ID（骑 apikey 的 `aki_` 受管行）。
 
 ## model —— 模型选择与能力
 
-无存储：默认在 workspace 列、覆盖在实体字段。定义 `ModelRef` 值 + 三场景白名单（dialogue/utility/agent）+ **覆盖优先默认兜底**规则；`CapabilityService` 读 apikey 的 probe 归档、经各 provider 自描述的 `DescribeModels` 聚合模型目录（vision/native-docs 能力供 chat 附件门控）。**LLM 工具**：只读 `get_model_config`（`tool/model`，无参；投影三场景默认 ModelRef + 已配 key 的**脱敏**形（`KeyMasked`、绝不出明文）+ CapabilityService 可用模型）——使 agent 从真 workspace 配置答「我在用什么」、不必 grep 主机 FS（后者会泄露 `.env` 明文 key 并臆造假审计，F68）。码 `MODEL_*` 3。
+无存储：默认在 workspace 列、覆盖在实体字段。定义 `ModelRef` 值 + 三场景白名单（dialogue/utility/agent）+ **覆盖优先默认兜底**规则；`CapabilityService` 读 apikey 的 probe 归档、经各 provider 自描述的 `DescribeModels` 聚合模型目录（`vision/video/audio/nativeDocs` 与可选的单回合 `maxMediaParts/maxMediaBytes` 一起供 chat 附件门控和前端诚实展示）。**LLM 工具**：只读 `get_model_config`（`tool/model`，无参；投影三场景默认 ModelRef + 已配 key 的**脱敏**形（`KeyMasked`、绝不出明文）+ CapabilityService 可用模型）——使 agent 从真 workspace 配置答「我在用什么」、不必 grep 主机 FS（后者会泄露 `.env` 明文 key 并臆造假审计，F68）。码 `MODEL_*` 3。
 
 ## websearch —— 搜索配置词汇
 

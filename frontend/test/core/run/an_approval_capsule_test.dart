@@ -200,4 +200,13 @@ void main() {
     await tester.pump();
     expect(dismissed, 1);
   });
+
+  testWidgets('an unmounted verdict capsule cancels its dwell timer', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(cap(verdict: 'Approved')));
+    await tester.pump();
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+  });
 }

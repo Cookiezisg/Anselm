@@ -26,11 +26,12 @@ abstract class ModelKnob with _$ModelKnob {
 /// One runnable model option — a row of `GET /model-capabilities` (the backend aggregates every probed
 /// api key × the models it serves; mirrors `model.CapabilityView`). Exactly the {apiKeyId, modelId}
 /// pair a default/override PUT needs, plus display labels, capability specs (context window / max
-/// output / vision / native docs) and the native [knobs] the three-stage model picker renders.
+/// output / vision / video / audio / native docs / inline-media envelope) and the native [knobs]
+/// the three-stage model picker renders.
 ///
 /// 一个可跑的模型选项——`GET /model-capabilities` 的一行(后端聚合:每个已探测 key × 它服务的模型;
 /// 镜像 model.CapabilityView)。恰好是默认/覆写 PUT 需要的 {apiKeyId, modelId} 对 + 展示标签 + 能力
-/// 规格(上下文窗/最大输出/视觉/原生文档)+ 三段选择面板渲染的原生 [knobs]。
+/// 规格(上下文窗/最大输出/视觉/视频/音频/原生文档/内联媒体额度)+ 三段选择面板渲染的原生 [knobs]。
 @freezed
 abstract class ModelCapability with _$ModelCapability {
   const factory ModelCapability({
@@ -42,7 +43,11 @@ abstract class ModelCapability with _$ModelCapability {
     @Default(0) int contextWindow,
     @Default(0) int maxOutput,
     @Default(false) bool vision,
+    @Default(false) bool video,
+    @Default(false) bool audio,
     @Default(false) bool nativeDocs,
+    @Default(0) int maxMediaParts,
+    @Default(0) int maxMediaBytes,
     @Default(<ModelKnob>[]) List<ModelKnob> knobs,
   }) = _ModelCapability;
 

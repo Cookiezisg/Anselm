@@ -184,8 +184,16 @@ func (s *Service) MaybeCompact(ctx context.Context, conversationID string) error
 	s.demote(ctx, thread, protectedFrom)
 
 	// Gate: if the projected size is now under the trigger, demotion sufficed — skip the LLM.
-	// 闸：投影大小已低于触发线则 demote 足够——跳过 LLM。
-	if s.estimateTokens(thread, summary) < int(limitspkg.Current().Context.TriggerRatio*float64(inputBudget)) {
+	// Native attachments deliberately bypass the bytes/4 estimate: their provider tokenization is
+	// modal and a base64 transport string is not a text-token estimate. An old attachment still in
+	// history therefore forces step ②, where its whole turn is folded under the watermark instead of
+	// letting a falsely-small estimate postpone compaction forever.
+	//
+	// 闸：投影大小已低于触发线则 demote 足够——跳过 LLM。原生附件刻意不进 bytes/4 估算：其 token 化取决于
+	// 模态，base64 传输串更不是文本 token 估算。历史中仍有旧附件时强制走步骤②，把整回合压到水位线之下，
+	// 避免虚低估算无限推迟压缩。
+	if !hasUncompactedAttachments(thread, protectedFrom, watermark) &&
+		s.estimateTokens(thread, summary) < int(limitspkg.Current().Context.TriggerRatio*float64(inputBudget)) {
 		return nil
 	}
 
