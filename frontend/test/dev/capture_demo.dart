@@ -24,6 +24,7 @@ import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/notifications/data/notification_demo_fixture.dart';
+import 'package:anselm/features/entities/state/flowrun_inbox_provider.dart';
 import 'package:anselm/features/notifications/state/notice_capsule_provider.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/model/settings_catalog.dart';
@@ -136,6 +137,9 @@ const _noticeCap = bool.fromEnvironment('NOTICECAP');
 // `NOTICEAT=birth|mid|full` picks the capture moment along the capsule's four-beat line (default full).
 // 选胶囊四拍时间线上的截帧时刻。
 const _noticeAt = String.fromEnvironment('NOTICEAT');
+// `NOTICEKIND=approval` pushes an APPROVAL block (coordinates from the demo inbox's parked node) instead
+// of the failure pill. 压审批块(坐标取 demo 收件箱停车节点)。
+const _noticeKind = String.fromEnvironment('NOTICEKIND');
 // Optional `--dart-define=MCPEMPTY=true` (with OCEAN=settings PANEL=mcp) empties the seeded MCP roster so
 // the panel body becomes the marketplace itself — the zero-MCP 空态承接市场 frame (quiet lead + full
 // market, no «已安装» group head). 清空 MCP 名册,验空态承接市场。
@@ -599,16 +603,34 @@ void main() {
     // Push a danger notice into the band-capsule queue — the capsule fades into the head band's middle
     // (never covering work content). 压入一条 danger 通知,胶囊淡入顶带中段。
     if (_noticeCap) {
-      container.read(noticeCapsuleProvider.notifier).push(const CapsuleNotice(
-            key: 'cap-demo',
-            text: '工作流「invoice_sync」运行失败',
-            danger: true,
-            location: '/entities/workflow/wf_digest',
-          ));
+      if (_noticeKind == 'approval') {
+        final parked = await container.read(flowrunInboxProvider.future);
+        final node = parked.first;
+        container.read(noticeCapsuleProvider.notifier).push(CapsuleNotice(
+              key: 'cap-demo-appr',
+              text: '工作流「approve_deploy」等待审批',
+              title: 'approve_deploy',
+              danger: false,
+              kind: CapsuleKind.approval,
+              flowrunId: node.flowrunId,
+              nodeId: node.nodeId,
+            ));
+      } else {
+        container.read(noticeCapsuleProvider.notifier).push(const CapsuleNotice(
+              key: 'cap-demo',
+              text: '工作流「invoice_sync」运行失败',
+              danger: true,
+              location: '/entities/workflow/wf_digest',
+            ));
+      }
       await tester.pump();
       // Pick the beat: birth (~80ms, the newborn circle) / mid (~280ms, half-stretched) / full (settled).
       // 选拍:诞生圆(80ms)/半开(280ms)/全开(落定)。
-      final at = switch (_noticeAt) { 'birth' => 80, 'mid' => 280, _ => 700 };
+      final at = switch (_noticeAt) { 'birth' => 80, 'mid' => 280, _ => _noticeKind == 'approval' ? 1000 : 700 };
+      await tester.pump(Duration(milliseconds: at));
+      // The approval swap (pill→block) lands during the timed pump; give the swapped block one frame
+      // to mount and a full run for its own entrance. 换块落在计时泵内:补一帧挂载+再泵足其登场。
+      await tester.pump();
       await tester.pump(Duration(milliseconds: at));
       outName = '${outName}_noticecap${_noticeAt.isEmpty ? '' : '_$_noticeAt'}';
     }

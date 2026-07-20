@@ -374,8 +374,12 @@ class _OceanRegion extends StatelessWidget {
             top: controlInset,
             left: 0,
             right: 0,
-            height: AnSize.control,
-            child: Align(child: bandNotice),
+            bottom: 0,
+            // Top-aligned, UNBOUNDED downward: the pill sits on the band line as before, while the
+            // approval BLOCK grows below it (a fixed control-height layer squashed the block flat).
+            // Hit-testing still lands only on the capsule itself. 顶对齐、向下不设限:药丸照坐带线,
+            // 审批块向下生长(定高层曾把块压扁);命中仍仅胶囊自身。
+            child: Align(alignment: Alignment.topCenter, child: bandNotice),
           ),
       ],
     );

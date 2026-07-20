@@ -1901,7 +1901,13 @@
       "cmdZoomOut": "缩小界面",
       "cmdZoomReset": "重置缩放",
       "hintModifier": "组合键须含 ⌘/Ctrl 等修饰键"
-    }
+    },
+    "capsuleFailures": "胶囊:失败与崩溃",
+    "capsuleFailuresDesc": "失败与崩溃事件弹出顶带胶囊",
+    "capsuleApprovals": "胶囊:待审批",
+    "capsuleApprovalsDesc": "待审批在顶带弹出可就地批复的块",
+    "capsuleAttention": "胶囊:需要关注",
+    "capsuleAttentionDesc": "需关注事件(连败、悬空引用)弹出顶带胶囊"
   },
   "markdown": {
     "imageNotLoaded": "图片未加载"

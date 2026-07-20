@@ -582,6 +582,12 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override late final _Translations$settings$network$zh_CN network = _Translations$settings$network$zh_CN._(_root);
 	@override late final _Translations$settings$sandbox$zh_CN sandbox = _Translations$settings$sandbox$zh_CN._(_root);
 	@override late final _Translations$settings$shortcuts$zh_CN shortcuts = _Translations$settings$shortcuts$zh_CN._(_root);
+	@override String get capsuleFailures => '胶囊:失败与崩溃';
+	@override String get capsuleFailuresDesc => '失败与崩溃事件弹出顶带胶囊';
+	@override String get capsuleApprovals => '胶囊:待审批';
+	@override String get capsuleApprovalsDesc => '待审批在顶带弹出可就地批复的块';
+	@override String get capsuleAttention => '胶囊:需要关注';
+	@override String get capsuleAttentionDesc => '需关注事件(连败、悬空引用)弹出顶带胶囊';
 }
 
 // Path: markdown
@@ -4371,6 +4377,12 @@ extension on TranslationsZhCn {
 			'settings.shortcuts.cmdZoomOut' => '缩小界面',
 			'settings.shortcuts.cmdZoomReset' => '重置缩放',
 			'settings.shortcuts.hintModifier' => '组合键须含 ⌘/Ctrl 等修饰键',
+			'settings.capsuleFailures' => '胶囊:失败与崩溃',
+			'settings.capsuleFailuresDesc' => '失败与崩溃事件弹出顶带胶囊',
+			'settings.capsuleApprovals' => '胶囊:待审批',
+			'settings.capsuleApprovalsDesc' => '待审批在顶带弹出可就地批复的块',
+			'settings.capsuleAttention' => '胶囊:需要关注',
+			'settings.capsuleAttentionDesc' => '需关注事件(连败、悬空引用)弹出顶带胶囊',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

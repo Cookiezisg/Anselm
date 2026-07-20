@@ -92,16 +92,34 @@ class ToastDispatcher extends Notifier<void> {
     // 聚焦路径:顶带胶囊是唯一浮层(右上事件 toast 退役)。分层:danger→胶囊;warn(默认级)不浮——铃红点
     // (权威 unread-count 驱动)即其呈现;all 级 warn/中性也弹(用户显式选的全量)。S1 应用内开关同闸胶囊,
     // danger 穿透。
-    final wantsCapsule = line.tone == AnTone.danger || level == 'all';
-    if (!wantsCapsule) return;
+    // Capsule REGISTRY (用户 0720): the user picks which event classes may pop the band — failures
+    // (danger family) / approvals / attention (warn residue). 'all' level bypasses the registry;
+    // 'important' consults it. The S1 in-app switch still gates non-danger; danger bypasses (honesty).
+    // 胶囊登记:用户点选可弹类——失败/审批/需关注;all 级越过登记,important 级按登记;S1 开关仍闸非
+    // danger,danger 穿透。
+    final isApproval = s.type == 'workflow.approval_pending';
+    final registered = switch (line.tone) {
+      AnTone.danger => prefs.getBool(SettingsKeys.capsuleFailures),
+      AnTone.warn when isApproval => prefs.getBool(SettingsKeys.capsuleApprovals),
+      AnTone.warn => prefs.getBool(SettingsKeys.capsuleAttention),
+      _ => false,
+    };
+    if (!(registered || level == 'all')) return;
     if (!prefs.getBool(SettingsKeys.notifyToast) && line.tone != AnTone.danger) return;
 
+    // An approval pops the BLOCK capsule (in-place decide, never auto-dismissed) — the payload's
+    // flowrunId+nodeId address the parked node exactly. 审批弹「块」胶囊(就地决策,不自动收),payload
+    // 坐标精确定位停车节点。
     ref.read(noticeCapsuleProvider.notifier).push(CapsuleNotice(
           key: '$key:$now',
           text: text,
           icon: line.icon,
           danger: line.tone == AnTone.danger,
           location: loc,
+          kind: isApproval ? CapsuleKind.approval : CapsuleKind.pill,
+          title: isApproval ? s.payload['name'] as String? : null,
+          flowrunId: isApproval ? s.payload['flowrunId'] as String? : null,
+          nodeId: isApproval ? s.payload['nodeId'] as String? : null,
         ));
   }
 

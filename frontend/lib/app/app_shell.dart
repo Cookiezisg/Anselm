@@ -25,6 +25,10 @@ import '../core/shell/right_panel.dart';
 import '../features/entities/state/selected_entity.dart';
 import '../features/entities/ui/entity_ocean.dart';
 import '../features/entities/ui/entity_rail.dart';
+import '../core/contract/entities/workflow.dart' show FlowrunNode;
+import '../core/run/an_approval_capsule.dart';
+import '../features/entities/data/entity_providers.dart';
+import '../features/entities/state/flowrun_inbox_provider.dart';
 import '../features/entities/ui/flowrun_inbox.dart';
 import '../features/entities/ui/run/run_terminal.dart';
 import '../features/notifications/state/notice_capsule_provider.dart';
@@ -503,6 +507,23 @@ class _BandNoticeHost extends ConsumerWidget {
     final queue = ref.watch(noticeCapsuleProvider);
     if (queue.isEmpty) return const SizedBox.shrink();
     final n = queue.first;
+    // An approval takes the BLOCK form when its parked node is addressable (payload flowrunId+nodeId
+    // → the inbox's parked list); an already-decided / not-yet-loaded node degrades to the plain pill
+    // (deep link only — never a dead block). 审批在停车节点可寻址时走块形;已决/未载退化为药丸(仅深链,
+    // 绝不渲死块)。
+    if (n.kind == CapsuleKind.approval && n.flowrunId != null && n.nodeId != null) {
+      final parked = ref.watch(flowrunInboxProvider).value;
+      FlowrunNode? node;
+      for (final p in parked ?? const <FlowrunNode>[]) {
+        if (p.flowrunId == n.flowrunId && p.nodeId == n.nodeId) {
+          node = p;
+          break;
+        }
+      }
+      if (node != null) {
+        return _ApprovalCapsuleHost(key: ValueKey(n.key), notice: n, parked: node);
+      }
+    }
     return AnNoticeCapsule(
       key: ValueKey(n.key),
       text: n.text,
@@ -516,6 +537,67 @@ class _BandNoticeHost extends ConsumerWidget {
               ref.read(noticeCapsuleProvider.notifier).pop();
               ref.read(goRouterProvider).go(loc);
             },
+      onDismissed: () => ref.read(noticeCapsuleProvider.notifier).pop(),
+    );
+  }
+}
+
+
+/// The approval-block host — wires [AnApprovalCapsule] (pure props) to the decide chain: Approve /
+/// Reject → `decideApproval` (the SAME repo path the cockpit and inbox ride, first-wins semantics
+/// intact) → verdict flash → the capsule retreats and the queue advances. Failure surfaces as an
+/// operational toast (the top-right host's remaining legitimate job) and re-arms the buttons.
+/// 审批块宿主:纯 prop 块件接决策链(与驾驶舱/收件箱同一 repo 径,先到先得语义原样)→判词一拍→倒放递补;
+/// 失败走右上操作反馈 toast 并复位按钮。
+class _ApprovalCapsuleHost extends ConsumerStatefulWidget {
+  const _ApprovalCapsuleHost({required this.notice, required this.parked, super.key});
+
+  final CapsuleNotice notice;
+  final FlowrunNode parked;
+
+  @override
+  ConsumerState<_ApprovalCapsuleHost> createState() => _ApprovalCapsuleHostState();
+}
+
+class _ApprovalCapsuleHostState extends ConsumerState<_ApprovalCapsuleHost> {
+  bool _busy = false;
+  String? _verdict;
+
+  Future<void> _decide(String decision) async {
+    setState(() => _busy = true);
+    final t = context.t;
+    try {
+      await ref
+          .read(entityRepositoryProvider)
+          .decideApproval(widget.parked.flowrunId, widget.parked.nodeId, decision: decision);
+      if (!mounted) return;
+      setState(() {
+        _busy = false;
+        _verdict = decision == 'yes' ? t.chat.tool.approved : t.chat.tool.rejected;
+      });
+      ref.invalidate(flowrunInboxProvider); // the tray's «needs you» count follows 托盘待办跟上
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _busy = false);
+      ref.read(overlayProvider.notifier).showToast(t.run.failed, tone: AnTone.danger);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    return AnApprovalCapsule(
+      title: widget.notice.title ?? widget.notice.text,
+      question: (widget.parked.result['rendered'] as String?) ?? '',
+      pendingLabel: t.run.approvalTitle,
+      approveLabel: t.run.approve,
+      rejectLabel: t.run.reject,
+      closeLabel: t.feedback.dismiss,
+      busy: _busy,
+      verdict: _verdict,
+      onApprove: () => _decide('yes'),
+      onReject: () => _decide('no'),
+      onClose: () {},
       onDismissed: () => ref.read(noticeCapsuleProvider.notifier).pop(),
     );
   }

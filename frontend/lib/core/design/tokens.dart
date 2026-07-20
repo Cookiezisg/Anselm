@@ -368,6 +368,9 @@ abstract final class AnMotion {
   static const Duration toast = Duration(seconds: 4); // UI-feedback toast (user present) 操作反馈 toast
   static const Duration capsuleIn = Duration(milliseconds: 560); // band-capsule birth+stretch (pixel→dot→pill→text sweep) 顶带胶囊登场四拍
   static const Duration capsuleOut = Duration(milliseconds: 420); // its mirrored retreat (reverse of the same line) 原路收回,同线倒放
+  static const Duration capsuleBlockIn = Duration(milliseconds: 820); // approval BLOCK: birth→bar→block, three overlapping beats 审批块五拍登场
+  static const Duration capsuleBlockOut = Duration(milliseconds: 520); // its reverse 同线倒放
+  static const Duration verdictDwell = Duration(milliseconds: 900); // approval verdict flash before the retreat 判词亮一拍再收
   static const Duration toastLong = Duration(seconds: 8); // event-notification toast (user may be away) 事件通知 toast
   static const Duration elapsedReveal = Duration(seconds: 3); // running tool card starts showing its ticking elapsed 运行卡读秒登场阈
 

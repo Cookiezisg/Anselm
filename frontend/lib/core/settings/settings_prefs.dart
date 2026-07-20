@@ -160,6 +160,11 @@ abstract final class SettingsKeys {
   static const notifyLevel = SettingsKey<String>('an.notify.level', 'important'); // all|important|silent
   static const notifyOs = SettingsKey<bool>('an.notify.os', true);
   static const notifyToast = SettingsKey<bool>('an.notify.toast', true);
+  // Capsule event registry (which classes may pop the band capsule, 用户 0720): failures/approvals
+  // default ON, attention default OFF. 胶囊事件登记:失败/审批默认开,需关注默认关。
+  static const capsuleFailures = SettingsKey<bool>('an.capsule.failures', true);
+  static const capsuleApprovals = SettingsKey<bool>('an.capsule.approvals', true);
+  static const capsuleAttention = SettingsKey<bool>('an.capsule.attention', false);
 
   // ── fonts 字体 (WRK: 三正交字体轴, machine-level) ──
   // Wire values are the FIRST option of each axis = today's bundled faces (zero-perception default).
@@ -184,7 +189,7 @@ abstract final class SettingsKeys {
     sideCollapsed, sideWidth, rightWidth, ocean, settingsPanel,
     theme, locale, windowZoom, windowRemember, windowBounds, launchAtStartup, updateCheck,
     fontUi, fontContent, fontCode,
-    notifyLevel, notifyOs, notifyToast,
+    notifyLevel, notifyOs, notifyToast, capsuleFailures, capsuleApprovals, capsuleAttention,
     chatSendKey, chatAutoStage, chatShowArchived, chatShowGroupCount, chatShowTime,
     shortcuts,
   ];

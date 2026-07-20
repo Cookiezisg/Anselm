@@ -101,6 +101,7 @@ lib/core/process/backend_controller.dart	converged
 lib/core/process/master_key.dart	converged
 lib/core/router/navigation.dart	converged
 lib/core/router/panel_registry.dart	converged
+lib/core/run/an_approval_capsule.dart	converged
 lib/core/run/approval_gate.dart	converged
 lib/core/run/flowrun_node_list.dart	pending
 lib/core/run/flowrun_progress.dart	reviewed

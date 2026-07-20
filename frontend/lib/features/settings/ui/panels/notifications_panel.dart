@@ -30,6 +30,9 @@ class NotificationsPanel extends ConsumerWidget {
     final level = ref.watch(stringSettingProvider(SettingsKeys.notifyLevel));
     final os = ref.watch(boolSettingProvider(SettingsKeys.notifyOs));
     final toast = ref.watch(boolSettingProvider(SettingsKeys.notifyToast));
+    final capFail = ref.watch(boolSettingProvider(SettingsKeys.capsuleFailures));
+    final capAppr = ref.watch(boolSettingProvider(SettingsKeys.capsuleApprovals));
+    final capAttn = ref.watch(boolSettingProvider(SettingsKeys.capsuleAttention));
 
     // Actions-only head — the panel title already says «Notifications»; a same-named group head was
     // pure repetition (0719 审计 P1-1). The badge keeps its seat. 徽章头——面板大题已言「通知」,
@@ -98,7 +101,33 @@ class NotificationsPanel extends ConsumerWidget {
             ),
           ),
         ),
+        const SizedBox(height: AnSpace.s4),
+        // The capsule REGISTRY (用户 0720): which event classes may pop the band capsule. Rows are
+        // plain settings switches — one per class, tone dot colors live in the capsule itself.
+        // 胶囊登记:哪些事件类可上顶带。逐类开关;分级点色在胶囊自身。
+        _capsuleRow(ref, t, SettingsKeys.capsuleFailures, capFail, t.settings.capsuleFailures,
+            t.settings.capsuleFailuresDesc),
+        const SizedBox(height: AnSpace.s4),
+        _capsuleRow(ref, t, SettingsKeys.capsuleApprovals, capAppr, t.settings.capsuleApprovals,
+            t.settings.capsuleApprovalsDesc),
+        const SizedBox(height: AnSpace.s4),
+        _capsuleRow(ref, t, SettingsKeys.capsuleAttention, capAttn, t.settings.capsuleAttention,
+            t.settings.capsuleAttentionDesc),
       ],
     );
   }
+
+  Widget _capsuleRow(WidgetRef ref, Translations t, SettingsKey<bool> key, bool value, String label,
+          String desc) =>
+      AnSettingRow(
+        label: label,
+        desc: desc,
+        modified: value != key.def,
+        onReset: () => ref.read(boolSettingProvider(key).notifier).reset(),
+        resetLabel: t.settings.resetToDefault,
+        child: AnSwitch(
+          value: value,
+          onChanged: (v) => ref.read(boolSettingProvider(key).notifier).set(v),
+        ),
+      );
 }

@@ -34,10 +34,12 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUpAll(() => LocaleSettings.setLocaleRaw('en'));
 
-  (ProviderContainer, FixtureNotificationRepository) setup({String? level}) {
+  (ProviderContainer, FixtureNotificationRepository) setup(
+      {String? level, void Function(SettingsPrefs)? prefsTweak}) {
     final repo = FixtureNotificationRepository(seed: const []);
     final prefs = SettingsPrefs.inMemory();
     if (level != null) prefs.setString(SettingsKeys.notifyLevel, level);
+    prefsTweak?.call(prefs);
     final c = ProviderContainer(overrides: [
       notificationRepositoryProvider.overrideWithValue(repo),
       settingsPrefsProvider.overrideWithValue(prefs),
@@ -61,12 +63,52 @@ void main() {
     expect(c.read(overlayProvider).toasts, isEmpty);
   });
 
-  test('a warn event on the DEFAULT level floats nothing (bell dot is its presentation)', () async {
+  test('an ATTENTION warn on the default registry floats nothing (bell dot is its presentation)',
+      () async {
     final (c, repo) = setup();
-    repo.emit(_n('workflow.approval_pending', {'name': 'deploy', 'workflowId': 'wf_2'}));
+    repo.emit(_n('workflow.attention_changed',
+        {'name': 'etl', 'workflowId': 'wf_2', 'needsAttention': true}));
     await pumpEventQueue();
     expect(capsules(c), isEmpty);
     expect(c.read(overlayProvider).toasts, isEmpty);
+  });
+
+  test('an APPROVAL pops the BLOCK capsule by default (registry on) with exact coordinates', () async {
+    final (c, repo) = setup();
+    repo.emit(_n('workflow.approval_pending',
+        {'name': 'deploy', 'workflowId': 'wf_2', 'flowrunId': 'fr_1', 'nodeId': 'gate'}));
+    await pumpEventQueue();
+    expect(capsules(c).length, 1);
+    final cap = capsules(c).single;
+    expect(cap.kind, CapsuleKind.approval);
+    expect(cap.danger, isFalse, reason: '审批=warn 琥珀,绝非 danger 红(分级点色铁律)');
+    expect(cap.title, 'deploy');
+    expect((cap.flowrunId, cap.nodeId), ('fr_1', 'gate'));
+  });
+
+  test('registry OFF switches silence their class (approvals / failures)', () async {
+    final (c, repo) = setup(prefsTweak: (p) {
+      p.setBool(SettingsKeys.capsuleApprovals, false);
+      p.setBool(SettingsKeys.capsuleFailures, false);
+    });
+    repo.emit(_n('workflow.approval_pending',
+        {'name': 'deploy', 'workflowId': 'wf_2', 'flowrunId': 'fr_1', 'nodeId': 'gate'}));
+    repo.emit(_n('workflow.run_failed', {'name': 'w', 'workflowId': 'wf_1', 'error': 'x'}));
+    await pumpEventQueue();
+    expect(capsules(c), isEmpty, reason: '登记关掉的类不上带(铃/托盘仍有)');
+  });
+
+  test('an approval CUTS THE LINE ahead of queued pills, never displacing a showing approval', () {
+    final c = ProviderContainer();
+    addTearDown(c.dispose);
+    final q = c.read(noticeCapsuleProvider.notifier);
+    q.push(const CapsuleNotice(key: 'p1', text: 'pill1'));
+    q.push(const CapsuleNotice(key: 'p2', text: 'pill2'));
+    q.push(const CapsuleNotice(key: 'a1', text: 'appr', kind: CapsuleKind.approval));
+    expect(c.read(noticeCapsuleProvider).map((n) => n.key), ['a1', 'p1', 'p2']);
+    q.push(const CapsuleNotice(key: 'a2', text: 'appr2', kind: CapsuleKind.approval));
+    expect(c.read(noticeCapsuleProvider).map((n) => n.key).take(2), ['a1', 'a2'],
+        reason: '在显审批不被顶,新审批排其后');
   });
 
   test("level 'all': a warn event DOES pop a (non-danger) capsule", () async {

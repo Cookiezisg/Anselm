@@ -1,3 +1,4 @@
+import 'package:anselm/core/run/an_approval_capsule.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -1175,6 +1176,10 @@ final GalleryCategory _g5CodeData = GalleryCategory('代码与数据 Code & Data
 
 // ── G6 — Overlays (dialog + toast) ──
 final GalleryCategory _g6Overlays = GalleryCategory('浮层 Overlays', AnIcons.more, [
+  GalleryItem('AnApprovalCapsule', '审批顶带块:药丸的块形亲属(条→块灵动岛式,琥珀点,就地批/拒,绝不自动收)', [
+    GallerySpecimen('等待决策', (_) => AnApprovalCapsule(title: 'approve_deploy', question: 'Deploy **v2.4.0** to production? 42 files changed.', pendingLabel: '等待审批', approveLabel: '通过', rejectLabel: '驳回', onApprove: () {}, onReject: () {}, onClose: () {}, onDismissed: () {}), span: true),
+    GallerySpecimen('判词落地', (_) => AnApprovalCapsule(title: 'approve_deploy', question: 'Deploy **v2.4.0** to production?', pendingLabel: '等待审批', approveLabel: '通过', rejectLabel: '驳回', verdict: '已批准', onApprove: () {}, onReject: () {}, onClose: () {}, onDismissed: () {}), span: true),
+  ]),
   GalleryItem('AnNoticeCapsule', '顶带通知胶囊:事件通知唯一浮层(右上事件 toast 退役)——白岛药丸住带中段,tone 点+一句话+查看尾;自驱登-停-退,hover 暂停', [
     GallerySpecimen('danger', (_) => AnNoticeCapsule(text: '工作流「invoice_sync」运行失败', viewLabel: '查看', danger: true, hold: const Duration(days: 1), onTap: () {}, onDismissed: () {}), span: true),
     GallerySpecimen('warn (all 级)', (_) => AnNoticeCapsule(text: '工作流「deploy」等待审批', viewLabel: '查看', danger: false, hold: const Duration(days: 1), onTap: () {}, onDismissed: () {}), span: true),

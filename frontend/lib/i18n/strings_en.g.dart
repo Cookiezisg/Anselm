@@ -1244,6 +1244,24 @@ class Translations$settings$en {
 	late final Translations$settings$network$en network = Translations$settings$network$en.internal(_root);
 	late final Translations$settings$sandbox$en sandbox = Translations$settings$sandbox$en.internal(_root);
 	late final Translations$settings$shortcuts$en shortcuts = Translations$settings$shortcuts$en.internal(_root);
+
+	/// en: 'Capsule: failures'
+	String get capsuleFailures => 'Capsule: failures';
+
+	/// en: 'Failures and crashes pop the band capsule'
+	String get capsuleFailuresDesc => 'Failures and crashes pop the band capsule';
+
+	/// en: 'Capsule: approvals'
+	String get capsuleApprovals => 'Capsule: approvals';
+
+	/// en: 'Pending approvals pop an actionable block on the band'
+	String get capsuleApprovalsDesc => 'Pending approvals pop an actionable block on the band';
+
+	/// en: 'Capsule: attention'
+	String get capsuleAttention => 'Capsule: attention';
+
+	/// en: 'Attention events (streaks, broken references) pop the band capsule'
+	String get capsuleAttentionDesc => 'Attention events (streaks, broken references) pop the band capsule';
 }
 
 // Path: markdown
@@ -7900,6 +7918,12 @@ extension on Translations {
 			'settings.shortcuts.cmdZoomOut' => 'Zoom out',
 			'settings.shortcuts.cmdZoomReset' => 'Reset zoom',
 			'settings.shortcuts.hintModifier' => 'A chord must include a modifier (⌘/Ctrl…)',
+			'settings.capsuleFailures' => 'Capsule: failures',
+			'settings.capsuleFailuresDesc' => 'Failures and crashes pop the band capsule',
+			'settings.capsuleApprovals' => 'Capsule: approvals',
+			'settings.capsuleApprovalsDesc' => 'Pending approvals pop an actionable block on the band',
+			'settings.capsuleAttention' => 'Capsule: attention',
+			'settings.capsuleAttentionDesc' => 'Attention events (streaks, broken references) pop the band capsule',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

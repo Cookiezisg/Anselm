@@ -1901,7 +1901,13 @@
       "cmdZoomOut": "Zoom out",
       "cmdZoomReset": "Reset zoom",
       "hintModifier": "A chord must include a modifier (⌘/Ctrl…)"
-    }
+    },
+    "capsuleFailures": "Capsule: failures",
+    "capsuleFailuresDesc": "Failures and crashes pop the band capsule",
+    "capsuleApprovals": "Capsule: approvals",
+    "capsuleApprovalsDesc": "Pending approvals pop an actionable block on the band",
+    "capsuleAttention": "Capsule: attention",
+    "capsuleAttentionDesc": "Attention events (streaks, broken references) pop the band capsule"
   },
   "markdown": {
     "imageNotLoaded": "image not loaded"

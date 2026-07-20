@@ -60,7 +60,7 @@ final List<SettingsCatalogEntry> settingsCatalog = [
     section: SettingsSection.prefs,
     labelOf: (t) => t.settings.panels.notifications,
     icon: AnIcons.bell,
-    ownedKeys: const [SettingsKeys.notifyLevel, SettingsKeys.notifyOs, SettingsKeys.notifyToast],
+    ownedKeys: const [SettingsKeys.notifyLevel, SettingsKeys.notifyOs, SettingsKeys.notifyToast, SettingsKeys.capsuleFailures, SettingsKeys.capsuleApprovals, SettingsKeys.capsuleAttention],
   ),
   SettingsCatalogEntry(
     panel: SettingsPanel.chat,
