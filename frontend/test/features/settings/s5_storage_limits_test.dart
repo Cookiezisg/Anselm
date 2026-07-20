@@ -116,7 +116,11 @@ void main() {
     await tester.tap(find.text(t.settings.storage.retention180).last);
     await tester.pumpAndSettle();
     expect(repo.fixtureRetention.runRetentionDays, 180, reason: '选中即提交,无 Save 钮');
-    expect(find.text(t.settings.storage.retentionSaved), findsOneWidget);
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(StoragePanel)), listen: false);
+    final message = container.read(noticeCenterProvider).current?.message;
+    expect(message?.text, t.settings.storage.retentionSaved);
+    expect(message?.tone, AnTone.ok);
   });
 
   testWidgets('retention: «forever» commits 0 — the sweeper must be switchable OFF', (tester) async {
@@ -197,9 +201,14 @@ void main() {
     gate.complete();
     await tester.pumpAndSettle();
 
-    // Reclaimed toast reports the bytes returned; the stat refetches → dead space now 0.
-    // 回收 toast 报告还回的字节;统计重取→死空间归 0。
-    expect(find.text(t.settings.storage.compacted(mb: formatBytes(48 * 1024 * 1024))), findsOneWidget);
+    // Unified top-band feedback reports the bytes returned; the stat refetches → dead space now 0.
+    // 统一顶带反馈报告还回的字节;统计重取→死空间归 0。
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(StoragePanel)), listen: false);
+    final message = container.read(noticeCenterProvider).current?.message;
+    expect(message?.text,
+        t.settings.storage.compacted(mb: formatBytes(48 * 1024 * 1024)));
+    expect(message?.tone, AnTone.ok);
     expect(repo.fixtureDeadBytes, 0, reason: '压缩把死空间还给 OS');
     expect(
         find.text(t.settings.storage
@@ -208,7 +217,7 @@ void main() {
         reason: '重取后足迹缩小(120-48=72MB)、可回收归 0');
   });
 
-  testWidgets('database: a compact failure (disk full) surfaces an honest error toast',
+  testWidgets('database: a compact failure (disk full) stages honest error feedback',
       (tester) async {
     final repo = FixtureSettingsRepository()
       ..fixtureDataDir = '/tmp/x'
@@ -223,7 +232,11 @@ void main() {
 
     // The backend message is shown verbatim (STORAGE_COMPACT_FAILED), and the button is usable again.
     // 后端信息原样显示,按钮恢复可用。
-    expect(find.textContaining('compaction failed'), findsOneWidget, reason: '诚实报错、非静默');
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(StoragePanel)), listen: false);
+    final message = container.read(noticeCenterProvider).current?.message;
+    expect(message?.text, contains('compaction failed'), reason: '诚实报错、非静默');
+    expect(message?.tone, AnTone.danger);
     expect(find.text(t.settings.storage.compact), findsOneWidget, reason: '失败后按钮回可用');
   });
 }

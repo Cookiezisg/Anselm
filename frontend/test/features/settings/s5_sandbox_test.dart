@@ -1,5 +1,7 @@
 import 'package:anselm/core/contract/sandbox.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/model/status_state.dart';
+import 'package:anselm/core/notice/notice_center.dart';
 import 'package:anselm/core/overlay/an_overlay.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
@@ -93,7 +95,7 @@ void main() {
     expect(find.textContaining(t.settings.sandbox.running), findsOneWidget, reason: 'runningPid>0 标运行中');
   });
 
-  testWidgets('GC reclaims and toasts the count', (tester) async {
+  testWidgets('GC reclaims and stages the count', (tester) async {
     final repo = FixtureSettingsRepository()..gcRemoved = 5;
     await tester.pumpWidget(_host(repo));
     await tester.pumpAndSettle();
@@ -101,6 +103,10 @@ void main() {
     await tester.ensureVisible(find.text(t.settings.sandbox.gcRun));
     await tester.tap(find.text(t.settings.sandbox.gcRun));
     await tester.pumpAndSettle();
-    expect(find.text(t.settings.sandbox.gcDone(n: 5)), findsOneWidget, reason: 'GC toast 回收数');
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(SandboxPanel)), listen: false);
+    final message = container.read(noticeCenterProvider).current?.message;
+    expect(message?.text, t.settings.sandbox.gcDone(n: 5), reason: 'GC 回收数进入统一顶带');
+    expect(message?.tone, AnTone.ok);
   });
 }

@@ -167,8 +167,8 @@ class _ServerCard extends ConsumerWidget {
                     await ref.read(mcpServersProvider.notifier).reconnect(s.name);
                   } on ApiException catch (e) {
                     ref
-                        .read(overlayProvider.notifier)
-                        .showToast(e.message, tone: AnTone.danger);
+                        .read(noticeCenterProvider.notifier)
+                        .show(e.message, tone: AnTone.danger);
                   }
                 },
               ),
@@ -222,7 +222,7 @@ Future<void> deleteMcpServer(BuildContext context, WidgetRef ref, String name) a
     await ref.read(mcpServersProvider.notifier).remove(name);
     ref.read(settingsDetailProvider.notifier).pop();
   } on ApiException catch (e) {
-    ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+    ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
   }
 }
 
@@ -271,7 +271,7 @@ class _McpServerDetailState extends ConsumerState<McpServerDetail> {
             try {
               await ref.read(mcpServersProvider.notifier).reconnect(s.name);
             } on ApiException catch (e) {
-              ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+              ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
             }
           },
         ),

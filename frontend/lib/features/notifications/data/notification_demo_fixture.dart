@@ -41,17 +41,18 @@ FixtureNotificationRepository demoNotificationRepository() {
   ]);
 }
 
-/// D-031 — the LIVE toast the demo emits a few seconds after launch (a background workflow just failed):
-/// a danger event, so the [ToastDispatcher] pops the right-top toast (focused) / an OS notification
-/// (unfocused — Noop in demo). demo_main schedules `repo.emit(demoLiveToast())`. demo 延时活 toast。
-NotificationItem demoLiveToast() => NotificationItem(
-      id: 'noti_live',
-      type: 'workflow.run_failed',
-      payload: const {
-        'name': 'invoice_sync',
-        'workflowId': 'wf_invoice',
-        'flowrunId': 'fr_live',
-        'error': 'HandlerError: charge() exceeded 30s',
-      },
-      createdAt: DateTime.now(),
-    );
+/// One durable failure row used by the fixture's signal-path test. The interactive demo itself uses the
+/// ordered [demoTopBandShowcase] below, so it can show operation copies and an approval block without
+/// depending on a person's saved notification settings. 一条 durable 失败行供 fixture 信号链测试使用;实机
+/// demo 改由下方有序顶带脚本驱动,故能稳定演示操作副本与审批块,不受个人提醒设置影响。
+NotificationItem demoFailureNotice() => NotificationItem(
+  id: 'noti_live',
+  type: 'workflow.run_failed',
+  payload: const {
+    'name': 'invoice_sync',
+    'workflowId': 'wf_invoice',
+    'flowrunId': 'fr_live',
+    'error': 'HandlerError: charge() exceeded 30s',
+  },
+  createdAt: DateTime.now(),
+);

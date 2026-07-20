@@ -78,7 +78,7 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
       if (mounted) setState(() => _limits = fresh);
     } on ApiException catch (e) {
       // Violation: inline toast + reload (roll the field back to server truth). 越界:回滚到服务端真相。
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
       await _load();
     }
   }

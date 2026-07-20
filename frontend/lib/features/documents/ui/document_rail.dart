@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/entities/document.dart';
 import '../../../core/model/status_state.dart';
+import '../../../core/notice/notice_center.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_menu.dart';
@@ -120,7 +121,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
       if (!mounted) return;
       ref.invalidate(documentTreeProvider);
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
@@ -194,7 +195,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
       ref.read(focusNewDocTitleProvider.notifier).set(doc.id);
       context.go(documentLocation(doc.id));
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
@@ -210,7 +211,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
       if (!mounted) return;
       ref.invalidate(documentTreeProvider);
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
@@ -221,7 +222,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
       ref.invalidate(documentTreeProvider);
       context.go(documentLocation(copy.id));
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
@@ -241,7 +242,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
       ref.invalidate(documentTreeProvider);
       _clearIfSelected((isSkill: false, id: id));
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
@@ -261,7 +262,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
       ref.invalidate(skillListProvider);
       _clearIfSelected((isSkill: true, id: name));
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
@@ -274,8 +275,8 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
     }
   }
 
-  void _toastFail() {
+  void _noticeFail() {
     if (!mounted) return;
-    ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+    ref.read(noticeCenterProvider.notifier).show(context.t.documents.actionFailed, tone: AnTone.danger);
   }
 }

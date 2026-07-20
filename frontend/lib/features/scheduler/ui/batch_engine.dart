@@ -70,7 +70,7 @@ mixin BatchZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
 
   /// The batch summary toast «已批准 2 · 1 条已被别处处理» — parts only for non-zero buckets; the
   /// worst bucket picks the tone. 汇总 toast:非零桶才入句;最坏桶定声调。
-  void summaryToast({required String? okPart, required String? lostPart, required String? failedPart}) {
+  void summaryNotice({required String? okPart, required String? lostPart, required String? failedPart}) {
     final parts = [?okPart, ?lostPart, ?failedPart];
     if (parts.isEmpty) return;
     final tone = failedPart != null
@@ -78,6 +78,6 @@ mixin BatchZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
         : lostPart != null
             ? AnTone.warn
             : AnTone.ok;
-    ref.read(overlayProvider.notifier).showToast(parts.join(' · '), tone: tone);
+    ref.read(noticeCenterProvider.notifier).show(parts.join(' · '), tone: tone);
   }
 }

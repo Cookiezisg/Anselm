@@ -97,7 +97,7 @@ final GalleryCategory settingsCategory = GalleryCategory('设置 Settings', AnIc
     GallerySpecimen('modified+重置', (_) => _Live<bool>(
           initial: false,
           builder: (v, set) => AnSettingRow(
-            label: '应用内 toast',
+            label: '应用内提醒',
             desc: '右上角浮出提醒',
             modified: true,
             onReset: () => set(true),

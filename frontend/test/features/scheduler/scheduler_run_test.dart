@@ -172,8 +172,8 @@ StubSchedulerRepo _repo({
     );
 
 Widget _host(StubSchedulerRepo repo, {String? node, int? iter, bool relay = false}) {
-  // The overlay (confirm dialogs / toasts) pushes onto the ROUTER's navigator — a detached key would
-  // silently swallow every dialog. 弹层挂在路由自己的 navigator 上:游离的 key 会静默吞掉所有弹窗。
+  // The overlay pushes confirm dialogs onto the ROUTER's navigator — a detached key would silently
+  // swallow every dialog. 操作反馈另走 noticeCenterProvider;这里的路由 key 只守确认框。
   final navKey = GlobalKey<NavigatorState>();
   final router = _router(navKey, node: node, iter: iter, relay: relay);
   return ProviderScope(

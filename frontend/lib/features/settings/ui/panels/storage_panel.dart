@@ -161,7 +161,7 @@ class StoragePanel extends ConsumerWidget {
     final text = 'Anselm $app · engine $engine · ${Platform.operatingSystem} '
         '${Platform.operatingSystemVersion} · data $dir · ${backend.baseUrl ?? 'backend down'}';
     await Clipboard.setData(ClipboardData(text: text));
-    ref.read(overlayProvider.notifier).showToast(t.settings.about.copied, tone: AnTone.ok);
+    ref.read(noticeCenterProvider.notifier).show(t.settings.about.copied, tone: AnTone.ok);
   }
 
   Future<void> _resetPrefs(BuildContext context, WidgetRef ref) async {
@@ -216,9 +216,9 @@ class _RetentionRowState extends ConsumerState<_RetentionRow> {
     try {
       await ref.read(settingsRepositoryProvider).patchRetention(days);
       ref.invalidate(retentionConfigProvider);
-      ref.read(overlayProvider.notifier).showToast(t.settings.storage.retentionSaved, tone: AnTone.ok);
+      ref.read(noticeCenterProvider.notifier).show(t.settings.storage.retentionSaved, tone: AnTone.ok);
     } on ApiException catch (e) {
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -327,12 +327,12 @@ class _DatabaseRowState extends ConsumerState<_DatabaseRow> {
     try {
       final r = await ref.read(settingsRepositoryProvider).compactStorage();
       ref.invalidate(storageStatProvider);
-      ref.read(overlayProvider.notifier).showToast(
+      ref.read(noticeCenterProvider.notifier).show(
             t.settings.storage.compacted(mb: formatBytes(r.reclaimedBytes)),
             tone: AnTone.ok,
           );
     } on ApiException catch (e) {
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tokens.dart';
 import '../../../../core/model/status_state.dart';
-import '../../../../core/overlay/an_overlay.dart';
+import '../../../../core/notice/notice_center.dart';
 import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
@@ -114,8 +114,8 @@ class VersionTab extends ConsumerWidget {
                             await notifier.setActive(sel.version);
                           } catch (_) {
                             ref
-                                .read(overlayProvider.notifier)
-                                .showToast(d.state.setActiveFailed, tone: AnTone.danger);
+                                .read(noticeCenterProvider.notifier)
+                                .show(d.state.setActiveFailed, tone: AnTone.danger);
                           }
                         },
                 ),

@@ -1,4 +1,6 @@
+import 'package:flutter/foundation.dart' show ValueListenable;
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/design/tokens.dart';
@@ -31,8 +33,7 @@ import '../features/entities/data/entity_providers.dart';
 import '../features/entities/state/flowrun_inbox_provider.dart';
 import '../features/entities/ui/flowrun_inbox.dart';
 import '../features/entities/ui/run/run_terminal.dart';
-import '../features/notifications/state/notice_capsule_provider.dart';
-import '../features/notifications/state/toast_dispatcher.dart';
+import '../features/notifications/state/notice_dispatcher.dart';
 import '../features/scheduler/state/selected_scheduler.dart';
 import '../features/scheduler/ui/scheduler_ocean.dart';
 import '../features/scheduler/ui/scheduler_rail.dart';
@@ -265,8 +266,8 @@ class AppShell extends ConsumerWidget {
                 icon: AnIcons.plus,
                 // Skeleton: creating workspaces is a follow-up. 骨架:新建工作区为后续。
                 onTap: () => ref
-                    .read(overlayProvider.notifier)
-                    .showToast(context.t.shell.comingSoonTitle),
+                    .read(noticeCenterProvider.notifier)
+                    .show(context.t.shell.comingSoonTitle),
               ),
               AnMenuItem(
                 label: context.t.shell.workspaceSettings,
@@ -464,12 +465,12 @@ class _CloseRunButton extends ConsumerWidget {
   }
 }
 
-/// Session-long service ignition, OUTSIDE the build phase. The toast dispatcher's first build chains
+/// Session-long service ignition, OUTSIDE the build phase. The notice dispatcher's first build chains
 /// live-repo creation whose synchronous stream emissions can invalidate an upstream provider — doing
 /// that inside AppShell.build tripped Riverpod's "setState during build" on every cold start (预存启动
 /// 异常的根因). A post-frame read starts the same keep-alive services one frame later, off the build
 /// stack; the dispatcher is a root (non-autoDispose) Notifier, so one read keeps it alive for the
-/// session. 会话级服务点火,移出 build 期:toast 派发器首建会级联 live repo 创建,其同步流发射会令上游
+/// session. 会话级服务点火,移出 build 期:通知派发器首建会级联 live repo 创建,其同步流发射会令上游
 /// provider 自失效——在 build 里首建即触发「setState during build」。postFrame read 一帧后点火,
 /// 非 autoDispose 一次即终身。
 class _SessionServices extends ConsumerStatefulWidget {
@@ -486,7 +487,7 @@ class _SessionServicesState extends ConsumerState<_SessionServices> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(toastDispatcherProvider);
+      if (mounted) ref.read(noticeDispatcherProvider);
     });
   }
 
@@ -494,111 +495,316 @@ class _SessionServicesState extends ConsumerState<_SessionServices> {
   Widget build(BuildContext context) => widget.child;
 }
 
-
-/// The band-capsule host — shows the notice queue's head as ONE self-timing [AnNoticeCapsule];
-/// dismiss/tap pops the queue so the next notice takes the band. Fed into [AnShell.bandNotice] (DIP:
-/// the kit slot stays feature-free). 顶带胶囊宿主:显示队首(自计时胶囊),收场/点击出队递补;经
-/// AnShell.bandNotice 喂入(DIP,套件槽不沾 feature)。
-class _BandNoticeHost extends ConsumerWidget {
+/// The full-width top-band stage. The current card is a paint target centred independently of the
+/// candidate tail; the tail follows its RIGHT edge without participating in layout, so 1 / 2 / +N
+/// can never nudge the card left. The stage itself stays full-width for correct hit-testing while its
+/// transparent area falls through. 顶带全宽舞台:当前卡独立居中作 paint target,候场尾跟随其右缘但不参与
+/// 布局,故 1/2/+N 永不把卡往左挤;舞台全宽保证尾巴命中,透明处继续穿透。
+class _BandNoticeHost extends ConsumerStatefulWidget {
   const _BandNoticeHost();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final queue = ref.watch(noticeCapsuleProvider);
-    if (queue.isEmpty) return const SizedBox.shrink();
-    final n = queue.first;
-    // An approval takes the BLOCK form when its parked node is addressable (payload flowrunId+nodeId
-    // → the inbox's parked list); an already-decided / not-yet-loaded node degrades to the plain pill
-    // (deep link only — never a dead block). 审批在停车节点可寻址时走块形;已决/未载退化为药丸(仅深链,
-    // 绝不渲死块)。
-    if (n.kind == CapsuleKind.approval && n.flowrunId != null && n.nodeId != null) {
-      final parked = ref.watch(flowrunInboxProvider).value;
-      FlowrunNode? node;
-      for (final p in parked ?? const <FlowrunNode>[]) {
-        if (p.flowrunId == n.flowrunId && p.nodeId == n.nodeId) {
-          node = p;
-          break;
-        }
-      }
-      if (node != null) {
-        return _ApprovalCapsuleHost(key: ValueKey(n.key), notice: n, parked: node);
-      }
-    }
-    return AnNoticeCapsule(
-      key: ValueKey(n.key),
-      text: n.text,
-      icon: n.icon,
-      danger: n.danger,
-      viewLabel: context.t.notifications.view,
-      onTap: n.location == null
-          ? null
-          : () {
-              final loc = n.location!;
-              ref.read(noticeCapsuleProvider.notifier).pop();
-              ref.read(goRouterProvider).go(loc);
-            },
-      onDismissed: () => ref.read(noticeCapsuleProvider.notifier).pop(),
+  ConsumerState<_BandNoticeHost> createState() => _BandNoticeHostState();
+}
+
+class _BandNoticeHostState extends ConsumerState<_BandNoticeHost> {
+  final LayerLink _currentLink = LayerLink();
+  final ValueNotifier<bool> _tailEngaged = ValueNotifier<bool>(false);
+
+  @override
+  void dispose() {
+    _tailEngaged.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      key: const ValueKey<String>('band-notice-stage'),
+      width: double.infinity,
+      child: _NoticeStageStack(
+        children: [
+          CompositedTransformTarget(
+            link: _currentLink,
+            child: _CurrentNoticeHost(pauseListenable: _tailEngaged),
+          ),
+          // The follower itself fills the stage so its PAINT-transformed child remains hit-testable.
+          // A small follower laid out at (0,0) can paint beside the centred card but its untransformed
+          // render box rejects that pointer before the layer transform is consulted. follower 铺满舞台,
+          // 仅尾巴子件收紧;否则小盒虽能画到居中卡旁,命中会先被原点处布局盒拒掉。
+          Positioned.fill(
+            child: CompositedTransformFollower(
+              link: _currentLink,
+              showWhenUnlinked: false,
+              targetAnchor: Alignment.topRight,
+              followerAnchor: Alignment.topLeft,
+              // Every notice shape owns the same 36px crown, so the candidate tail follows the same
+              // centre axis with no approval-only compensation. 全形态共用 36 冠部,尾巴同轴、零特判。
+              offset: const Offset(AnGap.inlineLoose, 0),
+              child: Align(
+                alignment: Alignment.topLeft,
+                child: _NoticeQueueTailHost(
+                  onEngagedChanged: (engaged) => _tailEngaged.value = engaged,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
+/// Paint order must keep the transform TARGET before its FOLLOWER, while hit order must give the
+/// visible current island first refusal. A stock Stack tests the later full-stage follower first;
+/// that transparent follower then starves the card's close hover/click. This stack preserves paint
+/// order but tests children forward, so the current island wins inside its own bounds and the tail
+/// remains interactive outside them. 绘制必须 target 在 follower 前,命中却须当前岛优先;原 Stack 会先测
+/// 后画的全宽 follower,透明层因此吃掉主 X。此处只反转命中顺序,绘制/锚定顺序不动。
+class _NoticeStageStack extends Stack {
+  const _NoticeStageStack({required super.children})
+    : super(alignment: Alignment.topCenter, clipBehavior: Clip.none);
+
+  @override
+  RenderStack createRenderObject(BuildContext context) =>
+      _RenderNoticeStageStack(
+        alignment: alignment,
+        textDirection: textDirection ?? Directionality.maybeOf(context),
+        fit: fit,
+        clipBehavior: clipBehavior,
+      );
+}
+
+class _RenderNoticeStageStack extends RenderStack {
+  _RenderNoticeStageStack({
+    required super.alignment,
+    required super.textDirection,
+    required super.fit,
+    required super.clipBehavior,
+  });
+
+  @override
+  bool hitTestChildren(BoxHitTestResult result, {required Offset position}) {
+    RenderBox? child = firstChild;
+    while (child != null) {
+      final current = child;
+      final parentData = current.parentData! as StackParentData;
+      final hit = result.addWithPaintOffset(
+        offset: parentData.offset,
+        position: position,
+        hitTest: (result, transformed) =>
+            current.hitTest(result, position: transformed),
+      );
+      if (hit) return true;
+      child = parentData.nextSibling;
+    }
+    return false;
+  }
+}
+
+/// Only this subtree watches the current entry. Enqueuing 10,000 candidates rebuilds the tiny tail,
+/// not the current card or its measured text. 仅此子树 watch 当前项;候场哪怕一万条也只重建小尾巴,
+/// 不重建当前卡/重测正文。
+class _CurrentNoticeHost extends ConsumerWidget {
+  const _CurrentNoticeHost({required this.pauseListenable});
+
+  final ValueListenable<bool> pauseListenable;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final entry = ref.watch(
+      noticeCenterProvider.select((state) => state.current),
+    );
+    if (entry == null) return const SizedBox.shrink();
+    final n = entry.message;
+    // Approval is a VISUAL KIND, not a reflection of an autoDispose provider's current loading frame.
+    // The block host resolves and pins its parked-node snapshot for this entry's entire lifetime, so
+    // loading/invalidation can never morph a mounted block into a pill mid-verdict. 审批是视觉 kind,
+    // 不是 autoDispose provider 当前帧的投影;块宿主按 entry 锁节点快照,载入/刷新绝不让判词中途换形。
+    if (n.kind == NoticeKind.approval &&
+        n.flowrunId != null &&
+        n.nodeId != null) {
+      return _ApprovalCapsuleHost(key: ValueKey(entry.id), entry: entry);
+    }
+    return AnNoticeCapsule(
+      key: ValueKey(entry.id),
+      text: n.text,
+      icon: n.icon,
+      tone: n.tone,
+      viewLabel: context.t.notifications.view,
+      closeLabel: context.t.notifications.closeTop,
+      dismissRequested: entry.dismissRequested,
+      pauseListenable: pauseListenable,
+      hold: entry.briskPlayback
+          ? AnMotion.noticeQueuedHold
+          : AnMotion.noticeHold,
+      onTap: n.location == null
+          ? null
+          : () {
+              final loc = n.location!;
+              ref.read(goRouterProvider).go(loc);
+            },
+      onClose: () {},
+      onExitStarted: () =>
+          ref.read(noticeCenterProvider.notifier).dismissCurrent(entry.id),
+      onDismissed: () =>
+          ref.read(noticeCenterProvider.notifier).finishExit(entry.id),
+    );
+  }
+}
+
+/// Only the fixed-size queue projection is watched here. The whole tail exits before the current card
+/// on bulk clear; arrivals during that reverse are retained but suppressed until the old current has
+/// left, preventing a new tail from flashing beside a retreating card. 只 watch 定长候场投影;批量清场先
+/// 收尾再倒放当前卡。倒放中新到消息会保留,但旧卡离场前不闪新尾巴。
+class _NoticeQueueTailHost extends ConsumerWidget {
+  const _NoticeQueueTailHost({required this.onEngagedChanged});
+
+  final ValueChanged<bool> onEngagedChanged;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final queue = ref.watch(
+      noticeCenterProvider.select((state) => state.queue),
+    );
+    final dismissing = ref.watch(
+      noticeCenterProvider.select(
+        (state) => state.current?.dismissRequested ?? false,
+      ),
+    );
+    final visible = queue.pendingCount > 0 && !dismissing;
+    final reduced = AnMotionPref.reduced(context);
+    return AnimatedSwitcher(
+      duration: reduced ? Duration.zero : AnMotion.fast,
+      switchInCurve: AnMotion.easeOut,
+      switchOutCurve: AnMotion.easeOut,
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: ScaleTransition(
+          alignment: Alignment.centerLeft,
+          scale: Tween<double>(begin: 0.8, end: 1).animate(animation),
+          child: child,
+        ),
+      ),
+      child: visible
+          ? AnNoticeQueueTail(
+              key: const ValueKey<String>('notice-tail'),
+              cues: queue.cues,
+              overflowCount: queue.overflowCount,
+              clearLabel: context.t.notifications.clearTop(
+                count: queue.pendingCount + 1,
+              ),
+              onClear: ref
+                  .read(noticeCenterProvider.notifier)
+                  .clearVisibleSnapshot,
+              onEngagedChanged: onEngagedChanged,
+            )
+          : const SizedBox.shrink(key: ValueKey<String>('notice-tail-empty')),
+    );
+  }
+}
 
 /// The approval-block host — wires [AnApprovalCapsule] (pure props) to the decide chain: Approve /
 /// Reject → `decideApproval` (the SAME repo path the cockpit and inbox ride, first-wins semantics
-/// intact) → verdict flash → the capsule retreats and the queue advances. Failure surfaces as an
-/// operational toast (the top-right host's remaining legitimate job) and re-arms the buttons.
+/// intact) → verdict flash → the capsule retreats and the queue advances. Failure stays in the sticky
+/// approval title bar (red dot + copy) and re-arms the buttons; queuing it behind itself would hide it.
 /// 审批块宿主:纯 prop 块件接决策链(与驾驶舱/收件箱同一 repo 径,先到先得语义原样)→判词一拍→倒放递补;
-/// 失败走右上操作反馈 toast 并复位按钮。
+/// 失败就地落标题条(红点+文案)并复位按钮——排到自己后面用户永远看不见。
 class _ApprovalCapsuleHost extends ConsumerStatefulWidget {
-  const _ApprovalCapsuleHost({required this.notice, required this.parked, super.key});
+  const _ApprovalCapsuleHost({required this.entry, super.key});
 
-  final CapsuleNotice notice;
-  final FlowrunNode parked;
+  final NoticeEntry entry;
 
   @override
-  ConsumerState<_ApprovalCapsuleHost> createState() => _ApprovalCapsuleHostState();
+  ConsumerState<_ApprovalCapsuleHost> createState() =>
+      _ApprovalCapsuleHostState();
 }
 
 class _ApprovalCapsuleHostState extends ConsumerState<_ApprovalCapsuleHost> {
   bool _busy = false;
   String? _verdict;
+  String? _error;
+  AnTone _verdictTone = AnTone.ok;
+  FlowrunNode? _parked;
 
   Future<void> _decide(String decision) async {
-    setState(() => _busy = true);
+    final parked = _parked;
+    if (parked == null || _busy || _verdict != null) return;
+    setState(() {
+      _busy = true;
+      _error = null;
+    });
     final t = context.t;
     try {
       await ref
           .read(entityRepositoryProvider)
-          .decideApproval(widget.parked.flowrunId, widget.parked.nodeId, decision: decision);
+          .decideApproval(parked.flowrunId, parked.nodeId, decision: decision);
       if (!mounted) return;
       setState(() {
         _busy = false;
-        _verdict = decision == 'yes' ? t.chat.tool.approved : t.chat.tool.rejected;
+        _verdict = decision == 'yes'
+            ? t.chat.tool.approved
+            : t.chat.tool.rejected;
+        // Declining is a human decision, not a system failure. 人的否决不是错误态。
+        _verdictTone = decision == 'yes' ? AnTone.ok : AnTone.none;
       });
-      ref.invalidate(flowrunInboxProvider); // the tray's «needs you» count follows 托盘待办跟上
+      ref.invalidate(
+        flowrunInboxProvider,
+      ); // the tray's «needs you» count follows 托盘待办跟上
     } catch (_) {
       if (!mounted) return;
-      setState(() => _busy = false);
-      ref.read(overlayProvider.notifier).showToast(t.run.failed, tone: AnTone.danger);
+      setState(() {
+        _busy = false;
+        _error = t.run.failed;
+      });
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final t = context.t;
+    final notice = widget.entry.message;
+    final inbox = ref.watch(flowrunInboxProvider);
+    if (_parked == null) {
+      for (final node in inbox.value ?? const <FlowrunNode>[]) {
+        if (node.flowrunId == notice.flowrunId &&
+            node.nodeId == notice.nodeId) {
+          _parked =
+              node; // pin for this entry; never clear on provider invalidation 此 entry 终身钉住
+          break;
+        }
+      }
+    }
+    final parked = _parked;
+    final alreadyHandled = inbox.hasValue && parked == null;
+    final effectiveVerdict =
+        _verdict ??
+        (alreadyHandled ? t.scheduler.overview.alreadyHandled : null);
+    final effectiveVerdictTone = _verdict == null && alreadyHandled
+        ? AnTone.none
+        : _verdictTone;
     return AnApprovalCapsule(
-      title: widget.notice.title ?? widget.notice.text,
-      question: (widget.parked.result['rendered'] as String?) ?? '',
+      title: notice.title ?? notice.text,
+      question: (parked?.result['rendered'] as String?) ?? notice.text,
       pendingLabel: t.run.approvalTitle,
+      busyLabel: t.chat.tool.deciding,
       approveLabel: t.run.approve,
       rejectLabel: t.run.reject,
       closeLabel: t.feedback.dismiss,
       busy: _busy,
-      verdict: _verdict,
+      decisionsEnabled: parked != null && !alreadyHandled,
+      verdict: effectiveVerdict,
+      verdictTone: effectiveVerdictTone,
+      errorLabel: _error,
+      dismissRequested: widget.entry.dismissRequested,
       onApprove: () => _decide('yes'),
       onReject: () => _decide('no'),
       onClose: () {},
-      onDismissed: () => ref.read(noticeCapsuleProvider.notifier).pop(),
+      onExitStarted: () => ref
+          .read(noticeCenterProvider.notifier)
+          .dismissCurrent(widget.entry.id),
+      onDismissed: () =>
+          ref.read(noticeCenterProvider.notifier).finishExit(widget.entry.id),
     );
   }
 }

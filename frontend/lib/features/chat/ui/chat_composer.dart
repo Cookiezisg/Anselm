@@ -365,8 +365,11 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final failedCount = _att.failedCount;
     if (failedCount > 0) {
       ref
-          .read(overlayProvider.notifier)
-          .showToast(Translations.of(context).chat.attachmentsFailedDropped(n: failedCount));
+          .read(noticeCenterProvider.notifier)
+          .show(
+            Translations.of(context).chat.attachmentsFailedDropped(n: failedCount),
+            tone: AnTone.warn,
+          );
     }
     final mentions = _liveMentions(text);
     _closePicker();
@@ -397,7 +400,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       ref.read(chatDraftsProvider).clear(_draftKey);
     } catch (_) {
       if (mounted) {
-        ref.read(overlayProvider.notifier).showToast(Translations.of(context).chat.sendFailed);
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(Translations.of(context).chat.sendFailed, tone: AnTone.danger);
       }
     } finally {
       if (mounted) setState(() => _submittingNew = false);

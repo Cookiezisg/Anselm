@@ -129,7 +129,7 @@ class SandboxPanel extends ConsumerWidget {
       await ref.read(sandboxRuntimesProvider.notifier).remove(r.id);
     } on ApiException catch (e) {
       final msg = e.code == 'SANDBOX_ENV_IN_USE' ? t.settings.sandbox.inUse : e.message;
-      ref.read(overlayProvider.notifier).showToast(msg, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(msg, tone: AnTone.danger);
     }
   }
 }
@@ -330,7 +330,7 @@ class _EnvList extends ConsumerWidget {
       await ref.read(settingsRepositoryProvider).deleteEnv(e.id);
       ref.invalidate(sandboxEnvsProvider(ownerKind));
     } on ApiException catch (err) {
-      ref.read(overlayProvider.notifier).showToast(err.message, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(err.message, tone: AnTone.danger);
     }
   }
 }
@@ -353,7 +353,7 @@ class _GcZoneState extends ConsumerState<_GcZone> {
     final t = Translations.of(context);
     final n = await ref.read(settingsRepositoryProvider).sandboxGc(days);
     ref.invalidate(sandboxEnvsProvider);
-    ref.read(overlayProvider.notifier).showToast(t.settings.sandbox.gcDone(n: n), tone: AnTone.ok);
+    ref.read(noticeCenterProvider.notifier).show(t.settings.sandbox.gcDone(n: n), tone: AnTone.ok);
   }
 
   @override

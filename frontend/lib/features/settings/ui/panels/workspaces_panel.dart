@@ -219,7 +219,7 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
     try {
       await ref.read(workspacesProvider.notifier).rename(w.id, name);
     } on ApiException catch (e) {
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -236,8 +236,8 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
       // Stay put + refetch — never auto-switch after a failed delete (S-11). 失败留在原地+重取。
       ref.invalidate(workspacesProvider);
       ref
-          .read(overlayProvider.notifier)
-          .showToast('${t.settings.ws.deleteFailed} · ${e.message}', tone: AnTone.danger);
+          .read(noticeCenterProvider.notifier)
+          .show('${t.settings.ws.deleteFailed} · ${e.message}', tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -272,8 +272,8 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
               await ref.read(workspacesProvider.notifier).recolor(w.id, v);
             } on ApiException catch (e) {
               ref
-                  .read(overlayProvider.notifier)
-                  .showToast(e.message, tone: AnTone.danger);
+                  .read(noticeCenterProvider.notifier)
+                  .show(e.message, tone: AnTone.danger);
             }
           },
         )),

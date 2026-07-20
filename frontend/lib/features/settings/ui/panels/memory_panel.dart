@@ -179,7 +179,7 @@ class _MemoryRow extends ConsumerWidget {
     try {
       await ref.read(memoriesProvider.notifier).remove(m.name);
     } on ApiException catch (e) {
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
     }
   }
 

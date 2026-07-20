@@ -6,9 +6,8 @@ import '../i18n/strings.g.dart';
 import 'gallery/gallery_app.dart';
 
 /// Entry for `make gallery` — the component catalog in the real desktop window. Dev-only: no backend.
-/// Wrapped in a [ProviderScope] (G6 onward) so the overlay specimens can `ref.read(overlayProvider)` to
-/// fire toasts / confirm dialogs, mirroring the real app root (main.dart). 入口:真桌面窗组件目录。dev-only、无后端;
-/// G6 起裹 ProviderScope(浮层 specimen 经 ref.read(overlayProvider) 弹 toast/dialog,与真 app 根一致)。
+/// Wrapped in a [ProviderScope] so top-band message / dialog specimens use the same command services
+/// as the real app root. 入口:真桌面窗组件目录;顶带消息/确认框 specimen 与真 app 根共用命令服务。
 Future<void> main() async {
   // Binding FIRST — useDeviceLocaleSync() reads WidgetsBinding.instance.platformDispatcher, so it
   // throws (→ white window) if called before init. 必须先初始化 binding,否则 useDeviceLocaleSync 抛→白屏。

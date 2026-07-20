@@ -20,12 +20,12 @@ import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/shell/right_panel.dart';
 import 'package:anselm/core/run/flowrun_node_list.dart';
+import 'package:anselm/core/run/an_approval_capsule.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/notifications/data/notification_demo_fixture.dart';
 import 'package:anselm/features/entities/state/flowrun_inbox_provider.dart';
-import 'package:anselm/features/notifications/state/notice_capsule_provider.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/model/settings_catalog.dart';
 import 'package:anselm/features/settings/state/mcp_providers.dart';
@@ -108,7 +108,9 @@ const _notifHeadFold = bool.fromEnvironment('NOTIFHEADFOLD');
 // Optional `--dart-define=CHATSEL=cv_id` deep-links to a conversation (on the chat ocean) so the rail's
 // selected-row highlight + route-derived selection are captured. 预选某对话,截 rail 高亮 + 路由派生选区。
 const _chatSel = String.fromEnvironment('CHATSEL');
-const _doc = String.fromEnvironment('DOC'); // deep-link a document (documents ocean real-app check)
+const _doc = String.fromEnvironment(
+  'DOC',
+); // deep-link a document (documents ocean real-app check)
 // Optional `--dart-define=CHATMENU=1` taps the rail's ⚙ sliders button to open the Sort/Display menu.
 // 点 rail 的 ⚙ sliders 钮,展开排序/显示菜单。
 const _chatMenu = String.fromEnvironment('CHATMENU');
@@ -140,6 +142,15 @@ const _noticeAt = String.fromEnvironment('NOTICEAT');
 // `NOTICEKIND=approval` pushes an APPROVAL block (coordinates from the demo inbox's parked node) instead
 // of the failure pill. 压审批块(坐标取 demo 收件箱停车节点)。
 const _noticeKind = String.fromEnvironment('NOTICEKIND');
+// `NOTICEQUEUE=N` appends N real candidates, exercising 1/2 dots and `+N` without materializing cards.
+// 追加 N 条真实候场,验 1/2 点 + `+N` 且不物化候场卡。
+const _noticeQueue = int.fromEnvironment('NOTICEQUEUE');
+// `NOTICEHOVER=true` hovers the `+N` control after settle, capturing its tile-less X face in place.
+// 悬停 +N,截原位无底 X 面。
+const _noticeHover = bool.fromEnvironment('NOTICEHOVER');
+// `NOTICECLOSEHOVER=true` hovers the current island's own X, exposing its glyph-only active state.
+// 悬停当前岛内 X,截只变深字形、不生方钮底的激活态。
+const _noticeCloseHover = bool.fromEnvironment('NOTICECLOSEHOVER');
 // Optional `--dart-define=MCPEMPTY=true` (with OCEAN=settings PANEL=mcp) empties the seeded MCP roster so
 // the panel body becomes the marketplace itself — the zero-MCP 空态承接市场 frame (quiet lead + full
 // market, no «已安装» group head). 清空 MCP 名册,验空态承接市场。
@@ -161,12 +172,12 @@ class _CaptureApp extends ConsumerWidget {
   const _CaptureApp();
   @override
   Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
-        debugShowCheckedModeBanner: false,
-        theme: AnTheme.light(),
-        routerConfig: ref.watch(goRouterProvider),
-        builder: (context, child) =>
-            RepaintBoundary(key: const ValueKey('cap'), child: child!),
-      );
+    debugShowCheckedModeBanner: false,
+    theme: AnTheme.light(),
+    routerConfig: ref.watch(goRouterProvider),
+    builder: (context, child) =>
+        RepaintBoundary(key: const ValueKey('cap'), child: child!),
+  );
 }
 
 void main() {
@@ -174,23 +185,37 @@ void main() {
     await _load('Inter', 'assets/fonts/InterVariable.ttf');
     await _load('MiSans', 'assets/fonts/MiSansVF.ttf');
     await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
-    await _load('Newsreader', 'assets/fonts/Newsreader.ttf'); // brand wordmark (FULLSCREEN=true frames) 品牌 wordmark
+    await _load(
+      'Newsreader',
+      'assets/fonts/Newsreader.ttf',
+    ); // brand wordmark (FULLSCREEN=true frames) 品牌 wordmark
     // The font-axis alternates (② content serif / ③ code faces) — loaded so FONTCONTENT/FONTCODE frames
     // render the real face. Source Han Serif SC ships Light (w300) + Regular (w400) under ONE family.
     // 字体轴替补:内容衬线 + 代码脸;思源宋两档同族。
-    await _load('Source Han Serif SC', 'assets/fonts/SourceHanSerifSC-Light.otf');
-    await _load('Source Han Serif SC', 'assets/fonts/SourceHanSerifSC-Regular.otf');
+    await _load(
+      'Source Han Serif SC',
+      'assets/fonts/SourceHanSerifSC-Light.otf',
+    );
+    await _load(
+      'Source Han Serif SC',
+      'assets/fonts/SourceHanSerifSC-Regular.otf',
+    );
     await _load('Fira Code', 'assets/fonts/FiraCode-Regular.ttf');
     await _load('Cascadia Code', 'assets/fonts/CascadiaCode.ttf');
     final cache = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev';
-    await _load('packages/lucide_icons_flutter/Lucide300',
-        '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf');
+    await _load(
+      'packages/lucide_icons_flutter/Lucide300',
+      '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf',
+    );
     LocaleSettings.setLocaleRaw('zh-CN');
   });
 
   testWidgets('demo', (tester) async {
     tester.view.devicePixelRatio = 2.0;
-    tester.view.physicalSize = const Size(AnSize.windowInitialWidth * 2, AnSize.windowInitialHeight * 2);
+    tester.view.physicalSize = const Size(
+      AnSize.windowInitialWidth * 2,
+      AnSize.windowInitialHeight * 2,
+    );
     addTearDown(tester.view.reset);
 
     // Reveal the left-island brand (macOS fullscreen hides the OS lights → the brand takes their slot). Set
@@ -223,33 +248,54 @@ void main() {
     // axes (① UI / ③ code) exactly as main()/demo_main() do, so a frame shows the chosen faces. 字体轴帧:
     // dart-define 种偏好(内容热) + applyAtBoot(UI/代码重启轴),与真启动同路径。
     const fontUi = String.fromEnvironment('FONTUI', defaultValue: 'bundled');
-    const fontContent = String.fromEnvironment('FONTCONTENT', defaultValue: 'sans');
-    const fontCode = String.fromEnvironment('FONTCODE', defaultValue: 'jetbrainsMono');
+    const fontContent = String.fromEnvironment(
+      'FONTCONTENT',
+      defaultValue: 'sans',
+    );
+    const fontCode = String.fromEnvironment(
+      'FONTCODE',
+      defaultValue: 'jetbrainsMono',
+    );
     final prefs = SettingsPrefs.inMemory({
       SettingsKeys.fontUi.key: fontUi,
       SettingsKeys.fontContent.key: fontContent,
       SettingsKeys.fontCode.key: fontCode,
     });
     AnFonts.applyAtBoot(ui: fontUi, code: fontCode);
-    if (fontUi != 'bundled' || fontContent != 'sans' || fontCode != 'jetbrainsMono') {
+    if (fontUi != 'bundled' ||
+        fontContent != 'sans' ||
+        fontCode != 'jetbrainsMono') {
       outName = '${outName}_font-$fontUi-$fontContent-$fontCode';
     }
-    await tester.pumpWidget(ProviderScope(
-      overrides: demoOverrides(prefs, demoNotificationRepository()),
-      child: TranslationProvider(child: const _CaptureApp()),
-    ));
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: demoOverrides(prefs, demoNotificationRepository()),
+        child: TranslationProvider(child: const _CaptureApp()),
+      ),
+    );
     await tester.pump();
-    await tester.pump(const Duration(milliseconds: 80)); // let the 4 list futures resolve
+    await tester.pump(
+      const Duration(milliseconds: 80),
+    ); // let the 4 list futures resolve
 
-    final container = ProviderScope.containerOf(tester.element(find.byType(_CaptureApp)), listen: false);
-    container.read(activeWorkspaceNameProvider.notifier).set('Personal'); // footer shows a real name 底栏显真名
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(_CaptureApp)),
+      listen: false,
+    );
+    container
+        .read(activeWorkspaceNameProvider.notifier)
+        .set('Personal'); // footer shows a real name 底栏显真名
     await tester.pump(); // let the name reach the footer 让名字到达底栏
 
     // Switch the ocean (the switcher's real path) — captures the placeholder for an unbuilt ocean. 切换海洋。
     if (_ocean.isNotEmpty) {
-      container.read(selectedOceanProvider.notifier).select(OceanKind.values.byName(_ocean));
+      container
+          .read(selectedOceanProvider.notifier)
+          .select(OceanKind.values.byName(_ocean));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300)); // the switch animation settles 切换动画落定
+      await tester.pump(
+        const Duration(milliseconds: 300),
+      ); // the switch animation settles 切换动画落定
       outName = '${outName}_$_ocean';
       // `--dart-define=TRACK=1` scrolls the schedule track into the frame (0718 轨重造验收帧). 滚轨入帧。
       if (const bool.fromEnvironment('TRACK')) {
@@ -264,7 +310,9 @@ void main() {
       // 树空/已写双 icon。
       if (_ocean == 'documents' && _doc.isEmpty) {
         for (var i = 0; i < 12; i += 1) {
-          await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+          await tester.runAsync(
+            () => Future<void>.delayed(const Duration(milliseconds: 40)),
+          );
           await tester.pump(const Duration(milliseconds: 80));
         }
         outName = '${outName}_draft';
@@ -280,17 +328,24 @@ void main() {
       // 深链一个设置面板(全面板审计)。
       const panelName = String.fromEnvironment('PANEL');
       if (panelName.isNotEmpty) {
-        container.read(settingsPanelProvider.notifier).select(SettingsPanel.values.byName(panelName));
+        container
+            .read(settingsPanelProvider.notifier)
+            .select(SettingsPanel.values.byName(panelName));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 400));
         outName = '${outName}_$panelName';
         // Empty the seeded MCP roster → the panel body becomes the marketplace itself (空态承接市场), then
         // optionally hover the first market card to reveal its «安装» CTA. 清空名册→市场承接;可选悬停揭示安装钮。
         if (panelName == 'mcp' && _mcpEmpty) {
-          (container.read(settingsRepositoryProvider) as FixtureSettingsRepository).mcpServers.clear();
+          (container.read(settingsRepositoryProvider)
+                  as FixtureSettingsRepository)
+              .mcpServers
+              .clear();
           await container.read(mcpServersProvider.notifier).refresh();
           await tester.pump();
-          await tester.pump(const Duration(milliseconds: 300)); // roster flips to the 承接 market
+          await tester.pump(
+            const Duration(milliseconds: 300),
+          ); // roster flips to the 承接 market
           outName = '${outName}_empty';
           if (_mcpHover) {
             WidgetsBinding.instance.focusManager.highlightStrategy =
@@ -302,14 +357,19 @@ void main() {
             await tester.pump(); // register the pointer before moving 先泵注册指针
             await g.moveTo(tester.getCenter(card));
             await tester.pump();
-            await tester.pump(const Duration(milliseconds: 200)); // the CTA reveals 安装钮揭示
+            await tester.pump(
+              const Duration(milliseconds: 200),
+            ); // the CTA reveals 安装钮揭示
             outName = '${outName}_hover';
           }
         }
         // Empty the seeded memory roster → the guiding-lead empty state (空态穿目标形态律, no tombstone).
         // 清空记忆名册→空态引导句。
         if (panelName == 'memory' && _memEmpty) {
-          (container.read(settingsRepositoryProvider) as FixtureSettingsRepository).memories.clear();
+          (container.read(settingsRepositoryProvider)
+                  as FixtureSettingsRepository)
+              .memories
+              .clear();
           await container.read(memoriesProvider.notifier).refresh();
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 300));
@@ -337,7 +397,9 @@ void main() {
         if (jumpLabel.isNotEmpty) {
           await tester.tap(find.text(jumpLabel));
           await tester.pump();
-          await tester.pump(const Duration(milliseconds: 500)); // hold mid-wash (full for the first ~45%) 停在洗亮满值窗
+          await tester.pump(
+            const Duration(milliseconds: 500),
+          ); // hold mid-wash (full for the first ~45%) 停在洗亮满值窗
           outName = '${outName}_jump';
         }
       }
@@ -354,7 +416,9 @@ void main() {
           .read(goRouterProvider)
           .go(egsel.isEmpty ? '/entities/graph' : '/entities/graph?sel=$egsel');
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400)); // relGraph fetch + force settle + fit
+      await tester.pump(
+        const Duration(milliseconds: 400),
+      ); // relGraph fetch + force settle + fit
       outName = '${outName}_graph${egsel.isEmpty ? '' : '_sel'}';
     }
 
@@ -365,11 +429,13 @@ void main() {
       final loc = _schedFlag.isNotEmpty && _schedRun.isNotEmpty
           ? '/scheduler/w/$_schedWf/runs/$_schedRun'
           : _schedRun.isEmpty
-              ? '/scheduler/w/$_schedWf'
-              : '/scheduler/w/$_schedWf?run=$_schedRun';
+          ? '/scheduler/w/$_schedWf'
+          : '/scheduler/w/$_schedWf?run=$_schedRun';
       container.read(goRouterProvider).go(loc);
       for (var i = 0; i < 15; i += 1) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 40)),
+        );
         await tester.pump(const Duration(milliseconds: 80));
       }
       outName = '${outName}_w';
@@ -419,7 +485,9 @@ void main() {
       // real async time — runAsync lets the fixture futures complete; the pump loop renders each layer.
       // 多层 async 需真实时间:runAsync 放行 future,pump 循环逐层渲染。
       for (var i = 0; i < 20; i += 1) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 40)),
+        );
         await tester.pump(const Duration(milliseconds: 80));
       }
       outName = '${outName}_doc';
@@ -431,7 +499,9 @@ void main() {
         if (head.evaluate().isNotEmpty) {
           await tester.tap(head.first, warnIfMissed: false);
           for (var i = 0; i < 6; i++) {
-            await tester.pump(const Duration(milliseconds: 80)); // fold animates 折叠动画
+            await tester.pump(
+              const Duration(milliseconds: 80),
+            ); // fold animates 折叠动画
           }
         }
         outName = '${outName}_fold';
@@ -448,7 +518,9 @@ void main() {
       container.read(goRouterProvider).go(conversationLocation(_chatSel));
       await tester.pump();
       for (var i = 0; i < 8; i++) {
-        await tester.pump(const Duration(milliseconds: 80)); // ledger hydrate + toggle reveal 台账水化+钮滑入
+        await tester.pump(
+          const Duration(milliseconds: 80),
+        ); // ledger hydrate + toggle reveal 台账水化+钮滑入
       }
       outName = '${outName}_sel';
       // TCEXPAND=<needle> — scroll a transcript tool card into view and tap it open (the collapsed row's
@@ -461,14 +533,18 @@ void main() {
         await tester.pump(const Duration(milliseconds: 120));
         await tester.tap(f, warnIfMissed: false);
         for (var i = 0; i < 6; i++) {
-          await tester.pump(const Duration(milliseconds: 120)); // card expands + prose window typesets 卡展开+排版
+          await tester.pump(
+            const Duration(milliseconds: 120),
+          ); // card expands + prose window typesets 卡展开+排版
         }
         outName = '${outName}_tc';
       }
       if (const bool.fromEnvironment('CHATSTAGE')) {
         container.read(rightPanelCollapsedProvider.notifier).set(false);
         for (var i = 0; i < 6; i++) {
-          await tester.pump(const Duration(milliseconds: 80)); // island reveal + accordion rows 岛揭示+行
+          await tester.pump(
+            const Duration(milliseconds: 80),
+          ); // island reveal + accordion rows 岛揭示+行
         }
         outName = '${outName}_stage';
         // STAGEPICK=<Cast row name> — tap a settled Cast row to open its sidestage stage (document/skill/…),
@@ -480,7 +556,9 @@ void main() {
           await tester.pump(const Duration(milliseconds: 120));
           await tester.tap(row, warnIfMissed: false);
           for (var i = 0; i < 8; i++) {
-            await tester.pump(const Duration(milliseconds: 120)); // director stages the body 导演器登台正文
+            await tester.pump(
+              const Duration(milliseconds: 120),
+            ); // director stages the body 导演器登台正文
           }
           outName = '${outName}_pick';
         }
@@ -491,7 +569,9 @@ void main() {
     if (_chatMenu.isNotEmpty) {
       await tester.tap(find.byIcon(AnIcons.sliders).first);
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 250)); // popover open animation 浮层开
+      await tester.pump(
+        const Duration(milliseconds: 250),
+      ); // popover open animation 浮层开
       outName = '${outName}_menu';
     }
 
@@ -500,8 +580,11 @@ void main() {
     // hover-gated trail action; fixed pumps (NOT pumpAndSettle — the demo has a forever-breathing
     // generating dot). 悬停某行 + 开 ⋯ 菜单(可再点重命名显就地编辑框)。
     if (_chatRowMenu.isNotEmpty || _chatRename.isNotEmpty) {
-      WidgetsBinding.instance.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
-      final row = find.text('API key 轮换排查'); // a calm recents row (no animated dot)
+      WidgetsBinding.instance.focusManager.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      final row = find.text(
+        'API key 轮换排查',
+      ); // a calm recents row (no animated dot)
       final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
       await mouse.addPointer(location: Offset.zero);
       final rowY = tester.getCenter(row.first).dy;
@@ -525,9 +608,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 250)); // popover open
       outName = '${outName}_rowmenu';
       if (_chatRename.isNotEmpty) {
-        await tester.tap(find.text(LocaleSettings.instance.currentTranslations.chat.rename));
+        await tester.tap(
+          find.text(LocaleSettings.instance.currentTranslations.chat.rename),
+        );
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 250)); // the row becomes the rename field
+        await tester.pump(
+          const Duration(milliseconds: 250),
+        ); // the row becomes the rename field
         outName = '${outName.replaceFirst('_rowmenu', '')}_rename';
       }
     }
@@ -539,7 +626,9 @@ void main() {
       // first item, built inside AnRailStates.builder), and flowrunInboxProvider (autoDispose) then fetches —
       // so a single runAsync window misses it. Loop until both settle. 两段加载:band 在 feed 解析后才挂,须多轮泵。
       for (var i = 0; i < 8; i += 1) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 40)),
+        );
         await tester.pump(const Duration(milliseconds: 80));
       }
       outName = '${outName}_notif';
@@ -549,7 +638,9 @@ void main() {
     if (_notifMenu.isNotEmpty || _notifHover.isNotEmpty) {
       container.read(notificationsOpenProvider.notifier).toggle();
       for (var i = 0; i < 8; i += 1) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 40)),
+        );
         await tester.pump(const Duration(milliseconds: 80));
       }
       final moreBtn = find.byIcon(AnIcons.more).first;
@@ -559,7 +650,8 @@ void main() {
         final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await g.addPointer(location: Offset.zero);
         addTearDown(() => g.removePointer());
-        await tester.pump(); // register the pointer before moving (the scheduler _hover order) 先泵注册指针
+        await tester
+            .pump(); // register the pointer before moving (the scheduler _hover order) 先泵注册指针
         await g.moveTo(tester.getCenter(moreBtn));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 200));
@@ -578,22 +670,31 @@ void main() {
     if (_notifHeadHover || _notifHeadFold) {
       container.read(notificationsOpenProvider.notifier).toggle();
       for (var i = 0; i < 8; i += 1) {
-        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 40)));
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 40)),
+        );
         await tester.pump(const Duration(milliseconds: 80));
       }
-      final head = find.text(LocaleSettings.instance.currentTranslations.notifications.today).first;
+      final head = find
+          .text(LocaleSettings.instance.currentTranslations.notifications.today)
+          .first;
       if (_notifHeadFold) {
-        await tester.tap(head); // collapse — touch tap carries no hover, so a fixed head shows NO gray
+        await tester.tap(
+          head,
+        ); // collapse — touch tap carries no hover, so a fixed head shows NO gray
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 300));
         outName = '${outName}_notifheadfold';
       } else {
-        WidgetsBinding.instance.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
+        WidgetsBinding.instance.focusManager.highlightStrategy =
+            FocusHighlightStrategy.alwaysTraditional;
         final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await g.addPointer(location: Offset.zero);
         addTearDown(() => g.removePointer());
         await tester.pump();
-        await g.moveTo(tester.getCenter(head)); // hover the head → count meta swaps to the ⋯
+        await g.moveTo(
+          tester.getCenter(head),
+        ); // hover the head → count meta swaps to the ⋯
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 200));
         outName = '${outName}_notifheadhover';
@@ -606,50 +707,171 @@ void main() {
       if (_noticeKind == 'approval') {
         final parked = await container.read(flowrunInboxProvider.future);
         final node = parked.first;
-        container.read(noticeCapsuleProvider.notifier).push(CapsuleNotice(
-              key: 'cap-demo-appr',
-              text: '工作流「approve_deploy」等待审批',
-              title: 'approve_deploy',
-              danger: false,
-              kind: CapsuleKind.approval,
-              flowrunId: node.flowrunId,
-              nodeId: node.nodeId,
-            ));
+        container
+            .read(noticeCenterProvider.notifier)
+            .push(
+              NoticeMessage(
+                text: '工作流「approve_deploy」等待审批',
+                title: 'approve_deploy',
+                tone: AnTone.warn,
+                kind: NoticeKind.approval,
+                origin: NoticeOrigin.event,
+                flowrunId: node.flowrunId,
+                nodeId: node.nodeId,
+              ),
+              priority: NoticePriority.priority,
+            );
       } else {
-        container.read(noticeCapsuleProvider.notifier).push(const CapsuleNotice(
-              key: 'cap-demo',
-              text: '工作流「invoice_sync」运行失败',
-              danger: true,
-              location: '/entities/workflow/wf_digest',
-            ));
+        container
+            .read(noticeCenterProvider.notifier)
+            .push(
+              const NoticeMessage(
+                text: '工作流「invoice_sync」运行失败',
+                tone: AnTone.danger,
+                origin: NoticeOrigin.event,
+                location: '/entities/workflow/wf_digest',
+              ),
+            );
+      }
+      for (var i = 0; i < _noticeQueue; i++) {
+        container
+            .read(noticeCenterProvider.notifier)
+            .push(
+              NoticeMessage(
+                text: '候场消息 ${i + 1}',
+                tone: i.isEven ? AnTone.ok : AnTone.warn,
+                origin: NoticeOrigin.operation,
+              ),
+            );
       }
       await tester.pump();
       // Pick the beat: birth (~80ms, the newborn circle) / mid (~280ms, half-stretched) / full (settled).
       // 选拍:诞生圆(80ms)/半开(280ms)/全开(落定)。
-      final at = switch (_noticeAt) { 'birth' => 80, 'mid' => 280, _ => _noticeKind == 'approval' ? 1000 : 700 };
+      final at = switch (_noticeAt) {
+        'birth' => 80,
+        'mid' => 280,
+        _ => _noticeKind == 'approval' ? 1000 : 700,
+      };
       await tester.pump(Duration(milliseconds: at));
       // The approval swap (pill→block) lands during the timed pump; give the swapped block one frame
       // to mount and a full run for its own entrance. 换块落在计时泵内:补一帧挂载+再泵足其登场。
       await tester.pump();
       await tester.pump(Duration(milliseconds: at));
-      outName = '${outName}_noticecap${_noticeAt.isEmpty ? '' : '_$_noticeAt'}';
+      if (_noticeQueue > 0 && _noticeAt != 'birth' && _noticeAt != 'mid') {
+        final current = _noticeKind == 'approval'
+            ? find.byType(AnApprovalCapsule)
+            : find.byType(AnNoticeCapsule);
+        final currentRect = tester.getRect(current);
+        final stageRect = tester.getRect(
+          find.byKey(const ValueKey<String>('band-notice-stage')),
+        );
+        final tailRect = tester.getRect(find.byType(AnNoticeQueueTail));
+        expect(
+          currentRect.center.dx,
+          moreOrLessEquals(stageRect.center.dx, epsilon: 0.01),
+          reason: 'queue tail must never move the current top-band card',
+        );
+        expect(tailRect.left, greaterThan(currentRect.right));
+        expect(
+          tailRect.center.dy,
+          moreOrLessEquals(
+            currentRect.top + AnSize.noticeBar / 2,
+            epsilon: 0.01,
+          ),
+          reason: 'all notice shapes and the tail share one 36px crown axis',
+        );
+      }
+      if (_noticeCloseHover) {
+        final previousStrategy = FocusManager.instance.highlightStrategy;
+        FocusManager.instance.highlightStrategy =
+            FocusHighlightStrategy.alwaysTraditional;
+        addTearDown(
+          () => FocusManager.instance.highlightStrategy = previousStrategy,
+        );
+        final current = _noticeKind == 'approval'
+            ? find.byType(AnApprovalCapsule)
+            : find.byType(AnNoticeCapsule);
+        final close = find.descendant(
+          of: current,
+          matching: find.byIcon(AnIcons.close),
+        );
+        expect(close, findsOneWidget);
+        final closeAffordance = find.descendant(
+          of: current,
+          matching: find.byType(AnNoticeCloseAffordance),
+        );
+        final idleColor = tester.widget<Icon>(close).color;
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await gesture.addPointer(location: tester.getCenter(close));
+        addTearDown(gesture.removePointer);
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 250));
+        expect(
+          tester.widget<Icon>(close).color,
+          isNot(idleColor),
+          reason: 'close-hover capture must actually contain the deepened X',
+        );
+        final face = find.descendant(
+          of: closeAffordance,
+          matching: find.byType(AnimatedContainer),
+        );
+        expect(
+          tester.widget<AnimatedContainer>(face).decoration,
+          isA<BoxDecoration>()
+              .having((d) => d.color, 'fill', isNull)
+              .having((d) => d.shape, 'halo shape', BoxShape.circle),
+          reason: 'close-hover capture must not regress to a nested tile',
+        );
+      }
+      if (_noticeHover && _noticeQueue > 2) {
+        final plus = find.text('+${_noticeQueue - 2}');
+        expect(plus, findsOneWidget);
+        final center = tester.getCenter(plus);
+        final gesture = await tester.createGesture(
+          kind: PointerDeviceKind.mouse,
+        );
+        await gesture.addPointer(location: center - const Offset(1, 0));
+        addTearDown(gesture.removePointer);
+        await gesture.moveTo(center);
+        await tester.pumpAndSettle();
+        expect(find.byIcon(AnIcons.close), findsWidgets);
+        expect(
+          plus,
+          findsNothing,
+          reason: 'top-band +N must swap to X on hover',
+        );
+      }
+      outName =
+          '${outName}_noticecap${_noticeAt.isEmpty ? '' : '_$_noticeAt'}'
+          '${_noticeQueue > 0 ? '_q$_noticeQueue' : ''}'
+          '${_noticeKind.isNotEmpty ? '_$_noticeKind' : ''}'
+          '${_noticeHover ? '_hover' : ''}'
+          '${_noticeCloseHover ? '_closehover' : ''}';
     }
 
     // Open the workspace quick-actions menu — verify it matches the trigger width. 打开 workspace 菜单,验等宽。
     if (_wsmenu.isNotEmpty) {
       await tester.tap(find.byType(AnWorkspaceButton));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 200)); // popover open animation 浮层开
+      await tester.pump(
+        const Duration(milliseconds: 200),
+      ); // popover open animation 浮层开
       outName = '${outName}_wsmenu';
     }
 
     // Open notifications, THEN tap the settings gear — picking an ocean must dismiss the tray (we should
     // see the SETTINGS ocean, not the notifications list). 开通知再点齿轮:选海洋须收起托盘 → 应见设置海洋而非通知。
     if (_notifPick.isNotEmpty) {
-      container.read(notificationsOpenProvider.notifier).toggle(); // open the tray 开托盘
+      container
+          .read(notificationsOpenProvider.notifier)
+          .toggle(); // open the tray 开托盘
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 200));
-      await tester.tap(find.byIcon(AnIcons.gear).first); // user picks settings 用户点设置
+      await tester.tap(
+        find.byIcon(AnIcons.gear).first,
+      ); // user picks settings 用户点设置
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       outName = '${outName}_notifpick';
@@ -658,7 +880,8 @@ void main() {
     // Pre-select via a deep link (the real navigation path). 经 deep-link 预选(真导航路径)。
     if (selKind != null && selId != null) {
       // EDITOR=1: go straight to the full-screen graph editor route. EDITOR=1 直进全屏图编辑器。
-      if (const String.fromEnvironment('EDITOR').isNotEmpty && selKind == EntityKind.workflow) {
+      if (const String.fromEnvironment('EDITOR').isNotEmpty &&
+          selKind == EntityKind.workflow) {
         container.read(goRouterProvider).go(workflowEditorLocation(selId));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 200));
@@ -666,33 +889,40 @@ void main() {
         outName = '${outName}_editor';
         // EDNODE=<nodeId>: tap a node to reveal the inspector's node editor. 点节点显检查器。
         if (const String.fromEnvironment('EDNODE').isNotEmpty) {
-          await tester.tap(find.text(const String.fromEnvironment('EDNODE')).first);
+          await tester.tap(
+            find.text(const String.fromEnvironment('EDNODE')).first,
+          );
           await tester.pump();
           await tester.pump(const Duration(milliseconds: 120));
           outName = '${outName}_node';
         }
       } else {
-      container.read(goRouterProvider).go(entityLocation(selKind, selId));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 80)); // detail resolves
-      // The right island slides in (AnMotion.slow 340ms) and the ocean narrows — let it settle so
-      // width-reactive content (framed graph re-fit) captures at the FINAL size, not mid-flight.
-      // 右岛滑入、海洋变窄——让其落定,宽度响应内容(framed 图重 fit)按终宽截。
-      await tester.pump(const Duration(milliseconds: 400));
-      await tester.pump();
+        container.read(goRouterProvider).go(entityLocation(selKind, selId));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 80)); // detail resolves
+        // The right island slides in (AnMotion.slow 340ms) and the ocean narrows — let it settle so
+        // width-reactive content (framed graph re-fit) captures at the FINAL size, not mid-flight.
+        // 右岛滑入、海洋变窄——让其落定,宽度响应内容(framed 图重 fit)按终宽截。
+        await tester.pump(const Duration(milliseconds: 400));
+        await tester.pump();
       }
     }
 
     if (_collapse.isNotEmpty) {
       container.read(shellChromeProvider.notifier).toggleLeft();
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400)); // the collapse slide settles 收起滑动
+      await tester.pump(
+        const Duration(milliseconds: 400),
+      ); // the collapse slide settles 收起滑动
       outName = '${outName}_collapsed';
     }
 
     // Type + send in the open conversation (or the landing) and pump the scripted stream. 打字发送+泵流。
     if (_chatSend.isNotEmpty) {
-      await tester.enterText(find.byType(TextField).last, _chatSend); // the composer field (rail filter is first)
+      await tester.enterText(
+        find.byType(TextField).last,
+        _chatSend,
+      ); // the composer field (rail filter is first)
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       // The scripted reply spans ~4s: mid ≈ inside the text deltas; done = past the terminal. 脚本约 4s。
@@ -704,16 +934,26 @@ void main() {
     }
 
     if (_tab.isNotEmpty) {
-      final detail = LocaleSettings.instance.currentTranslations.entities.detail.tab;
-      final label = {'overview': detail.overview, 'versions': detail.versions, 'logs': detail.logs, 'runs': detail.runs}[_tab]!;
+      final detail =
+          LocaleSettings.instance.currentTranslations.entities.detail.tab;
+      final label = {
+        'overview': detail.overview,
+        'versions': detail.versions,
+        'logs': detail.logs,
+        'runs': detail.runs,
+      }[_tab]!;
       await tester.tap(find.text(label));
       await tester.pump();
-      await tester.pump(const Duration(milliseconds: 120)); // the tab's data loads (cockpit pages through)
+      await tester.pump(
+        const Duration(milliseconds: 120),
+      ); // the tab's data loads (cockpit pages through)
       await tester.pump(const Duration(milliseconds: 120));
       outName = '${outName}_$_tab';
       // RUNSEL=<flowrunId>: pick a run in the cockpit list. 点 run 列表某条。
       if (const String.fromEnvironment('RUNSEL').isNotEmpty) {
-        await tester.tap(find.text(const String.fromEnvironment('RUNSEL')).first);
+        await tester.tap(
+          find.text(const String.fromEnvironment('RUNSEL')).first,
+        );
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 120));
         await tester.pump(const Duration(milliseconds: 120));
@@ -721,7 +961,9 @@ void main() {
       }
       // NODESEL=<nodeId>: pick a node in the run cockpit → the node-debug card. 点甘特节点出调试卡。
       if (const String.fromEnvironment('NODESEL').isNotEmpty) {
-        await tester.tap(find.text(const String.fromEnvironment('NODESEL')).first);
+        await tester.tap(
+          find.text(const String.fromEnvironment('NODESEL')).first,
+        );
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 80));
         outName = '${outName}_node';
@@ -738,24 +980,34 @@ void main() {
 
     // Debugger v3 acceptance facets (no execution) on the selected executable entity's right island.
     // 调试台 v3 验收帧(不执行)。
-    if (selKind != null && selKind.executable && (_runSrc.isNotEmpty || _runExpand || _runHover)) {
+    if (selKind != null &&
+        selKind.executable &&
+        (_runSrc.isNotEmpty || _runExpand || _runHover)) {
       final entityRef = EntityRef(selKind, selId!);
       if (_runSrc.isNotEmpty) {
-        container.read(runTerminalProvider(entityRef).notifier).setSource(_runSrc);
-        await tester.pump(const Duration(milliseconds: 60)); // trigger detail resolves → the template
+        container
+            .read(runTerminalProvider(entityRef).notifier)
+            .setSource(_runSrc);
+        await tester.pump(
+          const Duration(milliseconds: 60),
+        ); // trigger detail resolves → the template
         await tester.pump();
         outName = '${outName}_src';
       }
       if (_runHover) {
-        WidgetsBinding.instance.focusManager.highlightStrategy = FocusHighlightStrategy.alwaysTraditional;
-        await tester.pumpAndSettle(); // scroll idle so AnHoverRegion doesn't freeze the transition 滚动落定
+        WidgetsBinding.instance.focusManager.highlightStrategy =
+            FocusHighlightStrategy.alwaysTraditional;
+        await tester
+            .pumpAndSettle(); // scroll idle so AnHoverRegion doesn't freeze the transition 滚动落定
         final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
         await g.addPointer(location: Offset.zero);
         addTearDown(g.removePointer);
         await tester.pump(); // register the pointer before moving 先泵注册指针
         await g.moveTo(tester.getCenter(find.byType(AnLedgerRow).first));
         await tester.pump();
-        await tester.pump(const Duration(milliseconds: 400)); // «用这份输入» slides out
+        await tester.pump(
+          const Duration(milliseconds: 400),
+        ); // «用这份输入» slides out
         outName = '${outName}_hover';
       }
       if (_runExpand) {
@@ -767,7 +1019,8 @@ void main() {
     }
 
     if (_run.isNotEmpty && selKind != null) {
-      final verb = LocaleSettings.instance.currentTranslations.entities.detail.verb;
+      final verb =
+          LocaleSettings.instance.currentTranslations.entities.detail.verb;
       final label = {
         EntityKind.function: verb.run,
         EntityKind.handler: verb.call,
@@ -779,7 +1032,9 @@ void main() {
       // 揭示;动词钮只住右岛调试台表单(头部 CTA 已退役)。
       await tester.tap(find.widgetWithText(AnButton, label).first);
       for (var i = 0; i < 24; i++) {
-        await tester.pump(const Duration(milliseconds: 40)); // scripted stream frames
+        await tester.pump(
+          const Duration(milliseconds: 40),
+        ); // scripted stream frames
       }
       outName = '${outName}_run';
     }
@@ -789,7 +1044,9 @@ void main() {
       await mouse.addPointer(location: Offset.zero);
       await mouse.moveTo(tester.getCenter(find.text(_hover).first));
       await tester.pump(); // hover enter
-      await tester.pump(const Duration(milliseconds: 200)); // reveal settles (avoid pumpAndSettle: caret blinks)
+      await tester.pump(
+        const Duration(milliseconds: 200),
+      ); // reveal settles (avoid pumpAndSettle: caret blinks)
       outName = '${outName}_hover';
       if (_tapAdd.isNotEmpty) {
         // Press the revealed far-right ➕ → the tag add input mounts (WRK-054). 按 ➕ → 输入框挂出。
@@ -802,7 +1059,9 @@ void main() {
 
     late final Uint8List bytes;
     await tester.runAsync(() async {
-      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(const ValueKey('cap')));
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(const ValueKey('cap')),
+      );
       final image = await boundary.toImage(pixelRatio: 2.0);
       final png = await image.toByteData(format: ui.ImageByteFormat.png);
       bytes = png!.buffer.asUint8List();

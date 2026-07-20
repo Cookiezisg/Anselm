@@ -7,7 +7,7 @@ import '../../../core/contract/entities/document.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/entity/mention_source.dart';
 import '../../../core/model/status_state.dart';
-import '../../../core/overlay/an_overlay.dart';
+import '../../../core/notice/notice_center.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/an_crumbs.dart';
@@ -229,8 +229,12 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
       } catch (_) {
         if (!mounted) return; // widget gone (e.g. flushed on dispose + save failed) → no toast 卸载后不弹
         ref
-            .read(overlayProvider.notifier)
-            .showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+            .read(noticeCenterProvider.notifier)
+            .show(
+              context.t.documents.actionFailed,
+              tone: AnTone.danger,
+              coalesceKey: 'document-autosave:${widget.id}',
+            );
       }
     });
   }
@@ -245,7 +249,11 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
       ref.invalidate(openDocumentProvider(widget.id));
     } catch (_) {
       if (mounted) {
-        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+        ref.read(noticeCenterProvider.notifier).show(
+              context.t.documents.actionFailed,
+              tone: AnTone.danger,
+              coalesceKey: 'document-save:${widget.id}',
+            );
       }
     }
   }
@@ -365,7 +373,7 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
     } catch (_) {
       _creating = false;
       if (mounted) {
-        ref.read(overlayProvider.notifier).showToast(t.documents.actionFailed, tone: AnTone.danger);
+        ref.read(noticeCenterProvider.notifier).show(t.documents.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -393,7 +401,11 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
         await repo.updateDocument(id, {'content': _draftMarkdown});
       } catch (_) {
         if (!mounted) return;
-        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+        ref.read(noticeCenterProvider.notifier).show(
+              context.t.documents.actionFailed,
+              tone: AnTone.danger,
+              coalesceKey: 'document-draft:$id',
+            );
       }
     });
   }
@@ -420,7 +432,10 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
       if (fields.containsKey('name')) ref.invalidate(documentTreeProvider);
     } catch (_) {
       if (mounted) {
-        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+        ref.read(noticeCenterProvider.notifier).show(
+              context.t.documents.actionFailed,
+              tone: AnTone.danger,
+            );
       }
     }
   }
@@ -503,7 +518,10 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
         });
       } catch (_) {
         if (mounted) {
-          ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+          ref.read(noticeCenterProvider.notifier).show(
+                context.t.documents.actionFailed,
+                tone: AnTone.danger,
+              );
         }
       }
     });
@@ -531,7 +549,10 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
       ref.invalidate(openSkillProvider(widget.name));
     } catch (_) {
       if (mounted) {
-        ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+        ref.read(noticeCenterProvider.notifier).show(
+              context.t.documents.actionFailed,
+              tone: AnTone.danger,
+            );
       }
     }
   }

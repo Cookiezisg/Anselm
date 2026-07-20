@@ -10,7 +10,7 @@ import '../../../core/model/time_format.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
-import '../../../core/overlay/an_overlay.dart';
+import '../../../core/notice/notice_center.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/right_panel.dart';
 import '../../../core/ui/an_dropdown.dart';
@@ -544,7 +544,11 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
           if (!mounted) return;
           ref.invalidate(skillListProvider);
         } catch (_) {
-          if (mounted) ref.read(overlayProvider.notifier).showToast(context.t.documents.actionFailed, tone: AnTone.danger);
+          if (mounted) {
+            ref
+                .read(noticeCenterProvider.notifier)
+                .show(context.t.documents.actionFailed, tone: AnTone.danger);
+          }
         }
       });
 

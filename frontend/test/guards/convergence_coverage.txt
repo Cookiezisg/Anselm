@@ -84,6 +84,7 @@ lib/core/model/status_state.dart	converged
 lib/core/model/time_format.dart	converged
 lib/core/model/time_range.dart	pending
 lib/core/net/api_client.dart	converged
+lib/core/notice/notice_center.dart	reviewed
 lib/core/overlay/an_overlay.dart	reviewed
 lib/core/perf/coalescing_notifier.dart	converged
 lib/core/perf/debouncer.dart	converged
@@ -202,6 +203,7 @@ lib/core/ui/an_meter.dart	converged
 lib/core/ui/an_minimap_spine.dart	converged
 lib/core/ui/an_node_gantt.dart	reviewed
 lib/core/ui/an_notice_capsule.dart	converged
+lib/core/ui/an_notice_queue_tail.dart	converged
 lib/core/ui/an_ocean_header.dart	reviewed
 lib/core/ui/an_ocean_switcher.dart	converged
 lib/core/ui/an_page.dart	converged
@@ -251,7 +253,6 @@ lib/core/ui/an_thin_table.dart	converged
 lib/core/ui/an_time_pulse.dart	pending
 lib/core/ui/an_time_range_picker.dart	pending
 lib/core/ui/an_time_wheel.dart	pending
-lib/core/ui/an_toast.dart	reviewed
 lib/core/ui/an_toned_panel.dart	converged
 lib/core/ui/an_tooltip.dart	converged
 lib/core/ui/an_two_zone.dart	reviewed
@@ -492,10 +493,9 @@ lib/features/notifications/data/notification_repository.dart	converged
 lib/features/notifications/data/notification_signal.dart	converged
 lib/features/notifications/data/os_notifier.dart	reviewed
 lib/features/notifications/state/app_focus_provider.dart	converged
-lib/features/notifications/state/notice_capsule_provider.dart	converged
 lib/features/notifications/state/notification_feed_provider.dart	converged
 lib/features/notifications/state/notification_feed_state.dart	converged
-lib/features/notifications/state/toast_dispatcher.dart	reviewed
+lib/features/notifications/state/notice_dispatcher.dart	reviewed
 lib/features/notifications/state/unread_count_provider.dart	converged
 lib/features/notifications/ui/notification_copy.dart	reviewed
 lib/features/notifications/ui/notification_row.dart	reviewed

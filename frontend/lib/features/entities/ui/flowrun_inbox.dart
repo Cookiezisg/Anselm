@@ -124,7 +124,7 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
     ];
     if (parts.isNotEmpty) {
       final tone = failed > 0 ? AnTone.danger : (lost > 0 ? AnTone.warn : AnTone.ok);
-      overlay.showToast(parts.join(' · '), tone: tone);
+      ref.read(noticeCenterProvider.notifier).show(parts.join(' · '), tone: tone);
     }
     ref.invalidate(flowrunInboxProvider);
   }

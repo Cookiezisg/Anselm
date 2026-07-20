@@ -9,6 +9,7 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/model_capabilities.dart';
+import '../../../../core/notice/notice_center.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_brand_icon.dart';
 import '../../../../core/ui/an_card.dart';
@@ -134,7 +135,7 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
     try {
       final ok = await ref.read(freetierQuotaProvider.notifier).provision();
       if (!ok && mounted) {
-        ref.read(overlayProvider.notifier).showToast(
+        ref.read(noticeCenterProvider.notifier).show(
             Translations.of(context).settings.keys.freeFailed,
             tone: AnTone.warn);
       }
@@ -248,7 +249,7 @@ class _KeyRow extends ConsumerWidget {
           barrierLabel: t.settings.keys.inUseTitle,
         );
       } else {
-        overlay.showToast(e.message, tone: AnTone.danger);
+        ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
       }
     }
   }
@@ -292,7 +293,7 @@ class _KeyRow extends ConsumerWidget {
               try {
                 await ref.read(apiKeysProvider.notifier).test(row.id);
               } on ApiException catch (e) {
-                ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+                ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
               }
             },
           ),
@@ -640,7 +641,7 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
           apiKeyId: apiKeyId, modelId: modelId, options: options);
       if (mounted) setState(() => _open = false);
     } on ApiException catch (e) {
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
     }
   }
 
@@ -649,7 +650,7 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
       await ref.read(workspacePrefsProvider.notifier).clearDefaultModel(widget.scenario);
       if (mounted) setState(() => _open = false);
     } on ApiException catch (e) {
-      ref.read(overlayProvider.notifier).showToast(e.message, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
     }
   }
 
@@ -968,8 +969,8 @@ class _SearchSection extends ConsumerWidget {
                   }
                 } on ApiException catch (e) {
                   ref
-                      .read(overlayProvider.notifier)
-                      .showToast(e.message, tone: AnTone.danger);
+                      .read(noticeCenterProvider.notifier)
+                      .show(e.message, tone: AnTone.danger);
                 }
               },
             ),

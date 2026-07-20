@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tokens.dart';
 import '../../../../core/model/status_state.dart';
-import '../../../../core/overlay/an_overlay.dart';
+import '../../../../core/notice/notice_center.dart';
 import '../../../../core/platform/launch_at_login.dart';
 import '../../../../core/platform/window_zoom.dart';
 import '../../../../core/settings/app_prefs_providers.dart';
@@ -224,7 +224,7 @@ class GeneralPanel extends ConsumerWidget {
         ? (LocaleSettings.currentLocale == AppLocale.zhCn ? 'zh-CN' : 'en')
         : value;
     ref.read(workspacePrefsProvider.notifier).setLanguage(resolved).catchError((_) {
-      ref.read(overlayProvider.notifier).showToast(t.settings.patchFailed, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(t.settings.patchFailed, tone: AnTone.danger);
     });
   }
 

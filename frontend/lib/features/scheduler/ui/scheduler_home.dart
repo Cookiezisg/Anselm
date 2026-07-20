@@ -205,17 +205,17 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
 
   Future<void> _runNow() async {
     final t = context.t.scheduler.home;
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _runBusy = true);
     try {
       final id = await ref.read(schedulerRepositoryProvider).runNow(widget.row.id);
       if (!mounted) return;
-      overlay.showToast(t.runNowStarted(id: truncate(id, AnTrunc.id)), tone: AnTone.ok);
+      notices.show(t.runNowStarted(id: truncate(id, AnTrunc.id)), tone: AnTone.ok);
       // USER action — refetching the table top is 军规-legal geometry. 用户动作,回顶重取合法。
       await ref.read(schedulerRailProvider.notifier).refresh();
       await ref.read(schedulerRunTableProvider(widget.row.id).notifier).refetchTop();
     } on ApiException catch (e) {
-      if (mounted) overlay.showToast(e.message, tone: AnTone.danger);
+      if (mounted) notices.show(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _runBusy = false);
     }
@@ -223,17 +223,17 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
 
   Future<void> _kill() async {
     final t = context.t.scheduler.home;
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _killBusy = true);
     try {
       await ref.read(schedulerRepositoryProvider).killWorkflow(widget.row.id);
       if (!mounted) return;
-      overlay.showToast(t.killed, tone: AnTone.warn);
+      notices.show(t.killed, tone: AnTone.warn);
       setState(() => _killOpen = false);
       await ref.read(schedulerRailProvider.notifier).refresh();
       await ref.read(schedulerRunTableProvider(widget.row.id).notifier).refetchTop();
     } on ApiException catch (e) {
-      if (mounted) overlay.showToast(e.message, tone: AnTone.danger);
+      if (mounted) notices.show(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _killBusy = false);
     }
@@ -421,8 +421,10 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
       await ref.read(schedulerRepositoryProvider).cancelRun(run.id);
     } on ApiException catch (e) {
       if (!mounted) return;
-      overlay.showToast(e.httpStatus == 422 ? ov.alreadyFinished : e.message,
-          tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(
+            e.httpStatus == 422 ? ov.alreadyFinished : e.message,
+            tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger,
+          );
     } finally {
       if (mounted) setState(() => pending.remove(run.id));
     }
@@ -463,11 +465,13 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
     setState(() => pending.add(run.id));
     try {
       await repo.replayRun(run.id);
-      if (mounted) overlay.showToast(t.replayed, tone: AnTone.ok);
+      if (mounted) ref.read(noticeCenterProvider.notifier).show(t.replayed, tone: AnTone.ok);
     } on ApiException catch (e) {
       if (!mounted) return;
-      overlay.showToast(e.httpStatus == 422 ? t.notReplayable : e.message,
-          tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(
+            e.httpStatus == 422 ? t.notReplayable : e.message,
+            tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger,
+          );
     } finally {
       if (mounted) setState(() => pending.remove(run.id));
     }
@@ -518,7 +522,7 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
     final (done, lost, err) =
         await runBatch<Flowrun>(targets, (r) => r.id, (r) => repo.replayRun(r.id));
     if (!mounted) return;
-    summaryToast(
+    summaryNotice(
       okPart: done > 0 ? t.sumReplayed(n: '$done') : null,
       lostPart: lost > 0 ? t.sumNotReplayable(n: '$lost') : null,
       failedPart: err > 0 ? context.t.scheduler.overview.sumFailed(n: '$err') : null,
@@ -546,7 +550,7 @@ class _RunTableZoneState extends ConsumerState<_RunTableZone> with BatchZone<_Ru
     final (done, ended, err) =
         await runBatch<Flowrun>(targets, (r) => r.id, (r) => repo.cancelRun(r.id));
     if (!mounted) return;
-    summaryToast(
+    summaryNotice(
       okPart: done > 0 ? ov.sumCancelled(n: '$done') : null,
       lostPart: ended > 0 ? ov.sumEnded(n: '$ended') : null,
       failedPart: err > 0 ? ov.sumFailed(n: '$err') : null,
@@ -1088,14 +1092,14 @@ class _TriggerCardState extends ConsumerState<_TriggerCard> {
   Future<void> _resume() => _flip((repo) => repo.resumeTrigger(widget.trigger.id));
 
   Future<void> _flip(Future<TriggerEntity> Function(SchedulerRepository) op) async {
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _busy = true);
     try {
       await op(ref.read(schedulerRepositoryProvider));
       // The card, the rail meta and the Overview lanes all follow the ONE refetch. 三面随一次 refetch。
       await ref.read(schedulerRailProvider.notifier).refresh();
     } on ApiException catch (e) {
-      if (mounted) overlay.showToast(e.message, tone: AnTone.danger);
+      if (mounted) notices.show(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

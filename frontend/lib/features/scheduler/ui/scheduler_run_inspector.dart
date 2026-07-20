@@ -151,16 +151,16 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
 
   Future<void> _triage() async {
     final t = context.t.scheduler.run;
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _busy = true);
     try {
       final cvId = await ref.read(schedulerRepositoryProvider).triageRun(widget.data.run.id);
       if (!mounted) return;
       context.go('/chat/$cvId');
     } on ApiException catch (e) {
-      if (mounted) overlay.showToast(e.message, tone: AnTone.danger);
+      if (mounted) notices.show(e.message, tone: AnTone.danger);
     } catch (_) {
-      if (mounted) overlay.showToast(t.triageFailed, tone: AnTone.danger);
+      if (mounted) notices.show(t.triageFailed, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -298,13 +298,13 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
   }
 
   Future<void> _act(Future<void> Function(SchedulerRepository) op, {required String lost}) async {
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _busy = true);
     try {
       await op(ref.read(schedulerRepositoryProvider));
     } on ApiException catch (e) {
       if (!mounted) return;
-      overlay.showToast(e.httpStatus == 422 ? lost : e.message,
+      notices.show(e.httpStatus == 422 ? lost : e.message,
           tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);

@@ -92,9 +92,9 @@ Widget _host(GallerySpecimen s, {bool reduced = false, bool dark = false}) {
   // Constrain to the gallery's real render width (narrow stress specimen / span / 280 grid track) so
   // overflow + truncation surface exactly as in the gallery. 用画廊真实渲染宽约束,溢出与截断如实暴露。
   final width = s.maxWidth ?? (s.span ? 600.0 : 280.0);
-  // ProviderScope: the gallery runs under one (G6 overlay specimens use ref.read(overlayProvider)),
+  // ProviderScope: the gallery runs under one (G6 message/dialog specimens use shared providers),
   // so the matrix harness must too — else a Consumer specimen throws "No ProviderScope found" on build.
-  // ProviderScope:画廊 G6 浮层 specimen 用 ref,矩阵宿主也须裹,否则 Consumer 一 build 就抛。
+  // ProviderScope:画廊 G6 消息/对话框 specimen 用 ref,矩阵宿主也须裹,否则 Consumer 一 build 就抛。
   return ProviderScope(
     child: TranslationProvider(
       child: MaterialApp(

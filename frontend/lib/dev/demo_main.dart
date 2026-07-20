@@ -17,6 +17,7 @@ import '../core/settings/app_prefs_providers.dart';
 import '../core/settings/settings_prefs.dart';
 import '../core/shortcuts/global_shortcuts.dart';
 import '../core/model/model_capabilities.dart';
+import '../core/notice/notice_center.dart';
 import '../features/scheduler/data/scheduler_demo_fixture.dart';
 import '../features/scheduler/data/scheduler_repository.dart';
 import '../features/settings/data/settings_demo_fixture.dart';
@@ -31,6 +32,7 @@ import '../features/notifications/data/notification_demo_fixture.dart';
 import '../features/notifications/data/notification_fixture.dart';
 import '../features/notifications/data/notification_providers.dart';
 import '../i18n/strings.g.dart';
+import 'demo_notice_showcase.dart';
 import 'perf_probe.dart';
 import '../app/entity_mention_source.dart';
 import '../core/entity/mention_source.dart';
@@ -48,7 +50,7 @@ import '../core/entity/mention_source.dart';
 /// The demo's ProviderScope overrides — the repository seam swapped for the zero-backend fixtures.
 /// Shared by [main] and the P5 perf harness (`integration_test/perf/`) so both drive the byte-identical
 /// app off the same fixtures; the caller passes the [notifications] repo it wants (main keeps a handle to
-/// drive its live-toast timer). demo override 集,main 与 P5 perf harness 共用同一份 fixture 驱动同一 app。
+/// drive its live-notice timer). demo override 集,main 与 P5 perf harness 共用同一份 fixture 驱动同一 app。
 List<Override> demoOverrides(SettingsPrefs prefs, FixtureNotificationRepository notifications) => [
       settingsPrefsProvider.overrideWithValue(prefs),
       goRouterProvider.overrideWith(buildAppRouter),
@@ -86,15 +88,16 @@ Future<void> main() async {
   AnFonts.applyAtBoot(ui: prefs.getString(SettingsKeys.fontUi), code: prefs.getString(SettingsKeys.fontCode));
   await initWindow(title: 'Anselm · Demo (fixtures)', prefs: prefs);
   WindowZoom.restore(); // the persisted zoom, before the first frame 首帧前恢复持久化缩放
-  // D-031 — a live toast a few seconds in: a background workflow «fails» and emits a durable danger
-  // signal, so the ToastDispatcher (watched by the shell) pops the right-top toast. Hoist the repo so we
-  // can drive it after the shell has mounted its signal listener. 延时活 toast:后台工作流「失败」推信号。
+  // Keep the fixture repository as a stable data seam; the demo-only top-band tour itself is mounted below
+  // the app root, where it can enqueue operation/event/approval presentation copies and clean up its timers.
+  // fixture 仓储仍是稳定数据缝;顶带巡演改挂在 app root 下,可送操作/事件/审批副本并随根卸载清计时器。
   final notifRepo = demoNotificationRepository();
-  Timer(const Duration(seconds: 6), () => notifRepo.emit(demoLiveToast()));
   runApp(
     ProviderScope(
       overrides: demoOverrides(prefs, notifRepo),
-      child: TranslationProvider(child: const DemoRoot()),
+      child: TranslationProvider(
+        child: const DemoRoot(showcaseNotifications: true),
+      ),
     ),
   );
 }
@@ -103,7 +106,11 @@ Future<void> main() async {
 /// minus AppStartupGate/WorkspaceGate. Public so the P5 perf harness mounts the exact same tree.
 /// demo 根:MaterialApp.router + 浮层宿主,无门控;公开供 P5 perf harness 挂同一棵树。
 class DemoRoot extends ConsumerWidget {
-  const DemoRoot({super.key});
+  const DemoRoot({this.showcaseNotifications = false, super.key});
+
+  /// Only `make demo` turns this on. Test and perf mounts keep their timeline deterministic unless they
+  /// explicitly opt in. 仅 make demo 开启;测试/perf 默认不启,时间线保持确定。
+  final bool showcaseNotifications;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -123,8 +130,59 @@ class DemoRoot extends ConsumerWidget {
       // 不是它。
       builder: (context, child) => AnOverlayHost(
         navigatorKey: navigatorKey,
-        child: GlobalShortcuts(child: Focus(autofocus: true, child: child!)),
+        child: _DemoNoticeShowcase(
+          enabled: showcaseNotifications,
+          child: GlobalShortcuts(child: Focus(autofocus: true, child: child!)),
+        ),
       ),
     );
   }
+}
+
+/// Demo-only, finite top-band tour. It is intentionally mounted below [TranslationProvider] so the script
+/// uses the active locale, and below the ProviderScope so it reaches the real shared notice center. The
+/// test-facing [DemoRoot] leaves it off by default. demo 专用、有限的顶带巡演:置于 TranslationProvider/ProviderScope
+/// 之下,随当前语言进真正共享中心;测试用 DemoRoot 默认关闭。
+class _DemoNoticeShowcase extends ConsumerStatefulWidget {
+  const _DemoNoticeShowcase({required this.enabled, required this.child});
+
+  final bool enabled;
+  final Widget child;
+
+  @override
+  ConsumerState<_DemoNoticeShowcase> createState() =>
+      _DemoNoticeShowcaseState();
+}
+
+class _DemoNoticeShowcaseState extends ConsumerState<_DemoNoticeShowcase> {
+  final List<Timer> _timers = <Timer>[];
+  bool _scheduled = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (!widget.enabled || _scheduled) return;
+    _scheduled = true;
+    for (final beat in demoTopBandShowcase(context.t)) {
+      _timers.add(
+        Timer(beat.at, () {
+          if (!mounted) return;
+          ref
+              .read(noticeCenterProvider.notifier)
+              .push(beat.message, priority: beat.priority);
+        }),
+      );
+    }
+  }
+
+  @override
+  void dispose() {
+    for (final timer in _timers) {
+      timer.cancel();
+    }
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

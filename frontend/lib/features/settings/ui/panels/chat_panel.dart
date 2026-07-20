@@ -5,7 +5,7 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/status_state.dart';
-import '../../../../core/overlay/an_overlay.dart';
+import '../../../../core/notice/notice_center.dart';
 import '../../../../core/settings/app_prefs_providers.dart';
 import '../../../../core/settings/follow_mode.dart';
 import '../../../../core/settings/settings_prefs.dart';
@@ -155,7 +155,7 @@ class ChatPanel extends ConsumerWidget {
   void _setWebFetch(WidgetRef ref, BuildContext context, String mode) {
     final t = Translations.of(context);
     ref.read(workspacePrefsProvider.notifier).setWebFetchMode(mode).catchError((_) {
-      ref.read(overlayProvider.notifier).showToast(t.settings.patchFailed, tone: AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(t.settings.patchFailed, tone: AnTone.danger);
     });
   }
 }

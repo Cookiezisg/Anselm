@@ -8,6 +8,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/graph/graph_model.dart';
 import '../../../../core/model/status_state.dart';
+import '../../../../core/notice/notice_center.dart';
 import '../../../../core/shell/shell_chrome.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_button.dart';
@@ -93,8 +94,8 @@ class WorkflowEditorPage extends ConsumerWidget {
                     final reason = notifier.connect(from, to);
                     if (reason != null) {
                       ref
-                          .read(overlayProvider.notifier)
-                          .showToast(_edgeError(context, reason), tone: AnTone.warn);
+                          .read(noticeCenterProvider.notifier)
+                          .show(_edgeError(context, reason), tone: AnTone.warn);
                     }
                   },
                 ),
@@ -222,9 +223,9 @@ class WorkflowEditorPage extends ConsumerWidget {
             if (!context.mounted) return;
             final st2 = ref.read(workflowEditorProvider(_ref)).value;
             if (ok) {
-              ref.read(overlayProvider.notifier).showToast(e.saved, tone: AnTone.ok);
+              ref.read(noticeCenterProvider.notifier).show(e.saved, tone: AnTone.ok);
             } else if ((st2?.saveError ?? '').isNotEmpty) {
-              ref.read(overlayProvider.notifier).showToast(st2!.saveError!, tone: AnTone.danger);
+              ref.read(noticeCenterProvider.notifier).show(st2!.saveError!, tone: AnTone.danger);
             }
           };
     return Positioned(

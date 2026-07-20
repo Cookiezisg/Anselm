@@ -1,5 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/overlay/an_overlay.dart';
+import 'package:anselm/core/model/status_state.dart';
+import 'package:anselm/core/notice/notice_center.dart';
 import 'package:anselm/core/platform/window_bounds.dart';
 import 'package:anselm/core/settings/app_prefs_providers.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
@@ -94,7 +95,7 @@ void main() {
   });
 
   group('NotificationsPanel 通知', () {
-    testWidgets('level notches persist; switching to silent toasts the one-shot hint', (tester) async {
+    testWidgets('level notches persist; switching to silent stages the one-shot hint', (tester) async {
       final prefs = SettingsPrefs.inMemory();
       await tester.pumpWidget(_host(prefs, const NotificationsPanel()));
       final container = ProviderScope.containerOf(
@@ -108,9 +109,9 @@ void main() {
       await tester.tap(find.text(t.settings.levelSilent));
       await tester.pumpAndSettle();
       expect(prefs.getString(SettingsKeys.notifyLevel), 'silent');
-      // The host has no AnOverlayHost — assert the dispatched toast on the overlay STATE. 断言 overlay 态。
-      expect(container.read(overlayProvider).toasts.map((x) => x.text),
-          contains(t.settings.silentHint), reason: '一次性静音确认 toast');
+      final message = container.read(noticeCenterProvider).current?.message;
+      expect(message?.text, t.settings.silentHint, reason: '一次性静音确认进入统一顶带');
+      expect(message?.tone, AnTone.none);
     });
   });
 
@@ -129,7 +130,7 @@ void main() {
       expect(prefs.getString(SettingsKeys.chatAutoStage), 'always');
     });
 
-    testWidgets('webFetch PATCHes the workspace; failure rolls back + toasts', (tester) async {
+    testWidgets('webFetch PATCHes the workspace; failure rolls back + stages feedback', (tester) async {
       final prefs = SettingsPrefs.inMemory();
       final repo = FixtureSettingsRepository();
       await tester.pumpWidget(_host(prefs, const ChatPanel(), repo: repo));
@@ -145,8 +146,9 @@ void main() {
       await tester.tap(find.text(t.settings.webLocal));
       await tester.pumpAndSettle();
       expect(repo.workspace.webFetchMode, 'jina', reason: '失败未写库');
-      expect(container.read(overlayProvider).toasts.map((x) => x.text),
-          contains(t.settings.patchFailed), reason: '回滚 + danger toast');
+      final message = container.read(noticeCenterProvider).current?.message;
+      expect(message?.text, t.settings.patchFailed, reason: '回滚 + danger 顶带反馈');
+      expect(message?.tone, AnTone.danger);
       // The segmented itself must show the rolled-back value. 分段器回滚显示。
       expect(find.text(t.settings.patchFailed), findsNothing);
     });

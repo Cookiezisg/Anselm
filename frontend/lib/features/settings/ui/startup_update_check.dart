@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/model/status_state.dart';
-import '../../../core/overlay/an_overlay.dart';
+import '../../../core/notice/notice_center.dart';
 import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/settings/settings_prefs.dart';
 import '../../../i18n/strings.g.dart';
@@ -31,7 +31,7 @@ class _StartupUpdateCheckState extends ConsumerState<StartupUpdateCheck> {
       if (!mounted || !ref.read(boolSettingProvider(SettingsKeys.updateCheck))) return;
       final s = await ref.read(updateCheckProvider.notifier).check();
       if (!mounted || s.outcome != UpdateOutcome.available) return;
-      ref.read(overlayProvider.notifier).showToast(
+      ref.read(noticeCenterProvider.notifier).show(
             t.settings.about.updateAvailable(v: s.latest),
             tone: AnTone.none,
           );

@@ -18,7 +18,7 @@ import 'stub_scheduler_repo.dart';
 
 // S2b · the Overview's ACTION zones (WRK-069 §3 判决②) — «等你处理» (inbox rows + in-place gate +
 // batch approve/reject) and «正在跑» grown hover-⏹ cancel + batch cancel. Batteries: full/empty inbox,
-// no-deadline row, soft-deleted host fallback, single-decide slide-out, first-wins 422 honest toast,
+// no-deadline row, soft-deleted host fallback, single-decide slide-out, first-wins 422 honest feedback,
 // sequential batch with explicit per-row settling, cancel confirm + 422. The running dot breathes
 // forever, so tests use FIXED pumps, never pumpAndSettle. S2b 操作区电池;固定 pump、不 settle。
 
@@ -141,6 +141,14 @@ Future<void> _settle(WidgetTester tester) async {
   await tester.pump(const Duration(milliseconds: 200));
   await tester.pump(const Duration(milliseconds: 200));
   await tester.pump(const Duration(milliseconds: 100));
+}
+
+void _expectNotice(WidgetTester tester, String text, AnTone tone) {
+  final container = ProviderScope.containerOf(
+      tester.element(find.byType(SchedulerOverviewView)), listen: false);
+  final message = container.read(noticeCenterProvider).current?.message;
+  expect(message?.text, text);
+  expect(message?.tone, tone);
 }
 
 /// N completed + M failed node rows for a run — feeds the replay confirm's REAL numbers (记忆化承诺).
@@ -328,7 +336,7 @@ void main() {
       expect(find.text(ov.waitingHead), findsOneWidget);
     });
 
-    testWidgets('losing first-wins (422) earns the honest toast and the row reconciles away',
+    testWidgets('losing first-wins (422) earns honest feedback and the row reconciles away',
         (tester) async {
       final repo = _repo();
       await _pumpBoard(tester, repo);
@@ -339,13 +347,13 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      expect(find.text(ov.alreadyHandled), findsOneWidget, reason: '诚实 toast「已被处理」');
+      _expectNotice(tester, ov.alreadyHandled, AnTone.warn);
       expect(find.text('周报生成'), findsNothing, reason: 'refetch 对账,行随真相消失');
       expect(repo.decideOrder, isEmpty, reason: '输家没有写入');
     });
 
     testWidgets('batch approve: hover checkbox selection → bar at ≥2 → SEQUENTIAL dispatch with '
-        'per-row pending → summary toast → rows settle', (tester) async {
+        'per-row pending → summary feedback → rows settle', (tester) async {
       final repo = _repo(decideLatency: const Duration(milliseconds: 120));
       await _pumpBoard(tester, repo);
 
@@ -381,7 +389,7 @@ void main() {
       expect(repo.decideOrder,
           ['fr_park1/approve_send:yes', 'fr_park2/approve_deploy:yes'],
           reason: '按行序逐发');
-      expect(find.text(ov.sumApproved(n: '2')), findsOneWidget, reason: '汇总 toast');
+      _expectNotice(tester, ov.sumApproved(n: '2'), AnTone.ok);
       expect(find.text('周报生成'), findsNothing);
       expect(find.text('发布上线'), findsNothing);
       await g.removePointer();
@@ -406,9 +414,8 @@ void main() {
       await tester.pump();
       await _settle(tester);
 
-      expect(
-          find.text('${ov.sumApproved(n: '1')} · ${ov.sumLost(n: '1')}'), findsOneWidget,
-          reason: '汇总 toast「已批准 1 · 1 条已被别处处理」');
+      _expectNotice(tester,
+          '${ov.sumApproved(n: '1')} · ${ov.sumLost(n: '1')}', AnTone.warn);
       await g.removePointer();
     });
 
@@ -443,7 +450,7 @@ void main() {
         'fr_park1/approve_send:no:本周不发', // allowReason → 理由随行
         'fr_park2/approve_deploy:no', // 不接受理由的行绝不带
       ]);
-      expect(find.text(ov.sumRejected(n: '2')), findsOneWidget);
+      _expectNotice(tester, ov.sumRejected(n: '2'), AnTone.ok);
       await g.removePointer();
     });
   });
@@ -495,7 +502,7 @@ void main() {
       await g.removePointer();
     });
 
-    testWidgets('a run that already ended (422) earns the honest toast + reconcile', (tester) async {
+    testWidgets('a run that already ended (422) earns honest feedback + reconcile', (tester) async {
       final repo = _repo();
       await _pumpBoard(tester, repo);
       // It ends elsewhere after the board loaded. 加载后 run 已自行结束。
@@ -511,13 +518,13 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await _settle(tester);
 
-      expect(find.text(ov.alreadyFinished), findsOneWidget, reason: '诚实 toast');
+      _expectNotice(tester, ov.alreadyFinished, AnTone.warn);
       expect(find.textContaining('数据清洗流水线'), findsNothing, reason: '对账后行随真相消失');
       await g.removePointer();
     });
 
     testWidgets('batch cancel: ≥2 selected → danger dialog with the victim LIST → sequential '
-        'cancel → summary toast', (tester) async {
+        'cancel → summary feedback', (tester) async {
       final repo = _repo();
       await _pumpBoard(tester, repo);
 
@@ -544,7 +551,7 @@ void main() {
       await _settle(tester);
 
       expect(repo.cancelOrder, ['fr_live1', 'fr_live2'], reason: '按行序逐发');
-      expect(find.text(ov.sumCancelled(n: '2')), findsOneWidget);
+      _expectNotice(tester, ov.sumCancelled(n: '2'), AnTone.ok);
       expect(find.text(ov.runningEmpty), findsOneWidget, reason: '两行皆去,诚实空句');
       await g.removePointer();
     });
@@ -604,7 +611,7 @@ void main() {
     });
 
     testWidgets('multi-select batch replay: hover checkbox → bar at ≥2 → SEQUENTIAL dispatch → '
-        'summary toast', (tester) async {
+        'summary feedback', (tester) async {
       final repo = _failedRepo();
       await _pumpBoard(tester, repo);
 
@@ -632,7 +639,7 @@ void main() {
       await _settle(tester);
 
       expect(repo.replayOrder, ['fr_bad1', 'fr_bad2'], reason: '按行序逐发');
-      expect(find.text(t.scheduler.home.sumReplayed(n: '2')), findsOneWidget, reason: '汇总 toast');
+      _expectNotice(tester, t.scheduler.home.sumReplayed(n: '2'), AnTone.ok);
       await g.removePointer();
     });
 

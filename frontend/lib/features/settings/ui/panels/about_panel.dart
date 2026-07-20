@@ -103,8 +103,8 @@ class AboutPanel extends ConsumerWidget {
               await Clipboard.setData(ClipboardData(text: text));
               if (context.mounted) {
                 ref
-                    .read(overlayProvider.notifier)
-                    .showToast(t.settings.about.copied, tone: AnTone.ok);
+                    .read(noticeCenterProvider.notifier)
+                    .show(t.settings.about.copied, tone: AnTone.ok);
               }
               },
             ),

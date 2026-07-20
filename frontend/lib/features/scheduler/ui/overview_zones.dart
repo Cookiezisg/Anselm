@@ -75,7 +75,7 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
     final key = _keyOf(row);
     if (pending.contains(key) || batchBusy) return;
     final t = context.t.scheduler.overview;
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => pending.add(key));
     try {
       await ref.read(schedulerRepositoryProvider).decideApproval(
@@ -95,10 +95,10 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
       setState(() => pending.remove(key));
       if (e.httpStatus == 422) {
         // Lost the first-wins race — honest toast, then reconcile the row away. 输家诚实对账。
-        overlay.showToast(t.alreadyHandled, tone: AnTone.warn);
+        notices.show(t.alreadyHandled, tone: AnTone.warn);
         await ref.read(schedulerRailProvider.notifier).refresh();
       } else {
-        overlay.showToast(e.message, tone: AnTone.danger);
+        notices.show(e.message, tone: AnTone.danger);
       }
     }
   }
@@ -117,7 +117,7 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
           decision: verdict, reason: allow && reason != null && reason.isNotEmpty ? reason : null);
     });
     if (!mounted) return;
-    summaryToast(
+    summaryNotice(
       okPart: ok > 0
           ? (verdict == 'yes' ? t.sumApproved(n: '$ok') : t.sumRejected(n: '$ok'))
           : null,
@@ -698,10 +698,10 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
       if (e.httpStatus == 422) {
         // Already terminal — honest toast + reconcile (the row settles by truth, not by wish).
         // run 已自行结束:诚实 toast+对账。
-        overlay.showToast(t.alreadyFinished, tone: AnTone.warn);
+        ref.read(noticeCenterProvider.notifier).show(t.alreadyFinished, tone: AnTone.warn);
         await ref.read(schedulerRailProvider.notifier).refresh();
       } else {
-        overlay.showToast(e.message, tone: AnTone.danger);
+        ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
       }
     }
   }
@@ -726,7 +726,7 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
     final (done, ended, failed) =
         await runBatch<RunningRunRow>(rows, _keyOf, (r) => repo.cancelRun(r.run.id));
     if (!mounted) return;
-    summaryToast(
+    summaryNotice(
       okPart: done > 0 ? t.sumCancelled(n: '$done') : null,
       lostPart: ended > 0 ? t.sumEnded(n: '$ended') : null,
       failedPart: failed > 0 ? t.sumFailed(n: '$failed') : null,
@@ -931,7 +931,7 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
     try {
       await repo.replayRun(r.run.id);
       if (!mounted) return;
-      overlay.showToast(t.replayed, tone: AnTone.ok);
+      ref.read(noticeCenterProvider.notifier).show(t.replayed, tone: AnTone.ok);
       setState(() {
         pending.remove(key);
         leaving.add(key);
@@ -940,8 +940,10 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => pending.remove(key));
-      overlay.showToast(e.httpStatus == 422 ? t.notReplayable : e.message,
-          tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger);
+      ref.read(noticeCenterProvider.notifier).show(
+            e.httpStatus == 422 ? t.notReplayable : e.message,
+            tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger,
+          );
     }
   }
 
@@ -982,7 +984,7 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
     final (done, lost, err) =
         await runBatch<FailedRunRow>(targets, _keyOf, (r) => repo.replayRun(r.run.id));
     if (!mounted) return;
-    summaryToast(
+    summaryNotice(
       okPart: done > 0 ? t.sumReplayed(n: '$done') : null,
       lostPart: lost > 0 ? t.sumNotReplayable(n: '$lost') : null,
       failedPart: err > 0 ? context.t.scheduler.overview.sumFailed(n: '$err') : null,

@@ -168,19 +168,19 @@ class _McpImportFormState extends ConsumerState<McpImportForm> {
     if (_busy || _json.text.trim().isEmpty) return;
     setState(() => _busy = true);
     final t = Translations.of(context);
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     try {
       final r = await ref
           .read(mcpServersProvider.notifier)
           .importJson(_json.text, overwrite: _overwrite);
-      overlay.showToast(
+      notices.show(
           t.settings.mcp.importResult(n: r.imported.length, m: r.skipped.length),
           tone: AnTone.ok);
       if (mounted) ref.read(settingsDetailProvider.notifier).pop();
     } on FormatException {
-      overlay.showToast(t.settings.mcp.importInvalid, tone: AnTone.danger);
+      notices.show(t.settings.mcp.importInvalid, tone: AnTone.danger);
     } on ApiException catch (e) {
-      overlay.showToast(e.message, tone: AnTone.danger);
+      notices.show(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

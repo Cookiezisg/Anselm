@@ -258,6 +258,14 @@ Future<void> _settle(WidgetTester tester) async {
   }
 }
 
+void _expectNotice(WidgetTester tester, String text, AnTone tone) {
+  final container = ProviderScope.containerOf(
+      tester.element(find.byType(SchedulerHomeView)), listen: false);
+  final message = container.read(noticeCenterProvider).current?.message;
+  expect(message?.text, text);
+  expect(message?.tone, tone);
+}
+
 void main() {
   final h = t.scheduler.home;
 
@@ -377,8 +385,8 @@ void main() {
       await tester.pump();
       await _settle(tester);
       expect(repo.runNowOrder, ['wf_a']);
-      expect(find.textContaining(h.runNowStarted(id: 'fr_new0000000…').split('·').first.trim()),
-          findsWidgets);
+      _expectNotice(tester,
+          h.runNowStarted(id: truncate('fr_new0000000000', AnTrunc.id)), AnTone.ok);
     });
 
     testWidgets(':kill lives behind ⋯ + AnTypeToConfirm with the REAL blast radius', (tester) async {
@@ -773,7 +781,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 150));
       await _settle(tester);
       expect(repo.replayOrder, ['fr_fail1', 'fr_fail2'], reason: '按行序逐发');
-      expect(find.text(h.sumReplayed(n: '2')), findsOneWidget);
+      _expectNotice(tester, h.sumReplayed(n: '2'), AnTone.ok);
       await g.removePointer();
     });
 

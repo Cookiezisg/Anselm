@@ -1,7 +1,9 @@
 /// Barrel for the An* UI kit — one import for features + gallery. Grows per group (G0–G6).
 /// An* 套件桶文件——features + gallery 一行导入,随组(G0–G6)扩充。
 library;
+
 export '../overlay/an_overlay.dart';
+export '../notice/notice_center.dart';
 export '../model/code_diff.dart';
 export '../model/sidebar_model.dart';
 export '../model/status_state.dart' show AnStatus, AnTone;
@@ -82,6 +84,9 @@ export 'an_json_tree.dart';
 export 'an_markdown.dart';
 export 'an_menu.dart';
 export 'an_notice_capsule.dart';
+export 'an_notice_close_affordance.dart';
+export 'an_notice_island_frame.dart';
+export 'an_notice_queue_tail.dart';
 export 'an_attachment_chip.dart';
 export 'an_mention_picker.dart';
 export 'an_menu_surface.dart';
@@ -128,7 +133,6 @@ export 'an_tabs.dart';
 export 'an_tooltip.dart';
 export 'an_tags.dart';
 export 'an_thin_table.dart';
-export 'an_toast.dart';
 export 'an_two_zone.dart';
 export 'an_type_to_confirm.dart';
 export 'an_typewriter.dart';

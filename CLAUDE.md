@@ -20,9 +20,9 @@
     - **entities**：列表 rail + 详情海洋 + 右岛调试台（JSON-first：AnCodeEditor 编辑器卡 + 示例生成器 + 工具条来源 chip + 最近执行台账「用这份输入」装回）+ Overview 关系图（涟漪焦点星图：雾彩 kind 色板 + 默认焦点=最近实体 + BFS 衰减 + 四力布局，全参数集中 `core/graph/relation_graph_config.dart`）。
     - **documents**：Notion 式页面树 + 原生编辑器（super_editor **vendor** 于 `third_party/`，节点级增量补丁见 ADR 0009；slash 命令 / @ 药丸 / markdown 即打即转 / 嵌入式 AnCodeEditor 代码块 / 行内代码 paint-beneath / 可编辑表格 / codec 三保真）+ 一头三组右岛（大纲/属性/反链）。
     - **scheduler**：Overview 主页 + 运行矩阵 + 运行卷宗/节点检查器双脸右岛。
-  - **平台模块**：notifications（后端 Emit/Broadcast 分径 + 左岛铃托盘［1:1 左岛 rail 原语，时间分组+SliverAnimatedList 滑动折叠］+ 右上 toast + OS 原生通知；未读徽标**绝不据帧 +1**、靠权威 unread-count refetch）· settings（13 面板 + 机器/工作区两持久化轴 + 三相等门禁 + **设置项级搜索**；平台地基：dio 脉搏热切换 / keychain 铸钥 ADR 0008 / 出厂重置 / 更新检查 / 可改绑全局快捷键）· **字体三轴**（UI/内容/代码三条机器级偏好轴；内容衬线=思源宋，代码可选 Fira/Cascadia；辖区=嵌入档+chrome 归 UI 轴、阅读档归内容轴、一切 mono 归代码轴）· **右岛三段式文法**（`AnPanelHead` 身份头 / 速览带［有真信号才渲］/ AnRow 组头分组，四海洋右岛统一）。
+  - **平台模块**：notifications（后端 Emit/Broadcast 分径 + 左岛铃托盘［1:1 左岛 rail 原语，时间分组+SliverAnimatedList 滑动折叠］+ **顶带唯一即时消息舞台**［后台事件与操作反馈同口；当前卡恒定居中 + 最多两候场点 + `+N→✕` 快照清场；无界私有队列 / 定长 UI 投影］+ OS 原生通知；顶带收起不碰左岛账本，未读徽标**绝不据帧 +1**、靠权威 unread-count refetch；右上 toast 已退役、overlay 仅留确认框）· settings（13 面板 + 机器/工作区两持久化轴 + 三相等门禁 + **设置项级搜索**；平台地基：dio 脉搏热切换 / keychain 铸钥 ADR 0008 / 出厂重置 / 更新检查 / 可改绑全局快捷键）· **字体三轴**（UI/内容/代码三条机器级偏好轴；内容衬线=思源宋，代码可选 Fira/Cascadia；辖区=嵌入档+chrome 归 UI 轴、阅读档归内容轴、一切 mono 归代码轴）· **右岛三段式文法**（`AnPanelHead` 身份头 / 速览带［有真信号才渲］/ AnRow 组头分组，四海洋右岛统一）。
   - **关键约定**：app 与 demo 共用唯一 `app/app_shell.dart`，只差数据源 + 启动门控（`make app` 真后端 / `make demo` fixture 零后端）；字重两档（正文 w300 / 加粗 w400，见「视觉灵魂」节）；组件 gallery-first；右岛内距单源律（岛 12 + 行族 s8 假想框）。
-  - **门禁**：`make verify`（后端）+ `make fe-verify`（前端，当前 **4668 测**）+ `make docs`（文档）各自全绿。
+  - **门禁**：`make verify`（后端）+ `make fe-verify`（前端，当前 **4692 测**）+ `make docs`（文档）各自全绿。
   - **文档**：前端一站式 hub [`working/frontend/`](docs/working/frontend/README.md) 先看；鸟瞰 [`overview.md`](docs/references/frontend/overview.md) · [`architecture.md`](docs/references/frontend/architecture.md) · [`design-system.md`](docs/references/frontend/design-system.md) · [`contract.md`](docs/references/frontend/contract.md) · [`features/`](docs/references/frontend/features/)；建造史归档全在 [`docs/archive/`](docs/archive/)。
 
 ## 文档地图

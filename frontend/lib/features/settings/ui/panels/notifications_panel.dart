@@ -2,7 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/tokens.dart';
-import '../../../../core/overlay/an_overlay.dart';
+import '../../../../core/notice/notice_center.dart';
 import '../../../../core/settings/app_prefs_providers.dart';
 import '../../../../core/settings/settings_prefs.dart';
 import '../../../../core/ui/an_scope_badge.dart';
@@ -15,9 +15,9 @@ import '../../model/settings_search.dart';
 import '../settings_anchor.dart';
 
 /// ② 通知 — level (three notches) + the OS / in-app delivery switches (WRK-062 §3-②). The level
-/// consumer is [ToastDispatcher]; «needs you» items always reach the bell (read-only line says so).
-/// Switching to silent confirms once with a neutral toast. 通知面板:三档级别+OS/应用内两开关。级别
-/// 消费方=ToastDispatcher;「需你处理」永远进铃(只读行言明);切静音一次性中性 toast 确认。
+/// consumer is the event notice dispatcher; «needs you» items always reach the bell (read-only line says
+/// so). Switching to silent confirms once in the top band. 通知面板:三档级别+OS/应用内两开关;事件派发器
+/// 消费该闸;「需你处理」永远进铃(只读行言明);切静音在顶带给一次中性确认。
 class NotificationsPanel extends ConsumerWidget {
   const NotificationsPanel({super.key});
 
@@ -64,7 +64,7 @@ class NotificationsPanel extends ConsumerWidget {
                   ref.read(stringSettingProvider(SettingsKeys.notifyLevel).notifier).set(v);
                   if (v == 'silent') {
                     // One-shot confirmation microcopy (S-8). 一次性确认微文案。
-                    ref.read(overlayProvider.notifier).showToast(t.settings.silentHint);
+                    ref.read(noticeCenterProvider.notifier).show(t.settings.silentHint);
                   }
                 },
               ),

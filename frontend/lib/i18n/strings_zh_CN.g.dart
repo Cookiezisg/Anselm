@@ -310,6 +310,8 @@ class _Translations$notifications$zh_CN extends Translations$notifications$en {
 	@override String get depBrokenOne => '删除后留下 1 处悬空引用';
 	@override String depBrokenMany({required Object n}) => '删除后留下 ${n} 处悬空引用';
 	@override String get view => '查看';
+	@override String get closeTop => '关闭此顶部通知';
+	@override String clearTop({required Object count}) => '清空顶部通知，共 ${count} 条';
 	@override String get errorTitle => '通知加载失败';
 	@override String get errorHint => '本地引擎没有返回通知列表。';
 	@override String get retry => '重试';
@@ -554,7 +556,7 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override String get notifOs => '系统通知';
 	@override String get notifOsDesc => '窗口未聚焦时经系统通知中心送达';
 	@override String get notifToast => '应用内提醒';
-	@override String get notifToastDesc => '右上角浮出提醒;危险级错误不受此限';
+	@override String get notifToastDesc => '在软件顶部显示提醒;危险级错误不受此限';
 	@override String get silentHint => '已静音,重要事项仍会进铃铛收件箱';
 	@override String get autoStage => '右岛自动登台';
 	@override String get autoStageDesc => '工具运行时右岛自动展示现场';
@@ -3594,6 +3596,8 @@ extension on TranslationsZhCn {
 			'notifications.depBrokenOne' => '删除后留下 1 处悬空引用',
 			'notifications.depBrokenMany' => ({required Object n}) => '删除后留下 ${n} 处悬空引用',
 			'notifications.view' => '查看',
+			'notifications.closeTop' => '关闭此顶部通知',
+			'notifications.clearTop' => ({required Object count}) => '清空顶部通知，共 ${count} 条',
 			'notifications.errorTitle' => '通知加载失败',
 			'notifications.errorHint' => '本地引擎没有返回通知列表。',
 			'notifications.retry' => '重试',
@@ -3651,10 +3655,10 @@ extension on TranslationsZhCn {
 			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make server)。',
 			'startup.retry' => '重试',
 			'startup.errorTitle' => '出错了',
-			'startup.errorHint' => '渲染此视图时发生了意外错误。',
-			'entities.kNew' => '新建',
 			_ => null,
 		} ?? switch (path) {
+			'startup.errorHint' => '渲染此视图时发生了意外错误。',
+			'entities.kNew' => '新建',
 			'entities.filter' => '搜索实体…',
 			'entities.errorTitle' => '无法加载实体',
 			'entities.errorHint' => '本地引擎没有返回实体列表。',
@@ -4087,7 +4091,7 @@ extension on TranslationsZhCn {
 			'settings.notifOs' => '系统通知',
 			'settings.notifOsDesc' => '窗口未聚焦时经系统通知中心送达',
 			'settings.notifToast' => '应用内提醒',
-			'settings.notifToastDesc' => '右上角浮出提醒;危险级错误不受此限',
+			'settings.notifToastDesc' => '在软件顶部显示提醒;危险级错误不受此限',
 			'settings.silentHint' => '已静音,重要事项仍会进铃铛收件箱',
 			'settings.autoStage' => '右岛自动登台',
 			'settings.autoStageDesc' => '工具运行时右岛自动展示现场',
@@ -4165,10 +4169,10 @@ extension on TranslationsZhCn {
 			'settings.keys.pickerClose' => '收起',
 			'settings.keys.visionBadge' => '视觉',
 			'settings.keys.docsBadge' => '文档',
-			'settings.keys.noCapsGuide' => '还没有可用模型——先添加一把探测通过的密钥',
-			'settings.keys.searchSection' => '搜索',
 			_ => null,
 		} ?? switch (path) {
+			'settings.keys.noCapsGuide' => '还没有可用模型——先添加一把探测通过的密钥',
+			'settings.keys.searchSection' => '搜索',
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',
 			'settings.ws.newWorkspace' => '新建工作区',

@@ -309,7 +309,7 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
 
   Future<void> _triage() async {
     final t = context.t.scheduler.run;
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _busy = true);
     try {
       final cvId = await ref.read(schedulerRepositoryProvider).triageRun(_run.id);
@@ -317,16 +317,16 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
       // 202 → the new conversation: hand the user straight to it (§10). 202 → 直接把人交给对话。
       context.go('/chat/$cvId');
     } on ApiException catch (e) {
-      if (mounted) overlay.showToast(e.message, tone: AnTone.danger);
+      if (mounted) notices.show(e.message, tone: AnTone.danger);
     } catch (_) {
-      if (mounted) overlay.showToast(t.triageFailed, tone: AnTone.danger);
+      if (mounted) notices.show(t.triageFailed, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _act(Future<void> Function(SchedulerRepository) op, {required String lost}) async {
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _busy = true);
     try {
       await op(ref.read(schedulerRepositoryProvider));
@@ -334,7 +334,7 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
       if (!mounted) return;
       // 422 = we lost a first-wins race (the run settled itself in the meantime) — that is NEWS,
       // not an error. 422=first-wins 输了(run 自己先落定了)——那是消息,不是错误。
-      overlay.showToast(e.httpStatus == 422 ? lost : e.message,
+      notices.show(e.httpStatus == 422 ? lost : e.message,
           tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
@@ -722,7 +722,7 @@ class _ParkedGateState extends ConsumerState<_ParkedGate> {
   bool _busy = false;
 
   Future<void> _decide(String verdict, String? reason) async {
-    final overlay = ref.read(overlayProvider.notifier);
+    final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _busy = true);
     try {
       await ref.read(schedulerRepositoryProvider).decideApproval(
@@ -735,7 +735,7 @@ class _ParkedGateState extends ConsumerState<_ParkedGate> {
       if (!mounted) return;
       // first-wins: someone (or the timeout) got there first. The gate reconciles away below.
       // first-wins:别人(或超时)先到了;下面的对账会把门收走。
-      overlay.showToast(
+      notices.show(
           e.httpStatus == 422 ? context.t.scheduler.overview.alreadyHandled : e.message,
           tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger);
     } finally {

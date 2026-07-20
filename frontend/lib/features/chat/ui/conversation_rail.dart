@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/contract/conversation.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/model/status_state.dart';
+import '../../../core/notice/notice_center.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/overlay/an_overlay.dart';
 import '../../../core/ui/an_button.dart';
@@ -220,7 +221,7 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     try {
       _list.applyUpdate(await _repo.setPinned(id, pinned));
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
@@ -228,7 +229,7 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     try {
       _list.applyUpdate(await _repo.setArchived(id, archived));
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
@@ -245,7 +246,7 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     try {
       _list.applyUpdate(await _repo.renameConversation(id, next));
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
@@ -266,12 +267,12 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
       if (!mounted) return;
       if (ref.read(selectedConversationProvider)?.id == c.id) context.go('/');
     } catch (_) {
-      _toastFail();
+      _noticeFail();
     }
   }
 
-  void _toastFail() {
+  void _noticeFail() {
     if (!mounted) return;
-    ref.read(overlayProvider.notifier).showToast(context.t.chat.actionFailed, tone: AnTone.danger);
+    ref.read(noticeCenterProvider.notifier).show(context.t.chat.actionFailed, tone: AnTone.danger);
   }
 }

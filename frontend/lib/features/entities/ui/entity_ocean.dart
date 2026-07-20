@@ -5,7 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/tokens.dart';
 import '../../../core/model/status_state.dart';
-import '../../../core/overlay/an_overlay.dart';
+import '../../../core/notice/notice_center.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_deferred_loading.dart';
@@ -158,7 +158,7 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                           final tr = context.t.entities.detail.trigger;
                           // Capture before the await — the ocean may dispose mid-fire. 取在 await 前(催发途中海洋可能释放)。
                           final repo = ref.read(entityRepositoryProvider);
-                          final overlay = ref.read(overlayProvider.notifier);
+                          final notices = ref.read(noticeCenterProvider.notifier);
                           try {
                             final actId = await repo.fireTrigger(detail.ref.id);
                             if (!mounted) return;
@@ -167,9 +167,9 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                             ref.invalidate(activationListProvider);
                             ref.invalidate(firingListProvider);
                             ref.invalidate(entityDetailProvider(detail.ref));
-                            overlay.showToast(tr.firedToast(id: actId));
+                            notices.show(tr.firedToast(id: actId));
                           } catch (_) {
-                            overlay.showToast(tr.fireFailed, tone: AnTone.danger);
+                            notices.show(tr.fireFailed, tone: AnTone.danger);
                           }
                         }
                       : null,

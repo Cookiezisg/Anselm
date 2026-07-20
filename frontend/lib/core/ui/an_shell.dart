@@ -15,7 +15,19 @@ import 'icons.dart';
 /// [AnSize.shellPad] below the window top, so the control is offset `bandHeight/2 - shellPad - control/2`
 /// from its band's top (clamped ≥ 0 for small/absent bands, e.g. non-macOS). 顶控落到红绿灯水平线的顶距。
 double _controlInset(double bandHeight) =>
-    (bandHeight / 2 - AnSize.shellPad - AnSize.control / 2).clamp(0.0, AnSize.islandHead);
+    (bandHeight / 2 - AnSize.shellPad - AnSize.control / 2).clamp(
+      0.0,
+      AnSize.islandHead,
+    );
+
+/// The notice crown is taller than a standard top control, but its CENTER belongs to the exact same
+/// title-band axis. Keep this derivation separate so changing either family never silently misaligns the
+/// other. 通知冠部虽高于标准顶控,中心仍落同一标题带轴;独立推导,两族改尺寸互不拖偏。
+double _noticeInset(double bandHeight) =>
+    (bandHeight / 2 - AnSize.shellPad - AnSize.noticeBar / 2).clamp(
+      0.0,
+      AnSize.islandHead,
+    );
 
 /// The three-island desktop shell skeleton: a left island ([sidebar]), the open ocean ([ocean]) — the
 /// window's white surface, no card — and a right island ([inspector]). 8px padding around + 8px gaps
@@ -113,71 +125,90 @@ class AnShell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final controlInset = _controlInset(titlebarHeight); // drop top controls onto the lights' line 顶控落到灯线
+    final controlInset = _controlInset(
+      titlebarHeight,
+    ); // drop top controls onto the lights' line 顶控落到灯线
+    final noticeInset = _noticeInset(
+      titlebarHeight,
+    ); // 36px notice crown on that same axis 36 冠部同轴
     return Material(
       color: c.surface,
       child: Padding(
         padding: const EdgeInsets.all(AnSize.shellPad),
-        child: LayoutBuilder(builder: (context, box) {
-          // The right island may be dragged wide (rightIslandMax) but the OCEAN keeps its floor: the
-          // live drag ceiling is whatever width remains after the left island + oceanMin + gaps.
-          // 右岛可拖宽,但海洋保底优先:动态上限=扣除左岛/海洋下限/间距后的余宽。
-          final leftTaken = leftCollapsed ? 0.0 : leftWidth + AnSize.shellGap;
-          final rightCeiling = (box.maxWidth - leftTaken - AnSize.oceanMin - AnSize.shellGap)
-              .clamp(AnSize.rightIslandMin, AnSize.rightIslandMax);
-          return Row(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            _LeftReveal(
-              collapsed: leftCollapsed,
-              width: leftWidth,
-              onWidthCommitted: onLeftWidthCommitted,
-              child: AnIsland(
-                // No TOP pad: the chrome bar reaches the island's top edge so its controls vertically
-                // center on the OS traffic lights (the bar IS the title-bar band). 顶不留白:chrome bar 抵岛顶,顶控与红绿灯居中对齐。
-                padding: const EdgeInsets.fromLTRB(AnSpace.s12, 0, AnSpace.s12, AnSpace.s12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // No spacer below the chrome bar: the bar is [islandHead] (44) tall but its controls
-                    // occupy only [controlInset]+[control] (≈32) from the top, so it ALREADY carries ~12px
-                    // of intrinsic slack beneath the traffic-light/collapse row — that slack IS the gap to
-                    // the ocean switcher. The old s8 spacer double-padded it (~20px, too large per B11);
-                    // dropping it leaves a derived ~12px gap that reads consistent with the sidebar's own
-                    // s8 rhythm. 不加间距:chrome 带 44 高、控件仅占顶部 ≈32,自带 ≈12px slack=到切换器的间距;
-                    // 旧 s8 双重填充(≈20 过大);去掉留派生 ≈12px,与 sidebar 内 s8 节奏一致。
-                    _ChromeBar(onCollapse: onToggleLeft, controlInset: controlInset),
-                    Expanded(child: sidebar ?? const _Placeholder('Sidebar')),
-                  ],
+        child: LayoutBuilder(
+          builder: (context, box) {
+            // The right island may be dragged wide (rightIslandMax) but the OCEAN keeps its floor: the
+            // live drag ceiling is whatever width remains after the left island + oceanMin + gaps.
+            // 右岛可拖宽,但海洋保底优先:动态上限=扣除左岛/海洋下限/间距后的余宽。
+            final leftTaken = leftCollapsed ? 0.0 : leftWidth + AnSize.shellGap;
+            final rightCeiling =
+                (box.maxWidth - leftTaken - AnSize.oceanMin - AnSize.shellGap)
+                    .clamp(AnSize.rightIslandMin, AnSize.rightIslandMax);
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _LeftReveal(
+                  collapsed: leftCollapsed,
+                  width: leftWidth,
+                  onWidthCommitted: onLeftWidthCommitted,
+                  child: AnIsland(
+                    // No TOP pad: the chrome bar reaches the island's top edge so its controls vertically
+                    // center on the OS traffic lights (the bar IS the title-bar band). 顶不留白:chrome bar 抵岛顶,顶控与红绿灯居中对齐。
+                    padding: const EdgeInsets.fromLTRB(
+                      AnSpace.s12,
+                      0,
+                      AnSpace.s12,
+                      AnSpace.s12,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // No spacer below the chrome bar: the bar is [islandHead] (44) tall but its controls
+                        // occupy only [controlInset]+[control] (≈32) from the top, so it ALREADY carries ~12px
+                        // of intrinsic slack beneath the traffic-light/collapse row — that slack IS the gap to
+                        // the ocean switcher. The old s8 spacer double-padded it (~20px, too large per B11);
+                        // dropping it leaves a derived ~12px gap that reads consistent with the sidebar's own
+                        // s8 rhythm. 不加间距:chrome 带 44 高、控件仅占顶部 ≈32,自带 ≈12px slack=到切换器的间距;
+                        // 旧 s8 双重填充(≈20 过大);去掉留派生 ≈12px,与 sidebar 内 s8 节奏一致。
+                        _ChromeBar(
+                          onCollapse: onToggleLeft,
+                          controlInset: controlInset,
+                        ),
+                        Expanded(
+                          child: sidebar ?? const _Placeholder('Sidebar'),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            Expanded(
-              child: _OceanRegion(
-                ocean: ocean,
-                head: head,
-                headTrailing: headTrailing,
-                bandNotice: bandNotice,
-                showReopen: leftCollapsed,
-                onReopen: onToggleLeft,
-                controlInset: controlInset,
-                // panel-right shows only when there's a bound right island (caller passes the callback iff
-                // an entity is selected) — mirrors the demo's has-right gate. 仅有绑定右岛时显(对齐 demo has-right)。
-                showRightToggle: onToggleRight != null,
-                onToggleRight: onToggleRight,
-                rightActivity: rightActivity,
-              ),
-            ),
-            _RightReveal(
-              open: inspectorOpen,
-              width: rightWidth,
-              maxWidth: rightCeiling,
-              onWidthCommitted: onRightWidthCommitted,
-              child: inspector ?? const _Placeholder('Inspector'),
-            ),
-          ],
-        );
-        }),
+                Expanded(
+                  child: _OceanRegion(
+                    ocean: ocean,
+                    head: head,
+                    headTrailing: headTrailing,
+                    bandNotice: bandNotice,
+                    showReopen: leftCollapsed,
+                    onReopen: onToggleLeft,
+                    controlInset: controlInset,
+                    noticeInset: noticeInset,
+                    // panel-right shows only when there's a bound right island (caller passes the callback iff
+                    // an entity is selected) — mirrors the demo's has-right gate. 仅有绑定右岛时显(对齐 demo has-right)。
+                    showRightToggle: onToggleRight != null,
+                    onToggleRight: onToggleRight,
+                    rightActivity: rightActivity,
+                  ),
+                ),
+                _RightReveal(
+                  open: inspectorOpen,
+                  width: rightWidth,
+                  maxWidth: rightCeiling,
+                  onWidthCommitted: onRightWidthCommitted,
+                  child: inspector ?? const _Placeholder('Inspector'),
+                ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
@@ -236,6 +267,7 @@ class _OceanRegion extends StatelessWidget {
     this.onToggleRight,
     this.rightActivity = false,
     required this.controlInset,
+    required this.noticeInset,
   });
 
   final Widget? ocean;
@@ -253,6 +285,7 @@ class _OceanRegion extends StatelessWidget {
   final VoidCallback? onToggleRight;
   final bool rightActivity;
   final double controlInset;
+  final double noticeInset;
 
   @override
   Widget build(BuildContext context) {
@@ -301,7 +334,9 @@ class _OceanRegion extends StatelessWidget {
                 // 收起后红绿灯压到海洋左上,故 reopen 前留红绿灯横位(AnWindowControls,showBrand 关——品牌只属左岛),
                 // reopen 落灯之后、绝不压灯;全屏无灯时整块收零,reopen 贴边、不冒出品牌。
                 AnimatedSize(
-                  duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
+                  duration: AnMotionPref.reduced(context)
+                      ? Duration.zero
+                      : AnMotion.mid,
                   alignment: Alignment.centerLeft,
                   child: showReopen
                       ? Row(
@@ -339,29 +374,39 @@ class _OceanRegion extends StatelessWidget {
                 AnExpandReveal(
                   axis: Axis.horizontal,
                   open: showRightToggle,
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    if (headTrailing != null) const SizedBox(width: AnSpace.s4),
-                    Stack(clipBehavior: Clip.none, children: [
-                      AnButton.iconOnly(
-                        AnIcons.panelRight,
-                        semanticLabel: context.t.shell.togglePanel,
-                        onPressed: onToggleRight,
-                      ),
-                      // R-15 activity bit: live work behind a collapsed island. 收起态活动位。
-                      if (rightActivity)
-                        Positioned(
-                          top: AnSpace.s2,
-                          right: AnSpace.s2,
-                          child: IgnorePointer(
-                            child: Container(
-                              width: AnSize.dot,
-                              height: AnSize.dot,
-                              decoration: BoxDecoration(color: c.accent, shape: BoxShape.circle),
-                            ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (headTrailing != null)
+                        const SizedBox(width: AnSpace.s4),
+                      Stack(
+                        clipBehavior: Clip.none,
+                        children: [
+                          AnButton.iconOnly(
+                            AnIcons.panelRight,
+                            semanticLabel: context.t.shell.togglePanel,
+                            onPressed: onToggleRight,
                           ),
-                        ),
-                    ]),
-                  ]),
+                          // R-15 activity bit: live work behind a collapsed island. 收起态活动位。
+                          if (rightActivity)
+                            Positioned(
+                              top: AnSpace.s2,
+                              right: AnSpace.s2,
+                              child: IgnorePointer(
+                                child: Container(
+                                  width: AnSize.dot,
+                                  height: AnSize.dot,
+                                  decoration: BoxDecoration(
+                                    color: c.accent,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                              ),
+                            ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -371,14 +416,13 @@ class _OceanRegion extends StatelessWidget {
         // capsule itself. 通知胶囊层(带中、z 顶):除胶囊自身外命中穿透。
         if (bandNotice != null)
           Positioned(
-            top: controlInset,
+            top: noticeInset,
             left: 0,
             right: 0,
             bottom: 0,
-            // Top-aligned, UNBOUNDED downward: the pill sits on the band line as before, while the
-            // approval BLOCK grows below it (a fixed control-height layer squashed the block flat).
-            // Hit-testing still lands only on the capsule itself. 顶对齐、向下不设限:药丸照坐带线,
-            // 审批块向下生长(定高层曾把块压扁);命中仍仅胶囊自身。
+            // Top-aligned, UNBOUNDED downward: the shared 36px crown sits on the title-band axis while
+            // the approval BLOCK grows only below it. Hit-testing still lands only on the island itself.
+            // 顶对齐、向下不设限:共用 36 冠部坐标题带中轴,审批只向下生长;命中仍仅岛屿自身。
             child: Align(alignment: Alignment.topCenter, child: bandNotice),
           ),
       ],
@@ -487,7 +531,11 @@ class _LeftRevealState extends State<_LeftReveal>
             SizedBox(
               width: AnSize.shellGap * t,
               child: fullyOpen
-                  ? _Grip(key: const ValueKey('anShellLeftGrip'), onDrag: _onDrag, onDragEnd: _onDragEnd)
+                  ? _Grip(
+                      key: const ValueKey('anShellLeftGrip'),
+                      onDrag: _onDrag,
+                      onDragEnd: _onDragEnd,
+                    )
                   : null,
             ),
           ],
@@ -605,7 +653,11 @@ class _RightRevealState extends State<_RightReveal>
             SizedBox(
               width: AnSize.shellGap * t,
               child: fullyOpen && widget.onWidthCommitted != null
-                  ? _Grip(key: const ValueKey('anShellRightGrip'), onDrag: _onDrag, onDragEnd: _onDragEnd)
+                  ? _Grip(
+                      key: const ValueKey('anShellRightGrip'),
+                      onDrag: _onDrag,
+                      onDragEnd: _onDragEnd,
+                    )
                   : null,
             ),
             ClipRect(

@@ -648,6 +648,12 @@ class Translations$notifications$en {
 	/// en: 'View'
 	String get view => 'View';
 
+	/// en: 'Dismiss this top notification'
+	String get closeTop => 'Dismiss this top notification';
+
+	/// en: 'Clear all $count top notifications'
+	String clearTop({required Object count}) => 'Clear all ${count} top notifications';
+
 	/// en: 'Couldn't load notifications'
 	String get errorTitle => 'Couldn\'t load notifications';
 
@@ -1177,11 +1183,11 @@ class Translations$settings$en {
 	/// en: 'Delivered via the OS notification center while unfocused'
 	String get notifOsDesc => 'Delivered via the OS notification center while unfocused';
 
-	/// en: 'In-app toasts'
-	String get notifToast => 'In-app toasts';
+	/// en: 'In-app notices'
+	String get notifToast => 'In-app notices';
 
-	/// en: 'Top-right pop-ups; danger-level errors bypass this'
-	String get notifToastDesc => 'Top-right pop-ups; danger-level errors bypass this';
+	/// en: 'Show notices at the top of the app; danger-level errors bypass this'
+	String get notifToastDesc => 'Show notices at the top of the app; danger-level errors bypass this';
 
 	/// en: 'Silenced — important items still land in the bell inbox'
 	String get silentHint => 'Silenced — important items still land in the bell inbox';
@@ -7135,6 +7141,8 @@ extension on Translations {
 			'notifications.depBrokenOne' => 'was deleted, leaving 1 reference dangling',
 			'notifications.depBrokenMany' => ({required Object n}) => 'was deleted, leaving ${n} references dangling',
 			'notifications.view' => 'View',
+			'notifications.closeTop' => 'Dismiss this top notification',
+			'notifications.clearTop' => ({required Object count}) => 'Clear all ${count} top notifications',
 			'notifications.errorTitle' => 'Couldn\'t load notifications',
 			'notifications.errorHint' => 'The local engine didn\'t return the notification feed.',
 			'notifications.retry' => 'Retry',
@@ -7192,10 +7200,10 @@ extension on Translations {
 			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make server).',
 			'startup.retry' => 'Retry',
 			'startup.errorTitle' => 'Something went wrong',
-			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
-			'entities.kNew' => 'New',
 			_ => null,
 		} ?? switch (path) {
+			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
+			'entities.kNew' => 'New',
 			'entities.filter' => 'Search entities…',
 			'entities.errorTitle' => 'Couldn\'t load entities',
 			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
@@ -7627,8 +7635,8 @@ extension on Translations {
 			'settings.levelSilent' => 'Silent',
 			'settings.notifOs' => 'System notifications',
 			'settings.notifOsDesc' => 'Delivered via the OS notification center while unfocused',
-			'settings.notifToast' => 'In-app toasts',
-			'settings.notifToastDesc' => 'Top-right pop-ups; danger-level errors bypass this',
+			'settings.notifToast' => 'In-app notices',
+			'settings.notifToastDesc' => 'Show notices at the top of the app; danger-level errors bypass this',
 			'settings.silentHint' => 'Silenced — important items still land in the bell inbox',
 			'settings.autoStage' => 'Sidestage auto-open',
 			'settings.autoStageDesc' => 'The right island stages tool runs automatically',
@@ -7706,10 +7714,10 @@ extension on Translations {
 			'settings.keys.pickerClose' => 'Close',
 			'settings.keys.visionBadge' => 'Vision',
 			'settings.keys.docsBadge' => 'Docs',
-			'settings.keys.noCapsGuide' => 'No usable models yet — add a key that passes its probe first',
-			'settings.keys.searchSection' => 'Search',
 			_ => null,
 		} ?? switch (path) {
+			'settings.keys.noCapsGuide' => 'No usable models yet — add a key that passes its probe first',
+			'settings.keys.searchSection' => 'Search',
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',
 			'settings.ws.newWorkspace' => 'New workspace',
