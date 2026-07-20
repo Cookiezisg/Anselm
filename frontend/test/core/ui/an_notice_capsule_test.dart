@@ -29,7 +29,7 @@ void main() {
     expect(find.text('workflow failed'), findsOneWidget);
     expect(dismissed, 0);
     await tester.pump(const Duration(seconds: 1)); // hold elapses → exit starts
-    await tester.pump(const Duration(milliseconds: 400)); // exit animation
+    await tester.pump(const Duration(milliseconds: 500)); // exit animation
     await tester.pump();
     expect(dismissed, 1, reason: '退场动画完成后回调恰一次');
   });
@@ -55,7 +55,7 @@ void main() {
     await gesture.moveTo(const Offset(1, 1)); // leave
     await tester.pump();
     await tester.pump(const Duration(seconds: 1));
-    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 500));
     await tester.pump();
     expect(dismissed, 1, reason: '移开后计时恢复并退场');
   });
@@ -92,5 +92,28 @@ void main() {
     await tester.pump(const Duration(milliseconds: 150)); // dwell elapses → instant exit
     await tester.pump();
     expect(dismissed, 1, reason: 'reduced 即时进出,无补间帧');
+  });
+
+  testWidgets('the four-beat line: newborn circle → mid-stretch → full pill (width tells the story)',
+      (tester) async {
+    await tester.pumpWidget(host(AnNoticeCapsule(
+      text: 'a reasonably long failure sentence for width',
+      viewLabel: 'View',
+      hold: const Duration(seconds: 30),
+      onDismissed: () {},
+    )));
+    await tester.pump();
+    double shellW() => tester.getSize(find.byType(DecoratedBox).first).width;
+    // Birth beat (~28% of 560ms): the shell is still the circle (width == height). 诞生拍:壳仍是圆。
+    await tester.pump(const Duration(milliseconds: 80));
+    final birthW = shellW();
+    expect(birthW, lessThan(40), reason: '诞生期壳≈圆(宽≈高 28),字一个都还没露');
+    // Mid-stretch: strictly between circle and full. 拉开中:严格介于圆与全宽之间。
+    await tester.pump(const Duration(milliseconds: 200));
+    final midW = shellW();
+    expect(midW, greaterThan(birthW));
+    // Fully open: wider than mid (easeOut tail may still be settling at 560ms edge). 全开:宽于中段。
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(shellW(), greaterThan(midW));
   });
 }
