@@ -278,13 +278,12 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err != nil {
 		return err
 	}
-	// Managed rows (free-tier gateway) are immutable — deletion included (WRK-062 S-1): the gwk_
-	// credential is backend-provisioned; once the defaults referencing it are cleared, RefScanner
-	// alone would wave the DELETE through and destroy the token with no user-facing re-provision
-	// path. Symmetric with Update's guard above.
+	// Managed rows are backend-owned and immutable, deletion included. If scenario
+	// defaults are cleared, RefScanner alone would otherwise allow deleting the
+	// installation binding and its quota history. Symmetric with Update's guard.
 	//
-	// 受管行（免费档网关）不可变——删除同样在内（S-1）：gwk_ 凭证由后端开通;一旦指向它的默认被清空,
-	// 仅靠 RefScanner 就会放行 DELETE、毁掉 token 且用户无重开通入口。与 Update 的守卫对称。
+	// 受管行由后端拥有且不可变，删除同样在内。若 scenario 默认已清空，
+	// 仅靠 RefScanner 会误删安装绑定与配额历史。与 Update 的守卫对称。
 	if meta, ok := GetProviderMeta(k.Provider); ok && meta.Managed {
 		return apikeydomain.ErrManaged
 	}

@@ -50,6 +50,10 @@ func newSharedHTTPClient() *http.Client {
 	}
 }
 
+// NewHTTPClient exposes the shared transport policy to the composition root so
+// it can wrap the Anselm gateway lane with device-proof signing.
+func NewHTTPClient() *http.Client { return newSharedHTTPClient() }
+
 // maxSSELineBytes lets the SSE scanner accept a single large data: line (e.g. a big
 // tool-call arguments frame) instead of aborting at bufio's 64KB default token size.
 //

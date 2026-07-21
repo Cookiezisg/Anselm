@@ -503,7 +503,7 @@ landed-into:
 | B-sup-2 | workspace Delete Reaper 级联:自动化摘除/常驻停/mcp 断/索引清/文件树删,12 类资产零残留、keeper 无涟漪 | locked | TestPlatform_WorkspaceCascadeDelete / TestPlatformR4_CascadeEveryAssetKind |
 | B-sup-3 | apikey 引用守卫:RefScanner 聚合非空拒删(API_KEY_IN_USE)+details.references {kind,id,name} 三来源 | locked | TestPlatform_APIKeyProbeAndGuards |
 | B-sup-4 | apikey:旋转自动重探(失败不挡 PATCH)/受管行 Update 422 API_KEY_IMMUTABLE/apiFormat 白名单 400 | locked | Phase1 contract_*_test.go REST 矩阵三分支(注错 tester 仍 200) |
-| B-sup-5 | freetier 全链:指纹铸 gwk_→CreateManaged 受管行(跳探针)→真补全→quota 扣减;每失败路径降级绝不挂 boot | probed | 0629 客户端侧 LIVE 端到端手测 |
+| B-sup-5 | freetier 全链:Ed25519 公钥登记→installId→CreateManaged 受管行(跳探针)→逐请求 device proof→quota 扣减;每失败路径降级绝不挂 boot | locked | `TestGatewayDeviceProofContract`（`ANSELM_GATEWAY_INTEGRATION_URL` 指向跨仓真实 Gateway） |
 | B-sup-6 | freetier quota 代理契约:无受管行 404 FREETIER_NOT_PROVISIONED/remaining 钳≥0/available 折全局预算/网关错按 LLM_* 分类冒泡 | locked | Phase1 contract_*_test.go llmmock 伪网关断四分支 |
 | B-sup-7 | model 三场景白名单 dialogue/utility/agent+capabilities 经 :test 探测聚合 | locked | TestPlatform_ModelConfig |
 | B-sup-8 | get_model_config 脱敏:KeyMasked 绝不出明文、投影真 workspace 配置 | probed | F68 |

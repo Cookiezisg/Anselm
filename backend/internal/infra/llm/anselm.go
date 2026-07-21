@@ -1,16 +1,23 @@
 package llm
 
+import (
+	"context"
+	"net/http"
+
+	deviceproofinfra "github.com/sunweilin/anselm/backend/internal/infra/deviceproof"
+)
+
 // anselmProvider is the built-in free-tier provider: the Anselm gateway, an OpenAI-wire capability
 // router (api.anselm.website). It embeds deepseekProvider for the compatible streaming parser,
 // reasoning_content round-trip and tool-call behavior; the gateway itself decides DeepSeek text vs
-// a multimodal upstream from the complete content history. The managed api_key row (provider
-// "anselm") carries the gwk_ install token as its Bearer key, so the inherited request transport
-// authenticates with zero change. Tools flow through unchanged, so the free tier stays agentic.
+// a multimodal upstream from the complete content history. The managed api_key row carries the
+// public install id; the device-proof transport signs every concrete request with the installation's
+// encrypted-at-rest Ed25519 key. Tools flow through unchanged, so the free tier stays agentic.
 //
 // anselmProvider 是内置免费档 provider：Anselm 网关（OpenAI-wire capability router，api.anselm.website）。
 // embed deepseekProvider 继承兼容的 BuildRequest / ParseStream / reasoning_content / tool-call 线缆，
-// 而网关按完整历史自行决定文本 DeepSeek 或图像/视频 Kimi。受管 api_key 行（provider "anselm"）以
-// gwk_ install token 作 Bearer key，故继承 transport 无需改动；tools 也可原样穿过统一入口。
+// 而网关按完整历史自行决定文本 DeepSeek 或图像/视频 Kimi。受管 api_key 行保存公开 install id；设备证明
+// transport 用加密落盘的 Ed25519 私钥逐请求签名。tools 仍原样穿过统一入口。
 type anselmProvider struct {
 	*deepseekProvider
 }
@@ -31,6 +38,18 @@ const AnselmBaseURL = "https://api.anselm.website/v1"
 
 func (p *anselmProvider) Name() string           { return "anselm" }
 func (p *anselmProvider) DefaultBaseURL() string { return AnselmBaseURL }
+
+// BuildRequest uses DeepSeek's wire body but replaces reusable bearer auth with
+// the public install id. The HTTP device-proof transport signs the final bytes.
+func (p *anselmProvider) BuildRequest(ctx context.Context, req Request) (*http.Request, error) {
+	httpReq, err := p.deepseekProvider.BuildRequest(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	httpReq.Header.Del("Authorization")
+	httpReq.Header.Set(deviceproofinfra.HeaderInstallID, req.Key)
+	return httpReq, nil
+}
 
 // anselmSpecs is the gateway's public capability envelope: exactly one logical model, anselm-auto.
 // Its text route is wider internally, but any native media routes to Kimi's 256K/32K envelope, so

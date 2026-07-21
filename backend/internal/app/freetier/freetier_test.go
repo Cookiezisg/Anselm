@@ -42,10 +42,10 @@ func (f *fakeKeys) CreateManaged(_ context.Context, in apikeyapp.ManagedCreateIn
 }
 
 type fakeInstaller struct {
-	gotHash string
-	gotBase string
-	token   string
-	err     error
+	gotHash   string
+	gotBase   string
+	installID string
+	err       error
 }
 
 func (f *fakeInstaller) Install(_ context.Context, baseURL, fingerprintHash, _ string) (llminfra.InstallResult, error) {
@@ -53,7 +53,7 @@ func (f *fakeInstaller) Install(_ context.Context, baseURL, fingerprintHash, _ s
 	if f.err != nil {
 		return llminfra.InstallResult{}, f.err
 	}
-	return llminfra.InstallResult{Token: f.token, MonthlyQuota: 5000}, nil
+	return llminfra.InstallResult{InstallID: f.installID, MonthlyQuota: 5000}, nil
 }
 
 func okFP() (string, error)  { return "machine-serial-123", nil }
@@ -81,12 +81,12 @@ func newProv(keys Keys, inst Installer, fp Fingerprint) *Provisioner {
 func TestProvisionNow_ReportsHonestly(t *testing.T) {
 	// Fresh install path → row lands → true. 新装→落行→true。
 	keys := &fakeKeys{}
-	ok, err := newProv(keys, &fakeInstaller{token: "gwk_minted"}, okFP).ProvisionNow(context.Background())
+	ok, err := newProv(keys, &fakeInstaller{installID: "ins_minted"}, okFP).ProvisionNow(context.Background())
 	if err != nil || !ok {
 		t.Fatalf("fresh provision → (%v,%v), want (true,nil)", ok, err)
 	}
 	// Idempotent short-circuit → still true, no second install. 幂等短路→仍 true。
-	inst2 := &fakeInstaller{token: "gwk_other"}
+	inst2 := &fakeInstaller{installID: "ins_other"}
 	ok, err = newProv(keys, inst2, okFP).ProvisionNow(context.Background())
 	if err != nil || !ok {
 		t.Fatalf("idempotent provision → (%v,%v), want (true,nil)", ok, err)
@@ -103,7 +103,7 @@ func TestProvisionNow_ReportsHonestly(t *testing.T) {
 
 func TestEnsure_ProvisionsManagedRow(t *testing.T) {
 	keys := &fakeKeys{}
-	inst := &fakeInstaller{token: "gwk_minted"}
+	inst := &fakeInstaller{installID: "ins_minted"}
 	if err := newProv(keys, inst, okFP).EnsureForWorkspace(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -111,7 +111,7 @@ func TestEnsure_ProvisionsManagedRow(t *testing.T) {
 		t.Fatalf("CreateManaged called %d times, want 1", len(keys.created))
 	}
 	in := keys.created[0]
-	if in.Provider != "anselm" || in.Key != "gwk_minted" || in.BaseURL != llminfra.AnselmBaseURL {
+	if in.Provider != "anselm" || in.Key != "ins_minted" || in.BaseURL != llminfra.AnselmBaseURL {
 		t.Errorf("managed input = %+v", in)
 	}
 	if in.TestResponse != llminfra.AnselmProbeBody() {
@@ -132,7 +132,7 @@ func TestEnsure_ProvisionsManagedRow(t *testing.T) {
 
 func TestEnsure_IdempotentWhenPresent(t *testing.T) {
 	keys := &fakeKeys{rows: []*apikeydomain.APIKey{{ID: "aki_existing", Provider: "anselm"}}}
-	inst := &fakeInstaller{token: "gwk_x"}
+	inst := &fakeInstaller{installID: "ins_x"}
 	if err := newProv(keys, inst, okFP).EnsureForWorkspace(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +146,7 @@ func TestEnsure_IdempotentWhenPresent(t *testing.T) {
 
 func TestEnsure_DegradesWithoutFingerprint(t *testing.T) {
 	keys := &fakeKeys{}
-	inst := &fakeInstaller{token: "gwk_x"}
+	inst := &fakeInstaller{installID: "ins_x"}
 	if err := newProv(keys, inst, errFP).EnsureForWorkspace(context.Background()); err != nil {
 		t.Errorf("must degrade to nil, got %v", err)
 	}
@@ -168,7 +168,7 @@ func TestEnsure_DegradesOnInstallError(t *testing.T) {
 
 func TestEnsure_DisplayNameConflictIsIdempotent(t *testing.T) {
 	keys := &fakeKeys{createErr: apikeydomain.ErrDisplayNameConflict}
-	inst := &fakeInstaller{token: "gwk_x"}
+	inst := &fakeInstaller{installID: "ins_x"}
 	if err := newProv(keys, inst, okFP).EnsureForWorkspace(context.Background()); err != nil {
 		t.Errorf("display-name conflict must be treated as idempotent no-op, got %v", err)
 	}
@@ -178,7 +178,7 @@ func TestEnsure_DisplayNameConflictIsIdempotent(t *testing.T) {
 func TestEnsure_SeedsWorkspaceDefaults(t *testing.T) {
 	keys := &fakeKeys{}
 	defs := &fakeDefaults{}
-	p := NewProvisioner(keys, defs, &fakeInstaller{token: "gwk_minted"}, okFP, zap.NewNop())
+	p := NewProvisioner(keys, defs, &fakeInstaller{installID: "ins_minted"}, okFP, zap.NewNop())
 	if err := p.EnsureForWorkspace(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -195,7 +195,7 @@ func TestEnsure_SeedsWorkspaceDefaults(t *testing.T) {
 func TestEnsure_SeedsDefaultsOnSelfHeal(t *testing.T) {
 	keys := &fakeKeys{rows: []*apikeydomain.APIKey{{ID: "aki_existing", Provider: "anselm"}}}
 	defs := &fakeDefaults{}
-	inst := &fakeInstaller{token: "gwk_x"}
+	inst := &fakeInstaller{installID: "ins_x"}
 	p := NewProvisioner(keys, defs, inst, okFP, zap.NewNop())
 	if err := p.EnsureForWorkspace(context.Background()); err != nil {
 		t.Fatal(err)

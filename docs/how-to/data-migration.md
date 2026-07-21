@@ -18,6 +18,7 @@ audience: [human, ai]
 | 路径 | 内容 |
 |---|---|
 | `anselm.db` | SQLite 全库（实体/版本/执行日志/消息/索引） |
+| `device-proof.key` | 网关设备证明的 Ed25519 seed；由主密钥 AES-GCM 加密，文件权限 `0600` |
 | `workspaces/<ws>/` | 文件式存储：memories / blobs（SHA256 CAS）/ skills |
 | `sandbox/` | 运行时 `runtimes/<kind>/<version>/`（python/node/uv/dotnet/llamasrv/embedmodel）+ env `envs/<kind>/<id>/`——**纯派生缓存，可不迁** |
 | `logs/anselm.log` | 轮转日志（10MB×3，保留 28 天，gzip）——报障就发这个文件 |

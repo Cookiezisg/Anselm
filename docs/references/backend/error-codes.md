@@ -645,7 +645,7 @@ audience: [human, ai]
 | `LLM_BAD_REQUEST` | 400 | llm: bad request |
 | `LLM_MODEL_NOT_FOUND` | 404 | llm: model not found |
 | `LLM_PROVIDER_ERROR` | 502 | llm: provider error |
-| `LLM_QUOTA_EXHAUSTED` | 429 | llm: free-tier quota exhausted (Anselm gateway 402 / in-stream BUDGET_EXHAUSTED; distinct Code from RATE_LIMITED so it is non-retryable; never marks the install token invalid) |
+| `LLM_QUOTA_EXHAUSTED` | 429 | llm: free-tier quota exhausted (Anselm gateway 402 / in-stream BUDGET_EXHAUSTED; distinct Code from RATE_LIMITED so it is non-retryable; never mutates the managed install identity) |
 | `LLM_RATE_LIMITED` | 429 | llm: rate limited |
 | `MOCK_QUEUE_EMPTY` | 500 | mock-llm: script queue empty — push a script before sending |
 

@@ -27,12 +27,12 @@ func TestAnselmProviderIdentity(t *testing.T) {
 	}
 }
 
-func TestAnselmBuildRequestInheritsDeepSeek(t *testing.T) {
-	// Embed inheritance: BuildRequest is deepseekProvider's, so the gwk_ token rides the Bearer
-	// path unchanged and tools are forwarded — the free tier is agentic.
+func TestAnselmBuildRequestUsesDeviceIdentity(t *testing.T) {
+	// The DeepSeek-compatible body still forwards tools, while auth is the public
+	// install id for the proof transport rather than a reusable bearer.
 	httpReq, err := newAnselmProvider().BuildRequest(context.Background(), Request{
 		ModelID:  AnselmModelID,
-		Key:      "gwk_secret",
+		Key:      "ins_test",
 		BaseURL:  AnselmBaseURL,
 		Messages: []LLMMessage{{Role: RoleUser, Content: "hi"}},
 		Tools:    []ToolDef{{Name: "get_weather", Description: "d", Parameters: []byte(`{"type":"object"}`)}},
@@ -43,8 +43,11 @@ func TestAnselmBuildRequestInheritsDeepSeek(t *testing.T) {
 	if got := httpReq.URL.String(); got != AnselmBaseURL+"/chat/completions" {
 		t.Errorf("url = %s, want %s/chat/completions", got, AnselmBaseURL)
 	}
-	if got := httpReq.Header.Get("Authorization"); got != "Bearer gwk_secret" {
-		t.Errorf("auth = %q, want Bearer gwk_secret", got)
+	if got := httpReq.Header.Get("X-Anselm-Install-ID"); got != "ins_test" {
+		t.Errorf("install id = %q, want ins_test", got)
+	}
+	if got := httpReq.Header.Get("Authorization"); got != "" {
+		t.Errorf("Authorization must be absent, got %q", got)
 	}
 	raw, _ := io.ReadAll(httpReq.Body)
 	if !strings.Contains(string(raw), `"get_weather"`) {
@@ -54,7 +57,7 @@ func TestAnselmBuildRequestInheritsDeepSeek(t *testing.T) {
 
 func TestAnselmBuildRequestCarriesGatewayMultimodalParts(t *testing.T) {
 	httpReq, err := newAnselmProvider().BuildRequest(context.Background(), Request{
-		ModelID: AnselmModelID, Key: "gwk_secret", BaseURL: AnselmBaseURL,
+		ModelID: AnselmModelID, Key: "ins_test", BaseURL: AnselmBaseURL,
 		Messages: []LLMMessage{{Role: RoleUser, Parts: []ContentPart{
 			{Type: PartText, Text: "review these"},
 			{Type: PartImageURL, ImageURL: "data:image/png;base64,IMG"},
@@ -183,15 +186,15 @@ func TestInstallClient(t *testing.T) {
 		if !strings.Contains(string(body), `"fingerprint":"hashed-fp"`) {
 			t.Errorf("request body = %s, want hashed fingerprint", body)
 		}
-		_, _ = io.WriteString(w, `{"token":"gwk_abc","monthlyQuota":5000,"resetAt":"2026-07-01T00:00:00+08:00"}`)
+		_, _ = io.WriteString(w, `{"installId":"ins_abc","monthlyQuota":5000,"resetAt":"2026-07-01T00:00:00+08:00"}`)
 	}))
 	defer srv.Close()
 
-	res, err := NewInstallClient().Install(context.Background(), srv.URL, "hashed-fp", "anselm-test")
+	res, err := NewInstallClient(http.DefaultClient, "public-key").Install(context.Background(), srv.URL, "hashed-fp", "anselm-test")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if res.Token != "gwk_abc" || res.MonthlyQuota != 5000 {
+	if res.InstallID != "ins_abc" || res.MonthlyQuota != 5000 {
 		t.Errorf("result = %+v", res)
 	}
 
@@ -201,16 +204,16 @@ func TestInstallClient(t *testing.T) {
 		_, _ = io.WriteString(w, `{"error":{"code":"INSTALL_CAP_REACHED"}}`)
 	}))
 	defer srv402.Close()
-	if _, err := NewInstallClient().Install(context.Background(), srv402.URL, "fp", "c"); !errors.Is(err, ErrQuotaExhausted) {
+	if _, err := NewInstallClient(http.DefaultClient, "public-key").Install(context.Background(), srv402.URL, "fp", "c"); !errors.Is(err, ErrQuotaExhausted) {
 		t.Errorf("402 install → %v, want ErrQuotaExhausted", err)
 	}
 
 	// A 200 with an empty token is not a usable provision → error.
 	srvEmpty := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = io.WriteString(w, `{"token":""}`)
+		_, _ = io.WriteString(w, `{"installId":""}`)
 	}))
 	defer srvEmpty.Close()
-	if _, err := NewInstallClient().Install(context.Background(), srvEmpty.URL, "fp", "c"); err == nil {
+	if _, err := NewInstallClient(http.DefaultClient, "public-key").Install(context.Background(), srvEmpty.URL, "fp", "c"); err == nil {
 		t.Error("empty token should error")
 	}
 }

@@ -1,5 +1,5 @@
 // Package freetier provisions the built-in free-tier credential: it ensures every workspace has a
-// managed api_key row pointing at the Anselm gateway, minting a gwk_ install token on first run, AND
+// managed api_key row pointing at the Anselm gateway, registering its device proof key on first run, AND
 // seeds the managed model as the workspace's default for all three scenarios (dialogue/utility/agent)
 // so everything resolves out of the box. Seeding fills only UNSET scenarios (SeedDefaultsIfUnset), so
 // a user's explicit pick — once the frontend model-picker exists — is never clobbered by the boot
@@ -7,7 +7,7 @@
 // configured model). Everything is best-effort so a degraded free tier never breaks boot or onboarding.
 //
 // Package freetier 开通内置免费档凭证：确保每个 workspace 有一条指向 Anselm 网关的受管 api_key 行（首次
-// 运行铸 gwk_ install token），并把受管模型播成 workspace 三 scenario（dialogue/utility/agent）的默认，使
+// 运行登记设备公钥），并把受管模型播成 workspace 三 scenario（dialogue/utility/agent）的默认，使
 // 一切开箱即解析。播种只填未设的 scenario（SeedDefaultsIfUnset），故用户显式选择——待前端模型选择器上线后
 // ——绝不被 boot 自愈覆盖。在该选择器上线前，受管模型就是合理默认（本无其他已配模型）。所有动作 best-effort，
 // 降级的免费档绝不挂 boot 或 onboarding。
@@ -33,13 +33,13 @@ import (
 // provider / 展示常量——"anselm" 必须匹配 apikey 目录键与 llm 注册表。
 const (
 	providerName = "anselm"
-	displayName  = "Anselm Free (DeepSeek)"
+	displayName  = "Anselm Free"
 	clientID     = "anselm-desktop"
 )
 
-// Installer mints a free-tier install token; *llm.InstallClient satisfies it.
+// Installer registers a free-tier device identity; *llm.InstallClient satisfies it.
 //
-// Installer 铸免费档 install token；*llm.InstallClient 满足它。
+// Installer 登记免费档设备身份；*llm.InstallClient 满足它。
 type Installer interface {
 	Install(ctx context.Context, baseURL, fingerprintHash, client string) (llminfra.InstallResult, error)
 }
@@ -149,7 +149,7 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 	k, err := p.keys.CreateManaged(ctx, apikeyapp.ManagedCreateInput{
 		Provider:     providerName,
 		DisplayName:  displayName,
-		Key:          res.Token,
+		Key:          res.InstallID,
 		BaseURL:      llminfra.AnselmBaseURL,
 		TestResponse: llminfra.AnselmProbeBody(),
 	})

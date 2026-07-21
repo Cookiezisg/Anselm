@@ -37,14 +37,14 @@ func (f *fakeQuotaKeys) ResolveCredentialsByID(_ context.Context, id string) (ap
 }
 
 type fakeFetcher struct {
-	gotBase  string
-	gotToken string
-	res      llminfra.QuotaResult
-	err      error
+	gotBase      string
+	gotInstallID string
+	res          llminfra.QuotaResult
+	err          error
 }
 
-func (f *fakeFetcher) Fetch(_ context.Context, baseURL, token string) (llminfra.QuotaResult, error) {
-	f.gotBase, f.gotToken = baseURL, token
+func (f *fakeFetcher) Fetch(_ context.Context, baseURL, installID string) (llminfra.QuotaResult, error) {
+	f.gotBase, f.gotInstallID = baseURL, installID
 	if f.err != nil {
 		return llminfra.QuotaResult{}, f.err
 	}
@@ -59,11 +59,11 @@ func TestQuotaRead_NotProvisioned(t *testing.T) {
 }
 
 func TestQuotaRead_ResolvesKeyAndProxies(t *testing.T) {
-	// The managed row's id drives credential resolution; the decrypted token + base reach the
+	// The managed row's id drives credential resolution; its public install id + base reach the
 	// fetcher verbatim, and the gateway result maps field-for-field into Quota.
 	keys := &fakeQuotaKeys{
 		rows:  []*apikeydomain.APIKey{{ID: "aki_anselm", Provider: providerName}},
-		creds: apikeydomain.Credentials{Provider: providerName, Key: "gwk_secret", BaseURL: "https://gw/v1"},
+		creds: apikeydomain.Credentials{Provider: providerName, Key: "ins_test", BaseURL: "https://gw/v1"},
 	}
 	fetch := &fakeFetcher{res: llminfra.QuotaResult{Limit: 5000, Used: 1200, Remaining: 3800, ResetAt: "2026-07-01T00:00:00Z", Available: true}}
 	q, err := NewQuotaReader(keys, fetch, zap.NewNop()).Read(context.Background())
@@ -73,8 +73,8 @@ func TestQuotaRead_ResolvesKeyAndProxies(t *testing.T) {
 	if keys.gotResolveID != "aki_anselm" {
 		t.Errorf("resolve id = %q, want aki_anselm", keys.gotResolveID)
 	}
-	if fetch.gotBase != "https://gw/v1" || fetch.gotToken != "gwk_secret" {
-		t.Errorf("fetch got (%q,%q), want (https://gw/v1, gwk_secret)", fetch.gotBase, fetch.gotToken)
+	if fetch.gotBase != "https://gw/v1" || fetch.gotInstallID != "ins_test" {
+		t.Errorf("fetch got (%q,%q), want (https://gw/v1, ins_test)", fetch.gotBase, fetch.gotInstallID)
 	}
 	if q.Limit != 5000 || q.Used != 1200 || q.Remaining != 3800 || q.ResetAt != "2026-07-01T00:00:00Z" || !q.Available {
 		t.Errorf("quota = %+v, mismatch", q)
@@ -82,11 +82,11 @@ func TestQuotaRead_ResolvesKeyAndProxies(t *testing.T) {
 }
 
 func TestQuotaRead_GatewayErrorPropagates(t *testing.T) {
-	// A gateway auth failure (stale/banned token) propagates its wire code verbatim — the reader
+	// A gateway auth failure (stale/banned install) propagates its wire code verbatim — the reader
 	// never swallows it into a zeroed quota.
 	keys := &fakeQuotaKeys{
 		rows:  []*apikeydomain.APIKey{{ID: "aki_anselm", Provider: providerName}},
-		creds: apikeydomain.Credentials{Key: "gwk_stale", BaseURL: "https://gw/v1"},
+		creds: apikeydomain.Credentials{Key: "ins_stale", BaseURL: "https://gw/v1"},
 	}
 	fetch := &fakeFetcher{err: llminfra.ErrAuthFailed}
 	if _, err := NewQuotaReader(keys, fetch, zap.NewNop()).Read(context.Background()); !errors.Is(err, llminfra.ErrAuthFailed) {

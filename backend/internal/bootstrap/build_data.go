@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"fmt"
+	"net/http"
 
 	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
 	cryptoinfra "github.com/sunweilin/anselm/backend/internal/infra/crypto"
@@ -73,8 +74,10 @@ type stores struct {
 //
 // infra 持有跨服务共享的无状态基础设施单例。
 type infra struct {
-	factory   *llminfra.Factory
-	encryptor cryptodomain.Encryptor
+	factory        *llminfra.Factory
+	encryptor      cryptodomain.Encryptor
+	proofHTTP      *http.Client
+	proofPublicKey string
 }
 
 // buses holds the three (and only three, E1) SSE buses: messages (chat/loop turns), entities

@@ -28,8 +28,16 @@ type Factory struct {
 //
 // NewFactory 构造一个可直接使用的 Factory。
 func NewFactory() *Factory {
+	return NewFactoryWithHTTP(newSharedHTTPClient())
+}
+
+// NewFactoryWithHTTP injects the shared client used by provider transports.
+func NewFactoryWithHTTP(httpClient *http.Client) *Factory {
+	if httpClient == nil {
+		httpClient = newSharedHTTPClient()
+	}
 	return &Factory{
-		http: newSharedHTTPClient(),
+		http: httpClient,
 		mock: NewMockClient(),
 	}
 }

@@ -6,16 +6,16 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+
+	deviceproofinfra "github.com/sunweilin/anselm/backend/internal/infra/deviceproof"
 )
 
-// QuotaClient reads the free-tier gateway's monthly quota for an install token. GET /quota is the
-// gateway's second non-OpenAI-shaped endpoint (after /install), bearer-authenticated by the same
-// gwk_ install token that authenticates chat. Stateless — the caller resolves the token from the
-// managed api_key row and renders the result.
+// QuotaClient reads the free-tier gateway's monthly quota for a public install id. GET /quota is the
+// gateway's second non-OpenAI-shaped endpoint (after /install) and is authenticated by the same
+// per-request device proof as chat.
 //
-// QuotaClient 读免费档网关某 install token 的本月配额。GET /quota 是网关第二个非 OpenAI 形状端点（继
-// /install 后），由认证 chat 的同一个 gwk_ install token 经 Bearer 鉴权。无状态——caller 从受管
-// api_key 行解出 token 并渲染结果。
+// QuotaClient 读免费档网关某 install id 的本月配额。GET /quota 是网关第二个非 OpenAI 形状端点（继
+// /install 后），与 chat 一样使用逐请求设备证明鉴权。
 type QuotaClient struct {
 	http *http.Client
 }
@@ -23,8 +23,8 @@ type QuotaClient struct {
 // NewQuotaClient builds a QuotaClient reusing the shared transport (a short unary call, like install).
 //
 // NewQuotaClient 构造 QuotaClient，复用共享 transport（短的一元调用，同 install）。
-func NewQuotaClient() *QuotaClient {
-	return &QuotaClient{http: newSharedHTTPClient()}
+func NewQuotaClient(httpClient *http.Client) *QuotaClient {
+	return &QuotaClient{http: httpClient}
 }
 
 // QuotaResult is the gateway's GET /quota response. remaining = limit-used (clamped ≥0); available
@@ -40,18 +40,18 @@ type QuotaResult struct {
 	Available bool   `json:"available"`
 }
 
-// Fetch reads the quota at baseURL+"/quota" using the gwk_ token as the Bearer credential. A non-200
+// Fetch reads the quota at baseURL+"/quota" using installID plus a transport-generated proof. A non-200
 // is mapped through classifyHTTPError (401/403→ErrAuthFailed, 429→ErrRateLimited, …), so a
-// stale/banned token surfaces honestly rather than as a zeroed quota.
+// stale/banned install id surfaces honestly rather than as a zeroed quota.
 //
-// Fetch 用 gwk_ token 作 Bearer 凭证读 baseURL+"/quota" 的配额。非 200 经 classifyHTTPError 映射
-// （401/403→ErrAuthFailed、429→ErrRateLimited…），故失效/封禁 token 诚实失败、而非误报清零配额。
-func (c *QuotaClient) Fetch(ctx context.Context, baseURL, token string) (QuotaResult, error) {
+// Fetch 用 install id 与 transport 生成的设备证明读 baseURL+"/quota" 的配额。非 200 经
+// classifyHTTPError 映射（401/403→ErrAuthFailed、429→ErrRateLimited…），故失效/封禁身份会诚实失败。
+func (c *QuotaClient) Fetch(ctx context.Context, baseURL, installID string) (QuotaResult, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/quota", nil)
 	if err != nil {
 		return QuotaResult{}, fmt.Errorf("llm.anselm: build quota request: %w", err)
 	}
-	httpReq.Header.Set("Authorization", "Bearer "+token)
+	httpReq.Header.Set(deviceproofinfra.HeaderInstallID, installID)
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {

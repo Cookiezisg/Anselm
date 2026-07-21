@@ -74,6 +74,11 @@ func (t *HTTPTester) Test(ctx context.Context, provider, key, baseURL, apiFormat
 	case TestMethodAlwaysOK:
 		return &TestResult{OK: true, Message: "mock provider — always ok"}, nil
 	case TestMethodGetModels:
+		if provider == "anselm" {
+			h := http.Header{}
+			h.Set("X-Anselm-Install-ID", key)
+			return t.probeGet(ctx, effective+"/models", h), nil
+		}
 		return t.probeGet(ctx, effective+"/models", bearer(key)), nil
 	case TestMethodAnthropicModels:
 		return t.probeAnthropicModels(ctx, effective, key), nil

@@ -23,6 +23,7 @@ import (
 	settingsapp "github.com/sunweilin/anselm/backend/internal/app/settings"
 	storageapp "github.com/sunweilin/anselm/backend/internal/app/storage"
 	dbinfra "github.com/sunweilin/anselm/backend/internal/infra/db"
+	deviceproofinfra "github.com/sunweilin/anselm/backend/internal/infra/deviceproof"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	loggerinfra "github.com/sunweilin/anselm/backend/internal/infra/logger"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
@@ -140,6 +141,12 @@ func Build(cfg Config) (*App, error) {
 	if err != nil {
 		return nil, err
 	}
+	proofSigner, err := deviceproofinfra.LoadOrCreate(context.Background(), cfg.DataDir, enc)
+	if err != nil {
+		return nil, fmt.Errorf("bootstrap: device proof: %w", err)
+	}
+	proofHTTP := llminfra.NewHTTPClient()
+	proofHTTP.Transport = deviceproofinfra.NewTransport(proofHTTP.Transport, proofSigner)
 
 	// settings.json (limits) loads before services so every consumer's first read sees
 	// user-tuned values; a malformed file fails boot loudly.
@@ -150,7 +157,10 @@ func Build(cfg Config) (*App, error) {
 	}
 
 	st := buildStores(database, enc, cfg.DataDir)
-	inf := infra{factory: llminfra.NewFactory(), encryptor: enc}
+	inf := infra{
+		factory: llminfra.NewFactoryWithHTTP(proofHTTP), encryptor: enc,
+		proofHTTP: proofHTTP, proofPublicKey: proofSigner.PublicKey(),
+	}
 	bus := newBuses()
 
 	// One mux: trigger registers webhook routes on it; the 28 resource handlers register theirs;
