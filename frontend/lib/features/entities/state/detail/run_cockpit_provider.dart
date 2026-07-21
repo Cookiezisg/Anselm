@@ -31,7 +31,10 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
   @override
   Future<RunCockpitState> build() async {
     _repo = ref.watch(entityRepositoryProvider);
-    final page = await _repo.listFlowruns(workflowId: entityRef.id, limit: _pageSize);
+    final page = await _repo.listFlowruns(
+      workflowId: entityRef.id,
+      limit: _pageSize,
+    );
     final firstId = page.items.isEmpty ? null : page.items.first.id;
     FlowrunComposite? selected;
     if (firstId != null) {
@@ -46,16 +49,28 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
     );
   }
 
-  Future<FlowrunComposite> _fetchFull(String id) => fetchFlowrunFull(_repo.getFlowrun, id);
+  Future<FlowrunComposite> _fetchFull(String id) =>
+      fetchFlowrunFull(_repo.getFlowrun, id);
 
   // ── paging (run list) ──
   @override
-  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(RunCockpitState s) =>
-      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(
+    RunCockpitState s,
+  ) => (
+    hasMore: s.hasMore,
+    loadingMore: s.loadingMore,
+    nextCursor: s.nextCursor,
+  );
 
   @override
-  Future<({List<dynamic> rows, String? next, bool more})> fetchNextPage(String cursor) async {
-    final page = await _repo.listFlowruns(workflowId: entityRef.id, cursor: cursor, limit: _pageSize);
+  Future<({List<dynamic> rows, String? next, bool more})> fetchNextPage(
+    String cursor,
+  ) async {
+    final page = await _repo.listFlowruns(
+      workflowId: entityRef.id,
+      cursor: cursor,
+      limit: _pageSize,
+    );
     return (rows: page.items, next: page.nextCursor, more: page.hasMore);
   }
 
@@ -64,8 +79,17 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
       s.copyWith(loadingMore: loading);
 
   @override
-  RunCockpitState stateWithAppended(RunCockpitState s, List<dynamic> rows, String? next, bool more) =>
-      s.copyWith(runs: [...s.runs, ...rows.cast()], nextCursor: next, hasMore: more, loadingMore: false);
+  RunCockpitState stateWithAppended(
+    RunCockpitState s,
+    List<dynamic> rows,
+    String? next,
+    bool more,
+  ) => s.copyWith(
+    runs: [...s.runs, ...rows.cast()],
+    nextCursor: next,
+    hasMore: more,
+    loadingMore: false,
+  );
 
   /// Select a run → fetch its full node composite; clears the node selection. Early-return only when
   /// THIS run's composite is already loaded (so a failed fetch can be retried by re-clicking); a new
@@ -75,9 +99,19 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
   Future<void> selectRun(String id) async {
     final cur = state.value;
     if (cur == null) return;
-    if (cur.selectedRunId == id && cur.selected?.flowrun.id == id && !cur.loadingRun) return;
+    if (cur.selectedRunId == id &&
+        cur.selected?.flowrun.id == id &&
+        !cur.loadingRun) {
+      return;
+    }
     state = AsyncData(
-        cur.copyWith(selectedRunId: id, selectedNodeId: null, selected: null, loadingRun: true));
+      cur.copyWith(
+        selectedRunId: id,
+        selectedNodeId: null,
+        selected: null,
+        loadingRun: true,
+      ),
+    );
     try {
       final comp = await _fetchFull(id);
       final now = state.value;
@@ -86,7 +120,9 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
     } catch (_) {
       final now = state.value;
       if (now != null && now.selectedRunId == id) {
-        state = AsyncData(now.copyWith(loadingRun: false)); // stays retryable (selected is null) 可重试
+        state = AsyncData(
+          now.copyWith(loadingRun: false),
+        ); // stays retryable (selected is null) 可重试
       }
     }
   }
@@ -94,7 +130,9 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
   void selectNode(String? id) {
     final cur = state.value;
     if (cur == null) return;
-    state = AsyncData(cur.copyWith(selectedNodeId: cur.selectedNodeId == id ? null : id));
+    state = AsyncData(
+      cur.copyWith(selectedNodeId: cur.selectedNodeId == id ? null : id),
+    );
   }
 
   /// Re-read the selected run from truth (after a mutation). ALWAYS clears [busy] — including the
@@ -113,15 +151,21 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
       final now = state.value;
       if (now == null) return;
       if (now.selectedRunId != id) {
-        if (now.busy) state = AsyncData(now.copyWith(busy: false)); // release, the new run owns display 释放
+        if (now.busy) {
+          state = AsyncData(
+            now.copyWith(busy: false),
+          ); // release, the new run owns display 释放
+        }
         return;
       }
       // Reconcile the run's header row in the list too (status may have changed). 列表头行同步。
-      state = AsyncData(now.copyWith(
-        selected: comp,
-        runs: [for (final r in now.runs) r.id == id ? comp.flowrun : r],
-        busy: false,
-      ));
+      state = AsyncData(
+        now.copyWith(
+          selected: comp,
+          runs: [for (final r in now.runs) r.id == id ? comp.flowrun : r],
+          busy: false,
+        ),
+      );
     } catch (_) {
       final now = state.value;
       if (now != null) state = AsyncData(now.copyWith(busy: false));
@@ -136,7 +180,9 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
     state = AsyncData(cur.copyWith(busy: true));
     try {
       await _repo.replayFlowrun(id);
-    } catch (_) {/* fall through to reconcile — truth wins */}
+    } catch (_) {
+      /* fall through to reconcile — truth wins */
+    }
     await _refreshSelected();
   }
 
@@ -148,7 +194,9 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
     state = AsyncData(cur.copyWith(busy: true));
     try {
       await _repo.decideApproval(id, nodeId, decision: decision);
-    } catch (_) {/* first-wins loss / transient → reconcile 输了/瞬态→对账 */}
+    } catch (_) {
+      /* first-wins loss / transient → reconcile 输了/瞬态→对账 */
+    }
     await _refreshSelected();
   }
 
@@ -159,28 +207,38 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
     state = AsyncData(cur.copyWith(busy: true));
     try {
       await _repo.killWorkflow(entityRef.id);
-      ref.invalidate(entityDetailProvider(entityRef)); // header lifecycle badge reconciles
-    } catch (_) {/* reconcile below */}
+      ref.invalidate(
+        entityDetailProvider(entityRef),
+      ); // header lifecycle badge reconciles
+    } catch (_) {
+      /* reconcile below */
+    }
     final page = await _safeList();
     final now = state.value;
     if (now == null) return;
     // Re-init the list to the FRESH first page — reset the paging cursor too (replacing runs with
     // page-1 while keeping a stale nextCursor would drop the middle + skip on the next loadMore).
     // 用新首页重置列表 + 分页游标(只换 runs 而留旧 cursor 会丢中段 + 下次 loadMore 跳号)。
-    state = AsyncData(page == null
-        ? now.copyWith(busy: false)
-        : now.copyWith(
-            runs: page.items,
-            nextCursor: page.nextCursor,
-            hasMore: page.hasMore,
-            busy: false,
-          ));
+    state = AsyncData(
+      page == null
+          ? now.copyWith(busy: false)
+          : now.copyWith(
+              runs: page.items,
+              nextCursor: page.nextCursor,
+              hasMore: page.hasMore,
+              busy: false,
+            ),
+    );
     await _refreshSelected();
   }
 
-  Future<({List<Flowrun> items, String? nextCursor, bool hasMore})?> _safeList() async {
+  Future<({List<Flowrun> items, String? nextCursor, bool hasMore})?>
+  _safeList() async {
     try {
-      final p = await _repo.listFlowruns(workflowId: entityRef.id, limit: _pageSize);
+      final p = await _repo.listFlowruns(
+        workflowId: entityRef.id,
+        limit: _pageSize,
+      );
       return (items: p.items, nextCursor: p.nextCursor, hasMore: p.hasMore);
     } catch (_) {
       return null;
@@ -189,8 +247,8 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
 }
 
 /// autoDispose: a sub-resource of the workflow detail (only while viewing the 运行 tab). 详情子资源。
-final runCockpitProvider =
-    AsyncNotifierProvider.autoDispose.family<RunCockpitNotifier, RunCockpitState, EntityRef>(
-  RunCockpitNotifier.new,
-  retry: (_, _) => null,
-);
+final runCockpitProvider = AsyncNotifierProvider.autoDispose
+    .family<RunCockpitNotifier, RunCockpitState, EntityRef>(
+      RunCockpitNotifier.new,
+      retry: (_, _) => null,
+    );

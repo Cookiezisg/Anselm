@@ -19,36 +19,53 @@ import '../support/router_harness.dart';
 ProviderContainer _containerOf(WidgetTester tester) =>
     ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
 
-Future<ProviderContainer> _mount(WidgetTester tester, String initialLocation) async {
-  final router = buildTestRouter(initialLocation: initialLocation, page: const SizedBox.shrink());
-  await tester.pumpWidget(ProviderScope(
-    overrides: [goRouterProvider.overrideWithValue(router)],
-    child: MaterialApp.router(routerConfig: router),
-  ));
+Future<ProviderContainer> _mount(
+  WidgetTester tester,
+  String initialLocation,
+) async {
+  final router = buildTestRouter(
+    initialLocation: initialLocation,
+    page: const SizedBox.shrink(),
+  );
+  await tester.pumpWidget(
+    ProviderScope(
+      overrides: [goRouterProvider.overrideWithValue(router)],
+      child: MaterialApp.router(routerConfig: router),
+    ),
+  );
   await tester.pumpAndSettle();
   return _containerOf(tester);
 }
 
 void main() {
   group('route helpers (pure)', () {
-    test('entityKindFromWire round-trips every rail kind, rejects everything else', () {
-      // The four executable Quadrinity + the three support kinds (control/approval/trigger) are all rail
-      // entities with a detail page, so all seven round-trip. 四可执行 + 三支撑 kind 全是可路由 rail 实体。
-      expect(entityKindFromWire('function'), EntityKind.function);
-      expect(entityKindFromWire('handler'), EntityKind.handler);
-      expect(entityKindFromWire('agent'), EntityKind.agent);
-      expect(entityKindFromWire('workflow'), EntityKind.workflow);
-      expect(entityKindFromWire('control'), EntityKind.control);
-      expect(entityKindFromWire('approval'), EntityKind.approval);
-      expect(entityKindFromWire('trigger'), EntityKind.trigger);
-      expect(entityKindFromWire('Function'), isNull); // URLs are case-sensitive
-      expect(entityKindFromWire('bogus'), isNull);
-      expect(entityKindFromWire(''), isNull);
-      expect(entityKindFromWire(null), isNull);
-    });
+    test(
+      'entityKindFromWire round-trips every rail kind, rejects everything else',
+      () {
+        // The four executable Quadrinity + the three support kinds (control/approval/trigger) are all rail
+        // entities with a detail page, so all seven round-trip. 四可执行 + 三支撑 kind 全是可路由 rail 实体。
+        expect(entityKindFromWire('function'), EntityKind.function);
+        expect(entityKindFromWire('handler'), EntityKind.handler);
+        expect(entityKindFromWire('agent'), EntityKind.agent);
+        expect(entityKindFromWire('workflow'), EntityKind.workflow);
+        expect(entityKindFromWire('control'), EntityKind.control);
+        expect(entityKindFromWire('approval'), EntityKind.approval);
+        expect(entityKindFromWire('trigger'), EntityKind.trigger);
+        expect(
+          entityKindFromWire('Function'),
+          isNull,
+        ); // URLs are case-sensitive
+        expect(entityKindFromWire('bogus'), isNull);
+        expect(entityKindFromWire(''), isNull);
+        expect(entityKindFromWire(null), isNull);
+      },
+    );
 
     test('entityLocation builds /entities/<kind>/<id>', () {
-      expect(entityLocation(EntityKind.function, 'fn_1'), '/entities/function/fn_1');
+      expect(
+        entityLocation(EntityKind.function, 'fn_1'),
+        '/entities/function/fn_1',
+      );
       expect(entityLocation(EntityKind.agent, 'ag_x'), '/entities/agent/ag_x');
     });
   });
@@ -61,22 +78,33 @@ void main() {
 
     testWidgets('valid deep-link → the EntityRef', (tester) async {
       final c = await _mount(tester, '/entities/agent/ag_7');
-      expect(c.read(selectedEntityProvider), const EntityRef(EntityKind.agent, 'ag_7'));
+      expect(
+        c.read(selectedEntityProvider),
+        const EntityRef(EntityKind.agent, 'ag_7'),
+      );
     });
 
     testWidgets('bad kind → redirected home → null', (tester) async {
       final c = await _mount(tester, '/entities/bogus/x');
-      expect(c.read(goRouterProvider).routerDelegate.currentConfiguration.uri.path, '/');
+      expect(
+        c.read(goRouterProvider).routerDelegate.currentConfiguration.uri.path,
+        '/',
+      );
       expect(c.read(selectedEntityProvider), isNull);
     });
 
-    testWidgets('go() updates the selection live (one-way route → provider)', (tester) async {
+    testWidgets('go() updates the selection live (one-way route → provider)', (
+      tester,
+    ) async {
       final c = await _mount(tester, '/');
       expect(c.read(selectedEntityProvider), isNull);
 
       c.read(goRouterProvider).go('/entities/workflow/wf_1');
       await tester.pumpAndSettle();
-      expect(c.read(selectedEntityProvider), const EntityRef(EntityKind.workflow, 'wf_1'));
+      expect(
+        c.read(selectedEntityProvider),
+        const EntityRef(EntityKind.workflow, 'wf_1'),
+      );
 
       c.read(goRouterProvider).go('/'); // clear by navigating home
       await tester.pumpAndSettle();
@@ -90,7 +118,9 @@ void main() {
       expect(skillLocation('commit-helper'), '/documents/skill/commit-helper');
     });
 
-    testWidgets('root → null; page + skill locations parse; home clears', (tester) async {
+    testWidgets('root → null; page + skill locations parse; home clears', (
+      tester,
+    ) async {
       final c = await _mount(tester, '/');
       expect(c.read(selectedDocProvider), isNull);
 
@@ -107,19 +137,28 @@ void main() {
       expect(c.read(selectedDocProvider), isNull);
     });
 
-    testWidgets('a foreign route (entities) parses to no doc selection', (tester) async {
+    testWidgets('a foreign route (entities) parses to no doc selection', (
+      tester,
+    ) async {
       final c = await _mount(tester, '/entities/agent/ag_7');
       expect(c.read(selectedDocProvider), isNull);
-      expect(c.read(selectedEntityProvider), const EntityRef(EntityKind.agent, 'ag_7'));
+      expect(
+        c.read(selectedEntityProvider),
+        const EntityRef(EntityKind.agent, 'ag_7'),
+      );
     });
   });
 
-  testWidgets('constant page key → the shell never remounts across navigation', (tester) async {
+  testWidgets('constant page key → the shell never remounts across navigation', (
+    tester,
+  ) async {
     // Mirrors buildAppRouter: ALL locations resolve to ONE NoTransitionPage with the SAME constant key,
     // so the Navigator reuses the same Element (keepAlive run-terminal + scroll + rail state all survive).
     // 同 buildAppRouter:全部 location 共用同一常量 key 的页 → 复用同一 Element、壳永不重挂。
-    Page<void> page(BuildContext c, GoRouterState s) =>
-        const NoTransitionPage(key: ValueKey('anselm-shell'), child: _Sentinel());
+    Page<void> page(BuildContext c, GoRouterState s) => const NoTransitionPage(
+      key: ValueKey('anselm-shell'),
+      child: _Sentinel(),
+    );
     final router = GoRouter(
       initialLocation: '/',
       routes: [
@@ -127,7 +166,9 @@ void main() {
         GoRoute(
           path: '/entities/:kind/:id',
           redirect: (context, state) =>
-              entityKindFromWire(state.pathParameters['kind']) == null ? '/' : null,
+              entityKindFromWire(state.pathParameters['kind']) == null
+              ? '/'
+              : null,
           pageBuilder: page,
         ),
         GoRoute(path: '/documents/:id', pageBuilder: page),
@@ -143,11 +184,16 @@ void main() {
 
     router.go('/entities/function/fn_1');
     await tester.pumpAndSettle();
-    router.go('/documents/doc_1'); // hop across oceans — still the same Element 跨海洋仍同 Element
+    router.go(
+      '/documents/doc_1',
+    ); // hop across oceans — still the same Element 跨海洋仍同 Element
     await tester.pumpAndSettle();
     final after = tester.state<_SentinelState>(find.byType(_Sentinel));
 
-    expect(identical(before, after), isTrue); // same State object → never remounted
+    expect(
+      identical(before, after),
+      isTrue,
+    ); // same State object → never remounted
     expect(after.marker, 42); // and its state survived the navigation
   });
 }

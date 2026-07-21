@@ -12,7 +12,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// 画廊必须从顶部打开:编辑态 specimen 的 autofocus 会把页面滚下去;ExcludeFocus 守住——此测试为其回归网。
 void main() {
   for (var cat = 0; cat < 6; cat++) {
-    testWidgets('gallery category $cat opens at the top (no autofocus scroll)', (tester) async {
+    testWidgets('gallery category $cat opens at the top (no autofocus scroll)', (
+      tester,
+    ) async {
       tester.view.physicalSize = const Size(1440, 900);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -37,15 +39,21 @@ void main() {
       for (final el in find.byType(Scrollable).evaluate()) {
         final s = (el as StatefulElement).state as ScrollableState;
         if (s.axisDirection == AxisDirection.down &&
-            (page == null || s.position.maxScrollExtent > page.position.maxScrollExtent)) {
+            (page == null ||
+                s.position.maxScrollExtent > page.position.maxScrollExtent)) {
           page = s;
         }
       }
-      expect(page, isNotNull, reason: 'category $cat should have a vertical page scrollable');
+      expect(
+        page,
+        isNotNull,
+        reason: 'category $cat should have a vertical page scrollable',
+      );
       expect(
         page!.position.pixels,
         0.0,
-        reason: 'category $cat must open at the top — a specimen autofocus must not scroll the page',
+        reason:
+            'category $cat must open at the top — a specimen autofocus must not scroll the page',
       );
     });
   }

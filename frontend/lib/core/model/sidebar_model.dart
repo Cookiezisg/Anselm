@@ -85,7 +85,11 @@ class SidebarGroup {
 /// The sidebar's data model: groups → types → rows. Framework-agnostic + pure (the widget renders it; the
 /// filter below is unit-tested). 侧栏数据模型(框架无关、纯;过滤单测)。
 class SidebarModel {
-  const SidebarModel({this.groups = const [], this.newLabel = 'New', this.filterPlaceholder = ''});
+  const SidebarModel({
+    this.groups = const [],
+    this.newLabel = 'New',
+    this.filterPlaceholder = '',
+  });
 
   final List<SidebarGroup> groups;
   final String newLabel;
@@ -94,7 +98,8 @@ class SidebarModel {
 
 /// Whether a single row matches a (pre-lowercased) query on its label OR meta. 单行命中(label/meta)。
 bool sidebarRowMatches(SidebarRow row, String lowerQuery) =>
-    row.label.toLowerCase().contains(lowerQuery) || (row.meta?.toLowerCase().contains(lowerQuery) ?? false);
+    row.label.toLowerCase().contains(lowerQuery) ||
+    (row.meta?.toLowerCase().contains(lowerQuery) ?? false);
 
 /// PURE in-domain filter: the set of row ids VISIBLE under [query] — a row is visible if it matches OR any
 /// descendant matches (so an ancestor of a deep match is included → the consumer force-opens it to reveal
@@ -112,7 +117,10 @@ Set<String> sidebarVisibleIds(SidebarModel model, String query) {
   bool walk(SidebarRow r) {
     var visible = sidebarRowMatches(r, q);
     for (final c in r.children) {
-      if (walk(c)) visible = true; // a visible descendant makes this branch visible (ancestor reveal) 子孙可见则祖先可见
+      if (walk(c)) {
+        visible =
+            true; // a visible descendant makes this branch visible (ancestor reveal) 子孙可见则祖先可见
+      }
     }
     if (visible) out.add(r.id);
     return visible;

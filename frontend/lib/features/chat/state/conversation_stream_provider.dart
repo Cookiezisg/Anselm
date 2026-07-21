@@ -51,7 +51,8 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
 
   StreamSubscription<StreamEnvelope>? _frameSub;
   StreamSubscription<void>? _resyncSub;
-  List<StreamEnvelope>? _prelude; // non-null ⇒ buffering until hydration lands 非空=水化前缓冲
+  List<StreamEnvelope>?
+  _prelude; // non-null ⇒ buffering until hydration lands 非空=水化前缓冲
   void Function()? _releasePin;
   int _localSeq = 0;
   int _hydrateSeq = 0;
@@ -59,7 +60,9 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
   @override
   ConversationStreamState build() {
     _repo = ref.watch(chatRepositoryProvider);
-    final coalescer = CoalescingNotifier(ConversationTranscript(conversationId));
+    final coalescer = CoalescingNotifier(
+      ConversationTranscript(conversationId),
+    );
     transcript = coalescer;
     _prelude = [];
     _frameSub = _repo.conversationFrames(conversationId).listen(_onFrame);
@@ -67,7 +70,8 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
     ref.onDispose(() {
       _frameSub?.cancel();
       _resyncSub?.cancel();
-      coalescer.dispose(); // THIS build's instance — never a later one 本 build 的实例
+      coalescer
+          .dispose(); // THIS build's instance — never a later one 本 build 的实例
       _releasePin?.call();
       _releasePin = null;
     });
@@ -134,8 +138,11 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
     // Durable terminal of an assistant turn → maybe release the pin + clear unread (selected only).
     // assistant 回合 durable 终态 → 视情况释放 pin + 清未读(仅选中)。
     if (env.durable && env.frame is FrameClose) {
-      final node = transcript.value.turns.where((n) => n.id == env.id).firstOrNull;
-      if (node != null && ConversationTranscript.turnRole(node) == 'assistant') {
+      final node = transcript.value.turns
+          .where((n) => n.id == env.id)
+          .firstOrNull;
+      if (node != null &&
+          ConversationTranscript.turnRole(node) == 'assistant') {
         _syncPin();
         if (_isSelected) unawaited(_quietlySeen());
       }
@@ -147,7 +154,12 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
     _prelude = []; // re-buffer while the head refetches 重拉头期间再缓冲
     // A 410 resync trumps a jump window: the head re-hydrate lands head-attached pages (setHistory
     // clears windowMode on the model). 410 重同步压过跳转窗:重拉头即贴头分页。
-    state = state.copyWith(windowMode: false, newerCursor: null, hasMoreNewer: false, loadingNewer: false);
+    state = state.copyWith(
+      windowMode: false,
+      newerCursor: null,
+      hasMoreNewer: false,
+      loadingNewer: false,
+    );
     transcript.mutate((t) => t..dropLive());
     unawaited(_hydrate());
   }
@@ -171,7 +183,11 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
     if (state.jumping) return false;
     state = state.copyWith(jumping: true);
     try {
-      final win = await _repo.messagesAround(conversationId, messageId, limit: _pageSize);
+      final win = await _repo.messagesAround(
+        conversationId,
+        messageId,
+        limit: _pageSize,
+      );
       if (!ref.mounted) return false;
       transcript.mutate((t) => t..setWindow(win.messages, messageId));
       state = state.copyWith(
@@ -193,10 +209,19 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
   /// 窗口模式的向前续翻(?dir=newer)——loadOlder 的向下镜像。
   Future<void> loadNewer() async {
     final cursor = state.newerCursor;
-    if (!state.windowMode || cursor == null || state.loadingNewer || !state.hasMoreNewer) return;
+    if (!state.windowMode ||
+        cursor == null ||
+        state.loadingNewer ||
+        !state.hasMoreNewer) {
+      return;
+    }
     state = state.copyWith(loadingNewer: true);
     try {
-      final page = await _repo.listMessagesNewer(conversationId, cursor: cursor, limit: _pageSize);
+      final page = await _repo.listMessagesNewer(
+        conversationId,
+        cursor: cursor,
+        limit: _pageSize,
+      );
       if (!ref.mounted) return;
       transcript.mutate((t) => t..appendNewer(page.items));
       state = state.copyWith(
@@ -234,23 +259,40 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
   /// Optimistic send: the bubble appears NOW; the durable user echo replaces it (FIFO reconcile in the
   /// model). Failure marks the bubble failed (retry/discard affordances) — nothing is silently dropped.
   /// 乐观发送:泡立即出现,durable 回声替换(模型内 FIFO 对账);失败标 failed(重试/丢弃),绝不静默丢。
-  Future<void> send(String text,
-      {List<MentionSnapshot> mentions = const [], List<String> attachmentIds = const []}) async {
+  Future<void> send(
+    String text, {
+    List<MentionSnapshot> mentions = const [],
+    List<String> attachmentIds = const [],
+  }) async {
     final trimmed = text.trim();
-    if (trimmed.isEmpty && attachmentIds.isEmpty) return; // attachments alone may send 后端允许纯附件
+    if (trimmed.isEmpty && attachmentIds.isEmpty) {
+      return; // attachments alone may send 后端允许纯附件
+    }
     // A send speaks to the PRESENT — leave a jump window first (implicit「回到现场」).
     // 发送面向现场——先离开跳转窗(隐式回到现场)。
     if (state.windowMode) await backToLive();
     final localId = 'local_${_localSeq++}';
-    transcript.mutate((t) => t
-      ..addPending(PendingSend(
-          localId: localId, text: trimmed, mentions: mentions, attachmentIds: attachmentIds)));
+    transcript.mutate(
+      (t) => t
+        ..addPending(
+          PendingSend(
+            localId: localId,
+            text: trimmed,
+            mentions: mentions,
+            attachmentIds: attachmentIds,
+          ),
+        ),
+    );
     _syncPin();
     await _post(localId, trimmed, mentions, attachmentIds);
   }
 
   Future<void> _post(
-      String localId, String text, List<MentionSnapshot> mentions, List<String> attachmentIds) async {
+    String localId,
+    String text,
+    List<MentionSnapshot> mentions,
+    List<String> attachmentIds,
+  ) async {
     try {
       await _repo.sendMessage(
         conversationId,
@@ -267,7 +309,9 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
 
   /// Re-POST a failed bubble (same content, same bubble — it un-fails while in flight). 重发失败泡。
   Future<void> retrySend(String localId) async {
-    final p = transcript.value.pending.where((p) => p.localId == localId).firstOrNull;
+    final p = transcript.value.pending
+        .where((p) => p.localId == localId)
+        .firstOrNull;
     if (p == null) return;
     transcript.mutate((t) {
       p.failed = false;
@@ -289,7 +333,9 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
   Future<void> cancelTurn() async {
     try {
       await _repo.cancelTurn(conversationId);
-    } catch (_) {/* idempotent — the stream terminal settles the truth 流终态定真相 */}
+    } catch (_) {
+      /* idempotent — the stream terminal settles the truth 流终态定真相 */
+    }
   }
 
   // ── upward pagination 向上分页 ──
@@ -299,7 +345,11 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
     if (cursor == null || state.loadingOlder || !state.hasMoreOlder) return;
     state = state.copyWith(loadingOlder: true);
     try {
-      final page = await _repo.listMessages(conversationId, cursor: cursor, limit: _pageSize);
+      final page = await _repo.listMessages(
+        conversationId,
+        cursor: cursor,
+        limit: _pageSize,
+      );
       if (!ref.mounted) return;
       transcript.mutate((t) => t..prependOlder(page.items));
       state = state.copyWith(
@@ -335,9 +385,13 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
       // Squash the rail's green locally — the turn pulse may have re-read BEFORE :seen landed and
       // nothing re-reads after the 204. 本地压 rail 绿点(脉冲重读可能早于 :seen 落库,204 后无人再读)。
       if (ref.mounted) {
-        ref.read(conversationListProvider.notifier).markSeenLocal(conversationId);
+        ref
+            .read(conversationListProvider.notifier)
+            .markSeenLocal(conversationId);
       }
-    } catch (_) {/* cosmetic; the next open retries 装饰性,下次打开重试 */}
+    } catch (_) {
+      /* cosmetic; the next open retries 装饰性,下次打开重试 */
+    }
   }
 }
 
@@ -346,4 +400,5 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
 /// and the rail's dots stay honest). 每打开会话一条管道(autoDispose family);在飞时 keepAlive 钉住后台跑完。
 final conversationStreamProvider = NotifierProvider.autoDispose
     .family<ConversationStreamController, ConversationStreamState, String>(
-        ConversationStreamController.new);
+      ConversationStreamController.new,
+    );

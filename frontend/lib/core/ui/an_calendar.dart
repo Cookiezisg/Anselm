@@ -110,7 +110,9 @@ class _AnCalendarState extends State<AnCalendar> {
     final start = widget.rangeStart;
     if (start != null) return dateOnly(start);
     final now = DateTime.now();
-    if (now.year == widget.month.year && now.month == widget.month.month) return dateOnly(now);
+    if (now.year == widget.month.year && now.month == widget.month.month) {
+      return dateOnly(now);
+    }
     return DateTime(widget.month.year, widget.month.month, 1);
   }
 
@@ -141,14 +143,28 @@ class _AnCalendarState extends State<AnCalendar> {
       next = DateTime(cur.year, cur.month, cur.day + 7);
     } else if (key == LogicalKeyboardKey.pageUp) {
       final shift = HardwareKeyboard.instance.isShiftPressed;
-      next = _clampDay(DateTime(cur.year - (shift ? 1 : 0), cur.month - (shift ? 0 : 1), 1), cur.day);
+      next = _clampDay(
+        DateTime(cur.year - (shift ? 1 : 0), cur.month - (shift ? 0 : 1), 1),
+        cur.day,
+      );
     } else if (key == LogicalKeyboardKey.pageDown) {
       final shift = HardwareKeyboard.instance.isShiftPressed;
-      next = _clampDay(DateTime(cur.year + (shift ? 1 : 0), cur.month + (shift ? 0 : 1), 1), cur.day);
+      next = _clampDay(
+        DateTime(cur.year + (shift ? 1 : 0), cur.month + (shift ? 0 : 1), 1),
+        cur.day,
+      );
     } else if (key == LogicalKeyboardKey.home) {
-      next = DateTime(cur.year, cur.month, cur.day - ((cur.weekday - DateTime.monday + 7) % 7));
+      next = DateTime(
+        cur.year,
+        cur.month,
+        cur.day - ((cur.weekday - DateTime.monday + 7) % 7),
+      );
     } else if (key == LogicalKeyboardKey.end) {
-      next = DateTime(cur.year, cur.month, cur.day + ((DateTime.sunday - cur.weekday + 7) % 7));
+      next = DateTime(
+        cur.year,
+        cur.month,
+        cur.day + ((DateTime.sunday - cur.weekday + 7) % 7),
+      );
     } else if (key == LogicalKeyboardKey.enter ||
         key == LogicalKeyboardKey.numpadEnter ||
         key == LogicalKeyboardKey.space) {
@@ -165,18 +181,28 @@ class _AnCalendarState extends State<AnCalendar> {
   /// 另一月的同日，钳到该月长度（1-31 → 2-28；裸构造器会静默溢进 3 月）。
   static DateTime _clampDay(DateTime firstOfMonth, int day) {
     final max = daysInMonth(firstOfMonth);
-    return DateTime(firstOfMonth.year, firstOfMonth.month, day > max ? max : day);
+    return DateTime(
+      firstOfMonth.year,
+      firstOfMonth.month,
+      day > max ? max : day,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final days = monthGridDays(widget.month);
-    final start = widget.rangeStart == null ? null : dateOnly(widget.rangeStart!);
+    final start = widget.rangeStart == null
+        ? null
+        : dateOnly(widget.rangeStart!);
     final end = widget.rangeEnd == null ? null : dateOnly(widget.rangeEnd!);
     // Pending-end preview: start picked, end not — hovering a day ≥ start sweeps the band live.
     // 终点未定预览：hover ≥ 起点即扫出带子。
-    final previewEnd = (start != null && end == null && _hover != null && !_hover!.isBefore(start))
+    final previewEnd =
+        (start != null &&
+            end == null &&
+            _hover != null &&
+            !_hover!.isBefore(start))
         ? _hover
         : null;
     final bandEnd = end ?? previewEnd;
@@ -193,28 +219,40 @@ class _AnCalendarState extends State<AnCalendar> {
           child: Row(
             children: [
               Expanded(
-                child: Text(widget.monthTitle,
-                    style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+                child: Text(
+                  widget.monthTitle,
+                  style: AnText.label
+                      .weight(AnText.emphasisWeight)
+                      .copyWith(color: c.ink),
+                ),
               ),
               if (widget.todayLabel != null) ...[
-                AnButton.iconOnly(AnIcons.calendarToday,
-                    size: AnButtonSize.sm,
-                    semanticLabel: widget.todayLabel!,
-                    onPressed: () {
-                      final now = DateTime.now();
-                      widget.onMonthChange(DateTime(now.year, now.month, 1));
-                    }),
+                AnButton.iconOnly(
+                  AnIcons.calendarToday,
+                  size: AnButtonSize.sm,
+                  semanticLabel: widget.todayLabel!,
+                  onPressed: () {
+                    final now = DateTime.now();
+                    widget.onMonthChange(DateTime(now.year, now.month, 1));
+                  },
+                ),
                 const SizedBox(width: AnSpace.s4),
               ],
-              AnButton.iconOnly(AnIcons.chevronLeft,
-                  size: AnButtonSize.sm,
-                  semanticLabel: widget.prevMonthLabel,
-                  onPressed: () => widget.onMonthChange(addMonths(widget.month, -1))),
+              AnButton.iconOnly(
+                AnIcons.chevronLeft,
+                size: AnButtonSize.sm,
+                semanticLabel: widget.prevMonthLabel,
+                onPressed: () =>
+                    widget.onMonthChange(addMonths(widget.month, -1)),
+              ),
               const SizedBox(width: AnSpace.s4),
-              AnButton.iconOnly(AnIcons.chevronRight,
-                  size: AnButtonSize.sm,
-                  semanticLabel: widget.nextMonthLabel,
-                  onPressed: () => widget.onMonthChange(addMonths(widget.month, 1))),
+              AnButton.iconOnly(
+                AnIcons.chevronRight,
+                size: AnButtonSize.sm,
+                semanticLabel: widget.nextMonthLabel,
+                onPressed: () =>
+                    widget.onMonthChange(addMonths(widget.month, 1)),
+              ),
             ],
           ),
         ),
@@ -231,11 +269,15 @@ class _AnCalendarState extends State<AnCalendar> {
                   // One line, NEVER wrapped — a 24px cell wraps 3-letter words («Mo\nn», 用户 0717
                   // 真机帧). Overflowing labels clip instead; locales must supply ≤2-glyph words.
                   // 单行绝不换行——24px 格会把三字母词折行;溢出裁切,locale 须供 ≤2 字形标签。
-                  child: Text(widget.weekdayLabels.length == 7 ? widget.weekdayLabels[i] : '',
-                      maxLines: 1,
-                      softWrap: false,
-                      overflow: TextOverflow.clip,
-                      style: AnText.meta.copyWith(color: c.inkFaint)),
+                  child: Text(
+                    widget.weekdayLabels.length == 7
+                        ? widget.weekdayLabels[i]
+                        : '',
+                    maxLines: 1,
+                    softWrap: false,
+                    overflow: TextOverflow.clip,
+                    style: AnText.meta.copyWith(color: c.inkFaint),
+                  ),
                 ),
               ),
             ],
@@ -244,7 +286,9 @@ class _AnCalendarState extends State<AnCalendar> {
         const SizedBox(height: AnSpace.s4),
         // The grid — ONE focus node, roving cursor. 网格——单焦点、roving 光标。
         Semantics(
-          label: widget.gridSemanticLabel.isEmpty ? null : widget.gridSemanticLabel,
+          label: widget.gridSemanticLabel.isEmpty
+              ? null
+              : widget.gridSemanticLabel,
           container: true,
           child: Focus(
             focusNode: _focus,
@@ -270,9 +314,16 @@ class _AnCalendarState extends State<AnCalendar> {
                               // disconnected chips (用户 0718 诊断#4). 缝并入格盒右道,范围带才能
                               // 连续横贯——独立缝会把带切成离散点。
                               for (var col = 0; col < 7; col++)
-                                _day(context, days[r * 7 + col], start, end, bandEnd,
-                                    focused && isSameDay(days[r * 7 + col], cursor),
-                                    col: col),
+                                _day(
+                                  context,
+                                  days[r * 7 + col],
+                                  start,
+                                  end,
+                                  bandEnd,
+                                  focused &&
+                                      isSameDay(days[r * 7 + col], cursor),
+                                  col: col,
+                                ),
                             ],
                           ),
                         ),
@@ -287,9 +338,15 @@ class _AnCalendarState extends State<AnCalendar> {
     );
   }
 
-  Widget _day(BuildContext context, DateTime day, DateTime? start, DateTime? end,
-      DateTime? bandEnd, bool isCursor,
-      {required int col}) {
+  Widget _day(
+    BuildContext context,
+    DateTime day,
+    DateTime? start,
+    DateTime? end,
+    DateTime? bandEnd,
+    bool isCursor, {
+    required int col,
+  }) {
     final c = context.colors;
     final inMonth = day.month == widget.month.month;
     final isStart = start != null && isSameDay(day, start);
@@ -298,7 +355,8 @@ class _AnCalendarState extends State<AnCalendar> {
     final isCap = isStart || isEnd || isBandCap;
     // Inclusive band membership — caps included, so the underlay runs edge-to-edge under them and
     // the round caps sit ON a continuous ribbon. 闭区间带成员(含端帽):底带贯穿帽下,圆帽坐在连续带上。
-    final inClosedBand = start != null &&
+    final inClosedBand =
+        start != null &&
         bandEnd != null &&
         !day.isBefore(start) &&
         !day.isAfter(bandEnd);
@@ -333,7 +391,8 @@ class _AnCalendarState extends State<AnCalendar> {
     // 点;accent 端帽是坐在缎带上的整圆。
     final hasRightLane = col < 6;
     final boxW = hasRightLane ? _cell + _gap : _cell;
-    final rightConnected = inClosedBand &&
+    final rightConnected =
+        inClosedBand &&
         hasRightLane &&
         !isSameDay(day, bandEnd) &&
         // The next calendar day continues the closed band. 右邻(明天)仍在闭带内。
@@ -350,12 +409,17 @@ class _AnCalendarState extends State<AnCalendar> {
             : (!inBand && hovered ? c.surfaceHover : const Color(0x00000000)),
         // Caps are round (端点圆头); plain cells keep the tag radius for their hover wash.
         borderRadius: BorderRadius.circular(isCap ? _cell / 2 : AnRadius.tag),
-        border: isCursor ? Border.all(color: c.accent, width: AnSize.ring) : null,
+        border: isCursor
+            ? Border.all(color: c.accent, width: AnSize.ring)
+            : null,
       ),
       child: Center(
-        child: Text('${day.day}',
-            style:
-                AnText.metaTabular().copyWith(color: isCap ? fg : (hovered ? c.ink : fg))),
+        child: Text(
+          '${day.day}',
+          style: AnText.metaTabular().copyWith(
+            color: isCap ? fg : (hovered ? c.ink : fg),
+          ),
+        ),
       ),
     );
 
@@ -374,25 +438,31 @@ class _AnCalendarState extends State<AnCalendar> {
           child: SizedBox(
             width: boxW,
             height: _cell,
-            child: Stack(children: [
-              if (inClosedBand)
-                Positioned(
-                  left: 0,
-                  top: 0,
-                  bottom: 0,
-                  width: rightConnected ? boxW : _cell,
-                  child: DecoratedBox(
-                    decoration: BoxDecoration(
-                      color: c.accentSoft,
-                      borderRadius: BorderRadius.horizontal(
-                        left: leftRounded ? Radius.circular(_cell / 2) : Radius.zero,
-                        right: rightRounded ? Radius.circular(_cell / 2) : Radius.zero,
+            child: Stack(
+              children: [
+                if (inClosedBand)
+                  Positioned(
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: rightConnected ? boxW : _cell,
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        color: c.accentSoft,
+                        borderRadius: BorderRadius.horizontal(
+                          left: leftRounded
+                              ? Radius.circular(_cell / 2)
+                              : Radius.zero,
+                          right: rightRounded
+                              ? Radius.circular(_cell / 2)
+                              : Radius.zero,
+                        ),
                       ),
                     ),
                   ),
-                ),
-              Align(alignment: Alignment.centerLeft, child: dayCell),
-            ]),
+                Align(alignment: Alignment.centerLeft, child: dayCell),
+              ],
+            ),
           ),
         ),
       ),

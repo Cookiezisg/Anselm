@@ -40,63 +40,111 @@ class TriggerStageBody extends ConsumerWidget {
 
     // R-16: the settle facts come from the reconciled GET only. 落定事实只从 GET。
     final truthId = resultId ?? scene.editTargetId;
-    final truth = (!scene.live && truthId != null) ? ref.watch(triggerTruthProvider(truthId)) : null;
+    final truth = (!scene.live && truthId != null)
+        ? ref.watch(triggerTruthProvider(truthId))
+        : null;
     final trig = truth?.asData?.value;
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      // 假想框律:一切裸内容(spec 面/带点行/CEL/等待行)归假想框(X=8);runStatBar 是当家条真框、贴 X=0。
-      // The imaginary-frame law: every bare block (the spec face, dotted rows, CELs, waiting rows) joins the
-      // frame (X=8); only the result bar (a real frame) stays flush at X=0.
-      if (kind.isEmpty && scene.live)
-        stageFramed(Row(children: [
-          AnRadarSweep(size: AnSize.icon.toDouble()),
-          const SizedBox(width: AnSpace.s6),
-          Text(t.chat.stage.awaitingReceipt, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ]))
-      else if (kind.isNotEmpty) ...[
-        stageFramed(triggerConfigFaces(context, kind, config, truthId ?? '')),
-        // The sensor face is the discriminant special: its CELs get the grow treatment on top.
-        // sensor=判别式专场:condition/output 以 AnCelGrow 加演。
-        if (kind == 'sensor') ...[
-          for (final key in const ['condition', 'output'])
-            if (config[key] is String && (config[key] as String).isNotEmpty)
-              stageFramed(
-                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('$key ', style: AnText.meta.copyWith(color: c.inkFaint)),
-                  Expanded(child: AnCelGrow(expression: config[key] as String, live: scene.live)),
-                ]),
-                top: AnSpace.s2,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 假想框律:一切裸内容(spec 面/带点行/CEL/等待行)归假想框(X=8);runStatBar 是当家条真框、贴 X=0。
+        // The imaginary-frame law: every bare block (the spec face, dotted rows, CELs, waiting rows) joins the
+        // frame (X=8); only the result bar (a real frame) stays flush at X=0.
+        if (kind.isEmpty && scene.live)
+          stageFramed(
+            Row(
+              children: [
+                AnRadarSweep(size: AnSize.icon.toDouble()),
+                const SizedBox(width: AnSpace.s6),
+                Text(
+                  t.chat.stage.awaitingReceipt,
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              ],
+            ),
+          )
+        else if (kind.isNotEmpty) ...[
+          stageFramed(triggerConfigFaces(context, kind, config, truthId ?? '')),
+          // The sensor face is the discriminant special: its CELs get the grow treatment on top.
+          // sensor=判别式专场:condition/output 以 AnCelGrow 加演。
+          if (kind == 'sensor') ...[
+            for (final key in const ['condition', 'output'])
+              if (config[key] is String && (config[key] as String).isNotEmpty)
+                stageFramed(
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$key ',
+                        style: AnText.meta.copyWith(color: c.inkFaint),
+                      ),
+                      Expanded(
+                        child: AnCelGrow(
+                          expression: config[key] as String,
+                          live: scene.live,
+                        ),
+                      ),
+                    ],
+                  ),
+                  top: AnSpace.s2,
+                ),
+          ],
+        ],
+        if (scene.live && kind.isNotEmpty) ...[
+          const SizedBox(height: AnSpace.s6),
+          stageFramed(
+            Row(
+              children: [
+                AnRadarSweep(size: AnSize.iconSm.toDouble()),
+                const SizedBox(width: AnSpace.s6),
+                Text(
+                  t.chat.stage.awaitingReceipt,
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (!scene.live && !scene.failed) ...[
+          const SizedBox(height: AnSpace.s6),
+          if (trig != null)
+            stageFramed(
+              Wrap(
+                spacing: AnSpace.s8,
+                runSpacing: AnSpace.s4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      AnStatusDot.raw(trig.listening ? c.ok : c.inkFaint),
+                      const SizedBox(width: AnSpace.s4),
+                      Text(
+                        trig.listening
+                            ? t.chat.stage.listening
+                            : t.chat.stage.notListening,
+                        style: AnText.meta.copyWith(
+                          color: trig.listening ? c.ok : c.inkFaint,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (trig.nextFireAt != null) _LiveClock(at: trig.nextFireAt!),
+                  if (trig.refCount > 0)
+                    Text(
+                      t.chat.stage.refCountWord(n: trig.refCount),
+                      style: AnText.meta.copyWith(color: c.inkFaint),
+                    ),
+                ],
               ),
+            ),
+          const SizedBox(height: AnSpace.s4),
+          runStatBarOf(context, scene.state),
         ],
       ],
-      if (scene.live && kind.isNotEmpty) ...[
-        const SizedBox(height: AnSpace.s6),
-        stageFramed(Row(children: [
-          AnRadarSweep(size: AnSize.iconSm.toDouble()),
-          const SizedBox(width: AnSpace.s6),
-          Text(t.chat.stage.awaitingReceipt, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ])),
-      ],
-      if (!scene.live && !scene.failed) ...[
-        const SizedBox(height: AnSpace.s6),
-        if (trig != null)
-          stageFramed(Wrap(spacing: AnSpace.s8, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              AnStatusDot.raw(trig.listening ? c.ok : c.inkFaint),
-              const SizedBox(width: AnSpace.s4),
-              Text(trig.listening ? t.chat.stage.listening : t.chat.stage.notListening,
-                  style: AnText.meta.copyWith(color: trig.listening ? c.ok : c.inkFaint)),
-            ]),
-            if (trig.nextFireAt != null)
-              _LiveClock(at: trig.nextFireAt!),
-            if (trig.refCount > 0)
-              Text(t.chat.stage.refCountWord(n: trig.refCount),
-                  style: AnText.meta.copyWith(color: c.inkFaint)),
-          ])),
-        const SizedBox(height: AnSpace.s4),
-        runStatBarOf(context, scene.state),
-      ],
-    ]);
+    );
   }
 
   // The config object's CLOSED keys so far (progressive while streaming). 已闭合的 config 键(流中渐进)。
@@ -155,7 +203,9 @@ class _LiveClockState extends State<_LiveClock> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final t = Translations.of(context);
-    return Text(t.chat.stage.nextFire(t: AnCastRow.timeLabel(context, widget.at)),
-        style: AnText.meta.copyWith(color: c.inkMuted));
+    return Text(
+      t.chat.stage.nextFire(t: AnCastRow.timeLabel(context, widget.at)),
+      style: AnText.meta.copyWith(color: c.inkMuted),
+    );
   }
 }

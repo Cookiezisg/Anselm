@@ -59,7 +59,9 @@ class AnSwitch extends StatelessWidget {
                     ? (hovered ? c.accentHover : c.accent)
                     : (hovered ? c.surfaceHover : c.surfaceSunken),
                 borderRadius: BorderRadius.circular(_trackH / 2),
-                border: value ? null : Border.all(color: c.line, width: AnSize.hairline),
+                border: value
+                    ? null
+                    : Border.all(color: c.line, width: AnSize.hairline),
               ),
               child: AnimatedAlign(
                 duration: reduced ? Duration.zero : AnMotion.fast,

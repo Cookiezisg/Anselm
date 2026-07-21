@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:gpt_markdown/custom_widgets/indent_widget.dart' show BlockQuoteWidget;
-import 'package:gpt_markdown/custom_widgets/markdown_config.dart' show GptMarkdownConfig;
+import 'package:gpt_markdown/custom_widgets/indent_widget.dart'
+    show BlockQuoteWidget;
+import 'package:gpt_markdown/custom_widgets/markdown_config.dart'
+    show GptMarkdownConfig;
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import '../../i18n/strings.g.dart';
@@ -79,7 +81,13 @@ enum AnMarkdownScale {
 /// 阅读档=720 阅读列+消息泡;嵌入档=住在窗/岛台/预览里的 markdown,零新字号。流式:text 纯 prop、未闭合围栏容忍;
 /// SelectionArea 归调用方;无动画。
 class AnMarkdown extends StatelessWidget {
-  const AnMarkdown(this.text, {this.onLinkTap, this.scale = AnMarkdownScale.reading, this.prose, super.key});
+  const AnMarkdown(
+    this.text, {
+    this.onLinkTap,
+    this.scale = AnMarkdownScale.reading,
+    this.prose,
+    super.key,
+  });
 
   /// Markdown source — grows during streaming; stateless, so a longer string is just a rebuild.
   /// markdown 源——流式增长;无状态,换更长的串即重渲。
@@ -118,23 +126,39 @@ class AnMarkdown extends StatelessWidget {
   // a STABLE identity across builds — GptMarkdown re-parses when the component list identity changes; a fresh
   // list per build would re-parse settled prose every frame. 双档块组件表:仅换行/标题上距的块间距不同(阅读 12、
   // 嵌入收紧一档 8);static 保身份稳定——变身份触发重解析,每帧新建会重解析已落定的 prose。
-  static final List<MarkdownComponent> _componentsReading = _makeComponents(AnFlow.block);
-  static final List<MarkdownComponent> _componentsEmbedded = _makeComponents(AnGap.stack);
+  static final List<MarkdownComponent> _componentsReading = _makeComponents(
+    AnFlow.block,
+  );
+  static final List<MarkdownComponent> _componentsEmbedded = _makeComponents(
+    AnGap.stack,
+  );
 
   static List<MarkdownComponent> _makeComponents(double blockGap) => [
     // _AnCheckBoxMd BEFORE UnOrderedList: a task line (`- [x] …`) is claimed whole by the checkbox
     // component, so it never also gets an unordered bullet. checkbox 排在无序列表前,task 行不再双记号。
-    CodeBlockMd(), _AnNewLines(blockGap), _AnBlockQuoteMd(), TableMd(), _AnHTag(blockGap),
+    CodeBlockMd(),
+    _AnNewLines(blockGap),
+    _AnBlockQuoteMd(),
+    TableMd(),
+    _AnHTag(blockGap),
     _AnCheckBoxMd(), UnOrderedList(), OrderedList(), HrLine(), IndentMd(),
   ];
   static final List<MarkdownComponent> _inlineComponents = [
-    ATagMd(), ImageMd(), TableMd(), StrikeMd(), _AnBoldMd(), ItalicMd(),
-    HighlightedText(), SourceTag(),
+    ATagMd(),
+    ImageMd(),
+    TableMd(),
+    StrikeMd(),
+    _AnBoldMd(),
+    ItalicMd(),
+    HighlightedText(),
+    SourceTag(),
   ];
 
   void _guardedLinkTap(String url, String title) {
     final scheme = Uri.tryParse(url.trim())?.scheme.toLowerCase() ?? '';
-    if (!_allowedSchemes.contains(scheme)) return; // javascript:/data:/file:/relative → inert 惰性
+    if (!_allowedSchemes.contains(scheme)) {
+      return; // javascript:/data:/file:/relative → inert 惰性
+    }
     onLinkTap?.call(url, title);
   }
 
@@ -151,18 +175,33 @@ class AnMarkdown extends StatelessWidget {
     // `prose` (the CONTENT ② face) is layered onto the PROSE rungs only — body / headings / lists /
     // tables — via [applyContentFace]; null (sans) is a pass-through. Code (fenced + inline) is never
     // touched here — the code axis governs it. prose 脸只覆盖 prose 档(正文/标题/列表/表);null=直通;代码不碰。
-    final body = applyContentFace(prose, (_embedded ? AnText.body : AnText.reading)).copyWith(color: c.ink);
-    final h1 = applyContentFace(prose, (_embedded ? AnText.readingH3 : AnText.readingH1)).copyWith(color: c.ink);
-    final h2 = applyContentFace(prose, (_embedded ? AnText.readingH3 : AnText.readingH2)).copyWith(color: c.ink);
+    final body = applyContentFace(
+      prose,
+      (_embedded ? AnText.body : AnText.reading),
+    ).copyWith(color: c.ink);
+    final h1 = applyContentFace(
+      prose,
+      (_embedded ? AnText.readingH3 : AnText.readingH1),
+    ).copyWith(color: c.ink);
+    final h2 = applyContentFace(
+      prose,
+      (_embedded ? AnText.readingH3 : AnText.readingH2),
+    ).copyWith(color: c.ink);
     // h4–h6 fold onto ONE rung with h3: reading = readingH3 (15-w400); embedded = the body re-weighted to
     // w400 (13, same size as the embedded body — hierarchy from weight + the _AnHTag top-space). h4–h6 并入 h3。
-    final h456 = applyContentFace(prose, (_embedded ? AnText.body.weight(AnText.emphasisWeight) : AnText.readingH3)).copyWith(color: c.ink);
+    final h456 = applyContentFace(
+      prose,
+      (_embedded
+          ? AnText.body.weight(AnText.emphasisWeight)
+          : AnText.readingH3),
+    ).copyWith(color: c.ink);
     return GptMarkdownTheme(
       // The factory back-fills UNSPECIFIED fields from a fresh Material ThemeData, not ours — specify
       // every field. 工厂对未指定字段用全新 Material ThemeData 兜底——所有字段显式给值。
       gptThemeData: GptMarkdownThemeData(
         brightness: Theme.of(context).brightness,
-        highlightColor: c.surfaceSunken, // superseded by highlightBuilder; pinned anyway 已被 builder 接管,仍钉住
+        highlightColor: c
+            .surfaceSunken, // superseded by highlightBuilder; pinned anyway 已被 builder 接管,仍钉住
         // The heading ladder per scale (md # is not a page title; h4–h6 fold into h3). 标题阶梯(按档;# 非页标题;h4–h6 并入 h3)。
         h1: h1,
         h2: h2,
@@ -172,11 +211,13 @@ class AnMarkdown extends StatelessWidget {
         h6: h456,
         hrLineThickness: AnSize.hairline,
         hrLineColor: c.line,
-        hrLinePadding: EdgeInsets.zero, // the newline gap owns separation (no double-stack) 间距归换行
+        hrLinePadding: EdgeInsets
+            .zero, // the newline gap owns separation (no double-stack) 间距归换行
 
         linkColor: c.accent,
         linkHoverColor: c.accentHover,
-        autoAddDividerLineAfterH1: false, // no decorative divider under H1 不给 H1 配装饰分割线
+        autoAddDividerLineAfterH1:
+            false, // no decorative divider under H1 不给 H1 配装饰分割线
       ),
       child: GptMarkdown(
         text,
@@ -202,8 +243,16 @@ class AnMarkdown extends StatelessWidget {
   // would stack on it and read too loose (the old inconsistency). 无外距,间距归换行统一。
   // `reading: !_embedded`: content code rides the 13 codeReading tier; embedded code drops a rung to the 12
   // machine `code` tier (aligns the code with its tighter frame). 内容码走 13、嵌入码降一号到 12 机器档。
-  Widget _fencedCode(BuildContext context, String name, String code, bool closed) =>
-      AnCodeEditor(code: code.trimRight(), lang: name.trim().isEmpty ? null : name.trim(), reading: !_embedded);
+  Widget _fencedCode(
+    BuildContext context,
+    String name,
+    String code,
+    bool closed,
+  ) => AnCodeEditor(
+    code: code.trimRight(),
+    lang: name.trim().isEmpty ? null : name.trim(),
+    reading: !_embedded,
+  );
 
   // Inline `code` → [AnCodeChip] (mono on a sunken padded pill; the package default is bold-only — broken on the
   // pinned axis). This is the READ-ONLY markdown renderer (chat bubbles, doc previews) — a WidgetSpan pill is
@@ -213,14 +262,23 @@ class AnMarkdown extends StatelessWidget {
   // `dense` in embedded → the 12 codeInline face (a rung under the shared mono 13); the DEFAULT chip stays
   // mono 13 so the editor's rest-state chip + the chat reading chip remain pixel-identical. 嵌入=12 小码档;
   // 默认仍 mono 13,保编辑器静置 chip 与 chat 阅读 chip 逐像素一致。
-  Widget _inlineCode(BuildContext context, String text, TextStyle style) => AnCodeChip(text, dense: _embedded);
+  Widget _inlineCode(BuildContext context, String text, TextStyle style) =>
+      AnCodeChip(text, dense: _embedded);
 
   // Images: an inert chip, NEVER a network fetch (no NetworkImage anywhere) — remote images from model/tool
   // output are an exfiltration + local-SSRF channel. 图片:惰性 chip,绝不取网(渗出/SSRF 通道封死)。
-  Widget _imagePlaceholder(BuildContext context, String imageUrl, double? width, double? height) {
+  Widget _imagePlaceholder(
+    BuildContext context,
+    String imageUrl,
+    double? width,
+    double? height,
+  ) {
     final c = context.colors;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AnSpace.s8,
+        vertical: AnSpace.s4,
+      ),
       decoration: BoxDecoration(
         color: c.surfaceSunken,
         borderRadius: BorderRadius.circular(AnRadius.tag),
@@ -228,7 +286,9 @@ class AnMarkdown extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          ExcludeSemantics(child: Icon(AnIcons.image, size: AnSize.iconSm, color: c.inkFaint)),
+          ExcludeSemantics(
+            child: Icon(AnIcons.image, size: AnSize.iconSm, color: c.inkFaint),
+          ),
           const SizedBox(width: AnSpace.s6),
           Flexible(
             child: Text(
@@ -249,63 +309,108 @@ class AnMarkdown extends StatelessWidget {
   // Text.rich(textAlign:) — no Align wrapper). No outer padding — the newline gap owns block separation.
   // trim: the package pads cells with ` | ` — untrimmed data would misalign right-aligned columns.
   // 表→有框富表(与编辑器逐像素一致):MdWidget 富渲单元格、头强调体正文、对齐随字段 TextAlign、间距归换行。
-  Widget _table(BuildContext context, List<CustomTableRow> rows, TextStyle style, GptMarkdownConfig config) {
+  Widget _table(
+    BuildContext context,
+    List<CustomTableRow> rows,
+    TextStyle style,
+    GptMarkdownConfig config,
+  ) {
     if (rows.isEmpty) return const SizedBox.shrink();
     final c = context.colors;
     final header = rows.firstWhere((r) => r.isHeader, orElse: () => rows.first);
     final cols = header.fields.length;
     if (cols == 0) return const SizedBox.shrink();
-    final tableBase = applyContentFace(prose, _embedded ? AnText.body : AnText.reading); // header/body share ONE scale rung 同档
+    final tableBase = applyContentFace(
+      prose,
+      _embedded ? AnText.body : AnText.reading,
+    ); // header/body share ONE scale rung 同档
     final bodyStyle = tableBase.copyWith(color: c.ink);
-    final headerStyle = tableBase.weight(AnText.emphasisWeight).copyWith(color: c.ink);
+    final headerStyle = tableBase
+        .weight(AnText.emphasisWeight)
+        .copyWith(color: c.ink);
     List<Widget> cells(CustomTableRow row, TextStyle rowStyle) => [
-          for (var i = 0; i < cols; i++)
-            MdWidget(
-              context,
-              (i < row.fields.length ? row.fields[i].data : '').trim(), // pad short / clip long to header width
-              false, // inline pipeline only (no block components inside a cell)
-              config: config.copyWith(style: rowStyle, textAlign: header.fields[i].alignment),
-            ),
-        ];
+      for (var i = 0; i < cols; i++)
+        MdWidget(
+          context,
+          (i < row.fields.length ? row.fields[i].data : '')
+              .trim(), // pad short / clip long to header width
+          false, // inline pipeline only (no block components inside a cell)
+          config: config.copyWith(
+            style: rowStyle,
+            textAlign: header.fields[i].alignment,
+          ),
+        ),
+    ];
     final data = rows.where((r) => !identical(r, header) && !r.isHeader);
-    return AnProseTable(rows: [
-      cells(header, headerStyle),
-      for (final r in data) cells(r, bodyStyle),
-    ]);
+    return AnProseTable(
+      rows: [
+        cells(header, headerStyle),
+        for (final r in data) cells(r, bodyStyle),
+      ],
+    );
   }
 
   // List markers — the package's ordered default hardcodes w100 (broken on the pinned axis); both markers
   // re-done in inkFaint, layout mirroring the package (baseline row, start 12 / gap 8).
   // 列表记号:包的有序默认硬编码 w100(钉轴上渲错);两种记号统一 inkFaint,布局镜像包默认。
-  Widget _orderedItem(BuildContext context, String no, Widget child, GptMarkdownConfig config) => Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s8),
-            // Scale-sized tabular figures so markers match the prose rung AND multi-digit numbers align
-            // down a long list. 记号随当前档 + 等宽数字,长列表序号齐位。
-            child: Text('$no.',
-                style: applyContentFace(prose, (_embedded ? AnText.body : AnText.reading))
-                    .copyWith(fontFeatures: const [FontFeature.tabularFigures()], color: context.colors.inkFaint)),
-          ),
-          Flexible(child: child),
-        ],
-      );
+  Widget _orderedItem(
+    BuildContext context,
+    String no,
+    Widget child,
+    GptMarkdownConfig config,
+  ) => Row(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.baseline,
+    textBaseline: TextBaseline.alphabetic,
+    children: [
+      Padding(
+        padding: const EdgeInsetsDirectional.only(
+          start: AnSpace.s12,
+          end: AnSpace.s8,
+        ),
+        // Scale-sized tabular figures so markers match the prose rung AND multi-digit numbers align
+        // down a long list. 记号随当前档 + 等宽数字,长列表序号齐位。
+        child: Text(
+          '$no.',
+          style:
+              applyContentFace(
+                prose,
+                (_embedded ? AnText.body : AnText.reading),
+              ).copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+                color: context.colors.inkFaint,
+              ),
+        ),
+      ),
+      Flexible(child: child),
+    ],
+  );
 
-  Widget _unorderedItem(BuildContext context, Widget child, GptMarkdownConfig config) => Row(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.baseline,
-        textBaseline: TextBaseline.alphabetic,
-        children: [
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s8),
-            child: Text('•', style: applyContentFace(prose, (_embedded ? AnText.body : AnText.reading)).copyWith(color: context.colors.inkFaint)),
-          ),
-          Flexible(child: child),
-        ],
-      );
+  Widget _unorderedItem(
+    BuildContext context,
+    Widget child,
+    GptMarkdownConfig config,
+  ) => Row(
+    mainAxisSize: MainAxisSize.min,
+    crossAxisAlignment: CrossAxisAlignment.baseline,
+    textBaseline: TextBaseline.alphabetic,
+    children: [
+      Padding(
+        padding: const EdgeInsetsDirectional.only(
+          start: AnSpace.s12,
+          end: AnSpace.s8,
+        ),
+        child: Text(
+          '•',
+          style: applyContentFace(
+            prose,
+            (_embedded ? AnText.body : AnText.reading),
+          ).copyWith(color: context.colors.inkFaint),
+        ),
+      ),
+      Flexible(child: child),
+    ],
+  );
 }
 
 /// The SINGLE block-gap authority. The package's `NewLines` emits a `"\n\n"` span at height 1.15 (≈15px,
@@ -322,12 +427,16 @@ class _AnNewLines extends NewLines {
   final double gap;
 
   @override
-  InlineSpan span(BuildContext context, String text, GptMarkdownConfig config) => TextSpan(
-        // fontSize == the gap, height 1.0 → the blank line is exactly [gap] tall, font-independent.
-        // fontSize=间距、height=1.0 → 空行恰为 gap 高,与字体无关。
-        text: '\n\n',
-        style: TextStyle(fontSize: gap, height: 1.0),
-      );
+  InlineSpan span(
+    BuildContext context,
+    String text,
+    GptMarkdownConfig config,
+  ) => TextSpan(
+    // fontSize == the gap, height 1.0 → the blank line is exactly [gap] tall, font-independent.
+    // fontSize=间距、height=1.0 → 空行恰为 gap 高,与字体无关。
+    text: '\n\n',
+    style: TextStyle(fontSize: gap, height: 1.0),
+  );
 }
 
 /// Headings breathe MORE above than below (Notion's signature ~2:1) — a heading belongs to the content
@@ -341,7 +450,8 @@ class _AnHTag extends HTag {
   final double gap;
 
   @override
-  Widget build(BuildContext context, String text, GptMarkdownConfig config) => Padding(
+  Widget build(BuildContext context, String text, GptMarkdownConfig config) =>
+      Padding(
         padding: EdgeInsets.only(top: gap),
         child: super.build(context, text, config),
       );
@@ -359,7 +469,12 @@ class _AnBoldMd extends BoldMd {
       style: (config.style ?? AnText.body).weight(AnText.emphasisWeight),
     );
     return TextSpan(
-      children: MarkdownComponent.generate(context, '${match?[1]}', conf, false),
+      children: MarkdownComponent.generate(
+        context,
+        '${match?[1]}',
+        conf,
+        false,
+      ),
       style: conf.style,
     );
   }
@@ -387,7 +502,10 @@ class _AnCheckBoxMd extends CheckBoxMd {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Padding(
-          padding: const EdgeInsetsDirectional.only(start: AnSpace.s12, end: AnSpace.s8),
+          padding: const EdgeInsetsDirectional.only(
+            start: AnSpace.s12,
+            end: AnSpace.s8,
+          ),
           child: Icon(
             AnIcons.task(done: checked),
             size: AnSize.icon,
@@ -396,10 +514,18 @@ class _AnCheckBoxMd extends CheckBoxMd {
         ),
         // A completed task greys to inkFaint — NO strikethrough (matches the editor; user 0715). 完成态灰、不删除线。
         Flexible(
-          child: MdWidget(context, '${match?[2]}', false,
-              config: checked
-                  ? config.copyWith(style: (config.style ?? AnText.reading).copyWith(color: c.inkFaint))
-                  : config),
+          child: MdWidget(
+            context,
+            '${match?[2]}',
+            false,
+            config: checked
+                ? config.copyWith(
+                    style: (config.style ?? AnText.reading).copyWith(
+                      color: c.inkFaint,
+                    ),
+                  )
+                : config,
+          ),
         ),
       ],
     );
@@ -428,14 +554,17 @@ class _AnBlockQuoteMd extends BlockQuote {
     final conf = config.copyWith(
       style: (config.style ?? AnText.body).copyWith(color: c.inkMuted),
     );
-    final child = TextSpan(children: MarkdownComponent.generate(context, data, conf, true));
+    final child = TextSpan(
+      children: MarkdownComponent.generate(context, data, conf, true),
+    );
     return TextSpan(
       children: [
         WidgetSpan(
           child: Directionality(
             textDirection: config.textDirection,
             child: Padding(
-              padding: EdgeInsets.zero, // the newline gap owns separation (was s2 → cramped) 间距归换行(原 s2 太挤)
+              padding: EdgeInsets
+                  .zero, // the newline gap owns separation (was s2 → cramped) 间距归换行(原 s2 太挤)
               child: BlockQuoteWidget(
                 color: c.lineStrong,
                 direction: config.textDirection,

@@ -56,7 +56,9 @@ Future<void> initWindow({String? title, SettingsPrefs? prefs}) async {
     WindowFullScreen.active.value = full;
     if (!full) {
       await WindowManipulator.addToolbar();
-      await WindowManipulator.setToolbarStyle(toolbarStyle: NSWindowToolbarStyle.unified);
+      await WindowManipulator.setToolbarStyle(
+        toolbarStyle: NSWindowToolbarStyle.unified,
+      );
     }
   } catch (_) {
     // chrome is cosmetic; the window must still be revealed below. 外观非必需,下方仍须显示窗口。
@@ -94,7 +96,9 @@ Future<void> initWindow({String? title, SettingsPrefs? prefs}) async {
   // (拍板 #13): a stored rect only wins when its title bar still lands on a live display
   // (WindowBounds.restoreTarget's multi-display clamp); otherwise default size, centered.
   // 尺寸由 window_manager 管;「记住窗口」开且存的矩形仍落在在线显示器上→按其恢复,否则默认居中。
-  final remembered = prefs == null ? null : await WindowBounds.restoreTarget(prefs);
+  final remembered = prefs == null
+      ? null
+      : await WindowBounds.restoreTarget(prefs);
   final options = WindowOptions(
     size: remembered == null
         ? const Size(AnSize.windowInitialWidth, AnSize.windowInitialHeight)
@@ -143,6 +147,8 @@ class _FullScreenChrome with WindowListener {
 
   Future<void> _restoreToolbar() async {
     await WindowManipulator.addToolbar();
-    await WindowManipulator.setToolbarStyle(toolbarStyle: NSWindowToolbarStyle.unified);
+    await WindowManipulator.setToolbarStyle(
+      toolbarStyle: NSWindowToolbarStyle.unified,
+    );
   }
 }

@@ -54,7 +54,8 @@ class ChatHead extends ConsumerWidget {
     // A FRESH auto-title lands as a one-shot typewriter (the rail row plays the same title in sync);
     // done → back to the renameable title. 新自动命名以一次性打字机落地(rail 行同播);完→可改名标题。
     final revealing =
-        ref.watch(titleRevealsProvider).contains(id) && conv.title.trim().isNotEmpty;
+        ref.watch(titleRevealsProvider).contains(id) &&
+        conv.title.trim().isNotEmpty;
 
     final override = conv.modelOverride;
     // The compact head title is READ-ONLY and 1:1 with every OTHER ocean's floating head (OceanBreadcrumb):
@@ -62,7 +63,9 @@ class ChatHead extends ConsumerWidget {
     // LEFT-ISLAND rail's ⋯ → rename (same PATCH) — the head no longer inline-edits. The reveal typewriter
     // MUST ride this same style or the auto-title finish flashes. 紧凑头标题=只读、1:1 其他海洋浮层头(12/w400/inkMuted
     // chrome,非 15/ink 内容标题);改名走左岛 rail 的 ⋯→改名;打字机揭示必须同式否则收尾闪号。
-    final titleStyle = AnText.meta.weight(AnText.emphasisWeight).copyWith(color: context.colors.inkMuted);
+    final titleStyle = AnText.meta
+        .weight(AnText.emphasisWeight)
+        .copyWith(color: context.colors.inkMuted);
     return Row(
       // min: the head hugs its content (title + model) at the left; the scene/outline nav moved to the
       // shell's head-trailing slot so it sits beside the panel-right toggle. min:头收紧到内容(题+模型)靠左;场次钮已挪到 shell 头尾槽。
@@ -71,7 +74,8 @@ class ChatHead extends ConsumerWidget {
         Flexible(
           child: revealing
               ? SizedBox(
-                  height: AnSize.control, // stable footprint — reveal→resting never jumps 定高,揭示→静止不跳
+                  height: AnSize
+                      .control, // stable footprint — reveal→resting never jumps 定高,揭示→静止不跳
                   child: Center(
                     widthFactor: 1,
                     child: AnTypewriter(
@@ -80,7 +84,8 @@ class ChatHead extends ConsumerWidget {
                       // No caret — matched with the rail's twin player. 与 rail 同款无 caret。
                       showCaret: false,
                       textStyle: titleStyle,
-                      onDone: () => ref.read(titleRevealsProvider.notifier).remove(id),
+                      onDone: () =>
+                          ref.read(titleRevealsProvider.notifier).remove(id),
                     ),
                   ),
                 )
@@ -95,13 +100,15 @@ class ChatHead extends ConsumerWidget {
         chatModelMenu(
           t: t,
           caps: caps,
-          current: override == null ? null : (apiKeyId: override.apiKeyId, modelId: override.modelId),
-          onSelect: (v) => ref.read(conversationHeaderProvider(id).notifier).setModel(v),
+          current: override == null
+              ? null
+              : (apiKeyId: override.apiKeyId, modelId: override.modelId),
+          onSelect: (v) =>
+              ref.read(conversationHeaderProvider(id).notifier).setModel(v),
         ),
       ],
     );
   }
-
 }
 
 /// The one model menu every chat surface shares — the head's landing/thread pickers AND the
@@ -113,30 +120,37 @@ Widget chatModelMenu({
   required List<ModelCapability> caps,
   required ({String apiKeyId, String modelId})? current,
   required ValueChanged<({String apiKeyId, String modelId})?> onSelect,
-  Widget Function(BuildContext context, VoidCallback toggle, bool isOpen)? anchorBuilder,
+  Widget Function(BuildContext context, VoidCallback toggle, bool isOpen)?
+  anchorBuilder,
 }) {
-    // The anchor lives at the head's LEFT (landing: far left; thread: right after the title), so the
-    // menu opens DOWN-RIGHT (start-aligned — AnMenu defaults to end); the popover flips on overflow.
-    // The anchor shows the capability's DISPLAY NAME (same label the menu row shows — a picked
-    // 'DeepSeek Chat' must not echo back as 'deepseek-chat'), falling back to the raw id for an
-    // override whose capability is gone. md tier: the 13 label rung beside the 15 title (sm's meta
-    // 12 sat a rung too low and a 24 box mis-centred in the 44 head band).
-    // 锚在头部左区,菜单**右下**展开(start 对齐)、越界自翻。锚显 displayName(与菜单行同名——选了
-    // 「DeepSeek Chat」不能回显 raw id;能力已失才回落 id)。md 档:15 标题旁的 13 标签档。
+  // The anchor lives at the head's LEFT (landing: far left; thread: right after the title), so the
+  // menu opens DOWN-RIGHT (start-aligned — AnMenu defaults to end); the popover flips on overflow.
+  // The anchor shows the capability's DISPLAY NAME (same label the menu row shows — a picked
+  // 'DeepSeek Chat' must not echo back as 'deepseek-chat'), falling back to the raw id for an
+  // override whose capability is gone. md tier: the 13 label rung beside the 15 title (sm's meta
+  // 12 sat a rung too low and a 24 box mis-centred in the 44 head band).
+  // 锚在头部左区,菜单**右下**展开(start 对齐)、越界自翻。锚显 displayName(与菜单行同名——选了
+  // 「DeepSeek Chat」不能回显 raw id;能力已失才回落 id)。md 档:15 标题旁的 13 标签档。
   final anchorLabel = current == null
       ? t.chat.modelAuto
       : caps
-              .where((cap) => cap.modelId == current.modelId && cap.apiKeyId == current.apiKeyId)
-              .map((cap) => cap.displayName.isEmpty ? cap.modelId : cap.displayName)
-              .firstOrNull ??
-          current.modelId;
+                .where(
+                  (cap) =>
+                      cap.modelId == current.modelId &&
+                      cap.apiKeyId == current.apiKeyId,
+                )
+                .map(
+                  (cap) =>
+                      cap.displayName.isEmpty ? cap.modelId : cap.displayName,
+                )
+                .firstOrNull ??
+            current.modelId;
   return AnMenu(
     alignEnd: false,
-    anchorBuilder: anchorBuilder ??
-        (context, toggle, isOpen) => AnButton(
-              label: anchorLabel,
-              onPressed: toggle,
-            ),
+    anchorBuilder:
+        anchorBuilder ??
+        (context, toggle, isOpen) =>
+            AnButton(label: anchorLabel, onPressed: toggle),
     entries: [
       AnMenuItem(
         label: t.chat.modelAuto,
@@ -147,7 +161,9 @@ Widget chatModelMenu({
         AnMenuItem(
           label: cap.displayName.isEmpty ? cap.modelId : cap.displayName,
           meta: cap.keyName.isEmpty ? cap.provider : cap.keyName,
-          checked: current?.modelId == cap.modelId && current?.apiKeyId == cap.apiKeyId,
+          checked:
+              current?.modelId == cap.modelId &&
+              current?.apiKeyId == cap.apiKeyId,
           onTap: () => onSelect((apiKeyId: cap.apiKeyId, modelId: cap.modelId)),
         ),
     ],

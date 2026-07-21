@@ -11,10 +11,25 @@ import 'typography.dart';
 /// 由 token 装配 [ThemeData]——[AnColors]/[AnText] 与 Material 的唯一桥。注册 AnColors 扩展、
 /// 把字阶+墨色烤进 TextTheme、去掉 Material 的水波/松散密度,换利落原生桌面手感。
 abstract final class AnTheme {
-  static ThemeData light() => _build(Brightness.light, AnColors.light, SyntaxColors.light, GraphColors.light);
-  static ThemeData dark() => _build(Brightness.dark, AnColors.dark, SyntaxColors.dark, GraphColors.dark);
+  static ThemeData light() => _build(
+    Brightness.light,
+    AnColors.light,
+    SyntaxColors.light,
+    GraphColors.light,
+  );
+  static ThemeData dark() => _build(
+    Brightness.dark,
+    AnColors.dark,
+    SyntaxColors.dark,
+    GraphColors.dark,
+  );
 
-  static ThemeData _build(Brightness brightness, AnColors c, SyntaxColors syntax, GraphColors graph) {
+  static ThemeData _build(
+    Brightness brightness,
+    AnColors c,
+    SyntaxColors syntax,
+    GraphColors graph,
+  ) {
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
@@ -41,7 +56,10 @@ abstract final class AnTheme {
       // TextField **没有** selectionColor 参数,此主题是唯一能给它的缝——此前全部字段画幽灵靛、而编辑器画
       // AnColors.selection,同一 app 两种选区色。各字段仍显式传 cursorColor(同一 token,在原语处言明),
       // 本条是兜住「忘了传」的网。
-      textSelectionTheme: TextSelectionThemeData(cursorColor: c.ink, selectionColor: c.selection),
+      textSelectionTheme: TextSelectionThemeData(
+        cursorColor: c.ink,
+        selectionColor: c.selection,
+      ),
       fontFamily: AnText.uiFamily,
       fontFamilyFallback: AnText.uiFallback,
       textTheme: AnText.textTheme(c.ink),

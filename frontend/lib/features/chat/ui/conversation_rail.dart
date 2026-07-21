@@ -59,7 +59,8 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
   }
 
   ChatRepository get _repo => ref.read(chatRepositoryProvider);
-  ConversationListNotifier get _list => ref.read(conversationListProvider.notifier);
+  ConversationListNotifier get _list =>
+      ref.read(conversationListProvider.notifier);
 
   @override
   Widget build(BuildContext context) {
@@ -134,7 +135,8 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
           // The row id IS the conversation id — navigate straight to it (route is the source of truth).
           onSelect: (id) => context.go(conversationLocation(id)),
           onFilterChanged: _onFilter,
-          onLoadMore: (_) => _list.loadMore(), // the recents tail pages the conversation list 最近段尾翻列表
+          onLoadMore: (_) => _list
+              .loadMore(), // the recents tail pages the conversation list 最近段尾翻列表
           onRetryLoad: (_) => _list.loadMore(),
           editingRowId: _editingId,
           onRenameCommit: _rename,
@@ -152,8 +154,8 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
   // Debounce keystrokes before the server-side ?search (the provider re-pages from the top on change;
   // firing per key would storm the backend). 逐键防抖再打服务端 ?search(每键一请求会打爆后端)。
   void _onFilter(String v) => _debounce.run(() {
-        if (mounted) ref.read(conversationSearchProvider.notifier).set(v);
-      });
+    if (mounted) ref.read(conversationSearchProvider.notifier).set(v);
+  });
 
   /// The per-row ⋯ menu (hover-revealed) — every per-thread action in one place: rename / pin·unpin /
   /// archive·unarchive / delete. Pin & archive labels flip on the row's current state; delete is a danger
@@ -167,7 +169,11 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
         onPressed: toggle,
       ),
       entries: [
-        AnMenuItem(label: t.chat.rename, icon: AnIcons.edit, onTap: () => setState(() => _editingId = c.id)),
+        AnMenuItem(
+          label: t.chat.rename,
+          icon: AnIcons.edit,
+          onTap: () => setState(() => _editingId = c.id),
+        ),
         AnMenuItem(
           label: c.pinned ? t.chat.unpin : t.chat.pin,
           icon: AnIcons.pin,
@@ -178,7 +184,12 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
           icon: AnIcons.archive,
           onTap: () => _setArchived(c.id, !c.archived),
         ),
-        AnMenuItem(label: t.action.delete, icon: AnIcons.trash, danger: true, onTap: () => _confirmDelete(c)),
+        AnMenuItem(
+          label: t.action.delete,
+          icon: AnIcons.trash,
+          danger: true,
+          onTap: () => _confirmDelete(c),
+        ),
       ],
     );
   }
@@ -186,13 +197,32 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
   /// The ⚙ sliders menu: a single-select Sort section (activity / created / name → the server `?sort=`)
   /// and a Display section of toggles (show archived → re-fetches all; show counts / show time → pure
   /// view prefs). 排序单选(server sort) + 显示开关(归档重取 / 计数·时间视图偏好,keepOpen 多切不收)。
-  List<AnMenuEntry> _menu(Translations t, ConvSort sort, bool archived, bool showCount, bool showTime) {
-    void setSort(ConvSort s) => ref.read(conversationSortProvider.notifier).set(s);
+  List<AnMenuEntry> _menu(
+    Translations t,
+    ConvSort sort,
+    bool archived,
+    bool showCount,
+    bool showTime,
+  ) {
+    void setSort(ConvSort s) =>
+        ref.read(conversationSortProvider.notifier).set(s);
     return [
       AnMenuSection(t.chat.sortLabel),
-      AnMenuItem(label: t.chat.sortActivity, checked: sort == ConvSort.activity, onTap: () => setSort(ConvSort.activity)),
-      AnMenuItem(label: t.chat.sortCreated, checked: sort == ConvSort.created, onTap: () => setSort(ConvSort.created)),
-      AnMenuItem(label: t.chat.sortName, checked: sort == ConvSort.name, onTap: () => setSort(ConvSort.name)),
+      AnMenuItem(
+        label: t.chat.sortActivity,
+        checked: sort == ConvSort.activity,
+        onTap: () => setSort(ConvSort.activity),
+      ),
+      AnMenuItem(
+        label: t.chat.sortCreated,
+        checked: sort == ConvSort.created,
+        onTap: () => setSort(ConvSort.created),
+      ),
+      AnMenuItem(
+        label: t.chat.sortName,
+        checked: sort == ConvSort.name,
+        onTap: () => setSort(ConvSort.name),
+      ),
       AnMenuSection(t.chat.displayLabel),
       AnMenuItem(
         label: t.chat.showArchived,
@@ -239,8 +269,13 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     final next = value.trim();
     // A row racing out of the list mid-edit → current is null → an empty new value still cancels (isEmpty),
     // a non-empty one still PATCHes (null != next). 编辑途中行被移除→current 为 null:空值仍取消、非空值仍 PATCH。
-    final current =
-        ref.read(conversationListProvider).value?.rows.where((c) => c.id == id).firstOrNull?.title;
+    final current = ref
+        .read(conversationListProvider)
+        .value
+        ?.rows
+        .where((c) => c.id == id)
+        .firstOrNull
+        ?.title;
     setState(() => _editingId = null);
     if (next.isEmpty || next == current) return;
     try {
@@ -252,9 +287,13 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
 
   Future<void> _confirmDelete(Conversation c) async {
     final t = context.t;
-    final ok = await ref.read(overlayProvider.notifier).confirm(
+    final ok = await ref
+        .read(overlayProvider.notifier)
+        .confirm(
           title: t.chat.deleteTitle,
-          message: t.chat.deleteBody(title: c.title.trim().isEmpty ? '…' : c.title),
+          message: t.chat.deleteBody(
+            title: c.title.trim().isEmpty ? '…' : c.title,
+          ),
           confirmLabel: t.chat.deleteConfirm,
           cancelLabel: t.action.cancel,
           barrierLabel: t.feedback.dialogBarrier,
@@ -273,6 +312,8 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
 
   void _noticeFail() {
     if (!mounted) return;
-    ref.read(noticeCenterProvider.notifier).show(context.t.chat.actionFailed, tone: AnTone.danger);
+    ref
+        .read(noticeCenterProvider.notifier)
+        .show(context.t.chat.actionFailed, tone: AnTone.danger);
   }
 }

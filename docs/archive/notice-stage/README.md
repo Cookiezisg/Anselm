@@ -55,7 +55,7 @@ landed-into: CLAUDE.md, working/frontend/README.md, references/frontend/features
 3. `AnNoticeCapsule` 扩 full `AnTone` + 标准 ✕ + 外部 dismiss 信号；`AnApprovalCapsule` 同步标准右缘与批清退场。
 4. app 壳宿主接舞台；notification dispatcher 投递后台事件；全应用操作反馈从 `overlayProvider.showToast`
    迁到 `noticeCenterProvider.show`。overlay 仅留 confirm，物理删除 AnToast 栈与死样章/测试。
-5. 五电池 + 状态机/竞态/中心不漂移/帧成本测试；gallery 四态 + 真 app 关键帧；`make fe-verify` + `make docs`。
+5. 五电池 + 状态机/竞态/中心不漂移/帧成本测试；gallery 四态 + 真 app 关键帧；`make -C frontend verify` + `make -C docs verify`。
 
 ## 验收不变式
 

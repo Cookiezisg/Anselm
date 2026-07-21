@@ -11,7 +11,11 @@ import '../design/tokens.dart';
 /// 单张白岛卡——shell 的表面原语:白底、发丝边、chip 圆角、浮阴影。深度靠阴影+细线、非重边框,chrome
 /// 通透轻盈。左岛、右岛都是 [AnIsland];中间海洋是敞开的窗体表面(无卡)。
 class AnIsland extends StatelessWidget {
-  const AnIsland({super.key, required this.child, this.padding = const EdgeInsets.all(AnSpace.s12)});
+  const AnIsland({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(AnSpace.s12),
+  });
 
   final Widget child;
   final EdgeInsetsGeometry padding;

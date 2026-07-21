@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -53,8 +52,11 @@ class _WindowCopyButtonState extends State<WindowCopyButton> {
     final c = context.colors;
     return AnInteractive(
       onTap: _copy,
-      builder: (ctx, states) => Icon(_done ? AnIcons.check : AnIcons.copy,
-          size: AnSize.iconSm, color: _done ? c.ok : (states.isActive ? c.ink : c.inkFaint)),
+      builder: (ctx, states) => Icon(
+        _done ? AnIcons.check : AnIcons.copy,
+        size: AnSize.iconSm,
+        color: _done ? c.ok : (states.isActive ? c.ink : c.inkFaint),
+      ),
     );
   }
 }
@@ -63,7 +65,8 @@ class _WindowCopyButtonState extends State<WindowCopyButton> {
 /// this to render their LIVE stage vs the settled record (WRK-065: the body owns both faces;
 /// there is no separate auto-shown live window). 是否在飞——族体据此分流式舞台/落定记录两张脸。
 bool toolLive(ToolCardState state) =>
-    state.phase == ToolCardPhase.argsStreaming || state.phase == ToolCardPhase.running;
+    state.phase == ToolCardPhase.argsStreaming ||
+    state.phase == ToolCardPhase.running;
 
 /// The ONE intent line (the LLM's self-reported summary; 批6 A-080 — three implementations and 12
 /// inline copies fold here). Empty summary → zero footprint (callers keep it unguarded in Columns,
@@ -74,11 +77,23 @@ bool toolLive(ToolCardState state) =>
 /// 唯一意图行(批6 A-080,三实现+12 内联抄并此):空 summary=零足迹(Column 免守卫;禁进 Wrap/Row);
 /// gap:false=裸渲(唯一合法位:workflow edit,条自带上距——已锁双距修复)。刻意薄 helper 非
 /// AnFieldSection:意图行无标签,且绑 feature 模型只能住此。
-Widget toolIntent(BuildContext context, ToolCardState state, {bool gap = true}) {
+Widget toolIntent(
+  BuildContext context,
+  ToolCardState state, {
+  bool gap = true,
+}) {
   final c = context.colors;
   if (state.summary.isEmpty) return const SizedBox.shrink();
-  final text = Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted));
-  return gap ? Padding(padding: const EdgeInsets.only(bottom: AnSpace.s6), child: text) : text;
+  final text = Text(
+    state.summary,
+    style: AnText.meta.copyWith(color: c.inkMuted),
+  );
+  return gap
+      ? Padding(
+          padding: const EdgeInsets.only(bottom: AnSpace.s6),
+          child: text,
+        )
+      : text;
 }
 
 /// The family's ONE raw-mono fallback window (A-003) — «show the raw text in a machine window» when
@@ -86,12 +101,19 @@ Widget toolIntent(BuildContext context, ToolCardState state, {bool gap = true}) 
 /// unbounded), [color] the mono content tone (null = the code base ink). Collapses ~15 scattered
 /// `AnWindow(child: Text(…code…, maxLines: N))` sites. 原始 mono 回落窗:窗内裸文本;行档走 AnCap.mono*Lines,
 /// null=无界;收编 ~15 处散置写法。
-Widget rawMonoWindow(BuildContext context, String text, {int? maxLines, Color? color}) => AnWindow(
-      child: Text(text,
-          style: color == null ? AnText.code : AnText.code.copyWith(color: color),
-          maxLines: maxLines,
-          overflow: maxLines == null ? TextOverflow.clip : TextOverflow.ellipsis),
-    );
+Widget rawMonoWindow(
+  BuildContext context,
+  String text, {
+  int? maxLines,
+  Color? color,
+}) => AnWindow(
+  child: Text(
+    text,
+    style: color == null ? AnText.code : AnText.code.copyWith(color: color),
+    maxLines: maxLines,
+    overflow: maxLines == null ? TextOverflow.clip : TextOverflow.ellipsis,
+  ),
+);
 
 /// A capped mono machine window — the raw text (display capped at the [AnCap.window] tier, A-112)
 /// inside the family window, the truncation note riding the window's own [AnWindow.footer] note slot
@@ -102,8 +124,13 @@ Widget _cappedMonoWindow(BuildContext context, String raw, {Color? color}) {
   final truncated = raw.length > AnCap.window;
   final shown = truncated ? raw.substring(0, AnCap.window) : raw;
   return AnWindow(
-    footer: truncated ? Text(t.chat.tool.truncatedNote(chars: raw.length)) : null,
-    child: Text(shown.trimRight(), style: AnText.code.copyWith(color: color ?? c.inkMuted)),
+    footer: truncated
+        ? Text(t.chat.tool.truncatedNote(chars: raw.length))
+        : null,
+    child: Text(
+      shown.trimRight(),
+      style: AnText.code.copyWith(color: color ?? c.inkMuted),
+    ),
   );
 }
 
@@ -124,10 +151,13 @@ final _bashFooterEnd = RegExp(r'\[exit code: -?\d+\]\s*$');
 /// result. ReDoS-safe: the linear [_bashFooterEnd] guard short-circuits the pathological no-footer case
 /// before the backtracking-prone [_bashFooterStrip] ever runs. Pure + exported for the perf budget test.
 /// 剥 bash 尾部 exit footer;ReDoS 安全(线性守卫先短路无 footer 病态输入)。纯函数,供性能预算测试。
-String stripBashFooter(String result) =>
-    _bashFooterEnd.hasMatch(result) ? result.replaceFirst(_bashFooterStrip, '') : result;
+String stripBashFooter(String result) => _bashFooterEnd.hasMatch(result)
+    ? result.replaceFirst(_bashFooterStrip, '')
+    : result;
 
-final _bashBgSpawn = RegExp(r'Started background command \(bash_id=(bsh_[0-9a-f]+)\):\s*(.*)');
+final _bashBgSpawn = RegExp(
+  r'Started background command \(bash_id=(bsh_[0-9a-f]+)\):\s*(.*)',
+);
 const _bashHeadTrunc = '[truncated'; // '...[truncated N bytes from start]'
 
 /// The Bash settled body (B4.5): the command echo header + a copy action, the output in a bounded
@@ -143,14 +173,27 @@ Widget bashToolBody(BuildContext context, ToolCardState state) {
   final bg = _bashBgSpawn.firstMatch(result);
   if (bg != null) {
     final id = bg.group(1)!;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      toolIntent(context, state),
-      AnChip(id, look: AnChipLook.outlined, mono: true, copyValue: id, tooltip: id),
-      Padding(
-        padding: const EdgeInsets.only(top: AnSpace.s6),
-        child: Text(t.chat.tool.bashBgHint, style: AnText.meta.copyWith(color: c.inkFaint)),
-      ),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        toolIntent(context, state),
+        AnChip(
+          id,
+          look: AnChipLook.outlined,
+          mono: true,
+          copyValue: id,
+          tooltip: id,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s6),
+          child: Text(
+            t.chat.tool.bashBgHint,
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+        ),
+      ],
+    );
   }
 
   // In-flight read: the command echoes in the header WHILE args stream (the live face's identity
@@ -164,31 +207,48 @@ Widget bashToolBody(BuildContext context, ToolCardState state) {
   // Copy = the full terminal RECORD, command line included — the header slot ellipsizes a long
   // command to one line (族一 header 律), so the copy action is its only full-text escape hatch
   // (批4 复审:多行命令不可恢复). copy=完整终端记录含命令行——单行省略后 copy 是命令唯一全文出口。
-  final copyPayload = (cmd.isEmpty ? '' : '\$ $cmd\n') + (usingProgress ? progress : result);
+  final copyPayload =
+      (cmd.isEmpty ? '' : '\$ $cmd\n') + (usingProgress ? progress : result);
   // Head-truncation note ONLY when the body IS the resultText and carries the marker (progressText is
   // full — never mark it truncated). 头截断注记仅当体=resultText 且带 marker(progressText 全量不标)。
   final headTruncated = !usingProgress && result.contains(_bashHeadTrunc);
 
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    toolIntent(context, state),
-    AnWindow(
-      // The command echo keeps the terminal's mono voice; the header slot enforces single-line
-      // ellipsis (族一 header 律). 命令回显保 mono 声;单行省略由 header 槽强制。
-      header: cmd.isEmpty ? null : Text('\$ $cmd', style: AnText.code.copyWith(color: c.ink)),
-      actions: [WindowCopyButton(copyPayload: copyPayload)],
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        if (headTruncated)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s4),
-            child: Text(t.chat.tool.bashHeadTruncated, style: AnText.meta.copyWith(color: c.inkFaint)),
-          ),
-        body.isEmpty
-            ? Text(t.chat.tool.bashNoOutput, style: AnText.code.copyWith(color: c.inkFaint))
-            : AnTermViewport(text: body),
-      ]),
-    ),
-    ?_bashBottomBar(context, t, result),
-  ]);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      toolIntent(context, state),
+      AnWindow(
+        // The command echo keeps the terminal's mono voice; the header slot enforces single-line
+        // ellipsis (族一 header 律). 命令回显保 mono 声;单行省略由 header 槽强制。
+        header: cmd.isEmpty
+            ? null
+            : Text('\$ $cmd', style: AnText.code.copyWith(color: c.ink)),
+        actions: [WindowCopyButton(copyPayload: copyPayload)],
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (headTruncated)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AnSpace.s4),
+                child: Text(
+                  t.chat.tool.bashHeadTruncated,
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              ),
+            body.isEmpty
+                ? Text(
+                    t.chat.tool.bashNoOutput,
+                    style: AnText.code.copyWith(color: c.inkFaint),
+                  )
+                : AnTermViewport(text: body),
+          ],
+        ),
+      ),
+      ?_bashBottomBar(context, t, result),
+    ],
+  );
 }
 
 /// The Bash bottom bar — the stripped footer as colored chips: a NOTE chip (blocked/timeout/cancelled)
@@ -205,16 +265,26 @@ Widget? _bashBottomBar(BuildContext context, Translations t, String result) {
   } else if (RegExp(r'\[cancelled\]').hasMatch(result)) {
     chip = AnChip(t.chat.tool.bashCancelled, tone: AnTone.none);
   } else {
-    chip = AnChip(t.chat.tool.exit(code: code), tone: code == 0 ? AnTone.ok : AnTone.danger);
+    chip = AnChip(
+      t.chat.tool.exit(code: code),
+      tone: code == 0 ? AnTone.ok : AnTone.danger,
+    );
   }
-  return Padding(padding: const EdgeInsets.only(top: AnSpace.s6), child: Align(alignment: Alignment.centerLeft, child: chip));
+  return Padding(
+    padding: const EdgeInsets.only(top: AnSpace.s6),
+    child: Align(alignment: Alignment.centerLeft, child: chip),
+  );
 }
 
 final _bashTimeoutBar = RegExp(r'\[command timed out after');
 
 // ── BashOutput (B4.6) ──
-final _statusFooterStrip = RegExp(r'\n*(\[note:[^\]]*\]\n?)?\[status: [^\]]*\]\s*$');
-final _statusFooterRe = RegExp(r'\[status: (running|exited \(code (-?\d+)\)|killed|errored)\]');
+final _statusFooterStrip = RegExp(
+  r'\n*(\[note:[^\]]*\]\n?)?\[status: [^\]]*\]\s*$',
+);
+final _statusFooterRe = RegExp(
+  r'\[status: (running|exited \(code (-?\d+)\)|killed|errored)\]',
+);
 final _dropNoteRe = RegExp(r'\[note: (\d+) bytes dropped');
 
 /// BashOutput settled body — a poll snapshot: bsh_id header (+ filter note) · the NEW output in a
@@ -227,36 +297,63 @@ Widget bashOutputBody(BuildContext context, ToolCardState state) {
   if (result.startsWith('Background shell process not found')) {
     // The dead session: state the wire fact, then a neutral non-committal hint (never a single cause).
     // 会话不存在:陈述线缆事实 + 中性穷举 hint。
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Text(result.trim(), style: AnText.code.copyWith(color: c.danger)),
-      Padding(
-        padding: const EdgeInsets.only(top: AnSpace.s4),
-        child: Text(t.chat.tool.bashSessionGoneHint, style: AnText.meta.copyWith(color: c.inkFaint)),
-      ),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(result.trim(), style: AnText.code.copyWith(color: c.danger)),
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s4),
+          child: Text(
+            t.chat.tool.bashSessionGoneHint,
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+        ),
+      ],
+    );
   }
   final bashId = argString(state.argsText, 'bash_id') ?? '';
   final filter = argString(state.argsText, 'filter');
   final body = result.replaceFirst(_statusFooterStrip, '').trimRight();
-  final noNew = body.trim() == '(no new output since last poll)' || body.isEmpty;
+  final noNew =
+      body.trim() == '(no new output since last poll)' || body.isEmpty;
 
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    Row(children: [
-      if (bashId.isNotEmpty) AnChip(bashId, look: AnChipLook.outlined, mono: true, copyValue: bashId, tooltip: bashId),
-      if (filter != null && filter.isNotEmpty) ...[
-        const SizedBox(width: AnSpace.s6),
-        Text(t.chat.tool.grepFilter(p: filter), style: AnText.meta.copyWith(color: c.inkFaint)),
-      ],
-    ]),
-    const SizedBox(height: AnSpace.s6),
-    AnWindow(
-      actions: [WindowCopyButton(copyPayload: result)],
-      child: noNew
-          ? Text(t.chat.tool.bashNoNew, style: AnText.code.copyWith(color: c.inkFaint))
-          : AnTermViewport(text: body),
-    ),
-    ?_bashStatusBar(context, t, result),
-  ]);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Row(
+        children: [
+          if (bashId.isNotEmpty)
+            AnChip(
+              bashId,
+              look: AnChipLook.outlined,
+              mono: true,
+              copyValue: bashId,
+              tooltip: bashId,
+            ),
+          if (filter != null && filter.isNotEmpty) ...[
+            const SizedBox(width: AnSpace.s6),
+            Text(
+              t.chat.tool.grepFilter(p: filter),
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+          ],
+        ],
+      ),
+      const SizedBox(height: AnSpace.s6),
+      AnWindow(
+        actions: [WindowCopyButton(copyPayload: result)],
+        child: noNew
+            ? Text(
+                t.chat.tool.bashNoNew,
+                style: AnText.code.copyWith(color: c.inkFaint),
+              )
+            : AnTermViewport(text: body),
+      ),
+      ?_bashStatusBar(context, t, result),
+    ],
+  );
 }
 
 /// The BashOutput status bottom bar — a STATIC status chip (running = accent, no breath) + a
@@ -273,18 +370,24 @@ Widget? _bashStatusBar(BuildContext context, Translations t, String result) {
   } else if (s == 'errored') {
     chip = AnChip(t.chat.tool.statusErrored, tone: AnTone.danger);
   } else {
-    chip = AnChip(t.chat.tool.statusExited(code: int.parse(m.group(2)!)), tone: AnTone.danger);
+    chip = AnChip(
+      t.chat.tool.statusExited(code: int.parse(m.group(2)!)),
+      tone: AnTone.danger,
+    );
   }
   final drop = _dropNoteRe.firstMatch(result);
   return Padding(
     padding: const EdgeInsets.only(top: AnSpace.s6),
-    child: Row(mainAxisSize: MainAxisSize.min, children: [
-      chip,
-      if (drop != null) ...[
-        const SizedBox(width: AnSpace.s6),
-        AnChip(t.chat.tool.bashDropped(n: drop.group(1)!), tone: AnTone.warn),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        chip,
+        if (drop != null) ...[
+          const SizedBox(width: AnSpace.s6),
+          AnChip(t.chat.tool.bashDropped(n: drop.group(1)!), tone: AnTone.warn),
+        ],
       ],
-    ]),
+    ),
   );
 }
 
@@ -292,13 +395,27 @@ Widget? _bashStatusBar(BuildContext context, Translations t, String result) {
 Widget killShellBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final bashId = argString(state.argsText, 'bash_id') ?? '';
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (bashId.isNotEmpty) AnChip(bashId, look: AnChipLook.outlined, mono: true, copyValue: bashId, tooltip: bashId),
-    Padding(
-      padding: const EdgeInsets.only(top: AnSpace.s6),
-      child: Text(state.resultText.trim(), style: AnText.code.copyWith(color: c.inkMuted)),
-    ),
-  ]);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (bashId.isNotEmpty)
+        AnChip(
+          bashId,
+          look: AnChipLook.outlined,
+          mono: true,
+          copyValue: bashId,
+          tooltip: bashId,
+        ),
+      Padding(
+        padding: const EdgeInsets.only(top: AnSpace.s6),
+        child: Text(
+          state.resultText.trim(),
+          style: AnText.code.copyWith(color: c.inkMuted),
+        ),
+      ),
+    ],
+  );
 }
 
 /// F1 Write — TWO faces, ONE shell (WRK-066 族二): LIVE = the file content streams through the
@@ -314,30 +431,60 @@ Widget writeToolBody(BuildContext context, ToolCardState state) {
   if (toolLive(state)) {
     final content = state.argsSession.liveStringNamed('content') ?? '';
     if (path.isEmpty && content.isEmpty) return const SizedBox.shrink();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      if (path.isNotEmpty)
-        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
-      if (content.isNotEmpty)
-        AnCodeEditor(code: content, lang: langOf(path), reading: true, live: true, maxHeight: AnSize.codeViewport),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (path.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AnSpace.s4),
+            child: AnPathChip(path: path),
+          ),
+        if (content.isNotEmpty)
+          AnCodeEditor(
+            code: content,
+            lang: langOf(path),
+            reading: true,
+            live: true,
+            maxHeight: AnSize.codeViewport,
+          ),
+      ],
+    );
   }
   final content = state.argsSession.closedStringAt(['content']) ?? '';
   if (content.isEmpty) return const SizedBox.shrink();
   final over = content.length > AnCap.window;
   final shown = over ? content.substring(0, AnCap.window) : content;
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (path.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
-    // 拍板 #2 zero jump: both faces share the SAME viewport tier — the settle only un-pins; the old
-    // AnFadeCollapse is retired here (an expanding fold is a height jump by definition). copyPayload
-    // keeps copy = full content while display is capped. 零跳变:两脸同档,落定仅解除钉底;折叠退役
-    // (展开即高度跳变);copy 保全量。
-    AnCodeEditor(code: shown, copyPayload: content, lang: langOf(path), reading: true, maxHeight: AnSize.codeViewport),
-    if (over)
-      Padding(
-        padding: const EdgeInsets.only(top: AnSpace.s4),
-        child: Text(t.chat.tool.contentTruncated, style: AnText.meta.copyWith(color: c.inkFaint)),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (path.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AnSpace.s4),
+          child: AnPathChip(path: path),
+        ),
+      // 拍板 #2 zero jump: both faces share the SAME viewport tier — the settle only un-pins; the old
+      // AnFadeCollapse is retired here (an expanding fold is a height jump by definition). copyPayload
+      // keeps copy = full content while display is capped. 零跳变:两脸同档,落定仅解除钉底;折叠退役
+      // (展开即高度跳变);copy 保全量。
+      AnCodeEditor(
+        code: shown,
+        copyPayload: content,
+        lang: langOf(path),
+        reading: true,
+        maxHeight: AnSize.codeViewport,
       ),
-  ]);
+      if (over)
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s4),
+          child: Text(
+            t.chat.tool.contentTruncated,
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+        ),
+    ],
+  );
 }
 
 /// F1 Edit — TWO faces, ONE diff shell (WRK-066 族二): LIVE = the two-act surgery through
@@ -352,29 +499,58 @@ Widget editToolBody(BuildContext context, ToolCardState state) {
   if (toolLive(state)) {
     final oldS = state.argsSession.liveStringNamed('old_string') ?? '';
     final newS = state.argsSession.liveStringNamed('new_string') ?? '';
-    if (path.isEmpty && oldS.isEmpty && newS.isEmpty) return const SizedBox.shrink();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      if (path.isNotEmpty)
-        Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
-      // Empty-stream guard is built into the diff (rows.isEmpty → shrink, 复审 #29). 空流守卫内建。
-      AnVersionDiff(before: oldS, after: newS, lang: langOf(path), live: true, maxHeight: AnSize.codeViewport),
-    ]);
+    if (path.isEmpty && oldS.isEmpty && newS.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (path.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AnSpace.s4),
+            child: AnPathChip(path: path),
+          ),
+        // Empty-stream guard is built into the diff (rows.isEmpty → shrink, 复审 #29). 空流守卫内建。
+        AnVersionDiff(
+          before: oldS,
+          after: newS,
+          lang: langOf(path),
+          live: true,
+          maxHeight: AnSize.codeViewport,
+        ),
+      ],
+    );
   }
   final oldS = state.argsSession.closedStringAt(['old_string']);
   final newS = state.argsSession.closedStringAt(['new_string']);
   if (oldS == null && newS == null) return const SizedBox.shrink();
-  final replaceAll = RegExp(r'"replace_all"\s*:\s*true').hasMatch(state.argsText);
-  final replacedN = RegExp(r'Replaced (\d+) occurrence').firstMatch(state.resultText)?.group(1);
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    if (path.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: AnPathChip(path: path)),
-    AnVersionDiff(
-      before: oldS ?? '',
-      after: newS ?? '',
-      lang: langOf(path),
-      maxHeight: AnSize.codeViewport,
-      note: (replaceAll && replacedN != null) ? t.chat.tool.replaceAllNote(n: replacedN) : null,
-    ),
-  ]);
+  final replaceAll = RegExp(
+    r'"replace_all"\s*:\s*true',
+  ).hasMatch(state.argsText);
+  final replacedN = RegExp(
+    r'Replaced (\d+) occurrence',
+  ).firstMatch(state.resultText)?.group(1);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      if (path.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AnSpace.s4),
+          child: AnPathChip(path: path),
+        ),
+      AnVersionDiff(
+        before: oldS ?? '',
+        after: newS ?? '',
+        lang: langOf(path),
+        maxHeight: AnSize.codeViewport,
+        note: (replaceAll && replacedN != null)
+            ? t.chat.tool.replaceAllNote(n: replacedN)
+            : null,
+      ),
+    ],
+  );
 }
 
 /// F2 Glob/Grep/LS — the hit-list window: raw result lines in mono (the backend's formats are
@@ -450,8 +626,10 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       // Judgment章 (green approve / red reject) + the reason (the司法 record, full text). 判词章+理由。
-      AnChip(isYes ? t.chat.tool.approveVerdict : t.chat.tool.rejectVerdict,
-          tone: isYes ? AnTone.ok : AnTone.danger),
+      AnChip(
+        isYes ? t.chat.tool.approveVerdict : t.chat.tool.rejectVerdict,
+        tone: isYes ? AnTone.ok : AnTone.danger,
+      ),
       if (reason != null && reason.isNotEmpty) ...[
         const SizedBox(height: AnGap.stack),
         Text(reason, style: AnText.body.copyWith(color: c.ink)),
@@ -464,16 +642,22 @@ Widget decideApprovalBody(BuildContext context, ToolCardState state) {
           runSpacing: AnGap.stackTight,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            if (flowStatus != null) AnChip(flowStatus, tone: AnStatus.fromRaw(flowStatus).tone),
+            if (flowStatus != null)
+              AnChip(flowStatus, tone: AnStatus.fromRaw(flowStatus).tone),
             for (final e in counts.entries)
-              Text('${e.key} ${e.value}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+              Text(
+                '${e.key} ${e.value}',
+                style: AnText.metaTabular().copyWith(color: c.inkFaint),
+              ),
           ],
         ),
         if (shown != null && total != null && shown < total)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s4),
-            child: Text(t.chat.tool.nodesShown(shown: '$shown', total: '$total'),
-                style: AnText.meta.copyWith(color: c.inkFaint)),
+            child: Text(
+              t.chat.tool.nodesShown(shown: '$shown', total: '$total'),
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
           ),
       ],
     ],
@@ -491,7 +675,10 @@ Widget listApprovalInboxBody(BuildContext context, ToolCardState state) {
   final parked = (out?['parked'] as List?) ?? const [];
   final count = (out?['count'] as num?)?.toInt() ?? parked.length;
   if (count == 0) {
-    return Text(t.chat.tool.inboxEmptyState, style: AnText.body.copyWith(color: c.inkFaint));
+    return Text(
+      t.chat.tool.inboxEmptyState,
+      style: AnText.body.copyWith(color: c.inkFaint),
+    );
   }
   const cap = 20;
   final rows = <Map<String, String>>[];
@@ -526,8 +713,10 @@ Widget listApprovalInboxBody(BuildContext context, ToolCardState state) {
       if (count > cap)
         Padding(
           padding: const EdgeInsets.only(top: AnSpace.s4),
-          child: Text(t.chat.tool.inboxMore(n: '${count - cap}'),
-              style: AnText.meta.copyWith(color: c.inkFaint)),
+          child: Text(
+            t.chat.tool.inboxMore(n: '${count - cap}'),
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
         ),
     ],
   );
@@ -556,7 +745,9 @@ String? buildContentOf(String toolName, PartialJsonSession args) {
     const keys = {'body', 'initBody', 'shutdownBody'};
     final inFlight = args.inFlightString;
     final last = inFlight?.path.lastOrNull;
-    if (inFlight != null && last is String && keys.contains(last)) return inFlight.text;
+    if (inFlight != null && last is String && keys.contains(last)) {
+      return inFlight.text;
+    }
     return args.liveStringNamed('body') ??
         args.liveStringNamed('initBody') ??
         args.liveStringNamed('shutdownBody');
@@ -579,7 +770,12 @@ Widget buildToolBody(BuildContext context, ToolCardState state) {
   final lang = langOfEntityKind(buildEntityKind(state.toolName));
   if (toolLive(state)) {
     if (content == null || content.isEmpty) return const SizedBox.shrink();
-    return AnCodeEditor(code: content, lang: lang, live: true, maxHeight: AnSize.codeViewport);
+    return AnCodeEditor(
+      code: content,
+      lang: lang,
+      live: true,
+      maxHeight: AnSize.codeViewport,
+    );
   }
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
@@ -607,7 +803,10 @@ Widget envFixTimeline(BuildContext context, List<dynamic> attempts) {
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(t.chat.tool.envFixTitle, style: AnText.label.copyWith(color: c.inkFaint)),
+        Text(
+          t.chat.tool.envFixTitle,
+          style: AnText.label.copyWith(color: c.inkFaint),
+        ),
         const SizedBox(height: AnSpace.s4),
         for (final raw in attempts)
           if (raw is Map) _envFixRow(context, raw),
@@ -630,8 +829,11 @@ Widget _envFixRow(BuildContext context, Map<dynamic, dynamic> a) {
     child: Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(ok ? AnIcons.check : AnIcons.close,
-            size: AnSize.iconSm, color: ok ? c.ok : c.danger),
+        Icon(
+          ok ? AnIcons.check : AnIcons.close,
+          size: AnSize.iconSm,
+          color: ok ? c.ok : c.danger,
+        ),
         const SizedBox(width: AnGap.inline),
         Expanded(
           child: Column(
@@ -639,15 +841,19 @@ Widget _envFixRow(BuildContext context, Map<dynamic, dynamic> a) {
             children: [
               Row(
                 children: [
-                  Text(t.chat.tool.envFixAttempt(n: '${a['attempt']}'),
-                      style: AnText.label.copyWith(color: c.inkMuted)),
+                  Text(
+                    t.chat.tool.envFixAttempt(n: '${a['attempt']}'),
+                    style: AnText.label.copyWith(color: c.inkMuted),
+                  ),
                   if (deps.isNotEmpty) ...[
                     const SizedBox(width: AnGap.inline),
                     Flexible(
-                      child: Text(deps,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: AnText.codeInline.copyWith(color: c.inkFaint)),
+                      child: Text(
+                        deps,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AnText.codeInline.copyWith(color: c.inkFaint),
+                      ),
                     ),
                   ],
                 ],
@@ -655,10 +861,12 @@ Widget _envFixRow(BuildContext context, Map<dynamic, dynamic> a) {
               if (!ok && error.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: AnSpace.s2),
-                  child: Text(error,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.code.copyWith(color: c.danger)),
+                  child: Text(
+                    error,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.code.copyWith(color: c.danger),
+                  ),
                 ),
             ],
           ),
@@ -672,7 +880,17 @@ Widget _envFixRow(BuildContext context, Map<dynamic, dynamic> a) {
 /// the result-bar adapter [runStatBarOf] for the provenance RefPill + the dual-key id fallback. null = not an entity-CRUD build.
 /// 构建工具作用的实体 kind 线缆值(RefPill + 双键 id 用);null=非 entity-CRUD。
 String? buildEntityKind(String toolName) {
-  const kinds = ['function', 'handler', 'agent', 'workflow', 'control', 'approval', 'document', 'skill', 'trigger'];
+  const kinds = [
+    'function',
+    'handler',
+    'agent',
+    'workflow',
+    'control',
+    'approval',
+    'document',
+    'skill',
+    'trigger',
+  ];
   for (final k in kinds) {
     if (toolName.endsWith('_$k')) return k;
   }
@@ -689,14 +907,20 @@ String? buildEntityKind(String toolName) {
 /// 结果条适配器(批3 四并一):回执 → AnStatBar 槽位投影——凭据 pill 进 leading(条的主语;深链降级
 /// 复制 id)、vN/env/runtime/重启进 stats(色只经 AnTone 出口,文法 #6)、三注记进 notes;env 自愈
 /// 时间线是 F4 域家具,挂条下同胞、不进当家件。
-Widget runStatBarOf(BuildContext context, ToolCardState state, {List<AnStat> extraStats = const []}) {
+Widget runStatBarOf(
+  BuildContext context,
+  ToolCardState state, {
+  List<AnStat> extraStats = const [],
+}) {
   final t = Translations.of(context);
   final c = context.colors;
   final out = state.resultObj; // C-028: memoized decode (per-instance) 记忆化解码
   // Domain-fed stats must survive an unparsable result (the fn stage's diff counts render even
   // when the receipt JSON is absent — the old sibling badge did). 域外挂 stat 不随回执缺席而消失。
   if (out == null) {
-    return extraStats.isEmpty ? const SizedBox.shrink() : AnStatBar(stats: extraStats);
+    return extraStats.isEmpty
+        ? const SizedBox.shrink()
+        : AnStatBar(stats: extraStats);
   }
 
   final kind = buildEntityKind(state.toolName);
@@ -704,7 +928,9 @@ Widget runStatBarOf(BuildContext context, ToolCardState state, {List<AnStat> ext
   final id = (out['id'] ?? (kind == null ? null : out['${kind}Id'])) as String?;
   // Label: only CREATE's args.name is the entity name; on EDIT the first "name" in args is a nested
   // op field — use the id there. label:仅 create 的 args.name 是实体名;edit 用 id。
-  final label = state.toolName.startsWith('create_') ? (state.arg('name') ?? id) : id;
+  final label = state.toolName.startsWith('create_')
+      ? (state.arg('name') ?? id)
+      : id;
   final envStatus = out['envStatus'] as String?;
   // handler-edit only: crashed = the honest brick; stopped is BENIGN (never-spawned — census
   // correction, don't over-alarm); running = healthy RESIDENT state (ok green, deliberately NOT
@@ -719,48 +945,68 @@ Widget runStatBarOf(BuildContext context, ToolCardState state, {List<AnStat> ext
     if (out['version'] != null) AnStat('v${out['version']}', tabular: true),
     if (envStatus != null)
       AnStat(
-          switch (envStatus) {
-            'ready' => t.chat.tool.envReady,
-            'failed' => t.chat.tool.envFailed,
-            _ => t.chat.tool.envBuilding,
-          },
-          tone: switch (envStatus) { 'ready' => AnTone.ok, 'failed' => AnTone.danger, _ => AnTone.warn }),
+        switch (envStatus) {
+          'ready' => t.chat.tool.envReady,
+          'failed' => t.chat.tool.envFailed,
+          _ => t.chat.tool.envBuilding,
+        },
+        tone: switch (envStatus) {
+          'ready' => AnTone.ok,
+          'failed' => AnTone.danger,
+          _ => AnTone.warn,
+        },
+      ),
     if (runtimeState != null)
       AnStat(
-          switch (runtimeState) {
-            'running' => t.chat.tool.runtimeRunning,
-            'crashed' => t.chat.tool.runtimeCrashed,
-            _ => t.chat.tool.runtimeStopped,
-          },
-          tone: switch (runtimeState) { 'running' => AnTone.ok, 'crashed' => AnTone.danger, _ => AnTone.none }),
+        switch (runtimeState) {
+          'running' => t.chat.tool.runtimeRunning,
+          'crashed' => t.chat.tool.runtimeCrashed,
+          _ => t.chat.tool.runtimeStopped,
+        },
+        tone: switch (runtimeState) {
+          'running' => AnTone.ok,
+          'crashed' => AnTone.danger,
+          _ => AnTone.none,
+        },
+      ),
     if (out['restarted'] == true) AnStat(t.chat.tool.restarted),
   ];
   final leading = <Widget>[
     if (id != null && kind != null)
       AnRefPill(
-          kind: kind,
-          label: label ?? id,
-          id: id,
-          // Degrade: copy the id until the panel-nav registry lands (B3). 深链降级:复制 id。
-          onTap: (tgt) => Clipboard.setData(ClipboardData(text: tgt.id)))
+        kind: kind,
+        label: label ?? id,
+        id: id,
+        // Degrade: copy the id until the panel-nav registry lands (B3). 深链降级:复制 id。
+        onTap: (tgt) => Clipboard.setData(ClipboardData(text: tgt.id)),
+      )
     else if (id != null)
       Text(id, style: AnText.codeInline.copyWith(color: c.inkMuted)),
   ];
   if (leading.isEmpty && stats.isEmpty) return const SizedBox.shrink();
 
-  final bar = AnStatBar(leading: leading, stats: stats, notes: [
-    if (out['envError'] case final String e when e.isNotEmpty) AnStatNote(e), // danger = mono voice
-    // restartNote (empty-ops rebuild wiped in-memory state) = an amber heads-up, not an error.
-    // restartNote(空 ops 重建抹内存态)= 琥珀提醒、非错。
-    if (out['restartNote'] case final String n when n.isNotEmpty) AnStatNote(n, tone: AnTone.warn),
-    // runtimeWarning ONLY for a real crash (stopped false-alarms on a never-spawned handler).
-    // runtimeWarning 仅 crashed 显。
-    if (runtimeState == 'crashed' && runtimeWarning != null && runtimeWarning.isNotEmpty)
-      AnStatNote(runtimeWarning),
-  ]);
+  final bar = AnStatBar(
+    leading: leading,
+    stats: stats,
+    notes: [
+      if (out['envError'] case final String e when e.isNotEmpty)
+        AnStatNote(e), // danger = mono voice
+      // restartNote (empty-ops rebuild wiped in-memory state) = an amber heads-up, not an error.
+      // restartNote(空 ops 重建抹内存态)= 琥珀提醒、非错。
+      if (out['restartNote'] case final String n when n.isNotEmpty)
+        AnStatNote(n, tone: AnTone.warn),
+      // runtimeWarning ONLY for a real crash (stopped false-alarms on a never-spawned handler).
+      // runtimeWarning 仅 crashed 显。
+      if (runtimeState == 'crashed' &&
+          runtimeWarning != null &&
+          runtimeWarning.isNotEmpty)
+        AnStatNote(runtimeWarning),
+    ],
+  );
   if (envFixAttempts == null || envFixAttempts.length <= 1) return bar;
   return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [bar, envFixTimeline(context, envFixAttempts)]);
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [bar, envFixTimeline(context, envFixAttempts)],
+  );
 }

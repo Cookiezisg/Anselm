@@ -16,15 +16,19 @@ class AnScrollBehavior extends ScrollBehavior {
 
   // No scrollbar — the design hides it; scroll by wheel / trackpad / drag. 隐滚动条。
   @override
-  Widget buildScrollbar(BuildContext context, Widget child, ScrollableDetails details) => child;
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) => child;
 
   // Allow drag-to-scroll from mouse + trackpad (the base desktop set omits mouse). 开鼠标/触控板拖滚。
   @override
   Set<PointerDeviceKind> get dragDevices => {
-        PointerDeviceKind.touch,
-        PointerDeviceKind.mouse,
-        PointerDeviceKind.trackpad,
-        PointerDeviceKind.stylus,
-        PointerDeviceKind.invertedStylus,
-      };
+    PointerDeviceKind.touch,
+    PointerDeviceKind.mouse,
+    PointerDeviceKind.trackpad,
+    PointerDeviceKind.stylus,
+    PointerDeviceKind.invertedStylus,
+  };
 }

@@ -18,7 +18,8 @@ abstract class SandboxRuntime with _$SandboxRuntime {
     DateTime? installedAt,
   }) = _SandboxRuntime;
 
-  factory SandboxRuntime.fromJson(Map<String, dynamic> json) => _$SandboxRuntimeFromJson(json);
+  factory SandboxRuntime.fromJson(Map<String, dynamic> json) =>
+      _$SandboxRuntimeFromJson(json);
 }
 
 @freezed
@@ -50,12 +51,14 @@ abstract class SandboxEnv with _$SandboxEnv {
     int? runningPid,
   }) = _SandboxEnv;
 
-  factory SandboxEnv.fromJson(Map<String, dynamic> json) => _$SandboxEnvFromJson(json);
+  factory SandboxEnv.fromJson(Map<String, dynamic> json) =>
+      _$SandboxEnvFromJson(json);
 }
 
 @freezed
 abstract class SandboxBootstrap with _$SandboxBootstrap {
-  const factory SandboxBootstrap({@Default(false) bool ok, String? error}) = _SandboxBootstrap;
+  const factory SandboxBootstrap({@Default(false) bool ok, String? error}) =
+      _SandboxBootstrap;
 
   factory SandboxBootstrap.fromJson(Map<String, dynamic> json) =>
       _$SandboxBootstrapFromJson(json);

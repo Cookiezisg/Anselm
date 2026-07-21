@@ -20,7 +20,8 @@ abstract class RunCockpitState with _$RunCockpitState {
     @Default(false) bool hasMore,
     @Default(false) bool loadingMore,
     String? selectedRunId,
-    FlowrunComposite? selected, // the full composite of [selectedRunId] 选中 run 的完整 composite
+    FlowrunComposite?
+    selected, // the full composite of [selectedRunId] 选中 run 的完整 composite
     @Default(false) bool loadingRun,
     String? selectedNodeId,
     @Default(false) bool busy, // replay / kill / decide in flight 动作在途

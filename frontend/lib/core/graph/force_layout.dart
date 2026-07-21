@@ -149,14 +149,14 @@ class ForceLayout {
     required List<ForceNode> nodes,
     required List<ForceEdge> edges,
     this.params = const ForceParams(),
-  })  : _nodes = nodes,
-        // Sort edges by (from,to) so force summation is INPUT-ORDER-INDEPENDENT (float addition isn't
-        // associative). 边排序,使力求和与输入顺序无关(浮点加法不结合)。
-        _edges = List.of(edges)
-          ..sort((x, y) {
-            final c = x.from.compareTo(y.from);
-            return c != 0 ? c : x.to.compareTo(y.to);
-          }) {
+  }) : _nodes = nodes,
+       // Sort edges by (from,to) so force summation is INPUT-ORDER-INDEPENDENT (float addition isn't
+       // associative). 边排序,使力求和与输入顺序无关(浮点加法不结合)。
+       _edges = List.of(edges)
+         ..sort((x, y) {
+           final c = x.from.compareTo(y.from);
+           return c != 0 ? c : x.to.compareTo(y.to);
+         }) {
     _radius = {for (final n in _nodes) n.id: n.radius};
     _deg = _undirectedDegrees(_edges, _radius.keys);
     _computeStaticLayout();
@@ -170,7 +170,8 @@ class ForceLayout {
   final Map<String, Offset> _vel = {};
   late final Map<String, double> _radius;
   late final Map<String, int> _deg;
-  final Set<String> _frozen = {}; // zero-degree isolates — placed once, never touched by the field 孤点冻结
+  final Set<String> _frozen =
+      {}; // zero-degree isolates — placed once, never touched by the field 孤点冻结
   double _alpha = 1.0;
 
   /// Live positions (id → centered scene-ish coords). 活位置。
@@ -189,7 +190,8 @@ class ForceLayout {
     _vel.clear();
     _frozen.clear();
     if (_radius.isEmpty) {
-      _alpha = params.alphaMin * 0.5; // an empty graph is trivially settled 空图即静止
+      _alpha =
+          params.alphaMin * 0.5; // an empty graph is trivially settled 空图即静止
       return;
     }
 
@@ -218,7 +220,9 @@ class ForceLayout {
       final local = _relaxCluster(cluster);
       final rect = _boundsOf(cluster, local);
       for (final id in cluster) {
-        localById[id] = local[id]! - rect.topLeft; // shift so cluster's top-left is (0,0) 归零左上
+        localById[id] =
+            local[id]! -
+            rect.topLeft; // shift so cluster's top-left is (0,0) 归零左上
       }
       clusterBox.add(boxes.length);
       boxes.add(rect.size);
@@ -248,7 +252,9 @@ class ForceLayout {
     }
 
     _placeIsolateBand(isolates);
-    _alpha = params.alphaMin * 0.5; // computed layout IS the terminal frame → settled 算完即静止
+    _alpha =
+        params.alphaMin *
+        0.5; // computed layout IS the terminal frame → settled 算完即静止
   }
 
   // A single connected cluster: phyllotaxis seed + a fixed number of force iterations, centered locally.
@@ -325,7 +331,9 @@ class ForceLayout {
         var delta = pos[ib]! - pos[ia]!;
         var dist = delta.distance;
         if (dist < params.minDist) {
-          final ang = (a + 1) * 2.399963229728653; // deterministic nudge on exact overlap (never RNG) 重叠确定性微推
+          final ang =
+              (a + 1) *
+              2.399963229728653; // deterministic nudge on exact overlap (never RNG) 重叠确定性微推
           delta = Offset(math.cos(ang), math.sin(ang)) * params.minDist;
           dist = params.minDist;
         }
@@ -343,8 +351,11 @@ class ForceLayout {
       final pa = pos[e.from], pb = pos[e.to];
       if (pa == null || pb == null) continue;
       final da = _deg[e.from] ?? 1, db = _deg[e.to] ?? 1;
-      final rest = params.idealLength * (1 + params.hubStretch * (math.sqrt(math.max(da, db)) - 1));
-      final soft = params.springStrength / math.sqrt(math.max(1, math.min(da, db)));
+      final rest =
+          params.idealLength *
+          (1 + params.hubStretch * (math.sqrt(math.max(da, db)) - 1));
+      final soft =
+          params.springStrength / math.sqrt(math.max(1, math.min(da, db)));
       var delta = pb - pa;
       var dist = delta.distance;
       if (dist < params.minDist) dist = params.minDist;
@@ -409,7 +420,10 @@ class ForceLayout {
   bool tick() {
     if (settled) return false;
     _alpha *= (1 - params.alphaDecay);
-    final ids = [for (final id in _pos.keys) if (!_frozen.contains(id)) id]..sort();
+    final ids = [
+      for (final id in _pos.keys)
+        if (!_frozen.contains(id)) id,
+    ]..sort();
     _stepForces(_pos, _vel, ids, _edges, _alpha, _frozen);
     return true;
   }
@@ -451,7 +465,10 @@ class ForceLayout {
   }
 
   static Rect _boundsOf(List<String> ids, Map<String, Offset> pos) {
-    var minX = double.infinity, minY = double.infinity, maxX = -double.infinity, maxY = -double.infinity;
+    var minX = double.infinity,
+        minY = double.infinity,
+        maxX = -double.infinity,
+        maxY = -double.infinity;
     for (final id in ids) {
       final p = pos[id]!;
       minX = math.min(minX, p.dx);
@@ -463,7 +480,10 @@ class ForceLayout {
     return Rect.fromLTRB(minX, minY, maxX, maxY);
   }
 
-  static Map<String, int> _undirectedDegrees(Iterable<ForceEdge> edges, Iterable<String> ids) {
+  static Map<String, int> _undirectedDegrees(
+    Iterable<ForceEdge> edges,
+    Iterable<String> ids,
+  ) {
     final d = {for (final id in ids) id: 0};
     for (final e in edges) {
       if (e.from == e.to) continue;
@@ -478,7 +498,10 @@ class ForceLayout {
 /// component's ids sorted, and the components sorted by their smallest id. Every id in [nodeIds] appears in
 /// exactly one component (a node with no edge is its own singleton = a zero-degree isolate). Pure +
 /// headless-testable. 连通分量(并查集),确定性序:分量内 id 排序、分量按最小 id 排序;无边节点=单元素分量(孤点)。
-List<List<String>> connectedComponents(Iterable<String> nodeIds, Iterable<ForceEdge> edges) {
+List<List<String>> connectedComponents(
+  Iterable<String> nodeIds,
+  Iterable<ForceEdge> edges,
+) {
   final parent = <String, String>{};
   String find(String x) {
     var r = x;
@@ -517,7 +540,11 @@ List<List<String>> connectedComponents(Iterable<String> nodeIds, Iterable<ForceE
 /// with [gap] between neighbours. Returns each box's top-left origin (parallel to [boxes]); by construction
 /// no two placed boxes overlap. The caller pre-orders boxes (e.g. larger first). Pure + testable. 面积打包:
 /// 货架式左→右排、超目标宽换行,间隙 gap;返回各盒左上角(与入参平行),构造上互不相交。
-List<Offset> packBoxes(List<Size> boxes, {double gap = 72, double? maxRowWidth}) {
+List<Offset> packBoxes(
+  List<Size> boxes, {
+  double gap = 72,
+  double? maxRowWidth,
+}) {
   if (boxes.isEmpty) return const [];
   var area = 0.0, widest = 0.0;
   for (final b in boxes) {

@@ -41,10 +41,12 @@ class SseGateway {
     required String baseUrl,
     required String? Function() workspaceId,
     required String? Function() authToken,
-    @visibleForTesting SseConnection Function(StreamName name)? connectionFactory,
+    @visibleForTesting
+    SseConnection Function(StreamName name)? connectionFactory,
   }) {
     for (final name in StreamName.values) {
-      final conn = connectionFactory?.call(name) ??
+      final conn =
+          connectionFactory?.call(name) ??
           SseConnection(
             streamPath: name.path,
             baseUrl: baseUrl,

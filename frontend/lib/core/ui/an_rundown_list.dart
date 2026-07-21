@@ -12,7 +12,12 @@ import 'icons.dart';
 /// a quiet glow, never confetti. 场记进度环:completed/total 补弧(reduced 跳变);全满 ok 色安静收束,
 /// 绝不彩带。
 class AnTaskRing extends StatelessWidget {
-  const AnTaskRing({required this.completed, required this.total, this.size = 16, super.key});
+  const AnTaskRing({
+    required this.completed,
+    required this.total,
+    this.size = 16,
+    super.key,
+  });
 
   final int completed;
   final int total;
@@ -41,7 +46,11 @@ class AnTaskRing extends StatelessWidget {
 }
 
 class _RingPainter extends CustomPainter {
-  const _RingPainter({required this.fraction, required this.tone, required this.rail});
+  const _RingPainter({
+    required this.fraction,
+    required this.tone,
+    required this.rail,
+  });
 
   final double fraction;
   final Color tone;
@@ -72,7 +81,8 @@ class _RingPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_RingPainter old) => old.fraction != fraction || old.tone != tone;
+  bool shouldRepaint(_RingPainter old) =>
+      old.fraction != fraction || old.tone != tone;
 }
 
 /// The RUNDOWN LIST (WRK-061 §6-②) — the read-only task board under the stage: pending = an empty
@@ -88,41 +98,51 @@ class AnRundownList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      for (final todo in todos)
-        Padding(
-          padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            SizedBox(
-              width: AnSize.iconSm,
-              height: AnSize.icon,
-              child: Center(child: _lead(c, todo.status)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final todo in todos)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SizedBox(
+                  width: AnSize.iconSm,
+                  height: AnSize.icon,
+                  child: Center(child: _lead(c, todo.status)),
+                ),
+                const SizedBox(width: AnSpace.s6),
+                Expanded(
+                  child: Text(
+                    todo.status == 'in_progress' && todo.activeForm.isNotEmpty
+                        ? todo.activeForm
+                        : todo.content,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: switch (todo.status) {
+                      'completed' => AnText.label.copyWith(
+                        color: c.inkFaint,
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: c.inkFaint,
+                      ),
+                      'in_progress' => AnText.label.copyWith(color: c.ink),
+                      _ => AnText.label.copyWith(color: c.inkMuted),
+                    },
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: AnSpace.s6),
-            Expanded(
-              child: Text(
-                todo.status == 'in_progress' && todo.activeForm.isNotEmpty
-                    ? todo.activeForm
-                    : todo.content,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: switch (todo.status) {
-                  'completed' => AnText.label.copyWith(
-                      color: c.inkFaint, decoration: TextDecoration.lineThrough, decorationColor: c.inkFaint),
-                  'in_progress' => AnText.label.copyWith(color: c.ink),
-                  _ => AnText.label.copyWith(color: c.inkMuted),
-                },
-              ),
-            ),
-          ]),
-        ),
-    ]);
+          ),
+      ],
+    );
   }
 
   Widget _lead(AnColors c, String status) => switch (status) {
-        'completed' => Icon(AnIcons.check, size: AnSize.iconXs, color: c.inkFaint),
-        'in_progress' => AnStatusDot.raw(c.accent),
-        // hollow + null colour = the faint ring (pending marker). 空心无色即 faint 环(待办记号)。
-        _ => const AnStatusDot.raw(null, hollow: true),
-      };
+    'completed' => Icon(AnIcons.check, size: AnSize.iconXs, color: c.inkFaint),
+    'in_progress' => AnStatusDot.raw(c.accent),
+    // hollow + null colour = the faint ring (pending marker). 空心无色即 faint 环(待办记号)。
+    _ => const AnStatusDot.raw(null, hollow: true),
+  };
 }

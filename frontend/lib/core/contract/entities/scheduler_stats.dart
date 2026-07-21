@@ -36,7 +36,8 @@ abstract class SchedulerTotals with _$SchedulerTotals {
     @Default(0) int parkedNodes,
     @Default(0) int missed,
   }) = _SchedulerTotals;
-  factory SchedulerTotals.fromJson(Map<String, dynamic> json) => _$SchedulerTotalsFromJson(json);
+  factory SchedulerTotals.fromJson(Map<String, dynamic> json) =>
+      _$SchedulerTotalsFromJson(json);
 }
 
 /// One workflow's operational health. [recent] carries raw status words (`completed`/`failed`/
@@ -58,7 +59,8 @@ abstract class WorkflowRunStats with _$WorkflowRunStats {
     @Default(0) int consecutiveFailures,
     @Default(0) int parkedNodes,
   }) = _WorkflowRunStats;
-  factory WorkflowRunStats.fromJson(Map<String, dynamic> json) => _$WorkflowRunStatsFromJson(json);
+  factory WorkflowRunStats.fromJson(Map<String, dynamic> json) =>
+      _$WorkflowRunStatsFromJson(json);
 }
 
 /// The whole stats envelope. byWorkflow 只含请求的 ids。
@@ -68,5 +70,6 @@ abstract class SchedulerStats with _$SchedulerStats {
     @Default(SchedulerTotals()) SchedulerTotals totals,
     @Default(<WorkflowRunStats>[]) List<WorkflowRunStats> byWorkflow,
   }) = _SchedulerStats;
-  factory SchedulerStats.fromJson(Map<String, dynamic> json) => _$SchedulerStatsFromJson(json);
+  factory SchedulerStats.fromJson(Map<String, dynamic> json) =>
+      _$SchedulerStatsFromJson(json);
 }

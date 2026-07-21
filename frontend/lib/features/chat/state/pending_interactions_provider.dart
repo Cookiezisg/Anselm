@@ -40,7 +40,8 @@ class InteractionRecord {
 /// 一个会话人在环交互的**三源合一**真相(按 toolCallId 键):ephemeral interaction 信号(live)⊕ GET
 /// interactions 重连快照 ⊕ resolved 对称信号。危险门 / ask 卡 / rail 琥珀点皆由此派生。autoDispose family
 /// by conversationId——切走即释放订阅。
-class PendingInteractionsController extends Notifier<Map<String, InteractionRecord>> {
+class PendingInteractionsController
+    extends Notifier<Map<String, InteractionRecord>> {
   PendingInteractionsController(this.conversationId);
 
   final String conversationId;
@@ -60,7 +61,9 @@ class PendingInteractionsController extends Notifier<Map<String, InteractionReco
     // raised then would never render and the turn would stay blocked forever. Re-fetch `GET interactions`
     // + RECONCILE (add new + prune phantoms) on every resync. 断线重连:窗内 ephemeral 交互信号丢 → 重拉
     // GET interactions 对账(增新 + 删幻影),否则门永不显、回合永阻塞。
-    _resyncSub = _repo.transcriptResync().listen((_) => unawaited(_reconcile(prune: true)));
+    _resyncSub = _repo.transcriptResync().listen(
+      (_) => unawaited(_reconcile(prune: true)),
+    );
     ref.onDispose(() {
       _sub?.cancel();
       _resyncSub?.cancel();
@@ -86,10 +89,14 @@ class PendingInteractionsController extends Notifier<Map<String, InteractionReco
         }
       }
       if (prune) {
-        next.removeWhere((id, rec) => rec.decided == null && !authoritative.containsKey(id));
+        next.removeWhere(
+          (id, rec) => rec.decided == null && !authoritative.containsKey(id),
+        );
       }
       state = next;
-    } catch (_) {/* snapshot best-effort — live signals still flow 快照尽力,live 仍流 */}
+    } catch (_) {
+      /* snapshot best-effort — live signals still flow 快照尽力,live 仍流 */
+    }
   }
 
   void _onFrame(StreamEnvelope env) {
@@ -119,14 +126,28 @@ class PendingInteractionsController extends Notifier<Map<String, InteractionReco
   /// executed server-side without an explicit approve). Missing/unknown record → no-op.
   /// 决议一个待决交互——乐观冻结(门即刻翻决议章)再 POST;fail-safe:POST 失败复原待决供重试(未显式 approve
   /// 后端不执行)。无记录→空操作。
-  Future<void> resolve(String toolCallId, InteractionAction action, {String? answer}) async {
+  Future<void> resolve(
+    String toolCallId,
+    InteractionAction action, {
+    String? answer,
+  }) async {
     final prev = state[toolCallId];
     if (prev == null || prev.decided != null) return; // not awaiting 无待决
     state = {...state, toolCallId: prev.freeze(action)};
     try {
-      await _repo.resolveInteraction(conversationId, toolCallId, action: action, answer: answer);
+      await _repo.resolveInteraction(
+        conversationId,
+        toolCallId,
+        action: action,
+        answer: answer,
+      );
     } catch (e) {
-      if (ref.mounted) state = {...state, toolCallId: prev}; // restore awaiting (fail-safe) 复原待决
+      if (ref.mounted) {
+        state = {
+          ...state,
+          toolCallId: prev,
+        }; // restore awaiting (fail-safe) 复原待决
+      }
       rethrow;
     }
   }
@@ -134,5 +155,8 @@ class PendingInteractionsController extends Notifier<Map<String, InteractionReco
 
 /// The three-source interaction truth for a conversation (keyed by toolCallId). 会话级三源交互真相。
 final pendingInteractionsProvider = NotifierProvider.autoDispose
-    .family<PendingInteractionsController, Map<String, InteractionRecord>, String>(
-        PendingInteractionsController.new);
+    .family<
+      PendingInteractionsController,
+      Map<String, InteractionRecord>,
+      String
+    >(PendingInteractionsController.new);

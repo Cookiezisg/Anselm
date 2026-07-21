@@ -11,7 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('termFold — carriage-return (\\r) progress bars', () {
     test('a full \\r-rewrite keeps only the final frame', () {
-      final lines = termFold('Downloading  10%\rDownloading  55%\rDownloading 100%');
+      final lines = termFold(
+        'Downloading  10%\rDownloading  55%\rDownloading 100%',
+      );
       expect(lines, ['Downloading 100%']);
     });
 
@@ -28,13 +30,17 @@ void main() {
   group('termFold — cursor-up multi-line (docker pull / cargo)', () {
     test('ESC[nA rewinds n lines and overwrites them', () {
       // print 3 layers, cursor up 3, rewrite all 3 to "done"
-      const raw = 'layer1 pull\nlayer2 pull\nlayer3 pull\n[3Alayer1 done\nlayer2 done\nlayer3 done';
+      const raw =
+          'layer1 pull\nlayer2 pull\nlayer3 pull\n[3Alayer1 done\nlayer2 done\nlayer3 done';
       expect(termFold(raw), ['layer1 done', 'layer2 done', 'layer3 done', '']);
     });
 
     test('ESC[2K erase-line before rewrite clears leftovers', () {
       const raw = 'a very long status line\n[1A[2Kshort';
-      expect(termFold(raw).first, 'short'); // line 1 left empty (consumer trims trailing)
+      expect(
+        termFold(raw).first,
+        'short',
+      ); // line 1 left empty (consumer trims trailing)
     });
   });
 
@@ -59,41 +65,68 @@ void main() {
       expect(termFold('plain'), ['plain']);
     });
 
-    test('a chunk-cut escape at the very end is left for the tail buffer (not garbled)', () {
-      // trailing incomplete CSI → dropped, prior text intact
-      expect(termFold('done['), ['done']);
-    });
+    test(
+      'a chunk-cut escape at the very end is left for the tail buffer (not garbled)',
+      () {
+        // trailing incomplete CSI → dropped, prior text intact
+        expect(termFold('done['), ['done']);
+      },
+    );
   });
 
   group('ansiSpans — SGR → design tokens', () {
-    testWidgets('color codes map to tokens; bold uses the emphasis weight', (tester) async {
+    testWidgets('color codes map to tokens; bold uses the emphasis weight', (
+      tester,
+    ) async {
       late List<InlineSpan> spans;
       late AnColors c;
-      await tester.pumpWidget(MaterialApp(
-        theme: AnTheme.light(),
-        home: Builder(builder: (context) {
-          c = context.colors;
-          spans = ansiSpans('[31mERROR[0m ok', c, base: const TextStyle());
-          return const SizedBox();
-        }),
-      ));
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AnTheme.light(),
+          home: Builder(
+            builder: (context) {
+              c = context.colors;
+              spans = ansiSpans(
+                '[31mERROR[0m ok',
+                c,
+                base: const TextStyle(),
+              );
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
       // first span 'ERROR' is danger-colored, then ' ok' resets to base
-      final err = spans.whereType<TextSpan>().firstWhere((s) => s.text == 'ERROR');
+      final err = spans.whereType<TextSpan>().firstWhere(
+        (s) => s.text == 'ERROR',
+      );
       expect((err.style!.color), c.danger);
-      final rest = spans.whereType<TextSpan>().firstWhere((s) => s.text!.contains('ok'));
+      final rest = spans.whereType<TextSpan>().firstWhere(
+        (s) => s.text!.contains('ok'),
+      );
       expect(rest.style!.color, isNot(c.danger));
     });
 
-    testWidgets('a plain line (no SGR) is one span at the base style', (tester) async {
-      await tester.pumpWidget(MaterialApp(
-        theme: AnTheme.light(),
-        home: Builder(builder: (context) {
-          final spans = ansiSpans('no color here', context.colors, base: const TextStyle(fontSize: 13));
-          expect(spans.length, 1);
-          expect((spans.first as TextSpan).text, 'no color here');
-          return const SizedBox();
-        }),
-      ));
+    testWidgets('a plain line (no SGR) is one span at the base style', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: AnTheme.light(),
+          home: Builder(
+            builder: (context) {
+              final spans = ansiSpans(
+                'no color here',
+                context.colors,
+                base: const TextStyle(fontSize: 13),
+              );
+              expect(spans.length, 1);
+              expect((spans.first as TextSpan).text, 'no color here');
+              return const SizedBox();
+            },
+          ),
+        ),
+      );
     });
   });
 }

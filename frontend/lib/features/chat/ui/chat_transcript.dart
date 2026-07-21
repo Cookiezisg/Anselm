@@ -53,23 +53,25 @@ class ChatTranscriptView extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     TranscriptProbe.hit('page');
-    final phase =
-        ref.watch(conversationStreamProvider(conversationId).select((s) => s.phase));
+    final phase = ref.watch(
+      conversationStreamProvider(conversationId).select((s) => s.phase),
+    );
     final t = Translations.of(context);
     return switch (phase) {
       TranscriptPhase.hydrating => const _HydratingSkeleton(),
       TranscriptPhase.error => Center(
-          child: AnState(
-            kind: AnStateKind.error,
-            title: t.chat.transcriptErrorTitle,
-            hint: t.chat.transcriptErrorHint,
-            action: AnButton(
-              label: t.chat.retry,
-              onPressed: () =>
-                  ref.read(conversationStreamProvider(conversationId).notifier).retryHydrate(),
-            ),
+        child: AnState(
+          kind: AnStateKind.error,
+          title: t.chat.transcriptErrorTitle,
+          hint: t.chat.transcriptErrorHint,
+          action: AnButton(
+            label: t.chat.retry,
+            onPressed: () => ref
+                .read(conversationStreamProvider(conversationId).notifier)
+                .retryHydrate(),
           ),
         ),
+      ),
       TranscriptPhase.ready => _TranscriptList(conversationId: conversationId),
     };
   }
@@ -80,14 +82,14 @@ class _HydratingSkeleton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: AnSize.content),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s24),
-            child: AnDeferredLoading(child: const AnSkeleton.lines(4)),
-          ),
-        ),
-      );
+    child: ConstrainedBox(
+      constraints: const BoxConstraints(maxWidth: AnSize.content),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s24),
+        child: AnDeferredLoading(child: const AnSkeleton.lines(4)),
+      ),
+    ),
+  );
 }
 
 /// The streaming list — a [CustomScrollView] around a CENTER anchor: older pages fill the sliver ABOVE
@@ -112,7 +114,8 @@ class _TranscriptList extends ConsumerStatefulWidget {
 
 class _TranscriptListState extends ConsumerState<_TranscriptList> {
   static const _centerKey = ValueKey('transcript-center');
-  static const double _pinSlack = 48; // within this of the bottom = pinned 距底此内=钉住
+  static const double _pinSlack =
+      48; // within this of the bottom = pinned 距底此内=钉住
   static const double _loadOlderSlack = 300; // near-top prefetch band 近顶预取带
 
   final ScrollController _scroll = ScrollController();
@@ -176,9 +179,11 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     await WidgetsBinding.instance.endOfFrame;
     if (!mounted || !_scroll.hasClients) return;
     final pos = _scroll.position;
-    _scroll.jumpTo((-(AnSize.islandHead + AnSpace.s12))
-        .clamp(pos.minScrollExtent, pos.maxScrollExtent)
-        .toDouble());
+    _scroll.jumpTo(
+      (-(AnSize.islandHead + AnSpace.s12))
+          .clamp(pos.minScrollExtent, pos.maxScrollExtent)
+          .toDouble(),
+    );
     _highlightTimer?.cancel();
     // Same tier as _JumpHighlight's fade — the wash dwell and its fade are one gesture.
     // 与 _JumpHighlight 同档同值:洗亮驻留与褪色一体。
@@ -223,19 +228,28 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     _pinned = _dockTarget(pos) - pos.pixels <= _pinSlack;
     if (pos.pixels - pos.minScrollExtent <= _loadOlderSlack) {
       // Guarded inside the controller (cursor/loading/hasMore). 控制器内自守。
-      ref.read(conversationStreamProvider(widget.conversationId).notifier).loadOlder();
+      ref
+          .read(conversationStreamProvider(widget.conversationId).notifier)
+          .loadOlder();
     }
     if (pos.maxScrollExtent - pos.pixels <= _loadOlderSlack) {
       // Window mode's forward continuation — same guard style, downward. 窗口模式向前续翻,同守卫。
-      ref.read(conversationStreamProvider(widget.conversationId).notifier).loadNewer();
+      ref
+          .read(conversationStreamProvider(widget.conversationId).notifier)
+          .loadNewer();
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final ctl = ref.watch(conversationStreamProvider(widget.conversationId).notifier);
+    final ctl = ref.watch(
+      conversationStreamProvider(widget.conversationId).notifier,
+    );
     final loadingOlder = ref.watch(
-        conversationStreamProvider(widget.conversationId).select((s) => s.loadingOlder));
+      conversationStreamProvider(
+        widget.conversationId,
+      ).select((s) => s.loadingOlder),
+    );
     ref.listen(transcriptJumpProvider(widget.conversationId), (_, req) {
       if (req != null) unawaited(_executeJump(req));
     });
@@ -244,13 +258,17 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     // re-pin explicitly — rejoining without re-docking maroons the reader mid-history.
     // 离开跳转窗(pill/发送隐式)即重新贴底。快速重拉可能不换 State(无 initState 重靠),转变必须显式
     // 重钉——归队不贴底=把读者晾在史中。
-    ref.listen(conversationStreamProvider(widget.conversationId).select((s) => s.windowMode),
-        (prev, next) {
-      if (prev == true && next == false) {
-        _pinned = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToBottom());
-      }
-    });
+    ref.listen(
+      conversationStreamProvider(
+        widget.conversationId,
+      ).select((s) => s.windowMode),
+      (prev, next) {
+        if (prev == true && next == false) {
+          _pinned = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) => _jumpToBottom());
+        }
+      },
+    );
     // Re-read the listenable each build — it is a NEW instance after a controller rebuild (the
     // documented coalescer discipline). 每 build 重取 listenable(controller 重建后是新实例)。
     final transcript = ctl.transcript;
@@ -275,15 +293,23 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
           slivers: [
             // ABOVE the anchor: older pages, reversed so index 0 sits adjacent to the center. 锚上:老页。
             SliverPadding(
-              padding: const EdgeInsets.only(top: AnSize.islandHead + AnSpace.s12),
+              padding: const EdgeInsets.only(
+                top: AnSize.islandHead + AnSpace.s12,
+              ),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   childCount: older.length + (loadingOlder ? 1 : 0),
                   (context, i) {
                     if (i == older.length) {
                       return Padding(
-                        padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
-                        child: Center(child: AnSpinner(semanticLabel: context.t.a11y.loading)),
+                        padding: const EdgeInsets.symmetric(
+                          vertical: AnSpace.s12,
+                        ),
+                        child: Center(
+                          child: AnSpinner(
+                            semanticLabel: context.t.a11y.loading,
+                          ),
+                        ),
                       );
                     }
                     return _rowFor(older[older.length - 1 - i]);
@@ -314,23 +340,29 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
         if (!windowMode) return list;
         // The detached-window chrome: the「回到现场」pill floats over the list (Discord's
         // jump-to-present shape); a send exits implicitly. 离场态:「回到现场」pill 浮于列表上。
-        return Stack(children: [
-          list,
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: AnSpace.s16,
-            child: Center(
-              child: AnFollowPill.jump(
-                label: Translations.of(context).chat.backToPresent,
-                elevated: true,
-                onTap: () => ref
-                    .read(conversationStreamProvider(widget.conversationId).notifier)
-                    .backToLive(),
+        return Stack(
+          children: [
+            list,
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: AnSpace.s16,
+              child: Center(
+                child: AnFollowPill.jump(
+                  label: Translations.of(context).chat.backToPresent,
+                  elevated: true,
+                  onTap: () => ref
+                      .read(
+                        conversationStreamProvider(
+                          widget.conversationId,
+                        ).notifier,
+                      )
+                      .backToLive(),
+                ),
               ),
             ),
-          ),
-        ]);
+          ],
+        );
       },
     );
   }
@@ -352,11 +384,19 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
           _settledRowCache.remove(_settledRowCache.keys.first);
         }
         return _TurnRow(
-            turn: turn, streaming: false, conversationId: widget.conversationId, key: ValueKey(turn.id));
+          turn: turn,
+          streaming: false,
+          conversationId: widget.conversationId,
+          key: ValueKey(turn.id),
+        );
       }();
     } else {
       row = _TurnRow(
-          turn: turn, streaming: true, conversationId: widget.conversationId, key: ValueKey(turn.id));
+        turn: turn,
+        streaming: true,
+        conversationId: widget.conversationId,
+        key: ValueKey(turn.id),
+      );
     }
     if (turn.id == _highlightId) {
       row = AnWashHighlight(key: ValueKey('hl-${turn.id}'), child: row);
@@ -365,12 +405,14 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
   }
 }
 
-
-
 /// One transcript turn, centered in the reading column with the inter-turn gap. 一条回合(阅读列+轮距)。
 class _TurnRow extends ConsumerStatefulWidget {
-  const _TurnRow(
-      {required this.turn, required this.streaming, required this.conversationId, super.key});
+  const _TurnRow({
+    required this.turn,
+    required this.streaming,
+    required this.conversationId,
+    super.key,
+  });
 
   final BlockNode turn;
   final bool streaming;
@@ -396,12 +438,19 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
   Widget build(BuildContext context) {
     TranscriptProbe.hit(widget.streaming ? 'leaf-stream' : 'row-settled');
     final role = ConversationTranscript.turnRole(widget.turn);
-    final child = role == 'user' ? _user(context, ref) : _assistant(context, ref);
+    final child = role == 'user'
+        ? _user(context, ref)
+        : _assistant(context, ref);
     return Center(
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AnSize.content),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AnSpace.s24, AnSpace.s12, AnSpace.s24, AnSpace.s12),
+          padding: const EdgeInsets.fromLTRB(
+            AnSpace.s24,
+            AnSpace.s12,
+            AnSpace.s24,
+            AnSpace.s12,
+          ),
           child: RepaintBoundary(child: child),
         ),
       ),
@@ -416,18 +465,33 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
       for (final id in ConversationTranscript.turnAttachmentIds(widget.turn))
         switch (ref.watch(attachmentMetaProvider(id))) {
           AsyncData(value: final m) => UserAttachment(
-              id: id, kind: m.kind, filename: m.filename,
-              mimeType: m.mimeType.isEmpty ? null : m.mimeType, sizeBytes: m.sizeBytes,
-              // Images render as real thumbnails — bytes stream from the sidecar, cached by id in
-              // Flutter's ImageCache. 图片渲真缩略图(字节来自 sidecar,按 id 进全局图缓存)。
-              thumb: m.kind == 'image'
-                  ? AttachmentImageProvider(id,
-                      fetch: () => ref.read(chatRepositoryProvider).getAttachmentBytes(id))
-                  : null),
+            id: id,
+            kind: m.kind,
+            filename: m.filename,
+            mimeType: m.mimeType.isEmpty ? null : m.mimeType,
+            sizeBytes: m.sizeBytes,
+            // Images render as real thumbnails — bytes stream from the sidecar, cached by id in
+            // Flutter's ImageCache. 图片渲真缩略图(字节来自 sidecar,按 id 进全局图缓存)。
+            thumb: m.kind == 'image'
+                ? AttachmentImageProvider(
+                    id,
+                    fetch: () =>
+                        ref.read(chatRepositoryProvider).getAttachmentBytes(id),
+                  )
+                : null,
+          ),
           AsyncError() => UserAttachment(
-              id: id, kind: 'other', filename: id, state: AnAttachmentState.missing),
+            id: id,
+            kind: 'other',
+            filename: id,
+            state: AnAttachmentState.missing,
+          ),
           _ => UserAttachment(
-              id: id, kind: 'other', filename: id, state: AnAttachmentState.resolving),
+            id: id,
+            kind: 'other',
+            filename: id,
+            state: AnAttachmentState.resolving,
+          ),
         },
     ];
     return ChatTurn(
@@ -449,8 +513,13 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
     final banner = _stopBanner(context, ref);
     if (blocks.isEmpty && banner == null && widget.streaming) {
       // Turn opened, first block not yet — a quiet thinking shimmer placeholder. 回合已开首块未到:静占位。
-      blocks.add(AnShimmerText(t.chat.thinking,
-          style: AnText.label.copyWith(color: c.inkMuted), reveal: true));
+      blocks.add(
+        AnShimmerText(
+          t.chat.thinking,
+          style: AnText.label.copyWith(color: c.inkMuted),
+          reveal: true,
+        ),
+      );
     }
     return ChatTurn(
       role: ChatRole.assistant,
@@ -500,7 +569,10 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         // through the provider. Watching only this block's slice keeps unrelated gate changes from
         // rebuilding the whole card. V3a 底盘 + V6 人闸:本块的待决记录驱动门/出处章;select 单块切片。
         final record = ref.watch(
-            pendingInteractionsProvider(widget.conversationId).select((m) => m[b.id]));
+          pendingInteractionsProvider(
+            widget.conversationId,
+          ).select((m) => m[b.id]),
+        );
         return ChatToolCard(
           node: b,
           interaction: record,
@@ -520,8 +592,10 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         // never rendered as a top-level transcript row. 嵌套 subagent 的 message 包装摊平进工具卡,不作顶层行。
         return null;
       case BlockKind.unknown:
-        return Text(b.displayText,
-            style: AnText.label.copyWith(color: c.inkFaint)); // never a silent hole 绝不无声
+        return Text(
+          b.displayText,
+          style: AnText.label.copyWith(color: c.inkFaint),
+        ); // never a silent hole 绝不无声
     }
   }
 
@@ -554,29 +628,41 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
     );
     if (code != 'LLM_RESOLVE_ERROR') return line;
     final caps = ref.watch(modelCapabilitiesProvider).value ?? const [];
-    final override =
-        ref.watch(conversationHeaderProvider(widget.conversationId)).value?.modelOverride;
-    return Row(children: [
-      Flexible(child: line),
-      const SizedBox(width: AnSpace.s8),
-      chatModelMenu(
-        t: t,
-        caps: caps,
-        current: override == null
-            ? null
-            : (apiKeyId: override.apiKeyId, modelId: override.modelId),
-        onSelect: (v) =>
-            ref.read(conversationHeaderProvider(widget.conversationId).notifier).setModel(v),
-        anchorBuilder: (context, toggle, isOpen) =>
-            AnButton(label: t.chat.repickModel, size: AnButtonSize.sm, onPressed: toggle),
-      ),
-    ]);
+    final override = ref
+        .watch(conversationHeaderProvider(widget.conversationId))
+        .value
+        ?.modelOverride;
+    return Row(
+      children: [
+        Flexible(child: line),
+        const SizedBox(width: AnSpace.s8),
+        chatModelMenu(
+          t: t,
+          caps: caps,
+          current: override == null
+              ? null
+              : (apiKeyId: override.apiKeyId, modelId: override.modelId),
+          onSelect: (v) => ref
+              .read(conversationHeaderProvider(widget.conversationId).notifier)
+              .setModel(v),
+          anchorBuilder: (context, toggle, isOpen) => AnButton(
+            label: t.chat.repickModel,
+            size: AnButtonSize.sm,
+            onPressed: toggle,
+          ),
+        ),
+      ],
+    );
   }
 }
 
 /// An optimistic user bubble: dimmed while in flight; failed grows retry / discard. 乐观泡:在途淡显;失败长钮。
 class _PendingRow extends ConsumerWidget {
-  const _PendingRow({required this.conversationId, required this.pending, super.key});
+  const _PendingRow({
+    required this.conversationId,
+    required this.pending,
+    super.key,
+  });
 
   final String conversationId;
   final PendingSend pending;
@@ -589,7 +675,12 @@ class _PendingRow extends ConsumerWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: AnSize.content),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(AnSpace.s24, AnSpace.s12, AnSpace.s24, AnSpace.s12),
+          padding: const EdgeInsets.fromLTRB(
+            AnSpace.s24,
+            AnSpace.s12,
+            AnSpace.s24,
+            AnSpace.s12,
+          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -599,7 +690,10 @@ class _PendingRow extends ConsumerWidget {
                 // The optimistic bubble is the SAME message as the reconciled one (UserTurnContent) —
                 // both prose on the 15 reading rung, or the bubble reflows the instant the echo lands.
                 // 乐观泡与回声后的泡是同一条消息:同走 15 阅读档,否则回声一到就重排。
-                child: Text(pending.text, style: AnText.reading.copyWith(color: c.ink)),
+                child: Text(
+                  pending.text,
+                  style: AnText.reading.copyWith(color: c.ink),
+                ),
               ),
               if (pending.failed)
                 Padding(
@@ -609,20 +703,31 @@ class _PendingRow extends ConsumerWidget {
                     children: [
                       Icon(AnIcons.error, size: AnSize.icon, color: c.danger),
                       const SizedBox(width: AnSpace.s6),
-                      Text(t.chat.sendFailed, style: AnText.label.copyWith(color: c.danger)),
+                      Text(
+                        t.chat.sendFailed,
+                        style: AnText.label.copyWith(color: c.danger),
+                      ),
                       const SizedBox(width: AnSpace.s8),
                       AnButton(
                         label: t.chat.retrySend,
                         size: AnButtonSize.sm,
                         onPressed: () => ref
-                            .read(conversationStreamProvider(conversationId).notifier)
+                            .read(
+                              conversationStreamProvider(
+                                conversationId,
+                              ).notifier,
+                            )
                             .retrySend(pending.localId),
                       ),
                       AnButton(
                         label: t.chat.discard,
                         size: AnButtonSize.sm,
                         onPressed: () => ref
-                            .read(conversationStreamProvider(conversationId).notifier)
+                            .read(
+                              conversationStreamProvider(
+                                conversationId,
+                              ).notifier,
+                            )
                             .discardFailed(pending.localId),
                       ),
                     ],
@@ -650,5 +755,6 @@ class _AnswerMarkdown extends ConsumerWidget {
   final String text;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) => AnMarkdown(text, prose: ref.watch(contentFaceProvider));
+  Widget build(BuildContext context, WidgetRef ref) =>
+      AnMarkdown(text, prose: ref.watch(contentFaceProvider));
 }

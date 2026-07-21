@@ -71,7 +71,8 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
     return Focus(
       autofocus: true,
       onKeyEvent: (node, event) {
-        if (event is KeyDownEvent && event.logicalKey == LogicalKeyboardKey.escape) {
+        if (event is KeyDownEvent &&
+            event.logicalKey == LogicalKeyboardKey.escape) {
           _exit();
           return KeyEventResult.handled;
         }
@@ -79,37 +80,55 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
       },
       child: Scaffold(
         backgroundColor: c.canvas,
-        body: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Expanded(
-            child: Stack(children: [
-              Positioned.fill(child: _canvas(context, graphAsync, sel)),
-              _leftChrome(context),
-              _rightChrome(context),
-              if (graphAsync.hasValue) _legend(context, graphAsync.value!),
-            ]),
-          ),
-          _GraphInspector(sel: sel, onOpenNode: (k, id) => _select(k, id, reveal: true)),
-        ]),
+        body: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(child: _canvas(context, graphAsync, sel)),
+                  _leftChrome(context),
+                  _rightChrome(context),
+                  if (graphAsync.hasValue) _legend(context, graphAsync.value!),
+                ],
+              ),
+            ),
+            _GraphInspector(
+              sel: sel,
+              onOpenNode: (k, id) => _select(k, id, reveal: true),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _canvas(BuildContext context, AsyncValue<EntityRelGraph> async, (String, String)? sel) {
+  Widget _canvas(
+    BuildContext context,
+    AsyncValue<EntityRelGraph> async,
+    (String, String)? sel,
+  ) {
     final d = context.t.entities;
     return async.when(
-      loading: () => const AnDeferredLoading(child: Center(child: AnSkeleton.card())),
+      loading: () =>
+          const AnDeferredLoading(child: Center(child: AnSkeleton.card())),
       error: (_, _) => Center(
         child: AnState(
           kind: AnStateKind.error,
           size: AnStateSize.inset,
           title: d.errorTitle,
           hint: d.errorHint,
-          action: AnButton(label: d.retry, onPressed: () => ref.invalidate(relGraphProvider)),
+          action: AnButton(
+            label: d.retry,
+            onPressed: () => ref.invalidate(relGraphProvider),
+          ),
         ),
       ),
       data: (g) {
         // Default: structural (equip/link) only. Provenance toggle re-admits the full graph. 默认结构;溯源开=全图。
-        final sub = _provenance ? (nodes: g.nodes, edges: g.edges) : structuralSubgraph(g);
+        final sub = _provenance
+            ? (nodes: g.nodes, edges: g.edges)
+            : structuralSubgraph(g);
         final groups = ref.watch(railModelProvider);
         return AnRelationGraph(
           nodes: sub.nodes,
@@ -124,20 +143,29 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
           revealToken: _revealToken,
           nodeSemanticLabel: (n, deg) => relationNodeLabel(context, n, deg),
           edgeSemanticLabel: (e) => relationEdgeLabel(context, e),
-          semanticSummary:
-              context.t.a11y.relationSummary(nodes: '${sub.nodes.length}', edges: '${sub.edges.length}'),
+          semanticSummary: context.t.a11y.relationSummary(
+            nodes: '${sub.nodes.length}',
+            edges: '${sub.edges.length}',
+          ),
           onNodeTap: (id) {
             if (id == null) {
-              context.go('/entities/graph'); // background tap → deselect 空白点→取消选中
+              context.go(
+                '/entities/graph',
+              ); // background tap → deselect 空白点→取消选中
               return;
             }
-            final kind = sub.nodes.where((n) => n.id == id).map((n) => n.kind).firstOrNull;
+            final kind = sub.nodes
+                .where((n) => n.id == id)
+                .map((n) => n.kind)
+                .firstOrNull;
             if (kind != null) _select(kind, id);
           },
           // Double tap → open the entity's detail page (rail kinds only; accessory kinds have no page here).
           // 双击→进实体详情页(仅 rail kind;配件 kind 此海洋无页)。
           onNodeDoubleTap: (id) {
-            final ek = entityKindFromWire(sub.nodes.where((n) => n.id == id).map((n) => n.kind).firstOrNull);
+            final ek = entityKindFromWire(
+              sub.nodes.where((n) => n.id == id).map((n) => n.kind).firstOrNull,
+            );
             if (ek != null) context.go(entityLocation(ek, id));
           },
         );
@@ -153,27 +181,34 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
       top: 0,
       left: AnSpace.s8,
       height: AnSize.titlebar,
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        const AnWindowControls(),
-        const SizedBox(width: AnSpace.s4),
-        AnFloatingBar(children: [
-          AnButton(
-            label: g.back,
-            icon: AnIcons.chevronLeft,
-            variant: AnButtonVariant.ghost,
-            size: AnButtonSize.sm,
-            onPressed: _exit,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          const AnWindowControls(),
+          const SizedBox(width: AnSpace.s4),
+          AnFloatingBar(
+            children: [
+              AnButton(
+                label: g.back,
+                icon: AnIcons.chevronLeft,
+                variant: AnButtonVariant.ghost,
+                size: AnButtonSize.sm,
+                onPressed: _exit,
+              ),
+              const AnDivider.vertical(),
+              AnButton(
+                label: g.showProvenance,
+                icon: _provenance ? AnIcons.check : AnIcons.history,
+                variant: _provenance
+                    ? AnButtonVariant.primary
+                    : AnButtonVariant.ghost,
+                size: AnButtonSize.sm,
+                onPressed: () => setState(() => _provenance = !_provenance),
+              ),
+            ],
           ),
-          const AnDivider.vertical(),
-          AnButton(
-            label: g.showProvenance,
-            icon: _provenance ? AnIcons.check : AnIcons.history,
-            variant: _provenance ? AnButtonVariant.primary : AnButtonVariant.ghost,
-            size: AnButtonSize.sm,
-            onPressed: () => setState(() => _provenance = !_provenance),
-          ),
-        ]),
-      ]),
+        ],
+      ),
     );
   }
 
@@ -185,16 +220,22 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
       top: 0,
       right: AnSpace.s8,
       height: AnSize.titlebar,
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        AnFloatingBar(children: [
-          AnButton.iconOnly(
-            AnIcons.panelRight,
-            size: AnButtonSize.sm,
-            semanticLabel: context.t.shell.togglePanel,
-            onPressed: () => ref.read(rightPanelCollapsedProvider.notifier).set(false),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          AnFloatingBar(
+            children: [
+              AnButton.iconOnly(
+                AnIcons.panelRight,
+                size: AnButtonSize.sm,
+                semanticLabel: context.t.shell.togglePanel,
+                onPressed: () =>
+                    ref.read(rightPanelCollapsedProvider.notifier).set(false),
+              ),
+            ],
           ),
-        ]),
-      ]),
+        ],
+      ),
     );
   }
 
@@ -224,8 +265,11 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
                   _LegendChip(
                     kind: k,
                     hidden: _hidden.contains(k),
-                    onTap: () =>
-                        setState(() => _hidden.contains(k) ? _hidden.remove(k) : _hidden.add(k)),
+                    onTap: () => setState(
+                      () => _hidden.contains(k)
+                          ? _hidden.remove(k)
+                          : _hidden.add(k),
+                    ),
                   ),
               ],
             ),
@@ -239,7 +283,11 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
 /// One legend chip = a colour dot + kind word; tapping toggles that kind's visibility. Hidden reads
 /// muted. 图例芯片:色点 + kind 词,点击切显隐;隐藏态哑。
 class _LegendChip extends StatelessWidget {
-  const _LegendChip({required this.kind, required this.hidden, required this.onTap});
+  const _LegendChip({
+    required this.kind,
+    required this.hidden,
+    required this.onTap,
+  });
   final String kind;
   final bool hidden;
   final VoidCallback onTap;
@@ -254,15 +302,24 @@ class _LegendChip extends StatelessWidget {
       builder: (context, states) => Opacity(
         opacity: hidden ? 0.38 : 1.0,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s4),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            AnStatusDot.raw(color),
-            const SizedBox(width: AnGap.inline),
-            Text(word,
+          padding: const EdgeInsets.symmetric(
+            horizontal: AnSpace.s6,
+            vertical: AnSpace.s4,
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnStatusDot.raw(color),
+              const SizedBox(width: AnGap.inline),
+              Text(
+                word,
                 style: AnText.meta.copyWith(
-                    color: hidden ? c.inkFaint : c.inkMuted,
-                    decoration: hidden ? TextDecoration.lineThrough : null)),
-          ]),
+                  color: hidden ? c.inkFaint : c.inkMuted,
+                  decoration: hidden ? TextDecoration.lineThrough : null,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -281,14 +338,18 @@ class _GraphInspector extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final collapsed = ref.watch(rightPanelCollapsedProvider);
     final reduced = AnMotionPref.reduced(context);
-    final rightWidth = ref.watch(shellChromeProvider.select((s) => s.rightWidth));
+    final rightWidth = ref.watch(
+      shellChromeProvider.select((s) => s.rightWidth),
+    );
     final content = AnInspector(
       headless: true,
       child: GraphEntityCard(sel: sel, onOpenNode: onOpenNode),
     );
     final island = AnIsland(
       child: collapsed
-          ? ExcludeFocus(child: ExcludeSemantics(child: IgnorePointer(child: content)))
+          ? ExcludeFocus(
+              child: ExcludeSemantics(child: IgnorePointer(child: content)),
+            )
           : content,
     );
     return AnimatedContainer(

@@ -74,7 +74,9 @@ class AnListItemComponentBuilder extends ListItemComponentBuilder {
     final node = document.getNodeById(componentViewModel.nodeId);
     final depth = quoteDepthOf(node);
     if (depth == 0) return comp;
-    final topGap = node != null && isQuoteContinuation(document, node) ? AnFlow.block : 0.0;
+    final topGap = node != null && isQuoteContinuation(document, node)
+        ? AnFlow.block
+        : 0.0;
     return wrapInQuote(comp, depth, colors, topGap: topGap);
   }
 }
@@ -104,7 +106,8 @@ class AnListItemComponent extends StatefulWidget {
   final AttributionStyleBuilder styleBuilder;
   final String marker; // '•' or '3.'
   final AnColors colors;
-  final bool tabular; // tabular figures for numerals so multi-digit numbers align
+  final bool
+  tabular; // tabular figures for numerals so multi-digit numbers align
   final int indent;
   final TextDirection textDirection;
   final TextAlign textAlignment;
@@ -126,7 +129,9 @@ class _AnListItemComponentState extends State<AnListItemComponent> {
     // The marker is ALWAYS the prose reading style — never derived from the first character. 记号恒用正文档。
     final markerStyle = AnText.reading.copyWith(
       color: widget.colors.inkFaint,
-      fontFeatures: widget.tabular ? const [FontFeature.tabularFigures()] : null,
+      fontFeatures: widget.tabular
+          ? const [FontFeature.tabularFigures()]
+          : null,
     );
     // Scale the marker with the SAME text scaler [AnTextComponent] uses (MediaQuery). Hardcoding linear(1.0)
     // here while the text scales left the marker tiny & floating high whenever the app ran at a text scale
@@ -149,8 +154,15 @@ class _AnListItemComponentState extends State<AnListItemComponent> {
           textBaseline: TextBaseline.alphabetic,
           children: [
             Padding(
-              padding: EdgeInsetsDirectional.only(start: start, end: AnSpace.s8),
-              child: Text(widget.marker, style: markerStyle, textScaler: textScaler),
+              padding: EdgeInsetsDirectional.only(
+                start: start,
+                end: AnSpace.s8,
+              ),
+              child: Text(
+                widget.marker,
+                style: markerStyle,
+                textScaler: textScaler,
+              ),
             ),
             Expanded(
               child: AnTextComponent(

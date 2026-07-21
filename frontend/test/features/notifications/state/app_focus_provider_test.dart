@@ -13,10 +13,14 @@ void main() {
     addTearDown(c.dispose);
     expect(c.read(appFocusedProvider), isTrue); // safe default at startup
 
-    c.read(appFocusedProvider.notifier).debugSetLifecycle(AppLifecycleState.paused);
+    c
+        .read(appFocusedProvider.notifier)
+        .debugSetLifecycle(AppLifecycleState.paused);
     expect(c.read(appFocusedProvider), isFalse); // window blurred/backgrounded
 
-    c.read(appFocusedProvider.notifier).debugSetLifecycle(AppLifecycleState.resumed);
+    c
+        .read(appFocusedProvider.notifier)
+        .debugSetLifecycle(AppLifecycleState.resumed);
     expect(c.read(appFocusedProvider), isTrue); // focused again
   });
 }

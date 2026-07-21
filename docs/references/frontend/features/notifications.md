@@ -93,7 +93,7 @@ audience: [human, ai]
 
 ## Demo 实机演示
 
-`make demo` 额外挂载一次性顶带巡演，**只**向 `NoticeCenter` 投递展示副本，不发 durable fixture 行；因此不会受本机已保存的通知类别开关影响，也不会把同一演示重复送进顶带。`DemoRoot` 默认关闭该脚本，测试与 perf 挂载保持确定。启动后第 2 / 6 / 10 秒依次演示成功操作、失败事件、需关注事件；第 14 秒进入真实 fixture parked node 的审批块；第 17 / 20 / 23 秒继续到达三条候场消息，审批停留期间可观察两颗 cue 与 `+N→✕` 的清场交互。脚本卸载会取消全部 timer，真 app 的 durable 事件仍只经 `NoticeDispatcher` 路由。
+`make -C frontend demo` 额外挂载一次性顶带巡演，**只**向 `NoticeCenter` 投递展示副本，不发 durable fixture 行；因此不会受本机已保存的通知类别开关影响，也不会把同一演示重复送进顶带。`DemoRoot` 默认关闭该脚本，测试与 perf 挂载保持确定。启动后第 2 / 6 / 10 秒依次演示成功操作、失败事件、需关注事件；第 14 秒进入真实 fixture parked node 的审批块；第 17 / 20 / 23 秒继续到达三条候场消息，审批停留期间可观察两颗 cue 与 `+N→✕` 的清场交互。脚本卸载会取消全部 timer，真 app 的 durable 事件仍只经 `NoticeDispatcher` 路由。
 
 用户操作反馈不进 notification repository，只调用 `noticeCenterProvider.show(...)`。确认框仍由 `core/overlay` 的 `overlayProvider.confirm(...)` 提供；旧右上 `AnToast`、toast dispatcher 和右上展示宿主已物理退役，overlay host 不再绘制通知。
 

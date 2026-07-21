@@ -25,7 +25,7 @@ main.dart                  # 入口:runZonedGuarded(binding 在内)→ scaled bi
 app/                       # 装配根
   app.dart                 # 根 widget(MaterialApp.router[routerConfig=goRouter] + 主题 + builder=AnOverlayHost→门控链[AppStartupGate→GlobalShortcuts→autofocus→WorkspaceGate→路由 child];全局快捷键=core/shortcuts/GlobalShortcuts,须在 autofocus 之上)
   router.dart              # buildAppRouter[STEP 6]:全部 location(/ + /entities/:kind/:id + /chat/:id + /documents/:id + /documents/skill/:name)共用同一常量 key 的 NoTransitionPage(AppShell)→壳永不重挂;坏 kind redirect 回首页;注入 core goRouterProvider 缝
-  app_shell.dart           # 唯一壳组合 AppShell（哪个 feature 在哪个岛 + 顶带消息舞台）:make app 与 make demo 共用,只差数据源 + 启动(见 §6)；未读徽标的 live repo 链首帧后预热，避开壳 build 期启动失效
+  app_shell.dart           # 唯一壳组合 AppShell（哪个 feature 在哪个岛 + 顶带消息舞台）:make -C frontend app 与 make -C frontend demo 共用,只差数据源 + 启动(见 §6)；未读徽标的 live repo 链首帧后预热，避开壳 build 期启动失效
   app_startup_gate.dart    # 据 backend 单一 phase 门控:连接中 / 崩溃可重试 / 就绪显壳(整 app 单点门控,在 MaterialApp.router builder 里包路由 child、非 redirect)
   workspace_gate.dart      # 冷启动工作区门控(在 startup gate 之下、壳之上):解析 workspace 中显"准备工作区",就绪显壳
   gate_backdrop.dart       # 两道门控(startup + workspace)共用的满屏 canvas 底(GateBackdrop),内层 AnState 自居中/限宽
@@ -53,7 +53,7 @@ core/                      # 跨切共享层(不依赖上层)
   editor/                  # 原生文档编辑器门面(super_editor 钉 dev.40 仅经此用):an_editor(装配+几何缝)+ components/stylesheet(An 块皮+prose 声)+ markdown([[id]]+语言标保真 codec)+ slash_menu(11 命令,slang)+ mention(@ 药丸)+ toolbar(划选条+link URL 输入)+ syntax(记忆化高亮);见 design-system.md AnEditor 条
   overlay/                 # 确认框专用命令式服务:overlayProvider.confirm + AnOverlayHost root navigator 接线；不再绘通知
 i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库；两语 eager，持久化语言可安全同步恢复）
-dev/                       # dev 工具:gallery_main（make gallery 组件画廊）· demo_main（make demo:真壳 AppShell + fixture override + 跳门控,零后端）
+dev/                       # dev 工具:gallery_main（make -C frontend gallery 组件画廊）· demo_main（make -C frontend demo:真壳 AppShell + fixture override + 跳门控,零后端）
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地,Entities 起）
   entities/data/           # Entities feature 数据缝[Phase 4.1 STEP 1]:单一 EntityRepository(Live 接 ApiClient+SseGateway / Fixture 内存可脚本 / entityRepositoryProvider 单点 override) + EntityKind/EntityRow/EntitySignal + entity_labels(EntityKindLabels 扩展:type/verb i18n 标签唯一源,rail·海洋头·run 终端共用)
   entities/state/          # Entities 列表 state[STEP 2]:entityListProvider(首页 + loadMore via KeysetQueryPaging mixin + SSE patch) + railModelProvider + selectedEntityProvider(STEP 6 改:只读、单向派生自路由 delegate) + railSortProvider(最近活跃/最近创建/名称,与 chat rail 对齐) + railShowCountProvider(⚙ 显示分组计数)
@@ -61,7 +61,7 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
   entities/state/run/      # 运行 state[STEP 5]:run_terminal_controller(草稿→请求强转 + 流帧)+ run_fields(runInputFields/runMethods:表单渲染与 controller 强转的唯一字段源,防渲染≠强转的静默丢参)
   entities/ui/             # Entities UI[STEP 3]:EntityRail over AnSidebarList(4 kind 段 + 状态点;四态 via 共享 AnRailStates,布尔为 4-kind 聚合;首载 AnRailSkeleton + Debouncer 搜索)+ entity_rail_model(纯投影)+ entity_ocean[STEP 4 详情根]
   entities/ui/detail/      # 详情 UI[STEP 4]:EntityOcean=单一 AnPage 文档(头+tab+内容居中 720 一起滚,AnTabs flow)+ ocean_header(状态徽 + 动词 CTA)+ overview/{4 kind}(workflow 图推迟图编辑器阶段)+ version_tab(AnVersionDiff)+ log_tab + detail_sections + entity_ocean(详情海洋,STEP 3 占位/STEP 4 建)
-  entities/data/entity_demo_fixture.dart  # demoEntityRepository():make demo 的零后端种子(STEP 4/5 续加版本/日志/flowrun)
+  entities/data/entity_demo_fixture.dart  # demoEntityRepository():make -C frontend demo 的零后端种子(STEP 4/5 续加版本/日志/flowrun)
   documents/data/          # Documents feature 数据缝:DocumentsRepository(Live/Fixture/demo fixture)+ lifecycleSignals(notifications 流 document.* → 树自刷新)
   documents/state/         # documentTreeProvider(400ms 去抖 invalidateSelf)· skillListProvider · selectedDocProvider(URL 派生)· openDocument/openSkill · 大纲三件(list/active/jump)· backlinksProvider
   documents/model/         # doc_outline:extractDocOutline(纯正则、围栏感知、h4-6 并 3 级;下标=跳转键,与编辑器 headingNodeIds 对齐不变式)
@@ -106,9 +106,9 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 
 - 工具链 = **mise**(go + flutter,仓库根 `mise.toml`)。
 - **三个启动面(规范,永不增 per-feature 入口)**:
-  - `make gallery` — 组件画廊(`lib/dev/gallery_main.dart`):看每个 An* 原语全态。**视觉**面,与 app/demo 正交。
+  - `make -C frontend gallery` — 组件画廊(`lib/dev/gallery_main.dart`):看每个 An* 原语全态。**视觉**面,与 app/demo 正交。
   - `make -C frontend app` — 真 app(`lib/main.dart`):**真壳 + 真后端**,热重载(`test/dev/run_app.sh`:自动起后端[`make -C backend run`,后台常驻,`make -C backend stop` 关]+ dev-attach `ANSELM_BACKEND_URL`)。**生产的 spawn-打包-sidecar 路径**(发行版的 .app 自带签名 Go 二进制、无需 `make -C backend run`)是发行阶段任务(WRK-043);裸 `flutter run` 会走 spawn → 找不到未打包的二进制而崩,故 dev 走 attach。
-  - `make demo` — 真 app 壳 + **假数据**(`lib/dev/demo_main.dart`):看真实形态、零后端。
+  - `make -C frontend demo` — 真 app 壳 + **假数据**(`lib/dev/demo_main.dart`):看真实形态、零后端。
   - **铁律:app 与 demo 共用唯一壳组合 [`app/app_shell.dart`](`AppShell`)**——哪个 feature 在哪个岛只写一次。二者**只差两点**:① 数据源(app 接 Live repository / demo 用 `ProviderScope` override 成 fixture,见 `features/*/data/*_demo_fixture.dart`)② 启动(app 走 `AppStartupGate` 等后端 / demo 跳门控直接进壳)。**新 feature 接进 `AppShell` 一次,app 与 demo 同时拥有**——**绝不为单个 feature 加 `make <feature>` 入口**(碎片化、必不 sync)。截图同理:`test/dev/capture_demo.dart` 截整 `AppShell`,不做 per-feature 截图。
 - 门禁 `make -C frontend verify`= codegen(`dart run slang` + `dart run build_runner`)+ `flutter analyze` 净 + `flutter test` 绿。codegen 产物入库(deterministic,fresh checkout 直接 analyze)。
 

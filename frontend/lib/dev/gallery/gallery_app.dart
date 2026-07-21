@@ -41,7 +41,8 @@ class _GalleryAppState extends State<GalleryApp> {
       debugShowCheckedModeBanner: false,
       theme: _brightness == Brightness.light ? AnTheme.light() : AnTheme.dark(),
       navigatorKey: _navigatorKey,
-      builder: (context, child) => AnOverlayHost(navigatorKey: _navigatorKey, child: child!),
+      builder: (context, child) =>
+          AnOverlayHost(navigatorKey: _navigatorKey, child: child!),
       home: Builder(
         builder: (context) {
           final c = context.colors;
@@ -79,7 +80,9 @@ class _GalleryAppState extends State<GalleryApp> {
       width: AnSize.sidebarMin,
       decoration: BoxDecoration(
         color: c.surface,
-        border: Border(right: BorderSide(color: c.line, width: AnSize.hairline)),
+        border: Border(
+          right: BorderSide(color: c.line, width: AnSize.hairline),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -88,7 +91,12 @@ class _GalleryAppState extends State<GalleryApp> {
           // above still reaches the window top). 留出标题栏区让品牌避开红绿灯(上方白面仍铺到窗顶)。
           const SizedBox(height: _titleBarReserve),
           Padding(
-            padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s8, AnSpace.s12, AnSpace.s8),
+            padding: const EdgeInsets.fromLTRB(
+              AnSpace.s12,
+              AnSpace.s8,
+              AnSpace.s12,
+              AnSpace.s8,
+            ),
             child: Row(
               children: [
                 const AnBrandIcon.anselm(size: AnBrandSize.sm),
@@ -133,8 +141,11 @@ class _GalleryAppState extends State<GalleryApp> {
           AnButton(
             label: _brightness == Brightness.light ? 'Dark' : 'Light',
             size: AnButtonSize.sm,
-            onPressed: () => setState(() =>
-                _brightness = _brightness == Brightness.light ? Brightness.dark : Brightness.light),
+            onPressed: () => setState(
+              () => _brightness = _brightness == Brightness.light
+                  ? Brightness.dark
+                  : Brightness.light,
+            ),
           ),
         ],
       ),
@@ -146,7 +157,12 @@ class _GalleryAppState extends State<GalleryApp> {
       builder: (context, constraints) {
         final width = constraints.maxWidth - AnSpace.s24 * 2;
         return SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(AnSpace.s24, AnSpace.s8, AnSpace.s24, AnSpace.s48),
+          padding: const EdgeInsets.fromLTRB(
+            AnSpace.s24,
+            AnSpace.s8,
+            AnSpace.s24,
+            AnSpace.s48,
+          ),
           // ExcludeFocus: the catalog is a passive display — a specimen that opens in its EDIT state
           // (AnInlineEdit/AnEditableValue with startEditing) mounts a seamless field whose `autofocus`
           // would otherwise (a) steal app focus and (b) make EditableText.showOnScreen scroll this page
@@ -158,7 +174,8 @@ class _GalleryAppState extends State<GalleryApp> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                for (final item in category.items) _itemBlock(context, item, width),
+                for (final item in category.items)
+                  _itemBlock(context, item, width),
               ],
             ),
           ),
@@ -183,7 +200,12 @@ class _GalleryAppState extends State<GalleryApp> {
               const SizedBox(width: AnSpace.s12),
               // Flexible + ellipsis so a long blurb never overflows the header row (dev-tool resilience). 长 blurb 省略不溢出。
               Flexible(
-                child: Text(item.blurb, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkMuted)),
+                child: Text(
+                  item.blurb,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.meta.copyWith(color: c.inkMuted),
+                ),
               ),
             ],
           ),
@@ -193,7 +215,10 @@ class _GalleryAppState extends State<GalleryApp> {
             runSpacing: AnSpace.s12,
             children: [
               for (final s in item.specimens)
-                SizedBox(width: s.span ? width : cellW, child: _cell(context, s)),
+                SizedBox(
+                  width: s.span ? width : cellW,
+                  child: _cell(context, s),
+                ),
             ],
           ),
         ],
@@ -215,7 +240,11 @@ class _GalleryAppState extends State<GalleryApp> {
           Align(
             alignment: Alignment.centerLeft,
             child: (s.maxWidth != null || s.height != null)
-                ? SizedBox(width: s.maxWidth, height: s.height, child: Builder(builder: s.builder))
+                ? SizedBox(
+                    width: s.maxWidth,
+                    height: s.height,
+                    child: Builder(builder: s.builder),
+                  )
                 : Builder(builder: s.builder),
           ),
           const SizedBox(height: AnSpace.s12),
@@ -228,10 +257,12 @@ class _GalleryAppState extends State<GalleryApp> {
                 ),
               ],
               Flexible(
-                child: Text(s.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.meta.copyWith(color: c.inkFaint)),
+                child: Text(
+                  s.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
               ),
             ],
           ),

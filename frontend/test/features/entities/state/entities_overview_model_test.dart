@@ -9,22 +9,33 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Pure projections behind the Entities Overview (WRK-072): structural subgraph, five-card counts,
 /// recent top-N, relation groups. Headless.
-EntityNode _n(String kind, String id) => EntityNode(kind: kind, id: id, name: id);
+EntityNode _n(String kind, String id) =>
+    EntityNode(kind: kind, id: id, name: id);
 EntityRelation _e(String verb, String from, String to) =>
     EntityRelation(id: '$from>$to>$verb', kind: verb, fromId: from, toId: to);
 
-EntityRow _row(EntityKind kind, String id, DateTime updated) =>
-    EntityRow(kind: kind, id: id, name: id, createdAt: updated, updatedAt: updated);
+EntityRow _row(EntityKind kind, String id, DateTime updated) => EntityRow(
+  kind: kind,
+  id: id,
+  name: id,
+  createdAt: updated,
+  updatedAt: updated,
+);
 
 RailGroup _group(EntityKind kind, List<EntityRow> rows) => RailGroup(
-      kind: kind,
-      state: AsyncData(EntityListState(rows: rows)),
-    );
+  kind: kind,
+  state: AsyncData(EntityListState(rows: rows)),
+);
 
 void main() {
   group('structuralSubgraph', () {
     final g = EntityRelGraph(
-      nodes: [_n('workflow', 'wf'), _n('function', 'fn'), _n('conversation', 'cv'), _n('agent', 'ag')],
+      nodes: [
+        _n('workflow', 'wf'),
+        _n('function', 'fn'),
+        _n('conversation', 'cv'),
+        _n('agent', 'ag'),
+      ],
       edges: [
         _e('equip', 'wf', 'fn'),
         _e('link', 'ag', 'fn'),
@@ -39,31 +50,55 @@ void main() {
       expect(sub.edges.length, 2);
     });
 
-    test('keeps only nodes touched by a structural edge (drops the conversation)', () {
-      final sub = structuralSubgraph(g);
-      final ids = sub.nodes.map((n) => n.id).toSet();
-      expect(ids, {'wf', 'fn', 'ag'});
-      expect(ids.contains('cv'), isFalse, reason: 'the conversation node has no structural edge');
-    });
+    test(
+      'keeps only nodes touched by a structural edge (drops the conversation)',
+      () {
+        final sub = structuralSubgraph(g);
+        final ids = sub.nodes.map((n) => n.id).toSet();
+        expect(ids, {'wf', 'fn', 'ag'});
+        expect(
+          ids.contains('cv'),
+          isFalse,
+          reason: 'the conversation node has no structural edge',
+        );
+      },
+    );
   });
 
   group('overviewCounts', () {
     test('four Quadrinity + accessory total (trigger+control+approval)', () {
       final groups = [
-        _group(EntityKind.function, [_row(EntityKind.function, 'a', DateTime(2026))]),
+        _group(EntityKind.function, [
+          _row(EntityKind.function, 'a', DateTime(2026)),
+        ]),
         _group(EntityKind.handler, []),
-        _group(EntityKind.agent, [_row(EntityKind.agent, 'b', DateTime(2026)), _row(EntityKind.agent, 'c', DateTime(2026))]),
-        _group(EntityKind.workflow, [_row(EntityKind.workflow, 'd', DateTime(2026))]),
-        _group(EntityKind.trigger, [_row(EntityKind.trigger, 'e', DateTime(2026))]),
-        _group(EntityKind.control, [_row(EntityKind.control, 'f', DateTime(2026))]),
-        _group(EntityKind.approval, [_row(EntityKind.approval, 'g', DateTime(2026))]),
+        _group(EntityKind.agent, [
+          _row(EntityKind.agent, 'b', DateTime(2026)),
+          _row(EntityKind.agent, 'c', DateTime(2026)),
+        ]),
+        _group(EntityKind.workflow, [
+          _row(EntityKind.workflow, 'd', DateTime(2026)),
+        ]),
+        _group(EntityKind.trigger, [
+          _row(EntityKind.trigger, 'e', DateTime(2026)),
+        ]),
+        _group(EntityKind.control, [
+          _row(EntityKind.control, 'f', DateTime(2026)),
+        ]),
+        _group(EntityKind.approval, [
+          _row(EntityKind.approval, 'g', DateTime(2026)),
+        ]),
       ];
       final c = overviewCounts(groups);
       expect(c.function, 1);
       expect(c.handler, 0, reason: '0 is a real answer, not omitted');
       expect(c.agent, 2);
       expect(c.workflow, 1);
-      expect(c.accessory, 3, reason: 'trigger + control + approval fold into Parts');
+      expect(
+        c.accessory,
+        3,
+        reason: 'trigger + control + approval fold into Parts',
+      );
     });
   });
 
@@ -74,7 +109,9 @@ void main() {
           _row(EntityKind.function, 'old', DateTime(2026, 1, 1)),
           _row(EntityKind.function, 'newest', DateTime(2026, 6, 1)),
         ]),
-        _group(EntityKind.workflow, [_row(EntityKind.workflow, 'mid', DateTime(2026, 3, 1))]),
+        _group(EntityKind.workflow, [
+          _row(EntityKind.workflow, 'mid', DateTime(2026, 3, 1)),
+        ]),
       ];
       final recent = recentEntities(groups, max: 2);
       expect(recent.map((r) => r.id).toList(), ['newest', 'mid']);
@@ -83,20 +120,36 @@ void main() {
     test('deterministic tiebreak by name on equal updatedAt', () {
       final t = DateTime(2026, 5, 5);
       final groups = [
-        _group(EntityKind.function, [_row(EntityKind.function, 'zeta', t), _row(EntityKind.function, 'alpha', t)]),
+        _group(EntityKind.function, [
+          _row(EntityKind.function, 'zeta', t),
+          _row(EntityKind.function, 'alpha', t),
+        ]),
       ];
-      expect(recentEntities(groups).map((r) => r.id).toList(), ['alpha', 'zeta']);
+      expect(recentEntities(groups).map((r) => r.id).toList(), [
+        'alpha',
+        'zeta',
+      ]);
     });
   });
 
   group('mostRecentGraphNodeId (default ripple focus)', () {
-    final nodes = [_n('function', 'fn'), _n('agent', 'ag'), _n('workflow', 'wf')];
+    final nodes = [
+      _n('function', 'fn'),
+      _n('agent', 'ag'),
+      _n('workflow', 'wf'),
+    ];
 
     test('the most-recently-updated entity that is also a graph node', () {
       final groups = [
-        _group(EntityKind.function, [_row(EntityKind.function, 'fn', DateTime(2026, 1, 1))]),
-        _group(EntityKind.agent, [_row(EntityKind.agent, 'ag', DateTime(2026, 6, 1))]), // newest
-        _group(EntityKind.workflow, [_row(EntityKind.workflow, 'wf', DateTime(2026, 3, 1))]),
+        _group(EntityKind.function, [
+          _row(EntityKind.function, 'fn', DateTime(2026, 1, 1)),
+        ]),
+        _group(EntityKind.agent, [
+          _row(EntityKind.agent, 'ag', DateTime(2026, 6, 1)),
+        ]), // newest
+        _group(EntityKind.workflow, [
+          _row(EntityKind.workflow, 'wf', DateTime(2026, 3, 1)),
+        ]),
       ];
       expect(mostRecentGraphNodeId(nodes, groups), 'ag');
     });
@@ -104,16 +157,27 @@ void main() {
     test('skips recent rows that are not on the graph', () {
       final groups = [
         // Newest overall, but NOT a graph node → skipped for the newest that IS. 最新但不在图上→跳过。
-        _group(EntityKind.handler, [_row(EntityKind.handler, 'hd_offgraph', DateTime(2026, 9, 1))]),
-        _group(EntityKind.function, [_row(EntityKind.function, 'fn', DateTime(2026, 2, 1))]),
+        _group(EntityKind.handler, [
+          _row(EntityKind.handler, 'hd_offgraph', DateTime(2026, 9, 1)),
+        ]),
+        _group(EntityKind.function, [
+          _row(EntityKind.function, 'fn', DateTime(2026, 2, 1)),
+        ]),
       ];
       expect(mostRecentGraphNodeId(nodes, groups), 'fn');
     });
 
-    test('null when the rail has loaded no row on the graph (→ primitive degree fallback)', () {
-      final groups = [_group(EntityKind.handler, [_row(EntityKind.handler, 'hd_x', DateTime(2026))])];
-      expect(mostRecentGraphNodeId(nodes, groups), isNull);
-    });
+    test(
+      'null when the rail has loaded no row on the graph (→ primitive degree fallback)',
+      () {
+        final groups = [
+          _group(EntityKind.handler, [
+            _row(EntityKind.handler, 'hd_x', DateTime(2026)),
+          ]),
+        ];
+        expect(mostRecentGraphNodeId(nodes, groups), isNull);
+      },
+    );
 
     test('null for an empty graph', () {
       expect(mostRecentGraphNodeId(const [], const []), isNull);
@@ -128,12 +192,15 @@ void main() {
       _e('link', 'z', 'x'), // z links x (x referenced-by z)
     ];
 
-    test('splits equips (out equip) / referencedBy (in equip+link) / links (out link)', () {
-      final g = relationGroupsFor('x', edges);
-      expect(g.equips.map((e) => e.toId).toList(), ['a']);
-      expect(g.links.map((e) => e.toId).toList(), ['b']);
-      expect(g.referencedBy.map((e) => e.fromId).toSet(), {'y', 'z'});
-    });
+    test(
+      'splits equips (out equip) / referencedBy (in equip+link) / links (out link)',
+      () {
+        final g = relationGroupsFor('x', edges);
+        expect(g.equips.map((e) => e.toId).toList(), ['a']);
+        expect(g.links.map((e) => e.toId).toList(), ['b']);
+        expect(g.referencedBy.map((e) => e.fromId).toSet(), {'y', 'z'});
+      },
+    );
 
     test('a node with no edges has empty groups', () {
       expect(relationGroupsFor('none', edges).isEmpty, isTrue);

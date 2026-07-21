@@ -60,13 +60,13 @@ class AnAttachmentCard extends StatelessWidget {
 
   /// Kind → glyph (the attachment vocabulary of the kit's single icon source). kind→字形(单一图标源)。
   static IconData glyph(String kind) => switch (kind) {
-        'image' => AnIcons.image,
-        'document' => AnIcons.doc,
-        'text' => AnIcons.fileCode,
-        'audio' => AnIcons.audio,
-        'video' => AnIcons.video,
-        _ => AnIcons.file,
-      };
+    'image' => AnIcons.image,
+    'document' => AnIcons.doc,
+    'text' => AnIcons.fileCode,
+    'audio' => AnIcons.audio,
+    'video' => AnIcons.video,
+    _ => AnIcons.file,
+  };
 
   bool get _interactive =>
       onTap != null &&
@@ -82,10 +82,14 @@ class AnAttachmentCard extends StatelessWidget {
       // Bone matches the READY body height (28 tile / two text lines ≈ 35) — an undersized skeleton
       // made the card grow ~5px when metadata landed, a layout shift inside the centre-anchored
       // transcript. 骨架高度对齐 ready 内容(35)——偏矮的骨架在元数据落地时把卡撑高 5px、移动锚定列。
-      return _frame(c,
-          active: false,
-          child: const SizedBox(
-              height: AnSize.attachBodyH, child: Center(child: AnSkeleton.row())));
+      return _frame(
+        c,
+        active: false,
+        child: const SizedBox(
+          height: AnSize.attachBodyH,
+          child: Center(child: AnSkeleton.row()),
+        ),
+      );
     }
     final missing = state == AnAttachmentState.missing;
     final meta = switch (state) {
@@ -105,8 +109,11 @@ class AnAttachmentCard extends StatelessWidget {
             color: c.surfaceSunken,
             borderRadius: BorderRadius.circular(AnRadius.button),
           ),
-          child: Icon(missing ? AnIcons.fileMissing : glyph(kind),
-              size: AnSize.icon, color: c.inkFaint),
+          child: Icon(
+            missing ? AnIcons.fileMissing : glyph(kind),
+            size: AnSize.icon,
+            color: c.inkFaint,
+          ),
         ),
         const SizedBox(width: AnSpace.s8),
         Expanded(
@@ -122,8 +129,12 @@ class AnAttachmentCard extends StatelessWidget {
                     .weight(AnText.emphasisWeight)
                     .copyWith(color: missing ? c.inkFaint : c.ink),
               ),
-              Text(meta, maxLines: 1, overflow: TextOverflow.ellipsis,
-                  style: AnText.label.copyWith(color: c.inkFaint)),
+              Text(
+                meta,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.label.copyWith(color: c.inkFaint),
+              ),
             ],
           ),
         ),
@@ -142,14 +153,16 @@ class AnAttachmentCard extends StatelessWidget {
         label: semantics,
         child: AnInteractive(
           onTap: onTap,
-          builder: (ctx, states) =>
-              ExcludeSemantics(child: _frame(ctx.colors, active: states.isActive, child: body)),
+          builder: (ctx, states) => ExcludeSemantics(
+            child: _frame(ctx.colors, active: states.isActive, child: body),
+          ),
         ),
       ),
     );
   }
 
-  Widget _frame(AnColors c, {required bool active, required Widget child}) => Container(
+  Widget _frame(AnColors c, {required bool active, required Widget child}) =>
+      Container(
         width: AnSize.attachCard,
         padding: const EdgeInsets.all(AnSpace.s8),
         decoration: BoxDecoration(

@@ -34,7 +34,9 @@ class SchedulerWorkflow extends SchedulerSelection {
 
   @override
   bool operator ==(Object other) =>
-      other is SchedulerWorkflow && other.workflowId == workflowId && other.linkedRunId == linkedRunId;
+      other is SchedulerWorkflow &&
+      other.workflowId == workflowId &&
+      other.linkedRunId == linkedRunId;
 
   @override
   int get hashCode => Object.hash(workflowId, linkedRunId);
@@ -43,7 +45,12 @@ class SchedulerWorkflow extends SchedulerSelection {
 /// The run flagship (`/scheduler/w/:id/runs/:frId`), optionally with a node selected (`?node=`,
 /// `?iter=`). run 旗舰态(节点选区经 ?node=)。
 class SchedulerRun extends SchedulerSelection {
-  const SchedulerRun(this.workflowId, this.flowrunId, {this.nodeId, this.iteration});
+  const SchedulerRun(
+    this.workflowId,
+    this.flowrunId, {
+    this.nodeId,
+    this.iteration,
+  });
 
   final String workflowId;
   final String flowrunId;
@@ -71,7 +78,8 @@ class SchedulerRunRelay extends SchedulerSelection {
   final String flowrunId;
 
   @override
-  bool operator ==(Object other) => other is SchedulerRunRelay && other.flowrunId == flowrunId;
+  bool operator ==(Object other) =>
+      other is SchedulerRunRelay && other.flowrunId == flowrunId;
 
   @override
   int get hashCode => flowrunId.hashCode;
@@ -96,8 +104,12 @@ class SelectedScheduler extends Notifier<SchedulerSelection?> {
     final segs = uri.pathSegments;
     if (segs.isEmpty || segs[0] != 'scheduler') return null;
     if (segs.length == 1) return const SchedulerOverview();
-    if (segs.length == 2 && segs[1] == 'w') return null; // malformed — router redirects. 畸形,路由兜底。
-    if (segs.length == 3 && segs[1] == 'runs') return SchedulerRunRelay(segs[2]);
+    if (segs.length == 2 && segs[1] == 'w') {
+      return null; // malformed — router redirects. 畸形,路由兜底。
+    }
+    if (segs.length == 3 && segs[1] == 'runs') {
+      return SchedulerRunRelay(segs[2]);
+    }
     if (segs.length >= 2 && segs[1] == 'w') {
       final wfId = segs[2];
       if (segs.length == 3) {
@@ -105,8 +117,12 @@ class SelectedScheduler extends Notifier<SchedulerSelection?> {
       }
       if (segs.length == 5 && segs[3] == 'runs') {
         final iterRaw = uri.queryParameters['iter'];
-        return SchedulerRun(wfId, segs[4],
-            nodeId: uri.queryParameters['node'], iteration: iterRaw != null ? int.tryParse(iterRaw) : null);
+        return SchedulerRun(
+          wfId,
+          segs[4],
+          nodeId: uri.queryParameters['node'],
+          iteration: iterRaw != null ? int.tryParse(iterRaw) : null,
+        );
       }
     }
     return null;
@@ -114,4 +130,6 @@ class SelectedScheduler extends Notifier<SchedulerSelection?> {
 }
 
 final selectedSchedulerProvider =
-    NotifierProvider<SelectedScheduler, SchedulerSelection?>(SelectedScheduler.new);
+    NotifierProvider<SelectedScheduler, SchedulerSelection?>(
+      SelectedScheduler.new,
+    );

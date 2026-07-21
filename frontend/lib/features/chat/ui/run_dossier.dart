@@ -20,13 +20,20 @@ import '../../../core/run/provenance_line.dart';
 
 /// The record status → elapsed receipt: `{status} · {elapsed}`; failed/timeout → danger (auto-expand —
 /// you opened a failed record to triage). null when unparseable. 卷宗回执:状态·耗时,失败/超时红。
-ToolReceipt? statusElapsedReceipt(Translations t, String? status, int? elapsedMs) {
+ToolReceipt? statusElapsedReceipt(
+  Translations t,
+  String? status,
+  int? elapsedMs,
+) {
   if (status == null || status.isEmpty) return null;
   final word = runStatusWord(t, status);
   final elapsed = elapsedMs != null ? fmtElapsed(elapsedMs) : null;
   final txt = elapsed == null ? word : '$word · $elapsed';
   final danger = status == 'failed' || status == 'timeout';
-  return (text: txt, tone: danger ? ToolReceiptTone.danger : ToolReceiptTone.none);
+  return (
+    text: txt,
+    tone: danger ? ToolReceiptTone.danger : ToolReceiptTone.none,
+  );
 }
 
 /// The RunDossier — one execution's full audit record. The head badge + provenance-triggeredBy + timing;
@@ -71,37 +78,63 @@ class RunDossier extends StatelessWidget {
     final t = Translations.of(context);
     final c = context.colors;
     final ok = status == 'ok';
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      // Head: status badge · head chips (method/tool) · triggeredBy. 头条(词章行)。
-      Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
-        AnChip(runStatusWord(t, status), tone: AnStatus.fromRaw(status).tone),
-        ...headChips,
-        if (triggeredBy != null && triggeredBy!.isNotEmpty) Text(triggeredBy!, style: AnText.meta.copyWith(color: c.inkFaint)),
-      ]),
-      // The started→ended span on its own full-width line (a long stamp pair overflows a narrow head
-      // Wrap; a wrapping Text handles it). 时间跨度独占一行(长时戳对在窄头会溢出,独行可折)。
-      if (startedAt != null)
-        Padding(padding: const EdgeInsets.only(top: AnSpace.s2), child: Text(_span(), style: AnText.metaTabular().copyWith(color: c.inkFaint))),
-      const SizedBox(height: AnSpace.s6),
-      if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
-      const SizedBox(height: AnSpace.s6),
-      if (!ok && errorMessage != null && errorMessage!.isNotEmpty)
-        AnWindow(child: Text(errorMessage!, style: AnText.code.copyWith(color: c.danger), maxLines: 30, overflow: TextOverflow.ellipsis))
-      else
-        ToolIOSection(label: t.run.ioOutput, value: output),
-      if (logs != null && logs!.trim().isNotEmpty) ...[
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Head: status badge · head chips (method/tool) · triggeredBy. 头条(词章行)。
+        Wrap(
+          spacing: AnGap.inline,
+          runSpacing: AnGap.stackTight,
+          crossAxisAlignment: WrapCrossAlignment.center,
+          children: [
+            AnChip(
+              runStatusWord(t, status),
+              tone: AnStatus.fromRaw(status).tone,
+            ),
+            ...headChips,
+            if (triggeredBy != null && triggeredBy!.isNotEmpty)
+              Text(
+                triggeredBy!,
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
+          ],
+        ),
+        // The started→ended span on its own full-width line (a long stamp pair overflows a narrow head
+        // Wrap; a wrapping Text handles it). 时间跨度独占一行(长时戳对在窄头会溢出,独行可折)。
+        if (startedAt != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s2),
+            child: Text(
+              _span(),
+              style: AnText.metaTabular().copyWith(color: c.inkFaint),
+            ),
+          ),
         const SizedBox(height: AnSpace.s6),
-        LogDrawer(logs: logs!, splitStderr: true),
-      ],
-      if (extra != null) ...[
+        if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
         const SizedBox(height: AnSpace.s6),
-        extra!,
+        if (!ok && errorMessage != null && errorMessage!.isNotEmpty)
+          AnWindow(
+            child: Text(
+              errorMessage!,
+              style: AnText.code.copyWith(color: c.danger),
+              maxLines: 30,
+              overflow: TextOverflow.ellipsis,
+            ),
+          )
+        else
+          ToolIOSection(label: t.run.ioOutput, value: output),
+        if (logs != null && logs!.trim().isNotEmpty) ...[
+          const SizedBox(height: AnSpace.s6),
+          LogDrawer(logs: logs!, splitStderr: true),
+        ],
+        if (extra != null) ...[const SizedBox(height: AnSpace.s6), extra!],
+        if (provenance != null) ...[
+          const SizedBox(height: AnSpace.s6),
+          provenance!,
+        ],
       ],
-      if (provenance != null) ...[
-        const SizedBox(height: AnSpace.s6),
-        provenance!,
-      ],
-    ]);
+    );
   }
 
   String _span() {

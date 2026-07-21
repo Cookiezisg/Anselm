@@ -41,14 +41,27 @@ class _ChatOceanState extends ConsumerState<ChatOcean> {
     } else {
       content = Column(
         children: [
-          Expanded(child: ChatTranscriptView(conversationId: id, key: ValueKey('transcript-$id'))),
+          Expanded(
+            child: ChatTranscriptView(
+              conversationId: id,
+              key: ValueKey('transcript-$id'),
+            ),
+          ),
           Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: AnSize.content),
               child: Padding(
                 // top = AnGap.block (12): the transcript↔composer boundary was the tightest gap in chat (s4). 转录↔输入边界(原 s4 最紧)。
-                padding: const EdgeInsets.fromLTRB(AnInset.pageX, AnGap.block, AnInset.pageX, AnSpace.s16),
-                child: ChatComposer(conversationId: id, key: ValueKey('composer-$id')),
+                padding: const EdgeInsets.fromLTRB(
+                  AnInset.pageX,
+                  AnGap.block,
+                  AnInset.pageX,
+                  AnSpace.s16,
+                ),
+                child: ChatComposer(
+                  conversationId: id,
+                  key: ValueKey('composer-$id'),
+                ),
               ),
             ),
           ),
@@ -74,13 +87,15 @@ class _ChatOceanState extends ConsumerState<ChatOcean> {
         children: [
           content,
           if (_dragging)
-            AnDropVeil(icon: AnIcons.attach, label: Translations.of(context).chat.dropToAttach),
+            AnDropVeil(
+              icon: AnIcons.attach,
+              label: Translations.of(context).chat.dropToAttach,
+            ),
         ],
       ),
     );
   }
 }
-
 
 /// The New-chat landing: a STATIC greeting over a centered floating composer (heart ≈ upper-middle,
 /// the 2:3 split). ChatGPT/Claude/Gemini all render the greeting static — a typewriter delays the
@@ -110,15 +125,21 @@ class _ChatLanding extends ConsumerWidget {
                 children: [
                   Center(
                     child: AnFadeRiseIn(
-                      child: Text(t.chat.landingGreeting, style: AnText.h2.copyWith(color: c.ink)),
+                      child: Text(
+                        t.chat.landingGreeting,
+                        style: AnText.h2.copyWith(color: c.ink),
+                      ),
                     ),
                   ),
                   const SizedBox(height: AnSpace.s24),
                   ChatComposer(
                     onSubmitNew: (text, mentions, attachmentIds) async {
                       final start = ref.read(startConversationProvider);
-                      final id =
-                          await start(text, mentions: mentions, attachmentIds: attachmentIds);
+                      final id = await start(
+                        text,
+                        mentions: mentions,
+                        attachmentIds: attachmentIds,
+                      );
                       if (context.mounted) context.go(conversationLocation(id));
                     },
                   ),
@@ -132,4 +153,3 @@ class _ChatLanding extends ConsumerWidget {
     );
   }
 }
-

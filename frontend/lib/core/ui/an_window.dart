@@ -32,10 +32,14 @@ class AnWindow extends StatelessWidget {
     this.collapsible = false,
     this.footer,
     super.key,
-  })  : assert(!collapsible || maxHeight != null,
-            'collapsible needs a maxHeight tier (else it silently does nothing) 折叠须配钳高档'),
-        assert(child != null || header != null || footer != null,
-            'an AnWindow needs at least one of child/header/footer 至少给一个槽');
+  }) : assert(
+         !collapsible || maxHeight != null,
+         'collapsible needs a maxHeight tier (else it silently does nothing) 折叠须配钳高档',
+       ),
+       assert(
+         child != null || header != null || footer != null,
+         'an AnWindow needs at least one of child/header/footer 至少给一个槽',
+       );
 
   /// The body. null = a header-only window (e.g. a just-opened card with nothing to say yet) —
   /// the head↔body gap is skipped so no dead space is paid. 体;null=头独窗(刚开播无话可说的卡),
@@ -71,21 +75,26 @@ class AnWindow extends StatelessWidget {
     final c = context.colors;
     final head = (header == null && actions.isEmpty)
         ? null
-        : Row(children: [
-            if (header != null)
-              Expanded(
-                child: DefaultTextStyle.merge(
-                  style: AnText.label.copyWith(color: c.inkFaint),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  child: header!,
+        : Row(
+            children: [
+              if (header != null)
+                Expanded(
+                  child: DefaultTextStyle.merge(
+                    style: AnText.label.copyWith(color: c.inkFaint),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    child: header!,
+                  ),
+                )
+              else
+                const Spacer(),
+              for (final a in actions)
+                Padding(
+                  padding: const EdgeInsets.only(left: AnSpace.s4),
+                  child: a,
                 ),
-              )
-            else
-              const Spacer(),
-            for (final a in actions)
-              Padding(padding: const EdgeInsets.only(left: AnSpace.s4), child: a),
-          ]);
+            ],
+          );
 
     Widget? body = child;
     if (body != null && maxHeight != null) {
@@ -105,13 +114,21 @@ class AnWindow extends StatelessWidget {
           : ConstrainedBox(
               constraints: BoxConstraints(maxHeight: maxHeight!),
               child: ClipRect(
-                child: Stack(children: [
-                  SingleChildScrollView(physics: const NeverScrollableScrollPhysics(), child: body),
-                  Positioned(
-                    left: 0, right: 0, bottom: 0, height: AnSpace.s16,
-                    child: AnEdgeFade(fromTop: false, color: c.surface),
-                  ),
-                ]),
+                child: Stack(
+                  children: [
+                    SingleChildScrollView(
+                      physics: const NeverScrollableScrollPhysics(),
+                      child: body,
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      height: AnSpace.s16,
+                      child: AnEdgeFade(fromTop: false, color: c.surface),
+                    ),
+                  ],
+                ),
               ),
             );
     }
@@ -131,11 +148,16 @@ class AnWindow extends StatelessWidget {
               ?head,
               // The head↔body gap is only paid when there IS a body (复审: a header-only window must
               // not carry a dead 6px). 头体距只在有体时付(头独窗不背死距)。
-              if (head != null && body != null) const SizedBox(height: AnSpace.s6),
+              if (head != null && body != null)
+                const SizedBox(height: AnSpace.s6),
               ?body,
               if (footer != null) ...[
-                if (head != null || body != null) const SizedBox(height: AnSpace.s4),
-                DefaultTextStyle.merge(style: AnText.meta.copyWith(color: c.inkFaint), child: footer!),
+                if (head != null || body != null)
+                  const SizedBox(height: AnSpace.s4),
+                DefaultTextStyle.merge(
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                  child: footer!,
+                ),
               ],
             ],
           );

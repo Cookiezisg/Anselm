@@ -40,7 +40,10 @@ mixin BatchZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   /// One sequential batch: per-row pending → op → settle (slide out) / count a lost race (422) /
   /// count a failure. Returns (ok, lost, failed). 一次逐发批量,返回三桶计数。
   Future<(int, int, int)> runBatch<R>(
-      List<R> items, String Function(R) keyOf, Future<void> Function(R) op) async {
+    List<R> items,
+    String Function(R) keyOf,
+    Future<void> Function(R) op,
+  ) async {
     setState(() => batchBusy = true);
     var ok = 0, lost = 0, failed = 0;
     for (final it in items) {
@@ -70,14 +73,18 @@ mixin BatchZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
 
   /// The batch summary toast «已批准 2 · 1 条已被别处处理» — parts only for non-zero buckets; the
   /// worst bucket picks the tone. 汇总 toast:非零桶才入句;最坏桶定声调。
-  void summaryNotice({required String? okPart, required String? lostPart, required String? failedPart}) {
+  void summaryNotice({
+    required String? okPart,
+    required String? lostPart,
+    required String? failedPart,
+  }) {
     final parts = [?okPart, ?lostPart, ?failedPart];
     if (parts.isEmpty) return;
     final tone = failedPart != null
         ? AnTone.danger
         : lostPart != null
-            ? AnTone.warn
-            : AnTone.ok;
+        ? AnTone.warn
+        : AnTone.ok;
     ref.read(noticeCenterProvider.notifier).show(parts.join(' · '), tone: tone);
   }
 }

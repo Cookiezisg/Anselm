@@ -71,17 +71,17 @@ class AnSection extends StatelessWidget {
   // jump over its own s12 children that read as a "slab" void on every entity overview (fixed). quiet stays
   // compact (16, the tight run-terminal stacks). 段↔段底距统一 24(plain 原 s32「板块感」已修);quiet 保紧凑 16。
   double get _bottomPad => switch (variant) {
-        AnSectionVariant.caption => AnGap.section,
-        AnSectionVariant.plain => AnGap.section,
-        AnSectionVariant.quiet => AnSpace.s16,
-      };
+    AnSectionVariant.caption => AnGap.section,
+    AnSectionVariant.plain => AnGap.section,
+    AnSectionVariant.quiet => AnSpace.s16,
+  };
   // Heading→body ramp — a deliberate, now-NAMED 3-tier (sanctioned prose exception): plain 12 / caption 8 /
   // quiet 6. 标题→正文三档(命名后的合规例外)。
   double get _headGap => switch (variant) {
-        AnSectionVariant.caption => AnFlow.headBodyTight,
-        AnSectionVariant.plain => AnFlow.headBody,
-        AnSectionVariant.quiet => AnFlow.headBodyDense,
-      };
+    AnSectionVariant.caption => AnFlow.headBodyTight,
+    AnSectionVariant.plain => AnFlow.headBody,
+    AnSectionVariant.quiet => AnFlow.headBodyDense,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -97,10 +97,7 @@ class AnSection extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (hasHead) ...[
-              _head(context, c),
-              SizedBox(height: _headGap),
-            ],
+            if (hasHead) ...[_head(context, c), SizedBox(height: _headGap)],
             _body(),
           ],
         ),
@@ -112,14 +109,20 @@ class AnSection extends StatelessWidget {
     // grid → responsive block grid (AnAutoGrid); else a single column with a uniform inter-block gap
     // (sp-3) — the container owns spacing, children never self-margin. grid 走块网格,否则单列统一块间距。
     if (grid) {
-      return AnAutoGrid(minColWidth: gridMinColWidth ?? AnSize.block, children: children);
+      return AnAutoGrid(
+        minColWidth: gridMinColWidth ?? AnSize.block,
+        children: children,
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
         for (var i = 0; i < children.length; i++) ...[
-          if (i > 0) const SizedBox(height: AnGap.block), // uniform inter-block gap (12) 统一块间距
+          if (i > 0)
+            const SizedBox(
+              height: AnGap.block,
+            ), // uniform inter-block gap (12) 统一块间距
           children[i],
         ],
       ],
@@ -129,28 +132,50 @@ class AnSection extends StatelessWidget {
   Widget _head(BuildContext context, AnColors c) {
     // Empty-string label (with actions) collapses to an actions-only head — no phantom empty header
     // node. Guard matches hasHead's isNotEmpty. 空串 label 退化为 actions-only,不发空 header 节点。
-    final labelWidget = (label == null || label!.isEmpty) ? null : _label(context, c);
+    final labelWidget = (label == null || label!.isEmpty)
+        ? null
+        : _label(context, c);
     // caption head has a slight optical inset (= --grid/2); plain head sits flush. 视觉内缩 grid/2。
-    final inset = _caption ? const EdgeInsets.symmetric(horizontal: AnSpace.s2) : EdgeInsets.zero;
+    final inset = _caption
+        ? const EdgeInsets.symmetric(horizontal: AnSpace.s2)
+        : EdgeInsets.zero;
     final Widget head = actions.isEmpty
         ? (labelWidget ?? const SizedBox.shrink())
         // AnActionGroup WITHOUT `end` — AnTwoZone already pins trailing right; `end` would force an
         // infinite-width box that breaks the Row. 不用 end:AnTwoZone 已右锚,end 会撑无限宽崩 Row。
-        : AnTwoZone(label: labelWidget ?? const SizedBox.shrink(), trailing: AnActionGroup(actions));
+        : AnTwoZone(
+            label: labelWidget ?? const SizedBox.shrink(),
+            trailing: AnActionGroup(actions),
+          );
     return Padding(padding: inset, child: head);
   }
 
   Widget _label(BuildContext context, AnColors c) {
     final visible = switch (variant) {
-      AnSectionVariant.caption => AnGroupLabel(label!, padding: EdgeInsets.zero),
-      AnSectionVariant.plain =>
-        Text(label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.readingH2.copyWith(color: c.ink)),
+      AnSectionVariant.caption => AnGroupLabel(
+        label!,
+        padding: EdgeInsets.zero,
+      ),
+      AnSectionVariant.plain => Text(
+        label!,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AnText.readingH2.copyWith(color: c.ink),
+      ),
       // quiet: a small lowercase faint-meta label (NOT uppercased like caption). 安静小写灰 meta。
-      AnSectionVariant.quiet =>
-        Text(label!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)),
+      AnSectionVariant.quiet => Text(
+        label!,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: AnText.meta.copyWith(color: c.inkFaint),
+      ),
     };
     // One header node reading the original-case label (caption visual is uppercased); exclude the
     // visual's own semantics so the reader hears "Inputs", not "INPUTS". 单 header 节点读原始大小写。
-    return Semantics(header: true, label: semanticLabel ?? label!, child: ExcludeSemantics(child: visible));
+    return Semantics(
+      header: true,
+      label: semanticLabel ?? label!,
+      child: ExcludeSemantics(child: visible),
+    );
   }
 }

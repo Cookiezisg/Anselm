@@ -25,7 +25,12 @@ enum ShortcutCommand {
 /// A platform-normalized chord. `cmd` is the primary accelerator — ⌘ on macOS, Ctrl elsewhere — so
 /// one declaration binds correctly on every desktop. 平台归一的组合键;cmd=主加速键(mac ⌘/其余 Ctrl)。
 class ShortcutChord {
-  const ShortcutChord(this.key, {this.cmd = false, this.shift = false, this.alt = false});
+  const ShortcutChord(
+    this.key, {
+    this.cmd = false,
+    this.shift = false,
+    this.alt = false,
+  });
 
   final LogicalKeyboardKey key;
   final bool cmd;
@@ -37,20 +42,20 @@ class ShortcutChord {
   /// Build the [SingleActivator] to register — cmd maps to meta on macOS, control elsewhere.
   /// 构造要注册的 SingleActivator;cmd 在 mac→meta、其余→control。
   SingleActivator toActivator() => SingleActivator(
-        key,
-        meta: cmd && _isMac,
-        control: cmd && !_isMac,
-        shift: shift,
-        alt: alt,
-      );
+    key,
+    meta: cmd && _isMac,
+    control: cmd && !_isMac,
+    shift: shift,
+    alt: alt,
+  );
 
   /// Stable serialization (uses the key's numeric id, never the label). 稳定序列化(用数字 id)。
   String serialize() => [
-        if (cmd) 'cmd',
-        if (shift) 'shift',
-        if (alt) 'alt',
-        '${key.keyId}',
-      ].join('+');
+    if (cmd) 'cmd',
+    if (shift) 'shift',
+    if (alt) 'alt',
+    '${key.keyId}',
+  ].join('+');
 
   static ShortcutChord? parse(String s) {
     final parts = s.split('+');
@@ -78,19 +83,29 @@ class ShortcutChord {
   /// Per-key display fragments (⌘ / ⌥ / ⇧ / B) — the keycap-row face renders one cap per entry.
   /// 逐键片段(键帽行逐项一帽)。
   List<String> get parts => [
-        if (_isMac) ...[if (cmd) '⌘', if (alt) '⌥', if (shift) '⇧']
-        else ...[if (cmd) 'Ctrl', if (alt) 'Alt', if (shift) 'Shift'],
-        _keyLabel(key),
-      ];
+    if (_isMac) ...[
+      if (cmd) '⌘',
+      if (alt) '⌥',
+      if (shift) '⇧',
+    ] else ...[
+      if (cmd) 'Ctrl',
+      if (alt) 'Alt',
+      if (shift) 'Shift',
+    ],
+    _keyLabel(key),
+  ];
 
   static String _keyLabel(LogicalKeyboardKey key) => switch (key) {
-        LogicalKeyboardKey.comma => ',',
-        LogicalKeyboardKey.backslash => '\\',
-        LogicalKeyboardKey.equal => '=',
-        LogicalKeyboardKey.minus => '−',
-        LogicalKeyboardKey.digit0 => '0',
-        _ => key.keyLabel.isNotEmpty ? key.keyLabel.toUpperCase() : key.debugName ?? '?',
-      };
+    LogicalKeyboardKey.comma => ',',
+    LogicalKeyboardKey.backslash => '\\',
+    LogicalKeyboardKey.equal => '=',
+    LogicalKeyboardKey.minus => '−',
+    LogicalKeyboardKey.digit0 => '0',
+    _ =>
+      key.keyLabel.isNotEmpty
+          ? key.keyLabel.toUpperCase()
+          : key.debugName ?? '?',
+  };
 
   @override
   bool operator ==(Object other) =>
@@ -106,10 +121,22 @@ class ShortcutChord {
 
 /// The default binding for every command — the ONE place a chord is declared. 每命令默认绑定。
 const Map<ShortcutCommand, ShortcutChord> kShortcutDefaults = {
-  ShortcutCommand.toggleLeftIsland: ShortcutChord(LogicalKeyboardKey.keyB, cmd: true),
-  ShortcutCommand.toggleRightIsland: ShortcutChord(LogicalKeyboardKey.backslash, cmd: true),
-  ShortcutCommand.openSettings: ShortcutChord(LogicalKeyboardKey.comma, cmd: true),
+  ShortcutCommand.toggleLeftIsland: ShortcutChord(
+    LogicalKeyboardKey.keyB,
+    cmd: true,
+  ),
+  ShortcutCommand.toggleRightIsland: ShortcutChord(
+    LogicalKeyboardKey.backslash,
+    cmd: true,
+  ),
+  ShortcutCommand.openSettings: ShortcutChord(
+    LogicalKeyboardKey.comma,
+    cmd: true,
+  ),
   ShortcutCommand.zoomIn: ShortcutChord(LogicalKeyboardKey.equal, cmd: true),
   ShortcutCommand.zoomOut: ShortcutChord(LogicalKeyboardKey.minus, cmd: true),
-  ShortcutCommand.zoomReset: ShortcutChord(LogicalKeyboardKey.digit0, cmd: true),
+  ShortcutCommand.zoomReset: ShortcutChord(
+    LogicalKeyboardKey.digit0,
+    cmd: true,
+  ),
 };

@@ -12,19 +12,23 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   Widget host(Widget child) => MaterialApp(
-        theme: AnTheme.light(),
-        home: Scaffold(body: Center(child: child)),
-      );
+    theme: AnTheme.light(),
+    home: Scaffold(body: Center(child: child)),
+  );
 
-  Widget wheel(List<AnWheelTime> log, {AnWheelTime initial = (hour: 9, minute: 30)}) =>
-      StatefulBuilder(builder: (context, setState) {
-        final v = log.isEmpty ? initial : log.last;
-        return AnTimeWheel(
-          value: v,
-          onChanged: (n) => setState(() => log.add(n)),
-          semanticLabel: '从',
-        );
-      });
+  Widget wheel(
+    List<AnWheelTime> log, {
+    AnWheelTime initial = (hour: 9, minute: 30),
+  }) => StatefulBuilder(
+    builder: (context, setState) {
+      final v = log.isEmpty ? initial : log.last;
+      return AnTimeWheel(
+        value: v,
+        onChanged: (n) => setState(() => log.add(n)),
+        semanticLabel: '从',
+      );
+    },
+  );
 
   Future<void> notch(WidgetTester tester, Finder column, double dy) async {
     final pointer = TestPointer(1, PointerDeviceKind.mouse);
@@ -33,7 +37,9 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('renders zero-padded HH:MM with the selected pair emphasised', (tester) async {
+  testWidgets('renders zero-padded HH:MM with the selected pair emphasised', (
+    tester,
+  ) async {
     await tester.pumpWidget(host(wheel([])));
     expect(find.text('09'), findsWidgets);
     expect(find.text('30'), findsWidgets);
@@ -50,7 +56,9 @@ void main() {
     expect(log.last, (hour: 10, minute: 29));
   });
 
-  testWidgets('the wheel LOOPS: 23 scrolls forward to 00, 00 back to 59', (tester) async {
+  testWidgets('the wheel LOOPS: 23 scrolls forward to 00, 00 back to 59', (
+    tester,
+  ) async {
     final log = <AnWheelTime>[];
     await tester.pumpWidget(host(wheel(log, initial: (hour: 23, minute: 0))));
     final cols = find.byType(ListWheelScrollView);
@@ -63,7 +71,9 @@ void main() {
   testWidgets('↑/↓ step the FOCUSED column', (tester) async {
     final log = <AnWheelTime>[];
     await tester.pumpWidget(host(wheel(log)));
-    Focus.of(tester.element(find.byType(ListWheelScrollView).first)).requestFocus();
+    Focus.of(
+      tester.element(find.byType(ListWheelScrollView).first),
+    ).requestFocus();
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
@@ -73,17 +83,30 @@ void main() {
     expect(log.last, (hour: 9, minute: 30));
   });
 
-  testWidgets('an EXTERNAL value re-seats the wheel without an onChanged echo', (tester) async {
-    var value = (hour: 9, minute: 30);
-    final log = <AnWheelTime>[];
-    late StateSetter rebuild;
-    await tester.pumpWidget(host(StatefulBuilder(builder: (context, setState) {
-      rebuild = setState;
-      return AnTimeWheel(value: value, onChanged: log.add, semanticLabel: '从');
-    })));
-    rebuild(() => value = (hour: 17, minute: 5));
-    await tester.pumpAndSettle();
-    expect(find.text('17'), findsWidgets, reason: '开面板预填/宿主重置须重新落座');
-    expect(log, isEmpty, reason: '外部落座不是用户操作,不得回声 onChanged');
-  });
+  testWidgets(
+    'an EXTERNAL value re-seats the wheel without an onChanged echo',
+    (tester) async {
+      var value = (hour: 9, minute: 30);
+      final log = <AnWheelTime>[];
+      late StateSetter rebuild;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) {
+              rebuild = setState;
+              return AnTimeWheel(
+                value: value,
+                onChanged: log.add,
+                semanticLabel: '从',
+              );
+            },
+          ),
+        ),
+      );
+      rebuild(() => value = (hour: 17, minute: 5));
+      await tester.pumpAndSettle();
+      expect(find.text('17'), findsWidgets, reason: '开面板预填/宿主重置须重新落座');
+      expect(log, isEmpty, reason: '外部落座不是用户操作,不得回声 onChanged');
+    },
+  );
 }

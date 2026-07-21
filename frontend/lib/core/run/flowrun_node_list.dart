@@ -36,12 +36,12 @@ class FlowrunNodeLine {
 
   /// One plain row — the un-folded face (chat's flowrun card). 一行直映(chat 卡的朴素脸)。
   factory FlowrunNodeLine.of(FlowrunNode n) => FlowrunNodeLine(
-        nodeId: n.nodeId,
-        status: n.status,
-        kind: n.kind,
-        iteration: n.iteration,
-        error: n.status == 'failed' ? n.error : null,
-      );
+    nodeId: n.nodeId,
+    status: n.status,
+    kind: n.kind,
+    iteration: n.iteration,
+    error: n.status == 'failed' ? n.error : null,
+  );
 
   final String nodeId;
   final String status;
@@ -130,7 +130,11 @@ class FlowrunNodeList extends StatefulWidget {
 
 class _FlowrunNodeListState extends State<FlowrunNodeList> {
   // failed (0) → parked (1) → everything completed (2); stable within a rank. 失败→park→完成,组内稳定。
-  static int _rank(FlowrunNode n) => switch (n.status) { 'failed' => 0, 'parked' => 1, _ => 2 };
+  static int _rank(FlowrunNode n) => switch (n.status) {
+    'failed' => 0,
+    'parked' => 1,
+    _ => 2,
+  };
 
   /// The ONE row that opens itself: the FIRST failed line. Everything else waits to be asked
   /// (WRK-065 同律). 唯一自动展开的行=第一条失败行;其余等你问。
@@ -146,20 +150,21 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
     final lines = widget.lines ?? _plainLines();
     final autoOpen = _autoOpenKey(lines);
     final body = Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // The honest-count header stays OUTSIDE the list shell (heterogeneous headers are the
-          // caller's, 批6 A-071). 诚实账头件留壳外。
-          if (widget.summary != null) ...[
-            _summaryBar(context, widget.summary!),
-            const SizedBox(height: AnSpace.s4),
-          ],
-          AnLedgerList(
-            cap: widget.cap,
-            children: [for (final l in lines) _line(context, l, autoOpen)],
-          ),
-        ]);
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The honest-count header stays OUTSIDE the list shell (heterogeneous headers are the
+        // caller's, 批6 A-071). 诚实账头件留壳外。
+        if (widget.summary != null) ...[
+          _summaryBar(context, widget.summary!),
+          const SizedBox(height: AnSpace.s4),
+        ],
+        AnLedgerList(
+          cap: widget.cap,
+          children: [for (final l in lines) _line(context, l, autoOpen)],
+        ),
+      ],
+    );
     return widget.framed ? AnWindow(child: body) : body;
   }
 
@@ -180,12 +185,19 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
   // byStatus,绝不数 nodes.length。
   Widget _summaryBar(BuildContext context, FlowrunNodeSummary s) {
     final t = Translations.of(context);
-    return AnStatBar(stats: [
-      AnStat(t.run.flowShown(shown: '${s.shownNodes}', total: '${s.totalNodes}')),
-      if ((s.byStatus['completed'] ?? 0) > 0) AnStat('${t.run.runCompleted} ${s.byStatus['completed']}'),
-      if ((s.byStatus['failed'] ?? 0) > 0) AnStat('${t.run.failed} ${s.byStatus['failed']}'),
-      if ((s.byStatus['parked'] ?? 0) > 0) AnStat('${t.run.nodeWait} ${s.byStatus['parked']}'),
-    ]);
+    return AnStatBar(
+      stats: [
+        AnStat(
+          t.run.flowShown(shown: '${s.shownNodes}', total: '${s.totalNodes}'),
+        ),
+        if ((s.byStatus['completed'] ?? 0) > 0)
+          AnStat('${t.run.runCompleted} ${s.byStatus['completed']}'),
+        if ((s.byStatus['failed'] ?? 0) > 0)
+          AnStat('${t.run.failed} ${s.byStatus['failed']}'),
+        if ((s.byStatus['parked'] ?? 0) > 0)
+          AnStat('${t.run.nodeWait} ${s.byStatus['parked']}'),
+      ],
+    );
   }
 
   /// The row's ONE disclosure layer (§5.4 页内披露只此一层): the whole error behind the red first
@@ -196,28 +208,38 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
     final c = context.colors;
     final pick = widget.onPick;
     final full = l.errorFull;
-    final hasError = full != null && full.trim().isNotEmpty && full.trim() != l.error?.trim();
+    final hasError =
+        full != null &&
+        full.trim().isNotEmpty &&
+        full.trim() != l.error?.trim();
     if (!hasError && l.iterationLines.isEmpty) return null;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      // BARE mono — the list already sits in its window, and a window may never nest a window
-      // (法典 窗禁套窗). 裸 mono:列表已在窗里,窗禁套窗。
-      if (hasError)
-        Text(full.trim(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // BARE mono — the list already sits in its window, and a window may never nest a window
+        // (法典 窗禁套窗). 裸 mono:列表已在窗里,窗禁套窗。
+        if (hasError)
+          Text(
+            full.trim(),
             maxLines: AnCap.monoErrorLines,
             overflow: TextOverflow.ellipsis,
-            style: AnText.code.copyWith(color: c.danger)),
-      if (hasError && l.iterationLines.isNotEmpty) const SizedBox(height: AnSpace.s6),
-      for (final it in l.iterationLines)
-        AnLedgerRow(
-          lead: AnStatusDot(AnStatus.fromRaw(it.status)),
-          primary: '#${it.iteration}',
-          chips: const [],
-          sub: it.status == 'failed' ? it.error : null,
-          subTone: AnTone.danger,
-          measure: it.measure,
-          onTap: pick == null ? null : () => pick(it.nodeId, it.iteration),
-        ),
-    ]);
+            style: AnText.code.copyWith(color: c.danger),
+          ),
+        if (hasError && l.iterationLines.isNotEmpty)
+          const SizedBox(height: AnSpace.s6),
+        for (final it in l.iterationLines)
+          AnLedgerRow(
+            lead: AnStatusDot(AnStatus.fromRaw(it.status)),
+            primary: '#${it.iteration}',
+            chips: const [],
+            sub: it.status == 'failed' ? it.error : null,
+            subTone: AnTone.danger,
+            measure: it.measure,
+            onTap: pick == null ? null : () => pick(it.nodeId, it.iteration),
+          ),
+      ],
+    );
   }
 
   Widget _line(BuildContext context, FlowrunNodeLine l, String? autoOpenKey) {
@@ -225,8 +247,10 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
     final t = Translations.of(context);
     final key = '${l.nodeId}#${l.iteration}';
     final failed = l.status == 'failed';
-    final selected = widget.selectedNodeId == l.nodeId &&
-        (widget.selectedIteration == null || widget.selectedIteration == l.iteration);
+    final selected =
+        widget.selectedNodeId == l.nodeId &&
+        (widget.selectedIteration == null ||
+            widget.selectedIteration == l.iteration);
     final pick = widget.onPick;
     final disclosure = _disclosure(context, l);
     // Family row (批6 A-076): the status dot moves LEFT (法典族四②——was the family's one
@@ -243,10 +267,16 @@ class _FlowrunNodeListState extends State<FlowrunNodeList> {
         Icon(AnIcons.node(l.kind), size: AnSize.iconSm, color: c.inkFaint),
         // A loop turn > 0 → the 0-based iteration index (disambiguates repeated nodeId rows). 循环轮次。
         if (l.iterations <= 1 && l.iteration > 0)
-          Text('#${l.iteration}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+          Text(
+            '#${l.iteration}',
+            style: AnText.metaTabular().copyWith(color: c.inkFaint),
+          ),
         // Folded loop → the ×N count (§5.4 循环同节点折叠 ×N 一行). 折叠循环 → ×N。
         if (l.iterations > 1)
-          Text('×${l.iterations}', style: AnText.metaTabular().copyWith(color: c.accent)),
+          Text(
+            '×${l.iterations}',
+            style: AnText.metaTabular().copyWith(color: c.accent),
+          ),
         // The speculative front says so, in words, right on the row. 推测前沿:把话写在行上。
         if (l.inferred) AnChip(t.run.inferredRunning, tone: AnTone.accent),
       ],

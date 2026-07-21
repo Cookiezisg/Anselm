@@ -39,7 +39,10 @@ class AnCodeSurface extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: c.surface,
-        border: Border.all(color: focused ? c.accentLine : c.line, width: AnSize.hairline),
+        border: Border.all(
+          color: focused ? c.accentLine : c.line,
+          width: AnSize.hairline,
+        ),
         borderRadius: BorderRadius.circular(AnRadius.card),
       ),
       child: ClipRRect(

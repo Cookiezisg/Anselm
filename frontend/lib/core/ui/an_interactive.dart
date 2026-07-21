@@ -9,7 +9,9 @@ import 'an_hover_region.dart';
 /// hovered||focused drift). 套件统一的「视觉激活」判定:hover/press/(键盘)focus 任一,各控件一致取用。
 extension AnWidgetStates on Set<WidgetState> {
   bool get isActive =>
-      contains(WidgetState.hovered) || contains(WidgetState.pressed) || contains(WidgetState.focused);
+      contains(WidgetState.hovered) ||
+      contains(WidgetState.pressed) ||
+      contains(WidgetState.focused);
 }
 
 /// The interaction substrate every actionable surface composes — buttons, rows, chips, tabs all
@@ -74,7 +76,8 @@ class AnInteractive extends StatefulWidget {
   State<AnInteractive> createState() => _AnInteractiveState();
 }
 
-class _AnInteractiveState extends State<AnInteractive> with ScrollSilencedHoverMixin<AnInteractive> {
+class _AnInteractiveState extends State<AnInteractive>
+    with ScrollSilencedHoverMixin<AnInteractive> {
   bool _hovered = false;
   bool _focused = false;
   bool _pressed = false;
@@ -88,12 +91,12 @@ class _AnInteractiveState extends State<AnInteractive> with ScrollSilencedHoverM
   bool get _canActivate => widget.enabled && widget.onTap != null;
 
   Set<WidgetState> get _states => {
-        if (!widget.enabled) WidgetState.disabled,
-        if (widget.selected ?? false) WidgetState.selected,
-        if (widget.enabled && _hovered) WidgetState.hovered,
-        if (widget.enabled && _focused) WidgetState.focused,
-        if (widget.enabled && _pressed) WidgetState.pressed,
-      };
+    if (!widget.enabled) WidgetState.disabled,
+    if (widget.selected ?? false) WidgetState.selected,
+    if (widget.enabled && _hovered) WidgetState.hovered,
+    if (widget.enabled && _focused) WidgetState.focused,
+    if (widget.enabled && _pressed) WidgetState.pressed,
+  };
 
   void _set(VoidCallback f) {
     if (mounted) setState(f);
@@ -159,10 +162,12 @@ class _AnInteractiveState extends State<AnInteractive> with ScrollSilencedHoverM
         SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
       },
       actions: <Type, Action<Intent>>{
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          _activate();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            _activate();
+            return null;
+          },
+        ),
       },
       onShowHoverHighlight: _onHover,
       onShowFocusHighlight: (f) => _set(() => _focused = f),

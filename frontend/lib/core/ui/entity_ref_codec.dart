@@ -16,5 +16,6 @@ const String _idPattern = r'[a-z]+_[0-9a-f]{16}';
 final RegExp _wikiRe = RegExp(r'\[\[(' + _idPattern + r')\]\]');
 
 /// All entity IDs referenced by `[[id]]` wikilinks in [markdown] (order-preserving, may repeat). 抽取所有 `[[id]]` 的 id。
-List<String> extractEntityRefIds(String markdown) =>
-    [for (final m in _wikiRe.allMatches(markdown)) m.group(1)!];
+List<String> extractEntityRefIds(String markdown) => [
+  for (final m in _wikiRe.allMatches(markdown)) m.group(1)!,
+];

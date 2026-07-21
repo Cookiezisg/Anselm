@@ -95,7 +95,11 @@ class AnTextComponentState extends TextComponentState {
       child: IgnorePointer(
         child: SuperText(
           key: _anTextKey,
-          richText: widget.text.computeInlineSpan(context, _styleWithBlockType, widget.inlineWidgetBuilders),
+          richText: widget.text.computeInlineSpan(
+            context,
+            _styleWithBlockType,
+            widget.inlineWidgetBuilders,
+          ),
           textAlign: widget.textAlign ?? TextAlign.left,
           textDirection: widget.textDirection ?? TextDirection.ltr,
           textScaler: widget.textScaler ?? MediaQuery.textScalerOf(context),
@@ -119,20 +123,25 @@ class AnTextComponentState extends TextComponentState {
                 if (widget.text.length > 0)
                   AnSelectionHighlightLayer(
                     textLayout: textLayout,
-                    selection: widget.textSelection ?? const TextSelection.collapsed(offset: -1),
+                    selection:
+                        widget.textSelection ??
+                        const TextSelection.collapsed(offset: -1),
                     color: widget.selectionColor,
                   )
                 else if (widget.highlightWhenEmpty)
                   TextLayoutEmptyHighlight(
                     textLayout: textLayout,
-                    style: SelectionHighlightStyle(color: widget.selectionColor),
+                    style: SelectionHighlightStyle(
+                      color: widget.selectionColor,
+                    ),
                   ),
                 for (final underlines in widget.underlines)
                   TextUnderlineLayer(
                     textLayout: textLayout,
                     style: underlines.style,
                     underlines: [
-                      for (final range in underlines.underlines) TextLayoutUnderline(range: range),
+                      for (final range in underlines.underlines)
+                        TextLayoutUnderline(range: range),
                     ],
                   ),
               ],
@@ -159,7 +168,8 @@ class _AnBaselineProxy extends SingleChildRenderObjectWidget {
   const _AnBaselineProxy({required Widget super.child});
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _RenderProseBaseline();
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderProseBaseline();
 }
 
 class _RenderProseBaseline extends RenderProxyBox {
@@ -192,7 +202,9 @@ class _RenderProseBaseline extends RenderProxyBox {
 
     walk(child, 0);
     final base = para?.getDistanceToActualBaseline(baseline);
-    return base == null ? super.computeDistanceToActualBaseline(baseline) : base + dy;
+    return base == null
+        ? super.computeDistanceToActualBaseline(baseline)
+        : base + dy;
   }
 }
 
@@ -228,7 +240,12 @@ class CodeBackgroundLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _CodeBackgroundPainter(textLayout: textLayout, text: text, color: color, radius: radius),
+      painter: _CodeBackgroundPainter(
+        textLayout: textLayout,
+        text: text,
+        color: color,
+        radius: radius,
+      ),
     );
   }
 }
@@ -247,7 +264,9 @@ class _CodeBackgroundPainter extends CustomPainter {
   final double radius;
 
   bool _isSpacer(int offset) =>
-      offset >= 0 && offset < text.length && text.getAllAttributionsAt(offset).contains(codeSpacerAttribution);
+      offset >= 0 &&
+      offset < text.length &&
+      text.getAllAttributionsAt(offset).contains(codeSpacerAttribution);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -260,7 +279,12 @@ class _CodeBackgroundPainter extends CustomPainter {
       if (_isSpacer(end)) end--;
       if (end < start) continue; // spacer-only (empty code) — nothing to draw
       final selection = TextSelection(baseOffset: start, extentOffset: end + 1);
-      final lines = mergeBoxesByLine(textLayout.getBoxesForSelection(selection, boxHeightStyle: BoxHeightStyle.max));
+      final lines = mergeBoxesByLine(
+        textLayout.getBoxesForSelection(
+          selection,
+          boxHeightStyle: BoxHeightStyle.max,
+        ),
+      );
       for (final line in lines) {
         // Per visual line: 4px horizontal padding (matches AnCodeChip; also pads the wrap edges), fixed mono-box
         // height anchored to the line bottom so the glyphs sit balanced. 逐行:水平 4px + 定高贴底。
@@ -271,14 +295,20 @@ class _CodeBackgroundPainter extends CustomPainter {
           line.right + AnSpace.s4,
           bottom,
         );
-        canvas.drawRRect(RRect.fromRectAndRadius(rect, Radius.circular(radius)), paint);
+        canvas.drawRRect(
+          RRect.fromRectAndRadius(rect, Radius.circular(radius)),
+          paint,
+        );
       }
     }
   }
 
   @override
   bool shouldRepaint(_CodeBackgroundPainter old) =>
-      old.textLayout != textLayout || old.text != text || old.color != color || old.radius != radius;
+      old.textLayout != textLayout ||
+      old.text != text ||
+      old.color != color ||
+      old.radius != radius;
 }
 
 /// [AnParagraphComponent] = super_editor's `ParagraphComponent` with its inner text widget swapped to
@@ -311,7 +341,8 @@ class _AnParagraphComponentState extends State<AnParagraphComponent>
   GlobalKey<State<StatefulWidget>> get childDocumentComponentKey => _textKey;
 
   @override
-  TextComposable get childTextComposable => childDocumentComponentKey.currentState as TextComposable;
+  TextComposable get childTextComposable =>
+      childDocumentComponentKey.currentState as TextComposable;
 
   @override
   Widget build(BuildContext context) {
@@ -335,7 +366,9 @@ class _AnParagraphComponentState extends State<AnParagraphComponent>
               textScaler: widget.viewModel.textScaler,
               textStyleBuilder: widget.viewModel.textStyleBuilder,
               inlineWidgetBuilders: widget.viewModel.inlineWidgetBuilders,
-              metadata: widget.viewModel.blockType != null ? {'blockType': widget.viewModel.blockType} : {},
+              metadata: widget.viewModel.blockType != null
+                  ? {'blockType': widget.viewModel.blockType}
+                  : {},
               textSelection: widget.viewModel.selection,
               selectionColor: widget.viewModel.selectionColor,
               highlightWhenEmpty: widget.viewModel.highlightWhenEmpty,
@@ -355,8 +388,12 @@ class _AnParagraphComponentState extends State<AnParagraphComponent>
 /// createViewModel; overrides ONLY createComponent. Carries the inline-code background color/radius.
 /// 段落/标题换 AnParagraphComponent(带行内代码背景色/圆角);复用默认 createViewModel,只覆写 createComponent。
 class AnParagraphComponentBuilder extends ParagraphComponentBuilder {
-  const AnParagraphComponentBuilder(
-      {this.codeBackgroundColor, this.codeBackgroundRadius, this.document, this.quoteColors});
+  const AnParagraphComponentBuilder({
+    this.codeBackgroundColor,
+    this.codeBackgroundRadius,
+    this.document,
+    this.quoteColors,
+  });
 
   final Color? codeBackgroundColor;
   final double? codeBackgroundRadius;
@@ -380,7 +417,9 @@ class AnParagraphComponentBuilder extends ParagraphComponentBuilder {
       final node = document!.getNodeById(componentViewModel.nodeId);
       final depth = quoteDepthOf(node);
       if (depth > 0) {
-        final topGap = node != null && isQuoteContinuation(document!, node) ? AnFlow.block : 0.0;
+        final topGap = node != null && isQuoteContinuation(document!, node)
+            ? AnFlow.block
+            : 0.0;
         return wrapInQuote(comp, depth, quoteColors!, topGap: topGap);
       }
     }
@@ -432,7 +471,8 @@ class AnTextWithHintComponent extends StatefulWidget {
   final double? codeBackgroundRadius;
 
   @override
-  State<AnTextWithHintComponent> createState() => _AnTextWithHintComponentState();
+  State<AnTextWithHintComponent> createState() =>
+      _AnTextWithHintComponentState();
 }
 
 class _AnTextWithHintComponentState extends State<AnTextWithHintComponent>
@@ -445,7 +485,8 @@ class _AnTextWithHintComponentState extends State<AnTextWithHintComponent>
   GlobalKey get childDocumentComponentKey => _childTextComponentKey;
 
   @override
-  TextComposable get childTextComposable => _childTextComponentKey.currentState!;
+  TextComposable get childTextComposable =>
+      _childTextComponentKey.currentState!;
 
   TextStyle _styleBuilder(Set<Attribution> attributions) {
     final attributionsWithBlock = Set.of(attributions);
@@ -454,7 +495,9 @@ class _AnTextWithHintComponentState extends State<AnTextWithHintComponent>
       attributionsWithBlock.add(blockType);
     }
     final contentStyle = widget.textStyleBuilder(attributionsWithBlock);
-    return contentStyle.merge(widget.hintStyleBuilder?.call(attributionsWithBlock) ?? const TextStyle());
+    return contentStyle.merge(
+      widget.hintStyleBuilder?.call(attributionsWithBlock) ?? const TextStyle(),
+    );
   }
 
   @override
@@ -464,7 +507,12 @@ class _AnTextWithHintComponentState extends State<AnTextWithHintComponent>
         if (widget.text.isEmpty)
           IgnorePointer(
             child: Text.rich(
-              widget.hintText?.computeInlineSpan(context, _styleBuilder, const []) ?? const TextSpan(text: ''),
+              widget.hintText?.computeInlineSpan(
+                    context,
+                    _styleBuilder,
+                    const [],
+                  ) ??
+                  const TextSpan(text: ''),
             ),
           ),
         AnTextComponent(
@@ -514,12 +562,14 @@ class AnHintComponentBuilder extends HintComponentBuilder {
       inlineWidgetBuilders: componentViewModel.inlineWidgetBuilders,
       textStyleBuilder: componentViewModel.textStyleBuilder,
       hintText: AttributedText(componentViewModel.hintText),
-      hintStyleBuilder: (attributions) => hintStyleBuilder(componentContext.context),
+      hintStyleBuilder: (attributions) =>
+          hintStyleBuilder(componentContext.context),
       textSelection: componentViewModel.selection,
       selectionColor: componentViewModel.selectionColor,
       underlines: componentViewModel.createUnderlines(),
       metadata: {
-        if (componentViewModel.blockType != null) 'blockType': componentViewModel.blockType,
+        if (componentViewModel.blockType != null)
+          'blockType': componentViewModel.blockType,
       },
       codeBackgroundColor: codeBackgroundColor,
       codeBackgroundRadius: codeBackgroundRadius,

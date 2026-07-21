@@ -9,7 +9,11 @@ import 'icons.dart';
 /// One row the @ picker offers: a kind icon + name + muted description. [kind] is the wire kind string
 /// (resolved to a glyph via [AnIcons.byKey]). @ picker 行:kind 图标 + 名 + 次墨描述;kind=线缆字符串。
 class AnMentionRowData {
-  const AnMentionRowData({required this.kind, required this.name, this.description = ''});
+  const AnMentionRowData({
+    required this.kind,
+    required this.name,
+    this.description = '',
+  });
 
   final String kind;
   final String name;
@@ -53,15 +57,20 @@ class AnMentionPanel extends StatelessWidget {
               highlighted: i == activeIndex,
               builder: (context, active) => Row(
                 children: [
-                  Icon(AnIcons.byKey(items[i].kind),
-                      size: AnSize.icon, color: active ? c.ink : c.inkMuted),
+                  Icon(
+                    AnIcons.byKey(items[i].kind),
+                    size: AnSize.icon,
+                    color: active ? c.ink : c.inkMuted,
+                  ),
                   const SizedBox(width: AnSpace.s8),
                   Flexible(
-                    child: Text(items[i].name,
-                        maxLines: 1,
-                        softWrap: false,
-                        overflow: TextOverflow.ellipsis,
-                        style: AnText.body.copyWith(color: c.ink)),
+                    child: Text(
+                      items[i].name,
+                      maxLines: 1,
+                      softWrap: false,
+                      overflow: TextOverflow.ellipsis,
+                      style: AnText.body.copyWith(color: c.ink),
+                    ),
                   ),
                   // No trailing Spacer on description-less rows — a Spacer(flex:2) capped the
                   // loose name Flexible at 1/3 of the row while 2/3 sat empty (long names
@@ -70,11 +79,13 @@ class AnMentionPanel extends StatelessWidget {
                     const SizedBox(width: AnSpace.s8),
                     Expanded(
                       flex: 2,
-                      child: Text(items[i].description,
-                          maxLines: 1,
-                          softWrap: false,
-                          overflow: TextOverflow.ellipsis,
-                          style: AnText.meta.copyWith(color: c.inkFaint)),
+                      child: Text(
+                        items[i].description,
+                        maxLines: 1,
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
+                        style: AnText.meta.copyWith(color: c.inkFaint),
+                      ),
                     ),
                   ],
                 ],

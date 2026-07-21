@@ -47,7 +47,7 @@ audience: [human, ai]
 
 > `errorspkg.New` 机械抽取（308，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 319。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 >
-> **复核方法**（本汇总数无机械守卫——`make docs` 只查结构/frontmatter/孤儿链接，`pkg/errors` 的 `standard_test.go` 只钉「一律走 `errorspkg.New`」+「码全局唯一」，**都不数总数**，故这三个数是**手工事实**、会随每次加码悄悄漂旧，改码时请一并重算）：
+> **复核方法**（本汇总数无机械守卫——`make -C docs verify` 只查结构/frontmatter/孤儿链接，`pkg/errors` 的 `standard_test.go` 只钉「一律走 `errorspkg.New`」+「码全局唯一」，**都不数总数**，故这三个数是**手工事实**、会随每次加码悄悄漂旧，改码时请一并重算）：
 > `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 308 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 308 行 = 308 个唯一 code，全部在表；表 319 行 = 308 + 7 + 4，三数对齐）。
 
 ### `pkg/errors`（跨域 sentinel）

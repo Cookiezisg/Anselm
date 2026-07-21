@@ -31,7 +31,9 @@ List<TodoItem>? parseTodos({String? argsJson, String? rendered}) {
         return [
           for (final it in (d['items'] as List).whereType<Map>())
             (
-              text: (it['status'] == 'in_progress' && (it['activeForm'] as String?)?.isNotEmpty == true)
+              text:
+                  (it['status'] == 'in_progress' &&
+                      (it['activeForm'] as String?)?.isNotEmpty == true)
                   ? it['activeForm'] as String
                   : (it['content'] as String? ?? ''),
               status: it['status'] as String? ?? 'pending',
@@ -62,28 +64,48 @@ List<TodoItem>? parseTodos({String? argsJson, String? rendered}) {
 ToolReceipt? todoReceipt(Translations t, {String? argsJson, String? rendered}) {
   final items = parseTodos(argsJson: argsJson, rendered: rendered);
   if (items == null) return null;
-  if (items.isEmpty) return (text: t.chat.tool.todoCleared, tone: ToolReceiptTone.none);
+  if (items.isEmpty) {
+    return (text: t.chat.tool.todoCleared, tone: ToolReceiptTone.none);
+  }
   final done = items.where((i) => i.status == 'completed').length;
-  return (text: t.chat.tool.todoRollup(total: '${items.length}', done: '$done'), tone: ToolReceiptTone.none);
+  return (
+    text: t.chat.tool.todoRollup(total: '${items.length}', done: '$done'),
+    tone: ToolReceiptTone.none,
+  );
 }
-
 
 /// todo_write body — the checklist off the args (the structured truth). todo_write 落定体。
 Widget todoWriteBody(BuildContext context, ToolCardState state) {
-  final items = parseTodos(argsJson: state.argsText, rendered: state.resultText) ?? const [];
+  final items =
+      parseTodos(argsJson: state.argsText, rendered: state.resultText) ??
+      const [];
   if (items.isEmpty) {
-    return Text(Translations.of(context).chat.tool.todoCleared, style: AnText.meta.copyWith(color: context.colors.inkFaint));
+    return Text(
+      Translations.of(context).chat.tool.todoCleared,
+      style: AnText.meta.copyWith(color: context.colors.inkFaint),
+    );
   }
   // ONE three-state checklist face app-wide (批6 A-053: the bubble list and the sidestage rundown
   // wore two faces — 原则 #8 复用优先,TodoChecklist 渲染退役). 全 App 一张三态清单脸。
-  return AnRundownList(todos: [for (final it in items) TodoEntry(content: it.text, status: it.status)]);
+  return AnRundownList(
+    todos: [
+      for (final it in items) TodoEntry(content: it.text, status: it.status),
+    ],
+  );
 }
 
 /// todo_read body — the checklist off the rendered result. todo_read 落定体。
 Widget todoReadBody(BuildContext context, ToolCardState state) {
   final items = parseTodos(rendered: state.resultText) ?? const [];
   if (items.isEmpty) {
-    return Text(Translations.of(context).chat.tool.todoCleared, style: AnText.meta.copyWith(color: context.colors.inkFaint));
+    return Text(
+      Translations.of(context).chat.tool.todoCleared,
+      style: AnText.meta.copyWith(color: context.colors.inkFaint),
+    );
   }
-  return AnRundownList(todos: [for (final it in items) TodoEntry(content: it.text, status: it.status)]);
+  return AnRundownList(
+    todos: [
+      for (final it in items) TodoEntry(content: it.text, status: it.status),
+    ],
+  );
 }

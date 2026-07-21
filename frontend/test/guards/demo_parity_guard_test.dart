@@ -35,12 +35,15 @@ const _demoEntry = 'lib/dev/demo_main.dart';
 
 /// The zoom bootstrap surface: the scaled binding + every static WindowZoom call an entry makes.
 /// These are the calls that must exist in BOTH entries. 缩放 bootstrap 面:两入口都必须有的调用。
-final _bootstrapCall =
-    RegExp(r'(?:ScaledWidgetsFlutterBinding\.ensureInitialized|WindowZoom\.\w+)');
+final _bootstrapCall = RegExp(
+  r'(?:ScaledWidgetsFlutterBinding\.ensureInitialized|WindowZoom\.\w+)',
+);
 
 /// A bare `WidgetsFlutterBinding.ensureInitialized` — the lookbehind lets the Scaled subclass through
 /// (its name CONTAINS the base call as a substring). 裸 binding;lookbehind 放行 Scaled 子类(其名含之)。
-final _bareBinding = RegExp(r'(?<!Scaled)\bWidgetsFlutterBinding\.ensureInitialized');
+final _bareBinding = RegExp(
+  r'(?<!Scaled)\bWidgetsFlutterBinding\.ensureInitialized',
+);
 
 /// The file's CODE, comments stripped. A doc comment that merely NAMES an api — main.dart's «its
 /// scaleFactor reads [WindowZoom.factor]» — is PROSE, not a call, and must not enter the expectation
@@ -50,10 +53,13 @@ final _bareBinding = RegExp(r'(?<!Scaled)\bWidgetsFlutterBinding\.ensureInitiali
 /// expectation. 去注释后的代码:文档注释里点名的 api 是**散文**不是调用,不得进期望集(本 guard 的由来
 /// 正是一句撒谎的注释——它绝不再拿注释当证据)。两入口的字符串里都没有 `//`,故按行切精确;将来若变,
 /// 下面两条 contains 前提会先红,而不会让期望集悄悄变瘦。
-String _code(String src) => src.split('\n').map((l) {
+String _code(String src) => src
+    .split('\n')
+    .map((l) {
       final i = l.indexOf('//');
       return i < 0 ? l : l.substring(0, i);
-    }).join('\n');
+    })
+    .join('\n');
 
 String _read(String path) {
   final f = File(path);
@@ -62,29 +68,53 @@ String _read(String path) {
 }
 
 void main() {
-  test('the demo entry installs the SAME zoom bootstrap as the app entry (⌘± must really zoom)', () {
-    final app = _code(_read(_appEntry));
-    final demo = _code(_read(_demoEntry));
+  test(
+    'the demo entry installs the SAME zoom bootstrap as the app entry (⌘± must really zoom)',
+    () {
+      final app = _code(_read(_appEntry));
+      final demo = _code(_read(_demoEntry));
 
-    final expected = _bootstrapCall.allMatches(app).map((m) => m.group(0)!).toSet();
-    // If main.dart itself lost the bootstrap, this guard's premise is gone — say so loudly rather
-    // than pass vacuously on an empty expectation. main.dart 自己丢了 bootstrap,本 guard 前提即失,
-    // 宁可大声报错也不要在空期望上真空通过。
-    expect(expected, contains('ScaledWidgetsFlutterBinding.ensureInitialized'),
-        reason: '$_appEntry 必须造 scaled binding(否则真 app 的 ⌘± 也是死的)');
-    expect(expected, contains('WindowZoom.restore'), reason: '$_appEntry 必须首帧前恢复持久化缩放');
+      final expected = _bootstrapCall
+          .allMatches(app)
+          .map((m) => m.group(0)!)
+          .toSet();
+      // If main.dart itself lost the bootstrap, this guard's premise is gone — say so loudly rather
+      // than pass vacuously on an empty expectation. main.dart 自己丢了 bootstrap,本 guard 前提即失,
+      // 宁可大声报错也不要在空期望上真空通过。
+      expect(
+        expected,
+        contains('ScaledWidgetsFlutterBinding.ensureInitialized'),
+        reason: '$_appEntry 必须造 scaled binding(否则真 app 的 ⌘± 也是死的)',
+      );
+      expect(
+        expected,
+        contains('WindowZoom.restore'),
+        reason: '$_appEntry 必须首帧前恢复持久化缩放',
+      );
 
-    for (final call in expected) {
-      expect(demo.contains(call), isTrue,
-          reason: '$_demoEntry 缺 `$call`——zoom 既非数据源亦非门控,不得在 demo 分叉'
-              '(app 与 demo 只差数据源+启动门控)');
-    }
-  });
+      for (final call in expected) {
+        expect(
+          demo.contains(call),
+          isTrue,
+          reason:
+              '$_demoEntry 缺 `$call`——zoom 既非数据源亦非门控,不得在 demo 分叉'
+              '(app 与 demo 只差数据源+启动门控)',
+        );
+      }
+    },
+  );
 
-  test('the demo entry never creates the bare binding (the silent-⌘± bug\'s exact fingerprint)', () {
-    final demo = _code(_read(_demoEntry));
-    expect(_bareBinding.hasMatch(demo), isFalse,
-        reason: '裸 WidgetsFlutterBinding 会让 WindowZoom._apply() 的 `binding is '
-            'ScaledWidgetsFlutterBinding` 恒假 → ⌘± 静默失效(factor 动、树不重排)');
-  });
+  test(
+    'the demo entry never creates the bare binding (the silent-⌘± bug\'s exact fingerprint)',
+    () {
+      final demo = _code(_read(_demoEntry));
+      expect(
+        _bareBinding.hasMatch(demo),
+        isFalse,
+        reason:
+            '裸 WidgetsFlutterBinding 会让 WindowZoom._apply() 的 `binding is '
+            'ScaledWidgetsFlutterBinding` 恒假 → ⌘± 静默失效(factor 动、树不重排)',
+      );
+    },
+  );
 }

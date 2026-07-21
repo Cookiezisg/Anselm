@@ -39,20 +39,26 @@ class AnInfoCard extends StatelessWidget {
     final c = context.colors;
     return Semantics(
       container: true,
-      explicitChildNodes: true, // head / body / actions each individually reachable (NOT merged) 各自可达不 merge
+      explicitChildNodes:
+          true, // head / body / actions each individually reachable (NOT merged) 各自可达不 merge
       child: Padding(
-        padding: AnInset.snug, // content-card interior (12/8) — 15-tier body must not sit flush to the edge 内容卡内距(15 值不贴边)
+        padding: AnInset
+            .snug, // content-card interior (12/8) — 15-tier body must not sit flush to the edge 内容卡内距(15 值不贴边)
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
             if (_hasHead) ...[
               _head(c),
-              const SizedBox(height: AnFlow.headBodyTight), // caption title → body (8, was 4 — reconciled with AnSection-caption) 标题→正文 8
+              const SizedBox(
+                height: AnFlow.headBodyTight,
+              ), // caption title → body (8, was 4 — reconciled with AnSection-caption) 标题→正文 8
             ],
             child,
             if (actions.isNotEmpty) ...[
-              const SizedBox(height: AnGap.block), // content → actions (12) 内容→动作
+              const SizedBox(
+                height: AnGap.block,
+              ), // content → actions (12) 内容→动作
               AnActionGroup(actions),
             ],
           ],
@@ -63,33 +69,39 @@ class AnInfoCard extends StatelessWidget {
 
   Widget _head(AnColors c) {
     return ConstrainedBox(
-      constraints: const BoxConstraints(minHeight: AnSize.control), // demo .head min-height --ctl(28) — keeps card heads on one rhythm 卡头垂直节奏
+      constraints: const BoxConstraints(
+        minHeight: AnSize.control,
+      ), // demo .head min-height --ctl(28) — keeps card heads on one rhythm 卡头垂直节奏
       child: Row(
         children: [
           if (icon != null) ...[
-            ExcludeSemantics(child: Icon(icon, size: AnSize.iconSm, color: c.inkFaint)), // decorative 装饰
+            ExcludeSemantics(
+              child: Icon(icon, size: AnSize.iconSm, color: c.inkFaint),
+            ), // decorative 装饰
             const SizedBox(width: AnSpace.s8),
           ],
-        // AnTwoZone: title fills + ellipsis, meta caps right + yields first. title is a header node.
-        // (icon is prepended outside — AnTwoZone has no leading slot.) title 占满、meta 让位;icon 在外。
-        Expanded(
-          child: AnTwoZone(
-            label: _hasTitle
-                ? Semantics(
-                    header: true,
-                    child: Text(
-                      title!,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint),
-                    ),
-                  )
-                : const SizedBox.shrink(),
-            meta: _hasMeta ? meta : null,
-            metaStyle: AnText.label.copyWith(color: c.inkFaint),
-            trailing: const SizedBox.shrink(),
+          // AnTwoZone: title fills + ellipsis, meta caps right + yields first. title is a header node.
+          // (icon is prepended outside — AnTwoZone has no leading slot.) title 占满、meta 让位;icon 在外。
+          Expanded(
+            child: AnTwoZone(
+              label: _hasTitle
+                  ? Semantics(
+                      header: true,
+                      child: Text(
+                        title!,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AnText.label
+                            .weight(AnText.emphasisWeight)
+                            .copyWith(color: c.inkFaint),
+                      ),
+                    )
+                  : const SizedBox.shrink(),
+              meta: _hasMeta ? meta : null,
+              metaStyle: AnText.label.copyWith(color: c.inkFaint),
+              trailing: const SizedBox.shrink(),
+            ),
           ),
-        ),
         ],
       ),
     );

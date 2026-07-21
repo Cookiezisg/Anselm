@@ -49,9 +49,18 @@ void main() {
     test('agent / trigger / control / approval map 1:1 by kind', () {
       expect(NodeRef.parse(NodeKind.agent, 'ag_x').family, RefFamily.agent);
       expect(NodeRef.parse(NodeKind.agent, 'ag_x').target, 'ag_x');
-      expect(NodeRef.parse(NodeKind.trigger, 'trg_x').family, RefFamily.trigger);
-      expect(NodeRef.parse(NodeKind.control, 'ctl_x').family, RefFamily.control);
-      expect(NodeRef.parse(NodeKind.approval, 'apf_x').family, RefFamily.approval);
+      expect(
+        NodeRef.parse(NodeKind.trigger, 'trg_x').family,
+        RefFamily.trigger,
+      );
+      expect(
+        NodeRef.parse(NodeKind.control, 'ctl_x').family,
+        RefFamily.control,
+      );
+      expect(
+        NodeRef.parse(NodeKind.approval, 'apf_x').family,
+        RefFamily.approval,
+      );
     });
   });
 
@@ -71,13 +80,25 @@ void main() {
     });
 
     test('malformed mcp / handler (missing member half) does not throw', () {
-      expect(NodeRef.parse(NodeKind.action, 'mcp:').target, isNull); // no server
-      expect(NodeRef.parse(NodeKind.action, 'mcp:s/').member, isNull); // trailing slash, no tool
-      expect(NodeRef.parse(NodeKind.action, 'hd_x.').member, isNull); // trailing dot, no method
+      expect(
+        NodeRef.parse(NodeKind.action, 'mcp:').target,
+        isNull,
+      ); // no server
+      expect(
+        NodeRef.parse(NodeKind.action, 'mcp:s/').member,
+        isNull,
+      ); // trailing slash, no tool
+      expect(
+        NodeRef.parse(NodeKind.action, 'hd_x.').member,
+        isNull,
+      ); // trailing dot, no method
     });
 
     test('unknown kind keeps the raw ref as target', () {
-      expect(NodeRef.parse(NodeKind.unknown, 'weird:thing').target, 'weird:thing');
+      expect(
+        NodeRef.parse(NodeKind.unknown, 'weird:thing').target,
+        'weird:thing',
+      );
     });
   });
 
@@ -98,24 +119,51 @@ void main() {
 
     // Regression (stage-2 review, HIGH): a target-less ref must carry its family through format→parse,
     // else switching the picker to handler/mcp collapses to '' and reverts to function.
-    test('a target-less ref formats to a family-carrying placeholder that round-trips the family', () {
-      expect(const NodeRef(family: RefFamily.function).format(), 'fn_new');
-      expect(const NodeRef(family: RefFamily.handler).format(), 'hd_new');
-      expect(const NodeRef(family: RefFamily.mcp).format(), 'mcp:');
-      for (final f in const [RefFamily.function, RefFamily.handler, RefFamily.mcp]) {
-        final rt = NodeRef.parse(NodeKind.action, NodeRef(family: f).format());
-        expect(rt.family, f, reason: 'action family $f must survive the empty-target wire form');
-        expect(rt.target, isNull);
-      }
-    });
+    test(
+      'a target-less ref formats to a family-carrying placeholder that round-trips the family',
+      () {
+        expect(const NodeRef(family: RefFamily.function).format(), 'fn_new');
+        expect(const NodeRef(family: RefFamily.handler).format(), 'hd_new');
+        expect(const NodeRef(family: RefFamily.mcp).format(), 'mcp:');
+        for (final f in const [
+          RefFamily.function,
+          RefFamily.handler,
+          RefFamily.mcp,
+        ]) {
+          final rt = NodeRef.parse(
+            NodeKind.action,
+            NodeRef(family: f).format(),
+          );
+          expect(
+            rt.family,
+            f,
+            reason: 'action family $f must survive the empty-target wire form',
+          );
+          expect(rt.target, isNull);
+        }
+      },
+    );
 
-    test('handler/mcp target-only (no member) formats without the separator', () {
-      expect(const NodeRef(family: RefFamily.handler, target: 'hd_db').format(), 'hd_db');
-      expect(const NodeRef(family: RefFamily.mcp, target: 'github').format(), 'mcp:github');
-    });
+    test(
+      'handler/mcp target-only (no member) formats without the separator',
+      () {
+        expect(
+          const NodeRef(family: RefFamily.handler, target: 'hd_db').format(),
+          'hd_db',
+        );
+        expect(
+          const NodeRef(family: RefFamily.mcp, target: 'github').format(),
+          'mcp:github',
+        );
+      },
+    );
 
     test('copyWith replaces the member (nullable clear)', () {
-      const r = NodeRef(family: RefFamily.handler, target: 'hd_db', member: 'query');
+      const r = NodeRef(
+        family: RefFamily.handler,
+        target: 'hd_db',
+        member: 'query',
+      );
       expect(r.copyWith(member: 'insert').format(), 'hd_db.insert');
       expect(r.copyWith(member: null).format(), 'hd_db');
     });
@@ -123,8 +171,11 @@ void main() {
 
   group('NodeRef.familiesFor', () {
     test('action offers function/handler/mcp; others exactly one', () {
-      expect(NodeRef.familiesFor(NodeKind.action),
-          [RefFamily.function, RefFamily.handler, RefFamily.mcp]);
+      expect(NodeRef.familiesFor(NodeKind.action), [
+        RefFamily.function,
+        RefFamily.handler,
+        RefFamily.mcp,
+      ]);
       expect(NodeRef.familiesFor(NodeKind.agent), [RefFamily.agent]);
       expect(NodeRef.familiesFor(NodeKind.approval), [RefFamily.approval]);
     });

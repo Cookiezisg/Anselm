@@ -26,27 +26,36 @@ void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
   Future<void> pumpPanel(WidgetTester tester, SettingsPanel panel) async {
-    await tester.pumpWidget(ProviderScope(
-      overrides: demoOverrides(SettingsPrefs.inMemory(), demoNotificationRepository()),
-      child: TranslationProvider(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SingleChildScrollView(
-              child: Builder(builder: (context) => buildSettingsPanelBody(context, panel)),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: demoOverrides(
+          SettingsPrefs.inMemory(),
+          demoNotificationRepository(),
+        ),
+        child: TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                child: Builder(
+                  builder: (context) => buildSettingsPanelBody(context, panel),
+                ),
+              ),
             ),
           ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
   }
 
   /// No error face anywhere on a fixture-backed panel. 面板上不允许任何错误脸。
   void expectNoErrorFace() {
     expect(
-      find.byWidgetPredicate((w) => w is AnState && w.kind == AnStateKind.error),
+      find.byWidgetPredicate(
+        (w) => w is AnState && w.kind == AnStateKind.error,
+      ),
       findsNothing,
       reason: 'fixture 数据在,错误脸=断线回归',
     );
@@ -55,7 +64,9 @@ void main() {
   /// Seeded panels must not show an empty state either. 有种子的面板不允许空态。
   void expectNoEmptyFace() {
     expect(
-      find.byWidgetPredicate((w) => w is AnState && w.kind == AnStateKind.empty),
+      find.byWidgetPredicate(
+        (w) => w is AnState && w.kind == AnStateKind.empty,
+      ),
       findsNothing,
       reason: 'fixture 种子在,空态=断线回归',
     );
@@ -67,21 +78,35 @@ void main() {
     expectNoErrorFace();
   });
 
-  testWidgets('notifications — level row renders (no stray prose line)', (tester) async {
+  testWidgets('notifications — level row renders (no stray prose line)', (
+    tester,
+  ) async {
     await pumpPanel(tester, SettingsPanel.notifications);
     expect(find.text(t.settings.notifLevel), findsOneWidget);
     expectNoErrorFace();
   });
 
-  testWidgets('chat — send key + webFetch live, no resident save-failed line', (tester) async {
+  testWidgets('chat — send key + webFetch live, no resident save-failed line', (
+    tester,
+  ) async {
     await pumpPanel(tester, SettingsPanel.chat);
     expect(find.text(t.settings.sendKey), findsOneWidget);
-    expect(find.text(t.settings.webJina), findsOneWidget, reason: '工作区载入,抓取分段器可用');
-    expect(find.text(t.settings.patchFailed), findsNothing, reason: '红句常驻=工作区缝断线');
+    expect(
+      find.text(t.settings.webJina),
+      findsOneWidget,
+      reason: '工作区载入,抓取分段器可用',
+    );
+    expect(
+      find.text(t.settings.patchFailed),
+      findsNothing,
+      reason: '红句常驻=工作区缝断线',
+    );
     expectNoErrorFace();
   });
 
-  testWidgets('modelsKeys — managed + BYOK key rows and quota render', (tester) async {
+  testWidgets('modelsKeys — managed + BYOK key rows and quota render', (
+    tester,
+  ) async {
     await pumpPanel(tester, SettingsPanel.modelsKeys);
     expect(find.text('Anselm Free'), findsWidgets);
     expect(find.text('DeepSeek (personal)'), findsOneWidget);
@@ -89,20 +114,26 @@ void main() {
     expectNoEmptyFace();
   });
 
-  testWidgets('mcp — seeded servers render (ready + failed), counts non-zero only', (tester) async {
-    await pumpPanel(tester, SettingsPanel.mcp);
-    expect(find.text('context7'), findsOneWidget);
-    expect(find.text('github'), findsOneWidget);
-    expect(
-        find.text([
-          t.settings.mcp.statCount(n: 2),
-          t.settings.mcp.statReady(n: 1),
-          t.settings.mcp.statFailed(n: 1),
-        ].join(' · ')),
-        findsOneWidget);
-    expectNoErrorFace();
-    expectNoEmptyFace();
-  });
+  testWidgets(
+    'mcp — seeded servers render (ready + failed), counts non-zero only',
+    (tester) async {
+      await pumpPanel(tester, SettingsPanel.mcp);
+      expect(find.text('context7'), findsOneWidget);
+      expect(find.text('github'), findsOneWidget);
+      expect(
+        find.text(
+          [
+            t.settings.mcp.statCount(n: 2),
+            t.settings.mcp.statReady(n: 1),
+            t.settings.mcp.statFailed(n: 1),
+          ].join(' · '),
+        ),
+        findsOneWidget,
+      );
+      expectNoErrorFace();
+      expectNoEmptyFace();
+    },
+  );
 
   testWidgets('memory — the three seeded notes render', (tester) async {
     await pumpPanel(tester, SettingsPanel.memory);
@@ -112,15 +143,21 @@ void main() {
     expectNoEmptyFace();
   });
 
-  testWidgets('sandbox — runtimes + the function-owner env render; no hollow disk track',
-      (tester) async {
-    await pumpPanel(tester, SettingsPanel.sandbox);
-    expect(find.text('python 3.11.9'), findsOneWidget);
-    expect(find.text('node 20.11.0'), findsOneWidget);
-    expect(find.text('sync_inventory'), findsOneWidget, reason: 'function tab 默认页种子 env');
-    expect(find.text('42.0 MB'), findsOneWidget, reason: '磁盘=诚实数字,非空进度轨');
-    expectNoErrorFace();
-  });
+  testWidgets(
+    'sandbox — runtimes + the function-owner env render; no hollow disk track',
+    (tester) async {
+      await pumpPanel(tester, SettingsPanel.sandbox);
+      expect(find.text('python 3.11.9'), findsOneWidget);
+      expect(find.text('node 20.11.0'), findsOneWidget);
+      expect(
+        find.text('sync_inventory'),
+        findsOneWidget,
+        reason: 'function tab 默认页种子 env',
+      );
+      expect(find.text('42.0 MB'), findsOneWidget, reason: '磁盘=诚实数字,非空进度轨');
+      expectNoErrorFace();
+    },
+  );
 
   testWidgets('workspaces — active + secondary rows render', (tester) async {
     await pumpPanel(tester, SettingsPanel.workspaces);
@@ -137,7 +174,9 @@ void main() {
     expectNoErrorFace();
   });
 
-  testWidgets('limits — schema-driven rows render (no ApiException page)', (tester) async {
+  testWidgets('limits — schema-driven rows render (no ApiException page)', (
+    tester,
+  ) async {
     await pumpPanel(tester, SettingsPanel.limits);
     expect(find.text('agent.maxSteps'), findsOneWidget);
     expect(find.text(t.settings.limits.errorTitle), findsNothing);

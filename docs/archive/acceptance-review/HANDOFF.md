@@ -26,9 +26,9 @@ audience: [human, ai]
 - **三列判定**：① 用户面（HTTP 真调成功且语义对）② 产品逻辑（状态机/级联/记账全对）③ LLM 面（工具链真驱动得了）。
 - 黑盒压出来的 bug **读码审查抓不到**——已证实：`STREAM_IN_PROGRESS` 名义存在物理失效（AC-16）、provider 复用 tool-call id 撞主键整回合丢失（AC-17）、压缩水位线只折叠一半（AC-18），都需要「真 provider / 真落库 / 真流式重叠」才暴露。这就是本轮的价值。
 
-**产出物**（永久资产，不是一次性脚本）：`testend/` 可重跑验收套件（`make testend`）+ 金标套件（`make evals`）+ promptdump 体验审计 + 终报。
+**产出物**（永久资产，不是一次性脚本）：`testend/` 可重跑验收套件（`make -C backend testend`）+ 金标套件（`make -C backend evals`）+ promptdump 体验审计 + 终报。
 
-**当前进度**：**程序完成（2026-06-13）**——首轮 W0-W8 + 用户裁定重开的 R1-R8 高标准重验全部收口（权威记录：[R-PLAN.md](R-PLAN.md) 波次表 + [TERMINAL-REPORT.md](TERMINAL-REPORT.md) 终报）。最终资产：95 黑盒场景（`make testend`）+ 12 金标旅程（`make evals`，provider=deepseek）。R 轮新增线缆事实（接手必读）：`SubscribeFrom`（fromSeq=0 是 live-only 哨兵、重放 = seq > fromSeq）；流帧 `{seq,scope,id,frame{kind}}`；`parked` 是节点状态（查 run 详情）；agent/api-keys/versions/notifications 列表返裸数组；skill/mcp 投影按 name 键控；InvokeResult status = ok|failed。后续工作（新会话自取）：前端重建对接、AC-20/30 设置页提示。
+**当前进度**：**程序完成（2026-06-13）**——首轮 W0-W8 + 用户裁定重开的 R1-R8 高标准重验全部收口（权威记录：[R-PLAN.md](R-PLAN.md) 波次表 + [TERMINAL-REPORT.md](TERMINAL-REPORT.md) 终报）。最终资产：95 黑盒场景（`make -C backend testend`）+ 12 金标旅程（`make -C backend evals`，provider=deepseek）。R 轮新增线缆事实（接手必读）：`SubscribeFrom`（fromSeq=0 是 live-only 哨兵、重放 = seq > fromSeq）；流帧 `{seq,scope,id,frame{kind}}`；`parked` 是节点状态（查 run 详情）；agent/api-keys/versions/notifications 列表返裸数组；skill/mcp 投影按 name 键控；InvokeResult status = ok|failed。后续工作（新会话自取）：前端重建对接、AC-20/30 设置页提示。
 
 ---
 
@@ -42,7 +42,7 @@ audience: [human, ai]
 4. **直接在当前分支开发，不开 feature 分支**（共享 worktree）。用**精确 `git add <具体文件>`** 隔离本波改动，**绝不 `git add -A`**（工作区可能有别的 session 的在途改动）。
 5. **小问题顺手修，大的产品决策才问用户**。"小" = 契约漂移、漏接线、校验漏洞、文案、护盾缺失这类有唯一正确解的；"大" = 改变产品语义/取舍的（如「env 物化要不要异步」）——记进 [DECISIONS-PENDING.md](DECISIONS-PENDING.md) 等裁决，别擅自定。
 6. **先亲验再定性**。每条 finding 必须真机复现过才写进 findings.md，编号 **AC-N**（接着 AC-20 往下），标严重度（🔴 功能不可用/语义错 / 🟡 体验或一致性 / 🟢 轻症 / 🟠 介于）+ 处置（fixed / pending / wontfix（带理由）/ doc-fix / by-design）。
-7. **每波收口三件套**：`make verify` 绿 + `make testend` 绿（并发/取消相关再单独 `-race`）+ **文档物理同步**（改了 API/DB/error/SSE → 同提交改对应 reference；见 CLAUDE.md 同步触发表）→ 然后 `git add <精确文件>` + commit + push。文档落后于代码 = 与编译失败同级的 Bug。
+7. **每波收口三件套**：`make verify` 绿 + `make -C backend testend` 绿（并发/取消相关再单独 `-race`）+ **文档物理同步**（改了 API/DB/error/SSE → 同提交改对应 reference；见 CLAUDE.md 同步触发表）→ 然后 `git add <精确文件>` + commit + push。文档落后于代码 = 与编译失败同级的 Bug。
 
 > **找 bug 的尺度**（用户原话）："可以不止局限于我们列的要测的点。你发现什么就加到测试计划里，边做边想。make it big，and full coverage。" 即：PLAN 的清单是下限不是上限；顺着真机行为发散，发现什么补什么。
 
@@ -87,7 +87,7 @@ audience: [human, ai]
 
 ```fish
 # 全功能黑盒验收（编译真二进制 + 拉起 + 打全场景）。首跑下载 sandbox 运行时，之后走缓存。
-make testend            # = cd testend && go test -count=1 -timeout 30m ./scenarios/...
+make -C backend testend            # = cd testend && go test -count=1 -timeout 30m ./scenarios/...
 
 # 只跑一个场景（迭代时）：
 cd testend && go test -count=1 -run TestChat_SendStreamToolRoundtrip ./scenarios/ -v
@@ -99,10 +99,10 @@ cd testend && go test -race -count=1 -run TestChat_CancelAndStreamConflict ./sce
 make verify
 
 # 文档门禁单跑（frontmatter / 类型 / INDEX≤50 / 孤儿链接）：
-make docs
+make -C docs verify
 
 # 金标真模型（W7 才用，烧钱，需环境变量）：
-EVALS_BASE_URL=... EVALS_MODEL=... EVALS_KEY=... make evals
+EVALS_BASE_URL=... EVALS_MODEL=... EVALS_KEY=... make -C backend evals
 ```
 
 ### 3.2 运行时缓存（关键，省命）
@@ -113,7 +113,7 @@ EVALS_BASE_URL=... EVALS_MODEL=... EVALS_KEY=... make evals
 
 ### 3.3 已知坑（踩过的，别再踩）
 
-1. **cwd 漂移（fish shell）**：Bash 工具的 cwd 在调用间持久。`make testend` 内部 `cd testend`，但你手敲 `go test` / `grep` 时如果 cwd 已在 `testend/`，对 `backend/` 的相对路径会全错。**对策**：`grep`/`go build` 用绝对路径，或每次显式 `cd /Users/SP14921/Documents/Personal/PersonalCodeBase/Anselm/backend`。
+1. **cwd 漂移（fish shell）**：Bash 工具的 cwd 在调用间持久。`make -C backend testend` 内部 `cd testend`，但你手敲 `go test` / `grep` 时如果 cwd 已在 `testend/`，对 `backend/` 的相对路径会全错。**对策**：`grep`/`go build` 用绝对路径，或每次显式 `cd /Users/SP14921/Documents/Personal/PersonalCodeBase/Anselm/backend`。
 2. **macOS `/var` symlink**：`t.TempDir()` 给 `/var/folders/...`，真实是 `/private/var/...`。MCP filesystem server 的 allowed-dir 检查按真实路径——**用 `filepath.EvalSymlinks(t.TempDir())`**（见 mcp_test.go 官方 server 场景）。
 3. **gopls / LSP 噪声**：backend module 不在 LSP workspace 里 → 你会看到一堆 import 报错。**那是噪声**，`cd backend && go build ./...` 才是地面真相。别按 LSP 的红线改东西。
 4. **DB 行 vs 流的事实源**：assistant 回合的 DB `status` 到 `WriteFinalize` 才从 `pending`/`streaming` 翻终态。想断言"回合在飞"**别轮询 DB 行**（它一直 pending），用 **SSE `WaitFor`** 抓 delta（流是实时事实源）。AC-16 的 Cancel 场景就是这么救活的。
@@ -296,7 +296,7 @@ func TestDomain_Situation(t *testing.T) {
 - **横切六刀**：prompt lint（system prompt 有没有废话/矛盾/安全剧场）、tool_result 形状（LLM 收到的结果可读吗）、安全契约体验（danger 自报链顺不顺）、token 成本账单（每视角 promptTokens 量级合理吗）、i18n 接缝、多模型矩阵（后置到 W7）。
 - 产出：体验审查报告 + 发现补进 findings.md（多为 🟡 体验类，部分顺手修）。
 
-### W7 金标旅程（柱 C，真模型，`make evals`）
+### W7 金标旅程（柱 C，真模型，`make -C backend evals`）
 
 - **此时才需要用户给真模型 key**（deepseek，见 memory `project_llm_research_constraints`：deepseek-v4-flash、¥200 预算）。开工前先问用户拿 `EVALS_BASE_URL/MODEL/KEY`。
 - 12 条金标旅程（PLAN.md 第 93-95 行）：①空 workspace 自举 ②构建 function 调通看日志 ③构建 handler 配 config 调方法 ④搓三节点 workflow 触发到 parked ⑤调试埋雷 function 至修好 ⑥装 MCP 调工具 ⑦search_blocks 找积木接线 ⑧回忆历史对话 ⑨写读 memory ⑩激活 skill 干活 ⑪跨压缩边界长任务 ⑫降级态完成主链路。
@@ -314,7 +314,7 @@ func TestDomain_Situation(t *testing.T) {
 ## 9. 每波收尾清单（声明"本波完成"前逐条勾）
 
 1. ☐ `make verify` 绿（gofmt 净 + vet + build + 单测 + docs 门禁）。
-2. ☐ `make testend` 绿（新场景 + 全回归；并发/取消场景另跑 `-race`）。
+2. ☐ `make -C backend testend` 绿（新场景 + 全回归；并发/取消场景另跑 `-race`）。
 3. ☐ 改了 backend 契约（API/DB/error/SSE）→ 同提交改了对应 reference（api.md / database.md / error-codes.md / events.md + 对应 domains/*.md）？逐字对得上？
 4. ☐ findings.md 补了本波 AC-N（亲验过 + 严重度 + 处置）。
 5. ☐ 大决策记进 DECISIONS-PENDING.md（没擅自定产品语义）。

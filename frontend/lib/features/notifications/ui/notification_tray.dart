@@ -66,7 +66,8 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
   final _scroll = ScrollController();
   String _query = '';
   bool _unreadOnly = false;
-  final Set<int> _collapsed = {}; // collapsed time buckets (0 today / 1 yesterday / 2 earlier) 折叠时段
+  final Set<int> _collapsed =
+      {}; // collapsed time buckets (0 today / 1 yesterday / 2 earlier) 折叠时段
 
   // The FEED flat (heads + rows, band excluded — the band is its own leading sliver) held in lock-step with
   // the SliverAnimatedList: a user toggle animates a precise sub-range; a data/filter change rebuilds it
@@ -95,7 +96,8 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
   }
 
   // A live query force-opens every bucket (matches hide behind their heads otherwise). query 强制展开每组。
-  bool _bucketOpen(int b) => _query.trim().isNotEmpty || !_collapsed.contains(b);
+  bool _bucketOpen(int b) =>
+      _query.trim().isNotEmpty || !_collapsed.contains(b);
 
   void _open(NotificationItem n) {
     // Mark read whether or not it navigates (an inert-kind row still clears on tap). 无论是否深链都顺手已读。
@@ -105,7 +107,8 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
   }
 
   List<NotificationItem> _rowsFromProvider() =>
-      ref.read(notificationFeedProvider).value?.rows ?? const <NotificationItem>[];
+      ref.read(notificationFeedProvider).value?.rows ??
+      const <NotificationItem>[];
 
   // Re-flatten the FEED every build (a bounded feed — cheap, same as the pre-animation tray) and compare
   // STRUCTURALLY to the held _flat. A real content change (a new/removed row, a mark-read flipping isUnread,
@@ -159,7 +162,11 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
     return AnRailStates(
       loading: async.isLoading && !async.hasValue,
       error: async.hasError && !async.hasValue,
-      strings: AnRailStrings(errorTitle: t.errorTitle, errorHint: t.errorHint, retry: t.retry),
+      strings: AnRailStrings(
+        errorTitle: t.errorTitle,
+        errorHint: t.errorHint,
+        retry: t.retry,
+      ),
       onRetry: () => ref.invalidate(notificationFeedProvider),
       builder: () => _list(context),
     );
@@ -178,7 +185,8 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
           SliverAnimatedList(
             key: _listKey,
             initialItemCount: _flat.length,
-            itemBuilder: (context, index, animation) => _animatedEntry(context, _flat[index], animation),
+            itemBuilder: (context, index, animation) =>
+                _animatedEntry(context, _flat[index], animation),
           ),
           SliverToBoxAdapter(child: _tail(context)),
         ],
@@ -188,42 +196,60 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
 
   // Wraps an entry in the SliverAnimatedList's size tween so a collapse/expand slides its height (the rows
   // slide up under their head; axisAlignment -1 anchors to the top — the rail slide). 折叠补间:行高滑动(-1 顶锚)。
-  Widget _animatedEntry(BuildContext context, _TrayEntry entry, Animation<double> animation) =>
-      SizeTransition(sizeFactor: animation, axisAlignment: -1, child: _entryWidget(context, entry));
+  Widget _animatedEntry(
+    BuildContext context,
+    _TrayEntry entry,
+    Animation<double> animation,
+  ) => SizeTransition(
+    sizeFactor: animation,
+    axisAlignment: -1,
+    child: _entryWidget(context, entry),
+  );
 
-  Widget _entryWidget(BuildContext context, _TrayEntry entry) => switch (entry) {
-        // The time-bucket head is the SAME primitive as the chat rail's Pinned/Recents head, rendered EXACTLY
-        // like it: a BARE AnRow (no outer padding). The island already gives the s12 gutter, so AnRow's hover
-        // block fills the island inner width (block edge on the island edge) and its chevron/count sit at the
-        // rail's s8 content inset (+8) — one column with the search field + notification rows. 组头=裸 AnRow(无外距):
-        // 岛已给 s12 沟,hover 块吃满岛内宽、chevron/数字落 s8 内容列——与搜索框/通知行同一竖线。
-        _HeadEntry(:final bucket, :final label, :final count) => AnRow(
-            collapsible: true,
-            open: _bucketOpen(bucket),
-            label: label,
-            meta: '$count',
-            onSelect: () => _toggleBucket(bucket),
-            onToggle: () => _toggleBucket(bucket),
-            actions: _markAllActions(context, bucket),
-          ),
-        _RowEntry(:final item) => NotificationRow(
-            item: item,
-            onTap: () => _open(item),
-            onMarkRead: () => ref.read(notificationFeedProvider.notifier).markRead(item.id),
-          ),
-      };
+  Widget _entryWidget(
+    BuildContext context,
+    _TrayEntry entry,
+  ) => switch (entry) {
+    // The time-bucket head is the SAME primitive as the chat rail's Pinned/Recents head, rendered EXACTLY
+    // like it: a BARE AnRow (no outer padding). The island already gives the s12 gutter, so AnRow's hover
+    // block fills the island inner width (block edge on the island edge) and its chevron/count sit at the
+    // rail's s8 content inset (+8) — one column with the search field + notification rows. 组头=裸 AnRow(无外距):
+    // 岛已给 s12 沟,hover 块吃满岛内宽、chevron/数字落 s8 内容列——与搜索框/通知行同一竖线。
+    _HeadEntry(:final bucket, :final label, :final count) => AnRow(
+      collapsible: true,
+      open: _bucketOpen(bucket),
+      label: label,
+      meta: '$count',
+      onSelect: () => _toggleBucket(bucket),
+      onToggle: () => _toggleBucket(bucket),
+      actions: _markAllActions(context, bucket),
+    ),
+    _RowEntry(:final item) => NotificationRow(
+      item: item,
+      onTap: () => _open(item),
+      onMarkRead: () =>
+          ref.read(notificationFeedProvider.notifier).markRead(item.id),
+    ),
+  };
 
   // The pagination tail (below the animated list): a dim spinner while a page lands (the loadMore itself is
   // driven by the scroll listener) + the bottom breathing room off the last row. 分页尾 + 底部留白。
   Widget _tail(BuildContext context) {
-    final loadingMore = ref.watch(notificationFeedProvider.select((a) => a.value?.loadingMore ?? false));
+    final loadingMore = ref.watch(
+      notificationFeedProvider.select((a) => a.value?.loadingMore ?? false),
+    );
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (loadingMore)
           SizedBox(
             height: AnSize.row,
-            child: Center(child: AnSpinner(size: AnSize.iconSm, semanticLabel: context.t.a11y.loading)),
+            child: Center(
+              child: AnSpinner(
+                size: AnSize.iconSm,
+                semanticLabel: context.t.a11y.loading,
+              ),
+            ),
           ),
         const SizedBox(height: AnSpace.s8),
       ],
@@ -235,7 +261,9 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
   // an expand re-flattens + insert-animates the new rows — keeping _flat and the SliverAnimatedList in
   // lock-step. Duration is reduced-gated. 折叠/展开时段=AnSidebarList._toggle 同配方;时长 reduced 门控。
   void _toggleBucket(int bucket) {
-    final headIdx = _flat.indexWhere((e) => e is _HeadEntry && e.bucket == bucket);
+    final headIdx = _flat.indexWhere(
+      (e) => e is _HeadEntry && e.bucket == bucket,
+    );
     if (headIdx < 0) return;
     final state = _listKey.currentState;
     final dur = AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid;
@@ -252,7 +280,11 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
       _flat = newFlat;
       for (var i = headIdx + removedCount; i > headIdx; i--) {
         final entry = removed[i - headIdx - 1];
-        state?.removeItem(i, (context, animation) => _animatedEntry(context, entry, animation), duration: dur);
+        state?.removeItem(
+          i,
+          (context, animation) => _animatedEntry(context, entry, animation),
+          duration: dur,
+        );
       }
     } else {
       final insertCount = newFlat.length - _flat.length;
@@ -261,7 +293,9 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
         state?.insertItem(i, duration: dur);
       }
     }
-    setState(() {}); // refresh the toggled head's chevron (rotates over AnMotion.mid alongside the slide) 头箭头旋转
+    setState(
+      () {},
+    ); // refresh the toggled head's chevron (rotates over AnMotion.mid alongside the slide) 头箭头旋转
   }
 
   /// The head's hover-revealed bulk menu (rides AnRow's meta↔actions swap — count at rest, ⋯ on hover):
@@ -286,18 +320,30 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
             icon: AnIcons.check,
             onTap: () => ref
                 .read(notificationFeedProvider.notifier)
-                .markAllRead(window: NotificationDayBuckets(DateTime.now()).windowOf(bucket)),
+                .markAllRead(
+                  window: NotificationDayBuckets(
+                    DateTime.now(),
+                  ).windowOf(bucket),
+                ),
           ),
           AnMenuItem(
             label: t.notifications.markAllUnread,
             icon: AnIcons.undo,
             onTap: () => ref
                 .read(notificationFeedProvider.notifier)
-                .markAllUnread(window: NotificationDayBuckets(DateTime.now()).windowOf(bucket)),
+                .markAllUnread(
+                  window: NotificationDayBuckets(
+                    DateTime.now(),
+                  ).windowOf(bucket),
+                ),
           ),
         ],
-        anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.more,
-            size: AnButtonSize.sm, semanticLabel: t.a11y.moreActions, onPressed: toggle),
+        anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
+          AnIcons.more,
+          size: AnButtonSize.sm,
+          semanticLabel: t.a11y.moreActions,
+          onPressed: toggle,
+        ),
       ),
     ];
   }
@@ -317,12 +363,20 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
     final days = NotificationDayBuckets(DateTime.now());
     final buckets = <int, List<NotificationItem>>{};
     for (final r in visible) {
-      buckets.putIfAbsent(days.bucketOf(r.createdAt.toLocal()), () => []).add(r);
+      buckets
+          .putIfAbsent(days.bucketOf(r.createdAt.toLocal()), () => [])
+          .add(r);
     }
     for (final b in const [0, 1, 2]) {
       final bucketRows = buckets[b];
       if (bucketRows == null || bucketRows.isEmpty) continue;
-      out.add(_HeadEntry(b, switch (b) { 0 => t.today, 1 => t.yesterday, _ => t.earlier }, bucketRows.length));
+      out.add(
+        _HeadEntry(b, switch (b) {
+          0 => t.today,
+          1 => t.yesterday,
+          _ => t.earlier,
+        }, bucketRows.length),
+      );
       if (_bucketOpen(b)) {
         for (final r in bucketRows) {
           out.add(_RowEntry(r));
@@ -336,10 +390,14 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
   // matches what the user SEES, not the raw type/payload. 搜索匹配渲染后的行文本(前端拥有文案)。
   bool _matches(NotificationItem n, Translations tr, String q) {
     final line = notificationLine(n, tr);
-    final hay = [line.lead, line.name, line.trail, line.detail].whereType<String>().join(' ').toLowerCase();
+    final hay = [
+      line.lead,
+      line.name,
+      line.trail,
+      line.detail,
+    ].whereType<String>().join(' ').toLowerCase();
     return hay.contains(q);
   }
-
 }
 
 /// The LOCAL day boundaries that split the notification feed into today (0) / yesterday (1) / earlier (2) —
@@ -354,7 +412,8 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
 /// 时刻(线缆与 createdAt 皆 UTC),对齐后端 `[after, before)` 的 created_at 比较。
 @visibleForTesting
 class NotificationDayBuckets {
-  NotificationDayBuckets(DateTime now) : todayStart = DateTime(now.year, now.month, now.day);
+  NotificationDayBuckets(DateTime now)
+    : todayStart = DateTime(now.year, now.month, now.day);
 
   /// Local midnight, start of today. 本地今日零点。
   final DateTime todayStart;
@@ -364,7 +423,11 @@ class NotificationDayBuckets {
 
   /// Which bucket a LOCAL createdAt falls in (0 today / 1 yesterday / 2 earlier). 本地时间的时段归属。
   int bucketOf(DateTime localCreatedAt) {
-    final day = DateTime(localCreatedAt.year, localCreatedAt.month, localCreatedAt.day);
+    final day = DateTime(
+      localCreatedAt.year,
+      localCreatedAt.month,
+      localCreatedAt.day,
+    );
     if (!day.isBefore(todayStart)) return 0;
     if (!day.isBefore(yesterdayStart)) return 1;
     return 2;
@@ -373,10 +436,10 @@ class NotificationDayBuckets {
   /// The half-open UTC window a bucket's bulk-mark sweeps: today = `[今日零点, ∞)`, yesterday =
   /// `[昨日零点, 今日零点)`, earlier = `(-∞, 昨日零点)` (null bound = unbounded). 组的批量标记窗口(UTC 半开)。
   MarkWindow windowOf(int bucket) => switch (bucket) {
-        0 => MarkWindow(after: todayStart.toUtc()),
-        1 => MarkWindow(after: yesterdayStart.toUtc(), before: todayStart.toUtc()),
-        _ => MarkWindow(before: yesterdayStart.toUtc()),
-      };
+    0 => MarkWindow(after: todayStart.toUtc()),
+    1 => MarkWindow(after: yesterdayStart.toUtc(), before: todayStart.toUtc()),
+    _ => MarkWindow(before: yesterdayStart.toUtc()),
+  };
 }
 
 sealed class _TrayEntry {
@@ -393,7 +456,10 @@ class _HeadEntry extends _TrayEntry {
   // equal re-flatten (keep the animated list). 值相等,让 listEquals 区分真变化与等价重展平。
   @override
   bool operator ==(Object other) =>
-      other is _HeadEntry && other.bucket == bucket && other.label == label && other.count == count;
+      other is _HeadEntry &&
+      other.bucket == bucket &&
+      other.label == label &&
+      other.count == count;
 
   @override
   int get hashCode => Object.hash(bucket, label, count);

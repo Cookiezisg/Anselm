@@ -8,7 +8,15 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   group('panelLocationFor — the navigable set (mirrors app/router.dart)', () {
     test('seven entities-rail kinds → /entities/<kind>/<id>', () {
-      for (final k in ['function', 'handler', 'agent', 'workflow', 'control', 'approval', 'trigger']) {
+      for (final k in [
+        'function',
+        'handler',
+        'agent',
+        'workflow',
+        'control',
+        'approval',
+        'trigger',
+      ]) {
         expect(panelLocationFor(k, 'x_1'), '/entities/$k/x_1', reason: k);
         expect(hasPanelFor(k), isTrue, reason: k);
       }
@@ -21,11 +29,17 @@ void main() {
 
     test('document (+ doc alias) → /documents/<id>', () {
       expect(panelLocationFor('document', 'doc_1'), '/documents/doc_1');
-      expect(panelLocationFor('doc', 'doc_1'), '/documents/doc_1'); // demo alias
+      expect(
+        panelLocationFor('doc', 'doc_1'),
+        '/documents/doc_1',
+      ); // demo alias
     });
 
     test('skill → /documents/skill/<name> (the id IS the slug)', () {
-      expect(panelLocationFor('skill', 'invoice-triage'), '/documents/skill/invoice-triage');
+      expect(
+        panelLocationFor('skill', 'invoice-triage'),
+        '/documents/skill/invoice-triage',
+      );
       expect(hasPanelFor('skill'), isTrue);
     });
 
@@ -41,11 +55,24 @@ void main() {
   });
 
   group('no-panel kinds are inert (never a dead link)', () {
-    test('mcp / memory / relation / block / message / node / firing / unknown → null', () {
-      for (final k in ['mcp', 'memory', 'relation', 'block', 'message', 'node', 'firing', 'quantum', '']) {
-        expect(panelLocationFor(k, 'x'), isNull, reason: k);
-        expect(hasPanelFor(k), isFalse, reason: k);
-      }
-    });
+    test(
+      'mcp / memory / relation / block / message / node / firing / unknown → null',
+      () {
+        for (final k in [
+          'mcp',
+          'memory',
+          'relation',
+          'block',
+          'message',
+          'node',
+          'firing',
+          'quantum',
+          '',
+        ]) {
+          expect(panelLocationFor(k, 'x'), isNull, reason: k);
+          expect(hasPanelFor(k), isFalse, reason: k);
+        }
+      },
+    );
   });
 }

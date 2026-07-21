@@ -20,7 +20,8 @@ abstract class ModelKnob with _$ModelKnob {
     @JsonKey(name: 'default') @Default('') String defaultValue,
   }) = _ModelKnob;
 
-  factory ModelKnob.fromJson(Map<String, dynamic> json) => _$ModelKnobFromJson(json);
+  factory ModelKnob.fromJson(Map<String, dynamic> json) =>
+      _$ModelKnobFromJson(json);
 }
 
 /// One runnable model option — a row of `GET /model-capabilities` (the backend aggregates every probed
@@ -51,5 +52,6 @@ abstract class ModelCapability with _$ModelCapability {
     @Default(<ModelKnob>[]) List<ModelKnob> knobs,
   }) = _ModelCapability;
 
-  factory ModelCapability.fromJson(Map<String, dynamic> json) => _$ModelCapabilityFromJson(json);
+  factory ModelCapability.fromJson(Map<String, dynamic> json) =>
+      _$ModelCapabilityFromJson(json);
 }

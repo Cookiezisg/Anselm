@@ -15,4 +15,6 @@ class SettingsDetailController extends Notifier<SettingsDetail?> {
 }
 
 final settingsDetailProvider =
-    NotifierProvider<SettingsDetailController, SettingsDetail?>(SettingsDetailController.new);
+    NotifierProvider<SettingsDetailController, SettingsDetail?>(
+      SettingsDetailController.new,
+    );

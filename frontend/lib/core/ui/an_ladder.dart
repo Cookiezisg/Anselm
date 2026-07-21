@@ -32,30 +32,45 @@ class AnLadder extends StatelessWidget {
       children: [
         for (var i = 0; i < children.length; i++)
           IntrinsicHeight(
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Column(children: [
-                Container(
-                  width: AnSize.icon,
-                  height: AnSize.icon,
-                  alignment: Alignment.center,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    border: Border.all(color: c.line, width: AnSize.hairline),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Column(
+                  children: [
+                    Container(
+                      width: AnSize.icon,
+                      height: AnSize.icon,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: c.line,
+                          width: AnSize.hairline,
+                        ),
+                      ),
+                      child: Text(
+                        '${i + 1}',
+                        style: AnText.metaTabular().copyWith(color: c.inkFaint),
+                      ),
+                    ),
+                    // The descent line binds a rung to the next — the last rung ends clean. 末级收线。
+                    if (i < children.length - 1)
+                      Expanded(
+                        child: Container(width: AnSize.hairline, color: c.line),
+                      ),
+                  ],
+                ),
+                const SizedBox(width: AnSpace.s8),
+                Expanded(
+                  child: Padding(
+                    padding: EdgeInsets.only(
+                      bottom: i < children.length - 1 ? AnSpace.s8 : 0,
+                    ),
+                    child: children[i],
                   ),
-                  child: Text('${i + 1}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
                 ),
-                // The descent line binds a rung to the next — the last rung ends clean. 末级收线。
-                if (i < children.length - 1)
-                  Expanded(child: Container(width: AnSize.hairline, color: c.line)),
-              ]),
-              const SizedBox(width: AnSpace.s8),
-              Expanded(
-                child: Padding(
-                  padding: EdgeInsets.only(bottom: i < children.length - 1 ? AnSpace.s8 : 0),
-                  child: children[i],
-                ),
-              ),
-            ]),
+              ],
+            ),
           ),
       ],
     );

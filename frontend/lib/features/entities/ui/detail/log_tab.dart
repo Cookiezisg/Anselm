@@ -40,12 +40,19 @@ class LogTab extends ConsumerWidget {
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: d.state.errorTitle,
-        action: AnButton(label: d.state.retry, onPressed: () => ref.invalidate(logListProvider(entityRef))),
+        action: AnButton(
+          label: d.state.retry,
+          onPressed: () => ref.invalidate(logListProvider(entityRef)),
+        ),
       ),
       data: (st) {
         if (st.rows.isEmpty) {
           return AnState(
-              kind: AnStateKind.empty, size: AnStateSize.inset, title: d.state.noLogs, hint: d.state.noLogsHint);
+            kind: AnStateKind.empty,
+            size: AnStateSize.inset,
+            title: d.state.noLogs,
+            hint: d.state.noLogsHint,
+          );
         }
         // Column (not ListView): the surrounding AnPage owns the single document scroll (flow tabs). 文档单滚,用 Column。
         return Column(
@@ -82,23 +89,36 @@ class LogTab extends ConsumerWidget {
     final t = context.t;
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s8),
-      child: Row(children: [
-        AnChip('${st.aggregates.okCount} ${t.status.done}', tone: AnTone.ok),
-        const SizedBox(width: AnSpace.s8),
-        AnChip('${st.aggregates.failedCount} ${t.status.err}',
-            tone: st.aggregates.failedCount > 0 ? AnTone.danger : AnTone.none),
-      ]),
+      child: Row(
+        children: [
+          AnChip('${st.aggregates.okCount} ${t.status.done}', tone: AnTone.ok),
+          const SizedBox(width: AnSpace.s8),
+          AnChip(
+            '${st.aggregates.failedCount} ${t.status.err}',
+            tone: st.aggregates.failedCount > 0 ? AnTone.danger : AnTone.none,
+          ),
+        ],
+      ),
     );
   }
 
-  Widget _detail(BuildContext context, WidgetRef ref, LogListState st, LogRow row) {
+  Widget _detail(
+    BuildContext context,
+    WidgetRef ref,
+    LogListState st,
+    LogRow row,
+  ) {
     final comp = st.flowruns[row.id];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Machine telemetry (ids / timestamps / raw JSON dumps) — chrome tier like its cockpit twin.
         // 机器遥测(id/时间戳/原始 JSON)——与驾驶舱孪生同守 chrome 档。
-        kvList([for (final r in row.detailRows) (r.$1, r.$2)], wrap: true, dense: true),
+        kvList(
+          [for (final r in row.detailRows) (r.$1, r.$2)],
+          wrap: true,
+          dense: true,
+        ),
         // The archive hands the bench a reproduce key (档案馆→工作台单向门, 0719 拍板): fill the
         // debugger from THIS execution and reveal the island. 从这次执行回填调试台并展开右岛。
         if (row.run != null)
@@ -111,7 +131,9 @@ class LogTab extends ConsumerWidget {
                 size: AnButtonSize.sm,
                 surface: true,
                 onPressed: () {
-                  ref.read(runTerminalProvider(entityRef).notifier).loadInput(row.run!);
+                  ref
+                      .read(runTerminalProvider(entityRef).notifier)
+                      .loadInput(row.run!);
                   ref.read(rightPanelCollapsedProvider.notifier).set(false);
                 },
               ),

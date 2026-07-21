@@ -22,7 +22,12 @@ import 'icons.dart';
 /// One batch action on the bar. [tone] picks the button voice (danger → the danger button; ok/accent →
 /// primary; none → outline ghost). 批量动作:tone 定按钮声(danger 红/ok·accent 主/none 描边)。
 class BatchAction {
-  const BatchAction({required this.label, this.icon, this.tone = AnTone.none, required this.onRun});
+  const BatchAction({
+    required this.label,
+    this.icon,
+    this.tone = AnTone.none,
+    required this.onRun,
+  });
 
   final String label;
   final IconData? icon;
@@ -63,41 +68,48 @@ class AnBatchBar extends StatelessWidget {
         border: Border.all(color: c.line, width: AnSize.hairline),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6),
-        child: Row(children: [
-          Text(
-            t.feedback.batch.selected(n: '$count'),
-            style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.ink),
-          ),
-          const SizedBox(width: AnSpace.s12),
-          // The action cluster rides the kit's button group (D7): unified gaps, and a too-narrow
-          // host WRAPS instead of overflowing (Wrap 文法); overlong labels still ellipsize inside
-          // their buttons. 动作簇走 AnActionGroup(D7):统一间距、过窄换行不溢出;超长标签钮内裁切。
-          Expanded(
-            child: AnActionGroup([
-              for (final a in actions)
-                AnButton(
-                  label: a.label,
-                  icon: a.icon,
-                  size: AnButtonSize.sm,
-                  variant: switch (a.tone) {
-                    AnTone.danger => AnButtonVariant.danger,
-                    AnTone.ok || AnTone.accent => AnButtonVariant.primary,
-                    _ => AnButtonVariant.ghost,
-                  },
-                  outline: a.tone == AnTone.none || a.tone == AnTone.warn,
-                  onPressed: busy ? null : a.onRun,
-                ),
-            ]),
-          ),
-          const SizedBox(width: AnSpace.s8),
-          AnButton.iconOnly(
-            AnIcons.close,
-            size: AnButtonSize.sm,
-            semanticLabel: t.feedback.batch.clear,
-            onPressed: busy ? null : onClear,
-          ),
-        ]),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AnSpace.s12,
+          vertical: AnSpace.s6,
+        ),
+        child: Row(
+          children: [
+            Text(
+              t.feedback.batch.selected(n: '$count'),
+              style: AnText.meta
+                  .weight(AnText.emphasisWeight)
+                  .copyWith(color: c.ink),
+            ),
+            const SizedBox(width: AnSpace.s12),
+            // The action cluster rides the kit's button group (D7): unified gaps, and a too-narrow
+            // host WRAPS instead of overflowing (Wrap 文法); overlong labels still ellipsize inside
+            // their buttons. 动作簇走 AnActionGroup(D7):统一间距、过窄换行不溢出;超长标签钮内裁切。
+            Expanded(
+              child: AnActionGroup([
+                for (final a in actions)
+                  AnButton(
+                    label: a.label,
+                    icon: a.icon,
+                    size: AnButtonSize.sm,
+                    variant: switch (a.tone) {
+                      AnTone.danger => AnButtonVariant.danger,
+                      AnTone.ok || AnTone.accent => AnButtonVariant.primary,
+                      _ => AnButtonVariant.ghost,
+                    },
+                    outline: a.tone == AnTone.none || a.tone == AnTone.warn,
+                    onPressed: busy ? null : a.onRun,
+                  ),
+              ]),
+            ),
+            const SizedBox(width: AnSpace.s8),
+            AnButton.iconOnly(
+              AnIcons.close,
+              size: AnButtonSize.sm,
+              semanticLabel: t.feedback.batch.clear,
+              onPressed: busy ? null : onClear,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -135,14 +147,23 @@ class AnBatchCheck extends StatelessWidget {
               width: AnSize.iconSm,
               height: AnSize.iconSm,
               decoration: BoxDecoration(
-                color: checked ? c.accent : (hovered ? c.surfaceHover : const Color(0x00000000)),
+                color: checked
+                    ? c.accent
+                    : (hovered ? c.surfaceHover : const Color(0x00000000)),
                 borderRadius: BorderRadius.circular(AnRadius.tag),
                 border: checked
                     ? null
-                    : Border.all(color: hovered ? c.inkFaint : c.line, width: AnSize.hairline),
+                    : Border.all(
+                        color: hovered ? c.inkFaint : c.line,
+                        width: AnSize.hairline,
+                      ),
               ),
               child: checked
-                  ? Icon(AnIcons.check, size: AnSize.iconSm - 3, color: c.onAccent)
+                  ? Icon(
+                      AnIcons.check,
+                      size: AnSize.iconSm - 3,
+                      color: c.onAccent,
+                    )
                   : null,
             );
           },

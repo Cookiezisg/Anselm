@@ -29,8 +29,10 @@ void main() {
 
   test('edges surface too, and the memo holds across a stable read', () {
     final s = PartialJsonSession()
-      ..append('{"ops":[{"op":"add_node","node":{"id":"a","kind":"trigger"}},'
-          '{"op":"add_edge","edge":{"id":"e1","from":"a","to":"b"}},');
+      ..append(
+        '{"ops":[{"op":"add_node","node":{"id":"a","kind":"trigger"}},'
+        '{"op":"add_edge","edge":{"id":"e1","from":"a","to":"b"}},',
+      );
     final g = graphFromWorkflowOps(s);
     expect(g.nodes.length, 1);
     expect(g.edges.length, 1);

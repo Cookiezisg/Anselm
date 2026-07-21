@@ -28,12 +28,15 @@ class RecentRun {
   final String status; // raw ledger word (ok/failed/… or flowrun status) 账面词
   final DateTime? startedAt;
   final int elapsedMs;
-  final String triggeredBy; // chat/agent/workflow/manual … or flowrun origin 来源微标
+  final String
+  triggeredBy; // chat/agent/workflow/manual … or flowrun origin 来源微标
   final Map<String, Object?> input;
   final Object? output;
-  final String? errorMsg; // failed row's error — the ledger's error message (wf: the flowrun error) 失败错句
+  final String?
+  errorMsg; // failed row's error — the ledger's error message (wf: the flowrun error) 失败错句
   final String method; // handler only 仅 handler
-  final String? triggerId; // workflow only — restores the SOURCE on reproduce 仅 wf,重现还原来源
+  final String?
+  triggerId; // workflow only — restores the SOURCE on reproduce 仅 wf,重现还原来源
 }
 
 /// The last five executions, newest first — the debugger's working-bench strip. The full archive
@@ -41,76 +44,76 @@ class RecentRun {
 /// Re-fetched after every run settles (the controller invalidates this).
 ///
 /// 最近五次(新在前)——调试台工作台条。全史归 Logs tab(档案馆);每次运行落定由 controller 失效重取。
-final recentRunsProvider =
-    FutureProvider.autoDispose.family<List<RecentRun>, EntityRef>((ref, entity) async {
-  final repo = ref.watch(entityRepositoryProvider);
-  const n = 5;
-  switch (entity.kind) {
-    case EntityKind.function:
-      final page = await repo.listFunctionExecutions(entity.id, limit: n);
-      return [
-        for (final e in page.items)
-          RecentRun(
-            id: e.id,
-            status: e.status,
-            startedAt: e.startedAt,
-            elapsedMs: e.elapsedMs,
-            triggeredBy: e.triggeredBy,
-            input: e.input,
-            output: e.output,
-            errorMsg: e.errorMessage,
-          ),
-      ];
-    case EntityKind.handler:
-      final page = await repo.listHandlerCalls(entity.id, limit: n);
-      return [
-        for (final e in page.items)
-          RecentRun(
-            id: e.id,
-            status: e.status,
-            startedAt: e.startedAt,
-            elapsedMs: e.elapsedMs,
-            triggeredBy: e.triggeredBy,
-            input: e.input,
-            output: e.output,
-            errorMsg: e.errorMessage,
-            method: e.method,
-          ),
-      ];
-    case EntityKind.agent:
-      final page = await repo.listAgentExecutions(entity.id, limit: n);
-      return [
-        for (final e in page.items)
-          RecentRun(
-            id: e.id,
-            status: e.status,
-            startedAt: e.startedAt,
-            elapsedMs: e.elapsedMs,
-            triggeredBy: e.triggeredBy,
-            input: e.input,
-            output: e.output,
-            errorMsg: e.errorMessage,
-          ),
-      ];
-    case EntityKind.workflow:
-      final page = await repo.listFlowruns(workflowId: entity.id, limit: n);
-      return [
-        for (final r in page.items)
-          RecentRun(
-            id: r.id,
-            status: r.status,
-            startedAt: r.startedAt,
-            elapsedMs: (r.completedAt != null && r.startedAt != null)
-                ? r.completedAt!.difference(r.startedAt!).inMilliseconds
-                : 0,
-            triggeredBy: r.origin ?? '',
-            errorMsg: r.error,
-            triggerId: r.triggerId,
-          ),
-      ];
-    case EntityKind.control:
-    case EntityKind.approval:
-    case EntityKind.trigger:
-      return const []; // support kinds have no execution ledger 支撑 kind 无执行账
-  }
-});
+final recentRunsProvider = FutureProvider.autoDispose
+    .family<List<RecentRun>, EntityRef>((ref, entity) async {
+      final repo = ref.watch(entityRepositoryProvider);
+      const n = 5;
+      switch (entity.kind) {
+        case EntityKind.function:
+          final page = await repo.listFunctionExecutions(entity.id, limit: n);
+          return [
+            for (final e in page.items)
+              RecentRun(
+                id: e.id,
+                status: e.status,
+                startedAt: e.startedAt,
+                elapsedMs: e.elapsedMs,
+                triggeredBy: e.triggeredBy,
+                input: e.input,
+                output: e.output,
+                errorMsg: e.errorMessage,
+              ),
+          ];
+        case EntityKind.handler:
+          final page = await repo.listHandlerCalls(entity.id, limit: n);
+          return [
+            for (final e in page.items)
+              RecentRun(
+                id: e.id,
+                status: e.status,
+                startedAt: e.startedAt,
+                elapsedMs: e.elapsedMs,
+                triggeredBy: e.triggeredBy,
+                input: e.input,
+                output: e.output,
+                errorMsg: e.errorMessage,
+                method: e.method,
+              ),
+          ];
+        case EntityKind.agent:
+          final page = await repo.listAgentExecutions(entity.id, limit: n);
+          return [
+            for (final e in page.items)
+              RecentRun(
+                id: e.id,
+                status: e.status,
+                startedAt: e.startedAt,
+                elapsedMs: e.elapsedMs,
+                triggeredBy: e.triggeredBy,
+                input: e.input,
+                output: e.output,
+                errorMsg: e.errorMessage,
+              ),
+          ];
+        case EntityKind.workflow:
+          final page = await repo.listFlowruns(workflowId: entity.id, limit: n);
+          return [
+            for (final r in page.items)
+              RecentRun(
+                id: r.id,
+                status: r.status,
+                startedAt: r.startedAt,
+                elapsedMs: (r.completedAt != null && r.startedAt != null)
+                    ? r.completedAt!.difference(r.startedAt!).inMilliseconds
+                    : 0,
+                triggeredBy: r.origin ?? '',
+                errorMsg: r.error,
+                triggerId: r.triggerId,
+              ),
+          ];
+        case EntityKind.control:
+        case EntityKind.approval:
+        case EntityKind.trigger:
+          return const []; // support kinds have no execution ledger 支撑 kind 无执行账
+      }
+    });

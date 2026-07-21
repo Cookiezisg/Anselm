@@ -34,7 +34,10 @@ class AnCodeChip extends StatelessWidget {
         color: c.surfaceSunken,
         borderRadius: BorderRadius.circular(AnRadius.tag),
       ),
-      child: Text(code, style: (dense ? AnText.codeInline : AnText.mono).copyWith(color: c.ink)),
+      child: Text(
+        code,
+        style: (dense ? AnText.codeInline : AnText.mono).copyWith(color: c.ink),
+      ),
     );
   }
 }

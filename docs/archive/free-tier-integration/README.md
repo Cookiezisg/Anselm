@@ -238,9 +238,9 @@ landed-into:
 | 死状态（无合成 TestResponse） | 中 | §9.2 受管创建路径强制植入；testend 断言 picker 出现 model。 |
 
 ### 验收
-- **`make verify`**：`anselm_test.go`（wire+install+402 非重试）+ `freetier_test.go`（幂等+仅未设设默认+指纹降级+唯一冲突 no-op）+ deepseek 回归（dsChunkError.Code）+ `make docs` 全绿。
-- **`make testend`（llmmock 零 token）**：fresh data dir → 建首个 workspace → 断言 `GET /api-keys?provider=anselm` 一行 + `GET /model-capabilities` 含 `deepseek-v4-flash` + 同意后 `dialogue/utility` 默认已设。install 用 testend stub。
-- **`make evals`（EVALS=1）**：对真 `api.anselm.host` 跑 chat turn 断言 `reasoning_content` 渲染 + **一个 tool_call round-trip**（验跨 repo 依赖）+ 配额耗尽 → `ErrQuotaExhausted`。
+- **`make verify`**：`anselm_test.go`（wire+install+402 非重试）+ `freetier_test.go`（幂等+仅未设设默认+指纹降级+唯一冲突 no-op）+ deepseek 回归（dsChunkError.Code）+ `make -C docs verify` 全绿。
+- **`make -C backend testend`（llmmock 零 token）**：fresh data dir → 建首个 workspace → 断言 `GET /api-keys?provider=anselm` 一行 + `GET /model-capabilities` 含 `deepseek-v4-flash` + 同意后 `dialogue/utility` 默认已设。install 用 testend stub。
+- **`make -C backend evals`（EVALS=1）**：对真 `api.anselm.host` 跑 chat turn 断言 `reasoning_content` 渲染 + **一个 tool_call round-trip**（验跨 repo 依赖）+ 配额耗尽 → `ErrQuotaExhausted`。
 - **手测**：新装 → 无 paste-key → 同意后首条消息得 DeepSeek 回复 + reasoning 折叠块 + 挂一个 tool 验真能调用。
 
 ---

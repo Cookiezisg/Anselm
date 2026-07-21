@@ -41,7 +41,10 @@ class FlowrunInbox extends ConsumerWidget {
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: context.t.entities.detail.state.errorTitle,
-        action: AnButton(label: context.t.entities.detail.state.retry, onPressed: () => ref.invalidate(flowrunInboxProvider)),
+        action: AnButton(
+          label: context.t.entities.detail.state.retry,
+          onPressed: () => ref.invalidate(flowrunInboxProvider),
+        ),
       ),
       data: (parked) => parked.isEmpty
           ? AnState(
@@ -89,7 +92,9 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
     final overlay = ref.read(overlayProvider.notifier);
     // Name every affected approval (its ref, else its node id) — the confirm dialog shows the full list.
     // 点名每一项(ref,否则 nodeId)——确认弹窗列全单。
-    final list = [for (final p in parked) '· ${p.ref.isNotEmpty ? p.ref : p.nodeId}'].join('\n');
+    final list = [
+      for (final p in parked) '· ${p.ref.isNotEmpty ? p.ref : p.nodeId}',
+    ].join('\n');
     final confirmed = await overlay.confirm(
       title: verdict == 'yes'
           ? r.batchApproveTitle(n: '${parked.length}')
@@ -98,7 +103,9 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
       confirmLabel: verdict == 'yes' ? r.approve : r.reject,
       cancelLabel: t.action.cancel,
       barrierLabel: t.feedback.dialogBarrier,
-      confirmTone: verdict == 'yes' ? AnDialogTone.primary : AnDialogTone.danger,
+      confirmTone: verdict == 'yes'
+          ? AnDialogTone.primary
+          : AnDialogTone.danger,
     );
     if (!confirmed || !mounted) return;
     setState(() => _bulkBusy = true);
@@ -107,10 +114,17 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
     for (final p in parked) {
       try {
         // Bulk carries no per-item reason (reason is optional pure-audit; a batch decides fast). 批量不带逐条理由。
-        await repo.decideApproval(p.flowrunId, p.nodeId, decision: verdict, reason: null);
+        await repo.decideApproval(
+          p.flowrunId,
+          p.nodeId,
+          decision: verdict,
+          reason: null,
+        );
         ok++;
       } on ApiException catch (e) {
-        e.httpStatus == 422 ? lost++ : failed++; // 422 = already decided elsewhere (first-wins) 已被别处决断
+        e.httpStatus == 422
+            ? lost++
+            : failed++; // 422 = already decided elsewhere (first-wins) 已被别处决断
       } catch (_) {
         failed++;
       }
@@ -118,13 +132,18 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
     if (!mounted) return;
     setState(() => _bulkBusy = false);
     final parts = <String>[
-      if (ok > 0) verdict == 'yes' ? r.sumApproved(n: '$ok') : r.sumRejected(n: '$ok'),
+      if (ok > 0)
+        verdict == 'yes' ? r.sumApproved(n: '$ok') : r.sumRejected(n: '$ok'),
       if (lost > 0) r.sumLost(n: '$lost'),
       if (failed > 0) r.sumFailed(n: '$failed'),
     ];
     if (parts.isNotEmpty) {
-      final tone = failed > 0 ? AnTone.danger : (lost > 0 ? AnTone.warn : AnTone.ok);
-      ref.read(noticeCenterProvider.notifier).show(parts.join(' · '), tone: tone);
+      final tone = failed > 0
+          ? AnTone.danger
+          : (lost > 0 ? AnTone.warn : AnTone.ok);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(parts.join(' · '), tone: tone);
     }
     ref.invalidate(flowrunInboxProvider);
   }
@@ -165,11 +184,24 @@ class _NeedsYouSectionState extends ConsumerState<_NeedsYouSection> {
             else
               AnMenu(
                 entries: [
-                  AnMenuItem(label: t.run.approveAll, icon: AnIcons.check, onTap: () => _bulkDecide('yes', parked)),
-                  AnMenuItem(label: t.run.rejectAll, icon: AnIcons.close, danger: true, onTap: () => _bulkDecide('no', parked)),
+                  AnMenuItem(
+                    label: t.run.approveAll,
+                    icon: AnIcons.check,
+                    onTap: () => _bulkDecide('yes', parked),
+                  ),
+                  AnMenuItem(
+                    label: t.run.rejectAll,
+                    icon: AnIcons.close,
+                    danger: true,
+                    onTap: () => _bulkDecide('no', parked),
+                  ),
                 ],
-                anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.more,
-                    size: AnButtonSize.sm, semanticLabel: t.a11y.moreActions, onPressed: toggle),
+                anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
+                  AnIcons.more,
+                  size: AnButtonSize.sm,
+                  semanticLabel: t.a11y.moreActions,
+                  onPressed: toggle,
+                ),
               ),
           ],
         ),
@@ -218,7 +250,9 @@ class _ApprovalCardState extends ConsumerState<_ApprovalCard> {
     setState(() => _deciding = true);
     final p = widget.parked;
     try {
-      await ref.read(entityRepositoryProvider).decideApproval(
+      await ref
+          .read(entityRepositoryProvider)
+          .decideApproval(
             p.flowrunId,
             p.nodeId,
             decision: decision,

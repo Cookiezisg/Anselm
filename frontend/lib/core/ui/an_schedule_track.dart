@@ -160,7 +160,12 @@ class TrackBin {
 /// lane carries NO future (the backend stamps no next-fire on a paused trigger); the widget says «已暂停»
 /// from the lane's [TrackLane.note] instead. 未来半=一句话而非位置;三词皆调用方已本地化;暂停泳道无 future。
 class TrackFuture {
-  const TrackFuture({required this.at, this.time = '', this.relative = '', this.schedule = ''});
+  const TrackFuture({
+    required this.at,
+    this.time = '',
+    this.relative = '',
+    this.schedule = '',
+  });
 
   /// The next-fire instant — carried for ordering / a11y, not rendered directly. 下一发时刻(排序/读屏)。
   final DateTime at;
@@ -232,12 +237,15 @@ List<TrackBin> binTrackEvents({
   // 零/负窗放不下任何东西——返空格,不拿它做除数。
   if (spanMs <= 0) return const [];
 
-  DateTime edge(int i) => start.add(Duration(milliseconds: (spanMs * i / binCount).round()));
+  DateTime edge(int i) =>
+      start.add(Duration(milliseconds: (spanMs * i / binCount).round()));
   final bounds = [for (var i = 0; i <= binCount; i++) edge(i)];
 
   int? slotOf(DateTime at) {
     final offMs = at.difference(start).inMilliseconds;
-    if (offMs < 0 || offMs >= spanMs) return null; // outside the axis — unplaceable 轴外不渲
+    if (offMs < 0 || offMs >= spanMs) {
+      return null; // outside the axis — unplaceable 轴外不渲
+    }
     final s = (offMs * binCount / spanMs).floor();
     return s < 0 ? 0 : (s >= binCount ? binCount - 1 : s);
   }
@@ -374,10 +382,12 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
     }
   }
 
-  int get _binCount => widget.lanes.isEmpty ? 0 : widget.lanes.first.bins.length;
+  int get _binCount =>
+      widget.lanes.isEmpty ? 0 : widget.lanes.first.bins.length;
 
-  bool _slotExists(TrackLane lane, int slot) =>
-      slot == _futureSlot ? lane.future != null : (slot >= 0 && slot < lane.bins.length);
+  bool _slotExists(TrackLane lane, int slot) => slot == _futureSlot
+      ? lane.future != null
+      : (slot >= 0 && slot < lane.bins.length);
 
   /// Where the cursor IS, as (lane index, slot) — derived from the current lanes, never stored stale.
   /// 光标**当前**在哪(泳道下标, slot):自当前 lanes 派生、绝不存旧。
@@ -392,13 +402,18 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
     // user into a cell they cannot see). 默认=首泳道**最新**格:右锚下那才是恒可见处(bin0 在 25 小时前
     // 的屏外,Tab 落那儿=落进看不见的格)。
     for (var li = 0; li < widget.lanes.length; li++) {
-      if (widget.lanes[li].bins.isNotEmpty) return (li, widget.lanes[li].bins.length - 1);
+      if (widget.lanes[li].bins.isNotEmpty) {
+        return (li, widget.lanes[li].bins.length - 1);
+      }
     }
     return null;
   }
 
   FocusNode _nodeFor(_TrackCursor key, {required bool cursor}) {
-    final n = _nodes.putIfAbsent(key, () => FocusNode(debugLabel: 'AnScheduleTrack $key'));
+    final n = _nodes.putIfAbsent(
+      key,
+      () => FocusNode(debugLabel: 'AnScheduleTrack $key'),
+    );
     n.skipTraversal = !cursor;
     return n;
   }
@@ -419,8 +434,13 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
         // A lane reads bin0 … bin(binCount-1) → future ○; RTL mirrors the visual direction.
         // 一泳道读 bin0…bin(n-1)→未来 ○;RTL 镜像视觉方向。
         final forward = dir == TraversalDirection.right;
-        final step = (forward ? 1 : -1) * (Directionality.of(context) == TextDirection.rtl ? -1 : 1);
-        final ordered = <int>[for (var i = 0; i < lane.bins.length; i++) i, if (lane.future != null) _futureSlot];
+        final step =
+            (forward ? 1 : -1) *
+            (Directionality.of(context) == TextDirection.rtl ? -1 : 1);
+        final ordered = <int>[
+          for (var i = 0; i < lane.bins.length; i++) i,
+          if (lane.future != null) _futureSlot,
+        ];
         final idx = ordered.indexOf(slot);
         if (idx < 0) return false;
         final next = idx + step;
@@ -461,11 +481,9 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
       FocusTraversalPolicy.defaultTraversalRequestFocusCallback(
         node,
         alignmentPolicy: switch (dir) {
-          TraversalDirection.up ||
-          TraversalDirection.left =>
+          TraversalDirection.up || TraversalDirection.left =>
             ScrollPositionAlignmentPolicy.keepVisibleAtStart,
-          TraversalDirection.down ||
-          TraversalDirection.right =>
+          TraversalDirection.down || TraversalDirection.right =>
             ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
         },
       );
@@ -476,7 +494,9 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
   }
 
   String _sentence(TrackLane lane, int slot) {
-    if (slot == _futureSlot) return widget.futureSemanticLabel?.call(lane) ?? '';
+    if (slot == _futureSlot) {
+      return widget.futureSemanticLabel?.call(lane) ?? '';
+    }
     final bin = lane.bins[slot];
     if (bin.hasRuns) return widget.binSemanticLabel?.call(lane, bin) ?? '';
     return widget.emptyBinSemanticLabel?.call(lane, bin) ?? '';
@@ -534,7 +554,8 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       _colHeads(context),
-                      for (var i = 0; i < widget.lanes.length; i++) _lane(context, i, at),
+                      for (var i = 0; i < widget.lanes.length; i++)
+                        _lane(context, i, at),
                       // The bar is an OVERLAY — give the last lane its own strip (矩阵同款条道).
                       // 条是覆层,给末行让出一条道。
                       const SizedBox(height: AnSpace.s8),
@@ -571,25 +592,28 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
     final heads = widget.lanes.first.bins;
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s4),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        for (final bin in heads)
-          Padding(
-            padding: const EdgeInsetsDirectional.only(start: AnSpace.s4),
-            child: SizedBox(
-              width: AnSize.controlSm,
-              height: _kHeadH,
-              child: Center(
-                child: Text(
-                  widget.binHeadLabel?.call(bin) ?? '',
-                  maxLines: 1,
-                  overflow: TextOverflow.visible,
-                  softWrap: false,
-                  style: AnText.metaTabular().copyWith(color: c.inkFaint),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final bin in heads)
+            Padding(
+              padding: const EdgeInsetsDirectional.only(start: AnSpace.s4),
+              child: SizedBox(
+                width: AnSize.controlSm,
+                height: _kHeadH,
+                child: Center(
+                  child: Text(
+                    widget.binHeadLabel?.call(bin) ?? '',
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    softWrap: false,
+                    style: AnText.metaTabular().copyWith(color: c.inkFaint),
+                  ),
                 ),
               ),
             ),
-          ),
-      ]),
+        ],
+      ),
     );
   }
 
@@ -606,7 +630,9 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
           lane.label,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: AnText.meta.copyWith(color: lane.dimmed ? c.inkFaint : c.inkMuted),
+          style: AnText.meta.copyWith(
+            color: lane.dimmed ? c.inkFaint : c.inkMuted,
+          ),
         ),
       ),
     );
@@ -619,23 +645,32 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
     return Semantics(
       container: true,
       explicitChildNodes: true,
-      label: widget.laneSummaryLabel?.call(lane) ??
+      label:
+          widget.laneSummaryLabel?.call(lane) ??
           (lane.note.isEmpty ? lane.label : '${lane.label} · ${lane.note}'),
       child: SizedBox(
         height: _kRowH,
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          for (final bin in lane.bins)
-            Padding(
-              padding: const EdgeInsetsDirectional.only(start: AnSpace.s4),
-              child: _binCell(context, li, lane, bin, at),
-            ),
-        ]),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            for (final bin in lane.bins)
+              Padding(
+                padding: const EdgeInsetsDirectional.only(start: AnSpace.s4),
+                child: _binCell(context, li, lane, bin, at),
+              ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _binCell(
-      BuildContext context, int li, TrackLane lane, TrackBin bin, (int, int)? at) {
+    BuildContext context,
+    int li,
+    TrackLane lane,
+    TrackBin bin,
+    (int, int)? at,
+  ) {
     final c = context.colors;
     final worst = bin.worst;
     final tone = worst?.tone;
@@ -651,26 +686,35 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
       decoration: BoxDecoration(
         color: tone == null ? const Color(0x00000000) : tone.softBg(c),
         borderRadius: BorderRadius.circular(AnRadius.tag),
-        border: Border.all(color: tone == null ? c.line : tone.fg(c), width: AnSize.hairline),
+        border: Border.all(
+          color: tone == null ? c.line : tone.fg(c),
+          width: AnSize.hairline,
+        ),
       ),
       alignment: Alignment.center,
       child: bin.missedCount > 0
           ? Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkMuted)
           : null,
     );
-    if (lane.dimmed && worst != null) square = Opacity(opacity: AnOpacity.stratum, child: square);
+    if (lane.dimmed && worst != null) {
+      square = Opacity(opacity: AnOpacity.stratum, child: square);
+    }
 
     // Content cell (has runs) → launch pad + hover card; missed-only or empty → inert, no card.
     // 内容格(有 run)→ 发射台 + hover 卡;纯 missed / 空 → 惰性、无卡。
     final tappable = widget.onBin != null && bin.hasRuns;
-    final hover = bin.hasContent ? widget.binHoverBuilder?.call(lane, bin) : null;
+    final hover = bin.hasContent
+        ? widget.binHoverBuilder?.call(lane, bin)
+        : null;
     final sentence = bin.hasRuns
         ? widget.binSemanticLabel?.call(lane, bin)
         : widget.emptyBinSemanticLabel?.call(lane, bin);
 
     return Center(
       child: _Cell(
-        focusNode: widget.onBin == null ? null : _nodeFor((lane.id, bin.index), cursor: at == (li, bin.index)),
+        focusNode: widget.onBin == null
+            ? null
+            : _nodeFor((lane.id, bin.index), cursor: at == (li, bin.index)),
         tappable: tappable,
         onActivate: tappable ? () => _activate(lane, bin) : null,
         hoverBuilder: hover,
@@ -696,34 +740,55 @@ class _AnScheduleTrackState extends State<AnScheduleTrack> {
           ? const SizedBox.shrink()
           : Align(
               alignment: AlignmentDirectional.centerStart,
-              child: Text(word, maxLines: 1, style: AnText.meta.copyWith(color: c.inkFaint)),
+              child: Text(
+                word,
+                maxLines: 1,
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
             );
     }
 
-    final ring = AnStatusDot.raw(lane.dimmed ? c.inkFaint : c.inkMuted, hollow: true, size: AnSize.dot);
+    final ring = AnStatusDot.raw(
+      lane.dimmed ? c.inkFaint : c.inkMuted,
+      hollow: true,
+      size: AnSize.dot,
+    );
     // The ○ is fixed; the whole «HH:mm (relative) · schedule» phrase rides ONE Expanded RichText with
     // ellipsis, so a long trigger name (or a squeezed segment) degrades rather than overflowing — the
     // time stays highest priority. 时刻词优先,整句一条 Expanded RichText 省略号:长名/挤压时降级不溢出。
-    final line = Row(children: [
-      ring,
-      const SizedBox(width: AnSpace.s6),
-      Expanded(
-        child: RichText(
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          text: TextSpan(style: AnText.meta.copyWith(color: c.ink), children: [
-            if (f.time.isNotEmpty) TextSpan(text: f.time),
-            if (f.relative.isNotEmpty)
-              TextSpan(text: ' ${f.relative}', style: TextStyle(color: c.inkFaint)),
-            if (f.schedule.isNotEmpty)
-              TextSpan(text: ' · ${f.schedule}', style: TextStyle(color: c.inkFaint)),
-          ]),
+    final line = Row(
+      children: [
+        ring,
+        const SizedBox(width: AnSpace.s6),
+        Expanded(
+          child: RichText(
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            text: TextSpan(
+              style: AnText.meta.copyWith(color: c.ink),
+              children: [
+                if (f.time.isNotEmpty) TextSpan(text: f.time),
+                if (f.relative.isNotEmpty)
+                  TextSpan(
+                    text: ' ${f.relative}',
+                    style: TextStyle(color: c.inkFaint),
+                  ),
+                if (f.schedule.isNotEmpty)
+                  TextSpan(
+                    text: ' · ${f.schedule}',
+                    style: TextStyle(color: c.inkFaint),
+                  ),
+              ],
+            ),
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
 
     return _Cell(
-      focusNode: widget.onBin == null ? null : _nodeFor((lane.id, _futureSlot), cursor: at == (li, _futureSlot)),
+      focusNode: widget.onBin == null
+          ? null
+          : _nodeFor((lane.id, _futureSlot), cursor: at == (li, _futureSlot)),
       // The future ○ is display-only (never a launch pad). 未来 ○ 只读、非发射台。
       tappable: false,
       onActivate: null,
@@ -780,7 +845,11 @@ class _CellState extends State<_Cell> {
   @override
   Widget build(BuildContext context) {
     final label = widget.semanticLabel;
-    Widget visual = AnFocusRing(active: _focused, radius: AnRadius.tag, child: widget.child);
+    Widget visual = AnFocusRing(
+      active: _focused,
+      radius: AnRadius.tag,
+      child: widget.child,
+    );
     if (label != null && label.isNotEmpty) {
       visual = Semantics(
         label: label,
@@ -798,7 +867,9 @@ class _CellState extends State<_Cell> {
     Widget cell = FocusableActionDetector(
       enabled: widget.focusNode != null,
       focusNode: widget.focusNode,
-      mouseCursor: widget.tappable ? SystemMouseCursors.click : MouseCursor.defer,
+      mouseCursor: widget.tappable
+          ? SystemMouseCursors.click
+          : MouseCursor.defer,
       shortcuts: widget.tappable
           ? const <ShortcutActivator, Intent>{
               SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
@@ -807,10 +878,12 @@ class _CellState extends State<_Cell> {
           : const <ShortcutActivator, Intent>{},
       actions: widget.tappable
           ? <Type, Action<Intent>>{
-              ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-                widget.onActivate?.call();
-                return null;
-              }),
+              ActivateIntent: CallbackAction<ActivateIntent>(
+                onInvoke: (_) {
+                  widget.onActivate?.call();
+                  return null;
+                },
+              ),
             }
           : const <Type, Action<Intent>>{},
       // Ring only on KEYBOARD focus (a mouse click moves the cursor without highlighting). 键盘聚焦才现环。

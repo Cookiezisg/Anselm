@@ -32,11 +32,15 @@ class ConversationHeaderController extends AsyncNotifier<Conversation> {
 
   Future<void> _onSignal(ConversationSignal s) async {
     if (!s.durable || s.id != conversationId) return;
-    if (s.action == ConversationAction.deleted) return; // the rail navigates away; nothing to show 删除由 rail 导航走
+    if (s.action == ConversationAction.deleted) {
+      return; // the rail navigates away; nothing to show 删除由 rail 导航走
+    }
     try {
       final c = await _repo.getConversation(conversationId);
       if (ref.mounted) state = AsyncData(c);
-    } catch (_) {/* deleted between signal and read — leave the last state 信号与读之间被删,保持现状 */}
+    } catch (_) {
+      /* deleted between signal and read — leave the last state 信号与读之间被删,保持现状 */
+    }
   }
 
   /// Rename from the head (same PATCH as the rail's ⋯ rename; authoritative response patches state —
@@ -57,7 +61,9 @@ class ConversationHeaderController extends AsyncNotifier<Conversation> {
 }
 
 final conversationHeaderProvider = AsyncNotifierProvider.autoDispose
-    .family<ConversationHeaderController, Conversation, String>(ConversationHeaderController.new);
+    .family<ConversationHeaderController, Conversation, String>(
+      ConversationHeaderController.new,
+    );
 
 /// The LANDING's model choice — sticky across new chats (null = Auto). The backend's create endpoint
 /// takes only a title, so the first send stamps this via PATCH between create and send (see
@@ -78,4 +84,6 @@ class LandingModel extends Notifier<({String apiKeyId, String modelId})?> {
 }
 
 final landingModelProvider =
-    NotifierProvider<LandingModel, ({String apiKeyId, String modelId})?>(LandingModel.new);
+    NotifierProvider<LandingModel, ({String apiKeyId, String modelId})?>(
+      LandingModel.new,
+    );

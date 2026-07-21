@@ -23,10 +23,14 @@ import 'transcript_peek.dart';
 // A bounded error line (shared by run_function / call_handler bodies). Multi-line so the padding token
 // sits on its own line (not co-lined with a bare maxLines number). 有界错误行(两执行体共用)。
 Widget _errorLines(AnColors c, String msg) => Padding(
-      padding: const EdgeInsets.only(bottom: AnSpace.s2),
-      child: Text(msg,
-          style: AnText.code.copyWith(color: c.danger), maxLines: 20, overflow: TextOverflow.ellipsis),
-    );
+  padding: const EdgeInsets.only(bottom: AnSpace.s2),
+  child: Text(
+    msg,
+    style: AnText.code.copyWith(color: c.danger),
+    maxLines: 20,
+    overflow: TextOverflow.ellipsis,
+  ),
+);
 
 Map<String, dynamic>? _obj(String s) {
   try {
@@ -42,9 +46,15 @@ ToolReceipt? execReceipt(Translations t, String output) {
   final o = _obj(output);
   if (o == null || o['ok'] is! bool) return null;
   final ok = o['ok'] == true;
-  final elapsed = o['elapsedMs'] is int ? fmtElapsed(o['elapsedMs'] as int) : null;
-  if (ok) return elapsed == null ? null : (text: elapsed, tone: ToolReceiptTone.none);
-  final label = elapsed == null ? t.chat.tool.execFailed : '${t.chat.tool.execFailed} · $elapsed';
+  final elapsed = o['elapsedMs'] is int
+      ? fmtElapsed(o['elapsedMs'] as int)
+      : null;
+  if (ok) {
+    return elapsed == null ? null : (text: elapsed, tone: ToolReceiptTone.none);
+  }
+  final label = elapsed == null
+      ? t.chat.tool.execFailed
+      : '${t.chat.tool.execFailed} · $elapsed';
   return (text: label, tone: ToolReceiptTone.danger);
 }
 
@@ -65,28 +75,35 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
   final errorMsg = out?['errorMsg'] as String?;
   final ok = out?['ok'] == true;
 
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    toolIntent(context, state),
-    if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
-    if (logs != null && logs.isNotEmpty) ...[
-      const SizedBox(height: AnSpace.s6),
-      LogDrawer(logs: logs),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      toolIntent(context, state),
+      if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
+      if (logs != null && logs.isNotEmpty) ...[
+        const SizedBox(height: AnSpace.s6),
+        LogDrawer(logs: logs),
+      ],
+      if (!live) ...[
+        const SizedBox(height: AnSpace.s6),
+        if (!ok && errorMsg != null && errorMsg.isNotEmpty)
+          _errorLines(c, errorMsg)
+        else
+          ToolIOSection(label: t.run.ioOutput, value: out?['output']),
+        if (out != null)
+          // 批3 条族:the family head with the exec domain words (状态→色单源 AnStatus). 域词覆盖。
+          AnStatBar(
+            status: ok ? AnStatus.done : AnStatus.err,
+            statusLabel: ok ? t.chat.tool.execOk : t.chat.tool.execFailed,
+            stats: [
+              if (out['elapsedMs'] is int)
+                AnStat(fmtElapsed(out['elapsedMs'] as int), tabular: true),
+            ],
+          ),
+      ],
     ],
-    if (!live) ...[
-      const SizedBox(height: AnSpace.s6),
-      if (!ok && errorMsg != null && errorMsg.isNotEmpty)
-        _errorLines(c, errorMsg)
-      else
-        ToolIOSection(label: t.run.ioOutput, value: out?['output']),
-      if (out != null)
-        // 批3 条族:the family head with the exec domain words (状态→色单源 AnStatus). 域词覆盖。
-        AnStatBar(
-          status: ok ? AnStatus.done : AnStatus.err,
-          statusLabel: ok ? t.chat.tool.execOk : t.chat.tool.execFailed,
-          stats: [if (out['elapsedMs'] is int) AnStat(fmtElapsed(out['elapsedMs'] as int), tabular: true)],
-        ),
-    ],
-  ]);
+  );
 }
 
 /// call_handler body — intent → input (`method` label + `args`) → the yields (LIVE: a directly-visible
@@ -103,21 +120,34 @@ Widget callHandlerBody(BuildContext context, ToolCardState state) {
   final method = state.arg('method');
   final input = _obj(state.argsText)?['args'];
 
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    toolIntent(context, state),
-    if (method != null) Padding(padding: const EdgeInsets.only(bottom: AnSpace.s2), child: Text('$method()', style: AnText.mono.copyWith(color: c.inkMuted))),
-    if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
-    // The streamed yields: LIVE = the rolling terminal tail (the show), SETTLED = the drawer (record).
-    // yield 流:活=滚动终端尾(主秀),落定=抽屉(档案)。
-    if (state.progressText.isNotEmpty) ...[
-      const SizedBox(height: AnSpace.s6),
-      live ? AnLiveTail(state.progressText, tailLines: 12) : LogDrawer(logs: state.progressText),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      toolIntent(context, state),
+      if (method != null)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AnSpace.s2),
+          child: Text(
+            '$method()',
+            style: AnText.mono.copyWith(color: c.inkMuted),
+          ),
+        ),
+      if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
+      // The streamed yields: LIVE = the rolling terminal tail (the show), SETTLED = the drawer (record).
+      // yield 流:活=滚动终端尾(主秀),落定=抽屉(档案)。
+      if (state.progressText.isNotEmpty) ...[
+        const SizedBox(height: AnSpace.s6),
+        live
+            ? AnLiveTail(state.progressText, tailLines: 12)
+            : LogDrawer(logs: state.progressText),
+      ],
+      if (!live) ...[
+        const SizedBox(height: AnSpace.s6),
+        ToolIOSection(label: t.run.ioOutput, value: out?['result']),
+      ],
     ],
-    if (!live) ...[
-      const SizedBox(height: AnSpace.s6),
-      ToolIOSection(label: t.run.ioOutput, value: out?['result']),
-    ],
-  ]);
+  );
 }
 
 // ── invoke_agent — run an agent, SETTLED body (the live NestedRunPane is B6) ──
@@ -132,7 +162,9 @@ ToolReceipt? invokeReceipt(Translations t, String output) {
   final o = _obj(output);
   final status = o?['status'];
   if (status is! String) return null;
-  final elapsed = o!['elapsedMs'] is int ? fmtElapsed(o['elapsedMs'] as int) : null;
+  final elapsed = o!['elapsedMs'] is int
+      ? fmtElapsed(o['elapsedMs'] as int)
+      : null;
   final steps = o['steps'] is int ? o['steps'] as int : null;
   switch (status) {
     case 'ok':
@@ -173,37 +205,52 @@ Widget invokeAgentBody(BuildContext context, ToolCardState state) {
   final outputVal = out?['output'];
   final errorMsg = out?['errorMsg'] as String?;
 
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    toolIntent(context, state),
-    if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
-    // The nested trajectory: streaming (live) or still in the tree (settled this session). Once gone
-    // (a history reload — E3 blocks aren't persisted) state that honestly — but only when SETTLED: the
-    // replay note mid-run would misread as «already archived». 轨迹:活=流式嵌套;重载注仅落定渲(在飞渲
-    // 「档案回放」误读)。
-    if (state.nested.isNotEmpty) ...[
-      const SizedBox(height: AnSpace.s6),
-      NestedRunPane(nested: state.nested, live: live),
-    ] else if (!live) ...[
-      const SizedBox(height: AnSpace.s6),
-      Text(t.chat.tool.agentTrajectoryNote, style: AnText.meta.copyWith(color: c.inkFaint)),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      toolIntent(context, state),
+      if (input != null) ToolIOSection(label: t.run.ioInput, value: input),
+      // The nested trajectory: streaming (live) or still in the tree (settled this session). Once gone
+      // (a history reload — E3 blocks aren't persisted) state that honestly — but only when SETTLED: the
+      // replay note mid-run would misread as «already archived». 轨迹:活=流式嵌套;重载注仅落定渲(在飞渲
+      // 「档案回放」误读)。
+      if (state.nested.isNotEmpty) ...[
+        const SizedBox(height: AnSpace.s6),
+        NestedRunPane(nested: state.nested, live: live),
+      ] else if (!live) ...[
+        const SizedBox(height: AnSpace.s6),
+        Text(
+          t.chat.tool.agentTrajectoryNote,
+          style: AnText.meta.copyWith(color: c.inkFaint),
+        ),
+      ],
+      if (!live) ...[
+        const SizedBox(height: AnSpace.s6),
+        if (!ok && errorMsg != null && errorMsg.isNotEmpty)
+          _errorLines(c, errorMsg)
+        else
+          // A free-text final answer → prose; a declared-output object → per-key (ToolIOSection rules).
+          // 自由文本终答→散文;声明输出对象→逐键。
+          ToolIOSection(
+            label: t.run.ioOutput,
+            value: outputVal,
+            renderAsProse: outputVal is String,
+          ),
+        if (out != null) _invokeStatBar(context, out, agentId),
+      ],
     ],
-    if (!live) ...[
-      const SizedBox(height: AnSpace.s6),
-      if (!ok && errorMsg != null && errorMsg.isNotEmpty)
-        _errorLines(c, errorMsg)
-      else
-        // A free-text final answer → prose; a declared-output object → per-key (ToolIOSection rules).
-        // 自由文本终答→散文;声明输出对象→逐键。
-        ToolIOSection(label: t.run.ioOutput, value: outputVal, renderAsProse: outputVal is String),
-      if (out != null) _invokeStatBar(context, out, agentId),
-    ],
-  ]);
+  );
 }
 
 /// The invoke stat bar (批3 条族: a mapping onto the family head) — status word · steps ·
 /// ↑tokensIn ↓tokensOut · elapsed · a navigable agent pill · the executionId (copy).
 /// invoke 结果条:映射进当家件。
-Widget _invokeStatBar(BuildContext context, Map<String, dynamic> result, String? agentId) {
+Widget _invokeStatBar(
+  BuildContext context,
+  Map<String, dynamic> result,
+  String? agentId,
+) {
   final t = Translations.of(context);
   final status = result['status'] as String? ?? '';
   final execId = result['executionId'] as String?;
@@ -214,14 +261,24 @@ Widget _invokeStatBar(BuildContext context, Map<String, dynamic> result, String?
     // The word map is the shared runStatusWord (B-074 — was a verbatim third copy). 状态词单源。
     statusLabel: runStatusWord(t, status),
     stats: [
-      if (result['steps'] is int) AnStat(t.chat.tool.agentSteps(n: '${result['steps']}'), tabular: true),
+      if (result['steps'] is int)
+        AnStat(t.chat.tool.agentSteps(n: '${result['steps']}'), tabular: true),
       if (result['tokensIn'] is int && result['tokensOut'] is int)
         AnStat('↑${result['tokensIn']} ↓${result['tokensOut']}', tabular: true),
-      if (result['elapsedMs'] is int) AnStat(fmtElapsed(result['elapsedMs'] as int), tabular: true),
+      if (result['elapsedMs'] is int)
+        AnStat(fmtElapsed(result['elapsedMs'] as int), tabular: true),
     ],
     chips: [
-      if (agentId != null && agentId.isNotEmpty) toolNavPill(context, kind: 'agent', label: agentId, id: agentId),
-      if (execId != null && execId.isNotEmpty) AnChip(execId, look: AnChipLook.outlined, mono: true, copyValue: execId, tooltip: execId),
+      if (agentId != null && agentId.isNotEmpty)
+        toolNavPill(context, kind: 'agent', label: agentId, id: agentId),
+      if (execId != null && execId.isNotEmpty)
+        AnChip(
+          execId,
+          look: AnChipLook.outlined,
+          mono: true,
+          copyValue: execId,
+          tooltip: execId,
+        ),
     ],
   );
 }
@@ -247,21 +304,42 @@ Widget fireTriggerBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final triggerId = argString(state.argsText, 'triggerId');
   final act = _obj(state.resultText)?['activationId'] as String?;
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    // The navigable trigger (its icon reads «trigger X»; opens the trigger panel to see activations).
-    // 可导航触发器药丸(图标即「触发器 X」,点开去看活化)。
-    if (triggerId != null) toolNavPill(context, kind: 'trigger', label: triggerId, id: triggerId),
-    if (act != null && act.isNotEmpty) ...[
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // The navigable trigger (its icon reads «trigger X»; opens the trigger panel to see activations).
+      // 可导航触发器药丸(图标即「触发器 X」,点开去看活化)。
+      if (triggerId != null)
+        toolNavPill(context, kind: 'trigger', label: triggerId, id: triggerId),
+      if (act != null && act.isNotEmpty) ...[
+        const SizedBox(height: AnSpace.s6),
+        // The label prefix rides beside the chip (the head has no prefix slot). 前缀作芯片旁灰字。
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              t.chat.tool.fireActivation,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+            const SizedBox(width: AnGap.inline),
+            Flexible(
+              child: AnChip(
+                act,
+                look: AnChipLook.outlined,
+                mono: true,
+                copyValue: act,
+                tooltip: act,
+              ),
+            ),
+          ],
+        ),
+      ],
       const SizedBox(height: AnSpace.s6),
-      // The label prefix rides beside the chip (the head has no prefix slot). 前缀作芯片旁灰字。
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        Text(t.chat.tool.fireActivation, style: AnText.meta.copyWith(color: c.inkFaint)),
-        const SizedBox(width: AnGap.inline),
-        Flexible(child: AnChip(act, look: AnChipLook.outlined, mono: true, copyValue: act, tooltip: act)),
-      ]),
+      Text(
+        t.chat.tool.firePayloadNote,
+        style: AnText.meta.copyWith(color: c.inkFaint),
+      ),
     ],
-    const SizedBox(height: AnSpace.s6),
-    Text(t.chat.tool.firePayloadNote, style: AnText.meta.copyWith(color: c.inkFaint)),
-  ]);
+  );
 }
-

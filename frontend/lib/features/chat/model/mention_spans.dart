@@ -21,7 +21,12 @@ library;
 /// 冻结提及快照(attrs.mentions / composer 本地)。name=发送时刻名——泡永远显它(话是对「当时那个」说的);
 /// 点按凭 id 跳活体。available=发送时解析成功(不可用快照永不匹配→免费降级为字面)。
 class MentionSnapshot {
-  const MentionSnapshot({required this.type, required this.id, required this.name, this.available = true});
+  const MentionSnapshot({
+    required this.type,
+    required this.id,
+    required this.name,
+    this.available = true,
+  });
 
   final String type; // backend EntityKind wire value 后端 kind 线缆值
   final String id;
@@ -49,18 +54,27 @@ class MentionPillSegment extends MentionSegment {
 /// Split [text] into text/pill segments by consuming-matching each snapshot's `@name` left→right.
 /// Empty text → empty list (the caller skips the text region entirely).
 /// 按快照序消耗式匹配 `@name`,把 text 切成 文字/药丸 段;空文本→空列表(调用方跳过文本区)。
-List<MentionSegment> resolveMentionSegments(String text, List<MentionSnapshot> snapshots) {
+List<MentionSegment> resolveMentionSegments(
+  String text,
+  List<MentionSnapshot> snapshots,
+) {
   if (text.isEmpty) return const [];
   final segments = <MentionSegment>[];
   var cursor = 0;
   for (final s in snapshots) {
     if (!s.available || s.name.isEmpty) continue;
     final index = text.indexOf('@${s.name}', cursor);
-    if (index < 0) continue; // no literal match → the raw @name text stays as-is 未命中→字面保留
-    if (index > cursor) segments.add(MentionTextSegment(text.substring(cursor, index)));
+    if (index < 0) {
+      continue; // no literal match → the raw @name text stays as-is 未命中→字面保留
+    }
+    if (index > cursor) {
+      segments.add(MentionTextSegment(text.substring(cursor, index)));
+    }
     segments.add(MentionPillSegment(s));
     cursor = index + s.name.length + 1; // +1 for the '@' 消耗 @+名字
   }
-  if (cursor < text.length) segments.add(MentionTextSegment(text.substring(cursor)));
+  if (cursor < text.length) {
+    segments.add(MentionTextSegment(text.substring(cursor)));
+  }
   return segments;
 }

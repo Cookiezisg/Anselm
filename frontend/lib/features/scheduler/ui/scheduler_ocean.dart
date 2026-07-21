@@ -21,8 +21,16 @@ class SchedulerOcean extends ConsumerWidget {
     final selection = ref.watch(selectedSchedulerProvider);
     switch (selection) {
       case SchedulerWorkflow(:final workflowId, :final linkedRunId):
-        return SchedulerHomeView(workflowId: workflowId, linkedRunId: linkedRunId);
-      case SchedulerRun(:final workflowId, :final flowrunId, :final nodeId, :final iteration):
+        return SchedulerHomeView(
+          workflowId: workflowId,
+          linkedRunId: linkedRunId,
+        );
+      case SchedulerRun(
+        :final workflowId,
+        :final flowrunId,
+        :final nodeId,
+        :final iteration,
+      ):
         return SchedulerRunView(
           // A constant KEY per run so switching runs rebuilds the page state (scroll, pulse
           // listener) instead of grafting the new run onto the old one's. 每 run 常量 key:换 run 重建

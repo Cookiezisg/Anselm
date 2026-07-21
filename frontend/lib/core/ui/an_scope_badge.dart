@@ -35,9 +35,20 @@ class AnScopeBadge extends StatelessWidget {
     final t = Translations.of(context);
     final (label, icon) = switch (scope) {
       AnSettingScope.device => (t.settings.scope.device, AnIcons.laptop),
-      AnSettingScope.workspace => (t.settings.scope.workspace, AnIcons.workspaceScope),
-      AnSettingScope.machine => (t.settings.scope.machine, AnIcons.machineScope),
+      AnSettingScope.workspace => (
+        t.settings.scope.workspace,
+        AnIcons.workspaceScope,
+      ),
+      AnSettingScope.machine => (
+        t.settings.scope.machine,
+        AnIcons.machineScope,
+      ),
     };
-    return AnChip(label, look: AnChipLook.outlined, icon: icon, semanticLabel: label);
+    return AnChip(
+      label,
+      look: AnChipLook.outlined,
+      icon: icon,
+      semanticLabel: label,
+    );
   }
 }

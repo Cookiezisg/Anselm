@@ -22,14 +22,14 @@ class _FixedStartup extends BackendStartup {
 }
 
 Widget _app(BackendState st) => ProviderScope(
-      overrides: [backendStartupProvider.overrideWith(() => _FixedStartup(st))],
-      child: TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: const AppStartupGate(child: Text('SHELL', key: Key('shell'))),
-        ),
-      ),
-    );
+  overrides: [backendStartupProvider.overrideWith(() => _FixedStartup(st))],
+  child: TranslationProvider(
+    child: MaterialApp(
+      theme: AnTheme.light(),
+      home: const AppStartupGate(child: Text('SHELL', key: Key('shell'))),
+    ),
+  ),
+);
 
 void main() {
   testWidgets('starting → connecting screen, shell hidden', (tester) async {
@@ -39,15 +39,31 @@ void main() {
   });
 
   testWidgets('ready → shell shown', (tester) async {
-    await tester.pumpWidget(_app(const BackendState(BackendPhase.ready, baseUrl: 'http://127.0.0.1:1')));
+    await tester.pumpWidget(
+      _app(
+        const BackendState(BackendPhase.ready, baseUrl: 'http://127.0.0.1:1'),
+      ),
+    );
     expect(find.byKey(const Key('shell')), findsOneWidget);
     expect(find.text(t.startup.connecting), findsNothing);
   });
 
-  testWidgets('crashed → crashed screen with error + Retry, shell hidden', (tester) async {
-    await tester.pumpWidget(_app(const BackendState(BackendPhase.crashed, error: 'backend binary not found')));
+  testWidgets('crashed → crashed screen with error + Retry, shell hidden', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        const BackendState(
+          BackendPhase.crashed,
+          error: 'backend binary not found',
+        ),
+      ),
+    );
     expect(find.text(t.startup.crashedTitle), findsOneWidget);
-    expect(find.text('backend binary not found'), findsOneWidget); // the error detail surfaces
+    expect(
+      find.text('backend binary not found'),
+      findsOneWidget,
+    ); // the error detail surfaces
     expect(find.text(t.startup.retry), findsOneWidget);
     expect(find.byKey(const Key('shell')), findsNothing);
     // Retry is tappable without throwing (no-op in this override).

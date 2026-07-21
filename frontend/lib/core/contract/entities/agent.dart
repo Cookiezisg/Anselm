@@ -19,7 +19,8 @@ abstract class AgentEntity with _$AgentEntity {
     required DateTime updatedAt,
     AgentVersion? activeVersion,
   }) = _AgentEntity;
-  factory AgentEntity.fromJson(Map<String, dynamic> json) => _$AgentEntityFromJson(json);
+  factory AgentEntity.fromJson(Map<String, dynamic> json) =>
+      _$AgentEntityFromJson(json);
 }
 
 /// Agent version (append-only): prompt + at-most-one skill + knowledge docs + tool mounts + I/O +
@@ -42,7 +43,8 @@ abstract class AgentVersion with _$AgentVersion {
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _AgentVersion;
-  factory AgentVersion.fromJson(Map<String, dynamic> json) => _$AgentVersionFromJson(json);
+  factory AgentVersion.fromJson(Map<String, dynamic> json) =>
+      _$AgentVersionFromJson(json);
 }
 
 /// One agent execution log row (no `logs` field; carries the model used + the durable transcript JSON).
@@ -73,7 +75,8 @@ abstract class AgentExecution with _$AgentExecution {
     int? flowrunIteration,
     required DateTime createdAt,
   }) = _AgentExecution;
-  factory AgentExecution.fromJson(Map<String, dynamic> json) => _$AgentExecutionFromJson(json);
+  factory AgentExecution.fromJson(Map<String, dynamic> json) =>
+      _$AgentExecutionFromJson(json);
 }
 
 /// The BARE synchronous `:invoke` result (returned directly, not enveloped). invoke.go:63。
@@ -91,7 +94,8 @@ abstract class InvokeResult with _$InvokeResult {
     String? errorMsg,
     @Default(0) int elapsedMs,
   }) = _InvokeResult;
-  factory InvokeResult.fromJson(Map<String, dynamic> json) => _$InvokeResultFromJson(json);
+  factory InvokeResult.fromJson(Map<String, dynamic> json) =>
+      _$InvokeResultFromJson(json);
 }
 
 /// One mounted-tool health row (GET /agents/{id}/mount-health). agent.go:62。
@@ -103,7 +107,8 @@ abstract class MountHealth with _$MountHealth {
     @Default(false) bool healthy,
     String? error,
   }) = _MountHealth;
-  factory MountHealth.fromJson(Map<String, dynamic> json) => _$MountHealthFromJson(json);
+  factory MountHealth.fromJson(Map<String, dynamic> json) =>
+      _$MountHealthFromJson(json);
 }
 
 /// The agent mount-health report (`data` of GET /agents/{id}/mount-health). agent.go:62。
@@ -113,5 +118,6 @@ abstract class MountHealthReport with _$MountHealthReport {
     @Default(<MountHealth>[]) List<MountHealth> mounts,
     @Default(false) bool allHealthy,
   }) = _MountHealthReport;
-  factory MountHealthReport.fromJson(Map<String, dynamic> json) => _$MountHealthReportFromJson(json);
+  factory MountHealthReport.fromJson(Map<String, dynamic> json) =>
+      _$MountHealthReportFromJson(json);
 }

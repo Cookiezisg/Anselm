@@ -104,10 +104,10 @@ class RunTerminalController extends Notifier<RunTerminalState> {
 
   /// The CURRENT bucket coordinate: hd varies by method, wf by source. 当前桶坐标。
   String get draftKey => switch (entityRef.kind) {
-        EntityKind.handler => runDraftKey(entityRef, state.method),
-        EntityKind.workflow => runDraftKey(entityRef, state.source),
-        _ => runDraftKey(entityRef),
-      };
+    EntityKind.handler => runDraftKey(entityRef, state.method),
+    EntityKind.workflow => runDraftKey(entityRef, state.source),
+    _ => runDraftKey(entityRef),
+  };
 
   /// The runnable seed for the CURRENT dimension + whether it is RESOLVED (safe to freeze): fn/hd/ag =
   /// the declared-input example skeleton (always resolved); workflow = the picked source's fire-payload
@@ -116,8 +116,15 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   /// 点火 payload 模板(触发源 detail 载后解析)。
   (String, bool) _seed() {
     if (entityRef.kind == EntityKind.workflow) {
-      final resolved = state.source == 'manual' ||
-          ref.read(entityDetailProvider(EntityRef(EntityKind.trigger, state.source))).hasValue;
+      final resolved =
+          state.source == 'manual' ||
+          ref
+              .read(
+                entityDetailProvider(
+                  EntityRef(EntityKind.trigger, state.source),
+                ),
+              )
+              .hasValue;
       final text = workflowPayloadTemplateJson(
         wfSourceKind(ref, entityRef, state.source),
         now: DateTime.now(),
@@ -129,7 +136,9 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     // 会把空示例 {} 永久冻结)。
     final async = ref.read(entityDetailProvider(entityRef));
     return (
-      exampleJsonForFields(runInputFields(entityRef.kind, async.value, method: state.method)),
+      exampleJsonForFields(
+        runInputFields(entityRef.kind, async.value, method: state.method),
+      ),
       async.hasValue,
     );
   }
@@ -137,7 +146,9 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   @override
   RunTerminalState build() {
     _repo = ref.watch(entityRepositoryProvider);
-    _panelSub = _repo.panelSignals(entityRef.kind.scope(entityRef.id)).listen(_onPanel);
+    _panelSub = _repo
+        .panelSignals(entityRef.kind.scope(entityRef.id))
+        .listen(_onPanel);
     ref.onDispose(() {
       _panelSub?.cancel();
       _stopFlowrunTimers();
@@ -147,17 +158,22 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   }
 
   /// Per-keystroke editor write — draft only, no rebuild (the editor is uncontrolled). 逐键写入(不重建)。
-  void setDraftText(String text) => ref.read(runDraftStoreProvider).setText(draftKey, text);
+  void setDraftText(String text) =>
+      ref.read(runDraftStoreProvider).setText(draftKey, text);
 
   /// Handler method pick — in [state] because it swaps which fields render. 方法选择(在 state、换字段)。
   void setMethod(String method) {
-    if (state.method != method) state = state.copyWith(method: method, inputError: null);
+    if (state.method != method) {
+      state = state.copyWith(method: method, inputError: null);
+    }
   }
 
   /// Workflow payload-source pick ('manual' | trigger id) — swaps the payload fields + draft bucket.
   /// workflow 来源选择:换 payload 字段与草稿桶。
   void setSource(String source) {
-    if (state.source != source) state = state.copyWith(source: source, inputError: null);
+    if (state.source != source) {
+      state = state.copyWith(source: source, inputError: null);
+    }
   }
 
   /// Reset the CURRENT dimension's editor to its runnable example/template («示例», 0719 拍板) — the
@@ -174,7 +190,9 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   /// the user re-supplies — 报告注明的唯一打折点). The store bumps its revision so an open editor re-seeds.
   /// 用某次执行回填:hd 连方法、wf 连来源,输入成 pretty JSON 直填编辑器;wf 行未投影 payload → 重播来源模板。
   void loadInput(RecentRun run) {
-    if (entityRef.kind == EntityKind.handler && run.method.isNotEmpty) setMethod(run.method);
+    if (entityRef.kind == EntityKind.handler && run.method.isNotEmpty) {
+      setMethod(run.method);
+    }
     if (entityRef.kind == EntityKind.workflow) {
       setSource(run.triggerId ?? 'manual');
       ref.read(runDraftStoreProvider).fill(draftKey, _seed().$1);
@@ -234,7 +252,11 @@ class RunTerminalController extends Notifier<RunTerminalState> {
             logs: r.logs,
           );
         case EntityKind.handler:
-          final r = await _repo.callHandler(entityRef.id, method: state.method, args: args);
+          final r = await _repo.callHandler(
+            entityRef.id,
+            method: state.method,
+            args: args,
+          );
           if (!ref.mounted || state.runSeq != seq) return;
           state = state.copyWith(phase: RunPhase.ok, output: r);
         case EntityKind.agent:
@@ -250,8 +272,10 @@ class RunTerminalController extends Notifier<RunTerminalState> {
             tokensOut: r.tokensOut,
           );
         case EntityKind.workflow:
-          final flowrunId =
-              await _repo.triggerWorkflow(entityRef.id, payload: args.isEmpty ? null : args);
+          final flowrunId = await _repo.triggerWorkflow(
+            entityRef.id,
+            payload: args.isEmpty ? null : args,
+          );
           if (!ref.mounted || state.runSeq != seq) return;
           state = state.copyWith(flowrunId: flowrunId);
           // Reconcile-driven from here: the first GET may still say running (long runs, parked
@@ -261,12 +285,19 @@ class RunTerminalController extends Notifier<RunTerminalState> {
           await _reconcileFlowrun(seq);
           if (ref.mounted && state.runSeq == seq && state.isRunning) {
             _poll?.cancel();
-            _poll = Timer.periodic(FlowrunWatch.pollEvery, (_) => _reconcileFlowrun(seq));
+            _poll = Timer.periodic(
+              FlowrunWatch.pollEvery,
+              (_) => _reconcileFlowrun(seq),
+            );
           }
       }
     } on ApiException catch (e) {
       if (!ref.mounted || state.runSeq != seq) return;
-      state = state.copyWith(phase: RunPhase.failed, errorCode: e.code, errorMsg: e.message);
+      state = state.copyWith(
+        phase: RunPhase.failed,
+        errorCode: e.code,
+        errorMsg: e.message,
+      );
     } catch (e) {
       if (!ref.mounted || state.runSeq != seq) return;
       state = state.copyWith(phase: RunPhase.failed, errorMsg: e.toString());
@@ -346,7 +377,10 @@ class RunTerminalController extends Notifier<RunTerminalState> {
         // run 头无终态信号——去抖 GET 落真相。
         final seq = state.runSeq;
         _reconcileDebounce?.cancel();
-        _reconcileDebounce = Timer(FlowrunWatch.reconcileDelay, () => _reconcileFlowrun(seq));
+        _reconcileDebounce = Timer(
+          FlowrunWatch.reconcileDelay,
+          () => _reconcileFlowrun(seq),
+        );
     }
   }
 
@@ -360,7 +394,9 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   /// 唯一会变的 parked→completed 必在最新窗口)。
   Future<void> _reconcileFlowrun(int seq) async {
     final id = state.flowrunId;
-    if (id == null || !ref.mounted || state.runSeq != seq || !state.isRunning) return;
+    if (id == null || !ref.mounted || state.runSeq != seq || !state.isRunning) {
+      return;
+    }
     final FlowrunComposite comp;
     var rows = <FlowrunNode>[];
     try {
@@ -398,16 +434,17 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     }
     final rows = merged.values.toList();
     final status = comp.flowrun.status;
-    final terminal = status == 'completed' || status == 'failed' || status == 'cancelled';
+    final terminal =
+        status == 'completed' || status == 'failed' || status == 'cancelled';
     state = state.copyWith(
       flowNodes: rows,
       flowrunStatus: status,
       phase: terminal
           ? (status == 'completed'
-              ? RunPhase.ok
-              : status == 'failed'
-                  ? RunPhase.failed
-                  : RunPhase.cancelled)
+                ? RunPhase.ok
+                : status == 'failed'
+                ? RunPhase.failed
+                : RunPhase.cancelled)
           : RunPhase.running,
       errorMsg: comp.flowrun.error,
     );
@@ -433,13 +470,13 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       await _reconcileFlowrun(seq);
     }
   }
-
 }
 
 /// One run-terminal controller PER executable entity (autoDispose family) — freed when the entity is
 /// deselected UNLESS a run is in flight (which pins it via keepAlive, so it streams in the background).
 /// The right island shows the SELECTED entity's controller. 每可执行实体一个 controller(autoDispose family);
 /// 选区移开即释放,除非有运行在 keepAlive 钉住(后台续流)。
-final runTerminalProvider =
-    NotifierProvider.autoDispose.family<RunTerminalController, RunTerminalState, EntityRef>(
-        RunTerminalController.new);
+final runTerminalProvider = NotifierProvider.autoDispose
+    .family<RunTerminalController, RunTerminalState, EntityRef>(
+      RunTerminalController.new,
+    );

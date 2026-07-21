@@ -24,10 +24,12 @@ class MemoryPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(settingsDetailProvider);
-    if (detail != null && (detail.kind == 'memory' || detail.kind == 'addMemory')) {
+    if (detail != null &&
+        (detail.kind == 'memory' || detail.kind == 'addMemory')) {
       return MemoryEditor(
-          name: detail.kind == 'memory' ? detail.id : null,
-          key: ValueKey(detail.id ?? '+new'));
+        name: detail.kind == 'memory' ? detail.id : null,
+        key: ValueKey(detail.id ?? '+new'),
+      );
     }
     return const _Roster();
   }
@@ -55,54 +57,68 @@ class _RosterState extends ConsumerState<_Roster> {
     final empty = all.isEmpty;
     final rows = all
         .where((m) => !_pinnedOnly || m.pinned)
-        .where((m) =>
-            _query.isEmpty ||
-            m.name.contains(_query.toLowerCase()) ||
-            m.description.toLowerCase().contains(_query.toLowerCase()))
+        .where(
+          (m) =>
+              _query.isEmpty ||
+              m.name.contains(_query.toLowerCase()) ||
+              m.description.toLowerCase().contains(_query.toLowerCase()),
+        )
         .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(children: [
-          // With zero memories the pinned filter + search are noise (nothing to narrow) — they
-          // retire (零计数律, MCP 空态先例), leaving the New button as the sole add entry and the
-          // guiding lead below to carry the panel (空态穿目标形态律). 零记忆时过滤/搜索退役,新建钮独任入口。
-          if (!empty) ...[
-            SizedBox(
-              width: AnSize.ctlSlot,
-              child: AnSegmented<bool>(
-                options: [
-                  AnSegmentedOption(value: false, label: t.settings.mem.filterAll),
-                  AnSegmentedOption(value: true, label: t.settings.mem.filterPinned),
-                ],
-                value: _pinnedOnly,
-                onChanged: (v) => setState(() => _pinnedOnly = v),
+        Row(
+          children: [
+            // With zero memories the pinned filter + search are noise (nothing to narrow) — they
+            // retire (零计数律, MCP 空态先例), leaving the New button as the sole add entry and the
+            // guiding lead below to carry the panel (空态穿目标形态律). 零记忆时过滤/搜索退役,新建钮独任入口。
+            if (!empty) ...[
+              SizedBox(
+                width: AnSize.ctlSlot,
+                child: AnSegmented<bool>(
+                  options: [
+                    AnSegmentedOption(
+                      value: false,
+                      label: t.settings.mem.filterAll,
+                    ),
+                    AnSegmentedOption(
+                      value: true,
+                      label: t.settings.mem.filterPinned,
+                    ),
+                  ],
+                  value: _pinnedOnly,
+                  onChanged: (v) => setState(() => _pinnedOnly = v),
+                ),
               ),
-            ),
-            const SizedBox(width: AnSpace.s12),
-            Expanded(
-              child: AnInput(
-                placeholder: t.settings.mem.searchHint,
-                onChanged: (v) => setState(() => _query = v.trim()),
+              const SizedBox(width: AnSpace.s12),
+              Expanded(
+                child: AnInput(
+                  placeholder: t.settings.mem.searchHint,
+                  onChanged: (v) => setState(() => _query = v.trim()),
+                ),
               ),
+              const SizedBox(width: AnSpace.s12),
+            ] else
+              const Spacer(),
+            AnButton(
+              label: t.settings.mem.newMemory,
+              icon: AnIcons.plus,
+              size: AnButtonSize.sm,
+              outline: true,
+              onPressed: () =>
+                  ref.read(settingsDetailProvider.notifier).push('addMemory'),
             ),
-            const SizedBox(width: AnSpace.s12),
-          ] else
-            const Spacer(),
-          AnButton(
-            label: t.settings.mem.newMemory,
-            icon: AnIcons.plus,
-            size: AnButtonSize.sm,
-            outline: true,
-            onPressed: () => ref.read(settingsDetailProvider.notifier).push('addMemory'),
-          ),
-        ]),
+          ],
+        ),
         const SizedBox(height: AnSpace.s16),
         if (empty)
           // A quiet invitation, NOT a «No memories yet» tombstone — the New button above IS the add
           // entry it points at (空态穿目标形态律 + 零人话律). 安静引导句(非墓碑);上方新建钮即其指向的入口。
-          Text(t.settings.mem.emptyLead, style: AnText.label.copyWith(color: c.inkMuted))
+          Text(
+            t.settings.mem.emptyLead,
+            style: AnText.label.copyWith(color: c.inkMuted),
+          )
         else if (rows.isEmpty)
           // A populated roster whose filter/search matched nothing — say so, don't render a void.
           // 名册非空但过滤/搜索无命中:诚实说明,不留空白。
@@ -140,10 +156,16 @@ class _MemoryRow extends ConsumerWidget {
             toggled: m.pinned,
             label: t.settings.mem.pinTip,
             child: AnInteractive(
-              onTap: () => ref.read(memoriesProvider.notifier).setPinned(m.name, !m.pinned),
-              builder: (ctx, states) => Icon(AnIcons.pin,
-                  size: AnSize.icon,
-                  color: m.pinned ? c.warn : (states.isActive ? c.inkMuted : c.inkFaint)),
+              onTap: () => ref
+                  .read(memoriesProvider.notifier)
+                  .setPinned(m.name, !m.pinned),
+              builder: (ctx, states) => Icon(
+                AnIcons.pin,
+                size: AnSize.icon,
+                color: m.pinned
+                    ? c.warn
+                    : (states.isActive ? c.inkMuted : c.inkFaint),
+              ),
             ),
           ),
         ),
@@ -168,7 +190,9 @@ class _MemoryRow extends ConsumerWidget {
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
     final t = Translations.of(context);
-    final ok = await ref.read(overlayProvider.notifier).confirm(
+    final ok = await ref
+        .read(overlayProvider.notifier)
+        .confirm(
           title: t.settings.mem.deleteTitle,
           message: t.settings.mem.deleteBody(name: m.name),
           confirmLabel: t.settings.mem.confirmDelete,
@@ -179,10 +203,11 @@ class _MemoryRow extends ConsumerWidget {
     try {
       await ref.read(memoriesProvider.notifier).remove(m.name);
     } on ApiException catch (e) {
-      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(e.message, tone: AnTone.danger);
     }
   }
-
 }
 
 /// The pushed-in editor. Create validates the slug live; edit LOCKS the name (it is the filename).
@@ -224,7 +249,9 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
     final name = _creating ? _name.text.trim() : widget.name!;
     if (_saving) return;
     if (_creating && !memoryNameRule.hasMatch(name)) {
-      setState(() => _error = Translations.of(context).settings.mem.invalidName);
+      setState(
+        () => _error = Translations.of(context).settings.mem.invalidName,
+      );
       return;
     }
     setState(() {
@@ -232,11 +259,15 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
       _error = null;
     });
     try {
-      await ref.read(memoriesProvider.notifier).put(name,
-          description: _desc.text.trim(),
-          content: _content.text,
-          // pinned only bites at create; an edit's put ignores it server-side (F147). pin 仅建时生效。
-          pinned: _creating && _pinned);
+      await ref
+          .read(memoriesProvider.notifier)
+          .put(
+            name,
+            description: _desc.text.trim(),
+            content: _content.text,
+            // pinned only bites at create; an edit's put ignores it server-side (F147). pin 仅建时生效。
+            pinned: _creating && _pinned,
+          );
       if (mounted) ref.read(settingsDetailProvider.notifier).pop();
     } on ApiException catch (e) {
       setState(() => _error = e.message);
@@ -253,7 +284,9 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
       ref.read(settingsDetailProvider.notifier).pop();
       return;
     }
-    final discard = await ref.read(overlayProvider.notifier).confirm(
+    final discard = await ref
+        .read(overlayProvider.notifier)
+        .confirm(
           title: t.settings.mem.dirtyTitle,
           message: t.settings.mem.dirtyBody,
           confirmLabel: t.settings.mem.discard,
@@ -279,76 +312,91 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidthWide),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // The ONE form block ×3 (批6c A-061); the Cmd+S shortcut stays wrapped TIGHT around the
-        // content input (scout 风险注记). 唯一表单字段块×3;Cmd+S 贴身包不动。
-        AnFormField(
-          label: t.settings.mem.name,
-          child: _creating
-              ? AnInput(
-                  controller: _name,
-                  placeholder: t.settings.mem.nameHint,
-                  mono: true,
-                  autofocus: true,
-                  onChanged: (_) => setState(() => _dirty = true),
-                )
-              : AnTooltip(
-                  message: t.settings.mem.nameLocked,
-                  child: AnInput(controller: _name, mono: true, enabled: false),
-                ),
-        ),
-        const SizedBox(height: AnSpace.s12),
-        AnFormField(
-          label: t.settings.mem.description,
-          child: AnInput(controller: _desc, onChanged: (_) => setState(() => _dirty = true)),
-        ),
-        const SizedBox(height: AnSpace.s12),
-        AnFormField(
-          label: t.settings.mem.content,
-          child: CallbackShortcuts(
-            bindings: {
-              const SingleActivator(LogicalKeyboardKey.keyS, meta: true): _save,
-            },
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // The ONE form block ×3 (批6c A-061); the Cmd+S shortcut stays wrapped TIGHT around the
+          // content input (scout 风险注记). 唯一表单字段块×3;Cmd+S 贴身包不动。
+          AnFormField(
+            label: t.settings.mem.name,
+            child: _creating
+                ? AnInput(
+                    controller: _name,
+                    placeholder: t.settings.mem.nameHint,
+                    mono: true,
+                    autofocus: true,
+                    onChanged: (_) => setState(() => _dirty = true),
+                  )
+                : AnTooltip(
+                    message: t.settings.mem.nameLocked,
+                    child: AnInput(
+                      controller: _name,
+                      mono: true,
+                      enabled: false,
+                    ),
+                  ),
+          ),
+          const SizedBox(height: AnSpace.s12),
+          AnFormField(
+            label: t.settings.mem.description,
             child: AnInput(
-              controller: _content,
-              multiline: true,
-              mono: true,
+              controller: _desc,
               onChanged: (_) => setState(() => _dirty = true),
             ),
           ),
-        ),
-        if (_creating) ...[
           const SizedBox(height: AnSpace.s12),
-          // Create-only: pin the new memory to every conversation in one step (settings form-row
-          // grammar — horizontal label + hint + trailing switch). 仅建时:一步置顶新记忆(设置表单行文法)。
-          AnField(
-            label: t.settings.mem.pinned,
-            hint: t.settings.mem.pinTip,
-            child: AnSwitch(
-              value: _pinned,
-              onChanged: (v) => setState(() {
-                _pinned = v;
-                _dirty = true;
-              }),
-              semanticLabel: t.settings.mem.pinTip,
+          AnFormField(
+            label: t.settings.mem.content,
+            child: CallbackShortcuts(
+              bindings: {
+                const SingleActivator(LogicalKeyboardKey.keyS, meta: true):
+                    _save,
+              },
+              child: AnInput(
+                controller: _content,
+                multiline: true,
+                mono: true,
+                onChanged: (_) => setState(() => _dirty = true),
+              ),
             ),
           ),
-        ],
-        if (_error != null) ...[
-          const SizedBox(height: AnSpace.s8),
-          Text(_error!, style: AnText.label.copyWith(color: c.danger)),
-        ],
-        const SizedBox(height: AnSpace.s16),
-        Row(children: [
-          AnButton(
-            label: t.settings.mem.save,
-            variant: AnButtonVariant.primary,
-            onPressed: _saving || (_creating && _name.text.trim().isEmpty) ? null : _save,
+          if (_creating) ...[
+            const SizedBox(height: AnSpace.s12),
+            // Create-only: pin the new memory to every conversation in one step (settings form-row
+            // grammar — horizontal label + hint + trailing switch). 仅建时:一步置顶新记忆(设置表单行文法)。
+            AnField(
+              label: t.settings.mem.pinned,
+              hint: t.settings.mem.pinTip,
+              child: AnSwitch(
+                value: _pinned,
+                onChanged: (v) => setState(() {
+                  _pinned = v;
+                  _dirty = true;
+                }),
+                semanticLabel: t.settings.mem.pinTip,
+              ),
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: AnSpace.s8),
+            Text(_error!, style: AnText.label.copyWith(color: c.danger)),
+          ],
+          const SizedBox(height: AnSpace.s16),
+          Row(
+            children: [
+              AnButton(
+                label: t.settings.mem.save,
+                variant: AnButtonVariant.primary,
+                onPressed: _saving || (_creating && _name.text.trim().isEmpty)
+                    ? null
+                    : _save,
+              ),
+              const SizedBox(width: AnSpace.s8),
+              AnButton(label: t.settings.keys.cancel, onPressed: _back),
+            ],
           ),
-          const SizedBox(width: AnSpace.s8),
-          AnButton(label: t.settings.keys.cancel, onPressed: _back),
-        ]),
-      ]),
+        ],
+      ),
     );
   }
 }

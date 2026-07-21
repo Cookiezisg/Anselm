@@ -15,27 +15,27 @@ import '../contract/entities/values.dart';
 
 /// The wire form of one node for add_node (omits empty fields, like the backend/demo). 节点线缆形。
 Map<String, Object?> nodeWire(Node n) => {
-      'id': n.id,
-      'kind': n.kind.name,
-      'ref': n.ref,
-      if (n.input.isNotEmpty) 'input': n.input,
-      if (n.retry != null) 'retry': _retryWire(n.retry!),
-      if (n.pos != null) 'pos': {'x': n.pos!.x, 'y': n.pos!.y},
-      if ((n.notes ?? '').isNotEmpty) 'notes': n.notes,
-    };
+  'id': n.id,
+  'kind': n.kind.name,
+  'ref': n.ref,
+  if (n.input.isNotEmpty) 'input': n.input,
+  if (n.retry != null) 'retry': _retryWire(n.retry!),
+  if (n.pos != null) 'pos': {'x': n.pos!.x, 'y': n.pos!.y},
+  if ((n.notes ?? '').isNotEmpty) 'notes': n.notes,
+};
 
 Map<String, Object?> _retryWire(RetryConfig r) => {
-      'maxAttempts': r.maxAttempts,
-      if ((r.backoff ?? '').isNotEmpty) 'backoff': r.backoff,
-      if (r.delayMs != null) 'delayMs': r.delayMs,
-    };
+  'maxAttempts': r.maxAttempts,
+  if ((r.backoff ?? '').isNotEmpty) 'backoff': r.backoff,
+  if (r.delayMs != null) 'delayMs': r.delayMs,
+};
 
 Map<String, Object?> _edgeWire(Edge e) => {
-      'id': e.id,
-      'from': e.from,
-      if ((e.fromPort ?? '').isNotEmpty) 'fromPort': e.fromPort,
-      'to': e.to,
-    };
+  'id': e.id,
+  'from': e.from,
+  if ((e.fromPort ?? '').isNotEmpty) 'fromPort': e.fromPort,
+  'to': e.to,
+};
 
 /// Diff [original] → [working], emitting the minimal `:edit` ops. Deterministic order: node deletes,
 /// node adds, node updates, then the same for edges (a delete_node cascades edges on the backend, so
@@ -56,7 +56,9 @@ List<Map<String, Object?>> workflowEditOps(Graph original, Graph working) {
   }
   // Nodes added → add_node. 加点。
   for (final n in working.nodes) {
-    if (!oNodes.containsKey(n.id)) ops.add({'op': 'add_node', 'node': nodeWire(n)});
+    if (!oNodes.containsKey(n.id)) {
+      ops.add({'op': 'add_node', 'node': nodeWire(n)});
+    }
   }
   // Nodes changed → update_node with a merge patch of the changed fields. 改点(变更字段 patch)。
   for (final n in working.nodes) {
@@ -65,11 +67,19 @@ List<Map<String, Object?>> workflowEditOps(Graph original, Graph working) {
     final patch = <String, Object?>{};
     if (o.kind != n.kind) patch['kind'] = n.kind.name;
     if (o.ref != n.ref) patch['ref'] = n.ref;
-    if (o.input != n.input) patch['input'] = n.input; // whole-map replace (backend contract) 整体替换
-    if (o.retry != n.retry) patch['retry'] = n.retry == null ? null : _retryWire(n.retry!);
-    if (o.pos != n.pos) patch['pos'] = n.pos == null ? null : {'x': n.pos!.x, 'y': n.pos!.y};
+    if (o.input != n.input) {
+      patch['input'] = n.input; // whole-map replace (backend contract) 整体替换
+    }
+    if (o.retry != n.retry) {
+      patch['retry'] = n.retry == null ? null : _retryWire(n.retry!);
+    }
+    if (o.pos != n.pos) {
+      patch['pos'] = n.pos == null ? null : {'x': n.pos!.x, 'y': n.pos!.y};
+    }
     if (o.notes != n.notes) patch['notes'] = n.notes;
-    if (patch.isNotEmpty) ops.add({'op': 'update_node', 'id': n.id, 'patch': patch});
+    if (patch.isNotEmpty) {
+      ops.add({'op': 'update_node', 'id': n.id, 'patch': patch});
+    }
   }
 
   final oEdges = {for (final e in original.edges) e.id: e};
@@ -77,24 +87,31 @@ List<Map<String, Object?>> workflowEditOps(Graph original, Graph working) {
   // Edges removed → delete_edge, UNLESS their node was deleted (cascaded already). 删边(被删点的边跳过)。
   for (final e in original.edges) {
     if (wEdges.containsKey(e.id)) continue;
-    if (deletedNodeIds.contains(e.from) || deletedNodeIds.contains(e.to)) continue;
+    if (deletedNodeIds.contains(e.from) || deletedNodeIds.contains(e.to)) {
+      continue;
+    }
     ops.add({'op': 'delete_edge', 'id': e.id});
   }
   // Edges added → add_edge. 加边。
   for (final e in working.edges) {
-    if (!oEdges.containsKey(e.id)) ops.add({'op': 'add_edge', 'edge': _edgeWire(e)});
+    if (!oEdges.containsKey(e.id)) {
+      ops.add({'op': 'add_edge', 'edge': _edgeWire(e)});
+    }
   }
   // Edges changed (only fromPort is patchable; from/to identity change = a different edge). 改边(仅 port)。
   for (final e in working.edges) {
     final o = oEdges[e.id];
     if (o == null || o == e) continue;
     if (o.fromPort != e.fromPort) {
-      ops.add({'op': 'update_edge', 'id': e.id, 'patch': {'fromPort': e.fromPort}});
+      ops.add({
+        'op': 'update_edge',
+        'id': e.id,
+        'patch': {'fromPort': e.fromPort},
+      });
     }
   }
   return ops;
 }
-
 
 /// Apply `:edit` ops to a graph → the resulting graph (the pure inverse of [workflowEditOps]; the
 /// backend's ops.go authority, mirrored for the fixture + round-trip tests). Unknown ops are skipped.
@@ -109,7 +126,9 @@ Graph applyEditOps(Graph g, List<Map<String, Object?>> ops) {
       case 'delete_node':
         final id = op['id'];
         nodes = nodes.where((n) => n.id != id).toList();
-        edges = edges.where((e) => e.from != id && e.to != id).toList(); // cascade 级联
+        edges = edges
+            .where((e) => e.from != id && e.to != id)
+            .toList(); // cascade 级联
       case 'update_node':
         final id = op['id'];
         final patch = (op['patch']! as Map).cast<String, dynamic>();
@@ -123,7 +142,7 @@ Graph applyEditOps(Graph g, List<Map<String, Object?>> ops) {
         final patch = (op['patch']! as Map).cast<String, dynamic>();
         edges = [
           for (final e in edges)
-            e.id == id ? e.copyWith(fromPort: patch['fromPort'] as String?) : e
+            e.id == id ? e.copyWith(fromPort: patch['fromPort'] as String?) : e,
         ];
     }
   }
@@ -133,17 +152,28 @@ Graph applyEditOps(Graph g, List<Map<String, Object?>> ops) {
 Node _patchNode(Node n, Map<String, dynamic> patch) {
   return n.copyWith(
     kind: patch.containsKey('kind')
-        ? NodeKind.values.firstWhere((k) => k.name == patch['kind'], orElse: () => NodeKind.unknown)
+        ? NodeKind.values.firstWhere(
+            (k) => k.name == patch['kind'],
+            orElse: () => NodeKind.unknown,
+          )
         : n.kind,
     ref: patch.containsKey('ref') ? patch['ref'] as String : n.ref,
     input: patch.containsKey('input')
         ? (patch['input'] as Map?)?.cast<String, String>() ?? const {}
         : n.input,
     retry: patch.containsKey('retry')
-        ? (patch['retry'] == null ? null : RetryConfig.fromJson((patch['retry'] as Map).cast<String, dynamic>()))
+        ? (patch['retry'] == null
+              ? null
+              : RetryConfig.fromJson(
+                  (patch['retry'] as Map).cast<String, dynamic>(),
+                ))
         : n.retry,
     pos: patch.containsKey('pos')
-        ? (patch['pos'] == null ? null : NodePosition.fromJson((patch['pos'] as Map).cast<String, dynamic>()))
+        ? (patch['pos'] == null
+              ? null
+              : NodePosition.fromJson(
+                  (patch['pos'] as Map).cast<String, dynamic>(),
+                ))
         : n.pos,
     notes: patch.containsKey('notes') ? patch['notes'] as String? : n.notes,
   );

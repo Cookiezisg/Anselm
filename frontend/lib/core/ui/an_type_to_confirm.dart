@@ -68,11 +68,18 @@ class _AnTypeToConfirmState extends State<AnTypeToConfirm> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(widget.title,
-              style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.danger)),
+          Text(
+            widget.title,
+            style: AnText.body
+                .weight(AnText.emphasisWeight)
+                .copyWith(color: c.danger),
+          ),
           if (widget.warning != null) ...[
             const SizedBox(height: AnSpace.s8),
-            Text(widget.warning!, style: AnText.label.copyWith(color: c.danger)),
+            Text(
+              widget.warning!,
+              style: AnText.label.copyWith(color: c.danger),
+            ),
           ],
           if (widget.body != null) ...[
             const SizedBox(height: AnSpace.s8),

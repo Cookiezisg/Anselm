@@ -105,7 +105,11 @@ class SchedulerKpi {
 
 /// One live run row in the «正在跑» zone. 正在跑区一行。
 class RunningRunRow {
-  const RunningRunRow({required this.workflowId, required this.workflowName, required this.run});
+  const RunningRunRow({
+    required this.workflowId,
+    required this.workflowName,
+    required this.run,
+  });
 
   final String workflowId;
   final String workflowName;
@@ -120,7 +124,11 @@ class RunningRunRow {
 /// ([FailingWorkflowRow]) 不是一回事:窗不同(24h vs 7d)、单位不同(run vs workflow)。宿主软删的 run
 /// 回落裸 id 且留下(同正在跑区——它失败了、牌数着它,故区显示它)。
 class FailedRunRow {
-  const FailedRunRow({required this.workflowId, required this.workflowName, required this.run});
+  const FailedRunRow({
+    required this.workflowId,
+    required this.workflowName,
+    required this.run,
+  });
 
   final String workflowId;
   final String workflowName;
@@ -332,23 +340,25 @@ List<ScheduleLane> scheduleLanes({
           if (!p.at.isBefore(now) && !p.at.isAfter(horizon)) p.at,
     ]..sort();
     claimed.add('${t.id}/$wfId');
-    out.add(ScheduleLane(
-      triggerId: t.id,
-      triggerName: t.name,
-      workflowId: wfId,
-      workflowName: workflowNames[wfId] ?? e.fromName,
-      paused: t.paused,
-      futureAt: at,
-      firings: [
-        for (final f in inWindow)
-          if (f.triggerId == t.id && f.workflowId == wfId) f,
-      ],
-      // The grid counts the WORKFLOW's runs (裁决③, all sources) — not per-trigger, since the lane's
-      // question is «is this workflow healthy». A next-fire the backend projected even beyond the axis.
-      // 格数 workflow 的 run(裁决③,全来源)——非逐 trigger,因泳道问的是「workflow 健康吗」。下一发含轴外。
-      runs: runsByWorkflow[wfId] ?? const [],
-      nextFireAt: t.nextFireAt,
-    ));
+    out.add(
+      ScheduleLane(
+        triggerId: t.id,
+        triggerName: t.name,
+        workflowId: wfId,
+        workflowName: workflowNames[wfId] ?? e.fromName,
+        paused: t.paused,
+        futureAt: at,
+        firings: [
+          for (final f in inWindow)
+            if (f.triggerId == t.id && f.workflowId == wfId) f,
+        ],
+        // The grid counts the WORKFLOW's runs (裁决③, all sources) — not per-trigger, since the lane's
+        // question is «is this workflow healthy». A next-fire the backend projected even beyond the axis.
+        // 格数 workflow 的 run(裁决③,全来源)——非逐 trigger,因泳道问的是「workflow 健康吗」。下一发含轴外。
+        runs: runsByWorkflow[wfId] ?? const [],
+        nextFireAt: t.nextFireAt,
+      ),
+    );
   }
   // A `missed` tick whose lane no longer exists — the workflow stopped listening to that trigger, or
   // the trigger was deleted, since the tick came due — still HAPPENED, and the 「错过 N」 card still
@@ -377,25 +387,29 @@ List<ScheduleLane> scheduleLanes({
   }
   for (final entry in orphans.entries) {
     final f = entry.value.first;
-    out.add(ScheduleLane(
-      triggerId: f.triggerId,
-      triggerName: byTrigger[f.triggerId]?.name ?? '',
-      workflowId: f.workflowId,
-      workflowName: workflowNames[f.workflowId] ?? f.workflowId,
-      paused: byTrigger[f.triggerId]?.paused ?? false,
-      firings: entry.value,
-      // The workflow may still have run since the tick was orphaned (a health signal beside its ✕).
-      // 泳道解绑后 workflow 可能仍跑过(✕ 旁的健康信号)。
-      runs: runsByWorkflow[f.workflowId] ?? const [],
-      nextFireAt: byTrigger[f.triggerId]?.nextFireAt,
-    ));
+    out.add(
+      ScheduleLane(
+        triggerId: f.triggerId,
+        triggerName: byTrigger[f.triggerId]?.name ?? '',
+        workflowId: f.workflowId,
+        workflowName: workflowNames[f.workflowId] ?? f.workflowId,
+        paused: byTrigger[f.triggerId]?.paused ?? false,
+        firings: entry.value,
+        // The workflow may still have run since the tick was orphaned (a health signal beside its ✕).
+        // 泳道解绑后 workflow 可能仍跑过(✕ 旁的健康信号)。
+        runs: runsByWorkflow[f.workflowId] ?? const [],
+        nextFireAt: byTrigger[f.triggerId]?.nextFireAt,
+      ),
+    );
   }
   // Soonest first; lanes with nothing coming (paused, or nothing due in the window) sink to the
   // bottom rather than disappear. 最近的在前;没有将至之事的泳道(暂停/窗内无刻度)沉底而非消失。
   out.sort((a, b) {
     final an = a.futureAt.isEmpty ? null : a.futureAt.first;
     final bn = b.futureAt.isEmpty ? null : b.futureAt.first;
-    if (an == null && bn == null) return a.workflowName.compareTo(b.workflowName);
+    if (an == null && bn == null) {
+      return a.workflowName.compareTo(b.workflowName);
+    }
     if (an == null) return 1;
     if (bn == null) return -1;
     return an.compareTo(bn);
@@ -444,7 +458,10 @@ bool nextFireOnTrack(ScheduleTrackData track, DateTime? nextFire) {
 }
 
 /// Top-[n] consecutively-failing workflows, streak-DESC (ties keep stats order). 连败 Top-N 降序。
-List<WorkflowRunStats> topFailing(Iterable<WorkflowRunStats> stats, {int n = 5}) {
+List<WorkflowRunStats> topFailing(
+  Iterable<WorkflowRunStats> stats, {
+  int n = 5,
+}) {
   final failing = [
     for (final s in stats)
       if (s.consecutiveFailures > 0) s,
@@ -512,8 +529,13 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     final trackSince = now.subtract(SchedulerWindows.trackFetchWindow);
     final results = await Future.wait<Object>([
       repo.stats(const [], since: kpiSince.toUtc().toIso8601String()),
-      repo.stats(const [],
-          since: now.subtract(SchedulerWindows.kpiDeltaWindow).toUtc().toIso8601String()),
+      repo.stats(
+        const [],
+        since: now
+            .subtract(SchedulerWindows.kpiDeltaWindow)
+            .toUtc()
+            .toIso8601String(),
+      ),
       // The forward schedule (工单⑧) — ONE bounded call for the whole board's track. 整块看板的轨,一次有界调用。
       repo.triggerSchedule(within: SchedulerWindows.trackWithin),
       // The past half (工单⑭), in TWO deliberate calls rather than one:
@@ -527,11 +549,15 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
       // 一部分——那要**报告**、不是藏起来);[4] **单取** missed,走牌的精确谓词——它不能像 [3] 的切片那样悄悄不全:
       // 一个话痨 cron 的 200 行足以把每一个 ✕ 挤出「最新一页」,而牌照数不误。牌的证据自己一条查询,其完整性不取决于
       // 别的 trigger 有多忙。
-      repo.listFirings(createdAfter: trackSince, limit: SchedulerWindows.firingPageLimit),
       repo.listFirings(
-          status: FiringStatus.missed,
-          createdAfter: trackSince,
-          limit: SchedulerWindows.firingPageLimit),
+        createdAfter: trackSince,
+        limit: SchedulerWindows.firingPageLimit,
+      ),
+      repo.listFirings(
+        status: FiringStatus.missed,
+        createdAfter: trackSince,
+        limit: SchedulerWindows.firingPageLimit,
+      ),
       // The 「正在跑」 zone AND its KPI tile, from ONE workspace-wide question (see listRunningRuns) —
       // never a loop over the workflow list, which cannot see an orphan's run and would therefore hand
       // the tile a list shorter than the fact it counts.
@@ -622,13 +648,15 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
     for (var i = 0; i < failing.length; i++) {
       final page = results[fixed + i] as Page<Flowrun>;
       final latest = page.items.isEmpty ? null : page.items.first;
-      failures.add(FailingWorkflowRow(
-        workflowId: failing[i].workflowId,
-        workflowName: names[failing[i].workflowId] ?? failing[i].workflowId,
-        streak: failing[i].consecutiveFailures,
-        error: errorFirstLine(latest?.error),
-        latestRunId: latest?.id,
-      ));
+      failures.add(
+        FailingWorkflowRow(
+          workflowId: failing[i].workflowId,
+          workflowName: names[failing[i].workflowId] ?? failing[i].workflowId,
+          streak: failing[i].consecutiveFailures,
+          error: errorFirstLine(latest?.error),
+          latestRunId: latest?.id,
+        ),
+      );
     }
 
     return SchedulerOverviewData(
@@ -652,7 +680,9 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
         // for the prior 24h is not fetched); at the boundary failed24 == failedRuns.length. delta 是次要
         // 标注、需两个窗,故仍走 stats;边界处 failed24 == failedRuns.length。
         failedDelta: kpiFailedDelta(
-            failed24: stats24.totals.failedSince, failed48: stats48.totals.failedSince),
+          failed24: stats24.totals.failedSince,
+          failed48: stats48.totals.failedSince,
+        ),
         // The backend's count, on the same `since` the ✕ below were fetched with. 后端数的,窗同下面的 ✕。
         missed: stats24.totals.missed,
         nextFire: earliestNextFire(rail.nextFireByWorkflow.values, now),
@@ -679,8 +709,11 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
         // Either page hitting the cap means the past half is a NEWEST-first slice, so everything before
         // the oldest row we hold is unknown. 任一页撞帽 = 过去半只是最新那一片,故我们手上最老那行之前是未知。
         pastTruncated: firedPage.hasMore || missedPage.hasMore,
-        pastFrom: (firedPage.hasMore || missedPage.hasMore) && pastFirings.isNotEmpty
-            ? pastFirings.map((f) => f.createdAt).reduce((a, b) => a.isBefore(b) ? a : b)
+        pastFrom:
+            (firedPage.hasMore || missedPage.hasMore) && pastFirings.isNotEmpty
+            ? pastFirings
+                  .map((f) => f.createdAt)
+                  .reduce((a, b) => a.isBefore(b) ? a : b)
             : null,
       ),
       failures: failures,
@@ -696,4 +729,5 @@ class SchedulerOverviewController extends AsyncNotifier<SchedulerOverviewData> {
 
 final schedulerOverviewProvider =
     AsyncNotifierProvider<SchedulerOverviewController, SchedulerOverviewData>(
-        SchedulerOverviewController.new);
+      SchedulerOverviewController.new,
+    );

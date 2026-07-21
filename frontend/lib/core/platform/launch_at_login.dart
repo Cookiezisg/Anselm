@@ -13,7 +13,10 @@ Future<void> initLaunchAtLogin() async {
   if (!HostPlatform.isDesktop) return;
   try {
     final info = await PackageInfo.fromPlatform();
-    launchAtStartup.setup(appName: info.appName, appPath: HostPlatform.executablePath);
+    launchAtStartup.setup(
+      appName: info.appName,
+      appPath: HostPlatform.executablePath,
+    );
   } catch (_) {
     /* best-effort — the switch will no-op 尽力而为 */
   }

@@ -88,8 +88,12 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
   Future<SchedulerRailData> build() async {
     final gateway = ref.watch(sseGatewayProvider);
     if (gateway != null) {
-      final sub = gateway.kindStream(StreamName.entities, 'workflow').listen((env) {
-        if (!env.durable) return; // ephemeral ticks never reorder the rail. tick 不动 rail。
+      final sub = gateway.kindStream(StreamName.entities, 'workflow').listen((
+        env,
+      ) {
+        if (!env.durable) {
+          return; // ephemeral ticks never reorder the rail. tick 不动 rail。
+        }
         _debounce?.cancel();
         _debounce = Timer(const Duration(milliseconds: 300), refresh);
       });
@@ -125,12 +129,17 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
   void _onPulse() {
     final data = state.value;
     if (data == null) return; // first load still in flight 首载在飞
-    final stale = staleFireFingerprint(data.nextFireByWorkflow.values, DateTime.now());
+    final stale = staleFireFingerprint(
+      data.nextFireByWorkflow.values,
+      DateTime.now(),
+    );
     if (stale == null) {
       _staleAsked = null;
       return;
     }
-    if (stale == _staleAsked) return; // asked; the wire's answer stands 问过了,答案就是它
+    if (stale == _staleAsked) {
+      return; // asked; the wire's answer stands 问过了,答案就是它
+    }
     _staleAsked = stale;
     unawaited(_healStale(stale));
   }
@@ -198,7 +207,9 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
 }
 
 final schedulerRailProvider =
-    AsyncNotifierProvider<SchedulerRailController, SchedulerRailData>(SchedulerRailController.new);
+    AsyncNotifierProvider<SchedulerRailController, SchedulerRailData>(
+      SchedulerRailController.new,
+    );
 
 /// The rail's ⚙ sort axis (WRK-070 B1 sliders 菜单): activity (the standing order) or name.
 /// Session-scoped like the chat rail's (chat 先例:BoolPrefNotifier 同窝,不入持久化).
@@ -215,13 +226,18 @@ class SchedulerRailSortController extends Notifier<SchedRailSort> {
 }
 
 final schedulerRailSortProvider =
-    NotifierProvider<SchedulerRailSortController, SchedRailSort>(SchedulerRailSortController.new);
+    NotifierProvider<SchedulerRailSortController, SchedRailSort>(
+      SchedulerRailSortController.new,
+    );
 
 /// ⚙ display toggles — which meta rungs a row may speak and whether the inactive section shows.
 /// ⚙ 显示开关:行 meta 可念哪些档 + 停用段是否在列。
-final schedShowNextFireProvider =
-    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
-final schedShowLastRunProvider =
-    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
-final schedShowInactiveProvider =
-    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
+final schedShowNextFireProvider = NotifierProvider<BoolPrefNotifier, bool>(
+  () => BoolPrefNotifier(true),
+);
+final schedShowLastRunProvider = NotifierProvider<BoolPrefNotifier, bool>(
+  () => BoolPrefNotifier(true),
+);
+final schedShowInactiveProvider = NotifierProvider<BoolPrefNotifier, bool>(
+  () => BoolPrefNotifier(true),
+);

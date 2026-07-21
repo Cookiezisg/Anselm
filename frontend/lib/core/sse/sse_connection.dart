@@ -38,17 +38,20 @@ class SseConnection {
     required String? Function() authToken,
     Dio? dio,
     Random? random,
-  })  : _workspaceId = workspaceId,
-        _authToken = authToken,
-        _rng = random ?? Random(),
-        _dio = dio ??
-            Dio(BaseOptions(
-              baseUrl: baseUrl,
-              // No receive timeout: the stream is long-lived and the server pings every 15s.
-              // 无接收超时:流长生命周期,服务端每 15s ping。
-              receiveTimeout: null,
-              connectTimeout: const Duration(seconds: 10),
-            ));
+  }) : _workspaceId = workspaceId,
+       _authToken = authToken,
+       _rng = random ?? Random(),
+       _dio =
+           dio ??
+           Dio(
+             BaseOptions(
+               baseUrl: baseUrl,
+               // No receive timeout: the stream is long-lived and the server pings every 15s.
+               // 无接收超时:流长生命周期,服务端每 15s ping。
+               receiveTimeout: null,
+               connectTimeout: const Duration(seconds: 10),
+             ),
+           );
 
   /// e.g. `/api/v1/messages/stream`.
   final String streamPath;
@@ -133,7 +136,8 @@ class SseConnection {
         responseType: ResponseType.stream,
         headers: {
           'Accept': 'text/event-stream',
-          if (token != null && token.isNotEmpty) 'Authorization': 'Bearer $token',
+          if (token != null && token.isNotEmpty)
+            'Authorization': 'Bearer $token',
           if (_lastEventId != null) 'Last-Event-ID': _lastEventId,
         },
         // 410 (seq evicted) must reach us as a value, not a thrown DioException.

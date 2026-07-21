@@ -13,12 +13,12 @@ import 'run_nav.dart';
 /// The ok/failed/timeout/cancelled execution status → its word — the ONE map (B-074: the dossier head,
 /// its receipt and exec's invoke stat bar carried three verbatim copies). 执行状态词唯一映射。
 String runStatusWord(Translations t, String status) => switch (status) {
-      'ok' => t.run.runCompleted,
-      'failed' => t.run.failed,
-      'timeout' => t.run.agentTimeout,
-      'cancelled' => t.run.runCancelled,
-      _ => status,
-    };
+  'ok' => t.run.runCompleted,
+  'failed' => t.run.failed,
+  'timeout' => t.run.agentTimeout,
+  'cancelled' => t.run.runCancelled,
+  _ => status,
+};
 
 /// The flowrun/node LIFECYCLE status → its word (running/completed/failed/parked/cancelled) — a
 /// DIFFERENT closed set from [runStatusWord]'s exec domain (ok/timeout), which would leak the raw
@@ -27,13 +27,13 @@ String runStatusWord(Translations t, String status) => switch (status) {
 /// flowrun/节点**生命周期**状态词——与 runStatusWord 的执行域(ok/timeout)是两个封闭集,错用会把
 /// completed/running/parked 的线缆词漏成英文;parked 复用节点台账的「等待」同词。
 String flowrunStatusWord(Translations t, String status) => switch (status) {
-      'running' => t.run.runStatusRunning,
-      'completed' => t.run.runCompleted,
-      'failed' => t.run.failed,
-      'parked' => t.run.nodeWait,
-      'cancelled' => t.run.runCancelled,
-      _ => status,
-    };
+  'running' => t.run.runStatusRunning,
+  'completed' => t.run.runCompleted,
+  'failed' => t.run.failed,
+  'parked' => t.run.nodeWait,
+  'cancelled' => t.run.runCancelled,
+  _ => status,
+};
 
 /// A run's provenance line — WHERE it came from. Navigable coordinates (conversation → /chat, trigger →
 /// its panel) are ref pills; non-panel coordinates (message / firing / node#iteration) are mono
@@ -69,30 +69,59 @@ class ProvenanceLine extends StatelessWidget {
     final t = Translations.of(context);
     final items = <Widget>[
       if (conversationId != null && conversationId!.isNotEmpty)
-        toolNavPill(context, kind: 'conversation', label: '${t.run.provConversation} ${truncate(conversationId!, AnTrunc.id)}', id: conversationId),
+        toolNavPill(
+          context,
+          kind: 'conversation',
+          label:
+              '${t.run.provConversation} ${truncate(conversationId!, AnTrunc.id)}',
+          id: conversationId,
+        ),
       if (triggerId != null && triggerId!.isNotEmpty)
-        toolNavPill(context,
-            kind: 'trigger',
-            label:
-                '${t.run.provTrigger} ${triggerName != null && triggerName!.isNotEmpty ? truncate(triggerName!, AnTrunc.word) : truncate(triggerId!, AnTrunc.id)}',
-            id: triggerId),
+        toolNavPill(
+          context,
+          kind: 'trigger',
+          label:
+              '${t.run.provTrigger} ${triggerName != null && triggerName!.isNotEmpty ? truncate(triggerName!, AnTrunc.word) : truncate(triggerId!, AnTrunc.id)}',
+          id: triggerId,
+        ),
       // Non-navigable coordinates become COPY chips (批5 A-047 关联 A-037 — the bare grey text
       // lied about being «mono copy-badges»; flowrun has no panel entry, cockpit needs workflowId).
       // 非导航坐标改真复制芯片(旧裸灰字谎称 mono copy-badges);截断走族档、copy 保全量。
       if (flowrunId != null && flowrunId!.isNotEmpty)
-        AnChip('${t.run.provFlowrun} ${truncate(flowrunId!, AnTrunc.id)}',
-            look: AnChipLook.outlined, mono: true, copyValue: flowrunId!),
+        AnChip(
+          '${t.run.provFlowrun} ${truncate(flowrunId!, AnTrunc.id)}',
+          look: AnChipLook.outlined,
+          mono: true,
+          copyValue: flowrunId!,
+        ),
       if (messageId != null && messageId!.isNotEmpty)
-        AnChip('${t.run.provMessage} ${truncate(messageId!, AnTrunc.id)}',
-            look: AnChipLook.outlined, mono: true, copyValue: messageId!),
+        AnChip(
+          '${t.run.provMessage} ${truncate(messageId!, AnTrunc.id)}',
+          look: AnChipLook.outlined,
+          mono: true,
+          copyValue: messageId!,
+        ),
       if (firingId != null && firingId!.isNotEmpty)
-        AnChip('${t.run.provFiring} ${truncate(firingId!, AnTrunc.id)}',
-            look: AnChipLook.outlined, mono: true, copyValue: firingId!),
+        AnChip(
+          '${t.run.provFiring} ${truncate(firingId!, AnTrunc.id)}',
+          look: AnChipLook.outlined,
+          mono: true,
+          copyValue: firingId!,
+        ),
       if (nodeId != null && nodeId!.isNotEmpty)
-        AnChip('${t.run.provNode} $nodeId${(iteration ?? 0) > 0 ? '#$iteration' : ''}',
-            look: AnChipLook.outlined, mono: true, copyValue: nodeId!),
+        AnChip(
+          '${t.run.provNode} $nodeId${(iteration ?? 0) > 0 ? '#$iteration' : ''}',
+          look: AnChipLook.outlined,
+          mono: true,
+          copyValue: nodeId!,
+        ),
     ];
     if (items.isEmpty) return const SizedBox.shrink();
-    return Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: items);
+    return Wrap(
+      spacing: AnGap.inline,
+      runSpacing: AnGap.stackTight,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: items,
+    );
   }
 }

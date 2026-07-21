@@ -42,7 +42,10 @@ const schedulerOverviewRowId = '__scheduler_overview';
 /// Status-dot priority (WRK-069 §2): blue running > amber waiting-on-human > red recent-failure > none.
 /// Blue over amber follows the chat-rail mindset (a running run may self-heal its gate); red rides
 /// consecutiveFailures/needsAttention and self-clears on the next success. 点位:蓝>琥珀>红>无。
-AnStatus? schedulerRailDot(WorkflowRunStats? s, {required bool needsAttention}) {
+AnStatus? schedulerRailDot(
+  WorkflowRunStats? s, {
+  required bool needsAttention,
+}) {
   if (s == null) return needsAttention ? AnStatus.err : null;
   if (s.running > 0) return AnStatus.run;
   if (s.parkedNodes > 0) return AnStatus.wait;
@@ -64,7 +67,9 @@ String schedulerRailMeta(
 }) {
   if (s != null && s.running > 0) {
     final since = s.lastRunAt;
-    return labels.runningFor(since != null ? fmtWaited(now.difference(since)) : '<1m');
+    return labels.runningFor(
+      since != null ? fmtWaited(now.difference(since)) : '<1m',
+    );
   }
   if (showNextFire && nextFire != null && nextFire.isAfter(now)) {
     return labels.nextFireIn(fmtWaited(nextFire.difference(now)));
@@ -96,7 +101,8 @@ SidebarModel buildSchedulerRailModel({
   for (final w in workflows) {
     if (w.lifecycleState == 'inactive') {
       inactive.add(w);
-    } else if (stats[w.id]?.lastRunAt == null && (stats[w.id]?.running ?? 0) == 0) {
+    } else if (stats[w.id]?.lastRunAt == null &&
+        (stats[w.id]?.running ?? 0) == 0) {
       neverRan.add(w);
     } else {
       main.add(w);
@@ -117,50 +123,66 @@ SidebarModel buildSchedulerRailModel({
     }
   } else {
     main.sort((a, b) => activity(b).compareTo(activity(a)));
-    neverRan.sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
-    inactive.sort((a, b) => (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)));
+    neverRan.sort(
+      (a, b) =>
+          (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)),
+    );
+    inactive.sort(
+      (a, b) =>
+          (b.updatedAt ?? DateTime(0)).compareTo(a.updatedAt ?? DateTime(0)),
+    );
   }
 
   SidebarRow row(SchedulerWorkflowRow w) => SidebarRow(
-        id: w.id,
-        label: w.name,
-        dot: schedulerRailDot(stats[w.id], needsAttention: w.needsAttention),
-        meta: schedulerRailMeta(stats[w.id], nextFireByWorkflow[w.id], labels,
-            now: now, showNextFire: showNextFire, showLastRun: showLastRun),
-      );
+    id: w.id,
+    label: w.name,
+    dot: schedulerRailDot(stats[w.id], needsAttention: w.needsAttention),
+    meta: schedulerRailMeta(
+      stats[w.id],
+      nextFireByWorkflow[w.id],
+      labels,
+      now: now,
+      showNextFire: showNextFire,
+      showLastRun: showLastRun,
+    ),
+  );
 
   return SidebarModel(
     newLabel: labels.newLabel,
     filterPlaceholder: labels.filterPlaceholder,
     groups: [
-      SidebarGroup(types: [
-        // The fixed Overview row — headless, above everything; its meta is the rail's ONE number.
-        // Overview 固定行(headless,置顶);meta=rail 唯一数字(等人数)。
-        SidebarType(rows: [
-          SidebarRow(
-            id: schedulerOverviewRowId,
-            label: labels.overview,
-            icon: AnIcons.scheduler,
-            meta: waitingCount > 0 ? '$waitingCount' : null,
-            dot: waitingCount > 0 ? AnStatus.wait : null,
-          ),
-        ]),
-        SidebarType(rows: [for (final w in main) row(w)]),
-        if (neverRan.isNotEmpty)
+      SidebarGroup(
+        types: [
+          // The fixed Overview row — headless, above everything; its meta is the rail's ONE number.
+          // Overview 固定行(headless,置顶);meta=rail 唯一数字(等人数)。
           SidebarType(
-            label: labels.sectionNeverRan,
-            count: neverRan.length,
-            initiallyFolded: true,
-            rows: [for (final w in neverRan) row(w)],
+            rows: [
+              SidebarRow(
+                id: schedulerOverviewRowId,
+                label: labels.overview,
+                icon: AnIcons.scheduler,
+                meta: waitingCount > 0 ? '$waitingCount' : null,
+                dot: waitingCount > 0 ? AnStatus.wait : null,
+              ),
+            ],
           ),
-        if (showInactive && inactive.isNotEmpty)
-          SidebarType(
-            label: labels.sectionInactive,
-            count: inactive.length,
-            initiallyFolded: true,
-            rows: [for (final w in inactive) row(w)],
-          ),
-      ]),
+          SidebarType(rows: [for (final w in main) row(w)]),
+          if (neverRan.isNotEmpty)
+            SidebarType(
+              label: labels.sectionNeverRan,
+              count: neverRan.length,
+              initiallyFolded: true,
+              rows: [for (final w in neverRan) row(w)],
+            ),
+          if (showInactive && inactive.isNotEmpty)
+            SidebarType(
+              label: labels.sectionInactive,
+              count: inactive.length,
+              initiallyFolded: true,
+              rows: [for (final w in inactive) row(w)],
+            ),
+        ],
+      ),
     ],
   );
 }

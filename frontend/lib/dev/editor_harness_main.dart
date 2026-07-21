@@ -71,7 +71,10 @@ class _EditorHarnessApp extends StatelessWidget {
                 color: Colors.white,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: AnEditor(initialMarkdown: _harnessSeed, mentionSource: _HarnessMentionSource()),
+                  child: AnEditor(
+                    initialMarkdown: _harnessSeed,
+                    mentionSource: _HarnessMentionSource(),
+                  ),
                 ),
               ),
             ),
@@ -86,17 +89,44 @@ class _EditorHarnessApp extends StatelessWidget {
 /// A fixture entity source so the harness can exercise `@` mentions without a backend. 假实体源(无后端)。
 class _HarnessMentionSource implements MentionSource {
   static const _all = [
-    MentionCandidate(type: 'workflow', id: 'wf_00000000000000a1', name: '每日销量对账', description: '每日跑一次的对账流程'),
-    MentionCandidate(type: 'function', id: 'fn_00000000000000b2', name: '汇总日报', description: '把当日数据汇成一页'),
-    MentionCandidate(type: 'agent', id: 'ag_00000000000000c3', name: '数据分析助手', description: '回答自然语言的数据问题'),
-    MentionCandidate(type: 'handler', id: 'hd_00000000000000d4', name: '飞书通知', description: '把结果推到群'),
-    MentionCandidate(type: 'document', id: 'doc_0000000000000e5', name: '产品需求文档', description: '本编辑器要展示的文档'),
+    MentionCandidate(
+      type: 'workflow',
+      id: 'wf_00000000000000a1',
+      name: '每日销量对账',
+      description: '每日跑一次的对账流程',
+    ),
+    MentionCandidate(
+      type: 'function',
+      id: 'fn_00000000000000b2',
+      name: '汇总日报',
+      description: '把当日数据汇成一页',
+    ),
+    MentionCandidate(
+      type: 'agent',
+      id: 'ag_00000000000000c3',
+      name: '数据分析助手',
+      description: '回答自然语言的数据问题',
+    ),
+    MentionCandidate(
+      type: 'handler',
+      id: 'hd_00000000000000d4',
+      name: '飞书通知',
+      description: '把结果推到群',
+    ),
+    MentionCandidate(
+      type: 'document',
+      id: 'doc_0000000000000e5',
+      name: '产品需求文档',
+      description: '本编辑器要展示的文档',
+    ),
   ];
 
   @override
   Future<List<MentionCandidate>> search(String query) async {
     if (query.isEmpty) return _all;
-    return _all.where((c) => c.name.contains(query) || c.id.contains(query)).toList();
+    return _all
+        .where((c) => c.name.contains(query) || c.id.contains(query))
+        .toList();
   }
 
   @override

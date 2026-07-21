@@ -16,5 +16,6 @@ abstract class NetworkConfig with _$NetworkConfig {
     @Default('') String noProxy,
   }) = _NetworkConfig;
 
-  factory NetworkConfig.fromJson(Map<String, dynamic> json) => _$NetworkConfigFromJson(json);
+  factory NetworkConfig.fromJson(Map<String, dynamic> json) =>
+      _$NetworkConfigFromJson(json);
 }

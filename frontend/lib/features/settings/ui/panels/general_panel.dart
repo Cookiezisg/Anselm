@@ -32,9 +32,15 @@ class GeneralPanel extends ConsumerWidget {
     final t = Translations.of(context);
     final theme = ref.watch(themePreferenceProvider);
     final locale = ref.watch(localePreferenceProvider);
-    final remember = ref.watch(boolSettingProvider(SettingsKeys.windowRemember));
-    final atLogin = ref.watch(boolSettingProvider(SettingsKeys.launchAtStartup));
-    final updateCheck = ref.watch(boolSettingProvider(SettingsKeys.updateCheck));
+    final remember = ref.watch(
+      boolSettingProvider(SettingsKeys.windowRemember),
+    );
+    final atLogin = ref.watch(
+      boolSettingProvider(SettingsKeys.launchAtStartup),
+    );
+    final updateCheck = ref.watch(
+      boolSettingProvider(SettingsKeys.updateCheck),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -53,24 +59,39 @@ class GeneralPanel extends ConsumerWidget {
                 label: t.settings.theme,
                 desc: t.settings.themeDesc,
                 modified: theme != ThemePreference.light,
-                onReset: () => ref.read(themePreferenceProvider.notifier).set(ThemePreference.light),
+                onReset: () => ref
+                    .read(themePreferenceProvider.notifier)
+                    .set(ThemePreference.light),
                 resetLabel: t.settings.resetToDefault,
                 child: SizedBox(
                   width: AnSize.ctlSlotLg,
                   child: AnSegmented<ThemePreference>(
                     options: [
-                      AnSegmentedOption(value: ThemePreference.light, label: t.settings.themeLight),
-                      AnSegmentedOption(value: ThemePreference.dark, label: t.settings.themeDark),
-                      AnSegmentedOption(value: ThemePreference.system, label: t.settings.themeSystem),
+                      AnSegmentedOption(
+                        value: ThemePreference.light,
+                        label: t.settings.themeLight,
+                      ),
+                      AnSegmentedOption(
+                        value: ThemePreference.dark,
+                        label: t.settings.themeDark,
+                      ),
+                      AnSegmentedOption(
+                        value: ThemePreference.system,
+                        label: t.settings.themeSystem,
+                      ),
                     ],
                     value: theme,
-                    onChanged: (v) => ref.read(themePreferenceProvider.notifier).set(v),
+                    onChanged: (v) =>
+                        ref.read(themePreferenceProvider.notifier).set(v),
                   ),
                 ),
               ),
             ),
             const SizedBox(height: AnSpace.s4),
-            SettingsAnchor(item: SettingsItem.generalZoom, child: _ZoomRow(t: t)),
+            SettingsAnchor(
+              item: SettingsItem.generalZoom,
+              child: _ZoomRow(t: t),
+            ),
           ],
         ),
         const SizedBox(height: AnSpace.s24),
@@ -87,7 +108,10 @@ class GeneralPanel extends ConsumerWidget {
               desc: t.settings.fontUiDesc,
               settingsKey: SettingsKeys.fontUi,
               options: [
-                AnDropdownOption(value: 'bundled', label: t.settings.fontBundled),
+                AnDropdownOption(
+                  value: 'bundled',
+                  label: t.settings.fontBundled,
+                ),
                 AnDropdownOption(value: 'system', label: t.settings.fontSystem),
               ],
             ),
@@ -110,10 +134,22 @@ class GeneralPanel extends ConsumerWidget {
               desc: t.settings.fontCodeDesc,
               settingsKey: SettingsKeys.fontCode,
               options: [
-                AnDropdownOption(value: 'jetbrainsMono', label: t.settings.fontJetBrainsMono),
-                AnDropdownOption(value: 'firaCode', label: t.settings.fontFiraCode),
-                AnDropdownOption(value: 'cascadiaCode', label: t.settings.fontCascadia),
-                AnDropdownOption(value: 'system', label: t.settings.fontSystemMono),
+                AnDropdownOption(
+                  value: 'jetbrainsMono',
+                  label: t.settings.fontJetBrainsMono,
+                ),
+                AnDropdownOption(
+                  value: 'firaCode',
+                  label: t.settings.fontFiraCode,
+                ),
+                AnDropdownOption(
+                  value: 'cascadiaCode',
+                  label: t.settings.fontCascadia,
+                ),
+                AnDropdownOption(
+                  value: 'system',
+                  label: t.settings.fontSystemMono,
+                ),
               ],
             ),
           ],
@@ -135,9 +171,15 @@ class GeneralPanel extends ConsumerWidget {
                   width: AnSize.ctlSlot,
                   child: AnDropdown<String>(
                     options: [
-                      AnDropdownOption(value: 'system', label: t.settings.langSystem),
+                      AnDropdownOption(
+                        value: 'system',
+                        label: t.settings.langSystem,
+                      ),
                       AnDropdownOption(value: 'en', label: t.settings.langEn),
-                      AnDropdownOption(value: 'zh-CN', label: t.settings.langZh),
+                      AnDropdownOption(
+                        value: 'zh-CN',
+                        label: t.settings.langZh,
+                      ),
                     ],
                     value: locale,
                     onChanged: (v) => _setLanguage(ref, context, v),
@@ -158,13 +200,21 @@ class GeneralPanel extends ConsumerWidget {
                 label: t.settings.rememberWindow,
                 desc: t.settings.rememberWindowDesc,
                 modified: remember != SettingsKeys.windowRemember.def,
-                onReset: () =>
-                    ref.read(boolSettingProvider(SettingsKeys.windowRemember).notifier).reset(),
+                onReset: () => ref
+                    .read(
+                      boolSettingProvider(SettingsKeys.windowRemember).notifier,
+                    )
+                    .reset(),
                 resetLabel: t.settings.resetToDefault,
                 child: AnSwitch(
                   value: remember,
-                  onChanged: (v) =>
-                      ref.read(boolSettingProvider(SettingsKeys.windowRemember).notifier).set(v),
+                  onChanged: (v) => ref
+                      .read(
+                        boolSettingProvider(
+                          SettingsKeys.windowRemember,
+                        ).notifier,
+                      )
+                      .set(v),
                 ),
               ),
             ),
@@ -196,13 +246,19 @@ class GeneralPanel extends ConsumerWidget {
                 label: t.settings.updateCheck,
                 desc: t.settings.updateCheckDesc,
                 modified: updateCheck != SettingsKeys.updateCheck.def,
-                onReset: () =>
-                    ref.read(boolSettingProvider(SettingsKeys.updateCheck).notifier).reset(),
+                onReset: () => ref
+                    .read(
+                      boolSettingProvider(SettingsKeys.updateCheck).notifier,
+                    )
+                    .reset(),
                 resetLabel: t.settings.resetToDefault,
                 child: AnSwitch(
                   value: updateCheck,
-                  onChanged: (v) =>
-                      ref.read(boolSettingProvider(SettingsKeys.updateCheck).notifier).set(v),
+                  onChanged: (v) => ref
+                      .read(
+                        boolSettingProvider(SettingsKeys.updateCheck).notifier,
+                      )
+                      .set(v),
                 ),
               ),
             ),
@@ -223,13 +279,19 @@ class GeneralPanel extends ConsumerWidget {
     final resolved = value == 'system'
         ? (LocaleSettings.currentLocale == AppLocale.zhCn ? 'zh-CN' : 'en')
         : value;
-    ref.read(workspacePrefsProvider.notifier).setLanguage(resolved).catchError((_) {
-      ref.read(noticeCenterProvider.notifier).show(t.settings.patchFailed, tone: AnTone.danger);
+    ref.read(workspacePrefsProvider.notifier).setLanguage(resolved).catchError((
+      _,
+    ) {
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(t.settings.patchFailed, tone: AnTone.danger);
     });
   }
 
   void _setLaunchAtLogin(WidgetRef ref, bool value) {
-    ref.read(boolSettingProvider(SettingsKeys.launchAtStartup).notifier).set(value);
+    ref
+        .read(boolSettingProvider(SettingsKeys.launchAtStartup).notifier)
+        .set(value);
     applyLaunchAtLogin(value);
   }
 }
@@ -263,14 +325,16 @@ class _FontDropdownRow extends ConsumerWidget {
         label: label,
         desc: desc,
         modified: value != settingsKey.def,
-        onReset: () => ref.read(stringSettingProvider(settingsKey).notifier).reset(),
+        onReset: () =>
+            ref.read(stringSettingProvider(settingsKey).notifier).reset(),
         resetLabel: t.settings.resetToDefault,
         child: SizedBox(
           width: AnSize.ctlSlotLg,
           child: AnDropdown<String>(
             options: options,
             value: value,
-            onChanged: (v) => ref.read(stringSettingProvider(settingsKey).notifier).set(v),
+            onChanged: (v) =>
+                ref.read(stringSettingProvider(settingsKey).notifier).set(v),
           ),
         ),
       ),

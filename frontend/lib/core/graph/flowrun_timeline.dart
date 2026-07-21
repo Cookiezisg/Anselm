@@ -146,7 +146,8 @@ class GanttChart {
 /// that only want the bars (the linked pane, the cockpit tab, chat's flowrun card) keep this shape.
 /// 按图声明序建时间轴(与图对齐),再补 rows 里有而图没有的孤儿 nodeId(防御:改名节点)。图有而没跑
 /// 过的节点渲成 future 占位。[flowrunChart] 的兼容脸:只要条的调用方照旧用它。
-List<GanttRow> flowrunTimeline(Graph g, FlowrunComposite comp) => flowrunChart(g, comp).rows;
+List<GanttRow> flowrunTimeline(Graph g, FlowrunComposite comp) =>
+    flowrunChart(g, comp).rows;
 
 /// The full chart. [activity] (工单⑤) sharpens each bar's exec part to the audit row's own span and
 /// carries the execId; [now] extends live parts (a still-parked wait, an [inferredRunning] front) to
@@ -209,7 +210,9 @@ GanttChart flowrunChart(
   final live = comp.flowrun.status == 'running';
   if (now != null && live) mark(now);
 
-  final spanMs = (start != null && end != null) ? end!.difference(start!).inMilliseconds : 0;
+  final spanMs = (start != null && end != null)
+      ? end!.difference(start!).inMilliseconds
+      : 0;
   final timeMode = spanMs > 0;
 
   // Fallback slotting: every executed segment gets a sequential slot in time order, so a zero-span
@@ -220,12 +223,13 @@ GanttChart flowrunChart(
   for (var i = 0; i < g.nodes.length; i++) {
     graphOrder[g.nodes[i].id] = i;
   }
-  final ordered = <FlowrunNode>[
-    for (final list in byNode.values) ...list
-  ]..sort((a, b) {
+  final ordered = <FlowrunNode>[for (final list in byNode.values) ...list]
+    ..sort((a, b) {
       final c = a.createdAt.compareTo(b.createdAt);
       if (c != 0) return c;
-      final go = (graphOrder[a.nodeId] ?? 1 << 30).compareTo(graphOrder[b.nodeId] ?? 1 << 30);
+      final go = (graphOrder[a.nodeId] ?? 1 << 30).compareTo(
+        graphOrder[b.nodeId] ?? 1 << 30,
+      );
       return go != 0 ? go : a.iteration.compareTo(b.iteration);
     });
   final slotOf = <String, int>{}; // "nodeId#iteration" → slot
@@ -267,14 +271,17 @@ GanttChart flowrunChart(
       e *= k;
       p *= k;
     }
-    return GanttSegment(a, e,
-        queueW: q,
-        parkedW: p,
-        iteration: iteration,
-        from: from,
-        to: to,
-        execId: execId,
-        execStatus: execStatus);
+    return GanttSegment(
+      a,
+      e,
+      queueW: q,
+      parkedW: p,
+      iteration: iteration,
+      from: from,
+      to: to,
+      execId: execId,
+      execStatus: execStatus,
+    );
   }
 
   /// One (node, iteration) → its three-part bar. 一个 (节点,迭代) → 三段条。
@@ -295,25 +302,45 @@ GanttChart flowrunChart(
     // The queue part exists only with ⑫ stamps. Clamp ≥ 0: a :replay's surviving audit row can carry
     // a readyAt older than the live truth row's (api.md ⑤). 排队段仅 ⑫ 有戳时存在;钳制 ≥0。
     final queueFrom = r.readyAt;
-    final parkTo = parks ? (r.completedAt ?? (live ? (now ?? end) : end)) : null;
-    final barFrom = queueFrom != null && queueFrom.isBefore(execFrom) ? queueFrom : execFrom;
+    final parkTo = parks
+        ? (r.completedAt ?? (live ? (now ?? end) : end))
+        : null;
+    final barFrom = queueFrom != null && queueFrom.isBefore(execFrom)
+        ? queueFrom
+        : execFrom;
     final barTo = parkTo != null && parkTo.isAfter(execTo) ? parkTo : execTo;
 
     if (!timeMode) {
       final slot = slotOf['${r.nodeId}#${r.iteration}'] ?? 0;
-      return place(slot / slots, 0, 1 / slots, 0,
-          iteration: r.iteration, execId: a?.execId, execStatus: a?.status);
+      return place(
+        slot / slots,
+        0,
+        1 / slots,
+        0,
+        iteration: r.iteration,
+        execId: a?.execId,
+        execStatus: a?.status,
+      );
     }
     final at = frac(barFrom);
-    final qW = queueFrom != null ? (frac(execFrom) - frac(queueFrom)).clamp(0.0, 1.0) : 0.0;
+    final qW = queueFrom != null
+        ? (frac(execFrom) - frac(queueFrom)).clamp(0.0, 1.0)
+        : 0.0;
     final eW = (frac(execTo) - frac(execFrom)).clamp(0.0, 1.0);
-    final pW = parkTo != null ? (frac(parkTo) - frac(execTo)).clamp(0.0, 1.0) : 0.0;
-    return place(at, qW, eW, pW,
-        iteration: r.iteration,
-        from: barFrom,
-        to: barTo,
-        execId: a?.execId,
-        execStatus: a?.status);
+    final pW = parkTo != null
+        ? (frac(parkTo) - frac(execTo)).clamp(0.0, 1.0)
+        : 0.0;
+    return place(
+      at,
+      qW,
+      eW,
+      pW,
+      iteration: r.iteration,
+      from: barFrom,
+      to: barTo,
+      execId: a?.execId,
+      execStatus: a?.status,
+    );
   }
 
   GanttRow rowFor(String nodeId, NodeKind kind, String ref) {
@@ -327,10 +354,22 @@ GanttChart flowrunChart(
     // 声称时长。
     final List<GanttSegment> segments;
     if (inferred) {
-      final from = timeMode && now != null ? (_maxSettled(rows, actByKey) ?? start!) : null;
+      final from = timeMode && now != null
+          ? (_maxSettled(rows, actByKey) ?? start!)
+          : null;
       segments = from == null
           ? const []
-          : [place(frac(from), 0, 1.0 - frac(from), 0, iteration: 0, from: from, to: now)];
+          : [
+              place(
+                frac(from),
+                0,
+                1.0 - frac(from),
+                0,
+                iteration: 0,
+                from: from,
+                to: now,
+              ),
+            ];
     } else {
       segments = [for (final r in list) segmentOf(r)];
     }
@@ -367,13 +406,19 @@ GanttChart flowrunChart(
     start: start,
     end: end,
     timeMode: timeMode,
-    nowAt: timeMode && now != null && !now.isBefore(start!) && !now.isAfter(end!) ? frac(now) : null,
+    nowAt:
+        timeMode && now != null && !now.isBefore(start!) && !now.isAfter(end!)
+        ? frac(now)
+        : null,
   );
 }
 
 /// The latest moment the run PROVABLY reached (the newest settled stamp) — where a speculative
 /// running bar may honestly begin. run 可证实到达的最晚时刻:推测条的诚实起点。
-DateTime? _maxSettled(List<FlowrunNode> rows, Map<String, FlowrunActivityRow> actByKey) {
+DateTime? _maxSettled(
+  List<FlowrunNode> rows,
+  Map<String, FlowrunActivityRow> actByKey,
+) {
   DateTime? m;
   void bump(DateTime? t) {
     if (t == null) return;

@@ -10,61 +10,143 @@ import 'package:flutter_test/flutter_test.dart';
 const _scope = StreamScope(kind: 'conversation', id: 'cv');
 
 void main() {
-  test('live: same session across reads; only the tail is fed; events accumulate', () {
-    final r = BlockTreeReducer()
-      ..apply(const StreamEnvelope(
-          seq: 1, scope: _scope, id: 'tc',
-          frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': 'create_document'}))));
-    final node = r.nodeById('tc')!;
+  test(
+    'live: same session across reads; only the tail is fed; events accumulate',
+    () {
+      final r = BlockTreeReducer()
+        ..apply(
+          const StreamEnvelope(
+            seq: 1,
+            scope: _scope,
+            id: 'tc',
+            frame: FrameOpen(
+              node: StreamNode(
+                type: 'tool_call',
+                content: {'name': 'create_document'},
+              ),
+            ),
+          ),
+        );
+      final node = r.nodeById('tc')!;
 
-    r.apply(const StreamEnvelope(seq: 0, scope: _scope, id: 'tc', frame: FrameDelta(chunk: '{"name":"n",')));
-    final s1 = argsSessionOf(node);
-    expect(s1.events.single.value, 'n');
+      r.apply(
+        const StreamEnvelope(
+          seq: 0,
+          scope: _scope,
+          id: 'tc',
+          frame: FrameDelta(chunk: '{"name":"n",'),
+        ),
+      );
+      final s1 = argsSessionOf(node);
+      expect(s1.events.single.value, 'n');
 
-    r.apply(const StreamEnvelope(seq: 0, scope: _scope, id: 'tc', frame: FrameDelta(chunk: '"content":"hel')));
-    final s2 = argsSessionOf(node);
-    expect(identical(s2, s1), isTrue); // SAME session — incremental, not rebuilt 同一会话,增量非重建
-    expect(s2.inFlightStringAt(['content']), 'hel');
-    expect(s2.liveStringNamed('content'), 'hel');
+      r.apply(
+        const StreamEnvelope(
+          seq: 0,
+          scope: _scope,
+          id: 'tc',
+          frame: FrameDelta(chunk: '"content":"hel'),
+        ),
+      );
+      final s2 = argsSessionOf(node);
+      expect(
+        identical(s2, s1),
+        isTrue,
+      ); // SAME session — incremental, not rebuilt 同一会话,增量非重建
+      expect(s2.inFlightStringAt(['content']), 'hel');
+      expect(s2.liveStringNamed('content'), 'hel');
 
-    r.apply(const StreamEnvelope(seq: 0, scope: _scope, id: 'tc', frame: FrameDelta(chunk: 'lo"}')));
-    expect(argsSessionOf(node).closedValueAt(['content']), 'hello');
-  });
+      r.apply(
+        const StreamEnvelope(
+          seq: 0,
+          scope: _scope,
+          id: 'tc',
+          frame: FrameDelta(chunk: 'lo"}'),
+        ),
+      );
+      expect(argsSessionOf(node).closedValueAt(['content']), 'hello');
+    },
+  );
 
-  test('open→closed flip (delta → snapshot) rebuilds the session ONCE from the snapshot', () {
-    final r = BlockTreeReducer()
-      ..apply(const StreamEnvelope(
-          seq: 1, scope: _scope, id: 'tc',
-          frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': 'Write'}))));
-    final node = r.nodeById('tc')!;
-    r.apply(const StreamEnvelope(seq: 0, scope: _scope, id: 'tc', frame: FrameDelta(chunk: '{"content":"par')));
-    final live = argsSessionOf(node);
-    expect(live.inFlightStringAt(['content']), 'par');
+  test(
+    'open→closed flip (delta → snapshot) rebuilds the session ONCE from the snapshot',
+    () {
+      final r = BlockTreeReducer()
+        ..apply(
+          const StreamEnvelope(
+            seq: 1,
+            scope: _scope,
+            id: 'tc',
+            frame: FrameOpen(
+              node: StreamNode(type: 'tool_call', content: {'name': 'Write'}),
+            ),
+          ),
+        );
+      final node = r.nodeById('tc')!;
+      r.apply(
+        const StreamEnvelope(
+          seq: 0,
+          scope: _scope,
+          id: 'tc',
+          frame: FrameDelta(chunk: '{"content":"par'),
+        ),
+      );
+      final live = argsSessionOf(node);
+      expect(live.inFlightStringAt(['content']), 'par');
 
-    // Close with the FULL snapshot (byte-wise different from the truncated deltas). 关帧带完整快照。
-    r.apply(const StreamEnvelope(
-        seq: 2, scope: _scope, id: 'tc',
-        frame: FrameClose(
+      // Close with the FULL snapshot (byte-wise different from the truncated deltas). 关帧带完整快照。
+      r.apply(
+        const StreamEnvelope(
+          seq: 2,
+          scope: _scope,
+          id: 'tc',
+          frame: FrameClose(
             status: 'completed',
-            result: StreamNode(type: 'tool_call', content: {'name': 'Write', 'arguments': '{"content":"partial no more"}'}))));
-    final settled = argsSessionOf(node);
-    expect(identical(settled, live), isFalse); // rebuilt 已重建
-    expect(settled.closedValueAt(['content']), 'partial no more');
-    expect(settled.done, isTrue);
-    // A second read after the flip returns the SAME rebuilt session (once, not every read). 只重建一次。
-    expect(identical(argsSessionOf(node), settled), isTrue);
-  });
+            result: StreamNode(
+              type: 'tool_call',
+              content: {
+                'name': 'Write',
+                'arguments': '{"content":"partial no more"}',
+              },
+            ),
+          ),
+        ),
+      );
+      final settled = argsSessionOf(node);
+      expect(identical(settled, live), isFalse); // rebuilt 已重建
+      expect(settled.closedValueAt(['content']), 'partial no more');
+      expect(settled.done, isTrue);
+      // A second read after the flip returns the SAME rebuilt session (once, not every read). 只重建一次。
+      expect(identical(argsSessionOf(node), settled), isTrue);
+    },
+  );
 
   test('a node closed from the start (hydration) parses its snapshot once', () {
     final r = BlockTreeReducer()
-      ..apply(const StreamEnvelope(
-          seq: 1, scope: _scope, id: 'tc',
-          frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': 'Bash'}))))
-      ..apply(const StreamEnvelope(
-          seq: 2, scope: _scope, id: 'tc',
+      ..apply(
+        const StreamEnvelope(
+          seq: 1,
+          scope: _scope,
+          id: 'tc',
+          frame: FrameOpen(
+            node: StreamNode(type: 'tool_call', content: {'name': 'Bash'}),
+          ),
+        ),
+      )
+      ..apply(
+        const StreamEnvelope(
+          seq: 2,
+          scope: _scope,
+          id: 'tc',
           frame: FrameClose(
-              status: 'completed',
-              result: StreamNode(type: 'tool_call', content: {'name': 'Bash', 'arguments': '{"command":"ls"}'}))));
+            status: 'completed',
+            result: StreamNode(
+              type: 'tool_call',
+              content: {'name': 'Bash', 'arguments': '{"command":"ls"}'},
+            ),
+          ),
+        ),
+      );
     final node = r.nodeById('tc')!;
     final s = argsSessionOf(node);
     expect(s.closedValueAt(['command']), 'ls');

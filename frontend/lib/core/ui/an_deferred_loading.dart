@@ -14,7 +14,11 @@ import '../design/tokens.dart';
 /// 返回 → 父离开 loading 分支、本 widget 被弃 → timer 取消 → 从未显示(无"闪现即消失");仅真慢加载(> delay)
 /// 才浮出指示器,此时也确实需要。延迟内占零空间。
 class AnDeferredLoading extends StatefulWidget {
-  const AnDeferredLoading({required this.child, this.delay = AnMotion.loaderDelay, super.key});
+  const AnDeferredLoading({
+    required this.child,
+    this.delay = AnMotion.loaderDelay,
+    super.key,
+  });
 
   final Widget child;
   final Duration delay;
@@ -42,5 +46,6 @@ class _AnDeferredLoadingState extends State<AnDeferredLoading> {
   }
 
   @override
-  Widget build(BuildContext context) => _show ? widget.child : const SizedBox.shrink();
+  Widget build(BuildContext context) =>
+      _show ? widget.child : const SizedBox.shrink();
 }

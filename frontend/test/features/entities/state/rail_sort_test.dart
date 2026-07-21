@@ -7,7 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 // (both name tiebreak), name = A→Z (id tiebreak); all stable + non-mutating. created is given its own
 // axis so a row can be old-by-update yet new-by-create (and vice versa).
 
-EntityRow _row(String id, String name, DateTime updated, {DateTime? created}) => EntityRow(
+EntityRow _row(String id, String name, DateTime updated, {DateTime? created}) =>
+    EntityRow(
       kind: EntityKind.function,
       id: id,
       name: name,
@@ -21,7 +22,11 @@ void main() {
   final t3 = DateTime.utc(2026, 6, 3);
 
   test('recent → newest updatedAt first', () {
-    final rows = [_row('a', 'alpha', t1), _row('b', 'beta', t3), _row('c', 'gamma', t2)];
+    final rows = [
+      _row('a', 'alpha', t1),
+      _row('b', 'beta', t3),
+      _row('c', 'gamma', t2),
+    ];
     final out = sortRows(rows, RailSort.recent);
     expect(out.map((r) => r.id), ['b', 'c', 'a']);
   });
@@ -38,12 +43,19 @@ void main() {
   });
 
   test('created ties break by name (deterministic)', () {
-    final rows = [_row('a', 'beta', t2, created: t1), _row('b', 'alpha', t3, created: t1)];
+    final rows = [
+      _row('a', 'beta', t2, created: t1),
+      _row('b', 'alpha', t3, created: t1),
+    ];
     expect(sortRows(rows, RailSort.created).map((r) => r.id), ['b', 'a']);
   });
 
   test('name → case-insensitive A→Z', () {
-    final rows = [_row('a', 'Zebra', t1), _row('b', 'apple', t2), _row('c', 'Mango', t3)];
+    final rows = [
+      _row('a', 'Zebra', t1),
+      _row('b', 'apple', t2),
+      _row('c', 'Mango', t3),
+    ];
     final out = sortRows(rows, RailSort.name);
     expect(out.map((r) => r.name), ['apple', 'Mango', 'Zebra']);
   });

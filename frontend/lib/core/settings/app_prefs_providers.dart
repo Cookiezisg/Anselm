@@ -32,14 +32,18 @@ class ThemePreferenceController extends Notifier<ThemePreference> {
 }
 
 final themePreferenceProvider =
-    NotifierProvider<ThemePreferenceController, ThemePreference>(ThemePreferenceController.new);
+    NotifierProvider<ThemePreferenceController, ThemePreference>(
+      ThemePreferenceController.new,
+    );
 
 /// The [ThemeMode] the MaterialApp consumes — a pure projection of the preference. MaterialApp 消费的投影。
-final themeModeProvider = Provider<ThemeMode>((ref) => switch (ref.watch(themePreferenceProvider)) {
-      ThemePreference.light => ThemeMode.light,
-      ThemePreference.dark => ThemeMode.dark,
-      ThemePreference.system => ThemeMode.system,
-    });
+final themeModeProvider = Provider<ThemeMode>(
+  (ref) => switch (ref.watch(themePreferenceProvider)) {
+    ThemePreference.light => ThemeMode.light,
+    ThemePreference.dark => ThemeMode.dark,
+    ThemePreference.system => ThemeMode.system,
+  },
+);
 
 /// The UI locale preference: `system` (follow the device) or a concrete tag ('en' / 'zh-CN').
 /// Setting it applies slang's locale IMMEDIATELY (TranslationProvider rebuilds every t-consumer);
@@ -77,8 +81,9 @@ class LocalePreferenceController extends Notifier<String> {
 }
 
 final localePreferenceProvider =
-    NotifierProvider<LocalePreferenceController, String>(LocalePreferenceController.new);
-
+    NotifierProvider<LocalePreferenceController, String>(
+      LocalePreferenceController.new,
+    );
 
 /// Reactive bool preference — one family instance per declared key, so an [AnSwitch] wires in two
 /// lines and `modified` falls out of `state != key.def`. 响应式 bool 偏好族:每声明键一实例,开关两行
@@ -103,9 +108,10 @@ class BoolSettingController extends Notifier<bool> {
   }
 }
 
-final boolSettingProvider = NotifierProvider.family<BoolSettingController, bool, SettingsKey<bool>>(
-    BoolSettingController.new);
-
+final boolSettingProvider =
+    NotifierProvider.family<BoolSettingController, bool, SettingsKey<bool>>(
+      BoolSettingController.new,
+    );
 
 /// Reactive string preference — the [BoolSettingController]'s string sibling (segmented / dropdown
 /// rows). 响应式 string 偏好族(分段/下拉行)。
@@ -130,8 +136,11 @@ class StringSettingController extends Notifier<String> {
 }
 
 final stringSettingProvider =
-    NotifierProvider.family<StringSettingController, String, SettingsKey<String>>(
-        StringSettingController.new);
+    NotifierProvider.family<
+      StringSettingController,
+      String,
+      SettingsKey<String>
+    >(StringSettingController.new);
 
 /// The CONTENT font axis (② 内容轴), HOT — the ONE reactive seam the prose reading surfaces (chat
 /// message bubble markdown + the documents editor body/title) read to layer a serif / system face over
@@ -142,8 +151,11 @@ final stringSettingProvider =
 /// write the pref (persisted) and say「重启后生效」.
 /// 内容字体轴(热):prose 阅读面读它覆盖衬线/系统脸;null=sans=跟随已烤进 AnText 的 UI 脸(零改直通,默认=现状)。
 /// watch 串偏好→即时切换(样式运行时构造);UI/代码轴启动生效、无运行时 provider(面板写偏好+标「重启后生效」)。
-final contentFaceProvider = Provider<AnFace?>((ref) =>
-    AnFonts.contentOverrideFor(ref.watch(stringSettingProvider(SettingsKeys.fontContent))));
+final contentFaceProvider = Provider<AnFace?>(
+  (ref) => AnFonts.contentOverrideFor(
+    ref.watch(stringSettingProvider(SettingsKeys.fontContent)),
+  ),
+);
 
 /// The sidestage follow intent (default «每次»), persisted via [SettingsPrefs] (`an.stage.follow`,
 /// synchronous read). The chat sidestage head sets it; the settings chat panel mirrors it — one state,
@@ -151,15 +163,20 @@ final contentFaceProvider = Provider<AnFace?>((ref) =>
 class FollowModeController extends Notifier<FollowMode> {
   @override
   FollowMode build() {
-    final v = ref.read(settingsPrefsProvider).getString(SettingsKeys.chatAutoStage);
+    final v = ref
+        .read(settingsPrefsProvider)
+        .getString(SettingsKeys.chatAutoStage);
     return FollowMode.values.asNameMap()[v] ?? FollowMode.always;
   }
 
   void set(FollowMode mode) {
     state = mode;
-    ref.read(settingsPrefsProvider).setString(SettingsKeys.chatAutoStage, mode.name);
+    ref
+        .read(settingsPrefsProvider)
+        .setString(SettingsKeys.chatAutoStage, mode.name);
   }
 }
 
-final followModeProvider =
-    NotifierProvider<FollowModeController, FollowMode>(FollowModeController.new);
+final followModeProvider = NotifierProvider<FollowModeController, FollowMode>(
+  FollowModeController.new,
+);

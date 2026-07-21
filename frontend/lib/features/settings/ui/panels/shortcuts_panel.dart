@@ -25,45 +25,51 @@ class ShortcutsPanel extends ConsumerWidget {
     final t = Translations.of(context);
     final bindings = ref.watch(shortcutBindingsProvider);
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        const AnScopeBadge(AnSettingScope.machine),
-        const Spacer(),
-        AnButton(
-          label: t.settings.shortcuts.resetAll,
-          size: AnButtonSize.sm,
-          outline: true,
-          onPressed: () => ref.read(shortcutBindingsProvider.notifier).resetAll(),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const AnScopeBadge(AnSettingScope.machine),
+            const Spacer(),
+            AnButton(
+              label: t.settings.shortcuts.resetAll,
+              size: AnButtonSize.sm,
+              outline: true,
+              onPressed: () =>
+                  ref.read(shortcutBindingsProvider.notifier).resetAll(),
+            ),
+          ],
         ),
-      ]),
-      const SizedBox(height: AnSpace.s16),
-      for (final cmd in ShortcutCommand.values)
-        SettingsAnchor(
-          item: shortcutAnchor(cmd),
-          child: _ShortcutRow(command: cmd, chord: bindings[cmd]!),
-        ),
-    ]);
+        const SizedBox(height: AnSpace.s16),
+        for (final cmd in ShortcutCommand.values)
+          SettingsAnchor(
+            item: shortcutAnchor(cmd),
+            child: _ShortcutRow(command: cmd, chord: bindings[cmd]!),
+          ),
+      ],
+    );
   }
 }
 
 /// The searchable-item anchor id for a global command (one row per command). 全局命令的可搜索锚 id。
 String shortcutAnchor(ShortcutCommand cmd) => switch (cmd) {
-      ShortcutCommand.toggleLeftIsland => SettingsItem.shortcutToggleLeft,
-      ShortcutCommand.toggleRightIsland => SettingsItem.shortcutToggleRight,
-      ShortcutCommand.openSettings => SettingsItem.shortcutOpenSettings,
-      ShortcutCommand.zoomIn => SettingsItem.shortcutZoomIn,
-      ShortcutCommand.zoomOut => SettingsItem.shortcutZoomOut,
-      ShortcutCommand.zoomReset => SettingsItem.shortcutZoomReset,
-    };
+  ShortcutCommand.toggleLeftIsland => SettingsItem.shortcutToggleLeft,
+  ShortcutCommand.toggleRightIsland => SettingsItem.shortcutToggleRight,
+  ShortcutCommand.openSettings => SettingsItem.shortcutOpenSettings,
+  ShortcutCommand.zoomIn => SettingsItem.shortcutZoomIn,
+  ShortcutCommand.zoomOut => SettingsItem.shortcutZoomOut,
+  ShortcutCommand.zoomReset => SettingsItem.shortcutZoomReset,
+};
 
 String commandLabel(Translations t, ShortcutCommand cmd) => switch (cmd) {
-      ShortcutCommand.toggleLeftIsland => t.settings.shortcuts.cmdToggleLeft,
-      ShortcutCommand.toggleRightIsland => t.settings.shortcuts.cmdToggleRight,
-      ShortcutCommand.openSettings => t.settings.shortcuts.cmdOpenSettings,
-      ShortcutCommand.zoomIn => t.settings.shortcuts.cmdZoomIn,
-      ShortcutCommand.zoomOut => t.settings.shortcuts.cmdZoomOut,
-      ShortcutCommand.zoomReset => t.settings.shortcuts.cmdZoomReset,
-    };
+  ShortcutCommand.toggleLeftIsland => t.settings.shortcuts.cmdToggleLeft,
+  ShortcutCommand.toggleRightIsland => t.settings.shortcuts.cmdToggleRight,
+  ShortcutCommand.openSettings => t.settings.shortcuts.cmdOpenSettings,
+  ShortcutCommand.zoomIn => t.settings.shortcuts.cmdZoomIn,
+  ShortcutCommand.zoomOut => t.settings.shortcuts.cmdZoomOut,
+  ShortcutCommand.zoomReset => t.settings.shortcuts.cmdZoomReset,
+};
 
 class _ShortcutRow extends ConsumerStatefulWidget {
   const _ShortcutRow({required this.command, required this.chord});
@@ -119,13 +125,16 @@ class _ShortcutRowState extends ConsumerState<_ShortcutRow> {
     if (_isModifier(key)) return KeyEventResult.handled;
 
     final pressed = HardwareKeyboard.instance.logicalKeysPressed;
-    final cmd = pressed.contains(LogicalKeyboardKey.metaLeft) ||
+    final cmd =
+        pressed.contains(LogicalKeyboardKey.metaLeft) ||
         pressed.contains(LogicalKeyboardKey.metaRight) ||
         pressed.contains(LogicalKeyboardKey.controlLeft) ||
         pressed.contains(LogicalKeyboardKey.controlRight);
-    final shift = pressed.contains(LogicalKeyboardKey.shiftLeft) ||
+    final shift =
+        pressed.contains(LogicalKeyboardKey.shiftLeft) ||
         pressed.contains(LogicalKeyboardKey.shiftRight);
-    final alt = pressed.contains(LogicalKeyboardKey.altLeft) ||
+    final alt =
+        pressed.contains(LogicalKeyboardKey.altLeft) ||
         pressed.contains(LogicalKeyboardKey.altRight);
     if (!cmd) {
       setState(() => _hint = t.settings.shortcuts.hintModifier);
@@ -136,7 +145,11 @@ class _ShortcutRowState extends ConsumerState<_ShortcutRow> {
         .read(shortcutBindingsProvider.notifier)
         .conflictFor(chord, self: widget.command);
     if (conflict != null) {
-      setState(() => _hint = t.settings.shortcuts.conflict(cmd: commandLabel(t, conflict)));
+      setState(
+        () => _hint = t.settings.shortcuts.conflict(
+          cmd: commandLabel(t, conflict),
+        ),
+      );
       return KeyEventResult.handled;
     }
     ref.read(shortcutBindingsProvider.notifier).rebind(widget.command, chord);
@@ -163,7 +176,8 @@ class _ShortcutRowState extends ConsumerState<_ShortcutRow> {
       label: commandLabel(t, widget.command),
       desc: _hint,
       modified: !isDefault,
-      onReset: () => ref.read(shortcutBindingsProvider.notifier).reset(widget.command),
+      onReset: () =>
+          ref.read(shortcutBindingsProvider.notifier).reset(widget.command),
       resetLabel: t.settings.shortcuts.reset,
       child: Focus(
         focusNode: _focus,
@@ -181,8 +195,8 @@ class _ShortcutRowState extends ConsumerState<_ShortcutRow> {
           state: _hint != null
               ? AnKeycapState.error
               : _recording
-                  ? AnKeycapState.recording
-                  : AnKeycapState.idle,
+              ? AnKeycapState.recording
+              : AnKeycapState.idle,
           onTap: _startRecording,
         ),
       ),

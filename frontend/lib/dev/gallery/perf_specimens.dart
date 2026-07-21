@@ -24,11 +24,18 @@ const _scope = StreamScope(kind: 'conversation', id: 'cv_perf');
 
 // ── the three scripted streams 三条脚本流 ──────────────────────────────────────────────────────────
 
-typedef _Script = ({String tool, String open, List<String> chunks, int tickMs, String label});
+typedef _Script = ({
+  String tool,
+  String open,
+  List<String> chunks,
+  int tickMs,
+  String label,
+});
 
 /// 1MB document content in 4KB deltas (~30/s ≈ 8.5s of streaming). 1MB 内容,4KB×256 片。
 _Script _mbContent() {
-  final line = '${'x' * 61}\\n'; // 64 chars of JSON-string payload per line 每行 64 字符
+  final line =
+      '${'x' * 61}\\n'; // 64 chars of JSON-string payload per line 每行 64 字符
   final chunk = line * 64; // ~4KB per delta
   return (
     tool: 'create_document',
@@ -59,8 +66,20 @@ _Script _opsFirehose() {
 
 /// A 5000-word agent prompt, ~12 words per delta (~35/s). 5000 词 prompt。
 _Script _prompt5k() {
-  const words = ['analyse', 'the', 'quarterly', 'invoices', 'and', 'reconcile', 'every', 'ledger',
-    'entry', 'against', 'its', 'source'];
+  const words = [
+    'analyse',
+    'the',
+    'quarterly',
+    'invoices',
+    'and',
+    'reconcile',
+    'every',
+    'ledger',
+    'entry',
+    'against',
+    'its',
+    'source',
+  ];
   final chunks = <String>[];
   for (var i = 0; i < 5000 ~/ words.length + 1; i++) {
     chunks.add('${words.join(' ')} ');
@@ -97,7 +116,8 @@ class _PerfRigState extends State<_PerfRig> {
   // frame HUD (worst/last build+raster over the run) 帧时 HUD
   double _lastMs = 0, _worstMs = 0;
   int _over16 = 0, _frames = 0;
-  int _warmupFrames = 0; // first frames after play exempt (shader/first-layout jank) 起跑豁免帧
+  int _warmupFrames =
+      0; // first frames after play exempt (shader/first-layout jank) 起跑豁免帧
   TimingsCallback? _timings;
 
   @override
@@ -134,7 +154,9 @@ class _PerfRigState extends State<_PerfRig> {
 
   @override
   void dispose() {
-    if (_timings != null) SchedulerBinding.instance.removeTimingsCallback(_timings!);
+    if (_timings != null) {
+      SchedulerBinding.instance.removeTimingsCallback(_timings!);
+    }
     _timer?.cancel();
     super.dispose();
   }
@@ -147,13 +169,27 @@ class _PerfRigState extends State<_PerfRig> {
     _over16 = 0;
     _frames = 0;
     _warmupFrames = 5;
-    _reducer.apply(StreamEnvelope(
+    _reducer.apply(
+      StreamEnvelope(
         seq: 1,
         scope: _scope,
         id: 'tc_perf',
-        frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': widget.script.tool}))));
-    _reducer.apply(StreamEnvelope(
-        seq: 0, scope: _scope, id: 'tc_perf', frame: FrameDelta(chunk: widget.script.open)));
+        frame: FrameOpen(
+          node: StreamNode(
+            type: 'tool_call',
+            content: {'name': widget.script.tool},
+          ),
+        ),
+      ),
+    );
+    _reducer.apply(
+      StreamEnvelope(
+        seq: 0,
+        scope: _scope,
+        id: 'tc_perf',
+        frame: FrameDelta(chunk: widget.script.open),
+      ),
+    );
     _node = _reducer.nodeById('tc_perf');
     _timer = Timer.periodic(Duration(milliseconds: widget.script.tickMs), (t) {
       if (_fed >= widget.script.chunks.length) {
@@ -162,11 +198,14 @@ class _PerfRigState extends State<_PerfRig> {
         setState(() {});
         return;
       }
-      _reducer.apply(StreamEnvelope(
+      _reducer.apply(
+        StreamEnvelope(
           seq: 0,
           scope: _scope,
           id: 'tc_perf',
-          frame: FrameDelta(chunk: widget.script.chunks[_fed++])));
+          frame: FrameDelta(chunk: widget.script.chunks[_fed++]),
+        ),
+      );
       setState(() {});
     });
     setState(() {});
@@ -181,46 +220,74 @@ class _PerfRigState extends State<_PerfRig> {
     final hudColor = _worstMs <= 16.7
         ? c.ok
         : okShare > 0.97
-            ? c.warn
-            : c.danger;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Row(children: [
-        IconButton(
-          onPressed: running ? null : _play,
-          icon: Icon(running ? Icons.hourglass_top : Icons.play_arrow, size: AnSize.icon),
-          tooltip: '播放',
+        ? c.warn
+        : c.danger;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: running ? null : _play,
+              icon: Icon(
+                running ? Icons.hourglass_top : Icons.play_arrow,
+                size: AnSize.icon,
+              ),
+              tooltip: '播放',
+            ),
+            const SizedBox(width: AnSpace.s8),
+            Expanded(
+              child: Text(
+                _frames == 0
+                    ? '${widget.script.label} · ▶ 开跑后看帧时'
+                    : '帧 ${_lastMs.toStringAsFixed(1)}ms · 最差 ${_worstMs.toStringAsFixed(1)}ms · '
+                          '>16.7ms $_over16/$_frames帧 · 已喂 $_fed/${widget.script.chunks.length}',
+                style: AnText.meta.copyWith(
+                  color: _frames == 0 ? c.inkFaint : hudColor,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
-        const SizedBox(width: AnSpace.s8),
-        Expanded(
-          child: Text(
-            _frames == 0
-                ? '${widget.script.label} · ▶ 开跑后看帧时'
-                : '帧 ${_lastMs.toStringAsFixed(1)}ms · 最差 ${_worstMs.toStringAsFixed(1)}ms · '
-                    '>16.7ms $_over16/$_frames帧 · 已喂 $_fed/${widget.script.chunks.length}',
-            style: AnText.meta.copyWith(color: _frames == 0 ? c.inkFaint : hudColor),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ]),
-      const SizedBox(height: AnSpace.s6),
-      if (node != null)
-        // Height-capped like a transcript viewport slice so all three beds' HUDs stay on screen —
-        // the card lays out at full fidelity inside the scroll region. 限高如 transcript 视口切片,
-        // 三床 HUD 同屏;卡在滚动区内全保真布局。
-        SizedBox(
-          height: 150,
-          child: SingleChildScrollView(child: RepaintBoundary(child: ChatToolCard(node: node))),
-        )
-      else
-        Text('未开始 — 点 ▶ 流入', style: AnText.meta.copyWith(color: c.inkFaint)),
-    ]);
+        const SizedBox(height: AnSpace.s6),
+        if (node != null)
+          // Height-capped like a transcript viewport slice so all three beds' HUDs stay on screen —
+          // the card lays out at full fidelity inside the scroll region. 限高如 transcript 视口切片,
+          // 三床 HUD 同屏;卡在滚动区内全保真布局。
+          SizedBox(
+            height: 150,
+            child: SingleChildScrollView(
+              child: RepaintBoundary(child: ChatToolCard(node: node)),
+            ),
+          )
+        else
+          Text('未开始 — 点 ▶ 流入', style: AnText.meta.copyWith(color: c.inkFaint)),
+      ],
+    );
   }
 }
 
 /// The W0 gate specimens. W0 门禁 specimen。
 final List<GallerySpecimen> perfSpecimens = [
-  GallerySpecimen('1MB content 流入 · create_document 活窗', (_) => _PerfRig(_mbContent()), span: true, stress: true),
-  GallerySpecimen('50 op/s · create_workflow op ticker', (_) => _PerfRig(_opsFirehose(), autoplayIndex: 1), span: true, stress: true),
-  GallerySpecimen('5000 词 prompt · create_agent 散文窗', (_) => _PerfRig(_prompt5k(), autoplayIndex: 2), span: true, stress: true),
+  GallerySpecimen(
+    '1MB content 流入 · create_document 活窗',
+    (_) => _PerfRig(_mbContent()),
+    span: true,
+    stress: true,
+  ),
+  GallerySpecimen(
+    '50 op/s · create_workflow op ticker',
+    (_) => _PerfRig(_opsFirehose(), autoplayIndex: 1),
+    span: true,
+    stress: true,
+  ),
+  GallerySpecimen(
+    '5000 词 prompt · create_agent 散文窗',
+    (_) => _PerfRig(_prompt5k(), autoplayIndex: 2),
+    span: true,
+    stress: true,
+  ),
 ];

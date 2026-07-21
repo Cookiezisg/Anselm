@@ -37,10 +37,11 @@ class FixtureChatRepository implements ChatRepository {
   FixtureChatRepository({
     List<Conversation>? conversations,
     Map<String, List<ChatMessage>>? messages,
-  })  : _all = List.of(conversations ?? const []),
-        _messages = {
-          for (final e in (messages ?? const {}).entries) e.key: List.of(e.value),
-        };
+  }) : _all = List.of(conversations ?? const []),
+       _messages = {
+         for (final e in (messages ?? const {}).entries)
+           e.key: List.of(e.value),
+       };
 
   final List<Conversation> _all;
 
@@ -70,15 +71,15 @@ class FixtureChatRepository implements ChatRepository {
   // (activity/created → id DESC, name → id ASC) so paging is deterministic.
   // 置顶优先、再 sort 次键、再 id tiebreaker(与后端一致:activity/created→id 降序、name→id 升序),使分页确定。
   static Comparator<Conversation> _comparator(ConvSort sort) => (a, b) {
-        if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
-        final primary = switch (sort) {
-          ConvSort.activity => b.lastMessageAt.compareTo(a.lastMessageAt),
-          ConvSort.created => b.createdAt.compareTo(a.createdAt),
-          ConvSort.name => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
-        };
-        if (primary != 0) return primary;
-        return sort == ConvSort.name ? a.id.compareTo(b.id) : b.id.compareTo(a.id);
-      };
+    if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
+    final primary = switch (sort) {
+      ConvSort.activity => b.lastMessageAt.compareTo(a.lastMessageAt),
+      ConvSort.created => b.createdAt.compareTo(a.createdAt),
+      ConvSort.name => a.title.toLowerCase().compareTo(b.title.toLowerCase()),
+    };
+    if (primary != 0) return primary;
+    return sort == ConvSort.name ? a.id.compareTo(b.id) : b.id.compareTo(a.id);
+  };
 
   /// One-shot scripted list failure (the M9 loadMore retry path). 一次性列表失败脚本(M9)。
   bool failNextListConversations = false;
@@ -103,10 +104,11 @@ class FixtureChatRepository implements ChatRepository {
         ConvArchive.all => true,
       };
       if (!scopeOk) return false;
-      if (term.isNotEmpty && !c.title.toLowerCase().contains(term)) return false;
+      if (term.isNotEmpty && !c.title.toLowerCase().contains(term)) {
+        return false;
+      }
       return true;
-    }).toList()
-      ..sort(_comparator(sort));
+    }).toList()..sort(_comparator(sort));
     return _page(rows, cursor, limit);
   }
 
@@ -136,14 +138,20 @@ class FixtureChatRepository implements ChatRepository {
 
   @override
   Future<void> deleteConversation(String id) async {
-    if (!_all.any((c) => c.id == id)) throw StateError('conversation not found: $id');
+    if (!_all.any((c) => c.id == id)) {
+      throw StateError('conversation not found: $id');
+    }
     _all.removeWhere((c) => c.id == id);
   }
 
   @override
   Future<Conversation> getConversation(String id) async {
     final c = _all.where((c) => c.id == id).firstOrNull;
-    if (c == null) throw StateError('conversation not found: $id'); // mirrors 404 CONVERSATION_NOT_FOUND
+    if (c == null) {
+      throw StateError(
+        'conversation not found: $id',
+      ); // mirrors 404 CONVERSATION_NOT_FOUND
+    }
     return c;
   }
 
@@ -163,30 +171,48 @@ class FixtureChatRepository implements ChatRepository {
     );
     _all.insert(0, c);
     // Mirror the backend's notifications echo so the rail inserts the new row (demo/tests). 镜像回声,rail 长新行。
-    emitSignal(ConversationSignal(id: c.id, action: ConversationAction.created, durable: true));
+    emitSignal(
+      ConversationSignal(
+        id: c.id,
+        action: ConversationAction.created,
+        durable: true,
+      ),
+    );
     return c;
   }
 
   @override
-  Future<Page<ChatMessage>> listMessages(String conversationId, {String? cursor, int? limit}) async {
+  Future<Page<ChatMessage>> listMessages(
+    String conversationId, {
+    String? cursor,
+    int? limit,
+  }) async {
     if (!_all.any((c) => c.id == conversationId)) {
       throw StateError('conversation not found: $conversationId');
     }
     // Wire order = newest-first (the backend's keyset), so hydration's reverse is exercised for real.
     // 线缆序=新→旧(后端 keyset 同款),水化的反转被真实演练。
-    final newestFirst = (_messages[conversationId] ?? const <ChatMessage>[]).reversed.toList();
+    final newestFirst = (_messages[conversationId] ?? const <ChatMessage>[])
+        .reversed
+        .toList();
     return _page(newestFirst, cursor, limit);
   }
 
   @override
-  Future<MessagesWindow> messagesAround(String conversationId, String messageId, {int? limit}) async {
+  Future<MessagesWindow> messagesAround(
+    String conversationId,
+    String messageId, {
+    int? limit,
+  }) async {
     if (!_all.any((c) => c.id == conversationId)) {
       throw StateError('conversation not found: $conversationId');
     }
     final chrono = _messages[conversationId] ?? const <ChatMessage>[];
     final idx = chrono.indexWhere((m) => m.id == messageId);
     if (idx < 0) {
-      throw StateError('message not found: $messageId'); // identity anchoring: the backend 404s 身份锚点
+      throw StateError(
+        'message not found: $messageId',
+      ); // identity anchoring: the backend 404s 身份锚点
     }
     final n = (limit ?? 50).clamp(2, 200);
     final beforeN = n ~/ 2;
@@ -206,8 +232,11 @@ class FixtureChatRepository implements ChatRepository {
   }
 
   @override
-  Future<Page<ChatMessage>> listMessagesNewer(String conversationId,
-      {required String cursor, int? limit}) async {
+  Future<Page<ChatMessage>> listMessagesNewer(
+    String conversationId, {
+    required String cursor,
+    int? limit,
+  }) async {
     if (!_all.any((c) => c.id == conversationId)) {
       throw StateError('conversation not found: $conversationId');
     }
@@ -224,7 +253,11 @@ class FixtureChatRepository implements ChatRepository {
   }
 
   @override
-  Future<Page<TranscriptAnchor>> listAnchors(String conversationId, {String? cursor, int? limit}) async {
+  Future<Page<TranscriptAnchor>> listAnchors(
+    String conversationId, {
+    String? cursor,
+    int? limit,
+  }) async {
     if (!_all.any((c) => c.id == conversationId)) {
       throw StateError('conversation not found: $conversationId');
     }
@@ -238,8 +271,15 @@ class FixtureChatRepository implements ChatRepository {
     DateTime clusterAt = DateTime.now();
     void flush() {
       if (clusterCount == 0) return;
-      anchors.add(TranscriptAnchor(
-          kind: 'tools', messageId: clusterMsg, blockId: clusterFirst!.id, count: clusterCount, at: clusterAt));
+      anchors.add(
+        TranscriptAnchor(
+          kind: 'tools',
+          messageId: clusterMsg,
+          blockId: clusterFirst!.id,
+          count: clusterCount,
+          at: clusterAt,
+        ),
+      );
       clusterCount = 0;
       clusterFirst = null;
     }
@@ -255,25 +295,45 @@ class FixtureChatRepository implements ChatRepository {
     for (final m in chrono) {
       if (m.role == 'user') {
         flush();
-        final text = m.blocks.where((b) => b.type == 'text').map((b) => b.content).join();
-        anchors.add(TranscriptAnchor(kind: 'user', messageId: m.id, title: firstLine(text), at: m.createdAt));
+        final text = m.blocks
+            .where((b) => b.type == 'text')
+            .map((b) => b.content)
+            .join();
+        anchors.add(
+          TranscriptAnchor(
+            kind: 'user',
+            messageId: m.id,
+            title: firstLine(text),
+            at: m.createdAt,
+          ),
+        );
         continue;
       }
       for (final b in m.blocks) {
         if (b.type == 'compaction') {
           flush();
-          anchors.add(TranscriptAnchor(
-              kind: 'compaction', messageId: m.id, blockId: b.id, title: firstLine(b.content), at: b.createdAt ?? m.createdAt));
+          anchors.add(
+            TranscriptAnchor(
+              kind: 'compaction',
+              messageId: m.id,
+              blockId: b.id,
+              title: firstLine(b.content),
+              at: b.createdAt ?? m.createdAt,
+            ),
+          );
         } else if (b.type == 'tool_call' && b.attrs?['danger'] == 'dangerous') {
           flush();
           final name = '${b.attrs?['tool'] ?? ''}';
           final entity = '${b.attrs?['entityName'] ?? ''}';
-          anchors.add(TranscriptAnchor(
+          anchors.add(
+            TranscriptAnchor(
               kind: 'danger',
               messageId: m.id,
               blockId: b.id,
               title: entity.isEmpty ? name : '$name · $entity',
-              at: b.createdAt ?? m.createdAt));
+              at: b.createdAt ?? m.createdAt,
+            ),
+          );
         } else if (b.type == 'tool_call') {
           if (clusterCount == 0) {
             clusterFirst = b;
@@ -285,8 +345,17 @@ class FixtureChatRepository implements ChatRepository {
       }
       if (m.status == 'error' || m.status == 'cancelled') {
         flush();
-        final title = m.stopReason.isNotEmpty ? m.stopReason : (m.errorCode.isNotEmpty ? m.errorCode : m.status);
-        anchors.add(TranscriptAnchor(kind: 'abnormal', messageId: m.id, title: title, at: m.createdAt));
+        final title = m.stopReason.isNotEmpty
+            ? m.stopReason
+            : (m.errorCode.isNotEmpty ? m.errorCode : m.status);
+        anchors.add(
+          TranscriptAnchor(
+            kind: 'abnormal',
+            messageId: m.id,
+            title: title,
+            at: m.createdAt,
+          ),
+        );
       }
     }
     flush();
@@ -297,10 +366,19 @@ class FixtureChatRepository implements ChatRepository {
       final gates = [
         for (final i in interactions[conversationId] ?? const <Interaction>[])
           if (!i.resolved)
-            TranscriptAnchor(kind: 'gate', blockId: i.toolCallId, title: i.tool, at: DateTime.now()),
+            TranscriptAnchor(
+              kind: 'gate',
+              blockId: i.toolCallId,
+              title: i.tool,
+              at: DateTime.now(),
+            ),
       ];
       if (gates.isNotEmpty) {
-        page = Page(items: [...gates, ...page.items], nextCursor: page.nextCursor, hasMore: page.hasMore);
+        page = Page(
+          items: [...gates, ...page.items],
+          nextCursor: page.nextCursor,
+          hasMore: page.hasMore,
+        );
       }
     }
     return page;
@@ -325,36 +403,60 @@ class FixtureChatRepository implements ChatRepository {
     }
     final now = DateTime.now();
     final rows = _messages.putIfAbsent(conversationId, () => []);
-    rows.add(ChatMessage(
-      id: 'msg_fx_u${_idSeq++}',
-      conversationId: conversationId,
-      role: 'user',
-      status: 'completed',
-      attrs: {
-        if (attachmentIds.isNotEmpty) 'attachments': attachmentIds,
-        if (mentions.isNotEmpty)
-          'mentions': [
-            for (final m in mentions) {'type': m.type, 'id': m.id, 'name': m.id, 'content': ''},
-          ],
-      },
-      blocks: [
-        ChatBlock(id: 'blk_fx_${_idSeq++}', type: 'text', content: content, status: 'completed'),
-      ],
-      createdAt: now,
-    ));
+    rows.add(
+      ChatMessage(
+        id: 'msg_fx_u${_idSeq++}',
+        conversationId: conversationId,
+        role: 'user',
+        status: 'completed',
+        attrs: {
+          if (attachmentIds.isNotEmpty) 'attachments': attachmentIds,
+          if (mentions.isNotEmpty)
+            'mentions': [
+              for (final m in mentions)
+                {'type': m.type, 'id': m.id, 'name': m.id, 'content': ''},
+            ],
+        },
+        blocks: [
+          ChatBlock(
+            id: 'blk_fx_${_idSeq++}',
+            type: 'text',
+            content: content,
+            status: 'completed',
+          ),
+        ],
+        createdAt: now,
+      ),
+    );
     final assistantId = 'msg_fx_a${_idSeq++}';
-    rows.add(ChatMessage(
-      id: assistantId, conversationId: conversationId, role: 'assistant', status: 'pending', createdAt: now,
-    ));
-    _mutate(conversationId, (c) => c.copyWith(lastMessageAt: now, hasUnread: false));
-    lastSend = (conversationId: conversationId, content: content, mentions: mentions, assistantId: assistantId);
+    rows.add(
+      ChatMessage(
+        id: assistantId,
+        conversationId: conversationId,
+        role: 'assistant',
+        status: 'pending',
+        createdAt: now,
+      ),
+    );
+    _mutate(
+      conversationId,
+      (c) => c.copyWith(lastMessageAt: now, hasUnread: false),
+    );
+    lastSend = (
+      conversationId: conversationId,
+      content: content,
+      mentions: mentions,
+      assistantId: assistantId,
+    );
     lastSendAttachmentIds = attachmentIds;
     return assistantId;
   }
 
   @override
   Future<void> cancelTurn(String conversationId) async {
-    cancelled.add(conversationId); // the terminal frame is the DEMO SCRIPT's job (mirrors the stream) 终帧归脚本
+    cancelled.add(
+      conversationId,
+    ); // the terminal frame is the DEMO SCRIPT's job (mirrors the stream) 终帧归脚本
   }
 
   @override
@@ -367,7 +469,10 @@ class FixtureChatRepository implements ChatRepository {
   bool failNextModelOverride = false;
 
   @override
-  Future<Conversation> setModelOverride(String id, ({String apiKeyId, String modelId})? ref) async {
+  Future<Conversation> setModelOverride(
+    String id,
+    ({String apiKeyId, String modelId})? ref,
+  ) async {
     if (failNextModelOverride) {
       failNextModelOverride = false;
       throw StateError('scripted modelOverride failure');
@@ -376,18 +481,30 @@ class FixtureChatRepository implements ChatRepository {
       id,
       (c) => ref == null
           ? c.copyWith(modelOverride: null)
-          : c.copyWith(modelOverride: ModelRef(apiKeyId: ref.apiKeyId, modelId: ref.modelId)),
+          : c.copyWith(
+              modelOverride: ModelRef(
+                apiKeyId: ref.apiKeyId,
+                modelId: ref.modelId,
+              ),
+            ),
     );
   }
 
   @override
   Stream<StreamEnvelope> conversationFrames(String conversationId) =>
-      (_frames[conversationId] ??= StreamController<StreamEnvelope>.broadcast()).stream;
+      (_frames[conversationId] ??= StreamController<StreamEnvelope>.broadcast())
+          .stream;
 
   final Map<String, StreamController<StreamEnvelope>> _frames = {};
 
   /// What sendMessage / cancel / seen recorded — assertion + demo-script hooks. 发送/取消/已读的记录钩。
-  ({String conversationId, String content, List<({String type, String id})> mentions, String assistantId})? lastSend;
+  ({
+    String conversationId,
+    String content,
+    List<({String type, String id})> mentions,
+    String assistantId,
+  })?
+  lastSend;
   List<String> lastSendAttachmentIds = const [];
   final List<String> cancelled = [];
   final List<String> seen = [];
@@ -395,7 +512,8 @@ class FixtureChatRepository implements ChatRepository {
   /// Script one realtime frame into a conversation's feed (the demo's fake streaming + tests).
   /// 向某会话的帧流脚本化推一帧(demo 假流式 + 测试)。
   void emitFrame(String conversationId, StreamEnvelope envelope) =>
-      (_frames[conversationId] ??= StreamController<StreamEnvelope>.broadcast()).add(envelope);
+      (_frames[conversationId] ??= StreamController<StreamEnvelope>.broadcast())
+          .add(envelope);
 
   /// Seedable picker options. 可种的选择器选项。
 
@@ -460,7 +578,8 @@ class FixtureChatRepository implements ChatRepository {
 
   @override
   Future<ConversationTodos> getTodos(String conversationId) async =>
-      todos[conversationId] ?? ConversationTodos(conversationId: conversationId);
+      todos[conversationId] ??
+      ConversationTodos(conversationId: conversationId);
 
   /// Script one whole-list todo frame (durable, payload = the full list — the backend shape).
   /// 脚本化一帧 todo 整表(durable,payload=完整清单)。
@@ -472,7 +591,9 @@ class FixtureChatRepository implements ChatRepository {
         seq: seq,
         scope: StreamScope(kind: 'conversation', id: list.conversationId),
         id: 'todo_${list.subagentId.isEmpty ? 'main' : list.subagentId}',
-        frame: FrameSignal(node: StreamNode(type: 'todo', content: list.toJson())),
+        frame: FrameSignal(
+          node: StreamNode(type: 'todo', content: list.toJson()),
+        ),
       ),
     );
   }
@@ -497,7 +618,11 @@ class FixtureChatRepository implements ChatRepository {
         return t != 0 ? t : b.id.compareTo(a.id);
       });
     final filtered = rows
-        .where((r) => (kind == null || r.itemKind == kind) && (verb == null || r.verb == verb))
+        .where(
+          (r) =>
+              (kind == null || r.itemKind == kind) &&
+              (verb == null || r.verb == verb),
+        )
         .toList(growable: false);
     return _page(filtered, cursor, limit ?? 50);
   }
@@ -518,7 +643,9 @@ class FixtureChatRepository implements ChatRepository {
         seq: seq,
         scope: StreamScope(kind: 'conversation', id: row.conversationId),
         id: row.id,
-        frame: FrameSignal(node: StreamNode(type: 'touchpoint', content: row.toJson())),
+        frame: FrameSignal(
+          node: StreamNode(type: 'touchpoint', content: row.toJson()),
+        ),
       ),
     );
   }
@@ -529,8 +656,15 @@ class FixtureChatRepository implements ChatRepository {
   final Map<String, List<Interaction>> interactions = {};
 
   /// Every resolveInteraction call, in order — assertion hook. 决议调用记录(断言钩)。
-  final List<({String conversationId, String toolCallId, InteractionAction action, String? answer})>
-      resolvedInteractions = [];
+  final List<
+    ({
+      String conversationId,
+      String toolCallId,
+      InteractionAction action,
+      String? answer,
+    })
+  >
+  resolvedInteractions = [];
 
   /// Script the failed-resolve path (POST rejects → the provider restores the awaiting record).
   /// 脚本化决议失败(POST 拒 → provider 复原待决记录)。
@@ -551,8 +685,12 @@ class FixtureChatRepository implements ChatRepository {
       failNextResolve = false;
       throw StateError('scripted resolve failure');
     }
-    resolvedInteractions
-        .add((conversationId: conversationId, toolCallId: toolCallId, action: action, answer: answer));
+    resolvedInteractions.add((
+      conversationId: conversationId,
+      toolCallId: toolCallId,
+      action: action,
+      answer: answer,
+    ));
   }
 
   final Map<String, StreamController<StreamEnvelope>> _workflowStreams = {};
@@ -563,9 +701,10 @@ class FixtureChatRepository implements ChatRepository {
       .stream;
 
   /// Script one entities-stream frame onto a workflow scope (the run_terminal path). 脚本 workflow 帧。
-  void emitWorkflowFrame(String workflowId, StreamEnvelope env) => _workflowStreams
-      .putIfAbsent(workflowId, StreamController<StreamEnvelope>.broadcast)
-      .add(env);
+  void emitWorkflowFrame(String workflowId, StreamEnvelope env) =>
+      _workflowStreams
+          .putIfAbsent(workflowId, StreamController<StreamEnvelope>.broadcast)
+          .add(env);
 
   @override
   Stream<void> transcriptResync() => _resync.stream;
@@ -611,7 +750,8 @@ class FixtureChatRepository implements ChatRepository {
       _lazyTurnSignals.add((conversationId: conversationId, kind: kind));
 
   /// Uploaded attachments in order; [failNextUpload] scripts the failed-chip path. 上传记录+失败脚本。
-  final List<({String id, String filename, String? mimeType, int size})> uploads = [];
+  final List<({String id, String filename, String? mimeType, int size})>
+  uploads = [];
   final List<String> deletedAttachments = [];
   bool failNextUpload = false;
 
@@ -626,11 +766,20 @@ class FixtureChatRepository implements ChatRepository {
       throw StateError('scripted upload failure');
     }
     final id = 'att_fx_${_idSeq++}';
-    uploads.add((id: id, filename: filename, mimeType: mimeType, size: bytes.length));
+    uploads.add((
+      id: id,
+      filename: filename,
+      mimeType: mimeType,
+      size: bytes.length,
+    ));
     attachmentBytes[id] = bytes;
     return AttachmentMeta(
-        id: id, filename: filename, mimeType: mimeType ?? '', sizeBytes: bytes.length,
-        kind: (mimeType ?? '').startsWith('image/') ? 'image' : 'other');
+      id: id,
+      filename: filename,
+      mimeType: mimeType ?? '',
+      sizeBytes: bytes.length,
+      kind: (mimeType ?? '').startsWith('image/') ? 'image' : 'other',
+    );
   }
 
   @override
@@ -645,7 +794,9 @@ class FixtureChatRepository implements ChatRepository {
   @override
   Future<List<int>> getAttachmentBytes(String id) async {
     final b = attachmentBytes[id];
-    if (b == null) throw StateError('attachment content not found: $id'); // mirrors 404
+    if (b == null) {
+      throw StateError('attachment content not found: $id'); // mirrors 404
+    }
     return b;
   }
 
@@ -654,10 +805,16 @@ class FixtureChatRepository implements ChatRepository {
     final seeded = attachmentMetas[id];
     if (seeded != null) return seeded;
     final up = uploads.where((u) => u.id == id).firstOrNull;
-    if (up == null) throw StateError('attachment not found: $id'); // mirrors 404
+    if (up == null) {
+      throw StateError('attachment not found: $id'); // mirrors 404
+    }
     return AttachmentMeta(
-        id: id, filename: up.filename, mimeType: up.mimeType ?? '', sizeBytes: up.size,
-        kind: (up.mimeType ?? '').startsWith('image/') ? 'image' : 'other');
+      id: id,
+      filename: up.filename,
+      mimeType: up.mimeType ?? '',
+      sizeBytes: up.size,
+      kind: (up.mimeType ?? '').startsWith('image/') ? 'image' : 'other',
+    );
   }
 
   /// Synchronous row peek for scripts (null when absent — no throw). 脚本用同步查行(缺=null,不抛)。

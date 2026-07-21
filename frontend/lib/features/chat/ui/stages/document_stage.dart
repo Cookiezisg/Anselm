@@ -40,7 +40,8 @@ class DocumentStageBody extends ConsumerStatefulWidget {
 class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
   // Incremental prefix/paragraph bookkeeping (O(delta) per frame, W0). 增量前缀/段界记账。
   int _compared = 0; // chars compared against the baseline so far 已比对字符数
-  int _prefixLen = 0; // common prefix length (freezes at divergence) 公共前缀长(分叉即冻)
+  int _prefixLen =
+      0; // common prefix length (freezes at divergence) 公共前缀长(分叉即冻)
   bool _diverged = false;
   int _paraScanned = 0;
   final List<int> _paragraphs = [];
@@ -64,11 +65,15 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
       }
       _compared = i;
       _prefixLen = _diverged ? i : _compared;
-      if (!_diverged && content.length > baseline.length) _diverged = true; // grew past 旧尾即分叉
+      if (!_diverged && content.length > baseline.length) {
+        _diverged = true; // grew past 旧尾即分叉
+      }
     }
     // Paragraph boundaries: scan only the new span for '\n\n'. 段界只扫新段。
     for (var i = math.max(_paraScanned, 1); i < content.length; i++) {
-      if (content.codeUnitAt(i) == 0x0a && content.codeUnitAt(i - 1) == 0x0a) _paragraphs.add(i);
+      if (content.codeUnitAt(i) == 0x0a && content.codeUnitAt(i - 1) == 0x0a) {
+        _paragraphs.add(i);
+      }
     }
     _paraScanned = content.length;
   }
@@ -80,7 +85,9 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
     final scene = widget.scene;
     final session = scene.session;
     final editId = scene.editTargetId;
-    final truth = editId == null ? null : ref.watch(documentTruthProvider(editId));
+    final truth = editId == null
+        ? null
+        : ref.watch(documentTruthProvider(editId));
     final baseline = truth?.asData?.value.content ?? '';
 
     final content = session.liveStringNamed('content');
@@ -89,53 +96,83 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
     // R-9: an edit whose args never opened `content` is METADATA-ONLY — never fake an empty prose
     // curtain (缺省保留 ≠ 显式清空). R-9:没出现 content 键=只动元数据,不开散文幕。
     if (content == null && !scene.live) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        if (baseline.isNotEmpty) ...[
-          AnLayerDiff(oldText: baseline, versionLabel: t.chat.stage.proseUntouched, maxLines: 5),
-          const SizedBox(height: AnSpace.s6),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (baseline.isNotEmpty) ...[
+            AnLayerDiff(
+              oldText: baseline,
+              versionLabel: t.chat.stage.proseUntouched,
+              maxLines: 5,
+            ),
+            const SizedBox(height: AnSpace.s6),
+          ],
+          runStatBarOf(context, scene.state),
         ],
-        runStatBarOf(context, scene.state),
-      ]);
+      );
     }
 
     final text = content ?? '';
     if (scene.live) _advance(baseline, text);
 
     if (scene.live) {
-      final fastForwarding = baseline.isNotEmpty && !_diverged && text.isNotEmpty;
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        // 假想框律:路径 chip / 前缀·快进 caption(裸内容)归假想框(X=8);spine 是结构件留 X=0、prose 窗是真框。
-        // The imaginary-frame law: the path chip / prefix·fast-forward caption (bare content) join the frame
-        // (X=8); the spine (a structural rail) stays at X=0 and the prose window is a real frame.
-        if (path.isNotEmpty) ...[
-          stageFramed(AnPathChip(path: path)),
-          const SizedBox(height: AnSpace.s4),
-        ],
-        if (baseline.isNotEmpty && _diverged && _prefixLen > 0) ...[
-          stageFramed(Text(t.chat.stage.prefixKept(n: _prefixLen),
-              style: AnText.meta.copyWith(color: c.inkFaint))),
-          const SizedBox(height: AnSpace.s4),
-        ] else if (fastForwarding) ...[
-          stageFramed(Text(t.chat.stage.fastForwarding, style: AnText.meta.copyWith(color: c.inkFaint))),
-          const SizedBox(height: AnSpace.s4),
-        ],
-        // Explicit twin heights instead of stretch/IntrinsicHeight — AnWindow's internal
-        // LayoutBuilder cannot answer intrinsic queries (they throw). 双侧显式同高:AnWindow 内有
-        // LayoutBuilder,IntrinsicHeight 会炸。
-        Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(
-            height: AnSize.proseStage,
-            child: AnMinimapSpine(
-              totalUnits: math.max(baseline.length, text.length),
-              inkedUnits: text.length,
-              prefixUnits: _prefixLen,
-              paragraphOffsets: _paragraphs,
+      final fastForwarding =
+          baseline.isNotEmpty && !_diverged && text.isNotEmpty;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 假想框律:路径 chip / 前缀·快进 caption(裸内容)归假想框(X=8);spine 是结构件留 X=0、prose 窗是真框。
+          // The imaginary-frame law: the path chip / prefix·fast-forward caption (bare content) join the frame
+          // (X=8); the spine (a structural rail) stays at X=0 and the prose window is a real frame.
+          if (path.isNotEmpty) ...[
+            stageFramed(AnPathChip(path: path)),
+            const SizedBox(height: AnSpace.s4),
+          ],
+          if (baseline.isNotEmpty && _diverged && _prefixLen > 0) ...[
+            stageFramed(
+              Text(
+                t.chat.stage.prefixKept(n: _prefixLen),
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
             ),
+            const SizedBox(height: AnSpace.s4),
+          ] else if (fastForwarding) ...[
+            stageFramed(
+              Text(
+                t.chat.stage.fastForwarding,
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
+            ),
+            const SizedBox(height: AnSpace.s4),
+          ],
+          // Explicit twin heights instead of stretch/IntrinsicHeight — AnWindow's internal
+          // LayoutBuilder cannot answer intrinsic queries (they throw). 双侧显式同高:AnWindow 内有
+          // LayoutBuilder,IntrinsicHeight 会炸。
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                height: AnSize.proseStage,
+                child: AnMinimapSpine(
+                  totalUnits: math.max(baseline.length, text.length),
+                  inkedUnits: text.length,
+                  prefixUnits: _prefixLen,
+                  paragraphOffsets: _paragraphs,
+                ),
+              ),
+              const SizedBox(width: AnSpace.s6),
+              Expanded(
+                child: SizedBox(
+                  height: AnSize.proseStage,
+                  child: _ProseTail(text: text),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(width: AnSpace.s6),
-          Expanded(child: SizedBox(height: AnSize.proseStage, child: _ProseTail(text: text))),
-        ]),
-      ]);
+        ],
+      );
     }
 
     if (scene.failed) {
@@ -152,29 +189,39 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
     // Settle: the typeset 1:1 reading state + the honest size badge. 落定:排版阅读态+尺寸徽。
     final settled = session.closedStringAt(['content']) ?? text;
     final oldBytes = truth?.asData?.value.sizeBytes ?? baseline.length;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      // 假想框律:路径 chip 归假想框(X=8);ProseWindow 是真框、字节徽 Row 领起当家条真框,皆贴 X=0。
-      // The imaginary-frame law: the path chip joins the frame (X=8); the prose window is a real frame and the
-      // byte-badge row leads the real stat bar, both flush at X=0.
-      if (path.isNotEmpty) ...[
-        stageFramed(AnPathChip(path: path)),
-        const SizedBox(height: AnSpace.s4),
-      ],
-      if (settled.isNotEmpty) ProseWindow(markdown: settled),
-      const SizedBox(height: AnSpace.s6),
-      Row(children: [
-        // The whole-replace byte badge only when the content ACTUALLY changed — a pure current-truth render
-        // (sceneFromTruth: settled == baseline) is not an edit, so no phantom «X B → Y B». 内容真变才显字节徽。
-        if (editId != null && settled != baseline) ...[
-          Text(t.chat.stage.wholeReplace(from: formatBytes(oldBytes), to: formatBytes(settled.length)),
-              style: AnText.meta.copyWith(color: c.inkFaint)),
-          const SizedBox(width: AnSpace.s8),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // 假想框律:路径 chip 归假想框(X=8);ProseWindow 是真框、字节徽 Row 领起当家条真框,皆贴 X=0。
+        // The imaginary-frame law: the path chip joins the frame (X=8); the prose window is a real frame and the
+        // byte-badge row leads the real stat bar, both flush at X=0.
+        if (path.isNotEmpty) ...[
+          stageFramed(AnPathChip(path: path)),
+          const SizedBox(height: AnSpace.s4),
         ],
-        Expanded(child: runStatBarOf(context, scene.state)),
-      ]),
-    ]);
+        if (settled.isNotEmpty) ProseWindow(markdown: settled),
+        const SizedBox(height: AnSpace.s6),
+        Row(
+          children: [
+            // The whole-replace byte badge only when the content ACTUALLY changed — a pure current-truth render
+            // (sceneFromTruth: settled == baseline) is not an edit, so no phantom «X B → Y B». 内容真变才显字节徽。
+            if (editId != null && settled != baseline) ...[
+              Text(
+                t.chat.stage.wholeReplace(
+                  from: formatBytes(oldBytes),
+                  to: formatBytes(settled.length),
+                ),
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
+              const SizedBox(width: AnSpace.s8),
+            ],
+            Expanded(child: runStatBarOf(context, scene.state)),
+          ],
+        ),
+      ],
+    );
   }
-
 }
 
 /// Prose with `[[id]]` pilled inline — names resolved through the composer/editor's ONE
@@ -195,17 +242,22 @@ class _PilledProse extends ConsumerWidget {
     final key = mentionIdsKeyOf(text);
     final names = key.isEmpty
         ? const <String, String>{}
-        : ref.watch(stageMentionNamesProvider(key)).value ?? const <String, String>{};
+        : ref.watch(stageMentionNamesProvider(key)).value ??
+              const <String, String>{};
     final spans = <InlineSpan>[];
     var last = 0;
     for (final m in mentionIdRe.allMatches(text)) {
-      if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start)));
+      if (m.start > last) {
+        spans.add(TextSpan(text: text.substring(last, m.start)));
+      }
       final id = m.group(1)!;
-      spans.add(WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
-        // The ONE inline-capsule shell (批5 A-042 — the hand-rolled [[id]] pill retires). 唯一行内壳。
-        child: AnInlineCapsule(names[id] ?? id),
-      ));
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          // The ONE inline-capsule shell (批5 A-042 — the hand-rolled [[id]] pill retires). 唯一行内壳。
+          child: AnInlineCapsule(names[id] ?? id),
+        ),
+      );
       last = m.end;
     }
     if (last < text.length) spans.add(TextSpan(text: text.substring(last)));

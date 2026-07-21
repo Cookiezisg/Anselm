@@ -31,7 +31,8 @@ class EntitiesOverviewView extends ConsumerStatefulWidget {
   const EntitiesOverviewView({super.key});
 
   @override
-  ConsumerState<EntitiesOverviewView> createState() => _EntitiesOverviewViewState();
+  ConsumerState<EntitiesOverviewView> createState() =>
+      _EntitiesOverviewViewState();
 }
 
 class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
@@ -70,7 +71,9 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
     // shows «总览», not «Entities / 总览»). 浮层头只绑标题。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(shellHeadProvider.notifier).bind(t.overview.title, _scrollToTop);
+        ref
+            .read(shellHeadProvider.notifier)
+            .bind(t.overview.title, _scrollToTop);
       }
     });
 
@@ -81,7 +84,10 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
         children: [
           // The Overview IS the Entities root — «Entities» is the current context (inert), 总览 the title.
           // 总览即 Entities 根:「Entities」是当前上下文(惰性),黑字=总览。
-          AnOceanHeader(crumbs: [AnCrumb(t.detail.crumbRoot)], title: t.overview.title),
+          AnOceanHeader(
+            crumbs: [AnCrumb(t.detail.crumbRoot)],
+            title: t.overview.title,
+          ),
           Padding(
             padding: const EdgeInsets.only(bottom: AnGap.section),
             child: _ClipTiles(counts: overviewCounts(groups)),
@@ -101,7 +107,11 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
     );
   }
 
-  Widget _graphSection(BuildContext context, AsyncValue<EntityRelGraph> async, List<RailGroup> groups) {
+  Widget _graphSection(
+    BuildContext context,
+    AsyncValue<EntityRelGraph> async,
+    List<RailGroup> groups,
+  ) {
     final t = context.t.entities;
     return async.when(
       loading: () => const AnDeferredLoading(child: AnSkeleton.card()),
@@ -109,7 +119,10 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
         kind: AnStateKind.error,
         title: t.errorTitle,
         hint: t.errorHint,
-        action: AnButton(label: t.retry, onPressed: () => ref.invalidate(relGraphProvider)),
+        action: AnButton(
+          label: t.retry,
+          onPressed: () => ref.invalidate(relGraphProvider),
+        ),
       ),
       data: (g) {
         final sub = structuralSubgraph(g);
@@ -123,15 +136,21 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
           focusId: mostRecentGraphNodeId(sub.nodes, groups),
           nodeSemanticLabel: (n, deg) => relationNodeLabel(context, n, deg),
           edgeSemanticLabel: (e) => relationEdgeLabel(context, e),
-          semanticSummary: context.t.a11y
-              .relationSummary(nodes: '${sub.nodes.length}', edges: '${sub.edges.length}'),
+          semanticSummary: context.t.a11y.relationSummary(
+            nodes: '${sub.nodes.length}',
+            edges: '${sub.edges.length}',
+          ),
           expandLabel: t.overview.title,
           onExpand: () => context.go('/entities/graph'),
           // Single tap on the preview → open the full-page explore state (pre-selected). 单击→全页探索(预选)。
           onNodeTap: (id) {
             if (id == null) return;
             final kind = kindOf[id];
-            context.go(kind == null ? '/entities/graph' : '/entities/graph?sel=$kind:$id');
+            context.go(
+              kind == null
+                  ? '/entities/graph'
+                  : '/entities/graph?sel=$kind:$id',
+            );
           },
           // Double tap → jump straight to the entity's detail page (rail kinds only). 双击→直进实体页(仅 rail kind)。
           onNodeDoubleTap: (id) {
@@ -146,7 +165,10 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
   Widget _recentLedger(BuildContext context, List<RailGroup> groups) {
     final rows = recentEntities(groups, max: 5);
     if (rows.isEmpty) {
-      return Text(context.t.entities.selectHint, style: AnText.body.copyWith(color: context.colors.inkFaint));
+      return Text(
+        context.t.entities.selectHint,
+        style: AnText.body.copyWith(color: context.colors.inkFaint),
+      );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -157,10 +179,17 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
   Widget _recentRow(BuildContext context, EntityRow row) {
     final c = context.colors;
     return AnLedgerRow(
-      lead: Icon(AnIcons.byKey(row.kind.scopeKind), size: AnSize.icon, color: c.inkFaint),
+      lead: Icon(
+        AnIcons.byKey(row.kind.scopeKind),
+        size: AnSize.icon,
+        color: c.inkFaint,
+      ),
       primary: row.name.isEmpty ? row.id : row.name,
       mono: false,
-      chips: [if (row.version != null) AnChip('v${row.version}', look: AnChipLook.outlined)],
+      chips: [
+        if (row.version != null)
+          AnChip('v${row.version}', look: AnChipLook.outlined),
+      ],
       meta: fmtWaitedSince(row.updatedAt),
       onTap: () => context.go(entityLocation(row.kind, row.id)),
     );
@@ -182,7 +211,12 @@ class _ClipTiles extends StatelessWidget {
       _tile(context, AnIcons.handler, t.ref.handler, counts.handler),
       _tile(context, AnIcons.agent, t.ref.agent, counts.agent),
       _tile(context, AnIcons.workflow, t.ref.workflow, counts.workflow),
-      _tile(context, AnIcons.sliders, t.entities.overview.accessory, counts.accessory),
+      _tile(
+        context,
+        AnIcons.sliders,
+        t.entities.overview.accessory,
+        counts.accessory,
+      ),
     ];
     return IntrinsicHeight(
       child: Row(
@@ -204,16 +238,20 @@ class _ClipTiles extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Row(children: [
-            Icon(icon, size: AnSize.icon, color: c.inkFaint),
-            const SizedBox(width: AnGap.inline),
-            Expanded(
-              child: Text(label,
+          Row(
+            children: [
+              Icon(icon, size: AnSize.icon, color: c.inkFaint),
+              const SizedBox(width: AnGap.inline),
+              Expanded(
+                child: Text(
+                  label,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AnText.meta.copyWith(color: c.inkFaint)),
-            ),
-          ]),
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: AnGap.stackTight),
           AnCountUp(count, style: AnText.h2.copyWith(color: c.ink)),
         ],

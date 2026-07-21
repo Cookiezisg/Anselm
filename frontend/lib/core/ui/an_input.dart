@@ -103,7 +103,9 @@ class _AnInputState extends State<AnInput> {
   @override
   void initState() {
     super.initState();
-    _controller = widget.controller ?? (_ownController = TextEditingController(text: widget.initialValue));
+    _controller =
+        widget.controller ??
+        (_ownController = TextEditingController(text: widget.initialValue));
     _focus = widget.focusNode ?? (_ownFocus = FocusNode());
     _focus.addListener(_onFocusChange);
   }
@@ -126,7 +128,9 @@ class _AnInputState extends State<AnInput> {
         _ownController?.dispose();
         _ownController = null;
       }
-      _controller = widget.controller ?? (_ownController = TextEditingController(text: widget.initialValue));
+      _controller =
+          widget.controller ??
+          (_ownController = TextEditingController(text: widget.initialValue));
     }
   }
 
@@ -147,8 +151,11 @@ class _AnInputState extends State<AnInput> {
     final c = context.colors;
     // Tabular figures when mono OR [tabular] (原语 D): digits align + match a tabular display value
     // digit-for-digit (idle ↔ editing same width) — via the shared value-column style. 等宽数字(走值列样式单源)。
-    final base = widget.style ??
-        (widget.mono ? AnText.value(mono: true) : (widget.tabular ? AnText.value() : AnText.body));
+    final base =
+        widget.style ??
+        (widget.mono
+            ? AnText.value(mono: true)
+            : (widget.tabular ? AnText.value() : AnText.body));
     final style = base.copyWith(color: widget.readOnly ? c.inkFaint : c.ink);
     final borderColor = _focused ? c.lineStrong : c.line;
 
@@ -177,7 +184,8 @@ class _AnInputState extends State<AnInput> {
       // 随字走、不再钉死 13 号短光标。**多行同样推导**:旧的「多行随行缩放」豁免站不住——一个字段只有一种样式、
       // 无「行」可缩放;传 null 只是把光标交给平台(macOS 行盒+2=20.2、Win/Linux 行盒−4,跨平台差 6px),
       // 而同为 maxLines:null 的 AnComposer 一直钉死派生高、零副作用。
-      cursorHeight: (style.fontSize ?? AnText.body.fontSize)! + AnSize.caretRise,
+      cursorHeight:
+          (style.fontSize ?? AnText.body.fontSize)! + AnSize.caretRise,
       style: style,
       decoration: InputDecoration(
         isDense: true,
@@ -194,14 +202,20 @@ class _AnInputState extends State<AnInput> {
     // Seamless: no box chrome, text-height — the caller constrains width (a Flexible, or AnLeadValue's
     // value slot) so it slots in where the display text was, no jump. 无框、文字高:宽由调用方约束,原位替换、不跳。
     if (widget.seamless) {
-      return _label(Opacity(opacity: widget.enabled ? 1 : AnOpacity.disabled, child: field));
+      return _label(
+        Opacity(opacity: widget.enabled ? 1 : AnOpacity.disabled, child: field),
+      );
     }
 
     final boxH = widget.compact ? AnSize.controlSm : AnSize.control;
     final box = AnimatedContainer(
-      duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast, // focus-border fade = functional feedback 功能性反馈
+      duration: AnMotionPref.reduced(context)
+          ? Duration.zero
+          : AnMotion.fast, // focus-border fade = functional feedback 功能性反馈
       height: widget.multiline ? null : boxH,
-      constraints: BoxConstraints(minHeight: widget.multiline ? AnSize.control * 2 : boxH),
+      constraints: BoxConstraints(
+        minHeight: widget.multiline ? AnSize.control * 2 : boxH,
+      ),
       padding: EdgeInsets.symmetric(
         horizontal: widget.compact ? AnSpace.s8 : AnSpace.s12,
         vertical: widget.multiline ? AnSpace.s8 : 0,
@@ -218,17 +232,19 @@ class _AnInputState extends State<AnInput> {
     // block fills width — but only with a bounded parent; otherwise fall back to inputMin so an
     // empty input doesn't collapse to a thin line (and doesn't crash unbounded).
     // block 占满需有界父;否则退化到 inputMin,空输入不塌成细线、也不在无界处崩。
-    return _label(Opacity(
-      opacity: widget.enabled ? 1 : AnOpacity.disabled,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          if (widget.block && constraints.hasBoundedWidth) {
-            return SizedBox(width: double.infinity, child: box);
-          }
-          return SizedBox(width: AnSize.inputMin, child: box);
-        },
+    return _label(
+      Opacity(
+        opacity: widget.enabled ? 1 : AnOpacity.disabled,
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            if (widget.block && constraints.hasBoundedWidth) {
+              return SizedBox(width: double.infinity, child: box);
+            }
+            return SizedBox(width: AnSize.inputMin, child: box);
+          },
+        ),
       ),
-    ));
+    );
   }
 
   /// Wrap in the screen-reader name when one is given (glyph-placeholder fields). 有读屏名才包。

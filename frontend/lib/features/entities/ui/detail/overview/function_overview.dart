@@ -47,68 +47,102 @@ class FunctionOverview extends ConsumerWidget {
       children: [
         // Meta — the ONLY hand-editable surface, edited via the mature AnKv path (PATCH, no version
         // bump). Row order [说明, 标签] is stable (AnKv keys edit state by index). 唯一手编面,走 AnKv;行序稳定。
-        AnSection(variant: AnSectionVariant.plain, children: [
-          AnKv(
-            rows: [
-              AnKvRow(d.kv.desc, fn.description, editable: true),
-              // Tags row: hover → per-pill ✕ + far-right ➕; press ➕ → the add input appears. 标签行:➕→输入框。
-              AnKvRow.tags(d.kv.tags, fn.tags, tagsPlaceholder: d.addTag),
-            ],
-            onChanged: (rows) {
-              final desc = rows[0].value ?? '';
-              final tags = rows[1].tags ?? const [];
-              final patch = <String, dynamic>{};
-              if (desc != fn.description) patch['description'] = desc;
-              if (!listEquals(tags, fn.tags)) patch['tags'] = tags;
-              if (patch.isNotEmpty) _patchMeta(ref, patch);
-            },
-          ),
-        ]),
-        AnSection(label: d.sec.code, variant: AnSectionVariant.plain, children: [
-          AnFadeCollapse(
-            collapsible: codeLines > _maxCollapsedLines,
-            // Geometry from the family head (B-002); `reading` matches the child editor below.
-            // 几何归族头(B-002);reading 与下方子件同档。
-            collapsedHeight: AnCodeEditor.collapsedHeightFor(_maxCollapsedLines, reading: true),
-            expandLabel: d.codeToggle.expand(n: codeLines),
-            collapseLabel: d.codeToggle.collapse,
-            child: AnCodeEditor(code: v.code, lang: 'py', wrap: true, reading: true),
-          ),
-        ]),
-        AnSection(label: d.sec.input, variant: AnSectionVariant.plain, grid: true, children: [
-          AnInfoCard(title: d.sec.input, icon: AnIcons.byKey('enter'), child: fieldList(v.inputs, emptyTitle: d.val.none)),
-          AnInfoCard(title: d.sec.output, icon: AnIcons.byKey('run'), child: fieldList(v.outputs, emptyTitle: d.val.none)),
-        ]),
-        AnSection(label: d.sec.env, variant: AnSectionVariant.plain, children: [
-          // Bare child — AnSection owns the inter-block gap (children never self-margin). 间距归容器。
-          if (v.envError != null && v.envError!.isNotEmpty)
-            AnCallout(v.envError!, severity: AnCalloutSeverity.danger),
-          AnInfoCard(
-            title: d.card.venv,
-            icon: AnIcons.byKey('check'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Status word = content (15, cross-kind consistency); version/id/timestamp = meta.
-                // 状态词=内容 15(跨类一致);版本/id/时间戳=元数据 13。
-                kvList([(d.kv.status, v.envStatus)]),
-                kvList([
-                  (d.kv.python, v.pythonVersion),
-                  (d.kv.envId, v.envId),
-                  (d.kv.syncedAt, fmtTime(v.envSyncedAt)),
-                ], meta: true),
-                const SizedBox(height: AnSpace.s8),
-                if (v.dependencies.isEmpty)
-                  insetEmpty(d.val.none) // the feature's one empty-state idiom 同一空态惯用法
-                else
-                  // A LABELED tags row — bare unlabeled rows read as mystery words («pydantic»,
-                  // WRK-070 B12 用户点名帧). KV grammar like every sibling line of this card.
-                  // 带标签的 tags 行——无标签裸行读作神秘词;与本卡每一行同一套 KV 文法。
-                  AnKv(rows: [AnKvRow.tags(d.card.deps, v.dependencies)]),
+        AnSection(
+          variant: AnSectionVariant.plain,
+          children: [
+            AnKv(
+              rows: [
+                AnKvRow(d.kv.desc, fn.description, editable: true),
+                // Tags row: hover → per-pill ✕ + far-right ➕; press ➕ → the add input appears. 标签行:➕→输入框。
+                AnKvRow.tags(d.kv.tags, fn.tags, tagsPlaceholder: d.addTag),
               ],
+              onChanged: (rows) {
+                final desc = rows[0].value ?? '';
+                final tags = rows[1].tags ?? const [];
+                final patch = <String, dynamic>{};
+                if (desc != fn.description) patch['description'] = desc;
+                if (!listEquals(tags, fn.tags)) patch['tags'] = tags;
+                if (patch.isNotEmpty) _patchMeta(ref, patch);
+              },
             ),
-          ),
-        ]),
+          ],
+        ),
+        AnSection(
+          label: d.sec.code,
+          variant: AnSectionVariant.plain,
+          children: [
+            AnFadeCollapse(
+              collapsible: codeLines > _maxCollapsedLines,
+              // Geometry from the family head (B-002); `reading` matches the child editor below.
+              // 几何归族头(B-002);reading 与下方子件同档。
+              collapsedHeight: AnCodeEditor.collapsedHeightFor(
+                _maxCollapsedLines,
+                reading: true,
+              ),
+              expandLabel: d.codeToggle.expand(n: codeLines),
+              collapseLabel: d.codeToggle.collapse,
+              child: AnCodeEditor(
+                code: v.code,
+                lang: 'py',
+                wrap: true,
+                reading: true,
+              ),
+            ),
+          ],
+        ),
+        AnSection(
+          label: d.sec.input,
+          variant: AnSectionVariant.plain,
+          grid: true,
+          children: [
+            AnInfoCard(
+              title: d.sec.input,
+              icon: AnIcons.byKey('enter'),
+              child: fieldList(v.inputs, emptyTitle: d.val.none),
+            ),
+            AnInfoCard(
+              title: d.sec.output,
+              icon: AnIcons.byKey('run'),
+              child: fieldList(v.outputs, emptyTitle: d.val.none),
+            ),
+          ],
+        ),
+        AnSection(
+          label: d.sec.env,
+          variant: AnSectionVariant.plain,
+          children: [
+            // Bare child — AnSection owns the inter-block gap (children never self-margin). 间距归容器。
+            if (v.envError != null && v.envError!.isNotEmpty)
+              AnCallout(v.envError!, severity: AnCalloutSeverity.danger),
+            AnInfoCard(
+              title: d.card.venv,
+              icon: AnIcons.byKey('check'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // Status word = content (15, cross-kind consistency); version/id/timestamp = meta.
+                  // 状态词=内容 15(跨类一致);版本/id/时间戳=元数据 13。
+                  kvList([(d.kv.status, v.envStatus)]),
+                  kvList([
+                    (d.kv.python, v.pythonVersion),
+                    (d.kv.envId, v.envId),
+                    (d.kv.syncedAt, fmtTime(v.envSyncedAt)),
+                  ], meta: true),
+                  const SizedBox(height: AnSpace.s8),
+                  if (v.dependencies.isEmpty)
+                    insetEmpty(
+                      d.val.none,
+                    ) // the feature's one empty-state idiom 同一空态惯用法
+                  else
+                    // A LABELED tags row — bare unlabeled rows read as mystery words («pydantic»,
+                    // WRK-070 B12 用户点名帧). KV grammar like every sibling line of this card.
+                    // 带标签的 tags 行——无标签裸行读作神秘词;与本卡每一行同一套 KV 文法。
+                    AnKv(rows: [AnKvRow.tags(d.card.deps, v.dependencies)]),
+                ],
+              ),
+            ),
+          ],
+        ),
       ],
     );
   }

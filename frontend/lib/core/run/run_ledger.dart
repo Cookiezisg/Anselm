@@ -35,18 +35,28 @@ class RunBeadStrip extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     if (beads.isEmpty) return const SizedBox.shrink();
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      if (pageScoped) ...[
-        Text(Translations.of(context).run.beadPageScope, style: AnText.meta.copyWith(color: c.inkFaint)),
-        const SizedBox(width: AnSpace.s6),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (pageScoped) ...[
+          Text(
+            Translations.of(context).run.beadPageScope,
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+          const SizedBox(width: AnSpace.s6),
+        ],
+        Flexible(
+          child: Wrap(
+            spacing: AnSpace.s4,
+            runSpacing: AnSpace.s4,
+            children: [
+              for (final b in beads)
+                AnTooltip(message: b.tooltip, child: AnStatusDot(b.status)),
+            ],
+          ),
+        ),
       ],
-      Flexible(
-        child: Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
-          for (final b in beads)
-            AnTooltip(message: b.tooltip, child: AnStatusDot(b.status)),
-        ]),
-      ),
-    ]);
+    );
   }
 }
 
@@ -97,8 +107,10 @@ class RunLedger extends StatelessWidget {
   final int cap;
 
   @override
-  Widget build(BuildContext context) =>
-      AnLedgerList(cap: cap, children: [for (final r in rows) _RunRow(row: r)]);
+  Widget build(BuildContext context) => AnLedgerList(
+    cap: cap,
+    children: [for (final r in rows) _RunRow(row: r)],
+  );
 }
 
 class _RunRow extends StatefulWidget {
@@ -115,7 +127,8 @@ class _RunRowState extends State<_RunRow> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final row = widget.row;
-    final navigable = row.tapKind != null && row.tapId != null && hasPanelFor(row.tapKind!);
+    final navigable =
+        row.tapKind != null && row.tapId != null && hasPanelFor(row.tapKind!);
     final expandable = row.expandContent != null;
 
     Widget lead;
@@ -143,7 +156,9 @@ class _RunRowState extends State<_RunRow> {
       meta: row.stamp,
       onTap: expandable
           ? () => setState(() => _open = !_open)
-          : (navigable ? () => toolNavTo(context, row.tapKind!, row.tapId!) : null),
+          : (navigable
+                ? () => toolNavTo(context, row.tapKind!, row.tapId!)
+                : null),
       expandChild: row.expandContent,
       expanded: _open,
     );

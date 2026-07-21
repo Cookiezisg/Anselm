@@ -21,5 +21,6 @@ class SettingsJumpController extends Notifier<String?> {
   }
 }
 
-final settingsJumpProvider =
-    NotifierProvider<SettingsJumpController, String?>(SettingsJumpController.new);
+final settingsJumpProvider = NotifierProvider<SettingsJumpController, String?>(
+  SettingsJumpController.new,
+);

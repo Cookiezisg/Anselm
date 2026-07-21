@@ -24,7 +24,8 @@ class AnAutoGrid extends StatelessWidget {
   const AnAutoGrid({
     required this.children,
     this.minColWidth = AnSize.block,
-    this.gap = AnGap.block, // 12 — so a section's grid:true keeps the SAME card gap as its column mode (was 16) 与单列同块间距
+    this.gap = AnGap
+        .block, // 12 — so a section's grid:true keeps the SAME card gap as its column mode (was 16) 与单列同块间距
     this.runGap = AnGap.block,
     super.key,
   });
@@ -62,7 +63,10 @@ class AnAutoGrid extends StatelessWidget {
         // Columns that fit (gap-compensated: n cols need n*minW + (n-1)*gap ≤ w), floored, ≥1 and never
         // more than there are children (auto-fit collapses empty tracks → occupied ones share 1fr).
         // 能放下的列数(含 gap 补偿),下限 1、上限子数(auto-fit 折叠空轨、占用轨均摊)。
-        final n = ((w + gap) / (minColWidth + gap)).floor().clamp(1, children.length);
+        final n = ((w + gap) / (minColWidth + gap)).floor().clamp(
+          1,
+          children.length,
+        );
         // Equal column width filling the row. floorToDouble keeps every column EQUAL (no per-column
         // rounding divergence) AND keeps n*colW + (n-1)*gap ≤ w, so a float epsilon never wrong-wraps
         // the Wrap; the < n px remainder is an invisible right margin. 等宽填行;向下取整避 FP 误折行。

@@ -14,21 +14,23 @@ import '../../../../support/router_harness.dart';
 // relationship graph + the «最近更新» ledger, and the fixed «总览» rail row.
 
 Widget _ocean() => routedHost(
-      const Scaffold(body: SizedBox(width: 900, height: 900, child: EntityOcean())),
-      initialLocation: '/',
-      repository: demoEntityRepository(),
-    );
+  const Scaffold(body: SizedBox(width: 900, height: 900, child: EntityOcean())),
+  initialLocation: '/',
+  repository: demoEntityRepository(),
+);
 
 Widget _rail() => routedHost(
-      const Scaffold(body: SizedBox(width: 320, height: 900, child: EntityRail())),
-      initialLocation: '/',
-      repository: demoEntityRepository(),
-    );
+  const Scaffold(body: SizedBox(width: 320, height: 900, child: EntityRail())),
+  initialLocation: '/',
+  repository: demoEntityRepository(),
+);
 
 void main() {
   final e = t.entities;
 
-  testWidgets('default Overview: five tiles + graph + recent ledger', (tester) async {
+  testWidgets('default Overview: five tiles + graph + recent ledger', (
+    tester,
+  ) async {
     await tester.pumpWidget(_ocean());
     await tester.pump(const Duration(milliseconds: 80));
     expect(find.byType(EntitiesOverviewView), findsOneWidget);
@@ -46,9 +48,15 @@ void main() {
     expect(find.byType(AnLedgerRow), findsWidgets);
   });
 
-  testWidgets('the rail carries the fixed «总览» row (route home entry)', (tester) async {
+  testWidgets('the rail carries the fixed «总览» row (route home entry)', (
+    tester,
+  ) async {
     await tester.pumpWidget(_rail());
     await tester.pump(const Duration(milliseconds: 80));
-    expect(find.text(e.overview.title), findsWidgets, reason: 'the pinned Overview rail row');
+    expect(
+      find.text(e.overview.title),
+      findsWidgets,
+      reason: 'the pinned Overview rail row',
+    );
   });
 }

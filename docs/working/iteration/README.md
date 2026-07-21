@@ -73,7 +73,7 @@ landed-into:
 每个 fix 已在 COMMIT 同提交做 1:1 doc-sync（铁律 #6 / CLAUDE.md #9）——第一道防线。但一批改动里**跨面的 drift 会漏**（如某轮把 `api.md` 漏了、靠对抗审查才逮到）。故**里程碑**（一批 fix 后 / 周期性）跑一次**全量对齐**：
 
 - **审计扇出**（多 agent 并发、每面一个、只读）：`api.md` / `database.md` / `error-codes.md` / `events.md` / `domains/*` / `foundation/*` / `overview.md` 各自 diff 文档 vs 权威代码——端点 / 表·列·CHECK·索引 / 错误码 + **计数** / SSE 事件 / 实体字段 / op / 文档化行为，逐项核（**计数必须真去数代码**，别信文档自报）。本轮改最多的面（trigger / workflow 并发 / control·approval / function / mcp / scheduler / cel）**优先审**。每 agent 报 confirmed drift（doc 位置 + doc 说什么 + 代码真相 `file:line` + 精确修法）。
-- **修**：回主 agent **串行**修 drift（high→low），`make docs` 绿，`docs(loop): align <面> 到代码` 精确 commit。
+- **修**：回主 agent **串行**修 drift（high→low），`make -C docs verify` 绿，`docs(loop): align <面> 到代码` 精确 commit。
 - **判据**：reference 文档 = 代码的**精确投影**（rule #9），任何事实不符 = bug（与编译失败同级）；只修事实 drift、不碰文案偏好。
 - **机制**：审计与修都是 Workflow 扇出（EXPLORE 并发审 / EXPLOIT 串行修），与主 loop 同骨架。
 
@@ -81,10 +81,10 @@ landed-into:
 
 **① 一次性 · 起真后端 + 配 deepseek**（用我们自己的后端，不是测试 harness）
 ```bash
-make server                  # 真后端：端口 8742、数据 /tmp/anselm-dev（持久）；停用 make stop
+make -C backend run                  # 真后端：端口 8742、数据 /tmp/anselm-dev（持久）；停用 make -C backend stop
 bash testend/loop/setup.sh   # 等 health → 建 workspace + deepseek api-key + 默认模型 → 写 serve.json
 ```
-> **★ 铁律：探针必须打在『当前源 build 的 fresh backend』（0619 血泪教训）。** `make server` 若端口已被既存进程占住会复用那个 **stale** binary——**每次提交 fix 后、每轮探针前，必须确保 :8742 跑的是当前源**：`make stop && make server`（或核对 `lsof -ti:8742` 进程启动时刻 `ps -o lstart` **晚于**你最后的 fix commit 时间）。harness 会拦截 kill 共享进程——那就 `go build ./cmd/server` 后**另起一个端口**（`ANSELM_ADDR=:8743 ANSELM_DATA_DIR=/tmp/anselm-x <binary>`）、探针 serve.json 指向它。**复用 stale backend = find/verify 全失真**：round 6-12 误打 16:25 旧码、行为复验对已修格全假（fix 靠 commit+make verify 单测+代码确诊才没白做）。
+> **★ 铁律：探针必须打在『当前源 build 的 fresh backend』（0619 血泪教训）。** `make -C backend run` 若端口已被既存进程占住会复用那个 **stale** binary——**每次提交 fix 后、每轮探针前，必须确保 :8742 跑的是当前源**：`make -C backend stop && make -C backend run`（或核对 `lsof -ti:8742` 进程启动时刻 `ps -o lstart` **晚于**你最后的 fix commit 时间）。harness 会拦截 kill 共享进程——那就 `go build ./cmd/server` 后**另起一个端口**（`ANSELM_ADDR=:8743 ANSELM_DATA_DIR=/tmp/anselm-x <binary>`）、探针 serve.json 指向它。**复用 stale backend = find/verify 全失真**：round 6-12 误打 16:25 旧码、行为复验对已修格全假（fix 靠 commit+make verify 单测+代码确诊才没白做）。
 
 **复验既修格**：直 curl 当前源 fresh backend 比跑 agent lane 更确定——例：`POST /controls {when:"input.("}` 应带 `details.reason`（F69）；`POST /approvals {template,timeout:"0s"}` 应 `APPROVAL_INVALID_TIMEOUT`（F60）；add_node 顶层误放 input 应 `WORKFLOW_INVALID_OPS`（F70）。
 

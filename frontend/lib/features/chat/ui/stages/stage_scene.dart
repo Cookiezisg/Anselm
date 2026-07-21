@@ -51,4 +51,5 @@ class StageScene {
 }
 
 /// A kind stage's body builder. 舞台体构建器。
-typedef StageBodyBuilder = Widget Function(BuildContext context, StageScene scene);
+typedef StageBodyBuilder =
+    Widget Function(BuildContext context, StageScene scene);

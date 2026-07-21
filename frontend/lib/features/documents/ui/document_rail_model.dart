@@ -31,7 +31,11 @@ const String kSkillRowPrefix = 'skill:';
 /// documents section is a genuine tree ([SidebarRow.children]); a node with children renders a fold
 /// chevron, so no folder/file discriminator is needed (every node is a page). Widget/context-free so the
 /// mapping is unit-tested without pumping UI. 纯投影:文档树 + skill 列 → 双段 SidebarModel(文档树 + skill 扁平)。
-SidebarModel buildDocumentsRailModel(List<DocumentNode> tree, List<Skill> skills, DocRailLabels labels) {
+SidebarModel buildDocumentsRailModel(
+  List<DocumentNode> tree,
+  List<Skill> skills,
+  DocRailLabels labels,
+) {
   // Group by parent + order by position, so the tree assembles in one pass. 按 parentId 分组 + position 排序。
   final byParent = <String?, List<DocumentNode>>{};
   for (final d in tree) {
@@ -45,33 +49,53 @@ SidebarModel buildDocumentsRailModel(List<DocumentNode> tree, List<Skill> skills
   // fileText (AnIcons.doc); empty body → the blank-page glyph (AnIcons.file). A node with CHILDREN but
   // no body still reads honestly as an empty page (its fold chevron says "folder"). 空/已写双 icon。
   SidebarRow toRow(DocumentNode d) => SidebarRow(
-        id: d.id,
-        label: d.name.isEmpty ? labels.untitled : d.name,
-        icon: d.hasContent ? AnIcons.doc : AnIcons.file,
-        children: [for (final child in byParent[d.id] ?? const <DocumentNode>[]) toRow(child)],
-      );
+    id: d.id,
+    label: d.name.isEmpty ? labels.untitled : d.name,
+    icon: d.hasContent ? AnIcons.doc : AnIcons.file,
+    children: [
+      for (final child in byParent[d.id] ?? const <DocumentNode>[])
+        toRow(child),
+    ],
+  );
 
-  final docRows = [for (final root in byParent[null] ?? const <DocumentNode>[]) toRow(root)];
+  final docRows = [
+    for (final root in byParent[null] ?? const <DocumentNode>[]) toRow(root),
+  ];
   final skillRows = [
     for (final s in skills)
-      SidebarRow(id: '$kSkillRowPrefix${s.name}', label: s.name, icon: AnIcons.skill),
+      SidebarRow(
+        id: '$kSkillRowPrefix${s.name}',
+        label: s.name,
+        icon: AnIcons.skill,
+      ),
   ];
 
   return SidebarModel(
     newLabel: labels.newLabel,
     filterPlaceholder: labels.filter,
     groups: [
-      SidebarGroup(types: [
-        SidebarType(label: labels.documents, icon: AnIcons.doc, rows: docRows),
-        SidebarType(label: labels.skills, icon: AnIcons.skill, rows: skillRows),
-      ]),
+      SidebarGroup(
+        types: [
+          SidebarType(
+            label: labels.documents,
+            icon: AnIcons.doc,
+            rows: docRows,
+          ),
+          SidebarType(
+            label: labels.skills,
+            icon: AnIcons.skill,
+            rows: skillRows,
+          ),
+        ],
+      ),
     ],
   );
 }
 
 /// Resolve a rail row id back to a [DocSelection]-shaped tuple (a skill if it carries the namespace
 /// prefix, else a document). 把 rail 行 id 解回选区(带前缀=skill,否则 document)。
-({bool isSkill, String id}) docSelectionForRowId(String rowId) => rowId.startsWith(kSkillRowPrefix)
+({bool isSkill, String id}) docSelectionForRowId(String rowId) =>
+    rowId.startsWith(kSkillRowPrefix)
     ? (isSkill: true, id: rowId.substring(kSkillRowPrefix.length))
     : (isSkill: false, id: rowId);
 
@@ -94,7 +118,10 @@ SidebarModel buildDocumentsRailModel(List<DocumentNode> tree, List<Skill> skills
   AnRowDropZone zone,
 ) {
   if (draggedId == targetId) return null;
-  if (draggedId.startsWith(kSkillRowPrefix) || targetId.startsWith(kSkillRowPrefix)) return null;
+  if (draggedId.startsWith(kSkillRowPrefix) ||
+      targetId.startsWith(kSkillRowPrefix)) {
+    return null;
+  }
   final byId = {for (final d in tree) d.id: d};
   final target = byId[targetId];
   if (target == null || !byId.containsKey(draggedId)) return null;
@@ -103,10 +130,14 @@ SidebarModel buildDocumentsRailModel(List<DocumentNode> tree, List<Skill> skills
   var hops = 0;
   for (String? p = targetId; p != null; p = byId[p]?.parentId) {
     if (p == draggedId) return null;
-    if (++hops > tree.length) return null; // malformed parent loop — refuse 畸形父环,拒绝
+    if (++hops > tree.length) {
+      return null; // malformed parent loop — refuse 畸形父环,拒绝
+    }
   }
 
-  if (zone == AnRowDropZone.inside) return (parentId: target.id, position: null);
+  if (zone == AnRowDropZone.inside) {
+    return (parentId: target.id, position: null);
+  }
 
   final siblings = [
     for (final d in tree)
@@ -114,5 +145,8 @@ SidebarModel buildDocumentsRailModel(List<DocumentNode> tree, List<Skill> skills
   ]..sort((a, b) => a.position.compareTo(b.position));
   final idx = siblings.indexWhere((d) => d.id == targetId);
   if (idx < 0) return null;
-  return (parentId: target.parentId, position: zone == AnRowDropZone.above ? idx : idx + 1);
+  return (
+    parentId: target.parentId,
+    position: zone == AnRowDropZone.above ? idx : idx + 1,
+  );
 }

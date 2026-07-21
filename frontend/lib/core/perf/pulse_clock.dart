@@ -50,7 +50,8 @@ class PulseClock extends ChangeNotifier implements ValueListenable<double> {
 
   Timer? _timer;
   double _phase = 0;
-  Duration _elapsed = Duration.zero; // accumulated from fired ticks (fake-async deterministic) 由已触发节拍累加(fake-async 确定)
+  Duration _elapsed = Duration
+      .zero; // accumulated from fired ticks (fake-async deterministic) 由已触发节拍累加(fake-async 确定)
   Duration _lastPoke = Duration.zero; // in the same clock 同一时基
   bool _pokedWhileStopped = false;
 
@@ -79,7 +80,9 @@ class PulseClock extends ChangeNotifier implements ValueListenable<double> {
   @override
   void removeListener(VoidCallback listener) {
     super.removeListener(listener);
-    if (!hasListeners) _stop(toRest: false); // nobody watching — just stop 无人看即停
+    if (!hasListeners) {
+      _stop(toRest: false); // nobody watching — just stop 无人看即停
+    }
   }
 
   void _maybeStart() {
@@ -87,17 +90,22 @@ class PulseClock extends ChangeNotifier implements ValueListenable<double> {
     _pokedWhileStopped = false;
     _elapsed = Duration.zero;
     _lastPoke = Duration.zero;
-    _phase = 0; // restart from rest — never resume a stale mid-breath phase 从静止起搏,不续陈旧半相
+    _phase =
+        0; // restart from rest — never resume a stale mid-breath phase 从静止起搏,不续陈旧半相
     _timer = Timer.periodic(cadence, _onTick);
   }
 
   void _onTick(Timer _) {
     _elapsed += cadence;
     if (_elapsed - _lastPoke > idleAfter) {
-      _stop(toRest: true); // degrade: freeze at the static pose + one last notify 降级:冻回静态并广播一次
+      _stop(
+        toRest: true,
+      ); // degrade: freeze at the static pose + one last notify 降级:冻回静态并广播一次
       return;
     }
-    _phase = (_elapsed.inMicroseconds % period.inMicroseconds) / period.inMicroseconds;
+    _phase =
+        (_elapsed.inMicroseconds % period.inMicroseconds) /
+        period.inMicroseconds;
     notifyListeners();
   }
 

@@ -28,11 +28,11 @@ part 'retention.g.dart';
 /// 设置存储面板编辑它,scheduler 大表读它渲保留墓碑行(墓碑是**呈现**决策,后端零特殊字段)。
 @freezed
 abstract class RetentionConfig with _$RetentionConfig {
-  const factory RetentionConfig({
-    @Default(0) int runRetentionDays,
-  }) = _RetentionConfig;
+  const factory RetentionConfig({@Default(0) int runRetentionDays}) =
+      _RetentionConfig;
 
-  factory RetentionConfig.fromJson(Map<String, dynamic> json) => _$RetentionConfigFromJson(json);
+  factory RetentionConfig.fromJson(Map<String, dynamic> json) =>
+      _$RetentionConfigFromJson(json);
 }
 
 extension RetentionX on RetentionConfig {

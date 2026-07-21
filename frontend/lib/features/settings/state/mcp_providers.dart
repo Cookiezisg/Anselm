@@ -23,7 +23,9 @@ class McpServersController extends AsyncNotifier<List<McpServerStatus>> {
     final repo = ref.watch(settingsRepositoryProvider);
     final gw = ref.watch(sseGatewayProvider);
     if (gw != null) {
-      final frames = gw.kindStream(StreamName.entities, 'mcp').listen((_) => _schedule());
+      final frames = gw
+          .kindStream(StreamName.entities, 'mcp')
+          .listen((_) => _schedule());
       final resync = gw.resync(StreamName.entities).listen((_) => _schedule());
       ref.onDispose(() {
         frames.cancel();
@@ -46,7 +48,9 @@ class McpServersController extends AsyncNotifier<List<McpServerStatus>> {
   }
 
   Future<McpServerStatus> put(String name, Map<String, dynamic> config) async {
-    final row = await ref.read(settingsRepositoryProvider).putMcpServer(name, config);
+    final row = await ref
+        .read(settingsRepositoryProvider)
+        .putMcpServer(name, config);
     await refresh();
     return row;
   }
@@ -57,19 +61,28 @@ class McpServersController extends AsyncNotifier<List<McpServerStatus>> {
   }
 
   Future<McpServerStatus> reconnect(String name) async {
-    final row = await ref.read(settingsRepositoryProvider).reconnectMcpServer(name);
+    final row = await ref
+        .read(settingsRepositoryProvider)
+        .reconnectMcpServer(name);
     await refresh();
     return row;
   }
 
-  Future<McpServerStatus> install(String fullName, Map<String, String> env) async {
-    final row = await ref.read(settingsRepositoryProvider).installMcp(fullName, env);
+  Future<McpServerStatus> install(
+    String fullName,
+    Map<String, String> env,
+  ) async {
+    final row = await ref
+        .read(settingsRepositoryProvider)
+        .installMcp(fullName, env);
     await refresh();
     return row;
   }
 
-  Future<({List<String> imported, List<String> skipped})> importJson(String json,
-      {bool overwrite = false}) async {
+  Future<({List<String> imported, List<String> skipped})> importJson(
+    String json, {
+    bool overwrite = false,
+  }) async {
     final r = await ref
         .read(settingsRepositoryProvider)
         .importMcpJson(json, overwrite: overwrite);
@@ -80,22 +93,30 @@ class McpServersController extends AsyncNotifier<List<McpServerStatus>> {
 
 final mcpServersProvider =
     AsyncNotifierProvider<McpServersController, List<McpServerStatus>>(
-        McpServersController.new);
+      McpServersController.new,
+    );
 
 /// The curated marketplace (bounded; search is client-side — the endpoint takes no query).
 /// 市场目录(有界;搜索纯前端——端点无参数)。
 final mcpRegistryProvider = FutureProvider<List<McpRegistryEntry>>(
-    (ref) => ref.watch(settingsRepositoryProvider).listMcpRegistry());
+  (ref) => ref.watch(settingsRepositoryProvider).listMcpRegistry(),
+);
 
 /// One entry's install plan (工单⑨) — fetched when its form opens. 安装计划;表单打开时取。
-final mcpPlanProvider = FutureProvider.autoDispose.family<McpRegistryPlan, String>(
-    (ref, fullName) => ref.watch(settingsRepositoryProvider).planMcpInstall(fullName));
+final mcpPlanProvider = FutureProvider.autoDispose
+    .family<McpRegistryPlan, String>(
+      (ref, fullName) =>
+          ref.watch(settingsRepositoryProvider).planMcpInstall(fullName),
+    );
 
 /// The 256KB stderr tail — detail tab, refetched on open. stderr 尾;详情页打开时取。
 final mcpStderrProvider = FutureProvider.autoDispose.family<String, String>(
-    (ref, name) => ref.watch(settingsRepositoryProvider).mcpStderr(name));
+  (ref, name) => ref.watch(settingsRepositoryProvider).mcpStderr(name),
+);
 
 /// The first call-log page + aggregates. 调用日志首页+聚合。
 final mcpCallsProvider = FutureProvider.autoDispose
-    .family<({List<McpCall> calls, int okCount, int failedCount, String? nextCursor}), String>(
-        (ref, name) => ref.watch(settingsRepositoryProvider).listMcpCalls(name));
+    .family<
+      ({List<McpCall> calls, int okCount, int failedCount, String? nextCursor}),
+      String
+    >((ref, name) => ref.watch(settingsRepositoryProvider).listMcpCalls(name));

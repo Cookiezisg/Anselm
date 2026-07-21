@@ -13,7 +13,7 @@ import (
 // (or any local agent) tricked into resolving an attacker-controlled domain to 127.0.0.1 will still
 // connect to our port, but its Host header carries that domain. We accept only 127.0.0.1 / ::1 /
 // localhost (any port) and 403 the rest. Always-on: it costs nothing under a loopback bind, and the
-// dev `make server` + testend reach the server via exactly these names, so they pass.
+// dev `make -C backend run` + testend reach the server via exactly these names, so they pass.
 //
 // RequireLoopbackHost 拒绝 Host 头非 loopback 名的请求——防 DNS rebinding 的标准做法。仅绑 127.0.0.1
 // 不够:被诱导把攻击者域名解析到 127.0.0.1 的浏览器/本机 agent 仍会连到我们的端口,但 Host 带的是那个

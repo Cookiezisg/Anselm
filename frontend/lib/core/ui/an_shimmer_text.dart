@@ -21,7 +21,14 @@ import '../design/tokens.dart';
 /// 染文字本身。[reveal]:**首过即揭示**——光带前方字形仍透明(尚未诞生)、后方落到 base 色,光把词从左到右「写」出来,
 /// 之后转入 base→highlight→base 循环(两者都收在全 base、无缝切换)。降级或 active:false:纯静态全词。
 class AnShimmerText extends StatefulWidget {
-  const AnShimmerText(this.text, {required this.style, this.highlight, this.active = true, this.reveal = false, super.key});
+  const AnShimmerText(
+    this.text, {
+    required this.style,
+    this.highlight,
+    this.active = true,
+    this.reveal = false,
+    super.key,
+  });
 
   final String text;
 
@@ -41,10 +48,12 @@ class AnShimmerText extends StatefulWidget {
   State<AnShimmerText> createState() => _AnShimmerTextState();
 }
 
-class _AnShimmerTextState extends State<AnShimmerText> with SingleTickerProviderStateMixin {
+class _AnShimmerTextState extends State<AnShimmerText>
+    with SingleTickerProviderStateMixin {
   // EAGER-INIT (assign in initState, never a lazy `late final =` field). 急切初始化。
   late final AnimationController _c;
-  late bool _revealDone; // false only while the one-shot wipe-in is still owed 仅首次揭示未完时 false
+  late bool
+  _revealDone; // false only while the one-shot wipe-in is still owed 仅首次揭示未完时 false
 
   @override
   void initState() {
@@ -70,11 +79,16 @@ class _AnShimmerTextState extends State<AnShimmerText> with SingleTickerProvider
   void _onStatus(AnimationStatus s) {
     if (s == AnimationStatus.completed && !_revealDone) {
       _revealDone = true;
-      if (widget.active && !AnMotionPref.reducedOrAssistive(context) && mounted) {
-        _c.duration = AnMotion.breath; // reveal (slow) done → settle into the breath loop 揭示完转 breath 循环
+      if (widget.active &&
+          !AnMotionPref.reducedOrAssistive(context) &&
+          mounted) {
+        _c.duration = AnMotion
+            .breath; // reveal (slow) done → settle into the breath loop 揭示完转 breath 循环
         _c.repeat();
       }
-      if (mounted) setState(() {}); // swap the reveal gradient → loop gradient 换渐变
+      if (mounted) {
+        setState(() {}); // swap the reveal gradient → loop gradient 换渐变
+      }
     }
   }
 
@@ -85,7 +99,8 @@ class _AnShimmerTextState extends State<AnShimmerText> with SingleTickerProvider
         _c.duration = AnMotion.breath;
         _c.repeat();
       } else {
-        _c.duration = AnMotion.slow; // a quick wipe-in, then settle to the slow breath loop 首扫快、再转慢循环
+        _c.duration = AnMotion
+            .slow; // a quick wipe-in, then settle to the slow breath loop 首扫快、再转慢循环
         _c.forward(from: 0);
       }
     } else {
@@ -119,7 +134,8 @@ class _AnShimmerTextState extends State<AnShimmerText> with SingleTickerProvider
         // Linear (NOT eased): easeOut on a .repeat() stutters at the loop boundary (same as AnSkeleton).
         // 线性(非 ease):repeat 上 ease 会在循环点抖(同 AnSkeleton)。
         builder: (ctx, child) => ShaderMask(
-          blendMode: BlendMode.srcIn, // recolour the glyphs (vs AnSkeleton's srcATop over opaque bones) 染字形
+          blendMode: BlendMode
+              .srcIn, // recolour the glyphs (vs AnSkeleton's srcATop over opaque bones) 染字形
           shaderCallback: (rect) => LinearGradient(
             colors: [base, highlight, trailing],
             stops: const [0.35, 0.5, 0.65],

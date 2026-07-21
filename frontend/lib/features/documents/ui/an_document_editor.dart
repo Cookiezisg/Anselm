@@ -52,6 +52,7 @@ class AnDocumentEditor extends ConsumerStatefulWidget {
   final bool autofocusName;
   final String description;
   final List<String> tags;
+
   /// Whether the tags editor renders. Skills have no `tags` frontmatter — showing an editable tags row
   /// there is a phantom edit (typed tags are silently dropped by the skill meta handler). skill 无 tags。
   final bool showTags;
@@ -79,7 +80,8 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
   // 672 wide. This surface centers a bare 672 column, and since (vw−672)/2 == (vw−720)/2 + pageX the text
   // occupies the exact same centered band. 阅读文字列与 AnPage 海洋逐像素对齐(720 列−2×24 内距=672 文字)。
   static const double _measure = AnSize.content - AnInset.pageX * 2; // 672
-  static const double _activeBand = AnSpace.s64; // a heading within this of the viewport top is "active" 活动带
+  static const double _activeBand =
+      AnSpace.s64; // a heading within this of the viewport top is "active" 活动带
 
   @override
   void initState() {
@@ -119,7 +121,9 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
 
   /// Scroll the whole page back to the big title. 滚回大标题。
   void scrollToTop() {
-    if (_scroll.hasClients) _scroll.animateTo(0, duration: AnMotion.mid, curve: AnMotion.easeOut);
+    if (_scroll.hasClients) {
+      _scroll.animateTo(0, duration: AnMotion.mid, curve: AnMotion.easeOut);
+    }
   }
 
   /// The measured header CONTENT height (crumb + big title + desc + tags), published for the ocean's
@@ -157,7 +161,10 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
     if (top == null || editorTop == null) return;
     // s16 = breathing room left above the heading after the jump (scroll-coordinate composition, not a
     // spacing tier). s16=跳转后标题上方呼吸位(滚动坐标合成,非档位)。
-    final target = (editorTop + top - AnSpace.s16).clamp(0.0, _scroll.position.maxScrollExtent);
+    final target = (editorTop + top - AnSpace.s16).clamp(
+      0.0,
+      _scroll.position.maxScrollExtent,
+    );
     _scroll.animateTo(target, duration: AnMotion.mid, curve: AnMotion.easeOut);
   }
 
@@ -174,7 +181,8 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
       final top = _editorKey.currentState?.contentTopForNode(ids[i]);
       if (top == null) continue;
       if (top <= scrolled) {
-        active = i; // the last heading scrolled past the band is the active one 最后越过带的即活动
+        active =
+            i; // the last heading scrolled past the band is the active one 最后越过带的即活动
       } else {
         break;
       }
@@ -194,36 +202,50 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
     // face over their reading styles (null = default sans). Watching here rebuilds the header + re-memoizes
     // the editor stylesheet on a live switch. 内容字体轴(热):正文+大标题覆盖衬线/系统脸(null=默认 sans);watch 即切换。
     final prose = ref.watch(contentFaceProvider);
-    return LayoutBuilder(builder: (context, box) {
-      final side = box.maxWidth > AnSize.content // ≡ _measure + 2×pageX 恒等
-          ? (box.maxWidth - _measure) / 2
-          : AnInset.pageX;
-      final hpad = EdgeInsets.symmetric(horizontal: side);
-      return CustomScrollView(
-        controller: _scroll,
-        slivers: [
-          SliverPadding(
-            // Top pad clears the shell's floating-head scrim band (like AnPage) — kept OUTSIDE the
-            // [_headerKey] subtree so the measured [headerHeight] stays content-only (collapse-threshold
-            // parity with the entity ocean). 顶 pad 让出虚化带(同 AnPage),置于 _headerKey 外→量得头高仍是纯内容(与 entity 折叠阈同源)。
-            padding: EdgeInsets.only(top: _headTopPad, left: side, right: side),
-            sliver: SliverToBoxAdapter(child: KeyedSubtree(key: _headerKey, child: _header(context, prose))),
-          ),
-          SliverPadding(
-            padding: hpad,
-            sliver: AnEditor(
-              key: _editorKey,
-              initialMarkdown: widget.initialMarkdown,
-              resolvedNames: widget.resolvedNames,
-              mentionSource: widget.mentionSource,
-              onChangedMarkdown: widget.onChangedMarkdown,
-              shrinkWrap: true,
-              prose: prose,
+    return LayoutBuilder(
+      builder: (context, box) {
+        final side =
+            box.maxWidth >
+                AnSize
+                    .content // ≡ _measure + 2×pageX 恒等
+            ? (box.maxWidth - _measure) / 2
+            : AnInset.pageX;
+        final hpad = EdgeInsets.symmetric(horizontal: side);
+        return CustomScrollView(
+          controller: _scroll,
+          slivers: [
+            SliverPadding(
+              // Top pad clears the shell's floating-head scrim band (like AnPage) — kept OUTSIDE the
+              // [_headerKey] subtree so the measured [headerHeight] stays content-only (collapse-threshold
+              // parity with the entity ocean). 顶 pad 让出虚化带(同 AnPage),置于 _headerKey 外→量得头高仍是纯内容(与 entity 折叠阈同源)。
+              padding: EdgeInsets.only(
+                top: _headTopPad,
+                left: side,
+                right: side,
+              ),
+              sliver: SliverToBoxAdapter(
+                child: KeyedSubtree(
+                  key: _headerKey,
+                  child: _header(context, prose),
+                ),
+              ),
             ),
-          ),
-        ],
-      );
-    });
+            SliverPadding(
+              padding: hpad,
+              sliver: AnEditor(
+                key: _editorKey,
+                initialMarkdown: widget.initialMarkdown,
+                resolvedNames: widget.resolvedNames,
+                mentionSource: widget.mentionSource,
+                onChangedMarkdown: widget.onChangedMarkdown,
+                shrinkWrap: true,
+                prose: prose,
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   // The reading-scale header is the [AnDocHeader] primitive (A-113 — the arrangement lives in gallery,

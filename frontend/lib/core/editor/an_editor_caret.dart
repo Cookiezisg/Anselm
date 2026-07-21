@@ -29,7 +29,10 @@ class AnCaretOverlayBuilder implements SuperEditorLayerBuilder {
   const AnCaretOverlayBuilder();
 
   @override
-  ContentLayerWidget build(BuildContext context, SuperEditorContext editContext) {
+  ContentLayerWidget build(
+    BuildContext context,
+    SuperEditorContext editContext,
+  ) {
     return AnCaretOverlay(
       composer: editContext.composer,
       document: editContext.document,
@@ -68,9 +71,16 @@ class AnCaretOverlay extends CaretDocumentOverlay {
 class _AnCaretOverlayState extends CaretDocumentOverlayState {
   @override
   Rect? computeLayoutDataWithDocumentLayout(
-      BuildContext contentLayersContext, BuildContext documentContext, DocumentLayout documentLayout) {
+    BuildContext contentLayersContext,
+    BuildContext documentContext,
+    DocumentLayout documentLayout,
+  ) {
     // The upstream rect: correct x/line frame, full line-box height. 上游矩形:x/行框对、高=整行盒。
-    final full = super.computeLayoutDataWithDocumentLayout(contentLayersContext, documentContext, documentLayout);
+    final full = super.computeLayoutDataWithDocumentLayout(
+      contentLayersContext,
+      documentContext,
+      documentLayout,
+    );
     if (full == null) return null;
 
     final extent = widget.composer.selection?.extent;
@@ -93,10 +103,18 @@ class _AnCaretOverlayState extends CaretDocumentOverlayState {
     Rect? glyph;
     if (length > 0) {
       final offset = nodePosition.offset;
-      final (start, end) = offset < length ? (offset, offset + 1) : (offset - 1, offset);
+      final (start, end) = offset < length
+          ? (offset, offset + 1)
+          : (offset - 1, offset);
       glyph = documentLayout.getRectForSelection(
-        DocumentPosition(nodeId: extent.nodeId, nodePosition: TextNodePosition(offset: start)),
-        DocumentPosition(nodeId: extent.nodeId, nodePosition: TextNodePosition(offset: end)),
+        DocumentPosition(
+          nodeId: extent.nodeId,
+          nodePosition: TextNodePosition(offset: start),
+        ),
+        DocumentPosition(
+          nodeId: extent.nodeId,
+          nodePosition: TextNodePosition(offset: end),
+        ),
       );
     }
     final band = anCaretBand(
@@ -125,7 +143,9 @@ class _AnCaretOverlayState extends CaretDocumentOverlayState {
   required double lineHeight,
   required double fontSize,
 }) {
-  if (glyph != null && glyph.height > 0) return (top: glyph.top, height: glyph.height);
+  if (glyph != null && glyph.height > 0) {
+    return (top: glyph.top, height: glyph.height);
+  }
   final height = math.min(lineHeight, fontSize + AnSize.caretRise);
   return (top: lineTop + (lineHeight - height) / 2, height: height);
 }
@@ -171,7 +191,8 @@ class AnFieldCaret extends StatefulWidget {
   State<AnFieldCaret> createState() => _AnFieldCaretState();
 }
 
-class _AnFieldCaretState extends State<AnFieldCaret> with SingleTickerProviderStateMixin {
+class _AnFieldCaretState extends State<AnFieldCaret>
+    with SingleTickerProviderStateMixin {
   late final BlinkController _blink;
 
   @override
@@ -199,7 +220,8 @@ class _AnFieldCaretState extends State<AnFieldCaret> with SingleTickerProviderSt
   }
 
   void _syncBlink() {
-    final wants = widget.focusNode.hasFocus && widget.controller.selection.isCollapsed;
+    final wants =
+        widget.focusNode.hasFocus && widget.controller.selection.isCollapsed;
     if (wants && !_blink.isBlinking) {
       _blink.startBlinking();
     } else if (!wants && _blink.isBlinking) {
@@ -245,17 +267,28 @@ class _AnFieldCaretPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (!focusNode.hasFocus) return;
     final selection = controller.selection;
-    if (!selection.isValid || !selection.isCollapsed) return; // expanded → the band shows it, no caret 有选区不画
+    if (!selection.isValid || !selection.isCollapsed) {
+      return; // expanded → the band shows it, no caret 有选区不画
+    }
     // SuperTextFieldState.textLayout is public API but marked test-visible upstream; it is the ONLY seam
     // that gives a field's caret geometry, and reading it is exactly what this layer exists for.
     // 该 getter 上游标了测试可见,但它是取字段光标几何的唯一缝——本层的存在理由即此。
     // ignore: invalid_use_of_visible_for_testing_member
     final layout = fieldKey.currentState?.textLayout;
-    if (layout == null) return; // not laid out yet — the next paint has it 尚未布局,下帧即有
+    if (layout == null) {
+      return; // not laid out yet — the next paint has it 尚未布局,下帧即有
+    }
 
-    final position = TextPosition(offset: selection.extentOffset, affinity: selection.affinity);
-    final offset = layout.getOffsetForCaret(position); // caret TOP-left within its line box 行盒内的光标左上
-    final lineHeight = layout.getHeightForCaret(position) ?? layout.getLineHeightAtPosition(position);
+    final position = TextPosition(
+      offset: selection.extentOffset,
+      affinity: selection.affinity,
+    );
+    final offset = layout.getOffsetForCaret(
+      position,
+    ); // caret TOP-left within its line box 行盒内的光标左上
+    final lineHeight =
+        layout.getHeightForCaret(position) ??
+        layout.getLineHeightAtPosition(position);
     // The SAME probe the document caret makes: the character at the caret (or the one before, at text end),
     // tight box (getBoxesForSelection defaults to BoxHeightStyle.tight). 与文档光标**同一个**探针:光标处字符
     // (文末取前一个)的 tight 盒(getBoxesForSelection 默认即 tight)。
@@ -264,18 +297,32 @@ class _AnFieldCaretPainter extends CustomPainter {
     if (length > 0) {
       final at = selection.extentOffset;
       final (start, end) = at < length ? (at, at + 1) : (at - 1, at);
-      final boxes = layout.getBoxesForSelection(TextSelection(baseOffset: start, extentOffset: end));
+      final boxes = layout.getBoxesForSelection(
+        TextSelection(baseOffset: start, extentOffset: end),
+      );
       if (boxes.isNotEmpty) glyph = boxes.last.toRect();
     }
-    final band = anCaretBand(glyph: glyph, lineTop: offset.dy, lineHeight: lineHeight, fontSize: fontSize);
+    final band = anCaretBand(
+      glyph: glyph,
+      lineTop: offset.dy,
+      lineHeight: lineHeight,
+      fontSize: fontSize,
+    );
     canvas.drawRect(
-      Rect.fromLTWH(offset.dx - AnSize.caret / 2, band.top, AnSize.caret, band.height),
+      Rect.fromLTWH(
+        offset.dx - AnSize.caret / 2,
+        band.top,
+        AnSize.caret,
+        band.height,
+      ),
       Paint()..color = color.withValues(alpha: blink.opacity),
     );
   }
 
   @override
   bool shouldRepaint(_AnFieldCaretPainter old) =>
-      old.fontSize != fontSize || old.color != color || old.controller != controller || old.focusNode != focusNode;
+      old.fontSize != fontSize ||
+      old.color != color ||
+      old.controller != controller ||
+      old.focusNode != focusNode;
 }
-

@@ -24,7 +24,10 @@ class AttachmentImageProvider extends ImageProvider<AttachmentImageProvider> {
       SynchronousFuture(this);
 
   @override
-  ImageStreamCompleter loadImage(AttachmentImageProvider key, ImageDecoderCallback decode) {
+  ImageStreamCompleter loadImage(
+    AttachmentImageProvider key,
+    ImageDecoderCallback decode,
+  ) {
     return MultiFrameImageStreamCompleter(
       codec: _load(decode),
       scale: 1,
@@ -35,13 +38,17 @@ class AttachmentImageProvider extends ImageProvider<AttachmentImageProvider> {
   Future<ui.Codec> _load(ImageDecoderCallback decode) async {
     final bytes = await fetch();
     if (bytes.isEmpty) throw StateError('attachment $id has no content');
-    return decode(await ui.ImmutableBuffer.fromUint8List(
-        bytes is Uint8List ? bytes : Uint8List.fromList(bytes)));
+    return decode(
+      await ui.ImmutableBuffer.fromUint8List(
+        bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
+      ),
+    );
   }
 
   // Identity by id — the ImageCache dedupe axis. 以 id 为身份=缓存去重轴。
   @override
-  bool operator ==(Object other) => other is AttachmentImageProvider && other.id == id;
+  bool operator ==(Object other) =>
+      other is AttachmentImageProvider && other.id == id;
 
   @override
   int get hashCode => id.hashCode;

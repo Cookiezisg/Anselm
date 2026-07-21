@@ -56,7 +56,9 @@ class SelectedOceanController extends Notifier<OceanKind> {
 }
 
 final selectedOceanProvider =
-    NotifierProvider<SelectedOceanController, OceanKind>(SelectedOceanController.new);
+    NotifierProvider<SelectedOceanController, OceanKind>(
+      SelectedOceanController.new,
+    );
 
 /// Whether the NOTIFICATIONS tray is open — an axis ORTHOGONAL to [selectedOceanProvider]: it takes over
 /// the left island's middle (the rail), leaving the center ocean untouched, so you can pull up
@@ -72,4 +74,6 @@ class NotificationsTray extends Notifier<bool> {
   }
 }
 
-final notificationsOpenProvider = NotifierProvider<NotificationsTray, bool>(NotificationsTray.new);
+final notificationsOpenProvider = NotifierProvider<NotificationsTray, bool>(
+  NotificationsTray.new,
+);

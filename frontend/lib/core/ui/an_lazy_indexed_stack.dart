@@ -47,13 +47,17 @@ class _AnLazyIndexedStackState extends State<AnLazyIndexedStack> {
   Widget build(BuildContext context) {
     // Guard against an out-of-range index (a non-stack selection): clamp so IndexedStack always has a
     // valid slot and the mounted-alive slots below never get torn down. 越界钳制,保活槽不卸。
-    if (widget.index >= 0 && widget.index < widget.count) _visited.add(widget.index);
+    if (widget.index >= 0 && widget.index < widget.count) {
+      _visited.add(widget.index);
+    }
     return IndexedStack(
       index: widget.index.clamp(0, widget.count - 1),
       sizing: widget.sizing,
       children: [
         for (var i = 0; i < widget.count; i++)
-          _visited.contains(i) ? widget.builder(context, i) : const SizedBox.shrink(),
+          _visited.contains(i)
+              ? widget.builder(context, i)
+              : const SizedBox.shrink(),
       ],
     );
   }

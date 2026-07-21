@@ -22,20 +22,19 @@ Widget Function(BuildContext, ToolCardState) searchHitBody({
   required String listKey,
   required int cap,
   required ToolHitRow Function(Translations t, Map<String, dynamic> hit) row,
-}) =>
-    (context, state) {
-      final h = parseSearchHits(state.resultText, listKey);
-      if (h == null || h.items.isEmpty) return const SizedBox.shrink();
-      final t = Translations.of(context);
-      return ToolHitList(
-        rows: h.items.map((hit) => row(t, hit)).toList(),
-        cap: cap,
-        total: h.total,
-        serverTruncated: h.total != null && h.total! > h.count,
-        rawJson: state.resultText,
-        onRowTap: (kind, id) => goToPanel(context, kind, id),
-      );
-    };
+}) => (context, state) {
+  final h = parseSearchHits(state.resultText, listKey);
+  if (h == null || h.items.isEmpty) return const SizedBox.shrink();
+  final t = Translations.of(context);
+  return ToolHitList(
+    rows: h.items.map((hit) => row(t, hit)).toList(),
+    cap: cap,
+    total: h.total,
+    serverTruncated: h.total != null && h.total! > h.count,
+    rawJson: state.resultText,
+    onRowTap: (kind, id) => goToPanel(context, kind, id),
+  );
+};
 
 /// A plain entity hit: glyph + name + description/snippet + tail mono id (tappable to [rowKind]'s
 /// panel). Used by the six entity searches + search_documents. 通用实体命中行。
@@ -68,9 +67,15 @@ ToolHitRow workflowHitRow(Translations t, Map<String, dynamic> hit) {
     id: id.isEmpty ? null : id,
     trailing: ls == null
         ? (id.isEmpty ? null : Text(id, style: AnText.mono))
-        : Row(mainAxisSize: MainAxisSize.min, children: [
-            AnChip(active ? t.chat.tool.wfActive : ls, tone: active ? AnTone.ok : AnTone.none),
-          ]),
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              AnChip(
+                active ? t.chat.tool.wfActive : ls,
+                tone: active ? AnTone.ok : AnTone.none,
+              ),
+            ],
+          ),
   );
 }
 
@@ -83,7 +88,8 @@ ToolHitRow triggerHitRow(Translations t, Map<String, dynamic> hit) {
   final listening = hit['listening'];
   final badges = <Widget>[
     if (kind != null) AnChip(kind, tone: AnTone.none),
-    if (refCount is int) AnChip(t.chat.tool.refCount(n: '$refCount'), tone: AnTone.none),
+    if (refCount is int)
+      AnChip(t.chat.tool.refCount(n: '$refCount'), tone: AnTone.none),
     if (listening == true) AnChip(t.chat.tool.trgListening, tone: AnTone.ok),
   ];
   return ToolHitRow(
@@ -94,9 +100,16 @@ ToolHitRow triggerHitRow(Translations t, Map<String, dynamic> hit) {
     id: id.isEmpty ? null : id,
     trailing: badges.isEmpty
         ? (id.isEmpty ? null : Text(id, style: AnText.mono))
-        : Row(mainAxisSize: MainAxisSize.min, children: [
-            for (final b in badges) Padding(padding: const EdgeInsets.only(left: AnSpace.s4), child: b),
-          ]),
+        : Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              for (final b in badges)
+                Padding(
+                  padding: const EdgeInsets.only(left: AnSpace.s4),
+                  child: b,
+                ),
+            ],
+          ),
   );
 }
 
@@ -135,7 +148,10 @@ ToolHitRow attachmentListRow(Map<String, dynamic> hit) {
   final filename = (hit['filename'] ?? hit['id'] ?? '?').toString();
   final mime = (hit['mime'] ?? '').toString();
   final size = hit['sizeBytes'];
-  final sub = [if (mime.isNotEmpty) mime, if (size is int) formatBytes(size)].join(' · ');
+  final sub = [
+    if (mime.isNotEmpty) mime,
+    if (size is int) formatBytes(size),
+  ].join(' · ');
   return ToolHitRow(
     glyph: AnIcons.attach,
     title: filename,

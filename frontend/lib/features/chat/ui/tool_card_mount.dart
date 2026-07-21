@@ -1,4 +1,3 @@
-
 import 'package:flutter/widgets.dart';
 
 import '../../../core/design/colors.dart';
@@ -24,13 +23,17 @@ import 'tool_card_skins.dart';
   if (!name.startsWith('mcp__')) return null;
   final rest = name.substring(5);
   final i = rest.indexOf('__');
-  return i < 0 ? (server: rest, tool: '') : (server: rest.substring(0, i), tool: rest.substring(i + 2));
+  return i < 0
+      ? (server: rest, tool: '')
+      : (server: rest.substring(0, i), tool: rest.substring(i + 2));
 }
 
 /// Parse `<handler>__<method>` (rightmost split; the method is the last segment). handler 名解析(最右劈)。
 ({String handler, String method})? parseHandlerName(String name) {
   final i = name.lastIndexOf('__');
-  return i <= 0 ? null : (handler: name.substring(0, i), method: name.substring(i + 2));
+  return i <= 0
+      ? null
+      : (handler: name.substring(0, i), method: name.substring(i + 2));
 }
 
 /// Resolve a mount spec for a structured tool name, or null (not a mount). 解析 mount 规格。
@@ -42,15 +45,20 @@ ToolCardSpec? mountSpecFor(String toolName) {
 }
 
 // ── MCP tool skin ──
-final RegExp _mcpErr = RegExp(r'MCP_SERVER_NOT_FOUND|MCP_TOOL_NOT_FOUND|is not connected|MCP_SERVER_NOT_CONNECTED');
+final RegExp _mcpErr = RegExp(
+  r'MCP_SERVER_NOT_FOUND|MCP_TOOL_NOT_FOUND|is not connected|MCP_SERVER_NOT_CONNECTED',
+);
 
 ToolCardSpec _mcpToolSpec(String toolName) {
   final p = parseMcpName(toolName)!;
   return ToolCardSpec(
-    verb: (t, {required bool live}) => live ? t.chat.tool.mcpCalling : t.chat.tool.mcpCalled,
+    verb: (t, {required bool live}) =>
+        live ? t.chat.tool.mcpCalling : t.chat.tool.mcpCalled,
     target: (s) => '${p.server}/${p.tool}',
     // An MCP resolution error is a danger receipt (auto-expand). MCP 解析错→红回执自动展开。
-    receipt: (t, s) => _mcpErr.hasMatch(s.resultText) ? (text: t.chat.tool.mcpError, tone: ToolReceiptTone.danger) : null,
+    receipt: (t, s) => _mcpErr.hasMatch(s.resultText)
+        ? (text: t.chat.tool.mcpError, tone: ToolReceiptTone.danger)
+        : null,
     body: _mcpToolBody,
   );
 }
@@ -66,32 +74,55 @@ Widget _mcpToolBody(BuildContext context, ToolCardState state) {
   final live = toolLive(state);
   if (live) {
     // Empty-shell guard is built into the family head (whitespace-only renders nothing). 守卫内建。
-    return AnLiveTail(state.progressText, style: AnLiveTailStyle.mono, tailLines: 12);
+    return AnLiveTail(
+      state.progressText,
+      style: AnLiveTailStyle.mono,
+      tailLines: 12,
+    );
   }
   final result = state.resultText;
   final isErr = _mcpErr.hasMatch(result);
   final over = result.length > AnCap.window;
   final shown = over ? result.substring(0, AnCap.window) : result;
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    // The streamed progress survives the settle as the call's record (above the result). 进度记录留档。
-    if (state.progressText.trim().isNotEmpty)
-      Padding(
-        padding: const EdgeInsets.only(bottom: AnSpace.s6),
-        child: AnWindow(child: Text(state.progressText.trimRight(), style: AnText.code.copyWith(color: c.inkFaint), maxLines: 40, overflow: TextOverflow.ellipsis)),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // The streamed progress survives the settle as the call's record (above the result). 进度记录留档。
+      if (state.progressText.trim().isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AnSpace.s6),
+          child: AnWindow(
+            child: Text(
+              state.progressText.trimRight(),
+              style: AnText.code.copyWith(color: c.inkFaint),
+              maxLines: 40,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      // The truncation note rides the window's footer slot (codex 族一 规则④,批4 复审). 注记进 footer 槽。
+      AnWindow(
+        footer: over
+            ? Text(Translations.of(context).chat.tool.contentTruncated)
+            : null,
+        child: Text(
+          shown,
+          style: AnText.code.copyWith(color: isErr ? c.danger : c.inkMuted),
+          maxLines: 200,
+          overflow: TextOverflow.ellipsis,
+        ),
       ),
-    // The truncation note rides the window's footer slot (codex 族一 规则④,批4 复审). 注记进 footer 槽。
-    AnWindow(
-      footer: over ? Text(Translations.of(context).chat.tool.contentTruncated) : null,
-      child: Text(shown, style: AnText.code.copyWith(color: isErr ? c.danger : c.inkMuted), maxLines: 200, overflow: TextOverflow.ellipsis),
-    ),
-  ]);
+    ],
+  );
 }
 
 // ── handler-method tool skin ──
 ToolCardSpec _handlerToolSpec(String toolName) {
   final p = parseHandlerName(toolName)!;
   return ToolCardSpec(
-    verb: (t, {required bool live}) => live ? t.chat.tool.hdCalling : t.chat.tool.hdCalled,
+    verb: (t, {required bool live}) =>
+        live ? t.chat.tool.hdCalling : t.chat.tool.hdCalled,
     target: (s) => '${p.handler}.${p.method}()',
     body: _handlerToolBody,
   );
@@ -106,25 +137,48 @@ Widget _handlerToolBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final live = toolLive(state);
   if (live) {
-    return AnLiveTail(state.progressText, style: AnLiveTailStyle.mono, tailLines: 12);
+    return AnLiveTail(
+      state.progressText,
+      style: AnLiveTailStyle.mono,
+      tailLines: 12,
+    );
   }
   final result = state.resultObj?['result']; // C-028: memoized decode 记忆化解码
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    // The streamed yields (if any) are the progress log. yield 流(如有)。
-    if (state.progressText.isNotEmpty)
-      Padding(
-        padding: const EdgeInsets.only(bottom: AnSpace.s6),
-        child: AnWindow(
-          child: Text(state.progressText,
-              style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // The streamed yields (if any) are the progress log. yield 流(如有)。
+      if (state.progressText.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AnSpace.s6),
+          child: AnWindow(
+            child: Text(
+              state.progressText,
+              style: AnText.code.copyWith(color: c.inkMuted),
+              maxLines: 40,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
         ),
+      Text(
+        t.chat.tool.hdResult,
+        style: AnText.meta.copyWith(color: c.inkFaint),
       ),
-    Text(t.chat.tool.hdResult, style: AnText.meta.copyWith(color: c.inkFaint)),
-    const SizedBox(height: AnSpace.s2),
-    AnWindow(
-      child: result == null
-          ? Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis)
-          : SizedBox(height: AnSize.jsonViewport, child: AnJsonTree(data: result, showRoot: false)),
-    ),
-  ]);
+      const SizedBox(height: AnSpace.s2),
+      AnWindow(
+        child: result == null
+            ? Text(
+                state.resultText,
+                style: AnText.code.copyWith(color: c.inkMuted),
+                maxLines: 40,
+                overflow: TextOverflow.ellipsis,
+              )
+            : SizedBox(
+                height: AnSize.jsonViewport,
+                child: AnJsonTree(data: result, showRoot: false),
+              ),
+      ),
+    ],
+  );
 }

@@ -81,28 +81,30 @@ class _AnFadeCollapseState extends State<AnFadeCollapse> {
         if (_expanded)
           widget.child
         else
-          Stack(children: [
-            // AT MOST the clamp — short content sits at its own height (the fixed-height box left a
-            // dead void under short bodies, 用户 0719). 至多钳高:矮内容贴自身高,固定盒死空白已修。
-            ConstrainedBox(
-              constraints: BoxConstraints(maxHeight: widget.collapsedHeight),
-              // A never-scrolling viewport: gives the child unbounded height and clips the rest —
-              // the standard trick, no OverflowBox math. 不可滚 viewport:给子树无界高、裁掉其余。
-              child: SingleChildScrollView(
-                controller: _probe,
-                physics: const NeverScrollableScrollPhysics(),
-                child: widget.child,
+          Stack(
+            children: [
+              // AT MOST the clamp — short content sits at its own height (the fixed-height box left a
+              // dead void under short bodies, 用户 0719). 至多钳高:矮内容贴自身高,固定盒死空白已修。
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: widget.collapsedHeight),
+                // A never-scrolling viewport: gives the child unbounded height and clips the rest —
+                // the standard trick, no OverflowBox math. 不可滚 viewport:给子树无界高、裁掉其余。
+                child: SingleChildScrollView(
+                  controller: _probe,
+                  physics: const NeverScrollableScrollPhysics(),
+                  child: widget.child,
+                ),
               ),
-            ),
-            if (_overflows)
-              Positioned(
-                left: 0,
-                right: 0,
-                bottom: 0,
-                height: AnSize.row * 2,
-                child: AnEdgeFade(fromTop: false, color: fade),
-              ),
-          ]),
+              if (_overflows)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  height: AnSize.row * 2,
+                  child: AnEdgeFade(fromTop: false, color: fade),
+                ),
+            ],
+          ),
         // The toggle exists only when there is genuinely more to reveal (or we are expanded and can
         // collapse back) — a toggle under fully-visible content is a dead affordance.
         // 开关仅在真有可展内容(或已展开可收回)时在场——全量可见下的开关是死示能。
@@ -117,7 +119,9 @@ class _AnFadeCollapseState extends State<AnFadeCollapse> {
                   child: Text(
                     _expanded ? widget.collapseLabel : widget.expandLabel,
                     style: AnText.label.copyWith(
-                      color: states.contains(WidgetState.hovered) ? context.colors.ink : context.colors.inkMuted,
+                      color: states.contains(WidgetState.hovered)
+                          ? context.colors.ink
+                          : context.colors.inkMuted,
                     ),
                   ),
                 ),

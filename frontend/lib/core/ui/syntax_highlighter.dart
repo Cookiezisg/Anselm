@@ -23,11 +23,56 @@ import '../design/colors.dart';
 
 // Keyword set — verbatim from the demo (mixed Python/JS/etc; one set for all langs). 关键字集(移植 demo,语言混合)。
 const Set<String> _keywords = {
-  'const', 'let', 'var', 'function', 'def', 'class', 'return', 'if', 'elif', 'else', 'for', 'while',
-  'do', 'in', 'of', 'import', 'from', 'export', 'default', 'new', 'await', 'async', 'try', 'except',
-  'catch', 'finally', 'raise', 'throw', 'with', 'as', 'lambda', 'yield', 'and', 'or', 'not', 'is',
-  'None', 'True', 'False', 'true', 'false', 'null', 'undefined', 'self', 'this', 'match', 'case',
-  'pass', 'break', 'continue',
+  'const',
+  'let',
+  'var',
+  'function',
+  'def',
+  'class',
+  'return',
+  'if',
+  'elif',
+  'else',
+  'for',
+  'while',
+  'do',
+  'in',
+  'of',
+  'import',
+  'from',
+  'export',
+  'default',
+  'new',
+  'await',
+  'async',
+  'try',
+  'except',
+  'catch',
+  'finally',
+  'raise',
+  'throw',
+  'with',
+  'as',
+  'lambda',
+  'yield',
+  'and',
+  'or',
+  'not',
+  'is',
+  'None',
+  'True',
+  'False',
+  'true',
+  'false',
+  'null',
+  'undefined',
+  'self',
+  'this',
+  'match',
+  'case',
+  'pass',
+  'break',
+  'continue',
 };
 
 // Tokenizer — verbatim port of the demo's TOK. Five ordered groups:
@@ -52,32 +97,70 @@ final RegExp _tok = RegExp(
 @visibleForTesting
 int highlightCodePasses = 0;
 
-List<TextSpan> highlightCode(String code, {String? lang, required SyntaxColors colors}) {
+List<TextSpan> highlightCode(
+  String code, {
+  String? lang,
+  required SyntaxColors colors,
+}) {
   highlightCodePasses++;
   final spans = <TextSpan>[];
   var last = 0;
   for (final m in _tok.allMatches(code)) {
-    if (m.start > last) spans.add(TextSpan(text: code.substring(last, m.start)));
+    if (m.start > last) {
+      spans.add(TextSpan(text: code.substring(last, m.start)));
+    }
     final comment = m.group(1);
     final string = m.group(2);
     final arg = m.group(3);
     final number = m.group(4);
     if (comment != null) {
-      spans.add(TextSpan(text: comment, style: TextStyle(color: colors.comment, fontStyle: FontStyle.italic)));
+      spans.add(
+        TextSpan(
+          text: comment,
+          style: TextStyle(color: colors.comment, fontStyle: FontStyle.italic),
+        ),
+      );
     } else if (string != null) {
-      spans.add(TextSpan(text: string, style: TextStyle(color: colors.string)));
+      spans.add(
+        TextSpan(
+          text: string,
+          style: TextStyle(color: colors.string),
+        ),
+      );
     } else if (arg != null) {
-      spans.add(TextSpan(text: arg, style: TextStyle(color: colors.arg, fontWeight: FontWeight.w400)));
+      spans.add(
+        TextSpan(
+          text: arg,
+          style: TextStyle(color: colors.arg, fontWeight: FontWeight.w400),
+        ),
+      );
     } else if (number != null) {
-      spans.add(TextSpan(text: number, style: TextStyle(color: colors.number)));
+      spans.add(
+        TextSpan(
+          text: number,
+          style: TextStyle(color: colors.number),
+        ),
+      );
     } else {
       final word = m.group(5)!;
       if (_keywords.contains(word)) {
-        spans.add(TextSpan(text: word, style: TextStyle(color: colors.keyword)));
+        spans.add(
+          TextSpan(
+            text: word,
+            style: TextStyle(color: colors.keyword),
+          ),
+        );
       } else if (_followedByParen(code, m.end)) {
-        spans.add(TextSpan(text: word, style: TextStyle(color: colors.function)));
+        spans.add(
+          TextSpan(
+            text: word,
+            style: TextStyle(color: colors.function),
+          ),
+        );
       } else {
-        spans.add(TextSpan(text: word)); // plain → inherits ambient code colour 留白继承代码色
+        spans.add(
+          TextSpan(text: word),
+        ); // plain → inherits ambient code colour 留白继承代码色
       }
     }
     last = m.end;
@@ -96,7 +179,9 @@ List<TextSpan> highlightCode(String code, {String? lang, required SyntaxColors c
 bool _followedByParen(String code, int from) {
   for (var i = from; i < code.length; i++) {
     final ch = code.codeUnitAt(i);
-    if (ch == 0x20 || (ch >= 0x09 && ch <= 0x0D)) continue; // ASCII whitespace 空白
+    if (ch == 0x20 || (ch >= 0x09 && ch <= 0x0D)) {
+      continue; // ASCII whitespace 空白
+    }
     return ch == 0x28; // '('
   }
   return false;

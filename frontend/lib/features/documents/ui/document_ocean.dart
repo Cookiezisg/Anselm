@@ -27,19 +27,23 @@ import 'an_document_editor.dart';
 /// load-time content (stable across edits, since a save doesn't invalidate `openDocumentProvider`), so it
 /// stays cached while the doc is open; autoDispose frees it when you leave (else one instance per doc
 /// opened lingers for the session). `[[id]]`→名批解析,autoDispose 与兄弟一致。
-final documentMentionNamesProvider =
-    FutureProvider.autoDispose.family<Map<String, String>, String>((ref, content) async {
-  final ids = extractEntityRefIds(content);
-  if (ids.isEmpty) return const {};
-  return ref.read(mentionSourceProvider).resolveNames(ids);
-});
+final documentMentionNamesProvider = FutureProvider.autoDispose
+    .family<Map<String, String>, String>((ref, content) async {
+      final ids = extractEntityRefIds(content);
+      if (ids.isEmpty) return const {};
+      return ref.read(mentionSourceProvider).resolveNames(ids);
+    });
 
 /// The breadcrumb parent PATH for a document — «Documents / …ancestor names… / direct parent», walking
 /// [DocumentNode.parentId] up the [tree] (cycle-capped). It NEVER includes the doc itself (that is the big
 /// title, 面包屑律). The root «Documents» deselects to the ocean home; each ancestor navigates to its page;
 /// a deep tree folds its middle to «…» in [AnCrumbs]. 文档面包屑父路径:沿 parentId 上溯(防环封顶),绝不
 /// 含自己;根「Documents」回海洋主页、各祖先导航到其页、深链在原语内折中段。
-List<AnCrumb> documentCrumbs(BuildContext context, List<DocumentNode> tree, String docId) {
+List<AnCrumb> documentCrumbs(
+  BuildContext context,
+  List<DocumentNode> tree,
+  String docId,
+) {
   final t = context.t;
   final byId = {for (final d in tree) d.id: d};
   final ancestors = <DocumentNode>[];
@@ -55,8 +59,10 @@ List<AnCrumb> documentCrumbs(BuildContext context, List<DocumentNode> tree, Stri
   return [
     AnCrumb(t.documents.documents, onTap: () => context.go('/')),
     for (final a in ancestors.reversed)
-      AnCrumb(a.name.trim().isEmpty ? t.documents.untitled : a.name,
-          onTap: () => context.go(documentLocation(a.id))),
+      AnCrumb(
+        a.name.trim().isEmpty ? t.documents.untitled : a.name,
+        onTap: () => context.go(documentLocation(a.id)),
+      ),
   ];
 }
 
@@ -91,7 +97,8 @@ class DocumentOcean extends ConsumerWidget {
     // seamlessly under its own new id (the ocean keeps the SAME editor mounted so the create is jump-free,
     // B2/B6). The stable key means the draft view is NEVER remounted across «adopt + navigate».
     // 无选区=草稿编辑器;或刚建的草稿在其新 id 下无缝续命(海洋保持同一编辑器不重挂,建即无跳变)。常量 key 保证不重挂。
-    final isAdoptedDraft = selected != null && !selected.isSkill && selected.id == adopted;
+    final isAdoptedDraft =
+        selected != null && !selected.isSkill && selected.id == adopted;
     if (selected == null || isAdoptedDraft) {
       return const _DraftDocView(key: ValueKey('doc-draft'));
     }
@@ -100,12 +107,17 @@ class DocumentOcean extends ConsumerWidget {
     // editor. 真选区且非草稿 → 弃认领(帧后),使日后重开该 doc 挂全新编辑器。
     if (adopted != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) ref.read(adoptedDraftDocProvider.notifier).set(null);
+        if (context.mounted) {
+          ref.read(adoptedDraftDocProvider.notifier).set(null);
+        }
       });
     }
     // Key by id so switching remounts the editor + its debouncer cleanly. 按 id 键控,换选即重建。
     return selected.isSkill
-        ? _SkillEditView(key: ValueKey('skill:${selected.id}'), name: selected.id)
+        ? _SkillEditView(
+            key: ValueKey('skill:${selected.id}'),
+            name: selected.id,
+          )
         : _DocEditView(key: ValueKey(selected.id), id: selected.id);
   }
 }
@@ -116,14 +128,17 @@ class DocumentOcean extends ConsumerWidget {
 /// and forwards an outline-jump to the editor. 薄壳:绑浮层头 + 随滚折叠 + 镜像活动标题 + 从 markdown
 /// 播种大纲 + 转发跳转。
 mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
-  final GlobalKey<AnDocumentEditorState> editorKey = GlobalKey<AnDocumentEditorState>();
+  final GlobalKey<AnDocumentEditorState> editorKey =
+      GlobalKey<AnDocumentEditorState>();
   String? _seededOutlineFor;
 
   /// Bind the doc name to the floating breadcrumb; tapping it scrolls the page back to the top.
   void bindHead(String title) {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      ref.read(shellHeadProvider.notifier).bind(title, () => editorKey.currentState?.scrollToTop());
+      ref
+          .read(shellHeadProvider.notifier)
+          .bind(title, () => editorKey.currentState?.scrollToTop());
     });
   }
 
@@ -150,7 +165,9 @@ mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     if (_seededOutlineFor == markdown) return;
     _seededOutlineFor = markdown;
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) ref.read(docOutlineProvider.notifier).set(extractDocOutline(markdown));
+      if (mounted) {
+        ref.read(docOutlineProvider.notifier).set(extractDocOutline(markdown));
+      }
     });
   }
 
@@ -162,7 +179,9 @@ mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
 
   void listenOutlineJumps() {
     ref.listen(outlineJumpProvider, (prev, next) {
-      if (next != null && next != prev) editorKey.currentState?.scrollToHeading(next.index);
+      if (next != null && next != prev) {
+        editorKey.currentState?.scrollToHeading(next.index);
+      }
     });
   }
 }
@@ -182,9 +201,12 @@ class _DocEditView extends ConsumerStatefulWidget {
   ConsumerState<_DocEditView> createState() => _DocEditViewState();
 }
 
-class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome {
+class _DocEditViewState extends ConsumerState<_DocEditView>
+    with _DocPageChrome {
   final _save = Debouncer(AnMotion.autosave);
-  final _outline = Debouncer(AnMotion.searchDebounce); // C-008: the outline re-extract is O(doc); debounce it
+  final _outline = Debouncer(
+    AnMotion.searchDebounce,
+  ); // C-008: the outline re-extract is O(doc); debounce it
 
   // One-shot: did the rail's active «+ New» path mark THIS doc for a title autofocus? Latched at mount
   // (keyed by id) + cleared, so an async rebuild before the editor mounts can't lose it. 主动新建标题聚焦一次性。
@@ -227,7 +249,9 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
       try {
         await repo.updateDocument(widget.id, {'content': markdown});
       } catch (_) {
-        if (!mounted) return; // widget gone (e.g. flushed on dispose + save failed) → no toast 卸载后不弹
+        if (!mounted) {
+          return; // widget gone (e.g. flushed on dispose + save failed) → no toast 卸载后不弹
+        }
         ref
             .read(noticeCenterProvider.notifier)
             .show(
@@ -243,13 +267,17 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
   /// refetch's rebuild no-ops (a new key would remount; same content string doesn't). meta PATCH。
   Future<void> _patchMeta(Map<String, dynamic> fields) async {
     try {
-      await ref.read(documentsRepositoryProvider).updateDocument(widget.id, fields);
+      await ref
+          .read(documentsRepositoryProvider)
+          .updateDocument(widget.id, fields);
       if (!mounted) return;
       if (fields.containsKey('name')) ref.invalidate(documentTreeProvider);
       ref.invalidate(openDocumentProvider(widget.id));
     } catch (_) {
       if (mounted) {
-        ref.read(noticeCenterProvider.notifier).show(
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(
               context.t.documents.actionFailed,
               tone: AnTone.danger,
               coalesceKey: 'document-save:${widget.id}',
@@ -264,19 +292,31 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
     listenOutlineJumps();
     // The crumb parent chain follows the tree (an ancestor rename / a deep-link tree-load reflows it); the
     // watch only rebuilds this view's props — the GlobalKey editor keeps its State + cursor. 面包屑父链随树。
-    final tree = ref.watch(documentTreeProvider).value ?? const <DocumentNode>[];
-    return ref.watch(openDocumentProvider(widget.id)).when(
-          loading: () => const AnPage(child: AnDeferredLoading(child: AnSkeleton.lines(8))),
-          error: (_, _) =>
-              AnState(kind: AnStateKind.error, title: t.documents.loadFailed, hint: t.documents.errorHint),
+    final tree =
+        ref.watch(documentTreeProvider).value ?? const <DocumentNode>[];
+    return ref
+        .watch(openDocumentProvider(widget.id))
+        .when(
+          loading: () => const AnPage(
+            child: AnDeferredLoading(child: AnSkeleton.lines(8)),
+          ),
+          error: (_, _) => AnState(
+            kind: AnStateKind.error,
+            title: t.documents.loadFailed,
+            hint: t.documents.errorHint,
+          ),
           data: (doc) {
             final title = doc.name.isEmpty ? t.documents.untitled : doc.name;
             bindHead(title);
             seedOutline(doc.content);
             // Resolve the `[[id]]` mention names BEFORE mounting the editor, so its pills load with names
             // (the editor reads names once at initState). A skeleton covers the batch. 载入前先解析提及名。
-            return ref.watch(documentMentionNamesProvider(doc.content)).maybeWhen(
-                  orElse: () => const AnPage(child: AnDeferredLoading(child: AnSkeleton.lines(8))),
+            return ref
+                .watch(documentMentionNamesProvider(doc.content))
+                .maybeWhen(
+                  orElse: () => const AnPage(
+                    child: AnDeferredLoading(child: AnSkeleton.lines(8)),
+                  ),
                   data: (names) => AnDocumentEditor(
                     key: editorKey,
                     crumbs: documentCrumbs(context, tree, widget.id),
@@ -296,9 +336,15 @@ class _DocEditViewState extends ConsumerState<_DocEditView> with _DocPageChrome 
                       final name = (m['name'] as String?)?.trim();
                       final desc = m['description'] as String?;
                       final tags = (m['tags'] as List?)?.cast<String>();
-                      if (name != null && name.isNotEmpty && name != doc.name) patch['name'] = name;
-                      if (desc != null && desc != doc.description) patch['description'] = desc;
-                      if (tags != null && !listEquals(tags, doc.tags)) patch['tags'] = tags;
+                      if (name != null && name.isNotEmpty && name != doc.name) {
+                        patch['name'] = name;
+                      }
+                      if (desc != null && desc != doc.description) {
+                        patch['description'] = desc;
+                      }
+                      if (tags != null && !listEquals(tags, doc.tags)) {
+                        patch['tags'] = tags;
+                      }
                       if (patch.isNotEmpty) _patchMeta(patch);
                     },
                   ),
@@ -323,7 +369,8 @@ class _DraftDocView extends ConsumerStatefulWidget {
   ConsumerState<_DraftDocView> createState() => _DraftDocViewState();
 }
 
-class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrome {
+class _DraftDocViewState extends ConsumerState<_DraftDocView>
+    with _DocPageChrome {
   final _save = Debouncer(AnMotion.autosave);
   final _outline = Debouncer(AnMotion.searchDebounce);
 
@@ -345,7 +392,8 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
 
   @override
   void dispose() {
-    _save.flush(); // deliver the last unsaved edit before unmounting (autosave-window switch). 卸载前交付末次未存。
+    _save
+        .flush(); // deliver the last unsaved edit before unmounting (autosave-window switch). 卸载前交付末次未存。
     _outline.dispose();
     super.dispose();
   }
@@ -358,7 +406,9 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
     final t = context.t;
     try {
       final doc = await repo.createDocument(
-        name: _draftName.trim().isEmpty ? t.documents.untitled : _draftName.trim(),
+        name: _draftName.trim().isEmpty
+            ? t.documents.untitled
+            : _draftName.trim(),
         content: _draftMarkdown,
         description: _draftDescription.trim(),
         tags: _draftTags,
@@ -373,7 +423,9 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
     } catch (_) {
       _creating = false;
       if (mounted) {
-        ref.read(noticeCenterProvider.notifier).show(t.documents.actionFailed, tone: AnTone.danger);
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(t.documents.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -401,7 +453,9 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
         await repo.updateDocument(id, {'content': _draftMarkdown});
       } catch (_) {
         if (!mounted) return;
-        ref.read(noticeCenterProvider.notifier).show(
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(
               context.t.documents.actionFailed,
               tone: AnTone.danger,
               coalesceKey: 'document-draft:$id',
@@ -413,7 +467,9 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
   void _onMeta(Map<String, dynamic> m) {
     setState(() {
       if (m['name'] is String) _draftName = (m['name'] as String).trim();
-      if (m['description'] is String) _draftDescription = m['description'] as String;
+      if (m['description'] is String) {
+        _draftDescription = m['description'] as String;
+      }
       if (m['tags'] is List) _draftTags = (m['tags'] as List).cast<String>();
     });
     if (_liveId == null) {
@@ -432,10 +488,9 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
       if (fields.containsKey('name')) ref.invalidate(documentTreeProvider);
     } catch (_) {
       if (mounted) {
-        ref.read(noticeCenterProvider.notifier).show(
-              context.t.documents.actionFailed,
-              tone: AnTone.danger,
-            );
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(context.t.documents.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -453,7 +508,8 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView> with _DocPageChrom
       name: _draftName, // empty → the header's grey «未命名» guide 空→头灰引导
       description: _draftDescription,
       tags: _draftTags,
-      initialMarkdown: '', // constant — the AnEditor owns the live body (never reset across adopt). 正文归 AnEditor。
+      initialMarkdown:
+          '', // constant — the AnEditor owns the live body (never reset across adopt). 正文归 AnEditor。
       onChangedMarkdown: _onChanged,
       onScroll: onScroll,
       onActiveHeading: onActive,
@@ -478,9 +534,12 @@ class _SkillEditView extends ConsumerStatefulWidget {
   ConsumerState<_SkillEditView> createState() => _SkillEditViewState();
 }
 
-class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChrome {
+class _SkillEditViewState extends ConsumerState<_SkillEditView>
+    with _DocPageChrome {
   final _save = Debouncer(AnMotion.autosave);
-  final _outline = Debouncer(AnMotion.searchDebounce); // C-008: debounce the O(doc) outline re-extract
+  final _outline = Debouncer(
+    AnMotion.searchDebounce,
+  ); // C-008: debounce the O(doc) outline re-extract
 
   @override
   void dispose() {
@@ -507,7 +566,9 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
         final current = await repo.getSkill(widget.name);
         final f = current.frontmatter;
         await repo.replaceSkill(widget.name, {
-          'description': f.description.isEmpty ? current.description : f.description,
+          'description': f.description.isEmpty
+              ? current.description
+              : f.description,
           'body': markdown,
           'allowedTools': f.allowedTools,
           'context': f.context.isEmpty ? current.context : f.context,
@@ -518,10 +579,9 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
         });
       } catch (_) {
         if (mounted) {
-          ref.read(noticeCenterProvider.notifier).show(
-                context.t.documents.actionFailed,
-                tone: AnTone.danger,
-              );
+          ref
+              .read(noticeCenterProvider.notifier)
+              .show(context.t.documents.actionFailed, tone: AnTone.danger);
         }
       }
     });
@@ -549,10 +609,9 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
       ref.invalidate(openSkillProvider(widget.name));
     } catch (_) {
       if (mounted) {
-        ref.read(noticeCenterProvider.notifier).show(
-              context.t.documents.actionFailed,
-              tone: AnTone.danger,
-            );
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(context.t.documents.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -561,10 +620,17 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
   Widget build(BuildContext context) {
     final t = context.t;
     listenOutlineJumps();
-    return ref.watch(openSkillProvider(widget.name)).when(
-          loading: () => const AnPage(child: AnDeferredLoading(child: AnSkeleton.lines(8))),
-          error: (_, _) =>
-              AnState(kind: AnStateKind.error, title: t.documents.loadFailed, hint: t.documents.errorHint),
+    return ref
+        .watch(openSkillProvider(widget.name))
+        .when(
+          loading: () => const AnPage(
+            child: AnDeferredLoading(child: AnSkeleton.lines(8)),
+          ),
+          error: (_, _) => AnState(
+            kind: AnStateKind.error,
+            title: t.documents.loadFailed,
+            hint: t.documents.errorHint,
+          ),
           data: (skill) {
             bindHead(skill.name);
             seedOutline(skill.body);
@@ -579,8 +645,10 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
                 AnCrumb(t.documents.skills),
               ],
               name: skill.name,
-              nameEditable: false, // the name IS the identity — not renamable in place
-              showTags: false, // skills have no tags frontmatter — no phantom tags editor 无 tags 字段
+              nameEditable:
+                  false, // the name IS the identity — not renamable in place
+              showTags:
+                  false, // skills have no tags frontmatter — no phantom tags editor 无 tags 字段
               description: skill.description,
               initialMarkdown: skill.body,
               onChangedMarkdown: _onChanged,
@@ -588,7 +656,9 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView> with _DocPageChr
               onActiveHeading: onActive,
               onMetaChanged: (m) {
                 final desc = m['description'] as String?;
-                if (desc != null && desc != skill.description) _putDescription(desc);
+                if (desc != null && desc != skill.description) {
+                  _putDescription(desc);
+                }
               },
             );
           },

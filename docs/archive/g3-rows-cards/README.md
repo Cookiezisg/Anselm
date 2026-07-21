@@ -286,10 +286,10 @@ G3 共 **9 件展示/布局件** + **3 个必须先行抽出的共享原语**。
 
 ### 三层验收接入
 
-1. **gallery specimen**:每件登记进 `catalog.dart` 新 `_g3RowsCards` 类目(GalleryItem + specimen,含五电池 stress 标);`make gallery` 目视对 `demo/reference.html` G3 段;`flutter test test/dev/capture_gallery.dart --dart-define=CAT=<idx>` 出截图(动效 disableAnimations 静态帧)。**动态动效(AnRowDetail 展开/AnRow chevron)须 `flutter run -d macos` 真跑验证**(verify-by-real-run,G1 白屏教训)。
+1. **gallery specimen**:每件登记进 `catalog.dart` 新 `_g3RowsCards` 类目(GalleryItem + specimen,含五电池 stress 标);`make -C frontend gallery` 目视对 `demo/reference.html` G3 段;`flutter test test/dev/capture_gallery.dart --dart-define=CAT=<idx>` 出截图(动效 disableAnimations 静态帧)。**动态动效(AnRowDetail 展开/AnRow chevron)须 `flutter run -d macos` 真跑验证**(verify-by-real-run,G1 白屏教训)。
 2. **matrix 5 维 + reduced 轴**:`gallery_matrix_test.dart` 自动覆盖每 specimen build / no-overflow / 转义安全 / render-exists / disabled 键盘穿透 + **reduced 轴 pumpAndSettle**(忘门控 loop = 超时 FAIL);**新增 a11y 断言轴**:关键节点 Semantics(label/button/selected/header/expanded)、disabled 行不可聚焦、RefPill 无 id 无 button flag、每可编辑 specimen button/textField 节点计数。
 3. **五电池**:见 §8,`stress: true` + `maxWidth` 触发截断/塌列/海量。
-4. **工程门禁**:`make fe-verify`(codegen + analyze 净 + test 绿);无内联 hex/px/ms(grep 守);i18n 无硬编码;S11 注释;**文档 1:1 同步**(`design-system.md` 路线表 + 共享原语重构 + accentLine token + reduced 政策 §2 + header 真机结论)。
+4. **工程门禁**:`make -C frontend verify`(codegen + analyze 净 + test 绿);无内联 hex/px/ms(grep 守);i18n 无硬编码;S11 注释;**文档 1:1 同步**(`design-system.md` 路线表 + 共享原语重构 + accentLine token + reduced 政策 §2 + header 真机结论)。
 
 ---
 

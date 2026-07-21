@@ -37,16 +37,21 @@ void main() {
   testWidgets('shell', (tester) async {
     const key = ValueKey('cap');
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = const Size(AnSize.windowInitialWidth, AnSize.windowInitialHeight);
+    tester.view.physicalSize = const Size(
+      AnSize.windowInitialWidth,
+      AnSize.windowInitialHeight,
+    );
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(TranslationProvider(
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AnTheme.light(),
-        home: const RepaintBoundary(key: key, child: AnShell()),
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: const RepaintBoundary(key: key, child: AnShell()),
+        ),
       ),
-    ));
+    );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 
@@ -55,7 +60,9 @@ void main() {
     // 引擎线程真异步,fake-async zone 不解析其 Future,故截图须在 runAsync 内跑。
     late final Uint8List bytes;
     await tester.runAsync(() async {
-      final boundary = tester.renderObject<RenderRepaintBoundary>(find.byKey(key));
+      final boundary = tester.renderObject<RenderRepaintBoundary>(
+        find.byKey(key),
+      );
       final image = await boundary.toImage(pixelRatio: 1.0);
       final png = await image.toByteData(format: ui.ImageByteFormat.png);
       bytes = png!.buffer.asUint8List();

@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# setup.sh — one-time per session. Configures the ALREADY-RUNNING real backend (`make server`,
+# setup.sh — one-time per session. Configures the ALREADY-RUNNING real backend (`make -C backend run`,
 # :8742) for the iteration loop: creates a workspace + a deepseek api-key (from repo-root .env) +
 # default models, and writes the connection handle to /tmp/anselm_selfiter/serve.json (read by
-# turn.sh). Run AFTER `make server`. Re-run to make a fresh workspace.
+# turn.sh). Run AFTER `make -C backend run`. Re-run to make a fresh workspace.
 set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 set -a; [ -f "$ROOT/.env" ] && source "$ROOT/.env"; set +a

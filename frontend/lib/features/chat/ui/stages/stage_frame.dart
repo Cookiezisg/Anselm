@@ -23,8 +23,14 @@ const double kStageFrameInset = AnSpace.s8;
 /// Wrap BARE content (a caption / tombstone / honesty line) in the imaginary frame so its left edge aligns
 /// with a neighbouring AnKv key (X=8), never顶格 against a full-width real frame. [top]/[bottom] carry any
 /// inter-block gap that used to ride a SizedBox / EdgeInsets.only. 假想框:裸内容归框,左缘对齐 KV 键。
-Widget stageFramed(Widget child, {double top = 0, double bottom = 0}) => Padding(
-      padding: EdgeInsets.fromLTRB(kStageFrameInset, top, kStageFrameInset, bottom),
+Widget stageFramed(Widget child, {double top = 0, double bottom = 0}) =>
+    Padding(
+      padding: EdgeInsets.fromLTRB(
+        kStageFrameInset,
+        top,
+        kStageFrameInset,
+        bottom,
+      ),
       child: child,
     );
 
@@ -48,7 +54,11 @@ Widget stageFramed(Widget child, {double top = 0, double bottom = 0}) => Padding
 /// **沟住进假想框**:framed(默认,body 级行)时行带 kStageFrameInset 前导内距——沟格从 X=8 起(不再顶格贴
 /// 岛缘),文字列落与 stageFramed 裸文字、AnKv 键同一条 X=8 框线。已在真框内的行(如 subagent 卡 AnWindow
 /// 体、自带内距)传 framed:false 免二次缩进越过卡头字形。只前导(非 stageFramed 对称内距)——child 省略文字保右缘满宽。
-Widget stageGutterRow({Widget? lead, required Widget child, bool framed = true}) {
+Widget stageGutterRow({
+  Widget? lead,
+  required Widget child,
+  bool framed = true,
+}) {
   final row = Row(
     crossAxisAlignment: CrossAxisAlignment.center,
     children: [
@@ -61,6 +71,9 @@ Widget stageGutterRow({Widget? lead, required Widget child, bool framed = true})
     ],
   );
   return framed
-      ? Padding(padding: const EdgeInsets.only(left: kStageFrameInset), child: row)
+      ? Padding(
+          padding: const EdgeInsets.only(left: kStageFrameInset),
+          child: row,
+        )
       : row;
 }

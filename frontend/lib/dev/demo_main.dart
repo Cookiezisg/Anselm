@@ -51,20 +51,23 @@ import '../core/entity/mention_source.dart';
 /// Shared by [main] and the P5 perf harness (`integration_test/perf/`) so both drive the byte-identical
 /// app off the same fixtures; the caller passes the [notifications] repo it wants (main keeps a handle to
 /// drive its live-notice timer). demo override 集,main 与 P5 perf harness 共用同一份 fixture 驱动同一 app。
-List<Override> demoOverrides(SettingsPrefs prefs, FixtureNotificationRepository notifications) => [
-      settingsPrefsProvider.overrideWithValue(prefs),
-      goRouterProvider.overrideWith(buildAppRouter),
-      entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
-      chatRepositoryProvider.overrideWithValue(demoChatRepository()),
-      documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
-      notificationRepositoryProvider.overrideWithValue(notifications),
-      settingsRepositoryProvider.overrideWithValue(demoSettingsRepository()),
-      schedulerRepositoryProvider.overrideWithValue(demoSchedulerRepository()),
-      // Capabilities are core-level (S-15): zero-backend demo feeds them directly, never HTTP.
-      // 能力目录在 core(S-15):零后端 demo 直喂,绝不打 HTTP。
-      modelCapabilitiesProvider.overrideWith((ref) async => demoModelCapabilities),
-      mentionSourceProvider.overrideWith(entityMentionSource),
-    ];
+List<Override> demoOverrides(
+  SettingsPrefs prefs,
+  FixtureNotificationRepository notifications,
+) => [
+  settingsPrefsProvider.overrideWithValue(prefs),
+  goRouterProvider.overrideWith(buildAppRouter),
+  entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
+  chatRepositoryProvider.overrideWithValue(demoChatRepository()),
+  documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
+  notificationRepositoryProvider.overrideWithValue(notifications),
+  settingsRepositoryProvider.overrideWithValue(demoSettingsRepository()),
+  schedulerRepositoryProvider.overrideWithValue(demoSchedulerRepository()),
+  // Capabilities are core-level (S-15): zero-backend demo feeds them directly, never HTTP.
+  // 能力目录在 core(S-15):零后端 demo 直喂,绝不打 HTTP。
+  modelCapabilitiesProvider.overrideWith((ref) async => demoModelCapabilities),
+  mentionSourceProvider.overrideWith(entityMentionSource),
+];
 
 Future<void> main() async {
   // The SCALED binding, byte-for-byte as main.dart creates it. Zoom is neither a data source nor a
@@ -77,15 +80,22 @@ Future<void> main() async {
   // 且它不是装饰:WindowZoom._apply() 只在 `binding is ScaledWidgetsFlutterBinding` 时才重排,裸 binding
   // 让该判恒假、⌘± **静默**失效(factor 动了、树永不重排)。demo 是视觉验收地板,与 app 的每处偏离都让
   // 验收失真。由 demo_parity_guard_test.dart 守。
-  ScaledWidgetsFlutterBinding.ensureInitialized(scaleFactor: WindowZoom.scaleFactorCallback);
+  ScaledWidgetsFlutterBinding.ensureInitialized(
+    scaleFactor: WindowZoom.scaleFactorCallback,
+  );
   if (kPerfProbeEnabled) installPerfProbe();
   LocaleSettings.useDeviceLocaleSync();
   // Real persisted prefs in the demo too — chrome memory (island widths / last ocean / window
   // geometry) survives a relaunch, same as the app. demo 也用真持久偏好,与 app 同。
   final prefs = await SettingsPrefs.load();
-  WindowZoom.useSettingsPrefs(prefs); // zoom persists via the central prefs, same as the app
+  WindowZoom.useSettingsPrefs(
+    prefs,
+  ); // zoom persists via the central prefs, same as the app
   // Resolve the RESTART font axes before runApp, same as the app (content axis stays hot). 同 app 启动前解析重启字体轴。
-  AnFonts.applyAtBoot(ui: prefs.getString(SettingsKeys.fontUi), code: prefs.getString(SettingsKeys.fontCode));
+  AnFonts.applyAtBoot(
+    ui: prefs.getString(SettingsKeys.fontUi),
+    code: prefs.getString(SettingsKeys.fontCode),
+  );
   await initWindow(title: 'Anselm · Demo (fixtures)', prefs: prefs);
   WindowZoom.restore(); // the persisted zoom, before the first frame 首帧前恢复持久化缩放
   // Keep the fixture repository as a stable data seam; the demo-only top-band tour itself is mounted below

@@ -12,7 +12,7 @@ landed-into: references/frontend/design-system.md
 
 # WRK-066 「同轨」—— 全 App 系统级收敛与优化战役
 
-> **✅ 全部完成并归档(2026-07-14)**。四轨(A 视觉六族收敛 / B 规范科学化 / C 性能 / D demo 全展示)全落,棘轮基线归 0、覆盖分母 pending·ledgered 双清零、C 主面场景预算套件常驻 fe-verify、D 矩阵绿、§6 台账无 open 条目、§7 豁免 21 条用户 2026-07-14 全批签字。P6 二轮全新普查(18-agent 对抗)已闭环(暗色阴影/死码三清/design-system §5 完整投影/§7 诚实化)。fe-verify 3683 绿 + make docs 净。**法典 distilled laws + 六族当家件 + 25 收敛原语已提取进 [`design-system.md`](../../references/frontend/design-system.md)**(landed-into);本目录留作建造史(契约 + 四轨台账 [`ledgers`](convergence-ledgers.md) + 法典 [`codex`](convergence-codex.md) + P5 性能 [`playbook`](p5-profiling-playbook.md))。**唯一 post-completion 常驻项**:批7~D 可见变化用户否决窗(视觉 QA,非完成阻塞)。
+> **✅ 全部完成并归档(2026-07-14)**。四轨(A 视觉六族收敛 / B 规范科学化 / C 性能 / D demo 全展示)全落,棘轮基线归 0、覆盖分母 pending·ledgered 双清零、C 主面场景预算套件常驻 fe-verify、D 矩阵绿、§6 台账无 open 条目、§7 豁免 21 条用户 2026-07-14 全批签字。P6 二轮全新普查(18-agent 对抗)已闭环(暗色阴影/死码三清/design-system §5 完整投影/§7 诚实化)。fe-verify 3683 绿 + make -C docs verify 净。**法典 distilled laws + 六族当家件 + 25 收敛原语已提取进 [`design-system.md`](../../references/frontend/design-system.md)**(landed-into);本目录留作建造史(契约 + 四轨台账 [`ledgers`](convergence-ledgers.md) + 法典 [`codex`](convergence-codex.md) + P5 性能 [`playbook`](p5-profiling-playbook.md))。**唯一 post-completion 常驻项**:批7~D 可见变化用户否决窗(视觉 QA,非完成阻塞)。
 >
 > **代号「同轨」**,取「书同文,车同轨,一度量衡」:统一原语(文字)、统一版式文法(轨距)、统一 token 与预算(度量衡)。四轨一伞。
 >
@@ -53,7 +53,7 @@ landed-into: references/frontend/design-system.md
 | 2 | **后端默认不碰**;demo 补种或性能修复需要的小端点逐案豁免(记 §7) |
 | 3 | 四轨全要:**A 视觉收敛 / B 规范科学化 / C 性能 / D demo 全展示** |
 | 4 | 优先序:P1 四轨一把普查 → A+B 法典拍板(决定一切的地基) → D 随手做 → C 按测量 |
-| 5 | 用户日常跑 `make app`(debug)→ C 轨须先在 release 下定性 |
+| 5 | 用户日常跑 `make -C frontend app`(debug)→ C 轨须先在 release 下定性 |
 | 6 | **harness 六层 + 棘轮基线为主武器**(§3)——「别信自觉,信基线行数」 |
 | 7 | **C 轨不等用户给靶子**:全覆盖自驱,每一步(含 P4 迁移批)都把性能顺手做好;主面全部进预算 |
 | 8 | 战役代号 **「同轨」** |
@@ -106,7 +106,7 @@ landed-into: references/frontend/design-system.md
 | 轨 | 完成 = | 判定者 |
 |---|---|---|
 | A 视觉收敛 | 手搓类基线 = 0 **且** 被吃掉的旧原语物理删除(死码清零) **且** 覆盖台账 pending/ledgered 双清零(§3.3b) | guard 测试 + 死码扫描 + coverage guard |
-| B 规范科学化 | token/文法类基线 = 0 **且** 文法入 `design-system.md` 与代码逐字同步 | guard + `make docs` |
+| B 规范科学化 | token/文法类基线 = 0 **且** 文法入 `design-system.md` 与代码逐字同步 | guard + `make -C docs verify` |
 | C 性能 | 主面场景套件(流式/滚动/切海洋/编辑器打字/图渲染/手风琴/冷启动)release trace 全部达预算 **且** 预算测试常驻 fe-verify **且** 嫌疑人台账清零(测量定罪或测量赦免) | 预算测试 |
 | D demo 全展示 | 可达性矩阵测试绿(每 feature × 关键状态在 demo fixture 可达) | 矩阵测试(仿 `chat_showcase_fixture_test` 先例) |
 
@@ -156,7 +156,7 @@ landed-into: references/frontend/design-system.md
 | **P3 地基改造** | 当家原语长出 variant/slot(gallery 先行),旧件标记 deprecated | gallery 全 variant 展示;fe-verify 绿 |
 | **P4 批量迁移** | 按族逐批机械替换;每批=建 → 对抗复审 → 真机 3–5 帧 → 台账/基线降+**覆盖状态推进**(同提交);**顺手清所在文件性能违规**;死件物理删除;尾段**全量扫尾批**清分母 pending | **基线到 0**;死码零;**coverage pending·ledgered 双清零** |
 | **P5 性能轨** 🔄 | 与 P2–P4 并行,按 §4-C 方法论推进(全覆盖场景套件)。A/B/D 三轨 100% 后余 4 条真机项(C-001/016/025/030),操作手册 [`p5-profiling-playbook.md`](p5-profiling-playbook.md)——用户真机跑 profiler/trace → 逐项据数据实现或证伪 | 预算测试绿;嫌疑人台账清零 |
-| **P6 收口** | **第二轮全新普查对空账**(抓第一轮盲区)→ design-system.md 整体重述 → landed-into → 归档 | `make docs` 绿;/goal 判据全满足 |
+| **P6 收口** | **第二轮全新普查对空账**(抓第一轮盲区)→ design-system.md 整体重述 → landed-into → 归档 | `make -C docs verify` 绿;/goal 判据全满足 |
 
 D 轨随时插批(纯加法零风险),矩阵测试随最后一批收口。
 

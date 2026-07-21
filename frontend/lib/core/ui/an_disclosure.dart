@@ -58,13 +58,18 @@ class AnDisclosure extends StatelessWidget {
       children: [
         AnInteractive(
           onTap: onToggle,
-          expanded: open, // a11y: screen reader announces collapsed/expanded 披露态播报
+          expanded:
+              open, // a11y: screen reader announces collapsed/expanded 披露态播报
           builder: (context, _) => Row(
             children: [
               AnimatedRotation(
                 duration: reduced ? Duration.zero : AnMotion.fast,
                 turns: open ? 0.25 : 0,
-                child: Icon(AnIcons.chevronRight, size: AnSize.iconSm, color: c.inkFaint),
+                child: Icon(
+                  AnIcons.chevronRight,
+                  size: AnSize.iconSm,
+                  color: c.inkFaint,
+                ),
               ),
               const SizedBox(width: AnSpace.s4),
               if (icon != null) ...[
@@ -72,12 +77,17 @@ class AnDisclosure extends StatelessWidget {
                 const SizedBox(width: AnSpace.s6),
               ],
               Flexible(
-                child: Text(label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: labelStyle ?? AnText.meta.copyWith(color: c.inkMuted)),
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: labelStyle ?? AnText.meta.copyWith(color: c.inkMuted),
+                ),
               ),
-              if (trailing != null) ...[const SizedBox(width: AnSpace.s6), trailing!],
+              if (trailing != null) ...[
+                const SizedBox(width: AnSpace.s6),
+                trailing!,
+              ],
             ],
           ),
         ),
@@ -85,7 +95,10 @@ class AnDisclosure extends StatelessWidget {
           AnExpandReveal(
             open: open,
             child: Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s4, left: AnSpace.s16),
+              padding: const EdgeInsets.only(
+                top: AnSpace.s4,
+                left: AnSpace.s16,
+              ),
               child: child!,
             ),
           ),

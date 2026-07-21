@@ -77,7 +77,10 @@ class _TriggerDispatchTabState extends ConsumerState<TriggerDispatchTab> {
   @override
   Widget build(BuildContext context) {
     final d = context.t.entities.detail;
-    final key = (triggerId: widget.triggerId, status: _status.isEmpty ? null : _status);
+    final key = (
+      triggerId: widget.triggerId,
+      status: _status.isEmpty ? null : _status,
+    );
     final async = ref.watch(firingListProvider(key));
     final notifier = ref.read(firingListProvider(key).notifier);
     return _ObsScaffold(
@@ -146,7 +149,12 @@ class _ObsScaffold extends StatelessWidget {
             action: AnButton(label: d.state.retry, onPressed: onRetry),
           ),
           data: (st) => st.rows.isEmpty
-              ? AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: emptyTitle, hint: emptyHint)
+              ? AnState(
+                  kind: AnStateKind.empty,
+                  size: AnStateSize.inset,
+                  title: emptyTitle,
+                  hint: emptyHint,
+                )
               : Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
@@ -164,7 +172,11 @@ class _ObsScaffold extends StatelessWidget {
                           onToggle: () => onToggle(row.id),
                           onSelect: () => onToggle(row.id),
                         ),
-                        detail: kvList([for (final r in row.detailRows) (r.$1, r.$2)], wrap: true, dense: true),
+                        detail: kvList(
+                          [for (final r in row.detailRows) (r.$1, r.$2)],
+                          wrap: true,
+                          dense: true,
+                        ),
                       ),
                     if (st.loadingMore)
                       const AnSkeleton.row()

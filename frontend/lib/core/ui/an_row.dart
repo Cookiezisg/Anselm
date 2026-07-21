@@ -51,12 +51,20 @@ class AnRow extends StatelessWidget {
     this.onSelect,
     this.onToggle,
     super.key,
-  })  : assert(!leadless || (icon == null && dot == null && leadWidget == null && !collapsible),
-            'leadless drops the lead slot — it cannot carry an icon/dot/chevron. leadless 无 lead 槽,不可带图标/点/箭头。'),
-        // icon+dot may legally coexist (dot precedence, legacy sites); leadWidget is exclusive.
-        // icon+dot 合法共存(dot 优先,旧用点);leadWidget 独占槽。
-        assert(leadWidget == null || (icon == null && dot == null),
-            'leadWidget owns the lead slot — no icon/dot beside it. leadWidget 独占 lead 槽。');
+  }) : assert(
+         !leadless ||
+             (icon == null &&
+                 dot == null &&
+                 leadWidget == null &&
+                 !collapsible),
+         'leadless drops the lead slot — it cannot carry an icon/dot/chevron. leadless 无 lead 槽,不可带图标/点/箭头。',
+       ),
+       // icon+dot may legally coexist (dot precedence, legacy sites); leadWidget is exclusive.
+       // icon+dot 合法共存(dot 优先,旧用点);leadWidget 独占槽。
+       assert(
+         leadWidget == null || (icon == null && dot == null),
+         'leadWidget owns the lead slot — no icon/dot beside it. leadWidget 独占 lead 槽。',
+       );
 
   final IconData? icon;
   final AnStatus? dot;
@@ -135,9 +143,14 @@ class AnRow extends StatelessWidget {
     }
 
     final content = Row(
-      crossAxisAlignment: _hasHint ? CrossAxisAlignment.start : CrossAxisAlignment.center,
+      crossAxisAlignment: _hasHint
+          ? CrossAxisAlignment.start
+          : CrossAxisAlignment.center,
       children: [
-        if (!leadless) ...[_lead(c, active, reduced), const SizedBox(width: AnSpace.s8)],
+        if (!leadless) ...[
+          _lead(c, active, reduced),
+          const SizedBox(width: AnSpace.s8),
+        ],
         Expanded(child: _labelBlock(c, active)),
         const SizedBox(width: AnSpace.s8),
         _trail(c, active),
@@ -147,8 +160,12 @@ class AnRow extends StatelessWidget {
     return ClipRRect(
       borderRadius: BorderRadius.circular(AnRadius.button),
       child: AnimatedContainer(
-        duration: reduced ? Duration.zero : AnMotion.fast, // hover tint = functional micro-feedback 功能性微反馈
-        constraints: BoxConstraints(minHeight: _hasHint ? AnSize.islandHead : AnSize.row),
+        duration: reduced
+            ? Duration.zero
+            : AnMotion.fast, // hover tint = functional micro-feedback 功能性微反馈
+        constraints: BoxConstraints(
+          minHeight: _hasHint ? AnSize.islandHead : AnSize.row,
+        ),
         color: bg,
         // alignment:center — the minHeight floor makes this Stack taller than a short single-line content;
         // RenderStack's default (topStart) would pin that content to the top (the "text sits high" bug). The
@@ -159,7 +176,9 @@ class AnRow extends StatelessWidget {
           children: [
             Padding(
               padding: EdgeInsetsDirectional.only(
-                start: AnSpace.s8 + depth * AnSize.iconLg, // pad-row + per-level indent 缩进
+                start:
+                    AnSpace.s8 +
+                    depth * AnSize.iconLg, // pad-row + per-level indent 缩进
                 end: AnSpace.s8,
                 top: _hasHint ? AnSpace.s4 : 0,
                 bottom: _hasHint ? AnSpace.s4 : 0,
@@ -184,7 +203,9 @@ class AnRow extends StatelessWidget {
   Widget _lead(AnColors c, bool active, bool reduced) {
     final Widget glyph;
     if (dot != null) {
-      glyph = ExcludeSemantics(child: AnStatusDot(dot!)); // status conveyed by the dot's own a11y elsewhere; here decorative 装饰
+      glyph = ExcludeSemantics(
+        child: AnStatusDot(dot!),
+      ); // status conveyed by the dot's own a11y elsewhere; here decorative 装饰
     } else if (leadWidget != null && collapsible) {
       // Custom lead hover-swaps for the chevron exactly like an icon (zero new metrics). 自定义 lead
       // 与 icon 同法换箭头(零新度量)。
@@ -196,7 +217,11 @@ class AnRow extends StatelessWidget {
           duration: reduced ? Duration.zero : AnMotion.mid,
           curve: AnMotion.spring,
           turns: open ? 0.25 : 0,
-          child: Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint),
+          child: Icon(
+            AnIcons.chevronRight,
+            size: AnSize.icon,
+            color: c.inkFaint,
+          ),
         ),
       );
     } else if (leadWidget != null) {
@@ -220,50 +245,90 @@ class AnRow extends StatelessWidget {
       glyph = _HoverSwap(
         alignment: Alignment.center,
         showSecond: active,
-        first: icon != null ? Icon(icon, size: AnSize.icon, color: c.inkFaint) : const SizedBox.shrink(),
+        first: icon != null
+            ? Icon(icon, size: AnSize.icon, color: c.inkFaint)
+            : const SizedBox.shrink(),
         second: AnimatedRotation(
           duration: reduced ? Duration.zero : AnMotion.mid,
-          curve: AnMotion.spring, // demo --ease-spring (transform animates; opacity swap is instant) 旋转弹性、opacity 即时
+          curve: AnMotion
+              .spring, // demo --ease-spring (transform animates; opacity swap is instant) 旋转弹性、opacity 即时
           turns: open ? 0.25 : 0,
-          child: Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint),
+          child: Icon(
+            AnIcons.chevronRight,
+            size: AnSize.icon,
+            color: c.inkFaint,
+          ),
         ),
       );
     } else {
       glyph = icon != null
-          ? ExcludeSemantics(child: Icon(icon, size: AnSize.icon, color: c.inkFaint))
+          ? ExcludeSemantics(
+              child: Icon(icon, size: AnSize.icon, color: c.inkFaint),
+            )
           : const SizedBox.shrink();
     }
 
-    final lead = SizedBox(width: AnSize.icon, height: AnSize.icon, child: Center(child: glyph));
+    final lead = SizedBox(
+      width: AnSize.icon,
+      height: AnSize.icon,
+      child: Center(child: glyph),
+    );
     // collapsible non-passive: the lead toggles; other taps fall through to the row's select. lead 折叠、其余选中。
     if (collapsible && !passive && onToggle != null) {
-      return GestureDetector(behavior: HitTestBehavior.opaque, onTap: onToggle, child: lead);
+      return GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onToggle,
+        child: lead,
+      );
     }
     return lead;
   }
 
   Widget _labelBlock(AnColors c, bool active) {
     final strong = active || selected;
-    final labelStyle = (mono ? AnText.mono : AnText.body).copyWith(color: strong ? c.ink : c.inkMuted);
-    final labelText = labelWidget ??
-        Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: labelStyle);
+    final labelStyle = (mono ? AnText.mono : AnText.body).copyWith(
+      color: strong ? c.ink : c.inkMuted,
+    );
+    final labelText =
+        labelWidget ??
+        Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: labelStyle,
+        );
     if (!_hasHint) return labelText;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis,
-            style: (mono ? AnText.mono : AnText.body).copyWith(color: c.ink)), // hint row: label is full-ink hint 行 label 强墨
+        Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: (mono ? AnText.mono : AnText.body).copyWith(color: c.ink),
+        ), // hint row: label is full-ink hint 行 label 强墨
         const SizedBox(height: AnSpace.s2),
-        Text(hint!, softWrap: true, style: AnText.meta.copyWith(color: c.inkFaint)), // hint wraps 多行
+        Text(
+          hint!,
+          softWrap: true,
+          style: AnText.meta.copyWith(color: c.inkFaint),
+        ), // hint wraps 多行
       ],
     );
   }
 
   Widget _trail(AnColors c, bool active) {
     final metaWidget = _hasMeta
-        ? Text(meta!, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right,
-            style: AnText.metaTabular().copyWith(color: c.inkFaint))
+        ? Text(
+            meta!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.right,
+            style: AnText.metaTabular().copyWith(color: c.inkFaint),
+          )
         : null;
     // meta ↔ actions at the same right anchor; actions revealed on hover (opacity cross-fade, no reflow).
     // meta↔actions 同右锚;hover 揭示 actions(opacity 交叉、不重排)。
@@ -279,10 +344,13 @@ class AnRow extends StatelessWidget {
     if (td == null) return core ?? const SizedBox.shrink();
     // The persistent status dot rides after the meta/actions slot (excluded from a11y — the row's own
     // label carries the meaning). 状态点在 meta/actions 之后常驻(a11y 排除,含义归行 label)。
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      if (core != null) ...[core, const SizedBox(width: AnSpace.s6)],
-      ExcludeSemantics(child: AnStatusDot(td)),
-    ]);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (core != null) ...[core, const SizedBox(width: AnSpace.s6)],
+        ExcludeSemantics(child: AnStatusDot(td)),
+      ],
+    );
   }
 }
 
@@ -325,9 +393,7 @@ class _HoverSwap extends StatelessWidget {
     // Hidden but still occupying its layout slot (no reflow on swap) — and fully inert. 隐藏但占位、彻底惰化。
     return ExcludeFocus(
       child: IgnorePointer(
-        child: ExcludeSemantics(
-          child: Opacity(opacity: 0, child: child),
-        ),
+        child: ExcludeSemantics(child: Opacity(opacity: 0, child: child)),
       ),
     );
   }

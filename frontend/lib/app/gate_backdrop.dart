@@ -13,5 +13,6 @@ class GateBackdrop extends StatelessWidget {
   final Widget child;
 
   @override
-  Widget build(BuildContext context) => Material(color: context.colors.canvas, child: child);
+  Widget build(BuildContext context) =>
+      Material(color: context.colors.canvas, child: child);
 }

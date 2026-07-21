@@ -39,7 +39,10 @@ class AnProseTable extends StatelessWidget {
 
   // The single cell padding shared with the editor stylesheet (an_editor_stylesheet.dart TableStyles.cellPadding):
   // 12 horizontal for column separation, 6 vertical (GFM 6px, tightened from 8). 与编辑器同一格内距。
-  static const EdgeInsets _cellPadding = EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6);
+  static const EdgeInsets _cellPadding = EdgeInsets.symmetric(
+    horizontal: AnSpace.s12,
+    vertical: AnSpace.s6,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -47,9 +50,12 @@ class AnProseTable extends StatelessWidget {
     final c = context.colors;
     return LayoutBuilder(
       builder: (context, constraints) => FittedBox(
-        fit: BoxFit.scaleDown, // wider than the reading column → shrink to fit (verbatim with the editor)
+        fit: BoxFit
+            .scaleDown, // wider than the reading column → shrink to fit (verbatim with the editor)
         child: ConstrainedBox(
-          constraints: BoxConstraints(minWidth: constraints.maxWidth), // narrower → expand to fill
+          constraints: BoxConstraints(
+            minWidth: constraints.maxWidth,
+          ), // narrower → expand to fill
           child: Table(
             border: TableBorder.all(color: c.line, width: AnSize.hairline),
             defaultColumnWidth: const IntrinsicColumnWidth(),
@@ -62,7 +68,9 @@ class AnProseTable extends StatelessWidget {
                     for (final cell in rows[r])
                       Padding(
                         padding: _cellPadding,
-                        child: r < headerRowCount ? Semantics(header: true, child: cell) : cell,
+                        child: r < headerRowCount
+                            ? Semantics(header: true, child: cell)
+                            : cell,
                       ),
                   ],
                 ),

@@ -37,7 +37,9 @@ class SchedulerRunRelayView extends ConsumerWidget {
       // Resolved → hand over to the flagship. Post-frame (navigating during build is illegal) and
       // REPLACE (the relay leaves no history entry of its own). 解出即交棒:后帧 + replace(中转不留史)。
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (context.mounted) context.pushReplacement('/scheduler/w/$wfId/runs/$flowrunId');
+        if (context.mounted) {
+          context.pushReplacement('/scheduler/w/$wfId/runs/$flowrunId');
+        }
       });
     }
 

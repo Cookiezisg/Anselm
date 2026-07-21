@@ -13,40 +13,40 @@ void main() {
   final t = DateTime.utc(2026);
 
   EntityDetail fnDetail(List<Field> inputs) => EntityDetail(
-        ref: const EntityRef(EntityKind.function, 'fn_1'),
-        function: FunctionEntity(
-          id: 'fn_1',
-          name: 'f',
-          createdAt: t,
-          updatedAt: t,
-          activeVersion: FunctionVersion(
-            id: 'v1',
-            functionId: 'fn_1',
-            version: 1,
-            inputs: inputs,
-            createdAt: t,
-            updatedAt: t,
-          ),
-        ),
-      );
+    ref: const EntityRef(EntityKind.function, 'fn_1'),
+    function: FunctionEntity(
+      id: 'fn_1',
+      name: 'f',
+      createdAt: t,
+      updatedAt: t,
+      activeVersion: FunctionVersion(
+        id: 'v1',
+        functionId: 'fn_1',
+        version: 1,
+        inputs: inputs,
+        createdAt: t,
+        updatedAt: t,
+      ),
+    ),
+  );
 
   EntityDetail hdDetail(List<MethodSpec> methods) => EntityDetail(
-        ref: const EntityRef(EntityKind.handler, 'hd_1'),
-        handler: HandlerEntity(
-          id: 'hd_1',
-          name: 'h',
-          createdAt: t,
-          updatedAt: t,
-          activeVersion: HandlerVersion(
-            id: 'v1',
-            handlerId: 'hd_1',
-            version: 1,
-            methods: methods,
-            createdAt: t,
-            updatedAt: t,
-          ),
-        ),
-      );
+    ref: const EntityRef(EntityKind.handler, 'hd_1'),
+    handler: HandlerEntity(
+      id: 'hd_1',
+      name: 'h',
+      createdAt: t,
+      updatedAt: t,
+      activeVersion: HandlerVersion(
+        id: 'v1',
+        handlerId: 'hd_1',
+        version: 1,
+        methods: methods,
+        createdAt: t,
+        updatedAt: t,
+      ),
+    ),
+  );
 
   test('null detail (not loaded) → no fields, no methods', () {
     expect(runInputFields(EntityKind.function, null), isEmpty);
@@ -59,18 +59,45 @@ void main() {
   });
 
   test('workflow → never per-field (one JSON payload)', () {
-    expect(runInputFields(EntityKind.workflow, fnDetail(const [Field(name: 'x', type: 'string')])), isEmpty);
+    expect(
+      runInputFields(
+        EntityKind.workflow,
+        fnDetail(const [Field(name: 'x', type: 'string')]),
+      ),
+      isEmpty,
+    );
   });
 
-  test('handler → the SELECTED method inputs; a different/absent method → its own/empty set', () {
-    final d = hdDetail(const [
-      MethodSpec(name: 'a', inputs: [Field(name: 'p', type: 'string')]),
-      MethodSpec(name: 'b', inputs: [Field(name: 'q', type: 'number'), Field(name: 'r', type: 'boolean')]),
-    ]);
-    expect(runInputFields(EntityKind.handler, d, method: 'a').map((f) => f.name), ['p']);
-    expect(runInputFields(EntityKind.handler, d, method: 'b').map((f) => f.name), ['q', 'r']);
-    expect(runInputFields(EntityKind.handler, d, method: 'nope'), isEmpty);
-    expect(runInputFields(EntityKind.handler, d), isEmpty); // no method selected yet
-    expect(runMethods(d).map((m) => m.name), ['a', 'b']);
-  });
+  test(
+    'handler → the SELECTED method inputs; a different/absent method → its own/empty set',
+    () {
+      final d = hdDetail(const [
+        MethodSpec(
+          name: 'a',
+          inputs: [Field(name: 'p', type: 'string')],
+        ),
+        MethodSpec(
+          name: 'b',
+          inputs: [
+            Field(name: 'q', type: 'number'),
+            Field(name: 'r', type: 'boolean'),
+          ],
+        ),
+      ]);
+      expect(
+        runInputFields(EntityKind.handler, d, method: 'a').map((f) => f.name),
+        ['p'],
+      );
+      expect(
+        runInputFields(EntityKind.handler, d, method: 'b').map((f) => f.name),
+        ['q', 'r'],
+      );
+      expect(runInputFields(EntityKind.handler, d, method: 'nope'), isEmpty);
+      expect(
+        runInputFields(EntityKind.handler, d),
+        isEmpty,
+      ); // no method selected yet
+      expect(runMethods(d).map((m) => m.name), ['a', 'b']);
+    },
+  );
 }

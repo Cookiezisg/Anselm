@@ -23,7 +23,12 @@ class WorkspaceGate extends ConsumerWidget {
     final t = context.t;
     return async.when(
       data: (_) => child,
-      loading: () => GateBackdrop(child: AnState(kind: AnStateKind.loading, title: t.coldStart.connecting)),
+      loading: () => GateBackdrop(
+        child: AnState(
+          kind: AnStateKind.loading,
+          title: t.coldStart.connecting,
+        ),
+      ),
       error: (e, _) => GateBackdrop(
         child: AnState(
           kind: AnStateKind.error,

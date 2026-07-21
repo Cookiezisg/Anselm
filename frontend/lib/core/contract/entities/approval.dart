@@ -19,7 +19,8 @@ abstract class ApprovalForm with _$ApprovalForm {
     required DateTime updatedAt,
     ApprovalVersion? activeVersion,
   }) = _ApprovalForm;
-  factory ApprovalForm.fromJson(Map<String, dynamic> json) => _$ApprovalFormFromJson(json);
+  factory ApprovalForm.fromJson(Map<String, dynamic> json) =>
+      _$ApprovalFormFromJson(json);
 }
 
 /// Approval version (append-only): declared [inputs] + the markdown [template] (with `{{ CEL }}`
@@ -42,5 +43,6 @@ abstract class ApprovalVersion with _$ApprovalVersion {
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _ApprovalVersion;
-  factory ApprovalVersion.fromJson(Map<String, dynamic> json) => _$ApprovalVersionFromJson(json);
+  factory ApprovalVersion.fromJson(Map<String, dynamic> json) =>
+      _$ApprovalVersionFromJson(json);
 }

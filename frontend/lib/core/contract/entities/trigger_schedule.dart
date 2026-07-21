@@ -35,7 +35,8 @@ abstract class SchedulePoint with _$SchedulePoint {
     @Default('') String triggerName,
     @Default(<String>[]) List<String> workflowIds,
   }) = _SchedulePoint;
-  factory SchedulePoint.fromJson(Map<String, dynamic> json) => _$SchedulePointFromJson(json);
+  factory SchedulePoint.fromJson(Map<String, dynamic> json) =>
+      _$SchedulePointFromJson(json);
 }
 
 /// The schedule envelope. [points] is `at`-ASC (same-instant ties broken by triggerId, so the order
@@ -49,5 +50,6 @@ abstract class TriggerSchedule with _$TriggerSchedule {
     @Default(<SchedulePoint>[]) List<SchedulePoint> points,
     @Default(false) bool truncated,
   }) = _TriggerSchedule;
-  factory TriggerSchedule.fromJson(Map<String, dynamic> json) => _$TriggerScheduleFromJson(json);
+  factory TriggerSchedule.fromJson(Map<String, dynamic> json) =>
+      _$TriggerScheduleFromJson(json);
 }

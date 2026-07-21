@@ -13,16 +13,22 @@ import '../model/settings_catalog.dart';
 class SettingsPanelController extends Notifier<SettingsPanel> {
   @override
   SettingsPanel build() {
-    final stored = ref.read(settingsPrefsProvider).getString(SettingsKeys.settingsPanel);
+    final stored = ref
+        .read(settingsPrefsProvider)
+        .getString(SettingsKeys.settingsPanel);
     return SettingsPanel.values.asNameMap()[stored] ?? SettingsPanel.general;
   }
 
   void select(SettingsPanel panel) {
     if (panel == state) return;
     state = panel;
-    ref.read(settingsPrefsProvider).setString(SettingsKeys.settingsPanel, panel.name);
+    ref
+        .read(settingsPrefsProvider)
+        .setString(SettingsKeys.settingsPanel, panel.name);
   }
 }
 
 final settingsPanelProvider =
-    NotifierProvider<SettingsPanelController, SettingsPanel>(SettingsPanelController.new);
+    NotifierProvider<SettingsPanelController, SettingsPanel>(
+      SettingsPanelController.new,
+    );

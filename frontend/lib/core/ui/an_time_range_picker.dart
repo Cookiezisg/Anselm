@@ -185,7 +185,9 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
         _timeOpen = _fromTod != _kDayStart || _toTod != _kDayEnd;
       case AnPresetRange():
         final r = resolveTimeRange(widget.value, now);
-        _fromDay = dateOnly(r.from ?? DateTime(now.year, now.month, now.day - 7));
+        _fromDay = dateOnly(
+          r.from ?? DateTime(now.year, now.month, now.day - 7),
+        );
         _toDay = dateOnly(now);
         _fromTod = _kDayStart;
         _toTod = _kDayEnd;
@@ -203,7 +205,8 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
       case AnAbsoluteRange(:final from, :final to):
         // Faithful to intent: a full-day pair speaks in DAYS; explicit times speak in instants.
         // 忠于意图:整天对念日子,显式时刻念时刻。
-        final fullDay = from.hour == 0 &&
+        final fullDay =
+            from.hour == 0 &&
             from.minute == 0 &&
             to.hour == _kDayEnd.hour &&
             to.minute == _kDayEnd.minute;
@@ -235,10 +238,21 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
   }
 
   ({DateTime from, DateTime to}) get _draft => (
-        from: DateTime(
-            _fromDay.year, _fromDay.month, _fromDay.day, _fromTod.hour, _fromTod.minute),
-        to: DateTime(_toDay.year, _toDay.month, _toDay.day, _toTod.hour, _toTod.minute),
-      );
+    from: DateTime(
+      _fromDay.year,
+      _fromDay.month,
+      _fromDay.day,
+      _fromTod.hour,
+      _fromTod.minute,
+    ),
+    to: DateTime(
+      _toDay.year,
+      _toDay.month,
+      _toDay.day,
+      _toTod.hour,
+      _toTod.minute,
+    ),
+  );
 
   void _apply() {
     final draft = _draft;
@@ -268,7 +282,9 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
       onTap: _popover.toggle,
       builder: (context, states) {
         final active = _popover.isOpen || states.isActive;
-        final feedback = AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast;
+        final feedback = AnMotionPref.reduced(context)
+            ? Duration.zero
+            : AnMotion.fast;
         return AnimatedContainer(
           duration: feedback,
           height: AnSize.controlSm,
@@ -280,21 +296,31 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(AnIcons.calendarRange, size: AnSize.iconSm, color: c.inkFaint),
+              Icon(
+                AnIcons.calendarRange,
+                size: AnSize.iconSm,
+                color: c.inkFaint,
+              ),
               const SizedBox(width: AnSpace.s6),
               Flexible(
                 child: Text(
                   _capsuleLabel,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AnText.meta.copyWith(color: active ? c.ink : c.inkMuted),
+                  style: AnText.meta.copyWith(
+                    color: active ? c.ink : c.inkMuted,
+                  ),
                 ),
               ),
               const SizedBox(width: AnSpace.s6),
               AnimatedRotation(
                 duration: feedback,
                 turns: _popover.isOpen ? 0.5 : 0,
-                child: Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.inkFaint),
+                child: Icon(
+                  AnIcons.chevronDown,
+                  size: AnSize.iconSm,
+                  color: c.inkFaint,
+                ),
               ),
             ],
           ),
@@ -360,11 +386,17 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
                           widget.strings.presetLabels[p]!,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
-                          style:
-                              AnText.body.copyWith(color: active || selected ? c.ink : c.inkMuted),
+                          style: AnText.body.copyWith(
+                            color: active || selected ? c.ink : c.inkMuted,
+                          ),
                         ),
                       ),
-                      if (selected) Icon(AnIcons.check, size: AnSize.iconSm, color: c.accent),
+                      if (selected)
+                        Icon(
+                          AnIcons.check,
+                          size: AnSize.iconSm,
+                          color: c.accent,
+                        ),
                     ],
                   );
                 },
@@ -384,15 +416,20 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
                       '${widget.strings.customTitle}…',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AnText.body
-                          .copyWith(color: active || customActive ? c.ink : c.inkMuted),
+                      style: AnText.body.copyWith(
+                        color: active || customActive ? c.ink : c.inkMuted,
+                      ),
                     ),
                   ),
                   if (customActive) ...[
                     Icon(AnIcons.check, size: AnSize.iconSm, color: c.accent),
                     const SizedBox(width: AnSpace.s4),
                   ],
-                  Icon(AnIcons.chevronRight, size: AnSize.iconSm, color: c.inkFaint),
+                  Icon(
+                    AnIcons.chevronRight,
+                    size: AnSize.iconSm,
+                    color: c.inkFaint,
+                  ),
                 ],
               ),
             ),
@@ -415,101 +452,123 @@ class _AnTimeRangePickerState extends State<AnTimeRangePicker> {
     return SizedBox(
       width: AnCalendar.gridWidth + AnSpace.s12 * 2,
       child: Padding(
-      padding: const EdgeInsets.all(AnSpace.s12),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(children: [
-            AnButton.iconOnly(AnIcons.chevronLeft,
-                size: AnButtonSize.sm,
-                semanticLabel: s.backLabel,
-                onPressed: () => setState(() => _custom = false)),
-            const SizedBox(width: AnSpace.s6),
-            Text(s.customTitle,
-                style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-          ]),
-          const SizedBox(height: AnSpace.s8),
-          AnCalendar(
-            month: _month,
-            rangeStart: _fromDay,
-            rangeEnd: _awaitingEnd ? null : _toDay,
-            onPickDay: _pickDay,
-            onMonthChange: (m) => setState(() => _month = m),
-            weekdayLabels: s.weekdayLabels,
-            monthTitle: s.monthTitle(_month),
-            prevMonthLabel: s.prevMonthLabel,
-            nextMonthLabel: s.nextMonthLabel,
-            todayLabel: s.todayLabel,
-            daySemanticLabel: s.daySemanticLabel,
-            gridSemanticLabel: s.gridSemanticLabel,
-          ),
-          const SizedBox(height: AnSpace.s8),
-          // The preview line — plain ink, an ECHO not a control (假链接蓝退役: blue promised a
-          // click it couldn't honour). 预览行:纯墨回显、非控件。
-          Text(
-            '${s.dayText(_fromDay)} – ${s.dayText(_toDay)}',
-            style: AnText.value().copyWith(color: c.ink),
-          ),
-          // ── tier 3: exact times, disclosed on demand (端点默认整天,藏) ──
-          if (!_timeOpen)
-            Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s4),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: AnButton(
-                  label: s.preciseTimeLabel,
+        padding: const EdgeInsets.all(AnSpace.s12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                AnButton.iconOnly(
+                  AnIcons.chevronLeft,
                   size: AnButtonSize.sm,
-                  variant: AnButtonVariant.ghost,
-                  icon: AnIcons.scheduler,
-                  onPressed: () => setState(() => _timeOpen = true),
+                  semanticLabel: s.backLabel,
+                  onPressed: () => setState(() => _custom = false),
+                ),
+                const SizedBox(width: AnSpace.s6),
+                Text(
+                  s.customTitle,
+                  style: AnText.label
+                      .weight(AnText.emphasisWeight)
+                      .copyWith(color: c.ink),
+                ),
+              ],
+            ),
+            const SizedBox(height: AnSpace.s8),
+            AnCalendar(
+              month: _month,
+              rangeStart: _fromDay,
+              rangeEnd: _awaitingEnd ? null : _toDay,
+              onPickDay: _pickDay,
+              onMonthChange: (m) => setState(() => _month = m),
+              weekdayLabels: s.weekdayLabels,
+              monthTitle: s.monthTitle(_month),
+              prevMonthLabel: s.prevMonthLabel,
+              nextMonthLabel: s.nextMonthLabel,
+              todayLabel: s.todayLabel,
+              daySemanticLabel: s.daySemanticLabel,
+              gridSemanticLabel: s.gridSemanticLabel,
+            ),
+            const SizedBox(height: AnSpace.s8),
+            // The preview line — plain ink, an ECHO not a control (假链接蓝退役: blue promised a
+            // click it couldn't honour). 预览行:纯墨回显、非控件。
+            Text(
+              '${s.dayText(_fromDay)} – ${s.dayText(_toDay)}',
+              style: AnText.value().copyWith(color: c.ink),
+            ),
+            // ── tier 3: exact times, disclosed on demand (端点默认整天,藏) ──
+            if (!_timeOpen)
+              Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s4),
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: AnButton(
+                    label: s.preciseTimeLabel,
+                    size: AnButtonSize.sm,
+                    variant: AnButtonVariant.ghost,
+                    icon: AnIcons.scheduler,
+                    onPressed: () => setState(() => _timeOpen = true),
+                  ),
+                ),
+              ),
+            AnExpandReveal(
+              open: _timeOpen,
+              child: Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s8),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [
+                    _todColumn(
+                      context,
+                      s.fromLabel,
+                      _fromTod,
+                      (v) => setState(() {
+                        _fromTod = v;
+                        _revalidateIfErrored();
+                      }),
+                    ),
+                    const SizedBox(width: AnSpace.s16),
+                    _todColumn(
+                      context,
+                      s.toLabel,
+                      _toTod,
+                      (v) => setState(() {
+                        _toTod = v;
+                        _revalidateIfErrored();
+                      }),
+                    ),
+                  ],
                 ),
               ),
             ),
-          AnExpandReveal(
-            open: _timeOpen,
-            child: Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s8),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  _todColumn(context, s.fromLabel, _fromTod, (v) => setState(() {
-                        _fromTod = v;
-                        _revalidateIfErrored();
-                      })),
-                  const SizedBox(width: AnSpace.s16),
-                  _todColumn(context, s.toLabel, _toTod, (v) => setState(() {
-                        _toTod = v;
-                        _revalidateIfErrored();
-                      })),
-                ],
+            const SizedBox(height: AnSpace.s8),
+            if (_error != null) ...[
+              Text(_error!, style: AnText.label.copyWith(color: c.danger)),
+              const SizedBox(height: AnSpace.s8),
+            ],
+            Align(
+              alignment: Alignment.centerRight,
+              child: AnButton(
+                label: s.applyLabel,
+                size: AnButtonSize.sm,
+                variant: AnButtonVariant.primary,
+                onPressed: _apply,
               ),
             ),
-          ),
-          const SizedBox(height: AnSpace.s8),
-          if (_error != null) ...[
-            Text(_error!, style: AnText.label.copyWith(color: c.danger)),
-            const SizedBox(height: AnSpace.s8),
           ],
-          Align(
-            alignment: Alignment.centerRight,
-            child: AnButton(
-              label: s.applyLabel,
-              size: AnButtonSize.sm,
-              variant: AnButtonVariant.primary,
-              onPressed: _apply,
-            ),
-          ),
-        ],
-      ),
+        ),
       ),
     );
   }
 
   /// One time-of-day column: the endpoint word over its HH:MM wheel. 一端:标签+时刻滚轮。
-  Widget _todColumn(BuildContext context, String label, AnWheelTime tod,
-      ValueChanged<AnWheelTime> onTod) {
+  Widget _todColumn(
+    BuildContext context,
+    String label,
+    AnWheelTime tod,
+    ValueChanged<AnWheelTime> onTod,
+  ) {
     final c = context.colors;
     return Column(
       mainAxisSize: MainAxisSize.min,

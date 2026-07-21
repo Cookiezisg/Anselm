@@ -13,7 +13,12 @@ import '../design/tokens.dart';
 /// 子件外画 accent 环(WCAG 2.4.7 焦点必须可见)。foregroundDecoration 绘制:零布局位移,随子件圆角。
 /// 与 AnInteractive 配对:builder 里 `AnFocusRing(active: states.isActive, child: …)`。
 class AnFocusRing extends StatelessWidget {
-  const AnFocusRing({required this.active, required this.child, this.radius = AnRadius.card, super.key});
+  const AnFocusRing({
+    required this.active,
+    required this.child,
+    this.radius = AnRadius.card,
+    super.key,
+  });
 
   final bool active;
   final Widget child;

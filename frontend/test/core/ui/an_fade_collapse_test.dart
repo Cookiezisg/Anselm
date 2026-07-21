@@ -10,12 +10,13 @@ import 'package:flutter_test/flutter_test.dart';
 // stranded Expand button (用户 0719 值班手册收起态).
 void main() {
   Widget host(Widget child) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AnTheme.light(),
-        home: Scaffold(body: SingleChildScrollView(child: child)),
-      );
+    debugShowCheckedModeBanner: false,
+    theme: AnTheme.light(),
+    home: Scaffold(body: SingleChildScrollView(child: child)),
+  );
 
-  Widget fc({required double childHeight, double collapsedHeight = 200}) => AnFadeCollapse(
+  Widget fc({required double childHeight, double collapsedHeight = 200}) =>
+      AnFadeCollapse(
         collapsible: true,
         collapsedHeight: collapsedHeight,
         expandLabel: 'Expand',
@@ -23,30 +24,50 @@ void main() {
         child: SizedBox(height: childHeight, child: const Text('BODY')),
       );
 
-  testWidgets('short content: sits at its own height, no fade, no toggle', (tester) async {
+  testWidgets('short content: sits at its own height, no fade, no toggle', (
+    tester,
+  ) async {
     await tester.pumpWidget(host(fc(childHeight: 80)));
     await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(AnFadeCollapse)).height, 80,
-        reason: 'max-height clamp, not a fixed box — short content must not stretch to the clamp');
+    expect(
+      tester.getSize(find.byType(AnFadeCollapse)).height,
+      80,
+      reason:
+          'max-height clamp, not a fixed box — short content must not stretch to the clamp',
+    );
     expect(find.byType(AnEdgeFade), findsNothing);
-    expect(find.text('Expand'), findsNothing, reason: 'a toggle under fully-visible content is a dead affordance');
+    expect(
+      find.text('Expand'),
+      findsNothing,
+      reason: 'a toggle under fully-visible content is a dead affordance',
+    );
   });
 
   testWidgets('tall content: clamped, fade + Expand present', (tester) async {
     await tester.pumpWidget(host(fc(childHeight: 900)));
     await tester.pumpAndSettle();
     final total = tester.getSize(find.byType(AnFadeCollapse)).height;
-    expect(total, lessThan(900), reason: 'clamped to collapsedHeight + toggle row');
+    expect(
+      total,
+      lessThan(900),
+      reason: 'clamped to collapsedHeight + toggle row',
+    );
     expect(find.byType(AnEdgeFade), findsOneWidget);
     expect(find.text('Expand'), findsOneWidget);
   });
 
-  testWidgets('expand shows full content + Collapse; collapse clamps back', (tester) async {
+  testWidgets('expand shows full content + Collapse; collapse clamps back', (
+    tester,
+  ) async {
     await tester.pumpWidget(host(fc(childHeight: 900)));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Expand'));
     await tester.pumpAndSettle();
-    expect(tester.getSize(find.byType(SizedBox).first).height, 900, reason: 'expanded → intrinsic height');
+    expect(
+      tester.getSize(find.byType(SizedBox).first).height,
+      900,
+      reason: 'expanded → intrinsic height',
+    );
     expect(find.text('Collapse'), findsOneWidget);
     await tester.ensureVisible(find.text('Collapse'));
     await tester.tap(find.text('Collapse'));
@@ -56,12 +77,16 @@ void main() {
   });
 
   testWidgets('collapsible=false renders the bare child', (tester) async {
-    await tester.pumpWidget(host(const AnFadeCollapse(
-      collapsible: false,
-      expandLabel: 'Expand',
-      collapseLabel: 'Collapse',
-      child: Text('BODY'),
-    )));
+    await tester.pumpWidget(
+      host(
+        const AnFadeCollapse(
+          collapsible: false,
+          expandLabel: 'Expand',
+          collapseLabel: 'Collapse',
+          child: Text('BODY'),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.text('Expand'), findsNothing);
     expect(find.byType(AnEdgeFade), findsNothing);

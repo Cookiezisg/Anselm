@@ -25,7 +25,8 @@ class SchedulerOverviewView extends ConsumerStatefulWidget {
   const SchedulerOverviewView({super.key});
 
   @override
-  ConsumerState<SchedulerOverviewView> createState() => _SchedulerOverviewViewState();
+  ConsumerState<SchedulerOverviewView> createState() =>
+      _SchedulerOverviewViewState();
 }
 
 /// One zone's anchor + wash trigger — the board's drill-down mechanism, ONE engine for every KPI tile
@@ -94,17 +95,22 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
     final ctx = anchor.key.currentContext;
     if (ctx == null) return;
     setState(() => anchor.seq++);
-    Scrollable.ensureVisible(ctx,
-        duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.slow,
-        curve: AnMotion.easeOut,
-        alignment: 0.1);
+    Scrollable.ensureVisible(
+      ctx,
+      duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.slow,
+      curve: AnMotion.easeOut,
+      alignment: 0.1,
+    );
   }
 
   /// The zone, washed if it has ever been revealed. Wrapping only after the first tap keeps the
   /// untouched board free of the extra layer. 揭示过才裹洗亮层:没碰过的盘面不多一层。
   Widget _washable(_ZoneAnchor anchor, Widget zone) => anchor.seq == 0
       ? zone
-      : AnWashHighlight(key: ValueKey('${anchor.name}-wash-${anchor.seq}'), child: zone);
+      : AnWashHighlight(
+          key: ValueKey('${anchor.name}-wash-${anchor.seq}'),
+          child: zone,
+        );
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +128,8 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
           hint: t.overview.errorHint,
           action: AnButton(
             label: t.retry,
-            onPressed: () => ref.read(schedulerOverviewProvider.notifier).retry(),
+            onPressed: () =>
+                ref.read(schedulerOverviewProvider.notifier).retry(),
           ),
         ),
       );
@@ -131,7 +138,11 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
       child: AnDeferredLoading(
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [AnSkeleton.card(), SizedBox(height: AnSpace.s16), AnSkeleton.lines(6)],
+          children: [
+            AnSkeleton.card(),
+            SizedBox(height: AnSpace.s16),
+            AnSkeleton.lines(6),
+          ],
         ),
       ),
     );
@@ -146,7 +157,9 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
     // 后帧绑;浮层头只念本页标题(总览),不串「Scheduler / …」路径。
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
-        ref.read(shellHeadProvider.notifier).bind(t.overviewTitle, _scrollToTop);
+        ref
+            .read(shellHeadProvider.notifier)
+            .bind(t.overviewTitle, _scrollToTop);
       }
     });
     return AnPage(
@@ -157,7 +170,10 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
           // The documentary page head (WRK-070 B11): grey crumb over the big title — the standard
           // grammar every ocean page speaks. The Overview IS the Scheduler root, so «Scheduler» is the
           // current context (inert), 总览 the title. 文档化页头:总览即 Scheduler 根,「Scheduler」惰性、黑字=总览。
-          AnOceanHeader(crumbs: [AnCrumb(t.home.crumbRoot)], title: t.overviewTitle),
+          AnOceanHeader(
+            crumbs: [AnCrumb(t.home.crumbRoot)],
+            title: t.overviewTitle,
+          ),
           Padding(
             padding: const EdgeInsets.only(bottom: AnGap.section),
             child: _KpiStrip(
@@ -175,7 +191,9 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
               // 恰在有失败时在场;零时惰性,同 running/waiting。
               onFailed24h: d.failedRuns.isEmpty ? null : () => _reveal(_failed),
               // Only when the tick it names is really on the axis (see nextFireOnTrack). 所念刻度真在轴上才可点。
-              onNextFire: nextFireOnTrack(d.track, d.kpi.nextFire) ? () => _reveal(_schedule) : null,
+              onNextFire: nextFireOnTrack(d.track, d.kpi.nextFire)
+                  ? () => _reveal(_schedule)
+                  : null,
               onMissed: () => _reveal(_schedule),
             ),
           ),
@@ -184,23 +202,30 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
           // keyed, so the KPI drill-down wash lands by GlobalKey regardless of order (re-verified).
           // 段序:调度打头 → 等你处理 → 正在跑 → 失败段;KPI 钻取按 GlobalKey 锚,与顺序无关(已重验)。
           _washable(
-              _schedule,
-              SchedulerScheduleZone(
-                  key: _schedule.key,
-                  track: d.track,
-                  triggersById: d.triggersById,
-                  now: now)),
+            _schedule,
+            SchedulerScheduleZone(
+              key: _schedule.key,
+              track: d.track,
+              triggersById: d.triggersById,
+              now: now,
+            ),
+          ),
           // «等你处理» — the costliest land (S2b): inbox rows + in-place ApprovalGate + AnBatchBar
           // batch approve/reject; then «正在跑» with hover ⏹ + batch cancel. 等你处理(就地审批+批量)
           // 与 正在跑(hover 取消+批量取消)两操作区。
-          _washable(_waiting, SchedulerWaitingZone(key: _waiting.key, rows: d.waiting, now: now)),
           _washable(
-              _running,
-              SchedulerRunningZone(
-                  key: _running.key,
-                  rows: d.runningRuns,
-                  triggersById: d.triggersById,
-                  now: now)),
+            _waiting,
+            SchedulerWaitingZone(key: _waiting.key, rows: d.waiting, now: now),
+          ),
+          _washable(
+            _running,
+            SchedulerRunningZone(
+              key: _running.key,
+              rows: d.runningRuns,
+              triggersById: d.triggersById,
+              now: now,
+            ),
+          ),
           // 失败段 (0718 宁静化): a plain «失败» segment head over TWO quiet subsections — the 24h
           // per-run list (工单⑮, present only when non-empty; the tile's drill-down anchor _failed
           // lands on it) on top, then the always-on 7d consecutive-failure subsection. The segment is
@@ -212,12 +237,14 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
             children: [
               if (d.failedRuns.isNotEmpty)
                 _washable(
-                    _failed,
-                    SchedulerFailedZone(
-                        key: _failed.key,
-                        rows: d.failedRuns,
-                        triggersById: d.triggersById,
-                        now: now)),
+                  _failed,
+                  SchedulerFailedZone(
+                    key: _failed.key,
+                    rows: d.failedRuns,
+                    triggersById: d.triggersById,
+                    now: now,
+                  ),
+                ),
               SchedulerFailuresZone(rows: d.failures),
             ],
           ),
@@ -247,12 +274,15 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
             AnButton(
               label: t.firstUseEntities,
               variant: AnButtonVariant.primary,
-              onPressed: () =>
-                  ref.read(selectedOceanProvider.notifier).select(OceanKind.entities),
+              onPressed: () => ref
+                  .read(selectedOceanProvider.notifier)
+                  .select(OceanKind.entities),
             ),
             AnButton(
               label: t.firstUseChat,
-              onPressed: () => ref.read(selectedOceanProvider.notifier).select(OceanKind.chat),
+              onPressed: () => ref
+                  .read(selectedOceanProvider.notifier)
+                  .select(OceanKind.chat),
             ),
           ],
         ),
@@ -360,7 +390,8 @@ class _KpiStrip extends StatelessWidget {
             : [
                 t.kpiFailed24hA11y(n: '${kpi.failed24h}'),
                 if (kpi.failedDelta > 0) t.deltaUpA11y(n: '${kpi.failedDelta}'),
-                if (kpi.failedDelta < 0) t.deltaDownA11y(n: '${-kpi.failedDelta}'),
+                if (kpi.failedDelta < 0)
+                  t.deltaDownA11y(n: '${-kpi.failedDelta}'),
               ].join(' '),
         value: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -380,7 +411,8 @@ class _KpiStrip extends StatelessWidget {
                           ? t.deltaUp(n: '${kpi.failedDelta}')
                           : t.deltaDown(n: '${-kpi.failedDelta}'),
                       style: AnText.metaTabular().copyWith(
-                          color: kpi.failedDelta > 0 ? c.danger : c.ok),
+                        color: kpi.failedDelta > 0 ? c.danger : c.ok,
+                      ),
                     ),
                   ),
                 ),
@@ -408,9 +440,13 @@ class _KpiStrip extends StatelessWidget {
           style: _valueStyle(c),
         ),
         onTap: onNextFire,
-        a11y: (onNextFire != null || (nextFire != null && nextFire.isAfter(now)))
+        a11y:
+            (onNextFire != null || (nextFire != null && nextFire.isAfter(now)))
             ? t.kpiNextFireA11y(
-                d: fmtWaited(_nonNeg(nextFire?.difference(now) ?? Duration.zero)))
+                d: fmtWaited(
+                  _nonNeg(nextFire?.difference(now) ?? Duration.zero),
+                ),
+              )
             : null,
       ),
       // The fifth tile — present only when it has news. 第五张牌:有话说才在场。
@@ -468,18 +504,28 @@ class _KpiStrip extends StatelessWidget {
   /// isFocusable` + 句子——正是原装按钮所发的那一套。改从**外面**包一张被 exclude 的卡(第五张牌最初落地时的形状),
   /// 实测会丢掉 isFocusable/hasEnabledState,更要命的是丢掉 **tap 动作**——而动作正是少数真到得了桌面读屏的东西之一
   /// ——于是它念出一个**按不动**的按钮。
-  Widget _tile(BuildContext context,
-      {required String label, required Widget value, VoidCallback? onTap, String? a11y}) {
-    assert(onTap == null || a11y != null, 'a tappable KPI tile must carry its a11y sentence');
+  Widget _tile(
+    BuildContext context, {
+    required String label,
+    required Widget value,
+    VoidCallback? onTap,
+    String? a11y,
+  }) {
+    assert(
+      onTap == null || a11y != null,
+      'a tappable KPI tile must carry its a11y sentence',
+    );
     final c = context.colors;
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
-        Text(label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: AnText.meta.copyWith(color: c.inkFaint)),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AnText.meta.copyWith(color: c.inkFaint),
+        ),
         const SizedBox(height: AnGap.stackTight),
         value,
       ],
@@ -495,7 +541,10 @@ class _KpiStrip extends StatelessWidget {
     return AnCard(
       selectable: true,
       onSelect: onTap,
-      child: Semantics(label: a11y, child: ExcludeSemantics(child: body)),
+      child: Semantics(
+        label: a11y,
+        child: ExcludeSemantics(child: body),
+      ),
     );
   }
 }

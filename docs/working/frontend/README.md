@@ -47,15 +47,15 @@ Anselm 前端 = 一个 **Flutter 桌面 app**,是内嵌 **Go sidecar** 的纯客
 | ③ | **写规范** | 落 `working/frontend/<feature>.md`(集成契约 + 决策 + STEP 拆解) | → **🙋 你拍板** |
 | ④ | **gallery 先行** | 原语不够 → 先进 gallery 建 `An*` specimen(视觉在 gallery 里迭代) | gallery 有件可截图;**禁手搓** |
 | ⑤ | **单一作者建** | app/demo 组装接线(共用唯一壳;data→state→ui) | 编译/装配通 |
-| ⑥ | **超强覆盖测** | widget 测 + **五电池**(见 2.3)入 `make fe-verify`;涉后端改动配 `testend` | 门禁全绿 |
+| ⑥ | **超强覆盖测** | widget 测 + **五电池**(见 2.3)入 `make -C frontend verify`;涉后端改动配 `testend` | 门禁全绿 |
 | ⑦ | **真机验 + 收口** | 真机 Skia 截图肉眼核对(不能只靠无头测就声称完成)→ landed-into | 截图过 → 提取进 `references/frontend/features/<f>.md` + 建造文档归 `archive/` |
 
 ### 2.3 门禁与验证
 
-- **`make fe-verify`**:codegen(freezed/json/slang)+ `flutter analyze` 净 + `flutter test` 绿。**pre-push 必过**。
+- **`make -C frontend verify`**:codegen(freezed/json/slang)+ `flutter analyze` 净 + `flutter test` 绿。**pre-push 必过**。
 - **五电池**(每个 feature 的 widget 测矩阵):**空 · 超长 · 海量 · 极值 · 注入**。
 - **真机截图**(`test/dev/capture_*.dart` → Skia toImage → PNG):凡有视觉的步骤必真机核对——隔离 widget 测会漏集成/壳门控 bug(教训反复)。
-- **三启动面**:`make gallery`(原语目录)· `make app`(真壳真后端)· `make demo`(真壳假数据零后端);app/demo 共用唯一 `app/app_shell.dart`。
+- **三启动面**:`make -C frontend gallery`(原语目录)· `make -C frontend app`(真壳真后端)· `make -C frontend demo`(真壳假数据零后端);app/demo 共用唯一 `app/app_shell.dart`。
 
 ---
 
@@ -85,8 +85,8 @@ Anselm 前端 = 一个 **Flutter 桌面 app**,是内嵌 **Go sidecar** 的纯客
 4. **④⑤ settings 模块 ✅ 全落并归档(2026-07-09)**——决策问答(§8 的 20 条清单用户逐条拍板)→ S0–S6 全建 + 后端工单①–⑩,归档 [`WRK-062`](../../archive/settings/README.md)(当前形态 [`features/settings.md`](../../references/frontend/features/settings.md)):双骨架 IA 13 面板(偏好/资源/系统三段)+ 机器/工作区两持久化轴 + 平台地基(热切换 `dioProvider` 脉搏 / master key 铸钥 [ADR 0008] / 出厂重置 / 更新检查 / 可改绑全局快捷键 `GlobalShortcuts`)+ 危险动作 `AnTypeToConfirm` 双闸;逐片真机 E2E 累计修出 hover 不可达/dio disposed-Ref/Memory PUT 缺 source/快捷键录后吞键/快捷键冷启动焦点序等真 bug。fe-verify 3312 绿。
 5. **⑥ 遗留 todos 清账 ✅ 全清并归档**——经代码核对大半「遗留」早已完成;用户拍板发起**全前端完整排查**(84-agent 14 区 finder + 对抗证伪,64 CONFIRMED),**9 批全清账**(fe-verify 3312 绿,commits 5a375647→6caa0493),建造史归档 [`WRK-063`](../../archive/frontend-audit/README.md)。**仍待用户拍板的产品决策**(非 bug):function hero 形态 / `:iterate` 前端入口 / scheduler 海洋 / skill `:activate`;间距走机会主义迁移(不投专项 sweep)。
 
-6. **⑦「同轨」全 App 系统级收敛战役 ✅ 全部完成并归档(2026-07-11 开战 → 2026-07-14 收官)**——用户四点批评(手搓泛滥/原语只生不收/版式无文法/绕开地基)定性为原则性失守,四轨一伞全落:**A 视觉收敛**(原语六族收敛+手搓清剿)/**B 规范科学化**(间距·色调·圆角·图标·动效·状态→文法成文+guard)/**C 性能**(测量先行、主面场景预算套件常驻 fe-verify)/**D demo 全展示**(可达性矩阵+补种)。**harness 六层**兑现:棘轮基线归 0、覆盖 pending·ledgered 双清零、§6 台账无 open、**§7 豁免 21 条用户 2026-07-14 全批签字**;P6 二轮全新普查(18-agent 对抗)闭环(暗色阴影修/死码三清[an_mini_graph·an_toolbar·an_channel_strip]/design-system §5 完整投影/§7 诚实化)。fe-verify 3680 绿 + make docs 净。法典 distilled laws + 六族当家件 + 25 收敛原语提取进 [`design-system`](../../references/frontend/design-system.md),建造史归档 [`WRK-066`](../../archive/convergence/README.md)。
-7. **⑧ 新人之旅(海洋默认态闭环，用户 0718-19 逐站拍板，进行中)**——四海洋「无选中」默认态从空占位/墓碑升为有内容的着陆面:**第一站**=左岛空态=满态收起的形状、零文案;**第二站**=Documents 新建二分法 + 草稿着陆页 + 空字段引导律;**第三站 ✅ Entities 总览（WRK-072）**——`/entities` 无选中默认 = **总览主页**（退役「选择实体」墓碑，**四海洋默认态就此全闭环**：chat=landing / scheduler=Overview / documents=草稿 / entities=Overview）：rail 加固定「总览」行 + 页三段（五牌[四主类+配件合计] / **关系图主角**[新原语 `AnRelationGraph` 力导向，观赏 framed 预览] / 最近更新 5 行）+ **全页探索态** `/entities/graph`（独立无边框路由对齐图编辑器先例：满铺画布 + kind 图例即显隐 + 显示溯源开关 + 右岛实体卡关系分组 fly-to + Esc 回）。力导向核 `force_layout` 自研（原则 #8 调研结论：pub 包无一满足真 widget a11y+自有画布+确定性+静止即停四约束；三工程律：确定性种子/静止即停帧/reduced 直达终态）+ kind 色词单源 `entityKindColor`/`entityKindWord`。面包屑律（0718）:灰 crumb=Entities、大标题=总览、浮层头只显「总览」。demo 关系图种子（2 星型枢纽 + skill/mcp/document 边 + 溯源边）`demo_fixture_test` 锁；力导向 12 测 + 原语 8 测 + 观赏/探索/模型电池；fe-verify + make docs 全绿；自拍帧总览三段 + 探索选中右岛卡。当前形态见 [`features/entities`](../../references/frontend/features/entities.md) §总览主页。
+6. **⑦「同轨」全 App 系统级收敛战役 ✅ 全部完成并归档(2026-07-11 开战 → 2026-07-14 收官)**——用户四点批评(手搓泛滥/原语只生不收/版式无文法/绕开地基)定性为原则性失守,四轨一伞全落:**A 视觉收敛**(原语六族收敛+手搓清剿)/**B 规范科学化**(间距·色调·圆角·图标·动效·状态→文法成文+guard)/**C 性能**(测量先行、主面场景预算套件常驻 fe-verify)/**D demo 全展示**(可达性矩阵+补种)。**harness 六层**兑现:棘轮基线归 0、覆盖 pending·ledgered 双清零、§6 台账无 open、**§7 豁免 21 条用户 2026-07-14 全批签字**;P6 二轮全新普查(18-agent 对抗)闭环(暗色阴影修/死码三清[an_mini_graph·an_toolbar·an_channel_strip]/design-system §5 完整投影/§7 诚实化)。fe-verify 3680 绿 + make -C docs verify 净。法典 distilled laws + 六族当家件 + 25 收敛原语提取进 [`design-system`](../../references/frontend/design-system.md),建造史归档 [`WRK-066`](../../archive/convergence/README.md)。
+7. **⑧ 新人之旅(海洋默认态闭环，用户 0718-19 逐站拍板，进行中)**——四海洋「无选中」默认态从空占位/墓碑升为有内容的着陆面:**第一站**=左岛空态=满态收起的形状、零文案;**第二站**=Documents 新建二分法 + 草稿着陆页 + 空字段引导律;**第三站 ✅ Entities 总览（WRK-072）**——`/entities` 无选中默认 = **总览主页**（退役「选择实体」墓碑，**四海洋默认态就此全闭环**：chat=landing / scheduler=Overview / documents=草稿 / entities=Overview）：rail 加固定「总览」行 + 页三段（五牌[四主类+配件合计] / **关系图主角**[新原语 `AnRelationGraph` 力导向，观赏 framed 预览] / 最近更新 5 行）+ **全页探索态** `/entities/graph`（独立无边框路由对齐图编辑器先例：满铺画布 + kind 图例即显隐 + 显示溯源开关 + 右岛实体卡关系分组 fly-to + Esc 回）。力导向核 `force_layout` 自研（原则 #8 调研结论：pub 包无一满足真 widget a11y+自有画布+确定性+静止即停四约束；三工程律：确定性种子/静止即停帧/reduced 直达终态）+ kind 色词单源 `entityKindColor`/`entityKindWord`。面包屑律（0718）:灰 crumb=Entities、大标题=总览、浮层头只显「总览」。demo 关系图种子（2 星型枢纽 + skill/mcp/document 边 + 溯源边）`demo_fixture_test` 锁；力导向 12 测 + 原语 8 测 + 观赏/探索/模型电池；fe-verify + make -C docs verify 全绿；自拍帧总览三段 + 探索选中右岛卡。当前形态见 [`features/entities`](../../references/frontend/features/entities.md) §总览主页。
 
 远期弧线不变:全部收敛 → Scheduler 4.3 海洋。
 

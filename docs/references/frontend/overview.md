@@ -74,14 +74,14 @@ app/        装配根 + 唯一壳 app_shell.dart + 路由 + 启动门控
 
 ## 7. 怎么造的(一句话,详见协作规范)
 
-**原语先行、禁手搓**:任何视觉先在 gallery 里有 `An*` 原语(`make gallery` 看目录),app/demo 只组装、不手搓。**调研先行**:对接后端前先扇出读后端 + `references/backend`,再联网查 best-practice。完整建造流水线 + 进展 + 路线见 [`working/frontend/README.md`](../../working/frontend/README.md)。
+**原语先行、禁手搓**:任何视觉先在 gallery 里有 `An*` 原语(`make -C frontend gallery` 看目录),app/demo 只组装、不手搓。**调研先行**:对接后端前先扇出读后端 + `references/backend`,再联网查 best-practice。完整建造流水线 + 进展 + 路线见 [`working/frontend/README.md`](../../working/frontend/README.md)。
 
 ## 8. 三个启动面(永不增 per-feature 入口)
 
 | 命令 | 是什么 |
 |---|---|
-| `make gallery` | 组件视觉目录(每个 `An*` 原语全态) |
-| `make app` | 真壳 + 真后端 sidecar(`AppShell` + Live repository + 启动门控) |
-| `make demo` | 真壳 + 假数据零后端(`AppShell` + fixture override + 跳门控) |
+| `make -C frontend gallery` | 组件视觉目录(每个 `An*` 原语全态) |
+| `make -C frontend app` | 真壳 + 真后端 sidecar(`AppShell` + Live repository + 启动门控) |
+| `make -C frontend demo` | 真壳 + 假数据零后端(`AppShell` + fixture override + 跳门控) |
 
-`make app` 与 `make demo` **共用唯一壳 `app/app_shell.dart`**,只差①数据源②启动门控。新 feature 接进 `AppShell` 一次、app+demo 同时拥有。
+`make -C frontend app` 与 `make -C frontend demo` **共用唯一壳 `app/app_shell.dart`**,只差①数据源②启动门控。新 feature 接进 `AppShell` 一次、app+demo 同时拥有。

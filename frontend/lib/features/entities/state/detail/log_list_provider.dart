@@ -45,21 +45,38 @@ class LogListNotifier extends AsyncNotifier<LogListState>
   // KeysetScopedPaging hooks. The aggregate is a build-only header (unchanged by loadMore), so the paging
   // fetch drops it. 分页钩子:聚合是仅 build 的表头、loadMore 不变,故分页 fetch 丢弃它。
   @override
-  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(LogListState s) =>
-      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(
+    LogListState s,
+  ) => (
+    hasMore: s.hasMore,
+    loadingMore: s.loadingMore,
+    nextCursor: s.nextCursor,
+  );
 
   @override
-  Future<({List<LogRow> rows, String? next, bool more})> fetchNextPage(String cursor) async {
+  Future<({List<LogRow> rows, String? next, bool more})> fetchNextPage(
+    String cursor,
+  ) async {
     final page = await _fetch(cursor);
     return (rows: page.rows, next: page.next, more: page.more);
   }
 
   @override
-  LogListState stateWithLoadingMore(LogListState s, bool loading) => s.copyWith(loadingMore: loading);
+  LogListState stateWithLoadingMore(LogListState s, bool loading) =>
+      s.copyWith(loadingMore: loading);
 
   @override
-  LogListState stateWithAppended(LogListState s, List<LogRow> rows, String? next, bool more) =>
-      s.copyWith(rows: [...s.rows, ...rows], nextCursor: next, hasMore: more, loadingMore: false);
+  LogListState stateWithAppended(
+    LogListState s,
+    List<LogRow> rows,
+    String? next,
+    bool more,
+  ) => s.copyWith(
+    rows: [...s.rows, ...rows],
+    nextCursor: next,
+    hasMore: more,
+    loadingMore: false,
+  );
 
   /// Toggle a row's expansion; for a workflow flowrun, lazily fetch its node list on first open.
   /// 展开/收起一行;workflow flowrun 首次展开时懒取节点列表。
@@ -71,10 +88,14 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     opening ? nextOpen.add(id) : nextOpen.remove(id);
     state = AsyncData(cur.copyWith(openIds: nextOpen));
 
-    if (opening && entityRef.kind == EntityKind.workflow && !cur.flowruns.containsKey(id)) {
+    if (opening &&
+        entityRef.kind == EntityKind.workflow &&
+        !cur.flowruns.containsKey(id)) {
       try {
         final comp = await _repo.getFlowrun(id);
-        if (!ref.mounted) return; // autoDispose: left the entity mid-fetch 已离开实体则不写
+        if (!ref.mounted) {
+          return; // autoDispose: left the entity mid-fetch 已离开实体则不写
+        }
         final now = state.value ?? cur;
         state = AsyncData(now.copyWith(flowruns: {...now.flowruns, id: comp}));
       } catch (_) {
@@ -83,8 +104,10 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     }
   }
 
-  Future<({List<LogRow> rows, ExecutionAggregates? agg, String? next, bool more})> _fetch(
-      String? cursor) async {
+  Future<
+    ({List<LogRow> rows, ExecutionAggregates? agg, String? next, bool more})
+  >
+  _fetch(String? cursor) async {
     switch (entityRef.kind) {
       // Support kinds have no generic 日志 tab — control/approval have no execution; trigger's history is
       // its OWN observability tabs (活动/派发), not this one. 支撑 kind 无通用日志(trigger 走自己的观测面)。
@@ -93,19 +116,53 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       case EntityKind.trigger:
         return (rows: const <LogRow>[], agg: null, next: null, more: false);
       case EntityKind.function:
-        final p =
-            await _repo.listFunctionExecutions(entityRef.id, cursor: cursor, limit: _pageSize);
-        return (rows: p.items.map(_functionRow).toList(), agg: p.aggregate, next: p.nextCursor, more: p.hasMore);
+        final p = await _repo.listFunctionExecutions(
+          entityRef.id,
+          cursor: cursor,
+          limit: _pageSize,
+        );
+        return (
+          rows: p.items.map(_functionRow).toList(),
+          agg: p.aggregate,
+          next: p.nextCursor,
+          more: p.hasMore,
+        );
       case EntityKind.handler:
-        final p = await _repo.listHandlerCalls(entityRef.id, cursor: cursor, limit: _pageSize);
-        return (rows: p.items.map(_handlerRow).toList(), agg: p.aggregate, next: p.nextCursor, more: p.hasMore);
+        final p = await _repo.listHandlerCalls(
+          entityRef.id,
+          cursor: cursor,
+          limit: _pageSize,
+        );
+        return (
+          rows: p.items.map(_handlerRow).toList(),
+          agg: p.aggregate,
+          next: p.nextCursor,
+          more: p.hasMore,
+        );
       case EntityKind.agent:
-        final p = await _repo.listAgentExecutions(entityRef.id, cursor: cursor, limit: _pageSize);
-        return (rows: p.items.map(_agentRow).toList(), agg: p.aggregate, next: p.nextCursor, more: p.hasMore);
+        final p = await _repo.listAgentExecutions(
+          entityRef.id,
+          cursor: cursor,
+          limit: _pageSize,
+        );
+        return (
+          rows: p.items.map(_agentRow).toList(),
+          agg: p.aggregate,
+          next: p.nextCursor,
+          more: p.hasMore,
+        );
       case EntityKind.workflow:
-        final p =
-            await _repo.listFlowruns(workflowId: entityRef.id, cursor: cursor, limit: _pageSize);
-        return (rows: p.items.map(_flowrunRow).toList(), agg: null, next: p.nextCursor, more: p.hasMore);
+        final p = await _repo.listFlowruns(
+          workflowId: entityRef.id,
+          cursor: cursor,
+          limit: _pageSize,
+        );
+        return (
+          rows: p.items.map(_flowrunRow).toList(),
+          agg: null,
+          next: p.nextCursor,
+          more: p.hasMore,
+        );
     }
     // unreachable — the switch is exhaustive over EntityKind
   }
@@ -119,13 +176,14 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       meta: '${e.elapsedMs}ms',
       hint: fmtTime(e.startedAt ?? e.createdAt),
       run: RecentRun(
-          id: e.id,
-          status: e.status,
-          startedAt: e.startedAt,
-          elapsedMs: e.elapsedMs,
-          triggeredBy: e.triggeredBy,
-          input: e.input,
-          output: e.output),
+        id: e.id,
+        status: e.status,
+        startedAt: e.startedAt,
+        elapsedMs: e.elapsedMs,
+        triggeredBy: e.triggeredBy,
+        input: e.input,
+        output: e.output,
+      ),
       detailRows: [
         (kv.id, e.id),
         (kv.triggeredBy, e.triggeredBy),
@@ -148,14 +206,15 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       meta: '${c.elapsedMs}ms',
       hint: fmtTime(c.startedAt ?? c.createdAt),
       run: RecentRun(
-          id: c.id,
-          status: c.status,
-          startedAt: c.startedAt,
-          elapsedMs: c.elapsedMs,
-          triggeredBy: c.triggeredBy,
-          input: c.input,
-          output: c.output,
-          method: c.method),
+        id: c.id,
+        status: c.status,
+        startedAt: c.startedAt,
+        elapsedMs: c.elapsedMs,
+        triggeredBy: c.triggeredBy,
+        input: c.input,
+        output: c.output,
+        method: c.method,
+      ),
       detailRows: [
         (kv.id, c.id),
         (kv.method, c.method),
@@ -178,13 +237,14 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       meta: '${e.status} · ${e.elapsedMs}ms',
       hint: fmtTime(e.startedAt ?? e.createdAt),
       run: RecentRun(
-          id: e.id,
-          status: e.status,
-          startedAt: e.startedAt,
-          elapsedMs: e.elapsedMs,
-          triggeredBy: e.triggeredBy,
-          input: e.input,
-          output: e.output),
+        id: e.id,
+        status: e.status,
+        startedAt: e.startedAt,
+        elapsedMs: e.elapsedMs,
+        triggeredBy: e.triggeredBy,
+        input: e.input,
+        output: e.output,
+      ),
       detailRows: [
         (kv.id, e.id),
         (kv.triggeredBy, e.triggeredBy),
@@ -208,11 +268,12 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       hint: fmtTime(f.startedAt ?? f.updatedAt),
       // Flowrun DTO projects no payload — reproduce restores the SOURCE only (与「最近」条同一打折点).
       run: RecentRun(
-          id: f.id,
-          status: f.status,
-          startedAt: f.startedAt,
-          triggeredBy: f.origin ?? '',
-          triggerId: f.triggerId),
+        id: f.id,
+        status: f.status,
+        startedAt: f.startedAt,
+        triggeredBy: f.origin ?? '',
+        triggerId: f.triggerId,
+      ),
       detailRows: [
         (kv.flowrunId, f.id),
         (kv.workflow, f.workflowId),
@@ -230,8 +291,8 @@ class LogListNotifier extends AsyncNotifier<LogListState>
 
 /// autoDispose: a sub-resource of the detail (only relevant while viewing the entity) — released on leave.
 /// autoDispose:详情的子资源(仅查看时相关),离开即释放。
-final logListProvider =
-    AsyncNotifierProvider.autoDispose.family<LogListNotifier, LogListState, EntityRef>(
-  LogListNotifier.new,
-  retry: (_, _) => null,
-);
+final logListProvider = AsyncNotifierProvider.autoDispose
+    .family<LogListNotifier, LogListState, EntityRef>(
+      LogListNotifier.new,
+      retry: (_, _) => null,
+    );

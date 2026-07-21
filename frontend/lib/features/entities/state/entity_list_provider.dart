@@ -40,24 +40,43 @@ class EntityListNotifier extends AsyncNotifier<EntityListState>
     _search = ref.watch(entitySearchProvider);
     final sub = _repo.lifecycleSignals(kind).listen(_onSignal);
     ref.onDispose(sub.cancel);
-    final page = await _repo.listEntities(kind, limit: _pageSize, search: _search.isEmpty ? null : _search);
-    return EntityListState(rows: page.items, nextCursor: page.nextCursor, hasMore: page.hasMore);
+    final page = await _repo.listEntities(
+      kind,
+      limit: _pageSize,
+      search: _search.isEmpty ? null : _search,
+    );
+    return EntityListState(
+      rows: page.items,
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore,
+    );
   }
 
   // KeysetQueryPaging hooks — the per-kind fetch + this state's cursor/append shape. 分页 mixin 钩子。
   @override
-  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(EntityListState s) =>
-      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(
+    EntityListState s,
+  ) => (
+    hasMore: s.hasMore,
+    loadingMore: s.loadingMore,
+    nextCursor: s.nextCursor,
+  );
 
   @override
-  Future<Page<EntityRow>> fetchNextPage(String cursor) => _repo.listEntities(kind,
-      cursor: cursor, limit: _pageSize, search: _search.isEmpty ? null : _search);
+  Future<Page<EntityRow>> fetchNextPage(String cursor) => _repo.listEntities(
+    kind,
+    cursor: cursor,
+    limit: _pageSize,
+    search: _search.isEmpty ? null : _search,
+  );
 
   @override
-  EntityListState stateWithLoadingMore(EntityListState s, bool loading) => s.copyWith(loadingMore: loading);
+  EntityListState stateWithLoadingMore(EntityListState s, bool loading) =>
+      s.copyWith(loadingMore: loading);
 
   @override
-  EntityListState stateWithAppended(EntityListState s, Page<EntityRow> page) => s.copyWith(
+  EntityListState stateWithAppended(EntityListState s, Page<EntityRow> page) =>
+      s.copyWith(
         rows: [...s.rows, ...page.items],
         nextCursor: page.nextCursor,
         hasMore: page.hasMore,
@@ -76,16 +95,23 @@ class EntityListNotifier extends AsyncNotifier<EntityListState>
         final row = await _row(s.id);
         if (row == null) return;
         final now = state.value;
-        if (now != null && !now.rows.any((r) => r.id == s.id)) _setRows([row, ...now.rows]);
+        if (now != null && !now.rows.any((r) => r.id == s.id)) {
+          _setRows([row, ...now.rows]);
+        }
       case EntityAction.edited:
       case EntityAction.updated:
       case EntityAction.unknown:
-        if (!cur.rows.any((r) => r.id == s.id)) return; // not on loaded pages → ignore
+        if (!cur.rows.any((r) => r.id == s.id)) {
+          return; // not on loaded pages → ignore
+        }
         final row = await _row(s.id);
         if (row == null) return;
         final now = state.value;
         if (now != null) {
-          _setRows([for (final r in now.rows) if (r.id == s.id) row else r]);
+          _setRows([
+            for (final r in now.rows)
+              if (r.id == s.id) row else r,
+          ]);
         }
     }
   }
@@ -121,15 +147,17 @@ class EntitySearchController extends Notifier<String> {
   }
 }
 
-final entitySearchProvider =
-    NotifierProvider<EntitySearchController, String>(EntitySearchController.new);
+final entitySearchProvider = NotifierProvider<EntitySearchController, String>(
+  EntitySearchController.new,
+);
 
 /// Per-kind rail list (family over [EntityKind]). Auto-retry is disabled — recovery is the rail's
 /// explicit retry button (Riverpod's default exponential auto-retry would otherwise oscillate the
 /// failed list back into a loading spinner, hiding the error state). 每 kind 的 rail 列表;关自动重试
 /// (恢复交给 rail 的重试钮,否则默认指数重试会把错误态闪回 loading)。
 final entityListProvider =
-    AsyncNotifierProvider.family<EntityListNotifier, EntityListState, EntityKind>(
-  EntityListNotifier.new,
-  retry: (_, _) => null,
-);
+    AsyncNotifierProvider.family<
+      EntityListNotifier,
+      EntityListState,
+      EntityKind
+    >(EntityListNotifier.new, retry: (_, _) => null);

@@ -76,7 +76,13 @@ List<SidebarFlatNode> flattenSidebar(
   void walkRow(SidebarRow r, int depth, List<SidebarFlatNode> anc) {
     if (active && !visible.contains(r.id)) return;
     final key = 'r:${r.id}';
-    final node = SidebarFlatNode(kind: SidebarNodeKind.row, key: key, depth: depth, ancestors: anc, row: r);
+    final node = SidebarFlatNode(
+      kind: SidebarNodeKind.row,
+      key: key,
+      depth: depth,
+      ancestors: anc,
+      row: r,
+    );
     out.add(node);
     if (r.hasChildren && open(key)) {
       final childAnc = [...anc, node];
@@ -95,13 +101,22 @@ List<SidebarFlatNode> flattenSidebar(
     for (final t in g.types) {
       if (active && !t.rows.any((r) => _visibleDeep(r, visible))) continue;
       var rowAnc = groupAnc;
-      final rowDepth = baseDepth; // rows sit at the head's depth (head already groups them)
+      final rowDepth =
+          baseDepth; // rows sit at the head's depth (head already groups them)
 
       if (!t.headless) {
         final tKey = 't:${t.foldKey}';
-        final tNode = SidebarFlatNode(kind: SidebarNodeKind.typeHead, key: tKey, depth: baseDepth, ancestors: groupAnc, type: t);
+        final tNode = SidebarFlatNode(
+          kind: SidebarNodeKind.typeHead,
+          key: tKey,
+          depth: baseDepth,
+          ancestors: groupAnc,
+          type: t,
+        );
         out.add(tNode);
-        if (!open(tKey)) continue; // collapsed section: head only (no rows, no footer)
+        if (!open(tKey)) {
+          continue; // collapsed section: head only (no rows, no footer)
+        }
         rowAnc = [...groupAnc, tNode];
       }
 
@@ -111,8 +126,18 @@ List<SidebarFlatNode> flattenSidebar(
 
       // Pagination footer — only for a paginated section with something to show in the tail, and not
       // while a query is filtering (search paginates via its own re-fetch, not the tail). 分页尾槽(非过滤时)。
-      if (!active && t.pageKey != null && (t.hasMore || t.loadingMore || t.loadError)) {
-        out.add(SidebarFlatNode(kind: SidebarNodeKind.footer, key: 'f:${t.pageKey}', depth: rowDepth, ancestors: rowAnc, type: t));
+      if (!active &&
+          t.pageKey != null &&
+          (t.hasMore || t.loadingMore || t.loadError)) {
+        out.add(
+          SidebarFlatNode(
+            kind: SidebarNodeKind.footer,
+            key: 'f:${t.pageKey}',
+            depth: rowDepth,
+            ancestors: rowAnc,
+            type: t,
+          ),
+        );
       }
     }
   }

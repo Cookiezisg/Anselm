@@ -44,7 +44,12 @@ abstract class SettingsRepository {
   });
 
   /// PATCH — a non-empty [key] ROTATES (destructive; probe resets + auto re-probes). 非空 key=旋转。
-  Future<ApiKey> patchKey(String id, {String? displayName, String? baseUrl, String? key});
+  Future<ApiKey> patchKey(
+    String id, {
+    String? displayName,
+    String? baseUrl,
+    String? key,
+  });
 
   /// Throws [ApiError] `API_KEY_IN_USE` with `details.references` when referenced. 被引用抛 IN_USE。
   Future<void> deleteKey(String id);
@@ -59,8 +64,12 @@ abstract class SettingsRepository {
   Future<bool> provisionFreetier();
 
   /// Scenario ∈ dialogue|utility|agent; returns the fresh workspace row. 场景默认;返新 workspace 行。
-  Future<Workspace> putDefaultModel(String scenario,
-      {required String apiKeyId, required String modelId, Map<String, String>? options});
+  Future<Workspace> putDefaultModel(
+    String scenario, {
+    required String apiKeyId,
+    required String modelId,
+    Map<String, String>? options,
+  });
   Future<Workspace> deleteDefaultModel(String scenario);
   Future<Workspace> putDefaultSearch(String apiKeyId);
   Future<Workspace> deleteDefaultSearch();
@@ -70,10 +79,17 @@ abstract class SettingsRepository {
   /// Every workspace (bounded set — the switcher's world). 全部 workspace。
   Future<List<Workspace>> listWorkspaces();
 
-  Future<Workspace> createWorkspace({required String name, String? avatarColor});
+  Future<Workspace> createWorkspace({
+    required String name,
+    String? avatarColor,
+  });
 
   /// PATCH any workspace by id (name / avatarColor / language). 按 id 分部 PATCH。
-  Future<Workspace> patchWorkspaceById(String id, {String? name, String? avatarColor});
+  Future<Workspace> patchWorkspaceById(
+    String id, {
+    String? name,
+    String? avatarColor,
+  });
 
   /// Cascade destroy. Throws `CANNOT_DELETE_LAST_WORKSPACE` on the last one. 级联销毁。
   Future<void> deleteWorkspace(String id);
@@ -92,8 +108,12 @@ abstract class SettingsRepository {
   /// PUT create-or-update. [pinned] + source are HONORED only at CREATE; an UPDATE ignores both
   /// server-side (F147 — the roster's pin toggle owns updates), so [pinned] is a create-only choice.
   /// 建或改;pinned/source 仅创建时生效,更新时后端忽略(F147:更新交给名册 pin 钮),故 pinned 只在建时有意义。
-  Future<Memory> putMemory(String name,
-      {required String description, required String content, bool pinned = false});
+  Future<Memory> putMemory(
+    String name, {
+    required String description,
+    required String content,
+    bool pinned = false,
+  });
 
   Future<Memory> pinMemory(String name, {required bool pinned});
 
@@ -106,7 +126,10 @@ abstract class SettingsRepository {
 
   /// Manual PUT (same name replaces). A connect failure still lands the row (failed, honest).
   /// 手动 PUT(同名替换);连接失败仍落盘(failed 诚实态)。
-  Future<McpServerStatus> putMcpServer(String name, Map<String, dynamic> config);
+  Future<McpServerStatus> putMcpServer(
+    String name,
+    Map<String, dynamic> config,
+  );
   Future<void> deleteMcpServer(String name);
   Future<McpServerStatus> reconnectMcpServer(String name);
 
@@ -114,17 +137,20 @@ abstract class SettingsRepository {
   Future<String> mcpStderr(String name);
 
   /// One page of the call log + ok/failed aggregates. 调用日志一页+聚合。
-  Future<({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})> listMcpCalls(
-      String name,
-      {String? cursor});
+  Future<
+    ({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})
+  >
+  listMcpCalls(String name, {String? cursor});
 
   Future<List<McpRegistryEntry>> listMcpRegistry();
   Future<McpRegistryPlan> planMcpInstall(String fullName);
   Future<McpServerStatus> installMcp(String fullName, Map<String, String> env);
 
   /// Claude Desktop mcp.json import. 导入。
-  Future<({List<String> imported, List<String> skipped})> importMcpJson(String json,
-      {bool overwrite});
+  Future<({List<String> imported, List<String> skipped})> importMcpJson(
+    String json, {
+    bool overwrite,
+  });
 
   // ── S5 存储与限额 storage & limits ──
 
@@ -181,7 +207,10 @@ abstract class SettingsRepository {
   Future<List<RuntimeAvailability>> sandboxAvailable();
 
   /// 201 Runtime; installs (async → status via refetch). 装运行时。
-  Future<SandboxRuntime> installRuntime({required String kind, required String version});
+  Future<SandboxRuntime> installRuntime({
+    required String kind,
+    required String version,
+  });
 
   /// 204; 409 SANDBOX_ENV_IN_USE when envs still reference it. 删运行时。
   Future<void> deleteRuntime(String id);
@@ -214,18 +243,22 @@ class LiveSettingsRepository implements SettingsRepository {
 
   @override
   Future<Workspace> patchWorkspace({String? language, String? webFetchMode}) =>
-      api.patchEntity('/api/v1/workspaces/$_id', Workspace.fromJson, body: {
-        'language': ?language,
-        'webFetchMode': ?webFetchMode,
-      });
+      api.patchEntity(
+        '/api/v1/workspaces/$_id',
+        Workspace.fromJson,
+        body: {'language': ?language, 'webFetchMode': ?webFetchMode},
+      );
 
   @override
   Future<List<ProviderMeta>> listProviders() async =>
       (await api.getPage('/api/v1/providers', ProviderMeta.fromJson)).items;
 
   @override
-  Future<List<ApiKey>> listKeys() async =>
-      (await api.getPage('/api/v1/api-keys', ApiKey.fromJson, query: {'limit': '200'})).items;
+  Future<List<ApiKey>> listKeys() async => (await api.getPage(
+    '/api/v1/api-keys',
+    ApiKey.fromJson,
+    query: {'limit': '200'},
+  )).items;
 
   @override
   Future<ApiKey> createKey({
@@ -234,22 +267,29 @@ class LiveSettingsRepository implements SettingsRepository {
     required String key,
     String? baseUrl,
     String? apiFormat,
-  }) =>
-      api.postEntity('/api/v1/api-keys', ApiKey.fromJson, body: {
-        'provider': provider,
-        'displayName': displayName,
-        'key': key,
-        'baseUrl': ?baseUrl,
-        'apiFormat': ?apiFormat,
-      });
+  }) => api.postEntity(
+    '/api/v1/api-keys',
+    ApiKey.fromJson,
+    body: {
+      'provider': provider,
+      'displayName': displayName,
+      'key': key,
+      'baseUrl': ?baseUrl,
+      'apiFormat': ?apiFormat,
+    },
+  );
 
   @override
-  Future<ApiKey> patchKey(String id, {String? displayName, String? baseUrl, String? key}) =>
-      api.patchEntity('/api/v1/api-keys/$id', ApiKey.fromJson, body: {
-        'displayName': ?displayName,
-        'baseUrl': ?baseUrl,
-        'key': ?key,
-      });
+  Future<ApiKey> patchKey(
+    String id, {
+    String? displayName,
+    String? baseUrl,
+    String? key,
+  }) => api.patchEntity(
+    '/api/v1/api-keys/$id',
+    ApiKey.fromJson,
+    body: {'displayName': ?displayName, 'baseUrl': ?baseUrl, 'key': ?key},
+  );
 
   @override
   Future<void> deleteKey(String id) => api.delete('/api/v1/api-keys/$id');
@@ -280,48 +320,68 @@ class LiveSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<Workspace> putDefaultModel(String scenario,
-          {required String apiKeyId, required String modelId, Map<String, String>? options}) =>
-      api.putEntity('/api/v1/workspaces/$_id/default-models/$scenario', Workspace.fromJson,
-          body: {
-            'apiKeyId': apiKeyId,
-            'modelId': modelId,
-            if (options != null && options.isNotEmpty) 'options': options,
-          });
+  Future<Workspace> putDefaultModel(
+    String scenario, {
+    required String apiKeyId,
+    required String modelId,
+    Map<String, String>? options,
+  }) => api.putEntity(
+    '/api/v1/workspaces/$_id/default-models/$scenario',
+    Workspace.fromJson,
+    body: {
+      'apiKeyId': apiKeyId,
+      'modelId': modelId,
+      if (options != null && options.isNotEmpty) 'options': options,
+    },
+  );
 
   @override
-  Future<Workspace> deleteDefaultModel(String scenario) =>
-      api.deleteEntity('/api/v1/workspaces/$_id/default-models/$scenario', Workspace.fromJson);
+  Future<Workspace> deleteDefaultModel(String scenario) => api.deleteEntity(
+    '/api/v1/workspaces/$_id/default-models/$scenario',
+    Workspace.fromJson,
+  );
 
   @override
-  Future<Workspace> putDefaultSearch(String apiKeyId) =>
-      api.putEntity('/api/v1/workspaces/$_id/default-search', Workspace.fromJson,
-          body: {'apiKeyId': apiKeyId});
+  Future<Workspace> putDefaultSearch(String apiKeyId) => api.putEntity(
+    '/api/v1/workspaces/$_id/default-search',
+    Workspace.fromJson,
+    body: {'apiKeyId': apiKeyId},
+  );
 
   @override
-  Future<Workspace> deleteDefaultSearch() =>
-      api.deleteEntity('/api/v1/workspaces/$_id/default-search', Workspace.fromJson);
+  Future<Workspace> deleteDefaultSearch() => api.deleteEntity(
+    '/api/v1/workspaces/$_id/default-search',
+    Workspace.fromJson,
+  );
 
   @override
   Future<List<Workspace>> listWorkspaces() async =>
       (await api.getPage('/api/v1/workspaces', Workspace.fromJson)).items;
 
   @override
-  Future<Workspace> createWorkspace({required String name, String? avatarColor}) =>
-      api.postEntity('/api/v1/workspaces', Workspace.fromJson, body: {
-        'name': name,
-        'avatarColor': ?avatarColor,
-      });
+  Future<Workspace> createWorkspace({
+    required String name,
+    String? avatarColor,
+  }) => api.postEntity(
+    '/api/v1/workspaces',
+    Workspace.fromJson,
+    body: {'name': name, 'avatarColor': ?avatarColor},
+  );
 
   @override
-  Future<Workspace> patchWorkspaceById(String id, {String? name, String? avatarColor}) =>
-      api.patchEntity('/api/v1/workspaces/$id', Workspace.fromJson, body: {
-        'name': ?name,
-        'avatarColor': ?avatarColor,
-      });
+  Future<Workspace> patchWorkspaceById(
+    String id, {
+    String? name,
+    String? avatarColor,
+  }) => api.patchEntity(
+    '/api/v1/workspaces/$id',
+    Workspace.fromJson,
+    body: {'name': ?name, 'avatarColor': ?avatarColor},
+  );
 
   @override
-  Future<void> deleteWorkspace(String id) => api.delete('/api/v1/workspaces/$id');
+  Future<void> deleteWorkspace(String id) =>
+      api.delete('/api/v1/workspaces/$id');
 
   @override
   Future<WorkspaceStats> workspaceStats(String id) =>
@@ -333,21 +393,32 @@ class LiveSettingsRepository implements SettingsRepository {
 
   @override
   Future<List<Memory>> listMemories({bool? pinned}) async => (await api.getPage(
-        '/api/v1/memories',
-        Memory.fromJson,
-        query: {if (pinned != null) 'pinned': '$pinned'},
-      ))
-          .items;
+    '/api/v1/memories',
+    Memory.fromJson,
+    query: {if (pinned != null) 'pinned': '$pinned'},
+  )).items;
 
   @override
-  Future<Memory> putMemory(String name,
-          {required String description, required String content, bool pinned = false}) =>
+  Future<Memory> putMemory(
+    String name, {
+    required String description,
+    required String content,
+    bool pinned = false,
+  }) =>
       // source + pinned are REQUIRED/HONORED at create and IGNORED on update (F147) — sending them is
       // safe on both paths (an AI-authored memory keeps source=ai and its curated pin when edited;
       // pin changes on existing rows go through the roster's :pin/:unpin toggle). 创建必带 source、
       // pinned 建时生效,更新被忽略——恒送两径皆安全(编辑 AI 记忆保 source=ai 与既有 pin;改 pin 走名册 toggle)。
-      api.putEntity('/api/v1/memories/$name', Memory.fromJson,
-          body: {'description': description, 'content': content, 'source': 'user', 'pinned': pinned});
+      api.putEntity(
+        '/api/v1/memories/$name',
+        Memory.fromJson,
+        body: {
+          'description': description,
+          'content': content,
+          'source': 'user',
+          'pinned': pinned,
+        },
+      );
 
   @override
   Future<Memory> pinMemory(String name, {required bool pinned}) => api
@@ -355,22 +426,32 @@ class LiveSettingsRepository implements SettingsRepository {
       .then(Memory.fromJson);
 
   @override
-  Future<void> deleteMemory(String name) => api.delete('/api/v1/memories/$name');
+  Future<void> deleteMemory(String name) =>
+      api.delete('/api/v1/memories/$name');
 
   @override
-  Future<List<McpServerStatus>> listMcpServers() async =>
-      (await api.getPage('/api/v1/mcp-servers', McpServerStatus.fromJson)).items;
+  Future<List<McpServerStatus>> listMcpServers() async => (await api.getPage(
+    '/api/v1/mcp-servers',
+    McpServerStatus.fromJson,
+  )).items;
 
   @override
   Future<McpServerStatus> getMcpServer(String name) =>
       api.getEntity('/api/v1/mcp-servers/$name', McpServerStatus.fromJson);
 
   @override
-  Future<McpServerStatus> putMcpServer(String name, Map<String, dynamic> config) =>
-      api.putEntity('/api/v1/mcp-servers/$name', McpServerStatus.fromJson, body: config);
+  Future<McpServerStatus> putMcpServer(
+    String name,
+    Map<String, dynamic> config,
+  ) => api.putEntity(
+    '/api/v1/mcp-servers/$name',
+    McpServerStatus.fromJson,
+    body: config,
+  );
 
   @override
-  Future<void> deleteMcpServer(String name) => api.delete('/api/v1/mcp-servers/$name');
+  Future<void> deleteMcpServer(String name) =>
+      api.delete('/api/v1/mcp-servers/$name');
 
   @override
   Future<McpServerStatus> reconnectMcpServer(String name) => api
@@ -379,11 +460,15 @@ class LiveSettingsRepository implements SettingsRepository {
 
   @override
   Future<String> mcpStderr(String name) async =>
-      (await api.getData('/api/v1/mcp-servers/$name/stderr'))['stderr'] as String? ?? '';
+      (await api.getData('/api/v1/mcp-servers/$name/stderr'))['stderr']
+          as String? ??
+      '';
 
   @override
-  Future<({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})>
-      listMcpCalls(String name, {String? cursor}) async {
+  Future<
+    ({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})
+  >
+  listMcpCalls(String name, {String? cursor}) async {
     final page = await api.getPageWithAggregate(
       '/api/v1/mcp-servers/$name/calls',
       'calls',
@@ -403,8 +488,10 @@ class LiveSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<List<McpRegistryEntry>> listMcpRegistry() async =>
-      (await api.getPage('/api/v1/mcp-registry', McpRegistryEntry.fromJson)).items;
+  Future<List<McpRegistryEntry>> listMcpRegistry() async => (await api.getPage(
+    '/api/v1/mcp-registry',
+    McpRegistryEntry.fromJson,
+  )).items;
 
   @override
   Future<McpRegistryPlan> planMcpInstall(String fullName) => api
@@ -412,15 +499,25 @@ class LiveSettingsRepository implements SettingsRepository {
       .then(McpRegistryPlan.fromJson);
 
   @override
-  Future<McpServerStatus> installMcp(String fullName, Map<String, String> env) => api
-      .postData('/api/v1/mcp-registry:install', body: {'name': fullName, 'env': env})
+  Future<McpServerStatus> installMcp(
+    String fullName,
+    Map<String, String> env,
+  ) => api
+      .postData(
+        '/api/v1/mcp-registry:install',
+        body: {'name': fullName, 'env': env},
+      )
       .then(McpServerStatus.fromJson);
 
   @override
-  Future<({List<String> imported, List<String> skipped})> importMcpJson(String json,
-      {bool overwrite = false}) async {
-    final data = await api.postData('/api/v1/mcp-servers:import?overwrite=$overwrite',
-        body: jsonDecode(json));
+  Future<({List<String> imported, List<String> skipped})> importMcpJson(
+    String json, {
+    bool overwrite = false,
+  }) async {
+    final data = await api.postData(
+      '/api/v1/mcp-servers:import?overwrite=$overwrite',
+      body: jsonDecode(json),
+    );
     return (
       imported: ((data['imported'] as List?) ?? const []).cast<String>(),
       skipped: ((data['skipped'] as List?) ?? const []).cast<String>(),
@@ -429,11 +526,14 @@ class LiveSettingsRepository implements SettingsRepository {
 
   @override
   Future<String> dataDir() async =>
-      (await api.getData('/api/v1/system/data-dir'))['dataDir'] as String? ?? '';
+      (await api.getData('/api/v1/system/data-dir'))['dataDir'] as String? ??
+      '';
 
   @override
   Future<int> sandboxDiskUsage() async =>
-      ((await api.getData('/api/v1/sandbox/disk-usage'))['totalBytes'] as num?)?.toInt() ?? 0;
+      ((await api.getData('/api/v1/sandbox/disk-usage'))['totalBytes'] as num?)
+          ?.toInt() ??
+      0;
 
   @override
   Future<({int dbBytes, int deadBytes})> storageStat() async {
@@ -477,58 +577,82 @@ class LiveSettingsRepository implements SettingsRepository {
       api.getEntity('/api/v1/network', NetworkConfig.fromJson);
 
   @override
-  Future<NetworkConfig> patchNetwork(NetworkConfig config) =>
-      api.patchEntity('/api/v1/network', NetworkConfig.fromJson, body: {
-        'httpProxy': config.httpProxy,
-        'httpsProxy': config.httpsProxy,
-        'noProxy': config.noProxy,
-      });
+  Future<NetworkConfig> patchNetwork(NetworkConfig config) => api.patchEntity(
+    '/api/v1/network',
+    NetworkConfig.fromJson,
+    body: {
+      'httpProxy': config.httpProxy,
+      'httpsProxy': config.httpsProxy,
+      'noProxy': config.noProxy,
+    },
+  );
 
   @override
   Future<RetentionConfig> getRetention() =>
       api.getEntity('/api/v1/retention', RetentionConfig.fromJson);
 
   @override
-  Future<RetentionConfig> patchRetention(int days) =>
-      api.patchEntity('/api/v1/retention', RetentionConfig.fromJson,
-          body: {'runRetentionDays': days});
+  Future<RetentionConfig> patchRetention(int days) => api.patchEntity(
+    '/api/v1/retention',
+    RetentionConfig.fromJson,
+    body: {'runRetentionDays': days},
+  );
 
   @override
-  Future<SandboxBootstrap> sandboxBootstrap() =>
-      api.getEntity('/api/v1/sandbox/bootstrap-status', SandboxBootstrap.fromJson);
+  Future<SandboxBootstrap> sandboxBootstrap() => api.getEntity(
+    '/api/v1/sandbox/bootstrap-status',
+    SandboxBootstrap.fromJson,
+  );
 
   @override
-  Future<void> retrySandboxBootstrap() => api.postData('/api/v1/sandbox:retry-bootstrap');
+  Future<void> retrySandboxBootstrap() =>
+      api.postData('/api/v1/sandbox:retry-bootstrap');
 
   @override
-  Future<List<SandboxRuntime>> sandboxRuntimes() async =>
-      (await api.getPage('/api/v1/sandbox/runtimes', SandboxRuntime.fromJson)).items;
+  Future<List<SandboxRuntime>> sandboxRuntimes() async => (await api.getPage(
+    '/api/v1/sandbox/runtimes',
+    SandboxRuntime.fromJson,
+  )).items;
 
   @override
   Future<List<RuntimeAvailability>> sandboxAvailable() async =>
-      (await api.getPage('/api/v1/sandbox/runtimes/available', RuntimeAvailability.fromJson))
-          .items;
+      (await api.getPage(
+        '/api/v1/sandbox/runtimes/available',
+        RuntimeAvailability.fromJson,
+      )).items;
 
   @override
-  Future<SandboxRuntime> installRuntime({required String kind, required String version}) =>
-      api.postData('/api/v1/sandbox/runtimes', body: {'kind': kind, 'version': version})
-          .then(SandboxRuntime.fromJson);
+  Future<SandboxRuntime> installRuntime({
+    required String kind,
+    required String version,
+  }) => api
+      .postData(
+        '/api/v1/sandbox/runtimes',
+        body: {'kind': kind, 'version': version},
+      )
+      .then(SandboxRuntime.fromJson);
 
   @override
-  Future<void> deleteRuntime(String id) => api.delete('/api/v1/sandbox/runtimes/$id');
+  Future<void> deleteRuntime(String id) =>
+      api.delete('/api/v1/sandbox/runtimes/$id');
 
   @override
   Future<List<SandboxEnv>> sandboxEnvs(String ownerKind) async =>
-      (await api.getPage('/api/v1/sandbox/envs', SandboxEnv.fromJson,
-              query: {'ownerKind': ownerKind}))
-          .items;
+      (await api.getPage(
+        '/api/v1/sandbox/envs',
+        SandboxEnv.fromJson,
+        query: {'ownerKind': ownerKind},
+      )).items;
 
   @override
   Future<void> deleteEnv(String id) => api.delete('/api/v1/sandbox/envs/$id');
 
   @override
   Future<int> sandboxGc(int olderThanDays) async =>
-      ((await api.postData('/api/v1/sandbox:gc?olderThanDays=$olderThanDays'))['removed'] as num?)
+      ((await api.postData(
+                '/api/v1/sandbox:gc?olderThanDays=$olderThanDays',
+              ))['removed']
+              as num?)
           ?.toInt() ??
       0;
 }
@@ -536,14 +660,15 @@ class LiveSettingsRepository implements SettingsRepository {
 /// In-memory double — demo + tests. 内存替身。
 class FixtureSettingsRepository implements SettingsRepository {
   FixtureSettingsRepository({Workspace? workspace})
-      : workspace = workspace ??
-            Workspace(
-              id: 'ws_demo0000000000',
-              name: 'Demo',
-              language: 'zh-CN',
-              createdAt: DateTime.utc(2026, 7, 1),
-              updatedAt: DateTime.utc(2026, 7, 1),
-            );
+    : workspace =
+          workspace ??
+          Workspace(
+            id: 'ws_demo0000000000',
+            name: 'Demo',
+            language: 'zh-CN',
+            createdAt: DateTime.utc(2026, 7, 1),
+            updatedAt: DateTime.utc(2026, 7, 1),
+          );
 
   Workspace workspace;
 
@@ -554,7 +679,10 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<Workspace> getActiveWorkspace() async => workspace;
 
   @override
-  Future<Workspace> patchWorkspace({String? language, String? webFetchMode}) async {
+  Future<Workspace> patchWorkspace({
+    String? language,
+    String? webFetchMode,
+  }) async {
     if (failNextPatch) {
       failNextPatch = false;
       throw StateError('scripted patch failure');
@@ -571,10 +699,18 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   List<ProviderMeta> providers = const [
     ProviderMeta(name: 'anselm', displayName: 'Anselm Free', managed: true),
-    ProviderMeta(name: 'openai', displayName: 'OpenAI', defaultBaseUrl: 'https://api.openai.com/v1'),
+    ProviderMeta(
+      name: 'openai',
+      displayName: 'OpenAI',
+      defaultBaseUrl: 'https://api.openai.com/v1',
+    ),
     ProviderMeta(name: 'deepseek', displayName: 'DeepSeek'),
     ProviderMeta(name: 'ollama', displayName: 'Ollama', baseUrlRequired: true),
-    ProviderMeta(name: 'brave', displayName: 'Brave Search', category: 'search'),
+    ProviderMeta(
+      name: 'brave',
+      displayName: 'Brave Search',
+      category: 'search',
+    ),
   ];
   final List<ApiKey> keys = [];
   FreetierQuota? quota;
@@ -623,7 +759,12 @@ class FixtureSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<ApiKey> patchKey(String id, {String? displayName, String? baseUrl, String? key}) async {
+  Future<ApiKey> patchKey(
+    String id, {
+    String? displayName,
+    String? baseUrl,
+    String? key,
+  }) async {
     _maybeFail();
     final i = keys.indexWhere((k) => k.id == id);
     var row = keys[i];
@@ -647,7 +788,10 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<ApiKey> testKey(String id) async {
     _maybeFail();
     final i = keys.indexWhere((k) => k.id == id);
-    keys[i] = keys[i].copyWith(testStatus: 'ok', lastTestedAt: DateTime.now().toUtc());
+    keys[i] = keys[i].copyWith(
+      testStatus: 'ok',
+      lastTestedAt: DateTime.now().toUtc(),
+    );
     return keys[i];
   }
 
@@ -658,7 +802,12 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<bool> provisionFreetier() async {
     _maybeFail();
     if (provisionResult) {
-      quota ??= const FreetierQuota(limit: 5000, used: 0, remaining: 5000, resetAt: '2026-08-01');
+      quota ??= const FreetierQuota(
+        limit: 5000,
+        used: 0,
+        remaining: 5000,
+        resetAt: '2026-08-01',
+      );
     }
     return provisionResult;
   }
@@ -674,13 +823,23 @@ class FixtureSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<Workspace> putDefaultModel(String scenario,
-          {required String apiKeyId, required String modelId, Map<String, String>? options}) async =>
-      _withDefault(scenario,
-          ModelRef(apiKeyId: apiKeyId, modelId: modelId, options: options ?? const {}));
+  Future<Workspace> putDefaultModel(
+    String scenario, {
+    required String apiKeyId,
+    required String modelId,
+    Map<String, String>? options,
+  }) async => _withDefault(
+    scenario,
+    ModelRef(
+      apiKeyId: apiKeyId,
+      modelId: modelId,
+      options: options ?? const {},
+    ),
+  );
 
   @override
-  Future<Workspace> deleteDefaultModel(String scenario) async => _withDefault(scenario, null);
+  Future<Workspace> deleteDefaultModel(String scenario) async =>
+      _withDefault(scenario, null);
 
   @override
   Future<Workspace> putDefaultSearch(String apiKeyId) async =>
@@ -700,10 +859,16 @@ class FixtureSettingsRepository implements SettingsRepository {
   String? failNextWorkspaceDelete;
 
   @override
-  Future<List<Workspace>> listWorkspaces() async => [workspace, ...extraWorkspaces];
+  Future<List<Workspace>> listWorkspaces() async => [
+    workspace,
+    ...extraWorkspaces,
+  ];
 
   @override
-  Future<Workspace> createWorkspace({required String name, String? avatarColor}) async {
+  Future<Workspace> createWorkspace({
+    required String name,
+    String? avatarColor,
+  }) async {
     final row = Workspace(
       id: 'ws_fix${extraWorkspaces.length + 1}',
       name: name,
@@ -717,11 +882,16 @@ class FixtureSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<Workspace> patchWorkspaceById(String id, {String? name, String? avatarColor}) async {
+  Future<Workspace> patchWorkspaceById(
+    String id, {
+    String? name,
+    String? avatarColor,
+  }) async {
     Workspace patch(Workspace w) => w.copyWith(
-        name: name ?? w.name,
-        avatarColor: avatarColor ?? w.avatarColor,
-        updatedAt: DateTime.utc(2026, 7, 9, 1));
+      name: name ?? w.name,
+      avatarColor: avatarColor ?? w.avatarColor,
+      updatedAt: DateTime.utc(2026, 7, 9, 1),
+    );
     if (workspace.id == id) return workspace = patch(workspace);
     final i = extraWorkspaces.indexWhere((w) => w.id == id);
     if (i < 0) throw StateError('unknown workspace $id');
@@ -733,7 +903,11 @@ class FixtureSettingsRepository implements SettingsRepository {
     if (failNextWorkspaceDelete != null) {
       final code = failNextWorkspaceDelete!;
       failNextWorkspaceDelete = null;
-      throw ApiException(code: code, message: 'scripted failure', httpStatus: 422);
+      throw ApiException(
+        code: code,
+        message: 'scripted failure',
+        httpStatus: 422,
+      );
     }
     extraWorkspaces.removeWhere((w) => w.id == id);
   }
@@ -747,22 +921,34 @@ class FixtureSettingsRepository implements SettingsRepository {
   final List<Memory> memories = [];
 
   @override
-  Future<List<Memory>> listMemories({bool? pinned}) async =>
-      pinned == null ? List.of(memories) : memories.where((m) => m.pinned == pinned).toList();
+  Future<List<Memory>> listMemories({bool? pinned}) async => pinned == null
+      ? List.of(memories)
+      : memories.where((m) => m.pinned == pinned).toList();
 
   @override
-  Future<Memory> putMemory(String name,
-      {required String description, required String content, bool pinned = false}) async {
+  Future<Memory> putMemory(
+    String name, {
+    required String description,
+    required String content,
+    bool pinned = false,
+  }) async {
     final i = memories.indexWhere((m) => m.name == name);
     if (i >= 0) {
       // UPDATE keeps pinned/source (F147) — the incoming pinned is dropped, mirroring the backend.
       // 更新保留 pinned/source(F147),传入 pinned 丢弃,与后端一致。
-      return memories[i] =
-          memories[i].copyWith(description: description, content: content);
+      return memories[i] = memories[i].copyWith(
+        description: description,
+        content: content,
+      );
     }
     // CREATE honors pinned; source is user-authored (mirrors the Live PUT body). 建时应用 pinned;source=user。
     final m = Memory(
-        name: name, description: description, content: content, pinned: pinned, source: 'user');
+      name: name,
+      description: description,
+      content: content,
+      pinned: pinned,
+      source: 'user',
+    );
     memories.add(m);
     return m;
   }
@@ -798,10 +984,16 @@ class FixtureSettingsRepository implements SettingsRepository {
       mcpServers.firstWhere((s) => s.name == name);
 
   @override
-  Future<McpServerStatus> putMcpServer(String name, Map<String, dynamic> config) async {
+  Future<McpServerStatus> putMcpServer(
+    String name,
+    Map<String, dynamic> config,
+  ) async {
     final row = McpServerStatus(
-        id: 'mcp_fix${mcpServers.length}', name: name, status: nextMcpStatus,
-        lastError: nextMcpStatus == 'failed' ? 'connect refused' : null);
+      id: 'mcp_fix${mcpServers.length}',
+      name: name,
+      status: nextMcpStatus,
+      lastError: nextMcpStatus == 'failed' ? 'connect refused' : null,
+    );
     mcpServers.removeWhere((s) => s.name == name);
     mcpServers.add(row);
     return row;
@@ -821,18 +1013,24 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<String> mcpStderr(String name) async => '';
 
   @override
-  Future<({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})>
-      listMcpCalls(String name, {String? cursor}) async =>
-          (calls: <McpCall>[], okCount: 0, failedCount: 0, nextCursor: null);
+  Future<
+    ({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})
+  >
+  listMcpCalls(String name, {String? cursor}) async =>
+      (calls: <McpCall>[], okCount: 0, failedCount: 0, nextCursor: null);
 
   @override
-  Future<List<McpRegistryEntry>> listMcpRegistry() async => List.of(mcpRegistry);
+  Future<List<McpRegistryEntry>> listMcpRegistry() async =>
+      List.of(mcpRegistry);
 
   @override
   Future<McpRegistryPlan> planMcpInstall(String fullName) async => mcpPlan;
 
   @override
-  Future<McpServerStatus> installMcp(String fullName, Map<String, String> env) async {
+  Future<McpServerStatus> installMcp(
+    String fullName,
+    Map<String, String> env,
+  ) async {
     final f = failNextMcpInstall;
     if (f != null) {
       failNextMcpInstall = null;
@@ -840,15 +1038,23 @@ class FixtureSettingsRepository implements SettingsRepository {
     }
     final short = fullName.split('/').last;
     final row = McpServerStatus(
-        id: 'mcp_fix${mcpServers.length}', name: short, status: nextMcpStatus);
+      id: 'mcp_fix${mcpServers.length}',
+      name: short,
+      status: nextMcpStatus,
+    );
     mcpServers.add(row);
     return row;
   }
 
   @override
-  Future<({List<String> imported, List<String> skipped})> importMcpJson(String json,
-      {bool overwrite = false}) async {
-    final map = (jsonDecode(json) as Map<String, dynamic>)['mcpServers'] as Map<String, dynamic>? ?? {};
+  Future<({List<String> imported, List<String> skipped})> importMcpJson(
+    String json, {
+    bool overwrite = false,
+  }) async {
+    final map =
+        (jsonDecode(json) as Map<String, dynamic>)['mcpServers']
+            as Map<String, dynamic>? ??
+        {};
     final imported = <String>[], skipped = <String>[];
     for (final name in map.keys) {
       if (!overwrite && mcpServers.any((s) => s.name == name)) {
@@ -866,8 +1072,24 @@ class FixtureSettingsRepository implements SettingsRepository {
   String fixtureDataDir = '/tmp/anselm-fixture';
   int fixtureDisk = 42 * 1024 * 1024;
   List<LimitField> fixtureSchema = const [
-    LimitField(key: 'agent.maxSteps', group: 'agent', defaultValue: 30, min: 1, unit: 'steps', desc: 'Max steps.'),
-    LimitField(key: 'context.triggerRatio', group: 'context', defaultValue: 0.8, min: 0, max: 1, exclusive: true, unit: 'ratio', desc: 'Compaction trigger.'),
+    LimitField(
+      key: 'agent.maxSteps',
+      group: 'agent',
+      defaultValue: 30,
+      min: 1,
+      unit: 'steps',
+      desc: 'Max steps.',
+    ),
+    LimitField(
+      key: 'context.triggerRatio',
+      group: 'context',
+      defaultValue: 0.8,
+      min: 0,
+      max: 1,
+      exclusive: true,
+      unit: 'ratio',
+      desc: 'Compaction trigger.',
+    ),
   ];
   Map<String, dynamic> fixtureLimits = {
     'agent': {'maxSteps': 30},
@@ -903,9 +1125,11 @@ class FixtureSettingsRepository implements SettingsRepository {
     if (failNextCompact) {
       failNextCompact = false;
       throw const ApiException(
-          code: 'STORAGE_COMPACT_FAILED',
-          message: 'database compaction failed (VACUUM needs free scratch space roughly the size of the database)',
-          httpStatus: 500);
+        code: 'STORAGE_COMPACT_FAILED',
+        message:
+            'database compaction failed (VACUUM needs free scratch space roughly the size of the database)',
+        httpStatus: 500,
+      );
     }
     final reclaimed = fixtureDeadBytes;
     fixtureDbBytes -= reclaimed;
@@ -950,13 +1174,16 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<NetworkConfig> getNetwork() async => fixtureNetwork;
 
   @override
-  Future<NetworkConfig> patchNetwork(NetworkConfig config) async => fixtureNetwork = config;
+  Future<NetworkConfig> patchNetwork(NetworkConfig config) async =>
+      fixtureNetwork = config;
 
   /// Seeded at the BACKEND's own default (90), not at a number invented here — the panel's whole
   /// contract is «never hardcode a default», and a fixture that seeded 30 would let a panel bug that
   /// hardcodes 90 pass anyway. 种在**后端自持**的默认(90)上,而非此处发明的数——面板的全部契约就是
   /// 「永不硬编默认」,而种 30 的 fixture 会让「硬编 90」的面板 bug 照样通过。
-  RetentionConfig fixtureRetention = const RetentionConfig(runRetentionDays: 90);
+  RetentionConfig fixtureRetention = const RetentionConfig(
+    runRetentionDays: 90,
+  );
 
   @override
   Future<RetentionConfig> getRetention() async => fixtureRetention;
@@ -968,9 +1195,11 @@ class FixtureSettingsRepository implements SettingsRepository {
     // 镜像后端唯一的物理规则:负数拒;60 照收(值集是产品可供性、非后端规则——反校验剧场 #6)。
     if (days < 0) {
       throw const ApiException(
-          code: 'SETTINGS_RETENTION_INVALID',
-          message: 'runRetentionDays must be 0 (keep forever) or a positive number of days',
-          httpStatus: 400);
+        code: 'SETTINGS_RETENTION_INVALID',
+        message:
+            'runRetentionDays must be 0 (keep forever) or a positive number of days',
+        httpStatus: 400,
+      );
     }
     return fixtureRetention = RetentionConfig(runRetentionDays: days);
   }
@@ -980,8 +1209,18 @@ class FixtureSettingsRepository implements SettingsRepository {
   SandboxBootstrap fixtureBootstrap = const SandboxBootstrap(ok: true);
   final List<SandboxRuntime> runtimes = [];
   List<RuntimeAvailability> available = const [
-    RuntimeAvailability(kind: 'node', defaultVersion: '22', versions: ['22', '20'], pinned: true),
-    RuntimeAvailability(kind: 'python', defaultVersion: '3.12', versions: ['3.12', '3.11'], pinned: true),
+    RuntimeAvailability(
+      kind: 'node',
+      defaultVersion: '22',
+      versions: ['22', '20'],
+      pinned: true,
+    ),
+    RuntimeAvailability(
+      kind: 'python',
+      defaultVersion: '3.12',
+      versions: ['3.12', '3.11'],
+      pinned: true,
+    ),
   ];
   final Map<String, List<SandboxEnv>> envsByOwner = {};
   int gcRemoved = 3;
@@ -991,7 +1230,8 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<SandboxBootstrap> sandboxBootstrap() async => fixtureBootstrap;
 
   @override
-  Future<void> retrySandboxBootstrap() async => fixtureBootstrap = const SandboxBootstrap(ok: true);
+  Future<void> retrySandboxBootstrap() async =>
+      fixtureBootstrap = const SandboxBootstrap(ok: true);
 
   @override
   Future<List<SandboxRuntime>> sandboxRuntimes() async => List.of(runtimes);
@@ -1000,8 +1240,15 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<List<RuntimeAvailability>> sandboxAvailable() async => available;
 
   @override
-  Future<SandboxRuntime> installRuntime({required String kind, required String version}) async {
-    final r = SandboxRuntime(id: 'srt_fix${runtimes.length}', kind: kind, version: version);
+  Future<SandboxRuntime> installRuntime({
+    required String kind,
+    required String version,
+  }) async {
+    final r = SandboxRuntime(
+      id: 'srt_fix${runtimes.length}',
+      kind: kind,
+      version: version,
+    );
     runtimes.add(r);
     return r;
   }
@@ -1026,10 +1273,12 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<int> sandboxGc(int olderThanDays) async => gcRemoved;
-
 }
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {
   final api = ref.watch(apiClientProvider);
-  return LiveSettingsRepository(api: api, workspaceId: () => ref.read(activeWorkspaceProvider));
+  return LiveSettingsRepository(
+    api: api,
+    workspaceId: () => ref.read(activeWorkspaceProvider),
+  );
 });

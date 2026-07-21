@@ -63,7 +63,7 @@ landed-into: references/frontend/design-system.md
 
 - **AnColors 加 SyntaxColors**(地基扩展):重跑 `an_colors`/theme 测 + lerp/copyWith 全字段断言(双 brightness + lerp 不丢字段)。
 - **AnSize 加 trail**(地基扩展):无行为风险,本批新引用,确认 tokens 测试通过。
-- **pubspec 新包**:**先在 scratch/frontend 真实 `flutter pub add` 试装 + `flutter analyze` 冒烟核 Dart 3.11.5 / Flutter 3.41.9 resolve + null-safety**(verify-by-real-run;尤其任何 5 年前的高亮引擎包能否在 Dart 3.11 编译/分析是真实未验风险——草案凭空写「均声明 null-safe」对 flutter_highlight 是无据)。仅 demo 正则路线时无新高亮包、零此风险。`make fe-verify` 重跑 codegen+analyze+全测。
+- **pubspec 新包**:**先在 scratch/frontend 真实 `flutter pub add` 试装 + `flutter analyze` 冒烟核 Dart 3.11.5 / Flutter 3.41.9 resolve + null-safety**(verify-by-real-run;尤其任何 5 年前的高亮引擎包能否在 Dart 3.11 编译/分析是真实未验风险——草案凭空写「均声明 null-safe」对 flutter_highlight 是无据)。仅 demo 正则路线时无新高亮包、零此风险。`make -C frontend verify` 重跑 codegen+analyze+全测。
 - **highlighting 语言集核验**(若选包路线):逐一核 python/json/markdown/yaml/sql/javascript(后端实际用到全集)是否在覆盖内,缺失者走兜底裸渲并在 lang 标签标注。
 - **CEL 高亮缺口**:任何高亮引擎(包或正则)都不含 CEL DSL。v1 在 `highlight()` 封装层内部对 `lang==cel` 加一段最小正则分派(插值/注释/字符串/数字),**对外仍唯一入口、绝不另起第二套 tokenizer**(见 openDecision A2)。CEL 专属精细 tokenizer 推迟(§7)。
 

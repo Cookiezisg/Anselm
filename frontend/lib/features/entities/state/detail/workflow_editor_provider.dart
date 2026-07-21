@@ -29,26 +29,37 @@ const _trialEdgeId = '__anselm_trial_edge__';
 /// 重复边 id、非重复端点,故只拒完全重复(源/目标/端口全同);control/approval 用不同端口扇入同一目标(approval
 /// yes+no、control 两分支)合法。"哪条是回边"用后端同款灰节点 DFS([backEdgeIds])判——新边闭合的环可能让另一
 /// 条边成为回边。返回端口(approval→空闲 yes/no;control 空口待填;前向普通边→null)。
-({bool ok, String? reason, String? port}) validateWorkflowEdge(Graph g, String from, String to) {
+({bool ok, String? reason, String? port}) validateWorkflowEdge(
+  Graph g,
+  String from,
+  String to,
+) {
   if (from == to) return (ok: false, reason: 'selfLoop', port: null);
   final src = g.nodes.where((n) => n.id == from).firstOrNull;
   // Prospective port first (an approval source auto-takes the free yes/no slot), so the duplicate check
   // can be port-aware. 先定预期端口(approval 取空闲 yes/no),使重复检查能按端口区分。
   String? port;
   if (src?.kind == NodeKind.approval) {
-    final used = g.edges.where((e) => e.from == from).map((e) => e.fromPort).toSet();
+    final used = g.edges
+        .where((e) => e.from == from)
+        .map((e) => e.fromPort)
+        .toSet();
     port = !used.contains('yes') ? 'yes' : (!used.contains('no') ? 'no' : null);
-    if (port == null) return (ok: false, reason: 'approvalPortsFull', port: null);
+    if (port == null) {
+      return (ok: false, reason: 'approvalPortsFull', port: null);
+    }
   }
   // Reject only an EXACT duplicate (source, target AND port all equal) — NOT any second (from,to).
   // 仅拒完全重复(源/目标/端口全同),非任意第二条 (from,to)。
   if (g.edges.any((e) => e.from == from && e.to == to && e.fromPort == port)) {
     return (ok: false, reason: 'duplicateEdge', port: null);
   }
-  final trial = g.copyWith(edges: [
-    ...g.edges,
-    Edge(id: _trialEdgeId, from: from, fromPort: port, to: to),
-  ]);
+  final trial = g.copyWith(
+    edges: [
+      ...g.edges,
+      Edge(id: _trialEdgeId, from: from, fromPort: port, to: to),
+    ],
+  );
   final backs = backEdgeIds(trial);
   final byId = {for (final n in trial.nodes) n.id: n};
   for (final e in trial.edges) {
@@ -92,8 +103,12 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
   void selectNode(String? id) {
     final cur = state.value;
     if (cur == null) return;
-    state = AsyncData(cur.copyWith(
-        selectedNodeId: cur.selectedNodeId == id ? null : id, selectedEdgeId: null));
+    state = AsyncData(
+      cur.copyWith(
+        selectedNodeId: cur.selectedNodeId == id ? null : id,
+        selectedEdgeId: null,
+      ),
+    );
   }
 
   void selectEdge(String? id) {
@@ -124,13 +139,19 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
     if (cur == null) return;
     final nodeId = cur.selectedNodeId, edgeId = cur.selectedEdgeId;
     if (nodeId != null) {
-      _mutate((g) => g.copyWith(
-            nodes: g.nodes.where((n) => n.id != nodeId).toList(),
-            edges: g.edges.where((e) => e.from != nodeId && e.to != nodeId).toList(), // cascade 级联
-          ));
+      _mutate(
+        (g) => g.copyWith(
+          nodes: g.nodes.where((n) => n.id != nodeId).toList(),
+          edges: g.edges
+              .where((e) => e.from != nodeId && e.to != nodeId)
+              .toList(), // cascade 级联
+        ),
+      );
       state = AsyncData(state.value!.copyWith(selectedNodeId: null));
     } else if (edgeId != null) {
-      _mutate((g) => g.copyWith(edges: g.edges.where((e) => e.id != edgeId).toList()));
+      _mutate(
+        (g) => g.copyWith(edges: g.edges.where((e) => e.id != edgeId).toList()),
+      );
       state = AsyncData(state.value!.copyWith(selectedEdgeId: null));
     }
   }
@@ -141,9 +162,11 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
   /// 固化成显式 pos(pos 仅当全节点都有时才生效,否则单个拖拽会弹回)。
   void moveNode(String id, NodePosition pos) {
     _ensurePositioned();
-    _mutate((g) => g.copyWith(nodes: [
-          for (final n in g.nodes) n.id == id ? n.copyWith(pos: pos) : n,
-        ]));
+    _mutate(
+      (g) => g.copyWith(
+        nodes: [for (final n in g.nodes) n.id == id ? n.copyWith(pos: pos) : n],
+      ),
+    );
   }
 
   /// Write the current auto-layout back as explicit pos on every node (no-op if already positioned).
@@ -154,12 +177,21 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
     final g = cur.working;
     if (g.nodes.isEmpty || g.nodes.every((n) => n.pos != null)) return;
     final l = layoutGraph(g, dir: cur.dir);
-    state = AsyncData(cur.copyWith(working: g.copyWith(nodes: [
-      for (final n in g.nodes)
-        n.copyWith(
-            pos: NodePosition(
-                x: l.nodeRects[n.id]!.left.round(), y: l.nodeRects[n.id]!.top.round())),
-    ])));
+    state = AsyncData(
+      cur.copyWith(
+        working: g.copyWith(
+          nodes: [
+            for (final n in g.nodes)
+              n.copyWith(
+                pos: NodePosition(
+                  x: l.nodeRects[n.id]!.left.round(),
+                  y: l.nodeRects[n.id]!.top.round(),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
   }
 
   /// Attempt to connect [from]→[to]. Returns a reason string if rejected (caller toasts). 尝试连线。
@@ -172,45 +204,70 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
     // is rebuilt → a reopened editor would regenerate 'e0_new' and collide with the one already saved
     // into the graph, silently dropping the new edge at diff time). 全新随机边 id(非会话计数器——
     // autoDispose 重建即归零,重开编辑器会再生 'e0_new' 撞上已存入图的同 id,导致 diff 时静默吞掉新边)。
-    final edge = Edge(id: _freshEdgeId(cur.working), from: from, fromPort: v.port, to: to);
+    final edge = Edge(
+      id: _freshEdgeId(cur.working),
+      from: from,
+      fromPort: v.port,
+      to: to,
+    );
     _mutate((g) => g.copyWith(edges: [...g.edges, edge]));
     selectEdge(edge.id);
     return null;
   }
 
   // ── inspector edits ──
-  void setNodeRef(String id, String ref) => _mutate((g) => g.copyWith(nodes: [
-        for (final n in g.nodes) n.id == id ? n.copyWith(ref: ref) : n,
-      ]));
+  void setNodeRef(String id, String ref) => _mutate(
+    (g) => g.copyWith(
+      nodes: [for (final n in g.nodes) n.id == id ? n.copyWith(ref: ref) : n],
+    ),
+  );
 
   /// Change a node's kind. The kind determines the ref's ENTITY FAMILY (action→callable, agent→ag_,
   /// …), so a kind change must reset the ref to the new kind's placeholder — otherwise the old ref
   /// (e.g. `fn_x`) would linger as a nonsense cross-family target in the ref picker. 改 kind → ref 家族
   /// 也变,故须把 ref 重置为新 kind 的占位(否则旧 ref 作跨族乱选目标留在选择器里)。
-  void setNodeKind(String id, NodeKind kind) => _mutate((g) => g.copyWith(nodes: [
+  void setNodeKind(String id, NodeKind kind) => _mutate(
+    (g) => g.copyWith(
+      nodes: [
         for (final n in g.nodes)
           n.id == id
-              ? (n.kind == kind ? n : n.copyWith(kind: kind, ref: '${_prefix(kind)}_new'))
+              ? (n.kind == kind
+                    ? n
+                    : n.copyWith(kind: kind, ref: '${_prefix(kind)}_new'))
               : n,
-      ]));
+      ],
+    ),
+  );
 
-  void setNodeInput(String id, Map<String, String> input) => _mutate((g) => g.copyWith(nodes: [
+  void setNodeInput(String id, Map<String, String> input) => _mutate(
+    (g) => g.copyWith(
+      nodes: [
         for (final n in g.nodes) n.id == id ? n.copyWith(input: input) : n,
-      ]));
+      ],
+    ),
+  );
 
-  void setNodeRetry(String id, RetryConfig? retry) => _mutate((g) => g.copyWith(nodes: [
+  void setNodeRetry(String id, RetryConfig? retry) => _mutate(
+    (g) => g.copyWith(
+      nodes: [
         for (final n in g.nodes) n.id == id ? n.copyWith(retry: retry) : n,
-      ]));
+      ],
+    ),
+  );
 
-  void setEdgePort(String id, String? port) => _mutate((g) => g.copyWith(edges: [
+  void setEdgePort(String id, String? port) => _mutate(
+    (g) => g.copyWith(
+      edges: [
         for (final e in g.edges) e.id == id ? e.copyWith(fromPort: port) : e,
-      ]));
+      ],
+    ),
+  );
 
   // ── layout ──
   /// Re-layout: drop every pos so the pure auto-layout takes over. 自动布局:清 pos 让自动布局接管。
-  void autoLayout() => _mutate((g) => g.copyWith(nodes: [
-        for (final n in g.nodes) n.copyWith(pos: null),
-      ]));
+  void autoLayout() => _mutate(
+    (g) => g.copyWith(nodes: [for (final n in g.nodes) n.copyWith(pos: null)]),
+  );
 
   void setDir(GraphDirection dir) {
     final cur = state.value;
@@ -247,13 +304,19 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
     } on ApiException catch (e) {
       final now = state.value;
       if (now != null) {
-        final reason = e.details is Map ? (e.details as Map)['reason']?.toString() : null;
-        state = AsyncData(now.copyWith(saving: false, saveError: reason ?? e.message));
+        final reason = e.details is Map
+            ? (e.details as Map)['reason']?.toString()
+            : null;
+        state = AsyncData(
+          now.copyWith(saving: false, saveError: reason ?? e.message),
+        );
       }
       return false;
     } catch (e) {
       final now = state.value;
-      if (now != null) state = AsyncData(now.copyWith(saving: false, saveError: e.toString()));
+      if (now != null) {
+        state = AsyncData(now.copyWith(saving: false, saveError: e.toString()));
+      }
       return false;
     }
   }
@@ -261,8 +324,14 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
   void discard() {
     final cur = state.value;
     if (cur == null) return;
-    state = AsyncData(cur.copyWith(
-        working: cur.original, selectedNodeId: null, selectedEdgeId: null, saveError: null));
+    state = AsyncData(
+      cur.copyWith(
+        working: cur.original,
+        selectedNodeId: null,
+        selectedEdgeId: null,
+        saveError: null,
+      ),
+    );
   }
 
   static final _rng = math.Random();
@@ -288,13 +357,13 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
   }
 
   static String _prefix(NodeKind k) => switch (k) {
-        NodeKind.trigger => 'trg',
-        NodeKind.action => 'fn',
-        NodeKind.agent => 'ag',
-        NodeKind.control => 'ctl',
-        NodeKind.approval => 'apf',
-        NodeKind.unknown => 'node',
-      };
+    NodeKind.trigger => 'trg',
+    NodeKind.action => 'fn',
+    NodeKind.agent => 'ag',
+    NodeKind.control => 'ctl',
+    NodeKind.approval => 'apf',
+    NodeKind.unknown => 'node',
+  };
 
   static String _uniqueNodeId(NodeKind kind, Graph g) {
     final base = switch (kind) {
@@ -315,8 +384,8 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
   }
 }
 
-final workflowEditorProvider =
-    AsyncNotifierProvider.autoDispose.family<WorkflowEditorNotifier, WorkflowEditorState, EntityRef>(
-  WorkflowEditorNotifier.new,
-  retry: (_, _) => null,
-);
+final workflowEditorProvider = AsyncNotifierProvider.autoDispose
+    .family<WorkflowEditorNotifier, WorkflowEditorState, EntityRef>(
+      WorkflowEditorNotifier.new,
+      retry: (_, _) => null,
+    );

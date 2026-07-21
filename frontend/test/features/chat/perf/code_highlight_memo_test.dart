@@ -13,13 +13,17 @@ void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
   Widget host(String code) => TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(body: AnCodeEditor(code: code, lang: 'python')),
-        ),
-      );
+    child: MaterialApp(
+      theme: AnTheme.light(),
+      home: Scaffold(
+        body: AnCodeEditor(code: code, lang: 'python'),
+      ),
+    ),
+  );
 
-  testWidgets('C-012/013 a rebuild with UNCHANGED code does not re-tokenize', (tester) async {
+  testWidgets('C-012/013 a rebuild with UNCHANGED code does not re-tokenize', (
+    tester,
+  ) async {
     await tester.pumpWidget(host('def a():\n    return 1'));
     final after1 = highlightCodePasses;
     expect(after1, greaterThan(0), reason: '首建分词一次');
@@ -28,12 +32,15 @@ void main() {
     expect(highlightCodePasses, after1, reason: '无变化重建→缓存命中,不重分词');
   });
 
-  testWidgets('C-012/013 a code CHANGE re-tokenizes (cache correctly invalidates)', (tester) async {
-    await tester.pumpWidget(host('x = 1'));
-    final before = highlightCodePasses;
-    await tester.pumpWidget(host('x = 2'));
-    expect(highlightCodePasses, greaterThan(before), reason: '码变→重分词');
-    // The new content renders. 新内容渲染。
-    expect(find.textContaining('2'), findsWidgets);
-  });
+  testWidgets(
+    'C-012/013 a code CHANGE re-tokenizes (cache correctly invalidates)',
+    (tester) async {
+      await tester.pumpWidget(host('x = 1'));
+      final before = highlightCodePasses;
+      await tester.pumpWidget(host('x = 2'));
+      expect(highlightCodePasses, greaterThan(before), reason: '码变→重分词');
+      // The new content renders. 新内容渲染。
+      expect(find.textContaining('2'), findsWidgets);
+    },
+  );
 }

@@ -62,7 +62,9 @@ class AnSeamlessField extends StatelessWidget {
   Widget build(BuildContext context) {
     Widget field = DryIntrinsicWidth(
       child: Padding(
-        padding: const EdgeInsetsDirectional.only(end: AnSize.caretEndPad), // caret room at line end 行尾光标留位
+        padding: const EdgeInsetsDirectional.only(
+          end: AnSize.caretEndPad,
+        ), // caret room at line end 行尾光标留位
         child: ConstrainedBox(
           constraints: const BoxConstraints(minWidth: AnSize.inlineEditMin),
           child: AnInput(
@@ -91,7 +93,8 @@ class AnSeamlessField extends StatelessWidget {
         children: [
           Positioned.directional(
             textDirection: Directionality.of(context),
-            start: -AnSize.editBoxPadX, // bleed left over slack (cancel left pad → text anchored) 左溢出
+            start: -AnSize
+                .editBoxPadX, // bleed left over slack (cancel left pad → text anchored) 左溢出
             end: 0, // right edge = the real right pad (Padding below) 右缘=真右内距
             top: -AnSize.editBoxPadY,
             bottom: -AnSize.editBoxPadY,
@@ -104,7 +107,9 @@ class AnSeamlessField extends StatelessWidget {
             ),
           ),
           Padding(
-            padding: const EdgeInsetsDirectional.only(end: AnSize.editBoxPadX), // real right growth 右真占位
+            padding: const EdgeInsetsDirectional.only(
+              end: AnSize.editBoxPadX,
+            ), // real right growth 右真占位
             child: field,
           ),
         ],

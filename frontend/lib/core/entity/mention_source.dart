@@ -38,5 +38,7 @@ abstract class MentionSource {
 
 /// DIP seam — the app layer overrides this (mirrors the repository-seam pattern). app 层 override(镜像仓储缝)。
 final mentionSourceProvider = Provider<MentionSource>(
-  (_) => throw UnimplementedError('mentionSourceProvider must be overridden by the app assembly'),
+  (_) => throw UnimplementedError(
+    'mentionSourceProvider must be overridden by the app assembly',
+  ),
 );

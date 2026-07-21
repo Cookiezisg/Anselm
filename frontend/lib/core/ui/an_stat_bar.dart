@@ -68,12 +68,12 @@ class AnStatBar extends StatelessWidget {
   final List<AnStatNote> notes;
 
   String _word(BuildContext context, AnStatus s) => switch (s) {
-        AnStatus.idle => context.t.status.idle,
-        AnStatus.run => context.t.status.run,
-        AnStatus.wait => context.t.status.wait,
-        AnStatus.err => context.t.status.err,
-        AnStatus.done => context.t.status.done,
-      };
+    AnStatus.idle => context.t.status.idle,
+    AnStatus.run => context.t.status.run,
+    AnStatus.wait => context.t.status.wait,
+    AnStatus.err => context.t.status.err,
+    AnStatus.done => context.t.status.done,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -83,35 +83,49 @@ class AnStatBar extends StatelessWidget {
     final spans = <InlineSpan>[];
     for (final s in stats) {
       if (spans.isNotEmpty) spans.add(TextSpan(text: ' · ', style: faint));
-      spans.add(TextSpan(
-        text: s.text,
-        style: (s.tabular ? AnText.metaTabular() : AnText.meta).copyWith(color: s.tone.fg(c)),
-      ));
+      spans.add(
+        TextSpan(
+          text: s.text,
+          style: (s.tabular ? AnText.metaTabular() : AnText.meta).copyWith(
+            color: s.tone.fg(c),
+          ),
+        ),
+      );
     }
 
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s6),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        Wrap(
-          spacing: AnSpace.s6,
-          runSpacing: AnSpace.s4,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            ...leading,
-            if (status != null)
-              AnChip(statusLabel ?? _word(context, status!), tone: status!.tone),
-            if (spans.isNotEmpty) Text.rich(TextSpan(children: spans)),
-            ...chips,
-          ],
-        ),
-        for (final n in notes)
-          if (n.text.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s4),
-              child: Text(n.text,
-                  style: (n.tone == AnTone.warn ? AnText.label : AnText.code).copyWith(color: n.tone.fg(c))),
-            ),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Wrap(
+            spacing: AnSpace.s6,
+            runSpacing: AnSpace.s4,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              ...leading,
+              if (status != null)
+                AnChip(
+                  statusLabel ?? _word(context, status!),
+                  tone: status!.tone,
+                ),
+              if (spans.isNotEmpty) Text.rich(TextSpan(children: spans)),
+              ...chips,
+            ],
+          ),
+          for (final n in notes)
+            if (n.text.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s4),
+                child: Text(
+                  n.text,
+                  style: (n.tone == AnTone.warn ? AnText.label : AnText.code)
+                      .copyWith(color: n.tone.fg(c)),
+                ),
+              ),
+        ],
+      ),
     );
   }
 }

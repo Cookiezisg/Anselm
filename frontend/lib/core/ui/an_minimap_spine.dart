@@ -46,8 +46,11 @@ class AnMinimapSpine extends StatelessWidget {
       onTapUp: onTapFraction == null
           ? null
           : (d) {
-              final h = (context.findRenderObject() as RenderBox?)?.size.height ?? 0;
-              if (h > 0) onTapFraction!((d.localPosition.dy / h).clamp(0.0, 1.0));
+              final h =
+                  (context.findRenderObject() as RenderBox?)?.size.height ?? 0;
+              if (h > 0) {
+                onTapFraction!((d.localPosition.dy / h).clamp(0.0, 1.0));
+              }
             },
       child: SizedBox(
         width: width + AnSpace.s4,
@@ -93,7 +96,10 @@ class _SpinePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width;
-    final r = RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, w, size.height), const Radius.circular(3));
+    final r = RRect.fromRectAndRadius(
+      Rect.fromLTWH(0, 0, w, size.height),
+      const Radius.circular(3),
+    );
     canvas.drawRRect(r, Paint()..color = railColor);
 
     double yOf(int units) => (units / total).clamp(0.0, 1.0) * size.height;
@@ -102,7 +108,10 @@ class _SpinePainter extends CustomPainter {
     final prefixY = yOf(prefix.clamp(0, inked));
     if (prefixY > 0) {
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(0, 0, w, prefixY), const Radius.circular(3)),
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, 0, w, prefixY),
+          const Radius.circular(3),
+        ),
         Paint()..color = prefixColor,
       );
     }
@@ -110,7 +119,10 @@ class _SpinePainter extends CustomPainter {
     final inkY = yOf(inked);
     if (inkY > prefixY) {
       canvas.drawRRect(
-        RRect.fromRectAndRadius(Rect.fromLTWH(0, prefixY, w, inkY - prefixY), const Radius.circular(3)),
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(0, prefixY, w, inkY - prefixY),
+          const Radius.circular(3),
+        ),
         Paint()..color = inkColor,
       );
     }
@@ -120,14 +132,17 @@ class _SpinePainter extends CustomPainter {
       ..strokeWidth = 1;
     for (final off in paragraphs) {
       final y = yOf(off);
-      if (y > 0 && y < size.height) canvas.drawLine(Offset(0, y), Offset(w, y), rule);
+      if (y > 0 && y < size.height) {
+        canvas.drawLine(Offset(0, y), Offset(w, y), rule);
+      }
     }
     // The writing frontier. 写入前沿。
     if (inked > 0 && inked < total) {
       canvas.drawRRect(
         RRect.fromRectAndRadius(
-            Rect.fromLTWH(-1, (inkY - 1.5).clamp(0.0, size.height - 3), w + 2, 3),
-            const Radius.circular(1.5)),
+          Rect.fromLTWH(-1, (inkY - 1.5).clamp(0.0, size.height - 3), w + 2, 3),
+          const Radius.circular(1.5),
+        ),
         Paint()..color = frontierColor,
       );
     }

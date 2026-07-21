@@ -87,7 +87,8 @@ class AnFace {
 
 /// Apply a nullable content override — `null` = no change (sans follows the UI face). Keeps every call
 /// site a one-liner. 可空内容覆盖:null=不改(sans 跟随 UI 脸);让各调用点一行。
-TextStyle applyContentFace(AnFace? face, TextStyle base) => face == null ? base : face.on(base);
+TextStyle applyContentFace(AnFace? face, TextStyle base) =>
+    face == null ? base : face.on(base);
 
 /// The font-axis resolver + the boot-applied holder for the RESTART axes (UI / code). The CONTENT axis
 /// resolves per-build via [contentOverrideFor] and is never stored here (it's hot). 字体轴解析器 + 重启轴
@@ -98,25 +99,48 @@ abstract final class AnFonts {
   // on every machine. System = the OS UI face: family null → macOS San Francisco / Windows Segoe UI /
   // Linux the platform default; the fallback carries the OS CJK face (PingFang SC / Microsoft YaHei).
   // 内置=确定双拼;系统=OS UI 脸(family null→macOS SF/Windows Segoe UI/Linux 平台默认),回落带 OS 中文脸。
-  static const AnFace _uiBundled =
-      AnFace('Inter', ['MiSans', 'PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans', 'sans-serif']);
-  static const AnFace _uiSystem =
-      AnFace(null, ['PingFang SC', 'Microsoft YaHei', 'Segoe UI', 'Noto Sans CJK SC', 'sans-serif']);
+  static const AnFace _uiBundled = AnFace('Inter', [
+    'MiSans',
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Segoe UI',
+    'Noto Sans',
+    'sans-serif',
+  ]);
+  static const AnFace _uiSystem = AnFace(null, [
+    'PingFang SC',
+    'Microsoft YaHei',
+    'Segoe UI',
+    'Noto Sans CJK SC',
+    'sans-serif',
+  ]);
 
   // ── ② CONTENT axis: the serif face ──
   // Source Han Serif SC carries BOTH Latin and Simplified-Chinese in one face at Light (w300) + Regular
   // (w400), so serif prose keeps the two-weight body/emphasis contrast across scripts. The fallback is
   // the platform serif (macOS Songti SC / Windows SimSun). 思源宋 SC 拉丁+简中同脸、Light/Regular 两档;
   // 回落=平台衬线(macOS Songti SC / Windows SimSun)。
-  static const AnFace serifFace =
-      AnFace('Source Han Serif SC', ['Songti SC', 'STSong', 'SimSun', 'Noto Serif CJK SC', 'serif']);
+  static const AnFace serifFace = AnFace('Source Han Serif SC', [
+    'Songti SC',
+    'STSong',
+    'SimSun',
+    'Noto Serif CJK SC',
+    'serif',
+  ]);
 
   // ── ③ CODE axis faces ──
   // The head family swaps; the fallback keeps MiSans FIRST so CJK inside mono (code comments, tool
   // output, terminals) stays deterministic, then platform monos. System = family null → the OS mono via
   // the fallback (macOS SF Mono/Menlo · Windows Consolas). 头脸切换,回落 MiSans 置首(mono 里的中文确定)
   // 再平台 mono;系统=family null→经回落取 OS mono。
-  static const List<String> _monoFallback = ['MiSans', 'SF Mono', 'SFMono-Regular', 'Menlo', 'Consolas', 'monospace'];
+  static const List<String> _monoFallback = [
+    'MiSans',
+    'SF Mono',
+    'SFMono-Regular',
+    'Menlo',
+    'Consolas',
+    'monospace',
+  ];
   static const AnFace _codeJetBrains = AnFace('JetBrains Mono', _monoFallback);
   static const AnFace _codeFira = AnFace('Fira Code', _monoFallback);
   static const AnFace _codeCascadia = AnFace('Cascadia Code', _monoFallback);
@@ -135,26 +159,27 @@ abstract final class AnFonts {
   /// The pref-string → face maps (the wire values persisted by [SettingsKeys.fontUi] / .fontCode /
   /// .fontContent). Unknown → the default (forward-compatible). 偏好串→脸映射;未知→默认(向前兼容)。
   static AnFace uiFaceFor(String choice) => switch (choice) {
-        'system' => _uiSystem,
-        _ => _uiBundled,
-      };
+    'system' => _uiSystem,
+    _ => _uiBundled,
+  };
 
   static AnFace codeFaceFor(String choice) => switch (choice) {
-        'firaCode' => _codeFira,
-        'cascadiaCode' => _codeCascadia,
-        'system' => _codeSystem,
-        _ => _codeJetBrains,
-      };
+    'firaCode' => _codeFira,
+    'cascadiaCode' => _codeCascadia,
+    'system' => _codeSystem,
+    _ => _codeJetBrains,
+  };
 
   /// The CONTENT override — null means "no override" (sans = FOLLOW the UI face already baked into the
   /// [AnText] reading ladder), so content=sans is a true zero-touch pass-through. serif / system return
   /// a concrete face the prose surfaces layer over their reading styles. 内容覆盖:null=不覆盖(sans=跟随
   /// 已烤进 AnText 阅读阶梯的 UI 脸,真零改直通);衬线/系统返回具体脸供 prose 面覆盖其阅读样式。
   static AnFace? contentOverrideFor(String choice) => switch (choice) {
-        'serif' => serifFace,
-        'system' => _uiSystem, // the OS text face, regardless of the UI axis OS 文本脸(不随 UI 轴)
-        _ => null, // sans — follow the booted UI face 跟随已定 UI 脸
-      };
+    'serif' => serifFace,
+    'system' =>
+      _uiSystem, // the OS text face, regardless of the UI axis OS 文本脸(不随 UI 轴)
+    _ => null, // sans — follow the booted UI face 跟随已定 UI 脸
+  };
 
   /// Resolve the RESTART axes ONCE before `runApp` from the persisted choices. Idempotent; the CONTENT
   /// axis is NOT here (it's hot via a provider). 启动前从持久化选择解析重启轴一次(幂等);内容轴不在此(热)。

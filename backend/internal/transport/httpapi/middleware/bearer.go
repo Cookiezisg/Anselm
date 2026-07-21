@@ -15,7 +15,7 @@ import (
 // injected into the spawned server's env. The comparison is constant-time (crypto/subtle) so a
 // wrong token leaks no timing signal.
 //
-// When expected is "" (dev `make server` / testend, which do not set ANSELM_AUTH_TOKEN) this is a
+// When expected is "" (dev `make -C backend run` / testend, which do not set ANSELM_AUTH_TOKEN) this is a
 // NO-OP — dev-attach and the black-box harness keep working with zero auth. Exemptions when active:
 //   - OPTIONS — CORS preflight carries no Authorization header
 //   - /api/v1/webhooks/ — EXTERNAL callers (GitHub etc.) can't know the token; they self-auth via

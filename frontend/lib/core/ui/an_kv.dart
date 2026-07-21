@@ -36,10 +36,13 @@ class AnKvRow {
     this.wrap = false,
     this.meta = false,
     this.mono = false,
-  })  : tags = null,
-        flag = null,
-        tagsPlaceholder = null,
-        assert(!(editable && wrap), 'wrap is for read-only display rows — editable values are flush-right. wrap 仅限只读行');
+  }) : tags = null,
+       flag = null,
+       tagsPlaceholder = null,
+       assert(
+         !(editable && wrap),
+         'wrap is for read-only display rows — editable values are flush-right. wrap 仅限只读行',
+       );
 
   /// A TAGS row: the value is a SET of tags. At rest = plain pills flush right; on row hover/focus a
   /// ✕ per pill and a far-right ➕ reveal (the same rail + idiom as the text rows' pencil); pressing ➕
@@ -48,28 +51,28 @@ class AnKvRow {
   /// 标签行:静态干净药丸贴右;hover/聚焦揭示每丸 ✕ + 最右 ➕(与铅笔同轨同手感);按 ➕ 才挂出自聚焦输入框
   /// (Enter 连加、Esc/失焦收);经列表 onChanged 派出(行携新 tags)。
   const AnKvRow.tags(this.label, List<String> this.tags, {this.tagsPlaceholder})
-      : value = null,
-        flag = null,
-        editable = false,
-        editor = AnEditKind.input,
-        options = const [],
-        wrap = false,
-        meta = false,
-        mono = false;
+    : value = null,
+      flag = null,
+      editable = false,
+      editor = AnEditKind.input,
+      options = const [],
+      wrap = false,
+      meta = false,
+      mono = false;
 
   /// A BOOLEAN row — the family's ONE bool rendering (批6 A-051: '✓'/'—' was hand-copied per site):
   /// display-only ✓ / — glyph, a11y speaks the localized yes/no (a glyph-only semantic would read
   /// «check mark»). 布尔行——族内唯一 bool 渲法(✓/—);a11y 念本地化 是/否(裸字形读屏念「对勾」)。
   const AnKvRow.flag(this.label, bool this.flag)
-      : value = null,
-        tags = null,
-        tagsPlaceholder = null,
-        editable = false,
-        editor = AnEditKind.input,
-        options = const [],
-        wrap = false,
-        meta = true,
-        mono = false;
+    : value = null,
+      tags = null,
+      tagsPlaceholder = null,
+      editable = false,
+      editor = AnEditKind.input,
+      options = const [],
+      wrap = false,
+      meta = true,
+      mono = false;
 
   final String label;
   final String? value;
@@ -99,9 +102,18 @@ class AnKvRow {
   final List<String>? tags;
   final String? tagsPlaceholder;
 
-  AnKvRow _withValue(String v) =>
-      AnKvRow(label, v, editable: editable, editor: editor, options: options, wrap: wrap, meta: meta, mono: mono);
-  AnKvRow _withTags(List<String> t) => AnKvRow.tags(label, t, tagsPlaceholder: tagsPlaceholder);
+  AnKvRow _withValue(String v) => AnKvRow(
+    label,
+    v,
+    editable: editable,
+    editor: editor,
+    options: options,
+    wrap: wrap,
+    meta: meta,
+    mono: mono,
+  );
+  AnKvRow _withTags(List<String> t) =>
+      AnKvRow.tags(label, t, tagsPlaceholder: tagsPlaceholder);
 }
 
 /// C3 — a compact definition list: key (left) · value flush-RIGHT, one [AnSize.row] per row, layered
@@ -158,7 +170,9 @@ class AnKv extends StatelessWidget {
   /// list). 行值档:dense/meta 走 chrome、余内容档;等宽=列表级 mono 或行级 row.mono。
   TextStyle _valueStyle(AnKvRow row) {
     final m = mono || row.mono;
-    return (dense || row.meta) ? AnText.value(mono: m) : AnText.valueReading(mono: m);
+    return (dense || row.meta)
+        ? AnText.value(mono: m)
+        : AnText.valueReading(mono: m);
   }
 
   @override
@@ -191,10 +205,18 @@ class AnKv extends StatelessWidget {
         child: ExcludeSemantics(
           child: Container(
             constraints: const BoxConstraints(minHeight: AnSize.row),
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AnSpace.s8,
+              vertical: AnSpace.s4,
+            ),
             child: AnLeadValue(
               leading: keyText,
-              trailing: Text(row.flag! ? '✓' : '—', style: _valueStyle(row).copyWith(color: row.flag! ? c.ok : c.inkFaint)),
+              trailing: Text(
+                row.flag! ? '✓' : '—',
+                style: _valueStyle(
+                  row,
+                ).copyWith(color: row.flag! ? c.ok : c.inkFaint),
+              ),
             ),
           ),
         ),
@@ -208,7 +230,9 @@ class AnKv extends StatelessWidget {
         tags: row.tags!,
         placeholder: row.tagsPlaceholder,
         reading: !dense,
-        onChanged: onChanged == null ? null : (t) => _emitRow(i, row._withTags(t)),
+        onChanged: onChanged == null
+            ? null
+            : (t) => _emitRow(i, row._withTags(t)),
       );
     }
 
@@ -236,7 +260,10 @@ class AnKv extends StatelessWidget {
       child: ExcludeSemantics(
         child: Container(
           constraints: const BoxConstraints(minHeight: AnSize.row),
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AnSpace.s8,
+            vertical: AnSpace.s4,
+          ),
           // key hugs content (capped), value fills the remainder + sits flush-RIGHT (AnLeadValue). No
           // reserved rail — read-only values rest flush-right like every row; the editable rows' pencil
           // only reserves width on hover, so at rest the whole list is two-end aligned. 键贴内容、值吃余量
@@ -308,7 +335,9 @@ class _KvTagsRowState extends State<_KvTagsRow> {
   }
 
   void _onPlusFocus() {
-    if (mounted) setState(() {}); // reveal on keyboard focus, like the pencil 键盘聚焦即揭示,同铅笔
+    if (mounted) {
+      setState(() {}); // reveal on keyboard focus, like the pencil 键盘聚焦即揭示,同铅笔
+    }
   }
 
   @override
@@ -333,7 +362,10 @@ class _KvTagsRowState extends State<_KvTagsRow> {
         child: AnimatedContainer(
           duration: reduced ? Duration.zero : AnMotion.fast,
           constraints: const BoxConstraints(minHeight: AnSize.row),
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AnSpace.s8,
+            vertical: AnSpace.s4,
+          ),
           decoration: BoxDecoration(
             color: c.surfaceHover.whenActive(revealed),
             borderRadius: BorderRadius.circular(AnRadius.button),
@@ -379,16 +411,25 @@ class _KvTagsRowState extends State<_KvTagsRow> {
   Widget _value(AnColors c, bool revealed) {
     if (widget.tags.isEmpty && !_adding) {
       // Empty at rest → em-dash flush right, exactly like an empty text row. 空静态显 —,与文本行同几何。
-      final dash = Text('—',
-          textAlign: TextAlign.right,
-          style: (widget.reading ? AnText.valueReading() : AnText.value()).copyWith(color: c.inkFaint));
-      return revealed ? dash : Semantics(label: '${widget.fieldLabel}: —', child: ExcludeSemantics(child: dash));
+      final dash = Text(
+        '—',
+        textAlign: TextAlign.right,
+        style: (widget.reading ? AnText.valueReading() : AnText.value())
+            .copyWith(color: c.inkFaint),
+      );
+      return revealed
+          ? dash
+          : Semantics(
+              label: '${widget.fieldLabel}: —',
+              child: ExcludeSemantics(child: dash),
+            );
     }
     final pills = AnTags(
       tags: [for (final t in widget.tags) AnTag(t)],
       reading: widget.reading,
       readOnly: !revealed,
-      end: true, // flush-right pill runs inside the flush-right value zone 值区贴右,行尾对齐
+      end:
+          true, // flush-right pill runs inside the flush-right value zone 值区贴右,行尾对齐
       placeholder: widget.placeholder,
       showAddField: _adding,
       onChanged: widget.onChanged == null

@@ -22,7 +22,7 @@ audience: [human, ai]
 ## 规则
 
 - 分支 `acceptance-review`；场景即 go test（testend/scenarios，黑盒零 backend import）；发现 PR-N 亲验落 [findings.md](findings.md)；能修顺手修、产品裁决留 [DECISIONS-PENDING.md](DECISIONS-PENDING.md)；每波 verify+testend 双绿收口提交。
-- 永久资产：testend/ 验收套件（make testend）+ 金标套件（make evals）+ promptdump。
+- 永久资产：testend/ 验收套件（make -C backend testend）+ 金标套件（make -C backend evals）+ promptdump。
 
 ## 波次
 
@@ -32,4 +32,4 @@ audience: [human, ai]
 | R1-R7 | **高标准重验**（用户裁定重开）：A7 整面 / A4 整域 / A8 缺格 / A9 协议面 / A10 矩阵 / 柱B 四状态两视角 / 柱C 后 5 旅程 | ✅ 逐格全绿（新增 AC-25..30） |
 | R8 | 终收口：全量回归 95 场景 + 全套 evals 12 旅程 + verify | ✅ |
 
-**程序完成（2026-06-13）**：首轮 W0-W8 后用户裁定 A7 起标准滑坡、重开 R1-R8 按 [R-PLAN.md](R-PLAN.md) 缺口矩阵逐格补课——三柱最终全绿。30 条 AC 全处置（R 轮新抓 AC-26 🔴 三面同死 / AC-27 🟡 mcp ref 死链 / AC-29 🟡 通知族哑火 / AC-30 🟡 窗口未知压缩盲禁）。终报：[TERMINAL-REPORT.md](TERMINAL-REPORT.md)。永久资产：`make testend`（95 黑盒场景）+ `make evals`（12 金标旅程）+ promptdump 体验审计。
+**程序完成（2026-06-13）**：首轮 W0-W8 后用户裁定 A7 起标准滑坡、重开 R1-R8 按 [R-PLAN.md](R-PLAN.md) 缺口矩阵逐格补课——三柱最终全绿。30 条 AC 全处置（R 轮新抓 AC-26 🔴 三面同死 / AC-27 🟡 mcp ref 死链 / AC-29 🟡 通知族哑火 / AC-30 🟡 窗口未知压缩盲禁）。终报：[TERMINAL-REPORT.md](TERMINAL-REPORT.md)。永久资产：`make -C backend testend`（95 黑盒场景）+ `make -C backend evals`（12 金标旅程）+ promptdump 体验审计。

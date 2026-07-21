@@ -44,5 +44,6 @@ class RightPanelCollapsed extends Notifier<bool> {
   }
 }
 
-final rightPanelCollapsedProvider =
-    NotifierProvider<RightPanelCollapsed, bool>(RightPanelCollapsed.new);
+final rightPanelCollapsedProvider = NotifierProvider<RightPanelCollapsed, bool>(
+  RightPanelCollapsed.new,
+);

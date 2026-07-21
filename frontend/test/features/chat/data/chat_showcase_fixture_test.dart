@@ -28,7 +28,9 @@ void main() {
     group('showcase ${s.conv.id}', () {
       final assistant = s.messages.firstWhere((m) => m.role == 'assistant');
       final turn = ConversationTranscript.hydrateTurn(assistant);
-      final calls = turn.children.where((b) => b.kind == BlockKind.toolCall).toList();
+      final calls = turn.children
+          .where((b) => b.kind == BlockKind.toolCall)
+          .toList();
 
       test('has at least one tool card', () => expect(calls, isNotEmpty));
 
@@ -40,20 +42,35 @@ void main() {
           // is 正在调用/已调用; a real card has its own verb. Assert by identity: the resolved spec must
           // NOT be the generic instance. 已编目工具解析出非通用 spec。
           final spec = toolCardSpecFor(name);
-          expect(identical(spec, genericToolCardSpec), isFalse, reason: '$name fell to the generic card — not cataloged');
+          expect(
+            identical(spec, genericToolCardSpec),
+            isFalse,
+            reason: '$name fell to the generic card — not cataloged',
+          );
         });
 
         test('$name: args JSON parses', () {
-          expect(() => jsonDecode(call.argumentsText), returnsNormally, reason: '$name argsText is invalid JSON');
+          expect(
+            () => jsonDecode(call.argumentsText),
+            returnsNormally,
+            reason: '$name argsText is invalid JSON',
+          );
         });
 
-        final result = call.children.where((c) => c.kind == BlockKind.toolResult).map((c) => c.displayText).firstOrNull;
+        final result = call.children
+            .where((c) => c.kind == BlockKind.toolResult)
+            .map((c) => c.displayText)
+            .firstOrNull;
         test('$name: result wire is valid (JSON parses or is plain text)', () {
           expect(result, isNotNull, reason: '$name has no tool_result');
           if (_looksJson(result!)) {
             // A raw newline inside a JSON string = invalid JSON = the card silently renders a fallback.
-            expect(() => jsonDecode(result), returnsNormally,
-                reason: '$name result is JSON-shaped but does NOT parse (likely a raw newline — use \\\\n)');
+            expect(
+              () => jsonDecode(result),
+              returnsNormally,
+              reason:
+                  '$name result is JSON-shaped but does NOT parse (likely a raw newline — use \\\\n)',
+            );
           }
         });
       }

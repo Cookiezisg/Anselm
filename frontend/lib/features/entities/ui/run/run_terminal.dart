@@ -126,7 +126,12 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
   }
 
   // ── head ────────────────────────────────────────────────────────────────────
-  Widget _head(BuildContext context, EntityRef sel, RunTerminalState state, EntityDetail? detail) {
+  Widget _head(
+    BuildContext context,
+    EntityRef sel,
+    RunTerminalState state,
+    EntityDetail? detail,
+  ) {
     final r = context.t.entities.run;
     final name = detail?.name ?? sel.id;
     // 三段式文法 §1+§2 (0719): the entity IDENTITY head — kind glyph + name, EVERY panel action collapsed
@@ -159,11 +164,15 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
     final segs = <String>[];
     final ver = detail?.activeVersionNumber;
     if (ver != null) segs.add('v$ver');
-    final runs = ref.watch(recentRunsProvider(sel)).value ?? const <RecentRun>[];
+    final runs =
+        ref.watch(recentRunsProvider(sel)).value ?? const <RecentRun>[];
     final now = DateTime.now();
     final today = runs.where((run) {
       final s = run.startedAt?.toLocal();
-      return s != null && s.year == now.year && s.month == now.month && s.day == now.day;
+      return s != null &&
+          s.year == now.year &&
+          s.month == now.month &&
+          s.day == now.day;
     }).length;
     if (today > 0) segs.add(t.glanceToday(n: today));
     final last = runs.isNotEmpty ? runs.first : null;
@@ -180,9 +189,11 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
         word = t.glanceLastCancelled;
       }
       if (word != null) {
-        segs.add(last.elapsedMs > 0
-            ? '$word ${fmtDuration(Duration(milliseconds: last.elapsedMs))}'
-            : word);
+        segs.add(
+          last.elapsedMs > 0
+              ? '$word ${fmtDuration(Duration(milliseconds: last.elapsedMs))}'
+              : word,
+        );
       }
     }
     if (segs.isEmpty) return null;
@@ -196,7 +207,11 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
 
   /// The settled bar (落定条, AnStatBar 族): status word + elapsed; a workflow adds its flowrun id
   /// and the flagship door. 落定条:状态词+耗时;wf 加 flowrun id 与旗舰门。
-  Widget _settledBar(BuildContext context, EntityRef sel, RunTerminalState state) {
+  Widget _settledBar(
+    BuildContext context,
+    EntityRef sel,
+    RunTerminalState state,
+  ) {
     final r = context.t.entities.run;
     return AnStatBar(
       status: switch (state.phase) {
@@ -206,12 +221,19 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
       },
       statusLabel: state.phase == RunPhase.cancelled ? r.cancelled : null,
       stats: [
-        if (state.elapsedMs > 0) AnStat(fmtDuration(Duration(milliseconds: state.elapsedMs)), tabular: true),
+        if (state.elapsedMs > 0)
+          AnStat(
+            fmtDuration(Duration(milliseconds: state.elapsedMs)),
+            tabular: true,
+          ),
         // Agent run meta rides the settled bar now the head's meta sub-row retired. agent 运行 meta 归落定条。
-        if (sel.kind == EntityKind.agent && state.steps > 0) AnStat(r.steps(n: state.steps)),
-        if (sel.kind == EntityKind.agent && (state.tokensIn > 0 || state.tokensOut > 0))
+        if (sel.kind == EntityKind.agent && state.steps > 0)
+          AnStat(r.steps(n: state.steps)),
+        if (sel.kind == EntityKind.agent &&
+            (state.tokensIn > 0 || state.tokensOut > 0))
           AnStat(r.tokens(inT: state.tokensIn, outT: state.tokensOut)),
-        if (sel.kind == EntityKind.workflow && state.flowrunId != null) AnStat(state.flowrunId!, tabular: true),
+        if (sel.kind == EntityKind.workflow && state.flowrunId != null)
+          AnStat(state.flowrunId!, tabular: true),
       ],
       chips: [
         if (sel.kind == EntityKind.workflow && state.flowrunId != null)
@@ -225,7 +247,12 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
   }
 
   // ── body ────────────────────────────────────────────────────────────────────
-  Widget _output(BuildContext context, EntityRef sel, RunTerminalState state, RunStream s) {
+  Widget _output(
+    BuildContext context,
+    EntityRef sel,
+    RunTerminalState state,
+    RunStream s,
+  ) {
     if (state.phase == RunPhase.idle) {
       // Never ran → NOTHING here (零墓碑, 0718 拍板): the form above IS the guidance; below it, air.
       // The bench strip renders separately. 没跑过=结果区不渲——表单即引导,下面是空气。
@@ -238,8 +265,13 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
           _settledBar(context, sel, state),
           const SizedBox(height: AnSpace.s12),
         ],
-        if (state.phase == RunPhase.failed && (state.errorMsg ?? '').isNotEmpty) ...[
-          AnCallout(state.errorMsg!, title: state.errorCode, severity: AnCalloutSeverity.danger),
+        if (state.phase == RunPhase.failed &&
+            (state.errorMsg ?? '').isNotEmpty) ...[
+          AnCallout(
+            state.errorMsg!,
+            title: state.errorCode,
+            severity: AnCalloutSeverity.danger,
+          ),
           const SizedBox(height: AnSpace.s12),
         ],
         ..._kindBody(context, sel, state, s),
@@ -248,7 +280,12 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
     );
   }
 
-  List<Widget> _kindBody(BuildContext context, EntityRef sel, RunTerminalState state, RunStream s) {
+  List<Widget> _kindBody(
+    BuildContext context,
+    EntityRef sel,
+    RunTerminalState state,
+    RunStream s,
+  ) {
     final r = context.t.entities.run;
     switch (sel.kind) {
       case EntityKind.control:
@@ -268,19 +305,36 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
           if (text.trim().isNotEmpty)
             _section(context, r.outputHeading, AnTermViewport(text: text)),
           if (state.isTerminal && state.output != null)
-            _section(context, r.resultHeading, _mono(context, prettyJson(state.output))),
-          if ((state.logs ?? '').isNotEmpty) _section(context, r.logsHeading, _mono(context, state.logs!)),
+            _section(
+              context,
+              r.resultHeading,
+              _mono(context, prettyJson(state.output)),
+            ),
+          if ((state.logs ?? '').isNotEmpty)
+            _section(context, r.logsHeading, _mono(context, state.logs!)),
         ];
       case EntityKind.agent:
         return [
           if (s.tree.isEmpty && state.isRunning)
             // Running with no first block yet = a WAITING state — an honest spinner, not a hint.
             // 运行中等首块=等待态,spinner 诚实。
-            AnState(kind: AnStateKind.loading, size: AnStateSize.inset, title: r.noTrace)
+            AnState(
+              kind: AnStateKind.loading,
+              size: AnStateSize.inset,
+              title: r.noTrace,
+            )
           else if (!s.tree.isEmpty)
-            _section(context, r.traceHeading, BlockTreeView(roots: s.tree.roots)),
+            _section(
+              context,
+              r.traceHeading,
+              BlockTreeView(roots: s.tree.roots),
+            ),
           if (state.isTerminal && state.output != null)
-            _section(context, r.resultHeading, _mono(context, prettyJson(state.output))),
+            _section(
+              context,
+              r.resultHeading,
+              _mono(context, prettyJson(state.output)),
+            ),
         ];
       case EntityKind.workflow:
         return [_nodes(context, state, s)];
@@ -294,32 +348,49 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
     // A parked run grows the approval gate ABOVE the rows (the human decision is the next action).
     // 每个 flowrun 节点 = passive mono AnRow;停车时审批门长在行列之上(人决断是下一步)。
     if (state.flowNodes.isNotEmpty) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        if (parked != null) ...[
-          ApprovalGate(
-            parked: parked,
-            onDecide: (v, _) => ref
-                .read(runTerminalProvider(ref.read(selectedEntityProvider)!).notifier)
-                .decide(parked.nodeId, v),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (parked != null) ...[
+            ApprovalGate(
+              parked: parked,
+              onDecide: (v, _) => ref
+                  .read(
+                    runTerminalProvider(
+                      ref.read(selectedEntityProvider)!,
+                    ).notifier,
+                  )
+                  .decide(parked.nodeId, v),
+            ),
+            const SizedBox(height: AnSpace.s12),
+          ],
+          _section(
+            context,
+            r.nodesHeading,
+            _nodeList([
+              for (final n in state.flowNodes)
+                (label: '${n.nodeId} · ${n.kind}', status: n.status),
+            ]),
           ),
-          const SizedBox(height: AnSpace.s12),
         ],
-        _section(context, r.nodesHeading, _nodeList([
-          for (final n in state.flowNodes) (label: '${n.nodeId} · ${n.kind}', status: n.status),
-        ])),
-      ]);
+      );
     }
     if (s.liveNodes.isNotEmpty) {
-      return _section(context, r.nodesHeading, _nodeList([
-        for (final e in s.liveNodes.entries) (label: e.key, status: e.value),
-      ]));
+      return _section(
+        context,
+        r.nodesHeading,
+        _nodeList([
+          for (final e in s.liveNodes.entries) (label: e.key, status: e.value),
+        ]),
+      );
     }
     // Mirror the agent branch (批7 复审): a RUNNING flowrun with no node rows yet is a waiting
     // state, not an empty archive. 运行中无节点=等待态,非空档案。
     return AnState(
-        kind: state.isRunning ? AnStateKind.loading : AnStateKind.empty,
-        size: AnStateSize.inset,
-        title: r.noTrace);
+      kind: state.isRunning ? AnStateKind.loading : AnStateKind.empty,
+      size: AnStateSize.inset,
+      title: r.noTrace,
+    );
   }
 
   /// The durable approval gate — the parked node's rendered prompt + Approve/Reject firing the
@@ -327,24 +398,28 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
   /// primitives (card + action group), no new hand-rolled surface. 停车审批门:rendered 提示 +
   /// 通过/驳回直发 `:decide`(first-wins,输了对账自纠);既有原语组合、零手搓新面。
   Widget _nodeList(List<({String label, String status})> nodes) => Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          for (final n in nodes)
-            AnRow(
-              label: n.label,
-              mono: true,
-              passive: true,
-              dot: AnStatus.fromRaw(n.status),
-              meta: n.status,
-            ),
-        ],
-      );
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      for (final n in nodes)
+        AnRow(
+          label: n.label,
+          mono: true,
+          passive: true,
+          dot: AnStatus.fromRaw(n.status),
+          meta: n.status,
+        ),
+    ],
+  );
 
   // ── shared bits ───────────────────────────────────────────────────────────--
   // A quiet headed section (lowercase faint meta label + tight body) — output / result / logs / trace /
   // nodes all ride it. 安静头组(小写灰 meta 标 + 紧凑体):各输出段共用。
   Widget _section(BuildContext context, String title, Widget child) =>
-      AnSection(label: title, variant: AnSectionVariant.quiet, children: [child]);
+      AnSection(
+        label: title,
+        variant: AnSectionVariant.quiet,
+        children: [child],
+      );
 
   // Plain Text — the whole scroll body is one SelectionArea (best-practice over per-row SelectableText).
   Widget _mono(BuildContext context, String text) => AnCodeBlock(text);
@@ -381,9 +456,11 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
     if (rows.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s16),
-      child: AnSection(label: r.recentCount(n: rows.length), variant: AnSectionVariant.quiet, children: [
-        for (final run in rows) _row(context, run),
-      ]),
+      child: AnSection(
+        label: r.recentCount(n: rows.length),
+        variant: AnSectionVariant.quiet,
+        children: [for (final run in rows) _row(context, run)],
+      ),
     );
   }
 
@@ -408,16 +485,22 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
         chips: [
           // Single-line micro-labels (窄岛下不许折词成「workflo w」— 真机帧揪出). 微标不折行。
           if (run.method.isNotEmpty)
-            Text(run.method,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.metaTabular().copyWith(color: context.colors.inkFaint)),
+            Text(
+              run.method,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AnText.metaTabular().copyWith(
+                color: context.colors.inkFaint,
+              ),
+            ),
           // The wire origin word spoken as human text (手动/调度/对话…), never «manual»/«cron». 来源人话。
           if (run.triggeredBy.isNotEmpty)
-            Text(runOriginLabel(context.t, run.triggeredBy),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+            Text(
+              runOriginLabel(context.t, run.triggeredBy),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AnText.meta.copyWith(color: context.colors.inkFaint),
+            ),
           // «⎘ 用这份输入» slides out on hover — fills this run's input back into the editor (hd 连方法、
           // wf 连来源). 悬停滑出「用这份输入」,回填该次输入进编辑器。
           AnExpandReveal(
@@ -434,7 +517,9 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
             ),
           ),
         ],
-        measure: run.elapsedMs > 0 ? fmtDuration(Duration(milliseconds: run.elapsedMs)) : null,
+        measure: run.elapsedMs > 0
+            ? fmtDuration(Duration(milliseconds: run.elapsedMs))
+            : null,
         disclose: true,
         expanded: _open == run.id,
         onTap: () => setState(() => _open = _open == run.id ? null : run.id),
@@ -453,18 +538,38 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   if (run.input.isNotEmpty) ...[
-                    Text(r.inputHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+                    Text(
+                      r.inputHeading,
+                      style: AnText.meta.copyWith(
+                        color: context.colors.inkFaint,
+                      ),
+                    ),
                     const SizedBox(height: AnSpace.s4),
                     AnCodeBlock(prettyJsonCapped(run.input)),
                   ],
                   if ((run.errorMsg ?? '').isNotEmpty) ...[
-                    if (run.input.isNotEmpty) const SizedBox(height: AnSpace.s8),
-                    Text(r.errorHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+                    if (run.input.isNotEmpty)
+                      const SizedBox(height: AnSpace.s8),
+                    Text(
+                      r.errorHeading,
+                      style: AnText.meta.copyWith(
+                        color: context.colors.inkFaint,
+                      ),
+                    ),
                     const SizedBox(height: AnSpace.s4),
-                    AnCallout(run.errorMsg!, severity: AnCalloutSeverity.danger),
+                    AnCallout(
+                      run.errorMsg!,
+                      severity: AnCalloutSeverity.danger,
+                    ),
                   ] else if (run.output != null) ...[
-                    if (run.input.isNotEmpty) const SizedBox(height: AnSpace.s8),
-                    Text(r.resultHeading, style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+                    if (run.input.isNotEmpty)
+                      const SizedBox(height: AnSpace.s8),
+                    Text(
+                      r.resultHeading,
+                      style: AnText.meta.copyWith(
+                        color: context.colors.inkFaint,
+                      ),
+                    ),
                     const SizedBox(height: AnSpace.s4),
                     AnCodeBlock(prettyJsonCapped(run.output)),
                   ],

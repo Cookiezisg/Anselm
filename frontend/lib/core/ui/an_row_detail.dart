@@ -14,7 +14,12 @@ import 'an_expand_reveal.dart';
 /// 受控——open 由调用方持有(把行的 onSelect/onToggle 接到翻转 open),本件纯布局:经共用 [AnExpandReveal] 高度揭示
 /// (控制器驱动 ClipRect + Align、仅向下;reduced → 即时)。
 class AnRowDetail extends StatelessWidget {
-  const AnRowDetail({required this.row, required this.detail, this.open = false, super.key});
+  const AnRowDetail({
+    required this.row,
+    required this.detail,
+    this.open = false,
+    super.key,
+  });
 
   final Widget row;
   final Widget detail;
@@ -33,7 +38,9 @@ class AnRowDetail extends StatelessWidget {
           open: open,
           child: DecoratedBox(
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: c.line, width: AnSize.hairline)),
+              border: Border(
+                bottom: BorderSide(color: c.line, width: AnSize.hairline),
+              ),
             ),
             child: Padding(
               // indent to the row's label start: lead + gap + pad-row. 缩进对齐 label 起点。

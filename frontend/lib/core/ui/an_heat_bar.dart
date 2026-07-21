@@ -16,11 +16,11 @@ class AnHeatBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        width: AnSize.heatBar * fraction.clamp(0.15, 1.0),
-        height: AnSpace.s4,
-        decoration: BoxDecoration(
-          color: context.colors.accentSoft,
-          borderRadius: BorderRadius.circular(AnRadius.tag),
-        ),
-      );
+    width: AnSize.heatBar * fraction.clamp(0.15, 1.0),
+    height: AnSpace.s4,
+    decoration: BoxDecoration(
+      color: context.colors.accentSoft,
+      borderRadius: BorderRadius.circular(AnRadius.tag),
+    ),
+  );
 }

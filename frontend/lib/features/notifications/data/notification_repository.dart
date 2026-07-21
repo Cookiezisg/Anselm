@@ -54,7 +54,10 @@ class MarkWindow {
 abstract interface class NotificationRepository {
   /// One keyset page of the notification center, newest-first (`GET /notifications`, no filters — the
   /// backend list has none). 通知中心一页 keyset,最新优先(无过滤,后端 list 无过滤参数)。
-  Future<Page<NotificationItem>> listNotifications({String? cursor, int? limit});
+  Future<Page<NotificationItem>> listNotifications({
+    String? cursor,
+    int? limit,
+  });
 
   /// Mark one row read (`POST /{id}:mark-read` → 204, idempotent — re-marking an already-read row still
   /// 204s). No SSE echo, so the caller updates its own state. 单条已读(204 幂等,无 SSE 回声)。
@@ -92,16 +95,21 @@ abstract interface class NotificationRepository {
 /// 生产 repository(接 Phase 4.0 管道)。无状态;每方法是薄信封解码。实时=网关原始 notifications feed 的投影。
 class LiveNotificationRepository implements NotificationRepository {
   LiveNotificationRepository({required ApiClient api, SseGateway? sse})
-      : _api = api,
-        _sse = sse;
+    : _api = api,
+      _sse = sse;
 
   final ApiClient _api;
   final SseGateway? _sse;
 
   @override
-  Future<Page<NotificationItem>> listNotifications({String? cursor, int? limit}) =>
-      _api.getPage('/api/v1/notifications', NotificationItem.fromJson,
-          query: {'cursor': ?cursor, 'limit': ?limit});
+  Future<Page<NotificationItem>> listNotifications({
+    String? cursor,
+    int? limit,
+  }) => _api.getPage(
+    '/api/v1/notifications',
+    NotificationItem.fromJson,
+    query: {'cursor': ?cursor, 'limit': ?limit},
+  );
 
   @override
   Future<void> markRead(String id) =>
@@ -109,11 +117,17 @@ class LiveNotificationRepository implements NotificationRepository {
 
   @override
   Future<void> markAllRead({MarkWindow window = MarkWindow.all}) =>
-      _api.postNoContent('/api/v1/notifications:mark-all-read', body: window.toBody());
+      _api.postNoContent(
+        '/api/v1/notifications:mark-all-read',
+        body: window.toBody(),
+      );
 
   @override
   Future<void> markAllUnread({MarkWindow window = MarkWindow.all}) =>
-      _api.postNoContent('/api/v1/notifications:mark-all-unread', body: window.toBody());
+      _api.postNoContent(
+        '/api/v1/notifications:mark-all-unread',
+        body: window.toBody(),
+      );
 
   @override
   Future<int> unreadCount() async {
@@ -136,5 +150,6 @@ class LiveNotificationRepository implements NotificationRepository {
   }
 
   @override
-  Stream<void> resync() => _sse?.resync(StreamName.notifications) ?? const Stream.empty();
+  Stream<void> resync() =>
+      _sse?.resync(StreamName.notifications) ?? const Stream.empty();
 }

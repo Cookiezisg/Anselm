@@ -16,19 +16,23 @@ import '../state/transcript_jump_provider.dart';
 ///
 /// 一个对话的全量锚点——循环 keyset 分页,场次条给出**任意深度**的每一场(导航辅助不得静默截断;
 /// 页数上限是远超真实线程的失控兜底)。每次打开经 invalidate 重拉。
-final transcriptAnchorsProvider =
-    FutureProvider.autoDispose.family<List<TranscriptAnchor>, String>((ref, conversationId) async {
-  final repo = ref.watch(chatRepositoryProvider);
-  final out = <TranscriptAnchor>[];
-  String? cursor;
-  for (var page = 0; page < 40; page++) {
-    final p = await repo.listAnchors(conversationId, cursor: cursor, limit: 50);
-    out.addAll(p.items);
-    if (p.isLastPage || p.nextCursor == null) break;
-    cursor = p.nextCursor;
-  }
-  return out;
-});
+final transcriptAnchorsProvider = FutureProvider.autoDispose
+    .family<List<TranscriptAnchor>, String>((ref, conversationId) async {
+      final repo = ref.watch(chatRepositoryProvider);
+      final out = <TranscriptAnchor>[];
+      String? cursor;
+      for (var page = 0; page < 40; page++) {
+        final p = await repo.listAnchors(
+          conversationId,
+          cursor: cursor,
+          limit: 50,
+        );
+        out.addAll(p.items);
+        if (p.isLastPage || p.nextCursor == null) break;
+        cursor = p.nextCursor;
+      }
+      return out;
+    });
 
 /// The 场次条 (scene strip) — a 目录 button in the chat head opening an anchored overlay drawer:
 /// pending human gates ride the top in amber (they outrank everything — the run is WAITING), then
@@ -112,29 +116,39 @@ class _TocPanel extends ConsumerWidget {
       // scenes visible per glance, deeper anchors reachable without scrolling. 比命令菜单高是
       // 有意的:导航面配得上高度——一眼更多场次、更深锚点免滚可达。
       constraints: const BoxConstraints(
-          maxHeight: AnSize.tocPaneMaxHeight, maxWidth: AnSize.tocPaneWidth, minWidth: AnSize.menuMinWidth),
+        maxHeight: AnSize.tocPaneMaxHeight,
+        maxWidth: AnSize.tocPaneWidth,
+        minWidth: AnSize.menuMinWidth,
+      ),
       child: AnMenuSurface(
         children: switch (anchors) {
           AsyncData(value: final rows) when rows.isEmpty => [
-              Padding(
-                padding: const EdgeInsets.all(AnSpace.s16),
-                child: Text(t.chat.toc.empty, style: AnText.label.copyWith(color: c.inkFaint)),
+            Padding(
+              padding: const EdgeInsets.all(AnSpace.s16),
+              child: Text(
+                t.chat.toc.empty,
+                style: AnText.label.copyWith(color: c.inkFaint),
               ),
-            ],
+            ),
+          ],
           AsyncData(value: final rows) => _list(context, rows),
           AsyncError() => [
-              Padding(
-                padding: const EdgeInsets.all(AnSpace.s16),
-                child: Text(t.chat.transcriptErrorHint,
-                    style: AnText.label.copyWith(color: c.inkFaint)),
+            Padding(
+              padding: const EdgeInsets.all(AnSpace.s16),
+              child: Text(
+                t.chat.transcriptErrorHint,
+                style: AnText.label.copyWith(color: c.inkFaint),
               ),
-            ],
+            ),
+          ],
           _ => [
-              Padding(
-                padding: const EdgeInsets.all(AnSpace.s16),
-                child: Center(child: AnSpinner(semanticLabel: context.t.a11y.loading)),
+            Padding(
+              padding: const EdgeInsets.all(AnSpace.s16),
+              child: Center(
+                child: AnSpinner(semanticLabel: context.t.a11y.loading),
               ),
-            ],
+            ),
+          ],
         },
       ),
     );
@@ -144,7 +158,9 @@ class _TocPanel extends ConsumerWidget {
     final t = Translations.of(context);
     // Gates outrank the timeline (the run is WAITING on a human). 人闸压过时间线(run 在等人)。
     final gates = rows.where((a) => a.kind == 'gate').toList(growable: false);
-    final timeline = rows.where((a) => a.kind != 'gate').toList(growable: false);
+    final timeline = rows
+        .where((a) => a.kind != 'gate')
+        .toList(growable: false);
     return [
       if (gates.isNotEmpty) ...[
         _section(context, t.chat.toc.gates),
@@ -155,10 +171,17 @@ class _TocPanel extends ConsumerWidget {
   }
 
   Widget _section(BuildContext context, String label) => Padding(
-        padding: const EdgeInsets.fromLTRB(AnSpace.s12, AnSpace.s6, AnSpace.s12, AnSpace.s2),
-        child: Text(label,
-            style: AnText.meta.copyWith(color: context.colors.inkFaint)),
-      );
+    padding: const EdgeInsets.fromLTRB(
+      AnSpace.s12,
+      AnSpace.s6,
+      AnSpace.s12,
+      AnSpace.s2,
+    ),
+    child: Text(
+      label,
+      style: AnText.meta.copyWith(color: context.colors.inkFaint),
+    ),
+  );
 
   Widget _row(BuildContext context, TranscriptAnchor a) {
     final c = context.colors;
@@ -167,31 +190,48 @@ class _TocPanel extends ConsumerWidget {
       'gate' => (AnIcons.ask, c.warn, a.title),
       'danger' => (AnIcons.danger, c.danger, a.title),
       'tools' => (AnIcons.gear, c.inkFaint, t.chat.toc.toolCluster(n: a.count)),
-      'compaction' => (AnIcons.archive, c.inkFaint, a.title.isEmpty ? t.chat.toc.compaction : a.title),
-      'abnormal' => (AnIcons.error, c.warn, a.title.isEmpty ? t.chat.toc.abnormal : a.title),
+      'compaction' => (
+        AnIcons.archive,
+        c.inkFaint,
+        a.title.isEmpty ? t.chat.toc.compaction : a.title,
+      ),
+      'abnormal' => (
+        AnIcons.error,
+        c.warn,
+        a.title.isEmpty ? t.chat.toc.abnormal : a.title,
+      ),
       'user' => (AnIcons.chat, c.inkMuted, a.title),
       // Unknown kinds render honestly by title, never invisibly. 未知 kind 按 title 诚实渲,绝不隐身。
       _ => (AnIcons.circle, c.inkFaint, a.title),
     };
     final jumpable = a.messageId.isNotEmpty;
-    final base = AnText.label.copyWith(color: a.kind == 'user' ? c.ink : c.inkMuted);
+    final base = AnText.label.copyWith(
+      color: a.kind == 'user' ? c.ink : c.inkMuted,
+    );
     return AnMenuRow(
       onTap: jumpable ? () => onJump(a) : null,
-      builder: (context, active) => Row(children: [
-        Icon(icon, size: AnSize.iconSm, color: color),
-        const SizedBox(width: AnSpace.s8),
-        Expanded(
-          child: Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            // User rows carry the emphasis weight — they are the primary anchors. user 行走加粗档(主锚)。
-            style: a.kind == 'user' ? base.weight(AnText.emphasisWeight) : base,
+      builder: (context, active) => Row(
+        children: [
+          Icon(icon, size: AnSize.iconSm, color: color),
+          const SizedBox(width: AnSpace.s8),
+          Expanded(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              // User rows carry the emphasis weight — they are the primary anchors. user 行走加粗档(主锚)。
+              style: a.kind == 'user'
+                  ? base.weight(AnText.emphasisWeight)
+                  : base,
+            ),
           ),
-        ),
-        const SizedBox(width: AnSpace.s8),
-        Text(AnCastRow.timeLabel(context, a.at), style: AnText.meta.copyWith(color: c.inkFaint)),
-      ]),
+          const SizedBox(width: AnSpace.s8),
+          Text(
+            AnCastRow.timeLabel(context, a.at),
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+        ],
+      ),
     );
   }
 }

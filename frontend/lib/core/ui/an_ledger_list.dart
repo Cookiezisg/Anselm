@@ -34,20 +34,30 @@ class _AnLedgerListState extends State<AnLedgerList> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final over = widget.children.length > widget.cap;
-    final visible = (_showAll || !over) ? widget.children : widget.children.take(widget.cap).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-      ...visible,
-      if (over && !_showAll)
-        Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s4),
-          child: AnInteractive(
-            onTap: () => setState(() => _showAll = true),
-            builder: (ctx, states) => Text(
-              context.t.feedback.showAll(n: '${widget.children.length - widget.cap}'),
-              style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.accent),
+    final visible = (_showAll || !over)
+        ? widget.children
+        : widget.children.take(widget.cap).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...visible,
+        if (over && !_showAll)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s4),
+            child: AnInteractive(
+              onTap: () => setState(() => _showAll = true),
+              builder: (ctx, states) => Text(
+                context.t.feedback.showAll(
+                  n: '${widget.children.length - widget.cap}',
+                ),
+                style: AnText.meta
+                    .weight(AnText.emphasisWeight)
+                    .copyWith(color: c.accent),
+              ),
             ),
           ),
-        ),
-    ]);
+      ],
+    );
   }
 }

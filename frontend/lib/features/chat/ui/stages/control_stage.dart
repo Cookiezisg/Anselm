@@ -32,81 +32,134 @@ class ControlStageBody extends ConsumerWidget {
     final c = context.colors;
     final t = Translations.of(context);
     final editId = scene.editTargetId;
-    final truth = editId == null ? null : ref.watch(controlTruthProvider(editId));
-    final oldBranches = truth?.asData?.value.activeVersion?.branches ?? const [];
+    final truth = editId == null
+        ? null
+        : ref.watch(controlTruthProvider(editId));
+    final oldBranches =
+        truth?.asData?.value.activeVersion?.branches ?? const [];
 
     final branches = controlBranches(scene.session);
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      // The old ladder at 40% — the whole-replace honesty stratum (edit, live only). 旧梯垫底。
-      // 假想框律:瞬时地层的裸文字(旧梯标签+旧分支行)归假想框(X=8),与下方生长梯左缘同起。
-      if (scene.live && oldBranches.isNotEmpty) ...[
-        stageFramed(Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          Text(t.chat.stage.oldLadder, style: AnText.meta.copyWith(color: c.inkFaint)),
-          const SizedBox(height: AnSpace.s2),
-          Opacity(
-            opacity: AnOpacity.stratum,
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              for (var i = 0; i < oldBranches.length; i++)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: AnSpace.s2),
-                  child: Text('${i + 1} ${oldBranches[i].port} · ${oldBranches[i].when}',
-                      maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.code.copyWith(color: c.inkMuted)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The old ladder at 40% — the whole-replace honesty stratum (edit, live only). 旧梯垫底。
+        // 假想框律:瞬时地层的裸文字(旧梯标签+旧分支行)归假想框(X=8),与下方生长梯左缘同起。
+        if (scene.live && oldBranches.isNotEmpty) ...[
+          stageFramed(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  t.chat.stage.oldLadder,
+                  style: AnText.meta.copyWith(color: c.inkFaint),
                 ),
-            ]),
+                const SizedBox(height: AnSpace.s2),
+                Opacity(
+                  opacity: AnOpacity.stratum,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var i = 0; i < oldBranches.length; i++)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AnSpace.s2),
+                          child: Text(
+                            '${i + 1} ${oldBranches[i].port} · ${oldBranches[i].when}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AnText.code.copyWith(color: c.inkMuted),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
           ),
-        ])),
-        const SizedBox(height: AnSpace.s6),
+          const SizedBox(height: AnSpace.s6),
+        ],
+        // The family ladder skeleton (批6 A-075 — the hand-rolled numbered circle + evaluation
+        // thread retire; rung content stays here). 族梯骨架(手搓序号圆+求值丝线退役;级内容自持)。
+        // 假想框律:整梯归假想框(外层 s8)——序号沟从 X=8 起(AnLadder 自持的序号→丝线沟不动,只整体右移),
+        // 与裸文字/沟行同一条框线。The imaginary-frame law: the whole ladder joins the frame — its numbered
+        // gutter now starts at X=8 (AnLadder's own ordinal→thread gutter is untouched, just shifted as one).
+        stageFramed(
+          AnLadder(
+            children: [
+              for (final b in branches) _rungContent(context, c, t, b),
+            ],
+          ),
+        ),
+        if (!scene.live && !scene.failed) ...[
+          const SizedBox(height: AnSpace.s6),
+          runStatBarOf(context, scene.state),
+        ],
       ],
-      // The family ladder skeleton (批6 A-075 — the hand-rolled numbered circle + evaluation
-      // thread retire; rung content stays here). 族梯骨架(手搓序号圆+求值丝线退役;级内容自持)。
-      // 假想框律:整梯归假想框(外层 s8)——序号沟从 X=8 起(AnLadder 自持的序号→丝线沟不动,只整体右移),
-      // 与裸文字/沟行同一条框线。The imaginary-frame law: the whole ladder joins the frame — its numbered
-      // gutter now starts at X=8 (AnLadder's own ordinal→thread gutter is untouched, just shifted as one).
-      stageFramed(AnLadder(children: [for (final b in branches) _rungContent(context, c, t, b)])),
-      if (!scene.live && !scene.failed) ...[
-        const SizedBox(height: AnSpace.s6),
-        runStatBarOf(context, scene.state),
-      ],
-    ]);
+    );
   }
 
   // The rung's CONTENT only — the skeleton (numbered circle + thread) is AnLadder's. 级内容(骨架归梯)。
-  Widget _rungContent(BuildContext context, AnColors c, Translations t, ControlBranch b) {
+  Widget _rungContent(
+    BuildContext context,
+    AnColors c,
+    Translations t,
+    ControlBranch b,
+  ) {
     final isCatchAll = b.when.trim() == 'true';
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        Flexible(
-          child: Text(b.port,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Flexible(
+              child: Text(
+                b.port,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.body
+                    .weight(AnText.emphasisWeight)
+                    .copyWith(color: c.ink),
+              ),
+            ),
+            if (isCatchAll) ...[
+              const SizedBox(width: AnSpace.s6),
+              AnChip(t.chat.stage.elseFallback, tone: AnTone.none),
+            ],
+          ],
         ),
-        if (isCatchAll) ...[
-          const SizedBox(width: AnSpace.s6),
-          AnChip(t.chat.stage.elseFallback, tone: AnTone.none),
-        ],
-      ]),
-      if (!isCatchAll)
-        Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s2),
-          child: AnCelGrow(expression: b.when, live: scene.live),
-        ),
-      if (b.emit.isEmpty)
-        Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s2),
-          child: Text(t.chat.stage.passThrough,
-              style: AnText.meta.copyWith(color: c.inkFaint)),
-        )
-      else
-        for (final e in b.emit.entries)
+        if (!isCatchAll)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s2),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text('${e.key} ← ', style: AnText.code.copyWith(color: c.inkFaint)),
-              Expanded(child: AnCelGrow(expression: e.value, live: scene.live)),
-            ]),
+            child: AnCelGrow(expression: b.when, live: scene.live),
           ),
-    ]);
+        if (b.emit.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s2),
+            child: Text(
+              t.chat.stage.passThrough,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+          )
+        else
+          for (final e in b.emit.entries)
+            Padding(
+              padding: const EdgeInsets.only(top: AnSpace.s2),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${e.key} ← ',
+                    style: AnText.code.copyWith(color: c.inkFaint),
+                  ),
+                  Expanded(
+                    child: AnCelGrow(expression: e.value, live: scene.live),
+                  ),
+                ],
+              ),
+            ),
+      ],
+    );
   }
 }

@@ -38,7 +38,8 @@ abstract class ChatBlock with _$ChatBlock {
     DateTime? createdAt,
   }) = _ChatBlock;
 
-  factory ChatBlock.fromJson(Map<String, dynamic> json) => _$ChatBlockFromJson(json);
+  factory ChatBlock.fromJson(Map<String, dynamic> json) =>
+      _$ChatBlockFromJson(json);
 }
 
 /// One persisted transcript turn — the REST projection of `messages.MessageWithBlocks` (`msg_`).
@@ -74,5 +75,6 @@ abstract class ChatMessage with _$ChatMessage {
     required DateTime createdAt,
   }) = _ChatMessage;
 
-  factory ChatMessage.fromJson(Map<String, dynamic> json) => _$ChatMessageFromJson(json);
+  factory ChatMessage.fromJson(Map<String, dynamic> json) =>
+      _$ChatMessageFromJson(json);
 }

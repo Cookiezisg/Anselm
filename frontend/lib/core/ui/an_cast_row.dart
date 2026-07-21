@@ -62,27 +62,27 @@ class AnCastRow extends StatelessWidget {
   final VoidCallback? onNav;
 
   static String verbWord(Translations t, TouchpointVerb v) => switch (v) {
-        TouchpointVerb.mentioned => t.feedback.cast.verb.mentioned,
-        TouchpointVerb.created => t.feedback.cast.verb.created,
-        TouchpointVerb.edited => t.feedback.cast.verb.edited,
-        TouchpointVerb.viewed => t.feedback.cast.verb.viewed,
-        TouchpointVerb.executed => t.feedback.cast.verb.executed,
-        TouchpointVerb.attached => t.feedback.cast.verb.attached,
-        TouchpointVerb.deleted => t.feedback.cast.verb.deleted,
-        TouchpointVerb.unknown => t.feedback.cast.verb.unknown,
-      };
+    TouchpointVerb.mentioned => t.feedback.cast.verb.mentioned,
+    TouchpointVerb.created => t.feedback.cast.verb.created,
+    TouchpointVerb.edited => t.feedback.cast.verb.edited,
+    TouchpointVerb.viewed => t.feedback.cast.verb.viewed,
+    TouchpointVerb.executed => t.feedback.cast.verb.executed,
+    TouchpointVerb.attached => t.feedback.cast.verb.attached,
+    TouchpointVerb.deleted => t.feedback.cast.verb.deleted,
+    TouchpointVerb.unknown => t.feedback.cast.verb.unknown,
+  };
 
   /// A verb's micro-glyph (the secondary sequence). 动词微字形。
   static IconData verbGlyph(TouchpointVerb v) => switch (v) {
-        TouchpointVerb.mentioned => AnIcons.chat,
-        TouchpointVerb.created => AnIcons.forge,
-        TouchpointVerb.edited => AnIcons.edit,
-        TouchpointVerb.viewed => AnIcons.doc,
-        TouchpointVerb.executed => AnIcons.run,
-        TouchpointVerb.attached => AnIcons.attach,
-        TouchpointVerb.deleted => AnIcons.trash,
-        TouchpointVerb.unknown => AnIcons.tool,
-      };
+    TouchpointVerb.mentioned => AnIcons.chat,
+    TouchpointVerb.created => AnIcons.forge,
+    TouchpointVerb.edited => AnIcons.edit,
+    TouchpointVerb.viewed => AnIcons.doc,
+    TouchpointVerb.executed => AnIcons.run,
+    TouchpointVerb.attached => AnIcons.attach,
+    TouchpointVerb.deleted => AnIcons.trash,
+    TouchpointVerb.unknown => AnIcons.tool,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -92,11 +92,13 @@ class AnCastRow extends StatelessWidget {
     final ink = tombstoned ? c.inkFaint : freshnessInk(freshness, c);
     final nameStyle = nameIsRawId
         ? AnText.code.copyWith(color: c.inkFaint)
-        : AnText.body.weight(AnText.emphasisWeight).copyWith(
-              color: ink,
-              decoration: tombstoned ? TextDecoration.lineThrough : null,
-              decorationColor: c.inkFaint,
-            );
+        : AnText.body
+              .weight(AnText.emphasisWeight)
+              .copyWith(
+                color: ink,
+                decoration: tombstoned ? TextDecoration.lineThrough : null,
+                decorationColor: c.inkFaint,
+              );
     return AnInteractive(
       onTap: onTap,
       builder: (ctx, states) => Container(
@@ -106,85 +108,133 @@ class AnCastRow extends StatelessWidget {
           color: states.isActive ? c.surfaceHover : null,
           borderRadius: BorderRadius.circular(AnRadius.button),
         ),
-        child: LayoutBuilder(builder: (context, box) {
-          // Below ~230px the rigid tail can't coexist with any name — shed decorations. 窄档舍装饰件。
-          final tight = box.maxWidth < 265;
-          return Row(children: [
-          // The subject pulse (R-6) — a static soft dot; breath belongs to the stage, not each row.
-          // 主角点(R-6)——静态柔点;呼吸归舞台,不逐行。
-          SizedBox(
-            width: AnSpace.s6,
-            child: pulsing
-                ? Center(child: AnStatusDot.raw(c.accent, size: AnSize.dotSm))
-                : null,
-          ),
-          const SizedBox(width: AnSpace.s4),
-          AnFreshnessHalo(
-            freshness: freshness,
-            child: Icon(AnIcons.entityKindGlyph(kind), size: AnSize.iconSm, color: ink),
-          ),
-          const SizedBox(width: AnSpace.s6),
-          // Expanded (not Flexible+Spacer): the name yields ALL slack first, so the rigid tail (verb,
-          // count, badges, time) never overflows a narrow row (AnRow precedent). 名先让位,刚性尾不溢。
-          Expanded(child: Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: nameStyle)),
-          const SizedBox(width: AnSpace.s6),
-          // Graded degradation (kit idiom): tight rows shed the micro-badges first, then count — the
-          // verb word and the time survive to the narrowest. 分级降显:窄行先舍微徽再舍 count;动词+时间恒在。
-          Text(
-            tombstoned ? t.feedback.cast.tombstone : verbWord(t, verb),
-            style: AnText.meta.copyWith(color: tombstoned ? c.danger : c.inkFaint),
-          ),
-          if (count > 1 && !tight)
-            Padding(
-              padding: const EdgeInsets.only(left: AnSpace.s2),
-              child: Text('×$count', style: AnText.meta.copyWith(color: c.inkFaint)),
-            ),
-          if (secondaryVerbs.isNotEmpty && !tight) ...[
-            const SizedBox(width: AnSpace.s4),
-            for (final v in secondaryVerbs.take(2))
-              Padding(
-                padding: const EdgeInsets.only(left: AnSpace.s2),
-                child: Icon(verbGlyph(v), size: AnSize.iconXs, color: c.inkFaint),
-              ),
-          ],
-          const SizedBox(width: AnSpace.s6),
-          // The tail slot: the relative time at rest; hover/focus swaps in the two micro-actions
-          // (jump-to-occurrence / open entity) so the row width never shifts. 尾位:静息=相对时间;
-          // hover/focus 换上两枚微动作(跳到发生处/去实体页),行宽零位移。
-          if (states.isActive && (onJump != null || onNav != null))
-            Row(mainAxisSize: MainAxisSize.min, children: [
-              if (onJump != null)
-                _microAction(context, AnIcons.locate, t.feedback.cast.jumpToScene, onJump!),
-              if (onNav != null)
-                _microAction(context, AnIcons.open, t.feedback.cast.goToEntity, onNav!),
-            ])
-          else
-            Text(timeLabel(context, lastAt), style: AnText.meta.copyWith(color: c.inkFaint)),
-        ]);
-        }),
+        child: LayoutBuilder(
+          builder: (context, box) {
+            // Below ~230px the rigid tail can't coexist with any name — shed decorations. 窄档舍装饰件。
+            final tight = box.maxWidth < 265;
+            return Row(
+              children: [
+                // The subject pulse (R-6) — a static soft dot; breath belongs to the stage, not each row.
+                // 主角点(R-6)——静态柔点;呼吸归舞台,不逐行。
+                SizedBox(
+                  width: AnSpace.s6,
+                  child: pulsing
+                      ? Center(
+                          child: AnStatusDot.raw(c.accent, size: AnSize.dotSm),
+                        )
+                      : null,
+                ),
+                const SizedBox(width: AnSpace.s4),
+                AnFreshnessHalo(
+                  freshness: freshness,
+                  child: Icon(
+                    AnIcons.entityKindGlyph(kind),
+                    size: AnSize.iconSm,
+                    color: ink,
+                  ),
+                ),
+                const SizedBox(width: AnSpace.s6),
+                // Expanded (not Flexible+Spacer): the name yields ALL slack first, so the rigid tail (verb,
+                // count, badges, time) never overflows a narrow row (AnRow precedent). 名先让位,刚性尾不溢。
+                Expanded(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: nameStyle,
+                  ),
+                ),
+                const SizedBox(width: AnSpace.s6),
+                // Graded degradation (kit idiom): tight rows shed the micro-badges first, then count — the
+                // verb word and the time survive to the narrowest. 分级降显:窄行先舍微徽再舍 count;动词+时间恒在。
+                Text(
+                  tombstoned ? t.feedback.cast.tombstone : verbWord(t, verb),
+                  style: AnText.meta.copyWith(
+                    color: tombstoned ? c.danger : c.inkFaint,
+                  ),
+                ),
+                if (count > 1 && !tight)
+                  Padding(
+                    padding: const EdgeInsets.only(left: AnSpace.s2),
+                    child: Text(
+                      '×$count',
+                      style: AnText.meta.copyWith(color: c.inkFaint),
+                    ),
+                  ),
+                if (secondaryVerbs.isNotEmpty && !tight) ...[
+                  const SizedBox(width: AnSpace.s4),
+                  for (final v in secondaryVerbs.take(2))
+                    Padding(
+                      padding: const EdgeInsets.only(left: AnSpace.s2),
+                      child: Icon(
+                        verbGlyph(v),
+                        size: AnSize.iconXs,
+                        color: c.inkFaint,
+                      ),
+                    ),
+                ],
+                const SizedBox(width: AnSpace.s6),
+                // The tail slot: the relative time at rest; hover/focus swaps in the two micro-actions
+                // (jump-to-occurrence / open entity) so the row width never shifts. 尾位:静息=相对时间;
+                // hover/focus 换上两枚微动作(跳到发生处/去实体页),行宽零位移。
+                if (states.isActive && (onJump != null || onNav != null))
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (onJump != null)
+                        _microAction(
+                          context,
+                          AnIcons.locate,
+                          t.feedback.cast.jumpToScene,
+                          onJump!,
+                        ),
+                      if (onNav != null)
+                        _microAction(
+                          context,
+                          AnIcons.open,
+                          t.feedback.cast.goToEntity,
+                          onNav!,
+                        ),
+                    ],
+                  )
+                else
+                  Text(
+                    timeLabel(context, lastAt),
+                    style: AnText.meta.copyWith(color: c.inkFaint),
+                  ),
+              ],
+            );
+          },
+        ),
       ),
     );
   }
 
   /// Relative time, reusing the rail's calendar-day formatter + chat.time strings. 相对时间(复用 rail)。
-  Widget _microAction(BuildContext context, IconData icon, String label, VoidCallback onTap) =>
-      AnTooltip(
-        message: label,
-        child: AnButton.iconOnly(
-          icon,
-          size: AnButtonSize.sm,
-          onPressed: onTap,
-          semanticLabel: label,
-        ),
-      );
+  Widget _microAction(
+    BuildContext context,
+    IconData icon,
+    String label,
+    VoidCallback onTap,
+  ) => AnTooltip(
+    message: label,
+    child: AnButton.iconOnly(
+      icon,
+      size: AnButtonSize.sm,
+      onPressed: onTap,
+      semanticLabel: label,
+    ),
+  );
 
   static String timeLabel(BuildContext context, DateTime at) {
     final t = Translations.of(context);
     final now = DateTime.now();
     final local = at.toLocal();
-    final days = DateTime(now.year, now.month, now.day)
-        .difference(DateTime(local.year, local.month, local.day))
-        .inDays;
+    final days = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).difference(DateTime(local.year, local.month, local.day)).inDays;
     if (days <= 0) {
       final mins = now.difference(local).inMinutes;
       if (mins < 1) return t.chat.time.justNow;

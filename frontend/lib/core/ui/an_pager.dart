@@ -102,7 +102,8 @@ class _AnPagerState extends State<AnPager> {
     final n = widget.pageCount;
     final cur = widget.page;
     if (n <= foldThreshold) return [for (var p = 1; p <= n; p++) p];
-    final keep = <int>{1, n, cur - 1, cur, cur + 1}..removeWhere((p) => p < 1 || p > n);
+    final keep = <int>{1, n, cur - 1, cur, cur + 1}
+      ..removeWhere((p) => p < 1 || p > n);
     final sorted = keep.toList()..sort();
     final out = <int?>[];
     int? prev;
@@ -134,90 +135,125 @@ class _AnPagerState extends State<AnPager> {
     // horizontally SCROLLS when the host is too narrow (a control must never overflow its container
     // — the project's «no in-grid overflow» law). In the run table's 720 column it never scrolls.
     // ‹ › 与跳页固定;数字带是可横滚的柔性中段(宿主过窄即滚,绝不溢出);720 列下从不滚。
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      AnButton.iconOnly(AnIcons.chevronLeft,
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnButton.iconOnly(
+          AnIcons.chevronLeft,
           size: AnButtonSize.sm,
           semanticLabel: s.prevLabel,
-          onPressed: widget.page > 1 ? () => _go(widget.page - 1) : null),
-      const SizedBox(width: AnSpace.s4),
-      Flexible(
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-      for (final p in _strip())
-        if (p == null)
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
-            child: Text('…', style: AnText.meta.copyWith(color: c.inkFaint)),
-          )
-        else
-          Semantics(
-            button: true,
-            selected: AnA11y.selected(p == widget.page),
-            label: s.pageLabel(p),
-            child: AnInteractive(
-              onTap: p == widget.page ? null : () => _go(p),
-              builder: (context, states) => Container(
-                height: AnSize.controlSm,
-                constraints: const BoxConstraints(minWidth: AnSize.controlSm),
-                padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: p == widget.page
-                      ? c.surfaceHover
-                      : c.surfaceHover.whenActive(states.isActive),
-                  borderRadius: BorderRadius.circular(AnRadius.button),
+          onPressed: widget.page > 1 ? () => _go(widget.page - 1) : null,
+        ),
+        const SizedBox(width: AnSpace.s4),
+        Flexible(
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final p in _strip())
+                  if (p == null)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: AnSpace.s4,
+                      ),
+                      child: Text(
+                        '…',
+                        style: AnText.meta.copyWith(color: c.inkFaint),
+                      ),
+                    )
+                  else
+                    Semantics(
+                      button: true,
+                      selected: AnA11y.selected(p == widget.page),
+                      label: s.pageLabel(p),
+                      child: AnInteractive(
+                        onTap: p == widget.page ? null : () => _go(p),
+                        builder: (context, states) => Container(
+                          height: AnSize.controlSm,
+                          constraints: const BoxConstraints(
+                            minWidth: AnSize.controlSm,
+                          ),
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: AnSpace.s4,
+                          ),
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: p == widget.page
+                                ? c.surfaceHover
+                                : c.surfaceHover.whenActive(states.isActive),
+                            borderRadius: BorderRadius.circular(
+                              AnRadius.button,
+                            ),
+                          ),
+                          child: ExcludeSemantics(
+                            child: Text(
+                              '$p',
+                              style:
+                                  (p == widget.page
+                                          ? AnText.metaTabular().weight(
+                                              AnText.emphasisWeight,
+                                            )
+                                          : AnText.metaTabular())
+                                      .copyWith(
+                                        color: p == widget.page
+                                            ? c.ink
+                                            : c.inkMuted,
+                                      ),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: AnSpace.s4),
+        AnButton.iconOnly(
+          AnIcons.chevronRight,
+          size: AnButtonSize.sm,
+          semanticLabel: s.nextLabel,
+          onPressed: widget.page < widget.pageCount
+              ? () => _go(widget.page + 1)
+              : null,
+        ),
+        // The quick jumper exists only when the strip folds (很少就不需要跳转,Ant 同律). 折叠才有跳页。
+        if (widget.pageCount > foldThreshold) ...[
+          const SizedBox(width: AnSpace.s8),
+          SizedBox(
+            width: AnSize.pagerJumpW,
+            child: AnInput(
+              controller: _jump,
+              // «#» glyph, compact 24 box (0718 拍板「Page 太大」): the WORD forced the old 76px box —
+              // the sign hands the width back to the digits; the word lives on as the reader name.
+              // 「#」记号+24 紧凑盒:词曾定宽,记号把宽还给数字;词转读屏名。
+              placeholder: '#',
+              tabular: true,
+              compact: true,
+              semanticLabel: s.jumpHint,
+              onSubmitted: _jumpSubmit,
+            ),
+          ),
+          // The ↵ confirmer slides out while the field holds a legal number (0718 拍板:「输完数字,
+          // 然后呢」的出口——回车党不受影响,鼠标党有了确认器;非法输入无钮,收起即出树不可聚焦).
+          AnExpandReveal(
+            open: _jumpTarget != null,
+            axis: Axis.horizontal,
+            child: Padding(
+              padding: const EdgeInsetsDirectional.only(start: AnSpace.s4),
+              child: AnButton.iconOnly(
+                AnIcons.enter,
+                size: AnButtonSize.sm,
+                semanticLabel: s.jumpToLabel(
+                  (_jumpTarget ?? 1).clamp(1, widget.pageCount),
                 ),
-                child: ExcludeSemantics(
-                  child: Text('$p',
-                      style: (p == widget.page
-                              ? AnText.metaTabular().weight(AnText.emphasisWeight)
-                              : AnText.metaTabular())
-                          .copyWith(color: p == widget.page ? c.ink : c.inkMuted)),
-                ),
+                onPressed: () => _jumpSubmit(_jump.text),
               ),
             ),
           ),
-          ]),
-        ),
-      ),
-      const SizedBox(width: AnSpace.s4),
-      AnButton.iconOnly(AnIcons.chevronRight,
-          size: AnButtonSize.sm,
-          semanticLabel: s.nextLabel,
-          onPressed: widget.page < widget.pageCount ? () => _go(widget.page + 1) : null),
-      // The quick jumper exists only when the strip folds (很少就不需要跳转,Ant 同律). 折叠才有跳页。
-      if (widget.pageCount > foldThreshold) ...[
-        const SizedBox(width: AnSpace.s8),
-        SizedBox(
-          width: AnSize.pagerJumpW,
-          child: AnInput(
-            controller: _jump,
-            // «#» glyph, compact 24 box (0718 拍板「Page 太大」): the WORD forced the old 76px box —
-            // the sign hands the width back to the digits; the word lives on as the reader name.
-            // 「#」记号+24 紧凑盒:词曾定宽,记号把宽还给数字;词转读屏名。
-            placeholder: '#',
-            tabular: true,
-            compact: true,
-            semanticLabel: s.jumpHint,
-            onSubmitted: _jumpSubmit,
-          ),
-        ),
-        // The ↵ confirmer slides out while the field holds a legal number (0718 拍板:「输完数字,
-        // 然后呢」的出口——回车党不受影响,鼠标党有了确认器;非法输入无钮,收起即出树不可聚焦).
-        AnExpandReveal(
-          open: _jumpTarget != null,
-          axis: Axis.horizontal,
-          child: Padding(
-            padding: const EdgeInsetsDirectional.only(start: AnSpace.s4),
-            child: AnButton.iconOnly(AnIcons.enter,
-                size: AnButtonSize.sm,
-                semanticLabel:
-                    s.jumpToLabel((_jumpTarget ?? 1).clamp(1, widget.pageCount)),
-                onPressed: () => _jumpSubmit(_jump.text)),
-          ),
-        ),
+        ],
       ],
-    ]);
+    );
   }
 }

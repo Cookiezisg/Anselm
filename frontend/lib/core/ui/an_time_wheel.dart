@@ -44,35 +44,41 @@ class AnTimeWheel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Stack(alignment: Alignment.center, children: [
-      // The selection band — one rounded bed under the centre row of BOTH columns, the wheel's
-      // only chrome. 选中带:横贯两列中排的一张圆角床,轮的唯一 chrome。
-      Positioned.fill(
-        top: (_WheelColumn.height - _WheelColumn.itemExtent) / 2,
-        bottom: (_WheelColumn.height - _WheelColumn.itemExtent) / 2,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: c.surfaceHover,
-            borderRadius: BorderRadius.circular(AnRadius.button),
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        // The selection band — one rounded bed under the centre row of BOTH columns, the wheel's
+        // only chrome. 选中带:横贯两列中排的一张圆角床,轮的唯一 chrome。
+        Positioned.fill(
+          top: (_WheelColumn.height - _WheelColumn.itemExtent) / 2,
+          bottom: (_WheelColumn.height - _WheelColumn.itemExtent) / 2,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: c.surfaceHover,
+              borderRadius: BorderRadius.circular(AnRadius.button),
+            ),
           ),
         ),
-      ),
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        _WheelColumn(
-          count: 24,
-          value: value.hour,
-          onChanged: (h) => onChanged((hour: h, minute: value.minute)),
-          semanticLabel: semanticLabel,
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _WheelColumn(
+              count: 24,
+              value: value.hour,
+              onChanged: (h) => onChanged((hour: h, minute: value.minute)),
+              semanticLabel: semanticLabel,
+            ),
+            Text(':', style: AnText.value().copyWith(color: c.inkFaint)),
+            _WheelColumn(
+              count: 60,
+              value: value.minute,
+              onChanged: (m) => onChanged((hour: value.hour, minute: m)),
+              semanticLabel: semanticLabel,
+            ),
+          ],
         ),
-        Text(':', style: AnText.value().copyWith(color: c.inkFaint)),
-        _WheelColumn(
-          count: 60,
-          value: value.minute,
-          onChanged: (m) => onChanged((hour: value.hour, minute: m)),
-          semanticLabel: semanticLabel,
-        ),
-      ]),
-    ]);
+      ],
+    );
   }
 }
 
@@ -138,8 +144,11 @@ class _WheelColumnState extends State<_WheelColumn> {
     if (AnMotionPref.reduced(context)) {
       _controller.jumpToItem(target);
     } else {
-      _controller.animateToItem(target,
-          duration: AnMotion.fast, curve: Curves.easeOutCubic);
+      _controller.animateToItem(
+        target,
+        duration: AnMotion.fast,
+        curve: Curves.easeOutCubic,
+      );
     }
   }
 
@@ -204,29 +213,38 @@ class _WheelColumnState extends State<_WheelColumn> {
                   ).createShader(rect),
                   blendMode: BlendMode.dstIn,
                   child: ListWheelScrollView.useDelegate(
-                  controller: _controller,
-                  itemExtent: _WheelColumn.itemExtent,
-                  physics: const FixedExtentScrollPhysics(),
-                  perspective: 0.002,
-                  diameterRatio: 2.4,
-                  onSelectedItemChanged: (i) {
-                    if (_seating) return;
-                    widget.onChanged(_mod(i));
-                  },
-                  childDelegate: ListWheelChildLoopingListDelegate(children: [
-                    for (var i = 0; i < widget.count; i++)
-                      Center(
-                        child: Text(
-                          _label(i),
-                          // Selected = emphasis via .weight() (两档字重卫士), neighbours faint.
-                          // 选中走 .weight() 加粗档,邻排 faint。
-                          style: (i == widget.value
-                                  ? AnText.value().weight(AnText.emphasisWeight)
-                                  : AnText.value())
-                              .copyWith(color: i == widget.value ? c.ink : c.inkFaint),
-                        ),
-                      ),
-                  ]),
+                    controller: _controller,
+                    itemExtent: _WheelColumn.itemExtent,
+                    physics: const FixedExtentScrollPhysics(),
+                    perspective: 0.002,
+                    diameterRatio: 2.4,
+                    onSelectedItemChanged: (i) {
+                      if (_seating) return;
+                      widget.onChanged(_mod(i));
+                    },
+                    childDelegate: ListWheelChildLoopingListDelegate(
+                      children: [
+                        for (var i = 0; i < widget.count; i++)
+                          Center(
+                            child: Text(
+                              _label(i),
+                              // Selected = emphasis via .weight() (两档字重卫士), neighbours faint.
+                              // 选中走 .weight() 加粗档,邻排 faint。
+                              style:
+                                  (i == widget.value
+                                          ? AnText.value().weight(
+                                              AnText.emphasisWeight,
+                                            )
+                                          : AnText.value())
+                                      .copyWith(
+                                        color: i == widget.value
+                                            ? c.ink
+                                            : c.inkFaint,
+                                      ),
+                            ),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

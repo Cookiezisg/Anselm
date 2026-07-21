@@ -37,7 +37,8 @@ class _Entry {
   _Entry({required this.wasOpen});
   final PartialJsonSession session = PartialJsonSession();
   int fed = 0; // chars of argumentsText already fed 已喂字符数
-  final bool wasOpen; // openness at creation — a close flips the source (delta→snapshot) 创建时的开合态
+  final bool
+  wasOpen; // openness at creation — a close flips the source (delta→snapshot) 创建时的开合态
 }
 
 final Expando<_Entry> _entries = Expando('argsSession');

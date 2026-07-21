@@ -16,44 +16,88 @@ StreamEnvelope _env(StreamFrame f, {int seq = 5, StreamScope scope = _scope}) =>
 void main() {
   test('durable top-level message open → turnOpen', () {
     final s = turnSignalFromEnvelope(
-        _env(const FrameOpen(node: StreamNode(type: 'message', content: {'role': 'user'}))));
+      _env(
+        const FrameOpen(
+          node: StreamNode(type: 'message', content: {'role': 'user'}),
+        ),
+      ),
+    );
     expect(s, (conversationId: 'cv_1', kind: TurnSignalKind.turnOpen));
   });
 
   test('durable message close → turnClose (any status)', () {
-    final s = turnSignalFromEnvelope(_env(const FrameClose(
-        status: 'error',
-        result: StreamNode(type: 'message', content: {'status': 'error'}))));
+    final s = turnSignalFromEnvelope(
+      _env(
+        const FrameClose(
+          status: 'error',
+          result: StreamNode(type: 'message', content: {'status': 'error'}),
+        ),
+      ),
+    );
     expect(s, (conversationId: 'cv_1', kind: TurnSignalKind.turnClose));
   });
 
   test('interaction signal maps even at seq=0 (ephemeral by design)', () {
     final s = turnSignalFromEnvelope(
-        _env(const FrameSignal(node: StreamNode(type: 'interaction')), seq: 0));
+      _env(const FrameSignal(node: StreamNode(type: 'interaction')), seq: 0),
+    );
     expect(s?.kind, TurnSignalKind.interaction);
   });
 
-  test('noise dies: deltas, block frames, nested message opens, ephemeral opens, foreign scopes', () {
-    expect(turnSignalFromEnvelope(_env(const FrameDelta(chunk: 'x'), seq: 0)), isNull);
-    expect(
+  test(
+    'noise dies: deltas, block frames, nested message opens, ephemeral opens, foreign scopes',
+    () {
+      expect(
+        turnSignalFromEnvelope(_env(const FrameDelta(chunk: 'x'), seq: 0)),
+        isNull,
+      );
+      expect(
         turnSignalFromEnvelope(
-            _env(const FrameOpen(node: StreamNode(type: 'text', content: {'content': ''})))),
-        isNull); // block open 块帧
-    expect(
-        turnSignalFromEnvelope(_env(
-            const FrameOpen(parentId: 'blk_1', node: StreamNode(type: 'message')))),
-        isNull); // nested subagent open 嵌套
-    expect(
+          _env(
+            const FrameOpen(
+              node: StreamNode(type: 'text', content: {'content': ''}),
+            ),
+          ),
+        ),
+        isNull,
+      ); // block open 块帧
+      expect(
         turnSignalFromEnvelope(
-            _env(const FrameOpen(node: StreamNode(type: 'message')), seq: 0)),
-        isNull); // ephemeral open 瞬时
-    expect(
-        turnSignalFromEnvelope(_env(
-            const FrameClose(status: 'completed', result: StreamNode(type: 'text'))))
-        , isNull); // block close 块 close
-    expect(
-        turnSignalFromEnvelope(_env(const FrameOpen(node: StreamNode(type: 'message')),
-            scope: const StreamScope(kind: 'run', id: 'r1'))),
-        isNull); // foreign scope 异 scope
-  });
+          _env(
+            const FrameOpen(
+              parentId: 'blk_1',
+              node: StreamNode(type: 'message'),
+            ),
+          ),
+        ),
+        isNull,
+      ); // nested subagent open 嵌套
+      expect(
+        turnSignalFromEnvelope(
+          _env(const FrameOpen(node: StreamNode(type: 'message')), seq: 0),
+        ),
+        isNull,
+      ); // ephemeral open 瞬时
+      expect(
+        turnSignalFromEnvelope(
+          _env(
+            const FrameClose(
+              status: 'completed',
+              result: StreamNode(type: 'text'),
+            ),
+          ),
+        ),
+        isNull,
+      ); // block close 块 close
+      expect(
+        turnSignalFromEnvelope(
+          _env(
+            const FrameOpen(node: StreamNode(type: 'message')),
+            scope: const StreamScope(kind: 'run', id: 'r1'),
+          ),
+        ),
+        isNull,
+      ); // foreign scope 异 scope
+    },
+  );
 }

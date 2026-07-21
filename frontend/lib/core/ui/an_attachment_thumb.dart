@@ -66,16 +66,23 @@ class AnAttachmentThumb extends StatelessWidget {
       child = Image(
         image: image!,
         fit: variant == AnThumbVariant.tile ? BoxFit.cover : BoxFit.scaleDown,
-        errorBuilder: (ctx, _, _) => _slab(ctx.colors), // decode error → failed slab 解码错→失败板
+        errorBuilder: (ctx, _, _) =>
+            _slab(ctx.colors), // decode error → failed slab 解码错→失败板
       );
     } else if (state == AnAttachmentState.resolving) {
-      child = ColoredBox(color: c.skeletonBase); // calm bone, no sweep (transient) 安静骨,无扫光
+      child = ColoredBox(
+        color: c.skeletonBase,
+      ); // calm bone, no sweep (transient) 安静骨,无扫光
     } else {
       child = _slab(c);
     }
 
     final sized = variant == AnThumbVariant.tile
-        ? SizedBox(width: AnSize.thumbTile, height: AnSize.thumbTile, child: child)
+        ? SizedBox(
+            width: AnSize.thumbTile,
+            height: AnSize.thumbTile,
+            child: child,
+          )
         : ConstrainedBox(
             constraints: const BoxConstraints(
               maxWidth: AnSize.thumbMaxW,
@@ -85,16 +92,24 @@ class AnAttachmentThumb extends StatelessWidget {
             ),
             child: child,
           );
-    final clipped = ClipRRect(borderRadius: BorderRadius.circular(AnRadius.button), child: sized);
+    final clipped = ClipRRect(
+      borderRadius: BorderRadius.circular(AnRadius.button),
+      child: sized,
+    );
 
     // Build the SEMANTIC CORE first (image label, pixels excluded), THEN overlay the remove disc as
     // a SIBLING — inside the ExcludeSemantics wrap the ✕ button's a11y node would be stripped and a
     // VoiceOver user could never find the only remove control (批5 复审 MED,探针实证). 先组语义核
     // (图named、像素排除),✕ 后叠同胞——塞进排除区会剥掉按钮语义,读屏用户摸不到唯一移除口。
-    final tappable = onTap != null && (ready || state == AnAttachmentState.failed);
+    final tappable =
+        onTap != null && (ready || state == AnAttachmentState.failed);
     Widget core;
     if (!tappable) {
-      core = Semantics(image: true, label: filename, child: ExcludeSemantics(child: clipped));
+      core = Semantics(
+        image: true,
+        label: filename,
+        child: ExcludeSemantics(child: clipped),
+      );
     } else {
       core = MergeSemantics(
         child: Semantics(
@@ -108,34 +123,43 @@ class AnAttachmentThumb extends StatelessWidget {
       );
     }
     if (onRemove == null) return core;
-    return Stack(children: [
-      core,
-      PositionedDirectional(
-        top: AnSpace.s2,
-        end: AnSpace.s2,
-        // A surface disc under the ✕ — a bare faint glyph on arbitrary photo pixels has no
-        // contrast guarantee. ✕ 垫 surface 圆底(裸字形压照片像素无对比度保证)。
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: c.surface,
-            shape: BoxShape.circle,
-            border: Border.all(color: c.line, width: AnSize.hairline),
+    return Stack(
+      children: [
+        core,
+        PositionedDirectional(
+          top: AnSpace.s2,
+          end: AnSpace.s2,
+          // A surface disc under the ✕ — a bare faint glyph on arbitrary photo pixels has no
+          // contrast guarantee. ✕ 垫 surface 圆底(裸字形压照片像素无对比度保证)。
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: c.surface,
+              shape: BoxShape.circle,
+              border: Border.all(color: c.line, width: AnSize.hairline),
+            ),
+            child: AnButton.iconOnly(
+              AnIcons.close,
+              size: AnButtonSize.sm,
+              round: true,
+              semanticLabel: removeLabel ?? '',
+              onPressed: onRemove,
+            ),
           ),
-          child: AnButton.iconOnly(AnIcons.close,
-              size: AnButtonSize.sm, round: true, semanticLabel: removeLabel ?? '', onPressed: onRemove),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   // The failed/fallback slab: a bordered surface with the image glyph — honest, never a broken-image tear.
   // 失败/兜底板:描边 surface + 图片字形——诚实,不渲染破图。
   Widget _slab(AnColors c) => DecoratedBox(
-        decoration: BoxDecoration(
-          color: c.surface,
-          border: Border.all(color: c.line, width: AnSize.hairline),
-          borderRadius: BorderRadius.circular(AnRadius.button),
-        ),
-        child: Center(child: Icon(AnIcons.image, size: AnSize.iconLg, color: c.inkFaint)),
-      );
+    decoration: BoxDecoration(
+      color: c.surface,
+      border: Border.all(color: c.line, width: AnSize.hairline),
+      borderRadius: BorderRadius.circular(AnRadius.button),
+    ),
+    child: Center(
+      child: Icon(AnIcons.image, size: AnSize.iconLg, color: c.inkFaint),
+    ),
+  );
 }

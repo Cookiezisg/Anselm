@@ -22,5 +22,6 @@ abstract class AttachmentMeta with _$AttachmentMeta {
     DateTime? createdAt,
   }) = _AttachmentMeta;
 
-  factory AttachmentMeta.fromJson(Map<String, dynamic> json) => _$AttachmentMetaFromJson(json);
+  factory AttachmentMeta.fromJson(Map<String, dynamic> json) =>
+      _$AttachmentMetaFromJson(json);
 }

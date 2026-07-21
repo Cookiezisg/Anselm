@@ -42,6 +42,7 @@ Run these from `frontend/`. The toolchain is provided through `mise`.
 | Command | Purpose |
 |---|---|
 | `make setup` | Fetch Flutter/Dart dependencies. |
+| `make doctor` | Report Flutter and native desktop host prerequisites. |
 | `make gen` | Regenerate Slang i18n files. |
 | `make analyze` | Run Flutter static analysis. |
 | `make test` | Run frontend tests. |
@@ -50,7 +51,11 @@ Run these from `frontend/`. The toolchain is provided through `mise`.
 | `make gallery` | Run the component gallery entrypoint. |
 | `make app` | Run the desktop app path intended for sidecar integration. |
 | `make shots` | Headless Skia render of the shell + every gallery category → `test/dev/out/*.png` (fast, no Xcode). |
-| `make shot-app` | Real-run capture: build + launch the gallery app, screenshot its live window → `test/dev/out/app.png` (Impeller render + OS chrome). |
+
+Every ordinary command automatically restores missing Flutter dependencies. After
+`make clean`, run the command you intended to run; a separate `make setup` is not
+required. The default desktop device is `macos`; pass `DEVICE=<flutter-device>` to
+`app`, `demo`, or `gallery` for another installed Flutter desktop target.
 
 ## Architecture
 

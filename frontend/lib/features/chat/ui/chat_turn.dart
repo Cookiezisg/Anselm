@@ -26,7 +26,12 @@ enum ChatRole { user, assistant }
 /// 读作比面轻降一档(白上白泡会隐形)。圆角 [AnRadius.chip] + 内距 h12/v8 镜像 AnCard/AnCallout 的 contained 面
 /// 度量。纯呈现:child 由调用方给;阅读列居中 + 轮间距由 transcript 拥有。sending 淡显乐观泡。
 class ChatTurn extends StatelessWidget {
-  const ChatTurn({required this.role, required this.child, this.sending = false, super.key});
+  const ChatTurn({
+    required this.role,
+    required this.child,
+    this.sending = false,
+    super.key,
+  });
 
   final ChatRole role;
   final Widget child;
@@ -51,7 +56,9 @@ class ChatTurn extends StatelessWidget {
     return Align(
       alignment: Alignment.centerRight,
       child: ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AnSize.content * _userMaxFraction),
+        constraints: const BoxConstraints(
+          maxWidth: AnSize.content * _userMaxFraction,
+        ),
         child: Opacity(
           opacity: sending ? AnOpacity.sending : 1,
           child: AnSunkenPanel(inset: AnInset.bubble, child: child),

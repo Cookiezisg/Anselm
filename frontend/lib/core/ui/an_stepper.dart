@@ -68,11 +68,13 @@ class _AnStepperState extends State<AnStepper> {
   _Status _statusOf(int i) => i < widget.current
       ? _Status.done
       : i == widget.current
-          ? _Status.current
-          : _Status.upcoming;
+      ? _Status.current
+      : _Status.upcoming;
 
-  String _value(BuildContext context) =>
-      context.t.feedback.stepOf(n: widget.current.clamp(1, widget.count), m: widget.count);
+  String _value(BuildContext context) => context.t.feedback.stepOf(
+    n: widget.current.clamp(1, widget.count),
+    m: widget.count,
+  );
 
   // Announce the ADVANCE, never the arrival — the one asymmetry that separates this from the toast /
   // callout / state family. Those three ARE the news (they appear from nowhere); a stepper is page
@@ -90,7 +92,10 @@ class _AnStepperState extends State<AnStepper> {
       if (!mounted) return;
       final label = widget.semanticLabel;
       final v = _value(context);
-      AnA11y.announce(context, label == null || label.isEmpty ? v : '$label. $v');
+      AnA11y.announce(
+        context,
+        label == null || label.isEmpty ? v : '$label. $v',
+      );
     });
   }
 
@@ -128,13 +133,16 @@ class _AnStepperState extends State<AnStepper> {
               label: context.t.feedback.goToStep(n: i),
               child: AnInteractive(
                 onTap: () => widget.onStepTap!(i),
-                builder: (ctx, states) => _dot(ctx, i, status, dur, active: states.isActive),
+                builder: (ctx, states) =>
+                    _dot(ctx, i, status, dur, active: states.isActive),
               ),
             ),
           )
         : ExcludeSemantics(child: _dot(context, i, status, dur, active: false));
 
-    final label = widget.labels != null && i <= widget.labels!.length ? widget.labels![i - 1] : null;
+    final label = widget.labels != null && i <= widget.labels!.length
+        ? widget.labels![i - 1]
+        : null;
     if (label == null) return node;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -142,17 +150,30 @@ class _AnStepperState extends State<AnStepper> {
         node,
         const SizedBox(height: AnSpace.s6),
         ExcludeSemantics(
-          child: Text(label, style: AnText.meta.copyWith(color: status == _Status.upcoming ? c.inkFaint : c.ink)),
+          child: Text(
+            label,
+            style: AnText.meta.copyWith(
+              color: status == _Status.upcoming ? c.inkFaint : c.ink,
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _dot(BuildContext context, int i, _Status status, Duration dur, {required bool active}) {
+  Widget _dot(
+    BuildContext context,
+    int i,
+    _Status status,
+    Duration dur, {
+    required bool active,
+  }) {
     final c = context.colors;
     // A soft accent ring marks a tappable node that's keyboard-focused / hovered (visible on either
     // bg colour, unlike a same-colour border). 柔色环标记可点节点的聚焦/悬停。
-    final ring = active ? [BoxShadow(color: c.accentSoft, spreadRadius: AnSpace.s4)] : const <BoxShadow>[];
+    final ring = active
+        ? [BoxShadow(color: c.accentSoft, spreadRadius: AnSpace.s4)]
+        : const <BoxShadow>[];
 
     if (widget.variant == AnStepperVariant.numbered) {
       final done = status == _Status.done;
@@ -166,13 +187,20 @@ class _AnStepperState extends State<AnStepper> {
         decoration: BoxDecoration(
           color: upcoming ? c.surface : c.accent,
           shape: BoxShape.circle,
-          border: Border.all(color: upcoming ? c.line : c.accent, width: AnSize.hairline),
+          border: Border.all(
+            color: upcoming ? c.line : c.accent,
+            width: AnSize.hairline,
+          ),
           boxShadow: ring,
         ),
         child: done
             ? Icon(AnIcons.check, size: AnSize.iconSm, color: c.onAccent)
-            : Text('$i',
-                style: AnText.metaTabular().copyWith(color: upcoming ? c.inkFaint : c.onAccent)),
+            : Text(
+                '$i',
+                style: AnText.metaTabular().copyWith(
+                  color: upcoming ? c.inkFaint : c.onAccent,
+                ),
+              ),
       );
     }
 

@@ -28,36 +28,60 @@ import '../../../support/router_harness.dart';
 final _t = DateTime.utc(2026, 6, 26);
 FunctionEntity _fn(String id, String name) =>
     FunctionEntity(id: id, name: name, createdAt: _t, updatedAt: _t);
-HandlerEntity _hd(String id, String name, String runtime) =>
-    HandlerEntity(id: id, name: name, createdAt: _t, updatedAt: _t, runtimeState: runtime);
+HandlerEntity _hd(String id, String name, String runtime) => HandlerEntity(
+  id: id,
+  name: name,
+  createdAt: _t,
+  updatedAt: _t,
+  runtimeState: runtime,
+);
 
 Widget _host(EntityRepository repo) => routedHost(
-      const Scaffold(body: SizedBox(width: 300, height: 600, child: EntityRail())),
-      repository: repo,
-    );
+  const Scaffold(body: SizedBox(width: 300, height: 600, child: EntityRail())),
+  repository: repo,
+);
 
 /// Repo whose list never resolves — pins the loading state (a Future, not a Timer, so no pending-timer
 /// failure and no need to settle the shimmer ticker).
 class _PendingRepo extends FixtureEntityRepository {
   @override
-  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search}) =>
-      Completer<Page<EntityRow>>().future;
+  Future<Page<EntityRow>> listEntities(
+    EntityKind kind, {
+    String? cursor,
+    int? limit,
+    String? search,
+  }) => Completer<Page<EntityRow>>().future;
 }
 
 /// Repo whose list always throws — pins the error state.
 class _ErrRepo extends FixtureEntityRepository {
   @override
-  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search}) async =>
-      throw Exception('boom');
+  Future<Page<EntityRow>> listEntities(
+    EntityKind kind, {
+    String? cursor,
+    int? limit,
+    String? search,
+  }) async => throw Exception('boom');
 }
 
 void main() {
-  testWidgets('loaded → AnSidebarList with kind sections + rows', (tester) async {
-    await tester.pumpWidget(_host(FixtureEntityRepository(
-      functions: [_fn('fn_1', 'normalize-input'), _fn('fn_2', 'validate-schema')],
-      handlers: [_hd('hd_1', 'slack', 'running')],
-    )));
-    await tester.pump(const Duration(milliseconds: 50)); // let the 4 list futures resolve
+  testWidgets('loaded → AnSidebarList with kind sections + rows', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        FixtureEntityRepository(
+          functions: [
+            _fn('fn_1', 'normalize-input'),
+            _fn('fn_2', 'validate-schema'),
+          ],
+          handlers: [_hd('hd_1', 'slack', 'running')],
+        ),
+      ),
+    );
+    await tester.pump(
+      const Duration(milliseconds: 50),
+    ); // let the 4 list futures resolve
 
     expect(find.byType(AnSidebarList), findsOneWidget);
     expect(find.text(t.ref.function), findsOneWidget); // kind section head
@@ -67,35 +91,65 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('tapping a row navigates → selection derives from the route', (tester) async {
-    await tester.pumpWidget(_host(FixtureEntityRepository(functions: [_fn('fn_1', 'normalize-input')])));
+  testWidgets('tapping a row navigates → selection derives from the route', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        FixtureEntityRepository(functions: [_fn('fn_1', 'normalize-input')]),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 50));
 
-    final container = ProviderScope.containerOf(tester.element(find.byType(EntityRail)));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(EntityRail)),
+    );
     expect(container.read(selectedEntityProvider), isNull);
 
     await tester.tap(find.text('normalize-input'));
     await tester.pumpAndSettle(); // the route change + delegate notify settles
 
     // The rail called context.go('/entities/function/fn_1'); the route is the truth, selection derives it.
-    expect(container.read(goRouterProvider).routerDelegate.currentConfiguration.uri.path,
-        '/entities/function/fn_1');
-    expect(container.read(selectedEntityProvider), const EntityRef(EntityKind.function, 'fn_1'));
+    expect(
+      container
+          .read(goRouterProvider)
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .path,
+      '/entities/function/fn_1',
+    );
+    expect(
+      container.read(selectedEntityProvider),
+      const EntityRef(EntityKind.function, 'fn_1'),
+    );
   });
 
-  testWidgets('empty → the collapsed shape: chrome + every kind head, no tombstone', (tester) async {
-    await tester.pumpWidget(_host(FixtureEntityRepository()));
-    await tester.pump(const Duration(milliseconds: 50));
+  testWidgets(
+    'empty → the collapsed shape: chrome + every kind head, no tombstone',
+    (tester) async {
+      await tester.pumpWidget(_host(FixtureEntityRepository()));
+      await tester.pump(const Duration(milliseconds: 50));
 
-    // 用户 0718 拍板: an empty rail = the FULL rail with rows removed — the list (search + every kind head)
-    // renders, no «No entities yet» tombstone. 空态=满态收起:列表(搜索+每 kind 组头)恒在、无墓碑。
-    expect(find.byType(AnSidebarList), findsOneWidget);
-    expect(find.byType(AnState), findsNothing); // the old empty tombstone is retired 墓碑退役
-    expect(find.text(t.ref.function), findsOneWidget); // kind heads still render at zero data 零数据也渲 kind 头
-    expect(find.text(t.ref.handler), findsOneWidget);
-    expect(find.text(t.ref.workflow), findsOneWidget);
-    expect(find.text('0'), findsNothing); // an empty kind head shows no "0" count 空组头不显「0」
-  });
+      // 用户 0718 拍板: an empty rail = the FULL rail with rows removed — the list (search + every kind head)
+      // renders, no «No entities yet» tombstone. 空态=满态收起:列表(搜索+每 kind 组头)恒在、无墓碑。
+      expect(find.byType(AnSidebarList), findsOneWidget);
+      expect(
+        find.byType(AnState),
+        findsNothing,
+      ); // the old empty tombstone is retired 墓碑退役
+      expect(
+        find.text(t.ref.function),
+        findsOneWidget,
+      ); // kind heads still render at zero data 零数据也渲 kind 头
+      expect(find.text(t.ref.handler), findsOneWidget);
+      expect(find.text(t.ref.workflow), findsOneWidget);
+      expect(
+        find.text('0'),
+        findsNothing,
+      ); // an empty kind head shows no "0" count 空组头不显「0」
+    },
+  );
 
   testWidgets('error → AnState error with retry', (tester) async {
     await tester.pumpWidget(_host(_ErrRepo()));
@@ -105,18 +159,26 @@ void main() {
     expect(find.text(t.entities.retry), findsOneWidget);
   });
 
-  testWidgets('loading → deferred skeleton (after the anti-flash delay)', (tester) async {
+  testWidgets('loading → deferred skeleton (after the anti-flash delay)', (
+    tester,
+  ) async {
     await tester.pumpWidget(_host(_PendingRepo()));
     await tester.pump(); // one frame — within the anti-flash delay, nothing yet
     expect(find.byType(AnSkeleton), findsNothing);
 
-    await tester.pump(const Duration(milliseconds: 250)); // past AnMotion.loaderDelay
+    await tester.pump(
+      const Duration(milliseconds: 250),
+    ); // past AnMotion.loaderDelay
     expect(find.byType(AnSkeleton), findsWidgets);
     expect(find.byType(AnSidebarList), findsNothing);
   });
 
-  testWidgets('sliders menu opens with the three sorts + the display toggle', (tester) async {
-    await tester.pumpWidget(_host(FixtureEntityRepository(functions: [_fn('fn_1', 'a')])));
+  testWidgets('sliders menu opens with the three sorts + the display toggle', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(FixtureEntityRepository(functions: [_fn('fn_1', 'a')])),
+    );
     await tester.pump(const Duration(milliseconds: 50));
 
     // The sliders anchor renders (menuEntries wired); opening it reveals Sort (3 options, aligned with
@@ -133,8 +195,12 @@ void main() {
     expect(find.text(t.entities.showCount), findsOneWidget);
   });
 
-  testWidgets('show-counts toggle drops the per-section count badge', (tester) async {
-    await tester.pumpWidget(_host(FixtureEntityRepository(functions: [_fn('fn_1', 'a')])));
+  testWidgets('show-counts toggle drops the per-section count badge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(FixtureEntityRepository(functions: [_fn('fn_1', 'a')])),
+    );
     await tester.pump(const Duration(milliseconds: 50));
 
     // The function section carries one entity → its head shows the count badge "1".
@@ -143,7 +209,9 @@ void main() {
     await tester.tap(find.byIcon(AnIcons.sliders));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
-    await tester.tap(find.text(t.entities.showCount)); // keepOpen toggle → counts off
+    await tester.tap(
+      find.text(t.entities.showCount),
+    ); // keepOpen toggle → counts off
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
 

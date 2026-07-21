@@ -29,21 +29,24 @@ void main() {
       expect(d.toJson()['path'], '/root/design-notes');
     });
 
-    test('tree-meta node (GET /tree, no content) → content defaults empty; root has null parentId', () {
-      final json = {
-        'id': 'doc_root0000000000',
-        'name': 'root',
-        'tags': <String>[],
-        'position': 0,
-        'path': '/root',
-        'sizeBytes': 0,
-        'createdAt': '2026-06-01T00:00:00.000Z',
-        'updatedAt': '2026-06-01T00:00:00.000Z',
-      };
-      final d = DocumentNode.fromJson(json);
-      expect(d.parentId, isNull); // root-level
-      expect(d.content, ''); // omitted by /tree
-    });
+    test(
+      'tree-meta node (GET /tree, no content) → content defaults empty; root has null parentId',
+      () {
+        final json = {
+          'id': 'doc_root0000000000',
+          'name': 'root',
+          'tags': <String>[],
+          'position': 0,
+          'path': '/root',
+          'sizeBytes': 0,
+          'createdAt': '2026-06-01T00:00:00.000Z',
+          'updatedAt': '2026-06-01T00:00:00.000Z',
+        };
+        final d = DocumentNode.fromJson(json);
+        expect(d.parentId, isNull); // root-level
+        expect(d.content, ''); // omitted by /tree
+      },
+    );
   });
 
   group('Skill + Frontmatter', () {
@@ -73,32 +76,45 @@ void main() {
       final s = Skill.fromJson(json);
       expect(s.name, 'commit-helper');
       expect(s.context, 'fork');
-      expect(s.frontmatter.allowedTools, ['Read', 'Bash(git:*)', 'fn_normalize']);
+      expect(s.frontmatter.allowedTools, [
+        'Read',
+        'Bash(git:*)',
+        'fn_normalize',
+      ]);
       expect(s.frontmatter.agent, 'coder');
       expect(s.frontmatter.userInvocable, isTrue);
-      expect(s.toJson()['frontmatter']['allowedTools'], contains('fn_normalize'));
+      expect(
+        s.toJson()['frontmatter']['allowedTools'],
+        contains('fn_normalize'),
+      );
     });
 
-    test('list item (no body, minimal frontmatter) → body + omitempty fields default', () {
-      final json = {
-        'name': 'lean-skill',
-        'description': 'x',
-        'source': 'ai',
-        'context': 'inline',
-        'frontmatter': {'name': 'lean-skill', 'description': 'x'},
-        'updatedAt': '2026-07-04T09:00:00.000Z',
-      };
-      final s = Skill.fromJson(json);
-      expect(s.body, ''); // omitted by list
-      expect(s.frontmatter.allowedTools, isEmpty);
-      expect(s.frontmatter.disableModelInvocation, isFalse);
-    });
+    test(
+      'list item (no body, minimal frontmatter) → body + omitempty fields default',
+      () {
+        final json = {
+          'name': 'lean-skill',
+          'description': 'x',
+          'source': 'ai',
+          'context': 'inline',
+          'frontmatter': {'name': 'lean-skill', 'description': 'x'},
+          'updatedAt': '2026-07-04T09:00:00.000Z',
+        };
+        final s = Skill.fromJson(json);
+        expect(s.body, ''); // omitted by list
+        expect(s.frontmatter.allowedTools, isEmpty);
+        expect(s.frontmatter.disableModelInvocation, isFalse);
+      },
+    );
 
     test('guardrail constants + name regex mirror the backend', () {
       expect(kSkillMaxBodyBytes, 32 * 1024);
       expect(kSkillMaxDescriptionChars, 1024);
       expect(kSkillNameRegex.hasMatch('commit-helper'), isTrue);
-      expect(kSkillNameRegex.hasMatch('Commit_Helper'), isFalse); // uppercase rejected
+      expect(
+        kSkillNameRegex.hasMatch('Commit_Helper'),
+        isFalse,
+      ); // uppercase rejected
       expect(kSkillNameRegex.hasMatch('9lead'), isFalse); // must start with a-z
       expect(kDocumentMaxContentBytes, 1 << 20);
     });

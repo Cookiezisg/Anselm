@@ -112,7 +112,8 @@ class ToolHitList extends StatefulWidget {
   State<ToolHitList> createState() => _ToolHitListState();
 }
 
-class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStateMixin {
+class _ToolHitListState extends State<ToolHitList>
+    with SingleTickerProviderStateMixin {
   static const Duration _stagger = AnMotion.stagger;
   static const Duration _fade = AnMotion.mid;
 
@@ -120,16 +121,22 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
   bool _started = false;
   bool _showAll = false;
 
-  int get _visibleCount => widget.rows.length < widget.cap ? widget.rows.length : widget.cap;
+  int get _visibleCount =>
+      widget.rows.length < widget.cap ? widget.rows.length : widget.cap;
 
   @override
   void initState() {
     super.initState();
     // Total run = the last row's start (n·stagger) + its fade. 总时长=末行起点+淡入。
     final n = _visibleCount;
-    final ms = (n * _stagger.inMilliseconds + _fade.inMilliseconds)
-        .clamp(_fade.inMilliseconds, AnMotion.revealCap.inMilliseconds);
-    _c = AnimationController(vsync: this, duration: Duration(milliseconds: ms));
+    final ms = (n * _stagger.inMilliseconds + _fade.inMilliseconds).clamp(
+      _fade.inMilliseconds,
+      AnMotion.revealCap.inMilliseconds,
+    );
+    _c = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: ms),
+    );
   }
 
   @override
@@ -139,7 +146,8 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     _started = true;
     // The one-time cascade plays iff EITHER animate is set explicitly (gallery) OR the chassis
     // witnessed the settle this session ([ToolCardReveal]). Else instant. 亲历落定或显式 animate 才播。
-    final reveal = widget.animate || (ToolCardReveal.of(context)?.revealOnMount ?? false);
+    final reveal =
+        widget.animate || (ToolCardReveal.of(context)?.revealOnMount ?? false);
     if (!reveal || AnMotionPref.reducedOrAssistive(context)) {
       _c.value = 1.0;
     } else {
@@ -173,7 +181,8 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
         builder: (context, _) => Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final (i, row) in visible.indexed) _cascade(i, _row(context, row)),
+            for (final (i, row) in visible.indexed)
+              _cascade(i, _row(context, row)),
             if (overCap)
               _localOverCapFooter(context)
             else if (widget.serverTruncated)
@@ -188,18 +197,33 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
   Widget _cascade(int index, Widget child) {
     final total = _c.duration!.inMilliseconds;
     final start = (index * _stagger.inMilliseconds) / total;
-    final end = (index * _stagger.inMilliseconds + _fade.inMilliseconds) / total;
-    final t = CurvedAnimation(parent: _c, curve: Interval(start.clamp(0, 1), end.clamp(0, 1), curve: AnMotion.easeOut)).value;
+    final end =
+        (index * _stagger.inMilliseconds + _fade.inMilliseconds) / total;
+    final t = CurvedAnimation(
+      parent: _c,
+      curve: Interval(
+        start.clamp(0, 1),
+        end.clamp(0, 1),
+        curve: AnMotion.easeOut,
+      ),
+    ).value;
     return Opacity(
       opacity: t,
-      child: Transform.translate(offset: Offset(0, (1 - t) * AnSpace.s4), child: child),
+      child: Transform.translate(
+        offset: Offset(0, (1 - t) * AnSpace.s4),
+        child: child,
+      ),
     );
   }
 
   Widget _row(BuildContext context, ToolHitRow row) {
     final c = context.colors;
-    final tappable = row.onOpen != null ||
-        (row.kind != null && row.id != null && hasPanelFor(row.kind!) && widget.onRowTap != null);
+    final tappable =
+        row.onOpen != null ||
+        (row.kind != null &&
+            row.id != null &&
+            hasPanelFor(row.kind!) &&
+            widget.onRowTap != null);
     final isCurrent = row.id != null && row.id == widget.currentId;
 
     final body = Padding(
@@ -217,26 +241,35 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
                 Row(
                   children: [
                     Flexible(
-                      child: Text(row.title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          // Tool-card content rides the 13 UI anchor (NOT the 15 content-value tier) — every
-                          // string inside a tool card is dense chrome, distinguished from the 13 subtitle by
-                          // weight+colour, not size. tool 卡内容一律 13 锚(非 15 值档),靠字重+色分层。
-                          style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+                      child: Text(
+                        row.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        // Tool-card content rides the 13 UI anchor (NOT the 15 content-value tier) — every
+                        // string inside a tool card is dense chrome, distinguished from the 13 subtitle by
+                        // weight+colour, not size. tool 卡内容一律 13 锚(非 15 值档),靠字重+色分层。
+                        style: AnText.body
+                            .weight(AnText.emphasisWeight)
+                            .copyWith(color: c.ink),
+                      ),
                     ),
                     if (isCurrent) ...[
                       const SizedBox(width: AnSpace.s6),
                       // Family chip (批5 A-026 — the hand-rolled accent pill retires). 族芯片。
-                      AnChip(Translations.of(context).chat.tool.hitCurrent, tone: AnTone.accent),
+                      AnChip(
+                        Translations.of(context).chat.tool.hitCurrent,
+                        tone: AnTone.accent,
+                      ),
                     ],
                   ],
                 ),
                 if (row.subtitle != null && row.subtitle!.trim().isNotEmpty)
-                  Text(row.subtitle!.trim(),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.body.copyWith(color: c.inkMuted)),
+                  Text(
+                    row.subtitle!.trim(),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.body.copyWith(color: c.inkMuted),
+                  ),
               ],
             ),
           ),
@@ -249,10 +282,11 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
             // steal the title's flex share even when short. 尾格契约刚性:调用方喂短凭据,无界内容
             // 在源头 AnTrunc 截断;槽级硬顶界砸中合法宽尾,Flexible 又抢标题份额。
             DefaultTextStyle.merge(
-                style: AnText.label.copyWith(color: c.inkFaint),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                child: row.trailing!),
+              style: AnText.label.copyWith(color: c.inkFaint),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              child: row.trailing!,
+            ),
           ],
           if (tappable) ...[
             const SizedBox(width: AnSpace.s4),
@@ -265,10 +299,10 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     if (!tappable) return body;
     return AnInteractive(
       onTap: row.onOpen ?? () => widget.onRowTap!(row.kind!, row.id!),
-      builder: (ctx, states) => AnHoverSurface(active: states.isActive, child: body),
+      builder: (ctx, states) =>
+          AnHoverSurface(active: states.isActive, child: body),
     );
   }
-
 
   // LOCAL over-cap: an escape hatch to the full bounded JSON (nothing is lost). 本地超封顶逃生口。
   Widget _localOverCapFooter(BuildContext context) {
@@ -277,11 +311,17 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     final shown = widget.cap;
     final grand = widget.total ?? widget.rows.length;
     return AnInteractive(
-      onTap: widget.rawJson == null ? null : () => setState(() => _showAll = true),
+      onTap: widget.rawJson == null
+          ? null
+          : () => setState(() => _showAll = true),
       builder: (ctx, states) => Padding(
         padding: const EdgeInsets.only(top: AnSpace.s6),
-        child: Text(t.chat.tool.cappedFooter(n: '$shown', total: '$grand'),
-            style: AnText.meta.copyWith(color: states.isActive ? c.accent : c.inkFaint)),
+        child: Text(
+          t.chat.tool.cappedFooter(n: '$shown', total: '$grand'),
+          style: AnText.meta.copyWith(
+            color: states.isActive ? c.accent : c.inkFaint,
+          ),
+        ),
       ),
     );
   }
@@ -292,8 +332,13 @@ class _ToolHitListState extends State<ToolHitList> with SingleTickerProviderStat
     final c = context.colors;
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s6),
-      child: Text(t.chat.tool.serverTruncatedNote(n: '${widget.rows.length}', total: '${widget.total ?? widget.rows.length}'),
-          style: AnText.meta.copyWith(color: c.inkFaint)),
+      child: Text(
+        t.chat.tool.serverTruncatedNote(
+          n: '${widget.rows.length}',
+          total: '${widget.total ?? widget.rows.length}',
+        ),
+        style: AnText.meta.copyWith(color: c.inkFaint),
+      ),
     );
   }
 }

@@ -28,7 +28,8 @@ abstract class MessagesWindow with _$MessagesWindow {
     @Default(false) bool hasNewer,
   }) = _MessagesWindow;
 
-  factory MessagesWindow.fromJson(Map<String, dynamic> json) => _$MessagesWindowFromJson(json);
+  factory MessagesWindow.fromJson(Map<String, dynamic> json) =>
+      _$MessagesWindowFromJson(json);
 }
 
 /// One navigation anchor row (场次条) — the REST projection of `GET /conversations/{id}/anchors`.
@@ -52,5 +53,6 @@ abstract class TranscriptAnchor with _$TranscriptAnchor {
     required DateTime at,
   }) = _TranscriptAnchor;
 
-  factory TranscriptAnchor.fromJson(Map<String, dynamic> json) => _$TranscriptAnchorFromJson(json);
+  factory TranscriptAnchor.fromJson(Map<String, dynamic> json) =>
+      _$TranscriptAnchorFromJson(json);
 }

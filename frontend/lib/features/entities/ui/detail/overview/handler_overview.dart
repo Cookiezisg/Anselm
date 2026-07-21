@@ -26,11 +26,12 @@ class HandlerOverview extends StatelessWidget {
 
     // Sensitive defaults are NEVER rendered. 敏感默认值绝不渲染。
     String argSummary(InitArgSpec a) => [
-          a.type,
-          a.required ? d.val.required : d.val.optional,
-          if (a.sensitive) d.val.sensitive,
-          if (!a.sensitive && a.defaultValue != null) '${d.val.defaultPrefix} ${a.defaultValue}',
-        ].join(' · ');
+      a.type,
+      a.required ? d.val.required : d.val.optional,
+      if (a.sensitive) d.val.sensitive,
+      if (!a.sensitive && a.defaultValue != null)
+        '${d.val.defaultPrefix} ${a.defaultValue}',
+    ].join(' · ');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -42,43 +43,66 @@ class HandlerOverview extends StatelessWidget {
           (d.kv.python, v.pythonVersion),
           (d.kv.updated, fmtTime(hd.updatedAt)),
         ]),
-        AnSection(label: d.sec.runtime, variant: AnSectionVariant.plain, grid: true, children: [
-          AnInfoCard(
-            title: d.card.runtime,
-            icon: AnIcons.byKey('handler'),
-            child: kvList([(d.kv.status, hd.runtimeState ?? '—')]),
-          ),
-          AnInfoCard(
-            title: d.card.config,
-            icon: AnIcons.byKey('check'),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                kvList([(d.kv.status, hd.configState ?? '—')]),
-                for (final m in hd.missingConfig) AnRow(label: m, dot: AnStatus.wait, passive: true),
-              ],
+        AnSection(
+          label: d.sec.runtime,
+          variant: AnSectionVariant.plain,
+          grid: true,
+          children: [
+            AnInfoCard(
+              title: d.card.runtime,
+              icon: AnIcons.byKey('handler'),
+              child: kvList([(d.kv.status, hd.runtimeState ?? '—')]),
             ),
-          ),
-        ]),
-        AnSection(label: d.sec.initArgs, variant: AnSectionVariant.plain, children: [
-          if (v.initArgsSchema.isEmpty)
-            insetEmpty(d.val.none)
-          else
-            kvList([
-              for (final a in v.initArgsSchema) (a.name, argSummary(a)),
-            ], wrap: true),
-        ]),
-        AnSection(label: d.sec.methods, variant: AnSectionVariant.plain, children: [
-          for (final m in v.methods)
-            AnRow(
-              icon: AnIcons.byKey('tool'),
-              label: m.name,
-              meta: '${m.inputs.length}→${m.outputs.length}',
-              hint: m.streaming ? d.val.generator : (m.timeout != null ? d.val.timeoutMs(ms: m.timeout!) : null),
-              passive: true,
+            AnInfoCard(
+              title: d.card.config,
+              icon: AnIcons.byKey('check'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  kvList([(d.kv.status, hd.configState ?? '—')]),
+                  for (final m in hd.missingConfig)
+                    AnRow(label: m, dot: AnStatus.wait, passive: true),
+                ],
+              ),
             ),
-          AnCodeEditor(code: handlerSourceOf(v), lang: 'py', wrap: true, reading: true),
-        ]),
+          ],
+        ),
+        AnSection(
+          label: d.sec.initArgs,
+          variant: AnSectionVariant.plain,
+          children: [
+            if (v.initArgsSchema.isEmpty)
+              insetEmpty(d.val.none)
+            else
+              kvList([
+                for (final a in v.initArgsSchema) (a.name, argSummary(a)),
+              ], wrap: true),
+          ],
+        ),
+        AnSection(
+          label: d.sec.methods,
+          variant: AnSectionVariant.plain,
+          children: [
+            for (final m in v.methods)
+              AnRow(
+                icon: AnIcons.byKey('tool'),
+                label: m.name,
+                meta: '${m.inputs.length}→${m.outputs.length}',
+                hint: m.streaming
+                    ? d.val.generator
+                    : (m.timeout != null
+                          ? d.val.timeoutMs(ms: m.timeout!)
+                          : null),
+                passive: true,
+              ),
+            AnCodeEditor(
+              code: handlerSourceOf(v),
+              lang: 'py',
+              wrap: true,
+              reading: true,
+            ),
+          ],
+        ),
       ],
     );
   }

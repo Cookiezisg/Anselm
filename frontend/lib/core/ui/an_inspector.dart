@@ -60,7 +60,9 @@ class AnInspector extends StatelessWidget {
             child: Row(
               children: [
                 if (icon != null) ...[
-                  ExcludeSemantics(child: Icon(icon, size: AnSize.icon, color: c.inkFaint)), // decorative 装饰
+                  ExcludeSemantics(
+                    child: Icon(icon, size: AnSize.icon, color: c.inkFaint),
+                  ), // decorative 装饰
                   const SizedBox(width: AnSpace.s8),
                 ],
                 // The inspector's section title is a header node (SR heading navigation) — independent of the
@@ -72,7 +74,9 @@ class AnInspector extends StatelessWidget {
                       title ?? '',
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink),
+                      style: AnText.body
+                          .weight(AnText.emphasisWeight)
+                          .copyWith(color: c.ink),
                     ),
                   ),
                 ),

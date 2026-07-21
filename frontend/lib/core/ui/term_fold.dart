@@ -34,7 +34,8 @@ int _numParam(String params, int fallback) {
 List<String> termFold(String raw, {int window = kTermWindow}) {
   final lines = <List<String>>[<String>[]];
   int row = 0, col = 0;
-  String pending = ''; // control tokens (SGR) waiting to attach to the next printable. 待附控制序列。
+  String pending =
+      ''; // control tokens (SGR) waiting to attach to the next printable. 待附控制序列。
 
   void ensureRow() {
     while (lines.length <= row) {
@@ -63,10 +64,13 @@ List<String> termFold(String raw, {int window = kTermWindow}) {
       if (i + 1 < n && raw.codeUnitAt(i + 1) == 0x5b) {
         // CSI: ESC [ … <final 0x40–0x7e>
         int j = i + 2;
-        while (j < n && !(raw.codeUnitAt(j) >= 0x40 && raw.codeUnitAt(j) <= 0x7e)) {
+        while (j < n &&
+            !(raw.codeUnitAt(j) >= 0x40 && raw.codeUnitAt(j) <= 0x7e)) {
           j++;
         }
-        if (j >= n) break; // incomplete (chunk boundary) → leave for the tail buffer 半截→留尾缓冲
+        if (j >= n) {
+          break; // incomplete (chunk boundary) → leave for the tail buffer 半截→留尾缓冲
+        }
         final finalByte = raw[j];
         final params = raw.substring(i + 2, j);
         final seq = raw.substring(i, j + 1);
@@ -77,7 +81,9 @@ List<String> termFold(String raw, {int window = kTermWindow}) {
             final up = _numParam(params, 1);
             final floor = (lines.length - window).clamp(0, lines.length);
             final target = row - up;
-            if (target >= floor && target >= 0) row = target; // else out-of-window → ignore 超窗忽略
+            if (target >= floor && target >= 0) {
+              row = target; // else out-of-window → ignore 超窗忽略
+            }
             pending = '';
           case 'B': // cursor down 下移
             row += _numParam(params, 1);
@@ -160,7 +166,11 @@ Color _sgrColor(int code, AnColors c) {
 
 /// Parse a [line] (as returned by [termFold]) into themed spans by walking its SGR sequences.
 /// Non-SGR CSI shouldn't survive termFold, but any stray one is skipped. 解析 SGR → 主题化 spans。
-List<InlineSpan> ansiSpans(String line, AnColors colors, {required TextStyle base}) {
+List<InlineSpan> ansiSpans(
+  String line,
+  AnColors colors, {
+  required TextStyle base,
+}) {
   final spans = <InlineSpan>[];
   final buf = StringBuffer();
   var style = base;
@@ -177,7 +187,8 @@ List<InlineSpan> ansiSpans(String line, AnColors colors, {required TextStyle bas
   while (i < n) {
     if (line.codeUnitAt(i) == _esc && i + 1 < n && line[i + 1] == '[') {
       int j = i + 2;
-      while (j < n && !(line.codeUnitAt(j) >= 0x40 && line.codeUnitAt(j) <= 0x7e)) {
+      while (j < n &&
+          !(line.codeUnitAt(j) >= 0x40 && line.codeUnitAt(j) <= 0x7e)) {
         j++;
       }
       if (j >= n) break;
@@ -195,9 +206,16 @@ List<InlineSpan> ansiSpans(String line, AnColors colors, {required TextStyle bas
   return spans.isEmpty ? [TextSpan(text: line, style: base)] : spans;
 }
 
-TextStyle _applySgrStyle(TextStyle current, String params, TextStyle baseStyle, AnColors colors) {
+TextStyle _applySgrStyle(
+  TextStyle current,
+  String params,
+  TextStyle baseStyle,
+  AnColors colors,
+) {
   var style = current;
-  final codes = params.isEmpty ? [0] : params.split(';').map((s) => int.tryParse(s) ?? 0).toList();
+  final codes = params.isEmpty
+      ? [0]
+      : params.split(';').map((s) => int.tryParse(s) ?? 0).toList();
   for (var k = 0; k < codes.length; k++) {
     final code = codes[k];
     switch (code) {

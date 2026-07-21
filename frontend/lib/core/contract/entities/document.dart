@@ -16,8 +16,12 @@ abstract class DocumentNode with _$DocumentNode {
     String? parentId,
     @Default('') String name,
     @Default('') String description,
-    @Default('') String content, // omitted by GET /tree (metadata only) → empty; full node via GET /{id}
-    @Default(false) bool hasContent, // GET /tree only: body non-empty (≡ sizeBytes>0) → drives empty-page vs written-doc icon
+    @Default('')
+    String
+    content, // omitted by GET /tree (metadata only) → empty; full node via GET /{id}
+    @Default(false)
+    bool
+    hasContent, // GET /tree only: body non-empty (≡ sizeBytes>0) → drives empty-page vs written-doc icon
     @Default(<String>[]) List<String> tags,
     @Default(0) int position,
     @Default('') String path,
@@ -25,10 +29,13 @@ abstract class DocumentNode with _$DocumentNode {
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _DocumentNode;
-  factory DocumentNode.fromJson(Map<String, dynamic> json) => _$DocumentNodeFromJson(json);
+  factory DocumentNode.fromJson(Map<String, dynamic> json) =>
+      _$DocumentNodeFromJson(json);
 }
 
 /// Physical guardrails mirrored from the backend (document.go:39/45) for client-side pre-validation.
 /// 后端物理护栏,供客户端预校验。
-const int kDocumentMaxContentBytes = 1 << 20; // 1 MB — DOCUMENT_CONTENT_TOO_LARGE past this
-const int kDocumentMaxNameLength = 256; // DOCUMENT_INVALID_NAME past this / on empty / on '/'
+const int kDocumentMaxContentBytes =
+    1 << 20; // 1 MB — DOCUMENT_CONTENT_TOO_LARGE past this
+const int kDocumentMaxNameLength =
+    256; // DOCUMENT_INVALID_NAME past this / on empty / on '/'

@@ -42,7 +42,8 @@ abstract class ProviderMeta with _$ProviderMeta {
     @Default('llm') String category, // llm | search
   }) = _ProviderMeta;
 
-  factory ProviderMeta.fromJson(Map<String, dynamic> json) => _$ProviderMetaFromJson(json);
+  factory ProviderMeta.fromJson(Map<String, dynamic> json) =>
+      _$ProviderMetaFromJson(json);
 }
 
 /// The free-tier month quota — `GET /freetier/quota` (backend proxies the gateway; 404
@@ -59,5 +60,6 @@ abstract class FreetierQuota with _$FreetierQuota {
     @Default(true) bool available,
   }) = _FreetierQuota;
 
-  factory FreetierQuota.fromJson(Map<String, dynamic> json) => _$FreetierQuotaFromJson(json);
+  factory FreetierQuota.fromJson(Map<String, dynamic> json) =>
+      _$FreetierQuotaFromJson(json);
 }

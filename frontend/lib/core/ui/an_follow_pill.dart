@@ -40,8 +40,8 @@ class AnFollowPill extends StatefulWidget {
     required this.onTap,
     this.clock,
     super.key,
-  })  : jumpLabel = '',
-        elevated = false;
+  }) : jumpLabel = '',
+       elevated = false;
 
   /// The static jump-back face. [elevated] floats it over content (the transcript overlay) with a
   /// soft shadow. 静态回场脸;elevated=浮在内容上(transcript 浮层)带柔影。
@@ -50,10 +50,10 @@ class AnFollowPill extends StatefulWidget {
     required this.onTap,
     this.elevated = false,
     super.key,
-  })  : kind = AnFollowPillKind.jump,
-        subjectName = '',
-        jumpLabel = label,
-        clock = null;
+  }) : kind = AnFollowPillKind.jump,
+       subjectName = '',
+       jumpLabel = label,
+       clock = null;
 
   final AnFollowPillKind kind;
 
@@ -85,7 +85,8 @@ class _AnFollowPillState extends State<AnFollowPill> {
     // reducedOrAssistive (screen readers get the static pose; the live/gate text carries the
     // meaning); the jump face never pokes at all. MediaQuery lives here, not initState.
     // 出现即起搏;呼吸=装饰循环走 reducedOrAssistive(读屏拿静态姿态,语义由文案承载);jump 脸永不起搏。
-    if (widget.kind != AnFollowPillKind.jump && !AnMotionPref.reducedOrAssistive(context)) {
+    if (widget.kind != AnFollowPillKind.jump &&
+        !AnMotionPref.reducedOrAssistive(context)) {
       _clock.poke();
     }
   }
@@ -95,15 +96,25 @@ class _AnFollowPillState extends State<AnFollowPill> {
     final c = context.colors;
     final t = Translations.of(context);
     if (widget.kind == AnFollowPillKind.jump) {
-      return _JumpShell(label: widget.jumpLabel, elevated: widget.elevated, onTap: widget.onTap);
+      return _JumpShell(
+        label: widget.jumpLabel,
+        elevated: widget.elevated,
+        onTap: widget.onTap,
+      );
     }
     final amber = widget.kind == AnFollowPillKind.gate;
     final tone = amber ? c.warn : c.accent;
-    final label =
-        amber ? t.feedback.cast.gatePill : t.feedback.cast.livePill(name: widget.subjectName);
+    final label = amber
+        ? t.feedback.cast.gatePill
+        : t.feedback.cast.livePill(name: widget.subjectName);
     if (AnMotionPref.reducedOrAssistive(context)) {
       // Static pose, no clock subscription — zero frames requested. 静态姿态,零帧请求。
-      return _PillShell(tone: tone, label: label, swell: 0, onTap: widget.onTap);
+      return _PillShell(
+        tone: tone,
+        label: label,
+        swell: 0,
+        onTap: widget.onTap,
+      );
     }
     return RepaintBoundary(
       child: AnimatedBuilder(
@@ -112,7 +123,12 @@ class _AnFollowPillState extends State<AnFollowPill> {
           // Breath = a gentle alpha swell on the border; static pose at phase 0. 呼吸=描边柔胀;0 相静态。
           final phase = _clock.value;
           final swell = 0.5 + 0.5 * (1 - (phase - 0.5).abs() * 2);
-          return _PillShell(tone: tone, label: label, swell: swell, onTap: widget.onTap);
+          return _PillShell(
+            tone: tone,
+            label: label,
+            swell: swell,
+            onTap: widget.onTap,
+          );
         },
       ),
     );
@@ -120,7 +136,12 @@ class _AnFollowPillState extends State<AnFollowPill> {
 }
 
 class _PillShell extends StatelessWidget {
-  const _PillShell({required this.tone, required this.label, required this.swell, required this.onTap});
+  const _PillShell({
+    required this.tone,
+    required this.label,
+    required this.swell,
+    required this.onTap,
+  });
 
   final Color tone;
   final String label;
@@ -143,18 +164,23 @@ class _PillShell extends StatelessWidget {
           ),
           borderRadius: BorderRadius.circular(AnRadius.pill),
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          AnStatusDot.raw(tone, size: AnSize.dotSm),
-          const SizedBox(width: AnSpace.s6),
-          Flexible(
-            child: Text(label,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnStatusDot.raw(tone, size: AnSize.dotSm),
+            const SizedBox(width: AnSpace.s6),
+            Flexible(
+              child: Text(
+                label,
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-                style: AnText.label.copyWith(color: c.inkMuted)),
-          ),
-          const SizedBox(width: AnSpace.s4),
-          Icon(AnIcons.chevronRight, size: AnSize.iconXs, color: c.inkFaint),
-        ]),
+                style: AnText.label.copyWith(color: c.inkMuted),
+              ),
+            ),
+            const SizedBox(width: AnSpace.s4),
+            Icon(AnIcons.chevronRight, size: AnSize.iconXs, color: c.inkFaint),
+          ],
+        ),
       ),
     );
   }
@@ -163,7 +189,11 @@ class _PillShell extends StatelessWidget {
 /// The static jump-back shell: chevron-down + label on the family pill geometry; [elevated] floats
 /// it with a soft shadow (the transcript overlay). 静态回场壳:家族药丸几何;elevated 浮影。
 class _JumpShell extends StatelessWidget {
-  const _JumpShell({required this.label, required this.elevated, required this.onTap});
+  const _JumpShell({
+    required this.label,
+    required this.elevated,
+    required this.onTap,
+  });
 
   final String label;
   final bool elevated;
@@ -182,16 +212,30 @@ class _JumpShell extends StatelessWidget {
           border: Border.all(color: c.line, width: AnSize.hairline),
           borderRadius: BorderRadius.circular(AnRadius.pill),
           boxShadow: elevated
-              ? [BoxShadow(color: c.ink.withValues(alpha: AnOpacity.shadow), blurRadius: AnSpace.s4, offset: const Offset(0, 1))]
+              ? [
+                  BoxShadow(
+                    color: c.ink.withValues(alpha: AnOpacity.shadow),
+                    blurRadius: AnSpace.s4,
+                    offset: const Offset(0, 1),
+                  ),
+                ]
               : null,
         ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.inkMuted),
-          const SizedBox(width: AnSpace.s4),
-          Flexible(
-            child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.label.copyWith(color: c.inkMuted)),
-          ),
-        ]),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.inkMuted),
+            const SizedBox(width: AnSpace.s4),
+            Flexible(
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.label.copyWith(color: c.inkMuted),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

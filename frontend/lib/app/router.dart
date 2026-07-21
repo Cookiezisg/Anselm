@@ -60,7 +60,9 @@ GoRouter buildAppRouter(Ref ref) {
         path: '/entities/:kind/:id',
         // Bounce an unknown kind home; a valid kind falls through (null = no redirect). 坏 kind 回首页。
         redirect: (context, state) =>
-            entityKindFromWire(state.pathParameters['kind']) == null ? '/' : null,
+            entityKindFromWire(state.pathParameters['kind']) == null
+            ? '/'
+            : null,
         pageBuilder: _shellPage,
       ),
       // Chat conversation selection — same constant-key shell page (no remount). No redirect: a

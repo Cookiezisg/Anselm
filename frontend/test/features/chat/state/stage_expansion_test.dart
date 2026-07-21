@@ -39,7 +39,11 @@ void main() {
     final n = c.read(stageExpansionProvider(conv).notifier);
     n.open('function:fn_1'); // a user-pinned row 用户展开的行
     n.expandAll(['todo', 'workflow:wf_1', 'function:fn_1']);
-    expect(c.read(stageExpansionProvider(conv)), {'function:fn_1', 'todo', 'workflow:wf_1'});
+    expect(c.read(stageExpansionProvider(conv)), {
+      'function:fn_1',
+      'todo',
+      'workflow:wf_1',
+    });
     // collapseAll is explicit → it wins over the sticky-open rule. 显式收起压过粘性。
     n.collapseAll();
     expect(c.read(stageExpansionProvider(conv)), isEmpty);
@@ -49,6 +53,9 @@ void main() {
     final c = _c();
     c.read(stageExpansionProvider('a').notifier).open('todo');
     expect(c.read(stageExpansionProvider('a')), {'todo'});
-    expect(c.read(stageExpansionProvider('b')), isEmpty); // a different thread is untouched 另一会话不受影响
+    expect(
+      c.read(stageExpansionProvider('b')),
+      isEmpty,
+    ); // a different thread is untouched 另一会话不受影响
   });
 }

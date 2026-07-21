@@ -34,7 +34,6 @@ abstract final class SchedulerWindows {
   /// a Go duration, so 7d is spelled in hours. 成功率/均时=7d 滚动(线缆走 Go duration 文法,故写小时)。
   static const String statsSince = '168h';
 
-
   /// The KPI strip's window — 24h, plus a 48h probe so the failure delta is (last 24h) − (previous 24h).
   ///
   /// **A Duration, not a wire word, and that is load-bearing** (工单⑭/判决⑥). The 「错过 N」 card reads

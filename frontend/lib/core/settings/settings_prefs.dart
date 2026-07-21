@@ -58,8 +58,10 @@ class SettingsPrefs {
   // ── typed reads (declared default when absent) 类型化读(缺省回声明默认) ──
 
   bool getBool(SettingsKey<bool> key) => _read(key.key) as bool? ?? key.def;
-  double getDouble(SettingsKey<double> key) => _read(key.key) as double? ?? key.def;
-  String getString(SettingsKey<String> key) => _read(key.key) as String? ?? key.def;
+  double getDouble(SettingsKey<double> key) =>
+      _read(key.key) as double? ?? key.def;
+  String getString(SettingsKey<String> key) =>
+      _read(key.key) as String? ?? key.def;
 
   Object? _read(String key) => _sp != null ? _sp.get(key) : _mem[key];
 
@@ -67,8 +69,10 @@ class SettingsPrefs {
   //    类型化写(持久化 best-effort;会话内以内存为准) ──
 
   void setBool(SettingsKey<bool> key, bool value) => _write(key.key, value);
-  void setDouble(SettingsKey<double> key, double value) => _write(key.key, value);
-  void setString(SettingsKey<String> key, String value) => _write(key.key, value);
+  void setDouble(SettingsKey<double> key, double value) =>
+      _write(key.key, value);
+  void setString(SettingsKey<String> key, String value) =>
+      _write(key.key, value);
 
   void _write(String key, Object value) {
     if (_sp == null) {
@@ -108,12 +112,18 @@ class SettingsPrefs {
   // ── declared prefix families (dynamic member keys) 声明前缀族(动态成员键) ──
 
   bool getFamilyBool(String prefix, String member, {required bool def}) {
-    assert(SettingsKeys.families.contains(prefix), 'undeclared family: $prefix');
+    assert(
+      SettingsKeys.families.contains(prefix),
+      'undeclared family: $prefix',
+    );
     return _read('$prefix$member') as bool? ?? def;
   }
 
   void setFamilyBool(String prefix, String member, bool value) {
-    assert(SettingsKeys.families.contains(prefix), 'undeclared family: $prefix');
+    assert(
+      SettingsKeys.families.contains(prefix),
+      'undeclared family: $prefix',
+    );
     _write('$prefix$member', value);
   }
 }
@@ -143,54 +153,123 @@ abstract final class SettingsKeys {
   // ── shell chrome 壳 ──
   static const sideCollapsed = SettingsKey<bool>('an.side.collapsed', false);
   static const sideWidth = SettingsKey<double>('an.side.w', AnSize.sidebar);
-  static const rightWidth = SettingsKey<double>('an.side.rightw', AnSize.rightIsland);
+  static const rightWidth = SettingsKey<double>(
+    'an.side.rightw',
+    AnSize.rightIsland,
+  );
   static const ocean = SettingsKey<String>('an.ocean', 'chat');
-  static const settingsPanel = SettingsKey<String>('an.settings.panel', 'general');
+  static const settingsPanel = SettingsKey<String>(
+    'an.settings.panel',
+    'general',
+  );
 
   // ── appearance / window 外观与窗口 ──
-  static const theme = SettingsKey<String>('an.theme', 'light'); // light|dark|system
-  static const locale = SettingsKey<String>('an.locale', 'system'); // system|en|zh-CN
+  static const theme = SettingsKey<String>(
+    'an.theme',
+    'light',
+  ); // light|dark|system
+  static const locale = SettingsKey<String>(
+    'an.locale',
+    'system',
+  ); // system|en|zh-CN
   static const windowZoom = SettingsKey<double>('an.window.zoom', 1.0);
   static const windowRemember = SettingsKey<bool>('an.window.remember', true);
-  static const windowBounds = SettingsKey<String>('an.window.bounds', ''); // "x,y,w,h"
+  static const windowBounds = SettingsKey<String>(
+    'an.window.bounds',
+    '',
+  ); // "x,y,w,h"
   static const launchAtStartup = SettingsKey<bool>('an.startup.atLogin', false);
   static const updateCheck = SettingsKey<bool>('an.update.check', true);
 
   // ── notifications 通知 ──
-  static const notifyLevel = SettingsKey<String>('an.notify.level', 'important'); // all|important|silent
+  static const notifyLevel = SettingsKey<String>(
+    'an.notify.level',
+    'important',
+  ); // all|important|silent
   static const notifyOs = SettingsKey<bool>('an.notify.os', true);
   static const notifyToast = SettingsKey<bool>('an.notify.toast', true);
   // Capsule event registry (which classes may pop the band capsule, 用户 0720): failures/approvals
   // default ON, attention default OFF. 胶囊事件登记:失败/审批默认开,需关注默认关。
   static const capsuleFailures = SettingsKey<bool>('an.capsule.failures', true);
-  static const capsuleApprovals = SettingsKey<bool>('an.capsule.approvals', true);
-  static const capsuleAttention = SettingsKey<bool>('an.capsule.attention', false);
+  static const capsuleApprovals = SettingsKey<bool>(
+    'an.capsule.approvals',
+    true,
+  );
+  static const capsuleAttention = SettingsKey<bool>(
+    'an.capsule.attention',
+    false,
+  );
 
   // ── fonts 字体 (WRK: 三正交字体轴, machine-level) ──
   // Wire values are the FIRST option of each axis = today's bundled faces (zero-perception default).
   // ① UI + ③ code are RESTART-applied (an_fonts.dart / applyAtBoot); ② content is HOT (contentFaceProvider).
   // 线值=各轴首项=现状随包脸(零感知默认);①UI+③代码=重启生效,②内容=热切换。
-  static const fontUi = SettingsKey<String>('an.font.ui', 'bundled'); // bundled|system
-  static const fontContent = SettingsKey<String>('an.font.content', 'sans'); // sans|serif|system
-  static const fontCode = SettingsKey<String>('an.font.code', 'jetbrainsMono'); // jetbrainsMono|firaCode|cascadiaCode|system
+  static const fontUi = SettingsKey<String>(
+    'an.font.ui',
+    'bundled',
+  ); // bundled|system
+  static const fontContent = SettingsKey<String>(
+    'an.font.content',
+    'sans',
+  ); // sans|serif|system
+  static const fontCode = SettingsKey<String>(
+    'an.font.code',
+    'jetbrainsMono',
+  ); // jetbrainsMono|firaCode|cascadiaCode|system
 
   // ── chat 对话 ──
-  static const chatSendKey = SettingsKey<String>('an.chat.sendKey', 'enter'); // enter|cmdEnter
-  static const chatAutoStage = SettingsKey<String>('an.stage.follow', 'always'); // never|conversation|always
-  static const chatShowArchived = SettingsKey<bool>('an.chat.showArchived', false);
-  static const chatShowGroupCount = SettingsKey<bool>('an.chat.showGroupCount', true);
+  static const chatSendKey = SettingsKey<String>(
+    'an.chat.sendKey',
+    'enter',
+  ); // enter|cmdEnter
+  static const chatAutoStage = SettingsKey<String>(
+    'an.stage.follow',
+    'always',
+  ); // never|conversation|always
+  static const chatShowArchived = SettingsKey<bool>(
+    'an.chat.showArchived',
+    false,
+  );
+  static const chatShowGroupCount = SettingsKey<bool>(
+    'an.chat.showGroupCount',
+    true,
+  );
   static const chatShowTime = SettingsKey<bool>('an.chat.showTime', true);
 
   // ── shortcuts 快捷键 (S6: JSON map of rebound global commands) ──
-  static const shortcuts = SettingsKey<String>('an.shortcuts', ''); // {"commandId":"cmd+keyB"}
+  static const shortcuts = SettingsKey<String>(
+    'an.shortcuts',
+    '',
+  ); // {"commandId":"cmd+keyB"}
 
   /// Every declared single key (the resetAll walk + the gate's denominator). 全部声明单键。
   static const List<SettingsKey<dynamic>> all = [
-    sideCollapsed, sideWidth, rightWidth, ocean, settingsPanel,
-    theme, locale, windowZoom, windowRemember, windowBounds, launchAtStartup, updateCheck,
-    fontUi, fontContent, fontCode,
-    notifyLevel, notifyOs, notifyToast, capsuleFailures, capsuleApprovals, capsuleAttention,
-    chatSendKey, chatAutoStage, chatShowArchived, chatShowGroupCount, chatShowTime,
+    sideCollapsed,
+    sideWidth,
+    rightWidth,
+    ocean,
+    settingsPanel,
+    theme,
+    locale,
+    windowZoom,
+    windowRemember,
+    windowBounds,
+    launchAtStartup,
+    updateCheck,
+    fontUi,
+    fontContent,
+    fontCode,
+    notifyLevel,
+    notifyOs,
+    notifyToast,
+    capsuleFailures,
+    capsuleApprovals,
+    capsuleAttention,
+    chatSendKey,
+    chatAutoStage,
+    chatShowArchived,
+    chatShowGroupCount,
+    chatShowTime,
     shortcuts,
   ];
 
@@ -200,4 +279,6 @@ abstract final class SettingsKeys {
 
 /// The DI seam. Defaults to in-memory (tests / gallery); `main` overrides with the loaded live
 /// instance. 注入缝:默认内存(测试/gallery);main 用已载实例 override。
-final settingsPrefsProvider = Provider<SettingsPrefs>((ref) => SettingsPrefs.inMemory());
+final settingsPrefsProvider = Provider<SettingsPrefs>(
+  (ref) => SettingsPrefs.inMemory(),
+);

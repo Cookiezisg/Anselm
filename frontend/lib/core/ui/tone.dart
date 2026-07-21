@@ -9,19 +9,19 @@ import '../model/status_state.dart';
 extension AnToneColors on AnTone {
   /// Foreground / solid colour. 前景/实色。
   Color fg(AnColors c) => switch (this) {
-        AnTone.ok => c.ok,
-        AnTone.warn => c.warn,
-        AnTone.danger => c.danger,
-        AnTone.accent => c.accent,
-        AnTone.none => c.inkMuted,
-      };
+    AnTone.ok => c.ok,
+    AnTone.warn => c.warn,
+    AnTone.danger => c.danger,
+    AnTone.accent => c.accent,
+    AnTone.none => c.inkMuted,
+  };
 
   /// Soft tinted background. 柔色底。
   Color softBg(AnColors c) => switch (this) {
-        AnTone.ok => c.okSoft,
-        AnTone.warn => c.warnSoft,
-        AnTone.danger => c.dangerSoft,
-        AnTone.accent => c.accentSoft,
-        AnTone.none => c.surfaceHover,
-      };
+    AnTone.ok => c.okSoft,
+    AnTone.warn => c.warnSoft,
+    AnTone.danger => c.dangerSoft,
+    AnTone.accent => c.accentSoft,
+    AnTone.none => c.surfaceHover,
+  };
 }

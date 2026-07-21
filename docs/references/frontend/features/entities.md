@@ -48,7 +48,7 @@ audience: [human, ai]
 
 ## 状态
 
-✅ **全落**:STEP 0(契约 DTO)→ 1(数据缝 + fixtures)→ 2(列表 state + rail VM)→ 3(rail UI)→ 4(详情海洋)→ 5(执行 + run 终端)→ 6(go_router 路由化)+ 5.5(壳 chrome:左岛收起 + 浮层头面包屑 + 红绿灯对齐)。`make fe-verify` 全绿。
+✅ **全落**:STEP 0(契约 DTO)→ 1(数据缝 + fixtures)→ 2(列表 state + rail VM)→ 3(rail UI)→ 4(详情海洋)→ 5(执行 + run 终端)→ 6(go_router 路由化)+ 5.5(壳 chrome:左岛收起 + 浮层头面包屑 + 红绿灯对齐)。`make -C frontend verify` 全绿。
 
 **最近迭代**:实体页逐实体雕琢([WRK-054](../../../working/frontend/entity-pages.md)/[WRK-055](../../../working/frontend/workflow-page.md))——function F1–F2(meta 就地编辑 + 版本 tab 定式)已落(**变换盒 hero 试后回退**:function/handler 概览回朴素 KV 文档 + 输入/输出卡,`AnTransformBox`/`AnReadinessPipeline` 已删);**workflow W1–W2 已落**(`GraphModel`+`AnGraphCanvas` 图地基 → 概览编排图 hero + meta 编辑 + 图结构版本小签),W3 活运行/W4 驾驶舱/W5 编辑器在建。
 

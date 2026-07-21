@@ -13,42 +13,47 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _conv = 'conv_1';
 
-StreamEnvelope _sig(String toolCallId, Map<String, dynamic> content) => StreamEnvelope(
+StreamEnvelope _sig(String toolCallId, Map<String, dynamic> content) =>
+    StreamEnvelope(
       seq: 0,
       scope: const StreamScope(kind: 'conversation', id: _conv),
       id: toolCallId,
-      frame: FrameSignal(node: StreamNode(type: 'interaction', content: content)),
+      frame: FrameSignal(
+        node: StreamNode(type: 'interaction', content: content),
+      ),
     );
 
 StreamEnvelope _danger(String id) => _sig(id, {
-      'toolCallId': id,
-      'kind': 'danger',
-      'tool': 'Bash',
-      'conversationId': _conv,
-      'prompt': {
-        'summary': 'run it',
-        'args': {'command': 'rm -rf x'},
-      },
-    });
+  'toolCallId': id,
+  'kind': 'danger',
+  'tool': 'Bash',
+  'conversationId': _conv,
+  'prompt': {
+    'summary': 'run it',
+    'args': {'command': 'rm -rf x'},
+  },
+});
 
 StreamEnvelope _ask(String id, {List<String>? options}) => _sig(id, {
-      'toolCallId': id,
-      'kind': 'ask',
-      'tool': 'ask_user',
-      'conversationId': _conv,
-      'prompt': {'message': 'Which day?', 'options': ?options},
-    });
+  'toolCallId': id,
+  'kind': 'ask',
+  'tool': 'ask_user',
+  'conversationId': _conv,
+  'prompt': {'message': 'Which day?', 'options': ?options},
+});
 
 StreamEnvelope _resolved(String id) => _sig(id, {
-      'toolCallId': id,
-      'kind': '',
-      'tool': '',
-      'conversationId': _conv,
-      'resolved': true,
-    });
+  'toolCallId': id,
+  'kind': '',
+  'tool': '',
+  'conversationId': _conv,
+  'resolved': true,
+});
 
 ProviderContainer _container(FixtureChatRepository repo) {
-  final c = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(repo)]);
+  final c = ProviderContainer(
+    overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+  );
   // Keep the autoDispose family alive (mirrors a mounted transcript). 保活(镜像挂载的 transcript)。
   c.listen(pendingInteractionsProvider(_conv), (_, _) {});
   addTearDown(c.dispose);
@@ -104,8 +109,12 @@ void main() {
     final repo = FixtureChatRepository()
       ..interactions[_conv] = [
         const Interaction(
-            toolCallId: 'blk_seed', kind: InteractionKind.danger, tool: 'delete_agent', resolved: false,
-            summary: 'delete it'),
+          toolCallId: 'blk_seed',
+          kind: InteractionKind.danger,
+          tool: 'delete_agent',
+          resolved: false,
+          summary: 'delete it',
+        ),
       ];
     final c = _container(repo);
     await _tick();
@@ -114,51 +123,78 @@ void main() {
     expect(rec.interaction.tool, 'delete_agent');
   });
 
-  test('a live signal wins over a stale snapshot row for the same toolCallId', () async {
-    // Snapshot says awaiting; but a resolved signal already landed → the live truth (removed) holds.
-    final repo = FixtureChatRepository()
-      ..interactions[_conv] = [
+  test(
+    'a live signal wins over a stale snapshot row for the same toolCallId',
+    () async {
+      // Snapshot says awaiting; but a resolved signal already landed → the live truth (removed) holds.
+      final repo = FixtureChatRepository()
+        ..interactions[_conv] = [
+          const Interaction(
+            toolCallId: 'blk_x',
+            kind: InteractionKind.danger,
+            tool: 'Bash',
+            resolved: false,
+          ),
+        ];
+      final c = _container(repo);
+      // Force the signal to land BEFORE the snapshot merge by emitting immediately, then tick once.
+      repo.emitFrame(_conv, _danger('blk_x'));
+      await _tick();
+      repo.emitFrame(_conv, _resolved('blk_x'));
+      await _tick();
+      expect(
+        _map(c).containsKey('blk_x'),
+        isFalse,
+        reason: 'resolved live signal wins over snapshot',
+      );
+    },
+  );
+
+  test(
+    'a mid-session resync RE-FETCHES interactions — a gate raised in the disconnect appears (M6)',
+    () async {
+      final repo = FixtureChatRepository();
+      final c = _container(repo);
+      await _tick();
+      expect(_map(c), isEmpty); // cold build sees no gate
+      // A danger gate was raised while disconnected — its ephemeral signal was lost, but GET interactions
+      // now lists it. A resync must re-fetch it (else the gate never shows + the turn stays blocked).
+      repo.interactions[_conv] = [
         const Interaction(
-            toolCallId: 'blk_x', kind: InteractionKind.danger, tool: 'Bash', resolved: false),
+          toolCallId: 'blk_late',
+          kind: InteractionKind.danger,
+          tool: 'Bash',
+          resolved: false,
+        ),
       ];
-    final c = _container(repo);
-    // Force the signal to land BEFORE the snapshot merge by emitting immediately, then tick once.
-    repo.emitFrame(_conv, _danger('blk_x'));
-    await _tick();
-    repo.emitFrame(_conv, _resolved('blk_x'));
-    await _tick();
-    expect(_map(c).containsKey('blk_x'), isFalse, reason: 'resolved live signal wins over snapshot');
-  });
+      repo.emitResync();
+      await _tick();
+      expect(_map(c)['blk_late']?.isAwaiting, isTrue);
+    },
+  );
 
-  test('a mid-session resync RE-FETCHES interactions — a gate raised in the disconnect appears (M6)', () async {
-    final repo = FixtureChatRepository();
-    final c = _container(repo);
-    await _tick();
-    expect(_map(c), isEmpty); // cold build sees no gate
-    // A danger gate was raised while disconnected — its ephemeral signal was lost, but GET interactions
-    // now lists it. A resync must re-fetch it (else the gate never shows + the turn stays blocked).
-    repo.interactions[_conv] = [
-      const Interaction(toolCallId: 'blk_late', kind: InteractionKind.danger, tool: 'Bash', resolved: false),
-    ];
-    repo.emitResync();
-    await _tick();
-    expect(_map(c)['blk_late']?.isAwaiting, isTrue);
-  });
-
-  test('a resync PRUNES a phantom awaiting gate the snapshot no longer lists (M6)', () async {
-    final repo = FixtureChatRepository()
-      ..interactions[_conv] = [
-        const Interaction(toolCallId: 'blk_ph', kind: InteractionKind.danger, tool: 'delete_agent', resolved: false),
-      ];
-    final c = _container(repo);
-    await _tick();
-    expect(_map(c)['blk_ph']?.isAwaiting, isTrue);
-    // Resolved elsewhere during the disconnect → gone from the authoritative snapshot. A resync prunes it.
-    repo.interactions[_conv] = [];
-    repo.emitResync();
-    await _tick();
-    expect(_map(c).containsKey('blk_ph'), isFalse);
-  });
+  test(
+    'a resync PRUNES a phantom awaiting gate the snapshot no longer lists (M6)',
+    () async {
+      final repo = FixtureChatRepository()
+        ..interactions[_conv] = [
+          const Interaction(
+            toolCallId: 'blk_ph',
+            kind: InteractionKind.danger,
+            tool: 'delete_agent',
+            resolved: false,
+          ),
+        ];
+      final c = _container(repo);
+      await _tick();
+      expect(_map(c)['blk_ph']?.isAwaiting, isTrue);
+      // Resolved elsewhere during the disconnect → gone from the authoritative snapshot. A resync prunes it.
+      repo.interactions[_conv] = [];
+      repo.emitResync();
+      await _tick();
+      expect(_map(c).containsKey('blk_ph'), isFalse);
+    },
+  );
 
   test('resolve() freezes optimistically + records the POST action', () async {
     final repo = FixtureChatRepository();
@@ -166,7 +202,9 @@ void main() {
     await _tick();
     repo.emitFrame(_conv, _danger('blk_1'));
     await _tick();
-    await c.read(pendingInteractionsProvider(_conv).notifier).resolve('blk_1', InteractionAction.approve);
+    await c
+        .read(pendingInteractionsProvider(_conv).notifier)
+        .resolve('blk_1', InteractionAction.approve);
     final rec = _map(c)['blk_1']!;
     expect(rec.isAwaiting, isFalse);
     expect(rec.decided, InteractionAction.approve);
@@ -187,39 +225,56 @@ void main() {
     expect(_map(c)['blk_2']!.decided, InteractionAction.accept);
   });
 
-  test('POST failure restores the awaiting record (fail-safe: nothing executed)', () async {
-    final repo = FixtureChatRepository()..failNextResolve = true;
-    final c = _container(repo);
-    await _tick();
-    repo.emitFrame(_conv, _danger('blk_1'));
-    await _tick();
-    await expectLater(
-        c.read(pendingInteractionsProvider(_conv).notifier).resolve('blk_1', InteractionAction.approve),
-        throwsA(isA<StateError>()));
-    final rec = _map(c)['blk_1']!;
-    expect(rec.isAwaiting, isTrue, reason: 'restored so the user can retry');
-    expect(rec.decided, isNull);
-  });
+  test(
+    'POST failure restores the awaiting record (fail-safe: nothing executed)',
+    () async {
+      final repo = FixtureChatRepository()..failNextResolve = true;
+      final c = _container(repo);
+      await _tick();
+      repo.emitFrame(_conv, _danger('blk_1'));
+      await _tick();
+      await expectLater(
+        c
+            .read(pendingInteractionsProvider(_conv).notifier)
+            .resolve('blk_1', InteractionAction.approve),
+        throwsA(isA<StateError>()),
+      );
+      final rec = _map(c)['blk_1']!;
+      expect(rec.isAwaiting, isTrue, reason: 'restored so the user can retry');
+      expect(rec.decided, isNull);
+    },
+  );
 
-  test('a resolution signal does NOT erase a locally-decided provenance章', () async {
-    final repo = FixtureChatRepository();
-    final c = _container(repo);
-    await _tick();
-    repo.emitFrame(_conv, _danger('blk_1'));
-    await _tick();
-    await c.read(pendingInteractionsProvider(_conv).notifier).resolve('blk_1', InteractionAction.approve);
-    // Our own POST echoes back a resolved signal — the frozen章 must survive it. 自身回声不得抹章。
-    repo.emitFrame(_conv, _resolved('blk_1'));
-    await _tick();
-    final rec = _map(c)['blk_1']!;
-    expect(rec.decided, InteractionAction.approve, reason: 'the approve章 is session provenance');
-  });
+  test(
+    'a resolution signal does NOT erase a locally-decided provenance章',
+    () async {
+      final repo = FixtureChatRepository();
+      final c = _container(repo);
+      await _tick();
+      repo.emitFrame(_conv, _danger('blk_1'));
+      await _tick();
+      await c
+          .read(pendingInteractionsProvider(_conv).notifier)
+          .resolve('blk_1', InteractionAction.approve);
+      // Our own POST echoes back a resolved signal — the frozen章 must survive it. 自身回声不得抹章。
+      repo.emitFrame(_conv, _resolved('blk_1'));
+      await _tick();
+      final rec = _map(c)['blk_1']!;
+      expect(
+        rec.decided,
+        InteractionAction.approve,
+        reason: 'the approve章 is session provenance',
+      );
+    },
+  );
 
   test('resolve() on an unknown / already-decided record is a no-op', () async {
     final repo = FixtureChatRepository();
     final c = _container(repo);
     await _tick();
-    await c.read(pendingInteractionsProvider(_conv).notifier).resolve('nope', InteractionAction.deny);
+    await c
+        .read(pendingInteractionsProvider(_conv).notifier)
+        .resolve('nope', InteractionAction.deny);
     expect(repo.resolvedInteractions, isEmpty);
   });
 }

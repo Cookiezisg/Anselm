@@ -11,20 +11,31 @@ import '../data/settings_repository.dart';
 /// 单行(一比特翻转不整表重拉)。
 class MemoriesController extends AsyncNotifier<List<Memory>> {
   @override
-  Future<List<Memory>> build() => ref.watch(settingsRepositoryProvider).listMemories();
+  Future<List<Memory>> build() =>
+      ref.watch(settingsRepositoryProvider).listMemories();
 
-  Future<Memory> put(String name,
-      {required String description, required String content, bool pinned = false}) async {
+  Future<Memory> put(
+    String name, {
+    required String description,
+    required String content,
+    bool pinned = false,
+  }) async {
     final row = await ref
         .read(settingsRepositoryProvider)
-        .putMemory(name, description: description, content: content, pinned: pinned);
+        .putMemory(
+          name,
+          description: description,
+          content: content,
+          pinned: pinned,
+        );
     await _refresh();
     return row;
   }
 
   Future<void> setPinned(String name, bool pinned) async {
-    final row =
-        await ref.read(settingsRepositoryProvider).pinMemory(name, pinned: pinned);
+    final row = await ref
+        .read(settingsRepositoryProvider)
+        .pinMemory(name, pinned: pinned);
     final cur = state.value;
     if (cur != null) {
       state = AsyncData([for (final m in cur) m.name == name ? row : m]);
@@ -41,9 +52,13 @@ class MemoriesController extends AsyncNotifier<List<Memory>> {
   Future<void> refresh() => _refresh();
 
   Future<void> _refresh() async {
-    state = AsyncData(await ref.read(settingsRepositoryProvider).listMemories());
+    state = AsyncData(
+      await ref.read(settingsRepositoryProvider).listMemories(),
+    );
   }
 }
 
 final memoriesProvider =
-    AsyncNotifierProvider<MemoriesController, List<Memory>>(MemoriesController.new);
+    AsyncNotifierProvider<MemoriesController, List<Memory>>(
+      MemoriesController.new,
+    );

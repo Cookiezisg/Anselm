@@ -65,11 +65,15 @@ class EntityMentionSource implements MentionSource {
             // A doc→doc wikilink is the Notion-core case — resolve `doc_` against the documents seam
             // (the app layer may import both features). doc→doc wikilink 是 Notion 核心场景,doc_ 走文档缝。
             if (id.startsWith('doc_')) {
-              final doc = await _ref.read(documentsRepositoryProvider).getDocument(id);
+              final doc = await _ref
+                  .read(documentsRepositoryProvider)
+                  .getDocument(id);
               return MapEntry(id, doc.name);
             }
             final kind = _prefixKind[id.split('_').first];
-            if (kind == null) return null; // unknown prefix → chip falls back to the id. 未知前缀→回落 id。
+            if (kind == null) {
+              return null; // unknown prefix → chip falls back to the id. 未知前缀→回落 id。
+            }
             final row = await repo.getEntityRow(kind, id);
             return MapEntry(id, row.name);
           } catch (_) {
@@ -77,7 +81,10 @@ class EntityMentionSource implements MentionSource {
           }
         }(),
     ]);
-    return {for (final e in entries) if (e != null) e.key: e.value};
+    return {
+      for (final e in entries)
+        if (e != null) e.key: e.value,
+    };
   }
 }
 

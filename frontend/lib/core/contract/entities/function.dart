@@ -19,7 +19,8 @@ abstract class FunctionEntity with _$FunctionEntity {
     required DateTime updatedAt,
     FunctionVersion? activeVersion,
   }) = _FunctionEntity;
-  factory FunctionEntity.fromJson(Map<String, dynamic> json) => _$FunctionEntityFromJson(json);
+  factory FunctionEntity.fromJson(Map<String, dynamic> json) =>
+      _$FunctionEntityFromJson(json);
 }
 
 /// Function version (append-only, immutable). `envStatus` ∈ pending/syncing/ready/failed (open String).
@@ -44,7 +45,8 @@ abstract class FunctionVersion with _$FunctionVersion {
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _FunctionVersion;
-  factory FunctionVersion.fromJson(Map<String, dynamic> json) => _$FunctionVersionFromJson(json);
+  factory FunctionVersion.fromJson(Map<String, dynamic> json) =>
+      _$FunctionVersionFromJson(json);
 }
 
 /// One function execution log row (the 日志 tab; `logs` present only on the single-GET, not the list).
@@ -72,7 +74,8 @@ abstract class FunctionExecution with _$FunctionExecution {
     int? flowrunIteration,
     required DateTime createdAt,
   }) = _FunctionExecution;
-  factory FunctionExecution.fromJson(Map<String, dynamic> json) => _$FunctionExecutionFromJson(json);
+  factory FunctionExecution.fromJson(Map<String, dynamic> json) =>
+      _$FunctionExecutionFromJson(json);
 }
 
 /// The BARE synchronous `:run` result (NOT wrapped in an envelope `data` object — the run handler
@@ -86,5 +89,6 @@ abstract class FunctionRunResult with _$FunctionRunResult {
     @Default(0) int elapsedMs,
     String? logs,
   }) = _FunctionRunResult;
-  factory FunctionRunResult.fromJson(Map<String, dynamic> json) => _$FunctionRunResultFromJson(json);
+  factory FunctionRunResult.fromJson(Map<String, dynamic> json) =>
+      _$FunctionRunResultFromJson(json);
 }

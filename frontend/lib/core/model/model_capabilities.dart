@@ -11,8 +11,13 @@ import '../runtime.dart';
 /// (key,model) 能力目录——上移 core(S-15):chat 模型选择器与 settings 模型密钥面板都消费,而 features
 /// 互不依赖。默认会话期取一次;key 增/旋/测/删流程 invalidate 它,选择器免重启刷新。测试/demo 直接
 /// override 本 provider。
-final modelCapabilitiesProvider = FutureProvider<List<ModelCapability>>((ref) async {
+final modelCapabilitiesProvider = FutureProvider<List<ModelCapability>>((
+  ref,
+) async {
   final api = ref.watch(apiClientProvider);
-  final page = await api.getPage('/api/v1/model-capabilities', ModelCapability.fromJson);
+  final page = await api.getPage(
+    '/api/v1/model-capabilities',
+    ModelCapability.fromJson,
+  );
   return page.items;
 });

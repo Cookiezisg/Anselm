@@ -7,29 +7,33 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   // A controlled host: a StatefulBuilder owns the list so onChanged actually mutates + rebuilds.
-  Future<List<AnTag> Function()> pumpEditable(WidgetTester tester, List<AnTag> initial, {bool single = false}) async {
+  Future<List<AnTag> Function()> pumpEditable(
+    WidgetTester tester,
+    List<AnTag> initial, {
+    bool single = false,
+  }) async {
     var tags = initial;
     Widget build() => TranslationProvider(
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: AnTheme.light(),
-            home: Scaffold(
-              body: Center(
-                child: SizedBox(
-                  width: 340,
-                  child: StatefulBuilder(
-                    builder: (ctx, ss) => AnTags(
-                      tags: tags,
-                      single: single,
-                      placeholder: 'Add',
-                      onChanged: (t) => ss(() => tags = t),
-                    ),
-                  ),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 340,
+              child: StatefulBuilder(
+                builder: (ctx, ss) => AnTags(
+                  tags: tags,
+                  single: single,
+                  placeholder: 'Add',
+                  onChanged: (t) => ss(() => tags = t),
                 ),
               ),
             ),
           ),
-        );
+        ),
+      ),
+    );
     await tester.pumpWidget(build());
     return () => tags;
   }
@@ -43,7 +47,9 @@ void main() {
     expect(find.text('workflow'), findsOneWidget);
   });
 
-  testWidgets('duplicate (case-insensitive) is rejected — not added', (tester) async {
+  testWidgets('duplicate (case-insensitive) is rejected — not added', (
+    tester,
+  ) async {
     final read = await pumpEditable(tester, [const AnTag('agent')]);
     await tester.enterText(find.byType(TextField), 'Agent');
     await tester.testTextInput.receiveAction(TextInputAction.done);
@@ -52,25 +58,40 @@ void main() {
   });
 
   testWidgets('single mode replaces the one value', (tester) async {
-    final read = await pumpEditable(tester, [const AnTag('medium')], single: true);
+    final read = await pumpEditable(tester, [
+      const AnTag('medium'),
+    ], single: true);
     await tester.enterText(find.byType(TextField), 'high');
     await tester.testTextInput.receiveAction(TextInputAction.done);
     await tester.pump();
     expect(read().map((e) => e.label), ['high']);
   });
 
-  testWidgets('remove × deletes the tag and is a labelled button', (tester) async {
+  testWidgets('remove × deletes the tag and is a labelled button', (
+    tester,
+  ) async {
     final handle = tester.ensureSemantics();
-    final read = await pumpEditable(tester, [const AnTag('agent'), const AnTag('workflow')]);
-    expect(find.bySemanticsLabel('Remove agent'), findsOneWidget); // per-× button label
+    final read = await pumpEditable(tester, [
+      const AnTag('agent'),
+      const AnTag('workflow'),
+    ]);
+    expect(
+      find.bySemanticsLabel('Remove agent'),
+      findsOneWidget,
+    ); // per-× button label
     await tester.tap(find.bySemanticsLabel('Remove agent'));
     await tester.pump();
     expect(read().map((e) => e.label), ['workflow']);
     handle.dispose();
   });
 
-  testWidgets('Backspace on an empty field removes the last tag', (tester) async {
-    final read = await pumpEditable(tester, [const AnTag('agent'), const AnTag('workflow')]);
+  testWidgets('Backspace on an empty field removes the last tag', (
+    tester,
+  ) async {
+    final read = await pumpEditable(tester, [
+      const AnTag('agent'),
+      const AnTag('workflow'),
+    ]);
     await tester.tap(find.byType(TextField)); // focus the empty add field
     await tester.pump();
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
@@ -80,18 +101,23 @@ void main() {
 
   testWidgets('readOnly: no add field, no remove ×', (tester) async {
     final handle = tester.ensureSemantics();
-    await tester.pumpWidget(TranslationProvider(
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AnTheme.light(),
-        home: const Scaffold(
-          body: SizedBox(
-            width: 340,
-            child: AnTags(readOnly: true, tags: [AnTag('passed', tone: AnTone.ok, health: AnStatus.done)]),
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: const Scaffold(
+            body: SizedBox(
+              width: 340,
+              child: AnTags(
+                readOnly: true,
+                tags: [AnTag('passed', tone: AnTone.ok, health: AnStatus.done)],
+              ),
+            ),
           ),
         ),
       ),
-    ));
+    );
     expect(find.text('passed'), findsOneWidget);
     expect(find.byType(TextField), findsNothing); // no inline add
     expect(find.bySemanticsLabel('Remove passed'), findsNothing); // no ×
@@ -100,40 +126,52 @@ void main() {
 
   // ── host-controlled add field (showAddField / onAddDismissed) — the KV tags row's contract ──
   group('host-controlled add field', () {
-    Future<({List<AnTag> Function() tags, bool Function() dismissed, void Function(bool) setShow})> pumpHost(
-        WidgetTester tester, List<AnTag> initial, {bool show = false}) async {
+    Future<
+      ({
+        List<AnTag> Function() tags,
+        bool Function() dismissed,
+        void Function(bool) setShow,
+      })
+    >
+    pumpHost(
+      WidgetTester tester,
+      List<AnTag> initial, {
+      bool show = false,
+    }) async {
       var tags = initial;
       var dismissed = false;
       late StateSetter setState;
       var showAdd = show;
-      await tester.pumpWidget(TranslationProvider(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: Center(
-              child: SizedBox(
-                width: 340,
-                child: StatefulBuilder(
-                  builder: (ctx, ss) {
-                    setState = ss;
-                    return AnTags(
-                      tags: tags,
-                      placeholder: 'Add',
-                      showAddField: showAdd,
-                      onChanged: (t) => ss(() => tags = t),
-                      onAddDismissed: () => ss(() {
-                        dismissed = true;
-                        showAdd = false;
-                      }),
-                    );
-                  },
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 340,
+                  child: StatefulBuilder(
+                    builder: (ctx, ss) {
+                      setState = ss;
+                      return AnTags(
+                        tags: tags,
+                        placeholder: 'Add',
+                        showAddField: showAdd,
+                        onChanged: (t) => ss(() => tags = t),
+                        onAddDismissed: () => ss(() {
+                          dismissed = true;
+                          showAdd = false;
+                        }),
+                      );
+                    },
+                  ),
                 ),
               ),
             ),
           ),
         ),
-      ));
+      );
       return (
         tags: () => tags,
         dismissed: () => dismissed,
@@ -143,11 +181,16 @@ void main() {
       );
     }
 
-    testWidgets('showAddField:false hides the field but keeps the ×', (tester) async {
+    testWidgets('showAddField:false hides the field but keeps the ×', (
+      tester,
+    ) async {
       final handle = tester.ensureSemantics();
       final h = await pumpHost(tester, [const AnTag('agent')]);
       expect(find.byType(TextField), findsNothing);
-      expect(find.bySemanticsLabel('Remove agent'), findsOneWidget); // still editable
+      expect(
+        find.bySemanticsLabel('Remove agent'),
+        findsOneWidget,
+      ); // still editable
       expect(h.dismissed(), isFalse);
       handle.dispose();
     });
@@ -161,7 +204,9 @@ void main() {
       expect(tester.widget<TextField>(field).focusNode?.hasFocus, isTrue);
     });
 
-    testWidgets('Enter chains: adds, keeps the field + focus, no dismissal', (tester) async {
+    testWidgets('Enter chains: adds, keeps the field + focus, no dismissal', (
+      tester,
+    ) async {
       final h = await pumpHost(tester, [const AnTag('agent')], show: true);
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'net');
@@ -169,7 +214,10 @@ void main() {
       await tester.pumpAndSettle();
       expect(h.tags().map((t) => t.label), contains('net'));
       expect(find.byType(TextField), findsOneWidget);
-      expect(tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus, isTrue);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).focusNode?.hasFocus,
+        isTrue,
+      );
       expect(h.dismissed(), isFalse);
     });
 
@@ -181,21 +229,30 @@ void main() {
       await tester.pumpAndSettle();
       expect(h.dismissed(), isTrue);
       expect(find.byType(TextField), findsNothing);
-      expect(h.tags().map((t) => t.label), isNot(contains('draft'))); // draft discarded
+      expect(
+        h.tags().map((t) => t.label),
+        isNot(contains('draft')),
+      ); // draft discarded
       // re-open: no stale draft resurrects 重开无陈旧草稿
       h.setShow(true);
       await tester.pumpAndSettle();
-      expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, isEmpty);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller?.text,
+        isEmpty,
+      );
     });
 
-    testWidgets('blur with text commits it, then dismisses; blur empty just dismisses', (tester) async {
-      final h = await pumpHost(tester, [const AnTag('agent')], show: true);
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'kept');
-      FocusManager.instance.primaryFocus?.unfocus(); // focus leaves the field
-      await tester.pumpAndSettle();
-      expect(h.tags().map((t) => t.label), contains('kept')); // blur-commit
-      expect(h.dismissed(), isTrue);
-    });
+    testWidgets(
+      'blur with text commits it, then dismisses; blur empty just dismisses',
+      (tester) async {
+        final h = await pumpHost(tester, [const AnTag('agent')], show: true);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'kept');
+        FocusManager.instance.primaryFocus?.unfocus(); // focus leaves the field
+        await tester.pumpAndSettle();
+        expect(h.tags().map((t) => t.label), contains('kept')); // blur-commit
+        expect(h.dismissed(), isTrue);
+      },
+    );
   });
 }

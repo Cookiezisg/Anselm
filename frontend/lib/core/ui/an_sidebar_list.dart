@@ -119,7 +119,8 @@ class AnSidebarList extends StatefulWidget {
   /// and the [AnRowDropZone] ("below an open branch" arrives normalized to "above its first child"). The
   /// host validates + performs the actual move. null → rows aren't draggable (zero overhead).
   /// 非空即启用树内拖拽。落下时携(拖行 id, 目标行 id, 落区)——「开枝之下」已归一成「首子之上」;真移动归宿主。
-  final void Function(String draggedId, String targetId, AnRowDropZone zone)? onRowDropped;
+  final void Function(String draggedId, String targetId, AnRowDropZone zone)?
+  onRowDropped;
 
   /// Which rows participate (as drag SOURCE and drop TARGET). null → all rows, when drag is enabled.
   /// 哪些行参与(既是拖源也是落点);null=全部(启用时)。
@@ -135,17 +136,20 @@ const int _maxSticky = 4;
 
 class _AnSidebarListState extends State<AnSidebarList> {
   final TextEditingController _filter = TextEditingController();
-  final Set<String> _collapsed = {}; // collapsed fold keys (default: all open) 折叠键(默认全开)
+  final Set<String> _collapsed =
+      {}; // collapsed fold keys (default: all open) 折叠键(默认全开)
   final ScrollController _scroll = ScrollController();
   String _query = '';
 
   // ── tree drag-reorder state 树内拖拽态 ──
   String? _dragId; // the row being dragged 拖动中的行
-  Set<String> _dragSubtree = const {}; // its descendant ids (cycle guard) 其子孙 id(防环)
+  Set<String> _dragSubtree =
+      const {}; // its descendant ids (cycle guard) 其子孙 id(防环)
   String? _dropRowId; // the hovered valid target 悬停中的合法落点行
   AnRowDropZone? _dropZone;
   Timer? _hoverExpand; // dwell-to-expand a collapsed branch 悬停片刻自动展开折叠枝
-  EdgeDraggingAutoScroller? _autoScroller; // edge auto-scroll while dragging 拖拽近缘自动滚
+  EdgeDraggingAutoScroller?
+  _autoScroller; // edge auto-scroll while dragging 拖拽近缘自动滚
 
   // The flattened list is HELD (not recomputed inline) so its indices stay in lock-step with the
   // SliverAnimatedList's: a user toggle animates a precise sub-range; a model/query change rebuilds it
@@ -162,9 +166,14 @@ class _AnSidebarListState extends State<AnSidebarList> {
   // depth 界定不了分支(段头的行与其同深——旧的逐帧 depth 扫描把段内每行都当推头者,头每滚一行翻滚一次)。
   Map<String, ({int start, int end})> _branchSpan = const {};
 
-  Map<String, ({int start, int end})> _computeBranchSpans(List<SidebarFlatNode> flat) {
+  Map<String, ({int start, int end})> _computeBranchSpans(
+    List<SidebarFlatNode> flat,
+  ) {
     final spans = <String, ({int start, int end})>{};
-    final stack = <(SidebarFlatNode, int)>[]; // open branch heads + their index 开着的分支头及其 index
+    final stack =
+        <
+          (SidebarFlatNode, int)
+        >[]; // open branch heads + their index 开着的分支头及其 index
     for (var i = 0; i < flat.length; i++) {
       final anc = flat[i].ancestors;
       while (stack.isNotEmpty && !anc.contains(stack.last.$1)) {
@@ -174,7 +183,10 @@ class _AnSidebarListState extends State<AnSidebarList> {
       if (flat[i].isBranch) stack.add((flat[i], i));
     }
     for (final (h, at) in stack) {
-      spans[h.key] = (start: at, end: flat.length); // runs to the end — never pushed 到底,永不被推
+      spans[h.key] = (
+        start: at,
+        end: flat.length,
+      ); // runs to the end — never pushed 到底,永不被推
     }
     return spans;
   }
@@ -204,7 +216,8 @@ class _AnSidebarListState extends State<AnSidebarList> {
   void _rebuildFlat() {
     _flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
     _branchSpan = _computeBranchSpans(_flat);
-    _listKey = GlobalKey(); // a new key drops any stale animated-list index state → fresh initialItemCount
+    _listKey =
+        GlobalKey(); // a new key drops any stale animated-list index state → fresh initialItemCount
     // A mid-drag model rebuild: the hover indicator is stale (rows re-keyed) and the dragged row's subtree
     // may have changed — drop the indicator, recompute the cycle guard against the NEW model. The drag
     // itself survives (the SDK keeps the recognizer alive across the source row's unmount).
@@ -242,18 +255,30 @@ class _AnSidebarListState extends State<AnSidebarList> {
     // (depth 无法界定——段头的行与其同深)。
     if (!_collapsed.contains(key)) {
       _collapsed.add(key);
-      final newFlat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
+      final newFlat = flattenSidebar(
+        widget.model,
+        collapsed: _collapsed,
+        query: _query,
+      );
       final removedCount = _flat.length - newFlat.length;
       final removed = _flat.sublist(headIdx + 1, headIdx + 1 + removedCount);
       _flat = newFlat;
       _branchSpan = _computeBranchSpans(_flat);
       for (var i = headIdx + removedCount; i > headIdx; i--) {
         final node = removed[i - headIdx - 1];
-        state?.removeItem(i, (context, animation) => _animatedRow(context, node, animation), duration: dur);
+        state?.removeItem(
+          i,
+          (context, animation) => _animatedRow(context, node, animation),
+          duration: dur,
+        );
       }
     } else {
       _collapsed.remove(key);
-      final newFlat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
+      final newFlat = flattenSidebar(
+        widget.model,
+        collapsed: _collapsed,
+        query: _query,
+      );
       final insertCount = newFlat.length - _flat.length;
       _flat = newFlat;
       _branchSpan = _computeBranchSpans(_flat);
@@ -264,7 +289,9 @@ class _AnSidebarListState extends State<AnSidebarList> {
     setState(() {}); // refresh the toggled head's chevron
   }
 
-  bool _open(String key) => _query.trim().isNotEmpty || !_collapsed.contains(key); // a query force-opens
+  bool _open(String key) =>
+      _query.trim().isNotEmpty ||
+      !_collapsed.contains(key); // a query force-opens
 
   @override
   Widget build(BuildContext context) {
@@ -332,7 +359,10 @@ class _AnSidebarListState extends State<AnSidebarList> {
     // and popping back as a sticky — the VS Code / iOS-sections behaviour.
     // 链=顶行祖先 + 顶行自身(若是头):头一到顶即钉住(内容从其下钻过),而非滚出一行再跳回。
     final node = flat[top];
-    final chain = [...node.ancestors, if (node.isBranch) node].take(_maxSticky).toList();
+    final chain = [
+      ...node.ancestors,
+      if (node.isBranch) node,
+    ].take(_maxSticky).toList();
     // A head needs a sticky COPY only once its OWN row has scrolled past its pin slot — before that
     // the in-list row IS at (or below) the slot, and a copy would double it (semantics + paint).
     // Because (index − slot) is non-decreasing down the chain, the skipped layers are always a
@@ -342,7 +372,9 @@ class _AnSidebarListState extends State<AnSidebarList> {
     final sticky = <SidebarFlatNode>[];
     for (var i = 0; i < chain.length; i++) {
       final span = _branchSpan[chain[i].key];
-      if (span == null || span.start * AnSize.row - off >= i * AnSize.row) break;
+      if (span == null || span.start * AnSize.row - off >= i * AnSize.row) {
+        break;
+      }
       sticky.add(chain[i]);
     }
     if (sticky.isEmpty) return const SizedBox.shrink();
@@ -355,7 +387,9 @@ class _AnSidebarListState extends State<AnSidebarList> {
     final pushUps = List<double>.filled(sticky.length, 0.0);
     for (var i = 0; i < sticky.length; i++) {
       final end = _branchSpan[sticky[i].key]?.end ?? flat.length;
-      if (end >= flat.length) continue; // branch runs to the list end — never pushed 到底不推
+      if (end >= flat.length) {
+        continue; // branch runs to the list end — never pushed 到底不推
+      }
       final slot = (i + 1) * AnSize.row;
       final rowTop = end * AnSize.row - off;
       if (rowTop < slot) pushUps[i] = rowTop - slot;
@@ -390,31 +424,46 @@ class _AnSidebarListState extends State<AnSidebarList> {
   }
 
   // New: rides AnRow (lead = +, label) so it shares the entity rows' geometry / hover / radius. New 行复用 AnRow。
-  Widget _newRow() => AnRow(icon: AnIcons.plus, label: widget.model.newLabel, onSelect: widget.onNew);
+  Widget _newRow() => AnRow(
+    icon: AnIcons.plus,
+    label: widget.model.newLabel,
+    onSelect: widget.onNew,
+  );
 
   // Filter: the shared [AnRailFilterField] (search glyph + seamless input + trailing sliders menu). The
   // local in-memory filter (_query force-opens branches + hides non-matches) AND the host's onFilterChanged
   // both fire. 过滤行=共享 AnRailFilterField;本地过滤 + 宿主回调双触发。
   Widget _filterRow(BuildContext context) => AnRailFilterField(
-        controller: _filter,
-        placeholder: widget.model.filterPlaceholder,
-        onChanged: (v) {
-          setState(() {
-            _query = v;
-            _rebuildFlat();
-          });
-          widget.onFilterChanged?.call(v);
-        },
-        onSubmitted: widget.onFilterSubmit,
-        menuEntries: widget.menuEntries,
-      );
+    controller: _filter,
+    placeholder: widget.model.filterPlaceholder,
+    onChanged: (v) {
+      setState(() {
+        _query = v;
+        _rebuildFlat();
+      });
+      widget.onFilterChanged?.call(v);
+    },
+    onSubmitted: widget.onFilterSubmit,
+    menuEntries: widget.menuEntries,
+  );
 
   // Wraps a row in the SliverAnimatedList's size tween so a collapse/expand slides the row's height (the
   // children slide up under their head; axisAlignment -1 anchors to the top). 折叠补间:行高滑动(-1 顶锚)。
-  Widget _animatedRow(BuildContext context, SidebarFlatNode n, Animation<double> animation) =>
-      SizeTransition(sizeFactor: animation, axisAlignment: -1, child: _flatRow(context, n));
+  Widget _animatedRow(
+    BuildContext context,
+    SidebarFlatNode n,
+    Animation<double> animation,
+  ) => SizeTransition(
+    sizeFactor: animation,
+    axisAlignment: -1,
+    child: _flatRow(context, n),
+  );
 
-  Widget _flatRow(BuildContext context, SidebarFlatNode n, {bool sticky = false}) {
+  Widget _flatRow(
+    BuildContext context,
+    SidebarFlatNode n, {
+    bool sticky = false,
+  }) {
     switch (n.kind) {
       case SidebarNodeKind.typeHead:
         return _typeHead(context, n, sticky: sticky);
@@ -428,7 +477,11 @@ class _AnSidebarListState extends State<AnSidebarList> {
   // A section head (icon + label + count) — the entities kind sections, chat pinned/recents. It's a
   // disclosure button: the whole head toggles (keyboard-operable, not a mouse-only lead chevron). Rides
   // AnRow; sticky → wrapped opaque. 段头(icon+label+count):整头折叠(键盘可达);搭 AnRow;sticky→opaque 包裹。
-  Widget _typeHead(BuildContext context, SidebarFlatNode n, {bool sticky = false}) {
+  Widget _typeHead(
+    BuildContext context,
+    SidebarFlatNode n, {
+    bool sticky = false,
+  }) {
     final t = n.type!;
     final open = _open(n.key);
     final row = AnRow(
@@ -447,7 +500,11 @@ class _AnSidebarListState extends State<AnSidebarList> {
   // A recursive entity row (leaf or branch). The edited row swaps to the rename primitive. Sticky (a
   // branch ancestor) → wrapped opaque. A drag-enabled row wraps in the Draggable + DragTarget pair.
   // 实体行(叶/树枝);编辑行换改名件;sticky(树枝祖先)→opaque;启用拖拽的行包 Draggable+DragTarget。
-  Widget _entityRow(BuildContext context, SidebarFlatNode n, {bool sticky = false}) {
+  Widget _entityRow(
+    BuildContext context,
+    SidebarFlatNode n, {
+    bool sticky = false,
+  }) {
     final r = n.row!;
     if (!sticky && r.id == widget.editingRowId) return _editingRow(context, n);
     final branch = r.hasChildren;
@@ -471,7 +528,9 @@ class _AnSidebarListState extends State<AnSidebarList> {
     // Rows inside the subtree being dragged ride along: dimmed + inert (they move as one unit with their
     // head — hover tints / row actions there would lie). 被拖子树内的行随行:变暗+惰性(与头一体,悬停/动作会撒谎)。
     if (_dragId != null && _dragSubtree.contains(r.id)) {
-      return IgnorePointer(child: Opacity(opacity: AnOpacity.dragDim, child: row));
+      return IgnorePointer(
+        child: Opacity(opacity: AnOpacity.dragDim, child: row),
+      );
     }
     if (!_rowDraggable(r.id)) return row;
     return _draggableRow(context, n, row);
@@ -483,12 +542,16 @@ class _AnSidebarListState extends State<AnSidebarList> {
   /// rows, so both the drop indicators and the host's position math would lie about where things land
   /// (Notion also disables tree reorder in filtered views). 过滤时禁拖:query 强展开+藏行,指示与位置计算都会撒谎。
   bool get _dragEnabled => widget.onRowDropped != null && _query.trim().isEmpty;
-  bool _rowDraggable(String id) => _dragEnabled && (widget.canDragRow?.call(id) ?? true);
+  bool _rowDraggable(String id) =>
+      _dragEnabled && (widget.canDragRow?.call(id) ?? true);
 
   /// A valid drop target: not the dragged row itself, not inside its own subtree (a cycle), and a
   /// participating row. 合法落点:非自身、非自子树(成环)、且是参与行。
   bool _validTarget(String targetId) =>
-      _dragId != null && targetId != _dragId && !_dragSubtree.contains(targetId) && _rowDraggable(targetId);
+      _dragId != null &&
+      targetId != _dragId &&
+      !_dragSubtree.contains(targetId) &&
+      _rowDraggable(targetId);
 
   /// The dragged row's descendant ids, from the MODEL (collapsed children aren't in [_flat]). 子孙 id 取自 model。
   Set<String> _subtreeIds(String id) {
@@ -529,21 +592,34 @@ class _AnSidebarListState extends State<AnSidebarList> {
   /// 指针→行内落区:用**行自身** RenderBox(上方折叠补间进行中也精确——网格取模那时会判错);拖拽指针锚定,全局点即指针。
   AnRowDropZone _zoneAt(BuildContext rowContext, Offset globalPointer) {
     final box = rowContext.findRenderObject() as RenderBox?;
-    if (box == null || !box.hasSize || box.size.height <= 0) return AnRowDropZone.inside;
+    if (box == null || !box.hasSize || box.size.height <= 0) {
+      return AnRowDropZone.inside;
+    }
     final within = box.globalToLocal(globalPointer).dy;
     if (within < box.size.height / 4) return AnRowDropZone.above;
     if (within > box.size.height * 3 / 4) return AnRowDropZone.below;
     return AnRowDropZone.inside;
   }
 
-  void _updateDrop(SidebarFlatNode n, BuildContext rowContext, Offset globalPointer) {
+  void _updateDrop(
+    SidebarFlatNode n,
+    BuildContext rowContext,
+    Offset globalPointer,
+  ) {
     // Edge auto-scroll: nudge the list when the pointer nears the viewport's top/bottom so off-screen
     // targets are reachable (Flutter's own reorderable-list helper). 近缘自动滚,屏外落点可达(官方 helper)。
     final scrollable = Scrollable.maybeOf(rowContext);
     if (scrollable != null) {
       // velocityScalar 50 = ReorderableList's own default. 50=官方 ReorderableList 默认。
-      (_autoScroller ??= EdgeDraggingAutoScroller(scrollable, velocityScalar: 50)).startAutoScrollIfNecessary(
-        Rect.fromCenter(center: globalPointer, width: 1, height: AnSize.row * 2),
+      (_autoScroller ??= EdgeDraggingAutoScroller(
+        scrollable,
+        velocityScalar: 50,
+      )).startAutoScrollIfNecessary(
+        Rect.fromCenter(
+          center: globalPointer,
+          width: 1,
+          height: AnSize.row * 2,
+        ),
       );
     }
     final zone = _zoneAt(rowContext, globalPointer);
@@ -598,7 +674,8 @@ class _AnSidebarListState extends State<AnSidebarList> {
   /// head visually sits above its first child). Shared by the indicator painter and [_emitDrop] so the
   /// pixels and the emitted intent can never drift. 「下落区是否落为其首子」:开枝头的下缘线视觉上就在首子之上;
   /// 指示绘制与派发共用此判定,像素与意图不漂移。
-  bool _belowNestsAsFirstChild(SidebarFlatNode n) => n.row!.hasChildren && _open(n.key);
+  bool _belowNestsAsFirstChild(SidebarFlatNode n) =>
+      n.row!.hasChildren && _open(n.key);
 
   /// Resolve + emit a drop. "Below an OPEN branch" is normalized to "above its first child" — and if that
   /// normalization lands on the dragged row itself (dragging a branch's first child onto its parent's
@@ -631,8 +708,9 @@ class _AnSidebarListState extends State<AnSidebarList> {
     final indent = AnSpace.s8 + n.depth * AnSize.iconLg;
     // The below-line indents one level deeper when the drop will land as the branch's first child —
     // the shared predicate keeps the pixels and _emitDrop in lock-step. 下缘线在将嵌入时深一层缩进(共享判定)。
-    final belowIndent =
-        _belowNestsAsFirstChild(n) ? AnSpace.s8 + (n.depth + 1) * AnSize.iconLg : indent;
+    final belowIndent = _belowNestsAsFirstChild(n)
+        ? AnSpace.s8 + (n.depth + 1) * AnSize.iconLg
+        : indent;
 
     final target = Builder(
       builder: (rowContext) => DragTarget<String>(
@@ -658,9 +736,19 @@ class _AnSidebarListState extends State<AnSidebarList> {
                 ),
               ),
             if (zone == AnRowDropZone.above)
-              PositionedDirectional(top: -1, start: indent, end: AnSpace.s8, child: _insertLine(c)),
+              PositionedDirectional(
+                top: -1,
+                start: indent,
+                end: AnSpace.s8,
+                child: _insertLine(c),
+              ),
             if (zone == AnRowDropZone.below)
-              PositionedDirectional(bottom: -1, start: belowIndent, end: AnSpace.s8, child: _insertLine(c)),
+              PositionedDirectional(
+                bottom: -1,
+                start: belowIndent,
+                end: AnSpace.s8,
+                child: _insertLine(c),
+              ),
           ],
         ),
       ),
@@ -680,17 +768,23 @@ class _AnSidebarListState extends State<AnSidebarList> {
       onDragCompleted: _endDrag,
       onDraggableCanceled: (_, _) => _endDrag(),
       feedback: _dragFeedback(context, r),
-      childWhenDragging: Opacity(opacity: AnOpacity.dragDim, child: SizedBox(height: AnSize.row, child: row)),
+      childWhenDragging: Opacity(
+        opacity: AnOpacity.dragDim,
+        child: SizedBox(height: AnSize.row, child: row),
+      ),
       child: target,
     );
   }
 
   Widget _insertLine(AnColors c) => IgnorePointer(
-        child: Container(
-          height: AnSize.gripLine,
-          decoration: BoxDecoration(color: c.accent, borderRadius: BorderRadius.circular(AnSize.gripLine / 2)),
-        ),
-      );
+    child: Container(
+      height: AnSize.gripLine,
+      decoration: BoxDecoration(
+        color: c.accent,
+        borderRadius: BorderRadius.circular(AnSize.gripLine / 2),
+      ),
+    ),
+  );
 
   /// The floating chip that follows the pointer: the row's icon + name on a raised surface. Pointer-anchored
   /// drags put the feedback's origin AT the pointer, so it's nudged down-right for cursor clearance. The
@@ -704,9 +798,15 @@ class _AnSidebarListState extends State<AnSidebarList> {
       child: Transform.translate(
         offset: const Offset(12, 8),
         child: DefaultTextStyle(
-          style: AnText.body.copyWith(color: c.ink, decoration: TextDecoration.none),
+          style: AnText.body.copyWith(
+            color: c.ink,
+            decoration: TextDecoration.none,
+          ),
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AnSpace.s12,
+              vertical: AnSpace.s6,
+            ),
             decoration: BoxDecoration(
               color: c.surface,
               borderRadius: BorderRadius.circular(AnRadius.button),
@@ -731,8 +831,11 @@ class _AnSidebarListState extends State<AnSidebarList> {
   }
 
   // Opaque backing for a sticky ancestor head so list rows scroll UNDER it (AnRow is transparent). 吸顶头 opaque 底。
-  Widget _opaque(BuildContext context, Widget child) =>
-      Container(height: AnSize.row, color: context.colors.surface, child: child);
+  Widget _opaque(BuildContext context, Widget child) => Container(
+    height: AnSize.row,
+    color: context.colors.surface,
+    child: child,
+  );
 
   // The rename variant of a row: the SAME lead column (status dot or empty) + indent as AnRow, with the
   // label slot replaced by the reused AnInlineEdit (opened + select-all). 改名态行:同 lead/缩进,label 换 AnInlineEdit。
@@ -751,7 +854,9 @@ class _AnSidebarListState extends State<AnSidebarList> {
               width: AnSize.icon,
               height: AnSize.icon,
               child: Center(
-                child: r.dot != null ? ExcludeSemantics(child: AnStatusDot(r.dot!)) : const SizedBox.shrink(),
+                child: r.dot != null
+                    ? ExcludeSemantics(child: AnStatusDot(r.dot!))
+                    : const SizedBox.shrink(),
               ),
             ),
             const SizedBox(width: AnSpace.s8),
@@ -789,7 +894,9 @@ class _AnSidebarListState extends State<AnSidebarList> {
               height: AnSize.row,
               alignment: Alignment.center,
               color: c.surfaceHover.whenActive(states.isActive),
-              child: ExcludeSemantics(child: Icon(AnIcons.stop, size: AnSize.iconSm, color: c.danger)),
+              child: ExcludeSemantics(
+                child: Icon(AnIcons.stop, size: AnSize.iconSm, color: c.danger),
+              ),
             ),
           ),
         ),
@@ -801,7 +908,12 @@ class _AnSidebarListState extends State<AnSidebarList> {
       child: SizedBox(
         height: AnSize.row,
         child: t.loadingMore
-            ? Center(child: AnSpinner(size: AnSize.iconSm, semanticLabel: context.t.a11y.loading))
+            ? Center(
+                child: AnSpinner(
+                  size: AnSize.iconSm,
+                  semanticLabel: context.t.a11y.loading,
+                ),
+              )
             : const SizedBox.shrink(),
       ),
     );

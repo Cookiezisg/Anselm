@@ -22,12 +22,20 @@ import 'tool_hit_list.dart';
 
 // ── LS (line-text template) ──
 typedef LsEntry = ({String type, String name, String? size, String? mtime});
-typedef LsListing = ({String root, int total, List<LsEntry> entries, bool truncated, int shown});
+typedef LsListing = ({
+  String root,
+  int total,
+  List<LsEntry> entries,
+  bool truncated,
+  int shown,
+});
 
 // The type column is aligned to width 6 (dir+3sp / link+2sp / file+2sp), so tolerate variable spacing.
 // file rows end with `size   mtime`. 类型列对齐宽 6,容忍变距;file 行尾 size + mtime。
 final _lsHeader = RegExp(r'^(.*) \((\d+) entries\)$');
-final _lsFile = RegExp(r'^  file\s+(.+?)\s{2,}(.+?)\s{2,}(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*$');
+final _lsFile = RegExp(
+  r'^  file\s+(.+?)\s{2,}(.+?)\s{2,}(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\s*$',
+);
 final _lsDirLink = RegExp(r'^  (dir|link)\s+(.+)$');
 final _lsTrunc = RegExp(r'showing (\d+) of (\d+) entries');
 
@@ -53,20 +61,38 @@ LsListing? parseLsListing(String output) {
     }
     final f = _lsFile.firstMatch(line);
     if (f != null) {
-      entries.add((type: 'file', name: f.group(1)!.trim(), size: f.group(2)!.trim(), mtime: f.group(3)));
+      entries.add((
+        type: 'file',
+        name: f.group(1)!.trim(),
+        size: f.group(2)!.trim(),
+        mtime: f.group(3),
+      ));
       continue;
     }
     final d = _lsDirLink.firstMatch(line);
-    if (d != null) entries.add((type: d.group(1)!, name: d.group(2)!.trim(), size: null, mtime: null));
+    if (d != null) {
+      entries.add((
+        type: d.group(1)!,
+        name: d.group(2)!.trim(),
+        size: null,
+        mtime: null,
+      ));
+    }
   }
-  return (root: root, total: total, entries: entries, truncated: truncated, shown: truncated ? shown : entries.length);
+  return (
+    root: root,
+    total: total,
+    entries: entries,
+    truncated: truncated,
+    shown: truncated ? shown : entries.length,
+  );
 }
 
 IconData _fsGlyph(String type) => switch (type) {
-      'dir' => AnIcons.folder,
-      'link' => AnIcons.web,
-      _ => AnIcons.doc,
-    };
+  'dir' => AnIcons.folder,
+  'link' => AnIcons.web,
+  _ => AnIcons.doc,
+};
 
 /// LS settled body — a directory listing in a machine window: root header + ToolHitList (glyph + name,
 /// dir names get a trailing `/`; file rows show size · mtime). LS 目录清单。
@@ -75,28 +101,45 @@ Widget lsToolBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final ls = parseLsListing(state.resultText);
   if (ls == null) {
-    return rawMonoWindow(context, state.resultText, maxLines: AnCap.monoBodyLines, color: c.inkMuted);
+    return rawMonoWindow(
+      context,
+      state.resultText,
+      maxLines: AnCap.monoBodyLines,
+      color: c.inkMuted,
+    );
   }
   if (ls.entries.isEmpty) {
     return rawMonoWindow(context, t.chat.tool.lsEmpty, color: c.inkFaint);
   }
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    Padding(padding: const EdgeInsets.only(bottom: AnSpace.s4), child: Text(ls.root, style: AnText.mono.copyWith(color: c.inkFaint))),
-    ToolHitList(
-      rows: [
-        for (final e in ls.entries)
-          ToolHitRow(
-            glyph: _fsGlyph(e.type),
-            title: e.type == 'dir' ? '${e.name}/' : e.name,
-            trailing: e.size == null ? null : Text('${e.size} · ${e.mtime}', style: AnText.meta.copyWith(color: c.inkFaint)),
-          ),
-      ],
-      cap: 30,
-      total: ls.truncated ? ls.total : null,
-      serverTruncated: ls.truncated,
-      rawJson: state.resultText,
-    ),
-  ]);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(bottom: AnSpace.s4),
+        child: Text(ls.root, style: AnText.mono.copyWith(color: c.inkFaint)),
+      ),
+      ToolHitList(
+        rows: [
+          for (final e in ls.entries)
+            ToolHitRow(
+              glyph: _fsGlyph(e.type),
+              title: e.type == 'dir' ? '${e.name}/' : e.name,
+              trailing: e.size == null
+                  ? null
+                  : Text(
+                      '${e.size} · ${e.mtime}',
+                      style: AnText.meta.copyWith(color: c.inkFaint),
+                    ),
+            ),
+        ],
+        cap: 30,
+        total: ls.truncated ? ls.total : null,
+        serverTruncated: ls.truncated,
+        rawJson: state.resultText,
+      ),
+    ],
+  );
 }
 
 // ── Glob (JSON) ──
@@ -104,7 +147,8 @@ typedef GlobMatch = ({String path, String type, int size, String mtime});
 
 /// Parse the Glob JSON `{root, matches:[{path,type,size,mtime}], total, truncated}`. null on non-JSON.
 /// Glob JSON 解析。
-({String root, List<GlobMatch> matches, int total, bool truncated})? parseGlobResult(String output) {
+({String root, List<GlobMatch> matches, int total, bool truncated})?
+parseGlobResult(String output) {
   Map<String, dynamic>? d;
   try {
     final p = jsonDecode(output);
@@ -114,14 +158,26 @@ typedef GlobMatch = ({String path, String type, int size, String mtime});
   final matches = <GlobMatch>[];
   for (final m in d['matches'] as List) {
     if (m is Map) {
-      matches.add((path: '${m['path'] ?? ''}', type: '${m['type'] ?? 'file'}', size: m['size'] is int ? m['size'] as int : 0, mtime: '${m['mtime'] ?? ''}'));
+      matches.add((
+        path: '${m['path'] ?? ''}',
+        type: '${m['type'] ?? 'file'}',
+        size: m['size'] is int ? m['size'] as int : 0,
+        mtime: '${m['mtime'] ?? ''}',
+      ));
     }
   }
-  return (root: '${d['root'] ?? ''}', matches: matches, total: d['total'] is int ? d['total'] as int : matches.length, truncated: d['truncated'] == true);
+  return (
+    root: '${d['root'] ?? ''}',
+    matches: matches,
+    total: d['total'] is int ? d['total'] as int : matches.length,
+    truncated: d['truncated'] == true,
+  );
 }
 
 String _basename(String path) {
-  final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+  final trimmed = path.endsWith('/')
+      ? path.substring(0, path.length - 1)
+      : path;
   final i = trimmed.lastIndexOf('/');
   return i < 0 ? trimmed : trimmed.substring(i + 1);
 }
@@ -134,30 +190,45 @@ Widget globToolBody(BuildContext context, ToolCardState state) {
   final g = parseGlobResult(state.resultText);
   if (g == null) {
     // non-JSON = an error / timeout string. 非 JSON=错误/超时串。
-    return rawMonoWindow(context, state.resultText, maxLines: AnCap.monoCompactLines, color: c.danger);
+    return rawMonoWindow(
+      context,
+      state.resultText,
+      maxLines: AnCap.monoCompactLines,
+      color: c.danger,
+    );
   }
   final pattern = argString(state.argsText, 'pattern') ?? '';
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    Padding(
-      padding: const EdgeInsets.only(bottom: AnSpace.s4),
-      child: Text(t.chat.tool.globHeader(pattern: '"$pattern"', root: g.root), style: AnText.mono.copyWith(color: c.inkFaint)),
-    ),
-    ToolHitList(
-      rows: [
-        for (final m in g.matches)
-          ToolHitRow(
-            glyph: _fsGlyph(m.type),
-            title: _basename(m.path),
-            subtitle: m.path,
-            trailing: Text('${formatBytes(m.size)} · ${_shortMtime(m.mtime)}', style: AnText.meta.copyWith(color: c.inkFaint)),
-          ),
-      ],
-      cap: 30,
-      total: g.total,
-      serverTruncated: g.truncated,
-      rawJson: state.resultText,
-    ),
-  ]);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Padding(
+        padding: const EdgeInsets.only(bottom: AnSpace.s4),
+        child: Text(
+          t.chat.tool.globHeader(pattern: '"$pattern"', root: g.root),
+          style: AnText.mono.copyWith(color: c.inkFaint),
+        ),
+      ),
+      ToolHitList(
+        rows: [
+          for (final m in g.matches)
+            ToolHitRow(
+              glyph: _fsGlyph(m.type),
+              title: _basename(m.path),
+              subtitle: m.path,
+              trailing: Text(
+                '${formatBytes(m.size)} · ${_shortMtime(m.mtime)}',
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
+            ),
+        ],
+        cap: 30,
+        total: g.total,
+        serverTruncated: g.truncated,
+        rawJson: state.resultText,
+      ),
+    ],
+  );
 }
 
 String _shortMtime(String rfc3339) {
@@ -173,11 +244,17 @@ Widget fsSearchCount(int n, {String? suffix}) => AnCountUp(n, suffix: suffix);
 
 // ── Grep (rg --no-heading style, three output modes) ──
 
-bool _grepNoise(String l) => l.isEmpty || l == '--' || l.startsWith('... [') || l.startsWith('No matches');
+bool _grepNoise(String l) =>
+    l.isEmpty ||
+    l == '--' ||
+    l.startsWith('... [') ||
+    l.startsWith('No matches');
 
 /// files_with_matches: one absolute path per line. files 模式:每行一路径。
-List<String> parseGrepFiles(String output) =>
-    [for (final l in output.trimRight().split('\n')) if (!_grepNoise(l)) l];
+List<String> parseGrepFiles(String output) => [
+  for (final l in output.trimRight().split('\n'))
+    if (!_grepNoise(l)) l,
+];
 
 /// count mode: `path:N` per line (rg single-file target → bare `N`, path = the arg path). count 模式。
 typedef GrepCount = ({String path, int count});
@@ -212,7 +289,10 @@ final _grepNoLine = RegExp(r'^(.+?):(.*)$'); // path:text (no -n)
 List<GrepGroup> parseGrepContent(String output, String argPath) {
   final lines = output.split('\n');
   // Single-file mode iff the first content line starts with a digit + separator. 单文件模式判定。
-  final firstContent = lines.firstWhere((l) => !_grepNoise(l), orElse: () => '');
+  final firstContent = lines.firstWhere(
+    (l) => !_grepNoise(l),
+    orElse: () => '',
+  );
   final singleFile = RegExp(r'^\d+[:-]').hasMatch(firstContent);
   final order = <String>[];
   final groups = <String, List<GrepLine>>{};
@@ -226,28 +306,46 @@ List<GrepGroup> parseGrepContent(String output, String argPath) {
     if (singleFile) {
       final m = _grepSfMatch.firstMatch(raw);
       if (m != null) {
-        add(argPath, (line: int.parse(m.group(1)!), text: m.group(2)!, isMatch: true));
+        add(argPath, (
+          line: int.parse(m.group(1)!),
+          text: m.group(2)!,
+          isMatch: true,
+        ));
         continue;
       }
       final ctx = _grepSfCtx.firstMatch(raw);
       if (ctx != null) {
-        add(argPath, (line: int.parse(ctx.group(1)!), text: ctx.group(2)!, isMatch: false));
+        add(argPath, (
+          line: int.parse(ctx.group(1)!),
+          text: ctx.group(2)!,
+          isMatch: false,
+        ));
         continue;
       }
       add(argPath, (line: null, text: raw, isMatch: true));
     } else {
       final m = _grepMatch.firstMatch(raw);
       if (m != null) {
-        add(m.group(1)!, (line: int.parse(m.group(2)!), text: m.group(3)!, isMatch: true));
+        add(m.group(1)!, (
+          line: int.parse(m.group(2)!),
+          text: m.group(3)!,
+          isMatch: true,
+        ));
         continue;
       }
       final ctx = _grepCtx.firstMatch(raw);
       if (ctx != null) {
-        add(ctx.group(1)!, (line: int.parse(ctx.group(2)!), text: ctx.group(3)!, isMatch: false));
+        add(ctx.group(1)!, (
+          line: int.parse(ctx.group(2)!),
+          text: ctx.group(3)!,
+          isMatch: false,
+        ));
         continue;
       }
       final nl = _grepNoLine.firstMatch(raw);
-      if (nl != null) add(nl.group(1)!, (line: null, text: nl.group(2)!, isMatch: true));
+      if (nl != null) {
+        add(nl.group(1)!, (line: null, text: nl.group(2)!, isMatch: true));
+      }
     }
   }
   return [for (final p in order) (path: p, lines: groups[p]!)];
@@ -256,7 +354,14 @@ List<GrepGroup> parseGrepContent(String output, String argPath) {
 /// Highlight the [pattern] occurrences inside [text] (a case-insensitive literal-ish search). A pattern
 /// that won't compile as a regex, or a multiline flag, → no highlight (honest, never a wrong span). 行内
 /// 命中点亮(编译失败/multiline→不点亮)。
-List<InlineSpan> highlightMatches(String text, String pattern, AnColors c, {required TextStyle base, bool caseInsensitive = false, bool multiline = false}) {
+List<InlineSpan> highlightMatches(
+  String text,
+  String pattern,
+  AnColors c, {
+  required TextStyle base,
+  bool caseInsensitive = false,
+  bool multiline = false,
+}) {
   if (pattern.isEmpty || multiline) return [TextSpan(text: text, style: base)];
   RegExp? re;
   try {
@@ -268,15 +373,23 @@ List<InlineSpan> highlightMatches(String text, String pattern, AnColors c, {requ
   var last = 0;
   for (final m in re.allMatches(text)) {
     if (m.start == m.end) continue; // zero-width → skip (would loop) 零宽跳过
-    if (m.start > last) spans.add(TextSpan(text: text.substring(last, m.start), style: base));
-    spans.add(TextSpan(
-      text: text.substring(m.start, m.end),
-      style: base.copyWith(backgroundColor: c.accentSoft, color: c.ink).weight(AnText.emphasisWeight),
-    ));
+    if (m.start > last) {
+      spans.add(TextSpan(text: text.substring(last, m.start), style: base));
+    }
+    spans.add(
+      TextSpan(
+        text: text.substring(m.start, m.end),
+        style: base
+            .copyWith(backgroundColor: c.accentSoft, color: c.ink)
+            .weight(AnText.emphasisWeight),
+      ),
+    );
     last = m.end;
   }
   if (spans.isEmpty) return [TextSpan(text: text, style: base)];
-  if (last < text.length) spans.add(TextSpan(text: text.substring(last), style: base));
+  if (last < text.length) {
+    spans.add(TextSpan(text: text.substring(last), style: base));
+  }
   return spans;
 }
 
@@ -285,7 +398,13 @@ List<InlineSpan> highlightMatches(String text, String pattern, AnColors c, {requ
 /// a `···` gap between non-contiguous line ranges. Capped at 200 lines. Grep content 视图:分组 + 行号 +
 /// 行内点亮 + 上下文降色。
 class GrepContentView extends StatelessWidget {
-  const GrepContentView({required this.groups, required this.pattern, this.caseInsensitive = false, this.multiline = false, super.key});
+  const GrepContentView({
+    required this.groups,
+    required this.pattern,
+    this.caseInsensitive = false,
+    this.multiline = false,
+    super.key,
+  });
 
   final List<GrepGroup> groups;
   final String pattern;
@@ -301,16 +420,23 @@ class GrepContentView extends StatelessWidget {
     final children = <Widget>[];
     for (final g in groups) {
       if (rendered >= _cap) break;
-      children.add(Padding(
-        padding: EdgeInsets.only(top: children.isEmpty ? AnSpace.s0 : AnSpace.s6, bottom: AnSpace.s2),
-        child: Text(g.path, style: AnText.mono.copyWith(color: c.inkFaint)),
-      ));
+      children.add(
+        Padding(
+          padding: EdgeInsets.only(
+            top: children.isEmpty ? AnSpace.s0 : AnSpace.s6,
+            bottom: AnSpace.s2,
+          ),
+          child: Text(g.path, style: AnText.mono.copyWith(color: c.inkFaint)),
+        ),
+      );
       int? prevLine;
       for (final gl in g.lines) {
         if (rendered >= _cap) break;
         // A gap between non-contiguous lines → a `···` marker. 行号跳跃→···。
         if (prevLine != null && gl.line != null && gl.line! > prevLine + 1) {
-          children.add(Text('···', style: AnText.code.copyWith(color: c.inkFaint)));
+          children.add(
+            Text('···', style: AnText.code.copyWith(color: c.inkFaint)),
+          );
         }
         prevLine = gl.line;
         rendered++;
@@ -318,23 +444,49 @@ class GrepContentView extends StatelessWidget {
       }
     }
     return AnWindow(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: children),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: children,
+      ),
     );
   }
 
   Widget _line(BuildContext context, AnColors c, GrepLine gl) {
-    final base = AnText.code.copyWith(color: gl.isMatch ? c.inkMuted : c.inkFaint);
+    final base = AnText.code.copyWith(
+      color: gl.isMatch ? c.inkMuted : c.inkFaint,
+    );
     final spans = gl.isMatch
-        ? highlightMatches(gl.text, pattern, c, base: base, caseInsensitive: caseInsensitive, multiline: multiline)
+        ? highlightMatches(
+            gl.text,
+            pattern,
+            c,
+            base: base,
+            caseInsensitive: caseInsensitive,
+            multiline: multiline,
+          )
         : [TextSpan(text: gl.text, style: base)];
-    return Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      SizedBox(
-        width: AnSize.trail,
-        child: Text(gl.line?.toString() ?? '', textAlign: TextAlign.right, style: AnText.code.copyWith(color: c.inkFaint)),
-      ),
-      const SizedBox(width: AnSpace.s8),
-      Expanded(child: Text.rich(TextSpan(children: spans), maxLines: 1, overflow: TextOverflow.ellipsis)),
-    ]);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SizedBox(
+          width: AnSize.trail,
+          child: Text(
+            gl.line?.toString() ?? '',
+            textAlign: TextAlign.right,
+            style: AnText.code.copyWith(color: c.inkFaint),
+          ),
+        ),
+        const SizedBox(width: AnSpace.s8),
+        Expanded(
+          child: Text.rich(
+            TextSpan(children: spans),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -343,8 +495,13 @@ class GrepContentView extends StatelessWidget {
 Widget grepToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final result = state.resultText;
-  if (result.trimLeft().startsWith('No matches') || result.startsWith('Invalid regex')) {
-    return rawMonoWindow(context, result.trim(), color: result.startsWith('Invalid') ? c.danger : c.inkFaint);
+  if (result.trimLeft().startsWith('No matches') ||
+      result.startsWith('Invalid regex')) {
+    return rawMonoWindow(
+      context,
+      result.trim(),
+      color: result.startsWith('Invalid') ? c.danger : c.inkFaint,
+    );
   }
   final mode = argString(state.argsText, 'output_mode') ?? 'files_with_matches';
   final argPath = argString(state.argsText, 'path') ?? '';
@@ -352,7 +509,14 @@ Widget grepToolBody(BuildContext context, ToolCardState state) {
 
   if (mode == 'content') {
     final groups = parseGrepContent(result, argPath);
-    if (groups.isEmpty) return rawMonoWindow(context, result, maxLines: AnCap.monoBodyLines, color: c.inkMuted);
+    if (groups.isEmpty) {
+      return rawMonoWindow(
+        context,
+        result,
+        maxLines: AnCap.monoBodyLines,
+        color: c.inkMuted,
+      );
+    }
     return GrepContentView(
       groups: groups,
       pattern: pattern,
@@ -380,7 +544,10 @@ Widget grepToolBody(BuildContext context, ToolCardState state) {
   // files_with_matches
   final files = parseGrepFiles(result);
   return ToolHitList(
-    rows: [for (final f in files) ToolHitRow(glyph: AnIcons.doc, title: _basename(f), subtitle: f)],
+    rows: [
+      for (final f in files)
+        ToolHitRow(glyph: AnIcons.doc, title: _basename(f), subtitle: f),
+    ],
     cap: 30,
     rawJson: result,
   );
@@ -390,9 +557,12 @@ Widget grepToolBody(BuildContext context, ToolCardState state) {
 // warn/danger thresholds; this is a trailing-slot comparison bar) — the full width is the named
 // [AnSize.heatBar] tier (A-083). 相对热力短条,刻意不套 AnMeter(整行配额表角色不同);满宽走具名档。
 Widget _countHeat(BuildContext context, AnColors c, int count, int maxN) {
-  return Row(mainAxisSize: MainAxisSize.min, children: [
-    AnHeatBar(fraction: count / maxN),
-    const SizedBox(width: AnSpace.s6),
-    Text('$count', style: AnText.body.copyWith(color: c.inkMuted)),
-  ]);
+  return Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      AnHeatBar(fraction: count / maxN),
+      const SizedBox(width: AnSpace.s6),
+      Text('$count', style: AnText.body.copyWith(color: c.inkMuted)),
+    ],
+  );
 }

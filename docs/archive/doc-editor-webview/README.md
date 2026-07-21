@@ -141,7 +141,7 @@ webview_flutter 只官方支持 macOS(WKWebView),Win/Linux 无后端。策略:`D
 2. **功能范围**:✅ **全开**——表格 + 行内图片 + 数学公式,后端该补就补(图片需新增后端图床,见 §3.1)。仅 TopBar/AI 关。
 3. **@ picker 外观**:定 **in-webview 原生 picker 样式贴产品**(规避跨边界 caret 锚定)。
 
-## 9. 测试矩阵(入 make fe-verify)
+## 9. 测试矩阵(入 make -C frontend verify)
 - **round-trip 保真**(`roundtrip.mjs` 升级 + Dart 侧):围栏含语言标 / 有序号 / 多行引用 / 表格 / 嵌套列表 / task / `[[id]]` 逐字 / 空文档 / 超长 / 海量块 / 极值 / 中文。
 - **feature 层复用测试**保留(rail/plan/SSE/inspector);**AnDocEditor + DocumentOcean-editor 组**重写(super_editor test robot API 消失,webview 无头驱动难 → 变薄无头面 + 手动/集成)。
 - **entity_ref_codec 测试**:codec 存活期间保留。

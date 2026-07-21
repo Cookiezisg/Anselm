@@ -17,31 +17,37 @@ import 'package:flutter_test/flutter_test.dart';
 final _t = DateTime.utc(2026, 6, 26);
 const _ref = EntityRef(EntityKind.function, 'fn_1');
 
-FunctionVersion _v(int v, {String? code, List<Field> inputs = const [], List<String> deps = const []}) =>
-    FunctionVersion(
-        id: 'fn_1_v$v',
-        functionId: 'fn_1',
-        version: v,
-        code: code ?? 'code v$v',
-        inputs: inputs,
-        dependencies: deps,
-        createdAt: _t,
-        updatedAt: _t);
+FunctionVersion _v(
+  int v, {
+  String? code,
+  List<Field> inputs = const [],
+  List<String> deps = const [],
+}) => FunctionVersion(
+  id: 'fn_1_v$v',
+  functionId: 'fn_1',
+  version: v,
+  code: code ?? 'code v$v',
+  inputs: inputs,
+  dependencies: deps,
+  createdAt: _t,
+  updatedAt: _t,
+);
 
 FixtureEntityRepository _repo() => FixtureEntityRepository(
-      functions: [
-        FunctionEntity(
-            id: 'fn_1',
-            name: 'f',
-            activeVersionId: 'fn_1_v2',
-            activeVersion: _v(2),
-            createdAt: _t,
-            updatedAt: _t),
-      ],
-      functionVersions: {
-        'fn_1': [_v(2), _v(1)]
-      },
-    );
+  functions: [
+    FunctionEntity(
+      id: 'fn_1',
+      name: 'f',
+      activeVersionId: 'fn_1_v2',
+      activeVersion: _v(2),
+      createdAt: _t,
+      updatedAt: _t,
+    ),
+  ],
+  functionVersions: {
+    'fn_1': [_v(2), _v(1)],
+  },
+);
 
 void main() {
   group('fixture write plane', () {
@@ -63,23 +69,44 @@ void main() {
   });
 
   group('functionVersionSummary', () {
-    test('fields / deps / python deltas become chips; code changes are silent', () {
-      final prev = _v(1, inputs: const [Field(name: 'a', type: 'string')], deps: const ['x']);
-      final cur = FunctionVersion(
+    test(
+      'fields / deps / python deltas become chips; code changes are silent',
+      () {
+        final prev = _v(
+          1,
+          inputs: const [Field(name: 'a', type: 'string')],
+          deps: const ['x'],
+        );
+        final cur = FunctionVersion(
           id: 'fn_1_v2',
           functionId: 'fn_1',
           version: 2,
           code: 'changed',
-          inputs: const [Field(name: 'a', type: 'number'), Field(name: 'b', type: 'string')],
+          inputs: const [
+            Field(name: 'a', type: 'number'),
+            Field(name: 'b', type: 'string'),
+          ],
           outputs: const [Field(name: 'r', type: 'string')],
           dependencies: const ['y'],
           pythonVersion: '3.13',
           createdAt: _t,
-          updatedAt: _t);
-      final s = functionVersionSummary(cur, prev);
-      expect(s, containsAll(['+ in b', 'in a: string→number', '+ out r', '+ dep y', '− dep x', 'py 3.12→3.13']));
-      expect(s.any((x) => x.contains('code')), isFalse);
-    });
+          updatedAt: _t,
+        );
+        final s = functionVersionSummary(cur, prev);
+        expect(
+          s,
+          containsAll([
+            '+ in b',
+            'in a: string→number',
+            '+ out r',
+            '+ dep y',
+            '− dep x',
+            'py 3.12→3.13',
+          ]),
+        );
+        expect(s.any((x) => x.contains('code')), isFalse);
+      },
+    );
 
     test('identical signature → no chips', () {
       expect(functionVersionSummary(_v(2), _v(1)), isEmpty);
@@ -88,7 +115,9 @@ void main() {
 
   group('setActive reconcile', () {
     Future<ProviderContainer> ready(FixtureEntityRepository repo) async {
-      final c = ProviderContainer(overrides: [entityRepositoryProvider.overrideWithValue(repo)]);
+      final c = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+      );
       addTearDown(c.dispose);
       c.listen(entityDetailProvider(_ref), (_, _) {});
       await c.read(entityDetailProvider(_ref).future);
@@ -97,38 +126,78 @@ void main() {
       return c;
     }
 
-    test('setActive re-derives active flags IN PLACE + preserves the selected row', () async {
-      final c = await ready(_repo());
-      final n = c.read(versionListProvider(_ref).notifier);
-      // Select the older v1 (index 1) then activate it — selection must NOT snap back to newest.
-      n.select(1);
-      expect(c.read(versionListProvider(_ref)).value!.selectedIndex, 1);
+    test(
+      'setActive re-derives active flags IN PLACE + preserves the selected row',
+      () async {
+        final c = await ready(_repo());
+        final n = c.read(versionListProvider(_ref).notifier);
+        // Select the older v1 (index 1) then activate it — selection must NOT snap back to newest.
+        n.select(1);
+        expect(c.read(versionListProvider(_ref)).value!.selectedIndex, 1);
 
-      await n.setActive(1);
-      final st = c.read(versionListProvider(_ref)).value!;
-      expect(st.selectedIndex, 1, reason: 'selection preserved, not reset to 0');
-      expect(st.versions.firstWhere((r) => r.version == 1).active, isTrue);
-      expect(st.versions.firstWhere((r) => r.version == 2).active, isFalse);
-      expect(st.activatingVersion, isNull);
-    });
+        await n.setActive(1);
+        final st = c.read(versionListProvider(_ref)).value!;
+        expect(
+          st.selectedIndex,
+          1,
+          reason: 'selection preserved, not reset to 0',
+        );
+        expect(st.versions.firstWhere((r) => r.version == 1).active, isTrue);
+        expect(st.versions.firstWhere((r) => r.version == 2).active, isFalse);
+        expect(st.activatingVersion, isNull);
+      },
+    );
 
-    test('setActive surfaces failure (rethrows) + clears the pending flag', () async {
-      final c = await ready(FixtureEntityRepository(
-        functions: [FunctionEntity(id: 'fn_1', name: 'f', activeVersionId: 'fn_1_v2', activeVersion: _v(2), createdAt: _t, updatedAt: _t)],
-        functionVersions: const {'fn_1': []}, // revert can't find the version → throws
-      ));
-      final n = c.read(versionListProvider(_ref).notifier);
-      // No matching version row → fixture revert is a no-op (no throw), so assert the pending flag
-      // is cleared and state is consistent after the call. (Live path rethrows on HTTP error.)
-      await n.setActive(9);
-      expect(c.read(versionListProvider(_ref)).value!.activatingVersion, isNull);
-    });
+    test(
+      'setActive surfaces failure (rethrows) + clears the pending flag',
+      () async {
+        final c = await ready(
+          FixtureEntityRepository(
+            functions: [
+              FunctionEntity(
+                id: 'fn_1',
+                name: 'f',
+                activeVersionId: 'fn_1_v2',
+                activeVersion: _v(2),
+                createdAt: _t,
+                updatedAt: _t,
+              ),
+            ],
+            functionVersions: const {
+              'fn_1': [],
+            }, // revert can't find the version → throws
+          ),
+        );
+        final n = c.read(versionListProvider(_ref).notifier);
+        // No matching version row → fixture revert is a no-op (no throw), so assert the pending flag
+        // is cleared and state is consistent after the call. (Live path rethrows on HTTP error.)
+        await n.setActive(9);
+        expect(
+          c.read(versionListProvider(_ref)).value!.activatingVersion,
+          isNull,
+        );
+      },
+    );
   });
 
   group('VersionRow value equality', () {
     test('equal content → equal rows (freezed structural ==)', () {
-      final a = VersionRow(version: 1, active: true, createdAt: _t, src: 'x', lang: 'py', summary: const ['+ dep y']);
-      final b = VersionRow(version: 1, active: true, createdAt: _t, src: 'x', lang: 'py', summary: const ['+ dep y']);
+      final a = VersionRow(
+        version: 1,
+        active: true,
+        createdAt: _t,
+        src: 'x',
+        lang: 'py',
+        summary: const ['+ dep y'],
+      );
+      final b = VersionRow(
+        version: 1,
+        active: true,
+        createdAt: _t,
+        src: 'x',
+        lang: 'py',
+        summary: const ['+ dep y'],
+      );
       expect(a, equals(b));
       expect(a.copyWith(active: false), isNot(equals(a)));
     });

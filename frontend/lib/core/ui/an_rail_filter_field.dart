@@ -59,10 +59,13 @@ class AnRailFilterField extends StatelessWidget {
           if (menuEntries.isNotEmpty)
             AnMenu(
               entries: menuEntries,
-              anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(AnIcons.sliders,
-                  size: AnButtonSize.sm,
-                  semanticLabel: menuSemanticLabel ?? context.t.a11y.displayOptions,
-                  onPressed: toggle),
+              anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
+                AnIcons.sliders,
+                size: AnButtonSize.sm,
+                semanticLabel:
+                    menuSemanticLabel ?? context.t.a11y.displayOptions,
+                onPressed: toggle,
+              ),
             ),
         ],
       ),

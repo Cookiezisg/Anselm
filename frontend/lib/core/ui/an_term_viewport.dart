@@ -22,7 +22,14 @@ import 'term_fold.dart';
 /// 短内容全显无滚动。AnTermViewport 与嵌套 transcript 帧复用。reduced:回到最新跳底。
 /// [fill](WRK-061 W0):不限高、撑满父高(右岛整页终端);父须给有界高,此时 [maxHeight] 失效。
 class AnStickViewport extends StatefulWidget {
-  const AnStickViewport({required this.child, this.maxHeight = 320, this.fill = false, this.header, this.fadeColor, super.key});
+  const AnStickViewport({
+    required this.child,
+    this.maxHeight = 320,
+    this.fill = false,
+    this.header,
+    this.fadeColor,
+    super.key,
+  });
 
   /// The scrollable content (usually a Column of lines). 可滚内容。
   final Widget child;
@@ -53,14 +60,20 @@ class _AnStickViewportState extends State<AnStickViewport> {
     super.initState();
     _scroll.addListener(_onScroll);
     // Pin to bottom after first layout (terminal semantics). 首帧后钉底。
-    WidgetsBinding.instance.addPostFrameCallback((_) => _pinToBottom(jump: true));
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _pinToBottom(jump: true),
+    );
   }
 
   @override
   void didUpdateWidget(AnStickViewport old) {
     super.didUpdateWidget(old);
     // New content while pinned → follow to bottom. 钉底时新内容→跟随。
-    if (!_below) WidgetsBinding.instance.addPostFrameCallback((_) => _pinToBottom(jump: true));
+    if (!_below) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _pinToBottom(jump: true),
+      );
+    }
   }
 
   @override
@@ -103,13 +116,38 @@ class _AnStickViewportState extends State<AnStickViewport> {
         // the page), hence the stretching SizedBox. fill 下滚动区须占满父高(短日志也占整页)。
         SizedBox(
           height: widget.fill ? double.infinity : null,
-          child: SingleChildScrollView(controller: _scroll, child: widget.child),
+          child: SingleChildScrollView(
+            controller: _scroll,
+            child: widget.child,
+          ),
         ),
         if (_above)
-          Positioned(top: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: true, color: widget.fadeColor ?? c.surface)),
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: AnSpace.s16,
+            child: AnEdgeFade(
+              fromTop: true,
+              color: widget.fadeColor ?? c.surface,
+            ),
+          ),
         if (_below) ...[
-          Positioned(bottom: 0, left: 0, right: 0, height: AnSpace.s16, child: AnEdgeFade(fromTop: false, color: widget.fadeColor ?? c.surface)),
-          Positioned(bottom: AnSpace.s4, right: AnSpace.s4, child: _backToLatest(context)),
+          Positioned(
+            bottom: 0,
+            left: 0,
+            right: 0,
+            height: AnSpace.s16,
+            child: AnEdgeFade(
+              fromTop: false,
+              color: widget.fadeColor ?? c.surface,
+            ),
+          ),
+          Positioned(
+            bottom: AnSpace.s4,
+            right: AnSpace.s4,
+            child: _backToLatest(context),
+          ),
         ],
       ],
     );
@@ -121,13 +159,18 @@ class _AnStickViewportState extends State<AnStickViewport> {
         if (widget.fill)
           Expanded(child: region)
         else
-          ConstrainedBox(constraints: BoxConstraints(maxHeight: widget.maxHeight), child: region),
+          ConstrainedBox(
+            constraints: BoxConstraints(maxHeight: widget.maxHeight),
+            child: region,
+          ),
       ],
     );
   }
 
   Widget _backToLatest(BuildContext context) => AnFollowPill.jump(
-      label: Translations.of(context).chat.tool.backToLatest, onTap: () => _pinToBottom(jump: false));
+    label: Translations.of(context).chat.tool.backToLatest,
+    onTap: () => _pinToBottom(jump: false),
+  );
 }
 
 /// A BOUNDED SCROLLBACK TERMINAL window (WRK-056 #6, R10 terminal layer) — the settled Bash body's
@@ -139,14 +182,15 @@ class _AnStickViewportState extends State<AnStickViewport> {
 /// expand to the parent's height (the right island's full-page terminal, WRK-061) instead of capping.
 /// 有界回滚终端窗:折叠+ANSI+钉底+懒加载更早。[fill] 透传:撑满父高(右岛整页终端)而非限高。
 class AnTermViewport extends StatefulWidget {
-  const AnTermViewport(
-      {required this.text,
-      this.maxHeight = 320,
-      this.fill = false,
-      this.initialCharCap = 6000,
-      this.header,
-      this.fadeColor,
-      super.key});
+  const AnTermViewport({
+    required this.text,
+    this.maxHeight = 320,
+    this.fill = false,
+    this.initialCharCap = 6000,
+    this.header,
+    this.fadeColor,
+    super.key,
+  });
 
   final String text;
   final double maxHeight;
@@ -185,7 +229,9 @@ class _AnTermViewportState extends State<AnTermViewport> {
     final c = context.colors;
     final over = widget.text.length > widget.initialCharCap;
     // Materialize the tail only (unless the user asked for all). 只物化尾部(除非请求全量)。
-    final visible = (over && !_showAll) ? widget.text.substring(widget.text.length - widget.initialCharCap) : widget.text;
+    final visible = (over && !_showAll)
+        ? widget.text.substring(widget.text.length - widget.initialCharCap)
+        : widget.text;
     if (_renderedFor != visible || !identical(_renderedColors, c)) {
       _renderedFor = visible;
       _renderedColors = c;
@@ -196,11 +242,17 @@ class _AnTermViewportState extends State<AnTermViewport> {
       final base = AnText.code.copyWith(color: c.inkMuted);
       _renderedLines = [
         for (final line in lines)
-          Text.rich(TextSpan(children: ansiSpans(line, c, base: base)),
-              maxLines: 1, overflow: TextOverflow.ellipsis, softWrap: false),
+          Text.rich(
+            TextSpan(children: ansiSpans(line, c, base: base)),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+          ),
       ];
     }
-    final hiddenChars = over && !_showAll ? widget.text.length - widget.initialCharCap : 0;
+    final hiddenChars = over && !_showAll
+        ? widget.text.length - widget.initialCharCap
+        : 0;
 
     return AnStickViewport(
       maxHeight: widget.maxHeight,
@@ -217,8 +269,12 @@ class _AnTermViewportState extends State<AnTermViewport> {
               child: AnInteractive(
                 onTap: () => setState(() => _showAll = true),
                 builder: (ctx, states) => Text(
-                  Translations.of(context).chat.tool.showEarlier(n: '${(hiddenChars / 60).round()}'),
-                  style: AnText.meta.copyWith(color: states.isActive ? c.accent : c.inkFaint),
+                  Translations.of(
+                    context,
+                  ).chat.tool.showEarlier(n: '${(hiddenChars / 60).round()}'),
+                  style: AnText.meta.copyWith(
+                    color: states.isActive ? c.accent : c.inkFaint,
+                  ),
                 ),
               ),
             ),

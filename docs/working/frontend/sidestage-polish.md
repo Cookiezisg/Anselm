@@ -43,7 +43,7 @@ audience: [human, ai]
 - **表头（行头灰壳）设计好的，不动。**
 - 执行要点=「不去动那些原语，借已有思路解决」：能直接用原语就用（AnKv/AnLedgerRow/AnIndent），不能就按同一套框/沟文法摆裸内容；所有偏移从原语派生，零新魔法数。
 
-**✅ 已落（WRK-070 §A#1，纯几何轮，`make fe-verify` chat 全套 763 绿 + analyze 净）**：新原语文件 `lib/features/chat/ui/stages/stage_frame.dart` = 假想框律的唯一实现（`kStageFrameInset`=AnKv 键 h:s8 · `stageFramed` 裸文字归假想框 X=8 · `stageGutterRow` icon 定宽 iconSm 沟 + 光学居中，零新魔法数）。逐处：
+**✅ 已落（WRK-070 §A#1，纯几何轮，`make -C frontend verify` chat 全套 763 绿 + analyze 净）**：新原语文件 `lib/features/chat/ui/stages/stage_frame.dart` = 假想框律的唯一实现（`kStageFrameInset`=AnKv 键 h:s8 · `stageFramed` 裸文字归假想框 X=8 · `stageGutterRow` icon 定宽 iconSm 沟 + 光学居中，零新魔法数）。逐处：
 - **handler_stage.dart**：四处 `EdgeInsets.only(left: s12)`（init/live-body/shutdown 三窗 + 方法脊）全删——代码窗满宽贴 X=0（同 function_stage）；方法名行改「`AnStatusDot.raw(accent)` + s6 + `Flexible(名)`」dot 行，与 init/shutdown 轨段同沟（同尺寸 dot 天然对齐，无需定宽格，故 handler 未用 stage_frame 助手）。
 - **skill_memory_mcp_stage.dart（mcp 体）**：铭牌 Row（icon 16→沟）、「N tools discovered」句、工具小行（icon 12→沟）、失败 errorText 四处 → `stageGutterRow`（iconSm 铭牌 / iconXs 工具 / null 空沟共用一沟一列）；旧 `CrossAxisAlignment` 默认 center 归一到沟行 center。
 - **subagent_stage.dart**：尾行 `Row(CrossAxisAlignment.start)` → `stageGutterRow`（iconXs 字形定高 center，旧 start 吊高修正）；当前动作 shimmer（无 icon）→ 空沟同列；群像标题（X=0 裸文字）→ `stageFramed`。
@@ -204,7 +204,7 @@ fe-verify 4304 全绿。
 
 **测试**：各 rail 空数据电池加/改为 chrome-在场断言（`AnSidebarList` + New/组头 findsOneWidget、`AnState` findsNothing、计数「0」findsNothing）——chat（widget+model 零对话双头）/ entities（`entity_rail_test` + `five_battery` empty）/ documents（widget+model）/ notifications（widget，「通知」段头在场）/ scheduler（model：Overview 存活、无沉底段、无徽）。既有依赖墓碑的断言（`conversation_rail_test` 删到空 / `entity_rail_test` empty / `five_battery` empty / `notification_feed_test` empty）按新律改。demo fixture 不动（满态）。
 
-**landed-into**：`design-system.md`（AnRailStates 条目 + 令 §「rail 三态」重述）。`make fe-verify` 全绿 / `make docs` 净。
+**landed-into**：`design-system.md`（AnRailStates 条目 + 令 §「rail 三态」重述）。`make -C frontend verify` 全绿 / `make -C docs verify` 净。
 
 ## §A#2 Chat 右岛按需存在 + 右岛内距单源律（用户 0718-19 两件一单 ✅ 已落）
 
@@ -218,7 +218,7 @@ fe-verify 4304 全绿。
 
 **测试**：`sidestage_activity_test.dart`（纯函数 8 例 + 帧驱动 4 例:无 activity→NO / 触点·tool_call 到→YES / p01 纯问答 NO / cv_sync YES）· `sidestage_ondemand_shell_test.dart`（AppShell 端到端:activity→钮现·岛闭·点开;无 activity→无钮无岛）· `an_shell_test.dart`（toggle 横向滑入+Scenes 左移 / reduced 即时）· `right_panel_test.dart`（chat 默认收起、开合粘住）· `right_island_padding_test.dart`（内容左缘=岛缘+12、行族+20）。
 
-**landed-into**：`features/chat-sidestage.md` §0（按需存在 + 头语法 + 内距）· `design-system.md`（AnInspector 条目 ★右岛内距单源律 + `AnIsland(padding:zero)` 旧法退役）· `right_panel.dart`/`oceans` 无改（chat 默认在 provider 内）。`make fe-verify` 全绿 / `make docs` 净。
+**landed-into**：`features/chat-sidestage.md` §0（按需存在 + 头语法 + 内距）· `design-system.md`（AnInspector 条目 ★右岛内距单源律 + `AnIsland(padding:zero)` 旧法退役）· `right_panel.dart`/`oceans` 无改（chat 默认在 provider 内）。`make -C frontend verify` 全绿 / `make -C docs verify` 净。
 
 ## 实体调试台（用户 0718-19 拍板任务书 ✅ 已落）
 
@@ -228,7 +228,7 @@ fe-verify 4304 全绿。
 
 **测试**:`run_draft_store_test`（分桶/reproduce/copy 语义 4 例）+ `run_debugger_test`（契约镜子/方向盘重生成+分桶/wf 三形态+cron 空/最近条 top5+展开/重现回填/空账静默 6 例）+ 既有 run 面适配（零墓碑断言替 idleTitle、Done 回声双渲修）。demo 四 kind 帧:`demo_{fn_summarize,hd_slack,ag_researcher,wf_digest}.png`。
 
-**landed-into**:`features/entities.md`（调试台节整体重述+动词 CTA 退役+复用件清单）。`make fe-verify` 全绿 / `make docs` 净 / 后端 `make verify` 绿（零改动确认）。
+**landed-into**:`features/entities.md`（调试台节整体重述+动词 CTA 退役+复用件清单）。`make -C frontend verify` 全绿 / `make -C docs verify` 净 / 后端 `make verify` 绿（零改动确认）。
 
 ## Markdown 双档——嵌入档「零新字号」（用户 0719 拍板 ✅ 已落）
 

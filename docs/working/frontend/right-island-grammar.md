@@ -89,4 +89,4 @@ audience: [human, ai]
 
 ## 收官（0719）
 
-四批全落（chat / documents / entities 调试台 / scheduler run 检查器）——三段式文法铺满**三岛壳的四处右岛**。**唯一剩余 `AnInspectorHead` 消费方 = `workflow_editor_inspector.dart`**（全屏图编辑器的节点检查器），它是**编辑器语境**、非三岛壳右岛，**不在本战役范围**，`AnInspectorHead` 作为编辑器/画廊原语留用。`make fe-verify` + `make docs` 双绿。台账随三段式立法已全落 design-system.md，可按归档流程并入 archive。
+四批全落（chat / documents / entities 调试台 / scheduler run 检查器）——三段式文法铺满**三岛壳的四处右岛**。**唯一剩余 `AnInspectorHead` 消费方 = `workflow_editor_inspector.dart`**（全屏图编辑器的节点检查器），它是**编辑器语境**、非三岛壳右岛，**不在本战役范围**，`AnInspectorHead` 作为编辑器/画廊原语留用。`make -C frontend verify` + `make -C docs verify` 双绿。台账随三段式立法已全落 design-system.md，可按归档流程并入 archive。

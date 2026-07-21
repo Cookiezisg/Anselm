@@ -56,5 +56,6 @@ class SelectedEntity extends Notifier<EntityRef?> {
   }
 }
 
-final selectedEntityProvider =
-    NotifierProvider<SelectedEntity, EntityRef?>(SelectedEntity.new);
+final selectedEntityProvider = NotifierProvider<SelectedEntity, EntityRef?>(
+  SelectedEntity.new,
+);

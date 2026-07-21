@@ -31,8 +31,13 @@ void main() {
           functionId: 'fn_0123456789abcdef',
           version: 3,
           code: 'def main(a, b): return a + b',
-          inputs: const [Field(name: 'a', type: 'number'), Field(name: 'b', type: 'number')],
-          outputs: const [Field(name: 'result', type: 'number', description: 'the sum')],
+          inputs: const [
+            Field(name: 'a', type: 'number'),
+            Field(name: 'b', type: 'number'),
+          ],
+          outputs: const [
+            Field(name: 'result', type: 'number', description: 'the sum'),
+          ],
           dependencies: const ['numpy'],
           envStatus: 'ready',
           createdAt: _t0,
@@ -47,7 +52,12 @@ void main() {
     });
 
     test('FunctionRunResult is the bare (un-enveloped) shape', () {
-      const r = FunctionRunResult(ok: true, output: 5, elapsedMs: 12, logs: 'ran');
+      const r = FunctionRunResult(
+        ok: true,
+        output: 5,
+        elapsedMs: 12,
+        logs: 'ran',
+      );
       expect(FunctionRunResult.fromJson(r.toJson()), r);
       // default when fields absent
       final empty = FunctionRunResult.fromJson(const {});
@@ -75,95 +85,127 @@ void main() {
   });
 
   group('Handler domain round-trip', () {
-    test('HandlerEntity + computed state + version with methods/initArgs/env mirror', () {
-      final hd = HandlerEntity(
-        id: 'hd_0123456789abcdef',
-        name: 'slack',
-        activeVersionId: 'hdv_1',
-        createdAt: _t0,
-        updatedAt: _t1,
-        configState: 'ready',
-        missingConfig: const [],
-        runtimeState: 'running',
-        activeVersion: HandlerVersion(
-          id: 'hdv_1',
-          handlerId: 'hd_0123456789abcdef',
-          version: 2,
-          imports: 'import slack_sdk',
-          initBody: 'self.client = ...',
-          methods: const [
-            MethodSpec(
-              name: 'post',
-              inputs: [Field(name: 'channel', type: 'string')],
-              body: 'self.client.post(channel)',
-              streaming: false,
-            ),
-          ],
-          initArgsSchema: const [
-            InitArgSpec(name: 'token', type: 'string', required: true, sensitive: true, defaultValue: ''),
-          ],
-          envStatus: 'ready',
+    test(
+      'HandlerEntity + computed state + version with methods/initArgs/env mirror',
+      () {
+        final hd = HandlerEntity(
+          id: 'hd_0123456789abcdef',
+          name: 'slack',
+          activeVersionId: 'hdv_1',
           createdAt: _t0,
           updatedAt: _t1,
-        ),
-      );
-      expect(HandlerEntity.fromJson(hd.toJson()), hd);
-    });
+          configState: 'ready',
+          missingConfig: const [],
+          runtimeState: 'running',
+          activeVersion: HandlerVersion(
+            id: 'hdv_1',
+            handlerId: 'hd_0123456789abcdef',
+            version: 2,
+            imports: 'import slack_sdk',
+            initBody: 'self.client = ...',
+            methods: const [
+              MethodSpec(
+                name: 'post',
+                inputs: [Field(name: 'channel', type: 'string')],
+                body: 'self.client.post(channel)',
+                streaming: false,
+              ),
+            ],
+            initArgsSchema: const [
+              InitArgSpec(
+                name: 'token',
+                type: 'string',
+                required: true,
+                sensitive: true,
+                defaultValue: '',
+              ),
+            ],
+            envStatus: 'ready',
+            createdAt: _t0,
+            updatedAt: _t1,
+          ),
+        );
+        expect(HandlerEntity.fromJson(hd.toJson()), hd);
+      },
+    );
 
-    test('InitArgSpec maps `defaultValue` ↔ wire `default` (reserved word)', () {
-      const arg = InitArgSpec(name: 'region', type: 'string', defaultValue: 'us-east');
-      final j = arg.toJson();
-      expect(j.containsKey('default'), isTrue);
-      expect(j.containsKey('defaultValue'), isFalse);
-      expect(j['default'], 'us-east');
-      expect(InitArgSpec.fromJson({'name': 'region', 'type': 'string', 'default': 'us-east'}), arg);
-    });
+    test(
+      'InitArgSpec maps `defaultValue` ↔ wire `default` (reserved word)',
+      () {
+        const arg = InitArgSpec(
+          name: 'region',
+          type: 'string',
+          defaultValue: 'us-east',
+        );
+        final j = arg.toJson();
+        expect(j.containsKey('default'), isTrue);
+        expect(j.containsKey('defaultValue'), isFalse);
+        expect(j['default'], 'us-east');
+        expect(
+          InitArgSpec.fromJson({
+            'name': 'region',
+            'type': 'string',
+            'default': 'us-east',
+          }),
+          arg,
+        );
+      },
+    );
 
-    test('HandlerCall adds method + instanceId + logs over the execution shape', () {
-      final call = HandlerCall(
-        id: 'hdc_1',
-        handlerId: 'hd_0123456789abcdef',
-        versionId: 'hdv_1',
-        method: 'post',
-        instanceId: 'inst_1',
-        status: 'ok',
-        input: const {'channel': '#general'},
-        logs: 'sent',
-        elapsedMs: 40,
-        createdAt: _t0,
-      );
-      expect(HandlerCall.fromJson(call.toJson()), call);
-    });
+    test(
+      'HandlerCall adds method + instanceId + logs over the execution shape',
+      () {
+        final call = HandlerCall(
+          id: 'hdc_1',
+          handlerId: 'hd_0123456789abcdef',
+          versionId: 'hdv_1',
+          method: 'post',
+          instanceId: 'inst_1',
+          status: 'ok',
+          input: const {'channel': '#general'},
+          logs: 'sent',
+          elapsedMs: 40,
+          createdAt: _t0,
+        );
+        expect(HandlerCall.fromJson(call.toJson()), call);
+      },
+    );
   });
 
   group('Agent domain round-trip', () {
-    test('AgentEntity + version with tools/knowledge/modelOverride (reused ModelRef)', () {
-      final ag = AgentEntity(
-        id: 'ag_0123456789abcdef',
-        name: 'researcher',
-        activeVersionId: 'agv_1',
-        createdAt: _t0,
-        updatedAt: _t1,
-        activeVersion: AgentVersion(
-          id: 'agv_1',
-          agentId: 'ag_0123456789abcdef',
-          version: 1,
-          prompt: 'You are a researcher.',
-          skill: 'deep-research',
-          knowledge: const ['doc_1', 'doc_2'],
-          tools: const [ToolRef(ref: 'fn_0123456789abcdef', name: 'sum')],
-          inputs: const [Field(name: 'topic', type: 'string')],
-          modelOverride: const ModelRef(apiKeyId: 'key_1', modelId: 'claude-opus-4-8'),
+    test(
+      'AgentEntity + version with tools/knowledge/modelOverride (reused ModelRef)',
+      () {
+        final ag = AgentEntity(
+          id: 'ag_0123456789abcdef',
+          name: 'researcher',
+          activeVersionId: 'agv_1',
           createdAt: _t0,
           updatedAt: _t1,
-        ),
-      );
-      expect(AgentEntity.fromJson(ag.toJson()), ag);
-      // explicit_to_json: modelOverride + tools nest as objects.
-      final v = ag.toJson()['activeVersion'] as Map;
-      expect(v['modelOverride'], isA<Map<String, dynamic>>());
-      expect((v['tools'] as List).first, isA<Map<String, dynamic>>());
-    });
+          activeVersion: AgentVersion(
+            id: 'agv_1',
+            agentId: 'ag_0123456789abcdef',
+            version: 1,
+            prompt: 'You are a researcher.',
+            skill: 'deep-research',
+            knowledge: const ['doc_1', 'doc_2'],
+            tools: const [ToolRef(ref: 'fn_0123456789abcdef', name: 'sum')],
+            inputs: const [Field(name: 'topic', type: 'string')],
+            modelOverride: const ModelRef(
+              apiKeyId: 'key_1',
+              modelId: 'claude-opus-4-8',
+            ),
+            createdAt: _t0,
+            updatedAt: _t1,
+          ),
+        );
+        expect(AgentEntity.fromJson(ag.toJson()), ag);
+        // explicit_to_json: modelOverride + tools nest as objects.
+        final v = ag.toJson()['activeVersion'] as Map;
+        expect(v['modelOverride'], isA<Map<String, dynamic>>());
+        expect((v['tools'] as List).first, isA<Map<String, dynamic>>());
+      },
+    );
 
     test('InvokeResult is the bare shape with token/step counters', () {
       const r = InvokeResult(
@@ -190,7 +232,9 @@ void main() {
         modelId: 'claude-opus-4-8',
         apiKeyId: 'key_1',
         provider: 'anthropic',
-        transcript: const [{'role': 'user', 'content': 'hi'}],
+        transcript: const [
+          {'role': 'user', 'content': 'hi'},
+        ],
         createdAt: _t0,
       );
       expect(AgentExecution.fromJson(ex.toJson()), ex);
@@ -198,7 +242,9 @@ void main() {
 
     test('MountHealthReport round-trips', () {
       const rep = MountHealthReport(
-        mounts: [MountHealth(ref: 'fn_0123456789abcdef', name: 'sum', healthy: true)],
+        mounts: [
+          MountHealth(ref: 'fn_0123456789abcdef', name: 'sum', healthy: true),
+        ],
         allHealthy: true,
       );
       expect(MountHealthReport.fromJson(rep.toJson()), rep);
@@ -232,7 +278,11 @@ void main() {
                 kind: NodeKind.action,
                 ref: 'fn_0123456789abcdef',
                 input: {'a': 'n1.output'},
-                retry: RetryConfig(maxAttempts: 3, backoff: 'exponential', delayMs: 1000),
+                retry: RetryConfig(
+                  maxAttempts: 3,
+                  backoff: 'exponential',
+                  delayMs: 1000,
+                ),
                 pos: NodePosition(x: 100, y: 200),
               ),
             ],
@@ -256,37 +306,40 @@ void main() {
       expect(branch.toJson()['fromPort'], 'yes');
     });
 
-    test('FlowrunComposite = flowrun + nodes + nextCursor (bespoke decode)', () {
-      final comp = FlowrunComposite(
-        flowrun: Flowrun(
-          id: 'flr_1',
-          workflowId: 'wf_0123456789abcdef',
-          versionId: 'wfv_1',
-          pinnedRefs: const {'fn_x': 'fnv_2'},
-          status: 'running',
-          replayCount: 0,
-          startedAt: _t0,
-          updatedAt: _t1,
-        ),
-        nodes: [
-          FlowrunNode(
-            id: 'frn_1',
-            flowrunId: 'flr_1',
-            nodeId: 'n1',
-            iteration: 0,
-            kind: 'trigger',
-            ref: 'tr_1',
-            status: 'completed',
-            result: const {'fired': true},
-            createdAt: _t0,
-            completedAt: _t1,
+    test(
+      'FlowrunComposite = flowrun + nodes + nextCursor (bespoke decode)',
+      () {
+        final comp = FlowrunComposite(
+          flowrun: Flowrun(
+            id: 'flr_1',
+            workflowId: 'wf_0123456789abcdef',
+            versionId: 'wfv_1',
+            pinnedRefs: const {'fn_x': 'fnv_2'},
+            status: 'running',
+            replayCount: 0,
+            startedAt: _t0,
             updatedAt: _t1,
           ),
-        ],
-        nextCursor: 'cur_2',
-      );
-      expect(FlowrunComposite.fromJson(comp.toJson()), comp);
-    });
+          nodes: [
+            FlowrunNode(
+              id: 'frn_1',
+              flowrunId: 'flr_1',
+              nodeId: 'n1',
+              iteration: 0,
+              kind: 'trigger',
+              ref: 'tr_1',
+              status: 'completed',
+              result: const {'fired': true},
+              createdAt: _t0,
+              completedAt: _t1,
+              updatedAt: _t1,
+            ),
+          ],
+          nextCursor: 'cur_2',
+        );
+        expect(FlowrunComposite.fromJson(comp.toJson()), comp);
+      },
+    );
   });
 
   group('Cross-entity common round-trip', () {

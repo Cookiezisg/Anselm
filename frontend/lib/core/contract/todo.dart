@@ -15,7 +15,8 @@ abstract class TodoEntry with _$TodoEntry {
     @Default('pending') String status, // pending | in_progress | completed
   }) = _TodoEntry;
 
-  factory TodoEntry.fromJson(Map<String, dynamic> json) => _$TodoEntryFromJson(json);
+  factory TodoEntry.fromJson(Map<String, dynamic> json) =>
+      _$TodoEntryFromJson(json);
 }
 
 /// One conversation's (or one subagent's) whole todo list — `GET /conversations/{id}/todos` and the

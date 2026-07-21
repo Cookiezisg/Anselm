@@ -29,15 +29,24 @@ typedef AnRefTarget = ({String kind, String id});
 /// [[id]] 散文/CEL 引用)——22 高块壳进不了文本行,行内脸自持轻壳(accentSoft 底+tag 圆角+宿主字体);
 /// **仅展示**,交互/IME 归宿主(嵌套手势会破 super_editor 光标命中)。
 class AnRefPill extends StatelessWidget {
-  const AnRefPill({required this.kind, required this.label, this.id, this.onTap, super.key})
-      : inline = false,
-        textStyle = null;
+  const AnRefPill({
+    required this.kind,
+    required this.label,
+    this.id,
+    this.onTap,
+    super.key,
+  }) : inline = false,
+       textStyle = null;
 
   /// The baseline-hugging in-text face. 行内贴基线脸。
-  const AnRefPill.inline({required this.kind, required this.label, this.textStyle, super.key})
-      : inline = true,
-        id = null,
-        onTap = null;
+  const AnRefPill.inline({
+    required this.kind,
+    required this.label,
+    this.textStyle,
+    super.key,
+  }) : inline = true,
+       id = null,
+       onTap = null;
 
   final String kind;
   final String label;
@@ -69,7 +78,11 @@ class AnRefPill extends StatelessWidget {
       return Semantics(
         label: semLabel,
         child: ExcludeSemantics(
-          child: AnChip(label, look: AnChipLook.outlined, icon: AnIcons.entityKindGlyph(kind)),
+          child: AnChip(
+            label,
+            look: AnChipLook.outlined,
+            icon: AnIcons.entityKindGlyph(kind),
+          ),
         ),
       );
     }
@@ -85,13 +98,13 @@ class AnRefPill extends StatelessWidget {
   // Rides the ONE inline-capsule shell (kind glyph fed as its icon) — a second in-text shell would
   // be the disease this family cures. 骑唯一行内壳(kind 字形作 icon)——第二个文内壳=本族要治的病。
   Widget _inline(BuildContext context) => Semantics(
-        label: '${_kindWord(context)}: $label',
-        child: ExcludeSemantics(
-          child: AnInlineCapsule(
-            label,
-            icon: AnIcons.entityKindGlyph(kind),
-            textStyle: (textStyle ?? AnText.reading),
-          ),
-        ),
-      );
+    label: '${_kindWord(context)}: $label',
+    child: ExcludeSemantics(
+      child: AnInlineCapsule(
+        label,
+        icon: AnIcons.entityKindGlyph(kind),
+        textStyle: (textStyle ?? AnText.reading),
+      ),
+    ),
+  );
 }

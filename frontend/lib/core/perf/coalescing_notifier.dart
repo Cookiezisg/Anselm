@@ -19,9 +19,10 @@ import 'package:flutter/scheduler.dart';
 /// mutate 立刻应用进累加器(不丢——ephemeral seq=0、DB 行才是真相),但触发的重建合并到下一帧;叶子经
 /// ValueListenableBuilder 每帧最多重画一次。只配 ephemeral 路径;durable(seq>0)直接 patch 缓存+进游标,
 /// 绝不合并/丢弃。
-class CoalescingNotifier<T> extends ChangeNotifier implements ValueListenable<T> {
+class CoalescingNotifier<T> extends ChangeNotifier
+    implements ValueListenable<T> {
   CoalescingNotifier(this._value, {SchedulerBinding? scheduler})
-      : _scheduler = scheduler ?? SchedulerBinding.instance;
+    : _scheduler = scheduler ?? SchedulerBinding.instance;
 
   T _value;
   final SchedulerBinding _scheduler;

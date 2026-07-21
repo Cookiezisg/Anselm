@@ -31,8 +31,13 @@ void main() {
   // fmtRelativeDay — the coarse calendar-day relative label (documents' «last edited» glance). Injected
   // strings keep it pure. 粗粒度日相对(文档速览带),注入串保纯。
   group('fmtRelativeDay', () {
-    String rel(DateTime at, DateTime now) => fmtRelativeDay(at, now,
-        today: 'today', yesterday: 'yesterday', daysAgo: (n) => '$n days ago');
+    String rel(DateTime at, DateTime now) => fmtRelativeDay(
+      at,
+      now,
+      today: 'today',
+      yesterday: 'yesterday',
+      daysAgo: (n) => '$n days ago',
+    );
 
     final now = DateTime(2026, 7, 6, 12); // local wall-clock 本地墙钟
 

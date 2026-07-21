@@ -29,7 +29,13 @@ enum AnKeycapState { idle, recording, error }
 /// 不渲 Focus/AnInteractive:键盘归宿主(录制 Focus 不容抢焦,settings 战役焦点序教训)。
 /// 仅指针:hover 手型 + 点击。
 class AnKeycap extends StatelessWidget {
-  const AnKeycap(this.label, {this.keys, this.state = AnKeycapState.idle, this.onTap, super.key});
+  const AnKeycap(
+    this.label, {
+    this.keys,
+    this.state = AnKeycapState.idle,
+    this.onTap,
+    super.key,
+  });
 
   /// The whole-chord text — the plate face (recording/error), and the single-cap fallback when no
   /// [keys] are given. Always the semantic identity. 整弦文本:宽板脸(录制/冲突)+无 [keys] 时的
@@ -54,7 +60,10 @@ class AnKeycap extends StatelessWidget {
         // ONE semantics node speaking the whole chord — the per-key caps are typography, not four
         // separate stops for a screen reader. 单语义节点读整弦;逐键帽是排版,不是四个读屏站点。
         child: MergeSemantics(
-          child: Semantics(label: label, child: ExcludeSemantics(child: child)),
+          child: Semantics(
+            label: label,
+            child: ExcludeSemantics(child: child),
+          ),
         ),
       ),
     );
@@ -63,32 +72,41 @@ class AnKeycap extends StatelessWidget {
   /// The resting face: one compact cap per key. 静息脸:逐键小帽。
   Widget _caps(AnColors c) {
     final frags = (keys == null || keys!.isEmpty) ? [label] : keys!;
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      for (var i = 0; i < frags.length; i++) ...[
-        if (i > 0) const SizedBox(width: AnSpace.s2),
-        Container(
-          height: AnSize.keycap,
-          constraints: const BoxConstraints(minWidth: AnSize.keycap),
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: c.surfaceHover,
-            borderRadius: BorderRadius.circular(AnRadius.tag),
-            border: Border.all(color: c.line, width: AnSize.hairline),
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < frags.length; i++) ...[
+          if (i > 0) const SizedBox(width: AnSpace.s2),
+          Container(
+            height: AnSize.keycap,
+            constraints: const BoxConstraints(minWidth: AnSize.keycap),
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: c.surfaceHover,
+              borderRadius: BorderRadius.circular(AnRadius.tag),
+              border: Border.all(color: c.line, width: AnSize.hairline),
+            ),
+            // Code rung (mono 12) with a solid line-height so the glyph centres in the 20 box.
+            // 代码档(mono 12),实高行盒使字形在 20 帽内居中。
+            child: Text(
+              frags[i],
+              style: AnText.code.copyWith(color: c.ink, height: 1),
+            ),
           ),
-          // Code rung (mono 12) with a solid line-height so the glyph centres in the 20 box.
-          // 代码档(mono 12),实高行盒使字形在 20 帽内居中。
-          child: Text(frags[i], style: AnText.code.copyWith(color: c.ink, height: 1)),
-        ),
+        ],
       ],
-    ]);
+    );
   }
 
   /// The recording/conflict banner plate. 录制/冲突宽板。
   Widget _plate(AnColors c) {
     final recording = state == AnKeycapState.recording;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s6),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AnSpace.s12,
+        vertical: AnSpace.s6,
+      ),
       decoration: BoxDecoration(
         color: recording ? c.accentSoft : c.surfaceHover,
         borderRadius: BorderRadius.circular(AnRadius.button),
@@ -97,7 +115,10 @@ class AnKeycap extends StatelessWidget {
           width: AnSize.hairline,
         ),
       ),
-      child: Text(label, style: AnText.mono.copyWith(color: recording ? c.accent : c.ink)),
+      child: Text(
+        label,
+        style: AnText.mono.copyWith(color: recording ? c.accent : c.ink),
+      ),
     );
   }
 }

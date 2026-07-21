@@ -14,7 +14,11 @@ import '../ui/icons.dart';
 /// from the composing tag — the requests are built BEFORE the submit runs, so the node still holds the
 /// tag text at this point). 命令构建请求所需:触发段/活文档/提交删 tag 后该段是否为空(调用方据 composing tag
 /// 预判——请求在 Submit 前构建,此刻节点还揣着 tag 文本)。
-typedef SlashContext = ({String nodeId, Document document, bool emptyAfterSubmit});
+typedef SlashContext = ({
+  String nodeId,
+  Document document,
+  bool emptyAfterSubmit,
+});
 
 /// One slash-menu command — a block type the `/` menu can turn the current paragraph into. [labelOf]
 /// resolves the display label from the live locale (the palette is a top-level const-ish list, so it can't
@@ -40,39 +44,131 @@ class SlashCommand {
   bool matches(String query, Translations t) {
     if (query.isEmpty) return true;
     final q = query.toLowerCase();
-    return labelOf(t).toLowerCase().contains(q) || keywords.any((k) => k.toLowerCase().contains(q));
+    return labelOf(t).toLowerCase().contains(q) ||
+        keywords.any((k) => k.toLowerCase().contains(q));
   }
 }
 
 /// The full slash palette — every block type the editor renders, in the reading order a writer expects.
 /// slash 全表——覆盖编辑器所有块型,按书写者预期的阅读序。
 final List<SlashCommand> slashCommands = [
-  SlashCommand(labelOf: (t) => t.documents.slash.text, icon: AnIcons.paragraph, keywords: ['text', 'p', 'paragraph', 'zhengwen'], requests: _paragraph),
-  SlashCommand(labelOf: (t) => t.documents.slash.h1, icon: AnIcons.heading1, keywords: ['h1', 'heading', 'biaoti'], requests: _h1),
-  SlashCommand(labelOf: (t) => t.documents.slash.h2, icon: AnIcons.heading2, keywords: ['h2', 'heading', 'biaoti'], requests: _h2),
-  SlashCommand(labelOf: (t) => t.documents.slash.h3, icon: AnIcons.heading3, keywords: ['h3', 'heading', 'biaoti'], requests: _h3),
-  SlashCommand(labelOf: (t) => t.documents.slash.quote, icon: AnIcons.quote, keywords: ['quote', 'blockquote', 'yinyong'], requests: _quote),
-  SlashCommand(labelOf: (t) => t.documents.slash.code, icon: AnIcons.codeBlock, keywords: ['code', 'fenced', 'daima'], requests: _code),
-  SlashCommand(labelOf: (t) => t.documents.slash.table, icon: AnIcons.table, keywords: ['table', 'grid', 'biaoge'], requests: _table),
-  SlashCommand(labelOf: (t) => t.documents.slash.bulleted, icon: AnIcons.listBulleted, keywords: ['ul', 'bullet', 'list', 'liebiao'], requests: _ul),
-  SlashCommand(labelOf: (t) => t.documents.slash.numbered, icon: AnIcons.listNumbered, keywords: ['ol', 'ordered', 'number', 'liebiao'], requests: _ol),
-  SlashCommand(labelOf: (t) => t.documents.slash.todo, icon: AnIcons.todo, keywords: ['task', 'todo', 'checkbox', 'renwu'], requests: _task),
-  SlashCommand(labelOf: (t) => t.documents.slash.divider, icon: AnIcons.divider, keywords: ['divider', 'hr', 'rule', 'fenge'], requests: _divider),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.text,
+    icon: AnIcons.paragraph,
+    keywords: ['text', 'p', 'paragraph', 'zhengwen'],
+    requests: _paragraph,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.h1,
+    icon: AnIcons.heading1,
+    keywords: ['h1', 'heading', 'biaoti'],
+    requests: _h1,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.h2,
+    icon: AnIcons.heading2,
+    keywords: ['h2', 'heading', 'biaoti'],
+    requests: _h2,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.h3,
+    icon: AnIcons.heading3,
+    keywords: ['h3', 'heading', 'biaoti'],
+    requests: _h3,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.quote,
+    icon: AnIcons.quote,
+    keywords: ['quote', 'blockquote', 'yinyong'],
+    requests: _quote,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.code,
+    icon: AnIcons.codeBlock,
+    keywords: ['code', 'fenced', 'daima'],
+    requests: _code,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.table,
+    icon: AnIcons.table,
+    keywords: ['table', 'grid', 'biaoge'],
+    requests: _table,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.bulleted,
+    icon: AnIcons.listBulleted,
+    keywords: ['ul', 'bullet', 'list', 'liebiao'],
+    requests: _ul,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.numbered,
+    icon: AnIcons.listNumbered,
+    keywords: ['ol', 'ordered', 'number', 'liebiao'],
+    requests: _ol,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.todo,
+    icon: AnIcons.todo,
+    keywords: ['task', 'todo', 'checkbox', 'renwu'],
+    requests: _task,
+  ),
+  SlashCommand(
+    labelOf: (t) => t.documents.slash.divider,
+    icon: AnIcons.divider,
+    keywords: ['divider', 'hr', 'rule', 'fenge'],
+    requests: _divider,
+  ),
 ];
 
-List<EditRequest> _paragraph(SlashContext c) =>
-    [ChangeParagraphBlockTypeRequest(nodeId: c.nodeId, blockType: paragraphAttribution)];
-List<EditRequest> _h1(SlashContext c) => [ChangeParagraphBlockTypeRequest(nodeId: c.nodeId, blockType: header1Attribution)];
-List<EditRequest> _h2(SlashContext c) => [ChangeParagraphBlockTypeRequest(nodeId: c.nodeId, blockType: header2Attribution)];
-List<EditRequest> _h3(SlashContext c) => [ChangeParagraphBlockTypeRequest(nodeId: c.nodeId, blockType: header3Attribution)];
-List<EditRequest> _quote(SlashContext c) =>
-    [ChangeParagraphBlockTypeRequest(nodeId: c.nodeId, blockType: blockquoteAttribution)];
+List<EditRequest> _paragraph(SlashContext c) => [
+  ChangeParagraphBlockTypeRequest(
+    nodeId: c.nodeId,
+    blockType: paragraphAttribution,
+  ),
+];
+List<EditRequest> _h1(SlashContext c) => [
+  ChangeParagraphBlockTypeRequest(
+    nodeId: c.nodeId,
+    blockType: header1Attribution,
+  ),
+];
+List<EditRequest> _h2(SlashContext c) => [
+  ChangeParagraphBlockTypeRequest(
+    nodeId: c.nodeId,
+    blockType: header2Attribution,
+  ),
+];
+List<EditRequest> _h3(SlashContext c) => [
+  ChangeParagraphBlockTypeRequest(
+    nodeId: c.nodeId,
+    blockType: header3Attribution,
+  ),
+];
+List<EditRequest> _quote(SlashContext c) => [
+  ChangeParagraphBlockTypeRequest(
+    nodeId: c.nodeId,
+    blockType: blockquoteAttribution,
+  ),
+];
 // Code block = the embedded [CodeBlockNode] (AnCodeEditor), same as the markdown codec + the ```` ``` ````
 // on-type shortcut — NOT a codeAttribution paragraph. 代码块=嵌入 CodeBlockNode,与 codec/on-type 一致。
-List<EditRequest> _code(SlashContext c) => _insertBlock(c, CodeBlockNode(id: Editor.createNodeId(), code: ''));
-List<EditRequest> _ul(SlashContext c) => [ConvertParagraphToListItemRequest(nodeId: c.nodeId, type: ListItemType.unordered)];
-List<EditRequest> _ol(SlashContext c) => [ConvertParagraphToListItemRequest(nodeId: c.nodeId, type: ListItemType.ordered)];
-List<EditRequest> _task(SlashContext c) => [ConvertParagraphToTaskRequest(nodeId: c.nodeId)];
+List<EditRequest> _code(SlashContext c) =>
+    _insertBlock(c, CodeBlockNode(id: Editor.createNodeId(), code: ''));
+List<EditRequest> _ul(SlashContext c) => [
+  ConvertParagraphToListItemRequest(
+    nodeId: c.nodeId,
+    type: ListItemType.unordered,
+  ),
+];
+List<EditRequest> _ol(SlashContext c) => [
+  ConvertParagraphToListItemRequest(
+    nodeId: c.nodeId,
+    type: ListItemType.ordered,
+  ),
+];
+List<EditRequest> _task(SlashContext c) => [
+  ConvertParagraphToTaskRequest(nodeId: c.nodeId),
+];
 
 /// Insert [block] at the trigger paragraph (replace if it'll be empty post-submit, below if not) + a
 /// fresh paragraph after it, and park the caret there so the writer keeps typing.
@@ -90,7 +186,10 @@ List<EditRequest> _insertBlock(SlashContext c, DocumentNode block) {
     ),
     ChangeSelectionRequest(
       DocumentSelection.collapsed(
-        position: DocumentPosition(nodeId: paraId, nodePosition: const TextNodePosition(offset: 0)),
+        position: DocumentPosition(
+          nodeId: paraId,
+          nodePosition: const TextNodePosition(offset: 0),
+        ),
       ),
       SelectionChangeType.insertContent,
       'slash-insert-block',
@@ -98,18 +197,23 @@ List<EditRequest> _insertBlock(SlashContext c, DocumentNode block) {
   ];
 }
 
-List<EditRequest> _divider(SlashContext c) => _insertBlock(c, HorizontalRuleNode(id: Editor.createNodeId()));
+List<EditRequest> _divider(SlashContext c) =>
+    _insertBlock(c, HorizontalRuleNode(id: Editor.createNodeId()));
 
 List<EditRequest> _table(SlashContext c) {
-  TextNode cell() => TextNode(id: Editor.createNodeId(), text: AttributedText(''));
+  TextNode cell() =>
+      TextNode(id: Editor.createNodeId(), text: AttributedText(''));
   // Header row + one body row × 3 columns — the smallest markdown-serializable grid worth starting from.
   // 表头行 + 一行正文 × 3 列——最小可序列化起手表。
   return _insertBlock(
     c,
-    TableBlockNode(id: Editor.createNodeId(), cells: [
-      [cell(), cell(), cell()],
-      [cell(), cell(), cell()],
-    ]),
+    TableBlockNode(
+      id: Editor.createNodeId(),
+      cells: [
+        [cell(), cell(), cell()],
+        [cell(), cell(), cell()],
+      ],
+    ),
   );
 }
 
@@ -136,13 +240,15 @@ class AnSlashMenuOverlay extends DocumentLayoutLayerStatefulWidget {
   final void Function(SlashCommand) onSelect;
 
   @override
-  DocumentLayoutLayerState<AnSlashMenuOverlay, SlashPlacement?> createState() => _AnSlashMenuOverlayState();
+  DocumentLayoutLayerState<AnSlashMenuOverlay, SlashPlacement?> createState() =>
+      _AnSlashMenuOverlayState();
 }
 
 // The resolved menu placement: the top-left corner (document coords) already flip-adjusted. 已翻转的落点。
 typedef SlashPlacement = ({double left, double top});
 
-class _AnSlashMenuOverlayState extends DocumentLayoutLayerState<AnSlashMenuOverlay, SlashPlacement?> {
+class _AnSlashMenuOverlayState
+    extends DocumentLayoutLayerState<AnSlashMenuOverlay, SlashPlacement?> {
   @override
   SlashPlacement? computeLayoutDataWithDocumentLayout(
     BuildContext contentLayersContext,
@@ -160,13 +266,21 @@ class _AnSlashMenuOverlayState extends DocumentLayoutLayerState<AnSlashMenuOverl
     // Shared caret-anchored placement (A-104) — hang below by default, flip above only if below
     // overflows AND above fits (mention shares this exact math). 共享落点:默认下挂,下溢且上容才翻上。
     final box = context.findRenderObject() as RenderBox?;
-    final layerHeight = (box != null && box.hasSize) ? box.size.height : double.infinity;
-    return AnMenuSurface.caretPlacement(anchor: anchor, rows: widget.matches.length, layerHeight: layerHeight);
+    final layerHeight = (box != null && box.hasSize)
+        ? box.size.height
+        : double.infinity;
+    return AnMenuSurface.caretPlacement(
+      anchor: anchor,
+      rows: widget.matches.length,
+      layerHeight: layerHeight,
+    );
   }
 
   @override
   Widget doBuild(BuildContext context, SlashPlacement? placement) {
-    if (placement == null || widget.matches.isEmpty) return const SizedBox.shrink();
+    if (placement == null || widget.matches.isEmpty) {
+      return const SizedBox.shrink();
+    }
     // A Stack with a single Positioned child — empty areas don't hit-test, so taps outside the menu pass
     // through to the editor below (NOT IgnorePointer — the menu itself must catch its own taps). 空处穿透。
     return Stack(
@@ -175,7 +289,11 @@ class _AnSlashMenuOverlayState extends DocumentLayoutLayerState<AnSlashMenuOverl
         Positioned(
           top: placement.top,
           left: placement.left,
-          child: AnSlashMenu(commands: widget.matches, activeIndex: widget.activeIndex, onSelect: widget.onSelect),
+          child: AnSlashMenu(
+            commands: widget.matches,
+            activeIndex: widget.activeIndex,
+            onSelect: widget.onSelect,
+          ),
         ),
       ],
     );
@@ -204,7 +322,10 @@ class AnSlashMenu extends StatelessWidget {
     final t = Translations.of(context);
     return ConstrainedBox(
       constraints: const BoxConstraints(
-          minWidth: AnSize.menuMinWidth, maxWidth: AnSize.menuMaxWidth, maxHeight: AnSize.menuMaxHeight),
+        minWidth: AnSize.menuMinWidth,
+        maxWidth: AnSize.menuMaxWidth,
+        maxHeight: AnSize.menuMaxHeight,
+      ),
       child: AnMenuSurface(
         children: [
           for (var i = 0; i < commands.length; i++)
@@ -213,9 +334,16 @@ class AnSlashMenu extends StatelessWidget {
               highlighted: i == activeIndex,
               builder: (ctx, active) => Row(
                 children: [
-                  Icon(commands[i].icon, size: AnSize.icon, color: active ? c.ink : c.inkMuted),
+                  Icon(
+                    commands[i].icon,
+                    size: AnSize.icon,
+                    color: active ? c.ink : c.inkMuted,
+                  ),
                   const SizedBox(width: AnSpace.s8),
-                  Text(commands[i].labelOf(t), style: AnText.body.copyWith(color: c.ink)),
+                  Text(
+                    commands[i].labelOf(t),
+                    style: AnText.body.copyWith(color: c.ink),
+                  ),
                 ],
               ),
             ),

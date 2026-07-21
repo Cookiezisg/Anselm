@@ -31,7 +31,10 @@ class AnField extends StatelessWidget {
     this.child,
     this.onChanged,
     super.key,
-  }) : assert(!(editable && wrap), 'wrap is for the read-only value mode — editable values are flush-right. wrap 仅限只读值');
+  }) : assert(
+         !(editable && wrap),
+         'wrap is for the read-only value mode — editable values are flush-right. wrap 仅限只读值',
+       );
 
   final String label;
   final String? hint;
@@ -70,7 +73,8 @@ class AnField extends StatelessWidget {
         valueStyle: _valueStyle,
         editor: editor,
         options: options,
-        onChanged: onChanged!, // guarded above (instance field isn't promoted by the null-check) 上文已判非空
+        onChanged:
+            onChanged!, // guarded above (instance field isn't promoted by the null-check) 上文已判非空
       );
     }
 
@@ -95,7 +99,10 @@ class AnField extends StatelessWidget {
 
     final row = Container(
       constraints: const BoxConstraints(minHeight: AnSize.islandHead),
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AnSpace.s8,
+        vertical: AnSpace.s4,
+      ),
       // label hugs content (capped), value/control fills the remainder + flush-right (AnLeadValue); only a
       // text value honours wrap — the child-slot control is non-wrap, Align-right. 标签贴内容、值/控件吃余量贴右。
       child: AnLeadValue(
@@ -108,8 +115,13 @@ class AnField extends StatelessWidget {
     // read-only value → one merged "label(, hint): value" node; child slot → label + child each
     // keep their own semantics (the control must stay reachable). 只读单节点;child 态各自可达。
     if (semValue != null) {
-      final sem = hint != null ? '$label, $hint: $semValue' : '$label: $semValue';
-      return Semantics(label: sem, child: ExcludeSemantics(child: row));
+      final sem = hint != null
+          ? '$label, $hint: $semValue'
+          : '$label: $semValue';
+      return Semantics(
+        label: sem,
+        child: ExcludeSemantics(child: row),
+      );
     }
     // child slot: container (NOT merged — the control must stay reachable) so label + control group,
     // matching the editable path's explicitChildNodes. 控件槽:容器不 merge(控件可达),三态语义齐。
@@ -117,7 +129,12 @@ class AnField extends StatelessWidget {
   }
 
   Widget _leading(AnColors c) {
-    final labelText = Text(label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: c.ink));
+    final labelText = Text(
+      label,
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      style: AnText.body.copyWith(color: c.ink),
+    );
     if (hint == null) return labelText;
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -128,7 +145,13 @@ class AnField extends StatelessWidget {
         // hint: faint, wraps onto multiple lines (word boundaries) — a long mechanism / description.
         // Content tier reads it at label 13 (metadata inside content is never 12); dense keeps meta 12.
         // hint 多行换行;内容档 13(内容内元数据不用 12)、dense 守 12。
-        Text(hint!, softWrap: true, style: (dense ? AnText.meta : AnText.label).copyWith(color: c.inkFaint)),
+        Text(
+          hint!,
+          softWrap: true,
+          style: (dense ? AnText.meta : AnText.label).copyWith(
+            color: c.inkFaint,
+          ),
+        ),
       ],
     );
   }

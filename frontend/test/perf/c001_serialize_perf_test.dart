@@ -16,13 +16,19 @@ void main() {
   String buildDoc(int paragraphs) {
     final sb = StringBuffer();
     for (var i = 0; i < paragraphs; i++) {
-      if (i % 20 == 0) sb.writeln('## Section $i — a heading that anchors the outline\n');
-      sb.writeln('Paragraph $i carries a realistic amount of prose — several sentences of real content '
-          'so the block is worth serializing, with the occasional number like ${i * 37} and a '
-          '[[ent_${i}0000000000000] mention-ish token, continuing long enough to matter.\n');
+      if (i % 20 == 0) {
+        sb.writeln('## Section $i — a heading that anchors the outline\n');
+      }
+      sb.writeln(
+        'Paragraph $i carries a realistic amount of prose — several sentences of real content '
+        'so the block is worth serializing, with the occasional number like ${i * 37} and a '
+        '[[ent_${i}0000000000000] mention-ish token, continuing long enough to matter.\n',
+      );
       if (i % 10 == 0) {
         for (var j = 0; j < 5; j++) {
-          sb.writeln('- list item $i.$j — a bullet with a sentence of text to serialize');
+          sb.writeln(
+            '- list item $i.$j — a bullet with a sentence of text to serialize',
+          );
         }
         sb.writeln();
       }
@@ -52,10 +58,15 @@ void main() {
     test('C-001: markdownFromDocument cost — $paragraphs-paragraph doc', () {
       final doc = documentFromMarkdown(buildDoc(paragraphs));
       final r = measure(doc);
-      debugPrint('P5-C001  nodes=${doc.nodeCount}  chars=${r.chars}  '
-          'serialize median=${r.medianMs.toStringAsFixed(2)}ms  p90=${r.p90Ms.toStringAsFixed(2)}ms  '
-          '(release≈${(r.medianMs / 3).toStringAsFixed(2)}ms)');
-      expect(r.medianMs, greaterThan(0)); // measurement, not a threshold gate 测量,非阈值门
+      debugPrint(
+        'P5-C001  nodes=${doc.nodeCount}  chars=${r.chars}  '
+        'serialize median=${r.medianMs.toStringAsFixed(2)}ms  p90=${r.p90Ms.toStringAsFixed(2)}ms  '
+        '(release≈${(r.medianMs / 3).toStringAsFixed(2)}ms)',
+      );
+      expect(
+        r.medianMs,
+        greaterThan(0),
+      ); // measurement, not a threshold gate 测量,非阈值门
     });
   }
 }

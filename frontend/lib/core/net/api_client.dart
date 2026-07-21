@@ -24,9 +24,9 @@ class ApiClient {
     required Dio dio,
     required String? Function() workspaceId,
     required String? Function() authToken,
-  })  : _dio = dio,
-        _workspaceId = workspaceId,
-        _authToken = authToken {
+  }) : _dio = dio,
+       _workspaceId = workspaceId,
+       _authToken = authToken {
     _dio.interceptors.add(InterceptorsWrapper(onRequest: _onRequest));
   }
 
@@ -62,12 +62,13 @@ class ApiClient {
     String path,
     T Function(Map<String, dynamic>) parse, {
     Map<String, dynamic>? query,
-  }) =>
-      _send(() async {
-        final r = await _dio.get<Map<String, dynamic>>(path,
-            queryParameters: query);
-        return parse(_data(r.data));
-      });
+  }) => _send(() async {
+    final r = await _dio.get<Map<String, dynamic>>(
+      path,
+      queryParameters: query,
+    );
+    return parse(_data(r.data));
+  });
 
   /// GET a keyset page: `{data:[…], nextCursor?, hasMore}` → [Page].
   ///
@@ -76,12 +77,13 @@ class ApiClient {
     String path,
     T Function(Map<String, dynamic>) item, {
     Map<String, dynamic>? query,
-  }) =>
-      _send(() async {
-        final r = await _dio.get<Map<String, dynamic>>(path,
-            queryParameters: query);
-        return Page.fromBody(r.data ?? const {}, item);
-      });
+  }) => _send(() async {
+    final r = await _dio.get<Map<String, dynamic>>(
+      path,
+      queryParameters: query,
+    );
+    return Page.fromBody(r.data ?? const {}, item);
+  });
 
   /// GET an OFFSET page: `{data:[…], total, hasMore}` → [OffsetPage] (WRK-070 B4, flowruns only).
   ///
@@ -90,12 +92,13 @@ class ApiClient {
     String path,
     T Function(Map<String, dynamic>) item, {
     Map<String, dynamic>? query,
-  }) =>
-      _send(() async {
-        final r = await _dio.get<Map<String, dynamic>>(path,
-            queryParameters: query);
-        return OffsetPage.fromBody(r.data ?? const {}, item);
-      });
+  }) => _send(() async {
+    final r = await _dio.get<Map<String, dynamic>>(
+      path,
+      queryParameters: query,
+    );
+    return OffsetPage.fromBody(r.data ?? const {}, item);
+  });
 
   /// GET a log page whose `data` is an object carrying a list + an aggregate sidecar:
   /// `{data:{<listKey>:[…], aggregates:{…}}, nextCursor?, hasMore}` → [PageWithAggregate].
@@ -110,13 +113,18 @@ class ApiClient {
     T Function(Map<String, dynamic>) item,
     A Function(Map<String, dynamic>) aggregate, {
     Map<String, dynamic>? query,
-  }) =>
-      _send(() async {
-        final r = await _dio.get<Map<String, dynamic>>(path,
-            queryParameters: query);
-        return PageWithAggregate.fromBody(
-            r.data ?? const {}, listKey, item, aggregate);
-      });
+  }) => _send(() async {
+    final r = await _dio.get<Map<String, dynamic>>(
+      path,
+      queryParameters: query,
+    );
+    return PageWithAggregate.fromBody(
+      r.data ?? const {},
+      listKey,
+      item,
+      aggregate,
+    );
+  });
 
   /// GET a raw envelope body (for composite reads like `{flowrun, nodes}` whose `data`
   /// is a multi-key object the caller destructures itself).
@@ -124,18 +132,23 @@ class ApiClient {
   /// GET 原始信封体(供 `{flowrun, nodes}` 这类 `data` 为多 key 对象、调用方自解的复合读)。
   /// GET raw bytes (non-envelope endpoints — attachment content). 裸字节 GET(非 envelope,附件内容)。
   Future<List<int>> getBytes(String path) => _send(() async {
-        final r = await _dio.get<List<int>>(path,
-            options: Options(responseType: ResponseType.bytes));
-        return r.data ?? const <int>[];
-      });
+    final r = await _dio.get<List<int>>(
+      path,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    return r.data ?? const <int>[];
+  });
 
-  Future<Map<String, dynamic>> getData(String path,
-          {Map<String, dynamic>? query}) =>
-      _send(() async {
-        final r = await _dio.get<Map<String, dynamic>>(path,
-            queryParameters: query);
-        return _data(r.data);
-      });
+  Future<Map<String, dynamic>> getData(
+    String path, {
+    Map<String, dynamic>? query,
+  }) => _send(() async {
+    final r = await _dio.get<Map<String, dynamic>>(
+      path,
+      queryParameters: query,
+    );
+    return _data(r.data);
+  });
 
   /// GET the WHOLE envelope body — for reads whose coordinates ride top-level BESIDE `data`
   /// (the `?around=` window envelope `{data, targetId, olderCursor?, newerCursor?, hasOlder,
@@ -143,13 +156,16 @@ class ApiClient {
   ///
   /// GET **整个** envelope 体——供坐标在顶层与 `data` 并列的读(`?around=` 窗 envelope)。
   /// [getData] 只剥 `data`、会丢坐标。
-  Future<Map<String, dynamic>> getEnvelope(String path,
-          {Map<String, dynamic>? query}) =>
-      _send(() async {
-        final r = await _dio.get<Map<String, dynamic>>(path,
-            queryParameters: query);
-        return r.data ?? const {};
-      });
+  Future<Map<String, dynamic>> getEnvelope(
+    String path, {
+    Map<String, dynamic>? query,
+  }) => _send(() async {
+    final r = await _dio.get<Map<String, dynamic>>(
+      path,
+      queryParameters: query,
+    );
+    return r.data ?? const {};
+  });
 
   /// POST returning a created/edited entity: `{data:<obj>}` → [parse]. Covers Create
   /// (201) and state-change actions (`:activate` … return the post-action snapshot).
@@ -159,11 +175,10 @@ class ApiClient {
     String path,
     T Function(Map<String, dynamic>) parse, {
     Object? body,
-  }) =>
-      _send(() async {
-        final r = await _dio.post<Map<String, dynamic>>(path, data: body);
-        return parse(_data(r.data));
-      });
+  }) => _send(() async {
+    final r = await _dio.post<Map<String, dynamic>>(path, data: body);
+    return parse(_data(r.data));
+  });
 
   /// PATCH/PUT returning the updated entity snapshot.
   ///
@@ -173,41 +188,40 @@ class ApiClient {
     T Function(Map<String, dynamic>) parse, {
     Object? body,
     bool put = false,
-  }) =>
-      _send(() async {
-        final r = put
-            ? await _dio.put<Map<String, dynamic>>(path, data: body)
-            : await _dio.patch<Map<String, dynamic>>(path, data: body);
-        return parse(_data(r.data));
-      });
+  }) => _send(() async {
+    final r = put
+        ? await _dio.put<Map<String, dynamic>>(path, data: body)
+        : await _dio.patch<Map<String, dynamic>>(path, data: body);
+    return parse(_data(r.data));
+  });
 
   /// POST an async action that returns a single new resource id: `202 {data:{id}}` →
   /// the id string (MD3). E.g. send-message, `:trigger`, `:fire`, `:iterate`.
   ///
   /// POST 返单产物 id 的异步动作 → id 字符串(MD3)。如发消息、`:trigger`、`:fire`、`:iterate`。
   Future<String> postForId(String path, {Object? body}) => _send(() async {
-        final r = await _dio.post<Map<String, dynamic>>(path, data: body);
-        // Validate rather than bare-cast: a malformed 202 (missing/non-string id) must surface as a typed
-        // ApiException, not a raw TypeError escaping the typed-error contract. 校验非裸 cast,守 typed-error 契约。
-        final id = _data(r.data)['id'];
-        if (id is! String || id.isEmpty) {
-          throw ApiException(
-            code: AnselmErr.unknown,
-            message: 'response data had no id string',
-            httpStatus: 200,
-          );
-        }
-        return id;
-      });
+    final r = await _dio.post<Map<String, dynamic>>(path, data: body);
+    // Validate rather than bare-cast: a malformed 202 (missing/non-string id) must surface as a typed
+    // ApiException, not a raw TypeError escaping the typed-error contract. 校验非裸 cast,守 typed-error 契约。
+    final id = _data(r.data)['id'];
+    if (id is! String || id.isEmpty) {
+      throw ApiException(
+        code: AnselmErr.unknown,
+        message: 'response data had no id string',
+        httpStatus: 200,
+      );
+    }
+    return id;
+  });
 
   /// POST a synchronous executor (`:run`/`:call`/`:invoke`) that returns a BARE result
   /// (not wrapped in `{data}`/`{result}`). Returns the decoded body as-is.
   ///
   /// POST 同步执行器(`:run`/`:call`/`:invoke`),返**裸结果**(不裹 `{data}`/`{result}`)。
   Future<dynamic> postBare(String path, {Object? body}) => _send(() async {
-        final r = await _dio.post<dynamic>(path, data: body);
-        return r.data;
-      });
+    final r = await _dio.post<dynamic>(path, data: body);
+    return r.data;
+  });
 
   /// POST a fire-and-forget action with no product (204) — e.g. `:reindex`, resolve.
   ///
@@ -217,22 +231,28 @@ class ApiClient {
 
   /// POST returning a `{data:<obj>}` map (an action whose product is a small ad-hoc object, e.g.
   /// `:provision` → `{provisioned}`). POST 返 data 对象(小型即席产物动作)。
-  Future<Map<String, dynamic>> postData(String path, {Object? body}) => _send(() async {
+  Future<Map<String, dynamic>> postData(String path, {Object? body}) =>
+      _send(() async {
         final r = await _dio.post<Map<String, dynamic>>(path, data: body);
         return _data(r.data);
       });
 
   /// PUT returning the updated entity snapshot (sugar over [patchEntity] put:true). PUT 返实体快照。
-  Future<T> putEntity<T>(String path, T Function(Map<String, dynamic>) parse, {Object? body}) =>
-      patchEntity(path, parse, body: body, put: true);
+  Future<T> putEntity<T>(
+    String path,
+    T Function(Map<String, dynamic>) parse, {
+    Object? body,
+  }) => patchEntity(path, parse, body: body, put: true);
 
   /// DELETE returning the post-delete entity snapshot (e.g. clearing a workspace default returns
   /// the fresh workspace row). DELETE 返删后实体快照(如清默认返新 workspace 行)。
-  Future<T> deleteEntity<T>(String path, T Function(Map<String, dynamic>) parse) =>
-      _send(() async {
-        final r = await _dio.delete<Map<String, dynamic>>(path);
-        return parse(_data(r.data));
-      });
+  Future<T> deleteEntity<T>(
+    String path,
+    T Function(Map<String, dynamic>) parse,
+  ) => _send(() async {
+    final r = await _dio.delete<Map<String, dynamic>>(path);
+    return parse(_data(r.data));
+  });
 
   /// DELETE (204).
   Future<void> delete(String path) =>

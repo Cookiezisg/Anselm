@@ -25,8 +25,11 @@ class _ActiveWs extends ActiveWorkspace {
   String? build() => 'ws_demo0000000000';
 }
 
-Widget _host(FixtureSettingsRepository repo,
-    {Widget child = const WorkspacesPanel(), GoRouter? router}) {
+Widget _host(
+  FixtureSettingsRepository repo, {
+  Widget child = const WorkspacesPanel(),
+  GoRouter? router,
+}) {
   return ProviderScope(
     overrides: [
       settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
@@ -45,26 +48,35 @@ Widget _host(FixtureSettingsRepository repo,
 }
 
 Workspace _ws(String id, String name) => Workspace(
-    id: id,
-    name: name,
-    language: 'zh-CN',
-    createdAt: DateTime.utc(2026, 7, 1),
-    updatedAt: DateTime.utc(2026, 7, 1));
+  id: id,
+  name: name,
+  language: 'zh-CN',
+  createdAt: DateTime.utc(2026, 7, 1),
+  updatedAt: DateTime.utc(2026, 7, 1),
+);
 
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
   group('工作区名册 roster', () {
-    testWidgets('active row carries the Current mark; row click hot-switches', (tester) async {
-      final repo = FixtureSettingsRepository()..extraWorkspaces.add(_ws('ws_2', 'Side'));
+    testWidgets('active row carries the Current mark; row click hot-switches', (
+      tester,
+    ) async {
+      final repo = FixtureSettingsRepository()
+        ..extraWorkspaces.add(_ws('ws_2', 'Side'));
       final router = GoRouter(
-          routes: [GoRoute(path: '/', builder: (_, _) => const SizedBox())],
-          initialLocation: '/');
+        routes: [GoRoute(path: '/', builder: (_, _) => const SizedBox())],
+        initialLocation: '/',
+      );
       await tester.pumpWidget(_host(repo, router: router));
       await tester.pumpAndSettle();
       final t = Translations.of(tester.element(find.byType(WorkspacesPanel)));
       expect(find.text('Demo'), findsOneWidget);
-      expect(find.text(t.settings.ws.current), findsOneWidget, reason: '当前行常驻标');
+      expect(
+        find.text(t.settings.ws.current),
+        findsOneWidget,
+        reason: '当前行常驻标',
+      );
 
       final panelEl = tester.element(find.byType(WorkspacesPanel));
       final container = ProviderScope.containerOf(panelEl, listen: false);
@@ -74,7 +86,9 @@ void main() {
       expect(container.read(activeWorkspaceNameProvider), 'Side');
     });
 
-    testWidgets('create pushes the form; a new workspace lands in the roster', (tester) async {
+    testWidgets('create pushes the form; a new workspace lands in the roster', (
+      tester,
+    ) async {
       final repo = FixtureSettingsRepository();
       await tester.pumpWidget(_host(repo));
       await tester.pumpAndSettle();
@@ -93,77 +107,131 @@ void main() {
   });
 
   group('危险区 danger zone', () {
-    testWidgets('real numbers + hazard line; typing the name unlocks; delete removes', (tester) async {
-      final repo = FixtureSettingsRepository()
-        ..extraWorkspaces.add(_ws('ws_2', 'Side'))
-        ..stats = const WorkspaceStats(
-            conversations: 7, functions: 2, agents: 1, documents: 3, runningFlowruns: 2);
-      await tester.pumpWidget(_host(repo));
-      await tester.pumpAndSettle();
-      final panelEl = tester.element(find.byType(WorkspacesPanel));
-      final container = ProviderScope.containerOf(panelEl, listen: false);
-      final t = Translations.of(panelEl);
+    testWidgets(
+      'real numbers + hazard line; typing the name unlocks; delete removes',
+      (tester) async {
+        final repo = FixtureSettingsRepository()
+          ..extraWorkspaces.add(_ws('ws_2', 'Side'))
+          ..stats = const WorkspaceStats(
+            conversations: 7,
+            functions: 2,
+            agents: 1,
+            documents: 3,
+            runningFlowruns: 2,
+          );
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+        final panelEl = tester.element(find.byType(WorkspacesPanel));
+        final container = ProviderScope.containerOf(panelEl, listen: false);
+        final t = Translations.of(panelEl);
 
-      container.read(settingsDetailProvider.notifier).push('workspace', id: 'ws_2');
-      await tester.pumpAndSettle();
-      expect(find.byType(AnTypeToConfirm), findsOneWidget, reason: '非当前+非最后=有危险区');
-      expect(find.textContaining('7 对话'), findsOneWidget, reason: '真数字入散文(S-11)');
-      expect(find.textContaining('3 实体'), findsOneWidget, reason: 'fn+hd+ag+wf 合计');
-      expect(find.text(t.settings.ws.runningWarn(n: 2)), findsOneWidget, reason: '动态警示红字');
+        container
+            .read(settingsDetailProvider.notifier)
+            .push('workspace', id: 'ws_2');
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(AnTypeToConfirm),
+          findsOneWidget,
+          reason: '非当前+非最后=有危险区',
+        );
+        expect(
+          find.textContaining('7 对话'),
+          findsOneWidget,
+          reason: '真数字入散文(S-11)',
+        );
+        expect(
+          find.textContaining('3 实体'),
+          findsOneWidget,
+          reason: 'fn+hd+ag+wf 合计',
+        );
+        expect(
+          find.text(t.settings.ws.runningWarn(n: 2)),
+          findsOneWidget,
+          reason: '动态警示红字',
+        );
 
-      // Locked until the EXACT name is typed. 名字不符=锁。
-      final deleteBtn = find.text(t.settings.ws.confirmDelete);
-      await tester.tap(deleteBtn, warnIfMissed: false);
-      await tester.pumpAndSettle();
-      expect(repo.extraWorkspaces, hasLength(1), reason: '未解锁,删除未发生');
+        // Locked until the EXACT name is typed. 名字不符=锁。
+        final deleteBtn = find.text(t.settings.ws.confirmDelete);
+        await tester.tap(deleteBtn, warnIfMissed: false);
+        await tester.pumpAndSettle();
+        expect(repo.extraWorkspaces, hasLength(1), reason: '未解锁,删除未发生');
 
-      await tester.enterText(
-          find.descendant(of: find.byType(AnTypeToConfirm), matching: find.byType(TextField)),
-          'Side');
-      await tester.pumpAndSettle();
-      await tester.tap(deleteBtn);
-      await tester.pumpAndSettle();
-      expect(repo.extraWorkspaces, isEmpty, reason: '精确名解锁后删除生效');
-      expect(container.read(settingsDetailProvider), isNull, reason: '删除成功弹回名册');
-    });
+        await tester.enterText(
+          find.descendant(
+            of: find.byType(AnTypeToConfirm),
+            matching: find.byType(TextField),
+          ),
+          'Side',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(deleteBtn);
+        await tester.pumpAndSettle();
+        expect(repo.extraWorkspaces, isEmpty, reason: '精确名解锁后删除生效');
+        expect(
+          container.read(settingsDetailProvider),
+          isNull,
+          reason: '删除成功弹回名册',
+        );
+      },
+    );
 
-    testWidgets('the ACTIVE workspace offers no danger zone; a failed delete stays put',
-        (tester) async {
-      final repo = FixtureSettingsRepository()
-        ..extraWorkspaces.add(_ws('ws_2', 'Side'))
-        ..failNextWorkspaceDelete = 'WORKSPACE_HAS_RUNNING_WORK';
-      await tester.pumpWidget(_host(repo));
-      await tester.pumpAndSettle();
-      final panelEl = tester.element(find.byType(WorkspacesPanel));
-      final container = ProviderScope.containerOf(panelEl, listen: false);
-      final t = Translations.of(panelEl);
+    testWidgets(
+      'the ACTIVE workspace offers no danger zone; a failed delete stays put',
+      (tester) async {
+        final repo = FixtureSettingsRepository()
+          ..extraWorkspaces.add(_ws('ws_2', 'Side'))
+          ..failNextWorkspaceDelete = 'WORKSPACE_HAS_RUNNING_WORK';
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+        final panelEl = tester.element(find.byType(WorkspacesPanel));
+        final container = ProviderScope.containerOf(panelEl, listen: false);
+        final t = Translations.of(panelEl);
 
-      container.read(settingsDetailProvider.notifier).push('workspace', id: 'ws_demo0000000000');
-      await tester.pumpAndSettle();
-      expect(find.byType(AnTypeToConfirm), findsNothing, reason: '当前 workspace 绝不给删');
-      expect(find.text(t.settings.ws.current), findsOneWidget);
+        container
+            .read(settingsDetailProvider.notifier)
+            .push('workspace', id: 'ws_demo0000000000');
+        await tester.pumpAndSettle();
+        expect(
+          find.byType(AnTypeToConfirm),
+          findsNothing,
+          reason: '当前 workspace 绝不给删',
+        );
+        expect(find.text(t.settings.ws.current), findsOneWidget);
 
-      container.read(settingsDetailProvider.notifier).push('workspace', id: 'ws_2');
-      await tester.pumpAndSettle();
-      await tester.enterText(
-          find.descendant(of: find.byType(AnTypeToConfirm), matching: find.byType(TextField)),
-          'Side');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t.settings.ws.confirmDelete));
-      await tester.pumpAndSettle();
-      expect(repo.extraWorkspaces, hasLength(1), reason: '脚本失败,行还在');
-      expect(container.read(settingsDetailProvider)?.id, 'ws_2', reason: '失败留守编辑页(S-11)');
-    });
+        container
+            .read(settingsDetailProvider.notifier)
+            .push('workspace', id: 'ws_2');
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.descendant(
+            of: find.byType(AnTypeToConfirm),
+            matching: find.byType(TextField),
+          ),
+          'Side',
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(t.settings.ws.confirmDelete));
+        await tester.pumpAndSettle();
+        expect(repo.extraWorkspaces, hasLength(1), reason: '脚本失败,行还在');
+        expect(
+          container.read(settingsDetailProvider)?.id,
+          'ws_2',
+          reason: '失败留守编辑页(S-11)',
+        );
+      },
+    );
   });
 
   group('关于 about', () {
-    testWidgets('versions render; a fresh check reports available with a download link',
-        (tester) async {
-      final repo = FixtureSettingsRepository()..version = '9.9.9-engine';
-      await tester.pumpWidget(_host(repo, child: const AboutPanel()));
-      await tester.pumpAndSettle();
-      expect(find.text('9.9.9-engine'), findsOneWidget, reason: '引擎版本行');
-    });
+    testWidgets(
+      'versions render; a fresh check reports available with a download link',
+      (tester) async {
+        final repo = FixtureSettingsRepository()..version = '9.9.9-engine';
+        await tester.pumpWidget(_host(repo, child: const AboutPanel()));
+        await tester.pumpAndSettle();
+        expect(find.text('9.9.9-engine'), findsOneWidget, reason: '引擎版本行');
+      },
+    );
 
     test('isNewerVersion: v-prefix / equal / older / garbage', () {
       expect(isNewerVersion('v1.2.3', '1.2.2'), isTrue);

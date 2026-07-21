@@ -9,7 +9,9 @@ void main() {
   test('ticks are capped at maxTicks regardless of how many land', () {
     var p = const FlowrunProgress(flowrunId: 'fr');
     for (var i = 0; i < 5000; i++) {
-      p = p.withTick(NodeTick(nodeId: 'n$i', iteration: 0, status: 'completed'));
+      p = p.withTick(
+        NodeTick(nodeId: 'n$i', iteration: 0, status: 'completed'),
+      );
     }
     expect(p.ticks.length, FlowrunProgress.maxTicks, reason: '硬有界');
   });
@@ -17,7 +19,9 @@ void main() {
   test('the cap keeps the NEWEST ticks (what the stage renders — last 12)', () {
     var p = const FlowrunProgress(flowrunId: 'fr');
     for (var i = 0; i < 200; i++) {
-      p = p.withTick(NodeTick(nodeId: 'n$i', iteration: 0, status: 'completed'));
+      p = p.withTick(
+        NodeTick(nodeId: 'n$i', iteration: 0, status: 'completed'),
+      );
     }
     expect(p.ticks.last.nodeId, 'n199', reason: '最新在末');
     // The last 12 (the render window) are the newest 12. 渲染窗末 12 = 最新 12。
@@ -29,7 +33,9 @@ void main() {
   test('below the cap, every tick is retained in order', () {
     var p = const FlowrunProgress(flowrunId: 'fr');
     for (var i = 0; i < 10; i++) {
-      p = p.withTick(NodeTick(nodeId: 'n$i', iteration: 0, status: 'completed'));
+      p = p.withTick(
+        NodeTick(nodeId: 'n$i', iteration: 0, status: 'completed'),
+      );
     }
     expect(p.ticks.length, 10);
     expect(p.ticks.map((t) => t.nodeId), [for (var i = 0; i < 10; i++) 'n$i']);
@@ -39,10 +45,15 @@ void main() {
     var p = const FlowrunProgress(flowrunId: 'fr');
     final sw = Stopwatch()..start();
     for (var i = 0; i < 20000; i++) {
-      p = p.withTick(NodeTick(nodeId: 'n$i', iteration: 0, status: 'completed'));
+      p = p.withTick(
+        NodeTick(nodeId: 'n$i', iteration: 0, status: 'completed'),
+      );
     }
     sw.stop();
-    expect(sw.elapsedMilliseconds, lessThan(150),
-        reason: 'O(n) 有界拷贝:${sw.elapsedMilliseconds}ms(原 O(n²) 此规模 ~905ms)');
+    expect(
+      sw.elapsedMilliseconds,
+      lessThan(150),
+      reason: 'O(n) 有界拷贝:${sw.elapsedMilliseconds}ms(原 O(n²) 此规模 ~905ms)',
+    );
   });
 }

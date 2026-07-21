@@ -21,10 +21,10 @@ class MasterKey {
     Future<void> Function(String key, String value)? write,
     bool Function()? hasExistingDatabase,
     Random? random,
-  })  : _read = read ?? _storageRead,
-        _write = write ?? _storageWrite,
-        _hasExistingDatabase = hasExistingDatabase ?? _defaultHasDatabase,
-        _random = random ?? Random.secure();
+  }) : _read = read ?? _storageRead,
+       _write = write ?? _storageWrite,
+       _hasExistingDatabase = hasExistingDatabase ?? _defaultHasDatabase,
+       _random = random ?? Random.secure();
 
   // macOS: the legacy login keychain (NOT the data-protection keychain) — the latter requires a
   // development-certificate signature + keychain-access-groups entitlement, which local ad-hoc
@@ -68,13 +68,17 @@ class MasterKey {
       final back = await _read(storageKey);
       return back == minted ? minted : null;
     } catch (e) {
-      debugPrint('[master-key] keychain unavailable — legacy fingerprint path: $e');
+      debugPrint(
+        '[master-key] keychain unavailable — legacy fingerprint path: $e',
+      );
       return null;
     }
   }
 
   String _mint() {
-    final bytes = Uint8List.fromList(List.generate(32, (_) => _random.nextInt(256)));
+    final bytes = Uint8List.fromList(
+      List.generate(32, (_) => _random.nextInt(256)),
+    );
     return base64UrlEncode(bytes);
   }
 }

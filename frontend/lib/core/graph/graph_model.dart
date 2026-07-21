@@ -31,10 +31,13 @@ abstract final class GraphGeometry {
   static const double gapX = 84; // main-axis layer gap (LR) 层间距·横
   static const double gapY = 44; // cross-axis sibling gap (LR) 兄弟间距·纵
   static const double pad = 48; // content padding on every side 内容四周留白
-  static const double stub = 22; // straight lead-out before the first bend 拐弯前的直出线柄
+  static const double stub =
+      22; // straight lead-out before the first bend 拐弯前的直出线柄
   static const double corner = 12; // orthogonal-bend rounding radius 正交拐角圆角
-  static const double loopFirst = 16; // first loop channel offset past the bounds 首条回边通道距界
-  static const double loopGap = 26; // spacing between stacked loop channels 回边通道间距
+  static const double loopFirst =
+      16; // first loop channel offset past the bounds 首条回边通道距界
+  static const double loopGap =
+      26; // spacing between stacked loop channels 回边通道间距
   static const double loopTail = 8; // extra room after the last channel 末通道后余量
 }
 
@@ -145,7 +148,8 @@ GraphLayout layoutGraph(Graph g, {GraphDirection dir = GraphDirection.lr}) {
 
   final rects = <String, Rect>{
     for (final n in g.nodes)
-      n.id: origins[n.id]! & const Size(GraphGeometry.nodeW, GraphGeometry.nodeH),
+      n.id:
+          origins[n.id]! & const Size(GraphGeometry.nodeW, GraphGeometry.nodeH),
   };
 
   var maxX = GraphGeometry.nodeW, maxY = GraphGeometry.nodeH;
@@ -165,27 +169,44 @@ GraphLayout layoutGraph(Graph g, {GraphDirection dir = GraphDirection.lr}) {
   final routes = <GraphEdgeRoute>[];
   for (final e in g.edges) {
     final a = rects[e.from], b = rects[e.to];
-    if (a == null || b == null) continue; // dangling edge — skip, never crash 悬挂边跳过不崩
-    routes.add(back.contains(e.id)
-        ? _loopRoute(e, a, b, loopOrd[e.id]!, maxX, maxY, dir)
-        : _orthoRoute(e, a, b));
+    if (a == null || b == null) {
+      continue; // dangling edge — skip, never crash 悬挂边跳过不崩
+    }
+    routes.add(
+      back.contains(e.id)
+          ? _loopRoute(e, a, b, loopOrd[e.id]!, maxX, maxY, dir)
+          : _orthoRoute(e, a, b),
+    );
   }
 
   final channel = back.isEmpty
       ? 0.0
-      : GraphGeometry.loopFirst + back.length * GraphGeometry.loopGap + GraphGeometry.loopTail;
+      : GraphGeometry.loopFirst +
+            back.length * GraphGeometry.loopGap +
+            GraphGeometry.loopTail;
   final size = Size(
     maxX + GraphGeometry.pad + (dir == GraphDirection.tb ? channel : 0),
     maxY + GraphGeometry.pad + (dir == GraphDirection.lr ? channel : 0),
   );
 
-  return GraphLayout(graph: g, nodeRects: rects, routes: routes, size: size, backEdgeIds: back);
+  return GraphLayout(
+    graph: g,
+    nodeRects: rects,
+    routes: routes,
+    size: size,
+    backEdgeIds: back,
+  );
 }
 
 /// Sugiyama-lite: longest-path ranks over the forward (acyclic) edges, then 8 median-ordering
 /// passes to untangle siblings, then grid coordinates with cross-axis centering — the demo's
 /// layout() verbatim. 分层布局:前向边最长路定 rank → 8 趟中位数排序解交叉 → 网格坐标 + 交叉轴居中。
-void _autoLayout(Graph g, Set<String> back, GraphDirection dir, Map<String, Offset> origins) {
+void _autoLayout(
+  Graph g,
+  Set<String> back,
+  GraphDirection dir,
+  Map<String, Offset> origins,
+) {
   final succ = <String, List<String>>{};
   final pred = <String, List<String>>{};
   final indeg = <String, int>{};
@@ -203,7 +224,10 @@ void _autoLayout(Graph g, Set<String> back, GraphDirection dir, Map<String, Offs
   }
 
   final rank = <String, int>{};
-  final queue = <String>[for (final n in g.nodes) if (indeg[n.id] == 0) n.id];
+  final queue = <String>[
+    for (final n in g.nodes)
+      if (indeg[n.id] == 0) n.id,
+  ];
   for (final id in queue) {
     rank[id] = 0;
   }
@@ -221,7 +245,9 @@ void _autoLayout(Graph g, Set<String> back, GraphDirection dir, Map<String, Offs
     rank[n.id] ??= 0;
   }
 
-  final maxRank = g.nodes.isEmpty ? 0 : g.nodes.map((n) => rank[n.id]!).reduce(math.max);
+  final maxRank = g.nodes.isEmpty
+      ? 0
+      : g.nodes.map((n) => rank[n.id]!).reduce(math.max);
   final layers = List.generate(maxRank + 1, (_) => <String>[]);
   for (final n in g.nodes) {
     layers[rank[n.id]!].add(n.id);
@@ -234,7 +260,10 @@ void _autoLayout(Graph g, Set<String> back, GraphDirection dir, Map<String, Offs
     }
   }
   int median(String id, Map<String, List<String>> adj) {
-    final ps = [for (final x in adj[id]!) if (pos[x] != null) pos[x]!]..sort();
+    final ps = [
+      for (final x in adj[id]!)
+        if (pos[x] != null) pos[x]!,
+    ]..sort();
     if (ps.isEmpty) return pos[id]!;
     return ps[(ps.length - 1) >> 1];
   }
@@ -251,12 +280,14 @@ void _autoLayout(Graph g, Set<String> back, GraphDirection dir, Map<String, Offs
       // where Dart switches to quicksort) silently diverge from the demo/backend semantics.
       // 按层内现序 tiebreak:Dart sort 不稳定(JS 参照按 ES2019 稳定)——中位数并列必须保序,
       // 否则宽层(≥34 兄弟,Dart 切 quicksort)与 demo/后端语义静默分叉。
-      final scored = [
-        for (var i = 0; i < layers[li].length; i++) (id: layers[li][i], m: median(layers[li][i], adj), i: i)
-      ]..sort((a, b) {
-          final c = a.m.compareTo(b.m);
-          return c != 0 ? c : a.i.compareTo(b.i);
-        });
+      final scored =
+          [
+            for (var i = 0; i < layers[li].length; i++)
+              (id: layers[li][i], m: median(layers[li][i], adj), i: i),
+          ]..sort((a, b) {
+            final c = a.m.compareTo(b.m);
+            return c != 0 ? c : a.i.compareTo(b.i);
+          });
       layers[li] = [for (final s in scored) s.id];
       for (var i = 0; i < layers[li].length; i++) {
         pos[layers[li][i]] = i;
@@ -271,7 +302,9 @@ void _autoLayout(Graph g, Set<String> back, GraphDirection dir, Map<String, Offs
   final cross = horiz
       ? GraphGeometry.nodeH + GraphGeometry.gapY
       : GraphGeometry.nodeW + GraphGeometry.gapX;
-  final maxLen = layers.isEmpty ? 0 : layers.map((l) => l.length).reduce(math.max);
+  final maxLen = layers.isEmpty
+      ? 0
+      : layers.map((l) => l.length).reduce(math.max);
   for (var li = 0; li < layers.length; li++) {
     final layer = layers[li];
     final off = (maxLen - layer.length) * cross / 2;
@@ -286,18 +319,18 @@ void _autoLayout(Graph g, Set<String> back, GraphDirection dir, Map<String, Offs
 enum _Side { top, bottom, left, right }
 
 Offset _anchor(Rect n, _Side side) => switch (side) {
-      _Side.top => Offset(n.left + n.width / 2, n.top),
-      _Side.bottom => Offset(n.left + n.width / 2, n.bottom),
-      _Side.left => Offset(n.left, n.top + n.height / 2),
-      _Side.right => Offset(n.right, n.top + n.height / 2),
-    };
+  _Side.top => Offset(n.left + n.width / 2, n.top),
+  _Side.bottom => Offset(n.left + n.width / 2, n.bottom),
+  _Side.left => Offset(n.left, n.top + n.height / 2),
+  _Side.right => Offset(n.right, n.top + n.height / 2),
+};
 
 Offset _normal(_Side side) => switch (side) {
-      _Side.top => const Offset(0, -1),
-      _Side.bottom => const Offset(0, 1),
-      _Side.left => const Offset(-1, 0),
-      _Side.right => const Offset(1, 0),
-    };
+  _Side.top => const Offset(0, -1),
+  _Side.bottom => const Offset(0, 1),
+  _Side.left => const Offset(-1, 0),
+  _Side.right => const Offset(1, 0),
+};
 
 /// Floating anchors: each endpoint attaches to the face of its node that FACES the other node
 /// (aspect-weighted so wide nodes prefer left/right) — any hand placement still routes cleanly.
@@ -305,10 +338,14 @@ Offset _normal(_Side side) => switch (side) {
 (_Side, _Side) _facing(Rect a, Rect b) {
   final dx = b.center.dx - a.center.dx;
   final dy = b.center.dy - a.center.dy;
-  final horiz = dx.abs() * GraphGeometry.nodeH >= dy.abs() * GraphGeometry.nodeW;
+  final horiz =
+      dx.abs() * GraphGeometry.nodeH >= dy.abs() * GraphGeometry.nodeW;
   return horiz
       ? (dx >= 0 ? _Side.right : _Side.left, dx >= 0 ? _Side.left : _Side.right)
-      : (dy >= 0 ? _Side.bottom : _Side.top, dy >= 0 ? _Side.top : _Side.bottom);
+      : (
+          dy >= 0 ? _Side.bottom : _Side.top,
+          dy >= 0 ? _Side.top : _Side.bottom,
+        );
 }
 
 GraphEdgeRoute _orthoRoute(Edge e, Rect a, Rect b) {
@@ -329,13 +366,26 @@ GraphEdgeRoute _orthoRoute(Edge e, Rect a, Rect b) {
     final corner = sh ? Offset(t1.dx, s1.dy) : Offset(s1.dx, t1.dy);
     pts = [s, s1, corner, t1, t];
   }
-  return GraphEdgeRoute(edge: e, isBack: false, points: pts, mid: _midpoint(pts));
+  return GraphEdgeRoute(
+    edge: e,
+    isBack: false,
+    points: pts,
+    mid: _midpoint(pts),
+  );
 }
 
 /// Back edges leave the bottom (LR) / right (TB) face, run along a stacked channel outside the
 /// bounds, and re-enter the target's same face — the loop reads as a detour under/beside the flow.
 /// 回边从底面(LR)/右面(TB)出,沿界外叠放通道走,再回目标同面——循环读作主流之下/旁的绕行。
-GraphEdgeRoute _loopRoute(Edge e, Rect a, Rect b, int loopIdx, double maxX, double maxY, GraphDirection dir) {
+GraphEdgeRoute _loopRoute(
+  Edge e,
+  Rect a,
+  Rect b,
+  int loopIdx,
+  double maxX,
+  double maxY,
+  GraphDirection dir,
+) {
   final off = GraphGeometry.loopFirst + loopIdx * GraphGeometry.loopGap;
   List<Offset> pts;
   Offset mid;

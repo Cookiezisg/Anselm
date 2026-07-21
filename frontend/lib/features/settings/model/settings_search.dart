@@ -322,20 +322,35 @@ class SettingsSearchGroup {
 /// 纯分组——query(大小写不敏感、当前 locale)按面板目录序分组。规则:面板名命中**或**任一项命中即收入;
 /// 面板名命中时其**全部**项都出(搜类别即看见其下全部——「搜网络既出面板行也出其下项」),否则只出 label/hint
 /// 命中的项。头行恒为面板本身(跳面板命中→旧的面板粒度搜索向下兼容,连无项声明的面板也是)。空 query→空(rail 显目录)。
-List<SettingsSearchGroup> buildSettingsSearchGroups(Translations t, String rawQuery) {
+List<SettingsSearchGroup> buildSettingsSearchGroups(
+  Translations t,
+  String rawQuery,
+) {
   final q = rawQuery.trim().toLowerCase();
   if (q.isEmpty) return const [];
   bool hit(String s) => s.toLowerCase().contains(q);
   final out = <SettingsSearchGroup>[];
   for (final entry in settingsCatalog) {
     final panelMatched = hit(entry.labelOf(t));
-    final all = [for (final it in settingsSearchIndex) if (it.panel == entry.panel) it];
+    final all = [
+      for (final it in settingsSearchIndex)
+        if (it.panel == entry.panel) it,
+    ];
     final items = [
       for (final it in all)
-        if (panelMatched || hit(it.labelOf(t)) || (it.hintOf != null && hit(it.hintOf!(t)))) it,
+        if (panelMatched ||
+            hit(it.labelOf(t)) ||
+            (it.hintOf != null && hit(it.hintOf!(t))))
+          it,
     ];
     if (panelMatched || items.isNotEmpty) {
-      out.add(SettingsSearchGroup(entry: entry, items: items, panelMatched: panelMatched));
+      out.add(
+        SettingsSearchGroup(
+          entry: entry,
+          items: items,
+          panelMatched: panelMatched,
+        ),
+      );
     }
   }
   return out;

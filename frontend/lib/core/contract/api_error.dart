@@ -46,7 +46,10 @@ class ApiException implements Exception {
   /// Build from a decoded N1 error body `{code,message,details}` + the status.
   ///
   /// 从解码后的 N1 错误体 `{code,message,details}` + status 构造。
-  factory ApiException.fromEnvelope(Map<String, dynamic>? error, int httpStatus) {
+  factory ApiException.fromEnvelope(
+    Map<String, dynamic>? error,
+    int httpStatus,
+  ) {
     final e = error ?? const {};
     return ApiException(
       code: e['code'] as String? ?? AnselmErr.unknown,

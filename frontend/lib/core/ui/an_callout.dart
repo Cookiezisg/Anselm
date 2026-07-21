@@ -56,24 +56,24 @@ class AnCallout extends StatefulWidget {
   final VoidCallback? onDismiss;
 
   AnTone get _tone => switch (severity) {
-        AnCalloutSeverity.info => AnTone.accent,
-        AnCalloutSeverity.ok => AnTone.ok,
-        AnCalloutSeverity.warn => AnTone.warn,
-        AnCalloutSeverity.danger => AnTone.danger,
-      };
+    AnCalloutSeverity.info => AnTone.accent,
+    AnCalloutSeverity.ok => AnTone.ok,
+    AnCalloutSeverity.warn => AnTone.warn,
+    AnCalloutSeverity.danger => AnTone.danger,
+  };
 
   IconData get _icon => switch (severity) {
-        AnCalloutSeverity.info => AnIcons.info,
-        AnCalloutSeverity.ok => AnIcons.success,
-        AnCalloutSeverity.warn => AnIcons.warning,
-        AnCalloutSeverity.danger => AnIcons.danger,
-      };
+    AnCalloutSeverity.info => AnIcons.info,
+    AnCalloutSeverity.ok => AnIcons.success,
+    AnCalloutSeverity.warn => AnIcons.warning,
+    AnCalloutSeverity.danger => AnIcons.danger,
+  };
 
   // warn/danger interrupt (ARIA `role="alert"`); info/ok wait for a gap (`role="status"`). 急→assertive。
   Assertiveness get _assertiveness =>
       severity == AnCalloutSeverity.warn || severity == AnCalloutSeverity.danger
-          ? Assertiveness.assertive
-          : Assertiveness.polite;
+      ? Assertiveness.assertive
+      : Assertiveness.polite;
 
   @override
   State<AnCallout> createState() => _AnCalloutState();
@@ -89,15 +89,17 @@ class _AnCalloutState extends State<AnCallout> {
   @override
   void didUpdateWidget(AnCallout old) {
     super.didUpdateWidget(old);
-    if (old.message != widget.message || old.severity != widget.severity) _announce();
+    if (old.message != widget.message || old.severity != widget.severity) {
+      _announce();
+    }
   }
 
   String _word(Translations t) => switch (widget.severity) {
-        AnCalloutSeverity.info => t.feedback.info,
-        AnCalloutSeverity.ok => t.feedback.success,
-        AnCalloutSeverity.warn => t.feedback.warning,
-        AnCalloutSeverity.danger => t.feedback.error,
-      };
+    AnCalloutSeverity.info => t.feedback.info,
+    AnCalloutSeverity.ok => t.feedback.success,
+    AnCalloutSeverity.warn => t.feedback.warning,
+    AnCalloutSeverity.danger => t.feedback.error,
+  };
 
   // A bar appears with news nobody asked for and takes no focus — nothing on any desktop reads it on
   // its own, so ALL FOUR severities must be pushed (this used to fire only for warn/danger and leave
@@ -108,8 +110,11 @@ class _AnCalloutState extends State<AnCallout> {
   void _announce() {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      AnA11y.announce(context, '${_word(context.t)}: ${widget.message}',
-          assertiveness: widget._assertiveness);
+      AnA11y.announce(
+        context,
+        '${_word(context.t)}: ${widget.message}',
+        assertiveness: widget._assertiveness,
+      );
     });
   }
 
@@ -129,14 +134,21 @@ class _AnCalloutState extends State<AnCallout> {
       mainAxisSize: MainAxisSize.min,
       children: [
         if (hasTitle)
-          Text(widget.title!,
-              style: AnText.strong.copyWith(color: c.ink), semanticsLabel: '$word: ${widget.title!}'),
-        Text(widget.message,
-            style: AnText.body.copyWith(color: c.ink),
-            semanticsLabel: hasTitle ? null : '$word: ${widget.message}'),
+          Text(
+            widget.title!,
+            style: AnText.strong.copyWith(color: c.ink),
+            semanticsLabel: '$word: ${widget.title!}',
+          ),
+        Text(
+          widget.message,
+          style: AnText.body.copyWith(color: c.ink),
+          semanticsLabel: hasTitle ? null : '$word: ${widget.message}',
+        ),
         if (widget.actions.isNotEmpty)
           Padding(
-            padding: const EdgeInsets.only(top: AnGap.block), // content → actions (12, unified with cards) 内容→动作
+            padding: const EdgeInsets.only(
+              top: AnGap.block,
+            ), // content → actions (12, unified with cards) 内容→动作
             // AnActionGroup — D7's ONE action-row idiom (8px control gap, same as AnInfoCard); the
             // hand-rolled 6px Wrap was the lone divergence. 动作行统一走 AnActionGroup(8px,同卡)。
             child: AnActionGroup(widget.actions),
@@ -148,17 +160,27 @@ class _AnCalloutState extends State<AnCallout> {
       container: true,
       child: Container(
         padding: AnInset.snug, // callout interior (12/8) 提示框内距
-        decoration: BoxDecoration(color: tone.softBg(c), borderRadius: BorderRadius.circular(AnRadius.chip)),
+        decoration: BoxDecoration(
+          color: tone.softBg(c),
+          borderRadius: BorderRadius.circular(AnRadius.chip),
+        ),
         // start-align so the icon hugs the FIRST line when the message wraps. start 对齐:多行时图标贴首行。
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            ExcludeSemantics(child: Icon(widget._icon, size: AnSize.icon, color: fg)),
+            ExcludeSemantics(
+              child: Icon(widget._icon, size: AnSize.icon, color: fg),
+            ),
             const SizedBox(width: AnSpace.s8),
             Expanded(child: text),
             if (widget.onDismiss != null) ...[
               const SizedBox(width: AnSpace.s8),
-              AnButton.iconOnly(AnIcons.close, size: AnButtonSize.sm, semanticLabel: t.feedback.dismiss, onPressed: widget.onDismiss),
+              AnButton.iconOnly(
+                AnIcons.close,
+                size: AnButtonSize.sm,
+                semanticLabel: t.feedback.dismiss,
+                onPressed: widget.onDismiss,
+              ),
             ],
           ],
         ),

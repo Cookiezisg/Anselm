@@ -63,8 +63,9 @@ class AnApp extends ConsumerWidget {
           // 可改绑全局命令目录(S6)在 autofocus Focus 之上,冷启动按键即达。后端就绪 → 冷启动定工作区 → 路由壳。
           child: GlobalShortcuts(
             child: Focus(
-                autofocus: true,
-                child: WorkspaceGate(child: StartupUpdateCheck(child: child!))),
+              autofocus: true,
+              child: WorkspaceGate(child: StartupUpdateCheck(child: child!)),
+            ),
           ),
         ),
       ),

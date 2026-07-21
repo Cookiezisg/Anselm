@@ -27,26 +27,41 @@ ChatThinking _thinking({
   required String text,
   required bool streaming,
   bool expanded = false,
-}) =>
-    ChatThinking(
-      text: text,
-      streaming: streaming,
-      initiallyExpanded: expanded,
-      liveLabel: 'thinking',
-      settledLabel: 'thought for 12s',
-    );
+}) => ChatThinking(
+  text: text,
+  streaming: streaming,
+  initiallyExpanded: expanded,
+  liveLabel: 'thinking',
+  settledLabel: 'thought for 12s',
+);
 
 final GalleryItem chatThinkingGalleryItem = GalleryItem(
   'ChatThinking 推理块',
   '低语 + 左 rail + 活尾族 prose 无框脸:思考中贴底钳高(proseClamp,最新字恒可见)、溢出顶缘渐隐;想完收成一行 thought for Ns · expand',
   [
-    GallerySpecimen('思考中 · prose 尾(超钳 → 贴底示新,顶缘渐隐)',
-        (_) => _thinking(text: _long, streaming: true), span: true, maxWidth: _thinkW),
-    GallerySpecimen('思考中 · 短(未满钳,全显不裁不渐隐)',
-        (_) => _thinking(text: _short, streaming: true), span: true, maxWidth: _thinkW),
-    GallerySpecimen('想完 · 收起(默认一行,railless)',
-        (_) => _thinking(text: _long, streaming: false), span: true, maxWidth: _thinkW),
-    GallerySpecimen('想完 · 展开(rail 上回看全文)',
-        (_) => _thinking(text: _long, streaming: false, expanded: true), span: true, maxWidth: _thinkW),
+    GallerySpecimen(
+      '思考中 · prose 尾(超钳 → 贴底示新,顶缘渐隐)',
+      (_) => _thinking(text: _long, streaming: true),
+      span: true,
+      maxWidth: _thinkW,
+    ),
+    GallerySpecimen(
+      '思考中 · 短(未满钳,全显不裁不渐隐)',
+      (_) => _thinking(text: _short, streaming: true),
+      span: true,
+      maxWidth: _thinkW,
+    ),
+    GallerySpecimen(
+      '想完 · 收起(默认一行,railless)',
+      (_) => _thinking(text: _long, streaming: false),
+      span: true,
+      maxWidth: _thinkW,
+    ),
+    GallerySpecimen(
+      '想完 · 展开(rail 上回看全文)',
+      (_) => _thinking(text: _long, streaming: false, expanded: true),
+      span: true,
+      maxWidth: _thinkW,
+    ),
   ],
 );

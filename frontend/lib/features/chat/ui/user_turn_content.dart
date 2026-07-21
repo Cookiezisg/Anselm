@@ -40,8 +40,12 @@ class UserTurnContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final thumbs = attachments.where((a) => a.rendersAsThumb).toList(growable: false);
-    final cards = attachments.where((a) => !a.rendersAsThumb).toList(growable: false);
+    final thumbs = attachments
+        .where((a) => a.rendersAsThumb)
+        .toList(growable: false);
+    final cards = attachments
+        .where((a) => !a.rendersAsThumb)
+        .toList(growable: false);
     final trimmed = text.trim();
 
     final sections = <Widget>[
@@ -70,7 +74,10 @@ class UserTurnContent extends StatelessWidget {
     if (thumbs.length == 1) {
       final a = thumbs.single;
       return AnAttachmentThumb(
-        image: a.thumb, filename: a.filename, variant: AnThumbVariant.single, onTap: a.onTap,
+        image: a.thumb,
+        filename: a.filename,
+        variant: AnThumbVariant.single,
+        onTap: a.onTap,
       );
     }
     return Wrap(
@@ -78,26 +85,33 @@ class UserTurnContent extends StatelessWidget {
       runSpacing: AnSpace.s8,
       children: [
         for (final a in thumbs)
-          AnAttachmentThumb(image: a.thumb, filename: a.filename, onTap: a.onTap),
+          AnAttachmentThumb(
+            image: a.thumb,
+            filename: a.filename,
+            onTap: a.onTap,
+          ),
       ],
     );
   }
 
   Widget _cardRegion(List<UserAttachment> cards) => Wrap(
-        spacing: AnSpace.s8,
-        runSpacing: AnSpace.s8,
-        children: [
-          for (final a in cards)
-            AnAttachmentCard(
-              kind: a.kind,
-              filename: a.filename,
-              metaLine: attachmentMetaLine(
-                  filename: a.filename, mimeType: a.mimeType, sizeBytes: a.sizeBytes),
-              state: a.state,
-              onTap: a.onTap,
-            ),
-        ],
-      );
+    spacing: AnSpace.s8,
+    runSpacing: AnSpace.s8,
+    children: [
+      for (final a in cards)
+        AnAttachmentCard(
+          kind: a.kind,
+          filename: a.filename,
+          metaLine: attachmentMetaLine(
+            filename: a.filename,
+            mimeType: a.mimeType,
+            sizeBytes: a.sizeBytes,
+          ),
+          state: a.state,
+          onTap: a.onTap,
+        ),
+    ],
+  );
 
   Widget _mentionText(BuildContext context, String trimmed) {
     final c = context.colors;
@@ -106,13 +120,17 @@ class UserTurnContent extends StatelessWidget {
     // 用户消息是 prose:15 阅读档,与同一 transcript 里的助手泡(AnMarkdown)同档(13 泡挨着 15 答=两套系统)。
     final style = AnText.reading.copyWith(color: c.ink);
     final segments = resolveMentionSegments(trimmed, mentions);
-    if (segments.length <= 1 && mentions.isEmpty) return Text(trimmed, style: style);
+    if (segments.length <= 1 && mentions.isEmpty) {
+      return Text(trimmed, style: style);
+    }
     return Text.rich(
-      TextSpan(style: style, children: [
-        for (final s in segments)
-          switch (s) {
-            MentionTextSegment(:final text) => TextSpan(text: text),
-            MentionPillSegment(:final snapshot) => WidgetSpan(
+      TextSpan(
+        style: style,
+        children: [
+          for (final s in segments)
+            switch (s) {
+              MentionTextSegment(:final text) => TextSpan(text: text),
+              MentionPillSegment(:final snapshot) => WidgetSpan(
                 alignment: PlaceholderAlignment.middle,
                 child: AnRefPill(
                   kind: snapshot.type,
@@ -121,8 +139,9 @@ class UserTurnContent extends StatelessWidget {
                   onTap: onMentionTap,
                 ),
               ),
-          },
-      ]),
+            },
+        ],
+      ),
     );
   }
 }

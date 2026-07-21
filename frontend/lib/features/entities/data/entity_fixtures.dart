@@ -59,32 +59,32 @@ class FixtureEntityRepository implements EntityRepository {
     Map<String, HandlerConfig>? handlerConfigs,
     EntityRelGraph? relGraph,
     this.runDelay = const Duration(milliseconds: 10),
-  })  : _relGraph = relGraph ?? const EntityRelGraph(),
-        _functions = List.of(functions ?? const []),
-        _handlers = List.of(handlers ?? const []),
-        _agents = List.of(agents ?? const []),
-        _workflows = List.of(workflows ?? const []),
-        _functionVersions = functionVersions ?? const {},
-        _handlerVersions = handlerVersions ?? const {},
-        _agentVersions = agentVersions ?? const {},
-        _workflowVersions = Map.of(workflowVersions ?? const {}),
-        _functionExecutions = functionExecutions ?? const {},
-        _handlerCalls = handlerCalls ?? const {},
-        _agentExecutions = agentExecutions ?? const {},
-        _flowruns = flowruns ?? const {},
-        _flowrunDetail = Map.of(flowrunDetail ?? const {}),
-        _mountHealth = mountHealth ?? const {},
-        _mcpServers = mcpServers ?? const [],
-        _mcpTools = mcpTools ?? const {},
-        _triggers = triggers ?? const [],
-        _controls = controls ?? const [],
-        _controlLogics = controlLogics ?? const [],
-        _approvals = approvals ?? const [],
-        _approvalForms = approvalForms ?? const [],
-        _triggerEntities = triggerEntities ?? const [],
-        _activations = activations ?? const {},
-        _firings = firings ?? const {},
-        _handlerConfigs = handlerConfigs ?? const {};
+  }) : _relGraph = relGraph ?? const EntityRelGraph(),
+       _functions = List.of(functions ?? const []),
+       _handlers = List.of(handlers ?? const []),
+       _agents = List.of(agents ?? const []),
+       _workflows = List.of(workflows ?? const []),
+       _functionVersions = functionVersions ?? const {},
+       _handlerVersions = handlerVersions ?? const {},
+       _agentVersions = agentVersions ?? const {},
+       _workflowVersions = Map.of(workflowVersions ?? const {}),
+       _functionExecutions = functionExecutions ?? const {},
+       _handlerCalls = handlerCalls ?? const {},
+       _agentExecutions = agentExecutions ?? const {},
+       _flowruns = flowruns ?? const {},
+       _flowrunDetail = Map.of(flowrunDetail ?? const {}),
+       _mountHealth = mountHealth ?? const {},
+       _mcpServers = mcpServers ?? const [],
+       _mcpTools = mcpTools ?? const {},
+       _triggers = triggers ?? const [],
+       _controls = controls ?? const [],
+       _controlLogics = controlLogics ?? const [],
+       _approvals = approvals ?? const [],
+       _approvalForms = approvalForms ?? const [],
+       _triggerEntities = triggerEntities ?? const [],
+       _activations = activations ?? const {},
+       _firings = firings ?? const {},
+       _handlerConfigs = handlerConfigs ?? const {};
 
   /// Inter-frame delay for the scripted run-terminal streams (so `make demo` shows a live terminal).
   /// Tests pass [Duration.zero] for an instant burst. 脚本流的帧间延迟(demo 现真实流式);测试用 zero 即时。
@@ -131,10 +131,19 @@ class FixtureEntityRepository implements EntityRepository {
     return Page(items: slice, nextCursor: more ? '$end' : null, hasMore: more);
   }
 
-  static PageWithAggregate<T, A> _pageAgg<T, A>(List<T> all, A agg, String? cursor, int? limit) {
+  static PageWithAggregate<T, A> _pageAgg<T, A>(
+    List<T> all,
+    A agg,
+    String? cursor,
+    int? limit,
+  ) {
     final p = _page(all, cursor, limit);
     return PageWithAggregate(
-        items: p.items, aggregate: agg, nextCursor: p.nextCursor, hasMore: p.hasMore);
+      items: p.items,
+      aggregate: agg,
+      nextCursor: p.nextCursor,
+      hasMore: p.hasMore,
+    );
   }
 
   ExecutionAggregates _aggOf(int ok, int failed) =>
@@ -142,21 +151,28 @@ class FixtureEntityRepository implements EntityRepository {
 
   // ── list / detail ─────────────────────────────────────────────────────────
   List<Map<String, dynamic>> _itemsOf(EntityKind kind) => switch (kind) {
-        EntityKind.function => _functions.map((e) => e.toJson()).toList(),
-        EntityKind.handler => _handlers.map((e) => e.toJson()).toList(),
-        EntityKind.agent => _agents.map((e) => e.toJson()).toList(),
-        EntityKind.workflow => _workflows.map((e) => e.toJson()).toList(),
-        EntityKind.control => _controlLogics.map((e) => e.toJson()).toList(),
-        EntityKind.approval => _approvalForms.map((e) => e.toJson()).toList(),
-        EntityKind.trigger => _triggerEntities.map((e) => e.toJson()).toList(),
-      };
+    EntityKind.function => _functions.map((e) => e.toJson()).toList(),
+    EntityKind.handler => _handlers.map((e) => e.toJson()).toList(),
+    EntityKind.agent => _agents.map((e) => e.toJson()).toList(),
+    EntityKind.workflow => _workflows.map((e) => e.toJson()).toList(),
+    EntityKind.control => _controlLogics.map((e) => e.toJson()).toList(),
+    EntityKind.approval => _approvalForms.map((e) => e.toJson()).toList(),
+    EntityKind.trigger => _triggerEntities.map((e) => e.toJson()).toList(),
+  };
 
   @override
-  Future<Page<EntityRow>> listEntities(EntityKind kind, {String? cursor, int? limit, String? search}) async {
+  Future<Page<EntityRow>> listEntities(
+    EntityKind kind, {
+    String? cursor,
+    int? limit,
+    String? search,
+  }) async {
     // Mirror the server's ?search: case-insensitive name substring, applied before paging.
     // 镜像服务端 ?search:分页前对 name 大小写不敏感子串过滤。
     final term = search?.trim().toLowerCase() ?? '';
-    var rows = _itemsOf(kind).map((m) => EntityRow.fromListItem(kind, m)).toList();
+    var rows = _itemsOf(
+      kind,
+    ).map((m) => EntityRow.fromListItem(kind, m)).toList();
     if (term.isNotEmpty) {
       rows = rows.where((r) => r.name.toLowerCase().contains(term)).toList();
     }
@@ -170,119 +186,203 @@ class FixtureEntityRepository implements EntityRepository {
   @override
   Future<List<RefCandidate>> listMcpServers() async => _mcpServers;
   @override
-  Future<List<RefCandidate>> listMcpTools(String server) async => _mcpTools[server] ?? const [];
+  Future<List<RefCandidate>> listMcpTools(String server) async =>
+      _mcpTools[server] ?? const [];
   @override
   Future<List<RefCandidate>> listTriggers() async => _triggerEntities.isNotEmpty
-      ? [for (final t in _triggerEntities) (id: t.id, name: t.name, meta: t.kind.name)]
+      ? [
+          for (final t in _triggerEntities)
+            (id: t.id, name: t.name, meta: t.kind.name),
+        ]
       : _triggers;
   @override
-  Future<TriggerEntity> getTrigger(String id) async => _triggerEntities.firstWhere((e) => e.id == id);
+  Future<TriggerEntity> getTrigger(String id) async =>
+      _triggerEntities.firstWhere((e) => e.id == id);
   @override
-  Future<String> fireTrigger(String id) async => 'tra_${id.hashCode.toUnsigned(32).toRadixString(16)}';
+  Future<String> fireTrigger(String id) async =>
+      'tra_${id.hashCode.toUnsigned(32).toRadixString(16)}';
   @override
-  Future<Page<Activation>> listActivations(String id, {bool firedOnly = false, String? cursor, int? limit}) async {
+  Future<Page<Activation>> listActivations(
+    String id, {
+    bool firedOnly = false,
+    String? cursor,
+    int? limit,
+  }) async {
     final all = _activations[id] ?? const <Activation>[];
-    return _page(firedOnly ? all.where((a) => a.fired).toList() : all, cursor, limit);
+    return _page(
+      firedOnly ? all.where((a) => a.fired).toList() : all,
+      cursor,
+      limit,
+    );
   }
-  @override
-  Future<Page<Firing>> listFirings(String id, {String? status, String? cursor, int? limit}) async {
-    final all = _firings[id] ?? const <Firing>[];
-    return _page(status == null ? all : all.where((f) => f.status.name == status).toList(), cursor, limit);
-  }
-  @override
-  Future<List<RefCandidate>> listControls() async => _controlLogics.isNotEmpty
-      ? [for (final c in _controlLogics) (id: c.id, name: c.name, meta: 'v${c.activeVersion?.version ?? 1}')]
-      : _controls;
-  @override
-  Future<ControlLogic> getControl(String id) async => _controlLogics.firstWhere((e) => e.id == id);
-  @override
-  Future<List<RefCandidate>> listApprovals() async => _approvalForms.isNotEmpty
-      ? [for (final a in _approvalForms) (id: a.id, name: a.name, meta: 'v${a.activeVersion?.version ?? 1}')]
-      : _approvals;
-  @override
-  Future<ApprovalForm> getApproval(String id) async => _approvalForms.firstWhere((e) => e.id == id);
-  @override
-  Future<List<FlowrunNode>> listFlowrunInbox() async => [
-        for (final comp in _flowrunDetail.values)
-          for (final n in comp.nodes)
-            if (n.status == 'parked' && n.kind == 'approval') n,
-      ];
 
   @override
-  Future<EntityRow> getEntityRow(EntityKind kind, String id) async => EntityRow.fromListItem(
-        kind,
-        switch (kind) {
-          EntityKind.function => (await getFunction(id)).toJson(),
-          EntityKind.handler => (await getHandler(id)).toJson(),
-          EntityKind.agent => (await getAgent(id)).toJson(),
-          EntityKind.workflow => (await getWorkflow(id)).toJson(),
-          EntityKind.control => (await getControl(id)).toJson(),
-          EntityKind.approval => (await getApproval(id)).toJson(),
-          EntityKind.trigger => (await getTrigger(id)).toJson(),
-        },
-      );
+  Future<Page<Firing>> listFirings(
+    String id, {
+    String? status,
+    String? cursor,
+    int? limit,
+  }) async {
+    final all = _firings[id] ?? const <Firing>[];
+    return _page(
+      status == null ? all : all.where((f) => f.status.name == status).toList(),
+      cursor,
+      limit,
+    );
+  }
+
+  @override
+  Future<List<RefCandidate>> listControls() async => _controlLogics.isNotEmpty
+      ? [
+          for (final c in _controlLogics)
+            (id: c.id, name: c.name, meta: 'v${c.activeVersion?.version ?? 1}'),
+        ]
+      : _controls;
+  @override
+  Future<ControlLogic> getControl(String id) async =>
+      _controlLogics.firstWhere((e) => e.id == id);
+  @override
+  Future<List<RefCandidate>> listApprovals() async => _approvalForms.isNotEmpty
+      ? [
+          for (final a in _approvalForms)
+            (id: a.id, name: a.name, meta: 'v${a.activeVersion?.version ?? 1}'),
+        ]
+      : _approvals;
+  @override
+  Future<ApprovalForm> getApproval(String id) async =>
+      _approvalForms.firstWhere((e) => e.id == id);
+  @override
+  Future<List<FlowrunNode>> listFlowrunInbox() async => [
+    for (final comp in _flowrunDetail.values)
+      for (final n in comp.nodes)
+        if (n.status == 'parked' && n.kind == 'approval') n,
+  ];
+
+  @override
+  Future<EntityRow> getEntityRow(EntityKind kind, String id) async =>
+      EntityRow.fromListItem(kind, switch (kind) {
+        EntityKind.function => (await getFunction(id)).toJson(),
+        EntityKind.handler => (await getHandler(id)).toJson(),
+        EntityKind.agent => (await getAgent(id)).toJson(),
+        EntityKind.workflow => (await getWorkflow(id)).toJson(),
+        EntityKind.control => (await getControl(id)).toJson(),
+        EntityKind.approval => (await getApproval(id)).toJson(),
+        EntityKind.trigger => (await getTrigger(id)).toJson(),
+      });
 
   @override
   Future<FunctionEntity> getFunction(String id) async =>
       _functions.firstWhere((e) => e.id == id);
   @override
-  Future<HandlerEntity> getHandler(String id) async => _handlers.firstWhere((e) => e.id == id);
+  Future<HandlerEntity> getHandler(String id) async =>
+      _handlers.firstWhere((e) => e.id == id);
   @override
-  Future<AgentEntity> getAgent(String id) async => _agents.firstWhere((e) => e.id == id);
+  Future<AgentEntity> getAgent(String id) async =>
+      _agents.firstWhere((e) => e.id == id);
   @override
-  Future<WorkflowEntity> getWorkflow(String id) async => _workflows.firstWhere((e) => e.id == id);
+  Future<WorkflowEntity> getWorkflow(String id) async =>
+      _workflows.firstWhere((e) => e.id == id);
 
   // ── versions ────────────────────────────────────────────────────────────--
   @override
-  Future<Page<FunctionVersion>> listFunctionVersions(String id, {String? cursor, int? limit}) async =>
-      _page(_functionVersions[id] ?? const [], cursor, limit);
+  Future<Page<FunctionVersion>> listFunctionVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) async => _page(_functionVersions[id] ?? const [], cursor, limit);
   @override
-  Future<Page<HandlerVersion>> listHandlerVersions(String id, {String? cursor, int? limit}) async =>
-      _page(_handlerVersions[id] ?? const [], cursor, limit);
+  Future<Page<HandlerVersion>> listHandlerVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) async => _page(_handlerVersions[id] ?? const [], cursor, limit);
   @override
-  Future<Page<AgentVersion>> listAgentVersions(String id, {String? cursor, int? limit}) async =>
-      _page(_agentVersions[id] ?? const [], cursor, limit);
+  Future<Page<AgentVersion>> listAgentVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) async => _page(_agentVersions[id] ?? const [], cursor, limit);
   @override
-  Future<Page<WorkflowVersion>> listWorkflowVersions(String id, {String? cursor, int? limit}) async =>
-      _page(_workflowVersions[id] ?? const [], cursor, limit);
+  Future<Page<WorkflowVersion>> listWorkflowVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) async => _page(_workflowVersions[id] ?? const [], cursor, limit);
 
   // ── logs ────────────────────────────────────────────────────────────────--
   // The fixture ignores the `status` filter (the public params exist for interface conformance); it
   // computes the ok/failed tally over the whole seeded list. 夹具忽略 status 过滤,聚合算整列表。
   PageWithAggregate<T, ExecutionAggregates> _logPage<T>(
-      List<T> all, String? cursor, int? limit, bool Function(T) ok) {
+    List<T> all,
+    String? cursor,
+    int? limit,
+    bool Function(T) ok,
+  ) {
     final okN = all.where(ok).length;
     return _pageAgg(all, _aggOf(okN, all.length - okN), cursor, limit);
   }
 
   @override
-  Future<PageWithAggregate<FunctionExecution, ExecutionAggregates>> listFunctionExecutions(
-          String id, {String? cursor, int? limit, String? status}) async =>
-      _logPage(_functionExecutions[id] ?? const [], cursor, limit, (e) => e.status == 'ok');
+  Future<PageWithAggregate<FunctionExecution, ExecutionAggregates>>
+  listFunctionExecutions(
+    String id, {
+    String? cursor,
+    int? limit,
+    String? status,
+  }) async => _logPage(
+    _functionExecutions[id] ?? const [],
+    cursor,
+    limit,
+    (e) => e.status == 'ok',
+  );
   @override
   Future<PageWithAggregate<HandlerCall, ExecutionAggregates>> listHandlerCalls(
-          String id, {String? cursor, int? limit, String? status, String? method}) async =>
-      _logPage(
-          (_handlerCalls[id] ?? const [])
-              .where((c) => method == null || c.method == method)
-              .toList(),
-          cursor,
-          limit,
-          (e) => e.status == 'ok');
+    String id, {
+    String? cursor,
+    int? limit,
+    String? status,
+    String? method,
+  }) async => _logPage(
+    (_handlerCalls[id] ?? const [])
+        .where((c) => method == null || c.method == method)
+        .toList(),
+    cursor,
+    limit,
+    (e) => e.status == 'ok',
+  );
   @override
-  Future<PageWithAggregate<AgentExecution, ExecutionAggregates>> listAgentExecutions(
-          String id, {String? cursor, int? limit, String? status}) async =>
-      _logPage(_agentExecutions[id] ?? const [], cursor, limit, (e) => e.status == 'ok');
+  Future<PageWithAggregate<AgentExecution, ExecutionAggregates>>
+  listAgentExecutions(
+    String id, {
+    String? cursor,
+    int? limit,
+    String? status,
+  }) async => _logPage(
+    _agentExecutions[id] ?? const [],
+    cursor,
+    limit,
+    (e) => e.status == 'ok',
+  );
 
   // ── flowruns ──────────────────────────────────────────────────────────────
   @override
-  Future<Page<Flowrun>> listFlowruns(
-          {required String workflowId, String? status, String? cursor, int? limit}) async =>
-      _page(_flowruns[workflowId] ?? const [], cursor, limit);
+  Future<Page<Flowrun>> listFlowruns({
+    required String workflowId,
+    String? status,
+    String? cursor,
+    int? limit,
+  }) async => _page(_flowruns[workflowId] ?? const [], cursor, limit);
   @override
-  Future<FlowrunComposite> getFlowrun(String id, {String? cursor, int? limit}) async {
-    final comp = _flowrunDetail[id] ??
-        (throw StateError('FixtureEntityRepository: no flowrun seeded for $id'));
+  Future<FlowrunComposite> getFlowrun(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) async {
+    final comp =
+        _flowrunDetail[id] ??
+        (throw StateError(
+          'FixtureEntityRepository: no flowrun seeded for $id',
+        ));
     // Honest paging like the wire (newest-first; cursor = offset): the reconcile's page-through
     // path is exercised by fixtures too. 与线缆同形的诚实分页(最新在前,cursor=偏移)。
     final start = int.tryParse(cursor ?? '') ?? 0;
@@ -303,33 +403,73 @@ class FixtureEntityRepository implements EntityRepository {
   // + a synthesized durable flowrun (so the terminal's GET /flowruns/{id} resolves).
   // 每个动词把一段真实 entities 流脚本到面板 scope(与 Live 同形)再返结果,使 demo/测试里 run 终端真流式。
   @override
-  Future<FunctionRunResult> runFunction(String id, {required Map<String, dynamic> args, int? version}) async {
+  Future<FunctionRunResult> runFunction(
+    String id, {
+    required Map<String, dynamic> args,
+    int? version,
+  }) async {
     await _streamRun(EntityKind.function.scope(id));
-    return const FunctionRunResult(ok: true, output: {'result': 'ok'}, elapsedMs: 12, logs: 'normalized 1 field');
+    return const FunctionRunResult(
+      ok: true,
+      output: {'result': 'ok'},
+      elapsedMs: 12,
+      logs: 'normalized 1 field',
+    );
   }
 
   @override
-  Future<dynamic> callHandler(String id, {required String method, required Map<String, dynamic> args}) async {
+  Future<dynamic> callHandler(
+    String id, {
+    required String method,
+    required Map<String, dynamic> args,
+  }) async {
     await _streamRun(EntityKind.handler.scope(id));
     return {'ok': true, 'method': method};
   }
 
   @override
-  Future<InvokeResult> invokeAgent(String id, {required Map<String, dynamic> input, int? version}) async {
+  Future<InvokeResult> invokeAgent(
+    String id, {
+    required Map<String, dynamic> input,
+    int? version,
+  }) async {
     await _streamAgent(EntityKind.agent.scope(id));
     return const InvokeResult(
-        executionId: 'agx_fixture', ok: true, output: {'summary': 'a concise answer'}, status: 'completed', steps: 3, tokensIn: 1840, tokensOut: 320, elapsedMs: 5200);
+      executionId: 'agx_fixture',
+      ok: true,
+      output: {'summary': 'a concise answer'},
+      status: 'completed',
+      steps: 3,
+      tokensIn: 1840,
+      tokensOut: 320,
+      elapsedMs: 5200,
+    );
   }
 
   @override
-  Future<String> triggerWorkflow(String id, {Map<String, dynamic>? payload}) async {
+  Future<String> triggerWorkflow(
+    String id, {
+    Map<String, dynamic>? payload,
+  }) async {
     final flowrunId = 'flr_run${++_runCount}';
     final now = DateTime.utc(2026, 6, 27, 10);
-    final graph = graphOf((await getWorkflow(id)).activeVersion ??
-            (throw StateError('FixtureEntityRepository: workflow $id has no active version'))) ??
+    final graph =
+        graphOf(
+          (await getWorkflow(id)).activeVersion ??
+              (throw StateError(
+                'FixtureEntityRepository: workflow $id has no active version',
+              )),
+        ) ??
         const Graph();
     _flowrunDetail[flowrunId] = FlowrunComposite(
-      flowrun: Flowrun(id: flowrunId, workflowId: id, versionId: '${id}_v1', status: 'running', startedAt: now, updatedAt: now),
+      flowrun: Flowrun(
+        id: flowrunId,
+        workflowId: id,
+        versionId: '${id}_v1',
+        status: 'running',
+        startedAt: now,
+        updatedAt: now,
+      ),
       nodes: const [],
     );
     // 202 semantics: the id returns FIRST, the walk runs async — exactly the Live path's shape (a
@@ -345,30 +485,75 @@ class FixtureEntityRepository implements EntityRepository {
   /// (terminal statuses only, no result payload); the composite rows carry the results.
   /// 按实体真图声明序走:control 选首条前向口(落 __port),approval 停车(:decide 续走)。
   /// tick 同线缆(只有终态、无 result);composite 行带结果。
-  Future<void> _walkFlowrun(String id, String flowrunId, Graph graph, DateTime now) async {
+  Future<void> _walkFlowrun(
+    String id,
+    String flowrunId,
+    Graph graph,
+    DateTime now,
+  ) async {
     final scope = EntityKind.workflow.scope(id);
     for (final n in graph.nodes) {
       await _delay();
       if (n.kind == NodeKind.approval) {
-        _appendFlowrunRow(flowrunId, FlowrunNode(
-            id: 'frn_${n.id}', flowrunId: flowrunId, nodeId: n.id, kind: n.kind.name, ref: n.ref,
-            status: 'parked', result: const {'rendered': 'Approve this step to continue.'},
-            createdAt: now, updatedAt: now));
-        emitPanel(scope, _sig(scope, 'sig_${n.id}', {'flowrunId': flowrunId, 'nodeId': n.id, 'iteration': 0, 'status': 'parked'}));
+        _appendFlowrunRow(
+          flowrunId,
+          FlowrunNode(
+            id: 'frn_${n.id}',
+            flowrunId: flowrunId,
+            nodeId: n.id,
+            kind: n.kind.name,
+            ref: n.ref,
+            status: 'parked',
+            result: const {'rendered': 'Approve this step to continue.'},
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+        emitPanel(
+          scope,
+          _sig(scope, 'sig_${n.id}', {
+            'flowrunId': flowrunId,
+            'nodeId': n.id,
+            'iteration': 0,
+            'status': 'parked',
+          }),
+        );
         return; // parked — the run waits for :decide 停车等决断
       }
       final result = <String, Object?>{};
       if (n.kind == NodeKind.control) {
         final port = graph.edges
-            .firstWhere((e) => e.from == n.id && (e.fromPort ?? '').isNotEmpty,
-                orElse: () => const Edge(id: '', from: '', to: ''))
+            .firstWhere(
+              (e) => e.from == n.id && (e.fromPort ?? '').isNotEmpty,
+              orElse: () => const Edge(id: '', from: '', to: ''),
+            )
             .fromPort;
         if (port != null) result['__port'] = port;
       }
-      _appendFlowrunRow(flowrunId, FlowrunNode(
-          id: 'frn_${n.id}', flowrunId: flowrunId, nodeId: n.id, kind: n.kind.name, ref: n.ref,
-          status: 'completed', result: result, createdAt: now, completedAt: now, updatedAt: now));
-      emitPanel(scope, _sig(scope, 'sig_${n.id}', {'flowrunId': flowrunId, 'nodeId': n.id, 'iteration': 0, 'status': 'completed'}));
+      _appendFlowrunRow(
+        flowrunId,
+        FlowrunNode(
+          id: 'frn_${n.id}',
+          flowrunId: flowrunId,
+          nodeId: n.id,
+          kind: n.kind.name,
+          ref: n.ref,
+          status: 'completed',
+          result: result,
+          createdAt: now,
+          completedAt: now,
+          updatedAt: now,
+        ),
+      );
+      emitPanel(
+        scope,
+        _sig(scope, 'sig_${n.id}', {
+          'flowrunId': flowrunId,
+          'nodeId': n.id,
+          'iteration': 0,
+          'status': 'completed',
+        }),
+      );
     }
     _updateFlowrun(flowrunId, status: 'completed', completedAt: now);
   }
@@ -376,10 +561,17 @@ class FixtureEntityRepository implements EntityRepository {
   void _appendFlowrunRow(String flowrunId, FlowrunNode row) {
     final comp = _flowrunDetail[flowrunId];
     if (comp == null) return;
-    _flowrunDetail[flowrunId] = FlowrunComposite(flowrun: comp.flowrun, nodes: [row, ...comp.nodes]);
+    _flowrunDetail[flowrunId] = FlowrunComposite(
+      flowrun: comp.flowrun,
+      nodes: [row, ...comp.nodes],
+    );
   }
 
-  void _updateFlowrun(String flowrunId, {required String status, DateTime? completedAt}) {
+  void _updateFlowrun(
+    String flowrunId, {
+    required String status,
+    DateTime? completedAt,
+  }) {
     final comp = _flowrunDetail[flowrunId];
     if (comp == null) return;
     _flowrunDetail[flowrunId] = FlowrunComposite(
@@ -389,18 +581,35 @@ class FixtureEntityRepository implements EntityRepository {
   }
 
   @override
-  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
-      {required String decision, String? reason}) async {
+  Future<FlowrunComposite> decideApproval(
+    String flowrunId,
+    String nodeId, {
+    required String decision,
+    String? reason,
+  }) async {
     final comp = _flowrunDetail[flowrunId];
-    if (comp == null) throw StateError('FixtureEntityRepository: no flowrun $flowrunId');
-    final i = comp.nodes.indexWhere((n) => n.nodeId == nodeId && n.status == 'parked');
-    if (i < 0) throw StateError('FixtureEntityRepository: $nodeId is not parked (first-wins)');
+    if (comp == null) {
+      throw StateError('FixtureEntityRepository: no flowrun $flowrunId');
+    }
+    final i = comp.nodes.indexWhere(
+      (n) => n.nodeId == nodeId && n.status == 'parked',
+    );
+    if (i < 0) {
+      throw StateError(
+        'FixtureEntityRepository: $nodeId is not parked (first-wins)',
+      );
+    }
     final now = DateTime.utc(2026, 6, 27, 10, 5);
     final decided = comp.nodes[i].copyWith(
-        status: 'completed',
-        result: {...comp.nodes[i].result, 'decision': decision, 'reason': ?reason},
-        completedAt: now,
-        updatedAt: now);
+      status: 'completed',
+      result: {
+        ...comp.nodes[i].result,
+        'decision': decision,
+        'reason': ?reason,
+      },
+      completedAt: now,
+      updatedAt: now,
+    );
     final next = FlowrunComposite(
       // The fixture resolves the whole run on decide (enough for demo/tests — the Live path's truth
       // is the backend walk). fixture 决断即收尾(demo/测试够用;Live 真相在后端)。
@@ -409,19 +618,32 @@ class FixtureEntityRepository implements EntityRepository {
     );
     _flowrunDetail[flowrunId] = next;
     final scope = EntityKind.workflow.scope(comp.flowrun.workflowId);
-    emitPanel(scope, _sig(scope, 'sig_decide_$nodeId',
-        {'flowrunId': flowrunId, 'nodeId': nodeId, 'iteration': 0, 'status': 'completed'}));
+    emitPanel(
+      scope,
+      _sig(scope, 'sig_decide_$nodeId', {
+        'flowrunId': flowrunId,
+        'nodeId': nodeId,
+        'iteration': 0,
+        'status': 'completed',
+      }),
+    );
     return next;
   }
 
-  Future<void> _delay() => runDelay == Duration.zero ? Future<void>.value() : Future<void>.delayed(runDelay);
+  Future<void> _delay() => runDelay == Duration.zero
+      ? Future<void>.value()
+      : Future<void>.delayed(runDelay);
 
   // fn/hd run node: open (durable) → stderr deltas (ephemeral) → close (durable). fn/hd run 节点。
   Future<void> _streamRun(StreamScope scope) async {
     const nid = 'blk_run';
     await _delay();
     emitPanel(scope, _open(scope, nid, 'run'));
-    for (final line in const ['› starting…\n', '› processing input\n', '› done\n']) {
+    for (final line in const [
+      '› starting…\n',
+      '› processing input\n',
+      '› done\n',
+    ]) {
       await _delay();
       emitPanel(scope, _delta(scope, nid, line));
     }
@@ -431,9 +653,25 @@ class FixtureEntityRepository implements EntityRepository {
 
   // agent ReAct trace: reasoning → tool_call → tool_result (nested) → text. agent 轨迹块树。
   Future<void> _streamAgent(StreamScope scope) async {
-    Future<void> open(String id, String type, {String? parent, Map<String, dynamic>? content}) async {
+    Future<void> open(
+      String id,
+      String type, {
+      String? parent,
+      Map<String, dynamic>? content,
+    }) async {
       await _delay();
-      emitPanel(scope, StreamEnvelope(seq: 1, scope: scope, id: id, frame: FrameOpen(parentId: parent, node: StreamNode(type: type, content: content))));
+      emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 1,
+          scope: scope,
+          id: id,
+          frame: FrameOpen(
+            parentId: parent,
+            node: StreamNode(type: type, content: content),
+          ),
+        ),
+      );
     }
 
     Future<void> delta(String id, String chunk) async {
@@ -441,42 +679,105 @@ class FixtureEntityRepository implements EntityRepository {
       emitPanel(scope, _delta(scope, id, chunk));
     }
 
-    Future<void> close(String id, String type, Map<String, dynamic> content) async {
+    Future<void> close(
+      String id,
+      String type,
+      Map<String, dynamic> content,
+    ) async {
       await _delay();
-      emitPanel(scope, StreamEnvelope(seq: 2, scope: scope, id: id, frame: FrameClose(status: 'completed', result: StreamNode(type: type, content: content))));
+      emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 2,
+          scope: scope,
+          id: id,
+          frame: FrameClose(
+            status: 'completed',
+            result: StreamNode(type: type, content: content),
+          ),
+        ),
+      );
     }
 
     await open('b1', 'reasoning');
     await delta('b1', 'The topic needs a quick search, ');
     await delta('b1', 'then a summary.');
-    await close('b1', 'reasoning', {'content': 'The topic needs a quick search, then a summary.'});
+    await close('b1', 'reasoning', {
+      'content': 'The topic needs a quick search, then a summary.',
+    });
 
     await open('b2', 'tool_call', content: {'name': 'web-search'});
     await delta('b2', '{"q":"llm agents"}');
-    await close('b2', 'tool_call', {'name': 'web-search', 'arguments': '{"q":"llm agents"}', 'danger': 'safe'});
-    await open('b3', 'tool_result', parent: 'b2', content: {'content': '3 results found'});
+    await close('b2', 'tool_call', {
+      'name': 'web-search',
+      'arguments': '{"q":"llm agents"}',
+      'danger': 'safe',
+    });
+    await open(
+      'b3',
+      'tool_result',
+      parent: 'b2',
+      content: {'content': '3 results found'},
+    );
     await close('b3', 'tool_result', {'content': '3 results found'});
 
     await open('b4', 'text');
     await delta('b4', 'Based on the search, ');
     await delta('b4', 'here is a concise answer.');
-    await close('b4', 'text', {'content': 'Based on the search, here is a concise answer.'});
+    await close('b4', 'text', {
+      'content': 'Based on the search, here is a concise answer.',
+    });
   }
 
   StreamEnvelope _open(StreamScope scope, String id, String type) =>
-      StreamEnvelope(seq: 1, scope: scope, id: id, frame: FrameOpen(node: StreamNode(type: type)));
+      StreamEnvelope(
+        seq: 1,
+        scope: scope,
+        id: id,
+        frame: FrameOpen(node: StreamNode(type: type)),
+      );
   StreamEnvelope _delta(StreamScope scope, String id, String chunk) =>
-      StreamEnvelope(seq: 0, scope: scope, id: id, frame: FrameDelta(chunk: chunk));
-  StreamEnvelope _close(StreamScope scope, String id, String type, String status) =>
-      StreamEnvelope(seq: 2, scope: scope, id: id, frame: FrameClose(status: status, result: StreamNode(type: type)));
-  StreamEnvelope _sig(StreamScope scope, String id, Map<String, dynamic> content) =>
-      StreamEnvelope(seq: 0, scope: scope, id: id, frame: FrameSignal(node: StreamNode(type: 'run', content: content)));
+      StreamEnvelope(
+        seq: 0,
+        scope: scope,
+        id: id,
+        frame: FrameDelta(chunk: chunk),
+      );
+  StreamEnvelope _close(
+    StreamScope scope,
+    String id,
+    String type,
+    String status,
+  ) => StreamEnvelope(
+    seq: 2,
+    scope: scope,
+    id: id,
+    frame: FrameClose(
+      status: status,
+      result: StreamNode(type: type),
+    ),
+  );
+  StreamEnvelope _sig(
+    StreamScope scope,
+    String id,
+    Map<String, dynamic> content,
+  ) => StreamEnvelope(
+    seq: 0,
+    scope: scope,
+    id: id,
+    frame: FrameSignal(
+      node: StreamNode(type: 'run', content: content),
+    ),
+  );
 
   // ── write plane (F2) — mutate seeds + emit the same durable lifecycle signal the Live path would
   // see, so the detail/version providers reconcile through their normal re-fetch route.
   // 写面:改种子 + 发与 Live 同款 durable 生命周期信号,详情/版本 provider 走正常重取路收敛。
   @override
-  Future<FunctionEntity> patchFunctionMeta(String id, Map<String, dynamic> patch) async {
+  Future<FunctionEntity> patchFunctionMeta(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
     final e = await getFunction(id);
     final next = e.copyWith(
       name: (patch['name'] as String?) ?? e.name,
@@ -484,13 +785,22 @@ class FixtureEntityRepository implements EntityRepository {
       tags: (patch['tags'] as List?)?.cast<String>() ?? e.tags,
     );
     upsertFunction(next);
-    emitLifecycle(EntitySignal(
-        kind: EntityKind.function, id: id, action: EntityAction.updated, durable: true));
+    emitLifecycle(
+      EntitySignal(
+        kind: EntityKind.function,
+        id: id,
+        action: EntityAction.updated,
+        durable: true,
+      ),
+    );
     return next;
   }
 
   @override
-  Future<HandlerEntity> patchHandlerMeta(String id, Map<String, dynamic> patch) async {
+  Future<HandlerEntity> patchHandlerMeta(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
     final e = await getHandler(id);
     final next = e.copyWith(
       name: (patch['name'] as String?) ?? e.name,
@@ -498,8 +808,14 @@ class FixtureEntityRepository implements EntityRepository {
       tags: (patch['tags'] as List?)?.cast<String>() ?? e.tags,
     );
     upsertHandler(next);
-    emitLifecycle(EntitySignal(
-        kind: EntityKind.handler, id: id, action: EntityAction.updated, durable: true));
+    emitLifecycle(
+      EntitySignal(
+        kind: EntityKind.handler,
+        id: id,
+        action: EntityAction.updated,
+        durable: true,
+      ),
+    );
     return next;
   }
 
@@ -516,14 +832,21 @@ class FixtureEntityRepository implements EntityRepository {
   }
 
   @override
-  Future<HandlerEntity> putHandlerConfig(String id, Map<String, Object?> patch) async => getHandler(id);
+  Future<HandlerEntity> putHandlerConfig(
+    String id,
+    Map<String, Object?> patch,
+  ) async => getHandler(id);
   @override
   Future<HandlerEntity> clearHandlerConfig(String id) async => getHandler(id);
   @override
   Future<HandlerEntity> restartHandler(String id) async => getHandler(id);
 
   @override
-  Future<WorkflowVersion> editWorkflow(String id, List<Map<String, Object?>> ops, {String? changeReason}) async {
+  Future<WorkflowVersion> editWorkflow(
+    String id,
+    List<Map<String, Object?>> ops, {
+    String? changeReason,
+  }) async {
     final wf = await getWorkflow(id);
     final cur = wf.activeVersion;
     final base = cur == null ? const Graph() : (graphOf(cur) ?? const Graph());
@@ -537,7 +860,12 @@ class FixtureEntityRepository implements EntityRepository {
         'nodes': [for (final n in next.nodes) nodeWire(n)],
         'edges': [
           for (final e in next.edges)
-            {'id': e.id, 'from': e.from, if ((e.fromPort ?? '').isNotEmpty) 'fromPort': e.fromPort, 'to': e.to}
+            {
+              'id': e.id,
+              'from': e.from,
+              if ((e.fromPort ?? '').isNotEmpty) 'fromPort': e.fromPort,
+              'to': e.to,
+            },
         ],
       }),
       graphParsed: next,
@@ -547,13 +875,22 @@ class FixtureEntityRepository implements EntityRepository {
     );
     _workflowVersions[id] = [v, ...(_workflowVersions[id] ?? const [])];
     upsertWorkflow(wf.copyWith(activeVersionId: v.id, activeVersion: v));
-    emitLifecycle(EntitySignal(
-        kind: EntityKind.workflow, id: id, action: EntityAction.updated, durable: true));
+    emitLifecycle(
+      EntitySignal(
+        kind: EntityKind.workflow,
+        id: id,
+        action: EntityAction.updated,
+        durable: true,
+      ),
+    );
     return v;
   }
 
   @override
-  Future<WorkflowEntity> patchWorkflowMeta(String id, Map<String, dynamic> patch) async {
+  Future<WorkflowEntity> patchWorkflowMeta(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
     final e = await getWorkflow(id);
     final next = e.copyWith(
       name: (patch['name'] as String?) ?? e.name,
@@ -562,8 +899,14 @@ class FixtureEntityRepository implements EntityRepository {
       concurrency: (patch['concurrency'] as String?) ?? e.concurrency,
     );
     upsertWorkflow(next);
-    emitLifecycle(EntitySignal(
-        kind: EntityKind.workflow, id: id, action: EntityAction.updated, durable: true));
+    emitLifecycle(
+      EntitySignal(
+        kind: EntityKind.workflow,
+        id: id,
+        action: EntityAction.updated,
+        durable: true,
+      ),
+    );
     return next;
   }
 
@@ -582,37 +925,70 @@ class FixtureEntityRepository implements EntityRepository {
       case EntityKind.function:
         final v = pick(_functionVersions[id], (FunctionVersion x) => x.version);
         if (v == null) return;
-        upsertFunction((await getFunction(id)).copyWith(activeVersionId: v.id, activeVersion: v));
+        upsertFunction(
+          (await getFunction(
+            id,
+          )).copyWith(activeVersionId: v.id, activeVersion: v),
+        );
       case EntityKind.handler:
         final v = pick(_handlerVersions[id], (HandlerVersion x) => x.version);
         if (v == null) return;
-        upsertHandler((await getHandler(id)).copyWith(activeVersionId: v.id, activeVersion: v));
+        upsertHandler(
+          (await getHandler(
+            id,
+          )).copyWith(activeVersionId: v.id, activeVersion: v),
+        );
       case EntityKind.agent:
         final v = pick(_agentVersions[id], (AgentVersion x) => x.version);
         if (v == null) return;
-        upsertAgent((await getAgent(id)).copyWith(activeVersionId: v.id, activeVersion: v));
+        upsertAgent(
+          (await getAgent(
+            id,
+          )).copyWith(activeVersionId: v.id, activeVersion: v),
+        );
       case EntityKind.workflow:
         final v = pick(_workflowVersions[id], (WorkflowVersion x) => x.version);
         if (v == null) return;
-        upsertWorkflow((await getWorkflow(id)).copyWith(activeVersionId: v.id, activeVersion: v));
+        upsertWorkflow(
+          (await getWorkflow(
+            id,
+          )).copyWith(activeVersionId: v.id, activeVersion: v),
+        );
     }
-    emitLifecycle(EntitySignal(kind: kind, id: id, action: EntityAction.updated, durable: true));
+    emitLifecycle(
+      EntitySignal(
+        kind: kind,
+        id: id,
+        action: EntityAction.updated,
+        durable: true,
+      ),
+    );
   }
 
   @override
   Future<FlowrunComposite> replayFlowrun(String flowrunId) async {
     final comp = _flowrunDetail[flowrunId];
-    if (comp == null) throw StateError('FixtureEntityRepository: no flowrun $flowrunId');
+    if (comp == null) {
+      throw StateError('FixtureEntityRepository: no flowrun $flowrunId');
+    }
     // :replay clears failed node rows + re-walks (record-once reuse). The fixture simply flips the
     // failed rows to completed + the header to completed, bumping replayCount. fixture:失败行翻完成。
     final now = DateTime.utc(2026, 6, 27, 11);
     final next = FlowrunComposite(
       flowrun: comp.flowrun.copyWith(
-          status: 'completed', completedAt: now, replayCount: comp.flowrun.replayCount + 1),
+        status: 'completed',
+        completedAt: now,
+        replayCount: comp.flowrun.replayCount + 1,
+      ),
       nodes: [
         for (final n in comp.nodes)
           n.status == 'failed'
-              ? n.copyWith(status: 'completed', completedAt: now, updatedAt: now, error: null)
+              ? n.copyWith(
+                  status: 'completed',
+                  completedAt: now,
+                  updatedAt: now,
+                  error: null,
+                )
               : n,
       ],
     );
@@ -629,13 +1005,22 @@ class FixtureEntityRepository implements EntityRepository {
     for (final entry in _flowrunDetail.entries.toList()) {
       final comp = entry.value;
       if (comp.flowrun.workflowId == id &&
-          (comp.flowrun.status == 'running' || comp.flowrun.status == 'parked')) {
-        _flowrunDetail[entry.key] =
-            FlowrunComposite(flowrun: comp.flowrun.copyWith(status: 'cancelled'), nodes: comp.nodes);
+          (comp.flowrun.status == 'running' ||
+              comp.flowrun.status == 'parked')) {
+        _flowrunDetail[entry.key] = FlowrunComposite(
+          flowrun: comp.flowrun.copyWith(status: 'cancelled'),
+          nodes: comp.nodes,
+        );
       }
     }
-    emitLifecycle(EntitySignal(
-        kind: EntityKind.workflow, id: id, action: EntityAction.updated, durable: true));
+    emitLifecycle(
+      EntitySignal(
+        kind: EntityKind.workflow,
+        id: id,
+        action: EntityAction.updated,
+        durable: true,
+      ),
+    );
     return next;
   }
 
@@ -645,15 +1030,19 @@ class FixtureEntityRepository implements EntityRepository {
 
   // ── realtime (scripted) ────────────────────────────────────────────────────
   @override
-  Stream<EntitySignal> lifecycleSignals(EntityKind kind) => _lazyLifecycle(kind).stream;
+  Stream<EntitySignal> lifecycleSignals(EntityKind kind) =>
+      _lazyLifecycle(kind).stream;
   @override
-  Stream<StreamEnvelope> panelSignals(StreamScope scope) => _lazyPanel(scope.key).stream;
+  Stream<StreamEnvelope> panelSignals(StreamScope scope) =>
+      _lazyPanel(scope.key).stream;
 
   /// Script a lifecycle signal onto [kind]'s list stream (test/dev only). 脚本一条生命周期信号。
-  void emitLifecycle(EntitySignal signal) => _lazyLifecycle(signal.kind).add(signal);
+  void emitLifecycle(EntitySignal signal) =>
+      _lazyLifecycle(signal.kind).add(signal);
 
   /// Script a panel-realtime frame onto one scope's stream (test/dev only). 脚本一条面板实时帧。
-  void emitPanel(StreamScope scope, StreamEnvelope env) => _lazyPanel(scope.key).add(env);
+  void emitPanel(StreamScope scope, StreamEnvelope env) =>
+      _lazyPanel(scope.key).add(env);
 
   // Upsert an entity AFTER construction (replace-by-id, else append) — lets a test/demo simulate a
   // server-side create (a new id, fetchable via getEntityRow though absent from the initial list) OR an
@@ -672,10 +1061,10 @@ class FixtureEntityRepository implements EntityRepository {
     }
   }
 
-  StreamController<EntitySignal> _lazyLifecycle(EntityKind kind) =>
-      _lifecycle.putIfAbsent(kind, () => StreamController<EntitySignal>.broadcast());
-  StreamController<StreamEnvelope> _lazyPanel(String key) =>
-      _panels.putIfAbsent(key, () => StreamController<StreamEnvelope>.broadcast());
+  StreamController<EntitySignal> _lazyLifecycle(EntityKind kind) => _lifecycle
+      .putIfAbsent(kind, () => StreamController<EntitySignal>.broadcast());
+  StreamController<StreamEnvelope> _lazyPanel(String key) => _panels
+      .putIfAbsent(key, () => StreamController<StreamEnvelope>.broadcast());
 
   Future<void> dispose() async {
     for (final c in _lifecycle.values) {

@@ -24,4 +24,4 @@ landed-into:
 
 ## 回归套件（硬记忆 —— 探针永不回碰）
 
-`testend/golden/selfiter_*_test.go`：多轮里用户侧消息脚本化（固定）、agent 侧真模型；结构性 finding 优先转零 token 断言。跑法 `make testend`（llmmock、零 token）/ `make evals`（`EVALS=1`、真模型金标）。
+`testend/golden/selfiter_*_test.go`：多轮里用户侧消息脚本化（固定）、agent 侧真模型；结构性 finding 优先转零 token 断言。跑法 `make -C backend testend`（llmmock、零 token）/ `make -C backend evals`（`EVALS=1`、真模型金标）。

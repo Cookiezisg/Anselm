@@ -87,7 +87,9 @@ class _AnStateState extends State<AnState> {
     super.didUpdateWidget(old);
     // A block that flips loading→error IN PLACE is the whole reason this isn't a one-shot: the reader
     // is sitting on it and nothing else will tell them. 原地 loading→错误正是不能只播一次的理由。
-    if (old.kind != widget.kind || old._sentence != widget._sentence) _announce();
+    if (old.kind != widget.kind || old._sentence != widget._sentence) {
+      _announce();
+    }
   }
 
   // An empty/loading/error block REPLACES the content a reader came for, takes no focus, and (for the
@@ -120,11 +122,14 @@ class _AnStateState extends State<AnState> {
       leading = AnSpinner(size: glyphSize);
     } else {
       leading = Icon(
-        widget.icon ?? (widget.kind == AnStateKind.empty ? AnIcons.empty : AnIcons.error),
+        widget.icon ??
+            (widget.kind == AnStateKind.empty ? AnIcons.empty : AnIcons.error),
         size: glyphSize,
         // monochrome by default (decision ①, red reserved for AnCallout); a [fatal] error tints danger.
         // 默认单色;fatal error 转 danger(app 致命屏)。
-        color: (widget.kind == AnStateKind.error && widget.fatal) ? c.danger : c.inkFaint,
+        color: (widget.kind == AnStateKind.error && widget.fatal)
+            ? c.danger
+            : c.inkFaint,
       );
     }
 
@@ -135,23 +140,32 @@ class _AnStateState extends State<AnState> {
         ExcludeSemantics(child: leading),
         const SizedBox(height: AnSpace.s12),
         ExcludeSemantics(
-          child: Text(widget.title,
-              textAlign: TextAlign.center, style: (inset ? AnText.strong : AnText.h3).copyWith(color: c.ink)),
+          child: Text(
+            widget.title,
+            textAlign: TextAlign.center,
+            style: (inset ? AnText.strong : AnText.h3).copyWith(color: c.ink),
+          ),
         ),
         if (widget.hint != null) ...[
           const SizedBox(height: AnSpace.s6),
           ExcludeSemantics(
-            child: Text(widget.hint!, textAlign: TextAlign.center, style: AnText.meta.copyWith(color: c.inkMuted)),
+            child: Text(
+              widget.hint!,
+              textAlign: TextAlign.center,
+              style: AnText.meta.copyWith(color: c.inkMuted),
+            ),
           ),
         ],
         if (widget.detail != null && widget.detail!.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s8),
           ExcludeSemantics(
-            child: Text(widget.detail!,
-                textAlign: TextAlign.center,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.meta.copyWith(color: c.inkFaint)),
+            child: Text(
+              widget.detail!,
+              textAlign: TextAlign.center,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
           ),
         ],
         if (widget.action != null) ...[

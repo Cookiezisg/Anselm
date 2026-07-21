@@ -52,7 +52,8 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
   // in-content title scrolls past the head). 海洋唯一滚动控制器,驱动浮层头面包屑折叠。
   final ScrollController _scroll = ScrollController();
   final GlobalKey _headerKey = GlobalKey();
-  double _threshold = AnSpace.s64; // pre-measure fallback; recomputed from the measured header height 测量前兜底,据测得头高重算
+  double _threshold = AnSpace
+      .s64; // pre-measure fallback; recomputed from the measured header height 测量前兜底,据测得头高重算
 
   @override
   void initState() {
@@ -136,8 +137,10 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
           if (box != null && box.hasSize) {
             // Measured height is trusted — floor only (a giant header simply collapses later).
             // 实测头高可信——只设下界(巨头正常晚折叠)。
-            _threshold =
-                math.max(AnSpace.s8, box.size.height - AnSize.islandHead);
+            _threshold = math.max(
+              AnSpace.s8,
+              box.size.height - AnSize.islandHead,
+            );
           }
           ref.read(shellHeadProvider.notifier).bind(detail.name, _scrollToTop);
         });
@@ -158,7 +161,9 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                           final tr = context.t.entities.detail.trigger;
                           // Capture before the await — the ocean may dispose mid-fire. 取在 await 前(催发途中海洋可能释放)。
                           final repo = ref.read(entityRepositoryProvider);
-                          final notices = ref.read(noticeCenterProvider.notifier);
+                          final notices = ref.read(
+                            noticeCenterProvider.notifier,
+                          );
                           try {
                             final actId = await repo.fireTrigger(detail.ref.id);
                             if (!mounted) return;
@@ -177,23 +182,24 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                   // workflow W2, handler). 改名=meta PATCH(随各自雕琢批接入:function、workflow、handler)。
                   onRename: switch (detail.ref.kind) {
                     EntityKind.function => (name) async {
-                        await ref
-                            .read(entityRepositoryProvider)
-                            .patchFunctionMeta(detail.ref.id, {'name': name});
-                        ref.invalidate(entityDetailProvider(detail.ref));
-                      },
+                      await ref
+                          .read(entityRepositoryProvider)
+                          .patchFunctionMeta(detail.ref.id, {'name': name});
+                      ref.invalidate(entityDetailProvider(detail.ref));
+                    },
                     EntityKind.handler => (name) async {
-                        await ref
-                            .read(entityRepositoryProvider)
-                            .patchHandlerMeta(detail.ref.id, {'name': name});
-                        ref.invalidate(entityDetailProvider(detail.ref));
-                      },
+                      await ref.read(entityRepositoryProvider).patchHandlerMeta(
+                        detail.ref.id,
+                        {'name': name},
+                      );
+                      ref.invalidate(entityDetailProvider(detail.ref));
+                    },
                     EntityKind.workflow => (name) async {
-                        await ref
-                            .read(entityRepositoryProvider)
-                            .patchWorkflowMeta(detail.ref.id, {'name': name});
-                        ref.invalidate(entityDetailProvider(detail.ref));
-                      },
+                      await ref
+                          .read(entityRepositoryProvider)
+                          .patchWorkflowMeta(detail.ref.id, {'name': name});
+                      ref.invalidate(entityDetailProvider(detail.ref));
+                    },
                     _ => null,
                   },
                 ),

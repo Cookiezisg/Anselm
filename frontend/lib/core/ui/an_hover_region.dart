@@ -45,7 +45,8 @@ class AnHoverRegion extends StatefulWidget {
   State<AnHoverRegion> createState() => _AnHoverRegionState();
 }
 
-class _AnHoverRegionState extends State<AnHoverRegion> with ScrollSilencedHoverMixin<AnHoverRegion> {
+class _AnHoverRegionState extends State<AnHoverRegion>
+    with ScrollSilencedHoverMixin<AnHoverRegion> {
   // The LAST deferred transition while scrolling — enter (with its event) OR exit (with its event),
   // never both; whichever fired last wins, so the flush lands on the cursor's true resting state.
   // 滚动中最后一次被缓存的迁移:enter 或 exit 二选一(后来者覆盖),故 flush 落在光标真正的停歇态。
@@ -108,7 +109,8 @@ mixin ScrollSilencedHoverMixin<T extends StatefulWidget> on State<T> {
   ScrollPosition? _hoverScrollPos;
 
   /// True while the nearest ancestor scroller (drag OR ballistic settle) is in motion. 最近祖先在滚。
-  bool get hoverScrollActive => _hoverScrollPos?.isScrollingNotifier.value ?? false;
+  bool get hoverScrollActive =>
+      _hoverScrollPos?.isScrollingNotifier.value ?? false;
 
   /// Called on the settling edge (isScrolling true → false) — flush the deferred hover HERE (a
   /// listener callback, never a build), so a host [setState] is safe. 滚停边沿回调,可安全 setState。
@@ -130,7 +132,9 @@ mixin ScrollSilencedHoverMixin<T extends StatefulWidget> on State<T> {
   void _onHoverScrollActivity() {
     // Only the settling edge matters; the start edge is handled by [hoverScrollActive] at read time.
     // 只关心滚停边沿;起滚边沿由读取时的 hoverScrollActive 兜住。
-    if (!(_hoverScrollPos?.isScrollingNotifier.value ?? false)) onHoverScrollSettled();
+    if (!(_hoverScrollPos?.isScrollingNotifier.value ?? false)) {
+      onHoverScrollSettled();
+    }
   }
 
   @override

@@ -89,13 +89,13 @@ class StageActivityView {
   });
 
   StageActivityView.of(StageActivity a)
-      : blockId = a.blockId,
-        toolName = a.toolName,
-        kind = a.kind,
-        live = a.live,
-        failed = !a.closedOk,
-        unread = a.unread,
-        itemId = a.itemId;
+    : blockId = a.blockId,
+      toolName = a.toolName,
+      kind = a.kind,
+      live = a.live,
+      failed = !a.closedOk,
+      unread = a.unread,
+      itemId = a.itemId;
 
   final String blockId;
   final String toolName;
@@ -170,47 +170,96 @@ class StageState {
 
   @override
   int get hashCode => Object.hash(
-        phase,
-        subject,
-        followPillTarget?.blockId,
-        gateWaiting,
-        Object.hashAll(channels),
-      );
+    phase,
+    subject,
+    followPillTarget?.blockId,
+    gateWaiting,
+    Object.hashAll(channels),
+  );
 }
 
 /// §3.4 stage-worthy closed set → its stage kind + priority; null = never stages (get/read/search/
 /// list/delete/attachment/conversation and the human-gate verbs, which ride the pill instead).
 /// 登台闭表→舞台 kind+优先级;null=不登台。
-({String kind, StagePriority priority, LifecycleSource lifecycle})? stageRouteOf(String toolName) {
+({String kind, StagePriority priority, LifecycleSource lifecycle})?
+stageRouteOf(String toolName) {
   if (toolName == 'Subagent') {
-    return (kind: 'subagent', priority: StagePriority.subagent, lifecycle: LifecycleSource.toolClose);
+    return (
+      kind: 'subagent',
+      priority: StagePriority.subagent,
+      lifecycle: LifecycleSource.toolClose,
+    );
   }
   if (toolName.startsWith('mcp__')) {
-    return (kind: 'mcp', priority: StagePriority.execution, lifecycle: LifecycleSource.toolClose);
+    return (
+      kind: 'mcp',
+      priority: StagePriority.execution,
+      lifecycle: LifecycleSource.toolClose,
+    );
   }
   switch (toolName) {
     case 'run_function':
-      return (kind: 'function', priority: StagePriority.execution, lifecycle: LifecycleSource.toolClose);
+      return (
+        kind: 'function',
+        priority: StagePriority.execution,
+        lifecycle: LifecycleSource.toolClose,
+      );
     case 'call_handler':
-      return (kind: 'handler', priority: StagePriority.execution, lifecycle: LifecycleSource.toolClose);
+      return (
+        kind: 'handler',
+        priority: StagePriority.execution,
+        lifecycle: LifecycleSource.toolClose,
+      );
     case 'invoke_agent':
-      return (kind: 'agent', priority: StagePriority.execution, lifecycle: LifecycleSource.toolClose);
+      return (
+        kind: 'agent',
+        priority: StagePriority.execution,
+        lifecycle: LifecycleSource.toolClose,
+      );
     case 'trigger_workflow':
       // 202: the close is an ENQUEUE receipt, not the run's terminal (R-10 poll type). 202 入队回执。
-      return (kind: 'workflow', priority: StagePriority.execution, lifecycle: LifecycleSource.poll);
+      return (
+        kind: 'workflow',
+        priority: StagePriority.execution,
+        lifecycle: LifecycleSource.poll,
+      );
     case 'fire_trigger':
-      return (kind: 'trigger', priority: StagePriority.execution, lifecycle: LifecycleSource.toolClose);
+      return (
+        kind: 'trigger',
+        priority: StagePriority.execution,
+        lifecycle: LifecycleSource.toolClose,
+      );
     case 'write_memory':
-      return (kind: 'memory', priority: StagePriority.build, lifecycle: LifecycleSource.toolClose);
+      return (
+        kind: 'memory',
+        priority: StagePriority.build,
+        lifecycle: LifecycleSource.toolClose,
+      );
     case 'install_mcp_server':
-      return (kind: 'mcp', priority: StagePriority.build, lifecycle: LifecycleSource.toolClose);
+      return (
+        kind: 'mcp',
+        priority: StagePriority.build,
+        lifecycle: LifecycleSource.toolClose,
+      );
   }
   const buildKinds = [
-    'function', 'handler', 'agent', 'workflow', 'trigger', 'control', 'approval', 'document', 'skill',
+    'function',
+    'handler',
+    'agent',
+    'workflow',
+    'trigger',
+    'control',
+    'approval',
+    'document',
+    'skill',
   ];
   for (final k in buildKinds) {
     if (toolName == 'create_$k' || toolName == 'edit_$k') {
-      return (kind: k, priority: StagePriority.build, lifecycle: LifecycleSource.toolClose);
+      return (
+        kind: k,
+        priority: StagePriority.build,
+        lifecycle: LifecycleSource.toolClose,
+      );
     }
   }
   return null;
@@ -239,15 +288,18 @@ class StageDirector {
   StagePhase _phase = StagePhase.idle;
   StageActivity? _subject;
   DateTime? _subjectStagedAt;
-  final Map<String, StageActivity> _live = {}; // by blockId, entrance order 活动集(入场序)
+  final Map<String, StageActivity> _live =
+      {}; // by blockId, entrance order 活动集(入场序)
   final List<String> _order = [];
   bool _followedOnceThisConversation = false;
   bool _gateWaiting = false;
 
   // Pending deadlines (the host schedules the earliest). 待触发期限。
-  final Map<String, DateTime> _entranceDue = {}; // blockId → stage-entrance due 登台防抖
+  final Map<String, DateTime> _entranceDue =
+      {}; // blockId → stage-entrance due 登台防抖
   DateTime? _curtainDue; // settle breath → curtain 谢幕期限
-  DateTime? _switchRetryDue; // arbitration retry when dwell/idle not yet met 换台重试期限
+  DateTime?
+  _switchRetryDue; // arbitration retry when dwell/idle not yet met 换台重试期限
 
   /// The earliest pending deadline, or null when nothing is scheduled. 最早期限。
   DateTime? get nextDeadline {
@@ -265,7 +317,8 @@ class StageDirector {
       subject: _subject == null ? null : StageActivityView.of(_subject!),
       channels: [
         for (final id in _order)
-          if (_live[id] != null && !identical(_live[id], _subject)) StageActivityView.of(_live[id]!),
+          if (_live[id] != null && !identical(_live[id], _subject))
+            StageActivityView.of(_live[id]!),
       ],
       followPillTarget: pill == null ? null : StageActivityView.of(pill),
       gateWaiting: _gateWaiting,
@@ -276,7 +329,9 @@ class StageDirector {
     StageActivity? best;
     for (final a in _live.values) {
       if (identical(a, _subject) || !a.live) continue;
-      if (best == null || a.lastActivityAt.isAfter(best.lastActivityAt)) best = a;
+      if (best == null || a.lastActivityAt.isAfter(best.lastActivityAt)) {
+        best = a;
+      }
     }
     return best;
   }
@@ -313,7 +368,8 @@ class StageDirector {
   }
 
   /// The args stream resolved the activity's primary entity id (Cast pulse, R-6). 主目标 id 解出。
-  void onItemResolved(String blockId, String itemId) => _live[blockId]?.itemId = itemId;
+  void onItemResolved(String blockId, String itemId) =>
+      _live[blockId]?.itemId = itemId;
 
   /// The activity's tool_call closed. [ok] false → failed/cancelled. 关帧。
   void onToolClose(String blockId, DateTime now, {bool ok = true}) {
@@ -321,12 +377,16 @@ class StageDirector {
     if (a == null) return;
     a.closedAt = now;
     a.closedOk = ok;
-    _entranceDue.remove(blockId); // a close inside the debounce = short op, never stages 短操作不登台
+    _entranceDue.remove(
+      blockId,
+    ); // a close inside the debounce = short op, never stages 短操作不登台
     if (identical(a, _subject)) {
       if (!ok) {
-        _phase = StagePhase.failedHold; // red-hold: stays until dismissed / displaced 红纱驻留
+        _phase = StagePhase
+            .failedHold; // red-hold: stays until dismissed / displaced 红纱驻留
         _curtainDue = null;
-      } else if (_phase == StagePhase.following && a.lifecycle == LifecycleSource.toolClose) {
+      } else if (_phase == StagePhase.following &&
+          a.lifecycle == LifecycleSource.toolClose) {
         // settle → breath → curtain (unless something else is live to switch to). A POLL-type close
         // is only an enqueue receipt (R-10) — the stage holds until dismissed or displaced. 落定停拍
         // 再谢幕;poll 型关帧只是入队回执(R-10)——驻留到收场/挤台。
@@ -349,7 +409,11 @@ class StageDirector {
   /// (终态不可能先于自己的 202)。
   void onRunTerminal(String blockId, DateTime now, {bool ok = true}) {
     final a = _live[blockId];
-    if (a == null || a.closedAt == null || a.lifecycle != LifecycleSource.poll) return;
+    if (a == null ||
+        a.closedAt == null ||
+        a.lifecycle != LifecycleSource.poll) {
+      return;
+    }
     a.closedOk = ok;
     if (identical(a, _subject)) {
       if (!ok) {
@@ -406,14 +470,18 @@ class StageDirector {
   void advance(DateTime now) {
     // entrances — simultaneous arrivals stage best-first (priority, then freshest), not map order.
     // 登台:同拍到点者按「优先级→新鲜度」序处理,非 map 序。
-    final due = _entranceDue.entries.where((e) => !e.value.isAfter(now)).map((e) => e.key).toList();
-    final dueActs = [
-      for (final id in due)
-        if (_live[id] != null && _live[id]!.live) _live[id]!,
-    ]..sort((a, b) {
-        final p = b.priority.index.compareTo(a.priority.index);
-        return p != 0 ? p : b.lastActivityAt.compareTo(a.lastActivityAt);
-      });
+    final due = _entranceDue.entries
+        .where((e) => !e.value.isAfter(now))
+        .map((e) => e.key)
+        .toList();
+    final dueActs =
+        [
+          for (final id in due)
+            if (_live[id] != null && _live[id]!.live) _live[id]!,
+        ]..sort((a, b) {
+          final p = b.priority.index.compareTo(a.priority.index);
+          return p != 0 ? p : b.lastActivityAt.compareTo(a.lastActivityAt);
+        });
     for (final id in due) {
       _entranceDue.remove(id);
     }
@@ -422,7 +490,9 @@ class StageDirector {
     }
     // curtain 谢幕
     final curtain = _curtainDue;
-    if (curtain != null && !curtain.isAfter(now) && _phase == StagePhase.following) {
+    if (curtain != null &&
+        !curtain.isAfter(now) &&
+        _phase == StagePhase.following) {
       _curtainDue = null;
       final next = _freshestLiveNonSubject();
       if (next != null) {
@@ -441,10 +511,10 @@ class StageDirector {
   // ── internals 内部 ──
 
   bool get _followAllowed => switch (followMode) {
-        FollowMode.never => false,
-        FollowMode.always => true,
-        FollowMode.firstPerConversation => !_followedOnceThisConversation,
-      };
+    FollowMode.never => false,
+    FollowMode.always => true,
+    FollowMode.firstPerConversation => !_followedOnceThisConversation,
+  };
 
   void _tryStage(StageActivity a, DateTime now) {
     if (_subject == null) {
@@ -477,7 +547,9 @@ class StageDirector {
     final outranks = next.priority.index > current.priority.index;
     final subjectSettled = !current.live;
     final idleLong = now.difference(current.lastActivityAt) >= switchIdle;
-    final dwelled = _subjectStagedAt == null || now.difference(_subjectStagedAt!) >= minDwell;
+    final dwelled =
+        _subjectStagedAt == null ||
+        now.difference(_subjectStagedAt!) >= minDwell;
     if (outranks || subjectSettled || (idleLong && dwelled)) {
       _stage(next, now);
     } else {
@@ -485,7 +557,9 @@ class StageDirector {
       final idleAt = current.lastActivityAt.add(switchIdle);
       final dwellAt = (_subjectStagedAt ?? now).add(minDwell);
       final retry = idleAt.isAfter(dwellAt) ? idleAt : dwellAt;
-      if (_switchRetryDue == null || retry.isBefore(_switchRetryDue!)) _switchRetryDue = retry;
+      if (_switchRetryDue == null || retry.isBefore(_switchRetryDue!)) {
+        _switchRetryDue = retry;
+      }
     }
   }
 
@@ -495,7 +569,8 @@ class StageDirector {
       if (identical(a, current) || !a.live) continue;
       if (best == null ||
           a.priority.index > best.priority.index ||
-          (a.priority == best.priority && a.lastActivityAt.isAfter(best.lastActivityAt))) {
+          (a.priority == best.priority &&
+              a.lastActivityAt.isAfter(best.lastActivityAt))) {
         best = a;
       }
     }
@@ -509,7 +584,9 @@ class StageDirector {
     a.unread = 0;
     _curtainDue = null;
     if (prev != null && !identical(prev, a)) _dropIfSettled(prev, now);
-    if (_phase == StagePhase.idle || _phase == StagePhase.curtain || _phase == StagePhase.failedHold) {
+    if (_phase == StagePhase.idle ||
+        _phase == StagePhase.curtain ||
+        _phase == StagePhase.failedHold) {
       _phase = StagePhase.following;
     }
   }

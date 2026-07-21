@@ -20,19 +20,22 @@ import '../state/settings_panel_provider.dart';
 /// (the three-equal gate counts on it). 纯投影:目录=单平铺组+静态三段+每面板一行,全量派生自目录表。
 SidebarModel buildSettingsRailModel(Translations t) {
   SidebarType section(SettingsSection s, String label) => SidebarType(
-        label: label,
-        rows: [
-          for (final e in settingsCatalog)
-            if (e.section == s) SidebarRow(id: e.panel.name, label: e.labelOf(t), icon: e.icon),
-        ],
-      );
+    label: label,
+    rows: [
+      for (final e in settingsCatalog)
+        if (e.section == s)
+          SidebarRow(id: e.panel.name, label: e.labelOf(t), icon: e.icon),
+    ],
+  );
   return SidebarModel(
     groups: [
-      SidebarGroup(types: [
-        section(SettingsSection.prefs, t.settings.sections.prefs),
-        section(SettingsSection.resources, t.settings.sections.resources),
-        section(SettingsSection.system, t.settings.sections.system),
-      ]),
+      SidebarGroup(
+        types: [
+          section(SettingsSection.prefs, t.settings.sections.prefs),
+          section(SettingsSection.resources, t.settings.sections.resources),
+          section(SettingsSection.system, t.settings.sections.system),
+        ],
+      ),
     ],
     filterPlaceholder: t.settings.filter,
   );
@@ -112,7 +115,8 @@ class _SettingsRailState extends ConsumerState<SettingsRail> {
       model: buildSettingsRailModel(t),
       selectedId: selected.name,
       showNew: false,
-      showFilter: false, // the field is lifted out (this stateful widget owns it) 搜索框已抽出
+      showFilter:
+          false, // the field is lifted out (this stateful widget owns it) 搜索框已抽出
       onSelect: (id) {
         final panel = SettingsPanel.values.asNameMap()[id];
         if (panel != null) _openPanel(panel);
@@ -125,9 +129,14 @@ class _SettingsRailState extends ConsumerState<SettingsRail> {
     if (groups.isEmpty) {
       // Zero-prose empty state: the empty list IS the answer, at most one quiet line. 空态零人话:一句安静句。
       return Padding(
-        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s16),
-        child: Text(t.settings.searchNoMatch,
-            style: AnText.meta.copyWith(color: context.colors.inkFaint)),
+        padding: const EdgeInsets.symmetric(
+          horizontal: AnSpace.s12,
+          vertical: AnSpace.s16,
+        ),
+        child: Text(
+          t.settings.searchNoMatch,
+          style: AnText.meta.copyWith(color: context.colors.inkFaint),
+        ),
       );
     }
     final current = ref.watch(settingsPanelProvider);

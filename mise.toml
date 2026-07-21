@@ -5,3 +5,6 @@
 [tools]
 go = "1.25"
 flutter = "3.41.9"
+# demo 的 Playwright 测试也属仓库门禁，故 Node 不再依赖开发机全局版本。
+# 24.18.0 是当前 LTS（Krypton），适合生产/长期维护。
+node = "24.18.0"

@@ -17,7 +17,14 @@ import '../../../i18n/strings.g.dart';
 // TranscriptPeek:有界步骤目录,机器窗内紧凑只读迷你轨迹。
 
 class TranscriptPeek extends StatelessWidget {
-  const TranscriptPeek({required this.roots, required this.totalBlocks, this.failed = false, this.cap = 30, this.onOpenFull, super.key});
+  const TranscriptPeek({
+    required this.roots,
+    required this.totalBlocks,
+    this.failed = false,
+    this.cap = 30,
+    this.onOpenFull,
+    super.key,
+  });
 
   final List<BlockNode> roots;
   final int totalBlocks;
@@ -30,7 +37,10 @@ class TranscriptPeek extends StatelessWidget {
     final t = Translations.of(context);
     final c = context.colors;
     if (roots.isEmpty) {
-      return Text(t.chat.tool.transcriptEmpty, style: AnText.meta.copyWith(color: c.inkFaint));
+      return Text(
+        t.chat.tool.transcriptEmpty,
+        style: AnText.meta.copyWith(color: c.inkFaint),
+      );
     }
     // Cap selection: a failed run's cause is usually near the END → keep the first 5 + last (cap-5); an
     // ok run reads top-down → keep the head. 封顶取块:失败取首 5+末尾,成功取头。
@@ -38,38 +48,75 @@ class TranscriptPeek extends StatelessWidget {
     final shown = !over
         ? roots
         : failed
-            ? [...roots.take(5), ...roots.skip(roots.length - (cap - 5))]
-            : roots.take(cap).toList();
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      Row(children: [
-        Text(t.chat.tool.transcriptSteps(n: '$totalBlocks'), style: AnText.meta.copyWith(color: c.inkFaint)),
-        if (onOpenFull != null) ...[
-          const Spacer(),
-          AnInteractive(
-            onTap: onOpenFull,
-            builder: (context, _) => Text(t.chat.tool.transcriptOpenFull, style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.accent)),
-          ),
-        ],
-      ]),
-      const SizedBox(height: AnSpace.s4),
-      AnWindow(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          if (over && failed) ...[
-            // Show the gap honestly — a failed run is first-5 + tail, not contiguous. 失败非连续,诚实标缝。
-            for (final n in shown.take(5)) _blockRow(context, n),
-            Padding(padding: const EdgeInsets.symmetric(vertical: AnSpace.s2), child: Text(t.chat.tool.transcriptCapped(shown: '$cap', total: '${roots.length}'), style: AnText.meta.copyWith(color: c.inkFaint))),
-            for (final n in shown.skip(5)) _blockRow(context, n),
-          ] else ...[
-            for (final n in shown) _blockRow(context, n),
-            if (over)
-              Padding(padding: const EdgeInsets.only(top: AnSpace.s2), child: Text(t.chat.tool.transcriptCapped(shown: '$cap', total: '${roots.length}'), style: AnText.meta.copyWith(color: c.inkFaint))),
+        ? [...roots.take(5), ...roots.skip(roots.length - (cap - 5))]
+        : roots.take(cap).toList();
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
+          children: [
+            Text(
+              t.chat.tool.transcriptSteps(n: '$totalBlocks'),
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+            if (onOpenFull != null) ...[
+              const Spacer(),
+              AnInteractive(
+                onTap: onOpenFull,
+                builder: (context, _) => Text(
+                  t.chat.tool.transcriptOpenFull,
+                  style: AnText.meta
+                      .weight(AnText.emphasisWeight)
+                      .copyWith(color: c.accent),
+                ),
+              ),
+            ],
           ],
-        ]),
-      ),
-    ]);
+        ),
+        const SizedBox(height: AnSpace.s4),
+        AnWindow(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (over && failed) ...[
+                // Show the gap honestly — a failed run is first-5 + tail, not contiguous. 失败非连续,诚实标缝。
+                for (final n in shown.take(5)) _blockRow(context, n),
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
+                  child: Text(
+                    t.chat.tool.transcriptCapped(
+                      shown: '$cap',
+                      total: '${roots.length}',
+                    ),
+                    style: AnText.meta.copyWith(color: c.inkFaint),
+                  ),
+                ),
+                for (final n in shown.skip(5)) _blockRow(context, n),
+              ] else ...[
+                for (final n in shown) _blockRow(context, n),
+                if (over)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AnSpace.s2),
+                    child: Text(
+                      t.chat.tool.transcriptCapped(
+                        shown: '$cap',
+                        total: '${roots.length}',
+                      ),
+                      style: AnText.meta.copyWith(color: c.inkFaint),
+                    ),
+                  ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
   }
 
-  Widget _blockRow(BuildContext context, BlockNode n) => transcriptBlockRow(context, n);
+  Widget _blockRow(BuildContext context, BlockNode n) =>
+      transcriptBlockRow(context, n);
 }
 
 /// One compact read-only row for a trajectory block — reasoning (dim tagged line) / text (tagged line) /
@@ -80,18 +127,26 @@ Widget transcriptBlockRow(BuildContext context, BlockNode n) {
   final c = context.colors;
   final t = Translations.of(context);
   Widget line(String tag, String text, Color color) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-        // Text.rich, not RichText — RichText ignores the ambient textScaler, so a11y scaling never
-        // reached these lines (A-099). Text.rich 继承环境 textScaler,a11y 缩放才生效。
-        child: Text.rich(
-          TextSpan(children: [
-            TextSpan(text: '$tag  ', style: AnText.meta.copyWith(color: c.inkFaint)),
-            TextSpan(text: text, style: AnText.code.copyWith(color: color)),
-          ]),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-      );
+    padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
+    // Text.rich, not RichText — RichText ignores the ambient textScaler, so a11y scaling never
+    // reached these lines (A-099). Text.rich 继承环境 textScaler,a11y 缩放才生效。
+    child: Text.rich(
+      TextSpan(
+        children: [
+          TextSpan(
+            text: '$tag  ',
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+          TextSpan(
+            text: text,
+            style: AnText.code.copyWith(color: color),
+          ),
+        ],
+      ),
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+    ),
+  );
   switch (n.kind) {
     case BlockKind.reasoning:
       return line(t.chat.tool.transcriptThought, n.displayText, c.inkFaint);
@@ -100,15 +155,29 @@ Widget transcriptBlockRow(BuildContext context, BlockNode n) {
     case BlockKind.toolCall:
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          Icon(AnIcons.toolIcon(n.name ?? ''), size: AnSize.iconSm, color: c.inkFaint),
-          const SizedBox(width: AnSpace.s6),
-          Text(n.name ?? '', style: AnText.mono.copyWith(color: c.inkMuted)),
-          if ((n.summary ?? '').isNotEmpty) ...[
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              AnIcons.toolIcon(n.name ?? ''),
+              size: AnSize.iconSm,
+              color: c.inkFaint,
+            ),
             const SizedBox(width: AnSpace.s6),
-            Flexible(child: Text(n.summary!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint))),
+            Text(n.name ?? '', style: AnText.mono.copyWith(color: c.inkMuted)),
+            if ((n.summary ?? '').isNotEmpty) ...[
+              const SizedBox(width: AnSpace.s6),
+              Flexible(
+                child: Text(
+                  n.summary!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              ),
+            ],
           ],
-        ]),
+        ),
       );
     default:
       return const SizedBox.shrink(); // tool_result nests under a call; other kinds are not peeked. 其余不 peek。
@@ -122,7 +191,12 @@ Widget transcriptBlockRow(BuildContext context, BlockNode n) {
 /// blocks aren't persisted), so on reload the card falls back to the «replay from record» note.
 /// NestedRunPane:嵌套运行活窗(机器窗内嵌套块紧凑行,末行 live 微光)。
 class NestedRunPane extends StatelessWidget {
-  const NestedRunPane({required this.nested, this.live = false, this.tail = 8, super.key});
+  const NestedRunPane({
+    required this.nested,
+    this.live = false,
+    this.tail = 8,
+    super.key,
+  });
 
   final List<BlockNode> nested;
   final bool live;
@@ -133,22 +207,32 @@ class NestedRunPane extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (nested.isEmpty) return const SizedBox.shrink();
-    final rows = live && nested.length > tail ? nested.sublist(nested.length - tail) : nested;
+    final rows = live && nested.length > tail
+        ? nested.sublist(nested.length - tail)
+        : nested;
     return AnWindow(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        for (final (i, n) in rows.indexed)
-          if (live && i == rows.length - 1 && n.isOpen)
-            AnShimmerText(_peekText(context, n), style: AnText.code.copyWith(color: context.colors.inkFaint))
-          else
-            transcriptBlockRow(context, n),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          for (final (i, n) in rows.indexed)
+            if (live && i == rows.length - 1 && n.isOpen)
+              AnShimmerText(
+                _peekText(context, n),
+                style: AnText.code.copyWith(color: context.colors.inkFaint),
+              )
+            else
+              transcriptBlockRow(context, n),
+        ],
+      ),
     );
   }
 
   String _peekText(BuildContext context, BlockNode n) {
     final t = Translations.of(context);
     return switch (n.kind) {
-      BlockKind.reasoning => '${t.chat.tool.transcriptThought}  ${n.displayText}',
+      BlockKind.reasoning =>
+        '${t.chat.tool.transcriptThought}  ${n.displayText}',
       BlockKind.text => '${t.chat.tool.transcriptReply}  ${n.displayText}',
       BlockKind.toolCall => n.name ?? '',
       _ => '',

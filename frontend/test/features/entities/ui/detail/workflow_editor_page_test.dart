@@ -24,35 +24,41 @@ const _graph =
     '{"nodes":[{"id":"start","kind":"trigger","ref":"tr_x"},{"id":"work","kind":"action","ref":"fn_1"}],"edges":[{"id":"e1","from":"start","to":"work"}]}';
 
 FixtureEntityRepository _repo() => FixtureEntityRepository(
-      runDelay: Duration.zero,
-      workflows: [
-        WorkflowEntity(
-          id: 'wf_1',
-          name: 'pipe',
-          createdAt: _t,
-          updatedAt: _t,
-          activeVersionId: 'wf_1_v1',
-          activeVersion: WorkflowVersion(
-              id: 'wf_1_v1', workflowId: 'wf_1', version: 1, graph: _graph, createdAt: _t, updatedAt: _t),
-        ),
-      ],
-    );
+  runDelay: Duration.zero,
+  workflows: [
+    WorkflowEntity(
+      id: 'wf_1',
+      name: 'pipe',
+      createdAt: _t,
+      updatedAt: _t,
+      activeVersionId: 'wf_1_v1',
+      activeVersion: WorkflowVersion(
+        id: 'wf_1_v1',
+        workflowId: 'wf_1',
+        version: 1,
+        graph: _graph,
+        createdAt: _t,
+        updatedAt: _t,
+      ),
+    ),
+  ],
+);
 
 Widget _host(FixtureEntityRepository repo) => ProviderScope(
-      overrides: [
-        entityRepositoryProvider.overrideWithValue(repo),
-        // The workflow editor is an ENTITIES surface — its shared right-panel bucket is the entities one
-        // (default OPEN). Seed the ocean so the right island reveals (chat now defaults COLLAPSED — 0718-19).
-        // 编辑器=实体面,右岛桶取实体桶(默认开);种海洋 entities 让右岛揭示(chat 现默认收起)。
-        selectedOceanProvider.overrideWith(_EntitiesOcean.new),
-      ],
-      child: TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: const WorkflowEditorPage(workflowId: 'wf_1'),
-        ),
-      ),
-    );
+  overrides: [
+    entityRepositoryProvider.overrideWithValue(repo),
+    // The workflow editor is an ENTITIES surface — its shared right-panel bucket is the entities one
+    // (default OPEN). Seed the ocean so the right island reveals (chat now defaults COLLAPSED — 0718-19).
+    // 编辑器=实体面,右岛桶取实体桶(默认开);种海洋 entities 让右岛揭示(chat 现默认收起)。
+    selectedOceanProvider.overrideWith(_EntitiesOcean.new),
+  ],
+  child: TranslationProvider(
+    child: MaterialApp(
+      theme: AnTheme.light(),
+      home: const WorkflowEditorPage(workflowId: 'wf_1'),
+    ),
+  ),
+);
 
 class _EntitiesOcean extends SelectedOceanController {
   @override
@@ -70,7 +76,9 @@ void main() {
     addTearDown(tester.view.reset);
   }
 
-  testWidgets('renders toolbar + edit-mode canvas + inspector empty state', (tester) async {
+  testWidgets('renders toolbar + edit-mode canvas + inspector empty state', (
+    tester,
+  ) async {
     wide(tester);
     await tester.pumpWidget(_host(_repo()));
     await tester.pump(const Duration(milliseconds: 60)); // editor loads
@@ -82,31 +90,43 @@ void main() {
     expect(find.text(e.inspectorEmpty), findsOneWidget);
   });
 
-  testWidgets('selecting a node reveals its editor (kind dropdown + ref + delete)', (tester) async {
-    wide(tester);
-    await tester.pumpWidget(_host(_repo()));
-    await tester.pump(const Duration(milliseconds: 60));
-    await tester.tap(find.text('work'));
-    await tester.pump();
-    expect(find.byType(AnDropdown<NodeKind>), findsOneWidget); // kind dropdown
-    expect(find.text('fn_1'), findsWidgets); // ref value
-    expect(find.text(e.deleteNode), findsOneWidget);
-  });
+  testWidgets(
+    'selecting a node reveals its editor (kind dropdown + ref + delete)',
+    (tester) async {
+      wide(tester);
+      await tester.pumpWidget(_host(_repo()));
+      await tester.pump(const Duration(milliseconds: 60));
+      await tester.tap(find.text('work'));
+      await tester.pump();
+      expect(
+        find.byType(AnDropdown<NodeKind>),
+        findsOneWidget,
+      ); // kind dropdown
+      expect(find.text('fn_1'), findsWidgets); // ref value
+      expect(find.text(e.deleteNode), findsOneWidget);
+    },
+  );
 
-  testWidgets('an edit enables save; tapping it persists a new version', (tester) async {
+  testWidgets('an edit enables save; tapping it persists a new version', (
+    tester,
+  ) async {
     wide(tester);
     final repo = _repo();
     await tester.pumpWidget(_host(repo));
     await tester.pump(const Duration(milliseconds: 60));
     const ref = EntityRef(EntityKind.workflow, 'wf_1');
-    final container = ProviderScope.containerOf(tester.element(find.byType(WorkflowEditorPage)));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(WorkflowEditorPage)),
+    );
     final saveBtn = find.text(e.save);
     expect(saveBtn, findsOneWidget);
     // Not dirty → the save CTA is inert (tapping persists nothing, still v1). 未改前保存惰性、点无效。
     await tester.tap(saveBtn);
     await tester.pumpAndSettle();
     expect((await repo.getWorkflow('wf_1')).activeVersion!.version, 1);
-    container.read(workflowEditorProvider(ref).notifier).setNodeRef('work', 'fn_renamed');
+    container
+        .read(workflowEditorProvider(ref).notifier)
+        .setNodeRef('work', 'fn_renamed');
     await tester.pump();
     // Now dirty → tapping the save CTA persists a new version. 已改 → 点保存落新版本。
     await tester.tap(saveBtn);

@@ -85,17 +85,17 @@ dev_dependencies:
 
 **禁(review/lint 守,每条都把一帧变整页重绘)**:A1 页面层 watch 整集合/整流 AsyncValue(页面只许 watch 扁平 ID 列表)· A2 叶子 watch 整对象不 select · A3 逐帧 `.where` · A4 一 token 一 notify · A5 ephemeral 灌进 durable 缓存 · A6 helper 函数建行(不能 const 短路)。
 
-**性能门禁(`make fe-verify`,经真网关 + 假传输)**:`BuildSpy` 埋 3 高度(① 流式叶子 ② 行 ③ 页面),`fake.emitDelta` 灌 200 帧 + `tester.pump()`(非 pumpWidget),断言 **叶子≈190、行≤1、页面==0**;durable 帧另断言进缓存。这是"绝不整页重绘"的红绿证明。【harness 4.0 备,真断言 feature 时】
+**性能门禁(`make -C frontend verify`,经真网关 + 假传输)**:`BuildSpy` 埋 3 高度(① 流式叶子 ② 行 ③ 页面),`fake.emitDelta` 灌 200 帧 + `tester.pump()`(非 pumpWidget),断言 **叶子≈190、行≤1、页面==0**;durable 帧另断言进缓存。这是"绝不整页重绘"的红绿证明。【harness 4.0 备,真断言 feature 时】
 
 **4.0 vs feature 时**:4.0 建 L0/L1/L2 原语 + 门禁 harness + reducer 的家(BlockTreeReducer/GraphModel 框架无关层);L3–L6 的真叶子写法在 Chat 4.2 / Scheduler 4.3 落地——因 4.0 还没有流式 UI 可优化。
 
-## 6. 有序建造步骤(每步 gate 绿才进下一步;floor=`make fe-verify` / 后端 `make verify` -race + `make testend`)
+## 6. 有序建造步骤(每步 gate 绿才进下一步;floor=`make -C frontend verify` / 后端 `make verify` -race + `make -C backend testend`)
 - **STEP 0 工具链+依赖**:re-add deps + `build.yaml` + analysis 忽略项。Gate:`pub get` 净 + `slang && build_runner build` 成 + analyze 净 + 既有 UI kit 测仍绿。
 - **STEP 1 PORT contract + ADD 码/DTO**。Gate(强):每 DTO `fromJson/toJson` 往返 golden(录真后端响应进 `test/fixtures`)+ `Page/PageWithAggregate.fromBody`(空页/末页/聚合变体)+ enum unknown 兜底 + `ApiException.fromEnvelope`。
 - **STEP 2 PORT net + bearer 拦截器**。Gate:mock dio 断言 unwrap/分页/错误映射/401·410/token 挂载。
 - **STEP 3 PORT sse + jitter**。Gate:`sse_parser` 喂录制 line fixture(含空格冒号/多 data/keep-alive 注释)+ 重连状态机(EOF 重连、410 重取、durable 才进游标)+ jitter 范围。
 - **STEP 4 core/process sidecar**。Gate:假二进制测端口预抢/health 门控/SIGTERM→超时→kill/有界重启;跨平台信号注意。
-- **STEP 5 后端 loopback 三改**(同提交文档)。Gate:`make verify` -race + `make testend`(bearer 跳过表/host 校验/health 要 token)。
+- **STEP 5 后端 loopback 三改**(同提交文档)。Gate:`make verify` -race + `make -C backend testend`(bearer 跳过表/host 校验/health 要 token)。
 - **STEP 6 Riverpod 装配 + 错误边界 + 启动门控 MERGE 进 AnApp**。Gate:启动门控 widget 测(BackendStatus 各态)+ 错误边界吞异常不白屏 + override 注入。
 - **STEP 7 性能原语 L0–L2 + 门禁 harness**。Gate:`BuildSpy` 200 帧 → 叶子≈190/行≤1/页面==0。
 - **交付**:空壳 app 能拉起后端、健康门控、三流连上、错误优雅降级、流式更新只动叶子——**Entities 4.1 可直接接真后端开建**。

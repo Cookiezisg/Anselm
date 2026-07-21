@@ -36,7 +36,9 @@ class AnMenuSurface extends StatelessWidget {
     final h = estHeight(rows).clamp(0.0, AnSize.menuMaxHeight);
     final overflow = anchor.bottom + AnSpace.s4 + h > layerHeight;
     final fitsAbove = anchor.top - AnSpace.s4 - h >= 0;
-    final top = (overflow && fitsAbove) ? anchor.top - AnSpace.s4 - h : anchor.bottom + AnSpace.s4;
+    final top = (overflow && fitsAbove)
+        ? anchor.top - AnSpace.s4 - h
+        : anchor.bottom + AnSpace.s4;
     return (left: anchor.left, top: top);
   }
 
@@ -48,7 +50,9 @@ class AnMenuSurface extends StatelessWidget {
       child: ClipRRect(
         borderRadius: BorderRadius.circular(AnRadius.chip),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(AnSpace.s4), // s4 ALL sides → rows inset, pill floats off the edge 四周 s4、药丸不贴边
+          padding: const EdgeInsets.all(
+            AnSpace.s4,
+          ), // s4 ALL sides → rows inset, pill floats off the edge 四周 s4、药丸不贴边
           child: FocusTraversalGroup(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -113,14 +117,22 @@ class AnMenuRow extends StatelessWidget {
         final active = states.isActive || highlighted;
         final reduced = AnMotionPref.reduced(context);
         // resting fill = same hue at alpha 0 (whenActive) → no dark-midpoint flash on the fade 静止底走 alpha-0 单源
-        final bg = danger ? c.dangerSoft.whenActive(active) : c.surfaceHover.whenActive(active);
+        final bg = danger
+            ? c.dangerSoft.whenActive(active)
+            : c.surfaceHover.whenActive(active);
         return Opacity(
           opacity: enabled ? 1 : AnOpacity.disabled,
           child: AnimatedContainer(
-            duration: reduced ? Duration.zero : AnMotion.fast, // hover tint = functional micro-feedback 功能性微反馈
+            duration: reduced
+                ? Duration.zero
+                : AnMotion
+                      .fast, // hover tint = functional micro-feedback 功能性微反馈
             height: AnSize.row,
             padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-            decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.button)),
+            decoration: BoxDecoration(
+              color: bg,
+              borderRadius: BorderRadius.circular(AnRadius.button),
+            ),
             child: builder(context, active),
           ),
         );

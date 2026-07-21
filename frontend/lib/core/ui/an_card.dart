@@ -59,22 +59,34 @@ class AnCard extends StatelessWidget {
       );
     }
     // Static card: a container whose children stay individually reachable (NOT merged), like AnInfoCard. 静态卡:子件各自可达。
-    return Semantics(container: true, explicitChildNodes: true, child: _card(context, active: false));
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: _card(context, active: false),
+    );
   }
 
   Widget _card(BuildContext context, {required bool active}) {
     final c = context.colors;
     final reduced = AnMotionPref.reduced(context);
-    final padding = pad == AnCardPad.tight ? AnInset.tight : AnInset.card; // 8/4 vs 16/12 — deliberate density rungs 密度分档
+    final padding = pad == AnCardPad.tight
+        ? AnInset.tight
+        : AnInset.card; // 8/4 vs 16/12 — deliberate density rungs 密度分档
 
     // Priority (matches demo source order): selected (2px accent) > selectable-hover (lineStrong) >
     // accent variant (accentLine) > neutral (line). So an accent selectable card's hover deepens to
     // lineStrong (demo `:host([selectable]:hover)` wins over `[variant=accent]`). 选中>hover>accent>中性。
     final Border border;
     if (selected) {
-      border = Border.all(color: c.accentLine, width: AnSize.gripLine); // gripLine == demo --line-2 (2px) 选中 2px
+      border = Border.all(
+        color: c.accentLine,
+        width: AnSize.gripLine,
+      ); // gripLine == demo --line-2 (2px) 选中 2px
     } else if (active) {
-      border = Border.all(color: c.lineStrong, width: AnSize.hairline); // selectable hover (active ⇒ selectable)
+      border = Border.all(
+        color: c.lineStrong,
+        width: AnSize.hairline,
+      ); // selectable hover (active ⇒ selectable)
     } else if (variant == AnCardVariant.accent) {
       border = Border.all(color: c.accentLine, width: AnSize.hairline);
     } else {
@@ -82,7 +94,10 @@ class AnCard extends StatelessWidget {
     }
 
     return AnimatedContainer(
-      duration: reduced ? Duration.zero : AnMotion.fast, // selectable hover/selected = functional micro-feedback 功能性微反馈
+      duration: reduced
+          ? Duration.zero
+          : AnMotion
+                .fast, // selectable hover/selected = functional micro-feedback 功能性微反馈
       padding: padding,
       decoration: BoxDecoration(
         color: c.surface,

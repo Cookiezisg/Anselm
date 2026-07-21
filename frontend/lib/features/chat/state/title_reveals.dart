@@ -31,4 +31,6 @@ class TitleReveals extends Notifier<Set<String>> {
   }
 }
 
-final titleRevealsProvider = NotifierProvider<TitleReveals, Set<String>>(TitleReveals.new);
+final titleRevealsProvider = NotifierProvider<TitleReveals, Set<String>>(
+  TitleReveals.new,
+);

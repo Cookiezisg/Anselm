@@ -112,25 +112,29 @@ class _AnChipState extends State<AnChip> {
   void _copy() {
     // Honest outcome: success flashes ✓, an error flashes ✗ — never a fake ✓ (the family standard,
     // same shape as AnCodeEditor/AnVersionDiff). 诚实结局:成 ✓ 败 ✗,绝不谎报。
-    Clipboard.setData(ClipboardData(text: widget.copyValue!)).then((_) {
-      if (!mounted) return;
-      setState(() {
-        _copied = true;
-        _copyFailed = false;
-      });
-      _resetFlash();
-    }, onError: (_) {
-      if (!mounted) return;
-      setState(() {
-        _copyFailed = true;
-        _copied = false;
-      });
-      _resetFlash();
-    });
+    Clipboard.setData(ClipboardData(text: widget.copyValue!)).then(
+      (_) {
+        if (!mounted) return;
+        setState(() {
+          _copied = true;
+          _copyFailed = false;
+        });
+        _resetFlash();
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() {
+          _copyFailed = true;
+          _copied = false;
+        });
+        _resetFlash();
+      },
+    );
   }
 
   void _resetFlash() {
-    _flash?.cancel(); // rapid re-taps must not let an old timer clear the new flash 连点不早清
+    _flash
+        ?.cancel(); // rapid re-taps must not let an old timer clear the new flash 连点不早清
     _flash = Timer(AnMotion.dwell, () {
       if (mounted) {
         setState(() {
@@ -193,48 +197,75 @@ class _AnChipState extends State<AnChip> {
         // ONE radius family-wide: pill (a 12-radius on a 22-high box collapses to ~pill anyway —
         // two radii would be an invisible distinction, 复审 #20). 全族单半径 pill。
         decoration: widget.look == AnChipLook.filled
-            ? BoxDecoration(color: widget.tone.softBg(c), borderRadius: BorderRadius.circular(AnRadius.pill))
+            ? BoxDecoration(
+                color: widget.tone.softBg(c),
+                borderRadius: BorderRadius.circular(AnRadius.pill),
+              )
             // Outlined sits on an OPAQUE surface (hover lifts it) — the island face AnRefPill
             // carried: a transparent chip on the grey user bubble read as a hole. outlined 形不透明
             // 白岛底(hover 提亮)——灰泡上透明芯片读作破洞(承 AnRefPill 岛面)。
             : BoxDecoration(
                 color: hovered && interactive ? c.surfaceHover : c.surface,
-                border: Border.all(color: widget.tone == AnTone.none ? (hovered ? c.ink : c.line) : ink, width: AnSize.hairline),
+                border: Border.all(
+                  color: widget.tone == AnTone.none
+                      ? (hovered ? c.ink : c.line)
+                      : ink,
+                  width: AnSize.hairline,
+                ),
                 borderRadius: BorderRadius.circular(AnRadius.pill),
               ),
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (widget.dot != null) ...[
-            widget.dot!,
-            if (glyph != null || widget.label.isNotEmpty) const SizedBox(width: AnGap.inline),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (widget.dot != null) ...[
+              widget.dot!,
+              if (glyph != null || widget.label.isNotEmpty)
+                const SizedBox(width: AnGap.inline),
+            ],
+            if (glyph != null) ...[
+              Icon(glyph, size: AnSize.iconSm, color: glyphInk),
+              // No orphan gap on the icon-only face (empty label). 空标签(纯示能形)不留孤儿间隙。
+              if (widget.label.isNotEmpty) const SizedBox(width: AnGap.inline),
+            ],
+            if (widget.label.isNotEmpty)
+              Flexible(
+                child: Text(
+                  widget.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: style,
+                ),
+              ),
           ],
-          if (glyph != null) ...[
-            Icon(glyph, size: AnSize.iconSm, color: glyphInk),
-            // No orphan gap on the icon-only face (empty label). 空标签(纯示能形)不留孤儿间隙。
-            if (widget.label.isNotEmpty) const SizedBox(width: AnGap.inline),
-          ],
-          if (widget.label.isNotEmpty)
-            Flexible(
-              child: Text(widget.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-            ),
-        ]),
+        ),
       );
     }
 
     if (!interactive) {
-      Widget still = ConstrainedBox(constraints: const BoxConstraints(maxWidth: AnSize.block), child: chipOf(false));
+      Widget still = ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: AnSize.block),
+        child: chipOf(false),
+      );
       if (widget.semanticLabel != null) {
         // A still chip with an a11y override is one labelled node (icon decorative). 静态芯片 a11y 单节点。
-        still = Semantics(label: widget.semanticLabel, child: ExcludeSemantics(child: still));
+        still = Semantics(
+          label: widget.semanticLabel,
+          child: ExcludeSemantics(child: still),
+        );
       }
-      return widget.tooltip == null ? still : AnTooltip(message: widget.tooltip!, child: still);
+      return widget.tooltip == null
+          ? still
+          : AnTooltip(message: widget.tooltip!, child: still);
     }
     // i18n is only consumed on the interactive path — a STILL chip renders in any host (gallery
     // fixtures, bare tests) without a TranslationProvider. slang 仅交互径消费:静态芯片不问宿主要 provider。
     final t = context.t;
     final tip = copyable
         ? (_copied
-            ? t.feedback.copied
-            : (_copyFailed ? t.feedback.copyFailed : (widget.tooltip ?? t.action.copy)))
+              ? t.feedback.copied
+              : (_copyFailed
+                    ? t.feedback.copyFailed
+                    : (widget.tooltip ?? t.action.copy)))
         : widget.tooltip;
     // MergeSemantics folds the outer label with AnInteractive's own button node — ONE actionable
     // node carrying the full label (a bare Semantics wrapper forks a dead labelled node beside the
@@ -243,10 +274,13 @@ class _AnChipState extends State<AnChip> {
       constraints: const BoxConstraints(maxWidth: AnSize.block),
       child: MergeSemantics(
         child: Semantics(
-          label: widget.semanticLabel ?? (copyable ? '${t.action.copy} ${widget.label}' : null),
+          label:
+              widget.semanticLabel ??
+              (copyable ? '${t.action.copy} ${widget.label}' : null),
           child: AnInteractive(
             onTap: copyable ? _copy : widget.onTap,
-            builder: (ctx, states) => ExcludeSemantics(child: chipOf(states.isActive)),
+            builder: (ctx, states) =>
+                ExcludeSemantics(child: chipOf(states.isActive)),
           ),
         ),
       ),

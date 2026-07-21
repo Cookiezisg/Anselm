@@ -25,18 +25,12 @@ import '../design/tokens.dart';
 enum _Shape { row, card, text, lines }
 
 class AnSkeleton extends StatefulWidget {
-  const AnSkeleton.row({super.key})
-      : _shape = _Shape.row,
-        _lines = 0;
-  const AnSkeleton.card({super.key})
-      : _shape = _Shape.card,
-        _lines = 0;
-  const AnSkeleton.text({super.key})
-      : _shape = _Shape.text,
-        _lines = 0;
+  const AnSkeleton.row({super.key}) : _shape = _Shape.row, _lines = 0;
+  const AnSkeleton.card({super.key}) : _shape = _Shape.card, _lines = 0;
+  const AnSkeleton.text({super.key}) : _shape = _Shape.text, _lines = 0;
   const AnSkeleton.lines(int count, {super.key})
-      : _shape = _Shape.lines,
-        _lines = count;
+    : _shape = _Shape.lines,
+      _lines = count;
 
   final _Shape _shape;
   final int _lines;
@@ -45,7 +39,8 @@ class AnSkeleton extends StatefulWidget {
   State<AnSkeleton> createState() => _AnSkeletonState();
 }
 
-class _AnSkeletonState extends State<AnSkeleton> with SingleTickerProviderStateMixin {
+class _AnSkeletonState extends State<AnSkeleton>
+    with SingleTickerProviderStateMixin {
   // EAGER-INIT (assign in initState, never a lazy `late final =` field). 急切初始化。
   late final AnimationController _c;
 
@@ -104,7 +99,8 @@ class _AnSkeletonState extends State<AnSkeleton> with SingleTickerProviderStateM
                   // boundary; a constant glide is the smooth shimmer norm. 线性扫光(repeat 上 ease 会在循环点抖)。
                   builder: (ctx, child) => ShaderMask(
                     blendMode: BlendMode.srcATop,
-                    shaderCallback: (rect) => _sweep(c, _c.value).createShader(rect),
+                    shaderCallback: (rect) =>
+                        _sweep(c, _c.value).createShader(rect),
                     child: child,
                   ),
                   child: bones,
@@ -115,13 +111,13 @@ class _AnSkeletonState extends State<AnSkeleton> with SingleTickerProviderStateM
   }
 
   LinearGradient _sweep(AnColors c, double v) => LinearGradient(
-        colors: [c.skeletonBase, c.skeletonHighlight, c.skeletonBase],
-        stops: const [0.35, 0.5, 0.65],
-        begin: Alignment.centerLeft,
-        end: Alignment.centerRight,
-        tileMode: TileMode.clamp,
-        transform: _SweepTransform(v),
-      );
+    colors: [c.skeletonBase, c.skeletonHighlight, c.skeletonBase],
+    stops: const [0.35, 0.5, 0.65],
+    begin: Alignment.centerLeft,
+    end: Alignment.centerRight,
+    tileMode: TileMode.clamp,
+    transform: _SweepTransform(v),
+  );
 
   Widget _bones(AnColors c) {
     switch (widget._shape) {
@@ -135,7 +131,9 @@ class _AnSkeletonState extends State<AnSkeleton> with SingleTickerProviderStateM
           children: [
             for (var i = 0; i < n; i++) ...[
               if (i > 0) const SizedBox(height: AnSpace.s8),
-              i == n - 1 && n > 1 ? _frac(0.6, _bar(c, height: AnSize.skeletonLine)) : _bar(c, height: AnSize.skeletonLine),
+              i == n - 1 && n > 1
+                  ? _frac(0.6, _bar(c, height: AnSize.skeletonLine))
+                  : _bar(c, height: AnSize.skeletonLine),
             ],
           ],
         );
@@ -163,7 +161,11 @@ class _AnSkeletonState extends State<AnSkeleton> with SingleTickerProviderStateM
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _bar(c, height: AnSpace.s48, radius: AnRadius.card), // the card block / thumbnail
+            _bar(
+              c,
+              height: AnSpace.s48,
+              radius: AnRadius.card,
+            ), // the card block / thumbnail
             const SizedBox(height: AnSpace.s12),
             _frac(0.5, _bar(c, height: AnSize.skeletonLine)), // title
             const SizedBox(height: AnSpace.s8),
@@ -177,16 +179,26 @@ class _AnSkeletonState extends State<AnSkeleton> with SingleTickerProviderStateM
 
   // Bones are OPAQUE (skeletonBase) — srcATop paints the sweep only over opaque pixels, and the base
   // == the gradient's base so a no-highlight bone is unchanged. 骨头不透明,扫光只覆盖之。
-  Widget _bar(AnColors c, {required double height, double? radius}) => Container(
+  Widget _bar(AnColors c, {required double height, double? radius}) =>
+      Container(
         height: height,
-        decoration: BoxDecoration(color: c.skeletonBase, borderRadius: BorderRadius.circular(radius ?? AnRadius.tag)),
+        decoration: BoxDecoration(
+          color: c.skeletonBase,
+          borderRadius: BorderRadius.circular(radius ?? AnRadius.tag),
+        ),
       );
 
-  Widget _circle(AnColors c, double size) =>
-      Container(width: size, height: size, decoration: BoxDecoration(color: c.skeletonBase, shape: BoxShape.circle));
+  Widget _circle(AnColors c, double size) => Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(color: c.skeletonBase, shape: BoxShape.circle),
+  );
 
-  Widget _frac(double factor, Widget child) =>
-      FractionallySizedBox(alignment: Alignment.centerLeft, widthFactor: factor, child: child);
+  Widget _frac(double factor, Widget child) => FractionallySizedBox(
+    alignment: Alignment.centerLeft,
+    widthFactor: factor,
+    child: child,
+  );
 }
 
 // Slides the gradient left→right across the bounds as v goes 0→1 (translate −w → +w); tileMode.clamp

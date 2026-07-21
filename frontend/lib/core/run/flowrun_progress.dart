@@ -7,7 +7,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// entities 流上一个 flowrun 节点的终态 tick(W6 后端:`port` 捎带 control 选中分支/approval 决定,
 /// 走向实时可见、免惰性 GET)。
 class NodeTick {
-  const NodeTick({required this.nodeId, required this.iteration, required this.status, this.port = ''});
+  const NodeTick({
+    required this.nodeId,
+    required this.iteration,
+    required this.status,
+    this.port = '',
+  });
 
   final String nodeId;
   final int iteration;
@@ -24,7 +29,11 @@ class NodeTick {
 /// durable `run_terminal` 收卷。tick 是 ephemeral 呈现——flowrun_nodes 行仍是真相(E2);漏 tick 只是
 /// 外观缺口、绝非谎言,终态行恒达(durable)。
 class FlowrunProgress {
-  const FlowrunProgress({required this.flowrunId, this.ticks = const [], this.terminal = ''});
+  const FlowrunProgress({
+    required this.flowrunId,
+    this.ticks = const [],
+    this.terminal = '',
+  });
 
   final String flowrunId;
   final List<NodeTick> ticks;
@@ -41,9 +50,16 @@ class FlowrunProgress {
 
   FlowrunProgress withTick(NodeTick t) {
     final next = ticks.length >= maxTicks
-        ? [...ticks.skip(ticks.length - maxTicks + 1), t] // drop the oldest, keep the last cap 丢最旧
+        ? [
+            ...ticks.skip(ticks.length - maxTicks + 1),
+            t,
+          ] // drop the oldest, keep the last cap 丢最旧
         : [...ticks, t];
-    return FlowrunProgress(flowrunId: flowrunId, ticks: next, terminal: terminal);
+    return FlowrunProgress(
+      flowrunId: flowrunId,
+      ticks: next,
+      terminal: terminal,
+    );
   }
 
   FlowrunProgress withTerminal(String status) =>
@@ -62,7 +78,8 @@ class FlowrunProgressController extends Notifier<FlowrunProgress?> {
   /// 入队回执落地——开卷(有 tick 前舞台显「聆听中」)。
   void begin(String flowrunId) => state = FlowrunProgress(flowrunId: flowrunId);
 
-  void tick(NodeTick t) => state = (state ?? FlowrunProgress(flowrunId: '')).withTick(t);
+  void tick(NodeTick t) =>
+      state = (state ?? FlowrunProgress(flowrunId: '')).withTick(t);
 
   void terminal(String status) =>
       state = (state ?? FlowrunProgress(flowrunId: '')).withTerminal(status);
@@ -76,5 +93,8 @@ class FlowrunProgressController extends Notifier<FlowrunProgress?> {
 /// 每 poll 块一份运行进度。非 autoDispose:导演器宿主从流订阅写入、自身无 watcher——poll 块每会话
 /// 屈指可数,每份占用硬有界到 maxTicks(C-019)、随 app 释放(与台账同一取舍)。
 final flowrunProgressProvider =
-    NotifierProvider.family<FlowrunProgressController, FlowrunProgress?, String>(
-        FlowrunProgressController.new);
+    NotifierProvider.family<
+      FlowrunProgressController,
+      FlowrunProgress?,
+      String
+    >(FlowrunProgressController.new);

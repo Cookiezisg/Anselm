@@ -13,15 +13,24 @@ import 'package:flutter_test/flutter_test.dart';
 // F01 mount skins (B4 F01.5) — name-based routing (mcp__/handler__) + MCP raw string + handler {result}.
 // mount 三式:按名字路由 + MCP 纯串 + handler {result}。
 
-BlockNode _node(String name, String args, String result) => BlockNode(id: 'tc_m', kind: BlockKind.toolCall)
-  ..status = 'completed'
-  ..content = {'name': name, 'arguments': args}
-  ..children.add(BlockNode(id: 'tr_m', kind: BlockKind.toolResult)
-    ..status = 'completed'
-    ..content = {'content': result});
+BlockNode _node(String name, String args, String result) =>
+    BlockNode(id: 'tc_m', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': name, 'arguments': args}
+      ..children.add(
+        BlockNode(id: 'tr_m', kind: BlockKind.toolResult)
+          ..status = 'completed'
+          ..content = {'content': result},
+      );
 
 Widget _host(Widget c) => TranslationProvider(
-    child: MaterialApp(theme: AnTheme.light(), home: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 640, child: c)))));
+  child: MaterialApp(
+    theme: AnTheme.light(),
+    home: Scaffold(
+      body: SingleChildScrollView(child: SizedBox(width: 640, child: c)),
+    ),
+  ),
+);
 
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
@@ -46,9 +55,20 @@ void main() {
     });
   });
 
-  testWidgets('MCP tool: server/tool chip + raw string body (never markdown)', (tester) async {
-    await tester.pumpWidget(_host(ChatToolCard(node: _node('mcp__linear__create_issue', '{}',
-        'Created issue ENG-1\nURL: https://linear.app/x'))));
+  testWidgets('MCP tool: server/tool chip + raw string body (never markdown)', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'mcp__linear__create_issue',
+            '{}',
+            'Created issue ENG-1\nURL: https://linear.app/x',
+          ),
+        ),
+      ),
+    );
     await tester.pump();
     expect(find.textContaining('linear/create_issue'), findsOneWidget); // chip
     await tester.tap(find.textContaining('已调用 MCP 工具'), warnIfMissed: false);
@@ -57,19 +77,47 @@ void main() {
     expect(find.textContaining('https://linear.app/x'), findsOneWidget);
   });
 
-  testWidgets('MCP resolution error → red receipt + auto-expand', (tester) async {
-    await tester.pumpWidget(_host(ChatToolCard(node: _node('mcp__linear__x', '{}',
-        'mcp server "linear" is not connected: MCP_SERVER_NOT_CONNECTED'))));
+  testWidgets('MCP resolution error → red receipt + auto-expand', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'mcp__linear__x',
+            '{}',
+            'mcp server "linear" is not connected: MCP_SERVER_NOT_CONNECTED',
+          ),
+        ),
+      ),
+    );
     await tester.pumpAndSettle();
     expect(find.textContaining(t.chat.tool.mcpError), findsOneWidget);
-    expect(find.textContaining('MCP_SERVER_NOT_CONNECTED'), findsOneWidget); // auto-expanded
+    expect(
+      find.textContaining('MCP_SERVER_NOT_CONNECTED'),
+      findsOneWidget,
+    ); // auto-expanded
   });
 
-  testWidgets('handler method: handler.method() chip + {result} JSON tree', (tester) async {
-    await tester.pumpWidget(_host(ChatToolCard(node: _node('billing_webhook__charge', '{}',
-        '{"result":{"chargeId":"ch_1","status":"succeeded"}}'))));
+  testWidgets('handler method: handler.method() chip + {result} JSON tree', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'billing_webhook__charge',
+            '{}',
+            '{"result":{"chargeId":"ch_1","status":"succeeded"}}',
+          ),
+        ),
+      ),
+    );
     await tester.pump();
-    expect(find.textContaining('billing_webhook.charge()'), findsOneWidget); // chip
+    expect(
+      find.textContaining('billing_webhook.charge()'),
+      findsOneWidget,
+    ); // chip
     await tester.tap(find.textContaining('已调用方法'), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.byType(AnJsonTree), findsOneWidget); // {result} tree
@@ -78,13 +126,13 @@ void main() {
 
 // helper to build a state for the target() closure
 ToolCardState _state(String name) => ToolCardState(
-      phase: ToolCardPhase.succeeded,
-      toolName: name,
-      summary: '',
-      danger: '',
-      argsText: '{}',
-      resultText: '',
-      errorText: '',
-      progressText: '',
-      progressLive: false,
-    );
+  phase: ToolCardPhase.succeeded,
+  toolName: name,
+  summary: '',
+  danger: '',
+  argsText: '{}',
+  resultText: '',
+  errorText: '',
+  progressText: '',
+  progressLive: false,
+);

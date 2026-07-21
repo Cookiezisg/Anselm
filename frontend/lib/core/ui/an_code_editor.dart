@@ -164,7 +164,8 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   // block: click lands the caret, type immediately, but keep the full frame + gutter + copy + language
   // label. Requires editable & !inline & !live. 有框常驻直接编辑(无铅笔/存取消),供文档编辑器嵌入的代码块:
   // 点即光标、直接打字,但保留框+gutter+copy+语言标。
-  bool get _seamlessEdit => widget.seamless && widget.editable && !widget.inline && !widget.live;
+  bool get _seamlessEdit =>
+      widget.seamless && widget.editable && !widget.inline && !widget.live;
   bool get _isEditing => _inlineEdit || _seamlessEdit || _editing;
 
   // Per-widget highlight memo (C-012/013): the read-only faces re-run the full tokenizer every build, and
@@ -178,7 +179,11 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   SyntaxColors? _spanColors;
 
   List<TextSpan> _highlight(String code, SyntaxColors colors) {
-    if (_spanCache != null && _spanCode == code && identical(_spanColors, colors)) return _spanCache!;
+    if (_spanCache != null &&
+        _spanCode == code &&
+        identical(_spanColors, colors)) {
+      return _spanCache!;
+    }
     final spans = highlightCode(code, lang: widget.lang, colors: colors);
     _spanCache = spans;
     _spanCode = code;
@@ -210,7 +215,11 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     final t = _controller?.text ?? '';
     final textChanged = t != _lastEditText;
     _lastEditText = t;
-    if (mounted) setState(() {}); // gutter + a11y label recompute (cursor preserved by the controller) 重算行号/a11y
+    if (mounted) {
+      setState(
+        () {},
+      ); // gutter + a11y label recompute (cursor preserved by the controller) 重算行号/a11y
+    }
     if (textChanged) widget.onInput?.call(t);
   }
 
@@ -246,29 +255,35 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     super.dispose();
   }
 
-  String get _currentText => _isEditing ? (_controller?.text ?? widget.code) : widget.code;
+  String get _currentText =>
+      _isEditing ? (_controller?.text ?? widget.code) : widget.code;
   int get _lineCount => '\n'.allMatches(_currentText).length + 1;
 
   // ── bar actions ──
   void _copy() {
     // Editing → copy the live edited text; else copy the full-content override if given, else the display.
-    final payload = _isEditing ? _currentText : (widget.copyPayload ?? widget.code);
-    Clipboard.setData(ClipboardData(text: payload)).then((_) {
-      if (!mounted) return;
-      setState(() {
-        _copied = true;
-        _copyFailed = false;
-      });
-      _resetCopyAfterDelay();
-    }, onError: (_) {
-      // No-permission / insecure context → flag failure honestly (don't claim success). 失败如实标记、不谎报。
-      if (!mounted) return;
-      setState(() {
-        _copyFailed = true;
-        _copied = false;
-      });
-      _resetCopyAfterDelay();
-    });
+    final payload = _isEditing
+        ? _currentText
+        : (widget.copyPayload ?? widget.code);
+    Clipboard.setData(ClipboardData(text: payload)).then(
+      (_) {
+        if (!mounted) return;
+        setState(() {
+          _copied = true;
+          _copyFailed = false;
+        });
+        _resetCopyAfterDelay();
+      },
+      onError: (_) {
+        // No-permission / insecure context → flag failure honestly (don't claim success). 失败如实标记、不谎报。
+        if (!mounted) return;
+        setState(() {
+          _copyFailed = true;
+          _copied = false;
+        });
+        _resetCopyAfterDelay();
+      },
+    );
   }
 
   void _resetCopyAfterDelay() {
@@ -292,7 +307,9 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
       _attachController(widget.code);
       _editing = true;
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _editFocus.requestFocus());
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _editFocus.requestFocus(),
+    );
   }
 
   void _save() {
@@ -346,7 +363,8 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   int _liveHeadChars = 0;
   int _liveHeadLines = 0;
   int _livePrevLen = 0;
-  final List<(int, int)> _liveProbes = []; // sampled (index, codeUnit) inside the counted head 头部采样
+  final List<(int, int)> _liveProbes =
+      []; // sampled (index, codeUnit) inside the counted head 头部采样
 
   bool _headStillSame(String code) {
     if (code.length < _livePrevLen) return false; // raw shrink = swap 裸缩短即换源
@@ -385,7 +403,9 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
       // advances ~once per delta). 对新计入区采样(每次推进 ≤2 探针)。
       _liveProbes.add((_liveHeadChars, code.codeUnitAt(_liveHeadChars)));
       _liveProbes.add((cut - 1, code.codeUnitAt(cut - 1)));
-      if (_liveProbes.length > 64) _liveProbes.removeRange(0, _liveProbes.length - 64);
+      if (_liveProbes.length > 64) {
+        _liveProbes.removeRange(0, _liveProbes.length - 64);
+      }
     }
     _liveHeadChars = cut;
     _liveHeadLines += added;
@@ -419,9 +439,10 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
             _bar(context, c),
             // White-face fades (拍板 #1 灰底退役) + the shared viewport tier. 白面渐隐+共享视口档。
             AnStickViewport(
-                maxHeight: widget.maxHeight ?? AnSize.codeViewport,
-                fadeColor: c.surface,
-                child: bodyRow),
+              maxHeight: widget.maxHeight ?? AnSize.codeViewport,
+              fadeColor: c.surface,
+              child: bodyRow,
+            ),
           ],
         ),
       ),
@@ -430,7 +451,10 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
 
   // The code text style — mono code face; plain (untokenized) text is muted, tokens colour over it.
   // 代码字体样式;未着色文本走 muted、token 覆盖其上。
-  TextStyle _codeStyle(AnColors c) => (widget.reading ? AnText.codeReading : AnText.code).copyWith(color: c.inkMuted);
+  TextStyle _codeStyle(AnColors c) =>
+      (widget.reading ? AnText.codeReading : AnText.code).copyWith(
+        color: c.inkMuted,
+      );
 
   String _a11yLabel(BuildContext context, int lines) {
     final label = _langLabel(widget.lang);
@@ -443,10 +467,19 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   Widget _inlineBody(BuildContext context) {
     final c = context.colors;
     if (_inlineEdit) {
-      return _EditField(controller: _controller!, focusNode: _editFocus, style: _codeStyle(c), ink: c.ink, onTab: _insertTab);
+      return _EditField(
+        controller: _controller!,
+        focusNode: _editFocus,
+        style: _codeStyle(c),
+        ink: c.ink,
+        onTab: _insertTab,
+      );
     }
     return SelectableText.rich(
-      TextSpan(style: _codeStyle(c), children: _highlight(widget.code, context.syntax)),
+      TextSpan(
+        style: _codeStyle(c),
+        children: _highlight(widget.code, context.syntax),
+      ),
     );
   }
 
@@ -488,15 +521,20 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
               // 骑 Flexible,矮宿主静默安全(批2 复审:裸 ConstrainedBox 曾溢出)。
               if (constraints.maxHeight.isFinite)
                 Flexible(
-                    child: widget.maxHeight == null
-                        ? SingleChildScrollView(child: bodyRow)
-                        : ConstrainedBox(
-                            constraints: BoxConstraints(maxHeight: widget.maxHeight!),
-                            child: SingleChildScrollView(child: bodyRow)))
+                  child: widget.maxHeight == null
+                      ? SingleChildScrollView(child: bodyRow)
+                      : ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxHeight: widget.maxHeight!,
+                          ),
+                          child: SingleChildScrollView(child: bodyRow),
+                        ),
+                )
               else if (widget.maxHeight != null)
                 ConstrainedBox(
-                    constraints: BoxConstraints(maxHeight: widget.maxHeight!),
-                    child: SingleChildScrollView(child: bodyRow))
+                  constraints: BoxConstraints(maxHeight: widget.maxHeight!),
+                  child: SingleChildScrollView(child: bodyRow),
+                )
               else
                 bodyRow,
             ],
@@ -511,12 +549,29 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     final t = context.t;
     final actions = <Widget>[];
     if (_editing) {
-      actions.add(AnButton(label: t.action.cancel, size: AnButtonSize.sm, onPressed: _cancel));
+      actions.add(
+        AnButton(
+          label: t.action.cancel,
+          size: AnButtonSize.sm,
+          onPressed: _cancel,
+        ),
+      );
       actions.add(const SizedBox(width: AnSpace.s4));
-      actions.add(AnButton(label: t.action.save, size: AnButtonSize.sm, variant: AnButtonVariant.primary, onPressed: _save));
+      actions.add(
+        AnButton(
+          label: t.action.save,
+          size: AnButtonSize.sm,
+          variant: AnButtonVariant.primary,
+          onPressed: _save,
+        ),
+      );
     } else {
-      final copyTip = _copied ? t.feedback.copied : (_copyFailed ? t.feedback.copyFailed : t.action.copy);
-      actions.add(_barIcon(_copied ? AnIcons.check : AnIcons.copy, copyTip, _copy));
+      final copyTip = _copied
+          ? t.feedback.copied
+          : (_copyFailed ? t.feedback.copyFailed : t.action.copy);
+      actions.add(
+        _barIcon(_copied ? AnIcons.check : AnIcons.copy, copyTip, _copy),
+      );
       // Wrap toggle is inert while editing (the edit field always soft-wraps) — hide it in seamless.
       // seamless 下编辑区恒软换行,wrap 开关无意义,隐藏。
       if (!_seamlessEdit) {
@@ -531,14 +586,21 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     }
     final lang = _langLabel(widget.lang);
     return Padding(
-      padding: const EdgeInsets.only(left: AnSpace.s12, right: AnSpace.s12, top: AnSpace.s8),
+      padding: const EdgeInsets.only(
+        left: AnSpace.s12,
+        right: AnSpace.s12,
+        top: AnSpace.s8,
+      ),
       child: Row(
         children: [
           ...actions,
           const Spacer(),
           // Decorative label — the language is already in the container's a11y label (avoid reading
           // "Python" twice). 装饰标签:语言已在容器 a11y label,避免念两遍。
-          if (lang != null) ExcludeSemantics(child: Text(lang, style: AnText.meta.copyWith(color: c.inkFaint))),
+          if (lang != null)
+            ExcludeSemantics(
+              child: Text(lang, style: AnText.meta.copyWith(color: c.inkFaint)),
+            ),
         ],
       ),
     );
@@ -550,14 +612,21 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     // AnTooltip, not Material Tooltip — bar isomorphism with AnVersionDiff (复审 #38). 同构用 AnTooltip。
     return AnTooltip(
       message: label,
-      child: AnButton.iconOnly(icon, size: AnButtonSize.sm, semanticLabel: label, onPressed: onTap),
+      child: AnButton.iconOnly(
+        icon,
+        size: AnButtonSize.sm,
+        semanticLabel: label,
+        onPressed: onTap,
+      ),
     );
   }
 
   Widget _gutter(AnColors c, int lines, {int startLine = 1}) {
     final top = widget.compact ? AnSpace.s4 : AnSpace.s8;
     final bottom = widget.compact ? AnSpace.s4 : AnSpace.s12;
-    final nums = [for (var i = startLine; i < startLine + lines; i++) '$i'].join('\n');
+    final nums = [
+      for (var i = startLine; i < startLine + lines; i++) '$i',
+    ].join('\n');
     // Decorative — a screen reader shouldn't navigate to and read every line number; the line count is
     // in the container label. 装饰:屏读不该逐个念行号(行数已在容器 label)。
     return ExcludeSemantics(
@@ -565,11 +634,18 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
         // Floor width (>=4 digits); the mono digits right-align within. 槽下界(容 4 位数),mono 数字右对齐。
         constraints: const BoxConstraints(minWidth: AnSize.trail),
         child: Padding(
-          padding: EdgeInsets.only(left: AnSpace.s12, right: AnSpace.s8, top: top, bottom: bottom),
+          padding: EdgeInsets.only(
+            left: AnSpace.s12,
+            right: AnSpace.s8,
+            top: top,
+            bottom: bottom,
+          ),
           child: Text(
             nums,
             textAlign: TextAlign.right,
-            style: (widget.reading ? AnText.codeReading : AnText.code).copyWith(color: c.inkFaint),
+            style: (widget.reading ? AnText.codeReading : AnText.code).copyWith(
+              color: c.inkFaint,
+            ),
           ),
         ),
       ),
@@ -586,11 +662,20 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     if (_isEditing) {
       return Padding(
         padding: pad,
-        child: _EditField(controller: _controller!, focusNode: _editFocus, style: _codeStyle(c), ink: c.ink, onTab: _insertTab),
+        child: _EditField(
+          controller: _controller!,
+          focusNode: _editFocus,
+          style: _codeStyle(c),
+          ink: c.ink,
+          onTab: _insertTab,
+        ),
       );
     }
     final text = SelectableText.rich(
-      TextSpan(style: _codeStyle(c), children: _highlight(codeOverride ?? widget.code, context.syntax)),
+      TextSpan(
+        style: _codeStyle(c),
+        children: _highlight(codeOverride ?? widget.code, context.syntax),
+      ),
     );
     // Read-only non-wrap scrolls horizontally; wrap lets the text reflow to the available width. 只读非 wrap 横滚。
     if (_wrap) return Padding(padding: pad, child: text);
@@ -674,11 +759,17 @@ class _HighlightController extends TextEditingController {
   SyntaxColors? _spanColors;
 
   @override
-  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
     // Per-token spans; the composing-region underline is not separately drawn (v1) — the text still
     // updates live. 逐 token span;v1 不单独画输入法 composing 下划线(文本仍实时更新)。
     final colors = context.syntax;
-    if (_spanCache == null || _spanText != text || !identical(_spanColors, colors)) {
+    if (_spanCache == null ||
+        _spanText != text ||
+        !identical(_spanColors, colors)) {
       _spanCache = highlightCode(text, lang: lang, colors: colors);
       _spanText = text;
       _spanColors = colors;
@@ -689,11 +780,27 @@ class _HighlightController extends TextEditingController {
 
 // Language label map — port of the demo LANG table; unknown keys title-case the raw key. 语言标签(移植 demo)。
 const Map<String, String> _langLabels = {
-  'py': 'Python', 'python': 'Python', 'js': 'JavaScript', 'javascript': 'JavaScript',
-  'ts': 'TypeScript', 'typescript': 'TypeScript', 'json': 'JSON', 'md': 'Markdown',
-  'markdown': 'Markdown', 'cel': 'CEL', 'sh': 'Shell', 'bash': 'Shell', 'go': 'Go',
-  'sql': 'SQL', 'html': 'HTML', 'css': 'CSS', 'yaml': 'YAML', 'yml': 'YAML',
-  'toml': 'TOML', 'rs': 'Rust', 'rust': 'Rust',
+  'py': 'Python',
+  'python': 'Python',
+  'js': 'JavaScript',
+  'javascript': 'JavaScript',
+  'ts': 'TypeScript',
+  'typescript': 'TypeScript',
+  'json': 'JSON',
+  'md': 'Markdown',
+  'markdown': 'Markdown',
+  'cel': 'CEL',
+  'sh': 'Shell',
+  'bash': 'Shell',
+  'go': 'Go',
+  'sql': 'SQL',
+  'html': 'HTML',
+  'css': 'CSS',
+  'yaml': 'YAML',
+  'yml': 'YAML',
+  'toml': 'TOML',
+  'rs': 'Rust',
+  'rust': 'Rust',
 };
 
 String? _langLabel(String? lang) {
@@ -729,7 +836,7 @@ String? langOf(String path) {
 /// Entity kind → authored-content language (fn/handler bodies are Python; document/skill are
 /// markdown; prompts/graph configs carry none). 实体 kind→内容语言(fn/hd=Python,doc/skill=markdown)。
 String? langOfEntityKind(String? kind) => switch (kind) {
-      'function' || 'handler' => 'python',
-      'document' || 'skill' => 'markdown',
-      _ => null,
-    };
+  'function' || 'handler' => 'python',
+  'document' || 'skill' => 'markdown',
+  _ => null,
+};

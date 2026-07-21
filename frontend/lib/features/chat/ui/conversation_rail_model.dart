@@ -53,9 +53,11 @@ class ConvTimeStrings {
 /// 不参与分组(rail 只分 置顶 / 最近 两组)。
 String conversationTimeLabel(DateTime atUtc, DateTime now, ConvTimeStrings s) {
   final at = atUtc.toLocal();
-  final days = DateTime(now.year, now.month, now.day)
-      .difference(DateTime(at.year, at.month, at.day))
-      .inDays;
+  final days = DateTime(
+    now.year,
+    now.month,
+    now.day,
+  ).difference(DateTime(at.year, at.month, at.day)).inDays;
   if (days <= 0) {
     final mins = now.difference(at).inMinutes;
     if (mins < 1) return s.justNow;
@@ -116,14 +118,22 @@ SidebarModel buildConversationRailModel(
   // An un-titled thread (created, auto-title pending or failed) falls back to the same "New chat" word
   // the head uses — a rail row must never render blank. 未命名线程回落「New chat」(与头一致),行绝不空白。
   SidebarRow toRow(Conversation c) => SidebarRow(
-        id: c.id,
-        label: c.title.trim().isEmpty ? labels.newLabel : c.title,
-        meta: showTime ? conversationTimeLabel(c.lastMessageAt, now, labels.time) : null,
-        dot: conversationDot(c),
-      );
+    id: c.id,
+    label: c.title.trim().isEmpty ? labels.newLabel : c.title,
+    meta: showTime
+        ? conversationTimeLabel(c.lastMessageAt, now, labels.time)
+        : null,
+    dot: conversationDot(c),
+  );
 
-  final pinned = [for (final c in rows) if (c.pinned) toRow(c)];
-  final recents = [for (final c in rows) if (!c.pinned) toRow(c)];
+  final pinned = [
+    for (final c in rows)
+      if (c.pinned) toRow(c),
+  ];
+  final recents = [
+    for (final c in rows)
+      if (!c.pinned) toRow(c),
+  ];
   // Zero conversations = show BOTH heads (the collapsed shape of the full rail); with data, the "hide empty
   // Pinned" rule holds. Count renders only when it has货 (n>0) — a "0" on an empty head is noise.
   // 零对话=两组头都渲(满态收起形);有数据则藏空置顶。计数仅 n>0 时渲(空组头的「0」是噪声)。
@@ -134,22 +144,31 @@ SidebarModel buildConversationRailModel(
     newLabel: labels.newLabel,
     filterPlaceholder: labels.filter,
     groups: [
-      SidebarGroup(types: [
-        if (pinned.isNotEmpty || zeroData)
-          SidebarType(label: labels.pinned, icon: AnIcons.pin, count: count(pinned.length), rows: pinned),
-        if (recents.isNotEmpty || zeroData)
-          SidebarType(
-            label: labels.recents,
-            icon: AnIcons.history,
-            count: count(recents.length),
-            pageKey: 'recents', // the single paginated axis (pinned all land on page one) 唯一分页轴
-            hasMore: hasMore,
-            loadingMore: loadingMore,
-            loadError: loadMoreFailed, // M9: failure = a manual retry row, never an auto-refire 失败=手动重试行
+      SidebarGroup(
+        types: [
+          if (pinned.isNotEmpty || zeroData)
+            SidebarType(
+              label: labels.pinned,
+              icon: AnIcons.pin,
+              count: count(pinned.length),
+              rows: pinned,
+            ),
+          if (recents.isNotEmpty || zeroData)
+            SidebarType(
+              label: labels.recents,
+              icon: AnIcons.history,
+              count: count(recents.length),
+              pageKey:
+                  'recents', // the single paginated axis (pinned all land on page one) 唯一分页轴
+              hasMore: hasMore,
+              loadingMore: loadingMore,
+              loadError:
+                  loadMoreFailed, // M9: failure = a manual retry row, never an auto-refire 失败=手动重试行
 
-            rows: recents,
-          ),
-      ]),
+              rows: recents,
+            ),
+        ],
+      ),
     ],
   );
 }

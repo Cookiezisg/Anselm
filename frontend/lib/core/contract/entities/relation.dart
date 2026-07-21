@@ -24,7 +24,8 @@ abstract class EntityRelation with _$EntityRelation {
     @Default('') String toId,
     @Default('') String toName,
   }) = _EntityRelation;
-  factory EntityRelation.fromJson(Map<String, dynamic> json) => _$EntityRelationFromJson(json);
+  factory EntityRelation.fromJson(Map<String, dynamic> json) =>
+      _$EntityRelationFromJson(json);
 }
 
 /// One node in the whole-workspace relation snapshot — a deduped entity that appears at some edge
@@ -44,7 +45,8 @@ abstract class EntityNode with _$EntityNode {
     @Default('') String id,
     @Default('') String name,
   }) = _EntityNode;
-  factory EntityNode.fromJson(Map<String, dynamic> json) => _$EntityNodeFromJson(json);
+  factory EntityNode.fromJson(Map<String, dynamic> json) =>
+      _$EntityNodeFromJson(json);
 }
 
 /// The whole-workspace relation snapshot (`GET /api/v1/relgraph`, no params, no pagination — a bounded
@@ -61,5 +63,6 @@ abstract class EntityRelGraph with _$EntityRelGraph {
     @Default(<EntityNode>[]) List<EntityNode> nodes,
     @Default(<EntityRelation>[]) List<EntityRelation> edges,
   }) = _EntityRelGraph;
-  factory EntityRelGraph.fromJson(Map<String, dynamic> json) => _$EntityRelGraphFromJson(json);
+  factory EntityRelGraph.fromJson(Map<String, dynamic> json) =>
+      _$EntityRelGraphFromJson(json);
 }

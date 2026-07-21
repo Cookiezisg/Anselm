@@ -30,40 +30,49 @@ void main() {
   final now = DateTime.now();
 
   StubSchedulerRepo repo() => StubSchedulerRepo(
-        workflows: [
-          SchedulerWorkflowRow(id: 'wf_a', name: '数据清洗流水线', lifecycleState: 'active', updatedAt: now),
-        ],
-        byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: now)],
-        runs: [
-          for (var i = 0; i < 24; i++)
-            Flowrun(
-                id: 'fr_p$i',
-                workflowId: 'wf_a',
-                origin: 'cron',
-                status: 'completed',
-                startedAt: now.subtract(Duration(hours: i + 1)),
-                completedAt: now.subtract(Duration(hours: i + 1)),
-                updatedAt: now),
-        ],
-      );
+    workflows: [
+      SchedulerWorkflowRow(
+        id: 'wf_a',
+        name: '数据清洗流水线',
+        lifecycleState: 'active',
+        updatedAt: now,
+      ),
+    ],
+    byWorkflow: [WorkflowRunStats(workflowId: 'wf_a', lastRunAt: now)],
+    runs: [
+      for (var i = 0; i < 24; i++)
+        Flowrun(
+          id: 'fr_p$i',
+          workflowId: 'wf_a',
+          origin: 'cron',
+          status: 'completed',
+          startedAt: now.subtract(Duration(hours: i + 1)),
+          completedAt: now.subtract(Duration(hours: i + 1)),
+          updatedAt: now,
+        ),
+    ],
+  );
 
   Widget host(StubSchedulerRepo r) => ProviderScope(
-        overrides: [
-          sseGatewayProvider.overrideWithValue(null),
-          schedulerRepositoryProvider.overrideWithValue(r),
-        ],
-        child: TranslationProvider(
-          child: Builder(builder: (context) {
-            final navKey = GlobalKey<NavigatorState>();
-            return MaterialApp(
-              theme: AnTheme.light(),
-              navigatorKey: navKey,
-              builder: (context, child) => AnOverlayHost(navigatorKey: navKey, child: child!),
-              home: Scaffold(body: SchedulerHomeView(workflowId: 'wf_a')),
-            );
-          }),
-        ),
-      );
+    overrides: [
+      sseGatewayProvider.overrideWithValue(null),
+      schedulerRepositoryProvider.overrideWithValue(r),
+    ],
+    child: TranslationProvider(
+      child: Builder(
+        builder: (context) {
+          final navKey = GlobalKey<NavigatorState>();
+          return MaterialApp(
+            theme: AnTheme.light(),
+            navigatorKey: navKey,
+            builder: (context, child) =>
+                AnOverlayHost(navigatorKey: navKey, child: child!),
+            home: Scaffold(body: SchedulerHomeView(workflowId: 'wf_a')),
+          );
+        },
+      ),
+    ),
+  );
 
   Future<void> settle(WidgetTester tester) async {
     await tester.pump();
@@ -89,7 +98,9 @@ void main() {
     await tester.pumpWidget(host(repo()));
     await settle(tester);
 
-    final pos = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+    final pos = tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position;
     pos.jumpTo(pos.maxScrollExtent);
     await tester.pump();
 
@@ -108,7 +119,10 @@ void main() {
     await tester.pump(const Duration(milliseconds: 16));
     var pan = Offset.zero;
     for (var i = 0; i < panFrames; i++) {
-      pan += const Offset(0, -30); // negative dy = content up = scroll toward bottom overscroll
+      pan += const Offset(
+        0,
+        -30,
+      ); // negative dy = content up = scroll toward bottom overscroll
       await g.panZoomUpdate(rowCentre, pan: pan);
       await tester.pump(const Duration(milliseconds: 16));
       track.add(pos.pixels - pos.maxScrollExtent);
@@ -126,45 +140,76 @@ void main() {
     return track;
   }
 
-  testWidgets('hover over a content row leaves the overscroll IDENTICAL to hovering the edge', (tester) async {
-    // Lock #1: same pan, cursor on the row vs cursor on the whitespace — after the freeze the two
-    // tracks are frame-for-frame the same (before the cure the on-row track self-oscillated).
-    // 锁①:同 pan,光标在行上 vs 在白边——冻结后两轨逐帧一致(治前在行上轨自激振荡)。
-    final onRow = await overscrollTrack(tester, hoverAtEdge: false);
-    final onEdge = await overscrollTrack(tester, hoverAtEdge: true);
-    expect(onRow.length, onEdge.length);
-    for (var i = 0; i < onRow.length; i++) {
-      expect((onRow[i] - onEdge[i]).abs(), lessThan(0.1),
-          reason: 'frame $i diverged: onRow=${onRow[i]} onEdge=${onEdge[i]} '
-              '(a divergence here means a hovered row relaid out mid-scroll)');
-    }
-  });
+  testWidgets(
+    'hover over a content row leaves the overscroll IDENTICAL to hovering the edge',
+    (tester) async {
+      // Lock #1: same pan, cursor on the row vs cursor on the whitespace — after the freeze the two
+      // tracks are frame-for-frame the same (before the cure the on-row track self-oscillated).
+      // 锁①:同 pan,光标在行上 vs 在白边——冻结后两轨逐帧一致(治前在行上轨自激振荡)。
+      final onRow = await overscrollTrack(tester, hoverAtEdge: false);
+      final onEdge = await overscrollTrack(tester, hoverAtEdge: true);
+      expect(onRow.length, onEdge.length);
+      for (var i = 0; i < onRow.length; i++) {
+        expect(
+          (onRow[i] - onEdge[i]).abs(),
+          lessThan(0.1),
+          reason:
+              'frame $i diverged: onRow=${onRow[i]} onEdge=${onEdge[i]} '
+              '(a divergence here means a hovered row relaid out mid-scroll)',
+        );
+      }
+    },
+  );
 
-  testWidgets('overscroll is a single clean rise-then-decay (no self-oscillation)', (tester) async {
+  testWidgets('overscroll is a single clean rise-then-decay (no self-oscillation)', (
+    tester,
+  ) async {
     // Lock #2: with the cursor on a row, the overscroll must build up monotonically and relax back
     // monotonically — one smooth rubber-band, never the bug's 30→0→0→30 saw-tooth. The saw-tooth
     // lived in the BUILD-UP (the clamp-back fired every hover flip), so both halves are asserted.
     // 锁②:光标在行上,overscroll 单调涨、单调回弹——一条平滑橡皮筋,绝无 30→0→0→30 锯齿(锯齿在涨程,
     // 每次 hover 翻转都掐回),故涨程与回程都断言。
     const panFrames = 20;
-    final track = await overscrollTrack(tester, hoverAtEdge: false, panFrames: panFrames, reboundFrames: 30);
+    final track = await overscrollTrack(
+      tester,
+      hoverAtEdge: false,
+      panFrames: panFrames,
+      reboundFrames: 30,
+    );
     final buildUp = track.sublist(0, panFrames);
     final rebound = track.sublist(panFrames);
     for (var i = 1; i < buildUp.length; i++) {
-      expect(buildUp[i], greaterThanOrEqualTo(buildUp[i - 1] - 0.1),
-          reason: 'overscroll DROPPED at build-up frame $i (${buildUp[i - 1]} → ${buildUp[i]}) — the '
-              'self-exciting clamp-back is exactly this reversal (bug traced 30→0→0→30)');
+      expect(
+        buildUp[i],
+        greaterThanOrEqualTo(buildUp[i - 1] - 0.1),
+        reason:
+            'overscroll DROPPED at build-up frame $i (${buildUp[i - 1]} → ${buildUp[i]}) — the '
+            'self-exciting clamp-back is exactly this reversal (bug traced 30→0→0→30)',
+      );
     }
     for (var i = 1; i < rebound.length; i++) {
-      expect(rebound[i], lessThanOrEqualTo(rebound[i - 1] + 0.1),
-          reason: 'rebound ROSE at frame $i (${rebound[i - 1]} → ${rebound[i]}) — a clean decay never does');
+      expect(
+        rebound[i],
+        lessThanOrEqualTo(rebound[i - 1] + 0.1),
+        reason:
+            'rebound ROSE at frame $i (${rebound[i - 1]} → ${rebound[i]}) — a clean decay never does',
+      );
     }
-    expect(buildUp.last, greaterThan(100.0), reason: 'the overscroll must reach a real peak');
-    expect(rebound.last, lessThan(buildUp.last * 0.2),
-        reason: 'the rubber-band must relax substantially back toward the extent');
+    expect(
+      buildUp.last,
+      greaterThan(100.0),
+      reason: 'the overscroll must reach a real peak',
+    );
+    expect(
+      rebound.last,
+      lessThan(buildUp.last * 0.2),
+      reason: 'the rubber-band must relax substantially back toward the extent',
+    );
   });
 
-  testWidgets('once the scroll settles, the cursor\'s row shows its disclosure hand', (tester) async {
+  testWidgets('once the scroll settles, the cursor\'s row shows its disclosure hand', (
+    tester,
+  ) async {
     // Lock #3: freezing hover DURING the scroll must not lose it — when motion stops, the row under
     // the parked cursor gets its hover (the AnLedgerRow disclose chevron = an AnimatedRotation).
     // 锁③:滚动中冻 hover 不得丢——滚停后光标下的行落定 hover(披露箭头=AnimatedRotation)。
@@ -175,7 +220,9 @@ void main() {
     await tester.pumpWidget(host(repo()));
     await settle(tester);
 
-    final pos = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+    final pos = tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position;
     pos.jumpTo(pos.maxScrollExtent);
     await tester.pump();
 
@@ -183,15 +230,23 @@ void main() {
     final centre = tester.getCenter(row);
     // No chevron before any hover (the run filter is «all» → the row discloses on hover only).
     // hover 前无箭头(过滤=all,行仅 hover 才披露)。
-    expect(find.descendant(of: row, matching: find.byType(AnimatedRotation)), findsNothing);
+    expect(
+      find.descendant(of: row, matching: find.byType(AnimatedRotation)),
+      findsNothing,
+    );
 
     final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
     await hover.addPointer(location: centre);
     addTearDown(hover.removePointer);
     await tester.pump();
     // Hover registered before scrolling → the row shows its chevron. 滚动前 hover 生效,行现箭头。
-    expect(find.descendant(of: find.byType(AnLedgerRow), matching: find.byType(AnimatedRotation)),
-        findsWidgets);
+    expect(
+      find.descendant(
+        of: find.byType(AnLedgerRow),
+        matching: find.byType(AnimatedRotation),
+      ),
+      findsWidgets,
+    );
 
     // A short overscroll, release, then let the rubber-band play out FRAME BY FRAME (as the real app
     // does — the row slides away and returns under the cursor over several frames). 逐帧回弹(同真机)。
@@ -210,9 +265,15 @@ void main() {
 
     // The frozen hover has landed on the cursor's resting row — its disclosure chevron is present.
     // 冻结的 hover 已落定在光标停歇的行上——披露箭头在场。
-    expect(find.descendant(of: find.byType(AnLedgerRow), matching: find.byType(AnimatedRotation)),
-        findsWidgets,
-        reason: 'a row under the settled cursor must carry its hover disclosure hand');
+    expect(
+      find.descendant(
+        of: find.byType(AnLedgerRow),
+        matching: find.byType(AnimatedRotation),
+      ),
+      findsWidgets,
+      reason:
+          'a row under the settled cursor must carry its hover disclosure hand',
+    );
     debugDefaultTargetPlatformOverride = null;
   });
 }

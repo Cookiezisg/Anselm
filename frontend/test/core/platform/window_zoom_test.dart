@@ -17,19 +17,31 @@ void main() {
     expect(WindowZoom.steps, contains(1.0));
   });
 
-  test('nextUp climbs the stops but NEVER past the cap (zoom-in is controlled)', () {
-    WindowZoom.factor.value = 1.0;
-    expect(WindowZoom.nextUp(99), 1.1); // plenty of room → step up
-    expect(WindowZoom.nextUp(1.05), 1.0); // cap below next stop → stays (won't break the layout)
-    WindowZoom.factor.value = WindowZoom.steps.last;
-    expect(WindowZoom.nextUp(99), WindowZoom.steps.last); // at the top stop → stays
-  });
+  test(
+    'nextUp climbs the stops but NEVER past the cap (zoom-in is controlled)',
+    () {
+      WindowZoom.factor.value = 1.0;
+      expect(WindowZoom.nextUp(99), 1.1); // plenty of room → step up
+      expect(
+        WindowZoom.nextUp(1.05),
+        1.0,
+      ); // cap below next stop → stays (won't break the layout)
+      WindowZoom.factor.value = WindowZoom.steps.last;
+      expect(
+        WindowZoom.nextUp(99),
+        WindowZoom.steps.last,
+      ); // at the top stop → stays
+    },
+  );
 
   test('nextDown steps down and clamps at the minimum stop', () {
     WindowZoom.factor.value = 1.0;
     expect(WindowZoom.nextDown(), 0.9);
     WindowZoom.factor.value = WindowZoom.steps.first;
-    expect(WindowZoom.nextDown(), WindowZoom.steps.first); // at the bottom → stays
+    expect(
+      WindowZoom.nextDown(),
+      WindowZoom.steps.first,
+    ); // at the bottom → stays
   });
 
   test('reset returns to 100%', () {

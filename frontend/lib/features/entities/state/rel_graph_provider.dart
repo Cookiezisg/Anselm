@@ -16,7 +16,7 @@ final relGraphProvider = FutureProvider.autoDispose<EntityRelGraph>((ref) {
 /// A rail-kind entity's lean row (name/description/vN) for the explore-state right-island card — fetched
 /// on demand for the selected node. Only the 7 rail kinds have a row fetcher; skill/mcp/document/
 /// conversation nodes render name-only. autoDispose so a deselect drops it. 探索态右岛卡按需取选中节点的行。
-final entityRowFetchProvider =
-    FutureProvider.autoDispose.family<EntityRow, ({EntityKind kind, String id})>((ref, arg) {
-  return ref.watch(entityRepositoryProvider).getEntityRow(arg.kind, arg.id);
-});
+final entityRowFetchProvider = FutureProvider.autoDispose
+    .family<EntityRow, ({EntityKind kind, String id})>((ref, arg) {
+      return ref.watch(entityRepositoryProvider).getEntityRow(arg.kind, arg.id);
+    });

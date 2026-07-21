@@ -24,7 +24,7 @@ audience: [human, ai]
 |---|---|---|
 | **① 常驻** | `CLAUDE.md`（每次会话**自动加载**、工程纪律唯一事实源）内嵌「文档纪律」节：核心条款 + §7 触发表精要 + §12 收尾清单 | 使 Claude **每次会话都已读到**这些规则——**无「不知道」借口** |
 | **② 规范** | 本文件：具体到 **if-then** 的触发表（§7）、可逐条勾的收尾清单（§12）、机械可判的门禁项（§11） | 把「文档要同步」从空泛原则变成**可机械执行**的指令 |
-| **③ 门禁** | `make docs`（§11，`backend/cmd/docs`、并入 `make verify`）机械校验 frontmatter / 必填 / 类型·状态 / INDEX≤50 / 孤儿链接 | 捕捉人或 AI 的疏漏，**让违规无法静默通过** |
+| **③ 门禁** | `make -C docs verify`（§11，`backend/cmd/docs`、并入根 `make verify`）机械校验 frontmatter / 必填 / 类型·状态 / INDEX≤50 / 孤儿链接 | 捕捉人或 AI 的疏漏，**让违规无法静默通过** |
 
 **三条铁律（违反 = 严重 Bug，与编译失败同级）：**
 
@@ -80,7 +80,7 @@ landed-into:          # 仅 working：结论提取进哪篇 concepts/references 
 ---
 ```
 
-`status` 缺失或非法值、`type` 非六类之一、必填字段为空 → `make docs` 失败（§11）。
+`status` 缺失或非法值、`type` 非六类之一、必填字段为空 → `make -C docs verify` 失败（§11）。
 
 ---
 
@@ -177,7 +177,7 @@ draft → active → superseded → archived
 3. `git mv` 该文件到 `archive/`。
 4. 若 `INDEX.md` 引用过它，更新 `INDEX.md`。
 
-超过 90 天且 `landed-into` 为空的 working 文档由 `make docs` 标记为错误。
+超过 90 天且 `landed-into` 为空的 working 文档由 `make -C docs verify` 标记为错误。
 
 ---
 
@@ -193,9 +193,9 @@ CLAUDE.md  >  references/  >  concepts/  >  working/  >  archive/
 
 ---
 
-## 11. 质量门禁（`make docs`）
+## 11. 质量门禁（`make -C docs verify`）
 
-`make docs`（跑 `backend/cmd/docs`）已是 `make verify` 的一环，机械强制：
+`make -C docs verify`（跑 `backend/cmd/docs`）已是根 `make verify` 的一环，机械强制：
 
 1. 所有非 `archive/`、非 `INDEX.md` 的 `.md` 都有合法 frontmatter，且必填字段齐。
 2. `type` ∈ §2 六类；`status` ∈ §6 五态。
@@ -205,7 +205,7 @@ CLAUDE.md  >  references/  >  concepts/  >  working/  >  archive/
 6. `INDEX.md` ≤ 50 行。
 7. 无孤儿链接（文档内相对链接指向的文件都存在）。
 
-> **覆盖**：门禁实现为 `backend/cmd/docs`（`make docs`，并入 `make verify`），机械强制上列 1–4、6、7；唯 #5（ADR 不可变，需比对 git 历史）暂未纳入门禁，靠 §12 收尾清单 #6 + `decisions/` 目录纪律守。§12 收尾清单是 Claude 的人肉前置层，与门禁并行。
+> **覆盖**：门禁实现为 `backend/cmd/docs`（`make -C docs verify`，并入根 `make verify`），机械强制上列 1–4、6、7；唯 #5（ADR 不可变，需比对 git 历史）暂未纳入门禁，靠 §12 收尾清单 #6 + `decisions/` 目录纪律守。§12 收尾清单是 Claude 的人肉前置层，与门禁并行。
 
 ---
 

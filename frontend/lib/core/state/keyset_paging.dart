@@ -40,11 +40,14 @@ mixin KeysetQueryPaging<S, R> on AsyncNotifier<S> {
     if (cur == null) return;
     final c = pageCursor(cur);
     if (!c.hasMore || c.loadingMore || c.nextCursor == null) return;
-    final gen = _generation; // a query switch re-runs build + bumps _generation mid-await
+    final gen =
+        _generation; // a query switch re-runs build + bumps _generation mid-await
     state = AsyncData(stateWithLoadingMore(cur, true));
     try {
       final page = await fetchNextPage(c.nextCursor!);
-      if (gen != _generation) return; // build re-ran during the await — stale query's page, drop it
+      if (gen != _generation) {
+        return; // build re-ran during the await — stale query's page, drop it
+      }
       state = AsyncData(stateWithAppended(state.value ?? cur, page));
     } catch (_) {
       // Keep the rows we have, drop the spinner, surface the error (a tail-error affordance is a later
@@ -60,7 +63,9 @@ mixin KeysetScopedPaging<S, R> on AsyncNotifier<S> {
   // Thin hooks over the notifier's own freezed state. The fetch returns a bare (rows, next, more) chunk so a
   // notifier whose fetch also carries build-only extras (e.g. an aggregate) can drop them here.
   ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(S state);
-  Future<({List<R> rows, String? next, bool more})> fetchNextPage(String cursor);
+  Future<({List<R> rows, String? next, bool more})> fetchNextPage(
+    String cursor,
+  );
   S stateWithLoadingMore(S state, bool loading);
   S stateWithAppended(S state, List<R> rows, String? next, bool more);
 
@@ -74,8 +79,12 @@ mixin KeysetScopedPaging<S, R> on AsyncNotifier<S> {
     state = AsyncData(stateWithLoadingMore(cur, true));
     try {
       final page = await fetchNextPage(c.nextCursor!);
-      if (!ref.mounted) return; // autoDispose: left the entity mid-page 已离开实体则不写
-      state = AsyncData(stateWithAppended(state.value ?? cur, page.rows, page.next, page.more));
+      if (!ref.mounted) {
+        return; // autoDispose: left the entity mid-page 已离开实体则不写
+      }
+      state = AsyncData(
+        stateWithAppended(state.value ?? cur, page.rows, page.next, page.more),
+      );
     } catch (_) {
       if (!ref.mounted) rethrow; // disposed → don't touch state, just propagate
       state = AsyncData(stateWithLoadingMore(state.value ?? cur, false));

@@ -42,11 +42,12 @@ class _McpManualFormState extends ConsumerState<McpManualForm> {
   }
 
   Map<String, String> _kv(String text) => {
-        for (final line in text.split('\n'))
-          if (line.contains('='))
-            line.substring(0, line.indexOf('=')).trim():
-                line.substring(line.indexOf('=') + 1).trim(),
-      };
+    for (final line in text.split('\n'))
+      if (line.contains('='))
+        line.substring(0, line.indexOf('=')).trim(): line
+            .substring(line.indexOf('=') + 1)
+            .trim(),
+  };
 
   Future<void> _submit() async {
     if (_saving || _name.text.trim().isEmpty) return;
@@ -69,7 +70,9 @@ class _McpManualFormState extends ConsumerState<McpManualForm> {
       },
     };
     try {
-      await ref.read(mcpServersProvider.notifier).put(_name.text.trim(), config);
+      await ref
+          .read(mcpServersProvider.notifier)
+          .put(_name.text.trim(), config);
       if (mounted) ref.read(settingsDetailProvider.notifier).pop();
     } on ApiException catch (e) {
       // MCP_INSTALL_FAILED etc — the row may STILL have landed (honest failed face); refresh showed it.
@@ -87,61 +90,105 @@ class _McpManualFormState extends ConsumerState<McpManualForm> {
     final stdio = _transport == 'stdio';
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // The ONE form block (批6c A-059 — the private «label above» dies; the quiet 13 label
-        // steps up to the family face). 唯一表单字段块(私排退役,字面升族脸)。
-        AnFormField(label: t.settings.mcp.name, child: AnInput(controller: _name, mono: true, autofocus: true, onChanged: (_) => setState(() {}))),
-        const SizedBox(height: AnSpace.s12),
-        AnFormField(
-          label: t.settings.mcp.transport,
-          child: SizedBox(
-            width: AnSize.ctlSlotXl,
-            child: AnSegmented<String>(
-            options: const [
-              AnSegmentedOption(value: 'stdio', label: 'stdio'),
-              AnSegmentedOption(value: 'sse', label: 'sse'),
-              AnSegmentedOption(value: 'streamable-http', label: 'streamable-http'),
-            ],
-              value: _transport,
-              onChanged: (v) => setState(() => _transport = v),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // The ONE form block (批6c A-059 — the private «label above» dies; the quiet 13 label
+          // steps up to the family face). 唯一表单字段块(私排退役,字面升族脸)。
+          AnFormField(
+            label: t.settings.mcp.name,
+            child: AnInput(
+              controller: _name,
+              mono: true,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
             ),
           ),
-        ),
-        const SizedBox(height: AnSpace.s12),
-        if (stdio) ...[
-          AnFormField(label: t.settings.mcp.command, child: AnInput(controller: _command, mono: true, placeholder: 'npx / uvx / docker …')),
           const SizedBox(height: AnSpace.s12),
-          AnFormField(label: t.settings.mcp.args, child: AnInput(controller: _args, mono: true, multiline: true)),
+          AnFormField(
+            label: t.settings.mcp.transport,
+            child: SizedBox(
+              width: AnSize.ctlSlotXl,
+              child: AnSegmented<String>(
+                options: const [
+                  AnSegmentedOption(value: 'stdio', label: 'stdio'),
+                  AnSegmentedOption(value: 'sse', label: 'sse'),
+                  AnSegmentedOption(
+                    value: 'streamable-http',
+                    label: 'streamable-http',
+                  ),
+                ],
+                value: _transport,
+                onChanged: (v) => setState(() => _transport = v),
+              ),
+            ),
+          ),
           const SizedBox(height: AnSpace.s12),
-          AnFormField(label: t.settings.mcp.envKv, child: AnInput(controller: _env, mono: true, multiline: true)),
-        ] else ...[
-          AnFormField(label: t.settings.mcp.url, child: AnInput(controller: _url, mono: true, placeholder: 'https://…')),
-          const SizedBox(height: AnSpace.s12),
-          AnFormField(label: t.settings.mcp.headersKv, child: AnInput(controller: _headers, mono: true, multiline: true)),
-        ],
-        const SizedBox(height: AnSpace.s8),
-        Text(t.settings.mcp.addFailedHonest, style: AnText.label.copyWith(color: c.inkFaint)),
-        if (_error != null) ...[
+          if (stdio) ...[
+            AnFormField(
+              label: t.settings.mcp.command,
+              child: AnInput(
+                controller: _command,
+                mono: true,
+                placeholder: 'npx / uvx / docker …',
+              ),
+            ),
+            const SizedBox(height: AnSpace.s12),
+            AnFormField(
+              label: t.settings.mcp.args,
+              child: AnInput(controller: _args, mono: true, multiline: true),
+            ),
+            const SizedBox(height: AnSpace.s12),
+            AnFormField(
+              label: t.settings.mcp.envKv,
+              child: AnInput(controller: _env, mono: true, multiline: true),
+            ),
+          ] else ...[
+            AnFormField(
+              label: t.settings.mcp.url,
+              child: AnInput(
+                controller: _url,
+                mono: true,
+                placeholder: 'https://…',
+              ),
+            ),
+            const SizedBox(height: AnSpace.s12),
+            AnFormField(
+              label: t.settings.mcp.headersKv,
+              child: AnInput(controller: _headers, mono: true, multiline: true),
+            ),
+          ],
           const SizedBox(height: AnSpace.s8),
-          Text(_error!, style: AnText.label.copyWith(color: c.danger)),
+          Text(
+            t.settings.mcp.addFailedHonest,
+            style: AnText.label.copyWith(color: c.inkFaint),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: AnSpace.s8),
+            Text(_error!, style: AnText.label.copyWith(color: c.danger)),
+          ],
+          const SizedBox(height: AnSpace.s16),
+          Row(
+            children: [
+              AnButton(
+                label: t.settings.mcp.add,
+                variant: AnButtonVariant.primary,
+                onPressed: _saving || _name.text.trim().isEmpty
+                    ? null
+                    : _submit,
+              ),
+              const SizedBox(width: AnSpace.s8),
+              AnButton(
+                label: t.settings.keys.cancel,
+                onPressed: () =>
+                    ref.read(settingsDetailProvider.notifier).pop(),
+              ),
+            ],
+          ),
         ],
-        const SizedBox(height: AnSpace.s16),
-        Row(children: [
-          AnButton(
-            label: t.settings.mcp.add,
-            variant: AnButtonVariant.primary,
-            onPressed: _saving || _name.text.trim().isEmpty ? null : _submit,
-          ),
-          const SizedBox(width: AnSpace.s8),
-          AnButton(
-            label: t.settings.keys.cancel,
-            onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
-          ),
-        ]),
-      ]),
+      ),
     );
   }
-
 }
 
 /// The import face — a mono paste box + overwrite switch → «imported N · skipped M» toast.
@@ -174,8 +221,9 @@ class _McpImportFormState extends ConsumerState<McpImportForm> {
           .read(mcpServersProvider.notifier)
           .importJson(_json.text, overwrite: _overwrite);
       notices.show(
-          t.settings.mcp.importResult(n: r.imported.length, m: r.skipped.length),
-          tone: AnTone.ok);
+        t.settings.mcp.importResult(n: r.imported.length, m: r.skipped.length),
+        tone: AnTone.ok,
+      );
       if (mounted) ref.read(settingsDetailProvider.notifier).pop();
     } on FormatException {
       notices.show(t.settings.mcp.importInvalid, tone: AnTone.danger);
@@ -192,35 +240,49 @@ class _McpImportFormState extends ConsumerState<McpImportForm> {
     final c = context.colors;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidthWide),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        AnInput(
-          controller: _json,
-          multiline: true,
-          mono: true,
-          placeholder: t.settings.mcp.importHint,
-          autofocus: true,
-          onChanged: (_) => setState(() {}),
-        ),
-        const SizedBox(height: AnSpace.s8),
-        Row(children: [
-          AnSwitch(value: _overwrite, onChanged: (v) => setState(() => _overwrite = v)),
-          const SizedBox(width: AnSpace.s8),
-          Text(t.settings.mcp.overwrite, style: AnText.label.copyWith(color: c.inkMuted)),
-        ]),
-        const SizedBox(height: AnSpace.s16),
-        Row(children: [
-          AnButton(
-            label: t.settings.mcp.doImport,
-            variant: AnButtonVariant.primary,
-            onPressed: _busy || _json.text.trim().isEmpty ? null : _import,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnInput(
+            controller: _json,
+            multiline: true,
+            mono: true,
+            placeholder: t.settings.mcp.importHint,
+            autofocus: true,
+            onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(width: AnSpace.s8),
-          AnButton(
-            label: t.settings.keys.cancel,
-            onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
+          const SizedBox(height: AnSpace.s8),
+          Row(
+            children: [
+              AnSwitch(
+                value: _overwrite,
+                onChanged: (v) => setState(() => _overwrite = v),
+              ),
+              const SizedBox(width: AnSpace.s8),
+              Text(
+                t.settings.mcp.overwrite,
+                style: AnText.label.copyWith(color: c.inkMuted),
+              ),
+            ],
           ),
-        ]),
-      ]),
+          const SizedBox(height: AnSpace.s16),
+          Row(
+            children: [
+              AnButton(
+                label: t.settings.mcp.doImport,
+                variant: AnButtonVariant.primary,
+                onPressed: _busy || _json.text.trim().isEmpty ? null : _import,
+              ),
+              const SizedBox(width: AnSpace.s8),
+              AnButton(
+                label: t.settings.keys.cancel,
+                onPressed: () =>
+                    ref.read(settingsDetailProvider.notifier).pop(),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -242,39 +304,51 @@ class _McpMarketState extends ConsumerState<McpMarket> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
-    final entries = ref.watch(mcpRegistryProvider).value ?? const <McpRegistryEntry>[];
+    final entries =
+        ref.watch(mcpRegistryProvider).value ?? const <McpRegistryEntry>[];
     final installed = {
-      for (final s in ref.watch(mcpServersProvider).value ?? const <McpServerStatus>[]) s.name,
+      for (final s
+          in ref.watch(mcpServersProvider).value ?? const <McpServerStatus>[])
+        s.name,
     };
     final q = _query.toLowerCase();
     final rows = entries
-        .where((e) =>
-            q.isEmpty ||
-            e.name.toLowerCase().contains(q) ||
-            e.description.toLowerCase().contains(q))
+        .where(
+          (e) =>
+              q.isEmpty ||
+              e.name.toLowerCase().contains(q) ||
+              e.description.toLowerCase().contains(q),
+        )
         .toList();
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      AnInput(
-        placeholder: t.settings.mcp.searchMarket,
-        autofocus: true,
-        onChanged: (v) => setState(() => _query = v.trim()),
-      ),
-      const SizedBox(height: AnSpace.s12),
-      AnAutoGrid(
-        minColWidth: AnSize.block,
-        children: [
-          for (final e in rows)
-            _MarketCard(
-              key: ValueKey(e.name),
-              entry: e,
-              installed: installed.contains(e.name.split('/').last),
-            ),
-        ],
-      ),
-      if (rows.isEmpty)
-        AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: t.settings.mcp.empty),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnInput(
+          placeholder: t.settings.mcp.searchMarket,
+          autofocus: true,
+          onChanged: (v) => setState(() => _query = v.trim()),
+        ),
+        const SizedBox(height: AnSpace.s12),
+        AnAutoGrid(
+          minColWidth: AnSize.block,
+          children: [
+            for (final e in rows)
+              _MarketCard(
+                key: ValueKey(e.name),
+                entry: e,
+                installed: installed.contains(e.name.split('/').last),
+              ),
+          ],
+        ),
+        if (rows.isEmpty)
+          AnState(
+            kind: AnStateKind.empty,
+            size: AnStateSize.inset,
+            title: t.settings.mcp.empty,
+          ),
+      ],
+    );
   }
 }
 
@@ -311,8 +385,9 @@ class _MarketCardState extends ConsumerState<_MarketCard> {
 
   String get _short => widget.entry.name.split('/').last;
 
-  void _openForm() =>
-      ref.read(settingsDetailProvider.notifier).push('mcpInstall', id: widget.entry.name);
+  void _openForm() => ref
+      .read(settingsDetailProvider.notifier)
+      .push('mcpInstall', id: widget.entry.name);
 
   Future<void> _quickInstall() async {
     if (_installing) return;
@@ -323,7 +398,9 @@ class _MarketCardState extends ConsumerState<_MarketCard> {
     try {
       // Empty env = the one-click path. On success the roster refetches → `installed` flips true → this
       // card rebuilds into the «已安装» face. 空 env 一键装;成功后名册重取→installed 翻真→本卡自渲已装态。
-      await ref.read(mcpServersProvider.notifier).install(widget.entry.name, const {});
+      await ref
+          .read(mcpServersProvider.notifier)
+          .install(widget.entry.name, const {});
     } on ApiException catch (e) {
       // MCP_INSTALL_FAILED etc — the honest red line on the card (the row may still have landed failed).
       // 安装失败:卡上红句诚实(行可能已落 failed)。
@@ -349,45 +426,66 @@ class _MarketCardState extends ConsumerState<_MarketCard> {
         child: AnCard(
           selectable: true,
           onSelect: _openForm,
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Row(children: [
-              brandIconOr(mcpBrandFor(e.name), fallbackLabel: _short, size: AnBrandSize.sm),
-              const SizedBox(width: AnSpace.s8),
-              Expanded(
-                child: Text(_short,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.mono.copyWith(color: c.ink)),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  brandIconOr(
+                    mcpBrandFor(e.name),
+                    fallbackLabel: _short,
+                    size: AnBrandSize.sm,
+                  ),
+                  const SizedBox(width: AnSpace.s8),
+                  Expanded(
+                    child: Text(
+                      _short,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AnText.mono.copyWith(color: c.ink),
+                    ),
+                  ),
+                  const SizedBox(width: AnSpace.s8),
+                  _trailing(t, reveal),
+                ],
               ),
-              const SizedBox(width: AnSpace.s8),
-              _trailing(t, reveal),
-            ]),
-            if (e.description.isNotEmpty) ...[
-              const SizedBox(height: AnSpace.s6),
-              Text(e.description,
+              if (e.description.isNotEmpty) ...[
+                const SizedBox(height: AnSpace.s6),
+                Text(
+                  e.description,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AnText.meta.copyWith(color: c.inkMuted)),
-            ],
-            if (e.prerequisite.isNotEmpty) ...[
-              const SizedBox(height: AnSpace.s6),
-              AnChip(t.settings.mcp.prerequisite, tone: AnTone.warn, tooltip: e.prerequisite),
-            ],
-            if (_error != null) ...[
-              const SizedBox(height: AnSpace.s6),
-              Text(_error!,
+                  style: AnText.meta.copyWith(color: c.inkMuted),
+                ),
+              ],
+              if (e.prerequisite.isNotEmpty) ...[
+                const SizedBox(height: AnSpace.s6),
+                AnChip(
+                  t.settings.mcp.prerequisite,
+                  tone: AnTone.warn,
+                  tooltip: e.prerequisite,
+                ),
+              ],
+              if (_error != null) ...[
+                const SizedBox(height: AnSpace.s6),
+                Text(
+                  _error!,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
-                  style: AnText.meta.copyWith(color: c.danger)),
+                  style: AnText.meta.copyWith(color: c.danger),
+                ),
+              ],
             ],
-          ]),
+          ),
         ),
       ),
     );
   }
 
   Widget _trailing(Translations t, bool reveal) {
-    if (widget.installed) return AnChip(t.settings.mcp.installed, tone: AnTone.ok);
+    if (widget.installed) {
+      return AnChip(t.settings.mcp.installed, tone: AnTone.ok);
+    }
     if (_installing) return AnSpinner(semanticLabel: t.settings.mcp.installing);
     // Reveal-gated «安装» CTA — always laid out (no reflow) + focusable, INSTANT opacity, inert when
     // hidden so a rest click falls through to the whole-card open-form. 揭示门控的安装钮:常驻不重排+可聚焦。
@@ -432,7 +530,8 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
     super.dispose();
   }
 
-  TextEditingController _ctl(String name) => _env.putIfAbsent(name, TextEditingController.new);
+  TextEditingController _ctl(String name) =>
+      _env.putIfAbsent(name, TextEditingController.new);
 
   Future<void> _install(McpRegistryPlan plan) async {
     if (_installing) return;
@@ -462,75 +561,91 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(widget.fullName, style: AnText.mono.copyWith(color: c.ink)),
-        const SizedBox(height: AnSpace.s8),
-        if (planAsync.hasError)
-          // An honest error face — a dead :plan must never look like eternal loading. 诚实错误面。
-          Text(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(widget.fullName, style: AnText.mono.copyWith(color: c.ink)),
+          const SizedBox(height: AnSpace.s8),
+          if (planAsync.hasError)
+            // An honest error face — a dead :plan must never look like eternal loading. 诚实错误面。
+            Text(
               planAsync.error is ApiException
                   ? (planAsync.error as ApiException).message
                   : '${planAsync.error}',
-              style: AnText.label.copyWith(color: c.danger))
-        else if (plan == null)
-          // :plan resolving = the deferred-skeleton idiom, not a prose sentinel. 取回中走骨架。
-          const AnDeferredLoading(child: AnSkeleton.lines(3))
-        else ...[
-          Row(children: [
-            AnChip(plan.transport),
-            if (plan.runtime.isNotEmpty) ...[
-              const SizedBox(width: AnSpace.s8),
-              AnChip(plan.runtime),
-            ],
-          ]),
-          if (plan.prerequisite.isNotEmpty) ...[
-            const SizedBox(height: AnSpace.s8),
-            Text('${t.settings.mcp.prerequisite} · ${plan.prerequisite}',
-                style: AnText.label.copyWith(color: c.warn)),
-          ],
-          const SizedBox(height: AnSpace.s12),
-          // The env-var group is the ONE form block too (批6 复审 — monoLabel 的声明用途在此,
-          // A-059 关账落到实处): mono env name + required mark on the label baseline + description
-          // as the desc sub-line. env 组同走唯一表单字段块:mono 名+required 骑基线+描述走 desc。
-          for (final v in plan.envVars) ...[
-            AnFormField(
-              label: v.name,
-              monoLabel: true,
-              labelTrailing: v.required
-                  ? Text('* ${t.settings.mcp.requiredMark}',
-                      style: AnText.label.copyWith(color: c.danger))
-                  : null,
-              desc: v.description.isEmpty ? null : v.description,
-              child: v.isSecret
-                  ? AnSecretField(controller: _ctl(v.name))
-                  : AnInput(controller: _ctl(v.name), mono: true),
+              style: AnText.label.copyWith(color: c.danger),
+            )
+          else if (plan == null)
+            // :plan resolving = the deferred-skeleton idiom, not a prose sentinel. 取回中走骨架。
+            const AnDeferredLoading(child: AnSkeleton.lines(3))
+          else ...[
+            Row(
+              children: [
+                AnChip(plan.transport),
+                if (plan.runtime.isNotEmpty) ...[
+                  const SizedBox(width: AnSpace.s8),
+                  AnChip(plan.runtime),
+                ],
+              ],
             ),
+            if (plan.prerequisite.isNotEmpty) ...[
+              const SizedBox(height: AnSpace.s8),
+              Text(
+                '${t.settings.mcp.prerequisite} · ${plan.prerequisite}',
+                style: AnText.label.copyWith(color: c.warn),
+              ),
+            ],
             const SizedBox(height: AnSpace.s12),
-          ],
-          if (_installing && plan.oauth)
-            Text(t.settings.mcp.oauthWaiting, style: AnText.label.copyWith(color: c.inkMuted)),
-          if (_error != null) ...[
-            Text(_error!, style: AnText.label.copyWith(color: c.danger)),
-            const SizedBox(height: AnSpace.s8),
-          ],
-          Row(children: [
-            AnButton(
-              label: _installing
-                  ? t.settings.mcp.installing
-                  : plan.oauth
+            // The env-var group is the ONE form block too (批6 复审 — monoLabel 的声明用途在此,
+            // A-059 关账落到实处): mono env name + required mark on the label baseline + description
+            // as the desc sub-line. env 组同走唯一表单字段块:mono 名+required 骑基线+描述走 desc。
+            for (final v in plan.envVars) ...[
+              AnFormField(
+                label: v.name,
+                monoLabel: true,
+                labelTrailing: v.required
+                    ? Text(
+                        '* ${t.settings.mcp.requiredMark}',
+                        style: AnText.label.copyWith(color: c.danger),
+                      )
+                    : null,
+                desc: v.description.isEmpty ? null : v.description,
+                child: v.isSecret
+                    ? AnSecretField(controller: _ctl(v.name))
+                    : AnInput(controller: _ctl(v.name), mono: true),
+              ),
+              const SizedBox(height: AnSpace.s12),
+            ],
+            if (_installing && plan.oauth)
+              Text(
+                t.settings.mcp.oauthWaiting,
+                style: AnText.label.copyWith(color: c.inkMuted),
+              ),
+            if (_error != null) ...[
+              Text(_error!, style: AnText.label.copyWith(color: c.danger)),
+              const SizedBox(height: AnSpace.s8),
+            ],
+            Row(
+              children: [
+                AnButton(
+                  label: _installing
+                      ? t.settings.mcp.installing
+                      : plan.oauth
                       ? t.settings.mcp.oauthConnect
                       : t.settings.mcp.install,
-              variant: AnButtonVariant.primary,
-              onPressed: _installing ? null : () => _install(plan),
+                  variant: AnButtonVariant.primary,
+                  onPressed: _installing ? null : () => _install(plan),
+                ),
+                const SizedBox(width: AnSpace.s8),
+                AnButton(
+                  label: t.settings.keys.cancel,
+                  onPressed: () =>
+                      ref.read(settingsDetailProvider.notifier).pop(),
+                ),
+              ],
             ),
-            const SizedBox(width: AnSpace.s8),
-            AnButton(
-              label: t.settings.keys.cancel,
-              onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
-            ),
-          ]),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }

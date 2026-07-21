@@ -53,10 +53,25 @@ class EntityGetBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         header,
-        if (badges != null) Padding(padding: const EdgeInsets.only(top: AnSpace.s6), child: badges!),
-        if (kv != null) Padding(padding: const EdgeInsets.only(top: AnSpace.s8), child: kv!),
-        for (final w in content) Padding(padding: const EdgeInsets.only(top: AnSpace.s8), child: w),
-        Padding(padding: const EdgeInsets.only(top: AnSpace.s8), child: RawResultDisclosure(rawJson: rawJson)),
+        if (badges != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s6),
+            child: badges!,
+          ),
+        if (kv != null)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s8),
+            child: kv!,
+          ),
+        for (final w in content)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s8),
+            child: w,
+          ),
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s8),
+          child: RawResultDisclosure(rawJson: rawJson),
+        ),
       ],
     );
   }
@@ -65,7 +80,13 @@ class EntityGetBody extends StatelessWidget {
 /// ① The identity row: an [AnRefPill] (kind + name, tappable to the entity panel via the registry —
 /// inert if the kind has none) + a mono id + a right-edge meta (`vN · updated`). 身份行:可点 pill+id+meta。
 class ToolEntityHeader extends StatelessWidget {
-  const ToolEntityHeader({required this.kind, required this.name, required this.id, this.meta, super.key});
+  const ToolEntityHeader({
+    required this.kind,
+    required this.name,
+    required this.id,
+    this.meta,
+    super.key,
+  });
 
   final String kind;
   final String name;
@@ -80,14 +101,26 @@ class ToolEntityHeader extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Flexible(child: toolNavPill(context, kind: kind, label: name, id: id)),
+        Flexible(
+          child: toolNavPill(context, kind: kind, label: name, id: id),
+        ),
         const SizedBox(width: AnSpace.s6),
         Flexible(
-          child: Text(id, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.mono.copyWith(color: c.inkFaint)),
+          child: Text(
+            id,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AnText.mono.copyWith(color: c.inkFaint),
+          ),
         ),
         if (meta != null) ...[
           const Spacer(),
-          Text(meta!, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)),
+          Text(
+            meta!,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
         ],
       ],
     );
@@ -101,7 +134,12 @@ class ToolEntityHeader extends StatelessWidget {
 /// AnCodeEditor has no virtualization) while COPY carries the FULL stored field (machine-window rule).
 /// 代码内容窗:真实存储字段原文住编辑器壳(自带框,绝不再套 ToolWindow);显示超顶截头+诚实注记,copy 保全量。
 class EntityCodeWindow extends StatelessWidget {
-  const EntityCodeWindow({required this.code, this.lang, this.label, super.key});
+  const EntityCodeWindow({
+    required this.code,
+    this.lang,
+    this.label,
+    super.key,
+  });
 
   final String code;
   final String? lang;
@@ -123,17 +161,28 @@ class EntityCodeWindow extends StatelessWidget {
       collapseLabel: t.chat.tool.proseCollapse,
       // The fade blends to the editor's own WHITE surface (the grey sunken shell is retired). 渐隐融白面。
       fadeColor: c.surface,
-      child: AnCodeEditor(code: shown, copyPayload: code, lang: lang, reading: true),
+      child: AnCodeEditor(
+        code: shown,
+        copyPayload: code,
+        lang: lang,
+        reading: true,
+      ),
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (label != null) AnFieldSection(label: label!, child: window) else window,
+        if (label != null)
+          AnFieldSection(label: label!, child: window)
+        else
+          window,
         if (over)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s4),
-            child: Text(t.chat.tool.contentTruncated, style: AnText.meta.copyWith(color: c.inkFaint)),
+            child: Text(
+              t.chat.tool.contentTruncated,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
           ),
       ],
     );
@@ -174,14 +223,18 @@ class _RawResultDisclosureState extends State<RawResultDisclosure> {
       child: !_open
           ? null
           : _isJson
-              ? SizedBox(
-                  height: AnSize.jsonViewport,
-                  child: AnJsonTree(jsonString: widget.rawJson, showRoot: false),
-                )
-              : AnWindow(
-                  child: Text(widget.rawJson,
-                      maxLines: 200, overflow: TextOverflow.ellipsis, style: AnText.code.copyWith(color: context.colors.inkMuted)),
-                ),
+          ? SizedBox(
+              height: AnSize.jsonViewport,
+              child: AnJsonTree(jsonString: widget.rawJson, showRoot: false),
+            )
+          : AnWindow(
+              child: Text(
+                widget.rawJson,
+                maxLines: 200,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.code.copyWith(color: context.colors.inkMuted),
+              ),
+            ),
     );
   }
 }

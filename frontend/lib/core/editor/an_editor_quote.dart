@@ -10,7 +10,8 @@ import '../design/tokens.dart';
 const quoteDepthKey = 'quoteDepth';
 
 /// A node's blockquote nesting depth. 节点引用深度。
-int quoteDepthOf(DocumentNode? node) => (node?.getMetadataValue(quoteDepthKey) as int?) ?? 0;
+int quoteDepthOf(DocumentNode? node) =>
+    (node?.getMetadataValue(quoteDepthKey) as int?) ?? 0;
 
 /// True when a node is a quoted block whose PREVIOUS block is ALSO quoted — i.e. a continuation inside the same
 /// blockquote group (not the first line of the quote). Such blocks carry their inter-block gap INSIDE the bar
@@ -29,7 +30,12 @@ bool isQuoteContinuation(Document doc, DocumentNode node) {
 /// bar stretches to the block's full height; consecutive quoted blocks each draw their own bar, so with the
 /// inter-block gap moved inside the quote (see the stylesheet) the bars read as one continuous rule.
 /// 把块包上 depth 层引用左条(2px lineStrong + s12 缩进,由内向外);depth=2 显两条嵌套条=chat 的 `> >`。
-Widget wrapInQuote(Widget child, int depth, AnColors colors, {double topGap = 0}) {
+Widget wrapInQuote(
+  Widget child,
+  int depth,
+  AnColors colors, {
+  double topGap = 0,
+}) {
   var w = child;
   for (var i = 0; i < depth; i++) {
     // A left BORDER (not a stretched Row child) draws the bar the full height of the wrapped block — the Row +
@@ -39,9 +45,14 @@ Widget wrapInQuote(Widget child, int depth, AnColors colors, {double topGap = 0}
     // 最外层顶部再垫 topGap,让延续块的块间距落在条内→左条连续。
     final isOutermost = i == depth - 1;
     w = Container(
-      padding: EdgeInsetsDirectional.only(start: AnSpace.s12, top: isOutermost ? topGap : 0),
+      padding: EdgeInsetsDirectional.only(
+        start: AnSpace.s12,
+        top: isOutermost ? topGap : 0,
+      ),
       decoration: BoxDecoration(
-        border: BorderDirectional(start: BorderSide(color: colors.lineStrong, width: AnSize.quoteBar)),
+        border: BorderDirectional(
+          start: BorderSide(color: colors.lineStrong, width: AnSize.quoteBar),
+        ),
       ),
       child: w,
     );

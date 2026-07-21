@@ -48,7 +48,9 @@ class SelectedConversation extends Notifier<ConversationRef?> {
 }
 
 final selectedConversationProvider =
-    NotifierProvider<SelectedConversation, ConversationRef?>(SelectedConversation.new);
+    NotifierProvider<SelectedConversation, ConversationRef?>(
+      SelectedConversation.new,
+    );
 
 /// The route location for a conversation — the rail navigates here to select. Mirrors entityLocation.
 ///

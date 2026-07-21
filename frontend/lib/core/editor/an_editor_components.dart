@@ -69,7 +69,12 @@ class AnBlockquoteComponentBuilder extends BlockquoteComponentBuilder {
 /// onInput 逐键整节点替换(同 id),codec 在缝处 CodeBlockNode⇄code 段落往返。代价(用户 0714 签):原子块→选区不
 /// 连续穿过、撤销走 TextField 自己的栈(与文档历史分离)——嵌真编辑器的固有成本。
 class CodeBlockNode extends BlockNode {
-  CodeBlockNode({required this.id, required this.code, this.language, super.metadata}) {
+  CodeBlockNode({
+    required this.id,
+    required this.code,
+    this.language,
+    super.metadata,
+  }) {
     initAddToMetadata({NodeMetadata.blockType: codeAttribution});
   }
 
@@ -78,8 +83,12 @@ class CodeBlockNode extends BlockNode {
   final String code;
   final String? language;
 
-  CodeBlockNode copyWithCode(String newCode) =>
-      CodeBlockNode(id: id, code: newCode, language: language, metadata: Map.from(metadata));
+  CodeBlockNode copyWithCode(String newCode) => CodeBlockNode(
+    id: id,
+    code: newCode,
+    language: language,
+    metadata: Map.from(metadata),
+  );
 
   @override
   String? copyContent(dynamic selection) {
@@ -89,17 +98,34 @@ class CodeBlockNode extends BlockNode {
 
   @override
   bool hasEquivalentContent(DocumentNode other) =>
-      other is CodeBlockNode && code == other.code && language == other.language;
+      other is CodeBlockNode &&
+      code == other.code &&
+      language == other.language;
 
   @override
   DocumentNode copyWithAddedMetadata(Map<String, dynamic> newProperties) =>
-      CodeBlockNode(id: id, code: code, language: language, metadata: {...metadata, ...newProperties});
+      CodeBlockNode(
+        id: id,
+        code: code,
+        language: language,
+        metadata: {...metadata, ...newProperties},
+      );
 
   @override
   DocumentNode copyAndReplaceMetadata(Map<String, dynamic> newMetadata) =>
-      CodeBlockNode(id: id, code: code, language: language, metadata: newMetadata);
+      CodeBlockNode(
+        id: id,
+        code: code,
+        language: language,
+        metadata: newMetadata,
+      );
 
-  CodeBlockNode copy() => CodeBlockNode(id: id, code: code, language: language, metadata: Map.from(metadata));
+  CodeBlockNode copy() => CodeBlockNode(
+    id: id,
+    code: code,
+    language: language,
+    metadata: Map.from(metadata),
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -116,7 +142,8 @@ class CodeBlockNode extends BlockNode {
 
 /// The code block's view model (mirrors [ImageComponentViewModel]: a selection-aware box vm, value-equal
 /// so the presenter's style pass never reallocates per frame). 代码块 vm(镜像 ImageComponentViewModel,值相等)。
-class CodeBlockComponentViewModel extends SingleColumnLayoutComponentViewModel with SelectionAwareViewModelMixin {
+class CodeBlockComponentViewModel extends SingleColumnLayoutComponentViewModel
+    with SelectionAwareViewModelMixin {
   CodeBlockComponentViewModel({
     required super.nodeId,
     super.createdAt,
@@ -136,15 +163,15 @@ class CodeBlockComponentViewModel extends SingleColumnLayoutComponentViewModel w
 
   @override
   CodeBlockComponentViewModel copy() => CodeBlockComponentViewModel(
-        nodeId: nodeId,
-        createdAt: createdAt,
-        maxWidth: maxWidth,
-        padding: padding,
-        code: code,
-        language: language,
-        selection: selection,
-        selectionColor: selectionColor,
-      );
+    nodeId: nodeId,
+    createdAt: createdAt,
+    maxWidth: maxWidth,
+    padding: padding,
+    code: code,
+    language: language,
+    selection: selection,
+    selectionColor: selectionColor,
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -181,13 +208,18 @@ class AnCodeBlockComponentBuilder implements ComponentBuilder {
   final Map<String, GlobalKey> codeKeys;
 
   @override
-  SingleColumnLayoutComponentViewModel? createViewModel(Document document, DocumentNode node) {
+  SingleColumnLayoutComponentViewModel? createViewModel(
+    Document document,
+    DocumentNode node,
+  ) {
     if (node is! CodeBlockNode) return null;
     return CodeBlockComponentViewModel(
       nodeId: node.id,
       code: node.code,
       language: node.language,
-      padding: const EdgeInsets.only(top: AnFlow.block), // one house block gap above (like every stacked block) 块上距
+      padding: const EdgeInsets.only(
+        top: AnFlow.block,
+      ), // one house block gap above (like every stacked block) 块上距
     );
   }
 
@@ -197,13 +229,18 @@ class AnCodeBlockComponentBuilder implements ComponentBuilder {
     SingleColumnLayoutComponentViewModel componentViewModel,
   ) {
     if (componentViewModel is! CodeBlockComponentViewModel) return null;
-    final editorKey = codeKeys.putIfAbsent(componentViewModel.nodeId, () => GlobalKey());
+    final editorKey = codeKeys.putIfAbsent(
+      componentViewModel.nodeId,
+      () => GlobalKey(),
+    );
     // A cross-block sweep includes this block as a non-collapsed upstream/downstream selection (the styler
     // populates the SelectionAware vm) — tint the whole block so the sweep doesn't show a hole here (the
     // embedded editor knows nothing of document selections). 跨块划选把本块选成非折叠块选区——整块罩 tint,
     // 选区带不在码块处开洞(嵌入编辑器不识文档选区)。
     final blockSelection = componentViewModel.selection?.nodeSelection;
-    final sweptThrough = blockSelection is UpstreamDownstreamNodeSelection && !blockSelection.isCollapsed;
+    final sweptThrough =
+        blockSelection is UpstreamDownstreamNodeSelection &&
+        !blockSelection.isCollapsed;
     // BoxComponent (NOT ImageComponent's IgnorePointer) supplies the block geometry super_editor needs
     // while letting pointers reach the embedded TextField. componentKey rides the BoxComponent root
     // (the _layout contract: key on the returned subtree's ROOT). BoxComponent 供块几何、不挡指针;componentKey 挂根。
@@ -212,7 +249,8 @@ class AnCodeBlockComponentBuilder implements ComponentBuilder {
       child: Stack(
         children: [
           Focus(
-            canRequestFocus: false, // never focusable itself; only OBSERVES its subtree 只观察、自身不可聚焦
+            canRequestFocus:
+                false, // never focusable itself; only OBSERVES its subtree 只观察、自身不可聚焦
             skipTraversal: true,
             onFocusChange: (hasFocus) {
               if (hasFocus) editor.execute([const ClearSelectionRequest()]);
@@ -239,7 +277,9 @@ class AnCodeBlockComponentBuilder implements ComponentBuilder {
           ),
           if (sweptThrough)
             Positioned.fill(
-              child: IgnorePointer(child: ColoredBox(color: componentViewModel.selectionColor)),
+              child: IgnorePointer(
+                child: ColoredBox(color: componentViewModel.selectionColor),
+              ),
             ),
         ],
       ),
@@ -264,12 +304,20 @@ class AnTaskComponentBuilder extends TaskComponentBuilder {
     SingleColumnLayoutComponentViewModel componentViewModel,
   ) {
     if (componentViewModel is! TaskComponentViewModel) return null;
-    return _AnTaskComponent(key: componentContext.componentKey, viewModel: componentViewModel, colors: colors);
+    return _AnTaskComponent(
+      key: componentContext.componentKey,
+      viewModel: componentViewModel,
+      colors: colors,
+    );
   }
 }
 
 class _AnTaskComponent extends StatefulWidget {
-  const _AnTaskComponent({super.key, required this.viewModel, required this.colors});
+  const _AnTaskComponent({
+    super.key,
+    required this.viewModel,
+    required this.colors,
+  });
 
   final TaskComponentViewModel viewModel;
   final AnColors colors;
@@ -289,7 +337,8 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
   GlobalKey get childDocumentComponentKey => _textKey;
 
   @override
-  TextComposable get childTextComposable => childDocumentComponentKey.currentState as TextComposable;
+  TextComposable get childTextComposable =>
+      childDocumentComponentKey.currentState as TextComposable;
 
   // A completed task greys to inkFaint — NO strikethrough (user 0715: grey, don't strike; matches chat, which
   // never struck done tasks). 完成态:仅灰(inkFaint),不加删除线(用户 0715 定,与 chat 一致)。
@@ -312,8 +361,13 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
     // (Notion 标准):Row 顶对齐 + 图标按 (首行盒−图标)/2 下垫(由生效字样推导,15×1.6=24→4)。原来的整块居中会让
     // 多行 task 的勾框飘到块的竖直中点(错位 bug 之源);图标无文本基线可坐,首行居中是确定性、全 token 推导的座位。
     final effectiveStyle = vm.textStyleBuilder({});
-    final firstLineBox = (effectiveStyle.fontSize ?? AnText.reading.fontSize!) * (effectiveStyle.height ?? 1.0);
-    final iconSeat = ((firstLineBox - AnSize.icon) / 2).clamp(0.0, double.infinity);
+    final firstLineBox =
+        (effectiveStyle.fontSize ?? AnText.reading.fontSize!) *
+        (effectiveStyle.height ?? 1.0);
+    final iconSeat = ((firstLineBox - AnSize.icon) / 2).clamp(
+      0.0,
+      double.infinity,
+    );
     return Directionality(
       textDirection: vm.textDirection,
       child: Row(
@@ -329,7 +383,9 @@ class _AnTaskComponentState extends State<_AnTaskComponent>
             ),
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: vm.setComplete != null ? () => vm.setComplete!(!done) : null,
+              onTap: vm.setComplete != null
+                  ? () => vm.setComplete!(!done)
+                  : null,
               child: Icon(
                 AnIcons.task(done: done),
                 size: AnSize.icon,

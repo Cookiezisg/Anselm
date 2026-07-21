@@ -62,8 +62,10 @@ class AnEditableValue extends StatefulWidget {
     this.mono = false,
     this.startEditing = false,
     super.key,
-  }) : assert(!startEditing || editor == AnEditKind.input,
-            'startEditing applies to AnEditKind.input only — select has no edit state to open. 仅 input 适用');
+  }) : assert(
+         !startEditing || editor == AnEditKind.input,
+         'startEditing applies to AnEditKind.input only — select has no edit state to open. 仅 input 适用',
+       );
 
   /// The visual left zone (a key [Text], or a label + hint column). 视觉左区(key 文本 / label+hint 列)。
   final Widget leading;
@@ -115,12 +117,18 @@ class _AnEditableValueState extends State<AnEditableValue> {
     _pencilFocus.addListener(_onPencilFocus);
     if (widget.startEditing && widget.editor == AnEditKind.input) {
       _editing = true;
-      _ctl.selection = TextSelection.collapsed(offset: _ctl.text.length); // caret at end 光标落末
+      _ctl.selection = TextSelection.collapsed(
+        offset: _ctl.text.length,
+      ); // caret at end 光标落末
     }
   }
 
   void _onPencilFocus() {
-    if (mounted) setState(() {}); // reveal the pencil when it takes keyboard focus 键盘聚焦时显铅笔
+    if (mounted) {
+      setState(
+        () {},
+      ); // reveal the pencil when it takes keyboard focus 键盘聚焦时显铅笔
+    }
   }
 
   @override
@@ -149,7 +157,10 @@ class _AnEditableValueState extends State<AnEditableValue> {
       _finished = false;
     });
     // Entering edit is a mode change the reader cannot see — nothing else says it. 进编辑=看不见的模式切换。
-    AnA11y.announce(context, context.t.a11y.editingField(field: widget.fieldLabel));
+    AnA11y.announce(
+      context,
+      context.t.a11y.editingField(field: widget.fieldLabel),
+    );
   }
 
   // One-shot per session ([_finished]); abort (Cancel / Esc) wins if it lands first. Commit trims (no
@@ -189,19 +200,28 @@ class _AnEditableValueState extends State<AnEditableValue> {
 
     return Semantics(
       container: true,
-      explicitChildNodes: true, // key / value / pencil / Cancel/Save each individually reachable 各自可达、不 merge
+      explicitChildNodes:
+          true, // key / value / pencil / Cancel/Save each individually reachable 各自可达、不 merge
       child: MouseRegion(
         onEnter: (_) => setState(() => _hovered = true),
         onExit: (_) => setState(() => _hovered = false),
         child: AnimatedContainer(
-          duration: reduced ? Duration.zero : AnMotion.fast, // hover / editing tint = functional micro-feedback 功能性微反馈
+          duration: reduced
+              ? Duration.zero
+              : AnMotion
+                    .fast, // hover / editing tint = functional micro-feedback 功能性微反馈
           constraints: BoxConstraints(minHeight: widget.rowHeight),
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+          padding: const EdgeInsets.symmetric(
+            horizontal: AnSpace.s8,
+            vertical: AnSpace.s4,
+          ),
           decoration: BoxDecoration(
             color: c.surfaceHover.whenActive(_hovered || _editing),
             borderRadius: BorderRadius.circular(AnRadius.button),
           ),
-          child: widget.editor == AnEditKind.select ? _selectRow() : _inputRow(c),
+          child: widget.editor == AnEditKind.select
+              ? _selectRow()
+              : _inputRow(c),
         ),
       ),
     );
@@ -265,7 +285,9 @@ class _AnEditableValueState extends State<AnEditableValue> {
                     size: AnButtonSize.sm,
                     // Field-specific label — N pencils in one list must be distinguishable to a screen
                     // reader. 按字段命名,列表多铅笔可分辨。
-                    semanticLabel: context.t.a11y.editField(field: widget.fieldLabel),
+                    semanticLabel: context.t.a11y.editField(
+                      field: widget.fieldLabel,
+                    ),
                     focusNode: _pencilFocus,
                     onPressed: _begin,
                   ),
@@ -282,12 +304,18 @@ class _AnEditableValueState extends State<AnEditableValue> {
       return AnSeamlessField(
         controller: _ctl,
         mono: widget.mono,
-        tabular: true, // value column: digits always tabular (idle ↔ editing same width) 值列数字恒等宽
-        style: base, // the tier mirror — display and field MUST share it (no-jump) 值档镜像,展示/编辑同式
-        framed: true, // demo edit frame (no row-height growth, right-only horizontal) 编辑框(不加行高、右生长)
+        tabular:
+            true, // value column: digits always tabular (idle ↔ editing same width) 值列数字恒等宽
+        style:
+            base, // the tier mirror — display and field MUST share it (no-jump) 值档镜像,展示/编辑同式
+        framed:
+            true, // demo edit frame (no row-height growth, right-only horizontal) 编辑框(不加行高、右生长)
         onCommit: () => _finish(true, returnFocus: true),
         onAbort: () => _finish(false, returnFocus: true),
-        onTapOutside: (_) => _finish(true, returnFocus: false), // blur-commit; focus stays where clicked 失焦提交、焦点不回落
+        onTapOutside: (_) => _finish(
+          true,
+          returnFocus: false,
+        ), // blur-commit; focus stays where clicked 失焦提交、焦点不回落
       );
     }
     // Display mirrors the seamless field's style (shared value-column style) so idle ↔ editing never

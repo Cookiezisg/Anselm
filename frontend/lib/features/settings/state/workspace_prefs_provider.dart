@@ -10,7 +10,8 @@ import '../data/settings_repository.dart';
 /// 即时生效模型:无保存按钮,控件即写。
 class WorkspacePrefsController extends AsyncNotifier<Workspace> {
   @override
-  Future<Workspace> build() => ref.watch(settingsRepositoryProvider).getActiveWorkspace();
+  Future<Workspace> build() =>
+      ref.watch(settingsRepositoryProvider).getActiveWorkspace();
 
   Future<void> setLanguage(String language) => _patch(language: language);
 
@@ -18,23 +19,40 @@ class WorkspacePrefsController extends AsyncNotifier<Workspace> {
 
   // ── S2 scenario defaults (dedicated endpoints return the fresh workspace row) 场景默认 ──
 
-  Future<void> setDefaultModel(String scenario,
-      {required String apiKeyId, required String modelId, Map<String, String>? options}) async {
-    state = AsyncData(await ref
-        .read(settingsRepositoryProvider)
-        .putDefaultModel(scenario, apiKeyId: apiKeyId, modelId: modelId, options: options));
+  Future<void> setDefaultModel(
+    String scenario, {
+    required String apiKeyId,
+    required String modelId,
+    Map<String, String>? options,
+  }) async {
+    state = AsyncData(
+      await ref
+          .read(settingsRepositoryProvider)
+          .putDefaultModel(
+            scenario,
+            apiKeyId: apiKeyId,
+            modelId: modelId,
+            options: options,
+          ),
+    );
   }
 
   Future<void> clearDefaultModel(String scenario) async {
-    state = AsyncData(await ref.read(settingsRepositoryProvider).deleteDefaultModel(scenario));
+    state = AsyncData(
+      await ref.read(settingsRepositoryProvider).deleteDefaultModel(scenario),
+    );
   }
 
   Future<void> setDefaultSearch(String apiKeyId) async {
-    state = AsyncData(await ref.read(settingsRepositoryProvider).putDefaultSearch(apiKeyId));
+    state = AsyncData(
+      await ref.read(settingsRepositoryProvider).putDefaultSearch(apiKeyId),
+    );
   }
 
   Future<void> clearDefaultSearch() async {
-    state = AsyncData(await ref.read(settingsRepositoryProvider).deleteDefaultSearch());
+    state = AsyncData(
+      await ref.read(settingsRepositoryProvider).deleteDefaultSearch(),
+    );
   }
 
   Future<void> _patch({String? language, String? webFetchMode}) async {
@@ -42,10 +60,12 @@ class WorkspacePrefsController extends AsyncNotifier<Workspace> {
     // await the row instead of silently dropping the write. 写可能先于首取完成——等行,绝不静默弃写。
     final before = state.value ?? await future;
     // Optimistic flip. 乐观先翻。
-    state = AsyncData(before.copyWith(
-      language: language ?? before.language,
-      webFetchMode: webFetchMode ?? before.webFetchMode,
-    ));
+    state = AsyncData(
+      before.copyWith(
+        language: language ?? before.language,
+        webFetchMode: webFetchMode ?? before.webFetchMode,
+      ),
+    );
     try {
       final fresh = await ref
           .read(settingsRepositoryProvider)
@@ -59,4 +79,6 @@ class WorkspacePrefsController extends AsyncNotifier<Workspace> {
 }
 
 final workspacePrefsProvider =
-    AsyncNotifierProvider<WorkspacePrefsController, Workspace>(WorkspacePrefsController.new);
+    AsyncNotifierProvider<WorkspacePrefsController, Workspace>(
+      WorkspacePrefsController.new,
+    );

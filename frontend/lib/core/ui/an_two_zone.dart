@@ -19,11 +19,19 @@ import '../design/tokens.dart';
 /// 两者各自截断、不溢出。由 AnDropdown 的 private `_TwoZone` 升格(触发器/菜单行/G3 的 Section·InfoCard head·
 /// Row 尾槽都复用此骨架,原则 #8:骨架归一处、消费方不再各搓 Row+Spacer);trailing 收任意 Widget。
 /// (AnKv 不用它——Kv 行是 key 贴内容左 + value 撑右,非 label 贪婪 Expanded 的几何。)
-const double _kMetaMaxFraction = 0.45; // meta zone ≤ 45% of the row (label keeps ≥ 55%) meta 区上限
-const double _kMetaFallbackWidth = 160; // meta cap when the row width is unbounded 无界时 meta 上限
+const double _kMetaMaxFraction =
+    0.45; // meta zone ≤ 45% of the row (label keeps ≥ 55%) meta 区上限
+const double _kMetaFallbackWidth =
+    160; // meta cap when the row width is unbounded 无界时 meta 上限
 
 class AnTwoZone extends StatelessWidget {
-  const AnTwoZone({required this.label, this.meta, this.metaStyle, required this.trailing, super.key});
+  const AnTwoZone({
+    required this.label,
+    this.meta,
+    this.metaStyle,
+    required this.trailing,
+    super.key,
+  });
 
   final Widget label;
   final String? meta;
@@ -34,7 +42,9 @@ class AnTwoZone extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final metaCap = constraints.maxWidth.isFinite ? constraints.maxWidth * _kMetaMaxFraction : _kMetaFallbackWidth;
+        final metaCap = constraints.maxWidth.isFinite
+            ? constraints.maxWidth * _kMetaMaxFraction
+            : _kMetaFallbackWidth;
         return Row(
           children: [
             Expanded(child: label),
@@ -42,7 +52,13 @@ class AnTwoZone extends StatelessWidget {
               const SizedBox(width: AnSpace.s8),
               ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: metaCap),
-                child: Text(meta!, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.right, style: metaStyle),
+                child: Text(
+                  meta!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.right,
+                  style: metaStyle,
+                ),
               ),
             ],
             const SizedBox(width: AnSpace.s8),

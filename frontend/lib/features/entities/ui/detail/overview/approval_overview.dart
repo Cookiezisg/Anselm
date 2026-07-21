@@ -28,20 +28,38 @@ class ApprovalOverview extends StatelessWidget {
           (d.kv.activeVersion, 'v${v.version}'),
           (d.kv.updated, fmtTime(approval.updatedAt)),
         ]),
-        AnSection(label: d.sec.input, variant: AnSectionVariant.plain, children: [
-          fieldList(v.inputs, emptyTitle: d.val.none),
-        ]),
-        AnSection(label: d.sec.template, variant: AnSectionVariant.plain, children: [
-          AnCodeEditor(code: v.template, lang: 'md', wrap: true, reading: true),
-        ]),
-        AnSection(label: d.sec.decisionRules, variant: AnSectionVariant.plain, children: [
-          kvList([
-            (d.kv.allowReason, v.allowReason ? d.val.yes : d.val.no),
-            (d.kv.timeout, v.timeout.isEmpty ? d.val.never : v.timeout),
-            // Behavior only applies when a timeout is set (empty → never times out). 超时行为仅在设了超时时有意义。
-            (d.kv.timeoutBehavior, v.timeout.isEmpty ? null : v.timeoutBehavior),
-          ]),
-        ]),
+        AnSection(
+          label: d.sec.input,
+          variant: AnSectionVariant.plain,
+          children: [fieldList(v.inputs, emptyTitle: d.val.none)],
+        ),
+        AnSection(
+          label: d.sec.template,
+          variant: AnSectionVariant.plain,
+          children: [
+            AnCodeEditor(
+              code: v.template,
+              lang: 'md',
+              wrap: true,
+              reading: true,
+            ),
+          ],
+        ),
+        AnSection(
+          label: d.sec.decisionRules,
+          variant: AnSectionVariant.plain,
+          children: [
+            kvList([
+              (d.kv.allowReason, v.allowReason ? d.val.yes : d.val.no),
+              (d.kv.timeout, v.timeout.isEmpty ? d.val.never : v.timeout),
+              // Behavior only applies when a timeout is set (empty → never times out). 超时行为仅在设了超时时有意义。
+              (
+                d.kv.timeoutBehavior,
+                v.timeout.isEmpty ? null : v.timeoutBehavior,
+              ),
+            ]),
+          ],
+        ),
       ],
     );
   }

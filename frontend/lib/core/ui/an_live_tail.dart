@@ -97,44 +97,68 @@ class AnLiveTail extends StatelessWidget {
         }
         if (folded.isEmpty) return const SizedBox.shrink();
         final hasMore = folded.length > tailLines;
-        final tail = hasMore ? folded.sublist(folded.length - tailLines) : folded;
+        final tail = hasMore
+            ? folded.sublist(folded.length - tailLines)
+            : folded;
         final base = AnText.code.copyWith(color: c.inkMuted);
-        return _shell(Stack(children: [
+        return _shell(
+          Stack(
+            children: [
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (final line in tail)
+                    Text.rich(
+                      TextSpan(children: ansiSpans(line, c, base: base)),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+              if (hasMore)
+                Positioned(
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: AnSpace.s16,
+                  // Fade blends to the WHITE window face (灰底退役,拍板 #1). 渐隐融白窗面。
+                  child: AnEdgeFade(fromTop: true, color: c.surface),
+                ),
+            ],
+          ),
+        );
+
+      case AnLiveTailStyle.mono:
+        final lines = _tailSlice(text.trimRight(), tailLines).split('\n');
+        final tail = lines.length > tailLines
+            ? lines.sublist(lines.length - tailLines)
+            : lines;
+        return _shell(
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
+              // One visual line per logical line — the term face's metric contract (复审 #23: a
+              // wrapping long line must not blow the tailLines height). 与 term 同契约:行不折、超长裁。
               for (final line in tail)
-                Text.rich(TextSpan(children: ansiSpans(line, c, base: base)),
-                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(
+                  line,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.code.copyWith(color: c.inkMuted),
+                ),
             ],
           ),
-          if (hasMore)
-            Positioned(
-                top: 0, left: 0, right: 0, height: AnSpace.s16,
-                // Fade blends to the WHITE window face (灰底退役,拍板 #1). 渐隐融白窗面。
-                child: AnEdgeFade(fromTop: true, color: c.surface)),
-        ]));
-
-      case AnLiveTailStyle.mono:
-        final lines = _tailSlice(text.trimRight(), tailLines).split('\n');
-        final tail = lines.length > tailLines ? lines.sublist(lines.length - tailLines) : lines;
-        return _shell(Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // One visual line per logical line — the term face's metric contract (复审 #23: a
-            // wrapping long line must not blow the tailLines height). 与 term 同契约:行不折、超长裁。
-            for (final line in tail)
-              Text(line, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.code.copyWith(color: c.inkMuted)),
-          ],
-        ));
+        );
 
       case AnLiveTailStyle.prose:
-        return _shell(_ProseTail(
-          text: _tailSlice(text, _proseTailLines),
-          maxHeight: maxHeight ?? AnSize.proseClamp,
-        ));
+        return _shell(
+          _ProseTail(
+            text: _tailSlice(text, _proseTailLines),
+            maxHeight: maxHeight ?? AnSize.proseClamp,
+          ),
+        );
     }
   }
 }
@@ -180,20 +204,29 @@ class _ProseTailState extends State<_ProseTail> {
     return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: widget.maxHeight),
       child: ClipRect(
-        child: Stack(children: [
-          NotificationListener<ScrollMetricsNotification>(
-            onNotification: _onMetrics,
-            child: SingleChildScrollView(
-              reverse: true,
-              physics: const NeverScrollableScrollPhysics(),
-              child: Text(widget.text, style: AnText.reading.copyWith(color: c.inkMuted)),
+        child: Stack(
+          children: [
+            NotificationListener<ScrollMetricsNotification>(
+              onNotification: _onMetrics,
+              child: SingleChildScrollView(
+                reverse: true,
+                physics: const NeverScrollableScrollPhysics(),
+                child: Text(
+                  widget.text,
+                  style: AnText.reading.copyWith(color: c.inkMuted),
+                ),
+              ),
             ),
-          ),
-          if (_overflows)
-            Positioned(
-                top: 0, left: 0, right: 0, height: AnSpace.s16,
-                child: AnEdgeFade(fromTop: true, color: c.surface)),
-        ]),
+            if (_overflows)
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: AnSpace.s16,
+                child: AnEdgeFade(fromTop: true, color: c.surface),
+              ),
+          ],
+        ),
       ),
     );
   }

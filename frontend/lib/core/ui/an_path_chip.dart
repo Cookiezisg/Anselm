@@ -18,12 +18,12 @@ class AnPathChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnChip(
-        _basename(path),
-        look: AnChipLook.outlined,
-        mono: true,
-        copyValue: path,
-        tooltip: path,
-      );
+    _basename(path),
+    look: AnChipLook.outlined,
+    mono: true,
+    copyValue: path,
+    tooltip: path,
+  );
 }
 
 /// The basename — the segment after the last `/` (or the whole thing if none). 末段(basename)。

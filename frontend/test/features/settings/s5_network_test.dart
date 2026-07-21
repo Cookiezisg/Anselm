@@ -13,30 +13,43 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
-  testWidgets('proxy fields hydrate and a save PATCHes the whole config', (tester) async {
+  testWidgets('proxy fields hydrate and a save PATCHes the whole config', (
+    tester,
+  ) async {
     final repo = FixtureSettingsRepository()
       ..fixtureNetwork = const NetworkConfig(httpProxy: 'http://old:1');
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
-        settingsRepositoryProvider.overrideWithValue(repo),
-      ],
-      child: TranslationProvider(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AnTheme.light(),
-          home: const Scaffold(body: SingleChildScrollView(child: NetworkPanel())),
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
+          settingsRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: const Scaffold(
+              body: SingleChildScrollView(child: NetworkPanel()),
+            ),
+          ),
         ),
       ),
-    ));
+    );
     await tester.pumpAndSettle();
     final t = Translations.of(tester.element(find.byType(NetworkPanel)));
     expect(find.text('http://old:1'), findsOneWidget, reason: '从后端水化');
 
-    await tester.enterText(find.byType(TextField).at(0), 'http://127.0.0.1:7890');
+    await tester.enterText(
+      find.byType(TextField).at(0),
+      'http://127.0.0.1:7890',
+    );
     await tester.pumpAndSettle();
     await tester.tap(find.text(t.settings.network.save));
     await tester.pumpAndSettle();
-    expect(repo.fixtureNetwork.httpProxy, 'http://127.0.0.1:7890', reason: '整体 PATCH');
+    expect(
+      repo.fixtureNetwork.httpProxy,
+      'http://127.0.0.1:7890',
+      reason: '整体 PATCH',
+    );
   });
 }

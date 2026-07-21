@@ -43,11 +43,14 @@ void installPerfProbe() {
   final build = <int>[], raster = <int>[], interval = <int>[];
   SchedulerBinding.instance.addTimingsCallback((timings) {
     for (final t in timings) {
-      final b = t.buildDuration.inMicroseconds, r = t.rasterDuration.inMicroseconds;
+      final b = t.buildDuration.inMicroseconds,
+          r = t.rasterDuration.inMicroseconds;
       build.add(b);
       raster.add(r);
       if (b > _jankThresholdUs || r > _jankThresholdUs) {
-        debugPrint('[perf] JANK build=${(b / 1000).toStringAsFixed(1)}ms raster=${(r / 1000).toStringAsFixed(1)}ms');
+        debugPrint(
+          '[perf] JANK build=${(b / 1000).toStringAsFixed(1)}ms raster=${(r / 1000).toStringAsFixed(1)}ms',
+        );
       }
       // Frame cadence: consecutive vsync gaps = the refresh rate actually driven (8.3ms=120Hz, 6.9=144,
       // 16.7=60). Gaps over 200ms are idle pauses, not cadence — skipped. 帧节奏:相邻 vsync 间隔;
@@ -62,12 +65,21 @@ void installPerfProbe() {
     if (build.length >= _summaryEvery) {
       String pct(List<int> xs, double p) {
         final sorted = [...xs]..sort();
-        return (sorted[(sorted.length * p).clamp(0, sorted.length - 1).toInt()] / 1000).toStringAsFixed(1);
+        return (sorted[(sorted.length * p)
+                    .clamp(0, sorted.length - 1)
+                    .toInt()] /
+                1000)
+            .toStringAsFixed(1);
       }
-      final fps = interval.isEmpty ? 0.0 : 1000 / double.parse(pct(interval, .5));
-      debugPrint('[perf] n=${build.length} build p50=${pct(build, .5)} p95=${pct(build, .95)} max=${pct(build, 1)}'
-          ' | raster p50=${pct(raster, .5)} p95=${pct(raster, .95)} max=${pct(raster, 1)}'
-          ' | gap p50=${interval.isEmpty ? "-" : pct(interval, .5)}ms ≈${fps.toStringAsFixed(0)}fps');
+
+      final fps = interval.isEmpty
+          ? 0.0
+          : 1000 / double.parse(pct(interval, .5));
+      debugPrint(
+        '[perf] n=${build.length} build p50=${pct(build, .5)} p95=${pct(build, .95)} max=${pct(build, 1)}'
+        ' | raster p50=${pct(raster, .5)} p95=${pct(raster, .95)} max=${pct(raster, 1)}'
+        ' | gap p50=${interval.isEmpty ? "-" : pct(interval, .5)}ms ≈${fps.toStringAsFixed(0)}fps',
+      );
       build.clear();
       raster.clear();
       interval.clear();

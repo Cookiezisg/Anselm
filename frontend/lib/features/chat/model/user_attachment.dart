@@ -40,15 +40,22 @@ class UserAttachment {
   /// Renders as an inline image thumb (vs a file card): a READY image with bytes to show. Oversized /
   /// failed / missing images fall back to the card form (honest, no phantom picture box).
   /// 以图瓦片渲染(否则文件卡):ready 且有图源。超大/失败/missing 的图回落文件卡(诚实,不渲幽灵图框)。
-  bool get rendersAsThumb => kind == 'image' && state == AnAttachmentState.ready && thumb != null;
+  bool get rendersAsThumb =>
+      kind == 'image' && state == AnAttachmentState.ready && thumb != null;
 }
 
 /// The card's "TYPE · SIZE" meta line — extension from the filename (fallback: the mime subtype),
 /// human-readable size. Pure; unit-tested. 卡的「类型·大小」行——扩展名取自文件名(兜底 mime 子类型),人话大小。
-String attachmentMetaLine({required String filename, String? mimeType, int? sizeBytes}) {
+String attachmentMetaLine({
+  required String filename,
+  String? mimeType,
+  int? sizeBytes,
+}) {
   final parts = <String>[];
   final dot = filename.lastIndexOf('.');
-  final ext = (dot > 0 && filename.length - dot - 1 <= 8) ? filename.substring(dot + 1) : '';
+  final ext = (dot > 0 && filename.length - dot - 1 <= 8)
+      ? filename.substring(dot + 1)
+      : '';
   if (ext.isNotEmpty) {
     parts.add(ext.toUpperCase());
   } else {
@@ -58,5 +65,3 @@ String attachmentMetaLine({required String filename, String? mimeType, int? size
   if (sizeBytes != null && sizeBytes >= 0) parts.add(formatBytes(sizeBytes));
   return parts.join(' · ');
 }
-
-

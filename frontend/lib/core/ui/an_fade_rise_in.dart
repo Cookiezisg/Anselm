@@ -26,7 +26,10 @@ class AnFadeRiseIn extends StatelessWidget {
       curve: AnMotion.easeOut,
       builder: (context, v, child) => Opacity(
         opacity: v,
-        child: Transform.translate(offset: Offset(0, (1 - v) * rise), child: child),
+        child: Transform.translate(
+          offset: Offset(0, (1 - v) * rise),
+          child: child,
+        ),
       ),
       child: child,
     );

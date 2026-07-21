@@ -30,7 +30,9 @@ final RegExp _bashExit = RegExp(r'\[exit code: (-?\d+)\]\s*$');
 final RegExp _bashTimeout = RegExp(r'\[command timed out after [^\]]+\]');
 final RegExp _bashBlocked = RegExp(r'\[blocked: .*\(refused');
 final RegExp _bashCancelled = RegExp(r'\[cancelled\]');
-final RegExp _bashBackground = RegExp(r'Started background command \(bash_id=(bsh_[0-9a-f]+)\)');
+final RegExp _bashBackground = RegExp(
+  r'Started background command \(bash_id=(bsh_[0-9a-f]+)\)',
+);
 const String _toolResultTrunc = '[tool result truncated:';
 
 /// The Bash receipt with NOTE PRIORITY (cancel/timeout/block all close exit -1, so the note must be
@@ -47,17 +49,30 @@ ToolReceipt? bashReceipt(
   required String Function(String bashId) backgroundLabel,
 }) {
   final bg = _bashBackground.firstMatch(output);
-  if (bg != null) return (text: backgroundLabel(bg.group(1)!), tone: ToolReceiptTone.none);
+  if (bg != null) {
+    return (text: backgroundLabel(bg.group(1)!), tone: ToolReceiptTone.none);
+  }
   // Double-cap collision: the general tool-result cap ate Bash's own footer → the exit is truly
   // unknown (the content, not the exit, is what got dropped). 双 cap 冲突:footer 被砍→exit 未知。
-  if (output.contains(_toolResultTrunc)) return (text: exitUnknownLabel, tone: ToolReceiptTone.warn);
+  if (output.contains(_toolResultTrunc)) {
+    return (text: exitUnknownLabel, tone: ToolReceiptTone.warn);
+  }
   final m = _bashExit.firstMatch(output);
   if (m == null) return null;
   final code = int.parse(m.group(1)!);
-  if (_bashBlocked.hasMatch(output)) return (text: blockedLabel, tone: ToolReceiptTone.danger);
-  if (_bashTimeout.hasMatch(output)) return (text: timedOutLabel, tone: ToolReceiptTone.danger);
-  if (_bashCancelled.hasMatch(output)) return (text: cancelledLabel, tone: ToolReceiptTone.none);
-  return (text: exitLabel(code), tone: code != 0 ? ToolReceiptTone.danger : ToolReceiptTone.none);
+  if (_bashBlocked.hasMatch(output)) {
+    return (text: blockedLabel, tone: ToolReceiptTone.danger);
+  }
+  if (_bashTimeout.hasMatch(output)) {
+    return (text: timedOutLabel, tone: ToolReceiptTone.danger);
+  }
+  if (_bashCancelled.hasMatch(output)) {
+    return (text: cancelledLabel, tone: ToolReceiptTone.none);
+  }
+  return (
+    text: exitLabel(code),
+    tone: code != 0 ? ToolReceiptTone.danger : ToolReceiptTone.none,
+  );
 }
 
 /// BashOutput (verified …/shell/output.go): a poll returns new output (or `(no new output since last
@@ -65,7 +80,9 @@ ToolReceipt? bashReceipt(
 /// N)|killed|errored]`; a dead session says «not found: id». HONESTY: status
 /// is a poll-time snapshot — `exited`/`errored` are DANGER but NEVER auto-expand (a dead process returns
 /// the same status every poll; only «session not found» auto-expands). BashOutput 状态回执:轮询时点快照。
-final RegExp _bashStatus = RegExp(r'\[status: (running|exited \(code (-?\d+)\)|killed|errored)\]\s*$');
+final RegExp _bashStatus = RegExp(
+  r'\[status: (running|exited \(code (-?\d+)\)|killed|errored)\]\s*$',
+);
 ToolReceipt? statusReceipt(
   String output, {
   required String running,
@@ -74,24 +91,39 @@ ToolReceipt? statusReceipt(
   required String errored,
   required String notFound,
 }) {
-  if (output.startsWith('Background shell process not found')) return (text: notFound, tone: ToolReceiptTone.danger);
+  if (output.startsWith('Background shell process not found')) {
+    return (text: notFound, tone: ToolReceiptTone.danger);
+  }
   final m = _bashStatus.firstMatch(output);
   if (m == null) return null;
   final s = m.group(1)!;
   if (s == 'running') return (text: running, tone: ToolReceiptTone.none);
   if (s == 'killed') return (text: killed, tone: ToolReceiptTone.none);
   if (s == 'errored') return (text: errored, tone: ToolReceiptTone.danger);
-  return (text: exited(int.parse(m.group(2)!)), tone: ToolReceiptTone.danger); // exited (code N)
+  return (
+    text: exited(int.parse(m.group(2)!)),
+    tone: ToolReceiptTone.danger,
+  ); // exited (code N)
 }
 
 /// KillShell (verified …/shell/kill.go) — three positive (err==nil) strings: `Killed background shell
 /// id.` (verb self-sufficient → no receipt) / `… already finished; removed …` (已自行结束, muted) /
 /// `Background shell process not found: id` (会话不存在, warn). KillShell 三态。
-ToolReceipt? killShellReceipt(String output, {required String finished, required String notFound}) {
+ToolReceipt? killShellReceipt(
+  String output, {
+  required String finished,
+  required String notFound,
+}) {
   final t = output.trimRight();
-  if (t.startsWith('Killed background shell')) return null; // the verb «已终止» IS the proof 动词自足
-  if (t.contains('already finished')) return (text: finished, tone: ToolReceiptTone.none);
-  if (t.startsWith('Background shell process not found')) return (text: notFound, tone: ToolReceiptTone.warn);
+  if (t.startsWith('Killed background shell')) {
+    return null; // the verb «已终止» IS the proof 动词自足
+  }
+  if (t.contains('already finished')) {
+    return (text: finished, tone: ToolReceiptTone.none);
+  }
+  if (t.startsWith('Background shell process not found')) {
+    return (text: notFound, tone: ToolReceiptTone.warn);
+  }
   return null;
 }
 
@@ -117,26 +149,41 @@ final RegExp _fsAmbiguous = RegExp(r'^Found (\d+) match');
 /// fs 错误分类:钉后端精确前缀;未识别→null。
 ({FsErrorKind kind, int n})? fsErrorKind(String output) {
   final s = output.trimLeft();
-  if (s.startsWith('old_string not found')) return (kind: FsErrorKind.noMatch, n: 0);
+  if (s.startsWith('old_string not found')) {
+    return (kind: FsErrorKind.noMatch, n: 0);
+  }
   final m = _fsAmbiguous.firstMatch(s);
-  if (m != null) return (kind: FsErrorKind.ambiguous, n: int.parse(m.group(1)!));
-  if (s.contains('must be read first') || s.startsWith('Cannot verify Read-first guard')) {
+  if (m != null) {
+    return (kind: FsErrorKind.ambiguous, n: int.parse(m.group(1)!));
+  }
+  if (s.contains('must be read first') ||
+      s.startsWith('Cannot verify Read-first guard')) {
     return (kind: FsErrorKind.readFirst, n: 0);
   }
-  if (s.contains('has been modified since last read')) return (kind: FsErrorKind.modified, n: 0);
-  if (s.startsWith('File not found') || s.startsWith('Cannot access') || s.startsWith('Path is a directory')) {
+  if (s.contains('has been modified since last read')) {
+    return (kind: FsErrorKind.modified, n: 0);
+  }
+  if (s.startsWith('File not found') ||
+      s.startsWith('Cannot access') ||
+      s.startsWith('Path is a directory')) {
     return (kind: FsErrorKind.notFound, n: 0);
   }
-  if (s.startsWith('Permission denied') || s.startsWith('path is denied by safety guard')) {
+  if (s.startsWith('Permission denied') ||
+      s.startsWith('path is denied by safety guard')) {
     return (kind: FsErrorKind.denied, n: 0);
   }
-  if (s.startsWith('Parent directory does not exist') || s.startsWith('Parent path exists but is not')) {
+  if (s.startsWith('Parent directory does not exist') ||
+      s.startsWith('Parent path exists but is not')) {
     return (kind: FsErrorKind.parentMissing, n: 0);
   }
-  if (s.startsWith('path must be absolute') || s.startsWith('path is required') || s.startsWith('cannot expand ~')) {
+  if (s.startsWith('path must be absolute') ||
+      s.startsWith('path is required') ||
+      s.startsWith('cannot expand ~')) {
     return (kind: FsErrorKind.badPath, n: 0);
   }
-  if (s.startsWith('Write failed') || s.startsWith('Edit failed') || s.startsWith('Failed to read')) {
+  if (s.startsWith('Write failed') ||
+      s.startsWith('Edit failed') ||
+      s.startsWith('Failed to read')) {
     return (kind: FsErrorKind.failed, n: 0);
   }
   return null;
@@ -154,35 +201,51 @@ ToolReceipt? readReceipt(
   required String Function(int lastLine) lines, // F==1, no trunc
   required String Function(int firstLine, int lastLine) range, // F>1, no trunc
   required String Function(int floorLine) linesFloor, // F==1, trunc → N+
-  required String Function(int firstLine, int floorLine) rangeFloor, // F>1, trunc
+  required String Function(int firstLine, int floorLine)
+  rangeFloor, // F>1, trunc
 }) {
   final matches = _readLine.allMatches(output).toList();
-  if (matches.isEmpty) return null; // not file content (directory hint / error prose) 非文件内容
+  if (matches.isEmpty) {
+    return null; // not file content (directory hint / error prose) 非文件内容
+  }
   final first = int.parse(matches.first.group(1)!);
   final trunc = _readTruncated.firstMatch(output);
   if (trunc != null) {
     final floor = int.parse(trunc.group(1)!);
-    return (text: first == 1 ? linesFloor(floor) : rangeFloor(first, floor), tone: ToolReceiptTone.none);
+    return (
+      text: first == 1 ? linesFloor(floor) : rangeFloor(first, floor),
+      tone: ToolReceiptTone.none,
+    );
   }
   final last = int.parse(matches.last.group(1)!);
-  return (text: first == 1 ? lines(last) : range(first, last), tone: ToolReceiptTone.none);
+  return (
+    text: first == 1 ? lines(last) : range(first, last),
+    tone: ToolReceiptTone.none,
+  );
 }
 
 /// Grep / Glob / LS: count-style receipts. "No matches for …" is the backend's honest empty;
 /// a `[truncated at N …]` marker means the count is a floor ("N+"). Grep emits THREE markers by mode —
 /// `N lines` (content), `N files` (files_with_matches), `N matches` (count) — all mean truncated, so
 /// the receipt must recognize every unit. 检索族计数回执:三种截断单位(lines/files/matches)都算下界 N+。
-final RegExp _capTruncated = RegExp(r'\[truncated at (\d+) (?:lines|files|matches)');
+final RegExp _capTruncated = RegExp(
+  r'\[truncated at (\d+) (?:lines|files|matches)',
+);
 
-ToolReceipt? countReceipt(String output,
-    {required String Function(String) countLabel, required String noneLabel}) {
+ToolReceipt? countReceipt(
+  String output, {
+  required String Function(String) countLabel,
+  required String noneLabel,
+}) {
   final trimmed = output.trimRight();
   if (trimmed.isEmpty) return null;
   if (trimmed.startsWith('No matches for') ||
       trimmed.startsWith('No files') ||
       trimmed.startsWith('Cannot access') ||
       trimmed.startsWith('Invalid glob')) {
-    return trimmed.startsWith('No ') ? (text: noneLabel, tone: ToolReceiptTone.none) : null;
+    return trimmed.startsWith('No ')
+        ? (text: noneLabel, tone: ToolReceiptTone.none)
+        : null;
   }
   final lines = trimmed.split('\n').where((l) => l.trim().isNotEmpty).toList();
   if (lines.isEmpty) return null;
@@ -196,7 +259,11 @@ ToolReceipt? countReceipt(String output,
 /// A parsed F07 entity-search result (WRK-056 §F07.5) — count + optional total + the hit rows. BOTH
 /// the collapsed receipt ([searchReceipt]) and the ToolHitList body read this ONE extractor.
 /// 一次 F07 搜索结果反解:count + 可选 total + 命中行。回执与命中窗同读此一处。
-typedef SearchHits = ({int count, int? total, List<Map<String, dynamic>> items});
+typedef SearchHits = ({
+  int count,
+  int? total,
+  List<Map<String, dynamic>> items,
+});
 
 /// Parse a search tool's JSON output, tolerant of BOTH wire shapes it emits (the shape is probed by
 /// KEY EXISTENCE, never by guessing which path ran):
@@ -219,8 +286,12 @@ SearchHits? parseSearchHits(String output, String listKey) {
   if (count is! int) return null; // no parseable count → don't guess 无 count→不猜
   final total = d['total'] is int ? d['total'] as int : null;
   final raw = d[listKey];
-  final items = raw is List ? raw.whereType<Map<String, dynamic>>().toList() : const <Map<String, dynamic>>[];
-  if (count > 0 && items.isEmpty) return null; // count claims hits but no list → broken shape 坏形状
+  final items = raw is List
+      ? raw.whereType<Map<String, dynamic>>().toList()
+      : const <Map<String, dynamic>>[];
+  if (count > 0 && items.isEmpty) {
+    return null; // count claims hits but no list → broken shape 坏形状
+  }
   return (count: count, total: total, items: items);
 }
 
@@ -236,11 +307,15 @@ ToolReceipt? searchReceipt(
   required String Function(int n, int total) hitsOfTotal,
   required String empty,
 }) {
-  if (output.trimRight().startsWith('No blocks matched')) return (text: empty, tone: ToolReceiptTone.none);
+  if (output.trimRight().startsWith('No blocks matched')) {
+    return (text: empty, tone: ToolReceiptTone.none);
+  }
   final h = parseSearchHits(output, listKey);
   if (h == null) return null;
   if (h.count == 0) return (text: empty, tone: ToolReceiptTone.none);
-  if (h.total != null && h.total! > h.count) return (text: hitsOfTotal(h.count, h.total!), tone: ToolReceiptTone.none);
+  if (h.total != null && h.total! > h.count) {
+    return (text: hitsOfTotal(h.count, h.total!), tone: ToolReceiptTone.none);
+  }
   return (text: hits(h.count), tone: ToolReceiptTone.none);
 }
 
@@ -261,14 +336,19 @@ Map<String, dynamic>? _obj(String s) {
     final d = jsonDecode(s);
     if (d is Map<String, dynamic>) r = d;
   } catch (_) {}
-  if (_objCache.length >= 64) _objCache.remove(_objCache.keys.first); // FIFO cap 有界
+  if (_objCache.length >= 64) {
+    _objCache.remove(_objCache.keys.first); // FIFO cap 有界
+  }
   _objCache[s] = r;
   return r;
 }
 
 /// revert — `⤺ v{version}` from `{…, version}` (agent's key is the same `version`). null if no int
 /// version. revert 倒带徽标。
-ToolReceipt? revertReceipt(String output, {required String Function(int v) rewind}) {
+ToolReceipt? revertReceipt(
+  String output, {
+  required String Function(int v) rewind,
+}) {
   final v = _obj(output)?['version'];
   return v is int ? (text: rewind(v), tone: ToolReceiptTone.none) : null;
 }
@@ -280,8 +360,14 @@ typedef Dependents = ({int count, List<({String kind, String id})> refs});
 
 /// The S15 id-prefix → EntityKind wire table (database.md registry — compile-time, not guessed). id 前缀表。
 const Map<String, String> _prefixKind = {
-  'fn': 'function', 'hd': 'handler', 'ag': 'agent', 'wf': 'workflow',
-  'ctl': 'control', 'apf': 'approval', 'trg': 'trigger', 'doc': 'document',
+  'fn': 'function',
+  'hd': 'handler',
+  'ag': 'agent',
+  'wf': 'workflow',
+  'ctl': 'control',
+  'apf': 'approval',
+  'trg': 'trigger',
+  'doc': 'document',
 };
 
 String _kindOfId(String id) {
@@ -304,7 +390,9 @@ Dependents? parseDependents(String output) {
       refs.add((kind: '${d['kind'] ?? _kindOfId(id)}', id: id));
     }
   }
-  final count = o['dependentCount'] is int ? o['dependentCount'] as int : refs.length;
+  final count = o['dependentCount'] is int
+      ? o['dependentCount'] as int
+      : refs.length;
   return (count: count, refs: refs);
 }
 
@@ -312,62 +400,110 @@ Dependents? parseDependents(String output) {
 Dependents? parseAgentDependents(String output) {
   final m = RegExp(r'\[([^\]]*)\]').firstMatch(output);
   if (m == null) return null;
-  final ids = m.group(1)!.split(RegExp(r'[,\s]+')).where((s) => s.isNotEmpty).toList();
+  final ids = m
+      .group(1)!
+      .split(RegExp(r'[,\s]+'))
+      .where((s) => s.isNotEmpty)
+      .toList();
   if (ids.isEmpty) return null;
-  return (count: ids.length, refs: [for (final id in ids) (kind: _kindOfId(id), id: id)]);
+  return (
+    count: ids.length,
+    refs: [for (final id in ids) (kind: _kindOfId(id), id: id)],
+  );
 }
 
 /// delete (JSON) — `已删除` / `已删除 · N 处引用受影响` (danger when refs exist → the impact ledger
 /// opens). deleteFn accepts the whole output; agentForm reads the string tail. 删除回执(有依赖→danger)。
-ToolReceipt? deleteReceipt(String output,
-    {required String deleted, required String Function(int n) affected, bool agentForm = false}) {
+ToolReceipt? deleteReceipt(
+  String output, {
+  required String deleted,
+  required String Function(int n) affected,
+  bool agentForm = false,
+}) {
   final o = _obj(output);
   // Success signal: JSON `{deleted:...}` or the agent string mentioning deletion. 删除成功信号。
   final isJsonDelete = o != null && (o['deleted'] != null || o['id'] != null);
-  final dep = agentForm ? parseAgentDependents(output) : parseDependents(output);
-  if (dep != null && dep.count > 0) return (text: affected(dep.count), tone: ToolReceiptTone.danger);
-  if (isJsonDelete || (agentForm && output.isNotEmpty)) return (text: deleted, tone: ToolReceiptTone.none);
+  final dep = agentForm
+      ? parseAgentDependents(output)
+      : parseDependents(output);
+  if (dep != null && dep.count > 0) {
+    return (text: affected(dep.count), tone: ToolReceiptTone.danger);
+  }
+  if (isJsonDelete || (agentForm && output.isNotEmpty)) {
+    return (text: deleted, tone: ToolReceiptTone.none);
+  }
   return null;
 }
 
 /// delete_document soft/success STRING template (census 06). 文档删除模板。
 final RegExp _docDescendants = RegExp(r'along with (\d+) descendant');
-ToolReceipt? deletedDocReceipt(String output,
-    {required String deleted, required String Function(int n) withDescendants}) {
+ToolReceipt? deletedDocReceipt(
+  String output, {
+  required String deleted,
+  required String Function(int n) withDescendants,
+}) {
   final t = output.trimRight();
   final m = _docDescendants.firstMatch(t);
-  if (m != null) return (text: withDescendants(int.parse(m.group(1)!)), tone: ToolReceiptTone.warn);
-  if (t.startsWith('Deleted document')) return (text: deleted, tone: ToolReceiptTone.warn);
+  if (m != null) {
+    return (
+      text: withDescendants(int.parse(m.group(1)!)),
+      tone: ToolReceiptTone.warn,
+    );
+  }
+  if (t.startsWith('Deleted document')) {
+    return (text: deleted, tone: ToolReceiptTone.warn);
+  }
   return null;
 }
 
 /// move_document — `→ {new path}` from `… (new path: <path>).`. move 回执=新家地址。
 final RegExp _movedPath = RegExp(r'new path:\s*([^)]+)\)');
-ToolReceipt? movedReceipt(String output, {required String Function(String path) toPath}) {
+ToolReceipt? movedReceipt(
+  String output, {
+  required String Function(String path) toPath,
+}) {
   final m = _movedPath.firstMatch(output);
-  return m == null ? null : (text: toPath(m.group(1)!.trim()), tone: ToolReceiptTone.none);
+  return m == null
+      ? null
+      : (text: toPath(m.group(1)!.trim()), tone: ToolReceiptTone.none);
 }
 
 /// kill_workflow — `杀停 N 个在途运行` (danger, N>0) / `无在途运行` (none). kill 回执。
-ToolReceipt? killReceipt(String output, {required String Function(int n) killedN, required String none}) {
+ToolReceipt? killReceipt(
+  String output, {
+  required String Function(int n) killedN,
+  required String none,
+}) {
   final n = _obj(output)?['killed'];
   if (n is! int) return null;
-  return n > 0 ? (text: killedN(n), tone: ToolReceiptTone.danger) : (text: none, tone: ToolReceiptTone.none);
+  return n > 0
+      ? (text: killedN(n), tone: ToolReceiptTone.danger)
+      : (text: none, tone: ToolReceiptTone.none);
 }
 
 /// restart_handler — the `runtimeState` word (running none / stopped warn / crashed danger); the
 /// `error` key is the «green but broken» signal. restart 回执。
-ToolReceipt? restartReceipt(String output,
-    {required String Function(String state) label, required String Function(String error) errored}) {
+ToolReceipt? restartReceipt(
+  String output, {
+  required String Function(String state) label,
+  required String Function(String error) errored,
+}) {
   final o = _obj(output);
   if (o == null) return null;
   // Surface the ACTUAL error (the «green but broken» reason), not a generic "restart failed" label —
   // otherwise the failure cause is invisible (thin action card, no body). 渲真实错因、非通用「重启失败」。
   final err = (o['error'] as String?)?.trim();
-  if (err != null && err.isNotEmpty) return (text: errored(err), tone: ToolReceiptTone.danger);
+  if (err != null && err.isNotEmpty) {
+    return (text: errored(err), tone: ToolReceiptTone.danger);
+  }
   final rs = o['runtimeState'] as String?;
   if (rs == null) return null;
-  return (text: label(rs), tone: rs == 'crashed' ? ToolReceiptTone.danger : (rs == 'running' ? ToolReceiptTone.none : ToolReceiptTone.warn));
+  return (
+    text: label(rs),
+    tone: rs == 'crashed'
+        ? ToolReceiptTone.danger
+        : (rs == 'running' ? ToolReceiptTone.none : ToolReceiptTone.warn),
+  );
 }
 
 /// Tolerant mid-stream arg extraction: pull a string field out of a (possibly PARTIAL) args
@@ -385,7 +521,11 @@ String? argString(String argsFragment, String key) {
   for (var i = start; i < argsFragment.length; i++) {
     final ch = argsFragment[i];
     if (escaped) {
-      buf.write(switch (ch) { 'n' => '\n', 't' => '\t', _ => ch });
+      buf.write(switch (ch) {
+        'n' => '\n',
+        't' => '\t',
+        _ => ch,
+      });
       escaped = false;
     } else if (ch == r'\') {
       escaped = true;
@@ -415,7 +555,9 @@ int _argValueStart(String argsFragment, String key) {
       while (i < argsFragment.length && _isJsonWs(argsFragment.codeUnitAt(i))) {
         i++;
       }
-      if (i < argsFragment.length && argsFragment.codeUnitAt(i) == 0x22) return i + 1;
+      if (i < argsFragment.length && argsFragment.codeUnitAt(i) == 0x22) {
+        return i + 1;
+      }
     }
     from = at + 1;
   }
@@ -439,7 +581,11 @@ String? argStringPartial(String argsFragment, String key) {
   for (var i = start; i < argsFragment.length; i++) {
     final ch = argsFragment[i];
     if (escaped) {
-      buf.write(switch (ch) { 'n' => '\n', 't' => '\t', _ => ch });
+      buf.write(switch (ch) {
+        'n' => '\n',
+        't' => '\t',
+        _ => ch,
+      });
       escaped = false;
     } else if (ch == r'\') {
       escaped = true;
@@ -482,7 +628,9 @@ List<String> argStringList(String argsFragment, String key) {
 /// Path → basename for the target chip (full path belongs in a tooltip).
 /// 路径 → basename 作目标 chip(全路径归 tooltip)。
 String pathBasename(String path) {
-  final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+  final trimmed = path.endsWith('/')
+      ? path.substring(0, path.length - 1)
+      : path;
   final i = trimmed.lastIndexOf('/');
   return i < 0 ? trimmed : trimmed.substring(i + 1);
 }

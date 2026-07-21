@@ -28,32 +28,49 @@ class AttachmentPedestal extends ConsumerWidget {
     final meta = ref.watch(attachmentMetaProvider(attachmentId));
     return switch (meta) {
       AsyncData(value: final m) => Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (m.kind == 'image') ...[
-              // The ONE sent-image thumbnail primitive (A-111) — same bounded single-image register
-              // as the chat bubble (thumbMaxW×thumbMaxH), decode errors degrade to the honest slab,
-              // filename is the a11y alt. 唯一缩略图原语:与用户泡同档单图界(私铸 180 顶退役),解码错降级
-              // 诚实板,文件名作 a11y alt。
-              AnAttachmentThumb(
-                image: AttachmentImageProvider(attachmentId,
-                    fetch: () => ref.read(chatRepositoryProvider).getAttachmentBytes(attachmentId)),
-                filename: m.filename,
-                variant: AnThumbVariant.single,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (m.kind == 'image') ...[
+            // The ONE sent-image thumbnail primitive (A-111) — same bounded single-image register
+            // as the chat bubble (thumbMaxW×thumbMaxH), decode errors degrade to the honest slab,
+            // filename is the a11y alt. 唯一缩略图原语:与用户泡同档单图界(私铸 180 顶退役),解码错降级
+            // 诚实板,文件名作 a11y alt。
+            AnAttachmentThumb(
+              image: AttachmentImageProvider(
+                attachmentId,
+                fetch: () => ref
+                    .read(chatRepositoryProvider)
+                    .getAttachmentBytes(attachmentId),
               ),
-              const SizedBox(height: AnSpace.s8),
-            ],
-            AnKv(dense: true, rows: [
-              AnKvRow('size', formatBytes(m.sizeBytes)),
-              if (m.mimeType.isNotEmpty) AnKvRow('mime', m.mimeType, mono: true),
-              if (m.sha256.isNotEmpty)
-                AnKvRow('sha256', m.sha256.substring(0, m.sha256.length < 8 ? m.sha256.length : 8), mono: true),
-            ]),
+              filename: m.filename,
+              variant: AnThumbVariant.single,
+            ),
+            const SizedBox(height: AnSpace.s8),
           ],
-        ),
-      AsyncError() =>
-        Text(Translations.of(context).feedback.cast.tombstone, style: AnText.meta.copyWith(color: c.inkFaint)),
+          AnKv(
+            dense: true,
+            rows: [
+              AnKvRow('size', formatBytes(m.sizeBytes)),
+              if (m.mimeType.isNotEmpty)
+                AnKvRow('mime', m.mimeType, mono: true),
+              if (m.sha256.isNotEmpty)
+                AnKvRow(
+                  'sha256',
+                  m.sha256.substring(
+                    0,
+                    m.sha256.length < 8 ? m.sha256.length : 8,
+                  ),
+                  mono: true,
+                ),
+            ],
+          ),
+        ],
+      ),
+      AsyncError() => Text(
+        Translations.of(context).feedback.cast.tombstone,
+        style: AnText.meta.copyWith(color: c.inkFaint),
+      ),
       _ => const AnSkeleton.lines(2),
     };
   }

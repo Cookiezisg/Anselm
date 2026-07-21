@@ -47,12 +47,18 @@ import '../state/conversation_stream_provider.dart';
 /// 染伪药丸;药丸后一次退格整删。发送时文本里仍在的 `@name` 快照作 mentions 上行(后端冻结)。
 class ChatComposer extends ConsumerStatefulWidget {
   const ChatComposer({this.conversationId, this.onSubmitNew, super.key})
-      : assert(conversationId != null || onSubmitNew != null,
-            'ChatComposer needs a conversationId or onSubmitNew');
+    : assert(
+        conversationId != null || onSubmitNew != null,
+        'ChatComposer needs a conversationId or onSubmitNew',
+      );
 
   final String? conversationId;
-  final Future<void> Function(String text, List<MentionSnapshot> mentions, List<String> attachmentIds)?
-      onSubmitNew;
+  final Future<void> Function(
+    String text,
+    List<MentionSnapshot> mentions,
+    List<String> attachmentIds,
+  )?
+  onSubmitNew;
 
   /// Landing (New page) — lifts the chrome with the float shadow. landing 浮起。
   bool get _floating => conversationId == null;
@@ -77,7 +83,8 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   List<MentionCandidate> _candidates = const [];
   int _activeIndex = 0;
   int _tokenStart = -1; // the open token's '@' index 活跃 token 的 @ 下标
-  int _dismissedStart = -1; // Esc'd token — stays closed until the caret leaves it 已 Esc 的 token 不再弹
+  int _dismissedStart =
+      -1; // Esc'd token — stays closed until the caret leaves it 已 Esc 的 token 不再弹
   double _panelWidth = 0;
   int _searchSeq = 0; // stale async guard 迟到结果守卫
 
@@ -89,7 +96,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   @override
   void initState() {
     super.initState();
-    _ctrl = MentionTextEditingController(text: ref.read(chatDraftsProvider).of(_draftKey));
+    _ctrl = MentionTextEditingController(
+      text: ref.read(chatDraftsProvider).of(_draftKey),
+    );
     _hasText = _ctrl.text.trim().isNotEmpty;
     _ctrl.addListener(_onChanged);
     _focus = FocusNode(onKeyEvent: _onKey);
@@ -118,7 +127,11 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   bool get _generating {
     final id = widget.conversationId;
     if (id == null) return false;
-    return ref.read(conversationStreamProvider(id).notifier).transcript.value.hasInFlight;
+    return ref
+        .read(conversationStreamProvider(id).notifier)
+        .transcript
+        .value
+        .hasInFlight;
   }
 
   // ── @ typeahead ──
@@ -131,11 +144,14 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
         ? activeMentionQuery(_ctrl.text, sel.baseOffset)
         : null;
     if (token == null) {
-      _dismissedStart = -1; // caret left the token — a fresh '@' may open again 离开 token,新 @ 可再弹
+      _dismissedStart =
+          -1; // caret left the token — a fresh '@' may open again 离开 token,新 @ 可再弹
       _closePicker();
       return;
     }
-    if (token.start == _dismissedStart) return; // Esc'd — stay closed for THIS token 该 token 已被 Esc
+    if (token.start == _dismissedStart) {
+      return; // Esc'd — stay closed for THIS token 该 token 已被 Esc
+    }
     _tokenStart = token.start;
     _searchDebounce.run(() async {
       if (!mounted) return;
@@ -184,7 +200,8 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final start = sel.isValid ? sel.start : _ctrl.text.length;
     final end = sel.isValid ? sel.end : start;
     final before = _ctrl.text.substring(0, start);
-    final needsSpace = before.isNotEmpty && !before.endsWith(' ') && !before.endsWith('\n');
+    final needsSpace =
+        before.isNotEmpty && !before.endsWith(' ') && !before.endsWith('\n');
     final insert = needsSpace ? ' @' : '@';
     _ctrl.value = TextEditingValue(
       text: before + insert + _ctrl.text.substring(end),
@@ -200,7 +217,11 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     if (!sel.isValid || _tokenStart < 0) return;
     final replaced = '@${cand.name} ';
     _ctrl.pillNames.add(cand.name);
-    _picked[cand.name] = MentionSnapshot(type: cand.type, id: cand.id, name: cand.name);
+    _picked[cand.name] = MentionSnapshot(
+      type: cand.type,
+      id: cand.id,
+      name: cand.name,
+    );
     _ctrl.value = TextEditingValue(
       text: _ctrl.text.replaceRange(_tokenStart, sel.baseOffset, replaced),
       selection: TextSelection.collapsed(offset: _tokenStart + replaced.length),
@@ -218,12 +239,19 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     // deletes normally first, keeping plain char-wise feel). 只吃 "@name|" 形态(尾空格先常规删)。
     for (final name in _ctrl.pillNames) {
       final start = cursor - name.length - 1;
-      if (start < 0 || _ctrl.text.substring(start, cursor) != '@$name') continue;
-      if (start > 0 && !RegExp(r'\s').hasMatch(_ctrl.text[start - 1])) continue; // left boundary 左边界
+      if (start < 0 || _ctrl.text.substring(start, cursor) != '@$name') {
+        continue;
+      }
+      if (start > 0 && !RegExp(r'\s').hasMatch(_ctrl.text[start - 1])) {
+        continue; // left boundary 左边界
+      }
       // Right boundary: the pill must END at the caret. If a word/CJK char is glued after (mid-word
       // `@alicexyz` / `@alice你好`), `@name` isn't a standalone token — fall back to char-wise backspace,
       // never atomic-delete the whole `@name`. 右边界:光标须在药丸末;后粘词/中文字符则逐字删、不整删。
-      if (cursor < _ctrl.text.length && RegExp('[\\w一-鿿]').hasMatch(_ctrl.text[cursor])) continue;
+      if (cursor < _ctrl.text.length &&
+          RegExp('[\\w一-鿿]').hasMatch(_ctrl.text[cursor])) {
+        continue;
+      }
       _ctrl.value = TextEditingValue(
         text: _ctrl.text.replaceRange(start, cursor, ''),
         selection: TextSelection.collapsed(offset: start),
@@ -234,7 +262,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   }
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
     final key = event.logicalKey;
 
     // While an IME composition is open, every key belongs to the IME (candidate navigation included).
@@ -245,7 +275,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     // 真机:「回车没有发送」根因). IME 合成期按键全归 IME;判据=有效且**非塌缩**(显式拼写——本 SDK 的
     // isComposingRangeValid 同样不排塌缩,实测探明):塌缩 composing=无活动合成。
     final composing = _ctrl.value.composing;
-    if (composing.isValid && !composing.isCollapsed) return KeyEventResult.ignored;
+    if (composing.isValid && !composing.isCollapsed) {
+      return KeyEventResult.ignored;
+    }
 
     // ── the open picker owns its keys (combobox standard; focus stays here) 面板开着时按键归它 ──
     if (_pickerOpen && _candidates.isNotEmpty) {
@@ -254,7 +286,10 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
         return KeyEventResult.handled;
       }
       if (key == LogicalKeyboardKey.arrowUp) {
-        setState(() => _activeIndex = (_activeIndex - 1 + _candidates.length) % _candidates.length);
+        setState(
+          () => _activeIndex =
+              (_activeIndex - 1 + _candidates.length) % _candidates.length,
+        );
         return KeyEventResult.handled;
       }
       if (key == LogicalKeyboardKey.enter ||
@@ -275,18 +310,23 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       return KeyEventResult.ignored;
     }
 
-    if (key != LogicalKeyboardKey.enter && key != LogicalKeyboardKey.numpadEnter) {
+    if (key != LogicalKeyboardKey.enter &&
+        key != LogicalKeyboardKey.numpadEnter) {
       return KeyEventResult.ignored;
     }
     if (event is! KeyDownEvent) return KeyEventResult.ignored;
-    if (HardwareKeyboard.instance.isShiftPressed) return KeyEventResult.ignored; // newline 换行
+    if (HardwareKeyboard.instance.isShiftPressed) {
+      return KeyEventResult.ignored; // newline 换行
+    }
     // The send-key preference (S1 对话面板): `enter` (default) = bare Enter sends; `cmdEnter` =
     // Enter inserts a newline, only ⌘Enter (Ctrl on non-mac) sends. IME-composing guard stays
     // upstream either way. 发送键偏好:enter=裸回车发;cmdEnter=回车换行、仅 ⌘Enter 发。
     final wantsCmd =
-        ref.read(settingsPrefsProvider).getString(SettingsKeys.chatSendKey) == 'cmdEnter';
+        ref.read(settingsPrefsProvider).getString(SettingsKeys.chatSendKey) ==
+        'cmdEnter';
     final cmdHeld =
-        HardwareKeyboard.instance.isMetaPressed || HardwareKeyboard.instance.isControlPressed;
+        HardwareKeyboard.instance.isMetaPressed ||
+        HardwareKeyboard.instance.isControlPressed;
     if (wantsCmd && !cmdHeld) return KeyEventResult.ignored; // newline 换行
     // While generating the send affordance is a STOP button — the keyboard path must agree: swallow
     // (never a concurrent turn), don't insert a newline either. 生成中键盘同 UI:吞掉、不发也不换行。
@@ -297,12 +337,17 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
 
   // ── attachments: three intakes, one funnel 附件三入口一漏斗 ──
 
-  PendingAttachments get _att => ref.read(pendingAttachmentsProvider(_draftKey).notifier);
+  PendingAttachments get _att =>
+      ref.read(pendingAttachmentsProvider(_draftKey).notifier);
 
   Future<void> _pickFiles() async {
     final files = await openFiles();
     for (final f in files) {
-      await _att.addBytes(await f.readAsBytes(), filename: f.name, mimeType: f.mimeType);
+      await _att.addBytes(
+        await f.readAsBytes(),
+        filename: f.name,
+        mimeType: f.mimeType,
+      );
     }
   }
 
@@ -321,11 +366,20 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       }
       final image = await Pasteboard.image;
       if (image != null && image.isNotEmpty) {
-        final stamp = DateTime.now().toIso8601String().replaceAll(RegExp(r'[:.]'), '-');
-        await _att.addBytes(image, filename: 'pasted-image-$stamp.png', mimeType: 'image/png');
+        final stamp = DateTime.now().toIso8601String().replaceAll(
+          RegExp(r'[:.]'),
+          '-',
+        );
+        await _att.addBytes(
+          image,
+          filename: 'pasted-image-$stamp.png',
+          mimeType: 'image/png',
+        );
         return;
       }
-    } catch (_) {/* clipboard read failed — fall through to text 剪贴板读失败,走文本 */}
+    } catch (_) {
+      /* clipboard read failed — fall through to text 剪贴板读失败,走文本 */
+    }
     fallthrough();
   }
 
@@ -333,8 +387,10 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   /// Boundary-checked like the tint (`_tokenAt`) and the atomic backspace — a bare `contains` shipped
   /// a deleted pill whenever its name survived as a substring ('@alice' deleted but '@alice2' typed).
   /// 仍以 token 边界存在于文本的快照;与染色/整删同一边界规则——裸 contains 会把删掉的药丸当子串误发。
-  List<MentionSnapshot> _liveMentions(String text) =>
-      [for (final m in _picked.values) if (_liveAtBoundary(text, m.name)) m];
+  List<MentionSnapshot> _liveMentions(String text) => [
+    for (final m in _picked.values)
+      if (_liveAtBoundary(text, m.name)) m,
+  ];
 
   // EXACTLY the tint's boundary class (space/\n/\t — mention_text_controller._ws): a wider \s
   // (NBSP/\r/U+3000) shipped mentions that rendered untinted and weren't atomic-deletable.
@@ -359,7 +415,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final text = _ctrl.text.trim();
     final attachmentIds = _att.readyIds;
     if ((text.isEmpty && attachmentIds.isEmpty) || _submittingNew) return;
-    if (_att.hasUploading) return; // the button is disabled too — never send half a payload 上传中不发
+    if (_att.hasUploading) {
+      return; // the button is disabled too — never send half a payload 上传中不发
+    }
     // Don't SILENTLY drop failed attachments (M5): the send takes only readyIds and then clears everything
     // (failed chips included) — tell the user which ones didn't make it before they vanish. 失败附件不静默丢。
     final failedCount = _att.failedCount;
@@ -367,7 +425,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       ref
           .read(noticeCenterProvider.notifier)
           .show(
-            Translations.of(context).chat.attachmentsFailedDropped(n: failedCount),
+            Translations.of(
+              context,
+            ).chat.attachmentsFailedDropped(n: failedCount),
             tone: AnTone.warn,
           );
     }
@@ -402,7 +462,10 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       if (mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(Translations.of(context).chat.sendFailed, tone: AnTone.danger);
+            .show(
+              Translations.of(context).chat.sendFailed,
+              tone: AnTone.danger,
+            );
       }
     } finally {
       if (mounted) setState(() => _submittingNew = false);
@@ -412,40 +475,47 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   /// The composer chrome wrapped as the picker's ANCHOR: the portal's follower hangs the panel above
   /// the composer at full composer width. 壳作锚:follower 把面板挂 composer 上方、整 composer 宽。
   Widget _anchored(BuildContext context, Widget composer) {
-    return LayoutBuilder(builder: (context, constraints) {
-      _panelWidth = constraints.maxWidth;
-      return OverlayPortal(
-        controller: _portal,
-        overlayChildBuilder: (context) => Positioned(
-          width: _panelWidth,
-          child: CompositedTransformFollower(
-            link: _link,
-            targetAnchor: Alignment.topLeft,
-            followerAnchor: Alignment.bottomLeft,
-            offset: const Offset(0, -AnSpace.s8),
-            showWhenUnlinked: false,
-            // An outside click dismisses the panel (the combobox norm — a floating list must never
-            // outlive the user's attention); typing in the field keeps it (the field is inside the
-            // group via the target wrapper below). 点外即收(combobox 常规);输入框在组内,打字不收。
-            child: TapRegion(
-              groupId: _mentionPanelGroup,
-              onTapOutside: (_) => _closePicker(),
-              child: AnMentionPanel(
-                items: [
-                  for (final c in _candidates)
-                    AnMentionRowData(kind: c.type, name: c.name, description: c.description),
-                ],
-                activeIndex: _activeIndex,
-                onPick: _pick,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _panelWidth = constraints.maxWidth;
+        return OverlayPortal(
+          controller: _portal,
+          overlayChildBuilder: (context) => Positioned(
+            width: _panelWidth,
+            child: CompositedTransformFollower(
+              link: _link,
+              targetAnchor: Alignment.topLeft,
+              followerAnchor: Alignment.bottomLeft,
+              offset: const Offset(0, -AnSpace.s8),
+              showWhenUnlinked: false,
+              // An outside click dismisses the panel (the combobox norm — a floating list must never
+              // outlive the user's attention); typing in the field keeps it (the field is inside the
+              // group via the target wrapper below). 点外即收(combobox 常规);输入框在组内,打字不收。
+              child: TapRegion(
+                groupId: _mentionPanelGroup,
+                onTapOutside: (_) => _closePicker(),
+                child: AnMentionPanel(
+                  items: [
+                    for (final c in _candidates)
+                      AnMentionRowData(
+                        kind: c.type,
+                        name: c.name,
+                        description: c.description,
+                      ),
+                  ],
+                  activeIndex: _activeIndex,
+                  onPick: _pick,
+                ),
               ),
             ),
           ),
-        ),
-        child: CompositedTransformTarget(
+          child: CompositedTransformTarget(
             link: _link,
-            child: TapRegion(groupId: _mentionPanelGroup, child: composer)),
-      );
-    });
+            child: TapRegion(groupId: _mentionPanelGroup, child: composer),
+          ),
+        );
+      },
+    );
   }
 
   // md tier (28 box / 16 glyph) — the accessory buttons retreat to «inline neighbours» of the 15
@@ -453,11 +523,19 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   // over the 15 body read heavy). md 档(28 盒/16 形):配件钮退成正文的「行内邻居」(样机比选定 28,
   // 旧 lg 档 32 盒/20 形对 15 正文偏重).
   List<Widget> _lead(Translations t) => [
-        AnButton.iconOnly(AnIcons.mention,
-            size: AnButtonSize.md, semanticLabel: t.chat.mentionEntity, onPressed: _insertMentionTrigger),
-        AnButton.iconOnly(AnIcons.attach,
-            size: AnButtonSize.md, semanticLabel: t.chat.attachFile, onPressed: _pickFiles),
-      ];
+    AnButton.iconOnly(
+      AnIcons.mention,
+      size: AnButtonSize.md,
+      semanticLabel: t.chat.mentionEntity,
+      onPressed: _insertMentionTrigger,
+    ),
+    AnButton.iconOnly(
+      AnIcons.attach,
+      size: AnButtonSize.md,
+      semanticLabel: t.chat.attachFile,
+      onPressed: _pickFiles,
+    ),
+  ];
 
   /// The send/stop affordance — a FILLED ink circle (primary + round), the modern chat idiom, still
   /// monochrome per the product's no-decorative-hue rule. Same md tier as [_lead] (the single-row
@@ -465,18 +543,28 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   /// circle carries weight through its FILL, not its size (WRK-070 §A#2:28 圆+16 箭头).
   /// send/stop=实心墨圆(primary+round,现代聊天惯例、仍单色);与 lead 同 md 档(单行高取子件 max,异档
   /// 会首键撑高药丸);发送重量靠主色填充、不靠个头。
-  Widget _trailingButton({required Key key, required IconData icon, required String label, required VoidCallback onPressed}) =>
-      AnButton.iconOnly(icon,
-          key: key,
-          variant: AnButtonVariant.primary,
-          round: true,
-          size: AnButtonSize.md,
-          semanticLabel: label,
-          onPressed: onPressed);
+  Widget _trailingButton({
+    required Key key,
+    required IconData icon,
+    required String label,
+    required VoidCallback onPressed,
+  }) => AnButton.iconOnly(
+    icon,
+    key: key,
+    variant: AnButtonVariant.primary,
+    round: true,
+    size: AnButtonSize.md,
+    semanticLabel: label,
+    onPressed: onPressed,
+  );
 
   /// The pending strip for [AnComposer.attachments] — null when empty (presence flips pill→card).
   /// 待发条(空=null,有即触发形变)。
-  Widget? _attachmentStrip(BuildContext context, Translations t, List<PendingAttachment> pending) {
+  Widget? _attachmentStrip(
+    BuildContext context,
+    Translations t,
+    List<PendingAttachment> pending,
+  ) {
     if (pending.isEmpty) return null;
     return Wrap(
       spacing: AnSpace.s6,
@@ -505,9 +593,15 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                 // Unreadable-at-intake failures kept no bytes — they are NOT retryable; only upload
                 // failures (bytes in hand) offer the tap-to-retry. 入口不可读的失败无字节、不可重试;
                 // 仅上传失败(字节在手)给「点按重试」。
-                'failed' => a.bytes != null ? t.attach.failedRetry : t.attach.failedUnreadable,
+                'failed' =>
+                  a.bytes != null
+                      ? t.attach.failedRetry
+                      : t.attach.failedUnreadable,
                 _ => attachmentMetaLine(
-                    filename: a.filename, mimeType: a.mimeType, sizeBytes: a.sizeBytes),
+                  filename: a.filename,
+                  mimeType: a.mimeType,
+                  sizeBytes: a.sizeBytes,
+                ),
               },
               uploading: a.status == 'uploading',
               failed: a.status == 'failed',
@@ -523,9 +617,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   /// paste (Action.overridable — EditableText registers its paste as overridable; [callingAction] is
   /// that default). 拦粘贴:文件→位图→放行默认文本(Action.overridable 机制)。
   Widget _pasteInterceptor(Widget child) => Actions(
-        actions: {PasteTextIntent: _ComposerPasteAction(this)},
-        child: child,
-      );
+    actions: {PasteTextIntent: _ComposerPasteAction(this)},
+    child: child,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -537,18 +631,24 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     if (id == null) {
       return _anchored(
         context,
-        _pasteInterceptor(AnComposer(
-          controller: _ctrl,
-          focusNode: _focus,
-          placeholder: t.chat.placeholder,
-          floating: widget._floating,
-          lead: _lead(t),
-          attachments: _attachmentStrip(context, t, pending),
-          trailing: (_hasText || ready) && !uploading && !_submittingNew
-              ? _trailingButton(
-                  key: const ValueKey('send'), icon: AnIcons.send, label: t.chat.send, onPressed: _send)
-              : null,
-        )),
+        _pasteInterceptor(
+          AnComposer(
+            controller: _ctrl,
+            focusNode: _focus,
+            placeholder: t.chat.placeholder,
+            floating: widget._floating,
+            lead: _lead(t),
+            attachments: _attachmentStrip(context, t, pending),
+            trailing: (_hasText || ready) && !uploading && !_submittingNew
+                ? _trailingButton(
+                    key: const ValueKey('send'),
+                    icon: AnIcons.send,
+                    label: t.chat.send,
+                    onPressed: _send,
+                  )
+                : null,
+          ),
+        ),
       );
     }
     // Docked: the send↔stop morph follows the live pipeline (re-read the listenable each build — it is
@@ -563,21 +663,28 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                 key: const ValueKey('stop'),
                 icon: AnIcons.stop,
                 label: t.chat.stop,
-                onPressed: () => ctl.cancelTurn())
+                onPressed: () => ctl.cancelTurn(),
+              )
             : (_hasText || ready) && !uploading
-                ? _trailingButton(
-                    key: const ValueKey('send'), icon: AnIcons.send, label: t.chat.send, onPressed: _send)
-                : null;
+            ? _trailingButton(
+                key: const ValueKey('send'),
+                icon: AnIcons.send,
+                label: t.chat.send,
+                onPressed: _send,
+              )
+            : null;
         return _anchored(
           context,
-          _pasteInterceptor(AnComposer(
-            controller: _ctrl,
-            focusNode: _focus,
-            placeholder: t.chat.placeholder,
-            lead: _lead(t),
-            attachments: _attachmentStrip(context, t, pending),
-            trailing: trailing,
-          )),
+          _pasteInterceptor(
+            AnComposer(
+              controller: _ctrl,
+              focusNode: _focus,
+              placeholder: t.chat.placeholder,
+              lead: _lead(t),
+              attachments: _attachmentStrip(context, t, pending),
+              trailing: trailing,
+            ),
+          ),
         );
       },
     );

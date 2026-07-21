@@ -32,47 +32,72 @@ class FunctionStageBody extends ConsumerWidget {
     final t = Translations.of(context);
     final session = scene.session;
     final editId = scene.editTargetId;
-    final truth = editId == null ? null : ref.watch(functionTruthProvider(editId));
+    final truth = editId == null
+        ? null
+        : ref.watch(functionTruthProvider(editId));
     final oldCode = truth?.asData?.value.activeVersion?.code ?? '';
     final oldVersion = truth?.asData?.value.activeVersion?.version;
 
     final code = session.liveStringNamed('code') ?? '';
     final ops = session.arrayItemsAt(['ops']);
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      // The old-truth stratum — only while LIVE editing (the settle's diff badge takes over). 旧地层。
-      if (scene.live && oldCode.isNotEmpty) ...[
-        AnLayerDiff(
-          oldText: oldCode,
-          versionLabel: oldVersion == null ? t.chat.stage.beforeEdit : 'v$oldVersion · ${t.chat.stage.beforeEdit}',
-        ),
-        const SizedBox(height: AnSpace.s6),
-      ],
-      if (ops.isNotEmpty) ...[
-        // 假想框律:op ticker(裸 chips)归假想框(X=8);其下 AnCodeEditor(真框)贴 X=0。The imaginary-frame
-        // law: the op ticker (bare chips) joins the frame (X=8); the code editor (a real frame) below stays at X=0.
-        stageFramed(_OpTicker(ops: ops, live: scene.live)),
-        const SizedBox(height: AnSpace.s6),
-      ],
-      if (code.isNotEmpty) ...[
-        // ONE shell, two faces (A-020): live pins the SAME bounded viewport to the newest line; the
-        // settle only un-pins — zero jump. Failed keeps the draft readable in the same shell.
-        // 两脸一壳(A-020):live 同视口钉底,落定仅解除钉底、零跳变;失败残稿同壳可读。
-        AnCodeEditor(code: code, lang: 'python', reading: true, live: scene.live, maxHeight: AnSize.codeViewport),
-        if (!scene.live && !scene.failed) ...[
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // The old-truth stratum — only while LIVE editing (the settle's diff badge takes over). 旧地层。
+        if (scene.live && oldCode.isNotEmpty) ...[
+          AnLayerDiff(
+            oldText: oldCode,
+            versionLabel: oldVersion == null
+                ? t.chat.stage.beforeEdit
+                : 'v$oldVersion · ${t.chat.stage.beforeEdit}',
+          ),
           const SizedBox(height: AnSpace.s6),
-          // The +n/−m counts join the ONE stat bar (条族规则③:stat 链唯一实现)。计数并入当家条。
-          runStatBarOf(context, scene.state, extraStats: oldCode.isEmpty ? const [] : _diffStats(oldCode, code)),
         ],
+        if (ops.isNotEmpty) ...[
+          // 假想框律:op ticker(裸 chips)归假想框(X=8);其下 AnCodeEditor(真框)贴 X=0。The imaginary-frame
+          // law: the op ticker (bare chips) joins the frame (X=8); the code editor (a real frame) below stays at X=0.
+          stageFramed(_OpTicker(ops: ops, live: scene.live)),
+          const SizedBox(height: AnSpace.s6),
+        ],
+        if (code.isNotEmpty) ...[
+          // ONE shell, two faces (A-020): live pins the SAME bounded viewport to the newest line; the
+          // settle only un-pins — zero jump. Failed keeps the draft readable in the same shell.
+          // 两脸一壳(A-020):live 同视口钉底,落定仅解除钉底、零跳变;失败残稿同壳可读。
+          AnCodeEditor(
+            code: code,
+            lang: 'python',
+            reading: true,
+            live: scene.live,
+            maxHeight: AnSize.codeViewport,
+          ),
+          if (!scene.live && !scene.failed) ...[
+            const SizedBox(height: AnSpace.s6),
+            // The +n/−m counts join the ONE stat bar (条族规则③:stat 链唯一实现)。计数并入当家条。
+            runStatBarOf(
+              context,
+              scene.state,
+              extraStats: oldCode.isEmpty
+                  ? const []
+                  : _diffStats(oldCode, code),
+            ),
+          ],
+        ],
+        ..._signaturePills(context, c, session),
+        if (!scene.live && !scene.failed && code.isEmpty)
+          runStatBarOf(context, scene.state),
       ],
-      ..._signaturePills(context, c, session),
-      if (!scene.live && !scene.failed && code.isEmpty) runStatBarOf(context, scene.state),
-    ]);
+    );
   }
 
   // set_inputs / set_outputs / set_dependencies — closed values light up as pills (R-4 neutral live).
   // 签名药丸/依赖芯片:闭合即亮(live 中性)。
-  List<Widget> _signaturePills(BuildContext context, AnColors c, dynamic session) {
+  List<Widget> _signaturePills(
+    BuildContext context,
+    AnColors c,
+    dynamic session,
+  ) {
     final chips = <Widget>[];
     for (final raw in session.arrayItemsAt(['ops'])) {
       if (raw is! Map) continue;
@@ -83,7 +108,12 @@ class FunctionStageBody extends ConsumerWidget {
             for (final f in fields.whereType<Map>()) {
               final name = f['name'];
               if (name is String && name.isNotEmpty) {
-                chips.add(AnChip('${raw['op'] == 'set_inputs' ? '→' : '←'} $name', tone: AnTone.none));
+                chips.add(
+                  AnChip(
+                    '${raw['op'] == 'set_inputs' ? '→' : '←'} $name',
+                    tone: AnTone.none,
+                  ),
+                );
               }
             }
           }
@@ -101,7 +131,9 @@ class FunctionStageBody extends ConsumerWidget {
     // dependency chips (bare chips) join the frame (X=8).
     return [
       const SizedBox(height: AnSpace.s6),
-      stageFramed(Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: chips)),
+      stageFramed(
+        Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: chips),
+      ),
     ];
   }
 }
@@ -117,21 +149,29 @@ class _OpTicker extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
-      // Family chip, TWO faces in the SAME construction (zero jump): the typed dot slot is present
-      // on both — live hollow neutral, settled solid ok; only the fill flips. 族芯片双脸同构零跳变:
-      // dot 槽两脸恒在,live 空心中性/落定实心 ok,只翻填充。
-      for (final raw in ops)
-        if (raw is Map && raw['op'] is String)
-          AnChip(
-            '${raw['op']}',
-            look: AnChipLook.outlined,
-            mono: true,
-            dot: live
-                ? const AnStatusDot.raw(null, hollow: true, size: AnSize.dotSm)
-                : AnStatusDot.raw(c.ok, size: AnSize.dotSm),
-          ),
-    ]);
+    return Wrap(
+      spacing: AnSpace.s4,
+      runSpacing: AnSpace.s4,
+      children: [
+        // Family chip, TWO faces in the SAME construction (zero jump): the typed dot slot is present
+        // on both — live hollow neutral, settled solid ok; only the fill flips. 族芯片双脸同构零跳变:
+        // dot 槽两脸恒在,live 空心中性/落定实心 ok,只翻填充。
+        for (final raw in ops)
+          if (raw is Map && raw['op'] is String)
+            AnChip(
+              '${raw['op']}',
+              look: AnChipLook.outlined,
+              mono: true,
+              dot: live
+                  ? const AnStatusDot.raw(
+                      null,
+                      hollow: true,
+                      size: AnSize.dotSm,
+                    )
+                  : AnStatusDot.raw(c.ok, size: AnSize.dotSm),
+            ),
+      ],
+    );
   }
 }
 

@@ -36,9 +36,9 @@ class StreamScope {
   String get key => '$kind:$id';
 
   factory StreamScope.fromJson(Map<String, dynamic> json) => StreamScope(
-        kind: json['kind'] as String? ?? '',
-        id: json['id'] as String? ?? '',
-      );
+    kind: json['kind'] as String? ?? '',
+    id: json['id'] as String? ?? '',
+  );
 
   @override
   bool operator ==(Object other) =>
@@ -68,9 +68,9 @@ class StreamNode {
   final Map<String, dynamic>? content;
 
   factory StreamNode.fromJson(Map<String, dynamic> json) => StreamNode(
-        type: json['type'] as String? ?? '',
-        content: json['content'] as Map<String, dynamic>?,
-      );
+    type: json['type'] as String? ?? '',
+    content: json['content'] as Map<String, dynamic>?,
+  );
 
   @override
   String toString() => 'StreamNode($type)';
@@ -92,7 +92,8 @@ sealed class StreamFrame {
         return FrameOpen(
           parentId: json['parentId'] as String?,
           node: StreamNode.fromJson(
-              (json['node'] as Map<String, dynamic>?) ?? const {}),
+            (json['node'] as Map<String, dynamic>?) ?? const {},
+          ),
         );
       case 'delta':
         return FrameDelta(chunk: json['chunk'] as String? ?? '');
@@ -106,7 +107,8 @@ sealed class StreamFrame {
       case 'signal':
         return FrameSignal(
           node: StreamNode.fromJson(
-              (json['node'] as Map<String, dynamic>?) ?? const {}),
+            (json['node'] as Map<String, dynamic>?) ?? const {},
+          ),
         );
       default:
         // Forward-compat: an unknown verb degrades to a no-op signal rather than
@@ -194,11 +196,13 @@ class StreamEnvelope {
   bool get durable => seq > 0;
 
   factory StreamEnvelope.fromJson(Map<String, dynamic> json) => StreamEnvelope(
-        seq: (json['seq'] as num?)?.toInt() ?? 0,
-        scope:
-            StreamScope.fromJson((json['scope'] as Map<String, dynamic>?) ?? const {}),
-        id: json['id'] as String? ?? '',
-        frame: StreamFrame.fromJson(
-            (json['frame'] as Map<String, dynamic>?) ?? const {}),
-      );
+    seq: (json['seq'] as num?)?.toInt() ?? 0,
+    scope: StreamScope.fromJson(
+      (json['scope'] as Map<String, dynamic>?) ?? const {},
+    ),
+    id: json['id'] as String? ?? '',
+    frame: StreamFrame.fromJson(
+      (json['frame'] as Map<String, dynamic>?) ?? const {},
+    ),
+  );
 }

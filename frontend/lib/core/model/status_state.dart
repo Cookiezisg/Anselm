@@ -31,23 +31,26 @@ enum AnStatus {
   /// The semantic tone this state maps to (idle is neutral → [AnTone.none]).
   /// 该态映射的语义 tone(idle 中性 → none)。
   AnTone get tone => switch (this) {
-        AnStatus.err => AnTone.danger,
-        AnStatus.wait => AnTone.warn,
-        AnStatus.done => AnTone.ok,
-        AnStatus.run => AnTone.accent,
-        AnStatus.idle => AnTone.none,
-      };
+    AnStatus.err => AnTone.danger,
+    AnStatus.wait => AnTone.warn,
+    AnStatus.done => AnTone.ok,
+    AnStatus.run => AnTone.accent,
+    AnStatus.idle => AnTone.none,
+  };
 
   // Domain status string → universal state (the demo's STATE_MODEL.ALIAS). 域状态 → 通用态。
   static const Map<String, AnStatus> _alias = {
     'running': AnStatus.run,
-    'crashed': AnStatus.err, // handler runtime — a dead resident process (events.md handler.crashed)
+    'crashed': AnStatus
+        .err, // handler runtime — a dead resident process (events.md handler.crashed)
     'stopped': AnStatus.idle,
     'completed': AnStatus.done,
     'failed': AnStatus.err,
-    'ready': AnStatus.done, // env/config ready (function envStatus, handler configState)
+    'ready': AnStatus
+        .done, // env/config ready (function envStatus, handler configState)
     'syncing': AnStatus.run, // function env materializing
-    'partially_configured': AnStatus.wait, // handler missing some required config
+    'partially_configured':
+        AnStatus.wait, // handler missing some required config
     'unconfigured': AnStatus.idle,
     'cancelled': AnStatus.idle,
     'parked': AnStatus.wait,
@@ -56,13 +59,16 @@ enum AnStatus {
     'draining': AnStatus.wait,
     'listening': AnStatus.run,
     'fired': AnStatus.done,
-    'started': AnStatus.done, // trigger firing terminal-ok (trigger.md — a fired run that launched)
+    'started': AnStatus
+        .done, // trigger firing terminal-ok (trigger.md — a fired run that launched)
     'pending': AnStatus.wait,
     'waiting': AnStatus.wait,
-    'claimed': AnStatus.wait, // trigger firing in-flight (claim-transaction transient)
+    'claimed':
+        AnStatus.wait, // trigger firing in-flight (claim-transaction transient)
     'ok': AnStatus.done,
     'error': AnStatus.err,
-    'timeout': AnStatus.err, // exec/call Log-table failure terminal (CHECK lists it beside failed/cancelled)
+    'timeout': AnStatus
+        .err, // exec/call Log-table failure terminal (CHECK lists it beside failed/cancelled)
     'future': AnStatus.idle,
     // Trigger firing bypass dispositions — NEUTRAL non-executions, never red (a skipped debounce or a
     // superseded fire is bookkeeping, not an error; WRK-069 状态学「未执行」桶). `missed` (工单⑨) is the

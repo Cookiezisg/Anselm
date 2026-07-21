@@ -7,42 +7,79 @@ import 'package:flutter_test/flutter_test.dart';
 // subtree), id generation for id-less blocks, settled status. 转写水合适配器纯单测。
 
 void main() {
-  test('text/reasoning/tool_call/tool_result map to the right BlockNode content', () {
-    final roots = hydrateTranscriptTree([
-      {'type': 'reasoning', 'content': 'thinking about it', 'status': 'completed'},
-      {'type': 'text', 'content': 'here is the plan', 'status': 'completed'},
-      {'id': 'tc_1', 'type': 'tool_call', 'content': '{"path":"/x"}', 'attrs': {'tool': 'Write', 'summary': 'writing', 'danger': 'dangerous'}, 'status': 'completed'},
-      {'id': 'tr_1', 'parentBlockId': 'tc_1', 'type': 'tool_result', 'content': 'wrote 12 lines', 'status': 'completed'},
-    ]);
-    // reasoning, text, tool_call are top-level; tool_result nests under tool_call. reasoning/text/tool_call 顶层,tool_result 嵌套。
-    expect(roots.length, 3);
-    expect(roots[0].kind, BlockKind.reasoning);
-    expect(roots[0].displayText, 'thinking about it');
-    expect(roots[1].kind, BlockKind.text);
-    expect(roots[1].displayText, 'here is the plan');
-    final call = roots[2];
-    expect(call.kind, BlockKind.toolCall);
-    expect(call.name, 'Write'); // from attrs['tool']
-    expect(call.argumentsText, '{"path":"/x"}'); // from content
-    expect(call.summary, 'writing');
-    expect(call.danger, 'dangerous');
-    // The tool_result nests under the tool_call (E3). tool_result 挂 tool_call 之下。
-    expect(call.children.length, 1);
-    expect(call.children[0].kind, BlockKind.toolResult);
-    expect(call.children[0].displayText, 'wrote 12 lines');
-  });
+  test(
+    'text/reasoning/tool_call/tool_result map to the right BlockNode content',
+    () {
+      final roots = hydrateTranscriptTree([
+        {
+          'type': 'reasoning',
+          'content': 'thinking about it',
+          'status': 'completed',
+        },
+        {'type': 'text', 'content': 'here is the plan', 'status': 'completed'},
+        {
+          'id': 'tc_1',
+          'type': 'tool_call',
+          'content': '{"path":"/x"}',
+          'attrs': {
+            'tool': 'Write',
+            'summary': 'writing',
+            'danger': 'dangerous',
+          },
+          'status': 'completed',
+        },
+        {
+          'id': 'tr_1',
+          'parentBlockId': 'tc_1',
+          'type': 'tool_result',
+          'content': 'wrote 12 lines',
+          'status': 'completed',
+        },
+      ]);
+      // reasoning, text, tool_call are top-level; tool_result nests under tool_call. reasoning/text/tool_call 顶层,tool_result 嵌套。
+      expect(roots.length, 3);
+      expect(roots[0].kind, BlockKind.reasoning);
+      expect(roots[0].displayText, 'thinking about it');
+      expect(roots[1].kind, BlockKind.text);
+      expect(roots[1].displayText, 'here is the plan');
+      final call = roots[2];
+      expect(call.kind, BlockKind.toolCall);
+      expect(call.name, 'Write'); // from attrs['tool']
+      expect(call.argumentsText, '{"path":"/x"}'); // from content
+      expect(call.summary, 'writing');
+      expect(call.danger, 'dangerous');
+      // The tool_result nests under the tool_call (E3). tool_result 挂 tool_call 之下。
+      expect(call.children.length, 1);
+      expect(call.children[0].kind, BlockKind.toolResult);
+      expect(call.children[0].displayText, 'wrote 12 lines');
+    },
+  );
 
-  test('progress block hydrates its text under `text` (not `content`) — renders on replay', () {
-    // A stored progress block's content is a raw string; the adapter must map it to `text` (matching the
-    // live close snapshot + displayText's fallback) so a replayed progress row is never empty. V5-A.
-    final roots = hydrateTranscriptTree([
-      {'id': 'tc', 'type': 'tool_call', 'content': '{}', 'attrs': {'tool': 'Bash'}},
-      {'id': 'pg', 'parentBlockId': 'tc', 'type': 'progress', 'content': '[1/4] installing numpy', 'status': 'completed'},
-    ]);
-    final progress = roots.single.children.single;
-    expect(progress.kind, BlockKind.progress);
-    expect(progress.displayText, '[1/4] installing numpy'); // not empty
-  });
+  test(
+    'progress block hydrates its text under `text` (not `content`) — renders on replay',
+    () {
+      // A stored progress block's content is a raw string; the adapter must map it to `text` (matching the
+      // live close snapshot + displayText's fallback) so a replayed progress row is never empty. V5-A.
+      final roots = hydrateTranscriptTree([
+        {
+          'id': 'tc',
+          'type': 'tool_call',
+          'content': '{}',
+          'attrs': {'tool': 'Bash'},
+        },
+        {
+          'id': 'pg',
+          'parentBlockId': 'tc',
+          'type': 'progress',
+          'content': '[1/4] installing numpy',
+          'status': 'completed',
+        },
+      ]);
+      final progress = roots.single.children.single;
+      expect(progress.kind, BlockKind.progress);
+      expect(progress.displayText, '[1/4] installing numpy'); // not empty
+    },
+  );
 
   test('every block settles (status completed), never stuck open', () {
     final roots = hydrateTranscriptTree([
@@ -64,36 +101,80 @@ void main() {
     expect(roots.map((r) => r.displayText).toList(), ['a', 'b', 'c']);
   });
 
-  test('a nested subagent subtree (E3): a tool_call whose result holds child blocks', () {
-    // invoke_agent's inner blocks nest under the tool_call via parentBlockId — the reload path. E3 嵌套。
-    final roots = hydrateTranscriptTree([
-      {'id': 'tc_sub', 'type': 'tool_call', 'content': '{"agentId":"ag_1"}', 'attrs': {'tool': 'invoke_agent'}},
-      {'id': 'sub_reason', 'parentBlockId': 'tc_sub', 'type': 'reasoning', 'content': 'inner thought'},
-      {'id': 'sub_text', 'parentBlockId': 'tc_sub', 'type': 'text', 'content': 'inner answer'},
-    ]);
-    expect(roots.length, 1);
-    expect(roots[0].children.length, 2);
-    expect(roots[0].children[0].displayText, 'inner thought');
-    expect(roots[0].children[1].displayText, 'inner answer');
-  });
+  test(
+    'a nested subagent subtree (E3): a tool_call whose result holds child blocks',
+    () {
+      // invoke_agent's inner blocks nest under the tool_call via parentBlockId — the reload path. E3 嵌套。
+      final roots = hydrateTranscriptTree([
+        {
+          'id': 'tc_sub',
+          'type': 'tool_call',
+          'content': '{"agentId":"ag_1"}',
+          'attrs': {'tool': 'invoke_agent'},
+        },
+        {
+          'id': 'sub_reason',
+          'parentBlockId': 'tc_sub',
+          'type': 'reasoning',
+          'content': 'inner thought',
+        },
+        {
+          'id': 'sub_text',
+          'parentBlockId': 'tc_sub',
+          'type': 'text',
+          'content': 'inner answer',
+        },
+      ]);
+      expect(roots.length, 1);
+      expect(roots[0].children.length, 2);
+      expect(roots[0].children[0].displayText, 'inner thought');
+      expect(roots[0].children[1].displayText, 'inner answer');
+    },
+  );
 
   test('empty transcript → empty roots (honest absence, no crash)', () {
     expect(hydrateTranscriptTree([]).isEmpty, isTrue);
     expect(hydrateTranscriptTree(['not a map', 42]).isEmpty, isTrue);
   });
 
-  test('get_subagent_trace blockView shape: blockId (not id) + top-level tool key nest + label correctly', () {
-    // The leaner trace projection uses `blockId` and a top-level `tool` (no `attrs`) — children must
-    // STILL nest (not orphan on a synthetic id) and tool_call rows must carry the name. 精简 blockView 也要正确。
-    final roots = hydrateTranscriptTree([
-      {'blockId': 'tc_1', 'type': 'tool_call', 'content': '{"pattern":"x"}', 'tool': 'Grep', 'status': 'completed'},
-      {'blockId': 'tr_1', 'parentBlockId': 'tc_1', 'type': 'tool_result', 'content': '3 matches', 'status': 'completed'},
-      {'blockId': 'txt_1', 'type': 'text', 'content': 'done', 'status': 'completed'},
-    ]);
-    expect(roots.length, 2); // tool_call + text at top level; tool_result NESTS (does not orphan to root)
-    expect(roots[0].name, 'Grep'); // name from the top-level `tool` key
-    expect(roots[0].children.length, 1); // the tool_result nested under it (blockId parent lookup worked)
-    expect(roots[0].children[0].displayText, '3 matches');
-    expect(roots[1].displayText, 'done');
-  });
+  test(
+    'get_subagent_trace blockView shape: blockId (not id) + top-level tool key nest + label correctly',
+    () {
+      // The leaner trace projection uses `blockId` and a top-level `tool` (no `attrs`) — children must
+      // STILL nest (not orphan on a synthetic id) and tool_call rows must carry the name. 精简 blockView 也要正确。
+      final roots = hydrateTranscriptTree([
+        {
+          'blockId': 'tc_1',
+          'type': 'tool_call',
+          'content': '{"pattern":"x"}',
+          'tool': 'Grep',
+          'status': 'completed',
+        },
+        {
+          'blockId': 'tr_1',
+          'parentBlockId': 'tc_1',
+          'type': 'tool_result',
+          'content': '3 matches',
+          'status': 'completed',
+        },
+        {
+          'blockId': 'txt_1',
+          'type': 'text',
+          'content': 'done',
+          'status': 'completed',
+        },
+      ]);
+      expect(
+        roots.length,
+        2,
+      ); // tool_call + text at top level; tool_result NESTS (does not orphan to root)
+      expect(roots[0].name, 'Grep'); // name from the top-level `tool` key
+      expect(
+        roots[0].children.length,
+        1,
+      ); // the tool_result nested under it (blockId parent lookup worked)
+      expect(roots[0].children[0].displayText, '3 matches');
+      expect(roots[1].displayText, 'done');
+    },
+  );
 }

@@ -55,14 +55,14 @@ audience: [human, ai]
 - **composer 接线**(`chat_composer.dart`):Enter 发 / Shift+Enter 换行 / IME composing 守卫 / 生成中 Enter 吞;docked 态随 `hasInFlight` 在 send↔stop 间切;草稿 per-thread(`chatDraftsProvider`,成功即清);landing 失败留文本 + toast。
 - **landing + New 懒建**:无选区 → `_ChatLanding`(**静态问候 h2/主墨/一次淡入上移**——三家[ChatGPT/Claude/Gemini]皆无打字机,流式隐喻留给回答;组锚 40% 高度)+ 浮起 composer;首句 `startConversation`(POST 空题会话 → **landing 选了模型则 PATCH modelOverride 先于首条消息盖章**[建会话只收 title、PATCH 唯一路径]→ 新 controller 发送,keepAlive 跨导航持住)→ `context.go` 进线程;rail 行由 notifications `created` 信号长出。
 - **浮层头**(`chat_head.dart` + `conversation_header.dart`)**两态**:landing=模型菜单独占最左(选择粘性 `landingModelProvider`,首发盖章);线程=**只读紧凑标题**(1:1 其他海洋浮层头 `OceanBreadcrumb` 的 12/w400/inkMuted chrome 档,**非**可编辑——改名走左岛 rail 的 ⋯→改名,同一 PATCH;`min` 收紧仍在,壳给 head tight 槽故不受影响)+ 紧跟其右的**模型菜单**(`alignEnd:false` 右下展开——AnMenu 默认 end 会向左;`GET /model-capabilities`;Auto=清覆写走 workspace 对话默认;PATCH `modelOverride` 三态);**无生成中蓝点**(状态点归左岛 rail 唯一处,头不重复)。**场次/大纲导航钮 `TranscriptToc` 不在头内容里**——移到壳的 `AnShell.headTrailing` 槽(`app_shell.dart` 喂入),紧贴右岛开关钮左侧(左 scenes、右岛屿钮,收起/展开两态皆相邻);头内容(题+模型)因此收紧靠左。**自动命名活着落**——header controller 听 lifecycleSignals(durable+本 id)静默重读,rail 行同信号重读,**完成瞬间双落、无需刷新**(真机已验)。
-- **活态点流转基建**(用户令「完整基建重做」):rail 三色点的**唯一实时通路**——后端回合终态设计上不发 notifications 事件(调研核实:所有终态路径复位干净、isGenerating/awaitingInput 为派生标志、hasUnread 持久列翻转全对;终态只在 messages 流发 message_stop)。通路 = `ChatRepository.turnSignals()`:RAW workspace 级 messages 流过**纯 O(1) 映射** `turnSignalFromEnvelope`(demux 层纪律:逐帧常数功在 plain-Dart、绝不进 build)——顶层耐久 message open→turnOpen(回声先开,蓝点最早亮)/ message close→turnClose(任意终态)/ interaction 信号→琥珀;delta/块帧/嵌套 subagent open/异 scope 全灭。list notifier 按会话 **300ms 防抖成单行重读**(DB 行是真相)`applyUpdate` 幂等折入;`markSeenLocal` 封「脉冲重读先于 :seen 落库」竞态(:seen 204 后本地压绿);messages 流 410 resync → 整列重翻;信号与读之间被删=静默(删除归生命周期信号)。demo fixture 同步发脉冲+翻行真相,`make demo` 三色点同活。真机验证:发送切走→蓝亮;完成→蓝灭绿亮;点开→绿灭。
+- **活态点流转基建**(用户令「完整基建重做」):rail 三色点的**唯一实时通路**——后端回合终态设计上不发 notifications 事件(调研核实:所有终态路径复位干净、isGenerating/awaitingInput 为派生标志、hasUnread 持久列翻转全对;终态只在 messages 流发 message_stop)。通路 = `ChatRepository.turnSignals()`:RAW workspace 级 messages 流过**纯 O(1) 映射** `turnSignalFromEnvelope`(demux 层纪律:逐帧常数功在 plain-Dart、绝不进 build)——顶层耐久 message open→turnOpen(回声先开,蓝点最早亮)/ message close→turnClose(任意终态)/ interaction 信号→琥珀;delta/块帧/嵌套 subagent open/异 scope 全灭。list notifier 按会话 **300ms 防抖成单行重读**(DB 行是真相)`applyUpdate` 幂等折入;`markSeenLocal` 封「脉冲重读先于 :seen 落库」竞态(:seen 204 后本地压绿);messages 流 410 resync → 整列重翻;信号与读之间被删=静默(删除归生命周期信号)。demo fixture 同步发脉冲+翻行真相,`make -C frontend demo` 三色点同活。真机验证:发送切走→蓝亮;完成→蓝灭绿亮;点开→绿灭。
 - **标题假流式**:新自动命名首落(title 空→非空 + `autoTitled`;改名不命中)以**一次性打字机**出现——head(播完切回只读标题,`Center(widthFactor:1)` 收紧、模型钮随打字右移)与 rail 行(`labelWidgetFor` 渲染层覆盖)同播;单一检测点在 list notifier 折入处(`titleRevealsProvider` 队列,播完出队)。地基:`AnTypewriter.onDone`(非循环打完触发一次,reduced 下一帧即触)+ `AnRow.labelWidget`/`AnSidebarList.labelWidgetFor`(label 覆盖逃生舱,模型保持纯)。demo 镜像后端钩子(首回合完成后取首行 12 字素命名)。
 - **rail 空标题回落**:未命名线程(建完未命名/命名失败)rail 行回落「New chat」(与头一词),行绝不空白(E2E 抓到的真 bug)。
-- **demo 脚本流式**:`DemoChatRepository.sendMessage` 经与真网关同一帧缝回放 回声→thinking deltas→text deltas→close(~4s),流中 Stop 落诚实 cancelled;种子会话铺满已锁模块。`make demo` 零后端全闭环。
+- **demo 脚本流式**:`DemoChatRepository.sendMessage` 经与真网关同一帧缝回放 回声→thinking deltas→text deltas→close(~4s),流中 Stop 落诚实 cancelled;种子会话铺满已锁模块。`make -C frontend demo` 零后端全闭环。
 
 ### B.2 端到端实证(2026-07-02,真后端 + 免费模型,cliclick 亲测)
 
-`make server`(:8742)+ 真 app(`ANSELM_BACKEND_URL`):workspace 冷启动自建 + **免费档自动开通**(managed key `anselm`/`deepseek-v4-flash`)→ landing 首发懒建 → **无默认模型时诚实错误横幅**(`LLM_RESOLVE_ERROR · no model configured for scenario`)→ 设 dialogue 默认后**真流式全程**(thinking 流光→流窗→thought 收起;正文 token 级贴底跟随;未闭合 markdown 乐观渲)→ **自动命名走 utility scenario**(只设 dialogue 不够——rail+head 完成瞬间活着双落)→ 流中 Stop 落 `cancelled` + 半截保留 + Stopped 横幅 → 杀 app 重启 transcript/标题/横幅全量恢复。**E2E 揪出并同切片修复 2 真 bug**:未满屏首行被浮层头盖(dock-to-min 修)· rail 空标题空白行(New chat 回落修)。
+`make -C backend run`(:8742)+ 真 app(`ANSELM_BACKEND_URL`):workspace 冷启动自建 + **免费档自动开通**(managed key `anselm`/`deepseek-v4-flash`)→ landing 首发懒建 → **无默认模型时诚实错误横幅**(`LLM_RESOLVE_ERROR · no model configured for scenario`)→ 设 dialogue 默认后**真流式全程**(thinking 流光→流窗→thought 收起;正文 token 级贴底跟随;未闭合 markdown 乐观渲)→ **自动命名走 utility scenario**(只设 dialogue 不够——rail+head 完成瞬间活着双落)→ 流中 Stop 落 `cancelled` + 半截保留 + Stopped 横幅 → 杀 app 重启 transcript/标题/横幅全量恢复。**E2E 揪出并同切片修复 2 真 bug**:未满屏首行被浮层头盖(dock-to-min 修)· rail 空标题空白行(New chat 回落修)。
 
 ### B.3 后端契约要点(后续 V3–V8 建前仍必读)
 
@@ -74,7 +74,7 @@ audience: [human, ai]
 ### B.4 🔥 流式渲染性能纪律(已落实)
 
 - **L0–L2 原语 4.0**:网关 demux · ephemeral/durable 分流 · `CoalescingNotifier`(一帧 ≤1 notify)。
-- **L3–L6 已落的等价形**:终态行身份缓存(= per-block provider 的目的:settled 零重建)· live 回合逐 tick 新建但只它一个 · `RepaintBoundary` 于行 · CustomScrollView 懒 sliver。**门禁红绿证明**:`BuildSpy` 200 帧断言 页==0 / settled 行==0 / 叶≤1/帧,入 `make fe-verify`。
+- **L3–L6 已落的等价形**:终态行身份缓存(= per-block provider 的目的:settled 零重建)· live 回合逐 tick 新建但只它一个 · `RepaintBoundary` 于行 · CustomScrollView 懒 sliver。**门禁红绿证明**:`BuildSpy` 200 帧断言 页==0 / settled 行==0 / 叶≤1/帧,入 `make -C frontend verify`。
 - **禁** A1–A6:页面 watch 整流 · 叶子不 select · 逐帧 where · 一 token 一 notify · ephemeral 灌 durable · helper 函数建行。
 
 ---

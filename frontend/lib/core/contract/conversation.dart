@@ -55,5 +55,6 @@ abstract class ModelRef with _$ModelRef {
     @Default('') String modelId,
   }) = _ModelRef;
 
-  factory ModelRef.fromJson(Map<String, dynamic> json) => _$ModelRefFromJson(json);
+  factory ModelRef.fromJson(Map<String, dynamic> json) =>
+      _$ModelRefFromJson(json);
 }

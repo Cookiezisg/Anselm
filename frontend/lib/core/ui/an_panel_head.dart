@@ -87,7 +87,9 @@ class AnPanelHead extends StatelessWidget {
                     title,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint),
+                    style: AnText.meta
+                        .weight(AnText.emphasisWeight)
+                        .copyWith(color: c.inkFaint),
                   ),
                 ),
               ),
@@ -108,10 +110,7 @@ class AnPanelHead extends StatelessWidget {
                 ),
             ],
           ),
-          if (band != null) ...[
-            const SizedBox(height: AnSpace.s6),
-            band,
-          ],
+          if (band != null) ...[const SizedBox(height: AnSpace.s6), band],
         ],
       ),
     );

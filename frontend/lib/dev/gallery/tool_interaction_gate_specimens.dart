@@ -13,7 +13,8 @@ import 'specimen.dart';
 
 const double _gateW = 560;
 
-ToolInteractionGate _danger({InteractionAction? decided}) => ToolInteractionGate(
+ToolInteractionGate _danger({InteractionAction? decided}) =>
+    ToolInteractionGate(
       kind: GateKind.danger,
       prompt: '清空构建缓存目录并重新安装依赖,好让下一次构建从干净状态开始。',
       toolName: 'Bash',
@@ -31,16 +32,15 @@ ToolInteractionGate _ask({
   bool freeText = false,
   InteractionAction? decided,
   String? answer,
-}) =>
-    ToolInteractionGate(
-      kind: GateKind.ask,
-      prompt: '这几张发票的币种不一致,汇总前你希望我按哪种本位币归一?',
-      options: options,
-      allowFreeText: freeText,
-      decided: decided,
-      decidedAnswer: answer,
-      autofocus: false,
-    );
+}) => ToolInteractionGate(
+  kind: GateKind.ask,
+  prompt: '这几张发票的币种不一致,汇总前你希望我按哪种本位币归一?',
+  options: options,
+  allowFreeText: freeText,
+  decided: decided,
+  decidedAnswer: answer,
+  autofocus: false,
+);
 
 const _options = ['人民币 CNY', '美元 USD', '欧元 EUR'];
 
@@ -49,22 +49,55 @@ final GalleryItem toolInteractionGateGalleryItem = GalleryItem(
   '全产品唯一「机器请求人类动手」形状:danger 危险确认门 + ask 提问,共用白岛壳。'
       '待决=fail-safe 钮排(消极左 ghost / 积极右 primary)+ 琥珀 wait 点;冻结=决议章(选中项定格、余淡出)。数字键 1–9 快选(仅持焦点门)。',
   [
-    GallerySpecimen('danger · 待决(危险徽 + 自报 + 证物窗 + fail-safe 钮排)',
-        (_) => _danger(), span: true, maxWidth: _gateW),
-    GallerySpecimen('danger · 冻结 · 已允许',
-        (_) => _danger(decided: InteractionAction.approve), span: true, maxWidth: _gateW),
-    GallerySpecimen('danger · 冻结 · 已拒绝',
-        (_) => _danger(decided: InteractionAction.deny), span: true, maxWidth: _gateW),
-    GallerySpecimen('ask · 活化(选项钮 + 自由文本框)',
-        (_) => _ask(options: _options, freeText: true), span: true, maxWidth: _gateW),
-    GallerySpecimen('ask · 冻结 · 选中章(余淡出)',
-        (_) => _ask(options: _options, decided: InteractionAction.accept, answer: '美元 USD'),
-        span: true, maxWidth: _gateW),
-    GallerySpecimen('ask · 冻结 · 自由答复(引用)',
-        (_) => _ask(
-            freeText: true, decided: InteractionAction.accept, answer: '按季度平均汇率归一到美元,并附一列原币种金额。'),
-        span: true, maxWidth: _gateW),
-    GallerySpecimen('ask · 冻结 · 已跳过',
-        (_) => _ask(options: _options, decided: InteractionAction.decline), span: true, maxWidth: _gateW),
+    GallerySpecimen(
+      'danger · 待决(危险徽 + 自报 + 证物窗 + fail-safe 钮排)',
+      (_) => _danger(),
+      span: true,
+      maxWidth: _gateW,
+    ),
+    GallerySpecimen(
+      'danger · 冻结 · 已允许',
+      (_) => _danger(decided: InteractionAction.approve),
+      span: true,
+      maxWidth: _gateW,
+    ),
+    GallerySpecimen(
+      'danger · 冻结 · 已拒绝',
+      (_) => _danger(decided: InteractionAction.deny),
+      span: true,
+      maxWidth: _gateW,
+    ),
+    GallerySpecimen(
+      'ask · 活化(选项钮 + 自由文本框)',
+      (_) => _ask(options: _options, freeText: true),
+      span: true,
+      maxWidth: _gateW,
+    ),
+    GallerySpecimen(
+      'ask · 冻结 · 选中章(余淡出)',
+      (_) => _ask(
+        options: _options,
+        decided: InteractionAction.accept,
+        answer: '美元 USD',
+      ),
+      span: true,
+      maxWidth: _gateW,
+    ),
+    GallerySpecimen(
+      'ask · 冻结 · 自由答复(引用)',
+      (_) => _ask(
+        freeText: true,
+        decided: InteractionAction.accept,
+        answer: '按季度平均汇率归一到美元,并附一列原币种金额。',
+      ),
+      span: true,
+      maxWidth: _gateW,
+    ),
+    GallerySpecimen(
+      'ask · 冻结 · 已跳过',
+      (_) => _ask(options: _options, decided: InteractionAction.decline),
+      span: true,
+      maxWidth: _gateW,
+    ),
   ],
 );

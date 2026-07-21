@@ -34,7 +34,8 @@ class SettingsOcean extends ConsumerStatefulWidget {
 class _SettingsOceanState extends ConsumerState<SettingsOcean> {
   final ScrollController _scroll = ScrollController();
   final GlobalKey _headerKey = GlobalKey();
-  double _threshold = AnSpace.s64; // pre-measure fallback; recomputed from the measured header height (A-102, entity/document ocean 同法) 测量前兜底,据测得头高重算
+  double _threshold = AnSpace
+      .s64; // pre-measure fallback; recomputed from the measured header height (A-102, entity/document ocean 同法) 测量前兜底,据测得头高重算
 
   @override
   void initState() {
@@ -51,7 +52,9 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
 
   void _onScroll() {
     if (!mounted) return;
-    ref.read(shellHeadProvider.notifier).setCollapsed(_scroll.offset > _threshold);
+    ref
+        .read(shellHeadProvider.notifier)
+        .setCollapsed(_scroll.offset > _threshold);
   }
 
   void _bindHead(String title) {
@@ -75,20 +78,20 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
 
   /// The pushed-in detail's crumb segment (WRK-062 §1 third level). 推入级面包屑段。
   String? _detailLabel(Translations t, SettingsDetail? d) => switch (d?.kind) {
-        'addKey' => t.settings.keys.addKey,
-        'editKey' => t.settings.keys.editKey,
-        'sandboxInstall' => t.settings.sandbox.installTitle,
-        'mcpServer' => d?.id,
-        'mcpAdd' => t.settings.mcp.manualAdd,
-        'mcpImport' => t.settings.mcp.importTitle,
-        'mcpMarket' => t.settings.mcp.market,
-        'mcpInstall' => (d?.id ?? '').split('/').last,
-        'addMemory' => t.settings.mem.newMemory,
-        'memory' => d?.id,
-        'addWorkspace' => t.settings.ws.newWorkspace,
-        'workspace' => t.settings.ws.edit,
-        _ => null,
-      };
+    'addKey' => t.settings.keys.addKey,
+    'editKey' => t.settings.keys.editKey,
+    'sandboxInstall' => t.settings.sandbox.installTitle,
+    'mcpServer' => d?.id,
+    'mcpAdd' => t.settings.mcp.manualAdd,
+    'mcpImport' => t.settings.mcp.importTitle,
+    'mcpMarket' => t.settings.mcp.market,
+    'mcpInstall' => (d?.id ?? '').split('/').last,
+    'addMemory' => t.settings.mem.newMemory,
+    'memory' => d?.id,
+    'addWorkspace' => t.settings.ws.newWorkspace,
+    'workspace' => t.settings.ws.edit,
+    _ => null,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -106,7 +109,10 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
     final crumbs = <AnCrumb>[
       AnCrumb(t.settings.title),
       if (detailLabel != null)
-        AnCrumb(label, onTap: () => ref.read(settingsDetailProvider.notifier).pop()),
+        AnCrumb(
+          label,
+          onTap: () => ref.read(settingsDetailProvider.notifier).pop(),
+        ),
     ];
     _bindHead(blackTitle);
     // Panel switch: pop any pushed detail + fresh page opens at the top. 换面板弹出详情+回顶。
@@ -134,13 +140,19 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
               KeyedSubtree(
                 key: _headerKey,
                 child: Padding(
-                  padding: const EdgeInsets.only(top: AnSpace.s24, bottom: AnSpace.s16),
+                  padding: const EdgeInsets.only(
+                    top: AnSpace.s24,
+                    bottom: AnSpace.s16,
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       AnCrumbs(crumbs, style: AnText.meta),
                       const SizedBox(height: AnSpace.s8),
-                      Text(blackTitle, style: AnText.readingH1.copyWith(color: c.ink)),
+                      Text(
+                        blackTitle,
+                        style: AnText.readingH1.copyWith(color: c.ink),
+                      ),
                     ],
                   ),
                 ),

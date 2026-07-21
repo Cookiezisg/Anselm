@@ -69,7 +69,10 @@ class AnInspectorHead extends StatelessWidget {
             child: Text(sl, style: AnText.meta.copyWith(color: c.inkMuted)),
           )
         : null;
-    final hasSub = leading != null || (stt != null && stt.isNotEmpty) || subTrailingWidget != null;
+    final hasSub =
+        leading != null ||
+        (stt != null && stt.isNotEmpty) ||
+        subTrailingWidget != null;
     return Padding(
       // Right-island inner-padding SINGLE SOURCE: the wrapping [AnIsland]'s 12px IS the island inset on BOTH
       // edges, so the head adds ZERO horizontal pad — its label/glyph land on the leading island pad edge
@@ -96,7 +99,9 @@ class AnInspectorHead extends StatelessWidget {
                     label,
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint),
+                    style: AnText.meta
+                        .weight(AnText.emphasisWeight)
+                        .copyWith(color: c.inkFaint),
                   ),
                 ),
               ),

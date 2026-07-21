@@ -55,22 +55,21 @@ class EntitySignal {
   }
 
   static EntityAction _action(String verb) => switch (verb) {
-        'created' => EntityAction.created,
-        'deleted' => EntityAction.deleted,
-        'edited' || 'reverted' => EntityAction.edited,
-        'updated' ||
-        'env_rebuilt' ||
-        'restarted' ||
-        'config_updated' ||
-        'config_cleared' ||
-        'crashed' ||
-        'lifecycle_changed' ||
-        'attention_changed' ||
-        'run_failed' ||
-        'approval_pending' =>
-          EntityAction.updated,
-        _ => EntityAction.unknown,
-      };
+    'created' => EntityAction.created,
+    'deleted' => EntityAction.deleted,
+    'edited' || 'reverted' => EntityAction.edited,
+    'updated' ||
+    'env_rebuilt' ||
+    'restarted' ||
+    'config_updated' ||
+    'config_cleared' ||
+    'crashed' ||
+    'lifecycle_changed' ||
+    'attention_changed' ||
+    'run_failed' ||
+    'approval_pending' => EntityAction.updated,
+    _ => EntityAction.unknown,
+  };
 
   @override
   bool operator ==(Object other) =>
@@ -84,5 +83,6 @@ class EntitySignal {
   int get hashCode => Object.hash(kind, id, action, durable);
 
   @override
-  String toString() => 'EntitySignal(${kind.name}:$id $action durable=$durable)';
+  String toString() =>
+      'EntitySignal(${kind.name}:$id $action durable=$durable)';
 }

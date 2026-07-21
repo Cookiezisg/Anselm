@@ -18,15 +18,18 @@ String runBasePhrase(BuildContext context, RunSource source) {
     'manual' => t.srcManual,
     'chat' => t.srcChat,
     'cron' => t.srcCronBare,
-    'webhook' => source.detail != null
-        ? t.srcWithName(kind: t.srcWebhookBare, name: source.detail!)
-        : t.srcWebhookBare,
-    'fsnotify' => source.detail != null
-        ? t.srcWithName(kind: t.originFsnotify, name: source.detail!)
-        : t.originFsnotify,
-    'sensor' => source.detail != null
-        ? t.srcWithName(kind: t.originSensor, name: source.detail!)
-        : t.originSensor,
+    'webhook' =>
+      source.detail != null
+          ? t.srcWithName(kind: t.srcWebhookBare, name: source.detail!)
+          : t.srcWebhookBare,
+    'fsnotify' =>
+      source.detail != null
+          ? t.srcWithName(kind: t.originFsnotify, name: source.detail!)
+          : t.originFsnotify,
+    'sensor' =>
+      source.detail != null
+          ? t.srcWithName(kind: t.originSensor, name: source.detail!)
+          : t.originSensor,
     _ => t.srcUnknown,
   };
 }

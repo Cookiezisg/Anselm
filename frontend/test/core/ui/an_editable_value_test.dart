@@ -19,36 +19,40 @@ void main() {
     bool hover = true,
   }) async {
     var value = initial;
-    await tester.pumpWidget(TranslationProvider(
-      child: MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AnTheme.light(),
-        home: Scaffold(
-          body: Center(
-            child: SizedBox(
-              width: 360,
-              child: StatefulBuilder(
-                builder: (ctx, ss) => AnEditableValue(
-                  leading: const Text('Key'),
-                  fieldLabel: 'Key',
-                  value: value,
-                  editor: editor,
-                  options: options,
-                  onChanged: (v) => ss(() => value = v),
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 360,
+                child: StatefulBuilder(
+                  builder: (ctx, ss) => AnEditableValue(
+                    leading: const Text('Key'),
+                    fieldLabel: 'Key',
+                    value: value,
+                    editor: editor,
+                    options: options,
+                    onChanged: (v) => ss(() => value = v),
+                  ),
                 ),
               ),
             ),
           ),
         ),
       ),
-    ));
+    );
     // The pencil is hover-gated (idle = 0-width so the value rests flush-right); reveal it with a
     // persistent mouse over the row so the pencil is visible + tappable, as it is on desktop. Tests that
     // manage their OWN mouse pass hover:false (two mouse pointers collide). 铅笔悬停门控(静态 0 宽让值贴右);
     // 持久鼠标悬停行揭示铅笔(桌面恒 hover);自管鼠标的测试传 hover:false(双 mouse 指针冲突)。
     if (hover) {
       final h = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await h.addPointer(location: tester.getCenter(find.byType(AnEditableValue)));
+      await h.addPointer(
+        location: tester.getCenter(find.byType(AnEditableValue)),
+      );
       addTearDown(h.removePointer);
       await tester.pumpAndSettle();
     }
@@ -78,18 +82,23 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
 
-  testWidgets('Cancel aborts — NOT a blur-commit (cancel-priority via TextFieldTapRegion)', (tester) async {
-    final read = await pump(tester);
-    await tester.tap(find.byIcon(AnIcons.edit));
-    await tester.pump();
-    await tester.enterText(find.byType(TextField), 'typed');
-    await tester.pump();
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(read(), 'v1'); // aborted, not committed-on-blur
-  });
+  testWidgets(
+    'Cancel aborts — NOT a blur-commit (cancel-priority via TextFieldTapRegion)',
+    (tester) async {
+      final read = await pump(tester);
+      await tester.tap(find.byIcon(AnIcons.edit));
+      await tester.pump();
+      await tester.enterText(find.byType(TextField), 'typed');
+      await tester.pump();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+      expect(read(), 'v1'); // aborted, not committed-on-blur
+    },
+  );
 
-  testWidgets('mouse-click ✓ does NOT focus the pencil (no focus ring)', (tester) async {
+  testWidgets('mouse-click ✓ does NOT focus the pencil (no focus ring)', (
+    tester,
+  ) async {
     // The pencil must not gain focus from a ✓✕ CLICK — neither via an explicit requestFocus (the button
     // path passes returnFocus:false) nor via Flutter restoring focus when the focused field is removed
     // (dropped pre-rebuild in _finish). Else revealPencil (reads hasFocus) pins it visible + paints a focus
@@ -97,10 +106,15 @@ void main() {
     // field never takes primary focus, so this guards the EXPLICIT-focus path (the prior regression: a
     // ✓ click calling returnFocus:true); the restoration path is verified on device via `make gallery`.
     // 鼠标点 ✓ 不该聚焦铅笔(否则可见+焦点框)。用鼠标指针(桌面 traditional);无头文本框不取主焦点,故守显式聚焦路径,恢复路径真机验。
-    final read = await pump(tester, hover: false); // this test drives its OWN mouse
+    final read = await pump(
+      tester,
+      hover: false,
+    ); // this test drives its OWN mouse
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
     // Hover the row so the (idle-hidden) pencil reveals + becomes clickable. 悬停行揭示铅笔。
-    await mouse.addPointer(location: tester.getCenter(find.byType(AnEditableValue)));
+    await mouse.addPointer(
+      location: tester.getCenter(find.byType(AnEditableValue)),
+    );
     addTearDown(mouse.removePointer);
     await tester.pumpAndSettle();
 
@@ -120,8 +134,12 @@ void main() {
 
     expect(read(), 'changed'); // committed
     expect(find.byType(TextField), findsNothing); // edit closed, pencil back
-    expect(FocusManager.instance.primaryFocus?.debugLabel, isNot('AnEditableValue.pencil'),
-        reason: 'a ✓ click must not pull focus onto the pencil (else it shows a focus ring)');
+    expect(
+      FocusManager.instance.primaryFocus?.debugLabel,
+      isNot('AnEditableValue.pencil'),
+      reason:
+          'a ✓ click must not pull focus onto the pencil (else it shows a focus ring)',
+    );
   });
 
   testWidgets('Save commits', (tester) async {
@@ -141,7 +159,9 @@ void main() {
     await tester.pump();
     await tester.enterText(find.byType(TextField), 'blurred');
     await tester.pump();
-    await tester.tapAt(const Offset(5, 5)); // far outside the field's TextFieldTapRegion
+    await tester.tapAt(
+      const Offset(5, 5),
+    ); // far outside the field's TextFieldTapRegion
     await tester.pumpAndSettle();
     expect(read(), 'blurred'); // onTapOutside → commit
     expect(find.byType(TextField), findsNothing);
@@ -152,12 +172,22 @@ void main() {
     expect(find.text('—'), findsOneWidget);
   });
 
-  testWidgets('select editor: an always-present dropdown — a pick commits', (tester) async {
-    final read = await pump(tester, editor: AnEditKind.select, initial: 'low', options: const [
-      AnDropdownOption(value: 'low', label: 'Low'),
-      AnDropdownOption(value: 'high', label: 'High'),
-    ]);
-    expect(find.byType(AnDropdown<String>), findsOneWidget); // no pencil step — the dropdown IS the editor
+  testWidgets('select editor: an always-present dropdown — a pick commits', (
+    tester,
+  ) async {
+    final read = await pump(
+      tester,
+      editor: AnEditKind.select,
+      initial: 'low',
+      options: const [
+        AnDropdownOption(value: 'low', label: 'Low'),
+        AnDropdownOption(value: 'high', label: 'High'),
+      ],
+    );
+    expect(
+      find.byType(AnDropdown<String>),
+      findsOneWidget,
+    ); // no pencil step — the dropdown IS the editor
     await tester.tap(find.byType(AnDropdown<String>));
     await tester.pumpAndSettle();
     await tester.tap(find.text('High').last);
@@ -165,16 +195,29 @@ void main() {
     expect(read(), 'high');
   });
 
-  testWidgets('select editor: dismiss without pick leaves value unchanged (no dangling state)', (tester) async {
-    final read = await pump(tester, editor: AnEditKind.select, initial: 'low', options: const [
-      AnDropdownOption(value: 'low', label: 'Low'),
-      AnDropdownOption(value: 'high', label: 'High'),
-    ]);
-    await tester.tap(find.byType(AnDropdown<String>));
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape); // dismiss the menu without picking
-    await tester.pumpAndSettle();
-    expect(read(), 'low'); // unchanged — the dropdown just closes, nothing stuck
-    expect(tester.takeException(), isNull);
-  });
+  testWidgets(
+    'select editor: dismiss without pick leaves value unchanged (no dangling state)',
+    (tester) async {
+      final read = await pump(
+        tester,
+        editor: AnEditKind.select,
+        initial: 'low',
+        options: const [
+          AnDropdownOption(value: 'low', label: 'Low'),
+          AnDropdownOption(value: 'high', label: 'High'),
+        ],
+      );
+      await tester.tap(find.byType(AnDropdown<String>));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(
+        LogicalKeyboardKey.escape,
+      ); // dismiss the menu without picking
+      await tester.pumpAndSettle();
+      expect(
+        read(),
+        'low',
+      ); // unchanged — the dropdown just closes, nothing stuck
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

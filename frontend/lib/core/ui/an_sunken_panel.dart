@@ -31,7 +31,12 @@ class AnSunkenPanel extends StatelessWidget {
         borderRadius: BorderRadius.circular(AnRadius.chip),
       ),
       child: Padding(
-        padding: inset ?? const EdgeInsets.symmetric(horizontal: AnSpace.s12, vertical: AnSpace.s8),
+        padding:
+            inset ??
+            const EdgeInsets.symmetric(
+              horizontal: AnSpace.s12,
+              vertical: AnSpace.s8,
+            ),
         child: child,
       ),
     );

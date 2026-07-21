@@ -85,61 +85,81 @@ class FixtureSchedulerRepository implements SchedulerRepository {
 
   @override
   Future<List<SchedulerWorkflowRow>> listWorkflows() async => [
-        for (final w in _workflowSeeds())
-          _killed.contains(w.id)
-              ? SchedulerWorkflowRow(
-                  id: w.id,
-                  name: w.name,
-                  lifecycleState: 'inactive',
-                  needsAttention: w.needsAttention,
-                  updatedAt: w.updatedAt)
-              : w,
-      ];
+    for (final w in _workflowSeeds())
+      _killed.contains(w.id)
+          ? SchedulerWorkflowRow(
+              id: w.id,
+              name: w.name,
+              lifecycleState: 'inactive',
+              needsAttention: w.needsAttention,
+              updatedAt: w.updatedAt,
+            )
+          : w,
+  ];
 
   List<SchedulerWorkflowRow> _workflowSeeds() => [
-        SchedulerWorkflowRow(
-            id: 'wf_clean', name: '数据清洗流水线', lifecycleState: 'active', updatedAt: _shift(_anchor)),
-        SchedulerWorkflowRow(
-            id: 'wf_report',
-            name: '周报生成',
-            lifecycleState: 'active',
-            updatedAt: _shift(_anchor.subtract(const Duration(days: 1)))),
-        SchedulerWorkflowRow(
-            id: 'wf_deploy',
-            name: '发布上线',
-            lifecycleState: 'active',
-            updatedAt: _shift(_anchor.subtract(const Duration(minutes: 5)))),
-        SchedulerWorkflowRow(
-            id: 'wf_inventory',
-            name: '库存同步',
-            lifecycleState: 'active',
-            needsAttention: true,
-            updatedAt: _shift(_anchor.subtract(const Duration(days: 2)))),
-        SchedulerWorkflowRow(
-            id: 'wf_archive',
-            name: '邮件归档',
-            lifecycleState: 'active',
-            updatedAt: _shift(_anchor.subtract(const Duration(days: 3)))),
-        SchedulerWorkflowRow(
-            id: 'wf_new', name: '发票对账(新)', lifecycleState: 'active', updatedAt: _shift(_anchor)),
-        SchedulerWorkflowRow(
-            id: 'wf_draft',
-            name: '草稿清理(新)',
-            lifecycleState: 'active',
-            updatedAt: _shift(_anchor.subtract(const Duration(hours: 5)))),
-        SchedulerWorkflowRow(
-            id: 'wf_retired',
-            name: '旧版同步(停用)',
-            lifecycleState: 'inactive',
-            updatedAt: _shift(_anchor.subtract(const Duration(days: 30)))),
-      ];
+    SchedulerWorkflowRow(
+      id: 'wf_clean',
+      name: '数据清洗流水线',
+      lifecycleState: 'active',
+      updatedAt: _shift(_anchor),
+    ),
+    SchedulerWorkflowRow(
+      id: 'wf_report',
+      name: '周报生成',
+      lifecycleState: 'active',
+      updatedAt: _shift(_anchor.subtract(const Duration(days: 1))),
+    ),
+    SchedulerWorkflowRow(
+      id: 'wf_deploy',
+      name: '发布上线',
+      lifecycleState: 'active',
+      updatedAt: _shift(_anchor.subtract(const Duration(minutes: 5))),
+    ),
+    SchedulerWorkflowRow(
+      id: 'wf_inventory',
+      name: '库存同步',
+      lifecycleState: 'active',
+      needsAttention: true,
+      updatedAt: _shift(_anchor.subtract(const Duration(days: 2))),
+    ),
+    SchedulerWorkflowRow(
+      id: 'wf_archive',
+      name: '邮件归档',
+      lifecycleState: 'active',
+      updatedAt: _shift(_anchor.subtract(const Duration(days: 3))),
+    ),
+    SchedulerWorkflowRow(
+      id: 'wf_new',
+      name: '发票对账(新)',
+      lifecycleState: 'active',
+      updatedAt: _shift(_anchor),
+    ),
+    SchedulerWorkflowRow(
+      id: 'wf_draft',
+      name: '草稿清理(新)',
+      lifecycleState: 'active',
+      updatedAt: _shift(_anchor.subtract(const Duration(hours: 5))),
+    ),
+    SchedulerWorkflowRow(
+      id: 'wf_retired',
+      name: '旧版同步(停用)',
+      lifecycleState: 'inactive',
+      updatedAt: _shift(_anchor.subtract(const Duration(days: 30))),
+    ),
+  ];
 
-  int _runningCount(String wfId) =>
-      _allRuns().where((r) => r.workflowId == wfId && _statusOf(r) == 'running').length;
+  int _runningCount(String wfId) => _allRuns()
+      .where((r) => r.workflowId == wfId && _statusOf(r) == 'running')
+      .length;
 
   @override
-  Future<SchedulerStats> stats(List<String> workflowIds,
-      {int recentN = 10, String since = SchedulerWindows.statsSince, String? until}) async {
+  Future<SchedulerStats> stats(
+    List<String> workflowIds, {
+    int recentN = 10,
+    String since = SchedulerWindows.statsSince,
+    String? until,
+  }) async {
     final all = <WorkflowRunStats>[
       // Running now (blue dot). Recent beads mirror the seeded 25+-run history. 在跑;珠串映史。
       WorkflowRunStats(
@@ -147,8 +167,16 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         running: _runningCount('wf_clean'),
         lastRunAt: _shift(_anchor.subtract(const Duration(seconds: 90))),
         recent: const [
-          'running', 'completed', 'completed', 'failed', 'completed',
-          'completed', 'completed', 'failed', 'completed', 'completed',
+          'running',
+          'completed',
+          'completed',
+          'failed',
+          'completed',
+          'completed',
+          'completed',
+          'failed',
+          'completed',
+          'completed',
         ],
         successRate: 0.8,
         avgElapsedMs: 42000,
@@ -207,29 +235,42 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     // Live totals track the stateful cancels/decides (the demo stays honest after an action).
     // totals 跟随有状态操作(动作之后 demo 不撒谎)。
     final running = [for (final s in all) s.running].fold(0, (a, b) => a + b);
-    final parked = [for (final s in all) s.parkedNodes].fold(0, (a, b) => a + b);
+    final parked = [
+      for (final s in all) s.parkedNodes,
+    ].fold(0, (a, b) => a + b);
     return SchedulerStats(
       totals: SchedulerTotals(
-          running: running,
-          completedSince: 23,
-          failedSince: failedSince,
-          parkedNodes: parked,
-          // 工单⑭ — counted through THE predicate, so this number and the page `listFirings` serves for
-          // the same window are the same rows by construction, exactly as the backend's shared
-          // `firingQuery` makes them. 经**那份**谓词计数,故此数与 listFirings 对同一窗口给出的那页**构造上**
-          // 是同一批行——正如后端共用的 firingQuery 所保证的那样。
-          missed: _firingsMatching(
-                  status: FiringStatus.missed, createdAfter: _sinceInstant(since))
-              .length),
+        running: running,
+        completedSince: 23,
+        failedSince: failedSince,
+        parkedNodes: parked,
+        // 工单⑭ — counted through THE predicate, so this number and the page `listFirings` serves for
+        // the same window are the same rows by construction, exactly as the backend's shared
+        // `firingQuery` makes them. 经**那份**谓词计数,故此数与 listFirings 对同一窗口给出的那页**构造上**
+        // 是同一批行——正如后端共用的 firingQuery 所保证的那样。
+        missed: _firingsMatching(
+          status: FiringStatus.missed,
+          createdAfter: _sinceInstant(since),
+        ).length,
+      ),
       byWorkflow: workflowIds.isEmpty
           ? all
-          : [for (final s in all) if (workflowIds.contains(s.workflowId)) s],
+          : [
+              for (final s in all)
+                if (workflowIds.contains(s.workflowId)) s,
+            ],
     );
   }
 
   int _parkedCount(String flowrunId) {
     if (_cancelled.contains(flowrunId)) return 0;
-    return _inboxSeeds().where((r) => r.node.flowrunId == flowrunId && !_decided.contains('${r.node.flowrunId}/${r.node.nodeId}')).length;
+    return _inboxSeeds()
+        .where(
+          (r) =>
+              r.node.flowrunId == flowrunId &&
+              !_decided.contains('${r.node.flowrunId}/${r.node.nodeId}'),
+        )
+        .length;
   }
 
   /// The seeded run rows (newest first, mirroring the backend's keyset order). wf_clean carries a
@@ -244,7 +285,10 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         id: 'fr_0a1b2c3d4e5f6071',
         workflowId: 'wf_clean',
         versionId: 'wfv_clean00000007',
-        pinnedRefs: const {'fetch': 'fnv_fetch00000003', 'analyze': 'agv_analyze000005'},
+        pinnedRefs: const {
+          'fetch': 'fnv_fetch00000003',
+          'analyze': 'agv_analyze000005',
+        },
         origin: 'cron',
         triggerId: 'tr_cron_clean',
         firingId: 'trf_clean00000091',
@@ -263,7 +307,9 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         origin: 'manual',
         status: 'completed',
         startedAt: _shift(_anchor.subtract(const Duration(minutes: 12))),
-        completedAt: _shift(_anchor.subtract(const Duration(minutes: 12))).add(const Duration(seconds: 22)),
+        completedAt: _shift(
+          _anchor.subtract(const Duration(minutes: 12)),
+        ).add(const Duration(seconds: 22)),
         updatedAt: _shift(_anchor.subtract(const Duration(minutes: 12))),
       ),
       // wf_clean: the COLD-OPEN run (§5.5) — genuinely mid-flight with NO node row yet (the engine
@@ -302,7 +348,9 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         conversationId: 'cv_demo000000000001',
         status: 'completed',
         startedAt: _shift(_anchor.subtract(const Duration(minutes: 40))),
-        completedAt: _shift(_anchor.subtract(const Duration(minutes: 39, seconds: 18))),
+        completedAt: _shift(
+          _anchor.subtract(const Duration(minutes: 39, seconds: 18)),
+        ),
         updatedAt: _shift(_anchor.subtract(const Duration(minutes: 39))),
       ),
       // wf_clean: a webhook-born FAILED run (error first line feeds the row's danger sub). webhook 失败。
@@ -312,7 +360,8 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         origin: 'webhook',
         triggerId: 'tr_hook_invoice',
         status: 'failed',
-        error: 'HTTP 400 Bad Request: invoice payload missing "amount"\nat notify step',
+        error:
+            'HTTP 400 Bad Request: invoice payload missing "amount"\nat notify step',
         startedAt: _shift(_anchor.subtract(const Duration(hours: 2))),
         completedAt: _shift(_anchor.subtract(const Duration(hours: 2))),
         updatedAt: _shift(_anchor.subtract(const Duration(hours: 2))),
@@ -324,7 +373,9 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         origin: 'manual',
         status: 'completed',
         startedAt: _shift(_anchor.subtract(const Duration(hours: 3))),
-        completedAt: _shift(_anchor.subtract(const Duration(hours: 3))).add(const Duration(seconds: 39)),
+        completedAt: _shift(
+          _anchor.subtract(const Duration(hours: 3)),
+        ).add(const Duration(seconds: 39)),
         updatedAt: _shift(_anchor.subtract(const Duration(hours: 3))),
       ),
       // wf_clean: a pre-provenance row — origin NULL on the wire → the honest unknown face. 旧行。
@@ -333,7 +384,9 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         workflowId: 'wf_clean',
         status: 'completed',
         startedAt: _shift(_anchor.subtract(const Duration(days: 6))),
-        completedAt: _shift(_anchor.subtract(const Duration(days: 6))).add(const Duration(seconds: 41)),
+        completedAt: _shift(
+          _anchor.subtract(const Duration(days: 6)),
+        ).add(const Duration(seconds: 41)),
         updatedAt: _shift(_anchor.subtract(const Duration(days: 6))),
       ),
     ];
@@ -343,18 +396,22 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     for (var i = 0; i < 96; i++) {
       final started = _anchor.subtract(Duration(hours: 4 + i));
       final failed = i % 12 == 3;
-      runs.add(Flowrun(
-        id: 'fr_hist${i.toString().padLeft(12, '0')}',
-        workflowId: 'wf_clean',
-        origin: 'cron',
-        triggerId: 'tr_cron_clean',
-        status: failed ? 'failed' : 'completed',
-        error: failed ? 'timeout: LLM did not answer within 30s\nanalyze step aborted' : null,
-        replayCount: i == 3 ? 1 : 0,
-        startedAt: _shift(started),
-        completedAt: _shift(started.add(Duration(seconds: failed ? 8 : 42))),
-        updatedAt: _shift(started.add(Duration(seconds: failed ? 8 : 42))),
-      ));
+      runs.add(
+        Flowrun(
+          id: 'fr_hist${i.toString().padLeft(12, '0')}',
+          workflowId: 'wf_clean',
+          origin: 'cron',
+          triggerId: 'tr_cron_clean',
+          status: failed ? 'failed' : 'completed',
+          error: failed
+              ? 'timeout: LLM did not answer within 30s\nanalyze step aborted'
+              : null,
+          replayCount: i == 3 ? 1 : 0,
+          startedAt: _shift(started),
+          completedAt: _shift(started.add(Duration(seconds: failed ? 8 : 42))),
+          updatedAt: _shift(started.add(Duration(seconds: failed ? 8 : 42))),
+        ),
+      );
     }
     runs.addAll([
       // wf_deploy: running but parked on a no-deadline approval. 等人(running∧parked,无期限)。
@@ -387,9 +444,12 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         origin: 'cron',
         triggerId: 'tr_cron_inventory',
         status: 'failed',
-        error: 'HTTP 502 Bad Gateway: upstream inventory API did not respond\nretried 3 times',
+        error:
+            'HTTP 502 Bad Gateway: upstream inventory API did not respond\nretried 3 times',
         replayCount: 1,
-        startedAt: _shift(_anchor.subtract(const Duration(hours: 1, seconds: 12))),
+        startedAt: _shift(
+          _anchor.subtract(const Duration(hours: 1, seconds: 12)),
+        ),
         completedAt: _shift(_anchor.subtract(const Duration(hours: 1))),
         updatedAt: _shift(_anchor.subtract(const Duration(hours: 1))),
       ),
@@ -453,16 +513,18 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   }
 
   @override
-  Future<List<Flowrun>> listRunningRuns() async =>
-      [for (final r in _allRuns()) if (_statusOf(r) == 'running') r];
+  Future<List<Flowrun>> listRunningRuns() async => [
+    for (final r in _allRuns())
+      if (_statusOf(r) == 'running') r,
+  ];
 
   @override
   Future<List<Flowrun>> listRunsSince(DateTime startedAfter) async => [
-        // All statuses, all origins, started in the window — the past grid's health source (B1).
-        // 全状态全来源、窗内开始——过去健康格的数据源(B1)。
-        for (final r in _allRuns())
-          if (r.startedAt != null && !r.startedAt!.isBefore(startedAfter)) r,
-      ];
+    // All statuses, all origins, started in the window — the past grid's health source (B1).
+    // 全状态全来源、窗内开始——过去健康格的数据源(B1)。
+    for (final r in _allRuns())
+      if (r.startedAt != null && !r.startedAt!.isBefore(startedAfter)) r,
+  ];
 
   /// THE failed-in-window predicate, expressed ONCE — shared by [listFailedSince] (the 「24h 失败」
   /// zone's rows) and [stats]' `totals.failedSince` (the tile's delta source), exactly as the backend's
@@ -472,148 +534,177 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   /// `NULL >= ?` drops it. 那份「窗内失败」谓词,只表达一次——listFailedSince(区的行)与 stats 的
   /// failedSince(牌的 delta 源)共用,正如后端 failedSince 与 ?completedAfter 共用一个 `completed_at >= ?`。
   List<Flowrun> _failedRunsMatching(DateTime since) => [
-        for (final r in _allRuns())
-          if (r.status == 'failed' && r.completedAt != null && !r.completedAt!.isBefore(since)) r,
-      ]..sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
+    for (final r in _allRuns())
+      if (r.status == 'failed' &&
+          r.completedAt != null &&
+          !r.completedAt!.isBefore(since))
+        r,
+  ]..sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
 
   @override
   Future<List<Flowrun>> listFailedSince(DateTime completedAfter) async =>
       _failedRunsMatching(completedAfter);
 
   @override
-  Future<Page<Flowrun>> listFlowruns(
-      {required String workflowId,
-      String? status,
-      String? origin,
-      String? triggerId,
-      DateTime? startedAfter,
-      DateTime? startedBefore,
-      DateTime? completedAfter,
-      DateTime? completedBefore,
-      String? cursor,
-      int? limit}) async {
-    final rows = [
-      for (final r in _allRuns())
-        if (r.workflowId == workflowId &&
-            (status == null || r.status == status) &&
-            (origin == null || r.origin == origin) &&
-            (triggerId == null || r.triggerId == triggerId) &&
-            (startedAfter == null || (r.startedAt != null && !r.startedAt!.isBefore(startedAfter))) &&
-            (startedBefore == null || (r.startedAt != null && r.startedAt!.isBefore(startedBefore))) &&
-            // completed_at window (工单⑮) — drops the unlanded (null completed_at), like NULL >= ?.
-            (completedAfter == null ||
-                (r.completedAt != null && !r.completedAt!.isBefore(completedAfter))) &&
-            (completedBefore == null ||
-                (r.completedAt != null && r.completedAt!.isBefore(completedBefore))))
-          r,
-    ]..sort((a, b) {
-        final sa = a.startedAt, sb = b.startedAt;
-        if (sa == null || sb == null) return sa == sb ? 0 : (sa == null ? 1 : -1);
-        return sb.compareTo(sa);
-      });
+  Future<Page<Flowrun>> listFlowruns({
+    required String workflowId,
+    String? status,
+    String? origin,
+    String? triggerId,
+    DateTime? startedAfter,
+    DateTime? startedBefore,
+    DateTime? completedAfter,
+    DateTime? completedBefore,
+    String? cursor,
+    int? limit,
+  }) async {
+    final rows =
+        [
+          for (final r in _allRuns())
+            if (r.workflowId == workflowId &&
+                (status == null || r.status == status) &&
+                (origin == null || r.origin == origin) &&
+                (triggerId == null || r.triggerId == triggerId) &&
+                (startedAfter == null ||
+                    (r.startedAt != null &&
+                        !r.startedAt!.isBefore(startedAfter))) &&
+                (startedBefore == null ||
+                    (r.startedAt != null &&
+                        r.startedAt!.isBefore(startedBefore))) &&
+                // completed_at window (工单⑮) — drops the unlanded (null completed_at), like NULL >= ?.
+                (completedAfter == null ||
+                    (r.completedAt != null &&
+                        !r.completedAt!.isBefore(completedAfter))) &&
+                (completedBefore == null ||
+                    (r.completedAt != null &&
+                        r.completedAt!.isBefore(completedBefore))))
+              r,
+        ]..sort((a, b) {
+          final sa = a.startedAt, sb = b.startedAt;
+          if (sa == null || sb == null) {
+            return sa == sb ? 0 : (sa == null ? 1 : -1);
+          }
+          return sb.compareTo(sa);
+        });
     // Keyset paging mirrored as an offset cursor (fixture-internal; the wire shape is opaque anyway).
     // keyset 以偏移游标模拟(fixture 内部;线缆游标本就不透明)。
     final offset = cursor != null ? (int.tryParse(cursor) ?? 0) : 0;
     final cap = limit ?? 25;
     final page = rows.skip(offset).take(cap).toList();
     final hasMore = offset + page.length < rows.length;
-    return Page(items: page, nextCursor: hasMore ? '${offset + page.length}' : null, hasMore: hasMore);
+    return Page(
+      items: page,
+      nextCursor: hasMore ? '${offset + page.length}' : null,
+      hasMore: hasMore,
+    );
   }
 
   @override
-  Future<OffsetPage<Flowrun>> listFlowrunsPage(
-      {required String workflowId,
-      String? status,
-      String? origin,
-      DateTime? startedAfter,
-      DateTime? startedBefore,
-      required int offset,
-      required int limit}) async {
+  Future<OffsetPage<Flowrun>> listFlowrunsPage({
+    required String workflowId,
+    String? status,
+    String? origin,
+    DateTime? startedAfter,
+    DateTime? startedBefore,
+    required int offset,
+    required int limit,
+  }) async {
     // The offset page rides the SAME filter+sort path (线缆同律:同过滤同序,total=全集数). 同径。
     final all = await listFlowruns(
-        workflowId: workflowId,
-        status: status,
-        origin: origin,
-        startedAfter: startedAfter,
-        startedBefore: startedBefore,
-        limit: 1 << 30);
+      workflowId: workflowId,
+      status: status,
+      origin: origin,
+      startedAfter: startedAfter,
+      startedBefore: startedBefore,
+      limit: 1 << 30,
+    );
     final page = all.items.skip(offset).take(limit).toList();
     return OffsetPage(
-        items: page, total: all.items.length, hasMore: offset + page.length < all.items.length);
+      items: page,
+      total: all.items.length,
+      hasMore: offset + page.length < all.items.length,
+    );
   }
 
   /// The three inbox seed FORMS (工单④): deadline soon (~2h, amber countdown) / no deadline (no
   /// countdown) / soft-deleted host (name fell back to the bare id on the backend join; overdue
   /// deadline shows the danger face). 收件箱三形种子:将超时/无期限/宿主软删名回落(且已超时)。
   List<SchedulerInboxRow> _inboxSeeds() => [
-        SchedulerInboxRow(
-          node: FlowrunNode(
-            id: 'frn_report_approve',
-            flowrunId: 'fr_9a12b34c56d78e90',
-            nodeId: 'approve_send',
-            kind: 'approval',
-            status: 'parked',
-            result: const {'rendered': '本周报可以发出吗?', 'allowReason': true},
-            createdAt: _shift(_anchor.subtract(const Duration(minutes: 18))),
-            updatedAt: _shift(_anchor.subtract(const Duration(minutes: 18))),
-          ),
-          workflowId: 'wf_report',
-          workflowName: '周报生成',
-          deadline: _shift(_anchor.add(const Duration(hours: 2))),
-        ),
-        SchedulerInboxRow(
-          node: FlowrunNode(
-            id: 'frn_deploy_approve',
-            flowrunId: 'fr_de91f20a3b4c5d6e',
-            nodeId: 'approve_deploy',
-            kind: 'approval',
-            status: 'parked',
-            result: const {'rendered': '可以发布 v2.4.1 到生产吗?', 'allowReason': false},
-            createdAt: _shift(_anchor.subtract(const Duration(minutes: 5))),
-            updatedAt: _shift(_anchor.subtract(const Duration(minutes: 5))),
-          ),
-          workflowId: 'wf_deploy',
-          workflowName: '发布上线',
-          // No deadline: the approval never times out → no countdown. 无期限,不渲倒计时。
-        ),
-        SchedulerInboxRow(
-          node: FlowrunNode(
-            id: 'frn_ghost_approve',
-            flowrunId: 'fr_gh05t16273a4b5c6',
-            nodeId: 'approve_cleanup',
-            kind: 'approval',
-            status: 'parked',
-            result: const {'rendered': '继续清理 2019 年之前的归档?', 'allowReason': true},
-            createdAt: _shift(_anchor.subtract(const Duration(days: 2))),
-            updatedAt: _shift(_anchor.subtract(const Duration(days: 2))),
-          ),
-          // The host workflow was soft-deleted — the backend's name join fell back to the bare id.
-          // 宿主软删,名回落裸 id。
-          workflowId: 'wf_ghost',
-          workflowName: 'wf_ghost',
-          deadline: _shift(_anchor.subtract(const Duration(minutes: 30))),
-        ),
-      ];
+    SchedulerInboxRow(
+      node: FlowrunNode(
+        id: 'frn_report_approve',
+        flowrunId: 'fr_9a12b34c56d78e90',
+        nodeId: 'approve_send',
+        kind: 'approval',
+        status: 'parked',
+        result: const {'rendered': '本周报可以发出吗?', 'allowReason': true},
+        createdAt: _shift(_anchor.subtract(const Duration(minutes: 18))),
+        updatedAt: _shift(_anchor.subtract(const Duration(minutes: 18))),
+      ),
+      workflowId: 'wf_report',
+      workflowName: '周报生成',
+      deadline: _shift(_anchor.add(const Duration(hours: 2))),
+    ),
+    SchedulerInboxRow(
+      node: FlowrunNode(
+        id: 'frn_deploy_approve',
+        flowrunId: 'fr_de91f20a3b4c5d6e',
+        nodeId: 'approve_deploy',
+        kind: 'approval',
+        status: 'parked',
+        result: const {'rendered': '可以发布 v2.4.1 到生产吗?', 'allowReason': false},
+        createdAt: _shift(_anchor.subtract(const Duration(minutes: 5))),
+        updatedAt: _shift(_anchor.subtract(const Duration(minutes: 5))),
+      ),
+      workflowId: 'wf_deploy',
+      workflowName: '发布上线',
+      // No deadline: the approval never times out → no countdown. 无期限,不渲倒计时。
+    ),
+    SchedulerInboxRow(
+      node: FlowrunNode(
+        id: 'frn_ghost_approve',
+        flowrunId: 'fr_gh05t16273a4b5c6',
+        nodeId: 'approve_cleanup',
+        kind: 'approval',
+        status: 'parked',
+        result: const {'rendered': '继续清理 2019 年之前的归档?', 'allowReason': true},
+        createdAt: _shift(_anchor.subtract(const Duration(days: 2))),
+        updatedAt: _shift(_anchor.subtract(const Duration(days: 2))),
+      ),
+      // The host workflow was soft-deleted — the backend's name join fell back to the bare id.
+      // 宿主软删,名回落裸 id。
+      workflowId: 'wf_ghost',
+      workflowName: 'wf_ghost',
+      deadline: _shift(_anchor.subtract(const Duration(minutes: 30))),
+    ),
+  ];
 
   @override
   Future<List<SchedulerInboxRow>> listInbox() async => [
-        for (final r in _inboxSeeds())
-          if (!_decided.contains('${r.node.flowrunId}/${r.node.nodeId}') &&
-              !_cancelled.contains(r.node.flowrunId))
-            r,
-      ];
+    for (final r in _inboxSeeds())
+      if (!_decided.contains('${r.node.flowrunId}/${r.node.nodeId}') &&
+          !_cancelled.contains(r.node.flowrunId))
+        r,
+  ];
 
   @override
-  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
-      {required String decision, String? reason}) async {
+  Future<FlowrunComposite> decideApproval(
+    String flowrunId,
+    String nodeId, {
+    required String decision,
+    String? reason,
+  }) async {
     final key = '$flowrunId/$nodeId';
     final live = await listInbox();
-    if (!live.any((r) => r.node.flowrunId == flowrunId && r.node.nodeId == nodeId)) {
+    if (!live.any(
+      (r) => r.node.flowrunId == flowrunId && r.node.nodeId == nodeId,
+    )) {
       // Lost the first-wins race (or the node never parked) — the honest 422. 输家诚实 422。
       throw const ApiException(
-          code: 'FLOWRUN_APPROVAL_NOT_PARKED',
-          message: 'approval is not parked',
-          httpStatus: 422);
+        code: 'FLOWRUN_APPROVAL_NOT_PARKED',
+        message: 'approval is not parked',
+        httpStatus: 422,
+      );
     }
     _decided.add(key);
     final run = _allRuns().firstWhere((r) => r.id == flowrunId);
@@ -625,14 +716,20 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     final run = _allRuns().where((r) => r.id == flowrunId).firstOrNull;
     if (run == null || run.status != 'running') {
       throw const ApiException(
-          code: 'FLOWRUN_NOT_CANCELLABLE',
-          message: 'only a running flowrun can be cancelled',
-          httpStatus: 422);
+        code: 'FLOWRUN_NOT_CANCELLABLE',
+        message: 'only a running flowrun can be cancelled',
+        httpStatus: 422,
+      );
     }
     _cancelled.add(flowrunId);
     return FlowrunComposite(
-        flowrun: Flowrun(
-            id: run.id, workflowId: run.workflowId, status: 'cancelled', updatedAt: DateTime.now()));
+      flowrun: Flowrun(
+        id: run.id,
+        workflowId: run.workflowId,
+        status: 'cancelled',
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   @override
@@ -641,9 +738,10 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     if (run == null || run.status != 'failed') {
       // cancelled is a final terminal — only failed replays (api.md). 只有 failed 可重放。
       throw const ApiException(
-          code: 'FLOWRUN_NOT_REPLAYABLE',
-          message: 'only a failed flowrun can be replayed',
-          httpStatus: 422);
+        code: 'FLOWRUN_NOT_REPLAYABLE',
+        message: 'only a failed flowrun can be replayed',
+        httpStatus: 422,
+      );
     }
     _replayed.add(flowrunId);
     return getRunFull(flowrunId);
@@ -670,7 +768,9 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   Future<WorkflowEntity> killWorkflow(String workflowId) async {
     _killed.add(workflowId);
     for (final r in _allRuns()) {
-      if (r.workflowId == workflowId && r.status == 'running') _cancelled.add(r.id);
+      if (r.workflowId == workflowId && r.status == 'running') {
+        _cancelled.add(r.id);
+      }
     }
     return _workflowEntity(workflowId);
   }
@@ -684,7 +784,10 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     final row = _workflowSeeds().where((w) => w.id == id).firstOrNull;
     if (row == null) {
       throw const ApiException(
-          code: 'WORKFLOW_NOT_FOUND', message: 'workflow not found', httpStatus: 404);
+        code: 'WORKFLOW_NOT_FOUND',
+        message: 'workflow not found',
+        httpStatus: 404,
+      );
     }
     final created = _shift(_anchor.subtract(const Duration(days: 30)));
     return WorkflowEntity(
@@ -727,7 +830,10 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     final run = _allRuns().where((r) => r.id == flowrunId).firstOrNull;
     if (run == null) {
       throw const ApiException(
-          code: 'FLOWRUN_NOT_FOUND', message: 'flowrun not found', httpStatus: 404);
+        code: 'FLOWRUN_NOT_FOUND',
+        message: 'flowrun not found',
+        httpStatus: 404,
+      );
     }
     return run;
   }
@@ -751,51 +857,73 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     if (started == null) return const [];
     // A run born before the queue columns — no stamps, so its bars degrade honestly. 旧行:无戳。
     final legacy = run.id == 'fr_legacy000000c3';
-    FlowrunNode node(String nodeId, String kind, String status, Duration at, Duration? span,
-            {Map<String, Object?> result = const {},
-            String? error,
-            int iteration = 0,
-            Duration queued = const Duration(milliseconds: 120)}) =>
-        FlowrunNode(
-          id: 'frn_${run.id}_${nodeId}_$iteration',
-          flowrunId: run.id,
-          nodeId: nodeId,
-          iteration: iteration,
-          kind: kind,
-          status: status,
-          result: result,
-          error: error,
-          // readyAt = when the walk found it ready; startedAt = when the engine picked it up; the
-          // gap between them IS the grey queue segment (工单⑫). readyAt/startedAt 之间的空档就是灰
-          // 排队段。
-          readyAt: legacy ? null : started.add(at - queued),
-          startedAt: legacy ? null : started.add(at),
-          // createdAt = the row's WRITE time = the terminal / park moment (never the node's start).
-          // createdAt=行写入时刻=终态/停车时刻,绝非节点起点。
-          createdAt: started.add(span != null ? at + span : at),
-          completedAt: span != null ? started.add(at + span) : null,
-          updatedAt: started.add(at),
-        );
+    FlowrunNode node(
+      String nodeId,
+      String kind,
+      String status,
+      Duration at,
+      Duration? span, {
+      Map<String, Object?> result = const {},
+      String? error,
+      int iteration = 0,
+      Duration queued = const Duration(milliseconds: 120),
+    }) => FlowrunNode(
+      id: 'frn_${run.id}_${nodeId}_$iteration',
+      flowrunId: run.id,
+      nodeId: nodeId,
+      iteration: iteration,
+      kind: kind,
+      status: status,
+      result: result,
+      error: error,
+      // readyAt = when the walk found it ready; startedAt = when the engine picked it up; the
+      // gap between them IS the grey queue segment (工单⑫). readyAt/startedAt 之间的空档就是灰
+      // 排队段。
+      readyAt: legacy ? null : started.add(at - queued),
+      startedAt: legacy ? null : started.add(at),
+      // createdAt = the row's WRITE time = the terminal / park moment (never the node's start).
+      // createdAt=行写入时刻=终态/停车时刻,绝非节点起点。
+      createdAt: started.add(span != null ? at + span : at),
+      completedAt: span != null ? started.add(at + span) : null,
+      updatedAt: started.add(at),
+    );
 
     // The 650KB payload (§15 大 I/O 注入) — physically isolated in the right island's JSON tree and
     // NOWHERE else, so this seed is the page's proof that a monstrous result costs the flagship
     // nothing. 650KB 大 I/O:物理隔离在右岛 JSON 树,别处不渲——本种子就是「巨大结果不拖垮旗舰」的证明。
     Map<String, Object?> bigResult() => {
-          'rows': 4200,
-          'digest': 'sha256:${'a' * 64}',
-          'payload': 'x' * 650000,
-        };
+      'rows': 4200,
+      'digest': 'sha256:${'a' * 64}',
+      'payload': 'x' * 650000,
+    };
 
     switch (run.status) {
       case 'failed':
         return [
-          node('fetch', 'action', 'completed', Duration.zero, const Duration(milliseconds: 900)),
-          node('gate', 'control', 'completed', const Duration(milliseconds: 950),
-              const Duration(milliseconds: 30), result: const {'__port': 'high'}),
-          node('analyze', 'agent', 'failed', const Duration(seconds: 1),
-              const Duration(seconds: 5),
-              error: run.error,
-              queued: const Duration(milliseconds: 800)),
+          node(
+            'fetch',
+            'action',
+            'completed',
+            Duration.zero,
+            const Duration(milliseconds: 900),
+          ),
+          node(
+            'gate',
+            'control',
+            'completed',
+            const Duration(milliseconds: 950),
+            const Duration(milliseconds: 30),
+            result: const {'__port': 'high'},
+          ),
+          node(
+            'analyze',
+            'agent',
+            'failed',
+            const Duration(seconds: 1),
+            const Duration(seconds: 5),
+            error: run.error,
+            queued: const Duration(milliseconds: 800),
+          ),
         ];
       case 'running':
         // A live run with NO rows at all is the COLD-OPEN case (§5.5): deep-linking into it must not
@@ -804,11 +932,25 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         if (run.id == 'fr_cold00000000e1') return const [];
         // Parked runs surface their gate; plain live runs have walked fetch+gate (analyze is the
         // synthesized-running front). parked 露闸;活 run 走完前两节点。
-        final parked = _inboxSeeds().where((r) => r.node.flowrunId == run.id).firstOrNull;
+        final parked = _inboxSeeds()
+            .where((r) => r.node.flowrunId == run.id)
+            .firstOrNull;
         return [
-          node('fetch', 'action', 'completed', Duration.zero, const Duration(milliseconds: 900)),
-          node('gate', 'control', 'completed', const Duration(milliseconds: 950),
-              const Duration(milliseconds: 30), result: const {'__port': 'high'}),
+          node(
+            'fetch',
+            'action',
+            'completed',
+            Duration.zero,
+            const Duration(milliseconds: 900),
+          ),
+          node(
+            'gate',
+            'control',
+            'completed',
+            const Duration(milliseconds: 950),
+            const Duration(milliseconds: 30),
+            result: const {'__port': 'high'},
+          ),
           if (parked != null) parked.node,
         ];
       case 'completed':
@@ -816,32 +958,82 @@ class FixtureSchedulerRepository implements SchedulerRepository {
         // monster. 循环 run:analyze 跑了三轮,末轮返回 650KB 巨物。
         if (run.id == 'fr_loop00000000d1') {
           return [
-            node('fetch', 'action', 'completed', Duration.zero, const Duration(milliseconds: 900)),
-            node('gate', 'control', 'completed', const Duration(milliseconds: 950),
-                const Duration(milliseconds: 30), result: const {'__port': 'high'}),
+            node(
+              'fetch',
+              'action',
+              'completed',
+              Duration.zero,
+              const Duration(milliseconds: 900),
+            ),
+            node(
+              'gate',
+              'control',
+              'completed',
+              const Duration(milliseconds: 950),
+              const Duration(milliseconds: 30),
+              result: const {'__port': 'high'},
+            ),
             for (var i = 0; i < 3; i++)
-              node('analyze', 'agent', 'completed', Duration(seconds: 1 + i * 6),
-                  const Duration(seconds: 5),
-                  iteration: i,
-                  result: i == 2 ? bigResult() : {'turn': i},
-                  queued: Duration(milliseconds: 200 + i * 150)),
-            node('notify', 'action', 'completed', const Duration(seconds: 20),
-                const Duration(seconds: 2)),
+              node(
+                'analyze',
+                'agent',
+                'completed',
+                Duration(seconds: 1 + i * 6),
+                const Duration(seconds: 5),
+                iteration: i,
+                result: i == 2 ? bigResult() : {'turn': i},
+                queued: Duration(milliseconds: 200 + i * 150),
+              ),
+            node(
+              'notify',
+              'action',
+              'completed',
+              const Duration(seconds: 20),
+              const Duration(seconds: 2),
+            ),
           ];
         }
         return [
-          node('fetch', 'action', 'completed', Duration.zero, const Duration(milliseconds: 900)),
-          node('gate', 'control', 'completed', const Duration(milliseconds: 950),
-              const Duration(milliseconds: 30), result: const {'__port': 'high'}),
-          node('analyze', 'agent', 'completed', const Duration(seconds: 1),
-              const Duration(seconds: 34)),
-          node('notify', 'action', 'completed', const Duration(seconds: 36),
-              const Duration(seconds: 2)),
+          node(
+            'fetch',
+            'action',
+            'completed',
+            Duration.zero,
+            const Duration(milliseconds: 900),
+          ),
+          node(
+            'gate',
+            'control',
+            'completed',
+            const Duration(milliseconds: 950),
+            const Duration(milliseconds: 30),
+            result: const {'__port': 'high'},
+          ),
+          node(
+            'analyze',
+            'agent',
+            'completed',
+            const Duration(seconds: 1),
+            const Duration(seconds: 34),
+          ),
+          node(
+            'notify',
+            'action',
+            'completed',
+            const Duration(seconds: 36),
+            const Duration(seconds: 2),
+          ),
         ];
       default:
         // cancelled — whatever had settled before the cut. 取消:留已落定的。
         return [
-          node('fetch', 'action', 'completed', Duration.zero, const Duration(milliseconds: 900)),
+          node(
+            'fetch',
+            'action',
+            'completed',
+            Duration.zero,
+            const Duration(milliseconds: 900),
+          ),
         ];
     }
   }
@@ -857,25 +1049,33 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     final run = _allRuns().where((r) => r.id == flowrunId).firstOrNull;
     if (run == null) {
       throw const ApiException(
-          code: 'FLOWRUN_NOT_FOUND', message: 'flowrun not found', httpStatus: 404);
+        code: 'FLOWRUN_NOT_FOUND',
+        message: 'flowrun not found',
+        httpStatus: 404,
+      );
     }
     final rows = <FlowrunActivityRow>[];
     for (final n in _nodesFor(run)) {
       // No audit row for inline kinds, nor for a row still parked (nothing executed yet).
       // 内联 kind 与仍 parked 的行无审计行。
-      if (n.kind == 'control' || n.kind == 'approval' || n.startedAt == null) continue;
+      if (n.kind == 'control' || n.kind == 'approval' || n.startedAt == null) {
+        continue;
+      }
       final end = n.completedAt ?? n.createdAt;
-      rows.add(FlowrunActivityRow(
-        nodeId: n.nodeId,
-        iteration: n.iteration,
-        kind: n.kind == 'agent' ? 'agent' : 'function',
-        execId: '${n.kind == 'agent' ? 'agx' : 'fne'}_${n.nodeId}${n.iteration}0000000',
-        status: n.status == 'failed' ? 'failed' : 'ok',
-        readyAt: n.readyAt,
-        startedAt: n.startedAt!,
-        endedAt: end,
-        elapsedMs: end.difference(n.startedAt!).inMilliseconds,
-      ));
+      rows.add(
+        FlowrunActivityRow(
+          nodeId: n.nodeId,
+          iteration: n.iteration,
+          kind: n.kind == 'agent' ? 'agent' : 'function',
+          execId:
+              '${n.kind == 'agent' ? 'agx' : 'fne'}_${n.nodeId}${n.iteration}0000000',
+          status: n.status == 'failed' ? 'failed' : 'ok',
+          readyAt: n.readyAt,
+          startedAt: n.startedAt!,
+          endedAt: end,
+          elapsedMs: end.difference(n.startedAt!).inMilliseconds,
+        ),
+      );
     }
     // The wire is startedAt ASC (the gantt's natural order). 线缆按 startedAt 升序。
     rows.sort((a, b) => a.startedAt.compareTo(b.startedAt));
@@ -888,10 +1088,16 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   /// 钉版:wf_clean 的 v7 即 demo 各 run 走过的图。未知版本 404——旗舰的「钉版取不到」横幅因此在 demo
   /// 里可达(孤儿 run 的宿主没了,版本也没了)。
   @override
-  Future<WorkflowVersion> getWorkflowVersion(String workflowId, String versionId) async {
+  Future<WorkflowVersion> getWorkflowVersion(
+    String workflowId,
+    String versionId,
+  ) async {
     if (versionId != 'wfv_clean00000007' || workflowId != 'wf_clean') {
       throw const ApiException(
-          code: 'WORKFLOW_VERSION_NOT_FOUND', message: 'version not found', httpStatus: 404);
+        code: 'WORKFLOW_VERSION_NOT_FOUND',
+        message: 'version not found',
+        httpStatus: 404,
+      );
     }
     final created = _shift(_anchor.subtract(const Duration(days: 30)));
     return WorkflowVersion(
@@ -912,68 +1118,68 @@ class FixtureSchedulerRepository implements SchedulerRepository {
 
   @override
   Future<List<TriggerEntity>> listTriggers() async => [
-        _trigger(
-          id: 'tr_cron_clean',
-          name: '每日 09:00',
-          kind: TriggerSource.cron,
-          config: const {'cron': '0 9 * * *'},
-          createdDaysAgo: 30,
-          lastFired: _anchor.subtract(const Duration(minutes: 2)),
-          nextFire: _anchor.add(const Duration(minutes: 3)),
-        ),
-        _trigger(
-          id: 'tr_hook_invoice',
-          name: '发票回调',
-          kind: TriggerSource.webhook,
-          config: const {'path': '/invoice'},
-          createdDaysAgo: 12,
-          lastFired: _anchor.subtract(const Duration(hours: 2)),
-        ),
-        _trigger(
-          id: 'tr_cron_report',
-          name: '每周一 08:00',
-          kind: TriggerSource.cron,
-          config: const {'cron': '0 8 * * 1'},
-          createdDaysAgo: 60,
-          lastFired: _anchor.subtract(const Duration(days: 2)),
-          nextFire: _anchor.add(const Duration(days: 5)),
-        ),
-        // The cron BEHIND the ×4 streak — a cron-born run needs a cron to be born FROM. Without this
-        // trigger + its edge, wf_inventory's run rows read «cron · 01:11» while its TRIGGERS zone says
-        // «no triggers equip this workflow»: a workflow with no cron, firing on cron. The 6h cadence
-        // is the streak's own story — its two seeded failures are exactly 6h apart (D 轨:自洽互锁世界).
-        // 连败 ×4 背后的那个 cron:cron 来源的 run 总得有个 cron 把它生出来。没有这条 trigger 与它的边,
-        // wf_inventory 的 run 行写着「cron · 01:11」、而同页 TRIGGERS 区却说「没有 trigger 装备本
-        // workflow」——一个没有 cron 的 workflow 却有 cron 触发的 run。6 小时的节拍就是连败叙事本身:
-        // 两条失败种子恰好相隔 6h(D 轨自洽互锁世界)。
-        _trigger(
-          id: 'tr_cron_inventory',
-          name: '每 6 小时',
-          kind: TriggerSource.cron,
-          config: const {'cron': '0 */6 * * *'},
-          createdDaysAgo: 20,
-          lastFired: _anchor.subtract(const Duration(hours: 1, seconds: 12)),
-          nextFire: _anchor.add(const Duration(hours: 5)),
-        ),
-        // Seeded PAUSED (判决①) — greyed card + «已暂停» chip + no nextFireAt; resume flips it live.
-        // 种子即暂停:灰卡+已暂停徽+无 nextFireAt;恢复翻活。
-        _trigger(
-          id: 'tr_cron_archive',
-          name: '每晚归档',
-          kind: TriggerSource.cron,
-          config: const {'cron': '0 1 * * *'},
-          createdDaysAgo: 90,
-          // = the newest run it fired (fr_d4e5f60718293a4b, -26h). A trigger cannot have last fired
-          // BEFORE the runs it fired: the run flagship's ProvenanceLine walks cron → firing → run, and
-          // a «上次触发 4 天前» card hanging off a 26h-old cron run is that chain contradicting itself.
-          // = 它发出的最新那条 run(-26h)。trigger 的「上次触发」不可能早于它自己发出的 run:旗舰的
-          // ProvenanceLine 走 cron → firing → run,一张「上次触发 4 天前」的卡挂在 26h 前的 cron run 上,
-          // 就是这条链在自相矛盾。
-          lastFired: _anchor.subtract(const Duration(hours: 26)),
-          nextFire: _anchor.add(const Duration(hours: 16)),
-          seedPaused: true,
-        ),
-      ];
+    _trigger(
+      id: 'tr_cron_clean',
+      name: '每日 09:00',
+      kind: TriggerSource.cron,
+      config: const {'cron': '0 9 * * *'},
+      createdDaysAgo: 30,
+      lastFired: _anchor.subtract(const Duration(minutes: 2)),
+      nextFire: _anchor.add(const Duration(minutes: 3)),
+    ),
+    _trigger(
+      id: 'tr_hook_invoice',
+      name: '发票回调',
+      kind: TriggerSource.webhook,
+      config: const {'path': '/invoice'},
+      createdDaysAgo: 12,
+      lastFired: _anchor.subtract(const Duration(hours: 2)),
+    ),
+    _trigger(
+      id: 'tr_cron_report',
+      name: '每周一 08:00',
+      kind: TriggerSource.cron,
+      config: const {'cron': '0 8 * * 1'},
+      createdDaysAgo: 60,
+      lastFired: _anchor.subtract(const Duration(days: 2)),
+      nextFire: _anchor.add(const Duration(days: 5)),
+    ),
+    // The cron BEHIND the ×4 streak — a cron-born run needs a cron to be born FROM. Without this
+    // trigger + its edge, wf_inventory's run rows read «cron · 01:11» while its TRIGGERS zone says
+    // «no triggers equip this workflow»: a workflow with no cron, firing on cron. The 6h cadence
+    // is the streak's own story — its two seeded failures are exactly 6h apart (D 轨:自洽互锁世界).
+    // 连败 ×4 背后的那个 cron:cron 来源的 run 总得有个 cron 把它生出来。没有这条 trigger 与它的边,
+    // wf_inventory 的 run 行写着「cron · 01:11」、而同页 TRIGGERS 区却说「没有 trigger 装备本
+    // workflow」——一个没有 cron 的 workflow 却有 cron 触发的 run。6 小时的节拍就是连败叙事本身:
+    // 两条失败种子恰好相隔 6h(D 轨自洽互锁世界)。
+    _trigger(
+      id: 'tr_cron_inventory',
+      name: '每 6 小时',
+      kind: TriggerSource.cron,
+      config: const {'cron': '0 */6 * * *'},
+      createdDaysAgo: 20,
+      lastFired: _anchor.subtract(const Duration(hours: 1, seconds: 12)),
+      nextFire: _anchor.add(const Duration(hours: 5)),
+    ),
+    // Seeded PAUSED (判决①) — greyed card + «已暂停» chip + no nextFireAt; resume flips it live.
+    // 种子即暂停:灰卡+已暂停徽+无 nextFireAt;恢复翻活。
+    _trigger(
+      id: 'tr_cron_archive',
+      name: '每晚归档',
+      kind: TriggerSource.cron,
+      config: const {'cron': '0 1 * * *'},
+      createdDaysAgo: 90,
+      // = the newest run it fired (fr_d4e5f60718293a4b, -26h). A trigger cannot have last fired
+      // BEFORE the runs it fired: the run flagship's ProvenanceLine walks cron → firing → run, and
+      // a «上次触发 4 天前» card hanging off a 26h-old cron run is that chain contradicting itself.
+      // = 它发出的最新那条 run(-26h)。trigger 的「上次触发」不可能早于它自己发出的 run:旗舰的
+      // ProvenanceLine 走 cron → firing → run,一张「上次触发 4 天前」的卡挂在 26h 前的 cron run 上,
+      // 就是这条链在自相矛盾。
+      lastFired: _anchor.subtract(const Duration(hours: 26)),
+      nextFire: _anchor.add(const Duration(hours: 16)),
+      seedPaused: true,
+    ),
+  ];
 
   TriggerEntity _trigger({
     required String id,
@@ -1004,18 +1210,25 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   }
 
   @override
-  Future<TriggerEntity> pauseTrigger(String triggerId) => _flipPause(triggerId, true);
+  Future<TriggerEntity> pauseTrigger(String triggerId) =>
+      _flipPause(triggerId, true);
 
   @override
-  Future<TriggerEntity> resumeTrigger(String triggerId) => _flipPause(triggerId, false);
+  Future<TriggerEntity> resumeTrigger(String triggerId) =>
+      _flipPause(triggerId, false);
 
   Future<TriggerEntity> _flipPause(String triggerId, bool paused) async {
     // Idempotent, like the backend (repeat = harmless no-op). 幂等。
     _paused[triggerId] = paused;
-    final t = (await listTriggers()).where((t) => t.id == triggerId).firstOrNull;
+    final t = (await listTriggers())
+        .where((t) => t.id == triggerId)
+        .firstOrNull;
     if (t == null) {
       throw const ApiException(
-          code: 'TRIGGER_NOT_FOUND', message: 'trigger not found', httpStatus: 404);
+        code: 'TRIGGER_NOT_FOUND',
+        message: 'trigger not found',
+        httpStatus: 404,
+      );
     }
     return t;
   }
@@ -1032,8 +1245,10 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   /// 且未暂停的 cron 发刻度)。故 demo 证明的是「暂停泳道仅靠**泳道**数据存活」,而这正是真 app 唯一能证
   /// 明它的方式。
   @override
-  Future<TriggerSchedule> triggerSchedule(
-      {String within = SchedulerWindows.trackWithin, int limit = 200}) async {
+  Future<TriggerSchedule> triggerSchedule({
+    String within = SchedulerWindows.trackWithin,
+    int limit = 200,
+  }) async {
     final points = <SchedulePoint>[
       // 每日 09:00 — one tick in the next 24h. 日更:窗内一刻。
       SchedulePoint(
@@ -1107,52 +1322,98 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   /// 早于它自己产出的 firing,故此处每一条窗内行都属于 24h 内**真的 fire 过**的那仅有的两个 trigger;而 missed
   /// **只属于 cron**,因为 sweep 只看未暂停的 cron。
   List<Firing> _firingSeeds() => [
-        // tr_cron_clean × wf_clean — the live run's own firing (the run row cites this very id).
-        // Stamped at the trigger's lastFiredAt (−2m), NOT at the run's startedAt (−90s): the fire comes
-        // FIRST and the run it claims starts ~30s later. Getting this backwards makes the trigger card
-        // claim it last fired before a firing it produced — the ProvenanceLine's cron → firing → run
-        // chain contradicting itself, which is the same law the 0717 pass had to learn.
-        // 活 run 自己的 firing(run 行引用的正是这个 id)。盖在 trigger 的 lastFiredAt(−2m)、**不是** run 的
-        // startedAt(−90s):火**先**烧,它 claim 出来的 run 约 30s 后才起跑。盖反了,trigger 卡就会自称「上次触发」
-        // 早于它自己产出的 firing —— ProvenanceLine 的 cron → firing → run 链自相矛盾,与 0717 那条同一律。
-        _firing('trf_clean00000091', 'tr_cron_clean', 'wf_clean', FiringStatus.started,
-            const Duration(minutes: 2),
-            flowrunId: 'fr_0a1b2c3d4e5f6071'),
-        // Overlap policy «skip»: the tick came due while the previous run was still in flight.
-        // overlap 策略 skip:刻度到期时上一个 run 还在跑。
-        _firing('trf_clean00000082', 'tr_cron_clean', 'wf_clean', FiringStatus.skipped,
-            const Duration(hours: 3)),
-        // buffer_one collapsed the waiting queue to the newest — this older pending lost.
-        // buffer_one 把等待队列收敛到最新的一条,这条更早的 pending 输了。
-        _firing('trf_clean00000073', 'tr_cron_clean', 'wf_clean', FiringStatus.superseded,
-            const Duration(hours: 6)),
-        // The SAME fire fanned out to a workflow that had been deleted → shed. It is deliberately NOT
-        // reachable from any lane (wf_ghost has no edge): a `shed` orphan is context nothing counts, so
-        // the track drops it — unlike an orphaned `missed`, which the KPI card DOES count and which
-        // therefore must never be dropped. This seed is what proves those two paths differ.
-        // **同一次** fire 扇到了一个已被删的 workflow → shed。它**刻意**从任何泳道都够不着(wf_ghost 无边):
-        // shed 孤儿是没人数的上下文,故轨道丢弃它——而 missed 孤儿会被 KPI 牌数进去、绝不可丢。这条种子正是用来
-        // 证明这两条路径不同的。
-        _firing('trf_ghost00000064', 'tr_cron_clean', 'wf_ghost', FiringStatus.shed,
-            const Duration(hours: 3)),
-        // tr_cron_inventory × wf_inventory — awake for these two; both ran, both failed (the ×4 streak).
-        // 这两刻它醒着;都跑了、都失败了(×4 连败)。
-        _firing('trf_inv000000051', 'tr_cron_inventory', 'wf_inventory', FiringStatus.started,
-            const Duration(hours: 1, seconds: 12),
-            flowrunId: 'fr_c3d4e5f607182930'),
-        _firing('trf_inv000000042', 'tr_cron_inventory', 'wf_inventory', FiringStatus.started,
-            const Duration(hours: 7),
-            flowrunId: 'fr_b2c3d4e5f6071829'),
-        // Asleep for these two — booked on wake, never caught up (判决⑥). The 「错过 N」 card counts
-        // exactly these. 这两刻它睡着——醒来记账、绝不补跑;「错过 N」牌数的正是它们。
-        _firing('trf_inv000000033', 'tr_cron_inventory', 'wf_inventory', FiringStatus.missed,
-            const Duration(hours: 13)),
-        _firing('trf_inv000000024', 'tr_cron_inventory', 'wf_inventory', FiringStatus.missed,
-            const Duration(hours: 19)),
-      ];
+    // tr_cron_clean × wf_clean — the live run's own firing (the run row cites this very id).
+    // Stamped at the trigger's lastFiredAt (−2m), NOT at the run's startedAt (−90s): the fire comes
+    // FIRST and the run it claims starts ~30s later. Getting this backwards makes the trigger card
+    // claim it last fired before a firing it produced — the ProvenanceLine's cron → firing → run
+    // chain contradicting itself, which is the same law the 0717 pass had to learn.
+    // 活 run 自己的 firing(run 行引用的正是这个 id)。盖在 trigger 的 lastFiredAt(−2m)、**不是** run 的
+    // startedAt(−90s):火**先**烧,它 claim 出来的 run 约 30s 后才起跑。盖反了,trigger 卡就会自称「上次触发」
+    // 早于它自己产出的 firing —— ProvenanceLine 的 cron → firing → run 链自相矛盾,与 0717 那条同一律。
+    _firing(
+      'trf_clean00000091',
+      'tr_cron_clean',
+      'wf_clean',
+      FiringStatus.started,
+      const Duration(minutes: 2),
+      flowrunId: 'fr_0a1b2c3d4e5f6071',
+    ),
+    // Overlap policy «skip»: the tick came due while the previous run was still in flight.
+    // overlap 策略 skip:刻度到期时上一个 run 还在跑。
+    _firing(
+      'trf_clean00000082',
+      'tr_cron_clean',
+      'wf_clean',
+      FiringStatus.skipped,
+      const Duration(hours: 3),
+    ),
+    // buffer_one collapsed the waiting queue to the newest — this older pending lost.
+    // buffer_one 把等待队列收敛到最新的一条,这条更早的 pending 输了。
+    _firing(
+      'trf_clean00000073',
+      'tr_cron_clean',
+      'wf_clean',
+      FiringStatus.superseded,
+      const Duration(hours: 6),
+    ),
+    // The SAME fire fanned out to a workflow that had been deleted → shed. It is deliberately NOT
+    // reachable from any lane (wf_ghost has no edge): a `shed` orphan is context nothing counts, so
+    // the track drops it — unlike an orphaned `missed`, which the KPI card DOES count and which
+    // therefore must never be dropped. This seed is what proves those two paths differ.
+    // **同一次** fire 扇到了一个已被删的 workflow → shed。它**刻意**从任何泳道都够不着(wf_ghost 无边):
+    // shed 孤儿是没人数的上下文,故轨道丢弃它——而 missed 孤儿会被 KPI 牌数进去、绝不可丢。这条种子正是用来
+    // 证明这两条路径不同的。
+    _firing(
+      'trf_ghost00000064',
+      'tr_cron_clean',
+      'wf_ghost',
+      FiringStatus.shed,
+      const Duration(hours: 3),
+    ),
+    // tr_cron_inventory × wf_inventory — awake for these two; both ran, both failed (the ×4 streak).
+    // 这两刻它醒着;都跑了、都失败了(×4 连败)。
+    _firing(
+      'trf_inv000000051',
+      'tr_cron_inventory',
+      'wf_inventory',
+      FiringStatus.started,
+      const Duration(hours: 1, seconds: 12),
+      flowrunId: 'fr_c3d4e5f607182930',
+    ),
+    _firing(
+      'trf_inv000000042',
+      'tr_cron_inventory',
+      'wf_inventory',
+      FiringStatus.started,
+      const Duration(hours: 7),
+      flowrunId: 'fr_b2c3d4e5f6071829',
+    ),
+    // Asleep for these two — booked on wake, never caught up (判决⑥). The 「错过 N」 card counts
+    // exactly these. 这两刻它睡着——醒来记账、绝不补跑;「错过 N」牌数的正是它们。
+    _firing(
+      'trf_inv000000033',
+      'tr_cron_inventory',
+      'wf_inventory',
+      FiringStatus.missed,
+      const Duration(hours: 13),
+    ),
+    _firing(
+      'trf_inv000000024',
+      'tr_cron_inventory',
+      'wf_inventory',
+      FiringStatus.missed,
+      const Duration(hours: 19),
+    ),
+  ];
 
-  Firing _firing(String id, String triggerId, String workflowId, FiringStatus status, Duration ago,
-      {String flowrunId = ''}) {
+  Firing _firing(
+    String id,
+    String triggerId,
+    String workflowId,
+    FiringStatus status,
+    Duration ago, {
+    String flowrunId = '',
+  }) {
     final at = _shift(_anchor.subtract(ago));
     final missed = status == FiringStatus.missed;
     return Firing(
@@ -1191,8 +1452,12 @@ class FixtureSchedulerRepository implements SchedulerRepository {
           if (triggerId == null || f.triggerId == triggerId)
             if (status == null || f.status == status)
               if (createdAfter == null || !f.createdAt.isBefore(createdAfter))
-                if (createdBefore == null || f.createdAt.isBefore(createdBefore)) f,
-      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt)); // newest first, as the endpoint pages 新→旧
+                if (createdBefore == null ||
+                    f.createdAt.isBefore(createdBefore))
+                  f,
+      ]..sort(
+        (a, b) => b.createdAt.compareTo(a.createdAt),
+      ); // newest first, as the endpoint pages 新→旧
 
   @override
   Future<Page<Firing>> listFirings({
@@ -1204,10 +1469,11 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     int? limit,
   }) async {
     final rows = _firingsMatching(
-        triggerId: triggerId,
-        status: status,
-        createdAfter: createdAfter,
-        createdBefore: createdBefore);
+      triggerId: triggerId,
+      status: status,
+      createdAfter: createdAfter,
+      createdBefore: createdBefore,
+    );
     final cap = limit ?? 50;
     final capped = rows.length > cap;
     return Page(
@@ -1258,7 +1524,9 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     final runs = _allRuns().where((r) => wanted.contains(r.id)).toList()
       ..sort((a, b) {
         final sa = a.startedAt, sb = b.startedAt;
-        if (sa == null || sb == null) return sa == sb ? 0 : (sa == null ? 1 : -1);
+        if (sa == null || sb == null) {
+          return sa == sb ? 0 : (sa == null ? 1 : -1);
+        }
         final c = sb.compareTo(sa);
         return c != 0 ? c : b.id.compareTo(a.id);
       });
@@ -1268,15 +1536,17 @@ class FixtureSchedulerRepository implements SchedulerRepository {
       if (started == null) continue;
       final status = _statusOf(r);
       final done = r.completedAt;
-      cols.add(MatrixCol(
-        flowrunId: r.id,
-        startedAt: started,
-        status: status,
-        // Still running → the key is ABSENT (never a 0 that reads as «instant»). 在跑=键缺席。
-        elapsedMs: status == 'running' || done == null
-            ? null
-            : done.difference(started).inMilliseconds,
-      ));
+      cols.add(
+        MatrixCol(
+          flowrunId: r.id,
+          startedAt: started,
+          status: status,
+          // Still running → the key is ABSENT (never a 0 that reads as «instant»). 在跑=键缺席。
+          elapsedMs: status == 'running' || done == null
+              ? null
+              : done.difference(started).inMilliseconds,
+        ),
+      );
     }
     // Rows = first-appearance order across the columns (newest→oldest), the endpoint's own law.
     // 行=跨列(新→旧)的首次出现序,端点自身之律。
@@ -1286,14 +1556,24 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     for (final col in cols) {
       final run = runs.firstWhere((r) => r.id == col.flowrunId);
       for (final n in _nodesFor(run)) {
-        if (seen.add(n.nodeId)) rows.add(MatrixRow(nodeId: n.nodeId, kind: n.kind));
+        if (seen.add(n.nodeId)) {
+          rows.add(MatrixRow(nodeId: n.nodeId, kind: n.kind));
+        }
         // One cell per (run, node): fold the iterations, WORST disposition wins. 每 (run,节点) 一格:
         // 折叠迭代,取最坏处置。
-        final prior = cells.indexWhere((c) => c.flowrunId == col.flowrunId && c.nodeId == n.nodeId);
+        final prior = cells.indexWhere(
+          (c) => c.flowrunId == col.flowrunId && c.nodeId == n.nodeId,
+        );
         final rank = {'failed': 3, 'parked': 2, 'completed': 1};
         if (prior < 0) {
-          cells.add(MatrixCell(
-              flowrunId: col.flowrunId, nodeId: n.nodeId, status: n.status, iteration: n.iteration));
+          cells.add(
+            MatrixCell(
+              flowrunId: col.flowrunId,
+              nodeId: n.nodeId,
+              status: n.status,
+              iteration: n.iteration,
+            ),
+          );
         } else {
           final was = cells[prior];
           final worse = (rank[n.status] ?? 0) >= (rank[was.status] ?? 0);
@@ -1310,57 +1590,61 @@ class FixtureSchedulerRepository implements SchedulerRepository {
     return FlowrunMatrix(cols: cols, rows: rows, cells: cells);
   }
 
-
   @override
   Future<List<EntityRelation>> workflowTriggerEdges() async => const [
-        EntityRelation(
-            id: 'rel_1',
-            kind: 'equip',
-            fromKind: 'workflow',
-            fromId: 'wf_clean',
-            fromName: '数据清洗流水线',
-            toKind: 'trigger',
-            toId: 'tr_cron_clean',
-            toName: '每日 09:00'),
-        EntityRelation(
-            id: 'rel_2',
-            kind: 'equip',
-            fromKind: 'workflow',
-            fromId: 'wf_report',
-            fromName: '周报生成',
-            toKind: 'trigger',
-            toId: 'tr_cron_report',
-            toName: '每周一 08:00'),
-        EntityRelation(
-            id: 'rel_3',
-            kind: 'equip',
-            fromKind: 'workflow',
-            fromId: 'wf_clean',
-            fromName: '数据清洗流水线',
-            toKind: 'trigger',
-            toId: 'tr_hook_invoice',
-            toName: '发票回调'),
-        EntityRelation(
-            id: 'rel_4',
-            kind: 'equip',
-            fromKind: 'workflow',
-            fromId: 'wf_archive',
-            fromName: '邮件归档',
-            toKind: 'trigger',
-            toId: 'tr_cron_archive',
-            toName: '每晚归档'),
-        // The streak's cron edge — makes wf_inventory's cron-born runs POSSIBLE (see tr_cron_inventory).
-        // 连败的 cron 边:让 wf_inventory 那些 cron 来源的 run 成为可能。
-        EntityRelation(
-            id: 'rel_5',
-            kind: 'equip',
-            fromKind: 'workflow',
-            fromId: 'wf_inventory',
-            fromName: '库存同步',
-            toKind: 'trigger',
-            toId: 'tr_cron_inventory',
-            toName: '每 6 小时'),
-      ];
+    EntityRelation(
+      id: 'rel_1',
+      kind: 'equip',
+      fromKind: 'workflow',
+      fromId: 'wf_clean',
+      fromName: '数据清洗流水线',
+      toKind: 'trigger',
+      toId: 'tr_cron_clean',
+      toName: '每日 09:00',
+    ),
+    EntityRelation(
+      id: 'rel_2',
+      kind: 'equip',
+      fromKind: 'workflow',
+      fromId: 'wf_report',
+      fromName: '周报生成',
+      toKind: 'trigger',
+      toId: 'tr_cron_report',
+      toName: '每周一 08:00',
+    ),
+    EntityRelation(
+      id: 'rel_3',
+      kind: 'equip',
+      fromKind: 'workflow',
+      fromId: 'wf_clean',
+      fromName: '数据清洗流水线',
+      toKind: 'trigger',
+      toId: 'tr_hook_invoice',
+      toName: '发票回调',
+    ),
+    EntityRelation(
+      id: 'rel_4',
+      kind: 'equip',
+      fromKind: 'workflow',
+      fromId: 'wf_archive',
+      fromName: '邮件归档',
+      toKind: 'trigger',
+      toId: 'tr_cron_archive',
+      toName: '每晚归档',
+    ),
+    // The streak's cron edge — makes wf_inventory's cron-born runs POSSIBLE (see tr_cron_inventory).
+    // 连败的 cron 边:让 wf_inventory 那些 cron 来源的 run 成为可能。
+    EntityRelation(
+      id: 'rel_5',
+      kind: 'equip',
+      fromKind: 'workflow',
+      fromId: 'wf_inventory',
+      fromName: '库存同步',
+      toKind: 'trigger',
+      toId: 'tr_cron_inventory',
+      toName: '每 6 小时',
+    ),
+  ];
 }
 
 SchedulerRepository demoSchedulerRepository() => FixtureSchedulerRepository();

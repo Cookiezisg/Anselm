@@ -29,8 +29,9 @@ class ActiveWorkspace extends Notifier<String?> {
   void clear() => state = null;
 }
 
-final activeWorkspaceProvider =
-    NotifierProvider<ActiveWorkspace, String?>(ActiveWorkspace.new);
+final activeWorkspaceProvider = NotifierProvider<ActiveWorkspace, String?>(
+  ActiveWorkspace.new,
+);
 
 /// The active workspace's DISPLAY NAME — for the sidebar footer. Set alongside the id by the cold-start
 /// bootstrap; null until then (the footer falls back to a default label). Kept SEPARATE from
@@ -51,7 +52,9 @@ final activeWorkspaceNameProvider =
 /// sidecar 监督器;Provider 便于测试 override 假 launcher。
 final backendControllerProvider = Provider<BackendController>((ref) {
   final c = BackendController(masterKey: () => MasterKey().resolve());
-  ref.onDispose(c.dispose); // dispose the state notifier + probe Dio if the provider is ever torn down
+  ref.onDispose(
+    c.dispose,
+  ); // dispose the state notifier + probe Dio if the provider is ever torn down
   return c;
 });
 
@@ -79,8 +82,9 @@ class BackendStartup extends Notifier<BackendState> {
   void retry() => unawaited(ref.read(backendControllerProvider).start());
 }
 
-final backendStartupProvider =
-    NotifierProvider<BackendStartup, BackendState>(BackendStartup.new);
+final backendStartupProvider = NotifierProvider<BackendStartup, BackendState>(
+  BackendStartup.new,
+);
 
 /// A Dio bound to the live backend base URL — rebuilt when it appears/changes AND on a workspace
 /// switch. The switch watch is the HOT-SWITCH PULSE (WRK-062 S3-pre) and it must live HERE, on the

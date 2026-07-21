@@ -10,7 +10,12 @@ import 'an_scroll_behavior.dart';
 /// One tab of an [AnTabs]: a [key], a [label], an optional [count] (a secondary tabular number), and its
 /// [pane]. AnTabs 一项。
 class AnTabsItem {
-  const AnTabsItem({required this.key, required this.label, this.count, required this.pane});
+  const AnTabsItem({
+    required this.key,
+    required this.label,
+    this.count,
+    required this.pane,
+  });
   final String key;
   final String label;
   final String? count;
@@ -37,13 +42,14 @@ class AnTabsItem {
 /// viewport/body 在子树而崩;button+selected 安全)。键盘:Tab 遍历、Enter/Space 激活、←→Home/End 在 strip 内移焦不自动选
 /// (手动激活)。下划线在滚动内容内(随 tab 滚)。
 class AnTabs extends StatefulWidget {
-  const AnTabs(
-      {required this.items,
-      required this.value,
-      required this.onSelect,
-      this.enabled = true,
-      this.flow = false,
-      super.key});
+  const AnTabs({
+    required this.items,
+    required this.value,
+    required this.onSelect,
+    this.enabled = true,
+    this.flow = false,
+    super.key,
+  });
 
   final List<AnTabsItem> items;
   final String value;
@@ -78,7 +84,8 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
 
   double? _sliderLeft;
   double? _sliderWidth;
-  bool _measured = false; // first measure jumps (no animation); later picks animate 首测跳、后续动
+  bool _measured =
+      false; // first measure jumps (no animation); later picks animate 首测跳、后续动
 
   int get _index {
     final i = widget.items.indexWhere((it) => it.key == widget.value);
@@ -102,7 +109,10 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
 
   void _allocNodes(int n) {
     _tabKeys = List.generate(n, (_) => GlobalKey());
-    _focusNodes = List.generate(n, (i) => FocusNode(debugLabel: 'AnTabs.tab$i'));
+    _focusNodes = List.generate(
+      n,
+      (i) => FocusNode(debugLabel: 'AnTabs.tab$i'),
+    );
   }
 
   @override
@@ -114,7 +124,9 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
       }
       _allocNodes(widget.items.length);
     }
-    if (old.value != widget.value || old.items.length != widget.items.length) _scheduleMeasure();
+    if (old.value != widget.value || old.items.length != widget.items.length) {
+      _scheduleMeasure();
+    }
   }
 
   @override
@@ -133,8 +145,10 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
       if (!mounted) return;
       final i = _index;
       if (i >= _tabKeys.length) return;
-      final tabBox = _tabKeys[i].currentContext?.findRenderObject() as RenderBox?;
-      final stripBox = _stripKey.currentContext?.findRenderObject() as RenderBox?;
+      final tabBox =
+          _tabKeys[i].currentContext?.findRenderObject() as RenderBox?;
+      final stripBox =
+          _stripKey.currentContext?.findRenderObject() as RenderBox?;
       if (tabBox == null || stripBox == null || !tabBox.hasSize) return;
       final dx = stripBox.globalToLocal(tabBox.localToGlobal(Offset.zero)).dx;
       if (_sliderLeft != dx || _sliderWidth != tabBox.size.width) {
@@ -159,10 +173,14 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
     if (n == 0) return;
     var cur = _focusNodes.indexWhere((f) => f.hasFocus);
     if (cur < 0) cur = _index;
-    final target = delta.abs() >= n ? (delta < 0 ? 0 : n - 1) : (cur + delta).clamp(0, n - 1);
+    final target = delta.abs() >= n
+        ? (delta < 0 ? 0 : n - 1)
+        : (cur + delta).clamp(0, n - 1);
     _focusNodes[target].requestFocus();
     final ctx = _tabKeys[target].currentContext;
-    if (ctx != null) Scrollable.ensureVisible(ctx, duration: AnMotion.fast, alignment: 0.5);
+    if (ctx != null) {
+      Scrollable.ensureVisible(ctx, duration: AnMotion.fast, alignment: 0.5);
+    }
   }
 
   @override
@@ -187,7 +205,9 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
             Row(
               mainAxisSize: MainAxisSize.min,
               spacing: AnSpace.s16,
-              children: [for (var i = 0; i < widget.items.length; i++) _tab(c, i)],
+              children: [
+                for (var i = 0; i < widget.items.length; i++) _tab(c, i),
+              ],
             ),
             // underline (ExcludeSemantics — not a tab child). 下划线(排除语义,非 tab 子)。
             AnimatedPositioned(
@@ -199,7 +219,10 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
               height: AnSize.gripLine,
               child: ExcludeSemantics(
                 child: DecoratedBox(
-                  decoration: BoxDecoration(color: c.ink, borderRadius: BorderRadius.circular(AnRadius.pill)),
+                  decoration: BoxDecoration(
+                    color: c.ink,
+                    borderRadius: BorderRadius.circular(AnRadius.pill),
+                  ),
                 ),
               ),
             ),
@@ -218,10 +241,12 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
         },
         child: Actions(
           actions: {
-            _MoveTabFocus: CallbackAction<_MoveTabFocus>(onInvoke: (i) {
-              _moveFocus(i.delta);
-              return null;
-            }),
+            _MoveTabFocus: CallbackAction<_MoveTabFocus>(
+              onInvoke: (i) {
+                _moveFocus(i.delta);
+                return null;
+              },
+            ),
           },
           child: strip,
         ),
@@ -278,14 +303,22 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Text(it.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: fg)),
+                Text(
+                  it.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                  style: AnText.body
+                      .weight(AnText.emphasisWeight)
+                      .copyWith(color: fg),
+                ),
                 if (it.count != null && it.count!.isNotEmpty) ...[
                   const SizedBox(width: AnSpace.s6),
-                  Text(it.count!,
-                      style: AnText.value().copyWith(color: selected ? c.inkMuted : c.inkFaint)),
+                  Text(
+                    it.count!,
+                    style: AnText.value().copyWith(
+                      color: selected ? c.inkMuted : c.inkFaint,
+                    ),
+                  ),
                 ],
               ],
             ),

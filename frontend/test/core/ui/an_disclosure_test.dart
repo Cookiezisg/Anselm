@@ -11,22 +11,30 @@ import 'package:flutter_test/flutter_test.dart';
 // AnDisclosure 契约:常驻 chevron 头 + 揭示体;受控;全收时 body 从树移除。
 void main() {
   Widget host(Widget child) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        theme: AnTheme.light(),
-        home: Scaffold(body: Center(child: SizedBox(width: 320, child: child))),
-      );
+    debugShowCheckedModeBanner: false,
+    theme: AnTheme.light(),
+    home: Scaffold(
+      body: Center(child: SizedBox(width: 320, child: child)),
+    ),
+  );
 
-  testWidgets('tapping the header toggles the body reveal (controlled)', (tester) async {
+  testWidgets('tapping the header toggles the body reveal (controlled)', (
+    tester,
+  ) async {
     var open = false;
-    await tester.pumpWidget(host(StatefulBuilder(
-      builder: (context, setState) => AnDisclosure(
-        label: 'reasoning',
-        icon: AnIcons.reasoning,
-        open: open,
-        onToggle: () => setState(() => open = !open),
-        child: const Text('BODY'),
+    await tester.pumpWidget(
+      host(
+        StatefulBuilder(
+          builder: (context, setState) => AnDisclosure(
+            label: 'reasoning',
+            icon: AnIcons.reasoning,
+            open: open,
+            onToggle: () => setState(() => open = !open),
+            child: const Text('BODY'),
+          ),
+        ),
       ),
-    )));
+    );
 
     // Collapsed: header shows, body removed from the tree. 收起:头显、体移除。
     expect(find.text('reasoning'), findsOneWidget);
@@ -44,15 +52,22 @@ void main() {
   });
 
   testWidgets('trailing widget renders in the header', (tester) async {
-    await tester.pumpWidget(host(AnDisclosure(
-      label: 'shell.run',
-      icon: AnIcons.tool,
-      open: false,
-      onToggle: () {},
-      trailing: const AnChip('dangerous', tone: AnTone.danger),
-      child: const Text('args'),
-    )));
+    await tester.pumpWidget(
+      host(
+        AnDisclosure(
+          label: 'shell.run',
+          icon: AnIcons.tool,
+          open: false,
+          onToggle: () {},
+          trailing: const AnChip('dangerous', tone: AnTone.danger),
+          child: const Text('args'),
+        ),
+      ),
+    );
     expect(find.text('shell.run'), findsOneWidget);
-    expect(find.text('dangerous'), findsOneWidget); // trailing badge in header 尾随徽章在头
+    expect(
+      find.text('dangerous'),
+      findsOneWidget,
+    ); // trailing badge in header 尾随徽章在头
   });
 }

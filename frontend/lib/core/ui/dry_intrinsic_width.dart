@@ -16,7 +16,8 @@ class DryIntrinsicWidth extends SingleChildRenderObjectWidget {
   const DryIntrinsicWidth({super.key, super.child});
 
   @override
-  RenderObject createRenderObject(BuildContext context) => _RenderDryIntrinsicWidth();
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderDryIntrinsicWidth();
 }
 
 class _RenderDryIntrinsicWidth extends RenderIntrinsicWidth {
@@ -24,8 +25,12 @@ class _RenderDryIntrinsicWidth extends RenderIntrinsicWidth {
   Size computeDryLayout(covariant BoxConstraints constraints) {
     final child = this.child;
     if (child == null) return constraints.smallest;
-    final width = constraints.constrainWidth(child.getMaxIntrinsicWidth(constraints.maxHeight));
-    final height = constraints.constrainHeight(child.getMinIntrinsicHeight(width));
+    final width = constraints.constrainWidth(
+      child.getMaxIntrinsicWidth(constraints.maxHeight),
+    );
+    final height = constraints.constrainHeight(
+      child.getMinIntrinsicHeight(width),
+    );
     return Size(width, height);
   }
 }

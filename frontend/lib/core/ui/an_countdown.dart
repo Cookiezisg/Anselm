@@ -20,7 +20,11 @@ import '../../i18n/strings.g.dart';
 /// it passes. [tone] colours the pending face (defaults to the waiting amber — the inbox use). Minute
 /// granularity via [fmtWaited]. 截止倒计时:未到=「剩 x」(默认琥珀),已过=「已超时」(红)。
 class AnCountdown extends StatefulWidget {
-  const AnCountdown({required this.deadline, this.tone = AnTone.warn, super.key});
+  const AnCountdown({
+    required this.deadline,
+    this.tone = AnTone.warn,
+    super.key,
+  });
 
   final DateTime deadline;
 
@@ -54,7 +58,9 @@ class _AnCountdownState extends State<AnCountdown> {
     final c = context.colors;
     final remaining = widget.deadline.difference(DateTime.now());
     final overdue = remaining.isNegative;
-    final text = overdue ? t.run.countdownOverdue : t.run.countdownLeft(d: fmtWaited(remaining));
+    final text = overdue
+        ? t.run.countdownOverdue
+        : t.run.countdownLeft(d: fmtWaited(remaining));
     final color = overdue ? c.danger : widget.tone.fg(c);
     return Text(text, style: AnText.meta.copyWith(color: color));
   }

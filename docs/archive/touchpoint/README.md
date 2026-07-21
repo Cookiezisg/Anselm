@@ -88,7 +88,7 @@ CREATE INDEX idx_tp_conv ON conversation_touchpoints (workspace_id, conversation
 
 - 单测:domain(验证/upsert 语义)+ store(唯一键/分页)+ app(记账/快照/信号)+ 目录穷尽性门禁。
 - testend 黑盒(llmmock 零 token):send 带 mention+attachment → 脚本化工具调用(create/get/edit)→ 断言 REST 聚合行(count/verb/actor)+ messages 流 touchpoint 帧。
-- `make verify` + `make testend` + `make docs` 全绿。
+- `make verify` + `make -C backend testend` + `make -C docs verify` 全绿。
 
 ## 7. 文档 1:1(同提交)
 

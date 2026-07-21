@@ -42,24 +42,36 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
   }
 
   Future<EntityDetail> _fetch() async => switch (entityRef.kind) {
-        EntityKind.function =>
-          EntityDetail(ref: entityRef, function: await _repo.getFunction(entityRef.id)),
-        EntityKind.handler =>
-          EntityDetail(ref: entityRef, handler: await _repo.getHandler(entityRef.id)),
-        EntityKind.agent => EntityDetail(
-            ref: entityRef,
-            agent: await _repo.getAgent(entityRef.id),
-            mountHealth: await _safeMountHealth(),
-          ),
-        EntityKind.workflow =>
-          EntityDetail(ref: entityRef, workflow: await _repo.getWorkflow(entityRef.id)),
-        EntityKind.control =>
-          EntityDetail(ref: entityRef, control: await _repo.getControl(entityRef.id)),
-        EntityKind.approval =>
-          EntityDetail(ref: entityRef, approval: await _repo.getApproval(entityRef.id)),
-        EntityKind.trigger =>
-          EntityDetail(ref: entityRef, trigger: await _repo.getTrigger(entityRef.id)),
-      };
+    EntityKind.function => EntityDetail(
+      ref: entityRef,
+      function: await _repo.getFunction(entityRef.id),
+    ),
+    EntityKind.handler => EntityDetail(
+      ref: entityRef,
+      handler: await _repo.getHandler(entityRef.id),
+    ),
+    EntityKind.agent => EntityDetail(
+      ref: entityRef,
+      agent: await _repo.getAgent(entityRef.id),
+      mountHealth: await _safeMountHealth(),
+    ),
+    EntityKind.workflow => EntityDetail(
+      ref: entityRef,
+      workflow: await _repo.getWorkflow(entityRef.id),
+    ),
+    EntityKind.control => EntityDetail(
+      ref: entityRef,
+      control: await _repo.getControl(entityRef.id),
+    ),
+    EntityKind.approval => EntityDetail(
+      ref: entityRef,
+      approval: await _repo.getApproval(entityRef.id),
+    ),
+    EntityKind.trigger => EntityDetail(
+      ref: entityRef,
+      trigger: await _repo.getTrigger(entityRef.id),
+    ),
+  };
 
   // Mount-health is a non-fatal preflight — a failed probe must not blank the whole agent detail.
   // 挂载健康是非致命预检,探测失败不该把整个 agent 详情打空。
@@ -97,15 +109,14 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
         ref.invalidate(logListProvider(entityRef));
     }
   }
-
 }
 
 /// autoDispose: leaving an entity tears down the notifier + its TWO SSE subscriptions (life/panel) — a
 /// non-autoDispose family would leak a subscription pair per entity ever opened. Re-selecting re-fetches
 /// (the deferred skeleton suppresses any flash on a fast local fetch). autoDispose:离开实体即释放 notifier
 /// + 其两条 SSE 订阅;非 autoDispose 会每开一个实体泄漏一对订阅。重选重取(本地快取经延迟骨架不闪)。
-final entityDetailProvider =
-    AsyncNotifierProvider.autoDispose.family<EntityDetailNotifier, EntityDetail, EntityRef>(
-  EntityDetailNotifier.new,
-  retry: (_, _) => null,
-);
+final entityDetailProvider = AsyncNotifierProvider.autoDispose
+    .family<EntityDetailNotifier, EntityDetail, EntityRef>(
+      EntityDetailNotifier.new,
+      retry: (_, _) => null,
+    );

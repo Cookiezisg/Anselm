@@ -35,7 +35,8 @@ class DocumentRail extends ConsumerStatefulWidget {
 }
 
 class _DocumentRailState extends ConsumerState<DocumentRail> {
-  String? _editingId; // which row is mid inline-rename (transient view state). 哪行在就地改名中。
+  String?
+  _editingId; // which row is mid inline-rename (transient view state). 哪行在就地改名中。
 
   DocumentsRepository get _repo => ref.read(documentsRepositoryProvider);
 
@@ -79,7 +80,9 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
         ),
         selectedId: selected == null
             ? null
-            : (selected.isSkill ? '$kSkillRowPrefix${selected.id}' : selected.id),
+            : (selected.isSkill
+                  ? '$kSkillRowPrefix${selected.id}'
+                  : selected.id),
         // Selection = navigation (the URL is the truth; selectedDocProvider derives from it). 选中=导航。
         onSelect: (id) => context.go(_locationForRow(id)),
         // The New row creates a root page (skill creation lives in the skill editor, P4c). New 建根页。
@@ -112,12 +115,20 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
 
   /// Translate the drop into `:move` args (pure [planDocMove] — cycle/self/skill guarded there), run it,
   /// refetch the tree. 落点经纯 planDocMove 译成 :move 参数(环/自落/skill 皆在彼守),执行后重取树。
-  Future<void> _onDrop(String dragged, String target, AnRowDropZone zone) async {
+  Future<void> _onDrop(
+    String dragged,
+    String target,
+    AnRowDropZone zone,
+  ) async {
     final tree = ref.read(documentTreeProvider).value ?? const <DocumentNode>[];
     final plan = planDocMove(tree, dragged, target, zone);
     if (plan == null) return;
     try {
-      await _repo.moveDocument(dragged, parentId: plan.parentId, position: plan.position);
+      await _repo.moveDocument(
+        dragged,
+        parentId: plan.parentId,
+        position: plan.position,
+      );
       if (!mounted) return;
       ref.invalidate(documentTreeProvider);
     } catch (_) {
@@ -151,7 +162,11 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
                 icon: AnIcons.edit,
                 onTap: () => setState(() => _editingId = rowId),
               ),
-              AnMenuItem(label: t.documents.duplicate, icon: AnIcons.copy, onTap: () => _duplicate(sel.id)),
+              AnMenuItem(
+                label: t.documents.duplicate,
+                icon: AnIcons.copy,
+                onTap: () => _duplicate(sel.id),
+              ),
               AnMenuItem(
                 label: t.action.delete,
                 icon: AnIcons.trash,
@@ -187,7 +202,10 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
 
   Future<void> _create({required String? parentId}) async {
     try {
-      final doc = await _repo.createDocument(name: context.t.documents.untitled, parentId: parentId);
+      final doc = await _repo.createDocument(
+        name: context.t.documents.untitled,
+        parentId: parentId,
+      );
       if (!mounted) return;
       ref.invalidate(documentTreeProvider);
       // Mark the fresh doc for a one-shot title autofocus, then navigate — the ocean reads + clears it.
@@ -203,7 +221,12 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
   Future<void> _renameDocument(String rowId, String value) async {
     final id = docSelectionForRowId(rowId).id;
     final next = value.trim();
-    final current = ref.read(documentTreeProvider).value?.where((d) => d.id == id).firstOrNull?.name;
+    final current = ref
+        .read(documentTreeProvider)
+        .value
+        ?.where((d) => d.id == id)
+        .firstOrNull
+        ?.name;
     setState(() => _editingId = null);
     if (next.isEmpty || next == current) return;
     try {
@@ -228,7 +251,9 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
 
   Future<void> _confirmDeleteDoc(String id, String name) async {
     final t = context.t;
-    final ok = await ref.read(overlayProvider.notifier).confirm(
+    final ok = await ref
+        .read(overlayProvider.notifier)
+        .confirm(
           title: t.documents.deleteDocTitle,
           message: t.documents.deleteDocBody(name: name),
           confirmLabel: t.action.delete,
@@ -248,7 +273,9 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
 
   Future<void> _confirmDeleteSkill(String name) async {
     final t = context.t;
-    final ok = await ref.read(overlayProvider.notifier).confirm(
+    final ok = await ref
+        .read(overlayProvider.notifier)
+        .confirm(
           title: t.documents.deleteSkillTitle,
           message: t.documents.deleteSkillBody(name: name),
           confirmLabel: t.action.delete,
@@ -277,6 +304,8 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
 
   void _noticeFail() {
     if (!mounted) return;
-    ref.read(noticeCenterProvider.notifier).show(context.t.documents.actionFailed, tone: AnTone.danger);
+    ref
+        .read(noticeCenterProvider.notifier)
+        .show(context.t.documents.actionFailed, tone: AnTone.danger);
   }
 }

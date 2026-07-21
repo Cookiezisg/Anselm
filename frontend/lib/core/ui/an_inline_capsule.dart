@@ -17,7 +17,13 @@ import 'tone.dart';
 /// 同 1px 呼吸边距)+宿主字体(height 1.0 不撑行盒)。收编手搓文内伪药丸({{CEL}} 琥珀囊/[[id]] 散文
 /// 药丸;编辑器提及经 AnRefPill.inline 骑它)。**仅展示**:交互归宿主文本引擎。
 class AnInlineCapsule extends StatelessWidget {
-  const AnInlineCapsule(this.label, {this.tone = AnTone.accent, this.icon, this.textStyle, super.key});
+  const AnInlineCapsule(
+    this.label, {
+    this.tone = AnTone.accent,
+    this.icon,
+    this.textStyle,
+    super.key,
+  });
 
   final String label;
   final AnTone tone;
@@ -35,18 +41,27 @@ class AnInlineCapsule extends StatelessWidget {
     final style = (textStyle ?? AnText.meta).copyWith(color: ink, height: 1.0);
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: AnSize.capsulePadY),
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4, vertical: AnSize.capsulePadY),
-      decoration: BoxDecoration(color: tone.softBg(c), borderRadius: BorderRadius.circular(AnRadius.tag)),
-      child: Row(mainAxisSize: MainAxisSize.min, children: [
-        if (icon != null) ...[
-          Icon(icon, size: AnSize.iconSm, color: ink),
-          const SizedBox(width: AnGap.inlineHair),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AnSpace.s4,
+        vertical: AnSize.capsulePadY,
+      ),
+      decoration: BoxDecoration(
+        color: tone.softBg(c),
+        borderRadius: BorderRadius.circular(AnRadius.tag),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (icon != null) ...[
+            Icon(icon, size: AnSize.iconSm, color: ink),
+            const SizedBox(width: AnGap.inlineHair),
+          ],
+          // The label WRAPS (the hand-rolled pills it absorbs did) — an inline value may be a long
+          // CEL expression or document name and there is no hover escape in running text (复审:
+          // 截断回归). 标签可换行(被收编的手搓药丸本可换行;行内无 hover 逃生口,禁截断)。
+          Flexible(child: Text(label, style: style)),
         ],
-        // The label WRAPS (the hand-rolled pills it absorbs did) — an inline value may be a long
-        // CEL expression or document name and there is no hover escape in running text (复审:
-        // 截断回归). 标签可换行(被收编的手搓药丸本可换行;行内无 hover 逃生口,禁截断)。
-        Flexible(child: Text(label, style: style)),
-      ]),
+      ),
     );
   }
 }

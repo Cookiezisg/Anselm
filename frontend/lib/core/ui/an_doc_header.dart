@@ -107,7 +107,10 @@ class AnDocHeader extends StatelessWidget {
             enabled: nameEditable,
             startEditing: autofocusName,
             placeholder: namePlaceholder,
-            style: applyContentFace(prose, AnText.readingH1).copyWith(color: c.ink),
+            style: applyContentFace(
+              prose,
+              AnText.readingH1,
+            ).copyWith(color: c.ink),
             minHeight: AnSize.islandHead,
             // A doc page: an idle click elsewhere while renaming should SAVE (not silently drop). 点别处即存。
             commitOnTapOutside: true,
@@ -117,7 +120,10 @@ class AnDocHeader extends StatelessWidget {
           AnInlineEdit(
             value: description,
             placeholder: descriptionPlaceholder,
-            style: applyContentFace(prose, AnText.reading).copyWith(color: c.inkMuted),
+            style: applyContentFace(
+              prose,
+              AnText.reading,
+            ).copyWith(color: c.inkMuted),
             commitOnTapOutside: true,
             onCommit: (v) => meta('description', v),
           ),
@@ -141,7 +147,11 @@ class AnDocHeader extends StatelessWidget {
 /// field. Stateful only to own the dummy-pill ↔ field toggle. 头标签行:空+可编+有引导 → 灰 dummy 药丸,点开
 /// AnTags 输入框;非空 → 普通 AnTags。
 class _HeaderTagsRow extends StatefulWidget {
-  const _HeaderTagsRow({required this.tags, required this.addTagLabel, this.onChanged});
+  const _HeaderTagsRow({
+    required this.tags,
+    required this.addTagLabel,
+    this.onChanged,
+  });
 
   final List<String> tags;
   final String? addTagLabel;
@@ -159,7 +169,10 @@ class _HeaderTagsRowState extends State<_HeaderTagsRow> {
     final editable = widget.onChanged != null;
     // The dummy-pill guide only when there's nothing yet, we're not mid-add, it's editable, and a guide
     // label was supplied. 灰 dummy 药丸只在:空 + 未在添加 + 可编 + 有引导词。
-    if (widget.tags.isEmpty && !_adding && editable && widget.addTagLabel != null) {
+    if (widget.tags.isEmpty &&
+        !_adding &&
+        editable &&
+        widget.addTagLabel != null) {
       return Align(
         alignment: Alignment.centerLeft,
         child: AnChip(

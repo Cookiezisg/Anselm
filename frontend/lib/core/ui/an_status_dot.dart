@@ -23,17 +23,21 @@ import '../perf/pulse_clock.dart';
 /// 归静息实心姿态;静态面根本不订阅。RepaintBoundary 从来救不了——重绘隔离≠帧调度,救命的是钟会停。
 class AnStatusDot extends StatefulWidget {
   const AnStatusDot(AnStatus this.status, {this.clock, super.key})
-      : rawColor = null,
-        hollow = false,
-        size = AnSize.dot;
+    : rawColor = null,
+      hollow = false,
+      size = AnSize.dot;
 
   /// The RAW face (WRK-066 批5): a direct-colour, optionally hollow, tiered-size dot — the ONE
   /// implementation behind bead strips / colour swatches / fired markers that used to hand-roll
   /// `Container+BoxDecoration(circle)` (A-038/039/048). Pure static: no animation branch.
   /// 直喂色形态(批5):任意色/可空心/档位尺寸——珠串/色点/fire 记号的唯一实现(收手搓圆点)。纯静态。
-  const AnStatusDot.raw(this.rawColor, {this.hollow = false, this.size = AnSize.dot, super.key})
-      : status = null,
-        clock = null;
+  const AnStatusDot.raw(
+    this.rawColor, {
+    this.hollow = false,
+    this.size = AnSize.dot,
+    super.key,
+  }) : status = null,
+       clock = null;
 
   /// Semantic state (null on the raw face). 语义态(raw 形为 null)。
   final AnStatus? status;
@@ -84,14 +88,14 @@ class _AnStatusDotState extends State<AnStatusDot> {
   }
 
   Color _color(AnColors c) => switch (widget.status) {
-        AnStatus.run => c.accent,
-        AnStatus.wait => c.warn,
-        AnStatus.err => c.danger,
-        AnStatus.done => c.ok,
-        AnStatus.idle => c.inkFaint,
-        // Raw face: direct colour; hollow-without-colour falls back to the faint ring. raw 直喂。
-        null => widget.rawColor ?? c.inkFaint,
-      };
+    AnStatus.run => c.accent,
+    AnStatus.wait => c.warn,
+    AnStatus.err => c.danger,
+    AnStatus.done => c.ok,
+    AnStatus.idle => c.inkFaint,
+    // Raw face: direct colour; hollow-without-colour falls back to the faint ring. raw 直喂。
+    null => widget.rawColor ?? c.inkFaint,
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -123,11 +127,18 @@ class _AnStatusDotState extends State<AnStatusDot> {
   }
 
   Widget _dot(Color color, List<BoxShadow> shadow) => Container(
-        width: widget.size,
-        height: widget.size,
-        decoration: widget.hollow
-            // Hollow ring: hairline stroke, transparent fill (un-fired markers). 空心环。
-            ? BoxDecoration(border: Border.all(color: color, width: AnSize.hairline), shape: BoxShape.circle)
-            : BoxDecoration(color: color, shape: BoxShape.circle, boxShadow: shadow),
-      );
+    width: widget.size,
+    height: widget.size,
+    decoration: widget.hollow
+        // Hollow ring: hairline stroke, transparent fill (un-fired markers). 空心环。
+        ? BoxDecoration(
+            border: Border.all(color: color, width: AnSize.hairline),
+            shape: BoxShape.circle,
+          )
+        : BoxDecoration(
+            color: color,
+            shape: BoxShape.circle,
+            boxShadow: shadow,
+          ),
+  );
 }

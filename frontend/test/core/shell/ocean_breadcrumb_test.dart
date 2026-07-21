@@ -10,31 +10,49 @@ import 'package:flutter_test/flutter_test.dart';
 // title scrolled under the head (collapsed), then it fades in showing the title and fires onTap (scroll-to-top).
 
 void main() {
-  testWidgets('breadcrumb: opacity 0 + inert until collapsed, then shows the title + tap fires', (tester) async {
-    var tapped = false;
-    final container = ProviderContainer();
-    addTearDown(container.dispose);
+  testWidgets(
+    'breadcrumb: opacity 0 + inert until collapsed, then shows the title + tap fires',
+    (tester) async {
+      var tapped = false;
+      final container = ProviderContainer();
+      addTearDown(container.dispose);
 
-    await tester.pumpWidget(UncontrolledProviderScope(
-      container: container,
-      child: TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: const Scaffold(body: Align(alignment: Alignment.topLeft, child: OceanBreadcrumb())),
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: TranslationProvider(
+            child: MaterialApp(
+              theme: AnTheme.light(),
+              home: const Scaffold(
+                body: Align(
+                  alignment: Alignment.topLeft,
+                  child: OceanBreadcrumb(),
+                ),
+              ),
+            ),
+          ),
         ),
-      ),
-    ));
+      );
 
-    container.read(shellHeadProvider.notifier).bind('normalize', () => tapped = true);
-    await tester.pumpAndSettle();
-    expect(tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity, 0); // hidden until scrolled
+      container
+          .read(shellHeadProvider.notifier)
+          .bind('normalize', () => tapped = true);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
+        0,
+      ); // hidden until scrolled
 
-    container.read(shellHeadProvider.notifier).setCollapsed(true);
-    await tester.pumpAndSettle();
-    expect(tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity, 1); // faded in
-    expect(find.text('normalize'), findsOneWidget);
+      container.read(shellHeadProvider.notifier).setCollapsed(true);
+      await tester.pumpAndSettle();
+      expect(
+        tester.widget<AnimatedOpacity>(find.byType(AnimatedOpacity)).opacity,
+        1,
+      ); // faded in
+      expect(find.text('normalize'), findsOneWidget);
 
-    await tester.tap(find.text('normalize'));
-    expect(tapped, isTrue); // scroll-to-top
-  });
+      await tester.tap(find.text('normalize'));
+      expect(tapped, isTrue); // scroll-to-top
+    },
+  );
 }

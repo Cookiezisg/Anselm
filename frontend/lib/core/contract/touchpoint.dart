@@ -17,12 +17,7 @@ enum TouchpointVerb {
 }
 
 /// Who touched last — the backend's 3-actor closed set + fallback. 最后触碰者三种 + 兜底。
-enum TouchpointActor {
-  user,
-  assistant,
-  subagent,
-  unknown,
-}
+enum TouchpointActor { user, assistant, subagent, unknown }
 
 /// One conversation-touchpoint AGGREGATE row — the backend projection of `conversation_touchpoints`
 /// exactly as `GET /conversations/{id}/touchpoints` serves it (camelCase; mirrors
@@ -59,7 +54,8 @@ abstract class Touchpoint with _$Touchpoint {
     @Default('') String lastMessageId,
   }) = _Touchpoint;
 
-  factory Touchpoint.fromJson(Map<String, dynamic> json) => _$TouchpointFromJson(json);
+  factory Touchpoint.fromJson(Map<String, dynamic> json) =>
+      _$TouchpointFromJson(json);
 
   /// The display name, honestly falling back to the raw id (mono, muted at the call site) when the
   /// write-time snapshot resolved nothing. 显示名;快照空时诚实回退裸 id(调用处渲 mono 灰)。

@@ -54,20 +54,24 @@ class ChatThinking extends StatefulWidget {
 class _ChatThinkingState extends State<ChatThinking> {
   late bool _expanded = widget.initiallyExpanded;
   late bool _bodyOpen; // BORN driver (streaming window opens) 诞生:窗展开
-  bool _settling = false; // keep the flow-window child while the settle-collapse plays 融解时保持流窗内容
+  bool _settling =
+      false; // keep the flow-window child while the settle-collapse plays 融解时保持流窗内容
   Timer? _settleTimer;
 
   @override
   void initState() {
     super.initState();
-    _bodyOpen = !widget.streaming && widget.initiallyExpanded; // streaming is born CLOSED then opens 流式生而关、随后开
+    _bodyOpen =
+        !widget.streaming &&
+        widget
+            .initiallyExpanded; // streaming is born CLOSED then opens 流式生而关、随后开
     if (widget.streaming) _armBorn();
   }
 
   // Post-frame open so AnExpandReveal tweens 0→cap (born, not a full-formed paint). 后帧开→补间揭示。
   void _armBorn() => WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) setState(() => _bodyOpen = true);
-      });
+    if (mounted) setState(() => _bodyOpen = true);
+  });
 
   @override
   void didUpdateWidget(ChatThinking old) {
@@ -132,7 +136,11 @@ class _ChatThinkingState extends State<ChatThinking> {
               children: [
                 const AnStatusDot(AnStatus.run),
                 const SizedBox(width: AnSpace.s6),
-                AnShimmerText(widget.liveLabel, style: _label(c).copyWith(color: c.inkMuted), reveal: true),
+                AnShimmerText(
+                  widget.liveLabel,
+                  style: _label(c).copyWith(color: c.inkMuted),
+                  reveal: true,
+                ),
               ],
             )
           : KeyedSubtree(key: const ValueKey('settled'), child: _thought(c)),
@@ -145,14 +153,20 @@ class _ChatThinkingState extends State<ChatThinking> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             // The label row tops the LEFT edge (dot inline while streaming; settled "thought" is flush). 头齐左。
-            SizedBox(height: headH, child: Align(alignment: Alignment.centerLeft, child: header)),
+            SizedBox(
+              height: headH,
+              child: Align(alignment: Alignment.centerLeft, child: header),
+            ),
             const SizedBox(height: AnSpace.s6),
             // Body indented off the rail; ONE AnExpandReveal rides BORN open / SETTLE collapse / EXPAND /
             // COLLAPSE. Full-width child so short prose stays left-aligned (AnExpandReveal centres narrow
             // content). 正文缩进于 rail;一 reveal 通吃四态;满宽使短正文左对齐。
             Padding(
               padding: const EdgeInsets.only(left: AnIndent.dot),
-              child: AnExpandReveal(open: bodyOpen, child: SizedBox(width: double.infinity, child: bodyChild)),
+              child: AnExpandReveal(
+                open: bodyOpen,
+                child: SizedBox(width: double.infinity, child: bodyChild),
+              ),
             ),
           ],
         ),
@@ -167,7 +181,9 @@ class _ChatThinkingState extends State<ChatThinking> {
             // Centred structurally inside the dot's slot — no /2 arithmetic. 结构化居中于点槽,无除法算术。
             child: SizedBox(
               width: AnSize.dot,
-              child: Center(child: Container(width: AnSize.hairline, color: c.line)),
+              child: Center(
+                child: Container(width: AnSize.hairline, color: c.line),
+              ),
             ),
           ),
       ],
@@ -177,16 +193,19 @@ class _ChatThinkingState extends State<ChatThinking> {
   // The settled label IS the toggle — tap the whole "thought for Ns" text (no chevron, no link). faint→ink
   // on hover/focus; `expanded` drives the SR disclosure announce. 想完标签本身即开关:点整段文字切换。
   Widget _thought(AnColors c) => AnInteractive(
-        onTap: _toggle,
-        expanded: _expanded,
-        builder: (context, states) => Text(
-          widget.settledLabel,
-          style: _label(c).copyWith(color: states.isActive ? c.ink : c.inkFaint),
-        ),
-      );
+    onTap: _toggle,
+    expanded: _expanded,
+    builder: (context, states) => Text(
+      widget.settledLabel,
+      style: _label(c).copyWith(color: states.isActive ? c.ink : c.inkFaint),
+    ),
+  );
 
   double _lineHeight(TextStyle s) =>
       // A single-glyph paint for the label's line box — O(1) per build, NOT the C-004 whole-text path.
       // 单字形量行盒,O(1)/build,非 C-004 全文路径。
-      measureText(TextSpan(text: 'x', style: s), read: (tp) => tp.preferredLineHeight);
+      measureText(
+        TextSpan(text: 'x', style: s),
+        read: (tp) => tp.preferredLineHeight,
+      );
 }

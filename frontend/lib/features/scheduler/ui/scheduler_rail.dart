@@ -47,7 +47,9 @@ class _SchedulerRailState extends ConsumerState<SchedulerRail> {
 
   void _onFilterSubmit(String text) {
     final id = text.trim();
-    if (id.startsWith('fr_') && id.length > 3) context.go('/scheduler/runs/$id');
+    if (id.startsWith('fr_') && id.length > 3) {
+      context.go('/scheduler/runs/$id');
+    }
   }
 
   @override
@@ -98,7 +100,9 @@ class _SchedulerRailState extends ConsumerState<SchedulerRail> {
             nextFireIn: (d) => t.scheduler.nextFireIn(d: d),
             ago: (d) => t.scheduler.agoMeta(d: d),
             neverRan: t.scheduler.neverRan,
-            newLabel: t.scheduler.overviewTitle, // showNew=false — unused, satisfies the model. 不渲。
+            newLabel: t
+                .scheduler
+                .overviewTitle, // showNew=false — unused, satisfies the model. 不渲。
             filterPlaceholder: t.scheduler.filterPlaceholder,
           ),
           now: DateTime.now(),
@@ -116,31 +120,40 @@ class _SchedulerRailState extends ConsumerState<SchedulerRail> {
           menuEntries: [
             AnMenuSection(t2.sortLabel),
             AnMenuItem(
-                label: t2.sortActivity,
-                checked: sort == SchedRailSort.activity,
-                onTap: () =>
-                    ref.read(schedulerRailSortProvider.notifier).set(SchedRailSort.activity)),
+              label: t2.sortActivity,
+              checked: sort == SchedRailSort.activity,
+              onTap: () => ref
+                  .read(schedulerRailSortProvider.notifier)
+                  .set(SchedRailSort.activity),
+            ),
             AnMenuItem(
-                label: t2.sortName,
-                checked: sort == SchedRailSort.name,
-                onTap: () =>
-                    ref.read(schedulerRailSortProvider.notifier).set(SchedRailSort.name)),
+              label: t2.sortName,
+              checked: sort == SchedRailSort.name,
+              onTap: () => ref
+                  .read(schedulerRailSortProvider.notifier)
+                  .set(SchedRailSort.name),
+            ),
             AnMenuSection(t2.displayLabel),
             AnMenuItem(
-                label: t2.showNextFire,
-                checked: showNextFire,
-                keepOpen: true,
-                onTap: () => ref.read(schedShowNextFireProvider.notifier).toggle()),
+              label: t2.showNextFire,
+              checked: showNextFire,
+              keepOpen: true,
+              onTap: () =>
+                  ref.read(schedShowNextFireProvider.notifier).toggle(),
+            ),
             AnMenuItem(
-                label: t2.showLastRun,
-                checked: showLastRun,
-                keepOpen: true,
-                onTap: () => ref.read(schedShowLastRunProvider.notifier).toggle()),
+              label: t2.showLastRun,
+              checked: showLastRun,
+              keepOpen: true,
+              onTap: () => ref.read(schedShowLastRunProvider.notifier).toggle(),
+            ),
             AnMenuItem(
-                label: t2.showInactive,
-                checked: showInactive,
-                keepOpen: true,
-                onTap: () => ref.read(schedShowInactiveProvider.notifier).toggle()),
+              label: t2.showInactive,
+              checked: showInactive,
+              keepOpen: true,
+              onTap: () =>
+                  ref.read(schedShowInactiveProvider.notifier).toggle(),
+            ),
           ],
         );
       },

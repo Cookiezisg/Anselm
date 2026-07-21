@@ -74,18 +74,24 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
     }
     cur[segs.last] = f.unit == 'ratio' ? value : value.round();
     try {
-      final fresh = await ref.read(settingsRepositoryProvider).patchLimits(body);
+      final fresh = await ref
+          .read(settingsRepositoryProvider)
+          .patchLimits(body);
       if (mounted) setState(() => _limits = fresh);
     } on ApiException catch (e) {
       // Violation: inline toast + reload (roll the field back to server truth). 越界:回滚到服务端真相。
-      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(e.message, tone: AnTone.danger);
       await _load();
     }
   }
 
   Future<void> _resetAll() async {
     final t = Translations.of(context);
-    final ok = await ref.read(overlayProvider.notifier).confirm(
+    final ok = await ref
+        .read(overlayProvider.notifier)
+        .confirm(
           title: t.settings.limits.resetAllTitle,
           message: t.settings.limits.scopeNote,
           confirmLabel: t.settings.limits.resetAll,
@@ -107,7 +113,9 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
       // Whole-pane load failure = AnState (the inline label+danger voice is reserved for form
       // save errors). The face speaks human; the technical detail (wire code / raw error) rides a
       // tooltip. 整面载入失败归 AnState;脸说人话,技术细节(码/原始错)收 tooltip。
-      final human = loadError is ApiException ? loadError.message : t.settings.limits.errorHint;
+      final human = loadError is ApiException
+          ? loadError.message
+          : t.settings.limits.errorHint;
       final detail = loadError is ApiException ? loadError.code : '$loadError';
       return AnTooltip(
         message: detail,
@@ -136,51 +144,59 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
       groups.putIfAbsent(f.group, () => []).add(f);
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Row(children: [
-        const AnScopeBadge(AnSettingScope.machine),
-        const SizedBox(width: AnSpace.s8),
-        Expanded(
-          child: Text(t.settings.limits.scopeNote,
-              style: AnText.label.copyWith(color: c.inkMuted)),
-        ),
-        AnButton(
-          label: t.settings.limits.resetAll,
-          size: AnButtonSize.sm,
-          outline: true,
-          variant: AnButtonVariant.danger,
-          onPressed: _resetAll,
-        ),
-      ]),
-      const SizedBox(height: AnSpace.s16),
-      for (final entry in groups.entries) ...[
-        AnSection(
-          label: entry.key,
-          variant: AnSectionVariant.quiet,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
           children: [
-            for (final f in entry.value)
-              _LimitRow(
-                key: ValueKey('${f.key}:${_valueAt(f.key)}'),
-                field: f,
-                value: _valueAt(f.key) ?? f.defaultValue,
-                onCommit: (v) => _commit(f, v),
-                onReset: () => _commit(f, f.defaultValue),
+            const AnScopeBadge(AnSettingScope.machine),
+            const SizedBox(width: AnSpace.s8),
+            Expanded(
+              child: Text(
+                t.settings.limits.scopeNote,
+                style: AnText.label.copyWith(color: c.inkMuted),
               ),
+            ),
+            AnButton(
+              label: t.settings.limits.resetAll,
+              size: AnButtonSize.sm,
+              outline: true,
+              variant: AnButtonVariant.danger,
+              onPressed: _resetAll,
+            ),
           ],
         ),
         const SizedBox(height: AnSpace.s16),
+        for (final entry in groups.entries) ...[
+          AnSection(
+            label: entry.key,
+            variant: AnSectionVariant.quiet,
+            children: [
+              for (final f in entry.value)
+                _LimitRow(
+                  key: ValueKey('${f.key}:${_valueAt(f.key)}'),
+                  field: f,
+                  value: _valueAt(f.key) ?? f.defaultValue,
+                  onCommit: (v) => _commit(f, v),
+                  onReset: () => _commit(f, f.defaultValue),
+                ),
+            ],
+          ),
+          const SizedBox(height: AnSpace.s16),
+        ],
       ],
-    ]);
+    );
   }
 }
 
 class _LimitRow extends StatefulWidget {
-  const _LimitRow(
-      {required this.field,
-      required this.value,
-      required this.onCommit,
-      required this.onReset,
-      super.key});
+  const _LimitRow({
+    required this.field,
+    required this.value,
+    required this.onCommit,
+    required this.onReset,
+    super.key,
+  });
 
   final LimitField field;
   final double value;
@@ -192,9 +208,12 @@ class _LimitRow extends StatefulWidget {
 }
 
 class _LimitRowState extends State<_LimitRow> {
-  late final TextEditingController _text = TextEditingController(text: _fmt(widget.value));
+  late final TextEditingController _text = TextEditingController(
+    text: _fmt(widget.value),
+  );
 
-  static String _fmt(double v) => v == v.roundToDouble() ? '${v.round()}' : '$v';
+  static String _fmt(double v) =>
+      v == v.roundToDouble() ? '${v.round()}' : '$v';
 
   @override
   void dispose() {

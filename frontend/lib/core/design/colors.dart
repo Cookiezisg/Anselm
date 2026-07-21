@@ -89,9 +89,12 @@ class AnColors extends ThemeExtension<AnColors> {
   final Color accent;
   final Color accentHover;
   final Color accentSoft;
-  final Color accentLine; // hairline-weight accent for emphatic borders/insets (demo --accent-line); accentSoft 太浅做不了线
-  final Color selection; // text-selection highlight (editor/prose sweeps) — accent at ~macOS selection alpha; accentSoft(0.10) 太浅盖不出「选中了」。文本划选高亮
-  final Color dangerLine; // hairline-weight danger for warning borders (批7 B-034 — dangerSoft 太浅做不了线,镜像 accentLine)
+  final Color
+  accentLine; // hairline-weight accent for emphatic borders/insets (demo --accent-line); accentSoft 太浅做不了线
+  final Color
+  selection; // text-selection highlight (editor/prose sweeps) — accent at ~macOS selection alpha; accentSoft(0.10) 太浅盖不出「选中了」。文本划选高亮
+  final Color
+  dangerLine; // hairline-weight danger for warning borders (批7 B-034 — dangerSoft 太浅做不了线,镜像 accentLine)
 
   // Functional status semantics. 功能状态语义。
   final Color ok;
@@ -122,9 +125,13 @@ class AnColors extends ThemeExtension<AnColors> {
     surface: Color(0xFFFFFFFF),
     surfaceSubtle: Color(0xFFFBFBFD),
     surfaceHover: Color(0xFFF0F0F3),
-    surfaceHoverStrong: Color(0xFFE0E0E3), // one clear notch below surfaceHover (and below surfaceActive) — inline-button hover 行内钮 hover
+    surfaceHoverStrong: Color(
+      0xFFE0E0E3,
+    ), // one clear notch below surfaceHover (and below surfaceActive) — inline-button hover 行内钮 hover
     surfaceActive: Color(0xFFE9E9EC),
-    surfaceSunken: Color(0xFFECECEF), // between surfaceHover and surfaceActive — a gentle inset well 轻凹填充
+    surfaceSunken: Color(
+      0xFFECECEF,
+    ), // between surfaceHover and surfaceActive — a gentle inset well 轻凹填充
     ink: Color(0xFF1D1D1F),
     inkMuted: Color(0xFF6E6E73),
     inkFaint: Color(0xFF8E8E93),
@@ -147,19 +154,47 @@ class AnColors extends ThemeExtension<AnColors> {
     skeletonBase: Color(0xFFE4E4E8),
     skeletonHighlight: Color(0xFFF2F2F4),
     shadowIsland: [
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.03), blurRadius: 2, offset: Offset(0, 1)),
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.035), blurRadius: 10, offset: Offset(0, 3)),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.03),
+        blurRadius: 2,
+        offset: Offset(0, 1),
+      ),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.035),
+        blurRadius: 10,
+        offset: Offset(0, 3),
+      ),
     ],
     shadowFloat: [
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.05), blurRadius: 3, offset: Offset(0, 1)),
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.045), blurRadius: 22, offset: Offset(0, 8)),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.05),
+        blurRadius: 3,
+        offset: Offset(0, 1),
+      ),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.045),
+        blurRadius: 22,
+        offset: Offset(0, 8),
+      ),
     ],
     shadowPop: [
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.06), blurRadius: 8, offset: Offset(0, 2)),
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.10), blurRadius: 32, offset: Offset(0, 12)),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.06),
+        blurRadius: 8,
+        offset: Offset(0, 2),
+      ),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.10),
+        blurRadius: 32,
+        offset: Offset(0, 12),
+      ),
     ],
     shadowWin: [
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.20), blurRadius: 50, offset: Offset(0, 16)),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.20),
+        blurRadius: 50,
+        offset: Offset(0, 16),
+      ),
     ],
   );
 
@@ -170,9 +205,13 @@ class AnColors extends ThemeExtension<AnColors> {
     surface: Color(0xFF1C1C1E),
     surfaceSubtle: Color(0xFF232326),
     surfaceHover: Color(0xFF2A2A2D),
-    surfaceHoverStrong: Color(0xFF38383C), // one clear lift above surfaceHover (and above surfaceActive) — dark inverts 暗色行内钮 hover
+    surfaceHoverStrong: Color(
+      0xFF38383C,
+    ), // one clear lift above surfaceHover (and above surfaceActive) — dark inverts 暗色行内钮 hover
     surfaceActive: Color(0xFF323236),
-    surfaceSunken: Color(0xFF26262A), // gentle lift above the near-black base surface (dark inverts) 暗色轻凸
+    surfaceSunken: Color(
+      0xFF26262A,
+    ), // gentle lift above the near-black base surface (dark inverts) 暗色轻凸
     ink: Color(0xFFF5F5F7),
     inkMuted: Color(0xFFA1A1A6),
     inkFaint: Color(0xFF6E6E73),
@@ -195,19 +234,47 @@ class AnColors extends ThemeExtension<AnColors> {
     skeletonBase: Color(0xFF2E2E33),
     skeletonHighlight: Color(0xFF3C3C42),
     shadowIsland: [
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.40), blurRadius: 2, offset: Offset(0, 1)),
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.50), blurRadius: 28, offset: Offset(0, 8)),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.40),
+        blurRadius: 2,
+        offset: Offset(0, 1),
+      ),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.50),
+        blurRadius: 28,
+        offset: Offset(0, 8),
+      ),
     ],
     shadowFloat: [
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.40), blurRadius: 3, offset: Offset(0, 1)),
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.50), blurRadius: 24, offset: Offset(0, 8)),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.40),
+        blurRadius: 3,
+        offset: Offset(0, 1),
+      ),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.50),
+        blurRadius: 24,
+        offset: Offset(0, 8),
+      ),
     ],
     shadowPop: [
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.55), blurRadius: 24, offset: Offset(0, 8)),
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.60), blurRadius: 50, offset: Offset(0, 20)),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.55),
+        blurRadius: 24,
+        offset: Offset(0, 8),
+      ),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.60),
+        blurRadius: 50,
+        offset: Offset(0, 20),
+      ),
     ],
     shadowWin: [
-      BoxShadow(color: Color.fromRGBO(0, 0, 0, 0.50), blurRadius: 50, offset: Offset(0, 16)),
+      BoxShadow(
+        color: Color.fromRGBO(0, 0, 0, 0.50),
+        blurRadius: 50,
+        offset: Offset(0, 16),
+      ),
     ],
   );
 
@@ -288,7 +355,8 @@ class AnColors extends ThemeExtension<AnColors> {
   AnColors lerp(ThemeExtension<AnColors>? other, double t) {
     if (other is! AnColors) return this;
     Color c(Color a, Color b) => Color.lerp(a, b, t)!;
-    List<BoxShadow> s(List<BoxShadow> a, List<BoxShadow> b) => BoxShadow.lerpList(a, b, t)!;
+    List<BoxShadow> s(List<BoxShadow> a, List<BoxShadow> b) =>
+        BoxShadow.lerpList(a, b, t)!;
     return AnColors(
       desk: c(desk, other.desk),
       canvas: c(canvas, other.canvas),
@@ -354,7 +422,8 @@ class SyntaxColors extends ThemeExtension<SyntaxColors> {
     required this.arg,
   });
 
-  final Color comment; // demo --cd-com (rendered italic by the highlighter) 注释(高亮器渲斜体)
+  final Color
+  comment; // demo --cd-com (rendered italic by the highlighter) 注释(高亮器渲斜体)
   final Color keyword; // demo --cd-kw 关键字
   final Color string; // demo --cd-str 字符串
   final Color number; // demo --cd-num 数字
@@ -455,7 +524,8 @@ class GraphColors extends ThemeExtension<GraphColors> {
   final Color teal; // agent nodes 智能体节点
   final Color tealSoft;
   final Color edge; // resting edge stroke (demo --edge) 静止边
-  final Color edgeFuture; // run-mode not-yet-walked edge (demo --edge-future) 未走边
+  final Color
+  edgeFuture; // run-mode not-yet-walked edge (demo --edge-future) 未走边
   final Color gridDot; // canvas dot grid (demo --grid-dot) 网格点
 
   static const GraphColors light = GraphColors(

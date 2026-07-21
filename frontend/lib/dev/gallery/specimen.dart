@@ -9,7 +9,14 @@ import 'package:flutter/widgets.dart';
 /// 渲染器哑。stress 标压力床 specimen(空/超长/海量/极值/注入),抓 happy-path 漏的溢出/转义回归。
 @immutable
 class GallerySpecimen {
-  const GallerySpecimen(this.label, this.builder, {this.span = false, this.stress = false, this.maxWidth, this.height});
+  const GallerySpecimen(
+    this.label,
+    this.builder, {
+    this.span = false,
+    this.stress = false,
+    this.maxWidth,
+    this.height,
+  });
 
   final String label;
   final WidgetBuilder builder;

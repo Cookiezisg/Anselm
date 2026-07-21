@@ -43,8 +43,9 @@ class StageGroupCollapseController extends Notifier<Set<String>> {
   Set<String> build() => const <String>{};
 
   /// Flip one group's fold. 翻转一组折叠。
-  void toggle(String kind) =>
-      state = state.contains(kind) ? ({...state}..remove(kind)) : {...state, kind};
+  void toggle(String kind) => state = state.contains(kind)
+      ? ({...state}..remove(kind))
+      : {...state, kind};
 
   /// Reveal every group — the head ⋯ «展开全部» clears the fold so no settled row hides behind a collapsed
   /// head while its row expands. 全部展开顺手掀开所有组(免行展开却藏在折叠组后)。
@@ -56,4 +57,6 @@ class StageGroupCollapseController extends Notifier<Set<String>> {
 /// One conversation's sidestage group-fold set. autoDispose family — leaving the thread frees it.
 /// 会话侧幕组折叠集;切走即释放。
 final stageGroupCollapseProvider = NotifierProvider.autoDispose
-    .family<StageGroupCollapseController, Set<String>, String>(StageGroupCollapseController.new);
+    .family<StageGroupCollapseController, Set<String>, String>(
+      StageGroupCollapseController.new,
+    );

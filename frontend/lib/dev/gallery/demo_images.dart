@@ -9,7 +9,11 @@ import 'package:flutter/widgets.dart';
 ///
 /// dev 专用假「照片」:光栅化渐变+图形成 PNG 字节 → MemoryImage。零资产零网络(specimen 绝不取网)。引擎异步
 /// (toImage)——matrix 测试里 future 不落地、specimen 渲 resolving 态(有意);真 gallery 与 capture(runAsync)显真图。
-Future<MemoryImage> demoImage({int width = 560, int height = 420, int seed = 0}) async {
+Future<MemoryImage> demoImage({
+  int width = 560,
+  int height = 420,
+  int seed = 0,
+}) async {
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder);
   final w = width.toDouble(), h = height.toDouble();
@@ -22,12 +26,18 @@ Future<MemoryImage> demoImage({int width = 560, int height = 420, int seed = 0})
   final colors = palettes[seed % palettes.length];
   canvas.drawRect(
     Rect.fromLTWH(0, 0, w, h),
-    Paint()
-      ..shader = ui.Gradient.linear(Offset.zero, Offset(w, h), colors),
+    Paint()..shader = ui.Gradient.linear(Offset.zero, Offset(w, h), colors),
   );
   // A "horizon" band + a sun-ish disc so it reads as a photo, not a flat swatch. 一道地平线+一轮圆,像照片。
-  canvas.drawCircle(Offset(w * 0.72, h * 0.3), h * 0.16, Paint()..color = const Color(0x66FFFFFF));
-  canvas.drawRect(Rect.fromLTWH(0, h * 0.72, w, h * 0.28), Paint()..color = const Color(0x22000000));
+  canvas.drawCircle(
+    Offset(w * 0.72, h * 0.3),
+    h * 0.16,
+    Paint()..color = const Color(0x66FFFFFF),
+  );
+  canvas.drawRect(
+    Rect.fromLTWH(0, h * 0.72, w, h * 0.28),
+    Paint()..color = const Color(0x22000000),
+  );
   final image = await recorder.endRecording().toImage(width, height);
   final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
   image.dispose();
@@ -37,7 +47,13 @@ Future<MemoryImage> demoImage({int width = 560, int height = 420, int seed = 0})
 /// A specimen-side async holder: renders [builder] with the demo image once rasterized, else with null
 /// (the thumb's resolving state). dev 异步壳:光栅化完成前 builder 收 null(瓦片渲 resolving 态)。
 class DemoImageBuilder extends StatefulWidget {
-  const DemoImageBuilder({required this.builder, this.seed = 0, this.width = 560, this.height = 420, super.key});
+  const DemoImageBuilder({
+    required this.builder,
+    this.seed = 0,
+    this.width = 560,
+    this.height = 420,
+    super.key,
+  });
 
   final Widget Function(BuildContext context, ImageProvider? image) builder;
   final int seed;
@@ -54,7 +70,11 @@ class _DemoImageBuilderState extends State<DemoImageBuilder> {
   @override
   void initState() {
     super.initState();
-    demoImage(seed: widget.seed, width: widget.width, height: widget.height).then((img) {
+    demoImage(
+      seed: widget.seed,
+      width: widget.width,
+      height: widget.height,
+    ).then((img) {
       if (mounted) setState(() => _image = img);
     });
   }

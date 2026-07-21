@@ -8,9 +8,11 @@ import 'document_repository.dart';
 /// Writes mutate in place so a demo/test can create/rename/move/delete and see the rail react. Not used by
 /// the live app. 内存可脚本 fixture:扁平节点列表(按 parentId 组树)+ skill 列表;写就地改。
 class FixtureDocumentsRepository implements DocumentsRepository {
-  FixtureDocumentsRepository({List<DocumentNode>? documents, List<Skill>? skills})
-      : _docs = List.of(documents ?? const []),
-        _skills = List.of(skills ?? const []);
+  FixtureDocumentsRepository({
+    List<DocumentNode>? documents,
+    List<Skill>? skills,
+  }) : _docs = List.of(documents ?? const []),
+       _skills = List.of(skills ?? const []);
 
   final List<DocumentNode> _docs;
   final List<Skill> _skills;
@@ -28,24 +30,33 @@ class FixtureDocumentsRepository implements DocumentsRepository {
   // size_bytes>0) that drives the rail's empty-page vs written-doc icon (B4). 镜像 Live /tree:去正文 +
   // hasContent(≡ size_bytes>0),驱动 rail 空页/已写页 icon。
   @override
-  Future<List<DocumentNode>> getTree() async =>
-      [for (final d in _docs) d.copyWith(content: '', hasContent: d.content.isNotEmpty)];
+  Future<List<DocumentNode>> getTree() async => [
+    for (final d in _docs)
+      d.copyWith(content: '', hasContent: d.content.isNotEmpty),
+  ];
   @override
   Future<DocumentNode> getDocument(String id) async => _byId(id);
   @override
   Future<List<DocumentNode>> listChildren(String? parentId) async {
-    final kids = _docs.where((d) => d.parentId == (parentId?.isEmpty == true ? null : parentId)).toList()
-      ..sort((a, b) => a.position.compareTo(b.position));
+    final kids =
+        _docs
+            .where(
+              (d) =>
+                  d.parentId == (parentId?.isEmpty == true ? null : parentId),
+            )
+            .toList()
+          ..sort((a, b) => a.position.compareTo(b.position));
     return kids;
   }
 
   @override
-  Future<DocumentNode> createDocument(
-      {required String name,
-      String? parentId,
-      String content = '',
-      String description = '',
-      List<String> tags = const []}) async {
+  Future<DocumentNode> createDocument({
+    required String name,
+    String? parentId,
+    String content = '',
+    String description = '',
+    List<String> tags = const [],
+  }) async {
     final siblings = _docs.where((d) => d.parentId == parentId);
     final node = DocumentNode(
       id: _newId(),
@@ -65,7 +76,10 @@ class FixtureDocumentsRepository implements DocumentsRepository {
   }
 
   @override
-  Future<DocumentNode> updateDocument(String id, Map<String, dynamic> patch) async {
+  Future<DocumentNode> updateDocument(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
     final i = _docs.indexWhere((d) => d.id == id);
     final cur = _docs[i];
     final next = cur.copyWith(
@@ -73,7 +87,9 @@ class FixtureDocumentsRepository implements DocumentsRepository {
       description: patch['description'] as String? ?? cur.description,
       content: patch['content'] as String? ?? cur.content,
       tags: (patch['tags'] as List?)?.cast<String>() ?? cur.tags,
-      sizeBytes: patch['content'] is String ? (patch['content'] as String).length : cur.sizeBytes,
+      sizeBytes: patch['content'] is String
+          ? (patch['content'] as String).length
+          : cur.sizeBytes,
       updatedAt: _t,
     );
     _docs[i] = next;
@@ -103,28 +119,45 @@ class FixtureDocumentsRepository implements DocumentsRepository {
     while (grew) {
       grew = false;
       for (final d in _docs) {
-        if (d.parentId != null && doomed.contains(d.parentId) && doomed.add(d.id)) grew = true;
+        if (d.parentId != null &&
+            doomed.contains(d.parentId) &&
+            doomed.add(d.id)) {
+          grew = true;
+        }
       }
     }
     _docs.removeWhere((d) => doomed.contains(d.id));
   }
 
   @override
-  Future<DocumentNode> moveDocument(String id, {String? parentId, int? position}) async {
+  Future<DocumentNode> moveDocument(
+    String id, {
+    String? parentId,
+    int? position,
+  }) async {
     final i = _docs.indexWhere((d) => d.id == id);
     // Mirror the backend: position omitted → APPEND among the new parent's children (not "keep the old
     // number", which is meaningless under a different parent); an explicit position shifts the siblings it
     // lands among (stable insert-at-index). 镜像后端:省略=追加新父末尾;显式=按 index 插入、让位兄弟顺移。
-    final siblings = [for (final d in _docs) if (d.parentId == parentId && d.id != id) d]
-      ..sort((a, b) => a.position.compareTo(b.position));
-    final at = position == null || position < 0 || position > siblings.length ? siblings.length : position;
+    final siblings = [
+      for (final d in _docs)
+        if (d.parentId == parentId && d.id != id) d,
+    ]..sort((a, b) => a.position.compareTo(b.position));
+    final at = position == null || position < 0 || position > siblings.length
+        ? siblings.length
+        : position;
     for (var s = 0; s < siblings.length; s++) {
       final want = s < at ? s : s + 1;
       if (siblings[s].position != want) {
-        _docs[_docs.indexWhere((d) => d.id == siblings[s].id)] = siblings[s].copyWith(position: want);
+        _docs[_docs.indexWhere((d) => d.id == siblings[s].id)] = siblings[s]
+            .copyWith(position: want);
       }
     }
-    _docs[i] = _docs[i].copyWith(parentId: parentId, position: at, updatedAt: _t);
+    _docs[i] = _docs[i].copyWith(
+      parentId: parentId,
+      position: at,
+      updatedAt: _t,
+    );
     // Reparenting shifts the whole subtree's materialized paths (backend cascades). 改父级联子树 path。
     _recomputePaths(id);
     return _docs[_docs.indexWhere((d) => d.id == id)];
@@ -145,9 +178,12 @@ class FixtureDocumentsRepository implements DocumentsRepository {
 
   // ── skills ───────────────────────────────────────────────────────────────
   @override
-  Future<List<Skill>> listSkills() async => [for (final s in _skills) s.copyWith(body: '')];
+  Future<List<Skill>> listSkills() async => [
+    for (final s in _skills) s.copyWith(body: ''),
+  ];
   @override
-  Future<Skill> getSkill(String name) async => _skills.firstWhere((s) => s.name == name);
+  Future<Skill> getSkill(String name) async =>
+      _skills.firstWhere((s) => s.name == name);
   @override
   Future<Skill> createSkill(Map<String, dynamic> body) async {
     final s = Skill(
@@ -180,9 +216,12 @@ class FixtureDocumentsRepository implements DocumentsRepository {
         description: desc,
         context: context,
         agent: body['agent'] as String? ?? '',
-        allowedTools: [...(body['allowedTools'] as List? ?? const [])].cast<String>(),
+        allowedTools: [
+          ...(body['allowedTools'] as List? ?? const []),
+        ].cast<String>(),
         arguments: [...(body['arguments'] as List? ?? const [])].cast<String>(),
-        disableModelInvocation: body['disableModelInvocation'] as bool? ?? false,
+        disableModelInvocation:
+            body['disableModelInvocation'] as bool? ?? false,
         userInvocable: body['userInvocable'] as bool? ?? false,
       ),
       updatedAt: _t,
@@ -192,7 +231,8 @@ class FixtureDocumentsRepository implements DocumentsRepository {
   }
 
   @override
-  Future<void> deleteSkill(String name) async => _skills.removeWhere((s) => s.name == name);
+  Future<void> deleteSkill(String name) async =>
+      _skills.removeWhere((s) => s.name == name);
 
   // No backend, no stream — the demo's writes all go through the rail, which invalidates directly.
   // 零后端零流:demo 的写全走 rail、直接 invalidate。
@@ -203,17 +243,17 @@ class FixtureDocumentsRepository implements DocumentsRepository {
   /// targeting [documentId] (names hydrated from the live rows). 照后端方式诚实派生:扫全部正文的 `[[id]]`。
   @override
   Future<List<EntityRelation>> listBacklinks(String documentId) async => [
-        for (final d in _docs)
-          if (d.id != documentId && d.content.contains('[[$documentId]]'))
-            EntityRelation(
-              id: 'rel_${d.id}_$documentId',
-              kind: 'link',
-              fromKind: 'document',
-              fromId: d.id,
-              fromName: d.name,
-              toKind: 'document',
-              toId: documentId,
-              toName: _byId(documentId).name,
-            ),
-      ];
+    for (final d in _docs)
+      if (d.id != documentId && d.content.contains('[[$documentId]]'))
+        EntityRelation(
+          id: 'rel_${d.id}_$documentId',
+          kind: 'link',
+          fromKind: 'document',
+          fromId: d.id,
+          fromName: d.name,
+          toKind: 'document',
+          toId: documentId,
+          toName: _byId(documentId).name,
+        ),
+  ];
 }

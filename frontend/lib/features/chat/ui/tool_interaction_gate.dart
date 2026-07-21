@@ -16,7 +16,15 @@ enum GateKind { danger, ask }
 /// Arg keys whose value is a PAYLOAD (the thing being done) — always shown in a machine window, never a
 /// flush-right KV value. 值为 payload 的 arg 键——恒进机器窗、绝不作贴右 KV 值。
 const Set<String> _payloadKeys = {
-  'command', 'code', 'content', 'body', 'prompt', 'new_string', 'old_string', 'file_text', 'query',
+  'command',
+  'code',
+  'content',
+  'body',
+  'prompt',
+  'new_string',
+  'old_string',
+  'file_text',
+  'query',
 };
 
 /// The HUMAN GATE (WRK-056 F16 §族律2) — the one shape in the whole product for "a machine is asking a
@@ -116,7 +124,9 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
   // free-text field (a descendant focus that consumes the key) never triggers a selection (focus
   // arbitration). 数字键选项:仅门壳焦点触发;字段聚焦时数字被字段吞、不误选。
   KeyEventResult _onShellKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent || widget.options.isEmpty) return KeyEventResult.ignored;
+    if (event is! KeyDownEvent || widget.options.isEmpty) {
+      return KeyEventResult.ignored;
+    }
     final label = event.logicalKey.keyLabel;
     if (label.length == 1) {
       final code = label.codeUnitAt(0);
@@ -144,8 +154,8 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
     final borderColor = !awaiting
         ? c.line
         : danger
-            ? c.danger
-            : c.warn;
+        ? c.danger
+        : c.warn;
 
     return Focus(
       focusNode: _keyFocus,
@@ -186,7 +196,13 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
     );
   }
 
-  Widget _header(BuildContext context, Translations t, AnColors c, bool awaiting, bool danger) {
+  Widget _header(
+    BuildContext context,
+    Translations t,
+    AnColors c,
+    bool awaiting,
+    bool danger,
+  ) {
     return Row(
       children: [
         if (danger) ...[
@@ -196,8 +212,10 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
         if (awaiting) ...[
           const AnStatusDot(AnStatus.wait),
           const SizedBox(width: AnGap.inlineHair),
-          Text(danger ? t.chat.gate.awaitingDanger : t.chat.gate.awaitingAsk,
-              style: AnText.label.copyWith(color: c.warn)),
+          Text(
+            danger ? t.chat.gate.awaitingDanger : t.chat.gate.awaitingAsk,
+            style: AnText.label.copyWith(color: c.warn),
+          ),
         ],
       ],
     );
@@ -213,13 +231,15 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
       // read left-to-right and a flush-right KV value would mangle them; so does any long / multi-line
       // value. 短标量走 KV;payload 键(被执行之物)与长/多行值恒进机器窗(左读,贴右会毁)。
       if (_payloadKeys.contains(k) || s.contains('\n') || s.length > 60) {
-        windows.add(Padding(
-          padding: const EdgeInsets.only(top: AnGap.stackTight),
-          child: AnWindow(
-            header: Text(k),
-            child: Text(s, style: AnText.code.copyWith(color: c.inkMuted)),
+        windows.add(
+          Padding(
+            padding: const EdgeInsets.only(top: AnGap.stackTight),
+            child: AnWindow(
+              header: Text(k),
+              child: Text(s, style: AnText.code.copyWith(color: c.inkMuted)),
+            ),
           ),
-        ));
+        );
       } else {
         scalars.add(AnKvRow(k, s, meta: true));
       }
@@ -234,7 +254,12 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
   }
 
   // ── ask: options + free text, or the frozen answer ──
-  Widget _askBody(BuildContext context, Translations t, AnColors c, bool awaiting) {
+  Widget _askBody(
+    BuildContext context,
+    Translations t,
+    AnColors c,
+    bool awaiting,
+  ) {
     if (!awaiting) return _frozenAnswer(context, t, c);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -250,7 +275,9 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
           ),
         if (widget.allowFreeText)
           Padding(
-            padding: EdgeInsets.only(top: widget.options.isEmpty ? AnSpace.s0 : AnGap.stackTight),
+            padding: EdgeInsets.only(
+              top: widget.options.isEmpty ? AnSpace.s0 : AnGap.stackTight,
+            ),
             child: Focus(
               // Enter (no shift) sends; Shift+Enter falls through to the field as a newline.
               // Enter 发送;Shift+Enter 落到字段换行。
@@ -296,13 +323,20 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
                 opacity: i == chosen ? 1 : AnOpacity.disabled,
                 child: Row(
                   children: [
-                    Icon(i == chosen ? AnIcons.check : AnIcons.chevronRight,
-                        size: AnSize.iconSm, color: i == chosen ? c.ok : c.inkFaint),
+                    Icon(
+                      i == chosen ? AnIcons.check : AnIcons.chevronRight,
+                      size: AnSize.iconSm,
+                      color: i == chosen ? c.ok : c.inkFaint,
+                    ),
                     const SizedBox(width: AnGap.inline),
                     Flexible(
-                        child: Text('${i + 1}. ${widget.options[i]}',
-                            style: AnText.reading
-                                .copyWith(color: i == chosen ? c.ink : c.inkFaint))),
+                      child: Text(
+                        '${i + 1}. ${widget.options[i]}',
+                        style: AnText.reading.copyWith(
+                          color: i == chosen ? c.ink : c.inkFaint,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -320,39 +354,51 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
   }
 
   // ── awaiting: the fail-safe button row (negative LEFT — deny wears danger, decline ghost; positive RIGHT + primary) ──
-  Widget _actions(BuildContext context, Translations t, AnColors c, bool danger) {
+  Widget _actions(
+    BuildContext context,
+    Translations t,
+    AnColors c,
+    bool danger,
+  ) {
     if (danger) {
       return Row(
         children: [
           AnButton(
-              label: t.chat.gate.deny,
-              variant: AnButtonVariant.danger,
-              onPressed: () => _resolve(InteractionAction.deny)),
+            label: t.chat.gate.deny,
+            variant: AnButtonVariant.danger,
+            onPressed: () => _resolve(InteractionAction.deny),
+          ),
           const SizedBox(width: AnGap.inline),
           AnTooltip(
             message: t.chat.gate.approveAlwaysHint(tool: widget.toolName ?? ''),
             child: AnButton(
-                label: t.chat.gate.approveAlways,
-                onPressed: () => _resolve(InteractionAction.approveAlways)),
+              label: t.chat.gate.approveAlways,
+              onPressed: () => _resolve(InteractionAction.approveAlways),
+            ),
           ),
           const Spacer(),
           AnButton(
-              label: t.chat.gate.approve,
-              variant: AnButtonVariant.primary,
-              onPressed: () => _resolve(InteractionAction.approve)),
+            label: t.chat.gate.approve,
+            variant: AnButtonVariant.primary,
+            onPressed: () => _resolve(InteractionAction.approve),
+          ),
         ],
       );
     }
     // ask: decline (left ghost) + send (right primary, only with a free-text field — options self-send)
     return Row(
       children: [
-        AnButton(label: t.chat.gate.decline, onPressed: () => _resolve(InteractionAction.decline)),
+        AnButton(
+          label: t.chat.gate.decline,
+          onPressed: () => _resolve(InteractionAction.decline),
+        ),
         const Spacer(),
         if (widget.allowFreeText)
           AnButton(
-              label: t.chat.gate.submit,
-              variant: AnButtonVariant.primary,
-              onPressed: _submitText),
+            label: t.chat.gate.submit,
+            variant: AnButtonVariant.primary,
+            onPressed: _submitText,
+          ),
       ],
     );
   }
@@ -362,11 +408,17 @@ class _ToolInteractionGateState extends State<ToolInteractionGate> {
   Widget _decisionChip(BuildContext context, Translations t, AnColors c) {
     final (label, tone) = switch (widget.decided!) {
       InteractionAction.approve => (t.chat.gate.decidedApproved, AnTone.ok),
-      InteractionAction.approveAlways => (t.chat.gate.decidedApprovedAlways, AnTone.accent),
+      InteractionAction.approveAlways => (
+        t.chat.gate.decidedApprovedAlways,
+        AnTone.accent,
+      ),
       InteractionAction.deny => (t.chat.gate.decidedDenied, AnTone.danger),
       InteractionAction.accept => (t.chat.gate.decidedApproved, AnTone.ok),
       InteractionAction.decline => (t.chat.gate.decidedDeclined, AnTone.none),
     };
-    return Align(alignment: Alignment.centerLeft, child: AnChip(label, tone: tone));
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: AnChip(label, tone: tone),
+    );
   }
 }

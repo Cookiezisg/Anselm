@@ -30,12 +30,15 @@ class SchedulerWorkflowRow {
   final bool needsAttention;
   final DateTime? updatedAt;
 
-  factory SchedulerWorkflowRow.fromJson(Map<String, dynamic> json) => SchedulerWorkflowRow(
+  factory SchedulerWorkflowRow.fromJson(Map<String, dynamic> json) =>
+      SchedulerWorkflowRow(
         id: json['id'] as String? ?? '',
         name: json['name'] as String? ?? '',
         lifecycleState: json['lifecycleState'] as String? ?? '',
         needsAttention: json['needsAttention'] as bool? ?? false,
-        updatedAt: json['updatedAt'] != null ? DateTime.tryParse(json['updatedAt'] as String) : null,
+        updatedAt: json['updatedAt'] != null
+            ? DateTime.tryParse(json['updatedAt'] as String)
+            : null,
       );
 }
 
@@ -67,7 +70,9 @@ class SchedulerInboxRow {
       node: FlowrunNode.fromJson(json),
       workflowId: wfId,
       workflowName: name.isNotEmpty ? name : wfId,
-      deadline: json['deadline'] != null ? DateTime.tryParse(json['deadline'] as String) : null,
+      deadline: json['deadline'] != null
+          ? DateTime.tryParse(json['deadline'] as String)
+          : null,
     );
   }
 }
@@ -81,7 +86,12 @@ abstract interface class SchedulerRepository {
   Future<List<SchedulerWorkflowRow>> listWorkflows();
 
   /// Batched operations stats (工单③, ids ≤50 per call — the repo chunks internally). 批量统计。
-  Future<SchedulerStats> stats(List<String> workflowIds, {int recentN, String since, String? until});
+  Future<SchedulerStats> stats(
+    List<String> workflowIds, {
+    int recentN,
+    String since,
+    String? until,
+  });
 
   /// Every trigger (pages through GET /triggers) — nextFireAt/listening for the rail's ⏱ meta and the
   /// schedule surfaces. 全部 trigger(⏱ meta 与调度面数据)。
@@ -102,8 +112,12 @@ abstract interface class SchedulerRepository {
   /// Decide a parked approval (`POST /flowruns/{fr}/approvals/{node}:decide`, first-wins — the
   /// loser gets 422 FLOWRUN_APPROVAL_NOT_PARKED) → the fresh flowrun snapshot (202, same envelope
   /// as entities' decide). 决断 parked 审批(first-wins,输家 422)→ 新快照。
-  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
-      {required String decision, String? reason});
+  Future<FlowrunComposite> decideApproval(
+    String flowrunId,
+    String nodeId, {
+    required String decision,
+    String? reason,
+  });
 
   /// Cancel a RUNNING run (工单②, `POST /flowruns/{id}:cancel`; parked approvals are withdrawn).
   /// Non-running → 422 FLOWRUN_NOT_CANCELLABLE. 202 returns the `:replay`-shaped envelope.
@@ -117,31 +131,33 @@ abstract interface class SchedulerRepository {
   /// All four are RFC3339 UTC bounds, half-open [after, before). Same Page shape as entities' (N4).
   /// 一页 flowrun(新→旧),过滤 AND 组合(工单⑥+⑮):status/origin 封闭集、两组时间界 RFC3339 UTC 半开窗
   /// (started_at「何时开始」/ completed_at「何时落定」,后者剔除未落定的 NULL 行)。
-  Future<Page<Flowrun>> listFlowruns(
-      {required String workflowId,
-      String? status,
-      String? origin,
-      String? triggerId,
-      DateTime? startedAfter,
-      DateTime? startedBefore,
-      DateTime? completedAfter,
-      DateTime? completedBefore,
-      String? cursor,
-      int? limit});
+  Future<Page<Flowrun>> listFlowruns({
+    required String workflowId,
+    String? status,
+    String? origin,
+    String? triggerId,
+    DateTime? startedAfter,
+    DateTime? startedBefore,
+    DateTime? completedAfter,
+    DateTime? completedBefore,
+    String? cursor,
+    int? limit,
+  });
 
   /// One OFFSET page of the same history (WRK-070 B4 — the run table's page-number pager): the
   /// SAME filter grammar as [listFlowruns], addressed by `offset` instead of a cursor, and answered
   /// with `total` so the pager can speak page counts. Never pass a cursor here (线上互斥 422).
   /// 同一份历史的 offset 页(页码翻页器):同 listFlowruns 过滤文法,按 offset 定址、答 total 渲页数;
   /// 绝不带 cursor(线上互斥)。
-  Future<OffsetPage<Flowrun>> listFlowrunsPage(
-      {required String workflowId,
-      String? status,
-      String? origin,
-      DateTime? startedAfter,
-      DateTime? startedBefore,
-      required int offset,
-      required int limit});
+  Future<OffsetPage<Flowrun>> listFlowrunsPage({
+    required String workflowId,
+    String? status,
+    String? origin,
+    DateTime? startedAfter,
+    DateTime? startedBefore,
+    required int offset,
+    required int limit,
+  });
 
   /// EVERY failed run in the workspace that LANDED at or after [completedAfter]
   /// (`GET /flowruns?status=failed&completedAfter=`, drained) — the ONE call behind the Overview's
@@ -260,7 +276,10 @@ abstract interface class SchedulerRepository {
   /// how the flagship renders the graph the run ACTUALLY walked instead of today's active version
   /// (the run_cockpit 错图 bug, §5). 按版本 id 取钉版(路径段接版本号或 wfv_ id):旗舰渲 run 真正走过
   /// 的图,而非当下 active 版本。
-  Future<WorkflowVersion> getWorkflowVersion(String workflowId, String versionId);
+  Future<WorkflowVersion> getWorkflowVersion(
+    String workflowId,
+    String versionId,
+  );
 
   /// Open an AI triage conversation for a failed run (`POST /executions/{id}:triage` — the endpoint
   /// dispatches by id PREFIX, so a `fr_` id routes to the flowrun triager). 202 → the new
@@ -315,7 +334,6 @@ abstract interface class SchedulerRepository {
   /// request order. 节点×run 格阵(⑩):按显式 run id 集一次批查(调用方翻 GET /flowruns 逐页批取);
   /// 空集 400、越 50 上限 422;未知 id 静默缺席;输出列恒正典新→旧、与请求顺序无关。
   Future<FlowrunMatrix> runMatrix(List<String> flowrunIds);
-
 }
 
 /// The production seam. Thin envelope decoding only. 生产缝:薄信封解码。
@@ -324,10 +342,14 @@ class LiveSchedulerRepository implements SchedulerRepository {
 
   final ApiClient _api;
 
-  static const _pageCap = 20; // × limit 50 = 1000 rows — a defensive bound, not a product limit. 防御帽。
+  static const _pageCap =
+      20; // × limit 50 = 1000 rows — a defensive bound, not a product limit. 防御帽。
 
-  Future<List<T>> _drain<T>(String path, T Function(Map<String, dynamic>) parse,
-      {Map<String, String> query = const {}}) async {
+  Future<List<T>> _drain<T>(
+    String path,
+    T Function(Map<String, dynamic>) parse, {
+    Map<String, String> query = const {},
+  }) async {
     final out = <T>[];
     String? cursor;
     for (var i = 0; i < _pageCap; i++) {
@@ -348,8 +370,12 @@ class LiveSchedulerRepository implements SchedulerRepository {
       _drain('/api/v1/workflows', SchedulerWorkflowRow.fromJson);
 
   @override
-  Future<SchedulerStats> stats(List<String> workflowIds,
-      {int recentN = 10, String since = SchedulerWindows.statsSince, String? until}) async {
+  Future<SchedulerStats> stats(
+    List<String> workflowIds, {
+    int recentN = 10,
+    String since = SchedulerWindows.statsSince,
+    String? until,
+  }) async {
     if (workflowIds.isEmpty) {
       // totals are workspace-wide — still worth one call with no ids. totals 全局,空 ids 也取。
       return _statsCall(const [], recentN, since, until);
@@ -358,26 +384,42 @@ class LiveSchedulerRepository implements SchedulerRepository {
     SchedulerTotals? totals;
     final rows = <WorkflowRunStats>[];
     for (var i = 0; i < workflowIds.length; i += 50) {
-      final chunk = workflowIds.sublist(i, i + 50 > workflowIds.length ? workflowIds.length : i + 50);
+      final chunk = workflowIds.sublist(
+        i,
+        i + 50 > workflowIds.length ? workflowIds.length : i + 50,
+      );
       final s = await _statsCall(chunk, recentN, since, until);
-      totals ??= s.totals; // workspace totals are identical across chunks. 全局数各片相同,取首片。
+      totals ??= s
+          .totals; // workspace totals are identical across chunks. 全局数各片相同,取首片。
       rows.addAll(s.byWorkflow);
     }
-    return SchedulerStats(totals: totals ?? const SchedulerTotals(), byWorkflow: rows);
+    return SchedulerStats(
+      totals: totals ?? const SchedulerTotals(),
+      byWorkflow: rows,
+    );
   }
 
-  Future<SchedulerStats> _statsCall(List<String> ids, int recentN, String since, String? until) =>
-      _api.getEntity('/api/v1/flowrun-stats', SchedulerStats.fromJson, query: {
-        if (ids.isNotEmpty) 'workflowIds': ids.join(','),
-        'recentN': '$recentN',
-        'since': since,
-        // The window's END bound (需求②): RFC3339 only — pairs with since as [since, until).
-        // 窗终点:仅 RFC3339,与 since 成对半开窗。
-        'until': ?until,
-      });
+  Future<SchedulerStats> _statsCall(
+    List<String> ids,
+    int recentN,
+    String since,
+    String? until,
+  ) => _api.getEntity(
+    '/api/v1/flowrun-stats',
+    SchedulerStats.fromJson,
+    query: {
+      if (ids.isNotEmpty) 'workflowIds': ids.join(','),
+      'recentN': '$recentN',
+      'since': since,
+      // The window's END bound (需求②): RFC3339 only — pairs with since as [since, until).
+      // 窗终点:仅 RFC3339,与 since 成对半开窗。
+      'until': ?until,
+    },
+  );
 
   @override
-  Future<List<TriggerEntity>> listTriggers() => _drain('/api/v1/triggers', TriggerEntity.fromJson);
+  Future<List<TriggerEntity>> listTriggers() =>
+      _drain('/api/v1/triggers', TriggerEntity.fromJson);
 
   @override
   Future<List<EntityRelation>> workflowTriggerEdges() async {
@@ -409,60 +451,82 @@ class LiveSchedulerRepository implements SchedulerRepository {
   }
 
   @override
-  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
-          {required String decision, String? reason}) =>
-      _api.postEntity('/api/v1/flowruns/$flowrunId/approvals/$nodeId:decide',
-          FlowrunComposite.fromJson, body: {'decision': decision, 'reason': ?reason});
+  Future<FlowrunComposite> decideApproval(
+    String flowrunId,
+    String nodeId, {
+    required String decision,
+    String? reason,
+  }) => _api.postEntity(
+    '/api/v1/flowruns/$flowrunId/approvals/$nodeId:decide',
+    FlowrunComposite.fromJson,
+    body: {'decision': decision, 'reason': ?reason},
+  );
 
   @override
-  Future<FlowrunComposite> cancelRun(String flowrunId) =>
-      _api.postEntity('/api/v1/flowruns/$flowrunId:cancel', FlowrunComposite.fromJson);
+  Future<FlowrunComposite> cancelRun(String flowrunId) => _api.postEntity(
+    '/api/v1/flowruns/$flowrunId:cancel',
+    FlowrunComposite.fromJson,
+  );
 
   @override
-  Future<Page<Flowrun>> listFlowruns(
-          {required String workflowId,
-          String? status,
-          String? origin,
-          String? triggerId,
-          DateTime? startedAfter,
-          DateTime? startedBefore,
-          DateTime? completedAfter,
-          DateTime? completedBefore,
-          String? cursor,
-          int? limit}) =>
-      _api.getPage('/api/v1/flowruns', Flowrun.fromJson, query: {
-        'workflowId': workflowId,
-        'status': ?status,
-        'origin': ?origin,
-        'triggerId': ?triggerId,
-        // RFC3339 in UTC — stored timestamps are UTC, a mixed-zone bound compares wrong (工单⑥+⑮).
-        // RFC3339 归一 UTC(存储是 UTC,混时区界比错)。
-        if (startedAfter != null) 'startedAfter': startedAfter.toUtc().toIso8601String(),
-        if (startedBefore != null) 'startedBefore': startedBefore.toUtc().toIso8601String(),
-        if (completedAfter != null) 'completedAfter': completedAfter.toUtc().toIso8601String(),
-        if (completedBefore != null) 'completedBefore': completedBefore.toUtc().toIso8601String(),
-        'cursor': ?cursor,
-        if (limit != null) 'limit': '$limit',
-      });
+  Future<Page<Flowrun>> listFlowruns({
+    required String workflowId,
+    String? status,
+    String? origin,
+    String? triggerId,
+    DateTime? startedAfter,
+    DateTime? startedBefore,
+    DateTime? completedAfter,
+    DateTime? completedBefore,
+    String? cursor,
+    int? limit,
+  }) => _api.getPage(
+    '/api/v1/flowruns',
+    Flowrun.fromJson,
+    query: {
+      'workflowId': workflowId,
+      'status': ?status,
+      'origin': ?origin,
+      'triggerId': ?triggerId,
+      // RFC3339 in UTC — stored timestamps are UTC, a mixed-zone bound compares wrong (工单⑥+⑮).
+      // RFC3339 归一 UTC(存储是 UTC,混时区界比错)。
+      if (startedAfter != null)
+        'startedAfter': startedAfter.toUtc().toIso8601String(),
+      if (startedBefore != null)
+        'startedBefore': startedBefore.toUtc().toIso8601String(),
+      if (completedAfter != null)
+        'completedAfter': completedAfter.toUtc().toIso8601String(),
+      if (completedBefore != null)
+        'completedBefore': completedBefore.toUtc().toIso8601String(),
+      'cursor': ?cursor,
+      if (limit != null) 'limit': '$limit',
+    },
+  );
 
   @override
-  Future<OffsetPage<Flowrun>> listFlowrunsPage(
-          {required String workflowId,
-          String? status,
-          String? origin,
-          DateTime? startedAfter,
-          DateTime? startedBefore,
-          required int offset,
-          required int limit}) =>
-      _api.getOffsetPage('/api/v1/flowruns', Flowrun.fromJson, query: {
-        'workflowId': workflowId,
-        'status': ?status,
-        'origin': ?origin,
-        if (startedAfter != null) 'startedAfter': startedAfter.toUtc().toIso8601String(),
-        if (startedBefore != null) 'startedBefore': startedBefore.toUtc().toIso8601String(),
-        'offset': '$offset',
-        'limit': '$limit',
-      });
+  Future<OffsetPage<Flowrun>> listFlowrunsPage({
+    required String workflowId,
+    String? status,
+    String? origin,
+    DateTime? startedAfter,
+    DateTime? startedBefore,
+    required int offset,
+    required int limit,
+  }) => _api.getOffsetPage(
+    '/api/v1/flowruns',
+    Flowrun.fromJson,
+    query: {
+      'workflowId': workflowId,
+      'status': ?status,
+      'origin': ?origin,
+      if (startedAfter != null)
+        'startedAfter': startedAfter.toUtc().toIso8601String(),
+      if (startedBefore != null)
+        'startedBefore': startedBefore.toUtc().toIso8601String(),
+      'offset': '$offset',
+      'limit': '$limit',
+    },
+  );
 
   @override
   Future<Page<Firing>> listFirings({
@@ -478,41 +542,55 @@ class LiveSchedulerRepository implements SchedulerRepository {
     // dropping it would widen the query and answer a DIFFERENT question than the caller asked.
     // unknown 是**入站专用**的兜底成员——把它当过滤发回去只会换来 422。用 assert 而非静默丢弃:丢掉过滤会
     // **放宽**查询、答一个与调用方所问不同的问题。
-    assert(status != FiringStatus.unknown,
-        'FiringStatus.unknown is inbound-only forward-compat, never a filter');
-    return _api.getPage('/api/v1/firings', Firing.fromJson, query: {
-      'triggerId': ?triggerId,
-      if (status != null) 'status': status.name,
-      // RFC3339 in UTC — same reason as listFlowruns' bounds. RFC3339 归一 UTC,同 listFlowruns。
-      if (createdAfter != null) 'createdAfter': createdAfter.toUtc().toIso8601String(),
-      if (createdBefore != null) 'createdBefore': createdBefore.toUtc().toIso8601String(),
-      'cursor': ?cursor,
-      if (limit != null) 'limit': '$limit',
-    });
+    assert(
+      status != FiringStatus.unknown,
+      'FiringStatus.unknown is inbound-only forward-compat, never a filter',
+    );
+    return _api.getPage(
+      '/api/v1/firings',
+      Firing.fromJson,
+      query: {
+        'triggerId': ?triggerId,
+        if (status != null) 'status': status.name,
+        // RFC3339 in UTC — same reason as listFlowruns' bounds. RFC3339 归一 UTC,同 listFlowruns。
+        if (createdAfter != null)
+          'createdAfter': createdAfter.toUtc().toIso8601String(),
+        if (createdBefore != null)
+          'createdBefore': createdBefore.toUtc().toIso8601String(),
+        'cursor': ?cursor,
+        if (limit != null) 'limit': '$limit',
+      },
+    );
   }
 
   @override
-  Future<List<Flowrun>> listRunningRuns() =>
-      _drain('/api/v1/flowruns', Flowrun.fromJson, query: const {'status': 'running'});
+  Future<List<Flowrun>> listRunningRuns() => _drain(
+    '/api/v1/flowruns',
+    Flowrun.fromJson,
+    query: const {'status': 'running'},
+  );
 
   @override
   Future<List<Flowrun>> listRunsSince(DateTime startedAfter) => _drain(
-        '/api/v1/flowruns',
-        Flowrun.fromJson,
-        // startedAfter (NOT completedAfter): the grid bins by when a run STARTED (B1). All statuses,
-        // no origin filter — the grid answers health across every source. RFC3339 UTC, same as the
-        // other bounds. startedAfter(非 completedAfter):格按 run **开始**分箱;全状态、无来源过滤。
-        query: {'startedAfter': startedAfter.toUtc().toIso8601String()},
-      );
+    '/api/v1/flowruns',
+    Flowrun.fromJson,
+    // startedAfter (NOT completedAfter): the grid bins by when a run STARTED (B1). All statuses,
+    // no origin filter — the grid answers health across every source. RFC3339 UTC, same as the
+    // other bounds. startedAfter(非 completedAfter):格按 run **开始**分箱;全状态、无来源过滤。
+    query: {'startedAfter': startedAfter.toUtc().toIso8601String()},
+  );
 
   @override
   Future<List<Flowrun>> listFailedSince(DateTime completedAfter) => _drain(
-        '/api/v1/flowruns',
-        Flowrun.fromJson,
-        // completedAfter (NOT startedAfter): the tile counts on completed_at (工单⑮). RFC3339 UTC,
-        // same reason as listFlowruns' bounds. completedAfter(非 startedAfter):牌按 completed_at 数。
-        query: {'status': 'failed', 'completedAfter': completedAfter.toUtc().toIso8601String()},
-      );
+    '/api/v1/flowruns',
+    Flowrun.fromJson,
+    // completedAfter (NOT startedAfter): the tile counts on completed_at (工单⑮). RFC3339 UTC,
+    // same reason as listFlowruns' bounds. completedAfter(非 startedAfter):牌按 completed_at 数。
+    query: {
+      'status': 'failed',
+      'completedAfter': completedAfter.toUtc().toIso8601String(),
+    },
+  );
 
   @override
   Future<WorkflowEntity> getWorkflow(String id) =>
@@ -520,7 +598,10 @@ class LiveSchedulerRepository implements SchedulerRepository {
 
   @override
   Future<FlowrunComposite> getRunFull(String flowrunId) async {
-    final comp = await _api.getEntity('/api/v1/flowruns/$flowrunId', FlowrunComposite.fromJson);
+    final comp = await _api.getEntity(
+      '/api/v1/flowruns/$flowrunId',
+      FlowrunComposite.fromJson,
+    );
     final nodes = [...comp.nodes];
     // Page the node rows to completion (same defensive bound as _drain). The composite's
     // `nextCursor` rides INSIDE data and arrives as "" on the last page (the Go map marshals the
@@ -529,8 +610,11 @@ class LiveSchedulerRepository implements SchedulerRepository {
     // Paged 信封不同)——空串即完,否则死循环。
     var cursor = comp.nextCursor;
     for (var i = 0; i < _pageCap && cursor != null && cursor.isNotEmpty; i++) {
-      final page = await _api.getEntity('/api/v1/flowruns/$flowrunId', FlowrunComposite.fromJson,
-          query: {'cursor': cursor});
+      final page = await _api.getEntity(
+        '/api/v1/flowruns/$flowrunId',
+        FlowrunComposite.fromJson,
+        query: {'cursor': cursor},
+      );
       nodes.addAll(page.nodes);
       cursor = page.nextCursor;
     }
@@ -538,60 +622,81 @@ class LiveSchedulerRepository implements SchedulerRepository {
   }
 
   @override
-  Future<Flowrun> getRun(String flowrunId) async =>
-      (await _api.getEntity('/api/v1/flowruns/$flowrunId', FlowrunComposite.fromJson,
-              query: const {'limit': '1'}))
-          .flowrun;
+  Future<Flowrun> getRun(String flowrunId) async => (await _api.getEntity(
+    '/api/v1/flowruns/$flowrunId',
+    FlowrunComposite.fromJson,
+    query: const {'limit': '1'},
+  )).flowrun;
 
   @override
   Future<String> runNow(String workflowId) =>
       _api.postForId('/api/v1/workflows/$workflowId:trigger');
 
   @override
-  Future<WorkflowEntity> killWorkflow(String workflowId) =>
-      _api.postEntity('/api/v1/workflows/$workflowId:kill', WorkflowEntity.fromJson);
+  Future<WorkflowEntity> killWorkflow(String workflowId) => _api.postEntity(
+    '/api/v1/workflows/$workflowId:kill',
+    WorkflowEntity.fromJson,
+  );
 
   @override
-  Future<FlowrunComposite> replayRun(String flowrunId) =>
-      _api.postEntity('/api/v1/flowruns/$flowrunId:replay', FlowrunComposite.fromJson);
+  Future<FlowrunComposite> replayRun(String flowrunId) => _api.postEntity(
+    '/api/v1/flowruns/$flowrunId:replay',
+    FlowrunComposite.fromJson,
+  );
 
   @override
-  Future<TriggerEntity> pauseTrigger(String triggerId) =>
-      _api.postEntity('/api/v1/triggers/$triggerId:pause', TriggerEntity.fromJson);
+  Future<TriggerEntity> pauseTrigger(String triggerId) => _api.postEntity(
+    '/api/v1/triggers/$triggerId:pause',
+    TriggerEntity.fromJson,
+  );
 
   @override
-  Future<TriggerEntity> resumeTrigger(String triggerId) =>
-      _api.postEntity('/api/v1/triggers/$triggerId:resume', TriggerEntity.fromJson);
+  Future<TriggerEntity> resumeTrigger(String triggerId) => _api.postEntity(
+    '/api/v1/triggers/$triggerId:resume',
+    TriggerEntity.fromJson,
+  );
 
   @override
-  Future<List<FlowrunActivityRow>> listActivity(String flowrunId) =>
-      _drain('/api/v1/flowruns/$flowrunId/activity', FlowrunActivityRow.fromJson);
+  Future<List<FlowrunActivityRow>> listActivity(String flowrunId) => _drain(
+    '/api/v1/flowruns/$flowrunId/activity',
+    FlowrunActivityRow.fromJson,
+  );
 
   @override
-  Future<WorkflowVersion> getWorkflowVersion(String workflowId, String versionId) => _api.getEntity(
-      '/api/v1/workflows/$workflowId/versions/$versionId', WorkflowVersion.fromJson);
+  Future<WorkflowVersion> getWorkflowVersion(
+    String workflowId,
+    String versionId,
+  ) => _api.getEntity(
+    '/api/v1/workflows/$workflowId/versions/$versionId',
+    WorkflowVersion.fromJson,
+  );
 
   @override
   Future<String> triageRun(String flowrunId) =>
       _api.postForId('/api/v1/executions/$flowrunId:triage');
 
   @override
-  Future<TriggerSchedule> triggerSchedule(
-          {String within = SchedulerWindows.trackWithin, int limit = 200}) =>
-      _api.getEntity('/api/v1/trigger-schedule', TriggerSchedule.fromJson, query: {
-        // Go duration grammar — deliberately NOT the `?since` grammar of flowrun-stats (which also
-        // takes «7d»); a `7d` here is a 422. Go duration 文法(与 flowrun-stats 的 ?since 不同,那边吃
-        // 7d;这里传 7d 是 422)。
-        'within': within,
-        'limit': '$limit',
-      });
+  Future<TriggerSchedule> triggerSchedule({
+    String within = SchedulerWindows.trackWithin,
+    int limit = 200,
+  }) => _api.getEntity(
+    '/api/v1/trigger-schedule',
+    TriggerSchedule.fromJson,
+    query: {
+      // Go duration grammar — deliberately NOT the `?since` grammar of flowrun-stats (which also
+      // takes «7d»); a `7d` here is a 422. Go duration 文法(与 flowrun-stats 的 ?since 不同,那边吃
+      // 7d;这里传 7d 是 422)。
+      'within': within,
+      'limit': '$limit',
+    },
+  );
 
   @override
-  Future<FlowrunMatrix> runMatrix(List<String> flowrunIds) =>
-      _api.getEntity('/api/v1/flowrun-matrix', FlowrunMatrix.fromJson, query: {
-        'flowrunIds': flowrunIds.join(','),
-      });
-
+  Future<FlowrunMatrix> runMatrix(List<String> flowrunIds) => _api.getEntity(
+    '/api/v1/flowrun-matrix',
+    FlowrunMatrix.fromJson,
+    query: {'flowrunIds': flowrunIds.join(',')},
+  );
 }
 
 /// Overridden by demo (`FixtureSchedulerRepository`) at the app root. app 根被 demo override。

@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 
 import '../../../core/design/colors.dart';
@@ -18,7 +17,11 @@ import 'tool_card_skins.dart';
 /// page (not a source wall). 散文阅读窗:落定排版态住唯一窗壳(手搓白框退役,批4)+ 超高 FadeCollapse(长文不背
 /// 无界墙);读成成品排版、非源码。**嵌入档**(13 正文+单一 15-w400 标题——它住在窗里,阅读档大标题会喊)。
 class ProseWindow extends StatelessWidget {
-  const ProseWindow({required this.markdown, this.collapsedHeight = AnSize.proseViewport, super.key});
+  const ProseWindow({
+    required this.markdown,
+    this.collapsedHeight = AnSize.proseViewport,
+    super.key,
+  });
 
   final String markdown;
   final double collapsedHeight;
@@ -29,7 +32,9 @@ class ProseWindow extends StatelessWidget {
     // AnFadeCollapse always reserves its full height + a toggle, so a SHORT answer (invoke_agent's
     // one-sentence result, a short doc) would otherwise sit in a tall empty box with a pointless
     // «展开全文». Length-based (allowed — it's a size decision, not markdown sniffing). 短稿内联、不装长盒。
-    final long = markdown.length > AnCap.proseFoldChars || '\n'.allMatches(markdown).length > AnCap.proseFoldLines;
+    final long =
+        markdown.length > AnCap.proseFoldChars ||
+        '\n'.allMatches(markdown).length > AnCap.proseFoldLines;
     return AnWindow(
       maxHeight: long ? collapsedHeight : null,
       collapsible: long,
@@ -40,9 +45,15 @@ class ProseWindow extends StatelessWidget {
 
 // ── document (soft-fail family: the result is an English SENTENCE, not JSON) ──
 
-const _docOkPrefixes = ['Created document', 'Updated document', 'Moved', 'Deleted document'];
+const _docOkPrefixes = [
+  'Created document',
+  'Updated document',
+  'Moved',
+  'Deleted document',
+];
 
-bool _docSucceeded(String result) => _docOkPrefixes.any(result.trimLeft().startsWith);
+bool _docSucceeded(String result) =>
+    _docOkPrefixes.any(result.trimLeft().startsWith);
 
 /// The document collapsed-row receipt — parsed from the result SENTENCE (document ops fail SOFT: a
 /// success reads `Created document "X" (id=…, path=…)`, a failure is a plain English prompt). Success →
@@ -50,7 +61,9 @@ bool _docSucceeded(String result) => _docOkPrefixes.any(result.trimLeft().starts
 ToolReceipt? docSentenceReceipt(Translations t, ToolCardState state) {
   final r = state.resultText.trim();
   if (r.isEmpty) return null;
-  if (!_docSucceeded(r)) return (text: t.chat.tool.docSoftFail, tone: ToolReceiptTone.warn);
+  if (!_docSucceeded(r)) {
+    return (text: t.chat.tool.docSoftFail, tone: ToolReceiptTone.warn);
+  }
   final m = RegExp(r'path=([^)]+)\)').firstMatch(r);
   if (m == null) return null;
   final tail = m.group(1)!.split('/').where((s) => s.isNotEmpty).lastOrNull;
@@ -84,15 +97,21 @@ Widget documentBody(BuildContext context, ToolCardState state) {
     // (AnCallout warn, same as entity_get_bodies ×6). 软失败:后端英文提示,琥珀 callout 唯一脸。
     return AnCallout(result, severity: AnCalloutSeverity.warn);
   }
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    toolIntent(context, state),
-    if (content.isNotEmpty) ProseWindow(markdown: content),
-    if (result.contains('auto-renamed'))
-      Padding(
-        padding: const EdgeInsets.only(top: AnSpace.s6),
-        child: Text(t.chat.tool.docAutoRenamed, style: AnText.label.copyWith(color: c.warn)),
-      ),
-  ]);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      toolIntent(context, state),
+      if (content.isNotEmpty) ProseWindow(markdown: content),
+      if (result.contains('auto-renamed'))
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s6),
+          child: Text(
+            t.chat.tool.docAutoRenamed,
+            style: AnText.label.copyWith(color: c.warn),
+          ),
+        ),
+    ],
+  );
 }
 
 // ── skill (hard-fail family: JSON {created|updated: name}; whole replace; no versions) ──
@@ -102,7 +121,9 @@ ToolReceipt? skillReceipt(Translations t, ToolCardState state) {
   final d = state.resultObj; // C-028: memoized decode 记忆化解码
   if (d != null) {
     final name = d['created'] ?? d['updated'];
-    if (name is String && name.isNotEmpty) return (text: name, tone: ToolReceiptTone.none);
+    if (name is String && name.isNotEmpty) {
+      return (text: name, tone: ToolReceiptTone.none);
+    }
   }
   return null;
 }
@@ -128,18 +149,41 @@ Widget skillBody(BuildContext context, ToolCardState state) {
   final allowed = argStringList(state.argsText, 'allowedTools');
   final isEdit = state.toolName == 'edit_skill';
 
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    toolIntent(context, state),
-    Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      AnChip(ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline, tone: AnTone.none),
-      // allowedTools in WARN — activation pre-authorizes these, skipping the danger gate. 警示色:权限让渡。
-      for (final tool in allowed) AnChip(tool, tone: AnTone.warn),
-    ]),
-    if (allowed.isNotEmpty)
-      Padding(padding: const EdgeInsets.only(top: AnSpace.s4), child: Text(t.chat.tool.skillPreauth, style: AnText.meta.copyWith(color: c.warn))),
-    const SizedBox(height: AnGap.block),
-    if (body.isNotEmpty) ProseWindow(markdown: body),
-    if (isEdit)
-      Padding(padding: const EdgeInsets.only(top: AnSpace.s6), child: Text(t.chat.tool.skillNoRevert, style: AnText.meta.copyWith(color: c.inkFaint))),
-  ]);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    children: [
+      toolIntent(context, state),
+      Wrap(
+        spacing: AnGap.inline,
+        runSpacing: AnGap.stackTight,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          AnChip(
+            ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline,
+            tone: AnTone.none,
+          ),
+          // allowedTools in WARN — activation pre-authorizes these, skipping the danger gate. 警示色:权限让渡。
+          for (final tool in allowed) AnChip(tool, tone: AnTone.warn),
+        ],
+      ),
+      if (allowed.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s4),
+          child: Text(
+            t.chat.tool.skillPreauth,
+            style: AnText.meta.copyWith(color: c.warn),
+          ),
+        ),
+      const SizedBox(height: AnGap.block),
+      if (body.isNotEmpty) ProseWindow(markdown: body),
+      if (isEdit)
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s6),
+          child: Text(
+            t.chat.tool.skillNoRevert,
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+        ),
+    ],
+  );
 }

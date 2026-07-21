@@ -121,13 +121,16 @@ class _WheelHostState extends State<_WheelHost> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(mainAxisSize: MainAxisSize.min, children: [
-      AnTimeWheel(
-        value: _value,
-        onChanged: (v) => setState(() => _value = v),
-        semanticLabel: '时刻',
-      ),
-    ]);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnTimeWheel(
+          value: _value,
+          onChanged: (v) => setState(() => _value = v),
+          semanticLabel: '时刻',
+        ),
+      ],
+    );
   }
 }
 
@@ -161,7 +164,10 @@ final anTimeRangePickerGalleryItem = GalleryItem(
       '日历·连续缎带(圆帽坐带上,格缝一体)',
       (_) => Padding(
         padding: const EdgeInsets.all(AnSpace.s16),
-        child: _CalendarHost(start: DateTime(2026, 7, 6), end: DateTime(2026, 7, 17)),
+        child: _CalendarHost(
+          start: DateTime(2026, 7, 6),
+          end: DateTime(2026, 7, 17),
+        ),
       ),
     ),
     GallerySpecimen(

@@ -31,7 +31,9 @@ class ConversationSortController extends Notifier<ConvSort> {
 }
 
 final conversationSortProvider =
-    NotifierProvider<ConversationSortController, ConvSort>(ConversationSortController.new);
+    NotifierProvider<ConversationSortController, ConvSort>(
+      ConversationSortController.new,
+    );
 
 /// Whether the rail shows archived threads too — the ⚙ "show archived" toggle. false → active-only
 /// (ConvArchive.active); true → active + archived together (ConvArchive.all, archived rows carrying
@@ -39,17 +41,21 @@ final conversationSortProvider =
 ///
 /// rail 是否也显归档——⚙「显示已归档」开关。false → 仅活跃;true → 活跃+归档同列(归档行带 archived=true 供灰点)。
 /// 被 list notifier watch(切换即从顶重翻)。
-final showArchivedProvider =
-    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(false));
+final showArchivedProvider = NotifierProvider<BoolPrefNotifier, bool>(
+  () => BoolPrefNotifier(false),
+);
 
 /// Whether the rail shows the per-section count (置顶 ··· 1) — the ⚙ "show counts" toggle, default ON.
 /// rail 是否显分节计数(置顶···1)——⚙「显示分组计数」开关,默认开。
-final showGroupCountProvider =
-    NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
+final showGroupCountProvider = NotifierProvider<BoolPrefNotifier, bool>(
+  () => BoolPrefNotifier(true),
+);
 
 /// Whether each row shows its relative-time meta (10 分钟前) — the ⚙ "show time" toggle, default ON.
 /// rail 每行是否显相对时间(10 分钟前)——⚙「显示时间」开关,默认开。
-final showTimeProvider = NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
+final showTimeProvider = NotifierProvider<BoolPrefNotifier, bool>(
+  () => BoolPrefNotifier(true),
+);
 
 /// The conversation rail search query — a transient view state in its own provider so the list notifier
 /// can `watch` it and re-page from the top whenever it changes. Server-side `?search`: a keyset cursor
@@ -72,7 +78,9 @@ class ConversationSearchController extends Notifier<String> {
 }
 
 final conversationSearchProvider =
-    NotifierProvider<ConversationSearchController, String>(ConversationSearchController.new);
+    NotifierProvider<ConversationSearchController, String>(
+      ConversationSearchController.new,
+    );
 
 /// The conversation rail list — first page on build, [loadMore] appends the next keyset page. It
 /// `watch`es the sort + show-archived providers, so changing either re-runs build → a fresh first page
@@ -99,7 +107,9 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
     bumpGeneration();
     _repo = ref.watch(chatRepositoryProvider);
     _sort = ref.watch(conversationSortProvider);
-    _archive = ref.watch(showArchivedProvider) ? ConvArchive.all : ConvArchive.active;
+    _archive = ref.watch(showArchivedProvider)
+        ? ConvArchive.all
+        : ConvArchive.active;
     _search = ref.watch(conversationSearchProvider);
     // Live lifecycle: the notifications stream reconciles the list for changes this client didn't originate
     // (auto-title after the first message, or another window's create/rename/archive/pin/delete). Re-run on
@@ -116,13 +126,22 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
     // 流 410 resync → 整列重翻(点可能任意漂移)。
     final turnSub = _repo.turnSignals().listen(_onTurnSignal);
     ref.onDispose(turnSub.cancel);
-    final resyncSub = _repo.transcriptResync().listen((_) => ref.invalidateSelf());
+    final resyncSub = _repo.transcriptResync().listen(
+      (_) => ref.invalidateSelf(),
+    );
     ref.onDispose(resyncSub.cancel);
     ref.onDispose(_cancelRefreshTimers);
     final page = await _repo.listConversations(
-        limit: _pageSize, sort: _sort, archive: _archive, search: _search.isEmpty ? null : _search);
+      limit: _pageSize,
+      sort: _sort,
+      archive: _archive,
+      search: _search.isEmpty ? null : _search,
+    );
     return ConversationListState(
-        rows: page.items, nextCursor: page.nextCursor, hasMore: page.hasMore);
+      rows: page.items,
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore,
+    );
   }
 
   // KeysetQueryPaging hooks — the sort/archived/search-scoped fetch + this state's cursor/append shape. 钩子。
@@ -138,7 +157,9 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
   Future<void> loadMore() async {
     final cur = state.value;
     if (cur != null && cur.loadMoreFailed) {
-      state = AsyncData(cur.copyWith(loadMoreFailed: false)); // a manual retry re-arms 手动重试重上膛
+      state = AsyncData(
+        cur.copyWith(loadMoreFailed: false),
+      ); // a manual retry re-arms 手动重试重上膛
     }
     try {
       await super.loadMore();
@@ -149,25 +170,40 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
   }
 
   @override
-  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(ConversationListState s) =>
-      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(
+    ConversationListState s,
+  ) => (
+    hasMore: s.hasMore,
+    loadingMore: s.loadingMore,
+    nextCursor: s.nextCursor,
+  );
 
   @override
-  Future<Page<Conversation>> fetchNextPage(String cursor) => _repo.listConversations(
-      cursor: cursor, limit: _pageSize, sort: _sort, archive: _archive,
-      search: _search.isEmpty ? null : _search);
-
-  @override
-  ConversationListState stateWithLoadingMore(ConversationListState s, bool loading) =>
-      s.copyWith(loadingMore: loading);
-
-  @override
-  ConversationListState stateWithAppended(ConversationListState s, Page<Conversation> page) => s.copyWith(
-        rows: [...s.rows, ...page.items],
-        nextCursor: page.nextCursor,
-        hasMore: page.hasMore,
-        loadingMore: false,
+  Future<Page<Conversation>> fetchNextPage(String cursor) =>
+      _repo.listConversations(
+        cursor: cursor,
+        limit: _pageSize,
+        sort: _sort,
+        archive: _archive,
+        search: _search.isEmpty ? null : _search,
       );
+
+  @override
+  ConversationListState stateWithLoadingMore(
+    ConversationListState s,
+    bool loading,
+  ) => s.copyWith(loadingMore: loading);
+
+  @override
+  ConversationListState stateWithAppended(
+    ConversationListState s,
+    Page<Conversation> page,
+  ) => s.copyWith(
+    rows: [...s.rows, ...page.items],
+    nextCursor: page.nextCursor,
+    hasMore: page.hasMore,
+    loadingMore: false,
+  );
 
   // ── activity-dot turn pulse 活态点回合脉冲 ──
 
@@ -259,7 +295,9 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
       if (ref.read(conversationSortProvider) == ConvSort.name) {
         rows.sort((a, b) {
           if (a.pinned != b.pinned) return a.pinned ? -1 : 1;
-          final byTitle = a.title.toLowerCase().compareTo(b.title.toLowerCase());
+          final byTitle = a.title.toLowerCase().compareTo(
+            b.title.toLowerCase(),
+          );
           return byTitle != 0 ? byTitle : a.id.compareTo(b.id);
         });
       }
@@ -273,7 +311,11 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
   void applyDelete(String id) {
     final cur = state.value;
     if (cur == null || !cur.rows.any((r) => r.id == id)) return;
-    state = AsyncData(cur.copyWith(rows: cur.rows.where((r) => r.id != id).toList(growable: false)));
+    state = AsyncData(
+      cur.copyWith(
+        rows: cur.rows.where((r) => r.id != id).toList(growable: false),
+      ),
+    );
   }
 
   // Reconcile one lifecycle signal into the loaded list. Only durable frames patch (DB-row-is-truth);
@@ -288,7 +330,11 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
         await _insert(s.id);
       case ConversationAction.updated:
         final c = await _fetch(s.id);
-        if (c != null) applyUpdate(c); // replace in place / drop if archived-and-hidden / re-bucket
+        if (c != null) {
+          applyUpdate(
+            c,
+          ); // replace in place / drop if archived-and-hidden / re-bucket
+        }
       case ConversationAction.unknown:
         return;
     }
@@ -302,9 +348,13 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
     final cur = state.value;
     if (cur == null || cur.rows.any((r) => r.id == id)) return; // dedup
     final c = await _fetch(id);
-    if (c == null || (c.archived && _archive == ConvArchive.active)) return; // gone, or not in this scope
+    if (c == null || (c.archived && _archive == ConvArchive.active)) {
+      return; // gone, or not in this scope
+    }
     final now = state.value;
-    if (now == null || now.rows.any((r) => r.id == id)) return; // re-check after the await
+    if (now == null || now.rows.any((r) => r.id == id)) {
+      return; // re-check after the await
+    }
     state = AsyncData(now.copyWith(rows: [c, ...now.rows]));
   }
 
@@ -319,6 +369,6 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState>
 
 final conversationListProvider =
     AsyncNotifierProvider<ConversationListNotifier, ConversationListState>(
-  ConversationListNotifier.new,
-  retry: (_, _) => null,
-);
+      ConversationListNotifier.new,
+      retry: (_, _) => null,
+    );

@@ -36,7 +36,10 @@ class SseEventParser {
   ///
   /// 喂一行(无尾换行)。该行闭合了一个事件(空行)时返回解析后信封,否则 null。解码失败返回
   /// null(单个畸形事件不该杀流)——调用方可经 [onDecodeError] 观测。
-  StreamEnvelope? addLine(String line, {void Function(Object error)? onDecodeError}) {
+  StreamEnvelope? addLine(
+    String line, {
+    void Function(Object error)? onDecodeError,
+  }) {
     if (line.isEmpty) {
       return _dispatch(onDecodeError);
     }

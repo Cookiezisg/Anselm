@@ -63,7 +63,8 @@ class AnMenu extends StatefulWidget {
   });
 
   /// Builds the trigger; `toggle` opens/closes, `isOpen` is the current state. 建触发器(toggle/isOpen)。
-  final Widget Function(BuildContext context, VoidCallback toggle, bool isOpen) anchorBuilder;
+  final Widget Function(BuildContext context, VoidCallback toggle, bool isOpen)
+  anchorBuilder;
 
   final List<AnMenuEntry> entries;
 
@@ -118,7 +119,9 @@ class _AnMenuState extends State<AnMenu> {
   Widget _menu(BuildContext context, Size? anchorSize) {
     // Seed focus on the first non-disabled item so opening lands on item 0 (a descendant autofocus
     // wins over the overlay's FocusScope) — native menu behaviour, arrow keys engage immediately. 首项自动聚焦。
-    final firstFocusable = widget.entries.indexWhere((e) => e is AnMenuItem && !e.disabled);
+    final firstFocusable = widget.entries.indexWhere(
+      (e) => e is AnMenuItem && !e.disabled,
+    );
     // shared menu chrome (surface + s4-all-sides inset so each row's pill floats off the edge). 共用面板壳。
     final body = AnMenuSurface(
       children: [
@@ -149,9 +152,20 @@ class _AnMenuState extends State<AnMenu> {
     if (e is AnMenuSection) {
       final c = context.colors;
       return Padding(
-        padding: const EdgeInsetsDirectional.only(start: _labelIndent, end: AnSpace.s8, top: AnSpace.s8, bottom: AnSpace.s4),
-        child: Text(e.label, maxLines: 1, overflow: TextOverflow.ellipsis,
-            style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
+        padding: const EdgeInsetsDirectional.only(
+          start: _labelIndent,
+          end: AnSpace.s8,
+          top: AnSpace.s8,
+          bottom: AnSpace.s4,
+        ),
+        child: Text(
+          e.label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: AnText.meta
+              .weight(AnText.emphasisWeight)
+              .copyWith(color: c.inkFaint),
+        ),
       );
     }
     final item = e as AnMenuItem;
@@ -169,23 +183,33 @@ class _AnMenuState extends State<AnMenu> {
         final c = context.colors;
         final fg = item.danger ? c.danger : (active ? c.ink : c.inkMuted);
         // lead = icon, else the check when [checked] (selection lives in the lead, not trailing). 前导=图标或勾。
-        final IconData? lead = item.icon ?? (item.checked ? AnIcons.check : null);
+        final IconData? lead =
+            item.icon ?? (item.checked ? AnIcons.check : null);
         return Row(
           children: [
             SizedBox(
               width: AnSize.iconLg,
-              child: lead != null ? Icon(lead, size: AnSize.icon, color: fg) : null,
+              child: lead != null
+                  ? Icon(lead, size: AnSize.icon, color: fg)
+                  : null,
             ),
             const SizedBox(width: AnSpace.s8),
             Expanded(
-              child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: fg)),
+              child: Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.body.copyWith(color: fg),
+              ),
             ),
             if (item.meta != null) ...[
               const SizedBox(width: AnSpace.s8),
-              Text(item.meta!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.metaTabular().copyWith(color: c.inkFaint)),
+              Text(
+                item.meta!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.metaTabular().copyWith(color: c.inkFaint),
+              ),
             ],
           ],
         );

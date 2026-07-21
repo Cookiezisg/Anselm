@@ -28,10 +28,15 @@ class _StartupUpdateCheckState extends ConsumerState<StartupUpdateCheck> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted || !ref.read(boolSettingProvider(SettingsKeys.updateCheck))) return;
+      if (!mounted ||
+          !ref.read(boolSettingProvider(SettingsKeys.updateCheck))) {
+        return;
+      }
       final s = await ref.read(updateCheckProvider.notifier).check();
       if (!mounted || s.outcome != UpdateOutcome.available) return;
-      ref.read(noticeCenterProvider.notifier).show(
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(
             t.settings.about.updateAvailable(v: s.latest),
             tone: AnTone.none,
           );

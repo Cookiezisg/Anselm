@@ -32,18 +32,28 @@ const Map<String, String> kInlineFragments = {
   'glued-code': 'x`y`z',
   'glued-bold': 'a**b**c',
   'glued-CJK-code': '前`fn`后',
-  'long-code': '`this_is_a_very_long_inline_code_identifier_that_should_wrap_across_lines`',
+  'long-code':
+      '`this_is_a_very_long_inline_code_identifier_that_should_wrap_across_lines`',
 };
 
 /// The block contexts we drop every inline fragment into. 每个上下文都塞一遍所有 inline 片段。
-const List<String> _headingContexts = ['# ', '## ', '### ', '#### ', '##### ', '###### '];
+const List<String> _headingContexts = [
+  '# ',
+  '## ',
+  '### ',
+  '#### ',
+  '##### ',
+  '###### ',
+];
 
 String _matrixSection() {
   final b = StringBuffer();
 
   b.writeln('# §A · Inline × Paragraph matrix\n');
   for (final e in kInlineFragments.entries) {
-    b.writeln('A paragraph with **${e.key}**: 前置文字 ${e.value} 后置文字 and a tail.\n');
+    b.writeln(
+      'A paragraph with **${e.key}**: 前置文字 ${e.value} 后置文字 and a tail.\n',
+    );
   }
 
   b.writeln('# §B · Inline × Headings\n');
@@ -82,7 +92,8 @@ String _matrixSection() {
   return b.toString();
 }
 
-String _structureSection() => '''
+String _structureSection() =>
+    '''
 # §G · Nesting & structure
 
 ## Nested unordered (3 levels)

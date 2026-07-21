@@ -27,72 +27,109 @@ final _t = DateTime.utc(2026, 6, 26);
 const _ref = EntityRef(EntityKind.function, 'fn_1');
 
 FunctionVersion _v(int v) => FunctionVersion(
-    id: 'fn_1_v$v',
-    functionId: 'fn_1',
-    version: v,
-    code: 'code v$v',
-    inputs: const [Field(name: 'text', type: 'string')],
-    outputs: const [Field(name: 'result', type: 'string')],
-    createdAt: _t,
-    updatedAt: _t);
+  id: 'fn_1_v$v',
+  functionId: 'fn_1',
+  version: v,
+  code: 'code v$v',
+  inputs: const [Field(name: 'text', type: 'string')],
+  outputs: const [Field(name: 'result', type: 'string')],
+  createdAt: _t,
+  updatedAt: _t,
+);
 
-FunctionEntity _fn({String desc = 'Coerce fields', List<String> tags = const ['util']}) => FunctionEntity(
-    id: 'fn_1',
-    name: 'normalize',
-    description: desc,
-    tags: tags,
-    activeVersionId: 'fn_1_v2',
-    activeVersion: _v(2),
-    createdAt: _t,
-    updatedAt: _t);
+FunctionEntity _fn({
+  String desc = 'Coerce fields',
+  List<String> tags = const ['util'],
+}) => FunctionEntity(
+  id: 'fn_1',
+  name: 'normalize',
+  description: desc,
+  tags: tags,
+  activeVersionId: 'fn_1_v2',
+  activeVersion: _v(2),
+  createdAt: _t,
+  updatedAt: _t,
+);
 
-FixtureEntityRepository _repo({List<String> tags = const ['util']}) => FixtureEntityRepository(
+FixtureEntityRepository _repo({List<String> tags = const ['util']}) =>
+    FixtureEntityRepository(
       functions: [_fn(tags: tags)],
       functionVersions: {
-        'fn_1': [_v(2), _v(1)]
+        'fn_1': [_v(2), _v(1)],
       },
     );
 
 Widget _host(Widget child, FixtureEntityRepository repo) => ProviderScope(
-      overrides: [entityRepositoryProvider.overrideWithValue(repo)],
-      child: TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 720, child: child))),
-        ),
+  overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+  child: TranslationProvider(
+    child: MaterialApp(
+      theme: AnTheme.light(),
+      home: Scaffold(
+        body: SingleChildScrollView(child: SizedBox(width: 720, child: child)),
       ),
-    );
+    ),
+  ),
+);
 
 void main() {
   group('meta section — AnKv (text row + tags row)', () {
-    testWidgets('说明 = editable text row; 标签 = pills (not comma text), 1 edit pencil', (tester) async {
-      await tester.pumpWidget(_host(FunctionOverview(fn: _fn(tags: const ['util', 'io'])), _repo()));
-      expect(find.text('result'), findsOneWidget); // input/output cards assembled (signature shown as cards, not a hero)
-      expect(find.byType(AnKv), findsWidgets); // meta + venv both AnKv
-      expect(find.byType(AnTags), findsOneWidget); // the 标签 row renders pills, not text
-      expect(find.text('util'), findsOneWidget);
-      expect(find.text('io'), findsOneWidget);
-      expect(find.text('util, io'), findsNothing); // NOT a comma-joined text value
-      // only the 说明 text row carries a pencil; the tags row uses ✕/➕ instead. 仅说明行有铅笔。
-      expect(find.byIcon(AnIcons.edit), findsOneWidget);
-    });
+    testWidgets(
+      '说明 = editable text row; 标签 = pills (not comma text), 1 edit pencil',
+      (tester) async {
+        await tester.pumpWidget(
+          _host(FunctionOverview(fn: _fn(tags: const ['util', 'io'])), _repo()),
+        );
+        expect(
+          find.text('result'),
+          findsOneWidget,
+        ); // input/output cards assembled (signature shown as cards, not a hero)
+        expect(find.byType(AnKv), findsWidgets); // meta + venv both AnKv
+        expect(
+          find.byType(AnTags),
+          findsOneWidget,
+        ); // the 标签 row renders pills, not text
+        expect(find.text('util'), findsOneWidget);
+        expect(find.text('io'), findsOneWidget);
+        expect(
+          find.text('util, io'),
+          findsNothing,
+        ); // NOT a comma-joined text value
+        // only the 说明 text row carries a pencil; the tags row uses ✕/➕ instead. 仅说明行有铅笔。
+        expect(find.byIcon(AnIcons.edit), findsOneWidget);
+      },
+    );
 
-    testWidgets('venv dependencies render as a LABELED tags row — never bare mystery words '
-        '(WRK-070 B12 「pydantic」孤儿帧)', (tester) async {
-      final v = _v(2).copyWith(dependencies: const ['pydantic', 'httpx']);
-      final fn = _fn().copyWith(activeVersion: v);
-      final repo = FixtureEntityRepository(functions: [fn], functionVersions: {
-        'fn_1': [v]
-      });
-      await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
-      expect(find.text(t.entities.detail.card.deps), findsOneWidget,
-          reason: '「依赖」标签给包名身份——无标签裸行读作神秘词');
-      expect(find.text('pydantic'), findsOneWidget);
-      expect(find.text('httpx'), findsOneWidget);
-      expect(find.byType(AnTags), findsNWidgets(2), reason: '标签行 + 依赖行,同一套 KV tags 文法');
-    });
+    testWidgets(
+      'venv dependencies render as a LABELED tags row — never bare mystery words '
+      '(WRK-070 B12 「pydantic」孤儿帧)',
+      (tester) async {
+        final v = _v(2).copyWith(dependencies: const ['pydantic', 'httpx']);
+        final fn = _fn().copyWith(activeVersion: v);
+        final repo = FixtureEntityRepository(
+          functions: [fn],
+          functionVersions: {
+            'fn_1': [v],
+          },
+        );
+        await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
+        expect(
+          find.text(t.entities.detail.card.deps),
+          findsOneWidget,
+          reason: '「依赖」标签给包名身份——无标签裸行读作神秘词',
+        );
+        expect(find.text('pydantic'), findsOneWidget);
+        expect(find.text('httpx'), findsOneWidget);
+        expect(
+          find.byType(AnTags),
+          findsNWidgets(2),
+          reason: '标签行 + 依赖行,同一套 KV tags 文法',
+        );
+      },
+    );
 
-    testWidgets('tags: rest=药丸净、hover→✕/➕、点➕→输入框、Enter 加、Esc 收、✕ 删', (tester) async {
+    testWidgets('tags: rest=药丸净、hover→✕/➕、点➕→输入框、Enter 加、Esc 收、✕ 删', (
+      tester,
+    ) async {
       final repo = _repo(tags: const ['util', 'io']);
       final fn = await repo.getFunction('fn_1');
       await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
@@ -103,9 +140,12 @@ void main() {
       expect(plus, findsOneWidget);
       // The reveal gate is SOME ancestor Opacity at 0 (the button's own internal Opacity is 1). 揭示门=祖先里有 0。
       double minPlusOpacity() => [
-            for (final e in find.ancestor(of: plus, matching: find.byType(Opacity)).evaluate())
-              (e.widget as Opacity).opacity
-          ].reduce((a, b) => a < b ? a : b);
+        for (final e
+            in find
+                .ancestor(of: plus, matching: find.byType(Opacity))
+                .evaluate())
+          (e.widget as Opacity).opacity,
+      ].reduce((a, b) => a < b ? a : b);
       expect(minPlusOpacity(), 0);
       expect(find.byType(TextField), findsNothing);
 
@@ -147,21 +187,32 @@ void main() {
       expect((await repo.getFunction('fn_1')).tags, isNot(contains('util')));
     });
 
-    testWidgets('editing the 说明 row commits a description PATCH', (tester) async {
+    testWidgets('editing the 说明 row commits a description PATCH', (
+      tester,
+    ) async {
       final repo = _repo();
       final fn = await repo.getFunction('fn_1');
       await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
       // Hover the 说明 row to reveal its idle-hidden pencil (flush-right value → pencil pushes on hover). 悬停揭示。
       final hover = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await hover.addPointer(location: tester.getCenter(find.byType(AnEditableValue).first));
+      await hover.addPointer(
+        location: tester.getCenter(find.byType(AnEditableValue).first),
+      );
       addTearDown(hover.removePointer);
       await tester.pumpAndSettle();
-      await tester.tap(find.byIcon(AnIcons.edit), warnIfMissed: false); // the lone 说明 pencil (far right)
+      await tester.tap(
+        find.byIcon(AnIcons.edit),
+        warnIfMissed: false,
+      ); // the lone 说明 pencil (far right)
       await tester.pumpAndSettle();
-      final editing = find.byWidgetPredicate((w) => w is EditableText && !w.readOnly);
+      final editing = find.byWidgetPredicate(
+        (w) => w is EditableText && !w.readOnly,
+      );
       expect(editing, findsOneWidget);
       await tester.enterText(editing, 'Trim + coerce v2');
-      await tester.testTextInput.receiveAction(TextInputAction.done); // onSubmitted → commit
+      await tester.testTextInput.receiveAction(
+        TextInputAction.done,
+      ); // onSubmitted → commit
       await tester.pumpAndSettle();
       expect((await repo.getFunction('fn_1')).description, 'Trim + coerce v2');
     });
@@ -169,29 +220,41 @@ void main() {
 
   group('version tab — diff pinned, action below', () {
     Future<void> pump(WidgetTester tester, FixtureEntityRepository repo) async {
-      final container = ProviderContainer(overrides: [entityRepositoryProvider.overrideWithValue(repo)]);
+      final container = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+      );
       addTearDown(container.dispose);
       container.listen(entityDetailProvider(_ref), (_, _) {});
       await container.read(entityDetailProvider(_ref).future);
-      await tester.pumpWidget(UncontrolledProviderScope(
-        container: container,
-        child: TranslationProvider(
-          child: MaterialApp(
-            theme: AnTheme.light(),
-            home: Scaffold(body: SingleChildScrollView(child: SizedBox(width: 900, child: VersionTab(_ref)))),
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: TranslationProvider(
+            child: MaterialApp(
+              theme: AnTheme.light(),
+              home: Scaffold(
+                body: SingleChildScrollView(
+                  child: SizedBox(width: 900, child: VersionTab(_ref)),
+                ),
+              ),
+            ),
           ),
         ),
-      ));
+      );
       await tester.pumpAndSettle();
     }
 
-    testWidgets('active version selected → diff shows, no set-active button', (tester) async {
+    testWidgets('active version selected → diff shows, no set-active button', (
+      tester,
+    ) async {
       await pump(tester, _repo()); // v2 active, index 0 default
       expect(find.byType(AnVersionDiff), findsOneWidget);
       expect(find.text('Set active'), findsNothing);
     });
 
-    testWidgets('older version selected → set-active appears BELOW the diff', (tester) async {
+    testWidgets('older version selected → set-active appears BELOW the diff', (
+      tester,
+    ) async {
       await pump(tester, _repo());
       await tester.tap(find.text('v1'));
       await tester.pumpAndSettle();
@@ -200,7 +263,10 @@ void main() {
       expect(diff, findsOneWidget);
       expect(btn, findsOneWidget);
       // The action's top edge is below the diff's bottom edge — it can never shift the diff. 动作在 diff 下方。
-      expect(tester.getTopLeft(btn).dy, greaterThan(tester.getBottomLeft(diff).dy - 1));
+      expect(
+        tester.getTopLeft(btn).dy,
+        greaterThan(tester.getBottomLeft(diff).dy - 1),
+      );
     });
   });
 }

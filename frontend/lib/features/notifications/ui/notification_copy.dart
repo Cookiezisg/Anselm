@@ -62,16 +62,29 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
   switch (n.type) {
     case 'workflow.run_failed':
       return NotificationLine(
-        icon: AnIcons.error, lead: kindLead, name: nameOf(), trail: nt.verb.runFailed,
-        tone: AnTone.danger, detail: (payload['error'] as String?)?.trim().nullIfEmpty);
+        icon: AnIcons.error,
+        lead: kindLead,
+        name: nameOf(),
+        trail: nt.verb.runFailed,
+        tone: AnTone.danger,
+        detail: (payload['error'] as String?)?.trim().nullIfEmpty,
+      );
     case 'handler.crashed':
       return NotificationLine(
-        icon: AnIcons.error, lead: kindLead, name: nameOf(), trail: nt.verb.crashed,
-        tone: AnTone.danger);
+        icon: AnIcons.error,
+        lead: kindLead,
+        name: nameOf(),
+        trail: nt.verb.crashed,
+        tone: AnTone.danger,
+      );
     case 'workflow.approval_pending':
       return NotificationLine(
-        icon: AnIcons.inbox, lead: kindLead, name: nameOf(), trail: nt.verb.waitingApproval,
-        tone: AnTone.warn);
+        icon: AnIcons.inbox,
+        lead: kindLead,
+        name: nameOf(),
+        trail: nt.verb.waitingApproval,
+        tone: AnTone.warn,
+      );
     case 'relation.dependency_broken':
       final deps = (payload['dependents'] as List?) ?? const [];
       final deletedKind = payload['deletedKind'] as String?;
@@ -86,9 +99,12 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
         icon: AnIcons.relations,
         lead: deletedKind != null ? _kindLabel(deletedKind, t) : null,
         name: deletedId,
-        trail: deps.length == 1 ? nt.depBrokenOne : nt.depBrokenMany(n: deps.length),
+        trail: deps.length == 1
+            ? nt.depBrokenOne
+            : nt.depBrokenMany(n: deps.length),
         tone: AnTone.warn,
-        detail: _dependentNames(deps));
+        detail: _dependentNames(deps),
+      );
   }
 
   // handler.restarted splits by outcome (ok:false is the only inbox row; ok:true is frame-only). The tone
@@ -99,9 +115,11 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
     final ok = payload['ok'] == true;
     return NotificationLine(
       icon: ok ? AnIcons.success : AnIcons.error,
-      lead: kindLead, name: nameOf(),
+      lead: kindLead,
+      name: nameOf(),
       trail: ok ? nt.verb.recovered : nt.verb.restartFailed,
-      tone: ok ? AnTone.none : AnTone.danger);
+      tone: ok ? AnTone.none : AnTone.danger,
+    );
   }
 
   // workflow.attention_changed: needsAttention true → warn "needs attention"; the self-heal clear
@@ -110,10 +128,14 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
     final needs = payload['needsAttention'] == true;
     return NotificationLine(
       icon: needs ? AnIcons.warning : AnIcons.success,
-      lead: kindLead, name: nameOf(),
+      lead: kindLead,
+      name: nameOf(),
       trail: needs ? nt.verb.needsAttention : nt.verb.recovered,
       tone: needs ? AnTone.warn : AnTone.none,
-      detail: needs ? (payload['attentionReason'] as String?)?.trim().nullIfEmpty : null);
+      detail: needs
+          ? (payload['attentionReason'] as String?)?.trim().nullIfEmpty
+          : null,
+    );
   }
 
   // sandbox.env_status_changed row is a terminal state (installing is frame-only): failed → danger,
@@ -126,23 +148,37 @@ NotificationLine notificationLine(NotificationItem n, Translations t) {
       icon: failed ? AnIcons.error : AnIcons.success,
       trail: failed ? nt.verb.envFailed : nt.verb.envReady,
       tone: failed ? AnTone.danger : AnTone.none,
-      detail: failed ? (payload['errorMsg'] as String?)?.trim().nullIfEmpty : null);
+      detail: failed
+          ? (payload['errorMsg'] as String?)?.trim().nullIfEmpty
+          : null,
+    );
   }
 
   // mcp.reconnected carries an outcome status (N0 enrichment): connected/ready → reconnected, else fail.
   // mcp.reconnected 带结局 status:ready → 重连 / else 失败。
   if (n.type == 'mcp.reconnected') {
-    final ok = payload['status'] == 'ready' || payload['status'] == 'connected' || payload['status'] == 'degraded';
+    final ok =
+        payload['status'] == 'ready' ||
+        payload['status'] == 'connected' ||
+        payload['status'] == 'degraded';
     return NotificationLine(
-      icon: AnIcons.mcp, lead: kindLead, name: nameOf(),
+      icon: AnIcons.mcp,
+      lead: kindLead,
+      name: nameOf(),
       trail: ok ? nt.verb.reconnected : nt.verb.reconnectFailed,
-      tone: ok ? AnTone.none : AnTone.danger);
+      tone: ok ? AnTone.none : AnTone.danger,
+    );
   }
 
   // ── the compositional lifecycle bulk: kind icon + name + a verb from the action ──
   final verb = _verbLabel(action, t);
   if (verb != null) {
-    return NotificationLine(icon: _kindIcon(domain), lead: kindLead, name: nameOf(), trail: verb);
+    return NotificationLine(
+      icon: _kindIcon(domain),
+      lead: kindLead,
+      name: nameOf(),
+      trail: verb,
+    );
   }
 
   // Unknown type (open vocab) → a generic, honest line. 未知 type → 通用诚实行。
@@ -178,36 +214,36 @@ String? _dependentNames(List deps) {
 }
 
 IconData _kindIcon(String domain) => switch (domain) {
-      'function' => AnIcons.function,
-      'handler' => AnIcons.handler,
-      'agent' => AnIcons.agent,
-      'workflow' => AnIcons.workflow,
-      'control' => AnIcons.control,
-      'approval' => AnIcons.approval,
-      'skill' => AnIcons.skill,
-      'memory' => AnIcons.memory,
-      'document' => AnIcons.doc,
-      'mcp' => AnIcons.mcp,
-      'sandbox' => AnIcons.layers,
-      'relation' => AnIcons.relations,
-      _ => AnIcons.bell,
-    };
+  'function' => AnIcons.function,
+  'handler' => AnIcons.handler,
+  'agent' => AnIcons.agent,
+  'workflow' => AnIcons.workflow,
+  'control' => AnIcons.control,
+  'approval' => AnIcons.approval,
+  'skill' => AnIcons.skill,
+  'memory' => AnIcons.memory,
+  'document' => AnIcons.doc,
+  'mcp' => AnIcons.mcp,
+  'sandbox' => AnIcons.layers,
+  'relation' => AnIcons.relations,
+  _ => AnIcons.bell,
+};
 
 String? _kindLabel(String domain, Translations t) => switch (domain) {
-      'function' => t.ref.function,
-      'handler' => t.ref.handler,
-      'agent' => t.ref.agent,
-      'workflow' => t.ref.workflow,
-      'control' => t.ref.control,
-      'approval' => t.ref.approval,
-      'skill' => t.ref.skill,
-      'mcp' => t.ref.mcp,
-      'document' => t.ref.document,
-      'memory' => t.notifications.kind.memory,
-      'sandbox' => t.notifications.kind.sandbox,
-      'relation' => t.notifications.kind.relation,
-      _ => null,
-    };
+  'function' => t.ref.function,
+  'handler' => t.ref.handler,
+  'agent' => t.ref.agent,
+  'workflow' => t.ref.workflow,
+  'control' => t.ref.control,
+  'approval' => t.ref.approval,
+  'skill' => t.ref.skill,
+  'mcp' => t.ref.mcp,
+  'document' => t.ref.document,
+  'memory' => t.notifications.kind.memory,
+  'sandbox' => t.notifications.kind.sandbox,
+  'relation' => t.notifications.kind.relation,
+  _ => null,
+};
 
 String? _verbLabel(String action, Translations t) {
   final v = t.notifications.verb;
@@ -222,7 +258,8 @@ String? _verbLabel(String action, Translations t) {
     'config_cleared' => v.configCleared,
     'installed' => v.installed,
     'removed' => v.removed,
-    _ => null, // reconnected / restarted / crashed / run_failed handled above 上面已处理
+    _ =>
+      null, // reconnected / restarted / crashed / run_failed handled above 上面已处理
   };
 }
 

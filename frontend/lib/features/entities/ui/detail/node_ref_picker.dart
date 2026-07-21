@@ -47,14 +47,19 @@ class NodeRefPicker extends ConsumerWidget {
           placeholder: e.refPickFamily,
           options: [
             for (final f in families)
-              AnDropdownOption(value: f, label: _familyLabel(context, f), icon: _familyIcon(f)),
+              AnDropdownOption(
+                value: f,
+                label: _familyLabel(context, f),
+                icon: _familyIcon(f),
+              ),
           ],
           // Switching family clears the target + member below it. 切族清下游目标+成员。
           onChanged: (f) => onChanged(NodeRef(family: f).format()),
         ),
       _targetDropdown(context, ref, parsed),
       // Member (handler method / mcp tool) — only once a target is chosen. 成员——选中目标后才出。
-      if (parsed.hasMember && parsed.isResolved) _memberDropdown(context, ref, parsed),
+      if (parsed.hasMember && parsed.isResolved)
+        _memberDropdown(context, ref, parsed),
     ];
 
     return Column(
@@ -70,9 +75,12 @@ class NodeRefPicker extends ConsumerWidget {
 
   Widget _targetDropdown(BuildContext context, WidgetRef ref, NodeRef parsed) {
     final e = context.t.entities.detail.editor;
-    final loaded = ref.watch(refTargetsProvider(parsed.family)).value ?? const <RefCandidate>[];
+    final loaded =
+        ref.watch(refTargetsProvider(parsed.family)).value ??
+        const <RefCandidate>[];
     final options = [
-      for (final o in loaded) AnDropdownOption(value: o.id, label: o.name, meta: o.meta),
+      for (final o in loaded)
+        AnDropdownOption(value: o.id, label: o.name, meta: o.meta),
     ];
     // Keep the current target selectable even if the list hasn't loaded or no longer contains it. 保留当前目标可选。
     final t = parsed.target;
@@ -84,18 +92,26 @@ class NodeRefPicker extends ConsumerWidget {
       value: t,
       placeholder: e.refPickTarget,
       options: options,
-      onChanged: (id) => onChanged(parsed.copyWith(target: id, member: null).format()),
+      onChanged: (id) =>
+          onChanged(parsed.copyWith(target: id, member: null).format()),
     );
   }
 
   Widget _memberDropdown(BuildContext context, WidgetRef ref, NodeRef parsed) {
     final e = context.t.entities.detail.editor;
-    final loaded = ref
-            .watch(refMembersProvider((family: parsed.family, target: parsed.target!)))
+    final loaded =
+        ref
+            .watch(
+              refMembersProvider((
+                family: parsed.family,
+                target: parsed.target!,
+              )),
+            )
             .value ??
         const <RefCandidate>[];
     final options = [
-      for (final o in loaded) AnDropdownOption(value: o.id, label: o.name, meta: o.meta),
+      for (final o in loaded)
+        AnDropdownOption(value: o.id, label: o.name, meta: o.meta),
     ];
     final m = parsed.member;
     if (m != null && m.isNotEmpty && !loaded.any((o) => o.id == m)) {
@@ -104,7 +120,9 @@ class NodeRefPicker extends ConsumerWidget {
     return AnDropdown<String>(
       block: true,
       value: (m?.isEmpty ?? true) ? null : m,
-      placeholder: parsed.family == RefFamily.mcp ? e.refPickTool : e.refPickMethod,
+      placeholder: parsed.family == RefFamily.mcp
+          ? e.refPickTool
+          : e.refPickMethod,
       options: options,
       onChanged: (v) => onChanged(parsed.copyWith(member: v).format()),
     );
@@ -121,8 +139,8 @@ class NodeRefPicker extends ConsumerWidget {
   }
 
   static IconData _familyIcon(RefFamily f) => switch (f) {
-        RefFamily.handler => AnIcons.byKey('handler'),
-        RefFamily.mcp => AnIcons.byKey('mcp'),
-        _ => AnIcons.byKey('function'),
-      };
+    RefFamily.handler => AnIcons.byKey('handler'),
+    RefFamily.mcp => AnIcons.byKey('mcp'),
+    _ => AnIcons.byKey('function'),
+  };
 }

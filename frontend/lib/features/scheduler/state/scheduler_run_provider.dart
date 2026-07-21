@@ -76,8 +76,9 @@ class SchedulerRunData {
   }
 
   /// The composite as the pure models want it (truth + live placeholders). 供纯模型的复合。
-  FlowrunComposite get merged =>
-      tickRows.isEmpty ? comp : FlowrunComposite(flowrun: comp.flowrun, nodes: nodes);
+  FlowrunComposite get merged => tickRows.isEmpty
+      ? comp
+      : FlowrunComposite(flowrun: comp.flowrun, nodes: nodes);
 
   SchedulerRunData copyWith({
     FlowrunComposite? comp,
@@ -89,18 +90,17 @@ class SchedulerRunData {
     bool? orphan,
     List<FlowrunNode>? tickRows,
     bool? settledFlash,
-  }) =>
-      SchedulerRunData(
-        comp: comp ?? this.comp,
-        activity: activity ?? this.activity,
-        graph: graph ?? this.graph,
-        graphPinned: graphPinned ?? this.graphPinned,
-        pinnedVersionNumber: pinnedVersionNumber ?? this.pinnedVersionNumber,
-        workflow: workflow ?? this.workflow,
-        orphan: orphan ?? this.orphan,
-        tickRows: tickRows ?? this.tickRows,
-        settledFlash: settledFlash ?? this.settledFlash,
-      );
+  }) => SchedulerRunData(
+    comp: comp ?? this.comp,
+    activity: activity ?? this.activity,
+    graph: graph ?? this.graph,
+    graphPinned: graphPinned ?? this.graphPinned,
+    pinnedVersionNumber: pinnedVersionNumber ?? this.pinnedVersionNumber,
+    workflow: workflow ?? this.workflow,
+    orphan: orphan ?? this.orphan,
+    tickRows: tickRows ?? this.tickRows,
+    settledFlash: settledFlash ?? this.settledFlash,
+  );
 }
 
 class SchedulerRunController extends AsyncNotifier<SchedulerRunData> {
@@ -143,7 +143,10 @@ class SchedulerRunController extends AsyncNotifier<SchedulerRunData> {
     _poll?.cancel();
     _poll = null;
     if (d.run.status == 'running') {
-      _poll = Timer.periodic(FlowrunWatch.pollEvery, (_) => unawaited(_reconcileNow(flash: false)));
+      _poll = Timer.periodic(
+        FlowrunWatch.pollEvery,
+        (_) => unawaited(_reconcileNow(flash: false)),
+      );
     }
   }
 
@@ -171,14 +174,19 @@ class SchedulerRunController extends AsyncNotifier<SchedulerRunData> {
     // not ours. tick 只作画;同 workflow scope 上兄弟 run 的 tick 不是我们的。
     final tick = flowrunTickOf(frame);
     if (tick == null || tick.flowrunId != flowrunId) return;
-    state = AsyncData(d.copyWith(
-      tickRows: upsertNodeRow(d.tickRows, tick.row(DateTime.now())),
-      settledFlash: false,
-    ));
+    state = AsyncData(
+      d.copyWith(
+        tickRows: upsertNodeRow(d.tickRows, tick.row(DateTime.now())),
+        settledFlash: false,
+      ),
+    );
     // Ticks carry no stamps and no result — the debounced GET is where truth lands.
     // tick 无戳无 result——去抖 GET 落真相。
     _reconcile?.cancel();
-    _reconcile = Timer(FlowrunWatch.reconcileDelay, () => unawaited(_reconcileNow(flash: false)));
+    _reconcile = Timer(
+      FlowrunWatch.reconcileDelay,
+      () => unawaited(_reconcileNow(flash: false)),
+    );
   }
 
   /// Re-read the whole subject from the DB and settle it in place. Best-effort: a transient failure
@@ -259,7 +267,9 @@ class SchedulerRunController extends AsyncNotifier<SchedulerRunData> {
   }
 
   Future<List<FlowrunActivityRow>> _activityOf(
-      SchedulerRepository repo, FlowrunComposite comp) async {
+    SchedulerRepository repo,
+    FlowrunComposite comp,
+  ) async {
     try {
       return await repo.listActivity(comp.flowrun.id);
     } catch (_) {
@@ -269,7 +279,10 @@ class SchedulerRunController extends AsyncNotifier<SchedulerRunData> {
     }
   }
 
-  Future<WorkflowEntity?> _workflowOf(SchedulerRepository repo, String id) async {
+  Future<WorkflowEntity?> _workflowOf(
+    SchedulerRepository repo,
+    String id,
+  ) async {
     if (id.isEmpty) return null;
     try {
       return await repo.getWorkflow(id);
@@ -284,7 +297,10 @@ class SchedulerRunController extends AsyncNotifier<SchedulerRunData> {
     }
   }
 
-  Future<WorkflowVersion?> _pinnedVersionOf(SchedulerRepository repo, Flowrun run) async {
+  Future<WorkflowVersion?> _pinnedVersionOf(
+    SchedulerRepository repo,
+    Flowrun run,
+  ) async {
     if (run.versionId.isEmpty || run.workflowId.isEmpty) return null;
     try {
       return await repo.getWorkflowVersion(run.workflowId, run.versionId);
@@ -297,6 +313,6 @@ class SchedulerRunController extends AsyncNotifier<SchedulerRunData> {
 /// One controller per run (autoDispose family) — the flagship's only server-state. 每 run 一个。
 final schedulerRunProvider = AsyncNotifierProvider.autoDispose
     .family<SchedulerRunController, SchedulerRunData, String>(
-  SchedulerRunController.new,
-  retry: (_, _) => null,
-);
+      SchedulerRunController.new,
+      retry: (_, _) => null,
+    );

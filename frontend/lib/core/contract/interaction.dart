@@ -86,10 +86,10 @@ enum InteractionAction {
 
   /// The exact wire token the POST body carries. 线缆精确串。
   String get wire => switch (this) {
-        InteractionAction.approve => 'approve',
-        InteractionAction.approveAlways => 'approve_always',
-        InteractionAction.deny => 'deny',
-        InteractionAction.accept => 'accept',
-        InteractionAction.decline => 'decline',
-      };
+    InteractionAction.approve => 'approve',
+    InteractionAction.approveAlways => 'approve_always',
+    InteractionAction.deny => 'deny',
+    InteractionAction.accept => 'accept',
+    InteractionAction.decline => 'decline',
+  };
 }

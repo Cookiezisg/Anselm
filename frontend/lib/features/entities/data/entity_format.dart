@@ -20,8 +20,10 @@ import '../../../core/contract/entities/workflow.dart';
 String handlerSourceOf(HandlerVersion v) {
   final parts = <String>[
     if (v.imports.trim().isNotEmpty) v.imports.trim(),
-    if (v.initBody.trim().isNotEmpty) 'def __init__(self):\n${_indent(v.initBody.trim())}',
-    if (v.shutdownBody.trim().isNotEmpty) 'def __del__(self):\n${_indent(v.shutdownBody.trim())}',
+    if (v.initBody.trim().isNotEmpty)
+      'def __init__(self):\n${_indent(v.initBody.trim())}',
+    if (v.shutdownBody.trim().isNotEmpty)
+      'def __del__(self):\n${_indent(v.shutdownBody.trim())}',
     for (final m in v.methods)
       'def ${m.name}(self):${m.body.trim().isEmpty ? ' ...' : '\n${_indent(m.body.trim())}'}',
   ];
@@ -162,7 +164,8 @@ String prettyJsonSource(String raw) {
 /// is not the whole run (a long loop overflows it; WRK-055 W3 契约). Caps at [maxPages] pages.
 /// 翻页拉全 flowrun 节点(页最新在前、一页非全量;长循环溢页)。封顶 [maxPages] 页防跑飞。
 Future<FlowrunComposite> fetchFlowrunFull(
-  Future<FlowrunComposite> Function(String id, {String? cursor, int? limit}) get,
+  Future<FlowrunComposite> Function(String id, {String? cursor, int? limit})
+  get,
   String id, {
   int maxPages = 20,
 }) async {
@@ -176,5 +179,9 @@ Future<FlowrunComposite> fetchFlowrunFull(
     cursor = page.nextCursor;
     pages++;
   }
-  return FlowrunComposite(flowrun: first.flowrun, nodes: nodes, nextCursor: null);
+  return FlowrunComposite(
+    flowrun: first.flowrun,
+    nodes: nodes,
+    nextCursor: null,
+  );
 }

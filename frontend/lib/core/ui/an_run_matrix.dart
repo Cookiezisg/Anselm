@@ -168,7 +168,12 @@ import 'tone.dart';
 /// One column = one run. [elapsedMs] is the RUN's wall clock; null = still going (never a zero).
 /// 一列=一次 run;elapsedMs=run 墙钟,null=还在跑(绝不是 0)。
 class RunColumn {
-  const RunColumn({required this.id, required this.status, this.elapsedMs, this.label = ''});
+  const RunColumn({
+    required this.id,
+    required this.status,
+    this.elapsedMs,
+    this.label = '',
+  });
 
   final String id;
   final String status;
@@ -193,7 +198,11 @@ class MatrixRowHead {
 /// the WORST disposition across the run's iterations — the grid does not re-derive it.
 /// 一格的结局;iterations>1 渲「×N」(同台账折叠律);status 已是该 run 各轮的**最坏**处置,格阵不再自行推导。
 class MatrixCellState {
-  const MatrixCellState({required this.status, this.iterations = 1, this.label = ''});
+  const MatrixCellState({
+    required this.status,
+    this.iterations = 1,
+    this.label = '',
+  });
 
   final String status;
   final int iterations;
@@ -284,7 +293,12 @@ class AnRunMatrix extends StatefulWidget {
 
   /// One cell's identity sentence — spoken when that cell is the keyboard cursor or the [selection].
   /// 一格的身份句:该格是键盘光标或选区时被念出。
-  final String Function(RunColumn col, MatrixRowHead row, MatrixCellState? cell)? cellSemanticLabel;
+  final String Function(
+    RunColumn col,
+    MatrixRowHead row,
+    MatrixCellState? cell,
+  )?
+  cellSemanticLabel;
 
   /// The column-head button's own label. 列头按钮自己的 label。
   final String Function(RunColumn col)? colSemanticLabel;
@@ -305,7 +319,8 @@ class AnRunMatrix extends StatefulWidget {
   /// desktop screen reader means it has none at all.
   /// 光标的坐标从句——拼进格的句子里,因为桌面**运不动**任何表格结构来放它(design-system §2)。两个下标皆
   /// 0 起。缺省=光标只报身份不报位置,而在桌面读屏上那等于**没有**位置。
-  final String Function(int rowIndex, int rowCount, int colIndex, int colCount)? coordinateLabel;
+  final String Function(int rowIndex, int rowCount, int colIndex, int colCount)?
+  coordinateLabel;
 
   /// Fired when the viewport nears the OLDEST (leading) edge — the owner loads the next older page
   /// and prepends it. Re-arms once the edge recedes (either the user scrolls away or the prepend
@@ -393,18 +408,23 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
   }
 
   Set<_Cursor> _liveKeys() => {
-        for (final r in widget.rows) ...[
-          (r.nodeId, null),
-          for (final c in widget.cols) (r.nodeId, c.id),
-        ],
-        for (final c in widget.cols) (null, c.id),
-      };
+    for (final r in widget.rows) ...[
+      (r.nodeId, null),
+      for (final c in widget.cols) (r.nodeId, c.id),
+    ],
+    for (final c in widget.cols) (null, c.id),
+  };
 
   /// A position is navigable exactly when the caller made it actionable — an inert head or an inert
   /// cell is a picture, and a picture is not a keyboard stop.
   /// 位置可导航 ⟺ 调用方让它可动作——惰性的头/格是画,画不是键盘停靠。
   bool _navigable(int r, int c) {
-    if (r < -1 || c < -1 || r >= widget.rows.length || c >= widget.cols.length) return false;
+    if (r < -1 ||
+        c < -1 ||
+        r >= widget.rows.length ||
+        c >= widget.cols.length) {
+      return false;
+    }
     if (r == -1 && c == -1) return false; // the dead corner 死角
     if (r == -1) return widget.onCol != null;
     if (c == -1) return widget.onRow != null;
@@ -412,8 +432,12 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
   }
 
   (int, int)? _indexOf(_Cursor cur) {
-    final r = cur.$1 == null ? -1 : widget.rows.indexWhere((e) => e.nodeId == cur.$1);
-    final c = cur.$2 == null ? -1 : widget.cols.indexWhere((e) => e.id == cur.$2);
+    final r = cur.$1 == null
+        ? -1
+        : widget.rows.indexWhere((e) => e.nodeId == cur.$1);
+    final c = cur.$2 == null
+        ? -1
+        : widget.cols.indexWhere((e) => e.id == cur.$2);
     // indexWhere's «-1 = not found» collides with «-1 = the head axis» — so a named-but-missing id is
     // a STALE cursor (its run/node left the grid), not a head.
     // indexWhere 的「-1=没找到」与「-1=头轴」撞名——故「给了名却找不到」是**过期**光标(它那次 run/节点已离场),
@@ -452,7 +476,10 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
   }
 
   FocusNode _nodeFor(_Cursor key, {required bool cursor}) {
-    final n = _nodes.putIfAbsent(key, () => FocusNode(debugLabel: 'AnRunMatrix $key'));
+    final n = _nodes.putIfAbsent(
+      key,
+      () => FocusNode(debugLabel: 'AnRunMatrix $key'),
+    );
     // The roving flag itself: exactly one node in the grid answers Tab. Safe to set here — Flutter
     // leaves an externally-supplied node's flags alone (see the class doc).
     // roving 旗标本体:全格阵恰好一个节点应 Tab。在此设置是安全的——外供节点的旗标框架不碰(见类文档)。
@@ -471,7 +498,11 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
     // under RTL — so the visual direction maps onto the column index through directionality.
     // 方向键是**视觉**的(APG:右箭头=视觉右移一格),而 Row 在 RTL 下会镜像——故视觉方向经文字方向映射到列下标。
     final step = Directionality.of(context) == TextDirection.rtl ? -1 : 1;
-    final dr = switch (dir) { TraversalDirection.up => -1, TraversalDirection.down => 1, _ => 0 };
+    final dr = switch (dir) {
+      TraversalDirection.up => -1,
+      TraversalDirection.down => 1,
+      _ => 0,
+    };
     final dc = switch (dir) {
       TraversalDirection.left => -step,
       TraversalDirection.right => step,
@@ -481,7 +512,12 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
     while (true) {
       r += dr;
       c += dc;
-      if (r < -1 || c < -1 || r >= widget.rows.length || c >= widget.cols.length) return false;
+      if (r < -1 ||
+          c < -1 ||
+          r >= widget.rows.length ||
+          c >= widget.cols.length) {
+        return false;
+      }
       if (_navigable(r, c)) {
         final next = _cursorAt(r, c);
         setState(() => _cursor = next);
@@ -517,11 +553,9 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
             // 原生映射在反转轴下**原样成立**——实测而非推断:ensureVisible 的对齐自带轴向感知,reverse 下
             // 两策略照常兜住光标(手工翻转的映射在 19 步跟随测试里把光标甩出左缘 ~20px)。
             alignmentPolicy: switch (dir) {
-              TraversalDirection.up ||
-              TraversalDirection.left =>
+              TraversalDirection.up || TraversalDirection.left =>
                 ScrollPositionAlignmentPolicy.keepVisibleAtStart,
-              TraversalDirection.down ||
-              TraversalDirection.right =>
+              TraversalDirection.down || TraversalDirection.right =>
                 ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
             },
           );
@@ -552,8 +586,19 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
     final col = widget.cols[c];
     final row = widget.rows[r];
     return [
-      widget.cellSemanticLabel?.call(col, row, widget.cellStatus(col.id, row.nodeId)) ?? '',
-      widget.coordinateLabel?.call(r, widget.rows.length, c, widget.cols.length) ?? '',
+      widget.cellSemanticLabel?.call(
+            col,
+            row,
+            widget.cellStatus(col.id, row.nodeId),
+          ) ??
+          '',
+      widget.coordinateLabel?.call(
+            r,
+            widget.rows.length,
+            c,
+            widget.cols.length,
+          ) ??
+          '',
     ].where((e) => e.isNotEmpty).join(' ');
   }
 
@@ -563,11 +608,14 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
   /// this and [AnScheduleTrack] had a copy each).
   /// 念出光标的新地址。机制是**被聚焦的节点**;这是给 macOS 补的那块——规则(及它为何不是偏好)写在
   /// AnA11y.announceFocusMove 里(本件与 AnScheduleTrack 曾各抄一份,故收进一条缝)。
-  void _announce(String sentence) => AnA11y.announceFocusMove(context, sentence);
+  void _announce(String sentence) =>
+      AnA11y.announceFocusMove(context, sentence);
 
   @override
   Widget build(BuildContext context) {
-    if (widget.rows.isEmpty || widget.cols.isEmpty) return const SizedBox.shrink();
+    if (widget.rows.isEmpty || widget.cols.isEmpty) {
+      return const SizedBox.shrink();
+    }
     final at = _resolved;
     final c = context.colors;
     // Size-to-content and scroll HORIZONTALLY inside ITSELF — the page's 720 reading column is
@@ -602,87 +650,96 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
             children: [
               // Matches the col-head row's pitch (micro-bar lane + its bottom gap 4). 对齐列头行节距。
               const SizedBox(height: _kColHeadH + AnSpace.s4),
-              for (var i = 0; i < widget.rows.length; i++) _laneHead(context, i, at),
+              for (var i = 0; i < widget.rows.length; i++)
+                _laneHead(context, i, at),
             ],
           ),
-          Flexible(child: RawScrollbar(
-        controller: _hScroll,
-        thumbVisibility: true,
-        thumbColor: c.lineStrong,
-        radius: const Radius.circular(AnRadius.pill),
-        thickness: AnSpace.s4,
-        minThumbLength: AnSize.controlSm,
-        child: ScrollConfiguration(
-          behavior: const AnScrollBehavior(),
-          // reverse: offset 0 = the NEWEST (trailing) edge — first frame opens on the newest runs
-          // with no post-frame jump, and prepending older pages moves nothing on screen (offsets
-          // are measured from the anchored edge). reverse:offset 0=最新缘——首帧即右锚零闪动,前插
-          // 旧页屏上零位移(offset 从锚缘起量)。
-          child: SingleChildScrollView(
-            controller: _hScroll,
-            scrollDirection: Axis.horizontal,
-            reverse: true,
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // The fetch-in-flight lane at the oldest edge. 取数中的最旧缘车道。
-                if (widget.loadingOlder)
-                  const Padding(
-                    padding: EdgeInsets.only(right: AnSpace.s4),
-                    child: AnSpinner(size: AnSize.iconSm),
+          Flexible(
+            child: RawScrollbar(
+              controller: _hScroll,
+              thumbVisibility: true,
+              thumbColor: c.lineStrong,
+              radius: const Radius.circular(AnRadius.pill),
+              thickness: AnSpace.s4,
+              minThumbLength: AnSize.controlSm,
+              child: ScrollConfiguration(
+                behavior: const AnScrollBehavior(),
+                // reverse: offset 0 = the NEWEST (trailing) edge — first frame opens on the newest runs
+                // with no post-frame jump, and prepending older pages moves nothing on screen (offsets
+                // are measured from the anchored edge). reverse:offset 0=最新缘——首帧即右锚零闪动,前插
+                // 旧页屏上零位移(offset 从锚缘起量)。
+                child: SingleChildScrollView(
+                  controller: _hScroll,
+                  scrollDirection: Axis.horizontal,
+                  reverse: true,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // The fetch-in-flight lane at the oldest edge. 取数中的最旧缘车道。
+                      if (widget.loadingOlder)
+                        const Padding(
+                          padding: EdgeInsets.only(right: AnSpace.s4),
+                          child: AnSpinner(size: AnSize.iconSm),
+                        ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _colHeads(context, at),
+                          for (var i = 0; i < widget.rows.length; i++)
+                            _row(context, i, at),
+                          // The bar is an OVERLAY — it paints over the viewport's bottom edge, so the last
+                          // row gets its own lane rather than wearing a thumb across its squares.
+                          // 条是**覆层**,画在视口底缘——给末行让出一条道,免得 thumb 横在它的方块上。
+                          const SizedBox(height: AnSpace.s8),
+                        ],
+                      ),
+                    ],
                   ),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    _colHeads(context, at),
-                    for (var i = 0; i < widget.rows.length; i++) _row(context, i, at),
-                    // The bar is an OVERLAY — it paints over the viewport's bottom edge, so the last
-                    // row gets its own lane rather than wearing a thumb across its squares.
-                    // 条是**覆层**,画在视口底缘——给末行让出一条道,免得 thumb 横在它的方块上。
-                    const SizedBox(height: AnSpace.s8),
-                  ],
                 ),
-              ],
+              ),
             ),
           ),
-        ),
-      )),
         ],
       ),
     );
   }
 
-  int get _peakMs => widget.cols.fold<int>(0, (m, c) => (c.elapsedMs ?? 0) > m ? c.elapsedMs! : m);
+  int get _peakMs => widget.cols.fold<int>(
+    0,
+    (m, c) => (c.elapsedMs ?? 0) > m ? c.elapsedMs! : m,
+  );
 
   Widget _colHeads(BuildContext context, (int, int)? at) {
     final peak = _peakMs;
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s4),
-      child: Row(children: [
-        for (var c = 0; c < widget.cols.length; c++) ...[
-          const SizedBox(width: AnSpace.s4),
-          _ColHead(
-            // Identity, not slot — see the note on the cell's key. 跟身份不跟槽位,见格的 key 注释。
-            key: ValueKey(widget.cols[c].id),
-            col: widget.cols[c],
-            peakMs: peak,
-            selected: widget.selection.flowrunId == widget.cols[c].id,
-            onTap: widget.onCol == null
-                ? null
-                : (id) {
-                    _cursorTo((null, id));
-                    widget.onCol!(id);
-                  },
-            runningLabel: widget.runningLabel,
-            semanticLabel: widget.colSemanticLabel?.call(widget.cols[c]),
-            focusNode: widget.onCol == null
-                ? null
-                : _nodeFor((null, widget.cols[c].id), cursor: at == (-1, c)),
-          ),
+      child: Row(
+        children: [
+          for (var c = 0; c < widget.cols.length; c++) ...[
+            const SizedBox(width: AnSpace.s4),
+            _ColHead(
+              // Identity, not slot — see the note on the cell's key. 跟身份不跟槽位,见格的 key 注释。
+              key: ValueKey(widget.cols[c].id),
+              col: widget.cols[c],
+              peakMs: peak,
+              selected: widget.selection.flowrunId == widget.cols[c].id,
+              onTap: widget.onCol == null
+                  ? null
+                  : (id) {
+                      _cursorTo((null, id));
+                      widget.onCol!(id);
+                    },
+              runningLabel: widget.runningLabel,
+              semanticLabel: widget.colSemanticLabel?.call(widget.cols[c]),
+              focusNode: widget.onCol == null
+                  ? null
+                  : _nodeFor((null, widget.cols[c].id), cursor: at == (-1, c)),
+            ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 
@@ -692,13 +749,17 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
   /// **名字**走——读屏走到的就是它)。
   Widget _laneHead(BuildContext context, int r, (int, int)? at) {
     final row = widget.rows[r];
-    final cells = [for (final col in widget.cols) widget.cellStatus(col.id, row.nodeId)];
-    final summary = widget.rowSummaryLabel?.call(MatrixRowSummary(
-      row: row,
-      index: r,
-      total: widget.rows.length,
-      cells: cells,
-    ));
+    final cells = [
+      for (final col in widget.cols) widget.cellStatus(col.id, row.nodeId),
+    ];
+    final summary = widget.rowSummaryLabel?.call(
+      MatrixRowSummary(
+        row: row,
+        index: r,
+        total: widget.rows.length,
+        cells: cells,
+      ),
+    );
     final head = Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s4),
       child: _RowHead(
@@ -713,58 +774,73 @@ class _AnRunMatrixState extends State<AnRunMatrix> {
                 widget.onRow!(id);
               },
         semanticLabel: widget.rowSemanticLabel?.call(row),
-        focusNode: widget.onRow == null ? null : _nodeFor((row.nodeId, null), cursor: at == (r, -1)),
+        focusNode: widget.onRow == null
+            ? null
+            : _nodeFor((row.nodeId, null), cursor: at == (r, -1)),
       ),
     );
     // The row's summary node states the whole pattern. explicitChildNodes is load-bearing — see the
     // class doc. 行摘要节点说出整行模式;explicitChildNodes 承重,见类文档。
     return summary == null || summary.isEmpty
         ? head
-        : Semantics(container: true, explicitChildNodes: true, label: summary, child: head);
+        : Semantics(
+            container: true,
+            explicitChildNodes: true,
+            label: summary,
+            child: head,
+          );
   }
 
   Widget _row(BuildContext context, int r, (int, int)? at) {
     final row = widget.rows[r];
-    final cells = [for (final col in widget.cols) widget.cellStatus(col.id, row.nodeId)];
+    final cells = [
+      for (final col in widget.cols) widget.cellStatus(col.id, row.nodeId),
+    ];
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s4),
-      child: Row(children: [
-        for (var c = 0; c < widget.cols.length; c++) ...[
-          const SizedBox(width: AnSpace.s4),
-          () {
-            final selected = widget.selection.flowrunId == widget.cols[c].id &&
-                widget.selection.nodeId == row.nodeId;
-            // Only the two squares worth a node build a sentence — the other 478 are silent, and
-            // their coordinate is never computed for nobody. 只有值得节点的两格造句子。
-            final speaks = at == (r, c) || selected;
-            return _Cell(
-              // The element must follow the CELL's identity, not its slot: a newer run prepends a
-              // column, every unkeyed child shifts one place, and this cell's [FocusNode] would be
-              // torn off its old element and re-attached to a new one — which unfocuses it. A grid
-              // that drops the user's cursor whenever a run arrives is not «live», it is broken.
-              // 元素必须跟着**格的身份**走而不是跟着槽位:新 run 前插一列,所有无 key 的孩子挪一位,本格的
-              // FocusNode 会被从旧元素上撕下再贴到新元素上=**掉焦**。一有新 run 就把用户光标弄丢的格阵不是
-              // 「活的」,是坏的。
-              key: ValueKey((row.nodeId, widget.cols[c].id)),
-              col: widget.cols[c],
-              row: row,
-              cell: cells[c],
-              selected: selected,
-              sentence: speaks ? _sentence(r, c) : null,
-              onTap: widget.onCell == null
-                  ? null
-                  : (f, n) {
-                      _cursorTo((n, f));
-                      widget.onCell!(f, n);
-                    },
-              notReachedLabel: widget.notReachedLabel,
-              focusNode: widget.onCell == null
-                  ? null
-                  : _nodeFor((row.nodeId, widget.cols[c].id), cursor: at == (r, c)),
-            );
-          }(),
+      child: Row(
+        children: [
+          for (var c = 0; c < widget.cols.length; c++) ...[
+            const SizedBox(width: AnSpace.s4),
+            () {
+              final selected =
+                  widget.selection.flowrunId == widget.cols[c].id &&
+                  widget.selection.nodeId == row.nodeId;
+              // Only the two squares worth a node build a sentence — the other 478 are silent, and
+              // their coordinate is never computed for nobody. 只有值得节点的两格造句子。
+              final speaks = at == (r, c) || selected;
+              return _Cell(
+                // The element must follow the CELL's identity, not its slot: a newer run prepends a
+                // column, every unkeyed child shifts one place, and this cell's [FocusNode] would be
+                // torn off its old element and re-attached to a new one — which unfocuses it. A grid
+                // that drops the user's cursor whenever a run arrives is not «live», it is broken.
+                // 元素必须跟着**格的身份**走而不是跟着槽位:新 run 前插一列,所有无 key 的孩子挪一位,本格的
+                // FocusNode 会被从旧元素上撕下再贴到新元素上=**掉焦**。一有新 run 就把用户光标弄丢的格阵不是
+                // 「活的」,是坏的。
+                key: ValueKey((row.nodeId, widget.cols[c].id)),
+                col: widget.cols[c],
+                row: row,
+                cell: cells[c],
+                selected: selected,
+                sentence: speaks ? _sentence(r, c) : null,
+                onTap: widget.onCell == null
+                    ? null
+                    : (f, n) {
+                        _cursorTo((n, f));
+                        widget.onCell!(f, n);
+                      },
+                notReachedLabel: widget.notReachedLabel,
+                focusNode: widget.onCell == null
+                    ? null
+                    : _nodeFor((
+                        row.nodeId,
+                        widget.cols[c].id,
+                      ), cursor: at == (r, c)),
+              );
+            }(),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }
@@ -816,11 +892,14 @@ class _ColHead extends StatelessWidget {
     // gets the accent tint and the caller's «running» word instead of a fabricated length.
     // 落定 run 的条=它占最长的份额;在跑的 run 没有份额可占——给它 accent 色与调用方的「在跑」词,
     // 而不是一个编出来的长度。
-    final fraction = ms == null || peakMs <= 0 ? null : (ms / peakMs).clamp(0.08, 1.0);
+    final fraction = ms == null || peakMs <= 0
+        ? null
+        : (ms / peakMs).clamp(0.08, 1.0);
     final tone = AnStatus.fromRaw(col.status).tone;
-    final tip = [col.label, if (ms == null && runningLabel.isNotEmpty) runningLabel]
-        .where((s) => s.isNotEmpty)
-        .join('\n');
+    final tip = [
+      col.label,
+      if (ms == null && runningLabel.isNotEmpty) runningLabel,
+    ].where((s) => s.isNotEmpty).join('\n');
 
     // NOTE the `final` + separate name below: a builder closure captures the VARIABLE, not its value,
     // so `head = AnInteractive(builder: (..) => ...child: head)` would make the builder read the
@@ -938,21 +1017,31 @@ class _RowHead extends StatelessWidget {
               decoration: BoxDecoration(
                 color: selected
                     ? c.surfaceActive
-                    : (states.isActive ? c.surfaceHover : const Color(0x00000000)),
+                    : (states.isActive
+                          ? c.surfaceHover
+                          : const Color(0x00000000)),
                 borderRadius: BorderRadius.circular(AnRadius.tag),
               ),
-              child: Row(children: [
-                if (row.kind.isNotEmpty) ...[
-                  Icon(AnIcons.node(row.kind), size: AnSize.iconSm, color: c.inkFaint),
-                  const SizedBox(width: AnSpace.s6),
-                ],
-                Flexible(
-                  child: Text(row.nodeId,
+              child: Row(
+                children: [
+                  if (row.kind.isNotEmpty) ...[
+                    Icon(
+                      AnIcons.node(row.kind),
+                      size: AnSize.iconSm,
+                      color: c.inkFaint,
+                    ),
+                    const SizedBox(width: AnSpace.s6),
+                  ],
+                  Flexible(
+                    child: Text(
+                      row.nodeId,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AnText.code.copyWith(color: c.inkMuted)),
-                ),
-              ]),
+                      style: AnText.code.copyWith(color: c.inkMuted),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
@@ -1014,7 +1103,10 @@ class _Cell extends StatelessWidget {
       // «×N» rides IN the cell — the loop count is part of this outcome, not a separate mark.
       // ×N 就在格里——循环轮数是这个结局的一部分,不是另一个记号。
       child: s != null && s.iterations > 1
-          ? Text('${s.iterations}', style: AnText.metaTabular().copyWith(color: tone!.fg(c)))
+          ? Text(
+              '${s.iterations}',
+              style: AnText.metaTabular().copyWith(color: tone!.fg(c)),
+            )
           : null,
     );
 
@@ -1061,7 +1153,9 @@ class _Cell extends StatelessWidget {
               child: bare,
             ),
           );
-    final Widget out = tip.isEmpty ? square : AnTooltip(message: tip, child: square);
+    final Widget out = tip.isEmpty
+        ? square
+        : AnTooltip(message: tip, child: square);
     // The exclusion has to wrap the WHOLE cell, not just its box: [AnInteractive] and [AnTooltip]
     // annotate semantics of their own, so excluding only the inside still leaves one unlabelled
     // BUTTON node per square — a wall of 480 anonymous buttons, which is worse than 480 labelled ones,

@@ -71,7 +71,11 @@ String fmtRelativeDay(
 }) {
   final a = at.toLocal();
   final n = now.toLocal();
-  final days = DateTime(n.year, n.month, n.day).difference(DateTime(a.year, a.month, a.day)).inDays;
+  final days = DateTime(
+    n.year,
+    n.month,
+    n.day,
+  ).difference(DateTime(a.year, a.month, a.day)).inDays;
   if (days <= 0) return today;
   if (days == 1) return yesterday;
   if (days <= 7) return daysAgo(days);

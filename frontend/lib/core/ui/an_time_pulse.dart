@@ -16,7 +16,10 @@ class AnTimePulse extends ChangeNotifier {
   @override
   void addListener(VoidCallback listener) {
     super.addListener(listener);
-    _timer ??= Timer.periodic(const Duration(seconds: 30), (_) => notifyListeners());
+    _timer ??= Timer.periodic(
+      const Duration(seconds: 30),
+      (_) => notifyListeners(),
+    );
   }
 
   @override

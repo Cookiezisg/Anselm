@@ -22,13 +22,13 @@ enum AnBrandSize { sm, md, lg }
 class AnBrandIcon extends StatelessWidget {
   /// The Anselm app brand mark (bundled SVG asset). Anselm app 品牌标(随包 SVG)。
   const AnBrandIcon.anselm({this.size = AnBrandSize.md, super.key})
-      : _asset = _anselmAsset,
-        _svg = null,
-        _brandAsset = null,
-        _glyph = null,
-        _bare = false,
-        managed = false,
-        elevated = false;
+    : _asset = _anselmAsset,
+      _svg = null,
+      _brandAsset = null,
+      _glyph = null,
+      _bare = false,
+      managed = false,
+      elevated = false;
 
   /// The NAKED brand mark — just the 6 blocks, monochrome **inkMuted** (the nav icons' grey, not the
   /// wordmark's ink — locked on-device: grey blends with the stroked nav icons far better than solid black),
@@ -38,41 +38,55 @@ class AnBrandIcon extends StatelessWidget {
   /// 裸品牌 mark:仅 6 方块、单色 **inkMuted**(nav 图标那档灰、非 wordmark 的 ink——真机定:灰比实心黑更融入描边 nav 图标)、
   /// 无白底无边框——供侧栏行内、和 nav 图标同列;方块按 nav 图标可见字形大小(非盒)取、居中于盒,故盒对齐且视觉同大([_markContentRatio])。
   const AnBrandIcon.mark({this.size = AnBrandSize.sm, super.key})
-      : _asset = _anselmMarkAsset,
-        _bare = true,
-        _svg = null,
-        _brandAsset = null,
-        _glyph = null,
-        managed = false,
-        elevated = false;
+    : _asset = _anselmMarkAsset,
+      _bare = true,
+      _svg = null,
+      _brandAsset = null,
+      _glyph = null,
+      managed = false,
+      elevated = false;
 
   /// An inline SVG logo string (currentColor → ink). 内联 SVG logo 串(随 ink 着色)。
-  const AnBrandIcon.svg(String svg, {this.size = AnBrandSize.md, this.managed = false, this.elevated = false, super.key})
-      : _svg = svg,
-        _asset = null,
-        _brandAsset = null,
-        _glyph = null,
-        _bare = false;
+  const AnBrandIcon.svg(
+    String svg, {
+    this.size = AnBrandSize.md,
+    this.managed = false,
+    this.elevated = false,
+    super.key,
+  }) : _svg = svg,
+       _asset = null,
+       _brandAsset = null,
+       _glyph = null,
+       _bare = false;
 
   /// A vendored brand-logo SVG asset (`assets/brand/<slug>.svg`, lobe-icons/simple-icons — see
   /// `LICENSES.md` there), ink-tinted like [AnBrandIcon.svg]; callers resolve slugs through the
   /// brand registry and fall back to [AnBrandIcon.glyph] when no asset exists. 品牌 SVG 资产
   /// (随包,随 ink 着色);slug 经品牌注册表解析,缺者走字母兜底。
-  const AnBrandIcon.brand(String assetPath,
-      {this.size = AnBrandSize.md, this.managed = false, this.elevated = false, super.key})
-      : _brandAsset = assetPath,
-        _svg = null,
-        _asset = null,
-        _glyph = null,
-        _bare = false;
+  const AnBrandIcon.brand(
+    String assetPath, {
+    this.size = AnBrandSize.md,
+    this.managed = false,
+    this.elevated = false,
+    super.key,
+  }) : _brandAsset = assetPath,
+       _svg = null,
+       _asset = null,
+       _glyph = null,
+       _bare = false;
 
   /// A letter-glyph fallback when no logo is available. 无 logo 时的字母兜底。
-  const AnBrandIcon.glyph(String letter, {this.size = AnBrandSize.md, this.managed = false, this.elevated = false, super.key})
-      : _glyph = letter,
-        _asset = null,
-        _brandAsset = null,
-        _svg = null,
-        _bare = false;
+  const AnBrandIcon.glyph(
+    String letter, {
+    this.size = AnBrandSize.md,
+    this.managed = false,
+    this.elevated = false,
+    super.key,
+  }) : _glyph = letter,
+       _asset = null,
+       _brandAsset = null,
+       _svg = null,
+       _bare = false;
 
   final AnBrandSize size;
   final bool managed;
@@ -96,20 +110,21 @@ class AnBrandIcon extends StatelessWidget {
   static const double _squircleRatio = 114 / 512;
 
   double get _side => switch (size) {
-        AnBrandSize.sm => AnSize.icon, // lead
-        AnBrandSize.md => AnSize.control, // ctl
-        AnBrandSize.lg => AnSize.islandHead * 2, // 88, welcome hero
-      };
+    AnBrandSize.sm => AnSize.icon, // lead
+    AnBrandSize.md => AnSize.control, // ctl
+    AnBrandSize.lg => AnSize.islandHead * 2, // 88, welcome hero
+  };
 
   // Plate radius for glyph/managed backgrounds. lg gets the island radius; otherwise the tag radius.
   // 底盘圆角:lg 用 island 圆角,其余 tag。
-  double get _plateRadius => size == AnBrandSize.lg ? AnRadius.island : AnRadius.tag;
+  double get _plateRadius =>
+      size == AnBrandSize.lg ? AnRadius.island : AnRadius.tag;
 
   double get _glyphSize => switch (size) {
-        AnBrandSize.sm => AnSize.icon, // 16
-        AnBrandSize.md => AnSize.iconLg, // 20
-        AnBrandSize.lg => AnSize.islandHead, // 44
-      };
+    AnBrandSize.sm => AnSize.icon, // 16
+    AnBrandSize.md => AnSize.iconLg, // 20
+    AnBrandSize.lg => AnSize.islandHead, // 44
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -158,21 +173,37 @@ class AnBrandIcon extends StatelessWidget {
     } else if (_svg != null || _brandAsset != null) {
       // Provider logo (inline string or vendored asset): self-presents, tinted. managed → accent
       // plate + accent tint. 自呈现,着色(内联串或随包资产同径)。
-      final filter = ColorFilter.mode(managed ? c.accent : c.ink, BlendMode.srcIn);
+      final filter = ColorFilter.mode(
+        managed ? c.accent : c.ink,
+        BlendMode.srcIn,
+      );
       // The glyph sits a step under the box (like the letter face) so tight-viewBox marks don't
       // bleed to the plate edge. 字形略小于盒(同字母脸),满框 viewBox 不顶边。
       child = _svg != null
-          ? SvgPicture.string(_svg, width: side, height: side, colorFilter: filter)
-          : SvgPicture.asset(_brandAsset!, width: _glyphSize, height: _glyphSize, colorFilter: filter);
+          ? SvgPicture.string(
+              _svg,
+              width: side,
+              height: side,
+              colorFilter: filter,
+            )
+          : SvgPicture.asset(
+              _brandAsset!,
+              width: _glyphSize,
+              height: _glyphSize,
+              colorFilter: filter,
+            );
       if (managed || _brandAsset != null) {
         plate = BoxDecoration(
-            color: managed ? c.accentSoft : c.surfaceHover,
-            borderRadius: BorderRadius.circular(_plateRadius));
+          color: managed ? c.accentSoft : c.surfaceHover,
+          borderRadius: BorderRadius.circular(_plateRadius),
+        );
       }
     } else {
       // Letter fallback on a rounded plate. 字母圆角底兜底。
       child = Text(
-        (_glyph != null && _glyph.isNotEmpty) ? _glyph.characters.first.toUpperCase() : '?',
+        (_glyph != null && _glyph.isNotEmpty)
+            ? _glyph.characters.first.toUpperCase()
+            : '?',
         style: AnText.strong.copyWith(
           fontSize: _glyphSize,
           height: 1,
@@ -199,14 +230,16 @@ class AnBrandIcon extends StatelessWidget {
 
   Widget _elevate(Widget child, {required double radius}) {
     if (!elevated) return child;
-    return Builder(builder: (context) {
-      return DecoratedBox(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(radius),
-          boxShadow: context.colors.shadowFloat,
-        ),
-        child: child,
-      );
-    });
+    return Builder(
+      builder: (context) {
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(radius),
+            boxShadow: context.colors.shadowFloat,
+          ),
+          child: child,
+        );
+      },
+    );
   }
 }

@@ -7,7 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 // the space-after-colon, comments, multi-data, and the seq-derived durability cursor.
 
 /// Feed lines, return the last non-null envelope dispatched.
-StreamEnvelope? _feed(SseEventParser p, List<String> lines, {void Function(Object)? onErr}) {
+StreamEnvelope? _feed(
+  SseEventParser p,
+  List<String> lines, {
+  void Function(Object)? onErr,
+}) {
   StreamEnvelope? out;
   for (final l in lines) {
     final env = p.addLine(l, onDecodeError: onErr);
@@ -52,7 +56,10 @@ void main() {
       'data: {"seq":1,"scope":{"kind":"notification"},"id":"","frame":{"kind":"signal","node":{"type":"toast"}}}',
       '',
     ]);
-    expect(env, isNotNull); // would fail to JSON-decode if the leading space leaked in
+    expect(
+      env,
+      isNotNull,
+    ); // would fail to JSON-decode if the leading space leaked in
     expect(env!.scope.kind, 'notification');
   });
 
@@ -105,10 +112,28 @@ void main() {
 
   group('StreamFrame.fromJson — the closed 4-verb union + forward-compat', () {
     test('open / delta / close / signal', () {
-      expect(StreamFrame.fromJson({'kind': 'open', 'node': {'type': 'text'}}), isA<FrameOpen>());
-      expect(StreamFrame.fromJson({'kind': 'delta', 'chunk': 'c'}), isA<FrameDelta>());
-      expect(StreamFrame.fromJson({'kind': 'close', 'status': 'completed'}), isA<FrameClose>());
-      expect(StreamFrame.fromJson({'kind': 'signal', 'node': {'type': 'tick'}}), isA<FrameSignal>());
+      expect(
+        StreamFrame.fromJson({
+          'kind': 'open',
+          'node': {'type': 'text'},
+        }),
+        isA<FrameOpen>(),
+      );
+      expect(
+        StreamFrame.fromJson({'kind': 'delta', 'chunk': 'c'}),
+        isA<FrameDelta>(),
+      );
+      expect(
+        StreamFrame.fromJson({'kind': 'close', 'status': 'completed'}),
+        isA<FrameClose>(),
+      );
+      expect(
+        StreamFrame.fromJson({
+          'kind': 'signal',
+          'node': {'type': 'tick'},
+        }),
+        isA<FrameSignal>(),
+      );
     });
 
     test('unknown verb degrades to a no-op signal (does not crash)', () {
@@ -118,7 +143,13 @@ void main() {
     });
 
     test('FrameOpen.parentId nests (E3 subagent tree)', () {
-      final f = StreamFrame.fromJson({'kind': 'open', 'parentId': 'tc1', 'node': {'type': 'message'}}) as FrameOpen;
+      final f =
+          StreamFrame.fromJson({
+                'kind': 'open',
+                'parentId': 'tc1',
+                'node': {'type': 'message'},
+              })
+              as FrameOpen;
       expect(f.parentId, 'tc1');
     });
   });

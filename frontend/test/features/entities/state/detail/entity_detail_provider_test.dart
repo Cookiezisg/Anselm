@@ -24,20 +24,28 @@ FunctionEntity _fn(String id, String name) =>
 const _ref = EntityRef(EntityKind.function, 'fn_1');
 
 ProviderContainer _container(EntityRepository repo) {
-  final c = ProviderContainer(overrides: [entityRepositoryProvider.overrideWithValue(repo)]);
+  final c = ProviderContainer(
+    overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+  );
   addTearDown(c.dispose);
-  c.listen(entityDetailProvider(_ref), (_, _) {}); // keep the notifier (and its SSE subs) alive
+  c.listen(
+    entityDetailProvider(_ref),
+    (_, _) {},
+  ); // keep the notifier (and its SSE subs) alive
   return c;
 }
 
 class _ThrowRepo extends FixtureEntityRepository {
   @override
-  Future<FunctionEntity> getFunction(String id) async => throw Exception('boom');
+  Future<FunctionEntity> getFunction(String id) async =>
+      throw Exception('boom');
 }
 
 void main() {
   test('resolves the typed entity for the selected ref', () async {
-    final c = _container(FixtureEntityRepository(functions: [_fn('fn_1', 'sum')]));
+    final c = _container(
+      FixtureEntityRepository(functions: [_fn('fn_1', 'sum')]),
+    );
     final d = await c.read(entityDetailProvider(_ref).future);
     expect(d.function?.name, 'sum');
     expect(d.ref, _ref);
@@ -46,7 +54,14 @@ void main() {
   test('agent detail also fetches mount-health', () async {
     const ar = EntityRef(EntityKind.agent, 'ag_1');
     final repo = FixtureEntityRepository(
-      agents: [AgentEntity(id: 'ag_1', name: 'researcher', createdAt: _t, updatedAt: _t)],
+      agents: [
+        AgentEntity(
+          id: 'ag_1',
+          name: 'researcher',
+          createdAt: _t,
+          updatedAt: _t,
+        ),
+      ],
       mountHealth: {
         'ag_1': const MountHealthReport(
           mounts: [MountHealth(ref: 'fn_x', healthy: false, error: 'offline')],
@@ -54,7 +69,9 @@ void main() {
         ),
       },
     );
-    final c = ProviderContainer(overrides: [entityRepositoryProvider.overrideWithValue(repo)]);
+    final c = ProviderContainer(
+      overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+    );
     addTearDown(c.dispose);
     c.listen(entityDetailProvider(ar), (_, _) {});
     final d = await c.read(entityDetailProvider(ar).future);
@@ -64,7 +81,10 @@ void main() {
 
   test('error → AsyncError, no auto-retry (stays error)', () async {
     final c = _container(_ThrowRepo());
-    await expectLater(c.read(entityDetailProvider(_ref).future), throwsA(isA<Exception>()));
+    await expectLater(
+      c.read(entityDetailProvider(_ref).future),
+      throwsA(isA<Exception>()),
+    );
     await pumpEventQueue();
     expect(c.read(entityDetailProvider(_ref)).hasError, isTrue);
   });
@@ -76,8 +96,14 @@ void main() {
     expect(c.read(entityDetailProvider(_ref)).value?.function?.name, 'old');
 
     fixture.upsertFunction(_fn('fn_1', 'new')); // server-side edit
-    fixture.emitLifecycle(const EntitySignal(
-        kind: EntityKind.function, id: 'fn_1', action: EntityAction.edited, durable: true));
+    fixture.emitLifecycle(
+      const EntitySignal(
+        kind: EntityKind.function,
+        id: 'fn_1',
+        action: EntityAction.edited,
+        durable: true,
+      ),
+    );
     await pumpEventQueue();
 
     expect(c.read(entityDetailProvider(_ref)).value?.function?.name, 'new');
@@ -85,26 +111,46 @@ void main() {
 
   // Route-derived selection (STEP 6): "clear" = navigate home. Driven through a real router (the
   // delegate only parses when attached to MaterialApp.router), so this one is a widget test. 经真路由验。
-  testWidgets('durable deleted → navigates home (selection clears)', (tester) async {
+  testWidgets('durable deleted → navigates home (selection clears)', (
+    tester,
+  ) async {
     final fixture = FixtureEntityRepository(functions: [_fn('fn_1', 'sum')]);
     final router = buildTestRouter(
-        initialLocation: '/entities/function/fn_1', page: const SizedBox.shrink());
-    await tester.pumpWidget(ProviderScope(
-      overrides: [
-        entityRepositoryProvider.overrideWithValue(fixture),
-        goRouterProvider.overrideWithValue(router),
-      ],
-      child: MaterialApp.router(routerConfig: router),
-    ));
+      initialLocation: '/entities/function/fn_1',
+      page: const SizedBox.shrink(),
+    );
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          entityRepositoryProvider.overrideWithValue(fixture),
+          goRouterProvider.overrideWithValue(router),
+        ],
+        child: MaterialApp.router(routerConfig: router),
+      ),
+    );
     await tester.pump();
 
-    final c = ProviderScope.containerOf(tester.element(find.byType(MaterialApp)));
-    c.listen(entityDetailProvider(_ref), (_, _) {}); // keep the notifier (+ SSE subs) alive
+    final c = ProviderScope.containerOf(
+      tester.element(find.byType(MaterialApp)),
+    );
+    c.listen(
+      entityDetailProvider(_ref),
+      (_, _) {},
+    ); // keep the notifier (+ SSE subs) alive
     await c.read(entityDetailProvider(_ref).future);
-    expect(c.read(selectedEntityProvider), _ref); // selection derived from the deep link
+    expect(
+      c.read(selectedEntityProvider),
+      _ref,
+    ); // selection derived from the deep link
 
-    fixture.emitLifecycle(const EntitySignal(
-        kind: EntityKind.function, id: 'fn_1', action: EntityAction.deleted, durable: true));
+    fixture.emitLifecycle(
+      const EntitySignal(
+        kind: EntityKind.function,
+        id: 'fn_1',
+        action: EntityAction.deleted,
+        durable: true,
+      ),
+    );
     await tester.pumpAndSettle();
 
     expect(router.routerDelegate.currentConfiguration.uri.path, '/');
@@ -118,8 +164,14 @@ void main() {
     final before = c.read(entityDetailProvider(_ref)).value;
 
     fixture.upsertFunction(_fn('fn_1', 'changed'));
-    fixture.emitLifecycle(const EntitySignal(
-        kind: EntityKind.function, id: 'fn_1', action: EntityAction.edited, durable: false));
+    fixture.emitLifecycle(
+      const EntitySignal(
+        kind: EntityKind.function,
+        id: 'fn_1',
+        action: EntityAction.edited,
+        durable: false,
+      ),
+    );
     await pumpEventQueue();
 
     expect(identical(c.read(entityDetailProvider(_ref)).value, before), isTrue);

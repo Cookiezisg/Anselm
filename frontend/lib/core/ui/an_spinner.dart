@@ -40,6 +40,9 @@ class AnSpinner extends StatelessWidget {
       );
     }
     if (semanticLabel == null) return core;
-    return Semantics(label: semanticLabel, child: ExcludeSemantics(child: core));
+    return Semantics(
+      label: semanticLabel,
+      child: ExcludeSemantics(child: core),
+    );
   }
 }

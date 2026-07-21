@@ -97,13 +97,15 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
     }
   }
 
-  String get _base => '/scheduler/w/${widget.workflowId}/runs/${widget.flowrunId}';
+  String get _base =>
+      '/scheduler/w/${widget.workflowId}/runs/${widget.flowrunId}';
 
   /// THE selection write (§5 三海拔单选区): every altitude routes through this one call, so the URL
   /// stays the single truth and picking the same node twice toggles it off (Esc's mouse twin).
   /// 唯一的选区写入:三海拔都走这一条,URL 恒为单一真相;再点一次即取消(Esc 的鼠标孪生)。
   void _pick(String? nodeId, {int? iteration}) {
-    if (nodeId == null || (nodeId == widget.nodeId && iteration == widget.iteration)) {
+    if (nodeId == null ||
+        (nodeId == widget.nodeId && iteration == widget.iteration)) {
       context.go(_base);
       return;
     }
@@ -135,7 +137,8 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
                 ? null
                 : AnButton(
                     label: t.retry,
-                    onPressed: () => ref.invalidate(schedulerRunProvider(widget.flowrunId)),
+                    onPressed: () =>
+                        ref.invalidate(schedulerRunProvider(widget.flowrunId)),
                   ),
           ),
         );
@@ -144,7 +147,11 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
         child: AnDeferredLoading(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [AnSkeleton.card(), SizedBox(height: AnSpace.s16), AnSkeleton.lines(8)],
+            children: [
+              AnSkeleton.card(),
+              SizedBox(height: AnSpace.s16),
+              AnSkeleton.lines(8),
+            ],
           ),
         ),
       );
@@ -155,10 +162,16 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
     // (WRK-070 B1). 后帧绑;浮层头只念来源短语、不串「Scheduler / 名」路径。
     final crumbTriggers = {
       for (final tr
-          in ref.watch(schedulerRailProvider).value?.triggers ?? const <TriggerEntity>[])
+          in ref.watch(schedulerRailProvider).value?.triggers ??
+              const <TriggerEntity>[])
         tr.id: tr,
     };
-    final crumbPhrase = runPhrase(context, d.comp.flowrun, crumbTriggers, DateTime.now());
+    final crumbPhrase = runPhrase(
+      context,
+      d.comp.flowrun,
+      crumbTriggers,
+      DateTime.now(),
+    );
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(shellHeadProvider.notifier).bind(crumbPhrase, _scrollToTop);
@@ -168,8 +181,13 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
     final graph = d.graph ?? const Graph();
     final inferred = inferredRunningNodes(graph, d.merged);
     final now = DateTime.now();
-    final chart = flowrunChart(graph, d.merged,
-        activity: d.activity, now: now, inferredRunning: inferred);
+    final chart = flowrunChart(
+      graph,
+      d.merged,
+      activity: d.activity,
+      now: now,
+      inferredRunning: inferred,
+    );
 
     // Esc clears the node selection back to the dossier face (§6). The shortcut lives on the PAGE,
     // not the island — the selection is the page's, and the island is only its mirror. Bound only
@@ -182,8 +200,9 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
     // Esc 阶梯:有选区先清选区;无选区时 Esc 即 ✕——回运营主页。弹层在焦点树更深处自持 Esc,先赢,应当。
     return CallbackShortcuts(
       bindings: {
-        const SingleActivator(LogicalKeyboardKey.escape):
-            widget.nodeId != null ? _clear : _close,
+        const SingleActivator(LogicalKeyboardKey.escape): widget.nodeId != null
+            ? _clear
+            : _close,
       },
       child: Focus(
         autofocus: false,
@@ -225,8 +244,12 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
                     label: t.run.graphHead,
                     variant: AnSectionVariant.plain,
                     children: [
-                      Text(t.run.graphEmpty,
-                          style: AnText.body.copyWith(color: context.colors.inkFaint)),
+                      Text(
+                        t.run.graphEmpty,
+                        style: AnText.body.copyWith(
+                          color: context.colors.inkFaint,
+                        ),
+                      ),
                     ],
                   ),
                 ),
@@ -280,7 +303,9 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
     final ok = await overlay.confirm(
       title: ov.cancelConfirmTitle,
       message: ov.cancelConfirmBody(
-          name: _d.workflow?.name ?? _run.workflowId, id: _run.id),
+        name: _d.workflow?.name ?? _run.workflowId,
+        id: _run.id,
+      ),
       confirmLabel: ov.cancelConfirmAction,
       cancelLabel: ov.cancelKeep,
       barrierLabel: ov.cancelKeep,
@@ -312,7 +337,9 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
     final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _busy = true);
     try {
-      final cvId = await ref.read(schedulerRepositoryProvider).triageRun(_run.id);
+      final cvId = await ref
+          .read(schedulerRepositoryProvider)
+          .triageRun(_run.id);
       if (!mounted) return;
       // 202 → the new conversation: hand the user straight to it (§10). 202 → 直接把人交给对话。
       context.go('/chat/$cvId');
@@ -325,7 +352,10 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
     }
   }
 
-  Future<void> _act(Future<void> Function(SchedulerRepository) op, {required String lost}) async {
+  Future<void> _act(
+    Future<void> Function(SchedulerRepository) op, {
+    required String lost,
+  }) async {
     final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _busy = true);
     try {
@@ -334,8 +364,10 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
       if (!mounted) return;
       // 422 = we lost a first-wins race (the run settled itself in the meantime) — that is NEWS,
       // not an error. 422=first-wins 输了(run 自己先落定了)——那是消息,不是错误。
-      notices.show(e.httpStatus == 422 ? lost : e.message,
-          tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger);
+      notices.show(
+        e.httpStatus == 422 ? lost : e.message,
+        tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -358,8 +390,8 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
     final elapsed = started == null
         ? null
         : (run.completedAt != null
-            ? fmtDuration(run.completedAt!.difference(started))
-            : (running ? fmtWaited(widget.now.difference(started)) : null));
+              ? fmtDuration(run.completedAt!.difference(started))
+              : (running ? fmtWaited(widget.now.difference(started)) : null));
 
     // The documentary page head (需求④, entities 同文法): crumb «调度 / workflow 名» → big title =
     // the run's SOURCE PHRASE (需求⑤:人читает来源短语,不是 fr_ id) → the verbs top-right. The
@@ -367,103 +399,130 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
     // 文档化页头(entities 同文法):面包屑「调度 / workflow 名」→ 大标题=来源短语(人读来源,非 fr_ id)
     // → 动词右上。机器细节留在下方状态条。
     final triggersById = {
-      for (final tr in ref.watch(schedulerRailProvider).value?.triggers ?? const <TriggerEntity>[])
+      for (final tr
+          in ref.watch(schedulerRailProvider).value?.triggers ??
+              const <TriggerEntity>[])
         tr.id: tr,
     };
     final hostName = _d.workflow?.name ?? run.workflowId;
 
-    final head = Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      AnOceanHeader(
-        // «Scheduler / <workflow 名>» — the parent path to the operations home; the run's SOURCE PHRASE is
-        // the big title (面包屑律:路径到上一级、黑字=自己). Root → the Overview, the name → the ops home.
-        // 父路径到运营主页;run 来源短语是大标题。根→总览,名→运营主页。
-        crumbs: [
-          AnCrumb(context.t.scheduler.home.crumbRoot, onTap: () => context.go('/scheduler')),
-          AnCrumb(hostName, onTap: () => context.go('/scheduler/w/${run.workflowId}')),
-        ],
-        title: runPhrase(context, run, triggersById, widget.now),
-        actions: [
-          if (failed)
-            AnButton(
-              label: t.replay,
-              icon: AnIcons.history,
-              variant: AnButtonVariant.primary,
-              size: AnButtonSize.sm,
-              onPressed: _busy ? null : _replay,
+    final head = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnOceanHeader(
+          // «Scheduler / <workflow 名>» — the parent path to the operations home; the run's SOURCE PHRASE is
+          // the big title (面包屑律:路径到上一级、黑字=自己). Root → the Overview, the name → the ops home.
+          // 父路径到运营主页;run 来源短语是大标题。根→总览,名→运营主页。
+          crumbs: [
+            AnCrumb(
+              context.t.scheduler.home.crumbRoot,
+              onTap: () => context.go('/scheduler'),
             ),
-          // Cancel needs a LIVE run and a live host — an orphan's engine is gone (§5.7). 取消需活 run
-          // 与活宿主:孤儿的引擎已不在。
-          if (running && !_d.orphan)
-            AnButton(
-              label: t.cancel,
-              icon: AnIcons.stop,
-              variant: AnButtonVariant.danger,
-              size: AnButtonSize.sm,
-              onPressed: _busy ? null : _cancel,
+            AnCrumb(
+              hostName,
+              onTap: () => context.go('/scheduler/w/${run.workflowId}'),
             ),
-          if (failed && !_d.orphan)
-            AnButton(
-              label: t.triage,
-              icon: AnIcons.chat,
-              size: AnButtonSize.sm,
-              outline: true,
-              onPressed: _busy ? null : _triage,
+          ],
+          title: runPhrase(context, run, triggersById, widget.now),
+          actions: [
+            if (failed)
+              AnButton(
+                label: t.replay,
+                icon: AnIcons.history,
+                variant: AnButtonVariant.primary,
+                size: AnButtonSize.sm,
+                onPressed: _busy ? null : _replay,
+              ),
+            // Cancel needs a LIVE run and a live host — an orphan's engine is gone (§5.7). 取消需活 run
+            // 与活宿主:孤儿的引擎已不在。
+            if (running && !_d.orphan)
+              AnButton(
+                label: t.cancel,
+                icon: AnIcons.stop,
+                variant: AnButtonVariant.danger,
+                size: AnButtonSize.sm,
+                onPressed: _busy ? null : _cancel,
+              ),
+            if (failed && !_d.orphan)
+              AnButton(
+                label: t.triage,
+                icon: AnIcons.chat,
+                size: AnButtonSize.sm,
+                outline: true,
+                onPressed: _busy ? null : _triage,
+              ),
+          ],
+        ),
+        AnStatBar(
+          status: AnStatus.fromRaw(run.status),
+          leading: [
+            // The tombstone (§5.7): the host workflow was soft-deleted. The page stays — a run's
+            // archive is not the workflow's to delete — but every action except replay is off.
+            // 墓碑:宿主已软删。页仍在(run 的档案不归 workflow 删),但除 replay 外的动作全禁。
+            if (_d.orphan)
+              AnChip(t.orphanBadge, tone: AnTone.warn, icon: AnIcons.ban),
+          ],
+          stats: [
+            if (started != null)
+              AnStat(
+                '${fmtClock(started)}${run.completedAt != null ? ' → ${fmtClock(run.completedAt)}' : ''}',
+                tabular: true,
+              ),
+            if (elapsed != null) AnStat(elapsed, tabular: true),
+            // «排队 x · 执行 y» — only with the data behind it (工单⑫/⑤). Queue absent → the exec leg
+            // alone; neither → the total above already told the whole truth.
+            // 拆分只在数据在库时出现:无排队戳只显执行段;两者皆无则上面的总时长已是全部真相。
+            if (timing.queue != null)
+              AnStat(t.queuedFor(d: fmtDuration(timing.queue!)), tabular: true),
+            if (timing.exec != null)
+              AnStat(t.execFor(d: fmtDuration(timing.exec!)), tabular: true),
+            // «v3 · pinned» — the human number when the version resolved; the word alone otherwise
+            // (需求⑤). v3 人话版本号,解不出只念词。
+            if (run.versionId.isNotEmpty)
+              AnStat(
+                _d.pinnedVersionNumber != null
+                    ? 'v${_d.pinnedVersionNumber} · ${t.pinnedVersion}'
+                    : t.pinnedVersion,
+              ),
+          ],
+          chips: [
+            if (run.replayCount > 0)
+              AnChip(
+                context.t.run.replayTimes(n: '${run.replayCount}'),
+                look: AnChipLook.outlined,
+              ),
+            AnChip(
+              _originWord(context, run.origin),
+              look: AnChipLook.outlined,
+              icon: AnIcons.trigger,
             ),
-        ],
-      ),
-      AnStatBar(
-        status: AnStatus.fromRaw(run.status),
-        leading: [
-          // The tombstone (§5.7): the host workflow was soft-deleted. The page stays — a run's
-          // archive is not the workflow's to delete — but every action except replay is off.
-          // 墓碑:宿主已软删。页仍在(run 的档案不归 workflow 删),但除 replay 外的动作全禁。
-          if (_d.orphan) AnChip(t.orphanBadge, tone: AnTone.warn, icon: AnIcons.ban),
-        ],
-        stats: [
-          if (started != null)
-            AnStat('${fmtClock(started)}${run.completedAt != null ? ' → ${fmtClock(run.completedAt)}' : ''}',
-                tabular: true),
-          if (elapsed != null) AnStat(elapsed, tabular: true),
-          // «排队 x · 执行 y» — only with the data behind it (工单⑫/⑤). Queue absent → the exec leg
-          // alone; neither → the total above already told the whole truth.
-          // 拆分只在数据在库时出现:无排队戳只显执行段;两者皆无则上面的总时长已是全部真相。
-          if (timing.queue != null)
-            AnStat(t.queuedFor(d: fmtDuration(timing.queue!)), tabular: true),
-          if (timing.exec != null) AnStat(t.execFor(d: fmtDuration(timing.exec!)), tabular: true),
-          // «v3 · pinned» — the human number when the version resolved; the word alone otherwise
-          // (需求⑤). v3 人话版本号,解不出只念词。
-          if (run.versionId.isNotEmpty)
-            AnStat(_d.pinnedVersionNumber != null
-                ? 'v${_d.pinnedVersionNumber} · ${t.pinnedVersion}'
-                : t.pinnedVersion),
-        ],
-        chips: [
-          if (run.replayCount > 0)
-            AnChip(context.t.run.replayTimes(n: '${run.replayCount}'), look: AnChipLook.outlined),
-          AnChip(_originWord(context, run.origin), look: AnChipLook.outlined, icon: AnIcons.trigger),
-        ],
-        notes: [
-          if (error != null) AnStatNote(error),
-          // The map disclaimer: we could not resolve the run's pinned version, so this page is
-          // reading TODAY's graph over a historical run. Say it out loud rather than mis-draw in
-          // silence (§5.2). 地图免责声明:钉版解不出,本页是拿今天的图看历史 run——明说,绝不闷声画错。
-          if (_d.graph != null && !_d.graphPinned) AnStatNote(t.graphNotPinned, tone: AnTone.warn),
-        ],
-      ),
-      const SizedBox(height: AnGap.block),
-      // The provenance chain — cron → firing → conversation, each link navigable (§5.1). Upstreamed
-      // (S0), so chat's dossier and this head speak the SAME line. 出处链:逐环深链;上收件,与 chat
-      // 卷宗同一条线。
-      ProvenanceLine(
-        conversationId: run.conversationId,
-        triggerId: run.triggerId,
-        // The trigger speaks its NAME (需求⑤ 人话化) — the id survives in the panel it opens.
-        // trigger 念真名;id 活在它点开的面板里。
-        triggerName: run.triggerId != null ? triggersById[run.triggerId]?.name : null,
-        firingId: run.firingId,
-        flowrunId: run.id,
-      ),
-    ]);
+          ],
+          notes: [
+            if (error != null) AnStatNote(error),
+            // The map disclaimer: we could not resolve the run's pinned version, so this page is
+            // reading TODAY's graph over a historical run. Say it out loud rather than mis-draw in
+            // silence (§5.2). 地图免责声明:钉版解不出,本页是拿今天的图看历史 run——明说,绝不闷声画错。
+            if (_d.graph != null && !_d.graphPinned)
+              AnStatNote(t.graphNotPinned, tone: AnTone.warn),
+          ],
+        ),
+        const SizedBox(height: AnGap.block),
+        // The provenance chain — cron → firing → conversation, each link navigable (§5.1). Upstreamed
+        // (S0), so chat's dossier and this head speak the SAME line. 出处链:逐环深链;上收件,与 chat
+        // 卷宗同一条线。
+        ProvenanceLine(
+          conversationId: run.conversationId,
+          triggerId: run.triggerId,
+          // The trigger speaks its NAME (需求⑤ 人话化) — the id survives in the panel it opens.
+          // trigger 念真名;id 活在它点开的面板里。
+          triggerName: run.triggerId != null
+              ? triggersById[run.triggerId]?.name
+              : null,
+          firingId: run.firingId,
+          flowrunId: run.id,
+        ),
+      ],
+    );
 
     // The settle flash — one wash when a durable run_terminal landed (谢幕落账洗亮先例). 落定洗亮一次。
     return _d.settledFlash ? AnWashHighlight(child: head) : head;
@@ -510,7 +569,11 @@ class _GraphZone extends StatelessWidget {
           framed: true,
           // Read-only run colouring; the graph is a NAVIGATOR — picking a node moves the page's one
           // selection (§5.2 图=导航器). 只读染色;图=导航器,点节点即移动全页唯一选区。
-          run: deriveRunState(graph, rows: data.nodes, runStatus: data.run.status),
+          run: deriveRunState(
+            graph,
+            rows: data.nodes,
+            runStatus: data.run.status,
+          ),
           selectedNodeId: selectedNodeId,
           onNodeTap: onPick,
         ),
@@ -522,7 +585,11 @@ class _GraphZone extends StatelessWidget {
 // ─────────────────────────────────── 完整甘特 ───────────────────────────────────
 
 class _GanttZone extends StatelessWidget {
-  const _GanttZone({required this.chart, required this.selectedNodeId, required this.onPick});
+  const _GanttZone({
+    required this.chart,
+    required this.selectedNodeId,
+    required this.onPick,
+  });
 
   final GanttChart chart;
   final String? selectedNodeId;
@@ -533,43 +600,54 @@ class _GanttZone extends StatelessWidget {
     final t = context.t.scheduler.run;
     final c = context.colors;
     if (chart.rows.isEmpty) {
-      return AnSection(label: t.ganttHead, variant: AnSectionVariant.plain, children: [
-        Text(t.ganttEmpty, style: AnText.body.copyWith(color: c.inkFaint)),
-      ]);
+      return AnSection(
+        label: t.ganttHead,
+        variant: AnSectionVariant.plain,
+        children: [
+          Text(t.ganttEmpty, style: AnText.body.copyWith(color: c.inkFaint)),
+        ],
+      );
     }
     return AnSection(
       label: t.ganttHead,
       variant: AnSectionVariant.plain,
       children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          // Framed like its two neighbours (0718 对齐审计): the graph is a framed canvas and the
-          // ledger a framed AnWindow — an unframed gantt floated between two bordered cards and its
-          // row markers sat off the shared left rail (16 card pad + s8 row inset = 同一左轨).
-          // 与上下两海拔同穿框:裸甘特浮在两张有框卡之间,行记号也不落共享左轨。
-          AnWindow(
-            child: AnNodeGantt(
-              rows: chart.rows,
-              chart: chart,
-              ruler: true,
-              nowLine: true,
-              selectedNodeId: selectedNodeId,
-              onNodePick: onPick,
-              notRunLabel: t.notRun,
-              waitingLabel: context.t.run.nodeWait,
-              inferredLabel: context.t.run.inferredRunning,
-              queueLabel: t.queueWord,
-              execLabel: t.execWord,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Framed like its two neighbours (0718 对齐审计): the graph is a framed canvas and the
+            // ledger a framed AnWindow — an unframed gantt floated between two bordered cards and its
+            // row markers sat off the shared left rail (16 card pad + s8 row inset = 同一左轨).
+            // 与上下两海拔同穿框:裸甘特浮在两张有框卡之间,行记号也不落共享左轨。
+            AnWindow(
+              child: AnNodeGantt(
+                rows: chart.rows,
+                chart: chart,
+                ruler: true,
+                nowLine: true,
+                selectedNodeId: selectedNodeId,
+                onNodePick: onPick,
+                notRunLabel: t.notRun,
+                waitingLabel: context.t.run.nodeWait,
+                inferredLabel: context.t.run.inferredRunning,
+                queueLabel: t.queueWord,
+                execLabel: t.execWord,
+              ),
             ),
-          ),
-          // The axis collapsed (every stamp coincident — a sub-millisecond run, the local-sidecar
-          // norm): the bars are EQUAL SLOTS showing sequence only, so the page says so instead of
-          // letting equal widths read as equal durations. A tight caption HUGGING the gantt (one
-          // child, not a self-margined AnSection sibling). 塌缩轴注记紧贴甘特(同一子件,不双夹)。
-          if (!chart.timeMode) ...[
-            const SizedBox(height: AnSpace.s6),
-            Text(t.ganttNoSpan, style: AnText.meta.copyWith(color: c.inkFaint)),
+            // The axis collapsed (every stamp coincident — a sub-millisecond run, the local-sidecar
+            // norm): the bars are EQUAL SLOTS showing sequence only, so the page says so instead of
+            // letting equal widths read as equal durations. A tight caption HUGGING the gantt (one
+            // child, not a self-margined AnSection sibling). 塌缩轴注记紧贴甘特(同一子件,不双夹)。
+            if (!chart.timeMode) ...[
+              const SizedBox(height: AnSpace.s6),
+              Text(
+                t.ganttNoSpan,
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
+            ],
           ],
-        ]),
+        ),
       ],
     );
   }
@@ -598,13 +676,23 @@ class _LedgerZone extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t.scheduler.run;
     final c = context.colors;
-    final entries = foldNodeLedger(graph, data.nodes, inferredRunning: inferred);
-    final byKey = {for (final a in data.activity) '${a.nodeId}#${a.iteration}': a};
+    final entries = foldNodeLedger(
+      graph,
+      data.nodes,
+      inferredRunning: inferred,
+    );
+    final byKey = {
+      for (final a in data.activity) '${a.nodeId}#${a.iteration}': a,
+    };
 
     if (entries.isEmpty) {
-      return AnSection(label: t.ledgerHead, variant: AnSectionVariant.plain, children: [
-        Text(t.ledgerEmpty, style: AnText.body.copyWith(color: c.inkFaint)),
-      ]);
+      return AnSection(
+        label: t.ledgerHead,
+        variant: AnSectionVariant.plain,
+        children: [
+          Text(t.ledgerEmpty, style: AnText.body.copyWith(color: c.inkFaint)),
+        ],
+      );
     }
 
     // The honest count line — the REAL byStatus tally of what is in hand (§5.4 诚实账头). 诚实账头。
@@ -613,7 +701,10 @@ class _LedgerZone extends ConsumerWidget {
       counts[n.status] = (counts[n.status] ?? 0) + 1;
     }
 
-    final parked = [for (final e in entries) if (e.parked) e.latest!];
+    final parked = [
+      for (final e in entries)
+        if (e.parked) e.latest!,
+    ];
 
     return AnSection(
       label: t.ledgerHead,
@@ -623,24 +714,37 @@ class _LedgerZone extends ConsumerWidget {
         // spacer (that double-gapped it to a 32px void: AnSection's 12 + SizedBox 8 + AnSection's 12,
         // WRK-070 B7 用户点名帧「和下面空间这么大」). Now: title → 12 → summary → 12 → ledger, one
         // rhythm. 安静汇总紧贴标题;不再是带手搓 spacer 的独立子件(那会被 AnSection 双 12 夹成 32px 空洞)。
-        AnStatBar(stats: [
-          AnStat(context.t.run.nodeCount(n: '${data.nodes.length}'), tabular: true),
-          if ((counts['completed'] ?? 0) > 0)
-            AnStat('${context.t.run.runCompleted} ${counts['completed']}', tabular: true),
-          if ((counts['failed'] ?? 0) > 0)
-            AnStat('${context.t.run.failed} ${counts['failed']}', tabular: true),
-          if ((counts['parked'] ?? 0) > 0)
-            AnStat('${context.t.run.nodeWait} ${counts['parked']}', tabular: true),
-        ]),
+        AnStatBar(
+          stats: [
+            AnStat(
+              context.t.run.nodeCount(n: '${data.nodes.length}'),
+              tabular: true,
+            ),
+            if ((counts['completed'] ?? 0) > 0)
+              AnStat(
+                '${context.t.run.runCompleted} ${counts['completed']}',
+                tabular: true,
+              ),
+            if ((counts['failed'] ?? 0) > 0)
+              AnStat(
+                '${context.t.run.failed} ${counts['failed']}',
+                tabular: true,
+              ),
+            if ((counts['parked'] ?? 0) > 0)
+              AnStat(
+                '${context.t.run.nodeWait} ${counts['parked']}',
+                tabular: true,
+              ),
+          ],
+        ),
         // The human gate is the ONE thing allowed to jump the queue to the very top (§5.6 例外上浮;
         // §0 军规's two sanctioned exceptions are failure and the human gate). It sits ABOVE the
         // ledger because it is a request for action, not a record. AnSection owns the gap (no
         // self-margin). 人闸获准插最顶(军规两例外);间距归 AnSection、子件不自管外边距。
-        for (final node in parked) _ParkedGate(flowrunId: data.run.id, node: node),
+        for (final node in parked)
+          _ParkedGate(flowrunId: data.run.id, node: node),
         FlowrunNodeList(
-          lines: [
-            for (final e in entries) _lineOf(context, e, byKey),
-          ],
+          lines: [for (final e in entries) _lineOf(context, e, byKey)],
           selectedNodeId: selectedNodeId,
           selectedIteration: selectedIteration,
           onPick: onPick,
@@ -653,7 +757,10 @@ class _LedgerZone extends ConsumerWidget {
   /// duration is the SAME split the head totals and the gantt draws (§5.3 三段条与台账双数同源).
   /// 折一条台账行:×N 成员随行带、耗时与头/甘特同源。
   FlowrunNodeLine _lineOf(
-      BuildContext context, NodeLedgerEntry e, Map<String, FlowrunActivityRow> byKey) {
+    BuildContext context,
+    NodeLedgerEntry e,
+    Map<String, FlowrunActivityRow> byKey,
+  ) {
     if (e.inferred) {
       return FlowrunNodeLine(
         nodeId: e.nodeId,
@@ -664,14 +771,14 @@ class _LedgerZone extends ConsumerWidget {
     }
     final latest = e.latest!;
     FlowrunNodeLine one(FlowrunNode n) => FlowrunNodeLine(
-          nodeId: n.nodeId,
-          status: n.status,
-          kind: n.kind,
-          iteration: n.iteration,
-          error: errorSentence(n.error),
-          errorFull: n.error,
-          measure: _measure(context, n, byKey['${n.nodeId}#${n.iteration}']),
-        );
+      nodeId: n.nodeId,
+      status: n.status,
+      kind: n.kind,
+      iteration: n.iteration,
+      error: errorSentence(n.error),
+      errorFull: n.error,
+      measure: _measure(context, n, byKey['${n.nodeId}#${n.iteration}']),
+    );
     return FlowrunNodeLine(
       nodeId: e.nodeId,
       status: latest.status,
@@ -680,8 +787,14 @@ class _LedgerZone extends ConsumerWidget {
       iteration: latest.iteration,
       error: errorSentence(latest.error),
       errorFull: latest.error,
-      measure: _measure(context, latest, byKey['${latest.nodeId}#${latest.iteration}']),
-      iterationLines: e.iterations > 1 ? [for (final n in e.rows) one(n)] : const [],
+      measure: _measure(
+        context,
+        latest,
+        byKey['${latest.nodeId}#${latest.iteration}'],
+      ),
+      iterationLines: e.iterations > 1
+          ? [for (final n in e.rows) one(n)]
+          : const [],
     );
   }
 
@@ -725,7 +838,9 @@ class _ParkedGateState extends ConsumerState<_ParkedGate> {
     final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _busy = true);
     try {
-      await ref.read(schedulerRepositoryProvider).decideApproval(
+      await ref
+          .read(schedulerRepositoryProvider)
+          .decideApproval(
             widget.flowrunId,
             widget.node.nodeId,
             decision: verdict,
@@ -736,8 +851,11 @@ class _ParkedGateState extends ConsumerState<_ParkedGate> {
       // first-wins: someone (or the timeout) got there first. The gate reconciles away below.
       // first-wins:别人(或超时)先到了;下面的对账会把门收走。
       notices.show(
-          e.httpStatus == 422 ? context.t.scheduler.overview.alreadyHandled : e.message,
-          tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger);
+        e.httpStatus == 422
+            ? context.t.scheduler.overview.alreadyHandled
+            : e.message,
+        tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger,
+      );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -748,9 +866,9 @@ class _ParkedGateState extends ConsumerState<_ParkedGate> {
 
   @override
   Widget build(BuildContext context) => ApprovalGate(
-        parked: widget.node,
-        busy: _busy,
-        collectReason: true,
-        onDecide: _decide,
-      );
+    parked: widget.node,
+    busy: _busy,
+    collectReason: true,
+    onDecide: _decide,
+  );
 }

@@ -61,8 +61,8 @@ class AnButton extends StatelessWidget {
     this.focusNode,
     this.autofocus = false,
     super.key,
-  })  : label = null,
-        block = false;
+  }) : label = null,
+       block = false;
 
   final String? label;
   final IconData? icon;
@@ -97,7 +97,8 @@ class AnButton extends StatelessWidget {
     // Square geometry for the icon variant AND any label-less glyph button (a primary round send is
     // `iconOnly(variant: primary)` — colours from the variant, geometry from the glyph-only shape).
     // 方形几何:icon 变体 + 一切无 label 的纯字形钮(primary 圆发送=iconOnly(variant: primary))。
-    final isIcon = variant == AnButtonVariant.icon || (label == null && icon != null);
+    final isIcon =
+        variant == AnButtonVariant.icon || (label == null && icon != null);
     final height = switch (size) {
       AnButtonSize.lg => AnSize.row,
       AnButtonSize.md => AnSize.control,
@@ -108,7 +109,9 @@ class AnButton extends StatelessWidget {
       AnButtonSize.md => AnSize.icon,
       AnButtonSize.sm => AnSize.iconSm,
     };
-    final padX = isIcon ? 0.0 : (size == AnButtonSize.sm ? AnSize.btnPadXSm : AnSize.btnPadX);
+    final padX = isIcon
+        ? 0.0
+        : (size == AnButtonSize.sm ? AnSize.btnPadXSm : AnSize.btnPadX);
     final baseStyle = size == AnButtonSize.sm ? AnText.meta : AnText.body;
 
     // MergeSemantics folds this node's label/toggled with AnInteractive's button+tap node into ONE
@@ -116,122 +119,137 @@ class AnButton extends StatelessWidget {
     // 合并语义:标签/toggled 与 AnInteractive 的 button+tap 并一节点(否则读屏摸到无 tap 的标签节点)。
     return MergeSemantics(
       child: Semantics(
-      button: true,
-      enabled: enabled,
-      toggled: toggled ? true : null,
-      label: semanticLabel ?? label,
-      child: Opacity(
-        opacity: enabled ? 1 : AnOpacity.disabled,
-        child: AnInteractive(
-          enabled: enabled,
-          onTap: onPressed,
-          focusNode: focusNode,
-          autofocus: autofocus,
-          builder: (context, states) {
-            final c = context.colors;
-            final reduced = AnMotionPref.reduced(context);
-            final active = states.isActive;
-            final focused = states.contains(WidgetState.focused);
+        button: true,
+        enabled: enabled,
+        toggled: toggled ? true : null,
+        label: semanticLabel ?? label,
+        child: Opacity(
+          opacity: enabled ? 1 : AnOpacity.disabled,
+          child: AnInteractive(
+            enabled: enabled,
+            onTap: onPressed,
+            focusNode: focusNode,
+            autofocus: autofocus,
+            builder: (context, states) {
+              final c = context.colors;
+              final reduced = AnMotionPref.reduced(context);
+              final active = states.isActive;
+              final focused = states.contains(WidgetState.focused);
 
-            late Color bg;
-            late Color fg;
-            // Regular (w400) label over the Light (w300) body — two-weight rule: no heavier CTA. 两种字重:加粗一律 Regular。
-            final weight = AnText.emphasisWeight;
-            switch (variant) {
-              // Resting bg = the hover colour at alpha 0 (whenActive) — pure alpha fade, no dark
-              // midpoint flash. ghost + icon (the app's INLINE row buttons: rail +/⋯, tray ⋯) hover a
-              // notch DEEPER (surfaceHoverStrong) so they read as buttons on a surfaceHover-washed row
-              // instead of melting into it (user 0719). 静止底=hover 色 alpha0(纯 alpha 淡入无暗闪);
-              // ghost+icon(行内钮:rail +/⋯、托盘 ⋯)hover 深一档 surfaceHoverStrong,不糊进灰洗底行。
-              case AnButtonVariant.ghost:
-                fg = active ? c.ink : c.inkMuted;
-                bg = c.surfaceHoverStrong.whenActive(active);
-              case AnButtonVariant.primary:
-                fg = c.onAccent;
-                bg = active ? c.accentHover : c.accent;
-              case AnButtonVariant.danger:
-                fg = c.danger;
-                bg = c.dangerSoft.whenActive(active);
-              case AnButtonVariant.icon:
-                fg = active ? c.ink : c.inkFaint;
-                bg = c.surfaceHoverStrong.whenActive(active);
-            }
-
-            // Toggle ON overrides the resting look: accent glyph over a solid accentSoft fill (the
-            // format/mode "pressed" state). 开态覆写:accent 字形 + accentSoft 实底。
-            if (toggled) {
-              fg = c.accent;
-              bg = c.accentSoft;
-            }
-
-            // surface overrides ONLY the fill (keeps the variant's fg): opaque surface at rest, a
-            // gentle surfaceSunken on active so it stays a notch off the surrounding grey wash rather
-            // than melting into it. 白底覆写只动底(字色不变),active 走 surfaceSunken 与洗底错开一档。
-            if (surface) {
-              bg = active ? c.surfaceSunken : c.surface;
-            }
-
-            // Always allocate the border slot (transparent when unfocused) so gaining the focus ring
-            // doesn't shift the content by 1px. Focus ring = inkMuted (≥3:1 light & dark; lineStrong
-            // 0.13α was invisible in light). surface's own hairline is c.line, still ceding to the
-            // focus ring when focused. 边框槽常驻(未聚焦透明),聚焦不挪 1px;焦点环 inkMuted;surface 边=line。
-            final border = Border.all(
-              color: surface
-                  ? (focused ? c.inkMuted : c.line)
-                  : (outline ? fg : c.inkMuted.whenActive(focused)),
-              width: AnSize.hairline,
-            );
-
-            final glyph = icon != null ? Icon(icon, size: iconSize, color: fg) : null;
-
-            // block fills width, but "fill width" needs a bounded parent — degrade to intrinsic
-            // (not crash) when unbounded (Stack/overlay/unbounded Row). block 占满需有界父;无界则退化为自适应、不崩。
-            return LayoutBuilder(builder: (context, constraints) {
-              final effBlock = block && constraints.hasBoundedWidth;
-              Widget child;
-              if (isIcon) {
-                child = glyph ?? const SizedBox.shrink();
-              } else {
-                child = Row(
-                  mainAxisSize: effBlock ? MainAxisSize.max : MainAxisSize.min,
-                  mainAxisAlignment: effBlock ? MainAxisAlignment.start : MainAxisAlignment.center,
-                  children: [
-                    if (glyph != null) ...[glyph, const SizedBox(width: AnGap.inline)],
-                    Flexible(
-                      child: Text(
-                        label ?? '',
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        // .weight, NOT copyWith(fontWeight:) — the pinned wght axis on the VF
-                        // overrides a bare fontWeight, silently rendering Light. .weight 双轴同改,
-                        // 裸 copyWith 会被钉死的 wght 轴覆盖、实渲 Light。
-                        style: baseStyle.copyWith(color: fg).weight(weight),
-                      ),
-                    ),
-                  ],
-                );
+              late Color bg;
+              late Color fg;
+              // Regular (w400) label over the Light (w300) body — two-weight rule: no heavier CTA. 两种字重:加粗一律 Regular。
+              final weight = AnText.emphasisWeight;
+              switch (variant) {
+                // Resting bg = the hover colour at alpha 0 (whenActive) — pure alpha fade, no dark
+                // midpoint flash. ghost + icon (the app's INLINE row buttons: rail +/⋯, tray ⋯) hover a
+                // notch DEEPER (surfaceHoverStrong) so they read as buttons on a surfaceHover-washed row
+                // instead of melting into it (user 0719). 静止底=hover 色 alpha0(纯 alpha 淡入无暗闪);
+                // ghost+icon(行内钮:rail +/⋯、托盘 ⋯)hover 深一档 surfaceHoverStrong,不糊进灰洗底行。
+                case AnButtonVariant.ghost:
+                  fg = active ? c.ink : c.inkMuted;
+                  bg = c.surfaceHoverStrong.whenActive(active);
+                case AnButtonVariant.primary:
+                  fg = c.onAccent;
+                  bg = active ? c.accentHover : c.accent;
+                case AnButtonVariant.danger:
+                  fg = c.danger;
+                  bg = c.dangerSoft.whenActive(active);
+                case AnButtonVariant.icon:
+                  fg = active ? c.ink : c.inkFaint;
+                  bg = c.surfaceHoverStrong.whenActive(active);
               }
 
-              final box = AnimatedContainer(
-                duration: reduced ? Duration.zero : AnMotion.fast,
-                height: height,
-                width: isIcon ? height : null,
-                padding: EdgeInsets.symmetric(horizontal: padX),
-                alignment: isIcon ? Alignment.center : null,
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(round ? AnRadius.pill : AnRadius.button),
-                  border: border,
-                  boxShadow: elevated ? c.shadowFloat : null,
-                ),
-                child: child,
+              // Toggle ON overrides the resting look: accent glyph over a solid accentSoft fill (the
+              // format/mode "pressed" state). 开态覆写:accent 字形 + accentSoft 实底。
+              if (toggled) {
+                fg = c.accent;
+                bg = c.accentSoft;
+              }
+
+              // surface overrides ONLY the fill (keeps the variant's fg): opaque surface at rest, a
+              // gentle surfaceSunken on active so it stays a notch off the surrounding grey wash rather
+              // than melting into it. 白底覆写只动底(字色不变),active 走 surfaceSunken 与洗底错开一档。
+              if (surface) {
+                bg = active ? c.surfaceSunken : c.surface;
+              }
+
+              // Always allocate the border slot (transparent when unfocused) so gaining the focus ring
+              // doesn't shift the content by 1px. Focus ring = inkMuted (≥3:1 light & dark; lineStrong
+              // 0.13α was invisible in light). surface's own hairline is c.line, still ceding to the
+              // focus ring when focused. 边框槽常驻(未聚焦透明),聚焦不挪 1px;焦点环 inkMuted;surface 边=line。
+              final border = Border.all(
+                color: surface
+                    ? (focused ? c.inkMuted : c.line)
+                    : (outline ? fg : c.inkMuted.whenActive(focused)),
+                width: AnSize.hairline,
               );
-              return effBlock ? SizedBox(width: double.infinity, child: box) : box;
-            });
-          },
+
+              final glyph = icon != null
+                  ? Icon(icon, size: iconSize, color: fg)
+                  : null;
+
+              // block fills width, but "fill width" needs a bounded parent — degrade to intrinsic
+              // (not crash) when unbounded (Stack/overlay/unbounded Row). block 占满需有界父;无界则退化为自适应、不崩。
+              return LayoutBuilder(
+                builder: (context, constraints) {
+                  final effBlock = block && constraints.hasBoundedWidth;
+                  Widget child;
+                  if (isIcon) {
+                    child = glyph ?? const SizedBox.shrink();
+                  } else {
+                    child = Row(
+                      mainAxisSize: effBlock
+                          ? MainAxisSize.max
+                          : MainAxisSize.min,
+                      mainAxisAlignment: effBlock
+                          ? MainAxisAlignment.start
+                          : MainAxisAlignment.center,
+                      children: [
+                        if (glyph != null) ...[
+                          glyph,
+                          const SizedBox(width: AnGap.inline),
+                        ],
+                        Flexible(
+                          child: Text(
+                            label ?? '',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            // .weight, NOT copyWith(fontWeight:) — the pinned wght axis on the VF
+                            // overrides a bare fontWeight, silently rendering Light. .weight 双轴同改,
+                            // 裸 copyWith 会被钉死的 wght 轴覆盖、实渲 Light。
+                            style: baseStyle.copyWith(color: fg).weight(weight),
+                          ),
+                        ),
+                      ],
+                    );
+                  }
+
+                  final box = AnimatedContainer(
+                    duration: reduced ? Duration.zero : AnMotion.fast,
+                    height: height,
+                    width: isIcon ? height : null,
+                    padding: EdgeInsets.symmetric(horizontal: padX),
+                    alignment: isIcon ? Alignment.center : null,
+                    decoration: BoxDecoration(
+                      color: bg,
+                      borderRadius: BorderRadius.circular(
+                        round ? AnRadius.pill : AnRadius.button,
+                      ),
+                      border: border,
+                      boxShadow: elevated ? c.shadowFloat : null,
+                    ),
+                    child: child,
+                  );
+                  return effBlock
+                      ? SizedBox(width: double.infinity, child: box)
+                      : box;
+                },
+              );
+            },
+          ),
         ),
       ),
-    ),
     );
   }
 }

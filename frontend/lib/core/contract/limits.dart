@@ -23,5 +23,6 @@ abstract class LimitField with _$LimitField {
     @Default('') String desc,
   }) = _LimitField;
 
-  factory LimitField.fromJson(Map<String, dynamic> json) => _$LimitFieldFromJson(json);
+  factory LimitField.fromJson(Map<String, dynamic> json) =>
+      _$LimitFieldFromJson(json);
 }

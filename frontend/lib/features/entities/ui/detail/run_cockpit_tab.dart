@@ -58,13 +58,22 @@ class RunCockpitTab extends ConsumerWidget {
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: d.state.errorTitle,
-        action: AnButton(label: d.state.retry, onPressed: () => ref.invalidate(runCockpitProvider(entityRef))),
+        action: AnButton(
+          label: d.state.retry,
+          onPressed: () => ref.invalidate(runCockpitProvider(entityRef)),
+        ),
       ),
       data: (st) {
         final comp = st.selected;
-        final gantt = (graph != null && comp != null) ? flowrunTimeline(graph, comp) : const <GanttRow>[];
+        final gantt = (graph != null && comp != null)
+            ? flowrunTimeline(graph, comp)
+            : const <GanttRow>[];
         final overlay = (graph != null && comp != null)
-            ? deriveRunState(graph, rows: comp.nodes, runStatus: st.selectedRun?.status ?? '')
+            ? deriveRunState(
+                graph,
+                rows: comp.nodes,
+                runStatus: st.selectedRun?.status ?? '',
+              )
             : null;
 
         return Column(
@@ -98,37 +107,51 @@ class RunCockpitTab extends ConsumerWidget {
                 alignment: Alignment.centerLeft,
                 child: st.loadingMore
                     ? const AnSkeleton.row()
-                    : AnButton(label: d.state.loadMore, onPressed: notifier.loadMore),
+                    : AnButton(
+                        label: d.state.loadMore,
+                        onPressed: notifier.loadMore,
+                      ),
               ),
             ],
             // The selected run's header info + observability actions (:replay a failed run, :kill the
             // workflow). 选中 run 的头信息 + 观测动作(重跑失败 run / 终止 workflow)。
             if (st.selectedRun case final run?)
-              AnSection(variant: AnSectionVariant.plain, children: [
-                _runInfo(context, ref, st, run),
-              ]),
+              AnSection(
+                variant: AnSectionVariant.plain,
+                children: [_runInfo(context, ref, st, run)],
+              ),
             // The run graph, lit by the selected run's derived overlay. 选中 run 派生覆层点亮的运行图。
             if (graph != null && st.selectedRunId != null)
-              AnSection(label: d.cockpit.runGraph, variant: AnSectionVariant.plain, children: [
-                AnGraphCanvas(
-                  graph: graph,
-                  framed: true,
-                  run: overlay,
-                  selectedNodeId: st.selectedNodeId,
-                  onNodeTap: notifier.selectNode,
-                ),
-              ]),
+              AnSection(
+                label: d.cockpit.runGraph,
+                variant: AnSectionVariant.plain,
+                children: [
+                  AnGraphCanvas(
+                    graph: graph,
+                    framed: true,
+                    run: overlay,
+                    selectedNodeId: st.selectedNodeId,
+                    onNodeTap: notifier.selectNode,
+                  ),
+                ],
+              ),
             if (st.selectedNode case final node?)
-              AnSection(variant: AnSectionVariant.plain, children: [
-                _nodeDebug(context, ref, st, node),
-              ]),
+              AnSection(
+                variant: AnSectionVariant.plain,
+                children: [_nodeDebug(context, ref, st, node)],
+              ),
           ],
         );
       },
     );
   }
 
-  Widget _runInfo(BuildContext context, WidgetRef ref, RunCockpitState st, Flowrun run) {
+  Widget _runInfo(
+    BuildContext context,
+    WidgetRef ref,
+    RunCockpitState st,
+    Flowrun run,
+  ) {
     final d = context.t.entities.detail;
     final kv = d.kv;
     final notifier = ref.read(runCockpitProvider(entityRef).notifier);
@@ -141,39 +164,47 @@ class RunCockpitTab extends ConsumerWidget {
       title: d.cockpit.runInfo,
       icon: AnIcons.byKey('scheduler'),
       meta: run.status,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        kvList([
-          (kv.flowrunId, run.id),
-          (kv.version, run.versionId),
-          (kv.replay, '${run.replayCount}'),
-          (kv.elapsed, elapsed),
-          if (run.error?.isNotEmpty ?? false) (kv.error, run.error),
-        ], dense: true),
-        if (failed || live) ...[
-          const SizedBox(height: AnSpace.s8),
-          AnActionGroup([
-            if (failed)
-              AnButton(
-                label: d.cockpit.replay,
-                icon: AnIcons.byKey('history'),
-                size: AnButtonSize.sm,
-                onPressed: st.busy ? null : notifier.replaySelected,
-              ),
-            if (live)
-              AnButton(
-                label: d.cockpit.kill,
-                icon: AnIcons.byKey('stop'),
-                variant: AnButtonVariant.danger,
-                size: AnButtonSize.sm,
-                onPressed: st.busy ? null : notifier.kill,
-              ),
-          ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          kvList([
+            (kv.flowrunId, run.id),
+            (kv.version, run.versionId),
+            (kv.replay, '${run.replayCount}'),
+            (kv.elapsed, elapsed),
+            if (run.error?.isNotEmpty ?? false) (kv.error, run.error),
+          ], dense: true),
+          if (failed || live) ...[
+            const SizedBox(height: AnSpace.s8),
+            AnActionGroup([
+              if (failed)
+                AnButton(
+                  label: d.cockpit.replay,
+                  icon: AnIcons.byKey('history'),
+                  size: AnButtonSize.sm,
+                  onPressed: st.busy ? null : notifier.replaySelected,
+                ),
+              if (live)
+                AnButton(
+                  label: d.cockpit.kill,
+                  icon: AnIcons.byKey('stop'),
+                  variant: AnButtonVariant.danger,
+                  size: AnButtonSize.sm,
+                  onPressed: st.busy ? null : notifier.kill,
+                ),
+            ]),
+          ],
         ],
-      ]),
+      ),
     );
   }
 
-  Widget _nodeDebug(BuildContext context, WidgetRef ref, RunCockpitState st, FlowrunNode node) {
+  Widget _nodeDebug(
+    BuildContext context,
+    WidgetRef ref,
+    RunCockpitState st,
+    FlowrunNode node,
+  ) {
     final d = context.t.entities.detail;
     final kv = d.kv;
     final notifier = ref.read(runCockpitProvider(entityRef).notifier);
@@ -190,35 +221,41 @@ class RunCockpitTab extends ConsumerWidget {
       title: d.cockpit.nodeDetail(id: node.nodeId),
       icon: AnIcons.byKey('sliders'),
       meta: node.status,
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        kvList([
-          (kv.status, node.status),
-          if (node.iteration > 0) (d.cockpit.iteration(n: node.iteration), '${node.iteration}'),
-          (kv.ref, node.ref),
-          (kv.elapsed, elapsed),
-        ], dense: true),
-        if (node.error?.isNotEmpty ?? false) ...[
-          const SizedBox(height: AnSpace.s8),
-          AnCallout(node.error!, severity: AnCalloutSeverity.danger),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          kvList([
+            (kv.status, node.status),
+            if (node.iteration > 0)
+              (d.cockpit.iteration(n: node.iteration), '${node.iteration}'),
+            (kv.ref, node.ref),
+            (kv.elapsed, elapsed),
+          ], dense: true),
+          if (node.error?.isNotEmpty ?? false) ...[
+            const SizedBox(height: AnSpace.s8),
+            AnCallout(node.error!, severity: AnCalloutSeverity.danger),
+          ],
+          if (payload.isNotEmpty) ...[
+            const SizedBox(height: AnSpace.s8),
+            AnSection(
+              label: kv.output,
+              variant: AnSectionVariant.quiet,
+              children: [AnCodeBlock(prettyJsonCapped(payload))],
+            ),
+          ],
+          // A parked approval node grows the gate — the shared ApprovalGate, bare (already inside this
+          // debug card), decide right here (first-wins → reconcile). parked 出门:共享门·裸接(已在卡内)。
+          if (parked) ...[
+            const SizedBox(height: AnSpace.s12),
+            ApprovalGate(
+              parked: node,
+              framed: false,
+              busy: st.busy,
+              onDecide: (v, _) => notifier.decide(node.nodeId, v),
+            ),
+          ],
         ],
-        if (payload.isNotEmpty) ...[
-          const SizedBox(height: AnSpace.s8),
-          AnSection(label: kv.output, variant: AnSectionVariant.quiet, children: [
-            AnCodeBlock(prettyJsonCapped(payload)),
-          ]),
-        ],
-        // A parked approval node grows the gate — the shared ApprovalGate, bare (already inside this
-        // debug card), decide right here (first-wins → reconcile). parked 出门:共享门·裸接(已在卡内)。
-        if (parked) ...[
-          const SizedBox(height: AnSpace.s12),
-          ApprovalGate(
-            parked: node,
-            framed: false,
-            busy: st.busy,
-            onDecide: (v, _) => notifier.decide(node.nodeId, v),
-          ),
-        ],
-      ]),
+      ),
     );
   }
 }

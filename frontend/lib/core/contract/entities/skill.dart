@@ -31,7 +31,9 @@ abstract class Frontmatter with _$Frontmatter {
   const factory Frontmatter({
     @Default('') String name,
     @Default('') String description,
-    @Default(<String>[]) List<String> allowedTools, // pre-authorized tools (fn_/hd_ id · Read/Bash · mcp:server/tool)
+    @Default(<String>[])
+    List<String>
+    allowedTools, // pre-authorized tools (fn_/hd_ id · Read/Bash · mcp:server/tool)
     @Default('') String context, // inline | fork
     @Default('') String agent, // required when context == fork
     @Default(<String>[]) List<String> arguments,
@@ -42,7 +44,8 @@ abstract class Frontmatter with _$Frontmatter {
     @Default('') String effort,
     @Default('') String source, // user | ai
   }) = _Frontmatter;
-  factory Frontmatter.fromJson(Map<String, dynamic> json) => _$FrontmatterFromJson(json);
+  factory Frontmatter.fromJson(Map<String, dynamic> json) =>
+      _$FrontmatterFromJson(json);
 }
 
 /// Skill context modes + source values — small closed sets the properties-panel dropdowns constrain.

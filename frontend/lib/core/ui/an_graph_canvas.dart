@@ -114,10 +114,12 @@ class AnGraphCanvas extends StatefulWidget {
   State<AnGraphCanvas> createState() => _AnGraphCanvasState();
 }
 
-class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateMixin {
+class _AnGraphCanvasState extends State<AnGraphCanvas>
+    with TickerProviderStateMixin {
   static const double _minScale = 0.2;
   static const double _maxScale = 2.5;
-  static const double _fitMaxScale = 1.3; // fit never blows a small graph up past this fit 不放大过此
+  static const double _fitMaxScale =
+      1.3; // fit never blows a small graph up past this fit 不放大过此
   static const double _fitMinScale = 0.25;
   // Wheel step: exp(-dy / _wheelScaleFactor); ≈666.67 reproduces the demo's 0.0015-per-pixel feel
   // (InteractiveViewer's mousewheel path uses the same exp(-dy/scaleFactor) zoom-to-cursor).
@@ -164,7 +166,8 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   final ValueNotifier<Offset?> _dragScenePos = ValueNotifier(null);
   String? _connectFrom;
   Offset? _connectScene;
-  String? _hoverNodeId; // the node whose connect handles are shown (edit mode) 显连接柄的节点
+  String?
+  _hoverNodeId; // the node whose connect handles are shown (edit mode) 显连接柄的节点
 
   // Run-plane animation drivers, created lazily and only while needed: the comet rides the live
   // edges ([AnMotion.travel] lap), the pulse breathes the running nodes' rings (AnMotion.breath).
@@ -176,13 +179,18 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
 
   void _syncTickers({required bool wantComet, required bool wantPulse}) {
     if (wantComet) {
-      (_comet ??= AnimationController(vsync: this, duration: AnMotion.travel))
-          .repeat();
+      (_comet ??= AnimationController(
+        vsync: this,
+        duration: AnMotion.travel,
+      )).repeat();
     } else {
       _comet?.stop();
     }
     if (wantPulse) {
-      (_pulse ??= AnimationController(vsync: this, duration: AnMotion.breath)).repeat();
+      (_pulse ??= AnimationController(
+        vsync: this,
+        duration: AnMotion.breath,
+      )).repeat();
     } else {
       _pulse?.stop();
     }
@@ -197,7 +205,8 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     super.dispose();
   }
 
-  GraphLayout get layout => _layout ??= layoutGraph(widget.graph, dir: widget.dir);
+  GraphLayout get layout =>
+      _layout ??= layoutGraph(widget.graph, dir: widget.dir);
 
   @override
   void didUpdateWidget(AnGraphCanvas old) {
@@ -241,7 +250,12 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     final y = (_viewport.height - content.height * k) / 2;
     _tc.value = Matrix4.identity()
       ..translateByDouble(x, y, 0, 1)
-      ..scaleByDouble(k, k, k, 1); // z scaled too → IV's getMaxScaleOnAxis reads the true scale
+      ..scaleByDouble(
+        k,
+        k,
+        k,
+        1,
+      ); // z scaled too → IV's getMaxScaleOnAxis reads the true scale
   }
 
   /// Zoom by [factor] keeping the scene point under [anchor] (viewport coords) still:
@@ -253,7 +267,12 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     if (r == 1) return;
     final t = Matrix4.identity()
       ..translateByDouble(anchor.dx, anchor.dy, 0, 1)
-      ..scaleByDouble(r, r, r, 1) // z in lockstep (see _scale) so IV's zoom clamp stays correct
+      ..scaleByDouble(
+        r,
+        r,
+        r,
+        1,
+      ) // z in lockstep (see _scale) so IV's zoom clamp stays correct
       ..translateByDouble(-anchor.dx, -anchor.dy, 0, 1);
     _tc.value = t.multiplied(_tc.value);
   }
@@ -267,101 +286,119 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     final gc = context.graphColors;
 
     final stage = ClipRect(
-      child: LayoutBuilder(builder: (context, constraints) {
-        final size = constraints.biggest;
-        if (size != _viewport) {
-          _viewport = size;
-          // Fit once on first real size; framed previews re-fit on every resize (demo's
-          // ResizeObserver contract) — a fixed frame must always show the whole graph.
-          // 首个真实尺寸 fit 一次;framed 随尺寸变化重 fit(定高框必须永远整图可见)。
-          if ((!_fitted || widget.framed) && size.width > 0 && size.height > 0) {
-            _fitted = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _fit();
-            });
-          }
-        }
-        return Listener(
-          // One viewport-level tap detector, ARENA-FREE: a raw Listener sees every pointer no matter
-          // who wins the gesture arena — a GestureDetector.onTap here would lose, because IV's
-          // DESCENDANT scale recognizer is added first and out-sweeps an ancestor tap on a no-move
-          // press. A press that lifts within _tapSlop is a tap → route by scene hit-test (node select /
-          // edge select / deselect); a longer travel is a drag/pan, left to IV or the node Listener. It
-          // covers the WHOLE viewport, so even a tap in the empty margin deselects. 单一视口级点击探测
-          // (绕竞技场):裸 Listener 无视谁赢竞技场都收得到指针——此处用 GestureDetector.onTap 会输,因
-          // IV 后代 scale 识别器先入、无移动 tap 上横扫掉祖先 tap。按下在 _tapSlop 内抬起=点击 → 场景命中
-          // 路由;位移更大=拖拽/平移,交给 IV 或节点 Listener。覆盖整视口(空白边距点击也取消选中)。
-          behavior: HitTestBehavior.deferToChild,
-          onPointerDown: (e) {
-            _tapDown = e.localPosition;
-            _draggedThisPress = false;
-          },
-          onPointerUp: (e) {
-            final down = _tapDown;
-            final pressed = _pressedNodeId; // set by the card's Listener on the same pointer-down
-            final dragged = _draggedThisPress;
-            _tapDown = null;
-            _pressedNodeId = null;
-            _draggedThisPress = false;
-            // A press that became a node/handle drag is NOT a tap — never toggle selection after a move.
-            // 已成为拖拽的按下不是点击——移动后绝不再切换选中。
-            if (dragged) return;
-            if (down == null || (e.localPosition - down).distance > _tapSlop) return;
-            if (pressed != null) {
-              widget.onNodeTap?.call(pressed); // reliable node id from the widget hit, not toScene
-            } else {
-              _onViewportTap(e.localPosition); // edge / empty via scene hit-test
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = constraints.biggest;
+          if (size != _viewport) {
+            _viewport = size;
+            // Fit once on first real size; framed previews re-fit on every resize (demo's
+            // ResizeObserver contract) — a fixed frame must always show the whole graph.
+            // 首个真实尺寸 fit 一次;framed 随尺寸变化重 fit(定高框必须永远整图可见)。
+            if ((!_fitted || widget.framed) &&
+                size.width > 0 &&
+                size.height > 0) {
+              _fitted = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _fit();
+              });
             }
-          },
-          onPointerCancel: (_) {
-            _tapDown = null;
-            _pressedNodeId = null;
-            _draggedThisPress = false;
-          },
-          child: Stack(children: [
-            // Dot grid stays screen-fixed (demo .stage::before is untransformed backdrop). 网格钉屏。
-            Positioned.fill(
-              child: IgnorePointer(child: CustomPaint(painter: _GridPainter(dot: gc.gridDot))),
-            ),
-          // The scene rides InteractiveViewer: it owns pan (single-pointer drag + trackpad two-finger),
-          // pinch zoom, and mousewheel zoom-to-cursor. panEnabled drops while a node/handle drag is
-          // live so the canvas holds still under the drag (the drag runs on a raw Listener, so IV's
-          // uncontested scale recognizer merely no-ops). 场景骑在 IV 上:平移(单指拖 + 触控板双指)/
-          // pinch / 滚轮到光标全归它;节点/柄拖拽时 panEnabled 落下,画布在拖拽下不动(拖拽走裸 Listener,
-          // IV 无对手的 scale 识别器仅空转)。
-            Positioned.fill(
-              child: MouseRegion(
-                cursor: SystemMouseCursors.grab,
-                child: InteractiveViewer(
-                  transformationController: _tc,
-                  constrained: false,
-                  boundaryMargin: const EdgeInsets.all(double.infinity),
-                  minScale: _minScale,
-                  maxScale: _maxScale,
-                  scaleFactor: _wheelScaleFactor,
-                  panEnabled: !_suppressPan,
-                  child: _scene(context),
+          }
+          return Listener(
+            // One viewport-level tap detector, ARENA-FREE: a raw Listener sees every pointer no matter
+            // who wins the gesture arena — a GestureDetector.onTap here would lose, because IV's
+            // DESCENDANT scale recognizer is added first and out-sweeps an ancestor tap on a no-move
+            // press. A press that lifts within _tapSlop is a tap → route by scene hit-test (node select /
+            // edge select / deselect); a longer travel is a drag/pan, left to IV or the node Listener. It
+            // covers the WHOLE viewport, so even a tap in the empty margin deselects. 单一视口级点击探测
+            // (绕竞技场):裸 Listener 无视谁赢竞技场都收得到指针——此处用 GestureDetector.onTap 会输,因
+            // IV 后代 scale 识别器先入、无移动 tap 上横扫掉祖先 tap。按下在 _tapSlop 内抬起=点击 → 场景命中
+            // 路由;位移更大=拖拽/平移,交给 IV 或节点 Listener。覆盖整视口(空白边距点击也取消选中)。
+            behavior: HitTestBehavior.deferToChild,
+            onPointerDown: (e) {
+              _tapDown = e.localPosition;
+              _draggedThisPress = false;
+            },
+            onPointerUp: (e) {
+              final down = _tapDown;
+              final pressed =
+                  _pressedNodeId; // set by the card's Listener on the same pointer-down
+              final dragged = _draggedThisPress;
+              _tapDown = null;
+              _pressedNodeId = null;
+              _draggedThisPress = false;
+              // A press that became a node/handle drag is NOT a tap — never toggle selection after a move.
+              // 已成为拖拽的按下不是点击——移动后绝不再切换选中。
+              if (dragged) return;
+              if (down == null ||
+                  (e.localPosition - down).distance > _tapSlop) {
+                return;
+              }
+              if (pressed != null) {
+                widget.onNodeTap?.call(
+                  pressed,
+                ); // reliable node id from the widget hit, not toScene
+              } else {
+                _onViewportTap(
+                  e.localPosition,
+                ); // edge / empty via scene hit-test
+              }
+            },
+            onPointerCancel: (_) {
+              _tapDown = null;
+              _pressedNodeId = null;
+              _draggedThisPress = false;
+            },
+            child: Stack(
+              children: [
+                // Dot grid stays screen-fixed (demo .stage::before is untransformed backdrop). 网格钉屏。
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: CustomPaint(painter: _GridPainter(dot: gc.gridDot)),
+                  ),
                 ),
-              ),
+                // The scene rides InteractiveViewer: it owns pan (single-pointer drag + trackpad two-finger),
+                // pinch zoom, and mousewheel zoom-to-cursor. panEnabled drops while a node/handle drag is
+                // live so the canvas holds still under the drag (the drag runs on a raw Listener, so IV's
+                // uncontested scale recognizer merely no-ops). 场景骑在 IV 上:平移(单指拖 + 触控板双指)/
+                // pinch / 滚轮到光标全归它;节点/柄拖拽时 panEnabled 落下,画布在拖拽下不动(拖拽走裸 Listener,
+                // IV 无对手的 scale 识别器仅空转)。
+                Positioned.fill(
+                  child: MouseRegion(
+                    cursor: SystemMouseCursors.grab,
+                    child: InteractiveViewer(
+                      transformationController: _tc,
+                      constrained: false,
+                      boundaryMargin: const EdgeInsets.all(double.infinity),
+                      minScale: _minScale,
+                      maxScale: _maxScale,
+                      scaleFactor: _wheelScaleFactor,
+                      panEnabled: !_suppressPan,
+                      child: _scene(context),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ]),
-        );
-      }),
+          );
+        },
+      ),
     );
 
-    final withTools = Stack(children: [
-      Positioned.fill(child: stage),
-      if (widget.toolbar)
-        Positioned.fill(
-          child: Align(
-            alignment: widget.toolbarAlignment,
-            child: Padding(
-              padding: const EdgeInsets.all(AnSpace.s12),
-              child: _toolbar(context),
+    final withTools = Stack(
+      children: [
+        Positioned.fill(child: stage),
+        if (widget.toolbar)
+          Positioned.fill(
+            child: Align(
+              alignment: widget.toolbarAlignment,
+              child: Padding(
+                padding: const EdgeInsets.all(AnSpace.s12),
+                child: _toolbar(context),
+              ),
             ),
           ),
-        ),
-    ]);
+      ],
+    );
 
     if (!widget.framed) return withTools;
     return Container(
@@ -389,132 +426,171 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     final still = AnMotionPref.reducedOrAssistive(context);
     final liveRoutes = run == null
         ? const <GraphEdgeRoute>[]
-        : [for (final r in l.routes) if (run.liveEdges.contains(r.edge.id)) r];
+        : [
+            for (final r in l.routes)
+              if (run.liveEdges.contains(r.edge.id)) r,
+          ];
     _syncTickers(
       wantComet: liveRoutes.isNotEmpty && !still,
-      wantPulse: run != null && run.nodes.containsValue(GraphNodeRun.running) && !still,
+      wantPulse:
+          run != null &&
+          run.nodes.containsValue(GraphNodeRun.running) &&
+          !still,
     );
     // Canvas text is geometry-locked (node slots are GraphGeometry constants); accessibility text
     // scaling would overflow the 60px cards — magnification is the canvas ZOOM's job (demo SVG text
     // likewise ignores browser font scale). 画布文本几何钉死(节点槽是常量);辅助字号放大会撑破
     // 60px 卡——放大语义归画布缩放(demo SVG 文本同样不随浏览器字号)。
     return MediaQuery.withNoTextScaling(
-        child: SizedBox(
-      width: l.size.width,
-      height: l.size.height,
-      child: Stack(clipBehavior: Clip.none, children: [
-        Positioned.fill(
-          child: IgnorePointer(
-            child: RepaintBoundary(
-              child: CustomPaint(
-                painter: _EdgePainter(
-                  layout: l,
-                  edge: gc.edge,
-                  back: c.accent,
-                  run: run,
-                  taken: c.ink,
-                  future: gc.edgeFuture,
-                  selectedEdgeId: widget.selectedEdgeId,
-                  selected: c.accent,
+      child: SizedBox(
+        width: l.size.width,
+        height: l.size.height,
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            Positioned.fill(
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: CustomPaint(
+                    painter: _EdgePainter(
+                      layout: l,
+                      edge: gc.edge,
+                      back: c.accent,
+                      run: run,
+                      taken: c.ink,
+                      future: gc.edgeFuture,
+                      selectedEdgeId: widget.selectedEdgeId,
+                      selected: c.accent,
+                    ),
+                  ),
                 ),
               ),
             ),
-          ),
+            // The rubber-band connection line while dragging from a handle. 连接拖拽中的橡皮筋线。
+            if (_connectFrom != null && _connectScene != null)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _ConnectPainter(
+                      from: l.nodeRects[_connectFrom!]?.center ?? Offset.zero,
+                      to: _connectScene!,
+                      color: c.accent,
+                    ),
+                  ),
+                ),
+              ),
+            if (liveRoutes.isNotEmpty && !still)
+              Positioned.fill(
+                child: IgnorePointer(
+                  // Isolated layer: the comet repaints every animation tick for the WHOLE run — without
+                  // a boundary that invalidates the entire scene picture at 60fps. 独立层:彗星整个 run
+                  // 逐 tick 重绘,无边界会 60fps 重绘全场景。
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _CometPainter(
+                        routes: liveRoutes,
+                        color: c.accent,
+                        t: _comet!,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            for (final r in l.routes)
+              if ((r.edge.fromPort ?? '').isNotEmpty)
+                Positioned(
+                  left: r.mid.dx,
+                  top: r.mid.dy,
+                  child: FractionalTranslation(
+                    translation: const Offset(-0.5, -0.5),
+                    child: _PortPill(label: r.edge.fromPort!, isBack: r.isBack),
+                  ),
+                ),
+            for (final n in l.graph.nodes)
+              if (l.nodeRects[n.id] case final rect?)
+                // C-016: the card is the STABLE `child` — built ONCE per canvas build and reused across every
+                // drag-move notification; a pointer-move only re-runs the cheap builder below (a Positioned
+                // re-layout), never the card (nor its raw-Listener drag gesture — the VLB is here from build
+                // #1, so no reparent). 卡=稳定 child(每 build 建一次、拖拽移动复用);移动只重跑下方轻量 Positioned,
+                // 不重建卡、不断手势(VLB 从首 build 就在,无 reparent)。
+                ValueListenableBuilder<Offset?>(
+                  valueListenable: _dragScenePos,
+                  child: _NodeCard(
+                    key: ValueKey('graphNode_${n.id}'),
+                    node: n,
+                    selected: n.id == widget.selectedNodeId,
+                    onTap: widget.onNodeTap == null
+                        ? null
+                        : () => widget.onNodeTap!(n.id),
+                    runState: run == null
+                        ? null
+                        : (run.nodes[n.id] ?? GraphNodeRun.future),
+                    iters: run?.iters[n.id] ?? 0,
+                    pulse: still ? null : _pulse,
+                    editable: widget.editable,
+                    // Record the pressed node id (no rebuild — read only by the tap detector) and, in edit
+                    // mode, drop IV's pan for the press. 记按下的节点 id(不重建,仅点击探测读)+ 编辑态落下 IV 平移。
+                    onPressStart: () {
+                      _pressedNodeId = n.id;
+                      if (widget.editable) setState(() => _suppressPan = true);
+                    },
+                    onPressEnd: () {
+                      if (widget.editable && mounted) {
+                        setState(() => _suppressPan = false);
+                      }
+                    },
+                    onDragStart: () => _startNodeDrag(n.id, rect),
+                    onDragUpdate: _updateNodeDrag,
+                    onDragEnd: _endNodeDrag,
+                    onHoverChange: (h) => setState(() {
+                      if (h) {
+                        _hoverNodeId = n.id;
+                      } else if (_hoverNodeId == n.id) {
+                        _hoverNodeId = null;
+                      }
+                    }),
+                  ),
+                  builder: (context, dragPos, child) {
+                    // The dragged node floats at its live scene position; every other node sits at its
+                    // committed rect. 拖拽中的节点浮在活场景位,其余在提交 rect。
+                    final p = (_dragId == n.id && dragPos != null)
+                        ? dragPos
+                        : rect.topLeft;
+                    return Positioned(
+                      left: p.dx,
+                      top: p.dy,
+                      width: rect.width,
+                      height: rect.height,
+                      child: child!,
+                    );
+                  },
+                ),
+            // Connect handles for the hovered node — scene-level overlays ON TOP of the cards, so a
+            // handle drag is consumed here (the node below never starts a move). Inset within the card
+            // so the node's hover region still covers them. 悬停节点的连接柄:场景级覆层、盖在卡上,拖柄
+            // 在此独占(下方节点不移);内嵌卡内使节点 hover 区仍覆盖它们。
+            if (widget.editable &&
+                _hoverNodeId != null &&
+                l.nodeRects[_hoverNodeId!] != null)
+              for (final side in _Side.values)
+                _handleOverlay(
+                  context,
+                  _hoverNodeId!,
+                  l.nodeRects[_hoverNodeId!]!,
+                  side,
+                ),
+          ],
         ),
-        // The rubber-band connection line while dragging from a handle. 连接拖拽中的橡皮筋线。
-        if (_connectFrom != null && _connectScene != null)
-          Positioned.fill(
-            child: IgnorePointer(
-              child: CustomPaint(
-                painter: _ConnectPainter(
-                  from: l.nodeRects[_connectFrom!]?.center ?? Offset.zero,
-                  to: _connectScene!,
-                  color: c.accent,
-                ),
-              ),
-            ),
-          ),
-        if (liveRoutes.isNotEmpty && !still)
-          Positioned.fill(
-            child: IgnorePointer(
-              // Isolated layer: the comet repaints every animation tick for the WHOLE run — without
-              // a boundary that invalidates the entire scene picture at 60fps. 独立层:彗星整个 run
-              // 逐 tick 重绘,无边界会 60fps 重绘全场景。
-              child: RepaintBoundary(
-                child: CustomPaint(
-                  painter: _CometPainter(routes: liveRoutes, color: c.accent, t: _comet!),
-                ),
-              ),
-            ),
-          ),
-        for (final r in l.routes)
-          if ((r.edge.fromPort ?? '').isNotEmpty)
-            Positioned(
-              left: r.mid.dx,
-              top: r.mid.dy,
-              child: FractionalTranslation(
-                translation: const Offset(-0.5, -0.5),
-                child: _PortPill(label: r.edge.fromPort!, isBack: r.isBack),
-              ),
-            ),
-        for (final n in l.graph.nodes)
-          if (l.nodeRects[n.id] case final rect?)
-            // C-016: the card is the STABLE `child` — built ONCE per canvas build and reused across every
-            // drag-move notification; a pointer-move only re-runs the cheap builder below (a Positioned
-            // re-layout), never the card (nor its raw-Listener drag gesture — the VLB is here from build
-            // #1, so no reparent). 卡=稳定 child(每 build 建一次、拖拽移动复用);移动只重跑下方轻量 Positioned,
-            // 不重建卡、不断手势(VLB 从首 build 就在,无 reparent)。
-            ValueListenableBuilder<Offset?>(
-              valueListenable: _dragScenePos,
-              child: _NodeCard(
-                key: ValueKey('graphNode_${n.id}'),
-                node: n,
-                selected: n.id == widget.selectedNodeId,
-                onTap: widget.onNodeTap == null ? null : () => widget.onNodeTap!(n.id),
-                runState: run == null ? null : (run.nodes[n.id] ?? GraphNodeRun.future),
-                iters: run?.iters[n.id] ?? 0,
-                pulse: still ? null : _pulse,
-                editable: widget.editable,
-                // Record the pressed node id (no rebuild — read only by the tap detector) and, in edit
-                // mode, drop IV's pan for the press. 记按下的节点 id(不重建,仅点击探测读)+ 编辑态落下 IV 平移。
-                onPressStart: () {
-                  _pressedNodeId = n.id;
-                  if (widget.editable) setState(() => _suppressPan = true);
-                },
-                onPressEnd: () {
-                  if (widget.editable && mounted) setState(() => _suppressPan = false);
-                },
-                onDragStart: () => _startNodeDrag(n.id, rect),
-                onDragUpdate: _updateNodeDrag,
-                onDragEnd: _endNodeDrag,
-                onHoverChange: (h) => setState(() {
-                  if (h) {
-                    _hoverNodeId = n.id;
-                  } else if (_hoverNodeId == n.id) {
-                    _hoverNodeId = null;
-                  }
-                }),
-              ),
-              builder: (context, dragPos, child) {
-                // The dragged node floats at its live scene position; every other node sits at its
-                // committed rect. 拖拽中的节点浮在活场景位,其余在提交 rect。
-                final p = (_dragId == n.id && dragPos != null) ? dragPos : rect.topLeft;
-                return Positioned(
-                    left: p.dx, top: p.dy, width: rect.width, height: rect.height, child: child!);
-              },
-            ),
-        // Connect handles for the hovered node — scene-level overlays ON TOP of the cards, so a
-        // handle drag is consumed here (the node below never starts a move). Inset within the card
-        // so the node's hover region still covers them. 悬停节点的连接柄:场景级覆层、盖在卡上,拖柄
-        // 在此独占(下方节点不移);内嵌卡内使节点 hover 区仍覆盖它们。
-        if (widget.editable && _hoverNodeId != null && l.nodeRects[_hoverNodeId!] != null)
-          for (final side in _Side.values)
-            _handleOverlay(context, _hoverNodeId!, l.nodeRects[_hoverNodeId!]!, side),
-      ]),
-    ));
+      ),
+    );
   }
 
-  Widget _handleOverlay(BuildContext context, String nodeId, Rect rect, _Side side) {
+  Widget _handleOverlay(
+    BuildContext context,
+    String nodeId,
+    Rect rect,
+    _Side side,
+  ) {
     final c = context.colors;
     const inset = 3.0;
     final center = switch (side) {
@@ -576,7 +652,8 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   // Listener is inside the transformed child), so it is added straight — no /scale. 节点拖:记活场景
   // 左上;delta 已是场景坐标(节点 Listener 在变换子树内),直接相加、不除缩放。
   void _startNodeDrag(String id, Rect rect) {
-    _draggedThisPress = true; // this press is a drag, not a tap → suppress the follow-up selection tap
+    _draggedThisPress =
+        true; // this press is a drag, not a tap → suppress the follow-up selection tap
     _dragScenePos.value = rect.topLeft;
     // setState only to record WHICH node is dragged (the per-node builders read _dragId); one rebuild at
     // drag start, then moves are notifier-only. 仅 setState 记哪个在拖(逐节点 builder 读 _dragId),此后移动只走通知器。
@@ -597,7 +674,10 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     _dragScenePos.value = null;
     setState(() => _dragId = null);
     if (id != null && scene != null) {
-      widget.onNodeMoved?.call(id, NodePosition(x: scene.dx.round(), y: scene.dy.round()));
+      widget.onNodeMoved?.call(
+        id,
+        NodePosition(x: scene.dx.round(), y: scene.dy.round()),
+      );
     }
   }
 
@@ -636,11 +716,11 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
   }
 
   Offset _anchorOf(Rect r, _Side side) => switch (side) {
-        _Side.top => Offset(r.left + r.width / 2, r.top),
-        _Side.bottom => Offset(r.left + r.width / 2, r.bottom),
-        _Side.left => Offset(r.left, r.top + r.height / 2),
-        _Side.right => Offset(r.right, r.top + r.height / 2),
-      };
+    _Side.top => Offset(r.left + r.width / 2, r.top),
+    _Side.bottom => Offset(r.left + r.width / 2, r.bottom),
+    _Side.left => Offset(r.left, r.top + r.height / 2),
+    _Side.right => Offset(r.right, r.top + r.height / 2),
+  };
 
   /// The node whose rect contains [scene] (topmost). 含该场景点的节点。
   String? _nodeAt(Offset scene) {
@@ -694,30 +774,48 @@ class _AnGraphCanvasState extends State<AnGraphCanvas> with TickerProviderStateM
     final ab = b - a;
     final len2 = ab.dx * ab.dx + ab.dy * ab.dy;
     if (len2 == 0) return (p - a).distance;
-    final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / len2).clamp(0.0, 1.0);
+    final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / len2).clamp(
+      0.0,
+      1.0,
+    );
     return (p - (a + ab * t)).distance;
   }
 
   /// Floating zoom group — the canvas owns its zoom affordances (demo: 外设随画布走,消费点不重拼)。
   Widget _toolbar(BuildContext context) {
     final t = context.t;
-    return AnFloatingBar(children: [
-      AnButton.iconOnly(AnIcons.zoomOut,
-          size: AnButtonSize.sm, onPressed: () => _zoomBy(1 / 1.2), semanticLabel: t.a11y.graphZoomOut),
-      AnButton.iconOnly(AnIcons.zoomIn,
-          size: AnButtonSize.sm, onPressed: () => _zoomBy(1.2), semanticLabel: t.a11y.graphZoomIn),
-      AnButton.iconOnly(AnIcons.expand,
-          size: AnButtonSize.sm, onPressed: _fit, semanticLabel: t.a11y.graphFit),
-      if (widget.onEnterEditor != null && (widget.enterEditorLabel ?? '').isNotEmpty) ...[
-        const AnDivider.vertical(),
-        AnButton(
-          label: widget.enterEditorLabel,
-          icon: AnIcons.workflow,
+    return AnFloatingBar(
+      children: [
+        AnButton.iconOnly(
+          AnIcons.zoomOut,
           size: AnButtonSize.sm,
-          onPressed: widget.onEnterEditor,
+          onPressed: () => _zoomBy(1 / 1.2),
+          semanticLabel: t.a11y.graphZoomOut,
         ),
+        AnButton.iconOnly(
+          AnIcons.zoomIn,
+          size: AnButtonSize.sm,
+          onPressed: () => _zoomBy(1.2),
+          semanticLabel: t.a11y.graphZoomIn,
+        ),
+        AnButton.iconOnly(
+          AnIcons.expand,
+          size: AnButtonSize.sm,
+          onPressed: _fit,
+          semanticLabel: t.a11y.graphFit,
+        ),
+        if (widget.onEnterEditor != null &&
+            (widget.enterEditorLabel ?? '').isNotEmpty) ...[
+          const AnDivider.vertical(),
+          AnButton(
+            label: widget.enterEditorLabel,
+            icon: AnIcons.workflow,
+            size: AnButtonSize.sm,
+            onPressed: widget.onEnterEditor,
+          ),
+        ],
       ],
-    ]);
+    );
   }
 }
 
@@ -790,7 +888,8 @@ class _NodeCardState extends State<_NodeCard> {
 
   @override
   Widget build(BuildContext context) {
-    GraphCanvasProbe.onNodeCardBuild?.call(); // C-016: count card builds (drag-isolation proof) 数卡 build
+    GraphCanvasProbe.onNodeCardBuild
+        ?.call(); // C-016: count card builds (drag-isolation proof) 数卡 build
     final c = context.colors;
     final gc = context.graphColors;
     final (kindColor, kindSoft) = _kindColors(node.kind, c, gc);
@@ -822,92 +921,118 @@ class _NodeCardState extends State<_NodeCard> {
         boxShadow: future ? null : c.shadowIsland,
       ),
       padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12),
-      child: Row(children: [
-        Container(
-          width: 26,
-          height: 26,
-          decoration: BoxDecoration(
-            color: kindSoft,
-            borderRadius: BorderRadius.circular(AnRadius.button),
+      child: Row(
+        children: [
+          Container(
+            width: 26,
+            height: 26,
+            decoration: BoxDecoration(
+              color: kindSoft,
+              borderRadius: BorderRadius.circular(AnRadius.button),
+            ),
+            child: Icon(
+              AnIcons.node(node.kind.name),
+              size: 18,
+              color: kindColor,
+            ),
           ),
-          child: Icon(AnIcons.node(node.kind.name), size: 18, color: kindColor),
-        ),
-        const SizedBox(width: AnSpace.s8),
-        Expanded(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                node.id,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink),
-              ),
-              Text(
-                node.ref,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.code.copyWith(color: c.inkFaint),
-              ),
-            ],
+          const SizedBox(width: AnSpace.s8),
+          Expanded(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  node.id,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.body
+                      .weight(AnText.emphasisWeight)
+                      .copyWith(color: c.ink),
+                ),
+                Text(
+                  node.ref,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.code.copyWith(color: c.inkFaint),
+                ),
+              ],
+            ),
           ),
-        ),
-      ]),
+        ],
+      ),
     );
 
-    final overlay = Stack(clipBehavior: Clip.none, children: [
-      // Iteration ghosts stack UNDER the card (demo's ×N 叠卡:offset shadows read as "this slot ran
-      // multiple times"). 迭代影子叠在卡下(×N 叠卡)。
-      if (iters > 1) ...[
-        _ghost(c, ring, const Offset(6, 6), 0.35),
-        _ghost(c, ring, const Offset(3, 3), 0.6),
-      ],
-      Positioned.fill(child: future ? _dashedWrap(c, card) : card),
-      if (rs == GraphNodeRun.running)
-        Positioned.fill(
-          child: IgnorePointer(
-            child: pulse == null
-                ? _breathRing(c, 0.35)
-                : FadeTransition(
-                    // 0→.5→0 over one breath (demo's opacity keyframes). 一次呼吸 0→.5→0。
-                    opacity: pulse!.drive(TweenSequence([
-                      TweenSequenceItem(tween: Tween(begin: 0.0, end: 0.5), weight: 1),
-                      TweenSequenceItem(tween: Tween(begin: 0.5, end: 0.0), weight: 1),
-                    ])),
-                    child: _breathRing(c, 1),
-                  ),
-          ),
-        ),
-      if (rs != null)
-        Positioned(
-          right: AnSpace.s8,
-          top: AnSpace.s8,
-          child: IgnorePointer(
-            child: Container(
-              width: AnSize.dot,
-              height: AnSize.dot,
-              decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+    final overlay = Stack(
+      clipBehavior: Clip.none,
+      children: [
+        // Iteration ghosts stack UNDER the card (demo's ×N 叠卡:offset shadows read as "this slot ran
+        // multiple times"). 迭代影子叠在卡下(×N 叠卡)。
+        if (iters > 1) ...[
+          _ghost(c, ring, const Offset(6, 6), 0.35),
+          _ghost(c, ring, const Offset(3, 3), 0.6),
+        ],
+        Positioned.fill(child: future ? _dashedWrap(c, card) : card),
+        if (rs == GraphNodeRun.running)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: pulse == null
+                  ? _breathRing(c, 0.35)
+                  : FadeTransition(
+                      // 0→.5→0 over one breath (demo's opacity keyframes). 一次呼吸 0→.5→0。
+                      opacity: pulse!.drive(
+                        TweenSequence([
+                          TweenSequenceItem(
+                            tween: Tween(begin: 0.0, end: 0.5),
+                            weight: 1,
+                          ),
+                          TweenSequenceItem(
+                            tween: Tween(begin: 0.5, end: 0.0),
+                            weight: 1,
+                          ),
+                        ]),
+                      ),
+                      child: _breathRing(c, 1),
+                    ),
             ),
           ),
-        ),
-      if (iters > 1)
-        Positioned(
-          right: AnSpace.s8,
-          bottom: AnSpace.s4,
-          child: IgnorePointer(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
-              decoration: BoxDecoration(
-                color: c.accentSoft,
-                borderRadius: BorderRadius.circular(AnRadius.pill),
+        if (rs != null)
+          Positioned(
+            right: AnSpace.s8,
+            top: AnSpace.s8,
+            child: IgnorePointer(
+              child: Container(
+                width: AnSize.dot,
+                height: AnSize.dot,
+                decoration: BoxDecoration(
+                  color: dotColor,
+                  shape: BoxShape.circle,
+                ),
               ),
-              child: Text('×$iters',
-                  style: AnText.metaTabular().weight(AnText.emphasisWeight).copyWith(color: c.accent)),
             ),
           ),
-        ),
-    ]);
+        if (iters > 1)
+          Positioned(
+            right: AnSpace.s8,
+            bottom: AnSpace.s4,
+            child: IgnorePointer(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
+                decoration: BoxDecoration(
+                  color: c.accentSoft,
+                  borderRadius: BorderRadius.circular(AnRadius.pill),
+                ),
+                child: Text(
+                  '×$iters',
+                  style: AnText.metaTabular()
+                      .weight(AnText.emphasisWeight)
+                      .copyWith(color: c.accent),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
 
     final body = MouseRegion(
       onEnter: widget.editable ? (_) => widget.onHoverChange?.call(true) : null,
@@ -919,7 +1044,11 @@ class _NodeCardState extends State<_NodeCard> {
     );
 
     return Semantics(
-      label: t.a11y.graphNode(id: node.id, kind: _kindLabel(t, node.kind), ref: node.ref),
+      label: t.a11y.graphNode(
+        id: node.id,
+        kind: _kindLabel(t, node.kind),
+        ref: node.ref,
+      ),
       button: onTap != null,
       // Assistive-tech activation only — sighted taps route through the canvas's viewport hit-test so
       // tap/edge/deselect share one path. 仅辅助技术激活——肉眼点击走画布视口命中(点/边/取消一条路)。
@@ -970,7 +1099,8 @@ class _NodeCardState extends State<_NodeCard> {
     );
   }
 
-  Widget _ghost(AnColors c, Color ring, Offset offset, double opacity) => Positioned.fill(
+  Widget _ghost(AnColors c, Color ring, Offset offset, double opacity) =>
+      Positioned.fill(
         child: IgnorePointer(
           child: Transform.translate(
             offset: offset,
@@ -989,30 +1119,30 @@ class _NodeCardState extends State<_NodeCard> {
       );
 
   Widget _breathRing(AnColors c, double opacity) => Opacity(
-        opacity: opacity,
-        child: Container(
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(AnRadius.card),
-            border: Border.all(color: c.accent, width: 2),
-          ),
-        ),
-      );
+    opacity: opacity,
+    child: Container(
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(AnRadius.card),
+        border: Border.all(color: c.accent, width: 2),
+      ),
+    ),
+  );
 
   Widget _dashedWrap(AnColors c, Widget card) => CustomPaint(
-        foregroundPainter: _DashedRRectPainter(color: c.line),
-        child: card,
-      );
+    foregroundPainter: _DashedRRectPainter(color: c.line),
+    child: card,
+  );
 
   /// Localized node-kind word for assistive labels (the enum's Dart name is English and would
   /// read half-translated). 无障碍标签用的本地化 kind 词(枚举名是英文,直插读作夹生)。
   static String _kindLabel(Translations t, NodeKind k) => switch (k) {
-        NodeKind.trigger => t.graph.kind.trigger,
-        NodeKind.action => t.graph.kind.action,
-        NodeKind.agent => t.graph.kind.agent,
-        NodeKind.control => t.graph.kind.control,
-        NodeKind.approval => t.graph.kind.approval,
-        NodeKind.unknown => t.graph.kind.unknown,
-      };
+    NodeKind.trigger => t.graph.kind.trigger,
+    NodeKind.action => t.graph.kind.action,
+    NodeKind.agent => t.graph.kind.agent,
+    NodeKind.control => t.graph.kind.control,
+    NodeKind.approval => t.graph.kind.approval,
+    NodeKind.unknown => t.graph.kind.unknown,
+  };
 
   /// Kind → (main, soft) family. The main hue is the shared [nodeKindColor] single source (same
   /// palette the workflow tool card's op-ticker dots read); soft is the graph's own tint companion.
@@ -1029,22 +1159,22 @@ Color nodeKindColor(BuildContext context, NodeKind kind) =>
     _kindMain(kind, context.colors, context.graphColors);
 
 Color _kindMain(NodeKind k, AnColors c, GraphColors gc) => switch (k) {
-      NodeKind.trigger => gc.violet,
-      NodeKind.action => c.accent,
-      NodeKind.agent => gc.teal,
-      NodeKind.control => c.warn,
-      NodeKind.approval => c.danger,
-      NodeKind.unknown => c.inkMuted,
-    };
+  NodeKind.trigger => gc.violet,
+  NodeKind.action => c.accent,
+  NodeKind.agent => gc.teal,
+  NodeKind.control => c.warn,
+  NodeKind.approval => c.danger,
+  NodeKind.unknown => c.inkMuted,
+};
 
 Color _kindSoft(NodeKind k, AnColors c, GraphColors gc) => switch (k) {
-      NodeKind.trigger => gc.violetSoft,
-      NodeKind.action => c.accentSoft,
-      NodeKind.agent => gc.tealSoft,
-      NodeKind.control => c.warnSoft,
-      NodeKind.approval => c.dangerSoft,
-      NodeKind.unknown => c.surfaceSunken,
-    };
+  NodeKind.trigger => gc.violetSoft,
+  NodeKind.action => c.accentSoft,
+  NodeKind.agent => gc.tealSoft,
+  NodeKind.control => c.warnSoft,
+  NodeKind.approval => c.dangerSoft,
+  NodeKind.unknown => c.surfaceSunken,
+};
 
 /// Node-kind glyph, shared with the canvas node cards. 节点 kind 字形(与画布节点卡同源)。
 IconData nodeKindIcon(NodeKind kind) => AnIcons.node(kind.name);
@@ -1061,17 +1191,23 @@ class _PortPill extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6, vertical: AnSpace.s2),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AnSpace.s6,
+        vertical: AnSpace.s2,
+      ),
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(AnRadius.button),
-        border: Border.all(color: isBack ? c.accentLine : c.line, width: AnSize.hairline),
+        border: Border.all(
+          color: isBack ? c.accentLine : c.line,
+          width: AnSize.hairline,
+        ),
       ),
       child: Text(
         label,
-        style: AnText.meta.weight(AnText.emphasisWeight).copyWith(
-              color: isBack ? c.accent : c.inkMuted,
-            ),
+        style: AnText.meta
+            .weight(AnText.emphasisWeight)
+            .copyWith(color: isBack ? c.accent : c.inkMuted),
       ),
     );
   }
@@ -1221,7 +1357,11 @@ class _EdgePainter extends CustomPainter {
 
 /// The rubber-band line while dragging a new connection (source anchor → pointer). 连接拖拽橡皮筋。
 class _ConnectPainter extends CustomPainter {
-  const _ConnectPainter({required this.from, required this.to, required this.color});
+  const _ConnectPainter({
+    required this.from,
+    required this.to,
+    required this.color,
+  });
 
   final Offset from;
   final Offset to;
@@ -1243,7 +1383,8 @@ class _ConnectPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_ConnectPainter old) => old.from != from || old.to != to || old.color != color;
+  bool shouldRepaint(_ConnectPainter old) =>
+      old.from != from || old.to != to || old.color != color;
 }
 
 /// The comet overlay — one dot lapping each live edge, driven by the controller via `repaint` (the
@@ -1255,8 +1396,8 @@ class _CometPainter extends CustomPainter {
   // comet's OFFSET along each metric changes — the rounded polyline + the native PathMetrics object don't.
   // 路由 Path+PathMetrics 构造时算一次(routes 变才重建),非每 tick;60fps 只 comet 沿线偏移变、折线/metric 不变。
   _CometPainter({required this.routes, required this.color, required this.t})
-      : _metrics = _buildMetrics(routes),
-        super(repaint: t);
+    : _metrics = _buildMetrics(routes),
+      super(repaint: t);
 
   final List<GraphEdgeRoute> routes;
   final Color color;
@@ -1266,8 +1407,9 @@ class _CometPainter extends CustomPainter {
   static const double _r = 3.6;
 
   static List<PathMetric> _buildMetrics(List<GraphEdgeRoute> routes) => [
-        for (final r in routes) ..._EdgePainter._rounded(r.points, GraphGeometry.corner).computeMetrics(),
-      ];
+    for (final r in routes)
+      ..._EdgePainter._rounded(r.points, GraphGeometry.corner).computeMetrics(),
+  ];
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1292,7 +1434,12 @@ class _DashedRRectPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final source = Path()
-      ..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(AnRadius.card)));
+      ..addRRect(
+        RRect.fromRectAndRadius(
+          Offset.zero & size,
+          const Radius.circular(AnRadius.card),
+        ),
+      );
     canvas.drawPath(
       _EdgePainter._dash(source, on: 4, off: 4),
       Paint()

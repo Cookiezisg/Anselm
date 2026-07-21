@@ -18,7 +18,9 @@ class RailSortNotifier extends Notifier<RailSort> {
   void set(RailSort sort) => state = sort;
 }
 
-final railSortProvider = NotifierProvider<RailSortNotifier, RailSort>(RailSortNotifier.new);
+final railSortProvider = NotifierProvider<RailSortNotifier, RailSort>(
+  RailSortNotifier.new,
+);
 
 /// Whether the rail shows the per-kind-section count (函数 ··· 4) — the ⚙ "show counts" toggle, default
 /// ON. A transient view pref (mirrors the chat rail's showGroupCountProvider).
@@ -29,7 +31,9 @@ class RailShowCountNotifier extends Notifier<bool> {
   void toggle() => state = !state;
 }
 
-final railShowCountProvider = NotifierProvider<RailShowCountNotifier, bool>(RailShowCountNotifier.new);
+final railShowCountProvider = NotifierProvider<RailShowCountNotifier, bool>(
+  RailShowCountNotifier.new,
+);
 
 /// Order a kind's rows by [sort], stably (name tiebreak keeps it deterministic frame to frame, so the
 /// list never jitters on equal keys). Returns a new list; never mutates the input. 稳定排序(name 兜底)。
@@ -39,12 +43,16 @@ List<EntityRow> sortRows(List<EntityRow> rows, RailSort sort) {
     case RailSort.recent:
       out.sort((a, b) {
         final byTime = b.updatedAt.compareTo(a.updatedAt); // newest first
-        return byTime != 0 ? byTime : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        return byTime != 0
+            ? byTime
+            : a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
     case RailSort.created:
       out.sort((a, b) {
         final byTime = b.createdAt.compareTo(a.createdAt); // newest first
-        return byTime != 0 ? byTime : a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        return byTime != 0
+            ? byTime
+            : a.name.toLowerCase().compareTo(b.name.toLowerCase());
       });
     case RailSort.name:
       out.sort((a, b) {

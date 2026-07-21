@@ -36,31 +36,34 @@ abstract final class RelationGraphConfig {
   static const Color _mcp = Color(0xFF8CA3BC); // 钢蓝灰 equipment
   static const Color _skill = Color(0xFFB5A48F); // 暖褐灰 equipment
   static const Color _memory = Color(0xFFA79BB8); // 灰紫  knowledge
-  static const Color _document = Color(0xFF9AA3AD); // 中灰  knowledge (+ conversation, unknown fallback)
+  static const Color _document = Color(
+    0xFF9AA3AD,
+  ); // 中灰  knowledge (+ conversation, unknown fallback)
 
   /// The fog hue for an entity KIND (backend wire string, lower-cased). Single source shared by the node
   /// dot, the legend chip and the explore right-island card; unknown / conversation → the document grey
   /// (open set, degrade quietly). kind→雾色,图内一切上色的唯一入口;未知/对话回落 document 灰。
   static Color fogColor(String wireKind) => switch (wireKind.toLowerCase()) {
-        'workflow' => _workflow,
-        'agent' => _agent,
-        'function' => _function,
-        'handler' => _handler,
-        'trigger' => _trigger,
-        'control' => _control,
-        'approval' => _approval,
-        'mcp' => _mcp,
-        'skill' => _skill,
-        'memory' => _memory,
-        'document' || 'doc' => _document,
-        'conversation' => _document,
-        _ => _document,
-      };
+    'workflow' => _workflow,
+    'agent' => _agent,
+    'function' => _function,
+    'handler' => _handler,
+    'trigger' => _trigger,
+    'control' => _control,
+    'approval' => _approval,
+    'mcp' => _mcp,
+    'skill' => _skill,
+    'memory' => _memory,
+    'document' || 'doc' => _document,
+    'conversation' => _document,
+    _ => _document,
+  };
 
   // ── ④ 节点大小 (按入度钳窄幅 — 病根之一是 v1 区间太宽出「巨点」) ────────────────────────────────────
   static const double nodeMinRadius = 4.0; // in-degree 0 leaf 叶子最小
   static const double nodeMaxRadius = 7.0; // saturated hub 枢纽封顶 (窄幅,不再有巨点)
-  static const int degreeCap = 6; // in-degree at which radius saturates 入度到此半径饱和
+  static const int degreeCap =
+      6; // in-degree at which radius saturates 入度到此半径饱和
 
   /// The canvas-coloured halo stroke around every dot (Obsidian/Gephi 标准做法): a ~1.5px ring in the
   /// BACKGROUND colour LIFTS the node off the edge layer so a line passing near a dot doesn't visually
@@ -80,15 +83,21 @@ abstract final class RelationGraphConfig {
   // Far labels are hidden by the density cull below, so collision only needs to keep DOTS + the few visible
   // (focus/one-hop) labels apart. 刻意压小:碰撞半径若吞下整个标签半宽会跟弹簧打架(把相连点撑过理想边长→
   // 长边横穿空白);远处标签靠下面的密度裁隐藏,碰撞只需让点+少数可见(焦点/一跳)标签不打架。
-  static const double labelCharWidth = 3.4; // est. px per glyph at meta(12) 每字估宽
-  static const double labelMaxProtect = 24.0; // cap so a long name doesn't blow the field apart 保护上限
-  static const double collisionPadding = 5.0; // breathing gap beyond the two radii 碰撞额外间隙
+  static const double labelCharWidth =
+      3.4; // est. px per glyph at meta(12) 每字估宽
+  static const double labelMaxProtect =
+      24.0; // cap so a long name doesn't blow the field apart 保护上限
+  static const double collisionPadding =
+      5.0; // breathing gap beyond the two radii 碰撞额外间隙
 
   /// The COLLISION radius the layout uses for a node — its visual dot radius grown to cover the (capped)
   /// label box so adjacent labels don't overlap. Fed to [ForceNode.radius]; the engine stays label-agnostic.
   /// 碰撞半径=视觉半径撑到盖住标签盒(半宽封顶),喂给引擎;引擎只认半径、不认字。
   static double collisionRadius(double visualRadius, String name) {
-    final labelHalf = math.min(name.length * labelCharWidth * 0.5, labelMaxProtect);
+    final labelHalf = math.min(
+      name.length * labelCharWidth * 0.5,
+      labelMaxProtect,
+    );
     return math.max(visualRadius, labelHalf) + collisionPadding;
   }
 
@@ -116,15 +125,20 @@ abstract final class RelationGraphConfig {
 
   static const double edgeWidth = 1.0; // resting stroke 静止边宽
   static const double edgeWidthFocus = 1.5; // focus-incident edge 焦点邻接边
-  static const double edgeWidthHover = 2.0; // the one edge under the cursor 光标下那条
-  static const double edgeHoverAlpha = 0.95; // hovered edge = focus fog at this alpha (NOT ink) 光标下=焦点雾彩此透明度
+  static const double edgeWidthHover =
+      2.0; // the one edge under the cursor 光标下那条
+  static const double edgeHoverAlpha =
+      0.95; // hovered edge = focus fog at this alpha (NOT ink) 光标下=焦点雾彩此透明度
 
   // ── 焦点节点强化 (稍大一号 + 柔光环) ─────────────────────────────────────────────────────────────────
-  static const double focusRadiusBonus = 2.0; // the focus dot grows by this many px 焦点点加大
+  static const double focusRadiusBonus =
+      2.0; // the focus dot grows by this many px 焦点点加大
   static const double focusGlowBlur = 12.0; // soft halo blur radius 柔光模糊
   static const double focusGlowSpread = 2.0; // soft halo spread 柔光外扩
-  static const double focusGlowAlpha = 0.45; // halo = fog colour at this alpha 柔光=雾色此透明度
-  static const double oneHopGlowAlpha = 0.22; // a gentler halo on the immediate ring 一跳更弱柔光
+  static const double focusGlowAlpha =
+      0.45; // halo = fog colour at this alpha 柔光=雾色此透明度
+  static const double oneHopGlowAlpha =
+      0.22; // a gentler halo on the immediate ring 一跳更弱柔光
 
   // ── ③ 布局力系数 (四力 + 碰撞) ───────────────────────────────────────────────────────────────────────
   //
@@ -134,33 +148,50 @@ abstract final class RelationGraphConfig {
   // firm low-degree springs pull leaves in; repulsion just spaces, it doesn't fling). 基线对齐 d3-force
   // 社区默认再按我们的节点尺寸收紧:相连点真正成团(短边长+低度对硬弹簧把叶子拉近,斥力只撑开不甩飞)。
   static const ForceParams forceParams = ForceParams(
-    idealLength: 58, //         spring rest length — SHORT so connected nodes cluster 弹簧静止长(短,相连成团)
-    repulsion: 5200, //         charge strength — spaces the graph, must NOT out-fling the spring 斥力(撑开,不甩过弹簧)
-    springStrength: 0.16, //    base Hooke constant — FIRM (d3 link.strength spirit) 弹簧基强度(硬)
-    hubStretch: 0.28, //        edge rest-length grows with the higher endpoint degree hub 边随高度端放长
-    centering: 0.02, //         WEAK x/y pull to a component anchor — anti-drift only 弱定位(只防漂移)
-    collisionStrength: 0.85, // fraction of overlap corrected per pass (0..1) 碰撞每遍纠正比例
-    collisionIterations: 3, //  relaxation passes per tick (d3 collide 做法) 碰撞松弛遍数
+    idealLength:
+        58, //         spring rest length — SHORT so connected nodes cluster 弹簧静止长(短,相连成团)
+    repulsion:
+        5200, //         charge strength — spaces the graph, must NOT out-fling the spring 斥力(撑开,不甩过弹簧)
+    springStrength:
+        0.16, //    base Hooke constant — FIRM (d3 link.strength spirit) 弹簧基强度(硬)
+    hubStretch:
+        0.28, //        edge rest-length grows with the higher endpoint degree hub 边随高度端放长
+    centering:
+        0.02, //         WEAK x/y pull to a component anchor — anti-drift only 弱定位(只防漂移)
+    collisionStrength:
+        0.85, // fraction of overlap corrected per pass (0..1) 碰撞每遍纠正比例
+    collisionIterations:
+        3, //  relaxation passes per tick (d3 collide 做法) 碰撞松弛遍数
     velocityDecay: 0.40, //     per-tick velocity damping (d3 default) 速度阻尼
     alphaDecay: 0.0228, //      cooling: settles in ~300 ticks (d3 default) 冷却率
     alphaMin: 0.001, //         below this the sim is settled → Ticker stops 静止阈
     reheatAlpha: 0.55, //       a drag/data change re-warms to this 拖拽/换数据重加热到
-    minDist: 1.0, //            distance floor so repulsion can't explode at overlap 距离下限
-    initialSpacing: 40, //      phyllotaxis seed radius factor (per component) 初铺半径系数(分量内)
+    minDist:
+        1.0, //            distance floor so repulsion can't explode at overlap 距离下限
+    initialSpacing:
+        40, //      phyllotaxis seed radius factor (per component) 初铺半径系数(分量内)
     componentGap: 60, //        gap packed between connected components 连通分量打包间隙
-    isolateGap: 32, //          horizontal gap between zero-degree isolates in their band 孤点带内水平间距
-    isolateTopGap: 52, //       gap from the main cloud down to the isolate band 主云到孤点带的落差
-    componentIterations: 340, //fixed per-component settle iterations (determinism) 分量固定迭代数
+    isolateGap:
+        32, //          horizontal gap between zero-degree isolates in their band 孤点带内水平间距
+    isolateTopGap:
+        52, //       gap from the main cloud down to the isolate band 主云到孤点带的落差
+    componentIterations:
+        340, //fixed per-component settle iterations (determinism) 分量固定迭代数
   );
 
   // ── fit / zoom / label chrome (视口 · 缩放 · 标签显隐门) ──────────────────────────────────────────────
-  static const double sceneMargin = 72; // scene padding around the node cloud (fit headroom) 云周边距
+  static const double sceneMargin =
+      72; // scene padding around the node cloud (fit headroom) 云周边距
   static const double minScale = 0.25; // InteractiveViewer hard floor 缩放硬下限
   static const double maxScale = 2.5; // InteractiveViewer hard ceiling 缩放硬上限
-  static const double fitMinScale = 0.3; // fit() won't shrink a huge graph below this fit 最小
-  static const double fitMaxScale = 1.1; // …nor blow a SPARSE graph up past this (用户: 别放太大) fit 最大
-  static const double wheelScaleFactor = 666.6667; // trackpad/wheel zoom sensitivity 滚轮灵敏度
-  static const double labelScaleThreshold = 0.5; // below this zoom → dots only (drop all labels) 此缩放下只留点
+  static const double fitMinScale =
+      0.3; // fit() won't shrink a huge graph below this fit 最小
+  static const double fitMaxScale =
+      1.1; // …nor blow a SPARSE graph up past this (用户: 别放太大) fit 最大
+  static const double wheelScaleFactor =
+      666.6667; // trackpad/wheel zoom sensitivity 滚轮灵敏度
+  static const double labelScaleThreshold =
+      0.5; // below this zoom → dots only (drop all labels) 此缩放下只留点
 
   // Label density cull (⑤ 第二道 — 用户 0719 真机「字压节点」): at the DEFAULT fit view only the focus + its
   // one-hop ring keep labels (the structure that matters); the outer rings are dots until the user zooms
@@ -169,13 +200,21 @@ abstract final class RelationGraphConfig {
   // Ordering 焦点 > 一跳 > 其余. 默认 fit 只显焦点+一跳标签(外圈是点),放大过 labelDetailScale(高于 fitMaxScale,
   // 故稀疏图 fit 时不倾倒全部标签)才现外圈——业界标准(Obsidian)。
   static const int labelAlwaysWithinHop = 1; // hops ≤ this always label 此跳内恒显标签
-  static const double labelDetailScale = 1.28; // zoom past this → outer rings also label 放大过此外圈也显
-  static const int labelCullMinNodes = 12; // below this many nodes the graph is sparse → show ALL labels 稀疏图全显
+  static const double labelDetailScale =
+      1.28; // zoom past this → outer rings also label 放大过此外圈也显
+  static const int labelCullMinNodes =
+      12; // below this many nodes the graph is sparse → show ALL labels 稀疏图全显
 
   /// Whether a node at graph distance [hop] shows its label, given the visible [nodeCount] and current
   /// [scale] (after the hard [labelScaleThreshold] dot-only gate, checked by the caller). The cull only bites
   /// when the graph is actually DENSE ([nodeCount] ≥ [labelCullMinNodes], brief ⑤「过密时」); a sparse graph
   /// shows everything. 标签是否显示:仅当图确实密(节点数≥阈值)才裁,稀疏图全显。
-  static bool labelVisible({required int hop, required double scale, required int nodeCount}) =>
-      nodeCount < labelCullMinNodes || hop <= labelAlwaysWithinHop || scale >= labelDetailScale;
+  static bool labelVisible({
+    required int hop,
+    required double scale,
+    required int nodeCount,
+  }) =>
+      nodeCount < labelCullMinNodes ||
+      hop <= labelAlwaysWithinHop ||
+      scale >= labelDetailScale;
 }

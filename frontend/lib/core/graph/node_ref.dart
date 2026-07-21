@@ -3,7 +3,16 @@ import '../contract/entities/values.dart' show NodeKind;
 /// The family a workflow node's `ref` selects from. For an `action` node the family is CHOSEN by the
 /// author (function vs handler vs mcp — all callable); for every other kind the family is fixed by the
 /// node kind. 节点 ref 所选的实体族。action 的族由作者选(function/handler/mcp,皆可调用);其余族由 kind 定死。
-enum RefFamily { function, handler, mcp, agent, trigger, control, approval, unknown }
+enum RefFamily {
+  function,
+  handler,
+  mcp,
+  agent,
+  trigger,
+  control,
+  approval,
+  unknown,
+}
 
 /// A parsed workflow node `ref` — a pure, framework-free value object mirroring the backend's ref
 /// grammar (workflow domain §20: `trg_` / `fn_` · `hd_….method` · `mcp:server/tool` / `ag_` / `ctl_` /
@@ -33,11 +42,15 @@ class NodeRef {
   /// Only handler & mcp have a second (member) level. 仅 handler 与 mcp 有第二层(成员)。
   bool get hasMember => family == RefFamily.handler || family == RefFamily.mcp;
 
-  NodeRef copyWith({RefFamily? family, Object? target = _keep, Object? member = _keep}) => NodeRef(
-        family: family ?? this.family,
-        target: target == _keep ? this.target : target as String?,
-        member: member == _keep ? this.member : member as String?,
-      );
+  NodeRef copyWith({
+    RefFamily? family,
+    Object? target = _keep,
+    Object? member = _keep,
+  }) => NodeRef(
+    family: family ?? this.family,
+    target: target == _keep ? this.target : target as String?,
+    member: member == _keep ? this.member : member as String?,
+  );
 
   /// Parse a raw ref for a node [kind]. The action family is inferred from the prefix (`mcp:` / `hd_` /
   /// `fn_`); every other kind maps 1:1. A `<prefix>_new` placeholder or empty string → unselected.
@@ -67,18 +80,36 @@ class NodeRef {
               member: _blankToNull(r.substring(dot + 1)),
             );
           }
-          return NodeRef(family: RefFamily.handler, target: _placeholderToNull(r, 'hd'));
+          return NodeRef(
+            family: RefFamily.handler,
+            target: _placeholderToNull(r, 'hd'),
+          );
         }
         // Default (and the fresh `fn_new` placeholder) → the function family. 默认(及 fn_new 占位)→ function 族。
-        return NodeRef(family: RefFamily.function, target: _placeholderToNull(r, 'fn'));
+        return NodeRef(
+          family: RefFamily.function,
+          target: _placeholderToNull(r, 'fn'),
+        );
       case NodeKind.agent:
-        return NodeRef(family: RefFamily.agent, target: _placeholderToNull(r, 'ag'));
+        return NodeRef(
+          family: RefFamily.agent,
+          target: _placeholderToNull(r, 'ag'),
+        );
       case NodeKind.trigger:
-        return NodeRef(family: RefFamily.trigger, target: _placeholderToNull(r, 'trg'));
+        return NodeRef(
+          family: RefFamily.trigger,
+          target: _placeholderToNull(r, 'trg'),
+        );
       case NodeKind.control:
-        return NodeRef(family: RefFamily.control, target: _placeholderToNull(r, 'ctl'));
+        return NodeRef(
+          family: RefFamily.control,
+          target: _placeholderToNull(r, 'ctl'),
+        );
       case NodeKind.approval:
-        return NodeRef(family: RefFamily.approval, target: _placeholderToNull(r, 'apf'));
+        return NodeRef(
+          family: RefFamily.approval,
+          target: _placeholderToNull(r, 'apf'),
+        );
       case NodeKind.unknown:
         return NodeRef(family: RefFamily.unknown, target: _blankToNull(r));
     }
@@ -116,13 +147,17 @@ class NodeRef {
   /// The families an [action] node may pick among (ordered). Non-action kinds have exactly one, keyed
   /// off the kind. action 可选的族(有序);非 action 恰一个、由 kind 定。
   static List<RefFamily> familiesFor(NodeKind kind) => switch (kind) {
-        NodeKind.action => const [RefFamily.function, RefFamily.handler, RefFamily.mcp],
-        NodeKind.agent => const [RefFamily.agent],
-        NodeKind.trigger => const [RefFamily.trigger],
-        NodeKind.control => const [RefFamily.control],
-        NodeKind.approval => const [RefFamily.approval],
-        NodeKind.unknown => const [RefFamily.unknown],
-      };
+    NodeKind.action => const [
+      RefFamily.function,
+      RefFamily.handler,
+      RefFamily.mcp,
+    ],
+    NodeKind.agent => const [RefFamily.agent],
+    NodeKind.trigger => const [RefFamily.trigger],
+    NodeKind.control => const [RefFamily.control],
+    NodeKind.approval => const [RefFamily.approval],
+    NodeKind.unknown => const [RefFamily.unknown],
+  };
 
   static const _keep = Object();
 
@@ -135,7 +170,10 @@ class NodeRef {
 
   @override
   bool operator ==(Object other) =>
-      other is NodeRef && other.family == family && other.target == target && other.member == member;
+      other is NodeRef &&
+      other.family == family &&
+      other.target == target &&
+      other.member == member;
 
   @override
   int get hashCode => Object.hash(family, target, member);

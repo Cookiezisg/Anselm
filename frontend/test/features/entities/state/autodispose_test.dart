@@ -18,7 +18,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _fnRef = EntityRef(EntityKind.function, 'fn_1');
 final _t = DateTime.utc(2026, 6, 27);
-FunctionEntity _fn() => FunctionEntity(id: 'fn_1', name: 'f', createdAt: _t, updatedAt: _t);
+FunctionEntity _fn() =>
+    FunctionEntity(id: 'fn_1', name: 'f', createdAt: _t, updatedAt: _t);
 
 FixtureEntityRepository _repo() =>
     FixtureEntityRepository(runDelay: Duration.zero, functions: [_fn()]);
@@ -29,53 +30,83 @@ class _GatedRepo extends FixtureEntityRepository {
   _GatedRepo() : super(runDelay: Duration.zero, functions: [_fn()]);
   final gate = Completer<FunctionRunResult>();
   @override
-  Future<FunctionRunResult> runFunction(String id,
-          {required Map<String, dynamic> args, int? version}) =>
-      gate.future;
+  Future<FunctionRunResult> runFunction(
+    String id, {
+    required Map<String, dynamic> args,
+    int? version,
+  }) => gate.future;
 }
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized(); // the run controller's CoalescingNotifier touches SchedulerBinding
 
-  test('entityDetailProvider frees on deselect (fresh instance on re-select)', () async {
-    final c = ProviderContainer(overrides: [entityRepositoryProvider.overrideWithValue(_repo())]);
-    addTearDown(c.dispose);
-    final sub = c.listen(entityDetailProvider(_fnRef), (_, _) {}); // "selected"
-    final first = c.read(entityDetailProvider(_fnRef).notifier);
-    sub.close(); // "deselect" → no watcher
-    await pumpEventQueue();
-    final second = c.read(entityDetailProvider(_fnRef).notifier);
-    expect(identical(first, second), isFalse); // disposed + rebuilt → its life/panel subs were cancelled
-  });
+  test(
+    'entityDetailProvider frees on deselect (fresh instance on re-select)',
+    () async {
+      final c = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(_repo())],
+      );
+      addTearDown(c.dispose);
+      final sub = c.listen(
+        entityDetailProvider(_fnRef),
+        (_, _) {},
+      ); // "selected"
+      final first = c.read(entityDetailProvider(_fnRef).notifier);
+      sub.close(); // "deselect" → no watcher
+      await pumpEventQueue();
+      final second = c.read(entityDetailProvider(_fnRef).notifier);
+      expect(
+        identical(first, second),
+        isFalse,
+      ); // disposed + rebuilt → its life/panel subs were cancelled
+    },
+  );
 
   test('runTerminalProvider frees on deselect when idle (no run)', () async {
-    final c = ProviderContainer(overrides: [entityRepositoryProvider.overrideWithValue(_repo())]);
+    final c = ProviderContainer(
+      overrides: [entityRepositoryProvider.overrideWithValue(_repo())],
+    );
     addTearDown(c.dispose);
     final sub = c.listen(runTerminalProvider(_fnRef), (_, _) {});
     final first = c.read(runTerminalProvider(_fnRef).notifier);
     sub.close();
     await pumpEventQueue();
     final second = c.read(runTerminalProvider(_fnRef).notifier);
-    expect(identical(first, second), isFalse); // freed → its panel subscription was cancelled
+    expect(
+      identical(first, second),
+      isFalse,
+    ); // freed → its panel subscription was cancelled
   });
 
-  test('a run pins the controller across deselect (background streaming), frees after it settles', () async {
-    final repo = _GatedRepo();
-    final c = ProviderContainer(overrides: [entityRepositoryProvider.overrideWithValue(repo)]);
-    addTearDown(c.dispose);
-    final sub = c.listen(runTerminalProvider(_fnRef), (_, _) {});
-    final ctl = c.read(runTerminalProvider(_fnRef).notifier);
+  test(
+    'a run pins the controller across deselect (background streaming), frees after it settles',
+    () async {
+      final repo = _GatedRepo();
+      final c = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      final sub = c.listen(runTerminalProvider(_fnRef), (_, _) {});
+      final ctl = c.read(runTerminalProvider(_fnRef).notifier);
 
-    final runFut = ctl.run(); // keepAlive taken synchronously, before the gated await
-    sub.close(); // deselect WHILE the run is in flight
-    await pumpEventQueue();
-    // keepAlive pinned it → still the SAME controller (the run keeps streaming in the background).
-    expect(identical(c.read(runTerminalProvider(_fnRef).notifier), ctl), isTrue);
+      final runFut = ctl
+          .run(); // keepAlive taken synchronously, before the gated await
+      sub.close(); // deselect WHILE the run is in flight
+      await pumpEventQueue();
+      // keepAlive pinned it → still the SAME controller (the run keeps streaming in the background).
+      expect(
+        identical(c.read(runTerminalProvider(_fnRef).notifier), ctl),
+        isTrue,
+      );
 
-    repo.gate.complete(const FunctionRunResult(ok: true));
-    await runFut; // the run settles → its `finally` releases the keepAlive
-    await pumpEventQueue();
-    // now unpinned + unwatched → freed; re-selecting builds a fresh controller.
-    expect(identical(c.read(runTerminalProvider(_fnRef).notifier), ctl), isFalse);
-  });
+      repo.gate.complete(const FunctionRunResult(ok: true));
+      await runFut; // the run settles → its `finally` releases the keepAlive
+      await pumpEventQueue();
+      // now unpinned + unwatched → freed; re-selecting builds a fresh controller.
+      expect(
+        identical(c.read(runTerminalProvider(_fnRef).notifier), ctl),
+        isFalse,
+      );
+    },
+  );
 }

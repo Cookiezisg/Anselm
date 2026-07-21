@@ -16,7 +16,13 @@ enum Battery { empty, overflow, huge, extreme, injection }
 final _t = DateTime.utc(2026, 6, 27);
 
 FunctionEntity _fn(String id, String name, {String description = ''}) =>
-    FunctionEntity(id: id, name: name, description: description, createdAt: _t, updatedAt: _t);
+    FunctionEntity(
+      id: id,
+      name: name,
+      description: description,
+      createdAt: _t,
+      updatedAt: _t,
+    );
 
 /// A 200-char single token with NO spaces — the worst case for a row that must ellipsis, not overflow.
 /// 200 字符无空格单 token——必须 ellipsis、不得溢出的最坏情形。
@@ -34,16 +40,16 @@ const injectionDollar = r'${jndi:ldap://x}';
 
 /// The function rows for a battery (other kinds stay empty). 各电池的函数行。
 List<FunctionEntity> batteryFunctions(Battery b) => switch (b) {
-      Battery.empty => const [],
-      Battery.overflow => [_fn('fn_long', overflowName, description: overflowName)],
-      Battery.huge => [for (var i = 0; i < 5000; i++) _fn('fn_$i', 'function-$i')],
-      Battery.extreme => [_fn('fn_x', extremeName, description: extremeName)],
-      Battery.injection => [
-          _fn('fn_s', injectionScript, description: injectionScript),
-          _fn('fn_t', injectionTemplate),
-          _fn('fn_d', injectionDollar),
-        ],
-    };
+  Battery.empty => const [],
+  Battery.overflow => [_fn('fn_long', overflowName, description: overflowName)],
+  Battery.huge => [for (var i = 0; i < 5000; i++) _fn('fn_$i', 'function-$i')],
+  Battery.extreme => [_fn('fn_x', extremeName, description: extremeName)],
+  Battery.injection => [
+    _fn('fn_s', injectionScript, description: injectionScript),
+    _fn('fn_t', injectionTemplate),
+    _fn('fn_d', injectionDollar),
+  ],
+};
 
 /// A fixture repo seeded with [b]'s function rows. 用电池函数种 fixture。
 FixtureEntityRepository batteryRepo(Battery b) =>

@@ -50,10 +50,10 @@ enum ConvArchive {
   archivedOnly; // archived only
 
   String? get wire => switch (this) {
-        ConvArchive.active => null,
-        ConvArchive.all => 'all',
-        ConvArchive.archivedOnly => 'true',
-      };
+    ConvArchive.active => null,
+    ConvArchive.all => 'all',
+    ConvArchive.archivedOnly => 'true',
+  };
 }
 
 /// THE seam for the Chat feature's data access — every read/realtime/action the feature makes passes
@@ -132,23 +132,39 @@ abstract interface class ChatRepository {
 
   /// One keyset page of turn history WITH blocks (`GET /{id}/messages`) — wire order is newest-first;
   /// hydration reverses to chronological. 回合历史一页(含 blocks);线缆新→旧,水化反转为时间序。
-  Future<Page<ChatMessage>> listMessages(String conversationId, {String? cursor, int? limit});
+  Future<Page<ChatMessage>> listMessages(
+    String conversationId, {
+    String? cursor,
+    int? limit,
+  });
 
   /// The deep-jump window (`GET /{id}/messages?around=<messageId>`): a newest-first slice centered
   /// on the target + both continuation cursors. The jump path REPLACES the transcript window with
   /// this (re-anchor) — never stitches. An unknown target surfaces the backend's 404 (identity
   /// anchoring). 深跳窗(?around=):以目标为中心的切片+双向游标;跳转径整窗替换、绝不缝合;未知目标 404。
-  Future<MessagesWindow> messagesAround(String conversationId, String messageId, {int? limit});
+  Future<MessagesWindow> messagesAround(
+    String conversationId,
+    String messageId, {
+    int? limit,
+  });
 
   /// One keyset page walking FORWARD in time (`GET /{id}/messages?dir=newer&cursor=`) — the window's
   /// newerCursor continuation; data stays newest-first (the wire's single ordering rule).
   /// 沿时间向前的一页(?dir=newer);data 恒新→旧(线缆唯一排序规则)。
-  Future<Page<ChatMessage>> listMessagesNewer(String conversationId, {required String cursor, int? limit});
+  Future<Page<ChatMessage>> listMessagesNewer(
+    String conversationId, {
+    required String cursor,
+    int? limit,
+  });
 
   /// One keyset page of navigation anchors (`GET /{id}/anchors`, newest-first) — the 场次条 source:
   /// user turns / folded tool clusters / dangerous calls / compaction marks / abnormal terminals;
   /// pending gates ride the first page's top outside the keyset. 场次条锚点一页(最新在前)。
-  Future<Page<TranscriptAnchor>> listAnchors(String conversationId, {String? cursor, int? limit});
+  Future<Page<TranscriptAnchor>> listAnchors(
+    String conversationId, {
+    String? cursor,
+    int? limit,
+  });
 
   /// Send a user turn (`POST /{id}/messages` → 202): lands the user message, opens the assistant turn,
   /// enqueues the run; returns the ASSISTANT message id. [mentions] are `{type,id}` wire inputs
@@ -170,7 +186,10 @@ abstract interface class ChatRepository {
 
   /// PATCH the per-thread model override — tristate: a [ref] sets it, null CLEARS it (the wire sends an
   /// explicit `modelOverride: null`; omitting the key would mean "leave unchanged"). 三态:ref=设,null=显式清。
-  Future<Conversation> setModelOverride(String id, ({String apiKeyId, String modelId})? ref);
+  Future<Conversation> setModelOverride(
+    String id,
+    ({String apiKeyId, String modelId})? ref,
+  );
 
   /// The realtime frame feed for ONE conversation (messages SSE, scope `conversation:<id>`) — the
   /// transcript controller folds these. Live = the gateway demux; the fixture scripts playback, which is
@@ -288,8 +307,8 @@ abstract interface class ChatRepository {
 /// 上的投影(可空 SseGateway——就绪前 null,则信号流为空)。
 class LiveChatRepository implements ChatRepository {
   LiveChatRepository({required ApiClient api, SseGateway? sse})
-      : _api = api,
-        _sse = sse;
+    : _api = api,
+      _sse = sse;
 
   final ApiClient _api;
   final SseGateway? _sse;
@@ -309,7 +328,11 @@ class LiveChatRepository implements ChatRepository {
       'archived': ?archive.wire,
       'search': ?search,
     };
-    return _api.getPage('/api/v1/conversations', Conversation.fromJson, query: q);
+    return _api.getPage(
+      '/api/v1/conversations',
+      Conversation.fromJson,
+      query: q,
+    );
   }
 
   // Each write is one PATCH of one semantic field (rename / pin / archive) or a DELETE — the response is
@@ -317,16 +340,23 @@ class LiveChatRepository implements ChatRepository {
   String _path(String id) => '/api/v1/conversations/$id';
 
   @override
-  Future<Conversation> renameConversation(String id, String title) =>
-      _api.patchEntity(_path(id), Conversation.fromJson, body: {'title': title});
+  Future<Conversation> renameConversation(String id, String title) => _api
+      .patchEntity(_path(id), Conversation.fromJson, body: {'title': title});
 
   @override
-  Future<Conversation> setPinned(String id, bool pinned) =>
-      _api.patchEntity(_path(id), Conversation.fromJson, body: {'pinned': pinned});
+  Future<Conversation> setPinned(String id, bool pinned) => _api.patchEntity(
+    _path(id),
+    Conversation.fromJson,
+    body: {'pinned': pinned},
+  );
 
   @override
   Future<Conversation> setArchived(String id, bool archived) =>
-      _api.patchEntity(_path(id), Conversation.fromJson, body: {'archived': archived});
+      _api.patchEntity(
+        _path(id),
+        Conversation.fromJson,
+        body: {'archived': archived},
+      );
 
   @override
   Future<void> deleteConversation(String id) => _api.delete(_path(id));
@@ -336,18 +366,21 @@ class LiveChatRepository implements ChatRepository {
     required List<int> bytes,
     required String filename,
     String? mimeType,
-  }) =>
-      _api.postEntity(
-        '/api/v1/attachments',
-        AttachmentMeta.fromJson,
-        body: FormData.fromMap({
-          'file': MultipartFile.fromBytes(bytes, filename: filename,
-              contentType: mimeType == null ? null : DioMediaType.parse(mimeType)),
-        }),
-      );
+  }) => _api.postEntity(
+    '/api/v1/attachments',
+    AttachmentMeta.fromJson,
+    body: FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: mimeType == null ? null : DioMediaType.parse(mimeType),
+      ),
+    }),
+  );
 
   @override
-  Future<void> deleteAttachment(String id) => _api.delete('/api/v1/attachments/$id');
+  Future<void> deleteAttachment(String id) =>
+      _api.delete('/api/v1/attachments/$id');
 
   @override
   Future<AttachmentMeta> getAttachment(String id) =>
@@ -377,29 +410,56 @@ class LiveChatRepository implements ChatRepository {
   }
 
   @override
-  Future<Conversation> createConversation() =>
-      _api.postEntity('/api/v1/conversations', Conversation.fromJson, body: {'title': ''});
+  Future<Conversation> createConversation() => _api.postEntity(
+    '/api/v1/conversations',
+    Conversation.fromJson,
+    body: {'title': ''},
+  );
 
   @override
-  Future<Page<ChatMessage>> listMessages(String conversationId, {String? cursor, int? limit}) =>
-      _api.getPage('${_path(conversationId)}/messages', ChatMessage.fromJson,
-          query: {'cursor': ?cursor, 'limit': ?limit});
+  Future<Page<ChatMessage>> listMessages(
+    String conversationId, {
+    String? cursor,
+    int? limit,
+  }) => _api.getPage(
+    '${_path(conversationId)}/messages',
+    ChatMessage.fromJson,
+    query: {'cursor': ?cursor, 'limit': ?limit},
+  );
 
   @override
-  Future<MessagesWindow> messagesAround(String conversationId, String messageId, {int? limit}) async =>
-      MessagesWindow.fromJson(await _api.getEnvelope('${_path(conversationId)}/messages',
-          query: {'around': messageId, 'limit': ?limit}));
+  Future<MessagesWindow> messagesAround(
+    String conversationId,
+    String messageId, {
+    int? limit,
+  }) async => MessagesWindow.fromJson(
+    await _api.getEnvelope(
+      '${_path(conversationId)}/messages',
+      query: {'around': messageId, 'limit': ?limit},
+    ),
+  );
 
   @override
-  Future<Page<ChatMessage>> listMessagesNewer(String conversationId,
-          {required String cursor, int? limit}) =>
-      _api.getPage('${_path(conversationId)}/messages', ChatMessage.fromJson,
-          query: {'dir': 'newer', 'cursor': cursor, 'limit': ?limit});
+  Future<Page<ChatMessage>> listMessagesNewer(
+    String conversationId, {
+    required String cursor,
+    int? limit,
+  }) => _api.getPage(
+    '${_path(conversationId)}/messages',
+    ChatMessage.fromJson,
+    query: {'dir': 'newer', 'cursor': cursor, 'limit': ?limit},
+  );
 
   @override
-  Future<Page<TranscriptAnchor>> listAnchors(String conversationId, {String? cursor, int? limit}) =>
-      _api.getPage('${_path(conversationId)}/anchors', TranscriptAnchor.fromJson,
-          query: {'cursor': ?cursor, 'limit': ?limit});
+  Future<Page<TranscriptAnchor>> listAnchors(
+    String conversationId, {
+    String? cursor,
+    int? limit,
+  }) => _api.getPage(
+    '${_path(conversationId)}/anchors',
+    TranscriptAnchor.fromJson,
+    query: {'cursor': ?cursor, 'limit': ?limit},
+  );
 
   @override
   Future<String> sendMessage(
@@ -407,14 +467,16 @@ class LiveChatRepository implements ChatRepository {
     required String content,
     List<String> attachmentIds = const [],
     List<({String type, String id})> mentions = const [],
-  }) =>
-      _api.postForId('${_path(conversationId)}/messages', body: {
-        'content': content,
-        'attachmentIds': attachmentIds,
-        'mentions': [
-          for (final m in mentions) {'type': m.type, 'id': m.id},
-        ],
-      });
+  }) => _api.postForId(
+    '${_path(conversationId)}/messages',
+    body: {
+      'content': content,
+      'attachmentIds': attachmentIds,
+      'mentions': [
+        for (final m in mentions) {'type': m.type, 'id': m.id},
+      ],
+    },
+  );
 
   @override
   Future<void> cancelTurn(String conversationId) =>
@@ -425,22 +487,34 @@ class LiveChatRepository implements ChatRepository {
       _api.postNoContent('${_path(conversationId)}:seen');
 
   @override
-  Future<Conversation> setModelOverride(String id, ({String apiKeyId, String modelId})? ref) =>
+  Future<Conversation> setModelOverride(
+    String id,
+    ({String apiKeyId, String modelId})? ref,
+  ) =>
       // Tristate on the wire: the key must be PRESENT — a value sets, an explicit null clears (an absent
       // key would mean "leave unchanged"). 线缆三态:键必须出现——有值=设,显式 null=清(缺键=不动)。
-      _api.patchEntity(_path(id), Conversation.fromJson, body: {
-        'modelOverride': ref == null ? null : {'apiKeyId': ref.apiKeyId, 'modelId': ref.modelId},
-      });
+      _api.patchEntity(
+        _path(id),
+        Conversation.fromJson,
+        body: {
+          'modelOverride': ref == null
+              ? null
+              : {'apiKeyId': ref.apiKeyId, 'modelId': ref.modelId},
+        },
+      );
 
   @override
   Stream<StreamEnvelope> conversationFrames(String conversationId) {
     final sse = _sse;
     if (sse == null) return const Stream.empty();
-    return sse.scopeStream(StreamScope(kind: 'conversation', id: conversationId));
+    return sse.scopeStream(
+      StreamScope(kind: 'conversation', id: conversationId),
+    );
   }
 
   @override
-  Stream<void> transcriptResync() => _sse?.resync(StreamName.messages) ?? const Stream.empty();
+  Stream<void> transcriptResync() =>
+      _sse?.resync(StreamName.messages) ?? const Stream.empty();
 
   @override
   Stream<StreamEnvelope> workflowFrames(String workflowId) {
@@ -510,24 +584,31 @@ class LiveChatRepository implements ChatRepository {
     int? limit,
     String? kind,
     TouchpointVerb? verb,
-  }) =>
-      _api.getPage('${_path(conversationId)}/touchpoints', Touchpoint.fromJson, query: {
-        'cursor': ?cursor,
-        'limit': ?limit,
-        'kind': ?kind,
-        if (verb != null) 'verb': verb.name,
-      });
+  }) => _api.getPage(
+    '${_path(conversationId)}/touchpoints',
+    Touchpoint.fromJson,
+    query: {
+      'cursor': ?cursor,
+      'limit': ?limit,
+      'kind': ?kind,
+      if (verb != null) 'verb': verb.name,
+    },
+  );
 
   @override
-  Future<ConversationTodos> getTodos(String conversationId) =>
-      _api.getEntity('${_path(conversationId)}/todos', ConversationTodos.fromJson);
+  Future<ConversationTodos> getTodos(String conversationId) => _api.getEntity(
+    '${_path(conversationId)}/todos',
+    ConversationTodos.fromJson,
+  );
 
   @override
   Future<List<Interaction>> listInteractions(String conversationId) async {
     // Bounded `{data:[…]}` (no cursor) — reuse getPage and take the items (mirrors listModelCapabilities).
     // 有界 {data:[…]}(无游标)——复用 getPage 取 items。
-    final page =
-        await _api.getPage('${_path(conversationId)}/interactions', Interaction.fromJson);
+    final page = await _api.getPage(
+      '${_path(conversationId)}/interactions',
+      Interaction.fromJson,
+    );
     return page.items;
   }
 
@@ -537,9 +618,8 @@ class LiveChatRepository implements ChatRepository {
     String toolCallId, {
     required InteractionAction action,
     String? answer,
-  }) =>
-      _api.postNoContent(
-        '${_path(conversationId)}/interactions/$toolCallId',
-        body: {'action': action.wire, 'answer': ?answer},
-      );
+  }) => _api.postNoContent(
+    '${_path(conversationId)}/interactions/$toolCallId',
+    body: {'action': action.wire, 'answer': ?answer},
+  );
 }

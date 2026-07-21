@@ -20,31 +20,52 @@ class MentionTextEditingController extends TextEditingController {
   final Set<String> pillNames = {};
 
   @override
-  TextSpan buildTextSpan({required BuildContext context, TextStyle? style, required bool withComposing}) {
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
     if (pillNames.isEmpty) {
-      return super.buildTextSpan(context: context, style: style, withComposing: withComposing);
+      return super.buildTextSpan(
+        context: context,
+        style: style,
+        withComposing: withComposing,
+      );
     }
     // An open IME composition must NOT drop the pill tint (typing CJK made every pill flash back to
     // plain ink — the reported bug): tint AROUND the composing range and underline only that range,
     // matching the default span's IME affordance. IME 合成期不再整体回退(打中文药丸闪灭的根因):
     // 合成区间外照染,仅合成段加默认的下划线。
-    final composing = withComposing && !value.composing.isCollapsed && value.composing.isValid
+    final composing =
+        withComposing && !value.composing.isCollapsed && value.composing.isValid
         ? value.composing
         : null;
-    if (composing == null) return TextSpan(style: style, children: _pillSpans(context, text, style));
-    final composingStyle =
-        (style ?? AnText.reading).merge(const TextStyle(decoration: TextDecoration.underline));
-    return TextSpan(style: style, children: [
-      ..._pillSpans(context, composing.textBefore(text), style),
-      TextSpan(text: composing.textInside(text), style: composingStyle),
-      ..._pillSpans(context, composing.textAfter(text), style),
-    ]);
+    if (composing == null) {
+      return TextSpan(style: style, children: _pillSpans(context, text, style));
+    }
+    final composingStyle = (style ?? AnText.reading).merge(
+      const TextStyle(decoration: TextDecoration.underline),
+    );
+    return TextSpan(
+      style: style,
+      children: [
+        ..._pillSpans(context, composing.textBefore(text), style),
+        TextSpan(text: composing.textInside(text), style: composingStyle),
+        ..._pillSpans(context, composing.textAfter(text), style),
+      ],
+    );
   }
 
   // Pill-tint one plain segment (token boundaries evaluated within it). 对一段做药丸染色。
-  List<InlineSpan> _pillSpans(BuildContext context, String s, TextStyle? style) {
+  List<InlineSpan> _pillSpans(
+    BuildContext context,
+    String s,
+    TextStyle? style,
+  ) {
     final c = context.colors;
-    final pillStyle = (style ?? AnText.reading).weight(AnText.emphasisWeight).copyWith(color: c.accent);
+    final pillStyle = (style ?? AnText.reading)
+        .weight(AnText.emphasisWeight)
+        .copyWith(color: c.accent);
     final spans = <InlineSpan>[];
     var i = 0;
     while (i < s.length) {
@@ -77,7 +98,13 @@ class MentionTextEditingController extends TextEditingController {
     return best;
   }
 
-  int _emit(List<InlineSpan> spans, String s, int from, int to, TextStyle? style) {
+  int _emit(
+    List<InlineSpan> spans,
+    String s,
+    int from,
+    int to,
+    TextStyle? style,
+  ) {
     spans.add(TextSpan(text: s.substring(from, to), style: style));
     return to;
   }

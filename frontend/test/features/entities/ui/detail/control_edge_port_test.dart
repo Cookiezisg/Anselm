@@ -27,56 +27,62 @@ const _graph =
     '"edges":[{"id":"e1","from":"start","to":"gate"},{"id":"e2","from":"gate","fromPort":"pass","to":"post"}]}';
 
 ControlLogic _ctl() => ControlLogic(
-      id: 'ctl_1',
-      name: 'quality',
-      activeVersionId: 'ctlv_1',
+  id: 'ctl_1',
+  name: 'quality',
+  activeVersionId: 'ctlv_1',
+  createdAt: _t,
+  updatedAt: _t,
+  activeVersion: ControlVersion(
+    id: 'ctlv_1',
+    controlId: 'ctl_1',
+    version: 2,
+    branches: const [
+      Branch(port: 'pass', when: 'input.score > 0.8'),
+      Branch(port: 'retry', when: 'true'),
+    ],
+    createdAt: _t,
+    updatedAt: _t,
+  ),
+);
+
+FixtureEntityRepository _repo() => FixtureEntityRepository(
+  runDelay: Duration.zero,
+  workflows: [
+    WorkflowEntity(
+      id: 'wf_1',
+      name: 'pipe',
       createdAt: _t,
       updatedAt: _t,
-      activeVersion: ControlVersion(
-        id: 'ctlv_1',
-        controlId: 'ctl_1',
-        version: 2,
-        branches: const [
-          Branch(port: 'pass', when: 'input.score > 0.8'),
-          Branch(port: 'retry', when: 'true'),
-        ],
+      activeVersionId: 'wf_1_v1',
+      activeVersion: WorkflowVersion(
+        id: 'wf_1_v1',
+        workflowId: 'wf_1',
+        version: 1,
+        graph: _graph,
         createdAt: _t,
         updatedAt: _t,
       ),
-    );
-
-FixtureEntityRepository _repo() => FixtureEntityRepository(
-      runDelay: Duration.zero,
-      workflows: [
-        WorkflowEntity(
-          id: 'wf_1',
-          name: 'pipe',
-          createdAt: _t,
-          updatedAt: _t,
-          activeVersionId: 'wf_1_v1',
-          activeVersion: WorkflowVersion(
-              id: 'wf_1_v1', workflowId: 'wf_1', version: 1, graph: _graph, createdAt: _t, updatedAt: _t),
-        ),
-      ],
-      controlLogics: [_ctl()],
-    );
+    ),
+  ],
+  controlLogics: [_ctl()],
+);
 
 Widget _host(FixtureEntityRepository repo) => ProviderScope(
-      overrides: [
-        entityRepositoryProvider.overrideWithValue(repo),
-        // The workflow editor is an ENTITIES surface — in the real app it is reached from the entities
-        // ocean, so the shared right-panel bucket it reads (rightPanelCollapsedProvider) is the entities
-        // one (default OPEN). Seed the ocean so the right island reveals (chat, the launch default, now
-        // defaults COLLAPSED — 0718-19). 编辑器=实体面,右岛桶取实体桶(默认开);种海洋 entities 让右岛揭示。
-        selectedOceanProvider.overrideWith(_EntitiesOcean.new),
-      ],
-      child: TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: const WorkflowEditorPage(workflowId: 'wf_1'),
-        ),
-      ),
-    );
+  overrides: [
+    entityRepositoryProvider.overrideWithValue(repo),
+    // The workflow editor is an ENTITIES surface — in the real app it is reached from the entities
+    // ocean, so the shared right-panel bucket it reads (rightPanelCollapsedProvider) is the entities
+    // one (default OPEN). Seed the ocean so the right island reveals (chat, the launch default, now
+    // defaults COLLAPSED — 0718-19). 编辑器=实体面,右岛桶取实体桶(默认开);种海洋 entities 让右岛揭示。
+    selectedOceanProvider.overrideWith(_EntitiesOcean.new),
+  ],
+  child: TranslationProvider(
+    child: MaterialApp(
+      theme: AnTheme.light(),
+      home: const WorkflowEditorPage(workflowId: 'wf_1'),
+    ),
+  ),
+);
 
 class _EntitiesOcean extends SelectedOceanController {
   @override
@@ -85,43 +91,62 @@ class _EntitiesOcean extends SelectedOceanController {
 
 const _ref = EntityRef(EntityKind.workflow, 'wf_1');
 
-Future<ProviderContainer> _openEdge(WidgetTester tester, FixtureEntityRepository repo) async {
+Future<ProviderContainer> _openEdge(
+  WidgetTester tester,
+  FixtureEntityRepository repo,
+) async {
   tester.view.physicalSize = const Size(1400, 800);
   tester.view.devicePixelRatio = 1;
   addTearDown(tester.view.reset);
   await tester.pumpWidget(_host(repo));
   await tester.pump(const Duration(milliseconds: 60)); // editor loads
-  final container = ProviderScope.containerOf(tester.element(find.byType(WorkflowEditorPage)));
+  final container = ProviderScope.containerOf(
+    tester.element(find.byType(WorkflowEditorPage)),
+  );
   container.read(workflowEditorProvider(_ref).notifier).selectEdge('e2');
   await tester.pump(); // inspector shows the edge editor
-  await tester.pump(); // controlPortsProvider resolves (fixture returns immediately)
+  await tester
+      .pump(); // controlPortsProvider resolves (fixture returns immediately)
   return container;
 }
 
 void main() {
-  testWidgets('control-source edge port is a dropdown of the control branch ports (not free-text)',
-      (tester) async {
-    await _openEdge(tester, _repo());
-    // A dropdown, NOT a free-text input, carrying the current port.
-    expect(find.byType(AnDropdown<String>), findsOneWidget);
-    // Open it → the control's declared ports appear.
-    await tester.tap(find.byType(AnDropdown<String>));
-    await tester.pumpAndSettle();
-    expect(find.text('pass'), findsWidgets);
-    expect(find.text('retry'), findsOneWidget); // only in the menu (current is 'pass')
-  });
+  testWidgets(
+    'control-source edge port is a dropdown of the control branch ports (not free-text)',
+    (tester) async {
+      await _openEdge(tester, _repo());
+      // A dropdown, NOT a free-text input, carrying the current port.
+      expect(find.byType(AnDropdown<String>), findsOneWidget);
+      // Open it → the control's declared ports appear.
+      await tester.tap(find.byType(AnDropdown<String>));
+      await tester.pumpAndSettle();
+      expect(find.text('pass'), findsWidgets);
+      expect(
+        find.text('retry'),
+        findsOneWidget,
+      ); // only in the menu (current is 'pass')
+    },
+  );
 
-  testWidgets('picking a branch port patches the edge fromPort in the working graph', (tester) async {
-    final container = await _openEdge(tester, _repo());
-    await tester.tap(find.byType(AnDropdown<String>));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('retry'));
-    await tester.pumpAndSettle();
-    final working = container.read(workflowEditorProvider(_ref)).value!.working;
-    expect(working.edges.firstWhere((e) => e.id == 'e2').fromPort, 'retry');
-  });
+  testWidgets(
+    'picking a branch port patches the edge fromPort in the working graph',
+    (tester) async {
+      final container = await _openEdge(tester, _repo());
+      await tester.tap(find.byType(AnDropdown<String>));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('retry'));
+      await tester.pumpAndSettle();
+      final working = container
+          .read(workflowEditorProvider(_ref))
+          .value!
+          .working;
+      expect(working.edges.firstWhere((e) => e.id == 'e2').fromPort, 'retry');
+    },
+  );
 
-  testWidgets('a stale port the control no longer declares stays selectable', (tester) async {
+  testWidgets('a stale port the control no longer declares stays selectable', (
+    tester,
+  ) async {
     // Edge routes on 'legacy', which the control does NOT declare — it must remain the shown value.
     const staleGraph =
         '{"nodes":[{"id":"gate","kind":"control","ref":"ctl_1"},{"id":"post","kind":"action","ref":"fn_1"}],'
@@ -136,7 +161,13 @@ void main() {
           updatedAt: _t,
           activeVersionId: 'wf_1_v1',
           activeVersion: WorkflowVersion(
-              id: 'wf_1_v1', workflowId: 'wf_1', version: 1, graph: staleGraph, createdAt: _t, updatedAt: _t),
+            id: 'wf_1_v1',
+            workflowId: 'wf_1',
+            version: 1,
+            graph: staleGraph,
+            createdAt: _t,
+            updatedAt: _t,
+          ),
         ),
       ],
       controlLogics: [_ctl()],
@@ -150,21 +181,36 @@ void main() {
     expect(find.text('retry'), findsOneWidget);
   });
 
-  testWidgets('selecting a control node shows a read-only branch peek (port / when / default)',
-      (tester) async {
-    tester.view.physicalSize = const Size(1400, 800);
-    tester.view.devicePixelRatio = 1;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(_host(_repo()));
-    await tester.pump(const Duration(milliseconds: 60)); // editor loads
-    final container = ProviderScope.containerOf(tester.element(find.byType(WorkflowEditorPage)));
-    container.read(workflowEditorProvider(_ref).notifier).selectNode('gate'); // the control node
-    await tester.pump();
-    await tester.pump(); // controlProvider resolves
-    final ed = t.entities.detail.editor;
-    expect(find.text(ed.branches), findsOneWidget); // "Routing branches" section
-    expect(find.text('pass'), findsWidgets); // a branch port badge
-    expect(find.text('input.score > 0.8'), findsOneWidget); // the first branch's when CEL
-    expect(find.text(ed.branchDefault), findsOneWidget); // the catch-all (retry, when == "true")
-  });
+  testWidgets(
+    'selecting a control node shows a read-only branch peek (port / when / default)',
+    (tester) async {
+      tester.view.physicalSize = const Size(1400, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(_host(_repo()));
+      await tester.pump(const Duration(milliseconds: 60)); // editor loads
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(WorkflowEditorPage)),
+      );
+      container
+          .read(workflowEditorProvider(_ref).notifier)
+          .selectNode('gate'); // the control node
+      await tester.pump();
+      await tester.pump(); // controlProvider resolves
+      final ed = t.entities.detail.editor;
+      expect(
+        find.text(ed.branches),
+        findsOneWidget,
+      ); // "Routing branches" section
+      expect(find.text('pass'), findsWidgets); // a branch port badge
+      expect(
+        find.text('input.score > 0.8'),
+        findsOneWidget,
+      ); // the first branch's when CEL
+      expect(
+        find.text(ed.branchDefault),
+        findsOneWidget,
+      ); // the catch-all (retry, when == "true")
+    },
+  );
 }

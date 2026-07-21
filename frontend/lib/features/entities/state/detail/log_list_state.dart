@@ -23,6 +23,7 @@ class LogRow {
 
   final String id;
   final AnStatus dot;
+
   /// The reproduce projection (重现钥匙, 0719 拍板): the raw input/method/source of this execution,
   /// null for rows that can't reproduce (wf flowruns project no payload → source-only). 重现投影。
   final RecentRun? run;
@@ -45,6 +46,7 @@ abstract class LogListState with _$LogListState {
     @Default(false) bool hasMore,
     @Default(false) bool loadingMore,
     @Default(<String>{}) Set<String> openIds,
-    @Default(<String, FlowrunComposite>{}) Map<String, FlowrunComposite> flowruns,
+    @Default(<String, FlowrunComposite>{})
+    Map<String, FlowrunComposite> flowruns,
   }) = _LogListState;
 }

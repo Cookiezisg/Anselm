@@ -32,7 +32,8 @@ final RegExp _wikiRe = RegExp(r'\[\[([a-z]+_[0-9a-f]{16})\]\]');
 const String codeLanguageKey = 'language';
 
 bool _isCodeNode(DocumentNode node) =>
-    node is ParagraphNode && node.getMetadataValue('blockType') == codeAttribution;
+    node is ParagraphNode &&
+    node.getMetadataValue('blockType') == codeAttribution;
 
 /// The editor holds a fenced code block as an embedded-widget [CodeBlockNode] (a BlockNode), but the
 /// built-in serializer only understands a code ParagraphNode — so at the SAVE seam each [CodeBlockNode]
@@ -41,19 +42,21 @@ bool _isCodeNode(DocumentNode node) =>
 /// 编辑器里代码块是嵌件 CodeBlockNode(BlockNode),内置序列化器只认 code 段落——存时缝处转回 code 段落(文本=原始
 /// 代码,语言标进 metadata 供回写围栏)。与 documentFromMarkdown 载入缝对称。
 ParagraphNode _codeBlockToParagraph(CodeBlockNode node) => ParagraphNode(
-      id: node.id,
-      text: AttributedText(node.code),
-      metadata: {
-        'blockType': codeAttribution,
-        if (node.language != null && node.language!.isNotEmpty) codeLanguageKey: node.language,
-      },
-    );
+  id: node.id,
+  text: AttributedText(node.code),
+  metadata: {
+    'blockType': codeAttribution,
+    if (node.language != null && node.language!.isNotEmpty)
+      codeLanguageKey: node.language,
+  },
+);
 
 /// SAVE — convert embedded code blocks back to code paragraphs + flatten every mention pill to `[[id]]`
 /// text, then serialize with the built-in block/inline serializers, then re-inject each code node's
 /// language tag onto its opening fence.
 /// 存:代码块转回 code 段落 + 药丸摊平成 `[[id]]` 文本,内置序列化,再按序回写语言标。
-String markdownFromDocument(Document document) => _serializeRun(document.toList());
+String markdownFromDocument(Document document) =>
+    _serializeRun(document.toList());
 
 /// Serialize a run of nodes, grouping consecutive `quoteDepth >= 1` nodes into blockquote regions (mirror of
 /// the LOAD-side segment split). A quote region is serialized by stripping ONE depth level, serializing the
@@ -76,9 +79,15 @@ String _serializeRun(List<DocumentNode> nodes) {
 
 /// Strip one `>` level off a run of quoted nodes, serialize the inner run, prefix each line with `> `. 引用组序列化。
 String _serializeQuoteRun(List<DocumentNode> nodes) {
-  final inner = [for (final n in nodes) n.copyWithAddedMetadata({quoteDepthKey: quoteDepthOf(n) - 1})];
+  final inner = [
+    for (final n in nodes)
+      n.copyWithAddedMetadata({quoteDepthKey: quoteDepthOf(n) - 1}),
+  ];
   final innerMd = _serializeRun(inner);
-  return innerMd.split('\n').map((line) => line.isEmpty ? '>' : '> $line').join('\n');
+  return innerMd
+      .split('\n')
+      .map((line) => line.isEmpty ? '>' : '> $line')
+      .join('\n');
 }
 
 /// Serialize a run of NON-quote nodes (code blocks → code paragraphs, mention pills → `[[id]]`, fence language
@@ -97,7 +106,8 @@ String _serializePlainRun(List<DocumentNode> nodes) {
   );
   final languages = [
     for (final node in flattened)
-      if (_isCodeNode(node)) (node.getMetadataValue(codeLanguageKey) as String?) ?? '',
+      if (_isCodeNode(node))
+        (node.getMetadataValue(codeLanguageKey) as String?) ?? '',
   ];
   final markdown = serializeDocumentToMarkdown(flattened);
   // Trim per-line trailing whitespace (the built-in code-block serializer ADDS trailing spaces each round) —
@@ -108,10 +118,13 @@ String _serializePlainRun(List<DocumentNode> nodes) {
   // into the PREVIOUS task — the checkbox-misalignment + task-degeneration cascade. 逐行剪尾空白(内置码块
   // 序列化器每轮加尾空格)——但空 task 标记的尾空格是承重的:checkbox 语法只认 `]` 后带空格/tab;剪掉即触发
   // 「空 task→bullet+[ ] 字面→缩进行被上一 task 懒延续吞并」的级联腐化。
-  final trimmed = markdown.split('\n').map((line) {
-    final t = line.trimRight();
-    return _bareTaskMarker.hasMatch(t) ? '$t ' : t;
-  }).join('\n');
+  final trimmed = markdown
+      .split('\n')
+      .map((line) {
+        final t = line.trimRight();
+        return _bareTaskMarker.hasMatch(t) ? '$t ' : t;
+      })
+      .join('\n');
   return _restoreFenceLanguages(trimmed, languages);
 }
 
@@ -123,7 +136,10 @@ final RegExp _bareTaskMarker = RegExp(r'^\s*[-*+] \[[ xX]\]$');
 /// each code node's fence language (scanned off the SOURCE, in document order — the built-in parser
 /// discards it). [names] resolves display names (from `MentionSource.resolveNames`); unknown ids show the
 /// bare id. 载:内置解析后回填药丸 + 按序盖回语言标(内置 parser 丢弃、从源文扫)。
-MutableDocument documentFromMarkdown(String markdown, {Map<String, String> names = const {}}) {
+MutableDocument documentFromMarkdown(
+  String markdown, {
+  Map<String, String> names = const {},
+}) {
   // BLOCKQUOTES first: super_editor's parser collapses an entire blockquote (all lines, nested `> >`, and any
   // list/paragraph inside) into ONE merged paragraph — its block model is flat. To render blockquotes 1:1 with
   // chat (which recursively renders quote content), we split the markdown into quote / non-quote segments,
@@ -134,7 +150,9 @@ MutableDocument documentFromMarkdown(String markdown, {Map<String, String> names
   // 扁平节点 + 打 quoteDepth(剥一层→重解析→深度+1);组件层据 quoteDepth 包左条,在扁平模型上重建嵌套。
   final nodes = <DocumentNode>[];
   for (final seg in _blockSegments(markdown)) {
-    nodes.addAll(seg.isQuote ? _parseQuote(seg.text, names) : _plainNodes(seg.text, names));
+    nodes.addAll(
+      seg.isQuote ? _parseQuote(seg.text, names) : _plainNodes(seg.text, names),
+    );
   }
   return MutableDocument(nodes: nodes);
 }
@@ -155,7 +173,13 @@ List<DocumentNode> _plainNodes(String markdown, Map<String, String> names) {
       final code = node as ParagraphNode;
       var text = code.text.toPlainText();
       if (text.endsWith('\n')) text = text.substring(0, text.length - 1);
-      nodes.add(CodeBlockNode(id: code.id, code: text, language: lang.isEmpty ? null : lang));
+      nodes.add(
+        CodeBlockNode(
+          id: code.id,
+          code: text,
+          language: lang.isEmpty ? null : lang,
+        ),
+      );
       continue;
     }
     // HEAL task degeneration from documents saved before the trailing-space fix (see _serializePlainRun):
@@ -164,7 +188,9 @@ List<DocumentNode> _plainNodes(String markdown, Map<String, String> names) {
     // Both shapes are corruption artifacts, not typeable content (the `[]`+space reaction converts a typed
     // marker to a real task long before it could be saved). 自愈旧档腐化:①字面 `[ ]` 开头的 bullet 复原成
     // task;②带前导换行的 task 剥掉换行(懒延续合并的伤痕)。两种形态都不是用户可打出的内容([]+空格反应会先转真 task)。
-    nodes.add(_healTaskShapes(node is TextNode ? _inflateNode(node, names) : node));
+    nodes.add(
+      _healTaskShapes(node is TextNode ? _inflateNode(node, names) : node),
+    );
   }
   return nodes;
 }
@@ -192,7 +218,12 @@ DocumentNode _healTaskShapes(DocumentNode node) {
       lead++;
     }
     if (lead == 0) return node;
-    return TaskNode(id: node.id, text: node.text.copyText(lead), isComplete: node.isComplete, indent: node.indent);
+    return TaskNode(
+      id: node.id,
+      text: node.text.copyText(lead),
+      isComplete: node.isComplete,
+      indent: node.indent,
+    );
   }
   return node;
 }
@@ -200,11 +231,15 @@ DocumentNode _healTaskShapes(DocumentNode node) {
 /// Parse one blockquote region: strip ONE `>` level off each line, re-parse the inner content recursively (so
 /// nested quotes, lists, and paragraphs inside all work), then bump every resulting node's [quoteDepthKey] by 1.
 /// 解析一个引用区域:每行剥一层 `>`,递归重解析内层(嵌套/列表/段落都自然处理),再把所有节点的 quoteDepth +1。
-List<DocumentNode> _parseQuote(String quoteMarkdown, Map<String, String> names) {
+List<DocumentNode> _parseQuote(
+  String quoteMarkdown,
+  Map<String, String> names,
+) {
   final inner = quoteMarkdown.split('\n').map(_stripOneQuote).join('\n');
   final innerDoc = documentFromMarkdown(inner, names: names);
   return [
-    for (final n in innerDoc) n.copyWithAddedMetadata({quoteDepthKey: quoteDepthOf(n) + 1}),
+    for (final n in innerDoc)
+      n.copyWithAddedMetadata({quoteDepthKey: quoteDepthOf(n) + 1}),
   ];
 }
 
@@ -263,7 +298,9 @@ String _restoreFenceLanguages(String markdown, List<String> languages) {
       inFence = false;
     } else {
       inFence = true;
-      if (codeIndex < languages.length && languages[codeIndex].isNotEmpty && lead.trim() == '```') {
+      if (codeIndex < languages.length &&
+          languages[codeIndex].isNotEmpty &&
+          lead.trim() == '```') {
         lines[i] = lines[i].replaceFirst('```', '```${languages[codeIndex]}');
       }
       codeIndex += 1;
@@ -279,16 +316,28 @@ TextNode _flattenNode(TextNode node) {
   // `` ` code ` `` (see [stripCodeSpacers]). 先剥离行内代码 NBSP 内距(存盘 markdown 恒无内距空格)。
   final stripped = stripCodeSpacers(node.text);
   final flat = _flattenText(stripped) ?? stripped;
-  if (identical(flat, node.text)) return node; // no spacers and no mentions — unchanged
+  if (identical(flat, node.text)) {
+    return node; // no spacers and no mentions — unchanged
+  }
   // Rebuild the same node kind with the flattened text. 重建同型节点。
   if (node is ParagraphNode) {
     return ParagraphNode(id: node.id, text: flat, metadata: node.metadata);
   }
   if (node is ListItemNode) {
-    return ListItemNode(id: node.id, itemType: node.type, text: flat, indent: node.indent);
+    return ListItemNode(
+      id: node.id,
+      itemType: node.type,
+      text: flat,
+      indent: node.indent,
+    );
   }
   if (node is TaskNode) {
-    return TaskNode(id: node.id, text: flat, isComplete: node.isComplete, indent: node.indent);
+    return TaskNode(
+      id: node.id,
+      text: flat,
+      isComplete: node.isComplete,
+      indent: node.indent,
+    );
   }
   return node;
 }
@@ -302,15 +351,27 @@ TextNode _inflateNode(TextNode node, Map<String, String> names) {
   // already shows the padded rounded background (the reconcile keeps them during editing). 回填药丸后注入行内代码内距。
   final inflated = _inflateText(node.text, names) ?? node.text;
   final text = padCodeRuns(inflated).text;
-  if (identical(text, node.text)) return node; // no mentions and no inline code — unchanged
+  if (identical(text, node.text)) {
+    return node; // no mentions and no inline code — unchanged
+  }
   if (node is ParagraphNode) {
     return ParagraphNode(id: node.id, text: text, metadata: node.metadata);
   }
   if (node is ListItemNode) {
-    return ListItemNode(id: node.id, itemType: node.type, text: text, indent: node.indent);
+    return ListItemNode(
+      id: node.id,
+      itemType: node.type,
+      text: text,
+      indent: node.indent,
+    );
   }
   if (node is TaskNode) {
-    return TaskNode(id: node.id, text: text, isComplete: node.isComplete, indent: node.indent);
+    return TaskNode(
+      id: node.id,
+      text: text,
+      isComplete: node.isComplete,
+      indent: node.indent,
+    );
   }
   return node;
 }
@@ -319,18 +380,27 @@ AttributedText? _flattenText(AttributedText source) {
   // Flatten mention pills to literal `[[id]]` text before serialization. Inline code is plain codeAttribution
   // text already (the built-in serializer wraps it in backticks), so there's nothing to flatten for it.
   // 药丸摊平成 `[[id]]` 文本;行内代码本就是 codeAttribution 文本(内置序列化器加反引号),无需摊平。
-  final mentions = source.placeholders.entries.where((e) => e.value is MentionPlaceholder).toList()
-    ..sort((a, b) => a.key.compareTo(b.key));
+  final mentions =
+      source.placeholders.entries
+          .where((e) => e.value is MentionPlaceholder)
+          .toList()
+        ..sort((a, b) => a.key.compareTo(b.key));
   if (mentions.isEmpty) return null;
   final fullLength = source.toPlainText().length;
   var result = AttributedText('');
   var cursor = 0;
   for (final entry in mentions) {
-    if (entry.key > cursor) result = result.copyAndAppend(source.copyText(cursor, entry.key));
-    result = result.copyAndAppend(AttributedText('[[${(entry.value as MentionPlaceholder).id}]]'));
+    if (entry.key > cursor) {
+      result = result.copyAndAppend(source.copyText(cursor, entry.key));
+    }
+    result = result.copyAndAppend(
+      AttributedText('[[${(entry.value as MentionPlaceholder).id}]]'),
+    );
     cursor = entry.key + 1; // skip the 1-char placeholder 跳过占位符
   }
-  if (cursor < fullLength) result = result.copyAndAppend(source.copyText(cursor));
+  if (cursor < fullLength) {
+    result = result.copyAndAppend(source.copyText(cursor));
+  }
   return result;
 }
 
@@ -341,20 +411,33 @@ AttributedText? _inflateText(AttributedText source, Map<String, String> names) {
   // A `[[id]]` INSIDE an inline-code run stays literal — code content is verbatim, never a mention pill. Skip
   // matches whose start sits in any codeAttribution span. 码内 `[[id]]` 保字面(代码逐字),跳过落在 code run 的匹配。
   final codeSpans = source.getAttributionSpans({codeAttribution});
-  bool inCode(int offset) => codeSpans.any((s) => offset >= s.start && offset <= s.end);
+  bool inCode(int offset) =>
+      codeSpans.any((s) => offset >= s.start && offset <= s.end);
   final realMatches = matches.where((m) => !inCode(m.start)).toList();
-  if (realMatches.isEmpty) return null; // every `[[id]]` is inside code — nothing to inflate
+  if (realMatches.isEmpty) {
+    return null; // every `[[id]]` is inside code — nothing to inflate
+  }
   var result = AttributedText('');
   var cursor = 0;
   for (final m in realMatches) {
-    if (m.start > cursor) result = result.copyAndAppend(source.copyText(cursor, m.start));
+    if (m.start > cursor) {
+      result = result.copyAndAppend(source.copyText(cursor, m.start));
+    }
     final id = m.group(1)!;
     result = result.copyAndAppend(
-      AttributedText('', null, {0: MentionPlaceholder(id: id, name: names[id] ?? id, kind: kindFromEntityId(id))}),
+      AttributedText('', null, {
+        0: MentionPlaceholder(
+          id: id,
+          name: names[id] ?? id,
+          kind: kindFromEntityId(id),
+        ),
+      }),
     );
     cursor = m.end;
   }
-  if (cursor < plain.length) result = result.copyAndAppend(source.copyText(cursor));
+  if (cursor < plain.length) {
+    result = result.copyAndAppend(source.copyText(cursor));
+  }
   return result;
 }
 

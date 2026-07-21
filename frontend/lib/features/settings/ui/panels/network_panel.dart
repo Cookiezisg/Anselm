@@ -64,15 +64,23 @@ class _NetworkPanelState extends ConsumerState<NetworkPanel> {
     setState(() => _saving = true);
     final t = Translations.of(context);
     try {
-      await ref.read(settingsRepositoryProvider).patchNetwork(NetworkConfig(
-            httpProxy: _http.text.trim(),
-            httpsProxy: _https.text.trim(),
-            noProxy: _no.text.trim(),
-          ));
+      await ref
+          .read(settingsRepositoryProvider)
+          .patchNetwork(
+            NetworkConfig(
+              httpProxy: _http.text.trim(),
+              httpsProxy: _https.text.trim(),
+              noProxy: _no.text.trim(),
+            ),
+          );
       ref.invalidate(networkConfigProvider);
-      ref.read(noticeCenterProvider.notifier).show(t.settings.network.saved, tone: AnTone.ok);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(t.settings.network.saved, tone: AnTone.ok);
     } on ApiException catch (e) {
-      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -90,53 +98,90 @@ class _NetworkPanelState extends ConsumerState<NetworkPanel> {
       _hydrated = true;
     }
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        const AnScopeBadge(AnSettingScope.machine),
-        const SizedBox(width: AnSpace.s8),
-        Expanded(
-            child: Text(t.settings.network.proxyHint,
-                style: AnText.label.copyWith(color: c.inkMuted))),
-      ]),
-      const SizedBox(height: AnSpace.s16),
-      ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          // The ONE label-above form block (批6c A-063 — the second private «label+input» dies;
-          // the quiet 13 label steps up to the family face, 刻意收敛帧核). 唯一表单字段块。
-          SettingsAnchor(
-            item: SettingsItem.networkHttpProxy,
-            child: AnFormField(label: t.settings.network.httpProxy, child: AnInput(controller: _http, mono: true, placeholder: t.settings.network.proxyPlaceholder)),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const AnScopeBadge(AnSettingScope.machine),
+            const SizedBox(width: AnSpace.s8),
+            Expanded(
+              child: Text(
+                t.settings.network.proxyHint,
+                style: AnText.label.copyWith(color: c.inkMuted),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: AnSpace.s16),
+        ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // The ONE label-above form block (批6c A-063 — the second private «label+input» dies;
+              // the quiet 13 label steps up to the family face, 刻意收敛帧核). 唯一表单字段块。
+              SettingsAnchor(
+                item: SettingsItem.networkHttpProxy,
+                child: AnFormField(
+                  label: t.settings.network.httpProxy,
+                  child: AnInput(
+                    controller: _http,
+                    mono: true,
+                    placeholder: t.settings.network.proxyPlaceholder,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AnSpace.s12),
+              SettingsAnchor(
+                item: SettingsItem.networkHttpsProxy,
+                child: AnFormField(
+                  label: t.settings.network.httpsProxy,
+                  child: AnInput(
+                    controller: _https,
+                    mono: true,
+                    placeholder: t.settings.network.proxyPlaceholder,
+                  ),
+                ),
+              ),
+              const SizedBox(height: AnSpace.s12),
+              SettingsAnchor(
+                item: SettingsItem.networkNoProxy,
+                child: AnFormField(
+                  label: t.settings.network.noProxy,
+                  child: AnInput(
+                    controller: _no,
+                    mono: true,
+                    placeholder: 'localhost,127.0.0.1',
+                  ),
+                ),
+              ),
+              const SizedBox(height: AnSpace.s16),
+              // The restart caveat lives in the callout family — not a bare orange sentence floating
+              // between fields (0719 P1-5). 重启注记归 callout 族,不再是字段间裸奔的橙句。
+              AnCallout(
+                t.settings.network.restartNote,
+                severity: AnCalloutSeverity.warn,
+              ),
+              const SizedBox(height: AnSpace.s16),
+              AnButton(
+                label: t.settings.network.save,
+                variant: AnButtonVariant.primary,
+                // Enabled only with actual edits — a permanently-armed save invites no-op writes, and
+                // the disabled face is the standard one, honestly earned. 有真实改动才可点。
+                onPressed: cfg == null || _saving || !_dirty(cfg)
+                    ? null
+                    : _save,
+              ),
+            ],
           ),
-          const SizedBox(height: AnSpace.s12),
-          SettingsAnchor(
-            item: SettingsItem.networkHttpsProxy,
-            child: AnFormField(label: t.settings.network.httpsProxy, child: AnInput(controller: _https, mono: true, placeholder: t.settings.network.proxyPlaceholder)),
-          ),
-          const SizedBox(height: AnSpace.s12),
-          SettingsAnchor(
-            item: SettingsItem.networkNoProxy,
-            child: AnFormField(label: t.settings.network.noProxy, child: AnInput(controller: _no, mono: true, placeholder: 'localhost,127.0.0.1')),
-          ),
-          const SizedBox(height: AnSpace.s16),
-          // The restart caveat lives in the callout family — not a bare orange sentence floating
-          // between fields (0719 P1-5). 重启注记归 callout 族,不再是字段间裸奔的橙句。
-          AnCallout(t.settings.network.restartNote, severity: AnCalloutSeverity.warn),
-          const SizedBox(height: AnSpace.s16),
-          AnButton(
-            label: t.settings.network.save,
-            variant: AnButtonVariant.primary,
-            // Enabled only with actual edits — a permanently-armed save invites no-op writes, and
-            // the disabled face is the standard one, honestly earned. 有真实改动才可点。
-            onPressed: cfg == null || _saving || !_dirty(cfg) ? null : _save,
-          ),
-        ]),
-      ),
-    ]);
+        ),
+      ],
+    );
   }
-
 }
 
 /// The live network config. 活动网络配置。
-final networkConfigProvider =
-    FutureProvider<NetworkConfig>((ref) => ref.watch(settingsRepositoryProvider).getNetwork());
+final networkConfigProvider = FutureProvider<NetworkConfig>(
+  (ref) => ref.watch(settingsRepositoryProvider).getNetwork(),
+);

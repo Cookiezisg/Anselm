@@ -40,7 +40,9 @@ void main() {
   // fontSize: <number> — a raw literal (identifiers like `AnSize.iconSm` are fine). 裸字号字面。
   final rawSize = RegExp(r'fontSize:\s*[0-9]');
   // Any FontWeight other than the two allowed (w300/w400). 除 w300/w400 外的字重。
-  final bannedWeight = RegExp(r'FontWeight\.(w100|w200|w500|w600|w700|w800|w900|bold)\b');
+  final bannedWeight = RegExp(
+    r'FontWeight\.(w100|w200|w500|w600|w700|w800|w900|bold)\b',
+  );
   // FontVariation('wght', N) with N not 300/400. wght 轴非 300/400。
   final wghtAxis = RegExp(r"""FontVariation\(\s*['"]wght['"]\s*,\s*([0-9]+)""");
 
@@ -48,7 +50,9 @@ void main() {
     final dir = Directory('lib');
     for (final e in dir.listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
-      if (e.path.endsWith('.g.dart') || e.path.endsWith('.freezed.dart')) continue; // generated 生成物
+      if (e.path.endsWith('.g.dart') || e.path.endsWith('.freezed.dart')) {
+        continue; // generated 生成物
+      }
       yield e;
     }
   }
@@ -60,35 +64,53 @@ void main() {
   // 注释行可为说明而点名违规写法——只扫代码。
   bool isComment(String line) => line.trimLeft().startsWith('//');
 
-  test('no raw font-size literals outside typography.dart (single source of sizes)', () {
-    final offenders = <String>[];
-    for (final f in dartSources()) {
-      if (rel(f).endsWith(sizeSource)) continue;
-      final lines = f.readAsLinesSync();
-      for (var i = 0; i < lines.length; i++) {
-        if (isComment(lines[i])) continue;
-        if (rawSize.hasMatch(lines[i])) offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
+  test(
+    'no raw font-size literals outside typography.dart (single source of sizes)',
+    () {
+      final offenders = <String>[];
+      for (final f in dartSources()) {
+        if (rel(f).endsWith(sizeSource)) continue;
+        final lines = f.readAsLinesSync();
+        for (var i = 0; i < lines.length; i++) {
+          if (isComment(lines[i])) continue;
+          if (rawSize.hasMatch(lines[i])) {
+            offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
+          }
+        }
       }
-    }
-    expect(offenders, isEmpty,
-        reason: 'Raw font sizes fork the scale — route every size through AnText.* '
-            '(add a token to typography.dart if a new rung is genuinely needed):\n${offenders.join('\n')}');
-  });
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'Raw font sizes fork the scale — route every size through AnText.* '
+            '(add a token to typography.dart if a new rung is genuinely needed):\n${offenders.join('\n')}',
+      );
+    },
+  );
 
-  test('only two font weights (w300/w400) — no w500/w600/bold outside code highlighting', () {
-    final offenders = <String>[];
-    for (final f in dartSources()) {
-      if (weightExceptions.contains(rel(f))) continue;
-      final lines = f.readAsLinesSync();
-      for (var i = 0; i < lines.length; i++) {
-        if (isComment(lines[i])) continue;
-        if (bannedWeight.hasMatch(lines[i])) offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
+  test(
+    'only two font weights (w300/w400) — no w500/w600/bold outside code highlighting',
+    () {
+      final offenders = <String>[];
+      for (final f in dartSources()) {
+        if (weightExceptions.contains(rel(f))) continue;
+        final lines = f.readAsLinesSync();
+        for (var i = 0; i < lines.length; i++) {
+          if (isComment(lines[i])) continue;
+          if (bannedWeight.hasMatch(lines[i])) {
+            offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
+          }
+        }
       }
-    }
-    expect(offenders, isEmpty,
-        reason: 'Two-weight rule: emphasis is w400 via `.weight(AnText.emphasisWeight)`, never heavier. '
-            'Hierarchy is size+colour, not weight:\n${offenders.join('\n')}');
-  });
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'Two-weight rule: emphasis is w400 via `.weight(AnText.emphasisWeight)`, never heavier. '
+            'Hierarchy is size+colour, not weight:\n${offenders.join('\n')}',
+      );
+    },
+  );
 
   test('wght axis values are 300 or 400 only (outside typography.dart)', () {
     final offenders = <String>[];
@@ -100,12 +122,18 @@ void main() {
         if (isComment(lines[i])) continue;
         for (final m in wghtAxis.allMatches(lines[i])) {
           final v = m.group(1);
-          if (v != '300' && v != '400') offenders.add('${rel(f)}:${i + 1}  wght=$v  ${lines[i].trim()}');
+          if (v != '300' && v != '400') {
+            offenders.add('${rel(f)}:${i + 1}  wght=$v  ${lines[i].trim()}');
+          }
         }
       }
     }
-    expect(offenders, isEmpty,
-        reason: 'The variable-font weight axis may only be 300 or 400 (two-weight rule):\n${offenders.join('\n')}');
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'The variable-font weight axis may only be 300 or 400 (two-weight rule):\n${offenders.join('\n')}',
+    );
   });
 
   // TextStyle height: — a raw leading forks the ladder (body 1.4 / reading 1.6 / code 1.6 are all
@@ -132,9 +160,13 @@ void main() {
         }
       }
     }
-    expect(offenders, isEmpty,
-        reason: 'A bespoke leading forks the type ladder — every rung pins its height in AnText.* '
-            '(mint a token if a new leading is genuinely needed):\n${offenders.join('\n')}');
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          'A bespoke leading forks the type ladder — every rung pins its height in AnText.* '
+          '(mint a token if a new leading is genuinely needed):\n${offenders.join('\n')}',
+    );
   });
 
   // ANY `fontWeight:` argument outside typography.dart — the strongest form of the VF rule: a bare
@@ -145,20 +177,30 @@ void main() {
   // 正则漏多行形)。合法重定权全走 .weight();裸用仅存 typography.dart(阶梯本体)与高亮例外。
   final bareFontWeight = RegExp(r'fontWeight:');
 
-  test('re-weights go through .weight() — no bare fontWeight: outside typography.dart', () {
-    final offenders = <String>[];
-    for (final f in dartSources()) {
-      if (rel(f).endsWith(sizeSource)) continue; // the ramp + the extension live there 阶梯与扩展本体所在
-      if (weightExceptions.contains(rel(f))) continue;
-      final lines = f.readAsLinesSync();
-      for (var i = 0; i < lines.length; i++) {
-        if (isComment(lines[i])) continue;
-        if (bareFontWeight.hasMatch(lines[i])) offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
+  test(
+    're-weights go through .weight() — no bare fontWeight: outside typography.dart',
+    () {
+      final offenders = <String>[];
+      for (final f in dartSources()) {
+        if (rel(f).endsWith(sizeSource)) {
+          continue; // the ramp + the extension live there 阶梯与扩展本体所在
+        }
+        if (weightExceptions.contains(rel(f))) continue;
+        final lines = f.readAsLinesSync();
+        for (var i = 0; i < lines.length; i++) {
+          if (isComment(lines[i])) continue;
+          if (bareFontWeight.hasMatch(lines[i])) {
+            offenders.add('${rel(f)}:${i + 1}  ${lines[i].trim()}');
+          }
+        }
       }
-    }
-    expect(offenders, isEmpty,
-        reason: 'On the pinned-axis variable font a bare fontWeight renders the BASE weight '
-            '(the wght axis overrides it) — use `.weight(AnText.emphasisWeight)`:\n${offenders.join('\n')}');
-  });
-
+      expect(
+        offenders,
+        isEmpty,
+        reason:
+            'On the pinned-axis variable font a bare fontWeight renders the BASE weight '
+            '(the wght axis overrides it) — use `.weight(AnText.emphasisWeight)`:\n${offenders.join('\n')}',
+      );
+    },
+  );
 }

@@ -52,7 +52,11 @@ class AnEditAffordance extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       spacing: AnSpace.s6,
       children: [
-        AnButton(label: t.action.cancel, size: AnButtonSize.sm, onPressed: onAbort),
+        AnButton(
+          label: t.action.cancel,
+          size: AnButtonSize.sm,
+          onPressed: onAbort,
+        ),
         _SaveButton(label: t.action.save, onPressed: onCommit),
       ],
     );
@@ -93,7 +97,12 @@ class _SaveButton extends StatelessWidget {
                 borderRadius: BorderRadius.circular(AnRadius.button),
               ),
               // accent + emphasis w400 via .weight (VF double-axis: copyWith(fontWeight) alone renders Light). 双轴重定权。
-              child: Text(label, style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.accent)),
+              child: Text(
+                label,
+                style: AnText.meta
+                    .weight(AnText.emphasisWeight)
+                    .copyWith(color: c.accent),
+              ),
             );
           },
         ),

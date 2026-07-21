@@ -18,8 +18,12 @@ class AnBlockTapGuard extends ContentTapDelegate {
 
   final SuperEditorContext _editContext;
 
-  TapHandlingInstruction _selectWholeBlockIfNotText(DocumentTapDetails details) {
-    final position = details.documentLayout.getDocumentPositionNearestToOffset(details.layoutOffset);
+  TapHandlingInstruction _selectWholeBlockIfNotText(
+    DocumentTapDetails details,
+  ) {
+    final position = details.documentLayout.getDocumentPositionNearestToOffset(
+      details.layoutOffset,
+    );
     if (position == null || position.nodePosition is TextNodePosition) {
       return TapHandlingInstruction.continueHandling;
     }
@@ -43,12 +47,15 @@ class AnBlockTapGuard extends ContentTapDelegate {
   }
 
   @override
-  TapHandlingInstruction onDoubleTap(DocumentTapDetails details) => _selectWholeBlockIfNotText(details);
+  TapHandlingInstruction onDoubleTap(DocumentTapDetails details) =>
+      _selectWholeBlockIfNotText(details);
 
   @override
-  TapHandlingInstruction onTripleTap(DocumentTapDetails details) => _selectWholeBlockIfNotText(details);
+  TapHandlingInstruction onTripleTap(DocumentTapDetails details) =>
+      _selectWholeBlockIfNotText(details);
 }
 
 /// The [SuperEditor.contentTapDelegateFactories] entry for [AnBlockTapGuard] — registered ALONGSIDE the
 /// default link-launch handler, never instead of it. 工厂:与默认链接点开 handler 并列注册、不顶掉它。
-AnBlockTapGuard anBlockTapGuardFactory(SuperEditorContext editContext) => AnBlockTapGuard(editContext);
+AnBlockTapGuard anBlockTapGuardFactory(SuperEditorContext editContext) =>
+    AnBlockTapGuard(editContext);

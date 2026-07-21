@@ -18,23 +18,24 @@ Conversation _c(
   bool pinned = false,
   bool archived = false,
   int hour = 12,
-}) =>
-    Conversation(
-      id: id,
-      title: title,
-      pinned: pinned,
-      archived: archived,
-      createdAt: _at(hour),
-      updatedAt: _at(hour),
-      lastMessageAt: _at(hour),
-    );
+}) => Conversation(
+  id: id,
+  title: title,
+  pinned: pinned,
+  archived: archived,
+  createdAt: _at(hour),
+  updatedAt: _at(hour),
+  lastMessageAt: _at(hour),
+);
 
-FixtureChatRepository _repo() => FixtureChatRepository(conversations: [
-      _c('cv_a', 'Apple', hour: 9),
-      _c('cv_b', 'banana', pinned: true, hour: 8),
-      _c('cv_c', 'Cherry', hour: 11),
-      _c('cv_d', 'delta', archived: true, hour: 10),
-    ]);
+FixtureChatRepository _repo() => FixtureChatRepository(
+  conversations: [
+    _c('cv_a', 'Apple', hour: 9),
+    _c('cv_b', 'banana', pinned: true, hour: 8),
+    _c('cv_c', 'Cherry', hour: 11),
+    _c('cv_d', 'delta', archived: true, hour: 10),
+  ],
+);
 
 void main() {
   group('Conversation DTO', () {
@@ -61,21 +62,24 @@ void main() {
       expect(c.lastMessageAt, DateTime.utc(2026, 6, 26, 9, 30));
     });
 
-    test('unknown wire keys (e.g. the removed lastMessagePreview) are ignored; optionals default', () {
-      final c = Conversation.fromJson({
-        'id': 'cv_2',
-        'title': '',
-        'lastMessagePreview': 'IGNORED',
-        'somethingNew': 42,
-        'createdAt': '2026-06-26T08:00:00Z',
-        'updatedAt': '2026-06-26T08:00:00Z',
-        'lastMessageAt': '2026-06-26T08:00:00Z',
-      });
-      expect(c.id, 'cv_2');
-      expect(c.title, '');
-      expect(c.hasUnread, false);
-      expect(c.pinned, false);
-    });
+    test(
+      'unknown wire keys (e.g. the removed lastMessagePreview) are ignored; optionals default',
+      () {
+        final c = Conversation.fromJson({
+          'id': 'cv_2',
+          'title': '',
+          'lastMessagePreview': 'IGNORED',
+          'somethingNew': 42,
+          'createdAt': '2026-06-26T08:00:00Z',
+          'updatedAt': '2026-06-26T08:00:00Z',
+          'lastMessageAt': '2026-06-26T08:00:00Z',
+        });
+        expect(c.id, 'cv_2');
+        expect(c.title, '');
+        expect(c.hasUnread, false);
+        expect(c.pinned, false);
+      },
+    );
   });
 
   group('FixtureChatRepository.listConversations', () {
@@ -84,12 +88,17 @@ void main() {
       expect(p.items.map((c) => c.id), isNot(contains('cv_d')));
     });
 
-    test('archive=all includes archived; archivedOnly returns only archived', () async {
-      final all = await _repo().listConversations(archive: ConvArchive.all);
-      expect(all.items.map((c) => c.id), contains('cv_d'));
-      final only = await _repo().listConversations(archive: ConvArchive.archivedOnly);
-      expect(only.items.map((c) => c.id), ['cv_d']);
-    });
+    test(
+      'archive=all includes archived; archivedOnly returns only archived',
+      () async {
+        final all = await _repo().listConversations(archive: ConvArchive.all);
+        expect(all.items.map((c) => c.id), contains('cv_d'));
+        final only = await _repo().listConversations(
+          archive: ConvArchive.archivedOnly,
+        );
+        expect(only.items.map((c) => c.id), ['cv_d']);
+      },
+    );
 
     test('sort=name is A–Z case-insensitive, pinned-first', () async {
       final p = await _repo().listConversations(sort: ConvSort.name);
@@ -112,52 +121,67 @@ void main() {
       final p1 = await _repo().listConversations(sort: ConvSort.name, limit: 2);
       expect(p1.items.map((c) => c.id), ['cv_b', 'cv_a']);
       expect(p1.hasMore, true);
-      final p2 = await _repo()
-          .listConversations(sort: ConvSort.name, limit: 2, cursor: p1.nextCursor);
+      final p2 = await _repo().listConversations(
+        sort: ConvSort.name,
+        limit: 2,
+        cursor: p1.nextCursor,
+      );
       expect(p2.items.map((c) => c.id), ['cv_c']);
       expect(p2.hasMore, false);
     });
   });
 
-  group('FixtureChatRepository writes (mutate the seed, mirror PATCH/DELETE)', () {
-    test('rename sets a trimmed title + returns the updated row', () async {
-      final r = _repo();
-      final updated = await r.renameConversation('cv_a', '  Apricot  ');
-      expect(updated.title, 'Apricot'); // trimmed (backend TrimSpace)
-      final p = await r.listConversations(sort: ConvSort.name);
-      expect(p.items.firstWhere((c) => c.id == 'cv_a').title, 'Apricot');
-    });
+  group(
+    'FixtureChatRepository writes (mutate the seed, mirror PATCH/DELETE)',
+    () {
+      test('rename sets a trimmed title + returns the updated row', () async {
+        final r = _repo();
+        final updated = await r.renameConversation('cv_a', '  Apricot  ');
+        expect(updated.title, 'Apricot'); // trimmed (backend TrimSpace)
+        final p = await r.listConversations(sort: ConvSort.name);
+        expect(p.items.firstWhere((c) => c.id == 'cv_a').title, 'Apricot');
+      });
 
-    test('setPinned / setArchived flip the flags', () async {
-      final r = _repo();
-      expect((await r.setPinned('cv_a', true)).pinned, true);
-      expect((await r.setArchived('cv_c', true)).archived, true);
-      // cv_c now hidden under the active scope, visible under all.
-      final active = await r.listConversations();
-      expect(active.items.map((c) => c.id), isNot(contains('cv_c')));
-      final all = await r.listConversations(archive: ConvArchive.all);
-      expect(all.items.map((c) => c.id), contains('cv_c'));
-    });
+      test('setPinned / setArchived flip the flags', () async {
+        final r = _repo();
+        expect((await r.setPinned('cv_a', true)).pinned, true);
+        expect((await r.setArchived('cv_c', true)).archived, true);
+        // cv_c now hidden under the active scope, visible under all.
+        final active = await r.listConversations();
+        expect(active.items.map((c) => c.id), isNot(contains('cv_c')));
+        final all = await r.listConversations(archive: ConvArchive.all);
+        expect(all.items.map((c) => c.id), contains('cv_c'));
+      });
 
-    test('delete removes the row entirely', () async {
-      final r = _repo();
-      await r.deleteConversation('cv_a');
-      final all = await r.listConversations(archive: ConvArchive.all);
-      expect(all.items.map((c) => c.id), isNot(contains('cv_a')));
-    });
+      test('delete removes the row entirely', () async {
+        final r = _repo();
+        await r.deleteConversation('cv_a');
+        final all = await r.listConversations(archive: ConvArchive.all);
+        expect(all.items.map((c) => c.id), isNot(contains('cv_a')));
+      });
 
-    test('writing a missing id throws (mirrors 404 CONVERSATION_NOT_FOUND)', () async {
-      expect(() => _repo().renameConversation('cv_zzz', 'x'), throwsStateError);
-      expect(() => _repo().setPinned('cv_zzz', true), throwsStateError);
-      expect(() => _repo().deleteConversation('cv_zzz'), throwsStateError);
-    });
-  });
+      test(
+        'writing a missing id throws (mirrors 404 CONVERSATION_NOT_FOUND)',
+        () async {
+          expect(
+            () => _repo().renameConversation('cv_zzz', 'x'),
+            throwsStateError,
+          );
+          expect(() => _repo().setPinned('cv_zzz', true), throwsStateError);
+          expect(() => _repo().deleteConversation('cv_zzz'), throwsStateError);
+        },
+      );
+    },
+  );
 
   test('chatRepositoryProvider swaps to the fixture at one seam', () {
     final container = ProviderContainer(
       overrides: [chatRepositoryProvider.overrideWithValue(_repo())],
     );
     addTearDown(container.dispose);
-    expect(container.read(chatRepositoryProvider), isA<FixtureChatRepository>());
+    expect(
+      container.read(chatRepositoryProvider),
+      isA<FixtureChatRepository>(),
+    );
   });
 }

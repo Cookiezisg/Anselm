@@ -33,7 +33,11 @@ List<ControlBranch> controlBranches(PartialJsonSession args) {
     if (e is Map) {
       e.forEach((k, v) => emit[k.toString()] = v.toString());
     }
-    out.add((port: (raw['port'] ?? '').toString(), when: (raw['when'] ?? '').toString(), emit: emit));
+    out.add((
+      port: (raw['port'] ?? '').toString(),
+      when: (raw['when'] ?? '').toString(),
+      emit: emit,
+    ));
   }
   return out;
 }
@@ -49,7 +53,8 @@ Widget controlBranchBody(BuildContext context, ToolCardState state) {
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
       toolIntent(context, state),
-      for (var i = 0; i < branches.length; i++) _branchRow(context, t, c, i + 1, branches[i]),
+      for (var i = 0; i < branches.length; i++)
+        _branchRow(context, t, c, i + 1, branches[i]),
       runStatBarOf(context, state),
     ],
   );
@@ -66,15 +71,28 @@ Widget controlBranchList(BuildContext context, List<dynamic> branches) {
     final emit = <String, String>{};
     final e = raw['emit'];
     if (e is Map) e.forEach((k, v) => emit[k.toString()] = v.toString());
-    parsed.add((port: (raw['port'] ?? '').toString(), when: (raw['when'] ?? '').toString(), emit: emit));
+    parsed.add((
+      port: (raw['port'] ?? '').toString(),
+      when: (raw['when'] ?? '').toString(),
+      emit: emit,
+    ));
   }
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
-    children: [for (var i = 0; i < parsed.length; i++) _branchRow(context, t, c, i + 1, parsed[i])],
+    children: [
+      for (var i = 0; i < parsed.length; i++)
+        _branchRow(context, t, c, i + 1, parsed[i]),
+    ],
   );
 }
 
-Widget _branchRow(BuildContext context, Translations t, AnColors c, int n, ControlBranch b) {
+Widget _branchRow(
+  BuildContext context,
+  Translations t,
+  AnColors c,
+  int n,
+  ControlBranch b,
+) {
   final isCatchAll = b.when.trim() == 'true';
   return Padding(
     padding: const EdgeInsets.only(bottom: AnSpace.s6),
@@ -91,9 +109,14 @@ Widget _branchRow(BuildContext context, Translations t, AnColors c, int n, Contr
             const SizedBox(width: AnGap.inline),
             Expanded(
               child: isCatchAll
-                  ? Text('${t.chat.tool.ctlOtherwise} · ${t.chat.tool.ctlWhenTrue}',
-                      style: AnText.label.copyWith(color: c.inkFaint))
-                  : Text(b.when, style: AnText.mono.copyWith(color: c.inkMuted)),
+                  ? Text(
+                      '${t.chat.tool.ctlOtherwise} · ${t.chat.tool.ctlWhenTrue}',
+                      style: AnText.label.copyWith(color: c.inkFaint),
+                    )
+                  : Text(
+                      b.when,
+                      style: AnText.mono.copyWith(color: c.inkMuted),
+                    ),
             ),
           ],
         ),
@@ -105,8 +128,10 @@ Widget _branchRow(BuildContext context, Translations t, AnColors c, int n, Contr
               runSpacing: AnGap.stackTight,
               children: [
                 for (final e in b.emit.entries)
-                  Text('${e.key} ← ${e.value}',
-                      style: AnText.mono.copyWith(color: c.inkFaint)),
+                  Text(
+                    '${e.key} ← ${e.value}',
+                    style: AnText.mono.copyWith(color: c.inkFaint),
+                  ),
               ],
             ),
           ),
@@ -120,8 +145,10 @@ Widget _branchRow(BuildContext context, Translations t, AnColors c, int n, Contr
 /// The {{ input.x }} moustache → an inline-code chip, so the approval template's placeholders read as
 /// distinct variable slots when rendered. `{{ payload.x }}` would be rejected server-side, so only
 /// `input.*` appears. moustache 占位 → 内联码 chip(变量槽可辨)。
-String approvalTemplateToMarkdown(String template) =>
-    template.replaceAllMapped(RegExp(r'\{\{\s*input\.([\w.]+)\s*\}\}'), (m) => '`${m[1]}`');
+String approvalTemplateToMarkdown(String template) => template.replaceAllMapped(
+  RegExp(r'\{\{\s*input\.([\w.]+)\s*\}\}'),
+  (m) => '`${m[1]}`',
+);
 
 /// The APPROVAL FORM PREVIEW — what the approver will see: the rendered template (placeholders as chips)
 /// + the rules strip (timeout badge → its behaviour, note-allowed) + a mock decision row. Reconstructed
@@ -140,7 +167,12 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
       // 假想框律:「审批人将看到」提示句(裸文字)归假想框(X=8,与 KV 键同起点),别再顶格;其下 AnCard=真框
       // 贴 X=0。The imaginary-frame law: the hint (bare text) sits in the imaginary frame (X=8, the KV-key
       // line); the AnCard below is a real frame at X=0.
-      stageFramed(Text(t.chat.tool.apfPreviewHint, style: AnText.label.copyWith(color: c.inkFaint))),
+      stageFramed(
+        Text(
+          t.chat.tool.apfPreviewHint,
+          style: AnText.label.copyWith(color: c.inkFaint),
+        ),
+      ),
       const SizedBox(height: AnSpace.s4),
       // The family card (A-001 — the hand-rolled white-island shell retires; content-flow card =
       // chip radius via AnCard, B-043). SizedBox keeps the full-width span. 族卡:手搓白岛退役,
@@ -149,36 +181,55 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
         width: double.infinity,
         child: AnCard(
           child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (template.isNotEmpty) AnMarkdown(approvalTemplateToMarkdown(template), scale: AnMarkdownScale.embedded),
-            const SizedBox(height: AnGap.block),
-            // The rules strip: timeout → behaviour, note-allowed. 规则条:超时→行为、可填备注。
-            Wrap(
-              spacing: AnGap.inline,
-              runSpacing: AnSpace.s4,
-              crossAxisAlignment: WrapCrossAlignment.center,
-              children: [
-                if (timeout != null && timeout.isNotEmpty) ...[
-                  AnChip(timeout, tone: AnTone.none),
-                  Text('${t.chat.tool.apfOnTimeout} ${behavior ?? ''}',
-                      style: AnText.meta.copyWith(color: _behaviorColor(c, behavior))),
-                ] else
-                  Text(t.chat.tool.apfTimeoutNever, style: AnText.meta.copyWith(color: c.inkFaint)),
-                if (allowReason)
-                  AnChip(t.chat.tool.apfAllowReason, tone: AnTone.none),
-              ],
-            ),
-            const SizedBox(height: AnGap.block),
-            // Mock decision row (disabled preview — the approver's future buttons). mock 决策行。
-            Row(
-              children: [
-                AnButton(label: t.chat.tool.apfApprove, variant: AnButtonVariant.primary, onPressed: null),
-                const SizedBox(width: AnGap.inline),
-                AnButton(label: t.chat.tool.apfReject, variant: AnButtonVariant.danger, onPressed: null),
-              ],
-            ),
-          ],
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (template.isNotEmpty)
+                AnMarkdown(
+                  approvalTemplateToMarkdown(template),
+                  scale: AnMarkdownScale.embedded,
+                ),
+              const SizedBox(height: AnGap.block),
+              // The rules strip: timeout → behaviour, note-allowed. 规则条:超时→行为、可填备注。
+              Wrap(
+                spacing: AnGap.inline,
+                runSpacing: AnSpace.s4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (timeout != null && timeout.isNotEmpty) ...[
+                    AnChip(timeout, tone: AnTone.none),
+                    Text(
+                      '${t.chat.tool.apfOnTimeout} ${behavior ?? ''}',
+                      style: AnText.meta.copyWith(
+                        color: _behaviorColor(c, behavior),
+                      ),
+                    ),
+                  ] else
+                    Text(
+                      t.chat.tool.apfTimeoutNever,
+                      style: AnText.meta.copyWith(color: c.inkFaint),
+                    ),
+                  if (allowReason)
+                    AnChip(t.chat.tool.apfAllowReason, tone: AnTone.none),
+                ],
+              ),
+              const SizedBox(height: AnGap.block),
+              // Mock decision row (disabled preview — the approver's future buttons). mock 决策行。
+              Row(
+                children: [
+                  AnButton(
+                    label: t.chat.tool.apfApprove,
+                    variant: AnButtonVariant.primary,
+                    onPressed: null,
+                  ),
+                  const SizedBox(width: AnGap.inline),
+                  AnButton(
+                    label: t.chat.tool.apfReject,
+                    variant: AnButtonVariant.danger,
+                    onPressed: null,
+                  ),
+                ],
+              ),
+            ],
           ),
         ),
       ),
@@ -188,11 +239,11 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
 }
 
 Color _behaviorColor(AnColors c, String? behavior) => switch (behavior) {
-      'approve' => c.ok,
-      'reject' => c.danger,
-      'fail' => c.warn,
-      _ => c.inkFaint,
-    };
+  'approve' => c.ok,
+  'reject' => c.danger,
+  'fail' => c.warn,
+  _ => c.inkFaint,
+};
 
 /// Parse a boolean arg from a (possibly partial) args fragment. 从 args 解析 bool。
 bool _boolArg(String argsFragment, String key) =>

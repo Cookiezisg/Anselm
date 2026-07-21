@@ -107,21 +107,24 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
 
   void _copy() {
     // The COPY payload is the NEW text — what lands after the change applies. 复制载荷=after(改后全文)。
-    Clipboard.setData(ClipboardData(text: widget.after)).then((_) {
-      if (!mounted) return;
-      setState(() {
-        _copied = true;
-        _copyFailed = false;
-      });
-      _resetCopy();
-    }, onError: (_) {
-      if (!mounted) return;
-      setState(() {
-        _copyFailed = true;
-        _copied = false;
-      });
-      _resetCopy();
-    });
+    Clipboard.setData(ClipboardData(text: widget.after)).then(
+      (_) {
+        if (!mounted) return;
+        setState(() {
+          _copied = true;
+          _copyFailed = false;
+        });
+        _resetCopy();
+      },
+      onError: (_) {
+        if (!mounted) return;
+        setState(() {
+          _copyFailed = true;
+          _copied = false;
+        });
+        _resetCopy();
+      },
+    );
   }
 
   void _resetCopy() {
@@ -156,7 +159,9 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [for (final r in rows) _row(context, c, syntax, t, r, gutterW)],
+        children: [
+          for (final r in rows) _row(context, c, syntax, t, r, gutterW),
+        ],
       ),
     );
 
@@ -166,7 +171,9 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
         ? rowsColumn
         : LayoutBuilder(
             builder: (ctx, constraints) {
-              final minW = constraints.maxWidth.isFinite ? constraints.maxWidth : 0.0;
+              final minW = constraints.maxWidth.isFinite
+                  ? constraints.maxWidth
+                  : 0.0;
               // Horizontal scroll for long lines; rows fill at least the viewport. 长行横滚;行至少填满视口。
               return SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -196,9 +203,10 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
                 // live=有界贴底视口(最新 + 行流入期恒可见;白面渐隐);settled=无界内容高/有界纵滚。
                 if (widget.live)
                   AnStickViewport(
-                      maxHeight: widget.maxHeight ?? AnSize.codeViewport,
-                      fadeColor: c.surface,
-                      child: body)
+                    maxHeight: widget.maxHeight ?? AnSize.codeViewport,
+                    fadeColor: c.surface,
+                    child: body,
+                  )
                 // The settled zero-jump clamp sits on the BODY — mirroring the live viewport position
                 // (bar OUTSIDE the clamp) so the settle only un-pins and the total height is identical
                 // across faces (批2 复审: the whole-frame clamp made settle 32px shorter). In a bounded
@@ -206,15 +214,20 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
                 // 钳外):两脸总高全等(批2 复审:整框钳曾令落定矮 32px);有界宿主经 Flexible 静默安全。
                 else if (constraints.maxHeight.isFinite)
                   Flexible(
-                      child: widget.maxHeight == null
-                          ? SingleChildScrollView(child: body)
-                          : ConstrainedBox(
-                              constraints: BoxConstraints(maxHeight: widget.maxHeight!),
-                              child: SingleChildScrollView(child: body)))
+                    child: widget.maxHeight == null
+                        ? SingleChildScrollView(child: body)
+                        : ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxHeight: widget.maxHeight!,
+                            ),
+                            child: SingleChildScrollView(child: body),
+                          ),
+                  )
                 else if (widget.maxHeight != null)
                   ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: widget.maxHeight!),
-                      child: SingleChildScrollView(child: body))
+                    constraints: BoxConstraints(maxHeight: widget.maxHeight!),
+                    child: SingleChildScrollView(child: body),
+                  )
                 else
                   body,
               ],
@@ -270,7 +283,9 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
             rows.add(_DiffRow(DiffOp.add, ++ln, d.text));
           case DiffOp.del:
             removed++;
-            rows.add(_DiffRow(DiffOp.del, null, d.text)); // deleted line → no new-file number 删行无号
+            rows.add(
+              _DiffRow(DiffOp.del, null, d.text),
+            ); // deleted line → no new-file number 删行无号
           case DiffOp.context:
             rows.add(_DiffRow(DiffOp.context, ++ln, d.text));
         }
@@ -282,33 +297,61 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
   // The bar — ISOMORPHIC with AnCodeEditor's (WRK-066 拍板 #3): left copy + wrap (+ range/note), a
   // single flexible filler, right-pinned +N −N (the diff's «language label» slot shows counts).
   // 顶栏与编辑器同构:左 copy+wrap(+范围/说明),单一弹性填充,右钉 +N −N(diff 的「语言标」槽=计数)。
-  Widget _bar(BuildContext context, AnColors c, Translations t, int added, int removed) {
-    final copyTip = _copied ? t.feedback.copied : (_copyFailed ? t.feedback.copyFailed : t.action.copy);
+  Widget _bar(
+    BuildContext context,
+    AnColors c,
+    Translations t,
+    int added,
+    int removed,
+  ) {
+    final copyTip = _copied
+        ? t.feedback.copied
+        : (_copyFailed ? t.feedback.copyFailed : t.action.copy);
     return Padding(
-      padding: const EdgeInsets.only(left: AnSpace.s12, right: AnSpace.s12, top: AnSpace.s8),
+      padding: const EdgeInsets.only(
+        left: AnSpace.s12,
+        right: AnSpace.s12,
+        top: AnSpace.s8,
+      ),
       child: Row(
         children: [
           AnTooltip(
             message: copyTip,
-            child: AnButton.iconOnly(_copied ? AnIcons.check : AnIcons.copy,
-                size: AnButtonSize.sm, semanticLabel: copyTip, onPressed: _copy),
+            child: AnButton.iconOnly(
+              _copied ? AnIcons.check : AnIcons.copy,
+              size: AnButtonSize.sm,
+              semanticLabel: copyTip,
+              onPressed: _copy,
+            ),
           ),
           const SizedBox(width: AnSpace.s4),
           AnTooltip(
             message: t.action.wrap,
-            child: AnButton.iconOnly(AnIcons.wrap,
-                size: AnButtonSize.sm, semanticLabel: t.action.wrap, onPressed: () => setState(() => _wrap = !_wrap)),
+            child: AnButton.iconOnly(
+              AnIcons.wrap,
+              size: AnButtonSize.sm,
+              semanticLabel: t.action.wrap,
+              onPressed: () => setState(() => _wrap = !_wrap),
+            ),
           ),
           if (widget.range != null) ...[
             const SizedBox(width: AnSpace.s8),
-            Text(widget.range!, style: AnText.value(mono: true).copyWith(color: c.inkMuted)),
+            Text(
+              widget.range!,
+              style: AnText.value(mono: true).copyWith(color: c.inkMuted),
+            ),
           ],
           const SizedBox(width: AnSpace.s8),
           // ONE flexible filler between the left cluster and the right-pinned counts. 单一弹性填充钉右。
           if (widget.note != null)
             Expanded(
-                child: Text(widget.note!,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)))
+              child: Text(
+                widget.note!,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
+            )
           else
             const Spacer(),
           if (added > 0 || removed > 0)
@@ -316,11 +359,19 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
             // 容器 a11y 已念计数,不念两遍。
             ExcludeSemantics(
               child: Text.rich(
-                TextSpan(children: [
-                  TextSpan(text: '+$added', style: AnText.value(mono: true).copyWith(color: c.ok)),
-                  const TextSpan(text: ' '),
-                  TextSpan(text: '−$removed', style: AnText.value(mono: true).copyWith(color: c.danger)),
-                ]),
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '+$added',
+                      style: AnText.value(mono: true).copyWith(color: c.ok),
+                    ),
+                    const TextSpan(text: ' '),
+                    TextSpan(
+                      text: '−$removed',
+                      style: AnText.value(mono: true).copyWith(color: c.danger),
+                    ),
+                  ],
+                ),
               ),
             ),
         ],
@@ -340,7 +391,14 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
     return math.max(AnSize.trail, AnSpace.s12 + w + AnSpace.s8);
   }
 
-  Widget _row(BuildContext context, AnColors c, SyntaxColors syntax, Translations t, _DiffRow r, double gutterW) {
+  Widget _row(
+    BuildContext context,
+    AnColors c,
+    SyntaxColors syntax,
+    Translations t,
+    _DiffRow r,
+    double gutterW,
+  ) {
     final Color? bg;
     final Color base;
     final String sign;
@@ -375,26 +433,51 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
           SizedBox(
             width: gutterW,
             child: Padding(
-              padding: const EdgeInsets.only(left: AnSpace.s12, right: AnSpace.s8),
-              child: Text(r.lineNo?.toString() ?? '', textAlign: TextAlign.right, style: _rowStyle.copyWith(color: c.inkFaint)),
+              padding: const EdgeInsets.only(
+                left: AnSpace.s12,
+                right: AnSpace.s8,
+              ),
+              child: Text(
+                r.lineNo?.toString() ?? '',
+                textAlign: TextAlign.right,
+                style: _rowStyle.copyWith(color: c.inkFaint),
+              ),
             ),
           ),
           // sign 符号
           SizedBox(
             width: AnSize.iconLg,
-            child: Text(sign, textAlign: TextAlign.center, style: _rowStyle.copyWith(color: base)),
+            child: Text(
+              sign,
+              textAlign: TextAlign.center,
+              style: _rowStyle.copyWith(color: base),
+            ),
           ),
           // code — base colour tinted by the op; token spans keep their syntax colours over it. In wrap
           // mode the code cell flexes and soft-wraps. 代码(基色染、token 覆盖);wrap 模式弹性软折。
           if (_wrap)
             Expanded(
               child: Text.rich(
-                TextSpan(style: _rowStyle.copyWith(color: base), children: highlightCode(r.text, lang: widget.lang, colors: syntax)),
+                TextSpan(
+                  style: _rowStyle.copyWith(color: base),
+                  children: highlightCode(
+                    r.text,
+                    lang: widget.lang,
+                    colors: syntax,
+                  ),
+                ),
               ),
             )
           else
             Text.rich(
-              TextSpan(style: _rowStyle.copyWith(color: base), children: highlightCode(r.text, lang: widget.lang, colors: syntax)),
+              TextSpan(
+                style: _rowStyle.copyWith(color: base),
+                children: highlightCode(
+                  r.text,
+                  lang: widget.lang,
+                  colors: syntax,
+                ),
+              ),
               softWrap: false,
               maxLines: 1,
             ),
@@ -413,6 +496,7 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
 class _DiffRow {
   const _DiffRow(this.op, this.lineNo, this.text);
   final DiffOp op;
-  final int? lineNo; // new-file line number; null for a deleted line 新文件行号(删行 null)
+  final int?
+  lineNo; // new-file line number; null for a deleted line 新文件行号(删行 null)
   final String text;
 }

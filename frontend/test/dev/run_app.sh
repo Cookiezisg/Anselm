@@ -11,6 +11,8 @@ cd "$(dirname "$0")/../.."   # frontend/
 ROOT="$(cd .. && pwd)"
 PORT="${ANSELM_DEV_PORT:-8742}"
 URL="http://127.0.0.1:$PORT"
+DEVICE="${DEVICE:-macos}"
+MISE="${MISE:-mise}"
 
 if ! curl -sf "$URL/api/v1/health" >/dev/null 2>&1; then
   echo "→ no backend on :$PORT — starting it (make -C backend run) in the background …"
@@ -23,5 +25,5 @@ else
   echo "→ reusing backend already on :$PORT."
 fi
 
-echo "→ flutter run -d macos (real app, attached to $URL, hot reload on) …"
-exec env ANSELM_BACKEND_URL="$URL" LANG=en_US.UTF-8 mise exec -- flutter run -d macos -t lib/main.dart
+echo "→ flutter run -d $DEVICE (real app, attached to $URL, hot reload on) …"
+exec env ANSELM_BACKEND_URL="$URL" LANG=en_US.UTF-8 "$MISE" exec -- flutter run -d "$DEVICE" -t lib/main.dart

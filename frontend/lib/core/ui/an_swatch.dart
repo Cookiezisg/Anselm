@@ -16,7 +16,13 @@ enum AnSwatchSize { dot, pick }
 /// 色板件(批5c)——「色即内容」原语:名旁身份点 / 带选中环的取色格。与 AnStatusDot(语义状态色)
 /// 两类,不并件。可点格包 AnInteractive 并播 selected 语义;选中信号=环(不透明色盘透不出 hover 墨)。
 class AnSwatch extends StatelessWidget {
-  const AnSwatch(this.color, {this.size = AnSwatchSize.pick, this.selected = false, this.onTap, super.key});
+  const AnSwatch(
+    this.color, {
+    this.size = AnSwatchSize.pick,
+    this.selected = false,
+    this.onTap,
+    super.key,
+  });
 
   final Color color;
   final AnSwatchSize size;
@@ -42,7 +48,11 @@ class AnSwatch extends StatelessWidget {
     // AnInteractive's own `selected` prop. (The MergeSemantics + wrapper Semantics this replaced existed
     // only because the prop used to be a non-nullable bool that always fired; folding the flag in is now
     // the base's job.) 单节点:色点真有「选中/未选中」二元,故旗标走 AnInteractive 自己的 prop。
-    return AnInteractive(onTap: onTap, selected: selected, builder: (ctx, states) => disc);
+    return AnInteractive(
+      onTap: onTap,
+      selected: selected,
+      builder: (ctx, states) => disc,
+    );
   }
 }
 
@@ -50,7 +60,12 @@ class AnSwatch extends StatelessWidget {
 /// from the workspaces panel; feature layers don't mint colour tables, 文法 #6). 预设色盘(线上自由
 /// hex,UI 给定集;色表归 core,feature 不私铸)。
 const kAvatarPalette = [
-  '#5B8DEF', '#4CAF7D', '#E2A93B', '#D96C6C', '#9B7EDE', '#5FB3C9',
+  '#5B8DEF',
+  '#4CAF7D',
+  '#E2A93B',
+  '#D96C6C',
+  '#9B7EDE',
+  '#5FB3C9',
 ];
 
 /// Hex → Color with a fallback (bad/absent strings never crash a row). 坏值回退。

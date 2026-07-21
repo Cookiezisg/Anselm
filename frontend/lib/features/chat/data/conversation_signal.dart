@@ -53,23 +53,25 @@ class ConversationSignal {
   }
 
   static ConversationAction _action(String verb) => switch (verb) {
-        'created' => ConversationAction.created,
-        'deleted' => ConversationAction.deleted,
-        'updated' ||
-        'archived' ||
-        'unarchived' ||
-        'pinned' ||
-        'unpinned' ||
-        'auto_titled' ||
-        'model_override' ||
-        'compacted' =>
-          ConversationAction.updated,
-        _ => ConversationAction.unknown,
-      };
+    'created' => ConversationAction.created,
+    'deleted' => ConversationAction.deleted,
+    'updated' ||
+    'archived' ||
+    'unarchived' ||
+    'pinned' ||
+    'unpinned' ||
+    'auto_titled' ||
+    'model_override' ||
+    'compacted' => ConversationAction.updated,
+    _ => ConversationAction.unknown,
+  };
 
   @override
   bool operator ==(Object other) =>
-      other is ConversationSignal && other.id == id && other.action == action && other.durable == durable;
+      other is ConversationSignal &&
+      other.id == id &&
+      other.action == action &&
+      other.durable == durable;
 
   @override
   int get hashCode => Object.hash(id, action, durable);

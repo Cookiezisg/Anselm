@@ -39,7 +39,9 @@ List<JsonEvent> partialJsonEvents(String fragment) =>
 List<Object?> partialJsonArrayItems(String fragment, List<Object> path) {
   final out = <Object?>[];
   for (final e in partialJsonEvents(fragment)) {
-    if (e.path.length == path.length + 1 && e.path.last is int && _startsWith(e.path, path)) {
+    if (e.path.length == path.length + 1 &&
+        e.path.last is int &&
+        _startsWith(e.path, path)) {
       out.add(e.value);
     }
   }
@@ -57,7 +59,17 @@ bool _startsWith(List<Object> path, List<Object> prefix) {
 // ── the incremental session ───────────────────────────────────────────────────────────────────────
 
 // Scanner modes. afterValue/expectKey are context-dependent on the stack top. 扫描态。
-enum _Mode { expectValue, inString, inNumber, inKeyword, afterValue, expectKeyOrClose, expectColon, done, malformed }
+enum _Mode {
+  expectValue,
+  inString,
+  inNumber,
+  inKeyword,
+  afterValue,
+  expectKeyOrClose,
+  expectColon,
+  done,
+  malformed,
+}
 
 // One open container on the stack. 栈上一只未闭合容器。
 class _Frame {
@@ -66,7 +78,8 @@ class _Frame {
   final bool isObject;
   final Map<String, Object?>? map;
   final List<Object?>? list;
-  int nextIndex = 0; // array: index of the element currently being parsed 当前元素下标
+  int nextIndex =
+      0; // array: index of the element currently being parsed 当前元素下标
 }
 
 /// The resumable streaming parser. Feed deltas with [append]; read completions from [events] (append-only,
@@ -79,12 +92,14 @@ class PartialJsonSession {
 
   _Mode _mode = _Mode.expectValue;
   final List<_Frame> _stack = [];
-  final List<Object> _path = []; // path of the value currently being parsed 当前值路径
+  final List<Object> _path =
+      []; // path of the value currently being parsed 当前值路径
 
   // inString state 字符串态
   final StringBuffer _sb = StringBuffer();
   bool _stringIsKey = false;
-  int _escape = 0; // 0=none 1=after-backslash 2..5=inside \uXXXX (collected hex count = _escape-2) 转义子态
+  int _escape =
+      0; // 0=none 1=after-backslash 2..5=inside \uXXXX (collected hex count = _escape-2) 转义子态
   final StringBuffer _hex = StringBuffer();
 
   // inNumber / inKeyword buffer 数字/关键字缓冲
@@ -166,7 +181,9 @@ class PartialJsonSession {
     if (f != null && f.path.isNotEmpty && f.path.last == key) return f.text;
     for (var k = events.length - 1; k >= 0; k--) {
       final e = events[k];
-      if (e.path.isNotEmpty && e.path.last == key && e.value is String) return e.value as String;
+      if (e.path.isNotEmpty && e.path.last == key && e.value is String) {
+        return e.value as String;
+      }
     }
     return null;
   }
@@ -180,10 +197,14 @@ class PartialJsonSession {
   /// [partialJsonArrayItems] (memoized by event count). 该路径数组的已闭合元素(按事件数记忆化)。
   List<Object?> arrayItemsAt(List<Object> path) {
     final key = path.join(' ');
-    if (_itemsCacheLen == events.length && _itemsCacheKey == key) return _itemsCache!;
+    if (_itemsCacheLen == events.length && _itemsCacheKey == key) {
+      return _itemsCache!;
+    }
     final out = <Object?>[];
     for (final e in events) {
-      if (e.path.length == path.length + 1 && e.path.last is int && _startsWith(e.path, path)) {
+      if (e.path.length == path.length + 1 &&
+          e.path.last is int &&
+          _startsWith(e.path, path)) {
         out.add(e.value);
       }
     }
@@ -231,7 +252,10 @@ class PartialJsonSession {
             _lit.clear();
             _mode = _Mode.inNumber;
             // do not consume 不消费
-          } else if (c == 0x5d && _stack.isNotEmpty && !_stack.last.isObject && _stack.last.nextIndex == 0) {
+          } else if (c == 0x5d &&
+              _stack.isNotEmpty &&
+              !_stack.last.isObject &&
+              _stack.last.nextIndex == 0) {
             // empty array `[]` — retract the speculative first-index path segment and close. 空数组。
             _path.removeLast();
             _closeContainer();
@@ -265,7 +289,9 @@ class PartialJsonSession {
               _completeValue(false);
             } else if (s == 'null') {
               _completeValue(null);
-            } else if (!('true'.startsWith(s) || 'false'.startsWith(s) || 'null'.startsWith(s))) {
+            } else if (!('true'.startsWith(s) ||
+                'false'.startsWith(s) ||
+                'null'.startsWith(s))) {
               _mode = _Mode.malformed;
             }
           } else {
@@ -275,7 +301,8 @@ class PartialJsonSession {
           if (_isWs(c)) {
             i++;
           } else if (_stack.isEmpty) {
-            _mode = _Mode.done; // trailing input ignored (facade semantics) 根后尾料忽略
+            _mode =
+                _Mode.done; // trailing input ignored (facade semantics) 根后尾料忽略
           } else if (c == 0x2c) {
             final f = _stack.last;
             if (f.isObject) {
@@ -310,7 +337,8 @@ class PartialJsonSession {
             _closeContainer(); // empty object 空对象
             i++;
           } else {
-            _mode = _Mode.malformed; // incl. `}` right after a comma (original rejects) 逗号后闭括=畸形
+            _mode = _Mode
+                .malformed; // incl. `}` right after a comma (original rejects) 逗号后闭括=畸形
           }
         case _Mode.expectColon:
           if (_isWs(c)) {
@@ -367,7 +395,10 @@ class PartialJsonSession {
         i++;
       } else if (_escape >= 2) {
         // inside \uXXXX — collect 4 hex 收 4 hex
-        final isHex = (c >= 0x30 && c <= 0x39) || (c >= 0x41 && c <= 0x46) || (c >= 0x61 && c <= 0x66);
+        final isHex =
+            (c >= 0x30 && c <= 0x39) ||
+            (c >= 0x41 && c <= 0x46) ||
+            (c >= 0x61 && c <= 0x66);
         if (!isHex) {
           _mode = _Mode.malformed;
           return i;
@@ -429,5 +460,10 @@ class PartialJsonSession {
   static bool _isWs(int c) => c == 0x20 || c == 0x09 || c == 0x0a || c == 0x0d;
 
   static bool _isNumChar(int c) =>
-      (c >= 0x30 && c <= 0x39) || c == 0x2e || c == 0x65 || c == 0x45 || c == 0x2b || c == 0x2d;
+      (c >= 0x30 && c <= 0x39) ||
+      c == 0x2e ||
+      c == 0x65 ||
+      c == 0x45 ||
+      c == 0x2b ||
+      c == 0x2d;
 }

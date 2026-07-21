@@ -27,8 +27,8 @@ audience: [human, ai]
 
 | 资产 | 作用 | 命令 |
 |---|---|---|
-| `testend/scenarios`（95 场景） | 真二进制全功能黑盒，函数名即验收台账行 | `make testend`（llmmock 零 token） |
-| `testend/golden`（12 旅程） | 真模型端到端（deepseek-v4-flash，provider=deepseek） | `make evals`（EVALS=1 门控，自动 source `.env`） |
+| `testend/scenarios`（95 场景） | 真二进制全功能黑盒，函数名即验收台账行 | `make -C backend testend`（llmmock 零 token） |
+| `testend/golden`（12 旅程） | 真模型端到端（deepseek-v4-flash，provider=deepseek） | `make -C backend evals`（EVALS=1 门控，自动 source `.env`） |
 | `harness/`（llmmock+PromptDump+SSE+multipart+续传订阅） | OpenAI 兼容假模型 + 模型线缆视角抓包 + 三流帧采集 | （随 testend） |
 | 文档体系（R-PLAN 缺口矩阵 / findings 台账 / HANDOFF） | 换 agent 无缝接手、标准不漂移 | — |
 
@@ -64,4 +64,4 @@ audience: [human, ai]
 
 ## 7. 后续（非本程序范围）
 
-前端重建对接已验证契约；AC-20/AC-30 家族的设置页提示（模型窗口未知→压缩不可用、key 未探测→能力保守）；`make testend` 入回归门禁的取舍（9 分钟级）。
+前端重建对接已验证契约；AC-20/AC-30 家族的设置页提示（模型窗口未知→压缩不可用、key 未探测→能力保守）；`make -C backend testend` 入回归门禁的取舍（9 分钟级）。

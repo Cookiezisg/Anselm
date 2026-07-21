@@ -25,7 +25,8 @@ abstract class MatrixCol with _$MatrixCol {
     @Default('') String status,
     int? elapsedMs,
   }) = _MatrixCol;
-  factory MatrixCol.fromJson(Map<String, dynamic> json) => _$MatrixColFromJson(json);
+  factory MatrixCol.fromJson(Map<String, dynamic> json) =>
+      _$MatrixColFromJson(json);
 }
 
 /// One node = one row. Row order = FIRST-APPEARANCE order (scan columns newest→oldest, each run in
@@ -45,7 +46,8 @@ abstract class MatrixRow with _$MatrixRow {
     @Default('') String nodeId,
     @Default('') String kind,
   }) = _MatrixRow;
-  factory MatrixRow.fromJson(Map<String, dynamic> json) => _$MatrixRowFromJson(json);
+  factory MatrixRow.fromJson(Map<String, dynamic> json) =>
+      _$MatrixRowFromJson(json);
 }
 
 /// One (run, node) = one cell — **SPARSE**: a node a run never reached has NO cell (render 「未及」).
@@ -78,7 +80,8 @@ abstract class MatrixCell with _$MatrixCell {
     @Default(0) int iteration,
     @Default(1) int iterations,
   }) = _MatrixCell;
-  factory MatrixCell.fromJson(Map<String, dynamic> json) => _$MatrixCellFromJson(json);
+  factory MatrixCell.fromJson(Map<String, dynamic> json) =>
+      _$MatrixCellFromJson(json);
 }
 
 /// The whole grid. All three lists are always present (empty, never null) — an unknown workflowId is
@@ -91,5 +94,6 @@ abstract class FlowrunMatrix with _$FlowrunMatrix {
     @Default(<MatrixRow>[]) List<MatrixRow> rows,
     @Default(<MatrixCell>[]) List<MatrixCell> cells,
   }) = _FlowrunMatrix;
-  factory FlowrunMatrix.fromJson(Map<String, dynamic> json) => _$FlowrunMatrixFromJson(json);
+  factory FlowrunMatrix.fromJson(Map<String, dynamic> json) =>
+      _$FlowrunMatrixFromJson(json);
 }

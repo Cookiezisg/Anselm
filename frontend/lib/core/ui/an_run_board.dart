@@ -81,63 +81,79 @@ class AnRunBoard extends StatelessWidget {
       // only measures width, not height). IntrinsicHeight 让两列等高、分隔线满高;甘特每行定高、其逐行
       // LayoutBuilder 只测宽,故可被量。
       child: IntrinsicHeight(
-        child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          SizedBox(
-            width: AnSize.runListW,
-            child: DecoratedBox(
-              decoration: BoxDecoration(
-                border: Border(right: BorderSide(color: c.line, width: AnSize.hairline)),
-              ),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                _header(context, runsHeader),
-                if (runs.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.all(AnSpace.s8),
-                    child: AnState(
-                        kind: AnStateKind.empty,
-                        size: AnStateSize.inset,
-                        title: emptyTitle,
-                        hint: emptyHint),
-                  )
-                else
-                  Padding(
-                    padding: const EdgeInsets.all(AnSpace.s4),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        for (final r in runs)
-                          AnRow(
-                            dot: AnStatus.fromRaw(r.status),
-                            label: r.id,
-                            hint: r.hint,
-                            meta: r.replayCount > 0 ? '↻${r.replayCount}' : null,
-                            mono: true,
-                            emphatic: true,
-                            selected: r.id == selectedRunId,
-                            onSelect: onRunPick == null ? null : () => onRunPick!(r.id),
-                          ),
-                      ],
-                    ),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            SizedBox(
+              width: AnSize.runListW,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  border: Border(
+                    right: BorderSide(color: c.line, width: AnSize.hairline),
                   ),
-              ]),
-            ),
-          ),
-          Expanded(
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              _header(context, ganttHeader),
-              Padding(
-                padding: const EdgeInsets.all(AnSpace.s8),
-                child: AnNodeGantt(
-                  rows: gantt,
-                  selectedNodeId: selectedNodeId,
-                  onNodePick: onNodePick,
-                  notRunLabel: notRunLabel,
-                  waitingLabel: waitingLabel,
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    _header(context, runsHeader),
+                    if (runs.isEmpty)
+                      Padding(
+                        padding: const EdgeInsets.all(AnSpace.s8),
+                        child: AnState(
+                          kind: AnStateKind.empty,
+                          size: AnStateSize.inset,
+                          title: emptyTitle,
+                          hint: emptyHint,
+                        ),
+                      )
+                    else
+                      Padding(
+                        padding: const EdgeInsets.all(AnSpace.s4),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            for (final r in runs)
+                              AnRow(
+                                dot: AnStatus.fromRaw(r.status),
+                                label: r.id,
+                                hint: r.hint,
+                                meta: r.replayCount > 0
+                                    ? '↻${r.replayCount}'
+                                    : null,
+                                mono: true,
+                                emphatic: true,
+                                selected: r.id == selectedRunId,
+                                onSelect: onRunPick == null
+                                    ? null
+                                    : () => onRunPick!(r.id),
+                              ),
+                          ],
+                        ),
+                      ),
+                  ],
                 ),
               ),
-            ]),
-          ),
-        ]),
+            ),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _header(context, ganttHeader),
+                  Padding(
+                    padding: const EdgeInsets.all(AnSpace.s8),
+                    child: AnNodeGantt(
+                      rows: gantt,
+                      selectedNodeId: selectedNodeId,
+                      onNodePick: onNodePick,
+                      notRunLabel: notRunLabel,
+                      waitingLabel: waitingLabel,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -149,10 +165,16 @@ class AnRunBoard extends StatelessWidget {
       alignment: Alignment.centerLeft,
       padding: const EdgeInsets.symmetric(horizontal: AnSpace.s12),
       decoration: BoxDecoration(
-        border: Border(bottom: BorderSide(color: c.line, width: AnSize.hairline)),
+        border: Border(
+          bottom: BorderSide(color: c.line, width: AnSize.hairline),
+        ),
       ),
-      child: Text(label,
-          style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
+      child: Text(
+        label,
+        style: AnText.meta
+            .weight(AnText.emphasisWeight)
+            .copyWith(color: c.inkFaint),
+      ),
     );
   }
 }

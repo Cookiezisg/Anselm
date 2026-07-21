@@ -8,7 +8,12 @@ import '../design/tokens.dart';
 /// of AnCard's border-hover: a hit list / menu row wants a soft fill, not an outline. 可点行的圆角 hover
 /// 填充:静息透明、active 时 surfaceHover(AnInteractive builder 报的按/悬停态)+ tag 圆角。命中行/菜单行要柔填非描边。
 class AnHoverSurface extends StatelessWidget {
-  const AnHoverSurface({required this.child, required this.active, this.radius = AnRadius.tag, super.key});
+  const AnHoverSurface({
+    required this.child,
+    required this.active,
+    this.radius = AnRadius.tag,
+    super.key,
+  });
 
   final Widget child;
 
@@ -20,10 +25,10 @@ class AnHoverSurface extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        decoration: BoxDecoration(
-          color: active ? context.colors.surfaceHover : null,
-          borderRadius: BorderRadius.circular(radius),
-        ),
-        child: child,
-      );
+    decoration: BoxDecoration(
+      color: active ? context.colors.surfaceHover : null,
+      borderRadius: BorderRadius.circular(radius),
+    ),
+    child: child,
+  );
 }

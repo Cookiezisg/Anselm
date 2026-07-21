@@ -22,60 +22,92 @@ import '../../support/router_harness.dart';
 void main() {
   final railBatteries = ValueVariant<Battery>(Battery.values.toSet());
 
-  testWidgets('rail: every battery renders without overflow / exception', (tester) async {
-    final b = railBatteries.currentValue!;
-    await tester.pumpWidget(routedHost(
-      // 280 logical px — a real left-island width; narrow enough that an unbounded long name overflows.
-      const Scaffold(body: SizedBox(width: 280, height: 640, child: EntityRail())),
-      repository: batteryRepo(b),
-    ));
-    await tester.pump(const Duration(milliseconds: 60)); // the 4 list futures resolve
+  testWidgets(
+    'rail: every battery renders without overflow / exception',
+    (tester) async {
+      final b = railBatteries.currentValue!;
+      await tester.pumpWidget(
+        routedHost(
+          // 280 logical px — a real left-island width; narrow enough that an unbounded long name overflows.
+          const Scaffold(
+            body: SizedBox(width: 280, height: 640, child: EntityRail()),
+          ),
+          repository: batteryRepo(b),
+        ),
+      );
+      await tester.pump(
+        const Duration(milliseconds: 60),
+      ); // the 4 list futures resolve
 
-    // The universal invariant — no overflow, no thrown error, for EVERY battery. 通用不变式。
-    expect(tester.takeException(), isNull, reason: 'battery $b threw');
+      // The universal invariant — no overflow, no thrown error, for EVERY battery. 通用不变式。
+      expect(tester.takeException(), isNull, reason: 'battery $b threw');
 
-    switch (b) {
-      case Battery.empty:
-        // 用户 0718 拍板: empty = the FULL rail with rows removed — the list + every kind head renders, no
-        // tombstone. 空态=满态收起:列表+每 kind 组头恒在、无墓碑。
-        expect(find.byType(AnSidebarList), findsOneWidget);
-        expect(find.byType(AnState), findsNothing);
-        expect(find.text(t.ref.function), findsOneWidget); // kind heads present at zero data 零数据渲组头
-      case Battery.overflow:
-        // The 200-char Text is present as data (ellipsized visually, full string in the widget). 超长行在场。
-        expect(find.text(overflowName), findsOneWidget);
-        expect(find.byType(AnSidebarList), findsOneWidget);
-      case Battery.huge:
-        // 5000 seeded → the first page renders the list (lazy); the section is there, nothing choked. 海量首页。
-        expect(find.byType(AnSidebarList), findsOneWidget);
-        expect(find.text('function-0'), findsOneWidget);
-      case Battery.extreme:
-        expect(find.text(extremeName), findsOneWidget); // unicode/emoji/RTL/zero-width render
-      case Battery.injection:
-        // Flutter Text renders the literal — proof it is inert (no interpolation / no XSS). 注入惰性。
-        expect(find.text(injectionScript), findsOneWidget);
-        expect(find.text(injectionTemplate), findsOneWidget);
-        expect(find.text(injectionDollar), findsOneWidget);
-    }
-  }, variant: railBatteries);
+      switch (b) {
+        case Battery.empty:
+          // 用户 0718 拍板: empty = the FULL rail with rows removed — the list + every kind head renders, no
+          // tombstone. 空态=满态收起:列表+每 kind 组头恒在、无墓碑。
+          expect(find.byType(AnSidebarList), findsOneWidget);
+          expect(find.byType(AnState), findsNothing);
+          expect(
+            find.text(t.ref.function),
+            findsOneWidget,
+          ); // kind heads present at zero data 零数据渲组头
+        case Battery.overflow:
+          // The 200-char Text is present as data (ellipsized visually, full string in the widget). 超长行在场。
+          expect(find.text(overflowName), findsOneWidget);
+          expect(find.byType(AnSidebarList), findsOneWidget);
+        case Battery.huge:
+          // 5000 seeded → the first page renders the list (lazy); the section is there, nothing choked. 海量首页。
+          expect(find.byType(AnSidebarList), findsOneWidget);
+          expect(find.text('function-0'), findsOneWidget);
+        case Battery.extreme:
+          expect(
+            find.text(extremeName),
+            findsOneWidget,
+          ); // unicode/emoji/RTL/zero-width render
+        case Battery.injection:
+          // Flutter Text renders the literal — proof it is inert (no interpolation / no XSS). 注入惰性。
+          expect(find.text(injectionScript), findsOneWidget);
+          expect(find.text(injectionTemplate), findsOneWidget);
+          expect(find.text(injectionDollar), findsOneWidget);
+      }
+    },
+    variant: railBatteries,
+  );
 
-  testWidgets('ocean: an overflow name + description ellipsis, never overflow', (tester) async {
-    await tester.pumpWidget(routedHost(
-      const Scaffold(body: SizedBox(width: 420, height: 720, child: EntityOcean())),
-      initialLocation: selectionLocation(EntityKind.function, 'fn_long'),
-      repository: batteryRepo(Battery.overflow),
-    ));
-    await tester.pump(const Duration(milliseconds: 80)); // detail resolves
-    expect(tester.takeException(), isNull);
-    expect(find.text(overflowName), findsWidgets); // header title + description both carry the long string
-  });
+  testWidgets(
+    'ocean: an overflow name + description ellipsis, never overflow',
+    (tester) async {
+      await tester.pumpWidget(
+        routedHost(
+          const Scaffold(
+            body: SizedBox(width: 420, height: 720, child: EntityOcean()),
+          ),
+          initialLocation: selectionLocation(EntityKind.function, 'fn_long'),
+          repository: batteryRepo(Battery.overflow),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 80)); // detail resolves
+      expect(tester.takeException(), isNull);
+      expect(
+        find.text(overflowName),
+        findsWidgets,
+      ); // header title + description both carry the long string
+    },
+  );
 
-  testWidgets('ocean: injection in name + description renders inert', (tester) async {
-    await tester.pumpWidget(routedHost(
-      const Scaffold(body: SizedBox(width: 420, height: 720, child: EntityOcean())),
-      initialLocation: selectionLocation(EntityKind.function, 'fn_s'),
-      repository: batteryRepo(Battery.injection),
-    ));
+  testWidgets('ocean: injection in name + description renders inert', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      routedHost(
+        const Scaffold(
+          body: SizedBox(width: 420, height: 720, child: EntityOcean()),
+        ),
+        initialLocation: selectionLocation(EntityKind.function, 'fn_s'),
+        repository: batteryRepo(Battery.injection),
+      ),
+    );
     await tester.pump(const Duration(milliseconds: 80));
     expect(tester.takeException(), isNull);
     // The literal `<script>` string appears verbatim (rendered as text, never interpreted) — finding it

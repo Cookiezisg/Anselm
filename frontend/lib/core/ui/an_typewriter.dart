@@ -55,14 +55,19 @@ class AnTypewriter extends StatefulWidget {
   State<AnTypewriter> createState() => _AnTypewriterState();
 }
 
-class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderStateMixin {
+class _AnTypewriterState extends State<AnTypewriter>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c; // EAGER-INIT (assign in initState) 急切初始化
 
   int _i = 0; // current phrase index
   String _phrase = '';
   int _n = 0; // grapheme count
-  int _typeMs = 0, _holdEnd = 0, _delEnd = 0, _total = 1; // phase boundaries (ms)
-  bool _doneFired = false; // onDone once per run (didChangeDependencies re-restarts) 每轮只触发一次
+  int _typeMs = 0,
+      _holdEnd = 0,
+      _delEnd = 0,
+      _total = 1; // phase boundaries (ms)
+  bool _doneFired =
+      false; // onDone once per run (didChangeDependencies re-restarts) 每轮只触发一次
 
   @override
   void initState() {
@@ -92,7 +97,9 @@ class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderSt
     // every build, and an identity compare restarted the reveal from zero on ANY parent rebuild
     // (theme flip, provider tick mid-stream). 内容相等而非列表同一:宿主每 build 新建列表,按同一性比较
     // 会在任何父重建时从零重打。
-    if (!listEquals(old.phrases, widget.phrases) || old.loop != widget.loop) _restart();
+    if (!listEquals(old.phrases, widget.phrases) || old.loop != widget.loop) {
+      _restart();
+    }
   }
 
   bool get _reduced => AnMotionPref.reducedOrAssistive(context);
@@ -150,9 +157,15 @@ class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderSt
   // Visible (grapheme-safe) slice for the current controller value. 当前值对应的可见切片。
   String _visible(double v) {
     final ms = v * _total;
-    if (ms < _typeMs) return _take((ms / AnMotion.typePerChar.inMilliseconds).floor());
+    if (ms < _typeMs) {
+      return _take((ms / AnMotion.typePerChar.inMilliseconds).floor());
+    }
     if (ms < _holdEnd) return _phrase;
-    if (ms < _delEnd) return _take(_n - ((ms - _holdEnd) / AnMotion.deletePerChar.inMilliseconds).floor());
+    if (ms < _delEnd) {
+      return _take(
+        _n - ((ms - _holdEnd) / AnMotion.deletePerChar.inMilliseconds).floor(),
+      );
+    }
     return ''; // gap
   }
 
@@ -177,7 +190,9 @@ class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderSt
       final text = widget.phrases.isEmpty ? '' : widget.phrases.first;
       return Semantics(
         label: text.isEmpty ? null : text,
-        child: ExcludeSemantics(child: _line(text, widget.showCaret ? 1 : 0, style, caretColor)),
+        child: ExcludeSemantics(
+          child: _line(text, widget.showCaret ? 1 : 0, style, caretColor),
+        ),
       );
     }
 
@@ -188,30 +203,49 @@ class _AnTypewriterState extends State<AnTypewriter> with SingleTickerProviderSt
         child: RepaintBoundary(
           child: AnimatedBuilder(
             animation: _c,
-            builder: (ctx, _) =>
-                _line(_visible(_c.value), widget.showCaret ? _caretOpacity(_c.value) : 0, style, caretColor),
+            builder: (ctx, _) => _line(
+              _visible(_c.value),
+              widget.showCaret ? _caretOpacity(_c.value) : 0,
+              style,
+              caretColor,
+            ),
           ),
         ),
       ),
     );
   }
 
-  Widget _line(String text, double caretOpacity, TextStyle style, Color caretColor) => Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(child: Text(text, maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: style)),
-          const SizedBox(width: AnSpace.s2),
-          Opacity(
-            opacity: caretOpacity,
-            // Caret hugs the ACTIVE style's glyphs (fontSize + caretRise), same derivation as AnInput.
-            // 光标随有效样式(fontSize+caretRise),与 AnInput 同推导。
-            child: Container(
-              width: AnSize.caret,
-              height: (style.fontSize ?? AnText.body.fontSize)! + AnSize.caretRise,
-              color: caretColor,
-            ),
-          ),
-          const SizedBox(width: AnSize.caretEndPad), // end-of-line room (flutter#24612) 行尾留位
-        ],
-      );
+  Widget _line(
+    String text,
+    double caretOpacity,
+    TextStyle style,
+    Color caretColor,
+  ) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Flexible(
+        child: Text(
+          text,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.clip,
+          style: style,
+        ),
+      ),
+      const SizedBox(width: AnSpace.s2),
+      Opacity(
+        opacity: caretOpacity,
+        // Caret hugs the ACTIVE style's glyphs (fontSize + caretRise), same derivation as AnInput.
+        // 光标随有效样式(fontSize+caretRise),与 AnInput 同推导。
+        child: Container(
+          width: AnSize.caret,
+          height: (style.fontSize ?? AnText.body.fontSize)! + AnSize.caretRise,
+          color: caretColor,
+        ),
+      ),
+      const SizedBox(
+        width: AnSize.caretEndPad,
+      ), // end-of-line room (flutter#24612) 行尾留位
+    ],
+  );
 }

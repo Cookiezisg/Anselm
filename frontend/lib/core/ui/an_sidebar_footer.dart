@@ -50,14 +50,20 @@ class AnWorkspaceButton extends StatelessWidget {
                   name,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink),
+                  style: AnText.body
+                      .weight(AnText.emphasisWeight)
+                      .copyWith(color: c.ink),
                 ),
               ),
               const SizedBox(width: AnSpace.s4),
               AnimatedRotation(
                 turns: isOpen ? 0.5 : 0,
                 duration: reduced ? Duration.zero : AnMotion.fast,
-                child: Icon(AnIcons.chevronDown, size: AnSize.iconSm, color: c.inkFaint),
+                child: Icon(
+                  AnIcons.chevronDown,
+                  size: AnSize.iconSm,
+                  color: c.inkFaint,
+                ),
               ),
             ],
           ),
@@ -105,7 +111,12 @@ class AnSidebarFooter extends StatelessWidget {
       children: [
         Expanded(child: workspace),
         const SizedBox(width: AnSpace.s2),
-        _Cell(icon: AnIcons.gear, label: settingsLabel, active: settingsActive, onTap: onSettings),
+        _Cell(
+          icon: AnIcons.gear,
+          label: settingsLabel,
+          active: settingsActive,
+          onTap: onSettings,
+        ),
         const SizedBox(width: AnSpace.s2),
         _Cell(
           icon: AnIcons.bell,
@@ -156,12 +167,19 @@ class _Cell extends StatelessWidget {
                   child: AnimatedContainer(
                     duration: reduced ? Duration.zero : AnMotion.fast,
                     decoration: BoxDecoration(
-                      color: (active ? c.surfaceActive : c.surfaceHover).whenActive(hot),
+                      color: (active ? c.surfaceActive : c.surfaceHover)
+                          .whenActive(hot),
                       borderRadius: BorderRadius.circular(AnRadius.button),
                     ),
                   ),
                 ),
-                Center(child: Icon(icon, size: AnSize.icon, color: hot ? c.ink : c.inkFaint)),
+                Center(
+                  child: Icon(
+                    icon,
+                    size: AnSize.icon,
+                    color: hot ? c.ink : c.inkFaint,
+                  ),
+                ),
                 if (badge)
                   Positioned(
                     top: AnSpace.s2,
@@ -172,7 +190,10 @@ class _Cell extends StatelessWidget {
                       decoration: BoxDecoration(
                         color: c.danger,
                         shape: BoxShape.circle,
-                        border: Border.all(color: c.surface, width: AnSize.ring),
+                        border: Border.all(
+                          color: c.surface,
+                          width: AnSize.ring,
+                        ),
                       ),
                     ),
                   ),

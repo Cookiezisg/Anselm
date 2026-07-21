@@ -31,11 +31,12 @@ class BackendState {
 
 /// Injectable child-process launcher (default [Process.start]) so the supervisor is testable
 /// against a fake process without a real binary. 可注入的子进程启动器(默认 Process.start),便于假进程测试。
-typedef ProcessLauncher = Future<Process> Function(
-  String executable,
-  List<String> arguments, {
-  Map<String, String>? environment,
-});
+typedef ProcessLauncher =
+    Future<Process> Function(
+      String executable,
+      List<String> arguments, {
+      Map<String, String>? environment,
+    });
 
 /// Owns the Go backend as a child process (the sidecar model, ADR 0004 §1) and SUPERVISES it:
 /// free-port pre-grab → spawn with env (incl. the per-launch loopback token) → health-gate →
@@ -45,7 +46,7 @@ typedef ProcessLauncher = Future<Process> Function(
 ///
 /// Resolution order:
 ///  1. `ANSELM_BACKEND_URL` — dev escape hatch: attach to an already-running backend
-///     (`make server`), spawn nothing; no per-launch token (the dev backend has none).
+///     (`make -C backend run`), spawn nothing; no per-launch token (the dev backend has none).
 ///  2. spawn the bundled binary: pre-grab a free loopback port, mint a random
 ///     `ANSELM_AUTH_TOKEN`, pass both via env, then poll `/api/v1/health` (WITH the token —
 ///     the backend requires it under loopback hardening) until 200.
@@ -69,19 +70,20 @@ class BackendController {
     Duration shutdownGrace = const Duration(seconds: 8),
     Random? random,
     this.masterKey,
-  })  : _probe = probe ?? Dio(),
-        _launch = launcher ??
-            ((exe, args, {environment}) =>
-                Process.start(exe, args, environment: environment)),
-        _externalUrl =
-            externalUrl ?? (() => Platform.environment['ANSELM_BACKEND_URL']),
-        _tokenGen = tokenGen ?? (() => _mintToken(random ?? Random.secure())),
-        _probeInterval = probeInterval,
-        _maxHealthAttempts = maxHealthAttempts,
-        _maxRestarts = maxRestarts,
-        _restartWindow = restartWindow,
-        _restartBackoffBase = restartBackoffBase,
-        _shutdownGrace = shutdownGrace;
+  }) : _probe = probe ?? Dio(),
+       _launch =
+           launcher ??
+           ((exe, args, {environment}) =>
+               Process.start(exe, args, environment: environment)),
+       _externalUrl =
+           externalUrl ?? (() => Platform.environment['ANSELM_BACKEND_URL']),
+       _tokenGen = tokenGen ?? (() => _mintToken(random ?? Random.secure())),
+       _probeInterval = probeInterval,
+       _maxHealthAttempts = maxHealthAttempts,
+       _maxRestarts = maxRestarts,
+       _restartWindow = restartWindow,
+       _restartBackoffBase = restartBackoffBase,
+       _shutdownGrace = shutdownGrace;
 
   /// Absolute path to the bundled `server` binary; null = resolve next to the app
   /// executable. Ignored when `ANSELM_BACKEND_URL` is set. 内置二进制绝对路径(null=app 旁解析)。
@@ -103,8 +105,9 @@ class BackendController {
   final Duration _restartBackoffBase;
   final Duration _shutdownGrace;
 
-  final state =
-      ValueNotifier<BackendState>(const BackendState(BackendPhase.starting));
+  final state = ValueNotifier<BackendState>(
+    const BackendState(BackendPhase.starting),
+  );
 
   Process? _child;
   bool _stopped = false;
@@ -123,7 +126,9 @@ class BackendController {
   /// 且 gate 首读再 start(),二者共用一次启动;崩溃态重入(Retry)。
   Future<void> start() {
     final inFlight = _startCall;
-    if (inFlight != null && state.value.phase != BackendPhase.crashed) return inFlight;
+    if (inFlight != null && state.value.phase != BackendPhase.crashed) {
+      return inFlight;
+    }
     return _startCall = _start();
   }
 
@@ -156,20 +161,26 @@ class BackendController {
     _baseUrl = await _spawn(_authToken!);
     final spawnedMs = sw.elapsedMilliseconds;
     await _awaitHealth(_baseUrl!, token: _authToken);
-    debugPrint('[startup] backend: spawn=${spawnedMs}ms '
-        'health-wait=${sw.elapsedMilliseconds - spawnedMs}ms total=${sw.elapsedMilliseconds}ms');
+    debugPrint(
+      '[startup] backend: spawn=${spawnedMs}ms '
+      'health-wait=${sw.elapsedMilliseconds - spawnedMs}ms total=${sw.elapsedMilliseconds}ms',
+    );
     _setReady();
     _watchExit(_child!);
   }
 
-  void _setReady() => state.value =
-      BackendState(BackendPhase.ready, baseUrl: _baseUrl, authToken: _authToken);
+  void _setReady() => state.value = BackendState(
+    BackendPhase.ready,
+    baseUrl: _baseUrl,
+    authToken: _authToken,
+  );
 
   Future<String> _spawn(String token) async {
     final exe = binaryPath ?? _defaultBinaryPath();
     if (!File(exe).existsSync()) {
       throw StateError(
-          'backend binary not found at $exe (set ANSELM_BACKEND_URL for dev)');
+        'backend binary not found at $exe (set ANSELM_BACKEND_URL for dev)',
+      );
     }
     // Bind :0 to claim a free loopback port, then release it for the child. The TOCTOU window
     // is tiny + local; a bind clash on launch is the (rare) retry signal.
@@ -194,7 +205,9 @@ class BackendController {
     // whether keychain access (vs the Go boot) is a bottleneck. 主密钥解析单独计时(ADR-0008 敏感步)。
     final mkSw = Stopwatch()..start();
     final mk = masterKey == null ? null : await masterKey!();
-    if (masterKey != null) debugPrint('[startup] masterKey resolve=${mkSw.elapsedMilliseconds}ms');
+    if (masterKey != null) {
+      debugPrint('[startup] masterKey resolve=${mkSw.elapsedMilliseconds}ms');
+    }
     if (mk != null && mk.isNotEmpty) env['ANSELM_MASTER_KEY'] = mk;
     final child = await _launch(exe, const [], environment: env);
     _child = child;
@@ -209,11 +222,13 @@ class BackendController {
   /// Watch for an UNEXPECTED child exit (not via [stop]) and restart with a bounded,
   /// circuit-broken backoff. 监视非 stop 的子进程退出,有界 + 熔断退避重启。
   void _watchExit(Process child) {
-    unawaited(child.exitCode.then((code) {
-      if (_stopped || !identical(_child, child)) return;
-      debugPrint('[backend] exited unexpectedly (code $code) — restarting');
-      unawaited(_restart(code));
-    }));
+    unawaited(
+      child.exitCode.then((code) {
+        if (_stopped || !identical(_child, child)) return;
+        debugPrint('[backend] exited unexpectedly (code $code) — restarting');
+        unawaited(_restart(code));
+      }),
+    );
   }
 
   Future<void> _restart(int code) async {
@@ -285,7 +300,8 @@ class BackendController {
 
   void dispose() {
     state.dispose();
-    _probe.close(); // close the health-probe Dio too, not just the state notifier 一并关探测 Dio
+    _probe
+        .close(); // close the health-probe Dio too, not just the state notifier 一并关探测 Dio
   }
 
   /// 32 random bytes, base64url — the per-launch loopback bearer token. 每次启动的 loopback token。

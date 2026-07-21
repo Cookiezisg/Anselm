@@ -23,7 +23,8 @@ abstract class HandlerEntity with _$HandlerEntity {
     @Default(<String>[]) List<String> missingConfig,
     String? runtimeState,
   }) = _HandlerEntity;
-  factory HandlerEntity.fromJson(Map<String, dynamic> json) => _$HandlerEntityFromJson(json);
+  factory HandlerEntity.fromJson(Map<String, dynamic> json) =>
+      _$HandlerEntityFromJson(json);
 }
 
 /// The masked config blob for one handler — `GET /handlers/{id}/config`. [config] carries the CURRENT
@@ -41,7 +42,8 @@ abstract class HandlerConfig with _$HandlerConfig {
     @Default(<String>[]) List<String> missingConfig,
     @Default(<InitArgSpec>[]) List<InitArgSpec> schema,
   }) = _HandlerConfig;
-  factory HandlerConfig.fromJson(Map<String, dynamic> json) => _$HandlerConfigFromJson(json);
+  factory HandlerConfig.fromJson(Map<String, dynamic> json) =>
+      _$HandlerConfigFromJson(json);
 }
 
 /// Handler version (append-only). Carries the class shape (imports/init/shutdown/methods/initArgsSchema)
@@ -68,7 +70,8 @@ abstract class HandlerVersion with _$HandlerVersion {
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _HandlerVersion;
-  factory HandlerVersion.fromJson(Map<String, dynamic> json) => _$HandlerVersionFromJson(json);
+  factory HandlerVersion.fromJson(Map<String, dynamic> json) =>
+      _$HandlerVersionFromJson(json);
 }
 
 /// One handler call log row (日志 tab; adds method + instanceId over the common execution shape; `logs`
@@ -98,5 +101,6 @@ abstract class HandlerCall with _$HandlerCall {
     int? flowrunIteration,
     required DateTime createdAt,
   }) = _HandlerCall;
-  factory HandlerCall.fromJson(Map<String, dynamic> json) => _$HandlerCallFromJson(json);
+  factory HandlerCall.fromJson(Map<String, dynamic> json) =>
+      _$HandlerCallFromJson(json);
 }

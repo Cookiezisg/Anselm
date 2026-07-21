@@ -11,7 +11,9 @@ import 'rail_model.dart';
 /// them in the explore state). An entity with no structural edge simply isn't a structural node.
 /// 观赏子图:只留结构边 equip/link + 其端点节点;溯源 create/edit 边 + 对话节点在此丢弃(每个实体拖脐带连出生
 /// 对话=毛线球放大器;探索态「显示溯源」再纳入)。无结构边的实体不是结构节点。
-({List<EntityNode> nodes, List<EntityRelation> edges}) structuralSubgraph(EntityRelGraph g) {
+({List<EntityNode> nodes, List<EntityRelation> edges}) structuralSubgraph(
+  EntityRelGraph g,
+) {
   final edges = [
     for (final e in g.edges)
       if (e.kind == 'equip' || e.kind == 'link') e,
@@ -48,13 +50,17 @@ class OverviewCounts {
 }
 
 OverviewCounts overviewCounts(List<RailGroup> groups) {
-  int of(EntityKind k) => groups.where((g) => g.kind == k).fold(0, (a, g) => a + g.count);
+  int of(EntityKind k) =>
+      groups.where((g) => g.kind == k).fold(0, (a, g) => a + g.count);
   return OverviewCounts(
     function: of(EntityKind.function),
     handler: of(EntityKind.handler),
     agent: of(EntityKind.agent),
     workflow: of(EntityKind.workflow),
-    accessory: of(EntityKind.trigger) + of(EntityKind.control) + of(EntityKind.approval),
+    accessory:
+        of(EntityKind.trigger) +
+        of(EntityKind.control) +
+        of(EntityKind.approval),
   );
 }
 
@@ -67,7 +73,11 @@ OverviewCounts overviewCounts(List<RailGroup> groups) {
 /// (outgoing link, e.g. a document's `[[id]]` wikilinks). Pure. 探索态右岛卡的关系分组:装备了(出 equip)/
 /// 被引用(入 equip+link)/链接(出 link)。
 class RelationGroups {
-  const RelationGroups({required this.equips, required this.referencedBy, required this.links});
+  const RelationGroups({
+    required this.equips,
+    required this.referencedBy,
+    required this.links,
+  });
 
   /// Outgoing `equip` — the entities this node mounts. 出向 equip(它挂载的)。
   final List<EntityRelation> equips;
@@ -81,13 +91,20 @@ class RelationGroups {
   bool get isEmpty => equips.isEmpty && referencedBy.isEmpty && links.isEmpty;
 }
 
-RelationGroups relationGroupsFor(String id, List<EntityRelation> edges) => RelationGroups(
-      equips: [for (final e in edges) if (e.fromId == id && e.kind == 'equip') e],
+RelationGroups relationGroupsFor(String id, List<EntityRelation> edges) =>
+    RelationGroups(
+      equips: [
+        for (final e in edges)
+          if (e.fromId == id && e.kind == 'equip') e,
+      ],
       referencedBy: [
         for (final e in edges)
           if (e.toId == id && (e.kind == 'equip' || e.kind == 'link')) e,
       ],
-      links: [for (final e in edges) if (e.fromId == id && e.kind == 'link') e],
+      links: [
+        for (final e in edges)
+          if (e.fromId == id && e.kind == 'link') e,
+      ],
     );
 
 /// The default RIPPLE FOCUS for the relationship graph (v2「涟漪焦点星图」): the most-recently-touched entity
@@ -98,15 +115,18 @@ RelationGroups relationGroupsFor(String id, List<EntityRelation> edges) => Relat
 /// the highest-degree node (the natural centre). Pure. 关系图默认涟漪焦点=最近碰过且在图上的实体 id;
 /// EntityNode 无时间戳→取 rail 已载行 updatedAt(与 rail recent 排序/总览最近更新同源),与图节点 id 交叉;
 /// rail 未载或无命中→null(原语回落入度最高)。
-String? mostRecentGraphNodeId(Iterable<EntityNode> nodes, List<RailGroup> groups) {
+String? mostRecentGraphNodeId(
+  Iterable<EntityNode> nodes,
+  List<RailGroup> groups,
+) {
   final ids = {for (final n in nodes) n.id};
   if (ids.isEmpty) return null;
-  final rows = [
-    for (final g in groups) ...(g.state.value?.rows ?? const <EntityRow>[]),
-  ]..sort((a, b) {
-      final c = b.updatedAt.compareTo(a.updatedAt);
-      return c != 0 ? c : a.name.compareTo(b.name);
-    });
+  final rows =
+      [for (final g in groups) ...(g.state.value?.rows ?? const <EntityRow>[])]
+        ..sort((a, b) {
+          final c = b.updatedAt.compareTo(a.updatedAt);
+          return c != 0 ? c : a.name.compareTo(b.name);
+        });
   for (final r in rows) {
     if (ids.contains(r.id)) return r.id;
   }

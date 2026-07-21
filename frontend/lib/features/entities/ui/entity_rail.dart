@@ -44,8 +44,8 @@ class _EntityRailState extends ConsumerState<EntityRail> {
   // Debounce keystrokes before hitting the server-side ?search (the provider re-pages from the top on
   // change; firing per key would storm the backend). 逐键防抖再打服务端 ?search(每键一请求会打爆后端)。
   void _onFilter(String v) => _debounce.run(() {
-        if (mounted) ref.read(entitySearchProvider.notifier).set(v);
-      });
+    if (mounted) ref.read(entitySearchProvider.notifier).set(v);
+  });
 
   // A kind section's tail fires with that kind's pageKey → page THAT kind's list (each kind is its own
   // keyset axis). 段尾携该 kind 的 pageKey → 翻该 kind 的列表(每 kind 独立 keyset 轴)。
@@ -94,12 +94,15 @@ class _EntityRailState extends ConsumerState<EntityRail> {
         // No entity selected → the fixed «总览» row is the active one (the ocean is showing the Overview
         // home). 无实体选中→总览行高亮(海洋正显总览主页)。
         selectedId: selected?.id ?? entitiesOverviewRowId,
-        showNew: false, // entity creation is a later phase; the rail is read+select only in 4.1
+        showNew:
+            false, // entity creation is a later phase; the rail is read+select only in 4.1
         menuEntries: _menu(t, sort, showCount),
         // Navigate to set selection — the route is the source of truth (STEP 6). 导航即设选区(路由为真相)。
         onSelect: (id) {
           if (id == entitiesOverviewRowId) {
-            context.go('/'); // the entities home = the Overview (no selection) 总览主页
+            context.go(
+              '/',
+            ); // the entities home = the Overview (no selection) 总览主页
             return;
           }
           final kind = kindForId(groups, id);
@@ -118,9 +121,21 @@ class _EntityRailState extends ConsumerState<EntityRail> {
     void pick(RailSort s) => ref.read(railSortProvider.notifier).set(s);
     return [
       AnMenuSection(t.entities.sortLabel),
-      AnMenuItem(label: t.entities.sortRecent, checked: sort == RailSort.recent, onTap: () => pick(RailSort.recent)),
-      AnMenuItem(label: t.entities.sortCreated, checked: sort == RailSort.created, onTap: () => pick(RailSort.created)),
-      AnMenuItem(label: t.entities.sortName, checked: sort == RailSort.name, onTap: () => pick(RailSort.name)),
+      AnMenuItem(
+        label: t.entities.sortRecent,
+        checked: sort == RailSort.recent,
+        onTap: () => pick(RailSort.recent),
+      ),
+      AnMenuItem(
+        label: t.entities.sortCreated,
+        checked: sort == RailSort.created,
+        onTap: () => pick(RailSort.created),
+      ),
+      AnMenuItem(
+        label: t.entities.sortName,
+        checked: sort == RailSort.name,
+        onTap: () => pick(RailSort.name),
+      ),
       AnMenuSection(t.entities.displayLabel),
       AnMenuItem(
         label: t.entities.showCount,

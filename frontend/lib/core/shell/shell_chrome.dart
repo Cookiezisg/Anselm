@@ -31,7 +31,11 @@ class ShellChrome {
   /// (全海洋一份——右岛是同一件 chrome;分海洋的只有收起轴)。
   final double rightWidth;
 
-  ShellChrome copyWith({bool? leftCollapsed, double? leftWidth, double? rightWidth}) => ShellChrome(
+  ShellChrome copyWith({
+    bool? leftCollapsed,
+    double? leftWidth,
+    double? rightWidth,
+  }) => ShellChrome(
     leftCollapsed: leftCollapsed ?? this.leftCollapsed,
     leftWidth: leftWidth ?? this.leftWidth,
     rightWidth: rightWidth ?? this.rightWidth,
@@ -49,9 +53,12 @@ class ShellChromeController extends Notifier<ShellChrome> {
     final rw = _prefs.getDouble(SettingsKeys.rightWidth);
     return ShellChrome(
       leftCollapsed: _prefs.getBool(SettingsKeys.sideCollapsed),
-      leftWidth: (w >= AnSize.sidebarMin && w <= AnSize.sidebarMax) ? w : AnSize.sidebar,
-      rightWidth:
-          (rw >= AnSize.rightIslandMin && rw <= AnSize.rightIslandMax) ? rw : AnSize.rightIsland,
+      leftWidth: (w >= AnSize.sidebarMin && w <= AnSize.sidebarMax)
+          ? w
+          : AnSize.sidebar,
+      rightWidth: (rw >= AnSize.rightIslandMin && rw <= AnSize.rightIslandMax)
+          ? rw
+          : AnSize.rightIsland,
     );
   }
 
@@ -113,7 +120,11 @@ class ShellHeadController extends Notifier<ShellHead> {
 
   void setCollapsed(bool collapsed) {
     if (state.collapsed == collapsed) return;
-    state = ShellHead(title: state.title, collapsed: collapsed, onTap: state.onTap);
+    state = ShellHead(
+      title: state.title,
+      collapsed: collapsed,
+      onTap: state.onTap,
+    );
   }
 
   void clear() => state = const ShellHead();

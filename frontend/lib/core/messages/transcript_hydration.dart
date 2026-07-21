@@ -48,7 +48,10 @@ Map<String, dynamic> _nodeContent(Map<String, dynamic> b, String type) {
 /// through a [BlockTreeReducer], reproduces the live tree: one Open (with the settled content) + one
 /// Close (final status) per block. A block missing an id gets a stable index-derived one (a top-level
 /// text block has none) so the reducer's `_byId` never collides. 存储转写 → 帧序。
-List<StreamEnvelope> hydrateTranscript(List<dynamic> blocks, {String scopeId = ''}) {
+List<StreamEnvelope> hydrateTranscript(
+  List<dynamic> blocks, {
+  String scopeId = '',
+}) {
   final scope = StreamScope(kind: 'conversation', id: scopeId);
   final out = <StreamEnvelope>[];
   var seq = 1;
@@ -60,17 +63,38 @@ List<StreamEnvelope> hydrateTranscript(List<dynamic> blocks, {String scopeId = '
     final parentId = block['parentBlockId'] as String?;
     final type = block['type'] as String? ?? '';
     final content = _nodeContent(block, type);
-    out.add(StreamEnvelope(seq: seq++, scope: scope, id: id,
-        frame: FrameOpen(parentId: parentId, node: StreamNode(type: type, content: content))));
-    final status = (block['status'] as String?)?.isNotEmpty == true ? block['status'] as String : 'completed';
-    out.add(StreamEnvelope(seq: seq++, scope: scope, id: id, frame: FrameClose(status: status, error: block['error'] as String?)));
+    out.add(
+      StreamEnvelope(
+        seq: seq++,
+        scope: scope,
+        id: id,
+        frame: FrameOpen(
+          parentId: parentId,
+          node: StreamNode(type: type, content: content),
+        ),
+      ),
+    );
+    final status = (block['status'] as String?)?.isNotEmpty == true
+        ? block['status'] as String
+        : 'completed';
+    out.add(
+      StreamEnvelope(
+        seq: seq++,
+        scope: scope,
+        id: id,
+        frame: FrameClose(status: status, error: block['error'] as String?),
+      ),
+    );
   }
   return out;
 }
 
 /// Hydrate a stored transcript straight into its nested [BlockNode] roots (the common case — a reader
 /// that wants the tree, not the frames). 直接水合成 BlockNode 树根。
-List<BlockNode> hydrateTranscriptTree(List<dynamic> blocks, {String scopeId = ''}) {
+List<BlockNode> hydrateTranscriptTree(
+  List<dynamic> blocks, {
+  String scopeId = '',
+}) {
   final reducer = BlockTreeReducer();
   for (final env in hydrateTranscript(blocks, scopeId: scopeId)) {
     reducer.apply(env);

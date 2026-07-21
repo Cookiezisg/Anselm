@@ -53,12 +53,21 @@ import 'stage_scene.dart';
 /// needs B6 reload-rehydration) · memory (backend `noTouch` → never produces a settled ledger row, so
 /// unreachable) · conversation (no bespoke stage). 有真身 provider + bespoke 舞台的 kind;其余各有原因留摘要。
 bool hasTruthStage(String kind) => const {
-      'function', 'handler', 'agent', 'workflow', 'control', 'approval', 'trigger', 'document',
-      'skill', 'mcp',
-    }.contains(kind);
+  'function',
+  'handler',
+  'agent',
+  'workflow',
+  'control',
+  'approval',
+  'trigger',
+  'document',
+  'skill',
+  'mcp',
+}.contains(kind);
 
 /// Watch the kind's truth snapshot (autoDispose family — a collapsed row frees the GET). 观该 kind 真身。
-AsyncValue<Object> _watchTruth(WidgetRef ref, String kind, String id) => switch (kind) {
+AsyncValue<Object> _watchTruth(WidgetRef ref, String kind, String id) =>
+    switch (kind) {
       'function' => ref.watch(functionTruthProvider(id)),
       'handler' => ref.watch(handlerTruthProvider(id)),
       'agent' => ref.watch(agentTruthProvider(id)),
@@ -99,7 +108,9 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
     case 'function':
       {
         final v = (truth as FunctionEntity).activeVersion;
-        if (v == null || v.code.isEmpty) return null; // no code → the summary, not a blank editor 空码降摘要
+        if (v == null || v.code.isEmpty) {
+          return null; // no code → the summary, not a blank editor 空码降摘要
+        }
         return {'code': v.code};
       }
     case 'workflow':
@@ -107,7 +118,9 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
         final v = (truth as WorkflowEntity).activeVersion;
         if (v == null) return null;
         final g = _graphOf(v);
-        if (g == null || g.nodes.isEmpty) return null; // empty graph → the summary, not a blank canvas 空图降摘要
+        if (g == null || g.nodes.isEmpty) {
+          return null; // empty graph → the summary, not a blank canvas 空图降摘要
+        }
         // graphFromWorkflowOps replays add_node / add_edge into the final graph — the settled canvas. Carry
         // each node's `input` CEL map so the 「最新判别式」drawer renders (the body reads node['input']).
         // 合成 add_node/add_edge → 静态整图;带 input CEL 让判别式抽屉可渲。
@@ -116,7 +129,12 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
             for (final n in g.nodes)
               {
                 'op': 'add_node',
-                'node': {'id': n.id, 'kind': n.kind.name, 'ref': n.ref, 'input': n.input},
+                'node': {
+                  'id': n.id,
+                  'kind': n.kind.name,
+                  'ref': n.ref,
+                  'input': n.input,
+                },
               },
             for (final e in g.edges)
               {
@@ -134,17 +152,22 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
     case 'control':
       {
         final v = (truth as ControlLogic).activeVersion;
-        if (v == null || v.branches.isEmpty) return null; // no branches → the summary 无分支降摘要
+        if (v == null || v.branches.isEmpty) {
+          return null; // no branches → the summary 无分支降摘要
+        }
         return {
           'branches': [
-            for (final b in v.branches) {'port': b.port, 'when': b.when, 'emit': b.emit},
+            for (final b in v.branches)
+              {'port': b.port, 'when': b.when, 'emit': b.emit},
           ],
         };
       }
     case 'approval':
       {
         final v = (truth as ApprovalForm).activeVersion;
-        if (v == null || v.template.isEmpty) return null; // no letter → the summary 无信笺降摘要
+        if (v == null || v.template.isEmpty) {
+          return null; // no letter → the summary 无信笺降摘要
+        }
         return {
           'template': v.template,
           'allowReason': v.allowReason,
@@ -155,12 +178,19 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
     case 'agent':
       {
         final v = (truth as AgentEntity).activeVersion;
-        if (v == null || (v.prompt.isEmpty && v.tools.isEmpty && v.knowledge.isEmpty)) return null; // 空降摘要
+        if (v == null ||
+            (v.prompt.isEmpty && v.tools.isEmpty && v.knowledge.isEmpty)) {
+          return null; // 空降摘要
+        }
         return {
           'prompt': v.prompt,
-          'tools': [for (final t in v.tools) {'ref': t.ref, 'name': t.name}],
+          'tools': [
+            for (final t in v.tools) {'ref': t.ref, 'name': t.name},
+          ],
           'knowledge': v.knowledge,
-          'modelOverride': v.modelOverride?.modelId, // project ModelRef → its id string, else the badge drops
+          'modelOverride': v
+              .modelOverride
+              ?.modelId, // project ModelRef → its id string, else the badge drops
         };
       }
     case 'handler':
@@ -176,10 +206,25 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
         final ops = <Map<String, Object?>>[
           if (v.initBody.isNotEmpty) {'op': 'set_init', 'initBody': v.initBody},
           for (final m in v.methods)
-            {'op': 'add_method', 'method': {'name': m.name, 'streaming': m.streaming, 'timeout': m.timeout, 'body': m.body}},
-          if (v.shutdownBody.isNotEmpty) {'op': 'set_shutdown', 'shutdownBody': v.shutdownBody},
+            {
+              'op': 'add_method',
+              'method': {
+                'name': m.name,
+                'streaming': m.streaming,
+                'timeout': m.timeout,
+                'body': m.body,
+              },
+            },
+          if (v.shutdownBody.isNotEmpty)
+            {'op': 'set_shutdown', 'shutdownBody': v.shutdownBody},
           if (v.initArgsSchema.isNotEmpty)
-            {'op': 'set_init_args_schema', 'schema': [for (final a in v.initArgsSchema) {'name': a.name, 'sensitive': a.sensitive}]},
+            {
+              'op': 'set_init_args_schema',
+              'schema': [
+                for (final a in v.initArgsSchema)
+                  {'name': a.name, 'sensitive': a.sensitive},
+              ],
+            },
         ];
         if (ops.isEmpty) return null; // nothing to show → the summary 无内容降摘要
         return {'ops': ops};
@@ -187,13 +232,19 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
     case 'document':
       {
         final doc = truth as DocumentNode;
-        if (doc.content.isEmpty) return null; // empty doc → the summary, not a blank prose curtain 空文降摘要
+        if (doc.content.isEmpty) {
+          return null; // empty doc → the summary, not a blank prose curtain 空文降摘要
+        }
         return {'id': doc.id, 'content': doc.content};
       }
     case 'trigger':
       {
         final trig = truth as TriggerEntity;
-        return {'triggerId': trig.id, 'kind': trig.kind.name, 'config': trig.config};
+        return {
+          'triggerId': trig.id,
+          'kind': trig.kind.name,
+          'config': trig.config,
+        };
       }
     case 'skill':
       {
@@ -208,7 +259,9 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
           'name': sk.name,
           'context': sk.context,
           'allowedTools': sk.frontmatter.allowedTools,
-          'arguments': sk.frontmatter.arguments, // the accepted args (the header's「可传什么」) 可传参数
+          'arguments': sk
+              .frontmatter
+              .arguments, // the accepted args (the header's「可传什么」) 可传参数
           'disableModelInvocation': sk.frontmatter.disableModelInvocation,
           'body': sk.body,
         };
@@ -218,7 +271,10 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
         final s = truth as McpServerStatus;
         // The tool shelf. Disconnected / cached-empty (no tools) → the summary, not a bare header. 无工具降摘要。
         if (s.tools.isEmpty) return null;
-        return {'name': s.name, 'tools': [for (final t in s.tools) t.name]};
+        return {
+          'name': s.name,
+          'tools': [for (final t in s.tools) t.name],
+        };
       }
     default:
       return null;
@@ -227,18 +283,18 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
 
 /// The subject's display name (the entity name, else the id). 主体显示名(实体名,兜底 id)。
 String _nameFromTruth(String kind, Object truth, String id) => switch (kind) {
-      'function' => (truth as FunctionEntity).name,
-      'workflow' => (truth as WorkflowEntity).name,
-      'control' => (truth as ControlLogic).name,
-      'approval' => (truth as ApprovalForm).name,
-      'agent' => (truth as AgentEntity).name,
-      'handler' => (truth as HandlerEntity).name,
-      'document' => (truth as DocumentNode).name,
-      'trigger' => (truth as TriggerEntity).name,
-      'skill' => (truth as Skill).name,
-      'mcp' => (truth as McpServerStatus).name,
-      _ => id,
-    };
+  'function' => (truth as FunctionEntity).name,
+  'workflow' => (truth as WorkflowEntity).name,
+  'control' => (truth as ControlLogic).name,
+  'approval' => (truth as ApprovalForm).name,
+  'agent' => (truth as AgentEntity).name,
+  'handler' => (truth as HandlerEntity).name,
+  'document' => (truth as DocumentNode).name,
+  'trigger' => (truth as TriggerEntity).name,
+  'skill' => (truth as Skill).name,
+  'mcp' => (truth as McpServerStatus).name,
+  _ => id,
+};
 
 /// Build a `live:false` [StageScene] that makes the [kind]'s bespoke body render the entity's current truth.
 /// PURE (no Ref / no async) so it unit-tests against a fixture DTO. Returns null when the truth has no
@@ -250,7 +306,9 @@ String _nameFromTruth(String kind, Object truth, String id) => switch (kind) {
 // every rebuild (the fresh node defeats the revision memo by design). Keyed on the truth object (a freezed
 // DTO = a valid Expando key) with a [rowId] guard (the same truth is only ever one row, but stay honest).
 // 按 truth 实例记忆化:真身是稳定 DTO,渲染重建不再重造节点/重编码/重解析 args;truth 变(重取)才新算。
-final _truthSceneCache = Expando<({String rowId, StageScene? scene})>('truthScene');
+final _truthSceneCache = Expando<({String rowId, StageScene? scene})>(
+  'truthScene',
+);
 
 StageScene? sceneFromTruth({
   required String kind,
@@ -270,10 +328,15 @@ StageScene? sceneFromTruth({
     // ONCE (fresh node, so the revision-memo can't hand back a stale projection). 复刻生产 recipe。
     final node = BlockNode(id: rowId, kind: BlockKind.toolCall)
       ..status = 'completed'
-      ..content = {'name': _nameFromTruth(kind, truth, id), 'arguments': jsonEncode(args)};
-    node.children.add(BlockNode(id: '${rowId}_r', kind: BlockKind.toolResult, parentId: rowId)
-      ..status = 'completed'
-      ..content = {'content': ''});
+      ..content = {
+        'name': _nameFromTruth(kind, truth, id),
+        'arguments': jsonEncode(args),
+      };
+    node.children.add(
+      BlockNode(id: '${rowId}_r', kind: BlockKind.toolResult, parentId: rowId)
+        ..status = 'completed'
+        ..content = {'content': ''},
+    );
     final state = ToolCardState.of(node);
     scene = StageScene(
       conversationId: conversationId,
@@ -344,12 +407,20 @@ class StageBodyFromTruth extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    Widget summary() =>
-        SettledBody(conversationId: conversationId, entity: fallback, tombstoned: fallback.tombstoned);
+    Widget summary() => SettledBody(
+      conversationId: conversationId,
+      entity: fallback,
+      tombstoned: fallback.tombstoned,
+    );
     return _watchTruth(ref, kind, id).when(
       data: (truth) {
         final scene = sceneFromTruth(
-            kind: kind, truth: truth, id: id, conversationId: conversationId, rowId: rowId);
+          kind: kind,
+          truth: truth,
+          id: id,
+          conversationId: conversationId,
+          rowId: rowId,
+        );
         final body = stageBodies[kind];
         if (scene == null || body == null) return summary();
         return body(context, scene);
@@ -364,7 +435,12 @@ class StageBodyFromTruth extends ConsumerWidget {
 /// the id, plus the two navigation actions. The fallback when a kind has no truth stage, is tombstoned, or
 /// its snapshot is still loading / failed. No GET on a tombstone. 落定触点摘要(动词史+id+双导航;墓碑不 GET)。
 class SettledBody extends ConsumerWidget {
-  const SettledBody({required this.conversationId, required this.entity, required this.tombstoned, super.key});
+  const SettledBody({
+    required this.conversationId,
+    required this.entity,
+    required this.tombstoned,
+    super.key,
+  });
 
   final String conversationId;
   final CastEntity entity;
@@ -375,47 +451,61 @@ class SettledBody extends ConsumerWidget {
     final c = context.colors;
     final t = Translations.of(context);
     final lastMessageId = entity.primary.lastMessageId;
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      AnKv(dense: true, rows: [
-        AnKvRow('id', entity.key, mono: true),
-        for (final r in entity.byVerb.values)
-          AnKvRow(
-            AnCastRow.verbWord(t, r.verb),
-            r.count > 1
-                ? '×${r.count} · ${AnCastRow.timeLabel(context, r.lastAt)}'
-                : AnCastRow.timeLabel(context, r.lastAt),
-          ),
-      ]),
-      if (tombstoned)
-        // 假想框律:红字墓碑句(裸文字)归假想框,左缘对齐上方 AnKv 键(X=8),不再顶格破相。The
-        // imaginary-frame law: the red tombstone line (bare text) joins the imaginary frame (X=8), landing
-        // on the AnKv key line above instead of顶格.
-        stageFramed(
-          Text(t.feedback.cast.tombstone, style: AnText.meta.copyWith(color: c.danger)),
-          top: AnSpace.s4,
-        ),
-      if (!tombstoned && (lastMessageId.isNotEmpty || hasPanelFor(entity.kind))) ...[
-        const SizedBox(height: AnSpace.s6),
-        Row(children: [
-          if (lastMessageId.isNotEmpty)
-            AnButton(
-              label: t.feedback.cast.jumpToScene,
-              icon: AnIcons.locate,
-              size: AnButtonSize.sm,
-              onPressed: () =>
-                  ref.read(transcriptJumpProvider(conversationId).notifier).request(lastMessageId),
-            ),
-          if (hasPanelFor(entity.kind)) ...[
-            const SizedBox(width: AnSpace.s6),
-            AnButton(
-              label: t.feedback.cast.goToEntity,
-              icon: AnIcons.open,
-              size: AnButtonSize.sm,
-              onPressed: () => toolNavTo(context, entity.kind, entity.key),
-            ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnKv(
+          dense: true,
+          rows: [
+            AnKvRow('id', entity.key, mono: true),
+            for (final r in entity.byVerb.values)
+              AnKvRow(
+                AnCastRow.verbWord(t, r.verb),
+                r.count > 1
+                    ? '×${r.count} · ${AnCastRow.timeLabel(context, r.lastAt)}'
+                    : AnCastRow.timeLabel(context, r.lastAt),
+              ),
           ],
-        ]),
+        ),
+        if (tombstoned)
+          // 假想框律:红字墓碑句(裸文字)归假想框,左缘对齐上方 AnKv 键(X=8),不再顶格破相。The
+          // imaginary-frame law: the red tombstone line (bare text) joins the imaginary frame (X=8), landing
+          // on the AnKv key line above instead of顶格.
+          stageFramed(
+            Text(
+              t.feedback.cast.tombstone,
+              style: AnText.meta.copyWith(color: c.danger),
+            ),
+            top: AnSpace.s4,
+          ),
+        if (!tombstoned &&
+            (lastMessageId.isNotEmpty || hasPanelFor(entity.kind))) ...[
+          const SizedBox(height: AnSpace.s6),
+          Row(
+            children: [
+              if (lastMessageId.isNotEmpty)
+                AnButton(
+                  label: t.feedback.cast.jumpToScene,
+                  icon: AnIcons.locate,
+                  size: AnButtonSize.sm,
+                  onPressed: () => ref
+                      .read(transcriptJumpProvider(conversationId).notifier)
+                      .request(lastMessageId),
+                ),
+              if (hasPanelFor(entity.kind)) ...[
+                const SizedBox(width: AnSpace.s6),
+                AnButton(
+                  label: t.feedback.cast.goToEntity,
+                  icon: AnIcons.open,
+                  size: AnButtonSize.sm,
+                  onPressed: () => toolNavTo(context, entity.kind, entity.key),
+                ),
+              ],
+            ],
+          ),
+        ],
       ],
-    ]);
+    );
   }
 }

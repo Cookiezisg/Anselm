@@ -57,13 +57,17 @@ Duration? _span(DateTime? from, DateTime? to) {
 NodeTiming nodeTiming(FlowrunNode n, {FlowrunActivityRow? activity}) {
   final parks = n.status == 'parked' || n.kind == NodeKind.approval.name;
   final execFrom = n.startedAt ?? activity?.startedAt;
-  final execTo = parks ? n.createdAt : (activity?.endedAt ?? n.completedAt ?? n.createdAt);
+  final execTo = parks
+      ? n.createdAt
+      : (activity?.endedAt ?? n.completedAt ?? n.createdAt);
   return NodeTiming(
     queue: _span(n.readyAt, n.startedAt),
     // Prefer the audit row's own elapsed (工单⑤ 真时长) — it is the execution's measurement, not our
     // subtraction of two engine stamps. 优先审计行自报耗时(⑤ 真时长):那是执行自己的测量,不是我们
     // 拿两个引擎戳相减。
-    exec: activity != null ? Duration(milliseconds: activity.elapsedMs) : _span(execFrom, execTo),
+    exec: activity != null
+        ? Duration(milliseconds: activity.elapsedMs)
+        : _span(execFrom, execTo),
     parked: parks ? _span(n.createdAt, n.completedAt) : null,
   );
 }
@@ -74,7 +78,10 @@ NodeTiming nodeTiming(FlowrunNode n, {FlowrunActivityRow? activity}) {
 /// executing», and the head shows the wall-clock total beside it regardless.
 /// run 的拆分=各行拆分之和(头与台账双数同源:头就是台账的合计)。并行分支会让和超过墙钟——那正是
 /// 「排队了多久 / 执行了多久」的诚实读法;墙钟总时长在头上另有其位。
-NodeTiming runTiming(List<FlowrunNode> nodes, List<FlowrunActivityRow> activity) {
+NodeTiming runTiming(
+  List<FlowrunNode> nodes,
+  List<FlowrunActivityRow> activity,
+) {
   final byKey = {for (final a in activity) '${a.nodeId}#${a.iteration}': a};
   Duration? queue, exec, parked;
   for (final n in nodes) {
@@ -160,12 +167,14 @@ List<NodeLedgerEntry> foldNodeLedger(
     // in the ledger (the ledger records what HAPPENED). 无行也无活前沿的图节点=从没跑过:它属于甘特的
     // 占位,不属于台账(台账记的是发生过的事)。
     if (rows.isEmpty && !inferred) continue;
-    entries.add(NodeLedgerEntry(
-      nodeId: id,
-      rows: rows,
-      latest: rows.isEmpty ? null : rows.last,
-      inferred: inferred,
-    ));
+    entries.add(
+      NodeLedgerEntry(
+        nodeId: id,
+        rows: rows,
+        latest: rows.isEmpty ? null : rows.last,
+        inferred: inferred,
+      ),
+    );
   }
 
   // Stable: Dart's sort is not, so pair with the graph-order index. 稳定排序(Dart sort 不稳定)。
@@ -186,7 +195,11 @@ List<NodeLedgerEntry> foldNodeLedger(
 /// 钉版图+已落定行合成出它(且仅在 run 头 running 时),故这是复用而非二次猜测;落定 run 恒空。
 Set<String> inferredRunningNodes(Graph graph, FlowrunComposite comp) {
   if (comp.flowrun.status != 'running') return const {};
-  final st = deriveRunState(graph, rows: comp.nodes, runStatus: comp.flowrun.status);
+  final st = deriveRunState(
+    graph,
+    rows: comp.nodes,
+    runStatus: comp.flowrun.status,
+  );
   return {
     for (final e in st.nodes.entries)
       if (e.value == GraphNodeRun.running) e.key,

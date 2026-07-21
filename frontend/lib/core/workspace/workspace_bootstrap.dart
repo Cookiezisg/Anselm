@@ -26,16 +26,25 @@ class WorkspaceBootstrap extends AsyncNotifier<String> {
     final page = await api.getPage('/api/v1/workspaces', Workspace.fromJson);
     final ws = page.items.isNotEmpty
         ? page.items.first
-        : await api.postEntity('/api/v1/workspaces', Workspace.fromJson, body: {
-            'name': t.coldStart.defaultWorkspace,
-            'language': LocaleSettings.currentLocale.languageTag,
-          });
+        : await api.postEntity(
+            '/api/v1/workspaces',
+            Workspace.fromJson,
+            body: {
+              'name': t.coldStart.defaultWorkspace,
+              'language': LocaleSettings.currentLocale.languageTag,
+            },
+          );
     // After the await — past the synchronous build, so setting another provider is safe. 过同步 build 后设。
     ref.read(activeWorkspaceProvider.notifier).set(ws.id);
-    ref.read(activeWorkspaceNameProvider.notifier).set(ws.name); // for the sidebar footer 供底栏显示
+    ref
+        .read(activeWorkspaceNameProvider.notifier)
+        .set(ws.name); // for the sidebar footer 供底栏显示
     return ws.id;
   }
 }
 
 final workspaceBootstrapProvider =
-    AsyncNotifierProvider<WorkspaceBootstrap, String>(WorkspaceBootstrap.new, retry: (_, _) => null);
+    AsyncNotifierProvider<WorkspaceBootstrap, String>(
+      WorkspaceBootstrap.new,
+      retry: (_, _) => null,
+    );

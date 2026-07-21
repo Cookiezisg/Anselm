@@ -20,7 +20,7 @@ landed-into:
 
 **动机**：0621 收官后又发生大量改动（rail 全套 / loopback / SSE Flusher / deepseek parts 坍缩 / touchpoint 全套）+ 历史探针几乎全是 agent 对话面，**纯 REST 契约面从未系统扫过**。目标覆盖率 ~99%，分母显式化于 [COVERAGE.md](COVERAGE.md)（WRK-052，645 场景单元，冻结时 64.3%）。
 
-**Phase 0（基线）✅**：touchpoint 提交为确定基线 → `make verify` + `make testend` 全量绿（两 flake 另 agent 已修、HEAD 复核绿；CrashRecovery 高负载偶发、单跑绿=flaky watch）→ COVERAGE 分母冻结（8 agent 扇出：api.md 全端点×契约维度 / domains 21 篇 / events / error-codes / ARCHIVE 已探格 / testend 已锁场景）。
+**Phase 0（基线）✅**：touchpoint 提交为确定基线 → `make verify` + `make -C backend testend` 全量绿（两 flake 另 agent 已修、HEAD 复核绿；CrashRecovery 高负载偶发、单跑绿=flaky watch）→ COVERAGE 分母冻结（8 agent 扇出：api.md 全端点×契约维度 / domains 21 篇 / events / error-codes / ARCHIVE 已探格 / testend 已锁场景）。
 
 **Phase 1（REST 契约全扫）✅**：7 批 Workflow 扇出，156+ unprobed 行落 testend `contract_*_test.go`（platform/entities/workflow/knowledge/docs_att/chat/support，~60 Test 函数、零 token），断言以 references 契约为准、不符即缺陷。**5 真缺陷修复（F176–F180）+ 2 文档订正 + 5 死掉-agent 测试 bug 甄别（零后端缺陷）**。详见下方 F176–F180 表行。
 
@@ -238,7 +238,7 @@ landed-into:
 
 ### 🆕 全量重测战役 Phase 6（2026-07-03）—— DOC-ALIGN 收账 + 战役总结
 
-**DOC-ALIGN**：6 只读审计 agent 核对 references vs 代码——**41 项 verified、6 处 drift**（database/domains/foundation 三面零 drift）。修：error-codes 汇总数过期（机械抽取 283→**295**、全量 301→**306**，独立 grep 复核 295 errorspkg.New 非测试 + 7 bare + 4 transport = 306，登记表逐条精确、仅汇总数陈旧）· CLAUDE.md N4 无界枚举漏 `api-keys`（实测 ParsePage 分页）· workflow.go kill() / chat.go ResolveInteraction() **函数注释陈旧**（写「返被杀数」「202」，实际返实体快照 / 204——api.md 本身正确，仅代码注释未随改）· architecture.md §7 前端 features 行 `⬜下一步`→`🚧进行中`（entities+chat 已落）。make docs 绿。
+**DOC-ALIGN**：6 只读审计 agent 核对 references vs 代码——**41 项 verified、6 处 drift**（database/domains/foundation 三面零 drift）。修：error-codes 汇总数过期（机械抽取 283→**295**、全量 301→**306**，独立 grep 复核 295 errorspkg.New 非测试 + 7 bare + 4 transport = 306，登记表逐条精确、仅汇总数陈旧）· CLAUDE.md N4 无界枚举漏 `api-keys`（实测 ParsePage 分页）· workflow.go kill() / chat.go ResolveInteraction() **函数注释陈旧**（写「返被杀数」「202」，实际返实体快照 / 204——api.md 本身正确，仅代码注释未随改）· architecture.md §7 前端 features 行 `⬜下一步`→`🚧进行中`（entities+chat 已落）。make -C docs verify 绿。
 
 **战役总结（2026-07-02～03，7 phase）**：分母 645 场景单元。**覆盖率 64.3%→97.8%**（unprobed 230→14，余为 E2/mcp agent 席变体[功能面已 locked] + F101 watch）。新增回归资产 ~90+ 测（~60 契约 + 13 中间件/cron + 7 协议 + 6 引擎/mega + Glob/Grep ctx + shutdown + WebFetch shell 等），绝大多数零 token。**修 10 真缺陷**：2 HIGH（F183 Glob 遍历无视 ctx 致回合永卡=F100/F152 长悬案真身；F184 WebFetch 编造 JS-shell 内容）+ 7 MED（F176/F177 严格解码、F178 交互枚举、F180 blob GC、F181 conversation 索引、F182 关停竞态、F185 WebFetch nudge）+ 1 LOW（F179 memory mtime）+ 4 文档订正。**元教训**：①「ground-truth 真、root-cause 常假」——3 个发现现象真但根因误判(GracefulShutdown 僵尸盲区 / attsub「LLM 流」实为 Glob / memory tmp 竞态)，靠更硬证据(ps / 活体 goroutine dump / 逐行读码)推翻；②对抗复核反转近半静态/lane finding(僵尸 / touchpoint「且成功」措辞致 2 次误读→doc 澄清非代码改 / 盲区猎手对并发·fsnotify 的已覆盖误判)；③每个 CONFIRMED 都主编排者独立读码/活体复验才动手，零盲信。
 

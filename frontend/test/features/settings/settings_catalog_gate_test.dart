@@ -17,21 +17,38 @@ void main() {
 
   test('① panels ↔ catalog: exactly one entry per enum value', () {
     final catalogPanels = settingsCatalog.map((e) => e.panel).toList();
-    expect(catalogPanels.toSet().length, catalogPanels.length, reason: 'no duplicate entries');
-    expect(catalogPanels.toSet(), SettingsPanel.values.toSet(),
-        reason: 'every panel registered — a new enum value must gain a catalog entry');
+    expect(
+      catalogPanels.toSet().length,
+      catalogPanels.length,
+      reason: 'no duplicate entries',
+    );
+    expect(
+      catalogPanels.toSet(),
+      SettingsPanel.values.toSet(),
+      reason:
+          'every panel registered — a new enum value must gain a catalog entry',
+    );
   });
 
   test('② declared keys ↔ owned ∪ implicit (exact partition)', () {
-    final owned = [for (final e in settingsCatalog) ...e.ownedKeys.map((k) => k.key)];
+    final owned = [
+      for (final e in settingsCatalog) ...e.ownedKeys.map((k) => k.key),
+    ];
     final implicit = settingsImplicitKeys.map((k) => k.key).toList();
     final union = [...owned, ...implicit];
-    expect(union.toSet().length, union.length,
-        reason: 'a key is owned by EXACTLY one bucket — overlap found 键归属唯一,发现重叠');
+    expect(
+      union.toSet().length,
+      union.length,
+      reason: 'a key is owned by EXACTLY one bucket — overlap found 键归属唯一,发现重叠',
+    );
     final declared = SettingsKeys.all.map((k) => k.key).toSet();
-    expect(union.toSet(), declared,
-        reason: 'declaration table == catalog registration — an unregistered (or ghost) key exists '
-            '声明表与目录登记不相等:有键漏登记或幽灵登记');
+    expect(
+      union.toSet(),
+      declared,
+      reason:
+          'declaration table == catalog registration — an unregistered (or ghost) key exists '
+          '声明表与目录登记不相等:有键漏登记或幽灵登记',
+    );
   });
 
   test('③ rail model ↔ catalog: same rows, same ids, three sections', () {
@@ -39,8 +56,11 @@ void main() {
     final types = model.groups.single.types;
     expect(types, hasLength(3), reason: '偏好/资源/系统 三段');
     final rowIds = [for (final ty in types) ...ty.rows.map((r) => r.id)];
-    expect(rowIds, settingsCatalog.map((e) => e.panel.name).toList(),
-        reason: 'directory order == catalog order, one row per panel');
+    expect(
+      rowIds,
+      settingsCatalog.map((e) => e.panel.name).toList(),
+      reason: 'directory order == catalog order, one row per panel',
+    );
     // Labels resolve non-empty in both locales (a missing i18n key renders raw). 双语标签非空。
     for (final ty in types) {
       for (final r in ty.rows) {

@@ -19,7 +19,11 @@ import '../../state/rel_graph_provider.dart';
 /// graph's data is EntityNode+EntityRow, not a tool-result blob. 探索态右岛卡:kind+名+vN+描述 + 关系分组
 /// (点行 fly-to)+ 打开详情;复用档案脸原语(AnRefPill/AnKv),非 JSON 形的 EntityGetBody 复合件。
 class GraphEntityCard extends ConsumerWidget {
-  const GraphEntityCard({required this.sel, required this.onOpenNode, super.key});
+  const GraphEntityCard({
+    required this.sel,
+    required this.onOpenNode,
+    super.key,
+  });
 
   final (String kind, String id)? sel;
 
@@ -34,8 +38,11 @@ class GraphEntityCard extends ConsumerWidget {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(AnSpace.s16),
-          child: Text(t.selectHint,
-              textAlign: TextAlign.center, style: AnText.body.copyWith(color: c.inkFaint)),
+          child: Text(
+            t.selectHint,
+            textAlign: TextAlign.center,
+            style: AnText.body.copyWith(color: c.inkFaint),
+          ),
         ),
       );
     }
@@ -57,31 +64,52 @@ class GraphEntityCard extends ConsumerWidget {
       padding: const EdgeInsets.only(top: AnSpace.s16, bottom: AnSpace.s24),
       children: [
         // Identity: kind glyph (kind-coloured) + name + vN. 身份:kind 字形(kind 色)+ 名 + vN。
-        Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-          Icon(AnIcons.entityKindGlyph(kind), size: AnSize.icon, color: entityKindColor(context, kind)),
-          const SizedBox(width: AnGap.inline),
-          Expanded(
-            child: Text(name,
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Icon(
+              AnIcons.entityKindGlyph(kind),
+              size: AnSize.icon,
+              color: entityKindColor(context, kind),
+            ),
+            const SizedBox(width: AnGap.inline),
+            Expanded(
+              child: Text(
+                name,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
-                style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-          ),
-          if (row?.version != null) ...[
-            const SizedBox(width: AnGap.inline),
-            AnChip('v${row!.version}', look: AnChipLook.outlined),
+                style: AnText.body
+                    .weight(AnText.emphasisWeight)
+                    .copyWith(color: c.ink),
+              ),
+            ),
+            if (row?.version != null) ...[
+              const SizedBox(width: AnGap.inline),
+              AnChip('v${row!.version}', look: AnChipLook.outlined),
+            ],
           ],
-        ]),
+        ),
         const SizedBox(height: AnSpace.s4),
-        Text('${entityKindWord(context, kind)} · $id',
-            style: AnText.meta.copyWith(color: c.inkFaint)),
+        Text(
+          '${entityKindWord(context, kind)} · $id',
+          style: AnText.meta.copyWith(color: c.inkFaint),
+        ),
         if ((row?.description ?? '').isNotEmpty) ...[
           const SizedBox(height: AnSpace.s12),
-          Text(row!.description, style: AnText.body.copyWith(color: c.inkMuted)),
+          Text(
+            row!.description,
+            style: AnText.body.copyWith(color: c.inkMuted),
+          ),
         ],
 
         // Relation groups. 关系分组。
         _group(context, t.groupEquips, groups.equips, outgoing: true),
-        _group(context, t.groupReferencedBy, groups.referencedBy, outgoing: false),
+        _group(
+          context,
+          t.groupReferencedBy,
+          groups.referencedBy,
+          outgoing: false,
+        ),
         _group(context, t.groupLinks, groups.links, outgoing: true),
         if (groups.isEmpty) ...[
           const SizedBox(height: AnSpace.s16),
@@ -104,29 +132,37 @@ class GraphEntityCard extends ConsumerWidget {
 
   /// One relation group: a heading + a wrap of tappable pills. [outgoing] picks the "other" endpoint —
   /// the `to` for equips/links, the `from` for referenced-by. Empty groups are omitted. 一组关系:标题 + 药丸墙。
-  Widget _group(BuildContext context, String heading, List<EntityRelation> edges, {required bool outgoing}) {
+  Widget _group(
+    BuildContext context,
+    String heading,
+    List<EntityRelation> edges, {
+    required bool outgoing,
+  }) {
     if (edges.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        AnGroupLabel(heading),
-        const SizedBox(height: AnGap.stackTight),
-        Wrap(
-          spacing: AnGap.inline,
-          runSpacing: AnGap.stackTight,
-          children: [
-            for (final e in edges)
-              AnRefPill(
-                kind: outgoing ? e.toKind : e.fromKind,
-                id: outgoing ? e.toId : e.fromId,
-                label: outgoing
-                    ? (e.toName.isEmpty ? e.toId : e.toName)
-                    : (e.fromName.isEmpty ? e.fromId : e.fromName),
-                onTap: (target) => onOpenNode(target.kind, target.id),
-              ),
-          ],
-        ),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnGroupLabel(heading),
+          const SizedBox(height: AnGap.stackTight),
+          Wrap(
+            spacing: AnGap.inline,
+            runSpacing: AnGap.stackTight,
+            children: [
+              for (final e in edges)
+                AnRefPill(
+                  kind: outgoing ? e.toKind : e.fromKind,
+                  id: outgoing ? e.toId : e.fromId,
+                  label: outgoing
+                      ? (e.toName.isEmpty ? e.toId : e.toName)
+                      : (e.fromName.isEmpty ? e.fromId : e.fromName),
+                  onTap: (target) => onOpenNode(target.kind, target.id),
+                ),
+            ],
+          ),
+        ],
+      ),
     );
   }
 }

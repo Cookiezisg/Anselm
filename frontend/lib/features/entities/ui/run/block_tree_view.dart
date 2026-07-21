@@ -100,7 +100,12 @@ class _BlockViewState extends State<BlockView> {
       labelStyle: AnText.meta.copyWith(color: dim ? c.inkFaint : c.inkMuted),
       open: _open,
       onToggle: () => setState(() => _open = !_open),
-      child: Text(body, style: AnText.value(mono: true).copyWith(color: dim ? c.inkMuted : c.ink)),
+      child: Text(
+        body,
+        style: AnText.value(
+          mono: true,
+        ).copyWith(color: dim ? c.inkMuted : c.ink),
+      ),
     );
   }
 
@@ -117,11 +122,19 @@ class _BlockViewState extends State<BlockView> {
           icon: AnIcons.tool,
           labelStyle: AnText.value(mono: true).copyWith(color: c.ink),
           trailing: showDanger
-              ? AnChip(_dangerLabel(t, danger), tone: danger == Danger.dangerous ? AnTone.danger : AnTone.warn)
+              ? AnChip(
+                  _dangerLabel(t, danger),
+                  tone: danger == Danger.dangerous
+                      ? AnTone.danger
+                      : AnTone.warn,
+                )
               : null,
           open: _open,
           onToggle: () => setState(() => _open = !_open),
-          child: Text(n.argumentsText, style: AnText.value(mono: true).copyWith(color: c.inkMuted)),
+          child: Text(
+            n.argumentsText,
+            style: AnText.value(mono: true).copyWith(color: c.inkMuted),
+          ),
         ),
         // children (tool_result / progress) always shown, indented under the call. 子节点常显、缩进。
         if (n.children.isNotEmpty)

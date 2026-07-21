@@ -9,11 +9,21 @@ import '../../../i18n/strings.g.dart';
 /// 导航集。枚举名即持久化/路由键。
 enum SettingsPanel {
   // 偏好 preferences
-  general, notifications, chat,
+  general,
+  notifications,
+  chat,
   // 资源 resources
-  modelsKeys, mcp, memory, sandbox, workspaces,
+  modelsKeys,
+  mcp,
+  memory,
+  sandbox,
+  workspaces,
   // 系统 system
-  storage, limits, network, shortcuts, about,
+  storage,
+  limits,
+  network,
+  shortcuts,
+  about,
 }
 
 /// The three directory sections. 目录三段。
@@ -49,10 +59,16 @@ final List<SettingsCatalogEntry> settingsCatalog = [
     labelOf: (t) => t.settings.panels.general,
     icon: AnIcons.gear,
     ownedKeys: const [
-      SettingsKeys.theme, SettingsKeys.locale, SettingsKeys.windowZoom,
-      SettingsKeys.windowRemember, SettingsKeys.windowBounds,
-      SettingsKeys.launchAtStartup, SettingsKeys.updateCheck,
-      SettingsKeys.fontUi, SettingsKeys.fontContent, SettingsKeys.fontCode,
+      SettingsKeys.theme,
+      SettingsKeys.locale,
+      SettingsKeys.windowZoom,
+      SettingsKeys.windowRemember,
+      SettingsKeys.windowBounds,
+      SettingsKeys.launchAtStartup,
+      SettingsKeys.updateCheck,
+      SettingsKeys.fontUi,
+      SettingsKeys.fontContent,
+      SettingsKeys.fontCode,
     ],
   ),
   SettingsCatalogEntry(
@@ -60,7 +76,14 @@ final List<SettingsCatalogEntry> settingsCatalog = [
     section: SettingsSection.prefs,
     labelOf: (t) => t.settings.panels.notifications,
     icon: AnIcons.bell,
-    ownedKeys: const [SettingsKeys.notifyLevel, SettingsKeys.notifyOs, SettingsKeys.notifyToast, SettingsKeys.capsuleFailures, SettingsKeys.capsuleApprovals, SettingsKeys.capsuleAttention],
+    ownedKeys: const [
+      SettingsKeys.notifyLevel,
+      SettingsKeys.notifyOs,
+      SettingsKeys.notifyToast,
+      SettingsKeys.capsuleFailures,
+      SettingsKeys.capsuleApprovals,
+      SettingsKeys.capsuleAttention,
+    ],
   ),
   SettingsCatalogEntry(
     panel: SettingsPanel.chat,
@@ -136,7 +159,12 @@ final List<SettingsCatalogEntry> settingsCatalog = [
 /// memory, chat-rail ⚙ toggles) — the gate's second bucket. Every [SettingsKeys.all] member must be
 /// in exactly one panel's ownedKeys or here. 面板外的隐式偏好(壳/海洋记忆/chat rail 开关)——门禁第二桶。
 const List<SettingsKey<dynamic>> settingsImplicitKeys = [
-  SettingsKeys.sideCollapsed, SettingsKeys.sideWidth, SettingsKeys.rightWidth,
-  SettingsKeys.ocean, SettingsKeys.settingsPanel,
-  SettingsKeys.chatShowArchived, SettingsKeys.chatShowGroupCount, SettingsKeys.chatShowTime,
+  SettingsKeys.sideCollapsed,
+  SettingsKeys.sideWidth,
+  SettingsKeys.rightWidth,
+  SettingsKeys.ocean,
+  SettingsKeys.settingsPanel,
+  SettingsKeys.chatShowArchived,
+  SettingsKeys.chatShowGroupCount,
+  SettingsKeys.chatShowTime,
 ];

@@ -23,7 +23,13 @@ enum RunStatusFilter { all, running, failed, waiting }
 /// 组合一次 (状态,来源,范围) 的过滤集——表与失败计数探针共用同一文法,计数与行不可能不一致;时间界来自
 /// **页级** AnTimeRange(0717 拍板:一颗胶囊治矩阵+大表),每次调用对新鲜 now 现解析——预设恒为活表达式;
 /// 「等人」发 status=running(取回后与 inbox 交集);「全部」不发 status。
-({String? status, String? origin, DateTime? startedAfter, DateTime? startedBefore}) runListFilter({
+({
+  String? status,
+  String? origin,
+  DateTime? startedAfter,
+  DateTime? startedBefore,
+})
+runListFilter({
   required RunStatusFilter filter,
   String? origin,
   required AnTimeRange range,
@@ -54,8 +60,12 @@ enum RunStatusFilter { all, running, failed, waiting }
       switch (preset) {
         case AnTimePreset.today:
           return (
-            since: DateTime(now.year, now.month, now.day).toUtc().toIso8601String(),
-            until: null
+            since: DateTime(
+              now.year,
+              now.month,
+              now.day,
+            ).toUtc().toIso8601String(),
+            until: null,
           );
         case AnTimePreset.h24:
           return (since: '24h', until: null);
@@ -80,8 +90,10 @@ enum RunStatusFilter { all, running, failed, waiting }
 /// 行短语的时刻词:当天 HH:mm,跨天 M/D HH:mm。
 String fmtDayTime(DateTime t, DateTime now) {
   final l = t.toLocal();
-  final hm = '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
-  final sameDay = l.year == now.year && l.month == now.month && l.day == now.day;
+  final hm =
+      '${l.hour.toString().padLeft(2, '0')}:${l.minute.toString().padLeft(2, '0')}';
+  final sameDay =
+      l.year == now.year && l.month == now.month && l.day == now.day;
   return sameDay ? hm : '${l.month}/${l.day} $hm';
 }
 
@@ -117,11 +129,15 @@ RunSource runSourceOf(Flowrun run, Map<String, TriggerEntity> triggersById) {
       // The §4 mock's «cron · 09:00» — this RUN's fire time-of-day, from its own start stamp.
       // cron 摘要=本次 run 的当日时刻(取自它自己的 startedAt)。
       return RunSource(
-          origin: 'cron', detail: run.startedAt != null ? _hhmm(run.startedAt!) : null);
+        origin: 'cron',
+        detail: run.startedAt != null ? _hhmm(run.startedAt!) : null,
+      );
     case 'webhook':
       final path = trigger?.config['path'];
       return RunSource(
-          origin: 'webhook', detail: path is String && path.isNotEmpty ? path : trigger?.name);
+        origin: 'webhook',
+        detail: path is String && path.isNotEmpty ? path : trigger?.name,
+      );
     case 'fsnotify' || 'sensor':
       return RunSource(origin: run.origin, detail: trigger?.name);
     default:
@@ -134,11 +150,15 @@ RunSource runSourceOf(Flowrun run, Map<String, TriggerEntity> triggersById) {
 /// «等人» filter's membership set AND the count strip's waiting number (same rows the Overview zone
 /// and the rail badge count, so the three surfaces can never disagree).
 /// 本 workflow 的等人 run id 去重集(保序)——等人过滤的成员集与计数条的等人数同源。
-List<String> waitingRunIds(Iterable<SchedulerInboxRow> inbox, String workflowId) {
+List<String> waitingRunIds(
+  Iterable<SchedulerInboxRow> inbox,
+  String workflowId,
+) {
   final seen = <String>{};
   return [
     for (final r in inbox)
-      if (r.workflowId == workflowId && seen.add(r.node.flowrunId)) r.node.flowrunId,
+      if (r.workflowId == workflowId && seen.add(r.node.flowrunId))
+        r.node.flowrunId,
   ];
 }
 

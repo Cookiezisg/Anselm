@@ -24,11 +24,11 @@ landed-into:
 - **批 4 · 画廊补全**（五电池 specimen + 登记缺口）— ✅ 新建 `features/reference/catalog-stress.js`：4 压力类目（控件/容器/数据/执行）共 **178 specimen**，每件覆盖 空/超长/海量/极值注入 + 登记缺口变体（button outline · row emphatic/mono · right-island headless · action-group footer · kind-legend divided）。4 agent 并行读真 API 生成 + 主控拼装（修 exec 组 string-attrs→对象）。**压力床逮到 4 个真 bug**：tabs `.strip` 40 tab 撑破页→`overflow-x:auto`+tab `flex:none`；action-group 24 钮撑破→`flex-wrap:wrap`+`max-width:100%`；button 超长 label 溢出→`.lbl` 省略号+inner `max-width:100%`（仅受限宽时截断、行内钮不变）；pill 族(badge/tags/ref-pill) `max-width:var(--w-block)`>窄容器→`min(--w-block,100%)`。全 12 类目 Playwright：0 console 错 / 0 页面溢出 / 0 回归。命令式(model-picker/graph-run/doc-editor 注入)转批 5 harness。
 - **批 5 · P2 毛刺 + Playwright 全矩阵 + 对抗复审**— ✅
   - **P2 毛刺**：6 真修（info-card title+meta 挤压 · status-dot/badge 枚举 case 归一 · field/kv select 重入+null 崩 · code-editor wrap 行号 · version-diff LCS cap），3 审计误报正确不动（ocean-header/mention/del 行号）。
-  - **全矩阵 harness `make demo-test`**：新建 tools/matrix.mjs，自起隔离端口、遍历全 12 类目 385 specimen 5 道断言（console 错/页溢出/**格内盒溢出**/XSS 逃逸[on*·script·srcdoc·js-url]/已渲染）+ app/settings/onboarding 活页冒烟 + disabled/dialog 专项；package.json(playwright dev-only)+Makefile demo-test。
+  - **全矩阵 harness `make -C frontend demo-test`**：新建 tools/matrix.mjs，自起隔离端口、遍历全 12 类目 385 specimen 5 道断言（console 错/页溢出/**格内盒溢出**/XSS 逃逸[on*·script·srcdoc·js-url]/已渲染）+ app/settings/onboarding 活页冒烟 + disabled/dialog 专项；package.json(playwright dev-only)+Makefile demo-test。
   - **对抗复审**：4 独立视角(健壮性再攻/内化纪律/harness 可信度/一致性)实证挖出 18 finding，修真者修 12+：**node-gantt 语义反转(失败→绿)** · run-board/callout/ref-pill/graph-canvas 枚举 case(全走 state-model anState) · AnFloating 监听泄漏 + AnDialog 遮罩堆叠(同帧重 open) · stepper count 封顶 · field churn 泄漏 · **settings 全页手搓下拉→an-dropdown variant=ghost(消 HIGH 造轮子)** · onboarding 英雄 logo→brand-icon elevated · harness 自身盲点(格内溢出漏检/SCROLLABLE 死代码/XSS 正则过窄/活页未覆盖)全补。误报(empty-state 三标准/graph 第三表)记录不强改。
-  - 验证：lint EXIT 0 · 强化版 make demo-test 全绿(385 specimen / 0 console 错 / 0 页溢出 / 0 格内溢 / 0 越界 / 0 XSS / 活页冒烟过 / disabled+dialog 守住) · 各 finding agent 逐个 playwright/CDP 复现前后对比。
+  - 验证：lint EXIT 0 · 强化版 make -C frontend demo-test 全绿(385 specimen / 0 console 错 / 0 页溢出 / 0 格内溢 / 0 越界 / 0 XSS / 活页冒烟过 / disabled+dialog 守住) · 各 finding agent 逐个 playwright/CDP 复现前后对比。
 
-**收尾**：5 批全完成。demo 组件库已达「模块化在册 + 任意填充不破 + 画廊全覆盖 + make demo-test 逐件机器断言」，可据此直接推 web 端。
+**收尾**：5 批全完成。demo 组件库已达「模块化在册 + 任意填充不破 + 画廊全覆盖 + make -C frontend demo-test 逐件机器断言」，可据此直接推 web 端。
 
 ## 批 1 — P0 真破洞（破，必先修）
 
@@ -70,7 +70,7 @@ landed-into:
 
 P2 毛刺（节选）：code-editor wrap 行号错位 · version-diff 删行号空白+LCS 无上限 · graph-canvas 拖拽全量重绘 · info-card title 无截断 · toolbar 长 meta 挤 title · field/kv select 重入叠 dropdown · status-dot/badge 大小写敏感 · mention caret 非 text 节点。
 
-Playwright harness（独立 `make demo-test`、不入 fe-verify）：驱 reference.html，(a) 五电池矩阵每态 4 通用断言（无 console 错/无横向溢出/无塌陷/截断正确）(b) 命令式专项（XSS 注入断言 `window.__xss===undefined`+shadow 无 img · disabled 键盘 · 越界 pct · 大 JSON 性能+环 · 态丢失 · 命令驱动 · 滚动契约）。
+Playwright harness（独立 `make -C frontend demo-test`、不入 fe-verify）：驱 reference.html，(a) 五电池矩阵每态 4 通用断言（无 console 错/无横向溢出/无塌陷/截断正确）(b) 命令式专项（XSS 注入断言 `window.__xss===undefined`+shadow 无 img · disabled 键盘 · 越界 pct · 大 JSON 性能+环 · 态丢失 · 命令驱动 · 滚动契约）。
 
 ## 勘误（审计自纠，执行勿误修）
 - **outline `set active` 实际写 `_active`、active 高亮正常**——该路「setter 不写」断言不成立。outline 真问题只 null 元素崩 + l1/l4 越界无样式。

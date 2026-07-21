@@ -45,7 +45,9 @@ class RundownController extends Notifier<Map<String, ConversationTodos>> {
       if (main.todos.isNotEmpty || state.containsKey('')) {
         state = {...state, '': main};
       }
-    } catch (_) {/* hydration is best-effort — signals still flow 水化尽力,信号仍流 */}
+    } catch (_) {
+      /* hydration is best-effort — signals still flow 水化尽力,信号仍流 */
+    }
   }
 
   void _onFrame(StreamEnvelope env) {
@@ -62,4 +64,6 @@ class RundownController extends Notifier<Map<String, ConversationTodos>> {
 
 /// All boards of one conversation, keyed by subagentId ("" = main). 会话全部清单(空键=主)。
 final rundownProvider = NotifierProvider.autoDispose
-    .family<RundownController, Map<String, ConversationTodos>, String>(RundownController.new);
+    .family<RundownController, Map<String, ConversationTodos>, String>(
+      RundownController.new,
+    );

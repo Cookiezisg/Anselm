@@ -27,17 +27,22 @@ class ControlOverview extends StatelessWidget {
           (d.kv.activeVersion, 'v${v.version}'),
           (d.kv.updated, fmtTime(control.updatedAt)),
         ]),
-        AnSection(label: d.sec.input, variant: AnSectionVariant.plain, children: [
-          fieldList(v.inputs, emptyTitle: d.val.none),
-        ]),
-        AnSection(label: d.sec.branches, variant: AnSectionVariant.plain, children: [
-          if (v.branches.isEmpty)
-            insetEmpty(d.val.none)
-          else
-            for (final b in v.branches) ControlBranchRow(branch: b),
-        ]),
+        AnSection(
+          label: d.sec.input,
+          variant: AnSectionVariant.plain,
+          children: [fieldList(v.inputs, emptyTitle: d.val.none)],
+        ),
+        AnSection(
+          label: d.sec.branches,
+          variant: AnSectionVariant.plain,
+          children: [
+            if (v.branches.isEmpty)
+              insetEmpty(d.val.none)
+            else
+              for (final b in v.branches) ControlBranchRow(branch: b),
+          ],
+        ),
       ],
     );
   }
-
 }

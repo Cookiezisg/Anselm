@@ -88,18 +88,22 @@ class AnNodeGantt extends StatelessWidget {
     // The now-line spans every track at the SAME fraction — one overlay above the rows, aligned to
     // the shared track geometry (the lane is a fixed width, so the overlay can reproduce it without
     // measuring each row). now 线跨全轨同一分数:一层覆层贴共享轨几何(车道定宽,覆层无需逐行测)。
-    return Stack(children: [
-      body,
-      Positioned.fill(
-        child: IgnorePointer(
-          child: Padding(
-            padding: const EdgeInsets.only(
-                left: AnSize.ganttLaneW + AnSpace.s12 + AnSpace.s8, right: AnSpace.s8),
-            child: _NowLine(at: chart!.nowAt!),
+    return Stack(
+      children: [
+        body,
+        Positioned.fill(
+          child: IgnorePointer(
+            child: Padding(
+              padding: const EdgeInsets.only(
+                left: AnSize.ganttLaneW + AnSpace.s12 + AnSpace.s8,
+                right: AnSpace.s8,
+              ),
+              child: _NowLine(at: chart!.nowAt!),
+            ),
           ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 
   // The time-scale eyebrow: the axis start on the left, the end on the right, with the span in the
@@ -112,21 +116,26 @@ class AnNodeGantt extends StatelessWidget {
     final style = AnText.metaTabular().copyWith(color: c.inkFaint);
     return Padding(
       padding: const EdgeInsets.only(
-          left: AnSize.ganttLaneW + AnSpace.s12 + AnSpace.s8,
-          right: AnSpace.s8,
-          bottom: AnSpace.s4),
-      child: Row(children: [
-        Text(fmtClock(ch.start), style: style),
-        Expanded(
-          child: Center(
-            child: Text(
-              ch.start != null && ch.end != null ? fmtDuration(ch.end!.difference(ch.start!)) : '',
-              style: style,
+        left: AnSize.ganttLaneW + AnSpace.s12 + AnSpace.s8,
+        right: AnSpace.s8,
+        bottom: AnSpace.s4,
+      ),
+      child: Row(
+        children: [
+          Text(fmtClock(ch.start), style: style),
+          Expanded(
+            child: Center(
+              child: Text(
+                ch.start != null && ch.end != null
+                    ? fmtDuration(ch.end!.difference(ch.start!))
+                    : '',
+                style: style,
+              ),
             ),
           ),
-        ),
-        Text(fmtClock(ch.end), style: style),
-      ]),
+          Text(fmtClock(ch.end), style: style),
+        ],
+      ),
     );
   }
 
@@ -141,28 +150,40 @@ class AnNodeGantt extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
         child: SizedBox(
           height: AnSize.row,
-          child: Row(children: [
-            SizedBox(
-              width: AnSize.ganttLaneW,
-              child: Row(children: [
-                Icon(AnIcons.node(r.kind.name), size: AnSize.iconSm, color: c.inkFaint),
-                const SizedBox(width: AnSpace.s6),
-                Flexible(
-                  child: Text(r.nodeId,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: AnText.code.copyWith(color: c.inkMuted)),
+          child: Row(
+            children: [
+              SizedBox(
+                width: AnSize.ganttLaneW,
+                child: Row(
+                  children: [
+                    Icon(
+                      AnIcons.node(r.kind.name),
+                      size: AnSize.iconSm,
+                      color: c.inkFaint,
+                    ),
+                    const SizedBox(width: AnSpace.s6),
+                    Flexible(
+                      child: Text(
+                        r.nodeId,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: AnText.code.copyWith(color: c.inkMuted),
+                      ),
+                    ),
+                    if (r.iterations > 1) ...[
+                      const SizedBox(width: AnSpace.s6),
+                      Text(
+                        '×${r.iterations}',
+                        style: AnText.metaTabular().copyWith(color: c.accent),
+                      ),
+                    ],
+                  ],
                 ),
-                if (r.iterations > 1) ...[
-                  const SizedBox(width: AnSpace.s6),
-                  Text('×${r.iterations}',
-                      style: AnText.metaTabular().copyWith(color: c.accent)),
-                ],
-              ]),
-            ),
-            const SizedBox(width: AnSpace.s12),
-            Expanded(child: _track(context, r)),
-          ]),
+              ),
+              const SizedBox(width: AnSpace.s12),
+              Expanded(child: _track(context, r)),
+            ],
+          ),
         ),
       ),
     );
@@ -174,106 +195,141 @@ class AnNodeGantt extends StatelessWidget {
     final c = context.colors;
     return SizedBox(
       height: AnSize.controlSm,
-      child: LayoutBuilder(builder: (context, cst) {
-        final w = cst.maxWidth;
-        // The min visible width can't exceed the track (a track narrower than s4 would make
-        // clamp(s4, w) throw: lowerLimit > upperLimit — a hard ArgumentError, not just an overflow).
-        // 最小可见宽不得超过轨宽(否则 clamp 下限>上限抛 ArgumentError、非仅溢出)。
-        final minBar = w < AnSpace.s4 ? w : AnSpace.s4;
-        Widget part(double at, double width,
-                {required Color fill, Color? border, Widget? child}) =>
-            Positioned(
-              left: (at * w).clamp(0.0, w),
-              top: 0,
-              bottom: 0,
-              width: (width * w).clamp(minBar, w),
-              child: Container(
-                alignment: Alignment.centerLeft,
-                decoration: BoxDecoration(
-                  color: fill,
-                  borderRadius: BorderRadius.circular(AnRadius.tag),
-                  border: border == null ? null : Border.all(color: border, width: AnSize.hairline),
+      child: LayoutBuilder(
+        builder: (context, cst) {
+          final w = cst.maxWidth;
+          // The min visible width can't exceed the track (a track narrower than s4 would make
+          // clamp(s4, w) throw: lowerLimit > upperLimit — a hard ArgumentError, not just an overflow).
+          // 最小可见宽不得超过轨宽(否则 clamp 下限>上限抛 ArgumentError、非仅溢出)。
+          final minBar = w < AnSpace.s4 ? w : AnSpace.s4;
+          Widget part(
+            double at,
+            double width, {
+            required Color fill,
+            Color? border,
+            Widget? child,
+          }) => Positioned(
+            left: (at * w).clamp(0.0, w),
+            top: 0,
+            bottom: 0,
+            width: (width * w).clamp(minBar, w),
+            child: Container(
+              alignment: Alignment.centerLeft,
+              decoration: BoxDecoration(
+                color: fill,
+                borderRadius: BorderRadius.circular(AnRadius.tag),
+                border: border == null
+                    ? null
+                    : Border.all(color: border, width: AnSize.hairline),
+              ),
+              child: child,
+            ),
+          );
+
+          if (r.segments.isEmpty) {
+            return Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                r.inferred ? inferredLabel : notRunLabel,
+                style: AnText.meta.copyWith(
+                  color: r.inferred ? c.accent : c.inkFaint,
                 ),
-                child: child,
               ),
             );
+          }
 
-        if (r.segments.isEmpty) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: Text(r.inferred ? inferredLabel : notRunLabel,
-                style: AnText.meta.copyWith(color: r.inferred ? c.accent : c.inkFaint)),
-          );
-        }
-
-        // The speculative front (§5.5): a soft accent bar that claims a POSITION, not a duration —
-        // it carries the «推测执行中» word inside so the bar can never be read as measured fact.
-        // 推测前沿:柔和 accent 条,只声称位置不声称时长——词就写在条里,读不成实测事实。
-        if (r.inferred) {
-          final seg = r.segments.first;
-          return Stack(children: [
-            part(seg.at, seg.w,
-                fill: c.accentSoft,
-                border: c.accent,
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
-                  child: Text(inferredLabel,
+          // The speculative front (§5.5): a soft accent bar that claims a POSITION, not a duration —
+          // it carries the «推测执行中» word inside so the bar can never be read as measured fact.
+          // 推测前沿:柔和 accent 条,只声称位置不声称时长——词就写在条里,读不成实测事实。
+          if (r.inferred) {
+            final seg = r.segments.first;
+            return Stack(
+              children: [
+                part(
+                  seg.at,
+                  seg.w,
+                  fill: c.accentSoft,
+                  border: c.accent,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
+                    child: Text(
+                      inferredLabel,
                       maxLines: 1,
                       overflow: TextOverflow.clip,
-                      style: AnText.meta.copyWith(color: c.accent)),
-                )),
-          ]);
-        }
+                      style: AnText.meta.copyWith(color: c.accent),
+                    ),
+                  ),
+                ),
+              ],
+            );
+          }
 
-        final fill = _barColor(context, r.status);
-        final bars = <Widget>[];
-        Widget waitBox(double at, double width, {required bool label}) => part(at, width,
-            fill: c.warnSoft,
-            border: c.warn,
-            child: label
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
-                    child: Text(waitingLabel,
-                        maxLines: 1,
-                        overflow: TextOverflow.clip,
-                        style: AnText.meta.copyWith(color: c.warn)),
-                  )
-                : null);
+          final fill = _barColor(context, r.status);
+          final bars = <Widget>[];
+          Widget waitBox(double at, double width, {required bool label}) =>
+              part(
+                at,
+                width,
+                fill: c.warnSoft,
+                border: c.warn,
+                child: label
+                    ? Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: AnSpace.s6,
+                        ),
+                        child: Text(
+                          waitingLabel,
+                          maxLines: 1,
+                          overflow: TextOverflow.clip,
+                          style: AnText.meta.copyWith(color: c.warn),
+                        ),
+                      )
+                    : null,
+              );
 
-        for (final seg in r.segments) {
-          // QUEUE — the grey lead-in (工单⑫). Only ever drawn when the row really carried the
-          // stamps. 排队灰段:仅行真带戳时。
-          if (seg.queueW > 0) {
-            bars.add(part(seg.at, seg.queueW, fill: c.surfaceSunken));
+          for (final seg in r.segments) {
+            // QUEUE — the grey lead-in (工单⑫). Only ever drawn when the row really carried the
+            // stamps. 排队灰段:仅行真带戳时。
+            if (seg.queueW > 0) {
+              bars.add(part(seg.at, seg.queueW, fill: c.surfaceSunken));
+            }
+            // A row that is STILL parked but whose bar carries no separate park part is the SIMPLE
+            // shape (a caller that hand-built the row, or a legacy row with no queue stamps to split
+            // on): its one bar IS the wait. The `parked` FLAG stays authoritative for «this node is
+            // waiting on a human» — the three-part split is a refinement of the drawing, never the
+            // thing that decides whether the wait exists.
+            // 仍 parked 且无独立停车段=朴素形(调用方手搓的行,或无戳可拆的旧行):它那一条就是等待本身。
+            // 「在等人」的权威永远是 parked 标志——三段拆分只是画法的细化,绝不是「等待是否存在」的裁决者。
+            final wholeBarIsTheWait = r.parked && seg.parkedW <= 0;
+            if (seg.w > 0) {
+              bars.add(
+                wholeBarIsTheWait
+                    ? waitBox(seg.at + seg.queueW, seg.w, label: true)
+                    : part(seg.at + seg.queueW, seg.w, fill: fill),
+              );
+            }
+            // PARKED — the amber human wait. A row that is STILL parked wears the waiting word; a
+            // settled approval's wait is just the amber span (its status word lives in the ledger).
+            // 停车琥珀段:仍在等的戴「等待」词,已决审批只留琥珀跨度(状态词在台账)。
+            if (seg.parkedW > 0) {
+              bars.add(
+                waitBox(
+                  seg.at + seg.queueW + seg.w,
+                  seg.parkedW,
+                  label: r.parked,
+                ),
+              );
+            }
           }
-          // A row that is STILL parked but whose bar carries no separate park part is the SIMPLE
-          // shape (a caller that hand-built the row, or a legacy row with no queue stamps to split
-          // on): its one bar IS the wait. The `parked` FLAG stays authoritative for «this node is
-          // waiting on a human» — the three-part split is a refinement of the drawing, never the
-          // thing that decides whether the wait exists.
-          // 仍 parked 且无独立停车段=朴素形(调用方手搓的行,或无戳可拆的旧行):它那一条就是等待本身。
-          // 「在等人」的权威永远是 parked 标志——三段拆分只是画法的细化,绝不是「等待是否存在」的裁决者。
-          final wholeBarIsTheWait = r.parked && seg.parkedW <= 0;
-          if (seg.w > 0) {
-            bars.add(wholeBarIsTheWait
-                ? waitBox(seg.at + seg.queueW, seg.w, label: true)
-                : part(seg.at + seg.queueW, seg.w, fill: fill));
-          }
-          // PARKED — the amber human wait. A row that is STILL parked wears the waiting word; a
-          // settled approval's wait is just the amber span (its status word lives in the ledger).
-          // 停车琥珀段:仍在等的戴「等待」词,已决审批只留琥珀跨度(状态词在台账)。
-          if (seg.parkedW > 0) {
-            bars.add(waitBox(seg.at + seg.queueW + seg.w, seg.parkedW, label: r.parked));
-          }
-        }
-        final stack = Stack(children: bars);
-        if (!_timed) return stack;
-        // Hover the TRACK, not each bar: the parts of one bar are one fact, and a per-part tooltip
-        // would flicker as the pointer crosses the seams. 悬停整轨而非逐段:一条=一个事实,逐段 tooltip
-        // 会在接缝处闪。
-        final tip = _tooltipFor(r);
-        return tip.isEmpty ? stack : AnTooltip(message: tip, child: stack);
-      }),
+          final stack = Stack(children: bars);
+          if (!_timed) return stack;
+          // Hover the TRACK, not each bar: the parts of one bar are one fact, and a per-part tooltip
+          // would flicker as the pointer crosses the seams. 悬停整轨而非逐段:一条=一个事实,逐段 tooltip
+          // 会在接缝处闪。
+          final tip = _tooltipFor(r);
+          return tip.isEmpty ? stack : AnTooltip(message: tip, child: stack);
+        },
+      ),
     );
   }
 
@@ -294,7 +350,8 @@ class AnNodeGantt extends StatelessWidget {
         final parts = <String>[
           if (seg.queueW > 0 && queueLabel.isNotEmpty)
             '$queueLabel ${fmtDuration(Duration(milliseconds: queueMs))}',
-          if (execLabel.isNotEmpty) '$execLabel ${fmtDuration(Duration(milliseconds: execMs))}',
+          if (execLabel.isNotEmpty)
+            '$execLabel ${fmtDuration(Duration(milliseconds: execMs))}',
         ];
         if (parts.isNotEmpty) lines.add(parts.join(' · '));
       }
@@ -324,18 +381,25 @@ class _NowLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    return LayoutBuilder(builder: (context, cst) {
-      final x = (at * cst.maxWidth).clamp(0.0, cst.maxWidth - AnSize.hairline);
-      return Stack(children: [
-        Positioned(
-          left: x,
-          top: 0,
-          bottom: 0,
-          width: AnSize.hairline,
-          child: ColoredBox(color: c.accent),
-        ),
-      ]);
-    });
+    return LayoutBuilder(
+      builder: (context, cst) {
+        final x = (at * cst.maxWidth).clamp(
+          0.0,
+          cst.maxWidth - AnSize.hairline,
+        );
+        return Stack(
+          children: [
+            Positioned(
+              left: x,
+              top: 0,
+              bottom: 0,
+              width: AnSize.hairline,
+              child: ColoredBox(color: c.accent),
+            ),
+          ],
+        );
+      },
+    );
   }
 }
 
@@ -360,14 +424,19 @@ class _HoverRowState extends State<_HoverRow> {
         ? c.surfaceActive
         : (_hover ? c.surfaceHover : const Color(0x00000000));
     return MouseRegion(
-      cursor: widget.onTap == null ? MouseCursor.defer : SystemMouseCursors.click,
+      cursor: widget.onTap == null
+          ? MouseCursor.defer
+          : SystemMouseCursors.click,
       onEnter: (_) => setState(() => _hover = true),
       onExit: (_) => setState(() => _hover = false),
       child: GestureDetector(
         onTap: widget.onTap,
         behavior: HitTestBehavior.opaque,
         child: Container(
-          decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.button)),
+          decoration: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(AnRadius.button),
+          ),
           child: widget.child,
         ),
       ),

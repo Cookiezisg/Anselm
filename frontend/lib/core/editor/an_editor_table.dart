@@ -48,19 +48,29 @@ import 'an_editor_caret.dart';
 // ReplaceNodeRequest seam stays one line. 纯网格操作:一切变更经此重建同 id 节点,可单测,替换缝一行。
 
 List<List<TextNode>> _grid(TableBlockNode node) => [
-      for (var r = 0; r < node.rowCount; r++) List<TextNode>.of(node.getRow(r)),
-    ];
+  for (var r = 0; r < node.rowCount; r++) List<TextNode>.of(node.getRow(r)),
+];
 
-TextNode _emptyCell() => TextNode(id: Editor.createNodeId(), text: AttributedText(''));
+TextNode _emptyCell() =>
+    TextNode(id: Editor.createNodeId(), text: AttributedText(''));
 
 TableBlockNode _rebuild(TableBlockNode node, List<List<TextNode>> cells) =>
     TableBlockNode(id: node.id, cells: cells, metadata: Map.of(node.metadata));
 
 /// The grid with cell (row, col)'s text swapped (id + metadata kept). 换某格文本(id/metadata 保留)。
-TableBlockNode tableWithCellText(TableBlockNode node, int row, int col, AttributedText text) {
+TableBlockNode tableWithCellText(
+  TableBlockNode node,
+  int row,
+  int col,
+  AttributedText text,
+) {
   final cells = _grid(node);
   final old = cells[row][col];
-  cells[row][col] = TextNode(id: old.id, text: text, metadata: Map.of(old.metadata));
+  cells[row][col] = TextNode(
+    id: old.id,
+    text: text,
+    metadata: Map.of(old.metadata),
+  );
   return _rebuild(node, cells);
 }
 
@@ -68,7 +78,9 @@ TableBlockNode tableWithCellText(TableBlockNode node, int row, int col, Attribut
 /// index ≥ 1). 在 index 插空行(表头=第 0 行,数据行从 1 起)。
 TableBlockNode tableWithRowInserted(TableBlockNode node, int index) {
   final cells = _grid(node);
-  cells.insert(index, [for (var c = 0; c < node.columnCount; c++) _emptyCell()]);
+  cells.insert(index, [
+    for (var c = 0; c < node.columnCount; c++) _emptyCell(),
+  ]);
   return _rebuild(node, cells);
 }
 
@@ -102,7 +114,12 @@ TableBlockNode tableWithColumnRemoved(TableBlockNode node, int index) {
 /// 每个 TableBlockNode 渲可编辑 An 表。复用上游 vm 造建 + 表头跟随列对齐修正(GFM 标准,上游硬编码居中),
 /// 组件换成可编辑体。
 class AnTableComponentBuilder extends MarkdownTableComponentBuilder {
-  const AnTableComponentBuilder(this.editor, this.document, this.editorFocusNode, this.tableKeys);
+  const AnTableComponentBuilder(
+    this.editor,
+    this.document,
+    this.editorFocusNode,
+    this.tableKeys,
+  );
 
   final Editor editor;
   final Document document;
@@ -118,7 +135,10 @@ class AnTableComponentBuilder extends MarkdownTableComponentBuilder {
   final Map<String, GlobalKey<AnEditableTableState>> tableKeys;
 
   @override
-  SingleColumnLayoutComponentViewModel? createViewModel(Document document, DocumentNode node) {
+  SingleColumnLayoutComponentViewModel? createViewModel(
+    Document document,
+    DocumentNode node,
+  ) {
     final vm = super.createViewModel(document, node);
     // Header follows the column: copy alignment from the first data row (which carries the real column
     // alignment). Header-only tables (no data) keep super_editor's centre — a degenerate, rare case.
@@ -139,7 +159,10 @@ class AnTableComponentBuilder extends MarkdownTableComponentBuilder {
     SingleColumnLayoutComponentViewModel componentViewModel,
   ) {
     if (componentViewModel is! MarkdownTableViewModel) return null;
-    final tableKey = tableKeys.putIfAbsent(componentViewModel.nodeId, GlobalKey<AnEditableTableState>.new);
+    final tableKey = tableKeys.putIfAbsent(
+      componentViewModel.nodeId,
+      GlobalKey<AnEditableTableState>.new,
+    );
     // BoxComponent supplies the block geometry super_editor needs while letting pointers reach the cells
     // (the code-block contract; componentKey on the returned subtree's ROOT). BoxComponent 供块几何不挡指针。
     return BoxComponent(
@@ -231,7 +254,8 @@ class AnEditableTableState extends State<AnEditableTable> {
         final text = widget.viewModel.cells[r][c].text;
         final controller = _controllers[k];
         if (controller == null) {
-          _controllers[k] = AttributedTextEditingController(text: text.copy())..addListener(() => _onCellChanged(r, c));
+          _controllers[k] = AttributedTextEditingController(text: text.copy())
+            ..addListener(() => _onCellChanged(r, c));
           _focusNodes[k] = FocusNode(debugLabel: 'an-table-cell $k');
           _fieldKeys[k] = GlobalKey<SuperTextFieldState>();
           // NOTE: "the document caret must not linger while a cell owns the keyboard" is NOT handled here —
@@ -251,7 +275,8 @@ class AnEditableTableState extends State<AnEditableTable> {
     }
   }
 
-  TableBlockNode? get _node => widget.document.getNodeById(widget.viewModel.nodeId) as TableBlockNode?;
+  TableBlockNode? get _node =>
+      widget.document.getNodeById(widget.viewModel.nodeId) as TableBlockNode?;
 
   // A cell keystroke: commit the controller's text into the node (same id — the codec seam and document
   // history see one replace). The controller also notifies on pure caret moves, so no-op when unchanged.
@@ -260,7 +285,10 @@ class AnEditableTableState extends State<AnEditableTable> {
     final node = _node;
     if (node == null || row >= node.rowCount || col >= node.columnCount) return;
     final controller = _controllers[_key(row, col)];
-    if (controller == null || controller.text == node.getCell(rowIndex: row, columnIndex: col).text) return;
+    if (controller == null ||
+        controller.text == node.getCell(rowIndex: row, columnIndex: col).text) {
+      return;
+    }
     widget.editor.execute([
       ReplaceNodeRequest(
         existingNodeId: node.id,
@@ -279,7 +307,9 @@ class AnEditableTableState extends State<AnEditableTable> {
     final focus = _focusNodes[k];
     if (controller == null || focus == null) return;
     focus.requestFocus();
-    controller.selection = TextSelection.collapsed(offset: controller.text.length);
+    controller.selection = TextSelection.collapsed(
+      offset: controller.text.length,
+    );
     // The document caret drops itself when the cell takes the keyboard (AnEditor's focus rule) — no clear
     // needed here. 格拿到键盘时文档光标自会收起(AnEditor 的焦点规则),此处无需清。
   }
@@ -314,7 +344,9 @@ class AnEditableTableState extends State<AnEditableTable> {
     final index = widget.document.getNodeIndexById(node.id);
     final neighbour = above
         ? (index > 0 ? widget.document.getNodeAt(index - 1) : null)
-        : (index < widget.document.nodeCount - 1 ? widget.document.getNodeAt(index + 1) : null);
+        : (index < widget.document.nodeCount - 1
+              ? widget.document.getNodeAt(index + 1)
+              : null);
     widget.editorFocusNode.requestFocus();
     if (neighbour == null) {
       _selectWholeTable(node);
@@ -325,7 +357,9 @@ class AnEditableTableState extends State<AnEditableTable> {
         DocumentSelection.collapsed(
           position: DocumentPosition(
             nodeId: neighbour.id,
-            nodePosition: above ? neighbour.endPosition : neighbour.beginningPosition,
+            nodePosition: above
+                ? neighbour.endPosition
+                : neighbour.beginningPosition,
           ),
         ),
         SelectionChangeType.placeCaret,
@@ -338,8 +372,14 @@ class AnEditableTableState extends State<AnEditableTable> {
     widget.editor.execute([
       ChangeSelectionRequest(
         DocumentSelection(
-          base: DocumentPosition(nodeId: node.id, nodePosition: const UpstreamDownstreamNodePosition.upstream()),
-          extent: DocumentPosition(nodeId: node.id, nodePosition: const UpstreamDownstreamNodePosition.downstream()),
+          base: DocumentPosition(
+            nodeId: node.id,
+            nodePosition: const UpstreamDownstreamNodePosition.upstream(),
+          ),
+          extent: DocumentPosition(
+            nodeId: node.id,
+            nodePosition: const UpstreamDownstreamNodePosition.downstream(),
+          ),
         ),
         SelectionChangeType.expandSelection,
         SelectionReason.userInteraction,
@@ -356,8 +396,12 @@ class AnEditableTableState extends State<AnEditableTable> {
     final length = ctx.controller.text.length;
     if (length == 0) return true;
     final layout = ctx.getTextLayout();
-    final caretY = layout.getOffsetForCaret(TextPosition(offset: selection.extentOffset)).dy;
-    final edgeY = layout.getOffsetForCaret(TextPosition(offset: first ? 0 : length)).dy;
+    final caretY = layout
+        .getOffsetForCaret(TextPosition(offset: selection.extentOffset))
+        .dy;
+    final edgeY = layout
+        .getOffsetForCaret(TextPosition(offset: first ? 0 : length))
+        .dy;
     return (caretY - edgeY).abs() < 1;
   }
 
@@ -386,9 +430,14 @@ class AnEditableTableState extends State<AnEditableTable> {
             final node = _node;
             if (node != null) {
               widget.editor.execute([
-                ReplaceNodeRequest(existingNodeId: node.id, newNode: tableWithRowInserted(node, _rows)),
+                ReplaceNodeRequest(
+                  existingNodeId: node.id,
+                  newNode: tableWithRowInserted(node, _rows),
+                ),
               ]);
-              WidgetsBinding.instance.addPostFrameCallback((_) => focusCell(_rows, 0));
+              WidgetsBinding.instance.addPostFrameCallback(
+                (_) => focusCell(_rows, 0),
+              );
             }
           } else {
             _focusDelta(row, col, 0, 1);
@@ -427,7 +476,9 @@ class AnEditableTableState extends State<AnEditableTable> {
           }
           return TextFieldKeyboardHandlerResult.handled;
         case LogicalKeyboardKey.arrowRight:
-          if (!selection.isCollapsed || selection.extentOffset != textFieldContext.controller.text.length) {
+          if (!selection.isCollapsed ||
+              selection.extentOffset !=
+                  textFieldContext.controller.text.length) {
             return TextFieldKeyboardHandlerResult.notHandled;
           }
           if (row == _rows - 1 && col == _cols - 1) {
@@ -446,10 +497,15 @@ class AnEditableTableState extends State<AnEditableTable> {
 
   // ── structural ops (context menu) ──────────────────────────────────────────────────────────────
 
-  void _run(TableBlockNode Function(TableBlockNode) op, {(int, int)? focusAfter}) {
+  void _run(
+    TableBlockNode Function(TableBlockNode) op, {
+    (int, int)? focusAfter,
+  }) {
     final node = _node;
     if (node == null) return;
-    widget.editor.execute([ReplaceNodeRequest(existingNodeId: node.id, newNode: op(node))]);
+    widget.editor.execute([
+      ReplaceNodeRequest(existingNodeId: node.id, newNode: op(node)),
+    ]);
     if (focusAfter != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) focusCell(focusAfter.$1, focusAfter.$2);
@@ -482,7 +538,9 @@ class AnEditableTableState extends State<AnEditableTable> {
     // A cross-block sweep block-selects the table — tint the whole block (the code-block pattern) so the
     // sweep doesn't show a hole here. 跨块划选把表整块选中——整块 tint,选区带不开洞。
     final blockSelection = vm.selection?.nodeSelection;
-    final sweptThrough = blockSelection is UpstreamDownstreamNodeSelection && !blockSelection.isCollapsed;
+    final sweptThrough =
+        blockSelection is UpstreamDownstreamNodeSelection &&
+        !blockSelection.isCollapsed;
 
     return OverlayPortal(
       controller: _menu,
@@ -490,7 +548,9 @@ class AnEditableTableState extends State<AnEditableTable> {
       child: Stack(
         children: [
           Table(
-            border: vm.border ?? TableBorder.all(color: colors.line, width: AnSize.hairline),
+            border:
+                vm.border ??
+                TableBorder.all(color: colors.line, width: AnSize.hairline),
             // Columns share the reading column's width and cell text WRAPS (the Notion default) — upstream's
             // FittedBox scaled the whole table down instead, shrinking the type. 列均分宽、格内换行;上游
             // FittedBox 整表缩小、字跟着缩。
@@ -498,7 +558,11 @@ class AnEditableTableState extends State<AnEditableTable> {
             defaultVerticalAlignment: TableCellVerticalAlignment.top,
             children: [
               for (var r = 0; r < _rows; r++)
-                TableRow(children: [for (var c = 0; c < _cols; c++) _buildCell(r, c, colors)]),
+                TableRow(
+                  children: [
+                    for (var c = 0; c < _cols; c++) _buildCell(r, c, colors),
+                  ],
+                ),
             ],
           ),
           if (sweptThrough)
@@ -520,7 +584,9 @@ class AnEditableTableState extends State<AnEditableTable> {
     return Listener(
       behavior: HitTestBehavior.translucent,
       onPointerDown: (event) {
-        if (event.buttons == kSecondaryMouseButton) _openMenu(row, col, event.position);
+        if (event.buttons == kSecondaryMouseButton) {
+          _openMenu(row, col, event.position);
+        }
       },
       child: Padding(
         padding: cell.padding,
@@ -586,38 +652,55 @@ class AnEditableTableState extends State<AnEditableTable> {
         // Above the header would be a second header — insert below it instead (menu keeps the op honest).
         // 表头之上无处插(会成第二表头)。
         enabled: _menuRow > 0,
-        run: () => _run((n) => tableWithRowInserted(n, _menuRow), focusAfter: (_menuRow, _menuCol)),
+        run: () => _run(
+          (n) => tableWithRowInserted(n, _menuRow),
+          focusAfter: (_menuRow, _menuCol),
+        ),
       ),
       (
         label: t.insertRowBelow,
         danger: false,
         enabled: true,
-        run: () => _run((n) => tableWithRowInserted(n, _menuRow + 1), focusAfter: (_menuRow + 1, _menuCol)),
+        run: () => _run(
+          (n) => tableWithRowInserted(n, _menuRow + 1),
+          focusAfter: (_menuRow + 1, _menuCol),
+        ),
       ),
       (
         label: t.deleteRow,
         danger: true,
         enabled: canDeleteRow,
-        run: () => _run((n) => tableWithRowRemoved(n, _menuRow), focusAfter: (_menuRow - 1, _menuCol)),
+        run: () => _run(
+          (n) => tableWithRowRemoved(n, _menuRow),
+          focusAfter: (_menuRow - 1, _menuCol),
+        ),
       ),
       (
         label: t.insertColLeft,
         danger: false,
         enabled: true,
-        run: () => _run((n) => tableWithColumnInserted(n, _menuCol), focusAfter: (_menuRow, _menuCol)),
+        run: () => _run(
+          (n) => tableWithColumnInserted(n, _menuCol),
+          focusAfter: (_menuRow, _menuCol),
+        ),
       ),
       (
         label: t.insertColRight,
         danger: false,
         enabled: true,
-        run: () => _run((n) => tableWithColumnInserted(n, _menuCol + 1), focusAfter: (_menuRow, _menuCol + 1)),
+        run: () => _run(
+          (n) => tableWithColumnInserted(n, _menuCol + 1),
+          focusAfter: (_menuRow, _menuCol + 1),
+        ),
       ),
       (
         label: t.deleteCol,
         danger: true,
         enabled: canDeleteCol,
-        run: () =>
-            _run((n) => tableWithColumnRemoved(n, _menuCol), focusAfter: (_menuRow, _menuCol > 0 ? _menuCol - 1 : 0)),
+        run: () => _run(
+          (n) => tableWithColumnRemoved(n, _menuCol),
+          focusAfter: (_menuRow, _menuCol > 0 ? _menuCol - 1 : 0),
+        ),
       ),
       (label: t.deleteTable, danger: true, enabled: true, run: _deleteTable),
     ];
@@ -625,20 +708,30 @@ class AnEditableTableState extends State<AnEditableTable> {
     // Clamp the panel inside the overlay (estimate via the surface's own height report). 面板钳入屏内。
     final overlaySize = MediaQuery.sizeOf(context);
     final estHeight = AnMenuSurface.estHeight(items.length);
-    final left = _menuGlobal.dx.clamp(0.0, overlaySize.width - AnSize.menuMinWidth);
+    final left = _menuGlobal.dx.clamp(
+      0.0,
+      overlaySize.width - AnSize.menuMinWidth,
+    );
     final top = _menuGlobal.dy.clamp(0.0, overlaySize.height - estHeight);
 
     return Stack(
       children: [
         // Tap-outside dismiss barrier. 点外即收。
         Positioned.fill(
-          child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: _menu.hide, onSecondaryTap: _menu.hide),
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: _menu.hide,
+            onSecondaryTap: _menu.hide,
+          ),
         ),
         Positioned(
           left: left,
           top: top,
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: AnSize.menuMinWidth, maxWidth: AnSize.menuMaxWidth),
+            constraints: const BoxConstraints(
+              minWidth: AnSize.menuMinWidth,
+              maxWidth: AnSize.menuMaxWidth,
+            ),
             child: IntrinsicWidth(
               child: AnMenuSurface(
                 children: [
@@ -654,7 +747,9 @@ class AnEditableTableState extends State<AnEditableTable> {
                         alignment: AlignmentDirectional.centerStart,
                         child: Text(
                           item.label,
-                          style: AnText.body.copyWith(color: item.danger ? colors.danger : colors.ink),
+                          style: AnText.body.copyWith(
+                            color: item.danger ? colors.danger : colors.ink,
+                          ),
                         ),
                       ),
                     ),

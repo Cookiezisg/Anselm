@@ -34,7 +34,11 @@ void main() {
 
       walk(jsonDecode(File(path).readAsStringSync()), '');
     }
-    expect(offenders, isEmpty,
-        reason: '产品文案出现 emoji 表现字符——法:只允许 icon(AnIcons),不允许 emoji。\n${offenders.join('\n')}');
+    expect(
+      offenders,
+      isEmpty,
+      reason:
+          '产品文案出现 emoji 表现字符——法:只允许 icon(AnIcons),不允许 emoji。\n${offenders.join('\n')}',
+    );
   });
 }

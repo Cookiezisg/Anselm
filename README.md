@@ -7,44 +7,51 @@
 ## 快速开始
 
 ```bash
-make setup             # 首次:装 mise（pin 的 go + flutter）
-make -C backend run    # 起后端（ANSELM_DEV，:8742）
-# 另开一个终端跑前端（dev 挂到已跑后端）:
-make -C frontend gen   # 首次/改注解后:codegen（freezed/json/slang）
-make -C frontend app   # 起桌面 app（ANSELM_BACKEND_URL 挂到 :8742）
+make setup             # 首次：安装 mise，并准备 Go / Flutter / Node / Playwright 的锁定依赖
+make verify            # 全仓门禁：后端 + 前端 + 文档 + web demo
+make -C frontend app   # 起桌面 app；自动起或复用本地后端
 ```
 
-mise 进仓库目录自动激活（fish 自动;bash/zsh 把 `eval "$(mise activate <shell>)"` 加进 profile），go/flutter 直接上 PATH。
-> macOS 桌面真跑需完整 Xcode + CocoaPods（Apple 工具链,任何版本管理器都给不了）。
+`make setup` 可重复运行。它使用 [mise](https://mise.jdx.dev/) 固定 Go、Flutter 和 Node；普通命令也会自动恢复本目录缺失的依赖，因此 `make clean` 后可直接继续 `make verify` 或日常开发。
+
+> macOS 桌面真跑仍需完整 Xcode + CocoaPods（Apple 工具链，不由版本管理器安装）。执行 `make doctor` 查看本机前置条件。
 
 ## 命令
 
 ```bash
+# 根目录：全仓操作
+make setup                 # 准备全部锁定工具与依赖
+make verify                # 后端 + 前端 + 文档 + web demo
+make clean                 # 清全部可再生产物；不动源码、Git、全局缓存或用户数据
+make doctor                # 检查 Flutter 原生桌面环境
+
 # 后端
-make -C backend run      # 起后端服务（:8742）
-make -C backend stop     # SIGTERM 优雅关停
-make -C backend test     # Go 单测
-make -C backend testend  # 全功能黑盒验收（真二进制 + llmmock，分钟级）
-make -C docs verify      # 文档规范门禁（GOVERNANCE §11）
-make -C backend build    # 后端二进制 → bin/anselm-server
-make verify      # 后端 pre-push（gofmt+vet+build+unit+docs）
+make -C backend run        # 起后端服务（:8742）
+make -C backend stop       # SIGTERM 优雅关停
+make -C backend format     # 写入 gofmt 格式
+make -C backend verify     # 格式检查 + vet + build + unit tests
+make -C backend testend    # 全功能黑盒验收（真二进制 + llmmock，分钟级）
 
 # 前端（Flutter）
-make -C frontend gen      # codegen（freezed/json_serializable/slang）
-make -C frontend analyze  # flutter analyze
-make -C frontend test     # flutter 单测
-make -C frontend verify  # 前端 pre-push（gen + analyze + test）
+make -C frontend app       # 真 app + 真后端
+make -C frontend demo      # fixture demo
+make -C frontend gallery   # 组件画廊
+make -C frontend verify    # codegen + analyze + test
 
-make clean       # 清 dev 数据目录
+# 文档与 web demo
+make -C docs verify        # 文档规范门禁（GOVERNANCE §11）
+make -C demo verify        # demo lint + Playwright matrix
 ```
 
 ## 环境一致性
 
 | 文件 | 钉的内容 |
 |---|---|
-| `mise.toml` | 工具链版本（go 1.25 / flutter 3.41.9）|
+| `mise.toml` | 工具链版本（Go / Flutter / Node LTS）|
 | `backend/go.mod` | Go 依赖 |
+| `testend/go.mod` | 黑盒验收的独立 Go 依赖 |
 | `frontend/pubspec.lock` | Flutter/Dart 依赖 |
+| `demo/package-lock.json` | web demo 的 Node / Playwright 依赖 |
 
 升级:改对应文件 → `mise install`（或 `flutter pub upgrade`）→ 提交。
 

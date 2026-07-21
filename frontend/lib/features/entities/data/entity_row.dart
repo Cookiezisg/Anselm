@@ -44,17 +44,21 @@ abstract class EntityRow with _$EntityRow {
   ///
   /// 把原始 list-item map 投影成 rail 行。徽标字段机会式读取——缺失键留 null/0/false,故同一代码路径
   /// 服务每 kind。
-  static EntityRow fromListItem(EntityKind kind, Map<String, dynamic> m) => EntityRow(
+  static EntityRow fromListItem(EntityKind kind, Map<String, dynamic> m) =>
+      EntityRow(
         kind: kind,
         id: m['id'] as String? ?? '',
         name: m['name'] as String? ?? '',
         description: m['description'] as String? ?? '',
         tags: (m['tags'] as List<dynamic>?)?.cast<String>() ?? const [],
-        createdAt: DateTime.tryParse(m['createdAt'] as String? ?? '') ??
+        createdAt:
+            DateTime.tryParse(m['createdAt'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-        updatedAt: DateTime.tryParse(m['updatedAt'] as String? ?? '') ??
+        updatedAt:
+            DateTime.tryParse(m['updatedAt'] as String? ?? '') ??
             DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
-        version: (m['activeVersion'] as Map<String, dynamic>?)?['version'] as int?,
+        version:
+            (m['activeVersion'] as Map<String, dynamic>?)?['version'] as int?,
         configState: m['configState'] as String?,
         runtimeState: m['runtimeState'] as String?,
         missingConfigCount: (m['missingConfig'] as List<dynamic>?)?.length ?? 0,

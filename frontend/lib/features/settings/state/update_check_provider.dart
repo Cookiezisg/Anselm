@@ -17,7 +17,8 @@ enum UpdateOutcome { upToDate, available, unknown }
 typedef UpdateStatus = ({UpdateOutcome outcome, String latest, String url});
 
 /// The release feed of this product. 本产品的发行源。
-const kReleasesApi = 'https://api.github.com/repos/sunweilin/anselm/releases/latest';
+const kReleasesApi =
+    'https://api.github.com/repos/sunweilin/anselm/releases/latest';
 const kReleasesPage = 'https://github.com/sunweilin/anselm/releases';
 
 class UpdateCheckController extends AsyncNotifier<UpdateStatus?> {
@@ -34,14 +35,20 @@ class UpdateCheckController extends AsyncNotifier<UpdateStatus?> {
   Future<UpdateStatus> _fetch() async {
     try {
       final dio = ref.read(updateCheckDioProvider);
-      final r = await dio.get<Map<String, dynamic>>(kReleasesApi,
-          options: Options(headers: {'Accept': 'application/vnd.github+json'}));
+      final r = await dio.get<Map<String, dynamic>>(
+        kReleasesApi,
+        options: Options(headers: {'Accept': 'application/vnd.github+json'}),
+      );
       final tag = (r.data?['tag_name'] as String?) ?? '';
       final url = (r.data?['html_url'] as String?) ?? kReleasesPage;
-      if (tag.isEmpty) return (outcome: UpdateOutcome.unknown, latest: '', url: kReleasesPage);
+      if (tag.isEmpty) {
+        return (outcome: UpdateOutcome.unknown, latest: '', url: kReleasesPage);
+      }
       final local = (await PackageInfo.fromPlatform()).version;
       return (
-        outcome: isNewerVersion(tag, local) ? UpdateOutcome.available : UpdateOutcome.upToDate,
+        outcome: isNewerVersion(tag, local)
+            ? UpdateOutcome.available
+            : UpdateOutcome.upToDate,
         latest: tag,
         url: url,
       );
@@ -72,4 +79,6 @@ bool isNewerVersion(String remoteTag, String local) {
 final updateCheckDioProvider = Provider<Dio>((ref) => Dio());
 
 final updateCheckProvider =
-    AsyncNotifierProvider<UpdateCheckController, UpdateStatus?>(UpdateCheckController.new);
+    AsyncNotifierProvider<UpdateCheckController, UpdateStatus?>(
+      UpdateCheckController.new,
+    );

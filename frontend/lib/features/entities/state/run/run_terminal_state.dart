@@ -24,7 +24,9 @@ enum RunPhase { idle, running, ok, failed, cancelled }
 abstract class RunTerminalState with _$RunTerminalState {
   const factory RunTerminalState({
     @Default(RunPhase.idle) RunPhase phase,
-    @Default('') String method, // handler: the selected method (drives which fields render) 选中方法
+    @Default('')
+    String
+    method, // handler: the selected method (drives which fields render) 选中方法
     // workflow: the payload SOURCE — 'manual' or a mounted trigger id; drives which payload fields
     // render (来源选择器, 用户 0718 拍板: payload 是 trigger 释放信息的替身), and buckets the draft.
     // workflow 的 payload 来源('manual' 或挂载 trigger id):驱动 payload 字段渲染并给草稿分桶。
@@ -32,7 +34,8 @@ abstract class RunTerminalState with _$RunTerminalState {
     Object? output, // fn/hd/ag result output 结果输出
     String? errorCode,
     String? errorMsg,
-    String? inputError, // form validation (bad JSON in an object/array field) 入参校验错
+    String?
+    inputError, // form validation (bad JSON in an object/array field) 入参校验错
     @Default(0) int elapsedMs,
     String? logs, // fn captured logs 函数日志
     @Default(0) int steps, // agent 步数
@@ -43,21 +46,30 @@ abstract class RunTerminalState with _$RunTerminalState {
     // result until the reconcile lands). workflow 节点行:REST 真相 + tick upsert 合并(tick 行 id
     // 前缀 tick_、result 空,对账后被真相行顶替)。
     @Default(<FlowrunNode>[]) List<FlowrunNode> flowNodes,
-    @Default('') String flowrunStatus, // flowrun header status from the last reconcile 最近对账的 run 头状态
-    @Default(0) int runSeq, // generation counter — a stale run's result is dropped 运行代号,陈旧结果丢弃
+    @Default('')
+    String
+    flowrunStatus, // flowrun header status from the last reconcile 最近对账的 run 头状态
+    @Default(0)
+    int
+    runSeq, // generation counter — a stale run's result is dropped 运行代号,陈旧结果丢弃
   }) = _RunTerminalState;
 
   const RunTerminalState._();
 
   bool get isRunning => phase == RunPhase.running;
-  bool get isTerminal => phase == RunPhase.ok || phase == RunPhase.failed || phase == RunPhase.cancelled;
+  bool get isTerminal =>
+      phase == RunPhase.ok ||
+      phase == RunPhase.failed ||
+      phase == RunPhase.cancelled;
 
   /// The node currently parked on a human decision (its LATEST iteration is parked), if any —
   /// drives the approval gate. 正停车等人决断的节点(最新迭代 parked)——驱动审批门。
   FlowrunNode? get parkedNode {
     for (final r in flowNodes) {
       if (r.status != 'parked') continue;
-      final newer = flowNodes.any((o) => o.nodeId == r.nodeId && o.iteration > r.iteration);
+      final newer = flowNodes.any(
+        (o) => o.nodeId == r.nodeId && o.iteration > r.iteration,
+      );
       if (!newer) return r;
     }
     return null;

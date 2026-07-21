@@ -42,16 +42,25 @@ class VersionTab extends ConsumerWidget {
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: d.state.errorTitle,
-        action: AnButton(label: d.state.retry, onPressed: () => ref.invalidate(versionListProvider(entityRef))),
+        action: AnButton(
+          label: d.state.retry,
+          onPressed: () => ref.invalidate(versionListProvider(entityRef)),
+        ),
       ),
       data: (st) {
         if (st.versions.isEmpty) {
-          return AnState(kind: AnStateKind.empty, size: AnStateSize.inset, title: d.state.noVersions);
+          return AnState(
+            kind: AnStateKind.empty,
+            size: AnStateSize.inset,
+            title: d.state.noVersions,
+          );
         }
         // Defensive clamp — the read site never RangeErrors even if selectedIndex ever goes stale. 防越界。
         final selIndex = st.selectedIndex.clamp(0, st.versions.length - 1);
         final sel = st.versions[selIndex];
-        final older = selIndex + 1 < st.versions.length ? st.versions[selIndex + 1] : null;
+        final older = selIndex + 1 < st.versions.length
+            ? st.versions[selIndex + 1]
+            : null;
         return Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -64,11 +73,13 @@ class VersionTab extends ConsumerWidget {
                 children: [
                   // Diff FIRST → its top is pinned; nothing below it can move it. diff 置顶、顶点恒定。
                   AnVersionDiff(
-            reading: true,
+                    reading: true,
                     after: sel.src,
                     before: older?.src,
                     lang: sel.lang,
-                    range: older != null ? 'v${older.version} → v${sel.version}' : 'v${sel.version} · ${d.state.earliest}',
+                    range: older != null
+                        ? 'v${older.version} → v${sel.version}'
+                        : 'v${sel.version} · ${d.state.earliest}',
                     note: sel.changeReason,
                   ),
                   _footer(context, ref, st, sel, notifier),
@@ -84,8 +95,13 @@ class VersionTab extends ConsumerWidget {
   // Below the diff: structured-summary chips (left) + the set-active action (right), on the kit's
   // two-zone + action-group idioms (no hand-placed buttons). Its height varies with selection, but it
   // sits AFTER the diff so it never shifts it. footer 在 diff 下(AnTwoZone+AnActionGroup),增缩不移 diff。
-  Widget _footer(BuildContext context, WidgetRef ref, VersionListState st, VersionRow sel,
-      VersionListNotifier notifier) {
+  Widget _footer(
+    BuildContext context,
+    WidgetRef ref,
+    VersionListState st,
+    VersionRow sel,
+    VersionListNotifier notifier,
+  ) {
     final d = context.t.entities.detail;
     final showChips = sel.summary.isNotEmpty;
     final showActivate = !sel.active;
@@ -98,7 +114,9 @@ class VersionTab extends ConsumerWidget {
             ? Wrap(
                 spacing: AnSpace.s6,
                 runSpacing: AnGap.stackTight,
-                children: [for (final s in sel.summary) AnChip(s, tone: AnTone.none)],
+                children: [
+                  for (final s in sel.summary) AnChip(s, tone: AnTone.none),
+                ],
               )
             : const SizedBox.shrink(),
         trailing: !showActivate
@@ -115,7 +133,10 @@ class VersionTab extends ConsumerWidget {
                           } catch (_) {
                             ref
                                 .read(noticeCenterProvider.notifier)
-                                .show(d.state.setActiveFailed, tone: AnTone.danger);
+                                .show(
+                                  d.state.setActiveFailed,
+                                  tone: AnTone.danger,
+                                );
                           }
                         },
                 ),
@@ -125,7 +146,12 @@ class VersionTab extends ConsumerWidget {
   }
 
   // Column (not ListView): the surrounding AnPage owns the single document scroll (flow tabs). 文档单滚,用 Column。
-  Widget _list(BuildContext context, VersionListState st, int selIndex, VersionListNotifier notifier) {
+  Widget _list(
+    BuildContext context,
+    VersionListState st,
+    int selIndex,
+    VersionListNotifier notifier,
+  ) {
     final d = context.t.entities.detail;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,

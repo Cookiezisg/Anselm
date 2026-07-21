@@ -101,8 +101,10 @@ class AnTags extends StatefulWidget {
 class _AnTagsState extends State<AnTags> {
   final TextEditingController _ctl = TextEditingController();
   final FocusNode _focus = FocusNode(debugLabel: 'AnTags.add');
-  String? _flash; // LABEL of a duplicate pill flashing (label-keyed: removals can't shift it) 闪现药丸的 label
-  Timer? _flashTimer; // held so dispose cancels a pending flash-clear (no "Timer still pending") 持有以便 dispose 取消
+  String?
+  _flash; // LABEL of a duplicate pill flashing (label-keyed: removals can't shift it) 闪现药丸的 label
+  Timer?
+  _flashTimer; // held so dispose cancels a pending flash-clear (no "Timer still pending") 持有以便 dispose 取消
 
   bool get _editable => widget.onChanged != null && !widget.readOnly;
   bool get _fieldShown => _editable && (widget.showAddField ?? true);
@@ -120,7 +122,9 @@ class _AnTagsState extends State<AnTags> {
     // Host flipped the field ON → focus it (autofocus alone is unreliable when the scope already has
     // focus, e.g. keyboard-activated ➕). Flipped OFF → clear the draft (no stale resurrection).
     // 宿主开框→聚焦(键盘激活 ➕ 时 scope 已持焦,单靠 autofocus 不可靠);关框→清草稿。
-    if (widget.showAddField == true && old.showAddField != true) _requestFocusSoon();
+    if (widget.showAddField == true && old.showAddField != true) {
+      _requestFocusSoon();
+    }
     if (widget.showAddField != true && old.showAddField == true) _ctl.clear();
   }
 
@@ -137,7 +141,9 @@ class _AnTagsState extends State<AnTags> {
     // clear, then tell the host. 焦点离框:非空按失焦提交惯例提交(重复静默丢),清空,再通知宿主。
     final label = _ctl.text.trim();
     if (label.isNotEmpty && _indexOf(label) < 0) {
-      widget.onChanged?.call(widget.single ? [AnTag(label)] : [...widget.tags, AnTag(label)]);
+      widget.onChanged?.call(
+        widget.single ? [AnTag(label)] : [...widget.tags, AnTag(label)],
+      );
     }
     _ctl.clear();
     widget.onAddDismissed?.call();
@@ -173,7 +179,9 @@ class _AnTagsState extends State<AnTags> {
       });
       return;
     }
-    final next = widget.single ? [AnTag(label)] : [...widget.tags, AnTag(label)];
+    final next = widget.single
+        ? [AnTag(label)]
+        : [...widget.tags, AnTag(label)];
     _ctl.clear();
     widget.onChanged!(next);
   }
@@ -191,7 +199,9 @@ class _AnTagsState extends State<AnTags> {
       widget.onAddDismissed?.call();
       return KeyEventResult.handled;
     }
-    if (e.logicalKey == LogicalKeyboardKey.backspace && _ctl.text.isEmpty && widget.tags.isNotEmpty) {
+    if (e.logicalKey == LogicalKeyboardKey.backspace &&
+        _ctl.text.isEmpty &&
+        widget.tags.isNotEmpty) {
       _remove(widget.tags.length - 1);
       return KeyEventResult.handled;
     }
@@ -211,7 +221,8 @@ class _AnTagsState extends State<AnTags> {
           runSpacing: AnSpace.s4,
           crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            for (var i = 0; i < widget.tags.length; i++) _pill(c, i, widget.tags[i]),
+            for (var i = 0; i < widget.tags.length; i++)
+              _pill(c, i, widget.tags[i]),
             if (_fieldShown) _addField(c),
           ],
         ),
@@ -227,11 +238,14 @@ class _AnTagsState extends State<AnTags> {
       duration: reduced ? Duration.zero : AnMotion.fast,
       height: widget.reading ? AnSize.controlSm : AnSize.badge,
       padding: EdgeInsets.symmetric(
-          horizontal: widget.reading ? AnSize.btnPadXSm : AnSize.badgePadX),
+        horizontal: widget.reading ? AnSize.btnPadXSm : AnSize.badgePadX,
+      ),
       decoration: BoxDecoration(
         color: flashing ? c.accentSoft : tone.softBg(c),
         borderRadius: BorderRadius.circular(AnRadius.pill),
-        border: flashing ? Border.all(color: c.accent, width: AnSize.hairline) : null,
+        border: flashing
+            ? Border.all(color: c.accent, width: AnSize.hairline)
+            : null,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -243,12 +257,15 @@ class _AnTagsState extends State<AnTags> {
           // Flexible + ellipsis: a single tag wider than the row truncates instead of overflowing.
           // Flexible+省略:单标签超宽则截断、不溢出。
           Flexible(
-            child: Text(tag.label,
-                maxLines: 1,
-                softWrap: false,
-                overflow: TextOverflow.ellipsis,
-                style: (widget.reading ? AnText.label : AnText.meta)
-                    .copyWith(color: tone == AnTone.none ? c.ink : tone.fg(c))),
+            child: Text(
+              tag.label,
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: (widget.reading ? AnText.label : AnText.meta).copyWith(
+                color: tone == AnTone.none ? c.ink : tone.fg(c),
+              ),
+            ),
           ),
           if (_editable) ...[
             const SizedBox(width: AnSpace.s6),
@@ -268,7 +285,11 @@ class _AnTagsState extends State<AnTags> {
           builder: (ctx, states) => SizedBox(
             width: AnSize.tagRemoveHit,
             height: AnSize.tagRemoveHit,
-            child: Icon(AnIcons.close, size: AnSize.iconSm, color: states.isActive ? c.ink : c.inkFaint),
+            child: Icon(
+              AnIcons.close,
+              size: AnSize.iconSm,
+              color: states.isActive ? c.ink : c.inkFaint,
+            ),
           ),
         ),
       ),

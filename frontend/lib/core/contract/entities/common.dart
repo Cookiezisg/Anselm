@@ -11,7 +11,8 @@ abstract class ExecutionAggregates with _$ExecutionAggregates {
     @Default(0) int okCount,
     @Default(0) int failedCount,
   }) = _ExecutionAggregates;
-  factory ExecutionAggregates.fromJson(Map<String, dynamic> json) => _$ExecutionAggregatesFromJson(json);
+  factory ExecutionAggregates.fromJson(Map<String, dynamic> json) =>
+      _$ExecutionAggregatesFromJson(json);
 }
 
 /// The capability/structural-validity report (shared by fn/hd/ag/wf preflight — "is this entity runnable?").
@@ -24,5 +25,6 @@ abstract class CapabilityReport with _$CapabilityReport {
     @Default(<String>[]) List<String> problems,
     @Default(<String>[]) List<String> warnings,
   }) = _CapabilityReport;
-  factory CapabilityReport.fromJson(Map<String, dynamic> json) => _$CapabilityReportFromJson(json);
+  factory CapabilityReport.fromJson(Map<String, dynamic> json) =>
+      _$CapabilityReportFromJson(json);
 }

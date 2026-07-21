@@ -48,7 +48,8 @@ class AnPage extends StatefulWidget {
 
 class AnPageState extends State<AnPage> {
   ScrollController? _own;
-  ScrollController get _ctl => widget.controller ?? (_own ??= ScrollController());
+  ScrollController get _ctl =>
+      widget.controller ?? (_own ??= ScrollController());
 
   @override
   void dispose() {
@@ -60,7 +61,9 @@ class AnPageState extends State<AnPage> {
   void scrollToBottom({bool smooth = false}) {
     if (!_ctl.hasClients) return;
     final to = _ctl.position.maxScrollExtent;
-    smooth ? _ctl.animateTo(to, duration: AnMotion.mid, curve: AnMotion.easeOut) : _ctl.jumpTo(to);
+    smooth
+        ? _ctl.animateTo(to, duration: AnMotion.mid, curve: AnMotion.easeOut)
+        : _ctl.jumpTo(to);
   }
 
   @override
@@ -100,4 +103,3 @@ class AnPageState extends State<AnPage> {
     );
   }
 }
-

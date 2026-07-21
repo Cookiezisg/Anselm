@@ -12,8 +12,12 @@ import 'mention_spans.dart';
 /// 乐观用户泡(等回声)。localId 客户端铸(绝非 msg_);failed 在发送失败时翻(泡长出重试/丢弃)。mentions 是
 /// composer 本地快照——回声落地时并进去(SSE 用户回声带 attachmentIds、**不带 mentions**;REST 重载两者都有)。
 class PendingSend {
-  PendingSend(
-      {required this.localId, required this.text, this.mentions = const [], this.attachmentIds = const []});
+  PendingSend({
+    required this.localId,
+    required this.text,
+    this.mentions = const [],
+    this.attachmentIds = const [],
+  });
 
   final String localId;
   final String text;
@@ -83,8 +87,9 @@ class ConversationTranscript {
 
   /// Top-level live turns (message-kind roots only — orphan block frames are defensive no-shows).
   /// live 顶层回合(仅 message 根;孤儿块帧防御性不显)。
-  List<BlockNode> get liveTurns =>
-      _live.roots.where((n) => n.kind == BlockKind.message).toList(growable: false);
+  List<BlockNode> get liveTurns => _live.roots
+      .where((n) => n.kind == BlockKind.message)
+      .toList(growable: false);
 
   /// The full render order: settled history, then everything live. 渲染全序:settled 史 + live。
   List<BlockNode> get turns => [...settled, ...liveTurns];
@@ -97,7 +102,11 @@ class ConversationTranscript {
     final out = <BlockNode>[];
     final seen = <String>{};
     void walk(BlockNode n) {
-      if (n.kind == BlockKind.toolCall && n.name == 'Subagent' && seen.add(n.id)) out.add(n);
+      if (n.kind == BlockKind.toolCall &&
+          n.name == 'Subagent' &&
+          seen.add(n.id)) {
+        out.add(n);
+      }
       for (final c in n.children) {
         walk(c);
       }
@@ -205,7 +214,9 @@ class ConversationTranscript {
       if (m.subagentId.isEmpty) {
         rows.add(hydrateTurn(m));
       } else {
-        _subMessages.add(m); // an older page may carry a subagent whose parent is already loaded 折向已载父
+        _subMessages.add(
+          m,
+        ); // an older page may carry a subagent whose parent is already loaded 折向已载父
       }
     }
     settled.insertAll(0, rows);
@@ -281,7 +292,11 @@ class ConversationTranscript {
     _live.apply(env);
     if (!env.durable) return;
     final node = _live.nodeById(env.id);
-    if (node == null || node.kind != BlockKind.message || turnRole(node) != 'user') return;
+    if (node == null ||
+        node.kind != BlockKind.message ||
+        turnRole(node) != 'user') {
+      return;
+    }
     // Consume the oldest bubble exactly once per echo node. 每回声节点恰消费一次最老泡。
     if (!_reconciledEchoes.contains(node.id)) {
       _reconciledEchoes.add(node.id);
@@ -304,7 +319,12 @@ class ConversationTranscript {
         ...?node.content,
         'mentions': [
           for (final m in local)
-            {'type': m.type, 'id': m.id, 'name': m.name, if (m.available) 'content': ''},
+            {
+              'type': m.type,
+              'id': m.id,
+              'name': m.name,
+              if (m.available) 'content': '',
+            },
         ],
       };
     }
@@ -329,7 +349,8 @@ class ConversationTranscript {
     }
   }
 
-  void removePending(String localId) => pending.removeWhere((p) => p.localId == localId);
+  void removePending(String localId) =>
+      pending.removeWhere((p) => p.localId == localId);
 
   // ── shape helpers (shared by hydration + the view) 形状助手(水化+视图共用) ──
 
@@ -393,14 +414,15 @@ class ConversationTranscript {
       ..status = _isTerminal(m.status) ? m.status : 'open';
     final byId = <String, BlockNode>{};
     for (final b in m.blocks) {
-      final node = BlockNode(
-        id: b.id,
-        kind: blockKindFromWire(b.type),
-        parentId: b.parentBlockId.isEmpty ? m.id : b.parentBlockId,
-      )
-        ..content = hydrateBlockContent(b)
-        ..status = b.status.isEmpty ? 'completed' : b.status
-        ..error = b.error.isEmpty ? null : b.error;
+      final node =
+          BlockNode(
+              id: b.id,
+              kind: blockKindFromWire(b.type),
+              parentId: b.parentBlockId.isEmpty ? m.id : b.parentBlockId,
+            )
+            ..content = hydrateBlockContent(b)
+            ..status = b.status.isEmpty ? 'completed' : b.status
+            ..error = b.error.isEmpty ? null : b.error;
       byId[b.id] = node;
       (byId[b.parentBlockId] ?? root).children.add(node);
     }
@@ -412,15 +434,17 @@ class ConversationTranscript {
   /// both. progress's snapshot key is `text` (the wire asymmetry), preserved as-is.
   /// 持久块 → live content 形。live 帧的工具元数据内联在 content;REST 在 attrs+content 列——按型对齐,一个
   /// 渲染器吃两边。progress 快照键是 `text`(线缆不对称),原样保留。
-  static Map<String, dynamic> hydrateBlockContent(ChatBlock b) => switch (blockKindFromWire(b.type)) {
+  static Map<String, dynamic> hydrateBlockContent(ChatBlock b) =>
+      switch (blockKindFromWire(b.type)) {
         BlockKind.toolCall => {
-            ...?b.attrs,
-            'name': b.attrs?['tool'] ?? b.attrs?['name'] ?? '',
-            if (b.attrs?['summary'] != null) 'summary': b.attrs?['summary'],
-            if (b.attrs?['danger'] != null) 'danger': b.attrs?['danger'],
-            if (b.attrs?['entityName'] != null) 'entityName': b.attrs?['entityName'],
-            'arguments': b.content,
-          },
+          ...?b.attrs,
+          'name': b.attrs?['tool'] ?? b.attrs?['name'] ?? '',
+          if (b.attrs?['summary'] != null) 'summary': b.attrs?['summary'],
+          if (b.attrs?['danger'] != null) 'danger': b.attrs?['danger'],
+          if (b.attrs?['entityName'] != null)
+            'entityName': b.attrs?['entityName'],
+          'arguments': b.content,
+        },
         BlockKind.progress => {...?b.attrs, 'text': b.content},
         _ => {...?b.attrs, 'content': b.content},
       };
@@ -450,12 +474,17 @@ class ConversationTranscript {
       final parentBlockId = sub.attrs?['parentBlockId'] as String?;
       if (parentBlockId == null || parentBlockId.isEmpty) continue;
       final parent = byBlockId[parentBlockId];
-      if (parent == null) continue; // orphan — parent tool_call not loaded yet 孤儿,待后页
+      if (parent == null) {
+        continue; // orphan — parent tool_call not loaded yet 孤儿,待后页
+      }
       _foldedSubs.add(sub.id);
-      parent.children.add(hydrateTurn(sub)); // the sub-run's message wrapper (its blocks nested) 子运行包装
+      parent.children.add(
+        hydrateTurn(sub),
+      ); // the sub-run's message wrapper (its blocks nested) 子运行包装
       final content = parent.content;
       if (content != null) {
-        if (content['tokens'] == null && (sub.inputTokens > 0 || sub.outputTokens > 0)) {
+        if (content['tokens'] == null &&
+            (sub.inputTokens > 0 || sub.outputTokens > 0)) {
           content['tokens'] = {'in': sub.inputTokens, 'out': sub.outputTokens};
         }
         if (content['stopReason'] == null && sub.stopReason.isNotEmpty) {
@@ -473,33 +502,40 @@ class ConversationTranscript {
     StreamEnvelope env(String id, StreamFrame frame) =>
         StreamEnvelope(seq: 1, scope: scope, id: id, frame: frame);
 
-    _live.apply(env(
-      m.id,
-      FrameOpen(
-        node: StreamNode(type: 'message', content: {
-          'role': m.role,
-          'status': m.status,
-          ...?m.attrs,
-        }),
-      ),
-    ));
-    for (final b in m.blocks) {
-      _live.apply(env(
-        b.id,
+    _live.apply(
+      env(
+        m.id,
         FrameOpen(
-          parentId: b.parentBlockId.isEmpty ? m.id : b.parentBlockId,
-          node: StreamNode(type: b.type, content: hydrateBlockContent(b)),
-        ),
-      ));
-      if (b.status == 'completed' || b.status == 'error' || b.status == 'cancelled') {
-        _live.apply(env(
-          b.id,
-          FrameClose(
-            status: b.status,
-            error: b.error.isEmpty ? null : b.error,
-            result: StreamNode(type: b.type, content: hydrateBlockContent(b)),
+          node: StreamNode(
+            type: 'message',
+            content: {'role': m.role, 'status': m.status, ...?m.attrs},
           ),
-        ));
+        ),
+      ),
+    );
+    for (final b in m.blocks) {
+      _live.apply(
+        env(
+          b.id,
+          FrameOpen(
+            parentId: b.parentBlockId.isEmpty ? m.id : b.parentBlockId,
+            node: StreamNode(type: b.type, content: hydrateBlockContent(b)),
+          ),
+        ),
+      );
+      if (b.status == 'completed' ||
+          b.status == 'error' ||
+          b.status == 'cancelled') {
+        _live.apply(
+          env(
+            b.id,
+            FrameClose(
+              status: b.status,
+              error: b.error.isEmpty ? null : b.error,
+              result: StreamNode(type: b.type, content: hydrateBlockContent(b)),
+            ),
+          ),
+        );
       }
     }
   }

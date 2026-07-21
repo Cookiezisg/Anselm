@@ -122,7 +122,10 @@ class _AnSelectionToolbarState
     final rect = documentLayout.getRectForSelection(sel.base, sel.extent);
     if (rect == null) return null;
     // Hang above by default; flip below when above would sit off the top of the content. 默认上方,贴顶翻下。
-    return (rect: rect, below: rect.top - AnSpace.s8 - _AnFormatBar.kHeight < 0);
+    return (
+      rect: rect,
+      below: rect.top - AnSpace.s8 - _AnFormatBar.kHeight < 0,
+    );
   }
 
   @override
@@ -233,26 +236,36 @@ class _AnFormatBar extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            AnButton.iconOnly(AnIcons.bold,
-                toggled: active.contains(boldAttribution),
-                semanticLabel: t.a11y.fmtBold,
-                onPressed: () => _toggle(boldAttribution)),
-            AnButton.iconOnly(AnIcons.italic,
-                toggled: active.contains(italicsAttribution),
-                semanticLabel: t.a11y.fmtItalic,
-                onPressed: () => _toggle(italicsAttribution)),
-            AnButton.iconOnly(AnIcons.strikethrough,
-                toggled: active.contains(strikethroughAttribution),
-                semanticLabel: t.a11y.fmtStrike,
-                onPressed: () => _toggle(strikethroughAttribution)),
-            AnButton.iconOnly(AnIcons.codeBlock,
-                toggled: active.contains(codeAttribution),
-                semanticLabel: t.a11y.fmtCode,
-                onPressed: () => _toggle(codeAttribution)),
-            AnButton.iconOnly(AnIcons.link,
-                toggled: linked,
-                semanticLabel: t.a11y.fmtLink,
-                onPressed: () => _linkAction(active)),
+            AnButton.iconOnly(
+              AnIcons.bold,
+              toggled: active.contains(boldAttribution),
+              semanticLabel: t.a11y.fmtBold,
+              onPressed: () => _toggle(boldAttribution),
+            ),
+            AnButton.iconOnly(
+              AnIcons.italic,
+              toggled: active.contains(italicsAttribution),
+              semanticLabel: t.a11y.fmtItalic,
+              onPressed: () => _toggle(italicsAttribution),
+            ),
+            AnButton.iconOnly(
+              AnIcons.strikethrough,
+              toggled: active.contains(strikethroughAttribution),
+              semanticLabel: t.a11y.fmtStrike,
+              onPressed: () => _toggle(strikethroughAttribution),
+            ),
+            AnButton.iconOnly(
+              AnIcons.codeBlock,
+              toggled: active.contains(codeAttribution),
+              semanticLabel: t.a11y.fmtCode,
+              onPressed: () => _toggle(codeAttribution),
+            ),
+            AnButton.iconOnly(
+              AnIcons.link,
+              toggled: linked,
+              semanticLabel: t.a11y.fmtLink,
+              onPressed: () => _linkAction(active),
+            ),
           ],
         ),
       ),

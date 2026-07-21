@@ -50,43 +50,74 @@ Widget triggerWorkflowBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final out = _obj(state.resultText);
   final flowrunId = out?['flowrunId'] as String?;
-  final workflowId = (out?['workflowId'] as String?) ?? argString(state.argsText, 'workflowId');
+  final workflowId =
+      (out?['workflowId'] as String?) ??
+      argString(state.argsText, 'workflowId');
   final payload = _obj(state.argsText)?['payload'];
   final emptyPayload = payload == null || (payload is Map && payload.isEmpty);
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    toolIntent(context, state),
-    // The payload fed to the entry trigger — an empty {} is stated, never dressed as an empty tree.
-    // 喂给入口触发器的 payload;空 {} 明说、不装空树。
-    if (emptyPayload)
-      Text(t.run.emptyPayload, style: AnText.code.copyWith(color: c.inkFaint))
-    else
-      ToolIOSection(label: t.run.ioInput, value: payload),
-    const SizedBox(height: AnSpace.s6),
-    Wrap(spacing: AnGap.inline, runSpacing: AnGap.stackTight, crossAxisAlignment: WrapCrossAlignment.center, children: [
-      if (workflowId != null && workflowId.isNotEmpty) toolNavPill(context, kind: 'workflow', label: workflowId, id: workflowId),
-      if (flowrunId != null && flowrunId.isNotEmpty) AnChip(flowrunId, look: AnChipLook.outlined, mono: true, copyValue: flowrunId, tooltip: flowrunId),
-    ]),
-    const SizedBox(height: AnSpace.s6),
-    Text(t.run.triggerStartedNote, style: AnText.meta.copyWith(color: c.inkFaint)),
-  ]);
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      toolIntent(context, state),
+      // The payload fed to the entry trigger — an empty {} is stated, never dressed as an empty tree.
+      // 喂给入口触发器的 payload;空 {} 明说、不装空树。
+      if (emptyPayload)
+        Text(t.run.emptyPayload, style: AnText.code.copyWith(color: c.inkFaint))
+      else
+        ToolIOSection(label: t.run.ioInput, value: payload),
+      const SizedBox(height: AnSpace.s6),
+      Wrap(
+        spacing: AnGap.inline,
+        runSpacing: AnGap.stackTight,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          if (workflowId != null && workflowId.isNotEmpty)
+            toolNavPill(
+              context,
+              kind: 'workflow',
+              label: workflowId,
+              id: workflowId,
+            ),
+          if (flowrunId != null && flowrunId.isNotEmpty)
+            AnChip(
+              flowrunId,
+              look: AnChipLook.outlined,
+              mono: true,
+              copyValue: flowrunId,
+              tooltip: flowrunId,
+            ),
+        ],
+      ),
+      const SizedBox(height: AnSpace.s6),
+      Text(
+        t.run.triggerStartedNote,
+        style: AnText.meta.copyWith(color: c.inkFaint),
+      ),
+    ],
+  );
 }
 
 /// Decode a {flowrun, nodes, nodeSummary?} tool result, or null if unparseable. 解码 flowrun 复合结果。
 FlowrunComposite? decodeFlowrunResult(String output) {
   try {
     final d = jsonDecode(output);
-    if (d is Map<String, dynamic> && d['flowrun'] is Map) return FlowrunComposite.fromJson(d);
+    if (d is Map<String, dynamic> && d['flowrun'] is Map) {
+      return FlowrunComposite.fromJson(d);
+    }
   } catch (_) {}
   return null;
 }
 
 /// The node count a run really has — nodeSummary.totalNodes when capped, else nodes.length. Never
 /// nodes.length blindly (it's 80 on a capped run). 真节点数:截断取 summary、否则 nodes 长度。
-int flowrunTotalNodes(FlowrunComposite comp) => comp.nodeSummary?.totalNodes ?? comp.nodes.length;
+int flowrunTotalNodes(FlowrunComposite comp) =>
+    comp.nodeSummary?.totalNodes ?? comp.nodes.length;
 
 /// Whether any node parked (an approval waiting) — the run header stays `running` while a node parks,
 /// so «awaiting approval» is read off the NODES, not the run status. 有节点 park=等待审批(run 头仍 running)。
-bool flowrunHasParked(FlowrunComposite comp) => comp.nodes.any((n) => n.status == 'parked');
+bool flowrunHasParked(FlowrunComposite comp) =>
+    comp.nodes.any((n) => n.status == 'parked');
 
 /// The replay receipt — completed→`完成·N 节点`; failed→red `仍失败`+auto-expand; cancelled→`已取消`;
 /// running with a parked node→`等待审批` (grey text, amber lives in the body); running w/o park→none.
@@ -98,21 +129,27 @@ ToolReceipt? replayReceipt(Translations t, String output) {
   final nodes = t.run.nodeCount(n: '$n');
   switch (comp.flowrun.status) {
     case 'completed':
-      return (text: '${t.run.runCompleted} · $nodes', tone: ToolReceiptTone.none);
+      return (
+        text: '${t.run.runCompleted} · $nodes',
+        tone: ToolReceiptTone.none,
+      );
     case 'failed':
       return (text: t.run.runStillFailed, tone: ToolReceiptTone.danger);
     case 'cancelled':
       return (text: t.run.runCancelled, tone: ToolReceiptTone.none);
     case 'running':
       // A parked node → «awaiting approval» (grey — it's not a failure). 有 park→等待审批(灰,非失败)。
-      return flowrunHasParked(comp) ? (text: t.run.runAwaitApproval, tone: ToolReceiptTone.none) : null;
+      return flowrunHasParked(comp)
+          ? (text: t.run.runAwaitApproval, tone: ToolReceiptTone.none)
+          : null;
     default:
       return null;
   }
 }
 
 /// Whether the replayed run is still failed (auto-expand for diagnosis). 仍失败→自动展开诊断。
-bool replayResultFailed(String output) => decodeFlowrunResult(output)?.flowrun.status == 'failed';
+bool replayResultFailed(String output) =>
+    decodeFlowrunResult(output)?.flowrun.status == 'failed';
 
 /// replay_flowrun body — a pinned-versions caution + the node ledger (FlowrunNodeList) + a footer
 /// (status word · 第 N 次重放 · workflow pill · flowrunId copy). replay 落定体。
@@ -121,47 +158,84 @@ Widget replayFlowrunBody(BuildContext context, ToolCardState state) {
   final t = Translations.of(context);
   final comp = decodeFlowrunResult(state.resultText);
   if (comp == null) {
-    return Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis);
+    return Text(
+      state.resultText,
+      style: AnText.code.copyWith(color: c.inkMuted),
+      maxLines: 40,
+      overflow: TextOverflow.ellipsis,
+    );
   }
   final run = comp.flowrun;
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    // The replay honesty note — the fix you made after the failure did NOT take effect (pinned versions).
-    // 重放诚实注:事后改的代码这次没生效(用原 pin 版本)。
-    Text(t.run.replayPinNote, style: AnText.meta.copyWith(color: c.inkFaint)),
-    const SizedBox(height: AnSpace.s6),
-    if (run.error != null && run.error!.isNotEmpty) ...[
-      rawMonoWindow(context, run.error!, maxLines: AnCap.monoErrorLines, color: c.danger),
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      // The replay honesty note — the fix you made after the failure did NOT take effect (pinned versions).
+      // 重放诚实注:事后改的代码这次没生效(用原 pin 版本)。
+      Text(t.run.replayPinNote, style: AnText.meta.copyWith(color: c.inkFaint)),
       const SizedBox(height: AnSpace.s6),
+      if (run.error != null && run.error!.isNotEmpty) ...[
+        rawMonoWindow(
+          context,
+          run.error!,
+          maxLines: AnCap.monoErrorLines,
+          color: c.danger,
+        ),
+        const SizedBox(height: AnSpace.s6),
+      ],
+      FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),
+      // No SizedBox — the family bar brings its own top s6 (批3: a kept one doubles the gap). 条自带前距。
+      _runFooter(context, run, hasParked: flowrunHasParked(comp)),
     ],
-    FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),
-    // No SizedBox — the family bar brings its own top s6 (批3: a kept one doubles the gap). 条自带前距。
-    _runFooter(context, run, hasParked: flowrunHasParked(comp)),
-  ]);
+  );
 }
 
 /// The flowrun status → its domain word, the ONE in-file map (B-074 — the footer and the get_flowrun
 /// receipt carried it twice; the deliberate DOMAIN deviation from runStatusWord stays: failed=仍失败,
 /// running splits on the parked gate). flowrun 域词唯一映射(域词偏离是刻意:仍失败;running 按停车分)。
-String _flowrunStatusWord(Translations t, String status, {required bool hasParked}) => switch (status) {
-      'completed' => t.run.runCompleted,
-      'failed' => t.run.runStillFailed,
-      'cancelled' => t.run.runCancelled,
-      'running' => hasParked ? t.run.runAwaitApproval : t.run.runStatusRunning,
-      _ => status,
-    };
+String _flowrunStatusWord(
+  Translations t,
+  String status, {
+  required bool hasParked,
+}) => switch (status) {
+  'completed' => t.run.runCompleted,
+  'failed' => t.run.runStillFailed,
+  'cancelled' => t.run.runCancelled,
+  'running' => hasParked ? t.run.runAwaitApproval : t.run.runStatusRunning,
+  _ => status,
+};
 
 /// The run footer (批3 条族: a mapping onto the family head) — status badge (AnStatus.fromRaw 单源;
 /// domain words via [_flowrunStatusWord]) + replay count + a navigable workflow pill + the
 /// flowrunId (copy). run 页脚:状态词徽(fromRaw 单源+域词)+重放数+workflow 药丸+flowrunId 复制。
-Widget _runFooter(BuildContext context, Flowrun run, {required bool hasParked}) {
+Widget _runFooter(
+  BuildContext context,
+  Flowrun run, {
+  required bool hasParked,
+}) {
   final t = Translations.of(context);
   return AnStatBar(
     status: AnStatus.fromRaw(run.status),
     statusLabel: _flowrunStatusWord(t, run.status, hasParked: hasParked),
-    stats: [if (run.replayCount > 0) AnStat(t.run.replayTimes(n: '${run.replayCount}'), tabular: true)],
+    stats: [
+      if (run.replayCount > 0)
+        AnStat(t.run.replayTimes(n: '${run.replayCount}'), tabular: true),
+    ],
     chips: [
-      if (run.workflowId.isNotEmpty) toolNavPill(context, kind: 'workflow', label: run.workflowId, id: run.workflowId),
-      AnChip(run.id, look: AnChipLook.outlined, mono: true, copyValue: run.id, tooltip: run.id),
+      if (run.workflowId.isNotEmpty)
+        toolNavPill(
+          context,
+          kind: 'workflow',
+          label: run.workflowId,
+          id: run.workflowId,
+        ),
+      AnChip(
+        run.id,
+        look: AnChipLook.outlined,
+        mono: true,
+        copyValue: run.id,
+        tooltip: run.id,
+      ),
     ],
   );
 }
@@ -185,10 +259,14 @@ ToolReceipt? getFlowrunReceipt(Translations t, String output) {
   final status = comp.flowrun.status;
   final word = _flowrunStatusWord(t, status, hasParked: flowrunHasParked(comp));
   final danger = status == 'failed';
-  return (text: '$word · $nodes', tone: danger ? ToolReceiptTone.danger : ToolReceiptTone.none);
+  return (
+    text: '$word · $nodes',
+    tone: danger ? ToolReceiptTone.danger : ToolReceiptTone.none,
+  );
 }
 
-bool getFlowrunFailed(String output) => decodeFlowrunResult(output)?.flowrun.status == 'failed';
+bool getFlowrunFailed(String output) =>
+    decodeFlowrunResult(output)?.flowrun.status == 'failed';
 
 /// get_flowrun body — a run header (status badge · workflow pill · replay× · run-level error) + the node
 /// ledger + a provenance line (triggerId / firingId). get_flowrun 落定体。
@@ -196,18 +274,32 @@ Widget getFlowrunBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final comp = decodeFlowrunResult(state.resultText);
   if (comp == null) {
-    return Text(state.resultText, style: AnText.code.copyWith(color: c.inkMuted), maxLines: 40, overflow: TextOverflow.ellipsis);
+    return Text(
+      state.resultText,
+      style: AnText.code.copyWith(color: c.inkMuted),
+      maxLines: 40,
+      overflow: TextOverflow.ellipsis,
+    );
   }
   final run = comp.flowrun;
-  return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-    _runFooter(context, run, hasParked: flowrunHasParked(comp)),
-    if (run.error != null && run.error!.isNotEmpty) ...[
+  return Column(
+    crossAxisAlignment: CrossAxisAlignment.start,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      _runFooter(context, run, hasParked: flowrunHasParked(comp)),
+      if (run.error != null && run.error!.isNotEmpty) ...[
+        const SizedBox(height: AnSpace.s6),
+        rawMonoWindow(
+          context,
+          run.error!,
+          maxLines: AnCap.monoErrorLines,
+          color: c.danger,
+        ),
+      ],
       const SizedBox(height: AnSpace.s6),
-      rawMonoWindow(context, run.error!, maxLines: AnCap.monoErrorLines, color: c.danger),
+      FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),
+      const SizedBox(height: AnSpace.s6),
+      ProvenanceLine(triggerId: run.triggerId, firingId: run.firingId),
     ],
-    const SizedBox(height: AnSpace.s6),
-    FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),
-    const SizedBox(height: AnSpace.s6),
-    ProvenanceLine(triggerId: run.triggerId, firingId: run.firingId),
-  ]);
+  );
 }

@@ -30,9 +30,15 @@ class NotificationsPanel extends ConsumerWidget {
     final level = ref.watch(stringSettingProvider(SettingsKeys.notifyLevel));
     final os = ref.watch(boolSettingProvider(SettingsKeys.notifyOs));
     final toast = ref.watch(boolSettingProvider(SettingsKeys.notifyToast));
-    final capFail = ref.watch(boolSettingProvider(SettingsKeys.capsuleFailures));
-    final capAppr = ref.watch(boolSettingProvider(SettingsKeys.capsuleApprovals));
-    final capAttn = ref.watch(boolSettingProvider(SettingsKeys.capsuleAttention));
+    final capFail = ref.watch(
+      boolSettingProvider(SettingsKeys.capsuleFailures),
+    );
+    final capAppr = ref.watch(
+      boolSettingProvider(SettingsKeys.capsuleApprovals),
+    );
+    final capAttn = ref.watch(
+      boolSettingProvider(SettingsKeys.capsuleAttention),
+    );
 
     // Actions-only head — the panel title already says «Notifications»; a same-named group head was
     // pure repetition (0719 审计 P1-1). The badge keeps its seat. 徽章头——面板大题已言「通知」,
@@ -48,23 +54,38 @@ class NotificationsPanel extends ConsumerWidget {
             label: t.settings.notifLevel,
             desc: t.settings.notifLevelDesc,
             modified: level != SettingsKeys.notifyLevel.def,
-            onReset: () =>
-                ref.read(stringSettingProvider(SettingsKeys.notifyLevel).notifier).reset(),
+            onReset: () => ref
+                .read(stringSettingProvider(SettingsKeys.notifyLevel).notifier)
+                .reset(),
             resetLabel: t.settings.resetToDefault,
             child: SizedBox(
               width: AnSize.ctlSlotLg,
               child: AnSegmented<String>(
                 options: [
                   AnSegmentedOption(value: 'all', label: t.settings.levelAll),
-                  AnSegmentedOption(value: 'important', label: t.settings.levelImportant),
-                  AnSegmentedOption(value: 'silent', label: t.settings.levelSilent),
+                  AnSegmentedOption(
+                    value: 'important',
+                    label: t.settings.levelImportant,
+                  ),
+                  AnSegmentedOption(
+                    value: 'silent',
+                    label: t.settings.levelSilent,
+                  ),
                 ],
                 value: level,
                 onChanged: (v) {
-                  ref.read(stringSettingProvider(SettingsKeys.notifyLevel).notifier).set(v);
+                  ref
+                      .read(
+                        stringSettingProvider(
+                          SettingsKeys.notifyLevel,
+                        ).notifier,
+                      )
+                      .set(v);
                   if (v == 'silent') {
                     // One-shot confirmation microcopy (S-8). 一次性确认微文案。
-                    ref.read(noticeCenterProvider.notifier).show(t.settings.silentHint);
+                    ref
+                        .read(noticeCenterProvider.notifier)
+                        .show(t.settings.silentHint);
                   }
                 },
               ),
@@ -77,11 +98,15 @@ class NotificationsPanel extends ConsumerWidget {
             label: t.settings.notifOs,
             desc: t.settings.notifOsDesc,
             modified: os != SettingsKeys.notifyOs.def,
-            onReset: () => ref.read(boolSettingProvider(SettingsKeys.notifyOs).notifier).reset(),
+            onReset: () => ref
+                .read(boolSettingProvider(SettingsKeys.notifyOs).notifier)
+                .reset(),
             resetLabel: t.settings.resetToDefault,
             child: AnSwitch(
               value: os,
-              onChanged: (v) => ref.read(boolSettingProvider(SettingsKeys.notifyOs).notifier).set(v),
+              onChanged: (v) => ref
+                  .read(boolSettingProvider(SettingsKeys.notifyOs).notifier)
+                  .set(v),
             ),
           ),
         ),
@@ -92,12 +117,15 @@ class NotificationsPanel extends ConsumerWidget {
             label: t.settings.notifToast,
             desc: t.settings.notifToastDesc,
             modified: toast != SettingsKeys.notifyToast.def,
-            onReset: () => ref.read(boolSettingProvider(SettingsKeys.notifyToast).notifier).reset(),
+            onReset: () => ref
+                .read(boolSettingProvider(SettingsKeys.notifyToast).notifier)
+                .reset(),
             resetLabel: t.settings.resetToDefault,
             child: AnSwitch(
               value: toast,
-              onChanged: (v) =>
-                  ref.read(boolSettingProvider(SettingsKeys.notifyToast).notifier).set(v),
+              onChanged: (v) => ref
+                  .read(boolSettingProvider(SettingsKeys.notifyToast).notifier)
+                  .set(v),
             ),
           ),
         ),
@@ -105,29 +133,52 @@ class NotificationsPanel extends ConsumerWidget {
         // The capsule REGISTRY (用户 0720): which event classes may pop the band capsule. Rows are
         // plain settings switches — one per class, tone dot colors live in the capsule itself.
         // 胶囊登记:哪些事件类可上顶带。逐类开关;分级点色在胶囊自身。
-        _capsuleRow(ref, t, SettingsKeys.capsuleFailures, capFail, t.settings.capsuleFailures,
-            t.settings.capsuleFailuresDesc),
+        _capsuleRow(
+          ref,
+          t,
+          SettingsKeys.capsuleFailures,
+          capFail,
+          t.settings.capsuleFailures,
+          t.settings.capsuleFailuresDesc,
+        ),
         const SizedBox(height: AnSpace.s4),
-        _capsuleRow(ref, t, SettingsKeys.capsuleApprovals, capAppr, t.settings.capsuleApprovals,
-            t.settings.capsuleApprovalsDesc),
+        _capsuleRow(
+          ref,
+          t,
+          SettingsKeys.capsuleApprovals,
+          capAppr,
+          t.settings.capsuleApprovals,
+          t.settings.capsuleApprovalsDesc,
+        ),
         const SizedBox(height: AnSpace.s4),
-        _capsuleRow(ref, t, SettingsKeys.capsuleAttention, capAttn, t.settings.capsuleAttention,
-            t.settings.capsuleAttentionDesc),
+        _capsuleRow(
+          ref,
+          t,
+          SettingsKeys.capsuleAttention,
+          capAttn,
+          t.settings.capsuleAttention,
+          t.settings.capsuleAttentionDesc,
+        ),
       ],
     );
   }
 
-  Widget _capsuleRow(WidgetRef ref, Translations t, SettingsKey<bool> key, bool value, String label,
-          String desc) =>
-      AnSettingRow(
-        label: label,
-        desc: desc,
-        modified: value != key.def,
-        onReset: () => ref.read(boolSettingProvider(key).notifier).reset(),
-        resetLabel: t.settings.resetToDefault,
-        child: AnSwitch(
-          value: value,
-          onChanged: (v) => ref.read(boolSettingProvider(key).notifier).set(v),
-        ),
-      );
+  Widget _capsuleRow(
+    WidgetRef ref,
+    Translations t,
+    SettingsKey<bool> key,
+    bool value,
+    String label,
+    String desc,
+  ) => AnSettingRow(
+    label: label,
+    desc: desc,
+    modified: value != key.def,
+    onReset: () => ref.read(boolSettingProvider(key).notifier).reset(),
+    resetLabel: t.settings.resetToDefault,
+    child: AnSwitch(
+      value: value,
+      onChanged: (v) => ref.read(boolSettingProvider(key).notifier).set(v),
+    ),
+  );
 }

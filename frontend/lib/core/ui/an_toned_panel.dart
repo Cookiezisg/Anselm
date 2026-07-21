@@ -11,7 +11,11 @@ import '../design/tokens.dart';
 /// 卡内距;是普通装饰容器(非 AnWindow),故可嵌 AnWindow 不犯窗禁套窗——人闸 card-16 壳(danger/ask 边),
 /// 与相邻工具卡同圆角却带 AnCard chip-12 给不了的 tone 边。
 class AnTonedPanel extends StatelessWidget {
-  const AnTonedPanel({required this.child, required this.borderColor, super.key});
+  const AnTonedPanel({
+    required this.child,
+    required this.borderColor,
+    super.key,
+  });
 
   final Widget child;
 
@@ -20,12 +24,12 @@ class AnTonedPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: AnInset.card,
-        decoration: BoxDecoration(
-          color: context.colors.surface,
-          borderRadius: BorderRadius.circular(AnRadius.card),
-          border: Border.all(color: borderColor, width: AnSize.hairline),
-        ),
-        child: child,
-      );
+    padding: AnInset.card,
+    decoration: BoxDecoration(
+      color: context.colors.surface,
+      borderRadius: BorderRadius.circular(AnRadius.card),
+      border: Border.all(color: borderColor, width: AnSize.hairline),
+    ),
+    child: child,
+  );
 }

@@ -58,29 +58,39 @@ class _Roster extends ConsumerWidget {
               icon: AnIcons.plus,
               size: AnButtonSize.sm,
               outline: true,
-              onPressed: () =>
-                  ref.read(settingsDetailProvider.notifier).push('addWorkspace'),
+              onPressed: () => ref
+                  .read(settingsDetailProvider.notifier)
+                  .push('addWorkspace'),
             ),
           ],
           children: [
             for (final w in rows)
               AnRow(
                 leadless: true,
-                labelWidget: Row(mainAxisSize: MainAxisSize.min, children: [
-                  AnSwatch(parseHexColor(w.avatarColor, context.colors.accent), size: AnSwatchSize.dot),
-                  const SizedBox(width: AnSpace.s8),
-                  Text(w.name,
+                labelWidget: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    AnSwatch(
+                      parseHexColor(w.avatarColor, context.colors.accent),
+                      size: AnSwatchSize.dot,
+                    ),
+                    const SizedBox(width: AnSpace.s8),
+                    Text(
+                      w.name,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
-                      style: AnText.body.copyWith(color: context.colors.ink)),
-                ]),
+                      style: AnText.body.copyWith(color: context.colors.ink),
+                    ),
+                  ],
+                ),
                 label: w.name,
                 selected: w.id == active,
                 meta: w.id == active ? t.settings.ws.current : '',
                 // Row click = SWITCH (the hot-switch action); the active row re-selects as a no-op.
                 // 点行=切换(热切换动作);当前行点了=无操作。
-                onSelect: () =>
-                    ref.read(workspaceSwitchProvider).switchTo(id: w.id, name: w.name),
+                onSelect: () => ref
+                    .read(workspaceSwitchProvider)
+                    .switchTo(id: w.id, name: w.name),
                 actions: [
                   AnButton(
                     label: t.settings.ws.edit,
@@ -97,7 +107,6 @@ class _Roster extends ConsumerWidget {
     );
   }
 }
-
 
 class _CreateForm extends ConsumerStatefulWidget {
   const _CreateForm();
@@ -144,28 +153,49 @@ class _CreateFormState extends ConsumerState<_CreateForm> {
     final c = context.colors;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        AnFormField(label: t.settings.ws.name, child: AnInput(controller: _name, autofocus: true, onChanged: (_) => setState(() {}))),
-        const SizedBox(height: AnSpace.s12),
-        AnFormField(label: t.settings.ws.color, child: _ColorPicker(value: _color, onChanged: (v) => setState(() => _color = v))),
-        if (_error != null) ...[
-          const SizedBox(height: AnSpace.s8),
-          Text(_error!, style: AnText.label.copyWith(color: c.danger)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnFormField(
+            label: t.settings.ws.name,
+            child: AnInput(
+              controller: _name,
+              autofocus: true,
+              onChanged: (_) => setState(() {}),
+            ),
+          ),
+          const SizedBox(height: AnSpace.s12),
+          AnFormField(
+            label: t.settings.ws.color,
+            child: _ColorPicker(
+              value: _color,
+              onChanged: (v) => setState(() => _color = v),
+            ),
+          ),
+          if (_error != null) ...[
+            const SizedBox(height: AnSpace.s8),
+            Text(_error!, style: AnText.label.copyWith(color: c.danger)),
+          ],
+          const SizedBox(height: AnSpace.s16),
+          Row(
+            children: [
+              AnButton(
+                label: t.settings.ws.create,
+                variant: AnButtonVariant.primary,
+                onPressed: _saving || _name.text.trim().isEmpty
+                    ? null
+                    : _create,
+              ),
+              const SizedBox(width: AnSpace.s8),
+              AnButton(
+                label: t.settings.keys.cancel,
+                onPressed: () =>
+                    ref.read(settingsDetailProvider.notifier).pop(),
+              ),
+            ],
+          ),
         ],
-        const SizedBox(height: AnSpace.s16),
-        Row(children: [
-          AnButton(
-            label: t.settings.ws.create,
-            variant: AnButtonVariant.primary,
-            onPressed: _saving || _name.text.trim().isEmpty ? null : _create,
-          ),
-          const SizedBox(width: AnSpace.s8),
-          AnButton(
-            label: t.settings.keys.cancel,
-            onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
-          ),
-        ]),
-      ]),
+      ),
     );
   }
 }
@@ -180,13 +210,19 @@ class _ColorPicker extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     // Family swatch cells (批5c A-028 — the hand-rolled 22×22 discs retire). 族色板格。
-    return Row(children: [
-      for (final hex in kAvatarPalette)
-        Padding(
-          padding: const EdgeInsets.only(right: AnSpace.s8),
-          child: AnSwatch(parseHexColor(hex, c.accent), selected: value == hex, onTap: () => onChanged(hex)),
-        ),
-    ]);
+    return Row(
+      children: [
+        for (final hex in kAvatarPalette)
+          Padding(
+            padding: const EdgeInsets.only(right: AnSpace.s8),
+            child: AnSwatch(
+              parseHexColor(hex, c.accent),
+              selected: value == hex,
+              onTap: () => onChanged(hex),
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -219,7 +255,9 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
     try {
       await ref.read(workspacesProvider.notifier).rename(w.id, name);
     } on ApiException catch (e) {
-      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(e.message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -237,7 +275,10 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
       ref.invalidate(workspacesProvider);
       ref
           .read(noticeCenterProvider.notifier)
-          .show('${t.settings.ws.deleteFailed} · ${e.message}', tone: AnTone.danger);
+          .show(
+            '${t.settings.ws.deleteFailed} · ${e.message}',
+            tone: AnTone.danger,
+          );
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -259,48 +300,66 @@ class _WorkspaceEditorState extends ConsumerState<WorkspaceEditor> {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        AnFormField(label: t.settings.ws.name, child: AnInput(
-            controller: _name,
-            onChanged: (_) => setState(() {}),
-            onSubmitted: (_) => _saveName(w))),
-        const SizedBox(height: AnSpace.s12),
-        AnFormField(label: t.settings.ws.color, child: _ColorPicker(
-          value: w.avatarColor ?? '',
-          onChanged: (v) async {
-            try {
-              await ref.read(workspacesProvider.notifier).recolor(w.id, v);
-            } on ApiException catch (e) {
-              ref
-                  .read(noticeCenterProvider.notifier)
-                  .show(e.message, tone: AnTone.danger);
-            }
-          },
-        )),
-        const SizedBox(height: AnSpace.s16),
-        AnButton(
-          label: t.settings.ws.save,
-          variant: AnButtonVariant.primary,
-          onPressed:
-              _busy || _name.text.trim().isEmpty || _name.text.trim() == w.name
-                  ? null
-                  : () => _saveName(w),
-        ),
-        if (deletable) ...[
-          const SizedBox(height: AnSpace.s32),
-          _DangerZone(w: w, busy: _busy, onDelete: () => _delete(w)),
-        ] else ...[
-          const SizedBox(height: AnSpace.s32),
-          Text(w.id == active ? t.settings.ws.current : t.settings.ws.lastOne,
-              style: AnText.label.copyWith(color: c.inkFaint)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          AnFormField(
+            label: t.settings.ws.name,
+            child: AnInput(
+              controller: _name,
+              onChanged: (_) => setState(() {}),
+              onSubmitted: (_) => _saveName(w),
+            ),
+          ),
+          const SizedBox(height: AnSpace.s12),
+          AnFormField(
+            label: t.settings.ws.color,
+            child: _ColorPicker(
+              value: w.avatarColor ?? '',
+              onChanged: (v) async {
+                try {
+                  await ref.read(workspacesProvider.notifier).recolor(w.id, v);
+                } on ApiException catch (e) {
+                  ref
+                      .read(noticeCenterProvider.notifier)
+                      .show(e.message, tone: AnTone.danger);
+                }
+              },
+            ),
+          ),
+          const SizedBox(height: AnSpace.s16),
+          AnButton(
+            label: t.settings.ws.save,
+            variant: AnButtonVariant.primary,
+            onPressed:
+                _busy ||
+                    _name.text.trim().isEmpty ||
+                    _name.text.trim() == w.name
+                ? null
+                : () => _saveName(w),
+          ),
+          if (deletable) ...[
+            const SizedBox(height: AnSpace.s32),
+            _DangerZone(w: w, busy: _busy, onDelete: () => _delete(w)),
+          ] else ...[
+            const SizedBox(height: AnSpace.s32),
+            Text(
+              w.id == active ? t.settings.ws.current : t.settings.ws.lastOne,
+              style: AnText.label.copyWith(color: c.inkFaint),
+            ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }
 
 class _DangerZone extends ConsumerWidget {
-  const _DangerZone({required this.w, required this.busy, required this.onDelete});
+  const _DangerZone({
+    required this.w,
+    required this.busy,
+    required this.onDelete,
+  });
 
   final Workspace w;
   final bool busy;
@@ -324,13 +383,19 @@ class _DangerZone extends ConsumerWidget {
     }
 
     final body = stats == null
-        ? Text(t.settings.ws.statsLoading, style: AnText.label.copyWith(color: c.inkMuted))
+        ? Text(
+            t.settings.ws.statsLoading,
+            style: AnText.label.copyWith(color: c.inkMuted),
+          )
         : Text(
             t.settings.ws.dangerBody(
               name: w.name,
               conversations: stats.conversations,
               entities:
-                  stats.functions + stats.handlers + stats.agents + stats.workflows,
+                  stats.functions +
+                  stats.handlers +
+                  stats.agents +
+                  stats.workflows,
               documents: stats.documents,
               blob: stats.blobBytes < 0
                   ? t.settings.ws.blobUnknown

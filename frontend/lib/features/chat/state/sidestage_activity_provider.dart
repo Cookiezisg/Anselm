@@ -75,13 +75,20 @@ class SidestageActivityController extends Notifier<bool> {
     // Watch the NOTIFIER (identity), not its state — the coalescer fires per delta, so a state-watch
     // would rebuild this provider on every frame. The transcript listener below drives the rare
     // subagent-flip re-derive. 观 notifier 身份(非 state):逐帧 delta 由下方 listener 处理,布尔翻转才更新。
-    final tx = ref.watch(conversationStreamProvider(conversationId).notifier).transcript;
+    final tx = ref
+        .watch(conversationStreamProvider(conversationId).notifier)
+        .transcript;
     _tx = tx;
     tx.addListener(_onTranscript);
     // removeListener is dispose-safe on ChangeNotifier (no-op after dispose), so a rebuilt stream
     // controller's retired coalescer is handled cleanly. 释放安全(ChangeNotifier removeListener 幂等)。
     ref.onDispose(() => tx.removeListener(_onTranscript));
-    return sidestageHasContent(ledger: ledger, stage: stage, rundown: rundown, transcript: tx.value);
+    return sidestageHasContent(
+      ledger: ledger,
+      stage: stage,
+      rundown: rundown,
+      transcript: tx.value,
+    );
   }
 
   void _onTranscript() {
@@ -100,4 +107,6 @@ class SidestageActivityController extends Notifier<bool> {
 /// The sidestage-activity flag for a conversation (drives whether the chat right island + its toggle exist).
 /// autoDispose family — leaving the thread frees it and the sources it kept warm. 会话侧幕活动旗。
 final sidestageActivityProvider = NotifierProvider.autoDispose
-    .family<SidestageActivityController, bool, String>(SidestageActivityController.new);
+    .family<SidestageActivityController, bool, String>(
+      SidestageActivityController.new,
+    );

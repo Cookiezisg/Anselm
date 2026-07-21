@@ -37,4 +37,6 @@ class TranscriptJumpController extends Notifier<TranscriptJumpRequest?> {
 /// Per-conversation jump channel (autoDispose family — dies with the thread's UI).
 /// 每会话跳转通道(autoDispose family,随线程 UI 释放)。
 final transcriptJumpProvider = NotifierProvider.autoDispose
-    .family<TranscriptJumpController, TranscriptJumpRequest?, String>(TranscriptJumpController.new);
+    .family<TranscriptJumpController, TranscriptJumpRequest?, String>(
+      TranscriptJumpController.new,
+    );

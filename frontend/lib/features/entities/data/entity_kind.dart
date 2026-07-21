@@ -57,7 +57,8 @@ enum EntityKind {
 /// The deep-link location for an entity (STEP 6): `/entities/<kind>/<id>`. The `:kind` segment is the
 /// enum `name` (= the lowercase wire kind), so [entityKindFromWire] round-trips it. The rail navigates
 /// here (`context.go`) to set selection; the router is the source of truth. 实体 deep-link 位置。
-String entityLocation(EntityKind kind, String id) => '/entities/${kind.name}/$id';
+String entityLocation(EntityKind kind, String id) =>
+    '/entities/${kind.name}/$id';
 
 /// The workflow graph-editor route (WRK-055 W5) — a full-screen page, NOT the shell. 图编辑器路由(全屏)。
 String workflowEditorLocation(String id) => '/entities/workflow/$id/editor';

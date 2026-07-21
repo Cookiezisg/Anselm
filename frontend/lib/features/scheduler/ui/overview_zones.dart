@@ -40,13 +40,18 @@ import 'scheduler_home_model.dart';
 /// node allows). 等你处理区:最贵地皮;行=琥珀点(hover 换选择框)+名+节点+fr_ chip+等待时长+倒计时
 /// (有期限才渲)+就地审批门(节点允许时带理由输入)。
 class SchedulerWaitingZone extends ConsumerStatefulWidget {
-  const SchedulerWaitingZone({required this.rows, required this.now, super.key});
+  const SchedulerWaitingZone({
+    required this.rows,
+    required this.now,
+    super.key,
+  });
 
   final List<SchedulerInboxRow> rows;
   final DateTime now;
 
   @override
-  ConsumerState<SchedulerWaitingZone> createState() => _SchedulerWaitingZoneState();
+  ConsumerState<SchedulerWaitingZone> createState() =>
+      _SchedulerWaitingZoneState();
 }
 
 class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
@@ -54,7 +59,8 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
   final TextEditingController _batchReason = TextEditingController();
   bool _rejectOpen = false;
 
-  static String _keyOf(SchedulerInboxRow r) => '${r.node.flowrunId}/${r.node.nodeId}';
+  static String _keyOf(SchedulerInboxRow r) =>
+      '${r.node.flowrunId}/${r.node.nodeId}';
 
   @override
   void didUpdateWidget(covariant SchedulerWaitingZone old) {
@@ -68,17 +74,25 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
     super.dispose();
   }
 
-  List<SchedulerInboxRow> get _selectedRows =>
-      [for (final r in widget.rows) if (selected.contains(_keyOf(r))) r];
+  List<SchedulerInboxRow> get _selectedRows => [
+    for (final r in widget.rows)
+      if (selected.contains(_keyOf(r))) r,
+  ];
 
-  Future<void> _decideOne(SchedulerInboxRow row, String verdict, String? reason) async {
+  Future<void> _decideOne(
+    SchedulerInboxRow row,
+    String verdict,
+    String? reason,
+  ) async {
     final key = _keyOf(row);
     if (pending.contains(key) || batchBusy) return;
     final t = context.t.scheduler.overview;
     final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => pending.add(key));
     try {
-      await ref.read(schedulerRepositoryProvider).decideApproval(
+      await ref
+          .read(schedulerRepositoryProvider)
+          .decideApproval(
             row.node.flowrunId,
             row.node.nodeId,
             decision: verdict,
@@ -109,17 +123,25 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
     if (rows.isEmpty) return;
     setState(() => _rejectOpen = false);
     final repo = ref.read(schedulerRepositoryProvider);
-    final (ok, lost, failed) = await runBatch<SchedulerInboxRow>(rows, _keyOf, (r) {
+    final (ok, lost, failed) = await runBatch<SchedulerInboxRow>(rows, _keyOf, (
+      r,
+    ) {
       // The shared reason only rides where the node ACCEPTS one (no silent drop on the backend).
       // 共用理由只送给接受理由的节点。
       final allow = r.node.result['allowReason'] == true;
-      return repo.decideApproval(r.node.flowrunId, r.node.nodeId,
-          decision: verdict, reason: allow && reason != null && reason.isNotEmpty ? reason : null);
+      return repo.decideApproval(
+        r.node.flowrunId,
+        r.node.nodeId,
+        decision: verdict,
+        reason: allow && reason != null && reason.isNotEmpty ? reason : null,
+      );
     });
     if (!mounted) return;
     summaryNotice(
       okPart: ok > 0
-          ? (verdict == 'yes' ? t.sumApproved(n: '$ok') : t.sumRejected(n: '$ok'))
+          ? (verdict == 'yes'
+                ? t.sumApproved(n: '$ok')
+                : t.sumRejected(n: '$ok'))
           : null,
       lostPart: lost > 0 ? t.sumLost(n: '$lost') : null,
       failedPart: failed > 0 ? t.sumFailed(n: '$failed') : null,
@@ -140,72 +162,101 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
       children: [
         // ONE body child (0718 对齐审计,大表控制块同法): the collapsed batch bar must not earn
         // AnSection's 12px inter-child gap (静息态题→卡曾 20px 应 8px). 合一子件:塌缩条不吃子距。
-        Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-        AnExpandReveal(
-          open: barVisible,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: AnGap.block),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              AnBatchBar(
-                count: selected.length,
-                busy: batchBusy,
-                actions: [
-                  BatchAction(
-                      label: t.batchApprove,
-                      icon: AnIcons.check,
-                      tone: AnTone.accent,
-                      onRun: () => _batchDecide('yes')),
-                  BatchAction(
-                      label: t.batchReject,
-                      tone: AnTone.danger,
-                      onRun: () => setState(() => _rejectOpen = !_rejectOpen)),
-                ],
-                onClear: () => setState(() {
-                  selected.clear();
-                  _rejectOpen = false;
-                }),
-              ),
-              // The shared-reason strip for batch reject (an inline reveal — the modal confirm has
-              // no input seat, and the reason belongs next to the bar it qualifies). 批量拒绝的共用
-              // 理由条:内联浮出(模态确认框无输入位,理由就该贴着它所修饰的条)。
-              AnExpandReveal(
-                open: _rejectOpen && !batchBusy,
-                child: Padding(
-                  padding: const EdgeInsets.only(top: AnSpace.s8),
-                  child: Row(children: [
-                    Expanded(
-                        child: AnInput(
-                            controller: _batchReason,
-                            placeholder: context.t.run.reasonHint,
-                            block: true)),
-                    const SizedBox(width: AnSpace.s8),
-                    AnButton(
-                        label: t.batchRejectConfirm(n: '${selected.length}'),
-                        variant: AnButtonVariant.danger,
-                        size: AnButtonSize.sm,
-                        onPressed: () => _batchDecide('no', reason: _batchReason.text.trim())),
-                    const SizedBox(width: AnSpace.s8),
-                    AnButton(
-                        label: context.t.action.cancel,
-                        size: AnButtonSize.sm,
-                        onPressed: () => setState(() => _rejectOpen = false)),
-                  ]),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnExpandReveal(
+              open: barVisible,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: AnGap.block),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    AnBatchBar(
+                      count: selected.length,
+                      busy: batchBusy,
+                      actions: [
+                        BatchAction(
+                          label: t.batchApprove,
+                          icon: AnIcons.check,
+                          tone: AnTone.accent,
+                          onRun: () => _batchDecide('yes'),
+                        ),
+                        BatchAction(
+                          label: t.batchReject,
+                          tone: AnTone.danger,
+                          onRun: () =>
+                              setState(() => _rejectOpen = !_rejectOpen),
+                        ),
+                      ],
+                      onClear: () => setState(() {
+                        selected.clear();
+                        _rejectOpen = false;
+                      }),
+                    ),
+                    // The shared-reason strip for batch reject (an inline reveal — the modal confirm has
+                    // no input seat, and the reason belongs next to the bar it qualifies). 批量拒绝的共用
+                    // 理由条:内联浮出(模态确认框无输入位,理由就该贴着它所修饰的条)。
+                    AnExpandReveal(
+                      open: _rejectOpen && !batchBusy,
+                      child: Padding(
+                        padding: const EdgeInsets.only(top: AnSpace.s8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: AnInput(
+                                controller: _batchReason,
+                                placeholder: context.t.run.reasonHint,
+                                block: true,
+                              ),
+                            ),
+                            const SizedBox(width: AnSpace.s8),
+                            AnButton(
+                              label: t.batchRejectConfirm(
+                                n: '${selected.length}',
+                              ),
+                              variant: AnButtonVariant.danger,
+                              size: AnButtonSize.sm,
+                              onPressed: () => _batchDecide(
+                                'no',
+                                reason: _batchReason.text.trim(),
+                              ),
+                            ),
+                            const SizedBox(width: AnSpace.s8),
+                            AnButton(
+                              label: context.t.action.cancel,
+                              size: AnButtonSize.sm,
+                              onPressed: () =>
+                                  setState(() => _rejectOpen = false),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ]),
-          ),
+            ),
+            if (widget.rows.isEmpty)
+              Text(
+                t.waitingEmpty,
+                style: AnText.body.copyWith(color: c.inkFaint),
+              )
+            else
+              // A responsive TWO-column card grid (WRK-070 B13 用户裁:Overview 审批卡=双列、带边框;
+              // 720 列下 AnAutoGrid 的 280 最小列宽恰流成两列). 双列有边卡网格。
+              AnAutoGrid(
+                children: [
+                  for (final r in widget.rows)
+                    AnExpandReveal(
+                      open: !leaving.contains(_keyOf(r)),
+                      child: _card(context, r),
+                    ),
+                ],
+              ),
+          ],
         ),
-        if (widget.rows.isEmpty)
-          Text(t.waitingEmpty, style: AnText.body.copyWith(color: c.inkFaint))
-        else
-          // A responsive TWO-column card grid (WRK-070 B13 用户裁:Overview 审批卡=双列、带边框;
-          // 720 列下 AnAutoGrid 的 280 最小列宽恰流成两列). 双列有边卡网格。
-          AnAutoGrid(children: [
-            for (final r in widget.rows)
-              AnExpandReveal(
-                  open: !leaving.contains(_keyOf(r)), child: _card(context, r)),
-          ]),
-        ]),
       ],
     );
   }
@@ -214,7 +265,8 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
     final t = context.t.scheduler.overview;
     final c = context.colors;
     final key = _keyOf(r);
-    final isPending = pending.contains(key) || batchBusy && selected.contains(key);
+    final isPending =
+        pending.contains(key) || batchBusy && selected.contains(key);
     final selecting = selected.isNotEmpty;
     final showCheck = (selecting || hoveredKey == key) && !isPending;
     // Scroll-freeze the hover (0718 滚动闪烁审定,AnHoverRegion): the row/card swaps its lead
@@ -230,49 +282,62 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
-            Row(children: [
-              SizedBox(
-                width: AnSize.iconSm,
-                child: Center(
-                  child: isPending
-                      ? const AnSpinner(size: AnSize.iconSm)
-                      : showCheck
-                          ? AnBatchCheck(
-                              checked: selected.contains(key),
-                              semanticLabel: t.selectRow(name: r.workflowName),
-                              onChanged: (v) => setState(
-                                  () => v ? selected.add(key) : selected.remove(key)),
-                            )
-                          : const AnStatusDot(AnStatus.wait),
-                ),
-              ),
-              const SizedBox(width: AnSpace.s8),
-              // The workflow NAME is the card's door to the run flagship (the old row-tap deep
-              // link, kept). 名字即门:保留旧行点击的旗舰深链。
-              Expanded(
-                child: AnInteractive(
-                  onTap: () =>
-                      context.go('/scheduler/w/${r.workflowId}/runs/${r.node.flowrunId}'),
-                  builder: (context, states) => Text(
-                    r.workflowName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.body
-                        .weight(AnText.emphasisWeight)
-                        .copyWith(color: states.isActive ? c.accent : c.ink),
+            Row(
+              children: [
+                SizedBox(
+                  width: AnSize.iconSm,
+                  child: Center(
+                    child: isPending
+                        ? const AnSpinner(size: AnSize.iconSm)
+                        : showCheck
+                        ? AnBatchCheck(
+                            checked: selected.contains(key),
+                            semanticLabel: t.selectRow(name: r.workflowName),
+                            onChanged: (v) => setState(
+                              () =>
+                                  v ? selected.add(key) : selected.remove(key),
+                            ),
+                          )
+                        : const AnStatusDot(AnStatus.wait),
                   ),
                 ),
-              ),
-              const SizedBox(width: AnSpace.s8),
-              Text(t.waitedFor(d: fmtWaited(widget.now.difference(r.node.createdAt))),
-                  style: AnText.meta.copyWith(color: c.inkFaint)),
-            ]),
+                const SizedBox(width: AnSpace.s8),
+                // The workflow NAME is the card's door to the run flagship (the old row-tap deep
+                // link, kept). 名字即门:保留旧行点击的旗舰深链。
+                Expanded(
+                  child: AnInteractive(
+                    onTap: () => context.go(
+                      '/scheduler/w/${r.workflowId}/runs/${r.node.flowrunId}',
+                    ),
+                    builder: (context, states) => Text(
+                      r.workflowName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AnText.body
+                          .weight(AnText.emphasisWeight)
+                          .copyWith(color: states.isActive ? c.accent : c.ink),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: AnSpace.s8),
+                Text(
+                  t.waitedFor(
+                    d: fmtWaited(widget.now.difference(r.node.createdAt)),
+                  ),
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              ],
+            ),
             const SizedBox(height: AnSpace.s8),
             // Node word + countdown; the raw fr_ pill is GONE (B1 裸 id 清除). 节点词+倒计时;裸 id 药丸删。
-            Wrap(spacing: AnSpace.s6, runSpacing: AnSpace.s6, children: [
-              AnChip(r.node.nodeId, look: AnChipLook.outlined),
-              if (r.deadline != null) AnCountdown(deadline: r.deadline!),
-            ]),
+            Wrap(
+              spacing: AnSpace.s6,
+              runSpacing: AnSpace.s6,
+              children: [
+                AnChip(r.node.nodeId, look: AnChipLook.outlined),
+                if (r.deadline != null) AnCountdown(deadline: r.deadline!),
+              ],
+            ),
             const SizedBox(height: AnFlow.headBodyTight),
             ApprovalGate(
               parked: r.node,
@@ -309,8 +374,12 @@ class _SchedulerWaitingZoneState extends ConsumerState<SchedulerWaitingZone>
 /// 话预告。两半的 i18n 词(来源短语/排程节拍/相对词/读屏句/hover 卡体)全在**此处**拼——core 无文案。**点击=发射台**
 /// (一格一 run →旗舰、多 run →运营主页);**hover=明细卡**;两处独立截断各说一句。
 class SchedulerScheduleZone extends StatelessWidget {
-  const SchedulerScheduleZone(
-      {required this.track, required this.triggersById, required this.now, super.key});
+  const SchedulerScheduleZone({
+    required this.track,
+    required this.triggersById,
+    required this.now,
+    super.key,
+  });
 
   final ScheduleTrackData track;
 
@@ -330,10 +399,17 @@ class SchedulerScheduleZone extends StatelessWidget {
   /// ⊆ 这 25 个整点小时——牌数的每个 missed 都在轨上。
   DateTime get _windowEnd {
     final l = now.toLocal();
-    return DateTime(l.year, l.month, l.day, l.hour).add(const Duration(hours: 1));
+    return DateTime(
+      l.year,
+      l.month,
+      l.day,
+      l.hour,
+    ).add(const Duration(hours: 1));
   }
 
-  DateTime get _start => _windowEnd.subtract(const Duration(hours: SchedulerWindows.trackBinCount));
+  DateTime get _start => _windowEnd.subtract(
+    const Duration(hours: SchedulerWindows.trackBinCount),
+  );
   int get _binCount => SchedulerWindows.trackBinCount;
 
   /// The column-head glyph over one cell: the hour number, or «M/D» on the midnight anchor (a date is
@@ -373,7 +449,12 @@ class SchedulerScheduleZone extends StatelessWidget {
       id: '${lane.triggerId}/${lane.workflowId}',
       label: lane.workflowName,
       bins: binTrackEvents(
-          start: _start, end: _windowEnd, binCount: _binCount, runs: runs, missed: missed),
+        start: _start,
+        end: _windowEnd,
+        binCount: _binCount,
+        runs: runs,
+        missed: missed,
+      ),
       // 判决①: the paused lane greys and wears «已暂停» (rendered in the future segment) — never leaves.
       // 判决①:暂停泳道灰显、戴「已暂停」(渲在未来段)——绝不离开。
       dimmed: lane.paused,
@@ -415,9 +496,15 @@ class SchedulerScheduleZone extends StatelessWidget {
     final t = context.t.scheduler.overview;
     final ok = bin.runs.where((r) => r.status == AnStatus.done).length;
     final fail = bin.runs.where((r) => r.status == AnStatus.err).length;
-    final base =
-        t.trackBinA11y(hour: _hourOf(bin.start), n: '${bin.runs.length}', ok: '$ok', fail: '$fail');
-    return bin.missedCount > 0 ? '$base${t.trackBinMissedClause(x: '${bin.missedCount}')}' : base;
+    final base = t.trackBinA11y(
+      hour: _hourOf(bin.start),
+      n: '${bin.runs.length}',
+      ok: '$ok',
+      fail: '$fail',
+    );
+    return bin.missedCount > 0
+        ? '$base${t.trackBinMissedClause(x: '${bin.missedCount}')}'
+        : base;
   }
 
   String _emptyBinA11y(BuildContext context, TrackLane lane, TrackBin bin) =>
@@ -441,7 +528,13 @@ class SchedulerScheduleZone extends StatelessWidget {
     }
     final next = lane.future?.time ?? (lane.dimmed ? lane.note : t.kpiNone);
     return t.trackLaneSummaryA11y(
-        name: lane.label, n: '$n', ok: '$ok', fail: '$fail', missed: '$missed', next: next);
+      name: lane.label,
+      n: '$n',
+      ok: '$ok',
+      fail: '$fail',
+      missed: '$missed',
+      next: next,
+    );
   }
 
   // ── hover cards ──
@@ -450,7 +543,9 @@ class SchedulerScheduleZone extends StatelessWidget {
     final t = context.t.scheduler.overview;
     final c = context.colors;
     final shown = bin.runs.take(_cardCap).toList();
-    final hidden = bin.runs.length > _cardCap ? bin.runs.skip(_cardCap).toList() : const <TrackRun>[];
+    final hidden = bin.runs.length > _cardCap
+        ? bin.runs.skip(_cardCap).toList()
+        : const <TrackRun>[];
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -458,8 +553,12 @@ class SchedulerScheduleZone extends StatelessWidget {
         // Header = the hour + total activity (runs + missed). 头行=时段 + 总数。
         Text(
           t.trackCardHead(
-              at: fmtDayTime(bin.start, now), n: '${bin.runs.length + bin.missedCount}'),
-          style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.ink),
+            at: fmtDayTime(bin.start, now),
+            n: '${bin.runs.length + bin.missedCount}',
+          ),
+          style: AnText.meta
+              .weight(AnText.emphasisWeight)
+              .copyWith(color: c.ink),
         ),
         const SizedBox(height: AnFlow.headBodyDense),
         // Missed rows first — the ✕ evidence that drew the eye. 先列 missed:引来目光的 ✕ 证据。
@@ -468,8 +567,10 @@ class SchedulerScheduleZone extends StatelessWidget {
         if (hidden.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s2),
-            child: Text(_overflowLine(context, hidden),
-                style: AnText.meta.copyWith(color: c.inkFaint)),
+            child: Text(
+              _overflowLine(context, hidden),
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
           ),
       ],
     );
@@ -479,20 +580,33 @@ class SchedulerScheduleZone extends StatelessWidget {
     final c = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-      child: Row(children: [
-        AnStatusDot(r.status),
-        const SizedBox(width: AnSpace.s6),
-        Text(fmtDayTime(r.at, now), style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-        const SizedBox(width: AnSpace.s8),
-        Flexible(
-          child: Text(r.sourceLabel,
-              maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ),
-        const SizedBox(width: AnSpace.s8),
-        // Elapsed — «—» while the run is still in flight (never a fabricated zero). 耗时;在跑「—」。
-        Text(r.elapsed != null ? fmtDuration(r.elapsed!) : context.t.scheduler.overview.kpiNone,
-            style: AnText.metaTabular().copyWith(color: c.inkFaint)),
-      ]),
+      child: Row(
+        children: [
+          AnStatusDot(r.status),
+          const SizedBox(width: AnSpace.s6),
+          Text(
+            fmtDayTime(r.at, now),
+            style: AnText.metaTabular().copyWith(color: c.inkMuted),
+          ),
+          const SizedBox(width: AnSpace.s8),
+          Flexible(
+            child: Text(
+              r.sourceLabel,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+          ),
+          const SizedBox(width: AnSpace.s8),
+          // Elapsed — «—» while the run is still in flight (never a fabricated zero). 耗时;在跑「—」。
+          Text(
+            r.elapsed != null
+                ? fmtDuration(r.elapsed!)
+                : context.t.scheduler.overview.kpiNone,
+            style: AnText.metaTabular().copyWith(color: c.inkFaint),
+          ),
+        ],
+      ),
     );
   }
 
@@ -500,19 +614,27 @@ class SchedulerScheduleZone extends StatelessWidget {
     final c = context.colors;
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-      child: Row(children: [
-        Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkMuted),
-        const SizedBox(width: AnSpace.s6),
-        Text(context.t.scheduler.overview.trackCardMissed(at: fmtDayTime(at, now)),
-            style: AnText.meta.copyWith(color: c.inkFaint)),
-      ]),
+      child: Row(
+        children: [
+          Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkMuted),
+          const SizedBox(width: AnSpace.s6),
+          Text(
+            context.t.scheduler.overview.trackCardMissed(
+              at: fmtDayTime(at, now),
+            ),
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+        ],
+      ),
     );
   }
 
   String _overflowLine(BuildContext context, List<TrackRun> hidden) {
     final t = context.t.scheduler.overview;
     final fails = hidden.where((r) => r.status == AnStatus.err).length;
-    final tail = fails > 0 ? t.trackCardMoreFailed(m: '$fails') : t.trackCardMoreOk;
+    final tail = fails > 0
+        ? t.trackCardMoreFailed(m: '$fails')
+        : t.trackCardMoreOk;
     return '${t.trackCardMore(n: '${hidden.length}')} · $tail';
   }
 
@@ -545,24 +667,32 @@ class SchedulerScheduleZone extends StatelessWidget {
             binHeadLabel: _headOf,
             onBin: (lane, bin) => _launch(context, lane, bin),
             binSemanticLabel: (lane, bin) => _binA11y(context, lane, bin),
-            emptyBinSemanticLabel: (lane, bin) => _emptyBinA11y(context, lane, bin),
+            emptyBinSemanticLabel: (lane, bin) =>
+                _emptyBinA11y(context, lane, bin),
             futureSemanticLabel: (lane) => _futureA11y(context, lane),
             laneSummaryLabel: (lane) => _laneA11y(context, lane),
-            binHoverBuilder: (lane, bin) => (ctx) => _binCard(ctx, lane, bin),
-            futureHoverBuilder: (lane) => (ctx) => _futureCard(ctx, lane),
+            binHoverBuilder: (lane, bin) =>
+                (ctx) => _binCard(ctx, lane, bin),
+            futureHoverBuilder: (lane) =>
+                (ctx) => _futureCard(ctx, lane),
           ),
           // Two INDEPENDENT truncations, two sentences — they are different facts and merging them
           // would leave the reader unable to tell which half is partial. 两处**独立**截断、两句话。
           if (track.truncated)
             Padding(
               padding: const EdgeInsets.only(top: AnSpace.s8),
-              child: Text(t.trackTruncated, style: AnText.meta.copyWith(color: c.inkFaint)),
+              child: Text(
+                t.trackTruncated,
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
             ),
           if (track.pastTruncated && track.pastFrom != null)
             Padding(
               padding: const EdgeInsets.only(top: AnSpace.s8),
-              child: Text(t.trackPastTruncated(at: fmtDateTime(track.pastFrom!)),
-                  style: AnText.meta.copyWith(color: c.inkFaint)),
+              child: Text(
+                t.trackPastTruncated(at: fmtDateTime(track.pastFrom!)),
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
             ),
         ],
       ],
@@ -606,7 +736,8 @@ mixin _PeekZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   /// row goes straight to the flagship. 首击开合行内速览(再点收起);同行快速二击直进旗舰。
   void onPeekTap(String runId, String flagshipPath) {
     final now = DateTime.now();
-    final isDouble = _lastTapId == runId &&
+    final isDouble =
+        _lastTapId == runId &&
         _lastTapAt != null &&
         now.difference(_lastTapAt!) < const Duration(milliseconds: 300);
     _lastTapAt = now;
@@ -653,23 +784,30 @@ mixin _PeekZone<T extends ConsumerStatefulWidget> on ConsumerState<T> {
 /// 正在跑区(B10:整体收敛到运营大表行文法):行=「workflow · 来源短语」+ **常驻** ⏹ 终止(旧 hover 行尾 ⏹ 删)
 /// + 多选批量取消(≥2 出条)+ 单击展开行内速览卡(甘特⇄图,不跳转)、双击直进旗舰;前端 10/页翻页。
 class SchedulerRunningZone extends ConsumerStatefulWidget {
-  const SchedulerRunningZone(
-      {required this.rows, required this.triggersById, required this.now, super.key});
+  const SchedulerRunningZone({
+    required this.rows,
+    required this.triggersById,
+    required this.now,
+    super.key,
+  });
 
   final List<RunningRunRow> rows;
   final Map<String, TriggerEntity> triggersById;
   final DateTime now;
 
   @override
-  ConsumerState<SchedulerRunningZone> createState() => _SchedulerRunningZoneState();
+  ConsumerState<SchedulerRunningZone> createState() =>
+      _SchedulerRunningZoneState();
 }
 
 class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
     with BatchZone<SchedulerRunningZone>, _PeekZone<SchedulerRunningZone> {
   static String _keyOf(RunningRunRow r) => r.run.id;
 
-  List<RunningRunRow> get _selectedRows =>
-      [for (final r in widget.rows) if (selected.contains(_keyOf(r))) r];
+  List<RunningRunRow> get _selectedRows => [
+    for (final r in widget.rows)
+      if (selected.contains(_keyOf(r))) r,
+  ];
 
   Future<void> _cancelOne(RunningRunRow r) async {
     final t = context.t.scheduler.overview;
@@ -698,10 +836,14 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
       if (e.httpStatus == 422) {
         // Already terminal — honest toast + reconcile (the row settles by truth, not by wish).
         // run 已自行结束:诚实 toast+对账。
-        ref.read(noticeCenterProvider.notifier).show(t.alreadyFinished, tone: AnTone.warn);
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(t.alreadyFinished, tone: AnTone.warn);
         await ref.read(schedulerRailProvider.notifier).refresh();
       } else {
-        ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(e.message, tone: AnTone.danger);
       }
     }
   }
@@ -713,7 +855,9 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
     final overlay = ref.read(overlayProvider.notifier);
     // The danger dialog lists every victim by name + id — the user confirms the LIST, not a number.
     // danger 弹窗带行清单:确认的是名单,不是数字。
-    final list = [for (final r in rows) '${r.workflowName} · ${r.run.id}'].join('\n');
+    final list = [
+      for (final r in rows) '${r.workflowName} · ${r.run.id}',
+    ].join('\n');
     final ok = await overlay.confirm(
       title: t.batchCancelTitle(n: '${rows.length}'),
       message: t.batchCancelBody(list: list),
@@ -723,8 +867,11 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
     );
     if (!ok || !mounted) return;
     final repo = ref.read(schedulerRepositoryProvider);
-    final (done, ended, failed) =
-        await runBatch<RunningRunRow>(rows, _keyOf, (r) => repo.cancelRun(r.run.id));
+    final (done, ended, failed) = await runBatch<RunningRunRow>(
+      rows,
+      _keyOf,
+      (r) => repo.cancelRun(r.run.id),
+    );
     if (!mounted) return;
     summaryNotice(
       okPart: done > 0 ? t.sumCancelled(n: '$done') : null,
@@ -754,40 +901,49 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
         // pager (SizedBox.shrink) must not each earn AnSection's 12px inter-child gap (塌缩双夹
         // bug 类 — 静息态题→首行曾 20px 应 8px、末行下曾多 12px 幽灵距) — bar/rows/pager live in one
         // Column that owns its internal rhythm. 合一子件:塌缩条与空翻页器不再吃 12px 子距,节奏自持。
-        Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          AnExpandReveal(
-            open: barVisible,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: AnGap.block),
-              child: AnBatchBar(
-                count: selected.length,
-                busy: batchBusy,
-                actions: [
-                  BatchAction(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnExpandReveal(
+              open: barVisible,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: AnGap.block),
+                child: AnBatchBar(
+                  count: selected.length,
+                  busy: batchBusy,
+                  actions: [
+                    BatchAction(
                       label: t.batchCancel,
                       icon: AnIcons.stop,
                       tone: AnTone.danger,
-                      onRun: _batchCancel),
-                ],
-                onClear: () => setState(selected.clear),
+                      onRun: _batchCancel,
+                    ),
+                  ],
+                  onClear: () => setState(selected.clear),
+                ),
               ),
             ),
-          ),
-          if (widget.rows.isEmpty)
-            Text(t.runningEmpty, style: AnText.body.copyWith(color: c.inkFaint))
-          else ...[
-            for (var i = 0; i < visible.length; i++) ...[
-              if (i > 0) const SizedBox(height: AnGap.block),
-              AnExpandReveal(
+            if (widget.rows.isEmpty)
+              Text(
+                t.runningEmpty,
+                style: AnText.body.copyWith(color: c.inkFaint),
+              )
+            else ...[
+              for (var i = 0; i < visible.length; i++) ...[
+                if (i > 0) const SizedBox(height: AnGap.block),
+                AnExpandReveal(
                   open: !leaving.contains(_keyOf(visible[i])),
-                  child: _row(context, visible[i])),
-            ],
-            if (pageCountOf(widget.rows.length) > 1) ...[
-              const SizedBox(height: AnGap.block),
-              peekPager(context, widget.rows.length),
+                  child: _row(context, visible[i]),
+                ),
+              ],
+              if (pageCountOf(widget.rows.length) > 1) ...[
+                const SizedBox(height: AnGap.block),
+                peekPager(context, widget.rows.length),
+              ],
             ],
           ],
-        ]),
+        ),
       ],
     );
   }
@@ -797,7 +953,8 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
   Widget _row(BuildContext context, RunningRunRow r) {
     final t = context.t.scheduler;
     final key = _keyOf(r);
-    final isPending = pending.contains(key) || batchBusy && selected.contains(key);
+    final isPending =
+        pending.contains(key) || batchBusy && selected.contains(key);
     final selecting = selected.isNotEmpty;
     final hovered = hoveredKey == key;
     final showCheck = (selecting || hovered) && !isPending;
@@ -814,7 +971,8 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
       child: AnLedgerRow(
         expanded: expanded,
         // Lazy (C-006): a collapsed row never builds its peek card. 惰性:收起不建卡。
-        expandBuilder: (_) => RunPeekCard(workflowId: r.workflowId, flowrunId: r.run.id),
+        expandBuilder: (_) =>
+            RunPeekCard(workflowId: r.workflowId, flowrunId: r.run.id),
         // The disclosure hand is the PRIMITIVE's (0718 对齐审计 — the 12px icon-swap the big table
         // already retired was still living here): spinner/check win the cell, disclose yields.
         // 披露示能归原语(大表已退役的 12px 换图标此处清残);转圈/勾选赢格,该态让位。
@@ -822,16 +980,18 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
         lead: isPending
             ? const AnSpinner(size: AnSize.iconSm)
             : showCheck
-                ? AnBatchCheck(
-                    checked: selected.contains(key),
-                    semanticLabel: t.overview.selectRow(name: r.workflowName),
-                    onChanged: (v) =>
-                        setState(() => v ? selected.add(key) : selected.remove(key)),
-                  )
-                : AnStatusDot(AnStatus.fromRaw(r.run.status)),
+            ? AnBatchCheck(
+                checked: selected.contains(key),
+                semanticLabel: t.overview.selectRow(name: r.workflowName),
+                onChanged: (v) => setState(
+                  () => v ? selected.add(key) : selected.remove(key),
+                ),
+              )
+            : AnStatusDot(AnStatus.fromRaw(r.run.status)),
         // Cross-workflow view → keep the workflow NAME, then the source phrase (裸 fr_ 药丸删,B1).
         // 跨 workflow 视图 → 保留 workflow 名 + 来源短语;裸 id 药丸删。
-        primary: '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
+        primary:
+            '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
         mono: false,
         chips: [
           // The Stop verb slides out horizontally ON HOVER (0718 宁静化 — 动词安静待命): a resting
@@ -851,11 +1011,18 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
             ),
           ),
           if (r.run.replayCount > 0)
-            AnChip(context.t.run.replayTimes(n: '${r.run.replayCount}'),
-                look: AnChipLook.outlined),
+            AnChip(
+              context.t.run.replayTimes(n: '${r.run.replayCount}'),
+              look: AnChipLook.outlined,
+            ),
         ],
-        measure: started != null ? fmtWaited(widget.now.difference(started)) : null,
-        onTap: () => onPeekTap(r.run.id, '/scheduler/w/${r.workflowId}/runs/${r.run.id}'),
+        measure: started != null
+            ? fmtWaited(widget.now.difference(started))
+            : null,
+        onTap: () => onPeekTap(
+          r.run.id,
+          '/scheduler/w/${r.workflowId}/runs/${r.run.id}',
+        ),
       ),
     );
   }
@@ -879,23 +1046,30 @@ class _SchedulerRunningZoneState extends ConsumerState<SchedulerRunningZone>
 /// 速览(不跳转);前端 10/页(列表抽全量,见 _PeekZone)。**不是**下面 7d「失败聚合」:本区列 24h completed_at 窗内
 /// 的 run,那个按连败聚合 workflow、7d 窗;整夜失败 4 次然后跑通的 workflow 在这里 4 行、在那里缺席(已自愈)。仅非空渲。
 class SchedulerFailedZone extends ConsumerStatefulWidget {
-  const SchedulerFailedZone(
-      {required this.rows, required this.triggersById, required this.now, super.key});
+  const SchedulerFailedZone({
+    required this.rows,
+    required this.triggersById,
+    required this.now,
+    super.key,
+  });
 
   final List<FailedRunRow> rows;
   final Map<String, TriggerEntity> triggersById;
   final DateTime now;
 
   @override
-  ConsumerState<SchedulerFailedZone> createState() => _SchedulerFailedZoneState();
+  ConsumerState<SchedulerFailedZone> createState() =>
+      _SchedulerFailedZoneState();
 }
 
 class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
     with BatchZone<SchedulerFailedZone>, _PeekZone<SchedulerFailedZone> {
   static String _keyOf(FailedRunRow r) => r.run.id;
 
-  List<FailedRunRow> get _selectedRows =>
-      [for (final r in widget.rows) if (selected.contains(_keyOf(r))) r];
+  List<FailedRunRow> get _selectedRows => [
+    for (final r in widget.rows)
+      if (selected.contains(_keyOf(r))) r,
+  ];
 
   /// Single replay (the row's ↻ verb): pre-flight the REAL numbers off the run's node rows
   /// (记忆化承诺文案 §10), confirm, replay, then slide out. 单行重放:先取真数字→确认→重放→滑出。
@@ -940,7 +1114,9 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
     } on ApiException catch (e) {
       if (!mounted) return;
       setState(() => pending.remove(key));
-      ref.read(noticeCenterProvider.notifier).show(
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(
             e.httpStatus == 422 ? t.notReplayable : e.message,
             tone: e.httpStatus == 422 ? AnTone.warn : AnTone.danger,
           );
@@ -981,13 +1157,18 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
       confirmTone: AnDialogTone.primary,
     );
     if (!ok || !mounted) return;
-    final (done, lost, err) =
-        await runBatch<FailedRunRow>(targets, _keyOf, (r) => repo.replayRun(r.run.id));
+    final (done, lost, err) = await runBatch<FailedRunRow>(
+      targets,
+      _keyOf,
+      (r) => repo.replayRun(r.run.id),
+    );
     if (!mounted) return;
     summaryNotice(
       okPart: done > 0 ? t.sumReplayed(n: '$done') : null,
       lostPart: lost > 0 ? t.sumNotReplayable(n: '$lost') : null,
-      failedPart: err > 0 ? context.t.scheduler.overview.sumFailed(n: '$err') : null,
+      failedPart: err > 0
+          ? context.t.scheduler.overview.sumFailed(n: '$err')
+          : null,
     );
     await settleRefetch();
   }
@@ -998,7 +1179,8 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
     final home = context.t.scheduler.home;
     final visible = pageSlice(widget.rows);
     pruneTo({for (final r in visible) _keyOf(r)});
-    final barVisible = selected.length >= 2 || batchBusy; // after prune (复审 [3]) 修剪后再判
+    final barVisible =
+        selected.length >= 2 || batchBusy; // after prune (复审 [3]) 修剪后再判
     // A QUIET subsection (0718 宁静化 — 失败段两小节,24h 在上): this zone is now the first subsection
     // under the plain «失败» segment head (owned by the board), so its own head is the small quiet
     // label «Last 24h». 24h 小节:走 quiet 小标,坐在板级「失败」大字段题之下。
@@ -1007,36 +1189,42 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
       variant: AnSectionVariant.quiet,
       children: [
         // ONE body child — same law as the running zone above (0718 对齐审计). 合一子件,同上区。
-        Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-          AnExpandReveal(
-            open: barVisible,
-            child: Padding(
-              padding: const EdgeInsets.only(bottom: AnGap.block),
-              child: AnBatchBar(
-                count: selected.length,
-                busy: batchBusy,
-                actions: [
-                  BatchAction(
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnExpandReveal(
+              open: barVisible,
+              child: Padding(
+                padding: const EdgeInsets.only(bottom: AnGap.block),
+                child: AnBatchBar(
+                  count: selected.length,
+                  busy: batchBusy,
+                  actions: [
+                    BatchAction(
                       label: home.batchReplay,
                       icon: AnIcons.history,
                       tone: AnTone.accent,
-                      onRun: _batchReplay),
-                ],
-                onClear: () => setState(selected.clear),
+                      onRun: _batchReplay,
+                    ),
+                  ],
+                  onClear: () => setState(selected.clear),
+                ),
               ),
             ),
-          ),
-          for (var i = 0; i < visible.length; i++) ...[
-            if (i > 0) const SizedBox(height: AnGap.block),
-            AnExpandReveal(
+            for (var i = 0; i < visible.length; i++) ...[
+              if (i > 0) const SizedBox(height: AnGap.block),
+              AnExpandReveal(
                 open: !leaving.contains(_keyOf(visible[i])),
-                child: _row(context, visible[i])),
+                child: _row(context, visible[i]),
+              ),
+            ],
+            if (pageCountOf(widget.rows.length) > 1) ...[
+              const SizedBox(height: AnGap.block),
+              peekPager(context, widget.rows.length),
+            ],
           ],
-          if (pageCountOf(widget.rows.length) > 1) ...[
-            const SizedBox(height: AnGap.block),
-            peekPager(context, widget.rows.length),
-          ],
-        ]),
+        ),
       ],
     );
   }
@@ -1044,7 +1232,8 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
   Widget _row(BuildContext context, FailedRunRow r) {
     final t = context.t.scheduler;
     final key = _keyOf(r);
-    final isPending = pending.contains(key) || batchBusy && selected.contains(key);
+    final isPending =
+        pending.contains(key) || batchBusy && selected.contains(key);
     final selecting = selected.isNotEmpty;
     final hovered = hoveredKey == key;
     final showCheck = (selecting || hovered) && !isPending;
@@ -1060,20 +1249,23 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
       }),
       child: AnLedgerRow(
         expanded: expanded,
-        expandBuilder: (_) => RunPeekCard(workflowId: r.workflowId, flowrunId: r.run.id),
+        expandBuilder: (_) =>
+            RunPeekCard(workflowId: r.workflowId, flowrunId: r.run.id),
         // Same primitive hand as the running zone (0718 对齐审计清残). 同上,披露示能归原语。
         disclose: !isPending && !showCheck,
         lead: isPending
             ? const AnSpinner(size: AnSize.iconSm)
             : showCheck
-                ? AnBatchCheck(
-                    checked: selected.contains(key),
-                    semanticLabel: t.overview.selectRow(name: r.workflowName),
-                    onChanged: (v) =>
-                        setState(() => v ? selected.add(key) : selected.remove(key)),
-                  )
-                : const AnStatusDot(AnStatus.err),
-        primary: '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
+            ? AnBatchCheck(
+                checked: selected.contains(key),
+                semanticLabel: t.overview.selectRow(name: r.workflowName),
+                onChanged: (v) => setState(
+                  () => v ? selected.add(key) : selected.remove(key),
+                ),
+              )
+            : const AnStatusDot(AnStatus.err),
+        primary:
+            '${r.workflowName} · ${runPhrase(context, r.run, widget.triggersById, widget.now)}',
         mono: false,
         chips: [
           // The Retry verb slides out horizontally ON HOVER (0718 宁静化 — 动词安静待命): resting rows
@@ -1090,16 +1282,23 @@ class _SchedulerFailedZoneState extends ConsumerState<SchedulerFailedZone>
             ),
           ),
           if (r.run.replayCount > 0)
-            AnChip(context.t.run.replayTimes(n: '${r.run.replayCount}'),
-                look: AnChipLook.outlined),
+            AnChip(
+              context.t.run.replayTimes(n: '${r.run.replayCount}'),
+              look: AnChipLook.outlined,
+            ),
         ],
         // The error sentence has LEFT the row (0718 宁静化 — 错误句撤出行 → 速览卡): the failed row is
         // single-line, the red dot is the only alarm; run.error 全文 lives in the peek card now.
         // 失败行单行化,红点=唯一警报;错误全文进速览卡(RunPeekCard)。
         // «landed N ago» — completed_at is the window's axis, so the meta names WHEN it failed.
         // 「N 前落定」:completed_at 是窗轴,故 meta 说它**何时**失败。
-        meta: landed != null ? t.agoMeta(d: fmtWaited(widget.now.difference(landed))) : null,
-        onTap: () => onPeekTap(r.run.id, '/scheduler/w/${r.workflowId}/runs/${r.run.id}'),
+        meta: landed != null
+            ? t.agoMeta(d: fmtWaited(widget.now.difference(landed)))
+            : null,
+        onTap: () => onPeekTap(
+          r.run.id,
+          '/scheduler/w/${r.workflowId}/runs/${r.run.id}',
+        ),
       ),
     );
   }
@@ -1125,7 +1324,8 @@ class SchedulerFailuresZone extends ConsumerStatefulWidget {
   final List<FailingWorkflowRow> rows;
 
   @override
-  ConsumerState<SchedulerFailuresZone> createState() => _SchedulerFailuresZoneState();
+  ConsumerState<SchedulerFailuresZone> createState() =>
+      _SchedulerFailuresZoneState();
 }
 
 class _SchedulerFailuresZoneState extends ConsumerState<SchedulerFailuresZone>
@@ -1159,13 +1359,17 @@ class _SchedulerFailuresZoneState extends ConsumerState<SchedulerFailuresZone>
       mono: false,
       disclose: runId != null,
       expanded: runId != null && expandedRunId == runId,
-      expandBuilder:
-          runId != null ? (_) => RunPeekCard(workflowId: f.workflowId, flowrunId: runId) : null,
+      expandBuilder: runId != null
+          ? (_) => RunPeekCard(workflowId: f.workflowId, flowrunId: runId)
+          : null,
       chips: [
         AnChip(t.streak(n: '${f.streak}'), tone: AnTone.danger),
         // «Open workflow →» → the operations home (always present — the home needs no run id). 打开 workflow。
-        AnChip(t.openWorkflow,
-            look: AnChipLook.outlined, onTap: () => context.go('/scheduler/w/${f.workflowId}')),
+        AnChip(
+          t.openWorkflow,
+          look: AnChipLook.outlined,
+          onTap: () => context.go('/scheduler/w/${f.workflowId}'),
+        ),
       ],
       onTap: runId != null
           ? () => onPeekTap(runId, '/scheduler/w/${f.workflowId}/runs/$runId')

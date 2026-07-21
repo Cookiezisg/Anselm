@@ -35,9 +35,13 @@ TurnSignal? turnSignalFromEnvelope(StreamEnvelope env) {
     if (frame.node.type != 'interaction') return null;
     return (conversationId: env.scope.id, kind: TurnSignalKind.interaction);
   }
-  if (env.seq <= 0) return null; // ephemeral (deltas/ticks) never drive the dots 瞬时帧不驱动点
+  if (env.seq <= 0) {
+    return null; // ephemeral (deltas/ticks) never drive the dots 瞬时帧不驱动点
+  }
   if (frame is FrameOpen) {
-    if (frame.node.type != 'message' || (frame.parentId ?? '').isNotEmpty) return null;
+    if (frame.node.type != 'message' || (frame.parentId ?? '').isNotEmpty) {
+      return null;
+    }
     return (conversationId: env.scope.id, kind: TurnSignalKind.turnOpen);
   }
   if (frame is FrameClose) {

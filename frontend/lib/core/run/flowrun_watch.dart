@@ -65,15 +65,15 @@ class FlowrunTick {
   /// 本 tick 蕴含的 ephemeral 行:只带 tick 真说过的东西。刻意不带排队戳(tick 不知道)——甘特据此只显
   /// 「到达」绝不编时长;createdAt 用 now,因为 tick 恰在节点终态时发,那一刻它确实知道。
   FlowrunNode row(DateTime now) => FlowrunNode(
-        id: '${FlowrunWatch.tickIdPrefix}${nodeId}_$iteration',
-        flowrunId: flowrunId,
-        nodeId: nodeId,
-        iteration: iteration,
-        status: status,
-        result: port != null ? {'__port': port} : const {},
-        createdAt: now,
-        updatedAt: now,
-      );
+    id: '${FlowrunWatch.tickIdPrefix}${nodeId}_$iteration',
+    flowrunId: flowrunId,
+    nodeId: nodeId,
+    iteration: iteration,
+    status: status,
+    result: port != null ? {'__port': port} : const {},
+    createdAt: now,
+    updatedAt: now,
+  );
 }
 
 /// Parse a workflow-scope frame into a [FlowrunTick], or null when it isn't one (a build mirror, a
@@ -101,7 +101,9 @@ FlowrunTick? flowrunTickOf(StreamFrame frame) {
 /// regresses to a tick placeholder; an unseen key prepends (the list is newest-first).
 /// 按 (节点,迭代)(= flowrun_nodes 唯一键)upsert:真相行绝不被 tick 占位覆退;新键前插(列表新→旧)。
 List<FlowrunNode> upsertNodeRow(List<FlowrunNode> rows, FlowrunNode row) {
-  final i = rows.indexWhere((r) => r.nodeId == row.nodeId && r.iteration == row.iteration);
+  final i = rows.indexWhere(
+    (r) => r.nodeId == row.nodeId && r.iteration == row.iteration,
+  );
   if (i < 0) return [row, ...rows];
   if (isTickRow(row) && !isTickRow(rows[i])) return rows;
   return [for (var j = 0; j < rows.length; j++) j == i ? row : rows[j]];

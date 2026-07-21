@@ -15,9 +15,17 @@ void main() {
 
     test('ignores non-id brackets + malformed ids', () {
       // Not the strict <prefix>_<16hex> shape → not a wikilink. 非严格形不算。
-      expect(extractEntityRefIds('[[not_an_id]] [[fn_short]] [[wiki]] plain [text](url)'), isEmpty);
+      expect(
+        extractEntityRefIds(
+          '[[not_an_id]] [[fn_short]] [[wiki]] plain [text](url)',
+        ),
+        isEmpty,
+      );
     });
 
-    test('empty on plain prose', () => expect(extractEntityRefIds('just words, no refs'), isEmpty));
+    test(
+      'empty on plain prose',
+      () => expect(extractEntityRefIds('just words, no refs'), isEmpty),
+    );
   });
 }

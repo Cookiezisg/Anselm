@@ -14,7 +14,8 @@ abstract class McpServerStatus with _$McpServerStatus {
   const factory McpServerStatus({
     required String id,
     required String name,
-    @Default('disconnected') String status, // disconnected|connecting|ready|degraded|failed
+    @Default('disconnected')
+    String status, // disconnected|connecting|ready|degraded|failed
     DateTime? connectedAt,
     String? lastError,
     DateTime? lastErrorAt,
@@ -37,7 +38,8 @@ abstract class McpToolDef with _$McpToolDef {
     Map<String, dynamic>? inputSchema,
   }) = _McpToolDef;
 
-  factory McpToolDef.fromJson(Map<String, dynamic> json) => _$McpToolDefFromJson(json);
+  factory McpToolDef.fromJson(Map<String, dynamic> json) =>
+      _$McpToolDefFromJson(json);
 }
 
 /// One curated marketplace entry — the LIST projection (env/plan detail comes from :plan, 工单⑨;
@@ -80,7 +82,8 @@ abstract class McpEnvVar with _$McpEnvVar {
     @Default(false) bool required,
   }) = _McpEnvVar;
 
-  factory McpEnvVar.fromJson(Map<String, dynamic> json) => _$McpEnvVarFromJson(json);
+  factory McpEnvVar.fromJson(Map<String, dynamic> json) =>
+      _$McpEnvVarFromJson(json);
 }
 
 /// One call-log row (`GET /mcp-servers/{name}/calls`; only `GET /mcp-calls/{id}` carries logs).
@@ -99,5 +102,6 @@ abstract class McpCall with _$McpCall {
     DateTime? createdAt,
   }) = _McpCall;
 
-  factory McpCall.fromJson(Map<String, dynamic> json) => _$McpCallFromJson(json);
+  factory McpCall.fromJson(Map<String, dynamic> json) =>
+      _$McpCallFromJson(json);
 }

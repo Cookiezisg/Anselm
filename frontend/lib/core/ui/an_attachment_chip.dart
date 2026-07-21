@@ -59,24 +59,39 @@ class AnAttachmentChip extends StatelessWidget {
         if (uploading)
           const AnSpinner()
         else
-          Icon(AnAttachmentCard.glyph(kind), size: AnSize.icon,
-              color: failed ? c.danger : c.inkMuted),
+          Icon(
+            AnAttachmentCard.glyph(kind),
+            size: AnSize.icon,
+            color: failed ? c.danger : c.inkMuted,
+          ),
         const SizedBox(width: AnSpace.s6),
         Flexible(
-          child: Text(filename,
-              maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis,
-              style: AnText.body.copyWith(color: c.ink)),
+          child: Text(
+            filename,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+            style: AnText.body.copyWith(color: c.ink),
+          ),
         ),
         const SizedBox(width: AnSpace.s6),
         Flexible(
-          child: Text(meta,
-              maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis,
-              style: AnText.label.copyWith(color: failed ? c.danger : c.inkFaint)),
+          child: Text(
+            meta,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+            style: AnText.label.copyWith(color: failed ? c.danger : c.inkFaint),
+          ),
         ),
         if (onRemove != null) ...[
           const SizedBox(width: AnSpace.s2),
-          AnButton.iconOnly(AnIcons.close, size: AnButtonSize.sm,
-              semanticLabel: removeLabel ?? '', onPressed: onRemove),
+          AnButton.iconOnly(
+            AnIcons.close,
+            size: AnButtonSize.sm,
+            semanticLabel: removeLabel ?? '',
+            onPressed: onRemove,
+          ),
         ],
       ],
     );
@@ -84,10 +99,18 @@ class AnAttachmentChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: c.surface,
         borderRadius: BorderRadius.circular(AnRadius.chip),
-        border: Border.all(color: failed ? c.danger : c.line, width: AnSize.hairline),
+        border: Border.all(
+          color: failed ? c.danger : c.line,
+          width: AnSize.hairline,
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(AnSpace.s8, AnSpace.s4, AnSpace.s4, AnSpace.s4),
+        padding: const EdgeInsets.fromLTRB(
+          AnSpace.s8,
+          AnSpace.s4,
+          AnSpace.s4,
+          AnSpace.s4,
+        ),
         child: body,
       ),
     );

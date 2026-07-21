@@ -24,7 +24,9 @@ import '../model/doc_outline.dart';
 /// ——**去抖**(正文保存也发 updated,连续打字否则每次自动存都重取树)。刻意不动 openDocumentProvider:打开的
 /// 编辑器是写者,自己保存的 SSE 回声绝不能把它中途重建(丢光标)。
 final documentTreeProvider =
-    AsyncNotifierProvider<DocumentTreeList, List<DocumentNode>>(DocumentTreeList.new);
+    AsyncNotifierProvider<DocumentTreeList, List<DocumentNode>>(
+      DocumentTreeList.new,
+    );
 
 class DocumentTreeList extends AsyncNotifier<List<DocumentNode>> {
   Timer? _debounce;
@@ -36,7 +38,10 @@ class DocumentTreeList extends AsyncNotifier<List<DocumentNode>> {
       if (domain != 'document') return;
       _debounce?.cancel();
       // 批7 立法1 豁免锚:state 层树刷新防抖。exempt: state-layer refresh debounce.
-      _debounce = Timer(const Duration(milliseconds: 400), () => ref.invalidateSelf());
+      _debounce = Timer(
+        const Duration(milliseconds: 400),
+        () => ref.invalidateSelf(),
+      );
     });
     ref.onDispose(() {
       _debounce?.cancel();
@@ -47,7 +52,9 @@ class DocumentTreeList extends AsyncNotifier<List<DocumentNode>> {
 }
 
 /// Every skill as light metadata (no body). Same self-refresh, keyed on `skill.*`. 全部 skill;同款自刷新。
-final skillListProvider = AsyncNotifierProvider<SkillList, List<Skill>>(SkillList.new);
+final skillListProvider = AsyncNotifierProvider<SkillList, List<Skill>>(
+  SkillList.new,
+);
 
 class SkillList extends AsyncNotifier<List<Skill>> {
   Timer? _debounce;
@@ -58,7 +65,10 @@ class SkillList extends AsyncNotifier<List<Skill>> {
     final sub = repo.lifecycleSignals().listen((domain) {
       if (domain != 'skill') return;
       _debounce?.cancel();
-      _debounce = Timer(const Duration(milliseconds: 400), () => ref.invalidateSelf());
+      _debounce = Timer(
+        const Duration(milliseconds: 400),
+        () => ref.invalidateSelf(),
+      );
     });
     ref.onDispose(() {
       _debounce?.cancel();
@@ -100,13 +110,17 @@ class SelectedDocController extends Notifier<DocSelection?> {
     if (segs.length == 3 && segs[0] == 'documents' && segs[1] == 'skill') {
       return (isSkill: true, id: segs[2]);
     }
-    if (segs.length == 2 && segs[0] == 'documents') return (isSkill: false, id: segs[1]);
+    if (segs.length == 2 && segs[0] == 'documents') {
+      return (isSkill: false, id: segs[1]);
+    }
     return null;
   }
 }
 
 final selectedDocProvider =
-    NotifierProvider<SelectedDocController, DocSelection?>(SelectedDocController.new);
+    NotifierProvider<SelectedDocController, DocSelection?>(
+      SelectedDocController.new,
+    );
 
 /// The id of a document the rail JUST created via the ACTIVE «+ New page / row +» path — the ocean
 /// autofocuses that document's title (select-all) once on mount, then clears this. Only the active-create
@@ -119,7 +133,9 @@ class FocusNewDocTitle extends Notifier<String?> {
   void set(String? id) => state = id;
 }
 
-final focusNewDocTitleProvider = NotifierProvider<FocusNewDocTitle, String?>(FocusNewDocTitle.new);
+final focusNewDocTitleProvider = NotifierProvider<FocusNewDocTitle, String?>(
+  FocusNewDocTitle.new,
+);
 
 /// The id of the just-created draft the PASSIVE landing editor has ADOPTED — set the instant the draft
 /// POSTs its first edit. While `selectedDocProvider.id == this`, the ocean keeps the SAME draft editor
@@ -132,7 +148,9 @@ class AdoptedDraftDoc extends Notifier<String?> {
   void set(String? id) => state = id;
 }
 
-final adoptedDraftDocProvider = NotifierProvider<AdoptedDraftDoc, String?>(AdoptedDraftDoc.new);
+final adoptedDraftDocProvider = NotifierProvider<AdoptedDraftDoc, String?>(
+  AdoptedDraftDoc.new,
+);
 
 /// The route location for a document page — the rail navigates here to select. Mirrors entityLocation.
 /// 文档页的路由位置——rail 导航至此以选中。镜像 entityLocation。
@@ -144,11 +162,14 @@ String skillLocation(String name) => '/documents/skill/$name';
 
 /// The open document WITH content (fetched on select; autoDispose releases it on deselect). 打开的文档(带正文)。
 final openDocumentProvider = FutureProvider.autoDispose
-    .family<DocumentNode, String>((ref, id) => ref.watch(documentsRepositoryProvider).getDocument(id));
+    .family<DocumentNode, String>(
+      (ref, id) => ref.watch(documentsRepositoryProvider).getDocument(id),
+    );
 
 /// The open skill WITH body + frontmatter (fetched on select). 打开的 skill(带 body + frontmatter)。
-final openSkillProvider = FutureProvider.autoDispose
-    .family<Skill, String>((ref, name) => ref.watch(documentsRepositoryProvider).getSkill(name));
+final openSkillProvider = FutureProvider.autoDispose.family<Skill, String>(
+  (ref, name) => ref.watch(documentsRepositoryProvider).getSkill(name),
+);
 
 /// The LIVE outline of the open document/skill — the inspector's table of contents. FED by the editor
 /// view (seeded from the loaded markdown, re-fed on every edit) rather than derived from a provider: the
@@ -156,7 +177,9 @@ final openSkillProvider = FutureProvider.autoDispose
 /// 打开文档的**活**大纲(右岛目录)。由编辑视图喂(载入播种 + 每次编辑重喂)——打开内容 provider 编辑中刻意
 /// 不失效(保光标),当不了源。
 final docOutlineProvider =
-    NotifierProvider<DocOutlineController, List<DocOutlineEntry>>(DocOutlineController.new);
+    NotifierProvider<DocOutlineController, List<DocOutlineEntry>>(
+      DocOutlineController.new,
+    );
 
 class DocOutlineController extends Notifier<List<DocOutlineEntry>> {
   @override
@@ -171,7 +194,9 @@ class DocOutlineController extends Notifier<List<DocOutlineEntry>> {
 /// inspector's outline highlights it live. 中心视口正在读的大纲项——最后一个滚过头带的标题(null=还在首个
 /// 标题之上)。编辑视图滚动监听喂;右岛大纲实时高亮。
 final docOutlineActiveProvider =
-    NotifierProvider<DocOutlineActiveController, int?>(DocOutlineActiveController.new);
+    NotifierProvider<DocOutlineActiveController, int?>(
+      DocOutlineActiveController.new,
+    );
 
 class DocOutlineActiveController extends Notifier<int?> {
   @override
@@ -185,7 +210,9 @@ class DocOutlineActiveController extends Notifier<int?> {
 /// An outline-row tap → "scroll the editor to the N-th heading". A (tick, index) pair so tapping the SAME
 /// heading twice still re-fires (state must change to notify). 大纲点击意图:(tick,index) 对,重复点同项也触发。
 final outlineJumpProvider =
-    NotifierProvider<OutlineJumpController, ({int tick, int index})?>(OutlineJumpController.new);
+    NotifierProvider<OutlineJumpController, ({int tick, int index})?>(
+      OutlineJumpController.new,
+    );
 
 class OutlineJumpController extends Notifier<({int tick, int index})?> {
   @override
@@ -198,8 +225,8 @@ class OutlineJumpController extends Notifier<({int tick, int index})?> {
 /// hydrated server-side. Watches the tree so a linker's rename/delete refreshes the panel (link edges
 /// re-sync on body writes, which also signal the tree). 打开文档的 backlinks(入向 link 边);watch 树使
 /// 链接方改名/删除后面板跟新(边随正文写 re-sync,正文写也会信号树)。
-final backlinksProvider =
-    FutureProvider.autoDispose.family<List<EntityRelation>, String>((ref, id) async {
-  ref.watch(documentTreeProvider); // refresh alongside the tree 随树刷新
-  return ref.watch(documentsRepositoryProvider).listBacklinks(id);
-});
+final backlinksProvider = FutureProvider.autoDispose
+    .family<List<EntityRelation>, String>((ref, id) async {
+      ref.watch(documentTreeProvider); // refresh alongside the tree 随树刷新
+      return ref.watch(documentsRepositoryProvider).listBacklinks(id);
+    });

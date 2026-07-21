@@ -85,9 +85,12 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
     if (widget.entityRef.kind == EntityKind.handler) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted) return;
-        final methods = runMethods(ref.read(entityDetailProvider(widget.entityRef)).value);
+        final methods = runMethods(
+          ref.read(entityDetailProvider(widget.entityRef)).value,
+        );
         final c = ref.read(runTerminalProvider(widget.entityRef).notifier);
-        if (methods.isNotEmpty && ref.read(runTerminalProvider(widget.entityRef)).method.isEmpty) {
+        if (methods.isNotEmpty &&
+            ref.read(runTerminalProvider(widget.entityRef)).method.isEmpty) {
           c.setMethod(methods.first.name);
         }
       });
@@ -107,14 +110,18 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
     if (ref0.kind == EntityKind.handler) {
       ref.listen(entityDetailProvider(ref0), (_, next) {
         final ms = runMethods(next.value);
-        if (ms.isNotEmpty && ref.read(p).method.isEmpty) c.setMethod(ms.first.name);
+        if (ms.isNotEmpty && ref.read(p).method.isEmpty) {
+          c.setMethod(ms.first.name);
+        }
       });
     }
     // Workflow: WATCH the picked trigger's detail so its KIND resolves (the seed template depends on it)
     // and this rebuilds when it loads. workflow:watch 触发源 detail 使 kind 解析、载入即重建。
     String sourceKind = 'manual';
     if (ref0.kind == EntityKind.workflow && state.source != 'manual') {
-      final td = ref.watch(entityDetailProvider(EntityRef(EntityKind.trigger, state.source)));
+      final td = ref.watch(
+        entityDetailProvider(EntityRef(EntityKind.trigger, state.source)),
+      );
       sourceKind = td.value?.trigger?.kind.name ?? 'manual';
     }
 
@@ -125,7 +132,8 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
         // revision. On a change the editor re-keys (fresh seed) and the lint/chip reset — so a seed that
         // was transient before the detail loaded is re-committed once it resolves. 种子身份:维度+detail
         // 载入+来源kind(皆异步解析)+填充版本;detail 未载前的瞬态种子在解析后重新落定。
-        final seedId = '$ref0/${state.method}/${state.source}/${detail != null}/$sourceKind/${store.revision}';
+        final seedId =
+            '$ref0/${state.method}/${state.source}/${detail != null}/$sourceKind/${store.revision}';
         if (seedId != _seedId) {
           _seedId = seedId;
           _jsonError = null; // a fresh seed is always valid JSON 新种子恒合法
@@ -139,8 +147,16 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
             const SizedBox(height: AnSpace.s8),
             CallbackShortcuts(
               bindings: {
-                const SingleActivator(LogicalKeyboardKey.enter, meta: true): () => _submit(c, state),
-                const SingleActivator(LogicalKeyboardKey.enter, control: true): () => _submit(c, state),
+                const SingleActivator(
+                  LogicalKeyboardKey.enter,
+                  meta: true,
+                ): () =>
+                    _submit(c, state),
+                const SingleActivator(
+                  LogicalKeyboardKey.enter,
+                  control: true,
+                ): () =>
+                    _submit(c, state),
               },
               child: AnCodeEditor(
                 key: ValueKey(seedId),
@@ -169,7 +185,12 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
   }
 
   // ── toolbar (Lambda/Postman 位形): payload source · kind chip … verb ─────────────────────────
-  Widget _toolbar(BuildContext context, RunTerminalController c, RunTerminalState state, EntityDetail? detail) {
+  Widget _toolbar(
+    BuildContext context,
+    RunTerminalController c,
+    RunTerminalState state,
+    EntityDetail? detail,
+  ) {
     final chips = <Widget>[Flexible(child: _payloadSourceChip(context, c))];
     if (widget.entityRef.kind == EntityKind.handler) {
       chips
@@ -183,7 +204,9 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        Expanded(child: Row(mainAxisSize: MainAxisSize.min, children: chips)),
+        Expanded(
+          child: Row(mainAxisSize: MainAxisSize.min, children: chips),
+        ),
         const SizedBox(width: AnSpace.s8),
         _verbButton(context, c, state),
       ],
@@ -194,7 +217,9 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
   /// run fills its real input back (task ③ — Lambda 命名事件 / n8n pin 的轻量版). payload 来源 chip。
   Widget _payloadSourceChip(BuildContext context, RunTerminalController c) {
     final r = context.t.entities.run;
-    final runs = ref.watch(recentRunsProvider(widget.entityRef)).value ?? const <RecentRun>[];
+    final runs =
+        ref.watch(recentRunsProvider(widget.entityRef)).value ??
+        const <RecentRun>[];
     // A workflow row does NOT project its entry payload — offering it as a payload source would fill an
     // empty object, so only fn/hd/ag runs appear as reusable inputs. wf 行未投影 payload,不作可复用源。
     final reusable = widget.entityRef.kind == EntityKind.workflow
@@ -208,7 +233,10 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
         for (final run in reusable)
           AnDropdownOption(
             value: run.id,
-            label: AnCastRow.timeLabel(context, run.startedAt ?? DateTime.now()),
+            label: AnCastRow.timeLabel(
+              context,
+              run.startedAt ?? DateTime.now(),
+            ),
             meta: runOriginLabel(context.t, run.triggeredBy),
           ),
       ],
@@ -225,7 +253,12 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
   }
 
   /// Handler METHOD chip — swaps which schema the example is built from + the draft bucket. hd 方法 chip。
-  Widget _methodChip(BuildContext context, RunTerminalController c, RunTerminalState state, EntityDetail? detail) {
+  Widget _methodChip(
+    BuildContext context,
+    RunTerminalController c,
+    RunTerminalState state,
+    EntityDetail? detail,
+  ) {
     final r = context.t.entities.run;
     final methods = runMethods(detail);
     return AnDropdown<String>(
@@ -234,7 +267,11 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
       placeholder: r.method,
       options: [
         for (final m in methods)
-          AnDropdownOption(value: m.name, label: m.name, meta: m.streaming ? r.streaming : null),
+          AnDropdownOption(
+            value: m.name,
+            label: m.name,
+            meta: m.streaming ? r.streaming : null,
+          ),
       ],
       onChanged: state.isRunning ? null : c.setMethod,
     );
@@ -242,7 +279,11 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
 
   /// Workflow SOURCE chip — the picked trigger decides the payload template (cron/webhook/…); its options
   /// are the mounted triggers (relation-域 equip edges) + manual. wf 来源 chip。
-  Widget _sourceChip(BuildContext context, RunTerminalController c, RunTerminalState state) {
+  Widget _sourceChip(
+    BuildContext context,
+    RunTerminalController c,
+    RunTerminalState state,
+  ) {
     final r = context.t.entities.run;
     final graph = ref.watch(relGraphProvider).value;
     final triggers = <({String id, String name})>[];
@@ -253,7 +294,10 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
             e.fromKind == 'workflow' &&
             e.fromId == widget.entityRef.id &&
             e.toKind == 'trigger') {
-          triggers.add((id: e.toId, name: names['trigger:${e.toId}'] ?? e.toName));
+          triggers.add((
+            id: e.toId,
+            name: names['trigger:${e.toId}'] ?? e.toName,
+          ));
         }
       }
     }
@@ -262,17 +306,26 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
       value: state.source,
       options: [
         AnDropdownOption(value: 'manual', label: r.sourceManual),
-        for (final tr in triggers) AnDropdownOption(value: tr.id, label: tr.name),
+        for (final tr in triggers)
+          AnDropdownOption(value: tr.id, label: tr.name),
       ],
       onChanged: state.isRunning ? null : c.setSource,
     );
   }
 
   /// The verb CTA — run / stop; disabled while the JSON is invalid (lint gate). 动词钮:运行/停止;lint 禁用。
-  Widget _verbButton(BuildContext context, RunTerminalController c, RunTerminalState state) {
+  Widget _verbButton(
+    BuildContext context,
+    RunTerminalController c,
+    RunTerminalState state,
+  ) {
     final r = context.t.entities.run;
     if (state.isRunning) {
-      return AnButton(label: r.cancel, size: AnButtonSize.sm, onPressed: c.cancel);
+      return AnButton(
+        label: r.cancel,
+        size: AnButtonSize.sm,
+        onPressed: c.cancel,
+      );
     }
     return AnButton(
       label: widget.entityRef.kind.verbLabel(context.t),

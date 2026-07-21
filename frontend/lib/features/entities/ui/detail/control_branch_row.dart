@@ -44,10 +44,14 @@ class ControlBranchRow extends StatelessWidget {
                 // 内容列档:when-CEL 走 mono 13(行内机器文,同 tool 卡 target),emit 摘要 label 13。
                 Text(
                   isDefault ? d.editor.branchDefault : b.when,
-                  style: AnText.mono.copyWith(color: isDefault ? c.inkFaint : c.inkMuted),
+                  style: AnText.mono.copyWith(
+                    color: isDefault ? c.inkFaint : c.inkMuted,
+                  ),
                 ),
                 Text(
-                  b.emit.isEmpty ? d.val.passthrough : '${d.editor.branchEmit}: ${b.emit.keys.join(', ')}',
+                  b.emit.isEmpty
+                      ? d.val.passthrough
+                      : '${d.editor.branchEmit}: ${b.emit.keys.join(', ')}',
                   style: AnText.label.copyWith(color: c.inkFaint),
                 ),
               ],

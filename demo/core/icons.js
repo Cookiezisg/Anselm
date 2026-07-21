@@ -1,5 +1,5 @@
 /* Anselm demo — 图标语法（共享）。
-   图标集 = Lucide（整组 vendored 在 core/vendor/lucide.js，ISC；与 OpenAI Codex 前端同款）。
+   图标集 = Lucide（由 package-lock 精确锁定的 UMD 包提供；与 OpenAI Codex 前端同款）。
    本文件：① 领域语义 key → Lucide 名 的单一映射（ALIAS）；② 工具名 → 图标（TOOL_ICON + toolIcon 解析）；③ 把 Lucide 节点构建成 <svg>。
    feature/原语一律 icon('<key>')；领域 key 走 ALIAS，其余直接当 Lucide 名用。未知 key 回退 circle-question-mark 并记 window.ICON_MISSING。 */
 (function () {

@@ -62,8 +62,10 @@ class AnPopover extends StatefulWidget {
   State<AnPopover> createState() => _AnPopoverState();
 }
 
-class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMixin {
-  final GlobalKey _anchorKey = GlobalKey(); // reads the anchor's rect for the layout delegate 读锚矩形供 delegate
+class _AnPopoverState extends State<AnPopover>
+    with SingleTickerProviderStateMixin {
+  final GlobalKey _anchorKey =
+      GlobalKey(); // reads the anchor's rect for the layout delegate 读锚矩形供 delegate
   final OverlayPortalController _portal = OverlayPortalController();
 
   // Who held focus when the overlay opened — handed back on close. The overlay's FocusScope seizes
@@ -83,7 +85,8 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
   // touch _anim in dispose() → build a controller mid-teardown → crash.
   // 开关过渡:淡入 + 自顶部微缩放。必须在 initState 急切创建(非懒 late final),否则没开过的浮层会在 dispose 才首次访问→崩。
   late final AnimationController _anim;
-  late final CurvedAnimation _scaleCurve; // held so it can be disposed (CurvedAnimation leaks its parent listener otherwise) 持有以便 dispose
+  late final CurvedAnimation
+  _scaleCurve; // held so it can be disposed (CurvedAnimation leaks its parent listener otherwise) 持有以便 dispose
   late final Animation<double> _scale;
 
   @override
@@ -110,7 +113,9 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
     final revealDur = AnMotionPref.reduced(context) ? Duration.zero : null;
     if (widget.controller.isOpen) {
       if (!_portal.isShowing) {
-        _restoreFocus = FocusManager.instance.primaryFocus; // remember the trigger before the scope seizes focus 记开前焦点
+        _restoreFocus = FocusManager
+            .instance
+            .primaryFocus; // remember the trigger before the scope seizes focus 记开前焦点
         _attachScrollDismiss(); // scrolling an ancestor list dismisses the menu 滚动祖先即关
         _portal.show();
       }
@@ -124,7 +129,9 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
           _detachScrollDismiss();
           final restore = _restoreFocus;
           _restoreFocus = null;
-          if (restore != null && restore.context != null) restore.requestFocus();
+          if (restore != null && restore.context != null) {
+            restore.requestFocus();
+          }
         }
       });
     }
@@ -132,7 +139,9 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
 
   void _attachScrollDismiss() {
     _detachScrollDismiss();
-    _scrollPos = Scrollable.maybeOf(context)?.position; // found from THIS context (under the list) 取自本 context
+    _scrollPos = Scrollable.maybeOf(
+      context,
+    )?.position; // found from THIS context (under the list) 取自本 context
     _scrollPos?.addListener(widget.controller.close);
   }
 
@@ -145,7 +154,8 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
   void dispose() {
     widget.controller.removeListener(_sync);
     _detachScrollDismiss();
-    _scaleCurve.dispose(); // before the parent controller (CurvedAnimation owns a parent listener) 先于父控制器
+    _scaleCurve
+        .dispose(); // before the parent controller (CurvedAnimation owns a parent listener) 先于父控制器
     _anim.dispose();
     super.dispose();
   }
@@ -159,10 +169,18 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
   // The anchor's rect in the overlay's coordinate space, read at BUILD (allowed — the anchor was laid out a
   // prior frame; reading size during LAYOUT is forbidden). Re-read whenever the overlay child rebuilds. 锚矩形(build 时读)。
   Rect _anchorRectIn(BuildContext overlayContext) {
-    final anchorBox = _anchorKey.currentContext?.findRenderObject() as RenderBox?;
-    final overlayBox = Overlay.of(overlayContext).context.findRenderObject() as RenderBox?;
-    if (anchorBox == null || overlayBox == null || !anchorBox.hasSize || !overlayBox.hasSize) return Rect.zero;
-    return anchorBox.localToGlobal(Offset.zero, ancestor: overlayBox) & anchorBox.size;
+    final anchorBox =
+        _anchorKey.currentContext?.findRenderObject() as RenderBox?;
+    final overlayBox =
+        Overlay.of(overlayContext).context.findRenderObject() as RenderBox?;
+    if (anchorBox == null ||
+        overlayBox == null ||
+        !anchorBox.hasSize ||
+        !overlayBox.hasSize) {
+      return Rect.zero;
+    }
+    return anchorBox.localToGlobal(Offset.zero, ancestor: overlayBox) &
+        anchorBox.size;
   }
 
   @override
@@ -174,7 +192,10 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
           children: [
             // Outside-tap barrier (transparent, full-screen). 点外关闭遮罩。
             Positioned.fill(
-              child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: widget.controller.close),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: widget.controller.close,
+              ),
             ),
             // Position with a delegate that flips + clamps to stay on-screen (it measures the child first).
             // Anchor rect read at BUILD (size access during layout is forbidden). 经 delegate 翻转+夹取定位。
@@ -190,12 +211,22 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
                   opacity: _anim,
                   child: ScaleTransition(
                     scale: _scale,
-                    alignment: Alignment.topCenter, // grow downward from the top edge 自顶向下展开
+                    alignment: Alignment
+                        .topCenter, // grow downward from the top edge 自顶向下展开
                     child: CallbackShortcuts(
-                      bindings: {const SingleActivator(LogicalKeyboardKey.escape): widget.controller.close},
+                      bindings: {
+                        const SingleActivator(LogicalKeyboardKey.escape):
+                            widget.controller.close,
+                      },
                       // FocusScope (not a plain Focus): the overlay is a self-contained focus context — arrow
                       // keys traverse rows, Esc has a target, a descendant autofocus seeds it. 浮层自成焦点域。
-                      child: FocusScope(autofocus: true, child: widget.overlayBuilder(overlayContext, _anchorSize())),
+                      child: FocusScope(
+                        autofocus: true,
+                        child: widget.overlayBuilder(
+                          overlayContext,
+                          _anchorSize(),
+                        ),
+                      ),
                     ),
                   ),
                 ),
@@ -216,9 +247,15 @@ class _AnPopoverState extends State<AnPopover> with SingleTickerProviderStateMix
 /// 据锚定位浮层子件,翻转+夹取不出屏(同 Flutter Dropdown/Tooltip delegate)。优先 alignEnd、越界翻转、按 pad 夹入屏内;
 /// 竖向在锚下 gap.dy,下方放不下则翻到上方。
 class _PopoverLayoutDelegate extends SingleChildLayoutDelegate {
-  _PopoverLayoutDelegate({required this.anchorRect, required this.alignEnd, required this.gap, required this.pad});
+  _PopoverLayoutDelegate({
+    required this.anchorRect,
+    required this.alignEnd,
+    required this.gap,
+    required this.pad,
+  });
 
-  final Rect anchorRect; // snapshot read at build (re-read on rebuild, incl. scroll) 锚矩形快照(build 时读、滚动重读)
+  final Rect
+  anchorRect; // snapshot read at build (re-read on rebuild, incl. scroll) 锚矩形快照(build 时读、滚动重读)
   final bool alignEnd;
   final Offset gap;
   final double pad;
@@ -230,9 +267,17 @@ class _PopoverLayoutDelegate extends SingleChildLayoutDelegate {
   @override
   Offset getPositionForChild(Size size, Size childSize) {
     // Horizontal: prefer the aligned edge; flip if it overflows that side; then clamp inside [pad, ...].
-    double x = (alignEnd ? anchorRect.right - childSize.width : anchorRect.left) + gap.dx;
-    if (x < pad) x = anchorRect.left; // end-align overflowed left → start-align 尾对齐越左→首对齐
-    if (x + childSize.width > size.width - pad) x = anchorRect.right - childSize.width; // overflowed right → end-align 越右→尾对齐
+    double x =
+        (alignEnd ? anchorRect.right - childSize.width : anchorRect.left) +
+        gap.dx;
+    if (x < pad) {
+      x = anchorRect.left; // end-align overflowed left → start-align 尾对齐越左→首对齐
+    }
+    if (x + childSize.width > size.width - pad) {
+      x =
+          anchorRect.right -
+          childSize.width; // overflowed right → end-align 越右→尾对齐
+    }
     final maxX = size.width - childSize.width - pad;
     x = x.clamp(pad, maxX < pad ? pad : maxX);
     // Vertical: below by gap.dy; flip above if it overflows the bottom; then clamp.
@@ -248,5 +293,8 @@ class _PopoverLayoutDelegate extends SingleChildLayoutDelegate {
 
   @override
   bool shouldRelayout(_PopoverLayoutDelegate old) =>
-      old.anchorRect != anchorRect || old.alignEnd != alignEnd || old.gap != gap || old.pad != pad;
+      old.anchorRect != anchorRect ||
+      old.alignEnd != alignEnd ||
+      old.gap != gap ||
+      old.pad != pad;
 }

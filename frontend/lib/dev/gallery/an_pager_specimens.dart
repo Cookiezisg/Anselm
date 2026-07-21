@@ -27,11 +27,11 @@ class _HostState extends State<_Host> {
   late int _page = widget.initial;
   @override
   Widget build(BuildContext context) => AnPager(
-        page: _page,
-        pageCount: widget.pageCount,
-        onPage: (p) => setState(() => _page = p),
-        strings: _strings,
-      );
+    page: _page,
+    pageCount: widget.pageCount,
+    onPage: (p) => setState(() => _page = p),
+    strings: _strings,
+  );
 }
 
 final anPagerGalleryItem = GalleryItem(
@@ -40,17 +40,26 @@ final anPagerGalleryItem = GalleryItem(
   [
     GallerySpecimen(
       '多页 · 12 页居中(开窗带双 …)',
-      (_) => const Padding(padding: EdgeInsets.all(AnSpace.s16), child: _Host(pageCount: 12, initial: 6)),
+      (_) => const Padding(
+        padding: EdgeInsets.all(AnSpace.s16),
+        child: _Host(pageCount: 12, initial: 6),
+      ),
       height: 72,
     ),
     GallerySpecimen(
       '首页(‹ 压灰)',
-      (_) => const Padding(padding: EdgeInsets.all(AnSpace.s16), child: _Host(pageCount: 5)),
+      (_) => const Padding(
+        padding: EdgeInsets.all(AnSpace.s16),
+        child: _Host(pageCount: 5),
+      ),
       height: 72,
     ),
     GallerySpecimen(
       '单页(不渲——空白即正确)',
-      (_) => const Padding(padding: EdgeInsets.all(AnSpace.s16), child: _Host(pageCount: 1)),
+      (_) => const Padding(
+        padding: EdgeInsets.all(AnSpace.s16),
+        child: _Host(pageCount: 1),
+      ),
       height: 48,
     ),
   ],

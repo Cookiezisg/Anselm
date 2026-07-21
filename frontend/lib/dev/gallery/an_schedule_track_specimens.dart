@@ -26,8 +26,9 @@ final _end = DateTime(2026, 7, 16, 15);
 final _start = _end.subtract(const Duration(hours: 25));
 const int _bins = 25;
 
-String _headOf(TrackBin bin) =>
-    bin.start.hour == 0 ? '${bin.start.month}/${bin.start.day}' : '${bin.start.hour}';
+String _headOf(TrackBin bin) => bin.start.hour == 0
+    ? '${bin.start.month}/${bin.start.day}'
+    : '${bin.start.hour}';
 
 String _hm(DateTime t) =>
     '${t.hour.toString().padLeft(2, '0')}:${t.minute.toString().padLeft(2, '0')}';
@@ -52,62 +53,85 @@ TrackLane _lane(
   TrackFuture? future,
   bool dimmed = false,
   String note = '',
-}) =>
-    TrackLane(
-      id: id,
-      label: label,
-      bins: binTrackEvents(
-          start: _start, end: _end, binCount: _bins, runs: runs, missed: missed),
-      future: future,
-      dimmed: dimmed,
-      note: note,
-    );
+}) => TrackLane(
+  id: id,
+  label: label,
+  bins: binTrackEvents(
+    start: _start,
+    end: _end,
+    binCount: _bins,
+    runs: runs,
+    missed: missed,
+  ),
+  future: future,
+  dimmed: dimmed,
+  note: note,
+);
 
 /// The full grammar in one track: a dense lane, a sparse lane with a missed ✕, a paused lane, a lane
 /// with no forecast. 全文法一轨:高频满格 / 疏格带 missed / 暂停 / 无预告。
 List<TrackLane> _mixed() => [
-      // High-frequency: a run most hours, a couple failed — the dense bar. 高频满格,含两次失败。
-      _lane('a', '周报生成',
-          runs: [
-            for (var h = 1; h < 24; h++)
-              _run(h, h == 4 || h == 15 ? AnStatus.err : AnStatus.done, elapsedS: 12 + h),
-            _run(0, AnStatus.run, min: -5),
-          ],
-          future: TrackFuture(
-              at: _now.add(const Duration(minutes: 2)),
-              time: '14:32',
-              relative: '(2m 后)',
-              schedule: '之后每 15 分钟')),
-      // Sparse + missed: a few runs and two overslept ticks (the grey ✕). 疏格 + 两次错过(灰 ✕)。
-      _lane('b', '库存同步',
-          runs: [
-            _run(21, AnStatus.err),
-            _run(15, AnStatus.done),
-            _run(9, AnStatus.done),
-          ],
-          missed: [
-            _now.subtract(const Duration(hours: 19)),
-            _now.subtract(const Duration(hours: 13)),
-          ],
-          future: TrackFuture(
-              at: _now.add(const Duration(hours: 5)),
-              time: '23:00',
-              relative: '(5h 后)',
-              schedule: '每日 23:00')),
-      // No forecast in the window (a lane whose next fire is unknown) — the future segment is blank.
-      // 窗内无预告(下次不可知)——未来段留空。
-      _lane('c', '数据清洗流水线', runs: [
-        _run(16, AnStatus.done),
-        _run(10, AnStatus.done),
-        _run(6, AnStatus.done),
-      ]),
-      // Paused (判决①): greyed, «已暂停», zero forecast — but the fires it made before it was paused stay.
-      // 暂停(判决①):灰显、「已暂停」、零预告——但暂停前开过的火仍在。
-      _lane('d', '邮件归档',
-          dimmed: true,
-          note: '已暂停',
-          runs: [_run(20, AnStatus.done), _run(14, AnStatus.done)]),
-    ];
+  // High-frequency: a run most hours, a couple failed — the dense bar. 高频满格,含两次失败。
+  _lane(
+    'a',
+    '周报生成',
+    runs: [
+      for (var h = 1; h < 24; h++)
+        _run(
+          h,
+          h == 4 || h == 15 ? AnStatus.err : AnStatus.done,
+          elapsedS: 12 + h,
+        ),
+      _run(0, AnStatus.run, min: -5),
+    ],
+    future: TrackFuture(
+      at: _now.add(const Duration(minutes: 2)),
+      time: '14:32',
+      relative: '(2m 后)',
+      schedule: '之后每 15 分钟',
+    ),
+  ),
+  // Sparse + missed: a few runs and two overslept ticks (the grey ✕). 疏格 + 两次错过(灰 ✕)。
+  _lane(
+    'b',
+    '库存同步',
+    runs: [
+      _run(21, AnStatus.err),
+      _run(15, AnStatus.done),
+      _run(9, AnStatus.done),
+    ],
+    missed: [
+      _now.subtract(const Duration(hours: 19)),
+      _now.subtract(const Duration(hours: 13)),
+    ],
+    future: TrackFuture(
+      at: _now.add(const Duration(hours: 5)),
+      time: '23:00',
+      relative: '(5h 后)',
+      schedule: '每日 23:00',
+    ),
+  ),
+  // No forecast in the window (a lane whose next fire is unknown) — the future segment is blank.
+  // 窗内无预告(下次不可知)——未来段留空。
+  _lane(
+    'c',
+    '数据清洗流水线',
+    runs: [
+      _run(16, AnStatus.done),
+      _run(10, AnStatus.done),
+      _run(6, AnStatus.done),
+    ],
+  ),
+  // Paused (判决①): greyed, «已暂停», zero forecast — but the fires it made before it was paused stay.
+  // 暂停(判决①):灰显、「已暂停」、零预告——但暂停前开过的火仍在。
+  _lane(
+    'd',
+    '邮件归档',
+    dimmed: true,
+    note: '已暂停',
+    runs: [_run(20, AnStatus.done), _run(14, AnStatus.done)],
+  ),
+];
 
 String _binA11y(TrackLane lane, TrackBin bin) {
   final ok = bin.runs.where((r) => r.status == AnStatus.done).length;
@@ -122,30 +146,47 @@ Widget _binCard(BuildContext context, TrackLane lane, TrackBin bin) {
     mainAxisSize: MainAxisSize.min,
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text('${_hm(bin.start)} · 共 ${bin.runs.length + bin.missedCount} 次',
-          style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
+      Text(
+        '${_hm(bin.start)} · 共 ${bin.runs.length + bin.missedCount} 次',
+        style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.ink),
+      ),
       const SizedBox(height: AnFlow.headBodyDense),
       for (final m in bin.missed)
-        Row(children: [
-          Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkMuted),
-          const SizedBox(width: AnSpace.s6),
-          Text('错过 ${_hm(m)}', style: AnText.meta.copyWith(color: c.inkFaint)),
-        ]),
+        Row(
+          children: [
+            Icon(AnIcons.close, size: AnSize.iconSm, color: c.inkMuted),
+            const SizedBox(width: AnSpace.s6),
+            Text(
+              '错过 ${_hm(m)}',
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+          ],
+        ),
       for (final r in bin.runs.take(5))
-        Row(children: [
-          AnStatusDot(r.status),
-          const SizedBox(width: AnSpace.s6),
-          Text(_hm(r.at), style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-          const SizedBox(width: AnSpace.s8),
-          Flexible(
-              child: Text(r.sourceLabel,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.meta.copyWith(color: c.inkFaint))),
-          const SizedBox(width: AnSpace.s8),
-          Text(r.elapsed != null ? '${r.elapsed!.inSeconds}s' : '—',
-              style: AnText.metaTabular().copyWith(color: c.inkFaint)),
-        ]),
+        Row(
+          children: [
+            AnStatusDot(r.status),
+            const SizedBox(width: AnSpace.s6),
+            Text(
+              _hm(r.at),
+              style: AnText.metaTabular().copyWith(color: c.inkMuted),
+            ),
+            const SizedBox(width: AnSpace.s8),
+            Flexible(
+              child: Text(
+                r.sourceLabel,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
+            ),
+            const SizedBox(width: AnSpace.s8),
+            Text(
+              r.elapsed != null ? '${r.elapsed!.inSeconds}s' : '—',
+              style: AnText.metaTabular().copyWith(color: c.inkFaint),
+            ),
+          ],
+        ),
     ],
   );
 }
@@ -157,88 +198,120 @@ final anScheduleTrackGalleryItem = GalleryItem(
       '每格=真焦点节点(←→ 遍历由框架白送)、整轨唯一 Tab 停靠(roving 光标)',
   [
     GallerySpecimen(
-        '全文法(高频满格 / 疏格 + missed / 暂停 / 无预告)',
-        (_) => Padding(
-              padding: const EdgeInsets.all(AnSpace.s16),
-              child: AnScheduleTrack(
-                lanes: _mixed(),
-                now: _now,
-                binHeadLabel: _headOf,
-                onBin: (_, _) {},
-                binSemanticLabel: _binA11y,
-                emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
-                futureSemanticLabel: (lane) =>
-                    lane.future == null ? lane.note : '下一发 ${lane.future!.time},${lane.future!.schedule}',
-                laneSummaryLabel: (lane) => lane.dimmed ? '${lane.label} · 已暂停' : lane.label,
-                binHoverBuilder: (lane, bin) => (ctx) => _binCard(ctx, lane, bin),
-                futureHoverBuilder: (lane) => (ctx) => Text(
-                    lane.future == null ? lane.note : '下一发 ${lane.future!.time} · ${lane.future!.schedule}',
-                    style: AnText.meta.copyWith(color: ctx.colors.ink)),
+      '全文法(高频满格 / 疏格 + missed / 暂停 / 无预告)',
+      (_) => Padding(
+        padding: const EdgeInsets.all(AnSpace.s16),
+        child: AnScheduleTrack(
+          lanes: _mixed(),
+          now: _now,
+          binHeadLabel: _headOf,
+          onBin: (_, _) {},
+          binSemanticLabel: _binA11y,
+          emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
+          futureSemanticLabel: (lane) => lane.future == null
+              ? lane.note
+              : '下一发 ${lane.future!.time},${lane.future!.schedule}',
+          laneSummaryLabel: (lane) =>
+              lane.dimmed ? '${lane.label} · 已暂停' : lane.label,
+          binHoverBuilder: (lane, bin) =>
+              (ctx) => _binCard(ctx, lane, bin),
+          futureHoverBuilder: (lane) =>
+              (ctx) => Text(
+                lane.future == null
+                    ? lane.note
+                    : '下一发 ${lane.future!.time} · ${lane.future!.schedule}',
+                style: AnText.meta.copyWith(color: ctx.colors.ink),
               ),
-            ),
-        span: true),
+        ),
+      ),
+      span: true,
+    ),
     // ── 压力床 ──
     GallerySpecimen(
-        '压力:8 条高频泳道(每条几乎格格有 run)→ 恒 24 格、恒 1 个 Tab 停靠(roving 光标封停靠数)',
-        (_) => Padding(
-              padding: const EdgeInsets.all(AnSpace.s16),
-              child: AnScheduleTrack(
-                lanes: [
-                  for (var l = 0; l < 8; l++)
-                    _lane('l$l', '高频采样 $l', runs: [
-                      for (var h = 0; h < 24; h++)
-                        _run(h, h % 7 == l % 7 ? AnStatus.err : AnStatus.done, min: l),
-                    ], future: TrackFuture(at: _now.add(Duration(minutes: 5 + l)), time: '14:${35 + l}', relative: '(${5 + l}m 后)', schedule: '每 5 分钟')),
+      '压力:8 条高频泳道(每条几乎格格有 run)→ 恒 24 格、恒 1 个 Tab 停靠(roving 光标封停靠数)',
+      (_) => Padding(
+        padding: const EdgeInsets.all(AnSpace.s16),
+        child: AnScheduleTrack(
+          lanes: [
+            for (var l = 0; l < 8; l++)
+              _lane(
+                'l$l',
+                '高频采样 $l',
+                runs: [
+                  for (var h = 0; h < 24; h++)
+                    _run(
+                      h,
+                      h % 7 == l % 7 ? AnStatus.err : AnStatus.done,
+                      min: l,
+                    ),
                 ],
-                now: _now,
-                binHeadLabel: _headOf,
-                onBin: (_, _) {},
-                binSemanticLabel: _binA11y,
-                emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
-                futureSemanticLabel: (lane) => '下一发 ${lane.future?.time}',
-                laneSummaryLabel: (lane) => lane.label,
-                binHoverBuilder: (lane, bin) => (ctx) => _binCard(ctx, lane, bin),
-              ),
-            ),
-        stress: true,
-        span: true,
-        height: 372),
-    GallerySpecimen(
-        '压力:超长泳道名(定宽车道内裁切,绝不挤走格条)',
-        (_) => Padding(
-              padding: const EdgeInsets.all(AnSpace.s16),
-              child: AnScheduleTrack(
-                lanes: [
-                  _lane('a', '每天凌晨把上游三个数据源全量拉下来做去重清洗再回写到仓库的那条流水线',
-                      dimmed: true,
-                      note: '已暂停',
-                      runs: [_run(4, AnStatus.done)]),
-                ],
-                now: _now,
-                binHeadLabel: _headOf,
-                futureSemanticLabel: (lane) => lane.note,
-                laneSummaryLabel: (lane) => '${lane.label} · 已暂停',
-              ),
-            ),
-        stress: true,
-        maxWidth: 420),
-    GallerySpecimen(
-        '空 lanes 渲空 · 全空泳道(每格淡描边,空是真答案)',
-        (_) => Padding(
-              padding: const EdgeInsets.all(AnSpace.s16),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                AnScheduleTrack(lanes: const [], now: _now),
-                AnScheduleTrack(
-                  lanes: [_lane('a', '从未运行', runs: const [])],
-                  now: _now,
-                  binHeadLabel: _headOf,
-                  onBin: (_, _) {},
-                  emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
-                  laneSummaryLabel: (lane) => lane.label,
+                future: TrackFuture(
+                  at: _now.add(Duration(minutes: 5 + l)),
+                  time: '14:${35 + l}',
+                  relative: '(${5 + l}m 后)',
+                  schedule: '每 5 分钟',
                 ),
-              ]),
+              ),
+          ],
+          now: _now,
+          binHeadLabel: _headOf,
+          onBin: (_, _) {},
+          binSemanticLabel: _binA11y,
+          emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
+          futureSemanticLabel: (lane) => '下一发 ${lane.future?.time}',
+          laneSummaryLabel: (lane) => lane.label,
+          binHoverBuilder: (lane, bin) =>
+              (ctx) => _binCard(ctx, lane, bin),
+        ),
+      ),
+      stress: true,
+      span: true,
+      height: 372,
+    ),
+    GallerySpecimen(
+      '压力:超长泳道名(定宽车道内裁切,绝不挤走格条)',
+      (_) => Padding(
+        padding: const EdgeInsets.all(AnSpace.s16),
+        child: AnScheduleTrack(
+          lanes: [
+            _lane(
+              'a',
+              '每天凌晨把上游三个数据源全量拉下来做去重清洗再回写到仓库的那条流水线',
+              dimmed: true,
+              note: '已暂停',
+              runs: [_run(4, AnStatus.done)],
             ),
-        stress: true,
-        span: true),
+          ],
+          now: _now,
+          binHeadLabel: _headOf,
+          futureSemanticLabel: (lane) => lane.note,
+          laneSummaryLabel: (lane) => '${lane.label} · 已暂停',
+        ),
+      ),
+      stress: true,
+      maxWidth: 420,
+    ),
+    GallerySpecimen(
+      '空 lanes 渲空 · 全空泳道(每格淡描边,空是真答案)',
+      (_) => Padding(
+        padding: const EdgeInsets.all(AnSpace.s16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AnScheduleTrack(lanes: const [], now: _now),
+            AnScheduleTrack(
+              lanes: [_lane('a', '从未运行', runs: const [])],
+              now: _now,
+              binHeadLabel: _headOf,
+              onBin: (_, _) {},
+              emptyBinSemanticLabel: (lane, bin) => '${bin.start.hour} 时,无运行',
+              laneSummaryLabel: (lane) => lane.label,
+            ),
+          ],
+        ),
+      ),
+      stress: true,
+      span: true,
+    ),
   ],
 );

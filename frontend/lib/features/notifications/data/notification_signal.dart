@@ -82,5 +82,6 @@ class NotificationSignal {
   int get hashCode => Object.hash(type, durable, inboxCandidate);
 
   @override
-  String toString() => 'NotificationSignal($type durable=$durable inbox=$inboxCandidate)';
+  String toString() =>
+      'NotificationSignal($type durable=$durable inbox=$inboxCandidate)';
 }

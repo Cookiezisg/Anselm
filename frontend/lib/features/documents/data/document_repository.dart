@@ -26,8 +26,13 @@ abstract interface class DocumentsRepository {
   /// Direct children of [parentId] (null = root-level), full docs, position-ordered. 直接子节点。
   Future<List<DocumentNode>> listChildren(String? parentId);
 
-  Future<DocumentNode> createDocument(
-      {required String name, String? parentId, String content, String description, List<String> tags});
+  Future<DocumentNode> createDocument({
+    required String name,
+    String? parentId,
+    String content,
+    String description,
+    List<String> tags,
+  });
 
   /// Partial update (name / description / content / tags) — content PATCH IS the save (no versioning).
   /// 部分更新;存正文=PATCH content(无版本)。
@@ -37,7 +42,11 @@ abstract interface class DocumentsRepository {
   Future<void> deleteDocument(String id);
 
   /// Relocate / reorder (`:move`, cycle-guarded; null parentId → root, null position → append).
-  Future<DocumentNode> moveDocument(String id, {String? parentId, int? position});
+  Future<DocumentNode> moveDocument(
+    String id, {
+    String? parentId,
+    int? position,
+  });
 
   /// Deep-copy a subtree (`:duplicate` → 201, new root; null parentId → sibling of the source).
   Future<DocumentNode> duplicateDocument(String id, {String? parentId});
@@ -90,38 +99,61 @@ class LiveDocumentsRepository implements DocumentsRepository {
   Future<DocumentNode> getDocument(String id) =>
       _api.getEntity('$_docs/$id', DocumentNode.fromJson);
   @override
-  Future<List<DocumentNode>> listChildren(String? parentId) async => (await _api.getPage(
+  Future<List<DocumentNode>> listChildren(String? parentId) async =>
+      (await _api.getPage(
         _docs,
         DocumentNode.fromJson,
-        query: {if (parentId != null && parentId.isNotEmpty) 'parentId': parentId},
-      ))
-          .items;
+        query: {
+          if (parentId != null && parentId.isNotEmpty) 'parentId': parentId,
+        },
+      )).items;
   @override
-  Future<DocumentNode> createDocument(
-          {required String name,
-          String? parentId,
-          String content = '',
-          String description = '',
-          List<String> tags = const []}) =>
-      _api.postEntity(_docs, DocumentNode.fromJson,
-          body: {'name': name, 'parentId': ?parentId, 'content': content, 'description': description, 'tags': tags});
+  Future<DocumentNode> createDocument({
+    required String name,
+    String? parentId,
+    String content = '',
+    String description = '',
+    List<String> tags = const [],
+  }) => _api.postEntity(
+    _docs,
+    DocumentNode.fromJson,
+    body: {
+      'name': name,
+      'parentId': ?parentId,
+      'content': content,
+      'description': description,
+      'tags': tags,
+    },
+  );
   @override
   Future<DocumentNode> updateDocument(String id, Map<String, dynamic> patch) =>
       _api.patchEntity('$_docs/$id', DocumentNode.fromJson, body: patch);
   @override
   Future<void> deleteDocument(String id) => _api.delete('$_docs/$id');
   @override
-  Future<DocumentNode> moveDocument(String id, {String? parentId, int? position}) =>
-      _api.postEntity('$_docs/$id:move', DocumentNode.fromJson,
-          body: {'parentId': ?parentId, 'position': ?position});
+  Future<DocumentNode> moveDocument(
+    String id, {
+    String? parentId,
+    int? position,
+  }) => _api.postEntity(
+    '$_docs/$id:move',
+    DocumentNode.fromJson,
+    body: {'parentId': ?parentId, 'position': ?position},
+  );
   @override
   Future<DocumentNode> duplicateDocument(String id, {String? parentId}) =>
-      _api.postEntity('$_docs/$id:duplicate', DocumentNode.fromJson, body: {'parentId': ?parentId});
+      _api.postEntity(
+        '$_docs/$id:duplicate',
+        DocumentNode.fromJson,
+        body: {'parentId': ?parentId},
+      );
 
   @override
-  Future<List<Skill>> listSkills() async => (await _api.getPage(_skills, Skill.fromJson)).items;
+  Future<List<Skill>> listSkills() async =>
+      (await _api.getPage(_skills, Skill.fromJson)).items;
   @override
-  Future<Skill> getSkill(String name) => _api.getEntity('$_skills/$name', Skill.fromJson);
+  Future<Skill> getSkill(String name) =>
+      _api.getEntity('$_skills/$name', Skill.fromJson);
   @override
   Future<Skill> createSkill(Map<String, dynamic> body) =>
       _api.postEntity(_skills, Skill.fromJson, body: body);
@@ -132,15 +164,21 @@ class LiveDocumentsRepository implements DocumentsRepository {
   Future<void> deleteSkill(String name) => _api.delete('$_skills/$name');
 
   @override
-  Future<List<EntityRelation>> listBacklinks(String documentId) async => (await _api.getPage(
-        '/api/v1/relations',
-        EntityRelation.fromJson,
-        // The to-pair must be given together (REL_INCOMPLETE_FILTER); kind=link narrows to wikilinks
-        // (drop it and equip mounts would show too). Explicit 100 cap — plenty for a panel list.
-        // to 对须成对给;kind=link 只取 wikilink(不带会混进 equip 挂载);显式 100 上限。
-        query: {'toKind': 'document', 'toId': documentId, 'kind': 'link', 'limit': 100},
-      ))
-          .items;
+  Future<List<EntityRelation>> listBacklinks(
+    String documentId,
+  ) async => (await _api.getPage(
+    '/api/v1/relations',
+    EntityRelation.fromJson,
+    // The to-pair must be given together (REL_INCOMPLETE_FILTER); kind=link narrows to wikilinks
+    // (drop it and equip mounts would show too). Explicit 100 cap — plenty for a panel list.
+    // to 对须成对给;kind=link 只取 wikilink(不带会混进 equip 挂载);显式 100 上限。
+    query: {
+      'toKind': 'document',
+      'toId': documentId,
+      'kind': 'link',
+      'limit': 100,
+    },
+  )).items;
 
   @override
   Stream<String> lifecycleSignals() {
@@ -171,5 +209,8 @@ class LiveDocumentsRepository implements DocumentsRepository {
 /// The Documents feature's data seam, as a provider — defaults to Live; demo / gallery / tests override
 /// THIS ONE provider with a [FixtureDocumentsRepository] via ProviderScope. 单点切换后端。
 final documentsRepositoryProvider = Provider<DocumentsRepository>((ref) {
-  return LiveDocumentsRepository(ref.watch(apiClientProvider), sse: ref.watch(sseGatewayProvider));
+  return LiveDocumentsRepository(
+    ref.watch(apiClientProvider),
+    sse: ref.watch(sseGatewayProvider),
+  );
 });

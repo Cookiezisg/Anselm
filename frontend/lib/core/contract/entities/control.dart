@@ -19,7 +19,8 @@ abstract class ControlLogic with _$ControlLogic {
     required DateTime updatedAt,
     ControlVersion? activeVersion,
   }) = _ControlLogic;
-  factory ControlLogic.fromJson(Map<String, dynamic> json) => _$ControlLogicFromJson(json);
+  factory ControlLogic.fromJson(Map<String, dynamic> json) =>
+      _$ControlLogicFromJson(json);
 }
 
 /// Control version (append-only): declared [inputs] the node feeds + ordered [branches]. control.go Version。
@@ -36,7 +37,8 @@ abstract class ControlVersion with _$ControlVersion {
     required DateTime createdAt,
     required DateTime updatedAt,
   }) = _ControlVersion;
-  factory ControlVersion.fromJson(Map<String, dynamic> json) => _$ControlVersionFromJson(json);
+  factory ControlVersion.fromJson(Map<String, dynamic> json) =>
+      _$ControlVersionFromJson(json);
 }
 
 /// One routing branch: [when] (boolean CEL over `input.*`, first-true-wins top-down) → [port] (the named

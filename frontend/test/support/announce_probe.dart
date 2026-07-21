@@ -45,15 +45,22 @@ List<Announcement> probeAnnouncements(WidgetTester tester) {
       final m = (msg as Map<Object?, Object?>?) ?? const {};
       if (m['type'] == 'announce') {
         final data = m['data']! as Map<Object?, Object?>;
-        said.add(Announcement(
-          data['message']! as String,
-          (data['assertiveness'] as int?) ?? 0,
-        ));
+        said.add(
+          Announcement(
+            data['message']! as String,
+            (data['assertiveness'] as int?) ?? 0,
+          ),
+        );
       }
       return null;
     },
   );
-  addTearDown(() => tester.binding.defaultBinaryMessenger
-      .setMockDecodedMessageHandler<dynamic>(SystemChannels.accessibility, null));
+  addTearDown(
+    () => tester.binding.defaultBinaryMessenger
+        .setMockDecodedMessageHandler<dynamic>(
+          SystemChannels.accessibility,
+          null,
+        ),
+  );
   return said;
 }

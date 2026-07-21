@@ -40,45 +40,54 @@ class ApprovalStageBody extends StatelessWidget {
     final timeout = session.closedStringAt(['timeout']);
     final behavior = session.closedStringAt(['timeoutBehavior']);
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      // icon 沟文法:「预览·尚未寄出」标识行的字形坐进沟格、文字落文字列;信笺 AnWindow(真框)满宽贴 X=0。
-      // The icon-gutter grammar: the「预览·尚未寄出」identity row's glyph sits in the gutter; the letter
-      // window (a real frame) fills the body width at X=0.
-      stageGutterRow(
-        lead: Icon(AnIcons.approval, size: AnSize.iconSm, color: c.inkFaint),
-        child: Text(t.chat.stage.previewUnsent, style: AnText.meta.copyWith(color: c.inkFaint)),
-      ),
-      const SizedBox(height: AnSpace.s4),
-      if (template.isNotEmpty)
-        AnWindow(child: _letter(context, c, template)),
-      if (timeout != null)
-        // 假想框律:timeout 句(裸文字)归假想框,左缘对齐 KV 键(X=8);信笺/理由窗=真框贴 X=0。The
-        // imaginary-frame law: the timeout sentence (bare text) sits in the imaginary frame (X=8, the KV-key
-        // line); the letter / reason windows are real frames at X=0.
-        stageFramed(
-          Text(
-            timeout.isEmpty
-                ? t.chat.stage.neverTimeout
-                : switch (behavior) {
-                    'approve' => t.chat.stage.timeoutApprove(d: timeout),
-                    'fail' => t.chat.stage.timeoutFail(d: timeout),
-                    _ => t.chat.stage.timeoutReject(d: timeout),
-                  },
-            style: AnText.meta.copyWith(color: c.inkMuted),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // icon 沟文法:「预览·尚未寄出」标识行的字形坐进沟格、文字落文字列;信笺 AnWindow(真框)满宽贴 X=0。
+        // The icon-gutter grammar: the「预览·尚未寄出」identity row's glyph sits in the gutter; the letter
+        // window (a real frame) fills the body width at X=0.
+        stageGutterRow(
+          lead: Icon(AnIcons.approval, size: AnSize.iconSm, color: c.inkFaint),
+          child: Text(
+            t.chat.stage.previewUnsent,
+            style: AnText.meta.copyWith(color: c.inkFaint),
           ),
-          top: AnSpace.s6,
         ),
-      if (allowReason == true) ...[
         const SizedBox(height: AnSpace.s4),
-        // A sibling window, not the letter's footer: the reason slot may close before the
-        // template's first character (stream key order is free — a footer would vanish with its
-        // window), and it must stay BELOW the timeout sentence. 同胞窗而非信笺 footer:流式键序不定
-        // (理由可先于信笺首字闭合,挂 footer 会随窗消失),且须排在 timeout 句之下。
-        AnWindow(
-          child: Text(t.chat.stage.allowReason, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ),
+        if (template.isNotEmpty) AnWindow(child: _letter(context, c, template)),
+        if (timeout != null)
+          // 假想框律:timeout 句(裸文字)归假想框,左缘对齐 KV 键(X=8);信笺/理由窗=真框贴 X=0。The
+          // imaginary-frame law: the timeout sentence (bare text) sits in the imaginary frame (X=8, the KV-key
+          // line); the letter / reason windows are real frames at X=0.
+          stageFramed(
+            Text(
+              timeout.isEmpty
+                  ? t.chat.stage.neverTimeout
+                  : switch (behavior) {
+                      'approve' => t.chat.stage.timeoutApprove(d: timeout),
+                      'fail' => t.chat.stage.timeoutFail(d: timeout),
+                      _ => t.chat.stage.timeoutReject(d: timeout),
+                    },
+              style: AnText.meta.copyWith(color: c.inkMuted),
+            ),
+            top: AnSpace.s6,
+          ),
+        if (allowReason == true) ...[
+          const SizedBox(height: AnSpace.s4),
+          // A sibling window, not the letter's footer: the reason slot may close before the
+          // template's first character (stream key order is free — a footer would vanish with its
+          // window), and it must stay BELOW the timeout sentence. 同胞窗而非信笺 footer:流式键序不定
+          // (理由可先于信笺首字闭合,挂 footer 会随窗消失),且须排在 timeout 句之下。
+          AnWindow(
+            child: Text(
+              t.chat.stage.allowReason,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+          ),
+        ],
       ],
-    ]);
+    );
   }
 
   // The letter: markdown-ish prose with {{ CEL }} condensed into amber capsules. 信笺:{{ }} 凝琥珀药囊。
@@ -88,20 +97,29 @@ class ApprovalStageBody extends StatelessWidget {
     var last = 0;
     for (final m in re.allMatches(template)) {
       if (m.start > last) {
-        spans.add(TextSpan(
+        spans.add(
+          TextSpan(
             text: template.substring(last, m.start),
-            style: AnText.reading.copyWith(color: c.inkMuted)));
+            style: AnText.reading.copyWith(color: c.inkMuted),
+          ),
+        );
       }
-      spans.add(WidgetSpan(
-        alignment: PlaceholderAlignment.middle,
-        // The ONE inline-capsule shell (批5 A-041 — the hand-rolled amber pill retires). 唯一行内壳。
-        child: AnInlineCapsule(m.group(1)!, tone: AnTone.warn),
-      ));
+      spans.add(
+        WidgetSpan(
+          alignment: PlaceholderAlignment.middle,
+          // The ONE inline-capsule shell (批5 A-041 — the hand-rolled amber pill retires). 唯一行内壳。
+          child: AnInlineCapsule(m.group(1)!, tone: AnTone.warn),
+        ),
+      );
       last = m.end;
     }
     if (last < template.length) {
-      spans.add(TextSpan(
-          text: template.substring(last), style: AnText.reading.copyWith(color: c.inkMuted)));
+      spans.add(
+        TextSpan(
+          text: template.substring(last),
+          style: AnText.reading.copyWith(color: c.inkMuted),
+        ),
+      );
     }
     return Text.rich(TextSpan(children: spans));
   }

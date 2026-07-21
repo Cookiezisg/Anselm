@@ -71,7 +71,9 @@ class _ApprovalGateState extends State<ApprovalGate> {
   }
 
   void _decide(String verdict) => widget.onDecide(
-      verdict, widget.collectReason && _allowReason ? _reason.text.trim() : null);
+    verdict,
+    widget.collectReason && _allowReason ? _reason.text.trim() : null,
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -79,71 +81,101 @@ class _ApprovalGateState extends State<ApprovalGate> {
     final c = context.colors;
     final prompt = widget.parked.result['rendered'] as String? ?? '';
 
-    final body = Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-      if (prompt.isNotEmpty) ...[
-        // The rendered prompt is a markdown template (`Deploy **v2.4.0** to production?`) — render it as
-        // EMBEDDED-scale markdown so `**strong**` is bold, not literal asterisks (0719 star bug). Embedded
-        // (not reading) because the gate lives inside a card / inbox / terminal, never a 720 reading column.
-        // 渲染后的问题句是 markdown 模板;走嵌入档 markdown 让 **粗** 真粗、非字面星号(0719 星号 bug);
-        // 嵌入档因门住在卡/收件箱/终端里、非阅读列。
-        AnMarkdown(prompt, scale: AnMarkdownScale.embedded),
-        const SizedBox(height: AnSpace.s8),
+    final body = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        if (prompt.isNotEmpty) ...[
+          // The rendered prompt is a markdown template (`Deploy **v2.4.0** to production?`) — render it as
+          // EMBEDDED-scale markdown so `**strong**` is bold, not literal asterisks (0719 star bug). Embedded
+          // (not reading) because the gate lives inside a card / inbox / terminal, never a 720 reading column.
+          // 渲染后的问题句是 markdown 模板;走嵌入档 markdown 让 **粗** 真粗、非字面星号(0719 星号 bug);
+          // 嵌入档因门住在卡/收件箱/终端里、非阅读列。
+          AnMarkdown(prompt, scale: AnMarkdownScale.embedded),
+          const SizedBox(height: AnSpace.s8),
+        ],
+        if (widget.collectReason && _allowReason) ...[
+          if (!_reasonOpen)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: AnChip(
+                r.addReason,
+                look: AnChipLook.outlined,
+                onTap: () => setState(() => _reasonOpen = true),
+              ),
+            )
+          else
+            AnInput(
+              controller: _reason,
+              placeholder: r.reasonHint,
+              block: true,
+              autofocus: true,
+            ),
+          const SizedBox(height: AnSpace.s8),
+        ],
+        if (widget.showHint) ...[
+          Text(r.approvalHint, style: AnText.meta.copyWith(color: c.inkFaint)),
+          const SizedBox(height: AnSpace.s8),
+        ],
+        AnActionGroup([
+          AnButton(
+            label: r.approve,
+            variant: AnButtonVariant.primary,
+            size: AnButtonSize.sm,
+            onPressed: widget.busy ? null : () => _decide('yes'),
+          ),
+          AnButton(
+            label: r.reject,
+            variant: AnButtonVariant.danger,
+            size: AnButtonSize.sm,
+            onPressed: widget.busy ? null : () => _decide('no'),
+          ),
+        ]),
       ],
-      if (widget.collectReason && _allowReason) ...[
-        if (!_reasonOpen)
-          Align(
-            alignment: Alignment.centerLeft,
-            child: AnChip(r.addReason,
-                look: AnChipLook.outlined, onTap: () => setState(() => _reasonOpen = true)),
-          )
-        else
-          AnInput(controller: _reason, placeholder: r.reasonHint, block: true, autofocus: true),
-        const SizedBox(height: AnSpace.s8),
-      ],
-      if (widget.showHint) ...[
-        Text(r.approvalHint, style: AnText.meta.copyWith(color: c.inkFaint)),
-        const SizedBox(height: AnSpace.s8),
-      ],
-      AnActionGroup([
-        AnButton(
-          label: r.approve,
-          variant: AnButtonVariant.primary,
-          size: AnButtonSize.sm,
-          onPressed: widget.busy ? null : () => _decide('yes'),
-        ),
-        AnButton(
-          label: r.reject,
-          variant: AnButtonVariant.danger,
-          size: AnButtonSize.sm,
-          onPressed: widget.busy ? null : () => _decide('no'),
-        ),
-      ]),
-    ]);
+    );
 
     if (!widget.framed) return body;
     // Framed = a BORDERED card (B13 用户裁「外面要一圈边边,不要裸着」— AnCard, not the borderless
     // AnInfoCard): hairline shell + the family head row. 有边卡壳(AnCard 非无边 AnInfoCard)+族头行。
     return AnCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-        Row(children: [
-          ExcludeSemantics(
-              child: Icon(AnIcons.approval, size: AnSize.iconSm, color: c.inkFaint)),
-          const SizedBox(width: AnSpace.s8),
-          Expanded(
-            child: Semantics(
-              header: true,
-              child: Text(r.approvalTitle,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint)),
-            ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Row(
+            children: [
+              ExcludeSemantics(
+                child: Icon(
+                  AnIcons.approval,
+                  size: AnSize.iconSm,
+                  color: c.inkFaint,
+                ),
+              ),
+              const SizedBox(width: AnSpace.s8),
+              Expanded(
+                child: Semantics(
+                  header: true,
+                  child: Text(
+                    r.approvalTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.label
+                        .weight(AnText.emphasisWeight)
+                        .copyWith(color: c.inkFaint),
+                  ),
+                ),
+              ),
+              Text(
+                widget.parked.nodeId,
+                maxLines: 1,
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
+            ],
           ),
-          Text(widget.parked.nodeId,
-              maxLines: 1, style: AnText.meta.copyWith(color: c.inkFaint)),
-        ]),
-        const SizedBox(height: AnFlow.headBodyTight),
-        body,
-      ]),
+          const SizedBox(height: AnFlow.headBodyTight),
+          body,
+        ],
+      ),
     );
   }
 }

@@ -10,7 +10,11 @@ import '../design/tokens.dart';
 /// 一次性落点洗亮:accentSoft 填充先驻留后淡出(「你到这了」节奏);纯装饰,reduced 直接落终态。渐隐填充=洗亮
 /// 唯一处(是关键帧、非 AnOpacity 档)。
 class AnWashHighlight extends StatelessWidget {
-  const AnWashHighlight({required this.child, this.radius = AnRadius.card, super.key});
+  const AnWashHighlight({
+    required this.child,
+    this.radius = AnRadius.card,
+    super.key,
+  });
 
   final Widget child;
 

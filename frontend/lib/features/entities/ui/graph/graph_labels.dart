@@ -9,7 +9,8 @@ import '../../../../i18n/strings.g.dart';
 /// the full-page explore state. 关系图句子构造:原语取回调、feature 造句;总览预览与探索页共用。
 
 /// The per-node a11y sentence: "{name}，{kind}，被 {n} 个实体引用" (coordinates baked in — desktop a11y §2).
-String relationNodeLabel(BuildContext context, EntityNode n, int inDegree) => context.t.a11y.relationNode(
+String relationNodeLabel(BuildContext context, EntityNode n, int inDegree) =>
+    context.t.a11y.relationNode(
       name: n.name.isEmpty ? n.id : n.name,
       kind: entityKindWord(context, n.kind),
       count: '$inDegree',

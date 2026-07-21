@@ -14,7 +14,7 @@ landed-into:
 
 > **出身**：用户看现右岛（尤其 chat「侧幕」）与左岛视觉语言不一致，且侧幕「一次一个 stage」的单镜头模型不合意。经可点 HTML mockup 多轮对齐拍板（`scratchpad/right_island_mockup.html`，artifact `claude.ai/code/artifact/86379884-…`），进实现。目标 = **完整、超高质量、完整全部修改**。
 >
-> **执行纪律**：working 规范（本文）→ 单一作者建（地基先行）→ 对抗复审 → 真机逐帧截图验 → landed docs，`make fe-verify` 全绿每 block 收口。
+> **执行纪律**：working 规范（本文）→ 单一作者建（地基先行）→ 对抗复审 → 真机逐帧截图验 → landed docs，`make -C frontend verify` 全绿每 block 收口。
 
 ---
 
@@ -72,7 +72,7 @@ landed-into:
 
 - **skill 舞台 reprose ✅（2026-07-10,用户「commit-helper 大灰块、markdown 该直接排版」）**：`SkillStageBody` 旧渲染=两块灰 `AnSunkenPanel`(铭牌 + `_placeholderText` 纯文本 `$` 占位高亮)——**body 是裸 markdown 源码**(`#`/`-`/反引号逐字显),与同 skill 的 transcript 工具卡(早已 `ProseWindow` 排版)不搭。重写成**一张带边散文卡**:元数据头(「技能能用什么」——context 徽 + `Tools · bash read` 琥珀预授权药丸 + `Arguments · $scope` accent 药丸 + 「仅人可唤」章)+ 细线分隔 + body **真 markdown**(`AnMarkdown`,长文 `AnFadeCollapse`;流式退纯文本尾,落定全文排版)。`sceneFromTruth` skill 投影补 `arguments`(frontmatter.arguments)。i18n 增 `skillTools`/`skillArgs`。`_metaRow` 标签内联进 Wrap(非定宽列——长英文标签不断词/短中文不留空)。stages_w5 SKILL 测改写(废 `$` 占位断言→头药丸 + `AnMarkdown` 落定断言)。真机验(commit-helper):头 Tools/Arguments 齐 + body H1「Commit Helper」+ 项目符号 + 内联 `git diff --staged` 代码。fe-verify 3341 全绿。
 
-- **Block C 对抗复审修复 ✅（2026-07-10）**：3 维度(状态迁移/滚动布局/泄漏边界)对抗复审 6 候选 → 证伪 3、**确认 3 全修**:①**HIGH** load-more 脚在 itemBuilder(build 期)同步调 `loadMore()` 变异被 watch 的 ledger provider → 触发 Riverpod「build 期改 provider」守卫抛错 + 分页永久卡死 → 改 `addPostFrameCallback` 延迟出 build(+60 触点回归测);②**MED** 切会话时 `_takeover`/`_autoHandled` 残留(壳无 per-conv key,State 复用而 provider 重建)→ 新会话 live 自动展开却不自动滚入 → 加 `didUpdateWidget` 按 conversationId 重置;③**MED** `_isNearBottom` 复位锚对顶锚列表方向反了(live 在顶部,却要滚到底才重武装自动跟随)→ 翻转成 `_isNearTop`(pixels≤minExtent+80)。`make fe-verify` 3319 测全绿。
+- **Block C 对抗复审修复 ✅（2026-07-10）**：3 维度(状态迁移/滚动布局/泄漏边界)对抗复审 6 候选 → 证伪 3、**确认 3 全修**:①**HIGH** load-more 脚在 itemBuilder(build 期)同步调 `loadMore()` 变异被 watch 的 ledger provider → 触发 Riverpod「build 期改 provider」守卫抛错 + 分页永久卡死 → 改 `addPostFrameCallback` 延迟出 build(+60 触点回归测);②**MED** 切会话时 `_takeover`/`_autoHandled` 残留(壳无 per-conv key,State 复用而 provider 重建)→ 新会话 live 自动展开却不自动滚入 → 加 `didUpdateWidget` 按 conversationId 重置;③**MED** `_isNearBottom` 复位锚对顶锚列表方向反了(live 在顶部,却要滚到底才重武装自动跟随)→ 翻转成 `_isNearTop`(pixels≤minExtent+80)。`make -C frontend verify` 3319 测全绿。
 
 ## §7 待用户拍板 / 签字
 

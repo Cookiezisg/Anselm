@@ -16,7 +16,11 @@ import '../data/chat_repository.dart';
 /// 演员表一行——R-2 实体聚合(物理行是每 (物,动词) 一条):每个被碰之物一行,主显最新动词,余动词渲微徽序列。
 /// mcp 按名归一(后端 id 三径不收敛、名收敛)。任一 deleted 行到达即整实体墓碑化(封禁 GET)。
 class CastEntity {
-  const CastEntity({required this.kind, required this.key, required this.byVerb});
+  const CastEntity({
+    required this.kind,
+    required this.key,
+    required this.byVerb,
+  });
 
   final String kind;
 
@@ -27,7 +31,8 @@ class CastEntity {
   final Map<TouchpointVerb, Touchpoint> byVerb;
 
   /// The row whose verb fronts the entity — freshest lastAt wins. 主显行(lastAt 最新)。
-  Touchpoint get primary => byVerb.values.reduce((a, b) => b.lastAt.isAfter(a.lastAt) ? b : a);
+  Touchpoint get primary =>
+      byVerb.values.reduce((a, b) => b.lastAt.isAfter(a.lastAt) ? b : a);
 
   /// The entity sort key = max(lastAt) over its verb rows (R-2). 实体排序键。
   DateTime get lastAt => primary.lastAt;
@@ -109,7 +114,9 @@ class TouchpointLedgerController extends Notifier<TouchpointLedgerState> {
     // Subscribe BEFORE hydration so a signal landing mid-fetch is never lost (newer-lastAt merge keeps
     // it over the stale page row). 订阅先于水化:取窗内信号不丢(lastAt 新者胜)。
     _sub = _repo.conversationFrames(conversationId).listen(_onFrame);
-    _resyncSub = _repo.transcriptResync().listen((_) => unawaited(_hydrate(merge: true)));
+    _resyncSub = _repo.transcriptResync().listen(
+      (_) => unawaited(_hydrate(merge: true)),
+    );
     ref.onDispose(() {
       _sub?.cancel();
       _resyncSub?.cancel();
@@ -156,7 +163,12 @@ class TouchpointLedgerController extends Notifier<TouchpointLedgerState> {
   Future<void> loadMore() async {
     final cursor = state.nextCursor;
     if (state.loading || !state.hasMore || cursor == null) return;
-    state = _emit(state.rows, nextCursor: cursor, hasMore: state.hasMore, loading: true);
+    state = _emit(
+      state.rows,
+      nextCursor: cursor,
+      hasMore: state.hasMore,
+      loading: true,
+    );
     try {
       final page = await _repo.listTouchpoints(conversationId, cursor: cursor);
       if (!ref.mounted) return;
@@ -184,13 +196,20 @@ class TouchpointLedgerController extends Notifier<TouchpointLedgerState> {
     if (row.id.isEmpty) return;
     final rows = {...state.rows};
     _mergeRow(rows, row);
-    state = _emit(rows, nextCursor: state.nextCursor, hasMore: state.hasMore, loading: state.loading);
+    state = _emit(
+      rows,
+      nextCursor: state.nextCursor,
+      hasMore: state.hasMore,
+      loading: state.loading,
+    );
   }
 
   // Upsert keeping the newer lastAt (a stale page copy never clobbers a fresher signal). 新者胜。
   static void _mergeRow(Map<String, Touchpoint> rows, Touchpoint row) {
     final existing = rows[row.id];
-    if (existing == null || !row.lastAt.isBefore(existing.lastAt)) rows[row.id] = row;
+    if (existing == null || !row.lastAt.isBefore(existing.lastAt)) {
+      rows[row.id] = row;
+    }
   }
 
   TouchpointLedgerState _emit(
@@ -198,15 +217,14 @@ class TouchpointLedgerController extends Notifier<TouchpointLedgerState> {
     String? nextCursor,
     required bool hasMore,
     bool loading = false,
-  }) =>
-      TouchpointLedgerState(
-        rows: rows,
-        entities: aggregate(rows.values),
-        nextCursor: nextCursor,
-        hasMore: hasMore,
-        hydrated: true,
-        loading: loading,
-      );
+  }) => TouchpointLedgerState(
+    rows: rows,
+    entities: aggregate(rows.values),
+    nextCursor: nextCursor,
+    hasMore: hasMore,
+    hydrated: true,
+    loading: loading,
+  );
 
   /// The R-2 aggregation: physical per-(item,verb) rows → entity rows keyed by (kind, itemId — mcp
   /// normalized to name), sorted freshest-first. Pure + static for direct unit testing.
@@ -222,11 +240,17 @@ class TouchpointLedgerController extends Notifier<TouchpointLedgerState> {
       keys[mapKey] = (kind: row.itemKind, key: key);
       final verbs = byEntity[mapKey] ??= {};
       final existing = verbs[row.verb];
-      if (existing == null || !row.lastAt.isBefore(existing.lastAt)) verbs[row.verb] = row;
+      if (existing == null || !row.lastAt.isBefore(existing.lastAt)) {
+        verbs[row.verb] = row;
+      }
     }
     final out = [
       for (final e in byEntity.entries)
-        CastEntity(kind: keys[e.key]!.kind, key: keys[e.key]!.key, byVerb: e.value),
+        CastEntity(
+          kind: keys[e.key]!.kind,
+          key: keys[e.key]!.key,
+          byVerb: e.value,
+        ),
     ]..sort((a, b) => b.lastAt.compareTo(a.lastAt));
     return out;
   }
@@ -236,4 +260,5 @@ class TouchpointLedgerController extends Notifier<TouchpointLedgerState> {
 /// frees the subscription. 会话触点台账(演员表数据源);切走即释放。
 final touchpointLedgerProvider = NotifierProvider.autoDispose
     .family<TouchpointLedgerController, TouchpointLedgerState, String>(
-        TouchpointLedgerController.new);
+      TouchpointLedgerController.new,
+    );

@@ -12,7 +12,8 @@ import '../data/settings_repository.dart';
 /// 面板只对非当前行给删除(后端守最后一个)。
 class WorkspacesController extends AsyncNotifier<List<Workspace>> {
   @override
-  Future<List<Workspace>> build() => ref.watch(settingsRepositoryProvider).listWorkspaces();
+  Future<List<Workspace>> build() =>
+      ref.watch(settingsRepositoryProvider).listWorkspaces();
 
   Future<Workspace> create({required String name, String? avatarColor}) async {
     final row = await ref
@@ -23,8 +24,9 @@ class WorkspacesController extends AsyncNotifier<List<Workspace>> {
   }
 
   Future<Workspace> rename(String id, String name) async {
-    final row =
-        await ref.read(settingsRepositoryProvider).patchWorkspaceById(id, name: name);
+    final row = await ref
+        .read(settingsRepositoryProvider)
+        .patchWorkspaceById(id, name: name);
     if (ref.read(activeWorkspaceProvider) == id) {
       ref.read(activeWorkspaceNameProvider.notifier).set(row.name); // 底栏名同步
     }
@@ -46,18 +48,25 @@ class WorkspacesController extends AsyncNotifier<List<Workspace>> {
   }
 
   Future<void> _refresh() async {
-    state = AsyncData(await ref.read(settingsRepositoryProvider).listWorkspaces());
+    state = AsyncData(
+      await ref.read(settingsRepositoryProvider).listWorkspaces(),
+    );
   }
 }
 
 final workspacesProvider =
-    AsyncNotifierProvider<WorkspacesController, List<Workspace>>(WorkspacesController.new);
+    AsyncNotifierProvider<WorkspacesController, List<Workspace>>(
+      WorkspacesController.new,
+    );
 
 /// The delete confirmation's real numbers — fetched when the danger zone opens, autoDispose (stats
 /// go stale the moment work continues). 删除确认真数字;危险区展开时取,autoDispose(数字随工作即刻过期)。
-final workspaceStatsProvider = FutureProvider.autoDispose.family<WorkspaceStats, String>(
-    (ref, id) => ref.watch(settingsRepositoryProvider).workspaceStats(id));
+final workspaceStatsProvider = FutureProvider.autoDispose
+    .family<WorkspaceStats, String>(
+      (ref, id) => ref.watch(settingsRepositoryProvider).workspaceStats(id),
+    );
 
 /// The backend build version (About). 后端构建版本(关于页)。
-final backendVersionProvider =
-    FutureProvider<String>((ref) => ref.watch(settingsRepositoryProvider).backendVersion());
+final backendVersionProvider = FutureProvider<String>(
+  (ref) => ref.watch(settingsRepositoryProvider).backendVersion(),
+);

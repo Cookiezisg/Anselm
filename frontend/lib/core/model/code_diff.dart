@@ -27,7 +27,8 @@ enum DiffOp { context, add, del }
 /// headroom (verify-by-real-run), never lower silently.
 /// 退化闸:LCS 矩阵单元数 (m+1)(n+1) 即真实成本,按 cell 封顶(忠实移植 demo,#8)。超阈整段替换(语义正确、非最小编辑)。
 /// 平衡型 m≈n 是行数闸(m+n)漏网的陷阱——m=n=2500 仅 5000 行却撑 ~50MB 矩阵;cell 闸直接封顶真实成本。保守占位、真机只上调。
-const int lineDiffMaxCells = 4000000; // (m+1)*(n+1) DP-matrix cell cap (~2000×2000), = demo LCS_CELL_CAP
+const int lineDiffMaxCells =
+    4000000; // (m+1)*(n+1) DP-matrix cell cap (~2000×2000), = demo LCS_CELL_CAP
 
 /// Diff [before] → [after] line-by-line. The empty/earliest-version case (no older text to compare)
 /// is the CALLER's concern (AnVersionDiff renders an absent `before` as all-context, uncoloured) —
@@ -48,7 +49,11 @@ List<DiffLine> lineDiff(String before, String after) {
   }
 
   // Reverse DP: dp[i][j] = LCS length of a[i:] and b[j:]. 逆向 DP:dp[i][j]=后缀 LCS 长度。
-  final dp = List.generate(m + 1, (_) => List<int>.filled(n + 1, 0), growable: false);
+  final dp = List.generate(
+    m + 1,
+    (_) => List<int>.filled(n + 1, 0),
+    growable: false,
+  );
   for (var i = m - 1; i >= 0; i--) {
     for (var j = n - 1; j >= 0; j--) {
       dp[i][j] = a[i] == b[j]

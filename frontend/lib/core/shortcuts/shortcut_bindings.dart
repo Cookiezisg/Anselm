@@ -15,7 +15,9 @@ import 'shortcut_catalog.dart';
 class ShortcutBindings extends Notifier<Map<ShortcutCommand, ShortcutChord>> {
   @override
   Map<ShortcutCommand, ShortcutChord> build() {
-    final raw = ref.watch(settingsPrefsProvider).getString(SettingsKeys.shortcuts);
+    final raw = ref
+        .watch(settingsPrefsProvider)
+        .getString(SettingsKeys.shortcuts);
     final overrides = <ShortcutCommand, ShortcutChord>{};
     if (raw.isNotEmpty) {
       try {
@@ -25,10 +27,13 @@ class ShortcutBindings extends Notifier<Map<ShortcutCommand, ShortcutChord>> {
           final chord = ShortcutChord.parse(e.value as String);
           if (cmd != null && chord != null) overrides[cmd] = chord;
         }
-      } catch (_) {/* malformed → defaults 坏值回默认 */}
+      } catch (_) {
+        /* malformed → defaults 坏值回默认 */
+      }
     }
     return {
-      for (final cmd in ShortcutCommand.values) cmd: overrides[cmd] ?? kShortcutDefaults[cmd]!,
+      for (final cmd in ShortcutCommand.values)
+        cmd: overrides[cmd] ?? kShortcutDefaults[cmd]!,
     };
   }
 
@@ -59,19 +64,27 @@ class ShortcutBindings extends Notifier<Map<ShortcutCommand, ShortcutChord>> {
   /// Restore every command. 全部回默认。
   Future<void> resetAll() async {
     ref.read(settingsPrefsProvider).setString(SettingsKeys.shortcuts, '');
-    state = {for (final cmd in ShortcutCommand.values) cmd: kShortcutDefaults[cmd]!};
+    state = {
+      for (final cmd in ShortcutCommand.values) cmd: kShortcutDefaults[cmd]!,
+    };
   }
 
   Future<void> _persist(Map<ShortcutCommand, ShortcutChord> bindings) async {
     final overrides = <String, String>{
       for (final e in bindings.entries)
-        if (e.value != kShortcutDefaults[e.key]) e.key.name: e.value.serialize(),
+        if (e.value != kShortcutDefaults[e.key])
+          e.key.name: e.value.serialize(),
     };
-    ref.read(settingsPrefsProvider).setString(
-        SettingsKeys.shortcuts, overrides.isEmpty ? '' : jsonEncode(overrides));
+    ref
+        .read(settingsPrefsProvider)
+        .setString(
+          SettingsKeys.shortcuts,
+          overrides.isEmpty ? '' : jsonEncode(overrides),
+        );
   }
 }
 
 final shortcutBindingsProvider =
     NotifierProvider<ShortcutBindings, Map<ShortcutCommand, ShortcutChord>>(
-        ShortcutBindings.new);
+      ShortcutBindings.new,
+    );

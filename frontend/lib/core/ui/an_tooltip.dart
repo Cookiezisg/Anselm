@@ -33,7 +33,10 @@ class AnTooltip extends StatelessWidget {
         boxShadow: c.shadowPop,
       ),
       textStyle: AnText.meta.copyWith(color: c.ink),
-      padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: AnSpace.s8,
+        vertical: AnSpace.s4,
+      ),
       child: child,
     );
   }

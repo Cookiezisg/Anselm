@@ -3,7 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  final p = NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(true));
+  final p = NotifierProvider<BoolPrefNotifier, bool>(
+    () => BoolPrefNotifier(true),
+  );
 
   test('starts at its default', () {
     final c = ProviderContainer();
@@ -11,7 +13,9 @@ void main() {
     expect(c.read(p), isTrue);
     final c2 = ProviderContainer();
     addTearDown(c2.dispose);
-    final q = NotifierProvider<BoolPrefNotifier, bool>(() => BoolPrefNotifier(false));
+    final q = NotifierProvider<BoolPrefNotifier, bool>(
+      () => BoolPrefNotifier(false),
+    );
     expect(c2.read(q), isFalse);
   });
 

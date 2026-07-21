@@ -28,26 +28,58 @@ class ActivationListNotifier extends AsyncNotifier<LogListState>
   @override
   Future<LogListState> build() async {
     _repo = ref.watch(entityRepositoryProvider);
-    final p = await _repo.listActivations(arg.triggerId, firedOnly: arg.firedOnly, limit: _pageSize);
+    final p = await _repo.listActivations(
+      arg.triggerId,
+      firedOnly: arg.firedOnly,
+      limit: _pageSize,
+    );
     return LogListState(
-        rows: p.items.map(_row).toList(), nextCursor: p.nextCursor, hasMore: p.hasMore);
+      rows: p.items.map(_row).toList(),
+      nextCursor: p.nextCursor,
+      hasMore: p.hasMore,
+    );
   }
 
   @override
-  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(LogListState s) =>
-      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(
+    LogListState s,
+  ) => (
+    hasMore: s.hasMore,
+    loadingMore: s.loadingMore,
+    nextCursor: s.nextCursor,
+  );
   @override
-  Future<({List<LogRow> rows, String? next, bool more})> fetchNextPage(String cursor) async {
-    final p = await _repo.listActivations(arg.triggerId,
-        firedOnly: arg.firedOnly, cursor: cursor, limit: _pageSize);
-    return (rows: p.items.map(_row).toList(), next: p.nextCursor, more: p.hasMore);
+  Future<({List<LogRow> rows, String? next, bool more})> fetchNextPage(
+    String cursor,
+  ) async {
+    final p = await _repo.listActivations(
+      arg.triggerId,
+      firedOnly: arg.firedOnly,
+      cursor: cursor,
+      limit: _pageSize,
+    );
+    return (
+      rows: p.items.map(_row).toList(),
+      next: p.nextCursor,
+      more: p.hasMore,
+    );
   }
 
   @override
-  LogListState stateWithLoadingMore(LogListState s, bool loading) => s.copyWith(loadingMore: loading);
+  LogListState stateWithLoadingMore(LogListState s, bool loading) =>
+      s.copyWith(loadingMore: loading);
   @override
-  LogListState stateWithAppended(LogListState s, List<LogRow> rows, String? next, bool more) =>
-      s.copyWith(rows: [...s.rows, ...rows], nextCursor: next, hasMore: more, loadingMore: false);
+  LogListState stateWithAppended(
+    LogListState s,
+    List<LogRow> rows,
+    String? next,
+    bool more,
+  ) => s.copyWith(
+    rows: [...s.rows, ...rows],
+    nextCursor: next,
+    hasMore: more,
+    loadingMore: false,
+  );
 
   void toggle(String id) {
     final cur = state.value;
@@ -63,7 +95,8 @@ class ActivationListNotifier extends AsyncNotifier<LogListState>
       // Fired → an ok dot; a non-fired probe (sensor condition false) → idle. 触发=绿点,未触发探测=灰。
       dot: a.fired ? AnStatus.done : AnStatus.idle,
       id: a.id,
-      label: '${a.kind.name} · ${a.fired ? tt.trigger.fired : tt.trigger.notFired}',
+      label:
+          '${a.kind.name} · ${a.fired ? tt.trigger.fired : tt.trigger.notFired}',
       meta: a.fired ? tt.trigger.fanout(n: a.firingCount) : null,
       hint: fmtTime(a.createdAt),
       detailRows: [
@@ -71,7 +104,8 @@ class ActivationListNotifier extends AsyncNotifier<LogListState>
         (tt.trigger.fired, a.fired ? tt.val.yes : tt.val.no),
         if (a.detail.isNotEmpty) (tt.trigger.detail, a.detail),
         if (a.error.isNotEmpty) (tt.kv.error, a.error),
-        if (a.returnValue.isNotEmpty) (tt.trigger.returnValue, prettyJson(a.returnValue)),
+        if (a.returnValue.isNotEmpty)
+          (tt.trigger.returnValue, prettyJson(a.returnValue)),
         if (a.payload.isNotEmpty) (tt.trigger.payload, prettyJson(a.payload)),
         (tt.trigger.fanoutLabel, '${a.firingCount}'),
         (tt.kv.time, fmtTime(a.createdAt)),
@@ -92,25 +126,58 @@ class FiringListNotifier extends AsyncNotifier<LogListState>
   @override
   Future<LogListState> build() async {
     _repo = ref.watch(entityRepositoryProvider);
-    final p = await _repo.listFirings(arg.triggerId, status: arg.status, limit: _pageSize);
+    final p = await _repo.listFirings(
+      arg.triggerId,
+      status: arg.status,
+      limit: _pageSize,
+    );
     return LogListState(
-        rows: p.items.map(_row).toList(), nextCursor: p.nextCursor, hasMore: p.hasMore);
+      rows: p.items.map(_row).toList(),
+      nextCursor: p.nextCursor,
+      hasMore: p.hasMore,
+    );
   }
 
   @override
-  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(LogListState s) =>
-      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(
+    LogListState s,
+  ) => (
+    hasMore: s.hasMore,
+    loadingMore: s.loadingMore,
+    nextCursor: s.nextCursor,
+  );
   @override
-  Future<({List<LogRow> rows, String? next, bool more})> fetchNextPage(String cursor) async {
-    final p = await _repo.listFirings(arg.triggerId, status: arg.status, cursor: cursor, limit: _pageSize);
-    return (rows: p.items.map(_row).toList(), next: p.nextCursor, more: p.hasMore);
+  Future<({List<LogRow> rows, String? next, bool more})> fetchNextPage(
+    String cursor,
+  ) async {
+    final p = await _repo.listFirings(
+      arg.triggerId,
+      status: arg.status,
+      cursor: cursor,
+      limit: _pageSize,
+    );
+    return (
+      rows: p.items.map(_row).toList(),
+      next: p.nextCursor,
+      more: p.hasMore,
+    );
   }
 
   @override
-  LogListState stateWithLoadingMore(LogListState s, bool loading) => s.copyWith(loadingMore: loading);
+  LogListState stateWithLoadingMore(LogListState s, bool loading) =>
+      s.copyWith(loadingMore: loading);
   @override
-  LogListState stateWithAppended(LogListState s, List<LogRow> rows, String? next, bool more) =>
-      s.copyWith(rows: [...s.rows, ...rows], nextCursor: next, hasMore: more, loadingMore: false);
+  LogListState stateWithAppended(
+    LogListState s,
+    List<LogRow> rows,
+    String? next,
+    bool more,
+  ) => s.copyWith(
+    rows: [...s.rows, ...rows],
+    nextCursor: next,
+    hasMore: more,
+    loadingMore: false,
+  );
 
   void toggle(String id) {
     final cur = state.value;
@@ -148,13 +215,15 @@ class FiringListNotifier extends AsyncNotifier<LogListState>
 AnStatus firingDot(FiringStatus s) => AnStatus.fromRaw(s.name);
 
 final activationListProvider = AsyncNotifierProvider.autoDispose
-    .family<ActivationListNotifier, LogListState, ({String triggerId, bool firedOnly})>(
-  ActivationListNotifier.new,
-  retry: (_, _) => null,
-);
+    .family<
+      ActivationListNotifier,
+      LogListState,
+      ({String triggerId, bool firedOnly})
+    >(ActivationListNotifier.new, retry: (_, _) => null);
 
 final firingListProvider = AsyncNotifierProvider.autoDispose
-    .family<FiringListNotifier, LogListState, ({String triggerId, String? status})>(
-  FiringListNotifier.new,
-  retry: (_, _) => null,
-);
+    .family<
+      FiringListNotifier,
+      LogListState,
+      ({String triggerId, String? status})
+    >(FiringListNotifier.new, retry: (_, _) => null);

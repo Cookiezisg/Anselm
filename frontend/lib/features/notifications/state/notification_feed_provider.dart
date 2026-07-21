@@ -46,29 +46,43 @@ class NotificationFeedNotifier extends AsyncNotifier<NotificationFeedState>
     });
 
     final page = await _repo.listNotifications(limit: _pageSize);
-    return NotificationFeedState(rows: page.items, nextCursor: page.nextCursor, hasMore: page.hasMore);
+    return NotificationFeedState(
+      rows: page.items,
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore,
+    );
   }
 
   // KeysetQueryPaging hooks. 钩子。
   @override
-  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(NotificationFeedState s) =>
-      (hasMore: s.hasMore, loadingMore: s.loadingMore, nextCursor: s.nextCursor);
+  ({bool hasMore, bool loadingMore, String? nextCursor}) pageCursor(
+    NotificationFeedState s,
+  ) => (
+    hasMore: s.hasMore,
+    loadingMore: s.loadingMore,
+    nextCursor: s.nextCursor,
+  );
 
   @override
   Future<Page<NotificationItem>> fetchNextPage(String cursor) =>
       _repo.listNotifications(cursor: cursor, limit: _pageSize);
 
   @override
-  NotificationFeedState stateWithLoadingMore(NotificationFeedState s, bool loading) =>
-      s.copyWith(loadingMore: loading);
+  NotificationFeedState stateWithLoadingMore(
+    NotificationFeedState s,
+    bool loading,
+  ) => s.copyWith(loadingMore: loading);
 
   @override
-  NotificationFeedState stateWithAppended(NotificationFeedState s, Page<NotificationItem> page) => s.copyWith(
-        rows: [...s.rows, ...page.items],
-        nextCursor: page.nextCursor,
-        hasMore: page.hasMore,
-        loadingMore: false,
-      );
+  NotificationFeedState stateWithAppended(
+    NotificationFeedState s,
+    Page<NotificationItem> page,
+  ) => s.copyWith(
+    rows: [...s.rows, ...page.items],
+    nextCursor: page.nextCursor,
+    hasMore: page.hasMore,
+    loadingMore: false,
+  );
 
   /// Refetch the first page and prepend any rows not already held (a burst of ticks coalesces to one
   /// COUNT + one page). The DB list is truth; existing rows keep their (possibly locally-marked-read)
@@ -80,7 +94,9 @@ class NotificationFeedNotifier extends AsyncNotifier<NotificationFeedState>
       final page = await _repo.listNotifications(limit: _pageSize);
       if (!ref.mounted) return;
       final have = {for (final r in cur.rows) r.id};
-      final fresh = page.items.where((r) => !have.contains(r.id)).toList(growable: false);
+      final fresh = page.items
+          .where((r) => !have.contains(r.id))
+          .toList(growable: false);
       if (fresh.isEmpty) return;
       state = AsyncData(cur.copyWith(rows: [...fresh, ...cur.rows]));
     } catch (_) {
@@ -134,7 +150,8 @@ class NotificationFeedNotifier extends AsyncNotifier<NotificationFeedState>
     if (cur == null) return;
     final stamp = DateTime.now();
     final rows = [
-      for (final r in cur.rows) (r.isUnread && match(r)) ? r.copyWith(readAt: stamp) : r,
+      for (final r in cur.rows)
+        (r.isUnread && match(r)) ? r.copyWith(readAt: stamp) : r,
     ];
     state = AsyncData(cur.copyWith(rows: rows));
   }
@@ -143,7 +160,8 @@ class NotificationFeedNotifier extends AsyncNotifier<NotificationFeedState>
     final cur = state.value;
     if (cur == null) return;
     final rows = [
-      for (final r in cur.rows) (!r.isUnread && match(r)) ? r.copyWith(readAt: null) : r,
+      for (final r in cur.rows)
+        (!r.isUnread && match(r)) ? r.copyWith(readAt: null) : r,
     ];
     state = AsyncData(cur.copyWith(rows: rows));
   }
@@ -152,4 +170,6 @@ class NotificationFeedNotifier extends AsyncNotifier<NotificationFeedState>
 /// The notification feed. keepAlive (app-lifetime — the tray may open/close often; the feed stays warm).
 /// 通知 feed。默认 keepAlive(托盘频繁开合、feed 常驻)。
 final notificationFeedProvider =
-    AsyncNotifierProvider<NotificationFeedNotifier, NotificationFeedState>(NotificationFeedNotifier.new);
+    AsyncNotifierProvider<NotificationFeedNotifier, NotificationFeedState>(
+      NotificationFeedNotifier.new,
+    );

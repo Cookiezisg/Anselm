@@ -49,7 +49,11 @@ class GraphRunState {
 /// 派生覆层。rows 任意序(REST + tick 合并后);仅 run 头 running 时做 running 合成。parked 只挡
 /// **自身下游**(它不产完成行)——并行分支照常推进,与后端 walk 一致(parked run 头仍 running、
 /// 其余 ready 节点照常派发)。
-GraphRunState deriveRunState(Graph g, {required List<FlowrunNode> rows, required String runStatus}) {
+GraphRunState deriveRunState(
+  Graph g, {
+  required List<FlowrunNode> rows,
+  required String runStatus,
+}) {
   if (rows.isEmpty) return GraphRunState.empty;
 
   // Index once: rows by (node, iteration) — O(1) lookups keep the whole derivation linear-ish
@@ -62,7 +66,8 @@ GraphRunState deriveRunState(Graph g, {required List<FlowrunNode> rows, required
     final cur = latest[r.nodeId];
     if (cur == null || r.iteration > cur.iteration) latest[r.nodeId] = r;
   }
-  FlowrunNode? rowAt(String nodeId, int iteration) => byNodeIter[nodeId]?[iteration];
+  FlowrunNode? rowAt(String nodeId, int iteration) =>
+      byNodeIter[nodeId]?[iteration];
 
   final nodes = <String, GraphNodeRun>{};
   final iters = <String, int>{};
@@ -99,7 +104,9 @@ GraphRunState deriveRunState(Graph g, {required List<FlowrunNode> rows, required
     final port = (e.fromPort ?? '');
     if (port.isEmpty) return false;
     final result = row.result;
-    final chosen = kind == NodeKind.control ? result['__port'] : result['decision'];
+    final chosen = kind == NodeKind.control
+        ? result['__port']
+        : result['decision'];
     return chosen == port;
   }
 
@@ -143,7 +150,9 @@ GraphRunState deriveRunState(Graph g, {required List<FlowrunNode> rows, required
       if (feed < 0) continue;
       final srcRow = rowAt(e2.from, feed);
       if (srcRow != null) {
-        if (srcRow.status == 'completed') continue; // satisfied or pruned-by-port 已满足/被口剪
+        if (srcRow.status == 'completed') {
+          continue; // satisfied or pruned-by-port 已满足/被口剪
+        }
         blocked = true; // failed/parked predecessor — the join waits 未完前驱,汇聚等待
         break;
       }
@@ -155,9 +164,16 @@ GraphRunState deriveRunState(Graph g, {required List<FlowrunNode> rows, required
     }
     if (blocked) continue;
     nodes[target] = GraphNodeRun.running;
-    iters[target] = (byNodeIter[target]?.length ?? 0) + 1; // the in-flight pass counts 在途这趟计入
+    iters[target] =
+        (byNodeIter[target]?.length ?? 0) +
+        1; // the in-flight pass counts 在途这趟计入
     live.add(e.id);
   }
 
-  return GraphRunState(nodes: nodes, iters: iters, takenEdges: taken, liveEdges: live);
+  return GraphRunState(
+    nodes: nodes,
+    iters: iters,
+    takenEdges: taken,
+    liveEdges: live,
+  );
 }

@@ -26,7 +26,8 @@ abstract class WorkflowEntity with _$WorkflowEntity {
     required DateTime updatedAt,
     WorkflowVersion? activeVersion,
   }) = _WorkflowEntity;
-  factory WorkflowEntity.fromJson(Map<String, dynamic> json) => _$WorkflowEntityFromJson(json);
+  factory WorkflowEntity.fromJson(Map<String, dynamic> json) =>
+      _$WorkflowEntityFromJson(json);
 }
 
 /// Workflow version (append-only). `graph` is the raw JSON blob (source of truth); `graphParsed` is the
@@ -44,7 +45,8 @@ abstract class WorkflowVersion with _$WorkflowVersion {
     required DateTime updatedAt,
     Graph? graphParsed,
   }) = _WorkflowVersion;
-  factory WorkflowVersion.fromJson(Map<String, dynamic> json) => _$WorkflowVersionFromJson(json);
+  factory WorkflowVersion.fromJson(Map<String, dynamic> json) =>
+      _$WorkflowVersionFromJson(json);
 }
 
 /// One workflow run (the 日志 tab for workflow = flowruns, NOT executions/calls). flowrun.go:113。
@@ -69,7 +71,8 @@ abstract class Flowrun with _$Flowrun {
     DateTime? completedAt,
     required DateTime updatedAt,
   }) = _Flowrun;
-  factory Flowrun.fromJson(Map<String, dynamic> json) => _$FlowrunFromJson(json);
+  factory Flowrun.fromJson(Map<String, dynamic> json) =>
+      _$FlowrunFromJson(json);
 }
 
 /// One flowrun node row (record-once memoization; the timeline cell). flowrun.go:172。
@@ -103,7 +106,8 @@ abstract class FlowrunNode with _$FlowrunNode {
     DateTime? completedAt,
     required DateTime updatedAt,
   }) = _FlowrunNode;
-  factory FlowrunNode.fromJson(Map<String, dynamic> json) => _$FlowrunNodeFromJson(json);
+  factory FlowrunNode.fromJson(Map<String, dynamic> json) =>
+      _$FlowrunNodeFromJson(json);
 }
 
 /// One row of `GET /flowruns/{id}/activity` (scheduler 工单⑤) — the pure-read UNION of the four
@@ -133,7 +137,8 @@ abstract class FlowrunActivityRow with _$FlowrunActivityRow {
     required DateTime endedAt,
     @Default(0) int elapsedMs,
   }) = _FlowrunActivityRow;
-  factory FlowrunActivityRow.fromJson(Map<String, dynamic> json) => _$FlowrunActivityRowFromJson(json);
+  factory FlowrunActivityRow.fromJson(Map<String, dynamic> json) =>
+      _$FlowrunActivityRowFromJson(json);
 }
 
 /// The F173 80-node cap summary — present in a get_flowrun / replay_flowrun tool result ONLY when the
@@ -148,7 +153,8 @@ abstract class FlowrunNodeSummary with _$FlowrunNodeSummary {
     @Default(<String, int>{}) Map<String, int> byStatus,
     @Default('') String note,
   }) = _FlowrunNodeSummary;
-  factory FlowrunNodeSummary.fromJson(Map<String, dynamic> json) => _$FlowrunNodeSummaryFromJson(json);
+  factory FlowrunNodeSummary.fromJson(Map<String, dynamic> json) =>
+      _$FlowrunNodeSummaryFromJson(json);
 }
 
 /// The composite `data` of GET /flowruns/{id} = {flowrun, nodes, nextCursor} AND the get_flowrun /
@@ -162,5 +168,6 @@ abstract class FlowrunComposite with _$FlowrunComposite {
     String? nextCursor,
     FlowrunNodeSummary? nodeSummary,
   }) = _FlowrunComposite;
-  factory FlowrunComposite.fromJson(Map<String, dynamic> json) => _$FlowrunCompositeFromJson(json);
+  factory FlowrunComposite.fromJson(Map<String, dynamic> json) =>
+      _$FlowrunCompositeFromJson(json);
 }

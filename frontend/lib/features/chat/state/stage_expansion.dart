@@ -21,8 +21,9 @@ class StageExpansionController extends Notifier<Set<String>> {
   Set<String> build() => const <String>{};
 
   /// Flip one row. 翻转一行。
-  void toggle(String rowId) =>
-      state = state.contains(rowId) ? ({...state}..remove(rowId)) : {...state, rowId};
+  void toggle(String rowId) => state = state.contains(rowId)
+      ? ({...state}..remove(rowId))
+      : {...state, rowId};
 
   /// Open a row (idempotent) — the auto-follow path. 展开(幂等),自动跟随用。
   void open(String rowId) {
@@ -44,4 +45,6 @@ class StageExpansionController extends Notifier<Set<String>> {
 /// One conversation's accordion expansion set. autoDispose family — leaving the thread frees it.
 /// 会话手风琴展开集;切走即释放。
 final stageExpansionProvider = NotifierProvider.autoDispose
-    .family<StageExpansionController, Set<String>, String>(StageExpansionController.new);
+    .family<StageExpansionController, Set<String>, String>(
+      StageExpansionController.new,
+    );

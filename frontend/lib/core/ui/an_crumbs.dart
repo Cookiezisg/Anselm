@@ -49,10 +49,12 @@ class AnCrumbs extends StatelessWidget {
     final children = <Widget>[];
     for (var i = 0; i < segments.length; i++) {
       if (i > 0) {
-        children.add(Padding(
-          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
-          child: Text('/', style: base.copyWith(color: c.lineStrong)),
-        ));
+        children.add(
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s6),
+            child: Text('/', style: base.copyWith(color: c.lineStrong)),
+          ),
+        );
       }
       children.add(Flexible(child: _segment(context, segments[i], base, c)));
     }
@@ -70,21 +72,27 @@ class AnCrumbs extends StatelessWidget {
     return [crumbs.first, const AnCrumb('…'), crumbs.last];
   }
 
-  Widget _segment(BuildContext context, AnCrumb crumb, TextStyle base, AnColors c) {
+  Widget _segment(
+    BuildContext context,
+    AnCrumb crumb,
+    TextStyle base,
+    AnColors c,
+  ) {
     Widget text(Color color) => Text(
-          crumb.label,
-          maxLines: 1,
-          softWrap: false,
-          overflow: TextOverflow.ellipsis,
-          style: base.copyWith(color: color),
-        );
+      crumb.label,
+      maxLines: 1,
+      softWrap: false,
+      overflow: TextOverflow.ellipsis,
+      style: base.copyWith(color: color),
+    );
     if (crumb.onTap == null) return text(c.inkFaint);
     // Clickable: faint at rest, a touch stronger when engaged (hover/focus/press) — the whole segment is
     // one hit target with the click cursor + button semantics from AnInteractive (原则 #8 不手搓命中/焦点).
     // 可点:静息灰,激活时略深;整段一个命中目标,光标/焦点/按钮语义走 AnInteractive。
     return AnInteractive(
       onTap: crumb.onTap,
-      builder: (context, states) => text(states.isActive ? c.inkMuted : c.inkFaint),
+      builder: (context, states) =>
+          text(states.isActive ? c.inkMuted : c.inkFaint),
     );
   }
 }

@@ -7,7 +7,9 @@ import 'package:flutter_test/flutter_test.dart';
 // times). This is the executable proof of "an SSE frame never storms the leaf" at the primitive level;
 // the page==0 / row≤1 assertions through the real gateway come with the Chat feature (4.2).
 void main() {
-  testWidgets('value is synchronous + lossless; listeners notified ≤1/frame', (tester) async {
+  testWidgets('value is synchronous + lossless; listeners notified ≤1/frame', (
+    tester,
+  ) async {
     final n = CoalescingNotifier<String>('');
     addTearDown(n.dispose);
     var notifies = 0;
@@ -30,35 +32,38 @@ void main() {
     expect(notifies, 2);
   });
 
-  testWidgets('ValueListenableBuilder over it rebuilds exactly once for a 200-delta firehose', (tester) async {
-    final n = CoalescingNotifier<int>(0);
-    addTearDown(n.dispose);
-    var builds = 0;
+  testWidgets(
+    'ValueListenableBuilder over it rebuilds exactly once for a 200-delta firehose',
+    (tester) async {
+      final n = CoalescingNotifier<int>(0);
+      addTearDown(n.dispose);
+      var builds = 0;
 
-    await tester.pumpWidget(
-      Directionality(
-        textDirection: TextDirection.ltr,
-        child: ValueListenableBuilder<int>(
-          valueListenable: n,
-          builder: (_, v, _) {
-            builds++;
-            return Text('$v');
-          },
+      await tester.pumpWidget(
+        Directionality(
+          textDirection: TextDirection.ltr,
+          child: ValueListenableBuilder<int>(
+            valueListenable: n,
+            builder: (_, v, _) {
+              builds++;
+              return Text('$v');
+            },
+          ),
         ),
-      ),
-    );
-    expect(builds, 1); // initial build
+      );
+      expect(builds, 1); // initial build
 
-    for (var i = 0; i < 200; i++) {
-      n.mutate((v) => v + 1);
-    }
-    // settle: one frame fires the coalesced postFrame notify, the next does the single rebuild.
-    await tester.pumpAndSettle();
+      for (var i = 0; i < 200; i++) {
+        n.mutate((v) => v + 1);
+      }
+      // settle: one frame fires the coalesced postFrame notify, the next does the single rebuild.
+      await tester.pumpAndSettle();
 
-    expect(n.value, 200); // all 200 applied
-    expect(builds, 2); // initial + exactly ONE coalesced rebuild (NOT 200)
-    expect(find.text('200'), findsOneWidget);
-  });
+      expect(n.value, 200); // all 200 applied
+      expect(builds, 2); // initial + exactly ONE coalesced rebuild (NOT 200)
+      expect(find.text('200'), findsOneWidget);
+    },
+  );
 
   testWidgets('mutate after dispose is a no-op (no throw)', (tester) async {
     final n = CoalescingNotifier<int>(0);

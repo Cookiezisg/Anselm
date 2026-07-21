@@ -32,7 +32,12 @@ import 'tool_interaction_gate.dart';
 /// 在用户 chevron 后拥有**两张脸**(在飞=流式舞台;落定=档案)。仅有的自动展开:失败(一次)与人闸
 /// (锁开)。动词出自注册表(拍板 #1);通用体硬上限 + 诚实截断注记。
 class ChatToolCard extends StatefulWidget {
-  const ChatToolCard({required this.node, this.interaction, this.onResolve, super.key});
+  const ChatToolCard({
+    required this.node,
+    this.interaction,
+    this.onResolve,
+    super.key,
+  });
 
   /// The tool_call [BlockNode] (children carry nested progress / tool_result). 工具调用节点。
   final BlockNode node;
@@ -89,8 +94,12 @@ class _ChatToolCardState extends State<ChatToolCard> {
   // 工具耗时、且停在门上仍每秒重建。
   bool get _live {
     final awaiting = widget.interaction?.isAwaiting ?? false;
-    final phase = ToolCardState.of(widget.node, awaitingConfirm: awaiting).phase;
-    return phase == ToolCardPhase.argsStreaming || phase == ToolCardPhase.running;
+    final phase = ToolCardState.of(
+      widget.node,
+      awaitingConfirm: awaiting,
+    ).phase;
+    return phase == ToolCardPhase.argsStreaming ||
+        phase == ToolCardPhase.running;
   }
 
   @override
@@ -105,7 +114,8 @@ class _ChatToolCardState extends State<ChatToolCard> {
     // Witness the running→settled transition (a fresh mount of an already-settled card never does).
     // 亲历 running→落定(已落定卡的新挂载不会触发)。
     final wasLive = _isLivePhase(ToolCardState.of(old.node).phase);
-    final nowSettled = ToolCardState.of(widget.node).phase == ToolCardPhase.succeeded;
+    final nowSettled =
+        ToolCardState.of(widget.node).phase == ToolCardPhase.succeeded;
     if (wasLive && nowSettled) _transitionObserved = true;
     _syncTicker();
   }
@@ -121,7 +131,9 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final wantTicker = _live && !AnMotionPref.reduced(context);
     if (wantTicker && _ticker == null) {
       _ticker = Timer.periodic(
-          const Duration(seconds: 1), (_) => setState(() => _liveSeconds++));
+        const Duration(seconds: 1),
+        (_) => setState(() => _liveSeconds++),
+      );
     } else if (!wantTicker && _ticker != null) {
       _ticker!.cancel();
       _ticker = null;
@@ -141,19 +153,25 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final awaiting = widget.interaction?.isAwaiting ?? false;
     final state = ToolCardState.of(widget.node, awaitingConfirm: awaiting);
     final spec = toolCardSpecFor(state.toolName);
-    final live = state.phase == ToolCardPhase.argsStreaming || state.phase == ToolCardPhase.running;
+    final live =
+        state.phase == ToolCardPhase.argsStreaming ||
+        state.phase == ToolCardPhase.running;
     if (!live && _ticker != null) _syncTicker();
 
     const bodyInsetGate = EdgeInsets.only(top: AnSpace.s6, left: AnIndent.icon);
     // The HUMAN GATE (WRK-053 §V6): an awaiting danger/ask interaction renders the gate LOCKED-OPEN
     // under a bare amber verb line — a question the user MUST act on can never hide behind a chevron.
     // 人闸:待决交互在琥珀动词裸行下锁定展开门——必须动手的问题不能藏在 chevron 后。
-    if (state.phase == ToolCardPhase.awaitingConfirm && widget.interaction != null) {
+    if (state.phase == ToolCardPhase.awaitingConfirm &&
+        widget.interaction != null) {
       return Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _line(context, t, c, state, spec, false, false, false, null),
-          Padding(padding: bodyInsetGate, child: _gate(context, widget.interaction!.interaction)),
+          Padding(
+            padding: bodyInsetGate,
+            child: _gate(context, widget.interaction!.interaction),
+          ),
         ],
       );
     }
@@ -163,20 +181,29 @@ class _ChatToolCardState extends State<ChatToolCard> {
     // wants to see why). The user's explicit toggle wins after.
     // 失败自动展开一次(业界共识)——含**危险色族回执**(Bash 非零 exit/超时在线缆上是 completed,
     // 但用户要看原因);之后用户手动开关优先。
-    final hasBody = !spec.bodyless && (spec.hasBodyOf?.call(state) ?? state.hasBody);
+    final hasBody =
+        !spec.bodyless && (spec.hasBodyOf?.call(state) ?? state.hasBody);
     ToolReceipt? familyReceipt;
-    if (state.phase == ToolCardPhase.succeeded || state.phase == ToolCardPhase.failed) {
+    if (state.phase == ToolCardPhase.succeeded ||
+        state.phase == ToolCardPhase.failed) {
       familyReceipt = spec.receipt?.call(t, state);
     }
     // «green but broken» (F05 §4): a tool_result that closed status=completed but whose PAYLOAD carries
     // a failure (restart_handler's `error` key, a document soft-fail template) — the family reclassifies
     // it so the card doesn't render a lying success. 结果内失败重分类:工具绿但物已坏。
-    final resultFailed = state.phase == ToolCardPhase.succeeded && (spec.resultFailed?.call(state) ?? false);
+    final resultFailed =
+        state.phase == ToolCardPhase.succeeded &&
+        (spec.resultFailed?.call(state) ?? false);
     // A danger receipt auto-expands — UNLESS the family suppresses it (BashOutput poll honesty: exited/
     // errored are red but not re-opened each poll; session-gone still expands via resultFailed).
     // 危险回执自动展开,除非族抑制(BashOutput 轮询诚实)。
-    final dangerReceiptExpands = familyReceipt?.tone == ToolReceiptTone.danger && !spec.suppressReceiptAutoExpand;
-    final failedLook = state.phase == ToolCardPhase.failed || resultFailed || dangerReceiptExpands;
+    final dangerReceiptExpands =
+        familyReceipt?.tone == ToolReceiptTone.danger &&
+        !spec.suppressReceiptAutoExpand;
+    final failedLook =
+        state.phase == ToolCardPhase.failed ||
+        resultFailed ||
+        dangerReceiptExpands;
     if (failedLook && hasBody && !_autoExpandedOnce) {
       _autoExpandedOnce = true;
       _userExpanded ??= true;
@@ -212,14 +239,18 @@ class _ChatToolCardState extends State<ChatToolCard> {
                   // reveal only when THIS instance witnessed the settle. 族体读揭示信号:仅亲历落定时播。
                   ToolCardReveal(
                     revealOnMount: _transitionObserved,
-                    child: spec.body?.call(context, state) ?? _GenericToolBody(state: state),
+                    child:
+                        spec.body?.call(context, state) ??
+                        _GenericToolBody(state: state),
                   ),
                   // Family bodies get the error section from the CHASSIS — every family shows
                   // failures without re-implementing them (the generic body has its own). A family that
                   // OWNS its error display (spec.ownsError) opts out. 族体错误段由底盘追加;自管族退出。
                   if (spec.body != null &&
                       !spec.ownsError &&
-                      (state.phase == ToolCardPhase.failed && (state.errorText.isNotEmpty || state.resultText.isNotEmpty)))
+                      (state.phase == ToolCardPhase.failed &&
+                          (state.errorText.isNotEmpty ||
+                              state.resultText.isNotEmpty)))
                     Padding(
                       padding: const EdgeInsets.only(top: AnSpace.s8),
                       child: _errorSection(context, state),
@@ -243,7 +274,8 @@ class _ChatToolCardState extends State<ChatToolCard> {
       evidence: it.args ?? const {},
       options: it.options ?? const [],
       allowFreeText: ask,
-      onResolve: (action, {answer}) => widget.onResolve?.call(action, answer: answer),
+      onResolve: (action, {answer}) =>
+          widget.onResolve?.call(action, answer: answer),
     );
   }
 
@@ -251,21 +283,37 @@ class _ChatToolCardState extends State<ChatToolCard> {
   /// a denied phase (prose), so no chip is needed there. 正向决议的会话级出处章(deny 走 denied 相位、无需)。
   Widget? _provenanceChip(BuildContext context, AnColors c) {
     final decided = widget.interaction?.decided;
-    if (decided != InteractionAction.approve && decided != InteractionAction.approveAlways) return null;
+    if (decided != InteractionAction.approve &&
+        decided != InteractionAction.approveAlways) {
+      return null;
+    }
     final t = Translations.of(context);
     final always = decided == InteractionAction.approveAlways;
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s6),
       child: Align(
         alignment: Alignment.centerLeft,
-        child: AnChip(always ? t.chat.gate.decidedApprovedAlways : t.chat.gate.decidedApproved,
-            tone: always ? AnTone.accent : AnTone.ok),
+        child: AnChip(
+          always
+              ? t.chat.gate.decidedApprovedAlways
+              : t.chat.gate.decidedApproved,
+          tone: always ? AnTone.accent : AnTone.ok,
+        ),
       ),
     );
   }
 
-  Widget _line(BuildContext context, Translations t, AnColors c, ToolCardState state,
-      ToolCardSpec spec, bool live, bool open, bool hasBody, ToolReceipt? familyReceipt) {
+  Widget _line(
+    BuildContext context,
+    Translations t,
+    AnColors c,
+    ToolCardState state,
+    ToolCardSpec spec,
+    bool live,
+    bool open,
+    bool hasBody,
+    ToolReceipt? familyReceipt,
+  ) {
     final reduced = AnMotionPref.reduced(context);
     // The primary line sits INSIDE the 15 content column — one-rung lift to the content label tier
     // (verb 13 / icon 16 / target mono 13); the dimmed receipt tail STAYS meta 12 (true metadata).
@@ -279,10 +327,16 @@ class _ChatToolCardState extends State<ChatToolCard> {
     // Awaiting + terminal verbs default to the chassis, but a family may override them (ask_user:
     // 等待你回答 + 已回答/已跳过/空答案 by result). 等待/终态动词默认归底盘,族可覆盖(ask_user)。
     final verb = switch (state.phase) {
-      ToolCardPhase.awaitingConfirm => spec.awaitingVerb?.call(t) ?? t.chat.tool.awaitingConfirm,
-      ToolCardPhase.denied => spec.terminalVerb?.call(t, state) ?? t.chat.tool.denied,
-      ToolCardPhase.cancelled => spec.terminalVerb?.call(t, state) ?? t.chat.tool.cancelled,
-      _ => spec.terminalVerb?.call(t, state) ?? spec.verbOf?.call(t, state, live: live) ?? spec.verb(t, live: live),
+      ToolCardPhase.awaitingConfirm =>
+        spec.awaitingVerb?.call(t) ?? t.chat.tool.awaitingConfirm,
+      ToolCardPhase.denied =>
+        spec.terminalVerb?.call(t, state) ?? t.chat.tool.denied,
+      ToolCardPhase.cancelled =>
+        spec.terminalVerb?.call(t, state) ?? t.chat.tool.cancelled,
+      _ =>
+        spec.terminalVerb?.call(t, state) ??
+            spec.verbOf?.call(t, state, live: live) ??
+            spec.verb(t, live: live),
     };
     final target = spec.target?.call(state) ?? '';
 
@@ -293,7 +347,11 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final receipt = <InlineSpan>[];
     if (live && _liveSeconds >= _elapsedRevealAfter.inSeconds) {
       receipt.add(
-          TextSpan(text: ' · ${t.chat.tool.elapsed(s: _liveSeconds)}', style: faint));
+        TextSpan(
+          text: ' · ${t.chat.tool.elapsed(s: _liveSeconds)}',
+          style: faint,
+        ),
+      );
     }
     if (familyReceipt != null) {
       // Tone → colour: none inkFaint / warn amber / danger red (the three receipt voices).
@@ -303,48 +361,80 @@ class _ChatToolCardState extends State<ChatToolCard> {
         ToolReceiptTone.warn => c.warn,
         ToolReceiptTone.none => c.inkFaint,
       };
-      receipt.add(TextSpan(text: ' · ${familyReceipt.text}', style: AnText.meta.copyWith(color: toneColor)));
+      receipt.add(
+        TextSpan(
+          text: ' · ${familyReceipt.text}',
+          style: AnText.meta.copyWith(color: toneColor),
+        ),
+      );
     }
-    if (state.phase == ToolCardPhase.failed && familyReceipt?.tone != ToolReceiptTone.danger) {
-      receipt.add(TextSpan(
-          text: ' · ${t.run.failed}', style: AnText.meta.copyWith(color: c.danger)));
+    if (state.phase == ToolCardPhase.failed &&
+        familyReceipt?.tone != ToolReceiptTone.danger) {
+      receipt.add(
+        TextSpan(
+          text: ' · ${t.run.failed}',
+          style: AnText.meta.copyWith(color: c.danger),
+        ),
+      );
     }
 
-    final dimVerb = state.phase == ToolCardPhase.denied || state.phase == ToolCardPhase.cancelled;
+    final dimVerb =
+        state.phase == ToolCardPhase.denied ||
+        state.phase == ToolCardPhase.cancelled;
     return AnInteractive(
-      onTap: hasBody ? () => setState(() => _userExpanded = !(_userExpanded ?? false)) : null,
+      onTap: hasBody
+          ? () => setState(() => _userExpanded = !(_userExpanded ?? false))
+          : null,
       expanded: hasBody ? open : null,
       builder: (context, _) => ConstrainedBox(
         constraints: const BoxConstraints(minHeight: AnSize.row),
         child: Row(
           children: [
-            Icon(AnIcons.toolIcon(state.toolName), size: AnSize.icon,
-                color: state.phase == ToolCardPhase.awaitingConfirm ? c.warn : c.inkFaint),
+            Icon(
+              AnIcons.toolIcon(state.toolName),
+              size: AnSize.icon,
+              color: state.phase == ToolCardPhase.awaitingConfirm
+                  ? c.warn
+                  : c.inkFaint,
+            ),
             const SizedBox(width: AnSpace.s6),
             live
                 ? AnShimmerText('$verb…', style: verbStyle)
-                : Text(verb,
-                    style: dimVerb ? verbFaint : verbStyle),
+                : Text(verb, style: dimVerb ? verbFaint : verbStyle),
             if (target.isNotEmpty) ...[
               const SizedBox(width: AnSpace.s6),
               Flexible(
-                child: Text(target,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.mono.copyWith(color: dimVerb ? c.inkFaint : c.inkMuted)),
+                child: Text(
+                  target,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.mono.copyWith(
+                    color: dimVerb ? c.inkFaint : c.inkMuted,
+                  ),
+                ),
               ),
             ],
             // The dimmed receipt tail yields (clips) before overflowing a narrow row — metadata must
             // never push the row past its cell (a long verb + long receipt would otherwise overflow).
             // 灰回执尾在窄行里先让(裁切)、绝不把行撑破:长动词+长回执本会溢出。
             if (receipt.isNotEmpty)
-              Flexible(child: Text.rich(TextSpan(children: receipt), maxLines: 1, overflow: TextOverflow.clip)),
+              Flexible(
+                child: Text.rich(
+                  TextSpan(children: receipt),
+                  maxLines: 1,
+                  overflow: TextOverflow.clip,
+                ),
+              ),
             if (hasBody) ...[
               const SizedBox(width: AnSpace.s6),
               AnimatedRotation(
                 duration: reduced ? Duration.zero : AnMotion.fast,
                 turns: open ? 0.25 : 0,
-                child: Icon(AnIcons.chevronRight, size: AnSize.iconSm, color: c.inkFaint),
+                child: Icon(
+                  AnIcons.chevronRight,
+                  size: AnSize.iconSm,
+                  color: c.inkFaint,
+                ),
               ),
             ],
           ],
@@ -362,10 +452,15 @@ Widget _errorSection(BuildContext context, ToolCardState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(t.chat.tool.errorLabel, style: AnText.meta.copyWith(color: c.danger)),
+      Text(
+        t.chat.tool.errorLabel,
+        style: AnText.meta.copyWith(color: c.danger),
+      ),
       const SizedBox(height: AnSpace.s4),
-      Text(state.errorText.isEmpty ? state.resultText : state.errorText,
-          style: AnText.code.copyWith(color: c.danger)),
+      Text(
+        state.errorText.isEmpty ? state.resultText : state.errorText,
+        style: AnText.code.copyWith(color: c.danger),
+      ),
     ],
   );
 }
@@ -387,21 +482,40 @@ class _GenericToolBody extends StatelessWidget {
     final c = context.colors;
     final sections = <Widget>[
       if (state.summary.isNotEmpty)
-        _section(context, t.chat.tool.intent,
-            Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted))),
+        _section(
+          context,
+          t.chat.tool.intent,
+          Text(state.summary, style: AnText.meta.copyWith(color: c.inkMuted)),
+        ),
       if (state.argsText.isNotEmpty)
-        _section(context, t.chat.tool.argsLabel, _jsonOrMono(context, state.argsText)),
+        _section(
+          context,
+          t.chat.tool.argsLabel,
+          _jsonOrMono(context, state.argsText),
+        ),
       if (state.progressText.isNotEmpty)
-        _section(context, t.chat.tool.progressLabel, _progress(context), live: state.progressLive),
+        _section(
+          context,
+          t.chat.tool.progressLabel,
+          _progress(context),
+          live: state.progressLive,
+        ),
       if (state.errorText.isNotEmpty || state.phase == ToolCardPhase.failed)
         _section(
-            context,
-            t.chat.tool.errorLabel,
-            Text(state.errorText.isEmpty ? state.resultText : state.errorText,
-                style: AnText.code.copyWith(color: c.danger)),
-            danger: true)
+          context,
+          t.chat.tool.errorLabel,
+          Text(
+            state.errorText.isEmpty ? state.resultText : state.errorText,
+            style: AnText.code.copyWith(color: c.danger),
+          ),
+          danger: true,
+        )
       else if (state.resultText.isNotEmpty)
-        _section(context, t.chat.tool.resultLabel, _jsonOrMono(context, state.resultText)),
+        _section(
+          context,
+          t.chat.tool.resultLabel,
+          _jsonOrMono(context, state.resultText),
+        ),
     ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -414,23 +528,38 @@ class _GenericToolBody extends StatelessWidget {
     );
   }
 
-  Widget _section(BuildContext context, String label, Widget body,
-      {bool live = false, bool danger = false}) {
+  Widget _section(
+    BuildContext context,
+    String label,
+    Widget body, {
+    bool live = false,
+    bool danger = false,
+  }) {
     final t = Translations.of(context);
     final c = context.colors;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(mainAxisSize: MainAxisSize.min, children: [
-          Text(label,
-              style: AnText.meta.copyWith(color: danger ? c.danger : c.inkFaint)),
-          if (live) ...[
-            const SizedBox(width: AnSpace.s6),
-            const AnStatusDot(AnStatus.run),
-            const SizedBox(width: AnSpace.s4),
-            Text(t.chat.tool.liveLabel, style: AnText.meta.copyWith(color: c.inkFaint)),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              label,
+              style: AnText.meta.copyWith(
+                color: danger ? c.danger : c.inkFaint,
+              ),
+            ),
+            if (live) ...[
+              const SizedBox(width: AnSpace.s6),
+              const AnStatusDot(AnStatus.run),
+              const SizedBox(width: AnSpace.s4),
+              Text(
+                t.chat.tool.liveLabel,
+                style: AnText.meta.copyWith(color: c.inkFaint),
+              ),
+            ],
           ],
-        ]),
+        ),
         const SizedBox(height: AnSpace.s4),
         body,
       ],
@@ -456,7 +585,9 @@ class _GenericToolBody extends StatelessWidget {
         return Text(pretty, style: AnText.code.copyWith(color: c.inkMuted));
       }
       return SizedBox(
-          height: AnSize.jsonViewport, child: AnJsonTree(data: decoded, showRoot: false));
+        height: AnSize.jsonViewport,
+        child: AnJsonTree(data: decoded, showRoot: false),
+      );
     }
     final truncated = raw.length > _capChars;
     final shown = truncated ? raw.substring(0, _capChars) : raw;
@@ -467,8 +598,10 @@ class _GenericToolBody extends StatelessWidget {
         if (truncated)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s4),
-            child: Text(t.chat.tool.truncatedNote(chars: raw.length),
-                style: AnText.meta.copyWith(color: c.inkFaint)),
+            child: Text(
+              t.chat.tool.truncatedNote(chars: raw.length),
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
           ),
       ],
     );
@@ -484,10 +617,15 @@ class _GenericToolBody extends StatelessWidget {
     final tail = omitted > 0 ? lines.sublist(omitted) : lines;
     return AnWindow(
       header: omitted > 0
-          ? Text(t.chat.tool.progressOmitted(n: omitted),
-              style: AnText.meta.copyWith(color: c.inkFaint))
+          ? Text(
+              t.chat.tool.progressOmitted(n: omitted),
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            )
           : null,
-      child: Text(tail.join('\n'), style: AnText.code.copyWith(color: c.inkMuted)),
+      child: Text(
+        tail.join('\n'),
+        style: AnText.code.copyWith(color: c.inkMuted),
+      ),
     );
   }
 }

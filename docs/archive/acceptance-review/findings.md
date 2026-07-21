@@ -126,9 +126,9 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
   - **空态自举连贯**：零 built 实体的 workspace，核心身份/规则段仍在、无残壳。
   - **i18n 接缝在场**：environment 段带「Reply in <lang>」指令、prompt 本体保持英文（不整体翻译）——回复语言来源 AC-24 已修为 workspace.language 权威。
 
-## W7 金标真模型旅程（柱 C：make evals / deepseek-v4-flash，真烧 token）
+## W7 金标真模型旅程（柱 C：make -C backend evals / deepseek-v4-flash，真烧 token）
 
-`golden/golden_test.go` 把 llmmock 换成**真 deepseek-v4-flash**（key 在仓库根 `.env`，`make evals` 自动 source），断言只看**结果状态**（实体建了 / function 跑了 / memory 召回了），不看逐字——真模型非确定。`say()` 每轮自动放行人在环门（danger→approve_always、ask→accept），故真模型把工具自报危险也不卡。
+`golden/golden_test.go` 把 llmmock 换成**真 deepseek-v4-flash**（key 在仓库根 `.env`，`make -C backend evals` 自动 source），断言只看**结果状态**（实体建了 / function 跑了 / memory 召回了），不看逐字——真模型非确定。`say()` 每轮自动放行人在环门（danger→approve_always、ask→accept），故真模型把工具自报危险也不卡。
 
 - **W7 正面结论（7/7 全绿，真模型，首跑即过）——真模型真驱动得了产品工具面**：
   - **J1 Bootstrap**（13.7s）：空 workspace + 完整工具面，开放问题得连贯非报错引导。

@@ -37,57 +37,77 @@ class SkillStageBody extends StatelessWidget {
     final args = session.arrayItemsAt(['arguments']);
     final noModel = session.closedValueAt(['disableModelInvocation']) == true;
     final body = session.liveStringNamed('body') ?? '';
-    final hasHeader = ctx != null || allowed.isNotEmpty || args.isNotEmpty || noModel;
+    final hasHeader =
+        ctx != null || allowed.isNotEmpty || args.isNotEmpty || noModel;
 
     return AnWindow(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        if (hasHeader) ...[
-          // What the skill can use — the header the SKILL.md's frontmatter deserves. 技能能用什么。
-          Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, crossAxisAlignment: WrapCrossAlignment.center, children: [
-            if (ctx != null) AnChip(ctx == 'fork' ? t.chat.tool.skillFork : t.chat.tool.skillInline, tone: AnTone.none),
-            if (noModel) AnChip(t.chat.stage.humanOnly, tone: AnTone.none),
-          ]),
-          if (allowed.isNotEmpty) ...[
-            const SizedBox(height: AnSpace.s6),
-            _metaRow(c, t.chat.stage.skillTools, [
-              // AMBER — activation pre-authorizes these tools past the danger gate. 琥珀:预授权免确认。
-              for (final tool in allowed) AnChip('$tool', tone: AnTone.warn),
-            ]),
-            Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s2),
-              child: Text(t.chat.tool.skillPreauth, style: AnText.meta.copyWith(color: c.warn)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (hasHeader) ...[
+            // What the skill can use — the header the SKILL.md's frontmatter deserves. 技能能用什么。
+            Wrap(
+              spacing: AnSpace.s4,
+              runSpacing: AnSpace.s4,
+              crossAxisAlignment: WrapCrossAlignment.center,
+              children: [
+                if (ctx != null)
+                  AnChip(
+                    ctx == 'fork'
+                        ? t.chat.tool.skillFork
+                        : t.chat.tool.skillInline,
+                    tone: AnTone.none,
+                  ),
+                if (noModel) AnChip(t.chat.stage.humanOnly, tone: AnTone.none),
+              ],
             ),
-          ],
-          if (args.isNotEmpty) ...[
-            const SizedBox(height: AnSpace.s6),
-            _metaRow(c, t.chat.stage.skillArgs, [
-              for (final a in args) AnChip('\$$a', tone: AnTone.accent),
-            ]),
+            if (allowed.isNotEmpty) ...[
+              const SizedBox(height: AnSpace.s6),
+              _metaRow(c, t.chat.stage.skillTools, [
+                // AMBER — activation pre-authorizes these tools past the danger gate. 琥珀:预授权免确认。
+                for (final tool in allowed) AnChip('$tool', tone: AnTone.warn),
+              ]),
+              Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s2),
+                child: Text(
+                  t.chat.tool.skillPreauth,
+                  style: AnText.meta.copyWith(color: c.warn),
+                ),
+              ),
+            ],
+            if (args.isNotEmpty) ...[
+              const SizedBox(height: AnSpace.s6),
+              _metaRow(c, t.chat.stage.skillArgs, [
+                for (final a in args) AnChip('\$$a', tone: AnTone.accent),
+              ]),
+            ],
+            if (body.isNotEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: AnSpace.s8),
+                child: AnDivider(),
+              ),
           ],
           if (body.isNotEmpty)
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: AnSpace.s8),
-              child: AnDivider(),
-            ),
+            // Streaming shows the prose tail face BARE (this card IS the window — leaf law; the head
+            // slices its own O(tail)); the settled truth typesets in full at the EMBEDDED scale (an island
+            // stage inside the right island — the reading ladder's big headings would shout). 流式=prose 尾无框脸
+            // (本卡即窗,叶子律;O(tail) 族头内建);落定真 markdown 排版,嵌入档(住右岛台,阅读档大标题会喊)。
+            scene.live
+                ? AnLiveTail(body, style: AnLiveTailStyle.prose, bare: true)
+                : (body.length > AnCap.proseFoldChars ||
+                      '\n'.allMatches(body).length > AnCap.proseFoldLines)
+                ? AnFadeCollapse(
+                    collapsible: true,
+                    collapsedHeight: AnSize.proseViewport,
+                    expandLabel: t.chat.tool.proseExpand,
+                    collapseLabel: t.chat.tool.proseCollapse,
+                    fadeColor: c.surface,
+                    child: AnMarkdown(body, scale: AnMarkdownScale.embedded),
+                  )
+                : AnMarkdown(body, scale: AnMarkdownScale.embedded),
         ],
-        if (body.isNotEmpty)
-          // Streaming shows the prose tail face BARE (this card IS the window — leaf law; the head
-          // slices its own O(tail)); the settled truth typesets in full at the EMBEDDED scale (an island
-          // stage inside the right island — the reading ladder's big headings would shout). 流式=prose 尾无框脸
-          // (本卡即窗,叶子律;O(tail) 族头内建);落定真 markdown 排版,嵌入档(住右岛台,阅读档大标题会喊)。
-          scene.live
-              ? AnLiveTail(body, style: AnLiveTailStyle.prose, bare: true)
-              : (body.length > AnCap.proseFoldChars || '\n'.allMatches(body).length > AnCap.proseFoldLines)
-                  ? AnFadeCollapse(
-                      collapsible: true,
-                      collapsedHeight: AnSize.proseViewport,
-                      expandLabel: t.chat.tool.proseExpand,
-                      collapseLabel: t.chat.tool.proseCollapse,
-                      fadeColor: c.surface,
-                      child: AnMarkdown(body, scale: AnMarkdownScale.embedded),
-                    )
-                  : AnMarkdown(body, scale: AnMarkdownScale.embedded),
-      ]),
+      ),
     );
   }
 
@@ -95,14 +115,14 @@ class SkillStageBody extends StatelessWidget {
   // fixed-width column) so a long EN label never mid-word wraps and a short CN one leaves no dead gap.
   // 一行元数据:muted 标签领起换行芯片;内联(非定宽列)——长英文标签不断词、短中文不留空。
   Widget _metaRow(AnColors c, String label, List<Widget> chips) => Wrap(
-        spacing: AnSpace.s6,
-        runSpacing: AnSpace.s4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Text(label, style: AnText.meta.copyWith(color: c.inkFaint)),
-          ...chips,
-        ],
-      );
+    spacing: AnSpace.s6,
+    runSpacing: AnSpace.s4,
+    crossAxisAlignment: WrapCrossAlignment.center,
+    children: [
+      Text(label, style: AnText.meta.copyWith(color: c.inkFaint)),
+      ...chips,
+    ],
+  );
 }
 
 /// The MEMORY stage (WRK-061 §7-10, W5) — the memo slip: a light note card with the slug in its
@@ -121,29 +141,43 @@ class MemoryStageBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final session = scene.session;
-    final slug = session.liveStringNamed('name') ?? session.liveStringNamed('slug') ?? '';
+    final slug =
+        session.liveStringNamed('name') ??
+        session.liveStringNamed('slug') ??
+        '';
     final content = session.liveStringNamed('content');
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      AnWindow(
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          if (slug.isNotEmpty)
-            Align(
-              alignment: Alignment.topRight,
-              child: Text(slug, style: AnText.meta.copyWith(color: c.inkFaint)),
-            ),
-          if (content != null && content.isNotEmpty)
-            Text(
-              scene.live ? tailLines(content, 12) : content,
-              style: AnText.reading.copyWith(color: c.inkMuted),
-            ),
-        ]),
-      ),
-      if (!scene.live && !scene.failed) ...[
-        const SizedBox(height: AnSpace.s6),
-        runStatBarOf(context, scene.state),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnWindow(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (slug.isNotEmpty)
+                Align(
+                  alignment: Alignment.topRight,
+                  child: Text(
+                    slug,
+                    style: AnText.meta.copyWith(color: c.inkFaint),
+                  ),
+                ),
+              if (content != null && content.isNotEmpty)
+                Text(
+                  scene.live ? tailLines(content, 12) : content,
+                  style: AnText.reading.copyWith(color: c.inkMuted),
+                ),
+            ],
+          ),
+        ),
+        if (!scene.live && !scene.failed) ...[
+          const SizedBox(height: AnSpace.s6),
+          runStatBarOf(context, scene.state),
+        ],
       ],
-    ]);
+    );
   }
 }
 
@@ -168,62 +202,96 @@ class McpStageBody extends StatelessWidget {
     final env = session.closedValueAt(['env']);
     final tools = _resultTools();
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-      // icon 沟文法:铭牌·工具行·计数句共用一条 icon 沟(iconSm/iconXs 字形同心)+一条文字列——铭牌名与
-      // 工具名落同起点。The icon-gutter grammar: the nameplate, tool rows and count line share ONE gutter
-      // (iconSm/iconXs glyphs centred) + ONE text column — nameplate name and tool names start on the同一列。
-      stageGutterRow(
-        lead: Icon(AnIcons.mcp, size: AnSize.iconSm, color: c.inkMuted),
-        child: Text(name,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // icon 沟文法:铭牌·工具行·计数句共用一条 icon 沟(iconSm/iconXs 字形同心)+一条文字列——铭牌名与
+        // 工具名落同起点。The icon-gutter grammar: the nameplate, tool rows and count line share ONE gutter
+        // (iconSm/iconXs glyphs centred) + ONE text column — nameplate name and tool names start on the同一列。
+        stageGutterRow(
+          lead: Icon(AnIcons.mcp, size: AnSize.iconSm, color: c.inkMuted),
+          child: Text(
+            name,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
-            style: AnText.label.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-      ),
-      if (env is Map && env.isNotEmpty) ...[
-        const SizedBox(height: AnSpace.s4),
-        // 假想框律:env 键药丸(裸 chips)归假想框,左缘对齐上方铭牌沟行(X=8)。The imaginary-frame law:
-        // the env-key chips (bare chips) join the frame (X=8), aligned under the nameplate gutter row above.
-        stageFramed(Wrap(spacing: AnSpace.s4, runSpacing: AnSpace.s4, children: [
-          for (final k in env.keys) AnChip('$k ••••', tone: AnTone.none),
-        ])),
-      ],
-      if (scene.live && scene.state.progressText.isNotEmpty) ...[
-        const SizedBox(height: AnSpace.s6),
-        AnLiveTail(scene.state.progressText),
-      ],
-      if (!scene.live && !scene.failed) ...[
-        if (tools.isNotEmpty) ...[
-          const SizedBox(height: AnSpace.s6),
-          // No-icon line → the text still lands on the shared text column (empty gutter). 无 icon 行文字落同列。
-          stageGutterRow(
-            child: Row(children: [
-              AnCountUp(tools.length, style: AnText.meta.copyWith(color: c.ok)),
-              Text(' ${t.chat.stage.toolsDiscovered}', style: AnText.meta.copyWith(color: c.ok)),
-            ]),
+            style: AnText.label
+                .weight(AnText.emphasisWeight)
+                .copyWith(color: c.ink),
           ),
-          const SizedBox(height: AnSpace.s2),
-          for (final tool in tools.take(12))
-            Padding(
-              padding: const EdgeInsets.only(bottom: AnSpace.s2),
-              child: stageGutterRow(
-                lead: Icon(AnIcons.tool, size: AnSize.iconXs, color: c.inkFaint),
-                child: Text(tool,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.inkMuted)),
+        ),
+        if (env is Map && env.isNotEmpty) ...[
+          const SizedBox(height: AnSpace.s4),
+          // 假想框律:env 键药丸(裸 chips)归假想框,左缘对齐上方铭牌沟行(X=8)。The imaginary-frame law:
+          // the env-key chips (bare chips) join the frame (X=8), aligned under the nameplate gutter row above.
+          stageFramed(
+            Wrap(
+              spacing: AnSpace.s4,
+              runSpacing: AnSpace.s4,
+              children: [
+                for (final k in env.keys) AnChip('$k ••••', tone: AnTone.none),
+              ],
+            ),
+          ),
+        ],
+        if (scene.live && scene.state.progressText.isNotEmpty) ...[
+          const SizedBox(height: AnSpace.s6),
+          AnLiveTail(scene.state.progressText),
+        ],
+        if (!scene.live && !scene.failed) ...[
+          if (tools.isNotEmpty) ...[
+            const SizedBox(height: AnSpace.s6),
+            // No-icon line → the text still lands on the shared text column (empty gutter). 无 icon 行文字落同列。
+            stageGutterRow(
+              child: Row(
+                children: [
+                  AnCountUp(
+                    tools.length,
+                    style: AnText.meta.copyWith(color: c.ok),
+                  ),
+                  Text(
+                    ' ${t.chat.stage.toolsDiscovered}',
+                    style: AnText.meta.copyWith(color: c.ok),
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: AnSpace.s2),
+            for (final tool in tools.take(12))
+              Padding(
+                padding: const EdgeInsets.only(bottom: AnSpace.s2),
+                child: stageGutterRow(
+                  lead: Icon(
+                    AnIcons.tool,
+                    size: AnSize.iconXs,
+                    color: c.inkFaint,
+                  ),
+                  child: Text(
+                    tool,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.meta.copyWith(color: c.inkMuted),
+                  ),
+                ),
+              ),
+          ],
+          const SizedBox(height: AnSpace.s4),
+          runStatBarOf(context, scene.state),
         ],
-        const SizedBox(height: AnSpace.s4),
-        runStatBarOf(context, scene.state),
+        if (scene.failed && scene.state.errorText.isNotEmpty) ...[
+          const SizedBox(height: AnSpace.s6),
+          // No-icon line → the text lands on the shared column (empty gutter), aligned with the shelf. 落同列。
+          stageGutterRow(
+            child: Text(
+              scene.state.errorText,
+              maxLines: 3,
+              overflow: TextOverflow.ellipsis,
+              style: AnText.meta.copyWith(color: c.danger),
+            ),
+          ),
+        ],
       ],
-      if (scene.failed && scene.state.errorText.isNotEmpty) ...[
-        const SizedBox(height: AnSpace.s6),
-        // No-icon line → the text lands on the shared column (empty gutter), aligned with the shelf. 落同列。
-        stageGutterRow(
-          child: Text(scene.state.errorText,
-              maxLines: 3, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.danger)),
-        ),
-      ],
-    ]);
+    );
   }
 
   List<String> _resultTools() {

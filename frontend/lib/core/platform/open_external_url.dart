@@ -15,7 +15,10 @@ Future<bool> openExternalUrl(String url) async {
   const allowed = {'http', 'https', 'mailto'};
   if (!allowed.contains(uri.scheme.toLowerCase())) return false;
   try {
-    return await launcher.launchUrl(uri, mode: launcher.LaunchMode.externalApplication);
+    return await launcher.launchUrl(
+      uri,
+      mode: launcher.LaunchMode.externalApplication,
+    );
   } catch (_) {
     return false;
   }

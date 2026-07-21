@@ -16,19 +16,19 @@ import '../design/typography.dart';
 /// Container 手画的分隔线——AnInspectorHead 等件刻意不自画线、把线甩到此处。
 class AnDivider extends StatelessWidget {
   const AnDivider({super.key})
-      : vertical = false,
-        length = null,
-        margin = EdgeInsets.zero,
-        label = null,
-        icon = null;
+    : vertical = false,
+      length = null,
+      margin = EdgeInsets.zero,
+      label = null,
+      icon = null;
 
   const AnDivider.vertical({
     this.length = AnSize.controlSm,
     this.margin = const EdgeInsets.symmetric(horizontal: AnSpace.s4),
     super.key,
-  })  : vertical = true,
-        label = null,
-        icon = null;
+  }) : vertical = true,
+       label = null,
+       icon = null;
 
   /// A rule with a centred whisper label (optional leading icon) — the «context compacted» seam
   /// mark and friends (WRK-066 A-086: the ONE labelled-rule implementation; features stop
@@ -36,9 +36,9 @@ class AnDivider extends StatelessWidget {
   /// 带居中低语标签的分隔线(可带前导 icon)——「上下文已压缩」缝标等(A-086:唯一带标线实现,
   /// features 不再手夹发丝线);窄宽下标签省略。
   const AnDivider.labeled(String this.label, {this.icon, super.key})
-      : vertical = false,
-        length = null,
-        margin = EdgeInsets.zero;
+    : vertical = false,
+      length = null,
+      margin = EdgeInsets.zero;
 
   final bool vertical;
   final double? length;
@@ -50,7 +50,12 @@ class AnDivider extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     if (vertical) {
-      return Container(width: AnSize.hairline, height: length, margin: margin, color: c.line);
+      return Container(
+        width: AnSize.hairline,
+        height: length,
+        margin: margin,
+        color: c.line,
+      );
     }
     final rule = Container(height: AnSize.hairline, color: c.line);
     if (label == null) return rule;
@@ -82,7 +87,9 @@ class AnDivider extends StatelessWidget {
             ),
           ),
         ),
-        Expanded(child: Container(height: AnSize.hairline, color: c.line)),
+        Expanded(
+          child: Container(height: AnSize.hairline, color: c.line),
+        ),
       ],
     );
   }

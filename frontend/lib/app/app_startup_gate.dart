@@ -27,22 +27,24 @@ class AppStartupGate extends ConsumerWidget {
     final t = context.t;
     return switch (phase) {
       BackendPhase.ready => child,
-      BackendPhase.starting =>
-        GateBackdrop(child: AnState(kind: AnStateKind.loading, title: t.startup.connecting)),
+      BackendPhase.starting => GateBackdrop(
+        child: AnState(kind: AnStateKind.loading, title: t.startup.connecting),
+      ),
       BackendPhase.crashed => GateBackdrop(
-          child: AnState(
-            kind: AnStateKind.error,
-            fatal: true, // app can't start — louder than an in-content error 应用起不来,比内容内错更响
-            title: t.startup.crashedTitle,
-            hint: t.startup.crashedHint,
-            detail: ref.watch(backendStartupProvider.select((s) => s.error)),
-            action: AnButton(
-              label: t.startup.retry,
-              variant: AnButtonVariant.primary,
-              onPressed: () => ref.read(backendStartupProvider.notifier).retry(),
-            ),
+        child: AnState(
+          kind: AnStateKind.error,
+          fatal:
+              true, // app can't start — louder than an in-content error 应用起不来,比内容内错更响
+          title: t.startup.crashedTitle,
+          hint: t.startup.crashedHint,
+          detail: ref.watch(backendStartupProvider.select((s) => s.error)),
+          action: AnButton(
+            label: t.startup.retry,
+            variant: AnButtonVariant.primary,
+            onPressed: () => ref.read(backendStartupProvider.notifier).retry(),
           ),
         ),
+      ),
     };
   }
 }

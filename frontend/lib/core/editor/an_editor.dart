@@ -72,11 +72,11 @@ class AnEditor extends StatefulWidget {
     super.key,
     this.mentionSource,
     this.onChangedMarkdown,
-  })  : initialMarkdown = null,
-        resolvedNames = const {},
-        shrinkWrap = false,
-        scrollController = null,
-        prose = null;
+  }) : initialMarkdown = null,
+       resolvedNames = const {},
+       shrinkWrap = false,
+       scrollController = null,
+       prose = null;
 
   final MutableDocument? debugDocument;
 
@@ -127,10 +127,12 @@ class AnEditorState extends State<AnEditor> {
   /// but is excluded from the outline (matching `extractDocOutline`, which also skips quoted `#`). 引用内的 `#`
   /// 是引用内容、非文档标题:样式仍是标题、但不进大纲(与 extractDocOutline 一致)。
   List<String> get headingNodeIds => [
-        for (final node in _document)
-          if (node is ParagraphNode && _isHeader(node.getMetadataValue('blockType')) && quoteDepthOf(node) == 0)
-            node.id,
-      ];
+    for (final node in _document)
+      if (node is ParagraphNode &&
+          _isHeader(node.getMetadataValue('blockType')) &&
+          quoteDepthOf(node) == 0)
+        node.id,
+  ];
 
   /// A node's top Y in the document's CONTENT space (0 = top of content) — i.e. the scroll offset that
   /// brings it to the viewport top. Null until laid out. 节点在内容空间的顶 Y(=让它到视口顶的滚动位)。
@@ -138,7 +140,10 @@ class AnEditorState extends State<AnEditor> {
     final layout = _docLayoutKey.currentState as DocumentLayout?;
     if (layout == null) return null;
     final rect = layout.getRectForPosition(
-      DocumentPosition(nodeId: nodeId, nodePosition: const TextNodePosition(offset: 0)),
+      DocumentPosition(
+        nodeId: nodeId,
+        nodePosition: const TextNodePosition(offset: 0),
+      ),
     );
     return rect?.top;
   }
@@ -198,8 +203,10 @@ class AnEditorState extends State<AnEditor> {
   List<ComponentBuilder>? _componentBuilders;
   SelectionStyles? _selectionStyles;
   AnColors? _styleColors;
-  String? _hintText; // the empty-doc placeholder (locale-dependent) — re-memoized when it changes
-  AnFace? _styleProse; // the CONTENT face the sheet was built with — re-memoized on a live switch 内容脸(切换即重建)
+  String?
+  _hintText; // the empty-doc placeholder (locale-dependent) — re-memoized when it changes
+  AnFace?
+  _styleProse; // the CONTENT face the sheet was built with — re-memoized on a live switch 内容脸(切换即重建)
 
   // Serialize-on-idle: markdown serialization is O(document) — running it on EVERY keystroke (the change
   // listener) made each key pay a whole-document serialize. The autosave semantics only need the LAST state
@@ -216,8 +223,10 @@ class AnEditorState extends State<AnEditor> {
   List<MentionCandidate> _mentionMatches = const [];
   int _mentionActive = 0;
   ComposingStableTag? _mentionComposing;
-  int _mentionSearchSeq = 0; // guards async search races (only the latest query's results win) 防异步竞态
-  bool get _mentionOpen => _mentionComposing != null && _mentionMatches.isNotEmpty;
+  int _mentionSearchSeq =
+      0; // guards async search races (only the latest query's results win) 防异步竞态
+  bool get _mentionOpen =>
+      _mentionComposing != null && _mentionMatches.isNotEmpty;
 
   @override
   void initState() {
@@ -229,10 +238,21 @@ class AnEditorState extends State<AnEditor> {
     // Load order: a test/harness-supplied document, else markdown (E9), else an EMPTY doc. No demo seed
     // lives in this production file — the dev harness supplies its own content. 无 demo 种子在生产文件;
     // harness 自带内容,兜底为空文档(单空段)。
-    _document = widget.debugDocument ??
+    _document =
+        widget.debugDocument ??
         (widget.initialMarkdown != null
-            ? documentFromMarkdown(widget.initialMarkdown!, names: widget.resolvedNames)
-            : MutableDocument(nodes: [ParagraphNode(id: Editor.createNodeId(), text: AttributedText())]));
+            ? documentFromMarkdown(
+                widget.initialMarkdown!,
+                names: widget.resolvedNames,
+              )
+            : MutableDocument(
+                nodes: [
+                  ParagraphNode(
+                    id: Editor.createNodeId(),
+                    text: AttributedText(),
+                  ),
+                ],
+              ));
     // NO initial selection — the composer starts with a null selection (#2995 discipline). A caret appears
     // on the first tap / focus. 起手不给选区(#2995)。
     _composer = MutableDocumentComposer();
@@ -257,9 +277,13 @@ class AnEditorState extends State<AnEditor> {
       CodePadReconcileReaction(),
     ]);
     _slashTags.composingActionTag.addListener(_onSlashComposingChanged);
-    _mentionTags?.tagIndex.composingStableTag.addListener(_onMentionComposingChanged);
+    _mentionTags?.tagIndex.composingStableTag.addListener(
+      _onMentionComposingChanged,
+    );
     _focusNode.addListener(_onEditorFocusChanged);
-    if (widget.onChangedMarkdown != null) _document.addListener(_onDocumentChanged);
+    if (widget.onChangedMarkdown != null) {
+      _document.addListener(_onDocumentChanged);
+    }
   }
 
   // ONE caret at a time. super_editor clears its selection when the editor "loses focus", but its test is
@@ -275,7 +299,9 @@ class AnEditorState extends State<AnEditor> {
   // (IME 与手势都收 `focusNode: _focusNode`),故 `hasFocus && !hasPrimaryFocus` 只意味一件事:内嵌字段拿走了
   // 键盘 → 文档须收起光标。
   void _onEditorFocusChanged() {
-    if (_focusNode.hasFocus && !_focusNode.hasPrimaryFocus && _composer.selection != null) {
+    if (_focusNode.hasFocus &&
+        !_focusNode.hasPrimaryFocus &&
+        _composer.selection != null) {
       _editor.execute([const ClearSelectionRequest()]);
     }
   }
@@ -289,9 +315,13 @@ class AnEditorState extends State<AnEditor> {
   @override
   void dispose() {
     _slashTags.composingActionTag.removeListener(_onSlashComposingChanged);
-    _mentionTags?.tagIndex.composingStableTag.removeListener(_onMentionComposingChanged);
+    _mentionTags?.tagIndex.composingStableTag.removeListener(
+      _onMentionComposingChanged,
+    );
     _focusNode.removeListener(_onEditorFocusChanged);
-    if (widget.onChangedMarkdown != null) _document.removeListener(_onDocumentChanged);
+    if (widget.onChangedMarkdown != null) {
+      _document.removeListener(_onDocumentChanged);
+    }
     // Flush the pending serialize BEFORE tearing the document down — switching away inside the debounce
     // window must still deliver the last edit to the host's autosave. 先冲洗在途序列化再拆文档(防抖窗内切走不丢末次编辑)。
     _serializeDebouncer.flush();
@@ -308,8 +338,9 @@ class AnEditorState extends State<AnEditor> {
 
   // Serialize the whole document to markdown ON IDLE (autosave debounce tier, see [_serializeDebouncer]) —
   // NOT per keystroke. 按闲序列化整篇为 markdown(autosave 防抖档),非逐键。
-  void _onDocumentChanged(DocumentChangeLog _) =>
-      _serializeDebouncer.run(() => widget.onChangedMarkdown?.call(markdownFromDocument(_document)));
+  void _onDocumentChanged(DocumentChangeLog _) => _serializeDebouncer.run(
+    () => widget.onChangedMarkdown?.call(markdownFromDocument(_document)),
+  );
 
   // The plugin drives this whenever the `/…` composing tag changes (opened, query grew, or cleared). We
   // filter the palette, clamp the active row, and show/hide the portal. Hiding on empty-matches keeps the
@@ -317,12 +348,16 @@ class AnEditorState extends State<AnEditor> {
   void _onSlashComposingChanged() {
     if (!mounted) return;
     final tag = _slashTags.composingActionTag.value;
-    final matches =
-        tag == null ? const <SlashCommand>[] : slashCommands.where((c) => c.matches(tag.tag.token, _t)).toList();
+    final matches = tag == null
+        ? const <SlashCommand>[]
+        : slashCommands.where((c) => c.matches(tag.tag.token, _t)).toList();
     setState(() {
       _slashTag = tag;
       _slashMatches = matches;
-      _slashActive = _slashActive.clamp(0, matches.isEmpty ? 0 : matches.length - 1);
+      _slashActive = _slashActive.clamp(
+        0,
+        matches.isEmpty ? 0 : matches.length - 1,
+      );
     });
     // No imperative show/hide — the document overlay layer reads _slashTag/_slashMatches on the rebuild
     // this setState triggers, and positions itself after layout. 无命令式显隐:overlay 层随此 setState 重建自定位。
@@ -342,21 +377,32 @@ class AnEditorState extends State<AnEditor> {
     final emptyAfterSubmit = plain == '/${tag.tag.token}';
     _editor.execute([
       const SubmitComposingActionTagRequest(),
-      ...command.requests((nodeId: tag.nodeId, document: _document, emptyAfterSubmit: emptyAfterSubmit)),
+      ...command.requests((
+        nodeId: tag.nodeId,
+        document: _document,
+        emptyAfterSubmit: emptyAfterSubmit,
+      )),
     ]);
     // The plugin clears composingActionTag → _onSlashComposingChanged hides the portal. 词法归零→自动隐。
   }
 
   void _dismissSlash() {
-    _editor.execute([const CancelComposingActionTagRequest(defaultActionTagRule)]);
+    _editor.execute([
+      const CancelComposingActionTagRequest(defaultActionTagRule),
+    ]);
   }
 
   // Runs BEFORE the editor's own key handling (first in keyboardActions) — but only steals arrows/enter/
   // escape WHILE the menu is open, so normal typing/caret movement is untouched otherwise (E0 #3: custom
   // actions halt only when the panel is open). 菜单开时才截方向/回车/Esc,否则一律放行(仅开时 halt)。
-  ExecutionInstruction _slashKeyAction({required SuperEditorContext editContext, required KeyEvent keyEvent}) {
+  ExecutionInstruction _slashKeyAction({
+    required SuperEditorContext editContext,
+    required KeyEvent keyEvent,
+  }) {
     if (!_slashOpen) return ExecutionInstruction.continueExecution;
-    if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) return ExecutionInstruction.continueExecution;
+    if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) {
+      return ExecutionInstruction.continueExecution;
+    }
     final n = _slashMatches.length;
     switch (keyEvent.logicalKey) {
       case LogicalKeyboardKey.arrowDown:
@@ -383,15 +429,24 @@ class AnEditorState extends State<AnEditor> {
   // design gives it no interior positions), Enter/↓ enter the FIRST row and ↑ the LAST row, focusing the
   // cell grid through the table's stable key. Fixes "arrows can reach the table but never get inside".
   // 光标落在表块上(方向键只能落块、进不去——上游无内部位置)时,Enter/↓ 进首行、↑ 进末行,经稳定 key 聚焦格。
-  ExecutionInstruction _tableEnterKeyAction({required SuperEditorContext editContext, required KeyEvent keyEvent}) {
-    if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) return ExecutionInstruction.continueExecution;
+  ExecutionInstruction _tableEnterKeyAction({
+    required SuperEditorContext editContext,
+    required KeyEvent keyEvent,
+  }) {
+    if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) {
+      return ExecutionInstruction.continueExecution;
+    }
     final key = keyEvent.logicalKey;
     final entersDown =
-        key == LogicalKeyboardKey.enter || key == LogicalKeyboardKey.numpadEnter || key == LogicalKeyboardKey.arrowDown;
+        key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter ||
+        key == LogicalKeyboardKey.arrowDown;
     final entersUp = key == LogicalKeyboardKey.arrowUp;
     if (!entersDown && !entersUp) return ExecutionInstruction.continueExecution;
     final selection = _composer.selection;
-    if (selection == null || !selection.isCollapsed) return ExecutionInstruction.continueExecution;
+    if (selection == null || !selection.isCollapsed) {
+      return ExecutionInstruction.continueExecution;
+    }
     final node = _document.getNodeById(selection.extent.nodeId);
     if (node is! TableBlockNode) return ExecutionInstruction.continueExecution;
     final table = _tableKeys[node.id]?.currentState;
@@ -420,11 +475,16 @@ class AnEditorState extends State<AnEditor> {
     }
     final seq = ++_mentionSearchSeq;
     final results = await source.search(composing.token);
-    if (!mounted || seq != _mentionSearchSeq) return; // a newer query superseded this one 更新的查询已覆盖
+    if (!mounted || seq != _mentionSearchSeq) {
+      return; // a newer query superseded this one 更新的查询已覆盖
+    }
     setState(() {
       _mentionComposing = composing;
       _mentionMatches = results;
-      _mentionActive = _mentionActive.clamp(0, results.isEmpty ? 0 : results.length - 1);
+      _mentionActive = _mentionActive.clamp(
+        0,
+        results.isEmpty ? 0 : results.length - 1,
+      );
     });
   }
 
@@ -432,7 +492,9 @@ class AnEditorState extends State<AnEditor> {
   // one undoable step. 删 `@query`+原位插药丸+清词法,一个可撤销步。
   void _selectMention(int index) {
     final composing = _mentionComposing;
-    if (composing == null || index < 0 || index >= _mentionMatches.length) return;
+    if (composing == null || index < 0 || index >= _mentionMatches.length) {
+      return;
+    }
     // Discard any in-flight search so it can't re-open the picker after we commit the pill. 作废在途搜索。
     ++_mentionSearchSeq;
     final c = _mentionMatches[index];
@@ -441,13 +503,22 @@ class AnEditorState extends State<AnEditor> {
     final start = composing.contentBounds.start;
     final atStart = DocumentPosition(
       nodeId: start.nodeId,
-      nodePosition: TextNodePosition(offset: (start.nodePosition as TextNodePosition).offset - 1),
+      nodePosition: TextNodePosition(
+        offset: (start.nodePosition as TextNodePosition).offset - 1,
+      ),
     );
     _editor.execute([
-      DeleteContentRequest(documentRange: DocumentRange(start: atStart, end: composing.contentBounds.end)),
+      DeleteContentRequest(
+        documentRange: DocumentRange(
+          start: atStart,
+          end: composing.contentBounds.end,
+        ),
+      ),
       InsertAttributedTextRequest(
         atStart,
-        AttributedText(' ', null, {0: MentionPlaceholder(id: c.id, name: c.name, kind: c.type)}),
+        AttributedText(' ', null, {
+          0: MentionPlaceholder(id: c.id, name: c.name, kind: c.type),
+        }),
       ),
       const CancelComposingStableTagRequest(userTagRule),
     ]);
@@ -457,9 +528,14 @@ class AnEditorState extends State<AnEditor> {
     _editor.execute([const CancelComposingStableTagRequest(userTagRule)]);
   }
 
-  ExecutionInstruction _mentionKeyAction({required SuperEditorContext editContext, required KeyEvent keyEvent}) {
+  ExecutionInstruction _mentionKeyAction({
+    required SuperEditorContext editContext,
+    required KeyEvent keyEvent,
+  }) {
     if (!_mentionOpen) return ExecutionInstruction.continueExecution;
-    if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) return ExecutionInstruction.continueExecution;
+    if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) {
+      return ExecutionInstruction.continueExecution;
+    }
     final n = _mentionMatches.length;
     switch (keyEvent.logicalKey) {
       case LogicalKeyboardKey.arrowDown:
@@ -494,7 +570,9 @@ class AnEditorState extends State<AnEditor> {
     // until the theme flips → same instances → SuperEditor skips the re-style. 样式表+组件建造器按主题稳定
     // 的 colors 记忆化:同实例→SuperEditor 跳全文档重跑 style pipeline。
     final hint = _t.documents.editorHint;
-    if (!identical(_styleColors, colors) || _hintText != hint || _styleProse != widget.prose) {
+    if (!identical(_styleColors, colors) ||
+        _hintText != hint ||
+        _styleProse != widget.prose) {
       _styleColors = colors;
       _hintText = hint;
       _styleProse = widget.prose;
@@ -503,7 +581,10 @@ class AnEditorState extends State<AnEditor> {
       // the package's hardcoded 0xFFACCEF7. Memoized with the stylesheet (same theme axis). 选区色走 token。
       _selectionStyles = SelectionStyles(selectionColor: colors.selection);
       _componentBuilders = [
-        AnTaskComponentBuilder(_editor, colors), // tasks aren't in the defaults — must be added
+        AnTaskComponentBuilder(
+          _editor,
+          colors,
+        ), // tasks aren't in the defaults — must be added
         AnCodeBlockComponentBuilder(_editor, colors, _codeKeys),
         AnBlockquoteComponentBuilder(colors),
         // Ordered/unordered list items: marker = prose `•`/`$n.` (not derived from the first char → fixes the
@@ -520,15 +601,20 @@ class AnEditorState extends State<AnEditor> {
         // empty first node. An-flavored so a SINGLE-paragraph doc with inline code still paints the code
         // background (its vm is a HintComponentViewModel, which AnParagraphComponentBuilder can't touch). 空文档
         // 灰提示只在「单个首空段」渲;须在默认前抢建 view-model;An 版让单段文档的行内代码也有背景。
-        AnHintComponentBuilder(hint, (_) => AnText.reading.copyWith(color: colors.inkFaint),
-            codeBackgroundColor: colors.surfaceSunken, codeBackgroundRadius: AnRadius.tag),
+        AnHintComponentBuilder(
+          hint,
+          (_) => AnText.reading.copyWith(color: colors.inkFaint),
+          codeBackgroundColor: colors.surfaceSunken,
+          codeBackgroundRadius: AnRadius.tag,
+        ),
         // Paragraph/heading via AnParagraphComponent (AnTextComponent) so inline code paints a per-line
         // rounded background beneath the text. Must precede the default paragraph builder. 段落/标题换 An 组件。
         AnParagraphComponentBuilder(
-            codeBackgroundColor: colors.surfaceSunken,
-            codeBackgroundRadius: AnRadius.tag,
-            document: _document,
-            quoteColors: colors),
+          codeBackgroundColor: colors.surfaceSunken,
+          codeBackgroundRadius: AnRadius.tag,
+          document: _document,
+          quoteColors: colors,
+        ),
         ...defaultComponentBuilders,
       ];
     }
@@ -559,7 +645,10 @@ class AnEditorState extends State<AnEditor> {
       selectionStyle: _selectionStyles,
       // The default link-launch handler PLUS the block double/triple-tap guard (poisoned word-drag NPE —
       // see an_editor_gestures.dart). 默认链接 handler + 原子块双/三击守卫(防 word-drag 毒态 NPE)。
-      contentTapDelegateFactories: const [superEditorLaunchLinkTapHandlerFactory, anBlockTapGuardFactory],
+      contentTapDelegateFactories: const [
+        superEditorLaunchLinkTapHandlerFactory,
+        anBlockTapGuardFactory,
+      ],
       // An-primitive block skins take precedence over the defaults they extend (first non-null wins);
       // the rest of the default chain (paragraph/list/image/hr) stays. An 块皮在默认前、优先命中。
       componentBuilders: _componentBuilders!,
@@ -574,7 +663,11 @@ class AnEditorState extends State<AnEditor> {
         const AnCaretOverlayBuilder(),
         FunctionalSuperEditorLayerBuilder(
           (context, editContext) => AnSelectionToolbar(
-              editor: _editor, document: _document, composer: _composer, editorFocusNode: _focusNode),
+            editor: _editor,
+            document: _document,
+            composer: _composer,
+            editorFocusNode: _focusNode,
+          ),
         ),
         FunctionalSuperEditorLayerBuilder(
           (context, editContext) => AnSlashMenuOverlay(
@@ -587,7 +680,14 @@ class AnEditorState extends State<AnEditor> {
         FunctionalSuperEditorLayerBuilder(
           (context, editContext) => AnMentionOverlay(
             composing: _mentionComposing,
-            items: [for (final c in _mentionMatches) AnMentionRowData(kind: c.type, name: c.name, description: c.description)],
+            items: [
+              for (final c in _mentionMatches)
+                AnMentionRowData(
+                  kind: c.type,
+                  name: c.name,
+                  description: c.description,
+                ),
+            ],
             activeIndex: _mentionActive,
             onPick: _selectMention,
           ),

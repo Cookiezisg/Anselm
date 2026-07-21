@@ -92,20 +92,41 @@ abstract final class AnText {
   // 字重阶梯锚 Light(w300)。每个样式同时给 fontWeight + 显式 wght 变量轴——Text 认 fontWeight,但 TextField
   // 只在显式指定轴时才渲染对的字重,否则编辑框比展示文字更粗更宽。两者都给 → Text 与输入框完全一致。
   static final TextStyle h1 = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 32, height: 1.25, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.5,
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 32,
+    height: 1.25,
+    fontWeight: FontWeight.w400,
+    fontVariations: [FontVariation('wght', 400)],
+    letterSpacing: -0.5,
   );
   static final TextStyle h2 = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 24, height: 1.25, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.3,
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 24,
+    height: 1.25,
+    fontWeight: FontWeight.w400,
+    fontVariations: [FontVariation('wght', 400)],
+    letterSpacing: -0.3,
   );
   static final TextStyle h3 = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 20, height: 1.3, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.2,
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 20,
+    height: 1.3,
+    fontWeight: FontWeight.w400,
+    fontVariations: [FontVariation('wght', 400)],
+    letterSpacing: -0.2,
   );
   static final TextStyle strong = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 16, height: 1.4, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], // emphasis = Regular 强调=Regular
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 16,
+    height: 1.4,
+    fontWeight: FontWeight.w400,
+    fontVariations: [
+      FontVariation('wght', 400),
+    ], // emphasis = Regular 强调=Regular
   );
 
   /// The BRAND wordmark — "Anselm" set in Newsreader (OFL serif). The SOLE deliberate exception to both the
@@ -116,11 +137,19 @@ abstract final class AnText {
   /// (identity 资产、非 UI 文本);仅 AnWindowControls 品牌锁定组合用(全屏/Win-Linux 无 OS 红绿灯处)。18/1.0 配 16 裸 mark;纯净无点缀;色在调用处给。
   static final TextStyle wordmark = TextStyle(
     fontFamily: 'Newsreader',
-    fontSize: 18, height: 1.0, fontWeight: FontWeight.w400,
+    fontSize: 18,
+    height: 1.0,
+    fontWeight: FontWeight.w400,
   );
   static final TextStyle body = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // the UI anchor — Light 正文锚·Light
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 13,
+    height: 1.4,
+    fontWeight: FontWeight.w300,
+    fontVariations: [
+      FontVariation('wght', 300),
+    ], // the UI anchor — Light 正文锚·Light
   );
 
   /// The READING-COLUMN body — 15px w300 at 1.6 line-height (24px line box, a clean 2:1 over the 12px
@@ -130,8 +159,12 @@ abstract final class AnText {
   /// 行高 1.6(24px 行盒,与 12 块间距成 2:1)。比 13 密集 UI 锚**高一档**(业界阶梯:侧栏 13-14/正文 15-16),
   /// 导航与内容不再同声。仅 prose 阅读面用(AnMarkdown+文档海洋),密集 UI chrome 不用。
   static final TextStyle reading = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 15, height: 1.6, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)],
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 15,
+    height: 1.6,
+    fontWeight: FontWeight.w300,
+    fontVariations: [FontVariation('wght', 300)],
   );
 
   /// READING-COLUMN headings — the content ladder riding the 15px [reading] body (in-document h1 22 /
@@ -140,28 +173,54 @@ abstract final class AnText {
   /// 16) is a SEPARATE axis and does not move. 阅读列标题阶梯(文档内 h1 22/h2 18/h3 15 强调;页大标题仍
   /// [h2] 24)。只用 w400——层级靠字号+颜色(两字重铁律)。密集 UI 的标题阶梯是独立轴、不动。
   static final TextStyle readingH1 = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 22, height: 1.3, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)], letterSpacing: -0.2,
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 22,
+    height: 1.3,
+    fontWeight: FontWeight.w400,
+    fontVariations: [FontVariation('wght', 400)],
+    letterSpacing: -0.2,
   );
   static final TextStyle readingH2 = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 18, height: 1.35, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)],
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 18,
+    height: 1.35,
+    fontWeight: FontWeight.w400,
+    fontVariations: [FontVariation('wght', 400)],
   );
   static final TextStyle readingH3 = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 15, height: 1.5, fontWeight: FontWeight.w400, fontVariations: [FontVariation('wght', 400)],
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 15,
+    height: 1.5,
+    fontWeight: FontWeight.w400,
+    fontVariations: [FontVariation('wght', 400)],
   );
   static final TextStyle label = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 13, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // Light 标签·Light
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 13,
+    height: 1.4,
+    fontWeight: FontWeight.w300,
+    fontVariations: [FontVariation('wght', 300)], // Light 标签·Light
   );
   static final TextStyle meta = TextStyle(
-    fontFamily: uiFamily, fontFamilyFallback: uiFallback,
-    fontSize: 12, height: 1.4, fontWeight: FontWeight.w300, fontVariations: [FontVariation('wght', 300)], // muted secondary — Light 次级·Light
+    fontFamily: uiFamily,
+    fontFamilyFallback: uiFallback,
+    fontSize: 12,
+    height: 1.4,
+    fontWeight: FontWeight.w300,
+    fontVariations: [
+      FontVariation('wght', 300),
+    ], // muted secondary — Light 次级·Light
   );
   static final TextStyle mono = TextStyle(
-    fontFamily: monoFamily, fontFamilyFallback: monoFallback,
-    fontSize: 13, height: 1.5, fontWeight: FontWeight.w400,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    fontSize: 13,
+    height: 1.5,
+    fontWeight: FontWeight.w400,
   );
 
   /// The CODE-SURFACE style (G5) — mono at meta size (12px) with a roomier prose line-height (demo
@@ -171,8 +230,11 @@ abstract final class AnText {
   /// [mono] (13/1.5, inline ids) — code blocks want the looser leading.
   /// 代码面样式:mono · 12px(meta)· 行高 1.6(prose);行号列与代码区共用之保对齐。区别于 mono(13/1.5 内联 id)。
   static final TextStyle code = TextStyle(
-    fontFamily: monoFamily, fontFamilyFallback: monoFallback,
-    fontSize: 12, height: 1.6, fontWeight: FontWeight.w400,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    fontSize: 12,
+    height: 1.6,
+    fontWeight: FontWeight.w400,
   );
 
   /// Inline mono at [code]'s size (12px) but with a tighter [height] 1.4 for SINGLE-LINE row content
@@ -181,8 +243,11 @@ abstract final class AnText {
   /// [mono](13/1.5, inline ids) ↔ [code](12/1.6, code blocks) split. 内联 mono:code 的 12px + 更紧
   /// 行高 1.4,给单行行内内容(工具 target / 行内 id);代码块用 1.6、行内用行节奏。
   static final TextStyle codeInline = TextStyle(
-    fontFamily: monoFamily, fontFamilyFallback: monoFallback,
-    fontSize: 12, height: 1.4, fontWeight: FontWeight.w400,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    fontSize: 12,
+    height: 1.4,
+    fontWeight: FontWeight.w400,
   );
 
   /// The CONTENT-tier code-block style — mono **13**/1.6, one rung over [code] (12), for code the
@@ -194,8 +259,11 @@ abstract final class AnText {
   /// 的代码(markdown/doc 代码块、实体源码/提示、版本 diff);13/15=0.87 恰为业界 prose:code 比。机器窗
   /// (tool 卡/json 树/终端/甘特/画布)钦定守 [code] 12——终端孪生身份。
   static final TextStyle codeReading = TextStyle(
-    fontFamily: monoFamily, fontFamilyFallback: monoFallback,
-    fontSize: 13, height: 1.6, fontWeight: FontWeight.w400,
+    fontFamily: monoFamily,
+    fontFamilyFallback: monoFallback,
+    fontSize: 13,
+    height: 1.6,
+    fontWeight: FontWeight.w400,
   );
 
   /// The value-column base style — the single source for the "值列 tabular 铁律": tabular figures
@@ -205,7 +273,10 @@ abstract final class AnText {
   /// content KV values ride [valueReading]. 值列样式单源(无条件 tabular);颜色另加。chrome 档;内容值走
   /// [valueReading]。
   static TextStyle value({bool mono = false}) => mono
-      ? AnText.mono.copyWith(fontSize: meta.fontSize, fontFeatures: const [FontFeature.tabularFigures()])
+      ? AnText.mono.copyWith(
+          fontSize: meta.fontSize,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        )
       : body.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
 
   /// The CONTENT-tier value-column style — the 15 twin of [value] for KV values the person READS
@@ -218,32 +289,36 @@ abstract final class AnText {
   /// 且吃光 32 行余量);mono 变体=mono 族 13(内容标签档),镜像 chrome 的 13/12 两级。
   static TextStyle valueReading({bool mono = false}) => mono
       ? AnText.mono.copyWith(fontFeatures: const [FontFeature.tabularFigures()])
-      : reading.copyWith(height: 1.4, fontFeatures: const [FontFeature.tabularFigures()]);
+      : reading.copyWith(
+          height: 1.4,
+          fontFeatures: const [FontFeature.tabularFigures()],
+        );
 
   /// The meta-sized tabular idiom — the single source for CHROME trailing counts / step indices
   /// (row meta, menu/dropdown trailing numbers, stepper indices), so a digit-feature retune can't
   /// drift across copies (mirrors [value]'s rule at meta size). Content-column counts (AnTabs) ride
   /// [value] 13 instead — metadata inside content never drops to 12. Callers add the colour via
   /// `copyWith`. chrome 次级等宽数字单源(行/菜单/下拉/步骤尾随计数);内容列计数(AnTabs)走 value() 13。
-  static TextStyle metaTabular() => meta.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+  static TextStyle metaTabular() =>
+      meta.copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
 
   /// Map the scale onto Material's [TextTheme] and bake the ink color in once.
   /// 把字阶映射到 Material [TextTheme] 并一次性注入墨色。
   static TextTheme textTheme(Color ink) => TextTheme(
-        displayLarge: h1,
-        displayMedium: h1,
-        headlineLarge: h2,
-        headlineMedium: h2,
-        headlineSmall: h3,
-        titleLarge: strong,
-        titleMedium: strong,
-        bodyLarge: body,
-        bodyMedium: body,
-        bodySmall: meta,
-        labelLarge: label,
-        labelMedium: label,
-        labelSmall: meta,
-      ).apply(bodyColor: ink, displayColor: ink);
+    displayLarge: h1,
+    displayMedium: h1,
+    headlineLarge: h2,
+    headlineMedium: h2,
+    headlineSmall: h3,
+    titleLarge: strong,
+    titleMedium: strong,
+    bodyLarge: body,
+    bodyMedium: body,
+    bodySmall: meta,
+    labelLarge: label,
+    labelMedium: label,
+    labelSmall: meta,
+  ).apply(bodyColor: ink, displayColor: ink);
 }
 
 /// Re-weight a variable-font [TextStyle] CORRECTLY — sets BOTH [fontWeight] AND the explicit `wght`
@@ -252,6 +327,8 @@ abstract final class AnText {
 /// weight (the axis wins). The single correct idiom for any re-weight (group labels, ref pills, card
 /// titles, table headers). 变量字体重定权:双轴同改——单改 fontWeight 会被已钉的 wght 轴覆盖、渲染原重。
 extension AnTextWeight on TextStyle {
-  TextStyle weight(FontWeight w) =>
-      copyWith(fontWeight: w, fontVariations: [FontVariation('wght', w.value.toDouble())]);
+  TextStyle weight(FontWeight w) => copyWith(
+    fontWeight: w,
+    fontVariations: [FontVariation('wght', w.value.toDouble())],
+  );
 }

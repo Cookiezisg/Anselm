@@ -47,7 +47,8 @@ class AnOceanHeader extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final titleStyle = AnText.h2; // h2 is already w400 — a re-weight here was a no-op h2 本即 w400
+    final titleStyle = AnText
+        .h2; // h2 is already w400 — a re-weight here was a no-op h2 本即 w400
     final onChange = onTitleChange;
 
     return Padding(
@@ -62,7 +63,10 @@ class AnOceanHeader extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(child: AnCrumbs(crumbs)),
-                  if (actions.isNotEmpty) ...[const SizedBox(width: AnSpace.s12), AnActionGroup(actions)],
+                  if (actions.isNotEmpty) ...[
+                    const SizedBox(width: AnSpace.s12),
+                    AnActionGroup(actions),
+                  ],
                 ],
               ),
             ),
@@ -73,14 +77,21 @@ class AnOceanHeader extends StatelessWidget {
                     value: title,
                     style: titleStyle,
                     // H2 line box + slack for the edit frame's vertical bleed (editBoxPadY each side). H2 行盒 + 编辑框纵向余量。
-                    minHeight: titleStyle.fontSize! * (titleStyle.height ?? 1.0) + AnSize.editBoxPadY * 2,
+                    minHeight:
+                        titleStyle.fontSize! * (titleStyle.height ?? 1.0) +
+                        AnSize.editBoxPadY * 2,
                     onCommit: onChange,
                   )
                 // The page's PRIMARY heading — header semantics so screen readers can jump to it (rotor /
                 // H key); mirrors AnInfoCard's title. The editable branch's field can't carry it. 主标题=header 节点。
                 : Semantics(
                     header: true,
-                    child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: titleStyle.copyWith(color: c.ink)),
+                    child: Text(
+                      title,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle.copyWith(color: c.ink),
+                    ),
                   ),
           ),
           if (meta.isNotEmpty)

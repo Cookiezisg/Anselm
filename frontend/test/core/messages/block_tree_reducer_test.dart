@@ -9,37 +9,84 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _scope = StreamScope(kind: 'agent', id: 'a');
 
-StreamEnvelope _open(String id, String type, {String? parent, Map<String, dynamic>? content}) =>
-    StreamEnvelope(seq: 1, scope: _scope, id: id, frame: FrameOpen(parentId: parent, node: StreamNode(type: type, content: content)));
-StreamEnvelope _delta(String id, String chunk) =>
-    StreamEnvelope(seq: 0, scope: _scope, id: id, frame: FrameDelta(chunk: chunk));
+StreamEnvelope _open(
+  String id,
+  String type, {
+  String? parent,
+  Map<String, dynamic>? content,
+}) => StreamEnvelope(
+  seq: 1,
+  scope: _scope,
+  id: id,
+  frame: FrameOpen(
+    parentId: parent,
+    node: StreamNode(type: type, content: content),
+  ),
+);
+StreamEnvelope _delta(String id, String chunk) => StreamEnvelope(
+  seq: 0,
+  scope: _scope,
+  id: id,
+  frame: FrameDelta(chunk: chunk),
+);
 StreamEnvelope _close(String id, String type, Map<String, dynamic> content) =>
-    StreamEnvelope(seq: 2, scope: _scope, id: id, frame: FrameClose(status: 'completed', result: StreamNode(type: type, content: content)));
-StreamEnvelope _closeBare(String id, {String status = 'completed', String? error}) =>
-    StreamEnvelope(seq: 2, scope: _scope, id: id, frame: FrameClose(status: status, error: error));
+    StreamEnvelope(
+      seq: 2,
+      scope: _scope,
+      id: id,
+      frame: FrameClose(
+        status: 'completed',
+        result: StreamNode(type: type, content: content),
+      ),
+    );
+StreamEnvelope _closeBare(
+  String id, {
+  String status = 'completed',
+  String? error,
+}) => StreamEnvelope(
+  seq: 2,
+  scope: _scope,
+  id: id,
+  frame: FrameClose(status: status, error: error),
+);
 
 void main() {
   // P5 (C-025 linchpin) — `revision` is a SUBTREE-MAX: `_bump` walks from the changed node up through
   // every ancestor, so a change to a NESTED subagent block also bumps its parent tool_call's revision.
   // This is what makes a `liveBlock(parentId).revision` selector safe — it cannot miss a nested update.
   // C-025 命门:revision 是子树最大值(_bump 上抛全祖先),嵌套子块变更也抬父块 revision→父块 revision 选择器不漏嵌套。
-  test('revision is a subtree-max: a nested/descendant change bumps every ancestor', () {
-    final r = BlockTreeReducer();
-    r.apply(_open('parent', 'tool_call', content: {'name': 'delegate'}));
-    r.apply(_open('child', 'message', parent: 'parent')); // a nested subagent block 嵌套子块
-    final revA = r.nodeById('parent')!.revision;
+  test(
+    'revision is a subtree-max: a nested/descendant change bumps every ancestor',
+    () {
+      final r = BlockTreeReducer();
+      r.apply(_open('parent', 'tool_call', content: {'name': 'delegate'}));
+      r.apply(
+        _open('child', 'message', parent: 'parent'),
+      ); // a nested subagent block 嵌套子块
+      final revA = r.nodeById('parent')!.revision;
 
-    r.apply(_delta('child', 'x')); // change the CHILD 改子块
-    expect(r.nodeById('parent')!.revision, greaterThan(revA),
-        reason: 'a nested change must propagate to the ancestor revision, else a parent-revision selector '
-            'would miss nested subagent-tree updates (stale UI)');
+      r.apply(_delta('child', 'x')); // change the CHILD 改子块
+      expect(
+        r.nodeById('parent')!.revision,
+        greaterThan(revA),
+        reason:
+            'a nested change must propagate to the ancestor revision, else a parent-revision selector '
+            'would miss nested subagent-tree updates (stale UI)',
+      );
 
-    final revB = r.nodeById('parent')!.revision;
-    r.apply(_open('grandchild', 'text', parent: 'child')); // deeper still 更深一层
-    r.apply(_delta('grandchild', 'y'));
-    expect(r.nodeById('parent')!.revision, greaterThan(revB),
-        reason: 'a grandchild change must also reach the root ancestor revision');
-  });
+      final revB = r.nodeById('parent')!.revision;
+      r.apply(
+        _open('grandchild', 'text', parent: 'child'),
+      ); // deeper still 更深一层
+      r.apply(_delta('grandchild', 'y'));
+      expect(
+        r.nodeById('parent')!.revision,
+        greaterThan(revB),
+        reason:
+            'a grandchild change must also reach the root ancestor revision',
+      );
+    },
+  );
 
   test('open→delta→close: live deltas before close, snapshot wins after', () {
     final r = BlockTreeReducer();
@@ -56,7 +103,9 @@ void main() {
   test('tool_result nests under its tool_call (E3 parentId)', () {
     final r = BlockTreeReducer();
     r.apply(_open('tc', 'tool_call', content: {'name': 'web-search'}));
-    r.apply(_open('tr', 'tool_result', parent: 'tc', content: {'content': '3 hits'}));
+    r.apply(
+      _open('tr', 'tool_result', parent: 'tc', content: {'content': '3 hits'}),
+    );
     r.apply(_closeBare('tr'));
     expect(r.roots.length, 1); // only the tool_call is a root
     final tc = r.roots.single;
@@ -70,7 +119,13 @@ void main() {
     final r = BlockTreeReducer();
     r.apply(_open('tc', 'tool_call', content: {'name': 'rm'}));
     r.apply(_delta('tc', '{"path"'));
-    r.apply(_close('tc', 'tool_call', {'name': 'rm', 'arguments': '{"path":"/"}', 'danger': 'dangerous'}));
+    r.apply(
+      _close('tc', 'tool_call', {
+        'name': 'rm',
+        'arguments': '{"path":"/"}',
+        'danger': 'dangerous',
+      }),
+    );
     final tc = r.roots.single;
     expect(tc.danger, 'dangerous');
     expect(tc.argumentsText, '{"path":"/"}');
@@ -91,11 +146,16 @@ void main() {
 
   test('a signal builds no tree node', () {
     final r = BlockTreeReducer();
-    r.apply(StreamEnvelope(
+    r.apply(
+      StreamEnvelope(
         seq: 0,
         scope: const StreamScope(kind: 'workflow'),
         id: 's',
-        frame: const FrameSignal(node: StreamNode(type: 'run', content: {'nodeId': 'n1'}))));
+        frame: const FrameSignal(
+          node: StreamNode(type: 'run', content: {'nodeId': 'n1'}),
+        ),
+      ),
+    );
     expect(r.isEmpty, isTrue);
   });
 
@@ -123,60 +183,83 @@ void main() {
 
   // ── WRK-061 W0: revision / memoization / delta release ──────────────────────────────────────────
 
-  test('revision: every frame bumps the node AND its ancestor chain (subtree version)', () {
-    final r = BlockTreeReducer();
-    r.apply(_open('tc', 'tool_call'));
-    final tc = r.nodeById('tc')!;
-    final r0 = tc.revision;
-    r.apply(_open('tr', 'tool_result', parent: 'tc'));
-    expect(tc.revision, greaterThan(r0)); // child open bumps the parent 子块 open 抬父版本
-    final r1 = tc.revision;
-    r.apply(_delta('tr', 'partial'));
-    expect(tc.revision, greaterThan(r1)); // child delta bumps the parent 子块 delta 抬父版本
-    final r2 = tc.revision;
-    r.apply(_closeBare('tr'));
-    expect(tc.revision, greaterThan(r2)); // child close bumps the parent 子块 close 抬父版本
-  });
+  test(
+    'revision: every frame bumps the node AND its ancestor chain (subtree version)',
+    () {
+      final r = BlockTreeReducer();
+      r.apply(_open('tc', 'tool_call'));
+      final tc = r.nodeById('tc')!;
+      final r0 = tc.revision;
+      r.apply(_open('tr', 'tool_result', parent: 'tc'));
+      expect(
+        tc.revision,
+        greaterThan(r0),
+      ); // child open bumps the parent 子块 open 抬父版本
+      final r1 = tc.revision;
+      r.apply(_delta('tr', 'partial'));
+      expect(
+        tc.revision,
+        greaterThan(r1),
+      ); // child delta bumps the parent 子块 delta 抬父版本
+      final r2 = tc.revision;
+      r.apply(_closeBare('tr'));
+      expect(
+        tc.revision,
+        greaterThan(r2),
+      ); // child close bumps the parent 子块 close 抬父版本
+    },
+  );
 
-  test('deltaText is memoized by length (same instance until the buffer grows)', () {
-    final r = BlockTreeReducer();
-    r.apply(_open('b1', 'text'));
-    r.apply(_delta('b1', 'abc'));
-    final n = r.nodeById('b1')!;
-    expect(identical(n.deltaText, n.deltaText), isTrue); // 同长→同实例
-    final before = n.deltaText;
-    r.apply(_delta('b1', 'd'));
-    expect(n.deltaText, 'abcd');
-    expect(identical(n.deltaText, before), isFalse);
-  });
+  test(
+    'deltaText is memoized by length (same instance until the buffer grows)',
+    () {
+      final r = BlockTreeReducer();
+      r.apply(_open('b1', 'text'));
+      r.apply(_delta('b1', 'abc'));
+      final n = r.nodeById('b1')!;
+      expect(identical(n.deltaText, n.deltaText), isTrue); // 同长→同实例
+      final before = n.deltaText;
+      r.apply(_delta('b1', 'd'));
+      expect(n.deltaText, 'abcd');
+      expect(identical(n.deltaText, before), isFalse);
+    },
+  );
 
-  test('close WITH a covering snapshot releases the delta buffer (no double residency)', () {
-    final r = BlockTreeReducer();
-    r.apply(_open('b1', 'text'));
-    r.apply(_delta('b1', 'Hello'));
-    r.apply(_close('b1', 'text', {'content': 'Hello world'}));
-    final n = r.nodeById('b1')!;
-    expect(n.deltaText, isEmpty); // buffer freed 缓冲已释放
-    expect(n.displayText, 'Hello world'); // snapshot is the truth 快照即真相
+  test(
+    'close WITH a covering snapshot releases the delta buffer (no double residency)',
+    () {
+      final r = BlockTreeReducer();
+      r.apply(_open('b1', 'text'));
+      r.apply(_delta('b1', 'Hello'));
+      r.apply(_close('b1', 'text', {'content': 'Hello world'}));
+      final n = r.nodeById('b1')!;
+      expect(n.deltaText, isEmpty); // buffer freed 缓冲已释放
+      expect(n.displayText, 'Hello world'); // snapshot is the truth 快照即真相
 
-    // tool_call: the covering key is `arguments`. tool_call 的覆盖键是 arguments。
-    r.apply(_open('tc', 'tool_call', content: {'name': 'rm'}));
-    r.apply(_delta('tc', '{"path"'));
-    r.apply(_close('tc', 'tool_call', {'name': 'rm', 'arguments': '{"path":"/"}'}));
-    final tc = r.nodeById('tc')!;
-    expect(tc.deltaText, isEmpty);
-    expect(tc.argumentsText, '{"path":"/"}');
-  });
+      // tool_call: the covering key is `arguments`. tool_call 的覆盖键是 arguments。
+      r.apply(_open('tc', 'tool_call', content: {'name': 'rm'}));
+      r.apply(_delta('tc', '{"path"'));
+      r.apply(
+        _close('tc', 'tool_call', {'name': 'rm', 'arguments': '{"path":"/"}'}),
+      );
+      final tc = r.nodeById('tc')!;
+      expect(tc.deltaText, isEmpty);
+      expect(tc.argumentsText, '{"path":"/"}');
+    },
+  );
 
-  test('close WITHOUT a covering snapshot keeps the delta buffer (honest fallback intact)', () {
-    final r = BlockTreeReducer();
-    r.apply(_open('tc', 'tool_call', content: {'name': 'rm'}));
-    r.apply(_delta('tc', '{"path":"/tmp"}'));
-    // close snapshot lacks `arguments` — argumentsText must still render the streamed fragment.
-    // close 快照缺 arguments——argumentsText 仍须渲已流入片段。
-    r.apply(_close('tc', 'tool_call', {'name': 'rm'}));
-    expect(r.nodeById('tc')!.argumentsText, '{"path":"/tmp"}');
-  });
+  test(
+    'close WITHOUT a covering snapshot keeps the delta buffer (honest fallback intact)',
+    () {
+      final r = BlockTreeReducer();
+      r.apply(_open('tc', 'tool_call', content: {'name': 'rm'}));
+      r.apply(_delta('tc', '{"path":"/tmp"}'));
+      // close snapshot lacks `arguments` — argumentsText must still render the streamed fragment.
+      // close 快照缺 arguments——argumentsText 仍须渲已流入片段。
+      r.apply(_close('tc', 'tool_call', {'name': 'rm'}));
+      expect(r.nodeById('tc')!.argumentsText, '{"path":"/tmp"}');
+    },
+  );
 
   test('derivedCache slot: a frame invalidates the owner\'s revision key', () {
     final r = BlockTreeReducer();
@@ -186,6 +269,9 @@ void main() {
     n.derivedCacheRev = n.revision;
     expect(n.derivedCacheRev == n.revision, isTrue);
     r.apply(_delta('tc', '{'));
-    expect(n.derivedCacheRev == n.revision, isFalse); // stale → owner re-derives 过期→重派生
+    expect(
+      n.derivedCacheRev == n.revision,
+      isFalse,
+    ); // stale → owner re-derives 过期→重派生
   });
 }

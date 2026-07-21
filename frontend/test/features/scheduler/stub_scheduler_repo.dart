@@ -95,7 +95,6 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// The scripted grid — [runMatrix] filters it to the requested ids (the wire law). 剧本格阵。
   FlowrunMatrix matrixGrid;
 
-
   final bool failWorkflows;
 
   /// getRunFull throws — the replay confirm must still open, with the numberless sentence.
@@ -138,19 +137,22 @@ class StubSchedulerRepo implements SchedulerRepository {
 
   /// Every offset-page question (WRK-070 B4) — (offset, limit) per ask, the pager-wire probe.
   /// 每次 offset 页提问的 (offset, limit):翻页器线缆探针。
-  final List<({int offset, int limit, String? status, String? origin})> pageAsks = [];
+  final List<({int offset, int limit, String? status, String? origin})>
+  pageAsks = [];
 
   /// Every `GET /flowruns` question this stub was asked, in order — the honest-filter probe.
   /// 每次 flowruns 提问的过滤参数(按序):过滤诚实性探针。
   final List<
-      ({
-        String? status,
-        String? origin,
-        DateTime? startedAfter,
-        DateTime? startedBefore,
-        String? cursor,
-        int? limit
-      })> listFilters = [];
+    ({
+      String? status,
+      String? origin,
+      DateTime? startedAfter,
+      DateTime? startedBefore,
+      String? cursor,
+      int? limit,
+    })
+  >
+  listFilters = [];
 
   /// Optional decide latency — lets a widget test observe the mid-batch pending face (逐行挂账).
   /// 可选延迟:widget 测试借它观察批中挂账脸。
@@ -171,32 +173,39 @@ class StubSchedulerRepo implements SchedulerRepository {
   }
 
   @override
-  Future<SchedulerStats> stats(List<String> workflowIds,
-      {int recentN = 10, String since = '168h', String? until}) async {
+  Future<SchedulerStats> stats(
+    List<String> workflowIds, {
+    int recentN = 10,
+    String since = '168h',
+    String? until,
+  }) async {
     if (statsLatency > Duration.zero) await Future<void>.delayed(statsLatency);
     statsWindows.add((since: since, until: until));
     statsSinces.add(since);
     return SchedulerStats(
       totals: SchedulerTotals(
-          running: totalsRunning,
-          failedSince: failedBySince[_sinceKey(since)] ?? 0,
-          // DISTINCT RUNS awaiting a human — the wire's contract, despite the key's name (api.md
-          // flowrun-stats: «仍 running 且持 ≥1 parked 节点的 DISTINCT run»). A run parked on two approvals
-          // is ONE here and TWO inbox rows, and a stub that said `inbox.length` would quietly agree with
-          // the 「等你 N」 tile no matter which source the tile read — hiding the very difference that makes
-          // the inbox the tile's only honest source.
-          // 等人处理的 **DISTINCT run** 数——线缆的契约,不管这个键叫什么名字(api.md flowrun-stats)。一个 park 在两个
-          // 审批上的 run 在这里是 **1**、在收件箱里是 **2 行**;若 stub 写 `inbox.length`,那无论「等你 N」牌读的是哪个源
-          // 它都会静默地对上——正好藏起那个「收件箱是该牌唯一诚实来源」的**差别**。
-          parkedNodes: {for (final r in _liveInbox()) r.node.flowrunId}.length,
-          // Counted through the SAME predicate the firing page uses (the backend shares one
-          // `firingQuery` between `CountFirings` and `SearchFirings`; a stub that scripted the card's
-          // number independently of the rows could not catch the two drifting apart, which is the one
-          // thing worth catching here).
-          // 与 firing 页**同一份**谓词计数(后端 CountFirings 与 SearchFirings 共用一个 firingQuery);若 stub 把牌
-          // 的数字与行**各自**编脚本,就恰好抓不到那两者漂移——而那正是此处唯一值得抓的东西。
-          missed: _matchFirings(status: FiringStatus.missed, createdAfter: _sinceInstant(since))
-              .length),
+        running: totalsRunning,
+        failedSince: failedBySince[_sinceKey(since)] ?? 0,
+        // DISTINCT RUNS awaiting a human — the wire's contract, despite the key's name (api.md
+        // flowrun-stats: «仍 running 且持 ≥1 parked 节点的 DISTINCT run»). A run parked on two approvals
+        // is ONE here and TWO inbox rows, and a stub that said `inbox.length` would quietly agree with
+        // the 「等你 N」 tile no matter which source the tile read — hiding the very difference that makes
+        // the inbox the tile's only honest source.
+        // 等人处理的 **DISTINCT run** 数——线缆的契约,不管这个键叫什么名字(api.md flowrun-stats)。一个 park 在两个
+        // 审批上的 run 在这里是 **1**、在收件箱里是 **2 行**;若 stub 写 `inbox.length`,那无论「等你 N」牌读的是哪个源
+        // 它都会静默地对上——正好藏起那个「收件箱是该牌唯一诚实来源」的**差别**。
+        parkedNodes: {for (final r in _liveInbox()) r.node.flowrunId}.length,
+        // Counted through the SAME predicate the firing page uses (the backend shares one
+        // `firingQuery` between `CountFirings` and `SearchFirings`; a stub that scripted the card's
+        // number independently of the rows could not catch the two drifting apart, which is the one
+        // thing worth catching here).
+        // 与 firing 页**同一份**谓词计数(后端 CountFirings 与 SearchFirings 共用一个 firingQuery);若 stub 把牌
+        // 的数字与行**各自**编脚本,就恰好抓不到那两者漂移——而那正是此处唯一值得抓的东西。
+        missed: _matchFirings(
+          status: FiringStatus.missed,
+          createdAfter: _sinceInstant(since),
+        ).length,
+      ),
       byWorkflow: byWorkflow,
     );
   }
@@ -215,22 +224,24 @@ class StubSchedulerRepo implements SchedulerRepository {
 
   DateTime _sinceInstant(String since) =>
       DateTime.tryParse(since) ??
-      DateTime.now().subtract(Duration(
-          hours: int.tryParse(since.replaceAll(RegExp(r'[^0-9]'), '')) ?? 168));
+      DateTime.now().subtract(
+        Duration(
+          hours: int.tryParse(since.replaceAll(RegExp(r'[^0-9]'), '')) ?? 168,
+        ),
+      );
 
   List<Firing> _matchFirings({
     String? triggerId,
     FiringStatus? status,
     DateTime? createdAfter,
     DateTime? createdBefore,
-  }) =>
-      [
-        for (final f in firings)
-          if (triggerId == null || f.triggerId == triggerId)
-            if (status == null || f.status == status)
-              if (createdAfter == null || !f.createdAt.isBefore(createdAfter))
-                if (createdBefore == null || f.createdAt.isBefore(createdBefore)) f,
-      ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
+  }) => [
+    for (final f in firings)
+      if (triggerId == null || f.triggerId == triggerId)
+        if (status == null || f.status == status)
+          if (createdAfter == null || !f.createdAt.isBefore(createdAfter))
+            if (createdBefore == null || f.createdAt.isBefore(createdBefore)) f,
+  ]..sort((a, b) => b.createdAt.compareTo(a.createdAt));
 
   @override
   Future<contract.Page<Firing>> listFirings({
@@ -253,13 +264,17 @@ class StubSchedulerRepo implements SchedulerRepository {
     });
     if (failFirings) {
       throw const ApiException(
-          code: 'TRIGGER_FIRING_INVALID_FILTER', message: 'bad window', httpStatus: 422);
+        code: 'TRIGGER_FIRING_INVALID_FILTER',
+        message: 'bad window',
+        httpStatus: 422,
+      );
     }
     final rows = _matchFirings(
-        triggerId: triggerId,
-        status: status,
-        createdAfter: createdAfter,
-        createdBefore: createdBefore);
+      triggerId: triggerId,
+      status: status,
+      createdAfter: createdAfter,
+      createdBefore: createdBefore,
+    );
     final cap = limit ?? 50;
     final capped = rows.length > cap;
     return contract.Page(
@@ -270,7 +285,9 @@ class StubSchedulerRepo implements SchedulerRepository {
   }
 
   @override
-  Future<List<TriggerEntity>> listTriggers() async => [for (final t in triggers) _liveTrigger(t)];
+  Future<List<TriggerEntity>> listTriggers() async => [
+    for (final t in triggers) _liveTrigger(t),
+  ];
 
   @override
   Future<List<EntityRelation>> workflowTriggerEdges() async => edges;
@@ -279,45 +296,66 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// parked count read, so the stub cannot contradict itself mid-battery. 有状态变更后的收件箱:收件箱与
   /// totals 的 parked 计数**同读这一处**,故 stub 不会在电池半途自相矛盾。
   List<SchedulerInboxRow> _liveInbox() => [
-        for (final r in inbox)
-          if (!decided.contains('${r.node.flowrunId}/${r.node.nodeId}') &&
-              !cancelled.contains(r.node.flowrunId))
-            r,
-      ];
+    for (final r in inbox)
+      if (!decided.contains('${r.node.flowrunId}/${r.node.nodeId}') &&
+          !cancelled.contains(r.node.flowrunId))
+        r,
+  ];
 
   @override
   Future<List<SchedulerInboxRow>> listInbox() async => _liveInbox();
 
   @override
-  Future<FlowrunComposite> decideApproval(String flowrunId, String nodeId,
-      {required String decision, String? reason}) async {
-    if (decideLatency > Duration.zero) await Future<void>.delayed(decideLatency);
+  Future<FlowrunComposite> decideApproval(
+    String flowrunId,
+    String nodeId, {
+    required String decision,
+    String? reason,
+  }) async {
+    if (decideLatency > Duration.zero) {
+      await Future<void>.delayed(decideLatency);
+    }
     final key = '$flowrunId/$nodeId';
     if (decided.contains(key)) {
       throw const ApiException(
-          code: 'FLOWRUN_APPROVAL_NOT_PARKED', message: 'not parked', httpStatus: 422);
+        code: 'FLOWRUN_APPROVAL_NOT_PARKED',
+        message: 'not parked',
+        httpStatus: 422,
+      );
     }
     decided.add(key);
     decideOrder.add('$key:$decision${reason == null ? '' : ':$reason'}');
     return FlowrunComposite(
-        flowrun: Flowrun(id: flowrunId, workflowId: 'wf_x', updatedAt: DateTime.now()));
+      flowrun: Flowrun(
+        id: flowrunId,
+        workflowId: 'wf_x',
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   @override
   Future<FlowrunComposite> cancelRun(String flowrunId) async {
     final run = runs.where((r) => r.id == flowrunId).firstOrNull;
-    if (run == null || run.status != 'running' || cancelled.contains(flowrunId)) {
+    if (run == null ||
+        run.status != 'running' ||
+        cancelled.contains(flowrunId)) {
       throw const ApiException(
-          code: 'FLOWRUN_NOT_CANCELLABLE', message: 'not running', httpStatus: 422);
+        code: 'FLOWRUN_NOT_CANCELLABLE',
+        message: 'not running',
+        httpStatus: 422,
+      );
     }
     cancelled.add(flowrunId);
     cancelOrder.add(flowrunId);
     return FlowrunComposite(
-        flowrun: Flowrun(
-            id: flowrunId,
-            workflowId: run.workflowId,
-            status: 'cancelled',
-            updatedAt: DateTime.now()));
+      flowrun: Flowrun(
+        id: flowrunId,
+        workflowId: run.workflowId,
+        status: 'cancelled',
+        updatedAt: DateTime.now(),
+      ),
+    );
   }
 
   /// The run's CURRENT status under the stateful mutations. 有状态下的当前状态。
@@ -333,30 +371,31 @@ class StubSchedulerRepo implements SchedulerRepository {
   /// 有状态变更后的 run:其余字段必须原样带过——静默丢 pinnedRefs/firingId 的 stub 会让卷宗闭包与出处行
   /// 无法可测,更糟的是会让真正的丢失一路绿灯。
   Flowrun _live(Flowrun r) => r.copyWith(
-        status: statusOf(r),
-        error: statusOf(r) == 'failed' ? r.error : null,
-        completedAt: statusOf(r) == 'running' ? null : r.completedAt,
-      );
+    status: statusOf(r),
+    error: statusOf(r) == 'failed' ? r.error : null,
+    completedAt: statusOf(r) == 'running' ? null : r.completedAt,
+  );
 
   @override
-  Future<contract.Page<Flowrun>> listFlowruns(
-      {required String workflowId,
-      String? status,
-      String? origin,
-      String? triggerId,
-      DateTime? startedAfter,
-      DateTime? startedBefore,
-      DateTime? completedAfter,
-      DateTime? completedBefore,
-      String? cursor,
-      int? limit}) async {
+  Future<contract.Page<Flowrun>> listFlowruns({
+    required String workflowId,
+    String? status,
+    String? origin,
+    String? triggerId,
+    DateTime? startedAfter,
+    DateTime? startedBefore,
+    DateTime? completedAfter,
+    DateTime? completedBefore,
+    String? cursor,
+    int? limit,
+  }) async {
     listFilters.add((
       status: status,
       origin: origin,
       startedAfter: startedAfter,
       startedBefore: startedBefore,
       cursor: cursor,
-      limit: limit
+      limit: limit,
     ));
     final rows = [
       for (final r in runs.map(_live))
@@ -365,15 +404,19 @@ class StubSchedulerRepo implements SchedulerRepository {
             (origin == null || r.origin == origin) &&
             (triggerId == null || r.triggerId == triggerId) &&
             (startedAfter == null ||
-                (r.startedAt != null && !r.startedAt!.isBefore(startedAfter))) &&
+                (r.startedAt != null &&
+                    !r.startedAt!.isBefore(startedAfter))) &&
             (startedBefore == null ||
-                (r.startedAt != null && r.startedAt!.isBefore(startedBefore))) &&
+                (r.startedAt != null &&
+                    r.startedAt!.isBefore(startedBefore))) &&
             // completed_at window (工单⑮): drops the unlanded (null completed_at), like NULL >= ?.
             // completed_at 窗:剔除未落定(completed_at null),同 NULL >= ?。
             (completedAfter == null ||
-                (r.completedAt != null && !r.completedAt!.isBefore(completedAfter))) &&
+                (r.completedAt != null &&
+                    !r.completedAt!.isBefore(completedAfter))) &&
             (completedBefore == null ||
-                (r.completedAt != null && r.completedAt!.isBefore(completedBefore))))
+                (r.completedAt != null &&
+                    r.completedAt!.isBefore(completedBefore))))
           r,
     ];
     // Offset cursor (the wire cursor is opaque anyway) — lets a battery walk real keyset paging.
@@ -383,7 +426,10 @@ class StubSchedulerRepo implements SchedulerRepository {
     final page = rows.skip(offset).take(cap).toList();
     final more = offset + page.length < rows.length;
     return contract.Page(
-        items: page, nextCursor: more ? '${offset + page.length}' : null, hasMore: more);
+      items: page,
+      nextCursor: more ? '${offset + page.length}' : null,
+      hasMore: more,
+    );
   }
 
   /// When set, every listFlowrunsPage call parks on a fresh completer pushed here — a battery drains
@@ -393,30 +439,40 @@ class StubSchedulerRepo implements SchedulerRepository {
   bool gatePages = false;
 
   @override
-  Future<contract.OffsetPage<Flowrun>> listFlowrunsPage(
-      {required String workflowId,
-      String? status,
-      String? origin,
-      DateTime? startedAfter,
-      DateTime? startedBefore,
-      required int offset,
-      required int limit}) async {
+  Future<contract.OffsetPage<Flowrun>> listFlowrunsPage({
+    required String workflowId,
+    String? status,
+    String? origin,
+    DateTime? startedAfter,
+    DateTime? startedBefore,
+    required int offset,
+    required int limit,
+  }) async {
     if (gatePages) {
       final gate = Completer<void>();
       pageGates.add(gate);
       await gate.future;
     }
-    pageAsks.add((offset: offset, limit: limit, status: status, origin: origin));
+    pageAsks.add((
+      offset: offset,
+      limit: limit,
+      status: status,
+      origin: origin,
+    ));
     final all = await listFlowruns(
-        workflowId: workflowId,
-        status: status,
-        origin: origin,
-        startedAfter: startedAfter,
-        startedBefore: startedBefore,
-        limit: 1 << 30);
+      workflowId: workflowId,
+      status: status,
+      origin: origin,
+      startedAfter: startedAfter,
+      startedBefore: startedBefore,
+      limit: 1 << 30,
+    );
     final page = all.items.skip(offset).take(limit).toList();
     return contract.OffsetPage(
-        items: page, total: all.items.length, hasMore: offset + page.length < all.items.length);
+      items: page,
+      total: all.items.length,
+      hasMore: offset + page.length < all.items.length,
+    );
   }
 
   /// Workspace-wide, drained, and — like `missed` above — derived from the SAME seed the zone renders.
@@ -430,7 +486,10 @@ class StubSchedulerRepo implements SchedulerRepository {
   @override
   Future<List<Flowrun>> listRunningRuns() async {
     if (failRunningRuns) throw StateError('running read failed');
-    return [for (final r in runs.map(_live)) if (r.status == 'running') r];
+    return [
+      for (final r in runs.map(_live))
+        if (r.status == 'running') r,
+    ];
   }
 
   /// Every started-in-window run the schedule track's past grid bins (B1) — all statuses, all origins,
@@ -464,7 +523,9 @@ class StubSchedulerRepo implements SchedulerRepository {
     if (failFailedRuns) throw StateError('failed read failed');
     return [
       for (final r in runs.map(_live))
-        if (r.status == 'failed' && r.completedAt != null && !r.completedAt!.isBefore(completedAfter))
+        if (r.status == 'failed' &&
+            r.completedAt != null &&
+            !r.completedAt!.isBefore(completedAfter))
           r,
     ]..sort((a, b) => b.completedAt!.compareTo(a.completedAt!));
   }
@@ -473,7 +534,11 @@ class StubSchedulerRepo implements SchedulerRepository {
   Future<Flowrun> getRun(String flowrunId) async {
     final r = runs.where((r) => r.id == flowrunId).firstOrNull;
     if (r == null) {
-      throw const ApiException(code: 'FLOWRUN_NOT_FOUND', message: 'no run', httpStatus: 404);
+      throw const ApiException(
+        code: 'FLOWRUN_NOT_FOUND',
+        message: 'no run',
+        httpStatus: 404,
+      );
     }
     return _live(r);
   }
@@ -482,14 +547,21 @@ class StubSchedulerRepo implements SchedulerRepository {
   Future<FlowrunComposite> getRunFull(String flowrunId) async {
     if (failRunFull) throw StateError('node history unavailable');
     final run = await getRun(flowrunId);
-    return FlowrunComposite(flowrun: run, nodes: nodesByRun[flowrunId] ?? const []);
+    return FlowrunComposite(
+      flowrun: run,
+      nodes: nodesByRun[flowrunId] ?? const [],
+    );
   }
 
   @override
   Future<WorkflowEntity> getWorkflow(String id) async {
     final w = workflows.where((w) => w.id == id).firstOrNull;
     if (w == null) {
-      throw const ApiException(code: 'WORKFLOW_NOT_FOUND', message: 'no workflow', httpStatus: 404);
+      throw const ApiException(
+        code: 'WORKFLOW_NOT_FOUND',
+        message: 'no workflow',
+        httpStatus: 404,
+      );
     }
     final now = DateTime.now();
     final graph = graphByWorkflow[id];
@@ -508,7 +580,8 @@ class StubSchedulerRepo implements SchedulerRepository {
               version: 7,
               createdAt: now,
               updatedAt: now,
-              graphParsed: graph),
+              graphParsed: graph,
+            ),
     );
   }
 
@@ -522,20 +595,27 @@ class StubSchedulerRepo implements SchedulerRepository {
   Future<WorkflowEntity> killWorkflow(String workflowId) async {
     killOrder.add(workflowId);
     for (final r in runs) {
-      if (r.workflowId == workflowId && statusOf(r) == 'running') cancelled.add(r.id);
+      if (r.workflowId == workflowId && statusOf(r) == 'running') {
+        cancelled.add(r.id);
+      }
     }
     return getWorkflow(workflowId);
   }
 
   @override
   Future<FlowrunComposite> replayRun(String flowrunId) async {
-    if (replayLatency > Duration.zero) await Future<void>.delayed(replayLatency);
+    if (replayLatency > Duration.zero) {
+      await Future<void>.delayed(replayLatency);
+    }
     final r = runs.where((r) => r.id == flowrunId).firstOrNull;
     if (r == null || statusOf(r) != 'failed') {
       // Only a failed run replays — anything else (already replayed / cancelled) is the honest 422.
       // 只有 failed 可重放,其余诚实 422。
       throw const ApiException(
-          code: 'FLOWRUN_NOT_REPLAYABLE', message: 'not failed', httpStatus: 422);
+        code: 'FLOWRUN_NOT_REPLAYABLE',
+        message: 'not failed',
+        httpStatus: 422,
+      );
     }
     replayed.add(flowrunId);
     replayOrder.add(flowrunId);
@@ -543,17 +623,23 @@ class StubSchedulerRepo implements SchedulerRepository {
   }
 
   @override
-  Future<TriggerEntity> pauseTrigger(String triggerId) => _flip(triggerId, true);
+  Future<TriggerEntity> pauseTrigger(String triggerId) =>
+      _flip(triggerId, true);
 
   @override
-  Future<TriggerEntity> resumeTrigger(String triggerId) => _flip(triggerId, false);
+  Future<TriggerEntity> resumeTrigger(String triggerId) =>
+      _flip(triggerId, false);
 
   Future<TriggerEntity> _flip(String triggerId, bool paused) async {
     pausedById[triggerId] = paused;
     pauseOrder.add('$triggerId:${paused ? 'pause' : 'resume'}');
     final t = triggers.where((t) => t.id == triggerId).firstOrNull;
     if (t == null) {
-      throw const ApiException(code: 'TRIGGER_NOT_FOUND', message: 'no trigger', httpStatus: 404);
+      throw const ApiException(
+        code: 'TRIGGER_NOT_FOUND',
+        message: 'no trigger',
+        httpStatus: 404,
+      );
     }
     return _liveTrigger(t);
   }
@@ -566,21 +652,28 @@ class StubSchedulerRepo implements SchedulerRepository {
   }
 
   @override
-  Future<WorkflowVersion> getWorkflowVersion(String workflowId, String versionId) async {
+  Future<WorkflowVersion> getWorkflowVersion(
+    String workflowId,
+    String versionId,
+  ) async {
     versionAsked.add(versionId);
     final g = pinnedGraphByVersion[versionId];
     if (g == null) {
       throw const ApiException(
-          code: 'WORKFLOW_VERSION_NOT_FOUND', message: 'no version', httpStatus: 404);
+        code: 'WORKFLOW_VERSION_NOT_FOUND',
+        message: 'no version',
+        httpStatus: 404,
+      );
     }
     final now = DateTime.now();
     return WorkflowVersion(
-        id: versionId,
-        workflowId: workflowId,
-        version: 7,
-        createdAt: now,
-        updatedAt: now,
-        graphParsed: g);
+      id: versionId,
+      workflowId: workflowId,
+      version: 7,
+      createdAt: now,
+      updatedAt: now,
+      graphParsed: g,
+    );
   }
 
   @override
@@ -590,11 +683,17 @@ class StubSchedulerRepo implements SchedulerRepository {
   }
 
   @override
-  Future<TriggerSchedule> triggerSchedule({String within = '24h', int limit = 200}) async {
+  Future<TriggerSchedule> triggerSchedule({
+    String within = '24h',
+    int limit = 200,
+  }) async {
     scheduleWithins.add(within);
     if (failSchedule) {
       throw const ApiException(
-          code: 'TRIGGER_SCHEDULE_INVALID_QUERY', message: 'bad window', httpStatus: 422);
+        code: 'TRIGGER_SCHEDULE_INVALID_QUERY',
+        message: 'bad window',
+        httpStatus: 422,
+      );
     }
     return schedule;
   }
@@ -606,23 +705,37 @@ class StubSchedulerRepo implements SchedulerRepository {
   @override
   Future<FlowrunMatrix> runMatrix(List<String> flowrunIds) async {
     matrixAsks.add(List.of(flowrunIds));
-    if (matrixLatency > Duration.zero) await Future<void>.delayed(matrixLatency);
+    if (matrixLatency > Duration.zero) {
+      await Future<void>.delayed(matrixLatency);
+    }
     if (failMatrix) {
-      throw const ApiException(code: 'INVALID_REQUEST', message: 'bad matrix', httpStatus: 400);
+      throw const ApiException(
+        code: 'INVALID_REQUEST',
+        message: 'bad matrix',
+        httpStatus: 400,
+      );
     }
     // Wire law: answer EXACTLY the requested ids in canonical (startedAt, id) DESC order, unknown
     // ids silently absent — the scripted grid is filtered the same way so batteries can seed one
     // grid and query subsets. 线缆律:恰答请求 id、正典序、未知缺席;剧本格阵按同律过滤。
     final wanted = flowrunIds.toSet();
     final m = matrixGrid;
-    final cols = [for (final c in m.cols) if (wanted.contains(c.flowrunId)) c];
+    final cols = [
+      for (final c in m.cols)
+        if (wanted.contains(c.flowrunId)) c,
+    ];
     final colIds = {for (final c in cols) c.flowrunId};
-    final cells = [for (final c in m.cells) if (colIds.contains(c.flowrunId)) c];
+    final cells = [
+      for (final c in m.cells)
+        if (colIds.contains(c.flowrunId)) c,
+    ];
     final liveNodes = {for (final c in cells) c.nodeId};
-    final rows = [for (final r in m.rows) if (liveNodes.contains(r.nodeId)) r];
+    final rows = [
+      for (final r in m.rows)
+        if (liveNodes.contains(r.nodeId)) r,
+    ];
     return FlowrunMatrix(cols: cols, rows: rows, cells: cells);
   }
-
 
   /// S5 probes: the WINDOW each schedule fetch asked for (a track that claims «24h» must have asked
   /// for 24h), the (workflowId, recentN) each matrix fetch asked for (proves the 20 cap really
@@ -653,9 +766,10 @@ class StubSchedulerRepo implements SchedulerRepository {
   TriggerEntity _liveTrigger(TriggerEntity t) {
     final paused = pausedById[t.id] ?? t.paused;
     return t.copyWith(
-        paused: paused,
-        listening: !paused && t.listening,
-        nextFireAt: paused ? null : t.nextFireAt);
+      paused: paused,
+      listening: !paused && t.listening,
+      nextFireAt: paused ? null : t.nextFireAt,
+    );
   }
 }
 

@@ -47,39 +47,54 @@ void main() {
     expect(it.isAwaiting, isTrue);
   });
 
-  test('ask with no options → free-text only (options null, not empty list)', () {
-    final it = Interaction.fromJson({
-      'toolCallId': 'blk_3',
-      'kind': 'ask',
-      'tool': 'ask_user',
-      'prompt': {'message': 'Describe the bug.'},
-    });
-    expect(it.kind, InteractionKind.ask);
-    expect(it.message, 'Describe the bug.');
-    expect(it.options, isNull);
-  });
+  test(
+    'ask with no options → free-text only (options null, not empty list)',
+    () {
+      final it = Interaction.fromJson({
+        'toolCallId': 'blk_3',
+        'kind': 'ask',
+        'tool': 'ask_user',
+        'prompt': {'message': 'Describe the bug.'},
+      });
+      expect(it.kind, InteractionKind.ask);
+      expect(it.message, 'Describe the bug.');
+      expect(it.options, isNull);
+    },
+  );
 
-  test('resolution signal: resolved:true with EMPTY kind/tool (no omitempty) → unknown, not awaiting', () {
-    // The census correction: Request.Kind/Tool have no omitempty, so the resolution signal carries
-    // them as empty strings. Resolution MUST key on `resolved`, never on kind/tool absence.
-    final it = Interaction.fromJson({
-      'toolCallId': 'blk_1',
-      'kind': '',
-      'tool': '',
-      'conversationId': 'conv_1',
-      'resolved': true,
-    });
-    expect(it.resolved, isTrue);
-    expect(it.kind, InteractionKind.unknown);
-    expect(it.tool, '');
-    expect(it.isAwaiting, isFalse);
-  });
+  test(
+    'resolution signal: resolved:true with EMPTY kind/tool (no omitempty) → unknown, not awaiting',
+    () {
+      // The census correction: Request.Kind/Tool have no omitempty, so the resolution signal carries
+      // them as empty strings. Resolution MUST key on `resolved`, never on kind/tool absence.
+      final it = Interaction.fromJson({
+        'toolCallId': 'blk_1',
+        'kind': '',
+        'tool': '',
+        'conversationId': 'conv_1',
+        'resolved': true,
+      });
+      expect(it.resolved, isTrue);
+      expect(it.kind, InteractionKind.unknown);
+      expect(it.tool, '');
+      expect(it.isAwaiting, isFalse);
+    },
+  );
 
-  test('forward-compat: an unrecognized kind degrades to unknown, never crashes', () {
-    final it = Interaction.fromJson({'toolCallId': 'blk_9', 'kind': 'future_kind'});
-    expect(it.kind, InteractionKind.unknown);
-    expect(it.isAwaiting, isFalse); // unknown is never awaiting (only danger/ask gate the user)
-  });
+  test(
+    'forward-compat: an unrecognized kind degrades to unknown, never crashes',
+    () {
+      final it = Interaction.fromJson({
+        'toolCallId': 'blk_9',
+        'kind': 'future_kind',
+      });
+      expect(it.kind, InteractionKind.unknown);
+      expect(
+        it.isAwaiting,
+        isFalse,
+      ); // unknown is never awaiting (only danger/ask gate the user)
+    },
+  );
 
   test('action wire tokens are the exact closed set', () {
     expect(InteractionAction.approve.wire, 'approve');

@@ -11,7 +11,9 @@
   for (var i = cursor - 1; i >= 0; i--) {
     final ch = text[i];
     if (ch == '@') {
-      if (i > 0 && !_isWhitespace(text[i - 1])) return null; // word-internal 词中 @
+      if (i > 0 && !_isWhitespace(text[i - 1])) {
+        return null; // word-internal 词中 @
+      }
       return (start: i, query: text.substring(i + 1, cursor));
     }
     if (_isWhitespace(ch)) return null; // token broken by whitespace 被空白断开
@@ -20,4 +22,3 @@
 }
 
 bool _isWhitespace(String ch) => ch == ' ' || ch == '\n' || ch == '\t';
-

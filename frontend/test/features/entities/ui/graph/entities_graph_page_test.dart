@@ -18,9 +18,18 @@ Widget _host({String initialLocation = '/entities/graph'}) {
   final router = GoRouter(
     initialLocation: initialLocation,
     routes: [
-      GoRoute(path: '/', builder: (_, _) => const Scaffold(body: Center(child: Text('HOME')))),
-      GoRoute(path: '/entities/graph', builder: (_, _) => const EntitiesGraphPage()),
-      GoRoute(path: '/entities/:kind/:id', builder: (_, _) => const Scaffold(body: Center(child: Text('DETAIL')))),
+      GoRoute(
+        path: '/',
+        builder: (_, _) => const Scaffold(body: Center(child: Text('HOME'))),
+      ),
+      GoRoute(
+        path: '/entities/graph',
+        builder: (_, _) => const EntitiesGraphPage(),
+      ),
+      GoRoute(
+        path: '/entities/:kind/:id',
+        builder: (_, _) => const Scaffold(body: Center(child: Text('DETAIL'))),
+      ),
     ],
   );
   addTearDown(router.dispose);
@@ -49,13 +58,23 @@ Future<void> _settle(WidgetTester tester) async {
 void main() {
   final g = t.entities.graph;
 
-  testWidgets('a legend chip toggles its kind hidden (legend IS the filter)', (tester) async {
+  testWidgets('a legend chip toggles its kind hidden (legend IS the filter)', (
+    tester,
+  ) async {
     await tester.pumpWidget(_host());
     await _settle(tester);
-    expect(_node('sk_research'), findsOneWidget, reason: 'the skill node is on the graph');
+    expect(
+      _node('sk_research'),
+      findsOneWidget,
+      reason: 'the skill node is on the graph',
+    );
     await tester.tap(find.text(t.ref.skill)); // the legend chip
     await tester.pump();
-    expect(_node('sk_research'), findsNothing, reason: 'toggled off by its legend chip');
+    expect(
+      _node('sk_research'),
+      findsNothing,
+      reason: 'toggled off by its legend chip',
+    );
   });
 
   testWidgets('show-provenance reveals the conversation nodes', (tester) async {
@@ -65,17 +84,30 @@ void main() {
     await tester.tap(find.text(g.showProvenance));
     await tester.pump();
     await _settle(tester);
-    expect(_node('cv_1'), findsOneWidget, reason: 'conversation nodes admitted with provenance on');
+    expect(
+      _node('cv_1'),
+      findsOneWidget,
+      reason: 'conversation nodes admitted with provenance on',
+    );
   });
 
-  testWidgets('the right-island card shows the selected node + its relation groups', (tester) async {
-    await tester.pumpWidget(_host(initialLocation: '/entities/graph?sel=function:fn_normalize'));
-    await _settle(tester);
-    // fn_normalize (a hub) is referenced by wf_invoice + two agents → the «被引用» group is present.
-    // AnGroupLabel uppercases the heading. 分组小标题 uppercase。
-    expect(find.text('normalize-input'), findsWidgets, reason: 'card header + node label');
-    expect(find.text(g.groupReferencedBy.toUpperCase()), findsOneWidget);
-  });
+  testWidgets(
+    'the right-island card shows the selected node + its relation groups',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(initialLocation: '/entities/graph?sel=function:fn_normalize'),
+      );
+      await _settle(tester);
+      // fn_normalize (a hub) is referenced by wf_invoice + two agents → the «被引用» group is present.
+      // AnGroupLabel uppercases the heading. 分组小标题 uppercase。
+      expect(
+        find.text('normalize-input'),
+        findsWidgets,
+        reason: 'card header + node label',
+      );
+      expect(find.text(g.groupReferencedBy.toUpperCase()), findsOneWidget);
+    },
+  );
 
   testWidgets('Esc returns to the Overview', (tester) async {
     await tester.pumpWidget(_host());
@@ -85,15 +117,23 @@ void main() {
     expect(find.text('HOME'), findsOneWidget);
   });
 
-  testWidgets('double-tapping a rail-kind node opens its detail page', (tester) async {
+  testWidgets('double-tapping a rail-kind node opens its detail page', (
+    tester,
+  ) async {
     await tester.pumpWidget(_host());
     await _settle(tester);
     final r = tester.getRect(_node('fn_normalize'));
     final dot = Offset(r.center.dx, r.top + 4);
     await tester.tapAt(dot);
     await tester.pump(const Duration(milliseconds: 40));
-    await tester.tapAt(dot); // second tap within the window → double-tap navigation
+    await tester.tapAt(
+      dot,
+    ); // second tap within the window → double-tap navigation
     await tester.pumpAndSettle();
-    expect(find.text('DETAIL'), findsOneWidget, reason: 'double-tap → /entities/function/fn_normalize');
+    expect(
+      find.text('DETAIL'),
+      findsOneWidget,
+      reason: 'double-tap → /entities/function/fn_normalize',
+    );
   });
 }

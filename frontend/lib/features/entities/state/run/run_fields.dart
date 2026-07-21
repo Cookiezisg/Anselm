@@ -19,14 +19,20 @@ List<Field> runInputFields(EntityKind kind, EntityDetail? d, {String? method}) {
     EntityKind.function => d.function?.activeVersion?.inputs ?? const [],
     EntityKind.agent => d.agent?.activeVersion?.inputs ?? const [],
     EntityKind.handler =>
-      d.handler?.activeVersion?.methods.where((m) => m.name == method).firstOrNull?.inputs ?? const [],
+      d.handler?.activeVersion?.methods
+              .where((m) => m.name == method)
+              .firstOrNull
+              ?.inputs ??
+          const [],
     EntityKind.workflow => const [],
-    EntityKind.control || EntityKind.approval || EntityKind.trigger => const [], // support kinds — not executable 支撑 kind 无执行入参
+    EntityKind.control || EntityKind.approval || EntityKind.trigger =>
+      const [], // support kinds — not executable 支撑 kind 无执行入参
   };
 }
 
 // The handler methods offered in the method picker (empty for non-handlers). 方法选择器的方法集(非 handler 空)。
-List<MethodSpec> runMethods(EntityDetail? d) => d?.handler?.activeVersion?.methods ?? const [];
+List<MethodSpec> runMethods(EntityDetail? d) =>
+    d?.handler?.activeVersion?.methods ?? const [];
 
 /// The workflow payload-source KIND for the picked source: 'manual', or the mounted trigger's
 /// source kind (cron/webhook/fsnotify/sensor) once its detail is loaded — the form renders that
@@ -34,6 +40,9 @@ List<MethodSpec> runMethods(EntityDetail? d) => d?.handler?.activeVersion?.metho
 /// wf 来源 kind:'manual' 或选中 trigger 的 source kind(detail 载后);表单渲模板、强转折叠同源。
 String wfSourceKind(Ref ref, EntityRef wf, String source) {
   if (source == 'manual') return 'manual';
-  final t = ref.read(entityDetailProvider(EntityRef(EntityKind.trigger, source))).value?.trigger;
+  final t = ref
+      .read(entityDetailProvider(EntityRef(EntityKind.trigger, source)))
+      .value
+      ?.trigger;
   return t?.kind.name ?? 'manual';
 }

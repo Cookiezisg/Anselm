@@ -107,4 +107,4 @@ agent `:invoke` 的 ReAct 轨迹经 **entities 流**（scope `agent:<id>`）以 
 
 - 改后端 DTO 字段/端点 → **同提交**改对应 Dart DTO + `entities_test.dart` golden（fromJson↔toJson key-equal）。
 - codegen 产物（`*.freezed.dart`/`*.g.dart`）**入库**（源等价、deterministic，fresh checkout 直接 analyze）；`build.yaml` 把 freezed/json scope 限到 `contract/**` + `features/**/data/**`，`explicit_to_json: true`。
-- 门禁 `make fe-verify`：codegen + `flutter analyze` 净 + `flutter test` 绿（含契约 golden）。
+- 门禁 `make -C frontend verify`：codegen + `flutter analyze` 净 + `flutter test` 绿（含契约 golden）。

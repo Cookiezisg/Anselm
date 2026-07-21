@@ -9,7 +9,13 @@ import '../design/typography.dart';
 /// motion → the final value appears instantly (history reads static). 计数滚动:0→value 一次(检索族的
 /// 计数揭示);tabular 稳宽不抖;reduced/非亲历即显。
 class AnCountUp extends StatefulWidget {
-  const AnCountUp(this.value, {this.animate = true, this.style, this.suffix, super.key});
+  const AnCountUp(
+    this.value, {
+    this.animate = true,
+    this.style,
+    this.suffix,
+    super.key,
+  });
 
   final int value;
 
@@ -26,7 +32,8 @@ class AnCountUp extends StatefulWidget {
   State<AnCountUp> createState() => _AnCountUpState();
 }
 
-class _AnCountUpState extends State<AnCountUp> with SingleTickerProviderStateMixin {
+class _AnCountUpState extends State<AnCountUp>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _c;
   bool _started = false;
 
@@ -35,7 +42,10 @@ class _AnCountUpState extends State<AnCountUp> with SingleTickerProviderStateMix
     super.initState();
     // Duration scales gently with magnitude, capped. 时长随量级微增、封顶。
     final ms = (200 + widget.value * 6).clamp(200, 900);
-    _c = AnimationController(vsync: this, duration: Duration(milliseconds: ms));
+    _c = AnimationController(
+      vsync: this,
+      duration: Duration(milliseconds: ms),
+    );
   }
 
   @override
@@ -58,15 +68,26 @@ class _AnCountUpState extends State<AnCountUp> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
-    final style = (widget.style ?? AnText.value()).copyWith(fontFeatures: const [FontFeature.tabularFigures()]);
+    final style = (widget.style ?? AnText.value()).copyWith(
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
     return AnimatedBuilder(
       animation: _c,
       builder: (context, _) {
-        final shown = (widget.value * AnMotion.easeOut.transform(_c.value)).round();
-        return Text.rich(TextSpan(children: [
-          TextSpan(text: '$shown', style: style),
-          if (widget.suffix != null) TextSpan(text: widget.suffix, style: widget.style ?? AnText.value()),
-        ]));
+        final shown = (widget.value * AnMotion.easeOut.transform(_c.value))
+            .round();
+        return Text.rich(
+          TextSpan(
+            children: [
+              TextSpan(text: '$shown', style: style),
+              if (widget.suffix != null)
+                TextSpan(
+                  text: widget.suffix,
+                  style: widget.style ?? AnText.value(),
+                ),
+            ],
+          ),
+        );
       },
     );
   }

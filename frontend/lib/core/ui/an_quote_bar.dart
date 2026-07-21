@@ -14,10 +14,15 @@ class AnQuoteBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.only(left: AnSpace.s12),
-        decoration: BoxDecoration(
-          border: Border(left: BorderSide(color: context.colors.lineStrong, width: AnSize.quoteBar)),
+    padding: const EdgeInsets.only(left: AnSpace.s12),
+    decoration: BoxDecoration(
+      border: Border(
+        left: BorderSide(
+          color: context.colors.lineStrong,
+          width: AnSize.quoteBar,
         ),
-        child: child,
-      );
+      ),
+    ),
+    child: child,
+  );
 }

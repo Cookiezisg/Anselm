@@ -22,14 +22,21 @@ void main() {
       expect(p.getBool(SettingsKeys.notifyOs), isFalse);
       expect(p.getDouble(SettingsKeys.windowZoom), 1.25);
       p.remove(SettingsKeys.theme);
-      expect(p.getString(SettingsKeys.theme), 'light', reason: 'remove → default 清除回默认');
+      expect(
+        p.getString(SettingsKeys.theme),
+        'light',
+        reason: 'remove → default 清除回默认',
+      );
     });
 
     test('declared prefix family roundtrip + undeclared family asserts', () {
       final p = SettingsPrefs.inMemory();
       expect(p.getFamilyBool('an.right.collapsed.', 'chat', def: true), isTrue);
       p.setFamilyBool('an.right.collapsed.', 'chat', false);
-      expect(p.getFamilyBool('an.right.collapsed.', 'chat', def: true), isFalse);
+      expect(
+        p.getFamilyBool('an.right.collapsed.', 'chat', def: true),
+        isFalse,
+      );
       expect(
         () => p.getFamilyBool('an.rogue.', 'x', def: false),
         throwsA(isA<AssertionError>()),
@@ -52,7 +59,11 @@ void main() {
       expect(p.getString(SettingsKeys.ocean), 'documents');
       expect(p.getString(SettingsKeys.chatAutoStage), 'never');
       final sp = await SharedPreferences.getInstance();
-      expect(sp.containsKey('fy.side.collapsed'), isFalse, reason: 'old name deleted 旧名已删');
+      expect(
+        sp.containsKey('fy.side.collapsed'),
+        isFalse,
+        reason: 'old name deleted 旧名已删',
+      );
       expect(sp.containsKey('fy.ocean'), isFalse);
     });
 
@@ -67,35 +78,52 @@ void main() {
   });
 
   group('resetAll 重置本地偏好', () {
-    test('clears every declared key + family members, leaves foreign keys alone', () async {
-      SharedPreferences.setMockInitialValues({
-        'an.theme': 'dark',
-        'an.side.w': 480.0,
-        'an.right.collapsed.chat': false,
-        'someone.elses.key': 'precious',
-      });
-      final p = await SettingsPrefs.load();
-      await p.resetAll();
-      expect(p.getString(SettingsKeys.theme), 'light');
-      expect(p.getDouble(SettingsKeys.sideWidth), 320);
-      final sp = await SharedPreferences.getInstance();
-      expect(sp.containsKey('an.right.collapsed.chat'), isFalse, reason: '声明族成员清除');
-      expect(sp.getString('someone.elses.key'), 'precious',
-          reason: 'NEVER a prefix wildcard — foreign keys survive 绝不通配,外键存活');
-    });
+    test(
+      'clears every declared key + family members, leaves foreign keys alone',
+      () async {
+        SharedPreferences.setMockInitialValues({
+          'an.theme': 'dark',
+          'an.side.w': 480.0,
+          'an.right.collapsed.chat': false,
+          'someone.elses.key': 'precious',
+        });
+        final p = await SettingsPrefs.load();
+        await p.resetAll();
+        expect(p.getString(SettingsKeys.theme), 'light');
+        expect(p.getDouble(SettingsKeys.sideWidth), 320);
+        final sp = await SharedPreferences.getInstance();
+        expect(
+          sp.containsKey('an.right.collapsed.chat'),
+          isFalse,
+          reason: '声明族成员清除',
+        );
+        expect(
+          sp.getString('someone.elses.key'),
+          'precious',
+          reason: 'NEVER a prefix wildcard — foreign keys survive 绝不通配,外键存活',
+        );
+      },
+    );
   });
 
   group('declaration invariants 声明表不变量', () {
-    test('key names are unique, an.*-prefixed, and every all-member is declared once', () {
-      final names = SettingsKeys.all.map((k) => k.key).toList();
-      expect(names.toSet().length, names.length, reason: 'no duplicate keys 无重复键');
-      for (final n in names) {
-        expect(n.startsWith('an.'), isTrue, reason: '$n must be an.* 统一前缀');
-      }
-      for (final f in SettingsKeys.families) {
-        expect(f.startsWith('an.'), isTrue);
-        expect(f.endsWith('.'), isTrue, reason: 'family is a prefix 族名以点结尾');
-      }
-    });
+    test(
+      'key names are unique, an.*-prefixed, and every all-member is declared once',
+      () {
+        final names = SettingsKeys.all.map((k) => k.key).toList();
+        expect(
+          names.toSet().length,
+          names.length,
+          reason: 'no duplicate keys 无重复键',
+        );
+        for (final n in names) {
+          expect(n.startsWith('an.'), isTrue, reason: '$n must be an.* 统一前缀');
+        }
+        for (final f in SettingsKeys.families) {
+          expect(f.startsWith('an.'), isTrue);
+          expect(f.endsWith('.'), isTrue, reason: 'family is a prefix 族名以点结尾');
+        }
+      },
+    );
   });
 }

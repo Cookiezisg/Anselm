@@ -101,7 +101,8 @@ class _InspectorShell extends ConsumerWidget {
           menuEntries: menuEntries,
           menuSemanticLabel: context.t.a11y.moreActions,
           sub: sub,
-          onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
+          onClose: () =>
+              ref.read(rightPanelCollapsedProvider.notifier).set(true),
           closeSemantics: context.t.shell.togglePanel,
         ),
         Expanded(
@@ -110,7 +111,9 @@ class _InspectorShell extends ConsumerWidget {
             // No horizontal pad — the [AnIsland]'s 12px is the sole island inset (single-source law).
             // 水平 0:岛壳 12 即唯一岛级内距。
             child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: AnSpace.s8), child: body),
+              padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
+              child: body,
+            ),
           ),
         ),
       ],
@@ -140,7 +143,8 @@ List<AnMenuEntry> _menuEntries(BuildContext context, WidgetRef ref) {
 
 /// The number of NON-WHITESPACE code points in [content] — a coarse «字数» for the glance (raw markdown
 /// characters; a size proxy, not a linguistic word count). 非空白码点数(粗粒度字数,含 markdown 语法字符)。
-int _charCount(String content) => content.replaceAll(RegExp(r'\s+'), '').runes.length;
+int _charCount(String content) =>
+    content.replaceAll(RegExp(r'\s+'), '').runes.length;
 
 /// A compact count: `840` / `2.4k` / `12k` (trailing `.0` stripped). 紧凑计数。
 String _compactCount(int n) {
@@ -152,7 +156,12 @@ String _compactCount(int n) {
 /// The §2 GLANCE strip — one quiet [AnText.meta] line of `N 字 · M 反链 · <rel>编辑`, each segment present
 /// ONLY when it carries signal (零人话律: chars/backlinks omitted at 0; «edited» always meaningful from
 /// updatedAt). Returns null when nothing has a value → [AnPanelHead] draws no band. 速览带:有信号才在段,全空→null。
-Widget? _glance(BuildContext context, {required int chars, required int backlinks, required DateTime updatedAt}) {
+Widget? _glance(
+  BuildContext context, {
+  required int chars,
+  required int backlinks,
+  required DateTime updatedAt,
+}) {
   final c = context.colors;
   final p = context.t.documents.props;
   final rel = fmtRelativeDay(
@@ -205,9 +214,13 @@ class _GroupSection extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final open = !ref.watch(docGroupCollapseProvider).contains(groupKey);
-    void toggle() => ref.read(docGroupCollapseProvider.notifier).toggle(groupKey);
+    void toggle() =>
+        ref.read(docGroupCollapseProvider.notifier).toggle(groupKey);
     // The body breathes below the head; the next group head is the separator (no dividers). 体在头下透气,组头即分隔。
-    final body = Padding(padding: const EdgeInsets.only(top: AnSpace.s2, bottom: AnSpace.s12), child: child);
+    final body = Padding(
+      padding: const EdgeInsets.only(top: AnSpace.s2, bottom: AnSpace.s12),
+      child: child,
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -257,7 +270,8 @@ class _OutlineGroup extends ConsumerWidget {
             AnRow(
               depth: outline[i].level - minLevel,
               label: outline[i].text,
-              leadless: true, // a TOC has no icons — the reserved slot reads as mystery indent 目录无图标
+              leadless:
+                  true, // a TOC has no icons — the reserved slot reads as mystery indent 目录无图标
               selected: active == i,
               onSelect: () => ref.read(outlineJumpProvider.notifier).jump(i),
             ),
@@ -277,9 +291,9 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: AnSpace.s16),
-        child: AnFormField(label: label, desc: desc, child: child),
-      );
+    padding: const EdgeInsets.only(bottom: AnSpace.s16),
+    child: AnFormField(label: label, desc: desc, child: child),
+  );
 }
 
 // ── document properties ──
@@ -299,8 +313,12 @@ class _DocProperties extends ConsumerWidget {
     Widget? sub;
     if (loaded != null) {
       final backlinks = ref.watch(backlinksProvider(id)).value ?? const [];
-      sub = _glance(context,
-          chars: _charCount(loaded.content), backlinks: backlinks.length, updatedAt: loaded.updatedAt);
+      sub = _glance(
+        context,
+        chars: _charCount(loaded.content),
+        backlinks: backlinks.length,
+        updatedAt: loaded.updatedAt,
+      );
     }
     return _InspectorShell(
       icon: AnIcons.doc,
@@ -310,8 +328,11 @@ class _DocProperties extends ConsumerWidget {
       sub: sub,
       body: doc.when(
         loading: () => const AnSkeleton.lines(5),
-        error: (_, _) =>
-            AnState(kind: AnStateKind.error, size: AnStateSize.inset, title: t.documents.loadFailed),
+        error: (_, _) => AnState(
+          kind: AnStateKind.error,
+          size: AnStateSize.inset,
+          title: t.documents.loadFailed,
+        ),
         // The island is "about this page" only: outline (live focus) / file meta / backlinks. The page's
         // OWN properties (name/description/tags) edit in the CENTER under the big title. 右岛只谈「这一页」。
         data: (doc) => Column(
@@ -366,14 +387,17 @@ class _BacklinksGroup extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final c = context.colors;
-    return ref.watch(backlinksProvider(id)).when(
+    return ref
+        .watch(backlinksProvider(id))
+        .when(
           loading: () => _GroupSection(
             groupKey: kDocGroupBacklinks,
             label: t.documents.props.backlinks,
             count: 0,
             child: const AnSkeleton.lines(2),
           ),
-          error: (_, _) => const SizedBox.shrink(), // quiet: backlinks are auxiliary 反链是辅助信息,静默降级
+          error: (_, _) =>
+              const SizedBox.shrink(), // quiet: backlinks are auxiliary 反链是辅助信息,静默降级
           data: (links) => _GroupSection(
             groupKey: kDocGroupBacklinks,
             label: t.documents.props.backlinks,
@@ -381,8 +405,10 @@ class _BacklinksGroup extends ConsumerWidget {
             child: links.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-                    child: Text(t.documents.props.noBacklinks,
-                        style: AnText.meta.copyWith(color: c.inkFaint)),
+                    child: Text(
+                      t.documents.props.noBacklinks,
+                      style: AnText.meta.copyWith(color: c.inkFaint),
+                    ),
                   )
                 : Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -390,7 +416,9 @@ class _BacklinksGroup extends ConsumerWidget {
                       for (final link in links)
                         AnRow(
                           icon: AnIcons.byKey(link.fromKind),
-                          label: link.fromName.isEmpty ? link.fromId : link.fromName,
+                          label: link.fromName.isEmpty
+                              ? link.fromId
+                              : link.fromName,
                           onSelect: link.fromKind == 'document'
                               ? () => context.go(documentLocation(link.fromId))
                               : null,
@@ -418,7 +446,12 @@ class _SkillProperties extends ConsumerWidget {
     // by 零人话律 (backlinks: 0). Glance = «N 字 · <rel>编辑». skill 无反链→段被 0 律省;速览带=字+编辑。
     Widget? sub;
     if (loaded != null) {
-      sub = _glance(context, chars: _charCount(loaded.body), backlinks: 0, updatedAt: loaded.updatedAt);
+      sub = _glance(
+        context,
+        chars: _charCount(loaded.body),
+        backlinks: 0,
+        updatedAt: loaded.updatedAt,
+      );
     }
     return _InspectorShell(
       icon: AnIcons.skill,
@@ -428,8 +461,11 @@ class _SkillProperties extends ConsumerWidget {
       sub: sub,
       body: skill.when(
         loading: () => const AnSkeleton.lines(6),
-        error: (_, _) =>
-            AnState(kind: AnStateKind.error, size: AnStateSize.inset, title: t.documents.loadFailed),
+        error: (_, _) => AnState(
+          kind: AnStateKind.error,
+          size: AnStateSize.inset,
+          title: t.documents.loadFailed,
+        ),
         data: (skill) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -529,28 +565,28 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
   // edit in the center; this island owns only the CONFIG fields). 整套 PUT;读-改-写:PUT 前取**当前**
   // skill——中心可能已存更新的 body/描述(身份/描述归中心,本岛只管配置字段)。
   void _put() => _save.run(() async {
-        try {
-          final current = await _repo.getSkill(widget.skill.name);
-          await _repo.replaceSkill(widget.skill.name, {
-            'description': current.description,
-            'body': current.body,
-            'allowedTools': _tools,
-            'context': _context,
-            'agent': _agent.text.trim(),
-            'arguments': _args,
-            'disableModelInvocation': _disableModelInvocation,
-            'userInvocable': _userInvocable,
-          });
-          if (!mounted) return;
-          ref.invalidate(skillListProvider);
-        } catch (_) {
-          if (mounted) {
-            ref
-                .read(noticeCenterProvider.notifier)
-                .show(context.t.documents.actionFailed, tone: AnTone.danger);
-          }
-        }
+    try {
+      final current = await _repo.getSkill(widget.skill.name);
+      await _repo.replaceSkill(widget.skill.name, {
+        'description': current.description,
+        'body': current.body,
+        'allowedTools': _tools,
+        'context': _context,
+        'agent': _agent.text.trim(),
+        'arguments': _args,
+        'disableModelInvocation': _disableModelInvocation,
+        'userInvocable': _userInvocable,
       });
+      if (!mounted) return;
+      ref.invalidate(skillListProvider);
+    } catch (_) {
+      if (mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+      }
+    }
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -567,7 +603,10 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
             block: true,
             value: _context,
             options: [
-              AnDropdownOption(value: kSkillContextInline, label: p.contextInline),
+              AnDropdownOption(
+                value: kSkillContextInline,
+                label: p.contextInline,
+              ),
               AnDropdownOption(value: kSkillContextFork, label: p.contextFork),
             ],
             onChanged: (v) {
@@ -581,7 +620,11 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
           _Field(
             label: p.agent,
             desc: p.agentHint,
-            child: AnInput(controller: _agent, block: true, onChanged: (_) => _put()),
+            child: AnInput(
+              controller: _agent,
+              block: true,
+              onChanged: (_) => _put(),
+            ),
           ),
         _Field(
           label: p.tools,
@@ -637,7 +680,12 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
 
 /// A boolean as an On/Off dropdown (the app has no switch primitive; mirrors approval's yes/no). 布尔=开/关下拉。
 class _OnOff extends StatelessWidget {
-  const _OnOff({required this.value, required this.onChanged, required this.onLabel, required this.offLabel});
+  const _OnOff({
+    required this.value,
+    required this.onChanged,
+    required this.onLabel,
+    required this.offLabel,
+  });
 
   final bool value;
   final ValueChanged<bool> onChanged;
@@ -646,12 +694,12 @@ class _OnOff extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => AnDropdown<bool>(
-        block: true,
-        value: value,
-        options: [
-          AnDropdownOption(value: true, label: onLabel),
-          AnDropdownOption(value: false, label: offLabel),
-        ],
-        onChanged: (v) => onChanged(v),
-      );
+    block: true,
+    value: value,
+    options: [
+      AnDropdownOption(value: true, label: onLabel),
+      AnDropdownOption(value: false, label: offLabel),
+    ],
+    onChanged: (v) => onChanged(v),
+  );
 }

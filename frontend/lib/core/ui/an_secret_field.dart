@@ -48,7 +48,8 @@ class AnSecretField extends StatefulWidget {
 }
 
 class _AnSecretFieldState extends State<AnSecretField> {
-  late final TextEditingController _controller = widget.controller ?? TextEditingController();
+  late final TextEditingController _controller =
+      widget.controller ?? TextEditingController();
   bool _revealed = false;
 
   @override
@@ -80,43 +81,46 @@ class _AnSecretFieldState extends State<AnSecretField> {
         borderRadius: BorderRadius.circular(AnRadius.button),
         border: Border.all(color: c.line, width: AnSize.hairline),
       ),
-      child: Row(children: [
-        Expanded(
-          child: TextField(
-            controller: _controller,
-            enabled: widget.enabled,
-            autofocus: widget.autofocus,
-            obscureText: !_revealed,
-            obscuringCharacter: '•',
-            autocorrect: false,
-            enableSuggestions: false,
-            // The kit's caret law — all THREE properties, like an_input/an_composer/an_code_editor.
-            // The height was the one this field forgot: left null it took the platform line box (21.5 on
-            // macOS for mono 13/1.5), so a secret row sat beside an AnInput row (16) in the SAME form
-            // with a 40%-taller caret (models-keys panel stacks the two; the MCP env list alternates them
-            // row by row). 套件光标法三项全钉(此前独漏高):留 null 取平台行盒(mono 13/1.5 在 macOS = 21.5),
-            // 于是同一张表单里密钥格的光标比相邻 AnInput 格(16)高 40%(模型密钥面板上下相邻、MCP env 列逐行交替)。
-            cursorColor: c.ink,
-            cursorWidth: AnSize.caret,
-            cursorHeight: AnText.mono.fontSize! + AnSize.caretRise,
-            style: AnText.mono.copyWith(color: c.ink),
-            decoration: InputDecoration(
-              isDense: true,
-              border: InputBorder.none,
-              hintText: widget.placeholder,
-              hintStyle: AnText.body.copyWith(color: c.inkFaint),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _controller,
+              enabled: widget.enabled,
+              autofocus: widget.autofocus,
+              obscureText: !_revealed,
+              obscuringCharacter: '•',
+              autocorrect: false,
+              enableSuggestions: false,
+              // The kit's caret law — all THREE properties, like an_input/an_composer/an_code_editor.
+              // The height was the one this field forgot: left null it took the platform line box (21.5 on
+              // macOS for mono 13/1.5), so a secret row sat beside an AnInput row (16) in the SAME form
+              // with a 40%-taller caret (models-keys panel stacks the two; the MCP env list alternates them
+              // row by row). 套件光标法三项全钉(此前独漏高):留 null 取平台行盒(mono 13/1.5 在 macOS = 21.5),
+              // 于是同一张表单里密钥格的光标比相邻 AnInput 格(16)高 40%(模型密钥面板上下相邻、MCP env 列逐行交替)。
+              cursorColor: c.ink,
+              cursorWidth: AnSize.caret,
+              cursorHeight: AnText.mono.fontSize! + AnSize.caretRise,
+              style: AnText.mono.copyWith(color: c.ink),
+              decoration: InputDecoration(
+                isDense: true,
+                border: InputBorder.none,
+                hintText: widget.placeholder,
+                hintStyle: AnText.body.copyWith(color: c.inkFaint),
+              ),
+              onChanged: _onChanged,
+              onSubmitted: widget.onSubmitted,
             ),
-            onChanged: _onChanged,
-            onSubmitted: widget.onSubmitted,
           ),
-        ),
-        AnButton.iconOnly(
-          _revealed ? AnIcons.eyeOff : AnIcons.eye,
-          size: AnButtonSize.sm,
-          onPressed: () => setState(() => _revealed = !_revealed),
-          semanticLabel: (_revealed ? widget.concealLabel : widget.revealLabel) ?? '',
-        ),
-      ]),
+          AnButton.iconOnly(
+            _revealed ? AnIcons.eyeOff : AnIcons.eye,
+            size: AnButtonSize.sm,
+            onPressed: () => setState(() => _revealed = !_revealed),
+            semanticLabel:
+                (_revealed ? widget.concealLabel : widget.revealLabel) ?? '',
+          ),
+        ],
+      ),
     );
   }
 }

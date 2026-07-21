@@ -39,39 +39,45 @@ void main() {
 
   // P5 (C-001 area) — flush() delivers the last pending action instead of dropping it, so an owner (e.g.
   // the doc autosave) can call it in dispose to avoid losing an edit made within the debounce window.
-  test('flush fires the pending action immediately (the LATEST one) and stops the timer', () {
-    fakeAsync((async) {
-      final d = Debouncer(const Duration(milliseconds: 600));
-      var fired = 0;
-      String? last;
-      d.run(() {
-        fired++;
-        last = 'a';
+  test(
+    'flush fires the pending action immediately (the LATEST one) and stops the timer',
+    () {
+      fakeAsync((async) {
+        final d = Debouncer(const Duration(milliseconds: 600));
+        var fired = 0;
+        String? last;
+        d.run(() {
+          fired++;
+          last = 'a';
+        });
+        d.run(() {
+          fired++;
+          last = 'b';
+        }); // supersedes 'a'
+        expect(fired, 0); // still pending
+        d.flush();
+        expect(fired, 1); // delivered now, not dropped
+        expect(last, 'b'); // the latest edit
+        async.elapse(const Duration(milliseconds: 700));
+        expect(fired, 1); // timer was cancelled — no double fire
       });
-      d.run(() {
-        fired++;
-        last = 'b';
-      }); // supersedes 'a'
-      expect(fired, 0); // still pending
-      d.flush();
-      expect(fired, 1); // delivered now, not dropped
-      expect(last, 'b'); // the latest edit
-      async.elapse(const Duration(milliseconds: 700));
-      expect(fired, 1); // timer was cancelled — no double fire
-    });
-  });
+    },
+  );
 
-  test('flush with nothing pending is a no-op (and does not re-fire an already-fired action)', () {
-    fakeAsync((async) {
-      final d = Debouncer(const Duration(milliseconds: 250));
-      var fired = 0;
-      d.flush(); // nothing scheduled
-      expect(fired, 0);
-      d.run(() => fired++);
-      async.elapse(const Duration(milliseconds: 300)); // fires normally
-      expect(fired, 1);
-      d.flush(); // pending was cleared when the timer fired
-      expect(fired, 1);
-    });
-  });
+  test(
+    'flush with nothing pending is a no-op (and does not re-fire an already-fired action)',
+    () {
+      fakeAsync((async) {
+        final d = Debouncer(const Duration(milliseconds: 250));
+        var fired = 0;
+        d.flush(); // nothing scheduled
+        expect(fired, 0);
+        d.run(() => fired++);
+        async.elapse(const Duration(milliseconds: 300)); // fires normally
+        expect(fired, 1);
+        d.flush(); // pending was cleared when the timer fired
+        expect(fired, 1);
+      });
+    },
+  );
 }

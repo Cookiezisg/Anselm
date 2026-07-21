@@ -25,7 +25,8 @@ class AppFocus extends Notifier<bool> {
 
   /// Test seam: drive the focus state as if the OS reported a lifecycle change. 测试缝:模拟 OS 生命周期。
   @visibleForTesting
-  void debugSetLifecycle(AppLifecycleState value) => _observer?.didChangeAppLifecycleState(value);
+  void debugSetLifecycle(AppLifecycleState value) =>
+      _observer?.didChangeAppLifecycleState(value);
 }
 
 /// A plain [WidgetsBindingObserver] that reports focus (resumed = focused) — kept OFF the Notifier so its

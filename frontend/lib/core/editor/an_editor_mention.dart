@@ -14,7 +14,11 @@ import '../ui/icons.dart';
 /// 嵌进文本→渲成图标+名药丸(非纯文字);只 id 落盘(`[[id]]`),名/kind 显示用、load 时经 resolveNames 重解析。
 @immutable
 class MentionPlaceholder {
-  const MentionPlaceholder({required this.id, required this.name, required this.kind});
+  const MentionPlaceholder({
+    required this.id,
+    required this.name,
+    required this.kind,
+  });
 
   /// The entity id — the ONLY thing persisted (`[[id]]`). 唯一落盘。
   final String id;
@@ -28,7 +32,10 @@ class MentionPlaceholder {
 
   @override
   bool operator ==(Object other) =>
-      other is MentionPlaceholder && other.id == id && other.name == name && other.kind == kind;
+      other is MentionPlaceholder &&
+      other.id == id &&
+      other.name == name &&
+      other.kind == kind;
 
   @override
   int get hashCode => Object.hash(id, name, kind);
@@ -37,7 +44,11 @@ class MentionPlaceholder {
 /// The inline-widget builder that turns a [MentionPlaceholder] into the pill. Returns null for any other
 /// placeholder so the chain falls through to the defaults. Added to the stylesheet's inlineWidgetBuilders.
 /// placeholder→药丸;非本类返 null 放行。挂进样式表 inlineWidgetBuilders。
-Widget? anMentionInlineWidgetBuilder(BuildContext context, TextStyle textStyle, Object placeholder) {
+Widget? anMentionInlineWidgetBuilder(
+  BuildContext context,
+  TextStyle textStyle,
+  Object placeholder,
+) {
   if (placeholder is! MentionPlaceholder) return null;
   return _MentionPill(mention: placeholder, textStyle: textStyle);
 }
@@ -60,11 +71,16 @@ class AnMentionOverlay extends DocumentLayoutLayerStatefulWidget {
   final ValueChanged<int> onPick;
 
   @override
-  DocumentLayoutLayerState<AnMentionOverlay, ({double left, double top})?> createState() =>
-      _AnMentionOverlayState();
+  DocumentLayoutLayerState<AnMentionOverlay, ({double left, double top})?>
+  createState() => _AnMentionOverlayState();
 }
 
-class _AnMentionOverlayState extends DocumentLayoutLayerState<AnMentionOverlay, ({double left, double top})?> {
+class _AnMentionOverlayState
+    extends
+        DocumentLayoutLayerState<
+          AnMentionOverlay,
+          ({double left, double top})?
+        > {
   @override
   ({double left, double top})? computeLayoutDataWithDocumentLayout(
     BuildContext contentLayersContext,
@@ -74,19 +90,29 @@ class _AnMentionOverlayState extends DocumentLayoutLayerState<AnMentionOverlay, 
     final composing = widget.composing;
     if (composing == null || widget.items.isEmpty) return null;
     final anchorPos = composing.contentBounds.start;
-    if (documentLayout.getComponentByNodeId(anchorPos.nodeId) == null) return null;
+    if (documentLayout.getComponentByNodeId(anchorPos.nodeId) == null) {
+      return null;
+    }
     final anchor = documentLayout.getRectForPosition(anchorPos);
     if (anchor == null) return null;
 
     // Shared caret-anchored placement (A-104) — flip above when below overflows (same as slash). 同 slash 翻转。
     final box = context.findRenderObject() as RenderBox?;
-    final layerHeight = (box != null && box.hasSize) ? box.size.height : double.infinity;
-    return AnMenuSurface.caretPlacement(anchor: anchor, rows: widget.items.length, layerHeight: layerHeight);
+    final layerHeight = (box != null && box.hasSize)
+        ? box.size.height
+        : double.infinity;
+    return AnMenuSurface.caretPlacement(
+      anchor: anchor,
+      rows: widget.items.length,
+      layerHeight: layerHeight,
+    );
   }
 
   @override
   Widget doBuild(BuildContext context, ({double left, double top})? placement) {
-    if (placement == null || widget.items.isEmpty) return const SizedBox.shrink();
+    if (placement == null || widget.items.isEmpty) {
+      return const SizedBox.shrink();
+    }
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -96,8 +122,15 @@ class _AnMentionOverlayState extends DocumentLayoutLayerState<AnMentionOverlay, 
           // AnMentionPanel only caps its HEIGHT (it's normally sized to the composer's width); floating at
           // the caret it needs a bounded width or it lays out unbounded. 面板只封高,浮层处须给定宽。
           child: ConstrainedBox(
-            constraints: const BoxConstraints(minWidth: AnSize.menuMinWidth, maxWidth: AnSize.menuMaxWidth),
-            child: AnMentionPanel(items: widget.items, activeIndex: widget.activeIndex, onPick: widget.onPick),
+            constraints: const BoxConstraints(
+              minWidth: AnSize.menuMinWidth,
+              maxWidth: AnSize.menuMaxWidth,
+            ),
+            child: AnMentionPanel(
+              items: widget.items,
+              activeIndex: widget.activeIndex,
+              onPick: widget.onPick,
+            ),
           ),
         ),
       ],

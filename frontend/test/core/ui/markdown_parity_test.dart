@@ -24,92 +24,124 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   // Chat host — AnMarkdown in a bounded, scrollable reading column. chat 宿主(有界可滚阅读列)。
   Widget chatHost(String md) => TranslationProvider(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AnTheme.light(),
-          home: Scaffold(
-            body: SizedBox(
-              width: 720,
-              child: SingleChildScrollView(child: AnMarkdown(md)),
-            ),
-          ),
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AnTheme.light(),
+      home: Scaffold(
+        body: SizedBox(
+          width: 720,
+          child: SingleChildScrollView(child: AnMarkdown(md)),
         ),
-      );
+      ),
+    ),
+  );
 
   // Editor host — AnEditor (its own scroll) under a ProviderScope, mirroring the demo/app wiring; the
   // mention id resolves to a name so the `[[id]]` pill renders. 编辑器宿主(自持滚动、ProviderScope)。
   Widget editorHost(String md) => ProviderScope(
-        child: TranslationProvider(
-          child: MaterialApp(
-            debugShowCheckedModeBanner: false,
-            theme: AnTheme.light(),
-            home: Scaffold(
-              body: SizedBox(
-                width: 720,
-                child: AnEditor(
-                  initialMarkdown: md,
-                  resolvedNames: const {kCorpusMentionId: kCorpusMentionName},
-                ),
-              ),
+    child: TranslationProvider(
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        home: Scaffold(
+          body: SizedBox(
+            width: 720,
+            child: AnEditor(
+              initialMarkdown: md,
+              resolvedNames: const {kCorpusMentionId: kCorpusMentionName},
             ),
           ),
         ),
-      );
+      ),
+    ),
+  );
 
   setUp(() {
     // super_editor's interactors read accessibility features; pin them so nothing animates/asserts.
-    TestWidgetsFlutterBinding.instance.platformDispatcher.accessibilityFeaturesTestValue =
-        const FakeAccessibilityFeatures(disableAnimations: true);
+    TestWidgetsFlutterBinding
+        .instance
+        .platformDispatcher
+        .accessibilityFeaturesTestValue = const FakeAccessibilityFeatures(
+      disableAnimations: true,
+    );
   });
-  tearDown(() => TestWidgetsFlutterBinding.instance.platformDispatcher.clearAccessibilityFeaturesTestValue());
+  tearDown(
+    () => TestWidgetsFlutterBinding.instance.platformDispatcher
+        .clearAccessibilityFeaturesTestValue(),
+  );
 
-  testWidgets('the whole markdown corpus renders on CHAT (AnMarkdown) without throwing', (tester) async {
-    tester.view.physicalSize = const Size(760, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(chatHost(buildMarkdownCorpus()));
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    expect(find.byType(AnMarkdown), findsOneWidget);
-  });
+  testWidgets(
+    'the whole markdown corpus renders on CHAT (AnMarkdown) without throwing',
+    (tester) async {
+      tester.view.physicalSize = const Size(760, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(chatHost(buildMarkdownCorpus()));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(AnMarkdown), findsOneWidget);
+    },
+  );
 
-  testWidgets('the whole markdown corpus renders on the EDITOR (AnEditor) without throwing', (tester) async {
-    tester.view.physicalSize = const Size(760, 1400);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(editorHost(buildMarkdownCorpus()));
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    expect(find.byType(AnEditor), findsOneWidget);
-  });
+  testWidgets(
+    'the whole markdown corpus renders on the EDITOR (AnEditor) without throwing',
+    (tester) async {
+      tester.view.physicalSize = const Size(760, 1400);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(editorHost(buildMarkdownCorpus()));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      expect(find.byType(AnEditor), findsOneWidget);
+    },
+  );
 
-  testWidgets('a plain table renders IDENTICAL Table geometry on chat and editor (1:1)', (tester) async {
-    tester.view.physicalSize = const Size(760, 1000);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-    const md = '| Kind | Verb | Example |\n'
-        '|---|:---:|---:|\n'
-        '| function | run | fetch_weather |\n'
-        '| handler | call | slack.post |\n'
-        '| workflow | trigger | daily_digest |';
+  testWidgets(
+    'a plain table renders IDENTICAL Table geometry on chat and editor (1:1)',
+    (tester) async {
+      tester.view.physicalSize = const Size(760, 1000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      const md =
+          '| Kind | Verb | Example |\n'
+          '|---|:---:|---:|\n'
+          '| function | run | fetch_weather |\n'
+          '| handler | call | slack.post |\n'
+          '| workflow | trigger | daily_digest |';
 
-    await tester.pumpWidget(chatHost(md));
-    await tester.pump();
-    final chatSize = tester.getSize(find.byType(Table));
-    final chatTable = tester.widget<Table>(find.byType(Table));
+      await tester.pumpWidget(chatHost(md));
+      await tester.pump();
+      final chatSize = tester.getSize(find.byType(Table));
+      final chatTable = tester.widget<Table>(find.byType(Table));
 
-    await tester.pumpWidget(editorHost(md));
-    await tester.pump();
-    final editSize = tester.getSize(find.byType(Table));
-    final editTable = tester.widget<Table>(find.byType(Table));
+      await tester.pumpWidget(editorHost(md));
+      await tester.pump();
+      final editSize = tester.getSize(find.byType(Table));
+      final editTable = tester.widget<Table>(find.byType(Table));
 
-    // Same structure: identical row count (header + 3 data) and column count.
-    expect(chatTable.children.length, editTable.children.length, reason: 'same row count');
-    expect(chatTable.children.first.children.length, editTable.children.first.children.length,
-        reason: 'same column count');
-    // Same rendered geometry — both a Flutter Table filling the same 720 column with the same shared tokens
-    // (border hairline, cellPadding 12h/6v, reading text). Sub-pixel tolerance for glyph rounding.
-    expect((chatSize.width - editSize.width).abs(), lessThan(1.0), reason: 'same table width');
-    expect((chatSize.height - editSize.height).abs(), lessThan(1.0), reason: 'same table height (row spacing)');
-  });
+      // Same structure: identical row count (header + 3 data) and column count.
+      expect(
+        chatTable.children.length,
+        editTable.children.length,
+        reason: 'same row count',
+      );
+      expect(
+        chatTable.children.first.children.length,
+        editTable.children.first.children.length,
+        reason: 'same column count',
+      );
+      // Same rendered geometry — both a Flutter Table filling the same 720 column with the same shared tokens
+      // (border hairline, cellPadding 12h/6v, reading text). Sub-pixel tolerance for glyph rounding.
+      expect(
+        (chatSize.width - editSize.width).abs(),
+        lessThan(1.0),
+        reason: 'same table width',
+      );
+      expect(
+        (chatSize.height - editSize.height).abs(),
+        lessThan(1.0),
+        reason: 'same table height (row spacing)',
+      );
+    },
+  );
 }

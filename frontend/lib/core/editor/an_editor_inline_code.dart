@@ -12,10 +12,13 @@ import 'package:super_editor/super_editor.dart';
 /// 普通空格换行处折零宽且可断行(代码会和内距分家),NBSP 是「胶水」不折不断、宽度稳。
 const codeSpacerAttribution = NamedAttribution('code_spacer');
 
-const _nbsp = ' '; // NON-BREAKING SPACE (U+00A0) — real width, non-collapsing, non-breaking
+const _nbsp =
+    ' '; // NON-BREAKING SPACE (U+00A0) — real width, non-collapsing, non-breaking
 
 bool _isSpacerAt(AttributedText text, int offset) =>
-    offset >= 0 && offset < text.length && text.getAllAttributionsAt(offset).contains(codeSpacerAttribution);
+    offset >= 0 &&
+    offset < text.length &&
+    text.getAllAttributionsAt(offset).contains(codeSpacerAttribution);
 
 /// Idempotently ensure every `codeAttribution` run in [source] is flanked by a spacer-NBSP on each side. Returns
 /// the (possibly new) text + the ASCENDING original offsets where a spacer was inserted (so a caret/selection
@@ -25,19 +28,28 @@ bool _isSpacerAt(AttributedText text, int offset) =>
 ({AttributedText text, List<int> inserts}) padCodeRuns(AttributedText source) {
   // DESCENDING by start so inserting for a later (higher) run never shifts an earlier run's original offsets.
   // 降序处理:先补靠后的 run,不动靠前 run 的原始偏移。
-  final spans = source.getAttributionSpans({codeAttribution}).toList()..sort((a, b) => b.start.compareTo(a.start));
+  final spans = source.getAttributionSpans({codeAttribution}).toList()
+    ..sort((a, b) => b.start.compareTo(a.start));
   var text = source;
   final inserts = <int>[];
   for (final span in spans) {
     // Trailing first (higher offset) then leading, so span.start stays valid for the leading insert. 先尾后头。
     if (!_isSpacerAt(text, span.end)) {
       final at = span.end + 1;
-      text = text.insertString(textToInsert: _nbsp, startOffset: at, applyAttributions: {codeAttribution, codeSpacerAttribution});
+      text = text.insertString(
+        textToInsert: _nbsp,
+        startOffset: at,
+        applyAttributions: {codeAttribution, codeSpacerAttribution},
+      );
       inserts.add(at);
     }
     if (!_isSpacerAt(text, span.start)) {
       final at = span.start;
-      text = text.insertString(textToInsert: _nbsp, startOffset: at, applyAttributions: {codeAttribution, codeSpacerAttribution});
+      text = text.insertString(
+        textToInsert: _nbsp,
+        startOffset: at,
+        applyAttributions: {codeAttribution, codeSpacerAttribution},
+      );
       inserts.add(at);
     }
   }
@@ -48,19 +60,32 @@ bool _isSpacerAt(AttributedText text, int offset) =>
 /// Remove every spacer-NBSP (the padding chars carrying [codeSpacerAttribution]) — used by the codec on SAVE so
 /// the serialized markdown is `` `code` `` with no injected padding. 剥离所有 spacer-NBSP(存盘用,markdown 无内距空格)。
 AttributedText stripCodeSpacers(AttributedText source) {
-  final spacers = source.getAttributionSpans({codeSpacerAttribution}).toList()..sort((a, b) => b.start.compareTo(a.start));
+  final spacers = source.getAttributionSpans({codeSpacerAttribution}).toList()
+    ..sort((a, b) => b.start.compareTo(a.start));
   var text = source;
   for (final s in spacers) {
-    text = text.removeRegion(startOffset: s.start, endOffset: s.end + 1); // DESCENDING → earlier offsets stay valid
+    text = text.removeRegion(
+      startOffset: s.start,
+      endOffset: s.end + 1,
+    ); // DESCENDING → earlier offsets stay valid
   }
   return text;
 }
 
-DocumentPosition _remapPosition(DocumentPosition pos, String nodeId, List<int> inserts) {
+DocumentPosition _remapPosition(
+  DocumentPosition pos,
+  String nodeId,
+  List<int> inserts,
+) {
   if (pos.nodeId != nodeId || pos.nodePosition is! TextNodePosition) return pos;
   final off = (pos.nodePosition as TextNodePosition).offset;
-  final shift = inserts.where((o) => o <= off).length; // each spacer inserted at/before the offset pushes it right
-  return DocumentPosition(nodeId: nodeId, nodePosition: TextNodePosition(offset: off + shift));
+  final shift = inserts
+      .where((o) => o <= off)
+      .length; // each spacer inserted at/before the offset pushes it right
+  return DocumentPosition(
+    nodeId: nodeId,
+    nodePosition: TextNodePosition(offset: off + shift),
+  );
 }
 
 /// Keeps every inline-code run padded with real NBSP spacers (see [codeSpacerAttribution]). Runs in `react`
@@ -79,17 +104,28 @@ class CodePadReconcileReaction extends EditReaction {
   const CodePadReconcileReaction();
 
   @override
-  void react(EditContext editorContext, RequestDispatcher requestDispatcher, List<EditEvent> changeList) {
-    final composer = editorContext.find<MutableDocumentComposer>(Editor.composerKey);
+  void react(
+    EditContext editorContext,
+    RequestDispatcher requestDispatcher,
+    List<EditEvent> changeList,
+  ) {
+    final composer = editorContext.find<MutableDocumentComposer>(
+      Editor.composerKey,
+    );
     final sel = composer.selection;
     if (sel == null) return;
     final document = editorContext.find<MutableDocument>(Editor.documentKey);
     final node = document.getNodeById(sel.extent.nodeId);
     if (node is! TextNode) return;
     final padded = padCodeRuns(node.text);
-    if (padded.inserts.isEmpty) return; // already fully padded — idempotent no-op (the common case)
+    if (padded.inserts.isEmpty) {
+      return; // already fully padded — idempotent no-op (the common case)
+    }
     requestDispatcher.execute([
-      ReplaceNodeRequest(existingNodeId: node.id, newNode: node.copyTextNodeWith(text: padded.text)),
+      ReplaceNodeRequest(
+        existingNodeId: node.id,
+        newNode: node.copyTextNodeWith(text: padded.text),
+      ),
       ChangeSelectionRequest(
         DocumentSelection(
           base: _remapPosition(sel.base, node.id, padded.inserts),
@@ -115,18 +151,31 @@ class CodePadReconcileReaction extends EditReaction {
 /// 行内代码=可换行的 codeAttribution 文本,由 AnTextComponent 底层画圆角背景(paint-beneath),非原子芯片。
 class InlineMarkdownReaction extends EditReaction {
   const InlineMarkdownReaction()
-      : _inner = const MarkdownInlineUpstreamSyntaxReaction(defaultUpstreamInlineMarkdownParsers);
+    : _inner = const MarkdownInlineUpstreamSyntaxReaction(
+        defaultUpstreamInlineMarkdownParsers,
+      );
 
   final MarkdownInlineUpstreamSyntaxReaction _inner;
 
   @override
-  void react(EditContext editorContext, RequestDispatcher requestDispatcher, List<EditEvent> changeList) {
-    final composer = editorContext.find<MutableDocumentComposer>(Editor.composerKey);
+  void react(
+    EditContext editorContext,
+    RequestDispatcher requestDispatcher,
+    List<EditEvent> changeList,
+  ) {
+    final composer = editorContext.find<MutableDocumentComposer>(
+      Editor.composerKey,
+    );
     final sel = composer.selection;
-    if (sel != null && sel.isCollapsed && sel.extent.nodePosition is TextNodePosition) {
-      final node = editorContext.find<MutableDocument>(Editor.documentKey).getNodeById(sel.extent.nodeId);
+    if (sel != null &&
+        sel.isCollapsed &&
+        sel.extent.nodePosition is TextNodePosition) {
+      final node = editorContext
+          .find<MutableDocument>(Editor.documentKey)
+          .getNodeById(sel.extent.nodeId);
       final caret = (sel.extent.nodePosition as TextNodePosition).offset;
-      if (node is TextNode && node.text.placeholders.keys.any((offset) => offset < caret)) {
+      if (node is TextNode &&
+          node.text.placeholders.keys.any((offset) => offset < caret)) {
         return; // a placeholder is upstream of the caret — the dev.40 parser would crash casting it to String
       }
     }

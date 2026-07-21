@@ -26,7 +26,16 @@ enum TriggerSource { cron, webhook, fsnotify, sensor, unknown }
 /// createdAt 是**错过的刻度本身**(后端回拨过)故天然坐落在时间轴正确位置,flowrunId 恒空(从未建 run)、
 /// activationId 为空(记账不是一次动作)。
 @JsonEnum()
-enum FiringStatus { pending, claimed, started, skipped, superseded, shed, missed, unknown }
+enum FiringStatus {
+  pending,
+  claimed,
+  started,
+  skipped,
+  superseded,
+  shed,
+  missed,
+  unknown,
+}
 
 /// Trigger entity — a standalone signal source that fires when its source condition is met (cron tick /
 /// webhook hit / file change / sensor probe), fanning the signal to every active workflow listening to
@@ -56,7 +65,8 @@ abstract class TriggerEntity with _$TriggerEntity {
     DateTime? lastFiredAt,
     DateTime? nextFireAt,
   }) = _TriggerEntity;
-  factory TriggerEntity.fromJson(Map<String, dynamic> json) => _$TriggerEntityFromJson(json);
+  factory TriggerEntity.fromJson(Map<String, dynamic> json) =>
+      _$TriggerEntityFromJson(json);
 }
 
 /// Activation — the per-action audit log (触发面): ONE row every time a trigger acts, FIRED OR NOT (a
@@ -78,7 +88,8 @@ abstract class Activation with _$Activation {
     @Default(0) int firingCount,
     required DateTime createdAt,
   }) = _Activation;
-  factory Activation.fromJson(Map<String, dynamic> json) => _$ActivationFromJson(json);
+  factory Activation.fromJson(Map<String, dynamic> json) =>
+      _$ActivationFromJson(json);
 }
 
 /// Firing — the durable inbox row (运行面, persist-before-act): written the moment a trigger fires, one

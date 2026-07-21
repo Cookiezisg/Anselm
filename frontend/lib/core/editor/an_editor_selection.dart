@@ -54,7 +54,11 @@ List<Rect> mergeBoxesByLine(List<TextBox> boxes) {
       final tolerance = math.min(r.height, e.height) / 2;
       if ((r.center.dy - e.center.dy).abs() < tolerance) {
         rects[i] = Rect.fromLTRB(
-            math.min(e.left, r.left), math.min(e.top, r.top), math.max(e.right, r.right), math.max(e.bottom, r.bottom));
+          math.min(e.left, r.left),
+          math.min(e.top, r.top),
+          math.max(e.right, r.right),
+          math.max(e.bottom, r.bottom),
+        );
         merged = true;
         break;
       }
@@ -81,13 +85,21 @@ class AnSelectionHighlightLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      painter: _AnSelectionPainter(textLayout: textLayout, selection: selection, color: color),
+      painter: _AnSelectionPainter(
+        textLayout: textLayout,
+        selection: selection,
+        color: color,
+      ),
     );
   }
 }
 
 class _AnSelectionPainter extends CustomPainter {
-  _AnSelectionPainter({required this.textLayout, required this.selection, required this.color});
+  _AnSelectionPainter({
+    required this.textLayout,
+    required this.selection,
+    required this.color,
+  });
 
   final TextLayout textLayout;
   final TextSelection selection;
@@ -97,7 +109,10 @@ class _AnSelectionPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     if (!selection.isValid || selection.isCollapsed) return;
     final paint = Paint()..color = color;
-    final boxes = textLayout.getBoxesForSelection(selection, boxHeightStyle: BoxHeightStyle.max);
+    final boxes = textLayout.getBoxesForSelection(
+      selection,
+      boxHeightStyle: BoxHeightStyle.max,
+    );
     for (final line in mergeBoxesByLine(boxes)) {
       canvas.drawRect(line, paint);
     }
@@ -105,7 +120,9 @@ class _AnSelectionPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_AnSelectionPainter old) =>
-      old.textLayout != textLayout || old.selection != selection || old.color != color;
+      old.textLayout != textLayout ||
+      old.selection != selection ||
+      old.color != color;
 }
 
 /// Fills the inter-block gaps inside an expanded selection (see the library note). For each ADJACENT node
@@ -120,7 +137,10 @@ class AnSelectionGapLayerBuilder implements SuperEditorLayerBuilder {
   final Color color;
 
   @override
-  ContentLayerWidget build(BuildContext context, SuperEditorContext editContext) {
+  ContentLayerWidget build(
+    BuildContext context,
+    SuperEditorContext editContext,
+  ) {
     return AnSelectionGapLayer(
       composer: editContext.composer,
       document: editContext.document,
@@ -142,10 +162,12 @@ class AnSelectionGapLayer extends DocumentLayoutLayerStatefulWidget {
   final Color color;
 
   @override
-  DocumentLayoutLayerState<AnSelectionGapLayer, List<Rect>> createState() => _AnSelectionGapLayerState();
+  DocumentLayoutLayerState<AnSelectionGapLayer, List<Rect>> createState() =>
+      _AnSelectionGapLayerState();
 }
 
-class _AnSelectionGapLayerState extends DocumentLayoutLayerState<AnSelectionGapLayer, List<Rect>> {
+class _AnSelectionGapLayerState
+    extends DocumentLayoutLayerState<AnSelectionGapLayer, List<Rect>> {
   @override
   void initState() {
     super.initState();
@@ -170,18 +192,25 @@ class _AnSelectionGapLayerState extends DocumentLayoutLayerState<AnSelectionGapL
   void _onSelectionChange() {
     // Same re-entrancy guard as the caret overlay: only force a rebuild when the pipeline isn't already
     // building (in-build changes are picked up by the layout pass that follows). 同 caret 层的重入守卫。
-    if (SchedulerBinding.instance.schedulerPhase != SchedulerPhase.persistentCallbacks) {
+    if (SchedulerBinding.instance.schedulerPhase !=
+        SchedulerPhase.persistentCallbacks) {
       setState(() {});
     }
   }
 
   @override
   List<Rect> computeLayoutDataWithDocumentLayout(
-      BuildContext contentLayersContext, BuildContext documentContext, DocumentLayout documentLayout) {
+    BuildContext contentLayersContext,
+    BuildContext documentContext,
+    DocumentLayout documentLayout,
+  ) {
     final selection = widget.composer.selection;
     if (selection == null || selection.isCollapsed) return const [];
 
-    final nodes = widget.document.getNodesInside(selection.base, selection.extent);
+    final nodes = widget.document.getNodesInside(
+      selection.base,
+      selection.extent,
+    );
     if (nodes.length < 2) return const [];
 
     final gaps = <Rect>[];
@@ -192,18 +221,25 @@ class _AnSelectionGapLayerState extends DocumentLayoutLayerState<AnSelectionGapL
         DocumentPosition(nodeId: above.id, nodePosition: above.endPosition),
       );
       final belowStart = documentLayout.getRectForPosition(
-        DocumentPosition(nodeId: below.id, nodePosition: below.beginningPosition),
+        DocumentPosition(
+          nodeId: below.id,
+          nodePosition: below.beginningPosition,
+        ),
       );
       if (aboveEnd == null || belowStart == null) continue;
       final top = aboveEnd.bottom;
       final bottom = belowStart.top;
-      if (bottom <= top) continue; // no gap (or overlapping frames) — nothing to fill 无缝可填
-      gaps.add(Rect.fromLTRB(
-        math.min(aboveEnd.left, belowStart.left),
-        top,
-        math.max(aboveEnd.right, belowStart.right),
-        bottom,
-      ));
+      if (bottom <= top) {
+        continue; // no gap (or overlapping frames) — nothing to fill 无缝可填
+      }
+      gaps.add(
+        Rect.fromLTRB(
+          math.min(aboveEnd.left, belowStart.left),
+          top,
+          math.max(aboveEnd.right, belowStart.right),
+          bottom,
+        ),
+      );
     }
     return gaps;
   }
@@ -216,7 +252,10 @@ class _AnSelectionGapLayerState extends DocumentLayoutLayerState<AnSelectionGapL
         clipBehavior: Clip.none,
         children: [
           for (final gap in gaps)
-            Positioned.fromRect(rect: gap, child: ColoredBox(color: widget.color)),
+            Positioned.fromRect(
+              rect: gap,
+              child: ColoredBox(color: widget.color),
+            ),
         ],
       ),
     );

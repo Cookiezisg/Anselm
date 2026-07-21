@@ -47,8 +47,10 @@ async function main() {
   try {
     const page = await browser.newPage({ viewport: VW, deviceScaleFactor: 1 });
     const errs = [];
+    const missing = [];
     page.on("console", (m) => { if (m.type() === "error") errs.push(m.text()); });
     page.on("pageerror", (e) => errs.push("PAGEERR: " + e.message));
+    page.on("response", (r) => { if (r.status() === 404) missing.push(r.url()); });
     // XSS 陷阱：注入串里的 onerror=alert(1) 一旦真执行就翻 __xssFired；alert/confirm/prompt 全拦
     await page.addInitScript(() => {
       window.__xssFired = false;
@@ -115,6 +117,7 @@ async function main() {
 
     // ---------- 2) app.html 冒烟 ----------
     const appErrBefore = errs.length;
+    const appMissingBefore = missing.length;
     await page.goto(BASE + "/app.html", { waitUntil: "networkidle" });
     await page.waitForTimeout(700);
     const appOk = await page.evaluate(() => {
@@ -124,7 +127,8 @@ async function main() {
     });
     if (!appOk.hasShell) fails.push("[app.html] 外壳未渲染");
     if (appOk.pageOvf > 2) fails.push(`[app.html] 页面横向溢出 +${appOk.pageOvf}px`);
-    if (errs.length - appErrBefore) fails.push(`[app.html] ${errs.length - appErrBefore} 个 console error`);
+    const appErrors = errs.slice(appErrBefore);
+    if (appErrors.length) fails.push(`[app.html] ${appErrors.length} 个 console error: ${appErrors.slice(0, 2).join(" | ")} (${missing.slice(appMissingBefore, appMissingBefore + 2).join(" | ")})`);
 
     // ---------- 2b) 活页冒烟（settings/onboarding——bespoke 残留所在，画廊 catalog 覆盖盲区）----------
     // settings：app.html 内经 Intent 进各类目（best-effort：API 不在则跳过，仍断言无错/无溢出）
@@ -143,12 +147,14 @@ async function main() {
     if (errs.length - setErrBefore) fails.push(`[settings 活页] ${errs.length - setErrBefore} 个 console error`);
     // onboarding：独立页，直接 goto
     const obErrBefore = errs.length;
+    const onboardingMissingBefore = missing.length;
     await page.goto(BASE + "/features/onboarding/onboarding.html", { waitUntil: "networkidle" }).catch(() => {});
     await page.waitForTimeout(500);
     const ob = await page.evaluate(() => ({ ovf: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth, body: document.body && document.body.children.length > 0, xssFired: window.__xssFired }));
     if (!ob.body) fails.push("[onboarding 活页] 未渲染");
     if (ob.ovf > 2) fails.push(`[onboarding 活页] 页面横向溢出 +${ob.ovf}px`);
-    if (errs.length - obErrBefore) fails.push(`[onboarding 活页] ${errs.length - obErrBefore} 个 console error`);
+    const onboardingErrors = errs.slice(obErrBefore);
+    if (onboardingErrors.length) fails.push(`[onboarding 活页] ${onboardingErrors.length} 个 console error: ${onboardingErrors.slice(0, 2).join(" | ")} (${missing.slice(onboardingMissingBefore, onboardingMissingBefore + 2).join(" | ")})`);
 
     // ---------- 3) 命令式专项 ----------
     const probe = await page.evaluate(() => {

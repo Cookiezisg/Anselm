@@ -31,7 +31,8 @@ ToolReceipt? workflowCreateReceipt(Translations t, ToolCardState state) {
   if (out == null) return null;
   final v = out['version'];
   if (v == null) return null;
-  final inactive = out['lifecycleState'] == 'inactive' || out['active'] == false;
+  final inactive =
+      out['lifecycleState'] == 'inactive' || out['active'] == false;
   return inactive
       ? (text: 'v$v · ${t.chat.tool.wfInactive}', tone: ToolReceiptTone.warn)
       : (text: 'v$v', tone: ToolReceiptTone.none);
@@ -39,13 +40,13 @@ ToolReceipt? workflowCreateReceipt(Translations t, ToolCardState state) {
 
 /// The NodeKind for a workflow op's `kind` string (forward-compat → unknown). op kind 串 → NodeKind。
 NodeKind workflowNodeKind(Object? k) => switch (k) {
-      'trigger' => NodeKind.trigger,
-      'action' => NodeKind.action,
-      'agent' => NodeKind.agent,
-      'control' => NodeKind.control,
-      'approval' => NodeKind.approval,
-      _ => NodeKind.unknown,
-    };
+  'trigger' => NodeKind.trigger,
+  'action' => NodeKind.action,
+  'agent' => NodeKind.agent,
+  'control' => NodeKind.control,
+  'approval' => NodeKind.approval,
+  _ => NodeKind.unknown,
+};
 
 // Memoized by the session's CLOSED-op count (C-042): the workflow stage + card rebuild this every merge
 // frame (60/s) while args stream, but the closed-ops set only GROWS when an op closes — many delta frames
@@ -70,21 +71,28 @@ Graph graphFromWorkflowOps(PartialJsonSession args) {
       case 'add_node':
         final n = raw['node'];
         if (n is Map && n['id'] is String) {
-          nodes.add(Node(
-            id: n['id'] as String,
-            kind: workflowNodeKind(n['kind']),
-            ref: (n['ref'] ?? '').toString(),
-          ));
+          nodes.add(
+            Node(
+              id: n['id'] as String,
+              kind: workflowNodeKind(n['kind']),
+              ref: (n['ref'] ?? '').toString(),
+            ),
+          );
         }
       case 'add_edge':
         final e = raw['edge'];
-        if (e is Map && e['id'] is String && e['from'] is String && e['to'] is String) {
-          edges.add(Edge(
-            id: e['id'] as String,
-            from: e['from'] as String,
-            to: e['to'] as String,
-            fromPort: e['fromPort'] as String?,
-          ));
+        if (e is Map &&
+            e['id'] is String &&
+            e['from'] is String &&
+            e['to'] is String) {
+          edges.add(
+            Edge(
+              id: e['id'] as String,
+              from: e['from'] as String,
+              to: e['to'] as String,
+              fromPort: e['fromPort'] as String?,
+            ),
+          );
         }
     }
   }
@@ -121,8 +129,13 @@ Widget _opTicker(BuildContext context, ToolCardState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      Text(t.chat.tool.wfGraphCounts(nodes: '${counts.nodes}', edges: '${counts.edges}'),
-          style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+      Text(
+        t.chat.tool.wfGraphCounts(
+          nodes: '${counts.nodes}',
+          edges: '${counts.edges}',
+        ),
+        style: AnText.metaTabular().copyWith(color: c.inkMuted),
+      ),
       if (counts.kinds.isNotEmpty) ...[
         const SizedBox(height: AnGap.stackTight),
         Wrap(
@@ -168,7 +181,13 @@ WorkflowDelta workflowEditDelta(PartialJsonSession args) {
         sawGraphOp = true;
         final n = raw['node'];
         if (n is Map && n['id'] is String) {
-          added.add(Node(id: n['id'] as String, kind: workflowNodeKind(n['kind']), ref: (n['ref'] ?? '').toString()));
+          added.add(
+            Node(
+              id: n['id'] as String,
+              kind: workflowNodeKind(n['kind']),
+              ref: (n['ref'] ?? '').toString(),
+            ),
+          );
         }
       case 'update_node':
         sawGraphOp = true;
@@ -212,11 +231,17 @@ Widget editWorkflowBody(BuildContext context, ToolCardState state) {
 
   if (d.metaOnly && state.resultText.isNotEmpty) {
     // Only set_meta ops — the graph didn't change. 仅 set_meta:图未变。
-    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      toolIntent(context, state),
-      Text(t.chat.tool.wfDeltaEmpty, style: AnText.label.copyWith(color: c.inkFaint)),
-      runStatBarOf(context, state),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        toolIntent(context, state),
+        Text(
+          t.chat.tool.wfDeltaEmpty,
+          style: AnText.label.copyWith(color: c.inkFaint),
+        ),
+        runStatBarOf(context, state),
+      ],
+    );
   }
 
   final nodeParts = <String>[];
@@ -236,10 +261,20 @@ Widget editWorkflowBody(BuildContext context, ToolCardState state) {
       toolIntent(context, state, gap: false),
       // 批3 文法 #3: the ' · ' chain lives ONLY in the family bar. ' · ' 链只住当家条。
       if (nodeParts.isNotEmpty || edgeParts.isNotEmpty)
-        AnStatBar(stats: [
-          if (nodeParts.isNotEmpty) AnStat('${nodeParts.join(' ')} ${t.chat.tool.wfNodeUnit}', tabular: true),
-          if (edgeParts.isNotEmpty) AnStat('${edgeParts.join(' ')} ${t.chat.tool.wfEdgeUnit}', tabular: true),
-        ]),
+        AnStatBar(
+          stats: [
+            if (nodeParts.isNotEmpty)
+              AnStat(
+                '${nodeParts.join(' ')} ${t.chat.tool.wfNodeUnit}',
+                tabular: true,
+              ),
+            if (edgeParts.isNotEmpty)
+              AnStat(
+                '${edgeParts.join(' ')} ${t.chat.tool.wfEdgeUnit}',
+                tabular: true,
+              ),
+          ],
+        ),
       const SizedBox(height: AnGap.stackTight),
       Wrap(
         spacing: AnGap.inline,
@@ -248,22 +283,43 @@ Widget editWorkflowBody(BuildContext context, ToolCardState state) {
           // Family chips (批5 A-047 — the hand-rolled morph shell retires; the alpha-0.5 border
           // tint becomes the family's full tone stroke, 刻意裁决帧核). 族芯片:半透边→全 tone 边。
           for (final n in d.addedNodes)
-            AnChip(n.ref.isEmpty ? n.id : n.ref, look: AnChipLook.outlined, tone: AnTone.ok, icon: nodeKindIcon(n.kind), mono: true),
+            AnChip(
+              n.ref.isEmpty ? n.id : n.ref,
+              look: AnChipLook.outlined,
+              tone: AnTone.ok,
+              icon: nodeKindIcon(n.kind),
+              mono: true,
+            ),
           for (final id in d.updatedNodes)
-            AnChip(id, look: AnChipLook.outlined, tone: AnTone.warn, icon: AnIcons.edit, mono: true),
+            AnChip(
+              id,
+              look: AnChipLook.outlined,
+              tone: AnTone.warn,
+              icon: AnIcons.edit,
+              mono: true,
+            ),
           for (final id in d.deletedNodes)
-            AnChip(id, look: AnChipLook.outlined, tone: AnTone.danger, icon: AnIcons.trash, mono: true, strikethrough: true),
+            AnChip(
+              id,
+              look: AnChipLook.outlined,
+              tone: AnTone.danger,
+              icon: AnIcons.trash,
+              mono: true,
+              strikethrough: true,
+            ),
         ],
       ),
       Padding(
         padding: const EdgeInsets.only(top: AnSpace.s6),
-        child: Text(t.chat.tool.wfMorphNote, style: AnText.meta.copyWith(color: c.inkFaint)),
+        child: Text(
+          t.chat.tool.wfMorphNote,
+          style: AnText.meta.copyWith(color: c.inkFaint),
+        ),
       ),
       runStatBarOf(context, state),
     ],
   );
 }
-
 
 /// The create_workflow body — act one (in flight): the op ticker; act two (settled): intent · the
 /// workflow graph (1:1 with the entity page's AnGraphCanvas) · the result bar.
@@ -282,7 +338,11 @@ Widget workflowBuildBody(BuildContext context, ToolCardState state) {
         // The build sense lives in act one's op ticker; the settled graph is static like the entity preview.
         // 与实体页 workflow 图 1:1:同款 AnGraphCanvas 渲染(节点卡/正交边/kind 色/auto-fit),framed 预览、卡内紧凑高;
         // 生长感在幕一 op ticker,落定图与实体预览一样静态。
-        AnGraphCanvas(graph: graph, framed: true, framedHeight: AnSize.graphStage)
+        AnGraphCanvas(
+          graph: graph,
+          framed: true,
+          framedHeight: AnSize.graphStage,
+        )
       else if (state.argsText.isNotEmpty)
         rawMonoWindow(context, state.argsText, color: c.inkMuted),
       runStatBarOf(context, state),

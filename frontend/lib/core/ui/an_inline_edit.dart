@@ -165,7 +165,9 @@ class _AnInlineEditState extends State<AnInlineEdit> {
       maxLines: 1,
       softWrap: false,
       overflow: TextOverflow.ellipsis,
-      style: (widget.style ?? AnText.body).copyWith(color: showPlaceholder ? c.inkFaint : c.ink),
+      style: (widget.style ?? AnText.body).copyWith(
+        color: showPlaceholder ? c.inkFaint : c.ink,
+      ),
     );
     if (!showPlaceholder) return label;
     return GestureDetector(

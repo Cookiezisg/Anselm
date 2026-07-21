@@ -22,16 +22,20 @@ AnFreshness freshnessOf(DateTime lastAt, {DateTime? now}) {
 
 /// The ink tone a row of this freshness writes with. 该新鲜度的墨色。
 Color freshnessInk(AnFreshness f, AnColors c) => switch (f) {
-      AnFreshness.glowing || AnFreshness.fresh => c.ink,
-      AnFreshness.settled => c.inkMuted,
-      AnFreshness.aged => c.inkFaint,
-    };
+  AnFreshness.glowing || AnFreshness.fresh => c.ink,
+  AnFreshness.settled => c.inkMuted,
+  AnFreshness.aged => c.inkFaint,
+};
 
 /// Wraps a Cast row's leading glyph with the freshness halo: only [AnFreshness.glowing] carries the
 /// soft accent bloom (the "just happened" afterglow); every other tier renders the bare child.
 /// 包裹行首字形:仅 glowing 档带柔和 accent 余晖,余档裸渲。
 class AnFreshnessHalo extends StatelessWidget {
-  const AnFreshnessHalo({required this.freshness, required this.child, super.key});
+  const AnFreshnessHalo({
+    required this.freshness,
+    required this.child,
+    super.key,
+  });
 
   final AnFreshness freshness;
   final Widget child;
@@ -43,7 +47,13 @@ class AnFreshnessHalo extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: c.accentSoft, blurRadius: AnSpace.s6, spreadRadius: 1)],
+        boxShadow: [
+          BoxShadow(
+            color: c.accentSoft,
+            blurRadius: AnSpace.s6,
+            spreadRadius: 1,
+          ),
+        ],
       ),
       child: child,
     );

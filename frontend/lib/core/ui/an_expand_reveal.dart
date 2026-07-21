@@ -19,18 +19,26 @@ import '../design/tokens.dart';
 /// **非 AnimatedSize**(后者在嵌套时会 performLayout 内自脏断言——sidebar 是嵌套树);ClipRect+Align 可安全嵌套。
 /// open 显 child,否则补间到 0 高、全收后从树移除(收起的行不可聚焦/不被屏读)。duration=Duration.zero 强制即时。
 class AnExpandReveal extends StatefulWidget {
-  const AnExpandReveal(
-      {required this.open, required Widget this.child, this.duration, this.axis = Axis.vertical, super.key})
-      : childBuilder = null;
+  const AnExpandReveal({
+    required this.open,
+    required Widget this.child,
+    this.duration,
+    this.axis = Axis.vertical,
+    super.key,
+  }) : childBuilder = null;
 
   /// LAZY reveal (C-006): the child is built ONLY while open / animating — a fully-collapsed row never
   /// evaluates [childBuilder]. Use this when the child is EXPENSIVE to build (a tool-card family body runs
   /// jsonDecode / regex / arg extraction every build); the eager [child] form would pay that cost each
   /// parent rebuild even while collapsed (during streaming: N collapsed cards × per frame). 惰性揭示:收起
   /// 态绝不调 builder,贵的体(族体 jsonDecode/正则/取参)收起时零成本。
-  const AnExpandReveal.builder(
-      {required this.open, required WidgetBuilder this.childBuilder, this.duration, this.axis = Axis.vertical, super.key})
-      : child = null;
+  const AnExpandReveal.builder({
+    required this.open,
+    required WidgetBuilder this.childBuilder,
+    this.duration,
+    this.axis = Axis.vertical,
+    super.key,
+  }) : child = null;
 
   final bool open;
 
@@ -56,14 +64,20 @@ class AnExpandReveal extends StatefulWidget {
   State<AnExpandReveal> createState() => _AnExpandRevealState();
 }
 
-class _AnExpandRevealState extends State<AnExpandReveal> with SingleTickerProviderStateMixin {
+class _AnExpandRevealState extends State<AnExpandReveal>
+    with SingleTickerProviderStateMixin {
   late final AnimationController _ctl;
-  late final CurvedAnimation _factor; // CurvedAnimation (not Animation) so it can be disposed 须具体类型以便 dispose
+  late final CurvedAnimation
+  _factor; // CurvedAnimation (not Animation) so it can be disposed 须具体类型以便 dispose
 
   @override
   void initState() {
     super.initState();
-    _ctl = AnimationController(vsync: this, duration: AnMotion.mid, value: widget.open ? 1 : 0);
+    _ctl = AnimationController(
+      vsync: this,
+      duration: AnMotion.mid,
+      value: widget.open ? 1 : 0,
+    );
     _factor = CurvedAnimation(parent: _ctl, curve: AnMotion.easeOut);
   }
 
@@ -83,7 +97,8 @@ class _AnExpandRevealState extends State<AnExpandReveal> with SingleTickerProvid
 
   @override
   void dispose() {
-    _factor.dispose(); // before the parent controller (CurvedAnimation owns a parent listener) 先于父控制器
+    _factor
+        .dispose(); // before the parent controller (CurvedAnimation owns a parent listener) 先于父控制器
     _ctl.dispose();
     super.dispose();
   }
@@ -106,7 +121,9 @@ class _AnExpandRevealState extends State<AnExpandReveal> with SingleTickerProvid
         return ClipRect(
           child: Align(
             // vertical grows downward only; horizontal grows from the start edge. 纵仅向下;横自起始缘。
-            alignment: horizontal ? AlignmentDirectional.centerStart : Alignment.topCenter,
+            alignment: horizontal
+                ? AlignmentDirectional.centerStart
+                : Alignment.topCenter,
             heightFactor: horizontal ? null : f,
             widthFactor: horizontal ? f : null,
             child: child,

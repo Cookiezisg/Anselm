@@ -45,20 +45,27 @@ class AboutPanel extends ConsumerWidget {
               item: SettingsItem.aboutAppVersion,
               child: AnSettingRow(
                 label: t.settings.about.appVersion,
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  Text(app, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
-                  const SizedBox(width: AnSpace.s12),
-                  AnButton(
-                    label: check.isLoading
-                        ? t.settings.about.checking
-                        : t.settings.about.checkUpdates,
-                    size: AnButtonSize.sm,
-                    outline: true,
-                    onPressed: check.isLoading
-                        ? null
-                        : () => ref.read(updateCheckProvider.notifier).check(),
-                  ),
-                ]),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      app,
+                      style: AnText.metaTabular().copyWith(color: c.inkMuted),
+                    ),
+                    const SizedBox(width: AnSpace.s12),
+                    AnButton(
+                      label: check.isLoading
+                          ? t.settings.about.checking
+                          : t.settings.about.checkUpdates,
+                      size: AnButtonSize.sm,
+                      outline: true,
+                      onPressed: check.isLoading
+                          ? null
+                          : () =>
+                                ref.read(updateCheckProvider.notifier).check(),
+                    ),
+                  ],
+                ),
               ),
             ),
             if (check.value != null)
@@ -70,7 +77,10 @@ class AboutPanel extends ConsumerWidget {
               item: SettingsItem.aboutBackendVersion,
               child: AnSettingRow(
                 label: t.settings.about.backendVersion,
-                child: Text(engine, style: AnText.metaTabular().copyWith(color: c.inkMuted)),
+                child: Text(
+                  engine,
+                  style: AnText.metaTabular().copyWith(color: c.inkMuted),
+                ),
               ),
             ),
           ],
@@ -98,14 +108,15 @@ class AboutPanel extends ConsumerWidget {
               size: AnButtonSize.sm,
               outline: true,
               onPressed: () async {
-              final text = 'Anselm $app · engine $engine · '
-                  '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
-              await Clipboard.setData(ClipboardData(text: text));
-              if (context.mounted) {
-                ref
-                    .read(noticeCenterProvider.notifier)
-                    .show(t.settings.about.copied, tone: AnTone.ok);
-              }
+                final text =
+                    'Anselm $app · engine $engine · '
+                    '${Platform.operatingSystem} ${Platform.operatingSystemVersion}';
+                await Clipboard.setData(ClipboardData(text: text));
+                if (context.mounted) {
+                  ref
+                      .read(noticeCenterProvider.notifier)
+                      .show(t.settings.about.copied, tone: AnTone.ok);
+                }
               },
             ),
           ),
@@ -127,15 +138,23 @@ class _CheckOutcome extends StatelessWidget {
     final s = status;
     if (s == null) return const SizedBox.shrink();
     return switch (s.outcome) {
-      UpdateOutcome.upToDate => Text(t.settings.about.upToDate(v: s.latest),
-          style: AnText.label.copyWith(color: c.inkMuted)),
-      UpdateOutcome.unknown =>
-        Text(t.settings.about.cantCheck, style: AnText.label.copyWith(color: c.inkMuted)),
-      UpdateOutcome.available => Row(mainAxisSize: MainAxisSize.min, children: [
+      UpdateOutcome.upToDate => Text(
+        t.settings.about.upToDate(v: s.latest),
+        style: AnText.label.copyWith(color: c.inkMuted),
+      ),
+      UpdateOutcome.unknown => Text(
+        t.settings.about.cantCheck,
+        style: AnText.label.copyWith(color: c.inkMuted),
+      ),
+      UpdateOutcome.available => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
           Flexible(
-            child: Text(t.settings.about.updateAvailable(v: s.latest),
-                overflow: TextOverflow.ellipsis,
-                style: AnText.label.copyWith(color: c.accent)),
+            child: Text(
+              t.settings.about.updateAvailable(v: s.latest),
+              overflow: TextOverflow.ellipsis,
+              style: AnText.label.copyWith(color: c.accent),
+            ),
           ),
           const SizedBox(width: AnSpace.s8),
           AnButton(
@@ -144,11 +163,13 @@ class _CheckOutcome extends StatelessWidget {
             variant: AnButtonVariant.primary,
             onPressed: () => openExternalUrl(s.url),
           ),
-        ]),
+        ],
+      ),
     };
   }
 }
 
 /// The running app's own version (package info). 应用自身版本。
-final appVersionProvider =
-    FutureProvider<String>((ref) async => (await PackageInfo.fromPlatform()).version);
+final appVersionProvider = FutureProvider<String>(
+  (ref) async => (await PackageInfo.fromPlatform()).version,
+);

@@ -45,24 +45,36 @@ class AnLayerDiff extends StatelessWidget {
           borderRadius: BorderRadius.circular(AnRadius.tag),
           border: Border.all(color: c.line, width: AnSize.hairline),
         ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-          if (versionLabel.isNotEmpty)
-            Padding(
-              padding: const EdgeInsets.only(bottom: AnSpace.s4),
-              child: Text(versionLabel, style: AnText.meta.copyWith(color: c.inkFaint)),
-            ),
-          for (final line in shown)
-            Text(line.isEmpty ? ' ' : line,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (versionLabel.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: AnSpace.s4),
+                child: Text(
+                  versionLabel,
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              ),
+            for (final line in shown)
+              Text(
+                line.isEmpty ? ' ' : line,
                 maxLines: 1,
                 softWrap: false,
                 overflow: TextOverflow.ellipsis,
-                style: AnText.code.copyWith(color: c.inkFaint)),
-          if (elided > 0)
-            Padding(
-              padding: const EdgeInsets.only(top: AnSpace.s2),
-              child: Text('… +$elided', style: AnText.meta.copyWith(color: c.inkFaint)),
-            ),
-        ]),
+                style: AnText.code.copyWith(color: c.inkFaint),
+              ),
+            if (elided > 0)
+              Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s2),
+                child: Text(
+                  '… +$elided',
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }

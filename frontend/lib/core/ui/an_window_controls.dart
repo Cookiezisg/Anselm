@@ -55,7 +55,10 @@ class AnWindowControls extends StatelessWidget {
           // 块高,故纯位置校正——盒居中因 Newsreader 空降部让无降部的「Anselm」偏高,按度量常量把绘制下移(仅绘制、不改布局)。
           Transform.translate(
             offset: const Offset(0, _wordmarkOpticalDrop),
-            child: Text(context.t.appName, style: AnText.wordmark.copyWith(color: c.ink)),
+            child: Text(
+              context.t.appName,
+              style: AnText.wordmark.copyWith(color: c.ink),
+            ),
           ),
         ],
       ),
@@ -76,7 +79,10 @@ class AnWindowControls extends StatelessWidget {
       child: content,
       builder: (context, t, child) => Opacity(
         opacity: t,
-        child: Transform.translate(offset: Offset(0, AnSize.brandBandDrop * t), child: child),
+        child: Transform.translate(
+          offset: Offset(0, AnSize.brandBandDrop * t),
+          child: child,
+        ),
       ),
     );
   }

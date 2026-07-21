@@ -18,7 +18,12 @@ void goToPanel(BuildContext context, String kind, String id) {
   if (loc != null && context.mounted) context.go(loc);
 }
 
-Widget toolNavPill(BuildContext context, {required String kind, required String label, String? id}) {
+Widget toolNavPill(
+  BuildContext context, {
+  required String kind,
+  required String label,
+  String? id,
+}) {
   final can = id != null && id.isNotEmpty && hasPanelFor(kind);
   return AnRefPill(
     kind: kind,

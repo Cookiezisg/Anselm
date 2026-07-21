@@ -18,7 +18,12 @@ import 'icons.dart';
 /// B3——受控单选下拉(替原生 select)。触发器回显选中 label(+ 可选 mono meta + caret);点开富行菜单
 /// (label/meta/icon/勾选当前)搭于 AnPopover。ghost=无边框触发器;menuAlignEnd=菜单右对齐。超量选项菜单滚动、不溢出。
 class AnDropdownOption<T> {
-  const AnDropdownOption({required this.value, required this.label, this.meta, this.icon});
+  const AnDropdownOption({
+    required this.value,
+    required this.label,
+    this.meta,
+    this.icon,
+  });
 
   final T value;
   final String label;
@@ -92,7 +97,8 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
   // The row to seed keyboard focus on when the menu opens: the selected value, else the first.
   // 菜单打开时初始聚焦的行:选中值,否则第一项。
   T? get _autofocusValue =>
-      _selected?.value ?? (widget.options.isNotEmpty ? widget.options.first.value : null);
+      _selected?.value ??
+      (widget.options.isNotEmpty ? widget.options.first.value : null);
 
   void _pick(T value) {
     _popover.close();
@@ -116,7 +122,9 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
         controller: _popover,
         alignEnd: widget.menuAlignEnd,
         overlayBuilder: (context, anchorSize) => _menu(context, anchorSize),
-        anchor: widget.block ? SizedBox(width: double.infinity, child: trigger) : trigger,
+        anchor: widget.block
+            ? SizedBox(width: double.infinity, child: trigger)
+            : trigger,
       ),
     );
   }
@@ -128,15 +136,20 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
     final sel = _selected;
     // Functional micro-feedback still snaps under reduced motion (AnMotionPref — the design system's
     // single gate every animated primitive reads). reduced 下功能反馈即时(设计系统单一动效门)。
-    final feedback = AnMotionPref.reduced(context) ? Duration.zero : AnMotion.fast;
+    final feedback = AnMotionPref.reduced(context)
+        ? Duration.zero
+        : AnMotion.fast;
 
     final ghostBase = widget.triggerStyle ?? AnText.meta;
     final label = Text(
       sel?.label ?? widget.placeholder,
       maxLines: 1,
-      overflow: TextOverflow.ellipsis, // label hugs LEFT, ellipsis when long 标签靠左、超长省略
+      overflow: TextOverflow
+          .ellipsis, // label hugs LEFT, ellipsis when long 标签靠左、超长省略
       style: (ghost ? ghostBase : AnText.body).copyWith(
-        color: sel == null ? c.inkFaint : (ghost ? (active ? c.ink : c.inkMuted) : c.ink),
+        color: sel == null
+            ? c.inkFaint
+            : (ghost ? (active ? c.ink : c.inkMuted) : c.ink),
       ),
     );
 
@@ -181,10 +194,18 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
       padding: const EdgeInsets.symmetric(horizontal: AnSize.btnPadXSm),
       decoration: BoxDecoration(
         color: c.surface,
-        border: Border.all(color: active ? c.lineStrong : c.line, width: AnSize.hairline),
+        border: Border.all(
+          color: active ? c.lineStrong : c.line,
+          width: AnSize.hairline,
+        ),
         borderRadius: BorderRadius.circular(AnRadius.button),
       ),
-      child: AnTwoZone(label: label, meta: sel?.meta, metaStyle: metaStyle, trailing: caret),
+      child: AnTwoZone(
+        label: label,
+        meta: sel?.meta,
+        metaStyle: metaStyle,
+        trailing: caret,
+      ),
     );
   }
 
@@ -196,7 +217,11 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
     final triggerW = anchorSize?.width ?? AnSize.inputMin;
     final menuW = triggerW.clamp(AnSize.menuMinWidth, AnSize.menuMaxWidth);
     return ConstrainedBox(
-      constraints: BoxConstraints(minWidth: menuW, maxWidth: menuW, maxHeight: AnSize.menuMaxHeight),
+      constraints: BoxConstraints(
+        minWidth: menuW,
+        maxWidth: menuW,
+        maxHeight: AnSize.menuMaxHeight,
+      ),
       // shared menu chrome (surface + s4-all-sides inset + FocusTraversalGroup) — same standard AnMenu uses
       // so the selected/hover pill floats inset, not edge-to-edge. 共用面板壳(与 AnMenu 同标准、药丸内缩)。
       child: AnMenuSurface(
@@ -205,7 +230,9 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
             _MenuRow(
               option: o,
               selected: o.value == widget.value,
-              autofocus: _autofocusValue == o.value, // seed focus on the selected (else first) row 聚焦选中行
+              autofocus:
+                  _autofocusValue ==
+                  o.value, // seed focus on the selected (else first) row 聚焦选中行
               onTap: () => _pick(o.value),
             ),
         ],
@@ -215,7 +242,12 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
 }
 
 class _MenuRow<T> extends StatelessWidget {
-  const _MenuRow({required this.option, required this.selected, required this.onTap, this.autofocus = false});
+  const _MenuRow({
+    required this.option,
+    required this.selected,
+    required this.onTap,
+    this.autofocus = false,
+  });
 
   final AnDropdownOption<T> option;
   final bool selected;
@@ -242,13 +274,19 @@ class _MenuRow<T> extends StatelessWidget {
             ],
             Expanded(
               child: AnTwoZone(
-                label: Text(option.label,
-                    maxLines: 1, overflow: TextOverflow.ellipsis, style: AnText.body.copyWith(color: c.ink)),
+                label: Text(
+                  option.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.body.copyWith(color: c.ink),
+                ),
                 meta: option.meta,
                 metaStyle: AnText.meta.copyWith(color: c.inkFaint),
                 trailing: SizedBox(
                   width: AnSize.iconSm,
-                  child: selected ? Icon(AnIcons.check, size: AnSize.iconSm, color: c.ink) : null,
+                  child: selected
+                      ? Icon(AnIcons.check, size: AnSize.iconSm, color: c.ink)
+                      : null,
                 ),
               ),
             ),

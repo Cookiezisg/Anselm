@@ -23,7 +23,8 @@ abstract final class WindowZoom {
   /// Discrete zoom stops (like a browser). 1.0 = 100% (default). 离散缩放档,1.0=默认。
   static const List<double> steps = [0.8, 0.9, 1.0, 1.1, 1.25, 1.5];
   static const double defaultFactor = 1.0;
-  static const double _menuBarInset = 40; // approx macOS menu bar + margin (height不可用部分)
+  static const double _menuBarInset =
+      40; // approx macOS menu bar + margin (height不可用部分)
 
   /// The central preference store (persist via [SettingsKeys.windowZoom], not a private SharedPreferences
   /// key — else a factory-reset of the declared key set wouldn't clear the zoom). Bound once at startup.
@@ -32,7 +33,9 @@ abstract final class WindowZoom {
   static void useSettingsPrefs(SettingsPrefs prefs) => _prefs = prefs;
 
   /// Current zoom factor; the [scaleFactorCallback] reads this. UI may listen. 当前缩放因子。
-  static final ValueNotifier<double> factor = ValueNotifier<double>(defaultFactor);
+  static final ValueNotifier<double> factor = ValueNotifier<double>(
+    defaultFactor,
+  );
 
   /// Wired into `ScaledWidgetsFlutterBinding.ensureInitialized(scaleFactor:)` in main().
   static double scaleFactorCallback(Size _) => factor.value;
@@ -49,7 +52,8 @@ abstract final class WindowZoom {
       final fit = byW < byH ? byW : byH;
       return fit < steps.last ? fit : steps.last;
     } catch (_) {
-      return steps.last; // headless / unknown display → allow up to the last stop 无头则放开到末档
+      return steps
+          .last; // headless / unknown display → allow up to the last stop 无头则放开到末档
     }
   }
 
@@ -57,7 +61,9 @@ abstract final class WindowZoom {
   /// 下一档向上(不超过 cap);已到顶则不变。纯函数,可测。
   static double nextUp(double cap) {
     final i = _index();
-    return (i + 1 < steps.length && steps[i + 1] <= cap + 1e-6) ? steps[i + 1] : factor.value;
+    return (i + 1 < steps.length && steps[i + 1] <= cap + 1e-6)
+        ? steps[i + 1]
+        : factor.value;
   }
 
   /// Next stop down; clamps at the minimum stop. (Pure — testable.) 下一档向下,最小档封底。
@@ -87,7 +93,8 @@ abstract final class WindowZoom {
     factor.value = z;
     final binding = WidgetsBinding.instance;
     if (binding is ScaledWidgetsFlutterBinding) {
-      binding.handleMetricsChanged(); // relayout the whole tree at the new scale 全树按新比例重排
+      binding
+          .handleMetricsChanged(); // relayout the whole tree at the new scale 全树按新比例重排
       if (HostPlatform.isMacOS) {
         // Grow the window minimum with the zoom so the layout's minimum still fits (real points =
         // design points × zoom). 窗口最小值随 zoom 同步(真点=设计点×zoom)。
@@ -99,14 +106,17 @@ abstract final class WindowZoom {
     _persist(z);
   }
 
-  static void _persist(double z) => _prefs?.setDouble(SettingsKeys.windowZoom, z);
+  static void _persist(double z) =>
+      _prefs?.setDouble(SettingsKeys.windowZoom, z);
 
   /// Restore the persisted zoom before the first frame, clamped to what the current screen fits
   /// (a level saved on a big monitor won't break a smaller one). 首帧前恢复持久化缩放,并按当前屏可容上限收敛。
   static void restore() {
     final prefs = _prefs;
     if (prefs == null) return;
-    final z = prefs.getDouble(SettingsKeys.windowZoom); // returns the 1.0 default when unset
+    final z = prefs.getDouble(
+      SettingsKeys.windowZoom,
+    ); // returns the 1.0 default when unset
     final cap = maxFactor();
     final target = steps.lastWhere(
       (s) => s <= z + 1e-6 && s <= cap + 1e-6,

@@ -6,7 +6,8 @@ import '../data/settings_repository.dart';
 
 /// The provider catalog (static; mock hidden outside dev). provider 目录。
 final providersProvider = FutureProvider<List<ProviderMeta>>(
-    (ref) => ref.watch(settingsRepositoryProvider).listProviders());
+  (ref) => ref.watch(settingsRepositoryProvider).listProviders(),
+);
 
 /// The key rows + every mutation (create / rotate / test / delete). Each mutation refreshes the list
 /// from the backend AND invalidates the capabilities catalog (S-15: the pickers must never show a
@@ -14,7 +15,8 @@ final providersProvider = FutureProvider<List<ProviderMeta>>(
 /// key 行与全部变更。每次变更后重拉列表并 invalidate capabilities(S-15);错误 rethrow 供面板行内渲染。
 class ApiKeysController extends AsyncNotifier<List<ApiKey>> {
   @override
-  Future<List<ApiKey>> build() => ref.watch(settingsRepositoryProvider).listKeys();
+  Future<List<ApiKey>> build() =>
+      ref.watch(settingsRepositoryProvider).listKeys();
 
   Future<ApiKey> create({
     required String provider,
@@ -23,13 +25,25 @@ class ApiKeysController extends AsyncNotifier<List<ApiKey>> {
     String? baseUrl,
     String? apiFormat,
   }) async {
-    final row = await ref.read(settingsRepositoryProvider).createKey(
-        provider: provider, displayName: displayName, key: key, baseUrl: baseUrl, apiFormat: apiFormat);
+    final row = await ref
+        .read(settingsRepositoryProvider)
+        .createKey(
+          provider: provider,
+          displayName: displayName,
+          key: key,
+          baseUrl: baseUrl,
+          apiFormat: apiFormat,
+        );
     await _refresh();
     return row;
   }
 
-  Future<ApiKey> patch(String id, {String? displayName, String? baseUrl, String? key}) async {
+  Future<ApiKey> patch(
+    String id, {
+    String? displayName,
+    String? baseUrl,
+    String? key,
+  }) async {
     final row = await ref
         .read(settingsRepositoryProvider)
         .patchKey(id, displayName: displayName, baseUrl: baseUrl, key: key);
@@ -59,27 +73,37 @@ class ApiKeysController extends AsyncNotifier<List<ApiKey>> {
   }
 }
 
-final apiKeysProvider =
-    AsyncNotifierProvider<ApiKeysController, List<ApiKey>>(ApiKeysController.new);
+final apiKeysProvider = AsyncNotifierProvider<ApiKeysController, List<ApiKey>>(
+  ApiKeysController.new,
+);
 
 /// The free-tier quota card state: null = not provisioned (the enable-CTA face). Manual refresh only
 /// — never polled (S-7). 免费档配额卡:null=未开通(启用 CTA 面);只手动刷新,绝不轮询。
 class FreetierQuotaController extends AsyncNotifier<FreetierQuota?> {
   @override
-  Future<FreetierQuota?> build() => ref.watch(settingsRepositoryProvider).getFreetierQuota();
+  Future<FreetierQuota?> build() =>
+      ref.watch(settingsRepositoryProvider).getFreetierQuota();
 
   Future<void> refresh() async {
-    state = AsyncData(await ref.read(settingsRepositoryProvider).getFreetierQuota());
+    state = AsyncData(
+      await ref.read(settingsRepositoryProvider).getFreetierQuota(),
+    );
   }
 
   /// The enable CTA — provisions then re-reads. Returns whether a managed row exists now. 启用即重读。
   Future<bool> provision() async {
     final ok = await ref.read(settingsRepositoryProvider).provisionFreetier();
     await refresh();
-    if (ok) ref.invalidate(modelCapabilitiesProvider); // the managed models just appeared 受管模型现身
+    if (ok) {
+      ref.invalidate(
+        modelCapabilitiesProvider,
+      ); // the managed models just appeared 受管模型现身
+    }
     return ok;
   }
 }
 
 final freetierQuotaProvider =
-    AsyncNotifierProvider<FreetierQuotaController, FreetierQuota?>(FreetierQuotaController.new);
+    AsyncNotifierProvider<FreetierQuotaController, FreetierQuota?>(
+      FreetierQuotaController.new,
+    );

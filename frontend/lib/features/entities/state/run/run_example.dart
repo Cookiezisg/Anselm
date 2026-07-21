@@ -81,11 +81,13 @@ Object? exampleValue(ExampleNode n) {
 
 /// Adapt the contract's flat [Field] list into a top-level example object (fn/hd/ag inputs). Each field
 /// becomes a type-only node → its type skeleton. Empty list → an empty object. 扁平 Field→顶层示例对象。
-Map<String, Object?> exampleForFields(List<Field> fields) =>
-    {for (final f in fields) f.name: exampleValue(ExampleNode(type: f.type))};
+Map<String, Object?> exampleForFields(List<Field> fields) => {
+  for (final f in fields) f.name: exampleValue(ExampleNode(type: f.type)),
+};
 
 /// The prefilled editor seed: pretty JSON of [exampleForFields]. 编辑器预填种子(美化 JSON)。
-String exampleJsonForFields(List<Field> fields) => _pretty(exampleForFields(fields));
+String exampleJsonForFields(List<Field> fields) =>
+    _pretty(exampleForFields(fields));
 
 /// The workflow payload template for a picked trigger SOURCE (0719 拍板: the payload impersonates what
 /// the trigger releases when it fires — so «triggering by hand» faithfully replays a real fire). The
@@ -95,25 +97,35 @@ String exampleJsonForFields(List<Field> fields) => _pretty(exampleForFields(fiel
 /// caller passes wall-clock, tests a fixed instant).
 ///
 /// workflow 按所选触发源的点火 payload 模板:形状逐字镜像后端 fire payload。[now] 注入保纯/可测。
-Map<String, Object?> workflowPayloadTemplate(String sourceKind, {required DateTime now}) {
+Map<String, Object?> workflowPayloadTemplate(
+  String sourceKind, {
+  required DateTime now,
+}) {
   final iso = now.toIso8601String();
   return switch (sourceKind) {
     'cron' => {'firedAt': iso},
     'webhook' => {
-        'firedAt': iso,
-        'method': 'POST',
-        'path': '/webhooks/example',
-        'headers': <String, Object?>{},
-        'body': <String, Object?>{},
-      },
-    'fsnotify' => {'firedAt': iso, 'path': '/path/to/file', 'eventKind': 'modify'},
+      'firedAt': iso,
+      'method': 'POST',
+      'path': '/webhooks/example',
+      'headers': <String, Object?>{},
+      'body': <String, Object?>{},
+    },
+    'fsnotify' => {
+      'firedAt': iso,
+      'path': '/path/to/file',
+      'eventKind': 'modify',
+    },
     'sensor' => {'value': 0},
     _ => <String, Object?>{}, // manual — a free payload body 手动=自由载荷
   };
 }
 
 /// The prefilled editor seed for a workflow source. 工作流来源的编辑器预填种子。
-String workflowPayloadTemplateJson(String sourceKind, {required DateTime now}) =>
-    _pretty(workflowPayloadTemplate(sourceKind, now: now));
+String workflowPayloadTemplateJson(
+  String sourceKind, {
+  required DateTime now,
+}) => _pretty(workflowPayloadTemplate(sourceKind, now: now));
 
-String _pretty(Object? value) => const JsonEncoder.withIndent('  ').convert(value);
+String _pretty(Object? value) =>
+    const JsonEncoder.withIndent('  ').convert(value);

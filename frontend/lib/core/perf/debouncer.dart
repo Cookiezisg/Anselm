@@ -12,7 +12,8 @@ class Debouncer {
 
   final Duration delay;
   Timer? _timer;
-  void Function()? _pending; // the last-scheduled action, kept so [flush] can still run it 最后排的动作
+  void Function()?
+  _pending; // the last-scheduled action, kept so [flush] can still run it 最后排的动作
 
   void run(void Function() action) {
     _pending = action;

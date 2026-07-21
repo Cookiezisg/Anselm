@@ -39,20 +39,34 @@ class _AnRadarSweepState extends State<AnRadarSweep> {
   Widget build(BuildContext context) {
     final c = context.colors;
     if (AnMotionPref.reducedOrAssistive(context)) {
-      return _Ring(size: widget.size, phase: null, tone: c.accent, soft: c.accentSoft);
+      return _Ring(
+        size: widget.size,
+        phase: null,
+        tone: c.accent,
+        soft: c.accentSoft,
+      );
     }
     return RepaintBoundary(
       child: AnimatedBuilder(
         animation: _clock,
-        builder: (context, _) =>
-            _Ring(size: widget.size, phase: _clock.idle ? null : _clock.value, tone: c.accent, soft: c.accentSoft),
+        builder: (context, _) => _Ring(
+          size: widget.size,
+          phase: _clock.idle ? null : _clock.value,
+          tone: c.accent,
+          soft: c.accentSoft,
+        ),
       ),
     );
   }
 }
 
 class _Ring extends StatelessWidget {
-  const _Ring({required this.size, required this.phase, required this.tone, required this.soft});
+  const _Ring({
+    required this.size,
+    required this.phase,
+    required this.tone,
+    required this.soft,
+  });
 
   final double size;
   final double? phase; // null = static pose 静态姿态
@@ -61,13 +75,17 @@ class _Ring extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => CustomPaint(
-        size: Size.square(size),
-        painter: _SweepPainter(phase: phase, tone: tone, soft: soft),
-      );
+    size: Size.square(size),
+    painter: _SweepPainter(phase: phase, tone: tone, soft: soft),
+  );
 }
 
 class _SweepPainter extends CustomPainter {
-  const _SweepPainter({required this.phase, required this.tone, required this.soft});
+  const _SweepPainter({
+    required this.phase,
+    required this.tone,
+    required this.soft,
+  });
 
   final double? phase;
   final Color tone;
@@ -77,10 +95,14 @@ class _SweepPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
     final r = size.width / 2 - 1;
-    canvas.drawCircle(center, r, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = AnSize.hairline
-      ..color = soft);
+    canvas.drawCircle(
+      center,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = AnSize.hairline
+        ..color = soft,
+    );
     final p = phase;
     if (p == null) {
       // Static pose: a resting dot at 12 o'clock. 静态:12 点方向驻点。

@@ -127,7 +127,8 @@ class AnRelationGraph extends StatefulWidget {
   State<AnRelationGraph> createState() => _AnRelationGraphState();
 }
 
-class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProviderStateMixin {
+class _AnRelationGraphState extends State<AnRelationGraph>
+    with SingleTickerProviderStateMixin {
   // Interaction constants (NOT visual tuning — those live in RelationGraphConfig). 交互常量(非视觉调参)。
   static const double _tapSlop = 5.0;
   static const double _dragSlop = 3.0;
@@ -208,7 +209,12 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     final p = _sceneOf(id);
     final k = _scale;
     _tc.value = Matrix4.identity()
-      ..translateByDouble(_viewport.width / 2 - p.dx * k, _viewport.height / 2 - p.dy * k, 0, 1)
+      ..translateByDouble(
+        _viewport.width / 2 - p.dx * k,
+        _viewport.height / 2 - p.dy * k,
+        0,
+        1,
+      )
       ..scaleByDouble(k, k, k, 1);
     _syncLabels();
   }
@@ -280,7 +286,8 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     return ids.first;
   }
 
-  Map<String, int> get _inDeg => inDegrees([for (final e in widget.edges) (from: e.fromId, to: e.toId)]);
+  Map<String, int> get _inDeg =>
+      inDegrees([for (final e in widget.edges) (from: e.fromId, to: e.toId)]);
 
   // The definitive ripple focus, before the hover preview: selection, else the caller's default (most
   // recent), else the highest-degree fallback. 定焦(hover 之前):选中→默认(最近)→入度回落。
@@ -317,7 +324,8 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     return hops;
   }
 
-  int _hopOf(String id) => _hops[id] ?? (RelationGraphConfig.nodeOpacityByHop.length - 1);
+  int _hopOf(String id) =>
+      _hops[id] ?? (RelationGraphConfig.nodeOpacityByHop.length - 1);
 
   void _recomputeBounds() {
     final pos = _sim.positions;
@@ -325,7 +333,10 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
       _origin = Offset(_contentSize.width / 2, _contentSize.height / 2);
       return;
     }
-    var minX = double.infinity, minY = double.infinity, maxX = -double.infinity, maxY = -double.infinity;
+    var minX = double.infinity,
+        minY = double.infinity,
+        maxX = -double.infinity,
+        maxY = -double.infinity;
     for (final p in pos.values) {
       minX = math.min(minX, p.dx);
       minY = math.min(minY, p.dy);
@@ -339,7 +350,8 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
 
   Offset _sceneOf(String id) => _sim.positionOf(id) + _origin;
 
-  double _visualRadiusOf(String id) => RelationGraphConfig.nodeRadius(_inDeg[id] ?? 0);
+  double _visualRadiusOf(String id) =>
+      RelationGraphConfig.nodeRadius(_inDeg[id] ?? 0);
 
   double get _scale => _tc.value.entry(0, 0);
 
@@ -380,18 +392,23 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
 
   void _zoomAt(Offset anchor, double factor) {
     final k = _scale;
-    final nk = (k * factor).clamp(RelationGraphConfig.minScale, RelationGraphConfig.maxScale);
+    final nk = (k * factor).clamp(
+      RelationGraphConfig.minScale,
+      RelationGraphConfig.maxScale,
+    );
     final r = nk / k;
     if (r == 1) return;
-    _tc.value = (Matrix4.identity()
-          ..translateByDouble(anchor.dx, anchor.dy, 0, 1)
-          ..scaleByDouble(r, r, r, 1)
-          ..translateByDouble(-anchor.dx, -anchor.dy, 0, 1))
-        .multiplied(_tc.value);
+    _tc.value =
+        (Matrix4.identity()
+              ..translateByDouble(anchor.dx, anchor.dy, 0, 1)
+              ..scaleByDouble(r, r, r, 1)
+              ..translateByDouble(-anchor.dx, -anchor.dy, 0, 1))
+            .multiplied(_tc.value);
     _syncLabels();
   }
 
-  void _zoomBy(double f) => _zoomAt(Offset(_viewport.width / 2, _viewport.height / 2), f);
+  void _zoomBy(double f) =>
+      _zoomAt(Offset(_viewport.width / 2, _viewport.height / 2), f);
 
   void _syncLabels() {
     final hide = _scale < RelationGraphConfig.labelScaleThreshold;
@@ -434,7 +451,10 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     final ab = b - a;
     final len2 = ab.dx * ab.dx + ab.dy * ab.dy;
     if (len2 == 0) return (p - a).distance;
-    final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / len2).clamp(0.0, 1.0);
+    final t = (((p - a).dx * ab.dx + (p - a).dy * ab.dy) / len2).clamp(
+      0.0,
+      1.0,
+    );
     return (p - (a + ab * t)).distance;
   }
 
@@ -468,12 +488,18 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
 
   // ── keyboard roving ─────────────────────────────────────────────────────
   FocusNode _focusFor(String id, {required bool cursor}) {
-    final n = _focusNodes.putIfAbsent(id, () => FocusNode(debugLabel: 'AnRelationGraph $id'));
+    final n = _focusNodes.putIfAbsent(
+      id,
+      () => FocusNode(debugLabel: 'AnRelationGraph $id'),
+    );
     n.skipTraversal = !cursor;
     return n;
   }
 
-  List<String> get _visibleIds => [for (final n in widget.nodes) if (!_hidden(n.kind)) n.id];
+  List<String> get _visibleIds => [
+    for (final n in widget.nodes)
+      if (!_hidden(n.kind)) n.id,
+  ];
 
   bool _move(TraversalDirection dir) {
     final from = _cursorId;
@@ -509,7 +535,8 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     return true;
   }
 
-  String _nodeSentence(EntityNode n) => widget.nodeSemanticLabel?.call(n, _inDeg[n.id] ?? 0) ?? n.name;
+  String _nodeSentence(EntityNode n) =>
+      widget.nodeSemanticLabel?.call(n, _inDeg[n.id] ?? 0) ?? n.name;
 
   void _activate(String id) {
     setState(() => _cursorId = id);
@@ -540,71 +567,92 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
     // prop, the edge painter reads [_hops] + [_focusColor] live. 每 build 解一次涟漪焦点+跳数+雾彩色相。
     final focus = _effectiveFocus();
     _hops = _computeHops(focus);
-    final focusKind =
-        focus == null ? null : widget.nodes.where((n) => n.id == focus).map((n) => n.kind).firstOrNull;
-    _focusColor = focusKind == null ? gc.edge : RelationGraphConfig.fogColor(focusKind);
+    final focusKind = focus == null
+        ? null
+        : widget.nodes
+              .where((n) => n.id == focus)
+              .map((n) => n.kind)
+              .firstOrNull;
+    _focusColor = focusKind == null
+        ? gc.edge
+        : RelationGraphConfig.fogColor(focusKind);
 
     final stage = ClipRect(
-      child: LayoutBuilder(builder: (context, constraints) {
-        final size = constraints.biggest;
-        if (size != _viewport) {
-          _viewport = size;
-          if ((!_fitted || widget.framed) && size.width > 0 && size.height > 0) {
-            _fitted = true;
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _fit();
-            });
-          }
-        }
-        return Listener(
-          behavior: HitTestBehavior.deferToChild,
-          onPointerDown: (e) {
-            _tapDownViewport = e.localPosition;
-            _draggedThisPress = false;
-          },
-          onPointerUp: (e) {
-            final down = _tapDownViewport;
-            final pressed = _pressedNodeId;
-            final dragged = _draggedThisPress;
-            _tapDownViewport = null;
-            _pressedNodeId = null;
-            if (dragged) return;
-            if (down == null || (e.localPosition - down).distance > _tapSlop) return;
-            if (pressed != null) {
-              _tapNode(pressed);
-            } else {
-              widget.onNodeTap?.call(null); // background tap → deselect / return to default focus
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final size = constraints.biggest;
+          if (size != _viewport) {
+            _viewport = size;
+            if ((!_fitted || widget.framed) &&
+                size.width > 0 &&
+                size.height > 0) {
+              _fitted = true;
+              WidgetsBinding.instance.addPostFrameCallback((_) {
+                if (mounted) _fit();
+              });
             }
-          },
-          child: MouseRegion(
-            onExit: (_) {
-              _setHoverNode(null);
-              if (_hoverEdgeId != null) setState(() => _hoverEdgeId = null);
+          }
+          return Listener(
+            behavior: HitTestBehavior.deferToChild,
+            onPointerDown: (e) {
+              _tapDownViewport = e.localPosition;
+              _draggedThisPress = false;
             },
-            child: Stack(children: [
-              Positioned.fill(
-                child: IgnorePointer(child: CustomPaint(painter: _GridPainter(dot: gc.gridDot))),
-              ),
-              Positioned.fill(
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.grab,
-                  child: InteractiveViewer(
-                    transformationController: _tc,
-                    constrained: false,
-                    boundaryMargin: const EdgeInsets.all(double.infinity),
-                    minScale: RelationGraphConfig.minScale,
-                    maxScale: RelationGraphConfig.maxScale,
-                    scaleFactor: RelationGraphConfig.wheelScaleFactor,
-                    panEnabled: _dragId == null,
-                    onInteractionUpdate: (_) => _syncLabels(),
-                    child: _sceneWidget(context, c, gc),
+            onPointerUp: (e) {
+              final down = _tapDownViewport;
+              final pressed = _pressedNodeId;
+              final dragged = _draggedThisPress;
+              _tapDownViewport = null;
+              _pressedNodeId = null;
+              if (dragged) return;
+              if (down == null ||
+                  (e.localPosition - down).distance > _tapSlop) {
+                return;
+              }
+              if (pressed != null) {
+                _tapNode(pressed);
+              } else {
+                widget.onNodeTap?.call(
+                  null,
+                ); // background tap → deselect / return to default focus
+              }
+            },
+            child: MouseRegion(
+              onExit: (_) {
+                _setHoverNode(null);
+                if (_hoverEdgeId != null) setState(() => _hoverEdgeId = null);
+              },
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _GridPainter(dot: gc.gridDot),
+                      ),
+                    ),
                   ),
-                ),
+                  Positioned.fill(
+                    child: MouseRegion(
+                      cursor: SystemMouseCursors.grab,
+                      child: InteractiveViewer(
+                        transformationController: _tc,
+                        constrained: false,
+                        boundaryMargin: const EdgeInsets.all(double.infinity),
+                        minScale: RelationGraphConfig.minScale,
+                        maxScale: RelationGraphConfig.maxScale,
+                        scaleFactor: RelationGraphConfig.wheelScaleFactor,
+                        panEnabled: _dragId == null,
+                        onInteractionUpdate: (_) => _syncLabels(),
+                        child: _sceneWidget(context, c, gc),
+                      ),
+                    ),
+                  ),
+                ],
               ),
-            ]),
-          ),
-        );
-      }),
+            ),
+          );
+        },
+      ),
     );
 
     Widget content = Actions(
@@ -615,30 +663,32 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
         container: true,
         explicitChildNodes: true,
         label: widget.semanticSummary ?? '',
-        child: Stack(children: [
-          Positioned.fill(child: stage),
-          if (widget.toolbar)
-            Positioned.fill(
-              child: Align(
-                alignment: Alignment.bottomLeft,
-                child: Padding(
-                  padding: const EdgeInsets.all(AnSpace.s12),
-                  child: _toolbar(context),
+        child: Stack(
+          children: [
+            Positioned.fill(child: stage),
+            if (widget.toolbar)
+              Positioned.fill(
+                child: Align(
+                  alignment: Alignment.bottomLeft,
+                  child: Padding(
+                    padding: const EdgeInsets.all(AnSpace.s12),
+                    child: _toolbar(context),
+                  ),
                 ),
               ),
-            ),
-          if (widget.onExpand != null && _boxHover)
-            Positioned(
-              top: AnSpace.s8,
-              right: AnSpace.s8,
-              child: AnButton(
-                label: widget.expandLabel,
-                icon: AnIcons.expand,
-                size: AnButtonSize.sm,
-                onPressed: widget.onExpand,
+            if (widget.onExpand != null && _boxHover)
+              Positioned(
+                top: AnSpace.s8,
+                right: AnSpace.s8,
+                child: AnButton(
+                  label: widget.expandLabel,
+                  icon: AnIcons.expand,
+                  size: AnButtonSize.sm,
+                  onPressed: widget.onExpand,
+                ),
               ),
-            ),
-        ]),
+          ],
+        ),
       ),
     );
 
@@ -671,20 +721,27 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
         child: Listener(
           behavior: HitTestBehavior.translucent,
           onPointerHover: (e) => _onSceneHover(e.localPosition),
-          child: Stack(clipBehavior: Clip.none, children: [
-            Positioned.fill(
-              child: IgnorePointer(
-                child: RepaintBoundary(
-                  child: CustomPaint(
-                    painter: _EdgePainter(state: this, focusColor: _focusColor, repaint: _frame),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: RepaintBoundary(
+                    child: CustomPaint(
+                      painter: _EdgePainter(
+                        state: this,
+                        focusColor: _focusColor,
+                        repaint: _frame,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-            for (final n in widget.nodes)
-              if (!_hidden(n.kind)) _nodeWidget(n),
-            if (_hoverEdgeId != null) _edgeTooltip(context, c),
-          ]),
+              for (final n in widget.nodes)
+                if (!_hidden(n.kind)) _nodeWidget(n),
+              if (_hoverEdgeId != null) _edgeTooltip(context, c),
+            ],
+          ),
         ),
       ),
     );
@@ -696,8 +753,13 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
   // 烙进 child;帧仅重定位、不重建 child(拖拽零节点重建)。
   Widget _nodeWidget(EntityNode n) {
     final hop = _hopOf(n.id);
-    final labelVisible = !_labelsHidden &&
-        RelationGraphConfig.labelVisible(hop: hop, scale: _scale, nodeCount: _idSet.length);
+    final labelVisible =
+        !_labelsHidden &&
+        RelationGraphConfig.labelVisible(
+          hop: hop,
+          scale: _scale,
+          nodeCount: _idSet.length,
+        );
     return ValueListenableBuilder<int>(
       valueListenable: _frame,
       child: _RelationNode(
@@ -734,7 +796,9 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
 
   Widget _edgeTooltip(BuildContext context, AnColors c) {
     final edge = widget.edges.where((e) => e.id == _hoverEdgeId).firstOrNull;
-    if (edge == null || widget.edgeSemanticLabel == null) return const SizedBox.shrink();
+    if (edge == null || widget.edgeSemanticLabel == null) {
+      return const SizedBox.shrink();
+    }
     final mid = (_sceneOf(edge.fromId) + _sceneOf(edge.toId)) / 2;
     return Positioned(
       left: mid.dx,
@@ -743,7 +807,10 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
         translation: const Offset(-0.5, -1.2),
         child: IgnorePointer(
           child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8, vertical: AnSpace.s4),
+            padding: const EdgeInsets.symmetric(
+              horizontal: AnSpace.s8,
+              vertical: AnSpace.s4,
+            ),
             decoration: BoxDecoration(
               color: c.surface,
               borderRadius: BorderRadius.circular(AnRadius.button),
@@ -762,14 +829,28 @@ class _AnRelationGraphState extends State<AnRelationGraph> with SingleTickerProv
 
   Widget _toolbar(BuildContext context) {
     final t = context.t;
-    return AnFloatingBar(children: [
-      AnButton.iconOnly(AnIcons.zoomOut,
-          size: AnButtonSize.sm, onPressed: () => _zoomBy(1 / 1.2), semanticLabel: t.a11y.graphZoomOut),
-      AnButton.iconOnly(AnIcons.zoomIn,
-          size: AnButtonSize.sm, onPressed: () => _zoomBy(1.2), semanticLabel: t.a11y.graphZoomIn),
-      AnButton.iconOnly(AnIcons.expand,
-          size: AnButtonSize.sm, onPressed: _fit, semanticLabel: t.a11y.graphFit),
-    ]);
+    return AnFloatingBar(
+      children: [
+        AnButton.iconOnly(
+          AnIcons.zoomOut,
+          size: AnButtonSize.sm,
+          onPressed: () => _zoomBy(1 / 1.2),
+          semanticLabel: t.a11y.graphZoomOut,
+        ),
+        AnButton.iconOnly(
+          AnIcons.zoomIn,
+          size: AnButtonSize.sm,
+          onPressed: () => _zoomBy(1.2),
+          semanticLabel: t.a11y.graphZoomIn,
+        ),
+        AnButton.iconOnly(
+          AnIcons.expand,
+          size: AnButtonSize.sm,
+          onPressed: _fit,
+          semanticLabel: t.a11y.graphFit,
+        ),
+      ],
+    );
   }
 }
 
@@ -840,24 +921,30 @@ class _RelationNodeState extends State<_RelationNode> {
     // Ripple: hue fixed, opacity fades by hop. The focus grows a touch and wears a soft fog halo; the first
     // ring gets a fainter one. 涟漪:色相不变、不透明度随跳数淡;焦点稍大+柔光,一跳更弱柔光。
     final opacity = RelationGraphConfig.nodeOpacity(widget.hop);
-    final r = widget.radius + (widget.focused ? RelationGraphConfig.focusRadiusBonus : 0);
+    final r =
+        widget.radius +
+        (widget.focused ? RelationGraphConfig.focusRadiusBonus : 0);
 
     final List<BoxShadow>? glow = widget.focused
         ? [
             BoxShadow(
-              color: widget.color.withValues(alpha: RelationGraphConfig.focusGlowAlpha),
+              color: widget.color.withValues(
+                alpha: RelationGraphConfig.focusGlowAlpha,
+              ),
               blurRadius: RelationGraphConfig.focusGlowBlur,
               spreadRadius: RelationGraphConfig.focusGlowSpread,
             ),
           ]
         : widget.hop == 1
-            ? [
-                BoxShadow(
-                  color: widget.color.withValues(alpha: RelationGraphConfig.oneHopGlowAlpha),
-                  blurRadius: RelationGraphConfig.focusGlowBlur * 0.6,
-                ),
-              ]
-            : null;
+        ? [
+            BoxShadow(
+              color: widget.color.withValues(
+                alpha: RelationGraphConfig.oneHopGlowAlpha,
+              ),
+              blurRadius: RelationGraphConfig.focusGlowBlur * 0.6,
+            ),
+          ]
+        : null;
 
     // Every dot wears a canvas-coloured halo stroke (Obsidian/Gephi) so it lifts off the edge layer; a
     // SELECTED node swaps it for the accent ring. 每个点画布色描边抬离边层;选中换 accent 环。
@@ -877,15 +964,19 @@ class _RelationNodeState extends State<_RelationNode> {
 
     // Text is EXEMPT from the no-ink rule (that bans LINES); the focus label is 13/emphasis ink, the ring
     // muted, the rest faint. Re-weight via `.weight()` (VF pinned-axis rule). 文字不在禁 ink 之列(禁的是线)。
-    final labelStyle = (widget.focused ? AnText.label.weight(AnText.emphasisWeight) : AnText.meta).copyWith(
-      color: widget.selected
-          ? c.accent
-          : widget.focused
-              ? c.ink
-              : widget.hop <= 1
+    final labelStyle =
+        (widget.focused
+                ? AnText.label.weight(AnText.emphasisWeight)
+                : AnText.meta)
+            .copyWith(
+              color: widget.selected
+                  ? c.accent
+                  : widget.focused
+                  ? c.ink
+                  : widget.hop <= 1
                   ? c.inkMuted
                   : c.inkFaint,
-    );
+            );
     final label = widget.labelVisible
         ? Padding(
             padding: const EdgeInsets.only(top: AnSpace.s4),
@@ -904,10 +995,12 @@ class _RelationNodeState extends State<_RelationNode> {
       mouseCursor: SystemMouseCursors.click,
       onShowHoverHighlight: widget.onHover,
       actions: <Type, Action<Intent>>{
-        ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) {
-          widget.onActivate();
-          return null;
-        }),
+        ActivateIntent: CallbackAction<ActivateIntent>(
+          onInvoke: (_) {
+            widget.onActivate();
+            return null;
+          },
+        ),
       },
       child: Semantics(
         label: widget.semanticLabel,
@@ -952,7 +1045,10 @@ class _RelationNodeState extends State<_RelationNode> {
       opacity: opacity,
       child: Column(
         mainAxisSize: MainAxisSize.min,
-        children: [dotHit, IgnorePointer(child: label)],
+        children: [
+          dotHit,
+          IgnorePointer(child: label),
+        ],
       ),
     );
   }
@@ -985,25 +1081,33 @@ class _EdgePainter extends CustomPainter {
       final Color color;
       final double width;
       if (isHover) {
-        color = focusColor.withValues(alpha: RelationGraphConfig.edgeHoverAlpha);
+        color = focusColor.withValues(
+          alpha: RelationGraphConfig.edgeHoverAlpha,
+        );
         width = RelationGraphConfig.edgeWidthHover;
       } else {
         final hop = math.min(state._hopOf(e.fromId), state._hopOf(e.toId));
-        color = focusColor.withValues(alpha: RelationGraphConfig.edgeOpacity(hop));
-        width = hop == 0 ? RelationGraphConfig.edgeWidthFocus : RelationGraphConfig.edgeWidth;
+        color = focusColor.withValues(
+          alpha: RelationGraphConfig.edgeOpacity(hop),
+        );
+        width = hop == 0
+            ? RelationGraphConfig.edgeWidthFocus
+            : RelationGraphConfig.edgeWidth;
       }
       canvas.drawLine(
-          a,
-          b,
-          Paint()
-            ..color = color
-            ..strokeWidth = width
-            ..strokeCap = StrokeCap.round);
+        a,
+        b,
+        Paint()
+          ..color = color
+          ..strokeWidth = width
+          ..strokeCap = StrokeCap.round,
+      );
     }
   }
 
   @override
-  bool shouldRepaint(_EdgePainter old) => old.focusColor != focusColor || !identical(old.state, state);
+  bool shouldRepaint(_EdgePainter old) =>
+      old.focusColor != focusColor || !identical(old.state, state);
 }
 
 /// The screen-fixed dot-grid backdrop. One batched drawPoints. 钉屏点阵背景;一次批量 drawPoints。

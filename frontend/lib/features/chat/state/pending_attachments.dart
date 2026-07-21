@@ -31,16 +31,19 @@ class PendingAttachment {
 
   bool get isImage => (mimeType ?? '').startsWith('image/');
 
-  PendingAttachment _with({String? status, String? attachmentId, bool dropBytes = false}) =>
-      PendingAttachment(
-        localId: localId,
-        filename: filename,
-        sizeBytes: sizeBytes,
-        mimeType: mimeType,
-        status: status ?? this.status,
-        attachmentId: attachmentId ?? this.attachmentId,
-        bytes: dropBytes ? null : bytes,
-      );
+  PendingAttachment _with({
+    String? status,
+    String? attachmentId,
+    bool dropBytes = false,
+  }) => PendingAttachment(
+    localId: localId,
+    filename: filename,
+    sizeBytes: sizeBytes,
+    mimeType: mimeType,
+    status: status ?? this.status,
+    attachmentId: attachmentId ?? this.attachmentId,
+    bytes: dropBytes ? null : bytes,
+  );
 }
 
 /// The composer's pending-attachment strip, keyed by draft key (thread id / the landing) — the SAME
@@ -64,16 +67,27 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
 
   bool get hasUploading => state.any((a) => a.status == 'uploading');
   int get failedCount => state.where((a) => a.status == 'failed').length;
-  List<String> get readyIds =>
-      [for (final a in state) if (a.status == 'ready' && a.attachmentId != null) a.attachmentId!];
+  List<String> get readyIds => [
+    for (final a in state)
+      if (a.status == 'ready' && a.attachmentId != null) a.attachmentId!,
+  ];
 
-  Future<void> addBytes(List<int> bytes, {required String filename, String? mimeType}) async {
+  Future<void> addBytes(
+    List<int> bytes, {
+    required String filename,
+    String? mimeType,
+  }) async {
     final localId = 'pa_${_seq++}';
     final mime = mimeType ?? lookupMimeType(filename);
     state = [
       ...state,
       PendingAttachment(
-          localId: localId, filename: filename, sizeBytes: bytes.length, mimeType: mime, bytes: bytes),
+        localId: localId,
+        filename: filename,
+        sizeBytes: bytes.length,
+        mimeType: mime,
+        bytes: bytes,
+      ),
     ];
     await _upload(localId);
   }
@@ -90,12 +104,20 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
       state = [
         ...state,
         PendingAttachment(
-            localId: 'pa_${_seq++}', filename: name, sizeBytes: 0,
-            mimeType: lookupMimeType(name), status: 'failed'),
+          localId: 'pa_${_seq++}',
+          filename: name,
+          sizeBytes: 0,
+          mimeType: lookupMimeType(name),
+          status: 'failed',
+        ),
       ];
       return;
     }
-    await addBytes(bytes, filename: name, mimeType: lookupMimeType(name, headerBytes: bytes.take(64).toList()));
+    await addBytes(
+      bytes,
+      filename: name,
+      mimeType: lookupMimeType(name, headerBytes: bytes.take(64).toList()),
+    );
   }
 
   Future<void> retry(String localId) => _upload(localId);
@@ -116,7 +138,11 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
     try {
       final meta = await ref
           .read(chatRepositoryProvider)
-          .uploadAttachment(bytes: bytes, filename: a.filename, mimeType: a.mimeType);
+          .uploadAttachment(
+            bytes: bytes,
+            filename: a.filename,
+            mimeType: a.mimeType,
+          );
       // The chip may have been REMOVED while the upload was in flight — nobody would ever hold the
       // fresh id, so delete it server-side right away (the backend has no GC; a silent drop is a
       // permanent orphan). 上传期间 chip 可能已被移除——新 id 无人持有,立刻反手删掉(后端无 GC,
@@ -127,8 +153,14 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
       }
       // Bytes drop on ready EXCEPT for images — the chip's thumbnail renders straight from memory
       // (a few MB per pending image, bounded by the strip). 非图 ready 即弃字节;图留作 chip 缩略图。
-      _patch(localId,
-          (p) => p._with(status: 'ready', attachmentId: meta.id, dropBytes: !p.isImage));
+      _patch(
+        localId,
+        (p) => p._with(
+          status: 'ready',
+          attachmentId: meta.id,
+          dropBytes: !p.isImage,
+        ),
+      );
     } catch (_) {
       _patch(localId, (p) => p._with(status: 'failed'));
     } finally {
@@ -142,9 +174,15 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
     if (a.status == 'ready' && a.attachmentId != null) {
       // Fire-and-forget hygiene — a failed delete just leaves a dangling row, never blocks the UI.
       // 顺手卫生——删失败只留悬挂行,绝不挡 UI。
-      ref.read(chatRepositoryProvider).deleteAttachment(a.attachmentId!).ignore();
+      ref
+          .read(chatRepositoryProvider)
+          .deleteAttachment(a.attachmentId!)
+          .ignore();
     }
-    state = [for (final p in state) if (p.localId != localId) p];
+    state = [
+      for (final p in state)
+        if (p.localId != localId) p,
+    ];
   }
 
   /// After a successful send — local only (the message references the uploads). 发送成功后清本地。
@@ -156,5 +194,8 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
 }
 
 final pendingAttachmentsProvider =
-    NotifierProvider.family<PendingAttachments, List<PendingAttachment>, String>(
-        PendingAttachments.new);
+    NotifierProvider.family<
+      PendingAttachments,
+      List<PendingAttachment>,
+      String
+    >(PendingAttachments.new);

@@ -56,19 +56,30 @@ class ChatPanel extends ConsumerWidget {
                 label: t.settings.autoStage,
                 desc: t.settings.autoStageDesc,
                 modified: follow != FollowMode.always,
-                onReset: () => ref.read(followModeProvider.notifier).set(FollowMode.always),
+                onReset: () => ref
+                    .read(followModeProvider.notifier)
+                    .set(FollowMode.always),
                 resetLabel: t.settings.resetToDefault,
                 child: SizedBox(
                   width: AnSize.ctlSlotLg,
                   child: AnSegmented<FollowMode>(
                     options: [
-                      AnSegmentedOption(value: FollowMode.never, label: t.settings.stageNever),
                       AnSegmentedOption(
-                          value: FollowMode.firstPerConversation, label: t.settings.stageFirst),
-                      AnSegmentedOption(value: FollowMode.always, label: t.settings.stageAlways),
+                        value: FollowMode.never,
+                        label: t.settings.stageNever,
+                      ),
+                      AnSegmentedOption(
+                        value: FollowMode.firstPerConversation,
+                        label: t.settings.stageFirst,
+                      ),
+                      AnSegmentedOption(
+                        value: FollowMode.always,
+                        label: t.settings.stageAlways,
+                      ),
                     ],
                     value: follow,
-                    onChanged: (v) => ref.read(followModeProvider.notifier).set(v),
+                    onChanged: (v) =>
+                        ref.read(followModeProvider.notifier).set(v),
                   ),
                 ),
               ),
@@ -80,19 +91,33 @@ class ChatPanel extends ConsumerWidget {
                 label: t.settings.sendKey,
                 desc: t.settings.sendKeyDesc,
                 modified: sendKey != SettingsKeys.chatSendKey.def,
-                onReset: () =>
-                    ref.read(stringSettingProvider(SettingsKeys.chatSendKey).notifier).reset(),
+                onReset: () => ref
+                    .read(
+                      stringSettingProvider(SettingsKeys.chatSendKey).notifier,
+                    )
+                    .reset(),
                 resetLabel: t.settings.resetToDefault,
                 child: SizedBox(
                   width: AnSize.ctlSlot,
                   child: AnSegmented<String>(
                     options: [
-                      AnSegmentedOption(value: 'enter', label: t.settings.sendEnter),
-                      AnSegmentedOption(value: 'cmdEnter', label: t.settings.sendCmdEnter),
+                      AnSegmentedOption(
+                        value: 'enter',
+                        label: t.settings.sendEnter,
+                      ),
+                      AnSegmentedOption(
+                        value: 'cmdEnter',
+                        label: t.settings.sendCmdEnter,
+                      ),
                     ],
                     value: sendKey,
-                    onChanged: (v) =>
-                        ref.read(stringSettingProvider(SettingsKeys.chatSendKey).notifier).set(v),
+                    onChanged: (v) => ref
+                        .read(
+                          stringSettingProvider(
+                            SettingsKeys.chatSendKey,
+                          ).notifier,
+                        )
+                        .set(v),
                   ),
                 ),
               ),
@@ -118,8 +143,14 @@ class ChatPanel extends ConsumerWidget {
                   width: AnSize.ctlSlot,
                   child: AnSegmented<String>(
                     options: [
-                      AnSegmentedOption(value: 'local', label: t.settings.webLocal),
-                      AnSegmentedOption(value: 'jina', label: t.settings.webJina),
+                      AnSegmentedOption(
+                        value: 'local',
+                        label: t.settings.webLocal,
+                      ),
+                      AnSegmentedOption(
+                        value: 'jina',
+                        label: t.settings.webJina,
+                      ),
                     ],
                     value: ws.value?.webFetchMode ?? 'local',
                     onChanged: (v) => _setWebFetch(ref, context, v),
@@ -137,16 +168,22 @@ class ChatPanel extends ConsumerWidget {
         AnRow(
           icon: AnIcons.apiKey,
           label: t.settings.defaultModelLink,
-          actions: [Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint)],
-          onSelect: () =>
-              ref.read(settingsPanelProvider.notifier).select(SettingsPanel.modelsKeys),
+          actions: [
+            Icon(AnIcons.chevronRight, size: AnSize.icon, color: c.inkFaint),
+          ],
+          onSelect: () => ref
+              .read(settingsPanelProvider.notifier)
+              .select(SettingsPanel.modelsKeys),
         ),
         // The async row's error voice (load failure) — the settings inline-error grammar:
         // label(13)+danger, not a red wall. 载入失败行:行内错文法 label+danger。
         if (ws.hasError)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s8),
-            child: Text(t.settings.patchFailed, style: AnText.label.copyWith(color: c.danger)),
+            child: Text(
+              t.settings.patchFailed,
+              style: AnText.label.copyWith(color: c.danger),
+            ),
           ),
       ],
     );
@@ -154,8 +191,12 @@ class ChatPanel extends ConsumerWidget {
 
   void _setWebFetch(WidgetRef ref, BuildContext context, String mode) {
     final t = Translations.of(context);
-    ref.read(workspacePrefsProvider.notifier).setWebFetchMode(mode).catchError((_) {
-      ref.read(noticeCenterProvider.notifier).show(t.settings.patchFailed, tone: AnTone.danger);
+    ref.read(workspacePrefsProvider.notifier).setWebFetchMode(mode).catchError((
+      _,
+    ) {
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(t.settings.patchFailed, tone: AnTone.danger);
     });
   }
 }

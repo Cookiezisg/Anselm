@@ -14,7 +14,7 @@ import 'notification_signal.dart';
 /// 就地改 readAt;emit 前插新行**并**推 NotificationSignal,使 badge/list 与真流下反应一致。镜像 Chat/实体 fixture。
 class FixtureNotificationRepository implements NotificationRepository {
   FixtureNotificationRepository({List<NotificationItem>? seed})
-      : _rows = List.of(seed ?? const []);
+    : _rows = List.of(seed ?? const []);
 
   final List<NotificationItem> _rows;
   final _signals = StreamController<NotificationSignal>.broadcast();
@@ -25,7 +25,10 @@ class FixtureNotificationRepository implements NotificationRepository {
   int unreadCountCalls = 0;
 
   @override
-  Future<Page<NotificationItem>> listNotifications({String? cursor, int? limit}) async {
+  Future<Page<NotificationItem>> listNotifications({
+    String? cursor,
+    int? limit,
+  }) async {
     // cursor = next start index (as a string), same idiom as the entity fixture. cursor=下一起点索引串。
     final start = int.tryParse(cursor ?? '') ?? 0;
     final n = limit ?? _rows.length;
@@ -89,13 +92,25 @@ class FixtureNotificationRepository implements NotificationRepository {
   /// this, and tests assert the badge/list react. 前插新行并推信号(demo 脚本化通知、测试断言反应)。
   void emit(NotificationItem row) {
     _rows.insert(0, row);
-    _signals.add(NotificationSignal(type: row.type, durable: true, inboxCandidate: true, payload: row.payload));
+    _signals.add(
+      NotificationSignal(
+        type: row.type,
+        durable: true,
+        inboxCandidate: true,
+        payload: row.payload,
+      ),
+    );
   }
 
   /// Push a bare reconciliation nudge WITHOUT adding a row — models a frame-only Broadcast echo (the
   /// badge must NOT change on it). 推一条无行的对账 nudge——模拟仅帧回声(徽标不该变)。
   void emitEcho(String type) => _signals.add(
-      NotificationSignal(type: type, durable: true, inboxCandidate: !type.startsWith('conversation.')));
+    NotificationSignal(
+      type: type,
+      durable: true,
+      inboxCandidate: !type.startsWith('conversation.'),
+    ),
+  );
 
   /// Fire a 410 resync. 触发 410 重同步。
   void emitResync() => _resync.add(null);

@@ -15,23 +15,39 @@ import 'an_editor_components.dart';
 /// default of merging it into the block above. This is Notion's signature "escape the formatting" feel.
 /// Registered BEFORE the default IME keyboard actions so it intercepts the backspace first. Notion 退格回退:
 /// 标题/引用行首(或空待办/列表项)按退格→变回普通段落,而非默认的上合并;招牌手感,注册在默认 IME 键动作前。
-ExecutionInstruction backspaceRevertBlockAction({required SuperEditorContext editContext, required KeyEvent keyEvent}) {
-  if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) return ExecutionInstruction.continueExecution;
-  if (keyEvent.logicalKey != LogicalKeyboardKey.backspace) return ExecutionInstruction.continueExecution;
+ExecutionInstruction backspaceRevertBlockAction({
+  required SuperEditorContext editContext,
+  required KeyEvent keyEvent,
+}) {
+  if (keyEvent is! KeyDownEvent && keyEvent is! KeyRepeatEvent) {
+    return ExecutionInstruction.continueExecution;
+  }
+  if (keyEvent.logicalKey != LogicalKeyboardKey.backspace) {
+    return ExecutionInstruction.continueExecution;
+  }
 
-  final composer = editContext.editor.context.find<MutableDocumentComposer>(Editor.composerKey);
+  final composer = editContext.editor.context.find<MutableDocumentComposer>(
+    Editor.composerKey,
+  );
   final selection = composer.selection;
-  if (selection == null || !selection.isCollapsed) return ExecutionInstruction.continueExecution;
+  if (selection == null || !selection.isCollapsed) {
+    return ExecutionInstruction.continueExecution;
+  }
   final position = selection.extent.nodePosition;
-  if (position is! TextNodePosition || position.offset != 0) return ExecutionInstruction.continueExecution;
+  if (position is! TextNodePosition || position.offset != 0) {
+    return ExecutionInstruction.continueExecution;
+  }
 
-  final document = editContext.editor.context.find<MutableDocument>(Editor.documentKey);
+  final document = editContext.editor.context.find<MutableDocument>(
+    Editor.documentKey,
+  );
   final node = document.getNodeById(selection.extent.nodeId);
 
   // A header/blockquote paragraph reverts to a plain paragraph. 标题/引用段落→普通段落。
   if (node is ParagraphNode) {
     final blockType = node.getMetadataValue('blockType');
-    final isRevertable = blockType == header1Attribution ||
+    final isRevertable =
+        blockType == header1Attribution ||
         blockType == header2Attribution ||
         blockType == header3Attribution ||
         blockType == header4Attribution ||
@@ -40,7 +56,10 @@ ExecutionInstruction backspaceRevertBlockAction({required SuperEditorContext edi
         blockType == blockquoteAttribution;
     if (isRevertable) {
       editContext.editor.execute([
-        ChangeParagraphBlockTypeRequest(nodeId: node.id, blockType: paragraphAttribution),
+        ChangeParagraphBlockTypeRequest(
+          nodeId: node.id,
+          blockType: paragraphAttribution,
+        ),
       ]);
       return ExecutionInstruction.haltExecution;
     }
@@ -48,9 +67,14 @@ ExecutionInstruction backspaceRevertBlockAction({required SuperEditorContext edi
   }
 
   // An EMPTY to-do or list item exits to a plain paragraph. 空待办/列表项→段落。
-  if (node is TextNode && (node is TaskNode || node is ListItemNode) && node.text.toPlainText().isEmpty) {
+  if (node is TextNode &&
+      (node is TaskNode || node is ListItemNode) &&
+      node.text.toPlainText().isEmpty) {
     editContext.editor.execute([
-      ReplaceNodeRequest(existingNodeId: node.id, newNode: ParagraphNode(id: node.id, text: AttributedText())),
+      ReplaceNodeRequest(
+        existingNodeId: node.id,
+        newNode: ParagraphNode(id: node.id, text: AttributedText()),
+      ),
     ]);
     return ExecutionInstruction.haltExecution;
   }
@@ -79,11 +103,18 @@ class TodoConversionReaction extends ParagraphPrefixConversionReaction {
     requestDispatcher.execute([
       ReplaceNodeRequest(
         existingNodeId: paragraph.id,
-        newNode: TaskNode(id: paragraph.id, text: AttributedText(), isComplete: false),
+        newNode: TaskNode(
+          id: paragraph.id,
+          text: AttributedText(),
+          isComplete: false,
+        ),
       ),
       ChangeSelectionRequest(
         DocumentSelection.collapsed(
-          position: DocumentPosition(nodeId: paragraph.id, nodePosition: const TextNodePosition(offset: 0)),
+          position: DocumentPosition(
+            nodeId: paragraph.id,
+            nodePosition: const TextNodePosition(offset: 0),
+          ),
         ),
         SelectionChangeType.placeCaret,
         SelectionReason.contentChange,
@@ -143,11 +174,17 @@ class PlusBulletConversionReaction extends ParagraphPrefixConversionReaction {
     requestDispatcher.execute([
       ReplaceNodeRequest(
         existingNodeId: paragraph.id,
-        newNode: ListItemNode.unordered(id: paragraph.id, text: AttributedText()),
+        newNode: ListItemNode.unordered(
+          id: paragraph.id,
+          text: AttributedText(),
+        ),
       ),
       ChangeSelectionRequest(
         DocumentSelection.collapsed(
-          position: DocumentPosition(nodeId: paragraph.id, nodePosition: const TextNodePosition(offset: 0)),
+          position: DocumentPosition(
+            nodeId: paragraph.id,
+            nodePosition: const TextNodePosition(offset: 0),
+          ),
         ),
         SelectionChangeType.placeCaret,
         SelectionReason.contentChange,

@@ -30,7 +30,9 @@ GoRouter buildTestRouter({String initialLocation = '/', required Widget page}) {
       GoRoute(
         path: '/entities/:kind/:id',
         redirect: (context, state) =>
-            entityKindFromWire(state.pathParameters['kind']) == null ? '/' : null,
+            entityKindFromWire(state.pathParameters['kind']) == null
+            ? '/'
+            : null,
         builder: (_, _) => page,
       ),
       // Documents ocean selections (page / slug-addressed skill) — mirrors app router. 文档选区,镜像 app 路由。
@@ -53,11 +55,13 @@ Widget routedHost(
   EntityRepository? repository,
   GoRouter? router,
 }) {
-  final r = router ?? buildTestRouter(initialLocation: initialLocation, page: page);
+  final r =
+      router ?? buildTestRouter(initialLocation: initialLocation, page: page);
   return ProviderScope(
     overrides: [
       goRouterProvider.overrideWithValue(r),
-      if (repository != null) entityRepositoryProvider.overrideWithValue(repository),
+      if (repository != null)
+        entityRepositoryProvider.overrideWithValue(repository),
     ],
     child: TranslationProvider(
       child: MaterialApp.router(
@@ -71,4 +75,5 @@ Widget routedHost(
 
 /// The deep-link location for a [kind]/[id] selection — `/entities/<kind>/<id>` (re-exported so tests need
 /// only this support file). 实体 deep-link 位置(re-export,测试只依赖本支撑文件)。
-String selectionLocation(EntityKind kind, String id) => entityLocation(kind, id);
+String selectionLocation(EntityKind kind, String id) =>
+    entityLocation(kind, id);

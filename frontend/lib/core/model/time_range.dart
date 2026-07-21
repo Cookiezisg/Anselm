@@ -30,7 +30,8 @@ class AnPresetRange extends AnTimeRange {
   final AnTimePreset preset;
 
   @override
-  bool operator ==(Object other) => other is AnPresetRange && other.preset == preset;
+  bool operator ==(Object other) =>
+      other is AnPresetRange && other.preset == preset;
   @override
   int get hashCode => preset.hashCode;
 }
@@ -44,7 +45,8 @@ class AnAbsoluteRange extends AnTimeRange {
   final DateTime to;
 
   @override
-  bool operator ==(Object other) => other is AnAbsoluteRange && other.from == from && other.to == to;
+  bool operator ==(Object other) =>
+      other is AnAbsoluteRange && other.from == from && other.to == to;
   @override
   int get hashCode => Object.hash(from, to);
 }
@@ -54,7 +56,10 @@ class AnAbsoluteRange extends AnTimeRange {
 /// constructor normalization (DST-safe); duration presets are true look-back durations.
 /// 解析成 API 半开 `[from, to)`（null=该侧无界）。预设逐次现解析——传新鲜 now。「今天」经构造器归一锚到
 /// 本地零点（DST 安全）；时长预设是真回看时长。
-({DateTime? from, DateTime? to}) resolveTimeRange(AnTimeRange range, DateTime now) {
+({DateTime? from, DateTime? to}) resolveTimeRange(
+  AnTimeRange range,
+  DateTime now,
+) {
   switch (range) {
     case AnPresetRange(:final preset):
       switch (preset) {
@@ -81,7 +86,8 @@ class AnAbsoluteRange extends AnTimeRange {
 // （跨 DST 漂墙钟）。
 
 /// First day of the month [delta] months away from [month]'s month. 相距 delta 个月的月首。
-DateTime addMonths(DateTime month, int delta) => DateTime(month.year, month.month + delta, 1);
+DateTime addMonths(DateTime month, int delta) =>
+    DateTime(month.year, month.month + delta, 1);
 
 /// Days in [month]'s month — day 0 of the NEXT month normalizes to this month's last day.
 /// 该月天数——下月第 0 天归一化为本月末日。
@@ -94,13 +100,14 @@ List<DateTime> monthGridDays(DateTime month) {
   final first = DateTime(month.year, month.month, 1);
   final leading = (first.weekday - DateTime.monday + 7) % 7;
   return [
-    for (var i = 0; i < 42; i++) DateTime(month.year, month.month, 1 - leading + i),
+    for (var i = 0; i < 42; i++)
+      DateTime(month.year, month.month, 1 - leading + i),
   ];
 }
 
 /// Same calendar date (ignoring time). 同一天（忽略时刻）。
-bool isSameDay(DateTime a, DateTime b) => a.year == b.year && a.month == b.month && a.day == b.day;
+bool isSameDay(DateTime a, DateTime b) =>
+    a.year == b.year && a.month == b.month && a.day == b.day;
 
 /// Date-only value (local midnight). 只取日期（本地零点）。
 DateTime dateOnly(DateTime d) => DateTime(d.year, d.month, d.day);
-

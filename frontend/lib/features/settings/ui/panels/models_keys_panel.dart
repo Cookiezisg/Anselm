@@ -56,13 +56,18 @@ class ModelsKeysPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(settingsDetailProvider);
-    if (detail != null && (detail.kind == 'addKey' || detail.kind == 'editKey')) {
+    if (detail != null &&
+        (detail.kind == 'addKey' || detail.kind == 'editKey')) {
       return KeyForm(editingId: detail.id);
     }
     final t = Translations.of(context);
     final keys = ref.watch(apiKeysProvider);
-    final providers = ref.watch(providersProvider).value ?? const <ProviderMeta>[];
-    final managedNames = {for (final p in providers) if (p.managed) p.name};
+    final providers =
+        ref.watch(providersProvider).value ?? const <ProviderMeta>[];
+    final managedNames = {
+      for (final p in providers)
+        if (p.managed) p.name,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -80,19 +85,22 @@ class ModelsKeysPanel extends ConsumerWidget {
               icon: AnIcons.plus,
               size: AnButtonSize.sm,
               outline: true,
-              onPressed: () => ref.read(settingsDetailProvider.notifier).push('addKey'),
+              onPressed: () =>
+                  ref.read(settingsDetailProvider.notifier).push('addKey'),
             ),
           ],
           children: [
             switch (keys) {
               AsyncData(:final value) when value.isEmpty => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
-                  child: AnState(
-                      kind: AnStateKind.empty,
-                      title: t.settings.keys.keysSection,
-                      size: AnStateSize.inset),
+                padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
+                child: AnState(
+                  kind: AnStateKind.empty,
+                  title: t.settings.keys.keysSection,
+                  size: AnStateSize.inset,
                 ),
-              AsyncData(:final value) => Column(children: [
+              ),
+              AsyncData(:final value) => Column(
+                children: [
                   // Managed rows pinned on top, locked (no edit/delete affordances — S-1's UI half).
                   // 受管行锁顶,无编辑删除入口(S-1 前端半)。
                   for (final k in [
@@ -100,11 +108,13 @@ class ModelsKeysPanel extends ConsumerWidget {
                     ...value.where((k) => !managedNames.contains(k.provider)),
                   ])
                     _KeyRow(row: k, managed: managedNames.contains(k.provider)),
-                ]),
+                ],
+              ),
               AsyncError() => AnState(
-                  kind: AnStateKind.error,
-                  title: t.settings.keys.keyOpFailed,
-                  size: AnStateSize.inset),
+                kind: AnStateKind.error,
+                title: t.settings.keys.keyOpFailed,
+                size: AnStateSize.inset,
+              ),
               _ => const SizedBox(height: AnSize.row),
             },
           ],
@@ -135,9 +145,12 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
     try {
       final ok = await ref.read(freetierQuotaProvider.notifier).provision();
       if (!ok && mounted) {
-        ref.read(noticeCenterProvider.notifier).show(
-            Translations.of(context).settings.keys.freeFailed,
-            tone: AnTone.warn);
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(
+              Translations.of(context).settings.keys.freeFailed,
+              tone: AnTone.warn,
+            );
       }
     } finally {
       if (mounted) setState(() => _provisioning = false);
@@ -152,32 +165,48 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
     // The family card — a content-flow card is chip-tier (批7 B-043 圆角选档:settings 流内卡=AnCard,
     // 手搓 card-16 白卡是尺度阶梯下唯一真出格). 族卡:流内卡=chip 档,手搓 16 圆角卡收编。
     return AnCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          Text(t.settings.keys.freeTier, style: AnText.label.copyWith(color: c.inkMuted)),
-          const Spacer(),
-          if (quota.hasValue && quota.value != null)
-            AnButton(
-              label: t.settings.keys.freeRefresh,
-              size: AnButtonSize.sm,
-              outline: true,
-              onPressed: () => ref.read(freetierQuotaProvider.notifier).refresh(),
-            ),
-        ]),
-        const SizedBox(height: AnSpace.s8),
-        Row(children: [
-          const AnBrandIcon.anselm(size: AnBrandSize.sm),
-          const SizedBox(width: AnSpace.s8),
-          Text(t.settings.keys.freeTierName,
-              style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-        ]),
-        const SizedBox(height: AnSpace.s12),
-        switch (quota) {
-          AsyncData(:final value) when value == null => Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Text(
+                t.settings.keys.freeTier,
+                style: AnText.label.copyWith(color: c.inkMuted),
+              ),
+              const Spacer(),
+              if (quota.hasValue && quota.value != null)
+                AnButton(
+                  label: t.settings.keys.freeRefresh,
+                  size: AnButtonSize.sm,
+                  outline: true,
+                  onPressed: () =>
+                      ref.read(freetierQuotaProvider.notifier).refresh(),
+                ),
+            ],
+          ),
+          const SizedBox(height: AnSpace.s8),
+          Row(
+            children: [
+              const AnBrandIcon.anselm(size: AnBrandSize.sm),
+              const SizedBox(width: AnSpace.s8),
+              Text(
+                t.settings.keys.freeTierName,
+                style: AnText.body
+                    .weight(AnText.emphasisWeight)
+                    .copyWith(color: c.ink),
+              ),
+            ],
+          ),
+          const SizedBox(height: AnSpace.s12),
+          switch (quota) {
+            AsyncData(:final value) when value == null => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(t.settings.keys.freeEnableHint,
-                    style: AnText.meta.copyWith(color: c.inkFaint)),
+                Text(
+                  t.settings.keys.freeEnableHint,
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
                 const SizedBox(height: AnSpace.s8),
                 AnButton(
                   label: _provisioning
@@ -188,13 +217,16 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
                 ),
               ],
             ),
-          AsyncData(:final value) => Column(
+            AsyncData(:final value) => Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 AnMeter(
                   ratio: value!.limit <= 0 ? null : value.used / value.limit,
                   label: t.settings.keys.freeUsage(
-                      used: '${value.used}', limit: '${value.limit}', reset: value.resetAt),
+                    used: '${value.used}',
+                    limit: '${value.limit}',
+                    reset: value.resetAt,
+                  ),
                 ),
                 if (!value.available) ...[
                   const SizedBox(height: AnSpace.s8),
@@ -202,11 +234,14 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
                 ],
               ],
             ),
-          AsyncError() => Text(t.settings.keys.keyOpFailed,
-              style: AnText.label.copyWith(color: c.danger)),
-          _ => const AnMeter(ratio: null),
-        },
-      ]),
+            AsyncError() => Text(
+              t.settings.keys.keyOpFailed,
+              style: AnText.label.copyWith(color: c.danger),
+            ),
+            _ => const AnMeter(ratio: null),
+          },
+        ],
+      ),
     );
   }
 }
@@ -237,7 +272,9 @@ class _KeyRow extends ConsumerWidget {
       if (e.code == 'API_KEY_IN_USE') {
         // The reference inventory dialog — the backend names every referencing site. 引用清单。
         final details = e.details;
-        final refs = (details is Map ? details['references'] as List? : null) ?? const [];
+        final refs =
+            (details is Map ? details['references'] as List? : null) ??
+            const [];
         final lines = refs
             .map((r) => '· ${(r as Map)['kind']} — ${r['name'] ?? r['id']}')
             .join('\n');
@@ -249,7 +286,9 @@ class _KeyRow extends ConsumerWidget {
           barrierLabel: t.settings.keys.inUseTitle,
         );
       } else {
-        ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(e.message, tone: AnTone.danger);
       }
     }
   }
@@ -267,17 +306,25 @@ class _KeyRow extends ConsumerWidget {
       // logo (letter plate when unmapped). 前导品牌身份:受管=app 标,BYOK=厂牌 logo(缺者字母徽)。
       leadWidget: managed
           ? const AnBrandIcon.anselm(size: AnBrandSize.sm)
-          : brandIconOr(kProviderBrand[row.provider],
-              fallbackLabel: row.provider, size: AnBrandSize.sm),
+          : brandIconOr(
+              kProviderBrand[row.provider],
+              fallbackLabel: row.provider,
+              size: AnBrandSize.sm,
+            ),
       // The probe outcome stays visible at rest (the hover slot holds actions). 探测态尾端常驻。
-      trailingDot:
-          switch (row.testStatus) { 'ok' => AnStatus.done, 'error' => AnStatus.err, _ => null },
+      trailingDot: switch (row.testStatus) {
+        'ok' => AnStatus.done,
+        'error' => AnStatus.err,
+        _ => null,
+      },
       // Row click = edit (BYOK). Also load-bearing: AnInteractive only tracks hover when the row is
       // activatable, so without onSelect the hover actions would be unreachable on a real mouse.
       // 行点击=编辑(BYOK)。且承重:AnInteractive 仅在可激活时跟踪 hover,没 onSelect 真鼠标够不到动作。
       onSelect: managed
           ? null
-          : () => ref.read(settingsDetailProvider.notifier).push('editKey', id: row.id),
+          : () => ref
+                .read(settingsDetailProvider.notifier)
+                .push('editKey', id: row.id),
       label: row.displayName,
       // Managed identity rides the ALWAYS-visible meta — the hover slot is for actions, and a
       // managed row has none. 受管身份走常驻 meta——hover 槽只放动作,受管行没有动作。
@@ -293,15 +340,18 @@ class _KeyRow extends ConsumerWidget {
               try {
                 await ref.read(apiKeysProvider.notifier).test(row.id);
               } on ApiException catch (e) {
-                ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
+                ref
+                    .read(noticeCenterProvider.notifier)
+                    .show(e.message, tone: AnTone.danger);
               }
             },
           ),
           AnButton(
             label: t.settings.keys.editKey,
             size: AnButtonSize.sm,
-            onPressed: () =>
-                ref.read(settingsDetailProvider.notifier).push('editKey', id: row.id),
+            onPressed: () => ref
+                .read(settingsDetailProvider.notifier)
+                .push('editKey', id: row.id),
           ),
           AnButton(
             label: t.settings.keys.deleteKey,
@@ -420,50 +470,66 @@ class _KeyFormState extends ConsumerState<KeyForm> {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
-    final providers = (ref.watch(providersProvider).value ?? const <ProviderMeta>[])
-        .where((p) => !p.managed)
-        .toList();
+    final providers =
+        (ref.watch(providersProvider).value ?? const <ProviderMeta>[])
+            .where((p) => !p.managed)
+            .toList();
     final meta = providers.where((p) => p.name == _provider).firstOrNull;
     final editing = widget.editingId != null;
 
     // ADD stage 0 — the vendor logo grid: pick the provider by its mark, then the form. 添加第 0
     // 段:厂家 logo 网格,按牌选商再进表单。
     if (!editing && _provider.isEmpty) {
-      return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(t.settings.keys.pickProvider, style: AnText.label.copyWith(color: c.inkMuted)),
-        const SizedBox(height: AnSpace.s12),
-        Wrap(
-          spacing: AnSpace.s8,
-          runSpacing: AnSpace.s8,
-          children: [
-            for (final p in providers)
-              SizedBox(
-                width: AnSize.providerCell,
-                child: AnCard(
-                  selectable: true,
-                  onSelect: () => setState(() {
-                    _provider = p.name;
-                    if (_baseUrl.text.isEmpty) _baseUrl.text = p.defaultBaseUrl;
-                  }),
-                  child: Column(children: [
-                    brandIconOr(kProviderBrand[p.name], fallbackLabel: p.displayName),
-                    const SizedBox(height: AnSpace.s6),
-                    Text(p.displayName,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        textAlign: TextAlign.center,
-                        style: AnText.label.copyWith(color: c.ink)),
-                  ]),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            t.settings.keys.pickProvider,
+            style: AnText.label.copyWith(color: c.inkMuted),
+          ),
+          const SizedBox(height: AnSpace.s12),
+          Wrap(
+            spacing: AnSpace.s8,
+            runSpacing: AnSpace.s8,
+            children: [
+              for (final p in providers)
+                SizedBox(
+                  width: AnSize.providerCell,
+                  child: AnCard(
+                    selectable: true,
+                    onSelect: () => setState(() {
+                      _provider = p.name;
+                      if (_baseUrl.text.isEmpty) {
+                        _baseUrl.text = p.defaultBaseUrl;
+                      }
+                    }),
+                    child: Column(
+                      children: [
+                        brandIconOr(
+                          kProviderBrand[p.name],
+                          fallbackLabel: p.displayName,
+                        ),
+                        const SizedBox(height: AnSpace.s6),
+                        Text(
+                          p.displayName,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          textAlign: TextAlign.center,
+                          style: AnText.label.copyWith(color: c.ink),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
-          ],
-        ),
-        const SizedBox(height: AnSpace.s16),
-        AnButton(
-          label: t.settings.keys.cancel,
-          onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
-        ),
-      ]);
+            ],
+          ),
+          const SizedBox(height: AnSpace.s16),
+          AnButton(
+            label: t.settings.keys.cancel,
+            onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
+          ),
+        ],
+      );
     }
 
     // The base URL is a HARD requirement for self-hosted dialects. 自托管方言 baseUrl 硬必填。
@@ -472,83 +538,132 @@ class _KeyFormState extends ConsumerState<KeyForm> {
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Row(children: [
-          brandIconOr(kProviderBrand[_provider],
-              fallbackLabel: meta?.displayName ?? _provider, size: AnBrandSize.sm),
-          const SizedBox(width: AnSpace.s8),
-          Text(meta?.displayName ?? _provider,
-              style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: c.ink)),
-          if (!editing) ...[
-            const SizedBox(width: AnSpace.s8),
-            AnButton(
-              label: t.settings.keys.changeProvider,
-              size: AnButtonSize.sm,
-              onPressed: () => setState(() => _provider = ''),
-            ),
-          ],
-        ]),
-        const SizedBox(height: AnSpace.s12),
-        AnFormField(label: t.settings.keys.displayNameLabel, child: AnInput(controller: _name, block: true)),
-        const SizedBox(height: AnSpace.s12),
-        AnFormField(label: t.settings.keys.secretLabel, child: AnSecretField(
-          controller: _secret,
-          placeholder: editing ? t.settings.keys.rotatePlaceholder : null,
-          revealLabel: t.settings.keys.reveal,
-          concealLabel: t.settings.keys.conceal,
-        )),
-        if (editing)
-          Padding(
-            padding: const EdgeInsets.only(top: AnSpace.s4),
-            // The rotate note is a NOTE under the control, never a field label. 旋转注记非字段标签。
-            child: Text(t.settings.keys.rotateWarn, style: AnText.meta.copyWith(color: c.warn)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              brandIconOr(
+                kProviderBrand[_provider],
+                fallbackLabel: meta?.displayName ?? _provider,
+                size: AnBrandSize.sm,
+              ),
+              const SizedBox(width: AnSpace.s8),
+              Text(
+                meta?.displayName ?? _provider,
+                style: AnText.body
+                    .weight(AnText.emphasisWeight)
+                    .copyWith(color: c.ink),
+              ),
+              if (!editing) ...[
+                const SizedBox(width: AnSpace.s8),
+                AnButton(
+                  label: t.settings.keys.changeProvider,
+                  size: AnButtonSize.sm,
+                  onPressed: () => setState(() => _provider = ''),
+                ),
+              ],
+            ],
           ),
-        if (meta == null || meta.baseUrlRequired || _baseUrl.text.isNotEmpty || editing) ...[
           const SizedBox(height: AnSpace.s12),
           AnFormField(
-              label: t.settings.keys.baseUrlLabel,
-              desc: (meta?.baseUrlRequired ?? false) ? t.settings.keys.baseUrlRequiredHint : null,
-              child: AnInput(controller: _baseUrl, block: true, mono: true)),
-        ],
-        if (_provider == 'custom') ...[
+            label: t.settings.keys.displayNameLabel,
+            child: AnInput(controller: _name, block: true),
+          ),
           const SizedBox(height: AnSpace.s12),
-          AnFormField(label: t.settings.keys.apiFormatLabel, child: AnSegmented<String>(
-            options: const [
-              AnSegmentedOption(value: 'openai-compatible', label: 'OpenAI'),
-              AnSegmentedOption(value: 'anthropic-compatible', label: 'Anthropic'),
-            ],
-            value: _apiFormat,
-            onChanged: (v) => setState(() => _apiFormat = v),
-          )),
-        ],
-        if (_error != null)
-          Padding(
-            // Match the other settings forms' inline-error idiom (label + s8), not meta + s12. 与其余设置表一致。
-            padding: const EdgeInsets.only(top: AnSpace.s8),
-            child: Text(_error!, style: AnText.label.copyWith(color: c.danger)),
+          AnFormField(
+            label: t.settings.keys.secretLabel,
+            child: AnSecretField(
+              controller: _secret,
+              placeholder: editing ? t.settings.keys.rotatePlaceholder : null,
+              revealLabel: t.settings.keys.reveal,
+              concealLabel: t.settings.keys.conceal,
+            ),
           ),
-        const SizedBox(height: AnSpace.s16),
-        Row(children: [
-          if (_saving) ...[
-            AnSpinner(size: AnSize.iconSm, semanticLabel: t.settings.keys.savingProbe),
-            const SizedBox(width: AnSpace.s8),
+          if (editing)
+            Padding(
+              padding: const EdgeInsets.only(top: AnSpace.s4),
+              // The rotate note is a NOTE under the control, never a field label. 旋转注记非字段标签。
+              child: Text(
+                t.settings.keys.rotateWarn,
+                style: AnText.meta.copyWith(color: c.warn),
+              ),
+            ),
+          if (meta == null ||
+              meta.baseUrlRequired ||
+              _baseUrl.text.isNotEmpty ||
+              editing) ...[
+            const SizedBox(height: AnSpace.s12),
+            AnFormField(
+              label: t.settings.keys.baseUrlLabel,
+              desc: (meta?.baseUrlRequired ?? false)
+                  ? t.settings.keys.baseUrlRequiredHint
+                  : null,
+              child: AnInput(controller: _baseUrl, block: true, mono: true),
+            ),
           ],
-          AnButton(
-            label: _saving ? t.settings.keys.savingProbe : t.settings.keys.saveKey,
-            variant: AnButtonVariant.primary,
-            onPressed: _saving ||
-                    baseUrlMissing ||
-                    (_boundId == null && (_provider.isEmpty || _secret.text.isEmpty))
-                ? null
-                : _save,
+          if (_provider == 'custom') ...[
+            const SizedBox(height: AnSpace.s12),
+            AnFormField(
+              label: t.settings.keys.apiFormatLabel,
+              child: AnSegmented<String>(
+                options: const [
+                  AnSegmentedOption(
+                    value: 'openai-compatible',
+                    label: 'OpenAI',
+                  ),
+                  AnSegmentedOption(
+                    value: 'anthropic-compatible',
+                    label: 'Anthropic',
+                  ),
+                ],
+                value: _apiFormat,
+                onChanged: (v) => setState(() => _apiFormat = v),
+              ),
+            ),
+          ],
+          if (_error != null)
+            Padding(
+              // Match the other settings forms' inline-error idiom (label + s8), not meta + s12. 与其余设置表一致。
+              padding: const EdgeInsets.only(top: AnSpace.s8),
+              child: Text(
+                _error!,
+                style: AnText.label.copyWith(color: c.danger),
+              ),
+            ),
+          const SizedBox(height: AnSpace.s16),
+          Row(
+            children: [
+              if (_saving) ...[
+                AnSpinner(
+                  size: AnSize.iconSm,
+                  semanticLabel: t.settings.keys.savingProbe,
+                ),
+                const SizedBox(width: AnSpace.s8),
+              ],
+              AnButton(
+                label: _saving
+                    ? t.settings.keys.savingProbe
+                    : t.settings.keys.saveKey,
+                variant: AnButtonVariant.primary,
+                onPressed:
+                    _saving ||
+                        baseUrlMissing ||
+                        (_boundId == null &&
+                            (_provider.isEmpty || _secret.text.isEmpty))
+                    ? null
+                    : _save,
+              ),
+              const SizedBox(width: AnSpace.s8),
+              AnButton(
+                label: t.settings.keys.cancel,
+                onPressed: () =>
+                    ref.read(settingsDetailProvider.notifier).pop(),
+              ),
+            ],
           ),
-          const SizedBox(width: AnSpace.s8),
-          AnButton(
-            label: t.settings.keys.cancel,
-            onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
-          ),
-        ]),
-      ]),
+        ],
+      ),
     );
   }
 }
@@ -578,23 +693,26 @@ class _DefaultsSection extends ConsumerWidget {
       ],
       children: [
         _ScenarioDefaultRow(
-            scenario: 'dialogue',
-            label: t.settings.keys.scenarioDialogue,
-            desc: t.settings.keys.scenarioDialogueDesc,
-            current: ws?.defaultDialogue,
-            clearable: false), // S-6: dialogue 不渲清除项
+          scenario: 'dialogue',
+          label: t.settings.keys.scenarioDialogue,
+          desc: t.settings.keys.scenarioDialogueDesc,
+          current: ws?.defaultDialogue,
+          clearable: false,
+        ), // S-6: dialogue 不渲清除项
         _ScenarioDefaultRow(
-            scenario: 'utility',
-            label: t.settings.keys.scenarioUtility,
-            desc: t.settings.keys.scenarioUtilityDesc,
-            current: ws?.defaultUtility,
-            clearable: true),
+          scenario: 'utility',
+          label: t.settings.keys.scenarioUtility,
+          desc: t.settings.keys.scenarioUtilityDesc,
+          current: ws?.defaultUtility,
+          clearable: true,
+        ),
         _ScenarioDefaultRow(
-            scenario: 'agent',
-            label: t.settings.keys.scenarioAgent,
-            desc: t.settings.keys.scenarioAgentDesc,
-            current: ws?.defaultAgent,
-            clearable: true),
+          scenario: 'agent',
+          label: t.settings.keys.scenarioAgent,
+          desc: t.settings.keys.scenarioAgentDesc,
+          current: ws?.defaultAgent,
+          clearable: true,
+        ),
         if (ws != null && ws.defaultDialogue == null)
           Padding(
             padding: const EdgeInsets.only(left: AnSpace.s8, top: AnSpace.s4),
@@ -602,8 +720,10 @@ class _DefaultsSection extends ConsumerWidget {
             // 线缆码收 tooltip。
             child: AnTooltip(
               message: 'MODEL_NOT_CONFIGURED',
-              child: Text(t.settings.keys.notConfiguredWarn,
-                  style: AnText.meta.copyWith(color: context.colors.warn)),
+              child: Text(
+                t.settings.keys.notConfiguredWarn,
+                style: AnText.meta.copyWith(color: context.colors.warn),
+              ),
             ),
           ),
       ],
@@ -629,28 +749,45 @@ class _ScenarioDefaultRow extends ConsumerStatefulWidget {
   final bool clearable;
 
   @override
-  ConsumerState<_ScenarioDefaultRow> createState() => _ScenarioDefaultRowState();
+  ConsumerState<_ScenarioDefaultRow> createState() =>
+      _ScenarioDefaultRowState();
 }
 
 class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
   bool _open = false;
 
-  Future<void> _apply(String apiKeyId, String modelId, Map<String, String> options) async {
+  Future<void> _apply(
+    String apiKeyId,
+    String modelId,
+    Map<String, String> options,
+  ) async {
     try {
-      await ref.read(workspacePrefsProvider.notifier).setDefaultModel(widget.scenario,
-          apiKeyId: apiKeyId, modelId: modelId, options: options);
+      await ref
+          .read(workspacePrefsProvider.notifier)
+          .setDefaultModel(
+            widget.scenario,
+            apiKeyId: apiKeyId,
+            modelId: modelId,
+            options: options,
+          );
       if (mounted) setState(() => _open = false);
     } on ApiException catch (e) {
-      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(e.message, tone: AnTone.danger);
     }
   }
 
   Future<void> _clear() async {
     try {
-      await ref.read(workspacePrefsProvider.notifier).clearDefaultModel(widget.scenario);
+      await ref
+          .read(workspacePrefsProvider.notifier)
+          .clearDefaultModel(widget.scenario);
       if (mounted) setState(() => _open = false);
     } on ApiException catch (e) {
-      ref.read(noticeCenterProvider.notifier).show(e.message, tone: AnTone.danger);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(e.message, tone: AnTone.danger);
     }
   }
 
@@ -658,54 +795,69 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
-    final caps = ref.watch(modelCapabilitiesProvider).value ?? const <ModelCapability>[];
+    final caps =
+        ref.watch(modelCapabilitiesProvider).value ?? const <ModelCapability>[];
     final cur = widget.current;
     final capOfCur = cur == null
         ? null
         : caps
-            .where((x) => x.apiKeyId == cur.apiKeyId && x.modelId == cur.modelId)
-            .firstOrNull;
+              .where(
+                (x) => x.apiKeyId == cur.apiKeyId && x.modelId == cur.modelId,
+              )
+              .firstOrNull;
     final summary = cur == null
         ? t.settings.keys.noDefault
         : '${capOfCur?.displayName.isNotEmpty == true ? capOfCur!.displayName : cur.modelId}'
-            '${capOfCur == null ? '' : ' · ${capOfCur.keyName}'}';
+              '${capOfCur == null ? '' : ' · ${capOfCur.keyName}'}';
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      AnSettingRow(
-        label: widget.label,
-        desc: widget.desc,
-        child: Row(mainAxisSize: MainAxisSize.min, children: [
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: AnSize.ctlSlotLg),
-            child: Text(summary,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.label
-                    .copyWith(color: cur == null ? c.inkFaint : c.inkMuted)),
-          ),
-          const SizedBox(width: AnSpace.s8),
-          AnButton(
-            label: _open ? t.settings.keys.pickerClose : t.settings.keys.pickerChange,
-            size: AnButtonSize.sm,
-            outline: true,
-            onPressed: () => setState(() => _open = !_open),
-          ),
-        ]),
-      ),
-      if (_open)
-        Padding(
-          padding: const EdgeInsets.only(top: AnSpace.s8, bottom: AnSpace.s8),
-          child: ModelPickerPanel(
-            key: ValueKey('picker:${widget.scenario}'),
-            caps: caps,
-            initial: cur,
-            clearable: widget.clearable && cur != null,
-            onApply: _apply,
-            onClear: _clear,
-            onAddKey: () => ref.read(settingsDetailProvider.notifier).push('addKey'),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnSettingRow(
+          label: widget.label,
+          desc: widget.desc,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: AnSize.ctlSlotLg),
+                child: Text(
+                  summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.label.copyWith(
+                    color: cur == null ? c.inkFaint : c.inkMuted,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AnSpace.s8),
+              AnButton(
+                label: _open
+                    ? t.settings.keys.pickerClose
+                    : t.settings.keys.pickerChange,
+                size: AnButtonSize.sm,
+                outline: true,
+                onPressed: () => setState(() => _open = !_open),
+              ),
+            ],
           ),
         ),
-    ]);
+        if (_open)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s8, bottom: AnSpace.s8),
+            child: ModelPickerPanel(
+              key: ValueKey('picker:${widget.scenario}'),
+              caps: caps,
+              initial: cur,
+              clearable: widget.clearable && cur != null,
+              onApply: _apply,
+              onClear: _clear,
+              onAddKey: () =>
+                  ref.read(settingsDetailProvider.notifier).push('addKey'),
+            ),
+          ),
+      ],
+    );
   }
 }
 
@@ -732,7 +884,12 @@ class ModelPickerPanel extends StatefulWidget {
   final List<ModelCapability> caps;
   final ModelRef? initial;
   final bool clearable;
-  final void Function(String apiKeyId, String modelId, Map<String, String> options) onApply;
+  final void Function(
+    String apiKeyId,
+    String modelId,
+    Map<String, String> options,
+  )
+  onApply;
   final VoidCallback? onClear;
   final VoidCallback? onAddKey;
 
@@ -768,13 +925,15 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
   ModelCapability? get _cap => _modelId == null
       ? null
       : widget.caps
-          .where((x) => x.apiKeyId == _keyId && x.modelId == _modelId)
-          .firstOrNull;
+            .where((x) => x.apiKeyId == _keyId && x.modelId == _modelId)
+            .firstOrNull;
 
   String _knobValue(ModelKnob k) => _knobValues[k.key] ?? k.defaultValue;
 
-  TextEditingController _intCtl(ModelKnob k) =>
-      _intCtls.putIfAbsent(k.key, () => TextEditingController(text: _knobValue(k)));
+  TextEditingController _intCtl(ModelKnob k) => _intCtls.putIfAbsent(
+    k.key,
+    () => TextEditingController(text: _knobValue(k)),
+  );
 
   /// ctx window → compact figure (128000 → 128K). 上下文窗→紧凑数字。
   static String fmtCtx(int n) => n >= 1000 ? '${(n / 1000).round()}K' : '$n';
@@ -787,19 +946,23 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
     if (widget.caps.isEmpty) {
       // Zero usable models — guidance, not a dead dropdown (0719 零可用引导). 零可用引导。
       return AnCard(
-        child: Row(children: [
-          Expanded(
-            child: Text(t.settings.keys.noCapsGuide,
-                style: AnText.label.copyWith(color: c.inkMuted)),
-          ),
-          if (widget.onAddKey != null)
-            AnButton(
-              label: t.settings.keys.addKey,
-              size: AnButtonSize.sm,
-              outline: true,
-              onPressed: widget.onAddKey,
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                t.settings.keys.noCapsGuide,
+                style: AnText.label.copyWith(color: c.inkMuted),
+              ),
             ),
-        ]),
+            if (widget.onAddKey != null)
+              AnButton(
+                label: t.settings.keys.addKey,
+                size: AnButtonSize.sm,
+                outline: true,
+                onPressed: widget.onAddKey,
+              ),
+          ],
+        ),
       );
     }
 
@@ -814,77 +977,101 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
     final cap = _cap;
 
     return AnCard(
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(t.settings.keys.stageCredential, style: AnText.meta.copyWith(color: c.inkFaint)),
-        const SizedBox(height: AnSpace.s4),
-        for (final id in keyIds)
-          Builder(builder: (context) {
-            final sample = widget.caps.firstWhere((x) => x.apiKeyId == id);
-            return AnRow(
-              leadWidget: brandIconOr(kProviderBrand[sample.provider],
-                  fallbackLabel: sample.keyName.isEmpty ? sample.provider : sample.keyName,
-                  size: AnBrandSize.sm),
-              label: sample.keyName.isEmpty ? sample.provider : sample.keyName,
-              meta: sample.provider,
-              selected: id == _keyId,
-              onSelect: () => setState(() {
-                if (_keyId != id) {
-                  _keyId = id;
-                  _modelId = null;
-                  _knobValues.clear();
-                  _intCtls.clear();
-                }
-              }),
-            );
-          }),
-        if (_keyId != null) ...[
-          const SizedBox(height: AnSpace.s12),
-          Text(t.settings.keys.stageModel, style: AnText.meta.copyWith(color: c.inkFaint)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(
+            t.settings.keys.stageCredential,
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
           const SizedBox(height: AnSpace.s4),
-          // Stage ② — the models this key serves, with capability specs. 该 key 的模型+能力规格。
-          for (final m in models)
-            AnRow(
-              leadless: true,
-              label: m.displayName.isEmpty ? m.modelId : m.displayName,
-              meta: [
-                if (m.contextWindow > 0) fmtCtx(m.contextWindow),
-                if (m.vision) t.settings.keys.visionBadge,
-                if (m.video) t.settings.keys.videoBadge,
-                if (m.audio) t.settings.keys.audioBadge,
-                if (m.nativeDocs) t.settings.keys.docsBadge,
-              ].join(' · '),
-              selected: m.modelId == _modelId,
-              onSelect: () => setState(() {
-                if (_modelId != m.modelId) {
-                  _modelId = m.modelId;
-                  _knobValues.clear();
-                  _intCtls.clear();
-                }
-              }),
+          for (final id in keyIds)
+            Builder(
+              builder: (context) {
+                final sample = widget.caps.firstWhere((x) => x.apiKeyId == id);
+                return AnRow(
+                  leadWidget: brandIconOr(
+                    kProviderBrand[sample.provider],
+                    fallbackLabel: sample.keyName.isEmpty
+                        ? sample.provider
+                        : sample.keyName,
+                    size: AnBrandSize.sm,
+                  ),
+                  label: sample.keyName.isEmpty
+                      ? sample.provider
+                      : sample.keyName,
+                  meta: sample.provider,
+                  selected: id == _keyId,
+                  onSelect: () => setState(() {
+                    if (_keyId != id) {
+                      _keyId = id;
+                      _modelId = null;
+                      _knobValues.clear();
+                      _intCtls.clear();
+                    }
+                  }),
+                );
+              },
             ),
-        ],
-        if (cap != null && cap.knobs.isNotEmpty) ...[
-          const SizedBox(height: AnSpace.s12),
-          Text(t.settings.keys.stageKnobs, style: AnText.meta.copyWith(color: c.inkFaint)),
-          const SizedBox(height: AnSpace.s4),
-          // Stage ③ — native knobs, generically rendered from the descriptor. 原生 knobs 通用渲染。
-          for (final k in cap.knobs)
-            AnSettingRow(
-              label: k.label.isEmpty ? k.key : k.label,
-              child: switch (k.type) {
-                'enum' => SizedBox(
+          if (_keyId != null) ...[
+            const SizedBox(height: AnSpace.s12),
+            Text(
+              t.settings.keys.stageModel,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+            const SizedBox(height: AnSpace.s4),
+            // Stage ② — the models this key serves, with capability specs. 该 key 的模型+能力规格。
+            for (final m in models)
+              AnRow(
+                leadless: true,
+                label: m.displayName.isEmpty ? m.modelId : m.displayName,
+                meta: [
+                  if (m.contextWindow > 0) fmtCtx(m.contextWindow),
+                  if (m.vision) t.settings.keys.visionBadge,
+                  if (m.video) t.settings.keys.videoBadge,
+                  if (m.audio) t.settings.keys.audioBadge,
+                  if (m.nativeDocs) t.settings.keys.docsBadge,
+                ].join(' · '),
+                selected: m.modelId == _modelId,
+                onSelect: () => setState(() {
+                  if (_modelId != m.modelId) {
+                    _modelId = m.modelId;
+                    _knobValues.clear();
+                    _intCtls.clear();
+                  }
+                }),
+              ),
+          ],
+          if (cap != null && cap.knobs.isNotEmpty) ...[
+            const SizedBox(height: AnSpace.s12),
+            Text(
+              t.settings.keys.stageKnobs,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+            const SizedBox(height: AnSpace.s4),
+            // Stage ③ — native knobs, generically rendered from the descriptor. 原生 knobs 通用渲染。
+            for (final k in cap.knobs)
+              AnSettingRow(
+                label: k.label.isEmpty ? k.key : k.label,
+                child: switch (k.type) {
+                  'enum' => SizedBox(
                     width: AnSize.ctlSlot,
                     child: AnDropdown<String>(
-                      options: [for (final v in k.values) AnDropdownOption(value: v, label: v)],
-                      value: k.values.contains(_knobValue(k)) ? _knobValue(k) : null,
+                      options: [
+                        for (final v in k.values)
+                          AnDropdownOption(value: v, label: v),
+                      ],
+                      value: k.values.contains(_knobValue(k))
+                          ? _knobValue(k)
+                          : null,
                       onChanged: (v) => setState(() => _knobValues[k.key] = v),
                     ),
                   ),
-                'bool' => AnSwitch(
+                  'bool' => AnSwitch(
                     value: _knobValue(k) == 'true',
                     onChanged: (v) => setState(() => _knobValues[k.key] = '$v'),
                   ),
-                _ => SizedBox(
+                  _ => SizedBox(
                     width: AnSize.numField,
                     child: AnInput(
                       controller: _intCtl(k),
@@ -892,37 +1079,40 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
                       onChanged: (v) => _knobValues[k.key] = v.trim(),
                     ),
                   ),
-              },
-            ),
-        ],
-        const SizedBox(height: AnSpace.s12),
-        Row(children: [
-          AnButton(
-            label: t.settings.keys.pickerApply,
-            variant: AnButtonVariant.primary,
-            size: AnButtonSize.sm,
-            onPressed: (cap == null)
-                ? null
-                : () {
-                    final options = <String, String>{
-                      for (final k in cap.knobs)
-                        if ((_knobValues[k.key] ?? '').isNotEmpty &&
-                            _knobValues[k.key] != k.defaultValue)
-                          k.key: _knobValues[k.key]!,
-                    };
-                    widget.onApply(cap.apiKeyId, cap.modelId, options);
-                  },
-          ),
-          if (widget.clearable && widget.onClear != null) ...[
-            const SizedBox(width: AnSpace.s8),
-            AnButton(
-              label: t.settings.keys.clearDefault,
-              size: AnButtonSize.sm,
-              onPressed: widget.onClear,
-            ),
+                },
+              ),
           ],
-        ]),
-      ]),
+          const SizedBox(height: AnSpace.s12),
+          Row(
+            children: [
+              AnButton(
+                label: t.settings.keys.pickerApply,
+                variant: AnButtonVariant.primary,
+                size: AnButtonSize.sm,
+                onPressed: (cap == null)
+                    ? null
+                    : () {
+                        final options = <String, String>{
+                          for (final k in cap.knobs)
+                            if ((_knobValues[k.key] ?? '').isNotEmpty &&
+                                _knobValues[k.key] != k.defaultValue)
+                              k.key: _knobValues[k.key]!,
+                        };
+                        widget.onApply(cap.apiKeyId, cap.modelId, options);
+                      },
+              ),
+              if (widget.clearable && widget.onClear != null) ...[
+                const SizedBox(width: AnSpace.s8),
+                AnButton(
+                  label: t.settings.keys.clearDefault,
+                  size: AnButtonSize.sm,
+                  onPressed: widget.onClear,
+                ),
+              ],
+            ],
+          ),
+        ],
+      ),
     );
   }
 }
@@ -937,10 +1127,16 @@ class _SearchSection extends ConsumerWidget {
     final t = Translations.of(context);
     final ws = ref.watch(workspacePrefsProvider).value;
     final keys = ref.watch(apiKeysProvider).value ?? const <ApiKey>[];
-    final providers = ref.watch(providersProvider).value ?? const <ProviderMeta>[];
-    final searchProviders = {for (final p in providers) if (p.category == 'search') p.name};
+    final providers =
+        ref.watch(providersProvider).value ?? const <ProviderMeta>[];
+    final searchProviders = {
+      for (final p in providers)
+        if (p.category == 'search') p.name,
+    };
     final searchKeys = keys
-        .where((k) => searchProviders.contains(k.provider) && k.testStatus == 'ok')
+        .where(
+          (k) => searchProviders.contains(k.provider) && k.testStatus == 'ok',
+        )
         .toList();
 
     return AnSection(
@@ -955,19 +1151,32 @@ class _SearchSection extends ConsumerWidget {
             width: AnSize.ctlSlotLg,
             child: AnDropdown<String>(
               options: [
-                AnDropdownOption(value: '', label: t.settings.keys.clearDefault),
+                AnDropdownOption(
+                  value: '',
+                  label: t.settings.keys.clearDefault,
+                ),
                 for (final k in searchKeys)
-                  AnDropdownOption(value: k.id, label: k.displayName, meta: k.provider),
+                  AnDropdownOption(
+                    value: k.id,
+                    label: k.displayName,
+                    meta: k.provider,
+                  ),
               ],
-              value: (ws?.defaultSearchKeyId?.isEmpty ?? true) ? null : ws!.defaultSearchKeyId,
+              value: (ws?.defaultSearchKeyId?.isEmpty ?? true)
+                  ? null
+                  : ws!.defaultSearchKeyId,
               placeholder: t.settings.keys.noDefault,
               block: true,
               onChanged: (v) async {
                 try {
                   if (v.isEmpty) {
-                    await ref.read(workspacePrefsProvider.notifier).clearDefaultSearch();
+                    await ref
+                        .read(workspacePrefsProvider.notifier)
+                        .clearDefaultSearch();
                   } else {
-                    await ref.read(workspacePrefsProvider.notifier).setDefaultSearch(v);
+                    await ref
+                        .read(workspacePrefsProvider.notifier)
+                        .setDefaultSearch(v);
                   }
                 } on ApiException catch (e) {
                   ref

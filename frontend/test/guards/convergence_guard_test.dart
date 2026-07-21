@@ -41,11 +41,15 @@ const _roots = ['lib/features', 'lib/app'];
 
 final _categories = <String, RegExp>{
   'boxdecoration': RegExp(r'\bBoxDecoration\('),
-  'token-arith': RegExp(r'An(?:Size|Space|Radius|Motion|Opacity)\.\w+\s*[-+*/]\s*\d'),
+  'token-arith': RegExp(
+    r'An(?:Size|Space|Radius|Motion|Opacity)\.\w+\s*[-+*/]\s*\d',
+  ),
   // An EdgeInsets call whose line carries a BARE number (AnSpace.s8's digit is preceded by a word
   // char, so the lookbehind skips it). Line-scoped: a multi-line ctor escapes v0 — accepted, the
   // census covers it. 行内裸数字的 EdgeInsets(代币 s8 的数字前是字母,lookbehind 放行);多行体 v0 漏网可接受。
-  'edgeinsets-literal': RegExp(r'EdgeInsets(?:Directional)?\.(?:all|only|symmetric|fromLTRB)\('),
+  'edgeinsets-literal': RegExp(
+    r'EdgeInsets(?:Directional)?\.(?:all|only|symmetric|fromLTRB)\(',
+  ),
   'raw-color': RegExp(r'(?:\bColors\.\w|\bColor\(0x)'),
   'alpha-tweak': RegExp(r'withValues\(\s*alpha|withOpacity\('),
 };
@@ -58,7 +62,9 @@ Map<String, int> _scan() {
     if (!dir.existsSync()) continue;
     for (final e in dir.listSync(recursive: true)) {
       if (e is! File || !e.path.endsWith('.dart')) continue;
-      if (e.path.endsWith('.g.dart') || e.path.endsWith('.freezed.dart')) continue;
+      if (e.path.endsWith('.g.dart') || e.path.endsWith('.freezed.dart')) {
+        continue;
+      }
       final rel = e.path.replaceAll(r'\', '/');
       final lines = e.readAsLinesSync();
       for (final raw in lines) {
@@ -67,7 +73,9 @@ Map<String, int> _scan() {
         for (final entry in _categories.entries) {
           if (!entry.value.hasMatch(raw)) continue;
           // edgeinsets-literal only counts when a bare number rides the same line. 仅裸数字才算。
-          if (entry.key == 'edgeinsets-literal' && !_bareNumber.hasMatch(raw)) continue;
+          if (entry.key == 'edgeinsets-literal' && !_bareNumber.hasMatch(raw)) {
+            continue;
+          }
           final key = '$rel\t${entry.key}';
           counts[key] = (counts[key] ?? 0) + 1;
         }
@@ -80,8 +88,12 @@ Map<String, int> _scan() {
 String _render(Map<String, int> counts) {
   final keys = counts.keys.toList()..sort();
   final b = StringBuffer()
-    ..writeln('# WRK-066「同轨」convergence ratchet baseline — counts may ONLY decrease.')
-    ..writeln('# 基线只许收缩。降到 0 的条目必须删除;新违规=guard 红。格式: path<TAB>category<TAB>count');
+    ..writeln(
+      '# WRK-066「同轨」convergence ratchet baseline — counts may ONLY decrease.',
+    )
+    ..writeln(
+      '# 基线只许收缩。降到 0 的条目必须删除;新违规=guard 红。格式: path<TAB>category<TAB>count',
+    );
   for (final k in keys) {
     b.writeln('$k\t${counts[k]}');
   }
@@ -108,12 +120,18 @@ void main() {
       file.writeAsStringSync(_render(actual));
       final total = actual.values.fold(0, (a, b) => a + b);
       // ignore: avoid_print
-      print('convergence baseline updated: ${actual.length} entries, $total violations.');
+      print(
+        'convergence baseline updated: ${actual.length} entries, $total violations.',
+      );
       return;
     }
 
-    expect(file.existsSync(), isTrue,
-        reason: 'baseline missing — generate with UPDATE_BASELINE=1 flutter test test/guards/');
+    expect(
+      file.existsSync(),
+      isTrue,
+      reason:
+          'baseline missing — generate with UPDATE_BASELINE=1 flutter test test/guards/',
+    );
     final baseline = _parseBaseline(file.readAsStringSync());
 
     final grew = <String>[];
@@ -125,11 +143,19 @@ void main() {
       if (a < b) shrank.add('${key.replaceAll('\t', ' · ')}: $a < baseline $b');
     }
 
-    expect(grew, isEmpty,
-        reason: 'NEW hand-rolled visuals crept in — use the An* family primitive instead '
-            '(WRK-066 convergence.md §4-A; exceptions need a user-signed §7 exemption):\n${grew.join('\n')}');
-    expect(shrank, isEmpty,
-        reason: 'Progress! Record it in the SAME commit — shrink the baseline:\n'
-            '  UPDATE_BASELINE=1 flutter test test/guards/\n${shrank.join('\n')}');
+    expect(
+      grew,
+      isEmpty,
+      reason:
+          'NEW hand-rolled visuals crept in — use the An* family primitive instead '
+          '(WRK-066 convergence.md §4-A; exceptions need a user-signed §7 exemption):\n${grew.join('\n')}',
+    );
+    expect(
+      shrank,
+      isEmpty,
+      reason:
+          'Progress! Record it in the SAME commit — shrink the baseline:\n'
+          '  UPDATE_BASELINE=1 flutter test test/guards/\n${shrank.join('\n')}',
+    );
   });
 }

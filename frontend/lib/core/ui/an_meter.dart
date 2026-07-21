@@ -40,10 +40,10 @@ class AnMeter extends StatelessWidget {
     final fill = r == null
         ? c.line
         : r >= dangerAt
-            ? c.danger
-            : r >= warnAt
-                ? c.warn
-                : c.accent;
+        ? c.danger
+        : r >= warnAt
+        ? c.warn
+        : c.accent;
     return Semantics(
       label: semanticLabel,
       value: r == null ? null : '${(r * 100).round()}%',
@@ -60,9 +60,13 @@ class AnMeter extends StatelessWidget {
                   ? null
                   : FractionallySizedBox(
                       alignment: Alignment.centerLeft,
-                      widthFactor: r == 0 ? 0.005 : r, // a sliver of presence at 0 也留一丝存在感
+                      widthFactor: r == 0
+                          ? 0.005
+                          : r, // a sliver of presence at 0 也留一丝存在感
                       child: AnimatedContainer(
-                        duration: AnMotionPref.reduced(context) ? Duration.zero : AnMotion.mid,
+                        duration: AnMotionPref.reduced(context)
+                            ? Duration.zero
+                            : AnMotion.mid,
                         color: fill,
                       ),
                     ),
@@ -71,7 +75,10 @@ class AnMeter extends StatelessWidget {
           if (label != null && label!.isNotEmpty)
             Padding(
               padding: const EdgeInsets.only(top: AnSpace.s4),
-              child: Text(label!, style: AnText.meta.copyWith(color: c.inkMuted)),
+              child: Text(
+                label!,
+                style: AnText.meta.copyWith(color: c.inkMuted),
+              ),
             ),
         ],
       ),

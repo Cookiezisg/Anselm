@@ -11,7 +11,11 @@ import 'text_measure.dart';
 
 /// One ocean in an [AnOceanSwitcher] (icon + label). 海洋切换器的一项(图标+标签)。
 class AnOceanItem {
-  const AnOceanItem({required this.id, required this.icon, required this.label});
+  const AnOceanItem({
+    required this.id,
+    required this.icon,
+    required this.label,
+  });
   final String id;
   final IconData icon;
   final String label;
@@ -52,7 +56,8 @@ class AnOceanSwitcher extends StatefulWidget {
   State<AnOceanSwitcher> createState() => _AnOceanSwitcherState();
 }
 
-class _AnOceanSwitcherState extends State<AnOceanSwitcher> with SingleTickerProviderStateMixin {
+class _AnOceanSwitcherState extends State<AnOceanSwitcher>
+    with SingleTickerProviderStateMixin {
   // EAGER-INIT in initState (kit convention — never a lazy `late final = AnimationController(...)`
   // whose first read can land in teardown with vsync stopped). 控制器急初始化(套件约定)。
   late final AnimationController _ctl;
@@ -123,11 +128,15 @@ class AnOceanSwitcherFrame extends StatelessWidget {
   final ValueChanged<int>? onTap;
 
   // Geometry (all from tokens). 几何(全读令牌)。
-  static const double _padX = AnSize.btnPadXSm; // 10 — slot horizontal pad 槽水平内距
-  static const double _iconGap = AnGap.inline; // 6 — icon↔label INSIDE a compact control (was row-tier 8) 紧凑控件内 icon↔标签
-  static const double _slotGap = AnSpace.s2; // 2 — gap between slots (demo --grid/2) 槽间距
+  static const double _padX =
+      AnSize.btnPadXSm; // 10 — slot horizontal pad 槽水平内距
+  static const double _iconGap = AnGap
+      .inline; // 6 — icon↔label INSIDE a compact control (was row-tier 8) 紧凑控件内 icon↔标签
+  static const double _slotGap =
+      AnSpace.s2; // 2 — gap between slots (demo --grid/2) 槽间距
   static const double _rowH = AnSize.row; // 32
-  static const double _iconOnlyW = _padX * 2 + AnSize.icon; // 36 — collapsed (icon only) 收起态宽
+  static const double _iconOnlyW =
+      _padX * 2 + AnSize.icon; // 36 — collapsed (icon only) 收起态宽
 
   @override
   Widget build(BuildContext context) {
@@ -136,11 +145,11 @@ class AnOceanSwitcherFrame extends StatelessWidget {
     final labelStyle = AnText.body.weight(AnText.emphasisWeight);
 
     double labelWidth(String s) => measureText(
-          TextSpan(text: s, style: labelStyle),
-          textScaler: textScaler,
-          maxLines: 1,
-          read: (tp) => tp.width,
-        );
+      TextSpan(text: s, style: labelStyle),
+      textScaler: textScaler,
+      maxLines: 1,
+      read: (tp) => tp.width,
+    );
 
     final labelW = [for (final it in items) labelWidth(it.label)];
     double selectedW(int i) => _padX * 2 + AnSize.icon + _iconGap + labelW[i];
@@ -158,9 +167,12 @@ class AnOceanSwitcherFrame extends StatelessWidget {
     }
 
     // Left/width for every slot given a per-slot selectedness (the row reflows). 据每槽选中度布局(整行回流)。
-    ({List<double> left, List<double> width, double total}) layoutFor(double Function(int) sel) {
+    ({List<double> left, List<double> width, double total}) layoutFor(
+      double Function(int) sel,
+    ) {
       final widths = [
-        for (var i = 0; i < items.length; i++) lerpDouble(_iconOnlyW, selectedW(i), sel(i))!,
+        for (var i = 0; i < items.length; i++)
+          lerpDouble(_iconOnlyW, selectedW(i), sel(i))!,
       ];
       final lefts = <double>[];
       var x = 0.0;
@@ -268,7 +280,9 @@ class AnOceanSwitcherFrame extends StatelessWidget {
                     maxLines: 1,
                     softWrap: false,
                     overflow: TextOverflow.clip,
-                    style: AnText.body.weight(AnText.emphasisWeight).copyWith(color: fg),
+                    style: AnText.body
+                        .weight(AnText.emphasisWeight)
+                        .copyWith(color: fg),
                   ),
                 ),
               ),

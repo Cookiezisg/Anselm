@@ -26,7 +26,8 @@ abstract class Field with _$Field {
 @freezed
 abstract class ToolRef with _$ToolRef {
   const factory ToolRef({required String ref, required String name}) = _ToolRef;
-  factory ToolRef.fromJson(Map<String, dynamic> json) => _$ToolRefFromJson(json);
+  factory ToolRef.fromJson(Map<String, dynamic> json) =>
+      _$ToolRefFromJson(json);
 }
 
 /// One handler method (a streaming-or-not callable). method.go:8。
@@ -41,7 +42,8 @@ abstract class MethodSpec with _$MethodSpec {
     @Default(false) bool streaming,
     int? timeout,
   }) = _MethodSpec;
-  factory MethodSpec.fromJson(Map<String, dynamic> json) => _$MethodSpecFromJson(json);
+  factory MethodSpec.fromJson(Map<String, dynamic> json) =>
+      _$MethodSpecFromJson(json);
 }
 
 /// A handler __init__ config arg (distinct from [Field] — carries required/sensitive/default). The
@@ -56,7 +58,8 @@ abstract class InitArgSpec with _$InitArgSpec {
     @Default(false) bool sensitive,
     @JsonKey(name: 'default') Object? defaultValue,
   }) = _InitArgSpec;
-  factory InitArgSpec.fromJson(Map<String, dynamic> json) => _$InitArgSpecFromJson(json);
+  factory InitArgSpec.fromJson(Map<String, dynamic> json) =>
+      _$InitArgSpecFromJson(json);
 }
 
 /// The workflow graph node kind — a SEALED closed set (workflow.go:104). `unknown` is the
@@ -67,8 +70,10 @@ enum NodeKind { trigger, action, agent, control, approval, unknown }
 /// A node's persisted canvas position (graph blob is the source of truth for layout). workflow.go。
 @freezed
 abstract class NodePosition with _$NodePosition {
-  const factory NodePosition({@Default(0) int x, @Default(0) int y}) = _NodePosition;
-  factory NodePosition.fromJson(Map<String, dynamic> json) => _$NodePositionFromJson(json);
+  const factory NodePosition({@Default(0) int x, @Default(0) int y}) =
+      _NodePosition;
+  factory NodePosition.fromJson(Map<String, dynamic> json) =>
+      _$NodePositionFromJson(json);
 }
 
 /// Per-node retry policy (control-flow). workflow.go。
@@ -79,7 +84,8 @@ abstract class RetryConfig with _$RetryConfig {
     String? backoff,
     int? delayMs,
   }) = _RetryConfig;
-  factory RetryConfig.fromJson(Map<String, dynamic> json) => _$RetryConfigFromJson(json);
+  factory RetryConfig.fromJson(Map<String, dynamic> json) =>
+      _$RetryConfigFromJson(json);
 }
 
 /// A graph edge; `fromPort` is set ONLY for control/approval branch outputs (yes/no). workflow.go:131。

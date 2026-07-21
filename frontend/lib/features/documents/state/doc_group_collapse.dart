@@ -12,7 +12,11 @@ const String kDocGroupBacklinks = 'documents.backlinks';
 
 /// Every foldable documents-group key — the ⋯ menu's «展开全部 / 收起全部» walk this (never a wildcard).
 /// 全部可折叠组键(⋯ 全展/全收遍历它)。
-const List<String> kDocGroups = [kDocGroupOutline, kDocGroupProps, kDocGroupBacklinks];
+const List<String> kDocGroups = [
+  kDocGroupOutline,
+  kDocGroupProps,
+  kDocGroupBacklinks,
+];
 
 /// The documents right-island GROUP-fold set (三段式文法 §3) — the set of COLLAPSED group keys, mirroring
 /// the chat sidestage's group axis but PERSISTED (not session-only): each group's fold is a member of the
@@ -31,8 +35,10 @@ class DocGroupCollapseController extends Notifier<Set<String>> {
   SettingsPrefs get _prefs => ref.read(settingsPrefsProvider);
 
   @override
-  Set<String> build() =>
-      {for (final g in kDocGroups) if (_prefs.getFamilyBool(_family, g, def: false)) g};
+  Set<String> build() => {
+    for (final g in kDocGroups)
+      if (_prefs.getFamilyBool(_family, g, def: false)) g,
+  };
 
   /// Flip one group's fold and persist it. 翻转一组折叠并落盘。
   void toggle(String key) {
@@ -59,4 +65,6 @@ class DocGroupCollapseController extends Notifier<Set<String>> {
 }
 
 final docGroupCollapseProvider =
-    NotifierProvider<DocGroupCollapseController, Set<String>>(DocGroupCollapseController.new);
+    NotifierProvider<DocGroupCollapseController, Set<String>>(
+      DocGroupCollapseController.new,
+    );

@@ -99,7 +99,10 @@ class _AnThinTableState extends State<AnThinTable> {
       for (var i = 0; i < cols.length; i++)
         i: i == 0
             ? const FlexColumnWidth(1)
-            : MinColumnWidth(const IntrinsicColumnWidth(), FractionColumnWidth(cap)),
+            : MinColumnWidth(
+                const IntrinsicColumnWidth(),
+                FractionColumnWidth(cap),
+              ),
     };
 
     final table = Table(
@@ -107,14 +110,18 @@ class _AnThinTableState extends State<AnThinTable> {
       defaultVerticalAlignment: TableCellVerticalAlignment.middle,
       children: [
         _headerRow(c, cols),
-        for (var r = 0; r < widget.rows.length; r++) _dataRow(c, cols, r, widget.rows[r]),
+        for (var r = 0; r < widget.rows.length; r++)
+          _dataRow(c, cols, r, widget.rows[r]),
       ],
     );
 
     // One MouseRegion around the table clears hover on exit; per-cell onEnter sets the hovered row
     // (no per-cell onExit → no flicker moving between cells of a row). 表级 onExit 清,格级 onEnter 设,不闪。
     if (_interactive) {
-      return MouseRegion(onExit: (_) => setState(() => _hovered = null), child: table);
+      return MouseRegion(
+        onExit: (_) => setState(() => _hovered = null),
+        child: table,
+      );
     }
     return table;
   }
@@ -124,13 +131,16 @@ class _AnThinTableState extends State<AnThinTable> {
       children: [
         for (var i = 0; i < cols.length; i++)
           TableCell(
-            verticalAlignment: TableCellVerticalAlignment.bottom, // header sits on the baseline 底对齐
+            verticalAlignment: TableCellVerticalAlignment
+                .bottom, // header sits on the baseline 底对齐
             child: ConstrainedBox(
               constraints: const BoxConstraints(minHeight: AnSize.controlSm),
               child: Padding(
                 padding: EdgeInsetsDirectional.only(
                   start: i == 0 ? AnSpace.s8 : 0,
-                  end: i == cols.length - 1 ? AnSpace.s8 : AnSpace.s16, // column gap (--sp-4) / row edge 列间/行缘
+                  end: i == cols.length - 1
+                      ? AnSpace.s8
+                      : AnSpace.s16, // column gap (--sp-4) / row edge 列间/行缘
                   bottom: AnSpace.s4,
                 ),
                 child: Align(
@@ -142,7 +152,9 @@ class _AnThinTableState extends State<AnThinTable> {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       textAlign: _textAlign(cols[i].align),
-                      style: AnText.meta.weight(AnText.emphasisWeight).copyWith(color: c.inkFaint),
+                      style: AnText.meta
+                          .weight(AnText.emphasisWeight)
+                          .copyWith(color: c.inkFaint),
                     ),
                   ),
                 ),
@@ -153,19 +165,33 @@ class _AnThinTableState extends State<AnThinTable> {
     );
   }
 
-  TableRow _dataRow(AnColors c, List<AnTableColumn> cols, int r, Map<String, String> row) {
+  TableRow _dataRow(
+    AnColors c,
+    List<AnTableColumn> cols,
+    int r,
+    Map<String, String> row,
+  ) {
     final bg = r == _selected
         ? c.surfaceActive
         : (_interactive && r == _hovered ? c.surfaceHover : null);
     return TableRow(
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(AnRadius.button)),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(AnRadius.button),
+      ),
       children: [
         for (var i = 0; i < cols.length; i++) _cell(c, cols, i, r, row),
       ],
     );
   }
 
-  Widget _cell(AnColors c, List<AnTableColumn> cols, int i, int r, Map<String, String> row) {
+  Widget _cell(
+    AnColors c,
+    List<AnTableColumn> cols,
+    int i,
+    int r,
+    Map<String, String> row,
+  ) {
     final col = cols[i];
     final value = row[col.key] ?? '';
     // First column = primary ink. Non-first = muted + tabular, but lifts to ink when the row is
@@ -173,7 +199,9 @@ class _AnThinTableState extends State<AnThinTable> {
     final active = r == _selected || (_interactive && r == _hovered);
     final style = i == 0
         ? AnText.body.copyWith(color: c.ink)
-        : AnText.value().copyWith(color: active ? c.ink : c.inkMuted); // the value-column single source 值列单源
+        : AnText.value().copyWith(
+            color: active ? c.ink : c.inkMuted,
+          ); // the value-column single source 值列单源
 
     final content = Container(
       constraints: const BoxConstraints(minHeight: AnSize.row),
@@ -182,10 +210,18 @@ class _AnThinTableState extends State<AnThinTable> {
         start: i == 0 ? AnSpace.s8 : 0,
         end: i == cols.length - 1 ? AnSpace.s8 : AnSpace.s16,
       ),
-      child: Text(value, maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: _textAlign(col.align), style: style),
+      child: Text(
+        value,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        textAlign: _textAlign(col.align),
+        style: style,
+      ),
     );
 
-    if (!_interactive) return content; // non-selectable → native Table cell semantics 原生格语义
+    if (!_interactive) {
+      return content; // non-selectable → native Table cell semantics 原生格语义
+    }
 
     // Selectable: every cell is a pointer hit layer (a TableRow can't hold a gesture — flutter#42609),
     // but only the FIRST cell is a semantics node — a single button carrying the row summary + onTap, so
@@ -193,7 +229,11 @@ class _AnThinTableState extends State<AnThinTable> {
     // 各格都是指针命中层;仅首格为语义节点(单 button + 行摘要 + onTap),其余 ExcludeSemantics,不出 N 个 tap 目标。
     final hit = MouseRegion(
       onEnter: (_) => setState(() => _hovered = r),
-      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => _select(r, row), child: content),
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: () => _select(r, row),
+        child: content,
+      ),
     );
     if (i == 0) {
       return Semantics(
@@ -201,7 +241,9 @@ class _AnThinTableState extends State<AnThinTable> {
         // A row genuinely has a selected/unselected duality — but never say "no" out loud. AnA11y.selected.
         // 行真有选中二元,但「否」绝不出声。
         selected: AnA11y.selected(r == _selected),
-        label: cols.map((col) => '${col.label ?? col.key}: ${row[col.key] ?? ''}').join(', '),
+        label: cols
+            .map((col) => '${col.label ?? col.key}: ${row[col.key] ?? ''}')
+            .join(', '),
         onTap: () => _select(r, row),
         child: ExcludeSemantics(child: hit),
       );
@@ -210,14 +252,14 @@ class _AnThinTableState extends State<AnThinTable> {
   }
 
   Alignment _cellAlign(AnTableAlign a) => switch (a) {
-        AnTableAlign.right => Alignment.centerRight,
-        AnTableAlign.center => Alignment.center,
-        AnTableAlign.left => Alignment.centerLeft,
-      };
+    AnTableAlign.right => Alignment.centerRight,
+    AnTableAlign.center => Alignment.center,
+    AnTableAlign.left => Alignment.centerLeft,
+  };
 
   TextAlign _textAlign(AnTableAlign a) => switch (a) {
-        AnTableAlign.right => TextAlign.right,
-        AnTableAlign.center => TextAlign.center,
-        AnTableAlign.left => TextAlign.left,
-      };
+    AnTableAlign.right => TextAlign.right,
+    AnTableAlign.center => TextAlign.center,
+    AnTableAlign.left => TextAlign.left,
+  };
 }

@@ -74,20 +74,27 @@ class WorkflowEditorInspector extends ConsumerWidget {
           label: headTitle,
           subLeading: subLeading,
           subTrailing: subTrailing,
-          onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
+          onClose: () =>
+              ref.read(rightPanelCollapsedProvider.notifier).set(true),
           closeSemantics: context.t.shell.togglePanel,
         ),
         Expanded(
           child: node != null
               ? _body(_NodeEditor(node: node, notifier: notifier))
               : edge != null && st != null
-                  ? _body(_EdgeEditor(edge: edge, graph: st.working, notifier: notifier))
-                  : AnState(
-                      kind: AnStateKind.empty,
-                      size: AnStateSize.inset,
-                      title: e.inspectorEmpty,
-                      hint: e.inspectorEmptyHint,
-                    ),
+              ? _body(
+                  _EdgeEditor(
+                    edge: edge,
+                    graph: st.working,
+                    notifier: notifier,
+                  ),
+                )
+              : AnState(
+                  kind: AnStateKind.empty,
+                  size: AnStateSize.inset,
+                  title: e.inspectorEmpty,
+                  hint: e.inspectorEmptyHint,
+                ),
         ),
       ],
     );
@@ -96,12 +103,12 @@ class WorkflowEditorInspector extends ConsumerWidget {
   /// The scrolling body wrapper (bar hidden). No horizontal pad — the [AnIsland]'s 12px is the sole island
   /// inset (single-source law); only vertical s16. 滚动 body(隐条、水平 0:岛壳 12 即唯一岛级内距,仅纵 s16)。
   Widget _body(Widget child) => ScrollConfiguration(
-        behavior: const AnScrollBehavior(),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
-          child: child,
-        ),
-      );
+    behavior: const AnScrollBehavior(),
+    child: SingleChildScrollView(
+      padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
+      child: child,
+    ),
+  );
 
   static String _kindLabel(BuildContext context, NodeKind k) {
     final g = context.t.graph.kind;
@@ -127,9 +134,9 @@ class _Field extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: AnSpace.s16),
-        child: AnFormField(label: label, desc: desc, child: child),
-      );
+    padding: const EdgeInsets.only(bottom: AnSpace.s16),
+    child: AnFormField(label: label, desc: desc, child: child),
+  );
 }
 
 class _NodeEditor extends StatelessWidget {
@@ -142,21 +149,23 @@ class _NodeEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final e = context.t.entities.detail.editor;
     final g = context.t.graph.kind;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      _Field(
-        label: e.nodeKind,
-        child: AnDropdown<NodeKind>(
-          value: node.kind,
-          block: true,
-          options: [
-            for (final k in const [
-              NodeKind.trigger,
-              NodeKind.action,
-              NodeKind.agent,
-              NodeKind.control,
-              NodeKind.approval
-            ])
-              AnDropdownOption(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _Field(
+          label: e.nodeKind,
+          child: AnDropdown<NodeKind>(
+            value: node.kind,
+            block: true,
+            options: [
+              for (final k in const [
+                NodeKind.trigger,
+                NodeKind.action,
+                NodeKind.agent,
+                NodeKind.control,
+                NodeKind.approval,
+              ])
+                AnDropdownOption(
                   value: k,
                   label: switch (k) {
                     NodeKind.trigger => g.trigger,
@@ -166,35 +175,44 @@ class _NodeEditor extends StatelessWidget {
                     NodeKind.approval => g.approval,
                     NodeKind.unknown => g.unknown,
                   },
-                  icon: AnIcons.node(k.name)),
-          ],
-          onChanged: (k) => notifier.setNodeKind(node.id, k),
+                  icon: AnIcons.node(k.name),
+                ),
+            ],
+            onChanged: (k) => notifier.setNodeKind(node.id, k),
+          ),
         ),
-      ),
-      _Field(
-        label: e.nodeRef,
-        child: NodeRefPicker(
-          key: ValueKey('ref_${node.id}'),
-          kind: node.kind,
-          refString: node.ref,
-          onChanged: (v) => notifier.setNodeRef(node.id, v),
+        _Field(
+          label: e.nodeRef,
+          child: NodeRefPicker(
+            key: ValueKey('ref_${node.id}'),
+            kind: node.kind,
+            refString: node.ref,
+            onChanged: (v) => notifier.setNodeRef(node.id, v),
+          ),
         ),
-      ),
-      _Field(label: e.nodeInput, child: _InputMapEditor(node: node, notifier: notifier)),
-      _Field(label: e.nodeRetry, child: _RetryEditor(node: node, notifier: notifier)),
-      // Control nodes: a read-only peek at the referenced control's routing branches (port / when / emit)
-      // so the author sees the exits without leaving the editor. control 节点:只读 peek 路由分支(出口条件)。
-      if (node.kind == NodeKind.control && node.ref.isNotEmpty) _ControlBranches(controlId: node.ref),
-      AnActionGroup(footer: true, [
-        AnButton(
-          label: e.deleteNode,
-          icon: AnIcons.trash,
-          variant: AnButtonVariant.danger,
-          size: AnButtonSize.sm,
-          onPressed: notifier.deleteSelected,
+        _Field(
+          label: e.nodeInput,
+          child: _InputMapEditor(node: node, notifier: notifier),
         ),
-      ]),
-    ]);
+        _Field(
+          label: e.nodeRetry,
+          child: _RetryEditor(node: node, notifier: notifier),
+        ),
+        // Control nodes: a read-only peek at the referenced control's routing branches (port / when / emit)
+        // so the author sees the exits without leaving the editor. control 节点:只读 peek 路由分支(出口条件)。
+        if (node.kind == NodeKind.control && node.ref.isNotEmpty)
+          _ControlBranches(controlId: node.ref),
+        AnActionGroup(footer: true, [
+          AnButton(
+            label: e.deleteNode,
+            icon: AnIcons.trash,
+            variant: AnButtonVariant.danger,
+            size: AnButtonSize.sm,
+            onPressed: notifier.deleteSelected,
+          ),
+        ]),
+      ],
+    );
   }
 }
 
@@ -210,42 +228,53 @@ class _InputMapEditor extends StatelessWidget {
   Widget build(BuildContext context) {
     final e = context.t.entities.detail.editor;
     final entries = node.input.entries.toList();
-    void commit(Map<String, String> next) => notifier.setNodeInput(node.id, next);
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      for (final entry in entries)
-        Padding(
-          padding: const EdgeInsets.only(bottom: AnSpace.s6),
-          child: Row(children: [
-            SizedBox(
-              width: AnSize.inspectorKeyCol,
-              child: Text(entry.key,
-                  style: AnText.code.copyWith(color: context.colors.inkMuted),
-                  overflow: TextOverflow.ellipsis),
+    void commit(Map<String, String> next) =>
+        notifier.setNodeInput(node.id, next);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (final entry in entries)
+          Padding(
+            padding: const EdgeInsets.only(bottom: AnSpace.s6),
+            child: Row(
+              children: [
+                SizedBox(
+                  width: AnSize.inspectorKeyCol,
+                  child: Text(
+                    entry.key,
+                    style: AnText.code.copyWith(color: context.colors.inkMuted),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: AnSpace.s6),
+                Expanded(
+                  child: AnInput(
+                    key: ValueKey('in_${node.id}_${entry.key}'),
+                    initialValue: entry.value,
+                    block: true,
+                    seamless: true,
+                    onSubmitted: (v) => commit({...node.input, entry.key: v}),
+                    onChanged: (v) => commit({...node.input, entry.key: v}),
+                  ),
+                ),
+                AnButton.iconOnly(
+                  AnIcons.close,
+                  size: AnButtonSize.sm,
+                  semanticLabel: e.removeField,
+                  onPressed: () => commit({...node.input}..remove(entry.key)),
+                ),
+              ],
             ),
-            const SizedBox(width: AnSpace.s6),
-            Expanded(
-              child: AnInput(
-                key: ValueKey('in_${node.id}_${entry.key}'),
-                initialValue: entry.value,
-                block: true,
-                seamless: true,
-                onSubmitted: (v) => commit({...node.input, entry.key: v}),
-                onChanged: (v) => commit({...node.input, entry.key: v}),
-              ),
-            ),
-            AnButton.iconOnly(
-              AnIcons.close,
-              size: AnButtonSize.sm,
-              semanticLabel: e.removeField,
-              onPressed: () => commit({...node.input}..remove(entry.key)),
-            ),
-          ]),
+          ),
+        _AddFieldRow(
+          hint: e.field,
+          onAdd: (name) {
+            if (name.isEmpty || node.input.containsKey(name)) return;
+            commit({...node.input, name: ''});
+          },
         ),
-      _AddFieldRow(hint: e.field, onAdd: (name) {
-        if (name.isEmpty || node.input.containsKey(name)) return;
-        commit({...node.input, name: ''});
-      }),
-    ]);
+      ],
+    );
   }
 }
 
@@ -274,12 +303,24 @@ class _AddFieldRowState extends State<_AddFieldRow> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Expanded(
-        child: AnInput(controller: _ctl, placeholder: widget.hint, block: true, onSubmitted: (_) => _add()),
-      ),
-      AnButton.iconOnly(AnIcons.plus, size: AnButtonSize.sm, semanticLabel: widget.hint, onPressed: _add),
-    ]);
+    return Row(
+      children: [
+        Expanded(
+          child: AnInput(
+            controller: _ctl,
+            placeholder: widget.hint,
+            block: true,
+            onSubmitted: (_) => _add(),
+          ),
+        ),
+        AnButton.iconOnly(
+          AnIcons.plus,
+          size: AnButtonSize.sm,
+          semanticLabel: widget.hint,
+          onPressed: _add,
+        ),
+      ],
+    );
   }
 }
 
@@ -296,37 +337,52 @@ class _RetryEditor extends StatelessWidget {
     // Switch/number rows are the ONE label-left·control-right row — AnField's child slot (批6c
     // A-057: this file's own «label above» _Field grammar is for FORM blocks; a toggle with a
     // label above is an anti-pattern). 开关/数值行=唯一「标签左·控件右」行(AnField child 槽)。
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      AnField(
-        label: e.retryEnable,
-        child: AnButton(
-          label: retry == null ? e.off : e.on,
-          size: AnButtonSize.sm,
-          variant: retry == null ? AnButtonVariant.ghost : AnButtonVariant.primary,
-          onPressed: () =>
-              notifier.setNodeRetry(node.id, retry == null ? const RetryConfig(maxAttempts: 3) : null),
-        ),
-      ),
-      if (retry != null)
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         AnField(
-          label: e.maxAttempts,
-          child: SizedBox(
-            width: AnSize.inspectorNumField,
-            child: AnInput(
-              key: ValueKey('retry_${node.id}'),
-              initialValue: '${retry.maxAttempts}',
-              block: true,
-              onSubmitted: (v) => notifier.setNodeRetry(
-                  node.id, retry.copyWith(maxAttempts: int.tryParse(v) ?? retry.maxAttempts)),
+          label: e.retryEnable,
+          child: AnButton(
+            label: retry == null ? e.off : e.on,
+            size: AnButtonSize.sm,
+            variant: retry == null
+                ? AnButtonVariant.ghost
+                : AnButtonVariant.primary,
+            onPressed: () => notifier.setNodeRetry(
+              node.id,
+              retry == null ? const RetryConfig(maxAttempts: 3) : null,
             ),
           ),
         ),
-    ]);
+        if (retry != null)
+          AnField(
+            label: e.maxAttempts,
+            child: SizedBox(
+              width: AnSize.inspectorNumField,
+              child: AnInput(
+                key: ValueKey('retry_${node.id}'),
+                initialValue: '${retry.maxAttempts}',
+                block: true,
+                onSubmitted: (v) => notifier.setNodeRetry(
+                  node.id,
+                  retry.copyWith(
+                    maxAttempts: int.tryParse(v) ?? retry.maxAttempts,
+                  ),
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 }
 
 class _EdgeEditor extends ConsumerWidget {
-  const _EdgeEditor({required this.edge, required this.graph, required this.notifier});
+  const _EdgeEditor({
+    required this.edge,
+    required this.graph,
+    required this.notifier,
+  });
 
   final Edge edge;
   final Graph graph;
@@ -338,42 +394,45 @@ class _EdgeEditor extends ConsumerWidget {
     final src = graph.nodes.where((n) => n.id == edge.from).firstOrNull;
     final isApproval = src?.kind == NodeKind.approval;
     final isControl = src?.kind == NodeKind.control;
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      if (isApproval)
-        _Field(
-          label: e.edgePort,
-          child: AnDropdown<String>(
-            value: edge.fromPort ?? 'yes',
-            block: true,
-            options: [
-              AnDropdownOption(value: 'yes', label: t.entities.val.yes),
-              AnDropdownOption(value: 'no', label: t.entities.val.no),
-            ],
-            onChanged: (p) => notifier.setEdgePort(edge.id, p),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (isApproval)
+          _Field(
+            label: e.edgePort,
+            child: AnDropdown<String>(
+              value: edge.fromPort ?? 'yes',
+              block: true,
+              options: [
+                AnDropdownOption(value: 'yes', label: t.entities.val.yes),
+                AnDropdownOption(value: 'no', label: t.entities.val.no),
+              ],
+              onChanged: (p) => notifier.setEdgePort(edge.id, p),
+            ),
+          )
+        else if (isControl)
+          // The control's declared branch ports become the dropdown — no more blind free-text.
+          // control 声明的 branch port 变下拉,消灭盲打。
+          _Field(
+            label: e.edgePort,
+            desc: e.portHint,
+            child: _ControlPortPicker(
+              controlId: src!.ref,
+              current: edge.fromPort,
+              onChanged: (p) => notifier.setEdgePort(edge.id, p),
+            ),
           ),
-        )
-      else if (isControl)
-        // The control's declared branch ports become the dropdown — no more blind free-text.
-        // control 声明的 branch port 变下拉,消灭盲打。
-        _Field(
-          label: e.edgePort,
-          desc: e.portHint,
-          child: _ControlPortPicker(
-            controlId: src!.ref,
-            current: edge.fromPort,
-            onChanged: (p) => notifier.setEdgePort(edge.id, p),
+        AnActionGroup(footer: true, [
+          AnButton(
+            label: e.deleteEdge,
+            icon: AnIcons.trash,
+            variant: AnButtonVariant.danger,
+            size: AnButtonSize.sm,
+            onPressed: notifier.deleteSelected,
           ),
-        ),
-      AnActionGroup(footer: true, [
-        AnButton(
-          label: e.deleteEdge,
-          icon: AnIcons.trash,
-          variant: AnButtonVariant.danger,
-          size: AnButtonSize.sm,
-          onPressed: notifier.deleteSelected,
-        ),
-      ]),
-    ]);
+        ]),
+      ],
+    );
   }
 }
 
@@ -383,7 +442,11 @@ class _EdgeEditor extends ConsumerWidget {
 /// selectable so editing never silently drops it (same as the ref-target picker). control 出边端口下拉:
 /// 被引用 control 的 branch port(陈旧值仍可选、不静默丢)。
 class _ControlPortPicker extends ConsumerWidget {
-  const _ControlPortPicker({required this.controlId, required this.current, required this.onChanged});
+  const _ControlPortPicker({
+    required this.controlId,
+    required this.current,
+    required this.onChanged,
+  });
 
   final String controlId;
   final String? current;
@@ -392,9 +455,13 @@ class _ControlPortPicker extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final e = context.t.entities.detail.editor;
-    final ports = ref.watch(controlPortsProvider(controlId)).value ?? const <String>[];
+    final ports =
+        ref.watch(controlPortsProvider(controlId)).value ?? const <String>[];
     final cur = current ?? '';
-    final options = <String>[...ports, if (cur.isNotEmpty && !ports.contains(cur)) cur];
+    final options = <String>[
+      ...ports,
+      if (cur.isNotEmpty && !ports.contains(cur)) cur,
+    ];
     return AnDropdown<String>(
       block: true,
       value: cur.isEmpty ? null : cur,
@@ -419,16 +486,19 @@ class _ControlBranches extends ConsumerWidget {
     final e = context.t.entities.detail.editor;
     final c = context.colors;
     final branches =
-        ref.watch(controlProvider(controlId)).value?.activeVersion?.branches ?? const <Branch>[];
+        ref.watch(controlProvider(controlId)).value?.activeVersion?.branches ??
+        const <Branch>[];
     if (branches.isEmpty) return const SizedBox.shrink();
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s16),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-        Text(e.branches, style: AnText.strong.copyWith(color: c.ink)),
-        const SizedBox(height: AnSpace.s6),
-        for (final b in branches) ControlBranchRow(branch: b),
-      ]),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Text(e.branches, style: AnText.strong.copyWith(color: c.ink)),
+          const SizedBox(height: AnSpace.s6),
+          for (final b in branches) ControlBranchRow(branch: b),
+        ],
+      ),
     );
   }
-
 }

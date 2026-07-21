@@ -67,5 +67,6 @@ abstract class WorkspaceStats with _$WorkspaceStats {
     @Default(0) int blobBytes,
   }) = _WorkspaceStats;
 
-  factory WorkspaceStats.fromJson(Map<String, dynamic> json) => _$WorkspaceStatsFromJson(json);
+  factory WorkspaceStats.fromJson(Map<String, dynamic> json) =>
+      _$WorkspaceStatsFromJson(json);
 }
