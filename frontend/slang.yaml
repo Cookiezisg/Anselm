@@ -10,6 +10,12 @@ input_file_pattern: .i18n.json
 output_directory: lib/i18n
 output_file_name: strings.g.dart
 fallback_strategy: base_locale
+# Anselm ships only English and Simplified Chinese. Keep both translation modules eager so every
+# desktop start path (including a persisted `zh-CN` preference) can safely use slang's synchronous
+# locale API; the default lazy secondary locale otherwise makes `setLocaleSync(zh-CN)` unsafe.
+# Anselm 仅两种内置语言，故全量预载；这样持久化 zh-CN 的桌面冷启动可安全走同步 locale API，
+# 不会撞上 slang 默认的次语言延迟模块。
+lazy: false
 # Deterministic output — no "Built on <timestamp>" header, so the committed *.g.dart doesn't churn
 # on every `make verify` regen (codegen products are committed; must be reproducible). 去时间戳=可复现。
 timestamp: false

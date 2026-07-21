@@ -30,23 +30,25 @@ class _Shell extends ConsumerWidget {
   const _Shell();
   @override
   Widget build(BuildContext context, WidgetRef ref) => MaterialApp.router(
-        debugShowCheckedModeBanner: false,
-        theme: AnTheme.light(),
-        routerConfig: ref.watch(goRouterProvider),
-      );
+    debugShowCheckedModeBanner: false,
+    theme: AnTheme.light(),
+    routerConfig: ref.watch(goRouterProvider),
+  );
 }
 
 ProviderScope _host() => ProviderScope(
-      overrides: [
-        entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
-        chatRepositoryProvider.overrideWithValue(demoChatRepository()),
-        notificationRepositoryProvider.overrideWithValue(demoNotificationRepository()),
-        documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
-        schedulerRepositoryProvider.overrideWithValue(demoSchedulerRepository()),
-        goRouterProvider.overrideWith(buildAppRouter),
-      ],
-      child: TranslationProvider(child: const _Shell()),
-    );
+  overrides: [
+    entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
+    chatRepositoryProvider.overrideWithValue(demoChatRepository()),
+    notificationRepositoryProvider.overrideWithValue(
+      demoNotificationRepository(),
+    ),
+    documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
+    schedulerRepositoryProvider.overrideWithValue(demoSchedulerRepository()),
+    goRouterProvider.overrideWith(buildAppRouter),
+  ],
+  child: TranslationProvider(child: const _Shell()),
+);
 
 Future<void> _pump(WidgetTester tester, {int frames = 12}) async {
   for (var i = 0; i < frames; i++) {
@@ -58,37 +60,73 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('activity conversation: toggle appears, island stays CLOSED, then a tap OPENS it', (tester) async {
-    tester.view.physicalSize = const Size(1400, 900);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+  testWidgets(
+    'activity conversation: toggle appears, island stays CLOSED, then a tap OPENS it',
+    (tester) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_host());
-    final container = ProviderScope.containerOf(tester.element(find.byType(AppShell)), listen: false);
-    container.read(goRouterProvider).go(conversationLocation('cv_sync')); // seeded touchpoints
-    await _pump(tester);
+      await tester.pumpWidget(_host());
+      // The unread badge starts its live repository after the shell's first frame. This must never feed
+      // a provider invalidation back into the shell while it is building.
+      // 未读徽标在壳首帧后才起 live repository；绝不允许 provider 失效在壳 build 中回冲。
+      expect(tester.takeException(), isNull);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AppShell)),
+        listen: false,
+      );
+      container
+          .read(goRouterProvider)
+          .go(conversationLocation('cv_sync')); // seeded touchpoints
+      await _pump(tester);
 
-    // The toggle is lit (activity present) but the island did NOT auto-open (chat default collapsed). 钮亮、岛未自动开。
-    expect(find.byIcon(AnIcons.panelRight), findsOneWidget, reason: 'activity earns the toggle');
-    expect(find.byType(StagePanel), findsNothing, reason: 'island stays closed — no auto-pop (WRK-065)');
+      // The toggle is lit (activity present) but the island did NOT auto-open (chat default collapsed). 钮亮、岛未自动开。
+      expect(
+        find.byIcon(AnIcons.panelRight),
+        findsOneWidget,
+        reason: 'activity earns the toggle',
+      );
+      expect(
+        find.byType(StagePanel),
+        findsNothing,
+        reason: 'island stays closed — no auto-pop (WRK-065)',
+      );
 
-    // The user opens it explicitly. 用户点开。
-    await tester.tap(find.byIcon(AnIcons.panelRight));
-    await _pump(tester);
-    expect(find.byType(StagePanel), findsOneWidget, reason: 'a tap opens the sidestage');
-  });
+      // The user opens it explicitly. 用户点开。
+      await tester.tap(find.byIcon(AnIcons.panelRight));
+      await _pump(tester);
+      expect(
+        find.byType(StagePanel),
+        findsOneWidget,
+        reason: 'a tap opens the sidestage',
+      );
+    },
+  );
 
-  testWidgets('a plain Q&A conversation (no activity) has NO toggle and NO island', (tester) async {
-    tester.view.physicalSize = const Size(1400, 900);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
+  testWidgets(
+    'a plain Q&A conversation (no activity) has NO toggle and NO island',
+    (tester) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(_host());
-    final container = ProviderScope.containerOf(tester.element(find.byType(AppShell)), listen: false);
-    container.read(goRouterProvider).go(conversationLocation('cv_p01')); // Q&A only, no tools/touchpoints
-    await _pump(tester);
+      await tester.pumpWidget(_host());
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(AppShell)),
+        listen: false,
+      );
+      container
+          .read(goRouterProvider)
+          .go(conversationLocation('cv_p01')); // Q&A only, no tools/touchpoints
+      await _pump(tester);
 
-    expect(find.byIcon(AnIcons.panelRight), findsNothing, reason: 'no content → no door');
-    expect(find.byType(StagePanel), findsNothing);
-  });
+      expect(
+        find.byIcon(AnIcons.panelRight),
+        findsNothing,
+        reason: 'no content → no door',
+      );
+      expect(find.byType(StagePanel), findsNothing);
+    },
+  );
 }

@@ -62,11 +62,37 @@ import '../i18n/strings.g.dart';
 /// 底栏(workspace 快捷菜单 | 设置格 | 铃格)。两条独立轴:选中海洋(顶部 4 + 齿轮进的 settings,驱动中心)与通知托盘(正交,占左岛中段)。
 /// 已建海洋(chat/entities/documents,OceanKind.isBuilt)挂真 feature,其余「即将推出」占位;通知托盘=跨 run 审批收件箱。
 /// 实体选区 + 右岛走 URL、仅 entities 生效。
-class AppShell extends ConsumerWidget {
+class AppShell extends ConsumerStatefulWidget {
   const AppShell({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AppShell> createState() => _AppShellState();
+}
+
+class _AppShellState extends ConsumerState<AppShell> {
+  // The live repository chain (workspace → Dio → API/SSE → notifications) is intentionally created
+  // after the first frame. Creating it while this shell is building can synchronously flush a startup
+  // invalidation back into this element (`markNeedsBuild during build`). The badge starts at zero for
+  // one frame, then subscribes to the same authoritative-count provider for the app's lifetime.
+  // 真机 repository 链(workspace → Dio → API/SSE → notifications)刻意首帧后才创建；若壳 build 时
+  // 首建，启动期失效会同步回冲本 element，触发 build 中 markNeedsBuild。徽标首帧为 0，随后订阅同一权威 COUNT。
+  bool _unreadBadgeReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      // `read` performs the cold initialization outside the widget build. The next build's `watch`
+      // only subscribes to an already-created provider, so it cannot be invalidated mid-build.
+      // `read` 在 widget build 外完成冷初始化；下一帧 `watch` 只订阅既有 provider，不会 build 中被失效。
+      ref.read(unreadCountProvider);
+      setState(() => _unreadBadgeReady = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final ocean = ref.watch(selectedOceanProvider);
     final onEntities = ocean == OceanKind.entities;
     // Leaving an ocean that OWNS the floating-head breadcrumb (entities' entity detail / documents' page
@@ -285,7 +311,9 @@ class AppShell extends ConsumerWidget {
           notificationsActive: notifOpen,
           // The bell's red dot lights when there are unread inbox rows (authoritative COUNT; frame-only
           // reconciliation echoes never count). 铃红点=有未读收件箱行(权威 COUNT,仅帧回声不计)。
-          unreadCount: ref.watch(unreadCountProvider).value ?? 0,
+          unreadCount: _unreadBadgeReady
+              ? ref.watch(unreadCountProvider).value ?? 0
+              : 0,
         ),
       ],
     );

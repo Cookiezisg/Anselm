@@ -19,14 +19,11 @@ class UnreadCountNotifier extends AsyncNotifier<int> {
 
   @override
   Future<int> build() async {
-    // KNOWN cold-start noise (0719 记档): this watch is the first build-phase read of the live repo
-    // chain, whose startup-dirtied upstream (workspace→dio) flushes here and synchronously invalidates
-    // an earlier subscriber — Riverpod catches one "setState during build" per launch. Harmless (badge
-    // renders, no state lost); the true fix is flushing the repo chain before the gate swaps the shell
-    // in, a startup-order surgery deliberately not done in a night run. The toast-dispatcher sibling
-    // was moved off the build phase (_SessionServices) — this one must stay: the badge WATCHES.
-    // 已知冷启噪音:本 watch 是 build 期对 live repo 链的首读,启动期被标脏的上游在此 flush 并同步失效
-    // 更早的订阅者——Riverpod 每启动捕获一次,无害;治本=gate 换壳前先 flush repo 链(启动时序手术,记日间项)。
+    // AppShell creates this provider after its first frame, before subscribing to it for rendering.
+    // That startup boundary lets the live repo chain settle outside a widget build; this notifier stays
+    // reactive here so a workspace switch still rebuilds the repository and reconnects the streams.
+    // AppShell 在首帧后、渲染订阅前创建本 provider；启动边界使 live repo 链在 widget build 外稳定。
+    // 此处仍保持 watch，从而切换 workspace 仍会重建 repository 并重连流。
     final repo = ref.watch(notificationRepositoryProvider);
     final debounce = ref.watch(notificationDebounceProvider);
 
@@ -76,5 +73,6 @@ class UnreadCountNotifier extends AsyncNotifier<int> {
 }
 
 /// The unread-badge count. keepAlive by default (app-lifetime — the bell is always mounted). 未读徽标数。
-final unreadCountProvider =
-    AsyncNotifierProvider<UnreadCountNotifier, int>(UnreadCountNotifier.new);
+final unreadCountProvider = AsyncNotifierProvider<UnreadCountNotifier, int>(
+  UnreadCountNotifier.new,
+);

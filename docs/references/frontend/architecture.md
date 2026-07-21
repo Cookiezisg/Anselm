@@ -25,7 +25,7 @@ main.dart                  # 入口:runZonedGuarded(binding 在内)→ scaled bi
 app/                       # 装配根
   app.dart                 # 根 widget(MaterialApp.router[routerConfig=goRouter] + 主题 + builder=AnOverlayHost→门控链[AppStartupGate→GlobalShortcuts→autofocus→WorkspaceGate→路由 child];全局快捷键=core/shortcuts/GlobalShortcuts,须在 autofocus 之上)
   router.dart              # buildAppRouter[STEP 6]:全部 location(/ + /entities/:kind/:id + /chat/:id + /documents/:id + /documents/skill/:name)共用同一常量 key 的 NoTransitionPage(AppShell)→壳永不重挂;坏 kind redirect 回首页;注入 core goRouterProvider 缝
-  app_shell.dart           # 唯一壳组合 AppShell（哪个 feature 在哪个岛 + 顶带消息舞台）:make app 与 make demo 共用,只差数据源 + 启动(见 §6)
+  app_shell.dart           # 唯一壳组合 AppShell（哪个 feature 在哪个岛 + 顶带消息舞台）:make app 与 make demo 共用,只差数据源 + 启动(见 §6)；未读徽标的 live repo 链首帧后预热，避开壳 build 期启动失效
   app_startup_gate.dart    # 据 backend 单一 phase 门控:连接中 / 崩溃可重试 / 就绪显壳(整 app 单点门控,在 MaterialApp.router builder 里包路由 child、非 redirect)
   workspace_gate.dart      # 冷启动工作区门控(在 startup gate 之下、壳之上):解析 workspace 中显"准备工作区",就绪显壳
   gate_backdrop.dart       # 两道门控(startup + workspace)共用的满屏 canvas 底(GateBackdrop),内层 AnState 自居中/限宽
@@ -52,7 +52,7 @@ core/                      # 跨切共享层(不依赖上层)
   settings/                # SettingsPrefs 中央偏好服务(S-13):an.* 键声明表+类型化读写+fy.* 一次性迁移+声明集 resetAll;main 载入一次全员同步读
   editor/                  # 原生文档编辑器门面(super_editor 钉 dev.40 仅经此用):an_editor(装配+几何缝)+ components/stylesheet(An 块皮+prose 声)+ markdown([[id]]+语言标保真 codec)+ slash_menu(11 命令,slang)+ mention(@ 药丸)+ toolbar(划选条+link URL 输入)+ syntax(记忆化高亮);见 design-system.md AnEditor 条
   overlay/                 # 确认框专用命令式服务:overlayProvider.confirm + AnOverlayHost root navigator 接线；不再绘通知
-i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库）
+i18n/                      # slang:en/zh_CN 双语 + 生成 strings.g.dart（dart run slang,入库；两语 eager，持久化语言可安全同步恢复）
 dev/                       # dev 工具:gallery_main（make gallery 组件画廊）· demo_main（make demo:真壳 AppShell + fixture override + 跳门控,零后端）
 features/                  # ★中间层:每域 data+state+ui+model（随 feature 落地,Entities 起）
   entities/data/           # Entities feature 数据缝[Phase 4.1 STEP 1]:单一 EntityRepository(Live 接 ApiClient+SseGateway / Fixture 内存可脚本 / entityRepositoryProvider 单点 override) + EntityKind/EntityRow/EntitySignal + entity_labels(EntityKindLabels 扩展:type/verb i18n 标签唯一源,rail·海洋头·run 终端共用)
