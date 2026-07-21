@@ -14,10 +14,10 @@ RUN := mise exec --
 
 help:
 	@echo "Anselm 前端（Flutter）— 在 frontend/ 下:"
-	@echo "  启动:  make demo     真 app 形态 + fixture、零后端"
-	@echo "         make demo-profile  同上但 PROFILE 构建(判断性能用它,带帧探针)"
+	@echo "  启动:  make app      真 app + 真后端(自动起后端 + 热重载)"
+	@echo "         make demo     fixture demo"
 	@echo "         make gallery  组件画廊（看每个 An* 全态）"
-	@echo "         make app      真 app + 真后端(自动起后端 + 热重载)"
+	@echo "         make perf     profile demo + 帧探针"
 	@echo "  开发:  make setup    拉依赖（flutter pub get）"
 	@echo "         make gen      codegen（dart run slang → i18n strings.g.dart）"
 	@echo "         make analyze  flutter analyze（须净）"
@@ -59,14 +59,14 @@ verify:
 demo:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/demo_main.dart
 
-# demo-profile — demo 的 PROFILE 构建(AOT,接近发行性能)+ 帧探针。**判断性能一律用它**——
+# perf — demo 的 PROFILE 构建(AOT,接近发行性能)+ 帧探针。**判断性能一律用它**——
 # `make demo` 是 debug(JIT+断言,慢 3-5 倍),拿 debug 手感判卡顿全是幻觉(0716 教训:用户报「滚动
 # 粘滞」,profile 实测满 120fps 零掉帧)。PERF_HUD=true 装帧探针(stdout 报 build/raster/fps,
 # 见 lib/dev/perf_probe.dart)+ 种 STRESS 压力文档;要看探针数字,直接跑二进制而非 open:
 #   ./build/macos/Build/Products/Profile/anselm.app/Contents/MacOS/anselm
 # --no-tree-shake-icons: 图标按语义键动态路由(AnIcons.byKey 等)静态摇树不掉,profile/release 必带
 # (debug 不摇树故 make demo 无感;发行链同此,WRK-043)。
-demo-profile:
+perf:
 	@LANG=en_US.UTF-8 $(RUN) flutter build macos --profile --no-tree-shake-icons \
 		--dart-define=PERF_HUD=true -t lib/dev/demo_main.dart
 	@open build/macos/Build/Products/Profile/anselm.app
@@ -76,7 +76,7 @@ demo-profile:
 gallery:
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d macos -t lib/dev/gallery_main.dart
 
-# app — 真 app 壳（AppShell）+ 真后端,带热重载。自动起后端(make server,后台常驻)+ dev-attach。
+# app — 真 app 壳（AppShell）+ 真后端,带热重载。自动起后端(make -C backend run,后台常驻)+ dev-attach。
 # 生产的"spawn 打包 sidecar"需把签名 Go 二进制打进 .app(发行阶段 WRK-043)。详见 test/dev/run_app.sh。
 app:
 	@bash test/dev/run_app.sh
@@ -90,17 +90,6 @@ shots:
 	@for i in 0 1 2 3 4 5 6; do $(RUN) flutter test test/dev/capture_gallery.dart --dart-define=CAT=$$i; done
 	@echo "" && echo "✓ 截图落 test/dev/out/(shell.png + gallery_0..6.png)"
 
-# shot-app — 真跑终检截图:构建+启动 gallery .app、截运行中窗口 → test/dev/out/app.png(Impeller 真渲染
-# + 红绿灯,headless 还原不了)。BUILD=0 复用已构建 app 跳过重构。详见 test/dev/shot_app.sh。
-shot-app:
-	@bash test/dev/shot_app.sh
-
-# shot-app-real — 真·端到端:真壳 make app 挂真后端(非 fixture)。起后端 + 经 API 种 workspace/实体
-# → flutter run 真 app 挂上它 → 截运行窗口 → test/dev/out/app.png。验证 sidecar 挂载 + 冷启动 +
-# rail/详情走真 HTTP/SSE(抓 fixture 路径抓不到的契约漂移)。详见 test/dev/shot_app_real.sh。
-shot-app-real:
-	@bash test/dev/shot_app_real.sh
-
 # clean — 清前端可重建产物。走官方 `flutter clean`(其定义逐字即「Delete the build/ and
 # .dart_tool/ directories」)——一并清 build/test_cache(flutter test 内容寻址 kernel 缓存,
 # 无 LRU/无大小上限、从不驱逐;dev 天长日久累到数 GB,本机曾实测 6.9GB/99 个 .dill 跨 23 天)
@@ -111,4 +100,4 @@ clean:
 	@$(RUN) flutter clean
 	@echo "" && echo "✓ 已清 build/ + .dart_tool/(flutter clean)。下次构建前先 make setup(pub get)。"
 
-.PHONY: help setup gen analyze test verify demo demo-profile gallery app shots shot-app shot-app-real clean
+.PHONY: help setup gen analyze test verify demo perf gallery app shots clean

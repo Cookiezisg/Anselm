@@ -173,11 +173,11 @@ FixtureDocumentsRepository demoDocumentsRepository() {
           description: 'Every markdown element × inline context + nesting / CJK / edge cases — the 1:1 corpus.',
           tags: const ['reference', 'kitchen-sink'],
           content: buildMarkdownCorpus()),
-      // PERF-ONLY (armed with the frame probe by `make demo-profile`'s PERF_HUD define; absent from
+      // PERF-ONLY (armed with the frame probe by `make perf`'s PERF_HUD define; absent from
       // `make demo` and every test): the presenter's per-keystroke cost is O(document) — 400 paragraphs
       // is the measured scale where typing frames ride the 120Hz budget (5-9ms/key, 0716 profile
       // measurement). This document is the fixed yardstick those before/after numbers are taken against.
-      // 仅性能场(随 make demo-profile 的 PERF_HUD 定义出现;make demo 与全部测试都没有):presenter 每键
+      // 仅性能场(随 make perf 的 PERF_HUD 定义出现;make demo 与全部测试都没有):presenter 每键
       // 成本 O(文档),400 段=实测骑上 120Hz 预算的规模(5-9ms/键,0716 profile 实测)。此文档是前后对比的固定标尺。
       if (const bool.fromEnvironment('PERF_HUD'))
         doc('doc_00000000000f7703', null, 'STRESS 400', 4, '/STRESS 400',

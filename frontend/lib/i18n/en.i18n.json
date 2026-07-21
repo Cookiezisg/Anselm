@@ -1092,7 +1092,7 @@
   "startup": {
     "connecting": "Connecting to the local engine…",
     "crashedTitle": "Can't reach the local engine",
-    "crashedHint": "The backend didn't start. For development, set ANSELM_BACKEND_URL to an already-running server (make server).",
+    "crashedHint": "The backend didn't start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).",
     "retry": "Retry",
     "errorTitle": "Something went wrong",
     "errorHint": "An unexpected error occurred while rendering this view."

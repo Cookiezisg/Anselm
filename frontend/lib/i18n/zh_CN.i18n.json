@@ -1092,7 +1092,7 @@
   "startup": {
     "connecting": "正在连接本地引擎…",
     "crashedTitle": "无法连接本地引擎",
-    "crashedHint": "后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make server)。",
+    "crashedHint": "后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。",
     "retry": "重试",
     "errorTitle": "出错了",
     "errorHint": "渲染此视图时发生了意外错误。"

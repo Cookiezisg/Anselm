@@ -22,7 +22,7 @@
     - **scheduler**：Overview 主页 + 运行矩阵 + 运行卷宗/节点检查器双脸右岛。
   - **平台模块**：notifications（后端 Emit/Broadcast 分径 + 左岛铃托盘［1:1 左岛 rail 原语，时间分组+SliverAnimatedList 滑动折叠］+ **顶带唯一即时消息舞台**［后台事件与操作反馈同口；当前卡恒定居中 + 最多两候场点 + `+N→✕` 快照清场；无界私有队列 / 定长 UI 投影］+ OS 原生通知；顶带收起不碰左岛账本，未读徽标**绝不据帧 +1**、靠权威 unread-count refetch；右上 toast 已退役、overlay 仅留确认框）· settings（13 面板 + 机器/工作区两持久化轴 + 三相等门禁 + **设置项级搜索**；平台地基：dio 脉搏热切换 / keychain 铸钥 ADR 0008 / 出厂重置 / 更新检查 / 可改绑全局快捷键）· **字体三轴**（UI/内容/代码三条机器级偏好轴；内容衬线=思源宋，代码可选 Fira/Cascadia；辖区=嵌入档+chrome 归 UI 轴、阅读档归内容轴、一切 mono 归代码轴）· **右岛三段式文法**（`AnPanelHead` 身份头 / 速览带［有真信号才渲］/ AnRow 组头分组，四海洋右岛统一）。
   - **关键约定**：app 与 demo 共用唯一 `app/app_shell.dart`，只差数据源 + 启动门控（`make app` 真后端 / `make demo` fixture 零后端）；字重两档（正文 w300 / 加粗 w400，见「视觉灵魂」节）；组件 gallery-first；右岛内距单源律（岛 12 + 行族 s8 假想框）。
-  - **门禁**：`make verify`（后端）+ `make fe-verify`（前端，当前 **4692 测**）+ `make docs`（文档）各自全绿。
+  - **门禁**：根目录 `make verify`（后端 + 前端 + 文档）全绿；局部门禁分别是 `make -C backend verify`、`make -C frontend verify`、`make -C docs verify`。
   - **文档**：前端一站式 hub [`working/frontend/`](docs/working/frontend/README.md) 先看；鸟瞰 [`overview.md`](docs/references/frontend/overview.md) · [`architecture.md`](docs/references/frontend/architecture.md) · [`design-system.md`](docs/references/frontend/design-system.md) · [`contract.md`](docs/references/frontend/contract.md) · [`features/`](docs/references/frontend/features/)；建造史归档全在 [`docs/archive/`](docs/archive/)。
 
 ## 文档地图
@@ -102,9 +102,9 @@
   **「按域前缀搜」是本条的要害**——少了它，规则挡不住这次的漏法。
 - **T6 Fake LLM**：默认测试用 `fake_llm`，0 Token 消耗。
 - **`make verify`（pre-push 门禁，host 平台）**：`gofmt` 净 + `go vet` + `go build` + 单测 + 文档门禁全绿。并发/取消测试带 `-race`。
-- **`make docs`（文档门禁）**：`cmd/docs` 跑 GOVERNANCE §11 全套（frontmatter / 类型 / 生命周期 / INDEX≤50 / 孤儿链接）。
+- **`make -C docs verify`（文档门禁）**：`cmd/docs` 跑 GOVERNANCE §11 全套（frontmatter / 类型 / 生命周期 / INDEX≤50 / 孤儿链接）。
 - **跨平台 release**：任意平台 `cd backend && GOOS=x GOARCH=y go build ./cmd/server` 直接出二进制——**无内嵌、无预拉**（运行时由自研 `directInstaller` 在目标机首用按需下，见 [`decisions/0001`](docs/decisions/0001-sandbox-runtime-direct-install.md)）。
-- **`make fe-verify`（前端门禁，mise flutter）**：codegen（freezed/json/slang）+ `flutter analyze` 净 + `flutter test` 绿。与 `make verify`（后端）分列、各自 pre-push。
+- **`make -C frontend verify`（前端门禁，mise flutter）**：codegen（freezed/json/slang）+ `flutter analyze` 净 + `flutter test` 绿；根目录 `make verify` 再统一编排后端、前端和文档。
 
 ---
 

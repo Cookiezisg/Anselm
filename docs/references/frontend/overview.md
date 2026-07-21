@@ -64,7 +64,7 @@ app/        装配根 + 唯一壳 app_shell.dart + 路由 + 启动门控
 
 ## 5. 进程模型:Go sidecar + loopback 安全
 
-- Go 后端作 **sidecar**:Dart 抢一个临时端口 → 经 `ANSELM_ADDR` 拉起后端 → `/api/v1/health` 门控就绪才显壳。dev 时用 `ANSELM_BACKEND_URL` 挂已跑的后端(`make server`),零后端改。
+- Go 后端作 **sidecar**:Dart 抢一个临时端口 → 经 `ANSELM_ADDR` 拉起后端 → `/api/v1/health` 门控就绪才显壳。dev 时用 `ANSELM_BACKEND_URL` 挂已跑的后端(`make -C backend run`),零后端改。
 - **loopback 三把锁**(在后端):默认绑 `127.0.0.1` + `RequireBearerToken`(`ANSELM_AUTH_TOKEN`)+ `RequireLoopbackHost`(防 DNS rebinding)。
 - **DIP 注入**:**workspace**(唯一鉴权轴,header `X-Anselm-Workspace-ID`)+ **baseUrl** 由 `app` 经 `ProviderScope` override 注入;401/410 在 net 层拦截。
 

@@ -1,162 +1,36 @@
-# ──────────────────────────────────────────────────────────────────
-# Anselm — make 命令（后端 Go 单体 + 前端 Flutter 桌面端）
-# ──────────────────────────────────────────────────────────────────
-#
-#   环境   setup    创建开发环境（mise 装 pin 的 go + flutter）
-#   运行   server   起后端服务（ANSELM_DEV，端口 $(BACKEND_PORT)）
-#          stop     优雅关停后端（SIGTERM → App.Serve 有序关停）
-#   测试   unit     Go 单测（in-memory SQLite）
-#          testend  全功能黑盒验收（testend/ 真起后端二进制 + llmmock；分钟级，不进 verify）
-#          evals    金标 LLM 旅程（testend/golden，真模型烧钱；手动触发）
-#   文档   docs     文档规范门禁（cmd/docs，GOVERNANCE §11 全套）
-#   出包   build    后端二进制 → bin/anselm-server
-#   门禁   verify   后端 pre-push：gofmt + vet + build + unit + docs（host 平台）
-#   前端   见 frontend/Makefile（单词目标:make gallery / shell / run / verify / gen …，在 frontend/ 下跑）
-#   清理   clean    清 dev 数据目录
-#
-# ──────────────────────────────────────────────────────────────────
-
-BACKEND_DATA_DIR ?= /tmp/anselm-dev
-BACKEND_PORT     ?= 8742
-
-SHELL    := /bin/bash
-LOAD_ENV := set -a; [ -f .env ] && source .env; set +a;
-
-# 工具链 = mise（替代 devbox/nix）。`mise exec --` 把 mise.toml 钉的 go/flutter 放上 PATH 再跑——
-# 不依赖 shell 是否已激活 mise（make recipe 跑在 /bin/bash、未必激活）。装真·可写官方 SDK
-# （nix 只读 store 构建不了 macOS app，见 ADR 0005）。
-MISE ?= mise
-RUN  := $(MISE) exec --
+# Anselm workspace entrypoint. Root owns only cross-project actions; use each directory's Makefile
+# for local work. 根目录只编排跨域动作；具体开发进入对应目录。
 
 .DEFAULT_GOAL := help
 
 help:
-	@echo "Anselm（后端 Go 单体 + 前端 Flutter 桌面端）"
+	@echo "Anselm workspace"
 	@echo ""
-	@echo "  环境:   make setup    创建开发环境（mise: go + flutter）"
-	@echo "  运行:   make server   起后端服务（:$(BACKEND_PORT)）"
-	@echo "          make stop     优雅关停后端"
-	@echo "  测试:   make unit     Go 单测"
-	@echo "          make testend  全功能黑盒验收（真二进制 + llmmock，分钟级）"
-	@echo "          make evals    金标 LLM 旅程（真模型，烧钱，手动跑）"
-	@echo "  文档:   make docs     文档规范门禁（GOVERNANCE §11）"
-	@echo "  出包:   make build    后端二进制 → bin/anselm-server"
-	@echo "  门禁:   make verify   后端 pre-push（gofmt+vet+build+unit+docs）"
-	@echo "  前端:   cd frontend && make help（单词目标:gallery / shell / run / verify / gen …）"
-	@echo "  清理:   make clean    清后端 dev 数据（$(BACKEND_DATA_DIR)）"
-	@echo "          make fe-clean 清前端可重建缓存（build/ + .dart_tool/，官方 flutter clean）"
+	@echo "  make setup    prepare the shared toolchain"
+	@echo "  make verify   verify backend + frontend + docs"
+	@echo "  make clean    clean all generated development state"
+	@echo ""
+	@echo "  Local commands: make -C backend help | make -C frontend help | make -C docs help"
 
-# ── 环境 ────────────────────────────────────────────────────────────
-
-# setup — 装 mise（若缺）再 mise install（按 mise.toml 装 pin 的 go + flutter）。运行时
-# （python/node/uv/dotnet）首次使用时由后端 directInstaller 从上游按需下,无需预装。
-# 装好后:后端 make server;前端 make fe-gen 再 make fe-run。
 setup:
-	@command -v $(MISE) >/dev/null 2>&1 || { \
-		echo "→ 装 mise…"; \
+	@command -v mise >/dev/null 2>&1 || { \
+		echo "→ install mise…"; \
 		brew install mise 2>/dev/null || curl -fsSL https://mise.run | sh; }
-	@$(MISE) trust >/dev/null 2>&1; $(MISE) install
-	@echo ""
-	@echo "✓ setup 完成（mise 装了 pin 的 go + flutter）。"
-	@echo "  fish 已自动激活;bash/zsh 把 'eval \"\$$($(MISE) activate <shell>)\"' 加进 profile。"
-	@echo "  现在：make server"
+	@mise trust >/dev/null 2>&1; mise install
+	@$(MAKE) -C frontend setup
+	@echo "✓ workspace ready"
 
-# ── 运行 ────────────────────────────────────────────────────────────
-
-# server — 起后端。main 读环境变量（ANSELM_DEV/ADDR/DATA_DIR），非 flag。
-server:
-	@$(LOAD_ENV) cd backend && ANSELM_DEV=1 ANSELM_ADDR=:$(BACKEND_PORT) ANSELM_DATA_DIR=$(BACKEND_DATA_DIR) $(RUN) go run ./cmd/server
-
-# stop — 给监听进程发 SIGTERM → App.Serve 跑有序优雅关停（SSE 流 → HTTP 排空 → 后台 → DB）。非 -9。
-stop:
-	@PIDS=$$(lsof -ti :$(BACKEND_PORT) 2>/dev/null || true); \
-	if [ -n "$$PIDS" ]; then \
-		echo "→ SIGTERM :$(BACKEND_PORT)（pid $$(echo $$PIDS | tr '\n' ' ')），等优雅关停…"; \
-		echo "$$PIDS" | xargs kill -TERM 2>/dev/null || true; \
-		for i in $$(seq 1 20); do lsof -ti :$(BACKEND_PORT) >/dev/null 2>&1 || break; sleep 0.5; done; \
-		echo "✓ 已停"; \
-	else echo "✓ 没在跑"; fi
-
-# ── 测试 / 文档 ──────────────────────────────────────────────────────
-
-unit:
-	@cd backend && $(RUN) go test -count=1 ./...
-
-# testend — 全功能黑盒验收：编译并拉起真 backend 二进制，纯 HTTP/SSE 打全功能场景（零 backend import）。
-# 首跑会下载 sandbox 运行时（之后走 ~/.anselm-testend-cache 缓存）。
-testend:
-	@cd testend && $(RUN) go test -count=1 -timeout 30m ./scenarios/...
-
-# evals — 金标 LLM 旅程：真模型端到端（柱C）。烧钱，手动跑。自动 source 仓库根 .env（若存在）注入
-# key——默认认 DEEPSEEK_API_KEY + deepseek-v4-flash；EVALS_BASE_URL/EVALS_MODEL/EVALS_KEY 可覆盖。
-evals:
-	@if [ -f .env ]; then set -a; . ./.env; set +a; fi; cd testend && EVALS=1 $(RUN) go test -count=1 -timeout 60m ./golden/...
-
-# docs — 文档规范门禁：frontmatter / 类型 / 生命周期 / INDEX≤50 / 孤儿链接（GOVERNANCE §11）。
-docs:
-	@cd backend && $(RUN) go run ./cmd/docs --root=..
-
-# ── 出包 ────────────────────────────────────────────────────────────
-
-# build — 后端 host 二进制。VERSION 经 ldflags 盖进 main.version(GET /api/v1/version 下发;
-# 默认取 git describe,无 tag 回落 dev-<sha>)。TODO：打包时把它作为 sidecar 二进制随 Flutter app
-# 分发（flutter build <platform> + 把 anselm-server 放进 bundle，客户端经 ANSELM_ADDR 拉起，
-# 见 ADR 0004 §1）。
-VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-build:
-	@cd backend && $(RUN) go build -ldflags "-X main.version=$(VERSION)" -o bin/anselm-server ./cmd/server
-	@echo "✓ backend/bin/anselm-server ($(VERSION))"
-
-# ── 门禁 ────────────────────────────────────────────────────────────
-
-# verify — pre-push 门禁：gofmt 净 + vet + build + 单测 + 文档门禁。
-# 跨平台 release 现在就是 `cd backend && GOOS=x GOARCH=y go build ./cmd/server`——无内嵌、无预拉；
-# 运行时（python/node/uv/dotnet）在目标机首次使用时按需下，故无平台依赖、go build 可直接交叉编译。
 verify:
-	@echo "→ gofmt…"
-	@cd backend && f=$$($(RUN) gofmt -l .); [ -z "$$f" ] || { echo "✗ gofmt 未净:"; echo "$$f"; exit 1; }
-	@echo "→ go vet…"
-	@cd backend && $(RUN) go vet ./...
-	@echo "→ go build…"
-	@cd backend && $(RUN) go build ./...
-	@echo "→ unit…"
-	@cd backend && $(RUN) go test -count=1 ./...
-	@echo "→ docs…"
-	@cd backend && $(RUN) go run ./cmd/docs --root=..
-	@echo ""
-	@echo "✓ verify 全绿（gofmt + vet + build + unit + docs）"
-
-# fe-verify — 前端 pre-push 门禁（委派到 frontend/Makefile）：codegen + flutter analyze 净 + flutter test 绿。
-# 与 verify（后端）分列、各自 pre-push（ADR 0004）。frontend 有独立 Makefile（`cd frontend && make help`）。
-fe-verify:
+	@$(MAKE) -C backend verify
 	@$(MAKE) -C frontend verify
+	@$(MAKE) -C docs verify
+	@echo "✓ workspace verified"
 
-# fe-clean — 清前端可重建缓存（委派到 frontend/Makefile clean = 官方 flutter clean，清 build/ + .dart_tool/）。
-# dev-time 缓存(build/test_cache kernel 缓存 + .dart_tool/flutter_build)无上限、从不驱逐,能累到十几 GB;
-# 缓存涨了手动跑一次(不入门禁,清了会拖慢下轮全量重编)。清后前端首次构建自动 pub get。
-fe-clean:
+# Clears generated development state only: backend dev data/build output plus Flutter build caches.
+# It NEVER touches tracked codegen, Git state, global SDK caches, or ~/.anselm user data.
+clean:
+	@$(MAKE) -C backend clean
 	@$(MAKE) -C frontend clean
+	@echo "✓ workspace cleaned"
 
-# demo-test — 画廊全矩阵 Playwright 回归（reference.html 每组件×填充态逐件断言：
-# 无 console 错 / 无页面横向溢出 / 无 XSS 逃逸 / 元素已渲染 + app 冒烟 + disabled/dialog 专项）。
-# demo 是 web 端建设事实源——此为其回归网。harness 自起隔离端口 serve、跑完自清。
-# playwright 是 dev-only 未入库，首次 `cd demo && npm i`。与 verify/fe-verify 分列、不入 pre-push（需浏览器、按需手跑）。
-demo-test:
-	@cd demo && node tools/matrix.mjs
-
-demo-serve:
-	@cd demo && node tools/serve.mjs
-
-# 前端（Flutter 桌面端，ADR 0004）有独立 Makefile:`cd frontend && make help`
-# （单词目标:setup / gen / analyze / test / verify / run / gallery / shell）。
-# flutter 由 mise 提供（真·可写官方 SDK）;macOS 原生构建用系统 Xcode（ADR 0005）。
-
-# ── 清理 ────────────────────────────────────────────────────────────
-
-# clean — 停服务 + 清 dev 数据目录（SQLite + 附件 + sandbox 运行时 + mcp + skills 都在 $(BACKEND_DATA_DIR)）。
-# 不碰 ~/.anselm（真实用户数据）、不碰 docs/。
-clean: stop
-	@rm -rf $(BACKEND_DATA_DIR)
-	@echo "✓ 已清 $(BACKEND_DATA_DIR)"
-
-.PHONY: help setup server stop unit docs build verify fe-verify fe-clean demo-test demo-serve clean testend evals
+.PHONY: help setup verify clean

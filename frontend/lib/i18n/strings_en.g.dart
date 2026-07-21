@@ -853,8 +853,8 @@ class Translations$startup$en {
 	/// en: 'Can't reach the local engine'
 	String get crashedTitle => 'Can\'t reach the local engine';
 
-	/// en: 'The backend didn't start. For development, set ANSELM_BACKEND_URL to an already-running server (make server).'
-	String get crashedHint => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make server).';
+	/// en: 'The backend didn't start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).'
+	String get crashedHint => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).';
 
 	/// en: 'Retry'
 	String get retry => 'Retry';
@@ -7207,7 +7207,7 @@ extension on Translations {
 			'tree.moreItems' => ({required Object count}) => '${count} more (truncated)',
 			'startup.connecting' => 'Connecting to the local engine…',
 			'startup.crashedTitle' => 'Can\'t reach the local engine',
-			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make server).',
+			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).',
 			'startup.retry' => 'Retry',
 			_ => null,
 		} ?? switch (path) {

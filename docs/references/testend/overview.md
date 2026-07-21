@@ -15,8 +15,8 @@ audience: [human, ai]
 
 ## 入口
 
-- `make testend` —— 全功能黑盒验收（scenarios/，llmmock 驱动 LLM 面，零 token，分钟级；**不进 `make verify`**）。
-- `make evals` —— 金标 LLM 旅程（golden/，真模型；`EVALS=1` 门控 + `EVALS_BASE_URL/EVALS_MODEL/EVALS_KEY`；烧钱手动跑）。
+- `make -C backend testend` —— 全功能黑盒验收（scenarios/，llmmock 驱动 LLM 面，零 token，分钟级；**不进 `make verify`**）。
+- `make -C backend evals` —— 金标 LLM 旅程（golden/，真模型；`EVALS=1` 门控 + `EVALS_BASE_URL/EVALS_MODEL/EVALS_KEY`；烧钱手动跑）。
 
 ## 布局
 
@@ -48,4 +48,4 @@ audience: [human, ai]
 
 - 黑盒铁律：禁止 import backend 任何包——线缆事实（header 名、payload 形状）从 api.md 复述，对不上即 doc/产品 finding。
 - 场景对 `Eventually` 的依赖即产品的异步语义（索引/通知涟漪）；超时值是体验断言的一部分。
-- 验收程序（acceptance-review）结束后本套件转为常驻回归：改 prompt/工具/契约后跑 `make testend`，改提示词工程后跑 `make evals`。
+- 验收程序（acceptance-review）结束后本套件转为常驻回归：改 prompt/工具/契约后跑 `make -C backend testend`，改提示词工程后跑 `make -C backend evals`。

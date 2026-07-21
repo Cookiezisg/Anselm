@@ -415,7 +415,7 @@ class _Translations$startup$zh_CN extends Translations$startup$en {
 	// Translations
 	@override String get connecting => '正在连接本地引擎…';
 	@override String get crashedTitle => '无法连接本地引擎';
-	@override String get crashedHint => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make server)。';
+	@override String get crashedHint => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。';
 	@override String get retry => '重试';
 	@override String get errorTitle => '出错了';
 	@override String get errorHint => '渲染此视图时发生了意外错误。';
@@ -3656,7 +3656,7 @@ extension on TranslationsZhCn {
 			'tree.moreItems' => ({required Object count}) => '${count} 项已省略',
 			'startup.connecting' => '正在连接本地引擎…',
 			'startup.crashedTitle' => '无法连接本地引擎',
-			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make server)。',
+			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。',
 			'startup.retry' => '重试',
 			_ => null,
 		} ?? switch (path) {

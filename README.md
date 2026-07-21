@@ -8,10 +8,10 @@
 
 ```bash
 make setup             # 首次:装 mise（pin 的 go + flutter）
-make server            # 起后端（ANSELM_DEV，:8742）
+make -C backend run    # 起后端（ANSELM_DEV，:8742）
 # 另开一个终端跑前端（dev 挂到已跑后端）:
-make fe-gen            # 首次/改注解后:codegen（freezed/json/slang）
-make fe-run            # 起桌面 app（ANSELM_BACKEND_URL 挂到 :8742）
+make -C frontend gen   # 首次/改注解后:codegen（freezed/json/slang）
+make -C frontend app   # 起桌面 app（ANSELM_BACKEND_URL 挂到 :8742）
 ```
 
 mise 进仓库目录自动激活（fish 自动;bash/zsh 把 `eval "$(mise activate <shell>)"` 加进 profile），go/flutter 直接上 PATH。
@@ -21,19 +21,19 @@ mise 进仓库目录自动激活（fish 自动;bash/zsh 把 `eval "$(mise activa
 
 ```bash
 # 后端
-make server      # 起后端服务（:8742）
-make stop        # SIGTERM 优雅关停
-make unit        # Go 单测
-make testend     # 全功能黑盒验收（真二进制 + llmmock，分钟级）
-make docs        # 文档规范门禁（GOVERNANCE §11）
-make build       # 后端二进制 → backend/bin/anselm-server
+make -C backend run      # 起后端服务（:8742）
+make -C backend stop     # SIGTERM 优雅关停
+make -C backend test     # Go 单测
+make -C backend testend  # 全功能黑盒验收（真二进制 + llmmock，分钟级）
+make -C docs verify      # 文档规范门禁（GOVERNANCE §11）
+make -C backend build    # 后端二进制 → bin/anselm-server
 make verify      # 后端 pre-push（gofmt+vet+build+unit+docs）
 
 # 前端（Flutter）
-make fe-gen      # codegen（freezed/json_serializable/slang）
-make fe-analyze  # flutter analyze
-make fe-test     # flutter 单测
-make fe-verify   # 前端 pre-push（gen + analyze + test）
+make -C frontend gen      # codegen（freezed/json_serializable/slang）
+make -C frontend analyze  # flutter analyze
+make -C frontend test     # flutter 单测
+make -C frontend verify  # 前端 pre-push（gen + analyze + test）
 
 make clean       # 清 dev 数据目录
 ```

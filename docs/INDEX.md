@@ -16,7 +16,7 @@
 | **前端怎么协作 / 到哪了 / 去哪走（一站式 hub）** | `working/frontend/README.md` |
 | 架构决策（直装运行时 / 统一错误类型 / API 契约标准化 / 前端 Flutter 架构 / 工具链 mise / MCP 市场白名单 / scheduler 异步 Advance 池 / 主密钥 keychain / vendor super_editor presenter） | `decisions/000{1,2,3,4,5,6,7,8,9}-*.md` |
 | 数据目录 / 备份 / 跨机迁移 | `how-to/data-migration.md` |
-| 全功能黑盒验收套件（make testend / evals） | `references/testend/overview.md` |
+| 全功能黑盒验收套件（`make -C backend testend` / `evals`） | `references/testend/overview.md` |
 
 ## 后端文档体系
 

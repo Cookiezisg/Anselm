@@ -3,7 +3,7 @@ import 'dart:ui' show FramePhase;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/scheduler.dart';
 
-/// The real-frame probe — `make demo-profile` arms it via `--dart-define=PERF_HUD=true`.
+/// The real-frame probe — `make perf` arms it via `--dart-define=PERF_HUD=true`.
 ///
 /// Reports REAL frame times so a "feels sticky" report can be split into the halves that have completely
 /// different cures: **build** (Dart: widget build + layout + the merged-thread platform-message work) vs
@@ -18,7 +18,7 @@ import 'package:flutter/scheduler.dart';
 /// Output: `[perf] JANK build=…ms raster=…ms` per >3.5ms frame, and every 60 frames a summary line
 /// `[perf] n=60 build p50/p95/max | raster p50/p95/max | gap p50=8.3ms ≈120fps`.
 ///
-/// 真实帧探针——`make demo-profile` 经 `--dart-define=PERF_HUD=true` 装上。把「用起来粘滞」劈成救法完全
+/// 真实帧探针——`make perf` 经 `--dart-define=PERF_HUD=true` 装上。把「用起来粘滞」劈成救法完全
 /// 不同的两半:build(Dart:构建+布局+合并线程后的平台消息工作)vs raster(GPU:绘制/图层/重绘边界),外加
 /// **帧节奏**(app 实际驱动的刷新率——144Hz 屏上只出 60fps,每帧再便宜也发涩)。macOS 桌面不渲染
 /// showPerformanceOverlay,故直接读 FrameTiming(同样的数,以文本落 stdout)。只在 --profile 下有意义

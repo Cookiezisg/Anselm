@@ -107,10 +107,10 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
 - 工具链 = **mise**(go + flutter,仓库根 `mise.toml`)。
 - **三个启动面(规范,永不增 per-feature 入口)**:
   - `make gallery` — 组件画廊(`lib/dev/gallery_main.dart`):看每个 An* 原语全态。**视觉**面,与 app/demo 正交。
-  - `make app` — 真 app(`lib/main.dart`):**真壳 + 真后端**,热重载(`test/dev/run_app.sh`:自动起后端[`make server`,后台常驻,`make stop` 关]+ dev-attach `ANSELM_BACKEND_URL`)。**生产的 spawn-打包-sidecar 路径**(发行版的 .app 自带签名 Go 二进制、无需 `make server`)是发行阶段任务(WRK-043);裸 `flutter run` 会走 spawn → 找不到未打包的二进制而崩,故 dev 走 attach。
+  - `make -C frontend app` — 真 app(`lib/main.dart`):**真壳 + 真后端**,热重载(`test/dev/run_app.sh`:自动起后端[`make -C backend run`,后台常驻,`make -C backend stop` 关]+ dev-attach `ANSELM_BACKEND_URL`)。**生产的 spawn-打包-sidecar 路径**(发行版的 .app 自带签名 Go 二进制、无需 `make -C backend run`)是发行阶段任务(WRK-043);裸 `flutter run` 会走 spawn → 找不到未打包的二进制而崩,故 dev 走 attach。
   - `make demo` — 真 app 壳 + **假数据**(`lib/dev/demo_main.dart`):看真实形态、零后端。
   - **铁律:app 与 demo 共用唯一壳组合 [`app/app_shell.dart`](`AppShell`)**——哪个 feature 在哪个岛只写一次。二者**只差两点**:① 数据源(app 接 Live repository / demo 用 `ProviderScope` override 成 fixture,见 `features/*/data/*_demo_fixture.dart`)② 启动(app 走 `AppStartupGate` 等后端 / demo 跳门控直接进壳)。**新 feature 接进 `AppShell` 一次,app 与 demo 同时拥有**——**绝不为单个 feature 加 `make <feature>` 入口**(碎片化、必不 sync)。截图同理:`test/dev/capture_demo.dart` 截整 `AppShell`,不做 per-feature 截图。
-- 门禁 `make fe-verify`(= `cd frontend && make verify`)= codegen(`dart run slang` + `dart run build_runner`)+ `flutter analyze` 净 + `flutter test` 绿。codegen 产物入库(deterministic,fresh checkout 直接 analyze)。
+- 门禁 `make -C frontend verify`= codegen(`dart run slang` + `dart run build_runner`)+ `flutter analyze` 净 + `flutter test` 绿。codegen 产物入库(deterministic,fresh checkout 直接 analyze)。
 
 ## 7. 文档纪律
 
