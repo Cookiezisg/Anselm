@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -72,6 +73,31 @@ func TestRunOneTool_NoProgressNoExtraBlock(t *testing.T) {
 	blocks := runOneTool(ctx, silentTool{}, tc, zap.NewNop())
 	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeToolResult {
 		t.Fatalf("want exactly 1 tool_result block, got %+v", blocks)
+	}
+}
+
+// TestRunOneTool_ResultFramesBracketRealExecution locks the wire boundary used by the sidestage:
+// tool_call close is only the LLM's argument boundary; tool_result opens BEFORE Execute and closes
+// with its durable output snapshot AFTER Execute. First Python environment setup therefore remains
+// visibly live instead of disappearing between two unrelated stream phases.
+//
+// tool_call Close 只是模型参数边界；tool_result 必须在 Execute 前 Open、结束后携结果快照 Close。首次
+// Python 环境准备由此持续可见，不会在两段无关流之间消失。
+func TestRunOneTool_ResultFramesBracketRealExecution(t *testing.T) {
+	b := &captureBridge{}
+	ctx := reqctxpkg.SetConversationID(WithBridge(context.Background(), b), "c1")
+	runOneTool(ctx, silentTool{}, messagesdomain.ToolCallData{ID: "tc1", Name: "silent"}, zap.NewNop())
+
+	if len(b.events) != 2 {
+		t.Fatalf("want result open + close, got %d: %+v", len(b.events), b.events)
+	}
+	open, ok := b.events[0].Frame.(streamdomain.Open)
+	if !ok || open.ParentID != "tc1" || open.Node.Type != messagesdomain.BlockTypeToolResult {
+		t.Fatalf("first frame must open execution result under tool call: %+v", b.events[0])
+	}
+	close, ok := b.events[1].Frame.(streamdomain.Close)
+	if !ok || close.Result == nil || !strings.Contains(string(close.Result.Content), "ok") {
+		t.Fatalf("last frame must close with the durable result snapshot: %+v", b.events[1])
 	}
 }
 

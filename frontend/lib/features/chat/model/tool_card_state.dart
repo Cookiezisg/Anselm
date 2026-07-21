@@ -6,13 +6,13 @@ import '../../../core/messages/block_tree_reducer.dart';
 import '../../../core/model/partial_json.dart';
 
 /// The tool card's lifecycle phase — derived, never stored (WRK-053 §2). Wire anchors:
-/// argsStreaming = tool_call still open (args flow as deltas); running = tool_call closed but no
-/// tool_result child yet; the four terminals split on the tool_result child (error status / the
-/// backend's fixed deny/cancel prose / plain success). awaitingConfirm is fed by the interaction
+/// argsStreaming = tool_call still open (args flow as deltas); running = tool_call closed and its
+/// execution result is either not open yet OR still open; the four terminals split only after that
+/// tool_result CLOSE (error status / the backend's fixed deny/cancel prose / plain success). awaitingConfirm is fed by the interaction
 /// signal layer (V6) — the chassis renders it, the wiring lands with the humanloop batch.
 ///
 /// 工具卡生命周期相位——**派生、不存**(WRK-053 §2)。线缆锚点:argsStreaming=tool_call 未关(args
-/// delta 流入);running=tool_call 已关但无 tool_result 子块;四种终态按 tool_result 子块分流
+/// delta 流入);running=tool_call 已关且 tool_result 尚未开或仍开;四种终态只在 tool_result Close 后分流
 /// (error 状态 / 后端固定的拒绝·取消散文 / 普通成功)。awaitingConfirm 由 interaction 信号层喂
 /// (V6)——底盘先会渲,接线随人在环批次。
 enum ToolCardPhase {
@@ -33,7 +33,8 @@ enum ToolCardPhase {
 /// DenyFeedback 等——被拒的危险调用按设计以 completed 关闭,散文是唯一信号)。
 const String deniedProsePrefix = 'The user denied running this tool';
 const String declinedProsePrefix = 'The user declined to answer this question';
-const String cancelledBeforeRunProse = 'The run was cancelled before this tool ran';
+const String cancelledBeforeRunProse =
+    'The run was cancelled before this tool ran';
 
 /// ask_user's exact completed-but-empty answer (backend `ask/ask.go`): an accept with a blank answer
 /// closes status=completed with this prose — the card reads it as 空答案, not a real answer.
@@ -98,9 +99,12 @@ class ToolCardState {
   final PartialJsonSession? _session;
 
   PartialJsonSession get argsSession =>
-      _session ?? (_fallbackSessions[this] ??= PartialJsonSession()..append(argsText));
+      _session ??
+      (_fallbackSessions[this] ??= PartialJsonSession()..append(argsText));
 
-  static final Expando<PartialJsonSession> _fallbackSessions = Expando('toolCardArgs');
+  static final Expando<PartialJsonSession> _fallbackSessions = Expando(
+    'toolCardArgs',
+  );
 
   /// A string arg's value by its FINAL key name AT ANY DEPTH (in-flight one first, else the latest closed
   /// — mirroring the depth-agnostic `argStringPartial` this replaces, e.g. a `name` nested in `ops[i]`) —
@@ -124,7 +128,9 @@ class ToolCardState {
   /// 族体/回执每 build 重解析同一 settled 结果,revision 变才新实例重解。
   Map<String, dynamic>? get resultObj {
     final cached = _resultObjCache[this];
-    if (cached != null) return identical(cached, _kNoObj) ? null : cached as Map<String, dynamic>;
+    if (cached != null) {
+      return identical(cached, _kNoObj) ? null : cached as Map<String, dynamic>;
+    }
     Map<String, dynamic>? r;
     try {
       final d = jsonDecode(resultText);
@@ -135,7 +141,8 @@ class ToolCardState {
   }
 
   static final Expando<Object> _resultObjCache = Expando('toolCardResultObj');
-  static final Object _kNoObj = Object(); // sentinel: decoded to null (Expando can't store null) 空哨兵
+  static final Object _kNoObj =
+      Object(); // sentinel: decoded to null (Expando can't store null) 空哨兵
 
   final String errorText;
 
@@ -151,7 +158,12 @@ class ToolCardState {
   final List<BlockNode> nested;
 
   bool get hasBody =>
-      summary.isNotEmpty || argsText.isNotEmpty || progressText.isNotEmpty || resultText.isNotEmpty || errorText.isNotEmpty || nested.isNotEmpty;
+      summary.isNotEmpty ||
+      argsText.isNotEmpty ||
+      progressText.isNotEmpty ||
+      resultText.isNotEmpty ||
+      errorText.isNotEmpty ||
+      nested.isNotEmpty;
 
   /// Derive from a tool_call node. [awaitingConfirm] is the interaction-signal overlay (V6).
   /// Memoized in the node's revision-keyed slot — same (revision, awaitingConfirm) → cached instance.
@@ -209,17 +221,26 @@ class ToolCardState {
   }
 
   static ToolCardPhase _phase(
-      BlockNode node, BlockNode? result, String resultText, bool awaitingConfirm) {
+    BlockNode node,
+    BlockNode? result,
+    String resultText,
+    bool awaitingConfirm,
+  ) {
     if (node.isOpen) return ToolCardPhase.argsStreaming;
     if (node.status == 'cancelled') return ToolCardPhase.cancelled;
-    if (result == null) {
-      return awaitingConfirm ? ToolCardPhase.awaitingConfirm : ToolCardPhase.running;
+    if (result == null || result.isOpen) {
+      return awaitingConfirm
+          ? ToolCardPhase.awaitingConfirm
+          : ToolCardPhase.running;
     }
     if (result.isError) return ToolCardPhase.failed;
-    if (resultText.startsWith(deniedProsePrefix) || resultText.startsWith(declinedProsePrefix)) {
+    if (resultText.startsWith(deniedProsePrefix) ||
+        resultText.startsWith(declinedProsePrefix)) {
       return ToolCardPhase.denied;
     }
-    if (resultText.startsWith(cancelledBeforeRunProse)) return ToolCardPhase.cancelled;
+    if (resultText.startsWith(cancelledBeforeRunProse)) {
+      return ToolCardPhase.cancelled;
+    }
     return ToolCardPhase.succeeded;
   }
 

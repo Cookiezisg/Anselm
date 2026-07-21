@@ -536,6 +536,7 @@
       "following": "跟随",
       "pinned": "已锁定",
       "live": "进行中",
+      "parallelRunning": "正在执行 $n 项",
       "settled": "已落定",
       "failed": "未保存",
       "backToLive": "回到直播",

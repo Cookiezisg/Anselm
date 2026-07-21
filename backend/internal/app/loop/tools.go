@@ -98,6 +98,18 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	ctx = reqctxpkg.SetToolCallID(ctx, tc.ID)
 	pcap := &progressCapture{}
 	ctx = withProgressCapture(ctx, pcap)
+	// The tool-call close means only that the MODEL finished writing its arguments.  The actual
+	// execution starts here, possibly much later (first Python runtime / venv setup is the visible
+	// example).  Open the existing tool_result node at that real boundary and close it with the
+	// durable result snapshot below.  This gives every consumer one honest execution lifecycle
+	// without adding a seventh messages-block type or making reconnect replay ambiguous.
+	//
+	// tool_call 的 Close 只表示模型写完参数，绝不表示工具已完成；真实执行从这里才开始（首次 Python
+	// runtime/venv 准备尤其可见）。复用既有 tool_result：此处 Open，结束时带耐久结果快照 Close，既给
+	// 消费端一条诚实执行生命周期，又不新增第七种 messages block、不断重连回放。
+	em := newEmitter(ctx, log)
+	blockID := idgenpkg.New("blk")
+	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, streamdomain.JSONContent(toolResultContent{}))
 	output, errMsg, ok, executed := dispatchWithGate(ctx, t, tc, argsJSON, log)
 
 	status := messagesdomain.StatusCompleted
@@ -106,10 +118,9 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	}
 	recordTouches(ctx, t, tc, output, ok && executed)
 
-	em := newEmitter(ctx, log)
-	blockID := idgenpkg.New("blk")
-	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, streamdomain.JSONContent(toolResultContent{Content: output}))
-	em.close(ctx, blockID, status, nil, errMsg)
+	em.close(ctx, blockID, status,
+		&streamdomain.Node{Type: messagesdomain.BlockTypeToolResult, Content: streamdomain.JSONContent(toolResultContent{Content: output})},
+		errMsg)
 
 	errVal := ""
 	if !ok {

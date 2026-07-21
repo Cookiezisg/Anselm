@@ -16,102 +16,190 @@ const _conv = 'cv_1';
 const _scope = StreamScope(kind: 'conversation', id: _conv);
 
 StreamEnvelope _open(String id, String tool) => StreamEnvelope(
-    seq: 1, scope: _scope, id: id,
-    frame: FrameOpen(node: StreamNode(type: 'tool_call', content: {'name': tool})));
-StreamEnvelope _delta(String id) =>
-    StreamEnvelope(seq: 0, scope: _scope, id: id, frame: const FrameDelta(chunk: '{"x":'));
+  seq: 1,
+  scope: _scope,
+  id: id,
+  frame: FrameOpen(
+    node: StreamNode(type: 'tool_call', content: {'name': tool}),
+  ),
+);
+StreamEnvelope _delta(String id) => StreamEnvelope(
+  seq: 0,
+  scope: _scope,
+  id: id,
+  frame: const FrameDelta(chunk: '{"x":'),
+);
 StreamEnvelope _close(String id, {String status = 'completed'}) =>
-    StreamEnvelope(seq: 2, scope: _scope, id: id, frame: FrameClose(status: status));
+    StreamEnvelope(
+      seq: 2,
+      scope: _scope,
+      id: id,
+      frame: FrameClose(status: status),
+    );
+StreamEnvelope _callClose(
+  String id, {
+  String status = 'completed',
+  String arguments = '{}',
+}) => StreamEnvelope(
+  seq: 2,
+  scope: _scope,
+  id: id,
+  frame: FrameClose(
+    status: status,
+    result: StreamNode(type: 'tool_call', content: {'arguments': arguments}),
+  ),
+);
+StreamEnvelope _resultOpen(String id, String parent) => StreamEnvelope(
+  seq: 3,
+  scope: _scope,
+  id: id,
+  frame: FrameOpen(
+    parentId: parent,
+    node: const StreamNode(type: 'tool_result', content: {'content': ''}),
+  ),
+);
+StreamEnvelope _resultClose(String id, {String status = 'completed'}) =>
+    StreamEnvelope(
+      seq: 4,
+      scope: _scope,
+      id: id,
+      frame: FrameClose(
+        status: status,
+        result: const StreamNode(
+          type: 'tool_result',
+          content: {'content': 'ok'},
+        ),
+      ),
+    );
 
 void main() {
-  testWidgets('a stage-worthy open stages after the debounce timer fires', (tester) async {
+  testWidgets('a stage-worthy open stages after the debounce timer fires', (
+    tester,
+  ) async {
     final repo = FixtureChatRepository();
-    final c = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(repo)]);
+    final c = ProviderContainer(
+      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+    );
     addTearDown(c.dispose);
     c.listen(stageDirectorProvider(_conv), (_, _) {});
     await tester.pump();
     repo.emitFrame(_conv, _open('b1', 'create_function'));
     await tester.pump();
-    expect(c.read(stageDirectorProvider(_conv)).stageOpen, isFalse); // debouncing 防抖中
+    expect(
+      c.read(stageDirectorProvider(_conv)).stageOpen,
+      isFalse,
+    ); // debouncing 防抖中
     await tester.pump(const Duration(milliseconds: 600));
     final s = c.read(stageDirectorProvider(_conv));
     expect(s.stageOpen, isTrue);
     expect(s.subject!.kind, 'function');
   });
 
-  testWidgets('C-020 a content delta does NOT re-publish the stage state (no re-allocation)',
-      (tester) async {
-    final repo = FixtureChatRepository();
-    final c = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(repo)]);
-    addTearDown(c.dispose);
-    c.listen(stageDirectorProvider(_conv), (_, _) {});
-    await tester.pump();
-    repo.emitFrame(_conv, _open('b1', 'create_function'));
-    await tester.pump(const Duration(milliseconds: 600));
-    final before = c.read(stageDirectorProvider(_conv));
-    expect(before.stageOpen, isTrue);
-    // A streaming content delta bumps only unread/lastActivity (never the published view), so the
-    // provider's state instance stays IDENTICAL — no per-delta StageState re-allocation. 内容 delta 不换 state。
-    repo.emitFrame(_conv, _delta('b1'));
-    await tester.pump();
-    expect(identical(c.read(stageDirectorProvider(_conv)), before), isTrue,
-        reason: 'delta 不重造/不通知,state 实例不变');
-  });
-
-  testWidgets('a short op (open+close inside the window) never stages; curtain returns to idle',
-      (tester) async {
-    final repo = FixtureChatRepository();
-    final c = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(repo)]);
-    addTearDown(c.dispose);
-    c.listen(stageDirectorProvider(_conv), (_, _) {});
-    await tester.pump();
-    repo.emitFrame(_conv, _open('b1', 'edit_document'));
-    await tester.pump();
-    repo.emitFrame(_conv, _close('b1'));
-    await tester.pump(const Duration(milliseconds: 700));
-    expect(c.read(stageDirectorProvider(_conv)).stageOpen, isFalse);
-
-    // A real one: open → stage → close → breath → curtain → idle. 真场:登台→关→停拍→谢幕。
-    repo.emitFrame(_conv, _open('b2', 'create_workflow'));
-    await tester.pump(const Duration(milliseconds: 600));
-    expect(c.read(stageDirectorProvider(_conv)).stageOpen, isTrue);
-    repo.emitFrame(_conv, _close('b2'));
-    await tester.pump();
-    expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.following); // breath 停拍
-    await tester.pump(const Duration(milliseconds: 2000));
-    expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.idle);
-  });
-
-  testWidgets('deltas on the SUBJECT do not broadcast (value equality); channel deltas badge unread',
-      (tester) async {
-    final repo = FixtureChatRepository();
-    final c = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(repo)]);
-    addTearDown(c.dispose);
-    var notifications = 0;
-    c.listen(stageDirectorProvider(_conv), (_, _) => notifications++);
-    await tester.pump();
-    repo.emitFrame(_conv, _open('b1', 'create_function'));
-    await tester.pump(const Duration(milliseconds: 600));
-    final base = notifications;
-    for (var i = 0; i < 20; i++) {
+  testWidgets(
+    'C-020 a content delta does NOT re-publish the stage state (no re-allocation)',
+    (tester) async {
+      final repo = FixtureChatRepository();
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b1', 'create_function'));
+      await tester.pump(const Duration(milliseconds: 600));
+      final before = c.read(stageDirectorProvider(_conv));
+      expect(before.stageOpen, isTrue);
+      // A streaming content delta bumps only unread/lastActivity (never the published view), so the
+      // provider's state instance stays IDENTICAL — no per-delta StageState re-allocation. 内容 delta 不换 state。
       repo.emitFrame(_conv, _delta('b1'));
-    }
-    await tester.pump();
-    expect(notifications, base); // subject deltas are silent here 主角 delta 静默
+      await tester.pump();
+      expect(
+        identical(c.read(stageDirectorProvider(_conv)), before),
+        isTrue,
+        reason: 'delta 不重造/不通知,state 实例不变',
+      );
+    },
+  );
 
-    repo.emitFrame(_conv, _open('b2', 'create_document'));
-    await tester.pump(const Duration(milliseconds: 100)); // in channels (debouncing) 频道中
-    c.read(stageDirectorProvider(_conv).notifier).pin(); // hold the camera 持镜
-    repo.emitFrame(_conv, _delta('b2'));
-    await tester.pump(const Duration(milliseconds: 600));
-    final s = c.read(stageDirectorProvider(_conv));
-    expect(s.phase, StagePhase.pinned);
-    expect(s.channels.single.unread, greaterThan(0)); // badge moved 未读徽动了
-  });
+  testWidgets(
+    'a short op (open+close inside the window) never stages; curtain returns to idle',
+    (tester) async {
+      final repo = FixtureChatRepository();
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b1', 'edit_document'));
+      await tester.pump();
+      repo.emitFrame(_conv, _callClose('b1'));
+      repo.emitFrame(_conv, _resultOpen('r1', 'b1'));
+      repo.emitFrame(_conv, _resultClose('r1'));
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isFalse);
+
+      // A real one: open → stage → close → breath → curtain → idle. 真场:登台→关→停拍→谢幕。
+      repo.emitFrame(_conv, _open('b2', 'create_workflow'));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isTrue);
+      repo.emitFrame(_conv, _callClose('b2'));
+      expect(
+        c.read(stageDirectorProvider(_conv)).stageOpen,
+        isTrue,
+        reason:
+            'the model finished arguments, but the real tool execution is still live',
+      );
+      repo.emitFrame(_conv, _resultOpen('r2', 'b2'));
+      repo.emitFrame(_conv, _resultClose('r2'));
+      await tester.pump();
+      expect(
+        c.read(stageDirectorProvider(_conv)).phase,
+        StagePhase.following,
+      ); // breath 停拍
+      await tester.pump(const Duration(milliseconds: 2000));
+      expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.idle);
+    },
+  );
+
+  testWidgets(
+    'deltas on the SUBJECT do not broadcast (value equality); channel deltas badge unread',
+    (tester) async {
+      final repo = FixtureChatRepository();
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      var notifications = 0;
+      c.listen(stageDirectorProvider(_conv), (_, _) => notifications++);
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b1', 'create_function'));
+      await tester.pump(const Duration(milliseconds: 600));
+      final base = notifications;
+      for (var i = 0; i < 20; i++) {
+        repo.emitFrame(_conv, _delta('b1'));
+      }
+      await tester.pump();
+      expect(notifications, base); // subject deltas are silent here 主角 delta 静默
+
+      repo.emitFrame(_conv, _open('b2', 'create_document'));
+      await tester.pump(
+        const Duration(milliseconds: 100),
+      ); // in channels (debouncing) 频道中
+      c.read(stageDirectorProvider(_conv).notifier).pin(); // hold the camera 持镜
+      repo.emitFrame(_conv, _delta('b2'));
+      await tester.pump(const Duration(milliseconds: 600));
+      final s = c.read(stageDirectorProvider(_conv));
+      expect(s.phase, StagePhase.pinned);
+      expect(s.channels.single.unread, greaterThan(0)); // badge moved 未读徽动了
+    },
+  );
 
   testWidgets('failed close → failed-hold; dismiss → idle', (tester) async {
     final repo = FixtureChatRepository();
-    final c = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(repo)]);
+    final c = ProviderContainer(
+      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+    );
     addTearDown(c.dispose);
     c.listen(stageDirectorProvider(_conv), (_, _) {});
     await tester.pump();
@@ -124,9 +212,13 @@ void main() {
     expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.idle);
   });
 
-  testWidgets('followMode never (from the notch) blocks auto-staging', (tester) async {
+  testWidgets('followMode never (from the notch) blocks auto-staging', (
+    tester,
+  ) async {
     final repo = FixtureChatRepository();
-    final c = ProviderContainer(overrides: [chatRepositoryProvider.overrideWithValue(repo)]);
+    final c = ProviderContainer(
+      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+    );
     addTearDown(c.dispose);
     c.read(followModeProvider.notifier).set(FollowMode.never);
     c.listen(stageDirectorProvider(_conv), (_, _) {});

@@ -60,34 +60,44 @@ class StagePanel extends ConsumerWidget {
       String subjectWord(StageActivityView? a) => a?.itemId ?? a?.kind ?? '';
       void announce(String msg) => AnA11y.announce(context, msg);
       if (next.subject != null &&
-          (prev.subject?.blockId != next.subject!.blockId || (!prev.stageOpen && next.stageOpen))) {
+          (prev.subject?.blockId != next.subject!.blockId ||
+              (!prev.stageOpen && next.stageOpen))) {
         announce(t2.chat.stage.a11y.staged(name: subjectWord(next.subject)));
       }
-      if (!prev.gateWaiting && next.gateWaiting) announce(t2.chat.stage.a11y.gate);
-      if (prev.phase != StagePhase.failedHold && next.phase == StagePhase.failedHold) {
+      if (!prev.gateWaiting && next.gateWaiting) {
+        announce(t2.chat.stage.a11y.gate);
+      }
+      if (prev.phase != StagePhase.failedHold &&
+          next.phase == StagePhase.failedHold) {
         announce(t2.chat.stage.a11y.failed);
       }
-      if (prev.stageOpen && !next.stageOpen && prev.phase != StagePhase.failedHold) {
+      if (prev.stageOpen &&
+          !next.stageOpen &&
+          prev.phase != StagePhase.failedHold) {
         announce(t2.chat.stage.a11y.settled(name: subjectWord(prev.subject)));
       }
     });
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // §1 身份头 + §2 速览带(三段式文法, 0719): the activity/pulse identity glyph + title, EVERY panel action
-      // collapsed into ONE ⋯ (the retired「四钮杂」: follow three-notch · expand-all · collapse-all), a quiet
-      // glance strip below (触点·执行·待你处理,零人话律=有信号才在), then the first-class ✕. 身份头收编 ⋯ + 速览带。
-      AnPanelHead(
-        icon: AnIcons.activity,
-        title: t.chat.stage.island,
-        menuEntries: _panelMenuEntries(context, ref, conversationId),
-        menuSemanticLabel: t.a11y.moreActions,
-        sub: _glance(context, ref, conversationId),
-        // ✕ collapses the right island (unified across every island, WRK-064). ✕ 收岛(统一)。
-        onClose: () => ref.read(rightPanelCollapsedProvider.notifier).set(true),
-        closeSemantics: t.shell.togglePanel,
-      ),
-      Expanded(child: _AccordionList(conversationId: conversationId)),
-    ]);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // §1 身份头 + §2 速览带(三段式文法, 0719): the activity/pulse identity glyph + title, EVERY panel action
+        // collapsed into ONE ⋯ (the retired「四钮杂」: follow three-notch · expand-all · collapse-all), a quiet
+        // glance strip below (触点·执行·待你处理,零人话律=有信号才在), then the first-class ✕. 身份头收编 ⋯ + 速览带。
+        AnPanelHead(
+          icon: AnIcons.activity,
+          title: t.chat.stage.island,
+          menuEntries: _panelMenuEntries(context, ref, conversationId),
+          menuSemanticLabel: t.a11y.moreActions,
+          sub: _glance(context, ref, conversationId),
+          // ✕ collapses the right island (unified across every island, WRK-064). ✕ 收岛(统一)。
+          onClose: () =>
+              ref.read(rightPanelCollapsedProvider.notifier).set(true),
+          closeSemantics: t.shell.togglePanel,
+        ),
+        Expanded(child: _AccordionList(conversationId: conversationId)),
+      ],
+    );
   }
 }
 
@@ -96,14 +106,18 @@ class StagePanel extends ConsumerWidget {
 /// on the NEXT open (items close on pick). «展开全部» ALSO reveals every collapsed group (openAll) so no row
 /// expands behind a folded head; «收起全部» folds the row BODIES only (group heads + row heads stay — behavior-
 /// equivalent to the retired button). 头 ⋯:跟随三档(单选勾)+ 展开/收起全部;展开全部顺手掀组,收起全部只收行体。
-List<AnMenuEntry> _panelMenuEntries(BuildContext context, WidgetRef ref, String conversationId) {
+List<AnMenuEntry> _panelMenuEntries(
+  BuildContext context,
+  WidgetRef ref,
+  String conversationId,
+) {
   final t = Translations.of(context);
   final mode = ref.watch(followModeProvider);
   String word(FollowMode m) => switch (m) {
-        FollowMode.always => t.chat.stage.follow.always,
-        FollowMode.firstPerConversation => t.chat.stage.follow.first,
-        FollowMode.never => t.chat.stage.follow.never,
-      };
+    FollowMode.always => t.chat.stage.follow.always,
+    FollowMode.firstPerConversation => t.chat.stage.follow.first,
+    FollowMode.never => t.chat.stage.follow.never,
+  };
   return [
     AnMenuSection(t.chat.stage.follow.label),
     for (final m in FollowMode.values)
@@ -117,7 +131,9 @@ List<AnMenuEntry> _panelMenuEntries(BuildContext context, WidgetRef ref, String 
       icon: AnIcons.unfold,
       onTap: () {
         final ledger = ref.read(touchpointLedgerProvider(conversationId));
-        ref.read(stageGroupCollapseProvider(conversationId).notifier).openAll(); // reveal folds first 先掀组
+        ref
+            .read(stageGroupCollapseProvider(conversationId).notifier)
+            .openAll(); // reveal folds first 先掀组
         ref.read(stageExpansionProvider(conversationId).notifier).expandAll([
           'todo',
           for (final e in ledger.entities) '${e.kind}:${e.key}',
@@ -127,7 +143,9 @@ List<AnMenuEntry> _panelMenuEntries(BuildContext context, WidgetRef ref, String 
     AnMenuItem(
       label: t.chat.stage.collapseAll,
       icon: AnIcons.fold,
-      onTap: () => ref.read(stageExpansionProvider(conversationId).notifier).collapseAll(),
+      onTap: () => ref
+          .read(stageExpansionProvider(conversationId).notifier)
+          .collapseAll(),
     ),
   ];
 }
@@ -143,7 +161,9 @@ Widget? _glance(BuildContext context, WidgetRef ref, String conversationId) {
   final ledger = ref.watch(touchpointLedgerProvider(conversationId));
   final pending = ref.watch(pendingInteractionsProvider(conversationId));
   final n = ledger.entities.length;
-  final m = ledger.entities.where((e) => e.byVerb.containsKey(TouchpointVerb.executed)).length;
+  final m = ledger.entities
+      .where((e) => e.byVerb.containsKey(TouchpointVerb.executed))
+      .length;
   final k = pending.values.where((r) => r.isAwaiting).length;
   final segs = <String>[
     if (n > 0) t.chat.stage.glanceTouched(n: n),
@@ -164,11 +184,22 @@ Widget? _glance(BuildContext context, WidgetRef ref, String conversationId) {
 /// ledger row, WRK-064 B6). A pure-live row (no ledger yet) has [entity] null; a settled entity row has
 /// [view] null; a settled subagent row has both null and [subagentNode] set. 一行的规格。
 class _RowSpec {
-  const _RowSpec({required this.rowId, this.entity, this.view, this.subagentNode});
+  const _RowSpec({
+    required this.rowId,
+    this.entity,
+    this.view,
+    this.subagentNode,
+    this.liveCount = 0,
+  });
 
   final String rowId;
   final CastEntity? entity;
   final StageActivityView? view;
+
+  /// Parallel live calls aimed at this same entity. The row renders one coherent target, never five
+  /// duplicate cards; its compact count says that work is fanned out underneath. 同一实体的并行活调用数；
+  /// 一行只代表一个目标，不炸五张重复卡，计数诚实说明其下有并发工作。
+  final int liveCount;
 
   /// A closed subagent tool_call (folded nested trajectory) — the settled subagent row's whole payload.
   /// 落定 subagent 的折好节点(整行载荷)。
@@ -259,7 +290,8 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     super.dispose();
   }
 
-  GlobalKey _keyFor(String rowId) => _rowKeys.putIfAbsent(rowId, () => GlobalKey());
+  GlobalKey _keyFor(String rowId) =>
+      _rowKeys.putIfAbsent(rowId, () => GlobalKey());
 
   // §4-3 — a USER-initiated scroll (direction ≠ idle) suspends auto-scroll; returning near the bottom
   // resumes it. ScrollUpdateNotification is NEVER treated as takeover (else a programmatic ensureVisible
@@ -280,7 +312,8 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     if (!_scroll.hasClients) return false;
     final p = _scroll.position;
     if (!p.hasContentDimensions) return false;
-    return p.pixels <= p.minScrollExtent + 80; // threshold, never atEdge/exact 阈值,不用 atEdge
+    return p.pixels <=
+        p.minScrollExtent + 80; // threshold, never atEdge/exact 阈值,不用 atEdge
   }
 
   // §4-1/§4-2 — the director staged a NEW subject (follow already gated it): open its row (sticky) and
@@ -301,7 +334,9 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         prev.phase == StagePhase.following) {
       final settledRow = _autoOpenedRow.remove(prev.subject!.blockId);
       if (settledRow != null) {
-        ref.read(stageExpansionProvider(conversationId).notifier).close(settledRow);
+        ref
+            .read(stageExpansionProvider(conversationId).notifier)
+            .close(settledRow);
       }
     }
 
@@ -309,23 +344,31 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     if (subj == null) return;
     final block = subj.blockId;
     final id = subj.itemId;
-    final resolvedRow = (id != null && id.isNotEmpty) ? '${subj.kind}:$id' : null;
+    final resolvedRow = (id != null && id.isNotEmpty)
+        ? '${subj.kind}:$id'
+        : null;
     final blockRow = 'block:$block';
-    final expNotifier = ref.read(stageExpansionProvider(conversationId).notifier);
+    final expNotifier = ref.read(
+      stageExpansionProvider(conversationId).notifier,
+    );
     if (resolvedRow != null) {
       final exp = ref.read(stageExpansionProvider(conversationId));
       if (exp.contains(blockRow) && !exp.contains(resolvedRow)) {
         expNotifier.close(blockRow);
         expNotifier.open(resolvedRow);
-        _autoHandled.add(block); // already handled — the migrate is the open 迁移即已处理
-        _autoOpenedRow[block] = resolvedRow; // migrate the curtain-collapse target 迁移谢幕收起目标
+        _autoHandled.add(
+          block,
+        ); // already handled — the migrate is the open 迁移即已处理
+        _autoOpenedRow[block] =
+            resolvedRow; // migrate the curtain-collapse target 迁移谢幕收起目标
       }
     }
     if (!next.stageOpen || _autoHandled.contains(block)) return;
     _autoHandled.add(block);
     final rowId = resolvedRow ?? blockRow;
     expNotifier.open(rowId);
-    _autoOpenedRow[block] = rowId; // remember for the §4-4 curtain-collapse 记录供谢幕收起
+    _autoOpenedRow[block] =
+        rowId; // remember for the §4-4 curtain-collapse 记录供谢幕收起
     _scrollToRow(rowId);
   }
 
@@ -334,7 +377,9 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted || _takeover || !_scroll.hasClients) return;
       final ctx = _rowKeys[rowId]?.currentContext;
-      if (ctx == null) return; // not built = far off-screen → don't chase (§4-2) 未构建=远在视口外,不追
+      if (ctx == null) {
+        return; // not built = far off-screen → don't chase (§4-2) 未构建=远在视口外,不追
+      }
       final box = ctx.findRenderObject();
       if (box is! RenderBox || !box.hasSize) return;
       final viewport = RenderAbstractViewport.of(box);
@@ -346,7 +391,8 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
       if (lead >= trail && px >= trail && px <= lead) return;
       Scrollable.ensureVisible(
         ctx,
-        alignment: 0.5, // centre-reveal, so it never brushes the bottom edge + re-arms follow 居中揭示
+        alignment:
+            0.5, // centre-reveal, so it never brushes the bottom edge + re-arms follow 居中揭示
         alignmentPolicy: ScrollPositionAlignmentPolicy.explicit,
         duration: AnMotion.mid,
         // ensureVisible scroll = double-ended easing — the ONE legislated curve exemption
@@ -362,16 +408,27 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   /// [_computeItems] buckets into time tiers. 拆两区:top=活/委派层(合成 live+落定 subagent)恒不分组置顶;
   /// ledger=落定 Cast(下由 _computeItems 按时间档分组)。
   ({List<_RowSpec> top, List<_RowSpec> ledger}) _computeRows(
-      StageState stage, TouchpointLedgerState ledger, ConversationTranscript transcript) {
+    StageState stage,
+    TouchpointLedgerState ledger,
+    ConversationTranscript transcript,
+  ) {
     // Live activities by rowId (resolved itemId → kind:itemId; else block:<blockId> so it still shows +
     // can be auto-expanded — resolving migrates the key). 活动按 rowId(未解出用 blockId 键)。
     final viewByRow = <String, StageActivityView>{};
+    final liveCountByRow = <String, int>{};
     void addView(StageActivityView? a, {required bool gate}) {
       if (a == null || (gate && !stage.stageOpen)) return;
       final id = a.itemId;
-      final rid = (id != null && id.isNotEmpty) ? '${a.kind}:$id' : 'block:${a.blockId}';
-      viewByRow.putIfAbsent(rid, () => a); // subject added first wins its slot 主角先占
+      final rid = (id != null && id.isNotEmpty)
+          ? '${a.kind}:$id'
+          : 'block:${a.blockId}';
+      viewByRow.putIfAbsent(
+        rid,
+        () => a,
+      ); // subject added first wins its slot 主角先占
+      liveCountByRow[rid] = (liveCountByRow[rid] ?? 0) + 1;
     }
+
     addView(stage.subject, gate: true);
     for (final ch in stage.channels) {
       addView(ch, gate: false);
@@ -384,7 +441,13 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     // (subject first). 合成 live 行置顶(主角先)。
     for (final entry in viewByRow.entries) {
       if (!ledgerKeys.contains(entry.key)) {
-        top.add(_RowSpec(rowId: entry.key, view: entry.value));
+        top.add(
+          _RowSpec(
+            rowId: entry.key,
+            view: entry.value,
+            liveCount: liveCountByRow[entry.key] ?? 1,
+          ),
+        );
       }
     }
     // Third source (WRK-064 B6): SETTLED subagent runs. A `Subagent` tool_call has no touchpoint (never a
@@ -394,14 +457,24 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     // region beside the synthetic live rows so a live→settled transition never relocates the row.
     // 第三源:落定 subagent(无触点无 ledger)——谢幕后按 block:<id> 列此,同 live 合成行键→归队零跳。
     for (final node in transcript.subagentBlocks) {
-      if (node.isOpen) continue; // a live subagent is the director's job 活的归 director
+      if (node.isOpen) {
+        continue; // a live subagent is the director's job 活的归 director
+      }
       final rid = 'block:${node.id}';
       if (viewByRow.containsKey(rid) || ledgerKeys.contains(rid)) continue;
       top.add(_RowSpec(rowId: rid, subagentNode: node));
     }
     // The settled Cast, freshest-first (the ledger's own sort) — time-tier grouped downstream. 落定 Cast(最新先)。
     for (final e in ledger.entities) {
-      ledgerRows.add(_RowSpec(rowId: '${e.kind}:${e.key}', entity: e, view: viewByRow['${e.kind}:${e.key}']));
+      final rowID = '${e.kind}:${e.key}';
+      ledgerRows.add(
+        _RowSpec(
+          rowId: rowID,
+          entity: e,
+          view: viewByRow[rowID],
+          liveCount: liveCountByRow[rowID] ?? 0,
+        ),
+      );
     }
     return (top: top, ledger: ledgerRows);
   }
@@ -416,8 +489,14 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   /// when it holds a live row or a row the director/deep-jump has expanded — flipping `open` so the reveal
   /// animates the same slide (§3 test-lock). 按最后触碰时间分三档;空档免头、单档全裸行;含 live/展开行的档强制
   /// 展开(翻 open→播同一滑动)。
-  List<_Item> _computeItems(StageState stage, TouchpointLedgerState ledger,
-      ConversationTranscript transcript, Set<String> expanded, Set<String> collapsed, bool hasTodo) {
+  List<_Item> _computeItems(
+    StageState stage,
+    TouchpointLedgerState ledger,
+    ConversationTranscript transcript,
+    Set<String> expanded,
+    Set<String> collapsed,
+    bool hasTodo,
+  ) {
     final split = _computeRows(stage, ledger, transcript);
     final items = <_Item>[];
     if (hasTodo) items.add(const _TodoItem());
@@ -431,7 +510,10 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     for (final s in split.ledger) {
       tiers[sidestageTierKey(s.entity!.lastAt, now)]!.add(s);
     }
-    final nonEmpty = [for (final k in stageTierOrder) if (tiers[k]!.isNotEmpty) k];
+    final nonEmpty = [
+      for (final k in stageTierOrder)
+        if (tiers[k]!.isNotEmpty) k,
+    ];
     // A single non-empty tier → bare rows, no heads (anti-目录病). 单档=裸行、无头。
     final grouped = nonEmpty.length > 1;
     for (final tierKey in nonEmpty) {
@@ -462,17 +544,29 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     final expanded = ref.watch(stageExpansionProvider(conversationId));
     final collapsed = ref.watch(stageGroupCollapseProvider(conversationId));
     final boards = ref.watch(rundownProvider(conversationId));
-    final transcript = ref.watch(conversationStreamProvider(conversationId).notifier).transcript;
+    final transcript = ref
+        .watch(conversationStreamProvider(conversationId).notifier)
+        .transcript;
     _syncTranscript(transcript);
 
     final hasTodo = boards.values.any((b) => b.todos.isNotEmpty);
-    final items = _computeItems(stage, ledger, transcript.value, expanded, collapsed, hasTodo);
+    final items = _computeItems(
+      stage,
+      ledger,
+      transcript.value,
+      expanded,
+      collapsed,
+      hasTodo,
+    );
 
     // Empty / loading / failed — only when there's nothing to show at all (no group, no todo, no live/foot).
     // 空/加载/失败:仅当全无(无组、无 todo、无 live/脚)。
     if (items.isEmpty) {
       if (!ledger.hydrated && ledger.loading) {
-        return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
+        return const Padding(
+          padding: EdgeInsets.all(AnSpace.s8),
+          child: AnSkeleton.row(),
+        );
       }
       if (ledger.failed) {
         return AnState(
@@ -482,7 +576,9 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
           action: AnButton(
             label: t.chat.retry,
             size: AnButtonSize.sm,
-            onPressed: () => ref.read(touchpointLedgerProvider(conversationId).notifier).retry(),
+            onPressed: () => ref
+                .read(touchpointLedgerProvider(conversationId).notifier)
+                .retry(),
           ),
         );
       }
@@ -504,18 +600,27 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         // s8 = text at 20). 水平 0:岛壳 12 即唯一岛级内距,行洗底到 pad 缘,与左岛逐像素同几何。
         padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
         itemCount: items.length,
-        itemBuilder: (context, i) => _buildItem(context, items[i], expanded, transcript, stage),
+        itemBuilder: (context, i) =>
+            _buildItem(context, items[i], expanded, transcript, stage),
       ),
     );
   }
 
-  Widget _buildItem(BuildContext context, _Item item, Set<String> expanded,
-      CoalescingNotifier<ConversationTranscript> transcript, StageState stage) {
+  Widget _buildItem(
+    BuildContext context,
+    _Item item,
+    Set<String> expanded,
+    CoalescingNotifier<ConversationTranscript> transcript,
+    StageState stage,
+  ) {
     switch (item) {
       case _TodoItem():
         return KeyedSubtree(
           key: _keyFor('todo'),
-          child: _TodoRow(conversationId: conversationId, open: expanded.contains('todo')),
+          child: _TodoRow(
+            conversationId: conversationId,
+            open: expanded.contains('todo'),
+          ),
         );
       // A ungrouped active-layer row (live / settled subagent) OR a grouped settled Cast row — both render
       // through the same [_StageRow]; only their placement differs. 活层行与分组 Cast 行同渲,仅位置异。
@@ -541,9 +646,16 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         // mutates the ledger provider this widget watches, and calling it inside itemBuilder (a build phase)
         // trips Riverpod's «modify a provider while building» guard. 载更多脚:post-frame 延迟(build 期直调触发守卫)。
         WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) ref.read(touchpointLedgerProvider(conversationId).notifier).loadMore();
+          if (mounted) {
+            ref
+                .read(touchpointLedgerProvider(conversationId).notifier)
+                .loadMore();
+          }
         });
-        return const Padding(padding: EdgeInsets.all(AnSpace.s8), child: AnSkeleton.row());
+        return const Padding(
+          padding: EdgeInsets.all(AnSpace.s8),
+          child: AnSkeleton.row(),
+        );
     }
   }
 
@@ -555,13 +667,24 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   /// per-row [GlobalKey]s stay put so the director's scroll-to-row still resolves once a tier is open. 分组档=
   /// 单 item:组头 + AnExpandReveal 裹行,折叠走 kit 标准滑动(chevron 旋转 + 高度滑动同播,reduced 双闸);惰性,
   /// 收起档不建行;行 GlobalKey 不变,档一开导演器滚动即命中。
-  Widget _buildTier(String tierKey, List<_RowSpec> rows, bool open, Set<String> expanded,
-      CoalescingNotifier<ConversationTranscript> transcript, StageState stage) {
+  Widget _buildTier(
+    String tierKey,
+    List<_RowSpec> rows,
+    bool open,
+    Set<String> expanded,
+    CoalescingNotifier<ConversationTranscript> transcript,
+    StageState stage,
+  ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _GroupHead(conversationId: conversationId, tierKey: tierKey, count: rows.length, open: open),
+        _GroupHead(
+          conversationId: conversationId,
+          tierKey: tierKey,
+          count: rows.length,
+          open: open,
+        ),
         AnExpandReveal.builder(
           open: open,
           childBuilder: (context) => Column(
@@ -608,7 +731,11 @@ class _TopItem extends _Item {
 /// [tierKey] = the [stageTierOrder] fold token; [open] is the RESOLVED state (user fold ∪ force-open).
 /// 分组时间档(单 item,折叠走单 AnExpandReveal)。
 class _TierItem extends _Item {
-  const _TierItem({required this.tierKey, required this.rows, required this.open});
+  const _TierItem({
+    required this.tierKey,
+    required this.rows,
+    required this.open,
+  });
   final String tierKey;
   final List<_RowSpec> rows;
   final bool open;
@@ -645,7 +772,9 @@ class _GroupHead extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    void toggle() => ref.read(stageGroupCollapseProvider(conversationId).notifier).toggle(tierKey);
+    void toggle() => ref
+        .read(stageGroupCollapseProvider(conversationId).notifier)
+        .toggle(tierKey);
     return AnRow(
       collapsible: true,
       open: open,
@@ -681,49 +810,66 @@ class _TodoRow extends ConsumerWidget {
     final c = context.colors;
     final t = Translations.of(context);
     final boards = ref.watch(rundownProvider(conversationId));
-    final nonEmpty = [
-      for (final e in boards.entries)
-        if (e.value.todos.isNotEmpty) e.value,
-    ]..sort((a, b) => a.subagentId.compareTo(b.subagentId)); // main ("") first 主清单在前
+    final nonEmpty =
+        [
+          for (final e in boards.entries)
+            if (e.value.todos.isNotEmpty) e.value,
+        ]..sort(
+          (a, b) => a.subagentId.compareTo(b.subagentId),
+        ); // main ("") first 主清单在前
     if (nonEmpty.isEmpty) return const SizedBox.shrink();
     final total = nonEmpty.fold(0, (n, b) => n + b.todos.length);
     final done = nonEmpty.fold(0, (n, b) => n + b.completed);
-    void toggle() => ref.read(stageExpansionProvider(conversationId).notifier).toggle('todo');
+    void toggle() => ref
+        .read(stageExpansionProvider(conversationId).notifier)
+        .toggle('todo');
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // The family row (批6 A-073 — the metric re-roll retires; its own note admitted «Composed to
-      // the AnRow metrics»). The chevron follows the row idiom: hover swaps the ring for it — the
-      // same face as the sibling stage rows, which is the convergence itself. 族行(度量重抄退役);
-      // 箭头随行惯用式 hover 换 lead,与同列舞台行同脸=收敛本意。
-      AnRow(
-        leadWidget: AnTaskRing(completed: done, total: total),
-        label: t.chat.stage.tasks,
-        meta: '$done/$total',
-        collapsible: true,
-        open: open,
-        selected: open,
-        onSelect: toggle,
-        onToggle: toggle,
-      ),
-      AnExpandReveal.builder(
-        open: open,
-        childBuilder: (context) => Padding(
-          // Same breathing shape as the stage rows: symmetric 8 vertical, full box width. 与舞台行同形。
-          padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-            for (final board in nonEmpty) ...[
-              if (board.subagentId.isNotEmpty)
-                Padding(
-                  padding: const EdgeInsets.only(top: AnSpace.s4, bottom: AnSpace.s2),
-                  child: Text(t.chat.stage.boardOf(name: board.subagentId),
-                      style: AnText.meta.copyWith(color: c.inkFaint)),
-                ),
-              AnRundownList(todos: board.todos),
-            ],
-          ]),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // The family row (批6 A-073 — the metric re-roll retires; its own note admitted «Composed to
+        // the AnRow metrics»). The chevron follows the row idiom: hover swaps the ring for it — the
+        // same face as the sibling stage rows, which is the convergence itself. 族行(度量重抄退役);
+        // 箭头随行惯用式 hover 换 lead,与同列舞台行同脸=收敛本意。
+        AnRow(
+          leadWidget: AnTaskRing(completed: done, total: total),
+          label: t.chat.stage.tasks,
+          meta: '$done/$total',
+          collapsible: true,
+          open: open,
+          selected: open,
+          onSelect: toggle,
+          onToggle: toggle,
         ),
-      ),
-    ]);
+        AnExpandReveal.builder(
+          open: open,
+          childBuilder: (context) => Padding(
+            // Same breathing shape as the stage rows: symmetric 8 vertical, full box width. 与舞台行同形。
+            padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (final board in nonEmpty) ...[
+                  if (board.subagentId.isNotEmpty)
+                    Padding(
+                      padding: const EdgeInsets.only(
+                        top: AnSpace.s4,
+                        bottom: AnSpace.s2,
+                      ),
+                      child: Text(
+                        t.chat.stage.boardOf(name: board.subagentId),
+                        style: AnText.meta.copyWith(color: c.inkFaint),
+                      ),
+                    ),
+                  AnRundownList(todos: board.todos),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
   }
 }
 
@@ -756,88 +902,114 @@ class _StageRow extends ConsumerWidget {
     final entity = spec.entity;
     final view = spec.view;
     final subNode = spec.subagentNode;
-    final kind = entity?.kind ?? view?.kind ?? (subNode != null ? 'subagent' : 'tool');
-    final name = entity?.displayName ??
+    final kind =
+        entity?.kind ?? view?.kind ?? (subNode != null ? 'subagent' : 'tool');
+    final name =
+        entity?.displayName ??
         view?.itemId ??
         view?.toolName ??
         (subNode != null
-            ? (argStringPartial(subNode.argumentsText, 'description') ?? t.chat.stage.subagentUnnamed)
+            ? (argStringPartial(subNode.argumentsText, 'description') ??
+                  t.chat.stage.subagentUnnamed)
             : spec.rowId);
     final tombstoned = entity?.tombstoned ?? false;
 
     final String meta;
     if (entity != null) {
       final p = entity.primary;
-      meta = p.count > 1
+      final settled = p.count > 1
           ? '${AnCastRow.verbWord(t, p.verb)} ×${p.count}'
           : AnCastRow.verbWord(t, p.verb);
+      meta = spec.liveCount > 1
+          ? '$settled · ${t.chat.stage.parallelRunning(n: spec.liveCount)}'
+          : settled;
     } else if (subNode != null) {
-      meta = t.chat.stage.delegated; // a settled delegated run — quiet, no live dot 落定委派,无蓝点
+      meta = t
+          .chat
+          .stage
+          .delegated; // a settled delegated run — quiet, no live dot 落定委派,无蓝点
     } else {
-      meta = t.chat.stage.live;
+      meta = spec.liveCount > 1
+          ? t.chat.stage.parallelRunning(n: spec.liveCount)
+          : t.chat.stage.live;
     }
 
-    void toggle() => ref.read(stageExpansionProvider(conversationId).notifier).toggle(spec.rowId);
+    void toggle() => ref
+        .read(stageExpansionProvider(conversationId).notifier)
+        .toggle(spec.rowId);
 
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      AnRow(
-        icon: AnIcons.entityKindGlyph(kind),
-        label: name,
-        meta: meta,
-        selected: open,
-        collapsible: true,
-        open: open,
-        // A live activity earns the persistent blue dot; a clean tombstone/settled row stays quiet.
-        // live 得常驻蓝点;落定/墓碑安静。
-        trailingDot: spec.live ? AnStatus.run : null,
-        onSelect: toggle,
-        onToggle: toggle,
-      ),
-      // LAZY (C-040): a COLLAPSED accordion row must NOT build its stage body — StageBodyFromTruth watches
-      // a provider + sceneFromSubagentNode constructs a scene + _GenericStage mounts a coalescer, all per
-      // accordion rebuild otherwise. The builder runs only while the row is open / animating. 惰性:收起行
-      // 绝不建 stage 体(sceneFromSubagentNode 构造/StageBodyFromTruth 观 provider/generic 挂 coalescer)。
-      AnExpandReveal.builder(
-        open: open,
-        childBuilder: (context) => Padding(
-          // Symmetric 8 above/below (the card must not glue to its header row), 0 left/right — the body
-          // spans the FULL header-box width: hierarchy reads from position, a narrower card just looks
-          // misaligned (user-tuned). 上下对称 8(卡不贴行头)、左右 0——体与行头框同宽;瘦一圈反显没对齐。
-          padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-          child: spec.live && view != null
-              ? _GenericStage(
-                  conversationId: conversationId,
-                  subject: view,
-                  phase: view.blockId == subjectBlockId
-                      ? stagePhase
-                      : (view.failed ? StagePhase.failedHold : StagePhase.following),
-                  transcript: transcript,
-                  onPin: () => director.pin(blockId: view.blockId),
-                  onItemResolved: (itemId) => director.itemResolved(view.blockId, itemId),
-                )
-              // A settled subagent run — its folded nested trajectory rendered as a live:false stage (no
-              // entity, no touchpoint; the transcript IS its truth, WRK-064 B6). 落定 subagent 嵌套轨迹。
-              : subNode != null
-                  ? SubagentStageBody(scene: sceneFromSubagentNode(subNode, conversationId))
-                  : entity != null
-                  ? (!tombstoned && entity.kind == 'attachment'
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnRow(
+          icon: AnIcons.entityKindGlyph(kind),
+          label: name,
+          meta: meta,
+          selected: open,
+          collapsible: true,
+          open: open,
+          // A live activity earns the persistent blue dot; a clean tombstone/settled row stays quiet.
+          // live 得常驻蓝点;落定/墓碑安静。
+          trailingDot: spec.live ? AnStatus.run : null,
+          onSelect: toggle,
+          onToggle: toggle,
+        ),
+        // LAZY (C-040): a COLLAPSED accordion row must NOT build its stage body — StageBodyFromTruth watches
+        // a provider + sceneFromSubagentNode constructs a scene + _GenericStage mounts a coalescer, all per
+        // accordion rebuild otherwise. The builder runs only while the row is open / animating. 惰性:收起行
+        // 绝不建 stage 体(sceneFromSubagentNode 构造/StageBodyFromTruth 观 provider/generic 挂 coalescer)。
+        AnExpandReveal.builder(
+          open: open,
+          childBuilder: (context) => Padding(
+            // Symmetric 8 above/below (the card must not glue to its header row), 0 left/right — the body
+            // spans the FULL header-box width: hierarchy reads from position, a narrower card just looks
+            // misaligned (user-tuned). 上下对称 8(卡不贴行头)、左右 0——体与行头框同宽;瘦一圈反显没对齐。
+            padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
+            child: spec.live && view != null
+                ? _GenericStage(
+                    conversationId: conversationId,
+                    subject: view,
+                    phase: view.blockId == subjectBlockId
+                        ? stagePhase
+                        : (view.failed
+                              ? StagePhase.failedHold
+                              : StagePhase.following),
+                    transcript: transcript,
+                    onPin: () => director.pin(blockId: view.blockId),
+                    onItemResolved: (itemId) =>
+                        director.itemResolved(view.blockId, itemId),
+                  )
+                // A settled subagent run — its folded nested trajectory rendered as a live:false stage (no
+                // entity, no touchpoint; the transcript IS its truth, WRK-064 B6). 落定 subagent 嵌套轨迹。
+                : subNode != null
+                ? SubagentStageBody(
+                    scene: sceneFromSubagentNode(subNode, conversationId),
+                  )
+                : entity != null
+                ? (!tombstoned && entity.kind == 'attachment'
                       // Attachments enter via the composer, not a build tool — their settled face is the
                       // pedestal (thumbnail · size · fingerprint), not a stage. 附件=展品座静物卡,非舞台。
                       ? AttachmentPedestal(attachmentId: entity.key)
                       // Any other settled row opens to its FULL bespoke stage rendered from the entity's
                       // current truth (WRK-064) — code / graph / ladder, not a summary. 其余落定行渲完整真身舞台。
                       : !tombstoned && hasTruthStage(entity.kind)
-                          ? StageBodyFromTruth(
-                              conversationId: conversationId,
-                              kind: entity.kind,
-                              id: entity.key,
-                              rowId: 'truth_${spec.rowId}',
-                              fallback: entity)
-                          : SettledBody(conversationId: conversationId, entity: entity, tombstoned: tombstoned))
-                  : const SizedBox.shrink(),
+                      ? StageBodyFromTruth(
+                          conversationId: conversationId,
+                          kind: entity.kind,
+                          id: entity.key,
+                          rowId: 'truth_${spec.rowId}',
+                          fallback: entity,
+                        )
+                      : SettledBody(
+                          conversationId: conversationId,
+                          entity: entity,
+                          tombstoned: tombstoned,
+                        ))
+                : const SizedBox.shrink(),
+          ),
         ),
-      ),
-    ]);
+      ],
+    );
   }
 }
 
@@ -888,7 +1060,9 @@ class _GenericStageState extends State<_GenericStage> {
           // Not in the live reducer (row expanded after a reload) — honest placeholder. 诚实占位。
           return Padding(
             padding: const EdgeInsets.all(AnSpace.s8),
-            child: AnHonestyRibbon(widget.subject.live ? AnHonesty.gap : AnHonesty.live),
+            child: AnHonestyRibbon(
+              widget.subject.live ? AnHonesty.gap : AnHonesty.live,
+            ),
           );
         }
         final state = ToolCardState.of(node);
@@ -896,7 +1070,8 @@ class _GenericStageState extends State<_GenericStage> {
         final name = _subjectName(state, session);
         // R-6: hand the resolved primary id to the director for the Cast pulse + row-key migration.
         // 主目标 id 喂导演器(Cast 脉冲 + 行键迁移)。
-        final id = session.liveStringNamed('id') ??
+        final id =
+            session.liveStringNamed('id') ??
             session.closedValueAt(['functionId']) as String? ??
             (name.isNotEmpty ? name : null);
         if (id is String && id.isNotEmpty && id != _resolved) {
@@ -928,28 +1103,35 @@ class _GenericStageState extends State<_GenericStage> {
             behavior: HitTestBehavior.translucent,
             // No brow — the accordion ROW HEADER is the identity (kind glyph · name · live dot); the body
             // is just the stage content + the honesty ribbon (live/failed truth). 无眉:行头即身份。
-            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              if (failed || live) ...[
-                AnHonestyRibbon(failed ? AnHonesty.failed : AnHonesty.live),
-                const SizedBox(height: AnSpace.s6),
-              ],
-              if (stageRouteOf(widget.subject.toolName)?.lifecycle == LifecycleSource.poll)
-                _RunProgressSection(blockId: widget.subject.blockId),
-              // Live streaming churn is semantics-noise — the four announcements carry meaning. 流式区静音。
-              ExcludeSemantics(
-                excluding: live,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    if (bespoke != null)
-                      Padding(padding: const EdgeInsets.only(bottom: AnSpace.s8), child: bespoke(context, scene))
-                    else
-                      ..._body(context, c, state, session, live, failed),
-                  ],
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (failed || live) ...[
+                  AnHonestyRibbon(failed ? AnHonesty.failed : AnHonesty.live),
+                  const SizedBox(height: AnSpace.s6),
+                ],
+                if (stageRouteOf(widget.subject.toolName)?.lifecycle ==
+                    LifecycleSource.poll)
+                  _RunProgressSection(blockId: widget.subject.blockId),
+                // Live streaming churn is semantics-noise — the four announcements carry meaning. 流式区静音。
+                ExcludeSemantics(
+                  excluding: live,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (bespoke != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AnSpace.s8),
+                          child: bespoke(context, scene),
+                        )
+                      else
+                        ..._body(context, c, state, session, live, failed),
+                    ],
+                  ),
                 ),
-              ),
-            ]),
+              ],
+            ),
           ),
         );
       },
@@ -958,13 +1140,20 @@ class _GenericStageState extends State<_GenericStage> {
 
   String _subjectName(ToolCardState state, PartialJsonSession session) {
     if (state.entityName.isNotEmpty) return state.entityName;
-    final n = session.closedStringAt(['name']) ?? session.inFlightStringAt(['name']);
+    final n =
+        session.closedStringAt(['name']) ?? session.inFlightStringAt(['name']);
     if (n != null && n.isNotEmpty) return n;
     return '';
   }
 
-  List<Widget> _body(BuildContext context, AnColors c, ToolCardState state, PartialJsonSession session,
-      bool live, bool failed) {
+  List<Widget> _body(
+    BuildContext context,
+    AnColors c,
+    ToolCardState state,
+    PartialJsonSession session,
+    bool live,
+    bool failed,
+  ) {
     final kv = <AnKvRow>[];
     for (final e in session.events) {
       if (e.path.length != 1 || e.path.first is! String) continue;
@@ -980,7 +1169,12 @@ class _GenericStageState extends State<_GenericStage> {
       if (kv.isNotEmpty) AnKv(rows: kv, dense: true),
       if (live && tail != null && tail.text.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
-        AnWindow(child: Text(tailLines(tail.text, 8), style: AnText.code.copyWith(color: c.inkMuted))),
+        AnWindow(
+          child: Text(
+            tailLines(tail.text, 8),
+            style: AnText.code.copyWith(color: c.inkMuted),
+          ),
+        ),
       ],
       if (!live && !failed) ...[
         const SizedBox(height: AnSpace.s6),
@@ -992,14 +1186,19 @@ class _GenericStageState extends State<_GenericStage> {
         // 文字已落 X=8)、runStatBar 是当家条,皆真框贴 X=0、不动。The imaginary-frame law: the bare error
         // text joins the imaginary frame (X=8, the KV-key line above); the honesty ribbon (a full-width
         // tinted frame whose own h:s8 already lands its text at X=8) and the stat bar are real frames at X=0.
-        stageFramed(Text(state.errorText,
-            maxLines: 3, overflow: TextOverflow.ellipsis, style: AnText.meta.copyWith(color: c.danger))),
+        stageFramed(
+          Text(
+            state.errorText,
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
+            style: AnText.meta.copyWith(color: c.danger),
+          ),
+        ),
       ],
       const SizedBox(height: AnSpace.s8),
     ];
   }
 }
-
 
 /// The live run scroll of a poll-type stage: the flowrun's node ticks, newest last — node id in mono, a
 /// status word, the taken `port` as a quiet accent badge; the durable terminal closes with one honest
@@ -1020,40 +1219,58 @@ class _RunProgressSection extends ConsumerWidget {
         : progress.ticks;
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s8),
-      child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-        if (rows.isEmpty && progress.terminal.isEmpty)
-          AnShimmerText(t.chat.stage.run.queued, style: AnText.meta.copyWith(color: c.inkFaint), reveal: true),
-        // Family rows (批6 A-074): the semantic dot replaces the icon trio (its iconSm-2 arithmetic
-        // dies; fromRaw folds parked→wait amber, running→run accent — truer than «every non-terminal
-        // amber»); the loop turn joins the chips ('#N', the hand-glued ' · ' dies, 文法 #3). 族行:
-        // 语义点替三态图标(算术亡;fromRaw 语义更真);轮次进 chips(手拼点链亡)。
-        for (final n in rows)
-          AnLedgerRow(
-            lead: AnStatusDot(AnStatus.fromRaw(n.status)),
-            primary: n.nodeId,
-            chips: [
-              if (n.iteration > 0) Text('#${n.iteration}', style: AnText.metaTabular().copyWith(color: c.inkFaint)),
-              if (n.status == 'parked') Text(t.chat.stage.run.parked, style: AnText.meta.copyWith(color: c.warn)),
-              if (n.port.isNotEmpty) AnChip('→ ${n.port}', tone: AnTone.accent),
-            ],
-          ),
-        if (progress.terminal.isNotEmpty) ...[
-          const SizedBox(height: AnSpace.s4),
-          Text(
-            switch (progress.terminal) {
-              'completed' => t.chat.stage.run.done,
-              'failed' => t.chat.stage.run.failed,
-              _ => t.chat.stage.run.cancelled,
-            },
-            style: AnText.meta.copyWith(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (rows.isEmpty && progress.terminal.isEmpty)
+            AnShimmerText(
+              t.chat.stage.run.queued,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+              reveal: true,
+            ),
+          // Family rows (批6 A-074): the semantic dot replaces the icon trio (its iconSm-2 arithmetic
+          // dies; fromRaw folds parked→wait amber, running→run accent — truer than «every non-terminal
+          // amber»); the loop turn joins the chips ('#N', the hand-glued ' · ' dies, 文法 #3). 族行:
+          // 语义点替三态图标(算术亡;fromRaw 语义更真);轮次进 chips(手拼点链亡)。
+          for (final n in rows)
+            AnLedgerRow(
+              lead: AnStatusDot(AnStatus.fromRaw(n.status)),
+              primary: n.nodeId,
+              chips: [
+                if (n.iteration > 0)
+                  Text(
+                    '#${n.iteration}',
+                    style: AnText.metaTabular().copyWith(color: c.inkFaint),
+                  ),
+                if (n.status == 'parked')
+                  Text(
+                    t.chat.stage.run.parked,
+                    style: AnText.meta.copyWith(color: c.warn),
+                  ),
+                if (n.port.isNotEmpty)
+                  AnChip('→ ${n.port}', tone: AnTone.accent),
+              ],
+            ),
+          if (progress.terminal.isNotEmpty) ...[
+            const SizedBox(height: AnSpace.s4),
+            Text(
+              switch (progress.terminal) {
+                'completed' => t.chat.stage.run.done,
+                'failed' => t.chat.stage.run.failed,
+                _ => t.chat.stage.run.cancelled,
+              },
+              style: AnText.meta.copyWith(
                 color: switch (progress.terminal) {
-              'completed' => c.ok,
-              'failed' => c.danger,
-              _ => c.inkFaint,
-            }),
-          ),
+                  'completed' => c.ok,
+                  'failed' => c.danger,
+                  _ => c.inkFaint,
+                },
+              ),
+            ),
+          ],
         ],
-      ]),
+      ),
     );
   }
 }

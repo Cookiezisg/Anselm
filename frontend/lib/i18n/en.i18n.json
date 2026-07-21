@@ -536,6 +536,7 @@
       "following": "Follow",
       "pinned": "Pinned",
       "live": "Live",
+      "parallelRunning": "$n running",
       "settled": "Settled",
       "failed": "Unsaved",
       "backToLive": "Back to live",

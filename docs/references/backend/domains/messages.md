@@ -17,6 +17,8 @@ audience: [human, ai]
 
 **Block 六型**：text / reasoning / tool_call / tool_result / compaction（压缩摘要标记）/ **progress**（工具中间过程——一等持久块：实时流在 tool_call 下 + 随回合落盘供刷新重放，但 **LLM 历史投影是类型白名单**、progress 永不回喂模型）。更深层级（subagent 子树）走 stream 的 `Open.ParentID`，不加块型。
 
+**工具执行时序**：`tool_call` 的 Close 只表示模型已写完参数，**不是**工具执行结束；loop 在真正进入 dispatch 前 Open 同一调用之下的 `tool_result`（空 content），Execute 期间可再挂 `progress`，最后以带完整 `content` 快照的 `tool_result` Close 作为执行完成/失败真相。故前端侧幕必须以 `tool_result` Close 谢幕，首次 runtime / venv 安装等慢准备过程不会因参数流结束而消失；该复用保留六型与断线回放语义。
+
 **两段式写**（对应 loop.Host 契约）：`CreateMessage`（开回合，先 mint id 供流锚点；user 回合连 text block）→ `FinalizeMessage`（终态 + token/provider/model 溯源 + blocks，单事务、seq 落盘时分配）。两表 append-only（D1 内容日志永不删）。
 
 **关键字段语义**：`SubagentID`（≠"" 的回合是 subagent 产出——LoadHistory 排除使父历史不被污染、ListMessages 保留使 reload 能重建子树；LLM 读路径见下）；`ContextRole`（hot/warm/cold/archived——压缩器对块的**投影**变更，落库 Content 永不改写）；`StopReason` 的 `max_steps`（步数耗尽）与 `context_budget`（回合 input 逼近模型 context window、loop 软停，F58）都是诚实的非成功终态（UI 给"继续"）。

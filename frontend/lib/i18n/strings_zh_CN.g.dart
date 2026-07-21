@@ -1135,6 +1135,7 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get following => '跟随';
 	@override String get pinned => '已锁定';
 	@override String get live => '进行中';
+	@override String parallelRunning({required Object n}) => '正在执行 ${n} 项';
 	@override String get settled => '已落定';
 	@override String get failed => '未保存';
 	@override String get backToLive => '回到直播';
@@ -3156,6 +3157,7 @@ extension on TranslationsZhCn {
 			'chat.stage.following' => '跟随',
 			'chat.stage.pinned' => '已锁定',
 			'chat.stage.live' => '进行中',
+			'chat.stage.parallelRunning' => ({required Object n}) => '正在执行 ${n} 项',
 			'chat.stage.settled' => '已落定',
 			'chat.stage.failed' => '未保存',
 			'chat.stage.backToLive' => '回到直播',
@@ -3656,9 +3658,9 @@ extension on TranslationsZhCn {
 			'startup.crashedTitle' => '无法连接本地引擎',
 			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make server)。',
 			'startup.retry' => '重试',
-			'startup.errorTitle' => '出错了',
 			_ => null,
 		} ?? switch (path) {
+			'startup.errorTitle' => '出错了',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
 			'entities.filter' => '搜索实体…',
@@ -4170,9 +4172,9 @@ extension on TranslationsZhCn {
 			'settings.keys.pickerChange' => '修改',
 			'settings.keys.pickerClose' => '收起',
 			'settings.keys.visionBadge' => '视觉',
-			'settings.keys.videoBadge' => '视频',
 			_ => null,
 		} ?? switch (path) {
+			'settings.keys.videoBadge' => '视频',
 			'settings.keys.audioBadge' => '音频',
 			'settings.keys.docsBadge' => '文档',
 			'settings.keys.noCapsGuide' => '还没有可用模型——先添加一把探测通过的密钥',

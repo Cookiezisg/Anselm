@@ -2759,6 +2759,9 @@ class Translations$chat$stage$en {
 	/// en: 'Live'
 	String get live => 'Live';
 
+	/// en: '$n running'
+	String parallelRunning({required Object n}) => '${n} running';
+
 	/// en: 'Settled'
 	String get settled => 'Settled';
 
@@ -6705,6 +6708,7 @@ extension on Translations {
 			'chat.stage.following' => 'Follow',
 			'chat.stage.pinned' => 'Pinned',
 			'chat.stage.live' => 'Live',
+			'chat.stage.parallelRunning' => ({required Object n}) => '${n} running',
 			'chat.stage.settled' => 'Settled',
 			'chat.stage.failed' => 'Unsaved',
 			'chat.stage.backToLive' => 'Back to live',
@@ -7205,9 +7209,9 @@ extension on Translations {
 			'startup.crashedTitle' => 'Can\'t reach the local engine',
 			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make server).',
 			'startup.retry' => 'Retry',
-			'startup.errorTitle' => 'Something went wrong',
 			_ => null,
 		} ?? switch (path) {
+			'startup.errorTitle' => 'Something went wrong',
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
 			'entities.kNew' => 'New',
 			'entities.filter' => 'Search entities…',
@@ -7719,9 +7723,9 @@ extension on Translations {
 			'settings.keys.pickerChange' => 'Change',
 			'settings.keys.pickerClose' => 'Close',
 			'settings.keys.visionBadge' => 'Vision',
-			'settings.keys.videoBadge' => 'Video',
 			_ => null,
 		} ?? switch (path) {
+			'settings.keys.videoBadge' => 'Video',
 			'settings.keys.audioBadge' => 'Audio',
 			'settings.keys.docsBadge' => 'Docs',
 			'settings.keys.noCapsGuide' => 'No usable models yet — add a key that passes its probe first',

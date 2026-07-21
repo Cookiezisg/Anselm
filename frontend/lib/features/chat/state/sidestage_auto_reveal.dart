@@ -41,32 +41,58 @@ class SidestageManualClose extends Notifier<Set<String>> {
 /// keep-alive (NOT autoDispose) so it survives the per-conversation reveal watcher coming and going.
 /// 用户本会话手动关过侧幕的会话集(不再自动弹),keep-alive。
 final sidestageManualCloseProvider =
-    NotifierProvider<SidestageManualClose, Set<String>>(SidestageManualClose.new);
+    NotifierProvider<SidestageManualClose, Set<String>>(
+      SidestageManualClose.new,
+    );
 
 /// Drives缺口A for one conversation — the shell BARE-WATCHES it while a chat thread is selected, so it runs
 /// whether the island is open OR closed (exactly when a collapsed island must react to the first activity). It
 /// holds no state; it only wires two listeners tied to its own (autoDispose) lifecycle. 由壳保活,只接线两监听。
-final sidestageAutoRevealProvider = Provider.autoDispose.family<void, String>((ref, conversationId) {
+final sidestageAutoRevealProvider = Provider.autoDispose.family<void, String>((
+  ref,
+  conversationId,
+) {
+  void revealIfAllowed() {
+    if (ref.read(followModeProvider) == FollowMode.never) {
+      return; // 从不档不开
+    }
+    if (ref.read(sidestageManualCloseProvider).contains(conversationId)) {
+      return; // 手动关过不弹
+    }
+    ref.read(rightPanelCollapsedProvider.notifier).set(false);
+  }
+
   // First staged activity (false→true) → open the island — mode-gated + manual-close-respected. 首个登台→开岛。
   ref.listen<bool>(
     stageDirectorProvider(conversationId).select((s) => s.stageOpen),
     (prev, next) {
-      if (prev == true || !next) return; // only the false→true stage entrance 仅登台入场
-      if (ref.read(followModeProvider) == FollowMode.never) return; // 从不档不开
-      if (ref.read(sidestageManualCloseProvider).contains(conversationId)) return; // 手动关过不弹
-      ref.read(rightPanelCollapsedProvider.notifier).set(false);
+      if (prev == true || !next) {
+        return; // only the false→true stage entrance 仅登台入场
+      }
+      // The fire-immediate callback runs while this provider itself is building. Riverpod correctly
+      // forbids mutating another provider on that stack, so defer only this catch-up write by one
+      // microtask; normal later entrances still reveal synchronously. fire-immediate 回调在本 provider
+      // build 栈内，Riverpod 禁止它直接改别的 provider；仅补偿写延后一微任务，正常后续登台仍同步。
+      if (prev == null) {
+        Future<void>.microtask(() {
+          if (ref.mounted) revealIfAllowed();
+        });
+        return;
+      }
+      revealIfAllowed();
     },
+    // Cold startup can hydrate / replay the first tool stream before AppShell mounts this watcher.
+    // Reconcile the current true state too, otherwise that one entrance is permanently missed.
+    // 冷启动首条流可能先于壳挂本监听到达；也须对齐当前 true，免首场永久漏展开。
+    fireImmediately: true,
   );
   // A user collapse (false→true) of a VISIBLE panel = a manual close: remember it so we never fight them.
   // 用户关掉可见面板=手动关,记住,绝不再抢。
-  ref.listen<bool>(
-    rightPanelCollapsedProvider,
-    (prev, next) {
-      if (prev == false &&
-          next == true &&
-          ref.read(sidestageActivityProvider(conversationId))) {
-        ref.read(sidestageManualCloseProvider.notifier).mark(conversationId);
-      }
-    },
-  );
+  ref.listen<bool>(rightPanelCollapsedProvider, (prev, next) {
+    if (prev == false &&
+        next == true &&
+        ref.read(sidestageActivityProvider(conversationId))) {
+      ref.read(sidestageManualCloseProvider.notifier).mark(conversationId);
+    }
+  });
 });
