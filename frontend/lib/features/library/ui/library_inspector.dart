@@ -34,9 +34,9 @@ import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_tags.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
-import '../data/document_repository.dart';
+import '../data/library_repository.dart';
 import '../state/doc_group_collapse.dart';
-import '../state/document_state.dart';
+import '../state/library_state.dart';
 import 'skill_file_preview.dart';
 import 'skill_tool_picker.dart';
 
@@ -55,8 +55,8 @@ import 'skill_tool_picker.dart';
 /// 文档海洋右岛检查器——三段式文法(§1 身份头 [AnPanelHead] + §2 速览带 + §3 可折叠三组),退役三孤儿小标题;
 /// 组内实现原样保留(动骨不动髓)。页=元数据(名/描述/标签归中心,本岛只读 path·size·modified)走分部 PATCH;
 /// skill=frontmatter 走 PUT 全覆盖;折叠态按组持久化;无选=空态。
-class DocumentsInspector extends ConsumerWidget {
-  const DocumentsInspector({super.key});
+class LibraryInspector extends ConsumerWidget {
+  const LibraryInspector({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,12 +65,12 @@ class DocumentsInspector extends ConsumerWidget {
       // No selection → the head names the panel, no ⋯ (nothing to fold), no glance. 无选:头命名面板、无 ⋯ 无速览。
       return _InspectorShell(
         icon: AnIcons.doc,
-        title: context.t.documents.props.title,
+        title: context.t.library.props.title,
         body: AnState(
           kind: AnStateKind.empty,
           size: AnStateSize.inset,
-          title: context.t.documents.props.empty,
-          hint: context.t.documents.props.emptyHint,
+          title: context.t.library.props.empty,
+          hint: context.t.library.props.emptyHint,
         ),
       );
     }
@@ -133,7 +133,7 @@ class _InspectorShell extends ConsumerWidget {
 /// The head ⋯ overflow (三段式文法 §1 — the panel action the collapsible-groups structure introduces):
 /// «展开全部» / «收起全部» over [docGroupCollapseProvider]. 头 ⋯:全展/全收。
 List<AnMenuEntry> _menuEntries(BuildContext context, WidgetRef ref) {
-  final p = context.t.documents.props;
+  final p = context.t.library.props;
   return [
     AnMenuItem(
       label: p.expandAll,
@@ -156,13 +156,13 @@ List<AnMenuEntry> _skillMenuEntries(BuildContext context, WidgetRef ref) {
   final sourceMode = ref.watch(skillManifestSourceModeProvider);
   return [
     AnMenuItem(
-      label: t.documents.skillManifestSource,
+      label: t.library.skillManifestSource,
       icon: AnIcons.fileCode,
       checked: sourceMode,
       onTap: () => ref.read(skillManifestSourceModeProvider.notifier).toggle(),
     ),
     AnMenuItem(
-      label: t.documents.skillNewFile,
+      label: t.library.skillNewFile,
       icon: AnIcons.plus,
       onTap: () => _promptNewSkillFile(context, ref),
     ),
@@ -211,7 +211,7 @@ class _NewSkillFilePanelState extends ConsumerState<_NewSkillFilePanel> {
     if (rel.isEmpty) return;
     try {
       await ref
-          .read(documentsRepositoryProvider)
+          .read(libraryRepositoryProvider)
           .writeSkillFile(widget.name, rel, const []);
       ref.invalidate(skillFilesProvider(widget.name));
       if (!mounted) return;
@@ -238,11 +238,11 @@ class _NewSkillFilePanelState extends ConsumerState<_NewSkillFilePanel> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(t.documents.skillNewFile, style: AnText.h3),
+              Text(t.library.skillNewFile, style: AnText.h3),
               const SizedBox(height: AnSpace.s12),
               AnInput(
                 controller: _ctl,
-                placeholder: t.documents.skillNewFileHint,
+                placeholder: t.library.skillNewFileHint,
                 onSubmitted: (_) => _create(),
               ),
               if (_error != null) ...[
@@ -259,7 +259,7 @@ class _NewSkillFilePanelState extends ConsumerState<_NewSkillFilePanel> {
                   ),
                   const SizedBox(width: AnSpace.s8),
                   AnButton(
-                    label: t.documents.skillNewFile,
+                    label: t.library.skillNewFile,
                     variant: AnButtonVariant.primary,
                     onPressed: _create,
                   ),
@@ -282,7 +282,7 @@ Widget? _skillGlance(
   required DateTime updatedAt,
 }) {
   final t = context.t;
-  final p = t.documents.props;
+  final p = t.library.props;
   final rel = fmtRelativeDay(
     updatedAt,
     DateTime.now(),
@@ -291,8 +291,8 @@ Widget? _skillGlance(
     daysAgo: (n) => p.time.daysAgo(n: n),
   );
   final segs = <String>[
-    if (files > 1) t.documents.glanceFiles(n: files),
-    if (bindings > 0) t.documents.glanceBindings(n: bindings),
+    if (files > 1) t.library.glanceFiles(n: files),
+    if (bindings > 0) t.library.glanceBindings(n: bindings),
     p.glanceEdited(rel: rel),
   ];
   return Text(
@@ -327,7 +327,7 @@ Widget? _glance(
   required DateTime updatedAt,
 }) {
   final c = context.colors;
-  final p = context.t.documents.props;
+  final p = context.t.library.props;
   final rel = fmtRelativeDay(
     updatedAt,
     DateTime.now(),
@@ -432,7 +432,7 @@ class _OutlineGroup extends ConsumerWidget {
     return _GroupSection(
       groupKey: kDocGroupOutline,
       icon: AnIcons.listBulleted,
-      label: context.t.documents.props.outline,
+      label: context.t.library.props.outline,
       count: outline.length,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -494,7 +494,7 @@ class _DocProperties extends ConsumerWidget {
     return _InspectorShell(
       icon: AnIcons.doc,
       // The head IS the open page's name (falls back while loading / for the unnamed). 头=页名。
-      title: name.isEmpty ? t.documents.untitled : name,
+      title: name.isEmpty ? t.library.untitled : name,
       menuEntries: _menuEntries(context, ref),
       sub: sub,
       body: doc.when(
@@ -502,7 +502,7 @@ class _DocProperties extends ConsumerWidget {
         error: (_, _) => AnState(
           kind: AnStateKind.error,
           size: AnStateSize.inset,
-          title: t.documents.loadFailed,
+          title: t.library.loadFailed,
         ),
         // The island is "about this page" only: outline (live focus) / file meta / backlinks. The page's
         // OWN properties (name/description/tags) edit in the CENTER under the big title. 右岛只谈「这一页」。
@@ -532,14 +532,14 @@ class _DocMetaGroup extends StatelessWidget {
     // The family KV list (批6 A-082): path wraps (a flush-right ellipsis would cut its most useful tail).
     // 族键值列(path 换行,贴右省略会砍最有用的尾段)。
     final rows = [
-      AnKvRow(t.documents.props.path, doc.path, mono: true, wrap: true),
-      AnKvRow(t.documents.props.size, formatBytes(doc.sizeBytes)),
-      AnKvRow(t.documents.props.modified, fmtDateTime(doc.updatedAt)),
+      AnKvRow(t.library.props.path, doc.path, mono: true, wrap: true),
+      AnKvRow(t.library.props.size, formatBytes(doc.sizeBytes)),
+      AnKvRow(t.library.props.modified, fmtDateTime(doc.updatedAt)),
     ];
     return _GroupSection(
       groupKey: kDocGroupProps,
       icon: AnIcons.sliders,
-      label: t.documents.props.title,
+      label: t.library.props.title,
       count: rows.length,
       child: AnKv(dense: true, rows: rows),
     );
@@ -565,7 +565,7 @@ class _BacklinksGroup extends ConsumerWidget {
           loading: () => _GroupSection(
             groupKey: kDocGroupBacklinks,
             icon: AnIcons.link,
-            label: t.documents.props.backlinks,
+            label: t.library.props.backlinks,
             count: 0,
             child: const AnSkeleton.lines(2),
           ),
@@ -574,13 +574,13 @@ class _BacklinksGroup extends ConsumerWidget {
           data: (links) => _GroupSection(
             groupKey: kDocGroupBacklinks,
             icon: AnIcons.link,
-            label: t.documents.props.backlinks,
+            label: t.library.props.backlinks,
             count: links.length,
             child: links.isEmpty
                 ? Padding(
                     padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
                     child: Text(
-                      t.documents.props.noBacklinks,
+                      t.library.props.noBacklinks,
                       style: AnText.meta.copyWith(color: c.inkFaint),
                     ),
                   )
@@ -641,7 +641,7 @@ class _SkillProperties extends ConsumerWidget {
         error: (_, _) => AnState(
           kind: AnStateKind.error,
           size: AnStateSize.inset,
-          title: t.documents.loadFailed,
+          title: t.library.loadFailed,
         ),
         data: (skill) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -680,7 +680,7 @@ class _SkillPropsGroup extends StatelessWidget {
     return _GroupSection(
       groupKey: kDocGroupProps,
       icon: AnIcons.sliders,
-      label: context.t.documents.props.title,
+      label: context.t.library.props.title,
       count: count,
       keepMounted: true,
       // AnFormField carries NO horizontal inset (unlike the AnRow family + AnKv, which self-inset s8),
@@ -713,7 +713,7 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
   late bool _userInvocable;
   final _save = Debouncer(AnMotion.autosave);
 
-  DocumentsRepository get _repo => ref.read(documentsRepositoryProvider);
+  LibraryRepository get _repo => ref.read(libraryRepositoryProvider);
 
   @override
   void initState() {
@@ -775,7 +775,7 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
       if (mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+            .show(context.t.library.actionFailed, tone: AnTone.danger);
       }
     }
   });
@@ -783,7 +783,7 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final p = t.documents.props;
+    final p = t.library.props;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -962,15 +962,15 @@ class _SkillFilesGroup extends ConsumerWidget {
     final ok = await ref
         .read(overlayProvider.notifier)
         .confirm(
-          title: t.documents.skillDeleteFileTitle,
-          message: t.documents.skillDeleteFileBody(path: path),
+          title: t.library.skillDeleteFileTitle,
+          message: t.library.skillDeleteFileBody(path: path),
           confirmLabel: t.action.delete,
           cancelLabel: t.action.cancel,
           barrierLabel: t.feedback.dialogBarrier,
         );
     if (!ok || !context.mounted) return;
     try {
-      await ref.read(documentsRepositoryProvider).deleteSkillFile(name, path);
+      await ref.read(libraryRepositoryProvider).deleteSkillFile(name, path);
       ref.invalidate(skillFilesProvider(name));
       if (context.mounted && ref.read(selectedSkillFileProvider) == path) {
         context.go(skillLocation(name)); // 删的是打开中的文件 → 回清单
@@ -979,7 +979,7 @@ class _SkillFilesGroup extends ConsumerWidget {
       if (context.mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+            .show(context.t.library.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -999,7 +999,7 @@ class _SkillFilesGroup extends ConsumerWidget {
     return _GroupSection(
       groupKey: kDocGroupSkillFiles,
       icon: AnIcons.folder,
-      label: t.documents.skillFiles,
+      label: t.library.skillFiles,
       count: files.length + bindings.length,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1023,7 +1023,7 @@ class _SkillFilesGroup extends ConsumerWidget {
                     AnButton.iconOnly(
                       AnIcons.trash,
                       size: AnButtonSize.sm,
-                      semanticLabel: t.documents.skillDeleteFileTitle,
+                      semanticLabel: t.library.skillDeleteFileTitle,
                       onPressed: () => _deleteFile(context, ref, r.path),
                     ),
                 ],
@@ -1037,7 +1037,7 @@ class _SkillFilesGroup extends ConsumerWidget {
                 AnSpace.s2,
               ),
               child: Text(
-                t.documents.skillBindings,
+                t.library.skillBindings,
                 style: AnText.meta.copyWith(color: context.colors.inkFaint),
               ),
             ),
@@ -1068,7 +1068,7 @@ class _SkillProvenanceGroup extends ConsumerWidget {
   final Skill skill;
 
   Future<void> _approve(BuildContext context, WidgetRef ref) async {
-    final repo = ref.read(documentsRepositoryProvider);
+    final repo = ref.read(libraryRepositoryProvider);
     try {
       await repo.approveSkillTools(skill.name);
       ref.invalidate(openSkillProvider(skill.name));
@@ -1077,7 +1077,7 @@ class _SkillProvenanceGroup extends ConsumerWidget {
       if (context.mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+            .show(context.t.library.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -1088,7 +1088,7 @@ class _SkillProvenanceGroup extends ConsumerWidget {
     required bool force,
   }) async {
     final t = context.t;
-    final repo = ref.read(documentsRepositoryProvider);
+    final repo = ref.read(libraryRepositoryProvider);
     try {
       await repo.updateInstalledSkill(skill.name, force: force);
       ref.invalidate(openSkillProvider(skill.name));
@@ -1097,7 +1097,7 @@ class _SkillProvenanceGroup extends ConsumerWidget {
       if (context.mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(t.documents.skillUpdateDone, tone: AnTone.ok);
+            .show(t.library.skillUpdateDone, tone: AnTone.ok);
       }
     } on ApiException catch (e) {
       if (!context.mounted) return;
@@ -1105,9 +1105,9 @@ class _SkillProvenanceGroup extends ConsumerWidget {
         final go = await ref
             .read(overlayProvider.notifier)
             .confirm(
-              title: t.documents.skillCheckUpdate,
-              message: t.documents.skillLocallyModified,
-              confirmLabel: t.documents.skillForceUpdate,
+              title: t.library.skillCheckUpdate,
+              message: t.library.skillLocallyModified,
+              confirmLabel: t.library.skillForceUpdate,
               cancelLabel: t.action.cancel,
               barrierLabel: t.feedback.dialogBarrier,
             );
@@ -1118,12 +1118,12 @@ class _SkillProvenanceGroup extends ConsumerWidget {
       }
       ref
           .read(noticeCenterProvider.notifier)
-          .show(context.t.documents.actionFailed, tone: AnTone.danger);
+          .show(context.t.library.actionFailed, tone: AnTone.danger);
     } catch (_) {
       if (context.mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+            .show(context.t.library.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -1138,7 +1138,7 @@ class _SkillProvenanceGroup extends ConsumerWidget {
     return _GroupSection(
       groupKey: kDocGroupSkillProvenance,
       icon: AnIcons.download,
-      label: t.documents.skillProvenance,
+      label: t.library.skillProvenance,
       count: hasTools && !approved ? 1 : 0,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1148,14 +1148,14 @@ class _SkillProvenanceGroup extends ConsumerWidget {
             AnKv(
               rows: [
                 AnKvRow(
-                  t.documents.skillInstalledFrom,
+                  t.library.skillInstalledFrom,
                   prov.source,
                   mono: true,
                   wrap: true,
                 ),
                 if (prov.installedAt != null)
                   AnKvRow(
-                    t.documents.skillInstalledAt,
+                    t.library.skillInstalledAt,
                     fmtDateTime(prov.installedAt!),
                   ),
               ],
@@ -1173,8 +1173,8 @@ class _SkillProvenanceGroup extends ConsumerWidget {
                   // 信任门状态:待授权=琥珀(权力让渡必须可见),已授权=安静陈述。
                   Text(
                     approved
-                        ? t.documents.skillToolsApproved
-                        : t.documents.skillToolsPending,
+                        ? t.library.skillToolsApproved
+                        : t.library.skillToolsPending,
                     style: AnText.meta.copyWith(
                       color: approved ? c.inkFaint : c.warn,
                     ),
@@ -1194,7 +1194,7 @@ class _SkillProvenanceGroup extends ConsumerWidget {
                   if (!approved) ...[
                     const SizedBox(height: AnSpace.s8),
                     AnButton(
-                      label: t.documents.skillApproveTools,
+                      label: t.library.skillApproveTools,
                       outline: true,
                       onPressed: () => _approve(context, ref),
                     ),
@@ -1202,7 +1202,7 @@ class _SkillProvenanceGroup extends ConsumerWidget {
                 ],
                 const SizedBox(height: AnSpace.s8),
                 AnButton(
-                  label: t.documents.skillCheckUpdate,
+                  label: t.library.skillCheckUpdate,
                   onPressed: () => _update(context, ref, force: false),
                 ),
               ],

@@ -1,12 +1,12 @@
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
 import '../../../dev/markdown_corpus.dart';
-import 'document_fixtures.dart';
+import 'library_fixtures.dart';
 
 /// A realistic zero-backend seed for `make demo` — a small document tree (nested pages) + a couple of
 /// skills, so the documents ocean has a live-feeling library the moment demo opens. Not used by the live
 /// app (which wires the Live repository). `make demo` 的零后端种子:小文档树 + 两个 skill。
-FixtureDocumentsRepository demoDocumentsRepository() {
+FixtureLibraryRepository demoLibraryRepository() {
   final t = DateTime.utc(2026, 7, 1, 10);
   DocumentNode doc(
     String id,
@@ -31,7 +31,7 @@ FixtureDocumentsRepository demoDocumentsRepository() {
     updatedAt: t,
   );
 
-  return FixtureDocumentsRepository(
+  return FixtureLibraryRepository(
     // Folder-skill demo assets (WRK-076 F3): the preview family is exercisable with zero
     // backend — markdown / code / csv files under a skill. demo 的 folder skill 文件面。
     skillFiles: {

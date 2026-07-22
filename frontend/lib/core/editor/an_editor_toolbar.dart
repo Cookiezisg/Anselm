@@ -332,7 +332,7 @@ class _LinkInputBarState extends State<_LinkInputBar> {
                       autofocus: true,
                       mono: true,
                       seamless: true,
-                      placeholder: t.documents.linkHint,
+                      placeholder: t.library.linkHint,
                       onSubmitted: widget.onDone,
                     ),
                   ),

@@ -569,7 +569,7 @@ class AnEditorState extends State<AnEditor> {
     // pipeline over the document. AnColors is a ThemeExtension (const light/dark), so identity is stable
     // until the theme flips → same instances → SuperEditor skips the re-style. 样式表+组件建造器按主题稳定
     // 的 colors 记忆化:同实例→SuperEditor 跳全文档重跑 style pipeline。
-    final hint = _t.documents.editorHint;
+    final hint = _t.library.editorHint;
     if (!identical(_styleColors, colors) ||
         _hintText != hint ||
         _styleProse != widget.prose) {

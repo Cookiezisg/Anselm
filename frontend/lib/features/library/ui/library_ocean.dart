@@ -18,9 +18,9 @@ import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/entity_ref_codec.dart';
 import '../../../i18n/strings.g.dart';
-import '../data/document_repository.dart';
+import '../data/library_repository.dart';
 import '../model/doc_outline.dart';
-import '../state/document_state.dart';
+import '../state/library_state.dart';
 import 'an_document_editor.dart';
 import 'skill_file_preview.dart';
 
@@ -41,7 +41,7 @@ final documentMentionNamesProvider = FutureProvider.autoDispose
 /// title, 面包屑律). The root «Documents» deselects to the ocean home; each ancestor navigates to its page;
 /// a deep tree folds its middle to «…» in [AnCrumbs]. 文档面包屑父路径:沿 parentId 上溯(防环封顶),绝不
 /// 含自己;根「Documents」回海洋主页、各祖先导航到其页、深链在原语内折中段。
-List<AnCrumb> documentCrumbs(
+List<AnCrumb> libraryCrumbs(
   BuildContext context,
   List<DocumentNode> tree,
   String docId,
@@ -59,10 +59,10 @@ List<AnCrumb> documentCrumbs(
     pid = node.parentId;
   }
   return [
-    AnCrumb(t.documents.documents, onTap: () => context.go('/')),
+    AnCrumb(t.library.documents, onTap: () => context.go('/')),
     for (final a in ancestors.reversed)
       AnCrumb(
-        a.name.trim().isEmpty ? t.documents.untitled : a.name,
+        a.name.trim().isEmpty ? t.library.untitled : a.name,
         onTap: () => context.go(documentLocation(a.id)),
       ),
   ];
@@ -75,8 +75,8 @@ List<AnCrumb> documentCrumbs(
 /// (scrollToHeading). No selection → the passive-landing DRAFT editor ([_DraftDocView], uncreated until the
 /// first edit). 文档海洋中心:原生 AnDocumentEditor 填满海洋,标题头与正文同页同滚;宿主只绑浮层头 + 随滚折叠 +
 /// 喂大纲焦点 + 应答跳转;无选区=被动着陆草稿编辑器(首次编辑才建)。
-class DocumentOcean extends ConsumerWidget {
-  const DocumentOcean({super.key});
+class LibraryOcean extends ConsumerWidget {
+  const LibraryOcean({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -244,7 +244,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
     // Capture the repo NOW (while mounted) so the save can be FLUSHED in dispose without touching `ref` —
     // Riverpod disposes the ref during unmount, so a `ref.read` there throws. 挂载时捕获 repo,使 dispose
     // flush 存不碰 ref(卸载期 ref 已释放,ref.read 会抛)。
-    final repo = ref.read(documentsRepositoryProvider);
+    final repo = ref.read(libraryRepositoryProvider);
     _save.run(() async {
       // Content PATCH IS the save. The editor already serializes mentions back to `[[id]]`. A failed save
       // must surface (content PATCH is the document's ONLY persistence). 存正文=PATCH content;失败必冒头。
@@ -257,7 +257,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
         ref
             .read(noticeCenterProvider.notifier)
             .show(
-              context.t.documents.actionFailed,
+              context.t.library.actionFailed,
               tone: AnTone.danger,
               coalesceKey: 'document-autosave:${widget.id}',
             );
@@ -270,7 +270,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
   Future<void> _patchMeta(Map<String, dynamic> fields) async {
     try {
       await ref
-          .read(documentsRepositoryProvider)
+          .read(libraryRepositoryProvider)
           .updateDocument(widget.id, fields);
       if (!mounted) return;
       if (fields.containsKey('name')) ref.invalidate(documentTreeProvider);
@@ -280,7 +280,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
         ref
             .read(noticeCenterProvider.notifier)
             .show(
-              context.t.documents.actionFailed,
+              context.t.library.actionFailed,
               tone: AnTone.danger,
               coalesceKey: 'document-save:${widget.id}',
             );
@@ -304,11 +304,11 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
           ),
           error: (_, _) => AnState(
             kind: AnStateKind.error,
-            title: t.documents.loadFailed,
-            hint: t.documents.errorHint,
+            title: t.library.loadFailed,
+            hint: t.library.errorHint,
           ),
           data: (doc) {
-            final title = doc.name.isEmpty ? t.documents.untitled : doc.name;
+            final title = doc.name.isEmpty ? t.library.untitled : doc.name;
             bindHead(title);
             seedOutline(doc.content);
             // Resolve the `[[id]]` mention names BEFORE mounting the editor, so its pills load with names
@@ -321,7 +321,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
                   ),
                   data: (names) => AnDocumentEditor(
                     key: editorKey,
-                    crumbs: documentCrumbs(context, tree, widget.id),
+                    crumbs: libraryCrumbs(context, tree, widget.id),
                     name: title,
                     autofocusName: _autofocusName,
                     description: doc.description,
@@ -404,12 +404,12 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView>
   Future<void> _ensureCreated() async {
     if (_liveId != null || _creating || _empty) return;
     _creating = true;
-    final repo = ref.read(documentsRepositoryProvider);
+    final repo = ref.read(libraryRepositoryProvider);
     final t = context.t;
     try {
       final doc = await repo.createDocument(
         name: _draftName.trim().isEmpty
-            ? t.documents.untitled
+            ? t.library.untitled
             : _draftName.trim(),
         content: _draftMarkdown,
         description: _draftDescription.trim(),
@@ -427,7 +427,7 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView>
       if (mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(t.documents.actionFailed, tone: AnTone.danger);
+            .show(t.library.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -449,7 +449,7 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView>
   void _scheduleSave() {
     final id = _liveId;
     if (id == null) return;
-    final repo = ref.read(documentsRepositoryProvider);
+    final repo = ref.read(libraryRepositoryProvider);
     _save.run(() async {
       try {
         await repo.updateDocument(id, {'content': _draftMarkdown});
@@ -458,7 +458,7 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView>
         ref
             .read(noticeCenterProvider.notifier)
             .show(
-              context.t.documents.actionFailed,
+              context.t.library.actionFailed,
               tone: AnTone.danger,
               coalesceKey: 'document-draft:$id',
             );
@@ -485,14 +485,14 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView>
     final id = _liveId;
     if (id == null) return;
     try {
-      await ref.read(documentsRepositoryProvider).updateDocument(id, fields);
+      await ref.read(libraryRepositoryProvider).updateDocument(id, fields);
       if (!mounted) return;
       if (fields.containsKey('name')) ref.invalidate(documentTreeProvider);
     } catch (_) {
       if (mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+            .show(context.t.library.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -501,12 +501,12 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView>
   Widget build(BuildContext context) {
     final t = context.t;
     listenOutlineJumps();
-    bindHead(_draftName.trim().isEmpty ? t.documents.untitled : _draftName);
+    bindHead(_draftName.trim().isEmpty ? t.library.untitled : _draftName);
     return AnDocumentEditor(
       key: editorKey,
       // A draft is created at root, so its parent path is just «Documents» (root deselects to home).
       // 草稿建于根级,父路径只有「Documents」(根回海洋主页)。
-      crumbs: [AnCrumb(t.documents.documents, onTap: () => context.go('/'))],
+      crumbs: [AnCrumb(t.library.documents, onTap: () => context.go('/'))],
       name: _draftName, // empty → the header's grey «未命名» guide 空→头灰引导
       description: _draftDescription,
       tags: _draftTags,
@@ -560,7 +560,7 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView>
     });
     // Capture the repo NOW (while mounted) so the save survives a flush-on-dispose (ref is gone by then).
     // 挂载时捕获 repo,使 dispose flush 存不碰 ref。
-    final repo = ref.read(documentsRepositoryProvider);
+    final repo = ref.read(libraryRepositoryProvider);
     _save.run(() async {
       try {
         // Read-modify-write: the properties panel may have saved newer frontmatter than this view's
@@ -583,7 +583,7 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView>
         if (mounted) {
           ref
               .read(noticeCenterProvider.notifier)
-              .show(context.t.documents.actionFailed, tone: AnTone.danger);
+              .show(context.t.library.actionFailed, tone: AnTone.danger);
         }
       }
     });
@@ -592,7 +592,7 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView>
   /// The header's description edit — the same PUT read-modify-write as a body save (fetch the freshest
   /// frontmatter+body, replace only the description). 头部描述编辑:同款读-改-写 PUT。
   Future<void> _putDescription(String desc) async {
-    final repo = ref.read(documentsRepositoryProvider);
+    final repo = ref.read(libraryRepositoryProvider);
     try {
       final current = await repo.getSkill(widget.name);
       final f = current.frontmatter;
@@ -613,7 +613,7 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView>
       if (mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+            .show(context.t.library.actionFailed, tone: AnTone.danger);
       }
     }
   }
@@ -661,8 +661,8 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView>
           ),
           error: (_, _) => AnState(
             kind: AnStateKind.error,
-            title: t.documents.loadFailed,
-            hint: t.documents.errorHint,
+            title: t.library.loadFailed,
+            hint: t.library.errorHint,
           ),
           data: (skill) {
             bindHead(skill.name);
@@ -674,8 +674,8 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView>
               // «Documents / Skills» — the skills collection is a flat list, so the parent path is fixed
               // (skills have no dedicated route, so «Skills» is inert). 父路径固定;Skills 无独立路由=惰性。
               crumbs: [
-                AnCrumb(t.documents.documents, onTap: () => context.go('/')),
-                AnCrumb(t.documents.skills),
+                AnCrumb(t.library.documents, onTap: () => context.go('/')),
+                AnCrumb(t.library.skills),
               ],
               name: skill.name,
               nameEditable:

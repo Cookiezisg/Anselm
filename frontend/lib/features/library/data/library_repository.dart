@@ -10,12 +10,12 @@ import '../../../core/sse/frame.dart';
 import '../../../core/sse/sse_gateway.dart';
 
 /// THE data seam for the Documents ocean — every read/write for both file-like knowledge types passes
-/// through here, so the whole feature swaps backends at one [documentsRepositoryProvider] override
-/// (Live over the Phase-4.0 pipeline / [FixtureDocumentsRepository] for demo + tests). Two collections
+/// through here, so the whole feature swaps backends at one [libraryRepositoryProvider] override
+/// (Live over the Phase-4.0 pipeline / [FixtureLibraryRepository] for demo + tests). Two collections
 /// coexist honestly: **documents** are a Notion tree (`parentId` + `position` + `path`, `doc_` ids);
 /// **skills** are a flat slug-keyed set (`name` IS the identity — no id, no tree, no move). Both are
 /// USER-editable markdown (not AI-only versioned entities). 文档海洋数据缝:documents 树 + skills 扁平。
-abstract interface class DocumentsRepository {
+abstract interface class LibraryRepository {
   // ── documents (Notion tree) ───────────────────────────────────────────────
   /// The whole tree as flat metadata rows (NO content) — the sidebar assembles the hierarchy by
   /// `parentId` in one shot (bounded resource, unpaged). 整树扁平元数据(无 content),侧栏一趟组树。
@@ -127,8 +127,8 @@ abstract interface class DocumentsRepository {
 /// The production seam over the Phase-4.0 ApiClient. Holds no state; every method is a thin
 /// envelope-decode. Bounded lists (`/tree`, children, `/skills`) come back as `{data:[…]}` with no
 /// cursor — [ApiClient.getPage] parses the list and yields a null cursor. 生产缝:薄信封解码。
-class LiveDocumentsRepository implements DocumentsRepository {
-  LiveDocumentsRepository(this._api, {SseGateway? sse}) : _sse = sse;
+class LiveLibraryRepository implements LibraryRepository {
+  LiveLibraryRepository(this._api, {SseGateway? sse}) : _sse = sse;
 
   final ApiClient _api;
   final SseGateway? _sse;
@@ -320,9 +320,9 @@ class LiveDocumentsRepository implements DocumentsRepository {
 }
 
 /// The Documents feature's data seam, as a provider — defaults to Live; demo / gallery / tests override
-/// THIS ONE provider with a [FixtureDocumentsRepository] via ProviderScope. 单点切换后端。
-final documentsRepositoryProvider = Provider<DocumentsRepository>((ref) {
-  return LiveDocumentsRepository(
+/// THIS ONE provider with a [FixtureLibraryRepository] via ProviderScope. 单点切换后端。
+final libraryRepositoryProvider = Provider<LibraryRepository>((ref) {
+  return LiveLibraryRepository(
     ref.watch(apiClientProvider),
     sse: ref.watch(sseGatewayProvider),
   );

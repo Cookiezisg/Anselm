@@ -170,9 +170,9 @@ void main() {
       final router = GoRouter(
         routes: [
           GoRoute(path: '/', builder: (_, _) => const SizedBox()),
-          GoRoute(path: '/documents/:id', builder: (_, _) => const SizedBox()),
+          GoRoute(path: '/library/:id', builder: (_, _) => const SizedBox()),
         ],
-        initialLocation: '/documents/doc_old',
+        initialLocation: '/library/doc_old',
       );
       final c = _container(router: router);
       await tester.pumpWidget(
@@ -193,13 +193,13 @@ void main() {
       expect(c.read(activeWorkspaceNameProvider), 'Two');
 
       // Same-id switch is a no-op (no navigation). 同 id 切换不动路由。
-      router.go('/documents/doc_new');
+      router.go('/library/doc_new');
       await tester.pumpAndSettle();
       c.read(workspaceSwitchProvider).switchTo(id: 'ws_2', name: 'Two');
       await tester.pumpAndSettle();
       expect(
         router.routerDelegate.currentConfiguration.uri.path,
-        '/documents/doc_new',
+        '/library/doc_new',
       );
     },
   );

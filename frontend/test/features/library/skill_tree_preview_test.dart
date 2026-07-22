@@ -1,5 +1,5 @@
-import 'package:anselm/features/documents/ui/documents_inspector.dart';
-import 'package:anselm/features/documents/ui/skill_file_preview.dart';
+import 'package:anselm/features/library/ui/library_inspector.dart';
+import 'package:anselm/features/library/ui/skill_file_preview.dart';
 import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:flutter_test/flutter_test.dart';
 

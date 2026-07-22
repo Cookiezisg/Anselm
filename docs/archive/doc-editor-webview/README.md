@@ -7,12 +7,12 @@ created: 2026-07-07
 reviewed: 2026-07-08
 review-due: 2026-10-05
 audience: [human, ai]
-landed-into: references/frontend/features/documents.md, references/frontend/design-system.md
+landed-into: references/frontend/features/library.md, references/frontend/design-system.md
 ---
 
 # 文档编辑器完整重做 —— 建造规范(Milkdown-in-webview,已废弃归档)
 
-> ⚰️ **2026-07-08 归档**:本页记录的 Milkdown-in-webview 线(A0–A6,曾全量落地)已被**原生 super_editor 编辑器**(`lib/core/editor/`,E0–E9 线)整体取代并**删尽死码**(`lib/core/doc_editor/`+`tool/doc-editor/`+`assets/editor/doc_editor.html`+Makefile 目标+webview_flutter 依赖)。pivot 理由:webview 只能 CSS 近似 An 原语、永远达不到逐像素 1:1,且中文 IME 在 WKWebView 是高危路径——原生 super_editor 把每块渲成真 Flutter widget、IME 走 Flutter 自身管线。当前形态见 [`features/documents.md`](../../references/frontend/features/documents.md)。本页仅存 webview 线的建造史(§1 后端契约与 §2 复用地图对原生线仍有参考价值)。
+> ⚰️ **2026-07-08 归档**:本页记录的 Milkdown-in-webview 线(A0–A6,曾全量落地)已被**原生 super_editor 编辑器**(`lib/core/editor/`,E0–E9 线)整体取代并**删尽死码**(`lib/core/doc_editor/`+`tool/doc-editor/`+`assets/editor/doc_editor.html`+Makefile 目标+webview_flutter 依赖)。pivot 理由:webview 只能 CSS 近似 An 原语、永远达不到逐像素 1:1,且中文 IME 在 WKWebView 是高危路径——原生 super_editor 把每块渲成真 Flutter widget、IME 走 Flutter 自身管线。当前形态见 [`features/library.md`](../../references/frontend/features/library.md)。本页仅存 webview 线的建造史(§1 后端契约与 §2 复用地图对原生线仍有参考价值)。
 >
 > **2026-07-07 拍板方向**(原文):现有 `AnDocEditor`(super_editor 0.3.0-dev.40,1378 行)bug 巨多(点两下卡死)+ 视觉不达标,**整块删了重做**。spike 已验证 **Milkdown-in-webview** 这条路(WYSIWYG 渲染 ✅ + round-trip 保真 ✅ + 窗口/加载 ✅;中文 IME 待真机终验)。本页 = A0 调研(6-agent 扇出)综合出的建造规范 + A1–A6 建造顺序。建造账落 [`chat.md`](chat.md) 同级;编辑器组件当前形态见 [`design-system.md`](../../references/frontend/design-system.md) 的 `AnDocEditor` 条(已同步为 webview 版)。
 >

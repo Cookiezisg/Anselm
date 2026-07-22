@@ -4,14 +4,14 @@ import 'dart:convert';
 
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/contract/mcp.dart';
-import 'document_repository.dart';
+import 'library_repository.dart';
 
-/// An in-memory, scriptable [DocumentsRepository] for `make demo` (zero backend) + widget tests. Holds a
+/// An in-memory, scriptable [LibraryRepository] for `make demo` (zero backend) + widget tests. Holds a
 /// flat node list (the tree is derived by `parentId`, exactly like the Live `/tree`) + a flat skill list.
 /// Writes mutate in place so a demo/test can create/rename/move/delete and see the rail react. Not used by
 /// the live app. 内存可脚本 fixture:扁平节点列表(按 parentId 组树)+ skill 列表;写就地改。
-class FixtureDocumentsRepository implements DocumentsRepository {
-  FixtureDocumentsRepository({
+class FixtureLibraryRepository implements LibraryRepository {
+  FixtureLibraryRepository({
     List<DocumentNode>? documents,
     List<Skill>? skills,
     Map<String, Map<String, String>>? skillFiles,

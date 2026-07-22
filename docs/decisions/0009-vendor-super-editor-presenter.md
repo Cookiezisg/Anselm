@@ -46,7 +46,7 @@ view model + 五个 styling phase 全文档重跑 + 每相全量 copy。
 
 **把 super_editor 0.3.0-dev.40 逐字拷入 `frontend/third_party/super_editor/`（lib/ + pubspec +
 LICENSE），`pubspec.yaml` 以 `dependency_overrides` path 指向它，补丁面 = 四个文件**，
-做节点级脏标记（当前形态见 `references/frontend/features/documents.md` 编辑器节）：
+做节点级脏标记（当前形态见 `references/frontend/features/library.md` 编辑器节）：
 
 | 被补丁文件 | 补丁内容 |
 |---|---|

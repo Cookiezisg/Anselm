@@ -15,10 +15,10 @@ import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
-import '../data/document_repository.dart';
-import '../state/document_state.dart';
+import '../data/library_repository.dart';
+import '../state/library_state.dart';
 import 'skill_install_dialog.dart';
-import 'document_rail_model.dart';
+import 'library_rail_model.dart';
 
 /// The left-island Documents navigator — one [AnSidebarList] over two sections (the recursive document
 /// page tree + the flat skill list), with CRUD: the New row (and each page row's hover `[+]`) creates an
@@ -31,18 +31,18 @@ import 'document_rail_model.dart';
 /// 左岛文档导航:AnSidebarList 双段(文档页树 + skill 扁平列)+ CRUD:New 行(及每页行 hover `[+]`)立即建
 /// 未命名页 → 进海洋、焦点落标题(行内改名退出新建流程,仅留给 ⋯ 菜单);行 hover `[+][⋯]`:页=建子/改名/复制/删除,
 /// skill=删除(name 即 slug 身份、无改名亦无子)。写过 repository 缝、两 provider invalidate 重取;删选中即清选区。
-class DocumentRail extends ConsumerStatefulWidget {
-  const DocumentRail({super.key});
+class LibraryRail extends ConsumerStatefulWidget {
+  const LibraryRail({super.key});
 
   @override
-  ConsumerState<DocumentRail> createState() => _DocumentRailState();
+  ConsumerState<LibraryRail> createState() => _LibraryRailState();
 }
 
-class _DocumentRailState extends ConsumerState<DocumentRail> {
+class _LibraryRailState extends ConsumerState<LibraryRail> {
   String?
   _editingId; // which row is mid inline-rename (transient view state). 哪行在就地改名中。
 
-  DocumentsRepository get _repo => ref.read(documentsRepositoryProvider);
+  LibraryRepository get _repo => ref.read(libraryRepositoryProvider);
 
   @override
   Widget build(BuildContext context) {
@@ -62,25 +62,25 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
       loading: !anyData && (treeAsync.isLoading || skillsAsync.isLoading),
       error: !anyData && treeAsync.hasError && skillsAsync.hasError,
       strings: AnRailStrings(
-        errorTitle: t.documents.errorTitle,
-        errorHint: t.documents.errorHint,
-        retry: t.documents.retry,
+        errorTitle: t.library.errorTitle,
+        errorHint: t.library.errorHint,
+        retry: t.library.retry,
       ),
       onRetry: () {
         ref.invalidate(documentTreeProvider);
         ref.invalidate(skillListProvider);
       },
       builder: () => AnSidebarList(
-        model: buildDocumentsRailModel(
+        model: buildLibraryRailModel(
           tree,
           skills,
-          DocRailLabels(
-            documents: t.documents.documents,
-            skills: t.documents.skills,
-            untitled: t.documents.untitled,
-            newLabel: t.documents.kNew,
-            filter: t.documents.filter,
-            installedBadge: t.documents.skillInstalledBadge,
+          LibraryRailLabels(
+            documents: t.library.documents,
+            skills: t.library.skills,
+            untitled: t.library.untitled,
+            newLabel: t.library.kNew,
+            filter: t.library.filter,
+            installedBadge: t.library.skillInstalledBadge,
           ),
         ),
         selectedId: selected == null
@@ -97,7 +97,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
           AnButton.iconOnly(
             AnIcons.download,
             size: AnButtonSize.sm,
-            semanticLabel: t.documents.skillInstallTitle,
+            semanticLabel: t.library.skillInstallTitle,
             onPressed: _openInstall,
           ),
         ],
@@ -172,12 +172,12 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
             ]
           : [
               AnMenuItem(
-                label: t.documents.rename,
+                label: t.library.rename,
                 icon: AnIcons.edit,
                 onTap: () => setState(() => _editingId = rowId),
               ),
               AnMenuItem(
-                label: t.documents.duplicate,
+                label: t.library.duplicate,
                 icon: AnIcons.copy,
                 onTap: () => _duplicate(sel.id),
               ),
@@ -194,7 +194,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
   String _docName(List<DocumentNode> tree, String id) {
     final doc = tree.where((d) => d.id == id).firstOrNull;
     final name = doc?.name.trim() ?? '';
-    return name.isEmpty ? context.t.documents.untitled : name;
+    return name.isEmpty ? context.t.library.untitled : name;
   }
 
   /// A rail row id → its route location (skill rows carry the namespace prefix). 行 id → 路由位置。
@@ -229,7 +229,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
   Future<void> _create({required String? parentId}) async {
     try {
       final doc = await _repo.createDocument(
-        name: context.t.documents.untitled,
+        name: context.t.library.untitled,
         parentId: parentId,
       );
       if (!mounted) return;
@@ -280,8 +280,8 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
     final ok = await ref
         .read(overlayProvider.notifier)
         .confirm(
-          title: t.documents.deleteDocTitle,
-          message: t.documents.deleteDocBody(name: name),
+          title: t.library.deleteDocTitle,
+          message: t.library.deleteDocBody(name: name),
           confirmLabel: t.action.delete,
           cancelLabel: t.action.cancel,
           barrierLabel: t.feedback.dialogBarrier,
@@ -302,8 +302,8 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
     final ok = await ref
         .read(overlayProvider.notifier)
         .confirm(
-          title: t.documents.deleteSkillTitle,
-          message: t.documents.deleteSkillBody(name: name),
+          title: t.library.deleteSkillTitle,
+          message: t.library.deleteSkillBody(name: name),
           confirmLabel: t.action.delete,
           cancelLabel: t.action.cancel,
           barrierLabel: t.feedback.dialogBarrier,
@@ -332,6 +332,6 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
     if (!mounted) return;
     ref
         .read(noticeCenterProvider.notifier)
-        .show(context.t.documents.actionFailed, tone: AnTone.danger);
+        .show(context.t.library.actionFailed, tone: AnTone.danger);
   }
 }

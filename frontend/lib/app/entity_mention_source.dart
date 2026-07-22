@@ -2,7 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../core/contract/entities/skill.dart';
 import '../core/entity/mention_source.dart';
-import '../features/documents/data/document_repository.dart';
+import '../features/library/data/library_repository.dart';
 import '../features/entities/data/entity_kind.dart';
 import '../features/entities/data/entity_providers.dart';
 
@@ -62,7 +62,7 @@ class EntityMentionSource implements MentionSource {
   /// kind. @ 可激活的技能:全部 inline(排除 fork),客户端按名过滤(skills 是有界全集),id=slug 名。
   Future<List<MentionCandidate>> _skillCandidates(String query) async {
     try {
-      final skills = await _ref.read(documentsRepositoryProvider).listSkills();
+      final skills = await _ref.read(libraryRepositoryProvider).listSkills();
       final q = query.toLowerCase();
       final out = <MentionCandidate>[];
       for (final s in skills) {
@@ -107,7 +107,7 @@ class EntityMentionSource implements MentionSource {
             // (the app layer may import both features). doc→doc wikilink 是 Notion 核心场景,doc_ 走文档缝。
             if (id.startsWith('doc_')) {
               final doc = await _ref
-                  .read(documentsRepositoryProvider)
+                  .read(libraryRepositoryProvider)
                   .getDocument(id);
               return MapEntry(id, doc.name);
             }

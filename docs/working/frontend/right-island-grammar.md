@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 右岛三段式文法 —— 全右岛收敛战役（台账 · 收官）
 
-> 用户 0719 裁决：全 App 右岛「小灰标题 + 平坦大块」寡淡（Activity 头无 icon、右侧四钮杂）。经调研（**Linear 删标题派** / **Figma·GitHub 信息组头派**）拍板 **三段式文法**，分四批全右岛铺开。**批 0–3 全落（0719 收官）**——chat 侧幕 / documents 检查器 / entities 调试台 / scheduler run 检查器四处右岛皆迁 `AnPanelHead`。落地形态陈述见 [`design-system.md`](../../references/frontend/design-system.md)（AnPanelHead + 三段式立法）、[`features/chat-sidestage.md`](../../references/frontend/features/chat-sidestage.md)（chat 范例田）、[`features/documents.md`](../../references/frontend/features/documents.md)（documents 检查器）、[`features/entities.md`](../../references/frontend/features/entities.md)（调试台头）。
+> 用户 0719 裁决：全 App 右岛「小灰标题 + 平坦大块」寡淡（Activity 头无 icon、右侧四钮杂）。经调研（**Linear 删标题派** / **Figma·GitHub 信息组头派**）拍板 **三段式文法**，分四批全右岛铺开。**批 0–3 全落（0719 收官）**——chat 侧幕 / documents 检查器 / entities 调试台 / scheduler run 检查器四处右岛皆迁 `AnPanelHead`。落地形态陈述见 [`design-system.md`](../../references/frontend/design-system.md)（AnPanelHead + 三段式立法）、[`features/chat-sidestage.md`](../../references/frontend/features/chat-sidestage.md)（chat 范例田）、[`features/library.md`](../../references/frontend/features/library.md)（documents 检查器）、[`features/entities.md`](../../references/frontend/features/entities.md)（调试台头）。
 
 ## 总纲：三段式文法
 
@@ -83,7 +83,7 @@ audience: [human, ai]
 
 - 原语 + 三段式立法 → [`design-system.md`](../../references/frontend/design-system.md)（§5 AnPanelHead + ★ 三段式文法）。
 - chat 范例田当前形态 → [`features/chat-sidestage.md`](../../references/frontend/features/chat-sidestage.md)（头带 §1+§2 行 + §3 分组注）。
-- documents 检查器当前形态 → [`features/documents.md`](../../references/frontend/features/documents.md)（documents 单落账）。
+- documents 检查器当前形态 → [`features/library.md`](../../references/frontend/features/library.md)（documents 单落账）。
 - entities 调试台头当前形态 → [`features/entities.md`](../../references/frontend/features/entities.md)（调试台头=三段式文法 + 速览带取径）。
 - scheduler run 检查器头 → 工作形态见 [`scheduler.md`](scheduler.md) §6（壳头三段式文法 + 速览带取径；scheduler 无 features/ reference 文档，随 WRK-069/070 归档时并入）。
 

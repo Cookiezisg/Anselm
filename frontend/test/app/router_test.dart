@@ -1,5 +1,5 @@
 import 'package:anselm/core/router/navigation.dart';
-import 'package:anselm/features/documents/state/document_state.dart';
+import 'package:anselm/features/library/state/library_state.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:flutter/material.dart';
@@ -114,8 +114,8 @@ void main() {
 
   group('selectedDocProvider derives from the route', () {
     test('documentLocation / skillLocation build the locations', () {
-      expect(documentLocation('doc_7'), '/documents/doc_7');
-      expect(skillLocation('commit-helper'), '/documents/skill/commit-helper');
+      expect(documentLocation('doc_7'), '/library/doc_7');
+      expect(skillLocation('commit-helper'), '/library/skill/commit-helper');
     });
 
     testWidgets('root → null; page + skill locations parse; home clears', (
@@ -171,8 +171,8 @@ void main() {
               : null,
           pageBuilder: page,
         ),
-        GoRoute(path: '/documents/:id', pageBuilder: page),
-        GoRoute(path: '/documents/skill/:name', pageBuilder: page),
+        GoRoute(path: '/library/:id', pageBuilder: page),
+        GoRoute(path: '/library/skill/:name', pageBuilder: page),
       ],
     );
     addTearDown(router.dispose);
@@ -185,7 +185,7 @@ void main() {
     router.go('/entities/function/fn_1');
     await tester.pumpAndSettle();
     router.go(
-      '/documents/doc_1',
+      '/library/doc_1',
     ); // hop across oceans — still the same Element 跨海洋仍同 Element
     await tester.pumpAndSettle();
     final after = tester.state<_SentinelState>(find.byType(_Sentinel));

@@ -14,8 +14,8 @@ import '../../../core/ui/an_input.dart';
 import '../../../core/ui/an_switch.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
-import '../data/document_repository.dart';
-import '../state/document_state.dart';
+import '../data/library_repository.dart';
+import '../state/library_state.dart';
 
 /// The install-from-source flow (WRK-076 F2): paste a source → inspect → pick candidates with
 /// their allowed-tools SHOWN UP FRONT (the trust gate starts here) → install. Mirrors the MCP
@@ -51,7 +51,7 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
     });
     try {
       final previews = await ref
-          .read(documentsRepositoryProvider)
+          .read(libraryRepositoryProvider)
           .inspectSkillSource(src);
       setState(() {
         _previews = previews;
@@ -75,7 +75,7 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
     });
     try {
       final res = await ref
-          .read(documentsRepositoryProvider)
+          .read(libraryRepositoryProvider)
           .installSkills(src, names: _picked.toList());
       ref.invalidate(skillListProvider);
       if (!mounted) return;
@@ -84,8 +84,8 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
           .read(noticeCenterProvider.notifier)
           .show(
             res.installed.isEmpty
-                ? t.documents.skillInstallNone
-                : t.documents.skillInstallDone,
+                ? t.library.skillInstallNone
+                : t.library.skillInstallDone,
             tone: res.installed.isEmpty ? AnTone.warn : AnTone.ok,
           );
       Navigator.of(context).maybePop();
@@ -117,20 +117,20 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Text(t.documents.skillInstallTitle, style: AnText.h3),
+                Text(t.library.skillInstallTitle, style: AnText.h3),
                 const SizedBox(height: AnSpace.s12),
                 Row(
                   children: [
                     Expanded(
                       child: AnInput(
                         controller: _sourceCtl,
-                        placeholder: t.documents.skillInstallHint,
+                        placeholder: t.library.skillInstallHint,
                         onSubmitted: (_) => _inspect(),
                       ),
                     ),
                     const SizedBox(width: AnSpace.s8),
                     AnButton(
-                      label: t.documents.skillInstallInspect,
+                      label: t.library.skillInstallInspect,
                       onPressed: _busy ? null : _inspect,
                     ),
                   ],
@@ -146,7 +146,7 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
                       : previews.isEmpty
                       ? AnState(
                           kind: AnStateKind.empty,
-                          title: t.documents.skillInstallNone,
+                          title: t.library.skillInstallNone,
                         )
                       : ListView(
                           shrinkWrap: true,
@@ -159,7 +159,7 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
                 if (previews != null && previews.any((p) => p.installable)) ...[
                   const SizedBox(height: AnSpace.s8),
                   Text(
-                    t.documents.skillInstallPreauthNote,
+                    t.library.skillInstallPreauthNote,
                     style: AnText.meta.copyWith(color: c.warn),
                   ),
                   const SizedBox(height: AnSpace.s12),
@@ -172,7 +172,7 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
                       ),
                       const SizedBox(width: AnSpace.s8),
                       AnButton(
-                        label: t.documents.skillInstallGo,
+                        label: t.library.skillInstallGo,
                         variant: AnButtonVariant.primary,
                         onPressed: (_busy || _picked.isEmpty) ? null : _install,
                       ),
@@ -217,10 +217,7 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
                     ),
                     if (p.alreadyExists) ...[
                       const SizedBox(width: AnSpace.s6),
-                      AnChip(
-                        t.documents.skillInstalledBadge,
-                        tone: AnTone.none,
-                      ),
+                      AnChip(t.library.skillInstalledBadge, tone: AnTone.none),
                     ],
                   ],
                 ),

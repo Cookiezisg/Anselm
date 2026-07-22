@@ -187,7 +187,7 @@ void main() {
           buttons: kSecondaryButton,
         );
         await tester.pumpAndSettle();
-        final t = AppLocaleUtils.parse('en').buildSync().documents.table;
+        final t = AppLocaleUtils.parse('en').buildSync().library.table;
         expect(
           find.text(t.insertRowBelow),
           findsOneWidget,
@@ -219,7 +219,7 @@ void main() {
           buttons: kSecondaryButton,
         ); // header cell 表头格
         await tester.pumpAndSettle();
-        final t = AppLocaleUtils.parse('en').buildSync().documents.table;
+        final t = AppLocaleUtils.parse('en').buildSync().library.table;
         // The row exists but is inert (AnMenuRow disabled → dimmed, no onTap). 行在但惰化。
         expect(find.text(t.deleteRow), findsOneWidget);
         await tester.tap(find.text(t.deleteRow));

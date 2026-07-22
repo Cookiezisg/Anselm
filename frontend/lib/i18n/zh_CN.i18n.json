@@ -968,7 +968,7 @@
       "chat": "对话",
       "entities": "实体",
       "scheduler": "调度",
-      "documents": "文档"
+      "library": "文库"
     },
     "comingSoonTitle": "即将推出",
     "comingSoonHint": "该海洋尚未构建。",
@@ -1436,19 +1436,18 @@
     "errorHint": "本地引擎已连通,但工作区未就绪。",
     "defaultWorkspace": "个人"
   },
-  "documents": {
+  "library": {
     "documents": "文档",
     "skills": "技能",
     "untitled": "未命名",
     "editorHint": "输入正文,按 / 唤起命令",
     "addDescription": "添加简介…",
     "addTag": "添加标签",
-    "filter": "搜索文档…",
+    "filter": "搜索页面",
     "kNew": "新建页面",
     "errorTitle": "无法加载知识库",
     "errorHint": "本地引擎没有返回它。",
     "retry": "重试",
-    "pickTitle": "选一篇文档",
     "pickHint": "在左侧选一篇文档或技能来阅读或编辑。",
     "loadFailed": "打不开这个",
     "rename": "改名",
@@ -1491,7 +1490,7 @@
       "on": "开",
       "off": "关",
       "empty": "未选中",
-      "emptyHint": "选一个页面或技能查看它的属性。",
+      "emptyHint": "选一篇文档或技能查看它的属性。",
       "outline": "大纲",
       "backlinks": "反向链接",
       "noBacklinks": "还没有页面链接到这里。",

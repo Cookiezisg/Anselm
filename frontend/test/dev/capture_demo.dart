@@ -15,7 +15,7 @@ import 'package:anselm/core/platform/window_fullscreen.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/dev/demo_main.dart' show demoOverrides;
-import 'package:anselm/features/documents/state/document_state.dart';
+import 'package:anselm/features/library/state/library_state.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/shell/right_panel.dart';

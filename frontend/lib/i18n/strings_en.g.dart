@@ -60,7 +60,7 @@ class Translations with BaseTranslations<AppLocale, Translations> {
 	late final Translations$startup$en startup = Translations$startup$en.internal(_root);
 	late final Translations$entities$en entities = Translations$entities$en.internal(_root);
 	late final Translations$coldStart$en coldStart = Translations$coldStart$en.internal(_root);
-	late final Translations$documents$en documents = Translations$documents$en.internal(_root);
+	late final Translations$library$en library = Translations$library$en.internal(_root);
 	late final Translations$settings$en settings = Translations$settings$en.internal(_root);
 	late final Translations$markdown$en markdown = Translations$markdown$en.internal(_root);
 	late final Translations$attach$en attach = Translations$attach$en.internal(_root);
@@ -941,9 +941,9 @@ class Translations$coldStart$en {
 	String get defaultWorkspace => 'Personal';
 }
 
-// Path: documents
-class Translations$documents$en {
-	Translations$documents$en.internal(this._root);
+// Path: library
+class Translations$library$en {
+	Translations$library$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -967,8 +967,8 @@ class Translations$documents$en {
 	/// en: 'Add a tag'
 	String get addTag => 'Add a tag';
 
-	/// en: 'Search documents…'
-	String get filter => 'Search documents…';
+	/// en: 'Search Page'
+	String get filter => 'Search Page';
 
 	/// en: 'New page'
 	String get kNew => 'New page';
@@ -981,9 +981,6 @@ class Translations$documents$en {
 
 	/// en: 'Retry'
 	String get retry => 'Retry';
-
-	/// en: 'Pick a document'
-	String get pickTitle => 'Pick a document';
 
 	/// en: 'Choose a document or skill on the left to read or edit it.'
 	String get pickHint => 'Choose a document or skill on the left to read or edit it.';
@@ -1012,13 +1009,13 @@ class Translations$documents$en {
 	/// en: 'Action failed'
 	String get actionFailed => 'Action failed';
 
-	late final Translations$documents$props$en props = Translations$documents$props$en.internal(_root);
-	late final Translations$documents$slash$en slash = Translations$documents$slash$en.internal(_root);
+	late final Translations$library$props$en props = Translations$library$props$en.internal(_root);
+	late final Translations$library$slash$en slash = Translations$library$slash$en.internal(_root);
 
 	/// en: 'Type or paste a link, Enter to apply'
 	String get linkHint => 'Type or paste a link, Enter to apply';
 
-	late final Translations$documents$table$en table = Translations$documents$table$en.internal(_root);
+	late final Translations$library$table$en table = Translations$library$table$en.internal(_root);
 
 	/// en: 'Source'
 	String get skillSourceMode => 'Source';
@@ -3797,8 +3794,8 @@ class Translations$shell$ocean$en {
 	/// en: 'Scheduler'
 	String get scheduler => 'Scheduler';
 
-	/// en: 'Documents'
-	String get documents => 'Documents';
+	/// en: 'Library'
+	String get library => 'Library';
 }
 
 // Path: notifications.kind
@@ -4127,9 +4124,9 @@ class Translations$entities$graph$en {
 	late final Translations$entities$graph$verb$en verb = Translations$entities$graph$verb$en.internal(_root);
 }
 
-// Path: documents.props
-class Translations$documents$props$en {
-	Translations$documents$props$en.internal(this._root);
+// Path: library.props
+class Translations$library$props$en {
+	Translations$library$props$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -4231,8 +4228,8 @@ class Translations$documents$props$en {
 	/// en: 'Nothing selected'
 	String get empty => 'Nothing selected';
 
-	/// en: 'Select a page or skill to see its properties.'
-	String get emptyHint => 'Select a page or skill to see its properties.';
+	/// en: 'Select a document or skill to see its properties.'
+	String get emptyHint => 'Select a document or skill to see its properties.';
 
 	/// en: 'Outline'
 	String get outline => 'Outline';
@@ -4258,12 +4255,12 @@ class Translations$documents$props$en {
 	/// en: 'Edited $rel'
 	String glanceEdited({required Object rel}) => 'Edited ${rel}';
 
-	late final Translations$documents$props$time$en time = Translations$documents$props$time$en.internal(_root);
+	late final Translations$library$props$time$en time = Translations$library$props$time$en.internal(_root);
 }
 
-// Path: documents.slash
-class Translations$documents$slash$en {
-	Translations$documents$slash$en.internal(this._root);
+// Path: library.slash
+class Translations$library$slash$en {
+	Translations$library$slash$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -4303,9 +4300,9 @@ class Translations$documents$slash$en {
 	String get todo => 'To-do';
 }
 
-// Path: documents.table
-class Translations$documents$table$en {
-	Translations$documents$table$en.internal(this._root);
+// Path: library.table
+class Translations$library$table$en {
+	Translations$library$table$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -6301,9 +6298,9 @@ class Translations$entities$graph$verb$en {
 	String get edit => 'edited';
 }
 
-// Path: documents.props.time
-class Translations$documents$props$time$en {
-	Translations$documents$props$time$en.internal(this._root);
+// Path: library.props.time
+class Translations$library$props$time$en {
+	Translations$library$props$time$en.internal(this._root);
 
 	final Translations _root; // ignore: unused_field
 
@@ -7248,7 +7245,7 @@ extension on Translations {
 			'shell.ocean.chat' => 'Chat',
 			'shell.ocean.entities' => 'Entities',
 			'shell.ocean.scheduler' => 'Scheduler',
-			'shell.ocean.documents' => 'Documents',
+			'shell.ocean.library' => 'Library',
 			'shell.comingSoonTitle' => 'Coming soon',
 			'shell.comingSoonHint' => 'This ocean isn\'t built yet.',
 			'shell.settings' => 'Settings',
@@ -7646,128 +7643,127 @@ extension on Translations {
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.defaultWorkspace' => 'Personal',
-			'documents.documents' => 'Documents',
-			'documents.skills' => 'Skills',
-			'documents.untitled' => 'Untitled',
-			'documents.editorHint' => 'Start writing, or press / for commands',
-			'documents.addDescription' => 'Add a description…',
-			'documents.addTag' => 'Add a tag',
-			'documents.filter' => 'Search documents…',
-			'documents.kNew' => 'New page',
-			'documents.errorTitle' => 'Couldn\'t load your library',
-			'documents.errorHint' => 'The local engine didn\'t return it.',
-			'documents.retry' => 'Retry',
-			'documents.pickTitle' => 'Pick a document',
-			'documents.pickHint' => 'Choose a document or skill on the left to read or edit it.',
-			'documents.loadFailed' => 'Couldn\'t open this',
-			'documents.rename' => 'Rename',
-			'documents.duplicate' => 'Duplicate',
-			'documents.deleteDocTitle' => 'Delete this page?',
-			'documents.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',
-			'documents.deleteSkillTitle' => 'Delete this skill?',
-			'documents.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
-			'documents.actionFailed' => 'Action failed',
-			'documents.props.title' => 'Properties',
-			'documents.props.name' => 'Name',
-			'documents.props.description' => 'Description',
-			'documents.props.tags' => 'Tags',
-			'documents.props.addTag' => 'Add a tag',
-			'documents.props.path' => 'Path',
-			'documents.props.size' => 'Size',
-			'documents.props.modified' => 'Modified',
-			'documents.props.context' => 'Context',
-			'documents.props.contextInline' => 'Inline',
-			'documents.props.contextFork' => 'Fork',
-			'documents.props.agent' => 'Agent',
-			'documents.props.agentHint' => 'Subagent type to dispatch — required for a fork skill.',
-			'documents.props.tools' => 'Allowed tools',
-			'documents.props.addTool' => 'Add a tool',
-			'documents.props.toolPickerTitle' => 'Add a tool',
-			'documents.props.toolPickerSearch' => 'Search tools, functions, MCP…',
-			'documents.props.toolPickerBuiltin' => 'Builtin tools',
-			'documents.props.toolPickerFunctions' => 'Functions',
-			'documents.props.toolPickerHandlers' => 'Handlers',
-			'documents.props.toolPickerMcp' => 'MCP tools',
-			'documents.props.toolPickerAddLiteral' => ({required Object q}) => 'Add "${q}" verbatim',
-			'documents.props.toolPickerHint' => 'Pick from below, or type a scope like Bash(git:*) and press Enter.',
-			'documents.props.toolPickerEmpty' => 'No matches — press Enter to add what you typed.',
-			'documents.props.toolPickerDone' => 'Done',
-			'documents.props.arguments' => 'Arguments',
-			'documents.props.addArg' => 'Add an argument',
-			'documents.props.modelInvoke' => 'Model can invoke',
-			'documents.props.userInvoke' => 'User-invocable',
-			'documents.props.on' => 'On',
-			'documents.props.off' => 'Off',
-			'documents.props.empty' => 'Nothing selected',
-			'documents.props.emptyHint' => 'Select a page or skill to see its properties.',
-			'documents.props.outline' => 'Outline',
-			'documents.props.backlinks' => 'Backlinks',
-			'documents.props.noBacklinks' => 'No pages link here yet.',
-			'documents.props.expandAll' => 'Expand all',
-			'documents.props.collapseAll' => 'Collapse all',
-			'documents.props.glanceChars' => ({required Object count}) => '${count} chars',
-			'documents.props.glanceBacklinks' => ({required Object n}) => '${n} backlinks',
-			'documents.props.glanceEdited' => ({required Object rel}) => 'Edited ${rel}',
-			'documents.props.time.today' => 'today',
-			'documents.props.time.yesterday' => 'yesterday',
-			'documents.props.time.daysAgo' => ({required Object n}) => '${n} days ago',
-			'documents.slash.text' => 'Text',
-			'documents.slash.h1' => 'Heading 1',
-			'documents.slash.h2' => 'Heading 2',
-			'documents.slash.h3' => 'Heading 3',
-			'documents.slash.bulleted' => 'Bulleted list',
-			'documents.slash.numbered' => 'Numbered list',
-			'documents.slash.quote' => 'Quote',
-			'documents.slash.code' => 'Code block',
-			'documents.slash.table' => 'Table',
-			'documents.slash.divider' => 'Divider',
-			'documents.slash.todo' => 'To-do',
-			'documents.linkHint' => 'Type or paste a link, Enter to apply',
-			'documents.table.insertRowAbove' => 'Insert row above',
-			'documents.table.insertRowBelow' => 'Insert row below',
-			'documents.table.deleteRow' => 'Delete row',
-			'documents.table.insertColLeft' => 'Insert column left',
-			'documents.table.insertColRight' => 'Insert column right',
-			'documents.table.deleteCol' => 'Delete column',
-			'documents.table.deleteTable' => 'Delete table',
-			'documents.skillSourceMode' => 'Source',
-			'documents.skillRichMode' => 'Rich text',
-			'documents.skillModeTooltip' => 'Toggle rich / raw source editing of the manifest',
-			'documents.skillFileBinary' => 'Binary file — inline editing unsupported',
-			'documents.skillFileSaveFailed' => 'Saving the file failed',
-			'documents.skillFiles' => 'Files',
-			'documents.skillProvenance' => 'Provenance',
-			'documents.skillInstalledFrom' => 'Installed from',
-			'documents.skillInstalledAt' => 'Installed',
-			'documents.skillToolsApproved' => 'Pre-approval active',
-			'documents.skillToolsPending' => 'Pre-approval pending',
-			'documents.skillApproveTools' => 'Approve pre-authorized tools',
-			'documents.skillCheckUpdate' => 'Check for updates',
-			'documents.skillUpdateDone' => 'Updated to the upstream version',
-			'documents.skillLocallyModified' => 'Local edits exist — updating will overwrite them. Force update?',
-			'documents.skillForceUpdate' => 'Force update',
-			'documents.skillInstallTitle' => 'Install skills from a source',
-			'documents.skillInstallHint' => 'GitHub repo (owner/repo or URL) or a tarball URL',
-			'documents.skillInstallInspect' => 'Inspect source',
-			'documents.skillInstallGo' => 'Install selected',
-			'documents.skillInstallDone' => 'Install finished',
-			'documents.skillInstallNone' => 'No installable skills in this source',
-			'documents.skillInstallPreauthNote' => 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve',
-			'documents.skillInstalledBadge' => 'installed',
-			'documents.skillPreviewMode' => 'Preview',
-			'documents.skillOpenSystem' => 'Open with system',
-			'documents.skillRevealSystem' => 'Reveal in Finder',
-			'documents.skillCsvCapped' => ({required Object n}) => 'Showing the first ${n} rows — switch to source or open with the system for the rest',
-			'documents.skillFontSample' => 'The quick brown fox jumps over the lazy dog',
-			'documents.skillFontNote' => 'Font specimen preview — edit with a system app',
-			'documents.skillNewFile' => 'New file',
-			'documents.skillNewFileHint' => 'Relative path, e.g. references/notes.md',
-			'documents.skillDeleteFileTitle' => 'Delete file',
-			'documents.skillDeleteFileBody' => ({required Object path}) => 'Delete ${path}? This cannot be undone.',
-			'documents.skillBindings' => 'Bindings',
-			'documents.skillManifestSource' => 'Edit manifest source',
-			'documents.glanceFiles' => ({required Object n}) => '${n} files',
-			'documents.glanceBindings' => ({required Object n}) => '${n} bindings',
+			'library.documents' => 'Documents',
+			'library.skills' => 'Skills',
+			'library.untitled' => 'Untitled',
+			'library.editorHint' => 'Start writing, or press / for commands',
+			'library.addDescription' => 'Add a description…',
+			'library.addTag' => 'Add a tag',
+			'library.filter' => 'Search Page',
+			'library.kNew' => 'New page',
+			'library.errorTitle' => 'Couldn\'t load your library',
+			'library.errorHint' => 'The local engine didn\'t return it.',
+			'library.retry' => 'Retry',
+			'library.pickHint' => 'Choose a document or skill on the left to read or edit it.',
+			'library.loadFailed' => 'Couldn\'t open this',
+			'library.rename' => 'Rename',
+			'library.duplicate' => 'Duplicate',
+			'library.deleteDocTitle' => 'Delete this page?',
+			'library.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',
+			'library.deleteSkillTitle' => 'Delete this skill?',
+			'library.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
+			'library.actionFailed' => 'Action failed',
+			'library.props.title' => 'Properties',
+			'library.props.name' => 'Name',
+			'library.props.description' => 'Description',
+			'library.props.tags' => 'Tags',
+			'library.props.addTag' => 'Add a tag',
+			'library.props.path' => 'Path',
+			'library.props.size' => 'Size',
+			'library.props.modified' => 'Modified',
+			'library.props.context' => 'Context',
+			'library.props.contextInline' => 'Inline',
+			'library.props.contextFork' => 'Fork',
+			'library.props.agent' => 'Agent',
+			'library.props.agentHint' => 'Subagent type to dispatch — required for a fork skill.',
+			'library.props.tools' => 'Allowed tools',
+			'library.props.addTool' => 'Add a tool',
+			'library.props.toolPickerTitle' => 'Add a tool',
+			'library.props.toolPickerSearch' => 'Search tools, functions, MCP…',
+			'library.props.toolPickerBuiltin' => 'Builtin tools',
+			'library.props.toolPickerFunctions' => 'Functions',
+			'library.props.toolPickerHandlers' => 'Handlers',
+			'library.props.toolPickerMcp' => 'MCP tools',
+			'library.props.toolPickerAddLiteral' => ({required Object q}) => 'Add "${q}" verbatim',
+			'library.props.toolPickerHint' => 'Pick from below, or type a scope like Bash(git:*) and press Enter.',
+			'library.props.toolPickerEmpty' => 'No matches — press Enter to add what you typed.',
+			'library.props.toolPickerDone' => 'Done',
+			'library.props.arguments' => 'Arguments',
+			'library.props.addArg' => 'Add an argument',
+			'library.props.modelInvoke' => 'Model can invoke',
+			'library.props.userInvoke' => 'User-invocable',
+			'library.props.on' => 'On',
+			'library.props.off' => 'Off',
+			'library.props.empty' => 'Nothing selected',
+			'library.props.emptyHint' => 'Select a document or skill to see its properties.',
+			'library.props.outline' => 'Outline',
+			'library.props.backlinks' => 'Backlinks',
+			'library.props.noBacklinks' => 'No pages link here yet.',
+			'library.props.expandAll' => 'Expand all',
+			'library.props.collapseAll' => 'Collapse all',
+			'library.props.glanceChars' => ({required Object count}) => '${count} chars',
+			'library.props.glanceBacklinks' => ({required Object n}) => '${n} backlinks',
+			'library.props.glanceEdited' => ({required Object rel}) => 'Edited ${rel}',
+			'library.props.time.today' => 'today',
+			'library.props.time.yesterday' => 'yesterday',
+			'library.props.time.daysAgo' => ({required Object n}) => '${n} days ago',
+			'library.slash.text' => 'Text',
+			'library.slash.h1' => 'Heading 1',
+			'library.slash.h2' => 'Heading 2',
+			'library.slash.h3' => 'Heading 3',
+			'library.slash.bulleted' => 'Bulleted list',
+			'library.slash.numbered' => 'Numbered list',
+			'library.slash.quote' => 'Quote',
+			'library.slash.code' => 'Code block',
+			'library.slash.table' => 'Table',
+			'library.slash.divider' => 'Divider',
+			'library.slash.todo' => 'To-do',
+			'library.linkHint' => 'Type or paste a link, Enter to apply',
+			'library.table.insertRowAbove' => 'Insert row above',
+			'library.table.insertRowBelow' => 'Insert row below',
+			'library.table.deleteRow' => 'Delete row',
+			'library.table.insertColLeft' => 'Insert column left',
+			'library.table.insertColRight' => 'Insert column right',
+			'library.table.deleteCol' => 'Delete column',
+			'library.table.deleteTable' => 'Delete table',
+			'library.skillSourceMode' => 'Source',
+			'library.skillRichMode' => 'Rich text',
+			'library.skillModeTooltip' => 'Toggle rich / raw source editing of the manifest',
+			'library.skillFileBinary' => 'Binary file — inline editing unsupported',
+			'library.skillFileSaveFailed' => 'Saving the file failed',
+			'library.skillFiles' => 'Files',
+			'library.skillProvenance' => 'Provenance',
+			'library.skillInstalledFrom' => 'Installed from',
+			'library.skillInstalledAt' => 'Installed',
+			'library.skillToolsApproved' => 'Pre-approval active',
+			'library.skillToolsPending' => 'Pre-approval pending',
+			'library.skillApproveTools' => 'Approve pre-authorized tools',
+			'library.skillCheckUpdate' => 'Check for updates',
+			'library.skillUpdateDone' => 'Updated to the upstream version',
+			'library.skillLocallyModified' => 'Local edits exist — updating will overwrite them. Force update?',
+			'library.skillForceUpdate' => 'Force update',
+			'library.skillInstallTitle' => 'Install skills from a source',
+			'library.skillInstallHint' => 'GitHub repo (owner/repo or URL) or a tarball URL',
+			'library.skillInstallInspect' => 'Inspect source',
+			'library.skillInstallGo' => 'Install selected',
+			'library.skillInstallDone' => 'Install finished',
+			'library.skillInstallNone' => 'No installable skills in this source',
+			'library.skillInstallPreauthNote' => 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve',
+			'library.skillInstalledBadge' => 'installed',
+			'library.skillPreviewMode' => 'Preview',
+			'library.skillOpenSystem' => 'Open with system',
+			'library.skillRevealSystem' => 'Reveal in Finder',
+			'library.skillCsvCapped' => ({required Object n}) => 'Showing the first ${n} rows — switch to source or open with the system for the rest',
+			'library.skillFontSample' => 'The quick brown fox jumps over the lazy dog',
+			'library.skillFontNote' => 'Font specimen preview — edit with a system app',
+			'library.skillNewFile' => 'New file',
+			'library.skillNewFileHint' => 'Relative path, e.g. references/notes.md',
+			'library.skillDeleteFileTitle' => 'Delete file',
+			'library.skillDeleteFileBody' => ({required Object path}) => 'Delete ${path}? This cannot be undone.',
+			'library.skillBindings' => 'Bindings',
+			'library.skillManifestSource' => 'Edit manifest source',
+			'library.glanceFiles' => ({required Object n}) => '${n} files',
+			'library.glanceBindings' => ({required Object n}) => '${n} bindings',
 			'settings.title' => 'Settings',
 			'settings.scope.device' => 'This device',
 			'settings.scope.workspace' => 'Workspace',
@@ -7867,9 +7863,9 @@ extension on Translations {
 			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
 			'settings.keys.keysSection' => 'API keys',
 			'settings.keys.addKey' => 'Add key',
+			'settings.keys.testKey' => 'Test',
 			_ => null,
 		} ?? switch (path) {
-			'settings.keys.testKey' => 'Test',
 			'settings.keys.editKey' => 'Edit',
 			'settings.keys.deleteKey' => 'Delete',
 			'settings.keys.statusOk' => 'OK',

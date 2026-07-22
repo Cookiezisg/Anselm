@@ -21,7 +21,7 @@ void main() {
       addTearDown(c.dispose);
       // chat is the first ocean → its default is collapsed. chat 默认收起。
       expect(c.read(rightPanelCollapsedProvider), isTrue);
-      c.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+      c.read(selectedOceanProvider.notifier).select(OceanKind.library);
       expect(c.read(rightPanelCollapsedProvider), isFalse);
       c.read(selectedOceanProvider.notifier).select(OceanKind.entities);
       expect(c.read(rightPanelCollapsedProvider), isFalse);
@@ -38,7 +38,7 @@ void main() {
       c.read(selectedOceanProvider.notifier).select(OceanKind.chat);
       expect(c.read(rightPanelCollapsedProvider), isTrue); // default collapsed
       c.read(rightPanelCollapsedProvider.notifier).set(false); // user opens it
-      c.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+      c.read(selectedOceanProvider.notifier).select(OceanKind.library);
       c.read(selectedOceanProvider.notifier).select(OceanKind.chat);
       expect(c.read(rightPanelCollapsedProvider), isFalse); // stuck open
     },
@@ -49,7 +49,7 @@ void main() {
     () {
       final c = ProviderContainer();
       addTearDown(c.dispose);
-      c.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+      c.read(selectedOceanProvider.notifier).select(OceanKind.library);
       c.read(rightPanelCollapsedProvider.notifier).set(true);
       expect(c.read(rightPanelCollapsedProvider), isTrue);
 
@@ -58,7 +58,7 @@ void main() {
       expect(c.read(rightPanelCollapsedProvider), isFalse);
 
       // Back to documents — its collapse stuck. 回 documents,收起仍在。
-      c.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+      c.read(selectedOceanProvider.notifier).select(OceanKind.library);
       expect(c.read(rightPanelCollapsedProvider), isTrue);
     },
   );
@@ -69,7 +69,7 @@ void main() {
     c.read(selectedOceanProvider.notifier).select(OceanKind.entities);
     c.read(rightPanelCollapsedProvider.notifier).toggle();
     expect(c.read(rightPanelCollapsedProvider), isTrue);
-    c.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+    c.read(selectedOceanProvider.notifier).select(OceanKind.library);
     expect(
       c.read(rightPanelCollapsedProvider),
       isFalse,

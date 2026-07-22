@@ -43,10 +43,10 @@ String? panelLocationFor(String wireKind, String id) {
     // 文档 → documents 海洋;`doc` 是 demo 别名。
     case 'document':
     case 'doc':
-      return '/documents/$id';
+      return '/library/$id';
     // skill → documents ocean, slug-addressed (mirrors skillLocation; the "id" IS the name). 技能:slug 寻址。
     case 'skill':
-      return '/documents/skill/$id';
+      return '/library/skill/$id';
     // flowrun → the scheduler's id-only run relay (WRK-069 §11): the page resolves the host workflow
     // and go-replaces to /scheduler/w/:wfId/runs/:frId. Every flowrun ref across chat dossiers /
     // notifications / entities lights up through this one seam. flowrun → scheduler fr_ 直达中转位;

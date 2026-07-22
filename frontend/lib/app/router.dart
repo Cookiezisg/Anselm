@@ -73,8 +73,8 @@ GoRouter buildAppRouter(Ref ref) {
       // skills are slug-addressed, no id). Same constant-key shell page; existence surfaces as the
       // ocean's error state. The 3-segment skill route and the 2-segment page route can't collide.
       // 文档选区:页(/documents/:id)或 skill(/documents/skill/:name,slug 寻址);同常量页;存在性→海洋错误态。
-      GoRoute(path: '/documents/:id', pageBuilder: _shellPage),
-      GoRoute(path: '/documents/skill/:name', pageBuilder: _shellPage),
+      GoRoute(path: '/library/:id', pageBuilder: _shellPage),
+      GoRoute(path: '/library/skill/:name', pageBuilder: _shellPage),
       // Scheduler ocean (WRK-069 §11) — overview / a workflow's operations home (?run= linked pane) /
       // the run flagship (?node= selection) / the id-only run relay (fr_ paste + panel_registry
       // `flowrun` deep links resolve the host workflow there and go-replace to the full path). All the

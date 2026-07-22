@@ -968,7 +968,7 @@
       "chat": "Chat",
       "entities": "Entities",
       "scheduler": "Scheduler",
-      "documents": "Documents"
+      "library": "Library"
     },
     "comingSoonTitle": "Coming soon",
     "comingSoonHint": "This ocean isn't built yet.",
@@ -1436,19 +1436,18 @@
     "errorHint": "The local engine is reachable but the workspace didn't resolve.",
     "defaultWorkspace": "Personal"
   },
-  "documents": {
+  "library": {
     "documents": "Documents",
     "skills": "Skills",
     "untitled": "Untitled",
     "editorHint": "Start writing, or press / for commands",
     "addDescription": "Add a description…",
     "addTag": "Add a tag",
-    "filter": "Search documents…",
+    "filter": "Search Page",
     "kNew": "New page",
     "errorTitle": "Couldn't load your library",
     "errorHint": "The local engine didn't return it.",
     "retry": "Retry",
-    "pickTitle": "Pick a document",
     "pickHint": "Choose a document or skill on the left to read or edit it.",
     "loadFailed": "Couldn't open this",
     "rename": "Rename",
@@ -1491,7 +1490,7 @@
       "on": "On",
       "off": "Off",
       "empty": "Nothing selected",
-      "emptyHint": "Select a page or skill to see its properties.",
+      "emptyHint": "Select a document or skill to see its properties.",
       "outline": "Outline",
       "backlinks": "Backlinks",
       "noBacklinks": "No pages link here yet.",

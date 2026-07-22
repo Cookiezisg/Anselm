@@ -24,8 +24,8 @@ import '../features/settings/data/settings_demo_fixture.dart';
 import '../features/settings/data/settings_repository.dart';
 import '../features/chat/data/chat_demo_fixture.dart';
 import '../features/chat/data/chat_providers.dart';
-import '../features/documents/data/document_repository.dart';
-import '../features/documents/data/documents_demo_fixture.dart';
+import '../features/library/data/library_repository.dart';
+import '../features/library/data/library_demo_fixture.dart';
 import '../features/entities/data/entity_demo_fixture.dart';
 import '../features/entities/data/entity_providers.dart';
 import '../features/notifications/data/notification_demo_fixture.dart';
@@ -59,7 +59,7 @@ List<Override> demoOverrides(
   goRouterProvider.overrideWith(buildAppRouter),
   entityRepositoryProvider.overrideWithValue(demoEntityRepository()),
   chatRepositoryProvider.overrideWithValue(demoChatRepository()),
-  documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
+  libraryRepositoryProvider.overrideWithValue(demoLibraryRepository()),
   notificationRepositoryProvider.overrideWithValue(notifications),
   settingsRepositoryProvider.overrideWithValue(demoSettingsRepository()),
   schedulerRepositoryProvider.overrideWithValue(demoSchedulerRepository()),

@@ -6,22 +6,22 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
-import 'package:anselm/features/documents/model/doc_outline.dart';
-import 'package:anselm/features/documents/state/doc_group_collapse.dart';
-import 'package:anselm/features/documents/ui/an_document_editor.dart';
+import 'package:anselm/features/library/model/doc_outline.dart';
+import 'package:anselm/features/library/state/doc_group_collapse.dart';
+import 'package:anselm/features/library/ui/an_document_editor.dart';
 import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_sidebar_list.dart'
     show AnRowDropZone, AnSidebarList;
 import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/core/ui/icons.dart';
-import 'package:anselm/features/documents/data/document_fixtures.dart';
-import 'package:anselm/features/documents/data/document_repository.dart';
-import 'package:anselm/features/documents/state/document_state.dart';
-import 'package:anselm/features/documents/ui/document_ocean.dart';
-import 'package:anselm/features/documents/ui/document_rail.dart';
-import 'package:anselm/features/documents/ui/document_rail_model.dart';
-import 'package:anselm/features/documents/ui/documents_inspector.dart';
+import 'package:anselm/features/library/data/library_fixtures.dart';
+import 'package:anselm/features/library/data/library_repository.dart';
+import 'package:anselm/features/library/state/library_state.dart';
+import 'package:anselm/features/library/ui/library_ocean.dart';
+import 'package:anselm/features/library/ui/library_rail.dart';
+import 'package:anselm/features/library/ui/library_rail_model.dart';
+import 'package:anselm/features/library/ui/library_inspector.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -56,7 +56,7 @@ Skill _skill(String name) => Skill(
   updatedAt: _t,
 );
 
-const _labels = DocRailLabels(
+const _labels = LibraryRailLabels(
   documents: 'Documents',
   skills: 'Skills',
   untitled: 'Untitled',
@@ -64,7 +64,7 @@ const _labels = DocRailLabels(
   filter: 'Filter',
 );
 
-FixtureDocumentsRepository _repo() => FixtureDocumentsRepository(
+FixtureLibraryRepository _repo() => FixtureLibraryRepository(
   documents: [
     _doc('doc_a', null, 'Getting Started', 0, content: '# Hello\n\nbody text'),
     _doc('doc_b', 'doc_a', 'Setup', 0),
@@ -78,7 +78,7 @@ FixtureDocumentsRepository _repo() => FixtureDocumentsRepository(
 /// routerConfig AND the goRouterProvider override — context.go and selectedDocProvider share one truth).
 /// 选区由路由派生:rail 宿主挂真测试路由(同实例既是 routerConfig 又是 goRouterProvider override)。
 Widget _host(
-  FixtureDocumentsRepository repo,
+  FixtureLibraryRepository repo,
   Widget child, {
   String initialLocation = '/',
 }) {
@@ -88,7 +88,7 @@ Widget _host(
   );
   return ProviderScope(
     overrides: [
-      documentsRepositoryProvider.overrideWithValue(repo),
+      libraryRepositoryProvider.overrideWithValue(repo),
       goRouterProvider.overrideWithValue(router),
       // The draft/live editors watch mentionSourceProvider (the @ picker seam) — give it a fake. @ 数据缝。
       mentionSourceProvider.overrideWithValue(_FakeMentions()),
@@ -110,11 +110,11 @@ void main() {
   setUp(() => BlinkController.indeterminateAnimationsEnabled = false);
   tearDown(() => BlinkController.indeterminateAnimationsEnabled = true);
 
-  group('buildDocumentsRailModel', () {
+  group('buildLibraryRailModel', () {
     test(
       'assembles the nested document tree by parentId + a flat skill section',
       () {
-        final model = buildDocumentsRailModel(
+        final model = buildLibraryRailModel(
           [
             _doc('doc_a', null, 'Getting Started', 0),
             _doc('doc_b', 'doc_a', 'Setup', 1),
@@ -145,7 +145,7 @@ void main() {
     );
 
     test('unnamed document falls back to the untitled label', () {
-      final model = buildDocumentsRailModel(
+      final model = buildLibraryRailModel(
         [_doc('doc_x', null, '', 0)],
         const [],
         _labels,
@@ -156,7 +156,7 @@ void main() {
     test(
       'B4: the row icon tells an empty page (file) from a written one (fileText/doc) via hasContent',
       () {
-        final model = buildDocumentsRailModel(
+        final model = buildLibraryRailModel(
           [
             DocumentNode(
               id: 'doc_empty',
@@ -198,9 +198,9 @@ void main() {
     });
   });
 
-  group('DocumentRail', () {
+  group('LibraryRail', () {
     testWidgets('renders the document tree + skills', (tester) async {
-      await tester.pumpWidget(_host(_repo(), const DocumentRail()));
+      await tester.pumpWidget(_host(_repo(), const LibraryRail()));
       await tester.pump();
       await tester.pump();
       expect(find.text('Getting Started'), findsOneWidget);
@@ -218,7 +218,7 @@ void main() {
           Consumer(
             builder: (_, r, _) {
               ref = r;
-              return const DocumentRail();
+              return const LibraryRail();
             },
           ),
         ),
@@ -236,8 +236,8 @@ void main() {
       (tester) async {
         await tester.pumpWidget(
           _host(
-            FixtureDocumentsRepository(documents: const [], skills: const []),
-            const DocumentRail(),
+            FixtureLibraryRepository(documents: const [], skills: const []),
+            const LibraryRail(),
           ),
         );
         await tester.pump();
@@ -251,10 +251,10 @@ void main() {
         ); // the old empty tombstone is retired 墓碑退役
         expect(find.text('New page'), findsOneWidget);
         expect(
-          find.text(t.documents.documents),
+          find.text(t.library.documents),
           findsOneWidget,
         ); // Documents head
-        expect(find.text(t.documents.skills), findsOneWidget); // Skills head
+        expect(find.text(t.library.skills), findsOneWidget); // Skills head
       },
     );
 
@@ -270,7 +270,7 @@ void main() {
             Consumer(
               builder: (_, r, _) {
                 ref = r;
-                return const DocumentRail();
+                return const LibraryRail();
               },
             ),
           ),
@@ -308,7 +308,7 @@ void main() {
           ],
           skills: const [],
         );
-        await tester.pumpWidget(_host(repo, const DocumentRail()));
+        await tester.pumpWidget(_host(repo, const LibraryRail()));
         await tester.pump();
         await tester.pump();
         // The row's `[+]` action is an AnButton carrying the newSubpage a11y label (hover-revealed by AnRow;
@@ -338,12 +338,12 @@ void main() {
     );
   });
 
-  group('DocumentOcean', () {
+  group('LibraryOcean', () {
     testWidgets(
       'B2 passive: no selection → a DRAFT editor (empty, uncreated — NOT a pick tombstone)',
       (tester) async {
         final repo = _CountingDocsRepo(documents: const [], skills: const []);
-        await tester.pumpWidget(_host(repo, const DocumentOcean()));
+        await tester.pumpWidget(_host(repo, const LibraryOcean()));
         await tester.pumpAndSettle();
         // The center is a real editor with an EMPTY title/body (the header shows its grey guides); nothing is
         // created until the first edit. 中心=空标题/正文的真编辑器(头显灰引导);首次编辑前不建。
@@ -353,14 +353,12 @@ void main() {
         expect(editor.name, '');
         expect(editor.initialMarkdown, '');
         // A root draft's parent path is just «Documents» (面包屑律:路径到上一级、绝不含自己). 根草稿父路径=Documents。
-        expect(editor.crumbs.single.label, t.documents.documents);
+        expect(editor.crumbs.single.label, t.library.documents);
         expect(
           repo.createCount,
           0,
           reason: 'draft landing must not POST until the first edit',
         );
-        // The old «pick a document» tombstone is retired. 旧「选一篇文档」墓碑退役。
-        expect(find.text(t.documents.pickTitle), findsNothing);
       },
     );
 
@@ -376,7 +374,7 @@ void main() {
           builder: (_, r, _) {
             ref = r;
             return const Scaffold(
-              body: SizedBox(width: 720, height: 640, child: DocumentOcean()),
+              body: SizedBox(width: 720, height: 640, child: LibraryOcean()),
             );
           },
         );
@@ -389,7 +387,7 @@ void main() {
                   NoTransitionPage(key: const ValueKey('shell'), child: host),
             ),
             GoRoute(
-              path: '/documents/:id',
+              path: '/library/:id',
               pageBuilder: (_, _) =>
                   NoTransitionPage(key: const ValueKey('shell'), child: host),
             ),
@@ -399,7 +397,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              documentsRepositoryProvider.overrideWithValue(repo),
+              libraryRepositoryProvider.overrideWithValue(repo),
               goRouterProvider.overrideWithValue(router),
               mentionSourceProvider.overrideWithValue(_FakeMentions()),
             ],
@@ -452,7 +450,7 @@ void main() {
       'B2 passive: writing NOTHING then leaving creates nothing (什么都不留)',
       (tester) async {
         final repo = _CountingDocsRepo(documents: const [], skills: const []);
-        await tester.pumpWidget(_host(repo, const DocumentOcean()));
+        await tester.pumpWidget(_host(repo, const LibraryOcean()));
         await tester.pumpAndSettle();
         // Leave without any edit. 未编辑即离开。
         await tester.pumpWidget(const SizedBox.shrink());
@@ -472,7 +470,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              documentsRepositoryProvider.overrideWithValue(repo),
+              libraryRepositoryProvider.overrideWithValue(repo),
               selectedDocProvider.overrideWith(
                 () => _PinnedSelection((isSkill: false, id: 'doc_a')),
               ),
@@ -485,7 +483,7 @@ void main() {
             child: TranslationProvider(
               child: MaterialApp(
                 theme: AnTheme.light(),
-                home: const Scaffold(body: DocumentOcean()),
+                home: const Scaffold(body: LibraryOcean()),
               ),
             ),
           ),
@@ -509,7 +507,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              documentsRepositoryProvider.overrideWithValue(repo),
+              libraryRepositoryProvider.overrideWithValue(repo),
               selectedDocProvider.overrideWith(
                 () => _PinnedSelection((isSkill: false, id: 'doc_a')),
               ),
@@ -518,7 +516,7 @@ void main() {
             child: TranslationProvider(
               child: MaterialApp(
                 theme: AnTheme.light(),
-                home: const Scaffold(body: DocumentOcean()),
+                home: const Scaffold(body: LibraryOcean()),
               ),
             ),
           ),
@@ -531,7 +529,7 @@ void main() {
         );
         expect(editor.name, 'Getting Started');
         // The crumb path starts at «Documents» and NEVER includes the doc's own name. 面包屑首段=Documents,绝不含自己。
-        expect(editor.crumbs.first.label, t.documents.documents);
+        expect(editor.crumbs.first.label, t.library.documents);
         expect(
           editor.crumbs.map((c) => c.label),
           isNot(contains('Getting Started')),
@@ -549,7 +547,7 @@ void main() {
       await tester.pumpWidget(
         ProviderScope(
           overrides: [
-            documentsRepositoryProvider.overrideWithValue(repo),
+            libraryRepositoryProvider.overrideWithValue(repo),
             selectedDocProvider.overrideWith(
               () => _PinnedSelection((isSkill: true, id: 'commit-helper')),
             ),
@@ -559,7 +557,7 @@ void main() {
           child: TranslationProvider(
             child: MaterialApp(
               theme: AnTheme.light(),
-              home: const Scaffold(body: DocumentOcean()),
+              home: const Scaffold(body: LibraryOcean()),
             ),
           ),
         ),
@@ -572,8 +570,8 @@ void main() {
       // A skill's parent path is «Documents / Skills» — the skills collection, never the skill name.
       // skill 父路径=Documents / Skills(集合,绝不含 skill 名)。
       expect(editor.crumbs.map((c) => c.label), [
-        t.documents.documents,
-        t.documents.skills,
+        t.library.documents,
+        t.library.skills,
       ]);
       expect(
         editor.nameEditable,
@@ -596,7 +594,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              documentsRepositoryProvider.overrideWithValue(repo),
+              libraryRepositoryProvider.overrideWithValue(repo),
               selectedDocProvider.overrideWith(
                 () => _PinnedSelection((isSkill: false, id: 'doc_a')),
               ),
@@ -605,13 +603,13 @@ void main() {
             child: TranslationProvider(
               child: MaterialApp(
                 theme: AnTheme.light(),
-                home: const Scaffold(body: DocumentOcean()),
+                home: const Scaffold(body: LibraryOcean()),
               ),
             ),
           ),
         );
         await tester.pumpAndSettle();
-        // Simulate a content edit (drives DocumentOcean._onChanged → schedules the 600ms autosave). The
+        // Simulate a content edit (drives LibraryOcean._onChanged → schedules the 600ms autosave). The
         // editor's onChangedMarkdown IS the ocean's _onChanged. 模拟正文编辑→排 600ms 自动保存。
         tester
             .widget<AnDocumentEditor>(find.byType(AnDocumentEditor))
@@ -736,7 +734,7 @@ void main() {
     });
   });
 
-  group('DocumentRail drag-reorder', () {
+  group('LibraryRail drag-reorder', () {
     // A real pointer drag: grab the source row, nudge to arm the drag recognizer, glide to the target
     // offset, release. 真手势:按住源行→微移触发识别→滑到目标点→松手。
     Future<void> drag(WidgetTester tester, String fromLabel, Offset to) async {
@@ -756,7 +754,7 @@ void main() {
       tester,
     ) async {
       final repo = _repo();
-      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pumpWidget(_host(repo, const LibraryRail()));
       await tester.pump();
       await tester.pump();
       // 'Playbooks' (root) onto the CENTER of 'Getting Started' → inside → reparent. 中段=嵌入。
@@ -772,7 +770,7 @@ void main() {
       tester,
     ) async {
       final repo = _repo();
-      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pumpWidget(_host(repo, const LibraryRail()));
       await tester.pump();
       await tester.pump();
       // 'Playbooks' onto the TOP QUARTER of 'Getting Started' → above → root position 0. 上缘=前插。
@@ -794,7 +792,7 @@ void main() {
       tester,
     ) async {
       final repo = _repo();
-      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pumpWidget(_host(repo, const LibraryRail()));
       await tester.pump();
       await tester.pump();
       await drag(
@@ -811,7 +809,7 @@ void main() {
       'dragging a branch\'s first child onto its parent\'s bottom edge is an identity move',
       (tester) async {
         final repo = _repo();
-        await tester.pumpWidget(_host(repo, const DocumentRail()));
+        await tester.pumpWidget(_host(repo, const LibraryRail()));
         await tester.pump();
         await tester.pump();
         // 'Setup' IS doc_a's first child; below-on-open-branch normalizes to "above first child" = itself —
@@ -831,7 +829,7 @@ void main() {
       tester,
     ) async {
       final repo = _repo();
-      await tester.pumpWidget(_host(repo, const DocumentRail()));
+      await tester.pumpWidget(_host(repo, const LibraryRail()));
       await tester.pump();
       await tester.pump();
       // The query force-expands + hides rows — indicators/position math would lie, so rows must not drag
@@ -859,7 +857,7 @@ void main() {
       (tester) async {
         final repo = _SignallingRepo();
         final container = ProviderContainer(
-          overrides: [documentsRepositoryProvider.overrideWithValue(repo)],
+          overrides: [libraryRepositoryProvider.overrideWithValue(repo)],
         );
         addTearDown(container.dispose);
         final sub = container.listen(documentTreeProvider, (_, _) {});
@@ -887,7 +885,7 @@ void main() {
     testWidgets('a skill.* signal refetches the skill list', (tester) async {
       final repo = _SignallingRepo();
       final container = ProviderContainer(
-        overrides: [documentsRepositoryProvider.overrideWithValue(repo)],
+        overrides: [libraryRepositoryProvider.overrideWithValue(repo)],
       );
       addTearDown(container.dispose);
       final sub = container.listen(skillListProvider, (_, _) {});
@@ -901,11 +899,11 @@ void main() {
     });
   });
 
-  group('DocumentsInspector', () {
-    Widget host(FixtureDocumentsRepository repo, DocSelection sel) =>
+  group('LibraryInspector', () {
+    Widget host(FixtureLibraryRepository repo, DocSelection sel) =>
         ProviderScope(
           overrides: [
-            documentsRepositoryProvider.overrideWithValue(repo),
+            libraryRepositoryProvider.overrideWithValue(repo),
             selectedDocProvider.overrideWith(() => _PinnedSelection(sel)),
           ],
           child: TranslationProvider(
@@ -915,7 +913,7 @@ void main() {
                 body: SizedBox(
                   width: 320,
                   height: 640,
-                  child: DocumentsInspector(),
+                  child: LibraryInspector(),
                 ),
               ),
             ),
@@ -959,7 +957,7 @@ void main() {
       'backlinks list the linking pages; a tap navigates to the linker',
       (tester) async {
         // doc_d's body wikilinks doc_a → doc_a's panel lists 'Playbooks' as a backlink. doc_d 链 doc_a。
-        final repo = FixtureDocumentsRepository(
+        final repo = FixtureLibraryRepository(
           documents: [
             _doc('doc_a', null, 'Getting Started', 0),
             _doc('doc_d', null, 'Playbooks', 1, content: 'see [[doc_a]] first'),
@@ -968,17 +966,13 @@ void main() {
         );
         final router = buildTestRouter(
           page: const Scaffold(
-            body: SizedBox(
-              width: 320,
-              height: 640,
-              child: DocumentsInspector(),
-            ),
+            body: SizedBox(width: 320, height: 640, child: LibraryInspector()),
           ),
         );
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              documentsRepositoryProvider.overrideWithValue(repo),
+              libraryRepositoryProvider.overrideWithValue(repo),
               goRouterProvider.overrideWithValue(router),
               selectedDocProvider.overrideWith(
                 () => _PinnedSelection((isSkill: false, id: 'doc_a')),
@@ -1003,7 +997,7 @@ void main() {
         await tester.pumpAndSettle();
         expect(
           router.routerDelegate.currentConfiguration.uri.path,
-          '/documents/doc_d',
+          '/library/doc_d',
         ); // navigated 导航到链接方
       },
     );
@@ -1013,7 +1007,7 @@ void main() {
       (tester) async {
         // A FORK skill so the agent field (the island's only text input) shows — identity/description
         // edit in the center now. fork skill 才有 agent 输入(本岛唯一文本框);身份/描述已归中心。
-        final repo = FixtureDocumentsRepository(
+        final repo = FixtureLibraryRepository(
           documents: const [],
           skills: [
             Skill(
@@ -1054,15 +1048,15 @@ void main() {
 
   // The three-segment grammar (三段式文法 §1–§3, batch 2, 用户 0719): one identity head + a §2 glance strip
   // + §3 collapsible groups replacing the three orphan mini-titles. 一头三组替三孤儿标题。
-  group('DocumentsInspector · 三段式文法', () {
+  group('LibraryInspector · 三段式文法', () {
     Widget host(
-      FixtureDocumentsRepository repo,
+      FixtureLibraryRepository repo,
       DocSelection sel, {
       List<DocOutlineEntry> outline = const [],
       SettingsPrefs? prefs,
     }) => ProviderScope(
       overrides: [
-        documentsRepositoryProvider.overrideWithValue(repo),
+        libraryRepositoryProvider.overrideWithValue(repo),
         selectedDocProvider.overrideWith(() => _PinnedSelection(sel)),
         if (outline.isNotEmpty)
           docOutlineProvider.overrideWith(() => _PinnedOutline(outline)),
@@ -1072,17 +1066,13 @@ void main() {
         child: MaterialApp(
           theme: AnTheme.light(),
           home: const Scaffold(
-            body: SizedBox(
-              width: 320,
-              height: 640,
-              child: DocumentsInspector(),
-            ),
+            body: SizedBox(width: 320, height: 640, child: LibraryInspector()),
           ),
         ),
       ),
     );
 
-    FixtureDocumentsRepository linkedRepo() => FixtureDocumentsRepository(
+    FixtureLibraryRepository linkedRepo() => FixtureLibraryRepository(
       documents: [
         _doc(
           'doc_a',
@@ -1144,7 +1134,7 @@ void main() {
     testWidgets('§2 glance: a no-backlinks page drops the 反链 segment (零人话律)', (
       tester,
     ) async {
-      final repo = FixtureDocumentsRepository(
+      final repo = FixtureLibraryRepository(
         documents: [
           _doc(
             'doc_solo',
@@ -1172,7 +1162,7 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
-              documentsRepositoryProvider.overrideWithValue(_repo()),
+              libraryRepositoryProvider.overrideWithValue(_repo()),
               selectedDocProvider.overrideWith(
                 () => _PinnedSelection(null),
               ), // nothing open 空选
@@ -1184,7 +1174,7 @@ void main() {
                   body: SizedBox(
                     width: 320,
                     height: 640,
-                    child: DocumentsInspector(),
+                    child: LibraryInspector(),
                   ),
                 ),
               ),
@@ -1224,7 +1214,7 @@ void main() {
     testWidgets(
       'a skill: head + Outline/Properties groups, no Backlinks; glance drops 反链',
       (tester) async {
-        final repo = FixtureDocumentsRepository(
+        final repo = FixtureLibraryRepository(
           documents: const [],
           skills: [
             Skill(
@@ -1274,7 +1264,7 @@ void main() {
       (tester) async {
         final container = ProviderContainer(
           overrides: [
-            documentsRepositoryProvider.overrideWithValue(linkedRepo()),
+            libraryRepositoryProvider.overrideWithValue(linkedRepo()),
             selectedDocProvider.overrideWith(
               () => _PinnedSelection((isSkill: false, id: 'doc_a')),
             ),
@@ -1294,7 +1284,7 @@ void main() {
                   body: SizedBox(
                     width: 320,
                     height: 640,
-                    child: DocumentsInspector(),
+                    child: LibraryInspector(),
                   ),
                 ),
               ),
@@ -1425,7 +1415,7 @@ class _PinnedFocus extends FocusNewDocTitle {
 
 /// A fixture that counts create calls + records the last created id/parent — the B2/B3 create batteries.
 /// 计数创建 + 记最后创建 id/parent 的 fixture(B2/B3 创建电池)。
-class _CountingDocsRepo extends FixtureDocumentsRepository {
+class _CountingDocsRepo extends FixtureLibraryRepository {
   _CountingDocsRepo({super.documents, super.skills});
 
   int createCount = 0;
@@ -1455,7 +1445,7 @@ class _CountingDocsRepo extends FixtureDocumentsRepository {
 }
 
 /// A fixture whose lifecycle stream the test drives by hand, counting refetches. 手动驱动信号流的 fixture,计数重取。
-class _SignallingRepo extends FixtureDocumentsRepository {
+class _SignallingRepo extends FixtureLibraryRepository {
   _SignallingRepo()
     : super(
         documents: [

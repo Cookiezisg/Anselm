@@ -41,6 +41,21 @@ void main() {
     },
   );
 
+  // This ocean was called `documents` before it was recognised as the LIBRARY. An existing install's
+  // pref must keep working — else everyone lands back on chat once after the rename.
+  // 本海洋更名 Library 前叫 documents;既有安装的旧偏好须仍生效,否则改名后所有人回落 chat 一次。
+  test('a legacy `documents` pref restores as the LIBRARY ocean', () {
+    final c = ProviderContainer(
+      overrides: [
+        settingsPrefsProvider.overrideWithValue(
+          SettingsPrefs.inMemory({'an.ocean': 'documents'}),
+        ),
+      ],
+    );
+    addTearDown(c.dispose);
+    expect(c.read(selectedOceanProvider), OceanKind.library);
+  });
+
   test(
     'select persists the chosen ocean (becomes the next launch default)',
     () {
@@ -49,9 +64,9 @@ void main() {
         overrides: [settingsPrefsProvider.overrideWithValue(prefs)],
       );
       addTearDown(c.dispose);
-      c.read(selectedOceanProvider.notifier).select(OceanKind.documents);
-      expect(c.read(selectedOceanProvider), OceanKind.documents);
-      expect(prefs.getString(SettingsKeys.ocean), 'documents');
+      c.read(selectedOceanProvider.notifier).select(OceanKind.library);
+      expect(c.read(selectedOceanProvider), OceanKind.library);
+      expect(prefs.getString(SettingsKeys.ocean), 'library');
     },
   );
 
@@ -68,10 +83,10 @@ void main() {
       c.read(selectedOceanProvider),
       OceanKind.entities,
     ); // restored at build 建时即恢复
-    c.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+    c.read(selectedOceanProvider.notifier).select(OceanKind.library);
     expect(
       c.read(selectedOceanProvider),
-      OceanKind.documents,
+      OceanKind.library,
       reason: 'manual interaction sticks',
     );
   });

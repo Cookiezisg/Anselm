@@ -1,8 +1,8 @@
 import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/entity/mention_source.dart';
-import 'package:anselm/features/documents/data/document_fixtures.dart';
-import 'package:anselm/features/documents/data/document_repository.dart';
-import 'package:anselm/features/documents/ui/skill_tool_picker.dart';
+import 'package:anselm/features/library/data/library_fixtures.dart';
+import 'package:anselm/features/library/data/library_repository.dart';
+import 'package:anselm/features/library/ui/skill_tool_picker.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:flutter/material.dart';
@@ -50,9 +50,9 @@ Skill _skill(String name, {List<String> allowedTools = const []}) => Skill(
   updatedAt: _t,
 );
 
-Widget _host(FixtureDocumentsRepository repo, Widget child) => ProviderScope(
+Widget _host(FixtureLibraryRepository repo, Widget child) => ProviderScope(
   overrides: [
-    documentsRepositoryProvider.overrideWithValue(repo),
+    libraryRepositoryProvider.overrideWithValue(repo),
     mentionSourceProvider.overrideWithValue(_FakeMentions()),
   ],
   child: TranslationProvider(
@@ -97,7 +97,7 @@ void main() {
     testWidgets('pills show resolved entity names; literals verbatim', (
       tester,
     ) async {
-      final repo = FixtureDocumentsRepository(
+      final repo = FixtureLibraryRepository(
         documents: const [],
         skills: [
           _skill('ts', allowedTools: [_fnId]),
@@ -125,7 +125,7 @@ void main() {
       tester,
     ) async {
       List<String>? got;
-      final repo = FixtureDocumentsRepository(
+      final repo = FixtureLibraryRepository(
         documents: const [],
         skills: [_skill('ts')],
       );
@@ -153,7 +153,7 @@ void main() {
       tester,
     ) async {
       final picks = <List<String>>[];
-      final repo = FixtureDocumentsRepository(
+      final repo = FixtureLibraryRepository(
         documents: const [],
         skills: [_skill('ts')],
       );
@@ -169,7 +169,7 @@ void main() {
       );
       await tester.pumpAndSettle();
       // Open the picker.
-      await tester.tap(find.text(t.documents.props.addTool));
+      await tester.tap(find.text(t.library.props.addTool));
       await tester.pumpAndSettle();
       // A builtin (fixture catalog has Read) → stored as its name.
       await tester.tap(find.text('Read').last);
@@ -188,7 +188,7 @@ void main() {
       tester,
     ) async {
       final picks = <List<String>>[];
-      final repo = FixtureDocumentsRepository(
+      final repo = FixtureLibraryRepository(
         documents: const [],
         skills: [_skill('ts')],
       );
@@ -203,7 +203,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text(t.documents.props.addTool));
+      await tester.tap(find.text(t.library.props.addTool));
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(EditableText).first, 'Bash(git:*)');
       await tester.testTextInput.receiveAction(TextInputAction.done);

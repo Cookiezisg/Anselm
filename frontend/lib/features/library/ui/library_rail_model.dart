@@ -6,8 +6,8 @@ import '../../../core/ui/icons.dart';
 
 /// The i18n labels the (widget-free) rail projection needs — injected so the pure builder can be unit-tested
 /// without a BuildContext. rail 投影所需的 i18n 文案(注入,使纯投影可脱 context 单测)。
-class DocRailLabels {
-  const DocRailLabels({
+class LibraryRailLabels {
+  const LibraryRailLabels({
     required this.documents,
     required this.skills,
     required this.untitled,
@@ -33,10 +33,10 @@ const String kSkillRowPrefix = 'skill:';
 /// documents section is a genuine tree ([SidebarRow.children]); a node with children renders a fold
 /// chevron, so no folder/file discriminator is needed (every node is a page). Widget/context-free so the
 /// mapping is unit-tested without pumping UI. 纯投影:文档树 + skill 列 → 双段 SidebarModel(文档树 + skill 扁平)。
-SidebarModel buildDocumentsRailModel(
+SidebarModel buildLibraryRailModel(
   List<DocumentNode> tree,
   List<Skill> skills,
-  DocRailLabels labels,
+  LibraryRailLabels labels,
 ) {
   // Group by parent + order by position, so the tree assembles in one pass. 按 parentId 分组 + position 排序。
   final byParent = <String?, List<DocumentNode>>{};

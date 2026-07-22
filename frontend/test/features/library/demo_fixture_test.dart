@@ -1,6 +1,6 @@
 import 'package:anselm/dev/markdown_corpus.dart';
-import 'package:anselm/features/documents/data/documents_demo_fixture.dart';
-import 'package:anselm/features/documents/model/doc_outline.dart';
+import 'package:anselm/features/library/data/library_demo_fixture.dart';
+import 'package:anselm/features/library/model/doc_outline.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 // link, a wikilink, a table, ordered / bulleted / task lists, a quote and fenced code. 全块型样章。
 void main() {
   test('D-023 formatting reference seeds every block type', () async {
-    final repo = demoDocumentsRepository();
+    final repo = demoLibraryRepository();
     // The tree is metadata-only (content stripped, like the Live /tree) — fetch the body via getDocument.
     // 树是仅元数据(去正文,同 Live /tree)——正文经 getDocument 取。
     final meta = (await repo.getTree()).firstWhere(
@@ -56,7 +56,7 @@ void main() {
     'B4: the demo tree carries BOTH an empty page (hasContent false) and written ones (true) — '
     'so `make demo` shows the empty-page and written-doc icons side by side',
     () async {
-      final tree = await demoDocumentsRepository().getTree();
+      final tree = await demoLibraryRepository().getTree();
       // The tree projection sets hasContent (≡ backend size_bytes>0) — content itself is stripped. hasContent 投影。
       expect(
         tree.every((d) => d.content.isEmpty),
@@ -81,7 +81,7 @@ void main() {
       // The `make demo` kitchen-sink page renders the exact same [buildMarkdownCorpus] as the 1:1 guard test
       // (markdown_parity_test) and the editor⇄chat harness — one source of truth, so the eyeball page and the
       // green guard can never disagree. 全谱页=守卫/harness 同一份语料。
-      final repo = demoDocumentsRepository();
+      final repo = demoLibraryRepository();
       final meta = (await repo.getTree()).firstWhere(
         (d) => d.name == 'Markdown 全谱 (Kitchen Sink)',
       );

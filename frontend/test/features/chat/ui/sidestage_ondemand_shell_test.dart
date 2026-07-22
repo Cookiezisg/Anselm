@@ -7,8 +7,8 @@ import 'package:anselm/features/chat/data/chat_demo_fixture.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
-import 'package:anselm/features/documents/data/document_repository.dart';
-import 'package:anselm/features/documents/data/documents_demo_fixture.dart';
+import 'package:anselm/features/library/data/library_repository.dart';
+import 'package:anselm/features/library/data/library_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/notifications/data/notification_demo_fixture.dart';
@@ -43,7 +43,7 @@ ProviderScope _host() => ProviderScope(
     notificationRepositoryProvider.overrideWithValue(
       demoNotificationRepository(),
     ),
-    documentsRepositoryProvider.overrideWithValue(demoDocumentsRepository()),
+    libraryRepositoryProvider.overrideWithValue(demoLibraryRepository()),
     schedulerRepositoryProvider.overrideWithValue(demoSchedulerRepository()),
     goRouterProvider.overrideWith(buildAppRouter),
   ],

@@ -36,8 +36,8 @@ GoRouter buildTestRouter({String initialLocation = '/', required Widget page}) {
         builder: (_, _) => page,
       ),
       // Documents ocean selections (page / slug-addressed skill) — mirrors app router. 文档选区,镜像 app 路由。
-      GoRoute(path: '/documents/:id', builder: (_, _) => page),
-      GoRoute(path: '/documents/skill/:name', builder: (_, _) => page),
+      GoRoute(path: '/library/:id', builder: (_, _) => page),
+      GoRoute(path: '/library/skill/:name', builder: (_, _) => page),
     ],
   );
   addTearDown(router.dispose);

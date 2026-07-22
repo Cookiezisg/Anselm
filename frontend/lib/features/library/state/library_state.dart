@@ -8,10 +8,10 @@ import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/contract/mcp.dart';
 import '../../../core/router/navigation.dart';
-import '../data/document_repository.dart';
+import '../data/library_repository.dart';
 import '../model/doc_outline.dart';
 
-/// The Documents ocean's server-state, over the [documentsRepositoryProvider] seam. The rail watches the
+/// The Documents ocean's server-state, over the [libraryRepositoryProvider] seam. The rail watches the
 /// tree + skill lists; the center watches the selected node's full content. Selection derives ONE-WAY from
 /// the URL. 文档海洋的 server-state:rail 看树+skill 列表,中心看选中节点正文;选区由 URL 单向派生。
 
@@ -35,7 +35,7 @@ class DocumentTreeList extends AsyncNotifier<List<DocumentNode>> {
 
   @override
   Future<List<DocumentNode>> build() {
-    final repo = ref.watch(documentsRepositoryProvider);
+    final repo = ref.watch(libraryRepositoryProvider);
     final sub = repo.lifecycleSignals().listen((domain) {
       if (domain != 'document') return;
       _debounce?.cancel();
@@ -63,7 +63,7 @@ class SkillList extends AsyncNotifier<List<Skill>> {
 
   @override
   Future<List<Skill>> build() {
-    final repo = ref.watch(documentsRepositoryProvider);
+    final repo = ref.watch(libraryRepositoryProvider);
     final sub = repo.lifecycleSignals().listen((domain) {
       if (domain != 'skill') return;
       _debounce?.cancel();
@@ -109,10 +109,10 @@ class SelectedDocController extends Notifier<DocSelection?> {
     // Skills are slug-addressed under the reserved `skill` segment (3 segs); anything else 2-seg under
     // /documents is a page id. Existence isn't checkable at the route layer (same rule as entities).
     // skill 走保留段 skill(3 段、slug 寻址);其余 /documents/<id> 即页;存在性路由层不可校(同 entities)。
-    if (segs.length == 3 && segs[0] == 'documents' && segs[1] == 'skill') {
+    if (segs.length == 3 && segs[0] == 'library' && segs[1] == 'skill') {
       return (isSkill: true, id: segs[2]);
     }
-    if (segs.length == 2 && segs[0] == 'documents') {
+    if (segs.length == 2 && segs[0] == 'library') {
       return (isSkill: false, id: segs[1]);
     }
     return null;
@@ -139,7 +139,7 @@ class SelectedSkillFileController extends Notifier<String?> {
 
   static String? _parse(Uri uri) {
     final segs = uri.pathSegments;
-    if (segs.length == 3 && segs[0] == 'documents' && segs[1] == 'skill') {
+    if (segs.length == 3 && segs[0] == 'library' && segs[1] == 'skill') {
       final f = uri.queryParameters['file'];
       return (f == null || f.isEmpty) ? null : f;
     }
@@ -156,8 +156,7 @@ final selectedSkillFileProvider =
 /// skill 的捆绑文件列表(含清单),供文件条+右岛文件组。
 final skillFilesProvider = FutureProvider.autoDispose
     .family<List<SkillFile>, String>(
-      (ref, name) =>
-          ref.watch(documentsRepositoryProvider).listSkillFiles(name),
+      (ref, name) => ref.watch(libraryRepositoryProvider).listSkillFiles(name),
     );
 
 /// The manifest's dual-mode switch (rich text default / raw source) — a provider so BOTH the
@@ -181,7 +180,7 @@ final skillManifestSourceModeProvider =
 final skillBindingsProvider = FutureProvider.autoDispose
     .family<List<EntityRelation>, String>(
       (ref, name) =>
-          ref.watch(documentsRepositoryProvider).listSkillBindings(name),
+          ref.watch(libraryRepositoryProvider).listSkillBindings(name),
     );
 
 /// The authorizable builtin-tool catalog (`GET /tools`) — the allowed-tools picker's BUILTIN
@@ -189,21 +188,21 @@ final skillBindingsProvider = FutureProvider.autoDispose
 /// after). 可授权内置工具目录:选择器内置候选组(有界固定集,开选择器时取、关后弃)。
 final toolCatalogProvider =
     FutureProvider.autoDispose<List<SkillToolDescriptor>>(
-      (ref) => ref.watch(documentsRepositoryProvider).listToolCatalog(),
+      (ref) => ref.watch(libraryRepositoryProvider).listToolCatalog(),
     );
 
 /// Installed MCP servers + their live tools (`GET /mcp-servers`) — the picker's MCP candidate group.
 /// autoDispose. 已装 MCP server + 工具:选择器 MCP 候选组。
 final mcpServersForToolsProvider =
     FutureProvider.autoDispose<List<McpServerStatus>>(
-      (ref) => ref.watch(documentsRepositoryProvider).listMcpServers(),
+      (ref) => ref.watch(libraryRepositoryProvider).listMcpServers(),
     );
 
 /// One bundled file's RAW bytes (image/font previews need bytes, not text). 单捆绑文件裸字节。
 final skillFileBytesProvider = FutureProvider.autoDispose
     .family<List<int>, ({String name, String path})>(
       (ref, key) => ref
-          .watch(documentsRepositoryProvider)
+          .watch(libraryRepositoryProvider)
           .readSkillFile(key.name, key.path),
     );
 
@@ -213,7 +212,7 @@ final skillFileTextProvider = FutureProvider.autoDispose
     .family<String, ({String name, String path})>(
       (ref, key) async => utf8.decode(
         await ref
-            .watch(documentsRepositoryProvider)
+            .watch(libraryRepositoryProvider)
             .readSkillFile(key.name, key.path),
         allowMalformed: true,
       ),
@@ -251,11 +250,11 @@ final adoptedDraftDocProvider = NotifierProvider<AdoptedDraftDoc, String?>(
 
 /// The route location for a document page — the rail navigates here to select. Mirrors entityLocation.
 /// 文档页的路由位置——rail 导航至此以选中。镜像 entityLocation。
-String documentLocation(String id) => '/documents/$id';
+String documentLocation(String id) => '/library/$id';
 
 /// The route location for a skill (slug-addressed — the guard regex `^[a-z0-9][a-z0-9_-]{0,63}$` is
 /// URL-safe by construction). skill 的路由位置(slug 寻址,守卫正则天然 URL 安全)。
-String skillLocation(String name) => '/documents/skill/$name';
+String skillLocation(String name) => '/library/skill/$name';
 
 /// The route location for one bundled file inside a skill (query-addressed — a multi-segment
 /// rel path needs no new route). skill 内单文件路由位置(query 寻址,多段相对路径零新路由)。
@@ -265,12 +264,12 @@ String skillFileLocation(String name, String rel) =>
 /// The open document WITH content (fetched on select; autoDispose releases it on deselect). 打开的文档(带正文)。
 final openDocumentProvider = FutureProvider.autoDispose
     .family<DocumentNode, String>(
-      (ref, id) => ref.watch(documentsRepositoryProvider).getDocument(id),
+      (ref, id) => ref.watch(libraryRepositoryProvider).getDocument(id),
     );
 
 /// The open skill WITH body + frontmatter (fetched on select). 打开的 skill(带 body + frontmatter)。
 final openSkillProvider = FutureProvider.autoDispose.family<Skill, String>(
-  (ref, name) => ref.watch(documentsRepositoryProvider).getSkill(name),
+  (ref, name) => ref.watch(libraryRepositoryProvider).getSkill(name),
 );
 
 /// The LIVE outline of the open document/skill — the inspector's table of contents. FED by the editor
@@ -330,5 +329,5 @@ class OutlineJumpController extends Notifier<({int tick, int index})?> {
 final backlinksProvider = FutureProvider.autoDispose
     .family<List<EntityRelation>, String>((ref, id) async {
       ref.watch(documentTreeProvider); // refresh alongside the tree 随树刷新
-      return ref.watch(documentsRepositoryProvider).listBacklinks(id);
+      return ref.watch(libraryRepositoryProvider).listBacklinks(id);
     });

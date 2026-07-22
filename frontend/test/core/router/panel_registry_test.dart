@@ -28,17 +28,14 @@ void main() {
     });
 
     test('document (+ doc alias) → /documents/<id>', () {
-      expect(panelLocationFor('document', 'doc_1'), '/documents/doc_1');
-      expect(
-        panelLocationFor('doc', 'doc_1'),
-        '/documents/doc_1',
-      ); // demo alias
+      expect(panelLocationFor('document', 'doc_1'), '/library/doc_1');
+      expect(panelLocationFor('doc', 'doc_1'), '/library/doc_1'); // demo alias
     });
 
     test('skill → /documents/skill/<name> (the id IS the slug)', () {
       expect(
         panelLocationFor('skill', 'invoice-triage'),
-        '/documents/skill/invoice-triage',
+        '/library/skill/invoice-triage',
       );
       expect(hasPanelFor('skill'), isTrue);
     });

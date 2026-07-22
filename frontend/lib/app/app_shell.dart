@@ -19,10 +19,10 @@ import '../features/chat/ui/chat_head.dart';
 import '../features/chat/ui/chat_ocean.dart';
 import '../features/chat/ui/chat_toc.dart';
 import '../features/chat/ui/conversation_rail.dart';
-import '../features/documents/state/document_state.dart';
-import '../features/documents/ui/document_ocean.dart';
-import '../features/documents/ui/document_rail.dart';
-import '../features/documents/ui/documents_inspector.dart';
+import '../features/library/state/library_state.dart';
+import '../features/library/ui/library_ocean.dart';
+import '../features/library/ui/library_rail.dart';
+import '../features/library/ui/library_inspector.dart';
 import '../core/shell/right_panel.dart';
 import '../features/entities/state/selected_entity.dart';
 import '../features/entities/ui/entity_ocean.dart';
@@ -104,7 +104,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       // over the next ocean. settings/scheduler 亦拥浮层头,dispose 不自清,故海洋切换在此统一清。
       const headOwners = {
         OceanKind.entities,
-        OceanKind.documents,
+        OceanKind.library,
         OceanKind.settings,
         OceanKind.scheduler,
       };
@@ -117,7 +117,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final onChat = ocean == OceanKind.chat;
     // Documents ocean: the file-like knowledge library (document tree + skills) in the left island +
     // a read/edit center. 文档海洋:文件式知识库(文档树 + skill)左岛 + 中心读/编。
-    final onDocuments = ocean == OceanKind.documents;
+    final onDocuments = ocean == OceanKind.library;
     final onSettings = ocean == OceanKind.settings;
     // A /chat/:id navigation (deep link, restored URL) pulls the ocean to chat — the URL is the
     // conversation-selection truth, so the ocean must follow it, never fight it. (Full ocean routing is
@@ -133,7 +133,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     // URL) pulls the ocean to documents. documents 同款一致性规则:/documents/... 导航把海洋拉到 documents。
     ref.listen(selectedDocProvider, (prev, next) {
       if (next != null) {
-        ref.read(selectedOceanProvider.notifier).select(OceanKind.documents);
+        ref.read(selectedOceanProvider.notifier).select(OceanKind.library);
       }
     });
     // And for scheduler: a /scheduler... navigation (deep link, fr_ paste, panel_registry flowrun ref)
@@ -236,7 +236,7 @@ class _AppShellState extends ConsumerState<AppShell> {
       AnOceanItem(
         id: 'documents',
         icon: AnIcons.doc,
-        label: context.t.shell.ocean.documents,
+        label: context.t.shell.ocean.library,
       ),
     ];
     // No top selection while a footer ocean (settings) is active. 在底栏海洋(settings)时顶部无选中。
@@ -250,7 +250,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         : onChat
         ? const ConversationRail()
         : onDocuments
-        ? const DocumentRail()
+        ? const LibraryRail()
         : onSettings
         ? const SettingsRail()
         : ocean == OceanKind.scheduler
@@ -340,7 +340,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         inspector: AnInspector(
           headless: true,
           child: onDocuments
-              ? const DocumentsInspector()
+              ? const LibraryInspector()
               : chatConversation != null
               ? StagePanel(conversationId: chatConversation)
               : onScheduler
@@ -447,7 +447,7 @@ class _OceanStack extends StatelessWidget {
     OceanKind.chat,
     OceanKind.entities,
     OceanKind.scheduler,
-    OceanKind.documents,
+    OceanKind.library,
     OceanKind.settings,
   ];
 
@@ -470,7 +470,7 @@ class _OceanStack extends StatelessWidget {
     OceanKind.chat => const ChatOcean(),
     OceanKind.entities => const EntityOcean(),
     OceanKind.scheduler => const SchedulerOcean(),
-    OceanKind.documents => const DocumentOcean(),
+    OceanKind.library => const LibraryOcean(),
     OceanKind.settings => const SettingsOcean(),
   };
 }

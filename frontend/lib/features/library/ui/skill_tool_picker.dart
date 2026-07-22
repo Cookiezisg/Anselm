@@ -18,7 +18,7 @@ import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_tags.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
-import '../state/document_state.dart';
+import '../state/library_state.dart';
 
 // ── pure helpers (unit-tested without pumping UI) ────────────────────────────
 
@@ -98,7 +98,7 @@ class SkillToolsField extends ConsumerWidget {
         Align(
           alignment: Alignment.centerLeft,
           child: AnButton(
-            label: t.documents.props.addTool,
+            label: t.library.props.addTool,
             icon: AnIcons.plus,
             size: AnButtonSize.sm,
             onPressed: () => _openPicker(context, ref),
@@ -214,7 +214,7 @@ class _ToolPickerSheetState extends ConsumerState<_ToolPickerSheet> {
   @override
   Widget build(BuildContext context) {
     final t = context.t;
-    final p = t.documents.props;
+    final p = t.library.props;
     final c = context.colors;
 
     // Builtin group — from the /tools catalog, filtered by name/summary. 内置组:/tools 目录,按名/简述筛。

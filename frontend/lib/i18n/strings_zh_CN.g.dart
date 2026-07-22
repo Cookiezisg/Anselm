@@ -56,7 +56,7 @@ class TranslationsZhCn extends Translations with BaseTranslations<AppLocale, Tra
 	@override late final _Translations$startup$zh_CN startup = _Translations$startup$zh_CN._(_root);
 	@override late final _Translations$entities$zh_CN entities = _Translations$entities$zh_CN._(_root);
 	@override late final _Translations$coldStart$zh_CN coldStart = _Translations$coldStart$zh_CN._(_root);
-	@override late final _Translations$documents$zh_CN documents = _Translations$documents$zh_CN._(_root);
+	@override late final _Translations$library$zh_CN library = _Translations$library$zh_CN._(_root);
 	@override late final _Translations$settings$zh_CN settings = _Translations$settings$zh_CN._(_root);
 	@override late final _Translations$markdown$zh_CN markdown = _Translations$markdown$zh_CN._(_root);
 	@override late final _Translations$attach$zh_CN attach = _Translations$attach$zh_CN._(_root);
@@ -461,9 +461,9 @@ class _Translations$coldStart$zh_CN extends Translations$coldStart$en {
 	@override String get defaultWorkspace => '个人';
 }
 
-// Path: documents
-class _Translations$documents$zh_CN extends Translations$documents$en {
-	_Translations$documents$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+// Path: library
+class _Translations$library$zh_CN extends Translations$library$en {
+	_Translations$library$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
@@ -474,12 +474,11 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get editorHint => '输入正文,按 / 唤起命令';
 	@override String get addDescription => '添加简介…';
 	@override String get addTag => '添加标签';
-	@override String get filter => '搜索文档…';
+	@override String get filter => '搜索页面';
 	@override String get kNew => '新建页面';
 	@override String get errorTitle => '无法加载知识库';
 	@override String get errorHint => '本地引擎没有返回它。';
 	@override String get retry => '重试';
-	@override String get pickTitle => '选一篇文档';
 	@override String get pickHint => '在左侧选一篇文档或技能来阅读或编辑。';
 	@override String get loadFailed => '打不开这个';
 	@override String get rename => '改名';
@@ -489,10 +488,10 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get deleteSkillTitle => '删除这个技能?';
 	@override String deleteSkillBody({required Object name}) => '技能“${name}”会被删除。';
 	@override String get actionFailed => '操作失败';
-	@override late final _Translations$documents$props$zh_CN props = _Translations$documents$props$zh_CN._(_root);
-	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
+	@override late final _Translations$library$props$zh_CN props = _Translations$library$props$zh_CN._(_root);
+	@override late final _Translations$library$slash$zh_CN slash = _Translations$library$slash$zh_CN._(_root);
 	@override String get linkHint => '输入或粘贴链接,回车确定';
-	@override late final _Translations$documents$table$zh_CN table = _Translations$documents$table$zh_CN._(_root);
+	@override late final _Translations$library$table$zh_CN table = _Translations$library$table$zh_CN._(_root);
 	@override String get skillSourceMode => '源码';
 	@override String get skillRichMode => '富文本';
 	@override String get skillModeTooltip => '切换清单的富文本 / 源码编辑';
@@ -1531,7 +1530,7 @@ class _Translations$shell$ocean$zh_CN extends Translations$shell$ocean$en {
 	@override String get chat => '对话';
 	@override String get entities => '实体';
 	@override String get scheduler => '调度';
-	@override String get documents => '文档';
+	@override String get library => '文库';
 }
 
 // Path: notifications.kind
@@ -1701,9 +1700,9 @@ class _Translations$entities$graph$zh_CN extends Translations$entities$graph$en 
 	@override late final _Translations$entities$graph$verb$zh_CN verb = _Translations$entities$graph$verb$zh_CN._(_root);
 }
 
-// Path: documents.props
-class _Translations$documents$props$zh_CN extends Translations$documents$props$en {
-	_Translations$documents$props$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+// Path: library.props
+class _Translations$library$props$zh_CN extends Translations$library$props$en {
+	_Translations$library$props$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
@@ -1740,7 +1739,7 @@ class _Translations$documents$props$zh_CN extends Translations$documents$props$e
 	@override String get on => '开';
 	@override String get off => '关';
 	@override String get empty => '未选中';
-	@override String get emptyHint => '选一个页面或技能查看它的属性。';
+	@override String get emptyHint => '选一篇文档或技能查看它的属性。';
 	@override String get outline => '大纲';
 	@override String get backlinks => '反向链接';
 	@override String get noBacklinks => '还没有页面链接到这里。';
@@ -1749,12 +1748,12 @@ class _Translations$documents$props$zh_CN extends Translations$documents$props$e
 	@override String glanceChars({required Object count}) => '${count} 字';
 	@override String glanceBacklinks({required Object n}) => '${n} 反链';
 	@override String glanceEdited({required Object rel}) => '${rel}编辑';
-	@override late final _Translations$documents$props$time$zh_CN time = _Translations$documents$props$time$zh_CN._(_root);
+	@override late final _Translations$library$props$time$zh_CN time = _Translations$library$props$time$zh_CN._(_root);
 }
 
-// Path: documents.slash
-class _Translations$documents$slash$zh_CN extends Translations$documents$slash$en {
-	_Translations$documents$slash$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+// Path: library.slash
+class _Translations$library$slash$zh_CN extends Translations$library$slash$en {
+	_Translations$library$slash$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
@@ -1772,9 +1771,9 @@ class _Translations$documents$slash$zh_CN extends Translations$documents$slash$e
 	@override String get todo => '待办';
 }
 
-// Path: documents.table
-class _Translations$documents$table$zh_CN extends Translations$documents$table$en {
-	_Translations$documents$table$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+// Path: library.table
+class _Translations$library$table$zh_CN extends Translations$library$table$en {
+	_Translations$library$table$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
@@ -2660,9 +2659,9 @@ class _Translations$entities$graph$verb$zh_CN extends Translations$entities$grap
 	@override String get edit => '编辑了';
 }
 
-// Path: documents.props.time
-class _Translations$documents$props$time$zh_CN extends Translations$documents$props$time$en {
-	_Translations$documents$props$time$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+// Path: library.props.time
+class _Translations$library$props$time$zh_CN extends Translations$library$props$time$en {
+	_Translations$library$props$time$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
 
 	final TranslationsZhCn _root; // ignore: unused_field
 
@@ -3601,7 +3600,7 @@ extension on TranslationsZhCn {
 			'shell.ocean.chat' => '对话',
 			'shell.ocean.entities' => '实体',
 			'shell.ocean.scheduler' => '调度',
-			'shell.ocean.documents' => '文档',
+			'shell.ocean.library' => '文库',
 			'shell.comingSoonTitle' => '即将推出',
 			'shell.comingSoonHint' => '该海洋尚未构建。',
 			'shell.settings' => '设置',
@@ -3999,128 +3998,127 @@ extension on TranslationsZhCn {
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.defaultWorkspace' => '个人',
-			'documents.documents' => '文档',
-			'documents.skills' => '技能',
-			'documents.untitled' => '未命名',
-			'documents.editorHint' => '输入正文,按 / 唤起命令',
-			'documents.addDescription' => '添加简介…',
-			'documents.addTag' => '添加标签',
-			'documents.filter' => '搜索文档…',
-			'documents.kNew' => '新建页面',
-			'documents.errorTitle' => '无法加载知识库',
-			'documents.errorHint' => '本地引擎没有返回它。',
-			'documents.retry' => '重试',
-			'documents.pickTitle' => '选一篇文档',
-			'documents.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
-			'documents.loadFailed' => '打不开这个',
-			'documents.rename' => '改名',
-			'documents.duplicate' => '创建副本',
-			'documents.deleteDocTitle' => '删除这个页面?',
-			'documents.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',
-			'documents.deleteSkillTitle' => '删除这个技能?',
-			'documents.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
-			'documents.actionFailed' => '操作失败',
-			'documents.props.title' => '属性',
-			'documents.props.name' => '名称',
-			'documents.props.description' => '描述',
-			'documents.props.tags' => '标签',
-			'documents.props.addTag' => '添加标签',
-			'documents.props.path' => '路径',
-			'documents.props.size' => '大小',
-			'documents.props.modified' => '修改时间',
-			'documents.props.context' => '上下文',
-			'documents.props.contextInline' => '内联',
-			'documents.props.contextFork' => '分叉',
-			'documents.props.agent' => 'Agent',
-			'documents.props.agentHint' => '要派发的子 agent 类型——分叉技能必填。',
-			'documents.props.tools' => '允许的工具',
-			'documents.props.addTool' => '添加工具',
-			'documents.props.toolPickerTitle' => '添加工具',
-			'documents.props.toolPickerSearch' => '搜索工具 / 函数 / MCP…',
-			'documents.props.toolPickerBuiltin' => '内置工具',
-			'documents.props.toolPickerFunctions' => '函数',
-			'documents.props.toolPickerHandlers' => '处理器',
-			'documents.props.toolPickerMcp' => 'MCP 工具',
-			'documents.props.toolPickerAddLiteral' => ({required Object q}) => '按原文添加 “${q}”',
-			'documents.props.toolPickerHint' => '从下方挑选，或输入作用域如 Bash(git:*) 后回车。',
-			'documents.props.toolPickerEmpty' => '无匹配——回车按你输入的原文添加。',
-			'documents.props.toolPickerDone' => '完成',
-			'documents.props.arguments' => '参数',
-			'documents.props.addArg' => '添加参数',
-			'documents.props.modelInvoke' => '模型可调用',
-			'documents.props.userInvoke' => '用户可调用',
-			'documents.props.on' => '开',
-			'documents.props.off' => '关',
-			'documents.props.empty' => '未选中',
-			'documents.props.emptyHint' => '选一个页面或技能查看它的属性。',
-			'documents.props.outline' => '大纲',
-			'documents.props.backlinks' => '反向链接',
-			'documents.props.noBacklinks' => '还没有页面链接到这里。',
-			'documents.props.expandAll' => '展开全部',
-			'documents.props.collapseAll' => '收起全部',
-			'documents.props.glanceChars' => ({required Object count}) => '${count} 字',
-			'documents.props.glanceBacklinks' => ({required Object n}) => '${n} 反链',
-			'documents.props.glanceEdited' => ({required Object rel}) => '${rel}编辑',
-			'documents.props.time.today' => '今天',
-			'documents.props.time.yesterday' => '昨天',
-			'documents.props.time.daysAgo' => ({required Object n}) => '${n} 天前',
-			'documents.slash.text' => '正文',
-			'documents.slash.h1' => '标题 1',
-			'documents.slash.h2' => '标题 2',
-			'documents.slash.h3' => '标题 3',
-			'documents.slash.bulleted' => '无序列表',
-			'documents.slash.numbered' => '有序列表',
-			'documents.slash.quote' => '引用',
-			'documents.slash.code' => '代码块',
-			'documents.slash.table' => '表格',
-			'documents.slash.divider' => '分隔线',
-			'documents.slash.todo' => '待办',
-			'documents.linkHint' => '输入或粘贴链接,回车确定',
-			'documents.table.insertRowAbove' => '在上方插入行',
-			'documents.table.insertRowBelow' => '在下方插入行',
-			'documents.table.deleteRow' => '删除行',
-			'documents.table.insertColLeft' => '在左侧插入列',
-			'documents.table.insertColRight' => '在右侧插入列',
-			'documents.table.deleteCol' => '删除列',
-			'documents.table.deleteTable' => '删除表格',
-			'documents.skillSourceMode' => '源码',
-			'documents.skillRichMode' => '富文本',
-			'documents.skillModeTooltip' => '切换清单的富文本 / 源码编辑',
-			'documents.skillFileBinary' => '二进制文件——不支持在线编辑',
-			'documents.skillFileSaveFailed' => '文件保存失败',
-			'documents.skillFiles' => '文件',
-			'documents.skillProvenance' => '来源',
-			'documents.skillInstalledFrom' => '安装自',
-			'documents.skillInstalledAt' => '装于',
-			'documents.skillToolsApproved' => '预授权已生效',
-			'documents.skillToolsPending' => '预授权待确认',
-			'documents.skillApproveTools' => '授权预授权工具',
-			'documents.skillCheckUpdate' => '检查更新',
-			'documents.skillUpdateDone' => '已更新到上游版本',
-			'documents.skillLocallyModified' => '本地有改动——更新会覆盖，确认强制更新？',
-			'documents.skillForceUpdate' => '强制更新',
-			'documents.skillInstallTitle' => '从来源安装 Skill',
-			'documents.skillInstallHint' => 'GitHub 仓库（owner/repo 或 URL）或 tarball 地址',
-			'documents.skillInstallInspect' => '解析来源',
-			'documents.skillInstallGo' => '安装所选',
-			'documents.skillInstallDone' => '安装完成',
-			'documents.skillInstallNone' => '来源里没有可安装的 skill',
-			'documents.skillInstallPreauthNote' => '安装后这些工具将请求免确认预授权——需你显式授权才生效',
-			'documents.skillInstalledBadge' => '已装',
-			'documents.skillPreviewMode' => '预览',
-			'documents.skillOpenSystem' => '系统打开',
-			'documents.skillRevealSystem' => 'Finder 显示',
-			'documents.skillCsvCapped' => ({required Object n}) => '仅显示前 ${n} 行——完整内容切源码或系统打开',
-			'documents.skillFontSample' => '天地玄黄 宇宙洪荒 中文样张',
-			'documents.skillFontNote' => '字体样张预览——编辑请用系统应用',
-			'documents.skillNewFile' => '新建文件',
-			'documents.skillNewFileHint' => '相对路径,如 references/notes.md',
-			'documents.skillDeleteFileTitle' => '删除文件',
-			'documents.skillDeleteFileBody' => ({required Object path}) => '删除 ${path}?此操作不可撤销。',
-			'documents.skillBindings' => '绑定',
-			'documents.skillManifestSource' => '清单源码编辑',
-			'documents.glanceFiles' => ({required Object n}) => '${n} 文件',
-			'documents.glanceBindings' => ({required Object n}) => '${n} 绑定',
+			'library.documents' => '文档',
+			'library.skills' => '技能',
+			'library.untitled' => '未命名',
+			'library.editorHint' => '输入正文,按 / 唤起命令',
+			'library.addDescription' => '添加简介…',
+			'library.addTag' => '添加标签',
+			'library.filter' => '搜索页面',
+			'library.kNew' => '新建页面',
+			'library.errorTitle' => '无法加载知识库',
+			'library.errorHint' => '本地引擎没有返回它。',
+			'library.retry' => '重试',
+			'library.pickHint' => '在左侧选一篇文档或技能来阅读或编辑。',
+			'library.loadFailed' => '打不开这个',
+			'library.rename' => '改名',
+			'library.duplicate' => '创建副本',
+			'library.deleteDocTitle' => '删除这个页面?',
+			'library.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',
+			'library.deleteSkillTitle' => '删除这个技能?',
+			'library.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
+			'library.actionFailed' => '操作失败',
+			'library.props.title' => '属性',
+			'library.props.name' => '名称',
+			'library.props.description' => '描述',
+			'library.props.tags' => '标签',
+			'library.props.addTag' => '添加标签',
+			'library.props.path' => '路径',
+			'library.props.size' => '大小',
+			'library.props.modified' => '修改时间',
+			'library.props.context' => '上下文',
+			'library.props.contextInline' => '内联',
+			'library.props.contextFork' => '分叉',
+			'library.props.agent' => 'Agent',
+			'library.props.agentHint' => '要派发的子 agent 类型——分叉技能必填。',
+			'library.props.tools' => '允许的工具',
+			'library.props.addTool' => '添加工具',
+			'library.props.toolPickerTitle' => '添加工具',
+			'library.props.toolPickerSearch' => '搜索工具 / 函数 / MCP…',
+			'library.props.toolPickerBuiltin' => '内置工具',
+			'library.props.toolPickerFunctions' => '函数',
+			'library.props.toolPickerHandlers' => '处理器',
+			'library.props.toolPickerMcp' => 'MCP 工具',
+			'library.props.toolPickerAddLiteral' => ({required Object q}) => '按原文添加 “${q}”',
+			'library.props.toolPickerHint' => '从下方挑选，或输入作用域如 Bash(git:*) 后回车。',
+			'library.props.toolPickerEmpty' => '无匹配——回车按你输入的原文添加。',
+			'library.props.toolPickerDone' => '完成',
+			'library.props.arguments' => '参数',
+			'library.props.addArg' => '添加参数',
+			'library.props.modelInvoke' => '模型可调用',
+			'library.props.userInvoke' => '用户可调用',
+			'library.props.on' => '开',
+			'library.props.off' => '关',
+			'library.props.empty' => '未选中',
+			'library.props.emptyHint' => '选一篇文档或技能查看它的属性。',
+			'library.props.outline' => '大纲',
+			'library.props.backlinks' => '反向链接',
+			'library.props.noBacklinks' => '还没有页面链接到这里。',
+			'library.props.expandAll' => '展开全部',
+			'library.props.collapseAll' => '收起全部',
+			'library.props.glanceChars' => ({required Object count}) => '${count} 字',
+			'library.props.glanceBacklinks' => ({required Object n}) => '${n} 反链',
+			'library.props.glanceEdited' => ({required Object rel}) => '${rel}编辑',
+			'library.props.time.today' => '今天',
+			'library.props.time.yesterday' => '昨天',
+			'library.props.time.daysAgo' => ({required Object n}) => '${n} 天前',
+			'library.slash.text' => '正文',
+			'library.slash.h1' => '标题 1',
+			'library.slash.h2' => '标题 2',
+			'library.slash.h3' => '标题 3',
+			'library.slash.bulleted' => '无序列表',
+			'library.slash.numbered' => '有序列表',
+			'library.slash.quote' => '引用',
+			'library.slash.code' => '代码块',
+			'library.slash.table' => '表格',
+			'library.slash.divider' => '分隔线',
+			'library.slash.todo' => '待办',
+			'library.linkHint' => '输入或粘贴链接,回车确定',
+			'library.table.insertRowAbove' => '在上方插入行',
+			'library.table.insertRowBelow' => '在下方插入行',
+			'library.table.deleteRow' => '删除行',
+			'library.table.insertColLeft' => '在左侧插入列',
+			'library.table.insertColRight' => '在右侧插入列',
+			'library.table.deleteCol' => '删除列',
+			'library.table.deleteTable' => '删除表格',
+			'library.skillSourceMode' => '源码',
+			'library.skillRichMode' => '富文本',
+			'library.skillModeTooltip' => '切换清单的富文本 / 源码编辑',
+			'library.skillFileBinary' => '二进制文件——不支持在线编辑',
+			'library.skillFileSaveFailed' => '文件保存失败',
+			'library.skillFiles' => '文件',
+			'library.skillProvenance' => '来源',
+			'library.skillInstalledFrom' => '安装自',
+			'library.skillInstalledAt' => '装于',
+			'library.skillToolsApproved' => '预授权已生效',
+			'library.skillToolsPending' => '预授权待确认',
+			'library.skillApproveTools' => '授权预授权工具',
+			'library.skillCheckUpdate' => '检查更新',
+			'library.skillUpdateDone' => '已更新到上游版本',
+			'library.skillLocallyModified' => '本地有改动——更新会覆盖，确认强制更新？',
+			'library.skillForceUpdate' => '强制更新',
+			'library.skillInstallTitle' => '从来源安装 Skill',
+			'library.skillInstallHint' => 'GitHub 仓库（owner/repo 或 URL）或 tarball 地址',
+			'library.skillInstallInspect' => '解析来源',
+			'library.skillInstallGo' => '安装所选',
+			'library.skillInstallDone' => '安装完成',
+			'library.skillInstallNone' => '来源里没有可安装的 skill',
+			'library.skillInstallPreauthNote' => '安装后这些工具将请求免确认预授权——需你显式授权才生效',
+			'library.skillInstalledBadge' => '已装',
+			'library.skillPreviewMode' => '预览',
+			'library.skillOpenSystem' => '系统打开',
+			'library.skillRevealSystem' => 'Finder 显示',
+			'library.skillCsvCapped' => ({required Object n}) => '仅显示前 ${n} 行——完整内容切源码或系统打开',
+			'library.skillFontSample' => '天地玄黄 宇宙洪荒 中文样张',
+			'library.skillFontNote' => '字体样张预览——编辑请用系统应用',
+			'library.skillNewFile' => '新建文件',
+			'library.skillNewFileHint' => '相对路径,如 references/notes.md',
+			'library.skillDeleteFileTitle' => '删除文件',
+			'library.skillDeleteFileBody' => ({required Object path}) => '删除 ${path}?此操作不可撤销。',
+			'library.skillBindings' => '绑定',
+			'library.skillManifestSource' => '清单源码编辑',
+			'library.glanceFiles' => ({required Object n}) => '${n} 文件',
+			'library.glanceBindings' => ({required Object n}) => '${n} 绑定',
 			'settings.title' => '设置',
 			'settings.scope.device' => '本机',
 			'settings.scope.workspace' => '工作区',
@@ -4220,9 +4218,9 @@ extension on TranslationsZhCn {
 			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
 			'settings.keys.keysSection' => 'API 密钥',
 			'settings.keys.addKey' => '添加密钥',
+			'settings.keys.testKey' => '测试',
 			_ => null,
 		} ?? switch (path) {
-			'settings.keys.testKey' => '测试',
 			'settings.keys.editKey' => '编辑',
 			'settings.keys.deleteKey' => '删除',
 			'settings.keys.statusOk' => '可用',

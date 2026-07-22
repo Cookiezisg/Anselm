@@ -1,6 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/editor/an_editor.dart';
-import 'package:anselm/features/documents/model/doc_outline.dart';
+import 'package:anselm/features/library/model/doc_outline.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

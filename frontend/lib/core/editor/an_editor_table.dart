@@ -638,7 +638,7 @@ class AnEditableTableState extends State<AnEditableTable> {
   }
 
   Widget _buildMenu(BuildContext context) {
-    final t = Translations.of(context).documents.table;
+    final t = Translations.of(context).library.table;
     final colors = context.colors;
     // Row 0 is the GFM HEADER — a table can't lose it (the serializer needs it); delete the whole table
     // instead. The last column can't be removed either (an empty grid is no table). 第 0 行=GFM 表头不可删

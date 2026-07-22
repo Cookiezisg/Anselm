@@ -24,9 +24,9 @@ import '../../../core/ui/an_state.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../core/model/status_state.dart';
-import '../data/document_repository.dart';
+import '../data/library_repository.dart';
 import '../model/doc_outline.dart';
-import '../state/document_state.dart';
+import '../state/library_state.dart';
 
 /// The preview family for one bundled skill file (WRK-076 F3 「什么都能预览」): dispatch by
 /// extension — markdown gets the REAL rich-text editor (feeding the inspector outline), text
@@ -176,7 +176,7 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
   }
 
   void _saveText(String text) {
-    final repo = ref.read(documentsRepositoryProvider);
+    final repo = ref.read(libraryRepositoryProvider);
     _save.run(() async {
       try {
         await repo.writeSkillFile(widget.name, widget.path, utf8.encode(text));
@@ -186,10 +186,7 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
         if (mounted) {
           ref
               .read(noticeCenterProvider.notifier)
-              .show(
-                context.t.documents.skillFileSaveFailed,
-                tone: AnTone.danger,
-              );
+              .show(context.t.library.skillFileSaveFailed, tone: AnTone.danger);
         }
       }
     });
@@ -225,8 +222,8 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
           ),
           error: (_, _) => AnState(
             kind: AnStateKind.error,
-            title: t.documents.loadFailed,
-            hint: t.documents.errorHint,
+            title: t.library.loadFailed,
+            hint: t.library.errorHint,
           ),
           data: (text) => AnPage(
             child: SingleChildScrollView(
@@ -304,8 +301,8 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
           ),
           error: (_, _) => AnState(
             kind: AnStateKind.error,
-            title: t.documents.loadFailed,
-            hint: t.documents.errorHint,
+            title: t.library.loadFailed,
+            hint: t.library.errorHint,
           ),
           data: (text) {
             List<List<dynamic>> rows;
@@ -363,7 +360,7 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
                       Padding(
                         padding: const EdgeInsets.only(top: AnSpace.s6),
                         child: Text(
-                          t.documents.skillCsvCapped(n: _csvRowCap),
+                          t.library.skillCsvCapped(n: _csvRowCap),
                           style: AnText.meta.copyWith(color: c.inkFaint),
                         ),
                       ),
@@ -405,14 +402,14 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
                 ),
                 const SizedBox(height: AnSpace.s8),
                 Text(
-                  t.documents.skillFontSample,
+                  t.library.skillFontSample,
                   style: AnText.reading.copyWith(fontFamily: family),
                 ),
                 const SizedBox(height: AnSpace.s12),
                 _fileMetaLine(size),
                 const SizedBox(height: AnSpace.s2),
                 Text(
-                  t.documents.skillFontNote,
+                  t.library.skillFontNote,
                   style: AnText.meta.copyWith(color: c.inkFaint),
                 ),
               ],
@@ -436,7 +433,7 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
             kind: AnStateKind.empty,
             size: AnStateSize.inset,
             title: widget.path,
-            hint: t.documents.skillFileBinary,
+            hint: t.library.skillFileBinary,
           ),
           if (size != null) _fileMetaLine(size),
           const SizedBox(height: AnSpace.s12),
@@ -481,8 +478,8 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
         children: [
           AnButton(
             label: preview
-                ? t.documents.skillSourceMode
-                : t.documents.skillPreviewMode,
+                ? t.library.skillSourceMode
+                : t.library.skillPreviewMode,
             size: AnButtonSize.sm,
             outline: true,
             onPressed: () => setState(() => _sourceMode = !_sourceMode),
@@ -500,7 +497,7 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
       mainAxisSize: MainAxisSize.min,
       children: [
         AnButton(
-          label: t.documents.skillOpenSystem,
+          label: t.library.skillOpenSystem,
           size: AnButtonSize.sm,
           outline: true,
           onPressed: widget.skillDir.isEmpty
@@ -509,7 +506,7 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
         ),
         const SizedBox(width: AnSpace.s4),
         AnButton(
-          label: t.documents.skillRevealSystem,
+          label: t.library.skillRevealSystem,
           size: AnButtonSize.sm,
           outline: true,
           onPressed: widget.skillDir.isEmpty
@@ -587,8 +584,8 @@ class _MarkdownFileViewState extends ConsumerState<_MarkdownFileView> {
           ),
           error: (_, _) => AnState(
             kind: AnStateKind.error,
-            title: t.documents.loadFailed,
-            hint: t.documents.errorHint,
+            title: t.library.loadFailed,
+            hint: t.library.errorHint,
           ),
           data: (text) {
             WidgetsBinding.instance.addPostFrameCallback((_) {

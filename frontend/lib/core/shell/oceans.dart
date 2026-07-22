@@ -15,14 +15,14 @@ enum OceanKind {
   chat,
   entities,
   scheduler,
-  documents,
+  library,
   settings;
 
   /// Whether the ocean's feature exists; the rest render a placeholder. 是否已构建(否则占位)。
   bool get isBuilt =>
       this == OceanKind.entities ||
       this == OceanKind.chat ||
-      this == OceanKind.documents ||
+      this == OceanKind.library ||
       this == OceanKind.scheduler;
 
   /// Shown in the top switcher (the gear-reached [settings] is not). 出现在顶部切换器里(齿轮进的 settings 不在)。
@@ -45,6 +45,11 @@ class SelectedOceanController extends Notifier<OceanKind> {
   OceanKind build() {
     final saved = ref.read(settingsPrefsProvider).getString(SettingsKeys.ocean);
     // Guard byName against a renamed/removed enum value (a stale pref from an older build). 防旧枚举名。
+    // This ocean was named `documents` before it was recognised as the LIBRARY (a container whose two
+    // KINDS are document + skill) — map the legacy pref so an existing install doesn't silently land
+    // back on chat. 本海洋在被认作 Library(容器,两种作用=document+skill)前叫 documents——映射旧偏好,
+    // 免既有安装静默回落 chat。
+    if (saved == 'documents') return OceanKind.library;
     return OceanKind.values.asNameMap()[saved] ?? OceanKind.chat;
   }
 
