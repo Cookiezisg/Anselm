@@ -10,21 +10,21 @@ package touchpoint
 
 import (
 	"context"
-	"errors"
 	"fmt"
 
 	touchpointdomain "github.com/sunweilin/anselm/backend/internal/domain/touchpoint"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Schema is the conversation_touchpoints DDL. idx_tp_dedup makes (conversation, item, verb)
-// unique per workspace — the aggregate-row invariant (D3-style): concurrent recorders collide
-// there and converge via the conflict-retry in Upsert. idx_tp_conv backs the rail's
+// unique per workspace — the aggregate-row invariant (D3-style) AND Upsert's native ON CONFLICT
+// key: concurrent recorders converge inside one atomic statement. idx_tp_conv backs the rail's
 // recency-ordered page walk.
 //
 // Schema 是 conversation_touchpoints 表 DDL。idx_tp_dedup 使每 workspace 下 (对话,物,动词)
-// 唯一——聚合行不变式(D3 类):并发记账在此相撞、经 Upsert 的冲突重试收敛。idx_tp_conv 支撑
-// rail 的新鲜度序分页。
+// 唯一——聚合行不变式(D3 类)**兼 Upsert 的原生 ON CONFLICT 冲突键**:并发记账在单条原子语句内
+// 收敛。idx_tp_conv 支撑 rail 的新鲜度序分页。
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS conversation_touchpoints (
 		id              TEXT PRIMARY KEY,
@@ -49,81 +49,68 @@ var Schema = []string{
 // Store 基于 pkg/orm 实现 touchpointdomain.Repository。
 type Store struct {
 	repo *ormpkg.Repo[touchpointdomain.Touchpoint]
+	db   *ormpkg.DB // raw handle for the native-upsert write path 原生 upsert 写径的裸把手
 }
 
 // New builds a Store bound to the conversation_touchpoints table.
 //
 // New 构造绑定 conversation_touchpoints 表的 Store。
 func New(db *ormpkg.DB) *Store {
-	return &Store{repo: ormpkg.For[touchpointdomain.Touchpoint](db, "conversation_touchpoints")}
+	return &Store{repo: ormpkg.For[touchpointdomain.Touchpoint](db, "conversation_touchpoints"), db: db}
 }
 
 var _ touchpointdomain.Repository = (*Store)(nil)
 
-// Upsert records one touch: insert on first contact, else bump the aggregate (count,
-// last_at, last_actor, last_message_id; a non-empty incoming name refreshes the snapshot).
-// Same-group tool calls run concurrently, so a lookup-miss may still hit the dedup index —
-// ErrConflict re-reads and bumps instead (one retry converges: the row now exists).
+// Upsert records one touch as ONE atomic statement: the dedup index IS the conflict key, so a
+// native INSERT … ON CONFLICT DO UPDATE replaces the old SELECT + INSERT/UPDATE pair and its
+// whole concurrent-collision retry branch (same-group tool calls race here; the database now
+// converges them, not application code). Semantics preserved exactly: first contact seeds
+// count=1/first_at; a bump increments count and refreshes last_at/last_actor, while
+// last_message_id / item_name refresh only when the INCOMING value is non-empty — the borrowed
+// sibling name (below) rides the INSERT half only, via a separate bind of the raw incoming name
+// in the UPDATE half.
 //
-// Upsert 记一次触碰:首触 insert,否则聚合递进(count/last_at/last_actor/last_message_id;
-// 来名非空则刷新快照)。同组工具并发跑,查空后仍可能撞 dedup 索引——ErrConflict 转重读递进
-// (一次重试即收敛:行已存在)。
+// Upsert 单条原子语句记一次触碰:dedup 索引本身就是冲突键,原生 INSERT…ON CONFLICT DO UPDATE 换掉
+// 旧的 SELECT + INSERT/UPDATE 两趟与整个并发撞车重试分支(同组工具在此竞速,收敛交给数据库、不再靠
+// 应用代码)。语义逐字保留:首触 count=1/first_at;递进 count+1、刷 last_at/last_actor,而
+// last_message_id/item_name 只在**来值非空**时刷——借来的兄弟名(下)只随 INSERT 半生效,UPDATE 半
+// 单独绑原始来名。
 func (s *Store) Upsert(ctx context.Context, t *touchpointdomain.Touch, id string) (*touchpointdomain.Touchpoint, error) {
-	existing, err := s.get(ctx, t)
+	wsID, err := reqctxpkg.RequireWorkspaceID(ctx)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("touchpointstore.Upsert: %w", err)
 	}
-	if existing == nil {
-		name := t.ItemName
-		if name == "" {
-			// Borrow the snapshot from a sibling-verb row of the same item: a `deleted` touch is
-			// always this tuple's FIRST row and hydration just missed (the entity is already gone,
-			// namers are live-scoped) — but the conversation that deletes an item almost always
-			// viewed/edited it first, and that row still holds the name.
-			// 从同物的兄弟动词行借快照:`deleted` 触碰必然是该键的**首行**且 hydrate 刚好落空(实体已删,
-			// namer 只查活体)——但删它的对话几乎总先看过/改过它,那行还留着名字。
-			name = s.siblingName(ctx, t)
-		}
-		row := &touchpointdomain.Touchpoint{
-			ID:             id,
-			ConversationID: t.ConversationID,
-			ItemKind:       t.ItemKind,
-			ItemID:         t.ItemID,
-			ItemName:       name,
-			Verb:           t.Verb,
-			LastActor:      t.Actor,
-			Count:          1,
-			FirstAt:        t.At,
-			LastAt:         t.At,
-			LastMessageID:  t.MessageID,
-		}
-		err := s.repo.Create(ctx, row)
-		if err == nil {
-			return row, nil
-		}
-		if !errors.Is(err, ormpkg.ErrConflict) {
-			return nil, fmt.Errorf("touchpointstore.Upsert insert: %w", err)
-		}
-		if existing, err = s.get(ctx, t); err != nil {
-			return nil, err
-		}
-		if existing == nil {
-			return nil, fmt.Errorf("touchpointstore.Upsert: conflict but row absent for %s/%s/%s", t.ConversationID, t.ItemID, t.Verb)
-		}
+	insertName := t.ItemName
+	if insertName == "" {
+		// Borrow the snapshot from a sibling-verb row of the same item: a `deleted` touch is
+		// always this tuple's FIRST row and hydration just missed (the entity is already gone,
+		// namers are live-scoped) — but the conversation that deletes an item almost always
+		// viewed/edited it first, and that row still holds the name.
+		// 从同物的兄弟动词行借快照:`deleted` 触碰必然是该键的**首行**且 hydrate 刚好落空(实体已删,
+		// namer 只查活体)——但删它的对话几乎总先看过/改过它,那行还留着名字。
+		insertName = s.siblingName(ctx, t)
 	}
-	existing.Count++
-	existing.LastAt = t.At
-	existing.LastActor = t.Actor
-	if t.MessageID != "" {
-		existing.LastMessageID = t.MessageID
+	row := touchpointdomain.Touchpoint{}
+	if err := s.db.QueryRow(ctx, `
+		INSERT INTO conversation_touchpoints
+			(id, workspace_id, conversation_id, item_kind, item_id, item_name, verb, last_actor, count, first_at, last_at, last_message_id)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+		ON CONFLICT(workspace_id, conversation_id, item_kind, item_id, verb) DO UPDATE SET
+			count           = count + 1,
+			last_at         = excluded.last_at,
+			last_actor      = excluded.last_actor,
+			last_message_id = CASE WHEN excluded.last_message_id <> '' THEN excluded.last_message_id ELSE last_message_id END,
+			item_name       = CASE WHEN ? <> '' THEN ? ELSE item_name END
+		RETURNING id, conversation_id, item_kind, item_id, item_name, verb, last_actor, count, first_at, last_at, last_message_id`,
+		id, wsID, t.ConversationID, t.ItemKind, t.ItemID, insertName, t.Verb, t.Actor, t.At, t.At, t.MessageID,
+		t.ItemName, t.ItemName,
+	).Scan(
+		&row.ID, &row.ConversationID, &row.ItemKind, &row.ItemID, &row.ItemName,
+		&row.Verb, &row.LastActor, &row.Count, &row.FirstAt, &row.LastAt, &row.LastMessageID,
+	); err != nil {
+		return nil, fmt.Errorf("touchpointstore.Upsert: %w", err)
 	}
-	if t.ItemName != "" {
-		existing.ItemName = t.ItemName
-	}
-	if err := s.repo.Save(ctx, existing); err != nil {
-		return nil, fmt.Errorf("touchpointstore.Upsert save: %w", err)
-	}
-	return existing, nil
+	return &row, nil
 }
 
 // siblingName returns the display-name snapshot from any named row of the same
@@ -140,24 +127,6 @@ func (s *Store) siblingName(ctx context.Context, t *touchpointdomain.Touch) stri
 		return ""
 	}
 	return rows[0].ItemName
-}
-
-// get fetches the aggregate row for a touch's (conversation, item, verb), or nil.
-//
-// get 取该 touch 的 (对话,物,动词) 聚合行,无则 nil。
-func (s *Store) get(ctx context.Context, t *touchpointdomain.Touch) (*touchpointdomain.Touchpoint, error) {
-	rows, err := s.repo.WhereEq("conversation_id", t.ConversationID).
-		WhereEq("item_kind", t.ItemKind).
-		WhereEq("item_id", t.ItemID).
-		WhereEq("verb", t.Verb).
-		Limit(1).Find(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("touchpointstore.get: %w", err)
-	}
-	if len(rows) == 0 {
-		return nil, nil
-	}
-	return rows[0], nil
 }
 
 // ListByConversation pages the conversation's ledger by recency (last_at DESC, id DESC —
