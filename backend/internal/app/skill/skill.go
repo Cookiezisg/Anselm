@@ -28,6 +28,7 @@ type Service struct {
 	subagent  skilldomain.SubagentRunner // fork 端口；nil → fork 降级 ErrSubagentUnavailable
 	emitter   notificationdomain.Emitter // nil → 不发通知（仍持久化）
 	relations RelationSyncer             // nil → 不同步关系（best-effort 派生）
+	fetch     fetchFunc                  // nil → skillfetch.Fetch（测试注假，见 install.go）
 	log       *zap.Logger
 }
 

@@ -20,7 +20,7 @@ audience: [human, ai]
 | **B1 文件即真相** | 后端 infra/app/transport | frontmatter 保真（yaml.Node）· SKILL.md 原文面 · files 子资源 CRUD + 穿越守卫 | **已落地并提交** → [b1-file-truth.md](b1-file-truth.md) |
 | **B2 渐进披露** | 后端 activate/Guide + pathguard | `${CLAUDE_SKILL_DIR}` 文本替换 + 目录前导行（带捆绑文件才加）· skills 子树 pathguard 豁免（symlink 先解）· ~~model/effort 消费~~（subagent ModelResolver 无 override 口，backlog） | **已落地** |
 | **B3 脚本执行** | 后端 tool/sandbox | 新工具 `run_skill_script`（沙箱默认：owner=skill 专属 env、cwd=skill 目录、CLAUDE_SKILL_DIR 导出、requirements.txt 即 deps）· `SpawnOpts.Cwd` 覆写 · .sh 等指向 host bash（危险确认照常）· node deps 记 backlog | **已落地** |
-| **B4 安装通道** | 后端新 install 面 | GitHub tarball 安装器（复用 directInstaller 管线，支持 subdir/整仓扫描）· `.anselm-install.json` provenance · `:install`/`:update` · `source=installed` + allowed-tools 信任门 | 待 B3 |
+| **B4 安装通道** | 后端 install 面 | tarball 安装器（自研 `infra/skillfetch`：codeload/任意 http tarball + 炸弹护栏 + 最深根切分；directInstaller 管线不适配故未复用——它是钉版本运行时专用）· provenance sidecar（source 推导 + sha 基线）· `:inspect-source`/`:install`/`:update`/`:approve-tools`（**同步阻塞**，202 进度记 backlog）· 信任门（未授权预授权集为空；update 改 allowed-tools 重置） | **已落地** |
 | **F1 folder skill 浏览编辑** | 前端 contract + documents | DTO 开放化 · 编辑器按文件类型分派（md 富文本 / 代码 AnCodeEditor / 资产只读）+ 双模切换 · 页顶文件条 + `/documents/skill/:name/file/:path` · 右岛文件组 · rail 来源角标 | 待 B1-B2 |
 | **F2 安装流与入口** | 前端 rail/右岛/chat/composer | 安装对话框（allowed-tools 琥珀前置）· 顶带进度 · 右岛来源组 + 预授权确认区 · composer `/` 斜杠菜单 · install 舞台 | 待 B4 |
 

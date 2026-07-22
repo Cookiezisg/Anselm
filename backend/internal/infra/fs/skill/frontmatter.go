@@ -210,3 +210,12 @@ func renderFrontmatter(fm skilldomain.Frontmatter) string {
 	}
 	return "---\n" + buf.String() + "---\n"
 }
+
+// ParseManifest is the exported thin wrapper for callers outside the store (install preview):
+// typed view + body, node tree withheld.
+//
+// ParseManifest 是给 store 之外调用方（安装预览）的导出薄封装：类型化视图 + 正文，不出节点树。
+func ParseManifest(raw []byte) (skilldomain.Frontmatter, string, error) {
+	fm, body, _, err := parseFrontmatter(raw)
+	return fm, body, err
+}

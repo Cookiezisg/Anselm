@@ -43,12 +43,12 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（326 码，按域）
+## 全量登记（332 码，按域）
 
-> `errorspkg.New` 机械抽取（315，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 326。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（321，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 332。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 >
 > **复核方法**（本汇总数无机械守卫——`make -C docs verify` 只查结构/frontmatter/孤儿链接，`pkg/errors` 的 `standard_test.go` 只钉「一律走 `errorspkg.New`」+「码全局唯一」，**都不数总数**，故这三个数是**手工事实**、会随每次加码悄悄漂旧，改码时请一并重算）：
-> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 315 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 315 = 315 个唯一 code，全部在表；表 326 行 = 315 + 7 + 4，三数对齐；含 WRK-076 B1 的 `SKILL_FILE_*` 3 码 + B3 的 `SKILL_SCRIPT_*` 3 码）。
+> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 321 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 321 = 321 个唯一 code，全部在表；表 332 行 = 321 + 7 + 4，三数对齐；含 WRK-076 B1 `SKILL_FILE_*` 3 码 + B3 `SKILL_SCRIPT_*` 3 码 + B4 `SKILL_INSTALL_*` 4 码与 `SKILL_NOT_INSTALLED`/`SKILL_LOCALLY_MODIFIED`）。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -543,10 +543,16 @@ audience: [human, ai]
 | `SKILL_FILE_PATH_INVALID` | 400 | invalid skill file path |
 | `SKILL_FILE_TOO_LARGE` | 422 | skill file exceeds size limit |
 | `SKILL_FORK_REQUIRES_AGENT` | 422 | context=fork requires an agent type |
+| `SKILL_INSTALL_FETCH_FAILED` | 502 | fetching the skill source failed |
+| `SKILL_INSTALL_NO_SKILLS` | 422 | no installable skills found in the source |
+| `SKILL_INSTALL_SOURCE_INVALID` | 400 | install source must be a github owner/repo[@ref][#subdir] or an http(s) tarball url |
+| `SKILL_INSTALL_TOO_LARGE` | 422 | the skill source exceeds the install size limits |
 | `SKILL_INVALID_FRONTMATTER` | 422 | invalid skill frontmatter |
 | `SKILL_INVALID_NAME` | 400 | invalid skill name (must be a lowercase slug) |
 | `SKILL_NAME_CONFLICT` | 409 | skill name already exists |
+| `SKILL_LOCALLY_MODIFIED` | 409 | local edits would be overwritten; pass force=true to overwrite |
 | `SKILL_NOT_FOUND` | 404 | skill not found |
+| `SKILL_NOT_INSTALLED` | 422 | this skill was not installed from a source (no provenance) |
 | `SKILL_SUBAGENT_UNAVAILABLE` | 503 | fork skill requires a subagent runner (not wired) |
 
 ### `domain/stream`

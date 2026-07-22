@@ -43,7 +43,9 @@ func (h *SkillHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/skills/{name}", h.Get)
 	mux.HandleFunc("PUT /api/v1/skills/{name}", h.Replace)
 	mux.HandleFunc("DELETE /api/v1/skills/{name}", h.Delete)
-	mux.HandleFunc("POST /api/v1/skills/{nameAction}", h.postOnSkill) // {name}:activate
+	mux.HandleFunc("POST /api/v1/skills/{nameAction}", h.postOnSkill) // {name}:activate|:update|:approve-tools
+	mux.HandleFunc("POST /api/v1/skills:inspect-source", h.InspectSource)
+	mux.HandleFunc("POST /api/v1/skills:install", h.Install)
 	mux.HandleFunc("GET /api/v1/skills/{name}/files", h.ListFiles)
 	mux.HandleFunc("GET /api/v1/skills/{name}/files/{path...}", h.ReadFile)
 	mux.HandleFunc("PUT /api/v1/skills/{name}/files/{path...}", h.WriteFile)
@@ -168,9 +170,82 @@ func (h *SkillHandler) postOnSkill(w http.ResponseWriter, r *http.Request) {
 	switch action {
 	case "activate":
 		h.activate(w, r, name)
+	case "update":
+		h.updateInstalled(w, r, name)
+	case "approve-tools":
+		h.approveTools(w, r, name)
 	default:
 		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
 	}
+}
+
+// ── install surface（B4：安装通道——同步阻塞，前端 spinner；进度 202 记 backlog）───────
+
+type inspectSourceRequest struct {
+	Source string `json:"source"`
+}
+
+type installRequest struct {
+	Source string   `json:"source"`
+	Names  []string `json:"names"`
+	Force  bool     `json:"force"`
+}
+
+type updateInstalledRequest struct {
+	Force bool `json:"force"`
+}
+
+func (h *SkillHandler) InspectSource(w http.ResponseWriter, r *http.Request) {
+	var req inspectSourceRequest
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	previews, err := h.svc.InspectSource(r.Context(), req.Source)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, previews)
+}
+
+func (h *SkillHandler) Install(w http.ResponseWriter, r *http.Request) {
+	var req installRequest
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	res, err := h.svc.Install(r.Context(), req.Source, req.Names, req.Force)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, res)
+}
+
+func (h *SkillHandler) updateInstalled(w http.ResponseWriter, r *http.Request, name string) {
+	var req updateInstalledRequest
+	if r.ContentLength != 0 {
+		if err := decodeJSON(r, &req); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+	}
+	sk, err := h.svc.UpdateInstalled(r.Context(), name, req.Force)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, sk)
+}
+
+func (h *SkillHandler) approveTools(w http.ResponseWriter, r *http.Request, name string) {
+	sk, err := h.svc.ApproveTools(r.Context(), name)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, sk)
 }
 
 func (h *SkillHandler) activate(w http.ResponseWriter, r *http.Request, name string) {

@@ -154,6 +154,15 @@ CRUD（`POST` 严格冲突、**新建 name 须符 Agent Skills 规范形态**〔
 
 路径守卫三重：`filepath.IsLocal` 词法早拒（`..`/绝对路径/反斜杠 → 400 `SKILL_FILE_PATH_INVALID`）→ Clean 复核 → 一切 I/O 经 `os.Root` 句柄（symlink 逃逸 / TOCTOU 内核级阻断）。
 
+**安装面（B4，同步阻塞——前端 spinner，202 进度记 backlog）**：
+
+- `POST /skills:inspect-source`：`{source}`（GitHub 简写 `owner/repo[@ref][#subdir]` / github.com URL / 任意 http(s) tarball URL）→ `{data:[{name,description,allowedTools,fileCount,totalBytes,installable,reason?,alreadyExists}]}`——预览不落盘，**allowed-tools 前置亮相**（信任门从挑选步开始）。
+- `POST /skills:install`：`{source, names?, force?}` → `{data:{installed:[], skipped:{name:reason}}}`。names 空 = 全部可装；同名已存在非 force 跳过。落盘 = 清单经校验原文路径 + 附属文件经守卫写 + **provenance sidecar**（`.anselm-install.json`：来源/装机时间/文件 sha256 基线/`toolsApproved=false` 起步）+ equip 边同步；`source=installed` 由 sidecar **推导**（frontmatter 零改写，`git pull` 不冲突）。
+- `POST /skills/{name}:update`：`{force?}`——按 provenance 来源重拉；本地改动（对安装基线 hash 漂移）非 force → 409 `SKILL_LOCALLY_MODIFIED`（details 列漂移文件）；**allowed-tools 变更重置信任门**（未变则授权延续）。
+- `POST /skills/{name}:approve-tools`：打开信任门（`toolsApproved=true`）。非安装来源 → 422 `SKILL_NOT_INSTALLED`。
+
+**信任门语义**：`source=installed` 且未授权时，`:activate` 照常注入正文、active skill 照常记名，但 **allowed-tools 预授权不装**——危险调用照走逐次确认。
+
 ## mcp（`/api/v1/mcp-servers` · `/api/v1/mcp-registry`）
 
 servers（name 即键，workspace 唯一）：`GET /mcp-servers`（实时状态列表）· `PUT /mcp-servers/{name}`（手动装/同名替换：stdio `{command, args, env, runtime?, timeoutSec?}`（runtime 缺省按 command 推断：npx→node、uvx→python…）或 remote `{url, transport?, headers}`；**连接失败仍落盘 `status=failed`+`lastError`**，reconnect 可救）· `GET /mcp-servers/{name}`（状态+tools 缓存）· `DELETE /mcp-servers/{name}`（204）· `POST /mcp-servers/{name}:reconnect`（重置按钮）· `GET /mcp-servers/{name}/stderr`（stdio stderr ring 尾，返 `{name, stderr, size}`）· `POST /mcp-servers/{name}/tools/{tool}:invoke`（`{args}` 直接试调、绕过 chat/LLM，返**裸结果**——与 L17 同步执行铁律一致、不裹 `{result}`）· `POST /mcp-servers:import?overwrite=`（Claude Desktop mcp.json 片段，返 `{imported, skipped}`）。

@@ -30,7 +30,8 @@ type Skill struct {
 	Context     string      `json:"context"`        // inline | fork
 	Body        string      `json:"body,omitempty"` // 仅 Get 填
 	Frontmatter Frontmatter `json:"frontmatter"`
-	UpdatedAt   time.Time   `json:"updatedAt"` // 文件 mtime
+	Provenance  *Provenance `json:"provenance,omitempty"` // 仅 installed（Get 解析 sidecar；List 省略）
+	UpdatedAt   time.Time   `json:"updatedAt"`            // 文件 mtime
 }
 
 // Frontmatter is the TYPED VIEW of a SKILL.md frontmatter: the Agent Skills open-spec core
@@ -69,13 +70,40 @@ const (
 	ContextFork   = "fork"
 )
 
-// Source values.
+// Source values. SourceInstalled is never written into frontmatter — it is DERIVED from the
+// presence of the install-provenance sidecar (.anselm-install.json), so upstream files stay
+// untouched and a `git pull` inside the skill dir never conflicts.
+//
+// Source 取值。SourceInstalled 绝不写进 frontmatter——由安装来源 sidecar（.anselm-install.json）
+// 的存在**推导**，上游文件零改动、skill 目录里 `git pull` 永不冲突。
 const (
-	SourceUser = "user"
-	SourceAI   = "ai"
+	SourceUser      = "user"
+	SourceAI        = "ai"
+	SourceInstalled = "installed"
 )
 
 func IsValidSource(s string) bool { return s == SourceUser || s == SourceAI }
+
+// InstallSidecarName is the provenance file an install drops inside the skill directory.
+//
+// InstallSidecarName 是安装在 skill 目录内落的来源档案文件名。
+const InstallSidecarName = ".anselm-install.json"
+
+// Provenance records where an installed skill came from and whether the user has approved its
+// allowed-tools pre-authorization (the trust gate: a third-party skill's allowed-tools are a
+// REQUESTED grant until the user says yes — activation withholds the pre-approval before that).
+//
+// Provenance 记录已安装 skill 的出处 + 用户是否已授权其 allowed-tools 预授权（信任门：三方
+// skill 的 allowed-tools 在用户点头前只是**请求**——激活在此之前不装预授权）。
+type Provenance struct {
+	Source        string            `json:"source"`           // 规范化来源（owner/repo@ref#subdir 或 URL）
+	Repo          string            `json:"repo,omitempty"`   // github owner/repo（GitHub 源时）
+	Ref           string            `json:"ref,omitempty"`    // 分支/标签/commit
+	Subdir        string            `json:"subdir,omitempty"` // 仓库内子目录
+	InstalledAt   time.Time         `json:"installedAt"`
+	ToolsApproved bool              `json:"toolsApproved"`        // 信任门：allowed-tools 预授权是否放行
+	FileHashes    map[string]string `json:"fileHashes,omitempty"` // path → sha256（update 的本地改动判定基线）
+}
 
 const (
 	MaxBodyBytes        = 32 * 1024   // SKILL.md 物理护栏（非 token 预算）
@@ -107,16 +135,22 @@ func IsSpecName(name string) bool {
 }
 
 var (
-	ErrNotFound            = errorspkg.New(errorspkg.KindNotFound, "SKILL_NOT_FOUND", "skill not found")
-	ErrInvalidName         = errorspkg.New(errorspkg.KindInvalid, "SKILL_INVALID_NAME", "invalid skill name (must be a lowercase slug)")
-	ErrInvalidFrontmatter  = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_INVALID_FRONTMATTER", "invalid skill frontmatter")
-	ErrBodyTooLarge        = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_BODY_TOO_LARGE", "skill body exceeds size limit")
-	ErrNameConflict        = errorspkg.New(errorspkg.KindConflict, "SKILL_NAME_CONFLICT", "skill name already exists")
-	ErrForkRequiresAgent   = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_FORK_REQUIRES_AGENT", "context=fork requires an agent type")
-	ErrSubagentUnavailable = errorspkg.New(errorspkg.KindUnavailable, "SKILL_SUBAGENT_UNAVAILABLE", "fork skill requires a subagent runner (not wired)")
-	ErrFileNotFound        = errorspkg.New(errorspkg.KindNotFound, "SKILL_FILE_NOT_FOUND", "skill file not found")
-	ErrFilePathInvalid     = errorspkg.New(errorspkg.KindInvalid, "SKILL_FILE_PATH_INVALID", "invalid skill file path")
-	ErrFileTooLarge        = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_FILE_TOO_LARGE", "skill file exceeds size limit")
+	ErrNotFound             = errorspkg.New(errorspkg.KindNotFound, "SKILL_NOT_FOUND", "skill not found")
+	ErrInvalidName          = errorspkg.New(errorspkg.KindInvalid, "SKILL_INVALID_NAME", "invalid skill name (must be a lowercase slug)")
+	ErrInvalidFrontmatter   = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_INVALID_FRONTMATTER", "invalid skill frontmatter")
+	ErrBodyTooLarge         = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_BODY_TOO_LARGE", "skill body exceeds size limit")
+	ErrNameConflict         = errorspkg.New(errorspkg.KindConflict, "SKILL_NAME_CONFLICT", "skill name already exists")
+	ErrForkRequiresAgent    = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_FORK_REQUIRES_AGENT", "context=fork requires an agent type")
+	ErrSubagentUnavailable  = errorspkg.New(errorspkg.KindUnavailable, "SKILL_SUBAGENT_UNAVAILABLE", "fork skill requires a subagent runner (not wired)")
+	ErrFileNotFound         = errorspkg.New(errorspkg.KindNotFound, "SKILL_FILE_NOT_FOUND", "skill file not found")
+	ErrFilePathInvalid      = errorspkg.New(errorspkg.KindInvalid, "SKILL_FILE_PATH_INVALID", "invalid skill file path")
+	ErrFileTooLarge         = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_FILE_TOO_LARGE", "skill file exceeds size limit")
+	ErrInstallSourceInvalid = errorspkg.New(errorspkg.KindInvalid, "SKILL_INSTALL_SOURCE_INVALID", "install source must be a github owner/repo[@ref][#subdir] or an http(s) tarball url")
+	ErrInstallFetchFailed   = errorspkg.New(errorspkg.KindBadGateway, "SKILL_INSTALL_FETCH_FAILED", "fetching the skill source failed")
+	ErrInstallNoSkills      = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_INSTALL_NO_SKILLS", "no installable skills found in the source")
+	ErrInstallTooLarge      = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_INSTALL_TOO_LARGE", "the skill source exceeds the install size limits")
+	ErrNotInstalled         = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_NOT_INSTALLED", "this skill was not installed from a source (no provenance)")
+	ErrLocallyModified      = errorspkg.New(errorspkg.KindConflict, "SKILL_LOCALLY_MODIFIED", "local edits would be overwritten; pass force=true to overwrite")
 )
 
 // ListFilter narrows List queries; zero value = all skills.
@@ -153,7 +187,9 @@ type Repository interface {
 	SaveRaw(ctx context.Context, name string, raw []byte) error
 	Delete(ctx context.Context, name string) error
 	Exists(ctx context.Context, name string) (bool, error)
-	Dir(ctx context.Context, name string) (string, error) // skill 目录绝对路径（${CLAUDE_SKILL_DIR} 取值）
+	Dir(ctx context.Context, name string) (string, error)                 // skill 目录绝对路径（${CLAUDE_SKILL_DIR} 取值）
+	ReadProvenance(ctx context.Context, name string) (*Provenance, error) // 非安装来源 → (nil, nil)
+	WriteProvenance(ctx context.Context, name string, p *Provenance) error
 	ListFiles(ctx context.Context, name string) ([]FileInfo, error)
 	ReadFile(ctx context.Context, name, rel string) ([]byte, error)
 	WriteFile(ctx context.Context, name, rel string, data []byte) error

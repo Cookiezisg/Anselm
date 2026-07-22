@@ -30,12 +30,22 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 	})
 
 	// Pre-authorize this skill's allowed-tools for the rest of the run (consumed by the danger
-	// confirmation flow). allowed-tools = pre-approval, NOT a restriction whitelist.
+	// confirmation flow). allowed-tools = pre-approval, NOT a restriction whitelist. TRUST GATE
+	// (WRK-076 B4): an INSTALLED skill's allowed-tools are a REQUESTED grant until the user
+	// approves them — before that the body still injects, but the pre-approval is withheld and
+	// dangerous calls keep walking the per-call confirmation.
 	//
 	// 把本 skill 的 allowed-tools 预授权到本次运行剩余部分（由危险确认流消费）。
-	// allowed-tools = 预授权，不是限制白名单。
+	// allowed-tools = 预授权，不是限制白名单。**信任门**（WRK-076 B4）：**安装来源**的 skill，
+	// allowed-tools 在用户授权前只是请求——正文照常注入，但预授权不装、危险调用照走逐次确认。
 	if state, ok := reqctxpkg.GetAgentState(ctx); ok {
-		state.SetActiveSkill(sk.Name, sk.Frontmatter.AllowedTools)
+		allowed := sk.Frontmatter.AllowedTools
+		if sk.Source == skilldomain.SourceInstalled {
+			if prov, pErr := s.repo.ReadProvenance(ctx, name); pErr != nil || prov == nil || !prov.ToolsApproved {
+				allowed = nil // 门关着：active skill 仍记名，预授权集为空
+			}
+		}
+		state.SetActiveSkill(sk.Name, allowed)
 	}
 
 	if sk.Context == skilldomain.ContextFork {

@@ -14,6 +14,7 @@ package skill
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/fs"
 	"os"
@@ -142,6 +143,13 @@ func (s *Store) Get(ctx context.Context, name string) (*skilldomain.Skill, error
 	if rerr != nil {
 		return nil, rerr // 已是 domain 错误（ErrInvalidFrontmatter/ErrBodyTooLarge）或原始 os 错误
 	}
+	// Get（单读）附带完整 provenance；List 只有 sidecar 存在性投影的 source（保持轻量）。
+	// Get（单读）附完整 provenance；List 只有 sidecar 存在性投影出的 source（保持轻量）。
+	if sk.Source == skilldomain.SourceInstalled {
+		if prov, pErr := s.ReadProvenance(ctx, name); pErr == nil {
+			sk.Provenance = prov
+		}
+	}
 	return sk, nil
 }
 
@@ -173,6 +181,12 @@ func (s *Store) readSkill(path, dirName string, withBody bool) (*skilldomain.Ski
 		Source:      fm.Source,
 		Context:     fm.Context,
 		Frontmatter: fm,
+	}
+	// source=installed is DERIVED from the provenance sidecar — never written into the
+	// frontmatter, so upstream files stay pristine (WRK-076 B4).
+	// source=installed 由来源 sidecar 推导——绝不写进 frontmatter，上游文件保持原样（WRK-076 B4）。
+	if _, sErr := os.Stat(filepath.Join(filepath.Dir(path), skilldomain.InstallSidecarName)); sErr == nil {
+		sk.Source = skilldomain.SourceInstalled
 	}
 	if withBody {
 		sk.Body = strings.TrimSpace(body)
@@ -570,6 +584,56 @@ func (s *Store) DeleteFile(ctx context.Context, name, rel string) error {
 			return skilldomain.ErrFileNotFound
 		}
 		return fmt.Errorf("skillfs.DeleteFile: %w", rmErr)
+	}
+	return nil
+}
+
+// ── install provenance sidecar（B4：出处档案，目录即真相的簿记文件）────────────────────
+
+// ReadProvenance returns the install sidecar, or (nil, nil) when the skill was not installed
+// from a source. Malformed sidecars fail loud (the trust gate must not silently open).
+//
+// ReadProvenance 返回安装 sidecar；非安装来源 → (nil, nil)。坏 sidecar 大声失败（信任门
+// 不得静默洞开）。
+func (s *Store) ReadProvenance(ctx context.Context, name string) (*skilldomain.Provenance, error) {
+	dir, err := s.skillDir(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	raw, rErr := os.ReadFile(filepath.Join(dir, skilldomain.InstallSidecarName))
+	if os.IsNotExist(rErr) {
+		return nil, nil
+	}
+	if rErr != nil {
+		return nil, fmt.Errorf("skillfs.ReadProvenance: %w", rErr)
+	}
+	var p skilldomain.Provenance
+	if jErr := json.Unmarshal(raw, &p); jErr != nil {
+		return nil, fmt.Errorf("skillfs.ReadProvenance: %w", jErr)
+	}
+	return &p, nil
+}
+
+// WriteProvenance atomically writes the install sidecar (.tmp + rename).
+//
+// WriteProvenance 原子写安装 sidecar（.tmp + rename）。
+func (s *Store) WriteProvenance(ctx context.Context, name string, p *skilldomain.Provenance) error {
+	dir, err := s.skillDir(ctx, name)
+	if err != nil {
+		return err
+	}
+	raw, jErr := json.MarshalIndent(p, "", "  ")
+	if jErr != nil {
+		return fmt.Errorf("skillfs.WriteProvenance: %w", jErr)
+	}
+	target := filepath.Join(dir, skilldomain.InstallSidecarName)
+	tmp := target + ".tmp"
+	if wErr := os.WriteFile(tmp, append(raw, '\n'), 0o644); wErr != nil {
+		return fmt.Errorf("skillfs.WriteProvenance: %w", wErr)
+	}
+	if rErr := os.Rename(tmp, target); rErr != nil {
+		_ = os.Remove(tmp)
+		return fmt.Errorf("skillfs.WriteProvenance: %w", rErr)
 	}
 	return nil
 }
