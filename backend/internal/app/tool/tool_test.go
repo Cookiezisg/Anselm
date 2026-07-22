@@ -200,3 +200,49 @@ func TestToolset_OverviewAndFindLazy(t *testing.T) {
 		t.Errorf("FindLazy(nope) must be nil")
 	}
 }
+
+// TestToolsetCatalog: Catalog() projects resident+lazy to name+summary descriptors, sorted by
+// name for a stable picker (registration order deliberately discarded).
+//
+// TestToolsetCatalog：Catalog() 把 resident+lazy 投影成 name+summary 目录、按名排序(刻意丢注册序)。
+func TestToolsetCatalog(t *testing.T) {
+	ts := Toolset{
+		Resident: []Tool{fakeTool{name: "Read"}, fakeTool{name: "Bash"}},
+		Lazy:     []Tool{fakeTool{name: "run_function"}, fakeTool{name: "edit_agent"}},
+	}
+	cat := ts.Catalog()
+	if len(cat) != 4 {
+		t.Fatalf("want 4 descriptors, got %d", len(cat))
+	}
+	wantOrder := []string{"Bash", "Read", "edit_agent", "run_function"}
+	for i, w := range wantOrder {
+		if cat[i].Name != w {
+			t.Errorf("descriptor[%d].Name = %q, want %q (sorted)", i, cat[i].Name, w)
+		}
+		if cat[i].Summary != "desc of "+w {
+			t.Errorf("descriptor[%d].Summary = %q, want %q", i, cat[i].Summary, "desc of "+w)
+		}
+	}
+}
+
+// TestFirstLineCapped: keep the first line, trim, rune-cap with an ellipsis; leave short single
+// lines verbatim. 保留首行、trim、按符截断加省略号；短单行原样。
+func TestFirstLineCapped(t *testing.T) {
+	cases := []struct {
+		name string
+		in   string
+		n    int
+		want string
+	}{
+		{"verbatim", "Read a file.", 200, "Read a file."},
+		{"first-line-only", "Run a command.\nMore usage docs here.", 200, "Run a command."},
+		{"trimmed", "  spaced out  ", 200, "spaced out"},
+		{"rune-capped", "abcdefghij", 4, "abcd…"},
+		{"cap-trims-trailing-space", "abc defgh", 4, "abc…"},
+	}
+	for _, c := range cases {
+		if got := firstLineCapped(c.in, c.n); got != c.want {
+			t.Errorf("%s: firstLineCapped(%q, %d) = %q, want %q", c.name, c.in, c.n, got, c.want)
+		}
+	}
+}

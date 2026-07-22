@@ -1,6 +1,10 @@
 package tool
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"sort"
+	"strings"
+)
 
 // Toolset partitions system tools into always-present resident tools and lazy
 // tools surfaced on demand. Resident tools' full definitions are in every LLM
@@ -106,4 +110,48 @@ func (ts Toolset) All() []Tool {
 	out = append(out, ts.Resident...)
 	out = append(out, ts.Lazy...)
 	return out
+}
+
+// Descriptor is one authorizable tool's catalog entry: its call [Name] plus a short one-line
+// [Summary] for a picker. danger / execution_group are per-call LLM self-declarations (§S18),
+// NOT static tool properties, so they are intentionally absent — the catalog answers "which
+// tools exist to pre-authorize (a skill's allowed-tools)", not "how risky each is".
+//
+// Descriptor 是一个可授权工具的目录条目：调用名 [Name] + 一行简述 [Summary](供选择器)。
+// danger / execution_group 是 LLM 逐次自报(S18)、非静态工具属性，故刻意不含——目录回答
+// 「有哪些工具可预授权(skill 的 allowed-tools)」，非「各自多危险」。
+type Descriptor struct {
+	Name    string `json:"name"`
+	Summary string `json:"summary"`
+}
+
+// Catalog projects the whole toolset (resident + lazy) into authorizable-tool descriptors, sorted
+// by name for a stable picker — the full builtin inventory a skill's allowed-tools can pre-authorize
+// (entity ids and MCP tools are picked from their own live sources, not this static set).
+//
+// Catalog 把整个工具集(resident + lazy)投影成可授权工具目录、按名排序(选择器稳定)——skill 的
+// allowed-tools 可预授权的内置全集(实体 id 与 MCP 工具从各自的活来源挑，不在这份静态集里)。
+func (ts Toolset) Catalog() []Descriptor {
+	all := ts.All()
+	out := make([]Descriptor, 0, len(all))
+	for _, t := range all {
+		out = append(out, Descriptor{Name: t.Name(), Summary: firstLineCapped(t.Description(), 200)})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
+	return out
+}
+
+// firstLineCapped takes a tool Description's first line, trimmed and rune-capped to n (with an
+// ellipsis) — a lazy tool's Description "may be large" (kept out of context on purpose), and a
+// human picking a tool needs a hint, not the full usage doc. 取 Description 首行、截断 n 符：
+// lazy 工具描述可能很大(刻意不进 context)，选工具的人要提示、非完整用法文档。
+func firstLineCapped(s string, n int) string {
+	if i := strings.IndexByte(s, '\n'); i >= 0 {
+		s = s[:i]
+	}
+	s = strings.TrimSpace(s)
+	if r := []rune(s); len(r) > n {
+		return strings.TrimSpace(string(r[:n])) + "…"
+	}
+	return s
 }

@@ -202,6 +202,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, cfg Config, lo
 		handlershttpapi.NewScenariosHandler(),
 		handlershttpapi.NewRelationHandler(s.relation, log),
 		handlershttpapi.NewCatalogHandler(s.catalog, log),
+		handlershttpapi.NewToolsHandler(s.toolCatalog, log),
 		handlershttpapi.NewNotificationHandler(s.notification, log),
 		handlershttpapi.NewStreamHandler(bus.messages, bus.entities, bus.notifications, log),
 		handlershttpapi.NewMemoryHandler(s.memory, log),

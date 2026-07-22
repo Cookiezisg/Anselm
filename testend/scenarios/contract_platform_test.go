@@ -957,3 +957,55 @@ func TestContractPlatform_WebSearchBackendAndWebFetchMode(t *testing.T) {
 	wc.Do("PATCH", "/api/v1/workspaces/"+wsID, map[string]any{"webFetchMode": "telepathy"}).
 		Fail(t, 400, "WORKSPACE_WEB_FETCH_MODE_INVALID")
 }
+
+// TestContractTools_BuiltinCatalog: GET /tools 是可授权内置工具目录——每项 {name, summary}、按 name
+// 排序、含已知内置工具、不含 danger/execution_group(LLM 逐次自报非静态);N4 豁免①(有界系统固定集,
+// 分页参数忽略、无 nextCursor)。skill allowed-tools 选择器的内置候选源。
+//
+// TestContractTools_BuiltinCatalog: GET /tools is the authorizable builtin-tool catalog —
+// each {name, summary}, sorted by name, known builtins present, no static danger field; N4
+// exemption① (bounded fixed set: pagination params ignored, no nextCursor).
+func TestContractTools_BuiltinCatalog(t *testing.T) {
+	srv := harness.Start(t)
+	_, c := platformC_ws(t, srv.Client(t), "tools-catalog-ws")
+
+	var tools []struct {
+		Name    string `json:"name"`
+		Summary string `json:"summary"`
+	}
+	c.GET("/api/v1/tools").OK(t, &tools)
+	if len(tools) < 10 {
+		t.Fatalf("builtin tool catalog should be non-trivial, got %d", len(tools))
+	}
+	byName := map[string]bool{}
+	for i, d := range tools {
+		if d.Name == "" || d.Summary == "" {
+			t.Fatalf("descriptor[%d] must carry name+summary, got %+v", i, d)
+		}
+		if i > 0 && tools[i-1].Name > d.Name {
+			t.Fatalf("catalog must be sorted by name: %q before %q", tools[i-1].Name, d.Name)
+		}
+		byName[d.Name] = true
+	}
+	for _, must := range []string{"Read", "Bash", "activate_skill"} {
+		if !byName[must] {
+			t.Fatalf("known builtin %q missing from tool catalog", must)
+		}
+	}
+	// danger / execution_group are LLM per-call self-declarations (S18) — never static catalog fields.
+	if strings.Contains(string(c.GET("/api/v1/tools").Data), `"danger"`) ||
+		strings.Contains(string(c.GET("/api/v1/tools").Data), `"execution_group"`) {
+		t.Fatalf("tool catalog must not expose static danger/execution_group fields")
+	}
+
+	// N4 exemption①: bounded system-fixed set — pagination params ignored, full set, no nextCursor.
+	r := c.GET("/api/v1/tools?limit=1&cursor=bogus")
+	r.OK(t, nil)
+	var limited []struct {
+		Name string `json:"name"`
+	}
+	_ = json.Unmarshal(r.Data, &limited)
+	if len(limited) != len(tools) || r.NextCursor != "" {
+		t.Fatalf("bounded-set exemption: /tools returns full set ignoring pagination, got %d rows (want %d) cursor=%q", len(limited), len(tools), r.NextCursor)
+	}
+}

@@ -119,6 +119,10 @@ type services struct {
 	search        *searchapp.Service
 	shellMgr      *shelltool.ProcessManager // owns run_in_background children; Stop() reaps them on shutdown (R1)
 
+	// toolCatalog is the authorizable-tool descriptors (name + one-line summary) served read-only by
+	// GET /api/v1/tools — the allowed-tools picker's BUILTIN candidates (entity ids + MCP tools come
+	// from their own live endpoints). 可授权工具目录(名+一行简述),GET /tools;选择器内置候选。
+	toolCatalog []toolapp.Descriptor
 	// toolNames is the final toolset's name inventory, retained for the touchpoint catalog's
 	// exhaustiveness gate test (every tool must declare its ledger stance).
 	// toolNames 是定型工具集的名字清单,留给 touchpoint 目录穷尽性门禁测试(每个工具必须表态)。
@@ -312,6 +316,9 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	for _, t := range holder.tools {
 		toolNames = append(toolNames, t.Name())
 	}
+	// The authorizable-tool catalog snapshot (name + one-line summary), fixed at boot like the
+	// toolset itself. 可授权工具目录快照,随工具集在启动时定型。
+	toolCatalog := toolset.Catalog()
 
 	// --- context compaction + chat (the dialogue surface) ---
 	ctxmgr := contextmgrapp.NewService(contextmgrapp.Deps{
@@ -534,7 +541,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	s := &services{
 		workspace: ws, apikey: keys, modelCaps: modelCaps, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
-		touchpoint: tp, toolNames: toolNames,
+		touchpoint: tp, toolNames: toolNames, toolCatalog: toolCatalog,
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
