@@ -13,6 +13,8 @@ help:
 	@echo "  make verify   verify backend + frontend + docs + web demo"
 	@echo "  make clean    remove every recreatable workspace artifact"
 	@echo "  make doctor   report the host prerequisites for desktop development"
+	@echo "  make worktree NAME=<x>     new isolated worktree ../Anselm-<x> (one per concurrent session)"
+	@echo "  make worktree-rm NAME=<x>  remove that worktree (must be clean)"
 	@echo ""
 	@echo "  Local commands: make -C backend help | make -C frontend help | make -C docs help"
 
@@ -84,4 +86,28 @@ doctor: toolchain
 	@$(MISE) exec -- flutter doctor
 	@echo "✓ doctor completed (fix every red item before running a native desktop target)"
 
-.PHONY: help toolchain setup verify clean doctor
+# worktree — one PHYSICAL checkout per concurrent session (git-native). Two sessions sharing one
+# tree trample each other: interleaved edits to the same working files, gates racing gates for the
+# same build dirs, and R22/R25-class containment accidents. A worktree has its own index + build
+# caches; the shared object store stays deduplicated. First frontend command in a fresh tree pays
+# one cold compile — that is the whole cost. NAME maps to ../Anselm-<NAME> + branch wt/<NAME>
+# (reused if it exists). worktree-rm refuses a dirty tree (git's own guard) — commit or stash first.
+# worktree——每个并发会话一个物理检出(git 原生)。同树双会话互踩:同名工作文件交错编辑、门禁抢同一
+# build 目录、R22/R25 级收容事故。worktree 自带 index+构建缓存,对象库共享去重;新树首个前端命令付
+# 一次冷编译即全部代价。NAME → ../Anselm-<NAME> + 分支 wt/<NAME>(已存在则复用);worktree-rm 拒删
+# 脏树(git 自带守卫)——先提交或 stash。
+worktree:
+	@test -n "$(NAME)" || { echo "usage: make worktree NAME=<session-name>"; exit 1; }
+	@if git show-ref --verify --quiet "refs/heads/wt/$(NAME)"; then \
+		git worktree add "../Anselm-$(NAME)" "wt/$(NAME)"; \
+	else \
+		git worktree add -b "wt/$(NAME)" "../Anselm-$(NAME)"; \
+	fi
+	@echo "✓ worktree ready: ../Anselm-$(NAME) (branch wt/$(NAME)) — run your session there"
+
+worktree-rm:
+	@test -n "$(NAME)" || { echo "usage: make worktree-rm NAME=<session-name>"; exit 1; }
+	@git worktree remove "../Anselm-$(NAME)"
+	@echo "✓ removed ../Anselm-$(NAME) (branch wt/$(NAME) kept — delete it yourself when merged)"
+
+.PHONY: help toolchain setup verify clean doctor worktree worktree-rm
