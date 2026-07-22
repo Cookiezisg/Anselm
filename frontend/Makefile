@@ -26,6 +26,7 @@ help:
 	@echo "         make gen      codegen（dart run slang → i18n strings.g.dart）"
 	@echo "         make analyze  flutter analyze（须净）"
 	@echo "         make test     flutter test"
+	@echo "         make quick    内环门禁（analyze + 只跑 diff 涉及的测试;QUICK_BASE 定基线）"
 	@echo "         make verify   pre-push 门禁（gen + analyze + test）"
 	@echo "         make doctor   检查 Flutter / 原生桌面前置条件"
 	@echo "  截图:  make shots    无头渲染 shell + 画廊全类 → test/dev/out/*.png"
@@ -71,6 +72,13 @@ analyze: deps
 # test — 单测。
 test: deps
 	@$(RUN) flutter test
+
+# quick — 内环门禁:format 检查 + analyze + 只跑 diff 涉及的测试(guards 恒跑;gallery 矩阵仅在
+# 动了 core/ui、core/design 或 lib/dev/gallery 时陪跑)。**不是 verify 的替代**——pre-push 仍跑
+# 全量 verify;这是编辑间的秒级回答「我改坏了自己正在做的东西吗」。QUICK_BASE 覆盖 diff 基线(默认 HEAD)。
+quick: deps
+	@chmod +x test/dev/quick_tests.sh
+	@MISE="$(MISE)" bash test/dev/quick_tests.sh
 
 # verify — pre-push 门禁:codegen + 分析净 + 单测绿。
 verify: deps
