@@ -18,6 +18,7 @@ abstract class Skill with _$Skill {
     @Default('') String body, // only from GET /skills/{name}
     @Default(Frontmatter()) Frontmatter frontmatter,
     Provenance? provenance, // only installed + single-Get（List 省略）
+    @Default('') String dir, // 目录绝对路径,仅 single-Get——系统打开/Finder 显示用
     required DateTime updatedAt, // file mtime
   }) = _Skill;
   factory Skill.fromJson(Map<String, dynamic> json) => _$SkillFromJson(json);

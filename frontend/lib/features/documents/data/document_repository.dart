@@ -88,6 +88,10 @@ abstract interface class DocumentsRepository {
   /// Open the trust gate for an installed skill's allowed-tools. 打开信任门。
   Future<Skill> approveSkillTools(String name);
 
+  /// The skill's equip edges — entities its allowed-tools bind (fn_/hd_ ids), with display
+  /// names hydrated. The file tree's «绑定» section. skill 的 equip 出边(绑定实体,带显示名)。
+  Future<List<EntityRelation>> listSkillBindings(String name);
+
   /// Create (strict conflict → 409 SKILL_NAME_CONFLICT; source forced to user). body = the create payload
   /// `{name, description, body, allowedTools, context, agent, arguments, …}`. 建(严格冲突)。
   Future<Skill> createSkill(Map<String, dynamic> body);
@@ -239,6 +243,19 @@ class LiveDocumentsRepository implements DocumentsRepository {
   @override
   Future<Skill> approveSkillTools(String name) =>
       _api.postEntity('$_skills/$name:approve-tools', Skill.fromJson);
+
+  @override
+  Future<List<EntityRelation>> listSkillBindings(String name) async =>
+      (await _api.getPage(
+        '/api/v1/relations',
+        EntityRelation.fromJson,
+        query: {
+          'fromKind': 'skill',
+          'fromId': name,
+          'kind': 'equip',
+          'limit': 100,
+        },
+      )).items;
 
   @override
   Future<List<EntityRelation>> listBacklinks(

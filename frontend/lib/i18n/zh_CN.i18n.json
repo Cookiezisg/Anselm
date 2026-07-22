@@ -1542,7 +1542,21 @@
     "skillInstallDone": "安装完成",
     "skillInstallNone": "来源里没有可安装的 skill",
     "skillInstallPreauthNote": "安装后这些工具将请求免确认预授权——需你显式授权才生效",
-    "skillInstalledBadge": "已装"
+    "skillInstalledBadge": "已装",
+    "skillPreviewMode": "预览",
+    "skillOpenSystem": "系统打开",
+    "skillRevealSystem": "Finder 显示",
+    "skillCsvCapped": "仅显示前 $n 行——完整内容切源码或系统打开",
+    "skillFontSample": "天地玄黄 宇宙洪荒 中文样张",
+    "skillFontNote": "字体样张预览——编辑请用系统应用",
+    "skillNewFile": "新建文件",
+    "skillNewFileHint": "相对路径,如 references/notes.md",
+    "skillDeleteFileTitle": "删除文件",
+    "skillDeleteFileBody": "删除 $path?此操作不可撤销。",
+    "skillBindings": "绑定",
+    "skillManifestSource": "清单源码编辑",
+    "glanceFiles": "$n 文件",
+    "glanceBindings": "$n 绑定"
   },
   "settings": {
     "title": "设置",

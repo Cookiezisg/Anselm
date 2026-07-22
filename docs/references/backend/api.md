@@ -145,7 +145,7 @@ flowrun **节点行** DTO 带排队戳两字段（scheduler 工单⑫，camelCas
 
 ## skill（`/api/v1/skills`，name 即 id，目录即真相）
 
-CRUD（`POST` 严格冲突、**新建 name 须符 Agent Skills 规范形态**〔小写字母数字 + 单连字符，允数字开头〕→ 否则 400 `SKILL_INVALID_NAME` / `PUT {name}` 结构化覆盖〔底层保真读-改-写：typed 视图之外的 frontmatter 键与键序不丢；守卫正则从宽，存量下划线名照常可编〕/ `DELETE {name}` 删整目录含捆绑文件）+ `POST /skills/{name}:activate`（inline 渲染注入 / fork 派 subagent）+ **files 子资源（文件即真相面，`{path...}` 尾随通配路由）**：
+CRUD（`GET {name}` 附 `provenance`〔installed〕与 `dir`〔目录绝对路径，List 皆省〕；`POST` 严格冲突、**新建 name 须符 Agent Skills 规范形态**〔小写字母数字 + 单连字符，允数字开头〕→ 否则 400 `SKILL_INVALID_NAME` / `PUT {name}` 结构化覆盖〔底层保真读-改-写：typed 视图之外的 frontmatter 键与键序不丢；守卫正则从宽，存量下划线名照常可编〕/ `DELETE {name}` 删整目录含捆绑文件）+ `POST /skills/{name}:activate`（inline 渲染注入 / fork 派 subagent）+ **files 子资源（文件即真相面，`{path...}` 尾随通配路由）**：
 
 - `GET /skills/{name}/files`：全文件元数据列表 `[{path,size,updatedAt}]`（**含 SKILL.md**，slash 相对路径、按路径升序；有界不分页，N4 豁免①）。
 - `GET /skills/{name}/files/{path...}`：单文件**裸字节**（Content-Type 按扩展名推断〔内置 md/py/sh 等补充表〕，缺省 octet-stream；读护栏统一 1MB——超限清单也可读，用户才能修坏件）。

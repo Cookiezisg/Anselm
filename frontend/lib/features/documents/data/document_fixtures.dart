@@ -354,6 +354,25 @@ class FixtureDocumentsRepository implements DocumentsRepository {
       getSkill(name);
 
   @override
+  Future<List<EntityRelation>> listSkillBindings(String name) async {
+    final s = await getSkill(name);
+    return [
+      for (final ref in s.frontmatter.allowedTools)
+        if (ref.startsWith('fn_') || ref.startsWith('hd_'))
+          EntityRelation(
+            id: 'rel_${name}_$ref',
+            kind: 'equip',
+            fromKind: 'skill',
+            fromId: name,
+            fromName: name,
+            toKind: ref.startsWith('fn_') ? 'function' : 'handler',
+            toId: ref,
+            toName: ref.startsWith('fn_') ? 'demo-function' : 'demo-handler',
+          ),
+    ];
+  }
+
+  @override
   Future<Skill> approveSkillTools(String name) async {
     final i = _skills.indexWhere((s) => s.name == name);
     final cur = _skills[i];

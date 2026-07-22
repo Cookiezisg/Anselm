@@ -1542,7 +1542,21 @@
     "skillInstallDone": "Install finished",
     "skillInstallNone": "No installable skills in this source",
     "skillInstallPreauthNote": "These tools will request confirmation-free pre-approval — inactive until you explicitly approve",
-    "skillInstalledBadge": "installed"
+    "skillInstalledBadge": "installed",
+    "skillPreviewMode": "Preview",
+    "skillOpenSystem": "Open with system",
+    "skillRevealSystem": "Reveal in Finder",
+    "skillCsvCapped": "Showing the first $n rows — switch to source or open with the system for the rest",
+    "skillFontSample": "The quick brown fox jumps over the lazy dog",
+    "skillFontNote": "Font specimen preview — edit with a system app",
+    "skillNewFile": "New file",
+    "skillNewFileHint": "Relative path, e.g. references/notes.md",
+    "skillDeleteFileTitle": "Delete file",
+    "skillDeleteFileBody": "Delete $path? This cannot be undone.",
+    "skillBindings": "Bindings",
+    "skillManifestSource": "Edit manifest source",
+    "glanceFiles": "$n files",
+    "glanceBindings": "$n bindings"
   },
   "settings": {
     "title": "Settings",

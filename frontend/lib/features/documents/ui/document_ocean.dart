@@ -3,8 +3,6 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import 'dart:convert' show utf8;
-
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/design/tokens.dart';
@@ -13,20 +11,18 @@ import '../../../core/model/status_state.dart';
 import '../../../core/notice/notice_center.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/shell_chrome.dart';
-import '../../../core/ui/an_chip.dart';
-import '../../../core/ui/an_code_editor.dart';
 import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/entity_ref_codec.dart';
-import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/document_repository.dart';
 import '../model/doc_outline.dart';
 import '../state/document_state.dart';
 import 'an_document_editor.dart';
+import 'skill_file_preview.dart';
 
 /// Resolves the display names for the `[[id]]` mentions in a document's markdown [content] — batched once
 /// so the native editor can inflate its mention pills with names (not bare ids) at load. Keyed by the
@@ -542,9 +538,6 @@ class _SkillEditView extends ConsumerStatefulWidget {
 
 class _SkillEditViewState extends ConsumerState<_SkillEditView>
     with _DocPageChrome {
-  /// Manifest dual-mode: rich text (default) vs raw SKILL.md source (WRK-076 F1 拍板 4)。
-  bool _sourceMode = false;
-
   final _save = Debouncer(AnMotion.autosave);
   final _outline = Debouncer(
     AnMotion.searchDebounce,
@@ -629,40 +622,34 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView>
   Widget build(BuildContext context) {
     final t = context.t;
     listenOutlineJumps();
-    // File dispatch (WRK-076 F1): the strip picks which bundled file the center edits — the
-    // manifest gets the dual-mode editor (rich default / raw source), text siblings get the
-    // code editor, binaries a read-only note. 文件分派:清单双模,文本附属源码编辑,二进制只读。
+    // File dispatch (WRK-076 F3): the inspector's file TREE is the navigator (the old file
+    // strip is retired); the center renders whatever file is selected — manifest rich/raw by
+    // the shared mode provider, siblings through the preview family (md rich text / code /
+    // image / svg / csv / font / info+system-open). 文件分派:右岛树是导航器(文件条退役);
+    // 清单双模走共享 provider,附属走预览族。
     final file = ref.watch(selectedSkillFileProvider);
+    final sourceMode = ref.watch(skillManifestSourceModeProvider);
+    final skillDir = ref.watch(openSkillProvider(widget.name)).value?.dir ?? '';
     final isBundled = file != null && file != kSkillManifestFileName;
-    final Widget center;
     if (isBundled) {
-      center = _SkillFileView(
+      return SkillFilePreview(
         key: ValueKey('skillfile:$file'),
         name: widget.name,
         path: file,
+        skillDir: skillDir,
       );
-    } else if (_sourceMode) {
-      center = _SkillFileView(
+    }
+    if (sourceMode) {
+      return SkillFilePreview(
         key: const ValueKey('skillfile:manifest-source'),
         name: widget.name,
         path: kSkillManifestFileName,
+        skillDir: skillDir,
+        rawMode: true,
         onManifestSaved: () => ref.invalidate(openSkillProvider(widget.name)),
       );
-    } else {
-      center = _richManifestView(context, t);
     }
-    return Column(
-      children: [
-        _SkillFileStrip(
-          name: widget.name,
-          current: isBundled ? file : kSkillManifestFileName,
-          sourceMode: _sourceMode,
-          showModeToggle: !isBundled,
-          onToggleMode: () => setState(() => _sourceMode = !_sourceMode),
-        ),
-        Expanded(child: center),
-      ],
-    );
+    return _richManifestView(context, t);
   }
 
   Widget _richManifestView(BuildContext context, Translations t) {
@@ -712,203 +699,6 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView>
   }
 }
 
-// ── skill folder surface（WRK-076 F1:文件条 + 文本文件编辑 + 二进制只读）──────────
-
-/// Text extensions the code editor opens; anything else renders the binary note. Mirrors the
-/// backend's skill-file mime table. 代码编辑器可开的文本扩展名;其余渲二进制注记。
-const _skillTextExts = {
-  '.md',
-  '.markdown',
-  '.txt',
-  '.py',
-  '.sh',
-  '.js',
-  '.mjs',
-  '.cjs',
-  '.ts',
-  '.json',
-  '.yaml',
-  '.yml',
-  '.toml',
-  '.csv',
-};
-
-String _skillFileExt(String path) {
-  final i = path.lastIndexOf('.');
-  return i < 0 ? '' : path.substring(i).toLowerCase();
-}
-
-String? _skillFileLang(String path) => switch (_skillFileExt(path)) {
-  '.py' => 'python',
-  '.js' || '.mjs' || '.cjs' => 'javascript',
-  '.ts' => 'typescript',
-  '.json' => 'json',
-  '.yaml' || '.yml' => 'yaml',
-  '.toml' => 'toml',
-  '.sh' => 'bash',
-  '.md' || '.markdown' => 'markdown',
-  _ => null,
-};
-
-/// The file strip atop a skill page — every bundled file as a chip (manifest first), plus the
-/// rich/source mode toggle when the manifest is showing. Navigation-only (`?file=` query), so
-/// deep links / refresh survive. skill 页顶文件条:捆绑文件 chips(清单居首)+清单视图的双模切换钮。
-class _SkillFileStrip extends ConsumerWidget {
-  const _SkillFileStrip({
-    required this.name,
-    required this.current,
-    required this.sourceMode,
-    required this.showModeToggle,
-    required this.onToggleMode,
-  });
-
-  final String name;
-  final String current;
-  final bool sourceMode;
-  final bool showModeToggle;
-  final VoidCallback onToggleMode;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final t = context.t;
-    final files = ref.watch(skillFilesProvider(name)).value;
-    // 单文件 skill(只有清单)且无切换需求 → 整条缺席,不占一行。
-    final many = files != null && files.length > 1;
-    if (!many && !showModeToggle) return const SizedBox.shrink();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(
-        AnSpace.s16,
-        AnSpace.s8,
-        AnSpace.s16,
-        0,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  for (final f in files ?? const <SkillFile>[]) ...[
-                    AnChip(
-                      f.path,
-                      mono: true,
-                      tone: f.path == current ? AnTone.accent : AnTone.none,
-                      onTap: () => context.go(
-                        f.path == kSkillManifestFileName
-                            ? skillLocation(name)
-                            : skillFileLocation(name, f.path),
-                      ),
-                    ),
-                    const SizedBox(width: AnSpace.s4),
-                  ],
-                ],
-              ),
-            ),
-          ),
-          if (showModeToggle) ...[
-            const SizedBox(width: AnSpace.s8),
-            AnChip(
-              sourceMode
-                  ? t.documents.skillRichMode
-                  : t.documents.skillSourceMode,
-              icon: AnIcons.fileCode,
-              tone: sourceMode ? AnTone.accent : AnTone.none,
-              onTap: onToggleMode,
-              tooltip: t.documents.skillModeTooltip,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
-/// One bundled file in the center: text → editable code editor (debounced verbatim PUT; the
-/// manifest path additionally revalidates server-side and refreshes the rich view); binary →
-/// a read-only note. 中心的单捆绑文件:文本=可编辑源码(防抖裸字节 PUT;清单另有服务端校验+富文本
-/// 视图刷新);二进制=只读注记。
-class _SkillFileView extends ConsumerStatefulWidget {
-  const _SkillFileView({
-    required this.name,
-    required this.path,
-    this.onManifestSaved,
-    super.key,
-  });
-
-  final String name;
-  final String path;
-  final VoidCallback? onManifestSaved;
-
-  @override
-  ConsumerState<_SkillFileView> createState() => _SkillFileViewState();
-}
-
-class _SkillFileViewState extends ConsumerState<_SkillFileView> {
-  final _save = Debouncer(AnMotion.autosave);
-
-  @override
-  void dispose() {
-    _save.flush();
-    super.dispose();
-  }
-
-  void _onChanged(String text) {
-    final repo = ref.read(documentsRepositoryProvider);
-    final files = ref.read(skillFilesProvider(widget.name));
-    _save.run(() async {
-      try {
-        await repo.writeSkillFile(widget.name, widget.path, utf8.encode(text));
-        widget.onManifestSaved?.call();
-        // 尺寸变了 → 列表元数据刷新(条上 chips 不动摇,size 归右岛)。
-        files.whenData((_) {});
-        ref.invalidate(skillFilesProvider(widget.name));
-      } catch (_) {
-        if (mounted) {
-          ref
-              .read(noticeCenterProvider.notifier)
-              .show(
-                context.t.documents.skillFileSaveFailed,
-                tone: AnTone.danger,
-              );
-        }
-      }
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = context.t;
-    if (!_skillTextExts.contains(_skillFileExt(widget.path))) {
-      return AnState(
-        kind: AnStateKind.empty,
-        title: widget.path,
-        hint: t.documents.skillFileBinary,
-      );
-    }
-    return ref
-        .watch(skillFileTextProvider((name: widget.name, path: widget.path)))
-        .when(
-          loading: () => const AnPage(
-            child: AnDeferredLoading(child: AnSkeleton.lines(8)),
-          ),
-          error: (_, _) => AnState(
-            kind: AnStateKind.error,
-            title: t.documents.loadFailed,
-            hint: t.documents.errorHint,
-          ),
-          data: (text) => AnPage(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
-              child: AnCodeEditor(
-                code: text,
-                lang: _skillFileLang(widget.path),
-                editable: true,
-                wrap: true,
-                onChanged: _onChanged,
-              ),
-            ),
-          ),
-        );
-  }
-}
+// skill folder 的文件条与旧文件视图已退役(WRK-076 F3)——右岛文件树是唯一导航器,
+// 预览族在 skill_file_preview.dart。The strip + old file view retired; tree navigates, previews
+// live in skill_file_preview.dart.

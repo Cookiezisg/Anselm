@@ -159,6 +159,38 @@ final skillFilesProvider = FutureProvider.autoDispose
           ref.watch(documentsRepositoryProvider).listSkillFiles(name),
     );
 
+/// The manifest's dual-mode switch (rich text default / raw source) — a provider so BOTH the
+/// inspector's panel menu and the ocean read/toggle one truth (WRK-076 F3). Resets per skill.
+/// 清单双模开关(富文本默认/源码)——provider 使右岛菜单与海洋同读一份真相;按 skill 重置。
+class SkillManifestSourceMode extends Notifier<bool> {
+  @override
+  bool build() => false;
+
+  void toggle() => state = !state;
+  void reset() => state = false;
+}
+
+final skillManifestSourceModeProvider =
+    NotifierProvider<SkillManifestSourceMode, bool>(
+      SkillManifestSourceMode.new,
+    );
+
+/// The skill's equip bindings (fn_/hd_ entities its allowed-tools reference), display names
+/// hydrated from the relation edges — the file tree's «绑定» section. skill 的 equip 绑定。
+final skillBindingsProvider = FutureProvider.autoDispose
+    .family<List<EntityRelation>, String>(
+      (ref, name) =>
+          ref.watch(documentsRepositoryProvider).listSkillBindings(name),
+    );
+
+/// One bundled file's RAW bytes (image/font previews need bytes, not text). 单捆绑文件裸字节。
+final skillFileBytesProvider = FutureProvider.autoDispose
+    .family<List<int>, ({String name, String path})>(
+      (ref, key) => ref
+          .watch(documentsRepositoryProvider)
+          .readSkillFile(key.name, key.path),
+    );
+
 /// One bundled file's TEXT content (lenient decode — the editor surface; binaries render a
 /// read-only note instead of going through here). 单捆绑文件文本内容(宽容解码)。
 final skillFileTextProvider = FutureProvider.autoDispose

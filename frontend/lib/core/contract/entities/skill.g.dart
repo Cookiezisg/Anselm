@@ -18,6 +18,7 @@ _Skill _$SkillFromJson(Map<String, dynamic> json) => _Skill(
   provenance: json['provenance'] == null
       ? null
       : Provenance.fromJson(json['provenance'] as Map<String, dynamic>),
+  dir: json['dir'] as String? ?? '',
   updatedAt: DateTime.parse(json['updatedAt'] as String),
 );
 
@@ -29,6 +30,7 @@ Map<String, dynamic> _$SkillToJson(_Skill instance) => <String, dynamic>{
   'body': instance.body,
   'frontmatter': instance.frontmatter.toJson(),
   'provenance': instance.provenance?.toJson(),
+  'dir': instance.dir,
   'updatedAt': instance.updatedAt.toIso8601String(),
 };
 

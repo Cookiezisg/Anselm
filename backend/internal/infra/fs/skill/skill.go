@@ -150,6 +150,7 @@ func (s *Store) Get(ctx context.Context, name string) (*skilldomain.Skill, error
 			sk.Provenance = prov
 		}
 	}
+	sk.Dir = dir
 	return sk, nil
 }
 

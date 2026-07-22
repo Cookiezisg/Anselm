@@ -15,6 +15,9 @@ import '../../../core/overlay/an_overlay.dart';
 import '../../../core/notice/notice_center.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/right_panel.dart';
+import '../../../core/router/panel_registry.dart';
+import '../../../core/ui/an_card.dart';
+import '../../../core/ui/an_dialog.dart';
 import '../../../core/ui/an_dropdown.dart';
 import '../../../core/ui/an_expand_reveal.dart';
 import '../../../core/ui/an_form_field.dart';
@@ -34,6 +37,7 @@ import '../../../i18n/strings.g.dart';
 import '../data/document_repository.dart';
 import '../state/doc_group_collapse.dart';
 import '../state/document_state.dart';
+import 'skill_file_preview.dart';
 
 /// The Documents ocean's right-island inspector — the three-segment grammar (三段式文法 §1–§3, batch 2, 用户
 /// 0719): ONE identity head ([AnPanelHead]: doc/skill glyph · name · ⋯ · ✕) over a quiet §2 GLANCE strip
@@ -141,6 +145,161 @@ List<AnMenuEntry> _menuEntries(BuildContext context, WidgetRef ref) {
       onTap: () => ref.read(docGroupCollapseProvider.notifier).collapseAll(),
     ),
   ];
+}
+
+/// The skill panel's ⋯ — the doc entries plus the manifest source-mode toggle and «new file»
+/// (panel-level actions per the三段式 law: group heads stay ⋯-free). skill 面板 ⋯:通用两项 +
+/// 清单源码切换 + 新建文件(面板级动作归 ⋯,组头无 ⋯)。
+List<AnMenuEntry> _skillMenuEntries(BuildContext context, WidgetRef ref) {
+  final t = context.t;
+  final sourceMode = ref.watch(skillManifestSourceModeProvider);
+  return [
+    AnMenuItem(
+      label: t.documents.skillManifestSource,
+      icon: AnIcons.fileCode,
+      checked: sourceMode,
+      onTap: () => ref.read(skillManifestSourceModeProvider.notifier).toggle(),
+    ),
+    AnMenuItem(
+      label: t.documents.skillNewFile,
+      icon: AnIcons.plus,
+      onTap: () => _promptNewSkillFile(context, ref),
+    ),
+    ..._menuEntries(context, ref),
+  ];
+}
+
+/// The «new file» prompt: a relative path in, an empty file lands through the guarded write,
+/// the tree refreshes and the center opens it. 新建文件:输相对路径→守卫写空文件→树刷新+打开。
+void _promptNewSkillFile(BuildContext context, WidgetRef ref) {
+  final sel = ref.read(selectedDocProvider);
+  if (sel == null || !sel.isSkill) return;
+  final name = sel.id;
+  final nav = Navigator.of(context, rootNavigator: true);
+  nav.push(
+    anPanelRoute<void>(
+      scrim: context.colors.scrim,
+      reduced: AnMotionPref.reduced(context),
+      barrierLabel: context.t.feedback.dialogBarrier,
+      builder: (dialogCtx) => _NewSkillFilePanel(name: name),
+    ),
+  );
+}
+
+class _NewSkillFilePanel extends ConsumerStatefulWidget {
+  const _NewSkillFilePanel({required this.name});
+
+  final String name;
+
+  @override
+  ConsumerState<_NewSkillFilePanel> createState() => _NewSkillFilePanelState();
+}
+
+class _NewSkillFilePanelState extends ConsumerState<_NewSkillFilePanel> {
+  final _ctl = TextEditingController();
+  String? _error;
+
+  @override
+  void dispose() {
+    _ctl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _create() async {
+    final rel = _ctl.text.trim();
+    if (rel.isEmpty) return;
+    try {
+      await ref
+          .read(documentsRepositoryProvider)
+          .writeSkillFile(widget.name, rel, const []);
+      ref.invalidate(skillFilesProvider(widget.name));
+      if (!mounted) return;
+      Navigator.of(context).maybePop();
+      context.go(skillFileLocation(widget.name, rel));
+    } catch (e) {
+      final m = e.toString();
+      final i = m.lastIndexOf(': ');
+      setState(
+        () => _error = i >= 0 && i + 2 < m.length ? m.substring(i + 2) : m,
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t;
+    final c = context.colors;
+    return Center(
+      child: SizedBox(
+        width: 420,
+        child: AnCard(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(t.documents.skillNewFile, style: AnText.h3),
+              const SizedBox(height: AnSpace.s12),
+              AnInput(
+                controller: _ctl,
+                placeholder: t.documents.skillNewFileHint,
+                onSubmitted: (_) => _create(),
+              ),
+              if (_error != null) ...[
+                const SizedBox(height: AnSpace.s6),
+                Text(_error!, style: AnText.meta.copyWith(color: c.danger)),
+              ],
+              const SizedBox(height: AnSpace.s12),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  AnButton(
+                    label: t.action.cancel,
+                    onPressed: () => Navigator.of(context).maybePop(),
+                  ),
+                  const SizedBox(width: AnSpace.s8),
+                  AnButton(
+                    label: t.documents.skillNewFile,
+                    variant: AnButtonVariant.primary,
+                    onPressed: _create,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The skill glance: «N 文件 · M 绑定 · rel 编辑» — zero-speech law per segment (files>1,
+/// bindings>0; edited always). skill 速览带:每段有真信号才在。
+Widget? _skillGlance(
+  BuildContext context, {
+  required int files,
+  required int bindings,
+  required DateTime updatedAt,
+}) {
+  final t = context.t;
+  final p = t.documents.props;
+  final rel = fmtRelativeDay(
+    updatedAt,
+    DateTime.now(),
+    today: p.time.today,
+    yesterday: p.time.yesterday,
+    daysAgo: (n) => p.time.daysAgo(n: n),
+  );
+  final segs = <String>[
+    if (files > 1) t.documents.glanceFiles(n: files),
+    if (bindings > 0) t.documents.glanceBindings(n: bindings),
+    p.glanceEdited(rel: rel),
+  ];
+  return Text(
+    segs.join(' · '),
+    style: AnText.meta.copyWith(color: context.colors.inkFaint),
+    maxLines: 1,
+    overflow: TextOverflow.ellipsis,
+  );
 }
 
 // ── §2 glance strip ──
@@ -449,11 +608,14 @@ class _SkillProperties extends ConsumerWidget {
     // A skill has no backlinks (the backend only parses `[[id]]` on documents) → the 反链 segment is omitted
     // by 零人话律 (backlinks: 0). Glance = «N 字 · <rel>编辑». skill 无反链→段被 0 律省;速览带=字+编辑。
     Widget? sub;
+    final fileCount = ref.watch(skillFilesProvider(name)).value?.length ?? 0;
+    final bindingCount =
+        ref.watch(skillBindingsProvider(name)).value?.length ?? 0;
     if (loaded != null) {
-      sub = _glance(
+      sub = _skillGlance(
         context,
-        chars: _charCount(loaded.body),
-        backlinks: 0,
+        files: fileCount,
+        bindings: bindingCount,
         updatedAt: loaded.updatedAt,
       );
     }
@@ -461,7 +623,7 @@ class _SkillProperties extends ConsumerWidget {
       icon: AnIcons.skill,
       // The slug IS the identity — the head shows it directly. slug 即身份,头直显。
       title: name,
-      menuEntries: _menuEntries(context, ref),
+      menuEntries: _skillMenuEntries(context, ref),
       sub: sub,
       body: skill.when(
         loading: () => const AnSkeleton.lines(6),
@@ -713,43 +875,157 @@ class _OnOff extends StatelessWidget {
 
 // ── skill files + provenance groups（WRK-076 F1/F2 右岛）─────────────────────────
 
-/// The skill's FILES group (三段式文法 §3) — every bundled file as a tappable row (manifest
-/// included); tapping opens it in the center (`?file=` navigation). skill 文件组:捆绑文件行,
-/// 点击中心打开(query 导航)。
+/// One row of the skill file TREE — a pure projection so it unit-tests without pumping UI.
+/// dir rows group, file rows navigate; depth = path segment depth (左岛树同款文法)。
+/// skill 文件树的一行(纯投影可脱 UI 单测):目录行分组、文件行导航,depth=路径段深。
+typedef SkillTreeRow = ({
+  String path, // 完整相对路径(文件)或目录路径
+  String label, // basename
+  int depth,
+  bool isDir,
+});
+
+/// Flatten the path-sorted file list into tree rows: a directory row is inserted the first
+/// time its prefix appears; the manifest pins first. 平列转树行:目录首现插行,清单置顶。
+List<SkillTreeRow> buildSkillTreeRows(List<SkillFile> files) {
+  final rows = <SkillTreeRow>[];
+  final seenDirs = <String>{};
+  final sorted = [...files]
+    ..sort((a, b) {
+      if (a.path == kSkillManifestFileName) return -1;
+      if (b.path == kSkillManifestFileName) return 1;
+      return a.path.compareTo(b.path);
+    });
+  for (final f in sorted) {
+    final parts = f.path.split('/');
+    for (var i = 0; i < parts.length - 1; i++) {
+      final dir = parts.sublist(0, i + 1).join('/');
+      if (seenDirs.add(dir)) {
+        rows.add((path: dir, label: '${parts[i]}/', depth: i, isDir: true));
+      }
+    }
+    rows.add((
+      path: f.path,
+      label: parts.last,
+      depth: parts.length - 1,
+      isDir: false,
+    ));
+  }
+  return rows;
+}
+
+/// The skill's FILE TREE group (三段式文法 §3, WRK-076 F3) — the skill's project navigator:
+/// hierarchical rows (type icon + basename, dir rows group), tap-to-open in the center, the
+/// current file highlighted, and a trailing «绑定» section listing the equip-bound entities
+/// (fn_/hd_ from allowed-tools) that JUMP to the entities ocean (↗ hints the hop). Hover [⋯]
+/// on a file row deletes it (manifest exempt).
+///
+/// skill 文件树组(三段式 §3,WRK-076 F3)——skill 的项目导航器:层级行(类型 icon+basename,
+/// 目录行分组)、点击中心打开、当前文件高亮、尾部「绑定」小节列 equip 实体(点击跳 entities
+/// 海洋,↗ 暗示跳走)。文件行 hover [⋯] 删除(清单豁免)。
 class _SkillFilesGroup extends ConsumerWidget {
   const _SkillFilesGroup({required this.name});
 
   final String name;
 
+  Future<void> _deleteFile(
+    BuildContext context,
+    WidgetRef ref,
+    String path,
+  ) async {
+    final t = context.t;
+    final ok = await ref
+        .read(overlayProvider.notifier)
+        .confirm(
+          title: t.documents.skillDeleteFileTitle,
+          message: t.documents.skillDeleteFileBody(path: path),
+          confirmLabel: t.action.delete,
+          cancelLabel: t.action.cancel,
+          barrierLabel: t.feedback.dialogBarrier,
+        );
+    if (!ok || !context.mounted) return;
+    try {
+      await ref.read(documentsRepositoryProvider).deleteSkillFile(name, path);
+      ref.invalidate(skillFilesProvider(name));
+      if (context.mounted && ref.read(selectedSkillFileProvider) == path) {
+        context.go(skillLocation(name)); // 删的是打开中的文件 → 回清单
+      }
+    } catch (_) {
+      if (context.mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final files = ref.watch(skillFilesProvider(name)).value;
-    if (files == null || files.length <= 1) {
-      // 单文件 skill(只有清单)整组静默缺席——零人话律。
+    final bindings = ref.watch(skillBindingsProvider(name)).value ?? const [];
+    // 单文件且零绑定 → 整组静默缺席(零人话律:一行 SKILL.md 的「树」是噪音)。
+    if (files == null || (files.length <= 1 && bindings.isEmpty)) {
       return const SizedBox.shrink();
     }
     final current =
         ref.watch(selectedSkillFileProvider) ?? kSkillManifestFileName;
+    final rows = buildSkillTreeRows(files);
     return _GroupSection(
       groupKey: kDocGroupSkillFiles,
       label: t.documents.skillFiles,
-      count: files.length,
+      count: files.length + bindings.length,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (final f in files)
-            AnRow(
-              label: f.path,
-              meta: formatBytes(f.size),
-              leadless: true,
-              selected: f.path == current,
-              onSelect: () => context.go(
-                f.path == kSkillManifestFileName
-                    ? skillLocation(name)
-                    : skillFileLocation(name, f.path),
+          for (final r in rows)
+            if (r.isDir)
+              AnRow(depth: r.depth, icon: AnIcons.folder, label: r.label)
+            else
+              AnRow(
+                depth: r.depth,
+                icon: skillFileIcon(r.path),
+                label: r.label,
+                selected: r.path == current,
+                onSelect: () => context.go(
+                  r.path == kSkillManifestFileName
+                      ? skillLocation(name)
+                      : skillFileLocation(name, r.path),
+                ),
+                actions: [
+                  if (r.path != kSkillManifestFileName)
+                    AnButton.iconOnly(
+                      AnIcons.trash,
+                      size: AnButtonSize.sm,
+                      semanticLabel: t.documents.skillDeleteFileTitle,
+                      onPressed: () => _deleteFile(context, ref, r.path),
+                    ),
+                ],
+              ),
+          if (bindings.isNotEmpty) ...[
+            Padding(
+              padding: const EdgeInsets.fromLTRB(
+                AnSpace.s8,
+                AnSpace.s8,
+                0,
+                AnSpace.s2,
+              ),
+              child: Text(
+                t.documents.skillBindings,
+                style: AnText.meta.copyWith(color: context.colors.inkFaint),
               ),
             ),
+            for (final b in bindings)
+              AnRow(
+                icon: AnIcons.byKey(b.toKind),
+                label: b.toName.isEmpty ? b.toId : b.toName,
+                meta: '↗', // 点击跳 entities 海洋(离开本页)的诚实暗示
+                onSelect: () {
+                  final loc = panelLocationFor(b.toKind, b.toId);
+                  if (loc != null) context.go(loc);
+                },
+              ),
+          ],
         ],
       ),
     );

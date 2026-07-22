@@ -1256,10 +1256,12 @@ void main() {
         ); // a skill has no backlinks group 无反链组
         // The frontmatter form is the Properties body (kept mounted, default open). frontmatter 表单=属性组体。
         expect(find.text('Context'), findsOneWidget);
-        expect(
-          find.textContaining('chars'),
-          findsOneWidget,
-        ); // glance from body 字数走 body
+        // WRK-076 F3: the skill glance is now «N files · M bindings · edited» — a single-file,
+        // zero-binding skill keeps only the edited segment (zero-speech law).
+        // skill 速览带现为「N 文件 · M 绑定 · 编辑」——单文件零绑定只剩编辑段(零人话律)。
+        expect(find.textContaining('chars'), findsNothing);
+        expect(find.textContaining('files'), findsNothing); // files>1 才显
+        expect(find.textContaining('Edited'), findsOneWidget);
         expect(
           find.textContaining('backlinks'),
           findsNothing,

@@ -31,7 +31,13 @@ type Skill struct {
 	Body        string      `json:"body,omitempty"` // 仅 Get 填
 	Frontmatter Frontmatter `json:"frontmatter"`
 	Provenance  *Provenance `json:"provenance,omitempty"` // 仅 installed（Get 解析 sidecar；List 省略）
-	UpdatedAt   time.Time   `json:"updatedAt"`            // 文件 mtime
+	// Dir is the skill directory's absolute path — single-Get only (List stays light). The
+	// frontend's "open with the system app / reveal in Finder" actions join it with a file's
+	// relative path; a local single-user app leaks nothing by exposing it.
+	// Dir 是 skill 目录绝对路径——仅 single-Get（List 保持轻）。前端「系统应用打开/Finder 显示」
+	// 用它拼文件相对路径；本地单用户 app 暴露之无泄露。
+	Dir       string    `json:"dir,omitempty"`
+	UpdatedAt time.Time `json:"updatedAt"` // 文件 mtime
 }
 
 // Frontmatter is the TYPED VIEW of a SKILL.md frontmatter: the Agent Skills open-spec core

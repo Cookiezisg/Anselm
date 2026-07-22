@@ -517,6 +517,20 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override String get skillInstallNone => '来源里没有可安装的 skill';
 	@override String get skillInstallPreauthNote => '安装后这些工具将请求免确认预授权——需你显式授权才生效';
 	@override String get skillInstalledBadge => '已装';
+	@override String get skillPreviewMode => '预览';
+	@override String get skillOpenSystem => '系统打开';
+	@override String get skillRevealSystem => 'Finder 显示';
+	@override String skillCsvCapped({required Object n}) => '仅显示前 ${n} 行——完整内容切源码或系统打开';
+	@override String get skillFontSample => '天地玄黄 宇宙洪荒 中文样张';
+	@override String get skillFontNote => '字体样张预览——编辑请用系统应用';
+	@override String get skillNewFile => '新建文件';
+	@override String get skillNewFileHint => '相对路径,如 references/notes.md';
+	@override String get skillDeleteFileTitle => '删除文件';
+	@override String skillDeleteFileBody({required Object path}) => '删除 ${path}?此操作不可撤销。';
+	@override String get skillBindings => '绑定';
+	@override String get skillManifestSource => '清单源码编辑';
+	@override String glanceFiles({required Object n}) => '${n} 文件';
+	@override String glanceBindings({required Object n}) => '${n} 绑定';
 }
 
 // Path: settings
@@ -4073,6 +4087,20 @@ extension on TranslationsZhCn {
 			'documents.skillInstallNone' => '来源里没有可安装的 skill',
 			'documents.skillInstallPreauthNote' => '安装后这些工具将请求免确认预授权——需你显式授权才生效',
 			'documents.skillInstalledBadge' => '已装',
+			'documents.skillPreviewMode' => '预览',
+			'documents.skillOpenSystem' => '系统打开',
+			'documents.skillRevealSystem' => 'Finder 显示',
+			'documents.skillCsvCapped' => ({required Object n}) => '仅显示前 ${n} 行——完整内容切源码或系统打开',
+			'documents.skillFontSample' => '天地玄黄 宇宙洪荒 中文样张',
+			'documents.skillFontNote' => '字体样张预览——编辑请用系统应用',
+			'documents.skillNewFile' => '新建文件',
+			'documents.skillNewFileHint' => '相对路径,如 references/notes.md',
+			'documents.skillDeleteFileTitle' => '删除文件',
+			'documents.skillDeleteFileBody' => ({required Object path}) => '删除 ${path}?此操作不可撤销。',
+			'documents.skillBindings' => '绑定',
+			'documents.skillManifestSource' => '清单源码编辑',
+			'documents.glanceFiles' => ({required Object n}) => '${n} 文件',
+			'documents.glanceBindings' => ({required Object n}) => '${n} 绑定',
 			'settings.title' => '设置',
 			'settings.scope.device' => '本机',
 			'settings.scope.workspace' => '工作区',
@@ -4182,6 +4210,8 @@ extension on TranslationsZhCn {
 			'settings.keys.provider' => '提供方',
 			'settings.keys.displayNameLabel' => '名称',
 			'settings.keys.secretLabel' => '密钥',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.baseUrlLabel' => 'Base URL',
 			'settings.keys.apiFormatLabel' => 'API 方言',
 			'settings.keys.saveKey' => '保存并测试',
@@ -4196,8 +4226,6 @@ extension on TranslationsZhCn {
 			'settings.keys.deleteKeyBody' => ({required Object name}) => '将删除「${name}」,不可恢复。',
 			'settings.keys.confirmDelete' => '删除',
 			'settings.keys.defaults' => '场景默认模型',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.scenarioDialogue' => '对话',
 			'settings.keys.scenarioUtility' => '工具',
 			'settings.keys.scenarioAgent' => 'Agent',

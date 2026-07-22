@@ -1091,6 +1091,48 @@ class Translations$documents$en {
 
 	/// en: 'installed'
 	String get skillInstalledBadge => 'installed';
+
+	/// en: 'Preview'
+	String get skillPreviewMode => 'Preview';
+
+	/// en: 'Open with system'
+	String get skillOpenSystem => 'Open with system';
+
+	/// en: 'Reveal in Finder'
+	String get skillRevealSystem => 'Reveal in Finder';
+
+	/// en: 'Showing the first $n rows — switch to source or open with the system for the rest'
+	String skillCsvCapped({required Object n}) => 'Showing the first ${n} rows — switch to source or open with the system for the rest';
+
+	/// en: 'The quick brown fox jumps over the lazy dog'
+	String get skillFontSample => 'The quick brown fox jumps over the lazy dog';
+
+	/// en: 'Font specimen preview — edit with a system app'
+	String get skillFontNote => 'Font specimen preview — edit with a system app';
+
+	/// en: 'New file'
+	String get skillNewFile => 'New file';
+
+	/// en: 'Relative path, e.g. references/notes.md'
+	String get skillNewFileHint => 'Relative path, e.g. references/notes.md';
+
+	/// en: 'Delete file'
+	String get skillDeleteFileTitle => 'Delete file';
+
+	/// en: 'Delete $path? This cannot be undone.'
+	String skillDeleteFileBody({required Object path}) => 'Delete ${path}? This cannot be undone.';
+
+	/// en: 'Bindings'
+	String get skillBindings => 'Bindings';
+
+	/// en: 'Edit manifest source'
+	String get skillManifestSource => 'Edit manifest source';
+
+	/// en: '$n files'
+	String glanceFiles({required Object n}) => '${n} files';
+
+	/// en: '$n bindings'
+	String glanceBindings({required Object n}) => '${n} bindings';
 }
 
 // Path: settings
@@ -7672,6 +7714,20 @@ extension on Translations {
 			'documents.skillInstallNone' => 'No installable skills in this source',
 			'documents.skillInstallPreauthNote' => 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve',
 			'documents.skillInstalledBadge' => 'installed',
+			'documents.skillPreviewMode' => 'Preview',
+			'documents.skillOpenSystem' => 'Open with system',
+			'documents.skillRevealSystem' => 'Reveal in Finder',
+			'documents.skillCsvCapped' => ({required Object n}) => 'Showing the first ${n} rows — switch to source or open with the system for the rest',
+			'documents.skillFontSample' => 'The quick brown fox jumps over the lazy dog',
+			'documents.skillFontNote' => 'Font specimen preview — edit with a system app',
+			'documents.skillNewFile' => 'New file',
+			'documents.skillNewFileHint' => 'Relative path, e.g. references/notes.md',
+			'documents.skillDeleteFileTitle' => 'Delete file',
+			'documents.skillDeleteFileBody' => ({required Object path}) => 'Delete ${path}? This cannot be undone.',
+			'documents.skillBindings' => 'Bindings',
+			'documents.skillManifestSource' => 'Edit manifest source',
+			'documents.glanceFiles' => ({required Object n}) => '${n} files',
+			'documents.glanceBindings' => ({required Object n}) => '${n} bindings',
 			'settings.title' => 'Settings',
 			'settings.scope.device' => 'This device',
 			'settings.scope.workspace' => 'Workspace',
@@ -7781,6 +7837,8 @@ extension on Translations {
 			'settings.keys.provider' => 'Provider',
 			'settings.keys.displayNameLabel' => 'Name',
 			'settings.keys.secretLabel' => 'Key',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.baseUrlLabel' => 'Base URL',
 			'settings.keys.apiFormatLabel' => 'API dialect',
 			'settings.keys.saveKey' => 'Save & test',
@@ -7795,8 +7853,6 @@ extension on Translations {
 			'settings.keys.deleteKeyBody' => ({required Object name}) => 'This deletes “${name}” permanently.',
 			'settings.keys.confirmDelete' => 'Delete',
 			'settings.keys.defaults' => 'Scenario default models',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.scenarioDialogue' => 'Dialogue',
 			'settings.keys.scenarioUtility' => 'Utility',
 			'settings.keys.scenarioAgent' => 'Agent',

@@ -32,6 +32,18 @@ FixtureDocumentsRepository demoDocumentsRepository() {
   );
 
   return FixtureDocumentsRepository(
+    // Folder-skill demo assets (WRK-076 F3): the preview family is exercisable with zero
+    // backend — markdown / code / csv files under a skill. demo 的 folder skill 文件面。
+    skillFiles: {
+      'commit-helper': {
+        'references/style-guide.md':
+            '# Style guide\n\n## Subjects\nImperative, no period.\n\n## Scopes\nDeepest real directory.',
+        'scripts/suggest.py':
+            'import subprocess\n\ndef suggest():\n    diff = subprocess.run(["git", "diff"], capture_output=True)\n    return diff.stdout[:200]\n',
+        'data/types.csv':
+            'type,meaning\nfeat,new capability\nfix,bug fix\nrefactor,no behavior change\ndocs,documentation only\n',
+      },
+    },
     documents: [
       // Ids are LEGAL <prefix>_<16hex> (the wikilink codec + backend parser are strict about the shape — an
       // illegal id renders as dead double-bracket text). id 须合法 16hex(wikilink 正则严格,非法=死文本)。

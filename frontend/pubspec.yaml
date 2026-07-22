@@ -37,6 +37,7 @@ dependencies:
   gpt_markdown: 1.1.7
   # Vector rendering for the bundled brand mark (assets/brand) + inline provider SVGs (currentColor).
   # 矢量渲染:品牌标 + 内联 provider SVG(随 ink 着色)。
+  csv: ^6.0.0
   flutter_svg: ^2.3.0
   # i18n — slang: type-safe `context.t.<key>` from lib/i18n/*.i18n.json. NO hardcoded CN/EN in code
   # (CLAUDE.md 前端守则). Generated via `dart run slang` (NOT build_runner — avoids the asset clash).
