@@ -14,6 +14,7 @@ help:
 	@echo ""
 	@echo "  make setup     ensure Go dependencies for service + acceptance suite"
 	@echo "  make run       start the development server on :$(PORT)"
+	@echo "  make seed      furnish the dev server with the demo dataset + print probe env"
 	@echo "  make stop      gracefully stop the development server"
 	@echo "  make format    write canonical Go formatting"
 	@echo "  make test      run Go unit tests"
@@ -41,6 +42,17 @@ deps: setup
 run: deps
 	@set -a; [ -f $(ROOT)/.env ] && source $(ROOT)/.env; set +a; \
 	ANSELM_DEV=1 ANSELM_ADDR=:$(PORT) ANSELM_DATA_DIR=$(DATA) $(RUN) go run ./cmd/server
+
+# seed — furnish the dev backend with the standard demo dataset over real HTTP (idempotent), then
+# print the probe env (BASE/WS + example curl). Ensures a backend on :$(PORT) first (same escape
+# hatch as frontend `make app`). 一键验收现场:确保 dev 后端在跑→灌演示数据(幂等)→打印 probe env。
+seed: deps
+	@if ! curl -sf "http://127.0.0.1:$(PORT)/api/v1/health" >/dev/null 2>&1; then \
+		echo "→ no backend on :$(PORT) — starting it in the background…"; \
+		( $(MAKE) -C . run ) >/tmp/anselm-dev-server.log 2>&1 & \
+		for i in $$(seq 1 80); do curl -sf "http://127.0.0.1:$(PORT)/api/v1/health" >/dev/null 2>&1 && break || sleep 0.5; done; \
+	fi
+	@$(RUN) go run ./cmd/seed -base "http://127.0.0.1:$(PORT)"
 
 stop:
 	@PIDS=$$(lsof -ti :$(PORT) 2>/dev/null || true); \
@@ -94,4 +106,4 @@ clean: stop
 	@rm -rf $(DATA) $(ROOT)/bin/anselm-server
 	@echo "✓ backend cleaned"
 
-.PHONY: help toolchain setup deps run stop format test testend evals build verify clean
+.PHONY: help toolchain setup deps run seed stop format test testend evals build verify clean
