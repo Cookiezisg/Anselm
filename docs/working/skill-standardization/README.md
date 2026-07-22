@@ -13,14 +13,16 @@ audience: [human, ai]
 
 > 目标：把 skill 从「平台组装的单文件投影」翻转为「**目录即真相**」的标准 Agent Skill——用户可自由安装 GitHub skill、文件夹随意组织、捆绑脚本可执行。法定基线 = [agentskills.io 开放规范](https://agentskills.io/specification)（参考校验器 `agentskills/agentskills` 的 `skills-ref`）；Claude Code 扩展字段按现状已镜像、继续跟随。批次规范单独成篇（`b1-*.md`…），本篇只留总表 + 跨批已拍板决策。
 
+> **状态（2026-07-22）**：B1–B4 + F1 + F2（安装流）全数落地并提交（8 commit，`WRK-076`），根 `make verify` 全绿，真 app 端到端实测通过（create→files→activate→install→trust-gate 全链）。唯一 backlog = composer `/` 斜杠菜单（见下，需新会话-loop 语义、单独立项）。
+
 ## 六批总表
 
 | 批 | 范围 | 核心交付 | 状态 |
 |---|---|---|---|
-| **B1 文件即真相** | 后端 infra/app/transport | frontmatter 保真（yaml.Node）· SKILL.md 原文面 · files 子资源 CRUD + 穿越守卫 | **已落地并提交** → [b1-file-truth.md](b1-file-truth.md) |
-| **B2 渐进披露** | 后端 activate/Guide + pathguard | `${CLAUDE_SKILL_DIR}` 文本替换 + 目录前导行（带捆绑文件才加）· skills 子树 pathguard 豁免（symlink 先解）· ~~model/effort 消费~~（subagent ModelResolver 无 override 口，backlog） | **已落地** |
-| **B3 脚本执行** | 后端 tool/sandbox | 新工具 `run_skill_script`（沙箱默认：owner=skill 专属 env、cwd=skill 目录、CLAUDE_SKILL_DIR 导出、requirements.txt 即 deps）· `SpawnOpts.Cwd` 覆写 · .sh 等指向 host bash（危险确认照常）· node deps 记 backlog | **已落地** |
-| **B4 安装通道** | 后端 install 面 | tarball 安装器（自研 `infra/skillfetch`：codeload/任意 http tarball + 炸弹护栏 + 最深根切分；directInstaller 管线不适配故未复用——它是钉版本运行时专用）· provenance sidecar（source 推导 + sha 基线）· `:inspect-source`/`:install`/`:update`/`:approve-tools`（**同步阻塞**，202 进度记 backlog）· 信任门（未授权预授权集为空；update 改 allowed-tools 重置） | **已落地** |
+| **B1 文件即真相** | 后端 infra/app/transport | frontmatter 保真（yaml.Node）· SKILL.md 原文面 · files 子资源 CRUD + 穿越守卫 | **已落地 ✓** → [b1-file-truth.md](b1-file-truth.md) |
+| **B2 渐进披露** | 后端 activate/Guide + pathguard | `${CLAUDE_SKILL_DIR}` 文本替换 + 目录前导行（带捆绑文件才加）· skills 子树 pathguard 豁免（symlink 先解）· ~~model/effort 消费~~（subagent ModelResolver 无 override 口，backlog） | **已落地 ✓** |
+| **B3 脚本执行** | 后端 tool/sandbox | 新工具 `run_skill_script`（沙箱默认：owner=skill 专属 env、cwd=skill 目录、CLAUDE_SKILL_DIR 导出、requirements.txt 即 deps）· `SpawnOpts.Cwd` 覆写 · .sh 等指向 host bash（危险确认照常）· node deps 记 backlog | **已落地 ✓** |
+| **B4 安装通道** | 后端 install 面 | tarball 安装器（自研 `infra/skillfetch`：codeload/任意 http tarball + 炸弹护栏 + 最深根切分；directInstaller 管线不适配故未复用——它是钉版本运行时专用）· provenance sidecar（source 推导 + sha 基线）· `:inspect-source`/`:install`/`:update`/`:approve-tools`（**同步阻塞**，202 进度记 backlog）· 信任门（未授权预授权集为空；update 改 allowed-tools 重置）· 真机加固：平台垃圾滤除 + sidecar 对 files 面隐形 | **已落地 ✓** |
 | **F1 folder skill 浏览编辑** | 前端 contract + documents | DTO 开放化 · 编辑器按文件类型分派（md 富文本 / 代码 AnCodeEditor / 资产只读）+ 双模切换 · 页顶文件条 + `/documents/skill/:name/file/:path` · 右岛文件组 · rail 来源角标 | 待 B1-B2 |
 | **F2 安装流与入口** | 前端 rail/右岛 | 安装对话框（allowed-tools 琥珀前置 + 勾选 + 信任门起点）· rail New 行安装入口 · 右岛来源组 + 预授权确认区（F1 已含）· ~~composer `/` 斜杠菜单~~（见下 backlog）· ~~install 舞台~~（chat 侧 create/edit 卡已复用，install 是 REST 非 tool 故无舞台） | **已落地（斜杠菜单除外）** |
 
