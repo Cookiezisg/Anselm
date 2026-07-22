@@ -42,14 +42,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Future<void> _load(String family, String path) async {
-  final f = File(path);
-  if (!f.existsSync()) return;
-  final b = f.readAsBytesSync();
-  final loader = FontLoader(family)
-    ..addFont(Future.value(ByteData.view(b.buffer, b.offsetInBytes, b.length)));
-  await loader.load();
-}
+import 'capture_support.dart';
 
 // Optional `--dart-define=SEL=function:fn_normalize` deep-links to an entity so the detail sea is
 // captured (default: rail + empty ocean → demo.png; selected → demo_<id>.png). 可预选实体截详情。
@@ -182,28 +175,28 @@ class _CaptureApp extends ConsumerWidget {
 
 void main() {
   setUpAll(() async {
-    await _load('Inter', 'assets/fonts/InterVariable.ttf');
-    await _load('MiSans', 'assets/fonts/MiSansVF.ttf');
-    await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
-    await _load(
+    await loadFont('Inter', 'assets/fonts/InterVariable.ttf');
+    await loadFont('MiSans', 'assets/fonts/MiSansVF.ttf');
+    await loadFont('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
+    await loadFont(
       'Newsreader',
       'assets/fonts/Newsreader.ttf',
     ); // brand wordmark (FULLSCREEN=true frames) 品牌 wordmark
     // The font-axis alternates (② content serif / ③ code faces) — loaded so FONTCONTENT/FONTCODE frames
     // render the real face. Source Han Serif SC ships Light (w300) + Regular (w400) under ONE family.
     // 字体轴替补:内容衬线 + 代码脸;思源宋两档同族。
-    await _load(
+    await loadFont(
       'Source Han Serif SC',
       'assets/fonts/SourceHanSerifSC-Light.otf',
     );
-    await _load(
+    await loadFont(
       'Source Han Serif SC',
       'assets/fonts/SourceHanSerifSC-Regular.otf',
     );
-    await _load('Fira Code', 'assets/fonts/FiraCode-Regular.ttf');
-    await _load('Cascadia Code', 'assets/fonts/CascadiaCode.ttf');
+    await loadFont('Fira Code', 'assets/fonts/FiraCode-Regular.ttf');
+    await loadFont('Cascadia Code', 'assets/fonts/CascadiaCode.ttf');
     final cache = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev';
-    await _load(
+    await loadFont(
       'packages/lucide_icons_flutter/Lucide300',
       '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf',
     );

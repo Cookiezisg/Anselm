@@ -16,26 +16,19 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-Future<void> _load(String family, String path) async {
-  final f = File(path);
-  if (!f.existsSync()) return;
-  final b = f.readAsBytesSync();
-  final loader = FontLoader(family)
-    ..addFont(Future.value(ByteData.view(b.buffer, b.offsetInBytes, b.length)));
-  await loader.load();
-}
+import 'capture_support.dart';
 
 void main() {
   setUpAll(() async {
-    await _load('Inter', 'assets/fonts/InterVariable.ttf');
-    await _load(
+    await loadFont('Inter', 'assets/fonts/InterVariable.ttf');
+    await loadFont(
       'MiSans',
       'assets/fonts/MiSansVF.ttf',
     ); // bundled UI face (VF; capture may show default weight)
-    await _load('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
+    await loadFont('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
     // Thin Lucide weight (matches AnIcons._family). 细笔画 Lucide,与 AnIcons._family 对齐。
     final cache = '${Platform.environment['HOME']}/.pub-cache/hosted/pub.dev';
-    await _load(
+    await loadFont(
       'packages/lucide_icons_flutter/Lucide300',
       '$cache/lucide_icons_flutter-3.1.14+2/assets/build_font/LucideVariable-w300.ttf',
     );
