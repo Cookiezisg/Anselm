@@ -635,11 +635,15 @@ class _SkillProperties extends ConsumerWidget {
         data: (skill) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const _OutlineGroup(),
             _SkillFilesGroup(name: skill.name),
             _SkillPropsGroup(skill: skill),
             if (skill.source == kSkillSourceInstalled)
               _SkillProvenanceGroup(skill: skill),
+            // Outline LAST — it tracks the OPEN FILE (the tree can switch the center to any bundled
+            // file), so above the stable groups it made every file-switch reflow-push the config /
+            // files / provenance below it. Pinned to the bottom, its height changes disturb nothing.
+            // 大纲置末:它跟随「当前打开的文件」,置顶时切文件会把下方稳定组整体下推(跳);钉底则高度变化不扰动任何组。
+            const _OutlineGroup(),
           ],
         ),
       ),
@@ -667,7 +671,14 @@ class _SkillPropsGroup extends StatelessWidget {
       label: context.t.documents.props.title,
       count: count,
       keepMounted: true,
-      child: _SkillForm(key: ValueKey(skill.name), skill: skill),
+      // AnFormField carries NO horizontal inset (unlike the AnRow family + AnKv, which self-inset s8),
+      // so the raw form fields landed 8px left of the file tree / outline / group heads above them —
+      // a child sitting further left than its own head. Pad to the 岛12+行族8=20px imaginary frame
+      // (右岛内距单源律). 表单无自带退格,补 s8 对齐行族假想框(否则比自己的组头还靠左)。
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
+        child: _SkillForm(key: ValueKey(skill.name), skill: skill),
+      ),
     );
   }
 }
@@ -1116,6 +1127,7 @@ class _SkillProvenanceGroup extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // AnKv self-insets s8 — it stays OUTSIDE the pad below. AnKv 自带 s8,置于下方退格外。
           if (prov != null)
             AnKv(
               rows: [
@@ -1133,39 +1145,52 @@ class _SkillProvenanceGroup extends ConsumerWidget {
               ],
               dense: true,
             ),
-          if (hasTools) ...[
-            const SizedBox(height: AnSpace.s8),
-            // 信任门状态:待授权=琥珀(权力让渡必须可见),已授权=安静陈述。
-            Text(
-              approved
-                  ? t.documents.skillToolsApproved
-                  : t.documents.skillToolsPending,
-              style: AnText.meta.copyWith(
-                color: approved ? c.inkFaint : c.warn,
-              ),
-            ),
-            const SizedBox(height: AnSpace.s4),
-            Wrap(
-              spacing: AnSpace.s4,
-              runSpacing: AnSpace.s4,
+          // The bare status text / chips / buttons carry no inset — pad to the s8 imaginary frame so
+          // they align with the AnKv above and the file tree across the panel. 裸件补 s8 对齐行族假想框。
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                for (final tool in skill.frontmatter.allowedTools)
-                  AnChip(tool, tone: approved ? AnTone.none : AnTone.warn),
+                if (hasTools) ...[
+                  const SizedBox(height: AnSpace.s8),
+                  // 信任门状态:待授权=琥珀(权力让渡必须可见),已授权=安静陈述。
+                  Text(
+                    approved
+                        ? t.documents.skillToolsApproved
+                        : t.documents.skillToolsPending,
+                    style: AnText.meta.copyWith(
+                      color: approved ? c.inkFaint : c.warn,
+                    ),
+                  ),
+                  const SizedBox(height: AnSpace.s4),
+                  Wrap(
+                    spacing: AnSpace.s4,
+                    runSpacing: AnSpace.s4,
+                    children: [
+                      for (final tool in skill.frontmatter.allowedTools)
+                        AnChip(
+                          tool,
+                          tone: approved ? AnTone.none : AnTone.warn,
+                        ),
+                    ],
+                  ),
+                  if (!approved) ...[
+                    const SizedBox(height: AnSpace.s8),
+                    AnButton(
+                      label: t.documents.skillApproveTools,
+                      outline: true,
+                      onPressed: () => _approve(context, ref),
+                    ),
+                  ],
+                ],
+                const SizedBox(height: AnSpace.s8),
+                AnButton(
+                  label: t.documents.skillCheckUpdate,
+                  onPressed: () => _update(context, ref, force: false),
+                ),
               ],
             ),
-            if (!approved) ...[
-              const SizedBox(height: AnSpace.s8),
-              AnButton(
-                label: t.documents.skillApproveTools,
-                outline: true,
-                onPressed: () => _approve(context, ref),
-              ),
-            ],
-          ],
-          const SizedBox(height: AnSpace.s8),
-          AnButton(
-            label: t.documents.skillCheckUpdate,
-            onPressed: () => _update(context, ref, force: false),
           ),
         ],
       ),
