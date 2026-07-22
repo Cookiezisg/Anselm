@@ -9,4 +9,9 @@ import errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 // 本包各工具 ValidateInput 共享的输入校验 sentinel（必填 / 范围检查）。每种物理违例一个
 // sentinel——工具复用、不逐工具重复声明（S20；撞码守卫兜唯一性）。
 
-var ErrNameRequired = errorspkg.New(errorspkg.KindInvalid, "SKILL_NAME_REQUIRED", "name is required")
+var (
+	ErrNameRequired      = errorspkg.New(errorspkg.KindInvalid, "SKILL_NAME_REQUIRED", "name is required")
+	ErrScriptRequired    = errorspkg.New(errorspkg.KindInvalid, "SKILL_SCRIPT_REQUIRED", "script is required")
+	ErrScriptUnsupported = errorspkg.New(errorspkg.KindInvalid, "SKILL_SCRIPT_UNSUPPORTED", "script extension has no sandbox runtime (.py/.js/.mjs/.cjs supported; use the bash tool for anything else)")
+	ErrScriptNotFound    = errorspkg.New(errorspkg.KindNotFound, "SKILL_SCRIPT_NOT_FOUND", "script not found in the skill directory")
+)

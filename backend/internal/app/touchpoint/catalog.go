@@ -114,6 +114,7 @@ var catalog = map[string]rule{
 	"fire_trigger":     {kind: relationdomain.EntityKindTrigger, verb: touchpointdomain.VerbExecuted, argKey: "triggerId"},
 	"restart_handler":  {kind: relationdomain.EntityKindHandler, verb: touchpointdomain.VerbExecuted, argKey: "handlerId"},
 	"activate_skill":   {kind: relationdomain.EntityKindSkill, verb: touchpointdomain.VerbExecuted, argKey: "name", nameIsID: true},
+	"run_skill_script": {kind: relationdomain.EntityKindSkill, verb: touchpointdomain.VerbExecuted, argKey: "name", nameIsID: true},
 	"reconnect_mcp":    {kind: relationdomain.EntityKindMCP, verb: touchpointdomain.VerbExecuted, argKey: "name", nameIsID: true},
 
 	// --- viewed:reads with a single addressable target(log searches count as viewing the entity's ops) 看 ---

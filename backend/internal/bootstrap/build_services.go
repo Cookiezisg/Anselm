@@ -292,7 +292,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			memorytool.MemoryTools(mem),
 			modeltool.ModelConfigTools(ws, keys, modelCaps),
 			mcptool.MCPTools(mcp),
-			skilltool.SkillTools(skill, rel),
+			skilltool.SkillTools(skill, sbx, rel),
 			blockstool.BlocksTools(searchSvc),
 			conversationtool.ConversationTools(searchSvc, conv),
 			relationtool.RelationTools(rel),

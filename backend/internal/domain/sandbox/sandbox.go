@@ -126,12 +126,19 @@ type EnvSpec struct {
 //
 // SpawnOpts 是一份 spawn 指令；LongLived 切换返回类型。
 type SpawnOpts struct {
-	Cmd       string            `json:"cmd"`
-	Args      []string          `json:"args,omitempty"`
-	Env       map[string]string `json:"env,omitempty"`
-	Stdin     []byte            `json:"-"`
-	Timeout   time.Duration     `json:"timeoutMs,omitempty"`
-	LongLived bool              `json:"longLived,omitempty"`
+	Cmd  string            `json:"cmd"`
+	Args []string          `json:"args,omitempty"`
+	Env  map[string]string `json:"env,omitempty"`
+	// Cwd (optional) overrides the working directory the EnvManager resolved — for spawns
+	// that execute on-disk files whose siblings must resolve relatively (a skill script
+	// reading its references/). Empty = keep the EnvManager's choice.
+	//
+	// Cwd（可选）覆写 EnvManager 解析出的工作目录——用于执行盘上文件、其兄弟文件需相对解析
+	// 的 spawn（skill 脚本读自己的 references/）。空 = 保持 EnvManager 的选择。
+	Cwd       string        `json:"cwd,omitempty"`
+	Stdin     []byte        `json:"-"`
+	Timeout   time.Duration `json:"timeoutMs,omitempty"`
+	LongLived bool          `json:"longLived,omitempty"`
 	// StreamErr (optional) tees the child's stderr to a live sink as it runs — the seam a tool
 	// (e.g. run_function) uses to stream the function's print() output as progress. nil = capture only.
 	//

@@ -539,3 +539,39 @@ func TestChatR3_UtilityAbsentDegrade(t *testing.T) {
 		t.Fatalf("no autotitle without utility, got %q", conv.Title)
 	}
 }
+
+// TestChatR3_SkillScriptGuardSurface（WRK-076 B3）：run_skill_script 的校验面走真工具环——
+// 脚本不在 skill 文件列表 → 错误文本回喂 LLM（不触发运行时下载）；越界路径同拒。真执行
+// （EnsureEnv 装解释器）刻意不在 testend 跑（首用下载数百 MB），归真机验收。
+func TestChatR3_SkillScriptGuardSurface(t *testing.T) {
+	wc, mock := chatSetup(t, false)
+	wc.POST("/api/v1/skills", map[string]any{
+		"name": "scripted", "description": "has scripts", "body": "Run scripts/x.py.",
+	}).OK(t, nil)
+
+	mock.Enqueue(dlgModel,
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "run_skill_script",
+			Args: fw(map[string]any{"name": "scripted", "script": "scripts/ghost.py"})}}},
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "run_skill_script",
+			Args: fw(map[string]any{"name": "scripted", "script": "../other/steal.py"})}}},
+		harness.LLMTurn{Text: "both refused"},
+	)
+	convID := convCreate(t, wc, "skill script guard")
+	mid := sendMsg(t, wc, convID, "run the ghost script")
+	turn := waitTurn(t, wc, convID, mid, 30000)
+	if turn.Status != "completed" {
+		t.Fatalf("turn must complete, got %s err=%s", turn.Status, turn.ErrorMessage)
+	}
+	// 两次调用的 tool_result 都以 script-not-found 语义回喂（工具注册 + 校验链活着）。
+	refusals := 0
+	for _, d := range mock.DumpsFor(dlgModel) {
+		for _, m := range d.Messages {
+			if m.Role == "tool" && strings.Contains(m.Content, "script not found") {
+				refusals++
+			}
+		}
+	}
+	if refusals < 2 {
+		t.Fatalf("both bad scripts must be refused via tool_result, got %d refusals", refusals)
+	}
+}

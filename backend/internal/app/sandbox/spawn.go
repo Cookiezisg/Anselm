@@ -197,6 +197,9 @@ func (s *Service) prepareSpawn(ctx context.Context, owner sandboxdomain.Owner, o
 		runtimeRef = filepath.Join(s.sandboxRoot, rt.Path)
 	}
 	cmd, args, cwd = em.ResolveExec(runtimeRef, envPath, opts)
+	if opts.Cwd != "" {
+		cwd = opts.Cwd // 调用方覆写（盘上文件执行需兄弟相对解析,见 SpawnOpts.Cwd）
+	}
 	env = mergeEnv(opts.Env)
 	if rt.Kind != dockerRuntimeKind {
 		// runtime-tool runners need the runtime's OWN bin on PATH: npx has a

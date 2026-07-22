@@ -54,6 +54,18 @@ func (s *Service) ReplaceRaw(ctx context.Context, name string, raw []byte) (*ski
 	return sk, nil
 }
 
+// Dir returns the skill directory's absolute path (the ${CLAUDE_SKILL_DIR} value — script
+// execution anchors its cwd here).
+//
+// Dir 返回 skill 目录绝对路径（${CLAUDE_SKILL_DIR} 取值——脚本执行以此为 cwd 锚点）。
+func (s *Service) Dir(ctx context.Context, name string) (string, error) {
+	dir, err := s.repo.Dir(ctx, name)
+	if err != nil {
+		return "", fmt.Errorf("skillapp.Dir: %w", err)
+	}
+	return dir, nil
+}
+
 // ListFiles returns every bundled file (manifest included) as path-sorted metadata.
 //
 // ListFiles 返回全部捆绑文件（含清单）的按路径排序元数据。

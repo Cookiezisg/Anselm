@@ -30,4 +30,4 @@ skill 是**指令载体、非构建实体**——memory 的近亲（文件式注
 
 ## 3. 契约（引用）
 
-端点 → [api.md](../api.md)（CRUD + `:activate` + files 子资源〔`{path...}` 尾随通配〕）· 无 DB 表（文件式）· 码 `SKILL_*` 10+1 → [error-codes.md](../error-codes.md) · 通知 `skill.{created,updated,deleted}`（文件写的 `updated` 携 `path`）。LLM 工具 5 个：activate/get/create/edit/delete_skill（无 search——catalog 概览已曝光全部 skill）。消费方：chat loop（active skill 预授权）、agent（Guide 挂载）、catalog（name+desc）、搜索索引（**仅清单**：description+whenToUse 卡片 + body 分块；附属文件不进索引——已知取舍，WRK-076 D10）。
+端点 → [api.md](../api.md)（CRUD + `:activate` + files 子资源〔`{path...}` 尾随通配〕）· 无 DB 表（文件式）· 码 `SKILL_*` 13+1 → [error-codes.md](../error-codes.md) · 通知 `skill.{created,updated,deleted}`（文件写的 `updated` 携 `path`）。LLM 工具 6 个：activate/get/create/edit/delete_skill + **run_skill_script**（沙箱执行捆绑脚本：owner=`skill/<name>` 的专属 env〔OwnerKindSkill 轴〕、cwd=skill 目录、导出 `CLAUDE_SKILL_DIR`、python 捆绑 requirements.txt 即 env deps；.py/.js/.mjs/.cjs 走沙箱，其余指向 host bash〔危险确认照常〕；脚本必须出现在 files 列表——一次检查买断存在性/不越界/普通文件性。无 search——catalog 概览已曝光全部 skill）。消费方：chat loop（active skill 预授权）、agent（Guide 挂载）、catalog（name+desc）、搜索索引（**仅清单**：description+whenToUse 卡片 + body 分块；附属文件不进索引——已知取舍，WRK-076 D10）。
