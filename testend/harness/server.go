@@ -346,19 +346,38 @@ func (s *Server) saveRuntimeCache() {
 	if err != nil {
 		return
 	}
+	// Parallel scenarios finish concurrently: the mutex serialises save-backs within this run, and
+	// the copy-to-temp + atomic-rename below closes the cross-PROCESS window too (two agents running
+	// `make testend` at once, R25) — a reader can never Stat a half-written kind into existence.
+	// 并行场景并发收尾:互斥锁串行化本轮内的回存;拷到临时名+原子 rename 连跨进程窗口(R25 双 agent)
+	// 一起关掉——读者绝不可能 Stat 到半写的 kind。
+	cacheSaveMu.Lock()
+	defer cacheSaveMu.Unlock()
 	dst := filepath.Join(cache, "sandbox", "runtimes")
 	_ = os.MkdirAll(dst, 0o755)
 	for _, e := range entries {
 		if !e.IsDir() {
 			continue
 		}
-		if _, err := os.Stat(filepath.Join(dst, e.Name())); err == nil {
+		final := filepath.Join(dst, e.Name())
+		if _, err := os.Stat(final); err == nil {
 			continue // this kind already cached. 该 kind 已有缓存。
 		}
-		_ = exec.Command("cp", "-R", filepath.Join(src, e.Name()), filepath.Join(dst, e.Name())).Run()
-		prunePIDFiles(filepath.Join(dst, e.Name()))
+		tmp := final + ".tmp-" + strconv.Itoa(os.Getpid())
+		_ = os.RemoveAll(tmp) // a previous crashed save may have left this name. 上次崩掉的回存可能留过此名。
+		if exec.Command("cp", "-R", filepath.Join(src, e.Name()), tmp).Run() != nil {
+			_ = os.RemoveAll(tmp)
+			continue
+		}
+		prunePIDFiles(tmp)
+		if os.Rename(tmp, final) != nil {
+			_ = os.RemoveAll(tmp) // another process landed the kind first — theirs is equivalent. 别的进程先落了,内容等价。
+		}
 	}
 }
+
+// cacheSaveMu serialises saveRuntimeCache across parallel scenarios in one run. 本轮内回存互斥。
+var cacheSaveMu sync.Mutex
 
 // prunePIDFiles strips pidfiles out of a freshly cached runtime kind. The backend's search engine
 // parks its resident embedder's pid at runtimes/llamasrv/embedder.pid so the next boot on the same

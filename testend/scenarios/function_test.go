@@ -22,6 +22,7 @@ func fnCreate(t *testing.T, wc *harness.Client, name, code string) string {
 
 // TestFunction_CreateRejections: A1 创建情况矩阵的出错列——无 def 的坏代码、重名。
 func TestFunction_CreateRejections(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-rejects"}).OK(t, nil)
@@ -47,6 +48,7 @@ func TestFunction_CreateRejections(t *testing.T) {
 // TestFunction_ListSearch: list ?search —— server-side case-insensitive name substring (orm WhereLike);
 // black-box acceptance for the HTTP layer shared by all 4 entity list endpoints.
 func TestFunction_ListSearch(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-search"}).OK(t, nil)
@@ -80,6 +82,7 @@ func TestFunction_ListSearch(t *testing.T) {
 // TestFunction_RunLogsAndExecutions: A1 运行+执行记录核心——print 真落 logs、非零退出
 // 真失败、聚合徽标、列表轻装/详情带 logs、入参回读。
 func TestFunction_RunLogsAndExecutions(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-run"}).OK(t, nil)
@@ -155,6 +158,7 @@ func TestFunction_RunLogsAndExecutions(t *testing.T) {
 
 // TestFunction_RunStderrReachesPanelTerminal: print 的三写之一——entities 流 run 终端真收到。
 func TestFunction_RunStderrReachesPanelTerminal(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-sse"}).OK(t, nil)
@@ -168,6 +172,7 @@ func TestFunction_RunStderrReachesPanelTerminal(t *testing.T) {
 
 // TestFunction_VersionsEditRevert: A1 版本面——edit 升版即生效、revert 移针、号单调。
 func TestFunction_VersionsEditRevert(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-vers"}).OK(t, nil)
@@ -215,6 +220,7 @@ func TestFunction_VersionsEditRevert(t *testing.T) {
 
 // TestFunction_ConcurrentRuns: 并发 run 不串扰、台账计数全。
 func TestFunction_ConcurrentRuns(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-conc"}).OK(t, nil)
@@ -261,6 +267,7 @@ func TestFunction_ConcurrentRuns(t *testing.T) {
 
 // TestFunction_DeleteRipples: 删除涟漪——搜不到、执行记录保留（D1）、404 读。
 func TestFunction_DeleteRipples(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-del"}).OK(t, nil)

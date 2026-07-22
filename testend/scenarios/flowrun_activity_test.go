@@ -32,6 +32,7 @@ type activityRow struct {
 // TestFlowrunActivity_GanttProjection: 双 agent 节点串行 run → activity 两行甘特序、执行窗为正、
 // 排队戳存在且 ready ≤ started;节点行线缆带 ⑫ 两戳;?limit=1 keyset 走两页不漏不重;幽灵 run 404。
 func TestFlowrunActivity_GanttProjection(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 
 	agID := agCreate(t, wc, map[string]any{

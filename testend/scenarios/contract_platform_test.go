@@ -77,6 +77,7 @@ func platformC_deleteKeys(t *testing.T, wc *harness.Client, provider string) int
 // ② N4 豁免：workspaces 是有界可枚举资源,api.md 登记「返全集不分页」——分页参数被忽略、无 nextCursor。
 // ③ 未知字段：POST/PATCH 带杂字段 → 400 INVALID_REQUEST（decodeJSON DisallowUnknownFields）。
 func TestContractPlatform_WorkspaceListAndStrictFields(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 
@@ -140,6 +141,7 @@ func TestContractPlatform_WorkspaceListAndStrictFields(t *testing.T) {
 //
 // ⑤ 软删：DELETE 204 空体 → 列表过滤 → 同名重建 201 新 id、列表只见新行。
 func TestContractPlatform_APIKeyListEnvelopeAndSoftDelete(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -281,6 +283,7 @@ func TestContractPlatform_APIKeyListEnvelopeAndSoftDelete(t *testing.T) {
 //
 //	白名单外 → 400 API_KEY_API_FORMAT_INVALID；合法二选一 → 201。
 func TestContractPlatform_APIKeyRotationManagedAPIFormat(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -339,6 +342,7 @@ func TestContractPlatform_APIKeyRotationManagedAPIFormat(t *testing.T) {
 // ① 零 key 空态：删尽 ws 的 key（含异步落地的受管 anselm 行）→ data:[]（非 null）。
 // ② 跨 ws 聚合独立：wsA 配 mock key 并探测 → wsA capabilities 现 gpt-4o；wsB 恒不见。
 func TestContractPlatform_ModelCapabilitiesEmptyAndIsolation(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -391,6 +395,7 @@ func TestContractPlatform_ModelCapabilitiesEmptyAndIsolation(t *testing.T) {
 //
 //	已知键错型 → 400 SETTINGS_LIMITS_INVALID；显式越界 0 → 400 SETTINGS_LIMITS_INVALID。
 func TestContractPlatform_LimitsResetAndPatchEdges(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	_, wc := platformC_ws(t, c, "limits-ws")
@@ -478,6 +483,7 @@ func TestContractPlatform_LimitsResetAndPatchEdges(t *testing.T) {
 //
 // ④ POST /sandbox/runtimes 拒未知字段 → 400 INVALID_REQUEST（在触发任何下载之前）。
 func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	_, wa := platformC_ws(t, c, "sbx-a")
@@ -575,6 +581,7 @@ func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 //	脚本化分支已有单测（backend/internal/app/freetier/quota_test.go + infra/llm/quota_test.go）。
 //	只读 REST 面，绝不用受管 key 跑 chat/agent。
 func TestContractPlatform_FreetierQuota(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	_, wa := platformC_ws(t, c, "free-a")
@@ -652,6 +659,7 @@ func TestContractPlatform_FreetierQuota(t *testing.T) {
 //
 //	= 启动时 ANSELM_DATA_DIR 的解析值。
 func TestContractPlatform_SystemEnvelopes(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 
@@ -793,6 +801,7 @@ func platformC_raw(t *testing.T, method, rawURL string, hdr map[string]string, h
 //
 //	/health 不豁免；OPTIONS 与 /webhooks/ 豁免；Host 门先于 token 判定（好 token+坏 Host 仍 403）。
 func TestContractPlatform_LoopbackDoors(t *testing.T) {
+	t.Parallel()
 	t.Run("HostDoorAlwaysOn", func(t *testing.T) {
 		srv := harness.Start(t)
 		// 无 token：health 裸通（bearer 关）。
@@ -858,6 +867,7 @@ func TestContractPlatform_LoopbackDoors(t *testing.T) {
 //
 //	（「读不到收敛 local」是 Service 内部兜底、无线缆面——见 rows note。）
 func TestContractPlatform_WebSearchBackendAndWebFetchMode(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	wsID := wsOf(t, wc)
 
@@ -966,6 +976,7 @@ func TestContractPlatform_WebSearchBackendAndWebFetchMode(t *testing.T) {
 // each {name, summary}, sorted by name, known builtins present, no static danger field; N4
 // exemption① (bounded fixed set: pagination params ignored, no nextCursor).
 func TestContractTools_BuiltinCatalog(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	_, c := platformC_ws(t, srv.Client(t), "tools-catalog-ws")
 

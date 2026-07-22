@@ -31,6 +31,7 @@ import (
 // awaitingInput；accept（带答案）与 decline 都清之。既有测只锁 KindDanger+approve——本测补 ask 这一 kind 的完整链
 // （阻塞回合 → GET interactions 报 kind=ask/tool=ask_user → resolve 清点、回合完成）。
 func TestP4bRail_AwaitingInputAskGate(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	type pend struct {
@@ -101,6 +102,7 @@ func TestP4bRail_AwaitingInputAskGate(t *testing.T) {
 // TestP4bRail_AwaitingInputDangerDeny：danger 门的 DENY 臂清 rail 的 awaitingInput（既有测只走 approve）。
 // 自报危险工具阻塞 → awaitingInput=true → deny → 点清、回合仍完成（拒绝作为工具结果回喂）。
 func TestP4bRail_AwaitingInputDangerDeny(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "deny_probe", "def go() -> dict:\n    return {\"ok\": True}\n")
 	mock.Enqueue(dlgModel,
@@ -167,6 +169,7 @@ func TestP4bRail_AwaitingInputDangerDeny(t *testing.T) {
 // completed 终态置未读（嵌套 sub-message 在父工具内完成、不重复计）。POST :seen 清之。既有测只覆盖单回合朴素回复
 // ——本测补长流/subagent 变体。
 func TestP4bRail_UnreadSubagentCompletes(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "Subagent",
@@ -214,6 +217,7 @@ func TestP4bRail_UnreadSubagentCompletes(t *testing.T) {
 // TestP4bRail_UnreadCancelledStaysSeen：**取消**终态不得点亮 hasUnread——取消的回复「不是待读回复」（host.go：
 // unread 仅 status==completed），且刚取消它的用户已看过线程。与既有 completed→true 形成对照。
 func TestP4bRail_UnreadCancelledStaysSeen(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "a long stalled reply that gets cancelled......", StallMS: 8000})
 
@@ -243,6 +247,7 @@ func TestP4bRail_UnreadCancelledStaysSeen(t *testing.T) {
 // TestP4bRail_UnreadErrorStaysSeen：**出错**终态不得点亮 hasUnread（同取消规则）。全新未配 dialogue 模型的
 // workspace 即刻以配置类错误码报错——快、无重试的出错终态——rail 仍须 hasUnread=false。
 func TestP4bRail_UnreadErrorStaysSeen(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "err-unread"}).OK(t, nil)
@@ -273,6 +278,7 @@ func TestP4bRail_UnreadErrorStaysSeen(t *testing.T) {
 // （isGenerating 派生自内存队列——取消的回合已不在跑/排队）。既有测锁回合 cancelled 状态、从未锁派生 rail 点清除
 // ——本测补此。
 func TestP4bRail_GeneratingCancelClearsDot(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "streaming and about to be cancelled......", StallMS: 8000})
 
@@ -320,6 +326,7 @@ func TestP4bRail_GeneratingCancelClearsDot(t *testing.T) {
 // 不留永久蓝点。在途回合 isGenerating=true；同目录 kill-9+restart 后，rail 行 isGenerating=false（内存队列已没）、
 // 被扫孤儿为 cancelled。既有崩溃测锁被扫 message 状态；本测锁 rail 派生 isGenerating 角度（无永久转圈点）。
 func TestP4bRail_GeneratingNoResidueAfterCrash(t *testing.T) {
+	t.Parallel()
 	srv, wc, mock, wsID, _ := chatC_setup(t, false)
 	// 8s stall keeps the turn in-flight through the kill (WaitDumps confirms arrival, the kill lands
 	// ~2s later) WITHOUT the mock's Close blocking on a 60s handler drain at cleanup.

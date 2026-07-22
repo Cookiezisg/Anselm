@@ -18,6 +18,7 @@ import (
 )
 
 func TestFlowrun_CancelParkedRun(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-cancel"}).OK(t, nil)

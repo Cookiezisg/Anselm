@@ -20,6 +20,7 @@ import (
 // TestPromptR6_SubagentViewpoint: subagent 收到的是自足 prompt——父对话历史零泄漏、
 // 工具子集剔除 Subagent、身份非 chat 主视角。
 func TestPromptR6_SubagentViewpoint(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	mock.Enqueue(dlgModel,
@@ -64,6 +65,7 @@ func TestPromptR6_SubagentViewpoint(t *testing.T) {
 // {seq, scope:{kind,id}, id, frame:{...}} camelCase；durable 带 SSE id 行语义（seq>0）、
 // delta 恒 seq=0；notifications 帧带持久行 id。
 func TestPromptR6_FrontendWireShapes(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	ms := wc.Subscribe(t, "messages")
@@ -151,6 +153,7 @@ func TestPromptR6_FrontendWireShapes(t *testing.T) {
 // TestPromptR6_ScaleStatePromptBounded: 规模态——200 个实体下 system prompt 不随实体数
 // 线性爆炸（懒目录的物理证明：与 5 实体基线比体积 < 3×）。
 func TestPromptR6_ScaleStatePromptBounded(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "baseline"})
@@ -183,6 +186,7 @@ func TestPromptR6_ScaleStatePromptBounded(t *testing.T) {
 // TestPromptR6_DegradedAndCrashRecoveredViews: 降级态（未配模型：preview 面仍连贯渲染）+
 // 崩溃恢复态（kill -9 重启后续聊：历史重水合恰一次、无残缺无重复）。
 func TestPromptR6_DegradedAndCrashRecoveredViews(t *testing.T) {
+	t.Parallel()
 	// 降级态：全新 server、零配置——preview 必须仍渲染连贯 prompt（产品自举调试面）。
 	srv := harness.Start(t)
 	c := srv.Client(t)
@@ -230,6 +234,7 @@ func TestPromptR6_DegradedAndCrashRecoveredViews(t *testing.T) {
 // （线缆上每个 assistant tool_call id 都有且仅有一个 tool 回包）；②token 账单与 mock 上报
 // 逐数对账（多回合 + 工具回合）。
 func TestPromptR6_ToolResultPairingAndUsageLedger(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "pair_fn", "def pair_fn() -> dict:\n    return {\"ok\": True}\n")
 
@@ -309,6 +314,7 @@ func TestPromptR6_ToolResultPairingAndUsageLedger(t *testing.T) {
 // TestPromptR6_PostCompactionView: 长程压缩后态的结构审读——滚动摘要在 system/历史中
 // **恰一次**、被压回合从模型视角尽出、当前回合在场、无孤儿 tool 配对。
 func TestPromptR6_PostCompactionView(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, true)
 	wc.PATCH("/api/v1/limits", map[string]any{"context": map[string]any{"triggerRatio": 0.1}}).OK(t, nil)
 

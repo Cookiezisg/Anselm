@@ -15,7 +15,7 @@ audience: [human, ai]
 
 ## 入口
 
-- `make -C backend testend` —— 全功能黑盒验收（scenarios/，llmmock 驱动 LLM 面，零 token，分钟级；**不进 `make verify`**）。
+- `make -C backend testend` —— 全功能黑盒验收（scenarios/，llmmock 驱动 LLM 面，零 token；**全场景 `t.Parallel()` + `-parallel 8`、`-timeout 15m`，实测 ~5min**——每场景本就是隔离宇宙〔独立临时数据目录 + 空闲端口 + 独立进程组〕，并行只是同时开几个宇宙、隔离零损;`saveRuntimeCache` 经进程内互斥 + 拷临时名原子 rename 双保险,并发回存绝不留半写缓存;**不进 `make verify`**）。
 - `make -C backend evals` —— 金标 LLM 旅程（golden/，真模型；`EVALS=1` 门控 + `EVALS_BASE_URL/EVALS_MODEL/EVALS_KEY`；烧钱手动跑）。
 
 ## 布局

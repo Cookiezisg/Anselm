@@ -51,6 +51,7 @@ func offsetGet(t *testing.T, wc *harness.Client, query string) offsetBody {
 // TestFlowruns_OffsetPagination — WRK-070 B4: drive five real completed runs, then walk the offset
 // pages and prove the two pagination modes stay disjoint on the wire.
 func TestFlowruns_OffsetPagination(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fr-offset"}).OK(t, nil)

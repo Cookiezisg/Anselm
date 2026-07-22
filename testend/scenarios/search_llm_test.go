@@ -59,6 +59,7 @@ func waitIndexed(t *testing.T, wc *harness.Client, token, types string) {
 // 描述里出现（名字不含），命中即证明工具走统一内容引擎而非旧名字子串路径；slim 形状
 // {count, <list>: [{id,name,description}]} 不变（保 schema 换引擎）。
 func TestSearchLLM_VerticalToolsContentEngine(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	// Build one entity per vertical, match-token strictly in body. 每垂一实体、token 只在正文。
@@ -125,6 +126,7 @@ func TestSearchLLM_VerticalToolsContentEngine(t *testing.T) {
 // 直喂 utility（连与查询词法无关的积木也在场，这是索引检索做不到的），sifter 编号回选
 // 驱动最终结果条数。
 func TestSearchLLM_BlocksTier1WholeCatalog(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, true)
 
 	fnCreate(t, wc, "metricflush",
@@ -164,6 +166,7 @@ func TestSearchLLM_BlocksTier1WholeCatalog(t *testing.T) {
 // TestSearchLLM_BlocksTier2IndexNarrowed: 第二档——目录撑破 4k token 预算后，先索引收窄
 // （top-50、查询相关），utility 只见相关候选：词法无关的 oddgate 必须从 sifter prompt 消失。
 func TestSearchLLM_BlocksTier2IndexNarrowed(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, true)
 
 	fnCreate(t, wc, "metricflush",
@@ -209,6 +212,7 @@ func TestSearchLLM_BlocksTier2IndexNarrowed(t *testing.T) {
 // + 积木铁律：六类之外（document/skill）即使同名也永不出现；ref 全部可接线（fn_ 直填、
 // handler 方法带 .method）。
 func TestSearchLLM_BlocksTier3AndScope(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false) // 无 utility → 精度链落到第三档。
 
 	fnID := fnCreate(t, wc, "metricflush",
@@ -246,6 +250,7 @@ func TestSearchLLM_BlocksTier3AndScope(t *testing.T) {
 // TestSearchLLM_SearchConversationsTool: 回忆窗——对话 A 落库一个独特词，对话 B 经
 // search_conversations 找回：结果带 conversationId + messageId + snippet，绝不携带全文。
 func TestSearchLLM_SearchConversationsTool(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "Noted: the launch codename is blueharbor. Plus a private detail: the dock number is seventeen."})

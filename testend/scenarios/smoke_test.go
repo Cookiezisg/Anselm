@@ -20,6 +20,7 @@ import (
 // TestSmoke_BootToSearchableEntity：所有波次站立的脊柱——拉起真二进制、建 workspace、
 // 经 HTTP 构建一个 function、看它涟漪进搜索。
 func TestSmoke_BootToSearchableEntity(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 

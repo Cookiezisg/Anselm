@@ -166,6 +166,7 @@ func megaC_searchHit(t *testing.T, wc *harness.Client, name, types, id string) b
 //
 // TestContractMega_TriggerToNotificationChain 一次 run 走完整条跨模块链。
 func TestContractMega_TriggerToNotificationChain(t *testing.T) {
+	t.Parallel()
 	// agentSetup binds a workspace + registers the llmmock as an openai key + sets BOTH the
 	// dialogue and agent default models — the agent node needs the agent default model.
 	// agentSetup 绑 workspace + 注册 llmmock 为 openai key + 设 dialogue 与 agent 两个默认模型

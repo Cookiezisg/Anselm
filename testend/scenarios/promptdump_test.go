@@ -49,6 +49,7 @@ var safetyTheaterPhrases = []string{
 
 // TestPromptDump_ChatSystemPromptStructure 审读 chat 主 LLM 的 system prompt 结构与体验质量。
 func TestPromptDump_ChatSystemPromptStructure(t *testing.T) {
+	t.Parallel()
 	wc, mock, _ := promptSetup(t, "en")
 	// 建一个 function 使 capabilities 段非空（built 实体真出现在菜单里）。
 	fnCreate(t, wc, "weather_lookup", "def f(city: str) -> dict:\n    return {\"c\": city}\n")
@@ -98,6 +99,7 @@ func TestPromptDump_ChatSystemPromptStructure(t *testing.T) {
 // TestPromptDump_ToolSchemaFrameworkFields 审读 S18：每个线缆工具 schema 的 properties 必含框架
 // 三字段（summary/danger/execution_group），且工具 description 非空（LLM 选型靠它）。
 func TestPromptDump_ToolSchemaFrameworkFields(t *testing.T) {
+	t.Parallel()
 	wc, mock, _ := promptSetup(t, "en")
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "hi."})
 	convID := convCreate(t, wc, "toolschema")
@@ -138,6 +140,7 @@ func TestPromptDump_ToolSchemaFrameworkFields(t *testing.T) {
 // TestPromptDump_PreviewEndpointFidelity 审读 R0057 透明度：GET /system-prompt-preview 必须与模型
 // 真收到的 system prompt 一致（同对话同日同 ctx，二者都走 buildSystemPrompt）——漂移即用户被骗。
 func TestPromptDump_PreviewEndpointFidelity(t *testing.T) {
+	t.Parallel()
 	wc, mock, _ := promptSetup(t, "en")
 	fnCreate(t, wc, "fidelity_fn", "def f() -> dict:\n    return {}\n")
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "hi."})
@@ -159,6 +162,7 @@ func TestPromptDump_PreviewEndpointFidelity(t *testing.T) {
 // TestPromptDump_UtilityViewpointIsolation 审读视角隔离：utility 模型（首回合自动起标题）收到的
 // 是一个紧凑的专用 prompt，绝不泄漏 chat 主视角的全 system（identity 等段）。
 func TestPromptDump_UtilityViewpointIsolation(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -193,6 +197,7 @@ func TestPromptDump_UtilityViewpointIsolation(t *testing.T) {
 // TestPromptDump_EmptyStateCoherence 审读空态（自举）：零 built 实体的 workspace，system prompt
 // 仍连贯——capabilities 段要么缺席、要么是连贯的空提示，绝不是半截残壳。
 func TestPromptDump_EmptyStateCoherence(t *testing.T) {
+	t.Parallel()
 	wc, mock, _ := promptSetup(t, "en") // 不建任何实体
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "hi."})
 	convID := convCreate(t, wc, "empty")
@@ -217,6 +222,7 @@ func TestPromptDump_EmptyStateCoherence(t *testing.T) {
 // prompt 是「你是 <name>，一个 workflow 自动化 worker + 你的角色…」——与 chat 主视角（You are
 // Anselm + 全 section 菜单）完全隔离，且只挂载它被授予的工具。
 func TestPromptDump_AgentViewpoint(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -255,6 +261,7 @@ func TestPromptDump_AgentViewpoint(t *testing.T) {
 // AC-PD-2 裁决）——environment 段的「Reply in <lang>」由 workspace 持久化语言驱动（zh-CN→Chinese、
 // en→English），不再受浏览器 Accept-Language 摆布；prompt 本体保持英文（高密度、模型友好）。
 func TestPromptDump_I18nReplyLanguage(t *testing.T) {
+	t.Parallel()
 	for _, tc := range []struct{ lang, wantReply string }{
 		{"zh-CN", "Reply in Chinese"},
 		{"en", "Reply in English"},

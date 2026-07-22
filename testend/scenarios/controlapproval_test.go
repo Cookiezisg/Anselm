@@ -10,6 +10,7 @@ import (
 // TestControl_CRUDAndCELValidation: A3 控制实体——创建/读/版本编辑生效/坏 CEL 拒。
 // 真实路由战场（port 选边+emit 下游可读）在 W2 workflow 内验。
 func TestControl_CRUDAndCELValidation(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "ctl"}).OK(t, nil)
@@ -62,6 +63,7 @@ func TestControl_CRUDAndCELValidation(t *testing.T) {
 // TestApproval_CRUDAndTemplate: A3 审批实体——创建（模板+超时政策）/读回/编辑。
 // park→决策→超时三政策在 W2 workflow 内真验。
 func TestApproval_CRUDAndTemplate(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "apf"}).OK(t, nil)

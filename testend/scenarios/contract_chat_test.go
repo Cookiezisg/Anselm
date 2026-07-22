@@ -127,6 +127,7 @@ func chatC_dangerCall(id, fnID string) harness.MockToolCall {
 // 两处已同批修复：conversation/limits PATCH 转严格解码；interactions resolve 校验 action 枚举
 // （枚举外 → 422 INTERACTION_INVALID_ACTION，不再静默当 deny）。
 func TestContractChat_UnknownFieldsAndActionEnum(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	convID := convCreate(t, wc, "strict decode")
 
@@ -199,6 +200,7 @@ func TestContractChat_UnknownFieldsAndActionEnum(t *testing.T) {
 // A-tp-5 —— 跨 workspace 读：D2 隔离下对话不可见——GET 对话 404；touchpoints/todos 端点按「未知
 // 对话=空页」契约返 200 空且绝不泄漏他 ws 的行（行建议的 404 与该端点契约不符）。
 func TestContractChat_EmptyBoardsAndCrossWorkspace(t *testing.T) {
+	t.Parallel()
 	srv, wc, _, _, _ := chatC_setup(t, false)
 	convID := convCreate(t, wc, "empty boards")
 
@@ -251,6 +253,7 @@ func TestContractChat_EmptyBoardsAndCrossWorkspace(t *testing.T) {
 // B-conv-5 —— activity 排序键 last_message_at 只随用户回合刷新：改名/systemPrompt/换模型不重排；
 // 未知/空 sort 静默落 activity 不 400。
 func TestContractChat_ModelOverrideTristateAndActivityOrder(t *testing.T) {
+	t.Parallel()
 	_, wc, _, _, keyID := chatC_setup(t, false)
 
 	// --- B-conv-1: 三态矩阵 ---
@@ -338,6 +341,7 @@ func TestContractChat_ModelOverrideTristateAndActivityOrder(t *testing.T) {
 // %/_ 通配转义（orm WhereLike，conversation.md）、不改排序键；跨 sort / 跨 search 复用旧游标
 // 不 500（契约只要求客户端丢弃游标，服务端不得炸）。
 func TestContractChat_SearchEscapeAndStaleCursor(t *testing.T) {
+	t.Parallel()
 	wc, _ := chatSetup(t, false)
 
 	qa1 := convCreate(t, wc, "Query Alpha One")
@@ -396,6 +400,7 @@ func TestContractChat_SearchEscapeAndStaleCursor(t *testing.T) {
 // B-chat-3 —— 回合收尾活（同步压缩检查，真 utility 调用拖秒级）期间的 Send 落单槽缓冲（202）、
 // 紧随其后被服务；槽满仍 409（chat.md §2）。
 func TestContractChat_GeneratingFlagAndFinalizeWindow(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, true)
 
 	// --- B-conv-7 ---
@@ -475,6 +480,7 @@ func TestContractChat_GeneratingFlagAndFinalizeWindow(t *testing.T) {
 // 到达时 cancel 全部在跑回合 + stop 信号短路队列（不等 5 分钟 idle timer）——流式中优雅停机须
 // 秒级退出，回合以 cancelled 终态落盘（重启后可见、无 streaming 残留）。
 func TestContractChat_GracefulShutdownImmediate(t *testing.T) {
+	t.Parallel()
 	srv, wc, mock, wsID, _ := chatC_setup(t, false)
 
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "very long stalled answer......", StallMS: 60000})
@@ -507,6 +513,7 @@ func TestContractChat_GracefulShutdownImmediate(t *testing.T) {
 // streaming 孤儿由 boot 对账 SweepOrphans/SweepNonTerminal 扫成 cancelled（chat.md §3 +
 // messages.md §2）：同目录重启后无任何非终态行残留。
 func TestContractChat_CrashSweepOrphans(t *testing.T) {
+	t.Parallel()
 	srv, wc, mock, wsID, _ := chatC_setup(t, false)
 
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "doomed stalled stream......", StallMS: 60000})
@@ -537,6 +544,7 @@ func TestContractChat_CrashSweepOrphans(t *testing.T) {
 // （chat.md §4）：同对话同工具此后免确认直跑；:cancel 只停在途生成、保留白名单；对话删除
 // ForgetConversation 整批清授权——新对话同工具重新要确认（授权不越过删除）。
 func TestContractChat_ApproveAlwaysLifecycle(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "always_probe", "def go() -> dict:\n    return {\"ran\": True}\n")
 
@@ -639,6 +647,7 @@ func TestContractChat_ApproveAlwaysLifecycle(t *testing.T) {
 // （chat.md §3：subagent_id≠” 下推 SQL）：sub run 的内部 trace（reasoning）绝不进父模型
 // 视角的后续请求；最终答案作为 tool_result 合法留存。
 func TestContractChat_SubagentTraceIsolation(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	mock.Enqueue(dlgModel,
@@ -698,6 +707,7 @@ func TestContractChat_SubagentTraceIsolation(t *testing.T) {
 // run_function 的 print()（driver 引至 stderr）实时流成 tool_call 下的 progress 块并随回合落盘；
 // 但 LLM 历史投影是类型白名单——progress 永不回喂模型（同回合回喂请求与下一回合请求都不含）。
 func TestContractChat_ProgressBlockLifecycle(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "loud_probe",
 		"def loud() -> dict:\n    print(\"PROGRESS-STDERR-MARK-7788\")\n    return {\"done\": True}\n")
@@ -745,6 +755,7 @@ func TestContractChat_ProgressBlockLifecycle(t *testing.T) {
 // 直读 SQLite 断原文逐字未变。
 // B-msg-3 —— 两表 append-only（D1）：删对话后 messages / message_blocks 行物理留存。
 func TestContractChat_MessagesPhysicalTruth(t *testing.T) {
+	t.Parallel()
 	srv, wc, mock, _, _ := chatC_setup(t, true)
 	wc.PATCH("/api/v1/limits", map[string]any{"context": map[string]any{"triggerRatio": 0.1}}).OK(t, nil)
 
@@ -802,6 +813,7 @@ func TestContractChat_MessagesPhysicalTruth(t *testing.T) {
 // tool-call 帧耗尽轮上限：sub 恰发 30 个请求、sub-message 落 max_steps 终态、父 tool_result
 // 带「did not finish cleanly」截断前缀（F150）。
 func TestContractChat_SubagentTypesAndRoundCap(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	globCall := harness.MockToolCall{Name: "Glob",
@@ -915,6 +927,7 @@ func TestContractChat_SubagentTypesAndRoundCap(t *testing.T) {
 // 防孤儿（subagent.md：chatHost 系 Detached 落盘）：父 :cancel 中断在跑 sub run 后，父回合与
 // sub-message 都以终态（cancelled）可查、无 streaming 残留。
 func TestContractChat_SubagentCancelTerminal(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	mock.Enqueue(dlgModel,
@@ -953,6 +966,7 @@ func TestContractChat_SubagentCancelTerminal(t *testing.T) {
 // 默认、刻意不承袭 per-conversation override（subagent.md）：对话 override 指向 mock-agent 后，
 // 父回合走 mock-agent 队列，sub run 仍落 dialogue 默认（gpt-4o）队列。
 func TestContractChat_SubagentModelNotOverridden(t *testing.T) {
+	t.Parallel()
 	_, wc, mock, _, keyID := chatC_setup(t, false)
 
 	convID := convCreate(t, wc, "override probe")
@@ -999,6 +1013,7 @@ func TestContractChat_SubagentModelNotOverridden(t *testing.T) {
 // B-todo-5 —— subagent run 独立作用域（scope=subagent id）：sub 的 todo_write 不动父清单，
 // 看板 ?subagentId= 可读回 sub 清单。
 func TestContractChat_TodoScopesRemindersAndLimits(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	// --- conv1: 信号 + reminder 正/负控 + 上限 ---
@@ -1134,6 +1149,7 @@ func TestContractChat_TodoScopesRemindersAndLimits(t *testing.T) {
 // B-tp-8 —— deleted 行兄弟借名快照：先 executed 再 delete_function → deleted 行仍诚实带名；
 // 对话没碰过就删的孤儿行诚实空名。
 func TestContractChat_TouchpointSelfReportAndNameBorrow(t *testing.T) {
+	t.Parallel()
 	_, wc, mock, wsID, keyID := chatC_setup(t, false)
 	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/agent",
 		map[string]any{"apiKeyId": keyID, "modelId": "mock-agent"}).OK(t, nil)
@@ -1214,6 +1230,7 @@ func TestContractChat_TouchpointSelfReportAndNameBorrow(t *testing.T) {
 // 名下且 actor=subagent（database.md CHECK user/assistant/subagent + loop touches actor 判定）；
 // 失败的调用不记（失败的触碰不是触碰）。
 func TestContractChat_TouchpointSubagentActorAndFailures(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnV := fnCreate(t, wc, "sub_viewed_probe", "def sv() -> dict:\n    return {\"ok\": True}\n")
 	fnF := fnCreate(t, wc, "always_fails", "def af() -> dict:\n    raise RuntimeError(\"scripted failure\")\n")

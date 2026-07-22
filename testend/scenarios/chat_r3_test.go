@@ -78,6 +78,7 @@ func sendWith(t *testing.T, wc *harness.Client, convID string, body map[string]a
 // TestChatR3_AttachmentsThreeRoutes: 附件三路按模型能力门控（gpt-4o：vision=true、
 // nativeDocs=false）——文本直接内联、图片成 image_url part、PDF 走 sandbox 真抽取后内联。
 func TestChatR3_AttachmentsThreeRoutes(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	txtID := uploadAtt(t, wc, "notes.txt", "text/plain", []byte("TXTINLINE bravo content"))
@@ -112,6 +113,7 @@ func TestChatR3_AttachmentsThreeRoutes(t *testing.T) {
 // （注入对话）；active skill 的 allowed-tools 成预授权：自报 dangerous 的工具**不再询问**直接执行
 // （对照 W4 危险门默认必询问）。
 func TestChatR3_SkillInlineActivateAndPreauth(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "deploy_step", "def deploy_step() -> dict:\n    return {\"deployed\": True}\n")
 
@@ -169,6 +171,7 @@ func TestChatR3_SkillInlineActivateAndPreauth(t *testing.T) {
 // TestChatR3_SkillForkRoute: skill 两路之 fork——activate_skill 派隔离 subagent 跑正文、
 // 同步拿回结果；sub-message 落父对话（SubagentID 非空）、父 LLM 历史不被污染。
 func TestChatR3_SkillForkRoute(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	wc.POST("/api/v1/skills", map[string]any{
@@ -227,6 +230,7 @@ func TestChatR3_SkillForkRoute(t *testing.T) {
 // system 注入 name+description **索引**（非全文）、read_memory 取回全文；pin 后全文直接
 // 入 system；forget 后新对话彻底消失。
 func TestChatR3_MemoryLLMFace(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	// 对话 1：写记忆。
@@ -299,6 +303,7 @@ func TestChatR3_MemoryLLMFace(t *testing.T) {
 // TestChatR3_MentionFreeze: @mention 发送时刻冻结——消息携带实体快照；之后实体被改，
 // 同对话后续回合的历史里快照仍是旧内容（freeze-on-send）。
 func TestChatR3_MentionFreeze(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "frozen_fn", "def frozen_fn() -> dict:\n    return {\"v\": \"SNAPSHOT-V1\"}\n")
 
@@ -335,6 +340,7 @@ func TestChatR3_MentionFreeze(t *testing.T) {
 // TestChatR3_ArchiveUnarchiveAndDeleteCancels: 归档对话 Send 自动解档；删除对话取消在途
 // 生成（不留孤儿、删后 404）。
 func TestChatR3_ArchiveUnarchiveAndDeleteCancels(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	// 归档 → Send 自动解档。
@@ -372,6 +378,7 @@ func TestChatR3_ArchiveUnarchiveAndDeleteCancels(t *testing.T) {
 // TestChatR3_ParallelToolBatch: 并行工具批——同回合两个 tool_call（同 execution_group）
 // 都执行、两个结果在同一后续请求一并回喂、两条执行台账齐。
 func TestChatR3_ParallelToolBatch(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnA := fnCreate(t, wc, "batch_a", "def batch_a() -> dict:\n    return {\"mark\": \"BATCH-A-RAN\"}\n")
 	fnB := fnCreate(t, wc, "batch_b", "def batch_b() -> dict:\n    return {\"mark\": \"BATCH-B-RAN\"}\n")
@@ -420,6 +427,7 @@ func TestChatR3_ParallelToolBatch(t *testing.T) {
 // TestChatR3_SubagentNestedTree: Subagent（Task）工具——派 general-purpose 子运行，结果同步
 // 回喂；sub-message 以 SubagentID 落父对话；子集剔除 Subagent（深度 1，子不能再派子）。
 func TestChatR3_SubagentNestedTree(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	mock.Enqueue(dlgModel,
@@ -475,6 +483,7 @@ func TestChatR3_SubagentNestedTree(t *testing.T) {
 // TestChatR3_ReconnectReplay: SSE 重连——fromSeq 续传重放 durable 帧（close 带快照），
 // E2 ephemeral delta 不重放（重连流上无 seq=0 的 delta 残影）。
 func TestChatR3_ReconnectReplay(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "REPLAYTOKEN says hello"})
@@ -511,6 +520,7 @@ func TestChatR3_ReconnectReplay(t *testing.T) {
 // TestChatR3_UtilityAbsentDegrade: utility 缺席的静默降级——未命名对话不起标题、压缩越线
 // 不压缩，但主链全程无错误。
 func TestChatR3_UtilityAbsentDegrade(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false) // 不配 utility。
 	wc.PATCH("/api/v1/limits", map[string]any{"context": map[string]any{"triggerRatio": 0.1}}).OK(t, nil)
 
@@ -544,6 +554,7 @@ func TestChatR3_UtilityAbsentDegrade(t *testing.T) {
 // 脚本不在 skill 文件列表 → 错误文本回喂 LLM（不触发运行时下载）；越界路径同拒。真执行
 // （EnsureEnv 装解释器）刻意不在 testend 跑（首用下载数百 MB），归真机验收。
 func TestChatR3_SkillScriptGuardSurface(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	wc.POST("/api/v1/skills", map[string]any{
 		"name": "scripted", "description": "has scripts", "body": "Run scripts/x.py.",
@@ -580,6 +591,7 @@ func TestChatR3_SkillScriptGuardSurface(t *testing.T) {
 // ①内容半:skill 渲染 body 经 <mentions> 块注入(marker 回喂模型);②副作用半:allowed-tools 预授权
 // 生效,危险 run_function 免确认直接跑、零交互挂起。这是 @ 提及激活对齐斜杠命令的黑盒证据。
 func TestChatR3_AtSkillActivation(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "at_deploy_step", "def at_deploy_step() -> dict:\n    return {\"deployed\": True}\n")
 

@@ -61,8 +61,13 @@ format: deps
 test: deps
 	@$(RUN) go test ./...
 
+# -parallel 8: every scenario is a fully isolated universe (own temp data dir + free port + own
+# process group), boot-tax dominated — serial execution was pure queueing. -count=1 stays (see
+# `test` above: this module tests the compiled backend BINARY, whose changes Go's cache cannot see).
+# -parallel 8:每个场景都是完全隔离的宇宙(独立临时数据目录+空闲端口+独立进程组)、boot 税占大头,
+# 串行纯属排队。-count=1 保留(见上 test 注释:本 module 测编译出的后端二进制,Go 缓存看不见其变化)。
 testend: deps
-	@cd $(ROOT)/testend && $(RUN) go test -count=1 -timeout 30m ./scenarios/...
+	@cd $(ROOT)/testend && $(RUN) go test -count=1 -parallel 8 -timeout 15m ./scenarios/...
 
 evals: deps
 	@set -a; [ -f $(ROOT)/.env ] && source $(ROOT)/.env; set +a; \

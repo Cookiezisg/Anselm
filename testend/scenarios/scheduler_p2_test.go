@@ -64,6 +64,7 @@ func listFirings(t *testing.T, wc *harness.Client, trgID, query string) []firing
 // future points that name the trigger and reverse-resolve the workflows that would really run;
 // pausing empties the timeline (nothing IS scheduled); garbage params are loud 422s.
 func TestTriggerSchedule_Timeline(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "trg-schedule"}).OK(t, nil)
@@ -127,6 +128,7 @@ func TestTriggerSchedule_Timeline(t *testing.T) {
 // TestTriggerSchedule_TruncatesHonestly — 工单⑧: an every-minute cron over a week vastly overruns
 // the cap; the response must say so rather than pass a capped page off as the whole window.
 func TestTriggerSchedule_TruncatesHonestly(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "trg-trunc"}).OK(t, nil)
@@ -150,6 +152,7 @@ func TestTriggerSchedule_TruncatesHonestly(t *testing.T) {
 // firings endpoint, and (b) run NONE of them — the default policy is skip, because a local app that
 // wakes into a catch-up storm is the hazard the verdict exists to prevent.
 func TestTrigger_MisfireMissedAccounting(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "trg-misfire"}).OK(t, nil)
@@ -298,6 +301,7 @@ func TestTrigger_MisfireMissedAccounting(t *testing.T) {
 // TestTrigger_MisfirePolicyVocabulary — 工单⑨: the per-trigger catchup policy is a closed
 // vocabulary gated at create AND edit; a typo must not silently behave as the default.
 func TestTrigger_MisfirePolicyVocabulary(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "trg-policy"}).OK(t, nil)

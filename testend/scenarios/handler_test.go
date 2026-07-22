@@ -27,6 +27,7 @@ func hdCreate(t *testing.T, wc *harness.Client, name string, body map[string]any
 // TestHandler_ResidentLifecycleAndCalls: A2 核心——首调 spawn、状态保持（常驻的灵魂）、
 // 调用台账 logs、restart 重置状态。
 func TestHandler_ResidentLifecycleAndCalls(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hd-life"}).OK(t, nil)
@@ -79,6 +80,7 @@ func TestHandler_ResidentLifecycleAndCalls(t *testing.T) {
 // TestHandler_PrintToStdout: A2 关键产品语义——用户代码 print 走 stdout（协议通道）时
 // 会发生什么。真机观察并定性（finding 候选：function 已重定向、handler 是否同等保护）。
 func TestHandler_PrintToStdout(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hd-print"}).OK(t, nil)
@@ -114,6 +116,7 @@ func TestHandler_PrintToStdout(t *testing.T) {
 
 // TestHandler_ConfigFlow: A2 config——必填缺失拒 spawn、PUT 后生效、掩码回显、清空停机。
 func TestHandler_ConfigFlow(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hd-config"}).OK(t, nil)
@@ -159,6 +162,7 @@ func TestHandler_ConfigFlow(t *testing.T) {
 
 // TestHandler_MethodTimeout: 方法级超时真触发——卡死方法不拖死调用方。
 func TestHandler_MethodTimeout(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hd-timeout"}).OK(t, nil)

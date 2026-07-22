@@ -48,6 +48,7 @@ func waitRunCompleted(t *testing.T, wc *harness.Client, wfID string, timeoutMS i
 
 // TestTrigger_WebhookFiresAndVerifies: webhook 真触发——HMAC 正签过、坏签 401、run 真跑。
 func TestTrigger_WebhookFiresAndVerifies(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "trg-hook"}).OK(t, nil)
@@ -109,6 +110,7 @@ func TestTrigger_WebhookFiresAndVerifies(t *testing.T) {
 
 // TestTrigger_CronEveryFires: cron @every 真等到点触发（也顺带探明 sub-minute dedup 行为）。
 func TestTrigger_CronEveryFires(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "trg-cron"}).OK(t, nil)
@@ -125,6 +127,7 @@ func TestTrigger_CronEveryFires(t *testing.T) {
 
 // TestTrigger_SensorPollsCEL: sensor 真轮询——CEL 真→触发跑 run；activation 记录 ReturnValue。
 func TestTrigger_SensorPollsCEL(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "trg-sensor"}).OK(t, nil)

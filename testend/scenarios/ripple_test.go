@@ -31,6 +31,7 @@ type rpKind struct {
 // TestRippleR5_CreateRenameDeleteMatrix: 9 个可改名实体 × 3 操作 × 3 全扫面
 // （搜索 exact-name 跟名、catalog 进/跟/出、通知 created/updated 族/deleted）。
 func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "ripple-ws"}).Field(t, "id")
@@ -268,6 +269,7 @@ func TestRippleR5_CreateRenameDeleteMatrix(t *testing.T) {
 // conversation @mention 边、document wikilink 边；改名水化跟随（图存 id 名字读时取）；
 // 删除中心实体边集级联清。
 func TestRippleR5_RelationGraphFaces(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -353,6 +355,7 @@ func TestRippleR5_RelationGraphFaces(t *testing.T) {
 // TestRippleR5_ReferenceRipples: 引用方涟漪——workflow 引用的 fn 被删后 :capability-check
 // 报缺（图不嘴硬）；恢复（重建同名新实体不救——ref 按 id）。
 func TestRippleR5_ReferenceRipples(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "refrip-ws"}).Field(t, "id")
@@ -403,6 +406,7 @@ func TestRippleR5_ReferenceRipples(t *testing.T) {
 // lifecycle) pushes ONLY a durable frame on the notifications stream — no inbox row — while a
 // real notification (entity CRUD like function.created) both pushes a frame AND persists a row.
 func TestNotification_FrameOnlyFork(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "notif-fork"}).Field(t, "id")

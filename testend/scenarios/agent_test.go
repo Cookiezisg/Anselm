@@ -73,6 +73,7 @@ func fw(args map[string]any) map[string]any {
 // agent 线缆工具集恰为挂载（无任何系统工具）、三工具真调通、四处台账（function 执行 /
 // handler call / mcp call 各带 TriggeredBy=agent + agent 执行行带 transcript）。
 func TestAgentR2_MountSynthesisThreeKindsAndLedger(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 
 	fnID := fnCreate(t, wc, "tally_votes",
@@ -202,6 +203,7 @@ func TestAgentR2_MountSynthesisThreeKindsAndLedger(t *testing.T) {
 // TestAgentR2_RenameReresolutionAndFailFast: 运行时按现名重解析（改名后工具自动换名）、
 // 挂载物被删 invoke 大声失败（绝不静默降级）、ag_ 拒挂（员工不调员工）、合成撞名拒。
 func TestAgentR2_RenameReresolutionAndFailFast(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 
 	fnID := fnCreate(t, wc, "old_name", "def old_name() -> dict:\n    return {\"v\": 1}\n")
@@ -297,6 +299,7 @@ func hasTool(tools []string, name string) bool {
 // outputs 硬约束（声明即「答案必须是恰含字段的单个 JSON」）、knowledge 前缀进 user 消息、
 // Input JSON 块、且全程无 chat 主视角泄漏。
 func TestAgentR2_PromptAssembly(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 
 	docID := wc.POST("/api/v1/documents", map[string]any{
@@ -354,6 +357,7 @@ func TestAgentR2_PromptAssembly(t *testing.T) {
 // TestAgentR2_ModelOverridePriority: modelOverride 优先级的物理证明——override 的请求落
 // 在它自己的 mock 队列（独立 model id），默认 agent 队列分毫未动。
 func TestAgentR2_ModelOverridePriority(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 
 	// 取 setup 建的那把 key（裸数组、列表第一条）。
@@ -393,6 +397,7 @@ func TestAgentR2_ModelOverridePriority(t *testing.T) {
 // 经 parentBlockId 嵌套在 tool_call 之下（E3）、agent 结果回喂主对话、台账 TriggeredBy=chat
 // 且带 conversationId。
 func TestAgentR2_ChatEntryNestedStream(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 
 	agID := agCreate(t, wc, map[string]any{
@@ -487,6 +492,7 @@ func TestAgentR2_ChatEntryNestedStream(t *testing.T) {
 // 台账 TriggeredBy=workflow 带 flowrunId）+ 版本面（:edit 全量替换 → v2、versions 列表、
 // :revert 回 v1 生效于下次 invoke）。
 func TestAgentR2_WorkflowEntryAndVersions(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 
 	agID := agCreate(t, wc, map[string]any{

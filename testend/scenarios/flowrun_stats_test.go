@@ -42,6 +42,7 @@ type statsResp struct {
 // TestFlowrunStats_BatchProjection: 全景一遍——totals 全 workspace、byWorkflow 请求序含幽灵零值行、
 // recent 新→旧、连败计数、parked=等人 run 数、超限与坏 since 大声拒。
 func TestFlowrunStats_BatchProjection(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fr-stats"}).OK(t, nil)

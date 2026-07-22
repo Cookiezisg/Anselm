@@ -233,6 +233,7 @@ func protoC_authedField(t *testing.T, base, token, method, path string, body any
 // ③ 410 后 REST 全量重取（GET .../messages）拿回历史。
 // ④ 以当前最高 seq「重订」→ 后续回合的 durable 帧从 newSeq+1 起严格 +1 连续（不漏不重、不重放旧帧）。
 func TestContractProtocol_ReplayRingEvictionAndRecovery(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	wsID := wsOf(t, wc)
 	s1 := wc.Subscribe(t, "messages")
@@ -295,6 +296,7 @@ func TestContractProtocol_ReplayRingEvictionAndRecovery(t *testing.T) {
 // durable seq 序（Bus 锁内保序扇出——seq 顺序 == 投递顺序，对每个订阅者一致）。用尾随帧的时序竞态
 // 免疫的最小公共前缀比对。
 func TestContractProtocol_ThreeSubscribersSameDurableOrder(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	s1 := wc.Subscribe(t, "messages")
 	s2 := wc.Subscribe(t, "messages")
@@ -340,6 +342,7 @@ func TestContractProtocol_ThreeSubscribersSameDurableOrder(t *testing.T) {
 // 只现于所属流：messages 只见 conversation 帧、绝无 build/function-scope；entities 只见 function-scope
 // build、绝无 chat 文本/conversation-scope；notifications 见 function.created。
 func TestContractProtocol_ThreeStreamSeparation(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	sMsg := wc.Subscribe(t, "messages")
 	sEnt := wc.Subscribe(t, "entities")
@@ -374,6 +377,7 @@ func TestContractProtocol_ThreeStreamSeparation(t *testing.T) {
 // 的 humanloop.Request）；resolve(approve) 后对称推一条 resolved:true 的 ephemeral signal（清提示）。
 // 锁的是 SSE 帧本体（rail REST 面已由 TestChat_RailAwaitingInput 锁）。
 func TestContractProtocol_InteractionEphemeralSignals(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "gate_fn", "def gate_fn() -> dict:\n    return {\"did\": \"it\"}\n")
 	sMsg := wc.Subscribe(t, "messages")
@@ -437,6 +441,7 @@ func TestContractProtocol_InteractionEphemeralSignals(t *testing.T) {
 // （或重启重注册）不产生第二行（D3：UNIQUE(dedup_key) 折叠）。分钟边界真等待，故超时放宽（对标
 // TestTrigger_CronEveryFires）。
 func TestContractProtocol_CronDedupAcrossRestart(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "cron-dedup"}).OK(t, nil)
@@ -512,6 +517,7 @@ func protoC_assertOneFiringPerDedup(t *testing.T, wc *harness.Client, trgID stri
 // X-Webhook-Secret（或 ?token=）与配置 secret 直比：坏 secret / 缺 secret → 401；正确 → 202 accepted
 // → run 真跑、activation fired + firing started。webhook 入站是公共面，绝不带 workspace 头。
 func TestContractProtocol_WebhookPlainSecret(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hook-plain"}).OK(t, nil)
@@ -569,6 +575,7 @@ func TestContractProtocol_WebhookPlainSecret(t *testing.T) {
 // platformC_startTokenServer），断言三条 SSE 订阅端点 /api/v1/{messages,entities,notifications}/stream
 // 皆受 bearer 门：无 token → 401 UNAUTH_BAD_TOKEN；有 token → 200（SSE 订阅走 ?workspaceID= + Authorization 头）。
 func TestContractProtocol_SSEStreamsBearerGate(t *testing.T) {
+	t.Parallel()
 	const token = "proto-sse-bearer-token"
 	base := platformC_startTokenServer(t, token)
 	wsID := protoC_authedField(t, base, token, "POST", "/api/v1/workspaces", map[string]any{"name": "sse-gate-ws"}, "id")

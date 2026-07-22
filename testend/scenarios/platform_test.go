@@ -22,6 +22,7 @@ import (
 
 // TestPlatform_WorkspaceLifecycle: CRUD + 校验面 + activate + 最后一个拒删。
 func TestPlatform_WorkspaceLifecycle(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t) // workspace CRUD 豁免 workspace 头（onboarding 在选定前运行）
 
@@ -89,6 +90,7 @@ func TestPlatform_WorkspaceLifecycle(t *testing.T) {
 // TestPlatform_WorkspaceCascadeDelete: 删除级联——含 function（落盘 env）+ 对话的 workspace
 // 被删后 204 收口（Reaper 跑完、不挂死），ws 行消失（404），其下数据不可达。
 func TestPlatform_WorkspaceCascadeDelete(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	// A fresh data dir boots with zero workspaces (onboarding creates the first), so keep a
@@ -121,6 +123,7 @@ func TestPlatform_WorkspaceCascadeDelete(t *testing.T) {
 
 // TestPlatform_APIKeyProbeAndGuards: 创建校验 + :test 探活两态 + 被引用拒删 + 重名冲突。
 func TestPlatform_APIKeyProbeAndGuards(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -191,6 +194,7 @@ func TestPlatform_APIKeyProbeAndGuards(t *testing.T) {
 
 // TestPlatform_ModelConfig: scenarios 白名单 + 默认模型校验 + capabilities 经探测聚合。
 func TestPlatform_ModelConfig(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -245,6 +249,7 @@ type wireLimits struct {
 // 三证：① 非法值 400；② maxSteps=2 真让 ReAct 循环 2 步即触顶；③ toolResultCapKB=1 经 promptdump
 // 实证模型真收到被截断的 tool_result（loop 消费方读活动上限）。
 func TestPlatform_LimitsHotSwap(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	// ① 非法 triggerRatio（须 0<r<1）→ 400 SETTINGS_LIMITS_INVALID。
@@ -317,6 +322,7 @@ func TestPlatform_LimitsHotSwap(t *testing.T) {
 
 // TestPlatform_NotificationFlow: 生命周期事件真落通知中心 → list / 未读计数 / 标已读 / 全标已读。
 func TestPlatform_NotificationFlow(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "notif-ws"}).Field(t, "id")
@@ -406,6 +412,7 @@ func TestPlatform_NotificationFlow(t *testing.T) {
 // TestPlatform_SandboxGovernance: bootstrap-status / runtimes / disk-usage / envs ownerKind 守卫 /
 // 单 env 销毁。
 func TestPlatform_SandboxGovernance(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "sbx-ws"}).Field(t, "id")
@@ -450,6 +457,7 @@ func TestPlatform_SandboxGovernance(t *testing.T) {
 // TestPlatform_RelationRipple: agent 挂载 function → neighborhood 现 equip 边（toName 读时 hydrate）；
 // 改 function 名 → 边的 toName 自动跟随（图存 id、名读时取）；删 function → PurgeEntity 清边。
 func TestPlatform_RelationRipple(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "rel-ws"}).Field(t, "id")

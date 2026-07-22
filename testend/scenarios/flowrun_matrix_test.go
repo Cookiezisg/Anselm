@@ -56,6 +56,7 @@ type matrixResp struct {
 // 行是 node id 并集、格稀疏且状态诚实、未知 id 静默缺席、全未知三个空列表、缺 flowrunIds 400、越 50 上限
 // 大声 422。
 func TestFlowrunMatrix_Grid(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fr-matrix"}).OK(t, nil)
@@ -167,6 +168,7 @@ func TestFlowrunMatrix_Grid(t *testing.T) {
 // TestRetention_ConfigContract: 保留线的 HTTP 契约——默认 90、PATCH 合并落盘、显式 0=永久、负数与拼错的
 // 键大声拒；且收紧的线对真服务器踢真清理后，新鲜历史仍在、进程仍健康。
 func TestRetention_ConfigContract(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "retention"}).OK(t, nil)

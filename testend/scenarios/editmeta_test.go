@@ -16,6 +16,7 @@ import (
 // 的 Edit 移了版本指针却静默丢了改名。零 token、确定性。
 
 func TestFunction_EditPersistsMeta(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-editmeta"}).OK(t, nil)
@@ -46,6 +47,7 @@ func TestFunction_EditPersistsMeta(t *testing.T) {
 }
 
 func TestHandler_EditPersistsMeta(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hd-editmeta"}).OK(t, nil)

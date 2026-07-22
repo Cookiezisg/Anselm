@@ -24,6 +24,7 @@ import (
 // TestPlatformR4_SSEProtocolFaces: 三流协议面——notifications durable 续传重放、
 // 环淘汰（256）后 fromSeq 太老 → 410 SEQ_TOO_OLD、entities 流 build 镜像 + run 终端帧真到达。
 func TestPlatformR4_SSEProtocolFaces(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "sse-ws"}).Field(t, "id")
@@ -66,6 +67,7 @@ func TestPlatformR4_SSEProtocolFaces(t *testing.T) {
 
 // TestPlatformR4_LimitsEveryField: limits 逐字段热换→行为真变。
 func TestPlatformR4_LimitsEveryField(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	// guards.attachmentMaxMB：默认 50MB 下 1.5MB 可传；调到 1MB 后同载荷被拒。
@@ -226,6 +228,7 @@ func wsOf(t *testing.T, wc *harness.Client) string {
 // row (frame only). It goes red in both directions — an Emit-tier domain that stops
 // persisting, AND a Broadcast-tier domain that starts persisting.
 func TestPlatformR4_NotificationAllDomains(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "notif-ws"}).Field(t, "id")
@@ -351,6 +354,7 @@ func TestPlatformR4_NotificationAllDomains(t *testing.T) {
 // TestPlatformR4_SandboxRuntimesGCDisk: sandbox 治理面——runtimes 列表（python 已在）、
 // disk-usage 形状、:gc 跑通、删 runtime 后列表消失（envs 面 W5 已验）。
 func TestPlatformR4_SandboxRuntimesGCDisk(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "sbx-ws"}).Field(t, "id")
@@ -402,6 +406,7 @@ func TestPlatformR4_SandboxRuntimesGCDisk(t *testing.T) {
 // TestPlatformR4_CascadeEveryAssetKind: workspace 级联删除——12 类资产全建、唯一 token
 // 全可搜后删 ws：搜索索引全清（重建同名 ws 一无所见）、keeper 不受涟漪。
 func TestPlatformR4_CascadeEveryAssetKind(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	_ = mock

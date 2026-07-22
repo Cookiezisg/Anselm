@@ -34,6 +34,7 @@ func installC_tgz(t *testing.T, files map[string]string) []byte {
 }
 
 func TestSkillInstall_FullChain(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc, _ := knowledgeC_newWS(t, srv, "skl-install")
 

@@ -38,6 +38,7 @@ func durC_ws(t *testing.T, name string) (*harness.Server, *harness.Client) {
 // activation/firing/flowrun ledger the webhook/cron/sensor testends assert, proving all four sources
 // share one durable claim→run path.
 func TestContractDurable_FsnotifyEndToEnd(t *testing.T) {
+	t.Parallel()
 	_, wc := durC_ws(t, "trg-fsnotify")
 
 	// A real directory the server process can stat + watch (same host as the test).
@@ -66,7 +67,12 @@ func TestContractDurable_FsnotifyEndToEnd(t *testing.T) {
 	if r := wc.GET("/api/v1/triggers/" + trgID + "/activations"); !strings.Contains(string(r.Data), `"fired":true`) {
 		t.Fatalf("activation ledger missing the fsnotify fire: %.400s", r.Data)
 	}
-	if r := wc.GET("/api/v1/firings?triggerId=" + trgID); !strings.Contains(string(r.Data), `"status":"started"`) {
+	// Filter by status: the drop-until-completed loop above may have produced MORE firings than one
+	// page holds (under load the loop runs longer — 50+ drops observed), and the started row can sit
+	// past page one; an unfiltered first-page Contains would then miss it. Same assertion, page-proof.
+	// 按 status 过滤:上面的循环在负载下可产出超过一页的 firing(实测 50+),started 行可能在第一页之外
+	// ——未过滤的首页 Contains 会漏掉它。断言语义不变,免疫分页。
+	if r := wc.GET("/api/v1/firings?triggerId=" + trgID + "&status=started"); !strings.Contains(string(r.Data), `"status":"started"`) {
 		t.Fatalf("firing inbox must show started: %.400s", r.Data)
 	}
 	// The fired payload carried the canonical fsnotify eventKind (create|modify|…) — the delivered

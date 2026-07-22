@@ -12,6 +12,7 @@ import (
 // must tell the author which node ids it CAN read (its ancestors), not just "invalid CEL". Without
 // it, the agent guessed node-id roots blindly (payload/trigger/celsius/input) ~5 times. Zero-token.
 func TestWorkflow_InvalidCELListsAvailableNodes(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-celhint"}).OK(t, nil)

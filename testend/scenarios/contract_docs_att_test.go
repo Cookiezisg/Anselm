@@ -122,6 +122,7 @@ func docsattC_lastDumpWith(t *testing.T, mock *harness.LLMMock, substr string) h
 // B-doc-3 改中层名 → 后裔 path 批量级联重写；
 // A-doc-6 软删整子树（子随父灭、不迁孤）+ 列表滤墓碑 + 同名复用零后缀。
 func TestContractDocsAtt_DocumentNameGuardsSoftDelete(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "doc-guard-ws"}).Field(t, "id")
@@ -202,6 +203,7 @@ func TestContractDocsAtt_DocumentNameGuardsSoftDelete(t *testing.T) {
 // B-doc-10 深拷三层子树（BFS 铸新 id、parent/path 重映射、content 复制、原树不动）；
 // A-doc-7 :move 防环/自指/未知父 + nil parent=移根、:duplicate 显式 parentId 落点与错误路径。
 func TestContractDocsAtt_DocumentChildrenDuplicateMove(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "doc-tree-ws"}).Field(t, "id")
@@ -383,6 +385,7 @@ func TestContractDocsAtt_DocumentChildrenDuplicateMove(t *testing.T) {
 //
 //	重启触发 boot GC 回收孤儿 blob（GC 是 boot 时对账,非删除时,避免与在飞上传竞态）。
 func TestContractDocsAtt_AttachmentRestAndCASDedup(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "att-ws"}).Field(t, "id")
@@ -507,6 +510,7 @@ func TestContractDocsAtt_AttachmentRestAndCASDedup(t *testing.T) {
 // B-att-5 盘上 blob 被手删 → 告警跳过（filename 形告缺）、回合绝不失败、原始字节不上线；
 // A-att-6 附件被软删后旧对话再续 → 历史重渲诚实报缺（带 att id）、内容不复活。
 func TestContractDocsAtt_AttachmentChatDegradeFaces(t *testing.T) {
+	t.Parallel()
 	srv, wc, mock, wsID := docsattC_chatSetup(t)
 
 	// B-att-9 catalog source。
@@ -595,6 +599,7 @@ func TestContractDocsAtt_AttachmentChatDegradeFaces(t *testing.T) {
 // B-doc-7 对话挂载单篇不拖子树（挂父后子正文不上线；attach-time eager 校验坏 id 422）；
 // A-doc-7 :iterate 202 返 {id}=conversationId、对话真实存在；未知 doc 404。
 func TestContractDocsAtt_DocumentAttachScopeAndIterate(t *testing.T) {
+	t.Parallel()
 	_, wc, mock, _ := docsattC_chatSetup(t)
 
 	var parent, child docsattC_doc

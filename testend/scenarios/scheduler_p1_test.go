@@ -40,6 +40,7 @@ func listRunRows(t *testing.T, wc *harness.Client, query string) []frRow {
 // TestFlowruns_ListFilters — 工单⑥: one webhook-fired run + one manual run in the same workflow,
 // then every new filter axis proves itself against real rows.
 func TestFlowruns_ListFilters(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fr-filters"}).OK(t, nil)
@@ -110,6 +111,7 @@ func TestFlowruns_ListFilters(t *testing.T) {
 // running) is dropped by ANY completed window, so `status=running&completedAfter=<past>` is empty. That
 // last one is the surprising-but-correct behavior a future reader must not "fix", so it is nailed here.
 func TestFlowruns_CompletedWindow(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fr-completed"}).OK(t, nil)
@@ -258,6 +260,7 @@ func getTrg(t *testing.T, wc *harness.Client, id string) trgRow {
 // process (the switch is persisted), prove the tick passes WITHOUT firing, then resume and see it
 // fire for real.
 func TestTrigger_PauseResume_CronGate(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "trg-pause"}).OK(t, nil)

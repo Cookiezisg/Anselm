@@ -54,6 +54,7 @@ func runAndWait(t *testing.T, wc *harness.Client, workflowID string, payload map
 
 // TestWorkflow_GraphValidationRejections: A5 图校验出错列——无 trigger / 孤儿节点。
 func TestWorkflow_GraphValidationRejections(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-rejects"}).OK(t, nil)
@@ -82,6 +83,7 @@ func TestWorkflow_GraphValidationRejections(t *testing.T) {
 // TestWorkflow_SetMetaProjection 钉死 AC-10 修复：set_meta op 真落头部（曾是静默 no-op），
 // 含并发政策（AC-9）。
 func TestWorkflow_SetMetaProjection(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-meta"}).OK(t, nil)
@@ -127,6 +129,7 @@ func TestWorkflow_SetMetaProjection(t *testing.T) {
 
 // TestWorkflow_LinearRunCELAddressing: 线性 run——payload CEL 寻址、节点记忆化、执行溯源。
 func TestWorkflow_LinearRunCELAddressing(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-linear"}).OK(t, nil)
@@ -164,6 +167,7 @@ func TestWorkflow_LinearRunCELAddressing(t *testing.T) {
 
 // TestWorkflow_ControlRoutingAndEmit: control 真路由——选边、emit 字段下游可读、未选边不跑。
 func TestWorkflow_ControlRoutingAndEmit(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-ctl"}).OK(t, nil)
@@ -205,6 +209,7 @@ func TestWorkflow_ControlRoutingAndEmit(t *testing.T) {
 
 // TestWorkflow_ApprovalParkDecideResume: approval 人在环——park、收件箱、唤回通知、决策续跑。
 func TestWorkflow_ApprovalParkDecideResume(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-apf"}).OK(t, nil)
@@ -304,6 +309,7 @@ func TestWorkflow_ApprovalParkDecideResume(t *testing.T) {
 // TestWorkflow_CrashRecovery 是 durable 执行的终极考试：run 进行中 kill -9、同数据目录重启，
 // boot Recover 必须把 run 跑完（at-least-once 重跑）。
 func TestWorkflow_CrashRecovery(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-crash"}).OK(t, nil)
@@ -356,6 +362,7 @@ func TestWorkflow_CrashRecovery(t *testing.T) {
 // run 线缆行上盖 origin=manual、且无 conversationId（那对键只随 chat 出生的 run）。webhook/cron/
 // fsnotify testend 覆盖 fired 来源。
 func TestWorkflow_RunProvenanceOriginManual(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "wf-origin"}).OK(t, nil)

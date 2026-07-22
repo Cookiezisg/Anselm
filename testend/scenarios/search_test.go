@@ -59,6 +59,7 @@ func hitTypes(p searchPage) map[string]bool {
 // TestSearch_ProjectionsLexicalAndFilters: A7 主链——8 类实体投影进同一索引、综搜跨类命中、
 // 中文短词（<3 rune）LIKE 回退、exact-name 置顶、垂搜/标签/归档过滤、注入安全、<mark> 高亮。
 func TestSearch_ProjectionsLexicalAndFilters(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "search-omni"}).OK(t, nil)
@@ -175,6 +176,7 @@ func TestSearch_ProjectionsLexicalAndFilters(t *testing.T) {
 
 // TestSearch_PaginationWindow: A7 分页——物化窗口 cursor 走全、total 一致、异查询 cursor 被拒。
 func TestSearch_PaginationWindow(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "search-page"}).OK(t, nil)
@@ -233,6 +235,7 @@ func TestSearch_PaginationWindow(t *testing.T) {
 // TestSearch_ReindexAndSettings: A7 重建 + 设置三态——:reindex 202 后命中恢复；settings 回显；
 // 非法 embedder 拒；off 关引擎仍可词法搜；ollama 不可达降级软着陆；空串重置默认。
 func TestSearch_ReindexAndSettings(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "search-admin"}).OK(t, nil)
@@ -308,6 +311,7 @@ func TestSearch_ReindexAndSettings(t *testing.T) {
 // GGUF）、真 spawn、真嵌入；跨语种零词法重叠命中 = RRF 向量融合的物理证明。首跑下载吃
 // harness 缓存，之后秒回。
 func TestSearch_SemanticRAGBuiltin(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "search-rag"}).OK(t, nil)

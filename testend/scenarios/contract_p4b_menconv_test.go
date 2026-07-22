@@ -30,6 +30,7 @@ func lastDump(mock *harness.LLMMock) string {
 // 发送时把 agent 描述冻进 user 回合 Attrs；之后 PATCH 改活的 agent 描述为 V2，同对话后续回合的历史
 // 快照仍是 V1（freeze-on-send，实体再改不影响已发回合的语境）。
 func TestP4bMenConv_AgentMentionFreeze(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	agID := agCreate(t, wc, map[string]any{
 		"name": "planner_ag", "description": "AGENT-SNAP-V1 handles planning",
@@ -89,6 +90,7 @@ func TestP4bMenConv_AgentMentionFreeze(t *testing.T) {
 // 一个 @提及解析失败（软删的 function：resolver 报错）或无 resolver（skill：非可提及类型）时，降级为
 // 「(unavailable)」stub 快照——坏的 @引用绝不阻断发消息，且被删实体的内容绝不经冻结快照复活。
 func TestP4bMenConv_DeletedAndUnknownMentionDegrade(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "doomed_fn", "def doomed_fn() -> dict:\n    return {\"v\": \"DELETEDMARKER-XYZ\"}\n")
 	wc.DELETE("/api/v1/functions/"+fnID).OK(t, nil)
@@ -125,6 +127,7 @@ func TestP4bMenConv_DeletedAndUnknownMentionDegrade(t *testing.T) {
 // (function + agent) 各自冻结快照、附件内联，三份载荷都进模型视角；注入顺序 = 输入顺序（function
 // 的 <mention> 块在 agent 之前）。
 func TestP4bMenConv_MultiMentionPlusAttachment(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	// Two function mentions carry their marker in CODE (catalog-invisible — the entity catalog lists
 	// name+description, never code), so the marker appears ONLY inside the mention block and its relative
@@ -220,6 +223,7 @@ func httpConvOrder(t *testing.T, wc *harness.Client, query string, mine map[stri
 // 故 agent 无法经工具「按名列对话」——而同一 HTTP 端点 ?sort=name（rail 用）能确定地按名排。工具 ==
 // 默认 activity 枚举（忠实近况序），排序是 rail/UI 关注点。判定：honest-but-gapped（LOW，非缺陷）。
 func TestP4bMenConv_ListNoSortCapability(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	// 故意非字母创建序；标题 apple<mango<zebra 使 name 排序确定可断。
 	idApple := convCreate(t, wc, "conv-apple")
@@ -262,6 +266,7 @@ func TestP4bMenConv_ListNoSortCapability(t *testing.T) {
 // 默认枚举仅活跃（归档排除）；includeArchived:true → ArchiveAll（活跃+归档同列），归档行诚实携带
 // archived=true，使 agent 能分辨其归档态（不静默混同）。
 func TestP4bMenConv_ListIncludeArchivedHonest(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	active := convCreate(t, wc, "active-thread")
 	arch := convCreate(t, wc, "archived-thread")
@@ -310,6 +315,7 @@ func TestP4bMenConv_ListIncludeArchivedHonest(t *testing.T) {
 // list_conversations 才是完整枚举。锁死机制：给 A 落独特词、B 落不相干词，search 命中 A 漏 B，list 二者都返。
 // （agent 该选哪个工具属真模型判断，交 evals；此处锁的是两工具的物理分工。）
 func TestP4bMenConv_SearchVsListDivision(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "Recorded the pineappleq7 rollout plan."})
@@ -349,6 +355,7 @@ func TestP4bMenConv_SearchVsListDivision(t *testing.T) {
 // 每页不超 limit；首页 nextCursor 非空（一页不是全集）；游标续翻把全部 55 条恰好各枚举一次（不漏/不重）。
 // keyset 游标在 (last_message_at,id) 复合键上行进，故即便近同刻创建也不漏/不重。
 func TestP4bMenConv_ListCursorWalkFaithful(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	const total = 55
 	mine := map[string]bool{}

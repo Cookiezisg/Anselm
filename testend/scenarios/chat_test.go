@@ -121,6 +121,7 @@ func blockOfType(m chatMsg, typ string) (content string, ok bool) {
 // TestChat_SendStreamToolRoundtrip: A8 主链——发送→流式→reasoning/tool_call/text 块落盘、
 // 工具真执行（function 执行台账带 chat 溯源）、第二请求回喂工具结果、usage 聚合、SSE 帧到达。
 func TestChat_SendStreamToolRoundtrip(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "chat_probe",
 		"def probe(mode: str) -> dict:\n    return {\"echo\": mode, \"proof\": \"fn-ran-for-chat\"}\n")
@@ -220,6 +221,7 @@ func TestChat_SendStreamToolRoundtrip(t *testing.T) {
 // TestChat_HumanLoopDangerGate: A8 人在环——LLM 自报 dangerous → broker 阻塞 → interactions
 // 重同步 → approve 真跑 / deny 不跑且把拒绝回喂模型 → 重复决议 404。
 func TestChat_HumanLoopDangerGate(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "danger_probe", "def go() -> dict:\n    return {\"did\": \"it\"}\n")
 
@@ -319,6 +321,7 @@ func TestChat_HumanLoopDangerGate(t *testing.T) {
 // TestChat_CancelAndStreamConflict: A8 在途控制——流式中再 Send 409；Cancel 即收尾、
 // 回合落 cancelled 不留 streaming 孤儿。
 func TestChat_CancelAndStreamConflict(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "long answer coming......", StallMS: 8000})
 
@@ -343,6 +346,7 @@ func TestChat_CancelAndStreamConflict(t *testing.T) {
 // TestChat_TodoReminderAndTitle: A8 工作清单 + 起标题——todo_write 落库可查、下一步的模型视角
 // 出现 live 清单 reminder（不污染持久历史）、首回合 utility 自动起标题。
 func TestChat_TodoReminderAndTitle(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, true)
 	mock.Enqueue(utilModel, harness.LLMTurn{Text: "Mock Title"})
 	mock.Enqueue(dlgModel,
@@ -394,6 +398,7 @@ func TestChat_TodoReminderAndTitle(t *testing.T) {
 // TestChat_CompactionWatermark: A8 压缩长程——真实 input token 越线 → utility 摘要 → 水位线
 // 投影：下一请求带摘要、旧回合从模型视角消失（产品逻辑列的物理证明）。
 func TestChat_CompactionWatermark(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, true)
 	wc.PATCH("/api/v1/limits", map[string]any{"context": map[string]any{"triggerRatio": 0.1}}).OK(t, nil)
 
@@ -454,6 +459,7 @@ func TestChat_CompactionWatermark(t *testing.T) {
 // TestChat_ErrorPaths: A8 出错列——空内容 400、未配模型的回合级错误码、供应商连环 5xx 落
 // error 回合、25 步触顶诚实报 max_steps。
 func TestChat_ErrorPaths(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	convID := convCreate(t, wc, "errors")
@@ -546,6 +552,7 @@ func findConv(rows []convRow, id string) (convRow, bool) {
 // TestChat_RailAwaitingInput：待决人在环 interaction 点亮对话 rail 的 awaitingInput；解决即清。镜像派生
 // isGenerating 那套，经真 HTTP + 内存 broker。
 func TestChat_RailAwaitingInput(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "await_probe", "def go() -> dict:\n    return {\"ok\": true}\n")
 	mock.Enqueue(dlgModel,
@@ -593,6 +600,7 @@ func TestChat_RailAwaitingInput(t *testing.T) {
 // tiebreaker，且 keyset 游标按该序跨页行进、不漏/不重（含同名页边界）。大写 "Banana" 落在 "apple" 与 "cherry"
 // 之间是 binary-vs-NOCASE 判别器——若回归丢了 NOCASE 它会冒到最前。经真 HTTP + title keyset（orm PageAsc）端到端。
 func TestChat_RailSortByName(t *testing.T) {
+	t.Parallel()
 	wc, _ := chatSetup(t, false)
 	// Created in a deliberately non-alphabetical order; name sort must reorder regardless of creation.
 	// 故意以非字母序创建；name 排序须无视创建序重排。
@@ -671,6 +679,7 @@ func TestChat_RailSortByName(t *testing.T) {
 // TestChat_RailUnread：**完成**的 assistant 回复点亮 rail 的 hasUnread（你不在时它答完了 → 绿点）；用户自己的发送
 // 绝不未读；POST /{id}:seen（204）清之。经真 HTTP + 持久 unread 列端到端（冷 List 重读照样在）。
 func TestChat_RailUnread(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "The assistant has finished answering."})
 
@@ -708,6 +717,7 @@ func TestChat_RailUnread(t *testing.T) {
 // TestChat_RailArchivedAll：?archived=all 把活跃+归档放**一个**列表返（rail「显示已归档」），归档行带 archived=true
 // （→灰点）。默认排除归档；?archived=true 仅归档。端到端守 ArchiveScope 三态枚举。
 func TestChat_RailArchivedAll(t *testing.T) {
+	t.Parallel()
 	wc, _ := chatSetup(t, false)
 	active := convCreate(t, wc, "active one")
 	arch := convCreate(t, wc, "archived one")
@@ -752,6 +762,7 @@ func TestChat_RailArchivedAll(t *testing.T) {
 // TestChat_ConversationActionRouting 守 {idAction} 派发器（:cancel 改 switch 以容纳 :seen 后）：:cancel 仍 204
 // （无运行回合时优雅 no-op）、:seen 204、未知动作 404（N1 envelope）。
 func TestChat_ConversationActionRouting(t *testing.T) {
+	t.Parallel()
 	wc, _ := chatSetup(t, false)
 	convID := convCreate(t, wc, "actions")
 

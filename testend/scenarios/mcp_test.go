@@ -112,6 +112,7 @@ type mcpCallsPage struct {
 // TestMCP_ScriptedServerLifecycle: A6 主链——PUT 装 stdio server、tools 缓存、:invoke 真调、
 // 进度通知进调用 logs、连续失败翻 degraded、成功回 ready、stderr 尾、reconnect、删干净。
 func TestMCP_ScriptedServerLifecycle(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "mcp-lifecycle"}).OK(t, nil)
@@ -214,6 +215,7 @@ func TestMCP_ScriptedServerLifecycle(t *testing.T) {
 // TestMCP_ErrorPaths: A6 出错列——未知工具、坏 command 连不上仍留 server（reconnect 可救语义）、
 // 不可达 remote、未知 action。
 func TestMCP_ErrorPaths(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "mcp-errors"}).OK(t, nil)
@@ -262,6 +264,7 @@ func TestMCP_ErrorPaths(t *testing.T) {
 // TestMCP_ImportAndRegistry: A6 安装路径——Claude Desktop mcp.json 导入（skip/overwrite 语义）+
 // 市场浏览 + 安装报错面（未知条目 / 缺必填 env 先于任何下载报出）。
 func TestMCP_ImportAndRegistry(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "mcp-install"}).OK(t, nil)
@@ -335,6 +338,7 @@ func TestMCP_ImportAndRegistry(t *testing.T) {
 // TestMCP_OfficialFilesystemServer: A6 官方真货——npx 装 @modelcontextprotocol/server-filesystem
 // （首跑真下 node runtime）、真读真文件、台账记账。整链与 Claude Desktop 用户体验同构。
 func TestMCP_OfficialFilesystemServer(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "mcp-fs"}).OK(t, nil)

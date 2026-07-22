@@ -51,6 +51,7 @@ func anyToolMsgContains(dumps []harness.PromptDump, sub string) bool {
 // not to hunt a renamed tool; reconnect (PUT-replaced back to the live command) restores
 // mount-health AND makes mcp__recover__echo callable end-to-end with the agent-triggered ledger.
 func TestP4bMcp_OfflineServerAgentSeatAndRecovery(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 	script := writeScriptedMCP(t)
 	deadArg := filepath.Join(t.TempDir(), "gone.py") // never written → python3 exits → connect fails
@@ -173,6 +174,7 @@ func assertMountHealth(t *testing.T, wc *harness.Client, agID string, wantAllHea
 // never a bare "echo" tool; the MCP tool is the mcp__<server>__<tool> namespaced tool search_tools
 // surfaces, and calling it routes to the MCP server (returns "echo:…", not the function's output).
 func TestP4bMcp_ChatNamespaceDisambiguation(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	// A real function literally named "echo" — the collision the namespace must survive.
@@ -256,6 +258,7 @@ func TestP4bMcp_ChatNamespaceDisambiguation(t *testing.T) {
 // TestMCP_ImportAndRegistry); the "install then immediately callable in one conversation" essence is
 // covered deterministically by the discover-then-invoke path in TestP4bMcp_ChatNamespaceDisambiguation.
 func TestP4bMcp_ChatInstallErrorFaces(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 
 	mock.Enqueue(dlgModel,

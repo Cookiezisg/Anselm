@@ -17,6 +17,7 @@ import (
 // env_status_changed 标记构建开始与终态。用户绝不对着无声 spinner（AC-PD-1 凭此证据
 // by-design 关闭）。
 func TestFunction_CreateEnvVisibility(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "env-vis"}).OK(t, nil)

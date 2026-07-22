@@ -42,6 +42,7 @@ func nestedID(t *testing.T, r *harness.Resp, entity string) string {
 // TestSearchR1_ProjectionLifecycle12Kinds: 12 类实体逐个走 建→改→删 全周期，
 // 每相都以唯一 token 查询钉死索引真随实体内容演化（增量 diff 投影非只 insert）。
 func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -297,6 +298,7 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 // TestSearchR1_ConversationMessageIncremental: 对话消息增量投影（DocAt 单 message，
 // anchor=message_id）——用户消息与 assistant 回复落库后各自可搜；删除对话全除名。
 func TestSearchR1_ConversationMessageIncremental(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "the assistant mentions glasswing here."})
 
@@ -338,6 +340,7 @@ func TestSearchR1_ConversationMessageIncremental(t *testing.T) {
 // TestSearchR1_GranularityAnchors: (entity, anchor) 粒度——handler 方法、mcp 工具各自
 // 是结果单元，refHint 直接可填 workflow 节点（hd_<id>.<method> / mcp:<server>/<tool>）。
 func TestSearchR1_GranularityAnchors(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "gran-ws"}).Field(t, "id")
@@ -398,6 +401,7 @@ func TestSearchR1_GranularityAnchors(t *testing.T) {
 // TestSearchR1_RankingPrefixAndFolding: 排序三档相对序（exact-name > name-prefix > 正文
 // 命中）+ 综搜按实体折叠（多 chunk 命中合并为一条、matchedChunks 计数）。
 func TestSearchR1_RankingPrefixAndFolding(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "rank-ws"}).Field(t, "id")
@@ -436,6 +440,7 @@ func TestSearchR1_RankingPrefixAndFolding(t *testing.T) {
 // TestSearchR1_CodeSymbolAndMixedQuery: 代码符号子串（trigram 命中 snake_case 片段）+
 // 中英混合查询（长 token MATCH 与短 CJK token LIKE 叠加、隐式 AND）。
 func TestSearchR1_CodeSymbolAndMixedQuery(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "sym-ws"}).Field(t, "id")
@@ -473,6 +478,7 @@ func TestSearchR1_CodeSymbolAndMixedQuery(t *testing.T) {
 // TestSearchR1_WorkspaceIsolation: D2 物理隔离——两个 workspace 同 token，各自只见己方
 // （infra/search 每条查询带显式 workspace 谓词的黑盒证明）。
 func TestSearchR1_WorkspaceIsolation(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	ws1 := c.POST("/api/v1/workspaces", map[string]any{"name": "iso-1"}).Field(t, "id")
@@ -504,6 +510,7 @@ func TestSearchR1_WorkspaceIsolation(t *testing.T) {
 // TestSearchR1_EncryptedRedline: 密文红线——经 Encryptor 落盘的字段（apikey 密文、trigger
 // config、mcp env）永不进投影；明文名/描述照常可搜（正控）。
 func TestSearchR1_EncryptedRedline(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "red-ws"}).Field(t, "id")
@@ -543,6 +550,7 @@ func TestSearchR1_EncryptedRedline(t *testing.T) {
 // 可能永久丢失，boot 对账（stamps 比对）是唯一自愈。建实体后立刻 kill -9、重启，全部
 // 必须最终可搜；重启后的新写照常入索（worker 活着）。
 func TestSearchR1_BootReconciliation(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "boot-ws"}).Field(t, "id")

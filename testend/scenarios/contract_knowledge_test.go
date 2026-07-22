@@ -64,6 +64,7 @@ func knowledgeC_assertEmptyArray(t *testing.T, r *harness.Resp) {
 // TestContractKnowledge_SkillCRUDSurface — A-skl-2 / A-skl-3 / A-skl-4 / A-skl-6 / A-skl-8 / B-sk-9：
 // skill REST 面的错误码、N1 形状、列表语义与未知字段拒绝（一台 server、每子场景独立 workspace）。
 func TestContractKnowledge_SkillCRUDSurface(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 
 	// A-skl-4：零 skill 时 List 返 data:[]；DELETE 是 204 空体；删后列表回到 []。
@@ -184,6 +185,7 @@ func TestContractKnowledge_SkillCRUDSurface(t *testing.T) {
 // TestContractKnowledge_SkillGuards — B-sk-1 / B-sk-2 / B-sk-10：slug 正则既是身份也是
 // 路径穿越守卫；body 自带 frontmatter 拒绝面；盘上坏 SKILL.md 扫描跳过不连坐。
 func TestContractKnowledge_SkillGuards(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 
 	// B-sk-1：非法 name 矩阵（../ 穿越、绝对路径、分隔符、大写、unicode、超长、空白，及创建
@@ -309,6 +311,7 @@ func TestContractKnowledge_SkillGuards(t *testing.T) {
 // 期都拒；${CLAUDE_SKILL_DIR} 替换为 skill 目录绝对路径、带捆绑文件无占位符时前置目录前导
 // （WRK-076 B2 渐进披露）。
 func TestContractKnowledge_SkillActivateSurface(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 
 	// B-sk-5：body 携带 !`touch marker` 的 skill 激活后——$ARGUMENTS 正常替换、!`cmd` 原样
@@ -357,6 +360,7 @@ func TestContractKnowledge_SkillActivateSurface(t *testing.T) {
 // memory REST 面（文件式,name 即 id）：错误码矩阵、N1 形状、全集列表 + pinned 过滤、
 // pin/unpin 逐打 + upsert 保策展（F147）、未知字段拒绝。
 func TestContractKnowledge_MemorySurface(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 
 	// A-mem-4：零 memory 时 List 返 data:[]；PUT upsert 返回完整 memory 形（200,非 201——
@@ -545,6 +549,7 @@ func TestContractKnowledge_MemorySurface(t *testing.T) {
 // name==目录名）、frontmatter 保真（license/未知键/键序经结构化 PUT 幸存——契约级保真守护）、
 // 双护栏（清单 32KB / 附属 1MB）。
 func TestContractKnowledge_SkillFilesSurface(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 
 	t.Run("B-sk-f1_raw_crud_roundtrip", func(t *testing.T) {
@@ -676,6 +681,7 @@ func TestContractKnowledge_SkillFilesSurface(t *testing.T) {
 // 前导的黑盒面：占位符替换为盘上真实目录；带捆绑文件没写占位符 → 前置一行目录说明；单文件
 // skill 零前导零占位残留。
 func TestContractKnowledge_SkillDirAnchor(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc, wsID := knowledgeC_newWS(t, srv, "skl-diranchor")
 

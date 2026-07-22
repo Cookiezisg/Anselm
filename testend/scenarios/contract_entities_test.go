@@ -63,6 +63,7 @@ func entitiesC_pagePath(base string, limit int, cursor string) string {
 // 400、超 MaxLimit 钳制）；坏 cursor 400 MALFORMED_CURSOR；POST/PATCH 拒未知字段
 // （transport 全局 DisallowUnknownFields → 400 INVALID_REQUEST）。
 func TestContractEntities_FunctionCursorRoundTripAndUnknownFields(t *testing.T) {
+	t.Parallel()
 	wc := entitiesC_ws(t, "fn-cursor")
 
 	// 3 functions; the first accrues 5 versions + 5 executions.
@@ -209,6 +210,7 @@ func TestContractEntities_FunctionCursorRoundTripAndUnknownFields(t *testing.T) 
 // handler calls/versions cursor 往返；软删涟漪（列表过滤 / 404 读 / 同名复用 partial-UNIQUE /
 // 调用台账 D1 保留 / env 销毁）；POST 拒未知字段。
 func TestContractEntities_HandlerCursorSoftDeleteUnknownFields(t *testing.T) {
+	t.Parallel()
 	wc := entitiesC_ws(t, "hd-cursor")
 
 	hdID := hdCreate(t, wc, "pager_hd", map[string]any{
@@ -357,6 +359,7 @@ func TestContractEntities_HandlerCursorSoftDeleteUnknownFields(t *testing.T) {
 // 生效于下一次调用且不动行 meta；:iterate 202 返 conversation id。
 // （:call/:restart/:edit/config 三端其余面已由 TestHandler_* 既有场景锁定。）
 func TestContractEntities_HandlerRevertConfigMergePatchIterate(t *testing.T) {
+	t.Parallel()
 	wc, _ := chatSetup(t, false) // :iterate spawns a dialogue turn → needs the mock dialogue model. :iterate 起对话回合。
 
 	hdID := hdCreate(t, wc, "verhd", map[string]any{
@@ -453,6 +456,7 @@ func TestContractEntities_HandlerRevertConfigMergePatchIterate(t *testing.T) {
 // agent executions/versions cursor 往返；软删（列表过滤 / 404 / 名字复用 / 活体重名 409 /
 // 执行台账 D1）；创建与 :edit 拒未知字段。
 func TestContractEntities_AgentCursorSoftDeleteUnknownFields(t *testing.T) {
+	t.Parallel()
 	wc, _ := agentSetup(t)
 
 	agID := agCreate(t, wc, map[string]any{"name": "Pager", "description": "契约探针", "prompt": "reply ok"})
@@ -568,6 +572,7 @@ func TestContractEntities_AgentCursorSoftDeleteUnknownFields(t *testing.T) {
 // 422 FLOWRUN_INVALID_STATUS（error-codes.md；批次行写 400 与文档不符,以文档为准）；未知
 // run 404 FLOWRUN_NOT_FOUND。
 func TestContractEntities_FlowrunEntryDecideAndErrorFaces(t *testing.T) {
+	t.Parallel()
 	wc := entitiesC_ws(t, "run-contract")
 
 	// —— A-run-4: two-trigger graph + direct POST /flowruns ——
@@ -740,6 +745,7 @@ func TestContractEntities_FlowrunEntryDecideAndErrorFaces(t *testing.T) {
 // FUNCTION_ENV_NOT_READY；空 ops edit = 重建 env（版本不变 + function.env_rebuilt 通知）；
 // 无参函数无 args 调用 ok（nil input 归一 {}）；sandbox:gc 回收后 :run 自动重建 env 重试成功。
 func TestContractEntities_FunctionEnvLifecycle(t *testing.T) {
+	t.Parallel()
 	wc := entitiesC_ws(t, "fn-env")
 	ns := wc.Subscribe(t, "notifications")
 
@@ -819,6 +825,7 @@ func TestContractEntities_FunctionEnvLifecycle(t *testing.T) {
 // 越 cap（50）的 edit 硬删最老版本（绝不删 active）且回收被删版本的 per-version venv
 // （reclaimTrimmedEnvs 经 DestroyEnv）——不留孤儿 venv 等手动 gc。
 func TestContractEntities_FunctionVersionCapTrimReclaimsEnvs(t *testing.T) {
+	t.Parallel()
 	wc := entitiesC_ws(t, "fn-trim")
 
 	fnID := fnCreate(t, wc, "trim_fn", "def f() -> dict:\n    return {\"v\": 1}\n")
@@ -895,6 +902,7 @@ func TestContractEntities_FunctionVersionCapTrimReclaimsEnvs(t *testing.T) {
 // schema 过滤孤儿 config key（edit 删 arg / revert 回来都不炸 __init__）；冷启并发调用共享
 // 一次 in-flight spawn（同一 instanceId）；generator 终值 yield/return 两式均生效。
 func TestContractEntities_HandlerResidentSemantics(t *testing.T) {
+	t.Parallel()
 	wc := entitiesC_ws(t, "hd-resident")
 
 	// —— B-hd-3: memory survives pure-meta changes ——
@@ -1051,6 +1059,7 @@ func TestContractEntities_HandlerResidentSemantics(t *testing.T) {
 // mount-health 预检逐挂载独立收集（非 fail-fast）：knowledge doc 被删 → 该行 unhealthy 而
 // 其余照常健康；两挂载合成撞名 → 与 Resolve 对称、第二个挂载标 unhealthy 引撞名。
 func TestContractEntities_AgentMountHealthMatrix(t *testing.T) {
+	t.Parallel()
 	wc, _ := agentSetup(t)
 
 	docID := wc.POST("/api/v1/documents", map[string]any{"name": "kb doc", "content": "facts"}).Field(t, "id")
@@ -1152,6 +1161,7 @@ func TestContractEntities_AgentMountHealthMatrix(t *testing.T) {
 // AgentInvokeSec 整次运行墙钟：慢 LLM 流被 deadline 切断 → 超时压过 loop 自报终态、
 // InvokeResult 与耐久执行行都记 timeout（durable、可 replay 的语义面）。
 func TestContractEntities_AgentInvokeWallClockTimeout(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 
 	agID := agCreate(t, wc, map[string]any{"name": "Slowpoke", "description": "x", "prompt": "answer"})
@@ -1181,6 +1191,7 @@ func TestContractEntities_AgentInvokeWallClockTimeout(t *testing.T) {
 // broker 阻塞成 pending interaction（不冒泡、不静默跑）；用户 approve 后子运行续跑、
 // 工具真执行、整链完成。
 func TestContractEntities_AgentNestedHumanLoop(t *testing.T) {
+	t.Parallel()
 	wc, mock := agentSetup(t)
 
 	fnID := fnCreate(t, wc, "guarded_fn", "def guarded_fn() -> dict:\n    return {\"did\": \"it\"}\n")

@@ -69,6 +69,7 @@ for line in sys.stdin:
 //   - A-mcp-3: mcp calls cursor 往返（多调用翻页；registry 列表即全量无分页）。
 //   - A-mcp-8: mcp PUT 拒未知字段（DisallowUnknownFields → INVALID_REQUEST）。
 func TestContractSupport_MCPCallsAndPut(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := supportC_ws(t, srv, "csup-mcp")
 	script := writeScriptedMCP(t)
@@ -147,6 +148,7 @@ func TestContractSupport_MCPCallsAndPut(t *testing.T) {
 // MCP_TOOL_TIMEOUT(504) 拒（calltool.go:47 用 limitspkg.Current().Timeout.MCPCallSec 封顶；
 // client.go:263 把 DeadlineExceeded 映射成 ErrToolCallTimeout）。
 func TestContractSupport_MCPCallTimeout(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := supportC_ws(t, srv, "csup-mcp-timeout")
 
@@ -214,6 +216,7 @@ func supportC_writeSlowMCP(t *testing.T) string {
 //
 // 故 B-srch-10 归 needs_unit（属 app/infra search 单测面）。
 func TestContractSupport_SearchSettingsValidation(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := supportC_ws(t, srv, "csup-search")
 
@@ -239,6 +242,7 @@ func TestContractSupport_SearchSettingsValidation(t *testing.T) {
 //     未知 action → 404 NOT_FOUND。
 //   - A-ntf-3: notification 列表 cursor 往返（entity.created 涟漪播满，limit 翻窗）。
 func TestContractSupport_Notifications(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := supportC_ws(t, srv, "csup-ntf")
 
@@ -317,6 +321,7 @@ func TestContractSupport_Notifications(t *testing.T) {
 //   - B-rel-6: relation 只读守卫按 REL_* 码拒（depth 越界 / 坏 ref / 坏 edge kind / 半拉 filter）。
 //     自环守卫（REL_SELF_LOOP）是 diff-sync 写侧守卫、无 HTTP 触发面 → needs_unit（见返回）。
 func TestContractSupport_RelationReadFaces(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := supportC_ws(t, srv, "csup-rel-read")
 
@@ -378,6 +383,7 @@ func TestContractSupport_RelationReadFaces(t *testing.T) {
 //   - A-rel-3: relation list cursor 往返（agent 挂 N function → N 条 equip 出边，limit 翻窗）。
 //   - B-rel-2: diff-sync 终态幂等——edit 换挂载后旧边消失、同集重 edit 不增边（边 id 稳定）。
 func TestContractSupport_RelationListAndDiffSync(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := supportC_ws(t, srv, "csup-rel-sync")
 

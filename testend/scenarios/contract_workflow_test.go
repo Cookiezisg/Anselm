@@ -281,6 +281,7 @@ func workflowC_wfState(t *testing.T, wc *harness.Client, wfID string) (string, b
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_VersionsCursorRoundtrip(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "wfc-versions")
 
@@ -331,6 +332,7 @@ func TestContractWorkflow_VersionsCursorRoundtrip(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_SoftDeleteUnknownFieldBackEdge(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "wfc-hygiene")
 
@@ -382,6 +384,7 @@ func TestContractWorkflow_SoftDeleteUnknownFieldBackEdge(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_LifecycleVerbFaces(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "wfc-verbs")
 
@@ -467,6 +470,7 @@ func TestContractWorkflow_LifecycleVerbFaces(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_StageOneShotAndKill(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "wfc-stagekill")
 
@@ -523,6 +527,7 @@ func TestContractWorkflow_StageOneShotAndKill(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_ManualTriggerBypassesReplace(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "wfc-bypass")
 
@@ -564,6 +569,7 @@ func TestContractWorkflow_ManualTriggerBypassesReplace(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_EditRebindsActiveListener(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "wfc-rebind")
 
@@ -610,6 +616,7 @@ func TestContractWorkflow_EditRebindsActiveListener(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_DeactivateDrainsToInactive(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "wfc-drain")
 
@@ -648,6 +655,7 @@ func TestContractWorkflow_DeactivateDrainsToInactive(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_TriggerFireLedgerAndCursor(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "trgc-ledger")
 
@@ -748,6 +756,7 @@ func TestContractWorkflow_TriggerFireLedgerAndCursor(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_TriggerSoftDeleteKeepsLog(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "trgc-resurrect")
 
@@ -795,6 +804,7 @@ func TestContractWorkflow_TriggerSoftDeleteKeepsLog(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_TriggerUnknownFieldAndConfigTolerance(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "trgc-junk")
 
@@ -829,6 +839,7 @@ func TestContractWorkflow_TriggerUnknownFieldAndConfigTolerance(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_IterateVerbs(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
 	c := srv.Client(t)
@@ -884,6 +895,7 @@ func TestContractWorkflow_IterateVerbs(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_ControlListVersionsSoftDeleteUnknown(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "ctlc-face")
 
@@ -947,6 +959,7 @@ func TestContractWorkflow_ControlListVersionsSoftDeleteUnknown(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_ControlBranchValidation(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "ctlc-branches")
 
@@ -983,6 +996,7 @@ func TestContractWorkflow_ControlBranchValidation(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_ControlRevertAndPinnedResolve(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "ctlc-pin")
 
@@ -1061,6 +1075,7 @@ func TestContractWorkflow_ControlRevertAndPinnedResolve(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_ApprovalListVersionsSoftDeleteUnknown(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "apvc-face")
 
@@ -1121,6 +1136,7 @@ func TestContractWorkflow_ApprovalListVersionsSoftDeleteUnknown(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_ApprovalTimeoutParsingAndRevert(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "apvc-timeout")
 
@@ -1186,6 +1202,7 @@ func TestContractWorkflow_ApprovalTimeoutParsingAndRevert(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_ApprovalEmptyTimeoutNeverDecides(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "apvc-forever")
 
@@ -1218,6 +1235,7 @@ func TestContractWorkflow_ApprovalEmptyTimeoutNeverDecides(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_TriggerRefCountedListener(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "trgc-refcount")
 
@@ -1292,6 +1310,7 @@ func TestContractWorkflow_TriggerRefCountedListener(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_TriggerWebhookSecretCarriers(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "trgc-secret")
 
@@ -1346,6 +1365,7 @@ func TestContractWorkflow_TriggerWebhookSecretCarriers(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestContractWorkflow_TriggerWebhookEditHotSwapsPath(t *testing.T) {
+	t.Parallel()
 	srv := harness.Start(t)
 	wc := workflowC_ws(t, srv, "trgc-hotswap")
 

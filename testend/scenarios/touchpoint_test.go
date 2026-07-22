@@ -47,6 +47,7 @@ func findRow(rows []touchpointRow, verb, itemID string) *touchpointRow {
 }
 
 func TestTouchpoint_LedgerEndToEnd(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	fnID := fnCreate(t, wc, "tp_probe",
 		"def probe() -> dict:\n    return {\"ok\": True}\n")
@@ -150,6 +151,7 @@ func TestTouchpoint_LedgerEndToEnd(t *testing.T) {
 // TestTouchpoint_BuildToolRecordsCreated 钉 output 键提取路径:create_function 的新 id 只在工具
 // 输出 JSON 里,台账仍记下 `created` 行。
 func TestTouchpoint_BuildToolRecordsCreated(t *testing.T) {
+	t.Parallel()
 	wc, mock := chatSetup(t, false)
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "create_function", Args: map[string]any{
