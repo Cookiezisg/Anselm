@@ -13,13 +13,75 @@ abstract class Skill with _$Skill {
   const factory Skill({
     required String name,
     @Default('') String description, // mirror of frontmatter.description
-    @Default('') String source, // user | ai
+    @Default('') String source, // user | ai | installed（installed 由 sidecar 推导）
     @Default('') String context, // inline | fork
     @Default('') String body, // only from GET /skills/{name}
     @Default(Frontmatter()) Frontmatter frontmatter,
+    Provenance? provenance, // only installed + single-Get（List 省略）
     required DateTime updatedAt, // file mtime
   }) = _Skill;
   factory Skill.fromJson(Map<String, dynamic> json) => _$SkillFromJson(json);
+}
+
+/// Install provenance — where an installed skill came from + the trust-gate state. Mirrors
+/// domain/skill.go Provenance (WRK-076 B4). `toolsApproved=false` means the skill's
+/// allowed-tools are a REQUESTED grant: activation injects the body but withholds the
+/// pre-approval until the user approves. 安装来源档案:出处+信任门态;未授权=预授权不装。
+@freezed
+abstract class Provenance with _$Provenance {
+  const factory Provenance({
+    @Default('') String source, // owner/repo[@ref][#subdir] 或 URL
+    @Default('') String repo,
+    @Default('') String ref,
+    @Default('') String subdir,
+    DateTime? installedAt,
+    @Default(false) bool toolsApproved,
+  }) = _Provenance;
+  factory Provenance.fromJson(Map<String, dynamic> json) =>
+      _$ProvenanceFromJson(json);
+}
+
+/// One bundled file inside a skill directory (manifest included) — the files surface's list
+/// row. Path is slash-relative to the skill root. skill 目录内单个捆绑文件(含清单),slash 相对路径。
+@freezed
+abstract class SkillFile with _$SkillFile {
+  const factory SkillFile({
+    required String path,
+    @Default(0) int size,
+    DateTime? updatedAt,
+  }) = _SkillFile;
+  factory SkillFile.fromJson(Map<String, dynamic> json) =>
+      _$SkillFileFromJson(json);
+}
+
+/// One candidate a skill source offers (POST /skills:inspect-source) — the install dialog
+/// renders this with allowedTools UP FRONT (the trust gate starts at the picking step).
+/// 来源候选预览:allowedTools 前置亮相,信任门从挑选步开始。
+@freezed
+abstract class SkillInstallPreview with _$SkillInstallPreview {
+  const factory SkillInstallPreview({
+    required String name,
+    @Default('') String description,
+    @Default(<String>[]) List<String> allowedTools,
+    @Default(0) int fileCount,
+    @Default(0) int totalBytes,
+    @Default(false) bool installable,
+    @Default('') String reason,
+    @Default(false) bool alreadyExists,
+  }) = _SkillInstallPreview;
+  factory SkillInstallPreview.fromJson(Map<String, dynamic> json) =>
+      _$SkillInstallPreviewFromJson(json);
+}
+
+/// What one POST /skills:install actually did, per name. 一次安装逐名结果。
+@freezed
+abstract class SkillInstallResult with _$SkillInstallResult {
+  const factory SkillInstallResult({
+    @Default(<String>[]) List<String> installed,
+    @Default(<String, String>{}) Map<String, String> skipped,
+  }) = _SkillInstallResult;
+  factory SkillInstallResult.fromJson(Map<String, dynamic> json) =>
+      _$SkillInstallResultFromJson(json);
 }
 
 /// A skill's YAML frontmatter — the structured metadata the properties panel edits. Mirrors the standard
@@ -31,6 +93,9 @@ abstract class Frontmatter with _$Frontmatter {
   const factory Frontmatter({
     @Default('') String name,
     @Default('') String description,
+    @Default('') String license, // 规范核心（B1 保真新暴露）
+    @Default('') String compatibility, // 规范核心:环境需求声明
+    @Default(<String, String>{}) Map<String, String> metadata, // 规范扩展逃生口
     @Default(<String>[])
     List<String>
     allowedTools, // pre-authorized tools (fn_/hd_ id · Read/Bash · mcp:server/tool)
@@ -54,6 +119,8 @@ const String kSkillContextInline = 'inline';
 const String kSkillContextFork = 'fork';
 const String kSkillSourceUser = 'user';
 const String kSkillSourceAI = 'ai';
+const String kSkillSourceInstalled = 'installed'; // sidecar 推导,非 frontmatter 值
+const String kSkillManifestFileName = 'SKILL.md';
 
 /// Physical guardrails mirrored from the backend (domain/skill/skill.go) for client-side
 /// pre-validation: body (manifest) ≤ 32 KB, bundled file ≤ 1 MB, description ≤ 1024 chars.

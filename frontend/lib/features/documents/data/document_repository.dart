@@ -58,6 +58,36 @@ abstract interface class DocumentsRepository {
   /// One skill WITH its markdown body + full frontmatter. 单 skill 带 body + frontmatter。
   Future<Skill> getSkill(String name);
 
+  // ── skill files（文件即真相面,WRK-076 B1/F1:裸字节双向）──────────────────
+  /// Every bundled file (manifest included), path-sorted. 全部捆绑文件(含清单)。
+  Future<List<SkillFile>> listSkillFiles(String name);
+
+  /// One bundled file's raw bytes. 单文件裸字节。
+  Future<List<int>> readSkillFile(String name, String path);
+
+  /// Write one bundled file verbatim (manifest path = validated raw replace). 裸字节写(清单=带校验整替)。
+  Future<void> writeSkillFile(String name, String path, List<int> bytes);
+
+  /// Delete one bundled file (manifest refused by the backend). 删单文件(清单后端拒)。
+  Future<void> deleteSkillFile(String name, String path);
+
+  // ── skill install（安装通道,WRK-076 B4/F2）─────────────────────────────────
+  /// Preview a source's candidates without touching disk. 预览来源候选,不落盘。
+  Future<List<SkillInstallPreview>> inspectSkillSource(String source);
+
+  /// Install picked candidates (names empty = all installable). 安装选中候选。
+  Future<SkillInstallResult> installSkills(
+    String source, {
+    List<String> names,
+    bool force,
+  });
+
+  /// Re-fetch an installed skill from its recorded source. 按来源重拉。
+  Future<Skill> updateInstalledSkill(String name, {bool force});
+
+  /// Open the trust gate for an installed skill's allowed-tools. 打开信任门。
+  Future<Skill> approveSkillTools(String name);
+
   /// Create (strict conflict → 409 SKILL_NAME_CONFLICT; source forced to user). body = the create payload
   /// `{name, description, body, allowedTools, context, agent, arguments, …}`. 建(严格冲突)。
   Future<Skill> createSkill(Map<String, dynamic> body);
@@ -162,6 +192,53 @@ class LiveDocumentsRepository implements DocumentsRepository {
       _api.patchEntity('$_skills/$name', Skill.fromJson, body: body, put: true);
   @override
   Future<void> deleteSkill(String name) => _api.delete('$_skills/$name');
+
+  @override
+  Future<List<SkillFile>> listSkillFiles(String name) async =>
+      (await _api.getPage('$_skills/$name/files', SkillFile.fromJson)).items;
+
+  @override
+  Future<List<int>> readSkillFile(String name, String path) =>
+      _api.getBytes('$_skills/$name/files/$path');
+
+  @override
+  Future<void> writeSkillFile(String name, String path, List<int> bytes) =>
+      _api.putBytes('$_skills/$name/files/$path', bytes);
+
+  @override
+  Future<void> deleteSkillFile(String name, String path) =>
+      _api.delete('$_skills/$name/files/$path');
+
+  @override
+  Future<List<SkillInstallPreview>> inspectSkillSource(String source) async =>
+      (await _api.postPage(
+        '$_skills:inspect-source',
+        SkillInstallPreview.fromJson,
+        body: {'source': source},
+      )).items;
+
+  @override
+  Future<SkillInstallResult> installSkills(
+    String source, {
+    List<String> names = const [],
+    bool force = false,
+  }) => _api.postEntity(
+    '$_skills:install',
+    SkillInstallResult.fromJson,
+    body: {'source': source, 'names': names, 'force': force},
+  );
+
+  @override
+  Future<Skill> updateInstalledSkill(String name, {bool force = false}) =>
+      _api.postEntity(
+        '$_skills/$name:update',
+        Skill.fromJson,
+        body: {'force': force},
+      );
+
+  @override
+  Future<Skill> approveSkillTools(String name) =>
+      _api.postEntity('$_skills/$name:approve-tools', Skill.fromJson);
 
   @override
   Future<List<EntityRelation>> listBacklinks(

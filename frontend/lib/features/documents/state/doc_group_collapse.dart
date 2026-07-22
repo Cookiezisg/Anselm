@@ -9,11 +9,15 @@ import '../../../core/settings/settings_prefs.dart';
 const String kDocGroupOutline = 'documents.outline';
 const String kDocGroupProps = 'documents.props';
 const String kDocGroupBacklinks = 'documents.backlinks';
+const String kDocGroupSkillFiles = 'documents.skillfiles';
+const String kDocGroupSkillProvenance = 'documents.skillprovenance';
 
 /// Every foldable documents-group key — the ⋯ menu's «展开全部 / 收起全部» walk this (never a wildcard).
 /// 全部可折叠组键(⋯ 全展/全收遍历它)。
 const List<String> kDocGroups = [
   kDocGroupOutline,
+  kDocGroupSkillFiles,
+  kDocGroupSkillProvenance,
   kDocGroupProps,
   kDocGroupBacklinks,
 ];

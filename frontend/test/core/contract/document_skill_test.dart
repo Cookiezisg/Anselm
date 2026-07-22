@@ -107,6 +107,74 @@ void main() {
       },
     );
 
+    test('installed skill round-trips provenance + spec-core frontmatter', () {
+      final json = {
+        'name': 'pdf',
+        'description': 'd',
+        'source': 'installed',
+        'context': 'inline',
+        'frontmatter': {
+          'name': 'pdf',
+          'description': 'd',
+          'license': 'MIT',
+          'compatibility': 'needs network',
+          'metadata': {'author': 'upstream', 'version': '1.0'},
+          'allowedTools': ['run_function'],
+        },
+        'provenance': {
+          'source': 'owner/repo@main#skills/pdf',
+          'repo': 'owner/repo',
+          'installedAt': '2026-07-22T00:00:00.000Z',
+          'toolsApproved': false,
+        },
+        'updatedAt': '2026-07-22T09:00:00.000Z',
+      };
+      final s = Skill.fromJson(json);
+      expect(s.source, kSkillSourceInstalled);
+      expect(s.frontmatter.license, 'MIT');
+      expect(s.frontmatter.metadata['author'], 'upstream');
+      expect(s.provenance?.toolsApproved, isFalse);
+      expect(s.provenance?.repo, 'owner/repo');
+      // 本地件无 provenance → null,解码不炸。
+      final local = Skill.fromJson({
+        'name': 'mine',
+        'description': 'd',
+        'source': 'user',
+        'context': 'inline',
+        'frontmatter': {'name': 'mine', 'description': 'd'},
+        'updatedAt': '2026-07-22T09:00:00.000Z',
+      });
+      expect(local.provenance, isNull);
+      expect(local.frontmatter.license, '');
+    });
+
+    test('SkillFile + install preview/result wire shapes decode', () {
+      final f = SkillFile.fromJson({
+        'path': 'references/deep/a.md',
+        'size': 42,
+        'updatedAt': '2026-07-22T09:00:00.000Z',
+      });
+      expect(f.path, 'references/deep/a.md');
+      expect(f.size, 42);
+      final p = SkillInstallPreview.fromJson({
+        'name': 'pdf',
+        'description': 'd',
+        'allowedTools': ['bash'],
+        'fileCount': 3,
+        'totalBytes': 2048,
+        'installable': true,
+        'alreadyExists': false,
+      });
+      expect(p.installable, isTrue);
+      expect(p.allowedTools, ['bash']);
+      final r = SkillInstallResult.fromJson({
+        'installed': ['pdf'],
+        'skipped': {'broken': 'no manifest'},
+      });
+      expect(r.installed, ['pdf']);
+      expect(r.skipped['broken'], 'no manifest');
+    });
+
     test('guardrail constants + dual name regexes mirror the backend', () {
       expect(kSkillMaxBodyBytes, 32 * 1024);
       expect(kSkillMaxFileBytes, 1024 * 1024);

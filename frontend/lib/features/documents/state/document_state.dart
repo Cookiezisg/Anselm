@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -122,6 +123,54 @@ final selectedDocProvider =
       SelectedDocController.new,
     );
 
+/// The selected skill FILE — one-way derived from the URL query `?file=<rel>` (null = the
+/// manifest/default view). Same delegate-listen pattern as [SelectedDocController].
+/// 当前 skill 文件选区——URL query `?file=<rel>` 单向派生(null=清单/默认视图)。
+class SelectedSkillFileController extends Notifier<String?> {
+  @override
+  String? build() {
+    final delegate = ref.watch(goRouterProvider).routerDelegate;
+    void onRoute() => state = _parse(delegate.currentConfiguration.uri);
+    delegate.addListener(onRoute);
+    ref.onDispose(() => delegate.removeListener(onRoute));
+    return _parse(delegate.currentConfiguration.uri);
+  }
+
+  static String? _parse(Uri uri) {
+    final segs = uri.pathSegments;
+    if (segs.length == 3 && segs[0] == 'documents' && segs[1] == 'skill') {
+      final f = uri.queryParameters['file'];
+      return (f == null || f.isEmpty) ? null : f;
+    }
+    return null;
+  }
+}
+
+final selectedSkillFileProvider =
+    NotifierProvider<SelectedSkillFileController, String?>(
+      SelectedSkillFileController.new,
+    );
+
+/// Every bundled file of a skill (manifest included), for the file strip + inspector group.
+/// skill 的捆绑文件列表(含清单),供文件条+右岛文件组。
+final skillFilesProvider = FutureProvider.autoDispose
+    .family<List<SkillFile>, String>(
+      (ref, name) =>
+          ref.watch(documentsRepositoryProvider).listSkillFiles(name),
+    );
+
+/// One bundled file's TEXT content (lenient decode — the editor surface; binaries render a
+/// read-only note instead of going through here). 单捆绑文件文本内容(宽容解码)。
+final skillFileTextProvider = FutureProvider.autoDispose
+    .family<String, ({String name, String path})>(
+      (ref, key) async => utf8.decode(
+        await ref
+            .watch(documentsRepositoryProvider)
+            .readSkillFile(key.name, key.path),
+        allowMalformed: true,
+      ),
+    );
+
 /// The id of a document the rail JUST created via the ACTIVE «+ New page / row +» path — the ocean
 /// autofocuses that document's title (select-all) once on mount, then clears this. Only the active-create
 /// path sets it; the passive draft-landing path focuses the body naturally (the user just starts typing).
@@ -159,6 +208,11 @@ String documentLocation(String id) => '/documents/$id';
 /// The route location for a skill (slug-addressed — the guard regex `^[a-z0-9][a-z0-9_-]{0,63}$` is
 /// URL-safe by construction). skill 的路由位置(slug 寻址,守卫正则天然 URL 安全)。
 String skillLocation(String name) => '/documents/skill/$name';
+
+/// The route location for one bundled file inside a skill (query-addressed — a multi-segment
+/// rel path needs no new route). skill 内单文件路由位置(query 寻址,多段相对路径零新路由)。
+String skillFileLocation(String name, String rel) =>
+    "/documents/skill/$name?file=${Uri.encodeQueryComponent(rel)}";
 
 /// The open document WITH content (fetched on select; autoDispose releases it on deselect). 打开的文档(带正文)。
 final openDocumentProvider = FutureProvider.autoDispose

@@ -493,6 +493,30 @@ class _Translations$documents$zh_CN extends Translations$documents$en {
 	@override late final _Translations$documents$slash$zh_CN slash = _Translations$documents$slash$zh_CN._(_root);
 	@override String get linkHint => '输入或粘贴链接,回车确定';
 	@override late final _Translations$documents$table$zh_CN table = _Translations$documents$table$zh_CN._(_root);
+	@override String get skillSourceMode => '源码';
+	@override String get skillRichMode => '富文本';
+	@override String get skillModeTooltip => '切换清单的富文本 / 源码编辑';
+	@override String get skillFileBinary => '二进制文件——不支持在线编辑';
+	@override String get skillFileSaveFailed => '文件保存失败';
+	@override String get skillFiles => '文件';
+	@override String get skillProvenance => '来源';
+	@override String get skillInstalledFrom => '安装自';
+	@override String get skillInstalledAt => '装于';
+	@override String get skillToolsApproved => '预授权已生效';
+	@override String get skillToolsPending => '预授权待确认';
+	@override String get skillApproveTools => '授权预授权工具';
+	@override String get skillCheckUpdate => '检查更新';
+	@override String get skillUpdateDone => '已更新到上游版本';
+	@override String get skillLocallyModified => '本地有改动——更新会覆盖，确认强制更新？';
+	@override String get skillForceUpdate => '强制更新';
+	@override String get skillInstallTitle => '从来源安装 Skill';
+	@override String get skillInstallHint => 'GitHub 仓库（owner/repo 或 URL）或 tarball 地址';
+	@override String get skillInstallInspect => '解析来源';
+	@override String get skillInstallGo => '安装所选';
+	@override String get skillInstallDone => '安装完成';
+	@override String get skillInstallNone => '来源里没有可安装的 skill';
+	@override String get skillInstallPreauthNote => '安装后这些工具将请求免确认预授权——需你显式授权才生效';
+	@override String get skillInstalledBadge => '已装';
 }
 
 // Path: settings
@@ -4025,6 +4049,30 @@ extension on TranslationsZhCn {
 			'documents.table.insertColRight' => '在右侧插入列',
 			'documents.table.deleteCol' => '删除列',
 			'documents.table.deleteTable' => '删除表格',
+			'documents.skillSourceMode' => '源码',
+			'documents.skillRichMode' => '富文本',
+			'documents.skillModeTooltip' => '切换清单的富文本 / 源码编辑',
+			'documents.skillFileBinary' => '二进制文件——不支持在线编辑',
+			'documents.skillFileSaveFailed' => '文件保存失败',
+			'documents.skillFiles' => '文件',
+			'documents.skillProvenance' => '来源',
+			'documents.skillInstalledFrom' => '安装自',
+			'documents.skillInstalledAt' => '装于',
+			'documents.skillToolsApproved' => '预授权已生效',
+			'documents.skillToolsPending' => '预授权待确认',
+			'documents.skillApproveTools' => '授权预授权工具',
+			'documents.skillCheckUpdate' => '检查更新',
+			'documents.skillUpdateDone' => '已更新到上游版本',
+			'documents.skillLocallyModified' => '本地有改动——更新会覆盖，确认强制更新？',
+			'documents.skillForceUpdate' => '强制更新',
+			'documents.skillInstallTitle' => '从来源安装 Skill',
+			'documents.skillInstallHint' => 'GitHub 仓库（owner/repo 或 URL）或 tarball 地址',
+			'documents.skillInstallInspect' => '解析来源',
+			'documents.skillInstallGo' => '安装所选',
+			'documents.skillInstallDone' => '安装完成',
+			'documents.skillInstallNone' => '来源里没有可安装的 skill',
+			'documents.skillInstallPreauthNote' => '安装后这些工具将请求免确认预授权——需你显式授权才生效',
+			'documents.skillInstalledBadge' => '已装',
 			'settings.title' => '设置',
 			'settings.scope.device' => '本机',
 			'settings.scope.workspace' => '工作区',
@@ -4148,6 +4196,8 @@ extension on TranslationsZhCn {
 			'settings.keys.deleteKeyBody' => ({required Object name}) => '将删除「${name}」,不可恢复。',
 			'settings.keys.confirmDelete' => '删除',
 			'settings.keys.defaults' => '场景默认模型',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.scenarioDialogue' => '对话',
 			'settings.keys.scenarioUtility' => '工具',
 			'settings.keys.scenarioAgent' => 'Agent',
@@ -4172,8 +4222,6 @@ extension on TranslationsZhCn {
 			'settings.keys.pickerChange' => '修改',
 			'settings.keys.pickerClose' => '收起',
 			'settings.keys.visionBadge' => '视觉',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.videoBadge' => '视频',
 			'settings.keys.audioBadge' => '音频',
 			'settings.keys.docsBadge' => '文档',

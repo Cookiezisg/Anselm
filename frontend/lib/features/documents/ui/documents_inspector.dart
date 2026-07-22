@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/contract/api_error.dart';
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/model/byte_format.dart';
@@ -10,6 +11,7 @@ import '../../../core/model/time_format.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/overlay/an_overlay.dart';
 import '../../../core/notice/notice_center.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/right_panel.dart';
@@ -20,6 +22,8 @@ import '../../../core/ui/an_input.dart';
 import '../../../core/ui/an_kv.dart';
 import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_panel_head.dart';
+import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_row.dart';
 import '../../../core/ui/an_scroll_behavior.dart';
 import '../../../core/ui/an_skeleton.dart';
@@ -470,7 +474,10 @@ class _SkillProperties extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _OutlineGroup(),
+            _SkillFilesGroup(name: skill.name),
             _SkillPropsGroup(skill: skill),
+            if (skill.source == kSkillSourceInstalled)
+              _SkillProvenanceGroup(skill: skill),
           ],
         ),
       ),
@@ -702,4 +709,190 @@ class _OnOff extends StatelessWidget {
     ],
     onChanged: (v) => onChanged(v),
   );
+}
+
+// ── skill files + provenance groups（WRK-076 F1/F2 右岛）─────────────────────────
+
+/// The skill's FILES group (三段式文法 §3) — every bundled file as a tappable row (manifest
+/// included); tapping opens it in the center (`?file=` navigation). skill 文件组:捆绑文件行,
+/// 点击中心打开(query 导航)。
+class _SkillFilesGroup extends ConsumerWidget {
+  const _SkillFilesGroup({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final files = ref.watch(skillFilesProvider(name)).value;
+    if (files == null || files.length <= 1) {
+      // 单文件 skill(只有清单)整组静默缺席——零人话律。
+      return const SizedBox.shrink();
+    }
+    final current =
+        ref.watch(selectedSkillFileProvider) ?? kSkillManifestFileName;
+    return _GroupSection(
+      groupKey: kDocGroupSkillFiles,
+      label: t.documents.skillFiles,
+      count: files.length,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          for (final f in files)
+            AnRow(
+              label: f.path,
+              meta: formatBytes(f.size),
+              leadless: true,
+              selected: f.path == current,
+              onSelect: () => context.go(
+                f.path == kSkillManifestFileName
+                    ? skillLocation(name)
+                    : skillFileLocation(name, f.path),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+/// The PROVENANCE group (installed skills only, WRK-076 B4/F2): where it came from, the trust
+/// gate (approve button while pending — AMBER, a power grant the user must see), and the
+/// update check (drift → force-confirm dialog). 来源组(仅安装件):出处+信任门(待授权=琥珀按钮)
+/// +检查更新(漂移→强制确认)。
+class _SkillProvenanceGroup extends ConsumerWidget {
+  const _SkillProvenanceGroup({required this.skill});
+
+  final Skill skill;
+
+  Future<void> _approve(BuildContext context, WidgetRef ref) async {
+    final repo = ref.read(documentsRepositoryProvider);
+    try {
+      await repo.approveSkillTools(skill.name);
+      ref.invalidate(openSkillProvider(skill.name));
+      ref.invalidate(skillListProvider);
+    } catch (_) {
+      if (context.mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+      }
+    }
+  }
+
+  Future<void> _update(
+    BuildContext context,
+    WidgetRef ref, {
+    required bool force,
+  }) async {
+    final t = context.t;
+    final repo = ref.read(documentsRepositoryProvider);
+    try {
+      await repo.updateInstalledSkill(skill.name, force: force);
+      ref.invalidate(openSkillProvider(skill.name));
+      ref.invalidate(skillFilesProvider(skill.name));
+      ref.invalidate(skillListProvider);
+      if (context.mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(t.documents.skillUpdateDone, tone: AnTone.ok);
+      }
+    } on ApiException catch (e) {
+      if (!context.mounted) return;
+      if (e.code == 'SKILL_LOCALLY_MODIFIED') {
+        final go = await ref
+            .read(overlayProvider.notifier)
+            .confirm(
+              title: t.documents.skillCheckUpdate,
+              message: t.documents.skillLocallyModified,
+              confirmLabel: t.documents.skillForceUpdate,
+              cancelLabel: t.action.cancel,
+              barrierLabel: t.feedback.dialogBarrier,
+            );
+        if (go && context.mounted) {
+          await _update(context, ref, force: true);
+        }
+        return;
+      }
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(context.t.documents.actionFailed, tone: AnTone.danger);
+    } catch (_) {
+      if (context.mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(context.t.documents.actionFailed, tone: AnTone.danger);
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = context.t;
+    final c = context.colors;
+    final prov = skill.provenance;
+    final approved = prov?.toolsApproved ?? false;
+    final hasTools = skill.frontmatter.allowedTools.isNotEmpty;
+    return _GroupSection(
+      groupKey: kDocGroupSkillProvenance,
+      label: t.documents.skillProvenance,
+      count: hasTools && !approved ? 1 : 0,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (prov != null)
+            AnKv(
+              rows: [
+                AnKvRow(
+                  t.documents.skillInstalledFrom,
+                  prov.source,
+                  mono: true,
+                  wrap: true,
+                ),
+                if (prov.installedAt != null)
+                  AnKvRow(
+                    t.documents.skillInstalledAt,
+                    fmtDateTime(prov.installedAt!),
+                  ),
+              ],
+              dense: true,
+            ),
+          if (hasTools) ...[
+            const SizedBox(height: AnSpace.s8),
+            // 信任门状态:待授权=琥珀(权力让渡必须可见),已授权=安静陈述。
+            Text(
+              approved
+                  ? t.documents.skillToolsApproved
+                  : t.documents.skillToolsPending,
+              style: AnText.meta.copyWith(
+                color: approved ? c.inkFaint : c.warn,
+              ),
+            ),
+            const SizedBox(height: AnSpace.s4),
+            Wrap(
+              spacing: AnSpace.s4,
+              runSpacing: AnSpace.s4,
+              children: [
+                for (final tool in skill.frontmatter.allowedTools)
+                  AnChip(tool, tone: approved ? AnTone.none : AnTone.warn),
+              ],
+            ),
+            if (!approved) ...[
+              const SizedBox(height: AnSpace.s8),
+              AnButton(
+                label: t.documents.skillApproveTools,
+                outline: true,
+                onPressed: () => _approve(context, ref),
+              ),
+            ],
+          ],
+          const SizedBox(height: AnSpace.s8),
+          AnButton(
+            label: t.documents.skillCheckUpdate,
+            onPressed: () => _update(context, ref, force: false),
+          ),
+        ],
+      ),
+    );
+  }
 }

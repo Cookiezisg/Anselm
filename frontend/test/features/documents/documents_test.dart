@@ -553,6 +553,7 @@ void main() {
             selectedDocProvider.overrideWith(
               () => _PinnedSelection((isSkill: true, id: 'commit-helper')),
             ),
+            selectedSkillFileProvider.overrideWith(_PinnedSkillFile.new),
             mentionSourceProvider.overrideWithValue(_FakeMentions()),
           ],
           child: TranslationProvider(
@@ -1481,4 +1482,11 @@ class _SignallingRepo extends FixtureDocumentsRepository {
     skillFetches++;
     return super.listSkills();
   }
+}
+
+/// Pins the skill-file selection to null (manifest view) — widget tests carry no real router.
+/// 把 skill 文件选区钉为 null(清单视图)——widget 测试无真 router。
+class _PinnedSkillFile extends SelectedSkillFileController {
+  @override
+  String? build() => null;
 }

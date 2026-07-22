@@ -139,6 +139,23 @@ class ApiClient {
     return r.data ?? const <int>[];
   });
 
+  /// PUT raw bytes (non-envelope endpoints — the skill files surface speaks bytes both ways;
+  /// success is a 204 with no body). 裸字节 PUT(非 envelope,skill files 面双向裸字节;成功 204 空体)。
+  Future<void> putBytes(
+    String path,
+    List<int> body, {
+    String contentType = 'application/octet-stream',
+  }) => _send(() async {
+    await _dio.put<void>(
+      path,
+      data: Stream.fromIterable([body]),
+      options: Options(
+        contentType: contentType,
+        headers: {'Content-Length': body.length},
+      ),
+    );
+  });
+
   Future<Map<String, dynamic>> getData(
     String path, {
     Map<String, dynamic>? query,
@@ -178,6 +195,17 @@ class ApiClient {
   }) => _send(() async {
     final r = await _dio.post<Map<String, dynamic>>(path, data: body);
     return parse(_data(r.data));
+  });
+
+  /// POST returning a bounded item list `{data:[…]}` (an action that computes a set — e.g.
+  /// skills:inspect-source previews). POST 返回有界列表(计算出集合的动作,如安装预览)。
+  Future<Page<T>> postPage<T>(
+    String path,
+    T Function(Map<String, dynamic>) item, {
+    Object? body,
+  }) => _send(() async {
+    final r = await _dio.post<Map<String, dynamic>>(path, data: body);
+    return Page.fromBody(r.data ?? const {}, item);
   });
 
   /// PATCH/PUT returning the updated entity snapshot.

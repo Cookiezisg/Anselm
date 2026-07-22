@@ -1019,6 +1019,78 @@ class Translations$documents$en {
 	String get linkHint => 'Type or paste a link, Enter to apply';
 
 	late final Translations$documents$table$en table = Translations$documents$table$en.internal(_root);
+
+	/// en: 'Source'
+	String get skillSourceMode => 'Source';
+
+	/// en: 'Rich text'
+	String get skillRichMode => 'Rich text';
+
+	/// en: 'Toggle rich / raw source editing of the manifest'
+	String get skillModeTooltip => 'Toggle rich / raw source editing of the manifest';
+
+	/// en: 'Binary file — inline editing unsupported'
+	String get skillFileBinary => 'Binary file — inline editing unsupported';
+
+	/// en: 'Saving the file failed'
+	String get skillFileSaveFailed => 'Saving the file failed';
+
+	/// en: 'Files'
+	String get skillFiles => 'Files';
+
+	/// en: 'Provenance'
+	String get skillProvenance => 'Provenance';
+
+	/// en: 'Installed from'
+	String get skillInstalledFrom => 'Installed from';
+
+	/// en: 'Installed'
+	String get skillInstalledAt => 'Installed';
+
+	/// en: 'Pre-approval active'
+	String get skillToolsApproved => 'Pre-approval active';
+
+	/// en: 'Pre-approval pending'
+	String get skillToolsPending => 'Pre-approval pending';
+
+	/// en: 'Approve pre-authorized tools'
+	String get skillApproveTools => 'Approve pre-authorized tools';
+
+	/// en: 'Check for updates'
+	String get skillCheckUpdate => 'Check for updates';
+
+	/// en: 'Updated to the upstream version'
+	String get skillUpdateDone => 'Updated to the upstream version';
+
+	/// en: 'Local edits exist — updating will overwrite them. Force update?'
+	String get skillLocallyModified => 'Local edits exist — updating will overwrite them. Force update?';
+
+	/// en: 'Force update'
+	String get skillForceUpdate => 'Force update';
+
+	/// en: 'Install skills from a source'
+	String get skillInstallTitle => 'Install skills from a source';
+
+	/// en: 'GitHub repo (owner/repo or URL) or a tarball URL'
+	String get skillInstallHint => 'GitHub repo (owner/repo or URL) or a tarball URL';
+
+	/// en: 'Inspect source'
+	String get skillInstallInspect => 'Inspect source';
+
+	/// en: 'Install selected'
+	String get skillInstallGo => 'Install selected';
+
+	/// en: 'Install finished'
+	String get skillInstallDone => 'Install finished';
+
+	/// en: 'No installable skills in this source'
+	String get skillInstallNone => 'No installable skills in this source';
+
+	/// en: 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve'
+	String get skillInstallPreauthNote => 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve';
+
+	/// en: 'installed'
+	String get skillInstalledBadge => 'installed';
 }
 
 // Path: settings
@@ -7576,6 +7648,30 @@ extension on Translations {
 			'documents.table.insertColRight' => 'Insert column right',
 			'documents.table.deleteCol' => 'Delete column',
 			'documents.table.deleteTable' => 'Delete table',
+			'documents.skillSourceMode' => 'Source',
+			'documents.skillRichMode' => 'Rich text',
+			'documents.skillModeTooltip' => 'Toggle rich / raw source editing of the manifest',
+			'documents.skillFileBinary' => 'Binary file — inline editing unsupported',
+			'documents.skillFileSaveFailed' => 'Saving the file failed',
+			'documents.skillFiles' => 'Files',
+			'documents.skillProvenance' => 'Provenance',
+			'documents.skillInstalledFrom' => 'Installed from',
+			'documents.skillInstalledAt' => 'Installed',
+			'documents.skillToolsApproved' => 'Pre-approval active',
+			'documents.skillToolsPending' => 'Pre-approval pending',
+			'documents.skillApproveTools' => 'Approve pre-authorized tools',
+			'documents.skillCheckUpdate' => 'Check for updates',
+			'documents.skillUpdateDone' => 'Updated to the upstream version',
+			'documents.skillLocallyModified' => 'Local edits exist — updating will overwrite them. Force update?',
+			'documents.skillForceUpdate' => 'Force update',
+			'documents.skillInstallTitle' => 'Install skills from a source',
+			'documents.skillInstallHint' => 'GitHub repo (owner/repo or URL) or a tarball URL',
+			'documents.skillInstallInspect' => 'Inspect source',
+			'documents.skillInstallGo' => 'Install selected',
+			'documents.skillInstallDone' => 'Install finished',
+			'documents.skillInstallNone' => 'No installable skills in this source',
+			'documents.skillInstallPreauthNote' => 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve',
+			'documents.skillInstalledBadge' => 'installed',
 			'settings.title' => 'Settings',
 			'settings.scope.device' => 'This device',
 			'settings.scope.workspace' => 'Workspace',
@@ -7699,6 +7795,8 @@ extension on Translations {
 			'settings.keys.deleteKeyBody' => ({required Object name}) => 'This deletes “${name}” permanently.',
 			'settings.keys.confirmDelete' => 'Delete',
 			'settings.keys.defaults' => 'Scenario default models',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.scenarioDialogue' => 'Dialogue',
 			'settings.keys.scenarioUtility' => 'Utility',
 			'settings.keys.scenarioAgent' => 'Agent',
@@ -7723,8 +7821,6 @@ extension on Translations {
 			'settings.keys.pickerChange' => 'Change',
 			'settings.keys.pickerClose' => 'Close',
 			'settings.keys.visionBadge' => 'Vision',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.videoBadge' => 'Video',
 			'settings.keys.audioBadge' => 'Audio',
 			'settings.keys.docsBadge' => 'Docs',

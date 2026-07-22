@@ -1,5 +1,7 @@
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/relation.dart';
+import 'dart:convert';
+
 import '../../../core/contract/entities/skill.dart';
 import 'document_repository.dart';
 
@@ -11,11 +13,20 @@ class FixtureDocumentsRepository implements DocumentsRepository {
   FixtureDocumentsRepository({
     List<DocumentNode>? documents,
     List<Skill>? skills,
+    Map<String, Map<String, String>>? skillFiles,
   }) : _docs = List.of(documents ?? const []),
-       _skills = List.of(skills ?? const []);
+       _skills = List.of(skills ?? const []),
+       _skillFiles = {
+         for (final e in (skillFiles ?? const {}).entries)
+           e.key: Map.of(e.value),
+       };
 
   final List<DocumentNode> _docs;
   final List<Skill> _skills;
+
+  /// skill → (rel path → text content)。demo 的 folder skill 文件面（清单不在此表——它由
+  /// [Skill.body]+frontmatter 派生渲染,与真后端「清单也是文件」的差异是 demo 已知取舍）。
+  final Map<String, Map<String, String>> _skillFiles;
   int _seq = 0;
 
   // A deterministic stamp for fixture-created rows (tests don't assert wall-clock). fixture 建行的确定性时刻。
@@ -233,6 +244,126 @@ class FixtureDocumentsRepository implements DocumentsRepository {
   @override
   Future<void> deleteSkill(String name) async =>
       _skills.removeWhere((s) => s.name == name);
+
+  // ── skill files（demo:内存文件表;清单行为 Skill 派生渲染）────────────────────
+  String _renderManifest(Skill s) =>
+      '---\nname: ${s.name}\ndescription: ${s.description}\n---\n${s.body}\n';
+
+  @override
+  Future<List<SkillFile>> listSkillFiles(String name) async {
+    final s = await getSkill(name);
+    final files = _skillFiles[name] ?? const <String, String>{};
+    final out = [
+      SkillFile(
+        path: kSkillManifestFileName,
+        size: _renderManifest(s).length,
+        updatedAt: s.updatedAt,
+      ),
+      for (final e in files.entries)
+        SkillFile(path: e.key, size: e.value.length, updatedAt: s.updatedAt),
+    ]..sort((a, b) => a.path.compareTo(b.path));
+    return out;
+  }
+
+  @override
+  Future<List<int>> readSkillFile(String name, String path) async {
+    if (path == kSkillManifestFileName) {
+      return utf8.encode(_renderManifest(await getSkill(name)));
+    }
+    final content = _skillFiles[name]?[path];
+    if (content == null) throw StateError('no such file: $path');
+    return utf8.encode(content);
+  }
+
+  @override
+  Future<void> writeSkillFile(String name, String path, List<int> bytes) async {
+    final text = utf8.decode(bytes);
+    if (path == kSkillManifestFileName) {
+      // demo 清单整替:只回填 body(围栏后正文),frontmatter 简化保留。
+      final i = _skills.indexWhere((s) => s.name == name);
+      final parts = text.split('---');
+      final body = parts.length >= 3
+          ? parts.sublist(2).join('---').trim()
+          : text;
+      _skills[i] = _skills[i].copyWith(body: body, updatedAt: _t);
+      return;
+    }
+    (_skillFiles[name] ??= {})[path] = text;
+  }
+
+  @override
+  Future<void> deleteSkillFile(String name, String path) async {
+    _skillFiles[name]?.remove(path);
+  }
+
+  // ── skill install（demo:固定假来源,一次可装两个样例 skill）───────────────────
+  @override
+  Future<List<SkillInstallPreview>> inspectSkillSource(String source) async => [
+    SkillInstallPreview(
+      name: 'demo-pdf',
+      description: 'Fill and read PDF forms',
+      allowedTools: const ['run_function'],
+      fileCount: 3,
+      totalBytes: 2048,
+      installable: true,
+      alreadyExists: _skills.any((s) => s.name == 'demo-pdf'),
+    ),
+    const SkillInstallPreview(
+      name: 'broken-one',
+      reason: 'manifest frontmatter does not parse',
+      fileCount: 1,
+      totalBytes: 64,
+    ),
+  ];
+
+  @override
+  Future<SkillInstallResult> installSkills(
+    String source, {
+    List<String> names = const [],
+    bool force = false,
+  }) async {
+    if (_skills.any((s) => s.name == 'demo-pdf') && !force) {
+      return const SkillInstallResult(
+        skipped: {'demo-pdf': 'already exists (pass force to overwrite)'},
+      );
+    }
+    _skills.removeWhere((s) => s.name == 'demo-pdf');
+    _skills.add(
+      Skill(
+        name: 'demo-pdf',
+        description: 'Fill and read PDF forms',
+        source: kSkillSourceInstalled,
+        context: kSkillContextInline,
+        body: 'Use scripts/fill.py to fill forms.',
+        frontmatter: const Frontmatter(
+          name: 'demo-pdf',
+          description: 'Fill and read PDF forms',
+          allowedTools: ['run_function'],
+          license: 'MIT',
+        ),
+        provenance: Provenance(source: source, installedAt: _t),
+        updatedAt: _t,
+      ),
+    );
+    (_skillFiles['demo-pdf'] ??= {})['scripts/fill.py'] = "print('fill')";
+    return const SkillInstallResult(installed: ['demo-pdf']);
+  }
+
+  @override
+  Future<Skill> updateInstalledSkill(String name, {bool force = false}) async =>
+      getSkill(name);
+
+  @override
+  Future<Skill> approveSkillTools(String name) async {
+    final i = _skills.indexWhere((s) => s.name == name);
+    final cur = _skills[i];
+    _skills[i] = cur.copyWith(
+      provenance: (cur.provenance ?? Provenance(installedAt: _t)).copyWith(
+        toolsApproved: true,
+      ),
+    );
+    return _skills[i];
+  }
 
   // No backend, no stream — the demo's writes all go through the rail, which invalidates directly.
   // 零后端零流:demo 的写全走 rail、直接 invalidate。

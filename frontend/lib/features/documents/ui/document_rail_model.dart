@@ -13,6 +13,7 @@ class DocRailLabels {
     required this.untitled,
     required this.newLabel,
     required this.filter,
+    this.installedBadge = '',
   });
 
   final String documents;
@@ -20,6 +21,7 @@ class DocRailLabels {
   final String untitled; // fallback label for an unnamed document
   final String newLabel;
   final String filter;
+  final String installedBadge; // 装来 skill 的行尾角标文案
 }
 
 /// A skill row's id is namespaced (`skill:<name>`) so it never collides with a `doc_` id in the flat
@@ -67,6 +69,8 @@ SidebarModel buildDocumentsRailModel(
         id: '$kSkillRowPrefix${s.name}',
         label: s.name,
         icon: AnIcons.skill,
+        // 来源角标:装来的 skill 一眼可辨(WRK-076 F1)。installed badge at a glance.
+        meta: s.source == kSkillSourceInstalled ? labels.installedBadge : null,
       ),
   ];
 

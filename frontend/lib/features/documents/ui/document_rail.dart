@@ -76,6 +76,7 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
             untitled: t.documents.untitled,
             newLabel: t.documents.kNew,
             filter: t.documents.filter,
+            installedBadge: t.documents.skillInstalledBadge,
           ),
         ),
         selectedId: selected == null
