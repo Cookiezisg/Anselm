@@ -481,7 +481,8 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
                     fetch: () =>
                         ref.read(chatRepositoryProvider).getAttachmentBytes(id),
                     targetWidth:
-                        (AnSize.thumbMaxW * MediaQuery.devicePixelRatioOf(context))
+                        (AnSize.thumbMaxW *
+                                MediaQuery.devicePixelRatioOf(context))
                             .round(),
                   )
                 : null,

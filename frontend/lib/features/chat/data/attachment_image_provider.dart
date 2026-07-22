@@ -26,7 +26,11 @@ import 'package:flutter/painting.dart';
 /// 在缩略尺寸下视觉无损、内存小 1-2 个数量级;绝不放大(源比目标窄按原尺寸)。宽度**入缓存键**——
 /// 同 id 不同目标的两个 provider 不得撞同一张位图。
 class AttachmentImageProvider extends ImageProvider<AttachmentImageProvider> {
-  const AttachmentImageProvider(this.id, {required this.fetch, this.targetWidth});
+  const AttachmentImageProvider(
+    this.id, {
+    required this.fetch,
+    this.targetWidth,
+  });
 
   final String id;
   final Future<List<int>> Function() fetch;
