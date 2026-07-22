@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/skill.dart';
+import '../../../core/contract/mcp.dart';
 import '../../../core/router/navigation.dart';
 import '../data/document_repository.dart';
 import '../model/doc_outline.dart';
@@ -181,6 +182,21 @@ final skillBindingsProvider = FutureProvider.autoDispose
     .family<List<EntityRelation>, String>(
       (ref, name) =>
           ref.watch(documentsRepositoryProvider).listSkillBindings(name),
+    );
+
+/// The authorizable builtin-tool catalog (`GET /tools`) — the allowed-tools picker's BUILTIN
+/// candidate group. Bounded system-fixed set; autoDispose (fetched when a picker opens, dropped
+/// after). 可授权内置工具目录:选择器内置候选组(有界固定集,开选择器时取、关后弃)。
+final toolCatalogProvider =
+    FutureProvider.autoDispose<List<SkillToolDescriptor>>(
+      (ref) => ref.watch(documentsRepositoryProvider).listToolCatalog(),
+    );
+
+/// Installed MCP servers + their live tools (`GET /mcp-servers`) — the picker's MCP candidate group.
+/// autoDispose. 已装 MCP server + 工具:选择器 MCP 候选组。
+final mcpServersForToolsProvider =
+    FutureProvider.autoDispose<List<McpServerStatus>>(
+      (ref) => ref.watch(documentsRepositoryProvider).listMcpServers(),
     );
 
 /// One bundled file's RAW bytes (image/font previews need bytes, not text). 单捆绑文件裸字节。

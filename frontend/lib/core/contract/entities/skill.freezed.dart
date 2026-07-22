@@ -1193,6 +1193,272 @@ as bool,
 
 
 /// @nodoc
+mixin _$SkillToolDescriptor {
+
+ String get name; String get summary;
+/// Create a copy of SkillToolDescriptor
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$SkillToolDescriptorCopyWith<SkillToolDescriptor> get copyWith => _$SkillToolDescriptorCopyWithImpl<SkillToolDescriptor>(this as SkillToolDescriptor, _$identity);
+
+  /// Serializes this SkillToolDescriptor to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is SkillToolDescriptor&&(identical(other.name, name) || other.name == name)&&(identical(other.summary, summary) || other.summary == summary));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,name,summary);
+
+@override
+String toString() {
+  return 'SkillToolDescriptor(name: $name, summary: $summary)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $SkillToolDescriptorCopyWith<$Res>  {
+  factory $SkillToolDescriptorCopyWith(SkillToolDescriptor value, $Res Function(SkillToolDescriptor) _then) = _$SkillToolDescriptorCopyWithImpl;
+@useResult
+$Res call({
+ String name, String summary
+});
+
+
+
+
+}
+/// @nodoc
+class _$SkillToolDescriptorCopyWithImpl<$Res>
+    implements $SkillToolDescriptorCopyWith<$Res> {
+  _$SkillToolDescriptorCopyWithImpl(this._self, this._then);
+
+  final SkillToolDescriptor _self;
+  final $Res Function(SkillToolDescriptor) _then;
+
+/// Create a copy of SkillToolDescriptor
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? summary = null,}) {
+  return _then(_self.copyWith(
+name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,summary: null == summary ? _self.summary : summary // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [SkillToolDescriptor].
+extension SkillToolDescriptorPatterns on SkillToolDescriptor {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _SkillToolDescriptor value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _SkillToolDescriptor() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _SkillToolDescriptor value)  $default,){
+final _that = this;
+switch (_that) {
+case _SkillToolDescriptor():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _SkillToolDescriptor value)?  $default,){
+final _that = this;
+switch (_that) {
+case _SkillToolDescriptor() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  String summary)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _SkillToolDescriptor() when $default != null:
+return $default(_that.name,_that.summary);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  String summary)  $default,) {final _that = this;
+switch (_that) {
+case _SkillToolDescriptor():
+return $default(_that.name,_that.summary);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  String summary)?  $default,) {final _that = this;
+switch (_that) {
+case _SkillToolDescriptor() when $default != null:
+return $default(_that.name,_that.summary);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _SkillToolDescriptor implements SkillToolDescriptor {
+  const _SkillToolDescriptor({required this.name, this.summary = ''});
+  factory _SkillToolDescriptor.fromJson(Map<String, dynamic> json) => _$SkillToolDescriptorFromJson(json);
+
+@override final  String name;
+@override@JsonKey() final  String summary;
+
+/// Create a copy of SkillToolDescriptor
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$SkillToolDescriptorCopyWith<_SkillToolDescriptor> get copyWith => __$SkillToolDescriptorCopyWithImpl<_SkillToolDescriptor>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$SkillToolDescriptorToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _SkillToolDescriptor&&(identical(other.name, name) || other.name == name)&&(identical(other.summary, summary) || other.summary == summary));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,name,summary);
+
+@override
+String toString() {
+  return 'SkillToolDescriptor(name: $name, summary: $summary)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$SkillToolDescriptorCopyWith<$Res> implements $SkillToolDescriptorCopyWith<$Res> {
+  factory _$SkillToolDescriptorCopyWith(_SkillToolDescriptor value, $Res Function(_SkillToolDescriptor) _then) = __$SkillToolDescriptorCopyWithImpl;
+@override @useResult
+$Res call({
+ String name, String summary
+});
+
+
+
+
+}
+/// @nodoc
+class __$SkillToolDescriptorCopyWithImpl<$Res>
+    implements _$SkillToolDescriptorCopyWith<$Res> {
+  __$SkillToolDescriptorCopyWithImpl(this._self, this._then);
+
+  final _SkillToolDescriptor _self;
+  final $Res Function(_SkillToolDescriptor) _then;
+
+/// Create a copy of SkillToolDescriptor
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? summary = null,}) {
+  return _then(_SkillToolDescriptor(
+name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,summary: null == summary ? _self.summary : summary // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$SkillInstallResult {
 
  List<String> get installed; Map<String, String> get skipped;

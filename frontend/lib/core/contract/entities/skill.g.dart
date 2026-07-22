@@ -99,6 +99,16 @@ Map<String, dynamic> _$SkillInstallPreviewToJson(
   'alreadyExists': instance.alreadyExists,
 };
 
+_SkillToolDescriptor _$SkillToolDescriptorFromJson(Map<String, dynamic> json) =>
+    _SkillToolDescriptor(
+      name: json['name'] as String,
+      summary: json['summary'] as String? ?? '',
+    );
+
+Map<String, dynamic> _$SkillToolDescriptorToJson(
+  _SkillToolDescriptor instance,
+) => <String, dynamic>{'name': instance.name, 'summary': instance.summary};
+
 _SkillInstallResult _$SkillInstallResultFromJson(Map<String, dynamic> json) =>
     _SkillInstallResult(
       installed:

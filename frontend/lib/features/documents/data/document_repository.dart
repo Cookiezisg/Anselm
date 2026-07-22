@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/skill.dart';
+import '../../../core/contract/mcp.dart';
 import '../../../core/net/api_client.dart';
 import '../../../core/runtime.dart';
 import '../../../core/sse/frame.dart';
@@ -92,6 +93,14 @@ abstract interface class DocumentsRepository {
   /// names hydrated. The file tree's «绑定» section. skill 的 equip 出边(绑定实体,带显示名)。
   Future<List<EntityRelation>> listSkillBindings(String name);
 
+  /// The authorizable builtin-tool catalog (`GET /tools`) — the allowed-tools picker's BUILTIN
+  /// candidate group (name + one-line summary). 可授权内置工具目录:选择器的内置候选组。
+  Future<List<SkillToolDescriptor>> listToolCatalog();
+
+  /// Installed MCP servers with their live tools (`GET /mcp-servers`) — the picker's MCP candidate
+  /// group (a tool authorizes as `mcp__<server>__<tool>`). 已装 MCP server + 工具:选择器 MCP 候选组。
+  Future<List<McpServerStatus>> listMcpServers();
+
   /// Create (strict conflict → 409 SKILL_NAME_CONFLICT; source forced to user). body = the create payload
   /// `{name, description, body, allowedTools, context, agent, arguments, …}`. 建(严格冲突)。
   Future<Skill> createSkill(Map<String, dynamic> body);
@@ -125,6 +134,8 @@ class LiveDocumentsRepository implements DocumentsRepository {
   final SseGateway? _sse;
   static const String _docs = '/api/v1/documents';
   static const String _skills = '/api/v1/skills';
+  static const String _tools = '/api/v1/tools';
+  static const String _mcpServers = '/api/v1/mcp-servers';
 
   @override
   Future<List<DocumentNode>> getTree() async =>
@@ -256,6 +267,14 @@ class LiveDocumentsRepository implements DocumentsRepository {
           'limit': 100,
         },
       )).items;
+
+  @override
+  Future<List<SkillToolDescriptor>> listToolCatalog() async =>
+      (await _api.getPage(_tools, SkillToolDescriptor.fromJson)).items;
+
+  @override
+  Future<List<McpServerStatus>> listMcpServers() async =>
+      (await _api.getPage(_mcpServers, McpServerStatus.fromJson)).items;
 
   @override
   Future<List<EntityRelation>> listBacklinks(

@@ -3,6 +3,7 @@ import '../../../core/contract/entities/relation.dart';
 import 'dart:convert';
 
 import '../../../core/contract/entities/skill.dart';
+import '../../../core/contract/mcp.dart';
 import 'document_repository.dart';
 
 /// An in-memory, scriptable [DocumentsRepository] for `make demo` (zero backend) + widget tests. Holds a
@@ -383,6 +384,46 @@ class FixtureDocumentsRepository implements DocumentsRepository {
     );
     return _skills[i];
   }
+
+  @override
+  Future<List<SkillToolDescriptor>> listToolCatalog() async => const [
+    SkillToolDescriptor(name: 'Bash', summary: 'Run a shell command.'),
+    SkillToolDescriptor(name: 'Edit', summary: 'Replace a span in a file.'),
+    SkillToolDescriptor(name: 'Glob', summary: 'List files by glob pattern.'),
+    SkillToolDescriptor(
+      name: 'Grep',
+      summary: 'Search file contents by regex.',
+    ),
+    SkillToolDescriptor(name: 'Read', summary: 'Read a file.'),
+    SkillToolDescriptor(name: 'Write', summary: 'Write a file (overwrites).'),
+    SkillToolDescriptor(
+      name: 'activate_skill',
+      summary: 'Activate a skill by name.',
+    ),
+    SkillToolDescriptor(
+      name: 'run_function',
+      summary: 'Run a function entity by id.',
+    ),
+  ];
+
+  @override
+  Future<List<McpServerStatus>> listMcpServers() async => const [
+    McpServerStatus(
+      id: 'mcp_demogithub01',
+      name: 'github',
+      status: 'ready',
+      tools: [
+        McpToolDef(name: 'create_issue'),
+        McpToolDef(name: 'list_pulls'),
+      ],
+    ),
+    McpServerStatus(
+      id: 'mcp_demofs0000001',
+      name: 'filesystem',
+      status: 'ready',
+      tools: [McpToolDef(name: 'read_file')],
+    ),
+  ];
 
   // No backend, no stream — the demo's writes all go through the rail, which invalidates directly.
   // 零后端零流:demo 的写全走 rail、直接 invalidate。

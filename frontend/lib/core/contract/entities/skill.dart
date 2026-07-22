@@ -74,6 +74,19 @@ abstract class SkillInstallPreview with _$SkillInstallPreview {
       _$SkillInstallPreviewFromJson(json);
 }
 
+/// One authorizable builtin tool from `GET /tools` — the allowed-tools picker's BUILTIN candidate
+/// (call [name] + one-line [summary]). Entity ids (fn_/hd_) and MCP tools are picked from their own
+/// live sources, not this static set. 可授权内置工具(GET /tools):allowed-tools 选择器的内置候选。
+@freezed
+abstract class SkillToolDescriptor with _$SkillToolDescriptor {
+  const factory SkillToolDescriptor({
+    required String name,
+    @Default('') String summary,
+  }) = _SkillToolDescriptor;
+  factory SkillToolDescriptor.fromJson(Map<String, dynamic> json) =>
+      _$SkillToolDescriptorFromJson(json);
+}
+
 /// What one POST /skills:install actually did, per name. 一次安装逐名结果。
 @freezed
 abstract class SkillInstallResult with _$SkillInstallResult {

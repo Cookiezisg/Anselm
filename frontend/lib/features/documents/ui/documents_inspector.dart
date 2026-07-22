@@ -38,6 +38,7 @@ import '../data/document_repository.dart';
 import '../state/doc_group_collapse.dart';
 import '../state/document_state.dart';
 import 'skill_file_preview.dart';
+import 'skill_tool_picker.dart';
 
 /// The Documents ocean's right-island inspector — the three-segment grammar (三段式文法 §1–§3, batch 2, 用户
 /// 0719): ONE identity head ([AnPanelHead]: doc/skill glyph · name · ⋯ · ✕) over a quiet §2 GLANCE strip
@@ -808,11 +809,13 @@ class _SkillFormState extends ConsumerState<_SkillForm> {
           ),
         _Field(
           label: p.tools,
-          child: AnTags(
-            tags: [for (final tool in _tools) AnTag(tool)],
-            placeholder: p.addTool,
-            onChanged: (tags) {
-              setState(() => _tools = [for (final tag in tags) tag.label]);
+          // Assisted picker (builtin / functions / handlers / MCP, + free-text fallback) over the raw
+          // pill set — entity ids show resolved names, everything else verbatim. 选择器+药丸(实体显名)。
+          child: SkillToolsField(
+            skillName: widget.skill.name,
+            values: _tools,
+            onChanged: (next) {
+              setState(() => _tools = next);
               _put();
             },
           ),

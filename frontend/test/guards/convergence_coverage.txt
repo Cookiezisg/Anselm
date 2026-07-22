@@ -428,6 +428,7 @@ lib/features/documents/ui/document_rail_model.dart	converged
 lib/features/documents/ui/documents_inspector.dart	reviewed
 lib/features/documents/ui/skill_file_preview.dart	pending
 lib/features/documents/ui/skill_install_dialog.dart	pending
+lib/features/documents/ui/skill_tool_picker.dart	pending
 lib/features/entities/data/entity_demo_fixture.dart	reviewed
 lib/features/entities/data/entity_fixtures.dart	converged
 lib/features/entities/data/entity_format.dart	reviewed

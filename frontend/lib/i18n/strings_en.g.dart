@@ -4180,6 +4180,36 @@ class Translations$documents$props$en {
 	/// en: 'Add a tool'
 	String get addTool => 'Add a tool';
 
+	/// en: 'Add a tool'
+	String get toolPickerTitle => 'Add a tool';
+
+	/// en: 'Search tools, functions, MCP…'
+	String get toolPickerSearch => 'Search tools, functions, MCP…';
+
+	/// en: 'Builtin tools'
+	String get toolPickerBuiltin => 'Builtin tools';
+
+	/// en: 'Functions'
+	String get toolPickerFunctions => 'Functions';
+
+	/// en: 'Handlers'
+	String get toolPickerHandlers => 'Handlers';
+
+	/// en: 'MCP tools'
+	String get toolPickerMcp => 'MCP tools';
+
+	/// en: 'Add "$q" verbatim'
+	String toolPickerAddLiteral({required Object q}) => 'Add "${q}" verbatim';
+
+	/// en: 'Pick from below, or type a scope like Bash(git:*) and press Enter.'
+	String get toolPickerHint => 'Pick from below, or type a scope like Bash(git:*) and press Enter.';
+
+	/// en: 'No matches — press Enter to add what you typed.'
+	String get toolPickerEmpty => 'No matches — press Enter to add what you typed.';
+
+	/// en: 'Done'
+	String get toolPickerDone => 'Done';
+
 	/// en: 'Arguments'
 	String get arguments => 'Arguments';
 
@@ -7652,6 +7682,16 @@ extension on Translations {
 			'documents.props.agentHint' => 'Subagent type to dispatch — required for a fork skill.',
 			'documents.props.tools' => 'Allowed tools',
 			'documents.props.addTool' => 'Add a tool',
+			'documents.props.toolPickerTitle' => 'Add a tool',
+			'documents.props.toolPickerSearch' => 'Search tools, functions, MCP…',
+			'documents.props.toolPickerBuiltin' => 'Builtin tools',
+			'documents.props.toolPickerFunctions' => 'Functions',
+			'documents.props.toolPickerHandlers' => 'Handlers',
+			'documents.props.toolPickerMcp' => 'MCP tools',
+			'documents.props.toolPickerAddLiteral' => ({required Object q}) => 'Add "${q}" verbatim',
+			'documents.props.toolPickerHint' => 'Pick from below, or type a scope like Bash(git:*) and press Enter.',
+			'documents.props.toolPickerEmpty' => 'No matches — press Enter to add what you typed.',
+			'documents.props.toolPickerDone' => 'Done',
 			'documents.props.arguments' => 'Arguments',
 			'documents.props.addArg' => 'Add an argument',
 			'documents.props.modelInvoke' => 'Model can invoke',
@@ -7827,6 +7867,8 @@ extension on Translations {
 			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
 			'settings.keys.keysSection' => 'API keys',
 			'settings.keys.addKey' => 'Add key',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.testKey' => 'Test',
 			'settings.keys.editKey' => 'Edit',
 			'settings.keys.deleteKey' => 'Delete',
@@ -7837,8 +7879,6 @@ extension on Translations {
 			'settings.keys.provider' => 'Provider',
 			'settings.keys.displayNameLabel' => 'Name',
 			'settings.keys.secretLabel' => 'Key',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.baseUrlLabel' => 'Base URL',
 			'settings.keys.apiFormatLabel' => 'API dialect',
 			'settings.keys.saveKey' => 'Save & test',

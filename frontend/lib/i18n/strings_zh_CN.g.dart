@@ -1723,6 +1723,16 @@ class _Translations$documents$props$zh_CN extends Translations$documents$props$e
 	@override String get agentHint => '要派发的子 agent 类型——分叉技能必填。';
 	@override String get tools => '允许的工具';
 	@override String get addTool => '添加工具';
+	@override String get toolPickerTitle => '添加工具';
+	@override String get toolPickerSearch => '搜索工具 / 函数 / MCP…';
+	@override String get toolPickerBuiltin => '内置工具';
+	@override String get toolPickerFunctions => '函数';
+	@override String get toolPickerHandlers => '处理器';
+	@override String get toolPickerMcp => 'MCP 工具';
+	@override String toolPickerAddLiteral({required Object q}) => '按原文添加 “${q}”';
+	@override String get toolPickerHint => '从下方挑选，或输入作用域如 Bash(git:*) 后回车。';
+	@override String get toolPickerEmpty => '无匹配——回车按你输入的原文添加。';
+	@override String get toolPickerDone => '完成';
 	@override String get arguments => '参数';
 	@override String get addArg => '添加参数';
 	@override String get modelInvoke => '模型可调用';
@@ -4025,6 +4035,16 @@ extension on TranslationsZhCn {
 			'documents.props.agentHint' => '要派发的子 agent 类型——分叉技能必填。',
 			'documents.props.tools' => '允许的工具',
 			'documents.props.addTool' => '添加工具',
+			'documents.props.toolPickerTitle' => '添加工具',
+			'documents.props.toolPickerSearch' => '搜索工具 / 函数 / MCP…',
+			'documents.props.toolPickerBuiltin' => '内置工具',
+			'documents.props.toolPickerFunctions' => '函数',
+			'documents.props.toolPickerHandlers' => '处理器',
+			'documents.props.toolPickerMcp' => 'MCP 工具',
+			'documents.props.toolPickerAddLiteral' => ({required Object q}) => '按原文添加 “${q}”',
+			'documents.props.toolPickerHint' => '从下方挑选，或输入作用域如 Bash(git:*) 后回车。',
+			'documents.props.toolPickerEmpty' => '无匹配——回车按你输入的原文添加。',
+			'documents.props.toolPickerDone' => '完成',
 			'documents.props.arguments' => '参数',
 			'documents.props.addArg' => '添加参数',
 			'documents.props.modelInvoke' => '模型可调用',
@@ -4200,6 +4220,8 @@ extension on TranslationsZhCn {
 			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
 			'settings.keys.keysSection' => 'API 密钥',
 			'settings.keys.addKey' => '添加密钥',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.testKey' => '测试',
 			'settings.keys.editKey' => '编辑',
 			'settings.keys.deleteKey' => '删除',
@@ -4210,8 +4232,6 @@ extension on TranslationsZhCn {
 			'settings.keys.provider' => '提供方',
 			'settings.keys.displayNameLabel' => '名称',
 			'settings.keys.secretLabel' => '密钥',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.baseUrlLabel' => 'Base URL',
 			'settings.keys.apiFormatLabel' => 'API 方言',
 			'settings.keys.saveKey' => '保存并测试',
