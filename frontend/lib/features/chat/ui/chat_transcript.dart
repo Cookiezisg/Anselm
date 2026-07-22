@@ -471,12 +471,18 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
             mimeType: m.mimeType.isEmpty ? null : m.mimeType,
             sizeBytes: m.sizeBytes,
             // Images render as real thumbnails — bytes stream from the sidecar, cached by id in
-            // Flutter's ImageCache. 图片渲真缩略图(字节来自 sidecar,按 id 进全局图缓存)。
+            // Flutter's ImageCache, DECODED capped to the thumb's widest display (280 logical × dpr):
+            // a full-res phone photo would park ~48MB in the cache for a 280px slot (R2).
+            // 图片渲真缩略图(字节来自 sidecar,按 id 进全局图缓存,解码封顶缩略最宽档 280×dpr——
+            // 全分辨率手机照会为一个 280px 位置吃掉 ~48MB 缓存,R2)。
             thumb: m.kind == 'image'
                 ? AttachmentImageProvider(
                     id,
                     fetch: () =>
                         ref.read(chatRepositoryProvider).getAttachmentBytes(id),
+                    targetWidth:
+                        (AnSize.thumbMaxW * MediaQuery.devicePixelRatioOf(context))
+                            .round(),
                   )
                 : null,
           ),

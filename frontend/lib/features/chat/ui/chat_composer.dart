@@ -578,7 +578,16 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             // retires). 移除示能=原语自有槽(手搓 Stack 退役)。
             AnAttachmentThumb(
               key: ValueKey(a.localId),
-              image: MemoryImage(Uint8List.fromList(a.bytes!)),
+              // ResizeImage caps the DECODE at the thumb's widest display (280 logical × dpr) —
+              // a full-res pending photo would otherwise park tens of MB in the ImageCache for a
+              // tile-sized slot; allowUpscaling stays false (its default). 解码封顶缩略最宽档,
+              // 全分辨率待发照否则为一个瓦片位吃掉数十 MB;默认不放大。
+              image: ResizeImage(
+                MemoryImage(Uint8List.fromList(a.bytes!)),
+                width:
+                    (AnSize.thumbMaxW * MediaQuery.devicePixelRatioOf(context))
+                        .round(),
+              ),
               filename: a.filename,
               onRemove: () => _att.remove(a.localId),
               removeLabel: t.attach.remove,
