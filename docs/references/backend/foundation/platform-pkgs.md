@@ -23,7 +23,7 @@ AES-GCM 整密文加解密（apikey 密文 / handler config / mcp config_enc 共
 
 ## infra/db
 
-无业务知识的 SQLite 网关（`infra/db` 无专篇，本节是它唯一事实源）：`Open`（glebarez 纯 Go 驱动，DSN pragma `auto_vacuum(INCREMENTAL)` → `journal_mode(WAL)` → `busy_timeout(5000)` → `foreign_keys(on)` → `synchronous(NORMAL)`，`SetMaxOpenConns(1)` 单连接）+ **`Migrate`**（各 store 导出幂等 DDL、bootstrap `openDB` 汇总、单事务按序应用）+ **`MigrateRebuild`**（整表重建逃生口）+ **磁盘回收三件**（`vacuum.go`：`ReclaimFreePages` 自动 + `Compact` 用户触发 + `Stat` 度量，见下）。
+无业务知识的 SQLite 网关（`infra/db` 无专篇，本节是它唯一事实源）：`Open`（glebarez 纯 Go 驱动，DSN pragma `auto_vacuum(INCREMENTAL)` → `journal_mode(WAL)` → `busy_timeout(5000)` → `foreign_keys(on)` → `synchronous(NORMAL)` → **补偿三件** `mmap_size(256MB)`·`cache_size(-65536=64MB)`·`temp_store(MEMORY)`——纯 Go 驱动页 IO 慢 2-5× 的性能补偿：mmap 直映省 read() 与拷贝〔转录形扫描实测 ~18% 快〕、热工作集常驻、排序溢出不落盘;零语义纯性能，`SetMaxOpenConns(1)` 单连接）+ **`Migrate`**（各 store 导出幂等 DDL、bootstrap `openDB` 汇总、单事务按序应用）+ **`MigrateRebuild`**（整表重建逃生口）+ **磁盘回收三件**（`vacuum.go`：`ReclaimFreePages` 自动 + `Compact` 用户触发 + `Stat` 度量，见下）。
 
 **磁盘回收（`auto_vacuum=INCREMENTAL` + 保留清理后回收，T4/WRK-070，与 [database.md](../database.md) flowrun 节对齐）**：SQLite 的 `DELETE` 只把页移到 freelist、**绝不把字节还给文件系统**（`auto_vacuum` 默认 `NONE`）——故 run 历史保留清理删了真行、`.db` 文件却一字节不缩，存储面板的「Run 历史保留」成空头承诺。修法让库跑在 `auto_vacuum=INCREMENTAL`（选它而非 `FULL`：`FULL` 每次 commit 都回收 = 高频单写者 app 的常驻每写开销；`INCREMENTAL` 只在指针图记下腾空的页、显式索要时才回收）：
 - **`auto_vacuum` 必须排 DSN 最前**——只能在 `journal_mode(WAL)` 初始化文件头**之前**设定，且 glebarez 驱动按 DSN 顺序应用 `_pragma`；排在 WAL 之后会静默留 `NONE`（实测）。全新文件库因此天生 `INCREMENTAL`（**无 boot 自动迁移**——项目未发版、不存在此顺序之前的用户安装；此顺序之前建的 dogfood 库 mode=0，靠用户主动 `Compact` 升级，见下）。
