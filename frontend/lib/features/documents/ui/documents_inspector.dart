@@ -363,6 +363,7 @@ Widget? _glance(
 class _GroupSection extends ConsumerWidget {
   const _GroupSection({
     required this.groupKey,
+    required this.icon,
     required this.label,
     required this.count,
     required this.child,
@@ -370,6 +371,12 @@ class _GroupSection extends ConsumerWidget {
   });
 
   final String groupKey;
+
+  /// The group's type icon — shown at rest, hover-swaps to the disclosure chevron (AnRow's
+  /// collapsible+icon behaviour, same as the left island's rows). An icon-LESS head would degrade to
+  /// a bare permanent chevron (the notification tray's deliberate look, wrong for a titled group).
+  /// 组类型图标——静息显示、hover 换披露箭头(AnRow collapsible+icon 行为,同左岛);无图标会退化成裸常驻箭头。
+  final IconData icon;
   final String label;
   final int count;
   final Widget child;
@@ -391,6 +398,7 @@ class _GroupSection extends ConsumerWidget {
         AnRow(
           collapsible: true,
           open: open,
+          icon: icon,
           label: label,
           meta: '$count',
           onSelect: toggle,
@@ -425,6 +433,7 @@ class _OutlineGroup extends ConsumerWidget {
     }
     return _GroupSection(
       groupKey: kDocGroupOutline,
+      icon: AnIcons.listBulleted,
       label: context.t.documents.props.outline,
       count: outline.length,
       child: Column(
@@ -531,6 +540,7 @@ class _DocMetaGroup extends StatelessWidget {
     ];
     return _GroupSection(
       groupKey: kDocGroupProps,
+      icon: AnIcons.sliders,
       label: t.documents.props.title,
       count: rows.length,
       child: AnKv(dense: true, rows: rows),
@@ -556,6 +566,7 @@ class _BacklinksGroup extends ConsumerWidget {
         .when(
           loading: () => _GroupSection(
             groupKey: kDocGroupBacklinks,
+            icon: AnIcons.link,
             label: t.documents.props.backlinks,
             count: 0,
             child: const AnSkeleton.lines(2),
@@ -564,6 +575,7 @@ class _BacklinksGroup extends ConsumerWidget {
               const SizedBox.shrink(), // quiet: backlinks are auxiliary 反链是辅助信息,静默降级
           data: (links) => _GroupSection(
             groupKey: kDocGroupBacklinks,
+            icon: AnIcons.link,
             label: t.documents.props.backlinks,
             count: links.length,
             child: links.isEmpty
@@ -669,6 +681,7 @@ class _SkillPropsGroup extends StatelessWidget {
     final count = 5 + (f.context == kSkillContextFork ? 1 : 0);
     return _GroupSection(
       groupKey: kDocGroupProps,
+      icon: AnIcons.sliders,
       label: context.t.documents.props.title,
       count: count,
       keepMounted: true,
@@ -987,6 +1000,7 @@ class _SkillFilesGroup extends ConsumerWidget {
     final rows = buildSkillTreeRows(files);
     return _GroupSection(
       groupKey: kDocGroupSkillFiles,
+      icon: AnIcons.folder,
       label: t.documents.skillFiles,
       count: files.length + bindings.length,
       child: Column(
@@ -1125,6 +1139,7 @@ class _SkillProvenanceGroup extends ConsumerWidget {
     final hasTools = skill.frontmatter.allowedTools.isNotEmpty;
     return _GroupSection(
       groupKey: kDocGroupSkillProvenance,
+      icon: AnIcons.download,
       label: t.documents.skillProvenance,
       count: hasTools && !approved ? 1 : 0,
       child: Column(
