@@ -124,8 +124,12 @@ void main() {
     await _settle(tester);
     final r = tester.getRect(_node('fn_normalize'));
     final dot = Offset(r.center.dx, r.top + 4);
+    // Back-to-back taps, NO pump between: the graph judges the double-tap on the REAL wall clock
+    // (an_relation_graph _doubleTapMs=300, DateTime.now), and an intervening pump is an await hop
+    // the OS scheduler can preempt past 300ms under a loaded parallel suite (same fix as the
+    // scheduler 24h-row double-tap). 双击判定走真墙钟,两次 tap 间不插 pump——让步点在满载并行下可被
+    // 真实抢占超 300ms 窗,把双击拆成两单击(同 scheduler 双击测试的修法)。
     await tester.tapAt(dot);
-    await tester.pump(const Duration(milliseconds: 40));
     await tester.tapAt(
       dot,
     ); // second tap within the window → double-tap navigation

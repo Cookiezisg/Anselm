@@ -1,3 +1,16 @@
+// The gallery matrix RUNNER — the machine gate (port of the demo's matrix.mjs). Every catalog
+// specimen, incl. the pressure-bed (空/超长/海量/极值/注入), must build + lay out in a CONSTRAINED
+// cell with NO thrown error and NO overflow, in light AND dark AND reduced motion.
+//
+// Split into modulo BUCKETS (gallery_matrix_b<N>_test.dart each run `catIndex % buckets == bucket`)
+// so `flutter test --total-shards` can parallelize what used to be ONE whale file — sharding is
+// file-granular, and a single file holding the whole matrix pinned the sharded wall clock to the
+// whale. Modulo bucketing (not fixed index ranges) means a NEW catalog category lands in a bucket
+// automatically — no per-file category list to drift.
+//
+// 画廊矩阵 runner——机器门禁(移植 matrix.mjs)。每个 specimen(含压力床)须在受限格里 build+布局,
+// 无抛错、无溢出,亮/暗/reduced 三态齐验。按取模分桶拆成 4 个薄测试文件:分片按文件分,单鲸鱼文件
+// 会把分片墙钟钉死在鲸鱼上;取模(非固定区间)使新增类目自动落桶、无逐文件类目清单可漂移。
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/dev/gallery/catalog.dart';
 import 'package:anselm/dev/gallery/specimen.dart';
@@ -6,16 +19,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// The gallery matrix — the machine gate (port of the demo's matrix.mjs). Every catalog specimen,
-// incl. the pressure-bed (空/超长/海量/极值/注入), must build + lay out in a CONSTRAINED cell with
-// NO thrown error and NO overflow (Flutter reports overflow as a FlutterError → takeException). The
-// constrained width is the point: it reproduces the demo's "no in-grid overflow" assertion that
-// caught the truncation/wrap bugs hardening was built for.
-//
-// 画廊矩阵——机器门禁(移植 matrix.mjs)。每个 specimen(含压力床)须在受限格里 build+布局,无抛错、无溢出
-// (Flutter 把溢出报成 FlutterError → takeException)。受限宽是关键:复刻 demo「格内不溢出」断言。
-void main() {
-  for (final cat in galleryCatalog) {
+/// Runs the matrix for every category whose index ≡ [bucket] (mod [buckets]). 跑取模落桶的类目。
+void runGalleryMatrix({required int bucket, required int buckets}) {
+  for (var i = 0; i < galleryCatalog.length; i++) {
+    if (i % buckets != bucket) continue;
+    final cat = galleryCatalog[i];
     group(cat.label, () {
       for (final item in cat.items) {
         for (final s in item.specimens) {

@@ -87,7 +87,7 @@ verify: deps
 	@echo "→ gen(slang)…"        && $(RUN) dart run slang
 	@echo "→ gen(build_runner)…" && $(RUN) dart run build_runner build --delete-conflicting-outputs
 	@echo "→ analyze…"           && $(RUN) flutter analyze
-	@echo "→ test…"              && $(RUN) flutter test
+	@echo "→ test(4 groups)…"    && chmod +x test/dev/verify_tests.sh && MISE="$(MISE)" bash test/dev/verify_tests.sh
 	@echo "" && echo "✓ verify 全绿（gen + analyze + test）"
 
 # demo — 真 app 形态（骨架阶段:三岛空壳;后续接 fixture 数据）。
@@ -124,8 +124,8 @@ app: deps
 # 类目数变了就同步下面的列表(同 S22「状态即重述」)。
 shots: deps
 	@$(RUN) flutter test test/dev/capture_shell.dart
-	@for i in 0 1 2 3 4 5 6; do $(RUN) flutter test test/dev/capture_gallery.dart --dart-define=CAT=$$i; done
-	@echo "" && echo "✓ 截图落 test/dev/out/(shell.png + gallery_0..6.png)"
+	@for i in 0 1 2 3 4 5 6 7 8 9 10; do $(RUN) flutter test test/dev/capture_gallery.dart --dart-define=CAT=$$i; done
+	@echo "" && echo "✓ 截图落 test/dev/out/(shell.png + gallery_0..10.png)"
 
 # clean — 清前端可重建产物。走官方 `flutter clean`(其定义逐字即「Delete the build/ and
 # .dart_tool/ directories」)——一并清 build/test_cache(flutter test 内容寻址 kernel 缓存,
