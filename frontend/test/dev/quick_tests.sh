@@ -62,9 +62,18 @@ EOF
 
 echo "→ format check…" && $RUN dart format --output=none --set-exit-if-changed lib test \
   || { echo "✗ needs formatting — run: make -C frontend format"; exit 1; }
-echo "→ analyze…"      && $RUN flutter analyze
 [ "$genhint" = 1 ] && echo "⚠ diff touches i18n/contract — remember: make -C frontend gen (quick does not run codegen)"
-echo "→ tests: $targets"
+# analyze (~7s) and the tests are independent — run them CONCURRENTLY, wall = max not sum.
+# analyze 与测试彼此独立——并发跑,墙钟=max 非 sum。
+alog="$(mktemp "${TMPDIR:-/tmp}/anselm-quick-analyze-XXXXXX")"
+$RUN flutter analyze > "$alog" 2>&1 &
+apid=$!
+echo "→ tests (analyze running alongside): $targets"
+testrc=0
 # shellcheck disable=SC2086 — word-splitting the target list is intended 目标列表按词分割是本意
-$RUN flutter test $targets
-echo "" && echo "✓ quick 绿(受影响范围;推送前仍需 make verify 全量)"
+$RUN flutter test $targets || testrc=$?
+if wait "$apid"; then arc=0; else arc=1; fi
+if [ "$arc" != 0 ]; then echo "" && echo "✗ analyze:" && cat "$alog"; fi
+rm -f "$alog"
+[ "$testrc" = 0 ] && [ "$arc" = 0 ] || exit 1
+echo "" && echo "✓ quick 绿(analyze + 受影响范围;推送前仍需 make verify 全量)"
