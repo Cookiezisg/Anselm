@@ -102,7 +102,7 @@
   **「按域前缀搜」是本条的要害**——少了它，规则挡不住这次的漏法。
 - **T6 Fake LLM**：默认测试用 `fake_llm`，0 Token 消耗。
 - **`make verify`（pre-push 门禁，host 平台）**：后端（`gofmt` 检查 + `go vet` + `go build` + 单测）、前端、文档、web demo 全绿。并发/取消测试带 `-race`。
-- **`make -C docs verify`（文档门禁）**：`cmd/docs` 跑 GOVERNANCE §11 全套（frontmatter / 类型 / 生命周期 / INDEX≤50 / 孤儿链接）。
+- **`make -C docs verify`（文档门禁）**：`cmd/docs` 跑 GOVERNANCE §11 全套（frontmatter / 类型 / 生命周期 / INDEX≤50 / 孤儿链接 + **契约漂移检测**——错误码/通知事件/端点资源词/表名 从后端源码机械提取、与四索引 diff，漂移即红；#9 的机械半，见 §11.8）。
 - **跨平台 release**：任意平台 `cd backend && GOOS=x GOARCH=y go build ./cmd/server` 直接出二进制——**无内嵌、无预拉**（运行时由自研 `directInstaller` 在目标机首用按需下，见 [`decisions/0001`](docs/decisions/0001-sandbox-runtime-direct-install.md)）。
 - **`make -C frontend verify`（前端门禁，mise flutter）**：codegen（freezed/json/slang）+ `flutter analyze` 净 + `flutter test` 绿；根目录 `make verify` 再统一编排后端、前端、文档和 web demo。
 

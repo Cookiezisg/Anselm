@@ -43,6 +43,8 @@ func main() {
 		os.Exit(2)
 	}
 	l.run()
+	// The contract-drift pass (#9's mechanical half) — see drift.go. 契约漂移 pass(#9 机械半)。
+	l.checkDrift(filepath.Join(*root, "backend"))
 
 	for _, w := range l.warns {
 		fmt.Printf("⚠ %s\n", w)

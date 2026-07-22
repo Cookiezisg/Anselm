@@ -204,8 +204,9 @@ CLAUDE.md  >  references/  >  concepts/  >  working/  >  archive/
 5. `decisions/` 文档创建后被改（git blame）→ **失败**（ADR 不可变）。
 6. `INDEX.md` ≤ 50 行。
 7. 无孤儿链接（文档内相对链接指向的文件都存在）。
+8. **契约漂移检测**（`cmd/docs/drift.go`，§1.7 同步纪律的机械半）：从后端源码提取四类契约事实并与四索引 diff——**错误码**（`errorspkg.New`/裸 `New`/transport 合成码 ↔ `error-codes.md` 表格行，**双向**严格）· **通知事件**（emit 家族的点写字面量 ↔ `events.md`，代码→文档严格〔直写/族/行级配对〕，文档→代码仅反查直写形态且豁免 helper 拼接域〔`"<域>."+action`〕与表列散文引用）· **端点**（`/api/v1` 路由字面量的具名资源词必须出现在 `api.md`，单向）· **表名**（`CREATE TABLE` 字面量 ↔ `database.md` 表格行，**双向**；地基表回落 `references/backend/` 全域）。匹配哲学=**宁漏报不误报**；文档自称非穷举的词表（node.type）不查。任何漂移 → **失败**并打印精确清单。
 
-> **覆盖**：门禁实现为 `backend/cmd/docs`（`make -C docs verify`，并入根 `make verify`），机械强制上列 1–4、6、7；唯 #5（ADR 不可变，需比对 git 历史）暂未纳入门禁，靠 §12 收尾清单 #6 + `decisions/` 目录纪律守。§12 收尾清单是 Claude 的人肉前置层，与门禁并行。
+> **覆盖**：门禁实现为 `backend/cmd/docs`（`make -C docs verify`，并入根 `make verify`），机械强制上列 1–4、6–8；唯 #5（ADR 不可变，需比对 git 历史）暂未纳入门禁，靠 §12 收尾清单 #6 + `decisions/` 目录纪律守。§12 收尾清单是 Claude 的人肉前置层，与门禁并行——#8 使「新增/删改 错误码/事件/端点资源/表 而不动四索引」物理上无法通过门禁。
 
 ---
 

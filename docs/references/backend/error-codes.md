@@ -47,7 +47,7 @@ audience: [human, ai]
 
 > `errorspkg.New` 机械抽取（321，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 332。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 >
-> **复核方法**（本汇总数无机械守卫——`make -C docs verify` 只查结构/frontmatter/孤儿链接，`pkg/errors` 的 `standard_test.go` 只钉「一律走 `errorspkg.New`」+「码全局唯一」，**都不数总数**，故这三个数是**手工事实**、会随每次加码悄悄漂旧，改码时请一并重算）：
+> **机械守卫**：本表与代码的**逐码对齐**由 `make -C docs verify` 的契约漂移检测强制（GOVERNANCE §11.8，`cmd/docs/drift.go`——代码构造了而表没登记、或表登记了而代码没构造，门禁即红并点名）。故「漏登/幽灵」不可能安静发生；**唯汇总计数**（下三数）仍是手工陈述，改码时顺手重算（数错不影响守卫,守卫按码 diff 不数总数）。复核命令：
 > `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 321 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 321 = 321 个唯一 code，全部在表；表 332 行 = 321 + 7 + 4，三数对齐；含 WRK-076 B1 `SKILL_FILE_*` 3 码 + B3 `SKILL_SCRIPT_*` 3 码 + B4 `SKILL_INSTALL_*` 4 码与 `SKILL_NOT_INSTALLED`/`SKILL_LOCALLY_MODIFIED`）。
 
 ### `pkg/errors`（跨域 sentinel）
