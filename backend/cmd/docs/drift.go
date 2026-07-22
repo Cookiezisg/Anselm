@@ -97,6 +97,7 @@ func (l *linter) checkDrift(backendDir string) {
 	l.driftEvents(backendDir, tables)
 	l.driftEndpoints(backendDir)
 	l.driftTables(tables)
+	l.driftDTO(filepath.Dir(backendDir)) // repo root = backend/ 的父目录
 }
 
 // walkGo streams every non-test .go file under dir into fn, comments stripped (doc comments carry
