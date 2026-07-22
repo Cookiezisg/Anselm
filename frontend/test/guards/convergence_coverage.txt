@@ -426,6 +426,7 @@ lib/features/documents/ui/document_ocean.dart	converged
 lib/features/documents/ui/document_rail.dart	converged
 lib/features/documents/ui/document_rail_model.dart	converged
 lib/features/documents/ui/documents_inspector.dart	reviewed
+lib/features/documents/ui/skill_install_dialog.dart	pending
 lib/features/entities/data/entity_demo_fixture.dart	reviewed
 lib/features/entities/data/entity_fixtures.dart	converged
 lib/features/entities/data/entity_format.dart	reviewed
@@ -496,9 +497,9 @@ lib/features/notifications/data/notification_repository.dart	converged
 lib/features/notifications/data/notification_signal.dart	converged
 lib/features/notifications/data/os_notifier.dart	reviewed
 lib/features/notifications/state/app_focus_provider.dart	converged
+lib/features/notifications/state/notice_dispatcher.dart	reviewed
 lib/features/notifications/state/notification_feed_provider.dart	converged
 lib/features/notifications/state/notification_feed_state.dart	converged
-lib/features/notifications/state/notice_dispatcher.dart	reviewed
 lib/features/notifications/state/unread_count_provider.dart	converged
 lib/features/notifications/ui/notification_copy.dart	reviewed
 lib/features/notifications/ui/notification_row.dart	reviewed

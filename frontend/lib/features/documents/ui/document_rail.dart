@@ -6,7 +6,10 @@ import '../../../core/contract/entities/document.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/notice/notice_center.dart';
 import '../../../core/overlay/an_overlay.dart';
+import '../../../core/design/colors.dart';
+import '../../../core/design/tokens.dart';
 import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_dialog.dart';
 import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
@@ -14,6 +17,7 @@ import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/document_repository.dart';
 import '../state/document_state.dart';
+import 'skill_install_dialog.dart';
 import 'document_rail_model.dart';
 
 /// The left-island Documents navigator — one [AnSidebarList] over two sections (the recursive document
@@ -88,6 +92,15 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
         onSelect: (id) => context.go(_locationForRow(id)),
         // The New row creates a root page (skill creation lives in the skill editor, P4c). New 建根页。
         onNew: _newDocument,
+        // Trailing on the New row: «install skills from a source» (WRK-076 F2). New 行尾:从来源安装。
+        newRowActions: [
+          AnButton.iconOnly(
+            AnIcons.download,
+            size: AnButtonSize.sm,
+            semanticLabel: t.documents.skillInstallTitle,
+            onPressed: _openInstall,
+          ),
+        ],
         editingRowId: _editingId,
         onRenameCommit: _renameDocument,
         onRenameCancel: () => setState(() => _editingId = null),
@@ -197,6 +210,18 @@ class _DocumentRailState extends ConsumerState<DocumentRail> {
   /// ⋯-menu Rename). An empty page stays; the user owns what they made. 主动新建:立即建未命名页 → 进海洋
   /// 编辑 → 焦点落标题(行内改名退出新建流程,只留给 ⋯ 菜单);空着不删。
   Future<void> _newDocument() => _create(parentId: null);
+
+  void _openInstall() {
+    final nav = Navigator.of(context, rootNavigator: true);
+    nav.push(
+      anPanelRoute<void>(
+        scrim: context.colors.scrim,
+        reduced: AnMotionPref.reduced(context),
+        barrierLabel: context.t.feedback.dialogBarrier,
+        builder: (_) => const SkillInstallDialog(),
+      ),
+    );
+  }
 
   /// Active create of a CHILD (B3): same path, parent = the hovered row. 行内 + 建子文档(主动路径)。
   Future<void> _newChild(String parentId) => _create(parentId: parentId);

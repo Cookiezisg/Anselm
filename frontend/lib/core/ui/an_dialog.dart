@@ -239,3 +239,34 @@ class _AnConfirmCard extends StatelessWidget {
     );
   }
 }
+
+/// A generic modal-panel route: the same scrim + focus-trap + Escape/barrier-dismiss framework
+/// as [anConfirmRoute], but the caller supplies the whole panel child (e.g. the skill install
+/// flow). Barrier/Escape pop null. 通用模态面板路由:同框架,child 由调用方给(如安装流);遮罩/Escape pop null。
+RawDialogRoute<T> anPanelRoute<T>({
+  required Color scrim,
+  required bool reduced,
+  required String barrierLabel,
+  required WidgetBuilder builder,
+}) {
+  return RawDialogRoute<T>(
+    barrierColor: scrim,
+    barrierDismissible: true,
+    barrierLabel: barrierLabel,
+    transitionDuration: reduced ? Duration.zero : AnMotion.mid,
+    traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
+    pageBuilder: (context, animation, secondary) => builder(context),
+    transitionBuilder: (context, animation, secondary, child) {
+      if (reduced) return child;
+      final curved = animation.drive(CurveTween(curve: AnMotion.spring));
+      return FadeTransition(
+        opacity: curved,
+        child: Semantics(
+          scopesRoute: true,
+          explicitChildNodes: true,
+          child: child,
+        ),
+      );
+    },
+  );
+}

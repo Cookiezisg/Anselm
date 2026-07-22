@@ -61,6 +61,7 @@ class AnSidebarList extends StatefulWidget {
     this.onRetryLoad,
     this.menuEntries = const [],
     this.showNew = true,
+    this.newRowActions = const [],
     this.showFilter = true,
     this.rowActionsBuilder,
     this.labelWidgetFor,
@@ -93,6 +94,10 @@ class AnSidebarList extends StatefulWidget {
   /// Sliders (Sort / Display) menu entries; empty → no sliders anchor. sliders 菜单项,空则不渲。
   final List<AnMenuEntry> menuEntries;
   final bool showNew;
+
+  /// Optional trailing actions on the built-in New row (e.g. an «install from source» button).
+  /// null/empty = the bare New row. New 行的行尾动作(如「从来源安装」按钮);空=裸 New 行。
+  final List<Widget> newRowActions;
 
   /// The built-in [AnRailFilterField] row. false → the host owns the search field OUTSIDE the list
   /// (settings lifts it out so the same box can drive an item-level result view that REPLACES the
@@ -428,6 +433,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
     icon: AnIcons.plus,
     label: widget.model.newLabel,
     onSelect: widget.onNew,
+    actions: widget.newRowActions,
   );
 
   // Filter: the shared [AnRailFilterField] (search glyph + seamless input + trailing sliders menu). The
