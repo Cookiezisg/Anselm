@@ -24,6 +24,7 @@ class AnExpandReveal extends StatefulWidget {
     required Widget this.child,
     this.duration,
     this.axis = Axis.vertical,
+    this.keepMounted = false,
     super.key,
   }) : childBuilder = null;
 
@@ -38,7 +39,8 @@ class AnExpandReveal extends StatefulWidget {
     this.duration,
     this.axis = Axis.vertical,
     super.key,
-  }) : child = null;
+  }) : child = null,
+       keepMounted = false; // lazy + keepMounted是矛盾的:前者要收起零成本,后者要收起仍活
 
   final bool open;
 
@@ -59,6 +61,17 @@ class AnExpandReveal extends StatefulWidget {
   /// Override the reveal duration. `Duration.zero` → instant (e.g. filter-forced open). Default = [AnMotion.mid]
   /// (→ instant under reduced motion). 覆写时长,zero=即时(如过滤强制展开),默认 mid(reduced 即时)。
   final Duration? duration;
+
+  /// Keep the subtree MOUNTED while collapsed (default false = dropped once fully closed). For a body that
+  /// owns live state the collapse must not destroy — a form with a debounced autosave + edit buffers, whose
+  /// source provider is deliberately not refetched mid-edit, so an unmount would drop a pending save and
+  /// stale-remount. The reveal still animates; at zero height the subtree is made inert (no hit-test, no
+  /// semantics, no focus) so a collapsed body is as invisible to a screen reader / Tab as the dropped form.
+  ///
+  /// 收起仍保持子树挂载(默认 false=全收即出树)。给「收起不可摧毁其状态」的体用——持防抖 autosave + 编辑缓冲、
+  /// 源 provider 刻意不中途 refetch 的表单,卸载会丢在途保存并陈旧重挂。动画照旧;零高时子树惰化(不命中/无语义/
+  /// 不可聚焦),对屏读与 Tab 而言与「已出树」等价。
+  final bool keepMounted;
 
   @override
   State<AnExpandReveal> createState() => _AnExpandRevealState();
@@ -107,17 +120,27 @@ class _AnExpandRevealState extends State<AnExpandReveal>
   Widget build(BuildContext context) {
     // Fully collapsed AND settled → take no space, drop the subtree, and (the lazy form) NEVER build the
     // child. This short-circuit runs on every parent rebuild, so a collapsed expensive body pays nothing
-    // during streaming (C-006). 全收静止:不占位、移出树、惰性形绝不建体——收起态每次父重建零成本。
-    if (_ctl.value == 0 && !widget.open) return const SizedBox.shrink();
+    // during streaming (C-006). [keepMounted] opts OUT: its subtree must survive the collapse.
+    // 全收静止:不占位、移出树、惰性形绝不建体——收起态每次父重建零成本。keepMounted 豁免(子树须活过折叠)。
+    if (_ctl.value == 0 && !widget.open && !widget.keepMounted) {
+      return const SizedBox.shrink();
+    }
     // Built once here (not per animation frame — it rides AnimatedBuilder's `child`). 建一次,非逐帧。
     final child = widget.childBuilder?.call(context) ?? widget.child!;
     return AnimatedBuilder(
       animation: _factor,
       child: child,
       builder: (context, child) {
-        if (_ctl.value == 0 && !widget.open) return const SizedBox.shrink();
+        if (_ctl.value == 0 && !widget.open && !widget.keepMounted) {
+          return const SizedBox.shrink();
+        }
         final f = _factor.value.clamp(0.0, 1.0);
         final horizontal = widget.axis == Axis.horizontal;
+        // At zero extent a KEPT-MOUNTED subtree must read as absent: no hit-test, no semantics, no focus
+        // stop. The wrapper chain is UNCONDITIONAL (only the flags flip) so the element tree — and thus the
+        // child's State — is never re-parented. 零延展时保挂的子树须「读作不存在」;包裹链恒在、只翻标志位,
+        // 故元素树不重挂(State 不丢)。
+        final inert = f == 0;
         return ClipRect(
           child: Align(
             // vertical grows downward only; horizontal grows from the start edge. 纵仅向下;横自起始缘。
@@ -126,7 +149,13 @@ class _AnExpandRevealState extends State<AnExpandReveal>
                 : Alignment.topCenter,
             heightFactor: horizontal ? null : f,
             widthFactor: horizontal ? f : null,
-            child: child,
+            child: ExcludeFocus(
+              excluding: inert,
+              child: ExcludeSemantics(
+                excluding: inert,
+                child: IgnorePointer(ignoring: inert, child: child),
+              ),
+            ),
           ),
         );
       },

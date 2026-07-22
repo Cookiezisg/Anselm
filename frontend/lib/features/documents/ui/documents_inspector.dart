@@ -351,15 +351,16 @@ Widget? _glance(
 
 // ── §3 collapsible group ──
 
-/// One collapsible right-island GROUP (三段式文法 §3) — an [AnRow] group head (permanent chevron + count
-/// meta, no icon, no ⋯ — the SAME AnRow language as the left island's Pinned/Recents heads + the
-/// notification tray's time buckets) over its [child] body. Fold state lives in [docGroupCollapseProvider]
-/// keyed by [groupKey], persisted per-group (survives restart). [keepMounted] keeps the body in the tree
-/// while collapsed (via [Offstage], NO tree-removal) — for a body holding EDITABLE state (the skill form's
-/// debounced autosave + edit buffers, which tree-removal would drop mid-window and then stale-remount from
-/// the intentionally-un-refetched openSkillProvider); the default tree-removes via [AnExpandReveal]
-/// (read-only bodies — animated + a11y-clean). 可折叠组:AnRow 组头(常驻箭头+计数、无图标无 ⋯)+ 体;折叠态按
-/// groupKey 持久化。keepMounted=收起不卸载(Offstage,保编辑态,skill 表单用),默认 AnExpandReveal 卸载(只读体)。
+/// One collapsible right-island GROUP (三段式文法 §3) — an [AnRow] group head (type icon that hover-swaps to
+/// the disclosure chevron + count meta, no ⋯ — the SAME AnRow language as the left island's rows) over its
+/// [child] body. Fold state lives in [docGroupCollapseProvider] keyed by [groupKey], persisted per-group
+/// (survives restart). Every group reveals through the kit's ONE [AnExpandReveal]; [keepMounted] only picks
+/// whether the collapsed subtree stays mounted (the skill form's debounced autosave + edit buffers must
+/// survive a fold) — the disclosure MOTION is identical either way.
+///
+/// 可折叠组:AnRow 组头(类型图标 hover 换披露箭头 + 计数、无 ⋯,同左岛行)+ 体;折叠态按 groupKey 持久化。
+/// 所有组走套件唯一的 AnExpandReveal;keepMounted 只决定收起后子树是否仍挂载(skill 表单的在途保存须活过折叠)
+/// ——**展开动效两者一致**。
 class _GroupSection extends ConsumerWidget {
   const _GroupSection({
     required this.groupKey,
@@ -404,10 +405,7 @@ class _GroupSection extends ConsumerWidget {
           onSelect: toggle,
           onToggle: toggle,
         ),
-        if (keepMounted)
-          Offstage(offstage: !open, child: body)
-        else
-          AnExpandReveal(open: open, child: body),
+        AnExpandReveal(open: open, keepMounted: keepMounted, child: body),
       ],
     );
   }

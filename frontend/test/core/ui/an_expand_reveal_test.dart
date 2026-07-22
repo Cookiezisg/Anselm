@@ -118,4 +118,88 @@ void main() {
       reason: 'reduced motion snaps to full in one frame',
     );
   });
+
+  // keepMounted — the opt-out for a body whose live state a fold must not destroy (the skill property
+  // form's debounced autosave + edit buffers). The subtree survives the collapse, the reveal still
+  // animates, and at zero height the subtree reads as absent to a11y.
+  // keepMounted:收起不摧毁体的活状态(skill 表单在途保存);子树活过折叠、动效照旧、零高时对 a11y 读作不存在。
+  group('keepMounted', () {
+    testWidgets('collapsed subtree stays mounted and KEEPS its State', (
+      tester,
+    ) async {
+      Widget build(bool open) => host(
+        AnExpandReveal(open: open, keepMounted: true, child: const _Counter()),
+      );
+      await tester.pumpWidget(build(true));
+      await tester.pumpAndSettle();
+      // Mutate the child's State, then fold.
+      await tester.tap(find.text('n=0'));
+      await tester.pumpAndSettle();
+      expect(find.text('n=1'), findsOneWidget);
+
+      await tester.pumpWidget(build(false));
+      await tester.pumpAndSettle();
+      // Still in the tree (unlike the default form, which drops it) …
+      expect(
+        find.text('n=1', skipOffstage: false),
+        findsOneWidget,
+        reason: 'keepMounted must NOT drop the subtree when fully collapsed',
+      );
+
+      await tester.pumpWidget(build(true));
+      await tester.pumpAndSettle();
+      // … and its State survived the fold (a fresh mount would read n=0).
+      expect(
+        find.text('n=1'),
+        findsOneWidget,
+        reason: 'State must survive the collapse (no remount)',
+      );
+    });
+
+    testWidgets('collapsed keepMounted body takes zero height and is inert', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          const AnExpandReveal(
+            open: false,
+            keepMounted: true,
+            child: SizedBox(height: 120, child: Text('BODY')),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(tester.getSize(find.byType(AnExpandReveal)).height, 0);
+      // Inert: excluded from semantics exactly like the dropped-subtree default. 语义排除,等同已出树。
+      expect(
+        find.bySemanticsLabel('BODY'),
+        findsNothing,
+        reason: 'a zero-height kept subtree must not be announced',
+      );
+    });
+
+    testWidgets('default (keepMounted:false) still drops the subtree', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(const AnExpandReveal(open: false, child: Text('PANEL'))),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('PANEL', skipOffstage: false), findsNothing);
+    });
+  });
+}
+
+/// A tiny stateful child whose State is observable via its label — proves mount/remount. 可观测状态的小子件。
+class _Counter extends StatefulWidget {
+  const _Counter();
+  @override
+  State<_Counter> createState() => _CounterState();
+}
+
+class _CounterState extends State<_Counter> {
+  int n = 0;
+  @override
+  Widget build(BuildContext context) =>
+      GestureDetector(onTap: () => setState(() => n++), child: Text('n=$n'));
 }
