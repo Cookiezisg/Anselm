@@ -23,8 +23,8 @@ skill 是**指令载体、非构建实体**——memory 的近亲（文件式注
 
 ## 2. 行为
 
-- **激活两模式**（`Activate(name, args)`）：`inline` = 渲染正文（`$ARGUMENTS`/`$1..$n`/命名占位/`${CLAUDE_SESSION_ID}` 替换；刻意**不支持** `` !`cmd` `` shell 注入——任意执行面，拒绝）注入当前对话 + **把 allowed-tools 记为本次运行的预授权**（active skill，危险确认流消费——预授权非限制白名单）；`fork` = 把渲染正文派给隔离 subagent（frontmatter.agent 必填，否则 `SKILL_FORK_REQUIRES_AGENT`）。
-- **`Guide(name)`**（agent 挂载路径）：只渲染正文（展开 `${CLAUDE_SESSION_ID}`，不接 `$ARGUMENTS`/位置参数）、**不**设 active-skill、**不** fork——见 [agent.md](agent.md)#3。
+- **激活两模式**（`Activate(name, args)`）：`inline` = 渲染正文（`$ARGUMENTS`/`$1..$n`/命名占位/`${CLAUDE_SESSION_ID}`/**`${CLAUDE_SKILL_DIR}`**〔→ skill 目录绝对路径，生态占位符原名生效〕替换；刻意**不支持** `` !`cmd` `` shell 注入——激活期任意执行面，三方安装 skill 的世界里更危险，拒绝）注入当前对话 + **把 allowed-tools 记为本次运行的预授权**（active skill，危险确认流消费——预授权非限制白名单）；`fork` = 把渲染正文派给隔离 subagent（frontmatter.agent 必填，否则 `SKILL_FORK_REQUIRES_AGENT`）。**目录前导兜底**：正文没写占位符但 skill 带捆绑文件时，渲染结果前置一行 `This skill's directory (its bundled files live here): <abs>`——没有锚点 LLM 无从解析正文引用的相对路径；单文件 skill 不加（纯 token 开销）。**渐进披露第 3 层**：skills 子树从 pathguard 的 `~/.anselm` 黑名单精确豁免（谓词先解 symlink 防链接走私出树，见 [platform-pkgs.md](../foundation/platform-pkgs.md) pathguard 条），LLM 的 filesystem 工具可直接 Read/Glob 捆绑文件。
+- **`Guide(name)`**（agent 挂载路径）：只渲染正文（展开 `${CLAUDE_SESSION_ID}`/`${CLAUDE_SKILL_DIR}` + 同款目录前导，不接 `$ARGUMENTS`/位置参数）、**不**设 active-skill、**不** fork——见 [agent.md](agent.md)#3。fork skill 的 frontmatter `model`/`effort` 暂不消费（subagent ModelResolver 无 override 口，成本超出收益——backlog，见 WRK-076）。
 - **创作**：Create（同名 → `SKILL_NAME_CONFLICT`；name 过创建正则）/ Replace（缺失 → 404；守卫正则，存量下划线名照常）/ Delete（删整目录）；同步 relation 边（allowed-tools → equip 出边、构建对话 → 入边）。
 - **files 面**（文件即真相）：ListFiles（含清单，slash 相对路径升序）/ ReadFile（读护栏统一 1MB，超限清单也可读——修坏件通道）/ WriteFile（清单路径路由到 **ReplaceRaw**：skill 必须已存在 + 尺寸/围栏/`name`==目录名校验〔description 刻意不必填，导入件可缺省〕+ equip 边重同步；附属文件父目录按需建）/ DeleteFile（**清单拒删**，指向 `DELETE /skills/{name}`）。**穿越守卫三重**：`filepath.IsLocal` 词法早拒（含反斜杠拒）→ Clean 复核 → 一切 I/O 经 `os.Root` 句柄（symlink 逃逸/TOCTOU 内核级阻断）；文件写/删发 `skill.updated`（payload 携 `path`）。
 

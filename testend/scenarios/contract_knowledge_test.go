@@ -304,8 +304,10 @@ func TestContractKnowledge_SkillGuards(t *testing.T) {
 	})
 }
 
-// TestContractKnowledge_SkillActivateSurface — B-sk-5 / B-sk-7：REST :activate 的渲染面——
-// !`cmd` shell 注入刻意不支持（字面保留、零执行痕迹）；fork 缺 agent 在创作期与激活期都拒。
+// TestContractKnowledge_SkillActivateSurface — B-sk-5 / B-sk-7 / B-sk-11：REST :activate 的
+// 渲染面——!`cmd` shell 注入刻意不支持（字面保留、零执行痕迹）；fork 缺 agent 在创作期与激活
+// 期都拒；${CLAUDE_SKILL_DIR} 替换为 skill 目录绝对路径、带捆绑文件无占位符时前置目录前导
+// （WRK-076 B2 渐进披露）。
 func TestContractKnowledge_SkillActivateSurface(t *testing.T) {
 	srv := harness.Start(t)
 
@@ -668,4 +670,48 @@ func TestContractKnowledge_SkillFilesSurface(t *testing.T) {
 		wc.DoRaw("PUT", "/api/v1/skills/bulky/files/assets/huge.bin", "", bytes.Repeat([]byte("a"), 1024*1024+1)).
 			Fail(t, 422, "SKILL_FILE_TOO_LARGE")
 	})
+}
+
+// TestContractKnowledge_SkillDirAnchor — B-sk-11（WRK-076 B2）：${CLAUDE_SKILL_DIR} 与目录
+// 前导的黑盒面：占位符替换为盘上真实目录；带捆绑文件没写占位符 → 前置一行目录说明；单文件
+// skill 零前导零占位残留。
+func TestContractKnowledge_SkillDirAnchor(t *testing.T) {
+	srv := harness.Start(t)
+	wc, wsID := knowledgeC_newWS(t, srv, "skl-diranchor")
+
+	// 占位符替换：body 写 ${CLAUDE_SKILL_DIR}，激活后指向真实 skills 目录。
+	wc.POST("/api/v1/skills", map[string]any{
+		"name": "anchored", "description": "d",
+		"body": "Run ${CLAUDE_SKILL_DIR}/scripts/x.py now.",
+	}).OK(t, nil)
+	var out string
+	wc.Do("POST", "/api/v1/skills/anchored:activate", map[string]any{}).OK(t, &out)
+	wantDir := filepath.Join(srv.DataDir, "workspaces", wsID, "skills", "anchored")
+	if !strings.Contains(out, wantDir+"/scripts/x.py") || strings.Contains(out, "${CLAUDE_SKILL_DIR}") {
+		t.Fatalf("placeholder must substitute to the on-disk dir %q, got: %s", wantDir, out)
+	}
+	if strings.Contains(out, "This skill's directory") {
+		t.Fatalf("self-anchored body must not get a preamble: %s", out)
+	}
+
+	// 前导兜底：带捆绑文件、没写占位符 → 渲染结果以目录说明行开头。
+	wc.POST("/api/v1/skills", map[string]any{
+		"name": "bundled", "description": "d", "body": "See references/notes.md.",
+	}).OK(t, nil)
+	if r := wc.DoRaw("PUT", "/api/v1/skills/bundled/files/references/notes.md", "", []byte("# n")); r.Status != 204 {
+		t.Fatalf("seed bundled file: %d %s", r.Status, r.Raw)
+	}
+	wc.Do("POST", "/api/v1/skills/bundled:activate", map[string]any{}).OK(t, &out)
+	if !strings.HasPrefix(out, "This skill's directory") || !strings.Contains(out, filepath.Join("skills", "bundled")) {
+		t.Fatalf("bundled skill must get the directory preamble, got: %s", out)
+	}
+
+	// 单文件 skill：零前导。
+	wc.POST("/api/v1/skills", map[string]any{
+		"name": "solo", "description": "d", "body": "Just do it.",
+	}).OK(t, nil)
+	wc.Do("POST", "/api/v1/skills/solo:activate", map[string]any{}).OK(t, &out)
+	if strings.Contains(out, "This skill's directory") {
+		t.Fatalf("single-file skill must not get a preamble: %s", out)
+	}
 }

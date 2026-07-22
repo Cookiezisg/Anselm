@@ -153,6 +153,7 @@ type Repository interface {
 	SaveRaw(ctx context.Context, name string, raw []byte) error
 	Delete(ctx context.Context, name string) error
 	Exists(ctx context.Context, name string) (bool, error)
+	Dir(ctx context.Context, name string) (string, error) // skill 目录绝对路径（${CLAUDE_SKILL_DIR} 取值）
 	ListFiles(ctx context.Context, name string) ([]FileInfo, error)
 	ReadFile(ctx context.Context, name, rel string) ([]byte, error)
 	WriteFile(ctx context.Context, name, rel string, data []byte) error

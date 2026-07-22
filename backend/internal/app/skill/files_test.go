@@ -145,3 +145,68 @@ func TestReplace_LegacyUnderscoreNameStillEditable(t *testing.T) {
 		t.Fatal("sanity")
 	}
 }
+
+// B2 渐进披露（WRK-076）：${CLAUDE_SKILL_DIR} 替换 + 目录前导注入语义。
+
+func TestActivate_SkillDirPlaceholderSubstituted(t *testing.T) {
+	svc := newService(t, nil)
+	ctx := ctxWS("ws_1")
+	if _, err := svc.Create(ctx, SaveInput{
+		Name: "anchored", Description: "d",
+		Body: "Run ${CLAUDE_SKILL_DIR}/scripts/x.py now.",
+	}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	out, err := svc.Activate(ctx, "anchored", nil)
+	if err != nil {
+		t.Fatalf("activate: %v", err)
+	}
+	if strings.Contains(out, "${CLAUDE_SKILL_DIR}") {
+		t.Fatalf("placeholder must substitute, got: %s", out)
+	}
+	if !strings.Contains(out, "/skills/anchored/scripts/x.py") {
+		t.Fatalf("substituted path must point into the skill dir, got: %s", out)
+	}
+	// 写了占位符 → 不再加前导行。
+	if strings.Contains(out, "This skill's directory") {
+		t.Fatalf("no preamble when the body already anchors itself: %s", out)
+	}
+}
+
+func TestActivate_PreambleOnlyWhenBundledFilesExist(t *testing.T) {
+	svc := newService(t, nil)
+	ctx := ctxWS("ws_1")
+	// 单文件 skill：无前导（无物可指）。
+	if _, err := svc.Create(ctx, SaveInput{Name: "solo", Description: "d", Body: "Just do it."}); err != nil {
+		t.Fatalf("create solo: %v", err)
+	}
+	out, err := svc.Activate(ctx, "solo", nil)
+	if err != nil {
+		t.Fatalf("activate solo: %v", err)
+	}
+	if strings.Contains(out, "This skill's directory") {
+		t.Fatalf("single-file skill must not get a preamble: %s", out)
+	}
+	// 带捆绑文件且没写占位符：前置一行目录说明。
+	if _, err := svc.Create(ctx, SaveInput{Name: "bundled", Description: "d", Body: "See references/notes.md."}); err != nil {
+		t.Fatalf("create bundled: %v", err)
+	}
+	if err := svc.WriteFile(ctx, "bundled", "references/notes.md", []byte("# n")); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	out, err = svc.Activate(ctx, "bundled", nil)
+	if err != nil {
+		t.Fatalf("activate bundled: %v", err)
+	}
+	if !strings.HasPrefix(out, "This skill's directory") || !strings.Contains(out, "/skills/bundled") {
+		t.Fatalf("bundled skill without placeholder must get the directory preamble, got: %s", out)
+	}
+	// Guide（agent 挂载路径）同享注入。
+	guide, err := svc.Guide(ctx, "bundled")
+	if err != nil {
+		t.Fatalf("guide: %v", err)
+	}
+	if !strings.HasPrefix(guide, "This skill's directory") {
+		t.Fatalf("guide must carry the preamble too, got: %s", guide)
+	}
+}

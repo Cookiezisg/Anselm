@@ -90,6 +90,15 @@ type defaultGuard struct {
 	// 允许查看但禁修改。
 	rules          []rule
 	writeOnlyRules []rule
+
+	// allow is an exemption predicate checked BEFORE the deny rules: a true
+	// verdict bypasses them entirely (read and write). It punches precise
+	// holes in broad deny prefixes — e.g. the skills subtree out of the
+	// ~/.anselm rule. The predicate owns its own symlink discipline.
+	// allow 是先于 deny 规则的豁免谓词：判真则整体绕过（读与写）。用于在宽
+	// deny 前缀上开精确的洞——如从 ~/.anselm 规则里豁免 skills 子树。
+	// symlink 纪律由谓词自负。
+	allow func(absPath string) bool
 }
 
 // New returns a PathGuard denying paths matching denyList; non-absolute
@@ -122,6 +131,18 @@ func NewDefault() PathGuard {
 	return NewWithWriteExtras(DefaultDenyList, DefaultWriteOnlyExtras)
 }
 
+// NewDefaultWithAllow is NewDefault plus an exemption predicate (nil = none) — see
+// defaultGuard.allow for semantics.
+//
+// NewDefaultWithAllow = NewDefault + 豁免谓词（nil = 无）——语义见 defaultGuard.allow。
+func NewDefaultWithAllow(allow func(absPath string) bool) PathGuard {
+	return &defaultGuard{
+		rules:          parseRules(DefaultDenyList),
+		writeOnlyRules: parseRules(DefaultWriteOnlyExtras),
+		allow:          allow,
+	}
+}
+
 func parseRules(raw []string) []rule {
 	home, _ := os.UserHomeDir()
 	out := make([]rule, 0, len(raw))
@@ -149,6 +170,9 @@ func parseRules(raw []string) []rule {
 //
 // Allow 按读 + 写 deny 规则检查 absPath。写专属 extras 不在此查（用 AllowWrite）。
 func (g *defaultGuard) Allow(absPath string) (bool, string) {
+	if g.exempt(absPath) {
+		return true, ""
+	}
 	return checkRules(absPath, g.rules)
 }
 
@@ -157,10 +181,21 @@ func (g *defaultGuard) Allow(absPath string) (bool, string) {
 //
 // AllowWrite 按读 + 写 deny + 写专属 extras 的并集检查 absPath。
 func (g *defaultGuard) AllowWrite(absPath string) (bool, string) {
+	if g.exempt(absPath) {
+		return true, ""
+	}
 	if ok, reason := checkRules(absPath, g.rules); !ok {
 		return false, reason
 	}
 	return checkRules(absPath, g.writeOnlyRules)
+}
+
+// exempt applies the allow predicate to well-formed absolute paths only — a relative path
+// must still fall through to checkRules' "must be absolute" refusal.
+//
+// exempt 只对良构绝对路径应用豁免谓词——相对路径仍须落进 checkRules 的「必须绝对」拒绝。
+func (g *defaultGuard) exempt(absPath string) bool {
+	return g.allow != nil && filepath.IsAbs(absPath) && g.allow(filepath.Clean(absPath))
 }
 
 func checkRules(absPath string, rules []rule) (bool, string) {

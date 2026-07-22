@@ -294,6 +294,76 @@ func (s *Store) Delete(ctx context.Context, name string) error {
 	return nil
 }
 
+// Dir returns the skill directory's absolute path — the ${CLAUDE_SKILL_DIR} substitution value
+// (activation) and the anchor the LLM's filesystem tools use to reach bundled files. Missing
+// skill → ErrNotFound (a path to nowhere would render a lying preamble).
+//
+// Dir 返回 skill 目录绝对路径——${CLAUDE_SKILL_DIR} 的替换值（激活时）、也是 LLM filesystem
+// 工具触达捆绑文件的锚点。skill 缺失 → ErrNotFound（指向虚无的路径会渲出说谎的前导）。
+func (s *Store) Dir(ctx context.Context, name string) (string, error) {
+	dir, err := s.skillDir(ctx, name)
+	if err != nil {
+		return "", err
+	}
+	if _, rerr := resolveSkillFile(dir); rerr != nil {
+		return "", skilldomain.ErrNotFound
+	}
+	return dir, nil
+}
+
+// IsInSkillsTree reports whether abs points INSIDE some skill's directory under base — the
+// pathguard allow predicate that punches the skills subtree out of the ~/.anselm deny rule
+// (progressive disclosure layer 3: the LLM's Read reaches bundled files). Symlinks are resolved
+// first so a malicious installed skill cannot smuggle a link that lexically sits in the tree
+// but physically points at ~/.ssh — the RESOLVED path must still be in the tree.
+//
+// IsInSkillsTree 报告 abs 是否指向 base 下某 skill 目录**内部**——pathguard 的放行谓词，把
+// skills 子树从 ~/.anselm 黑名单里精确豁免（渐进披露第 3 层：LLM 的 Read 触达捆绑文件）。先解
+// symlink 再判定：恶意安装的 skill 无法用「词法在树内、物理指向 ~/.ssh」的链接走私——**解析后**
+// 的路径仍须在树内。
+func IsInSkillsTree(base, abs string) bool {
+	if base == "" || !filepath.IsAbs(abs) {
+		return false
+	}
+	resolved := resolveBestEffort(abs)
+	wsRoot, err := filepath.EvalSymlinks(filepath.Join(base, "workspaces"))
+	if err != nil {
+		wsRoot = filepath.Join(base, "workspaces")
+	}
+	rel, err := filepath.Rel(wsRoot, resolved)
+	if err != nil || rel == "." || strings.HasPrefix(rel, "..") {
+		return false
+	}
+	// 形状必须是 <ws>/skills/<name>/...（skill 目录内部的文件，不含 skills 桶与 skill 根本身）。
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	return len(parts) >= 4 && parts[1] == "skills"
+}
+
+// resolveBestEffort resolves symlinks over the deepest EXISTING ancestor and rejoins the
+// not-yet-existing tail — EvalSymlinks fails outright on paths that don't exist yet (a Write
+// target), but the jail must hold for creation too, and on macOS even the temp root is a
+// symlink (/var → /private/var), so a single-level parent fallback is not enough. Existing
+// segments are always fully resolved; non-existent tail segments cannot be symlinks.
+//
+// resolveBestEffort 对**最深已存在祖先**解 symlink、再拼回尚不存在的尾段——EvalSymlinks 对未
+// 存在路径直接失败（如 Write 目标），而围栏对新建也须成立；且 macOS 连临时根都是 symlink
+// （/var → /private/var），只回退一层父目录不够。已存在段恒被完整解析；不存在的尾段不可能是 symlink。
+func resolveBestEffort(abs string) string {
+	suffix := ""
+	cur := abs
+	for {
+		if r, err := filepath.EvalSymlinks(cur); err == nil {
+			return filepath.Join(r, suffix)
+		}
+		parent := filepath.Dir(cur)
+		if parent == cur {
+			return abs // 到根仍失败（不可达兜底）
+		}
+		suffix = filepath.Join(filepath.Base(cur), suffix)
+		cur = parent
+	}
+}
+
 // Exists reports whether a skill's manifest is present (used by Create's conflict check).
 //
 // Exists 报告 skill 的清单是否存在（Create 冲突检查用）。

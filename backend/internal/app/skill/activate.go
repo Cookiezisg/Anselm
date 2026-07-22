@@ -23,7 +23,7 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 	}
 
 	convID, _ := reqctxpkg.GetConversationID(ctx)
-	rendered := substitute(sk.Body, substituteVars{
+	rendered := s.renderWithSkillDir(ctx, sk, substituteVars{
 		Arguments: arguments,
 		NamedArgs: sk.Frontmatter.Arguments,
 		SessionID: convID,
@@ -72,7 +72,33 @@ func (s *Service) Guide(ctx context.Context, name string) (string, error) {
 		return "", fmt.Errorf("skillapp.Guide: %w", err)
 	}
 	convID, _ := reqctxpkg.GetConversationID(ctx)
-	return substitute(sk.Body, substituteVars{SessionID: convID}), nil
+	return s.renderWithSkillDir(ctx, sk, substituteVars{SessionID: convID}), nil
+}
+
+// renderWithSkillDir renders the body with the directory anchor resolved: ${CLAUDE_SKILL_DIR}
+// substitutes to the skill directory's absolute path (ecosystem skills write this exact
+// placeholder — it must work verbatim, WRK-076 B2), and a skill that has bundled files but
+// never wrote the placeholder gets ONE preamble line naming the directory — without an anchor
+// the LLM cannot resolve the relative `references/…` / `scripts/…` paths its body cites.
+// Single-file skills get no preamble (nothing to point at — pure token cost).
+//
+// renderWithSkillDir 渲染正文并解决目录锚点：${CLAUDE_SKILL_DIR} 替换为 skill 目录绝对路径
+// （生态 skill 写的就是这个占位符——必须原名生效，WRK-076 B2）；带捆绑文件却没写占位符的
+// skill 前置**一行**目录说明——没有锚点，LLM 无从解析正文引用的 `references/…`/`scripts/…`
+// 相对路径。单文件 skill 不加前导（无物可指——纯 token 开销）。
+func (s *Service) renderWithSkillDir(ctx context.Context, sk *skilldomain.Skill, v substituteVars) string {
+	dir, dErr := s.repo.Dir(ctx, sk.Name)
+	if dErr != nil {
+		return substitute(sk.Body, v) // 拿不到目录（刚被删的竞态）→ 退化为纯替换
+	}
+	v.SkillDir = dir
+	out := substitute(sk.Body, v)
+	if !strings.Contains(sk.Body, "${CLAUDE_SKILL_DIR}") {
+		if files, fErr := s.repo.ListFiles(ctx, sk.Name); fErr == nil && len(files) > 1 {
+			out = "This skill's directory (its bundled files live here): " + dir + "\n\n" + out
+		}
+	}
+	return out
 }
 
 // substituteVars carries the values for placeholder expansion.
@@ -82,18 +108,22 @@ type substituteVars struct {
 	Arguments []string
 	NamedArgs []string
 	SessionID string
+	SkillDir  string // ${CLAUDE_SKILL_DIR} 取值；空 = 占位符字面保留（不抹空）
 }
 
-// substitute expands $ARGUMENTS / $1..$n / named placeholders / ${CLAUDE_SESSION_ID}.
-// ${CLAUDE_SKILL_DIR} and !`cmd` shell injection are intentionally NOT supported (the former
-// has no attached-files surface to point at; the latter is an arbitrary-exec surface we decline).
+// substitute expands $ARGUMENTS / $1..$n / named placeholders / ${CLAUDE_SESSION_ID} /
+// ${CLAUDE_SKILL_DIR}. !`cmd` shell injection is intentionally NOT supported (activation-time
+// arbitrary exec — worse in a world of third-party installed skills, we decline).
 //
-// substitute 展开 $ARGUMENTS / $1..$n / 命名占位 / ${CLAUDE_SESSION_ID}。
-// 刻意不支持 ${CLAUDE_SKILL_DIR}（无附加文件目录可指）与 !`cmd` shell 注入（任意执行面，拒绝）。
+// substitute 展开 $ARGUMENTS / $1..$n / 命名占位 / ${CLAUDE_SESSION_ID} / ${CLAUDE_SKILL_DIR}。
+// 刻意不支持 !`cmd` shell 注入（激活期任意执行——在三方安装 skill 的世界里更危险，拒绝）。
 func substitute(body string, v substituteVars) string {
 	pairs := []string{
 		"${CLAUDE_SESSION_ID}", v.SessionID,
 		"$ARGUMENTS", strings.Join(v.Arguments, " "),
+	}
+	if v.SkillDir != "" {
+		pairs = append(pairs, "${CLAUDE_SKILL_DIR}", v.SkillDir)
 	}
 	// 高位优先，避免 $1 抢吃 $12 的前缀
 	for i := len(v.Arguments); i >= 1; i-- {

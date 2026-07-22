@@ -3,6 +3,7 @@ package pathguard
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -339,5 +340,36 @@ func TestAllowWrite_EnvLocal_DotEnvExactBaseMatch(t *testing.T) {
 	g := NewDefault()
 	if ok, _ := g.AllowWrite("/work/proj/.env.example"); !ok {
 		t.Errorf(".env.example should be allowed (not exact .env)")
+	}
+}
+
+// B2（WRK-076）：allow 豁免谓词——先于 deny 判定，为宽黑名单开精确的洞。
+func TestAllowPredicateExemption(t *testing.T) {
+	home, _ := os.UserHomeDir()
+	skills := filepath.Join(home, ".anselm", "workspaces", "ws_1", "skills")
+	g := NewDefaultWithAllow(func(abs string) bool {
+		return strings.HasPrefix(abs, skills+string(filepath.Separator))
+	})
+
+	// 谓词命中 → 绕过 ~/.anselm deny（读与写都放行）。
+	in := filepath.Join(skills, "pdf", "references", "a.md")
+	if ok, reason := g.Allow(in); !ok {
+		t.Fatalf("exempted path must be allowed: %s", reason)
+	}
+	if ok, reason := g.AllowWrite(in); !ok {
+		t.Fatalf("exempted path must be writable: %s", reason)
+	}
+	// 谓词未命中的 ~/.anselm 路径照旧拒。
+	db := filepath.Join(home, ".anselm", "anselm.db")
+	if ok, _ := g.Allow(db); ok {
+		t.Fatal("non-exempted ~/.anselm path must stay denied")
+	}
+	// 谓词之外的 deny 规则不受影响。
+	if ok, _ := g.Allow(filepath.Join(home, ".ssh", "id_rsa")); ok {
+		t.Fatal("~/.ssh must stay denied")
+	}
+	// 相对路径不进谓词、仍拒。
+	if ok, _ := g.Allow("relative/path"); ok {
+		t.Fatal("relative path must stay refused")
 	}
 }

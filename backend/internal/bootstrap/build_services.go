@@ -69,6 +69,7 @@ import (
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	touchpointdomain "github.com/sunweilin/anselm/backend/internal/domain/touchpoint"
 	cryptoinfra "github.com/sunweilin/anselm/backend/internal/infra/crypto"
+	skillfs "github.com/sunweilin/anselm/backend/internal/infra/fs/skill"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
 	sandboxinfra "github.com/sunweilin/anselm/backend/internal/infra/sandbox"
@@ -251,7 +252,14 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	conv.SetTouchpointPurger(tp)
 
 	// --- toolset: Resident (filesystem/search/shell) + Lazy (entity tools + web) ---
-	guard := pathguardpkg.NewDefault()
+	// The skills subtree is exempted from the ~/.anselm deny rule so the LLM's filesystem tools
+	// reach bundled skill files (progressive disclosure layer 3, WRK-076 B2); the predicate
+	// resolves symlinks so an installed skill can't smuggle a link out of the tree.
+	// skills 子树从 ~/.anselm 黑名单精确豁免，使 LLM filesystem 工具触达捆绑文件（渐进披露第 3
+	// 层，WRK-076 B2）；谓词先解 symlink，安装的 skill 无法用链接走私出树。
+	guard := pathguardpkg.NewDefaultWithAllow(func(abs string) bool {
+		return skillfs.IsInSkillsTree(dataDir, abs)
+	})
 	// Capture the struct, not just .Tools: its Manager owns every run_in_background child's process
 	// group, and App.Shutdown must call Manager.Stop() to reap them — else backgrounded jobs (and
 	// their whole trees) orphan on every backend exit (R1). The pid manifest under dataDir is the

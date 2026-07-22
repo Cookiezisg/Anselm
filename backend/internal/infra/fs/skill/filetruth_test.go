@@ -264,3 +264,61 @@ func TestStore_Files_MissingSkill(t *testing.T) {
 		t.Fatalf("DeleteFile on missing skill should be NotFound, got %v", err)
 	}
 }
+
+func TestStore_DirAndSkillsTreePredicate(t *testing.T) {
+	base := t.TempDir()
+	st := New(base)
+	ctx := ctxWS("ws_1")
+	if err := st.Save(ctx, "pdf", skilldomain.Frontmatter{Name: "pdf", Description: "d"}, "b"); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	dir, err := st.Dir(ctx, "pdf")
+	if err != nil {
+		t.Fatalf("dir: %v", err)
+	}
+	want := filepath.Join(base, "workspaces", "ws_1", "skills", "pdf")
+	if dir != want {
+		t.Fatalf("dir = %q, want %q", dir, want)
+	}
+	if _, err := st.Dir(ctx, "ghost"); !errors.Is(err, skilldomain.ErrNotFound) {
+		t.Fatalf("dir of missing skill should be NotFound, got %v", err)
+	}
+
+	// 谓词：skill 目录内部的文件为真；skills 桶 / skill 根 / 树外 / workspace 根皆假。
+	inside := filepath.Join(dir, "references", "a.md")
+	if !IsInSkillsTree(base, inside) {
+		t.Fatalf("inside path must be in tree: %s", inside)
+	}
+	for _, out := range []string{
+		dir, // skill 根本身（目录级操作不豁免）
+		filepath.Join(base, "workspaces", "ws_1", "skills"),
+		filepath.Join(base, "workspaces", "ws_1", "memories", "m.md"),
+		filepath.Join(base, "anselm.db"),
+		"/etc/passwd",
+	} {
+		if IsInSkillsTree(base, out) {
+			t.Fatalf("path must NOT be in tree: %s", out)
+		}
+	}
+}
+
+func TestIsInSkillsTree_SymlinkEscapeResolved(t *testing.T) {
+	base := t.TempDir()
+	st := New(base)
+	ctx := ctxWS("ws_1")
+	if err := st.Save(ctx, "sly", skilldomain.Frontmatter{Name: "sly", Description: "d"}, "b"); err != nil {
+		t.Fatalf("seed: %v", err)
+	}
+	secret := filepath.Join(base, "secret.txt")
+	if err := os.WriteFile(secret, []byte("s"), 0o644); err != nil {
+		t.Fatalf("secret: %v", err)
+	}
+	link := filepath.Join(base, "workspaces", "ws_1", "skills", "sly", "link.txt")
+	if err := os.Symlink(secret, link); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	// 词法在树内、物理指向树外 → 解析后必须拒。
+	if IsInSkillsTree(base, link) {
+		t.Fatal("symlink escaping the tree must not be exempted")
+	}
+}
