@@ -77,13 +77,17 @@ build: deps
 	@mkdir -p $(ROOT)/bin
 	@$(RUN) go build -o $(ROOT)/bin/anselm-server ./cmd/server
 
+# vet and build+test are independent compile pipelines (both ride Go's build cache) — run vet
+# concurrently and the gate's wall clock is max(vet, build+test), not the sum.
+# vet 与 build+test 是独立编译管线(都走 Go 构建缓存)——vet 并发跑,门禁墙钟=max 非 sum。
 verify: deps
 	@unformatted="$$($(RUN) gofmt -l $$(find . -name '*.go' -not -path './vendor/*'))"; \
 	if [ -n "$$unformatted" ]; then echo "✗ Go files need formatting:"; echo "$$unformatted"; echo "  Run: make -C backend format"; exit 1; fi
-	@$(RUN) go vet ./...
-	@mkdir -p $(ROOT)/bin
-	@$(RUN) go build -o $(ROOT)/bin/anselm-server ./cmd/server
-	@$(RUN) go test ./...
+	@vetlog=$$(mktemp); $(RUN) go vet ./... > "$$vetlog" 2>&1 & vetpid=$$!; \
+	mkdir -p $(ROOT)/bin && $(RUN) go build -o $(ROOT)/bin/anselm-server ./cmd/server && $(RUN) go test ./...; testrc=$$?; \
+	if wait $$vetpid; then vetrc=0; else vetrc=1; fi; \
+	if [ $$vetrc != 0 ]; then echo "✗ go vet:"; cat "$$vetlog"; fi; rm -f "$$vetlog"; \
+	[ $$testrc = 0 ] && [ $$vetrc = 0 ]
 	@echo "✓ backend verified"
 
 clean: stop

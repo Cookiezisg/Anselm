@@ -42,16 +42,31 @@ setup: toolchain
 	@$(MAKE) -C demo setup MISE="$(MISE)"
 	@echo "✓ workspace ready"
 
+# The four sub-gates are INDEPENDENT (different toolchains, zero shared state) — run them
+# concurrently and the wall clock is max(), not sum(). Each writes its own log; a failing gate
+# prints its full log at the end (interleaved four-way output would be soup). Frontend and backend
+# both parallelize internally already, so the box is CPU-saturated but not oversubscribed for long:
+# backend's test wall is mostly Go-cache hits and docs/demo are seconds.
+# 四子门禁彼此独立(工具链不同、零共享态)——并发跑,墙钟=max 而非 sum。各写独立 log,失败门禁末尾
+# 整段打印(四路交错输出是一锅粥)。前端/后端各自内部已并行,但后端测试墙多为缓存命中、docs/demo
+# 秒级,长时间超订不存在。
 verify: toolchain
-	@echo "→ verifying backend…"
-	@$(MAKE) -C backend verify MISE="$(MISE)"
-	@echo "→ verifying frontend…"
-	@$(MAKE) -C frontend verify MISE="$(MISE)"
-	@echo "→ verifying docs…"
-	@$(MAKE) -C docs verify MISE="$(MISE)"
-	@echo "→ verifying web demo…"
-	@$(MAKE) -C demo verify MISE="$(MISE)"
-	@echo "✓ workspace verified"
+	@echo "→ verifying backend + frontend + docs + web demo (parallel)…"
+	@LOGDIR=$$(mktemp -d "$${TMPDIR:-/tmp}/anselm-rootverify-XXXXXX"); \
+	fail=0; pids=""; \
+	for gate in backend frontend docs demo; do \
+		$(MAKE) -C $$gate verify MISE="$(MISE)" > "$$LOGDIR/$$gate.log" 2>&1 & \
+		pids="$$pids $$gate:$$!"; \
+	done; \
+	for entry in $$pids; do \
+		gate=$${entry%%:*}; pid=$${entry##*:}; \
+		if wait $$pid; then \
+			echo "  ✓ $$gate"; \
+		else \
+			fail=1; echo ""; echo "✗ $$gate verify FAILED — full log:"; cat "$$LOGDIR/$$gate.log"; echo ""; \
+		fi; \
+	done; \
+	if [ $$fail = 0 ]; then rm -rf "$$LOGDIR"; echo "✓ workspace verified"; else echo "  (logs kept in $$LOGDIR)"; exit 1; fi
 
 # Clears generated development state only: backend dev data/build output plus Flutter build caches.
 # It NEVER touches tracked codegen, Git state, global SDK caches, or ~/.anselm user data.
