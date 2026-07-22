@@ -194,3 +194,30 @@ func TestUpdateInstalled_UnchangedToolsKeepApproval(t *testing.T) {
 		t.Fatal("unchanged allowed-tools must keep the user's approval across update")
 	}
 }
+
+func TestInstall_SidecarHiddenFromFilesSurface(t *testing.T) {
+	svc, ctx := installTestSetup(t)
+	if _, err := svc.Install(ctx, "owner/repo", nil, false); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	// sidecar 绝不出现在文件列表。
+	files, err := svc.ListFiles(ctx, "pdf")
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	for _, f := range files {
+		if f.Path == skilldomain.InstallSidecarName {
+			t.Fatalf("provenance sidecar must be hidden from ListFiles, got %+v", files)
+		}
+	}
+	// 也不可经 files 面读/写/删。
+	if _, err := svc.ReadFile(ctx, "pdf", skilldomain.InstallSidecarName); !errors.Is(err, skilldomain.ErrFileNotFound) {
+		t.Fatalf("sidecar read must be FileNotFound, got %v", err)
+	}
+	if err := svc.WriteFile(ctx, "pdf", skilldomain.InstallSidecarName, []byte("{}")); !errors.Is(err, skilldomain.ErrFilePathInvalid) {
+		t.Fatalf("sidecar write must be refused, got %v", err)
+	}
+	if err := svc.DeleteFile(ctx, "pdf", skilldomain.InstallSidecarName); !errors.Is(err, skilldomain.ErrFilePathInvalid) {
+		t.Fatalf("sidecar delete must be refused, got %v", err)
+	}
+}

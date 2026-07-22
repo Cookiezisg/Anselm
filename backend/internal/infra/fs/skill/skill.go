@@ -421,6 +421,16 @@ func isManifestRel(c string) bool {
 	return strings.EqualFold(c, skillFileName)
 }
 
+// isInternalFile reports whether a slash-relative path is platform bookkeeping the files
+// surface must neither list nor let the user read/write/delete — currently the install
+// provenance sidecar (its lifecycle is owned by install/update, not the file editor).
+//
+// isInternalFile 报告 slash 相对路径是否是平台簿记文件——files 面既不列、也不许用户读写删；
+// 当前是安装 provenance sidecar（其生命周期归 install/update，非文件编辑器）。
+func isInternalFile(c string) bool {
+	return c == skilldomain.InstallSidecarName
+}
+
 // cleanRel is the lexical half of the traversal guard: URL-style relative paths only — no
 // backslashes (cross-platform ambiguity), absolute paths / ".." / reserved names rejected by
 // filepath.IsLocal. Returns the cleaned slash form; os.Root enforces the physical half.
@@ -465,6 +475,9 @@ func (s *Store) ListFiles(ctx context.Context, name string) ([]skilldomain.FileI
 		if !d.Type().IsRegular() {
 			return nil
 		}
+		if isInternalFile(p) {
+			return nil // 内部簿记文件（安装 sidecar）不面向用户暴露
+		}
 		info, iErr := d.Info()
 		if iErr != nil {
 			return nil // 竞态消失的文件跳过
@@ -493,6 +506,9 @@ func (s *Store) ReadFile(ctx context.Context, name, rel string) ([]byte, error) 
 	c, err := cleanRel(rel)
 	if err != nil {
 		return nil, err
+	}
+	if isInternalFile(c) {
+		return nil, skilldomain.ErrFileNotFound // sidecar 对文件面不可见
 	}
 	root, err := s.openRoot(ctx, name)
 	if err != nil {
@@ -533,8 +549,8 @@ func (s *Store) WriteFile(ctx context.Context, name, rel string, data []byte) er
 	if err != nil {
 		return err
 	}
-	if isManifestRel(c) {
-		return skilldomain.ErrFilePathInvalid // 清单写走 SaveRaw（app 路由；此为纵深防御）
+	if isManifestRel(c) || isInternalFile(c) {
+		return skilldomain.ErrFilePathInvalid // 清单写走 SaveRaw；sidecar 归 install（纵深防御）
 	}
 	if len(data) > skilldomain.MaxFileBytes {
 		return skilldomain.ErrFileTooLarge
@@ -571,8 +587,8 @@ func (s *Store) DeleteFile(ctx context.Context, name, rel string) error {
 	if err != nil {
 		return err
 	}
-	if isManifestRel(c) {
-		return skilldomain.ErrFilePathInvalid // 删清单=毁 skill，走 DELETE /skills/{name}
+	if isManifestRel(c) || isInternalFile(c) {
+		return skilldomain.ErrFilePathInvalid // 删清单=毁 skill；sidecar 归 install
 	}
 	root, err := s.openRoot(ctx, name)
 	if err != nil {

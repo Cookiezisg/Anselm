@@ -189,6 +189,9 @@ func untar(r io.Reader) (map[string][]byte, error) {
 		if name == "." || strings.HasPrefix(name, "..") || path.IsAbs(name) {
 			continue // 越界条目丢弃
 		}
+		if isJunkPath(name) {
+			continue // 平台垃圾（AppleDouble ._*、.DS_Store、__MACOSX/、Thumbs.db）不落盘
+		}
 		if len(files) >= maxFileCount {
 			return nil, skilldomain.ErrInstallTooLarge.WithDetails(map[string]any{"limit": "file count", "max": maxFileCount})
 		}
@@ -206,6 +209,24 @@ func untar(r io.Reader) (map[string][]byte, error) {
 		files[name] = data
 	}
 	return stripWrapper(files), nil
+}
+
+// isJunkPath reports whether a cleaned archive path is well-known platform junk that must never
+// be installed as a skill file — macOS AppleDouble (`._*`) and `.DS_Store` / `__MACOSX/`, plus
+// Windows `Thumbs.db`. GitHub codeload tarballs are clean, but arbitrary tarball sources (a
+// zip repacked on a Mac) carry these, and they would otherwise inflate file counts, pollute the
+// provenance hash baseline, and litter the skill directory.
+//
+// isJunkPath 报告清洗后的归档路径是否是众所周知的平台垃圾、绝不能作为 skill 文件落盘——macOS
+// AppleDouble（`._*`）与 `.DS_Store` / `__MACOSX/`，及 Windows `Thumbs.db`。GitHub codeload
+// tarball 干净，但任意 tarball 源（Mac 上重打的 zip）会带它们，否则会虚增文件数、污染 provenance
+// hash 基线、弄脏 skill 目录。
+func isJunkPath(name string) bool {
+	if strings.HasPrefix(name, "__MACOSX/") {
+		return true
+	}
+	base := path.Base(name)
+	return strings.HasPrefix(base, "._") || base == ".DS_Store" || base == "Thumbs.db"
 }
 
 // stripWrapper removes the single shared top-level directory when EVERY path sits under it.

@@ -156,6 +156,33 @@ func TestFetch_GuardsAndJunk(t *testing.T) {
 	}
 }
 
+func TestFetch_PlatformJunkDropped(t *testing.T) {
+	// AppleDouble ._* / .DS_Store / __MACOSX/ / Thumbs.db 绝不作为 skill 文件落盘（真机实测缺口）。
+	body := tgz(t, map[string]string{
+		"w/SKILL.md":         "---\nname: w\ndescription: d\n---\nb\n",
+		"w/._SKILL.md":       "appledouble junk",
+		"w/.DS_Store":        "finder junk",
+		"w/scripts/run.py":   "print()",
+		"w/scripts/._run.py": "appledouble junk",
+		"__MACOSX/w/foo":     "macosx junk",
+		"w/refs/Thumbs.db":   "windows junk",
+	})
+	srv := serveTgz(t, body)
+	cands, err := Fetch(context.Background(), Source{Raw: "u", Repo: "o/w", URL: srv.URL})
+	if err != nil || len(cands) != 1 {
+		t.Fatalf("fetch: %+v err=%v", names(cands), err)
+	}
+	got := keys(cands[0].Files)
+	if len(got) != 2 {
+		t.Fatalf("only SKILL.md + scripts/run.py must survive, got %v", got)
+	}
+	for _, k := range got {
+		if isJunkPath(k) {
+			t.Fatalf("junk leaked into candidate: %s", k)
+		}
+	}
+}
+
 func names(cs []Candidate) []string {
 	out := make([]string, 0, len(cs))
 	for _, c := range cs {
