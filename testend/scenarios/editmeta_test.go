@@ -33,7 +33,7 @@ func TestFunction_EditPersistsMeta(t *testing.T) {
 		Description string   `json:"description"`
 		Tags        []string `json:"tags"`
 	}
-	wc.GET("/api/v1/functions/" + fnID).OK(t, &got)
+	wc.GET("/api/v1/functions/"+fnID).OK(t, &got)
 	if got.Name != "after_name" {
 		t.Fatalf("edit set_meta must rename the function row: name=%q want after_name", got.Name)
 	}
@@ -65,7 +65,7 @@ func TestHandler_EditPersistsMeta(t *testing.T) {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 	}
-	wc.GET("/api/v1/handlers/" + hdID).OK(t, &got)
+	wc.GET("/api/v1/handlers/"+hdID).OK(t, &got)
 	if got.Name != "after_hd" {
 		t.Fatalf("edit set_meta must rename the handler row: name=%q want after_hd", got.Name)
 	}

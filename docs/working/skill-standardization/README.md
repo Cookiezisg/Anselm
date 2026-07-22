@@ -13,7 +13,7 @@ audience: [human, ai]
 
 > 目标：把 skill 从「平台组装的单文件投影」翻转为「**目录即真相**」的标准 Agent Skill——用户可自由安装 GitHub skill、文件夹随意组织、捆绑脚本可执行。法定基线 = [agentskills.io 开放规范](https://agentskills.io/specification)（参考校验器 `agentskills/agentskills` 的 `skills-ref`）；Claude Code 扩展字段按现状已镜像、继续跟随。批次规范单独成篇（`b1-*.md`…），本篇只留总表 + 跨批已拍板决策。
 
-> **状态（2026-07-22）**：B1–B4 + F1 + F2（安装流）全数落地并提交（8 commit，`WRK-076`），根 `make verify` 全绿，真 app 端到端实测通过（create→files→activate→install→trust-gate 全链）。唯一 backlog = composer `/` 斜杠菜单（见下，需新会话-loop 语义、单独立项）。
+> **状态（2026-07-22）**：B1–B4 + F1 + F2（安装流）全数落地并提交（8 commit，`WRK-076`），根 `make verify` 全绿，真 app 端到端实测通过（create→files→activate→install→trust-gate 全链）。用户激活入口 = `@skill`（@ 提及即激活,取代原计划的斜杠菜单）。
 
 ## 六批总表
 
@@ -24,7 +24,7 @@ audience: [human, ai]
 | **B3 脚本执行** | 后端 tool/sandbox | 新工具 `run_skill_script`（沙箱默认：owner=skill 专属 env、cwd=skill 目录、CLAUDE_SKILL_DIR 导出、requirements.txt 即 deps）· `SpawnOpts.Cwd` 覆写 · .sh 等指向 host bash（危险确认照常）· node deps 记 backlog | **已落地 ✓** |
 | **B4 安装通道** | 后端 install 面 | tarball 安装器（自研 `infra/skillfetch`：codeload/任意 http tarball + 炸弹护栏 + 最深根切分；directInstaller 管线不适配故未复用——它是钉版本运行时专用）· provenance sidecar（source 推导 + sha 基线）· `:inspect-source`/`:install`/`:update`/`:approve-tools`（**同步阻塞**，202 进度记 backlog）· 信任门（未授权预授权集为空；update 改 allowed-tools 重置）· 真机加固：平台垃圾滤除 + sidecar 对 files 面隐形 | **已落地 ✓** |
 | **F1 folder skill 浏览编辑** | 前端 contract + documents | DTO 开放化 · 编辑器按文件类型分派（md 富文本 / 代码 AnCodeEditor / 资产只读）+ 双模切换 · 页顶文件条 + `/documents/skill/:name/file/:path` · 右岛文件组 · rail 来源角标 | 待 B1-B2 |
-| **F2 安装流与入口** | 前端 rail/右岛 | 安装对话框（allowed-tools 琥珀前置 + 勾选 + 信任门起点）· rail New 行安装入口 · 右岛来源组 + 预授权确认区（F1 已含）· ~~composer `/` 斜杠菜单~~（见下 backlog）· ~~install 舞台~~（chat 侧 create/edit 卡已复用，install 是 REST 非 tool 故无舞台） | **已落地（斜杠菜单除外）** |
+| **F2 安装流与入口** | 前端 rail/右岛 | 安装对话框（allowed-tools 琥珀前置 + 勾选 + 信任门起点）· rail New 行安装入口 · 右岛来源组 + 预授权确认区（F1 已含）· **`@skill` 激活入口**（复用 composer 的 @ 提及面板;@ 一个 inline skill = 激活它）· ~~install 舞台~~（chat 侧 create/edit 卡已复用，install 是 REST 非 tool 故无舞台） | **已落地 ✓** |
 
 ## 跨批已拍板（2026-07-22，用户裁决）
 
@@ -38,7 +38,7 @@ audience: [human, ai]
 
 ## 剩余 backlog（超出本轮 skill 重做范围、单独立项）
 
-1. **composer `/` 斜杠菜单（用户直呼 user-invocable skill）**：`:activate` 端点与 `user-invocable` 字段已齐，但**用户在活跃对话里直接唤起 skill 并注入本回合**是一条新的会话-loop 语义（现 loop 全模型驱动，activate_skill 是 LLM 工具）——需后端加「用户发起激活 → 注入 system/user 前缀」的路径 + 前端在 709 行 mention composer 旁并置 `/` 触发面板。为不半成品化、不动摇 chat loop，本轮**刻意不做**，留作独立迭代。当前用户可经右岛/文档海洋管理 skill、模型可经 activate_skill/run_skill_script 全权使用——vision 的「装 + 用」已闭环，`/` 是便利入口非核心。
+1. ~~composer `/` 斜杠菜单~~ → **已由 `@skill` 激活取代并落地**（用户裁定:`@` 本就是「按类型分岔语境」的统一入口,`@document` 是引用、`@skill` 是激活——比另造斜杠面板更自洽）。落地 = skill 进 mention 封闭集 + resolver 渲染 body 作快照(内容半) + chat 跑 loop 前 `PreauthorizeActiveSkill`(预授权副作用半);前端 mention 候选加 inline skill(fork 不进 @、归模型 activate_skill);全链黑盒 `TestChatR3_AtSkillActivation` 验证内容注入 + 免确认执行。
 2. **fork skill 的 `model`/`effort` override**（B2 记）：subagent ModelResolver 无 override 口。
 3. **install `:install` 的 202 进度流**：当前同步阻塞 + 前端 spinner；大仓可选升级为 notifications 流进度（复用 mcp 模式）。
 4. **node package.json deps**（B3 记）与 **references 进搜索索引**（B1 D10 记）。

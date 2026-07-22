@@ -1,10 +1,11 @@
 // contract_p4b_rail_test.go — Phase 4b：rail 派生字段的 agent 触发变体（E2-rail）。
 //
 // 三条派生字段的真空补课，全部 llmmock 确定性、零 token：
-//   awaitingInput —— 由 ask_user（KindAsk）与 danger 门（KindDanger）的 accept/decline/deny 完整链点亮/清除
-//                     （既有 TestChat_RailAwaitingInput 只锁 danger+approve）。
-//   hasUnread     —— 长流 + subagent 完成点亮；**取消/出错终态不算**（既有 TestChat_RailUnread 只锁 completed）。
-//   isGenerating  —— :cancel 清蓝点；kill-9+restart 后无永久蓝点（派生自内存队列/sweep，重启即无）。
+//
+//	awaitingInput —— 由 ask_user（KindAsk）与 danger 门（KindDanger）的 accept/decline/deny 完整链点亮/清除
+//	                  （既有 TestChat_RailAwaitingInput 只锁 danger+approve）。
+//	hasUnread     —— 长流 + subagent 完成点亮；**取消/出错终态不算**（既有 TestChat_RailUnread 只锁 completed）。
+//	isGenerating  —— :cancel 清蓝点；kill-9+restart 后无永久蓝点（派生自内存队列/sweep，重启即无）。
 //
 // 断言以 conversation.md（isGenerating/awaitingInput/hasUnread 三字段语义）+ humanloop.go（KindAsk/KindDanger、
 // Decision*）+ host.go（unread = status==completed）为契约事实源。
@@ -288,7 +289,7 @@ func TestP4bRail_GeneratingCancelClearsDot(t *testing.T) {
 	var detail struct {
 		IsGenerating bool `json:"isGenerating"`
 	}
-	wc.GET("/api/v1/conversations/" + convID).OK(t, &detail)
+	wc.GET("/api/v1/conversations/"+convID).OK(t, &detail)
 	if !detail.IsGenerating {
 		t.Fatal("Get must also derive isGenerating=true while streaming")
 	}
@@ -303,7 +304,7 @@ func TestP4bRail_GeneratingCancelClearsDot(t *testing.T) {
 		if !ok || row.IsGenerating {
 			return false
 		}
-		wc.GET("/api/v1/conversations/" + convID).OK(t, &detail)
+		wc.GET("/api/v1/conversations/"+convID).OK(t, &detail)
 		return !detail.IsGenerating
 	})
 }

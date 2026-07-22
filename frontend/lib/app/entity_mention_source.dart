@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/contract/entities/skill.dart';
 import '../core/entity/mention_source.dart';
 import '../features/documents/data/document_repository.dart';
 import '../features/entities/data/entity_kind.dart';
@@ -27,10 +28,19 @@ class EntityMentionSource implements MentionSource {
   Future<List<MentionCandidate>> search(String query) async {
     final repo = _ref.read(entityRepositoryProvider);
     final q = query.trim();
-    final pages = await Future.wait([
-      for (final kind in EntityKind.values)
-        repo.listEntities(kind, limit: _perKind, search: q.isEmpty ? null : q),
+    final results = await Future.wait([
+      Future.wait([
+        for (final kind in EntityKind.values)
+          repo.listEntities(
+            kind,
+            limit: _perKind,
+            search: q.isEmpty ? null : q,
+          ),
+      ]),
+      _skillCandidates(q),
     ]);
+    final pages = results[0] as List;
+    final skills = results[1] as List<MentionCandidate>;
     return [
       for (final page in pages)
         for (final row in page.items)
@@ -40,7 +50,38 @@ class EntityMentionSource implements MentionSource {
             name: row.name,
             description: row.description,
           ),
+      // Skills last (after the Quadrinity) — @-mentioning one ACTIVATES it (WRK-076). Only INLINE
+      // skills appear (fork's activation is a subagent dispatch, not a @ semantic — the model
+      // drives fork via activate_skill). 技能置后:@ 即激活;只列 inline(fork 归模型 activate_skill)。
+      ...skills,
     ];
+  }
+
+  /// The turn's @-mentionable skills: every INLINE skill (fork excluded), client-filtered by name
+  /// (the skills list is a bounded full set, no server search). id = the slug name. Capped like a
+  /// kind. @ 可激活的技能:全部 inline(排除 fork),客户端按名过滤(skills 是有界全集),id=slug 名。
+  Future<List<MentionCandidate>> _skillCandidates(String query) async {
+    try {
+      final skills = await _ref.read(documentsRepositoryProvider).listSkills();
+      final q = query.toLowerCase();
+      final out = <MentionCandidate>[];
+      for (final s in skills) {
+        if (s.context == kSkillContextFork) continue; // fork 不进 @
+        if (q.isNotEmpty && !s.name.toLowerCase().contains(q)) continue;
+        out.add(
+          MentionCandidate(
+            type: 'skill',
+            id: s.name, // skill is name-addressed 名即身份
+            name: s.name,
+            description: s.description,
+          ),
+        );
+        if (out.length >= _perKind) break;
+      }
+      return out;
+    } catch (_) {
+      return const []; // a skills-list hiccup must never break the @ picker. 技能列表故障不砸 @ 面板。
+    }
   }
 
   /// An entity ID's prefix (`<prefix>_<16hex>`) pins its kind, so a `[[id]]` wikilink resolves with a single

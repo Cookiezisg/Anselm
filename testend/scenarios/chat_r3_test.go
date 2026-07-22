@@ -575,3 +575,56 @@ func TestChatR3_SkillScriptGuardSurface(t *testing.T) {
 		t.Fatalf("both bad scripts must be refused via tool_result, got %d refusals", refusals)
 	}
 }
+
+// TestChatR3_AtSkillActivation（WRK-076）：`@skill` = 用户手动激活 inline skill——两半都验:
+// ①内容半:skill 渲染 body 经 <mentions> 块注入(marker 回喂模型);②副作用半:allowed-tools 预授权
+// 生效,危险 run_function 免确认直接跑、零交互挂起。这是 @ 提及激活对齐斜杠命令的黑盒证据。
+func TestChatR3_AtSkillActivation(t *testing.T) {
+	wc, mock := chatSetup(t, false)
+	fnID := fnCreate(t, wc, "at_deploy_step", "def at_deploy_step() -> dict:\n    return {\"deployed\": True}\n")
+
+	wc.POST("/api/v1/skills", map[string]any{
+		"name": "at-deploy-guide", "description": "deploy runbook",
+		"body":         "ATMENTIONMARK: ship with at_deploy_step, no fear.",
+		"allowedTools": []string{"run_function"},
+	}).OK(t, nil)
+
+	mock.Enqueue(dlgModel,
+		// 危险 run_function——@skill 的预授权应令其免确认直接跑。
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "run_function",
+			Args: map[string]any{"functionId": fnID, "args": map[string]any{},
+				"summary": "deploy now", "danger": "dangerous", "execution_group": 1}}}},
+		harness.LLMTurn{Text: "deployed via @-mention"},
+	)
+	convID := convCreate(t, wc, "at-skill activation")
+	// 关键:用 @skill 提及而非 activate_skill 工具。
+	mid := sendWith(t, wc, convID, map[string]any{
+		"content":  "@at-deploy-guide ship it",
+		"mentions": []map[string]any{{"type": "skill", "id": "at-deploy-guide"}},
+	})
+	turn := waitTurn(t, wc, convID, mid, 30000)
+	if turn.Status != "completed" {
+		t.Fatalf("@skill turn must complete WITHOUT pending interaction, got %s err=%s", turn.Status, turn.ErrorMessage)
+	}
+
+	// ① 内容半:skill body 经 <mentions> 块注入模型视角。
+	raw := string(mock.DumpsFor(dlgModel)[0].Raw)
+	if !strings.Contains(raw, "ATMENTIONMARK") {
+		t.Fatalf("@skill must inject the rendered skill body via the mention snapshot: %s", raw)
+	}
+	// ② 副作用半:预授权令危险调用免确认直接执行、零交互挂起。
+	var page struct {
+		Aggregates struct {
+			OKCount int `json:"okCount"`
+		} `json:"aggregates"`
+	}
+	wc.GET("/api/v1/functions/"+fnID+"/executions").OK(t, &page)
+	if page.Aggregates.OKCount != 1 {
+		t.Fatalf("@skill allowed-tools preauth must run the dangerous tool without asking, executions=%+v", page.Aggregates)
+	}
+	var pending []struct{}
+	wc.GET("/api/v1/conversations/"+convID+"/interactions").OK(t, &pending)
+	if len(pending) != 0 {
+		t.Fatalf("no interaction may pend under @skill preauth, got %d", len(pending))
+	}
+}

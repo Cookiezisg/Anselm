@@ -284,20 +284,20 @@ func TestContractDocsAtt_DocumentChildrenDuplicateMove(t *testing.T) {
 		t.Fatalf("duplicate must copy content, got %q", newRoot.Content)
 	}
 	var newKids []docsattC_doc
-	wc.GET("/api/v1/documents?parentId=" + newRoot.ID).OK(t, &newKids)
+	wc.GET("/api/v1/documents?parentId="+newRoot.ID).OK(t, &newKids)
 	if len(newKids) != 1 || newKids[0].Name != "dup-mid" || newKids[0].Content != "MIDBODY" ||
 		newKids[0].ID == mid.ID || newKids[0].Path != "/dup-src 2/dup-mid" {
 		t.Fatalf("deep copy child must be a fresh id with remapped parent/path + copied content, got %+v", newKids)
 	}
 	var newGrand []docsattC_doc
-	wc.GET("/api/v1/documents?parentId=" + newKids[0].ID).OK(t, &newGrand)
+	wc.GET("/api/v1/documents?parentId="+newKids[0].ID).OK(t, &newGrand)
 	if len(newGrand) != 1 || newGrand[0].Name != "dup-leaf" || newGrand[0].Content != "LEAFBODY" ||
 		newGrand[0].ID == leaf.ID || newGrand[0].Path != "/dup-src 2/dup-mid/dup-leaf" {
 		t.Fatalf("deep copy grandchild must be remapped through the copied parent, got %+v", newGrand)
 	}
 	// 原树不动。
 	var origLeaf docsattC_doc
-	wc.GET("/api/v1/documents/" + leaf.ID).OK(t, &origLeaf)
+	wc.GET("/api/v1/documents/"+leaf.ID).OK(t, &origLeaf)
 	if origLeaf.Path != "/dup-src/dup-mid/dup-leaf" || origLeaf.ParentID == nil || *origLeaf.ParentID != mid.ID {
 		t.Fatalf("duplicate must not touch the source tree, got %+v", origLeaf)
 	}
@@ -350,7 +350,7 @@ func TestContractDocsAtt_DocumentChildrenDuplicateMove(t *testing.T) {
 		t.Fatalf("explicit parentId must place the copy under it, got %+v", zoned)
 	}
 	var zonedKids []docsattC_doc
-	wc.GET("/api/v1/documents?parentId=" + zoned.ID).OK(t, &zonedKids)
+	wc.GET("/api/v1/documents?parentId="+zoned.ID).OK(t, &zonedKids)
 	if len(zonedKids) != 1 || zonedKids[0].Name != "dup-leaf" || zonedKids[0].Content != "LEAFBODY" {
 		t.Fatalf("subtree must ride the relocated duplicate, got %+v", zonedKids)
 	}
@@ -380,7 +380,8 @@ func TestContractDocsAtt_DocumentChildrenDuplicateMove(t *testing.T) {
 // B-att-8 upload→download 字节 round-trip 矩阵 + 软删后 get/download 双 404；
 // A-att-4 N1 形：content 直出原始字节（非 envelope）+ DELETE 204 无体；
 // B-att-1 CAS dedup：相同字节两行共享一 blob（sha256 非唯一）、删一行 blob 仍在，删尽两行 →
-//   重启触发 boot GC 回收孤儿 blob（GC 是 boot 时对账,非删除时,避免与在飞上传竞态）。
+//
+//	重启触发 boot GC 回收孤儿 blob（GC 是 boot 时对账,非删除时,避免与在飞上传竞态）。
 func TestContractDocsAtt_AttachmentRestAndCASDedup(t *testing.T) {
 	srv := harness.Start(t)
 	c := srv.Client(t)
@@ -630,6 +631,6 @@ func TestContractDocsAtt_DocumentAttachScopeAndIterate(t *testing.T) {
 	if !strings.HasPrefix(convID, "cv_") {
 		t.Fatalf(":iterate must return a conversation id, got %q", convID)
 	}
-	wc.GET("/api/v1/conversations/" + convID).OK(t, nil)
+	wc.GET("/api/v1/conversations/"+convID).OK(t, nil)
 	wc.Do("POST", "/api/v1/documents/doc_ffffffffffffffff:iterate", map[string]any{"request": "x"}).Fail(t, 404, "DOCUMENT_NOT_FOUND")
 }

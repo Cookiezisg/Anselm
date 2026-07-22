@@ -204,12 +204,14 @@ func supportC_writeSlowMCP(t *testing.T) string {
 //
 // B-srch-10（换 embedder 逐行记账重嵌 + fts_schema_version 不匹配 boot 重建）标 needs_unit：
 // 两个子机制均为内部、无黑盒观测点也无 HTTP 触发面——
-//   ① 逐行记账重嵌按 search_embeddings.model 列失效/补算（search.md §换 embedder），观测它需读
-//      向量 BLOB 或让语义搜索命中变化，而后者要真嵌入引擎（builtin 600MB 下载 or ollama，二者
-//      黑盒不可达；仅 TestSearch_SemanticRAGBuiltin 用真下载覆盖语义面）。换 embedder 的触发路径
-//      本身（PATCH embedder 往返 + 词法搜存活）已由 TestSearch_ReindexAndSettings 覆盖。
-//   ② fts_schema_version 不匹配 → boot 清空全量重建（search.md 关键不变量 #3），只在 schema 版本
-//      常量 bump 时发生，须改后端常量（禁）或直改 SQLite search_meta（白盒、脆），无 HTTP 触发。
+//
+//	① 逐行记账重嵌按 search_embeddings.model 列失效/补算（search.md §换 embedder），观测它需读
+//	   向量 BLOB 或让语义搜索命中变化，而后者要真嵌入引擎（builtin 600MB 下载 or ollama，二者
+//	   黑盒不可达；仅 TestSearch_SemanticRAGBuiltin 用真下载覆盖语义面）。换 embedder 的触发路径
+//	   本身（PATCH embedder 往返 + 词法搜存活）已由 TestSearch_ReindexAndSettings 覆盖。
+//	② fts_schema_version 不匹配 → boot 清空全量重建（search.md 关键不变量 #3），只在 schema 版本
+//	   常量 bump 时发生，须改后端常量（禁）或直改 SQLite search_meta（白盒、脆），无 HTTP 触发。
+//
 // 故 B-srch-10 归 needs_unit（属 app/infra search 单测面）。
 func TestContractSupport_SearchSettingsValidation(t *testing.T) {
 	srv := harness.Start(t)

@@ -39,7 +39,7 @@ audience: [human, ai]
 
 ## mention —— @ 引用契约
 
-纯契约包：`MentionType` 集 + `Resolver` 接口 + `Reference` 快照形状。**freeze-on-send**：发送时快照被 @ 实体内容进 user 回合 Attrs，实体后续变更不影响已发送语境。各实体的 mention_resolver.go 实现并 boot 注册。
+纯契约包：`MentionType` 集（9 类：Quadrinity + document + trigger/control/approval + **skill**）+ `Resolver` 接口 + `Reference` 快照形状。**freeze-on-send**：发送时快照被 @ 实体内容进 user 回合 Attrs，实体后续变更不影响已发送语境。**@ 语义按类型分岔**：多数是**引用**（注入内容快照），**`@skill` 是激活**（WRK-076）——resolver 渲染 skill body 作快照（内容半），chat 在回合运行时经 `SkillPreauthorizer.PreauthorizeActiveSkill` 预授权其 allowed-tools（副作用半；fork skill 跳过、信任门照 B4）。各实体的 mention_resolver.go 实现并 boot 注册。
 
 ## notification —— 通知中心
 

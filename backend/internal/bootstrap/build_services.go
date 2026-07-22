@@ -343,6 +343,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Titler:         conv,
 		Compactor:      ctxmgr,
 		Touchpoints:    tp,
+		SkillPreauth:   skill, // @skill 激活的预授权半（WRK-076）；内容半走 mention resolver
 	}, log)
 
 	// D1 execution lifecycle: workflow drives the trigger binder (activate/stage/deactivate/kill engage
@@ -494,6 +495,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	chat.RegisterMentionResolver(trg.AsMentionResolver())
 	chat.RegisterMentionResolver(ctl.AsMentionResolver())
 	chat.RegisterMentionResolver(apf.AsMentionResolver())
+	chat.RegisterMentionResolver(skill.AsMentionResolver()) // @skill = 激活（WRK-076）
 
 	// search wiring: 12 entity projections in, one notifier out to every writer
 	// (incl. chat/subagent message completion — anchor routes the incremental path).

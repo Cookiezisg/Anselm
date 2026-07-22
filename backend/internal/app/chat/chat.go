@@ -206,6 +206,19 @@ type Deps struct {
 	Titler         ConversationTitler     // auto-title writer (also emits conversation.auto_titled); nil → no auto-titling
 	Compactor      Compactor              // context compaction; nil → no compaction
 	Touchpoints    *touchpointapp.Service // conversation context ledger; nil → no touch recording 对话触点台账
+	SkillPreauth   SkillPreauthorizer     // @-mention skill activation's pre-auth half; nil → @skill injects instructions but grants no pre-approval
+}
+
+// SkillPreauthorizer applies the side-effect half of a @-mention skill activation (WRK-076): it
+// records the @-mentioned skill as the run's active skill and pre-authorizes its allowed-tools,
+// on the ctx's agent state, at turn-run time. The content half rode the mention snapshot. nil →
+// @skill still injects instructions (via the mention resolver) but grants no pre-authorization.
+//
+// SkillPreauthorizer 施加 @ 提及 skill 激活的副作用半（WRK-076）：在回合运行时、于 ctx 的 agent
+// state 上把被 @ 的 skill 记为 active 并预授权其 allowed-tools。内容半已随 mention 快照注入。
+// nil → @skill 仍注入指令（经 mention resolver）但不授予预授权。
+type SkillPreauthorizer interface {
+	PreauthorizeActiveSkill(ctx context.Context, name string) error
 }
 
 // Compactor compacts a conversation when it nears the model's context window (app/contextmgr).
@@ -376,6 +389,7 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 		assistantMsgID: asstMsg.ID,
 		workspaceID:    wsID,
 		locale:         reqctxpkg.GetLocale(ctx),
+		activateSkills: skillMentionNames(in.Mentions),
 	}
 	if err := s.enqueue(conversationID, t); err != nil {
 		// Roll the assistant turn to error so it isn't a permanent streaming orphan.
@@ -399,6 +413,12 @@ type task struct {
 	assistantMsgID string
 	workspaceID    string
 	locale         reqctxpkg.Locale
+	// activateSkills carries the @-mentioned skills' names from Send to the run goroutine, where
+	// their allowed-tools are pre-authorized on the queue's agent state before the loop runs (the
+	// Send ctx has no agent state; the content is already frozen in the user turn's mentions).
+	// activateSkills 把被 @ 的 skill 名从 Send 带到运行 goroutine，在 loop 跑前于队列 agent state
+	// 上预授权其 allowed-tools（Send ctx 无 agent state；内容已冻结进 user 回合的 mentions）。
+	activateSkills []string
 }
 
 // convQueue serializes one conversation's generations: a single goroutine drains a small buffered

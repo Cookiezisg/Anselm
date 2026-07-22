@@ -211,7 +211,7 @@ func TestContractChat_EmptyBoardsAndCrossWorkspace(t *testing.T) {
 			t.Fatalf("todos of %s must be [] (not null/missing), got %s", id, resp.Data)
 		}
 	}
-	assertEmptyTodos(convID)                 // A-todo-4
+	assertEmptyTodos(convID)                // A-todo-4
 	assertEmptyTodos("cv_0000000000000000") // A-todo-2（契约=空页非 404）
 
 	if r := wc.GET("/api/v1/conversations/" + convID + "/touchpoints"); string(r.Data) != "[]" {
@@ -239,7 +239,7 @@ func TestContractChat_EmptyBoardsAndCrossWorkspace(t *testing.T) {
 		t.Fatalf("cross-ws ledger read must be a 200 empty page (no leak), got %d %s", r.Status, r.Raw) // A-tp-5
 	}
 	var m map[string]json.RawMessage
-	wc2.GET("/api/v1/conversations/" + convID + "/todos").OK(t, &m)
+	wc2.GET("/api/v1/conversations/"+convID+"/todos").OK(t, &m)
 	if string(m["todos"]) != "[]" {
 		t.Fatalf("cross-ws todos read must be empty, got %s", m["todos"])
 	}
@@ -269,21 +269,21 @@ func TestContractChat_ModelOverrideTristateAndActivityOrder(t *testing.T) {
 	d = convDetail{}
 	wc.PATCH("/api/v1/conversations/"+convID,
 		map[string]any{"modelOverride": map[string]any{"apiKeyId": keyID, "modelId": dlgModel}}).OK(t, nil)
-	wc.GET("/api/v1/conversations/" + convID).OK(t, &d)
+	wc.GET("/api/v1/conversations/"+convID).OK(t, &d)
 	if d.ModelOverride == nil || d.ModelOverride.APIKeyID != keyID || d.ModelOverride.ModelID != dlgModel {
 		t.Fatalf("set must persist the override, got %+v", d.ModelOverride)
 	}
 	// 缺 = 不变（PATCH 只动 title）。
 	d = convDetail{}
 	wc.PATCH("/api/v1/conversations/"+convID, map[string]any{"title": "renamed tristate"}).OK(t, nil)
-	wc.GET("/api/v1/conversations/" + convID).OK(t, &d)
+	wc.GET("/api/v1/conversations/"+convID).OK(t, &d)
 	if d.Title != "renamed tristate" || d.ModelOverride == nil || d.ModelOverride.ModelID != dlgModel {
 		t.Fatalf("absent key must leave the override untouched, got title=%q override=%+v", d.Title, d.ModelOverride)
 	}
 	// null = 清除。
 	d = convDetail{}
 	wc.PATCH("/api/v1/conversations/"+convID, map[string]any{"modelOverride": nil}).OK(t, nil)
-	wc.GET("/api/v1/conversations/" + convID).OK(t, &d)
+	wc.GET("/api/v1/conversations/"+convID).OK(t, &d)
 	if d.ModelOverride != nil {
 		t.Fatalf("explicit null must clear the override, got %+v", d.ModelOverride)
 	}
@@ -350,7 +350,7 @@ func TestContractChat_SearchEscapeAndStaleCursor(t *testing.T) {
 	search := func(term string) []convRow {
 		t.Helper()
 		var rows []convRow
-		wc.GET("/api/v1/conversations?limit=50&search=" + url.QueryEscape(term)).OK(t, &rows)
+		wc.GET("/api/v1/conversations?limit=50&search="+url.QueryEscape(term)).OK(t, &rows)
 		return rows
 	}
 	// 大小写不敏感子串：大写 term 命中两条小写/混写标题。
@@ -409,7 +409,7 @@ func TestContractChat_GeneratingFlagAndFinalizeWindow(t *testing.T) {
 	var detail struct {
 		IsGenerating bool `json:"isGenerating"`
 	}
-	wc.GET("/api/v1/conversations/" + convG).OK(t, &detail)
+	wc.GET("/api/v1/conversations/"+convG).OK(t, &detail)
 	if !detail.IsGenerating {
 		t.Fatal("Get must also derive isGenerating=true while streaming")
 	}
@@ -419,7 +419,7 @@ func TestContractChat_GeneratingFlagAndFinalizeWindow(t *testing.T) {
 		if !ok || row.IsGenerating {
 			return false
 		}
-		wc.GET("/api/v1/conversations/" + convG).OK(t, &detail)
+		wc.GET("/api/v1/conversations/"+convG).OK(t, &detail)
 		return !detail.IsGenerating
 	})
 
@@ -466,7 +466,7 @@ func TestContractChat_GeneratingFlagAndFinalizeWindow(t *testing.T) {
 		var conv struct {
 			Summary string `json:"summary"`
 		}
-		wc.GET("/api/v1/conversations/" + convW).OK(t, &conv)
+		wc.GET("/api/v1/conversations/"+convW).OK(t, &conv)
 		return strings.Contains(conv.Summary, "WINDOW-SUMMARY-MARK")
 	})
 }
@@ -613,7 +613,7 @@ func TestContractChat_ApproveAlwaysLifecycle(t *testing.T) {
 	}
 
 	// 删除对话 → ForgetConversation 清授权 → 新对话同工具重新要确认。
-	wc.DELETE("/api/v1/conversations/" + conv1).OK(t, nil)
+	wc.DELETE("/api/v1/conversations/"+conv1).OK(t, nil)
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{ToolCalls: []harness.MockToolCall{chatC_dangerCall("call_aa4", fnID)}},
 		harness.LLMTurn{Text: "asked again"},
@@ -636,7 +636,7 @@ func TestContractChat_ApproveAlwaysLifecycle(t *testing.T) {
 }
 
 // TestContractChat_SubagentTraceIsolation: B-chat-8 —— LoadHistory 排除 subagent 子消息
-// （chat.md §3：subagent_id≠'' 下推 SQL）：sub run 的内部 trace（reasoning）绝不进父模型
+// （chat.md §3：subagent_id≠” 下推 SQL）：sub run 的内部 trace（reasoning）绝不进父模型
 // 视角的后续请求；最终答案作为 tool_result 合法留存。
 func TestContractChat_SubagentTraceIsolation(t *testing.T) {
 	wc, mock := chatSetup(t, false)
@@ -767,7 +767,7 @@ func TestContractChat_MessagesPhysicalTruth(t *testing.T) {
 			Summary              string `json:"summary"`
 			SummaryCoversUpToSeq int64  `json:"summaryCoversUpToSeq"`
 		}
-		wc.GET("/api/v1/conversations/" + convID).OK(t, &conv)
+		wc.GET("/api/v1/conversations/"+convID).OK(t, &conv)
 		return strings.Contains(conv.Summary, "IMMUTABLE-SUMMARY-MARK") && conv.SummaryCoversUpToSeq > 0
 	})
 
@@ -784,7 +784,7 @@ func TestContractChat_MessagesPhysicalTruth(t *testing.T) {
 		"SELECT COUNT(*) FROM messages WHERE conversation_id='"+convID+"'")
 	blkCount := chatC_sqlite(t, srv.DataDir,
 		"SELECT COUNT(*) FROM message_blocks WHERE conversation_id='"+convID+"'")
-	wc.DELETE("/api/v1/conversations/" + convID).OK(t, nil)
+	wc.DELETE("/api/v1/conversations/"+convID).OK(t, nil)
 	wc.Do("GET", "/api/v1/conversations/"+convID, nil).Fail(t, 404, "CONVERSATION_NOT_FOUND")
 	if after := chatC_sqlite(t, srv.DataDir,
 		"SELECT COUNT(*) FROM messages WHERE conversation_id='"+convID+"'"); after != msgCount || after == "0" {

@@ -227,7 +227,9 @@ func protoC_authedField(t *testing.T, base, token, method, path string, body any
 // TestContractProtocol_ReplayRingEvictionAndRecovery:
 // ① 一条持续订阅者 S1 收到的 durable seq 序严格 +1 连续（无缺口无重复，全程）。
 // ② 灌爆 256 深 replay 环（~320 durable 帧）后，用被淘汰的旧 seq 重连 → 410 SEQ_TOO_OLD
-//    （events.md：环外 fromSeq 转 410，让客户端 REST 重取后重连）。
+//
+//	（events.md：环外 fromSeq 转 410，让客户端 REST 重取后重连）。
+//
 // ③ 410 后 REST 全量重取（GET .../messages）拿回历史。
 // ④ 以当前最高 seq「重订」→ 后续回合的 durable 帧从 newSeq+1 起严格 +1 连续（不漏不重、不重放旧帧）。
 func TestContractProtocol_ReplayRingEvictionAndRecovery(t *testing.T) {
@@ -262,7 +264,7 @@ func TestContractProtocol_ReplayRingEvictionAndRecovery(t *testing.T) {
 
 	// ③ REST 全量重取拿回历史（410 后的恢复第一步）。
 	var msgs []chatMsg
-	wc.GET("/api/v1/conversations/" + conv + "/messages?limit=50").OK(t, &msgs)
+	wc.GET("/api/v1/conversations/"+conv+"/messages?limit=50").OK(t, &msgs)
 	if len(msgs) == 0 {
 		t.Fatal("REST refetch after 410 must return conversation history")
 	}
@@ -477,7 +479,7 @@ type protoC_firingRow struct {
 func protoC_firings(t *testing.T, wc *harness.Client, trgID string) []protoC_firingRow {
 	t.Helper()
 	var rows []protoC_firingRow
-	wc.GET("/api/v1/firings?triggerId=" + trgID + "&limit=200").OK(t, &rows)
+	wc.GET("/api/v1/firings?triggerId="+trgID+"&limit=200").OK(t, &rows)
 	return rows
 }
 

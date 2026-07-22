@@ -29,24 +29,7 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 		SessionID: convID,
 	})
 
-	// Pre-authorize this skill's allowed-tools for the rest of the run (consumed by the danger
-	// confirmation flow). allowed-tools = pre-approval, NOT a restriction whitelist. TRUST GATE
-	// (WRK-076 B4): an INSTALLED skill's allowed-tools are a REQUESTED grant until the user
-	// approves them — before that the body still injects, but the pre-approval is withheld and
-	// dangerous calls keep walking the per-call confirmation.
-	//
-	// 把本 skill 的 allowed-tools 预授权到本次运行剩余部分（由危险确认流消费）。
-	// allowed-tools = 预授权，不是限制白名单。**信任门**（WRK-076 B4）：**安装来源**的 skill，
-	// allowed-tools 在用户授权前只是请求——正文照常注入，但预授权不装、危险调用照走逐次确认。
-	if state, ok := reqctxpkg.GetAgentState(ctx); ok {
-		allowed := sk.Frontmatter.AllowedTools
-		if sk.Source == skilldomain.SourceInstalled {
-			if prov, pErr := s.repo.ReadProvenance(ctx, name); pErr != nil || prov == nil || !prov.ToolsApproved {
-				allowed = nil // 门关着：active skill 仍记名，预授权集为空
-			}
-		}
-		state.SetActiveSkill(sk.Name, allowed)
-	}
+	s.applyActiveSkill(ctx, sk)
 
 	if sk.Context == skilldomain.ContextFork {
 		agentType := strings.TrimSpace(sk.Frontmatter.Agent)
@@ -64,6 +47,57 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 	}
 
 	return rendered, nil
+}
+
+// applyActiveSkill records sk as the run's active skill and pre-authorizes its allowed-tools
+// (consumed by the danger-confirmation flow). allowed-tools = pre-approval, NOT a restriction
+// whitelist. TRUST GATE (WRK-076 B4): an INSTALLED skill's allowed-tools are a REQUESTED grant
+// until the user approves them — before that the pre-approval is withheld (the active skill is
+// still recorded, but with an empty grant), so dangerous calls keep walking the per-call
+// confirmation. No agent state → no-op. Shared by Activate (the tool path) and
+// PreauthorizeActiveSkill (the @-mention path).
+//
+// applyActiveSkill 把 sk 记为本次运行的 active skill 并预授权其 allowed-tools（由危险确认流消费）。
+// allowed-tools = 预授权、非限制白名单。**信任门**（WRK-076 B4）：**安装来源**的 skill，其
+// allowed-tools 在用户授权前只是请求——授权前预授权不装（active skill 仍记名、但授权集空），危险
+// 调用照走逐次确认。无 agent state → no-op。由 Activate（工具路径）与 PreauthorizeActiveSkill
+// （@ 提及路径）共用。
+func (s *Service) applyActiveSkill(ctx context.Context, sk *skilldomain.Skill) {
+	state, ok := reqctxpkg.GetAgentState(ctx)
+	if !ok {
+		return
+	}
+	allowed := sk.Frontmatter.AllowedTools
+	if sk.Source == skilldomain.SourceInstalled {
+		if prov, pErr := s.repo.ReadProvenance(ctx, sk.Name); pErr != nil || prov == nil || !prov.ToolsApproved {
+			allowed = nil // 门关着：active skill 仍记名，预授权集为空
+		}
+	}
+	state.SetActiveSkill(sk.Name, allowed)
+}
+
+// PreauthorizeActiveSkill is the side-effect half of a @-mention activation (WRK-076): it records
+// the @-mentioned skill as the run's active skill and pre-authorizes its allowed-tools, WITHOUT
+// rendering or forking — the CONTENT half already rode the mention snapshot (the resolver's
+// Guide-rendered body). FORK skills are skipped: a fork's activation is a subagent dispatch, not
+// an @ semantic (the model drives fork via activate_skill); an @-mentioned fork skill injects its
+// instructions but grants no pre-authorization. Missing skill → error (best-effort at the caller).
+//
+// PreauthorizeActiveSkill 是 @ 提及激活的副作用半（WRK-076）：把被 @ 的 skill 记为本次运行的
+// active skill 并预授权其 allowed-tools，**不**渲染、**不** fork——内容半已随 mention 快照注入
+// （resolver 的 Guide 渲染 body）。**fork** skill 跳过：fork 的激活是派 subagent、非 @ 语义
+// （模型经 activate_skill 驱动 fork）；被 @ 的 fork skill 注入指令但不授予预授权。缺失 skill → 报错
+// （调用方 best-effort）。
+func (s *Service) PreauthorizeActiveSkill(ctx context.Context, name string) error {
+	sk, err := s.repo.Get(ctx, name)
+	if err != nil {
+		return fmt.Errorf("skillapp.PreauthorizeActiveSkill: %w", err)
+	}
+	if sk.Context == skilldomain.ContextFork {
+		return nil // fork 非 @ 激活语义——不设预授权
+	}
+	s.applyActiveSkill(ctx, sk)
+	return nil
 }
 
 // Guide renders a skill's body as a mounted execution guide (the agent-mount path): rendered

@@ -9,6 +9,8 @@ import (
 
 	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
 	skillfs "github.com/sunweilin/anselm/backend/internal/infra/fs/skill"
+	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // B1 files 面（WRK-076）：ReplaceRaw 语义 / 清单路由与拒删 / IsSpecName 创建从严 / 透传链。
@@ -208,5 +210,64 @@ func TestActivate_PreambleOnlyWhenBundledFilesExist(t *testing.T) {
 	}
 	if !strings.HasPrefix(guide, "This skill's directory") {
 		t.Fatalf("guide must carry the preamble too, got: %s", guide)
+	}
+}
+
+// @skill 提及激活（WRK-076）：resolver 渲染 body 作快照 + PreauthorizeActiveSkill 副作用半。
+
+func TestMentionResolver_RendersBodyWithDirAnchor(t *testing.T) {
+	svc := newService(t, nil)
+	ctx := ctxWS("ws_1")
+	if _, err := svc.Create(ctx, SaveInput{Name: "pdf", Description: "d", Body: "See references/x.md."}); err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if err := svc.WriteFile(ctx, "pdf", "references/x.md", []byte("# ref")); err != nil {
+		t.Fatalf("write: %v", err)
+	}
+	ref, err := svc.AsMentionResolver().Resolve(ctx, "pdf")
+	if err != nil {
+		t.Fatalf("resolve: %v", err)
+	}
+	if ref.Type != "skill" || ref.ID != "pdf" || ref.Name != "pdf" {
+		t.Fatalf("reference shape: %+v", ref)
+	}
+	// body 经 Guide 渲染：带捆绑文件 → 目录前导。
+	if !strings.HasPrefix(ref.Content, "This skill's directory") || !strings.Contains(ref.Content, "See references/x.md.") {
+		t.Fatalf("content must be the dir-anchored body: %q", ref.Content)
+	}
+}
+
+func TestPreauthorizeActiveSkill_InlineGrantsForkSkips(t *testing.T) {
+	svc := newService(t, nil)
+	ctx := ctxWS("ws_1")
+	if _, err := svc.Create(ctx, SaveInput{
+		Name: "inline-one", Description: "d", Body: "b", AllowedTools: []string{"run_function"},
+	}); err != nil {
+		t.Fatalf("create inline: %v", err)
+	}
+	if _, err := svc.Create(ctx, SaveInput{
+		Name: "fork-one", Description: "d", Body: "b", Context: skilldomain.ContextFork, Agent: "general-purpose",
+		AllowedTools: []string{"run_function"},
+	}); err != nil {
+		t.Fatalf("create fork: %v", err)
+	}
+
+	// inline @skill：预授权生效。
+	state := agentstatepkg.New()
+	actCtx := reqctxpkg.WithAgentState(ctx, state)
+	if err := svc.PreauthorizeActiveSkill(actCtx, "inline-one"); err != nil {
+		t.Fatalf("preauth inline: %v", err)
+	}
+	if state.ActiveSkill() != "inline-one" || !state.IsToolPreApprovedBySkill("run_function") {
+		t.Fatalf("inline @skill must set active + pre-approve: active=%q", state.ActiveSkill())
+	}
+
+	// fork @skill：不设预授权（fork 非 @ 语义）。
+	state2 := agentstatepkg.New()
+	if err := svc.PreauthorizeActiveSkill(reqctxpkg.WithAgentState(ctx, state2), "fork-one"); err != nil {
+		t.Fatalf("preauth fork: %v", err)
+	}
+	if state2.ActiveSkill() != "" || state2.IsToolPreApprovedBySkill("run_function") {
+		t.Fatal("fork @skill must NOT set active-skill pre-authorization")
 	}
 }

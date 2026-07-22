@@ -119,6 +119,21 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	base = reqctxpkg.SetConversationID(base, conversationID)
 	base = reqctxpkg.SetMessageID(base, t.assistantMsgID)
 	base = reqctxpkg.WithAgentState(base, q.agentState)
+	// @-mention skill activation, side-effect half (WRK-076): with the agent state now in ctx,
+	// pre-authorize each skill the user @-mentioned this turn (the content already rode the frozen
+	// mention snapshot). Best-effort — a missing/renamed @skill must never fail the turn; the
+	// worst case is that its dangerous tools keep the per-call confirmation.
+	// @ 提及 skill 激活的副作用半（WRK-076）：agent state 现已入 ctx，为本回合用户 @ 的每个 skill
+	// 预授权（内容已随冻结的 mention 快照注入）。best-effort——坏/改名的 @skill 绝不该让回合失败，
+	// 最坏也只是其危险工具照走逐次确认。
+	if s.deps.SkillPreauth != nil {
+		for _, name := range t.activateSkills {
+			if err := s.deps.SkillPreauth.PreauthorizeActiveSkill(base, name); err != nil {
+				s.log.Warn("chatapp.processTask: @skill preauthorize failed",
+					zap.String("conversationId", conversationID), zap.String("skill", name), zap.Error(err))
+			}
+		}
+	}
 	base = loopapp.WithBridge(base, s.deps.Bridge)
 	// SSE-C: seed the entities Bridge so the loop mirrors a build tool_call's content delta onto the
 	// entities stream (the entity panel fills in live as the LLM builds).

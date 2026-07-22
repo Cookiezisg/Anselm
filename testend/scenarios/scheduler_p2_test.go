@@ -31,7 +31,7 @@ type scheduleRes struct {
 func getSchedule(t *testing.T, wc *harness.Client, query string) scheduleRes {
 	t.Helper()
 	var res scheduleRes
-	wc.GET("/api/v1/trigger-schedule" + query).OK(t, &res)
+	wc.GET("/api/v1/trigger-schedule"+query).OK(t, &res)
 	return res
 }
 
@@ -211,7 +211,7 @@ func TestTrigger_MisfireMissedAccounting(t *testing.T) {
 	// The ledger's other dispositions are untouched by the new word — the enum stayed closed and
 	// the old filters still work (no silent empty page).
 	// 台账其余处置不受新词影响——枚举仍封闭、旧过滤照常（不出静默空页）。
-	wc.GET("/api/v1/firings?triggerId=" + trgID + "&status=started").OK(t, nil)
+	wc.GET("/api/v1/firings?triggerId="+trgID+"&status=started").OK(t, nil)
 	wc.GET("/api/v1/firings?triggerId="+trgID+"&status=gremlin").Fail(t, 422, "TRIGGER_FIRING_INVALID_STATUS")
 
 	// ---- 工单⑭: the missed rows above are now READABLE at workspace scope, in a window, and
@@ -245,14 +245,14 @@ func TestTrigger_MisfireMissedAccounting(t *testing.T) {
 	after := time.Now().Add(-2 * time.Hour).UTC().Format(time.RFC3339)
 	before := time.Now().Add(2 * time.Hour).UTC().Format(time.RFC3339)
 	var windowed []firingRow
-	wc.GET("/api/v1/firings?status=missed&createdAfter=" + after + "&createdBefore=" + before + "&limit=200").OK(t, &windowed)
+	wc.GET("/api/v1/firings?status=missed&createdAfter="+after+"&createdBefore="+before+"&limit=200").OK(t, &windowed)
 	if len(windowed) != len(missed) {
 		t.Fatalf("a window around the downtime must hold every missed tick: want %d, got %d", len(missed), len(windowed))
 	}
 	oldAfter := time.Now().Add(-72 * time.Hour).UTC().Format(time.RFC3339)
 	oldBefore := time.Now().Add(-48 * time.Hour).UTC().Format(time.RFC3339)
 	var empty []firingRow
-	wc.GET("/api/v1/firings?status=missed&createdAfter=" + oldAfter + "&createdBefore=" + oldBefore).OK(t, &empty)
+	wc.GET("/api/v1/firings?status=missed&createdAfter="+oldAfter+"&createdBefore="+oldBefore).OK(t, &empty)
 	if len(empty) != 0 {
 		t.Fatalf("a window that predates the trigger must be empty, got %d", len(empty))
 	}
@@ -289,7 +289,7 @@ func TestTrigger_MisfireMissedAccounting(t *testing.T) {
 			Missed int `json:"missed"`
 		} `json:"totals"`
 	}
-	wc.GET("/api/v1/flowrun-stats?since=" + future).OK(t, &later)
+	wc.GET("/api/v1/flowrun-stats?since="+future).OK(t, &later)
 	if later.Totals.Missed != 0 {
 		t.Fatalf("an all-time count would be a vanity number — a window starting after the outage must read 0, got %d", later.Totals.Missed)
 	}
@@ -310,7 +310,7 @@ func TestTrigger_MisfirePolicyVocabulary(t *testing.T) {
 		var got struct {
 			Config map[string]any `json:"config"`
 		}
-		wc.GET("/api/v1/triggers/" + id).OK(t, &got)
+		wc.GET("/api/v1/triggers/"+id).OK(t, &got)
 		if got.Config["misfirePolicy"] != policy {
 			t.Fatalf("misfirePolicy must round-trip, got %v", got.Config["misfirePolicy"])
 		}

@@ -152,7 +152,7 @@ func assertMountHealth(t *testing.T, wc *harness.Client, agID string, wantAllHea
 		} `json:"mounts"`
 		AllHealthy bool `json:"allHealthy"`
 	}
-	wc.GET("/api/v1/agents/" + agID + "/mount-health").OK(t, &mh)
+	wc.GET("/api/v1/agents/"+agID+"/mount-health").OK(t, &mh)
 	if mh.AllHealthy != wantAllHealthy {
 		t.Fatalf("mount-health allHealthy=%v want %v: %+v", mh.AllHealthy, wantAllHealthy, mh.Mounts)
 	}

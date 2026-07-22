@@ -365,8 +365,8 @@ func TestPlatform_NotificationFlow(t *testing.T) {
 	// 刚落在此刻附近,故落在此刻**之外**的窗口标不到任何行(未读不变),非 RFC3339 界大声 422、绝不静默标一切。
 	future := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
 	past := time.Now().Add(-time.Hour).UTC().Format(time.RFC3339)
-	wc.POST("/api/v1/notifications:mark-all-read", map[string]any{"after": future}).OK(t, nil)  // 未来下界 → 零行
-	wc.POST("/api/v1/notifications:mark-all-read", map[string]any{"before": past}).OK(t, nil)    // 过去上界 → 零行
+	wc.POST("/api/v1/notifications:mark-all-read", map[string]any{"after": future}).OK(t, nil) // 未来下界 → 零行
+	wc.POST("/api/v1/notifications:mark-all-read", map[string]any{"before": past}).OK(t, nil)  // 过去上界 → 零行
 	var afterOutOfRange struct {
 		Unread int `json:"unread"`
 	}

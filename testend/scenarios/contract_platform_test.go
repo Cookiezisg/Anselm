@@ -122,7 +122,7 @@ func TestContractPlatform_WorkspaceListAndStrictFields(t *testing.T) {
 	var after struct {
 		Name string `json:"name"`
 	}
-	c.GET("/api/v1/workspaces/" + want["pg-ws-a"]).OK(t, &after)
+	c.GET("/api/v1/workspaces/"+want["pg-ws-a"]).OK(t, &after)
 	if after.Name != "pg-ws-a" {
 		t.Fatalf("rejected PATCH must not half-apply: name became %q", after.Name)
 	}
@@ -135,7 +135,9 @@ func TestContractPlatform_WorkspaceListAndStrictFields(t *testing.T) {
 // ② 未知字段：POST/PATCH 带杂字段 → 400 INVALID_REQUEST。
 // ③ 掩码回显：keyMasked = 头部+…+末4，全响应绝不漏明文。
 // ④ N4 分页：5 key limit=2 走 cursor 不重不漏收口；limit=0/abc → 400 INVALID_REQUEST；
-//    垃圾 cursor → 400 MALFORMED_CURSOR。
+//
+//	垃圾 cursor → 400 MALFORMED_CURSOR。
+//
 // ⑤ 软删：DELETE 204 空体 → 列表过滤 → 同名重建 201 新 id、列表只见新行。
 func TestContractPlatform_APIKeyListEnvelopeAndSoftDelete(t *testing.T) {
 	srv := harness.Start(t)
@@ -271,10 +273,13 @@ func TestContractPlatform_APIKeyListEnvelopeAndSoftDelete(t *testing.T) {
 
 // TestContractPlatform_APIKeyRotationManagedAPIFormat:
 // ① 旋转（PATCH 带新 key）自动重探：探活成功 → 200 且 testStatus=ok（非静默 pending）；
-//   探针失败不挡 PATCH → 200 且 testStatus=error（旋转本身成功，脑裂取舍 G7）。
+//
+//	探针失败不挡 PATCH → 200 且 testStatus=error（旋转本身成功，脑裂取舍 G7）。
+//
 // ② 受管 provider（anselm）行 Update → 422 API_KEY_IMMUTABLE；删除（无引用）放行。
 // ③ custom provider apiFormat 白名单：缺 → 400 API_KEY_API_FORMAT_REQUIRED；
-//   白名单外 → 400 API_KEY_API_FORMAT_INVALID；合法二选一 → 201。
+//
+//	白名单外 → 400 API_KEY_API_FORMAT_INVALID；合法二选一 → 201。
 func TestContractPlatform_APIKeyRotationManagedAPIFormat(t *testing.T) {
 	srv := harness.Start(t)
 	mock := harness.NewLLMMock(t)
@@ -378,10 +383,13 @@ func TestContractPlatform_ModelCapabilitiesEmptyAndIsolation(t *testing.T) {
 
 // TestContractPlatform_LimitsResetAndPatchEdges:
 // ① /limits/schema 携带逐字段 default → PATCH 改 agent.maxSteps → GET 回读 → POST :reset
-//   （无 body）→ 响应与 GET 均回到 schema 默认（服务端持有默认、客户端不硬编）。
-//   （PATCH 热换的消费方行为已由 TestPlatform_LimitsHotSwap/R4 钉死；:reset 走同一 install 热换路径。）
+//
+//	（无 body）→ 响应与 GET 均回到 schema 默认（服务端持有默认、客户端不硬编）。
+//	（PATCH 热换的消费方行为已由 TestPlatform_LimitsHotSwap/R4 钉死；:reset 走同一 install 热换路径。）
+//
 // ② PATCH 未知键 → 400 SETTINGS_LIMITS_INVALID（PatchLimits 转严格解码,与全平台一致）;
-//   已知键错型 → 400 SETTINGS_LIMITS_INVALID；显式越界 0 → 400 SETTINGS_LIMITS_INVALID。
+//
+//	已知键错型 → 400 SETTINGS_LIMITS_INVALID；显式越界 0 → 400 SETTINGS_LIMITS_INVALID。
 func TestContractPlatform_LimitsResetAndPatchEdges(t *testing.T) {
 	srv := harness.Start(t)
 	c := srv.Client(t)
@@ -461,9 +469,13 @@ func TestContractPlatform_LimitsResetAndPatchEdges(t *testing.T) {
 // TestContractPlatform_SandboxGovernanceEdges:
 // ① runtimes/envs 是有界系统级资源,api.md 登记 N4 豁免:忽略分页参数、返全集无 nextCursor。
 // ② envs 机器级可见（foundation/sandbox.md：sandbox_envs 系统级、无 ws 列——批次行描述
-//   「跨 ws 互不见」与契约不符，以契约为准断两 ws 同见）。
+//
+//	「跨 ws 互不见」与契约不符，以契约为准断两 ws 同见）。
+//
 // ③ :retry-bootstrap 带内返回 {ok}（失败是 degraded 非 HTTP 错）；对话 scratch
-//   {kind}:reset 幂等 204、:reset-all 返 {removed}。
+//
+//	{kind}:reset 幂等 204、:reset-all 返 {removed}。
+//
 // ④ POST /sandbox/runtimes 拒未知字段 → 400 INVALID_REQUEST（在触发任何下载之前）。
 func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 	srv := harness.Start(t)
@@ -510,7 +522,7 @@ func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 	if !found {
 		t.Fatalf("sandbox envs are machine-level (no ws column) — wsB must see env %s, got %+v", envs[0].ID, envsB)
 	}
-	wb.GET("/api/v1/sandbox/envs/" + envs[0].ID).OK(t, nil) // 单读同理机器级可达
+	wb.GET("/api/v1/sandbox/envs/"+envs[0].ID).OK(t, nil) // 单读同理机器级可达
 
 	// ③ :retry-bootstrap 带内状态。
 	rb := wa.POST("/api/v1/sandbox:retry-bootstrap", nil)
@@ -552,13 +564,16 @@ func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 
 // TestContractPlatform_FreetierQuota:
 // ① NotProvisioned：受管行自 S-1 不可删——404 态只在 provisioner 未落行（离线/网关不可达）时天然
-//   存在，按「有无受管行」分支断言：无行→404 FREETIER_NOT_PROVISIONED；有行→跳过（404 面不可造）。
+//
+//	存在，按「有无受管行」分支断言：无行→404 FREETIER_NOT_PROVISIONED；有行→跳过（404 面不可造）。
+//
 // ② QuotaShape：等 provisioner 落行后打 quota——200 时 data 必须五字段全在
-//   {limit,used,remaining,resetAt,available} 且 remaining≥0；网关自身失败必须按
-//   LLM_AUTH_FAILED/LLM_RATE_LIMITED/LLM_PROVIDER_ERROR 分类冒泡（绝不本地翻行）。
-//   注：remaining 钳≥0 与 available 折日预算由网关计算、后端原样转发；分类与代理逻辑的
-//   脚本化分支已有单测（backend/internal/app/freetier/quota_test.go + infra/llm/quota_test.go）。
-//   只读 REST 面，绝不用受管 key 跑 chat/agent。
+//
+//	{limit,used,remaining,resetAt,available} 且 remaining≥0；网关自身失败必须按
+//	LLM_AUTH_FAILED/LLM_RATE_LIMITED/LLM_PROVIDER_ERROR 分类冒泡（绝不本地翻行）。
+//	注：remaining 钳≥0 与 available 折日预算由网关计算、后端原样转发；分类与代理逻辑的
+//	脚本化分支已有单测（backend/internal/app/freetier/quota_test.go + infra/llm/quota_test.go）。
+//	只读 REST 面，绝不用受管 key 跑 chat/agent。
 func TestContractPlatform_FreetierQuota(t *testing.T) {
 	srv := harness.Start(t)
 	c := srv.Client(t)
@@ -634,7 +649,8 @@ func TestContractPlatform_FreetierQuota(t *testing.T) {
 // TestContractPlatform_SystemEnvelopes:
 // ① GET /health：N1 envelope {"data":{"status":"ok"}}，免 workspace 头。
 // ② GET /system/data-dir：guarded（无 ws 头 → 401 UNAUTH_NO_WORKSPACE）；有头 → {dataDir}
-//   = 启动时 ANSELM_DATA_DIR 的解析值。
+//
+//	= 启动时 ANSELM_DATA_DIR 的解析值。
 func TestContractPlatform_SystemEnvelopes(t *testing.T) {
 	srv := harness.Start(t)
 	c := srv.Client(t)
@@ -774,7 +790,8 @@ func platformC_raw(t *testing.T, method, rawURL string, hdr map[string]string, h
 // TestContractPlatform_LoopbackDoors: loopback 加固两道门。
 // ① Host 门常开（token 无关）：伪 Host → 403 FORBIDDEN_BAD_HOST；无 token 时 bearer 关、health 裸通。
 // ② Bearer 门（设 ANSELM_AUTH_TOKEN 的独立 server）：缺/错 token → 401 UNAUTH_BAD_TOKEN；
-//   /health 不豁免；OPTIONS 与 /webhooks/ 豁免；Host 门先于 token 判定（好 token+坏 Host 仍 403）。
+//
+//	/health 不豁免；OPTIONS 与 /webhooks/ 豁免；Host 门先于 token 判定（好 token+坏 Host 仍 403）。
 func TestContractPlatform_LoopbackDoors(t *testing.T) {
 	t.Run("HostDoorAlwaysOn", func(t *testing.T) {
 		srv := harness.Start(t)
@@ -834,9 +851,12 @@ func TestContractPlatform_LoopbackDoors(t *testing.T) {
 // TestContractPlatform_WebSearchBackendAndWebFetchMode:
 // ① 未配搜索 backend：WebSearch 工具收敛为可操作引导文本（非错误、非空）。
 // ② 配真搜索 backend（serper 形伪 server + default-search key）后：请求真达 backend
-//   （X-API-KEY 携 key、q 携查询），结果以 {query,source:"serper",results[]} JSON 喂回模型。
+//
+//	（X-API-KEY 携 key、q 携查询），结果以 {query,source:"serper",results[]} JSON 喂回模型。
+//
 // ③ webFetchMode PATCH 矩阵：local/jina 回显、白名单外 400 WORKSPACE_WEB_FETCH_MODE_INVALID。
-//   （「读不到收敛 local」是 Service 内部兜底、无线缆面——见 rows note。）
+//
+//	（「读不到收敛 local」是 Service 内部兜底、无线缆面——见 rows note。）
 func TestContractPlatform_WebSearchBackendAndWebFetchMode(t *testing.T) {
 	wc, mock := chatSetup(t, false)
 	wsID := wsOf(t, wc)

@@ -76,6 +76,21 @@ func (s *Service) ValidateMention(ctx context.Context, t mentiondomain.MentionTy
 	return err
 }
 
+// skillMentionNames extracts the ids (= slug names) of skill-typed mentions — the turn's @-skill
+// activations, whose allowed-tools the run goroutine pre-authorizes before the loop runs.
+//
+// skillMentionNames 抽出 skill 类型 mention 的 id（= slug 名）——本回合的 @skill 激活，其
+// allowed-tools 由运行 goroutine 在 loop 跑前预授权。
+func skillMentionNames(mentions []mentiondomain.MentionInput) []string {
+	var out []string
+	for _, m := range mentions {
+		if m.Type == mentiondomain.MentionSkill && m.ID != "" {
+			out = append(out, m.ID)
+		}
+	}
+	return out
+}
+
 // mentionSnapshot is the read-back form of one frozen mention.
 type mentionSnapshot struct{ Type, ID, Name, Content string }
 

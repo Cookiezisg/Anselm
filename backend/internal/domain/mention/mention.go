@@ -15,12 +15,16 @@ package mention
 import "context"
 
 // MentionType is the closed set of @-mentionable entity kinds: the Quadrinity + document +
-// trigger / control / approval — built entities that carry an injectable content snapshot (the
-// latter three so AI :iterate can seed them). conversation/skill/mcp are NOT mentionable
-// (no single content snapshot to inject).
+// trigger / control / approval + skill — kinds that carry an injectable content snapshot (the
+// build entities so AI :iterate can seed them by reference; skill so a user can ACTIVATE it by
+// @-mention, its rendered body becoming the snapshot). @-mention semantics diverge by type: a
+// document is a reference, a skill is an ACTIVATION (the pre-authorization side-effect rides a
+// separate chat hook — WRK-076). conversation/mcp are NOT mentionable (no single content snapshot).
 //
-// MentionType 是可被 @ 的实体类型封闭集：四件套 + document + trigger / control / approval——有可注入
-// 内容快照的构建实体（后三个使 AI :iterate 能种入）。conversation/skill/mcp 不可 @（无单一内容快照可注入）。
+// MentionType 是可被 @ 的实体类型封闭集：四件套 + document + trigger / control / approval + skill
+// ——有可注入内容快照的类型（build 实体使 AI :iterate 能按引用种入；skill 使用户可 @ **激活**它、
+// 其渲染后 body 即快照）。@ 语义按类型分岔：document 是引用，skill 是**激活**（预授权副作用走 chat
+// 另一钩子——WRK-076）。conversation/mcp 不可 @（无单一内容快照）。
 type MentionType string
 
 const (
@@ -36,6 +40,11 @@ const (
 	MentionTrigger  MentionType = "trigger"
 	MentionControl  MentionType = "control"
 	MentionApproval MentionType = "approval"
+	// skill is @-mentionable as an ACTIVATION handle (WRK-076): its rendered body is the injected
+	// snapshot, and chat pre-authorizes the skill's allowed-tools for that turn. Id = the slug name.
+	//
+	// skill 作为**激活**句柄可 @（WRK-076）：其渲染 body 是注入快照，chat 为该回合预授权其 allowed-tools。id = slug 名。
+	MentionSkill MentionType = "skill"
 )
 
 // IsValidMentionType reports whether t is one of the mentionable built kinds. Consumers
@@ -45,7 +54,7 @@ const (
 func IsValidMentionType(t MentionType) bool {
 	switch t {
 	case MentionDocument, MentionFunction, MentionHandler, MentionWorkflow, MentionAgent,
-		MentionTrigger, MentionControl, MentionApproval:
+		MentionTrigger, MentionControl, MentionApproval, MentionSkill:
 		return true
 	}
 	return false

@@ -99,8 +99,8 @@ func TestP4bMenConv_DeletedAndUnknownMentionDegrade(t *testing.T) {
 	mid := sendWith(t, wc, convID, map[string]any{
 		"content": "look at these two references",
 		"mentions": []map[string]any{
-			{"type": "function", "id": fnID},             // soft-deleted → resolver errors → stub
-			{"type": "skill", "id": "skl_nonexistent01"}, // non-mentionable type → no resolver → stub
+			{"type": "function", "id": fnID},               // soft-deleted → resolver errors → stub
+			{"type": "skill", "id": "nonexistent-skill01"}, // skill IS mentionable now, but this one doesn't exist → resolver errors → stub
 		},
 	})
 	// A broken/deleted @-reference must NEVER block sending — it degrades, it does not fail the turn.

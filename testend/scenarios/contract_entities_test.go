@@ -199,7 +199,7 @@ func TestContractEntities_FunctionCursorRoundTripAndUnknownFields(t *testing.T) 
 	var f struct {
 		Name string `json:"name"`
 	}
-	wc.GET("/api/v1/functions/" + fnID).OK(t, &f)
+	wc.GET("/api/v1/functions/"+fnID).OK(t, &f)
 	if f.Name != "pager_fn" {
 		t.Fatalf("rejected PATCH must not mutate the row, name=%q", f.Name)
 	}
@@ -302,7 +302,7 @@ func TestContractEntities_HandlerCursorSoftDeleteUnknownFields(t *testing.T) {
 			EnvID string `json:"envId"`
 		} `json:"activeVersion"`
 	}
-	wc.GET("/api/v1/handlers/" + hdID).OK(t, &hd)
+	wc.GET("/api/v1/handlers/"+hdID).OK(t, &hd)
 	if r := wc.DELETE("/api/v1/handlers/" + hdID); r.Status != 204 {
 		t.Fatalf("handler delete must 204, got %d %s", r.Status, r.Raw)
 	}
@@ -323,7 +323,7 @@ func TestContractEntities_HandlerCursorSoftDeleteUnknownFields(t *testing.T) {
 	})
 	// D1: the old call ledger row survives the entity's soft delete.
 	// D1：旧调用台账行在实体软删后存活。
-	wc.GET("/api/v1/handler-calls/" + firstCallID).OK(t, nil)
+	wc.GET("/api/v1/handler-calls/"+firstCallID).OK(t, nil)
 	// env destroyed (owner key functionID_envID-style: hdID_ prefix rows all gone).
 	// env 已销毁（owner 前缀 hdID_ 的行全部消失）。
 	harness.Eventually(t, 15000, "deleted handler's envs reclaimed", func() bool {
@@ -393,7 +393,7 @@ func TestContractEntities_HandlerRevertConfigMergePatchIterate(t *testing.T) {
 		ConfigState   string   `json:"configState"`
 		MissingConfig []string `json:"missingConfig"`
 	}
-	wc.GET("/api/v1/handlers/" + hdID + "/config").OK(t, &cfg)
+	wc.GET("/api/v1/handlers/"+hdID+"/config").OK(t, &cfg)
 	if len(cfg.MissingConfig) != 1 || cfg.MissingConfig[0] != "b" {
 		t.Fatalf("null-deleted key must show missing: %+v", cfg)
 	}
@@ -428,13 +428,13 @@ func TestContractEntities_HandlerRevertConfigMergePatchIterate(t *testing.T) {
 		t.Fatalf("revert must restore v1 behavior: %+v", out)
 	}
 	var hd struct {
-		Name        string `json:"name"`
-		Description string `json:"description"`
+		Name          string `json:"name"`
+		Description   string `json:"description"`
 		ActiveVersion struct {
 			Version int `json:"version"`
 		} `json:"activeVersion"`
 	}
-	wc.GET("/api/v1/handlers/" + hdID).OK(t, &hd)
+	wc.GET("/api/v1/handlers/"+hdID).OK(t, &hd)
 	if hd.Name != "verhd" || hd.Description != "契约探针" || hd.ActiveVersion.Version != 1 {
 		t.Fatalf("revert must move only the pointer, meta intact: %+v", hd)
 	}
@@ -446,7 +446,7 @@ func TestContractEntities_HandlerRevertConfigMergePatchIterate(t *testing.T) {
 		t.Fatalf(":iterate must 202, got %d %s", r.Status, r.Raw)
 	}
 	convID := r.Field(t, "id")
-	wc.GET("/api/v1/conversations/" + convID).OK(t, nil)
+	wc.GET("/api/v1/conversations/"+convID).OK(t, nil)
 }
 
 // TestContractEntities_AgentCursorSoftDeleteUnknownFields —— A-ag-3 + A-ag-6 + A-ag-8。
@@ -551,7 +551,7 @@ func TestContractEntities_AgentCursorSoftDeleteUnknownFields(t *testing.T) {
 	}
 	agCreate(t, wc, map[string]any{"name": "Pager", "description": "reborn", "prompt": "x"}) // 同名复用
 	// D1: execution log row survives the soft delete. D1：执行台账行存活。
-	wc.GET("/api/v1/agent-executions/" + execID).OK(t, nil)
+	wc.GET("/api/v1/agent-executions/"+execID).OK(t, nil)
 
 	// —— A-ag-8: unknown fields reject on create + :edit ——
 	wc.Do("POST", "/api/v1/agents", map[string]any{"name": "Stray", "prompt": "x", "wat": 1}).
@@ -632,7 +632,7 @@ func TestContractEntities_FlowrunEntryDecideAndErrorFaces(t *testing.T) {
 	var page []struct {
 		ID string `json:"id"`
 	}
-	wc.GET("/api/v1/flowruns?status=completed&workflowId=" + wfID).OK(t, &page)
+	wc.GET("/api/v1/flowruns?status=completed&workflowId="+wfID).OK(t, &page)
 	if len(page) != 1 || page[0].ID != runID {
 		t.Fatalf("valid status filter must list the run: %+v", page)
 	}
@@ -807,7 +807,7 @@ func TestContractEntities_FunctionEnvLifecycle(t *testing.T) {
 			EnvError  string `json:"envError"`
 		} `json:"activeVersion"`
 	}
-	wc.GET("/api/v1/functions/" + badID).OK(t, &got)
+	wc.GET("/api/v1/functions/"+badID).OK(t, &got)
 	if got.ActiveVersion.EnvStatus != "failed" || got.ActiveVersion.EnvError == "" {
 		t.Fatalf("bad-dep version must read env failed + error visible: %+v", got.ActiveVersion)
 	}
@@ -827,7 +827,7 @@ func TestContractEntities_FunctionVersionCapTrimReclaimsEnvs(t *testing.T) {
 			EnvID string `json:"envId"`
 		} `json:"activeVersion"`
 	}
-	wc.GET("/api/v1/functions/" + fnID).OK(t, &v1)
+	wc.GET("/api/v1/functions/"+fnID).OK(t, &v1)
 	if v1.ActiveVersion.EnvID == "" {
 		t.Fatal("v1 must carry a per-version envId")
 	}
@@ -929,7 +929,7 @@ func TestContractEntities_HandlerResidentSemantics(t *testing.T) {
 		Name        string `json:"name"`
 		Description string `json:"description"`
 	}
-	wc.GET("/api/v1/handlers/" + counter).OK(t, &hd)
+	wc.GET("/api/v1/handlers/"+counter).OK(t, &hd)
 	if hd.Name != "memory_keeper_2" || hd.Description != "renamed but alive" {
 		t.Fatalf("meta edits must land on the row: %+v", hd)
 	}
@@ -1107,7 +1107,7 @@ func TestContractEntities_AgentMountHealthMatrix(t *testing.T) {
 	}
 
 	// baseline: 2 tools + 1 knowledge row, all healthy. 基线：3 行全健康。
-	wc.GET("/api/v1/agents/" + agID + "/mount-health").OK(t, &rep)
+	wc.GET("/api/v1/agents/"+agID+"/mount-health").OK(t, &rep)
 	if len(rep.Mounts) != 3 || !rep.AllHealthy {
 		t.Fatalf("baseline mount-health must be 3 healthy rows (tools + knowledge): %+v", rep)
 	}
@@ -1118,7 +1118,7 @@ func TestContractEntities_AgentMountHealthMatrix(t *testing.T) {
 	if r := wc.DELETE("/api/v1/documents/" + docID); r.Status != 204 {
 		t.Fatalf("doc delete: %d %s", r.Status, r.Raw)
 	}
-	wc.GET("/api/v1/agents/" + agID + "/mount-health").OK(t, &rep)
+	wc.GET("/api/v1/agents/"+agID+"/mount-health").OK(t, &rep)
 	if len(rep.Mounts) != 3 || rep.AllHealthy {
 		t.Fatalf("post-doc-delete report wrong: %+v", rep)
 	}
@@ -1136,7 +1136,7 @@ func TestContractEntities_AgentMountHealthMatrix(t *testing.T) {
 	// the SECOND mount is flagged citing the collision.
 	// 改名使两挂载同名合成 → 与 Resolve 对称，第二个挂载被标、错误引撞名。
 	wc.PATCH("/api/v1/functions/"+fnID, map[string]any{"name": "greeter__hello"}).OK(t, nil)
-	wc.GET("/api/v1/agents/" + agID + "/mount-health").OK(t, &rep)
+	wc.GET("/api/v1/agents/"+agID+"/mount-health").OK(t, &rep)
 	if len(rep.Mounts) != 3 || rep.AllHealthy {
 		t.Fatalf("collision report wrong: %+v", rep)
 	}
