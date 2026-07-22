@@ -12,7 +12,7 @@ audience: [human, ai]
 # HTTP API —— 端点登记
 
 > 全部端点的单一事实源（method · path · 语义一行）。
-> 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；**无界集合** List `?cursor&limit` 分页，**有界可枚举资源**（workspaces / skills / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities）与**有界批查**（flowrun-stats，workflowIds ≤50 封顶 · flowrun-matrix，flowrunIds ≤50 封顶——两者均去重后计数、越界 422 大声拒）豁免——返全集不分页、无 `nextCursor`、分页参数按标准 HTTP 忽略；**有界投影**（trigger-schedule）另立一类——它**不是已存集合**、而是按窗现算的派生时间线，故同样无 `nextCursor`，但 `within`/`limit` 是**真参数**：超上限**钳制**、不可解析或非正 → **422**（不是忽略），响应经 `truncated` 诚实报告窗内还有更多；窗头恒为 now、无游标，故超出 `limit` 的点本次请求不可达（抬 `limit` ≤1000 即可，1000 之外无从翻页——前瞻预览、非可翻集合）；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
+> 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；**无界集合** List `?cursor&limit` 分页，**有界可枚举资源**（workspaces / skills 及其 files 列表 / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities）与**有界批查**（flowrun-stats，workflowIds ≤50 封顶 · flowrun-matrix，flowrunIds ≤50 封顶——两者均去重后计数、越界 422 大声拒）豁免——返全集不分页、无 `nextCursor`、分页参数按标准 HTTP 忽略；**有界投影**（trigger-schedule）另立一类——它**不是已存集合**、而是按窗现算的派生时间线，故同样无 `nextCursor`，但 `within`/`limit` 是**真参数**：超上限**钳制**、不可解析或非正 → **422**（不是忽略），响应经 `truncated` 诚实报告窗内还有更多；窗头恒为 now、无游标，故超出 `limit` 的点本次请求不可达（抬 `limit` ≤1000 即可，1000 之外无从翻页——前瞻预览、非可翻集合）；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
 > **响应形状铁律**：`data` 内层一律**裸实体**——`POST`(Create) / `GET` 单读 / `PATCH` 同形,前端一套解构到底;**绝不**裹 `{"<entity>": ..., "version": ...}` 外层 key。版本实体(function/handler/agent/workflow/control/approval)的当前版本经实体内嵌 `activeVersion` 字段透出(Create 即附新版本,与 GET 单读完全同形)。复合读(一次返多个并列实体,如 `GET /flowruns/{id}` → `{flowrun, nodes, nextCursor}`,nodes 为 N4 keyset 一页)才用具名多 key。
 > **异步动作返 id 铁律**：返回新建资源 id 的异步动作(`POST /{id}:trigger`→flowrun、chat `POST /{id}/messages`→message、`:iterate`/`:triage`→conversation、`:fire`→activation)一律 `202 {data:{"id": <newId>}}`——前端一条规则取新资源 id。**同步执行**(`:run`/`:invoke`/`:call`,阻塞返完整结果)不在此列、返**裸结果**(不裹 `{result}`/`{output}`)。
 > **状态变更动作铁律**：改实体状态的动作(`:stage`/`:kill`/`:activate`/`:deactivate`/`:restart`/`:edit`/`:revert`)一律返**动作后实体完整快照**(`{data:<entity>}`),不发 `{staged:true}`/`{killed:N}` 等临时裸键(附加计数等并入实体字段或由相关列表端点查)。**无新产物的变更**(resolve-interaction、search `:reindex`、DELETE)一律 `204 No Content`,绝不返 `{data:null}`。
@@ -143,9 +143,16 @@ flowrun **节点行** DTO 带排队戳两字段（scheduler 工单⑫，camelCas
 
 两域同构：CRUD + `POST {id}:edit / :revert / :iterate` + `GET {id}/versions[/{version}]`。approval 的运行时决策端点在 flowrun 侧（见上）。
 
-## skill（`/api/v1/skills`，name 即 id）
+## skill（`/api/v1/skills`，name 即 id，目录即真相）
 
-CRUD（`POST` 严格冲突 / `PUT {name}` 覆盖 / `DELETE {name}`）+ `POST /skills/{name}:activate`（inline 渲染注入 / fork 派 subagent）。
+CRUD（`POST` 严格冲突、**新建 name 须符 Agent Skills 规范形态**〔小写字母数字 + 单连字符，允数字开头〕→ 否则 400 `SKILL_INVALID_NAME` / `PUT {name}` 结构化覆盖〔底层保真读-改-写：typed 视图之外的 frontmatter 键与键序不丢；守卫正则从宽，存量下划线名照常可编〕/ `DELETE {name}` 删整目录含捆绑文件）+ `POST /skills/{name}:activate`（inline 渲染注入 / fork 派 subagent）+ **files 子资源（文件即真相面，`{path...}` 尾随通配路由）**：
+
+- `GET /skills/{name}/files`：全文件元数据列表 `[{path,size,updatedAt}]`（**含 SKILL.md**，slash 相对路径、按路径升序；有界不分页，N4 豁免①）。
+- `GET /skills/{name}/files/{path...}`：单文件**裸字节**（Content-Type 按扩展名推断〔内置 md/py/sh 等补充表〕，缺省 octet-stream；读护栏统一 1MB——超限清单也可读，用户才能修坏件）。
+- `PUT /skills/{name}/files/{path...}`：裸字节体写入 → 204（父目录按需建）；**path=SKILL.md 时为带校验的清单整替**（≤32KB + 围栏可解析 + frontmatter 带 name 时必须==目录名；description 刻意不必填——导入件可缺省；成功后 equip 边重同步）。附属文件护栏 1MB。
+- `DELETE /skills/{name}/files/{path...}`：204；**清单拒删**（400 `SKILL_FILE_PATH_INVALID`——删 skill 走 `DELETE /skills/{name}`）。
+
+路径守卫三重：`filepath.IsLocal` 词法早拒（`..`/绝对路径/反斜杠 → 400 `SKILL_FILE_PATH_INVALID`）→ Clean 复核 → 一切 I/O 经 `os.Root` 句柄（symlink 逃逸 / TOCTOU 内核级阻断）。
 
 ## mcp（`/api/v1/mcp-servers` · `/api/v1/mcp-registry`）
 

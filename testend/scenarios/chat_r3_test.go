@@ -116,14 +116,14 @@ func TestChatR3_SkillInlineActivateAndPreauth(t *testing.T) {
 	fnID := fnCreate(t, wc, "deploy_step", "def deploy_step() -> dict:\n    return {\"deployed\": True}\n")
 
 	wc.POST("/api/v1/skills", map[string]any{
-		"name": "deploy_guide", "description": "deploy runbook",
+		"name": "deploy-guide", "description": "deploy runbook",
 		"body":         "RUNBOOKMARK: ship with deploy_step, no fear.",
 		"allowedTools": []string{"run_function"},
 	}).OK(t, nil)
 
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "activate_skill",
-			Args: fw(map[string]any{"name": "deploy_guide"})}}},
+			Args: fw(map[string]any{"name": "deploy-guide"})}}},
 		// dangerous run_function——active skill 的 allowed-tools 应免确认直接跑。
 		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "run_function",
 			Args: map[string]any{"functionId": fnID, "args": map[string]any{},
@@ -172,14 +172,14 @@ func TestChatR3_SkillForkRoute(t *testing.T) {
 	wc, mock := chatSetup(t, false)
 
 	wc.POST("/api/v1/skills", map[string]any{
-		"name": "fork_probe", "description": "forked task",
+		"name": "fork-probe", "description": "forked task",
 		"body":    "Compute the answer and reply exactly FORKRESULT-99.",
 		"context": "fork", "agent": "general-purpose", // fork 必须声明 subagent 类型。
 	}).OK(t, nil)
 
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "activate_skill",
-			Args: fw(map[string]any{"name": "fork_probe"})}}},
+			Args: fw(map[string]any{"name": "fork-probe"})}}},
 		// 下一帧服务 fork 出的 subagent run（同 dialogue 模型队列，顺序确定）。
 		harness.LLMTurn{Text: "FORKRESULT-99"},
 		// 然后父回合收尾。

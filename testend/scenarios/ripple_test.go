@@ -287,11 +287,11 @@ func TestRippleR5_RelationGraphFaces(t *testing.T) {
 	var st mcpStatus
 	wc.GET("/api/v1/mcp-servers/relmcp").OK(t, &st)
 	docID := wc.POST("/api/v1/documents", map[string]any{"name": "rel_doc", "content": "knowledge"}).Field(t, "id")
-	wc.POST("/api/v1/skills", map[string]any{"name": "rel_skill", "description": "d", "body": "b"}).OK(t, nil)
+	wc.POST("/api/v1/skills", map[string]any{"name": "rel-skill", "description": "d", "body": "b"}).OK(t, nil)
 
 	agID := agCreate(t, wc, map[string]any{
 		"name": "Rel Worker", "description": "d", "prompt": "p",
-		"skill": "rel_skill", "knowledge": []string{docID},
+		"skill": "rel-skill", "knowledge": []string{docID},
 		"tools": []map[string]any{
 			{"ref": fnID, "name": "fn"},
 			{"ref": hdID + ".m", "name": "hd"},
@@ -311,7 +311,7 @@ func TestRippleR5_RelationGraphFaces(t *testing.T) {
 	harness.Eventually(t, 15000, "agent equip edges complete", func() bool {
 		n := neighborhood("agent", agID)
 		return strings.Contains(n, fnID) && strings.Contains(n, hdID) &&
-			strings.Contains(n, "relmcp") && strings.Contains(n, docID) && strings.Contains(n, "rel_skill")
+			strings.Contains(n, "relmcp") && strings.Contains(n, docID) && strings.Contains(n, "rel-skill")
 	})
 
 	// 水化跟名：改 fn 名 → 邻域显示新名（图存 id、名字读时取）。

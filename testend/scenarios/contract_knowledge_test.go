@@ -8,6 +8,7 @@
 package scenarios
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"strings"
@@ -185,14 +186,16 @@ func TestContractKnowledge_SkillCRUDSurface(t *testing.T) {
 func TestContractKnowledge_SkillGuards(t *testing.T) {
 	srv := harness.Start(t)
 
-	// B-sk-1：非法 name 矩阵（../ 穿越、绝对路径、分隔符、大写、unicode、超长、空白）全部
-	// 400 SKILL_INVALID_NAME；URL 段里的 %2F 编码穿越同拒；合法 slug 1:1 映射盘上目录；
-	// 全数据目录无逃逸产物。
+	// B-sk-1：非法 name 矩阵（../ 穿越、绝对路径、分隔符、大写、unicode、超长、空白，及创建
+	// 从严的规范拒项：下划线、连续/首位连字符——WRK-076 D3 双正则）全部 400 SKILL_INVALID_NAME；
+	// 数字开头按 Agent Skills 规范**合法**（如 3d-print）；URL 段里的 %2F 编码穿越同拒；合法
+	// slug 1:1 映射盘上目录；全数据目录无逃逸产物。
 	t.Run("B-sk-1_slug_is_path_traversal_guard", func(t *testing.T) {
 		wc, wsID := knowledgeC_newWS(t, srv, "skl-traversal")
 		bad := []string{
 			"../pwn", "..", "a/pwn", "/pwn-abs", `a\pwn`, "PWN-Upper",
-			"1pwn-digit-start", "スキルpwn", strings.Repeat("a", 65), "pwn name-space", "",
+			"スキルpwn", strings.Repeat("a", 65), "pwn name-space", "",
+			"pwn_underscore", "pwn--double", "-pwn-lead", "pwn-trail-",
 		}
 		for _, n := range bad {
 			wc.Do("POST", "/api/v1/skills", knowledgeC_skill(n, "d", "b")).
@@ -203,11 +206,13 @@ func TestContractKnowledge_SkillGuards(t *testing.T) {
 			map[string]any{"description": "d", "body": "b"}).Fail(t, 400, "SKILL_INVALID_NAME")
 		wc.Do("GET", "/api/v1/skills/..%2F..%2Fpwn-url", nil).Fail(t, 400, "SKILL_INVALID_NAME")
 
-		// 合法 slug → <dataDir>/workspaces/<ws>/skills/<name>/SKILL.md 恰在其位。
-		wc.POST("/api/v1/skills", knowledgeC_skill("good_skill-1", "legit", "hello")).OK(t, nil)
-		want := filepath.Join(srv.DataDir, "workspaces", wsID, "skills", "good_skill-1", "SKILL.md")
-		if _, err := os.Stat(want); err != nil {
-			t.Fatalf("valid slug must map 1:1 to its directory, missing %s: %v", want, err)
+		// 合法 slug（含规范允许的数字开头）→ <dataDir>/workspaces/<ws>/skills/<name>/SKILL.md 恰在其位。
+		for _, good := range []string{"good-skill-1", "3d-print"} {
+			wc.POST("/api/v1/skills", knowledgeC_skill(good, "legit", "hello")).OK(t, nil)
+			want := filepath.Join(srv.DataDir, "workspaces", wsID, "skills", good, "SKILL.md")
+			if _, err := os.Stat(want); err != nil {
+				t.Fatalf("valid slug must map 1:1 to its directory, missing %s: %v", want, err)
+			}
 		}
 
 		// 逃逸审计：数据目录全树 + 目录外兄弟位都不得出现任何 pwn 产物。
@@ -530,5 +535,137 @@ func TestContractKnowledge_MemorySurface(t *testing.T) {
 		if m.Description != "orig" || m.Content != "orig" {
 			t.Fatalf("rejected PUT must not partially apply, got %+v", m)
 		}
+	})
+}
+
+// TestContractKnowledge_SkillFilesSurface — B-sk-f1..f4（WRK-076 B1「文件即真相」）：files
+// 子资源的裸字节 CRUD、编码穿越拒于守卫 + 全数据目录零逃逸产物、清单特判（校验路由 / 拒删 /
+// name==目录名）、frontmatter 保真（license/未知键/键序经结构化 PUT 幸存——契约级保真守护）、
+// 双护栏（清单 32KB / 附属 1MB）。
+func TestContractKnowledge_SkillFilesSurface(t *testing.T) {
+	srv := harness.Start(t)
+
+	t.Run("B-sk-f1_raw_crud_roundtrip", func(t *testing.T) {
+		wc, _ := knowledgeC_newWS(t, srv, "skl-files-crud")
+		wc.POST("/api/v1/skills", knowledgeC_skill("pdf", "d", "b")).OK(t, nil)
+
+		// PUT 嵌套裸字节 → 204 空体；GET 裸字节回读 + 按扩展名的 Content-Type。
+		if r := wc.DoRaw("PUT", "/api/v1/skills/pdf/files/references/deep/notes.md", "text/markdown", []byte("# notes")); r.Status != 204 {
+			t.Fatalf("nested raw put: %d %s", r.Status, r.Raw)
+		}
+		got := wc.DoRaw("GET", "/api/v1/skills/pdf/files/references/deep/notes.md", "", nil)
+		if got.Status != 200 || string(got.Raw) != "# notes" {
+			t.Fatalf("raw read back: %d %q", got.Status, got.Raw)
+		}
+
+		// 列表（JSON envelope）含清单与嵌套文件，slash 相对路径、按路径排序。
+		var files []struct {
+			Path string `json:"path"`
+			Size int64  `json:"size"`
+		}
+		wc.GET("/api/v1/skills/pdf/files").OK(t, &files)
+		if len(files) != 2 || files[0].Path != "SKILL.md" || files[1].Path != "references/deep/notes.md" {
+			t.Fatalf("file list shape: %+v", files)
+		}
+
+		// DELETE → 204；再读 404 SKILL_FILE_NOT_FOUND；重删同码。
+		if r := wc.DoRaw("DELETE", "/api/v1/skills/pdf/files/references/deep/notes.md", "", nil); r.Status != 204 {
+			t.Fatalf("raw delete: %d %s", r.Status, r.Raw)
+		}
+		wc.DoRaw("GET", "/api/v1/skills/pdf/files/references/deep/notes.md", "", nil).Fail(t, 404, "SKILL_FILE_NOT_FOUND")
+		wc.DoRaw("DELETE", "/api/v1/skills/pdf/files/references/deep/notes.md", "", nil).Fail(t, 404, "SKILL_FILE_NOT_FOUND")
+
+		// 未知 skill 的 files 面 → SKILL_NOT_FOUND（skill 级 404，非 file 级）。
+		wc.GET("/api/v1/skills/ghost/files").Fail(t, 404, "SKILL_NOT_FOUND")
+	})
+
+	t.Run("B-sk-f2_traversal_guard_and_escape_audit", func(t *testing.T) {
+		wc, _ := knowledgeC_newWS(t, srv, "skl-files-guard")
+		wc.POST("/api/v1/skills", knowledgeC_skill("guarded", "d", "b")).OK(t, nil)
+
+		// 单段内 %2F 编码穿越：PathValue 解码出 ../../ → 词法守卫 400 SKILL_FILE_PATH_INVALID。
+		wc.DoRaw("PUT", "/api/v1/skills/guarded/files/..%2F..%2F..%2Fpwn-file", "", []byte("owned")).
+			Fail(t, 400, "SKILL_FILE_PATH_INVALID")
+		wc.DoRaw("GET", "/api/v1/skills/guarded/files/..%2F..%2Fpwn-file", "", nil).
+			Fail(t, 400, "SKILL_FILE_PATH_INVALID")
+		// 反斜杠形态同拒。
+		wc.DoRaw("PUT", "/api/v1/skills/guarded/files/a%5Cpwn-file", "", []byte("owned")).
+			Fail(t, 400, "SKILL_FILE_PATH_INVALID")
+
+		// 多段 /../ 形态可能在 mux 层被 clean 重定向——安全语义统一由逃逸审计兜底：
+		// 全数据目录树 + 目录外兄弟位零 pwn 产物。
+		_, _ = wc.Try("PUT", "/api/v1/skills/guarded/files/references/../../../pwn-file", nil)
+		var escaped []string
+		_ = filepath.WalkDir(srv.DataDir, func(path string, _ os.DirEntry, err error) error {
+			if err == nil && strings.Contains(strings.ToLower(filepath.Base(path)), "pwn") {
+				escaped = append(escaped, path)
+			}
+			return nil
+		})
+		if len(escaped) > 0 {
+			t.Fatalf("files traversal must leave zero artifacts, found %v", escaped)
+		}
+		if _, err := os.Stat(filepath.Join(srv.DataDir, "..", "pwn-file")); !os.IsNotExist(err) {
+			t.Fatalf("files traversal must not write outside the data dir")
+		}
+	})
+
+	t.Run("B-sk-f3_manifest_special_casing_and_fidelity", func(t *testing.T) {
+		wc, _ := knowledgeC_newWS(t, srv, "skl-files-manifest")
+		wc.POST("/api/v1/skills", knowledgeC_skill("fidelity-probe", "original", "old body")).OK(t, nil)
+
+		// 清单 PUT 无围栏 → 422；frontmatter name != 目录名 → 422；删清单 → 400 指向正门。
+		wc.DoRaw("PUT", "/api/v1/skills/fidelity-probe/files/SKILL.md", "", []byte("no fence at all")).
+			Fail(t, 422, "SKILL_INVALID_FRONTMATTER")
+		wc.DoRaw("PUT", "/api/v1/skills/fidelity-probe/files/SKILL.md", "",
+			[]byte("---\nname: other-name\ndescription: d\n---\nb\n")).
+			Fail(t, 422, "SKILL_INVALID_FRONTMATTER")
+		wc.DoRaw("DELETE", "/api/v1/skills/fidelity-probe/files/SKILL.md", "", nil).
+			Fail(t, 400, "SKILL_FILE_PATH_INVALID")
+
+		// 合法原文 PUT：license + 未知键 + metadata + 刻意键序（license 在 name 前）。
+		raw := "---\nlicense: MIT\nname: fidelity-probe\nx-vendor-thing: keepme\ndescription: via files\nmetadata:\n  author: upstream\n---\nNew body.\n"
+		if r := wc.DoRaw("PUT", "/api/v1/skills/fidelity-probe/files/SKILL.md", "text/markdown", []byte(raw)); r.Status != 204 {
+			t.Fatalf("manifest raw put: %d %s", r.Status, r.Raw)
+		}
+		var sk struct {
+			Description string `json:"description"`
+			Frontmatter struct {
+				License  string            `json:"license"`
+				Metadata map[string]string `json:"metadata"`
+			} `json:"frontmatter"`
+		}
+		wc.GET("/api/v1/skills/fidelity-probe").OK(t, &sk)
+		if sk.Description != "via files" || sk.Frontmatter.License != "MIT" || sk.Frontmatter.Metadata["author"] != "upstream" {
+			t.Fatalf("raw manifest not reflected in typed projection: %+v", sk)
+		}
+
+		// 结构化 PUT（旧 API）只改 description → 未知键 / license / metadata / 键序必须幸存。
+		wc.PUT("/api/v1/skills/fidelity-probe", map[string]any{
+			"description": "structured edit", "body": "New body.",
+		}).OK(t, nil)
+		after := wc.DoRaw("GET", "/api/v1/skills/fidelity-probe/files/SKILL.md", "", nil)
+		text := string(after.Raw)
+		for _, want := range []string{"license: MIT", "x-vendor-thing: keepme", "author: upstream", "description: structured edit"} {
+			if !strings.Contains(text, want) {
+				t.Fatalf("fidelity lost %q after structured PUT:\n%s", want, text)
+			}
+		}
+		if strings.Index(text, "license:") > strings.Index(text, "name:") {
+			t.Fatalf("key order must survive structured PUT:\n%s", text)
+		}
+	})
+
+	t.Run("B-sk-f4_dual_size_guards", func(t *testing.T) {
+		wc, _ := knowledgeC_newWS(t, srv, "skl-files-guards")
+		wc.POST("/api/v1/skills", knowledgeC_skill("bulky", "d", "b")).OK(t, nil)
+
+		// 清单 32KB 护栏（经 files 面同样生效）。
+		bigManifest := "---\nname: bulky\ndescription: d\n---\n" + strings.Repeat("a", 32*1024)
+		wc.DoRaw("PUT", "/api/v1/skills/bulky/files/SKILL.md", "", []byte(bigManifest)).
+			Fail(t, 422, "SKILL_BODY_TOO_LARGE")
+		// 附属文件 1MB 护栏。
+		wc.DoRaw("PUT", "/api/v1/skills/bulky/files/assets/huge.bin", "", bytes.Repeat([]byte("a"), 1024*1024+1)).
+			Fail(t, 422, "SKILL_FILE_TOO_LARGE")
 	})
 }

@@ -1262,7 +1262,7 @@ active 指针移到旧版本号,然后**重启实例**跑它。name/description/
 ## skill 系(5 个,薄适配 skillapp.Service;skill 无 DB、文件式 SKILL.md 目录,name(slug) 即身份、无 id 无版本)
 
 共性:
-- **与 document 系相反:错误不软失败**——service 错误用 `fmt.Errorf("xxx_skill: %w", err)` 包裹后作为 error 返回(loop 把 error 文本回给 LLM)。可见 sentinel:`SKILL_NOT_FOUND` / `SKILL_INVALID_NAME`(必须小写 slug,regex `^[a-z][a-z0-9_-]{0,63}$`)/ `SKILL_INVALID_FRONTMATTER`(含 body 自带 frontmatter 拒收,details.reason 长解释)/ `SKILL_BODY_TOO_LARGE`(body ≤ **32KB**)/ `SKILL_NAME_CONFLICT` / `SKILL_FORK_REQUIRES_AGENT` / `SKILL_SUBAGENT_UNAVAILABLE`。description ≤1024 字符。
+- **与 document 系相反:错误不软失败**——service 错误用 `fmt.Errorf("xxx_skill: %w", err)` 包裹后作为 error 返回(loop 把 error 文本回给 LLM)。可见 sentinel:`SKILL_NOT_FOUND` / `SKILL_INVALID_NAME`(守卫 regex `^[a-z0-9][a-z0-9_-]{0,63}$`;新建另过规范形 `^[a-z0-9]+(-[a-z0-9]+)*$`——WRK-076 D3 双正则)/ `SKILL_INVALID_FRONTMATTER`(含 body 自带 frontmatter 拒收,details.reason 长解释)/ `SKILL_BODY_TOO_LARGE`(body ≤ **32KB**)/ `SKILL_NAME_CONFLICT` / `SKILL_FORK_REQUIRES_AGENT` / `SKILL_SUBAGENT_UNAVAILABLE`。description ≤1024 字符。
 - ValidateInput sentinel:`SKILL_NAME_REQUIRED`(全 5 个共用)。
 
 ### activate_skill

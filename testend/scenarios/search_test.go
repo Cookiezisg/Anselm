@@ -85,7 +85,7 @@ func TestSearch_ProjectionsLexicalAndFilters(t *testing.T) {
 		"source":      "user",
 	}).OK(t, nil)
 	wc.POST("/api/v1/skills", map[string]any{
-		"name": "sweepmark_skill", "description": "sweepmark skill probe",
+		"name": "sweepmark-skill", "description": "sweepmark skill probe",
 		"body": "Steps for the daily sweepmark report.",
 	}).OK(t, nil)
 	convID := wc.POST("/api/v1/conversations", map[string]any{"title": "sweepmark conversation probe"}).Field(t, "id")

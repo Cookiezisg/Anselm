@@ -55,9 +55,17 @@ const String kSkillContextFork = 'fork';
 const String kSkillSourceUser = 'user';
 const String kSkillSourceAI = 'ai';
 
-/// Physical guardrails mirrored from the backend (skill.go:74/75/83) for client-side pre-validation:
-/// body ≤ 32 KB, description ≤ 1024 chars, name is a filesystem-safe lowercase slug (slug IS identity).
-/// 后端护栏:body ≤32KB、description ≤1024、name 为文件安全小写 slug。
+/// Physical guardrails mirrored from the backend (domain/skill/skill.go) for client-side
+/// pre-validation: body (manifest) ≤ 32 KB, bundled file ≤ 1 MB, description ≤ 1024 chars.
+/// TWO name regexes (WRK-076 D3): the GUARD form is what can exist on disk (lenient — digit
+/// start and legacy `_` accepted, URL-safe by construction); the SPEC form is the Agent Skills
+/// open-spec shape enforced on CREATE only (no `_`, single hyphens).
+/// 后端护栏镜像:清单 ≤32KB、附属文件 ≤1MB、description ≤1024。双正则(WRK-076 D3):守卫形态=
+/// 盘上可存在(从宽,允数字开头与存量 `_`,天然 URL 安全);规范形态=新建从严(无 `_`、单连字符)。
 const int kSkillMaxBodyBytes = 32 * 1024;
+const int kSkillMaxFileBytes = 1024 * 1024;
 const int kSkillMaxDescriptionChars = 1024;
-final RegExp kSkillNameRegex = RegExp(r'^[a-z][a-z0-9_-]{0,63}$');
+final RegExp kSkillNameRegex = RegExp(r'^[a-z0-9][a-z0-9_-]{0,63}$');
+final RegExp kSkillSpecNameRegex = RegExp(
+  r'^[a-z0-9]+(-[a-z0-9]+)*$',
+); // 创建时另须 ≤64 字符

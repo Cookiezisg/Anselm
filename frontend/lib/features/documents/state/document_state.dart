@@ -156,8 +156,8 @@ final adoptedDraftDocProvider = NotifierProvider<AdoptedDraftDoc, String?>(
 /// 文档页的路由位置——rail 导航至此以选中。镜像 entityLocation。
 String documentLocation(String id) => '/documents/$id';
 
-/// The route location for a skill (slug-addressed — the name regex `^[a-z][a-z0-9_-]{0,63}$` is URL-safe
-/// by construction). skill 的路由位置(slug 寻址,名正则天然 URL 安全)。
+/// The route location for a skill (slug-addressed — the guard regex `^[a-z0-9][a-z0-9_-]{0,63}$` is
+/// URL-safe by construction). skill 的路由位置(slug 寻址,守卫正则天然 URL 安全)。
 String skillLocation(String name) => '/documents/skill/$name';
 
 /// The open document WITH content (fetched on select; autoDispose releases it on deselect). 打开的文档(带正文)。

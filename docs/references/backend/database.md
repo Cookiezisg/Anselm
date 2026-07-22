@@ -125,7 +125,7 @@ ID：`fr_`/`frn_`。两张无 deleted_at（D1）；**物理删恰有两个例外
 
 | 表 | 关键列 | 说明 |
 |---|---|---|
-| **skill：无表** | — | 文件式：`~/.anselm/workspaces/<ws>/skills/<name>/SKILL.md`（目录/条，纯按需扫描） |
+| **skill：无表** | — | 文件式：`~/.anselm/workspaces/<ws>/skills/<name>/SKILL.md`（目录即真相：清单〔小写 `skill.md` 读取回退〕+ 任意捆绑文件〔references/scripts/assets…〕同住；纯按需扫描、List 只读清单） |
 | `mcp_servers` | transport(stdio/sse/streamable-http) · runtime(node/python/docker/dotnet) · command/args · url · **config_enc**（加密的 {env,headers,oauth}——Env/Headers/OAuth 凭据束均非列）· timeout_sec · source(registry/manual/import) · registry_id | 软删；partial-UNIQUE(ws,name) |
 | `mcp_calls`（Log） | server_id · tool · status/triggered_by(CHECK) · input/output · **logs**（progress 通知 + 失败附 server stderr 尾，logtail 限长；List 置空） · elapsed_ms · 溯源 6 列（含 flowrun 3 列：id/node_id/iteration）| ws+server 索引 + flowrun 偏索引 |
 | `documents` | parent_id(nullable=根) · name · content · **path**(物化全路径) · **position**(同级序) · size_bytes · tags | 软删；同父名唯一（应用层重试加后缀）；**position 单事务原子赋（`max(兄弟)+1`、防并发同父撞车）、无 position 唯一索引（Move/Duplicate 会重排/原样复制）** |

@@ -196,10 +196,10 @@ func TestSearchR1_ProjectionLifecycle12Kinds(t *testing.T) {
 			kind: "skill", // name 即 id：PUT {name} 覆盖、无 PATCH。
 			create: func(t *testing.T, wc *harness.Client, tok string) string {
 				wc.POST("/api/v1/skills", map[string]any{
-					"name": "lc_skill", "description": "lifecycle skill",
+					"name": "lc-skill", "description": "lifecycle skill",
 					"body": "Steps: use " + tok + " daily.",
 				}).OK(t, nil)
-				return "lc_skill"
+				return "lc-skill"
 			},
 			update: func(t *testing.T, wc *harness.Client, id, tok string) {
 				wc.PUT("/api/v1/skills/"+id, map[string]any{

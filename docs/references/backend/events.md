@@ -85,7 +85,7 @@ audience: [human, ai]
 
 ## P4 三域挂载
 
-**notifications**：⊞ `skill.{created,updated,deleted}` · ⊞ `mcp.{installed,updated,removed,reconnected}` 族（`reconnected` payload `{name, status, lastError?}`——成败都发，status 载 reconnect 后真实态 ready/degraded/failed，使通知中心分清恢复与仍坏）· `document`：⤳ `{created, updated, moved}`（树刷新回声，documents 消费者整树重取）/ ⊞ `deleted`（破坏性、AI 可删用户文档，值得进收件箱）。
+**notifications**：⊞ `skill.{created,updated,deleted}`（files 面的文件写/删发 `skill.updated` 且 payload 另携 **`path`**〔被触文件的相对路径，清单整替 = `SKILL.md`〕——同事件名更富 payload，按 `skill.` 前缀刷新的消费者零改动即覆盖）· ⊞ `mcp.{installed,updated,removed,reconnected}` 族（`reconnected` payload `{name, status, lastError?}`——成败都发，status 载 reconnect 后真实态 ready/degraded/failed，使通知中心分清恢复与仍坏）· `document`：⤳ `{created, updated, moved}`（树刷新回声，documents 消费者整树重取）/ ⊞ `deleted`（破坏性、AI 可删用户文档，值得进收件箱）。
 
 **entities 流**：mcp = CallTool 的进度通知 tee 到 server scope 的 run 终端（per-call token 关联）+ **`status` 信号**（**ephemeral**：连接态转移 connecting→ready / ready↔degraded / →failed，发 `{status, prevStatus, lastError}` → server scope，使 MCP 行状态点实时变色；mcp_servers 行是重连真相、信号丢弃无妨，只在真变化时发，不入 buffer E2）；skill/document = build 镜像（create/edit 的 body/content）。
 

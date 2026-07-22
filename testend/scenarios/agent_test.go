@@ -303,13 +303,13 @@ func TestAgentR2_PromptAssembly(t *testing.T) {
 		"name": "ops manual", "content": "knowledgemark: rotate the key every monday.",
 	}).Field(t, "id")
 	wc.POST("/api/v1/skills", map[string]any{
-		"name": "triage_steps", "description": "triage guide",
+		"name": "triage-steps", "description": "triage guide",
 		"body": "guidemark: always bisect the failure window first.",
 	}).OK(t, nil)
 
 	agID := agCreate(t, wc, map[string]any{
 		"name": "Auditor", "description": "audits things", "prompt": "Audit the input.",
-		"skill":     "triage_steps",
+		"skill":     "triage-steps",
 		"knowledge": []string{docID},
 		"outputs": []map[string]any{
 			{"name": "verdict", "type": "string", "description": "pass or fail"},

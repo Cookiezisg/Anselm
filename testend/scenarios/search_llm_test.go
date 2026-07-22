@@ -224,7 +224,7 @@ func TestSearchLLM_BlocksTier3AndScope(t *testing.T) {
 		"name": "metricflush essay", "content": "prose about metricflush flushing metrics",
 	}).OK(t, nil)
 	wc.POST("/api/v1/skills", map[string]any{
-		"name": "metricflush_skill", "description": "skill about flush metrics", "body": "flush metrics steps",
+		"name": "metricflush-skill", "description": "skill about flush metrics", "body": "flush metrics steps",
 	}).OK(t, nil)
 	waitIndexed(t, wc, "metricflush", "function")
 	waitIndexed(t, wc, "bufhost", "handler")
@@ -238,7 +238,7 @@ func TestSearchLLM_BlocksTier3AndScope(t *testing.T) {
 		t.Errorf("handler METHOD must be its own wireable ref (hd_<id>.flush), got: %s", out)
 	}
 	if strings.Contains(out, `"document"`) || strings.Contains(out, `"skill"`) ||
-		strings.Contains(out, "essay") || strings.Contains(out, "metricflush_skill") {
+		strings.Contains(out, "essay") || strings.Contains(out, "metricflush-skill") {
 		t.Errorf("blocks scope is six kinds ONLY — document/skill leaked: %s", out)
 	}
 }

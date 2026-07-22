@@ -173,6 +173,47 @@ func (r *Resp) Field(t *testing.T, name string) string {
 	return s
 }
 
+// DoRaw performs one request with a verbatim byte body and keeps the raw response bytes —
+// the skill files surface speaks raw bytes both ways (no JSON envelope on success; error
+// responses are still envelopes, so the code is best-effort extracted for Fail assertions).
+//
+// DoRaw 以逐字节体发一次请求并保留原始响应字节——skill files 面双向都是裸字节（成功无
+// JSON envelope；错误响应仍是 envelope，尽力解出 code 供 Fail 断言）。
+func (c *Client) DoRaw(method, path, contentType string, body []byte) *Resp {
+	c.t.Helper()
+	var rdr io.Reader
+	if body != nil {
+		rdr = bytes.NewReader(body)
+	}
+	req, err := http.NewRequest(method, c.base+path, rdr)
+	if err != nil {
+		c.t.Fatalf("client: new raw request: %v", err)
+	}
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	if c.ws != "" {
+		req.Header.Set(HeaderWorkspace, c.ws)
+	}
+	resp, err := c.httpc.Do(req)
+	if err != nil {
+		c.t.Fatalf("client: %s %s: %v", method, path, err)
+	}
+	defer resp.Body.Close()
+	raw, _ := io.ReadAll(resp.Body)
+	out := &Resp{Status: resp.StatusCode, Raw: raw}
+	var env struct {
+		Error *struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(raw, &env) == nil && env.Error != nil {
+		out.Code, out.Msg = env.Error.Code, env.Error.Message
+	}
+	return out
+}
+
 // Upload posts one file as multipart/form-data (the attachments wire shape) and
 // decodes the N1 envelope like Do.
 //

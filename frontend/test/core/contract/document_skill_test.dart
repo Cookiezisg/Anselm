@@ -107,15 +107,31 @@ void main() {
       },
     );
 
-    test('guardrail constants + name regex mirror the backend', () {
+    test('guardrail constants + dual name regexes mirror the backend', () {
       expect(kSkillMaxBodyBytes, 32 * 1024);
+      expect(kSkillMaxFileBytes, 1024 * 1024);
       expect(kSkillMaxDescriptionChars, 1024);
+      // 守卫形态（WRK-076 D3，盘上可存在）：从宽——数字开头与存量下划线都收，大写拒。
       expect(kSkillNameRegex.hasMatch('commit-helper'), isTrue);
+      expect(
+        kSkillNameRegex.hasMatch('3d-print'),
+        isTrue,
+      ); // digit start accepted
+      expect(
+        kSkillNameRegex.hasMatch('legacy_name'),
+        isTrue,
+      ); // legacy underscore readable
       expect(
         kSkillNameRegex.hasMatch('Commit_Helper'),
         isFalse,
       ); // uppercase rejected
-      expect(kSkillNameRegex.hasMatch('9lead'), isFalse); // must start with a-z
+      // 规范形态（新建从严）：无下划线、无首尾/连续连字符，数字开头合法。
+      expect(kSkillSpecNameRegex.hasMatch('commit-helper'), isTrue);
+      expect(kSkillSpecNameRegex.hasMatch('3d-print'), isTrue);
+      expect(kSkillSpecNameRegex.hasMatch('has_underscore'), isFalse);
+      expect(kSkillSpecNameRegex.hasMatch('-lead'), isFalse);
+      expect(kSkillSpecNameRegex.hasMatch('trail-'), isFalse);
+      expect(kSkillSpecNameRegex.hasMatch('double--hyphen'), isFalse);
       expect(kDocumentMaxContentBytes, 1 << 20);
     });
   });

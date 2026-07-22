@@ -536,6 +536,9 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `SKILL_BODY_TOO_LARGE` | 422 | skill body exceeds size limit |
+| `SKILL_FILE_NOT_FOUND` | 404 | skill file not found |
+| `SKILL_FILE_PATH_INVALID` | 400 | invalid skill file path |
+| `SKILL_FILE_TOO_LARGE` | 422 | skill file exceeds size limit |
 | `SKILL_FORK_REQUIRES_AGENT` | 422 | context=fork requires an agent type |
 | `SKILL_INVALID_FRONTMATTER` | 422 | invalid skill frontmatter |
 | `SKILL_INVALID_NAME` | 400 | invalid skill name (must be a lowercase slug) |

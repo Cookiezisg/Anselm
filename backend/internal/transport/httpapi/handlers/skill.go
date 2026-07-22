@@ -1,7 +1,12 @@
 package handlers
 
 import (
+	"io"
+	"mime"
 	"net/http"
+	"path"
+	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -27,8 +32,11 @@ func NewSkillHandler(svc *skillapp.Service, log *zap.Logger) *SkillHandler {
 }
 
 // Register mounts the skill endpoints. List returns the full set (file-based, unpaginated).
+// The files sub-resource (SKILL.md included) is the file-is-truth surface: raw bytes in and
+// out, `{path...}` is the codebase's first trailing-wildcard route (WRK-076).
 //
-// Register 挂载 skill 端点。List 返回全集（文件式，不分页）。
+// Register 挂载 skill 端点。List 返回全集（文件式，不分页）。files 子资源（含 SKILL.md）是
+// 文件即真相面：原始字节进出，`{path...}` 是全仓首条尾随通配路由（WRK-076）。
 func (h *SkillHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/skills", h.List)
 	mux.HandleFunc("POST /api/v1/skills", h.Create)
@@ -36,6 +44,10 @@ func (h *SkillHandler) Register(mux Registrar) {
 	mux.HandleFunc("PUT /api/v1/skills/{name}", h.Replace)
 	mux.HandleFunc("DELETE /api/v1/skills/{name}", h.Delete)
 	mux.HandleFunc("POST /api/v1/skills/{nameAction}", h.postOnSkill) // {name}:activate
+	mux.HandleFunc("GET /api/v1/skills/{name}/files", h.ListFiles)
+	mux.HandleFunc("GET /api/v1/skills/{name}/files/{path...}", h.ReadFile)
+	mux.HandleFunc("PUT /api/v1/skills/{name}/files/{path...}", h.WriteFile)
+	mux.HandleFunc("DELETE /api/v1/skills/{name}/files/{path...}", h.DeleteFile)
 }
 
 type createSkillRequest struct {
@@ -175,4 +187,87 @@ func (h *SkillHandler) activate(w http.ResponseWriter, r *http.Request, name str
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, out) // 裸结果,不裹 {output}(envelope 内层)
+}
+
+// ── files sub-resource（文件即真相面）──────────────────────────────────────────
+
+func (h *SkillHandler) ListFiles(w http.ResponseWriter, r *http.Request) {
+	files, err := h.svc.ListFiles(r.Context(), r.PathValue("name"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, files)
+}
+
+// skillFileMime supplements the platform mime table for extensions skills actually bundle —
+// mime.TypeByExtension is OS-table-backed and misses .md/.py & co on a bare system.
+//
+// skillFileMime 为 skill 实际捆绑的扩展名补充平台 mime 表——mime.TypeByExtension 依赖系统表，
+// 裸机上查不到 .md/.py 等。
+var skillFileMime = map[string]string{
+	".md": "text/markdown; charset=utf-8", ".markdown": "text/markdown; charset=utf-8",
+	".txt": "text/plain; charset=utf-8", ".py": "text/x-python; charset=utf-8",
+	".sh": "text/x-shellscript; charset=utf-8", ".js": "text/javascript; charset=utf-8",
+	".ts": "text/typescript; charset=utf-8", ".json": "application/json",
+	".yaml": "application/yaml", ".yml": "application/yaml",
+	".toml": "application/toml", ".csv": "text/csv; charset=utf-8",
+}
+
+// ReadFile streams one bundled file's raw bytes — mime sniffed from the extension (attachment
+// precedent), never the JSON envelope.
+//
+// ReadFile 流出单个捆绑文件的原始字节——mime 按扩展名推断（attachment 先例），不走 JSON envelope。
+func (h *SkillHandler) ReadFile(w http.ResponseWriter, r *http.Request) {
+	rel := r.PathValue("path")
+	data, err := h.svc.ReadFile(r.Context(), r.PathValue("name"), rel)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	ext := strings.ToLower(path.Ext(rel))
+	mt := skillFileMime[ext]
+	if mt == "" {
+		mt = mime.TypeByExtension(ext)
+	}
+	if mt == "" {
+		mt = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", mt)
+	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
+	// inline preview; strip quotes so the header can't be broken (attachment precedent).
+	// 内联预览；剥引号防 header 被破坏（attachment 先例）。
+	w.Header().Set("Content-Disposition", `inline; filename="`+strings.ReplaceAll(path.Base(rel), `"`, "")+`"`)
+	_, _ = w.Write(data)
+}
+
+// WriteFile lands a raw byte body (no JSON wrapper). The transport cap is the bundled-file
+// guard; the tighter 32KB manifest cap is enforced below (app/store) when the path IS the
+// manifest.
+//
+// WriteFile 落原始字节体（无 JSON 包裹）。transport 封顶取附属文件护栏；路径为清单时更紧的
+// 32KB 护栏由下层（app/store）执行。
+func (h *SkillHandler) WriteFile(w http.ResponseWriter, r *http.Request) {
+	body, err := io.ReadAll(http.MaxBytesReader(w, r.Body, skilldomain.MaxFileBytes+1))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, skilldomain.ErrFileTooLarge.WithCause(err))
+		return
+	}
+	if len(body) > skilldomain.MaxFileBytes {
+		responsehttpapi.FromDomainError(w, h.log, skilldomain.ErrFileTooLarge)
+		return
+	}
+	if err := h.svc.WriteFile(r.Context(), r.PathValue("name"), r.PathValue("path"), body); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.NoContent(w)
+}
+
+func (h *SkillHandler) DeleteFile(w http.ResponseWriter, r *http.Request) {
+	if err := h.svc.DeleteFile(r.Context(), r.PathValue("name"), r.PathValue("path")); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.NoContent(w)
 }

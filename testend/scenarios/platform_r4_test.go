@@ -257,7 +257,7 @@ func TestPlatformR4_NotificationAllDomains(t *testing.T) {
 		{"op": "add_node", "node": map[string]any{"id": "a", "kind": "action", "ref": "fn_x"}},
 		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "t", "to": "a"}},
 	})
-	wc.POST("/api/v1/skills", map[string]any{"name": "notif_skill", "description": "d", "body": "b"}).OK(t, nil)
+	wc.POST("/api/v1/skills", map[string]any{"name": "notif-skill", "description": "d", "body": "b"}).OK(t, nil)
 	wc.PUT("/api/v1/memories/notif-mem", map[string]any{"description": "d", "content": "c", "source": "user"}).OK(t, nil)
 	// document 横跨两档：建=树刷新回声（⤳），删=破坏性、值得进收件箱（⊞）。两拍都驱动，才能
 	// 证明这条**域内**分界是活的。document straddles both tiers — drive create AND delete.
@@ -441,7 +441,7 @@ func TestPlatformR4_CascadeEveryAssetKind(t *testing.T) {
 		"name": "dm_trg", "description": "cascadetoken trg", "kind": "webhook",
 		"config": map[string]any{"path": "dm-in", "secret": "s", "signatureAlgo": "hmac-sha256-hex"},
 	}).OK(t, nil)
-	doomed.POST("/api/v1/skills", map[string]any{"name": "dm_skill", "description": "cascadetoken skill", "body": "b"}).OK(t, nil)
+	doomed.POST("/api/v1/skills", map[string]any{"name": "dm-skill", "description": "cascadetoken skill", "body": "b"}).OK(t, nil)
 	doomed.PUT("/api/v1/memories/dm-mem", map[string]any{"description": "cascadetoken mem", "content": "c", "source": "user"}).OK(t, nil)
 	doomed.POST("/api/v1/documents", map[string]any{"name": "dm_doc", "content": "cascadetoken doc body"}).OK(t, nil)
 	doomed.POST("/api/v1/conversations", map[string]any{"title": "cascadetoken conv"}).OK(t, nil)

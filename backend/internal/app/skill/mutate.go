@@ -24,12 +24,20 @@ type SaveInput struct {
 	Source                 string // user | ai；空 → user
 }
 
-// Create writes a brand-new SKILL.md; existing name → ErrNameConflict.
+// Create writes a brand-new SKILL.md; existing name → ErrNameConflict. NEW names must match
+// the Agent Skills spec form (IsSpecName) — the lenient guard regex only protects legacy
+// underscore skills already on disk (WRK-076 D3).
 //
-// Create 写一个全新 SKILL.md；同名已存在 → ErrNameConflict。
+// Create 写一个全新 SKILL.md；同名已存在 → ErrNameConflict。**新建** name 必须符合 Agent
+// Skills 规范形态（IsSpecName）——从宽的守卫正则只为盘上存量下划线 skill 兜底（WRK-076 D3）。
 func (s *Service) Create(ctx context.Context, in SaveInput) (*skilldomain.Skill, error) {
 	if err := s.validate(in); err != nil {
 		return nil, err
+	}
+	if !skilldomain.IsSpecName(in.Name) {
+		return nil, skilldomain.ErrInvalidName.WithDetails(map[string]any{
+			"reason": "new skill names must match the Agent Skills spec: lowercase letters/digits joined by single hyphens (e.g. code-review, 3d-print)",
+		})
 	}
 	exists, err := s.repo.Exists(ctx, in.Name)
 	if err != nil {

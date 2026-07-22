@@ -77,11 +77,26 @@ func (s *Service) List(ctx context.Context, filter skilldomain.ListFilter) ([]*s
 //
 // notify 尽力发 skill.<action>；nil emitter / 出错均不阻断主流程。
 func (s *Service) notify(ctx context.Context, action, name string) {
+	s.emit(ctx, action, map[string]any{"name": name})
+}
+
+// notifyFile emits skill.updated carrying the touched file's relative path — the files
+// surface's lifecycle signal (same event name, richer payload; frontends keying on the
+// `skill.` prefix refetch without change).
+//
+// notifyFile 发携被触文件相对路径的 skill.updated——files 面的生命周期信号（同事件名、更富
+// payload；按 `skill.` 前缀刷新的前端零改动即覆盖）。
+func (s *Service) notifyFile(ctx context.Context, name, path string) {
+	s.emit(ctx, "updated", map[string]any{"name": name, "path": path})
+}
+
+func (s *Service) emit(ctx context.Context, action string, payload map[string]any) {
+	name, _ := payload["name"].(string)
 	s.notifySearch(ctx, name)
 	if s.emitter == nil {
 		return
 	}
-	if err := s.emitter.Emit(ctx, "skill."+action, map[string]any{"name": name}); err != nil {
+	if err := s.emitter.Emit(ctx, "skill."+action, payload); err != nil {
 		s.log.Warn("skillapp.notify failed", zap.String("name", name), zap.String("action", action), zap.Error(err))
 	}
 }
