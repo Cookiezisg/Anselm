@@ -309,11 +309,14 @@ func (s *Service) TouchLastUsed(ctx context.Context, id string) error {
 // workspace.Language 取值（"zh-CN"/"en"）正是 Locale 取值，故直接 cast；空/非法值由中间件
 // IsSupported() 守卫丢弃。
 func (s *Service) Resolve(ctx context.Context, id string) (reqctxpkg.Locale, error) {
-	w, err := s.repo.Get(ctx, id)
+	// Single-column read: this runs on EVERY request (auth middleware), and the full Get paid a
+	// 13-column reflective scan + 3 ModelRef JSON unmarshals per hit for one string (R3).
+	// 单列读:每请求都走(auth 中间件),整行 Get 为一个字符串付 13 列反射 + 3 次 JSON 反序列化(R3)。
+	lang, err := s.repo.Language(ctx, id)
 	if err != nil {
 		return "", err
 	}
-	return reqctxpkg.Locale(w.Language), nil
+	return reqctxpkg.Locale(lang), nil
 }
 
 // Pick implements modeldomain.ModelPicker: it returns the current workspace's default ModelRef for

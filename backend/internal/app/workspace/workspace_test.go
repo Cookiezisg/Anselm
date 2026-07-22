@@ -45,6 +45,14 @@ func (f *fakeRepo) Get(_ context.Context, id string) (*workspacedomain.Workspace
 	return &cp, nil
 }
 
+func (f *fakeRepo) Language(_ context.Context, id string) (string, error) {
+	w, ok := f.items[id]
+	if !ok {
+		return "", workspacedomain.ErrNotFound
+	}
+	return w.Language, nil
+}
+
 func (f *fakeRepo) List(_ context.Context) ([]*workspacedomain.Workspace, error) {
 	out := make([]*workspacedomain.Workspace, 0, len(f.items))
 	for _, w := range f.items {

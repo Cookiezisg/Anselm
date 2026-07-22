@@ -71,6 +71,21 @@ func (s *Store) Save(ctx context.Context, w *workspacedomain.Workspace) error {
 	return nil
 }
 
+// Language plucks the single language column (the per-request auth path — no 13-column scan, no
+// ModelRef unmarshals). Empty result set = no such row → ErrNotFound.
+//
+// Language 单列取 language(每请求 auth 路径——免 13 列扫与 ModelRef 反序列化);空结果=无行→ErrNotFound。
+func (s *Store) Language(ctx context.Context, id string) (string, error) {
+	var langs []string
+	if err := s.repo.Where("id = ?", id).Pluck(ctx, "language", &langs); err != nil {
+		return "", fmt.Errorf("workspacestore.Language: %w", err)
+	}
+	if len(langs) == 0 {
+		return "", workspacedomain.ErrNotFound
+	}
+	return langs[0], nil
+}
+
 func (s *Store) Get(ctx context.Context, id string) (*workspacedomain.Workspace, error) {
 	w, err := s.repo.Get(ctx, id)
 	if errors.Is(err, ormpkg.ErrNotFound) {

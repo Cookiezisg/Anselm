@@ -181,6 +181,12 @@ type Stats struct {
 type Repository interface {
 	Save(ctx context.Context, w *Workspace) error
 	Get(ctx context.Context, id string) (*Workspace, error)
+	// Language returns just the workspace's language column — the auth middleware resolves it on
+	// EVERY request, and a full Get pays a 13-column reflective scan + three ModelRef JSON
+	// unmarshals per hit for one string. Row-absent → ErrNotFound (existence check included).
+	// Language 只取 language 列——auth 中间件每请求解析一次,整行 Get 为一个字符串付 13 列反射扫
+	// + 3 次 ModelRef JSON 反序列化。行缺席 → ErrNotFound(存在性检查含在内)。
+	Language(ctx context.Context, id string) (string, error)
 	List(ctx context.Context) ([]*Workspace, error)
 	Delete(ctx context.Context, id string) error
 	Count(ctx context.Context) (int, error)
