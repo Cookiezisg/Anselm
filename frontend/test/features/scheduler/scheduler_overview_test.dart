@@ -708,46 +708,52 @@ void main() {
       },
     );
 
-    testWidgets(
-      'a 24h-failed row double-taps into its run flagship (工单⑮ + B10)',
-      (tester) async {
-        final router = GoRouter(
-          initialLocation: '/',
-          routes: [
-            GoRoute(
-              path: '/',
-              builder: (_, _) => const Scaffold(body: SchedulerOverviewView()),
-            ),
-            GoRoute(
-              path: '/scheduler/w/:id/runs/:frId',
-              builder: (_, _) => const Scaffold(body: SizedBox()),
-            ),
-          ],
-        );
-        addTearDown(router.dispose);
-        await _pumpBoard(tester, _host(_fullRepo(), router: router));
+    testWidgets('a 24h-failed row double-taps into its run flagship (工单⑮ + B10)', (
+      tester,
+    ) async {
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => const Scaffold(body: SchedulerOverviewView()),
+          ),
+          GoRoute(
+            path: '/scheduler/w/:id/runs/:frId',
+            builder: (_, _) => const Scaffold(body: SizedBox()),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+      await _pumpBoard(tester, _host(_fullRepo(), router: router));
 
-        // The newest failed wf_b run (fr_dead1) is the FIRST row of the 24h-failed zone (completed-desc).
-        // 最新的 wf_b 失败 run(fr_dead1)是 24h 失败区第一行(按落定新→旧)。
-        final row = find
-            .descendant(
-              of: find.byType(SchedulerFailedZone),
-              matching: find.textContaining('库存同步'),
-            )
-            .first;
-        await tester.ensureVisible(row);
-        await tester.pump();
-        await tester.tap(row);
-        await tester.pump();
-        await tester.tap(row);
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 400));
-        expect(
-          router.routerDelegate.currentConfiguration.uri.toString(),
-          '/scheduler/w/wf_b/runs/fr_dead1',
-        );
-      },
-    );
+      // The newest failed wf_b run (fr_dead1) is the FIRST row of the 24h-failed zone (completed-desc).
+      // 最新的 wf_b 失败 run(fr_dead1)是 24h 失败区第一行(按落定新→旧)。
+      final row = find
+          .descendant(
+            of: find.byType(SchedulerFailedZone),
+            matching: find.textContaining('库存同步'),
+          )
+          .first;
+      await tester.ensureVisible(row);
+      await tester.pump();
+      // _PeekZone.onPeekTap judges the double-tap on REAL DateTime.now() (300ms wall-clock window,
+      // not the fake test clock), so the two tap()s must be back-to-back with NO pump() between them
+      // — an intervening pump is an extra await hop the OS scheduler can preempt for real wall-clock
+      // time under a loaded parallel test run, silently pushing the gap past 300ms and turning the
+      // "double" tap into two singles (flaky under `make verify`'s ~4700-test concurrency, though
+      // instant on an idle machine). _PeekZone.onPeekTap 用真墙钟 DateTime.now()(300ms 窗,非假测试时
+      // 钟)判双击,故两次 tap 之间不能插 pump()——多一次 await 就多一次可被系统调度器真实抢占的缺口,并
+      // 行跑满时会把间隔悄悄推过 300ms,把「双击」拆成两个单击(闲时瞬间完成、忽略不了这条件)。
+      await tester.tap(row);
+      await tester.tap(row);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 400));
+      expect(
+        router.routerDelegate.currentConfiguration.uri.toString(),
+        '/scheduler/w/wf_b/runs/fr_dead1',
+      );
+    });
 
     testWidgets('first-load failure: the error state with a retry', (
       tester,

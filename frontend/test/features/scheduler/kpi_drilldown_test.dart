@@ -615,7 +615,14 @@ void main() {
       'a tile that became a control announces as one — label + button + the TAP ACTION',
       (tester) async {
         final handle = tester.ensureSemantics();
-        final at = _now.add(const Duration(minutes: 3, seconds: 30));
+        // Freshly captured HERE (not the file-level `_now`, which is lazily snapshotted once for the
+        // WHOLE file on first reference — every test above this one keeps eating into the a11y label's
+        // "3m" floor(210s/60) window in real wall-clock time, since `_board`'s `now` reads the REAL
+        // clock at build time). `at` must stay within 30s of build time or `fmtWaited` floors it to
+        // "2m" and the assertions below miss. 就地新取(非文件级 `_now`——它是整份文件首次引用时惰性拍一次
+        // 的快照,本测试之前的每个用例都在拿真墙钟啃「3m」窗口的余量,因 `_board` 的 `now` 建帧时读真钟)。
+        // `at` 须落在建帧的 30 秒内,否则 `fmtWaited` 会把它地板成「2m」,下面的断言就落空。
+        final at = DateTime.now().add(const Duration(minutes: 3, seconds: 30));
         await _pumpBoard(
           tester,
           _host(
