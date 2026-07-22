@@ -53,8 +53,13 @@ format: deps
 	@$(RUN) gofmt -w $$(find . -name '*.go' -not -path './vendor/*')
 	@echo "✓ backend formatted"
 
+# No -count=1: Go's test cache is content-addressed and CORRECT (code/deps/env changes invalidate it
+# automatically) — forcing reruns of untouched packages was pure waste. testend below is the opposite
+# case: an independent module testing the compiled backend BINARY, whose changes its cache cannot see,
+# so -count=1 there is mandatory. 不带 -count=1:Go 测试缓存内容寻址、正确,强制重跑未动的包纯属浪费;
+# testend 相反——独立 module 测编译出的后端二进制,缓存看不见其变化,必须 -count=1。
 test: deps
-	@$(RUN) go test -count=1 ./...
+	@$(RUN) go test ./...
 
 testend: deps
 	@cd $(ROOT)/testend && $(RUN) go test -count=1 -timeout 30m ./scenarios/...
@@ -73,7 +78,7 @@ verify: deps
 	@$(RUN) go vet ./...
 	@mkdir -p $(ROOT)/bin
 	@$(RUN) go build -o $(ROOT)/bin/anselm-server ./cmd/server
-	@$(RUN) go test -count=1 ./...
+	@$(RUN) go test ./...
 	@echo "✓ backend verified"
 
 clean: stop
