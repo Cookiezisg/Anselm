@@ -96,7 +96,7 @@
 
 # 测试与门禁（T 系列）
 
-- **T5 验收双层**：单元/集成测试随包；**全功能黑盒验收在 `testend/`**（独立 module、零 backend import、拉真二进制打纯 HTTP/SSE）——`make -C backend testend`（llmmock 零 token，**全场景 `t.Parallel()` + `-parallel 8`，~5min**——每场景本就是隔离宇宙〔独立数据目录+空闲端口+独立进程组〕，并行只是同时开几个宇宙、隔离零损）+ `make -C backend evals`（真模型金标，EVALS=1 门控烧钱）。两者不进 `make verify`。见 [`references/testend/overview.md`](docs/references/testend/overview.md)。
+- **T5 验收双层**：单元/集成测试随包；**全功能黑盒验收在 `testend/`**（独立 module、零 backend import、拉真二进制打纯 HTTP/SSE）——`make -C backend testend`（llmmock 零 token，**全场景 `t.Parallel()` + `-parallel 16`，~4-4.5min(长尾=cron 真刻度等待场景 125s,数据驱动调优后的地板)**——每场景本就是隔离宇宙〔独立数据目录+空闲端口+独立进程组〕，并行只是同时开几个宇宙、隔离零损）+ `make -C backend evals`（真模型金标，EVALS=1 门控烧钱）。两者不进 `make verify`。见 [`references/testend/overview.md`](docs/references/testend/overview.md)。
 - **T5.1 契约改动必须搜 testend（按域前缀，不是事件全名）**：改 N/D/E 契约（端点 / 表 / SSE 事件 / 错误码）→ **同提交**搜 `grep -rn '"<域>\.' testend/` 并改；`make -C backend testend` 手动跑一次（`-run` 只跑相关场景即可）。
   **为什么单列一条**：一次契约改动有四道防线——编译器护后端码、`make verify` 护常规门禁、#9 + `make -C docs verify` 护文档，而 **testend 断言无编译器、无门禁（T5 明文不入 verify）、且天然搜不到**。实证：`940a8700`（通知分径 N0）的作者**尽责地同步了 testend**（新增整个 `TestNotification_FrameOnlyFork`、另改 5 个后端单测），仍漏了第二处 —— 因为那处把断言写成**域前缀** `"conversation."` 塞在 slice 里，`git grep "conversation.created" -- testend/` **零命中**。测试**红了 11 天没人知道**。
   **「按域前缀搜」是本条的要害**——少了它，规则挡不住这次的漏法。
