@@ -35,9 +35,11 @@ type AgentLimits struct {
 }
 
 type ContextLimits struct {
-	// TriggerRatio: compact when the last turn's input tokens reach this fraction of the
-	// input budget (consumer: contextmgr).
-	// TriggerRatio：末回合 input token 达 input 预算此比例时压缩（消费方：contextmgr）。
+	// TriggerRatio: persist durable compaction when the last successful sampling
+	// prompt reaches this fraction of its active input budget (consumer:
+	// contextmgr). Aggregate ReAct usage is intentionally not used.
+	// TriggerRatio：最后一次成功 sampling prompt 达其 active input 预算此比例时持久压缩
+	// （消费方：contextmgr）；刻意不用整轮 ReAct 累计 usage。
 	TriggerRatio float64 `json:"triggerRatio"`
 }
 
@@ -176,7 +178,7 @@ func Schema() []FieldSpec {
 	return []FieldSpec{
 		{"agent.maxSteps", "agent", float64(d.Agent.MaxSteps), 1, 0, false, "steps", "Max steps in the chat ReAct loop."},
 		{"agent.invokeMaxTurns", "agent", float64(d.Agent.InvokeMaxTurns), 1, 0, false, "turns", "Default turn cap for one agent invocation (a per-call MaxTurns overrides)."},
-		{"context.triggerRatio", "context", d.Context.TriggerRatio, 0, 1, true, "ratio", "Compact when the last turn's input tokens reach this fraction of the input budget."},
+		{"context.triggerRatio", "context", d.Context.TriggerRatio, 0, 1, true, "ratio", "Persist compaction when the last sampled prompt reaches this fraction of its active input budget."},
 		{"timeout.llmIdleSec", "timeout", float64(d.Timeout.LLMIdleSec), 1, 0, false, "seconds", "LLM idle timeout, reset per streamed token (fires only on a dead connection)."},
 		{"timeout.llmStreamMaxSec", "timeout", float64(d.Timeout.LLMStreamMaxSec), 1, 0, false, "seconds", "Total wall-clock cap on one LLM stream (does not reset on activity; bounds a non-converging model)."},
 		{"timeout.mcpCallSec", "timeout", float64(d.Timeout.MCPCallSec), 1, 0, false, "seconds", "Wall-clock bound on one MCP tool call."},

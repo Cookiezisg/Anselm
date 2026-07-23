@@ -47,6 +47,43 @@ var (
 	ErrQuotaExhausted = errorspkg.New(errorspkg.KindRateLimited, "LLM_QUOTA_EXHAUSTED", "llm: free-tier quota exhausted")
 )
 
+const (
+	RejectionContextLength       = "context_length"
+	RejectionMaxTokens           = "max_tokens"
+	RejectionRequestBodyTooLarge = "request_body_too_large"
+	RejectionInvalidRequest      = "invalid_request"
+)
+
+// RequestRejectedError preserves a machine-actionable upstream rejection
+// reason without exposing provider-controlled error text. The loop uses
+// context_length to compact and transparently retry the same sampling step.
+type RequestRejectedError struct {
+	Reason string
+	Status int
+}
+
+func (e *RequestRejectedError) Error() string {
+	switch e.Reason {
+	case RejectionContextLength:
+		return "llm: the model rejected the request because its context window was exceeded"
+	case RejectionMaxTokens:
+		return "llm: the model rejected the requested output-token limit"
+	case RejectionRequestBodyTooLarge:
+		return "llm: the request body exceeds the gateway size limit"
+	default:
+		return "llm: the model rejected the request as invalid"
+	}
+}
+
+func (e *RequestRejectedError) Unwrap() error { return ErrBadRequest }
+
+// IsContextLengthError reports whether an upstream, rather than a local
+// heuristic, authoritatively rejected the request for context length.
+func IsContextLengthError(err error) bool {
+	var rejected *RequestRejectedError
+	return errors.As(err, &rejected) && rejected.Reason == RejectionContextLength
+}
+
 // StreamEventType identifies a Client.Stream event variant.
 //
 // StreamEventType 标识 Client.Stream 输出的事件类型。
@@ -206,16 +243,52 @@ type Request struct {
 	// DisableStream 强制 non-streaming（Ollama 有 tools 时绕 bug）。
 	DisableStream bool
 
-	// InputBudgetTokens is the model's INPUT token budget (context window − max output), resolved at
-	// bundle time from the model catalog. It is NEVER sent on the wire — it feeds the ReAct loop's
-	// intra-turn context-budget soft guard (F58): when a step's actual input nears this budget the loop
-	// stops the still-acting turn gracefully instead of letting the next call overflow. 0 = unknown
-	// window → guard disabled.
+	// InputBudgetTokens is the model's fallback INPUT token budget (context
+	// window − reserved output), resolved at bundle time. It is NEVER sent on
+	// the wire. The ReAct loop uses it to trigger prompt editing/checkpointing;
+	// it never locally rejects a request. The provider remains hard-limit
+	// authority, and a confirmed overflow is compacted and retried. 0 means the
+	// window is unknown, so proactive editing is disabled.
 	//
-	// InputBudgetTokens 是模型的**输入** token 预算（context window − 最大输出），bundle 时从模型目录解析。
-	// **绝不**上线缆——喂给 ReAct loop 的回合内上下文预算软守卫（F58）：某步实际 input 逼近此预算时 loop 优雅
-	// 停下仍在动作的回合，而非让下次调用溢出。0 = window 未知 → 守卫禁用。
+	// InputBudgetTokens 是模型的兜底**输入** token 预算（context window − 预留输出），bundle
+	// 时解析，绝不上线缆。ReAct loop 仅用它触发 prompt editing/checkpoint，绝不据此本地拒绝；
+	// provider 才是硬上限权威，权威超限会压缩并重试。0 = 窗口未知，关闭主动编辑。
 	InputBudgetTokens int
+
+	// Capability-routing providers can publish different input limits for text
+	// and native-media requests behind one logical model. The loop selects one
+	// for every concrete outbound request from the prompt view actually sent.
+	// Zero values fall back to InputBudgetTokens.
+	TextInputBudgetTokens       int
+	MultimodalInputBudgetTokens int
+}
+
+// HasNativeMedia reports whether the concrete request prompt contains a native
+// image/video/audio/file part. It intentionally scans the rendered prompt view,
+// not durable history: once old media is folded into a checkpoint, a content
+// router can return to its larger text route.
+func (r Request) HasNativeMedia() bool {
+	for _, m := range r.Messages {
+		for _, p := range m.Parts {
+			switch p.Type {
+			case PartImageURL, PartVideoURL, PartInputAudio, PartFile:
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// ActiveInputBudgetTokens selects the input budget for this exact prompt.
+func (r Request) ActiveInputBudgetTokens() int {
+	if r.HasNativeMedia() {
+		if r.MultimodalInputBudgetTokens > 0 {
+			return r.MultimodalInputBudgetTokens
+		}
+	} else if r.TextInputBudgetTokens > 0 {
+		return r.TextInputBudgetTokens
+	}
+	return r.InputBudgetTokens
 }
 
 // Client streams LLM events via iter.Seq; ctx cancel stops cleanly.

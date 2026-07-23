@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	deviceproofinfra "github.com/sunweilin/anselm/backend/internal/infra/deviceproof"
@@ -51,16 +52,20 @@ func (p *anselmProvider) BuildRequest(ctx context.Context, req Request) (*http.R
 	return httpReq, nil
 }
 
-// anselmSpecs is the gateway's public capability envelope: exactly one logical model, anselm-auto.
-// Its text route is wider internally, but any native media routes to Kimi's 256K/32K envelope, so
-// the client must use that conservative window for context governance. Knobs stay empty because the
-// gateway owns reasoning behavior; exposing provider-native controls would be dead UI.
+// anselmSpecs is the rolling-compatibility fallback for the gateway's one
+// logical model. New gateways publish exact text/multimodal route profiles;
+// old gateways still get the same production limits from this static entry.
+// Knobs stay empty because the gateway owns reasoning behavior.
 //
-// anselmSpecs 是网关公开能力外壳：唯一逻辑模型 anselm-auto。纯文本路由的内部窗口较宽，但任一原生媒体
-// 会进入 Kimi 的 256K/32K 外壳，客户端上下文治理必须采用这个保守窗口。网关拥有 reasoning 行为，故
-// knobs 保持为空，避免在 picker 展示无效 provider 控件。它与 deepseekSpecs 分开，确保下方 DescribeModels
-// 产出的是无旋钮的公开模型。
-var anselmSpecs = []modelSpec{{AnselmModelID, 262_144, 32_768, nil, true, false}}
+// anselmSpecs 是网关唯一逻辑模型的滚动兼容 fallback。新网关发布精确 text/multimodal
+// route profile；旧网关仍从此静态项获得同一生产限制。网关拥有 reasoning 行为，故 knobs 为空。
+const (
+	anselmTextInputLimit       = 1_000_000
+	anselmMultimodalInputLimit = 262_144
+	anselmProductOutputLimit   = 16_384
+)
+
+var anselmSpecs = []modelSpec{{AnselmModelID, anselmTextInputLimit, anselmProductOutputLimit, nil, true, false}}
 
 // DescribeModels parses the gateway's id-only /models body against anselmSpecs (NOT deepseekSpecs).
 // Overriding this is MANDATORY: without it the embedded deepseekProvider.DescribeModels would attach
@@ -72,18 +77,68 @@ var anselmSpecs = []modelSpec{{AnselmModelID, 262_144, 32_768, nil, true, false}
 // thinking/reasoning_effort 钮。
 func (p *anselmProvider) DescribeModels(raw string) ([]ModelInfo, error) {
 	models := describeFromSpecs(anselmSpecs, raw)
+	type routeProfile struct {
+		InputLimit  int  `json:"input_limit"`
+		OutputLimit int  `json:"output_limit"`
+		Available   bool `json:"available"`
+	}
+	var wire struct {
+		Data []struct {
+			ID           string `json:"id"`
+			Capabilities *struct {
+				Version    int          `json:"version"`
+				Routing    string       `json:"routing"`
+				Text       routeProfile `json:"text"`
+				Multimodal routeProfile `json:"multimodal"`
+			} `json:"anselm_capabilities"`
+		} `json:"data"`
+	}
+	_ = json.Unmarshal([]byte(raw), &wire)
+	capsByID := make(map[string]struct {
+		text, multimodal routeProfile
+	}, len(wire.Data))
+	for _, m := range wire.Data {
+		if m.Capabilities != nil && m.Capabilities.Version == 1 && m.Capabilities.Routing == "content" {
+			capsByID[m.ID] = struct {
+				text, multimodal routeProfile
+			}{m.Capabilities.Text, m.Capabilities.Multimodal}
+		}
+	}
 	for i := range models {
+		models[i].TextInputLimit = anselmTextInputLimit
+		models[i].MultimodalInputLimit = anselmMultimodalInputLimit
+		if c, ok := capsByID[models[i].ID]; ok {
+			if c.text.InputLimit > 0 {
+				models[i].ContextWindow = c.text.InputLimit
+				models[i].TextInputLimit = c.text.InputLimit
+			}
+			if c.text.OutputLimit > 0 {
+				models[i].MaxOutput = c.text.OutputLimit
+			}
+			if c.multimodal.InputLimit > 0 {
+				models[i].MultimodalInputLimit = c.multimodal.InputLimit
+			}
+			// An explicitly unavailable route must not be advertised. Older
+			// gateways omit the extension and retain the static production
+			// fallback for rolling compatibility.
+			if !c.multimodal.Available {
+				models[i].Vision = false
+				models[i].Video = false
+			}
+		}
 		// Current gateway accepts image + MP4 video. Audio stays in the common content protocol,
 		// but must remain unadvertised until a future audio upstream is wired.
 		//
 		// 当前网关接收图片与 MP4 视频。音频保留在公共内容协议中，但在未来接上音频上游前必须不对用户宣称可用。
-		models[i].Video = true
+		if models[i].Vision {
+			models[i].Video = true
+		}
 		models[i].Audio = false
 		models[i].MaxMediaParts = 8
-		// The production gateway admits 5MiB request bodies and 3MiB decoded media. Publishing the
+		// The production gateway admits 8MiB request bodies and 3MiB decoded media. Publishing the
 		// decoded limit lets attachment rendering degrade locally before transport base64 expands it.
 		//
-		// 生产网关允许 5MiB 请求体与 3MiB 解码媒体。发布解码上限使附件渲染可在 base64 膨胀进传输层前本地降级。
+		// 生产网关允许 8MiB 请求体与 3MiB 解码媒体。发布解码上限使附件渲染可在 base64 膨胀进传输层前本地降级。
 		models[i].MaxMediaBytes = 3 * 1024 * 1024
 	}
 	return models, nil
@@ -106,5 +161,5 @@ const AnselmModelID = "anselm-auto"
 // 无需 live 探针即可呈现 AnselmModelID。镜像网关 GET /v1/models，且必须列 anselmSpecs 命中的 id，否则
 // describeFromSpecs 丢弃它、picker 无模型。
 func AnselmProbeBody() string {
-	return `{"object":"list","data":[{"id":"` + AnselmModelID + `","object":"model"}]}`
+	return `{"object":"list","data":[{"id":"` + AnselmModelID + `","object":"model","anselm_capabilities":{"version":1,"routing":"content","text":{"input_limit":1000000,"output_limit":16384,"available":true},"multimodal":{"input_limit":262144,"output_limit":16384,"available":true}}}]}`
 }

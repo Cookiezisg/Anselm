@@ -78,8 +78,8 @@ func TestAnselmBuildRequestCarriesGatewayMultimodalParts(t *testing.T) {
 }
 
 func TestAnselmDescribeModels(t *testing.T) {
-	// Gateway /models returns ids only; anselmSpecs must yield exactly anselm-auto with the
-	// conservative public envelope. Unknown ids are dropped.
+	// An old gateway body without the extension still gets the route-aware
+	// production fallback. Unknown ids are dropped.
 	raw := `{"object":"list","data":[{"id":"anselm-auto","object":"model"},{"id":"gpt-4o"}]}`
 	models, err := DescribeModels("anselm", raw) // package-level → exercises registry lookup
 	if err != nil {
@@ -95,14 +95,53 @@ func TestAnselmDescribeModels(t *testing.T) {
 	if len(m.Knobs) != 0 {
 		t.Errorf("knobs = %+v, want none (gateway strips them)", m.Knobs)
 	}
-	if m.ContextWindow != 262_144 || m.MaxOutput != 32_768 {
-		t.Errorf("window/output = %d/%d, want 262144/32768", m.ContextWindow, m.MaxOutput)
+	if m.ContextWindow != 1_000_000 || m.MaxOutput != 16_384 {
+		t.Errorf("window/output = %d/%d, want 1000000/16384", m.ContextWindow, m.MaxOutput)
+	}
+	if m.TextInputLimit != 1_000_000 || m.MultimodalInputLimit != 262_144 {
+		t.Errorf("route input limits = %d/%d", m.TextInputLimit, m.MultimodalInputLimit)
 	}
 	if !m.Vision || !m.Video || m.Audio || m.NativeDocs {
 		t.Errorf("capabilities = %+v, want image+video only", m)
 	}
 	if m.MaxMediaParts != 8 || m.MaxMediaBytes != 3*1024*1024 {
 		t.Errorf("media envelope = %d/%d, want 8/%d", m.MaxMediaParts, m.MaxMediaBytes, 3*1024*1024)
+	}
+}
+
+func TestAnselmDescribeModels_UsesLiveRouteProfiles(t *testing.T) {
+	raw := `{"object":"list","data":[{"id":"anselm-auto","object":"model","anselm_capabilities":{"version":1,"routing":"content","text":{"input_limit":900000,"output_limit":12000,"available":true},"multimodal":{"input_limit":200000,"output_limit":8000,"available":false}}}]}`
+	models, err := DescribeModels("anselm", raw)
+	if err != nil || len(models) != 1 {
+		t.Fatalf("DescribeModels: models=%+v err=%v", models, err)
+	}
+	m := models[0]
+	if m.ContextWindow != 900_000 || m.MaxOutput != 12_000 ||
+		m.TextInputLimit != 900_000 || m.MultimodalInputLimit != 200_000 {
+		t.Fatalf("live route profile not applied: %+v", m)
+	}
+	if m.Vision || m.Video {
+		t.Fatalf("unavailable multimodal route was advertised: %+v", m)
+	}
+}
+
+func TestRequestActiveInputBudgetTracksPromptModality(t *testing.T) {
+	req := Request{
+		InputBudgetTokens:           100,
+		TextInputBudgetTokens:       1_000_000,
+		MultimodalInputBudgetTokens: 262_144,
+		Messages:                    []LLMMessage{{Role: RoleUser, Content: "text only"}},
+	}
+	if got := req.ActiveInputBudgetTokens(); got != 1_000_000 {
+		t.Fatalf("text budget=%d", got)
+	}
+	req.Messages[0].Parts = []ContentPart{{Type: PartImageURL, ImageURL: "data:image/png;base64,AA=="}}
+	if got := req.ActiveInputBudgetTokens(); got != 262_144 {
+		t.Fatalf("multimodal budget=%d", got)
+	}
+	req.Messages = []LLMMessage{{Role: RoleUser, Content: "<context_checkpoint>image already summarized</context_checkpoint>"}}
+	if got := req.ActiveInputBudgetTokens(); got != 1_000_000 {
+		t.Fatalf("post-compaction text budget=%d", got)
 	}
 }
 
@@ -118,7 +157,7 @@ func TestClassifyHTTPError402QuotaExhausted(t *testing.T) {
 }
 
 func TestAnselmInStreamBudgetExhausted(t *testing.T) {
-	// In-stream error.code BUDGET_EXHAUSTED → ErrQuotaExhausted; any other code → ErrProviderError.
+	// In-stream budget and generic failures retain their distinct taxonomy.
 	cases := []struct {
 		code   string
 		target error
@@ -143,6 +182,21 @@ func TestAnselmInStreamBudgetExhausted(t *testing.T) {
 			t.Errorf("code %s → %v, want Is(%v)", tc.code, gotErr, tc.target)
 		}
 	}
+}
+
+func TestAnselmInStreamContextRejectedIsRecoverable(t *testing.T) {
+	sse := `data: {"error":{"code":"UPSTREAM_REJECTED","message":"input too large","details":{"reason":"context_length"}}}` + "\n\n"
+	resp := &http.Response{Body: io.NopCloser(strings.NewReader(sse))}
+	events := collect(newAnselmProvider().ParseStream(context.Background(), resp, Request{}))
+	for _, ev := range events {
+		if ev.Type == EventError {
+			if !IsContextLengthError(ev.Err) {
+				t.Fatalf("error=%v, want typed context-length rejection", ev.Err)
+			}
+			return
+		}
+	}
+	t.Fatal("no error event")
 }
 
 // quotaOnceClient yields one ErrQuotaExhausted error and counts how many times Stream is invoked.

@@ -30,17 +30,6 @@ import (
 // 机会的最小值；burn-in 撞过 LLM 连建 4 个废 handler 才放弃，此熔断早停类似漂移。
 const maxConsecutiveAllFailTurns = 3
 
-// loopStopRatio is the fraction of the model's input budget (window − maxOutput) at which a still-acting
-// ReAct turn soft-stops, so the NEXT (larger) call can't overflow the context window (F58). Higher than
-// the compaction TriggerRatio (0.80) on purpose: compaction runs only at TURN boundaries, so within one
-// long turn this is the last line of defense — it leaves just enough headroom for the next step's growth.
-// Structural margin, not a user knob (like advanceWorkers / maxConsecutiveAllFailTurns).
-//
-// loopStopRatio 是模型输入预算（window − maxOutput）的比例，仍在动作的 ReAct 回合到此软停，使**下次**（更大的）
-// 调用不溢出 context window（F58）。刻意高于压缩 TriggerRatio（0.80）：压缩只在**回合边界**跑，故单个长回合内这是
-// 最后防线——只给下步增长留够余量。结构性余量、非用户旋钮（同 advanceWorkers / maxConsecutiveAllFailTurns）。
-const loopStopRatio = 0.92
-
 // Host is the per-run hook surface: the loop asks it for the starting history and the
 // current tool set, and hands it the terminal write. Block persistence is the host's job —
 // the loop produces blocks in memory and streams them live; finalize is where they land.
@@ -148,36 +137,123 @@ func Run(
 		finalWritten  bool
 		stepsRun      int
 		consecAllFail int
+		contextTrack  contextTracker
 	)
 
 	for step := range maxSteps {
-		req := baseReq
-		req.Messages = injectReminders(ctx, host, history)
-
-		// Recompute per step: a prior search_tools may have widened the set. byName MUST
-		// match this step's offered tools so dispatch can't resolve a tool the LLM wasn't
-		// shown this turn.
-		//
-		// 每步重算：上一步的 search_tools 可能已扩张工具集。byName 必须与本步 offer 的集合
-		// 一致，避免调度到本回合未展示给 LLM 的工具。
-		tools := host.Tools(ctx)
-		req.Tools = toolapp.ToLLMDefs(tools)
-		byName := toolsByName(tools)
-
 		stepsRun = step + 1
+		var (
+			aBlocks   []messagesdomain.Block
+			toolCalls []messagesdomain.ToolCallData
+			byName    map[string]toolapp.Tool
+			sr        string
+			streamErr error
+			iT, oT    int
+		)
 
-		// buildOf lets streamLLM recognize a create/edit tool_call (a BuildTool) and mirror its arg
-		// delta onto the entities stream (SSE-C). Built per step from this step's byName.
-		//
-		// buildOf 让 streamLLM 识别 create/edit tool_call（BuildTool）并把 arg delta 镜像到 entities 流
-		// （SSE-C）。每步据本步 byName 建。
-		buildOf := func(name string) (toolapp.BuildSpec, bool) {
-			if ft, ok := byName[name].(toolapp.BuildTool); ok {
-				return ft.Build(), true
+		// One logical sampling step may make a bounded number of invisible
+		// recovery attempts when the provider authoritatively reports a context
+		// overflow. No tools run until one attempt succeeds, so retry is safe.
+		for attempt := 0; ; attempt++ {
+			req := baseReq
+
+			// Recompute per attempt: a prior search_tools may have widened the
+			// set. byName MUST match the definitions shown to the model.
+			tools := host.Tools(ctx)
+			req.Tools = toolapp.ToLLMDefs(tools)
+			byName = toolsByName(tools)
+			req.Messages = injectReminders(ctx, host, history)
+
+			clearedBytes := 0
+			compacted := false
+			compactionMode := ""
+			fp := measureRequest(req)
+			predicted := contextTrack.predict(fp.total)
+			budget := req.ActiveInputBudgetTokens()
+
+			// Routine prompt editing: cheap/lossless refetchable tool-output
+			// clearing first, then a structured checkpoint only if still needed.
+			if budget > 0 && predicted >= int(float64(budget)*contextEditRatio) {
+				if edited, cleared := clearOldToolResults(history, hotToolGroups, 0); cleared > 0 {
+					history = edited
+					clearedBytes += cleared
+					req.Messages = injectReminders(ctx, host, history)
+					fp = measureRequest(req)
+					predicted = contextTrack.predict(fp.total)
+				}
+				if predicted >= int(float64(budget)*contextEditRatio) {
+					target := int(float64(budget) * contextTargetRatio)
+					if edited, changed, mode := compactPrompt(ctx, host, client, baseReq, history, target, false); changed {
+						history = edited
+						compacted = true
+						compactionMode = mode
+						req.Messages = injectReminders(ctx, host, history)
+						fp = measureRequest(req)
+						predicted = contextTrack.predict(fp.total)
+					}
+				}
 			}
-			return toolapp.BuildSpec{}, false
+
+			// buildOf lets streamLLM recognize build tools and mirror their arg
+			// delta onto the entities stream.
+			buildOf := func(name string) (toolapp.BuildSpec, bool) {
+				if ft, ok := byName[name].(toolapp.BuildTool); ok {
+					return ft.Build(), true
+				}
+				return toolapp.BuildSpec{}, false
+			}
+
+			aBlocks, toolCalls, sr, streamErr, iT, oT = streamLLM(ctx, client, req, buildOf, log)
+			contextTrack.anchor(iT, fp.total)
+			if observer, ok := host.(ContextObserver); ok {
+				observer.ObserveContext(ctx, ContextObservation{
+					Step: step, Attempt: attempt, Route: routeName(req),
+					InputBudget: budget, PredictedInput: predicted, ActualInput: iT,
+					RequestBytes: fp.total, SystemBytes: fp.system,
+					ToolSchemaBytes: fp.tools, HistoryBytes: fp.history,
+					ClearedToolBytes: clearedBytes, Compacted: compacted,
+					CompactionMode: compactionMode, Recovery: attempt > 0,
+				})
+			}
+			log.Debug("llm context sampled",
+				zap.Int("step", step), zap.Int("attempt", attempt),
+				zap.String("route", routeName(req)), zap.Int("input_budget", budget),
+				zap.Int("predicted_input", predicted), zap.Int("actual_input", iT),
+				zap.Int("request_bytes", fp.total), zap.Int("system_bytes", fp.system),
+				zap.Int("tool_schema_bytes", fp.tools), zap.Int("history_bytes", fp.history),
+				zap.Int("cleared_tool_bytes", clearedBytes), zap.String("compaction_mode", compactionMode))
+			if clearedBytes > 0 || compacted {
+				log.Info("llm context edited",
+					zap.Int("step", step), zap.Int("attempt", attempt),
+					zap.Int("cleared_tool_bytes", clearedBytes),
+					zap.String("compaction_mode", compactionMode),
+					zap.Int("predicted_input", predicted), zap.Int("input_budget", budget))
+			}
+
+			if sr != messagesdomain.StopReasonError || !llminfra.IsContextLengthError(streamErr) || len(aBlocks) > 0 || attempt >= maxContextRecoveryAttempts {
+				break
+			}
+
+			// Provider-confirmed overflow: aggressively shrink the prompt view,
+			// checkpoint it, and retry this SAME step. Full blocks remain in
+			// allBlocks/durable history; only the model projection changes.
+			recoveryHistory, _ := clearOldToolResults(history, 1, 8_000)
+			target := budget
+			if target <= 0 {
+				target = max(16_000, predicted/2)
+			} else {
+				target = int(float64(target) * contextTargetRatio)
+			}
+			recovered, changed, _ := compactPrompt(ctx, host, client, baseReq, recoveryHistory, target, true)
+			if !changed || measureHistory(recovered) >= measureHistory(history) {
+				break
+			}
+			history = recovered
+			log.Info("context overflow recovered; retrying sampling step",
+				zap.Int("step", step), zap.Int("attempt", attempt+1),
+				zap.Int("budget", budget), zap.Int("predicted_input", predicted))
 		}
-		aBlocks, toolCalls, sr, streamErr, iT, oT := streamLLM(ctx, client, req, buildOf, log)
+
 		allBlocks = append(allBlocks, aBlocks...)
 		totalIn += iT
 		totalOut += oT
@@ -190,7 +266,13 @@ func Run(
 			if stopReason == messagesdomain.StopReasonError {
 				status = messagesdomain.StatusError
 				errCode = "LLM_STREAM_ERROR"
-				errMsg = streamErr
+				if streamErr != nil {
+					errMsg = streamErr.Error()
+				}
+				if llminfra.IsContextLengthError(streamErr) {
+					errCode = "CONTEXT_INPUT_TOO_LARGE"
+					errMsg = "the current indivisible input still exceeds the model context after automatic compaction; reduce or split the newest attachment/content and retry"
+				}
 				// A provider can end the stream with stopReason=error yet an empty message (e.g. a
 				// silent disconnect). Surface a non-empty, actionable reason so the turn doesn't
 				// finalize as a contentless "error" with no cause and no recovery hint for the user.
@@ -273,27 +355,6 @@ func Run(
 		}
 
 		log.Debug("react step complete", zap.Int("step", step))
-
-		// Intra-turn context-budget soft guard (F58): maxSteps bounds the step COUNT, not token GROWTH.
-		// The model still wants to act (we're past the end-turn / error / tool-storm breaks), and THIS
-		// step's ACTUAL input already crossed the soft fraction of the model's input budget — the next
-		// call (with this step's tool_results now in history) would be larger and risk a provider
-		// context-length hard-fail that wastes its tokens. Stop gracefully with the partial result
-		// instead, mirroring the maxSteps terminal. budget 0 (unknown window) disables the guard.
-		//
-		// 回合内上下文预算软守卫（F58）：maxSteps 限步数、不限 token 增长。模型仍想动作（已过 end-turn/error/
-		// 工具风暴分支），且**本步**实际 input 已越过模型输入预算的软比例——下次调用（本步 tool_result 已入历史）
-		// 会更大、可能撞 provider 上下文长度硬失败并白烧那次 token。改为优雅停在部分结果，对标 maxSteps 终态。
-		// budget 0（window 未知）禁用守卫。
-		if b := baseReq.InputBudgetTokens; b > 0 && iT >= int(float64(b)*loopStopRatio) {
-			stopReason = messagesdomain.StopReasonContextBudget
-			finalStatus = messagesdomain.StatusError
-			errCode = "CONTEXT_BUDGET_REACHED"
-			errMsg = fmt.Sprintf("stopped before the next call would overflow the model's context window (this step's input was %d tokens, past %.0f%% of the %d-token input budget); the result is partial — send a follow-up to continue (in a chat), simplify the task, or use a larger-context model", iT, loopStopRatio*100, b)
-			host.WriteFinalize(ctx, allBlocks, finalStatus, stopReason, errCode, errMsg, totalIn, totalOut)
-			finalWritten = true
-			break
-		}
 	}
 
 	if !finalWritten {

@@ -1,6 +1,7 @@
 package agentstate
 
 import (
+	"fmt"
 	"strconv"
 	"sync"
 	"testing"
@@ -140,7 +141,21 @@ func TestMarkToolDiscovered_Concurrent(t *testing.T) {
 		}(i)
 	}
 	wg.Wait()
-	if !s.IsToolDiscovered("tool_a") {
-		t.Fatalf("concurrent MarkToolDiscovered lost tool_a")
+	got := s.DiscoveredTools()
+	if len(got) != discoveredToolsCap {
+		t.Fatalf("bounded concurrent discoveries = %d, want cap %d: %v", len(got), discoveredToolsCap, got)
+	}
+}
+
+func TestDiscoveredTools_EvictsOldest(t *testing.T) {
+	s := New()
+	for i := 0; i < discoveredToolsCap+1; i++ {
+		s.MarkToolDiscovered(fmt.Sprintf("tool_%02d", i))
+	}
+	if s.IsToolDiscovered("tool_00") {
+		t.Fatal("oldest discovered tool should be evicted")
+	}
+	if !s.IsToolDiscovered(fmt.Sprintf("tool_%02d", discoveredToolsCap)) {
+		t.Fatal("newest discovered tool should remain active")
 	}
 }

@@ -225,9 +225,9 @@ func TestToolsetCatalog(t *testing.T) {
 	}
 }
 
-// TestFirstLineCapped: keep the first line, trim, rune-cap with an ellipsis; leave short single
+// TestBriefDescription: keep the first line, trim, rune-cap with an ellipsis; leave short single
 // lines verbatim. 保留首行、trim、按符截断加省略号；短单行原样。
-func TestFirstLineCapped(t *testing.T) {
+func TestBriefDescription(t *testing.T) {
 	cases := []struct {
 		name string
 		in   string
@@ -241,8 +241,8 @@ func TestFirstLineCapped(t *testing.T) {
 		{"cap-trims-trailing-space", "abc defgh", 4, "abc…"},
 	}
 	for _, c := range cases {
-		if got := firstLineCapped(c.in, c.n); got != c.want {
-			t.Errorf("%s: firstLineCapped(%q, %d) = %q, want %q", c.name, c.in, c.n, got, c.want)
+		if got := BriefDescription(c.in, c.n); got != c.want {
+			t.Errorf("%s: BriefDescription(%q, %d) = %q, want %q", c.name, c.in, c.n, got, c.want)
 		}
 	}
 }

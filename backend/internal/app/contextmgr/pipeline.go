@@ -16,19 +16,21 @@ import (
 // demote ages old tool_result blocks down the hot→warm→cold gradient (the LLM-free first step:
 // tool outputs dominate token usage and are rarely needed verbatim again). It mutates the
 // in-memory thread's roles (so the gate estimate sees the new state) and batch-persists the
-// changes. Protected (recent recentTurns messages) + pinned + already-archived blocks are left
-// alone; only tool_results move.
+// changes. The newest tool-call groups stay hot by recency regardless of which
+// message contains them; pinned + already-archived blocks are left alone. This
+// matters for a single long ReAct turn, where all old tool outputs live inside
+// the newest assistant message.
 //
 // demote 把旧 tool_result 沿 hot→warm→cold 梯度老化（免 LLM 的第一步：工具输出占 token 大头、很少
-// 再需原文）。它原地改内存 thread 的角色（使闸估算看到新态）+ 批量落盘。保护（最近 recentTurns 条
-// message）+ pinned + 已 archived 的块不动；只动 tool_result。
+// 再需原文）。它原地改内存 thread 的角色（使闸估算看到新态）+ 批量落盘。最新工具组按近度保热；
+// pinned + 已 archived 的块不动。故单个超长 ReAct 回合内部的旧结果也能老化。
 func (s *Service) demote(ctx context.Context, thread []*messagesdomain.Message, protectedFrom int) {
 	var toWarm, toCold []string
 	tr := 0 // tool_result rank, newest-first, over non-protected blocks
 	for mi := len(thread) - 1; mi >= 0; mi-- {
 		m := thread[mi]
-		if m.SubagentID != "" || mi >= protectedFrom {
-			continue // subagent trace / protected recent turns
+		if m.SubagentID != "" {
+			continue // subagent trace
 		}
 		for bi := len(m.Blocks) - 1; bi >= 0; bi-- {
 			b := &m.Blocks[bi]

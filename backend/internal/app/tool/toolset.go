@@ -7,21 +7,21 @@ import (
 )
 
 // Toolset partitions system tools into always-present resident tools and lazy
-// tools surfaced on demand. Resident tools' full definitions are in every LLM
+// tools activated on demand. Resident tools' full definitions are in every LLM
 // turn. Lazy tools are NOT in context by default — only a one-line overview
 // (name + Description) is shown (the host injects it into the system prompt);
-// the LLM calls search_tools to pull a lazy tool's full definition (including its
-// large Parameters schema) when it needs it. This caps prompt tokens: N lazy
-// tools cost N overview lines, not N full schemas.
+// the LLM calls search_tools to activate a lazy tool when it needs it, and its
+// large Parameters schema appears in the next request's tools field. This caps
+// prompt tokens: N inactive tools cost N compact overview lines, not N schemas.
 //
 // The overview (so the LLM knows the full lazy inventory and never blind-searches),
 // search_tools, and the per-conversation "discovered" set are assembled by chat;
 // this struct is the partition plus the overview projection.
 //
-// Toolset 把系统工具分成常驻 resident 与按需浮出的 lazy。Resident 完整定义每回合都在。
+// Toolset 把系统工具分成常驻 resident 与按需激活的 lazy。Resident 完整定义每回合都在。
 // Lazy 默认不在 context——只展示一行概览（name + Description，host 注入 system prompt）；
-// LLM 需要时调 search_tools 取某 lazy 工具的完整定义（含它的大 Parameters schema）。这给
-// prompt token 设上限：N 个 lazy 工具只花 N 行概览，而非 N 份完整 schema。
+// LLM 需要时调 search_tools 激活，下一请求 tools 字段才出现其完整 schema。这给 prompt token
+// 设上限：N 个未激活工具只花 N 行紧凑概览，而非 N 份完整 schema。
 //
 // 概览（使 LLM 知道 lazy 全集、永不盲搜）、search_tools、每对话"已发现"集由 chat 组装；
 // 本结构是那份划分 + 概览投影。
@@ -31,9 +31,9 @@ type Toolset struct {
 	// Resident 工具完整定义每回合都在。
 	Resident []Tool
 
-	// Lazy tools appear only as a one-line overview until search_tools pulls a tool's full definition.
+	// Lazy tools appear only as a one-line overview until search_tools activates them.
 	//
-	// Lazy 工具只以一行概览出现，直到 search_tools 拉取某工具完整定义。
+	// Lazy 工具只以一行概览出现，直到 search_tools 激活该工具。
 	Lazy []Tool
 }
 
@@ -66,7 +66,7 @@ type ToolBrief struct {
 func (ts Toolset) Overview() []ToolBrief {
 	out := make([]ToolBrief, 0, len(ts.Lazy))
 	for _, t := range ts.Lazy {
-		out = append(out, ToolBrief{Name: t.Name(), Description: t.Description(), Params: requiredParams(t.Parameters())})
+		out = append(out, ToolBrief{Name: t.Name(), Description: BriefDescription(t.Description(), 180), Params: requiredParams(t.Parameters())})
 	}
 	return out
 }
@@ -88,10 +88,10 @@ func requiredParams(params json.RawMessage) []string {
 	return p.Required
 }
 
-// FindLazy returns the lazy tool with the given name, or nil — used by search_tools
-// to return a matched tool's full definition.
+// FindLazy returns the lazy tool with the given name, or nil — used by host
+// auto-activation and discovery.
 //
-// FindLazy 返回指定名的 lazy 工具，无则 nil——供 search_tools 返回命中工具的完整定义。
+// FindLazy 返回指定名的 lazy 工具，无则 nil——供 host 自动激活与发现。
 func (ts Toolset) FindLazy(name string) Tool {
 	for _, t := range ts.Lazy {
 		if t.Name() == name {
@@ -135,17 +135,17 @@ func (ts Toolset) Catalog() []Descriptor {
 	all := ts.All()
 	out := make([]Descriptor, 0, len(all))
 	for _, t := range all {
-		out = append(out, Descriptor{Name: t.Name(), Summary: firstLineCapped(t.Description(), 200)})
+		out = append(out, Descriptor{Name: t.Name(), Summary: BriefDescription(t.Description(), 200)})
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out
 }
 
-// firstLineCapped takes a tool Description's first line, trimmed and rune-capped to n (with an
+// BriefDescription takes a tool Description's first line, trimmed and rune-capped to n (with an
 // ellipsis) — a lazy tool's Description "may be large" (kept out of context on purpose), and a
 // human picking a tool needs a hint, not the full usage doc. 取 Description 首行、截断 n 符：
 // lazy 工具描述可能很大(刻意不进 context)，选工具的人要提示、非完整用法文档。
-func firstLineCapped(s string, n int) string {
+func BriefDescription(s string, n int) string {
 	if i := strings.IndexByte(s, '\n'); i >= 0 {
 		s = s[:i]
 	}

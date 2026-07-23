@@ -130,12 +130,13 @@ const (
 	StopReasonMaxSteps  = "max_steps"
 	StopReasonCancelled = "cancelled"
 	StopReasonError     = "error"
-	// StopReasonContextBudget: a non-success terminal — the loop stopped a still-acting turn because its
-	// input neared the model's context window (the intra-turn soft guard, F58), before the next larger
-	// call would have hard-failed on context length. Like MaxSteps, the work is partial, not lost.
+	// StopReasonContextBudget is retained for persisted-data/wire compatibility
+	// with older turns. The current loop no longer emits this proactive soft
+	// stop; it edits/checkpoints and transparently retries authoritative context
+	// rejections instead.
 	//
-	// StopReasonContextBudget：非成功终态——loop 因回合 input 逼近模型 context window 而停下仍在动作的回合
-	// （回合内软守卫，F58），赶在下次更大的调用会因上下文长度硬失败之前。同 MaxSteps，工作是部分的、非丢失。
+	// StopReasonContextBudget 仅为旧持久数据/线缆兼容保留；当前 loop 不再产这种主动软停，
+	// 而是编辑/checkpoint prompt，并对 provider 权威上下文拒绝透明重试。
 	StopReasonContextBudget = "context_budget"
 )
 

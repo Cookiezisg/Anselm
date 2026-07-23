@@ -9,6 +9,7 @@ import (
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -48,16 +49,75 @@ var (
 	_ loopapp.Host             = (*chatHost)(nil)
 	_ loopapp.AutoActivator    = (*chatHost)(nil)
 	_ loopapp.ReminderProvider = (*chatHost)(nil)
+	_ loopapp.PromptCompactor  = (*chatHost)(nil)
+	_ loopapp.ContextObserver  = (*chatHost)(nil)
 )
+
+// CompactPrompt delegates semantic in-turn checkpointing to contextmgr when
+// wired. Returning the original projection lets loop's deterministic emergency
+// fallback take over in deployments without a semantic compactor.
+func (h *chatHost) CompactPrompt(ctx context.Context, history []llminfra.LLMMessage, targetTokens int) ([]llminfra.LLMMessage, error) {
+	compactor, ok := h.svc.deps.Compactor.(interface {
+		CompactPrompt(context.Context, []llminfra.LLMMessage, int) ([]llminfra.LLMMessage, error)
+	})
+	if !ok {
+		return history, nil
+	}
+	return compactor.CompactPrompt(ctx, history, targetTokens)
+}
+
+// ObserveContext stores per-sampling context facts separately from the
+// assistant turn's aggregate token charge. No prompt content is retained.
+func (h *chatHost) ObserveContext(_ context.Context, o loopapp.ContextObservation) {
+	if h.assistantMsg.Attrs == nil {
+		h.assistantMsg.Attrs = make(map[string]any)
+	}
+	stats, _ := h.assistantMsg.Attrs["contextUsage"].(map[string]any)
+	if stats == nil {
+		stats = make(map[string]any)
+	}
+	if o.ActualInput > 0 {
+		stats["lastPromptInputTokens"] = o.ActualInput
+	}
+	stats["inputBudgetTokens"] = o.InputBudget
+	stats["predictedInputTokens"] = o.PredictedInput
+	stats["route"] = o.Route
+	stats["requestBytes"] = o.RequestBytes
+	stats["systemBytes"] = o.SystemBytes
+	stats["toolSchemaBytes"] = o.ToolSchemaBytes
+	stats["historyBytes"] = o.HistoryBytes
+	if o.Compacted {
+		stats["compactions"] = intValue(stats["compactions"]) + 1
+		stats["lastCompactionMode"] = o.CompactionMode
+	}
+	if o.ClearedToolBytes > 0 {
+		stats["toolResultEdits"] = intValue(stats["toolResultEdits"]) + 1
+	}
+	if o.Recovery {
+		stats["recoveries"] = intValue(stats["recoveries"]) + 1
+	}
+	h.assistantMsg.Attrs["contextUsage"] = stats
+}
+
+func intValue(v any) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case float64:
+		return int(n)
+	default:
+		return 0
+	}
+}
 
 // Tools recomputes the offered set every step (loop contract): always the resident tools +
 // search_tools, plus the lazy tools this conversation has already discovered (via search_tools,
-// recorded in AgentState). search_tools is what lets the LLM pull a lazy tool's full schema; the
-// overview of the rest rides the system prompt.
+// recorded in AgentState). search_tools activates a lazy tool; its full schema then appears in
+// this next tools list while the overview of inactive tools stays compact in the system prompt.
 //
 // Tools 每步重算 offer 集（loop 契约）：永远是 resident 工具 + search_tools，加上本对话已 discovered
-// 的 lazy 工具（经 search_tools、记在 AgentState）。search_tools 让 LLM 拉取 lazy 工具完整 schema；
-// 其余的概览随 system prompt。
+// 的 lazy 工具（经 search_tools、记在 AgentState）。search_tools 激活 lazy 工具，其完整 schema
+// 随下一请求 tools 列表出现；未激活工具只在 system prompt 留紧凑概览。
 func (h *chatHost) Tools(ctx context.Context) []toolapp.Tool {
 	ts := h.svc.deps.Toolset
 	tools := make([]toolapp.Tool, 0, len(ts.Resident)+1+len(ts.Lazy))

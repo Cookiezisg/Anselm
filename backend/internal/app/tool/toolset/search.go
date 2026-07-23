@@ -1,18 +1,17 @@
-// Package toolset provides the search_tools system tool — on-demand discovery of
-// lazy tools' full definitions. The LLM knows the lazy inventory from the
+// Package toolset provides the search_tools system tool — on-demand activation
+// of lazy tools. The LLM knows the lazy inventory from the
 // system-prompt overview (Toolset.Overview: name + one-line description each);
-// when it needs a capability it calls search_tools with a description, gets back
-// the full definitions (incl. the large Parameters schema) of the best matches,
-// and the host includes those tools in the tool list on subsequent turns.
+// when it needs a capability it calls search_tools with a description, gets a
+// compact list of activated matches, and the host includes those tools' full
+// schemas in the next request's tools field.
 //
 // Discovery is per-tool, not per-category: instead of loading a whole group's
 // schemas for the rest of the conversation, search_tools surfaces only the few
 // individually-relevant tools and lets the LLM re-search as the task evolves.
 //
-// Package toolset 提供 search_tools 系统工具——按需发现 lazy 工具的完整定义。LLM 从 system-prompt
+// Package toolset 提供 search_tools 系统工具——按需激活 lazy 工具。LLM 从 system-prompt
 // 概览（Toolset.Overview：每个 name + 一句话 description）知道 lazy 全集；需要某能力时用一段描述调
-// search_tools，拿回最佳命中的完整定义（含大 Parameters schema），host 在后续回合把这些工具纳入
-// 工具列表。
+// search_tools，拿回最佳命中的紧凑激活清单，host 在下一请求 tools 字段放入这些工具的完整 schema。
 //
 // 发现按工具粒度、非按类：不为整组的 schema 锁定整对话，search_tools 只浮出
 // 少数逐个相关的工具，并让 LLM 随任务演进重搜。
@@ -44,17 +43,17 @@ var searchToolsSchema = json.RawMessage(`{
 	"properties": {
 		"query": {
 			"type": "string",
-			"description": "Describe the capability you need (keywords or a short phrase). Returns the full definitions of the best-matching tools so you can then call them."
+			"description": "Describe the capability you need (keywords or a short phrase). Activates the best-matching tools; their full parameter schemas appear in the next request."
 		}
 	}
 }`)
 
-// SearchTools surfaces lazy tools' full definitions on demand by keyword-matching
+// SearchTools activates lazy tools on demand by keyword-matching
 // a query against each lazy tool's name + description. It is itself a RESIDENT tool
 // (always available so the LLM can discover others). On a hit it records each tool
 // in AgentState so the host includes them in the tool list on subsequent turns.
 //
-// SearchTools 通过对每个 lazy 工具 name + description 做关键词匹配，按需浮出其完整定义。它自身是
+// SearchTools 通过对每个 lazy 工具 name + description 做关键词匹配，按需激活工具。它自身是
 // RESIDENT 工具（始终可用，使 LLM 能发现其它工具）。命中时把每个工具记入 AgentState，使 host 在
 // 后续回合把它们纳入工具列表。
 type SearchTools struct {
@@ -97,7 +96,7 @@ func (t *SearchTools) Name() string                { return "search_tools" }
 func (t *SearchTools) Parameters() json.RawMessage { return searchToolsSchema }
 
 func (t *SearchTools) Description() string {
-	return "Find and load tools by capability. The system prompt lists available tools as one-liners; call this with a description of what you need to get a tool's full definition (parameters), then call that tool."
+	return "Find and activate tools by capability. The system prompt lists available tools as one-liners; call this with what you need, then use the activated tools whose full schemas appear in the next request."
 }
 
 // ValidateInput rejects an empty query pre-Execute.
@@ -117,17 +116,17 @@ func (t *SearchTools) ValidateInput(args json.RawMessage) error {
 }
 
 type toolView struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  json.RawMessage `json:"parameters"`
+	Name    string `json:"name"`
+	Purpose string `json:"purpose"`
 }
 
-// Execute keyword-ranks lazy tools against the query, returns the top matches' full
-// definitions as JSON (the same shape the LLM will see when the tool is loaded), and
-// marks each discovered in AgentState. No match → an actionable string (not an error).
+// Execute keyword-ranks lazy tools, activates the top matches, and returns a compact
+// acknowledgement. Full schemas appear exactly once — in the next model request's
+// tools field — instead of being duplicated in both this durable tool_result and
+// that field. No match → an actionable string (not an error).
 //
-// Execute 按 query 对 lazy 工具关键词排序，返回 top 命中的完整定义 JSON（与该工具加载后 LLM 所见
-// 同形），并把每个记入 AgentState。无命中 → 可操作字符串（非错误）。
+// Execute 按 query 排序并激活 top 工具，返回紧凑确认。完整 schema 只在下一次模型请求的 tools
+// 字段出现一次，不再同时复制进这条持久 tool_result。无命中 → 可操作字符串（非错误）。
 func (t *SearchTools) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args struct {
 		Query string `json:"query"`
@@ -147,10 +146,12 @@ func (t *SearchTools) Execute(ctx context.Context, argsJSON string) (string, err
 		if hasState {
 			state.MarkToolDiscovered(m.Name())
 		}
-		d := toolapp.ToLLMDef(m)
-		views = append(views, toolView{Name: d.Name, Description: d.Description, Parameters: d.Parameters})
+		views = append(views, toolView{Name: m.Name(), Purpose: toolapp.BriefDescription(m.Description(), 180)})
 	}
-	body, err := json.MarshalIndent(map[string]any{"tools": views}, "", "  ")
+	body, err := json.Marshal(map[string]any{
+		"loaded_tools": views,
+		"status":       "Full parameter schemas are active in the next model request.",
+	})
 	if err != nil {
 		return "", fmt.Errorf("search_tools.Execute: marshal: %w", err)
 	}

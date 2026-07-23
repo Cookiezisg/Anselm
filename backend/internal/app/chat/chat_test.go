@@ -482,6 +482,7 @@ func TestBuildSystemPrompt_Sections(t *testing.T) {
 		`<section name="environment">`,
 		"Reply in Chinese.",
 		`<section name="critical_rules">`,
+		"perform a consistency pass",
 	} {
 		if !strings.Contains(prompt, want) {
 			t.Fatalf("system prompt missing %q\n---\n%s", want, prompt)

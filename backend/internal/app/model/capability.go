@@ -23,20 +23,22 @@ import (
 // CapabilityView 是一个可用的 (key, model) 对，带能力规格与原生可调旋钮——前端做模型选择渲染的
 // 单元。Knobs 直接复用 llm 描述符（key/取值全原生、不归一），故此处不另造一份同形结构。
 type CapabilityView struct {
-	APIKeyID      string        `json:"apiKeyId"`
-	KeyName       string        `json:"keyName"`
-	Provider      string        `json:"provider"`
-	ModelID       string        `json:"modelId"`
-	DisplayName   string        `json:"displayName"`
-	ContextWindow int           `json:"contextWindow"`
-	MaxOutput     int           `json:"maxOutput"`
-	Vision        bool          `json:"vision"`     // accepts image input natively / 原生接收图片
-	Video         bool          `json:"video"`      // accepts native video input / 原生接收视频
-	Audio         bool          `json:"audio"`      // accepts native audio input / 原生接收音频
-	NativeDocs    bool          `json:"nativeDocs"` // accepts an inline document (PDF) natively / 原生接收内联文档(PDF)
-	MaxMediaParts int           `json:"maxMediaParts,omitempty"`
-	MaxMediaBytes int64         `json:"maxMediaBytes,omitempty"`
-	Knobs         []llmpkg.Knob `json:"knobs"`
+	APIKeyID             string        `json:"apiKeyId"`
+	KeyName              string        `json:"keyName"`
+	Provider             string        `json:"provider"`
+	ModelID              string        `json:"modelId"`
+	DisplayName          string        `json:"displayName"`
+	ContextWindow        int           `json:"contextWindow"`
+	MaxOutput            int           `json:"maxOutput"`
+	TextInputLimit       int           `json:"textInputLimit,omitempty"`
+	MultimodalInputLimit int           `json:"multimodalInputLimit,omitempty"`
+	Vision               bool          `json:"vision"`     // accepts image input natively / 原生接收图片
+	Video                bool          `json:"video"`      // accepts native video input / 原生接收视频
+	Audio                bool          `json:"audio"`      // accepts native audio input / 原生接收音频
+	NativeDocs           bool          `json:"nativeDocs"` // accepts an inline document (PDF) natively / 原生接收内联文档(PDF)
+	MaxMediaParts        int           `json:"maxMediaParts,omitempty"`
+	MaxMediaBytes        int64         `json:"maxMediaBytes,omitempty"`
+	Knobs                []llmpkg.Knob `json:"knobs"`
 }
 
 // CapabilityService aggregates the model catalog across a workspace's probed keys.
@@ -85,20 +87,22 @@ func (s *CapabilityService) List(ctx context.Context) ([]CapabilityView, error) 
 		}
 		for _, m := range models {
 			out = append(out, CapabilityView{
-				APIKeyID:      pk.ID,
-				KeyName:       pk.DisplayName,
-				Provider:      pk.Provider,
-				ModelID:       m.ID,
-				DisplayName:   m.DisplayName,
-				ContextWindow: m.ContextWindow,
-				MaxOutput:     m.MaxOutput,
-				Vision:        m.Vision,
-				Video:         m.Video,
-				Audio:         m.Audio,
-				NativeDocs:    m.NativeDocs,
-				MaxMediaParts: m.MaxMediaParts,
-				MaxMediaBytes: m.MaxMediaBytes,
-				Knobs:         m.Knobs,
+				APIKeyID:             pk.ID,
+				KeyName:              pk.DisplayName,
+				Provider:             pk.Provider,
+				ModelID:              m.ID,
+				DisplayName:          m.DisplayName,
+				ContextWindow:        m.ContextWindow,
+				MaxOutput:            m.MaxOutput,
+				TextInputLimit:       m.TextInputLimit,
+				MultimodalInputLimit: m.MultimodalInputLimit,
+				Vision:               m.Vision,
+				Video:                m.Video,
+				Audio:                m.Audio,
+				NativeDocs:           m.NativeDocs,
+				MaxMediaParts:        m.MaxMediaParts,
+				MaxMediaBytes:        m.MaxMediaBytes,
+				Knobs:                m.Knobs,
 			})
 		}
 	}

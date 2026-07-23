@@ -162,6 +162,7 @@ func TestFinalizeMessage(t *testing.T) {
 	m.StopReason = messagesdomain.StopReasonEndTurn
 	m.InputTokens, m.OutputTokens = 12, 34
 	m.Provider, m.ModelID = "anthropic", "claude-x"
+	m.Attrs = map[string]any{"contextUsage": map[string]any{"lastPromptInputTokens": 9.0}}
 	blocks := []messagesdomain.Block{{Type: messagesdomain.BlockTypeText, Content: "done"}}
 	if err := s.FinalizeMessage(ctx, m, blocks); err != nil {
 		t.Fatalf("FinalizeMessage: %v", err)
@@ -176,6 +177,10 @@ func TestFinalizeMessage(t *testing.T) {
 	}
 	if got.InputTokens != 12 || got.OutputTokens != 34 || got.Provider != "anthropic" || got.ModelID != "claude-x" {
 		t.Fatalf("token / provenance not written: %+v", got)
+	}
+	stats, _ := got.Attrs["contextUsage"].(map[string]any)
+	if stats["lastPromptInputTokens"] != float64(9) {
+		t.Fatalf("finalize attrs not written: %+v", got.Attrs)
 	}
 	if len(got.Blocks) != 1 || got.Blocks[0].Seq != 1 {
 		t.Fatalf("finalized blocks wrong: %+v", got.Blocks)

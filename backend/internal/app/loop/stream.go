@@ -102,7 +102,7 @@ func streamLLM(
 	req llminfra.Request,
 	buildOf func(toolName string) (toolapp.BuildSpec, bool),
 	log *zap.Logger,
-) (blocks []messagesdomain.Block, toolCalls []messagesdomain.ToolCallData, stopReason, errMsg string, inputTokens, outputTokens int) {
+) (blocks []messagesdomain.Block, toolCalls []messagesdomain.ToolCallData, stopReason string, streamErr error, inputTokens, outputTokens int) {
 	em := newEmitter(ctx, log)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
 	// entBridge (nil off a streamed chat turn) carries build tool_call arg deltas onto the entities
@@ -217,7 +217,7 @@ func streamLLM(
 			} else {
 				stopReason = messagesdomain.StopReasonError
 				if event.Err != nil {
-					errMsg = event.Err.Error()
+					streamErr = event.Err
 				}
 			}
 		}

@@ -3,6 +3,7 @@ package llm
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"net"
@@ -154,11 +155,56 @@ func classifyHTTPError(status int, body []byte) error {
 		// 免费档网关用 402 报本月额度耗尽。映射 ErrQuotaExhausted（不可重试），让耗尽的免费档诚实失败、
 		// 不空烧 3 次重试。
 		return fmt.Errorf("%w (402): %s", ErrQuotaExhausted, msg)
-	case http.StatusBadRequest:
-		return fmt.Errorf("%w (400): %s", ErrBadRequest, msg)
+	case http.StatusBadRequest, http.StatusRequestEntityTooLarge, http.StatusUnprocessableEntity:
+		if reason := requestRejectionReason(body); reason != "" {
+			return &RequestRejectedError{Reason: reason, Status: status}
+		}
+		return fmt.Errorf("%w (%d): %s", ErrBadRequest, status, msg)
 	case http.StatusNotFound:
 		return fmt.Errorf("%w (404): %s", ErrModelNotFound, msg)
 	default:
 		return fmt.Errorf("%w (%d): %s", ErrProviderError, status, msg)
+	}
+}
+
+// requestRejectionReason understands the managed gateway's structured error
+// envelope first, then a small compatibility fallback for direct providers.
+// It returns only a closed reason enum; provider text never escapes through the
+// typed error.
+func requestRejectionReason(body []byte) string {
+	var env struct {
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+			Details struct {
+				Reason string `json:"reason"`
+			} `json:"details"`
+		} `json:"error"`
+	}
+	_ = json.Unmarshal(body, &env)
+	switch env.Error.Code {
+	case "REQUEST_BODY_TOO_LARGE":
+		return RejectionRequestBodyTooLarge
+	case "UPSTREAM_REJECTED":
+		switch env.Error.Details.Reason {
+		case RejectionContextLength, RejectionMaxTokens, RejectionInvalidRequest:
+			return env.Error.Details.Reason
+		}
+	}
+	message := strings.ToLower(env.Error.Message)
+	if message == "" {
+		message = strings.ToLower(string(body))
+	}
+	switch {
+	case strings.Contains(message, "context length"),
+		strings.Contains(message, "context window"),
+		strings.Contains(message, "input too large"),
+		strings.Contains(message, "too many input tokens"),
+		strings.Contains(message, "maximum input"):
+		return RejectionContextLength
+	case strings.Contains(message, "max_tokens"):
+		return RejectionMaxTokens
+	default:
+		return ""
 	}
 }

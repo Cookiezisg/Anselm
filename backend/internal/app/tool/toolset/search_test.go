@@ -43,7 +43,7 @@ func TestSearchTools_ValidateInput(t *testing.T) {
 	}
 }
 
-func TestSearchTools_Execute_MatchesAndReturnsFullDef(t *testing.T) {
+func TestSearchTools_Execute_MatchesAndReturnsCompactActivation(t *testing.T) {
 	st := NewSearchTools(lazySet(), nil)
 	state := agentstatepkg.New()
 	ctx := reqctxpkg.WithAgentState(context.Background(), state)
@@ -54,10 +54,9 @@ func TestSearchTools_Execute_MatchesAndReturnsFullDef(t *testing.T) {
 	}
 	var resp struct {
 		Tools []struct {
-			Name        string          `json:"name"`
-			Description string          `json:"description"`
-			Parameters  json.RawMessage `json:"parameters"`
-		} `json:"tools"`
+			Name    string `json:"name"`
+			Purpose string `json:"purpose"`
+		} `json:"loaded_tools"`
 	}
 	if err := json.Unmarshal([]byte(out), &resp); err != nil {
 		t.Fatalf("output not JSON: %v\n%s", err, out)
@@ -65,9 +64,10 @@ func TestSearchTools_Execute_MatchesAndReturnsFullDef(t *testing.T) {
 	if len(resp.Tools) == 0 || resp.Tools[0].Name != "run_function" {
 		t.Fatalf("expected run_function top match, got %+v", resp.Tools)
 	}
-	// Full definition includes the Parameters schema (the whole point of search).
-	if !strings.Contains(string(resp.Tools[0].Parameters), "functionId") {
-		t.Fatalf("expected full Parameters schema, got %s", resp.Tools[0].Parameters)
+	// The durable result must not duplicate the full schema; the host offers it
+	// exactly once in the next request's tools field.
+	if strings.Contains(out, "functionId") || strings.Contains(out, `"parameters"`) {
+		t.Fatalf("activation result duplicated a full schema: %s", out)
 	}
 	// Discovered tool is recorded in AgentState for the host to load next turn.
 	if !state.IsToolDiscovered("run_function") {

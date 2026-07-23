@@ -8,6 +8,7 @@ import (
 	"iter"
 	"strings"
 	"testing"
+	"unicode/utf8"
 
 	"go.uber.org/zap"
 
@@ -27,10 +28,12 @@ type fakeClient struct {
 	scripts  [][]llminfra.StreamEvent
 	calls    int
 	captured [][]llminfra.LLMMessage
+	requests []llminfra.Request
 }
 
 func (c *fakeClient) Stream(_ context.Context, req llminfra.Request) iter.Seq[llminfra.StreamEvent] {
 	c.captured = append(c.captured, req.Messages)
+	c.requests = append(c.requests, req)
 	idx := c.calls
 	c.calls++
 	return func(yield func(llminfra.StreamEvent) bool) {
@@ -202,32 +205,28 @@ func TestRun_ToolThenText(t *testing.T) {
 	}
 }
 
-// TestRun_ContextBudgetSoftStop — F58: a still-acting turn whose step input nears the model's input
-// budget soft-stops (context_budget terminal) before the next call would overflow the context window.
-// budget 0 (unknown window) disables the guard; an input well under the budget never stops.
-func TestRun_ContextBudgetSoftStop(t *testing.T) {
+// A high measured prompt no longer terminates a capable agent. The next step
+// gets a chance to edit/checkpoint its prompt and continue.
+func TestRun_ContextBudgetContinuesInsteadOfSoftStop(t *testing.T) {
 	// Step 1 makes a tool call and reports a high ACTUAL input (1000 tokens); step 2 (if reached) ends.
 	highFinish := llminfra.StreamEvent{Type: llminfra.EventFinish, InputTokens: 1000, OutputTokens: 5}
 	scripts := func() [][]llminfra.StreamEvent {
 		return [][]llminfra.StreamEvent{
 			{toolStartEv(0, "tc_1", "echo"), toolDeltaEv(0, `{"summary":"s","danger":"safe","msg":"x"}`), highFinish},
-			{textEv("should-not-run"), finishEv()},
+			{textEv("continued"), finishEv()},
 		}
 	}
 	newHost := func() *fakeHost {
 		return &fakeHost{history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "go"}}, tools: []toolapp.Tool{fakeTool{name: "echo", result: "ok"}}}
 	}
 
-	// budget reached (1000 ≥ 0.92*1000) → soft-stop after step 1 with the context_budget terminal.
+	// Even at the full nominal budget, context governance continues rather than
+	// surfacing a proactive soft-stop error to the user.
 	host := newHost()
 	res := Run(context.Background(), host, &fakeClient{scripts: scripts()}, llminfra.Request{InputBudgetTokens: 1000}, 5, nil)
-	if res.Steps != 1 {
-		t.Fatalf("budget guard must stop after step 1, ran %d steps", res.Steps)
-	}
-	if host.fin.called != 1 || host.fin.stopReason != messagesdomain.StopReasonContextBudget ||
-		host.fin.status != messagesdomain.StatusError || host.fin.errCode != "CONTEXT_BUDGET_REACHED" {
-		t.Fatalf("want one context_budget/error/CONTEXT_BUDGET_REACHED finalize, got called=%d stop=%q status=%q code=%q",
-			host.fin.called, host.fin.stopReason, host.fin.status, host.fin.errCode)
+	if res.Steps != 2 || host.fin.status != messagesdomain.StatusCompleted || res.LastMessage != "continued" {
+		t.Fatalf("high context must continue to completion, got steps=%d status=%q last=%q",
+			res.Steps, host.fin.status, res.LastMessage)
 	}
 
 	// budget 0 (unknown window) → guard disabled → runs both steps to a normal end_turn.
@@ -242,6 +241,70 @@ func TestRun_ContextBudgetSoftStop(t *testing.T) {
 	res3 := Run(context.Background(), host3, &fakeClient{scripts: scripts()}, llminfra.Request{InputBudgetTokens: 100000}, 5, nil)
 	if res3.Steps != 2 || host3.fin.stopReason != messagesdomain.StopReasonEndTurn {
 		t.Fatalf("under-budget step must not stop, got steps=%d stop=%q", res3.Steps, host3.fin.stopReason)
+	}
+}
+
+func TestRun_ProviderContextOverflowCompactsAndRetriesSameStep(t *testing.T) {
+	long := strings.Repeat("tool-output-", 2_000)
+	history := []llminfra.LLMMessage{
+		{Role: llminfra.RoleUser, Content: "complete the migration; preserve exact ids"},
+		{Role: llminfra.RoleAssistant, ReasoningContent: "first complete reasoning", ToolCalls: []llminfra.LLMToolCall{{ID: "old_call", Name: "read_state", Arguments: `{"id":"wf_exact"}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "old_call", Content: long},
+		{Role: llminfra.RoleAssistant, ReasoningContent: "second complete reasoning", ToolCalls: []llminfra.LLMToolCall{{ID: "new_call", Name: "check_state", Arguments: `{"id":"wf_exact"}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "new_call", Content: "latest exact result"},
+	}
+	rejected := &llminfra.RequestRejectedError{Reason: llminfra.RejectionContextLength, Status: 400}
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+		{errorEv(rejected)},
+		{textEv("Goal & constraints: complete the migration.\nExact references: wf_exact.\nOpen work/next action: continue."), finishEv()},
+		{textEv("recovered and finished"), finishEv()},
+	}}
+	host := &fakeHost{history: history}
+
+	res := Run(context.Background(), host, client, llminfra.Request{InputBudgetTokens: 100_000}, 3, nil)
+
+	if client.calls != 3 {
+		t.Fatalf("context recovery calls=%d, want rejected attempt + semantic checkpoint + one retry", client.calls)
+	}
+	if res.Status != messagesdomain.StatusCompleted || res.LastMessage != "recovered and finished" {
+		t.Fatalf("recovery should be invisible and complete: %+v", res)
+	}
+	if host.fin.errCode != "" {
+		t.Fatalf("provider context rejection leaked to user: %q %q", host.fin.errCode, host.fin.errMsg)
+	}
+	if len(client.requests[1].Tools) != 0 || !strings.Contains(client.requests[1].System, "continuation checkpoint") {
+		t.Fatalf("middle request must be an isolated checkpoint call: %+v", client.requests[1])
+	}
+	second := client.captured[2]
+	if measureHistory(second) >= measureHistory(client.captured[0]) {
+		t.Fatalf("retry prompt did not shrink: first=%d retry=%d", measureHistory(client.captured[0]), measureHistory(second))
+	}
+	if !strings.Contains(second[0].Content, "context_checkpoint") {
+		t.Fatalf("retry lacks a continuation checkpoint: %+v", second)
+	}
+}
+
+func TestPromptEditsNeverSplitUTF8(t *testing.T) {
+	// A byte ceiling can land in the middle of a CJK rune. The prompt view is
+	// sent as JSON later, so it must remain valid UTF-8 rather than relying on
+	// encoding/json to replace damaged exact references.
+	old := strings.Repeat("你", 4_000)
+	history := []llminfra.LLMMessage{
+		{Role: llminfra.RoleUser, Content: "继续处理中文文件名"},
+		{Role: llminfra.RoleAssistant, ToolCalls: []llminfra.LLMToolCall{{ID: "old", Name: "read", Arguments: `{}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "old", Content: old},
+		{Role: llminfra.RoleAssistant, ToolCalls: []llminfra.LLMToolCall{{ID: "new", Name: "read", Arguments: `{}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "new", Content: old},
+	}
+	edited, _ := clearOldToolResults(history, 1, 8_000)
+	for i, m := range edited {
+		if !utf8.ValidString(m.Content) {
+			t.Fatalf("edited message %d is invalid UTF-8", i)
+		}
+	}
+	checkpoint, changed := deterministicCheckpoint(history, 2_000, 1)
+	if !changed || !utf8.ValidString(checkpoint[0].Content) {
+		t.Fatalf("deterministic checkpoint must be valid UTF-8: changed=%v content=%q", changed, checkpoint[0].Content)
 	}
 }
 

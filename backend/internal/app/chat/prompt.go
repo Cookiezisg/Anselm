@@ -29,7 +29,7 @@ const (
 		`When a step fails, surface the real error rather than papering over it.`
 
 	toolsSection = `Resident tools are always available. Other tools are listed below as "name(required args): purpose" — ` +
-		`call search_tools with a short description of what you need to pull a tool's full definition before using it. ` +
+		`call search_tools with a short description of what you need to activate matching tools; their full schemas appear in your next request. ` +
 		`An arg name ending in Id wants that entity's id (an fn_/hd_/wf_/ag_/tr_… id), not its name — use the matching search_* tool to resolve a name → id first. ` +
 		`Each tool call self-reports a one-line summary and a danger level; you choose the right tool for the job.`
 
@@ -39,6 +39,7 @@ const (
 
 	criticalRulesSection = `Do not fabricate results or tool output. ` +
 		`If you cannot complete the request with the tools you have, say so plainly instead of pretending. ` +
+		`Before the final answer, perform a consistency pass: the diagnosis, examples, and recommended action must agree, and observed facts must be distinguished from inference. ` +
 		`Keep responses concise.`
 
 	// conversationSection states the truth about thread management so the agent stops inventing a

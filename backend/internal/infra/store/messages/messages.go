@@ -23,6 +23,7 @@ package messages
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -116,6 +117,10 @@ func (s *Store) CreateMessage(ctx context.Context, m *messagesdomain.Message, bl
 
 func (s *Store) FinalizeMessage(ctx context.Context, m *messagesdomain.Message, blocks []messagesdomain.Block) error {
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
+		attrs, err := json.Marshal(m.Attrs)
+		if err != nil {
+			return fmt.Errorf("messagesstore.FinalizeMessage: marshal attrs: %w", err)
+		}
 		// Partial update of terminal fields only (not Save), so a finalize never touches
 		// created_at / role / conversation_id — and Updates' WHERE carries the auto workspace
 		// filter, so n==0 means "no such message in this workspace".
@@ -133,6 +138,7 @@ func (s *Store) FinalizeMessage(ctx context.Context, m *messagesdomain.Message, 
 				"output_tokens": m.OutputTokens,
 				"provider":      m.Provider,
 				"model_id":      m.ModelID,
+				"attrs":         string(attrs),
 			})
 		if err != nil {
 			return fmt.Errorf("messagesstore.FinalizeMessage: update message: %w", err)

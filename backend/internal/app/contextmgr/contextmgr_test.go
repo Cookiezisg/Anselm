@@ -124,6 +124,9 @@ func trTurn(id string, seq int64, tokens int, content string) *messagesdomain.Me
 	return &messagesdomain.Message{
 		ID: id, ConversationID: "cv", Role: messagesdomain.RoleAssistant,
 		InputTokens: tokens, Provider: "p", ModelID: "m",
+		Attrs: map[string]any{"contextUsage": map[string]any{
+			"lastPromptInputTokens": tokens,
+		}},
 		Blocks: []messagesdomain.Block{{
 			ID: id + "_tr", Seq: seq, Type: messagesdomain.BlockTypeToolResult,
 			Content: content, ContextRole: messagesdomain.ContextRoleHot,
@@ -156,6 +159,22 @@ func TestMaybeCompact_UnderThreshold(t *testing.T) {
 	}
 }
 
+func TestMaybeCompact_IgnoresAggregateRunTokens(t *testing.T) {
+	turn := trTurn("m1", 1, 1_000, "small")
+	turn.InputTokens = 900_000 // aggregate cost across many ReAct requests
+	turn.Attrs["contextUsage"].(map[string]any)["lastPromptInputTokens"] = 1_000
+	msgs := &fakeMessages{thread: []*messagesdomain.Message{turn}}
+	conv := &fakeConv{}
+	svc := newSvc(msgs, conv, fakeWindow{window: 100_000}, &fakeClient{out: "X"})
+
+	if err := svc.MaybeCompact(context.Background(), "cv"); err != nil {
+		t.Fatal(err)
+	}
+	if conv.setCalls != 0 || len(msgs.roleUpdates) != 0 {
+		t.Fatalf("aggregate run cost triggered compaction: sets=%d roles=%v", conv.setCalls, msgs.roleUpdates)
+	}
+}
+
 func TestMaybeCompact_UnknownWindow(t *testing.T) {
 	msgs := &fakeMessages{thread: []*messagesdomain.Message{trTurn("m1", 1, 999999, "huge")}}
 	conv := &fakeConv{}
@@ -170,8 +189,9 @@ func TestMaybeCompact_UnknownWindow(t *testing.T) {
 }
 
 func TestDemote_Tiering(t *testing.T) {
-	// 16 old tool_result turns + 4 recent (protected). Newest-first over the 16: ranks 1-4 hot,
-	// 5-12 warm, 13-16 cold. Protected recent 4 stay hot (untouched).
+	// Newest-first over all 20 tool results: ranks 1-4 hot, 5-12 warm,
+	// 13-20 cold. Recency protects complete tool activity even when it all lives
+	// inside one newest assistant turn.
 	var thread []*messagesdomain.Message
 	for i := range 20 {
 		thread = append(thread, trTurn("m"+string(rune('a'+i)), int64(i+1), 100, "tool output"))
@@ -186,11 +206,11 @@ func TestDemote_Tiering(t *testing.T) {
 	if len(warm) != warmZone {
 		t.Fatalf("want %d warm, got %d", warmZone, len(warm))
 	}
-	if len(cold) != 16-recentTRHot-warmZone {
-		t.Fatalf("want %d cold, got %d", 16-recentTRHot-warmZone, len(cold))
+	if len(cold) != 20-recentTRHot-warmZone {
+		t.Fatalf("want %d cold, got %d", 20-recentTRHot-warmZone, len(cold))
 	}
-	// The 4 most-recent turns are protected: their blocks must remain hot.
-	for _, m := range thread[len(thread)-recentTurns:] {
+	// The 4 most-recent tool results remain hot.
+	for _, m := range thread[len(thread)-recentTRHot:] {
 		if m.Blocks[0].ContextRole != messagesdomain.ContextRoleHot {
 			t.Fatalf("protected recent turn demoted: %s = %s", m.ID, m.Blocks[0].ContextRole)
 		}
@@ -299,6 +319,40 @@ func TestSummarize_NothingPastWatermark(t *testing.T) {
 	}
 	if conv.setCalls != 0 || len(msgs.created) != 0 {
 		t.Fatal("nothing past the watermark → no summary write, no anchor")
+	}
+}
+
+func TestCompactPrompt_StructuredCheckpointKeepsRecentProtocol(t *testing.T) {
+	history := []llminfra.LLMMessage{
+		{Role: llminfra.RoleUser, Content: "fix /exact/path and preserve wf_123"},
+	}
+	for i := 0; i < 4; i++ {
+		id := "call_" + string(rune('a'+i))
+		history = append(history,
+			llminfra.LLMMessage{
+				Role: llminfra.RoleAssistant, ReasoningContent: "complete reasoning " + id,
+				ToolCalls: []llminfra.LLMToolCall{{ID: id, Name: "inspect", Arguments: `{"id":"wf_123"}`}},
+			},
+			llminfra.LLMMessage{Role: llminfra.RoleTool, ToolCallID: id, Content: "result " + id},
+		)
+	}
+	client := &fakeClient{out: "Goal & constraints: fix /exact/path.\nExact references: wf_123.\nOpen work/next action: continue."}
+	svc := newSvc(&fakeMessages{}, &fakeConv{}, fakeWindow{}, client)
+
+	got, err := svc.CompactPrompt(context.Background(), history, 10_000)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) >= len(history) || got[0].Role != llminfra.RoleUser ||
+		!strings.Contains(got[0].Content, "/exact/path") || !strings.Contains(got[0].Content, "wf_123") {
+		t.Fatalf("bad checkpoint: %+v", got)
+	}
+	if got[1].Role != llminfra.RoleAssistant || got[1].ReasoningContent == "" || len(got[1].ToolCalls) == 0 {
+		t.Fatalf("recent complete reasoning/tool group was not retained: %+v", got[1])
+	}
+	if !strings.Contains(client.lastReq.Messages[0].Content, "/exact/path") ||
+		!strings.Contains(client.lastReq.Messages[0].Content, "wf_123") {
+		t.Fatalf("summarizer input lost exact references: %q", client.lastReq.Messages[0].Content)
 	}
 }
 

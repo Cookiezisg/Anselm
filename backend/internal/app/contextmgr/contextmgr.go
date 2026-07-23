@@ -9,8 +9,9 @@
 //	② if still over budget, summarize the oldest span once (utility model), fold it into the
 //	   conversation summary incrementally, and advance the watermark.
 //
-// Trigger uses the real persisted InputTokens of the last turn (ground truth, no estimator);
-// the step-① gate uses a cheap bytes/4 estimate. The watermark (summary_covers_up_to_seq) is the
+// Trigger uses the last per-sampling prompt tokens persisted in message attrs (never the
+// whole ReAct run's aggregate token charge); the step-① gate uses a cheap bytes/4 estimate.
+// The watermark (summary_covers_up_to_seq) is the
 // idempotency key: re-summarization only covers (watermark, …], and a crash between writing the
 // summary and flipping the archived flag can't double-count (LoadHistory drops by watermark).
 //
@@ -19,7 +20,7 @@
 // warm/cold；chat.LoadHistory 前置 summary + 丢 seq ≤ 水位）已接好。回合边界、两步管线
 // （gentle→aggressive，业界标准）：① demote 旧 tool_result（免 LLM：最新留 hot、再 warm 预览、再
 // cold 占位符；常就够——工具输出占 token 大头）；② 仍超预算则单次摘要最旧 span（utility 模型），增量
-// 并入对话 summary、推进水位。触发用末回合**真实** InputTokens（真相源、免估算器）；步①闸用
+// 并入对话 summary、推进水位。触发用末回合 attrs 中**最后一次 sampling**的真实 input token（绝不拿整轮累计）；步①闸用
 // bytes/4 廉价估算。水位（summary_covers_up_to_seq）是幂等键：重摘只覆盖 (水位, …]，写 summary 与翻
 // archived 标记间崩溃也不重复计数（LoadHistory 按水位丢弃）。
 package contextmgr
@@ -35,18 +36,18 @@ import (
 )
 
 const (
-	// limitspkg.Current().Context.TriggerRatio compacts when the last turn's real input tokens reach this fraction of the
-	// input budget (window − maxOutput). 0.80 sits in the 75–90% band recommended for quality
-	// (context rot sets in before the hard limit); the 20% slack is the compaction headroom.
+	// limitspkg.Current().Context.TriggerRatio compacts when the last successful
+	// sampling prompt reaches this fraction of its active input budget. 0.80 sits
+	// in the 75–90% quality band; the 20% slack is compaction headroom.
 	//
-	// limitspkg.Current().Context.TriggerRatio：末回合真实 input token 达 input 预算（window − maxOutput）此比例时压缩。0.80 在
-	// 业界推荐的 75–90% 区间（硬上限前已现 context rot）；20% 余量即压缩 headroom。
+	// limitspkg.Current().Context.TriggerRatio：最后一次成功 sampling prompt 达 active input
+	// 预算此比例时压缩。0.80 在业界 75–90% 质量区间；20% 余量是压缩 headroom。
 
 	// recentTurns most recent messages are never touched (verbatim floor — the actual current
 	// task must always be present unsummarized).
 	//
 	// 最近 recentTurns 条 message 永不动（逐字底线——当前任务必须始终未摘要在场）。
-	recentTurns = 4
+	recentTurns = 2
 
 	// Among non-protected tool_results (newest-first), the first recentTRHot stay hot, the next
 	// warmZone become warm (truncated preview), the rest cold (placeholder). A tool_result only
@@ -146,30 +147,32 @@ func NewService(deps Deps, log *zap.Logger) *Service {
 	return &Service{deps: deps, log: log.Named("contextmgr")}
 }
 
-// MaybeCompact compacts the conversation if its last turn's real input tokens crossed the
-// trigger. Best-effort + idempotent: chat calls it on a detached context at the tail of a turn
-// (inside the per-conversation queue slot, so no race with the next turn's history load); a
-// returned error is logged non-fatally by the caller. Under threshold / unknown window / nothing
-// to compact → returns nil without writing.
+// MaybeCompact compacts when the last successful sampling prompt crossed the
+// trigger, or when the loop performed an in-memory edit/recovery that should be
+// made durable. Best-effort + idempotent: chat calls it on a detached context
+// inside the conversation queue slot; errors are non-fatal. Under threshold /
+// unknown budget / nothing to compact returns nil without writing.
 //
-// MaybeCompact 在对话末回合真实 input token 越过触发线时压缩。best-effort + 幂等：chat 在回合尾、
-// detached context 上调用（在 per-conversation queue 槽内，与下回合历史加载无竞态）；返回的 error 由
-// 调用方非致命记录。未达阈值 / window 未知 / 无可压 → 返 nil 不写。
+// MaybeCompact 在最后一次成功 sampling prompt 越线，或 loop 已做内存编辑/恢复而需要
+// durable 化时压缩。best-effort + 幂等：chat 在 conversation queue 槽内用 detached ctx 调；
+// 错误非致命。未达阈值 / budget 未知 / 无可压 → 返 nil 不写。
 func (s *Service) MaybeCompact(ctx context.Context, conversationID string) error {
 	thread, err := s.deps.Messages.LoadThread(ctx, conversationID)
 	if err != nil {
 		return err
 	}
-	last := lastMeasuredTurn(thread)
+	last, lastPromptTokens, inputBudget, promptEdited := lastContextMeasurement(thread)
 	if last == nil {
-		return nil // no completed turn with token accounting yet
+		return nil // no turn carrying per-sampling context accounting yet
 	}
-	window, maxOutput := s.deps.Windows.ContextBudget(ctx, last.Provider, last.ModelID)
-	inputBudget := window - maxOutput
-	if window <= 0 || inputBudget <= 0 {
+	if inputBudget <= 0 {
+		window, maxOutput := s.deps.Windows.ContextBudget(ctx, last.Provider, last.ModelID)
+		inputBudget = window - maxOutput
+	}
+	if inputBudget <= 0 {
 		return nil // unknown budget — don't compact blind
 	}
-	if last.InputTokens < int(limitspkg.Current().Context.TriggerRatio*float64(inputBudget)) {
+	if !promptEdited && lastPromptTokens < int(limitspkg.Current().Context.TriggerRatio*float64(inputBudget)) {
 		return nil // under threshold
 	}
 
@@ -202,17 +205,40 @@ func (s *Service) MaybeCompact(ctx context.Context, conversationID string) error
 	return s.summarize(ctx, conversationID, thread, protectedFrom, summary, watermark)
 }
 
-// lastMeasuredTurn returns the most recent assistant turn carrying real token accounting (its
-// InputTokens = the full context the provider billed for that request = current context size).
-//
-// lastMeasuredTurn 返回最近一个带真实 token 记账的 assistant 回合（其 InputTokens = provider 为该
-// 请求计费的完整上下文 = 当前上下文大小）。
-func lastMeasuredTurn(thread []*messagesdomain.Message) *messagesdomain.Message {
+// lastContextMeasurement returns the newest assistant turn carrying the
+// contextUsage facts written per sampling request by loop.ContextObserver.
+// Message.InputTokens is deliberately ignored: it is the aggregate billable
+// input across every ReAct request in the whole visible turn.
+func lastContextMeasurement(thread []*messagesdomain.Message) (*messagesdomain.Message, int, int, bool) {
 	for i := len(thread) - 1; i >= 0; i-- {
 		m := thread[i]
-		if m.SubagentID == "" && m.Role == messagesdomain.RoleAssistant && m.InputTokens > 0 {
-			return m
+		if m.SubagentID != "" || m.Role != messagesdomain.RoleAssistant || m.Attrs == nil {
+			continue
+		}
+		stats, ok := m.Attrs["contextUsage"].(map[string]any)
+		if !ok {
+			continue
+		}
+		input := numericInt(stats["lastPromptInputTokens"])
+		if input > 0 {
+			edited := numericInt(stats["compactions"]) > 0 ||
+				numericInt(stats["recoveries"]) > 0 ||
+				numericInt(stats["toolResultEdits"]) > 0
+			return m, input, numericInt(stats["inputBudgetTokens"]), edited
 		}
 	}
-	return nil
+	return nil, 0, 0, false
+}
+
+func numericInt(v any) int {
+	switch n := v.(type) {
+	case int:
+		return n
+	case int64:
+		return int(n)
+	case float64:
+		return int(n)
+	default:
+		return 0
+	}
 }

@@ -30,6 +30,27 @@ func TestClassifyHTTPError(t *testing.T) {
 	}
 }
 
+func TestClassifyHTTPError_GatewayContextReasonIsTyped(t *testing.T) {
+	err := classifyHTTPError(http.StatusBadRequest, []byte(`{"error":{"code":"UPSTREAM_REJECTED","message":"safe","details":{"reason":"context_length"}}}`))
+	if !IsContextLengthError(err) {
+		t.Fatalf("gateway context rejection lost typed reason: %T %v", err, err)
+	}
+	if strings.Contains(err.Error(), "safe") {
+		t.Fatalf("provider/gateway message leaked through typed rejection: %v", err)
+	}
+}
+
+func TestClassifyHTTPError_RequestBodyTooLargeIsNotContext(t *testing.T) {
+	err := classifyHTTPError(http.StatusRequestEntityTooLarge, []byte(`{"error":{"code":"REQUEST_BODY_TOO_LARGE","message":"request body exceeds the configured size limit"}}`))
+	if IsContextLengthError(err) {
+		t.Fatalf("transport body cap was misclassified as model context: %v", err)
+	}
+	var rejected *RequestRejectedError
+	if !errors.As(err, &rejected) || rejected.Reason != RejectionRequestBodyTooLarge {
+		t.Fatalf("body cap reason = %T %v", err, err)
+	}
+}
+
 func TestScanSSELines(t *testing.T) {
 	r := strings.NewReader(
 		"data: {\"a\":1}\n\n" +

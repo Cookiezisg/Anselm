@@ -44,7 +44,8 @@ type modelResolver struct {
 	picker  modeldomain.ModelPicker
 	keys    CredsResolver
 	factory *llminfra.Factory
-	windows contextmgrapp.WindowResolver // model context budget for the loop's intra-turn soft guard (F58); nil-safe
+	windows contextmgrapp.WindowResolver // fallback model input budget for proactive prompt editing; nil-safe
+	lookup  ModelInfoLookup
 }
 
 // resolve runs the chain for a scenario (+ optional override) and returns a ready client, a base
@@ -60,13 +61,24 @@ func (r *modelResolver) resolve(ctx context.Context, scenario string, override *
 	if err != nil {
 		return client, req, provider, apiKeyID, err
 	}
-	// Stamp the model's input budget (window − maxOutput) so the ReAct loop can soft-stop a turn before
-	// it overflows the context window (F58). Unknown window (0) leaves the budget 0 → the guard is off.
-	// 盖上模型的输入预算（window − maxOutput），使 ReAct loop 能在回合溢出 context window 前软停（F58）。
-	// window 未知（0）则预算留 0 → 守卫关闭。
+	// Stamp the fallback input budget (window − maxOutput). The ReAct loop uses
+	// it only to trigger proactive prompt editing/checkpointing, never to reject
+	// or soft-stop a turn. Unknown window (0) disables proactive editing.
+	// 盖上兜底输入预算（window − maxOutput）。ReAct loop 仅据它触发主动 prompt
+	// editing/checkpoint，绝不本地拒绝或软停；window 未知（0）则关闭主动编辑。
 	if r.windows != nil {
 		if window, maxOut := r.windows.ContextBudget(ctx, provider, req.ModelID); window > maxOut {
 			req.InputBudgetTokens = window - maxOut
+		}
+	}
+	if v, ok := r.lookup.find(ctx, provider, req.ModelID); ok {
+		req.TextInputBudgetTokens = v.TextInputLimit
+		req.MultimodalInputBudgetTokens = v.MultimodalInputLimit
+		// The managed gateway's published output limit is a product contract,
+		// not merely catalog decoration. Send it explicitly so gateway
+		// accounting, context headroom, and the upstream wire all agree.
+		if provider == "anselm" && v.MaxOutput > 0 {
+			req.MaxTokens = v.MaxOutput
 		}
 	}
 	return client, req, provider, apiKeyID, err
@@ -87,7 +99,7 @@ type ModelResolvers struct {
 // NewModelResolvers 由 workspace picker、apikey 凭证解析、llm factory 构造共享核；lookup 供 chat 的
 // per-model 内容能力。
 func NewModelResolvers(picker modeldomain.ModelPicker, keys CredsResolver, factory *llminfra.Factory, lookup ModelInfoLookup) ModelResolvers {
-	return ModelResolvers{core: &modelResolver{picker: picker, keys: keys, factory: factory, windows: lookup.WindowResolver()}, lookup: lookup}
+	return ModelResolvers{core: &modelResolver{picker: picker, keys: keys, factory: factory, windows: lookup.WindowResolver(), lookup: lookup}, lookup: lookup}
 }
 
 // Chat / ContextmgrUtility / Subagent / Agent return the resolver each Service's port wants.

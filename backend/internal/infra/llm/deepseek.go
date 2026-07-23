@@ -111,7 +111,7 @@ func (p *deepseekProvider) ParseStream(ctx context.Context, resp *http.Response,
 
 func emitDeepSeekChunk(chunk dsChunk, state *dsToolState, yield func(StreamEvent) bool) bool {
 	if chunk.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: in-stream: %s", dsErrorSentinel(chunk.Error), chunk.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: dsResponseError(chunk.Error)})
 		return false
 	}
 	if len(chunk.Choices) == 0 {
@@ -175,7 +175,7 @@ func parseDeepSeekNonStreaming(body io.Reader, yield func(StreamEvent) bool) {
 		return
 	}
 	if resp.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: %s", dsErrorSentinel(resp.Error), resp.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: dsResponseError(resp.Error)})
 		return
 	}
 	if len(resp.Choices) == 0 {
@@ -439,21 +439,27 @@ type dsChunk struct {
 type dsChunkError struct {
 	Code    string `json:"code"`
 	Message string `json:"message"`
+	Details struct {
+		Reason string `json:"reason"`
+	} `json:"details,omitempty"`
 }
 
-// dsErrorSentinel maps a DeepSeek in-stream / in-body error object to the right sentinel. The
-// Anselm free-tier gateway reports monthly-budget exhaustion as error.code "BUDGET_EXHAUSTED" →
-// ErrQuotaExhausted (a hard wall, non-retryable) so a depleted free tier fails honestly; every
-// other error stays a generic, retryable provider error. Inherited verbatim by anselmProvider.
+// dsResponseError maps a DeepSeek in-stream / in-body error object to the
+// provider-agnostic error taxonomy. The Anselm gateway can return the same
+// structured rejection envelope either as an HTTP error or an SSE error, so
+// both paths must preserve context-length recovery semantics.
 //
-// dsErrorSentinel 把 DeepSeek 流内/体内 error 对象映射到正确 sentinel。Anselm 免费档网关用 error.code
-// "BUDGET_EXHAUSTED" 报本月额度耗尽 → ErrQuotaExhausted（硬墙、不可重试），让耗尽的免费档诚实失败；
-// 其余仍为通用、可重试的 provider 错。anselmProvider 经 embed 原样继承。
-func dsErrorSentinel(e *dsChunkError) error {
+// dsResponseError 把 DeepSeek 流内/体内 error 映射到 provider 无关错误分类。Anselm
+// 网关可在 HTTP 或 SSE 内返回同一结构化拒绝信封，两条路径都必须保留上下文恢复语义。
+func dsResponseError(e *dsChunkError) error {
 	if e.Code == "BUDGET_EXHAUSTED" {
-		return ErrQuotaExhausted
+		return fmt.Errorf("%w: monthly gateway budget exhausted", ErrQuotaExhausted)
 	}
-	return ErrProviderError
+	envelope, _ := json.Marshal(map[string]any{"error": e})
+	if reason := requestRejectionReason(envelope); reason != "" {
+		return &RequestRejectedError{Reason: reason}
+	}
+	return fmt.Errorf("%w: in-stream provider error", ErrProviderError)
 }
 
 type dsChoice struct {

@@ -32,7 +32,10 @@ import (
 //
 // seenFilesCap 是写前必读 LRU 的上限。一个对话的近期工作集很少超过几百个不同文件；几千足以为
 // 每个近期触过的路径保住不变式，同时把内存压成 O(cap) 而非 O(历史触过的全部路径)。
-const seenFilesCap = 4096
+const (
+	seenFilesCap       = 4096
+	discoveredToolsCap = 16
+)
 
 // AgentState is the per-conversation shared state for tool invocations. Methods are
 // concurrency-safe because tools within a step run in parallel (loop's execution-group
@@ -52,7 +55,12 @@ type AgentState struct {
 	seenLRU   *list.List               // front = most-recently-marked; element value = *seenEntry
 	seenIndex map[string]*list.Element // path → its list element
 
-	discoveredTools sync.Map // string (tool name) → bool
+	// discovered tools are a bounded recency set. A long active conversation can
+	// search many unrelated capabilities; keeping every schema resident forever
+	// would make lazy loading converge back to the full tool catalog.
+	discoveredMu    sync.Mutex
+	discoveredLRU   *list.List               // front = most recently discovered
+	discoveredIndex map[string]*list.Element // tool name → list element
 
 	// activeSkill is a single compound value (name + allowed-tools set), so it uses an explicit
 	// RWMutex rather than sync.Map — the latter can't atomically read a name+slice pair together.
@@ -75,8 +83,10 @@ type seenEntry struct {
 // New 返回一个空 AgentState。host 每对话建一个、每回合跑 loop 前埋进 ctx。
 func New() *AgentState {
 	return &AgentState{
-		seenLRU:   list.New(),
-		seenIndex: make(map[string]*list.Element),
+		seenLRU:         list.New(),
+		seenIndex:       make(map[string]*list.Element),
+		discoveredLRU:   list.New(),
+		discoveredIndex: make(map[string]*list.Element),
 	}
 }
 
@@ -129,36 +139,54 @@ func (s *AgentState) WasRead(path string) (int64, bool) {
 	return el.Value.(*seenEntry).size, true
 }
 
-// MarkToolDiscovered records that search_tools surfaced a lazy tool's full definition
-// this run, so the host includes it in the LLM's tool list on subsequent turns (the
-// LLM can keep calling a tool it has discovered without re-searching).
+// MarkToolDiscovered records that search_tools activated a lazy tool in this
+// conversation's bounded recent working set. The host includes its schema in
+// subsequent requests until it ages out; re-discovery refreshes recency.
 //
-// MarkToolDiscovered 记录 search_tools 本次运行浮出了某 lazy 工具的完整定义，使 host 在后续
-// 回合把它纳入 LLM 工具列表（LLM 可继续调用已发现的工具，无需重搜）。
+// MarkToolDiscovered 记录 search_tools 把某 lazy 工具激活进本对话的有界近期工作集。host
+// 在后续请求纳入其 schema，直至它老化淘汰；重新发现会刷新近度。
 func (s *AgentState) MarkToolDiscovered(name string) {
-	s.discoveredTools.Store(name, true)
+	if name == "" {
+		return
+	}
+	s.discoveredMu.Lock()
+	defer s.discoveredMu.Unlock()
+	if el, ok := s.discoveredIndex[name]; ok {
+		s.discoveredLRU.MoveToFront(el)
+		return
+	}
+	s.discoveredIndex[name] = s.discoveredLRU.PushFront(name)
+	if s.discoveredLRU.Len() > discoveredToolsCap {
+		oldest := s.discoveredLRU.Back()
+		if oldest != nil {
+			s.discoveredLRU.Remove(oldest)
+			delete(s.discoveredIndex, oldest.Value.(string))
+		}
+	}
 }
 
-// IsToolDiscovered reports whether the named lazy tool was surfaced this run.
+// IsToolDiscovered reports whether the named lazy tool is in the active recent set.
 //
-// IsToolDiscovered 报告某 lazy 工具本次运行是否已被浮出。
+// IsToolDiscovered 报告某 lazy 工具是否在当前近期激活集。
 func (s *AgentState) IsToolDiscovered(name string) bool {
-	_, ok := s.discoveredTools.Load(name)
+	s.discoveredMu.Lock()
+	defer s.discoveredMu.Unlock()
+	_, ok := s.discoveredIndex[name]
 	return ok
 }
 
-// DiscoveredTools returns the names of all lazy tools surfaced this run — the host
-// uses it to assemble the active tool list (resident + discovered lazy). Order is
-// unspecified (sync.Map range); callers needing stable order sort.
+// DiscoveredTools returns active lazy tool names from most to least recently
+// discovered. The host uses it to assemble resident + active lazy tools.
 //
-// DiscoveredTools 返回本次运行已浮出的所有 lazy 工具名——host 用它组装活动工具列表
-// （resident + 已发现 lazy）。顺序未定（sync.Map range）；要稳定顺序的调用方自行排序。
+// DiscoveredTools 按最近发现到最早返回当前活跃 lazy 工具名；host 用它组装 resident +
+// active lazy 工具。
 func (s *AgentState) DiscoveredTools() []string {
-	var out []string
-	s.discoveredTools.Range(func(k, _ any) bool {
-		out = append(out, k.(string))
-		return true
-	})
+	s.discoveredMu.Lock()
+	defer s.discoveredMu.Unlock()
+	out := make([]string, 0, s.discoveredLRU.Len())
+	for el := s.discoveredLRU.Front(); el != nil; el = el.Next() {
+		out = append(out, el.Value.(string))
+	}
 	return out
 }
 
