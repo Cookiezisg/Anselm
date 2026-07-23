@@ -263,6 +263,7 @@ class _Translations$feedback$zh_CN extends Translations$feedback$en {
 	@override late final _Translations$feedback$batch$zh_CN batch = _Translations$feedback$batch$zh_CN._(_root);
 	@override String get retry => '重试';
 	@override late final _Translations$feedback$cast$zh_CN cast = _Translations$feedback$cast$zh_CN._(_root);
+	@override String codeTruncated({required Object total, required Object shown}) => '共 ${total} 行·已显示前 ${shown} 行——完整文件请在外部打开';
 }
 
 // Path: shell
@@ -3594,6 +3595,7 @@ extension on TranslationsZhCn {
 			'feedback.cast.verb.attached' => '附上',
 			'feedback.cast.verb.deleted' => '删除',
 			'feedback.cast.verb.unknown' => '触碰',
+			'feedback.codeTruncated' => ({required Object total, required Object shown}) => '共 ${total} 行·已显示前 ${shown} 行——完整文件请在外部打开',
 			'shell.collapseSidebar' => '收起侧栏',
 			'shell.expandSidebar' => '展开侧栏',
 			'shell.togglePanel' => '切换面板',
@@ -3704,9 +3706,9 @@ extension on TranslationsZhCn {
 			'startup.connecting' => '正在连接本地引擎…',
 			'startup.crashedTitle' => '无法连接本地引擎',
 			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。',
-			'startup.retry' => '重试',
 			_ => null,
 		} ?? switch (path) {
+			'startup.retry' => '重试',
 			'startup.errorTitle' => '出错了',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
@@ -4218,9 +4220,9 @@ extension on TranslationsZhCn {
 			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
 			'settings.keys.keysSection' => 'API 密钥',
 			'settings.keys.addKey' => '添加密钥',
-			'settings.keys.testKey' => '测试',
 			_ => null,
 		} ?? switch (path) {
+			'settings.keys.testKey' => '测试',
 			'settings.keys.editKey' => '编辑',
 			'settings.keys.deleteKey' => '删除',
 			'settings.keys.statusOk' => '可用',

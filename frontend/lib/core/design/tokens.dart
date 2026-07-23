@@ -410,6 +410,12 @@ abstract final class AnCap {
   static const int monoCompactLines = 20; // a compact body 紧凑体
   static const int monoBodyLines = 40; // the standard raw-body cap 标准体
   static const int monoFullLines = 200; // a full dump (entity get bodies) 全量倾倒
+  // AnCodeEditor's single-RenderParagraph hard ceiling (S13, WRK-040 §9 «truncate upstream» baked
+  // into the primitive): a read-only render caps at this many lines + an honest truncation note;
+  // an editable request over the cap degrades to that read-only capped face (editing a truncated
+  // file would corrupt it). 代码编辑器单段落硬上界(S13,§9「上游截断」焊进原语):只读封顶+诚实截断
+  // 徽;超界的可编辑请求降级为只读截断脸(编辑被截文件=损坏它)。
+  static const int codeLines = 3000;
   static const int receiptTail =
       4000; // collapsed tool-row receipt/result tail budget (chat_tool_card raw peek) 收起行回执/结果尾预算
   static const int stderrTail =

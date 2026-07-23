@@ -546,6 +546,9 @@ class Translations$feedback$en {
 	String get retry => 'Retry';
 
 	late final Translations$feedback$cast$en cast = Translations$feedback$cast$en.internal(_root);
+
+	/// en: 'Showing the first $shown of $total lines - open the full file externally'
+	String codeTruncated({required Object shown, required Object total}) => 'Showing the first ${shown} of ${total} lines - open the full file externally';
 }
 
 // Path: shell
@@ -7239,6 +7242,7 @@ extension on Translations {
 			'feedback.cast.verb.attached' => 'Attached',
 			'feedback.cast.verb.deleted' => 'Deleted',
 			'feedback.cast.verb.unknown' => 'Touched',
+			'feedback.codeTruncated' => ({required Object shown, required Object total}) => 'Showing the first ${shown} of ${total} lines - open the full file externally',
 			'shell.collapseSidebar' => 'Collapse sidebar',
 			'shell.expandSidebar' => 'Expand sidebar',
 			'shell.togglePanel' => 'Toggle panel',
@@ -7349,9 +7353,9 @@ extension on Translations {
 			'startup.connecting' => 'Connecting to the local engine…',
 			'startup.crashedTitle' => 'Can\'t reach the local engine',
 			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).',
-			'startup.retry' => 'Retry',
 			_ => null,
 		} ?? switch (path) {
+			'startup.retry' => 'Retry',
 			'startup.errorTitle' => 'Something went wrong',
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
 			'entities.kNew' => 'New',
@@ -7863,9 +7867,9 @@ extension on Translations {
 			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
 			'settings.keys.keysSection' => 'API keys',
 			'settings.keys.addKey' => 'Add key',
-			'settings.keys.testKey' => 'Test',
 			_ => null,
 		} ?? switch (path) {
+			'settings.keys.testKey' => 'Test',
 			'settings.keys.editKey' => 'Edit',
 			'settings.keys.deleteKey' => 'Delete',
 			'settings.keys.statusOk' => 'OK',

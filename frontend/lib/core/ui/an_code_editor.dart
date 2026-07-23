@@ -349,7 +349,67 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   Widget build(BuildContext context) {
     if (widget.inline) return _inlineBody(context);
     if (widget.live && !widget.editable) return _framedLive(context);
+    final capped = _cappedOrNull();
+    if (capped != null) return _cappedFace(context, capped);
     return _framed(context);
+  }
+
+  // ── the single-RenderParagraph hard ceiling (S13 — WRK-040 §9 «truncate upstream» baked into the
+  // primitive): a read-only render over AnCap.codeLines shows the head + an honest truncation note
+  // (copy still carries the FULL text via copyPayload); an editable request over the cap DEGRADES to
+  // this read-only face — editing a truncated file would corrupt it, and a >3000-line hand edit is
+  // not this primitive's job (WRK-040: light editing / short snippets). Memoized by code identity.
+  // 单段落硬上界(S13——§9「上游截断」焊进原语):只读超界渲头部+诚实截断徽(复制经 copyPayload 仍
+  // 全量);超界的可编辑请求**降级**为此只读脸——编辑被截文件=损坏它,且 >3000 行手编不是本原语的
+  // 职责(§9:轻编辑/短片段)。按 code 身份记忆化。──
+  String? _capSrc;
+  (String head, int total)? _capMemo;
+
+  (String, int)? _cappedOrNull() {
+    if (!identical(widget.code, _capSrc)) {
+      _capSrc = widget.code;
+      _capMemo = null;
+      final total = '\n'.allMatches(widget.code).length + 1;
+      if (total > AnCap.codeLines) {
+        var cut = 0;
+        for (var i = 0; i < AnCap.codeLines; i++) {
+          cut = widget.code.indexOf('\n', cut) + 1;
+        }
+        _capMemo = (widget.code.substring(0, cut - 1), total);
+      }
+    }
+    return _capMemo;
+  }
+
+  Widget _cappedFace(BuildContext context, (String, int) capped) {
+    final c = context.colors;
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnCodeEditor(
+          code: capped.$1,
+          // Copy hands over the FULL text — the display is capped, the clipboard is not. 复制全量。
+          copyPayload: widget.copyPayload ?? widget.code,
+          lang: widget.lang,
+          compact: widget.compact,
+          wrap: widget.wrap,
+          reading: widget.reading,
+          seamless: widget.seamless,
+          maxHeight: widget.maxHeight,
+        ),
+        Padding(
+          padding: const EdgeInsets.only(top: AnSpace.s4),
+          child: Text(
+            context.t.feedback.codeTruncated(
+              shown: '${AnCap.codeLines}',
+              total: '${capped.$2}',
+            ),
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+        ),
+      ],
+    );
   }
 
   // ── live O(tail) slice (批2 复审防线): the head owns its per-frame bound — materialize only the

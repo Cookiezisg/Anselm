@@ -1,4 +1,5 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -369,5 +370,87 @@ void main() {
         );
       },
     );
+  });
+
+  group('hard line ceiling (S13 — WRK-040 §9 truncate-upstream baked in)', () {
+    String bigCode(int lines) =>
+        List.generate(lines, (i) => 'line $i').join('\n');
+
+    testWidgets(
+      'a read-only render over AnCap.codeLines caps the display + shows the honest note; '
+      'copy still carries the FULL text',
+      (tester) async {
+        final code = bigCode(AnCap.codeLines + 500);
+        String? copied;
+        tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform,
+          (call) async {
+            if (call.method == 'Clipboard.setData') {
+              copied = (call.arguments as Map)['text'] as String;
+            }
+            return null;
+          },
+        );
+        addTearDown(
+          () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+            SystemChannels.platform,
+            null,
+          ),
+        );
+
+        await tester.pumpWidget(
+          host(
+            SingleChildScrollView(
+              child: AnCodeEditor(code: code, lang: 'py'),
+            ),
+          ),
+        );
+        // The truncation note names both numbers. 截断徽点名两个数。
+        expect(
+          find.textContaining('${AnCap.codeLines}'),
+          findsWidgets,
+          reason: 'the note shows the shown-line count',
+        );
+        expect(find.textContaining('${AnCap.codeLines + 500}'), findsOneWidget);
+
+        // Copy hands over the WHOLE text, not the capped display. 复制交全量。
+        await tester.tap(find.byIcon(AnIcons.copy).first);
+        await tester.pump();
+        expect(copied, code);
+      },
+    );
+
+    testWidgets(
+      'an EDITABLE request over the cap degrades to the read-only capped face (no pencil)',
+      (tester) async {
+        await tester.pumpWidget(
+          host(
+            SingleChildScrollView(
+              child: AnCodeEditor(
+                code: bigCode(AnCap.codeLines + 1),
+                editable: true,
+              ),
+            ),
+          ),
+        );
+        // Editing a truncated file would corrupt it — the pencil never appears. 铅笔不现。
+        expect(find.byIcon(AnIcons.edit), findsNothing);
+        expect(find.textContaining('${AnCap.codeLines + 1}'), findsOneWidget);
+      },
+    );
+
+    testWidgets('at or under the cap nothing changes — no note, edit intact', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          SingleChildScrollView(
+            child: AnCodeEditor(code: bigCode(50), editable: true),
+          ),
+        ),
+      );
+      expect(find.byIcon(AnIcons.edit), findsOneWidget);
+      expect(find.textContaining('50 '), findsNothing);
+    });
   });
 }

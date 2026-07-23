@@ -958,7 +958,8 @@
         "deleted": "Deleted",
         "unknown": "Touched"
       }
-    }
+    },
+    "codeTruncated": "Showing the first $shown of $total lines - open the full file externally"
   },
   "shell": {
     "collapseSidebar": "Collapse sidebar",

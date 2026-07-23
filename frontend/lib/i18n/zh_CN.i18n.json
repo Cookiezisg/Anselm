@@ -958,7 +958,8 @@
         "deleted": "删除",
         "unknown": "触碰"
       }
-    }
+    },
+    "codeTruncated": "共 $total 行·已显示前 $shown 行——完整文件请在外部打开"
   },
   "shell": {
     "collapseSidebar": "收起侧栏",
