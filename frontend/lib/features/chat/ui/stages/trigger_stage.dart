@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/contract/entities/trigger.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
@@ -34,16 +35,23 @@ class TriggerStageBody extends ConsumerWidget {
     final t = Translations.of(context);
     final session = scene.session;
 
-    final kind = session.closedStringAt(['kind']) ?? '';
+    var kind = session.closedStringAt(['kind']) ?? '';
     final config = _closedObject(session, 'config');
     final resultId = _resultId();
 
-    // R-16: the settle facts come from the reconciled GET only. 落定事实只从 GET。
+    // R-16: the settle facts come from the reconciled GET only. A LIVE edit also fetches the truth
+    // — for its FACE: edit_trigger's schema has NO `kind` (immutable, backend trigger/build.go), so
+    // the old args-only read left the whole edit faceless behind a radar (G8/A3-23); R-5 says an
+    // edit stages with the OLD truth anyway. 落定事实只从 GET;live 编辑同样取真相**换脸**——edit 的
+    // schema 无 kind(不可变),旧读法让整场编辑只剩雷达无脸;R-5 本就要求编辑登台带旧真相。
     final truthId = resultId ?? scene.editTargetId;
-    final truth = (!scene.live && truthId != null)
+    final truth = (truthId != null && (!scene.live || kind.isEmpty))
         ? ref.watch(triggerTruthProvider(truthId))
         : null;
     final trig = truth?.asData?.value;
+    if (kind.isEmpty && trig != null && trig.kind != TriggerSource.unknown) {
+      kind = trig.kind.name;
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

@@ -198,7 +198,16 @@ class McpStageBody extends StatelessWidget {
     final c = context.colors;
     final t = Translations.of(context);
     final session = scene.session;
-    final name = session.liveStringNamed('name') ?? '';
+    // The nameplate speaks IDENTITY (G8/A3-38): wiring calls (install/reconnect/truth) carry the
+    // server name in args; an EXECUTION call (mcp__srv__tool) does not — its coincidental `name`
+    // argument is data, so the tool name itself is the honest plate. 铭牌说身份:接线调用 args 带
+    // 服务器名;执行调用的 name 入参只是数据,铭牌改说工具名。
+    final toolName = scene.subject.toolName;
+    final wiring =
+        toolName == 'install_mcp_server' ||
+        toolName == 'reconnect_mcp' ||
+        toolName == 'create_mcp';
+    final name = wiring ? (session.liveStringNamed('name') ?? '') : toolName;
     final env = session.closedValueAt(['env']);
     final tools = _resultTools();
 
@@ -295,19 +304,28 @@ class McpStageBody extends StatelessWidget {
   }
 
   List<String> _resultTools() {
-    final r = scene.state.resultText;
+    // TYPED read, wiring calls only (G8/A3-37): the old regex harvest over the raw result text
+    // counted the SERVER's own name as a «discovered tool» (ServerStatus's first "name" key) and
+    // promoted arbitrary business results of an mcp__ EXECUTION call — repo names, user names,
+    // anything — into a tool shelf. The shelf belongs to install/reconnect receipts, read from the
+    // typed `tools` list; the truth render (create_mcp, no tool_result) falls back to its args.
+    // 类型化读取、仅接线调用:旧正则捞把服务器自名数成工具、把执行调用的业务结果(仓库名/用户名)
+    // 宣布成货架;货架只属安装/重连回执的 tools 列表,真身渲染回退 args。
+    final tool = scene.subject.toolName;
+    final wiring =
+        tool == 'install_mcp_server' ||
+        tool == 'reconnect_mcp' ||
+        tool == 'create_mcp';
     final out = <String>[];
-    for (final m in RegExp(r'"name"\s*:\s*"([^"]{1,64})"').allMatches(r)) {
-      final v = m.group(1)!;
-      if (!out.contains(v)) out.add(v);
+    if (!wiring) return out;
+    final list = scene.state.resultObj?['tools'];
+    if (list is List) {
+      for (final e in list) {
+        final n = e is Map ? e['name'] : null;
+        if (n is String && n.isNotEmpty && !out.contains(n)) out.add(n);
+      }
     }
-    // A settled truth render (sceneFromTruth, toolName `create_mcp`) has no tool_result — fall back to the
-    // shelf carried in its args session (`tools: [name…]`). GATE on `create_mcp` so a live `mcp__srv__tool`
-    // EXECUTION call (same McpStageBody, held live ~1.8s past close) whose own args happen to declare a
-    // top-level `tools` param is never mislabelled as「发现的工具」; the live install/reconnect path has no
-    // top-level `tools` key and reads its shelf from the result, so neither needs this fallback.
-    // 仅 create_mcp 真身渲染走回退(它无 tool_result);活 mcp__ 执行调用的 tools 入参不误标为「发现的工具」。
-    if (out.isEmpty && scene.subject.toolName == 'create_mcp') {
+    if (out.isEmpty && tool == 'create_mcp') {
       for (final t in scene.session.arrayItemsAt(['tools'])) {
         out.add('$t');
       }

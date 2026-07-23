@@ -536,7 +536,8 @@ class DemoChatRepository extends FixtureChatRepository {
       0,
       sa1,
       const FrameDelta(
-        chunk: '{"description":"审计最近失败的执行","prompt":"拉最近十条失败记录并归因"}',
+        chunk:
+            '{"subagent_type":"general-purpose","prompt":"审计最近失败的执行\\n拉最近十条失败记录并归因,按错误码分桶。"}',
       ),
       step: 120,
     );
@@ -577,7 +578,8 @@ class DemoChatRepository extends FixtureChatRepository {
       0,
       sa2,
       const FrameDelta(
-        chunk: '{"description":"核对告警渠道配置","prompt":"检查通知渠道与静默窗口"}',
+        chunk:
+            '{"subagent_type":"general-purpose","prompt":"核对告警渠道配置\\n检查通知渠道与静默窗口。"}',
       ),
       step: 120,
     );
@@ -614,6 +616,26 @@ class DemoChatRepository extends FixtureChatRepository {
       ),
       step: 200,
     );
+    // The sub-message CLOSE carries the settle metadata on the wire (backend subagent/emit.go) —
+    // the card's live tokens read THIS, never invented tool_call keys (G8). 子消息关帧带结算元数据。
+    frame(
+      49,
+      '${sa1}_m',
+      const FrameClose(
+        status: 'completed',
+        result: StreamNode(
+          type: 'message',
+          content: {
+            'role': 'assistant',
+            'status': 'completed',
+            'stopReason': 'end_turn',
+            'inputTokens': 1840,
+            'outputTokens': 620,
+          },
+        ),
+      ),
+      step: 120,
+    );
     frame(
       28,
       sa1,
@@ -623,10 +645,8 @@ class DemoChatRepository extends FixtureChatRepository {
           type: 'tool_call',
           content: {
             'name': 'Subagent',
-            'status': 'completed',
-            'stopReason': 'end_turn',
-            'tokens': {'in': 1840, 'out': 620},
-            'arguments': '{"description":"审计最近失败的执行"}',
+            'arguments':
+                '{"subagent_type":"general-purpose","prompt":"审计最近失败的执行"}',
           },
         ),
       ),
@@ -675,6 +695,24 @@ class DemoChatRepository extends FixtureChatRepository {
       step: 500,
     );
     frame(
+      50,
+      '${sa2}_m',
+      const FrameClose(
+        status: 'completed',
+        result: StreamNode(
+          type: 'message',
+          content: {
+            'role': 'assistant',
+            'status': 'completed',
+            'stopReason': 'end_turn',
+            'inputTokens': 1210,
+            'outputTokens': 340,
+          },
+        ),
+      ),
+      step: 120,
+    );
+    frame(
       30,
       sa2,
       const FrameClose(
@@ -683,10 +721,8 @@ class DemoChatRepository extends FixtureChatRepository {
           type: 'tool_call',
           content: {
             'name': 'Subagent',
-            'status': 'completed',
-            'stopReason': 'end_turn',
-            'tokens': {'in': 1210, 'out': 340},
-            'arguments': '{"description":"核对告警渠道配置"}',
+            'arguments':
+                '{"subagent_type":"general-purpose","prompt":"核对告警渠道配置"}',
           },
         ),
       ),
@@ -1744,7 +1780,7 @@ DemoChatRepository demoChatRepository() {
             blk(
               'b_s5_sa',
               'tool_call',
-              '{"description":"调研现有通知渠道并列出可接入项"}',
+              '{"subagent_type":"general-purpose","prompt":"调研现有通知渠道并列出可接入项"}',
               attrs: {'tool': 'Subagent'},
             ),
             // The persisted execution bracket (G4) — without it a settled delegate reads as

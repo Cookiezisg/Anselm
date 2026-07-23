@@ -188,9 +188,11 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
             for (final t in v.tools) {'ref': t.ref, 'name': t.name},
           ],
           'knowledge': v.knowledge,
-          'modelOverride': v
-              .modelOverride
-              ?.modelId, // project ModelRef → its id string, else the badge drops
+          // REAL wire shape: an OBJECT {apiKeyId, modelId} (G8/A3-33) — the old string projection
+          // paired only with the stage's own wrong string read. 真线缆形=对象;旧字符串投影只与
+          // 舞台自己的错读配对。
+          if (v.modelOverride != null)
+            'modelOverride': {'modelId': v.modelOverride!.modelId},
         };
       }
     case 'handler':
@@ -220,7 +222,10 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
           if (v.initArgsSchema.isNotEmpty)
             {
               'op': 'set_init_args_schema',
-              'schema': [
+              // REAL wire key `args` (G8/A3-29) — the projection minted a private `schema` key that
+              // only paired with the stage's OWN wrong guess. 真线缆键 args;旧私铸 schema 只与舞台
+              // 自己的错猜配对。
+              'args': [
                 for (final a in v.initArgsSchema)
                   {'name': a.name, 'sensitive': a.sensitive},
               ],

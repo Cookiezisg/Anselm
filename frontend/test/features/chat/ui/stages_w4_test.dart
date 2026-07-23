@@ -170,7 +170,7 @@ void main() {
       repo.emitFrame(_conv, _open('sa1', 'Subagent'));
       repo.emitFrame(
         _conv,
-        _delta('sa1', '{"description":"审计执行日志","prompt":"..."}'),
+        _delta('sa1', '{"subagent_type":"general-purpose","prompt":"审计执行日志"}'),
       );
       // The nested E3 trajectory: a message wrapper carrying reasoning + a tool_call. 嵌套轨迹。
       repo.emitFrame(
@@ -196,16 +196,16 @@ void main() {
         findsWidgets,
       ); // current action / tail 当前动作+尾行
 
+      // The REAL close snapshot key set (G8): name/arguments only — the old test invented
+      // tokens/stopReason keys the backend never sends. 真快照键集:旧测试自造键后端从不发。
       repo.emitFrame(
         _conv,
         _close(
           'sa1',
           content: {
             'name': 'Subagent',
-            'status': 'completed',
-            'stopReason': 'max_tokens',
-            'tokens': {'in': 1200, 'out': 800},
-            'arguments': '{"description":"审计执行日志"}',
+            'arguments':
+                '{"subagent_type":"general-purpose","prompt":"审计执行日志"}',
           },
         ),
       );
@@ -216,6 +216,29 @@ void main() {
       expect(find.byIcon(AnIcons.check), findsNothing);
       expect(find.textContaining('1200'), findsNothing);
 
+      // The wire settle truth (G8/A3-4): the nested sub-message CLOSE carries tokens + stopReason
+      // (backend subagent/emit.go). 线缆结算真相:嵌套子消息关帧带 tokens/stopReason。
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 9,
+          scope: _scope,
+          id: 'm1',
+          frame: FrameClose(
+            status: 'completed',
+            result: StreamNode(
+              type: 'message',
+              content: {
+                'role': 'assistant',
+                'status': 'completed',
+                'stopReason': 'max_tokens',
+                'inputTokens': 1200,
+                'outputTokens': 800,
+              },
+            ),
+          ),
+        ),
+      );
       repo.emitFrame(
         _conv,
         _open('r_sa1', '', parent: 'sa1', type: 'tool_result'),
@@ -238,7 +261,7 @@ void main() {
     await tester.pumpWidget(_host(repo));
     await tester.pump();
     repo.emitFrame(_conv, _open('sa1', 'Subagent'));
-    repo.emitFrame(_conv, _delta('sa1', '{"description":"取消演习"}'));
+    repo.emitFrame(_conv, _delta('sa1', '{"prompt":"取消演习"}'));
     await tester.pump(const Duration(milliseconds: 600));
     repo.emitFrame(_conv, _close('sa1', status: 'cancelled'));
     await tester.pump(const Duration(milliseconds: 100));
@@ -261,10 +284,10 @@ void main() {
       await tester.pumpWidget(_host(repo));
       await tester.pump();
       repo.emitFrame(_conv, _open('sa1', 'Subagent'));
-      repo.emitFrame(_conv, _delta('sa1', '{"description":"分身甲"}'));
+      repo.emitFrame(_conv, _delta('sa1', '{"prompt":"分身甲"}'));
       await tester.pump(const Duration(milliseconds: 600));
       repo.emitFrame(_conv, _open('sa2', 'Subagent'));
-      repo.emitFrame(_conv, _delta('sa2', '{"description":"分身乙"}'));
+      repo.emitFrame(_conv, _delta('sa2', '{"prompt":"分身乙"}'));
       await tester.pump(
         const Duration(milliseconds: 600),
       ); // sa2 debounce → channels 入频道

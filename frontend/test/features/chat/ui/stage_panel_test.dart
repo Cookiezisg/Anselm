@@ -270,7 +270,8 @@ void main() {
                 ChatBlock(
                   id: 'call_1',
                   type: 'tool_call',
-                  content: '{"description":"调研通知渠道"}',
+                  content:
+                      '{"subagent_type":"general-purpose","prompt":"调研通知渠道"}',
                   status: 'completed',
                   attrs: {'tool': 'Subagent'},
                 ),
@@ -314,7 +315,7 @@ void main() {
       await tester.pump(
         const Duration(milliseconds: 100),
       ); // hydrate + fold → transcript listener rebuilds
-      // The settled subagent surfaces as a row labelled with the delegate's description — no touchpoint.
+      // The settled subagent surfaces as a row labelled with the delegate's task (prompt first line, G8).
       // 落定 subagent 成行(标题=委派描述),无触点。
       expect(find.text('调研通知渠道'), findsOneWidget);
       // Tap to expand → the SUBAGENT stage renders its folded ReAct trajectory tail (the sub-run's text).

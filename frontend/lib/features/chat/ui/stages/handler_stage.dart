@@ -63,7 +63,10 @@ class HandlerStageBody extends ConsumerWidget {
               raw['code'] as String? ??
               raw['body'] as String?;
         case 'set_init_args_schema':
-          final f = raw['schema'] ?? raw['fields'];
+          // REAL wire key: `args` (backend handler/build.go op doc) — the old `schema`/`fields`
+          // guesses never matched, so the sensitive-config pills never lit on a live edit (G8/A3-29).
+          // 真线缆键=args;旧 schema/fields 是猜的,live 期敏感配置药丸从不点亮。
+          final f = raw['args'] ?? raw['schema'];
           if (f is List) schema = f;
       }
     }

@@ -109,15 +109,19 @@ class WorkflowStageBody extends ConsumerWidget {
       final raw = ops[i];
       if (raw is Map &&
           (raw['op'] == 'add_node' || raw['op'] == 'update_node')) {
+        // REAL wire shapes (G8/A3-16): add_node carries `node:{id,…,input}`; update_node carries
+        // top-level `id` + an RFC-7396 `patch`, of which only `patch.input` is discriminant
+        // material — rendering other patch fields here forged fake discriminants («ref ← trg_b»)
+        // and the old `nodeId` key never existed, so the title was always blank.
+        // 真线缆形:add_node=node{…};update_node=顶层 id+patch,仅 patch.input 配进判别式抽屉
+        // (其余 patch 字段渲进来即伪造判别式;旧 nodeId 键不存在,标题恒空)。
         final node = raw['node'];
+        final patch = raw['patch'];
         final input = node is Map
             ? node['input']
-            : (raw['input'] ?? raw['patch']);
+            : (patch is Map ? patch['input'] : null);
         if (input is Map && input.isNotEmpty) {
-          latest = {
-            'id': node is Map ? node['id'] : raw['nodeId'],
-            'input': input,
-          };
+          latest = {'id': node is Map ? node['id'] : raw['id'], 'input': input};
           break;
         }
       }

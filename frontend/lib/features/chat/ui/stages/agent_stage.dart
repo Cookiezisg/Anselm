@@ -37,9 +37,14 @@ class AgentStageBody extends ConsumerWidget {
     final prompt = session.liveStringNamed('prompt');
     final tools = session.arrayItemsAt(['tools']);
     final knowledge = session.arrayItemsAt(['knowledge']);
-    final model =
-        session.closedStringAt(['modelOverride']) ??
-        session.closedStringAt(['modelId']);
+    // REAL wire shape (G8/A3-33): modelOverride is an OBJECT `{apiKeyId, modelId}` — the old
+    // string reads returned null on a Map, so the model badge never lit on a live create/edit.
+    // 真线缆形:modelOverride 是对象——旧字符串读法对 Map 恒 null,live 期模型牌从不点亮。
+    final rawOverride = session.closedValueAt(['modelOverride']);
+    final overrideId = rawOverride is Map ? rawOverride['modelId'] : null;
+    final model = overrideId is String && overrideId.isNotEmpty
+        ? overrideId
+        : null;
 
     final promptTouched = prompt != null;
     final toolsTouched = tools.isNotEmpty;

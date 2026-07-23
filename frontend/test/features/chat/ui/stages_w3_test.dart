@@ -195,7 +195,10 @@ void main() {
       repo.emitFrame(_conv, _open('tc', 'Subagent'));
       repo.emitFrame(
         _conv,
-        _delta('tc', '{"description":"调研通知渠道","prompt":"survey'),
+        _delta(
+          'tc',
+          '{"subagent_type":"general-purpose","prompt":"调研通知渠道\\nsurvey',
+        ),
       );
       // The delegate's nested open tool streams progress. 分身嵌套工具流出 progress。
       repo.emitFrame(

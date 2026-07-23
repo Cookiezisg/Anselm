@@ -44,11 +44,18 @@ class SubagentStageBody extends StatelessWidget {
 }
 
 /// The delegate's task label off a `Subagent` tool_call's args — the ONE derivation shared by the
-/// accordion row head and the stage card (G3/A2-23: live and settled titles must never diverge;
-/// G8 re-keys the wire field here, in exactly one place). 分身任务名单源:行头与卡头共用一条派生
-/// (live/落定绝不改名;G8 换线缆键只改这一处)。
-String? subagentTaskLabel(BlockNode node) =>
-    argStringPartial(node.argumentsText, 'description');
+/// accordion row head and the stage card (G3/A2-23: live and settled titles must never diverge).
+/// REAL wire key (G8/A3-1): the tool's schema is `{subagent_type, prompt}` — there is NO
+/// `description` field; the label is the prompt's first line (the demo fixture had invented
+/// `description`, which is why demo looked perfect while real backends showed «未命名分身»).
+/// 分身任务名单源:行头与卡头共用一条派生。真线缆键=prompt(schema 只有 subagent_type+prompt,
+/// 无 description——fixture 曾自造该键,demo 全绿真机全灰);标签=prompt 首行。
+String? subagentTaskLabel(BlockNode node) {
+  final p = argStringPartial(node.argumentsText, 'prompt');
+  if (p == null) return null;
+  final line = p.trim().split('\n').first.trim();
+  return line.isEmpty ? null : line;
+}
 
 /// One delegate's card: task name → current action (tail pointer) → the compact ReAct tail → the
 /// settle line. 一席分身卡:任务名→当前动作(尾指针)→紧凑 ReAct 尾→结算行。
@@ -249,24 +256,60 @@ class _SubagentCard extends StatelessWidget {
     _ => Icon(AnIcons.check, size: AnSize.iconSm, color: c.ok),
   };
 
-  Widget _settleLine(BuildContext context, AnColors c, Translations t) {
-    final tokens = node.content?['tokens'];
-    final tin = tokens is Map ? (tokens['in'] ?? tokens['inputTokens']) : null;
-    final tout = tokens is Map
-        ? (tokens['out'] ?? tokens['outputTokens'])
-        : null;
-    final stop = node.content?['stopReason'] as String? ?? '';
+  /// Settle metadata, BOTH truths (G8/A3-4): live, the nested sub-message CLOSE carries
+  /// inputTokens/outputTokens/stopReason on its content (backend subagent/emit.go — the wire always
+  /// had them; the old read waited for keys only a REST refold lifts, so live settles were blank);
+  /// after a reload, the refold lifts them onto the tool_call as `tokens`/`stopReason`.
+  /// 结算双源:live=嵌套子消息关帧 content(线缆本就带;旧读法只认 REST 折叠抬升的键,live 结算恒空);
+  /// 重载=折叠抬升键。
+  BlockNode? get _subMessage {
+    for (final child in node.children) {
+      if (child.kind == BlockKind.message) return child;
+    }
+    return null;
+  }
+
+  (int, int)? _tokens() {
+    final lifted = node.content?['tokens'];
+    if (lifted is Map) {
+      final tin = lifted['in'] ?? lifted['inputTokens'];
+      final tout = lifted['out'] ?? lifted['outputTokens'];
+      if (tin is int && tout is int) return (tin, tout);
+    }
+    final sub = _subMessage?.content;
+    final tin = sub?['inputTokens'];
+    final tout = sub?['outputTokens'];
+    if (tin is int && tout is int && (tin > 0 || tout > 0)) {
+      return (tin, tout);
+    }
+    return null;
+  }
+
+  String _stopReason() {
+    final lifted = node.content?['stopReason'];
+    if (lifted is String && lifted.isNotEmpty) return lifted;
+    final sub = _subMessage?.content?['stopReason'];
+    return sub is String ? sub : '';
+  }
+
+  /// Null when there is nothing to say — an empty footer slot pays dead inset (G8/A3-4 半).
+  /// 无话可说返 null——空 footer 槽白付死内距。
+  Widget? _settleLine(BuildContext context, AnColors c, Translations t) {
+    final tokens = _tokens();
+    final stop = _stopReason();
+    final showStop = stop.isNotEmpty && stop != 'end_turn';
+    if (tokens == null && !showStop) return null;
     // No outer Padding — the AnWindow footer slot brings its own s4 gap. footer 槽自带 s4 前距。
     return Wrap(
       spacing: AnSpace.s8,
       crossAxisAlignment: WrapCrossAlignment.center,
       children: [
-        if (tin is int && tout is int)
+        if (tokens != null)
           Text(
-            t.chat.stage.tokensInOut(tin: tin, tout: tout),
+            t.chat.stage.tokensInOut(tin: tokens.$1, tout: tokens.$2),
             style: AnText.meta.copyWith(color: c.inkFaint),
           ),
-        if (stop.isNotEmpty && stop != 'end_turn')
+        if (showStop)
           Text(
             t.chat.stage.stopReasonWord(r: stop),
             style: AnText.meta.copyWith(color: c.warn),
