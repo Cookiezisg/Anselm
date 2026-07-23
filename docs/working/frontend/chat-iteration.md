@@ -115,6 +115,7 @@ composer 生成中收 Enter → 入队;输入框上方队列 chip 行(点开改/
 | **CH-b fork 全套** | `:fork` + 消息级/左岛入口 + 血缘行 + (fork) 标题 | `:fork` 端点 + 两列 + relation 边 + testend(前缀窗/seq 重排/嵌套 remap/summary 两分支/附件共享) | fork 深历史对话真机验;分叉预填变体 |
 | **CH-c 重试+编辑重发** | 版本翻页 UI + 重试(换模型)+ 编辑重发 | `:retry` + `superseded_by` + 装配过滤 + testend(重生成/编辑重发/非终态 409/版本链) | 翻页回看旧版;继续聊后基于版标记 |
 | **WD1 驻地地基** | 按钮三态 + 选/切/退 + 最近目录 + 菜单①②段 + git 只读段 + marker 标记 + demo fixture | `work_dir` 列/PATCH + ctx 播种(**翻案两处旧立法注释**)+ 三族工具定根(Bash cmd.Dir/相对路径/越界写强制闸)+ workdir 端点 v1 + 系统提示注入 + subagent 继承 + `marker` 型立法 + testend | 挂/不挂两态行为;越界写弹闸;相对路径工具卡显示 |
+| **WD1.5 rail 驻地分组(CL 批,§5.15)** | chat 左岛四段重组:新对话·搜索 / 置顶 / 驻地组 ×N(组头 ⋯ 批量动作)/ 最近(仅无驻地) | workdir-groups 有界投影 + List `?workDir=` 过滤 + 整组归档/删除两动作 + testend | 分组无漂移;命名防误读(绝不出现「删除目录」);fork/退驻地迁移 |
 | **WD2 git 操作** | 菜单 git 段:切换/新建分支 | workdir 端点加 branches[] + 操作动作(shell out git,不重造) | 脏区切分支的护栏语义 |
 | **WD3 worktree** | 「为此对话开一个 worktree」 | worktree add + 驻地切换一条龙 | 与 `make worktree` 纪律对齐的路径约定 |
 
@@ -527,6 +528,42 @@ Flutter 团队在 issue #141151 明确:手势竞技场里**更深者赢**,`Selec
 **根治动作**:把这条标准**写进 design-system 的文案节**(或 GOVERNANCE 文案条),并加一条**机械守卫**——扫 i18n 里 filter/search 类占位键是否形如「搜索<对象>…」/「Search <objects>…」,不合规即红。否则下一个新面板照样会写成「搜索…」。
 
 **验收**:Library rail 顶部只有搜索;两个类型头各自的动作 hover 可见、可点、有 tooltip(接 §5.13);无 New 行形态不留空行;两处文案中英皆改;守卫测试就位;`make -C frontend quick` 绿 + 真机截图。
+
+## §5.15 CL 批 · chat 左岛按驻地分组(0724 用户提,依赖 WD1)
+
+> 用户:「加了文件夹概念后,chat 左岛组织形式要变:新对话、搜索、置顶,下面是各个工作目录(组也有按钮,归档/删除整个工作目录),最下面才是最近。」
+
+**现状**:rail 只分 置顶/最近 两组(`conversation_rail_model.dart:55` 注释明言),无限翻页,行时间仅是标签。
+
+### 两条先行裁决
+
+1. **⚠️ 命名防误读(诚实律)**:「删除整个工作目录」绝不能出现——用户会读成**删磁盘上的真文件夹**。组头菜单文案 = 「归档全部对话」/「删除全部对话」(danger,确认框带内容盘点),**永不出现"删除目录"字样**;组头菜单另置「在 Finder 中显示」强化"目录本体我们不碰"的心智。
+2. **驻地组 = 投影,非实体**:不建表、无生命周期——就是按 `conversations.work_dir` 聚合的视图;组内最后一个对话归档/删除后组自然消失。**不做"空目录组"管理。**
+
+### 结构(定稿)
+
+```
+新对话 · 搜索(固定)
+置顶            —— 任何对话可置顶;置顶赢,不在驻地组重复
+📁 驻地组 ×N     —— 组头:目录名(重名补父路径消歧)+ 计数,可折叠;
+                   组间按组内最近活跃排序;组头 ⋯ = 归档全部/删除全部/在 Finder 中显示
+最近            —— 仅无驻地对话(驻地对话只住组里,不重复)
+```
+
+联动:fork 继承驻地 → 落同组;对话退出驻地 → 移回最近;组头动作槽 = **LR 批的 `typeHeadActionsBuilder` 地基直接复用**。
+
+### 后端小件(归 WD 系列,防"分组撒谎")
+
+rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂移 = 撒谎。故:
+- `GET /conversations/workdir-groups` → `[{workDir, count, lastMessageAt}]`(不同驻地有界,N4 有界投影,无游标;登记 api.md)
+- 对话 List 端点加 `?workDir=` 过滤(空值语义=仅无驻地),组展开按组翻页
+- 批量动作 ×2(整组归档 / 整组删除,事务;命名 N5,施工时定,如 `POST /conversations:archive-workdir {workDir}`)——不让前端循环打 N 请求
+
+### 归位与依赖
+
+依赖 `work_dir` 列(WD1)→ 施工序里排 **WD1 之后**,作 **WD1.5(rail 重组)**;demo fixture 补种带驻地的对话组。
+
+**验收**:四段结构真机核对;组头批量动作确认框内容盘点诚实;fork/退驻地的组间迁移;分组计数与翻页一致(无漂移);置顶不重复;i18n 新键;五电池;testend 覆盖两个新端点 + workdir-groups 投影;文档 1:1(api.md/domains/conversation.md/contract.md)。
 
 ## §6 open questions(施工前清)
 
