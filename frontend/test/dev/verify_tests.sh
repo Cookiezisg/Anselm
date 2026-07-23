@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
-# The verify TEST stage, parallelized by DIRECTORY GROUPS — not `--total-shards`: runtime sharding
-# makes every process compile the WHOLE suite's kernel (×N compile tax measured SLOWER than serial:
-# 6:11 vs ~5:00), while directory groups let each process compile only its slice. Four groups sized
-# to balance (the gallery matrix ≈42% of the suite rides alone; chat is the biggest feature; core is
-# its own world; a DYNAMIC remainder group sweeps everything else so a new feature dir lands in a
-# group automatically — nothing to maintain). Each group logs to its own file; failures print their
-# blocks (nobody greps thousands of scrolled lines). Coverage identical: the groups PARTITION test/.
+# The verify TEST stage keeps directory groups for readable failure logs and a
+# complete, zero-maintenance partition of test/. They run SEQUENTIALLY on macOS:
+# concurrent `flutter test` processes share build/native_assets and can race
+# while codesigning a dylib (a false CI failure). `-j` still parallelizes tests
+# safely inside each Flutter invocation. Reliability is worth the small wall-time
+# trade-off in a release gate.
 #
-# verify 测试段按目录分组并行——不用 --total-shards:运行时分片让每个进程编译全量 kernel(×N 编译税,
-# 实测比串行还慢 6:11 vs ~5:00);目录分组让每进程只编自己那片。四组配平(gallery 矩阵≈42% 独走一组;
-# chat 最大 feature;core 自成一组;兜底组动态扫其余——新 feature 目录自动落组,零维护)。各组独立
-# log,失败自动打失败块。覆盖等同:四组是 test/ 的完全划分。
+# verify 测试段仍按目录分组，便于失败日志阅读且完整、自动覆盖 test/；但 macOS 上**顺序**运行：
+# 多个 flutter test 会共享 build/native_assets，签名 dylib 时会竞争并制造假失败。每个 Flutter
+# 进程内部仍以 -j 安全并行。发布门禁优先选择可复现性，而不是这点墙钟时间。
 set -uo pipefail
 cd "$(dirname "$0")/../.."   # frontend/
 MISE="${MISE:-mise}"
@@ -32,17 +30,11 @@ for d in test/features/*/ test/guards test/app test/perf; do
 done
 
 declare -a groups=("$G0" "$G1" "$G2" "$G3")
-pids=()
-for i in 0 1 2 3; do
-  # shellcheck disable=SC2086 — group lists are intentionally word-split 组列表按词分割是本意
-  $RUN flutter test -j "$JOBS" ${groups[$i]} > "$LOGDIR/group$i.log" 2>&1 &
-  pids+=($!)
-done
-
 fail=0
 for i in 0 1 2 3; do
-  if ! wait "${pids[$i]}"; then
-    fail=1
+	# shellcheck disable=SC2086 — group lists are intentionally word-split 组列表按词分割是本意
+	if ! $RUN flutter test -j "$JOBS" ${groups[$i]} > "$LOGDIR/group$i.log" 2>&1; then
+		fail=1
     echo ""
     echo "✗ test group $i (${groups[$i]}) FAILED — failure blocks:"
     grep -B1 -A30 "\[E\]$" "$LOGDIR/group$i.log" | head -160
