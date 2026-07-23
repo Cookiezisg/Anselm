@@ -35,7 +35,9 @@ class WorkflowStageBody extends ConsumerWidget {
     final editId = scene.editTargetId;
     final truth = editId == null
         ? null
-        : ref.watch(workflowTruthProvider(editId));
+        : ref.watch(
+            workflowBaselineProvider((id: editId, block: scene.node.id)),
+          );
     final oldGraph = truth?.asData?.value.activeVersion?.graphParsed;
     final oldVersion = truth?.asData?.value.activeVersion?.version;
 

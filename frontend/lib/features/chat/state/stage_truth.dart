@@ -71,3 +71,98 @@ final mcpTruthProvider = FutureProvider.autoDispose
     .family<McpServerStatus, String>(
       (ref, name) => ref.watch(chatRepositoryProvider).getMcpSnapshot(name),
     );
+
+/// G9 — a BUILD tool settled against this entity: its cached truth is stale BY DEFINITION.
+/// Invalidate so every «看真身» consumer (StageBodyFromTruth, trigger's R-16 settle facts) refetches
+/// fresh — without this, a warm cache served the PRE-edit snapshot indefinitely and «落定只信 GET»
+/// was quietly «落定只信过期 GET» (A3-27). Unknown kinds are a no-op by design.
+/// G9:build 工具对该实体落定=真相缓存必已过期,失效之——旧暖缓存可无限期端出编辑前快照,
+/// R-16 被架空。未知 kind 静默跳过。
+void invalidateTruth(Ref ref, String kind, String id) {
+  switch (kind) {
+    case 'function':
+      ref.invalidate(functionTruthProvider(id));
+    case 'document':
+      ref.invalidate(documentTruthProvider(id));
+    case 'workflow':
+      ref.invalidate(workflowTruthProvider(id));
+    case 'control':
+      ref.invalidate(controlTruthProvider(id));
+    case 'approval':
+      ref.invalidate(approvalTruthProvider(id));
+    case 'trigger':
+      ref.invalidate(triggerTruthProvider(id));
+    case 'agent':
+      ref.invalidate(agentTruthProvider(id));
+    case 'handler':
+      ref.invalidate(handlerTruthProvider(id));
+    case 'skill':
+      ref.invalidate(skillTruthProvider(id));
+    case 'mcp':
+      ref.invalidate(mcpTruthProvider(id));
+  }
+}
+
+/// The R-5 EDIT BASELINE (G9/A3-10) — the target's truth FROZEN per edit block. The live truth
+/// providers above now invalidate the moment an edit settles (R-16 wants freshness), while the
+/// settle diff badge, the resting old graph and the prefix fast-forward baseline need the PRE-edit
+/// snapshot. One entity, two freshness contracts, two provider families: baselines key by the
+/// edit's BLOCK id and keep alive once fetched (bounded by edits per session), so a truth refetch
+/// can never wash a real diff into «+0 −0». Failures stay autoDispose (honest retry).
+/// R-5 编辑基线——按编辑块冻结:真相 provider 落定即失效(R-16 要新),而 diff 徽/静置旧图/前缀快进
+/// 要编辑前快照;取到即 keepAlive(量级=会话内编辑数),真相重取绝不把真 diff 洗成 +0−0;失败不冻结。
+typedef EditBaselineKey = ({String id, String block});
+
+final functionBaselineProvider = FutureProvider.autoDispose
+    .family<FunctionEntity, EditBaselineKey>((ref, key) async {
+      final v = await ref
+          .watch(chatRepositoryProvider)
+          .getFunctionSnapshot(key.id);
+      ref.keepAlive();
+      return v;
+    });
+
+final documentBaselineProvider = FutureProvider.autoDispose
+    .family<DocumentNode, EditBaselineKey>((ref, key) async {
+      final v = await ref
+          .watch(chatRepositoryProvider)
+          .getDocumentSnapshot(key.id);
+      ref.keepAlive();
+      return v;
+    });
+
+final workflowBaselineProvider = FutureProvider.autoDispose
+    .family<WorkflowEntity, EditBaselineKey>((ref, key) async {
+      final v = await ref
+          .watch(chatRepositoryProvider)
+          .getWorkflowSnapshot(key.id);
+      ref.keepAlive();
+      return v;
+    });
+
+final controlBaselineProvider = FutureProvider.autoDispose
+    .family<ControlLogic, EditBaselineKey>((ref, key) async {
+      final v = await ref
+          .watch(chatRepositoryProvider)
+          .getControlSnapshot(key.id);
+      ref.keepAlive();
+      return v;
+    });
+
+final agentBaselineProvider = FutureProvider.autoDispose
+    .family<AgentEntity, EditBaselineKey>((ref, key) async {
+      final v = await ref
+          .watch(chatRepositoryProvider)
+          .getAgentSnapshot(key.id);
+      ref.keepAlive();
+      return v;
+    });
+
+final handlerBaselineProvider = FutureProvider.autoDispose
+    .family<HandlerEntity, EditBaselineKey>((ref, key) async {
+      final v = await ref
+          .watch(chatRepositoryProvider)
+          .getHandlerSnapshot(key.id);
+      ref.keepAlive();
+      return v;
+    });

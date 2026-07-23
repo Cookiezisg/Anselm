@@ -34,7 +34,9 @@ class ControlStageBody extends ConsumerWidget {
     final editId = scene.editTargetId;
     final truth = editId == null
         ? null
-        : ref.watch(controlTruthProvider(editId));
+        : ref.watch(
+            controlBaselineProvider((id: editId, block: scene.node.id)),
+          );
     final oldBranches =
         truth?.asData?.value.activeVersion?.branches ?? const [];
 

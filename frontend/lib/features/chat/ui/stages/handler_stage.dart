@@ -34,7 +34,9 @@ class HandlerStageBody extends ConsumerWidget {
     final editId = scene.editTargetId;
     final truth = editId == null
         ? null
-        : ref.watch(handlerTruthProvider(editId));
+        : ref.watch(
+            handlerBaselineProvider((id: editId, block: scene.node.id)),
+          );
     final ops = session.arrayItemsAt(['ops']);
 
     // The newest still-growing body follows the in-flight channel (path-aware). 在途 body 跟当前书脊。

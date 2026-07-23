@@ -16,6 +16,7 @@ import '../model/tool_card_state.dart';
 import '../../../core/run/flowrun_progress.dart';
 import 'conversation_stream_provider.dart';
 import 'pending_interactions_provider.dart';
+import 'stage_truth.dart';
 
 /// One conversation's stage director as a provider: projects the conversation's frame feed onto the
 /// pure [StageDirector] (tool_call open/delta/close), threads the human-gate flag from
@@ -68,6 +69,8 @@ class StageDirectorController extends Notifier<StageState> {
   // blockId → tool name for stage-worthy TOP-LEVEL calls (G7: the name gates the name-addressed
   // itemId whitelist at close time). 顶层调用账本(id→工具名;G7 关帧名寻址白名单要用名)。
   final Map<String, String> _tracked = {};
+  // blockId → resolved itemId (G9: the settled-build truth invalidation needs the pair). G9 失效要用。
+  final Map<String, String> _itemOf = {};
   static final _flowrunRe = RegExp(r'"flowrunId"\s*:\s*"([^"]{1,64})"');
   static final _workflowRe = RegExp(r'"workflowId"\s*:\s*"([^"]{1,64})"');
 
@@ -99,6 +102,7 @@ class StageDirectorController extends Notifier<StageState> {
     _executionParents.clear();
     _ownerOf.clear();
     _tracked.clear();
+    _itemOf.clear();
     _tx?.removeListener(_onTranscript);
     _lastRealignEpoch = -1;
 
@@ -253,9 +257,9 @@ class StageDirectorController extends Notifier<StageState> {
         ); // closed children take no more deltas 已关子块不再来 delta
         final parent = _executionParents.remove(env.id);
         if (parent != null) {
-          _tracked.remove(
-            parent,
-          ); // execution terminal — the call's bookkeeping retires 执行终态退账
+          // execution terminal — the call's bookkeeping retires (keep the name for the G9 gate).
+          // 执行终态退账(名字留给 G9 判门)。
+          final toolName = _tracked.remove(parent);
           // The tool_result close is the ONE true execution terminal. Its durable snapshot is also
           // where a poll receipt's flowrun id now lives. tool_result Close 才是真正执行终态；其耐久快照
           // 同时承载 poll 回执的 flowrun id。
@@ -268,7 +272,22 @@ class StageDirectorController extends Notifier<StageState> {
           // 兜底铸出永不合并的键,同一实体永久双行。
           if (ok) {
             final rid = _receiptID(body);
-            if (rid != null) _director.onItemResolved(parent, rid);
+            if (rid != null) {
+              _director.onItemResolved(parent, rid);
+              _itemOf.putIfAbsent(parent, () => rid);
+            }
+          }
+          // G9 — a settled BUILD makes its target's cached truth stale by definition: invalidate so
+          // «看真身» and R-16 refetch fresh (the R-5 baselines are frozen per edit block and immune).
+          // G9:build 落定=目标真相缓存必过期,失效之——看真身/R-16 重取新;R-5 基线按块冻结不受累。
+          final route = toolName == null ? null : stageRouteOf(toolName);
+          final targetId = _itemOf.remove(parent);
+          if (ok &&
+              route != null &&
+              route.priority == StagePriority.build &&
+              targetId != null &&
+              targetId.isNotEmpty) {
+            invalidateTruth(ref, route.kind, targetId);
           }
           final m = _flowrunRe.firstMatch(body);
           if (m != null && _pollCalls.contains(parent)) {
@@ -297,7 +316,11 @@ class StageDirectorController extends Notifier<StageState> {
         // one right-island row immediately. 参数流收束时即解析稳定目标，不依赖某张卡是否展开；同目标并行调用可立即合行。
         final args = '${result?.content?['arguments'] ?? ''}';
         final target = _primaryTargetID(_tracked[env.id] ?? '', args);
-        if (target != null) _director.onItemResolved(env.id, target);
+        if (target != null) {
+          _director.onItemResolved(env.id, target);
+          _itemOf[env.id] =
+              target; // for the G9 invalidation at the terminal 供 G9 终态失效
+        }
         if (_pollCalls.contains(env.id)) {
           final m = _workflowRe.firstMatch(args);
           if (m != null) _pollWorkflow[env.id] = m.group(1)!;

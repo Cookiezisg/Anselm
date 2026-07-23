@@ -87,7 +87,9 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
     final editId = scene.editTargetId;
     final truth = editId == null
         ? null
-        : ref.watch(documentTruthProvider(editId));
+        : ref.watch(
+            documentBaselineProvider((id: editId, block: scene.node.id)),
+          );
     final baseline = truth?.asData?.value.content ?? '';
 
     final content = session.liveStringNamed('content');

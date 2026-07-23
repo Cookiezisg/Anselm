@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/conversation.dart';
+import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/settings/app_prefs_providers.dart';
@@ -6,6 +7,7 @@ import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/model/stage_director.dart';
 import 'package:anselm/features/chat/state/stage_director_provider.dart';
+import 'package:anselm/features/chat/state/stage_truth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -16,6 +18,17 @@ import 'package:flutter_test/flutter_test.dart';
 
 const _conv = 'cv_1';
 const _scope = StreamScope(kind: 'conversation', id: _conv);
+
+/// Counts truth GETs so the G9 invalidation/freeze split is observable. 计数 GET 供 G9 断言。
+class _CountingRepo extends FixtureChatRepository {
+  _CountingRepo({super.conversations});
+  int functionGets = 0;
+  @override
+  Future<FunctionEntity> getFunctionSnapshot(String id) {
+    functionGets++;
+    return super.getFunctionSnapshot(id);
+  }
+}
 
 StreamEnvelope _open(String id, String tool) => StreamEnvelope(
   seq: 1,
@@ -75,6 +88,68 @@ StreamEnvelope _resultClose(String id, {String status = 'completed'}) =>
     );
 
 void main() {
+  testWidgets(
+    'G9: a settled edit invalidates the truth cache; the R-5 baseline stays frozen',
+    (tester) async {
+      final repo = _CountingRepo(
+        conversations: [
+          Conversation(
+            id: _conv,
+            title: 'g9',
+            createdAt: DateTime.utc(2026, 7, 8),
+            updatedAt: DateTime.utc(2026, 7, 8),
+            lastMessageAt: DateTime.utc(2026, 7, 8),
+          ),
+        ],
+      );
+      repo.functions['fn_1'] = FunctionEntity(
+        id: 'fn_1',
+        name: 'sync_inventory',
+        activeVersion: FunctionVersion(
+          id: 'fv_3',
+          functionId: 'fn_1',
+          version: 3,
+          code: 'def sync():\n    return 1\n',
+          createdAt: DateTime.utc(2026, 7, 1),
+          updatedAt: DateTime.utc(2026, 7, 1),
+        ),
+        createdAt: DateTime.utc(2026, 7, 1),
+        updatedAt: DateTime.utc(2026, 7, 1),
+      );
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      c.listen(functionTruthProvider('fn_1'), (_, _) {});
+      c.listen(functionBaselineProvider((id: 'fn_1', block: 'b1')), (_, _) {});
+      await tester.pump();
+      await c.read(functionTruthProvider('fn_1').future);
+      await c.read(functionBaselineProvider((id: 'fn_1', block: 'b1')).future);
+      final baseGets = repo.functionGets;
+
+      repo.emitFrame(_conv, _open('b1', 'edit_function'));
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(
+        _conv,
+        _callClose('b1', arguments: '{"functionId":"fn_1"}'),
+      );
+      repo.emitFrame(_conv, _resultOpen('r1', 'b1'));
+      repo.emitFrame(_conv, _resultClose('r1'));
+      await tester.pump();
+
+      // The warm truth cache is stale by definition → refetched exactly once (A3-27: without this,
+      // «看真身» served the PRE-edit snapshot indefinitely). 真相缓存必过期→恰重取一次。
+      await c.read(functionTruthProvider('fn_1').future);
+      expect(repo.functionGets, baseGets + 1);
+      // The R-5 baseline is frozen per edit block — the invalidation never touches it, so a settle
+      // diff can't wash into «+0 −0» (A3-10). 基线按块冻结,失效不波及,diff 不被洗成 +0−0。
+      await c.read(functionBaselineProvider((id: 'fn_1', block: 'b1')).future);
+      expect(repo.functionGets, baseGets + 1);
+      await tester.pump(const Duration(milliseconds: 2200)); // drain 排干
+    },
+  );
+
   testWidgets('a stage-worthy open stages after the debounce timer fires', (
     tester,
   ) async {

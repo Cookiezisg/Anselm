@@ -31,7 +31,9 @@ class AgentStageBody extends ConsumerWidget {
     final c = context.colors;
     final session = scene.session;
     final editId = scene.editTargetId;
-    final truth = editId == null ? null : ref.watch(agentTruthProvider(editId));
+    final truth = editId == null
+        ? null
+        : ref.watch(agentBaselineProvider((id: editId, block: scene.node.id)));
     final old = truth?.asData?.value.activeVersion;
 
     final prompt = session.liveStringNamed('prompt');

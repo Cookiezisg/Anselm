@@ -34,7 +34,9 @@ class FunctionStageBody extends ConsumerWidget {
     final editId = scene.editTargetId;
     final truth = editId == null
         ? null
-        : ref.watch(functionTruthProvider(editId));
+        : ref.watch(
+            functionBaselineProvider((id: editId, block: scene.node.id)),
+          );
     final oldCode = truth?.asData?.value.activeVersion?.code ?? '';
     final oldVersion = truth?.asData?.value.activeVersion?.version;
 
