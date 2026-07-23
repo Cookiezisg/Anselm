@@ -235,10 +235,18 @@ class AnMarkdown extends StatelessWidget {
     );
   }
 
-  // Fenced code → the ONE code anatomy, read-only. `closed` ignored: an unclosed fence renders
-  // optimistically as a live block that grows with the stream. trimRight: the closing-fence newline
-  // otherwise renders a trailing empty gutter line. 围栏→唯一代码解剖(只读);未闭合乐观渲染;trimRight 去掉
-  // 闭合围栏换行带来的尾空行。
+  // Fenced code → the ONE code anatomy. An UNCLOSED fence is still streaming in — it rides the LIVE
+  // face (S10: the tool cards' bounded stick-to-bottom code viewport, O(window) tail slice), because
+  // the upstream open block re-parses per coalesced frame and a read-only face would re-tokenize the
+  // WHOLE growing code each time (the `_highlight` memo necessarily misses while the code grows);
+  // the live face also keeps a huge incoming block from stretching the transcript (the viewport pins
+  // the newest lines). The close swaps ONCE to the settled content-height read-only face — same
+  // AnCodeSurface chrome, no material flip (A-095). trimRight: the closing-fence newline otherwise
+  // renders a trailing empty gutter line.
+  // 围栏→唯一代码解剖。未闭合=仍在流入——走**live 脸**(S10:工具卡同款有界贴底代码视口,O(window)
+  // 尾切),因为上游 open 块逐合并帧重解析,只读脸会每帧全量重 tokenize 增长中的整块(码在长,
+  // `_highlight` 记忆必 miss);live 视口也防巨块流入把 transcript 撑长(钉最新行)。close 一次性换
+  // 落定内容高只读脸——同 AnCodeSurface chrome,无材质翻转(A-095)。trimRight 去尾空行。
   // No outer padding — the flanking _AnNewLines gap is the SINGLE block-separation term; a padding here
   // would stack on it and read too loose (the old inconsistency). 无外距,间距归换行统一。
   // `reading: !_embedded`: content code rides the 13 codeReading tier; embedded code drops a rung to the 12
@@ -252,6 +260,7 @@ class AnMarkdown extends StatelessWidget {
     code: code.trimRight(),
     lang: name.trim().isEmpty ? null : name.trim(),
     reading: !_embedded,
+    live: !closed,
   );
 
   // Inline `code` → [AnCodeChip] (mono on a sunken padded pill; the package default is bold-only — broken on the

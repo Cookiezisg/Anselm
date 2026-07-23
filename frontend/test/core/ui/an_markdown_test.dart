@@ -161,10 +161,16 @@ void main() {
           find.byType(AnCodeEditor),
           findsOneWidget,
         ); // optimistic open-render 乐观渲染
+        // Streaming = the LIVE face (S10): bounded stick-to-bottom viewport, O(window) tail slice —
+        // never a full re-tokenize of the growing block per frame. 流入=live 脸(有界贴底视口)。
+        expect(find.byType(AnStickViewport), findsOneWidget);
+
         await tester.pumpWidget(
           host(const AnMarkdown('```py\nprint(1)\n```\ndone')),
         );
         expect(find.byType(AnCodeEditor), findsOneWidget);
+        // Closed = the settled content-height read-only face (viewport gone). 闭合=落定内容高只读脸。
+        expect(find.byType(AnStickViewport), findsNothing);
         expect(find.textContaining('done'), findsOneWidget);
       },
     );
