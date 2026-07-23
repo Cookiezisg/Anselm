@@ -78,6 +78,37 @@ class _AppShellState extends ConsumerState<AppShell> {
   // 首建，启动期失效会同步回冲本 element，触发 build 中 markNeedsBuild。徽标首帧为 0，随后订阅同一权威 COUNT。
   bool _unreadBadgeReady = false;
 
+  // The switcher items, memoized by the Translations instance (slang hands out one per locale) —
+  // the shell rebuilds on ~15 watched providers and re-allocating four items each time is pure churn
+  // (S8). 切换器项按 Translations 实例记忆化(slang 每 locale 一实例)——壳 build 频繁,免每次重造。
+  List<AnOceanItem>? _oceanItemsCache;
+  Translations? _oceanItemsFor;
+
+  List<AnOceanItem> _oceanItems(Translations t) {
+    if (!identical(t, _oceanItemsFor)) {
+      _oceanItemsFor = t;
+      _oceanItemsCache = [
+        AnOceanItem(id: 'chat', icon: AnIcons.chat, label: t.shell.ocean.chat),
+        AnOceanItem(
+          id: 'entities',
+          icon: AnIcons.entities,
+          label: t.shell.ocean.entities,
+        ),
+        AnOceanItem(
+          id: 'scheduler',
+          icon: AnIcons.scheduler,
+          label: t.shell.ocean.scheduler,
+        ),
+        AnOceanItem(
+          id: 'library',
+          icon: AnIcons.library,
+          label: t.shell.ocean.library,
+        ),
+      ];
+    }
+    return _oceanItemsCache!;
+  }
+
   @override
   void initState() {
     super.initState();
@@ -215,28 +246,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
 
     // Top switcher = the first four oceans (order MUST match OceanKind). 顶部切换器 = 前四海洋(顺序须与 OceanKind 一致)。
-    final oceanItems = <AnOceanItem>[
-      AnOceanItem(
-        id: 'chat',
-        icon: AnIcons.chat,
-        label: context.t.shell.ocean.chat,
-      ),
-      AnOceanItem(
-        id: 'entities',
-        icon: AnIcons.entities,
-        label: context.t.shell.ocean.entities,
-      ),
-      AnOceanItem(
-        id: 'scheduler',
-        icon: AnIcons.scheduler,
-        label: context.t.shell.ocean.scheduler,
-      ),
-      AnOceanItem(
-        id: 'library',
-        icon: AnIcons.library,
-        label: context.t.shell.ocean.library,
-      ),
-    ];
+    final oceanItems = _oceanItems(context.t);
     // No top selection while a footer ocean (settings) is active. 在底栏海洋(settings)时顶部无选中。
     final topSelected = ocean.inTopSwitcher ? ocean.index : -1;
 

@@ -105,7 +105,7 @@ class _SchedulerRailState extends ConsumerState<SchedulerRail> {
                 .overviewTitle, // showNew=false — unused, satisfies the model. 不渲。
             filterPlaceholder: t.scheduler.filterPlaceholder,
           ),
-          now: DateTime.now(),
+          now: AnTimePulse.quantizedNow, // 同拍同刻,模型相等性记忆化不被破(S8)
         );
         final t2 = t.scheduler;
         return AnSidebarList(

@@ -14,6 +14,7 @@ import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
 import '../../../core/ui/an_typewriter.dart';
 import '../../../core/ui/icons.dart';
+import '../../../core/ui/an_time_pulse.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
@@ -107,7 +108,7 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
           },
           model: buildConversationRailModel(
             rows,
-            now: DateTime.now(),
+            now: AnTimePulse.quantizedNow, // 同拍同刻,模型相等性记忆化不被破(S8)
             showCount: showCount,
             showTime: showTime,
             hasMore: async.value?.hasMore ?? false,
