@@ -48,7 +48,7 @@ double _noticeInset(double bandHeight) =>
 /// (含浮层头:reopen[仅收起时] + 面包屑 head + 右岛切换[仅有 inspector])· 右岛(固定 320,inspectorOpen 揭示)。
 /// 浮层头点击穿透、仅角落可点,正文从其下滚过;红绿灯由 OS 在加高标题栏画,顶栏与浮层头同带、所有顶控对齐。
 /// 状态(收起/宽度/面包屑)由调用方(app provider)持有、以 props 喂入,套件不沾 Riverpod。
-class AnShell extends StatelessWidget {
+class AnShell extends StatefulWidget {
   const AnShell({
     super.key,
     this.sidebar,
@@ -123,13 +123,85 @@ class AnShell extends StatelessWidget {
   final bool rightActivity;
 
   @override
+  State<AnShell> createState() => _AnShellState();
+}
+
+class _AnShellState extends State<AnShell> {
+  // Island reveal/hide animation bookkeeping (S11): while EITHER island is sliding AND the ocean is
+  // in the reflow zone (narrower than the full reading column), the ocean is laid out ONCE at its
+  // TARGET width behind a clip — the island then covers/reveals it, instead of the width animation
+  // relayouting the whole ocean viewport (paragraph re-shape) on every frame. Wide windows keep the
+  // continuous animation: their per-frame relayout is cheap (the 720-column constraint doesn't
+  // change, paragraph layout caches hit) and the gliding column looks better. Drags never freeze —
+  // tracking the hand IS the feature.
+  // 岛屿开合动画记账(S11):任一岛滑动中且海洋处于 reflow 区(窄于完整阅读列)时,海洋按**终态宽**
+  // 一次排版、藏在裁切后——岛盖上/揭开它,而非宽度动画逐帧 relayout 整个海洋视口(段落 re-shape)。
+  // 宽窗保持连续动画(720 列约束不变、段落布局缓存命中,滑动列更好看)。拖拽绝不冻结——跟手即功能。
+  bool _leftAnimating = false;
+  bool _rightAnimating = false;
+
+  // The ocean-width the CURRENT target state implies, remembered across a target flip so the freeze
+  // gate can consider BOTH ends of the animation (either end inside the reflow zone freezes).
+  // 目标态占宽记账(翻转前的旧值即动画起点)——冻结闸看动画两端,任一端入 reflow 区即冻。
+  double _prevTaken = 0;
+
+  double _takenOf({
+    required bool leftCollapsed,
+    required double leftWidth,
+    required bool inspectorOpen,
+    required double rightWidth,
+  }) =>
+      (leftCollapsed ? 0.0 : leftWidth + AnSize.shellGap) +
+      (inspectorOpen ? rightWidth + AnSize.shellGap : 0.0);
+
+  @override
+  void initState() {
+    super.initState();
+    _prevTaken = _takenOf(
+      leftCollapsed: widget.leftCollapsed,
+      leftWidth: widget.leftWidth,
+      inspectorOpen: widget.inspectorOpen,
+      rightWidth: widget.rightWidth,
+    );
+  }
+
+  @override
+  void didUpdateWidget(AnShell old) {
+    super.didUpdateWidget(old);
+    if (old.leftCollapsed != widget.leftCollapsed ||
+        old.inspectorOpen != widget.inspectorOpen) {
+      _prevTaken = _takenOf(
+        leftCollapsed: old.leftCollapsed,
+        leftWidth: old.leftWidth,
+        inspectorOpen: old.inspectorOpen,
+        rightWidth: old.rightWidth,
+      );
+    }
+  }
+
+  // Reveal status arrives synchronously from a child's didUpdateWidget (mid-build) — defer a frame.
+  // 状态从子的 didUpdateWidget 同步到达(build 中)——推迟一帧。
+  void _setAnimating({required bool left, required bool value}) {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      if ((left ? _leftAnimating : _rightAnimating) == value) return;
+      setState(() => left ? _leftAnimating = value : _rightAnimating = value);
+    });
+  }
+
+  // Below this ocean width the reading column loses its fixed 720 constraint and every visible
+  // paragraph re-shapes per relayout — the freeze gate's threshold. 低于此宽阅读列失去 720 定约束、
+  // 每次 relayout 段落逐个 re-shape——冻结闸阈值。
+  static const double _reflowFloor = AnSize.content + AnInset.pageX * 2;
+
+  @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final controlInset = _controlInset(
-      titlebarHeight,
+      widget.titlebarHeight,
     ); // drop top controls onto the lights' line 顶控落到灯线
     final noticeInset = _noticeInset(
-      titlebarHeight,
+      widget.titlebarHeight,
     ); // 36px notice crown on that same axis 36 冠部同轴
     return Material(
       color: c.surface,
@@ -140,17 +212,74 @@ class AnShell extends StatelessWidget {
             // The right island may be dragged wide (rightIslandMax) but the OCEAN keeps its floor: the
             // live drag ceiling is whatever width remains after the left island + oceanMin + gaps.
             // 右岛可拖宽,但海洋保底优先:动态上限=扣除左岛/海洋下限/间距后的余宽。
-            final leftTaken = leftCollapsed ? 0.0 : leftWidth + AnSize.shellGap;
+            final leftTaken = widget.leftCollapsed
+                ? 0.0
+                : widget.leftWidth + AnSize.shellGap;
             final rightCeiling =
                 (box.maxWidth - leftTaken - AnSize.oceanMin - AnSize.shellGap)
                     .clamp(AnSize.rightIslandMin, AnSize.rightIslandMax);
+
+            // ── the reveal-freeze gate (S11, see the State doc) 开合冻结闸 ──
+            final targetTaken = _takenOf(
+              leftCollapsed: widget.leftCollapsed,
+              leftWidth: widget.leftWidth,
+              inspectorOpen: widget.inspectorOpen,
+              rightWidth: widget.rightWidth,
+            );
+            final targetOceanW = (box.maxWidth - targetTaken).clamp(
+              AnSize.oceanMin,
+              box.maxWidth,
+            );
+            final prevOceanW = (box.maxWidth - _prevTaken).clamp(
+              AnSize.oceanMin,
+              box.maxWidth,
+            );
+            final freeze =
+                (_leftAnimating || _rightAnimating) &&
+                (targetOceanW < _reflowFloor || prevOceanW < _reflowFloor);
+
+            Widget oceanHost = _OceanRegion(
+              ocean: widget.ocean,
+              head: widget.head,
+              headTrailing: widget.headTrailing,
+              bandNotice: widget.bandNotice,
+              showReopen: widget.leftCollapsed,
+              onReopen: widget.onToggleLeft,
+              controlInset: controlInset,
+              noticeInset: noticeInset,
+              // panel-right shows only when there's a bound right island (caller passes the callback iff
+              // an entity is selected) — mirrors the demo's has-right gate. 仅有绑定右岛时显(对齐 demo has-right)。
+              showRightToggle: widget.onToggleRight != null,
+              onToggleRight: widget.onToggleRight,
+              rightActivity: widget.rightActivity,
+            );
+            if (freeze) {
+              // Lay the ocean out ONCE at its TARGET width; the sliding island covers/reveals the
+              // clipped edge. A left-island slide pins the ocean to its END edge (the LEFT edge is
+              // the moving one), a right-island slide pins to START. On the animation's last frame
+              // the freeze lifts and the Expanded width equals the pinned width — zero jump.
+              // 终态宽一次排版,滑动的岛盖/揭被裁边。左岛动画钉尾缘(左缘在动),右岛动画钉首缘;
+              // 末帧解冻时 Expanded 宽=钉宽,零跳变。
+              oceanHost = ClipRect(
+                child: OverflowBox(
+                  alignment: _leftAnimating && !_rightAnimating
+                      ? AlignmentDirectional.centerEnd
+                      : AlignmentDirectional.centerStart,
+                  minWidth: targetOceanW,
+                  maxWidth: targetOceanW,
+                  child: oceanHost,
+                ),
+              );
+            }
+
             return Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 _LeftReveal(
-                  collapsed: leftCollapsed,
-                  width: leftWidth,
-                  onWidthCommitted: onLeftWidthCommitted,
+                  collapsed: widget.leftCollapsed,
+                  width: widget.leftWidth,
+                  onWidthCommitted: widget.onLeftWidthCommitted,
+                  onAnimating: (v) => _setAnimating(left: true, value: v),
                   child: AnIsland(
                     // No TOP pad: the chrome bar reaches the island's top edge so its controls vertically
                     // center on the OS traffic lights (the bar IS the title-bar band). 顶不留白:chrome bar 抵岛顶,顶控与红绿灯居中对齐。
@@ -171,39 +300,25 @@ class AnShell extends StatelessWidget {
                         // s8 rhythm. 不加间距:chrome 带 44 高、控件仅占顶部 ≈32,自带 ≈12px slack=到切换器的间距;
                         // 旧 s8 双重填充(≈20 过大);去掉留派生 ≈12px,与 sidebar 内 s8 节奏一致。
                         _ChromeBar(
-                          onCollapse: onToggleLeft,
+                          onCollapse: widget.onToggleLeft,
                           controlInset: controlInset,
                         ),
                         Expanded(
-                          child: sidebar ?? const _Placeholder('Sidebar'),
+                          child:
+                              widget.sidebar ?? const _Placeholder('Sidebar'),
                         ),
                       ],
                     ),
                   ),
                 ),
-                Expanded(
-                  child: _OceanRegion(
-                    ocean: ocean,
-                    head: head,
-                    headTrailing: headTrailing,
-                    bandNotice: bandNotice,
-                    showReopen: leftCollapsed,
-                    onReopen: onToggleLeft,
-                    controlInset: controlInset,
-                    noticeInset: noticeInset,
-                    // panel-right shows only when there's a bound right island (caller passes the callback iff
-                    // an entity is selected) — mirrors the demo's has-right gate. 仅有绑定右岛时显(对齐 demo has-right)。
-                    showRightToggle: onToggleRight != null,
-                    onToggleRight: onToggleRight,
-                    rightActivity: rightActivity,
-                  ),
-                ),
+                Expanded(child: oceanHost),
                 _RightReveal(
-                  open: inspectorOpen,
-                  width: rightWidth,
+                  open: widget.inspectorOpen,
+                  width: widget.rightWidth,
                   maxWidth: rightCeiling,
-                  onWidthCommitted: onRightWidthCommitted,
-                  child: inspector ?? const _Placeholder('Inspector'),
+                  onWidthCommitted: widget.onRightWidthCommitted,
+                  onAnimating: (v) => _setAnimating(left: false, value: v),
+                  child: widget.inspector ?? const _Placeholder('Inspector'),
                 ),
               ],
             );
@@ -441,12 +556,17 @@ class _LeftReveal extends StatefulWidget {
     required this.width,
     required this.child,
     this.onWidthCommitted,
+    this.onAnimating,
   });
 
   final bool collapsed;
   final double width;
   final Widget child;
   final ValueChanged<double>? onWidthCommitted;
+
+  /// Fires true when the reveal/hide slide starts and false when it settles — the shell's ocean
+  /// freeze gate (S11). 开合滑动起止通知——壳的海洋冻结闸(S11)。
+  final ValueChanged<bool>? onAnimating;
 
   @override
   State<_LeftReveal> createState() => _LeftRevealState();
@@ -467,6 +587,11 @@ class _LeftRevealState extends State<_LeftReveal>
       vsync: this,
       duration: AnMotion.slow,
       value: widget.collapsed ? 0 : 1,
+    );
+    _ctl.addStatusListener(
+      (s) => widget.onAnimating?.call(
+        s == AnimationStatus.forward || s == AnimationStatus.reverse,
+      ),
     );
   }
 
@@ -557,7 +682,11 @@ class _RightReveal extends StatefulWidget {
     required this.maxWidth,
     required this.child,
     this.onWidthCommitted,
+    this.onAnimating,
   });
+
+  /// Slide start/settle notification — the shell's ocean freeze gate (S11). 滑动起止——海洋冻结闸。
+  final ValueChanged<bool>? onAnimating;
 
   final bool open;
   final double width;
@@ -583,6 +712,11 @@ class _RightRevealState extends State<_RightReveal>
       vsync: this,
       duration: AnMotion.mid,
       value: widget.open ? 1 : 0,
+    );
+    _ctl.addStatusListener(
+      (s) => widget.onAnimating?.call(
+        s == AnimationStatus.forward || s == AnimationStatus.reverse,
+      ),
     );
   }
 

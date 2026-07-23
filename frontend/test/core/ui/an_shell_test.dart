@@ -610,4 +610,111 @@ void main() {
       ); // fits a scaled 14" MacBook with margin 留余量
     },
   );
+
+  group('S11 reveal-freeze gate', () {
+    Widget hostWithToggle(ValueNotifier<bool> open, Widget ocean) =>
+        TranslationProvider(
+          child: MaterialApp(
+            theme: AnTheme.light(),
+            home: ValueListenableBuilder<bool>(
+              valueListenable: open,
+              builder: (_, v, _) => AnShell(
+                ocean: ocean,
+                inspector: const Text('Inspector'),
+                inspectorOpen: v,
+              ),
+            ),
+          ),
+        );
+
+    testWidgets(
+      'NARROW window: an island slide lays the ocean out at TARGET width — no per-frame relayout',
+      (tester) async {
+        tester.view.physicalSize = const Size(1100, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        final widths = <double>[];
+        final open = ValueNotifier(true);
+        addTearDown(open.dispose);
+        const probeKey = ValueKey('oceanProbe');
+        await tester.pumpWidget(
+          hostWithToggle(
+            open,
+            LayoutBuilder(
+              builder: (_, c) {
+                widths.add(c.maxWidth);
+                return const SizedBox.expand(key: probeKey);
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        // 1100 − 2×shellPad(8) = 1084 box; left 320+8, right 320+8 → ocean 428 (< reflow floor);
+        // closing the right island targets 1084−328 = 756 — STILL under the floor → freeze.
+        open.value = false; // slide the right island away 收右岛
+        await tester
+            .pump(); // target flip; the freeze arms on the post-frame 翻转帧
+        await tester.pump(const Duration(milliseconds: 40));
+        widths.clear(); // ignore the pre-freeze frame(s) 忽略冻结生效前的帧
+        await tester.pump(const Duration(milliseconds: 60));
+        await tester.pump(const Duration(milliseconds: 60));
+        // The strongest possible evidence: the builder never re-ran mid-slide (constraints pinned
+        // at the target width → ZERO ocean relayouts); any run there was must be the target width.
+        // 最强证据:滑动中 builder 未重跑(约束钉终宽→海洋零 relayout);若跑,也只许是终宽。
+        expect(
+          widths.toSet(),
+          anyOf(isEmpty, equals({756.0})),
+          reason: 'mid-slide the ocean is pinned at its target width',
+        );
+        await tester.pumpAndSettle();
+        expect(
+          tester.getSize(find.byKey(probeKey)).width,
+          756.0,
+          reason: 'the freeze lifts into the SAME width — zero jump',
+        );
+      },
+    );
+
+    testWidgets(
+      'WIDE window: the slide keeps the continuous relayout (cheap — the 720 column never re-shapes)',
+      (tester) async {
+        tester.view.physicalSize = const Size(1920, 900);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        final widths = <double>[];
+        final open = ValueNotifier(true);
+        addTearDown(open.dispose);
+        await tester.pumpWidget(
+          hostWithToggle(
+            open,
+            LayoutBuilder(
+              builder: (_, c) {
+                widths.add(c.maxWidth);
+                return const SizedBox.expand();
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        widths.clear();
+        open.value = false;
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 40));
+        await tester.pump(const Duration(milliseconds: 60));
+        await tester.pump(const Duration(milliseconds: 80));
+        await tester.pumpAndSettle();
+        // Both ends are ≥ the reflow floor (1904−656=1248 → 1904−328=1576) → never frozen: the
+        // ocean glides through intermediate widths. 两端皆在阈上→不冻,海洋滑过中间宽。
+        expect(
+          widths.toSet().length,
+          greaterThan(2),
+          reason: 'continuous animation relayouts through intermediate widths',
+        );
+      },
+    );
+  });
 }
