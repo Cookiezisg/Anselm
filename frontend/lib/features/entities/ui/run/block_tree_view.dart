@@ -14,23 +14,59 @@ import '../../../../i18n/strings.g.dart';
 /// Renders a streamed agent ReAct trace ([BlockTreeReducer.roots]) as a nested, collapsible transcript —
 /// text inline, reasoning + tool_call collapsed by default (CLAUDE.md), tool_result / progress nested
 /// under their tool_call (E3). Pure projection of the reducer's tree; the parent owns the scroll +
-/// coalesced rebuild. 渲染 agent 轨迹树:text 内联,reasoning/tool_call 默认折叠,result/progress 嵌套。
-class BlockTreeView extends StatelessWidget {
+/// coalesced rebuild.
+///
+/// Root subtrees ride a REVISION-KEYED identity cache (S6 — the chat transcript's settled-row cache,
+/// adapted): [BlockNode.revision] has subtree semantics (any descendant change bumps its ancestors),
+/// so an unchanged revision proves the WHOLE subtree is unchanged and the cached identical widget
+/// short-circuits its element rebuild. During streaming only the active root's subtree rebuilds per
+/// coalesced frame — settled roots cost zero builds (the old bare Column rebuilt the entire trace
+/// every frame, O(blocks)). Keyed by revision, NOT isOpen: a closed tool_call still grows its nested
+/// tool_result/progress children, which chat's isOpen-gated cache would miss. Each root sits behind
+/// a [RepaintBoundary] so the streaming root's repaints stay inside its own bounds.
+///
+/// 渲染 agent 轨迹树:text 内联,reasoning/tool_call 默认折叠,result/progress 嵌套。根子树走
+/// **revision 键身份缓存**(S6——chat settled 行缓存的适配版):revision 是子树版本(后代变化 bump
+/// 祖先),rev 未变即整子树未变,缓存的同实例 widget 短路 element 重建——流式期只有活动根重建,
+/// 落定根零 build(旧裸 Column 每帧整树重建)。键用 revision 而非 isOpen:闭合 tool_call 的嵌套
+/// result/progress 仍会追加,isOpen 门控会漏。每根裹 RepaintBoundary,流式根重绘不出own bounds。
+class BlockTreeView extends StatefulWidget {
   const BlockTreeView({required this.roots, super.key});
 
   final List<BlockNode> roots;
 
   @override
+  State<BlockTreeView> createState() => _BlockTreeViewState();
+}
+
+class _BlockTreeViewState extends State<BlockTreeView> {
+  // id → (revision, built widget). Bounded like chat's row cache (C-037) — a runaway trace evicts
+  // FIFO-oldest, which are the roots furthest above the live tail. id→(版本,已建件);有界,逐最旧。
+  static const _cacheCap = 400;
+  final Map<String, (int, Widget)> _cache = {};
+
+  Widget _rootFor(BlockNode n) {
+    final hit = _cache[n.id];
+    if (hit != null && hit.$1 == n.revision) return hit.$2;
+    if (_cache.length >= _cacheCap) _cache.remove(_cache.keys.first);
+    final built = Padding(
+      key: ValueKey(n.id),
+      padding: const EdgeInsets.only(bottom: AnSpace.s8),
+      // RepaintBoundary + same key across revisions: the element (and BlockView's collapse State)
+      // carries over when a revision rebuild swaps the instance. 同 key 跨版本:折叠 State 随 element 延续。
+      child: RepaintBoundary(child: BlockView(node: n)),
+    );
+    _cache[n.id] = (n.revision, built);
+    return built;
+  }
+
+  @override
   Widget build(BuildContext context) {
+    // A fresh run replaces every block id — drop the dead entries eagerly. 新 run 换全部块 id,清死条目。
+    if (widget.roots.isEmpty) _cache.clear();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final n in roots)
-          Padding(
-            padding: const EdgeInsets.only(bottom: AnSpace.s8),
-            child: BlockView(node: n),
-          ),
-      ],
+      children: [for (final n in widget.roots) _rootFor(n)],
     );
   }
 }
