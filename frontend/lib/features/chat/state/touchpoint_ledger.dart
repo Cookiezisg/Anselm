@@ -70,6 +70,7 @@ class TouchpointLedgerState {
     this.hydrated = false,
     this.loading = false,
     this.failed = false,
+    this.pageFailed = false,
   });
 
   final Map<String, Touchpoint> rows;
@@ -84,6 +85,11 @@ class TouchpointLedgerState {
   /// The initial hydration failed (retry affordance); later page/signal errors stay silent-degrade.
   /// 首拉失败(给重试口);后续翻页/信号错误静默降级。
   final bool failed;
+
+  /// The LAST page fetch failed (G11/A2-17): the foot renders an explicit retry instead of
+  /// re-firing on every rebuild — a persistent failure used to hammer the backend once per frame.
+  /// 上一次翻页失败:脚渲显式重试,不再逐 rebuild 自动重打(持续失败曾变成打后端风暴)。
+  final bool pageFailed;
 
   bool get isEmpty => hydrated && rows.isEmpty;
 }
@@ -179,8 +185,13 @@ class TouchpointLedgerController extends Notifier<TouchpointLedgerState> {
       state = _emit(rows, nextCursor: page.nextCursor, hasMore: page.hasMore);
     } catch (_) {
       if (!ref.mounted) return;
-      // Keep the window; drop the spinner — the affordance can retry. 保窗口、去转圈,可重试。
-      state = _emit(state.rows, nextCursor: cursor, hasMore: state.hasMore);
+      // Keep the window; the foot flips to an explicit retry (G11/A2-17). 保窗口,脚转显式重试。
+      state = _emit(
+        state.rows,
+        nextCursor: cursor,
+        hasMore: state.hasMore,
+        pageFailed: true,
+      );
     }
   }
 
@@ -217,6 +228,7 @@ class TouchpointLedgerController extends Notifier<TouchpointLedgerState> {
     String? nextCursor,
     required bool hasMore,
     bool loading = false,
+    bool pageFailed = false,
   }) => TouchpointLedgerState(
     rows: rows,
     entities: aggregate(rows.values),
@@ -224,6 +236,7 @@ class TouchpointLedgerController extends Notifier<TouchpointLedgerState> {
     hasMore: hasMore,
     hydrated: true,
     loading: loading,
+    pageFailed: pageFailed,
   );
 
   /// The R-2 aggregation: physical per-(item,verb) rows → entity rows keyed by (kind, itemId — mcp

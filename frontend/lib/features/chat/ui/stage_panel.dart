@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/interaction.dart';
 import '../../../core/contract/touchpoint.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -57,7 +60,21 @@ class StagePanel extends ConsumerWidget {
     ref.listen(stageDirectorProvider(conversationId), (prev, next) {
       if (prev == null) return;
       final t2 = Translations.of(context);
-      String subjectWord(StageActivityView? a) => a?.itemId ?? a?.kind ?? '';
+      // HUMAN words for the screen reader (G11/A2-20): the ledger's display name when the entity is
+      // known, else the tool name — never a bare 16-hex id read aloud. 播报人话:台账显示名→工具名,
+      // 绝不裸读 16 进制 id。
+      String subjectWord(StageActivityView? a) {
+        if (a == null) return '';
+        final id = a.itemId;
+        if (id != null && id.isNotEmpty) {
+          final led = ref.read(touchpointLedgerProvider(conversationId));
+          for (final e in led.entities) {
+            if (e.kind == a.kind && e.key == id) return e.displayName;
+          }
+        }
+        return a.toolName;
+      }
+
       void announce(String msg) => AnA11y.announce(context, msg);
       if (next.subject != null &&
           (prev.subject?.blockId != next.subject!.blockId ||
@@ -130,14 +147,21 @@ List<AnMenuEntry> _panelMenuEntries(
       label: t.chat.stage.expandAll,
       icon: AnIcons.unfold,
       onTap: () {
+        // «Expand ALL» includes the TOP region (G11/A2-14): the old list only covered todo+ledger
+        // and skipped the very rows the user most wants — live activities and settled delegates.
+        // 展开全部含 top 区:旧清单只盖 todo+台账,恰漏最想看的活动层与落定分身行。
         final ledger = ref.read(touchpointLedgerProvider(conversationId));
+        final stage = ref.read(stageDirectorProvider(conversationId));
+        final tx = ref
+            .read(conversationStreamProvider(conversationId).notifier)
+            .transcript
+            .value;
         ref
             .read(stageGroupCollapseProvider(conversationId).notifier)
             .openAll(); // reveal folds first 先掀组
-        ref.read(stageExpansionProvider(conversationId).notifier).expandAll([
-          'todo',
-          for (final e in ledger.entities) '${e.kind}:${e.key}',
-        ]);
+        ref
+            .read(stageExpansionProvider(conversationId).notifier)
+            .expandAll(_allRowIds(stage, ledger, tx));
       },
     ),
     AnMenuItem(
@@ -148,6 +172,34 @@ List<AnMenuEntry> _panelMenuEntries(
           .collapseAll(),
     ),
   ];
+}
+
+/// EVERY visible rowId, all three sources (G11/A2-14) — the single derivation «expand all» shares
+/// with the accordion so the two never drift. 全部可见 rowId(三源同一条派生,菜单与手风琴不漂移)。
+List<String> _allRowIds(
+  StageState stage,
+  TouchpointLedgerState ledger,
+  ConversationTranscript tx,
+) {
+  String ridOf(StageActivityView v) {
+    final id = v.itemId;
+    return (id != null && id.isNotEmpty)
+        ? '${v.kind}:$id'
+        : 'block:${v.blockId}';
+  }
+
+  final ids = <String>{'todo'};
+  if (stage.stageOpen && stage.subject != null) ids.add(ridOf(stage.subject!));
+  for (final ch in stage.channels) {
+    ids.add(ridOf(ch));
+  }
+  for (final n in tx.subagentBlocks) {
+    if (!n.isOpen) ids.add('block:${n.id}');
+  }
+  for (final e in ledger.entities) {
+    ids.add('${e.kind}:${e.key}');
+  }
+  return ids.toList(growable: false);
 }
 
 /// The §2 GLANCE STRIP — one quiet [AnText.meta] line of `N 触点 · M 执行 · K 待你处理`, each segment present
@@ -161,10 +213,19 @@ Widget? _glance(BuildContext context, WidgetRef ref, String conversationId) {
   final ledger = ref.watch(touchpointLedgerProvider(conversationId));
   final pending = ref.watch(pendingInteractionsProvider(conversationId));
   final n = ledger.entities.length;
+  // M skips tombstones as the doc comment always claimed (G11/A2-15). M 按注释豁免墓碑。
   final m = ledger.entities
-      .where((e) => e.byVerb.containsKey(TouchpointVerb.executed))
+      .where(
+        (e) => !e.tombstoned && e.byVerb.containsKey(TouchpointVerb.executed),
+      )
       .length;
-  final k = pending.values.where((r) => r.isAwaiting).length;
+  // K counts only interactions WITH a sidestage landing — a bare ask_user renders inline in the
+  // transcript (§0 excludes it from existence), so counting it said «1 待你处理» over an island
+  // with no such row (G11/A2-15). K 只数有侧幕落点的交互:裸 ask_user 内联渲于对话流,计它=速览带
+  // 报「1 待你处理」而岛上无行可寻。
+  final k = pending.values
+      .where((r) => r.isAwaiting && r.interaction.kind != InteractionKind.ask)
+      .length;
   final segs = <String>[
     if (n > 0) t.chat.stage.glanceTouched(n: n),
     if (m > 0) t.chat.stage.glanceExecuted(n: m),
@@ -237,6 +298,20 @@ class _AccordionList extends ConsumerStatefulWidget {
 class _AccordionListState extends ConsumerState<_AccordionList> {
   final ScrollController _scroll = ScrollController();
 
+  /// The tier clock (G11/A2-12): time bucketing used to snapshot `DateTime.now()` at build — rows
+  /// froze in «刚刚» on an idle conversation, then the whole grouping JUMPED on the next unrelated
+  /// rebuild. One quiet re-bucket per minute, no animation of its own (the tier reveal animates).
+  /// 分档钟:旧 build 快照让静置会话冻在「刚刚」、下次无关重建时整组突跳;每分钟安静重分桶一次。
+  Timer? _tierClock;
+
+  @override
+  void initState() {
+    super.initState();
+    _tierClock = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
   /// Live blocks already auto-opened once — each live activity claims the viewport at most once (§4-2).
   /// 已自动展开过的 live block(每 live 一生一次)。
   final Set<String> _autoHandled = {};
@@ -299,6 +374,7 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
 
   @override
   void dispose() {
+    _tierClock?.cancel();
     _tx?.removeListener(_onTranscript);
     _scroll.dispose();
     super.dispose();
@@ -548,8 +624,8 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     for (final s in split.top) {
       items.add(_TopItem(s));
     }
-    // Bucket into the three time tiers by lastAt (each list stays freshest-first — the ledger's own sort).
-    // 按 lastAt 分三时间档(各档仍最新先)。
+    // Bucket into the three time tiers by lastAt (each list stays freshest-first — the ledger's own
+    // sort); `now` rides the per-minute tier clock (G11/A2-12). 按 lastAt 分三档;now 走分钟钟。
     final now = DateTime.now();
     final tiers = {for (final k in stageTierOrder) k: <_RowSpec>[]};
     for (final s in split.ledger) {
@@ -565,11 +641,16 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
       final group = tiers[tierKey]!;
       if (grouped) {
         // The whole tier (head + rows) is ONE list item so the fold rides a single [AnExpandReveal] (the kit
-        // standard collapse slide); force-open (an ACTIVE row — live/polling/settling/failed — or a director /
-        // deep-jump auto-expand) flips `open` → the reveal animates the SAME slide. 整档一 item,折叠走单个
-        // AnExpandReveal;强制展开(活动行或自动展开行)也翻 open→播同一滑动。
+        // standard collapse slide); force-open covers ACTIVE rows and rows WE auto-opened — never a
+        // row the USER expanded (G11/A2-13: the old whole-expanded-set test let one user-opened row
+        // lock the tier unfoldable, and the moment it closed the stale collapse token slammed the
+        // tier shut uninvited). 整档一 item;强制展开=活动行∪自动展开行——绝不含用户自展行(旧口径
+        // 让一条用户行锁死档折叠,行一收、残留折叠令又让档自动合拢)。
+        final autoRows = ref
+            .read(stageExpansionProvider(conversationId).notifier)
+            .autoOpened;
         final forced = group.any(
-          (s) => s.view != null || expanded.contains(s.rowId),
+          (s) => s.view != null || autoRows.contains(s.rowId),
         );
         final open = forced || !collapsed.contains(tierKey);
         items.add(_TierItem(tierKey: tierKey, rows: group, open: open));
@@ -580,6 +661,12 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
       }
     }
     if (ledger.hasMore) items.add(const _FootItem());
+    // The MIXED failure face (G11/A2-16): the ledger's first fetch failed while other sources have
+    // content — the old all-or-nothing error face never showed, so the Cast just silently missed.
+    // 混合失败面:台账首拉失败而他源有内容——旧全有全无错误面永不出现,历史触点静默缺失。
+    if (ledger.failed && ledger.entities.isEmpty && items.isNotEmpty) {
+      items.add(const _LedgerFailItem());
+    }
     return items;
   }
 
@@ -688,6 +775,23 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
           child: _buildTier(tierKey, rows, open, expanded, transcript),
         );
       case _FootItem():
+        // A failed page flips the foot to an EXPLICIT retry (G11/A2-17) — the old visible-即拉 foot
+        // re-fired on every rebuild, so a persistent failure hammered the backend once per frame.
+        // 翻页失败→显式重试脚;旧「可见即拉」逐 rebuild 重打后端。
+        final ledgerNow = ref.read(touchpointLedgerProvider(conversationId));
+        if (ledgerNow.pageFailed) {
+          final t = Translations.of(context);
+          return Padding(
+            padding: const EdgeInsets.all(AnSpace.s8),
+            child: AnButton(
+              label: t.chat.retry,
+              size: AnButtonSize.sm,
+              onPressed: () => ref
+                  .read(touchpointLedgerProvider(conversationId).notifier)
+                  .loadMore(),
+            ),
+          );
+        }
         // load-more foot — fires on becoming visible, DEFERRED out of build: loadMore() synchronously
         // mutates the ledger provider this widget watches, and calling it inside itemBuilder (a build phase)
         // trips Riverpod's «modify a provider while building» guard. 载更多脚:post-frame 延迟(build 期直调触发守卫)。
@@ -701,6 +805,30 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         return const Padding(
           padding: EdgeInsets.all(AnSpace.s8),
           child: AnSkeleton.row(),
+        );
+      case _LedgerFailItem():
+        final t = Translations.of(context);
+        return Padding(
+          padding: const EdgeInsets.all(AnSpace.s8),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  t.feedback.cast.loadFailed,
+                  style: AnText.meta.copyWith(
+                    color: Theme.of(context).extension<AnColors>()!.inkFaint,
+                  ),
+                ),
+              ),
+              AnButton(
+                label: t.chat.retry,
+                size: AnButtonSize.sm,
+                onPressed: () => ref
+                    .read(touchpointLedgerProvider(conversationId).notifier)
+                    .retry(),
+              ),
+            ],
+          ),
         );
     }
   }
@@ -793,6 +921,12 @@ class _EntityItem extends _Item {
 
 class _FootItem extends _Item {
   const _FootItem();
+}
+
+/// The ledger's first fetch failed while OTHER sources render (G11/A2-16) — an inline honest row,
+/// never a whole-panel takeover. 台账首拉失败而他源在渲——内联诚实行,不整面接管。
+class _LedgerFailItem extends _Item {
+  const _LedgerFailItem();
 }
 
 /// A top-level TIME-TIER group head (三段式文法 §3, 用户 0719 改判 kind→时间档) — the settled Cast buckets by

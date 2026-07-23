@@ -17,29 +17,47 @@ class StageExpansionController extends Notifier<Set<String>> {
 
   final String conversationId;
 
+  /// Rows opened by the SYSTEM (director follow / deep-jump) — the tier force-open reads THIS set,
+  /// never the whole expansion set (G11/A2-13: a user-opened row must not lock its tier unfoldable,
+  /// and its later close must not slam the tier shut through a stale collapse token). Any close —
+  /// user or curtain — ends a row's auto-show. 系统展开集(导演器跟随/深跳)——档强制展开只读它:
+  /// 用户自展不锁档、其后收行也不引发档突然合拢;任何 close 都终结该行的自动展示期。
+  final Set<String> _auto = {};
+  Set<String> get autoOpened => _auto;
+
   @override
   Set<String> build() => const <String>{};
 
-  /// Flip one row. 翻转一行。
-  void toggle(String rowId) => state = state.contains(rowId)
-      ? ({...state}..remove(rowId))
-      : {...state, rowId};
+  /// Flip one row — the USER path. 翻转一行(用户径)。
+  void toggle(String rowId) {
+    if (state.contains(rowId)) {
+      _auto.remove(rowId);
+      state = {...state}..remove(rowId);
+    } else {
+      state = {...state, rowId};
+    }
+  }
 
-  /// Open a row (idempotent) — the auto-follow path. 展开(幂等),自动跟随用。
+  /// Open a row (idempotent) — the AUTO path (director follow / deep-jump). 展开(幂等,自动径)。
   void open(String rowId) {
+    _auto.add(rowId);
     if (!state.contains(rowId)) state = {...state, rowId};
   }
 
   /// Collapse a row (idempotent). 收起(幂等)。
   void close(String rowId) {
+    _auto.remove(rowId);
     if (state.contains(rowId)) state = {...state}..remove(rowId);
   }
 
-  /// Open every row in [rowIds] — the head's «展开全部». 展开全部。
+  /// Open every row in [rowIds] — the head's «展开全部» (a USER bulk action). 展开全部(用户径)。
   void expandAll(Iterable<String> rowIds) => state = {...state, ...rowIds};
 
   /// Collapse everything — the head's «收起全部» (explicit, so it wins over sticky). 收起全部(显式,压过粘性)。
-  void collapseAll() => state = const <String>{};
+  void collapseAll() {
+    _auto.clear();
+    state = const <String>{};
+  }
 }
 
 /// One conversation's accordion expansion set. autoDispose family — leaving the thread frees it.
