@@ -551,13 +551,17 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
     final t = Translations.of(context);
     switch (b.kind) {
       case BlockKind.text:
-        // An OPEN text block is still growing — build it fresh every tick (its text changes, so a cache
-        // would only ever miss). A CLOSED block's markdown is final → cache it by id, so an open turn's
-        // per-tick rebuild reuses the SAME instance and GptMarkdown never re-parses settled prose (only
-        // the one open block re-parses). 开块仍在长(每 tick 新建);闭块终态按 id 缓存,复用同实例、不重解析。
+        // An OPEN text block is still growing — it rides AnStreamingMarkdown (S9): prose already
+        // streamed past a safe paragraph boundary is committed into identity-cached segments, so a
+        // coalesced frame re-parses ONLY the active tail (a bare AnMarkdown re-parsed the whole
+        // growing string every frame, O(full text) — the last steady-state hot path). A CLOSED
+        // block's markdown is final → cache it by id, so an open turn's per-tick rebuild reuses the
+        // SAME instance and GptMarkdown never re-parses settled prose.
+        // 开块走 AnStreamingMarkdown(S9):流过安全段界的 prose 提交成身份缓存段,合并帧只重解析活动
+        // 尾段(裸 AnMarkdown 每帧全文重解析,O(全文)——最后一个稳态热路径);闭块终态按 id 缓存。
         if (b.isOpen) {
           TranscriptProbe.hit('block-text-live');
-          return _AnswerMarkdown(b.displayText);
+          return _StreamingAnswerMarkdown(b.displayText);
         }
         return _textCache.putIfAbsent(b.id, () {
           TranscriptProbe.hit('block-text-parse');
@@ -764,4 +768,16 @@ class _AnswerMarkdown extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
       AnMarkdown(text, prose: ref.watch(contentFaceProvider));
+}
+
+/// The OPEN (still-streaming) answer face — [AnStreamingMarkdown] with the same content-face
+/// injection as [_AnswerMarkdown] (S9). 流式开块答案脸——同款内容字体注入的 AnStreamingMarkdown。
+class _StreamingAnswerMarkdown extends ConsumerWidget {
+  const _StreamingAnswerMarkdown(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) =>
+      AnStreamingMarkdown(text, prose: ref.watch(contentFaceProvider));
 }

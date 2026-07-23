@@ -66,6 +66,7 @@ export 'an_doc_header.dart';
 export 'an_info_card.dart';
 export 'an_content_in.dart';
 export 'an_last_good.dart';
+export 'an_streaming_markdown.dart';
 export 'an_lazy_indexed_stack.dart';
 export 'an_inline_edit.dart';
 export 'an_input.dart';

@@ -247,6 +247,7 @@ lib/core/ui/an_stat_bar.dart	reviewed
 lib/core/ui/an_state.dart	reviewed
 lib/core/ui/an_status_dot.dart	converged
 lib/core/ui/an_stepper.dart	converged
+lib/core/ui/an_streaming_markdown.dart	pending
 lib/core/ui/an_sunken_panel.dart	converged
 lib/core/ui/an_swatch.dart	converged
 lib/core/ui/an_switch.dart	reviewed
