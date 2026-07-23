@@ -18,6 +18,7 @@ import '../../../core/perf/debouncer.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_code_editor.dart';
 import '../../../core/ui/an_deferred_loading.dart';
+import '../../../core/ui/an_last_good.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
@@ -214,37 +215,38 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
   // ── text / code(可编辑,防抖裸字节 PUT)──────────────────────────────────────
   Widget _textEditor() {
     final t = context.t;
-    return ref
-        .watch(skillFileTextProvider((name: widget.name, path: widget.path)))
-        .when(
-          loading: () => const AnPage(
-            child: AnDeferredLoading(child: AnSkeleton.lines(8)),
-          ),
-          error: (_, _) => AnState(
-            kind: AnStateKind.error,
-            title: t.library.loadFailed,
-            hint: t.library.errorHint,
-          ),
-          data: (text) => AnPage(
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  if (_kind == SkillFileKind.svg || _kind == SkillFileKind.csv)
-                    _modeToggleRow(preview: false),
-                  AnCodeEditor(
-                    code: text,
-                    lang: skillFileLang(widget.path),
-                    editable: true,
-                    wrap: true,
-                    onChanged: _saveText,
-                  ),
-                ],
+    // Last-known-good: a same-file refresh keeps content mounted; file switches rebuild the whole
+    // preview via the upstream per-file ValueKey. last-known-good:同文件刷新不闪,切文件上游整树重建。
+    return AnLastGood(
+      value: ref.watch(
+        skillFileTextProvider((name: widget.name, path: widget.path)),
+      ),
+      placeholder: const AnPage(child: AnSkeleton.lines(8)),
+      errorBuilder: (_, _, _) => AnState(
+        kind: AnStateKind.error,
+        title: t.library.loadFailed,
+        hint: t.library.errorHint,
+      ),
+      builder: (context, text) => AnPage(
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_kind == SkillFileKind.svg || _kind == SkillFileKind.csv)
+                _modeToggleRow(preview: false),
+              AnCodeEditor(
+                code: text,
+                lang: skillFileLang(widget.path),
+                editable: true,
+                wrap: true,
+                onChanged: _saveText,
               ),
-            ),
+            ],
           ),
-        );
+        ),
+      ),
+    );
   }
 
   // ── image(真预览:Image.memory)─────────────────────────────────────────────
@@ -293,83 +295,80 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
   Widget _csvView() {
     final t = context.t;
     final c = context.colors;
-    return ref
-        .watch(skillFileTextProvider((name: widget.name, path: widget.path)))
-        .when(
-          loading: () => const AnPage(
-            child: AnDeferredLoading(child: AnSkeleton.lines(8)),
-          ),
-          error: (_, _) => AnState(
-            kind: AnStateKind.error,
-            title: t.library.loadFailed,
-            hint: t.library.errorHint,
-          ),
-          data: (text) {
-            List<List<dynamic>> rows;
-            try {
-              rows = const CsvToListConverter(
-                shouldParseNumbers: false,
-              ).convert(text, eol: '\n');
-            } catch (_) {
-              return _textEditor(); // 解析不了 → 诚实退回源码
-            }
-            final capped = rows.length > _csvRowCap;
-            final shown = capped ? rows.sublist(0, _csvRowCap) : rows;
-            return AnPage(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _modeToggleRow(preview: true),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Table(
-                        defaultColumnWidth: const IntrinsicColumnWidth(),
-                        border: TableBorder.all(
-                          color: c.line,
-                          width: AnSize.hairline,
-                        ),
-                        children: [
-                          for (var r = 0; r < shown.length; r++)
-                            TableRow(
-                              children: [
-                                for (final cell in shown[r])
-                                  Padding(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: AnSpace.s8,
-                                      vertical: AnSpace.s4,
-                                    ),
-                                    child: Text(
-                                      '$cell',
-                                      style: r == 0
-                                          ? AnText.meta
-                                                .weight(AnText.emphasisWeight)
-                                                .copyWith(color: c.ink)
-                                          : AnText.meta.copyWith(
-                                              color: c.inkMuted,
-                                            ),
-                                    ),
-                                  ),
-                              ],
-                            ),
-                        ],
-                      ),
+    return AnLastGood(
+      value: ref.watch(
+        skillFileTextProvider((name: widget.name, path: widget.path)),
+      ),
+      placeholder: const AnPage(child: AnSkeleton.lines(8)),
+      errorBuilder: (_, _, _) => AnState(
+        kind: AnStateKind.error,
+        title: t.library.loadFailed,
+        hint: t.library.errorHint,
+      ),
+      builder: (context, text) {
+        List<List<dynamic>> rows;
+        try {
+          rows = const CsvToListConverter(
+            shouldParseNumbers: false,
+          ).convert(text, eol: '\n');
+        } catch (_) {
+          return _textEditor(); // 解析不了 → 诚实退回源码
+        }
+        final capped = rows.length > _csvRowCap;
+        final shown = capped ? rows.sublist(0, _csvRowCap) : rows;
+        return AnPage(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                _modeToggleRow(preview: true),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Table(
+                    defaultColumnWidth: const IntrinsicColumnWidth(),
+                    border: TableBorder.all(
+                      color: c.line,
+                      width: AnSize.hairline,
                     ),
-                    if (capped)
-                      Padding(
-                        padding: const EdgeInsets.only(top: AnSpace.s6),
-                        child: Text(
-                          t.library.skillCsvCapped(n: _csvRowCap),
-                          style: AnText.meta.copyWith(color: c.inkFaint),
+                    children: [
+                      for (var r = 0; r < shown.length; r++)
+                        TableRow(
+                          children: [
+                            for (final cell in shown[r])
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: AnSpace.s8,
+                                  vertical: AnSpace.s4,
+                                ),
+                                child: Text(
+                                  '$cell',
+                                  style: r == 0
+                                      ? AnText.meta
+                                            .weight(AnText.emphasisWeight)
+                                            .copyWith(color: c.ink)
+                                      : AnText.meta.copyWith(color: c.inkMuted),
+                                ),
+                              ),
+                          ],
                         ),
-                      ),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            );
-          },
+                if (capped)
+                  Padding(
+                    padding: const EdgeInsets.only(top: AnSpace.s6),
+                    child: Text(
+                      t.library.skillCsvCapped(n: _csvRowCap),
+                      style: AnText.meta.copyWith(color: c.inkFaint),
+                    ),
+                  ),
+              ],
+            ),
+          ),
         );
+      },
+    );
   }
 
   // ── font(动态加载样张)────────────────────────────────────────────────────
@@ -445,21 +444,20 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
 
   // ── shared bits ────────────────────────────────────────────────────────────
   Widget _bytesView(Widget Function(List<int> bytes, int size) builder) {
-    return ref
-        .watch(skillFileBytesProvider((name: widget.name, path: widget.path)))
-        .when(
-          loading: () => const AnPage(
-            child: AnDeferredLoading(child: AnSkeleton.lines(6)),
-          ),
-          // 超 1MB 读护栏等一切读错 → 信息卡 + 系统打开(诚实降级、永无死路)。
-          error: (_, _) => _infoCard(),
-          data: (bytes) => AnPage(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
-              child: builder(bytes, bytes.length),
-            ),
-          ),
-        );
+    return AnLastGood(
+      value: ref.watch(
+        skillFileBytesProvider((name: widget.name, path: widget.path)),
+      ),
+      placeholder: const AnPage(child: AnSkeleton.lines(6)),
+      // 超 1MB 读护栏等一切读错 → 信息卡 + 系统打开(诚实降级、永无死路)。
+      errorBuilder: (_, _, _) => _infoCard(),
+      builder: (context, bytes) => AnPage(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
+          child: builder(bytes, bytes.length),
+        ),
+      ),
+    );
   }
 
   Widget _fileMetaLine(int size) {
@@ -576,39 +574,38 @@ class _MarkdownFileViewState extends ConsumerState<_MarkdownFileView> {
     ref.listen(outlineJumpProvider, (prev, next) {
       if (next != null && next != prev) _jumpToHeading(next.index);
     });
-    return ref
-        .watch(skillFileTextProvider((name: widget.name, path: widget.path)))
-        .when(
-          loading: () => const AnPage(
-            child: AnDeferredLoading(child: AnSkeleton.lines(8)),
+    return AnLastGood(
+      value: ref.watch(
+        skillFileTextProvider((name: widget.name, path: widget.path)),
+      ),
+      placeholder: const AnPage(child: AnSkeleton.lines(8)),
+      errorBuilder: (_, _, _) => AnState(
+        kind: AnStateKind.error,
+        title: t.library.loadFailed,
+        hint: t.library.errorHint,
+      ),
+      builder: (context, text) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _feedOutline(text);
+        });
+        return AnPage(
+          child: SingleChildScrollView(
+            controller: _scroll,
+            padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
+            child: AnEditor(
+              key: _editorKey,
+              shrinkWrap: true,
+              initialMarkdown: text,
+              onChangedMarkdown: (md) {
+                widget.onSave(md);
+                _outline.run(() {
+                  if (mounted) _feedOutline(md);
+                });
+              },
+            ),
           ),
-          error: (_, _) => AnState(
-            kind: AnStateKind.error,
-            title: t.library.loadFailed,
-            hint: t.library.errorHint,
-          ),
-          data: (text) {
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              if (mounted) _feedOutline(text);
-            });
-            return AnPage(
-              child: SingleChildScrollView(
-                controller: _scroll,
-                padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
-                child: AnEditor(
-                  key: _editorKey,
-                  shrinkWrap: true,
-                  initialMarkdown: text,
-                  onChangedMarkdown: (md) {
-                    widget.onSave(md);
-                    _outline.run(() {
-                      if (mounted) _feedOutline(md);
-                    });
-                  },
-                ),
-              ),
-            );
-          },
         );
+      },
+    );
   }
 }

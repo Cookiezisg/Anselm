@@ -9,7 +9,7 @@ import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_code_block.dart';
-import '../../../../core/ui/an_deferred_loading.dart';
+import '../../../../core/ui/an_last_good.dart';
 import '../../../../core/ui/an_graph_canvas.dart';
 import '../../../../core/ui/an_info_card.dart';
 import '../../../../core/ui/an_run_board.dart';
@@ -52,9 +52,13 @@ class RunCockpitTab extends ConsumerWidget {
     final v = detail?.workflow?.activeVersion;
     final graph = v == null ? null : graphOf(v);
 
-    return async.when(
-      loading: () => const AnDeferredLoading(child: AnSkeleton.lines(6)),
-      error: (_, _) => AnState(
+    // Last-known-good, hard reset on entity switch (snapshot bridges same-entity refreshes only —
+    // cross-entity hold would be data corruption). last-known-good,实体切换硬换代,快照只桥同实体刷新。
+    return AnLastGood(
+      value: async,
+      resetKey: entityRef,
+      placeholder: const AnSkeleton.lines(6),
+      errorBuilder: (_, _, _) => AnState(
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: d.state.errorTitle,
@@ -63,7 +67,7 @@ class RunCockpitTab extends ConsumerWidget {
           onPressed: () => ref.invalidate(runCockpitProvider(entityRef)),
         ),
       ),
-      data: (st) {
+      builder: (context, st) {
         final comp = st.selected;
         final gantt = (graph != null && comp != null)
             ? flowrunTimeline(graph, comp)

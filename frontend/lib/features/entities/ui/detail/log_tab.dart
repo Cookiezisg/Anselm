@@ -5,7 +5,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/model/status_state.dart';
 import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
-import '../../../../core/ui/an_deferred_loading.dart';
+import '../../../../core/ui/an_last_good.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_row_detail.dart';
 import '../../../../core/ui/an_skeleton.dart';
@@ -34,9 +34,14 @@ class LogTab extends ConsumerWidget {
     final notifier = ref.read(logListProvider(entityRef).notifier);
     final kindIcon = AnIcons.byKey(entityRef.kind.scopeKind);
 
-    return async.when(
-      loading: () => const AnDeferredLoading(child: AnSkeleton.lines(8)),
-      error: (_, _) => AnState(
+    // Last-known-good with a HARD reset on entity switch: holding entity A's log rows under entity
+    // B's header would be data corruption, not smoothness — the snapshot only bridges same-entity
+    // refreshes. last-known-good + 实体切换硬换代:B 的页头下顶着 A 的日志是串数据;快照只桥接同实体刷新。
+    return AnLastGood(
+      value: async,
+      resetKey: entityRef,
+      placeholder: const AnSkeleton.lines(8),
+      errorBuilder: (_, _, _) => AnState(
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: d.state.errorTitle,
@@ -45,7 +50,7 @@ class LogTab extends ConsumerWidget {
           onPressed: () => ref.invalidate(logListProvider(entityRef)),
         ),
       ),
-      data: (st) {
+      builder: (context, st) {
         if (st.rows.isEmpty) {
           return AnState(
             kind: AnStateKind.empty,

@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/contract/entities/trigger.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/ui/an_button.dart';
-import '../../../../core/ui/an_deferred_loading.dart';
+import '../../../../core/ui/an_last_good.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_row_detail.dart';
@@ -51,6 +51,7 @@ class _TriggerActivityTabState extends ConsumerState<TriggerActivityTab> {
         menuAlignEnd: true,
       ),
       async: async,
+      resetKey: widget.triggerId,
       onToggle: notifier.toggle,
       onLoadMore: notifier.loadMore,
       onRetry: () => ref.invalidate(activationListProvider(key)),
@@ -102,6 +103,7 @@ class _TriggerDispatchTabState extends ConsumerState<TriggerDispatchTab> {
         menuAlignEnd: true,
       ),
       async: async,
+      resetKey: widget.triggerId,
       onToggle: notifier.toggle,
       onLoadMore: notifier.loadMore,
       onRetry: () => ref.invalidate(firingListProvider(key)),
@@ -117,6 +119,7 @@ class _ObsScaffold extends StatelessWidget {
   const _ObsScaffold({
     required this.filter,
     required this.async,
+    required this.resetKey,
     required this.onToggle,
     required this.onLoadMore,
     required this.onRetry,
@@ -126,6 +129,12 @@ class _ObsScaffold extends StatelessWidget {
 
   final Widget filter;
   final AsyncValue<LogListState> async;
+
+  /// Trigger id — flipping the FILTER holds the previous rows (same trigger, different view: the
+  /// keepPreviousData idiom), while switching TRIGGERS is a hard generation reset.
+  /// trigger id——换过滤 hold 旧行(同 trigger 换视图),换 trigger 硬换代。
+  final Object resetKey;
+
   final void Function(String id) onToggle;
   final VoidCallback onLoadMore;
   final VoidCallback onRetry;
@@ -140,15 +149,17 @@ class _ObsScaffold extends StatelessWidget {
       children: [
         Align(alignment: Alignment.centerRight, child: filter),
         const SizedBox(height: AnSpace.s8),
-        async.when(
-          loading: () => const AnDeferredLoading(child: AnSkeleton.lines(6)),
-          error: (_, _) => AnState(
+        AnLastGood(
+          value: async,
+          resetKey: resetKey,
+          placeholder: const AnSkeleton.lines(6),
+          errorBuilder: (_, _, _) => AnState(
             kind: AnStateKind.error,
             size: AnStateSize.inset,
             title: d.state.errorTitle,
             action: AnButton(label: d.state.retry, onPressed: onRetry),
           ),
-          data: (st) => st.rows.isEmpty
+          builder: (context, st) => st.rows.isEmpty
               ? AnState(
                   kind: AnStateKind.empty,
                   size: AnStateSize.inset,

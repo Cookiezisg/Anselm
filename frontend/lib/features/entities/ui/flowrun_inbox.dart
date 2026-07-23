@@ -5,6 +5,7 @@ import '../../../core/contract/api_error.dart';
 import '../../../core/contract/entities/workflow.dart'; // FlowrunNode
 import '../../../core/design/tokens.dart';
 import '../../../core/run/approval_gate.dart';
+import '../../../core/runtime.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/entity_providers.dart';
@@ -32,12 +33,16 @@ class FlowrunInbox extends ConsumerWidget {
     final r = context.t.entities.run;
     if (sectioned) return const _NeedsYouSection();
     final async = ref.watch(flowrunInboxProvider);
-    return async.when(
-      loading: () => const AnDeferredLoading(child: AnRailSkeleton()),
+    // Last-known-good; the workspace id is the hard generation boundary (the provider survives a hot
+    // switch with the old workspace's approvals attached). last-known-good;workspace id 为硬换代界。
+    return AnLastGood(
+      value: async,
+      resetKey: ref.watch(activeWorkspaceProvider),
+      placeholder: const AnRailSkeleton(),
       // A failed load is an ERROR, not an empty inbox — the sibling error idiom (errorTitle + retry;
       // the old copy said "No pending approvals / Load more" on a transport failure). 加载失败=错误态,
       // 走兄弟面同款 errorTitle+重试(旧文案把故障说成「收件箱为空/加载更多」)。
-      error: (_, _) => AnState(
+      errorBuilder: (_, _, _) => AnState(
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: context.t.entities.detail.state.errorTitle,
@@ -46,7 +51,7 @@ class FlowrunInbox extends ConsumerWidget {
           onPressed: () => ref.invalidate(flowrunInboxProvider),
         ),
       ),
-      data: (parked) => parked.isEmpty
+      builder: (context, parked) => parked.isEmpty
           ? AnState(
               kind: AnStateKind.empty,
               size: AnStateSize.inset,

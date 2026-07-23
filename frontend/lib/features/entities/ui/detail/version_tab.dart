@@ -8,7 +8,7 @@ import '../../../../core/ui/an_action_group.dart';
 import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_two_zone.dart';
-import '../../../../core/ui/an_deferred_loading.dart';
+import '../../../../core/ui/an_last_good.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_skeleton.dart';
 import '../../../../core/ui/an_state.dart';
@@ -36,9 +36,13 @@ class VersionTab extends ConsumerWidget {
     final async = ref.watch(versionListProvider(entityRef));
     final notifier = ref.read(versionListProvider(entityRef).notifier);
 
-    return async.when(
-      loading: () => const AnDeferredLoading(child: AnSkeleton.lines(6)),
-      error: (_, _) => AnState(
+    // Last-known-good, hard reset on entity switch (snapshot bridges same-entity refreshes only —
+    // cross-entity hold would be data corruption). last-known-good,实体切换硬换代,快照只桥同实体刷新。
+    return AnLastGood(
+      value: async,
+      resetKey: entityRef,
+      placeholder: const AnSkeleton.lines(6),
+      errorBuilder: (_, _, _) => AnState(
         kind: AnStateKind.error,
         size: AnStateSize.inset,
         title: d.state.errorTitle,
@@ -47,7 +51,7 @@ class VersionTab extends ConsumerWidget {
           onPressed: () => ref.invalidate(versionListProvider(entityRef)),
         ),
       ),
-      data: (st) {
+      builder: (context, st) {
         if (st.versions.isEmpty) {
           return AnState(
             kind: AnStateKind.empty,

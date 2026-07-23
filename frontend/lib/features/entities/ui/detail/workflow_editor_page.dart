@@ -12,7 +12,7 @@ import '../../../../core/notice/notice_center.dart';
 import '../../../../core/shell/shell_chrome.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_button.dart';
-import '../../../../core/ui/an_deferred_loading.dart';
+import '../../../../core/ui/an_last_good.dart';
 import '../../../../core/ui/an_divider.dart';
 import '../../../../core/ui/an_floating_bar.dart';
 import '../../../../core/ui/an_graph_canvas.dart';
@@ -75,21 +75,21 @@ class WorkflowEditorPage extends ConsumerWidget {
                 // The canvas is full-bleed (frameless). Its zoom cluster floats bottom-left so it clears
                 // the top chrome + the OS lights. 画布满铺(无边框);缩放条落左下、让开顶部 chrome 与红绿灯。
                 Positioned.fill(
-                  child: async.when(
-                    // Deferred skeleton — the house loading idiom (a bare instant spinner flashed on
-                    // every entry since the graph fetch resolves in milliseconds over loopback).
-                    // 延迟骨架(房规):裸即时 spinner 在毫秒级 loopback 取图下每次进入都闪。
-                    loading: () => const AnDeferredLoading(
-                      child: Center(child: AnSkeleton.card()),
-                    ),
-                    error: (_, _) => Center(
+                  child: AnLastGood(
+                    // Last-known-good, hard reset per workflow — a same-workflow refresh (post-save
+                    // re-fetch) keeps the canvas mounted instead of flashing it out. 同 workflow 刷新
+                    // (保存后重取)画布不闪出;换 workflow 硬换代。
+                    value: async,
+                    resetKey: workflowId,
+                    placeholder: const Center(child: AnSkeleton.card()),
+                    errorBuilder: (_, _, _) => Center(
                       child: AnState(
                         kind: AnStateKind.error,
                         size: AnStateSize.inset,
                         title: d.state.errorTitle,
                       ),
                     ),
-                    data: (st) => AnGraphCanvas(
+                    builder: (context, st) => AnGraphCanvas(
                       graph: st.working,
                       dir: st.dir,
                       editable: true,

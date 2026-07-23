@@ -8,6 +8,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/time_format.dart';
 import '../../../../core/shell/shell_chrome.dart';
+import '../../../../core/runtime.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
@@ -113,9 +114,14 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
     List<RailGroup> groups,
   ) {
     final t = context.t.entities;
-    return async.when(
-      loading: () => const AnDeferredLoading(child: AnSkeleton.card()),
-      error: (_, _) => AnState(
+    // Last-known-good over the keepAlive graph provider; the workspace id is the hard generation
+    // boundary (this provider survives a hot switch WITH the old workspace's graph attached).
+    // last-known-good;workspace id 为硬换代界(keepAlive provider 热切换时还攥着旧空间的图)。
+    return AnLastGood(
+      value: async,
+      resetKey: ref.watch(activeWorkspaceProvider),
+      placeholder: const AnSkeleton.card(),
+      errorBuilder: (_, _, _) => AnState(
         kind: AnStateKind.error,
         title: t.errorTitle,
         hint: t.errorHint,
@@ -124,7 +130,7 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
           onPressed: () => ref.invalidate(relGraphProvider),
         ),
       ),
-      data: (g) {
+      builder: (context, g) {
         final sub = structuralSubgraph(g);
         final kindOf = {for (final n in sub.nodes) n.id: n.kind};
         return AnRelationGraph(

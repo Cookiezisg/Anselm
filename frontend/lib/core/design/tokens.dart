@@ -454,6 +454,17 @@ abstract final class AnMotion {
   // 加载骨架/指示器显示前的延迟:亚阈值异步(本地 sidecar 常态)先返回,指示器不闪烁。
   static const Duration loaderDelay = Duration(milliseconds: 160);
 
+  // How long [AnLastGood] keeps showing the previous selection's content while the next one loads
+  // (stale-while-revalidate hold). Past this the load is genuinely slow and must READ as loading —
+  // holding longer would feel like the click was ignored. 快照顶替时长:超过即真慢,须转加载态,
+  // 再顶会像"点了没反应"。
+  static const Duration staleHold = Duration(milliseconds: 400);
+
+  // One-shot fade when async content first SURFACES (skeleton/blank → content) — the industry
+  // 150–200ms band: long enough to read as intentional, short enough to never gate the data.
+  // 内容首现的一次性淡入(骨架/空白→内容)——业界 150-200ms 区间:可感知但绝不拖数据后腿。
+  static const Duration contentIn = Duration(milliseconds: 180);
+
   // Dwell-to-act delay — hovering a drop target this long triggers its secondary action (a collapsed
   // sidebar group expands under the dragged row). 悬停驻留触发时长(拖拽悬停展开折叠组)。
   static const Duration dwell = Duration(milliseconds: 600);

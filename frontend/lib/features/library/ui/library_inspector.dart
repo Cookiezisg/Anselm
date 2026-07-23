@@ -29,6 +29,7 @@ import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/an_row.dart';
 import '../../../core/ui/an_scroll_behavior.dart';
+import '../../../core/ui/an_last_good.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/an_tags.dart';
@@ -497,16 +498,19 @@ class _DocProperties extends ConsumerWidget {
       title: name.isEmpty ? t.library.untitled : name,
       menuEntries: _menuEntries(context, ref),
       sub: sub,
-      body: doc.when(
-        loading: () => const AnSkeleton.lines(5),
-        error: (_, _) => AnState(
+      body: AnLastGood(
+        value: doc,
+        resetKey:
+            id, // switching pages hard-resets; same-page refreshes hold 换页硬换代,同页刷新顶住
+        placeholder: const AnSkeleton.lines(5),
+        errorBuilder: (_, _, _) => AnState(
           kind: AnStateKind.error,
           size: AnStateSize.inset,
           title: t.library.loadFailed,
         ),
         // The island is "about this page" only: outline (live focus) / file meta / backlinks. The page's
         // OWN properties (name/description/tags) edit in the CENTER under the big title. 右岛只谈「这一页」。
-        data: (doc) => Column(
+        builder: (context, doc) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _OutlineGroup(),
@@ -559,48 +563,48 @@ class _BacklinksGroup extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final c = context.colors;
-    return ref
-        .watch(backlinksProvider(id))
-        .when(
-          loading: () => _GroupSection(
-            groupKey: kDocGroupBacklinks,
-            icon: AnIcons.link,
-            label: t.library.props.backlinks,
-            count: 0,
-            child: const AnSkeleton.lines(2),
-          ),
-          error: (_, _) =>
-              const SizedBox.shrink(), // quiet: backlinks are auxiliary 反链是辅助信息,静默降级
-          data: (links) => _GroupSection(
-            groupKey: kDocGroupBacklinks,
-            icon: AnIcons.link,
-            label: t.library.props.backlinks,
-            count: links.length,
-            child: links.isEmpty
-                ? Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
-                    child: Text(
-                      t.library.props.noBacklinks,
-                      style: AnText.meta.copyWith(color: c.inkFaint),
+    return AnLastGood(
+      value: ref.watch(backlinksProvider(id)),
+      resetKey: id,
+      placeholder: _GroupSection(
+        groupKey: kDocGroupBacklinks,
+        icon: AnIcons.link,
+        label: t.library.props.backlinks,
+        count: 0,
+        child: const AnSkeleton.lines(2),
+      ),
+      errorBuilder: (_, _, _) =>
+          const SizedBox.shrink(), // quiet: backlinks are auxiliary 反链是辅助信息,静默降级
+      builder: (context, links) => _GroupSection(
+        groupKey: kDocGroupBacklinks,
+        icon: AnIcons.link,
+        label: t.library.props.backlinks,
+        count: links.length,
+        child: links.isEmpty
+            ? Padding(
+                padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
+                child: Text(
+                  t.library.props.noBacklinks,
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              )
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final link in links)
+                    AnRow(
+                      icon: AnIcons.byKey(link.fromKind),
+                      label: link.fromName.isEmpty
+                          ? link.fromId
+                          : link.fromName,
+                      onSelect: link.fromKind == 'document'
+                          ? () => context.go(documentLocation(link.fromId))
+                          : null,
                     ),
-                  )
-                : Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      for (final link in links)
-                        AnRow(
-                          icon: AnIcons.byKey(link.fromKind),
-                          label: link.fromName.isEmpty
-                              ? link.fromId
-                              : link.fromName,
-                          onSelect: link.fromKind == 'document'
-                              ? () => context.go(documentLocation(link.fromId))
-                              : null,
-                        ),
-                    ],
-                  ),
-          ),
-        );
+                ],
+              ),
+      ),
+    );
   }
 }
 
@@ -636,14 +640,16 @@ class _SkillProperties extends ConsumerWidget {
       title: name,
       menuEntries: _skillMenuEntries(context, ref),
       sub: sub,
-      body: skill.when(
-        loading: () => const AnSkeleton.lines(6),
-        error: (_, _) => AnState(
+      body: AnLastGood(
+        value: skill,
+        resetKey: name, // switching skills hard-resets 换 skill 硬换代
+        placeholder: const AnSkeleton.lines(6),
+        errorBuilder: (_, _, _) => AnState(
           kind: AnStateKind.error,
           size: AnStateSize.inset,
           title: t.library.loadFailed,
         ),
-        data: (skill) => Column(
+        builder: (context, skill) => Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _SkillFilesGroup(name: skill.name),

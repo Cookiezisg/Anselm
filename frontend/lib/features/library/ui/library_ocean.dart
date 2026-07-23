@@ -13,6 +13,7 @@ import '../../../core/perf/debouncer.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_deferred_loading.dart';
+import '../../../core/ui/an_last_good.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
@@ -296,63 +297,65 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
     // watch only rebuilds this view's props — the GlobalKey editor keeps its State + cursor. 面包屑父链随树。
     final tree =
         ref.watch(documentTreeProvider).value ?? const <DocumentNode>[];
-    return ref
-        .watch(openDocumentProvider(widget.id))
-        .when(
-          loading: () => const AnPage(
-            child: AnDeferredLoading(child: AnSkeleton.lines(8)),
-          ),
-          error: (_, _) => AnState(
-            kind: AnStateKind.error,
-            title: t.library.loadFailed,
-            hint: t.library.errorHint,
-          ),
-          data: (doc) {
-            final title = doc.name.isEmpty ? t.library.untitled : doc.name;
-            bindHead(title);
-            seedOutline(doc.content);
-            // Resolve the `[[id]]` mention names BEFORE mounting the editor, so its pills load with names
-            // (the editor reads names once at initState). A skeleton covers the batch. 载入前先解析提及名。
-            return ref
-                .watch(documentMentionNamesProvider(doc.content))
-                .maybeWhen(
-                  orElse: () => const AnPage(
-                    child: AnDeferredLoading(child: AnSkeleton.lines(8)),
-                  ),
-                  data: (names) => AnDocumentEditor(
-                    key: editorKey,
-                    crumbs: libraryCrumbs(context, tree, widget.id),
-                    name: title,
-                    autofocusName: _autofocusName,
-                    description: doc.description,
-                    tags: doc.tags,
-                    initialMarkdown: doc.content,
-                    resolvedNames: names,
-                    onChangedMarkdown: _onChanged,
-                    onScroll: onScroll,
-                    onActiveHeading: onActive,
-                    // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow).
-                    mentionSource: ref.watch(mentionSourceProvider),
-                    onMetaChanged: (m) {
-                      final patch = <String, dynamic>{};
-                      final name = (m['name'] as String?)?.trim();
-                      final desc = m['description'] as String?;
-                      final tags = (m['tags'] as List?)?.cast<String>();
-                      if (name != null && name.isNotEmpty && name != doc.name) {
-                        patch['name'] = name;
-                      }
-                      if (desc != null && desc != doc.description) {
-                        patch['description'] = desc;
-                      }
-                      if (tags != null && !listEquals(tags, doc.tags)) {
-                        patch['tags'] = tags;
-                      }
-                      if (patch.isNotEmpty) _patchMeta(patch);
-                    },
-                  ),
-                );
-          },
-        );
+    // Last-known-good: a same-document refresh (meta patch → invalidate) keeps the editor's page
+    // mounted instead of flashing a skeleton. Document SWITCHES rebuild this whole subtree anyway
+    // (the per-id ValueKey above — editor State must not cross documents), so no resetKey is needed.
+    // last-known-good:同文档刷新(改 meta→invalidate)页面不闪骨架;切文档本就整树重建(上游按 id
+    // 加 ValueKey,编辑器 State 不得跨文档),故无需 resetKey。
+    return AnLastGood(
+      value: ref.watch(openDocumentProvider(widget.id)),
+      placeholder: const AnPage(child: AnSkeleton.lines(8)),
+      errorBuilder: (_, _, _) => AnState(
+        kind: AnStateKind.error,
+        title: t.library.loadFailed,
+        hint: t.library.errorHint,
+      ),
+      builder: (context, doc) {
+        final title = doc.name.isEmpty ? t.library.untitled : doc.name;
+        bindHead(title);
+        seedOutline(doc.content);
+        // Resolve the `[[id]]` mention names BEFORE mounting the editor, so its pills load with names
+        // (the editor reads names once at initState). A skeleton covers the batch. 载入前先解析提及名。
+        return ref
+            .watch(documentMentionNamesProvider(doc.content))
+            .maybeWhen(
+              orElse: () => const AnPage(
+                child: AnDeferredLoading(child: AnSkeleton.lines(8)),
+              ),
+              data: (names) => AnDocumentEditor(
+                key: editorKey,
+                crumbs: libraryCrumbs(context, tree, widget.id),
+                name: title,
+                autofocusName: _autofocusName,
+                description: doc.description,
+                tags: doc.tags,
+                initialMarkdown: doc.content,
+                resolvedNames: names,
+                onChangedMarkdown: _onChanged,
+                onScroll: onScroll,
+                onActiveHeading: onActive,
+                // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow).
+                mentionSource: ref.watch(mentionSourceProvider),
+                onMetaChanged: (m) {
+                  final patch = <String, dynamic>{};
+                  final name = (m['name'] as String?)?.trim();
+                  final desc = m['description'] as String?;
+                  final tags = (m['tags'] as List?)?.cast<String>();
+                  if (name != null && name.isNotEmpty && name != doc.name) {
+                    patch['name'] = name;
+                  }
+                  if (desc != null && desc != doc.description) {
+                    patch['description'] = desc;
+                  }
+                  if (tags != null && !listEquals(tags, doc.tags)) {
+                    patch['tags'] = tags;
+                  }
+                  if (patch.isNotEmpty) _patchMeta(patch);
+                },
+              ),
+            );
+      },
+    );
   }
 }
 
@@ -653,49 +656,49 @@ class _SkillEditViewState extends ConsumerState<_SkillEditView>
   }
 
   Widget _richManifestView(BuildContext context, Translations t) {
-    return ref
-        .watch(openSkillProvider(widget.name))
-        .when(
-          loading: () => const AnPage(
-            child: AnDeferredLoading(child: AnSkeleton.lines(8)),
-          ),
-          error: (_, _) => AnState(
-            kind: AnStateKind.error,
-            title: t.library.loadFailed,
-            hint: t.library.errorHint,
-          ),
-          data: (skill) {
-            bindHead(skill.name);
-            seedOutline(skill.body);
-            // Skills carry no @ mentions (the backend only parses `[[id]]` on DOCUMENTS) → no name resolve.
-            // skill 不含 @(后端只在 document 上解析 `[[id]]`)→无需解析名。
-            return AnDocumentEditor(
-              key: editorKey,
-              // «Documents / Skills» — the skills collection is a flat list, so the parent path is fixed
-              // (skills have no dedicated route, so «Skills» is inert). 父路径固定;Skills 无独立路由=惰性。
-              crumbs: [
-                AnCrumb(t.library.documents, onTap: () => context.go('/')),
-                AnCrumb(t.library.skills),
-              ],
-              name: skill.name,
-              nameEditable:
-                  false, // the name IS the identity — not renamable in place
-              showTags:
-                  false, // skills have no tags frontmatter — no phantom tags editor 无 tags 字段
-              description: skill.description,
-              initialMarkdown: skill.body,
-              onChangedMarkdown: _onChanged,
-              onScroll: onScroll,
-              onActiveHeading: onActive,
-              onMetaChanged: (m) {
-                final desc = m['description'] as String?;
-                if (desc != null && desc != skill.description) {
-                  _putDescription(desc);
-                }
-              },
-            );
+    // Last-known-good: a same-skill refresh (manifest save → invalidate) keeps the editor mounted;
+    // skill switches rebuild the subtree via the per-id ValueKey upstream. last-known-good:同 skill
+    // 刷新不闪;切 skill 由上游按 id key 整树重建。
+    return AnLastGood(
+      value: ref.watch(openSkillProvider(widget.name)),
+      placeholder: const AnPage(child: AnSkeleton.lines(8)),
+      errorBuilder: (_, _, _) => AnState(
+        kind: AnStateKind.error,
+        title: t.library.loadFailed,
+        hint: t.library.errorHint,
+      ),
+      builder: (context, skill) {
+        bindHead(skill.name);
+        seedOutline(skill.body);
+        // Skills carry no @ mentions (the backend only parses `[[id]]` on DOCUMENTS) → no name resolve.
+        // skill 不含 @(后端只在 document 上解析 `[[id]]`)→无需解析名。
+        return AnDocumentEditor(
+          key: editorKey,
+          // «Documents / Skills» — the skills collection is a flat list, so the parent path is fixed
+          // (skills have no dedicated route, so «Skills» is inert). 父路径固定;Skills 无独立路由=惰性。
+          crumbs: [
+            AnCrumb(t.library.documents, onTap: () => context.go('/')),
+            AnCrumb(t.library.skills),
+          ],
+          name: skill.name,
+          nameEditable:
+              false, // the name IS the identity — not renamable in place
+          showTags:
+              false, // skills have no tags frontmatter — no phantom tags editor 无 tags 字段
+          description: skill.description,
+          initialMarkdown: skill.body,
+          onChangedMarkdown: _onChanged,
+          onScroll: onScroll,
+          onActiveHeading: onActive,
+          onMetaChanged: (m) {
+            final desc = m['description'] as String?;
+            if (desc != null && desc != skill.description) {
+              _putDescription(desc);
+            }
           },
         );
+      },
+    );
   }
 }
 

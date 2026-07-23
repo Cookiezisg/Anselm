@@ -8,7 +8,7 @@ import '../../../core/model/status_state.dart';
 import '../../../core/notice/notice_center.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/an_button.dart';
-import '../../../core/ui/an_deferred_loading.dart';
+import '../../../core/ui/an_last_good.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
@@ -98,22 +98,25 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
     if (selected == null) return const EntitiesOverviewView();
 
     final async = ref.watch(entityDetailProvider(selected));
-    return async.when(
-      // Loading lives in the SAME AnPage (centered 720 column) as the loaded content, so there is no
-      // width jump when data arrives; deferred so a fast load never flashes a skeleton. 同 720 列 + 延迟防闪。
-      loading: () => const AnPage(
-        child: AnDeferredLoading(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              AnSkeleton.card(),
-              SizedBox(height: AnSpace.s16),
-              AnSkeleton.lines(6),
-            ],
-          ),
+    // Last-known-good: switching entities holds the previous detail page until the next one lands
+    // (the WHOLE page swaps at once — header and tabs stay mutually consistent), so a selection
+    // change never collapses into a skeleton. The skeleton lives in the SAME AnPage (centered 720
+    // column) as the loaded content, so there is no width jump on a true first load.
+    // last-known-good:切实体时整页顶住旧详情直到新页落地(头与 tab 同页同换、互不串),选区切换
+    // 不再塌成骨架;骨架与内容同在 720 列 AnPage,真首载也无宽度跳。
+    return AnLastGood(
+      value: async,
+      placeholder: const AnPage(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            AnSkeleton.card(),
+            SizedBox(height: AnSpace.s16),
+            AnSkeleton.lines(6),
+          ],
         ),
       ),
-      error: (_, _) => Center(
+      errorBuilder: (_, _, _) => Center(
         child: AnState(
           kind: AnStateKind.error,
           title: d.state.errorTitle,
@@ -127,7 +130,7 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
       // ONE document: header + tabs + content all live in a single AnPage (centered 720 reading column,
       // one scroll) and scroll together — AnTabs in FLOW mode so the selected pane flows inline (the demo
       // an-page/an-tabs model). 整个海洋一份文档:头+tab+内容同在一个 AnPage(居中 720 单滚)一起滚。
-      data: (detail) {
+      builder: (context, detail) {
         // After layout: measure the big header (the collapse threshold = its height past the head band)
         // and feed the floating-head breadcrumb (title + scroll-to-top). 测大头高定阈值 + 喂浮层头面包屑。
         WidgetsBinding.instance.addPostFrameCallback((_) {

@@ -9,6 +9,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/shell/right_panel.dart';
 import '../../../../core/shell/shell_chrome.dart';
+import '../../../../core/runtime.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
@@ -109,10 +110,14 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
     (String, String)? sel,
   ) {
     final d = context.t.entities;
-    return async.when(
-      loading: () =>
-          const AnDeferredLoading(child: Center(child: AnSkeleton.card())),
-      error: (_, _) => Center(
+    // Last-known-good over the keepAlive graph provider; the workspace id is the hard generation
+    // boundary (this provider survives a hot switch WITH the old workspace's graph attached).
+    // last-known-good;workspace id 为硬换代界(keepAlive provider 热切换时还攥着旧空间的图)。
+    return AnLastGood(
+      value: async,
+      resetKey: ref.watch(activeWorkspaceProvider),
+      placeholder: const Center(child: AnSkeleton.card()),
+      errorBuilder: (_, _, _) => Center(
         child: AnState(
           kind: AnStateKind.error,
           size: AnStateSize.inset,
@@ -124,7 +129,7 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
           ),
         ),
       ),
-      data: (g) {
+      builder: (context, g) {
         // Default: structural (equip/link) only. Provenance toggle re-admits the full graph. 默认结构;溯源开=全图。
         final sub = _provenance
             ? (nodes: g.nodes, edges: g.edges)
