@@ -117,7 +117,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final onChat = ocean == OceanKind.chat;
     // Documents ocean: the file-like knowledge library (document tree + skills) in the left island +
     // a read/edit center. 文档海洋:文件式知识库(文档树 + skill)左岛 + 中心读/编。
-    final onDocuments = ocean == OceanKind.library;
+    final onLibrary = ocean == OceanKind.library;
     final onSettings = ocean == OceanKind.settings;
     // A /chat/:id navigation (deep link, restored URL) pulls the ocean to chat — the URL is the
     // conversation-selection truth, so the ocean must follow it, never fight it. (Full ocean routing is
@@ -162,8 +162,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     final hasEntitySelection =
         onEntities &&
         (ref.watch(selectedEntityProvider)?.kind.executable ?? false);
-    final hasDocSelection =
-        onDocuments && ref.watch(selectedDocProvider) != null;
+    final hasDocSelection = onLibrary && ref.watch(selectedDocProvider) != null;
     final chatConversation = onChat
         ? ref.watch(selectedConversationProvider)?.id
         : null;
@@ -234,8 +233,8 @@ class _AppShellState extends ConsumerState<AppShell> {
         label: context.t.shell.ocean.scheduler,
       ),
       AnOceanItem(
-        id: 'documents',
-        icon: AnIcons.doc,
+        id: 'library',
+        icon: AnIcons.library,
         label: context.t.shell.ocean.library,
       ),
     ];
@@ -249,7 +248,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         ? const EntityRail()
         : onChat
         ? const ConversationRail()
-        : onDocuments
+        : onLibrary
         ? const LibraryRail()
         : onSettings
         ? const SettingsRail()
@@ -339,7 +338,7 @@ class _AppShellState extends ConsumerState<AppShell> {
         // has a selection). documents→属性面板;chat→侧幕;scheduler→run 旗舰双脸检查器;entities→run 终端。
         inspector: AnInspector(
           headless: true,
-          child: onDocuments
+          child: onLibrary
               ? const LibraryInspector()
               : chatConversation != null
               ? StagePanel(conversationId: chatConversation)

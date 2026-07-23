@@ -71,6 +71,16 @@ abstract final class AnIcons {
   static final IconData mcp = _thin(LucideIcons.plug);
   static final IconData skill = _thin(LucideIcons.bookOpen);
   static final IconData doc = _thin(LucideIcons.fileText);
+
+  /// The LIBRARY ocean's switcher glyph — the CONTAINER, so it must not wear either member's face
+  /// ([doc] = fileText, [skill] = bookOpen). Shelved spines vs an open book reads at 20px and says
+  /// "container of them" rather than "one of them"; the tab previously reused [doc] and was
+  /// indistinguishable from every document row beneath it.
+  ///
+  /// Library 海洋的切换器字形——它是**容器**,故不可穿任一成员的脸([doc]=fileText、[skill]=bookOpen)。
+  /// 一排书脊 vs 一本摊开的书在 20px 下可分,且表达「装着它们」而非「就是它们之一」;此前 tab 复用 [doc],
+  /// 与其下每个 document 行一模一样。
+  static final IconData library = _thin(LucideIcons.libraryBig);
   static final IconData entities = _thin(LucideIcons.layoutGrid);
   static final IconData chat = _thin(LucideIcons.messageSquare);
   static final IconData scheduler = _thin(LucideIcons.clock);

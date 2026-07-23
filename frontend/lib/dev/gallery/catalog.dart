@@ -4074,7 +4074,7 @@ final List<AnOceanItem> _oceanItems = [
   AnOceanItem(id: 'chat', icon: AnIcons.chat, label: 'Chat'),
   AnOceanItem(id: 'entities', icon: AnIcons.entities, label: 'Entities'),
   AnOceanItem(id: 'scheduler', icon: AnIcons.scheduler, label: 'Scheduler'),
-  AnOceanItem(id: 'documents', icon: AnIcons.doc, label: 'Documents'),
+  AnOceanItem(id: 'library', icon: AnIcons.library, label: 'Library'),
 ];
 
 // Stress: a deliberately long label to verify the selected slot clips (no overflow). 超长标签压力。
