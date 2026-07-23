@@ -279,6 +279,44 @@ void main() {
     },
   );
 
+  testWidgets(
+    "G7: the create receipt's id resolves the newborn's identity (no name-forged keys)",
+    (tester) async {
+      final repo = FixtureChatRepository();
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b1', 'create_function'));
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(_conv, _callClose('b1')); // args carry no id 创建参数无 id
+      expect(c.read(stageDirectorProvider(_conv)).subject!.itemId, isNull);
+      repo.emitFrame(_conv, _resultOpen('r1', 'b1'));
+      repo.emitFrame(
+        _conv,
+        StreamEnvelope(
+          seq: 8,
+          scope: _scope,
+          id: 'r1',
+          frame: const FrameClose(
+            status: 'completed',
+            result: StreamNode(
+              type: 'tool_result',
+              content: {'content': '{"id":"fn_9","version":1}'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      // The receipt's top-level id lands on the activity → the row key can merge with the ledger's
+      // real entity row. 回执顶层 id 落到活动上,行键得以与台账真身行合流。
+      expect(c.read(stageDirectorProvider(_conv)).subject!.itemId, 'fn_9');
+      await tester.pump(const Duration(milliseconds: 2200)); // drain 排干
+    },
+  );
+
   testWidgets("G6: a delegate's inner tool never enters the director (A1-7)", (
     tester,
   ) async {

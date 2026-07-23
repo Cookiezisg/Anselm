@@ -374,9 +374,17 @@ class StageDirector {
     if (!identical(a, _subject)) a.unread++;
   }
 
-  /// The args stream resolved the activity's primary entity id (Cast pulse, R-6). 主目标 id 解出。
-  void onItemResolved(String blockId, String itemId) =>
-      _live[blockId]?.itemId = itemId;
+  /// The activity's primary entity id resolved (args close / create receipt — Cast pulse, R-6).
+  /// FIRST resolution wins (G7): identity must never re-key mid-flight — an mcp install resolves
+  /// its NAME at args close (the ledger's real join key) and its receipt later carries a raw `id`;
+  /// letting the second overwrite the first left the expansion state stranded on the middle key.
+  /// 主目标 id 解出;**首解出者胜**(G7)——身份绝不中途换键:mcp 安装参流关先解出名(台账真合流键)、
+  /// 回执又带裸 id,后者覆写前者会把展开态搁浅在中间键上。
+  void onItemResolved(String blockId, String itemId) {
+    final a = _live[blockId];
+    if (a == null) return;
+    if (a.itemId == null || a.itemId!.isEmpty) a.itemId = itemId;
+  }
 
   /// The activity's tool_call closed. [ok] false → failed/cancelled. 关帧。
   void onToolClose(String blockId, DateTime now, {bool ok = true}) {

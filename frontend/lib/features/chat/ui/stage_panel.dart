@@ -348,55 +348,70 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   // (block:<id> → kind:<itemId>) so the auto-opened row stays open across the key change.
   // 导演器登了新主角(follow 已放行):展开其行(粘性)+ 滚入视口一次;itemId 解出时迁移展开键。
   void _onDirector(StageState? prev, StageState next) {
-    // §4-4 (缺口B, 0719) — the director CURTAINED a settled subject: `following` phase, the settle breath
-    // (settleBreath ≈ dwell) elapsed, no live work to switch to, so the subject was dismissed (→ null). Collapse
-    // EXACTLY the row we auto-opened for it, so the settled stage animates back to a ledger row on the same
-    // AnExpandReveal slide. `failedHold` holds the subject (it never reaches subject==null through the curtain),
-    // so it's naturally exempt — and we only ever close OUR auto-opened row (a G2 claim removed any row the user
-    // engaged), so a row the user expanded or read is untouched. 导演器谢幕(following→停拍→无接场→收场):
-    // 收起自动展开的那行,播同一 AnExpandReveal 收回台账行;失败定格不经此路故天然豁免;只收自己开的——
-    // 用户自展或认领(G2)的行不动。
-    if (prev != null &&
-        prev.subject != null &&
-        next.subject == null &&
-        prev.phase == StagePhase.following) {
-      final settledRow = _autoOpenedRow.remove(prev.subject!.blockId);
-      if (settledRow != null) {
-        ref
-            .read(stageExpansionProvider(conversationId).notifier)
-            .close(settledRow);
-      }
-    }
-
-    final subj = next.subject;
-    if (subj == null) return;
-    final block = subj.blockId;
-    final id = subj.itemId;
-    final resolvedRow = (id != null && id.isNotEmpty)
-        ? '${subj.kind}:$id'
-        : null;
-    final blockRow = 'block:$block';
     final expNotifier = ref.read(
       stageExpansionProvider(conversationId).notifier,
     );
-    if (resolvedRow != null) {
+
+    // G7① — key migration for EVERY tracked view, subject or channel (A2-7: it used to run for the
+    // subject only, so a user-opened channel row snapped shut the instant its itemId resolved).
+    // block:<blockId> → kind:<itemId>, expansion + the auto-opened ledger move together.
+    // G7①:全员键迁移(旧只迁 subject——用户展开的频道行在 itemId 解出瞬间当面合上)。
+    final nextViews = [
+      if (next.subject != null) next.subject!,
+      ...next.channels,
+    ];
+    for (final v in nextViews) {
+      final id = v.itemId;
+      if (id == null || id.isEmpty) continue;
+      final blockRow = 'block:${v.blockId}';
+      final resolvedRow = '${v.kind}:$id';
       final exp = ref.read(stageExpansionProvider(conversationId));
       if (exp.contains(blockRow) && !exp.contains(resolvedRow)) {
         expNotifier.close(blockRow);
         expNotifier.open(resolvedRow);
-        _autoHandled.add(
-          block,
-        ); // already handled — the migrate is the open 迁移即已处理
-        _autoOpenedRow[block] =
-            resolvedRow; // migrate the curtain-collapse target 迁移谢幕收起目标
+      }
+      if (_autoOpenedRow[v.blockId] == blockRow) {
+        _autoOpenedRow[v.blockId] = resolvedRow;
       }
     }
+
+    // G7② — PER-ACTIVITY curtain (A1-9/A2-9: the old trigger was «subject became null», which only
+    // covered the last act — every handoff A→B left A's auto-opened row standing and the ledger
+    // leaked until the island was a wall of open stages). An activity that LEFT the director
+    // (settled clean, cleared, realign-swept) ends its auto-show: collapse exactly the row WE
+    // opened. A still-live displaced subject stays in channels → untouched; user-opened rows were
+    // never claimed → untouched. G7②:按活动个体谢幕——旧「subject 变 null」只盖最后一幕,每次接场
+    // 都漏收、右岛渐成全展开墙;离场活动收自己那行,被挤而仍活的在 channels 不收,用户行从未认领不收。
+    if (prev != null) {
+      final nextIds = {for (final v in nextViews) v.blockId};
+      for (final v in [
+        if (prev.subject != null) prev.subject!,
+        ...prev.channels,
+      ]) {
+        if (nextIds.contains(v.blockId)) continue;
+        final row = _autoOpenedRow.remove(v.blockId);
+        if (row != null) expNotifier.close(row);
+      }
+    }
+
+    // §4-1/§4-2 — auto-open the NEW subject once; NEVER claim a row the user already opened
+    // (G7/A2-8: claiming it put THEIR row on the curtain's collapse list). 自动展开新主角一次;
+    // 用户已开的行绝不认领(旧认领会让谢幕收走用户的行)。
+    final subj = next.subject;
+    if (subj == null) return;
+    final block = subj.blockId;
     if (!next.stageOpen || _autoHandled.contains(block)) return;
     _autoHandled.add(block);
-    final rowId = resolvedRow ?? blockRow;
+    final id = subj.itemId;
+    final rowId = (id != null && id.isNotEmpty)
+        ? '${subj.kind}:$id'
+        : 'block:$block';
+    if (ref.read(stageExpansionProvider(conversationId)).contains(rowId)) {
+      _scrollToRow(rowId); // convenience scroll, no claim 顺手滚入,不认领
+      return;
+    }
     expNotifier.open(rowId);
-    _autoOpenedRow[block] =
-        rowId; // remember for the §4-4 curtain-collapse 记录供谢幕收起
+    _autoOpenedRow[block] = rowId;
     _scrollToRow(rowId);
   }
 
@@ -1048,8 +1063,6 @@ class _StageRow extends ConsumerWidget {
                         : StagePhase.following,
                     transcript: transcript,
                     onEngaged: onEngaged,
-                    onItemResolved: (itemId) =>
-                        director.itemResolved(view.blockId, itemId),
                   )
                 // A settled subagent run — its folded nested trajectory rendered as a live:false stage (no
                 // entity, no touchpoint; the transcript IS its truth, WRK-064 B6). 落定 subagent 嵌套轨迹。
@@ -1096,7 +1109,6 @@ class _GenericStage extends StatefulWidget {
     required this.phase,
     required this.transcript,
     required this.onEngaged,
-    required this.onItemResolved,
   });
 
   final String conversationId;
@@ -1107,15 +1119,12 @@ class _GenericStage extends StatefulWidget {
   /// Tap / drag inside the body — the G2 row claim (reading never gets auto-collapsed; the follow
   /// pipeline keeps flowing). 体内交互=G2 行级认领(阅读不被自动收;流水线照常流动)。
   final VoidCallback onEngaged;
-  final void Function(String itemId) onItemResolved;
 
   @override
   State<_GenericStage> createState() => _GenericStageState();
 }
 
 class _GenericStageState extends State<_GenericStage> {
-  String? _resolved;
-
   static const _frameworkKeys = {'summary', 'danger', 'execution_group'};
 
   @override
@@ -1142,19 +1151,13 @@ class _GenericStageState extends State<_GenericStage> {
         }
         final state = ToolCardState.of(node);
         final session = state.argsSession;
-        final name = _subjectName(state, session);
-        // R-6: hand the resolved primary id to the director for the Cast pulse + row-key migration.
-        // 主目标 id 喂导演器(Cast 脉冲 + 行键迁移)。
-        final id =
-            session.liveStringNamed('id') ??
-            session.closedValueAt(['functionId']) as String? ??
-            (name.isNotEmpty ? name : null);
-        if (id is String && id.isNotEmpty && id != _resolved) {
-          _resolved = id;
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) widget.onItemResolved(id);
-          });
-        }
+        // G7 — no id guessing here anymore (A3-7/A2-11): the old deep-search `liveStringNamed('id')`
+        // false-hit workflow ops' node ids, and the display-NAME fallback minted row keys that never
+        // matched the ledger's real entity ids — one activity, two rows forever. Identity now
+        // resolves in ONE place, the director host (top-level arg keys at args close + the create
+        // receipt's id at the execution terminal + a name whitelist for name-addressed kinds).
+        // G7:此处不再猜 id——旧任意深度搜 `id` 被 workflow ops 节点 id 假命中、显示名兜底铸出与台账
+        // 真身永不合并的行键;身份统一在宿主一处解析(参流关顶层键 + 执行回执 id + 名寻址白名单)。
         // G4: liveness = execution phase (toolLive), never node.isOpen — the args-stream close is
         // not the execution terminal. G4 判活走执行相位,参流关≠执行终态。
         final live = toolLive(state);
@@ -1216,14 +1219,6 @@ class _GenericStageState extends State<_GenericStage> {
         );
       },
     );
-  }
-
-  String _subjectName(ToolCardState state, PartialJsonSession session) {
-    if (state.entityName.isNotEmpty) return state.entityName;
-    final n =
-        session.closedStringAt(['name']) ?? session.inFlightStringAt(['name']);
-    if (n != null && n.isNotEmpty) return n;
-    return '';
   }
 
   List<Widget> _body(

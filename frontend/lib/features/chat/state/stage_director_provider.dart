@@ -65,7 +65,9 @@ class StageDirectorController extends Notifier<StageState> {
   // closes). G4:子块→属主顶层 tool_call(开帧时传递构建);执行 progress 喂回属主活性钟——旧径按
   // 子块 id no-op,执行中的主角被判静默丢台。_tracked=登台闭表内顶层调用(留到执行终态)。
   final Map<String, String> _ownerOf = {};
-  final Set<String> _tracked = {};
+  // blockId → tool name for stage-worthy TOP-LEVEL calls (G7: the name gates the name-addressed
+  // itemId whitelist at close time). 顶层调用账本(id→工具名;G7 关帧名寻址白名单要用名)。
+  final Map<String, String> _tracked = {};
   static final _flowrunRe = RegExp(r'"flowrunId"\s*:\s*"([^"]{1,64})"');
   static final _workflowRe = RegExp(r'"workflowId"\s*:\s*"([^"]{1,64})"');
 
@@ -170,7 +172,7 @@ class StageDirectorController extends Notifier<StageState> {
     }
     _director.onRealign(live.keys.toSet(), now);
     for (final e in live.entries) {
-      _tracked.add(e.key);
+      _tracked[e.key] = e.value;
       _director.onToolOpen(
         e.key,
         e.value,
@@ -197,7 +199,7 @@ class StageDirectorController extends Notifier<StageState> {
         // G6:分身体内工具不入导演器——旧行为按优先级反超自家分身抢台、造幻影行、点亮 R-15;
         // 改喂属主活性钟。顶层调用的父=回合根,映不到属主,原路放行。
         if (parentId != null) {
-          final owner = _tracked.contains(parentId)
+          final owner = _tracked.containsKey(parentId)
               ? parentId
               : _ownerOf[parentId];
           if (owner != null) {
@@ -207,7 +209,7 @@ class StageDirectorController extends Notifier<StageState> {
           }
         }
         final name = (node.content?['name'] as String?) ?? '';
-        if (stageRouteOf(name) != null) _tracked.add(env.id);
+        if (stageRouteOf(name) != null) _tracked[env.id] = name;
         if (stageRouteOf(name)?.lifecycle == LifecycleSource.poll) {
           _pollCalls.add(env.id);
         }
@@ -218,7 +220,7 @@ class StageDirectorController extends Notifier<StageState> {
         // body. Keep legacy compatibility too: older servers carried the receipt body on OPEN.
         // 执行生命周期升级后此 Open 在 dispatch 前、正文为空；同时兼容旧服务器（回执正文在 Open）。
         _executionParents[env.id] = parentId;
-        if (_tracked.contains(parentId)) _ownerOf[env.id] = parentId;
+        if (_tracked.containsKey(parentId)) _ownerOf[env.id] = parentId;
         final body = '${node.content?['content'] ?? ''}';
         final m = _flowrunRe.firstMatch(body);
         if (m != null && _pollCalls.contains(parentId)) {
@@ -229,7 +231,7 @@ class StageDirectorController extends Notifier<StageState> {
         // Any other nested child (progress under the result, a delegate's message/reasoning tree):
         // inherit the owner transitively and count the open as the owner's activity (G4/A1-17).
         // 其余嵌套子块传递继承属主,开帧计属主活性。
-        final owner = _tracked.contains(parentId)
+        final owner = _tracked.containsKey(parentId)
             ? parentId
             : _ownerOf[parentId];
         if (owner != null) {
@@ -259,6 +261,15 @@ class StageDirectorController extends Notifier<StageState> {
           // 同时承载 poll 回执的 flowrun id。
           final ok = status != 'error' && status != 'cancelled';
           final body = '${result?.content?['content'] ?? ''}';
+          // G7/A2-11 — the CREATE receipt carries the newborn's REAL id: resolving it here merges
+          // the synthetic live row with the touchpoint ledger row the moment it lands (the old
+          // display-name fallback minted `function:<名字>` keys that never matched `function:fn_…`
+          // — one entity, two rows forever). G7:创建回执带真身 id,在此解出即与台账行合流——旧显示名
+          // 兜底铸出永不合并的键,同一实体永久双行。
+          if (ok) {
+            final rid = _receiptID(body);
+            if (rid != null) _director.onItemResolved(parent, rid);
+          }
           final m = _flowrunRe.firstMatch(body);
           if (m != null && _pollCalls.contains(parent)) {
             _pollFlowrun[parent] = m.group(1)!;
@@ -285,7 +296,7 @@ class StageDirectorController extends Notifier<StageState> {
         // any stage body happens to be expanded; parallel calls to the same target can therefore share
         // one right-island row immediately. 参数流收束时即解析稳定目标，不依赖某张卡是否展开；同目标并行调用可立即合行。
         final args = '${result?.content?['arguments'] ?? ''}';
-        final target = _primaryTargetID(args);
+        final target = _primaryTargetID(_tracked[env.id] ?? '', args);
         if (target != null) _director.onItemResolved(env.id, target);
         if (_pollCalls.contains(env.id)) {
           final m = _workflowRe.firstMatch(args);
@@ -301,11 +312,20 @@ class StageDirectorController extends Notifier<StageState> {
     _publish();
   }
 
-  /// Extract the conventional entity-id keys from a closed tool-call snapshot. Creates have no
-  /// durable target before their receipt, so they intentionally remain distinct; runs/edits carry
-  /// their target id and can be grouped before execution begins. 从关帧参数提取常规实体 id；创建在回执前没有
-  /// 稳定目标，刻意各自独立；执行/编辑带目标 id，执行前即可聚合。
-  static String? _primaryTargetID(String raw) {
+  /// Extract the conventional entity-id keys from a closed tool-call snapshot — TOP-LEVEL keys only
+  /// (G7/A3-7: a deep search false-hit workflow ops' node/edge `id`s and forged `workflow:n1` row
+  /// keys). Creates have no durable target before their receipt ([_receiptID] resolves that at the
+  /// execution terminal); a NAME is an identity only for the name-addressed kinds (skill / memory /
+  /// mcp — their ledger rows key by name), never a general fallback (A2-11).
+  /// 只取顶层常规键(深搜会被 workflow ops 节点 id 假命中);创建等回执;名字只对名寻址 kind 是身份
+  /// (skill/memory/mcp 台账即按名建键),绝非通用兜底。
+  static const _nameAddressed = {
+    'create_skill',
+    'edit_skill',
+    'write_memory',
+    'install_mcp_server',
+  };
+  static String? _primaryTargetID(String toolName, String raw) {
     if (raw.isEmpty) return null;
     try {
       final value = jsonDecode(raw);
@@ -321,8 +341,27 @@ class StageDirectorController extends Notifier<StageState> {
         final id = value[key];
         if (id is String && id.isNotEmpty) return id;
       }
+      if (_nameAddressed.contains(toolName)) {
+        final n = value['name'];
+        if (n is String && n.isNotEmpty) return n;
+      }
     } catch (_) {
       // A malformed LLM call still receives an honest tool result; it simply cannot join an entity row.
+    }
+    return null;
+  }
+
+  /// The created entity's id off an execution receipt body (top-level `id` only). 回执顶层 id。
+  static String? _receiptID(String raw) {
+    if (raw.isEmpty) return null;
+    try {
+      final v = jsonDecode(raw);
+      if (v is Map) {
+        final id = v['id'];
+        if (id is String && id.isNotEmpty) return id;
+      }
+    } catch (_) {
+      // Plain-text receipts (LLM prose) carry no id — the row stays block-keyed. 纯文本回执无 id。
     }
     return null;
   }

@@ -417,6 +417,101 @@ void main() {
     },
   );
 
+  testWidgets(
+    'G7: a user-opened CHANNEL row survives its own itemId resolving (key migration for every view)',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b0', 'create_function'));
+      await tester.pump(const Duration(milliseconds: 600)); // b0 = subject
+      repo.emitFrame(_conv, _open('b1', 'run_function'));
+      await tester.pump(const Duration(milliseconds: 100)); // b1 = channel row
+      await tester.tap(find.text('run_function')); // user opens it 用户手动展开
+      await tester.pump();
+
+      final el = tester.element(find.byType(StagePanel));
+      final container = ProviderScope.containerOf(el, listen: false);
+      expect(
+        container.read(stageExpansionProvider(_conv)).contains('block:b1'),
+        isTrue,
+      );
+
+      // The args close resolves the target id → the key migrates instead of the row snapping shut
+      // in the user's face (the old migration ran for the SUBJECT only). 参流关解出 id→键迁移,
+      // 行不再当面合上(旧迁移只管 subject)。
+      repo.emitFrame(
+        _conv,
+        _close('b1', content: {'arguments': '{"functionId":"fn_9"}'}),
+      );
+      await tester.pump();
+      final exp = container.read(stageExpansionProvider(_conv));
+      expect(exp.contains('function:fn_9'), isTrue);
+      expect(exp.contains('block:b1'), isFalse);
+      await tester.pump(const Duration(seconds: 4)); // drain deadlines 排干闹钟
+    },
+  );
+
+  testWidgets(
+    'G7: a handoff A→B collapses A\'s auto-opened row (per-activity curtain, not subject-null only)',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b1', 'create_function'));
+      await tester.pump(const Duration(milliseconds: 600)); // auto-opened
+      repo.emitFrame(_conv, _close('b1'));
+      repo.emitFrame(_conv, _open('r1', '', parent: 'b1', type: 'tool_result'));
+      repo.emitFrame(_conv, _close('r1')); // settled → breath 落定停拍
+      repo.emitFrame(_conv, _open('b2', 'create_document'));
+      await tester.pump(
+        const Duration(milliseconds: 700),
+      ); // b2 preempts the breath (handoff) 接场
+
+      final el = tester.element(find.byType(StagePanel));
+      final container = ProviderScope.containerOf(el, listen: false);
+      final exp = container.read(stageExpansionProvider(_conv));
+      // The old «subject became null» trigger missed every handoff — A's row stayed open forever
+      // and the island became a wall of open stages. 旧触发只认 subject 归零,接场全漏收。
+      expect(exp.contains('block:b1'), isFalse);
+      expect(exp.contains('block:b2'), isTrue);
+    },
+  );
+
+  testWidgets(
+    'G7: auto-open never CLAIMS a row the user already opened — the curtain leaves it alone',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b1', 'create_function'));
+      await tester.pump(
+        const Duration(milliseconds: 100),
+      ); // debouncing → already a channel row 防抖中已有频道行
+      await tester.tap(find.text('create_function')); // USER opens it 用户先开
+      await tester.pump();
+      await tester.pump(
+        const Duration(milliseconds: 500),
+      ); // staged — sees the row open, must NOT claim it 登台见已开,不认领
+
+      repo.emitFrame(_conv, _close('b1'));
+      repo.emitFrame(_conv, _open('r1', '', parent: 'b1', type: 'tool_result'));
+      repo.emitFrame(_conv, _close('r1'));
+      await tester.pump(
+        const Duration(milliseconds: 2200),
+      ); // breath + curtain 停拍+谢幕
+
+      final el = tester.element(find.byType(StagePanel));
+      final container = ProviderScope.containerOf(el, listen: false);
+      // The user's row survives the curtain (the old claim put it on the collapse list, A2-8).
+      // 用户的行躲过谢幕(旧认领会把它列进收起清单)。
+      expect(
+        container.read(stageExpansionProvider(_conv)).contains('block:b1'),
+        isTrue,
+      );
+    },
+  );
+
   test(
     'R-10 poll: trigger_workflow\'s 202 close NEVER curtains (holds until displaced/dismissed)',
     () {
