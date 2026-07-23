@@ -24,6 +24,8 @@
     "actionFailed": "操作失败",
     "time": {
       "justNow": "刚刚",
+      "soon": "马上",
+      "inMinutes": "$n 分钟后",
       "minutesAgo": "$n 分钟前",
       "hoursAgo": "$n 小时前",
       "yesterday": "昨天",
@@ -203,6 +205,7 @@
       "docAutoRenamed": "请求名被占,已自动改名",
       "skillNoRevert": "整份覆盖 · 无版本可回退",
       "skillPreauth": "激活后免危险确认(预授权)",
+      "skillPreauthPending": "已请求预授权·信任门未批,确认仍逐次",
       "skillInline": "内联",
       "skillFork": "派生",
       "docSoftFail": "未生效",
@@ -585,6 +588,7 @@
       "subagentUnnamed": "子代理",
       "delegated": "委派",
       "rowFailed": "失败",
+      "draftFailed": "创建失败·残稿如下",
       "rowSettling": "正在落定",
       "rowRunning": "运行中",
       "clearRow": "清除此行",
@@ -949,6 +953,7 @@
       "gatePill": "AI 在等你决定 →",
       "livePill": "AI 正在编辑 $name →",
       "tombstone": "已删除",
+      "loadFailed": "加载失败",
       "goToEntity": "去实体页",
       "jumpToScene": "跳到发生处",
       "verb": {

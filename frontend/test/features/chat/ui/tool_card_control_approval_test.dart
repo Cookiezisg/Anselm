@@ -117,7 +117,8 @@ void main() {
       expect(find.textContaining('采购审批'), findsOneWidget);
       // The rules strip: timeout badge + behaviour + note-allowed. 规则条。
       expect(find.widgetWithText(AnChip, '30d'), findsOneWidget);
-      expect(find.textContaining('reject'), findsOneWidget);
+      // The humane sentence, not the raw enum (G10/A3-20). 人话而非裸枚举。
+      expect(find.text(t.chat.stage.timeoutReject(d: '30d')), findsOneWidget);
       // Mock decision buttons (disabled preview). mock 决策钮(禁用预览)。
       expect(find.widgetWithText(AnButton, '批准'), findsOneWidget);
       expect(find.widgetWithText(AnButton, '拒绝'), findsOneWidget);

@@ -8,6 +8,7 @@ import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/stage_truth.dart';
 import '../tool_card_skins.dart';
+import 'stage_frame.dart';
 import 'stage_scene.dart';
 
 /// The HANDLER stage (WRK-061 §7-2, W5) — the method rack on a vertical lifecycle rail
@@ -49,9 +50,23 @@ class HandlerStageBody extends ConsumerWidget {
     for (final raw in ops) {
       if (raw is! Map) continue;
       switch (raw['op']) {
-        case 'add_method' || 'update_method':
+        case 'add_method':
           final m = raw['method'];
           if (m is Map) methods.add(m);
+        case 'update_method':
+          // REAL wire shape (G10/A3-30): `name` + RFC-7396 `patch` — the old read looked for a
+          // full `method` object and silently dropped every update. 真线缆形=name+patch;旧读法
+          // 找整 method 对象,update 全被静默丢弃、方法架空空。
+          final name = raw['name'];
+          final patch = raw['patch'];
+          if (name is String && patch is Map) {
+            final i = methods.indexWhere((m) => m['name'] == name);
+            if (i >= 0) {
+              methods[i] = {...methods[i], ...patch};
+            } else {
+              methods.add({'name': name, ...patch});
+            }
+          }
         case 'set_init':
           // REAL wire key first (`initBody`, backend apply.go); code/body kept as legacy fallbacks.
           // 真线缆键 initBody 优先;code/body 兜历史。
@@ -140,16 +155,21 @@ class HandlerStageBody extends ConsumerWidget {
           ),
         if (schema.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s4),
-          Wrap(
-            spacing: AnSpace.s4,
-            runSpacing: AnSpace.s4,
-            children: [
-              for (final f in schema.whereType<Map>())
-                AnChip(
-                  f['sensitive'] == true ? '${f['name']} ••••' : '${f['name']}',
-                  tone: f['sensitive'] == true ? AnTone.warn : AnTone.none,
-                ),
-            ],
+          // 假想框律(G10/A3-31):schema 药丸(裸 chips)归假想框(X=8)。Bare chips join the frame.
+          stageFramed(
+            Wrap(
+              spacing: AnSpace.s4,
+              runSpacing: AnSpace.s4,
+              children: [
+                for (final f in schema.whereType<Map>())
+                  AnChip(
+                    f['sensitive'] == true
+                        ? '${f['name']} ••••'
+                        : '${f['name']}',
+                    tone: f['sensitive'] == true ? AnTone.warn : AnTone.none,
+                  ),
+              ],
+            ),
           ),
         ],
         if (!scene.live && !scene.failed) ...[
@@ -169,15 +189,21 @@ class HandlerStageBody extends ConsumerWidget {
     required bool lit,
   }) => Padding(
     padding: const EdgeInsets.symmetric(vertical: AnSpace.s2),
-    child: Row(
-      children: [
-        lit ? AnStatusDot.raw(c.accent) : AnStatusDot.raw(c.line, hollow: true),
-        const SizedBox(width: AnSpace.s6),
-        Text(
-          label,
-          style: AnText.meta.copyWith(color: lit ? c.inkMuted : c.inkFaint),
-        ),
-      ],
+    // 假想框律(G10/A3-31):轨段裸行归假想框(X=8),与其余舞台的裸内容同一条框线。The imaginary-frame
+    // law: the bare rail row joins the X=8 frame like every other stage's bare content.
+    child: stageFramed(
+      Row(
+        children: [
+          lit
+              ? AnStatusDot.raw(c.accent)
+              : AnStatusDot.raw(c.line, hollow: true),
+          const SizedBox(width: AnSpace.s6),
+          Text(
+            label,
+            style: AnText.meta.copyWith(color: lit ? c.inkMuted : c.inkFaint),
+          ),
+        ],
+      ),
     ),
   );
 
@@ -202,39 +228,47 @@ class HandlerStageBody extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              AnStatusDot.raw(c.accent),
-              const SizedBox(width: AnSpace.s6),
-              Flexible(
-                child: Text(
-                  name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.label
-                      .weight(AnText.emphasisWeight)
-                      .copyWith(color: c.ink),
-                ),
-              ),
-              if (streaming) ...[
-                const SizedBox(width: AnSpace.s4),
-                Icon(AnIcons.activity, size: AnSize.iconXs, color: c.accent),
-              ],
-              if (timeout != null) ...[
+          // 假想框律(G10/A3-31):书脊头行(裸内容)归假想框(X=8);其下代码窗(真框)贴 X=0。
+          stageFramed(
+            Row(
+              children: [
+                AnStatusDot.raw(c.accent),
                 const SizedBox(width: AnSpace.s6),
-                Icon(
-                  AnIcons.timeout,
-                  size: AnSize.iconSm,
-                  color: c.inkFaint,
-                  semanticLabel: context.t.a11y.timeoutBudget,
+                Flexible(
+                  child: Text(
+                    name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.label
+                        .weight(AnText.emphasisWeight)
+                        .copyWith(color: c.ink),
+                  ),
                 ),
-                const SizedBox(width: AnSpace.s4),
-                Text(
-                  '$timeout',
-                  style: AnText.meta.copyWith(color: c.inkFaint),
-                ),
+                if (streaming) ...[
+                  const SizedBox(width: AnSpace.s4),
+                  Icon(AnIcons.activity, size: AnSize.iconXs, color: c.accent),
+                ],
+                if (timeout != null) ...[
+                  const SizedBox(width: AnSpace.s6),
+                  Icon(
+                    AnIcons.timeout,
+                    size: AnSize.iconSm,
+                    color: c.inkFaint,
+                    semanticLabel: context.t.a11y.timeoutBudget,
+                  ),
+                  const SizedBox(width: AnSpace.s4),
+                  Text(
+                    // A clock word, not a bare millisecond count (G10/A3-31 附): 30000 → 30s. 钟词。
+                    timeout is num
+                        ? (timeout >= 1000
+                              ? '${(timeout / 1000).toStringAsFixed(timeout % 1000 == 0 ? 0 : 1)}s'
+                              : '${timeout}ms')
+                        : '$timeout',
+                    style: AnText.meta.copyWith(color: c.inkFaint),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
           if (body != null && body.isNotEmpty)
             Padding(

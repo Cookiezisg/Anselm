@@ -123,7 +123,7 @@ void main() {
         _delta(
           'tc',
           '{"handlerId":"hd_1","ops":['
-              '{"op":"add_method","method":{"name":"send","streaming":true,"timeout":30,"body":"def send(self):\\n    push()\\n"}},'
+              '{"op":"add_method","method":{"name":"send","streaming":true,"timeout":30000,"body":"def send(self):\\n    push()\\n"}},'
               '{"op":"add_method","method":{"name":"drain","body":"def drain(self):\\n    fl',
         ),
       );
@@ -144,9 +144,9 @@ void main() {
       ); // streaming pulse 流式脉冲
       expect(find.byIcon(AnIcons.timeout), findsOneWidget);
       expect(
-        find.text('30'),
+        find.text('30s'),
         findsOneWidget,
-      ); // the timeout value beside the clock 时限值
+      ); // the clock WORD, not bare milliseconds (G10) 钟词而非裸毫秒
 
       expect(
         find.textContaining('push()'),
@@ -158,7 +158,7 @@ void main() {
       expect(find.textContaining('fl'), findsNothing);
 
       const finalArgs =
-          '{"handlerId":"hd_1","ops":[{"op":"add_method","method":{"name":"send","streaming":true,"timeout":30,"body":"def send(self):\\n    push()\\n"}},{"op":"add_method","method":{"name":"drain","body":"def drain(self):\\n    flush()\\n"}}]}';
+          '{"handlerId":"hd_1","ops":[{"op":"add_method","method":{"name":"send","streaming":true,"timeout":30000,"body":"def send(self):\\n    push()\\n"}},{"op":"add_method","method":{"name":"drain","body":"def drain(self):\\n    flush()\\n"}}]}';
       repo.emitFrame(_conv, _close('tc', finalArgs));
       // The execution bracket (G4): the settled face waits for the tool_result close. 执行括号。
       repo.emitFrame(_conv, _resultOpen('tr', 'tc'));

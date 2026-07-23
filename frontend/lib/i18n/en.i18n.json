@@ -24,6 +24,8 @@
     "actionFailed": "Action failed",
     "time": {
       "justNow": "Just now",
+      "soon": "soon",
+      "inMinutes": "in $n min",
       "minutesAgo": "$n min ago",
       "hoursAgo": "$n hr ago",
       "yesterday": "Yesterday",
@@ -203,6 +205,7 @@
       "docAutoRenamed": "requested name was taken, auto-renamed",
       "skillNoRevert": "whole overwrite · no version to revert to",
       "skillPreauth": "pre-authorized after activation (no confirm)",
+      "skillPreauthPending": "Pre-authorization requested — not yet granted; confirmations still apply",
       "skillInline": "inline",
       "skillFork": "fork",
       "docSoftFail": "did not take effect",
@@ -585,6 +588,7 @@
       "subagentUnnamed": "Subagent",
       "delegated": "Delegated",
       "rowFailed": "Failed",
+      "draftFailed": "Create failed · draft below",
       "rowSettling": "Settling",
       "rowRunning": "Running",
       "clearRow": "Clear this row",
@@ -949,6 +953,7 @@
       "gatePill": "AI awaits your decision →",
       "livePill": "AI is editing $name →",
       "tombstone": "Deleted",
+      "loadFailed": "Load failed",
       "goToEntity": "Open entity",
       "jumpToScene": "Jump to occurrence",
       "verb": {

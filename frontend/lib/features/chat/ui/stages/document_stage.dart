@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/widgets.dart';
@@ -45,14 +46,22 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
   bool _diverged = false;
   int _paraScanned = 0;
   final List<int> _paragraphs = [];
-  String _baselineKey = ''; // rebuild bookkeeping if the baseline swaps 基线换则重算
+  // G10/A3-11 — the bookkeeping GENERATION is the edit block id + baseline length: the accordion
+  // reuses this State across successive edits of the SAME document (same rowId → same Element), so
+  // keying on baseline length alone left _diverged/_paragraphs poisoned by the previous edit (the
+  // spine showed last edit's offsets, the fast-forward never ran again). 记账代际=编辑块id+基线长:
+  // 同文档二次编辑复用同一 State,旧长度键留下上次的分叉旗与段界——书脊错位、快进失灵。
+  String _baselineKey = '';
 
-  void _advance(String baseline, String content) {
-    if (_baselineKey != baseline.length.toString()) {
-      _baselineKey = baseline.length.toString();
+  void _advance(String generation, String baseline, String content) {
+    final key = '$generation:${baseline.length}';
+    if (_baselineKey != key) {
+      _baselineKey = key;
       _compared = 0;
       _prefixLen = 0;
       _diverged = false;
+      _paragraphs.clear();
+      _paraScanned = 0;
     }
     if (!_diverged) {
       final limit = math.min(content.length, baseline.length);
@@ -116,7 +125,7 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
     }
 
     final text = content ?? '';
-    if (scene.live) _advance(baseline, text);
+    if (scene.live) _advance(scene.node.id, baseline, text);
 
     if (scene.live) {
       final fastForwarding =
@@ -212,7 +221,10 @@ class _DocumentStageBodyState extends ConsumerState<DocumentStageBody> {
               Text(
                 t.chat.stage.wholeReplace(
                   from: formatBytes(oldBytes),
-                  to: formatBytes(settled.length),
+                  // BYTES on both ends (G10/A3-12): String.length is UTF-16 code units — a pure-CJK
+                  // document read ~3× smaller on the right side of the badge. 两端同为字节:码元数
+                  // 让中文文档右端缩水三倍,「诚实徽」撒谎。
+                  to: formatBytes(utf8.encode(settled).length),
                 ),
                 style: AnText.meta.copyWith(color: c.inkFaint),
               ),

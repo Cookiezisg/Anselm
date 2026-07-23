@@ -1437,6 +1437,12 @@ class Translations$chat$time$en {
 	/// en: 'Just now'
 	String get justNow => 'Just now';
 
+	/// en: 'soon'
+	String get soon => 'soon';
+
+	/// en: 'in $n min'
+	String inMinutes({required Object n}) => 'in ${n} min';
+
 	/// en: '$n min ago'
 	String minutesAgo({required Object n}) => '${n} min ago';
 
@@ -1873,6 +1879,9 @@ class Translations$chat$tool$en {
 
 	/// en: 'pre-authorized after activation (no confirm)'
 	String get skillPreauth => 'pre-authorized after activation (no confirm)';
+
+	/// en: 'Pre-authorization requested — not yet granted; confirmations still apply'
+	String get skillPreauthPending => 'Pre-authorization requested — not yet granted; confirmations still apply';
 
 	/// en: 'inline'
 	String get skillInline => 'inline';
@@ -2967,6 +2976,9 @@ class Translations$chat$stage$en {
 	/// en: 'Failed'
 	String get rowFailed => 'Failed';
 
+	/// en: 'Create failed · draft below'
+	String get draftFailed => 'Create failed · draft below';
+
 	/// en: 'Settling'
 	String get rowSettling => 'Settling';
 
@@ -3779,6 +3791,9 @@ class Translations$feedback$cast$en {
 
 	/// en: 'Deleted'
 	String get tombstone => 'Deleted';
+
+	/// en: 'Load failed'
+	String get loadFailed => 'Load failed';
 
 	/// en: 'Open entity'
 	String get goToEntity => 'Open entity';
@@ -6359,6 +6374,8 @@ extension on Translations {
 			'chat.deleteConfirm' => 'Delete',
 			'chat.actionFailed' => 'Action failed',
 			'chat.time.justNow' => 'Just now',
+			'chat.time.soon' => 'soon',
+			'chat.time.inMinutes' => ({required Object n}) => 'in ${n} min',
 			'chat.time.minutesAgo' => ({required Object n}) => '${n} min ago',
 			'chat.time.hoursAgo' => ({required Object n}) => '${n} hr ago',
 			'chat.time.yesterday' => 'Yesterday',
@@ -6530,6 +6547,7 @@ extension on Translations {
 			'chat.tool.docAutoRenamed' => 'requested name was taken, auto-renamed',
 			'chat.tool.skillNoRevert' => 'whole overwrite · no version to revert to',
 			'chat.tool.skillPreauth' => 'pre-authorized after activation (no confirm)',
+			'chat.tool.skillPreauthPending' => 'Pre-authorization requested — not yet granted; confirmations still apply',
 			'chat.tool.skillInline' => 'inline',
 			'chat.tool.skillFork' => 'fork',
 			'chat.tool.docSoftFail' => 'did not take effect',
@@ -6845,11 +6863,11 @@ extension on Translations {
 			'chat.gate.decidedDeclined' => 'Skipped',
 			'chat.contextCompacted' => 'Context compacted',
 			'chat.contextCompactedCount' => ({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary',
+			_ => null,
+		} ?? switch (path) {
 			'chat.stage.title' => 'Sidestage',
 			'chat.stage.island' => 'Activity',
 			'chat.stage.tasks' => 'Tasks',
-			_ => null,
-		} ?? switch (path) {
 			'chat.stage.expandAll' => 'Expand all',
 			'chat.stage.collapseAll' => 'Collapse all',
 			'chat.stage.glanceTouched' => ({required Object n}) => '${n} touched',
@@ -6904,6 +6922,7 @@ extension on Translations {
 			'chat.stage.subagentUnnamed' => 'Subagent',
 			'chat.stage.delegated' => 'Delegated',
 			'chat.stage.rowFailed' => 'Failed',
+			'chat.stage.draftFailed' => 'Create failed · draft below',
 			'chat.stage.rowSettling' => 'Settling',
 			'chat.stage.rowRunning' => 'Running',
 			'chat.stage.clearRow' => 'Clear this row',
@@ -7244,6 +7263,7 @@ extension on Translations {
 			'feedback.cast.gatePill' => 'AI awaits your decision →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI is editing ${name} →',
 			'feedback.cast.tombstone' => 'Deleted',
+			'feedback.cast.loadFailed' => 'Load failed',
 			'feedback.cast.goToEntity' => 'Open entity',
 			'feedback.cast.jumpToScene' => 'Jump to occurrence',
 			'feedback.cast.verb.mentioned' => 'Mentioned',
@@ -7357,13 +7377,13 @@ extension on Translations {
 			'a11y.relationSummary' => ({required Object nodes, required Object edges}) => 'Relationship graph. ${nodes} entities, ${edges} relations.',
 			'a11y.relationNode' => ({required Object name, required Object kind, required Object count}) => '${name}, ${kind}, referenced by ${count}',
 			'a11y.relationExpand' => 'Expand relationship graph',
+			_ => null,
+		} ?? switch (path) {
 			'diff.added' => 'Added',
 			'diff.removed' => 'Removed',
 			'tree.invalidJson' => 'Invalid JSON',
 			'tree.circular' => '[Circular]',
 			'tree.moreItems' => ({required Object count}) => '${count} more (truncated)',
-			_ => null,
-		} ?? switch (path) {
 			'startup.connecting' => 'Connecting to the local engine…',
 			'startup.crashedTitle' => 'Can\'t reach the local engine',
 			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).',
@@ -7871,13 +7891,13 @@ extension on Translations {
 			'settings.keys.freeTier' => 'Free tier',
 			'settings.keys.freeTierName' => 'Anselm Free · Auto multimodal',
 			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · resets ${reset}',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.freeUnavailable' => 'Gateway day budget exhausted — back tomorrow',
 			'settings.keys.freeEnable' => 'Enable free tier',
 			'settings.keys.freeEnableHint' => 'Registers this machine\'s anonymous fingerprint with the Anselm gateway for a quota',
 			'settings.keys.freeProvisioning' => 'Provisioning…',
 			'settings.keys.freeRefresh' => 'Refresh',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
 			'settings.keys.keysSection' => 'API keys',
 			'settings.keys.addKey' => 'Add key',

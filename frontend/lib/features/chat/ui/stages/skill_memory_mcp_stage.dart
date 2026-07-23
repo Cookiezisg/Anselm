@@ -34,6 +34,10 @@ class SkillStageBody extends StatelessWidget {
     final session = scene.session;
     final ctx = session.closedStringAt(['context']);
     final allowed = session.arrayItemsAt(['allowedTools']);
+    // Missing key = the live create/edit path (the request itself) — treated as in-force so the
+    // power handover stays visible; the truth projection says false for unapproved installs.
+    // 键缺席=live 建/改路径(请求本身),按生效渲以保「权力让渡可见」;真身投影对未批安装给 false。
+    final approved = session.closedValueAt(['toolsApproved']) != false;
     final args = session.arrayItemsAt(['arguments']);
     final noModel = session.closedValueAt(['disableModelInvocation']) == true;
     final body = session.liveStringNamed('body') ?? '';
@@ -65,14 +69,21 @@ class SkillStageBody extends StatelessWidget {
             if (allowed.isNotEmpty) ...[
               const SizedBox(height: AnSpace.s6),
               _metaRow(c, t.chat.stage.skillTools, [
-                // AMBER — activation pre-authorizes these tools past the danger gate. 琥珀:预授权免确认。
-                for (final tool in allowed) AnChip('$tool', tone: AnTone.warn),
+                // AMBER only while the pre-authorization is IN FORCE (G10/A3-28); an unapproved
+                // install renders neutral — claiming «免确认» early overstates the handover.
+                // 琥珀仅在预授权生效时;未批安装渲中性——提前称「免确认」是夸大让渡。
+                for (final tool in allowed)
+                  AnChip('$tool', tone: approved ? AnTone.warn : AnTone.none),
               ]),
               Padding(
                 padding: const EdgeInsets.only(top: AnSpace.s2),
                 child: Text(
-                  t.chat.tool.skillPreauth,
-                  style: AnText.meta.copyWith(color: c.warn),
+                  approved
+                      ? t.chat.tool.skillPreauth
+                      : t.chat.tool.skillPreauthPending,
+                  style: AnText.meta.copyWith(
+                    color: approved ? c.warn : c.inkFaint,
+                  ),
                 ),
               ),
             ],

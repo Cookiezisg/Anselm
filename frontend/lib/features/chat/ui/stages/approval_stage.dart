@@ -47,13 +47,28 @@ class ApprovalStageBody extends StatelessWidget {
         // icon 沟文法:「预览·尚未寄出」标识行的字形坐进沟格、文字落文字列;信笺 AnWindow(真框)满宽贴 X=0。
         // The icon-gutter grammar: the「预览·尚未寄出」identity row's glyph sits in the gutter; the letter
         // window (a real frame) fills the body width at X=0.
-        stageGutterRow(
-          lead: Icon(AnIcons.approval, size: AnSize.iconSm, color: c.inkFaint),
-          child: Text(
-            t.chat.stage.previewUnsent,
-            style: AnText.meta.copyWith(color: c.inkFaint),
+        if (scene.live)
+          stageGutterRow(
+            lead: Icon(
+              AnIcons.approval,
+              size: AnSize.iconSm,
+              color: c.inkFaint,
+            ),
+            child: Text(
+              t.chat.stage.previewUnsent,
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+          )
+        else
+          // G10/A3-21 — a FAILED create is not a «preview about to be sent»: it will never be sent.
+          // 失败的创建不是「即将寄出的预览」——它永远寄不出去。
+          stageGutterRow(
+            lead: Icon(AnIcons.error, size: AnSize.iconSm, color: c.danger),
+            child: Text(
+              t.chat.stage.draftFailed,
+              style: AnText.meta.copyWith(color: c.danger),
+            ),
           ),
-        ),
         const SizedBox(height: AnSpace.s4),
         if (template.isNotEmpty) AnWindow(child: _letter(context, c, template)),
         if (timeout != null)

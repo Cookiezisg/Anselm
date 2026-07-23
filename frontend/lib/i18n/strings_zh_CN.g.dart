@@ -664,6 +664,8 @@ class _Translations$chat$time$zh_CN extends Translations$chat$time$en {
 
 	// Translations
 	@override String get justNow => '刚刚';
+	@override String get soon => '马上';
+	@override String inMinutes({required Object n}) => '${n} 分钟后';
 	@override String minutesAgo({required Object n}) => '${n} 分钟前';
 	@override String hoursAgo({required Object n}) => '${n} 小时前';
 	@override String get yesterday => '昨天';
@@ -828,6 +830,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get docAutoRenamed => '请求名被占,已自动改名';
 	@override String get skillNoRevert => '整份覆盖 · 无版本可回退';
 	@override String get skillPreauth => '激活后免危险确认(预授权)';
+	@override String get skillPreauthPending => '已请求预授权·信任门未批,确认仍逐次';
 	@override String get skillInline => '内联';
 	@override String get skillFork => '派生';
 	@override String get docSoftFail => '未生效';
@@ -1206,6 +1209,7 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get subagentUnnamed => '子代理';
 	@override String get delegated => '委派';
 	@override String get rowFailed => '失败';
+	@override String get draftFailed => '创建失败·残稿如下';
 	@override String get rowSettling => '正在落定';
 	@override String get rowRunning => '运行中';
 	@override String get clearRow => '清除此行';
@@ -1519,6 +1523,7 @@ class _Translations$feedback$cast$zh_CN extends Translations$feedback$cast$en {
 	@override String get gatePill => 'AI 在等你决定 →';
 	@override String livePill({required Object name}) => 'AI 正在编辑 ${name} →';
 	@override String get tombstone => '已删除';
+	@override String get loadFailed => '加载失败';
 	@override String get goToEntity => '去实体页';
 	@override String get jumpToScene => '跳到发生处';
 	@override late final _Translations$feedback$cast$verb$zh_CN verb = _Translations$feedback$cast$verb$zh_CN._(_root);
@@ -2706,6 +2711,8 @@ extension on TranslationsZhCn {
 			'chat.deleteConfirm' => '删除',
 			'chat.actionFailed' => '操作失败',
 			'chat.time.justNow' => '刚刚',
+			'chat.time.soon' => '马上',
+			'chat.time.inMinutes' => ({required Object n}) => '${n} 分钟后',
 			'chat.time.minutesAgo' => ({required Object n}) => '${n} 分钟前',
 			'chat.time.hoursAgo' => ({required Object n}) => '${n} 小时前',
 			'chat.time.yesterday' => '昨天',
@@ -2877,6 +2884,7 @@ extension on TranslationsZhCn {
 			'chat.tool.docAutoRenamed' => '请求名被占,已自动改名',
 			'chat.tool.skillNoRevert' => '整份覆盖 · 无版本可回退',
 			'chat.tool.skillPreauth' => '激活后免危险确认(预授权)',
+			'chat.tool.skillPreauthPending' => '已请求预授权·信任门未批,确认仍逐次',
 			'chat.tool.skillInline' => '内联',
 			'chat.tool.skillFork' => '派生',
 			'chat.tool.docSoftFail' => '未生效',
@@ -3192,11 +3200,11 @@ extension on TranslationsZhCn {
 			'chat.gate.decidedDeclined' => '已跳过',
 			'chat.contextCompacted' => '上下文已压缩',
 			'chat.contextCompactedCount' => ({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要',
+			_ => null,
+		} ?? switch (path) {
 			'chat.stage.title' => '侧幕',
 			'chat.stage.island' => '活动',
 			'chat.stage.tasks' => '待办',
-			_ => null,
-		} ?? switch (path) {
 			'chat.stage.expandAll' => '展开全部',
 			'chat.stage.collapseAll' => '收起全部',
 			'chat.stage.glanceTouched' => ({required Object n}) => '${n} 触点',
@@ -3251,6 +3259,7 @@ extension on TranslationsZhCn {
 			'chat.stage.subagentUnnamed' => '子代理',
 			'chat.stage.delegated' => '委派',
 			'chat.stage.rowFailed' => '失败',
+			'chat.stage.draftFailed' => '创建失败·残稿如下',
 			'chat.stage.rowSettling' => '正在落定',
 			'chat.stage.rowRunning' => '运行中',
 			'chat.stage.clearRow' => '清除此行',
@@ -3591,6 +3600,7 @@ extension on TranslationsZhCn {
 			'feedback.cast.gatePill' => 'AI 在等你决定 →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
 			'feedback.cast.tombstone' => '已删除',
+			'feedback.cast.loadFailed' => '加载失败',
 			'feedback.cast.goToEntity' => '去实体页',
 			'feedback.cast.jumpToScene' => '跳到发生处',
 			'feedback.cast.verb.mentioned' => '提及',
@@ -3704,13 +3714,13 @@ extension on TranslationsZhCn {
 			'a11y.relationSummary' => ({required Object nodes, required Object edges}) => '关系图。${nodes} 个实体，${edges} 条关系。',
 			'a11y.relationNode' => ({required Object name, required Object kind, required Object count}) => '${name}，${kind}，被 ${count} 个实体引用',
 			'a11y.relationExpand' => '展开关系图',
+			_ => null,
+		} ?? switch (path) {
 			'diff.added' => '新增',
 			'diff.removed' => '删除',
 			'tree.invalidJson' => '无效 JSON',
 			'tree.circular' => '[循环引用]',
 			'tree.moreItems' => ({required Object count}) => '${count} 项已省略',
-			_ => null,
-		} ?? switch (path) {
 			'startup.connecting' => '正在连接本地引擎…',
 			'startup.crashedTitle' => '无法连接本地引擎',
 			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。',
@@ -4218,13 +4228,13 @@ extension on TranslationsZhCn {
 			'settings.keys.freeTier' => '免费档',
 			'settings.keys.freeTierName' => 'Anselm Free · 自动多模态',
 			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · ${reset} 重置',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.freeUnavailable' => '网关今日预算已满,明日恢复',
 			'settings.keys.freeEnable' => '启用免费档',
 			'settings.keys.freeEnableHint' => '将向 Anselm 网关注册本机匿名指纹以分配额度',
 			'settings.keys.freeProvisioning' => '正在开通…',
 			'settings.keys.freeRefresh' => '刷新',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
 			'settings.keys.keysSection' => 'API 密钥',
 			'settings.keys.addKey' => '添加密钥',

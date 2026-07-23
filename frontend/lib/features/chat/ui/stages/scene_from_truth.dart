@@ -264,6 +264,10 @@ Map<String, Object?>? _argsFromTruth(String kind, Object truth) {
           'name': sk.name,
           'context': sk.context,
           'allowedTools': sk.frontmatter.allowedTools,
+          // The trust gate (WRK-076/G10 A3-28): an installed skill's allowedTools are only a
+          // REQUEST until approved — the stage must not wear the amber «免确认» claim early.
+          // 信任门:安装技能的 allowedTools 未批前只是请求,舞台不许提前戴琥珀「免确认」。
+          'toolsApproved': sk.provenance?.toolsApproved ?? true,
           'arguments': sk
               .frontmatter
               .arguments, // the accepted args (the header's「可传什么」) 可传参数

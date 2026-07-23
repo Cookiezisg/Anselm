@@ -60,7 +60,9 @@ class FunctionStageBody extends ConsumerWidget {
         if (ops.isNotEmpty) ...[
           // 假想框律:op ticker(裸 chips)归假想框(X=8);其下 AnCodeEditor(真框)贴 X=0。The imaginary-frame
           // law: the op ticker (bare chips) joins the frame (X=8); the code editor (a real frame) below stays at X=0.
-          stageFramed(_OpTicker(ops: ops, live: scene.live)),
+          stageFramed(
+            _OpTicker(ops: ops, live: scene.live, failed: scene.failed),
+          ),
           const SizedBox(height: AnSpace.s6),
         ],
         if (code.isNotEmpty) ...[
@@ -143,10 +145,18 @@ class FunctionStageBody extends ConsumerWidget {
 /// One neutral chip per completed op, in arrival order (R-4: live shows «已听写», never success).
 /// op ticker:每闭合 op 一枚中性芯片(R-4:live 只示「已听写」,绝不演成功)。
 class _OpTicker extends StatelessWidget {
-  const _OpTicker({required this.ops, required this.live});
+  const _OpTicker({
+    required this.ops,
+    required this.live,
+    required this.failed,
+  });
 
   final List<Object?> ops;
   final bool live;
+
+  /// G10/A3-9 — a FAILED settle must not decorate its ops with success dots: nothing landed.
+  /// 失败落定不许给 op 配成功点:什么都没落库。
+  final bool failed;
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +180,12 @@ class _OpTicker extends StatelessWidget {
                       hollow: true,
                       size: AnSize.dotSm,
                     )
-                  : AnStatusDot.raw(c.ok, size: AnSize.dotSm),
+                  // Failed: a neutral faint dot — the op streamed but never landed (A3-9: the old
+                  // solid-green face performed success on a wreck). 失败=中性淡点(流过未落库)。
+                  : AnStatusDot.raw(
+                      failed ? c.inkFaint : c.ok,
+                      size: AnSize.dotSm,
+                    ),
             ),
       ],
     );

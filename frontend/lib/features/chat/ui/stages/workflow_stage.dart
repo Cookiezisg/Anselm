@@ -1,6 +1,8 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/contract/entities/values.dart';
+import '../../../../core/model/partial_json.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
@@ -12,16 +14,18 @@ import '../tool_card_workflow.dart';
 import 'stage_frame.dart';
 import 'stage_scene.dart';
 
-/// The WORKFLOW stage (WRK-061 §7-4, W3) — the graph grows on a real canvas as ops close: add_node
-/// lands a node, add_edge draws the wire (only COMPLETED ops surface — the session's array facade),
-/// node/edge counters roll, and the LATEST DISCRIMINANT drawer shows the newest node's `input` CELs
-/// through [AnCelGrow] (data inlets as accent capsules). An EDIT rests on the old truth first (R-5):
-/// before any op closes, the CURRENT graph sits on the canvas with a «基于 vN 起改» word — the change
-/// then grows over it. Settle: counts + the result bar + the lifecycle badge from the reconciled GET.
+/// The WORKFLOW stage (WRK-061 §7-4, W3 · G10) — the graph grows on a real canvas as ops close. An
+/// EDIT rests on the old truth first (R-5, the frozen G9 baseline) and its ops REPLAY ONTO that
+/// graph (add/update/delete node+edge — the old code swapped to an ops-only island, so «add one
+/// node to a ten-node workflow» collapsed the canvas to a single orphan, A3-14). The stratum ink +
+/// «基于 vN 起改» are LIVE-only (a settled update-edit used to keep the 40% ghost forever, A3-15);
+/// a settled edit reconciles its canvas from the FRESH truth (the G9 invalidation guarantees it).
+/// The LATEST DISCRIMINANT drawer shows the newest node's `input` CELs through [AnCelGrow].
 ///
-/// workflow 舞台(W3)——图在真画布上随 ops 闭合生长:add_node 落点/add_edge 画线(只有闭合 op 上台),
-/// 节点/边计数滚动,「最新判别式」抽屉以 AnCelGrow 渲最新节点的 input CEL。edit 先静置旧真相(R-5):
-/// 首 op 闭合前画布上是现图+「基于 vN 起改」;改动长在其上。落定:计数+结果条+生命周期徽(对账 GET)。
+/// workflow 舞台(W3·G10)——图随 ops 闭合在真画布生长。edit 先静置旧真相(R-5,G9 冻结基线),ops
+/// **重放在旧图上**(增/改/删节点与边——旧代码整图换成孤岛,「十节点加一个」塌成单点,A3-14);地层墨
+/// 与「基于 vN」仅 live(旧落定 update-edit 永挂 40% 幽灵,A3-15);落定 edit 画布对账**新鲜真相**
+/// (G9 失效保证其新)。「最新判别式」抽屉以 AnCelGrow 渲最新节点 input CEL。
 class WorkflowStageBody extends ConsumerWidget {
   const WorkflowStageBody({required this.scene, super.key});
 
@@ -42,11 +46,24 @@ class WorkflowStageBody extends ConsumerWidget {
     final oldVersion = truth?.asData?.value.activeVersion?.version;
 
     final opsGraph = graphFromWorkflowOps(session);
-    final hasOps = opsGraph.nodes.isNotEmpty || opsGraph.edges.isNotEmpty;
-    // The edit rests on the old truth until the first op closes; a create grows from the void.
-    // edit 静置旧图直到首 op 闭合;create 从虚空长起。
-    final graph = hasOps ? opsGraph : oldGraph;
-    final showsOld = !hasOps && oldGraph != null;
+    final hasOps = _hasAnyOp(session);
+    // Settled EDITS reconcile from the FRESH truth (G9 invalidated it at the terminal). 落定对账新真相。
+    final fresh = (!scene.live && editId != null)
+        ? ref.watch(workflowTruthProvider(editId))
+        : null;
+    final freshGraph = fresh?.asData?.value.activeVersion?.graphParsed;
+    // Live: an edit's ops replay ONTO the old truth (never an ops-only island); a create grows from
+    // the void. Settled: edit=reconciled truth, create=its own ops. live:edit ops 重放旧图上/create
+    // 从虚空长;落定:edit=对账真相、create=自身 ops。
+    final Graph? graph;
+    if (scene.live) {
+      graph = oldGraph != null && hasOps
+          ? _applyOps(oldGraph, session)
+          : (hasOps ? opsGraph : oldGraph);
+    } else {
+      graph = editId != null ? (freshGraph ?? oldGraph) : opsGraph;
+    }
+    final showsOld = scene.live && !hasOps && oldGraph != null;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -95,6 +112,73 @@ class WorkflowStageBody extends ConsumerWidget {
           runStatBarOf(context, scene.state),
         ],
       ],
+    );
+  }
+
+  /// ANY completed op counts as «the edit started» — update/delete ops never fed the add-only
+  /// graph builder, so an update-only edit read as «no ops yet» forever. 任何闭合 op 都算开工:
+  /// update/delete 不进只加图,旧判据让 update-only 编辑恒「未开工」。
+  bool _hasAnyOp(PartialJsonSession session) =>
+      session.arrayItemsAt(['ops']).whereType<Map>().isNotEmpty;
+
+  /// G10/A3-14 — replay the edit's completed ops ONTO the baseline graph (REAL wire shapes:
+  /// add_node `node{…}` / update_node `id`+`patch` / delete_node `id` / add_edge `edge{…}` /
+  /// delete_edge `id`, backend domain/workflow/ops.go). Deleting a node drops its touching edges,
+  /// mirroring the backend apply. 把闭合 ops 重放在基线图上(真线缆形);删节点连带删其边,镜像后端。
+  Graph _applyOps(Graph base, PartialJsonSession session) {
+    final nodes = <String, Node>{for (final n in base.nodes) n.id: n};
+    final edges = <String, Edge>{for (final e in base.edges) e.id: e};
+    for (final raw in session.arrayItemsAt(['ops'])) {
+      if (raw is! Map) continue;
+      switch (raw['op']) {
+        case 'add_node':
+          final n = raw['node'];
+          if (n is Map && n['id'] is String) {
+            nodes[n['id'] as String] = Node(
+              id: n['id'] as String,
+              kind: workflowNodeKind(n['kind']),
+              ref: (n['ref'] ?? '').toString(),
+            );
+          }
+        case 'update_node':
+          final id = raw['id'];
+          final patch = raw['patch'];
+          final cur = id is String ? nodes[id] : null;
+          if (cur != null && patch is Map) {
+            nodes[id as String] = cur.copyWith(
+              kind: patch['kind'] == null
+                  ? cur.kind
+                  : workflowNodeKind(patch['kind']),
+              ref: patch['ref'] is String ? patch['ref'] as String : cur.ref,
+            );
+          }
+        case 'delete_node':
+          final id = raw['id'];
+          if (id is String) {
+            nodes.remove(id);
+            edges.removeWhere((_, e) => e.from == id || e.to == id);
+          }
+        case 'add_edge':
+          final e = raw['edge'];
+          if (e is Map &&
+              e['id'] is String &&
+              e['from'] is String &&
+              e['to'] is String) {
+            edges[e['id'] as String] = Edge(
+              id: e['id'] as String,
+              from: e['from'] as String,
+              to: e['to'] as String,
+              fromPort: e['fromPort'] as String?,
+            );
+          }
+        case 'delete_edge':
+          final id = raw['id'];
+          if (id is String) edges.remove(id);
+      }
+    }
+    return Graph(
+      nodes: nodes.values.toList(growable: false),
+      edges: edges.values.toList(growable: false),
     );
   }
 

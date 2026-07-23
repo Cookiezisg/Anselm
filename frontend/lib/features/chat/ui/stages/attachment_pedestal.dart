@@ -67,8 +67,13 @@ class AttachmentPedestal extends ConsumerWidget {
           ),
         ],
       ),
-      AsyncError() => Text(
-        Translations.of(context).feedback.cast.tombstone,
+      // G10/A3-39 — only a true NOT_FOUND is a tombstone; a transient error must say so (the old
+      // face read «已删除» for every failure and the poisoned cache made it permanent). 只有真 404
+      // 才是墓碑;瞬时错误要如实说错(旧脸对一切失败渲「已删除」)。
+      AsyncError(:final error) => Text(
+        '$error'.contains('NOT_FOUND') || '$error'.contains('404')
+            ? Translations.of(context).feedback.cast.tombstone
+            : Translations.of(context).feedback.cast.loadFailed,
         style: AnText.meta.copyWith(color: c.inkFaint),
       ),
       _ => const AnSkeleton.lines(2),

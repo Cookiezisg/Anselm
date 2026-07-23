@@ -198,7 +198,14 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
                   if (timeout != null && timeout.isNotEmpty) ...[
                     AnChip(timeout, tone: AnTone.none),
                     Text(
-                      '${t.chat.tool.apfOnTimeout} ${behavior ?? ''}',
+                      // The humane sentence, SAME switch as the live face (G10/A3-20) — the old raw
+                      // enum («超时后 reject») leaked English into the settle. 人话与 live 同一开关,
+                      // 旧裸枚举把英文漏进落定面。
+                      switch (behavior) {
+                        'approve' => t.chat.stage.timeoutApprove(d: timeout),
+                        'fail' => t.chat.stage.timeoutFail(d: timeout),
+                        _ => t.chat.stage.timeoutReject(d: timeout),
+                      },
                       style: AnText.meta.copyWith(
                         color: _behaviorColor(c, behavior),
                       ),

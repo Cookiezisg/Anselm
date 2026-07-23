@@ -59,22 +59,54 @@ class AgentStageBody extends ConsumerWidget {
         // The prompt window: fresh ink when the args opened it, the 40% stratum otherwise (R-9). 散文窗。
         if (promptTouched) ...[
           AnWindow(
-            child: Align(
-              alignment: Alignment.bottomLeft,
-              child: Text(
-                // Live streaming bounds to the word-tail (R-13); a settled truth render shows the FULL prompt
-                // (「看真身」应见全貌,WRK-064). 活流限尾 14 行;落定真身显全文。
-                scene.live ? tailLines(prompt, 14) : prompt,
-                style: AnText.reading.copyWith(color: c.inkMuted),
+            child: scene.live
+                ? Align(
+                    alignment: Alignment.bottomLeft,
+                    child: Text(
+                      // Live streaming bounds to the word-tail (R-13). 活流限尾 14 行。
+                      tailLines(prompt, 14),
+                      style: AnText.reading.copyWith(color: c.inkMuted),
+                    ),
+                  )
+                // Bounded viewport (G10/A3-36): the full prompt stays readable by SCROLLING inside
+                // a capped window — an unbounded wall violated the R-13 spirit. 有界视口内滚动见
+                // 全貌;无界长墙违 R-13 精神。
+                : ConstrainedBox(
+                    constraints: BoxConstraints(
+                      maxHeight: AnSize.codeViewport.toDouble(),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Text(
+                        prompt,
+                        style: AnText.reading.copyWith(color: c.inkMuted),
+                      ),
+                    ),
+                  ),
+          ),
+        ] else if (old != null && old.prompt.isNotEmpty) ...[
+          // Untouched slot: 40% stratum while LIVE (R-9), FULL ink once settled — untouched means
+          // old == current truth, and a settled stage owes the whole persona (G10/A3-35;旧代码落定
+          // 后仍挂 40% 幽灵墨)。
+          if (scene.live)
+            AnLayerDiff(
+              oldText: old.prompt,
+              versionLabel: 'v${old.version}',
+              maxLines: 5,
+            )
+          else
+            AnWindow(
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: AnSize.codeViewport.toDouble(),
+                ),
+                child: SingleChildScrollView(
+                  child: Text(
+                    old.prompt,
+                    style: AnText.reading.copyWith(color: c.inkMuted),
+                  ),
+                ),
               ),
             ),
-          ),
-        ] else if (scene.live && old != null && old.prompt.isNotEmpty) ...[
-          AnLayerDiff(
-            oldText: old.prompt,
-            versionLabel: 'v${old.version}',
-            maxLines: 5,
-          ),
         ],
         const SizedBox(height: AnSpace.s6),
         // 假想框律:腰带/知识/模型芯片(裸 chips)归假想框(X=8);prompt AnWindow(真框)贴 X=0。The
@@ -89,10 +121,11 @@ class AgentStageBody extends ConsumerWidget {
               children: [for (final ref_ in tools) _beltChip(ref_)],
             ),
           )
-        else if (scene.live && old != null && old.tools.isNotEmpty)
+        else if (old != null && old.tools.isNotEmpty)
           stageFramed(
             Opacity(
-              opacity: AnOpacity.stratum,
+              // 40% while live (R-9), full ink settled (G10/A3-35). live 40%,落定全墨。
+              opacity: scene.live ? AnOpacity.stratum : 1,
               child: Wrap(
                 spacing: AnSpace.s4,
                 runSpacing: AnSpace.s4,
@@ -114,10 +147,36 @@ class AgentStageBody extends ConsumerWidget {
               ],
             ),
           ),
+        ] else if (old != null && old.knowledge.isNotEmpty) ...[
+          // R-9 for the KNOWLEDGE slot too (G10/A3-34 — the old stage only stratified prompt/tools,
+          // so an untouched knowledge set silently vanished). knowledge 槽同守 R-9:旧只铺 prompt/
+          // tools 两槽,未提及的知识集凭空消失。
+          const SizedBox(height: AnSpace.s4),
+          stageFramed(
+            Opacity(
+              opacity: scene.live ? AnOpacity.stratum : 1,
+              child: Wrap(
+                spacing: AnSpace.s4,
+                runSpacing: AnSpace.s4,
+                children: [
+                  for (final k in old.knowledge) AnChip(k, tone: AnTone.none),
+                ],
+              ),
+            ),
+          ),
         ],
         if (model != null && model.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s4),
           stageFramed(AnChip(model, tone: AnTone.accent)),
+        ] else if (old?.modelOverride != null) ...[
+          // R-9 for the MODEL slot (G10/A3-34). model 槽同守 R-9。
+          const SizedBox(height: AnSpace.s4),
+          stageFramed(
+            Opacity(
+              opacity: scene.live ? AnOpacity.stratum : 1,
+              child: AnChip(old!.modelOverride!.modelId, tone: AnTone.accent),
+            ),
+          ),
         ],
         if (!scene.live && !scene.failed) ...[
           const SizedBox(height: AnSpace.s6),

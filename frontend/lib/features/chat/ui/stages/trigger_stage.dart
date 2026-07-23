@@ -14,16 +14,17 @@ import '../tool_card_trigger.dart';
 import 'stage_frame.dart';
 import 'stage_scene.dart';
 
-/// The TRIGGER stage (WRK-061 §7-5, W3) — the sentry post: the first closed key (`kind`) swaps in the
-/// right FACE (cron / webhook / fsnotify / sensor — the B2 [triggerConfigFaces] reused verbatim), the
-/// sensor face's condition/output CELs grow through [AnCelGrow], and while the receipt is pending an
-/// [AnRadarSweep] spins — honest waiting, never fabricated progress. Settle reconciles from GET
-/// (R-16: listening / nextFireAt / refCount come from the truth, never from frames): the listening
-/// dot, the next-fire countdown word, the reference count.
+/// The TRIGGER stage (WRK-061 §7-5, W3) — the sentry post: the first closed key (`kind`) swaps in
+/// the right FACE (cron / webhook / fsnotify / sensor — the B2 [triggerConfigFaces] reused verbatim
+/// and rendering the sensor CELs itself; the old extra AnCelGrow encore double-printed them, G10/
+/// A3-24), and while the receipt is pending an [AnRadarSweep] spins — honest waiting, never
+/// fabricated progress. Settle reconciles from GET (R-16: listening / nextFireAt / refCount come
+/// from the truth, never from frames): the listening dot, the next-fire countdown word (FUTURE-
+/// oriented — the past formatter read every future instant as «刚刚», A3-22), the reference count.
 ///
-/// trigger 舞台(W3)——哨位:首个闭合键 kind 换上对应脸(四脸逐字复用 B2),sensor 的 condition/output CEL
-/// 走 AnCelGrow,等回执期 AnRadarSweep 转(诚实等待,不伪造进度)。落定按 GET 对账(R-16:listening/
-/// nextFireAt/refCount 只信真相):监听点+下次点火人话+引用数。
+/// trigger 舞台(W3)——哨位:首个闭合键 kind 换上对应脸(四脸逐字复用 B2,sensor 的 CEL 由脸自渲——
+/// 旧 AnCelGrow 加演把同一表达式印两份,G10/A3-24),等回执期 AnRadarSweep 转(诚实等待)。落定按
+/// GET 对账(R-16):监听点+下次点火**未来向**人话(旧过去向格式器对未来恒「刚刚」)+引用数。
 class TriggerStageBody extends ConsumerWidget {
   const TriggerStageBody({required this.scene, super.key});
 
@@ -64,7 +65,7 @@ class TriggerStageBody extends ConsumerWidget {
           stageFramed(
             Row(
               children: [
-                AnRadarSweep(size: AnSize.icon.toDouble()),
+                AnRadarSweep(size: AnSize.iconSm.toDouble()),
                 const SizedBox(width: AnSpace.s6),
                 Text(
                   t.chat.stage.awaitingReceipt,
@@ -75,30 +76,6 @@ class TriggerStageBody extends ConsumerWidget {
           )
         else if (kind.isNotEmpty) ...[
           stageFramed(triggerConfigFaces(context, kind, config, truthId ?? '')),
-          // The sensor face is the discriminant special: its CELs get the grow treatment on top.
-          // sensor=判别式专场:condition/output 以 AnCelGrow 加演。
-          if (kind == 'sensor') ...[
-            for (final key in const ['condition', 'output'])
-              if (config[key] is String && (config[key] as String).isNotEmpty)
-                stageFramed(
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '$key ',
-                        style: AnText.meta.copyWith(color: c.inkFaint),
-                      ),
-                      Expanded(
-                        child: AnCelGrow(
-                          expression: config[key] as String,
-                          live: scene.live,
-                        ),
-                      ),
-                    ],
-                  ),
-                  top: AnSpace.s2,
-                ),
-          ],
         ],
         if (scene.live && kind.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s6),
@@ -207,12 +184,31 @@ class _LiveClockState extends State<_LiveClock> {
     super.dispose();
   }
 
+  /// FUTURE-oriented clock word (G10/A3-22): [AnCastRow.timeLabel] is past-oriented — a future
+  /// instant computed negative minutes and read «刚刚» forever, making the per-minute re-render
+  /// meaningless. 未来向时钟词:过去向格式器对未来算出负分钟、恒「刚刚」,分钟重渲全白做。
+  String _word(BuildContext context) {
+    final t = Translations.of(context);
+    final now = DateTime.now();
+    final local = widget.at.toLocal();
+    final mins = local.difference(now).inMinutes;
+    if (mins < 1) return t.chat.time.soon;
+    if (mins < 60) return t.chat.time.inMinutes(n: mins);
+    String two(int v) => v.toString().padLeft(2, '0');
+    final hm = '${two(local.hour)}:${two(local.minute)}';
+    final sameDay =
+        local.year == now.year &&
+        local.month == now.month &&
+        local.day == now.day;
+    return sameDay ? hm : '${local.month}/${local.day} $hm';
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
     final t = Translations.of(context);
     return Text(
-      t.chat.stage.nextFire(t: AnCastRow.timeLabel(context, widget.at)),
+      t.chat.stage.nextFire(t: _word(context)),
       style: AnText.meta.copyWith(color: c.inkMuted),
     );
   }
