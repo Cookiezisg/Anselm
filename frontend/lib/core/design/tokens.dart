@@ -460,6 +460,12 @@ abstract final class AnMotion {
   // 再顶会像"点了没反应"。
   static const Duration staleHold = Duration(milliseconds: 400);
 
+  // Once a skeleton HAS surfaced it stays at least this long before content replaces it — the other
+  // half of the anti-flash pair (loaderDelay stops appear-too-early; this stops appear-then-instantly-
+  // vanish). Industry default (spin-delay). 骨架一旦亮出的最短停留——防闪对的另半边(loaderDelay 防
+  // 过早出现,本值防「刚亮就灭」);业界默认值。
+  static const Duration loaderHold = Duration(milliseconds: 200);
+
   // One-shot fade when async content first SURFACES (skeleton/blank → content) — the industry
   // 150–200ms band: long enough to read as intentional, short enough to never gate the data.
   // 内容首现的一次性淡入(骨架/空白→内容)——业界 150-200ms 区间:可感知但绝不拖数据后腿。

@@ -73,6 +73,15 @@ class _AnLastGoodState<T> extends State<AnLastGood<T>> {
   bool _staleExpired = false;
   Timer? _staleTimer;
 
+  // Minimum-display clock: once the skeleton actually SURFACES it stays ≥ loaderHold before content
+  // replaces it (the appear-then-instantly-vanish half of the anti-flash pair; the deferral half
+  // lives in AnDeferredLoading). Errors interrupt the hold — a failure must never be delayed.
+  // 最短停留钟:骨架真亮出后须满 loaderHold 才让内容换上(防「刚亮就灭」;延迟半边在
+  // AnDeferredLoading)。错误打断停留——故障绝不迟报。
+  bool _phVisible = false;
+  bool _holdDone = false;
+  Timer? _holdTimer;
+
   @override
   void didUpdateWidget(AnLastGood<T> oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -87,6 +96,7 @@ class _AnLastGoodState<T> extends State<AnLastGood<T>> {
   @override
   void dispose() {
     _staleTimer?.cancel();
+    _holdTimer?.cancel();
     super.dispose();
   }
 
@@ -101,6 +111,27 @@ class _AnLastGoodState<T> extends State<AnLastGood<T>> {
     });
   }
 
+  // The skeleton is visible from this frame on — start the minimum-display clock (once).
+  // 骨架自本帧可见——起最短停留钟(一次)。
+  void _placeholderSurfaced() {
+    if (_phVisible) return;
+    _phVisible = true;
+    _holdDone = false;
+    _holdTimer?.cancel();
+    _holdTimer = Timer(AnMotion.loaderHold, () {
+      _holdDone = true;
+      // Content may already be waiting behind the hold — release it. 内容可能已在停留闸后候场——放行。
+      if (mounted) setState(() {});
+    });
+  }
+
+  void _resetPlaceholder() {
+    _phVisible = false;
+    _holdDone = false;
+    _holdTimer?.cancel();
+    _holdTimer = null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final v = widget.value;
@@ -110,6 +141,7 @@ class _AnLastGoodState<T> extends State<AnLastGood<T>> {
 
     if (!_awaitFresh && v.hasError) {
       _cancelStale();
+      _resetPlaceholder();
       return widget.errorBuilder(
         context,
         v.error!,
@@ -117,9 +149,22 @@ class _AnLastGoodState<T> extends State<AnLastGood<T>> {
       );
     }
     if (!_awaitFresh && v.hasValue) {
+      if (_phVisible && !_holdDone) {
+        // Data arrived while the skeleton is barely on screen — let it dwell out loaderHold, then
+        // the hold timer's setState swaps the content in. Keep the SAME wrapper shape as the branch
+        // that surfaced it, so the skeleton's element (and its shimmer) carries over seamlessly.
+        // 数据到时骨架刚亮——留满停留再换内容;保持与亮出分支同形包装,骨架元素(含扫光)无缝延续。
+        return _staleExpired
+            ? widget.placeholder
+            : AnDeferredLoading(
+                onShown: _placeholderSurfaced,
+                child: widget.placeholder,
+              );
+      }
       _snap = (v.requireValue,);
       _cancelStale();
       _staleExpired = false;
+      _resetPlaceholder();
       return _FadeIn(child: widget.builder(context, v.requireValue));
     }
 
@@ -130,9 +175,14 @@ class _AnLastGoodState<T> extends State<AnLastGood<T>> {
     }
     // After an expired hold the user already waited staleHold — show the skeleton NOW, not after
     // another deferral. 顶替超时后已等足 staleHold——骨架直显,不再二次延迟。
-    return _staleExpired
-        ? widget.placeholder
-        : AnDeferredLoading(child: widget.placeholder);
+    if (_staleExpired) {
+      _placeholderSurfaced();
+      return widget.placeholder;
+    }
+    return AnDeferredLoading(
+      onShown: _placeholderSurfaced,
+      child: widget.placeholder,
+    );
   }
 }
 

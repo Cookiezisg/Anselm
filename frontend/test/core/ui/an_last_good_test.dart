@@ -73,6 +73,8 @@ void main() {
       ); // genuinely slow → skeleton surfaced
 
       await tester.pumpWidget(_host(const AsyncData('a')));
+      // The surfaced skeleton dwells out loaderHold before content replaces it (min-display).
+      await tester.pump(AnMotion.loaderHold + const Duration(milliseconds: 20));
       await tester.pumpAndSettle();
       expect(find.text('DATA:a'), findsOneWidget);
       expect(find.text('SKELETON'), findsNothing);
@@ -144,6 +146,8 @@ void main() {
       expect(find.text('DATA:a'), findsNothing);
 
       await tester.pumpWidget(_host(const AsyncData('b')));
+      // min-display: the just-surfaced skeleton dwells out loaderHold first. 刚亮骨架先留满停留。
+      await tester.pump(AnMotion.loaderHold + const Duration(milliseconds: 20));
       await tester.pumpAndSettle();
       expect(find.text('DATA:b'), findsOneWidget); // recovery resets the expiry
     },
@@ -166,10 +170,11 @@ void main() {
       expect(find.text('DATA:ws1-data'), findsNothing);
       expect(find.text('SKELETON'), findsOneWidget);
 
-      // The generation's own settled data ends the distrust.
+      // The generation's own settled data ends the distrust (after the surfaced skeleton's dwell).
       await tester.pumpWidget(
         _host(const AsyncData('ws2-data'), resetKey: 'ws2'),
       );
+      await tester.pump(AnMotion.loaderHold + const Duration(milliseconds: 20));
       await tester.pumpAndSettle();
       expect(find.text('DATA:ws2-data'), findsOneWidget);
     },
@@ -199,6 +204,54 @@ void main() {
     await tester.pumpWidget(_host(const AsyncData('a')));
     await tester.pumpAndSettle();
     expect(find.text('DATA:a'), findsOneWidget);
+  });
+
+  testWidgets(
+    'min-display: data arriving just after the skeleton surfaced dwells out loaderHold',
+    (tester) async {
+      await tester.pumpWidget(_host(const AsyncLoading()));
+      await tester.pump(_pastDelay); // skeleton surfaced
+      expect(find.text('SKELETON'), findsOneWidget);
+
+      // Data lands 40ms into the skeleton's life — swapping now would be appear-then-vanish.
+      await tester.pump(const Duration(milliseconds: 40));
+      await tester.pumpWidget(_host(const AsyncData('a')));
+      expect(find.text('SKELETON'), findsOneWidget); // still dwelling
+      expect(find.text('DATA:a'), findsNothing);
+
+      // Once loaderHold is satisfied the hold timer releases the waiting content.
+      await tester.pump(AnMotion.loaderHold);
+      await tester.pumpAndSettle();
+      expect(find.text('DATA:a'), findsOneWidget);
+      expect(find.text('SKELETON'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'min-display: a skeleton that already dwelled loaderHold swaps immediately',
+    (tester) async {
+      await tester.pumpWidget(_host(const AsyncLoading()));
+      await tester.pump(_pastDelay);
+      await tester.pump(AnMotion.loaderHold + const Duration(milliseconds: 20));
+      expect(find.text('SKELETON'), findsOneWidget);
+
+      await tester.pumpWidget(_host(const AsyncData('a')));
+      await tester.pumpAndSettle();
+      expect(find.text('DATA:a'), findsOneWidget); // no artificial extra wait
+    },
+  );
+
+  testWidgets('min-display: errors interrupt the hold — never delayed', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(const AsyncLoading()));
+    await tester.pump(_pastDelay); // skeleton surfaced, hold running
+    await tester.pumpWidget(
+      _host(AsyncError<String>('boom', StackTrace.empty)),
+    );
+    await tester.pump();
+    expect(find.text('ERROR:boom'), findsOneWidget); // immediate
+    expect(find.text('SKELETON'), findsNothing);
   });
 
   testWidgets('nullable T: null is a legitimate snapshot (record box, not T?)', (

@@ -17,11 +17,17 @@ class AnDeferredLoading extends StatefulWidget {
   const AnDeferredLoading({
     required this.child,
     this.delay = AnMotion.loaderDelay,
+    this.onShown,
     super.key,
   });
 
   final Widget child;
   final Duration delay;
+
+  /// Fired the moment the indicator actually SURFACES (the delay elapsed while still loading) —
+  /// lets an owner (e.g. AnLastGood) start its minimum-display clock from the true first visible
+  /// frame. 指示器真正亮出的瞬间回调——让宿主(如 AnLastGood)从真实首帧起算最短停留钟。
+  final VoidCallback? onShown;
 
   @override
   State<AnDeferredLoading> createState() => _AnDeferredLoadingState();
@@ -35,7 +41,9 @@ class _AnDeferredLoadingState extends State<AnDeferredLoading> {
   void initState() {
     super.initState();
     _timer = Timer(widget.delay, () {
-      if (mounted) setState(() => _show = true);
+      if (!mounted) return;
+      setState(() => _show = true);
+      widget.onShown?.call();
     });
   }
 
