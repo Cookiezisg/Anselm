@@ -94,11 +94,29 @@ class ConversationTranscript {
   /// The full render order: settled history, then everything live. 渲染全序:settled 史 + live。
   List<BlockNode> get turns => [...settled, ...liveTurns];
 
+  /// Version counter of the SUBAGENT STRUCTURE only — bumped when a `Subagent` tool_call opens or
+  /// closes on the live layer, or when the settled window turns over (page load / resync). Streaming
+  /// deltas never bump it, so per-frame consumers (the activity flag, the sidestage accordion) compare
+  /// ONE int instead of re-walking the whole tree every coalesced frame (S7 — the walk was O(nodes)
+  /// per frame, growing with the conversation).
+  /// 仅**subagent 结构**的版本号——live 层 Subagent tool_call 开/合、或 settled 窗换代(翻页/重同步)
+  /// 才自增;流式 delta 绝不动它。每帧消费者(活动旗/侧幕手风琴)比对一个 int,不再逐合并帧全树重走
+  /// (S7——旧走法每帧 O(节点数),随会话变长)。
+  int get subagentEpoch => _subagentEpoch;
+  int _subagentEpoch = 0;
+  List<BlockNode> _subagentCache = const [];
+  int _subCacheEpoch = -1;
+
+  void _bumpSubagents() => _subagentEpoch++;
+
   /// Every `Subagent` tool_call across BOTH layers (settled history + the live reducer) — the sidestage
   /// lists each as a row (id=`block:<toolCallId>`): a live one rides its director channel, a
   /// closed/reloaded one rehydrates its folded nested trajectory as a settled subagent stage (WRK-064 B6).
-  /// Deduped by id (a block lives in exactly one layer). 两层所有 Subagent tool_call(侧幕逐个列行)。
+  /// Deduped by id (a block lives in exactly one layer). Memoized by [subagentEpoch] — the tree walk
+  /// runs only when the subagent structure actually changed. 两层所有 Subagent tool_call(侧幕逐个列
+  /// 行);按 [subagentEpoch] 记忆化,结构真变才重走树。
   List<BlockNode> get subagentBlocks {
+    if (_subCacheEpoch == _subagentEpoch) return _subagentCache;
     final out = <BlockNode>[];
     final seen = <String>{};
     void walk(BlockNode n) {
@@ -118,6 +136,8 @@ class ConversationTranscript {
     for (final root in _live.roots) {
       walk(root);
     }
+    _subagentCache = out;
+    _subCacheEpoch = _subagentEpoch;
     return out;
   }
 
@@ -290,6 +310,19 @@ class ConversationTranscript {
   /// 折一帧;durable 用户回声对账最老乐观泡。
   void applyFrame(StreamEnvelope env) {
     _live.apply(env);
+    // A Subagent tool_call opening/closing is the ONLY live event that changes the subagent
+    // structure (the open frame carries the tool name — the stage director routes on it the same
+    // way). Deltas fall through untouched. Subagent tool_call 开/合是唯一改变 subagent 结构的
+    // live 事件(open 帧带工具名,导演器同样据此路由);delta 直落、不 bump。
+    final frame = env.frame;
+    if (frame is FrameOpen || frame is FrameClose) {
+      final opened = _live.nodeById(env.id);
+      if (opened != null &&
+          opened.kind == BlockKind.toolCall &&
+          opened.name == 'Subagent') {
+        _bumpSubagents();
+      }
+    }
     if (!env.durable) return;
     final node = _live.nodeById(env.id);
     if (node == null ||
@@ -337,6 +370,7 @@ class ConversationTranscript {
     _live.clear();
     _reconciledEchoes.clear();
     _echoMentions.clear();
+    _bumpSubagents(); // the live layer (and its subagents) just vanished 活层(含其 subagent)刚清空
   }
 
   // ── optimistic sends 乐观发送 ──
@@ -457,6 +491,10 @@ class ConversationTranscript {
   /// 把待折子消息按 parentBlockId 折进派它的 tool_call(作 message 子,复现 live E3 形)。幂等;孤儿待后页;
   /// 抬结算元数据到 tool_call。
   void _foldSubagents() {
+    // Every settled writer (setHistory / prependOlder / setWindow / appendNewer) funnels through
+    // here — ONE bump site for "the settled window turned over". 四个 settled 写口都汇于此——
+    // 「settled 窗换代」的唯一 bump 点。
+    _bumpSubagents();
     if (_subMessages.isEmpty) return;
     final byBlockId = <String, BlockNode>{};
     void index(BlockNode n) {

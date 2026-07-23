@@ -590,4 +590,95 @@ void main() {
       },
     );
   });
+
+  group('subagentEpoch (S7 — per-frame consumers compare one int)', () {
+    test('streaming deltas NEVER bump the epoch; Subagent open/close do', () {
+      final t = ConversationTranscript('cv_1');
+      t.applyFrame(_open('msg_a', 'message', content: {'role': 'assistant'}));
+      t.applyFrame(
+        _open('b1', 'text', parentId: 'msg_a', content: {'content': ''}),
+      );
+      final base = t.subagentEpoch;
+
+      // The token firehose — the hot path that must stay O(1). token 火喉,必须 O(1)。
+      for (var i = 0; i < 50; i++) {
+        t.applyFrame(_delta('b1', 'chunk $i'));
+      }
+      expect(t.subagentEpoch, base, reason: 'deltas must not bump');
+
+      t.applyFrame(
+        _open(
+          'sub1',
+          'tool_call',
+          parentId: 'msg_a',
+          content: {'name': 'Subagent'},
+        ),
+      );
+      expect(t.subagentEpoch, greaterThan(base), reason: 'Subagent open bumps');
+
+      final afterOpen = t.subagentEpoch;
+      t.applyFrame(_delta('sub1', 'thinking…'));
+      expect(t.subagentEpoch, afterOpen, reason: 'subagent deltas still free');
+
+      t.applyFrame(_close('sub1'));
+      expect(
+        t.subagentEpoch,
+        greaterThan(afterOpen),
+        reason: 'the open→closed flip changes the activity/accordion answer',
+      );
+    });
+
+    test('a non-Subagent tool_call is structurally irrelevant — no bump', () {
+      final t = ConversationTranscript('cv_1');
+      t.applyFrame(_open('msg_a', 'message', content: {'role': 'assistant'}));
+      final base = t.subagentEpoch;
+      t.applyFrame(
+        _open('tc1', 'tool_call', parentId: 'msg_a', content: {'name': 'Read'}),
+      );
+      t.applyFrame(_close('tc1'));
+      expect(t.subagentEpoch, base);
+    });
+
+    test('settled window turnover and a live drop both bump', () {
+      final t = ConversationTranscript('cv_1');
+      final base = t.subagentEpoch;
+      t.setHistory(const []);
+      expect(t.subagentEpoch, greaterThan(base), reason: 'page load bumps');
+      final afterHistory = t.subagentEpoch;
+      t.dropLive();
+      expect(
+        t.subagentEpoch,
+        greaterThan(afterHistory),
+        reason: '410 resync drops live subagents',
+      );
+    });
+
+    test(
+      'subagentBlocks is memoized by epoch — identical list across frames',
+      () {
+        final t = ConversationTranscript('cv_1');
+        t.applyFrame(_open('msg_a', 'message', content: {'role': 'assistant'}));
+        t.applyFrame(
+          _open(
+            'sub1',
+            'tool_call',
+            parentId: 'msg_a',
+            content: {'name': 'Subagent'},
+          ),
+        );
+        final first = t.subagentBlocks;
+        expect(first.single.id, 'sub1');
+
+        t.applyFrame(_delta('sub1', 'chunk'));
+        expect(
+          identical(t.subagentBlocks, first),
+          isTrue,
+          reason: 'no structural change → the cached list, zero walk',
+        );
+
+        t.applyFrame(_close('sub1'));
+        expect(identical(t.subagentBlocks, first), isFalse);
+      },
+    );
+  });
 }

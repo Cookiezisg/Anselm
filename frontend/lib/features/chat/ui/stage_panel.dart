@@ -240,11 +240,13 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
 
   // The settled-subagent rows (WRK-064 B6) come from the transcript, which the director / ledger the list
   // watches do NOT track — a reload folds subagents in, a scroll pages more, neither firing a watched
-  // provider. Subscribe to the transcript coalescer and rebuild ONLY when the set of subagent runs (or an
-  // open→closed flip) changes — NOT on every streaming delta, keeping the ≤1-rebuild-per-meaningful-change
-  // discipline the coalescer exists for. 订阅 transcript,仅 subagent 集/开合变化才重建(非逐帧)。
+  // provider. Subscribe to the transcript coalescer and rebuild ONLY when the subagent structure changes
+  // — the transcript maintains [ConversationTranscript.subagentEpoch] at its write sites (S7), so this is
+  // ONE int compare per coalesced frame (the old signature string re-walked the whole tree + allocated
+  // every frame). 订阅 transcript,仅 subagent 结构变化才重建——比对写入点维护的 epoch(S7,每帧一个 int;
+  // 旧签名串每帧全树重走+分配)。
   CoalescingNotifier<ConversationTranscript>? _tx;
-  String _subagentSig = '';
+  int _subagentEpoch = -1;
 
   String get conversationId => widget.conversationId;
 
@@ -253,20 +255,17 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     _tx?.removeListener(_onTranscript);
     _tx = tx;
     tx.addListener(_onTranscript);
-    _subagentSig = _sigOf(tx.value);
+    _subagentEpoch = tx.value.subagentEpoch;
   }
 
   void _onTranscript() {
     final tx = _tx;
     if (tx == null) return;
-    final sig = _sigOf(tx.value);
-    if (sig != _subagentSig && mounted) {
-      setState(() => _subagentSig = sig);
+    final epoch = tx.value.subagentEpoch;
+    if (epoch != _subagentEpoch && mounted) {
+      setState(() => _subagentEpoch = epoch);
     }
   }
-
-  static String _sigOf(ConversationTranscript t) =>
-      [for (final n in t.subagentBlocks) '${n.id}:${n.isOpen}'].join(',');
 
   @override
   void didUpdateWidget(_AccordionList old) {

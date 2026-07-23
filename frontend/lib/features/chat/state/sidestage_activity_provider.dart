@@ -66,6 +66,7 @@ class SidestageActivityController extends Notifier<bool> {
   final String conversationId;
 
   CoalescingNotifier<ConversationTranscript>? _tx;
+  int _lastSubEpoch = -1;
 
   @override
   bool build() {
@@ -94,6 +95,15 @@ class SidestageActivityController extends Notifier<bool> {
   void _onTranscript() {
     final tx = _tx;
     if (tx == null || !ref.mounted) return;
+    // The transcript's only contribution to the flag is its subagent set — gate on the epoch the
+    // transcript maintains at its write sites (S7): a streaming delta exits here in ONE int compare
+    // (the old path re-derived — and re-walked the tree — every coalesced frame; the ledger / stage /
+    // rundown inputs re-derive through build()'s watches instead). transcript 对旗的唯一贡献是
+    // subagent 集——按写入点维护的 epoch 早退(S7):流式 delta 一次 int 比对即离场(旧径每合并帧重
+    // 推导+全树重走;ledger/stage/rundown 走 build 的 watch 路径)。
+    final epoch = tx.value.subagentEpoch;
+    if (epoch == _lastSubEpoch) return;
+    _lastSubEpoch = epoch;
     final next = sidestageHasContent(
       ledger: ref.read(touchpointLedgerProvider(conversationId)),
       stage: ref.read(stageDirectorProvider(conversationId)),
