@@ -118,7 +118,6 @@ class _AppShellState extends ConsumerState<AppShell> {
     // Documents ocean: the file-like knowledge library (document tree + skills) in the left island +
     // a read/edit center. 文档海洋:文件式知识库(文档树 + skill)左岛 + 中心读/编。
     final onLibrary = ocean == OceanKind.library;
-    final onSettings = ocean == OceanKind.settings;
     // A /chat/:id navigation (deep link, restored URL) pulls the ocean to chat — the URL is the
     // conversation-selection truth, so the ocean must follow it, never fight it. (Full ocean routing is
     // the planned go_router fold-in; this is the one coherence rule needed until then.)
@@ -241,20 +240,14 @@ class _AppShellState extends ConsumerState<AppShell> {
     // No top selection while a footer ocean (settings) is active. 在底栏海洋(settings)时顶部无选中。
     final topSelected = ocean.inTopSwitcher ? ocean.index : -1;
 
-    // The left-island MIDDLE: notifications tray (takeover) wins; else the ocean's rail. 中段:通知托盘优先,否则海洋 rail。
+    // The left-island MIDDLE: notifications tray (takeover) wins; else the ocean's rail, kept alive
+    // in the same lazy stack as the center (S3): the ternary this replaced tore the old rail down on
+    // every ocean switch, losing its scroll offset / expansion state each time. The tray stays a
+    // transient takeover outside the stack. 中段:通知托盘优先(暂态接管、不入栈);否则海洋 rail 走
+    // 与中心同款懒保活栈(S3)——旧三元每切必拆 rail,滚动位/展开态全丢。
     final Widget middle = notifOpen
         ? const _NotificationsTray()
-        : onEntities
-        ? const EntityRail()
-        : onChat
-        ? const ConversationRail()
-        : onLibrary
-        ? const LibraryRail()
-        : onSettings
-        ? const SettingsRail()
-        : ocean == OceanKind.scheduler
-        ? const SchedulerRail()
-        : const _RailPlaceholder();
+        : _RailStack(active: ocean);
 
     final sidebar = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -471,6 +464,39 @@ class _OceanStack extends StatelessWidget {
     OceanKind.scheduler => const SchedulerOcean(),
     OceanKind.library => const LibraryOcean(),
     OceanKind.settings => const SettingsOcean(),
+  };
+}
+
+/// The left-island rail host — the rails' twin of [_OceanStack] (S3): each ocean's rail is built on
+/// first visit, then kept mounted behind the fold so switching oceans preserves its scroll offset and
+/// expansion state (the rails' root providers already keep the DATA alive; this keeps the WIDGET
+/// state). Same slot order as [_OceanStack]; the trailing placeholder slot covers any non-stack ocean.
+/// 左岛 rail 宿主——[_OceanStack] 的 rail 孪生(S3):各海洋 rail 首访才建、此后常驻折叠后,切海洋保
+/// 滚动位/展开态(root provider 本就保数据、此保 widget 态)。槽序与中心栈一致;末位占位槽兜非栈海洋。
+class _RailStack extends StatelessWidget {
+  const _RailStack({required this.active});
+
+  final OceanKind active;
+
+  @override
+  Widget build(BuildContext context) {
+    final slot = _OceanStack._oceans.indexOf(active);
+    return AnLazyIndexedStack(
+      index: slot < 0 ? _OceanStack._oceans.length : slot,
+      count: _OceanStack._oceans.length + 1,
+      sizing: StackFit.expand,
+      builder: (context, i) => i < _OceanStack._oceans.length
+          ? _railFor(_OceanStack._oceans[i])
+          : const _RailPlaceholder(),
+    );
+  }
+
+  Widget _railFor(OceanKind k) => switch (k) {
+    OceanKind.chat => const ConversationRail(),
+    OceanKind.entities => const EntityRail(),
+    OceanKind.scheduler => const SchedulerRail(),
+    OceanKind.library => const LibraryRail(),
+    OceanKind.settings => const SettingsRail(),
   };
 }
 

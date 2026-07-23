@@ -247,7 +247,7 @@ audience: [human, ai]
 - **AnCodeBlock** — 只读 mono 块(`AnCodeSurface` + s8 内距 + `AnText.value(mono)` ink `Text`;`bare` 透传)。给不需 `AnCodeEditor` 栏/行号/复制 chrome 的输出/数据(run 终端输出、节点调试 JSON)。AnCodeSurface 刻意无内距,故这层「内距 + mono」才是真可复用件。收口 run 终端 `_mono` + run 驾驶舱节点调试。
 - **AnEdgeFade** — 边缘渐隐 scrim(`IgnorePointer` + 单向 `LinearGradient`,`fromTop` 给定边不透明、朝内透明)。让可滚内容边缘溶解而非硬切。收口 thinking 流边 + `AnFadeCollapse` 底部渐隐。尺寸/定位交调用方(沿渐隐边的 Positioned 条)。
 - **AnDocHeader** — 阅读尺度页头(`AnOceanHeader` 的阅读列对位件,A-113):**`AnCrumbs` 分段面包屑**(`AnText.meta` 尺度,`foldAfter:3` 深文档树折中段) + 可改名 `readingH1` 大标题 + 可编 `reading` 描述 + (document)可编标签行;供 document/skill。面包屑=父路径(`Documents / …树母链 / 父`,skill `Documents / Skills`),黑字大标题=文档/skill 自己的名(面包屑三条律)。排布文法从 feature 现场发明上收为具名原语,双尺度对位(chrome vs 阅读)。
-- **AnLazyIndexedStack** — 懒 IndexedStack(C-009):槽首显才建、建后常驻折叠保 State/滚动位;未访槽=零成本 `SizedBox`,冷启不急挂全部槽。中心海洋切换用它(切走再回瞬时且不丢滚动位);越界钳制保活槽不卸。
+- **AnLazyIndexedStack** — 懒 IndexedStack(C-009):槽首显才建、建后常驻折叠保 State/滚动位;未访槽=零成本 `SizedBox`,冷启不急挂全部槽。中心海洋切换用它,左岛 rail 亦走同款孪生栈 `_RailStack`(S3,槽序一致);切走再回瞬时且不丢滚动位;越界钳制保活槽不卸。
 - **AnWashHighlight** — 一次性落点洗亮(`accentSoft` 填充先驻留后淡出、card 圆角;跳转/滚动到达高亮)。fading 填充=洗亮唯一处(关键帧,非 `AnOpacity` 档);reduced 直落终态。收口 transcript `_JumpHighlight`。
 - **AnQuoteBar** — 唯一引用/旁白左条(`lineStrong` `quoteBar` 宽左细条 + 左内距 s12)。人闸回显自由答复用;与 AnMarkdown blockquote 同 token(后者是 GptMarkdown 组件、机制不同)。
 - **AnHeatBar** — 相对热力短条(`accentSoft` 圆角填充,宽随 `fraction` 占 `heatBar` 档、保底 0.15 可见)。刻意非整行 `AnMeter`;计数旁的相对热度内联 tick。收口 fs-search 命中热力。
