@@ -279,6 +279,54 @@ void main() {
     },
   );
 
+  testWidgets("G6: a delegate's inner tool never enters the director (A1-7)", (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository();
+    final c = ProviderContainer(
+      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(c.dispose);
+    c.listen(stageDirectorProvider(_conv), (_, _) {});
+    await tester.pump();
+    repo.emitFrame(_conv, _open('sa1', 'Subagent'));
+    await tester.pump(const Duration(milliseconds: 600)); // delegate staged
+    // The delegate's nested tree: a message wrapper under the call, then an inner BUILD tool —
+    // which OUTRANKS subagent and used to preempt its own master's broadcast. 分身嵌套树:内层
+    // build 工具旧行为会反超自家分身抢台。
+    repo.emitFrame(
+      _conv,
+      StreamEnvelope(
+        seq: 6,
+        scope: _scope,
+        id: 'm1',
+        frame: const FrameOpen(
+          parentId: 'sa1',
+          node: StreamNode(type: 'message', content: {'role': 'assistant'}),
+        ),
+      ),
+    );
+    repo.emitFrame(
+      _conv,
+      StreamEnvelope(
+        seq: 7,
+        scope: _scope,
+        id: 'inner',
+        frame: const FrameOpen(
+          parentId: 'm1',
+          node: StreamNode(
+            type: 'tool_call',
+            content: {'name': 'create_function'},
+          ),
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+    final s = c.read(stageDirectorProvider(_conv));
+    expect(s.subject?.blockId, 'sa1'); // the delegate keeps its stage 分身不被抢台
+    expect(s.channels, isEmpty); // no phantom row 无幻影行
+  });
+
   testWidgets(
     'G5: cold-start hydration re-grounds the director — an in-flight call earns its row (A2-10)',
     (tester) async {

@@ -187,7 +187,25 @@ class StageDirectorController extends Notifier<StageState> {
   void _onFrame(StreamEnvelope env) {
     final now = DateTime.now();
     switch (env.frame) {
-      case FrameOpen(:final node) when node.type == 'tool_call':
+      case FrameOpen(:final node, :final parentId)
+          when node.type == 'tool_call':
+        // G6/A1-7 — a delegate's INNER tool_call (nested anywhere under a tracked top-level call)
+        // must NOT enter the director: on the priority ladder it out-ranked its own Subagent
+        // (build > execution > subagent), stole the stage mid-broadcast, minted phantom rows and
+        // lit R-15. It feeds the owner's activity clock instead; a top-level call's parent is the
+        // assistant message root, which maps to no owner, so it passes untouched.
+        // G6:分身体内工具不入导演器——旧行为按优先级反超自家分身抢台、造幻影行、点亮 R-15;
+        // 改喂属主活性钟。顶层调用的父=回合根,映不到属主,原路放行。
+        if (parentId != null) {
+          final owner = _tracked.contains(parentId)
+              ? parentId
+              : _ownerOf[parentId];
+          if (owner != null) {
+            _ownerOf[env.id] = owner;
+            _director.onActivity(owner, now);
+            return;
+          }
+        }
         final name = (node.content?['name'] as String?) ?? '';
         if (stageRouteOf(name) != null) _tracked.add(env.id);
         if (stageRouteOf(name)?.lifecycle == LifecycleSource.poll) {
