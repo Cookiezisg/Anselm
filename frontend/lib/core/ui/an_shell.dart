@@ -311,7 +311,12 @@ class _AnShellState extends State<AnShell> {
                     ),
                   ),
                 ),
-                Expanded(child: oceanHost),
+                // Its own repaint layer (S12): an island slide / hover / shadow re-raster never
+                // drags the ocean into its repaint, and ocean streaming never repaints the islands
+                // (each island's shadow layer re-rasters on animation; without this boundary those
+                // dirty regions could union across the shell). 海洋独立重绘层(S12):岛滑动/hover/
+                // 阴影重栅不再连坐海洋,海洋流式重绘也不牵岛——无边界时脏区会在壳内并集。
+                Expanded(child: RepaintBoundary(child: oceanHost)),
                 _RightReveal(
                   open: widget.inspectorOpen,
                   width: widget.rightWidth,
