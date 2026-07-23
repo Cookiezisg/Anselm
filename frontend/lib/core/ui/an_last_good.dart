@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../design/tokens.dart';
+import 'an_content_in.dart';
 import 'an_deferred_loading.dart';
 
 /// Renders an [AsyncValue] by the LAST-KNOWN-GOOD strategy — the house answer to loading flicker.
@@ -165,13 +166,13 @@ class _AnLastGoodState<T> extends State<AnLastGood<T>> {
       _cancelStale();
       _staleExpired = false;
       _resetPlaceholder();
-      return _FadeIn(child: widget.builder(context, v.requireValue));
+      return AnContentIn(child: widget.builder(context, v.requireValue));
     }
 
     final snap = _snap;
     if (snap != null && !_staleExpired) {
       _armStale();
-      return _FadeIn(child: widget.builder(context, snap.$1));
+      return AnContentIn(child: widget.builder(context, snap.$1));
     }
     // After an expired hold the user already waited staleHold — show the skeleton NOW, not after
     // another deferral. 顶替超时后已等足 staleHold——骨架直显,不再二次延迟。
@@ -182,27 +183,6 @@ class _AnLastGoodState<T> extends State<AnLastGood<T>> {
     return AnDeferredLoading(
       onShown: _placeholderSurfaced,
       child: widget.placeholder,
-    );
-  }
-}
-
-/// One-shot mount fade — content surfaces instead of popping in. Replays only on (re)mount
-/// (placeholder→content), never on in-place data updates (same element, live State). Honors
-/// reduce-motion. 一次性挂载淡入:仅(重)挂载时播,原地数据更新不重播;尊重减少动效。
-class _FadeIn extends StatelessWidget {
-  const _FadeIn({required this.child});
-
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    if (AnMotionPref.reduced(context)) return child;
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: 0, end: 1),
-      duration: AnMotion.contentIn,
-      curve: AnMotion.easeOut,
-      child: child,
-      builder: (_, opacity, child) => Opacity(opacity: opacity, child: child!),
     );
   }
 }

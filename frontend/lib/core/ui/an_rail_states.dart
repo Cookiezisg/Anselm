@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'an_button.dart';
+import 'an_content_in.dart';
 import 'an_deferred_loading.dart';
 import 'an_rail_skeleton.dart';
 import 'an_state.dart';
@@ -77,6 +78,9 @@ class AnRailStates extends StatelessWidget {
         action: AnButton(label: strings.retry, onPressed: onRetry),
       );
     }
-    return builder();
+    // The list SURFACES (S5): a one-shot fade when it replaces the skeleton/error screen; in-place
+    // data updates re-run [builder] at the same element position and never replay it.
+    // 列表浮现(S5):替换骨架/错误屏时一次性淡入;原地数据更新同位重跑 builder、不重播。
+    return AnContentIn(child: builder());
   }
 }

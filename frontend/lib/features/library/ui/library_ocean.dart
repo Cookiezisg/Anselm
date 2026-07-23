@@ -15,6 +15,7 @@ import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_last_good.dart';
 import '../../../core/ui/an_page.dart';
+import '../../../core/ui/an_content_in.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/entity_ref_codec.dart';
@@ -322,36 +323,40 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
               orElse: () => const AnPage(
                 child: AnDeferredLoading(child: AnSkeleton.lines(8)),
               ),
-              data: (names) => AnDocumentEditor(
-                key: editorKey,
-                crumbs: libraryCrumbs(context, tree, widget.id),
-                name: title,
-                autofocusName: _autofocusName,
-                description: doc.description,
-                tags: doc.tags,
-                initialMarkdown: doc.content,
-                resolvedNames: names,
-                onChangedMarkdown: _onChanged,
-                onScroll: onScroll,
-                onActiveHeading: onActive,
-                // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow).
-                mentionSource: ref.watch(mentionSourceProvider),
-                onMetaChanged: (m) {
-                  final patch = <String, dynamic>{};
-                  final name = (m['name'] as String?)?.trim();
-                  final desc = m['description'] as String?;
-                  final tags = (m['tags'] as List?)?.cast<String>();
-                  if (name != null && name.isNotEmpty && name != doc.name) {
-                    patch['name'] = name;
-                  }
-                  if (desc != null && desc != doc.description) {
-                    patch['description'] = desc;
-                  }
-                  if (tags != null && !listEquals(tags, doc.tags)) {
-                    patch['tags'] = tags;
-                  }
-                  if (patch.isNotEmpty) _patchMeta(patch);
-                },
+              // Surfaces with the house content fade when it replaces the name-resolve skeleton (S5).
+              // 替换解析名骨架时以房规内容淡入浮现(S5)。
+              data: (names) => AnContentIn(
+                child: AnDocumentEditor(
+                  key: editorKey,
+                  crumbs: libraryCrumbs(context, tree, widget.id),
+                  name: title,
+                  autofocusName: _autofocusName,
+                  description: doc.description,
+                  tags: doc.tags,
+                  initialMarkdown: doc.content,
+                  resolvedNames: names,
+                  onChangedMarkdown: _onChanged,
+                  onScroll: onScroll,
+                  onActiveHeading: onActive,
+                  // The @ typeahead reuses chat's entity mention seam (function/handler/agent/workflow).
+                  mentionSource: ref.watch(mentionSourceProvider),
+                  onMetaChanged: (m) {
+                    final patch = <String, dynamic>{};
+                    final name = (m['name'] as String?)?.trim();
+                    final desc = m['description'] as String?;
+                    final tags = (m['tags'] as List?)?.cast<String>();
+                    if (name != null && name.isNotEmpty && name != doc.name) {
+                      patch['name'] = name;
+                    }
+                    if (desc != null && desc != doc.description) {
+                      patch['description'] = desc;
+                    }
+                    if (tags != null && !listEquals(tags, doc.tags)) {
+                      patch['tags'] = tags;
+                    }
+                    if (patch.isNotEmpty) _patchMeta(patch);
+                  },
+                ),
               ),
             );
       },

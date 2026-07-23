@@ -20,6 +20,7 @@ import '../../../core/ui/an_code_editor.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_last_good.dart';
 import '../../../core/ui/an_page.dart';
+import '../../../core/ui/an_content_in.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/icons.dart';
@@ -390,28 +391,30 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
             return const AnDeferredLoading(child: AnSkeleton.lines(4));
           }
           if (snap.hasError) return _infoCard();
-          return Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 样张字号走 typography 档(字号单源律):readingH1=样张大字、reading=正文样张。
-                Text(
-                  'Aa Bb Cc 0123456789',
-                  style: AnText.readingH1.copyWith(fontFamily: family),
-                ),
-                const SizedBox(height: AnSpace.s8),
-                Text(
-                  t.library.skillFontSample,
-                  style: AnText.reading.copyWith(fontFamily: family),
-                ),
-                const SizedBox(height: AnSpace.s12),
-                _fileMetaLine(size),
-                const SizedBox(height: AnSpace.s2),
-                Text(
-                  t.library.skillFontNote,
-                  style: AnText.meta.copyWith(color: c.inkFaint),
-                ),
-              ],
+          return AnContentIn(
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 样张字号走 typography 档(字号单源律):readingH1=样张大字、reading=正文样张。
+                  Text(
+                    'Aa Bb Cc 0123456789',
+                    style: AnText.readingH1.copyWith(fontFamily: family),
+                  ),
+                  const SizedBox(height: AnSpace.s8),
+                  Text(
+                    t.library.skillFontSample,
+                    style: AnText.reading.copyWith(fontFamily: family),
+                  ),
+                  const SizedBox(height: AnSpace.s12),
+                  _fileMetaLine(size),
+                  const SizedBox(height: AnSpace.s2),
+                  Text(
+                    t.library.skillFontNote,
+                    style: AnText.meta.copyWith(color: c.inkFaint),
+                  ),
+                ],
+              ),
             ),
           );
         },
