@@ -10,6 +10,7 @@ import 'package:anselm/features/chat/state/stage_director_provider.dart';
 import 'package:anselm/features/chat/state/stage_expansion.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -187,7 +188,9 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.text('审计执行日志'), findsOneWidget); // the task name 任务名
+      // Row head + card header share ONE title derivation (G3/A2-23) — the same label in both, by
+      // design. 行头与卡头单源同名(G3):同一标签恰两处。
+      expect(find.text('审计执行日志'), findsNWidgets(2));
       expect(
         find.text('先拉最近十条失败记录'),
         findsWidgets,
@@ -232,18 +235,19 @@ void main() {
       ); // sa2 debounce → channels 入频道
       await tester.pump(const Duration(milliseconds: 400));
 
-      // Two accordion rows: the staged subject's opened automatically; open the channel's BY HAND.
-      // This is the very state the retired ensemble left untested — both bodies mounted at once was
-      // exactly where the old peers loop double-rendered (self-inclusion + N×N).
-      // 两行:主角行已自动展开,手动展开频道行——「双行同展」正是旧群像从未被测过、且一测即爆的状态。
-      expect(find.text('Subagent'), findsNWidgets(2));
-      await tester.tap(find.text('Subagent').last);
+      // Two accordion rows now TITLED BY TASK (G3 single-source naming): the subject's row is auto-
+      // opened (head + its own card = 2), the channel's is collapsed (head only = 1) — the ensemble
+      // no longer leaks a peer card into the subject's body. 行头即任务名:主角行头+卡=2,频道行头=1。
+      expect(find.text('分身甲'), findsNWidgets(2));
+      expect(find.text('分身乙'), findsOneWidget);
+      await tester.tap(find.text('分身乙'));
       await tester.pump(const Duration(milliseconds: 400));
 
-      // Panel-wide uniqueness: each delegate appears EXACTLY once; the ensemble title is retired.
-      // 全面板唯一性:每席恰一张卡;群像标题退役。
-      expect(find.text('分身甲'), findsOneWidget);
-      expect(find.text('分身乙'), findsOneWidget);
+      // BOTH bodies mounted — the state the retired ensemble left untested. Each delegate appears
+      // exactly TWICE (its own head + its own card), never a third copy from a peers loop (the N×N
+      // regression), and the ensemble title is gone for good. 双行同展:每席恰「头+卡」两处、无第三张。
+      expect(find.text('分身甲'), findsNWidgets(2));
+      expect(find.text('分身乙'), findsNWidgets(2));
       expect(find.textContaining('并行群像'), findsNothing);
     },
   );
@@ -301,6 +305,83 @@ void main() {
     },
   );
 
+  testWidgets(
+    'G3: a failed activity wears the red truth and the clear exit actually removes it',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b1', 'create_agent'));
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(_conv, _close('b1', status: 'error'));
+      await tester.pump();
+
+      // The row says «失败», never «进行中» (the old head aliased «director holds a view» to Live).
+      // 行头如实「失败」,绝不再渲「进行中」。
+      expect(find.text(t.chat.stage.rowFailed), findsOneWidget);
+      expect(find.text(t.chat.stage.live), findsNothing);
+
+      // The exit exists and works — a failed activity is no longer a permanent squatter. The action
+      // is hover-revealed (idle layer IgnorePointer'd), so drive a REAL mouse: traditional highlight
+      // strategy + hover the row + down/up with the SAME pointer (a tester.tap touch carries no
+      // hover). 出口存在且有效:真鼠标配方——传统高亮策略+悬停行+同一指针 down/up。
+      final clear = find.descendant(
+        of: find.byType(AnRow),
+        matching: find.byIcon(AnIcons.close),
+      );
+      expect(clear, findsOneWidget);
+      WidgetsBinding.instance.focusManager.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.addPointer(location: Offset.zero);
+      addTearDown(() => mouse.removePointer());
+      await mouse.moveTo(tester.getCenter(find.byType(AnRow).first));
+      await tester.pump();
+      final p = tester.getCenter(clear);
+      await mouse.moveTo(p);
+      await tester.pump();
+      await mouse.down(p);
+      await mouse.up();
+      await tester.pump();
+      final el = tester.element(find.byType(StagePanel));
+      final container = ProviderScope.containerOf(el, listen: false);
+      final stage = container.read(stageDirectorProvider(_conv));
+      expect(stage.subject, isNull);
+      expect(stage.channels, isEmpty);
+      expect(find.text(t.chat.stage.rowFailed), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'G3: the settle breath reads «settling» (green), the poll hold reads «running» (blue) — never a fake Live',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+
+      // toolClose lifecycle: ok close → the 1.8s breath is «settling». 停拍=「正在落定」。
+      repo.emitFrame(_conv, _open('b1', 'create_function'));
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(_conv, _close('b1'));
+      repo.emitFrame(_conv, _open('r1', '', parent: 'b1', type: 'tool_result'));
+      repo.emitFrame(_conv, _close('r1'));
+      await tester.pump(const Duration(milliseconds: 200)); // inside the breath
+      expect(find.text(t.chat.stage.rowSettling), findsOneWidget);
+      expect(find.text(t.chat.stage.live), findsNothing);
+      await tester.pump(const Duration(milliseconds: 2000)); // curtain 谢幕
+
+      // poll lifecycle: the 202 receipt closed but the flowrun still runs → «running». poll=「运行中」。
+      repo.emitFrame(_conv, _open('b2', 'trigger_workflow'));
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(_conv, _close('b2'));
+      repo.emitFrame(_conv, _open('r2', '', parent: 'b2', type: 'tool_result'));
+      repo.emitFrame(_conv, _close('r2'));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(find.text(t.chat.stage.rowRunning), findsOneWidget);
+      expect(find.text(t.chat.stage.live), findsNothing);
+    },
+  );
+
   test(
     'R-10 poll: trigger_workflow\'s 202 close NEVER curtains (holds until displaced/dismissed)',
     () {
@@ -321,7 +402,7 @@ void main() {
         isTrue,
       ); // still on stage — the run is NOT over 仍在台上
       expect(d.state.phase, StagePhase.following);
-      d.onDismiss(t0.add(const Duration(seconds: 31)));
+      d.onClearActivity('b1', t0.add(const Duration(seconds: 31)));
       expect(d.state.phase, StagePhase.idle);
     },
   );

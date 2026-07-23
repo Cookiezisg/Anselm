@@ -194,7 +194,7 @@ void main() {
       d.advance(_t(500));
       d.onToolOpen('b2', 'create_document', _t(600));
       d.advance(_t(1100));
-      d.onDismiss(_t(2000));
+      d.onClearActivity('b1', _t(2000)); // row-level clear (G3) 行级清除
       expect(d.state.phase, StagePhase.idle);
       d.advance(_t(2500)); // b2 re-earns (2000+500) 重挣登台
       expect(d.state.subject?.blockId, 'b2');

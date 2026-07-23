@@ -92,6 +92,7 @@ class StageActivityView {
     required this.failed,
     required this.unread,
     this.itemId,
+    this.poll = false,
   });
 
   StageActivityView.of(StageActivity a)
@@ -101,7 +102,8 @@ class StageActivityView {
       live = a.live,
       failed = !a.closedOk,
       unread = a.unread,
-      itemId = a.itemId;
+      itemId = a.itemId,
+      poll = a.lifecycle == LifecycleSource.poll;
 
   final String blockId;
   final String toolName;
@@ -110,6 +112,11 @@ class StageActivityView {
   final bool failed;
   final int unread;
   final String? itemId;
+
+  /// R-10 poll lifecycle (G3): a CLOSED-but-held poll view means the flowrun is still RUNNING —
+  /// the row head must say so, not «settling». Immutable per block, so excluded from equality.
+  /// poll 生命周期(G3):已关仍驻留=flowrun 还在跑,行头须如实说「运行中」;随块不变,不入相等性。
+  final bool poll;
 
   // [unread] is DELIBERATELY excluded from value equality (C-003): it is a beat counter for a
   // not-yet-built channel-tab badge — NOTHING renders it and no logic reads it. Including it meant every
@@ -428,8 +435,26 @@ class StageDirector {
   // a row-level claim in the panel, never a director phase, so interaction can't stall the pipeline.
   // G2:镜头锁随手风琴退役——用户所有权是面板行级认领、绝非导演器相位,交互不再冻结流水线。
 
-  /// Explicitly close the stage (the way out of failed-hold besides displacement). 显式收场。
-  void onDismiss(DateTime now) => _dismiss(now);
+  /// Row-level clear (G3) — drop ONE activity by blockId: the failed-hold exit (a failed activity
+  /// used to squat in the live set forever with no UI way out). Clearing the subject dismisses the
+  /// stage; still-live others re-earn through a fresh debounce.
+  /// 行级清除(G3)——按 blockId 丢单个活动:失败驻留的出口(旧失败活动永久滞留且无 UI 出路)。清的是
+  /// 主角则收场;在场者重新走防抖登台。
+  void onClearActivity(String blockId, DateTime now) {
+    final a = _live.remove(blockId);
+    _order.remove(blockId);
+    _entranceDue.remove(blockId);
+    if (a == null || !identical(a, _subject)) return;
+    _subject = null;
+    _subjectStagedAt = null;
+    _curtainDue = null;
+    _phase = StagePhase.idle;
+    for (final b in _live.values) {
+      if (b.live && !_entranceDue.containsKey(b.blockId)) {
+        _entranceDue[b.blockId] = now.add(entranceDebounce);
+      }
+    }
+  }
 
   // ── the clock 时钟 ──
 

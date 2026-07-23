@@ -2964,6 +2964,18 @@ class Translations$chat$stage$en {
 	/// en: 'Delegated'
 	String get delegated => 'Delegated';
 
+	/// en: 'Failed'
+	String get rowFailed => 'Failed';
+
+	/// en: 'Settling'
+	String get rowSettling => 'Settling';
+
+	/// en: 'Running'
+	String get rowRunning => 'Running';
+
+	/// en: 'Clear this row'
+	String get clearRow => 'Clear this row';
+
 	/// en: 'Arguments'
 	String get skillArgs => 'Arguments';
 
@@ -6891,6 +6903,10 @@ extension on Translations {
 			'chat.stage.oldLadder' => 'the ladder before this edit',
 			'chat.stage.subagentUnnamed' => 'Subagent',
 			'chat.stage.delegated' => 'Delegated',
+			'chat.stage.rowFailed' => 'Failed',
+			'chat.stage.rowSettling' => 'Settling',
+			'chat.stage.rowRunning' => 'Running',
+			'chat.stage.clearRow' => 'Clear this row',
 			'chat.stage.skillArgs' => 'Arguments',
 			'chat.stage.skillTools' => 'Tools',
 			'chat.stage.tokensInOut' => ({required Object tin, required Object tout}) => '${tin} in · ${tout} out',
@@ -7346,12 +7362,12 @@ extension on Translations {
 			'tree.invalidJson' => 'Invalid JSON',
 			'tree.circular' => '[Circular]',
 			'tree.moreItems' => ({required Object count}) => '${count} more (truncated)',
+			_ => null,
+		} ?? switch (path) {
 			'startup.connecting' => 'Connecting to the local engine…',
 			'startup.crashedTitle' => 'Can\'t reach the local engine',
 			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).',
 			'startup.retry' => 'Retry',
-			_ => null,
-		} ?? switch (path) {
 			'startup.errorTitle' => 'Something went wrong',
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
 			'entities.kNew' => 'New',
@@ -7860,12 +7876,12 @@ extension on Translations {
 			'settings.keys.freeEnableHint' => 'Registers this machine\'s anonymous fingerprint with the Anselm gateway for a quota',
 			'settings.keys.freeProvisioning' => 'Provisioning…',
 			'settings.keys.freeRefresh' => 'Refresh',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
 			'settings.keys.keysSection' => 'API keys',
 			'settings.keys.addKey' => 'Add key',
 			'settings.keys.testKey' => 'Test',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.editKey' => 'Edit',
 			'settings.keys.deleteKey' => 'Delete',
 			'settings.keys.statusOk' => 'OK',

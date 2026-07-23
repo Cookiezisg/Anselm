@@ -41,6 +41,13 @@ class SubagentStageBody extends StatelessWidget {
   }
 }
 
+/// The delegate's task label off a `Subagent` tool_call's args — the ONE derivation shared by the
+/// accordion row head and the stage card (G3/A2-23: live and settled titles must never diverge;
+/// G8 re-keys the wire field here, in exactly one place). 分身任务名单源:行头与卡头共用一条派生
+/// (live/落定绝不改名;G8 换线缆键只改这一处)。
+String? subagentTaskLabel(BlockNode node) =>
+    argStringPartial(node.argumentsText, 'description');
+
 /// One delegate's card: task name → current action (tail pointer) → the compact ReAct tail → the
 /// settle line. 一席分身卡:任务名→当前动作(尾指针)→紧凑 ReAct 尾→结算行。
 class _SubagentCard extends StatelessWidget {
@@ -61,9 +68,7 @@ class _SubagentCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.colors;
     final t = Translations.of(context);
-    final desc =
-        argStringPartial(node.argumentsText, 'description') ??
-        t.chat.stage.subagentUnnamed;
+    final desc = subagentTaskLabel(node) ?? t.chat.stage.subagentUnnamed;
     final live = node.isOpen;
     final tailCount = dense ? 3 : 6;
     final trail = _trajectory(node);

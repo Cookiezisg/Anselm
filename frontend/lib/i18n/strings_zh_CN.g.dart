@@ -1205,6 +1205,10 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get oldLadder => '改之前的梯';
 	@override String get subagentUnnamed => '子代理';
 	@override String get delegated => '委派';
+	@override String get rowFailed => '失败';
+	@override String get rowSettling => '正在落定';
+	@override String get rowRunning => '运行中';
+	@override String get clearRow => '清除此行';
 	@override String get skillArgs => '参数';
 	@override String get skillTools => '工具';
 	@override String tokensInOut({required Object tin, required Object tout}) => '${tin} 入 · ${tout} 出';
@@ -3246,6 +3250,10 @@ extension on TranslationsZhCn {
 			'chat.stage.oldLadder' => '改之前的梯',
 			'chat.stage.subagentUnnamed' => '子代理',
 			'chat.stage.delegated' => '委派',
+			'chat.stage.rowFailed' => '失败',
+			'chat.stage.rowSettling' => '正在落定',
+			'chat.stage.rowRunning' => '运行中',
+			'chat.stage.clearRow' => '清除此行',
 			'chat.stage.skillArgs' => '参数',
 			'chat.stage.skillTools' => '工具',
 			'chat.stage.tokensInOut' => ({required Object tin, required Object tout}) => '${tin} 入 · ${tout} 出',
@@ -3701,12 +3709,12 @@ extension on TranslationsZhCn {
 			'tree.invalidJson' => '无效 JSON',
 			'tree.circular' => '[循环引用]',
 			'tree.moreItems' => ({required Object count}) => '${count} 项已省略',
+			_ => null,
+		} ?? switch (path) {
 			'startup.connecting' => '正在连接本地引擎…',
 			'startup.crashedTitle' => '无法连接本地引擎',
 			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。',
 			'startup.retry' => '重试',
-			_ => null,
-		} ?? switch (path) {
 			'startup.errorTitle' => '出错了',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
@@ -4215,12 +4223,12 @@ extension on TranslationsZhCn {
 			'settings.keys.freeEnableHint' => '将向 Anselm 网关注册本机匿名指纹以分配额度',
 			'settings.keys.freeProvisioning' => '正在开通…',
 			'settings.keys.freeRefresh' => '刷新',
+			_ => null,
+		} ?? switch (path) {
 			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
 			'settings.keys.keysSection' => 'API 密钥',
 			'settings.keys.addKey' => '添加密钥',
 			'settings.keys.testKey' => '测试',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.editKey' => '编辑',
 			'settings.keys.deleteKey' => '删除',
 			'settings.keys.statusOk' => '可用',

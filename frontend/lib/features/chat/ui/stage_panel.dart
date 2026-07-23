@@ -205,8 +205,23 @@ class _RowSpec {
   /// 落定 subagent 的折好节点(整行载荷)。
   final BlockNode? subagentNode;
 
-  bool get live => view != null;
+  /// The row head's honest state (G3) — derived from the ACTIVITY VIEW's own truth, never from «the
+  /// director still remembers it» (that alias rendered failed / breathing / poll-held rows as a blue
+  /// «Live» forever). 行头四态(G3):从活动视图自身真相派生——「导演器还记着」曾把失败/停拍/poll 驻留
+  /// 全渲成永恒蓝色「进行中」。
+  _RowState get state {
+    final v = view;
+    if (v == null) return _RowState.settled;
+    if (v.failed) return _RowState.failed;
+    if (v.live) return _RowState.live;
+    return v.poll ? _RowState.polling : _RowState.settling;
+  }
 }
+
+/// live = streaming/executing · polling = closed receipt, flowrun still running (R-10) · settling =
+/// the 1.8s breath before the curtain · failed = red hold (row offers the clear exit) · settled =
+/// no view left. G3 四态+落定。
+enum _RowState { live, polling, settling, failed, settled }
 
 /// The accordion list itself — the scroll + the §4 follow rules (auto-expand once per live block, scroll it
 /// into view only when off-screen, never steal a user-held scroll). 手风琴列表:滚动 + §4 跟随规则。
@@ -439,7 +454,9 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         rid,
         () => a,
       ); // subject added first wins its slot 主角先占
-      liveCountByRow[rid] = (liveCountByRow[rid] ?? 0) + 1;
+      // Only LIVE calls count toward «N running» (G3/A1-20) — a settled/failed view held by the
+      // director is not running work. 只数活的:导演器还捏着的已关视图不算「正在执行」。
+      if (a.live) liveCountByRow[rid] = (liveCountByRow[rid] ?? 0) + 1;
     }
 
     addView(stage.subject, gate: true);
@@ -458,7 +475,7 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
           _RowSpec(
             rowId: entry.key,
             view: entry.value,
-            liveCount: liveCountByRow[entry.key] ?? 1,
+            liveCount: liveCountByRow[entry.key] ?? 0,
           ),
         );
       }
@@ -533,9 +550,12 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
       final group = tiers[tierKey]!;
       if (grouped) {
         // The whole tier (head + rows) is ONE list item so the fold rides a single [AnExpandReveal] (the kit
-        // standard collapse slide); force-open (a live row / a director / deep-jump auto-expand) flips `open`
-        // → the reveal animates the SAME slide. 整档一 item,折叠走单个 AnExpandReveal;强制展开也翻 open→播同一滑动。
-        final forced = group.any((s) => s.live || expanded.contains(s.rowId));
+        // standard collapse slide); force-open (an ACTIVE row — live/polling/settling/failed — or a director /
+        // deep-jump auto-expand) flips `open` → the reveal animates the SAME slide. 整档一 item,折叠走单个
+        // AnExpandReveal;强制展开(活动行或自动展开行)也翻 open→播同一滑动。
+        final forced = group.any(
+          (s) => s.view != null || expanded.contains(s.rowId),
+        );
         final open = forced || !collapsed.contains(tierKey);
         items.add(_TierItem(tierKey: tierKey, rows: group, open: open));
       } else {
@@ -905,6 +925,28 @@ class _StageRow extends ConsumerWidget {
   /// 用户在本行体内交互——G2 行级认领(绝非镜头锁)。
   final VoidCallback onEngaged;
 
+  /// ONE title derivation for live and settled alike (G3/A2-23) — a row must never rename itself at
+  /// the moment it settles. Subagent rows (live or settled) read the same task-label seam.
+  /// 行头命名单源:live/落定同一条派生,行绝不在落定瞬间改名;分身行同走任务名缝。
+  String _title(Translations t) {
+    final entity = spec.entity;
+    if (entity != null) return entity.displayName;
+    final subNode = spec.subagentNode;
+    if (subNode != null) {
+      return subagentTaskLabel(subNode) ?? t.chat.stage.subagentUnnamed;
+    }
+    final view = spec.view;
+    if (view == null) return spec.rowId;
+    if (view.kind == 'subagent') {
+      final node = transcript.value.liveBlock(view.blockId);
+      final label = node == null ? null : subagentTaskLabel(node);
+      return (label != null && label.isNotEmpty)
+          ? label
+          : t.chat.stage.subagentUnnamed;
+    }
+    return view.itemId ?? view.toolName;
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
@@ -914,16 +956,17 @@ class _StageRow extends ConsumerWidget {
     final subNode = spec.subagentNode;
     final kind =
         entity?.kind ?? view?.kind ?? (subNode != null ? 'subagent' : 'tool');
-    final name =
-        entity?.displayName ??
-        view?.itemId ??
-        view?.toolName ??
-        (subNode != null
-            ? (argStringPartial(subNode.argumentsText, 'description') ??
-                  t.chat.stage.subagentUnnamed)
-            : spec.rowId);
+    final name = _title(t);
     final tombstoned = entity?.tombstoned ?? false;
 
+    // The honest state word (G3): failed / running (poll) / settling / live — never «Live» just
+    // because the director still holds a view. 行头状态词如实四态。
+    final String stateWord = switch (spec.state) {
+      _RowState.failed => t.chat.stage.rowFailed,
+      _RowState.polling => t.chat.stage.rowRunning,
+      _RowState.settling => t.chat.stage.rowSettling,
+      _ => t.chat.stage.live,
+    };
     final String meta;
     if (entity != null) {
       final p = entity.primary;
@@ -932,7 +975,9 @@ class _StageRow extends ConsumerWidget {
           : AnCastRow.verbWord(t, p.verb);
       meta = spec.liveCount > 1
           ? '$settled · ${t.chat.stage.parallelRunning(n: spec.liveCount)}'
-          : settled;
+          : (spec.state == _RowState.settled
+                ? settled
+                : '$settled · $stateWord');
     } else if (subNode != null) {
       meta = t
           .chat
@@ -941,7 +986,7 @@ class _StageRow extends ConsumerWidget {
     } else {
       meta = spec.liveCount > 1
           ? t.chat.stage.parallelRunning(n: spec.liveCount)
-          : t.chat.stage.live;
+          : stateWord;
     }
 
     void toggle() => ref
@@ -958,9 +1003,26 @@ class _StageRow extends ConsumerWidget {
           selected: open,
           collapsible: true,
           open: open,
-          // A live activity earns the persistent blue dot; a clean tombstone/settled row stays quiet.
-          // live 得常驻蓝点;落定/墓碑安静。
-          trailingDot: spec.live ? AnStatus.run : null,
+          // The dot speaks the row state (G3): blue only while work truly runs (live / poll-held),
+          // green for the settle breath, red for the failed hold, quiet when settled. 点随四态:
+          // 真在跑才蓝,停拍绿,失败红,落定安静。
+          trailingDot: switch (spec.state) {
+            _RowState.live || _RowState.polling => AnStatus.run,
+            _RowState.settling => AnStatus.done,
+            _RowState.failed => AnStatus.err,
+            _RowState.settled => null,
+          },
+          actions: [
+            // The failed-hold EXIT (G3/A1-11): a failed activity used to squat as a blue «Live» row
+            // forever with no way out. 失败驻留的出口:旧失败行永久滞留且无出路。
+            if (spec.state == _RowState.failed && view != null)
+              AnButton.iconOnly(
+                AnIcons.close,
+                size: AnButtonSize.sm,
+                semanticLabel: t.chat.stage.clearRow,
+                onPressed: () => director.clearActivity(view.blockId),
+              ),
+          ],
           onSelect: toggle,
           onToggle: toggle,
         ),
@@ -975,7 +1037,7 @@ class _StageRow extends ConsumerWidget {
             // spans the FULL header-box width: hierarchy reads from position, a narrower card just looks
             // misaligned (user-tuned). 上下对称 8(卡不贴行头)、左右 0——体与行头框同宽;瘦一圈反显没对齐。
             padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-            child: spec.live && view != null
+            child: view != null
                 ? _GenericStage(
                     conversationId: conversationId,
                     subject: view,

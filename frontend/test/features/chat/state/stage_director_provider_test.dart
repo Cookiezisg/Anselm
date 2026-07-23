@@ -202,7 +202,9 @@ void main() {
     },
   );
 
-  testWidgets('failed close → failed-hold; dismiss → idle', (tester) async {
+  testWidgets('failed close → failed-hold; row-level clear → idle (G3)', (
+    tester,
+  ) async {
     final repo = FixtureChatRepository();
     final c = ProviderContainer(
       overrides: [chatRepositoryProvider.overrideWithValue(repo)],
@@ -215,8 +217,10 @@ void main() {
     repo.emitFrame(_conv, _close('b1', status: 'error'));
     await tester.pump();
     expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.failedHold);
-    c.read(stageDirectorProvider(_conv).notifier).dismiss();
-    expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.idle);
+    c.read(stageDirectorProvider(_conv).notifier).clearActivity('b1');
+    final s = c.read(stageDirectorProvider(_conv));
+    expect(s.phase, StagePhase.idle);
+    expect(s.channels, isEmpty); // truly gone, not a ghost 真离场,非幽灵
   });
 
   testWidgets('followMode never (from the notch) blocks auto-staging', (

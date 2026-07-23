@@ -242,9 +242,9 @@ class StageDirectorController extends Notifier<StageState> {
   // G2: pin()/resume() retired with the camera lock — user ownership is the panel's row-level claim.
   // G2:pin/resume 随镜头锁退役——用户所有权=面板行级认领。
 
-  /// Close the stage (the failed-hold exit; G3 wires the row-level clear here). 收场(失败出口)。
-  void dismiss() {
-    _director.onDismiss(DateTime.now());
+  /// Clear one activity's row — the failed-hold exit (G3). 行级清除(失败出口)。
+  void clearActivity(String blockId) {
+    _director.onClearActivity(blockId, DateTime.now());
     _publish();
   }
 
