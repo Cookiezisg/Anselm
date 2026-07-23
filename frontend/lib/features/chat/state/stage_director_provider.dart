@@ -239,20 +239,10 @@ class StageDirectorController extends Notifier<StageState> {
   }
 
   // ── user-side inputs 用户侧 ──
+  // G2: pin()/resume() retired with the camera lock — user ownership is the panel's row-level claim.
+  // G2:pin/resume 随镜头锁退役——用户所有权=面板行级认领。
 
-  /// Take the camera (Cast row / channel tab / pin / in-stage interaction). 持镜。
-  void pin({String? blockId}) {
-    _director.onUserPin(DateTime.now(), blockId: blockId);
-    _publish();
-  }
-
-  /// The follow pill / «回到直播». 交还镜头。
-  void resume() {
-    _director.onFollowResume(DateTime.now());
-    _publish();
-  }
-
-  /// ✕ — close the stage. 收场。
+  /// Close the stage (the failed-hold exit; G3 wires the row-level clear here). 收场(失败出口)。
   void dismiss() {
     _director.onDismiss(DateTime.now());
     _publish();

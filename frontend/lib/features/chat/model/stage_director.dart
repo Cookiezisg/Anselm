@@ -1,13 +1,16 @@
-/// The sidestage DIRECTOR (WRK-061 §2) — one pure state machine per conversation that arbitrates who
-/// is on stage. Framework-free (no widgets, no timers): every input carries `now`, timing rules are
-/// expressed as DEADLINES the host schedules ([nextDeadline] → call [advance] when it fires), so the
-/// whole choreography — entrance debounce, switch arbitration, dwell, curtain — is unit-testable to
-/// the millisecond. The two orthogonal axes (§2): [FollowMode] carries the user's standing intent and
-/// is NEVER written by pin; the camera lock (following ⇄ pinned) belongs to the user.
+/// The sidestage DIRECTOR (WRK-061 §2 · G2 camera-lock retirement) — one pure state machine per
+/// conversation that arbitrates who AUTO-OPENS. Framework-free (no widgets, no timers): every input
+/// carries `now`, timing rules are expressed as DEADLINES the host schedules ([nextDeadline] → call
+/// [advance] when it fires), so the whole choreography — entrance debounce, switch arbitration,
+/// dwell, curtain — is unit-testable to the millisecond. [FollowMode] carries the user's standing
+/// intent. The single-stage era's camera lock (pinned) retired with the accordion (G2): user
+/// ownership is a ROW-level claim in the panel, so no interaction can ever freeze the follow
+/// pipeline — the director always keeps flowing.
 ///
-/// 侧幕导演器——每对话一只纯状态机,仲裁谁登台。零框架(无 widget 无计时器):每个输入带 `now`,时序规则
-/// 全部表达为「期限」([nextDeadline] 由宿主排定时器、到点调 [advance]),登台防抖/换台仲裁/驻留/谢幕
-/// 全程可毫秒级单测。两维正交:FollowMode 承载用户全局意愿、pin 绝不写它;镜头锁归用户。
+/// 侧幕导演器(G2 镜头锁退役)——每对话一只纯状态机,仲裁**自动展开谁**。零框架:每个输入带 `now`,
+/// 时序规则全部表达为「期限」([nextDeadline] 由宿主排定时器、到点调 [advance]),登台防抖/换台仲裁/
+/// 驻留/谢幕全程可毫秒级单测。FollowMode 承载用户全局意愿;单舞台时代的镜头锁(pinned)随手风琴退役
+/// (G2):用户所有权改为面板的**行级认领**,任何交互都不再冻结跟随流水线——导演器永远流动。
 library;
 
 // FollowMode lives in core (settings/follow_mode.dart) so this pure model imports it without Riverpod,
@@ -17,9 +20,12 @@ import '../../../core/settings/follow_mode.dart';
 
 export '../../../core/settings/follow_mode.dart' show FollowMode;
 
-/// §2 six states. [anchored] is a SUBSTATE of pinned handled by the viewport (scroll = occupied →
-/// pinned), not a phase here. 六态;anchored 是 pinned 的视口子态,不单列相位。
-enum StagePhase { idle, following, pinned, curtain, failedHold }
+/// §2 three states (G2): the machine only ever rests (idle), flows (following) or holds a failure
+/// on stage (failedHold). The old `pinned` froze the whole pipeline behind an exit users could not
+/// find, and `curtain` was declared but never entered — both retired; user ownership lives at the
+/// panel's row level. 三态(G2):歇/流/failedHold 驻败。旧 pinned 冻结整条流水线且无出口、curtain
+/// 声明而不可达——双双退役;用户所有权在面板行级。
+enum StagePhase { idle, following, failedHold }
 
 /// Why a subject is on stage — the §2 priority ladder, higher wins a switch. 优先级梯(高者可插队)。
 enum StagePriority { subagent, execution, build, humanGate }
@@ -129,7 +135,6 @@ class StageState {
     required this.phase,
     this.subject,
     this.channels = const [],
-    this.followPillTarget,
     this.gateWaiting = false,
   });
 
@@ -138,12 +143,8 @@ class StageState {
   /// The on-stage activity (null in idle). 台上主角。
   final StageActivityView? subject;
 
-  /// OTHER live activities, entrance order (the channel strip; ≥1 means parallel work). 频道条。
+  /// OTHER live activities, entrance order (≥1 means parallel work). 其余活动(入场序)。
   final List<StageActivityView> channels;
-
-  /// A live activity the camera is NOT on while the user holds it (pinned) — the «AI 正在编辑 X →»
-  /// pill target. Null when following or nothing else is live. 跟随药丸目标。
-  final StageActivityView? followPillTarget;
 
   /// A human-gate is awaiting — the amber pill that pierces every silence (§2). 人闸琥珀态。
   final bool gateWaiting;
@@ -158,7 +159,6 @@ class StageState {
       other is StageState &&
       other.phase == phase &&
       other.subject == subject &&
-      other.followPillTarget?.blockId == followPillTarget?.blockId &&
       other.gateWaiting == gateWaiting &&
       other.channels.length == channels.length &&
       () {
@@ -169,13 +169,8 @@ class StageState {
       }();
 
   @override
-  int get hashCode => Object.hash(
-    phase,
-    subject,
-    followPillTarget?.blockId,
-    gateWaiting,
-    Object.hashAll(channels),
-  );
+  int get hashCode =>
+      Object.hash(phase, subject, gateWaiting, Object.hashAll(channels));
 }
 
 /// §3.4 stage-worthy closed set → its stage kind + priority; null = never stages (get/read/search/
@@ -311,7 +306,6 @@ class StageDirector {
   }
 
   StageState get state {
-    final pill = _phase == StagePhase.pinned ? _freshestLiveNonSubject() : null;
     return StageState(
       phase: _phase,
       subject: _subject == null ? null : StageActivityView.of(_subject!),
@@ -320,7 +314,6 @@ class StageDirector {
           if (_live[id] != null && !identical(_live[id], _subject))
             StageActivityView.of(_live[id]!),
       ],
-      followPillTarget: pill == null ? null : StageActivityView.of(pill),
       gateWaiting: _gateWaiting,
     );
   }
@@ -392,7 +385,6 @@ class StageDirector {
         // 再谢幕;poll 型关帧只是入队回执(R-10)——驻留到收场/挤台。
         _curtainDue = now.add(settleBreath);
       }
-      // pinned: freeze in place, never auto-dismiss (§2). pinned 就地定格,永不自动收场。
     } else {
       _dropIfSettled(a, now);
     }
@@ -422,7 +414,6 @@ class StageDirector {
       } else if (_phase == StagePhase.following) {
         _curtainDue = now.add(settleBreath);
       }
-      // pinned: freeze in place (§2). pinned 定格。
     } else {
       _dropIfSettled(a, now);
     }
@@ -433,34 +424,11 @@ class StageDirector {
   void onGateWaiting(bool waiting) => _gateWaiting = waiting;
 
   // ── user-side inputs 用户侧输入 ──
+  // G2: the camera lock (onUserPin / onFollowResume) retired with the accordion — user ownership is
+  // a row-level claim in the panel, never a director phase, so interaction can't stall the pipeline.
+  // G2:镜头锁随手风琴退役——用户所有权是面板行级认领、绝非导演器相位,交互不再冻结流水线。
 
-  /// The user took the camera: tapped a Cast row / channel tab / pinned / interacted with the stage.
-  /// [blockId] targets a specific activity (channel tap); null keeps the current subject.
-  /// 用户持镜:点 Cast 行/频道 tab/pin/舞台内交互。带 blockId=切到该活动。
-  void onUserPin(DateTime now, {String? blockId}) {
-    if (blockId != null && _live.containsKey(blockId)) {
-      _stage(_live[blockId]!, now);
-    }
-    if (_subject != null) {
-      _phase = StagePhase.pinned;
-      _curtainDue = null;
-      _switchRetryDue = null;
-    }
-  }
-
-  /// The follow pill / «回到直播»: hand the camera back. 交还镜头。
-  void onFollowResume(DateTime now) {
-    if (_phase != StagePhase.pinned && _phase != StagePhase.failedHold) return;
-    final target = _freshestLiveNonSubject() ?? _subject;
-    if (target != null && target.live) {
-      _stage(target, now);
-      _phase = StagePhase.following;
-    } else {
-      _dismiss(now);
-    }
-  }
-
-  /// ✕ — close the stage (also the only way out of failed-hold besides displacement). 显式收场。
+  /// Explicitly close the stage (the way out of failed-hold besides displacement). 显式收场。
   void onDismiss(DateTime now) => _dismiss(now);
 
   // ── the clock 时钟 ──
@@ -584,11 +552,7 @@ class StageDirector {
     a.unread = 0;
     _curtainDue = null;
     if (prev != null && !identical(prev, a)) _dropIfSettled(prev, now);
-    if (_phase == StagePhase.idle ||
-        _phase == StagePhase.curtain ||
-        _phase == StagePhase.failedHold) {
-      _phase = StagePhase.following;
-    }
+    _phase = StagePhase.following;
   }
 
   // A non-subject activity that closed OK leaves the live set (its record lives in Cast/transcript);

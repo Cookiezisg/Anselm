@@ -1,11 +1,13 @@
 import 'package:anselm/features/chat/model/stage_director.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// stageDirector (WRK-061 §2) — the pure per-conversation state machine. The 抢镜 battery is the veto
-// gate: once the user holds the camera, NOTHING auto-switches. Plus: entrance debounce (short ops
-// never stage), followMode notches, switch arbitration (priority ladder / idle+dwell), curtain with
-// preemption, pinned-close freeze, failed-hold displacement, dismissal re-earning.
-// 导演器电池:抢镜(一票否决)/登台防抖/跟随三档/换台仲裁/谢幕接场/pinned 定格/failed 挤台/收场重挣。
+// stageDirector (WRK-061 §2 · G2) — the pure per-conversation state machine. The camera lock
+// (pinned) retired in G2: user ownership is a PANEL row claim, so the machine here is only ever
+// idle / following / failedHold and NO input can freeze the follow pipeline. Batteries: entrance
+// debounce (short ops never stage), followMode notches, switch arbitration (priority ladder /
+// idle+dwell), curtain with preemption, failed-hold displacement, dismissal re-earning.
+// 导演器电池(G2 镜头锁退役,仅三态、任何输入不冻流水线):登台防抖/跟随三档/换台仲裁/谢幕接场/
+// failed 挤台/收场重挣。
 
 final _t0 = DateTime.utc(2026, 7, 8, 12);
 DateTime _t(int ms) => _t0.add(Duration(milliseconds: ms));
@@ -74,30 +76,29 @@ void main() {
     },
   );
 
-  test('抢镜 VETO: pinned means NOTHING auto-switches — pill + unread only', () {
-    final d = StageDirector();
-    d.onToolOpen('b1', 'create_function', _t(0));
-    d.advance(_t(500));
-    d.onUserPin(_t(1000)); // user takes the camera 用户持镜
-    expect(d.state.phase, StagePhase.pinned);
+  test(
+    'G2: no input can freeze the pipeline — channel deltas badge unread while arbitration still runs',
+    () {
+      final d = StageDirector();
+      d.onToolOpen('b1', 'create_function', _t(0));
+      d.advance(_t(500));
 
-    d.onToolOpen('b2', 'create_workflow', _t(1100));
-    d.advance(_t(1600)); // entrance deadline fires 防抖到点
-    d.onActivity('b2', _t(2000));
-    d.onActivity('b2', _t(9000));
-    d.advance(_t(30000)); // ANY amount of time 任意久
-    expect(d.state.subject!.blockId, 'b1'); // camera never moves 镜头不动
-    expect(d.state.phase, StagePhase.pinned);
-    expect(
-      d.state.followPillTarget!.blockId,
-      'b2',
-    ); // the pill offers, never takes 药丸只提示
-    expect(d.state.channels.single.unread, 2);
+      d.onToolOpen('b2', 'create_workflow', _t(1100));
+      d.advance(_t(1600)); // entrance deadline fires 防抖到点
+      d.onActivity('b1', _t(1700)); // subject stays hot 主角保持活跃
+      d.onActivity('b2', _t(2000));
+      d.onActivity('b2', _t(2100));
+      expect(d.state.subject!.blockId, 'b1'); // idle unmet → no switch 未静默不换
+      expect(d.state.phase, StagePhase.following); // never frozen 永不冻结
+      expect(d.state.channels.single.unread, 2);
 
-    d.onFollowResume(_t(31000)); // hand the camera back 交还镜头
-    expect(d.state.subject!.blockId, 'b2');
-    expect(d.state.phase, StagePhase.following);
-  });
+      // b1 goes quiet → same-priority arbitration eventually hands over (the retired pinned phase
+      // would have blocked this forever with no exit). 静默后仲裁照常交棒(旧 pinned 永久卡死)。
+      d.advance(_t(30000));
+      expect(d.state.subject!.blockId, 'b2');
+      expect(d.state.phase, StagePhase.following);
+    },
+  );
 
   test(
     'switch arbitration: same-priority newcomer waits for idle 800ms + dwell 2400ms',
@@ -161,19 +162,6 @@ void main() {
     expect(d2.state.subject!.blockId, 'b2'); // the show goes on 接场
   });
 
-  test('pinned close: freezes in place, NEVER auto-dismisses', () {
-    final d = StageDirector();
-    d.onToolOpen('b1', 'create_function', _t(0));
-    d.advance(_t(500));
-    d.onUserPin(_t(1000));
-    d.onToolClose('b1', _t(2000));
-    d.advance(_t(60000)); // a full minute 一分钟
-    expect(d.state.phase, StagePhase.pinned);
-    expect(d.state.subject!.blockId, 'b1'); // still there 仍定格
-    d.onDismiss(_t(61000));
-    expect(d.state.phase, StagePhase.idle);
-  });
-
   test(
     'failed close → failed-hold; new work displaces it into a red-dot tab (scene kept)',
     () {
@@ -194,10 +182,7 @@ void main() {
       expect(d.state.phase, StagePhase.following);
       final tab = d.state.channels.single;
       expect(tab.blockId, 'b1');
-      expect(tab.failed, isTrue); // the red dot 红点
-      d.onUserPin(_t(32000), blockId: 'b1'); // tap back to the wreck 点回看现场
-      expect(d.state.subject!.blockId, 'b1');
-      expect(d.state.phase, StagePhase.pinned);
+      expect(tab.failed, isTrue); // the red dot survives 红点现场保留
     },
   );
 

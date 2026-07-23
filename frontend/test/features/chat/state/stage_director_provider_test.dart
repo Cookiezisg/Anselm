@@ -186,12 +186,19 @@ void main() {
       await tester.pump(
         const Duration(milliseconds: 100),
       ); // in channels (debouncing) 频道中
-      c.read(stageDirectorProvider(_conv).notifier).pin(); // hold the camera 持镜
       repo.emitFrame(_conv, _delta('b2'));
+      repo.emitFrame(
+        _conv,
+        _delta('b1'),
+      ); // subject stays hot → no switch 主角活跃不换台
       await tester.pump(const Duration(milliseconds: 600));
       final s = c.read(stageDirectorProvider(_conv));
-      expect(s.phase, StagePhase.pinned);
+      expect(s.phase, StagePhase.following); // G2: never frozen 永不冻结
+      expect(s.subject!.blockId, 'b1'); // idle unmet → camera stays 未静默镜头不动
       expect(s.channels.single.unread, greaterThan(0)); // badge moved 未读徽动了
+      // Drain the arbitration retry deadline (G2: it always keeps flowing — no phase clears it).
+      // 排干仲裁重试闹钟(G2 流水线恒流动,无相位会清它)。
+      await tester.pump(const Duration(seconds: 3));
     },
   );
 

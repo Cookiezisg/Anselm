@@ -294,14 +294,27 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
 
   // §4-3 — a USER-initiated scroll (direction ≠ idle) suspends auto-scroll; returning near the bottom
   // resumes it. ScrollUpdateNotification is NEVER treated as takeover (else a programmatic ensureVisible
-  // would self-lock). 用户手动滚即挂起,回底恢复;update 帧一律不当接管(否则 ensureVisible 自锁)。
+  // would self-lock). Depth-gated (G2/A2-19): only the accordion's OWN scrollable counts — a nested
+  // scroll inside an expanded stage body (code window, live tail) bubbles up with depth > 0 and must
+  // not flip the takeover. 用户手动滚即挂起,回底恢复;update 帧不当接管;仅认 depth==0——体内嵌套滚动
+  // 冒泡不得翻 takeover(G2/A2-19)。
   bool _onScroll(ScrollNotification n) {
+    if (n.depth != 0) return false;
     if (n is UserScrollNotification && n.direction != ScrollDirection.idle) {
       _takeover = true;
     } else if (n is ScrollEndNotification && _isNearTop) {
       _takeover = false;
     }
     return false;
+  }
+
+  // G2 — engaging a stage body (tap / drag inside it) CLAIMS the row for the user: it leaves the
+  // auto-opened ledger, so the curtain never collapses a row someone is reading — while the director
+  // keeps flowing (the retired camera lock froze the whole follow pipeline behind an exit no UI
+  // offered). G2:体内交互=用户认领本行——移出自动展开账本,谢幕绝不收正在读的行;导演器照常流动
+  // (退役的镜头锁曾把整条流水线冻死在无出口的 pinned 里)。
+  void _claimRow(String rowId) {
+    _autoOpenedRow.removeWhere((_, row) => row == rowId);
   }
 
   // The list is TOP-anchored (todo + live rows ride offset≈0; the oldest ledger + load-more foot sit at the
@@ -323,10 +336,11 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     // §4-4 (缺口B, 0719) — the director CURTAINED a settled subject: `following` phase, the settle breath
     // (settleBreath ≈ dwell) elapsed, no live work to switch to, so the subject was dismissed (→ null). Collapse
     // EXACTLY the row we auto-opened for it, so the settled stage animates back to a ledger row on the same
-    // AnExpandReveal slide. `pinned` / `failedHold` hold the subject (they never reach subject==null through the
-    // curtain), so they're naturally exempt — and we only ever close OUR auto-opened row, so a row the USER
-    // expanded is untouched. 导演器谢幕(following→停拍→无接场→收场):收起自动展开的那行,播同一 AnExpandReveal
-    // 收回台账行;pinned/失败定格不经此路故天然豁免;只收自己开的,用户自展的行不动。
+    // AnExpandReveal slide. `failedHold` holds the subject (it never reaches subject==null through the curtain),
+    // so it's naturally exempt — and we only ever close OUR auto-opened row (a G2 claim removed any row the user
+    // engaged), so a row the user expanded or read is untouched. 导演器谢幕(following→停拍→无接场→收场):
+    // 收起自动展开的那行,播同一 AnExpandReveal 收回台账行;失败定格不经此路故天然豁免;只收自己开的——
+    // 用户自展或认领(G2)的行不动。
     if (prev != null &&
         prev.subject != null &&
         next.subject == null &&
@@ -600,7 +614,7 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
         itemCount: items.length,
         itemBuilder: (context, i) =>
-            _buildItem(context, items[i], expanded, transcript, stage),
+            _buildItem(context, items[i], expanded, transcript),
       ),
     );
   }
@@ -610,7 +624,6 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     _Item item,
     Set<String> expanded,
     CoalescingNotifier<ConversationTranscript> transcript,
-    StageState stage,
   ) {
     switch (item) {
       case _TodoItem():
@@ -631,14 +644,13 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
             spec: spec,
             open: expanded.contains(spec.rowId),
             transcript: transcript,
-            stagePhase: stage.phase,
-            subjectBlockId: stage.subject?.blockId,
+            onEngaged: () => _claimRow(spec.rowId),
           ),
         );
       case _TierItem(:final tierKey, :final rows, :final open):
         return KeyedSubtree(
           key: _keyFor('group:$tierKey'),
-          child: _buildTier(tierKey, rows, open, expanded, transcript, stage),
+          child: _buildTier(tierKey, rows, open, expanded, transcript),
         );
       case _FootItem():
         // load-more foot — fires on becoming visible, DEFERRED out of build: loadMore() synchronously
@@ -672,7 +684,6 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     bool open,
     Set<String> expanded,
     CoalescingNotifier<ConversationTranscript> transcript,
-    StageState stage,
   ) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -698,8 +709,7 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
                     spec: spec,
                     open: expanded.contains(spec.rowId),
                     transcript: transcript,
-                    stagePhase: stage.phase,
-                    subjectBlockId: stage.subject?.blockId,
+                    onEngaged: () => _claimRow(spec.rowId),
                   ),
                 ),
             ],
@@ -883,16 +893,17 @@ class _StageRow extends ConsumerWidget {
     required this.spec,
     required this.open,
     required this.transcript,
-    required this.stagePhase,
-    required this.subjectBlockId,
+    required this.onEngaged,
   });
 
   final String conversationId;
   final _RowSpec spec;
   final bool open;
   final CoalescingNotifier<ConversationTranscript> transcript;
-  final StagePhase stagePhase;
-  final String? subjectBlockId;
+
+  /// The user tapped / dragged inside this row's stage body — a G2 row claim (never a camera lock).
+  /// 用户在本行体内交互——G2 行级认领(绝非镜头锁)。
+  final VoidCallback onEngaged;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -968,13 +979,13 @@ class _StageRow extends ConsumerWidget {
                 ? _GenericStage(
                     conversationId: conversationId,
                     subject: view,
-                    phase: view.blockId == subjectBlockId
-                        ? stagePhase
-                        : (view.failed
-                              ? StagePhase.failedHold
-                              : StagePhase.following),
+                    // Per-row phase truth (G2): a row's stage face depends only on ITS activity —
+                    // failed wears the red hold, everything else is following. 行相位只看本行活动。
+                    phase: view.failed
+                        ? StagePhase.failedHold
+                        : StagePhase.following,
                     transcript: transcript,
-                    onPin: () => director.pin(blockId: view.blockId),
+                    onEngaged: onEngaged,
                     onItemResolved: (itemId) =>
                         director.itemResolved(view.blockId, itemId),
                   )
@@ -1022,7 +1033,7 @@ class _GenericStage extends StatefulWidget {
     required this.subject,
     required this.phase,
     required this.transcript,
-    required this.onPin,
+    required this.onEngaged,
     required this.onItemResolved,
   });
 
@@ -1030,7 +1041,10 @@ class _GenericStage extends StatefulWidget {
   final StageActivityView subject;
   final StagePhase phase;
   final CoalescingNotifier<ConversationTranscript> transcript;
-  final VoidCallback onPin;
+
+  /// Tap / drag inside the body — the G2 row claim (reading never gets auto-collapsed; the follow
+  /// pipeline keeps flowing). 体内交互=G2 行级认领(阅读不被自动收;流水线照常流动)。
+  final VoidCallback onEngaged;
   final void Function(String itemId) onItemResolved;
 
   @override
@@ -1091,14 +1105,17 @@ class _GenericStageState extends State<_GenericStage> {
           session: session,
         );
         return NotificationListener<ScrollStartNotification>(
-          // Reading INSIDE a stage = holding the camera: a user mid-read is never auto-switched away.
-          // Only user gestures count. 舞台内滚动=持镜(只认用户手势)。
+          // Reading INSIDE a stage = claiming THIS row (G2): the curtain will never collapse a row
+          // mid-read; only user gestures count (dragDetails ≠ null). The old capture pinned the whole
+          // DIRECTOR — one tap froze auto-staging for the rest of the conversation with no exit.
+          // 舞台内滚动=认领本行(G2):谢幕绝不收正在读的行,只认用户手势;旧捕获钉死整个导演器——
+          // 点一下即全会话冻结自动登台且无出口。
           onNotification: (n) {
-            if (n.dragDetails != null) widget.onPin();
+            if (n.dragDetails != null) widget.onEngaged();
             return false;
           },
           child: GestureDetector(
-            onTapDown: (_) => widget.onPin(),
+            onTapDown: (_) => widget.onEngaged(),
             behavior: HitTestBehavior.translucent,
             // No brow — the accordion ROW HEADER is the identity (kind glyph · name · live dot); the body
             // is just the stage content + the honesty ribbon (live/failed truth). 无眉:行头即身份。

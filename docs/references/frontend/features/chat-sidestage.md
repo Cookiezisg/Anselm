@@ -29,8 +29,7 @@ audience: [human, ai]
 |---|---|
 | 头带（§1 身份头 + §2 速览带,三段式文法 · 0719） | **`AnPanelHead`**(core/ui 原语):脉冲/活动 icon + 「活动」标题 + **单个 ⋯ 溢出菜单收编一切面板动作**(跟随三档[每次/每会话首次/从不,持久化 `fy.stage.follow`,settings 模块读同一 `followModeProvider`]· 展开全部 · 收起全部;退役旧「四小钮」) + ✕ 收岛。头下一行 **§2 速览带**:一行安静 `AnText.meta`「N 触点 · M 执行 · K 待你处理」——N=触点台账实体数、M=执行过的实体数、K=`pendingInteractionsProvider` 待决数;**零人话律=有真信号才在**(每段 `>0` 才现、全零整行不渲) |
 | 频道条 | `AnChannelStrip`(≥2 并发活动时,cap 4 + 溢出;点 tab=pin 换台;failed 挤台成红点 tab) |
-| 舞台 | `AnExpandReveal` 揭示 `_GenericStage`(眉+诚实丝带+kind 量身体);poll 型主体带**活运行卷**(`_RunProgressSection`:flowrun 节点 tick 逐行静落,AnLedgerRow 行+语义状态点(WRK-066 批6,字形三态退役)+选中 `port` accent 徽,≤12 行,durable 终态一行收卷);**exhibit 置位时让位 `ExhibitStage`**;舞台内滚动=pinned(阅读即持镜,只认用户手势) |
-| 药丸行 | `AnFollowPill`(gate 琥珀「AI 在等你决定」压一切 / live「AI 正在编辑 X」点回跟随) |
+| 舞台 | `AnExpandReveal` 揭示 `_GenericStage`(眉+诚实丝带+kind 量身体);poll 型主体带**活运行卷**(`_RunProgressSection`:flowrun 节点 tick 逐行静落,AnLedgerRow 行+语义状态点(WRK-066 批6,字形三态退役)+选中 `port` accent 徽,≤12 行,durable 终态一行收卷);**exhibit 置位时让位 `ExhibitStage`**;舞台体内点击/拖动=**G2 行级认领**(该行移出自动展开账本、谢幕绝不收正在读的行;导演器照常流动,只认用户手势) |
 | Rundown | `_RundownSection`(`AnTaskRing` 补弧 + `AnRundownList` 三态行,todo 整表帧,按 subagentId 分板) |
 | 演员表 | `_CastList`(触点台账 R-2 实体聚合行:`AnCastRow` 新鲜度晕+动词微词+×count;**hover 尾位换双微动作**「跳到发生处」(''=藏)/「去实体页」(无面板即藏);**点行=exhibit 登台**;主角行 R-6 静态脉点;**谢幕落账洗亮** ~1.8s 衰减) |
 
@@ -38,7 +37,7 @@ audience: [human, ai]
 
 ## 2. 引擎与状态
 
-- **`StageDirector`**(`model/stage_director.dart`,纯状态机):六态 idle/following/pinned/curtain/failedHold(+anchored 视口子态);500ms 登台防抖(短操作永不登台)、800ms 静默+2400ms 驻留换台仲裁、优先级 humanGate>build>execution>subagent;**pinned 永不自动收**;failed 驻留红纱。**落定谢幕收行**（缺口B,用户 0719 改判）:following 主角落定 → 停拍（`settleBreath`≈1.8s 停留让人看清结果）→ 无接场则收场（subject→null）→ `StagePanel._onDirector` 把**自动展开的那行**动画收回台账行（同一 `AnExpandReveal` 收合滑动 + 既有落账洗亮）;**只收自己自动展开的行**（`_autoOpenedRow` 记账、itemId 解出时迁移键）,用户自展的行 / pinned / failedHold 定格**不经此路故天然豁免**。`LifecycleSource` 三型——toolClose(常规)/poll(`trigger_workflow`:202 关帧绝不谢幕,**驻留到 durable `run_terminal` 到达**——`onRunTerminal` 净→停拍谢幕、败→红纱,R-10 已退役)。
+- **`StageDirector`**(`model/stage_director.dart`,纯状态机):**三态 idle/following/failedHold(G2 镜头锁退役)**——旧 pinned 一次体内点击即冻结整条自动登台流水线且无任何解除入口、curtain 声明而不可达,双双删除;**用户所有权改为面板行级认领**(体内点击/拖动把该行移出 `_autoOpenedRow` 自动展开账本→谢幕绝不收正在读的行,导演器永远流动)。500ms 登台防抖(短操作永不登台)、800ms 静默+2400ms 驻留换台仲裁、优先级 humanGate>build>execution>subagent;failed 驻留红纱。**落定谢幕收行**（缺口B,用户 0719 改判）:following 主角落定 → 停拍（`settleBreath`≈1.8s 停留让人看清结果）→ 无接场则收场（subject→null）→ `StagePanel._onDirector` 把**自动展开的那行**动画收回台账行（同一 `AnExpandReveal` 收合滑动 + 既有落账洗亮）;**只收自己自动展开的行**（`_autoOpenedRow` 记账、itemId 解出时迁移键）,用户自展或认领(G2)的行 / failedHold 定格**不经此路故天然豁免**。`LifecycleSource` 三型——toolClose(常规)/poll(`trigger_workflow`:202 关帧绝不谢幕,**驻留到 durable `run_terminal` 到达**——`onRunTerminal` 净→停拍谢幕、败→红纱,R-10 已退役)。
 - **宿主 `stageDirectorProvider`**(`state/stage_director_provider.dart`,autoDispose family):会话帧投影(tool_call open/delta/close)+ 人闸旗 + 唯一闹钟 advance(到期时刻);**poll 记账**——工具名留自 open、workflowId 解自关帧 args、flowrunId 解自入队回执,按 `workflowFrames(workflowId)`(entities 流 scope 订阅)听 `run_terminal` **按 flowrunId 匹配**并把节点 `run` tick 喂进 `flowrunProgressProvider`(tick 绝不猜——错 run 的进度是谎言,缺卷只是缺口)。`followModeProvider` 持久三档。
 - **`touchpointLedgerProvider`**(`state/touchpoint_ledger.dart`):R-2 (kind,itemId) 聚合、durable 触点信号直 patch(绝不过 CoalescingNotifier)、410 重拉首页并入、keyset 无限滚。
 - **`exhibitProvider`**(`state/exhibit_provider.dart`):用户钉的 Cast 展品——**刻意在导演器之外**(StageActivity 只能由 tool_call open 出生);`ExhibitStage` 美术馆开灯入场,attachment=**展品座**(缩略图+size/mime/sha256 前缀 mono),实体=身份面(id mono+动词史 KV),墓碑静态;驻留到关闭。

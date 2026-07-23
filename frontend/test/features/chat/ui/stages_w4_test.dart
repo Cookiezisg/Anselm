@@ -6,6 +6,8 @@ import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/model/stage_director.dart';
+import 'package:anselm/features/chat/state/stage_director_provider.dart';
+import 'package:anselm/features/chat/state/stage_expansion.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -243,6 +245,59 @@ void main() {
       expect(find.text('分身甲'), findsOneWidget);
       expect(find.text('分身乙'), findsOneWidget);
       expect(find.textContaining('并行群像'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'G2: engaging a stage body claims the row — the curtain leaves it open and the pipeline stays alive',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b1', 'create_function'));
+      await tester.pump(
+        const Duration(milliseconds: 600),
+      ); // staged + auto-opened 登台+自动展开
+
+      final el = tester.element(find.byType(StagePanel));
+      final container = ProviderScope.containerOf(el, listen: false);
+      expect(
+        container.read(stageExpansionProvider(_conv)).contains('block:b1'),
+        isTrue,
+      );
+
+      // Tap inside the live body — the G2 row claim. Pre-G2 this pinned the whole DIRECTOR: the
+      // follow pipeline froze for the rest of the conversation with no exit. 体内点击=认领本行;
+      // 旧行为钉死整个导演器、全会话流水线冻结且无出口。
+      await tester.tap(find.byType(AnHonestyRibbon));
+      await tester.pump();
+
+      // The wire truth: the tool_call close only ends ARG streaming; the director settles on the
+      // tool_result close (the real execution terminal). 线缆真相:参流关≠执行终态,导演器认 result 关。
+      repo.emitFrame(_conv, _close('b1'));
+      repo.emitFrame(_conv, _open('r1', '', parent: 'b1', type: 'tool_result'));
+      repo.emitFrame(_conv, _close('r1'));
+      await tester.pump(
+        const Duration(milliseconds: 2000),
+      ); // breath + curtain 停拍+谢幕
+
+      // The curtain fired (subject gone) but the CLAIMED row stays open. 谢幕发生,认领行不收。
+      expect(container.read(stageDirectorProvider(_conv)).subject, isNull);
+      expect(
+        container.read(stageExpansionProvider(_conv)).contains('block:b1'),
+        isTrue,
+      );
+
+      // And the pipeline is alive: the next tool auto-stages + auto-opens ITS row. 流水线存活。
+      repo.emitFrame(_conv, _open('b2', 'create_document'));
+      await tester.pump(const Duration(milliseconds: 600));
+      final stage = container.read(stageDirectorProvider(_conv));
+      expect(stage.subject?.blockId, 'b2');
+      expect(stage.phase, StagePhase.following);
+      expect(
+        container.read(stageExpansionProvider(_conv)).contains('block:b2'),
+        isTrue,
+      );
     },
   );
 
