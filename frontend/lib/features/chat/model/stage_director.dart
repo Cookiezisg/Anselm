@@ -77,7 +77,11 @@ class StageActivity {
   /// 主目标实体 id(args 流解出后喂入;驱动 Cast 脉冲)。
   String? itemId;
 
-  /// Unread beats while OFF stage (channel tab badge). 不在台上时的未读拍数(频道 tab 徽)。
+  /// Unread beats while OFF stage — a MACHINE-observable activity counter (G12 adjudication: the
+  /// channel-tab badge it once fed retired with the accordion; tests read it to prove owner-mapped
+  /// activity routing, and it stays excluded from StageState equality so it can never re-create the
+  /// per-delta rebuild storm). 不在台上的未读拍数——机器可观测活性计数(G12 裁决:频道 tab 徽已随
+  /// 手风琴退役;测试以它证属主活性路由,且仍被排除在值相等外、绝不复发逐 delta 重建风暴)。
   int unread = 0;
 
   bool get live => closedAt == null;
