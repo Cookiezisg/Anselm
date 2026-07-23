@@ -1209,7 +1209,6 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get skillTools => '工具';
 	@override String tokensInOut({required Object tin, required Object tout}) => '${tin} 入 · ${tout} 出';
 	@override String stopReasonWord({required Object r}) => '止因 ${r}';
-	@override String get ensembleTitle => '并行群像';
 	@override String boardOf({required Object name}) => '${name} 的清单';
 	@override String get humanOnly => '仅人可唤';
 	@override String get toolsDiscovered => '个工具已发现';
@@ -3251,7 +3250,6 @@ extension on TranslationsZhCn {
 			'chat.stage.skillTools' => '工具',
 			'chat.stage.tokensInOut' => ({required Object tin, required Object tout}) => '${tin} 入 · ${tout} 出',
 			'chat.stage.stopReasonWord' => ({required Object r}) => '止因 ${r}',
-			'chat.stage.ensembleTitle' => '并行群像',
 			'chat.stage.boardOf' => ({required Object name}) => '${name} 的清单',
 			'chat.stage.humanOnly' => '仅人可唤',
 			'chat.stage.toolsDiscovered' => '个工具已发现',
@@ -3706,9 +3704,9 @@ extension on TranslationsZhCn {
 			'startup.connecting' => '正在连接本地引擎…',
 			'startup.crashedTitle' => '无法连接本地引擎',
 			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。',
+			'startup.retry' => '重试',
 			_ => null,
 		} ?? switch (path) {
-			'startup.retry' => '重试',
 			'startup.errorTitle' => '出错了',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
@@ -4220,9 +4218,9 @@ extension on TranslationsZhCn {
 			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
 			'settings.keys.keysSection' => 'API 密钥',
 			'settings.keys.addKey' => '添加密钥',
+			'settings.keys.testKey' => '测试',
 			_ => null,
 		} ?? switch (path) {
-			'settings.keys.testKey' => '测试',
 			'settings.keys.editKey' => '编辑',
 			'settings.keys.deleteKey' => '删除',
 			'settings.keys.statusOk' => '可用',

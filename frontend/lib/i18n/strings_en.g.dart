@@ -2976,9 +2976,6 @@ class Translations$chat$stage$en {
 	/// en: 'stopped: $r'
 	String stopReasonWord({required Object r}) => 'stopped: ${r}';
 
-	/// en: 'Running in parallel'
-	String get ensembleTitle => 'Running in parallel';
-
 	/// en: '$name's board'
 	String boardOf({required Object name}) => '${name}\'s board';
 
@@ -6898,7 +6895,6 @@ extension on Translations {
 			'chat.stage.skillTools' => 'Tools',
 			'chat.stage.tokensInOut' => ({required Object tin, required Object tout}) => '${tin} in · ${tout} out',
 			'chat.stage.stopReasonWord' => ({required Object r}) => 'stopped: ${r}',
-			'chat.stage.ensembleTitle' => 'Running in parallel',
 			'chat.stage.boardOf' => ({required Object name}) => '${name}\'s board',
 			'chat.stage.humanOnly' => 'human-invoked only',
 			'chat.stage.toolsDiscovered' => 'tools discovered',
@@ -7353,9 +7349,9 @@ extension on Translations {
 			'startup.connecting' => 'Connecting to the local engine…',
 			'startup.crashedTitle' => 'Can\'t reach the local engine',
 			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).',
+			'startup.retry' => 'Retry',
 			_ => null,
 		} ?? switch (path) {
-			'startup.retry' => 'Retry',
 			'startup.errorTitle' => 'Something went wrong',
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
 			'entities.kNew' => 'New',
@@ -7867,9 +7863,9 @@ extension on Translations {
 			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
 			'settings.keys.keysSection' => 'API keys',
 			'settings.keys.addKey' => 'Add key',
+			'settings.keys.testKey' => 'Test',
 			_ => null,
 		} ?? switch (path) {
-			'settings.keys.testKey' => 'Test',
 			'settings.keys.editKey' => 'Edit',
 			'settings.keys.deleteKey' => 'Delete',
 			'settings.keys.statusOk' => 'OK',

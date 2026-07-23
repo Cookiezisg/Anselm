@@ -588,7 +588,6 @@
       "skillTools": "Tools",
       "tokensInOut": "$tin in · $tout out",
       "stopReasonWord": "stopped: $r",
-      "ensembleTitle": "Running in parallel",
       "boardOf": "$name's board",
       "humanOnly": "human-invoked only",
       "toolsDiscovered": "tools discovered",

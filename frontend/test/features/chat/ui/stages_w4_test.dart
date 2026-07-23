@@ -6,7 +6,6 @@ import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/model/stage_director.dart';
-import 'package:anselm/features/chat/state/stage_director_provider.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -216,7 +215,7 @@ void main() {
   );
 
   testWidgets(
-    'ENSEMBLE: two live delegates render cards; tapping the peer pins it on stage',
+    'G1: two live delegates, BOTH rows expanded — one card each, no in-body ensemble (N×N regression)',
     (tester) async {
       final repo = _repo();
       await tester.pumpWidget(_host(repo));
@@ -231,17 +230,19 @@ void main() {
       ); // sa2 debounce → channels 入频道
       await tester.pump(const Duration(milliseconds: 400));
 
-      expect(find.textContaining('并行群像'), findsOneWidget);
+      // Two accordion rows: the staged subject's opened automatically; open the channel's BY HAND.
+      // This is the very state the retired ensemble left untested — both bodies mounted at once was
+      // exactly where the old peers loop double-rendered (self-inclusion + N×N).
+      // 两行:主角行已自动展开,手动展开频道行——「双行同展」正是旧群像从未被测过、且一测即爆的状态。
+      expect(find.text('Subagent'), findsNWidgets(2));
+      await tester.tap(find.text('Subagent').last);
+      await tester.pump(const Duration(milliseconds: 400));
+
+      // Panel-wide uniqueness: each delegate appears EXACTLY once; the ensemble title is retired.
+      // 全面板唯一性:每席恰一张卡;群像标题退役。
       expect(find.text('分身甲'), findsOneWidget);
       expect(find.text('分身乙'), findsOneWidget);
-
-      await tester.tap(find.text('分身乙'));
-      await tester.pump(const Duration(milliseconds: 100));
-      final el = tester.element(find.byType(StagePanel));
-      final container = ProviderScope.containerOf(el, listen: false);
-      final stage = container.read(stageDirectorProvider(_conv));
-      expect(stage.subject!.blockId, 'sa2'); // the peer took the stage 换台
-      expect(stage.phase, StagePhase.pinned); // by the USER 用户持镜
+      expect(find.textContaining('并行群像'), findsNothing);
     },
   );
 

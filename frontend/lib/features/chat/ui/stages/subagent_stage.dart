@@ -1,5 +1,4 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
@@ -9,83 +8,36 @@ import '../../../../core/contract/messages/block_content.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../model/tool_receipts.dart';
-import '../../state/conversation_stream_provider.dart';
-import '../../state/stage_director_provider.dart';
 import 'stage_frame.dart';
 import 'stage_scene.dart';
 
-/// The SUBAGENT stage (WRK-061 §7-13, W4) — the delegate's live broadcast. ONE subagent: a compact
-/// ReAct tail (the newest nested blocks: reasoning as a shimmer whisper line, tool_call as a bare verb
-/// row, text as a summary line) with the «当前动作» read O(1) off the reducer's tail pointer. TWO OR
-/// MORE live subagents: the ENSEMBLE — equal cards (task name + current action + a 3-line tail),
-/// tapping one pins it on stage. A close settles the card: status mark + tokens roll + a non-end_turn
-/// stopReason stated plainly. History rehydration by executionId is the W6 path (R-14).
+/// The SUBAGENT stage (WRK-061 §7-13, W4; ensemble retired in G1) — ONE delegate, ONE card. The
+/// sticky accordion already lays parallel delegates out as sibling rows, so the row body renders
+/// ONLY its own subject: a compact ReAct tail (the newest nested blocks: reasoning as a shimmer
+/// whisper line, tool_call as a bare verb row, text as a summary line) with the «当前动作» read
+/// O(1) off the reducer's tail pointer, plus the inline terminal while the delegate's current tool
+/// streams progress. A close settles the card: status mark + tokens roll + a non-end_turn
+/// stopReason stated plainly. History rehydration by folded sub-messages is the W6 path (R-14).
 ///
-/// subagent 舞台(W4)——分身的直播。单席:紧凑 ReAct 尾(最新嵌套块:reasoning=低语行/tool_call=裸动词行/
-/// text=摘要行),「当前动作」O(1) 读 reducer 尾指针。≥2 并行=群像:等高卡(任务名+当前动作+3 行尾),点卡
-/// 上台。close 结算:状态记号+tokens 滚动+非 end_turn 止因如实陈词。历史 executionId 径归 W6(R-14)。
-class SubagentStageBody extends ConsumerWidget {
+/// G1 law: stage bodies consume their per-row [StageScene] ONLY — never director-global state. The
+/// old in-body ensemble read `stage.channels` (which excludes the DIRECTOR's subject, not this
+/// row's node), so every non-subject row rendered itself twice and N expanded rows rendered N×N
+/// cards; its tap-to-pin also fought the accordion's own row grammar.
+///
+/// subagent 舞台(W4;G1 群像退役)——一席一卡。粘性手风琴已把并行分身铺成同级行,行体只渲本行主角:
+/// 紧凑 ReAct 尾(reasoning=低语行/tool_call=裸动词行/text=摘要行)+「当前动作」O(1) 读尾指针 +
+/// 分身当前工具流出 progress 时的内联终端。close 结算:状态记号+tokens 滚动+非 end_turn 止因如实。
+/// G1 立法:舞台体只消费本行 [StageScene]、禁 watch 导演器全局态——旧体内群像读 `stage.channels`
+/// (它排除的是导演 subject、不是本行节点),非 subject 行渲自己两次、N 行同展 = N×N;点卡换台又与
+/// 手风琴行级文法相斗。
+class SubagentStageBody extends StatelessWidget {
   const SubagentStageBody({required this.scene, super.key});
 
   final StageScene scene;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final c = context.colors;
-    final t = Translations.of(context);
-    final stage = ref.watch(stageDirectorProvider(scene.conversationId));
-    final transcript = ref
-        .watch(conversationStreamProvider(scene.conversationId).notifier)
-        .transcript;
-
-    // The ensemble: every OTHER live subagent alongside the subject. 群像:主角+其余 live 分身。
-    final peers = [
-      for (final ch in stage.channels)
-        if (ch.kind == 'subagent' && ch.live) ch.blockId,
-    ];
-
-    if (peers.isEmpty) {
-      return _SubagentCard(node: scene.node, dense: false, showTerminal: true);
-    }
-    final director = ref.read(
-      stageDirectorProvider(scene.conversationId).notifier,
-    );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // 假想框律:群像标题(裸文字)归假想框,左缘与 KV 键同起点(X=8);其下等高卡=真框贴 X=0。
-        // The imaginary-frame law: the ensemble title (bare text) sits in the imaginary frame (X=8, the KV-key
-        // line); the equal cards below are real frames at X=0.
-        stageFramed(
-          Text(
-            t.chat.stage.ensembleTitle,
-            style: AnText.label.copyWith(color: c.inkFaint),
-          ),
-        ),
-        const SizedBox(height: AnSpace.s4),
-        _SubagentCard(node: scene.node, dense: true, showTerminal: true),
-        for (final blockId in peers)
-          if (transcript.value.liveBlock(blockId)
-              case final BlockNode peer) ...[
-            const SizedBox(height: AnSpace.s6),
-            AnInteractive(
-              onTap: () => director.pin(blockId: blockId),
-              // The window face is opaque — a behind-tint can never show through, so hover/keyboard
-              // focus draw the engaged ring AROUND the card (WCAG 2.4.7, 批1 复审). 窗面不透明透不出
-              // 背后着色 → hover/键盘焦点改画卡外激活环(批1 复审)。
-              builder: (ctx, states) => AnFocusRing(
-                active: states.isActive,
-                child: _SubagentCard(
-                  node: peer,
-                  dense: true,
-                  showTerminal: false,
-                ),
-              ),
-            ),
-          ],
-      ],
-    );
+  Widget build(BuildContext context) {
+    return _SubagentCard(node: scene.node, dense: false, showTerminal: true);
   }
 }
 
