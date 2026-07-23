@@ -897,6 +897,83 @@ void main() {
       await container.read(skillListProvider.future);
       expect(repo.skillFetches, 2);
     });
+
+    testWidgets(
+      'document.updated for a HELD row patches one row in place — no tree refetch (S4)',
+      (tester) async {
+        final repo = _SignallingRepo();
+        final container = ProviderContainer(
+          overrides: [libraryRepositoryProvider.overrideWithValue(repo)],
+        );
+        addTearDown(container.dispose);
+        final sub = container.listen(documentTreeProvider, (_, _) {});
+        addTearDown(sub.close);
+        await container.read(documentTreeProvider.future);
+        expect(repo.treeFetches, 1);
+
+        // Mutate behind the provider's back (an autosave from another surface), then echo it.
+        // 背后改行(别的表面自动存),再回声信号。
+        await repo.updateDocument('doc_a', {'name': 'A2', 'content': 'body!'});
+        repo.emit('document', action: 'updated', id: 'doc_a');
+        await tester.pump(const Duration(milliseconds: 500));
+
+        final rows = container.read(documentTreeProvider).value!;
+        final a = rows.firstWhere((n) => n.id == 'doc_a');
+        expect(a.name, 'A2'); // the row is fresh 行已新
+        expect(
+          a.content,
+          isEmpty,
+        ); // tree projection kept (metadata-only) 树投影保持
+        expect(a.hasContent, isTrue); // derived from the fetched body 由取回正文推
+        expect(repo.docGets, 1); // ONE single-row GET 单行一取
+        expect(repo.treeFetches, 1); // and NO full refetch 无整取
+      },
+    );
+
+    testWidgets(
+      'document.updated for an UNHELD id falls back to the structural refetch',
+      (tester) async {
+        final repo = _SignallingRepo();
+        final container = ProviderContainer(
+          overrides: [libraryRepositoryProvider.overrideWithValue(repo)],
+        );
+        addTearDown(container.dispose);
+        final sub = container.listen(documentTreeProvider, (_, _) {});
+        addTearDown(sub.close);
+        await container.read(documentTreeProvider.future);
+
+        repo.emit('document', action: 'updated', id: 'doc_ghost');
+        await tester.pump(const Duration(milliseconds: 500));
+        await container.read(documentTreeProvider.future);
+        expect(
+          repo.treeFetches,
+          2,
+        ); // unknown row → the tree is re-pulled 未持有→整取
+        expect(repo.docGets, 0);
+      },
+    );
+
+    testWidgets('skill.updated for a held row patches in place (S4)', (
+      tester,
+    ) async {
+      final repo = _SignallingRepo();
+      final container = ProviderContainer(
+        overrides: [libraryRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(container.dispose);
+      final sub = container.listen(skillListProvider, (_, _) {});
+      addTearDown(sub.close);
+      await container.read(skillListProvider.future);
+      expect(repo.skillFetches, 1);
+
+      repo.emit('skill', action: 'updated', id: 'triage');
+      await tester.pump(const Duration(milliseconds: 500));
+
+      final rows = container.read(skillListProvider).value!;
+      expect(rows.single.body, isEmpty); // list projection kept 列表投影保持
+      expect(repo.skillGets, 1);
+      expect(repo.skillFetches, 1); // no full refetch 无整取
+    });
   });
 
   group('LibraryInspector', () {
@@ -1454,14 +1531,20 @@ class _SignallingRepo extends FixtureLibraryRepository {
         skills: [_skill('triage')],
       );
 
-  final _signals = StreamController<String>.broadcast();
+  final _signals = StreamController<LibrarySignal>.broadcast();
   int treeFetches = 0;
   int skillFetches = 0;
+  int docGets = 0;
+  int skillGets = 0;
 
-  void emit(String domain) => _signals.add(domain);
+  // Default action `created` = the structural tier (full refetch), matching the old string-only
+  // signal semantics; `updated` + a held id exercises the in-place patch tier (S4).
+  // 默认 created=结构档(整取),与旧字符串信号同义;updated+已持有 id 走就地补档(S4)。
+  void emit(String domain, {String action = 'created', String id = ''}) =>
+      _signals.add((domain: domain, action: action, id: id));
 
   @override
-  Stream<String> lifecycleSignals() => _signals.stream;
+  Stream<LibrarySignal> lifecycleSignals() => _signals.stream;
 
   @override
   Future<List<DocumentNode>> getTree() {
@@ -1473,6 +1556,18 @@ class _SignallingRepo extends FixtureLibraryRepository {
   Future<List<Skill>> listSkills() {
     skillFetches++;
     return super.listSkills();
+  }
+
+  @override
+  Future<DocumentNode> getDocument(String id) {
+    docGets++;
+    return super.getDocument(id);
+  }
+
+  @override
+  Future<Skill> getSkill(String name) {
+    skillGets++;
+    return super.getSkill(name);
   }
 }
 

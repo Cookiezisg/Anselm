@@ -64,7 +64,7 @@ super_editor **钉 0.3.0-dev.40**(dev.41+ 引用本 Flutter 3.41.9 没有的 `Te
 ## 数据缝 + state
 
 - **唯一缝** `LibraryRepository`(`features/library/data/`):Live(`ApiClient`)/ Fixture(内存可脚本)/ `libraryRepositoryProvider` 单点 override(demo 换 `demoLibraryRepository()`——5 文档嵌套树 + 2 skill,正文含 `[[doc_…]]` 互链 + 围栏代码 = round-trip 夹具)。documents 面:`getTree`/`getDocument`/`listChildren`/`createDocument`/`updateDocument`/`deleteDocument`/`moveDocument`/`duplicateDocument`/`listBacklinks`;skills 面:`listSkills`/`getSkill`/`createSkill`/`replaceSkill`/`deleteSkill`。
-- **SSE 树自刷新**:`lifecycleSignals()`=notifications 流 durable `document.*` 帧 → `DocumentTreeList` 订阅、**400ms 去抖 → invalidateSelf** 重取 `/tree`;刻意不动 `openDocumentProvider`(保光标)。
+- **SSE 树自刷新(两档,S4)**:`lifecycleSignals()`=notifications 流 durable `document.*`/`skill.*` 帧的结构化投影(`LibrarySignal`=域+动作+行 id,id 取 payload `documentId`/`name`)→ `DocumentTreeList`/`SkillList` 订阅分档:**已持有行的 `updated` → 单 GET 就地补那一行**(热路径:打字自动存每 ~600ms 一发,旧法每发整树重取;补行重投影成树形——content 置空、hasContent 按取回正文推,镜像后端树投影;单取失败退结构档)/ **结构性事件(created/deleted/moved 或未持有 id)→ 400ms 去抖 → invalidateSelf 整取**(排序/位置规则在服务端,客户端绝不猜结构);刻意不动 `openDocumentProvider`(保光标)。
 - **state**(`library_state.dart`):`documentTreeProvider`(AsyncNotifier 自刷新)· `skillListProvider` · `selectedDocProvider`(URL 单向派生)· `openDocument`/`openSkill`(autoDispose.family)· `docOutlineProvider`+`docOutlineActiveProvider`+`outlineJumpProvider`(大纲三件)· `backlinksProvider` · `docGroupCollapseProvider`(`state/doc_group_collapse.dart`:右岛三组折叠态,声明前缀族 `an.right.collapsed.` 持久化)· `documentMentionNamesProvider`(载入前经 `extractEntityRefIds` 批解析 `[[id]]` 显示名)。
 - **路由**:`/documents/:id` · `/documents/skill/:name`(选区单向派生自 URL)。
 

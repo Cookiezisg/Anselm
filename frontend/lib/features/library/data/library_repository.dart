@@ -116,13 +116,20 @@ abstract interface class LibraryRepository {
   Future<List<EntityRelation>> listBacklinks(String documentId);
 
   // ── realtime 实时 ─────────────────────────────────────────────────────────
-  /// Lifecycle signals off the notifications stream: emits the DOMAIN (`document` / `skill`) for every
-  /// durable `document.*` / `skill.*` notification, so the list providers refetch when anything in the
-  /// library changes (an AI tool edit, another surface's write). The DB row is the truth — this is only
-  /// the "go look again" tap on the shoulder. 通知流生命周期信号:每条 durable `document.*`/`skill.*` 帧发其
-  /// 域名,列表 provider 收到即重取(AI 工具改/别处写);DB 行是真相,这只是「再去看一眼」。
-  Stream<String> lifecycleSignals();
+  /// Lifecycle signals off the notifications stream — one per durable `document.*` / `skill.*`
+  /// notification, carrying the domain, the action verb and the row id (documentId / skill name; ''
+  /// when the payload has none). The DB row is the truth — the signal only says WHERE to look again,
+  /// which lets the list providers patch ONE row in place on `updated` (the autosave-echo hot path)
+  /// instead of refetching the whole tree. 通知流生命周期信号:每条 durable `document.*`/`skill.*`
+  /// 帧一发,携域+动作+行 id(payload 无 id 则 '')。DB 行是真相——信号只说去哪看,列表 provider 据此
+  /// 在 `updated`(自动存回声热路径)就地补一行,而非整树重取。
+  Stream<LibrarySignal> lifecycleSignals();
 }
+
+/// One library lifecycle signal: `domain` ∈ {document, skill}, `action` = the verb after the dot
+/// (created/updated/deleted/moved…, open set), `id` = documentId / skill name ('' if absent).
+/// 一条 library 生命周期信号:域 + 点后动词(开放集)+ 行 id(缺则空串)。
+typedef LibrarySignal = ({String domain, String action, String id});
 
 /// The production seam over the Phase-4.0 ApiClient. Holds no state; every method is a thin
 /// envelope-decode. Bounded lists (`/tree`, children, `/skills`) come back as `{data:[…]}` with no
@@ -294,15 +301,16 @@ class LiveLibraryRepository implements LibraryRepository {
   )).items;
 
   @override
-  Stream<String> lifecycleSignals() {
+  Stream<LibrarySignal> lifecycleSignals() {
     final sse = _sse;
     if (sse == null) return const Stream.empty();
     // The notifications stream is low-frequency and shares one scope (scope.kind="notification"), so a
     // `.where` over the raw feed is correct here (same rationale as the entities repository). Only durable
     // frames count (seq>0 — ephemeral frames never signal a library change). The domain+action live in
-    // `node.type` ("document.updated"); we project to the domain and drop everything else.
-    // notifications 低频且共用单 scope,对原始 feed `.where` 正确(同 entities 仓);只认 durable(seq>0);
-    // 域.动作在 node.type,投影成域名、其余丢弃。
+    // `node.type` ("document.updated"); the row id in the payload (`documentId` / `name` — the two
+    // domains' emit contracts, app/document + app/skill). notifications 低频且共用单 scope,对原始
+    // feed `.where` 正确(同 entities 仓);只认 durable;域.动作在 node.type,行 id 在 payload
+    // (documentId/name,两域的 emit 契约)。
     return sse
         .rawStream(StreamName.notifications)
         .where((env) => env.durable)
@@ -310,12 +318,20 @@ class LiveLibraryRepository implements LibraryRepository {
           final frame = env.frame;
           if (frame is! FrameSignal) return null;
           final type = frame.node.type;
-          if (type.startsWith('document.')) return 'document';
-          if (type.startsWith('skill.')) return 'skill';
-          return null;
+          final dot = type.indexOf('.');
+          if (dot <= 0) return null;
+          final domain = type.substring(0, dot);
+          if (domain != 'document' && domain != 'skill') return null;
+          final content = frame.node.content;
+          final idField = domain == 'document' ? 'documentId' : 'name';
+          return (
+            domain: domain,
+            action: type.substring(dot + 1),
+            id: content?[idField] as String? ?? '',
+          );
         })
-        .where((domain) => domain != null)
-        .cast<String>();
+        .where((s) => s != null)
+        .cast<LibrarySignal>();
   }
 }
 

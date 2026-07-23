@@ -428,7 +428,7 @@ class FixtureLibraryRepository implements LibraryRepository {
   // No backend, no stream — the demo's writes all go through the rail, which invalidates directly.
   // 零后端零流:demo 的写全走 rail、直接 invalidate。
   @override
-  Stream<String> lifecycleSignals() => const Stream.empty();
+  Stream<LibrarySignal> lifecycleSignals() => const Stream.empty();
 
   /// Derived honestly the way the backend does: scan every document body for `[[<id>]]` wikilinks
   /// targeting [documentId] (names hydrated from the live rows). 照后端方式诚实派生:扫全部正文的 `[[id]]`。

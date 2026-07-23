@@ -62,7 +62,7 @@ features/                  # ★中间层:每域 data+state+ui+model（随 featu
   entities/ui/             # Entities UI[STEP 3]:EntityRail over AnSidebarList(4 kind 段 + 状态点;四态 via 共享 AnRailStates,布尔为 4-kind 聚合;首载 AnRailSkeleton + Debouncer 搜索)+ entity_rail_model(纯投影)+ entity_ocean[STEP 4 详情根]
   entities/ui/detail/      # 详情 UI[STEP 4]:EntityOcean=单一 AnPage 文档(头+tab+内容居中 720 一起滚,AnTabs flow)+ ocean_header(状态徽 + 动词 CTA)+ overview/{4 kind}(workflow 图推迟图编辑器阶段)+ version_tab(AnVersionDiff)+ log_tab + detail_sections + entity_ocean(详情海洋,STEP 3 占位/STEP 4 建)
   entities/data/entity_demo_fixture.dart  # demoEntityRepository():make -C frontend demo 的零后端种子(STEP 4/5 续加版本/日志/flowrun)
-  documents/data/          # Documents feature 数据缝:LibraryRepository(Live/Fixture/demo fixture)+ lifecycleSignals(notifications 流 document.* → 树自刷新)
+  documents/data/          # Documents feature 数据缝:LibraryRepository(Live/Fixture/demo fixture)+ lifecycleSignals(notifications 流 document.*/skill.* → LibrarySignal 域+动作+id;updated 就地补行、结构事件去抖整取,S4)
   documents/state/         # documentTreeProvider(400ms 去抖 invalidateSelf)· skillListProvider · selectedDocProvider(URL 派生)· openDocument/openSkill · 大纲三件(list/active/jump)· backlinksProvider
   documents/model/         # doc_outline:extractDocOutline(纯正则、围栏感知、h4-6 并 3 级;下标=跳转键,与编辑器 headingNodeIds 对齐不变式)
   library/ui/            # LibraryRail(树 CRUD+拖拽 planDocMove)+ LibraryOcean(薄壳:浮层头绑定/随滚折叠/大纲喂接)+ AnDocumentEditor(同滚页:头 sliver+AnEditor sliver)+ LibraryInspector(大纲/meta/backlinks/skill 表单);见 features/library.md

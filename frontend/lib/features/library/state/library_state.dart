@@ -16,15 +16,18 @@ import '../model/doc_outline.dart';
 /// the URL. 文档海洋的 server-state:rail 看树+skill 列表,中心看选中节点正文;选区由 URL 单向派生。
 
 /// The whole document tree as flat metadata (no content) — the rail assembles the hierarchy by parentId.
-/// Self-refreshing: subscribes to the repository's notifications-stream lifecycle signals and refetches on
-/// any `document.*` event (an AI tool edit, a write from another surface) — DEBOUNCED, because content
-/// saves also emit `document.updated` (the backend fires before diffing), so continuous typing would
-/// otherwise refetch the tree every autosave. Deliberately does NOT touch [openDocumentProvider]: the
-/// open editor is the writer — an SSE echo of its own save must never rebuild it mid-keystroke.
+/// Self-refreshing off the notifications-stream lifecycle signals, in two tiers (S4): an `updated` for a
+/// row ALREADY in the tree patches that ONE row in place (single GET, no tree walk — this is the hot
+/// path: content autosaves emit `document.updated` every ~600ms while typing, and used to refetch the
+/// whole tree each time); anything structural (created / deleted / moved, or an id we don't hold)
+/// refetches the tree DEBOUNCED — order/position rules live server-side, so structure is never guessed
+/// client-side. Deliberately does NOT touch [openDocumentProvider]: the open editor is the writer — an
+/// SSE echo of its own save must never rebuild it mid-keystroke.
 ///
-/// 整树扁平元数据(rail 组树)。自刷新:订阅通知流生命周期信号,任何 `document.*` 事件即重取(AI 工具改/别处写)
-/// ——**去抖**(正文保存也发 updated,连续打字否则每次自动存都重取树)。刻意不动 openDocumentProvider:打开的
-/// 编辑器是写者,自己保存的 SSE 回声绝不能把它中途重建(丢光标)。
+/// 整树扁平元数据(rail 组树)。随通知流自刷新,分两档(S4):树里**已有**行的 `updated` → 就地补那一行
+/// (单 GET,不整树——这是热路径:打字自动存每 ~600ms 发一次 updated,旧法每次都整树重取);结构性事件
+/// (created/deleted/moved 或手里没有的 id)→ 去抖整树重取——排序/位置规则在服务端,客户端绝不猜结构。
+/// 刻意不动 openDocumentProvider:打开的编辑器是写者,自己保存的 SSE 回声绝不能把它中途重建(丢光标)。
 final documentTreeProvider =
     AsyncNotifierProvider<DocumentTreeList, List<DocumentNode>>(
       DocumentTreeList.new,
@@ -36,14 +39,15 @@ class DocumentTreeList extends AsyncNotifier<List<DocumentNode>> {
   @override
   Future<List<DocumentNode>> build() {
     final repo = ref.watch(libraryRepositoryProvider);
-    final sub = repo.lifecycleSignals().listen((domain) {
-      if (domain != 'document') return;
-      _debounce?.cancel();
-      // 批7 立法1 豁免锚:state 层树刷新防抖。exempt: state-layer refresh debounce.
-      _debounce = Timer(
-        const Duration(milliseconds: 400),
-        () => ref.invalidateSelf(),
-      );
+    final sub = repo.lifecycleSignals().listen((s) {
+      if (s.domain != 'document') return;
+      final rows = state.value;
+      final held = s.id.isNotEmpty && (rows?.any((n) => n.id == s.id) ?? false);
+      if (s.action == 'updated' && held) {
+        _patchRow(repo, s.id);
+      } else {
+        _scheduleRefetch();
+      }
     });
     ref.onDispose(() {
       _debounce?.cancel();
@@ -51,9 +55,45 @@ class DocumentTreeList extends AsyncNotifier<List<DocumentNode>> {
     });
     return repo.getTree();
   }
+
+  void _scheduleRefetch() {
+    _debounce?.cancel();
+    // 批7 立法1 豁免锚:state 层树刷新防抖。exempt: state-layer refresh debounce.
+    _debounce = Timer(
+      const Duration(milliseconds: 400),
+      () => ref.invalidateSelf(),
+    );
+  }
+
+  /// Replace one tree row from a single GET. The full node carries content (the tree row is
+  /// metadata-only), so re-derive the tree projection: content stays empty, hasContent from the
+  /// fetched body (mirrors the backend's tree projection `content != ""`). A failed single GET
+  /// (e.g. the row died between signal and fetch) falls back to the structural refetch.
+  /// 单 GET 换一行。整节点带正文(树行只元数据),故重新投影:content 置空、hasContent 按取回正文推
+  /// (镜像后端树投影)。单取失败(信号到取之间行已死)退回结构性整取。
+  Future<void> _patchRow(LibraryRepository repo, String id) async {
+    try {
+      final fresh = await repo.getDocument(id);
+      final rows = state.value;
+      if (rows == null) return;
+      final i = rows.indexWhere((n) => n.id == id);
+      if (i < 0) return; // the tree turned over meanwhile 期间树已换代
+      state = AsyncData(
+        [...rows]
+          ..[i] = fresh.copyWith(
+            content: '',
+            hasContent: fresh.content.isNotEmpty,
+          ),
+      );
+    } catch (_) {
+      _scheduleRefetch();
+    }
+  }
 }
 
-/// Every skill as light metadata (no body). Same self-refresh, keyed on `skill.*`. 全部 skill;同款自刷新。
+/// Every skill as light metadata (no body). Same two-tier self-refresh as the document tree (S4):
+/// `updated` for a held row → single-GET in-place patch (file writes also emit `skill.updated`);
+/// anything else → debounced full refetch. 全部 skill;与文档树同款两档自刷新。
 final skillListProvider = AsyncNotifierProvider<SkillList, List<Skill>>(
   SkillList.new,
 );
@@ -64,19 +104,44 @@ class SkillList extends AsyncNotifier<List<Skill>> {
   @override
   Future<List<Skill>> build() {
     final repo = ref.watch(libraryRepositoryProvider);
-    final sub = repo.lifecycleSignals().listen((domain) {
-      if (domain != 'skill') return;
-      _debounce?.cancel();
-      _debounce = Timer(
-        const Duration(milliseconds: 400),
-        () => ref.invalidateSelf(),
-      );
+    final sub = repo.lifecycleSignals().listen((s) {
+      if (s.domain != 'skill') return;
+      final rows = state.value;
+      final held =
+          s.id.isNotEmpty && (rows?.any((r) => r.name == s.id) ?? false);
+      if (s.action == 'updated' && held) {
+        _patchRow(repo, s.id);
+      } else {
+        _scheduleRefetch();
+      }
     });
     ref.onDispose(() {
       _debounce?.cancel();
       sub.cancel();
     });
     return repo.listSkills();
+  }
+
+  void _scheduleRefetch() {
+    _debounce?.cancel();
+    _debounce = Timer(
+      const Duration(milliseconds: 400),
+      () => ref.invalidateSelf(),
+    );
+  }
+
+  Future<void> _patchRow(LibraryRepository repo, String name) async {
+    try {
+      final fresh = await repo.getSkill(name);
+      final rows = state.value;
+      if (rows == null) return;
+      final i = rows.indexWhere((r) => r.name == name);
+      if (i < 0) return;
+      // Re-project to the list shape (no body — the list is light metadata). 重投影成列表形(无 body)。
+      state = AsyncData([...rows]..[i] = fresh.copyWith(body: ''));
+    } catch (_) {
+      _scheduleRefetch();
+    }
   }
 }
 
