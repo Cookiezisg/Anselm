@@ -60,26 +60,25 @@ Future<AsyncValue<String>> _erroringWith(String prev) async {
 }
 
 void main() {
-  testWidgets(
-    'true first load: nothing → deferred skeleton → content fades in',
-    (tester) async {
-      await tester.pumpWidget(_host(const AsyncLoading()));
-      expect(find.text('SKELETON'), findsNothing); // within the deferral window
+  testWidgets('true first load: nothing → deferred skeleton → content fades in', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(const AsyncLoading()));
+    expect(find.text('SKELETON'), findsNothing); // within the deferral window
 
-      await tester.pump(_pastDelay);
-      expect(
-        find.text('SKELETON'),
-        findsOneWidget,
-      ); // genuinely slow → skeleton surfaced
+    await tester.pump(_pastDelay);
+    expect(
+      find.text('SKELETON'),
+      findsOneWidget,
+    ); // genuinely slow → skeleton surfaced
 
-      await tester.pumpWidget(_host(const AsyncData('a')));
-      // The surfaced skeleton dwells out loaderHold before content replaces it (min-display).
-      await tester.pump(AnMotion.loaderHold + const Duration(milliseconds: 20));
-      await tester.pumpAndSettle();
-      expect(find.text('DATA:a'), findsOneWidget);
-      expect(find.text('SKELETON'), findsNothing);
-    },
-  );
+    await tester.pumpWidget(_host(const AsyncData('a')));
+    // The surfaced skeleton dwells out loaderHold before content replaces it (min-display).
+    await tester.pump(AnMotion.loaderHold + const Duration(milliseconds: 20));
+    await tester.pumpAndSettle();
+    expect(find.text('DATA:a'), findsOneWidget);
+    expect(find.text('SKELETON'), findsNothing);
+  });
 
   testWidgets('fast first load never shows the skeleton', (tester) async {
     await tester.pumpWidget(_host(const AsyncLoading()));
