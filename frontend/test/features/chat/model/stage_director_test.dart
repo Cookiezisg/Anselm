@@ -203,6 +203,44 @@ void main() {
   );
 
   test(
+    'G5: a poll block whose terminal has not arrived is NOT dropped as a non-subject (A1-6)',
+    () {
+      final d = StageDirector();
+      d.onToolOpen('b1', 'create_function', _t(0));
+      d.advance(_t(500)); // subject (build outranks execution) 主角
+      d.onToolOpen('b2', 'trigger_workflow', _t(600));
+      d.advance(_t(1100)); // b2 = channel 频道
+      d.onToolClose(
+        'b2',
+        _t(1500),
+      ); // the 202 receipt — the run still races 202 回执,run 还在跑
+      expect(
+        d.state.channels.single.blockId,
+        'b2',
+      ); // held, not vanished (old code dropped it here) 驻留不消失
+      d.onRunTerminal('b2', _t(5000)); // the real terminal 真终态
+      expect(d.state.channels, isEmpty); // now it settles away 终态后离场
+    },
+  );
+
+  test(
+    'G5: onRealign sweeps every ghost the transcript no longer knows — even the subject',
+    () {
+      final d = StageDirector();
+      d.onToolOpen('b1', 'create_function', _t(0));
+      d.advance(_t(500));
+      d.onToolOpen('b2', 'Subagent', _t(600));
+      d.advance(_t(1100));
+      // A stream gap swallowed b1's terminal; DB truth says only b2 still runs. 缺口吞了 b1 终态。
+      d.onRealign({'b2'}, _t(2000));
+      expect(d.state.subject, isNull); // ghost subject cleared 幽灵主角清场
+      d.advance(_t(2500)); // b2 re-earns through the debounce 重挣登台
+      expect(d.state.subject?.blockId, 'b2');
+      expect(d.state.channels, isEmpty);
+    },
+  );
+
+  test(
     'gate flag rides the state; unread resets when an activity takes the stage',
     () {
       final d = StageDirector();

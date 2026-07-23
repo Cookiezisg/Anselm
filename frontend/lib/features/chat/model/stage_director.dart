@@ -66,6 +66,13 @@ class StageActivity {
   DateTime? closedAt;
   bool closedOk = true;
 
+  /// G5 — a POLL activity's real terminal arrived (`run_terminal`). Until then a closed-ok poll
+  /// block must NOT leave the live set: its 202 close is an enqueue receipt, and dropping it made
+  /// running workflows vanish from the island whenever they weren't the subject (A1-6/A2-6).
+  /// G5:poll 活动的真终态已到;此前 close-ok 不许离场——202 只是入队回执,旧丢法让非主角的
+  /// 运行中工作流从岛上凭空消失。
+  bool terminalSeen = false;
+
   /// The primary target entity id, once the args stream resolved it (feeds the Cast pulse, R-6).
   /// 主目标实体 id(args 流解出后喂入;驱动 Cast 脉冲)。
   String? itemId;
@@ -414,6 +421,7 @@ class StageDirector {
       return;
     }
     a.closedOk = ok;
+    a.terminalSeen = true;
     if (identical(a, _subject)) {
       if (!ok) {
         _phase = StagePhase.failedHold;
@@ -425,6 +433,26 @@ class StageDirector {
       _dropIfSettled(a, now);
     }
     _arbitrate(now);
+  }
+
+  /// G5 — align with DB truth after a stream gap (410 resync / a provider rebuilt mid-run): every
+  /// tracked activity whose id is NOT in [liveIds] had its terminal swallowed — clear it, exactly
+  /// as a row-level clear would (the transcript/Cast own its settled record). The director is a
+  /// pure incremental consumer; this is its one re-grounding path («DB 行是真相、流只为实时»).
+  /// G5:对齐 DB 真相(410 重同步/中途重建)——不在 [liveIds] 里的活动=终态被缺口吞了,照行级清除
+  /// 处理(落定记录归 transcript/Cast)。导演器是纯增量消费者,此为唯一重新接地之路。
+  void onRealign(Set<String> liveIds, DateTime now) {
+    // Only DIRECTOR-LIVE activities can be ghosts (their close was swallowed). A closed one the
+    // director still holds is deliberate choreography — the settle breath, a poll hold, a failed
+    // red row — and must survive the sweep. 只有导演器仍认为 live 的才可能是幽灵;已关仍驻留的是
+    // 编排本意(停拍/poll 驻留/失败红行),清扫须豁免。
+    final ghosts = [
+      for (final a in _live.values)
+        if (a.live && !liveIds.contains(a.blockId)) a.blockId,
+    ];
+    for (final id in ghosts) {
+      onClearActivity(id, now);
+    }
   }
 
   /// The human-gate pending count changed (from pendingInteractions). 人闸待决数变化。
@@ -581,9 +609,15 @@ class StageDirector {
   }
 
   // A non-subject activity that closed OK leaves the live set (its record lives in Cast/transcript);
-  // a failed one keeps a red-dot channel tab until dismissed. 落定离场;失败留红点 tab。
+  // a failed one keeps its red row until cleared. A POLL block whose terminal hasn't arrived is NOT
+  // settled (G5/A1-6): its close was only the enqueue receipt — dropping it here made running
+  // workflows vanish whenever they weren't the subject, and the later run_terminal found nothing.
+  // 落定离场;失败留红行待清除;poll 未见终态≠落定(G5)——202 只是回执,旧丢法让非主角运行中
+  // 工作流凭空消失、run_terminal 到达时已无人认领。
   void _dropIfSettled(StageActivity a, DateTime now) {
-    if (!a.live && a.closedOk) {
+    final pollHeld =
+        a.lifecycle == LifecycleSource.poll && a.closedOk && !a.terminalSeen;
+    if (!a.live && a.closedOk && !pollHeld) {
       _live.remove(a.blockId);
       _order.remove(a.blockId);
     }

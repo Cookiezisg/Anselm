@@ -3,12 +3,18 @@ import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/messages/block_content.dart';
+import '../../../core/messages/block_tree_reducer.dart';
+import '../../../core/perf/coalescing_notifier.dart';
 import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/sse/frame.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
+import '../model/conversation_transcript.dart';
 import '../model/stage_director.dart';
+import '../model/tool_card_state.dart';
 import '../../../core/run/flowrun_progress.dart';
+import 'conversation_stream_provider.dart';
 import 'pending_interactions_provider.dart';
 
 /// One conversation's stage director as a provider: projects the conversation's frame feed onto the
@@ -38,7 +44,11 @@ class StageDirectorController extends Notifier<StageState> {
   // R-10 退役记账:poll 型舞台在 202 关帧后驻留,直到 flowrun 的 durable run_terminal 信号到达
   // (W6 后端)。工具名留自 open、workflowId 解自关帧 args、flowrunId 解自入队回执——终态按
   // flowrunId 匹配,绝不猜。
-  final Map<String, String> _pollBlocks = {}; // blockId → tool name
+  // G5/A1-8④ — the old single map stored a tool NAME then overwrote it with a workflowId (dual
+  // meaning told apart by string comparison). Split honestly. G5:旧单 map 先存工具名再覆写
+  // workflowId、靠字符串比对区分双义——诚实拆分。
+  final Set<String> _pollCalls = {}; // poll-lifecycle blockIds
+  final Map<String, String> _pollWorkflow = {}; // blockId → workflowId
   final Map<String, String> _pollFlowrun =
       {}; // blockId → flowrunId (from the receipt)
   final Map<String, StreamSubscription<StreamEnvelope>> _terminalSubs = {};
@@ -47,7 +57,6 @@ class StageDirectorController extends Notifier<StageState> {
   // terminal, so remember that child → parent linkage here. 参流 Close≠执行终态；真实执行由 tool_result
   // open→close 围住，记住 child→parent 才能让侧幕一直留在现场。
   final Map<String, String> _executionParents = {};
-  final Set<String> _awaitingExecution = {};
   // G4/A1-17 — nested child block → its owning TOP-LEVEL tool_call, built transitively at open time
   // (tool_result under the call, progress under the result, a delegate's nested tree). Execution
   // progress then feeds the OWNER's activity clock; the old per-id onActivity no-opped on children,
@@ -60,8 +69,37 @@ class StageDirectorController extends Notifier<StageState> {
   static final _flowrunRe = RegExp(r'"flowrunId"\s*:\s*"([^"]{1,64})"');
   static final _workflowRe = RegExp(r'"workflowId"\s*:\s*"([^"]{1,64})"');
 
+  CoalescingNotifier<ConversationTranscript>? _tx;
+
+  /// Re-ground whenever the transcript's SUBAGENT EPOCH moves — it bumps exactly on the rare
+  /// re-grounding moments (hydration/resync window turnover via setHistory/dropLive, subagent
+  /// open/close) and never per delta (S7), so the walk stays off the hot path. This covers cold
+  /// start (hydration carries in-flight tool_calls the stream will never re-open, A2-10) AND every
+  /// 410 gap (a swallowed close otherwise leaves an eternal «Live» ghost, A1-5).
+  /// G5:按 subagentEpoch 变化重新接地——它恰在稀有的接地时刻自增(水化/重同步换窗、分身开合),
+  /// 绝不逐 delta(S7),全树走查不进热路;同时覆盖冷启动在飞种子与 410 幽灵。
+  int _lastRealignEpoch = -1;
+
   @override
   StageState build() {
+    // Re-entry hygiene (G5/A1-15): a re-run of build() must not leak the previous run's
+    // subscriptions / timer / bookkeeping — the old code overwrote them in place (double-fed
+    // frames, stacked disposals). 重入卫生:build 重跑先清上一轮的订阅/闹钟/账本。
+    _sub?.cancel();
+    _timer?.cancel();
+    for (final sub in _terminalSubs.values) {
+      sub.cancel();
+    }
+    _terminalSubs.clear();
+    _pollCalls.clear();
+    _pollWorkflow.clear();
+    _pollFlowrun.clear();
+    _executionParents.clear();
+    _ownerOf.clear();
+    _tracked.clear();
+    _tx?.removeListener(_onTranscript);
+    _lastRealignEpoch = -1;
+
     final repo = ref.watch(chatRepositoryProvider);
     _repo = repo;
     _director = StageDirector(followMode: ref.read(followModeProvider));
@@ -74,14 +112,72 @@ class StageDirectorController extends Notifier<StageState> {
       _publish();
     });
     _sub = repo.conversationFrames(conversationId).listen(_onFrame);
+    final tx = ref
+        .read(conversationStreamProvider(conversationId).notifier)
+        .transcript;
+    _tx = tx;
+    tx.addListener(_onTranscript);
     ref.onDispose(() {
       _sub?.cancel();
       _timer?.cancel();
+      _tx?.removeListener(_onTranscript);
       for (final sub in _terminalSubs.values) {
         sub.cancel();
       }
     });
     return _director.state;
+  }
+
+  void _onTranscript() {
+    if (!ref.mounted) return;
+    final epoch = _tx?.value.subagentEpoch ?? -1;
+    if (epoch == _lastRealignEpoch) return;
+    _lastRealignEpoch = epoch;
+    _realign();
+  }
+
+  /// G5 — the director's ONE re-grounding path («DB 行是真相、流只为实时»): the transcript decides
+  /// which stage-worthy top-level tool_calls are still executing; everything else the director
+  /// holds is a ghost whose terminal a stream gap swallowed — cleared; anything missing (an
+  /// in-flight call seeded by hydration) re-earns the stage through the normal debounce.
+  /// G5 重新接地:transcript 判定哪些顶层调用仍在执行;导演器多出的=缺口吞了终态的幽灵,清;
+  /// 缺少的=水化种进来的在飞调用,走正常防抖重新登台。
+  void _realign() {
+    final tx = _tx?.value;
+    if (tx == null) return;
+    final now = DateTime.now();
+    final live = <String, String>{}; // blockId → tool name
+    void consider(BlockNode b) {
+      if (b.kind != BlockKind.toolCall) return;
+      final name = b.name ?? '';
+      if (stageRouteOf(name) == null) return;
+      final ph = ToolCardState.of(b).phase;
+      final executing =
+          ph == ToolCardPhase.argsStreaming ||
+          ph == ToolCardPhase.running ||
+          ph == ToolCardPhase.awaitingConfirm;
+      if (executing) live[b.id] = name;
+    }
+
+    // Walk EVERY live root: message turns carry their tool_call children, and a defensive orphan
+    // tool_call root is still stream truth. 走查全部 live 根:回合带子块,孤儿根也是流真相。
+    for (final root in tx.liveRoots) {
+      if (root.kind == BlockKind.message) {
+        root.children.forEach(consider);
+      } else {
+        consider(root);
+      }
+    }
+    _director.onRealign(live.keys.toSet(), now);
+    for (final e in live.entries) {
+      _tracked.add(e.key);
+      _director.onToolOpen(
+        e.key,
+        e.value,
+        now,
+      ); // idempotent on known ids 已知 id 幂等
+    }
+    _publish();
   }
 
   @override
@@ -95,7 +191,7 @@ class StageDirectorController extends Notifier<StageState> {
         final name = (node.content?['name'] as String?) ?? '';
         if (stageRouteOf(name) != null) _tracked.add(env.id);
         if (stageRouteOf(name)?.lifecycle == LifecycleSource.poll) {
-          _pollBlocks[env.id] = name;
+          _pollCalls.add(env.id);
         }
         _director.onToolOpen(env.id, name, now);
       case FrameOpen(:final node, :final parentId)
@@ -107,7 +203,7 @@ class StageDirectorController extends Notifier<StageState> {
         if (_tracked.contains(parentId)) _ownerOf[env.id] = parentId;
         final body = '${node.content?['content'] ?? ''}';
         final m = _flowrunRe.firstMatch(body);
-        if (m != null && _pollBlocks.containsKey(parentId)) {
+        if (m != null && _pollCalls.contains(parentId)) {
           _pollFlowrun[parentId] = m.group(1)!;
         }
         _director.onActivity(parentId, now);
@@ -143,23 +239,27 @@ class StageDirectorController extends Notifier<StageState> {
           // The tool_result close is the ONE true execution terminal. Its durable snapshot is also
           // where a poll receipt's flowrun id now lives. tool_result Close 才是真正执行终态；其耐久快照
           // 同时承载 poll 回执的 flowrun id。
+          final ok = status != 'error' && status != 'cancelled';
           final body = '${result?.content?['content'] ?? ''}';
           final m = _flowrunRe.firstMatch(body);
-          if (m != null && _pollBlocks.containsKey(parent)) {
+          if (m != null && _pollCalls.contains(parent)) {
             _pollFlowrun[parent] = m.group(1)!;
           }
-          final workflowID = _pollBlocks.containsKey(parent)
-              ? _workflowIDFor(parent)
+          // G5/A1-8②: only a SUCCESSFUL dispatch earns a terminal watch — watching after an
+          // error/cancel would let an UNRELATED run's first terminal «settle» the wreck (the
+          // receipt carries no flowrunId to match). 只有成功派发才装终态监听——错误/取消后装表,
+          // 会被同工作流无关 run 的终态洗白现场。
+          final workflowID = ok && _pollCalls.contains(parent)
+              ? _pollWorkflow[parent]
               : null;
           if (workflowID != null) {
             _watchTerminal(parent, workflowID);
+          } else if (!ok) {
+            _pollCalls.remove(parent);
+            _pollWorkflow.remove(parent);
+            _pollFlowrun.remove(parent);
           }
-          _awaitingExecution.remove(parent);
-          _director.onToolClose(
-            parent,
-            now,
-            ok: status != 'error' && status != 'cancelled',
-          );
+          _director.onToolClose(parent, now, ok: ok);
           break;
         }
 
@@ -169,26 +269,18 @@ class StageDirectorController extends Notifier<StageState> {
         final args = '${result?.content?['arguments'] ?? ''}';
         final target = _primaryTargetID(args);
         if (target != null) _director.onItemResolved(env.id, target);
-        if (_pollBlocks.containsKey(env.id)) {
+        if (_pollCalls.contains(env.id)) {
           final m = _workflowRe.firstMatch(args);
-          if (m != null) _pollBlocks[env.id] = m.group(1)!;
+          if (m != null) _pollWorkflow[env.id] = m.group(1)!;
         }
         if (status == 'error' || status == 'cancelled') {
           // The model stream itself aborted, so no execution child will ever arrive. 模型流中止，无执行子节点可等。
           _director.onToolClose(env.id, now, ok: false);
-        } else {
-          _awaitingExecution.add(env.id);
         }
       default:
         return;
     }
     _publish();
-  }
-
-  String? _workflowIDFor(String blockID) {
-    final value = _pollBlocks[blockID];
-    if (value == null || value == 'trigger_workflow') return null;
-    return value;
   }
 
   /// Extract the conventional entity-id keys from a closed tool-call snapshot. Creates have no
@@ -256,7 +348,8 @@ class StageDirectorController extends Notifier<StageState> {
       final status = '${content['status'] ?? ''}';
       ref.read(flowrunProgressProvider(blockId).notifier).terminal(status);
       _terminalSubs.remove(blockId)?.cancel();
-      _pollBlocks.remove(blockId);
+      _pollCalls.remove(blockId);
+      _pollWorkflow.remove(blockId);
       _pollFlowrun.remove(blockId);
       _director.onRunTerminal(
         blockId,

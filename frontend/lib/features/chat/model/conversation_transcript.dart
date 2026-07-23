@@ -91,6 +91,12 @@ class ConversationTranscript {
       .where((n) => n.kind == BlockKind.message)
       .toList(growable: false);
 
+  /// EVERY live-layer root, orphans included — the G5 director realign walks this as stream truth
+  /// (an orphan tool_call root was still genuinely opened by the stream; treating it as absent
+  /// would sweep a live activity as a ghost). live 层全部根(含防御性孤儿)——G5 对齐以此为流真相;
+  /// 孤儿 tool_call 根也是流真开过的,当缺席会把活的清成幽灵。
+  List<BlockNode> get liveRoots => _live.roots;
+
   /// The full render order: settled history, then everything live. 渲染全序:settled 史 + live。
   List<BlockNode> get turns => [...settled, ...liveTurns];
 

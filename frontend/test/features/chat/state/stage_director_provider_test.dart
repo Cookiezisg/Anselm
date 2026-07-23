@@ -1,3 +1,5 @@
+import 'package:anselm/core/contract/conversation.dart';
+import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/settings/app_prefs_providers.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
@@ -274,6 +276,57 @@ void main() {
           .unread;
       expect(after, before + 3); // open + 2 deltas, all owned 开帧+两 delta 全计入属主
       await tester.pump(const Duration(seconds: 4)); // drain deadlines 排干闹钟
+    },
+  );
+
+  testWidgets(
+    'G5: cold-start hydration re-grounds the director — an in-flight call earns its row (A2-10)',
+    (tester) async {
+      final repo = FixtureChatRepository(
+        conversations: [
+          Conversation(
+            id: _conv,
+            title: 'g5',
+            createdAt: DateTime.utc(2026, 7, 8),
+            updatedAt: DateTime.utc(2026, 7, 8),
+            lastMessageAt: DateTime.utc(2026, 7, 8),
+          ),
+        ],
+        messages: {
+          _conv: [
+            // A reply in flight at load time: hydration seeds it into the live reducer, but the
+            // stream will NEVER re-send its open — pre-G5 the director started blind and the
+            // running delegate had no row until its close. 载入时在飞的回复:流不会重发 open,
+            // 旧导演器空机起步、跑着的分身无行可见。
+            ChatMessage(
+              id: 'm1',
+              conversationId: _conv,
+              role: 'assistant',
+              status: 'streaming',
+              blocks: [
+                ChatBlock(
+                  id: 'sa_seed',
+                  type: 'tool_call',
+                  content: '{"prompt":"long job"}',
+                  status: 'open',
+                  attrs: {'tool': 'Subagent'},
+                ),
+              ],
+              createdAt: DateTime.utc(2026, 7, 8),
+            ),
+          ],
+        },
+      );
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      await tester.pump(); // hydration lands 水化落地
+      await tester
+          .pump(); // coalesced notify → realign seeds the entrance 合并通知→对齐排防抖
+      await tester.pump(const Duration(milliseconds: 700)); // debounce 防抖
+      expect(c.read(stageDirectorProvider(_conv)).subject?.blockId, 'sa_seed');
     },
   );
 
