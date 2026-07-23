@@ -48,6 +48,15 @@ class StageDirectorController extends Notifier<StageState> {
   // open→close 围住，记住 child→parent 才能让侧幕一直留在现场。
   final Map<String, String> _executionParents = {};
   final Set<String> _awaitingExecution = {};
+  // G4/A1-17 — nested child block → its owning TOP-LEVEL tool_call, built transitively at open time
+  // (tool_result under the call, progress under the result, a delegate's nested tree). Execution
+  // progress then feeds the OWNER's activity clock; the old per-id onActivity no-opped on children,
+  // so an actively executing subject read as idle and lost arbitration. [_tracked] = stage-worthy
+  // top-level calls (kept until their execution terminal — a tool_result opens AFTER the call
+  // closes). G4:子块→属主顶层 tool_call(开帧时传递构建);执行 progress 喂回属主活性钟——旧径按
+  // 子块 id no-op,执行中的主角被判静默丢台。_tracked=登台闭表内顶层调用(留到执行终态)。
+  final Map<String, String> _ownerOf = {};
+  final Set<String> _tracked = {};
   static final _flowrunRe = RegExp(r'"flowrunId"\s*:\s*"([^"]{1,64})"');
   static final _workflowRe = RegExp(r'"workflowId"\s*:\s*"([^"]{1,64})"');
 
@@ -84,6 +93,7 @@ class StageDirectorController extends Notifier<StageState> {
     switch (env.frame) {
       case FrameOpen(:final node) when node.type == 'tool_call':
         final name = (node.content?['name'] as String?) ?? '';
+        if (stageRouteOf(name) != null) _tracked.add(env.id);
         if (stageRouteOf(name)?.lifecycle == LifecycleSource.poll) {
           _pollBlocks[env.id] = name;
         }
@@ -94,23 +104,42 @@ class StageDirectorController extends Notifier<StageState> {
         // body. Keep legacy compatibility too: older servers carried the receipt body on OPEN.
         // 执行生命周期升级后此 Open 在 dispatch 前、正文为空；同时兼容旧服务器（回执正文在 Open）。
         _executionParents[env.id] = parentId;
+        if (_tracked.contains(parentId)) _ownerOf[env.id] = parentId;
         final body = '${node.content?['content'] ?? ''}';
         final m = _flowrunRe.firstMatch(body);
         if (m != null && _pollBlocks.containsKey(parentId)) {
           _pollFlowrun[parentId] = m.group(1)!;
         }
         _director.onActivity(parentId, now);
+      case FrameOpen(:final parentId) when parentId != null:
+        // Any other nested child (progress under the result, a delegate's message/reasoning tree):
+        // inherit the owner transitively and count the open as the owner's activity (G4/A1-17).
+        // 其余嵌套子块传递继承属主,开帧计属主活性。
+        final owner = _tracked.contains(parentId)
+            ? parentId
+            : _ownerOf[parentId];
+        if (owner != null) {
+          _ownerOf[env.id] = owner;
+          _director.onActivity(owner, now);
+        }
+        return;
       case FrameDelta():
-        // A delta only bumps unread (excluded from StageState equality, C-003) + lastActivityAt (not on
-        // the published view) — it NEVER changes the published state. Skip the per-delta state
-        // re-allocation (数百 delta/s × StageState + views, C-020); just re-arm the schedule since activity
-        // pushes the dwell/switch deadlines. delta 不改已发布 state:跳重造分配,仅重排闹钟。
-        _director.onActivity(env.id, now);
-        _schedule();
+        // A delta only bumps unread (excluded from StageState equality, C-003) + lastActivityAt (not
+        // on the published view) — it NEVER changes the published state and no DEADLINE depends on
+        // it either, so the old per-delta timer re-arm was pure churn (G4: hundreds of Timer
+        // cancel+creates per second for nothing). Children route to their owning call (A1-17).
+        // delta 只记活性:不发布、无期限依赖——旧径每 delta 白拆装一次闹钟;子块路由到属主。
+        _director.onActivity(_ownerOf[env.id] ?? env.id, now);
         return;
       case FrameClose(:final status, :final result):
+        _ownerOf.remove(
+          env.id,
+        ); // closed children take no more deltas 已关子块不再来 delta
         final parent = _executionParents.remove(env.id);
         if (parent != null) {
+          _tracked.remove(
+            parent,
+          ); // execution terminal — the call's bookkeeping retires 执行终态退账
           // The tool_result close is the ONE true execution terminal. Its durable snapshot is also
           // where a poll receipt's flowrun id now lives. tool_result Close 才是真正执行终态；其耐久快照
           // 同时承载 poll 回执的 flowrun id。

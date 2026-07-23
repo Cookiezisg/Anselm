@@ -7,7 +7,9 @@ import '../../../../core/messages/block_tree_reducer.dart';
 import '../../../../core/contract/messages/block_content.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
+import '../../model/tool_card_state.dart';
 import '../../model/tool_receipts.dart';
+import '../tool_card_skins.dart' show toolLive;
 import 'stage_frame.dart';
 import 'stage_scene.dart';
 
@@ -69,7 +71,12 @@ class _SubagentCard extends StatelessWidget {
     final c = context.colors;
     final t = Translations.of(context);
     final desc = subagentTaskLabel(node) ?? t.chat.stage.subagentUnnamed;
-    final live = node.isOpen;
+    // G4/A1-4: the Subagent tool_call closes at the END OF ITS ARGS (seconds in) while the delegate
+    // runs on for minutes — liveness is the EXECUTION phase (tool_result bracket), the same single
+    // source the transcript card always used. G4:参流几秒即关、分身还要跑几分钟——判活走执行相位
+    // (tool_result 括号),与中央工具卡同一单源。
+    final state = ToolCardState.of(node);
+    final live = toolLive(state);
     final tailCount = dense ? 3 : 6;
     final trail = _trajectory(node);
     final tail = trail.length > tailCount
@@ -82,6 +89,7 @@ class _SubagentCard extends StatelessWidget {
     // 刚开播的分身无话可说——头独窗,不付死体距(复审)。
     final hasBody = showCurrent || tail.isNotEmpty;
 
+    final phase = state.phase;
     final card = AnWindow(
       header: Row(
         children: [
@@ -99,7 +107,7 @@ class _SubagentCard extends StatelessWidget {
           ),
         ],
       ),
-      actions: [if (!live) _settleMark(c)],
+      actions: [if (!live) _settleMark(c, phase)],
       footer: live ? null : _settleLine(context, c, t),
       child: !hasBody
           ? null
@@ -225,11 +233,21 @@ class _SubagentCard extends StatelessWidget {
     }
   }
 
-  Widget _settleMark(AnColors c) => Icon(
-    node.isError ? AnIcons.error : AnIcons.check,
-    size: AnSize.iconSm,
-    color: node.isError ? c.danger : c.ok,
-  );
+  /// The settle mark speaks the terminal phase (G4/A3-5): a CANCELLED delegate must not wear the
+  /// green check of success. 结算记号如实说终态:被取消的分身不许戴成功绿勾。
+  Widget _settleMark(AnColors c, ToolCardPhase phase) => switch (phase) {
+    ToolCardPhase.failed || ToolCardPhase.denied => Icon(
+      AnIcons.error,
+      size: AnSize.iconSm,
+      color: c.danger,
+    ),
+    ToolCardPhase.cancelled => Icon(
+      AnIcons.close,
+      size: AnSize.iconSm,
+      color: c.inkFaint,
+    ),
+    _ => Icon(AnIcons.check, size: AnSize.iconSm, color: c.ok),
+  };
 
   Widget _settleLine(BuildContext context, AnColors c, Translations t) {
     final tokens = node.content?['tokens'];

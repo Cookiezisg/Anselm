@@ -1155,7 +1155,9 @@ class _GenericStageState extends State<_GenericStage> {
             if (mounted) widget.onItemResolved(id);
           });
         }
-        final live = node.isOpen;
+        // G4: liveness = execution phase (toolLive), never node.isOpen — the args-stream close is
+        // not the execution terminal. G4 判活走执行相位,参流关≠执行终态。
+        final live = toolLive(state);
         final failed = widget.phase == StagePhase.failedHold;
         final bespoke = stageBodies[widget.subject.kind];
         final scene = StageScene(

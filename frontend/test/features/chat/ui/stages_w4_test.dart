@@ -210,6 +210,18 @@ void main() {
         ),
       );
       await tester.pump(const Duration(milliseconds: 100));
+      // A1-4 regression lock (G4): the ARG-stream close is NOT the execution terminal — the card
+      // keeps its live face (no ✓, no settle line) while the delegate still runs. 参流关≠执行终态:
+      // 分身还在跑,卡不许提前换 ✓ 结算脸。
+      expect(find.byIcon(AnIcons.check), findsNothing);
+      expect(find.textContaining('1200'), findsNothing);
+
+      repo.emitFrame(
+        _conv,
+        _open('r_sa1', '', parent: 'sa1', type: 'tool_result'),
+      );
+      repo.emitFrame(_conv, _close('r_sa1'));
+      await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 400));
       expect(find.textContaining('1200'), findsOneWidget); // tokens roll 结算
       expect(
@@ -218,6 +230,29 @@ void main() {
       ); // honest stopReason 止因如实
     },
   );
+
+  testWidgets('G4: a cancelled delegate never wears the green check (A3-5)', (
+    tester,
+  ) async {
+    final repo = _repo();
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    repo.emitFrame(_conv, _open('sa1', 'Subagent'));
+    repo.emitFrame(_conv, _delta('sa1', '{"description":"取消演习"}'));
+    await tester.pump(const Duration(milliseconds: 600));
+    repo.emitFrame(_conv, _close('sa1', status: 'cancelled'));
+    await tester.pump(const Duration(milliseconds: 100));
+    // The settle mark speaks the terminal: cancelled = the neutral glyph, NEVER the ok check.
+    // 结算记号如实:取消=中性记号,绝非成功绿勾。
+    expect(find.byIcon(AnIcons.check), findsNothing);
+    expect(
+      find.descendant(
+        of: find.byType(AnWindow),
+        matching: find.byIcon(AnIcons.close),
+      ),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'G1: two live delegates, BOTH rows expanded — one card each, no in-body ensemble (N×N regression)',

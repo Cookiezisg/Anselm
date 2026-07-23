@@ -153,6 +153,9 @@ void main() {
         _conv,
         _close('tc', finalArgs, entityName: 'sync_inventory'),
       );
+      // The execution bracket (G4): the settled face waits for the tool_result close. 执行括号。
+      repo.emitFrame(_conv, _resultOpen('tr', 'tc'));
+      repo.emitFrame(_conv, _resultClose('tr'));
       await tester.pump(const Duration(milliseconds: 200));
       await tester.pump(const Duration(milliseconds: 200));
 
@@ -216,6 +219,9 @@ void main() {
           entityName: 'runbook',
         ),
       );
+      // The execution bracket (G4): the settled face waits for the tool_result close. 执行括号。
+      repo.emitFrame(_conv, _resultOpen('tr', 'tc'));
+      repo.emitFrame(_conv, _resultClose('tr'));
       await tester.pump(const Duration(milliseconds: 200));
       await tester.pump(const Duration(milliseconds: 200));
 

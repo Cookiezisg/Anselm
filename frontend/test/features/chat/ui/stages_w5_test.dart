@@ -160,6 +160,9 @@ void main() {
       const finalArgs =
           '{"handlerId":"hd_1","ops":[{"op":"add_method","method":{"name":"send","streaming":true,"timeout":30,"body":"def send(self):\\n    push()\\n"}},{"op":"add_method","method":{"name":"drain","body":"def drain(self):\\n    flush()\\n"}}]}';
       repo.emitFrame(_conv, _close('tc', finalArgs));
+      // The execution bracket (G4): the settled face waits for the tool_result close. 执行括号。
+      repo.emitFrame(_conv, _resultOpen('tr', 'tc'));
+      repo.emitFrame(_conv, _resultClose('tr'));
       await tester.pump(const Duration(milliseconds: 200));
       await tester.pump(const Duration(milliseconds: 200));
       expect(

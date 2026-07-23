@@ -223,6 +223,60 @@ void main() {
     expect(s.channels, isEmpty); // truly gone, not a ghost 真离场,非幽灵
   });
 
+  testWidgets(
+    'G4: execution progress on nested children feeds the OWNING call (A1-17)',
+    (tester) async {
+      final repo = FixtureChatRepository();
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b0', 'create_function'));
+      await tester.pump(const Duration(milliseconds: 600)); // b0 = subject
+      repo.emitFrame(_conv, _open('b1', 'run_function'));
+      await tester.pump(
+        const Duration(milliseconds: 600),
+      ); // b1 = channel (build outranks execution, no switch)
+      repo.emitFrame(_conv, _callClose('b1'));
+      repo.emitFrame(_conv, _resultOpen('r1', 'b1'));
+      await tester.pump();
+      final before = c
+          .read(stageDirectorProvider(_conv))
+          .channels
+          .firstWhere((a) => a.blockId == 'b1')
+          .unread;
+
+      // A progress child under the RESULT: its open + deltas must land on b1's activity clock —
+      // the old per-id path no-opped them all. result 下的 progress 子块:开帧+delta 必须记到 b1。
+      repo.emitFrame(
+        _conv,
+        StreamEnvelope(
+          seq: 5,
+          scope: _scope,
+          id: 'p1',
+          frame: const FrameOpen(
+            parentId: 'r1',
+            node: StreamNode(type: 'progress', content: {'text': ''}),
+          ),
+        ),
+      );
+      repo.emitFrame(_conv, _delta('p1'));
+      repo.emitFrame(_conv, _delta('p1'));
+      // Force a publish so the snapshot is fresh (deltas deliberately never publish). 借一次发布取新快照。
+      repo.emitFrame(_conv, _open('bx', 'write_memory'));
+      await tester.pump();
+      final after = c
+          .read(stageDirectorProvider(_conv))
+          .channels
+          .firstWhere((a) => a.blockId == 'b1')
+          .unread;
+      expect(after, before + 3); // open + 2 deltas, all owned 开帧+两 delta 全计入属主
+      await tester.pump(const Duration(seconds: 4)); // drain deadlines 排干闹钟
+    },
+  );
+
   testWidgets('followMode never (from the notch) blocks auto-staging', (
     tester,
   ) async {

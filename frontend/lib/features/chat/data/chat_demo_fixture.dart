@@ -495,6 +495,11 @@ class DemoChatRepository extends FixtureChatRepository {
     // 幕 2.5:双分身并行+活任务板(分镜 c)。
     final sa1 = 'blk_demo_sa${_demoSeq++}';
     final sa2 = 'blk_demo_sb${_demoSeq++}';
+    // The execution bracket (G4): a real backend opens/closes a tool_result around the delegate's
+    // run — the tool_call close only ends the ARG stream, and the sidestage judges liveness by the
+    // execution phase. 执行括号(G4):真后端以 tool_result 围住分身执行;参流关≠执行终态。
+    final sa1r = 'blk_demo_sar${_demoSeq++}';
+    final sa2r = 'blk_demo_sbr${_demoSeq++}';
     void todoFrame(List<TodoEntry> items, {int seq = 30}) {
       _timers.add(
         Timer(Duration(milliseconds: at), () {
@@ -627,6 +632,27 @@ class DemoChatRepository extends FixtureChatRepository {
       ),
       step: 300,
     );
+    frame(
+      45,
+      sa1r,
+      FrameOpen(
+        parentId: sa1,
+        node: const StreamNode(type: 'tool_result', content: {'content': ''}),
+      ),
+      step: 40,
+    );
+    frame(
+      46,
+      sa1r,
+      const FrameClose(
+        status: 'completed',
+        result: StreamNode(
+          type: 'tool_result',
+          content: {'content': '已按错误码分桶:超时 6 / 鉴权 3 / 参数 1,共因指向网关超时。'},
+        ),
+      ),
+      step: 160,
+    );
     at += 150;
     todoFrame(const [
       TodoEntry(content: '审计最近失败的执行', status: 'completed'),
@@ -665,6 +691,27 @@ class DemoChatRepository extends FixtureChatRepository {
         ),
       ),
       step: 260,
+    );
+    frame(
+      47,
+      sa2r,
+      FrameOpen(
+        parentId: sa2,
+        node: const StreamNode(type: 'tool_result', content: {'content': ''}),
+      ),
+      step: 40,
+    );
+    frame(
+      48,
+      sa2r,
+      const FrameClose(
+        status: 'completed',
+        result: StreamNode(
+          type: 'tool_result',
+          content: {'content': '全部渠道已核对:sms / wecom / slack-ops 三条无静默窗口。'},
+        ),
+      ),
+      step: 160,
     );
     at += 120;
     todoFrame(const [
@@ -1197,12 +1244,14 @@ DemoChatRepository demoChatRepository() {
     String type,
     String content, {
     Map<String, dynamic>? attrs,
+    String parent = '',
   }) => ChatBlock(
     id: id,
     type: type,
     content: content,
     status: 'completed',
     attrs: attrs,
+    parentBlockId: parent,
   );
 
   // The tool-card showcase conversations (B1–B7): each exercises a family group so `make demo` displays
@@ -1697,6 +1746,14 @@ DemoChatRepository demoChatRepository() {
               'tool_call',
               '{"description":"调研现有通知渠道并列出可接入项"}',
               attrs: {'tool': 'Subagent'},
+            ),
+            // The persisted execution bracket (G4) — without it a settled delegate reads as
+            // RUNNING forever under the phase law. 持久化执行括号:缺它落定分身按相位律永远「在跑」。
+            blk(
+              'b_s5_sar',
+              'tool_result',
+              '调研完成:可用渠道 Slack / 企业微信 / 邮件;建议先接 Slack。',
+              parent: 'b_s5_sa',
             ),
             blk(
               'b_s5_t',
