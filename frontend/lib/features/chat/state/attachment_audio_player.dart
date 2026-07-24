@@ -4,9 +4,19 @@ import 'package:audioplayers/audioplayers.dart' as audioplayers;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/api_error.dart';
+
 /// Playback status normalized away from the concrete platform player.
 /// 播放状态从具体平台播放器归一化出来，UI/状态层不绑定插件枚举。
 enum AttachmentAudioStatus { stopped, playing, paused, completed }
+
+/// Stable UI-facing audio playback error codes. Transient playback failures remain retryable; missing
+/// content is a terminal tombstone because the original attachment bytes are gone.
+/// 稳定的音频播放错误码。瞬时播放失败保留重试；原件内容缺失是终态墓碑。
+abstract final class AttachmentAudioError {
+  static const playbackFailed = 'playback_failed';
+  static const attachmentMissing = 'attachment_missing';
+}
 
 /// Replaceable driver for sent audio attachment playback. The controller owns a single instance, so only
 /// one transcript attachment can play at once; switching attachments stops the previous source first.
@@ -207,11 +217,11 @@ class AttachmentAudioPlaybackController
         position: Duration.zero,
         clearError: true,
       );
-    } catch (_) {
+    } catch (e) {
       if (!ref.mounted || token != _operation) return;
       state = AttachmentAudioPlaybackState(
         activeAttachmentId: attachmentId,
-        error: 'playback_failed',
+        error: _playbackErrorCode(e),
       );
     }
   }
@@ -276,3 +286,24 @@ final attachmentAudioPlaybackProvider =
       AttachmentAudioPlaybackController,
       AttachmentAudioPlaybackState
     >(AttachmentAudioPlaybackController.new);
+
+String _playbackErrorCode(Object error) {
+  if (_isMissingAttachmentContent(error)) {
+    return AttachmentAudioError.attachmentMissing;
+  }
+  return AttachmentAudioError.playbackFailed;
+}
+
+bool _isMissingAttachmentContent(Object error) {
+  if (error case ApiException(:final isNotFound) when isNotFound) {
+    return true;
+  }
+  // Fixture repositories mirror a 404 with a StateError, so widget tests exercise the same UI branch
+  // without a live Dio stack. Keep this narrowly attachment-content shaped; generic "not found" strings
+  // remain transient playback failures.
+  // fixture 用 StateError 模拟 404，让 widget test 无需真 Dio 也能走同一分支。只识别附件内容形状，
+  // 泛化 "not found" 仍按瞬时播放失败处理。
+  final text = error.toString();
+  return text.contains('attachment content not found') ||
+      text.contains('ATTACHMENT_NOT_FOUND');
+}

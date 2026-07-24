@@ -703,9 +703,12 @@ class _TranscriptAudioAttachmentState
     _playbackController = ref.read(attachmentAudioPlaybackProvider.notifier);
     _wasActive = playback.isActive(widget.attachment.id);
     final duration = playback.durationFor(widget.attachment.id);
+    final playbackError = playback.errorFor(widget.attachment.id);
+    final missing = playbackError == AttachmentAudioError.attachmentMissing;
+    final state = missing ? AnAttachmentState.missing : widget.attachment.state;
     final statusLine = playback.isLoading(widget.attachment.id)
         ? t.attach.loadingAudio
-        : playback.errorFor(widget.attachment.id) != null
+        : playbackError == AttachmentAudioError.playbackFailed
         ? t.attach.audioPlaybackFailed
         : null;
     return AnAudioAttachmentCard(
@@ -722,8 +725,8 @@ class _TranscriptAudioAttachmentState
       busy: playback.isLoading(widget.attachment.id),
       progress: playback.progressFor(widget.attachment.id),
       playing: playback.isPlaying(widget.attachment.id),
-      state: widget.attachment.state,
-      onPlayTap: widget.attachment.state == AnAttachmentState.ready
+      state: state,
+      onPlayTap: state == AnAttachmentState.ready
           ? () => ref
                 .read(attachmentAudioPlaybackProvider.notifier)
                 .toggle(

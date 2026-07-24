@@ -499,6 +499,63 @@ void main() {
     },
   );
 
+  testWidgets(
+    'an audio attachment whose original content is gone becomes an unavailable tombstone',
+    (tester) async {
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            ChatMessage(
+              id: 'msg_u',
+              conversationId: 'cv_1',
+              role: 'user',
+              status: 'completed',
+              attrs: {
+                'attachments': ['att_audio'],
+              },
+              blocks: [_blk('bu', 'text', '听这个')],
+              createdAt: DateTime.utc(2026, 7, 2, 10),
+            ),
+          ],
+        },
+      );
+      repo.attachmentMetas['att_audio'] = const AttachmentMeta(
+        id: 'att_audio',
+        filename: 'voice.webm',
+        mimeType: 'audio/webm',
+        sizeBytes: 3,
+        kind: 'audio',
+      );
+      final driver = _FakeAudioDriver();
+
+      await tester.pumpWidget(
+        _host(
+          repo,
+          overrides: [
+            attachmentAudioDriverFactoryProvider.overrideWithValue(
+              () => driver,
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      await _settle(tester);
+      await tester.pump(const Duration(milliseconds: 30)); // metadata future
+
+      await tester.tap(find.bySemanticsLabel('Play audio'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(driver.playPayloads, isEmpty);
+      expect(find.text('Unavailable'), findsOneWidget);
+      expect(find.bySemanticsLabel('Play audio'), findsNothing);
+      expect(
+        find.bySemanticsLabel('Playback not available yet'),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets('audio playback stops when switching transcript conversation', (
     tester,
   ) async {

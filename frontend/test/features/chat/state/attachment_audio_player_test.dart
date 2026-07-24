@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/features/chat/state/attachment_audio_player.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -197,4 +198,29 @@ void main() {
     expect(state.playing, isFalse);
     expect(state.errorFor('att_1'), 'playback_failed');
   });
+
+  test(
+    'missing attachment content leaves a terminal missing error state',
+    () async {
+      final (c, driver) = _setup();
+
+      await c
+          .read(attachmentAudioPlaybackProvider.notifier)
+          .toggle(
+            'att_1',
+            loadBytes: () async => throw const ApiException(
+              code: 'ATTACHMENT_NOT_FOUND',
+              message: 'attachment not found',
+              httpStatus: 404,
+            ),
+          );
+
+      final state = c.read(attachmentAudioPlaybackProvider);
+      expect(state.activeAttachmentId, 'att_1');
+      expect(state.loading, isFalse);
+      expect(state.playing, isFalse);
+      expect(state.errorFor('att_1'), AttachmentAudioError.attachmentMissing);
+      expect(driver.playPayloads, isEmpty);
+    },
+  );
 }
