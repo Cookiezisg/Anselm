@@ -43,12 +43,12 @@ func profile(id, identityKey string, now time.Time) *profiledomain.Profile {
 func TestFindSaveWorkspaceIsolation(t *testing.T) {
 	s := newStore(t)
 	now := time.Date(2026, 7, 24, 0, 0, 0, 0, time.UTC)
-	p := profile("mpr_1", "route-sha", now)
+	p := profile("mrp_1", "route-sha", now)
 	if err := s.Save(ctxWS("ws_1"), p); err != nil {
 		t.Fatal(err)
 	}
 	got, found, err := s.Find(ctxWS("ws_1"), "route-sha")
-	if err != nil || !found || got.ID != "mpr_1" || got.LowestOverflowPredicted != 900_000 {
+	if err != nil || !found || got.ID != "mrp_1" || got.LowestOverflowPredicted != 900_000 {
 		t.Fatalf("find = %+v, %v, %v", got, found, err)
 	}
 	if _, found, err := s.Find(ctxWS("ws_2"), "route-sha"); err != nil || found {

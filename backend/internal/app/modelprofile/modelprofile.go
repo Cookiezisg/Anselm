@@ -54,7 +54,7 @@ func (s *Service) Observe(ctx context.Context, o profiledomain.Observation) erro
 		return err
 	}
 	if !found {
-		p = profiledomain.NewProfile(idgenpkg.New("mpr"), o.Identity, o.At)
+		p = profiledomain.NewProfile(idgenpkg.New("mrp"), o.Identity, o.At)
 	}
 	p.Apply(o, o.At.Add(profileTTL))
 	if err := s.repo.Save(ctx, p); err != nil {
