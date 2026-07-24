@@ -885,7 +885,7 @@ lease refresh/reuse 与生产 E2E 验证。
 当前落地状态（2026-07-24）：后端已有 `GET /api/v1/speech/asr` WebSocket 代理，只解析受管
 `anselm` gateway install，向上游 `/v1/speech/asr` 透传 PCM binary 与 `finish|commit|cancel` 控制帧，并把
 partial/final/session 事件原样回给 Flutter；测试覆盖 device-proof dial、client binary→upstream、
-upstream delta→client、nonce refresh 与控制帧白名单路径；gateway 已接受 `cancel` 并只关闭本次 ASR 会话、不向上游转发未知控制事件；sidecar 与 gateway 都对 client/upstream 两条 WebSocket leg 发送 ping，并用 message/pong 滚动 30s 读 deadline，同时保留 2min 会话绝对上限。未落地/未验收：断线自动重连、跨进程持久化 offline fallback、quota/ledger、真 key eval。
+upstream delta→client、nonce refresh 与控制帧白名单路径；gateway 已接受 `cancel` 并只关闭本次 ASR 会话、不向上游转发未知控制事件；sidecar 与 gateway 都对 client/upstream 两条 WebSocket leg 发送 ping，并用 message/pong 滚动 30s 读 deadline，同时保留 2min 会话绝对上限。未落地/未验收：跨进程持久化 offline fallback、quota/ledger、真 key eval。
 
 **出口**：三类断网、取消、超时、权限前置均不丢最终可恢复状态。
 
@@ -910,7 +910,7 @@ conversation model override 优先于 workspace default，header 未就绪时不
 Anselm Auto。widget 测试已锁定“Anselm Auto 空输入显示麦克风、打字后切发送、外部模型默认不显示麦克风、
 会话 override 外部模型时不显示麦克风”。gallery 已补空态 mic 与录音中 stop 的 `AnComposer` 视觉 specimen。
 录音状态条已显示时长与实时电平波形；权限拒绝会给出系统设置恢复提示，不再落入泛化启动失败。
-realtime 断线会保留已转写草稿并给出断开提示；录音期本地保留有界 PCM buffer，断线后展示 retry/delete 卡，retry 会重放本次录音重新转写并替换同一草稿插入区，delete 会移除这段语音草稿。未落地/未验收：跨 app 崩溃的持久化离线 ASR fallback、三平台真机。
+realtime 断线会保留已转写草稿并给出断开提示；录音期本地保留有界 PCM buffer，仍在 recording 时 socket loss 会自动重连一次并重放 buffer，第二次断线或收尾失败后展示 retry/delete 卡；retry 会重放本次录音重新转写并替换同一草稿插入区，delete 会移除这段语音草稿。未落地/未验收：跨 app 崩溃的持久化离线 ASR fallback、三平台真机。
 
 **出口**：一分钟中英混合听写、取消、断网 fallback、权限拒绝全程无误发送/吞内容。
 

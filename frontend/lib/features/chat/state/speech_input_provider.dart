@@ -20,6 +20,63 @@ const speechInputErrorPermissionDenied = 'permission_denied';
 const speechInputErrorConnectionLost = 'connection_lost';
 const speechInputErrorFailed = 'failed';
 const _speechRetryMaxBytes = 5 * 1024 * 1024;
+const _speechLiveReconnectAttempts = 1;
+
+typedef SpeechSocketConnector =
+    WebSocketChannel Function(Uri uri, Map<String, String> headers);
+
+final speechSocketConnectorProvider = Provider<SpeechSocketConnector>(
+  (ref) =>
+      (uri, headers) => IOWebSocketChannel.connect(uri, headers: headers),
+);
+
+abstract interface class SpeechAudioCapture {
+  Future<bool> hasPermission();
+  Future<Stream<List<int>>> startStream();
+  Stream<Amplitude> onAmplitudeChanged(Duration interval);
+  Future<void> stop();
+  Future<void> cancel();
+  Future<void> dispose();
+}
+
+class RecordSpeechAudioCapture implements SpeechAudioCapture {
+  RecordSpeechAudioCapture([AudioRecorder? recorder])
+    : _recorder = recorder ?? AudioRecorder();
+
+  final AudioRecorder _recorder;
+
+  @override
+  Future<bool> hasPermission() => _recorder.hasPermission();
+
+  @override
+  Future<Stream<List<int>>> startStream() => _recorder.startStream(
+    const RecordConfig(
+      encoder: AudioEncoder.pcm16bits,
+      sampleRate: 16000,
+      numChannels: 1,
+      streamBufferSize: 4096,
+    ),
+  );
+
+  @override
+  Stream<Amplitude> onAmplitudeChanged(Duration interval) =>
+      _recorder.onAmplitudeChanged(interval);
+
+  @override
+  Future<void> stop() => _recorder.stop();
+
+  @override
+  Future<void> cancel() => _recorder.cancel();
+
+  @override
+  Future<void> dispose() => _recorder.dispose();
+}
+
+typedef SpeechAudioCaptureFactory = SpeechAudioCapture Function();
+
+final speechAudioCaptureFactoryProvider = Provider<SpeechAudioCaptureFactory>(
+  (ref) => RecordSpeechAudioCapture.new,
+);
 
 class SpeechInputState {
   const SpeechInputState({
@@ -112,7 +169,7 @@ final speechInputAvailableProvider = Provider<bool>((ref) {
 ) => ref == null ? null : (apiKeyId: ref.apiKeyId, modelId: ref.modelId);
 
 class SpeechInputController extends Notifier<SpeechInputState> {
-  AudioRecorder? _recorder;
+  SpeechAudioCapture? _recorder;
   WebSocketChannel? _channel;
   StreamSubscription<List<int>>? _audioSub;
   StreamSubscription<dynamic>? _socketSub;
@@ -121,6 +178,8 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   DateTime? _startedAt;
   bool _serverFinished = false;
   bool _replaying = false;
+  var _socketGeneration = 0;
+  var _remainingLiveReconnects = 0;
   final List<Uint8List> _retryFrames = [];
   var _retryBytes = 0;
 
@@ -141,11 +200,12 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     state = const SpeechInputState(recording: true);
     _serverFinished = false;
     _replaying = false;
+    _remainingLiveReconnects = _speechLiveReconnectAttempts;
     _clearRetryBuffer();
     try {
       _connectSocket();
 
-      final recorder = AudioRecorder();
+      final recorder = ref.read(speechAudioCaptureFactoryProvider)();
       _recorder = recorder;
       final allowed = await recorder.hasPermission();
       if (!allowed) {
@@ -153,14 +213,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
         state = const SpeechInputState(error: speechInputErrorPermissionDenied);
         return;
       }
-      final stream = await recorder.startStream(
-        const RecordConfig(
-          encoder: AudioEncoder.pcm16bits,
-          sampleRate: 16000,
-          numChannels: 1,
-          streamBufferSize: 4096,
-        ),
-      );
+      final stream = await recorder.startStream();
       _audioSub = stream.listen((bytes) {
         if (bytes.isNotEmpty) {
           _rememberFrame(bytes);
@@ -245,17 +298,53 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   void _connectSocket() {
     final uri = _speechUri();
     final headers = _headers();
-    final channel = IOWebSocketChannel.connect(uri, headers: headers);
+    final generation = ++_socketGeneration;
+    final channel = ref.read(speechSocketConnectorProvider)(uri, headers);
     _channel = channel;
     _socketSub = channel.stream.listen(
       _handleGatewayEvent,
-      onError: (Object e) => _fail(e),
+      onError: (Object e) => _handleSocketLost(generation),
       onDone: () {
-        if (state.active && !_serverFinished) {
-          unawaited(_failAsync(speechInputErrorConnectionLost));
+        if (generation == _socketGeneration &&
+            state.active &&
+            !_serverFinished) {
+          unawaited(_handleSocketLost(generation));
         }
       },
     );
+  }
+
+  Future<void> _handleSocketLost(int generation) async {
+    if (generation != _socketGeneration || !state.active || _serverFinished) {
+      return;
+    }
+    if (state.recording && await _tryLiveReconnect(socketAlreadyClosed: true)) {
+      return;
+    }
+    await _failAsync(speechInputErrorConnectionLost, socketAlreadyClosed: true);
+  }
+
+  Future<bool> _tryLiveReconnect({bool socketAlreadyClosed = false}) async {
+    if (_remainingLiveReconnects <= 0 || _retryFrames.isEmpty) return false;
+    _remainingLiveReconnects--;
+    final snapshot = List<Uint8List>.of(_retryFrames);
+    try {
+      if (socketAlreadyClosed) {
+        _socketSub = null;
+        _channel = null;
+      } else {
+        await _closeSocketOnly();
+      }
+      _serverFinished = false;
+      _replaying = true;
+      _connectSocket();
+      for (final frame in snapshot) {
+        _channel?.sink.add(frame);
+      }
+      return true;
+    } catch (_) {
+      return false;
+    }
   }
 
   Uri _speechUri() {
@@ -295,7 +384,18 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     }
     if (type == 'error') {
       final code = decoded['code']?.toString() ?? '';
-      unawaited(_failAsync(_errorFromGatewayCode(code)));
+      final error = _errorFromGatewayCode(code);
+      if (error == speechInputErrorConnectionLost && state.recording) {
+        unawaited(
+          _tryLiveReconnect(socketAlreadyClosed: true).then((ok) {
+            if (!ok) {
+              return _failAsync(error, socketAlreadyClosed: true);
+            }
+          }),
+        );
+      } else {
+        unawaited(_failAsync(error, socketAlreadyClosed: true));
+      }
       return;
     }
     if (type.endsWith('.completed')) {
@@ -327,7 +427,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     return (text is String ? text : '') + (stash is String ? stash : '');
   }
 
-  void _startMeters(AudioRecorder recorder) {
+  void _startMeters(SpeechAudioCapture recorder) {
     _stopMeters();
     _startedAt = DateTime.now();
     _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
@@ -365,13 +465,17 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     unawaited(_failAsync(speechInputErrorConnectionLost));
   }
 
-  Future<void> _failAsync(String error) async {
+  Future<void> _failAsync(
+    String error, {
+    bool socketAlreadyClosed = false,
+  }) async {
     final snapshot = state;
     final retryable = _retryFrames.isNotEmpty;
     await _close(
       cancelRecorder: true,
       resetState: false,
       keepRetryBuffer: true,
+      skipSocket: socketAlreadyClosed,
     );
     state = SpeechInputState(
       committed: snapshot.committed,
@@ -403,12 +507,17 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     bool keepText = false,
     bool resetState = true,
     bool keepRetryBuffer = false,
+    bool skipSocket = false,
   }) async {
     _stopMeters();
     await _audioSub?.cancel();
     _audioSub = null;
-    await _socketSub?.cancel();
-    _socketSub = null;
+    if (skipSocket) {
+      _socketSub = null;
+    } else {
+      await _socketSub?.cancel();
+      _socketSub = null;
+    }
     if (cancelRecorder) {
       await _recorder?.cancel();
     } else {
@@ -416,8 +525,12 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     }
     await _recorder?.dispose();
     _recorder = null;
-    await _channel?.sink.close();
-    _channel = null;
+    if (skipSocket) {
+      _channel = null;
+    } else {
+      await _channel?.sink.close();
+      _channel = null;
+    }
     _replaying = false;
     if (!keepRetryBuffer) _clearRetryBuffer();
     if (!resetState) return;
@@ -431,6 +544,13 @@ class SpeechInputController extends Notifier<SpeechInputState> {
         level: 0,
       );
     }
+  }
+
+  Future<void> _closeSocketOnly() async {
+    await _socketSub?.cancel();
+    _socketSub = null;
+    await _channel?.sink.close();
+    _channel = null;
   }
 }
 
