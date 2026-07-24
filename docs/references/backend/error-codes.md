@@ -119,6 +119,9 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `SPEECH_UNAVAILABLE` | 503 | speech transcription is unavailable（本机 sidecar 未找到 managed Anselm 凭证或网关 ASR 不可用；语音输入只走默认 Anselm Auto，不拿用户 BYOK 做语音适配） |
+| `SPEECH_QUOTA_EXHAUSTED` | 429 | this month's speech allowance is used up（网关握手期返 `QUOTA_EXHAUSTED`/`BUDGET_EXHAUSTED`/`INSTALL_CAP_REACHED` 的闭集映射；与限流分开，因为跨月之前重试无用） |
+| `SPEECH_RATE_LIMITED` | 429 | too many speech requests just now; try again shortly（网关 `RATE_LIMITED`/`UPSTREAM_BUSY`/`INSTALL_RATE_LIMITED`；可重试） |
+| `SPEECH_ACCOUNT_BANNED` | 403 | this installation is not permitted to use speech（网关 `ACCOUNT_BANNED`） |
 
 ### `app/storage`
 

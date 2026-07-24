@@ -77,6 +77,17 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 	}
 	upConn, err := h.dialUpstream(r.Context(), upURL, gw.InstallID)
 	if err != nil {
+		// A refusal that arrives BEFORE the upgrade carries the gateway's structured code. Keep the
+		// actionable ones distinct: "your monthly allowance is gone" and "slow down for a moment"
+		// need opposite user behaviour, and flattening both into "speech is unavailable" invites
+		// endless retrying. Unknown codes stay ErrUnavailable — never invent a meaning.
+		// 升级**之前**到达的拒绝带着网关的结构化码。可行动的那几种必须分开:「本月额度用完了」与「稍等
+		// 一下」要求相反的用户行为,把两者压成「语音不可用」等于邀请无限重试。未知码保持 ErrUnavailable
+		// ——绝不臆造含义。
+		if classified := speechapp.ClassifyHandshakeCode(handshakeRefusalCode(err)); classified != nil {
+			responsehttpapi.FromDomainError(w, h.log, classified)
+			return
+		}
 		responsehttpapi.FromDomainError(w, h.log, speechapp.ErrUnavailable.WithCause(err))
 		return
 	}
@@ -179,9 +190,16 @@ func (h *SpeechHandler) dialUpstream(ctx context.Context, rawURL, installID stri
 			return conn, nil
 		}
 		last = err
-		if resp == nil || resp.StatusCode != http.StatusUnauthorized || !responseIsNonceInvalid(resp.Body) {
+		code, nonceInvalid := handshakeEnvelope(resp)
+		if resp == nil || resp.StatusCode != http.StatusUnauthorized || !nonceInvalid {
 			if resp != nil && resp.Body != nil {
 				_ = resp.Body.Close()
+			}
+			if code != "" {
+				// Carry ONLY the closed-set code forward, never the provider's prose: the transport
+				// must stay unable to leak upstream text into a user-facing error.
+				// 只携带闭集里的 code,绝不携带上游散文:传输层必须**没有能力**把上游文本泄进用户面错误。
+				last = &handshakeRefusal{code: code, cause: err}
 			}
 			break
 		}
@@ -218,20 +236,47 @@ func speechURL(baseURL, language string) (string, error) {
 	return u.String(), nil
 }
 
-func responseIsNonceInvalid(body io.Reader) bool {
-	if body == nil {
-		return false
+// handshakeRefusal carries a gateway refusal code observed during the WebSocket handshake. It holds
+// the CODE only — the upstream's message never travels with it.
+// handshakeRefusal 携带握手期观察到的网关拒绝码。**只**存 code——上游的 message 绝不随行。
+type handshakeRefusal struct {
+	code  string
+	cause error
+}
+
+func (e *handshakeRefusal) Error() string { return "speech: gateway refused the handshake" }
+func (e *handshakeRefusal) Unwrap() error { return e.cause }
+
+// handshakeRefusalCode extracts the code from a dial error, or "" when the failure carried none.
+// handshakeRefusalCode 从拨号错误里取出 code;失败未带码时返回 ""。
+func handshakeRefusalCode(err error) string {
+	var refusal *handshakeRefusal
+	if errors.As(err, &refusal) {
+		return refusal.code
 	}
-	raw, err := io.ReadAll(io.LimitReader(body, 64<<10))
+	return ""
+}
+
+// handshakeEnvelope reads the gateway's structured error envelope from a failed handshake response.
+// It returns the code and whether that code is the nonce-refresh signal.
+// handshakeEnvelope 从失败的握手响应里读网关的结构化错误信封,返回 code 及它是否为 nonce 刷新信号。
+func handshakeEnvelope(resp *http.Response) (code string, nonceInvalid bool) {
+	if resp == nil || resp.Body == nil {
+		return "", false
+	}
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
 	if err != nil {
-		return false
+		return "", false
 	}
 	var envelope struct {
 		Error struct {
 			Code string `json:"code"`
 		} `json:"error"`
 	}
-	return json.Unmarshal(raw, &envelope) == nil && envelope.Error.Code == "DEVICE_PROOF_NONCE_INVALID"
+	if json.Unmarshal(raw, &envelope) != nil {
+		return "", false
+	}
+	return envelope.Error.Code, envelope.Error.Code == "DEVICE_PROOF_NONCE_INVALID"
 }
 
 func validSpeechControl(payload []byte) bool {
