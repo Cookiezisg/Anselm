@@ -43,12 +43,12 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（332 码，按域）
+## 全量登记（333 码，按域）
 
-> `errorspkg.New` 机械抽取（321，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 332。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（322，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 333。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 >
 > **机械守卫**：本表与代码的**逐码对齐**由 `make -C docs verify` 的契约漂移检测强制（GOVERNANCE §11.8，`cmd/docs/drift.go`——代码构造了而表没登记、或表登记了而代码没构造，门禁即红并点名）。故「漏登/幽灵」不可能安静发生；**唯汇总计数**（下三数）仍是手工陈述，改码时顺手重算（数错不影响守卫,守卫按码 diff 不数总数）。复核命令：
-> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 321 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 321 = 321 个唯一 code，全部在表；表 332 行 = 321 + 7 + 4，三数对齐；含 WRK-076 B1 `SKILL_FILE_*` 3 码 + B3 `SKILL_SCRIPT_*` 3 码 + B4 `SKILL_INSTALL_*` 4 码与 `SKILL_NOT_INSTALLED`/`SKILL_LOCALLY_MODIFIED`）。
+> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 322 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 322 = 322 个唯一 code，全部在表；表 333 行 = 322 + 7 + 4，三数对齐；含 WRK-076 B1 `SKILL_FILE_*` 3 码 + B3 `SKILL_SCRIPT_*` 3 码 + B4 `SKILL_INSTALL_*` 4 码与 `SKILL_NOT_INSTALLED`/`SKILL_LOCALLY_MODIFIED`）。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -113,6 +113,12 @@ audience: [human, ai]
 |---|---|---|
 | `SETTINGS_LIMITS_INVALID` | 400 | limits values out of range |
 | `SETTINGS_RETENTION_INVALID` | 400 | runRetentionDays must be 0 (keep forever) or a positive number of days（scheduler 工单⑬——**唯一的物理约束**：线不能倒着走；未知字段/畸形 JSON 同码。UI 的 30/90/180/永久 值集是产品可供性、后端不强制，60 照收——拒它是校验剧场，设计原则 #6） |
+
+### `app/speech`
+
+| code | HTTP | message |
+|---|---|---|
+| `SPEECH_UNAVAILABLE` | 503 | speech transcription is unavailable（本机 sidecar 未找到 managed Anselm 凭证或网关 ASR 不可用；语音输入只走默认 Anselm Auto，不拿用户 BYOK 做语音适配） |
 
 ### `app/storage`
 

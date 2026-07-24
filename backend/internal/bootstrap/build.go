@@ -146,7 +146,8 @@ func Build(cfg Config) (*App, error) {
 		return nil, fmt.Errorf("bootstrap: device proof: %w", err)
 	}
 	proofHTTP := llminfra.NewHTTPClient()
-	proofHTTP.Transport = deviceproofinfra.NewTransport(proofHTTP.Transport, proofSigner)
+	proofTransport := deviceproofinfra.NewTransport(proofHTTP.Transport, proofSigner)
+	proofHTTP.Transport = proofTransport
 
 	// settings.json (limits) loads before services so every consumer's first read sees
 	// user-tuned values; a malformed file fails boot loudly.
@@ -159,7 +160,7 @@ func Build(cfg Config) (*App, error) {
 	st := buildStores(database, enc, cfg.DataDir)
 	inf := infra{
 		factory: llminfra.NewFactoryWithHTTP(proofHTTP), encryptor: enc,
-		proofHTTP: proofHTTP, proofPublicKey: proofSigner.PublicKey(),
+		proofHTTP: proofHTTP, proofHeaders: proofTransport, proofPublicKey: proofSigner.PublicKey(),
 	}
 	bus := newBuses()
 
@@ -169,7 +170,7 @@ func Build(cfg Config) (*App, error) {
 	svc := buildServices(st, inf, bus, mux, cfg.DataDir, log)
 	svc.settings = settingsSvc
 	svc.storage = storageapp.New(database) // storage-file ops (size / dead space / compact) over the shared DB. 共享 DB 上的存储文件操作。
-	registerHandlers(mux, svc, bus, cfg, log)
+	registerHandlers(mux, svc, bus, cfg, inf.proofHeaders, log)
 	registerDebug(mux, cfg.Dev, log) // dev-only /debug/pprof + /debug/stats (observability)
 
 	addr := cfg.Addr
@@ -189,7 +190,7 @@ func Build(cfg Config) (*App, error) {
 // the shared mux, plus the static health probe (exempt from RequireWorkspace).
 //
 // registerHandlers 用各自 Service 构造每个资源 handler 并把路由注册到共享 mux，外加静态 health 探针。
-func registerHandlers(mux *http.ServeMux, s *services, bus buses, cfg Config, log *zap.Logger) {
+func registerHandlers(mux *http.ServeMux, s *services, bus buses, cfg Config, proofHeaders handlershttpapi.ProofHeaders, log *zap.Logger) {
 	mux.HandleFunc("GET /api/v1/health", handleHealth)
 
 	regs := []interface {
@@ -211,6 +212,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, cfg Config, lo
 		handlershttpapi.NewSystemHandler(s.settings, cfg.Version, log),
 		handlershttpapi.NewStorageHandler(s.storage, log),
 		handlershttpapi.NewFreetierHandler(s.freetierQuota, s.freetier, log),
+		handlershttpapi.NewSpeechHandler(s.speech, proofHeaders, log),
 		handlershttpapi.NewDocumentHandler(s.document, s.aispawn, log),
 		handlershttpapi.NewTodoHandler(s.todo, log),
 		handlershttpapi.NewTouchpointHandler(s.touchpoint, log),

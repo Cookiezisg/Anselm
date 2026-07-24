@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 	"time"
@@ -40,6 +41,39 @@ func NewTransport(base http.RoundTripper, signer *Signer) *Transport {
 		base = http.DefaultTransport
 	}
 	return &Transport{base: base, signer: signer, cache: make(map[string]cachedChallenge)}
+}
+
+// ProofHeaders builds the device-proof headers for non-RoundTripper clients such
+// as WebSocket dialers. body is the exact payload hash to bind; WebSocket GET
+// callers pass nil/empty. refresh forces a fresh nonce after a nonce-invalid
+// handshake response.
+func (t *Transport) ProofHeaders(ctx context.Context, method, rawURL, kid string, body []byte, refresh bool) (http.Header, error) {
+	if t == nil || t.signer == nil {
+		return nil, fmt.Errorf("deviceproof: signer is nil")
+	}
+	if strings.TrimSpace(kid) == "" {
+		return nil, fmt.Errorf("deviceproof: install id is empty")
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Host == "" {
+		if err == nil {
+			err = fmt.Errorf("missing host")
+		}
+		return nil, fmt.Errorf("deviceproof: parse proof url: %w", err)
+	}
+	nonce, err := t.challenge(ctx, challengeOrigin(u), refresh)
+	if err != nil {
+		return nil, err
+	}
+	req := &http.Request{
+		Method: method,
+		URL:    u,
+		Header: make(http.Header),
+	}
+	header := make(http.Header)
+	header.Set(HeaderInstallID, kid)
+	header.Set(HeaderProof, t.sign(kid, nonce, req, body))
+	return header, nil
 }
 
 func (t *Transport) RoundTrip(req *http.Request) (*http.Response, error) {
@@ -135,6 +169,17 @@ func (t *Transport) challenge(ctx context.Context, origin string, refresh bool) 
 	t.cache[origin] = cachedChallenge{nonce: out.Nonce, expiresAt: expiresAt}
 	t.mu.Unlock()
 	return out.Nonce, nil
+}
+
+func challengeOrigin(u *url.URL) string {
+	scheme := u.Scheme
+	switch scheme {
+	case "wss":
+		scheme = "https"
+	case "ws":
+		scheme = "http"
+	}
+	return scheme + "://" + u.Host
 }
 
 func (t *Transport) sign(kid, nonce string, req *http.Request, body []byte) string {

@@ -149,6 +149,18 @@ class Translations$chat$en {
 	/// en: 'Send message'
 	String get send => 'Send message';
 
+	/// en: 'Voice input'
+	String get voiceInput => 'Voice input';
+
+	/// en: 'Stop voice input'
+	String get stopVoiceInput => 'Stop voice input';
+
+	/// en: 'Voice input is available only with Anselm Auto'
+	String get voiceInputUnavailable => 'Voice input is available only with Anselm Auto';
+
+	/// en: 'Voice input couldn't start'
+	String get voiceInputFailed => 'Voice input couldn\'t start';
+
 	/// en: 'Stop generating'
 	String get stop => 'Stop generating';
 
@@ -6420,6 +6432,10 @@ extension on Translations {
 			'chat.bucket.recents' => 'Recents',
 			'chat.placeholder' => 'Ask anything…',
 			'chat.send' => 'Send message',
+			'chat.voiceInput' => 'Voice input',
+			'chat.stopVoiceInput' => 'Stop voice input',
+			'chat.voiceInputUnavailable' => 'Voice input is available only with Anselm Auto',
+			'chat.voiceInputFailed' => 'Voice input couldn\'t start',
 			'chat.stop' => 'Stop generating',
 			'chat.thinking' => 'thinking',
 			'chat.thought' => 'thought',
@@ -6895,12 +6911,12 @@ extension on Translations {
 			'chat.gate.answerPlaceholder' => 'Type your answer…',
 			'chat.gate.decidedApproved' => 'Allowed',
 			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
+			_ => null,
+		} ?? switch (path) {
 			'chat.gate.decidedDenied' => 'Denied',
 			'chat.gate.decidedDeclined' => 'Skipped',
 			'chat.contextCompacted' => 'Context compacted',
 			'chat.contextCompactedCount' => ({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary',
-			_ => null,
-		} ?? switch (path) {
 			'chat.stage.title' => 'Sidestage',
 			'chat.stage.island' => 'Activity',
 			'chat.stage.tasks' => 'Tasks',
@@ -7409,12 +7425,12 @@ extension on Translations {
 			'a11y.fmtItalic' => 'Italic',
 			'a11y.fmtStrike' => 'Strikethrough',
 			'a11y.fmtCode' => 'Inline code',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.fmtLink' => 'Link',
 			'a11y.relationSummary' => ({required Object nodes, required Object edges}) => 'Relationship graph. ${nodes} entities, ${edges} relations.',
 			'a11y.relationNode' => ({required Object name, required Object kind, required Object count}) => '${name}, ${kind}, referenced by ${count}',
 			'a11y.relationExpand' => 'Expand relationship graph',
-			_ => null,
-		} ?? switch (path) {
 			'diff.added' => 'Added',
 			'diff.removed' => 'Removed',
 			'tree.invalidJson' => 'Invalid JSON',
@@ -7923,12 +7939,12 @@ extension on Translations {
 			'settings.webJina' => 'Jina proxy',
 			'settings.defaultModelLink' => 'Default chat model → Models & keys',
 			'settings.langEn' => 'English',
+			_ => null,
+		} ?? switch (path) {
 			'settings.langZh' => '简体中文',
 			'settings.keys.freeTier' => 'Free tier',
 			'settings.keys.freeTierName' => 'Anselm Free · Auto multimodal',
 			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · resets ${reset}',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.freeUnavailable' => 'Gateway day budget exhausted — back tomorrow',
 			'settings.keys.freeEnable' => 'Enable free tier',
 			'settings.keys.freeEnableHint' => 'Registers this machine\'s anonymous fingerprint with the Anselm gateway for a quota',

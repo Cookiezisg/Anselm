@@ -1,6 +1,7 @@
 package bootstrap
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 
@@ -80,9 +81,12 @@ type stores struct {
 //
 // infra 持有跨服务共享的无状态基础设施单例。
 type infra struct {
-	factory        *llminfra.Factory
-	encryptor      cryptodomain.Encryptor
-	proofHTTP      *http.Client
+	factory      *llminfra.Factory
+	encryptor    cryptodomain.Encryptor
+	proofHTTP    *http.Client
+	proofHeaders interface {
+		ProofHeaders(ctx context.Context, method, rawURL, kid string, body []byte, refresh bool) (http.Header, error)
+	}
 	proofPublicKey string
 }
 

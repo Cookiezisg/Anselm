@@ -223,6 +223,9 @@ abstract final class AnIcons {
   static final IconData send = _thin(
     LucideIcons.arrowUp,
   ); // ↑ send the message (stop reuses `stop`) 发送
+  static final IconData microphone = _thin(
+    LucideIcons.mic,
+  ); // voice input microphone 语音输入
 
   // ── execution verbs / actions ──
   static final IconData run = _thin(LucideIcons.play);

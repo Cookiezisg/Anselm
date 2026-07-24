@@ -95,6 +95,10 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override late final _Translations$chat$bucket$zh_CN bucket = _Translations$chat$bucket$zh_CN._(_root);
 	@override String get placeholder => 'Ask anything…';
 	@override String get send => '发送';
+	@override String get voiceInput => '语音输入';
+	@override String get stopVoiceInput => '停止语音输入';
+	@override String get voiceInputUnavailable => '语音输入仅支持 Anselm Auto';
+	@override String get voiceInputFailed => '语音输入启动失败';
 	@override String get stop => '停止生成';
 	@override String get thinking => 'thinking';
 	@override String get thought => 'thought';
@@ -2733,6 +2737,10 @@ extension on TranslationsZhCn {
 			'chat.bucket.recents' => '最近',
 			'chat.placeholder' => 'Ask anything…',
 			'chat.send' => '发送',
+			'chat.voiceInput' => '语音输入',
+			'chat.stopVoiceInput' => '停止语音输入',
+			'chat.voiceInputUnavailable' => '语音输入仅支持 Anselm Auto',
+			'chat.voiceInputFailed' => '语音输入启动失败',
 			'chat.stop' => '停止生成',
 			'chat.thinking' => 'thinking',
 			'chat.thought' => 'thought',
@@ -3208,12 +3216,12 @@ extension on TranslationsZhCn {
 			'chat.gate.answerPlaceholder' => '输入你的回答…',
 			'chat.gate.decidedApproved' => '已允许',
 			'chat.gate.decidedApprovedAlways' => '已允许 · 本对话总是',
+			_ => null,
+		} ?? switch (path) {
 			'chat.gate.decidedDenied' => '已拒绝',
 			'chat.gate.decidedDeclined' => '已跳过',
 			'chat.contextCompacted' => '上下文已压缩',
 			'chat.contextCompactedCount' => ({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要',
-			_ => null,
-		} ?? switch (path) {
 			'chat.stage.title' => '侧幕',
 			'chat.stage.island' => '活动',
 			'chat.stage.tasks' => '待办',
@@ -3722,12 +3730,12 @@ extension on TranslationsZhCn {
 			'a11y.fmtItalic' => '斜体',
 			'a11y.fmtStrike' => '删除线',
 			'a11y.fmtCode' => '行内代码',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.fmtLink' => '链接',
 			'a11y.relationSummary' => ({required Object nodes, required Object edges}) => '关系图。${nodes} 个实体，${edges} 条关系。',
 			'a11y.relationNode' => ({required Object name, required Object kind, required Object count}) => '${name}，${kind}，被 ${count} 个实体引用',
 			'a11y.relationExpand' => '展开关系图',
-			_ => null,
-		} ?? switch (path) {
 			'diff.added' => '新增',
 			'diff.removed' => '删除',
 			'tree.invalidJson' => '无效 JSON',
@@ -4236,12 +4244,12 @@ extension on TranslationsZhCn {
 			'settings.webJina' => 'Jina 代理',
 			'settings.defaultModelLink' => '默认对话模型 → 模型与密钥',
 			'settings.langEn' => 'English',
+			_ => null,
+		} ?? switch (path) {
 			'settings.langZh' => '简体中文',
 			'settings.keys.freeTier' => '免费档',
 			'settings.keys.freeTierName' => 'Anselm Free · 自动多模态',
 			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · ${reset} 重置',
-			_ => null,
-		} ?? switch (path) {
 			'settings.keys.freeUnavailable' => '网关今日预算已满,明日恢复',
 			'settings.keys.freeEnable' => '启用免费档',
 			'settings.keys.freeEnableHint' => '将向 Anselm 网关注册本机匿名指纹以分配额度',

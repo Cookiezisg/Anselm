@@ -355,6 +355,7 @@ lib/features/chat/state/rundown_provider.dart	converged
 lib/features/chat/state/selected_conversation.dart	converged
 lib/features/chat/state/sidestage_activity_provider.dart	pending
 lib/features/chat/state/sidestage_auto_reveal.dart	converged
+lib/features/chat/state/speech_input_provider.dart	pending
 lib/features/chat/state/stage_director_provider.dart	reviewed
 lib/features/chat/state/stage_expansion.dart	converged
 lib/features/chat/state/stage_group_collapse.dart	converged

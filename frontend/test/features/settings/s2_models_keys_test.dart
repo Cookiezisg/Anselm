@@ -293,6 +293,8 @@ void main() {
           const ModelRef(apiKeyId: 'aki_anselm', modelId: 'anselm-auto'),
         );
 
+        await tester.tap(find.text(t.settings.keys.pickerChange).first);
+        await tester.pumpAndSettle();
         await tester.tap(find.text(t.settings.keys.externalModel));
         await tester.pumpAndSettle();
         expect(
@@ -302,6 +304,8 @@ void main() {
         );
 
         await tester.tap(find.text('Personal OpenAI'));
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Test model'));
         await tester.pumpAndSettle();
         await tester.tap(find.text('Test model'));
         await tester.pumpAndSettle();

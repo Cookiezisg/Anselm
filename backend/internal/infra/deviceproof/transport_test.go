@@ -1,6 +1,7 @@
 package deviceproof
 
 import (
+	"context"
 	"crypto/ed25519"
 	"crypto/sha256"
 	"encoding/base64"
@@ -107,6 +108,66 @@ func TestTransportLeavesUnmarkedProviderRequestUntouched(t *testing.T) {
 	_ = resp.Body.Close()
 	if resp.StatusCode != http.StatusNoContent || challenges.Load() != 0 {
 		t.Fatalf("status/challenges = %d/%d, want 204/0", resp.StatusCode, challenges.Load())
+	}
+}
+
+func TestProofHeadersSignsWebSocketGETWithHTTPChallenge(t *testing.T) {
+	signer, err := generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	var challenges atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/proof/challenge" {
+			t.Fatalf("unexpected challenge path %s", r.URL.Path)
+		}
+		challenges.Add(1)
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"nonce": "nonce-ws", "expiresAt": time.Now().Add(time.Minute).Format(time.RFC3339),
+		})
+	}))
+	defer srv.Close()
+
+	proof := NewTransport(srv.Client().Transport, signer)
+	wsURL := strings.Replace(srv.URL, "http://", "ws://", 1) + "/v1/speech/asr?language=zh"
+	headers, err := proof.ProofHeaders(context.Background(), http.MethodGet, wsURL, "ins_test", nil, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if headers.Get(HeaderInstallID) != "ins_test" || headers.Get(HeaderProof) == "" {
+		t.Fatalf("missing signed headers: %v", headers)
+	}
+	parts := strings.Split(headers.Get(HeaderProof), ".")
+	if len(parts) != 2 {
+		t.Fatalf("proof parts = %d", len(parts))
+	}
+	sig, err := b64.DecodeString(parts[1])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ed25519.Verify(signer.private.Public().(ed25519.PublicKey), []byte(parts[0]), sig) {
+		t.Fatal("signature did not verify")
+	}
+	rawPayload, err := b64.DecodeString(parts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload struct {
+		KeyID  string `json:"kid"`
+		Method string `json:"htm"`
+		Target string `json:"htu"`
+		Body   string `json:"bh"`
+	}
+	if err := json.Unmarshal(rawPayload, &payload); err != nil {
+		t.Fatal(err)
+	}
+	emptyHash := sha256.Sum256(nil)
+	wantTarget := strings.TrimPrefix(strings.ToLower(wsURL), "ws://")
+	if payload.KeyID != "ins_test" || payload.Method != http.MethodGet || payload.Target != wantTarget || payload.Body != b64.EncodeToString(emptyHash[:]) {
+		t.Fatalf("payload = %+v, want websocket GET target %q and empty body hash", payload, wantTarget)
+	}
+	if challenges.Load() != 1 {
+		t.Fatalf("challenges = %d, want 1", challenges.Load())
 	}
 }
 

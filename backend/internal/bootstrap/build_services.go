@@ -35,6 +35,7 @@ import (
 	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
 	settingsapp "github.com/sunweilin/anselm/backend/internal/app/settings"
 	skillapp "github.com/sunweilin/anselm/backend/internal/app/skill"
+	speechapp "github.com/sunweilin/anselm/backend/internal/app/speech"
 	storageapp "github.com/sunweilin/anselm/backend/internal/app/storage"
 	subagentapp "github.com/sunweilin/anselm/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/anselm/backend/internal/app/todo"
@@ -91,6 +92,7 @@ type services struct {
 	apikey        *apikeyapp.Service
 	freetier      *freetierapp.Provisioner
 	freetierQuota *freetierapp.QuotaReader
+	speech        *speechapp.Service
 	modelCaps     *modelapp.CapabilityService
 	modelProfile  *modelprofileapp.Service
 	media         *mediaapp.Service
@@ -157,6 +159,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	keys := apikeyapp.NewService(st.apikey, inf.encryptor, apikeyapp.NewHTTPTester(inf.proofHTTP), log)
 	freetier := freetierapp.NewProvisioner(keys, ws, llminfra.NewInstallClient(inf.proofHTTP, inf.proofPublicKey), cryptoinfra.MachineFingerprint, log)
 	freetierQuota := freetierapp.NewQuotaReader(keys, llminfra.NewQuotaClient(inf.proofHTTP), log)
+	speech := speechapp.New(keys)
 	modelCaps := modelapp.NewCapabilityService(keys, log)
 	modelProfile := modelprofileapp.NewService(st.modelprofile, log)
 	cat := catalogapp.NewService(log)
@@ -560,7 +563,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
-		search: searchSvc, shellMgr: shellTools.Manager, freetier: freetier, freetierQuota: freetierQuota,
+		search: searchSvc, shellMgr: shellTools.Manager, freetier: freetier, freetierQuota: freetierQuota, speech: speech,
 	}
 	// aispawn composes conversation + chat + a prefix-dispatched execution renderer; built
 	// last since it reads the assembled services.

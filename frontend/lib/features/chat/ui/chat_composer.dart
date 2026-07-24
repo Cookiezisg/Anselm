@@ -19,6 +19,7 @@ import '../model/user_attachment.dart';
 import '../state/chat_drafts.dart';
 import '../state/pending_attachments.dart';
 import '../state/conversation_stream_provider.dart';
+import '../state/speech_input_provider.dart';
 
 /// The chat composer BEHAVIOUR host over the [AnComposer] chrome — docked in a thread (pass
 /// [conversationId]) or on the New landing (pass [onSubmitNew]; the first send creates the thread).
@@ -72,6 +73,8 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   late final FocusNode _focus;
   bool _hasText = false;
   bool _submittingNew = false;
+  String? _speechBefore;
+  String? _speechAfter;
 
   // ── @ typeahead state @ 预输入态 ──
   final LayerLink _link = LayerLink();
@@ -472,6 +475,60 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     }
   }
 
+  Future<void> _startSpeechInput() async {
+    if (!ref.read(speechInputAvailableProvider)) {
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(
+            Translations.of(context).chat.voiceInputUnavailable,
+            tone: AnTone.warn,
+          );
+      return;
+    }
+    final sel = _ctrl.selection;
+    final start = sel.isValid ? sel.start : _ctrl.text.length;
+    final end = sel.isValid ? sel.end : start;
+    _speechBefore = _ctrl.text.substring(0, start);
+    _speechAfter = _ctrl.text.substring(end);
+    _focus.requestFocus();
+    await ref.read(speechInputProvider.notifier).start();
+  }
+
+  Future<void> _finishSpeechInput() =>
+      ref.read(speechInputProvider.notifier).finish();
+
+  void _applySpeechInput(SpeechInputState? previous, SpeechInputState next) {
+    final err = next.error;
+    if (err != null && err != previous?.error) {
+      _speechBefore = null;
+      _speechAfter = null;
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(
+            Translations.of(context).chat.voiceInputFailed,
+            tone: AnTone.danger,
+          );
+      return;
+    }
+    final before = _speechBefore;
+    final after = _speechAfter;
+    if (before == null || after == null) return;
+    final inserted = next.text;
+    final merged = before + inserted + after;
+    if (_ctrl.text != merged) {
+      _ctrl.value = TextEditingValue(
+        text: merged,
+        selection: TextSelection.collapsed(
+          offset: before.length + inserted.length,
+        ),
+      );
+    }
+    if (!next.active) {
+      _speechBefore = null;
+      _speechAfter = null;
+    }
+  }
+
   /// The composer chrome wrapped as the picker's ANCHOR: the portal's follower hangs the panel above
   /// the composer at full composer width. 壳作锚:follower 把面板挂 composer 上方、整 composer 宽。
   Widget _anchored(BuildContext context, Widget composer) {
@@ -633,10 +690,29 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
+    ref.listen<SpeechInputState>(speechInputProvider, _applySpeechInput);
     final id = widget.conversationId;
     final pending = ref.watch(pendingAttachmentsProvider(_draftKey));
+    final speech = ref.watch(speechInputProvider);
+    final speechAvailable = ref.watch(speechInputAvailableProvider);
     final uploading = pending.any((a) => a.status == 'uploading');
     final ready = pending.any((a) => a.status == 'ready');
+    final canVoice = speechAvailable && !_hasText && !ready && !uploading;
+    final voiceTrailing = speech.active
+        ? _trailingButton(
+            key: const ValueKey('voice-stop'),
+            icon: AnIcons.stop,
+            label: t.chat.stopVoiceInput,
+            onPressed: _finishSpeechInput,
+          )
+        : canVoice
+        ? _trailingButton(
+            key: const ValueKey('voice'),
+            icon: AnIcons.microphone,
+            label: t.chat.voiceInput,
+            onPressed: _startSpeechInput,
+          )
+        : null;
     if (id == null) {
       return _anchored(
         context,
@@ -648,14 +724,16 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             floating: widget._floating,
             lead: _lead(t),
             attachments: _attachmentStrip(context, t, pending),
-            trailing: (_hasText || ready) && !uploading && !_submittingNew
+            trailing: speech.active
+                ? voiceTrailing
+                : (_hasText || ready) && !uploading && !_submittingNew
                 ? _trailingButton(
                     key: const ValueKey('send'),
                     icon: AnIcons.send,
                     label: t.chat.send,
                     onPressed: _send,
                   )
-                : null,
+                : voiceTrailing,
           ),
         ),
       );
@@ -674,6 +752,8 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                 label: t.chat.stop,
                 onPressed: () => ctl.cancelTurn(),
               )
+            : speech.active
+            ? voiceTrailing
             : (_hasText || ready) && !uploading
             ? _trailingButton(
                 key: const ValueKey('send'),
@@ -681,7 +761,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                 label: t.chat.send,
                 onPressed: _send,
               )
-            : null;
+            : voiceTrailing;
         return _anchored(
           context,
           _pasteInterceptor(
