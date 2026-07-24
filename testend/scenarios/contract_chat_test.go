@@ -431,18 +431,33 @@ func TestContractChat_GeneratingFlagAndFinalizeWindow(t *testing.T) {
 	// --- B-chat-3 ---
 	// 压低触发线使第 4 回合的真实 input token 触发压缩；utility 摘要帧带 8s stall 撑开收尾窗。
 	wc.PATCH("/api/v1/limits", map[string]any{"context": map[string]any{"triggerRatio": 0.1}}).OK(t, nil)
-	mock.Enqueue(utilModel, harness.LLMTurn{Text: "WINDOW-SUMMARY-MARK", StallMS: 8000})
+	// 外部(BYOK)模型按 C1.5/§4.2 没有目录推导的压缩预算——「不因本地窗口猜测压缩」。软预算只在一次**真实**
+	// provider 溢出被透明恢复后才存在(modelprofile.Budget 要求 RecoveredOverflows>0),故本场景必须像生产
+	// 那样先**挣**到预算,尾部压缩才有线可越、收尾窗才有东西去撑开。
+	//
+	// utility 队列按序被三件事消费:①第 4 回合的溢出恢复 checkpoint ②学到预算后的回合内 editing
+	// ③**尾部持久压缩**。撑开收尾窗的必须是 ③,故 ①② 快返、③ 带 8s stall;③ 之后的也快返——每多一个 8s
+	// 都在把摘要落盘推向断言窗之外,会让一个其实正确的实现看起来是坏的。
+	stallUtil := harness.LLMTurn{Text: "WINDOW-SUMMARY-MARK", StallMS: 8000}
+	fastUtil := harness.LLMTurn{Text: "WINDOW-SUMMARY-MARK"}
+	mock.Enqueue(utilModel, fastUtil, fastUtil, stallUtil, fastUtil, fastUtil, fastUtil)
 	filler := strings.Repeat("finalize window filler words. ", 800)
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{Text: "noted 1"},
 		harness.LLMTurn{Text: "noted 2"},
 		harness.LLMTurn{Text: "noted 3"},
-		harness.LLMTurn{Text: "noted 4", PromptTokens: 60000},
+		// 第 4 回合首次尝试:provider 权威上下文溢出 → loop 同步内 checkpoint 并重试**同一步**;这一对
+		// 教会运行时画像一个软预算。
+		harness.LLMTurn{Status: 400, ErrorMessage: "context length exceeded"},
+		harness.LLMTurn{Text: "noted 4"},
+		// 第 5 回合已在学到的预算下运行,上报的真实 input token 越过(调低后的)触发线 → 尾部持久压缩,
+		// 而那次压缩的 utility 调用正是撑开收尾窗的东西。
+		harness.LLMTurn{Text: "noted 5", PromptTokens: 60000},
 		harness.LLMTurn{Text: "served from the slot", StallMS: 2000},
 	)
 	convW := convCreate(t, wc, "finalize window") // 有标题 → utility 队列只出压缩摘要。
 	var mid string
-	for i := 1; i <= 4; i++ {
+	for i := 1; i <= 5; i++ {
 		mid = sendMsg(t, wc, convW, fmt.Sprintf("TURN%d %s", i, filler))
 		if turn := waitTurn(t, wc, convW, mid, 30000); turn.Status != "completed" {
 			t.Fatalf("turn %d must complete, got %s %s", i, turn.Status, turn.ErrorMessage)
