@@ -847,6 +847,9 @@ lease refresh/reuse 与生产 E2E 验证。
 - 已落地（文档工具检索）：`read_attachment(query, contextChars?, maxMatches?)` 对 text/document 支持
   大小写不敏感 literal search，只返回匹配片段、字符 offset、总匹配数；默认 5 条、每侧 800
   字符上下文，硬上限 10 条/每侧 2000 字符。agent 可以先按关键词取证，再必要时用 offset 精读邻近页。
+- 已落地（native document envelope）：即便模型声明 `NativeDocs`，PDF/文档原件也必须计入同一
+  `MaxMediaParts/MaxMediaBytes` 单回合媒体 envelope；超预算时优先走文本抽取/分页重读路线，没有 extractor
+  时给明确 budget 占位，禁止绕过护栏把 base64 文件硬塞进请求。
 - OCR/tiles；
 - document parse/chunk/index/map-reduce；
 - `inspect_media` 的 document page 能力；

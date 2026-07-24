@@ -211,8 +211,9 @@ type RemoteMedia struct {
 //   - image    → image_url (data-URL) when caps.Vision; else a text note (degrade — don't send a
 //     part the model would reject).
 //   - text     → the file's content inlined as a text part (cheap, universal).
-//   - document → caps.NativeDocs ? a file part (PDF handed over raw, read natively) : sandbox
-//     text-extracted, token-capped text — with a placeholder note if no extractor / extraction fails.
+//   - document → caps.NativeDocs and media envelope permits it ? a file part (PDF handed over raw,
+//     read natively) : sandbox text-extracted, token-capped text — with a placeholder note if no
+//     extractor / extraction fails.
 //   - video → video_url when caps.Video and the attachment is an MP4; else a text note.
 //   - audio → input_audio when caps.Audio and it is WAV/MP3; else a text note.
 //   - other → a text placeholder.
@@ -222,9 +223,10 @@ type RemoteMedia struct {
 //
 // ToContentParts 把附件 id 解析成与 provider 无关的 LLM 内容块，供一个 user 回合（chat loop 前面拼上
 // 用户文本 part 再发；各家渲成自家 wire）。按 Kind 映射：image→image_url（data-URL，仅 caps.Vision；
-// 否则文字提示降级）；text→文件内容内联 text part；document→caps.NativeDocs ? file part（PDF 原样递交、
-// 原生读）: sandbox 抽取文本（token 截断），无 extractor / 抽取失败则占位；audio/video/other→文字占位
-// （那些 extractor 是未来插件）。顺序随 ids；缺失/不可读 blob 告警跳过——陈旧 id 绝不让回合失败。
+// 否则文字提示降级）；text→文件内容内联 text part；document→caps.NativeDocs 且媒体 envelope 容纳 ? file
+// part（PDF 原样递交、原生读）: sandbox 抽取文本（token 截断），无 extractor / 抽取失败则占位；
+// audio/video/other→文字占位（那些 extractor 是未来插件）。顺序随 ids；缺失/不可读 blob 告警跳过——
+// 陈旧 id 绝不让回合失败。
 func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabilities) ([]llminfra.ContentPart, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -316,13 +318,17 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		case attachmentdomain.KindText:
 			out = append(out, llminfra.ContentPart{Type: llminfra.PartText, Text: inlineText(a.Filename, data)})
 		case attachmentdomain.KindDocument:
-			if caps.NativeDocs {
+			if caps.NativeDocs && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{
 					Type:      llminfra.PartFile,
 					MediaType: a.MimeType,
 					Data:      base64.StdEncoding.EncodeToString(data),
 					Filename:  a.Filename,
 				})
+				mediaParts++
+				mediaBytes += int64(len(data))
+			} else if caps.NativeDocs && s.extractor == nil {
+				out = append(out, unavailableMediaNote("document", a.Filename, true, "document", caps, mediaParts, mediaBytes, int64(len(data))))
 			} else {
 				out = append(out, s.extractDocPart(ctx, a, data))
 			}

@@ -355,6 +355,31 @@ func TestToContentParts_MediaEnvelopeDegradesWithoutDroppingOrder(t *testing.T) 
 	}
 }
 
+func TestToContentParts_NativeDocCountsAgainstMediaEnvelope(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	pdfBytes := []byte("%PDF bytes")
+	pdf, _ := svc.Upload(ctx, "report.pdf", "application/pdf", pdfBytes)
+
+	parts, err := svc.ToContentParts(ctx, []string{pdf.ID}, Capabilities{NativeDocs: true, MaxMediaParts: 1})
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if len(parts) != 1 || parts[0].Type != llminfra.PartFile {
+		t.Fatalf("parts = %+v, want native document file part", parts)
+	}
+
+	parts, err = svc.ToContentParts(ctx, []string{pdf.ID, pdf.ID}, Capabilities{NativeDocs: true, MaxMediaParts: 1})
+	if err != nil {
+		t.Fatalf("ToContentParts repeated: %v", err)
+	}
+	if len(parts) != 2 || parts[0].Type != llminfra.PartFile || parts[1].Type != llminfra.PartText {
+		t.Fatalf("parts = %+v, want second document degraded after item budget", parts)
+	}
+	if !strings.Contains(parts[1].Text, "item limit") || strings.Contains(parts[1].Text, base64.StdEncoding.EncodeToString(pdfBytes)) {
+		t.Fatalf("budget note = %q, want item-limit note without base64 payload", parts[1].Text)
+	}
+}
+
 func TestToContentParts_NotesMissingPreservingOrder(t *testing.T) {
 	svc, _, ctx := newSvc(t)
 	txt, _ := svc.Upload(ctx, "a.txt", "text/plain", []byte("A"))
@@ -417,6 +442,23 @@ func TestToContentParts_NonNativeDocExtracts(t *testing.T) {
 	if !strings.Contains(parts[0].Text, "extracted body text") ||
 		!strings.Contains(parts[0].Text, "report.pdf") || !strings.Contains(parts[0].Text, "text-extracted") {
 		t.Errorf("text part = %q, want extracted body + filename + label", parts[0].Text)
+	}
+}
+
+func TestToContentParts_NativeDocOverBudgetFallsBackToExtraction(t *testing.T) {
+	ext := &fakeExtractor{text: "bounded extracted evidence"}
+	svc, _, ctx := newSvcWith(t, ext)
+	pdf, _ := svc.Upload(ctx, "report.pdf", "application/pdf", []byte("%PDF bytes"))
+
+	parts, err := svc.ToContentParts(ctx, []string{pdf.ID}, Capabilities{NativeDocs: true, MaxMediaBytes: 1})
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if len(parts) != 1 || parts[0].Type != llminfra.PartText {
+		t.Fatalf("parts = %+v, want text extraction fallback", parts)
+	}
+	if parts[0].Data != "" || !strings.Contains(parts[0].Text, "bounded extracted evidence") {
+		t.Fatalf("fallback = %+v, want extracted text without native base64", parts[0])
 	}
 }
 
