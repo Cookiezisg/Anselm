@@ -129,7 +129,7 @@ func (c *MediaClient) upload(ctx context.Context, baseURL, installID, mime strin
 	if created.UploadID == "" || created.ChunkMaxBytes <= 0 {
 		return "", time.Time{}, fmt.Errorf("llm.media: invalid create response")
 	}
-	for offset := 0; offset < len(data); {
+	for offset, recoveries := 0, 0; offset < len(data); {
 		end := offset + created.ChunkMaxBytes
 		if end > len(data) {
 			end = len(data)
@@ -143,6 +143,14 @@ func (c *MediaClient) upload(ctx context.Context, baseURL, installID, mime strin
 		req.Header.Set("Content-Type", "application/offset+octet-stream")
 		resp, err := c.http.Do(req)
 		if err != nil {
+			// A broken response is ambiguous: the gateway may have fsynced this exact chunk before
+			// the connection died. Read its cursor once rather than replaying bytes blindly.
+			if recoveries < 1 {
+				if confirmed, statusErr := c.uploadOffset(ctx, baseURL, installID, created.UploadID); statusErr == nil && confirmed >= offset && confirmed <= len(data) {
+					offset, recoveries = confirmed, recoveries+1
+					continue
+				}
+			}
 			return "", time.Time{}, err
 		}
 		raw, _ := io.ReadAll(io.LimitReader(resp.Body, 64<<10))
@@ -160,6 +168,7 @@ func (c *MediaClient) upload(ctx context.Context, baseURL, installID, mime strin
 			return "", time.Time{}, fmt.Errorf("llm.media append: acknowledged offset %d, want %d", appended.Offset, end)
 		}
 		offset = end
+		recoveries = 0
 	}
 	var completed struct {
 		FetchPath string `json:"fetchPath"`
@@ -187,6 +196,16 @@ func (c *MediaClient) upload(ctx context.Context, baseURL, installID, mime strin
 		return "", time.Time{}, err
 	}
 	return u.ResolveReference(p).String(), expiresAt, nil
+}
+
+func (c *MediaClient) uploadOffset(ctx context.Context, baseURL, installID, uploadID string) (int, error) {
+	var status struct {
+		Offset int `json:"offset"`
+	}
+	if err := c.json(ctx, http.MethodGet, strings.TrimRight(baseURL, "/")+"/media/uploads/"+url.PathEscape(uploadID), installID, nil, &status); err != nil {
+		return 0, err
+	}
+	return status.Offset, nil
 }
 
 func normalizedMediaMIME(mime string) string { return strings.ToLower(strings.TrimSpace(mime)) }
