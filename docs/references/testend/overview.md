@@ -17,6 +17,7 @@ audience: [human, ai]
 
 - `make -C backend testend` —— 全功能黑盒验收（scenarios/，llmmock 驱动 LLM 面，零 token；**全场景 `t.Parallel()` + `-parallel 16`、`-timeout 15m`，实测 ~4-4.5min(逐场景 -json 实测:合计 2057s、最长单场景 125s cron 门控——长尾即地板)**——每场景本就是隔离宇宙〔独立临时数据目录 + 空闲端口 + 独立进程组〕，并行只是同时开几个宇宙、隔离零损;`saveRuntimeCache` 经进程内互斥 + 拷临时名原子 rename 双保险,并发回存绝不留半写缓存;**不进 `make verify`**）。
 - `make -C backend evals` —— 金标 LLM 旅程（golden/，真模型；`EVALS=1` 门控 + `EVALS_BASE_URL/EVALS_MODEL/EVALS_KEY`；烧钱手动跑）。
+- `TestGolden_L1_ProviderBackedLongContext` —— C0 的可计量 1M admission 金标；除 `EVALS=1` 外还必须显式设 `EVALS_LONG_CONTEXT=1`，默认发送 2.4MB 高熵 ASCII 记录并要求 provider 实际 usage ≥950K input token（可用 `EVALS_LONG_CONTEXT_BYTES` / `EVALS_LONG_CONTEXT_MIN_INPUT_TOKENS` 覆盖）。它既验随机 sentinel 语义保留，也验 provider 回报的真实 input token，绝不把本地估算当通过条件；长消息轮询降至 2s，避免验收本身反复下载整段 transcript 放大带宽。
 
 ## 布局
 

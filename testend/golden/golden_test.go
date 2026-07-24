@@ -13,7 +13,9 @@ package golden
 
 import (
 	"encoding/json"
+	"fmt"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -89,15 +91,81 @@ func evalWS(t *testing.T, scenarios ...string) *harness.Client {
 //
 // evalMsg 是消息历史里一个回合（最小线缆形状；golden 独立包、不与 scenarios 共享 helper）。
 type evalMsg struct {
-	ID         string `json:"id"`
-	Role       string `json:"role"`
-	Status     string `json:"status"`
-	StopReason string `json:"stopReason"`
-	ErrorCode  string `json:"errorCode"`
-	Blocks     []struct {
+	ID          string         `json:"id"`
+	Role        string         `json:"role"`
+	Status      string         `json:"status"`
+	StopReason  string         `json:"stopReason"`
+	ErrorCode   string         `json:"errorCode"`
+	InputTokens int            `json:"inputTokens"`
+	Attrs       map[string]any `json:"attrs"`
+	Blocks      []struct {
 		Type    string `json:"type"`
 		Content string `json:"content"`
 	} `json:"blocks"`
+}
+
+// longContextConfig is intentionally opt-in: this golden sends a genuinely
+// large prompt to a billable provider. Its job is to prove the actual provider
+// usage, not an application's byte estimate. The explicit byte and minimum
+// observed-token inputs make the run reproducible across tokenizers/providers.
+type longContextConfig struct {
+	bytes          int
+	minInputTokens int
+}
+
+func requireLongContext(t *testing.T) longContextConfig {
+	t.Helper()
+	if os.Getenv("EVALS_LONG_CONTEXT") != "1" {
+		t.Skip("set EVALS_LONG_CONTEXT=1 to run the billable long-context golden")
+	}
+	parse := func(key string, fallback int) int {
+		t.Helper()
+		raw := strings.TrimSpace(os.Getenv(key))
+		if raw == "" {
+			return fallback
+		}
+		n, err := strconv.Atoi(raw)
+		if err != nil || n <= 0 {
+			t.Fatalf("%s must be a positive integer, got %q", key, raw)
+		}
+		return n
+	}
+	return longContextConfig{
+		// 2.4 MB of unique ASCII records calibrated to ~967K actual DeepSeek
+		// prompt tokens on 2026-07-24. It leaves a small, honest margin for the
+		// system prompt and exact sentinel reply while proving that the usable
+		// 1M route is not silently compressed at a much smaller local estimate.
+		// This remains a byte target; provider usage is the acceptance truth.
+		bytes:          parse("EVALS_LONG_CONTEXT_BYTES", 2_400_000),
+		minInputTokens: parse("EVALS_LONG_CONTEXT_MIN_INPUT_TOKENS", 950_000),
+	}
+}
+
+func longContextFixture(bytes int, sentinel string) string {
+	var b strings.Builder
+	b.Grow(bytes + len(sentinel) + 256)
+	b.WriteString("This is a long-context admission probe. Treat each record as data; do not summarize it.\n")
+	for i := 0; b.Len() < bytes; i++ {
+		// Vary every record so provider-side repetition compression cannot turn a
+		// nominal 1M test into a tiny prompt.
+		fmt.Fprintf(&b, "record=%08x category=%08x payload=anselm-context-evidence-%08x\n", i, i*2654435761, i^0x5a5a5a5a)
+	}
+	fmt.Fprintf(&b, "\nAUTHORITATIVE_SENTINEL=%s\n", sentinel)
+	return b.String()
+}
+
+func observedPromptTokens(m evalMsg) int {
+	if m.Attrs != nil {
+		if usage, ok := m.Attrs["contextUsage"].(map[string]any); ok {
+			switch n := usage["lastPromptInputTokens"].(type) {
+			case float64:
+				return int(n)
+			case int:
+				return n
+			}
+		}
+	}
+	return m.InputTokens
 }
 
 // drainInteractions auto-resolves any human-in-the-loop gate so eval journeys never hang: a real
