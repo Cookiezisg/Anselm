@@ -17,7 +17,7 @@ import (
 //
 // anselmProvider 是内置免费档 provider：Anselm 网关（OpenAI-wire capability router，api.anselm.website）。
 // embed deepseekProvider 继承兼容的 BuildRequest / ParseStream / reasoning_content / tool-call 线缆，
-// 而网关按完整历史自行决定文本 DeepSeek 或图像/视频 Kimi。受管 api_key 行保存公开 install id；设备证明
+// 而网关按完整历史自行决定文本 DeepSeek 或图像/视频 Qwen。受管 api_key 行保存公开 install id；设备证明
 // transport 用加密落盘的 Ed25519 私钥逐请求签名。tools 仍原样穿过统一入口。
 type anselmProvider struct {
 	*deepseekProvider
@@ -61,7 +61,7 @@ func (p *anselmProvider) BuildRequest(ctx context.Context, req Request) (*http.R
 // route profile；旧网关仍从此静态项获得同一生产限制。网关拥有 reasoning 行为，故 knobs 为空。
 const (
 	anselmTextInputLimit       = 1_000_000
-	anselmMultimodalInputLimit = 262_144
+	anselmMultimodalInputLimit = 1_000_000
 	anselmProductOutputLimit   = 16_384
 )
 
@@ -161,5 +161,5 @@ const AnselmModelID = "anselm-auto"
 // 无需 live 探针即可呈现 AnselmModelID。镜像网关 GET /v1/models，且必须列 anselmSpecs 命中的 id，否则
 // describeFromSpecs 丢弃它、picker 无模型。
 func AnselmProbeBody() string {
-	return `{"object":"list","data":[{"id":"` + AnselmModelID + `","object":"model","anselm_capabilities":{"version":1,"routing":"content","text":{"input_limit":1000000,"output_limit":16384,"available":true},"multimodal":{"input_limit":262144,"output_limit":16384,"available":true}}}]}`
+	return `{"object":"list","data":[{"id":"` + AnselmModelID + `","object":"model","anselm_capabilities":{"version":1,"routing":"content","text":{"input_limit":1000000,"output_limit":16384,"available":true},"multimodal":{"input_limit":1000000,"output_limit":16384,"available":true}}}]}`
 }

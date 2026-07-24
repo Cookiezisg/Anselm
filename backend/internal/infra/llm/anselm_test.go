@@ -98,7 +98,7 @@ func TestAnselmDescribeModels(t *testing.T) {
 	if m.ContextWindow != 1_000_000 || m.MaxOutput != 16_384 {
 		t.Errorf("window/output = %d/%d, want 1000000/16384", m.ContextWindow, m.MaxOutput)
 	}
-	if m.TextInputLimit != 1_000_000 || m.MultimodalInputLimit != 262_144 {
+	if m.TextInputLimit != 1_000_000 || m.MultimodalInputLimit != 1_000_000 {
 		t.Errorf("route input limits = %d/%d", m.TextInputLimit, m.MultimodalInputLimit)
 	}
 	if !m.Vision || !m.Video || m.Audio || m.NativeDocs {
@@ -129,14 +129,14 @@ func TestRequestActiveInputBudgetTracksPromptModality(t *testing.T) {
 	req := Request{
 		InputBudgetTokens:           100,
 		TextInputBudgetTokens:       1_000_000,
-		MultimodalInputBudgetTokens: 262_144,
+		MultimodalInputBudgetTokens: 1_000_000,
 		Messages:                    []LLMMessage{{Role: RoleUser, Content: "text only"}},
 	}
 	if got := req.ActiveInputBudgetTokens(); got != 1_000_000 {
 		t.Fatalf("text budget=%d", got)
 	}
 	req.Messages[0].Parts = []ContentPart{{Type: PartImageURL, ImageURL: "data:image/png;base64,AA=="}}
-	if got := req.ActiveInputBudgetTokens(); got != 262_144 {
+	if got := req.ActiveInputBudgetTokens(); got != 1_000_000 {
 		t.Fatalf("multimodal budget=%d", got)
 	}
 	req.Messages = []LLMMessage{{Role: RoleUser, Content: "<context_checkpoint>image already summarized</context_checkpoint>"}}
