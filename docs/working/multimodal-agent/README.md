@@ -734,17 +734,10 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 - 待验收：真实“首次自然恢复 → 学习后稳定治理”金标已加 `EVALS_NATURAL_OVERFLOW=1` 双门，但当前本机无 `EVALS_KEY` / `DEEPSEEK_API_KEY`，故安全跳过、未产生计费；补齐本地环境后必须跑一次。
 - 已落地：默认设置页把 Anselm Auto 分离为无参数的网关模式；只有显式选择外部模型才进入凭证/模型/已确认 native knob。所有 workspace default、agent override、conversation override 的非空 options 均在写时匹配精确已探测 key/model 的公开 knob 与值，未知或非法参数显式失败，adapter 不再静默丢设置。
 - 已落地：外部模型的高级 native JSON 编辑器与通用 knob 表单双向同步；JSON 只能携带当前已探测 model 公开的 string 旋钮和值，前端立即拒绝 `model`、认证、URL、messages、tools、stream 等非契约字段，服务端仍作同一验证。
+- 已落地：`get_model_config` 工具返回可用模型的 context/output、text/multimodal route budget、模态位、media envelope 与 `nativeOptions` knobs，使 Agent 能从真实配置回答“这个模型支持什么配置”，而不是猜外部文档。
 - 已落地：HTTP 与 HTTP 200/SSE 流内的 provider 拒绝统一经闭集 reason 判别；识别到 context-length 时同样进入无输出、无工具副作用的透明 checkpoint 重试，未识别的上游文本只在进程内判别后丢弃，用户面仅见脱敏 provider error。
 - 待完成：对仍无法以闭集 reason 判别的异常，评估是否需要独立、无上下文且不携带原始错误文本的二次诊断；默认不猜测、不重试。
-
-- 网关 `Anselm Auto` 单一默认选择；route profile 发布 context、模态、输出与配置 schema；
-- 外部模型 runtime profile 持久化：endpoint/key 指纹/model/request class/config 指纹、成功/失败足迹、usage、
-  置信度、TTL/降级；
-- 上游错误分类：结构化 code/adapter 规则优先，清洗错误的严格 JSON 判别只作模糊兜底；
-- 无输出、无工具副作用时的自然 overflow 同步压缩重试；单条不可分输入保留诚实可操作错误；
-- profile 高置信后的主动治理；profile 变更、过期、低位失败后的降置信与重学习；
-- 动态 capability/config contract、外部模型配置表单、受控 native JSON、用户 override；
-- 单元、黑盒、故障注入与真实外部模型“首次自然恢复 → 后续稳定治理”金标。
+- 待验收：单元/黑盒已覆盖主路径；真实外部模型“首次自然恢复 → 后续稳定治理”金标仍需本机补齐 key 后烧一次。
 
 **出口**：未知外部模型不因本地猜测被拒绝；自然 overflow 对用户透明恢复；Anselm Auto 与外部模型模式都只暴露
 诚实的能力/配置；没有可恢复的用户可见上下文错误。

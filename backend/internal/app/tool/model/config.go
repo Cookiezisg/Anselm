@@ -41,7 +41,7 @@ type GetModelConfig struct {
 func (t *GetModelConfig) Name() string { return "get_model_config" }
 
 func (t *GetModelConfig) Description() string {
-	return "Show THIS workspace's model configuration so you can answer 'what model am I running on' / 'which keys are configured' from the REAL config — never guess or read files for this. Returns: defaultModels (the model per scenario — dialogue=chat replies, utility=titles/summaries, agent=agent invokes), apiKeys (the configured keys, MASKED — the secret value is never exposed), and availableModels (what each key can serve). Read-only, no side effects."
+	return "Show THIS workspace's model configuration so you can answer 'what model am I running on' / 'which keys are configured' / 'what options does this model support' from the REAL config — never guess or read files for this. Returns: defaultModels (dialogue=chat replies, utility=titles/summaries, agent=agent invokes), apiKeys (MASKED — the secret value is never exposed), and availableModels (capabilities, context/output limits, media support, and native configurable knobs). Read-only, no side effects."
 }
 
 func (t *GetModelConfig) Parameters() json.RawMessage {
@@ -80,13 +80,33 @@ func (t *GetModelConfig) Execute(ctx context.Context, _ string) (string, error) 
 	available := make([]map[string]any, 0)
 	if views, err := t.caps.List(ctx); err == nil {
 		for _, c := range views {
-			available = append(available, map[string]any{
-				"apiKeyId": c.APIKeyID, "provider": c.Provider, "modelId": c.ModelID,
-				"displayName": c.DisplayName, "contextWindow": c.ContextWindow,
-			})
+			available = append(available, capabilityPayload(c))
 		}
 	}
 	return toolapp.ToJSON(map[string]any{
 		"defaultModels": defaults, "apiKeys": apiKeys, "availableModels": available,
 	}), nil
+}
+
+func capabilityPayload(c modelapp.CapabilityView) map[string]any {
+	out := map[string]any{
+		"apiKeyId":       c.APIKeyID,
+		"provider":       c.Provider,
+		"modelId":        c.ModelID,
+		"displayName":    c.DisplayName,
+		"contextWindow":  c.ContextWindow,
+		"maxOutput":      c.MaxOutput,
+		"vision":         c.Vision,
+		"video":          c.Video,
+		"audio":          c.Audio,
+		"nativeDocs":     c.NativeDocs,
+		"nativeOptions":  c.Knobs,
+		"maxMediaParts":  c.MaxMediaParts,
+		"maxMediaBytes":  c.MaxMediaBytes,
+		"textInputLimit": c.TextInputLimit,
+	}
+	if c.MultimodalInputLimit > 0 {
+		out["multimodalInputLimit"] = c.MultimodalInputLimit
+	}
+	return out
 }
