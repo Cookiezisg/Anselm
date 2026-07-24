@@ -499,3 +499,23 @@ apikey.Service.ResolveCredentialsByID: decrypt: aesgcm: open: cipher: message au
 ### E 仍缺什么
 
 A1/A2(媒体)需**网关先部署**;A3(音频播放 seek)与 A5 后半需**重建 app**(两者都要主树权限);A4(长对话)需凭证可解密,即需真 app 自带后端。B 类需密钥与预算;C 类只有用户能做。
+
+---
+
+## F —— WRK-077 施工序推进(0725 起)
+
+台账按施工序逐步记。**只记跑过的**;未验的写「未验」,不写成已验。
+
+### ① Flutter 3.41.9 → 3.44.8 ✅ 已提交 `563c5ab2`
+
+改 `mise.toml` 钉值 → `make setup` → 根 `make verify` 四门禁全绿(显式取 `$?`=0)。三处真修改见 chat-iteration.md §6-6 的三条记录。**真机冒烟未做**(需主树权限重建 app),留 E 类补。
+
+### ② CR-1a 拆壳 LayoutBuilder ✅ 代码+守卫完成,门禁待跑
+
+**这是 CR 批的架构根**:原先 `AnShell.build` = `Padding` → `LayoutBuilder` → 两岛与四海洋全部内容,于是**首次挂载与岛宽变化引发的重建全发生在布局阶段**——两份真机崩溃栈的共同上游。
+
+改法:`LayoutBuilder` → `Builder`,宽度改由 `MediaQuery.sizeOf(context).width - shellPad*2` 在正常 build 期一次算出,`box.maxWidth` 六处全换。
+
+**为什么这样安全**:壳恒为 `MaterialApp.home`(`app/app_shell.dart:328` 与壳测试的 `wrap()` 皆是),窗宽即权威;S11 冻结闸要的量全可由窗宽推出。**证据**:26 条既有壳测试零改动全过,**含窄窗/宽窗两条 S11 冻结闸测试**——几何等价不是推理,是测出来的。
+
+**守卫**(新增 1 条):`the shell builds its contents OUTSIDE any layout callback`。断言写成**祖先关系**——岛之上不得有 `LayoutBuilder`,而非「壳内哪里都不许有」。第一版按后者写,红了:`AnButton` 之流叶子原语合法地自量。记这一笔是因为**过严的守卫和漏掉的守卫一样坏**,它会逼下一个人去删守卫而不是去修问题。

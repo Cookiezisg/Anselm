@@ -153,6 +153,7 @@ composer 生成中收 Enter → 入队;输入框上方队列 chip 行(点开改/
 **与第一份日志的关系:同一个结构病、两个不同触发**——①滚动监听器在 layout 期改全局 provider(下节);②子树在 layout 期首挂,provider 图初始化时自失效。**只治①治不干净**,故 CR-1 升格:
 
 - **CR-1a 结构治本(优先)**:壳只需要**宽度**来算岛宽与 S11 冻结闸——改用 `MediaQuery.sizeOf(context).width` 减去已知 `shellPad`(壳是满窗根,窗宽即权威),**删掉这个 LayoutBuilder**,让三岛内容回到正常 build 阶段。施工前核对壳确实满窗、以及 S11 冻结闸所需量是否全可由窗宽推出。
+  → **已施工(0725,施工序②)**:`LayoutBuilder` 换 `Builder`,`box.maxWidth` 六处全部换成 build 期一次算出的 `shellWidth`。**前置核对结果**:壳恒为 `MaterialApp.home`(`app/app_shell.dart:328` 与 `an_shell_test.dart` 的 `wrap()` 皆是),故窗宽即权威;S11 冻结闸所需量全部由窗宽推出,26 条既有壳测试(含窄窗/宽窗两条冻结闸测试)零改动全过 → 几何等价。加守卫 `the shell builds its contents OUTSIDE any layout callback`,断言的是**祖先关系**(岛之上不得有 `LayoutBuilder`)而非「壳内哪里都不许有」——`AnButton` 之流叶子原语合法自量,一刀切会误伤(第一版守卫正是这样红的)。
 - **CR-1b 触发面清理**:即下节九处滚动监听器。
 - **副作用红利**:今天每次岛屿拖拽/开合都在 layout 里重建全部内容,治本后这条热路径同时变便宜。
 
@@ -621,8 +622,8 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | # | 批 | 谁 |
 |---|---|---|
 | ⓪ | CH-0 @ 提及回归修复(§5.16,真机复现定位) | 主会话 |
-| ① | Flutter 升 3.44(改钉 → setup → 全量 verify → 真机冒烟) | 主会话 |
-| ② | CR-1a 拆壳 LayoutBuilder(架构根,最重一刀) | 主会话 |
+| ① | ~~Flutter 升 3.44~~ **已完成 0725**(改钉 → setup → 全量 verify 四门禁全绿,commit `563c5ab2`)。**真机冒烟未做**——待 E 类真机档一并补,别当已验 | 主会话 |
+| ② | ~~CR-1a 拆壳 LayoutBuilder(架构根,最重一刀)~~ **已完成 0725**(记录见 §5 CR-1a 条) | 主会话 |
 | ③ | CR-1b 滚动监听 ×9 + CR-2 错误钩子 | 主会话 |
 | ④ | CR-3 Output 树高度 | 派 Sonnet 5 |
 | ⑤ | RI 右岛四病灶 + 「禁止条件包装」军规+守卫 | 主会话 |

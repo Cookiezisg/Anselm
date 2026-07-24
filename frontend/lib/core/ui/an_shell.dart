@@ -203,12 +203,28 @@ class _AnShellState extends State<AnShell> {
     final noticeInset = _noticeInset(
       widget.titlebarHeight,
     ); // 36px notice crown on that same axis 36 冠部同轴
+    // WIDTH COMES FROM THE WINDOW, NOT FROM LAYOUT (CR-1a). This used to be a LayoutBuilder, and
+    // that single choice put the ENTIRE app inside a layout callback: both islands and all four
+    // oceans were built — first-mounted, provider graphs initialised, SSE subscriptions opened —
+    // during the LAYOUT phase. Anything that then asked to rebuild (a scroll listener touching a
+    // provider, Riverpod invalidating itself while its own dependency flushed) tripped
+    // "setState/markNeedsBuild called during build", and one such trip corrupted the element tree
+    // badly enough to crash the process. The shell only ever needed one number — its own width —
+    // and it is ALWAYS the window's: AnShell is the MaterialApp `home` in the app and in every test.
+    //
+    // 宽度取自窗口,不取自布局(CR-1a)。这里原本是 LayoutBuilder,而仅此一个选择就把**整个 app** 装进了
+    // 布局回调:两岛与四海洋的首次挂载、provider 图初始化、SSE 订阅,全部发生在**布局阶段**。此后任何
+    // 请求重建的动作(滚动监听里碰一下 provider、Riverpod 在自身依赖冲刷时自失效)都会撞上
+    // 「setState/markNeedsBuild called during build」,其中一次足以把 element 树弄坏到进程崩溃。
+    // 壳需要的从来只是一个数——它自己的宽度——而那恒等于窗宽:AnShell 在 app 与每个测试里都是
+    // MaterialApp 的 home。
+    final shellWidth = MediaQuery.sizeOf(context).width - AnSize.shellPad * 2;
     return Material(
       color: c.surface,
       child: Padding(
         padding: const EdgeInsets.all(AnSize.shellPad),
-        child: LayoutBuilder(
-          builder: (context, box) {
+        child: Builder(
+          builder: (context) {
             // The right island may be dragged wide (rightIslandMax) but the OCEAN keeps its floor: the
             // live drag ceiling is whatever width remains after the left island + oceanMin + gaps.
             // 右岛可拖宽,但海洋保底优先:动态上限=扣除左岛/海洋下限/间距后的余宽。
@@ -216,7 +232,7 @@ class _AnShellState extends State<AnShell> {
                 ? 0.0
                 : widget.leftWidth + AnSize.shellGap;
             final rightCeiling =
-                (box.maxWidth - leftTaken - AnSize.oceanMin - AnSize.shellGap)
+                (shellWidth - leftTaken - AnSize.oceanMin - AnSize.shellGap)
                     .clamp(AnSize.rightIslandMin, AnSize.rightIslandMax);
 
             // ── the reveal-freeze gate (S11, see the State doc) 开合冻结闸 ──
@@ -226,13 +242,13 @@ class _AnShellState extends State<AnShell> {
               inspectorOpen: widget.inspectorOpen,
               rightWidth: widget.rightWidth,
             );
-            final targetOceanW = (box.maxWidth - targetTaken).clamp(
+            final targetOceanW = (shellWidth - targetTaken).clamp(
               AnSize.oceanMin,
-              box.maxWidth,
+              shellWidth,
             );
-            final prevOceanW = (box.maxWidth - _prevTaken).clamp(
+            final prevOceanW = (shellWidth - _prevTaken).clamp(
               AnSize.oceanMin,
-              box.maxWidth,
+              shellWidth,
             );
             final freeze =
                 (_leftAnimating || _rightAnimating) &&

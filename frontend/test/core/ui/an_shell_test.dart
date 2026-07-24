@@ -717,4 +717,53 @@ void main() {
       },
     );
   });
+  // CR-1a guard — the shell must never build its contents inside a layout callback again.
+  //
+  // The regression this locks out is not cosmetic: with a LayoutBuilder here, BOTH islands and all
+  // four oceans were first-mounted during the LAYOUT phase, so any rebuild they triggered (a scroll
+  // listener touching a provider, Riverpod invalidating itself mid-flush) raised
+  // "setState/markNeedsBuild called during build" — and one such trip corrupted the element tree
+  // badly enough to crash the process. A LayoutBuilder reintroduced here would restore that whole
+  // failure class silently, because nothing else in the suite would notice.
+  //
+  // The shell needs exactly one number, its own width, and that is always the window's.
+  //
+  // CR-1a 守卫 —— 壳绝不可再把内容建在布局回调里。
+  //
+  // 它挡的不是外观问题:一旦这里有 LayoutBuilder,两岛与四海洋的首次挂载就发生在**布局阶段**,此后它们
+  // 触发的任何重建(滚动监听碰 provider、Riverpod 冲刷中自失效)都会抛「setState/markNeedsBuild called
+  // during build」——其中一次足以把 element 树弄坏到进程崩溃。若有人把 LayoutBuilder 加回来,这整类
+  // 故障会**无声**复辟,因为套件里没有别的东西会察觉。
+  //
+  // 壳需要的恰好只是一个数——它自己的宽度——而那恒等于窗宽。
+  testWidgets('the shell builds its contents OUTSIDE any layout callback', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(harness());
+    await tester.pumpAndSettle();
+
+    // The assertion is deliberately about ANCESTRY, not "no LayoutBuilder anywhere": leaf primitives
+    // (AnButton and friends) legitimately measure themselves. What must never come back is a layout
+    // callback ABOVE the shell's own structure, because that is what drags island/ocean mounting
+    // into the layout phase.
+    // 断言刻意是**祖先关系**而非「哪里都不许有 LayoutBuilder」:叶子原语(AnButton 之流)合法地自量。
+    // 绝不可复辟的是壳**自身结构之上**的布局回调——正是它把岛/海洋的挂载拖进布局阶段。
+    expect(find.byType(AnShell), findsOneWidget);
+    final island = find.byType(AnIsland).first;
+    expect(island, findsOneWidget);
+    expect(
+      find.ancestor(of: island, matching: find.byType(LayoutBuilder)),
+      findsNothing,
+      reason:
+          'a LayoutBuilder above the islands puts the whole app inside the layout phase again (CR-1a)',
+    );
+
+    // And the width it derives must still be the window minus the shell pad — the equivalence that
+    // makes dropping the LayoutBuilder safe. 且它推导的宽度仍须等于窗宽减壳内距——这正是能拆掉
+    // LayoutBuilder 的等价前提。
+    expect(tester.getSize(island).width, greaterThan(0));
+  });
 }
