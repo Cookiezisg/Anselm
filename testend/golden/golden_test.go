@@ -69,9 +69,8 @@ func evalWS(t *testing.T, scenarios ...string) *harness.Client {
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "eval-ws", "language": "en"}).Field(t, "id")
 	wc := c.WS(wsID)
-	// provider 用 "deepseek"（真实用户的选法）：窗口/能力静态表按 (provider, modelID)
-	// 命中（1M/384k）——压缩等预算敏感链路才有已知 budget；openai+裸 baseURL 会查不到
-	// 窗口、压缩按设计盲禁。
+	// provider 用 "deepseek"（真实用户的选法）。外部模型的静态目录只辅助能力渲染，绝不
+	// 作为上下文预算权威；长对话金标会让它自然撞真实上游窗口，再验证透明恢复与运行时学习。
 	keyID := wc.POST("/api/v1/api-keys", map[string]any{
 		"provider": "deepseek", "displayName": "deepseek", "key": key, "baseUrl": baseURL,
 	}).Field(t, "id")
@@ -118,27 +117,28 @@ func requireLongContext(t *testing.T) longContextConfig {
 	if os.Getenv("EVALS_LONG_CONTEXT") != "1" {
 		t.Skip("set EVALS_LONG_CONTEXT=1 to run the billable long-context golden")
 	}
-	parse := func(key string, fallback int) int {
-		t.Helper()
-		raw := strings.TrimSpace(os.Getenv(key))
-		if raw == "" {
-			return fallback
-		}
-		n, err := strconv.Atoi(raw)
-		if err != nil || n <= 0 {
-			t.Fatalf("%s must be a positive integer, got %q", key, raw)
-		}
-		return n
-	}
 	return longContextConfig{
 		// 2.4 MB of unique ASCII records calibrated to ~967K actual DeepSeek
 		// prompt tokens on 2026-07-24. It leaves a small, honest margin for the
 		// system prompt and exact sentinel reply while proving that the usable
 		// 1M route is not silently compressed at a much smaller local estimate.
 		// This remains a byte target; provider usage is the acceptance truth.
-		bytes:          parse("EVALS_LONG_CONTEXT_BYTES", 2_400_000),
-		minInputTokens: parse("EVALS_LONG_CONTEXT_MIN_INPUT_TOKENS", 950_000),
+		bytes:          positiveEnvInt(t, "EVALS_LONG_CONTEXT_BYTES", 2_400_000),
+		minInputTokens: positiveEnvInt(t, "EVALS_LONG_CONTEXT_MIN_INPUT_TOKENS", 950_000),
 	}
+}
+
+func positiveEnvInt(t *testing.T, key string, fallback int) int {
+	t.Helper()
+	raw := strings.TrimSpace(os.Getenv(key))
+	if raw == "" {
+		return fallback
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		t.Fatalf("%s must be a positive integer, got %q", key, raw)
+	}
+	return n
 }
 
 func longContextFixture(bytes int, sentinel string) string {

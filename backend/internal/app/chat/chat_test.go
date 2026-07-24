@@ -268,6 +268,10 @@ func TestChatHostRuntimeProfileUsesExactRouteAndRecordsOnlySafeFacts(t *testing.
 	if got := profiles.observations[1]; got.Kind != modelprofiledomain.ObservationContextOverflow || got.Identity.RequestClass != modelprofiledomain.RequestClassMultimodal || got.ActualInputTokens != 0 {
 		t.Fatalf("overflow observation = %+v", got)
 	}
+	usage := h.assistantMsg.Attrs["contextUsage"].(map[string]any)
+	if usage["contextOverflows"] != 1 || usage["lastOverflowPredictedInputTokens"] != 500_000 || usage["lastOverflowRequestBytes"] != 1_500_000 {
+		t.Fatalf("overflow observability = %#v", usage)
+	}
 }
 
 func ctxWS(id string) context.Context {

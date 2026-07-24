@@ -120,6 +120,11 @@ func (h *chatHost) ObserveContext(ctx context.Context, o loopapp.ContextObservat
 	if o.Recovery {
 		stats["recoveries"] = intValue(stats["recoveries"]) + 1
 	}
+	if o.ContextOverflow {
+		stats["contextOverflows"] = intValue(stats["contextOverflows"]) + 1
+		stats["lastOverflowPredictedInputTokens"] = o.PredictedInput
+		stats["lastOverflowRequestBytes"] = o.RequestBytes
+	}
 	h.assistantMsg.Attrs["contextUsage"] = stats
 
 	if h.svc.deps.RuntimeProfiles == nil || (!o.Succeeded && !o.ContextOverflow) {
