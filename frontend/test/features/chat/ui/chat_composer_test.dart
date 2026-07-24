@@ -134,6 +134,15 @@ class _PermissionDeniedSpeech extends SpeechInputController {
   }
 }
 
+class _RecordingSpeech extends SpeechInputController {
+  @override
+  SpeechInputState build() => const SpeechInputState(
+    recording: true,
+    elapsed: Duration(seconds: 7),
+    level: 0.72,
+  );
+}
+
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 3; i++) {
     await tester.pump(const Duration(milliseconds: 20));
@@ -425,6 +434,45 @@ void main() {
       expect(find.byIcon(AnIcons.microphone), findsNothing);
     },
   );
+
+  testWidgets('voice recording shows status strip with duration and wave', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_1')],
+      messages: {'cv_1': []},
+    );
+    await tester.pumpWidget(
+      _host(
+        repo,
+        overrides: [
+          ..._speechModelOverrides(
+            workspace: _workspaceWithDefaultModel(
+              'aki_demo_managed0',
+              'anselm-auto',
+            ),
+            caps: const [
+              ModelCapability(
+                apiKeyId: 'aki_demo_managed0',
+                provider: 'anselm',
+                modelId: 'anselm-auto',
+                displayName: 'Anselm Auto',
+              ),
+            ],
+          ),
+          speechInputProvider.overrideWith(_RecordingSpeech.new),
+        ],
+      ),
+    );
+    await _settle(tester);
+
+    expect(find.byKey(const ValueKey('voice-status')), findsOneWidget);
+    expect(find.text('Recording'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-duration')), findsOneWidget);
+    expect(find.text('00:07'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-wave')), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-stop')), findsOneWidget);
+  });
 
   testWidgets('voice permission denial shows a specific recovery hint', (
     tester,

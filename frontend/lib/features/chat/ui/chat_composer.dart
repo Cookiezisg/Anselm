@@ -688,6 +688,36 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     );
   }
 
+  Widget? _composerStrip(
+    BuildContext context,
+    Translations t,
+    List<PendingAttachment> pending,
+    SpeechInputState speech,
+  ) {
+    final attachments = _attachmentStrip(context, t, pending);
+    final voice = speech.active
+        ? AnVoiceMeter(
+            label: speech.finishing
+                ? t.chat.voiceFinalizing
+                : t.chat.voiceRecording,
+            duration: speech.elapsed,
+            level: speech.level,
+            active: speech.recording,
+            finalizing: speech.finishing,
+          )
+        : null;
+    if (attachments == null) return voice;
+    if (voice == null) return attachments;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        attachments,
+        const SizedBox(height: AnSpace.s8),
+        voice,
+      ],
+    );
+  }
+
   /// Wrap the composer so Cmd+V / context-menu Paste triages the clipboard BEFORE the default text
   /// paste (Action.overridable — EditableText registers its paste as overridable; [callingAction] is
   /// that default). 拦粘贴:文件→位图→放行默认文本(Action.overridable 机制)。
@@ -703,6 +733,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final id = widget.conversationId;
     final pending = ref.watch(pendingAttachmentsProvider(_draftKey));
     final speech = ref.watch(speechInputProvider);
+    final strip = _composerStrip(context, t, pending, speech);
     final speechAvailable = ref.watch(speechInputAvailableProvider);
     final uploading = pending.any((a) => a.status == 'uploading');
     final ready = pending.any((a) => a.status == 'ready');
@@ -732,7 +763,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             placeholder: t.chat.placeholder,
             floating: widget._floating,
             lead: _lead(t),
-            attachments: _attachmentStrip(context, t, pending),
+            attachments: strip,
             trailing: speech.active
                 ? voiceTrailing
                 : (_hasText || ready) && !uploading && !_submittingNew
@@ -779,7 +810,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
               focusNode: _focus,
               placeholder: t.chat.placeholder,
               lead: _lead(t),
-              attachments: _attachmentStrip(context, t, pending),
+              attachments: strip,
               trailing: trailing,
             ),
           ),

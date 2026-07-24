@@ -24,6 +24,8 @@ class SpeechInputState {
     this.finishing = false,
     this.committed = '',
     this.partial = '',
+    this.elapsed = Duration.zero,
+    this.level = 0,
     this.error,
   });
 
@@ -31,6 +33,8 @@ class SpeechInputState {
   final bool finishing;
   final String committed;
   final String partial;
+  final Duration elapsed;
+  final double level;
   final String? error;
 
   String get text => committed + partial;
@@ -41,6 +45,8 @@ class SpeechInputState {
     bool? finishing,
     String? committed,
     String? partial,
+    Duration? elapsed,
+    double? level,
     String? error,
     bool clearError = false,
   }) => SpeechInputState(
@@ -48,6 +54,8 @@ class SpeechInputState {
     finishing: finishing ?? this.finishing,
     committed: committed ?? this.committed,
     partial: partial ?? this.partial,
+    elapsed: elapsed ?? this.elapsed,
+    level: level ?? this.level,
     error: clearError ? null : error ?? this.error,
   );
 }
@@ -101,6 +109,9 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   WebSocketChannel? _channel;
   StreamSubscription<List<int>>? _audioSub;
   StreamSubscription<dynamic>? _socketSub;
+  StreamSubscription<Amplitude>? _amplitudeSub;
+  Timer? _elapsedTimer;
+  DateTime? _startedAt;
 
   @override
   SpeechInputState build() {
@@ -151,6 +162,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       _audioSub = stream.listen((bytes) {
         if (bytes.isNotEmpty) _channel?.sink.add(bytes);
       }, onError: (Object e) => _fail(e));
+      _startMeters(recorder);
     } catch (e) {
       await _close(cancelRecorder: true);
       state = const SpeechInputState(error: speechInputErrorFailed);
@@ -159,7 +171,8 @@ class SpeechInputController extends Notifier<SpeechInputState> {
 
   Future<void> finish() async {
     if (!state.active) return;
-    state = state.copyWith(recording: false, finishing: true);
+    _stopMeters();
+    state = state.copyWith(recording: false, finishing: true, level: 0);
     await _audioSub?.cancel();
     _audioSub = null;
     await _recorder?.stop();
@@ -237,9 +250,39 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     return (text is String ? text : '') + (stash is String ? stash : '');
   }
 
+  void _startMeters(AudioRecorder recorder) {
+    _stopMeters();
+    _startedAt = DateTime.now();
+    _elapsedTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      final started = _startedAt;
+      if (started == null || !state.active) return;
+      state = state.copyWith(elapsed: DateTime.now().difference(started));
+    });
+    _amplitudeSub = recorder
+        .onAmplitudeChanged(const Duration(milliseconds: 180))
+        .listen((amp) {
+          if (!state.active) return;
+          state = state.copyWith(level: _levelFromDb(amp.current));
+        }, onError: (_) {});
+  }
+
+  void _stopMeters() {
+    _elapsedTimer?.cancel();
+    _elapsedTimer = null;
+    _startedAt = null;
+    unawaited(_amplitudeSub?.cancel());
+    _amplitudeSub = null;
+  }
+
+  double _levelFromDb(double db) {
+    if (!db.isFinite) return 0;
+    final clamped = db.clamp(-60.0, 0.0);
+    return ((clamped + 60.0) / 60.0).clamp(0.0, 1.0).toDouble();
+  }
+
   void _fail(Object e) {
     unawaited(_close(cancelRecorder: true));
-    state = SpeechInputState(error: e.toString());
+    state = const SpeechInputState(error: speechInputErrorFailed);
   }
 
   Future<void> _close({
@@ -247,6 +290,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     bool keepText = false,
     bool resetState = true,
   }) async {
+    _stopMeters();
     await _audioSub?.cancel();
     _audioSub = null;
     await _socketSub?.cancel();
@@ -264,7 +308,12 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     if (!keepText) {
       state = const SpeechInputState();
     } else {
-      state = state.copyWith(recording: false, finishing: false, partial: '');
+      state = state.copyWith(
+        recording: false,
+        finishing: false,
+        partial: '',
+        level: 0,
+      );
     }
   }
 }

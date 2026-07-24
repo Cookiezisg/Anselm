@@ -140,6 +140,7 @@ export 'an_two_zone.dart';
 export 'an_type_to_confirm.dart';
 export 'an_typewriter.dart';
 export 'an_version_diff.dart';
+export 'an_voice_meter.dart';
 export 'an_window_controls.dart';
 export 'entity_kind_visual.dart';
 export 'icons.dart';

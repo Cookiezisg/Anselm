@@ -264,6 +264,7 @@ lib/core/ui/an_two_zone.dart	reviewed
 lib/core/ui/an_type_to_confirm.dart	converged
 lib/core/ui/an_typewriter.dart	converged
 lib/core/ui/an_version_diff.dart	reviewed
+lib/core/ui/an_voice_meter.dart	pending
 lib/core/ui/an_wash_highlight.dart	converged
 lib/core/ui/an_window.dart	reviewed
 lib/core/ui/an_window_controls.dart	converged

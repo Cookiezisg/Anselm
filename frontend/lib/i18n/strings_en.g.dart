@@ -155,6 +155,12 @@ class Translations$chat$en {
 	/// en: 'Stop voice input'
 	String get stopVoiceInput => 'Stop voice input';
 
+	/// en: 'Recording'
+	String get voiceRecording => 'Recording';
+
+	/// en: 'Finishing'
+	String get voiceFinalizing => 'Finishing';
+
 	/// en: 'Voice input is available only with Anselm Auto'
 	String get voiceInputUnavailable => 'Voice input is available only with Anselm Auto';
 
@@ -6437,6 +6443,8 @@ extension on Translations {
 			'chat.send' => 'Send message',
 			'chat.voiceInput' => 'Voice input',
 			'chat.stopVoiceInput' => 'Stop voice input',
+			'chat.voiceRecording' => 'Recording',
+			'chat.voiceFinalizing' => 'Finishing',
 			'chat.voiceInputUnavailable' => 'Voice input is available only with Anselm Auto',
 			'chat.voiceInputPermissionDenied' => 'Microphone permission is off. Enable microphone access in system settings, then try again.',
 			'chat.voiceInputFailed' => 'Voice input couldn\'t start',
@@ -6912,10 +6920,10 @@ extension on Translations {
 			'chat.gate.deny' => 'Deny',
 			'chat.gate.decline' => 'Don\'t answer',
 			'chat.gate.submit' => 'Send',
-			'chat.gate.answerPlaceholder' => 'Type your answer…',
-			'chat.gate.decidedApproved' => 'Allowed',
 			_ => null,
 		} ?? switch (path) {
+			'chat.gate.answerPlaceholder' => 'Type your answer…',
+			'chat.gate.decidedApproved' => 'Allowed',
 			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
 			'chat.gate.decidedDenied' => 'Denied',
 			'chat.gate.decidedDeclined' => 'Skipped',
@@ -7426,10 +7434,10 @@ extension on Translations {
 			'a11y.loading' => 'Loading',
 			'a11y.timeoutBudget' => 'time budget',
 			'a11y.fmtBold' => 'Bold',
-			'a11y.fmtItalic' => 'Italic',
-			'a11y.fmtStrike' => 'Strikethrough',
 			_ => null,
 		} ?? switch (path) {
+			'a11y.fmtItalic' => 'Italic',
+			'a11y.fmtStrike' => 'Strikethrough',
 			'a11y.fmtCode' => 'Inline code',
 			'a11y.fmtLink' => 'Link',
 			'a11y.relationSummary' => ({required Object nodes, required Object edges}) => 'Relationship graph. ${nodes} entities, ${edges} relations.',
@@ -7940,10 +7948,10 @@ extension on Translations {
 			'settings.webFetch' => 'Web fetch mode',
 			'settings.webFetchDesc' => 'Local fetch is more private; the Jina proxy reads dynamic pages better',
 			'settings.webLocal' => 'Local fetch',
-			'settings.webJina' => 'Jina proxy',
-			'settings.defaultModelLink' => 'Default chat model → Models & keys',
 			_ => null,
 		} ?? switch (path) {
+			'settings.webJina' => 'Jina proxy',
+			'settings.defaultModelLink' => 'Default chat model → Models & keys',
 			'settings.langEn' => 'English',
 			'settings.langZh' => '简体中文',
 			'settings.keys.freeTier' => 'Free tier',
