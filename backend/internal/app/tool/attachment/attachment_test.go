@@ -108,6 +108,11 @@ func TestListAttachments_ReturnsUploaded(t *testing.T) {
 	if !strings.Contains(out, `"kind":"text"`) || !strings.Contains(out, `"mime":"text/plain"`) {
 		t.Fatalf("list missing kind/mime fields: %q", out)
 	}
+	if !strings.Contains(out, `"usage"`) ||
+		!strings.Contains(out, "read_attachment for text/document") ||
+		!strings.Contains(out, "inspect_media for image/audio/video") {
+		t.Fatalf("list should guide the agent to the right follow-up tool: %q", out)
+	}
 }
 
 func TestReadAttachment_TextContent(t *testing.T) {

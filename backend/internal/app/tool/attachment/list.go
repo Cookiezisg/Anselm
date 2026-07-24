@@ -8,7 +8,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 )
 
-const listAttachmentsDescription = `List the files uploaded to this workspace (newest first): id, filename, mime, kind, sizeBytes, createdAt each. kind is one of image/document/text/audio/video/other. Use this to discover what's attached, then read_attachment(id) to pull a file's content back.`
+const listAttachmentsDescription = `List the files uploaded to this workspace (newest first): id, filename, mime, kind, sizeBytes, createdAt each. kind is one of image/document/text/audio/video/other. Use this to discover what's attached. For text/document use read_attachment; for image/audio/video use inspect_media with a specific question so media stays bounded and does not dump raw bytes into context.`
 
 var listAttachmentsSchema = json.RawMessage(`{
 	"type": "object",
@@ -53,5 +53,9 @@ func (t *ListAttachments) Execute(ctx context.Context, _ string) (string, error)
 			CreatedAt: a.CreatedAt.UTC().Format("2006-01-02T15:04:05Z"),
 		})
 	}
-	return toolapp.ToJSON(map[string]any{"count": len(out), "attachments": out}), nil
+	return toolapp.ToJSON(map[string]any{
+		"count":       len(out),
+		"attachments": out,
+		"usage":       "Use read_attachment for text/document. Use inspect_media for image/audio/video with a specific question; audio/video currently returns a local metadata capsule and optional time-range intent.",
+	}), nil
 }
