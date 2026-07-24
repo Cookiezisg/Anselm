@@ -843,7 +843,16 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   caller cancel 使用独立的一秒有界上下文 best-effort 回收，cleanup 失败绝不覆盖原始错误，网关 TTL/GC 仍作兜底。
 - 已落地（MIME 与审计）：complete 从 staged bytes magic 重验 PNG/JPEG/WebP/MP4/WAV/MP3；metrics 仅使用固定
   route label，日志硬脱敏涵盖 `fetchPath`/URL/query capability，绝不记录 lease token、原始媒体或 prompt。
+- 已落地（本机音频播放 lease）：`audioplayers` 的 URL source 不能携带 bearer header，因此已发送音频附件播放
+  不再硬接受保护的 `/attachments/{id}/content`。Flutter 先通过 bearer + workspace 签发短期 loopback
+  playback lease；返回 URL 只绑定 audio attachment、workspace 与高熵内存 token，fetch 路由豁免 bearer/
+  workspace header 但仍受 loopback Host gate 保护，过期统一 404，支持 Range/seek，并在 request log 中脱敏
+  token。前缀豁免的安全性由「穿越请求打不到受保护 handler」的守卫测试钉死（ServeMux 清理路径后只回重定向，
+  干净路径不再命中豁免）。**诚实边界**：该路由用 `http.ServeContent` 只保证 Range 的 206/Content-Range 语义
+  正确，**并非流式**——`svc.Download` 仍整份读入内存，播放器 seek 发的每个 Range 请求都会重读整个对象；
+  本地单用户中等音频可接受，不得把它描述成省内存优化。
 - 待落地：部署时启用网关媒体配置后的真实端到端抓包。
+- 待落地：播放路径真流式化（在 CAS 上开 `io.ReadSeeker` 缝），消除每 Range 请求整份读入。
 
 **当前出口**：单次十步 ReAct 对同一媒体只上传一次；本地主聊天 wire 无重复 base64。M1 完整出口仍要求跨回合
 lease refresh/reuse 与生产 E2E 验证。
@@ -971,11 +980,12 @@ realtime 断线会保留已转写草稿并给出断开提示；录音期本地�
 
 当前落地状态（2026-07-25）：已发送音频附件不再走 generic file card；`UserTurnContent`
 会将 `kind=audio` 渲染为专用 `AnAudioAttachmentCard`，固定露出音频图标、播放位、时间轴、
-时长槽和播放状态文案。transcript 现已通过可替换的单实例音频播放 driver 接入真实附件 bytes 播放：
+时长槽和播放状态文案。transcript 现已通过可替换的单实例音频播放 driver 接入短期 loopback playback
+lease URL 播放：
 同一时间只允许一个已发送音频附件处于 active，点击同一附件在播放/暂停/恢复之间切换，切换到另一附件会先停旧源；
 播放进度、时长和完成状态通过 `ConsumerWidget` 子树独立刷新，不依赖已落定 row 的父级重建。组件仍保留
 无播放器时的诚实 “暂不能播放” 降级，失败时显示可重试状态。状态单测覆盖播放/暂停/恢复/切换/进度/完成/失败；
-transcript widget test 锁定历史音频附件从 repository 取 bytes 并调用播放 driver；播放生命周期已收口到 transcript
+transcript widget test 锁定历史音频附件从 repository 签发 playback lease 并调用 URL 播放 driver；播放生命周期已收口到 transcript
 可见范围，切换会话或离开 transcript 会主动停止当前附件音频，避免后台残留播放和 active 状态串会话。原始内容读取
 404/已删除会被分类为终态 tombstone，音频卡切到不可交互的 “Unavailable”，不再把原件缺失伪装成可重试播放失败；
 瞬时读取/播放失败仍保留可重试状态。已发送音频附件会读取 `AttachmentMeta.preparation` 侧车，把
@@ -986,10 +996,9 @@ queued/processing/failed/cancelled/unavailable 诚实显示到音频卡状态行
 Anselm Auto 听写能力限制，也不会自动发送。音频卡已具备可选时间戳引用跳转能力：当用户消息 attrs 提供
 `audioTimestamps`/`attachmentTimestamps`（map 或列表形）时，卡片显示“跳到 mm:ss”，并通过同一
 single-active playback controller 对当前附件 seek；无时间点或播放器未接入时不显示假入口。离线态也已分层：
-附件 metadata transport 失败显示可重试离线卡、不再误判为已删除；音频原件 bytes 拉取 transport 失败显示
-“已离线，点按重试播放”，仍保留播放按钮作为恢复路径；404/已删除仍是不可交互 tombstone。未完成：附件内容
-lease/loopback 播放源的生产 E2E（当前 `audioplayers` URL source 不支持 header，与 bearer loopback
-鉴权直接冲突，不能硬接）。
+附件 metadata transport 失败显示可重试离线卡、不再误判为已删除；音频 playback lease 签发 transport
+失败显示“已离线，点按重试播放”，仍保留播放按钮作为恢复路径；404/已删除仍是不可交互 tombstone。
+未完成：集中自动门禁与真机播放 smoke。
 
 **出口**：语音听写和原始音频理解心智不混淆。
 

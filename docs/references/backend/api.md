@@ -189,7 +189,7 @@ CRUD + `POST {id}:move`（防环；nil parent=根）+ `POST {id}:duplicate`（�
 
 ## attachment / memory（`/api/v1/...`）
 
-attachment：`POST /attachments`（上传）· `GET /{id}` · `GET /{id}/content` · `DELETE /{id}`。上传与 metadata GET 返回附件行字段外，另带可选 `preparation`：`{status,phase?,target?,width?,height?,mimeType?,sizeBytes?,errorCode?,canCancel?,canRetry?,updatedAt?}`，其中 image 会认领/暴露 `model-default` 代理准备态（`pending|running|ready|failed|cancelled`），`phase` 是 UI 分组（queued/processing/ready/failed/cancelled/not_required/unavailable），非 image 为 `not_required`，状态侧车失败为 `unavailable` 且不影响附件元数据可用性。
+attachment：`POST /attachments`（上传）· `GET /{id}` · `GET /{id}/content` · `POST /{id}/playback-lease` · `GET /attachment-playback/{token}` · `DELETE /{id}`。上传与 metadata GET 返回附件行字段外，另带可选 `preparation`：`{status,phase?,target?,width?,height?,mimeType?,sizeBytes?,errorCode?,canCancel?,canRetry?,updatedAt?}`，其中 image 会认领/暴露 `model-default` 代理准备态（`pending|running|ready|failed|cancelled`），`phase` 是 UI 分组（queued/processing/ready/failed/cancelled/not_required/unavailable），非 image 为 `not_required`，状态侧车失败为 `unavailable` 且不影响附件元数据可用性。`playback-lease` 仅对 audio 附件签发短期 loopback URL（body 空，返 `{url,expiresAt}`），签发仍走 bearer + workspace；`attachment-playback/{token}` 是给原生播放器使用的 bearerless 短租约 fetch 路由，token 绑定 workspace/attachment、仅内存保存、过期 404，支持 Range/seek，非 audio 签发返回 `ATTACHMENT_PLAYBACK_UNSUPPORTED`。
 memory：`GET /memories` · `GET/PUT/DELETE /memories/{name}` · `POST /{name}/pin|unpin`（name 即 id）。
 
 ## search（`/api/v1/search`，统一搜索）

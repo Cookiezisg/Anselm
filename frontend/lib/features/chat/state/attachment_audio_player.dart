@@ -28,6 +28,7 @@ abstract interface class AttachmentAudioDriver {
   Stream<AttachmentAudioStatus> get statusStream;
 
   Future<void> playBytes(List<int> bytes, {String? mimeType});
+  Future<void> playUrl(String url, {String? mimeType});
   Future<void> seek(Duration position);
   Future<void> pause();
   Future<void> resume();
@@ -64,6 +65,10 @@ class AudioplayersAttachmentAudioDriver implements AttachmentAudioDriver {
   Future<void> playBytes(List<int> bytes, {String? mimeType}) => _player.play(
     audioplayers.BytesSource(Uint8List.fromList(bytes), mimeType: mimeType),
   );
+
+  @override
+  Future<void> playUrl(String url, {String? mimeType}) =>
+      _player.play(audioplayers.UrlSource(url, mimeType: mimeType));
 
   @override
   Future<void> seek(Duration position) => _player.seek(position);
@@ -173,6 +178,26 @@ class AttachmentAudioPlaybackController
     String attachmentId, {
     required Future<List<int>> Function() loadBytes,
     String? mimeType,
+  }) => _toggleWith<List<int>>(
+    attachmentId,
+    load: loadBytes,
+    play: (bytes) => _driver.playBytes(bytes, mimeType: mimeType),
+  );
+
+  Future<void> toggleUrl(
+    String attachmentId, {
+    required Future<String> Function() loadUrl,
+    String? mimeType,
+  }) => _toggleWith<String>(
+    attachmentId,
+    load: loadUrl,
+    play: (url) => _driver.playUrl(url, mimeType: mimeType),
+  );
+
+  Future<void> _toggleWith<T>(
+    String attachmentId, {
+    required Future<T> Function() load,
+    required Future<void> Function(T source) play,
   }) async {
     if (state.activeAttachmentId == attachmentId && state.loading) return;
     final token = ++_operation;
@@ -211,9 +236,9 @@ class AttachmentAudioPlaybackController
       loading: true,
     );
     try {
-      final bytes = await loadBytes();
+      final source = await load();
       if (!ref.mounted || token != _operation) return;
-      await _driver.playBytes(bytes, mimeType: mimeType);
+      await play(source);
       if (!ref.mounted || token != _operation) return;
       state = state.copyWith(
         loading: false,

@@ -27,6 +27,7 @@ func TestChainExemptVsGuarded(t *testing.T) {
 		{"/api/v1/workspaces", http.StatusOK},              // onboarding — exempt
 		{"/api/v1/providers", http.StatusOK},               // static metadata — exempt
 		{"/api/v1/scenarios", http.StatusOK},               // static metadata — exempt
+		{"/api/v1/attachment-playback/tok", http.StatusOK}, // short lease token carries workspace binding
 		{"/api/v1/conversations", http.StatusUnauthorized}, // guarded, no workspace → 401
 		{"/api/v1/webhooks/trg_x/push", http.StatusOK},     // external webhook — exempt (own secret/HMAC auth)
 		{"/healthz", http.StatusOK},                        // non-/api/v1 passes through to inner

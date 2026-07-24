@@ -44,6 +44,8 @@ func Chain(h http.Handler, log *zap.Logger, resolver middlewarehttpapi.Workspace
 //   - /api/v1/workspaces — onboarding must create a workspace first
 //   - /api/v1/health — liveness probe
 //   - /api/v1/providers, /api/v1/scenarios — static metadata the onboarding UI reads
+//   - /api/v1/attachment-playback/ — opaque short-lived audio playback URLs carry their own
+//     workspace binding because native audio stacks cannot attach headers
 //   - /api/v1/webhooks/ — EXTERNAL callers (GitHub etc.) can never send the workspace
 //     header; the webhook listener authenticates with its own secret/HMAC and the trigger
 //     app resolves the workspace from the trigger's registration at report time
@@ -61,6 +63,7 @@ func requireWorkspaceExempt(next http.Handler) http.Handler {
 		if !strings.HasPrefix(p, "/api/v1/") ||
 			strings.HasPrefix(p, "/api/v1/workspaces") ||
 			strings.HasPrefix(p, "/api/v1/webhooks/") ||
+			strings.HasPrefix(p, "/api/v1/attachment-playback/") ||
 			p == "/api/v1/health" ||
 			p == "/api/v1/version" ||
 			p == "/api/v1/providers" ||

@@ -835,6 +835,20 @@ class FixtureChatRepository implements ChatRepository {
   }
 
   @override
+  Future<AttachmentPlaybackLease> createAttachmentPlaybackLease(
+    String id,
+  ) async {
+    final meta = await getAttachment(id);
+    if (meta.kind != 'audio') {
+      throw StateError('attachment is not playable audio: $id');
+    }
+    return AttachmentPlaybackLease(
+      url: 'http://127.0.0.1/fixture-audio/$id',
+      expiresAt: DateTime.now().toUtc().add(const Duration(minutes: 5)),
+    );
+  }
+
+  @override
   Future<AttachmentMeta> getAttachment(String id) async {
     final seeded = attachmentMetas[id];
     if (seeded != null) return seeded;

@@ -797,11 +797,12 @@ class _TranscriptAudioAttachmentState
       onPlayTap: state == AnAttachmentState.ready
           ? () => ref
                 .read(attachmentAudioPlaybackProvider.notifier)
-                .toggle(
+                .toggleUrl(
                   widget.attachment.id,
-                  loadBytes: () => ref
+                  loadUrl: () async => ref
                       .read(chatRepositoryProvider)
-                      .getAttachmentBytes(widget.attachment.id),
+                      .createAttachmentPlaybackLease(widget.attachment.id)
+                      .then((lease) => lease.url),
                   mimeType: widget.attachment.mimeType,
                 )
           : null,

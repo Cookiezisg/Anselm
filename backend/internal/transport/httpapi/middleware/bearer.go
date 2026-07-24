@@ -20,6 +20,8 @@ import (
 //   - OPTIONS — CORS preflight carries no Authorization header
 //   - /api/v1/webhooks/ — EXTERNAL callers (GitHub etc.) can't know the token; they self-auth via
 //     their own HMAC secret (same rationale as the workspace-header exemption)
+//   - /api/v1/attachment-playback/ — short-lived opaque loopback URLs minted by a bearer-protected
+//     endpoint for native audio stacks that cannot attach Authorization headers
 //
 // /api/v1/health is NOT exempt: the health-gate is the same desktop process that minted the token,
 // so it always has it; exempting health would leave one unauthenticated probe of the surface.
@@ -37,7 +39,8 @@ func RequireBearerToken(expected string) func(http.Handler) http.Handler {
 		want := []byte("Bearer " + expected)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if r.Method == http.MethodOptions ||
-				strings.HasPrefix(r.URL.Path, "/api/v1/webhooks/") {
+				strings.HasPrefix(r.URL.Path, "/api/v1/webhooks/") ||
+				strings.HasPrefix(r.URL.Path, "/api/v1/attachment-playback/") {
 				next.ServeHTTP(w, r)
 				return
 			}

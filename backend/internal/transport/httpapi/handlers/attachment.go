@@ -1,11 +1,16 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
+	"encoding/base64"
 	"io"
 	"net/http"
 	"strconv"
 	"strings"
+	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -14,6 +19,7 @@ import (
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	mediadomain "github.com/sunweilin/anselm/backend/internal/domain/media"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
@@ -27,6 +33,11 @@ type AttachmentHandler struct {
 	svc   *attachmentapp.Service
 	media AttachmentPreparation
 	log   *zap.Logger
+
+	playbackMu       sync.Mutex
+	playbackLeases   map[string]attachmentPlaybackLease
+	playbackLeaseTTL time.Duration
+	now              func() time.Time
 }
 
 // AttachmentPreparation is the optional media-readiness sidecar attached to upload/get responses.
@@ -55,6 +66,8 @@ func (h *AttachmentHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/attachments", h.Upload)
 	mux.HandleFunc("GET /api/v1/attachments/{id}", h.Get)
 	mux.HandleFunc("GET /api/v1/attachments/{id}/content", h.Content)
+	mux.HandleFunc("POST /api/v1/attachments/{id}/playback-lease", h.CreatePlaybackLease)
+	mux.HandleFunc("GET /api/v1/attachment-playback/{token}", h.PlaybackContent)
 	mux.HandleFunc("POST /api/v1/attachments/{id}/preparation/cancel", h.CancelPreparation)
 	mux.HandleFunc("POST /api/v1/attachments/{id}/preparation/retry", h.RetryPreparation)
 	mux.HandleFunc("DELETE /api/v1/attachments/{id}", h.Delete)
@@ -135,6 +148,94 @@ func (h *AttachmentHandler) Content(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write(data)
 }
 
+// CreatePlaybackLease mints a short-lived loopback URL for audio playback. The mint endpoint is still
+// protected by the normal bearer + workspace middleware; only the returned fetch URL is bearerless so
+// platform audio players that cannot attach headers can stream it. The opaque token is bound to the
+// current workspace and attachment id, lives only in memory, and expires quickly.
+//
+// CreatePlaybackLease 签发短期本机音频播放 URL。签发端点仍受常规 bearer + workspace 中间件保护；只有返回
+// 的 fetch URL 无 bearer，以便无法加 header 的平台播放器流式读取。opaque token 绑定当前 workspace 与
+// attachment id，仅驻内存，短期过期。
+func (h *AttachmentHandler) CreatePlaybackLease(w http.ResponseWriter, r *http.Request) {
+	wsID, err := reqctxpkg.RequireWorkspaceID(r.Context())
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	a, err := h.svc.Get(r.Context(), r.PathValue("id"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	if a.Kind != attachmentdomain.KindAudio {
+		responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrPlaybackUnsupported)
+		return
+	}
+
+	token, err := randomPlaybackToken()
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	expiresAt := h.clock().Add(h.leaseTTL())
+	h.playbackMu.Lock()
+	if h.playbackLeases == nil {
+		h.playbackLeases = make(map[string]attachmentPlaybackLease)
+	}
+	h.sweepExpiredPlaybackLeasesLocked(h.clock())
+	h.playbackLeases[token] = attachmentPlaybackLease{
+		AttachmentID: a.ID,
+		WorkspaceID:  wsID,
+		ExpiresAt:    expiresAt,
+	}
+	h.playbackMu.Unlock()
+
+	responsehttpapi.Success(w, http.StatusOK, attachmentPlaybackLeaseResponse{
+		URL:       "http://" + r.Host + "/api/v1/attachment-playback/" + token,
+		ExpiresAt: expiresAt,
+	})
+}
+
+// PlaybackContent serves a previously minted audio playback lease. This route is deliberately exempt
+// from bearer/workspace middleware; all authorization comes from the high-entropy short-lived token and
+// the still-global loopback Host gate. It uses http.ServeContent so Range requests from native audio
+// stacks get correct 206/Content-Range semantics without the handler slicing them by hand.
+//
+// HONEST LIMIT: svc.Download still materialises the WHOLE blob, so every request — including every
+// Range request a seeking player makes — re-reads the entire object into memory. That is acceptable
+// for a local single-user desktop app with modest audio, but this is NOT streaming: real streaming
+// needs an io.ReadSeeker seam over the CAS file. Do not describe this path as a memory optimisation.
+//
+// PlaybackContent 输出已签发的音频播放租约。该路由刻意豁免 bearer/workspace 中间件；授权来自高熵短期 token
+// 和仍全局生效的 loopback Host 门。用 http.ServeContent 让原生音频栈的 Range 拿到正确 206/Content-Range，
+// 而非手工切片。**诚实边界**：svc.Download 仍会把整份 blob 读进内存，故每个请求（包括播放器 seek 时发的
+// 每个 Range 请求）都重读整个对象。本地单用户桌面端的中等音频可接受，但这**不是流式**——真流式需要在 CAS
+// 上开一道 io.ReadSeeker 缝。不要把这条路径描述成省内存的优化。
+func (h *AttachmentHandler) PlaybackContent(w http.ResponseWriter, r *http.Request) {
+	lease, ok := h.takePlaybackLease(r.PathValue("token"))
+	if !ok {
+		responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrNotFound)
+		return
+	}
+	ctx := reqctxpkg.SetWorkspaceID(r.Context(), lease.WorkspaceID)
+	a, data, err := h.svc.Download(ctx, lease.AttachmentID)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	if a.Kind != attachmentdomain.KindAudio {
+		responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrPlaybackUnsupported)
+		return
+	}
+	mime := a.MimeType
+	if mime == "" {
+		mime = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Content-Disposition", `inline; filename="`+strings.ReplaceAll(a.Filename, `"`, "")+`"`)
+	http.ServeContent(w, r, a.Filename, a.CreatedAt, bytes.NewReader(data))
+}
+
 func (h *AttachmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Delete(r.Context(), r.PathValue("id")); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
@@ -197,4 +298,59 @@ func (h *AttachmentHandler) response(ctx context.Context, a *attachmentdomain.At
 	}
 	out.Preparation = &prep
 	return out
+}
+
+type attachmentPlaybackLease struct {
+	AttachmentID string
+	WorkspaceID  string
+	ExpiresAt    time.Time
+}
+
+type attachmentPlaybackLeaseResponse struct {
+	URL       string    `json:"url"`
+	ExpiresAt time.Time `json:"expiresAt"`
+}
+
+const defaultAttachmentPlaybackLeaseTTL = 5 * time.Minute
+
+func (h *AttachmentHandler) leaseTTL() time.Duration {
+	if h.playbackLeaseTTL > 0 {
+		return h.playbackLeaseTTL
+	}
+	return defaultAttachmentPlaybackLeaseTTL
+}
+
+func (h *AttachmentHandler) clock() time.Time {
+	if h.now != nil {
+		return h.now()
+	}
+	return time.Now()
+}
+
+func (h *AttachmentHandler) takePlaybackLease(token string) (attachmentPlaybackLease, bool) {
+	now := h.clock()
+	h.playbackMu.Lock()
+	defer h.playbackMu.Unlock()
+	if h.playbackLeases == nil {
+		return attachmentPlaybackLease{}, false
+	}
+	h.sweepExpiredPlaybackLeasesLocked(now)
+	lease, ok := h.playbackLeases[token]
+	return lease, ok
+}
+
+func (h *AttachmentHandler) sweepExpiredPlaybackLeasesLocked(now time.Time) {
+	for token, lease := range h.playbackLeases {
+		if !lease.ExpiresAt.After(now) {
+			delete(h.playbackLeases, token)
+		}
+	}
+}
+
+func randomPlaybackToken() (string, error) {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", err
+	}
+	return base64.RawURLEncoding.EncodeToString(b[:]), nil
 }

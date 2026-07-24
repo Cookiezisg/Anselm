@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"net/http"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -20,13 +21,21 @@ func RequestLogger(log *zap.Logger) func(http.Handler) http.Handler {
 
 			log.Info("http request",
 				zap.String("method", r.Method),
-				zap.String("path", r.URL.Path),
+				zap.String("path", safeLogPath(r.URL.Path)),
 				zap.Int("status", rec.status),
 				zap.Int("bytes", rec.bytes),
 				zap.Int64("elapsed_ms", time.Since(start).Milliseconds()),
 			)
 		})
 	}
+}
+
+func safeLogPath(path string) string {
+	const playbackPrefix = "/api/v1/attachment-playback/"
+	if strings.HasPrefix(path, playbackPrefix) {
+		return playbackPrefix + "<redacted>"
+	}
+	return path
 }
 
 // statusRecorder wraps ResponseWriter to capture status + bytes for logging; Flush is

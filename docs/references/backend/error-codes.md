@@ -353,6 +353,7 @@ audience: [human, ai]
 | `ATTACHMENT_BAD_UPLOAD` | 400 | malformed multipart upload or missing 'file' field |
 | `ATTACHMENT_EMPTY` | 400 | empty file |
 | `ATTACHMENT_NOT_FOUND` | 404 | attachment not found |
+| `ATTACHMENT_PLAYBACK_UNSUPPORTED` | 415 | attachment is not playable audio |
 | `ATTACHMENT_TOO_LARGE` | 413 | file exceeds the 50 MB limit |
 
 ### `domain/catalog`

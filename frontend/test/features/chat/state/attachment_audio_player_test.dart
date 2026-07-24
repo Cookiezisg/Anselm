@@ -16,6 +16,8 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   final statuses = StreamController<AttachmentAudioStatus>.broadcast();
   final playPayloads = <List<int>>[];
   final playMimeTypes = <String?>[];
+  final playUrls = <String>[];
+  final playUrlMimeTypes = <String?>[];
   final seeks = <Duration>[];
   var pauseCalls = 0;
   var resumeCalls = 0;
@@ -37,6 +39,14 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
     if (playError case final e?) throw e;
     playPayloads.add(List<int>.of(bytes));
     playMimeTypes.add(mimeType);
+    statuses.add(AttachmentAudioStatus.playing);
+  }
+
+  @override
+  Future<void> playUrl(String url, {String? mimeType}) async {
+    if (playError case final e?) throw e;
+    playUrls.add(url);
+    playUrlMimeTypes.add(mimeType);
     statuses.add(AttachmentAudioStatus.playing);
   }
 
@@ -105,6 +115,25 @@ void main() {
       [1, 2, 3],
     ]);
     expect(driver.playMimeTypes, ['audio/webm']);
+  });
+
+  test('url toggle loads a playback lease and starts via UrlSource', () async {
+    final (c, driver) = _setup();
+    await c
+        .read(attachmentAudioPlaybackProvider.notifier)
+        .toggleUrl(
+          'att_1',
+          loadUrl: () async => 'http://127.0.0.1/audio/lease',
+          mimeType: 'audio/mpeg',
+        );
+
+    final state = c.read(attachmentAudioPlaybackProvider);
+    expect(state.activeAttachmentId, 'att_1');
+    expect(state.playing, isTrue);
+    expect(state.loading, isFalse);
+    expect(driver.playUrls, ['http://127.0.0.1/audio/lease']);
+    expect(driver.playUrlMimeTypes, ['audio/mpeg']);
+    expect(driver.playPayloads, isEmpty);
   });
 
   test(

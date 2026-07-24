@@ -10,6 +10,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
+import 'package:anselm/features/chat/data/chat_repository.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/attachment_audio_player.dart';
 import 'package:anselm/features/chat/state/conversation_stream_provider.dart';
@@ -152,6 +153,7 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   final durations = StreamController<Duration>.broadcast();
   final statuses = StreamController<AttachmentAudioStatus>.broadcast();
   final playPayloads = <List<int>>[];
+  final playUrls = <String>[];
   final seeks = <Duration>[];
   var stopCalls = 0;
   var disposeCalls = 0;
@@ -168,6 +170,12 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   @override
   Future<void> playBytes(List<int> bytes, {String? mimeType}) async {
     playPayloads.add(List<int>.of(bytes));
+    statuses.add(AttachmentAudioStatus.playing);
+  }
+
+  @override
+  Future<void> playUrl(String url, {String? mimeType}) async {
+    playUrls.add(url);
     statuses.add(AttachmentAudioStatus.playing);
   }
 
@@ -202,17 +210,28 @@ class _OfflineAttachmentRepository extends FixtureChatRepository {
   _OfflineAttachmentRepository({
     required super.conversations,
     required super.messages,
-    this.offlineByteIds = const {},
+    this.offlinePlaybackLeaseIds = const {},
+    this.missingPlaybackLeaseIds = const {},
   });
 
-  final Set<String> offlineByteIds;
+  final Set<String> offlinePlaybackLeaseIds;
+  final Set<String> missingPlaybackLeaseIds;
 
   @override
-  Future<List<int>> getAttachmentBytes(String id) async {
-    if (offlineByteIds.contains(id)) {
+  Future<AttachmentPlaybackLease> createAttachmentPlaybackLease(
+    String id,
+  ) async {
+    if (offlinePlaybackLeaseIds.contains(id)) {
       throw ApiException.transport('connection refused');
     }
-    return super.getAttachmentBytes(id);
+    if (missingPlaybackLeaseIds.contains(id)) {
+      throw const ApiException(
+        code: 'ATTACHMENT_NOT_FOUND',
+        message: 'attachment not found',
+        httpStatus: 404,
+      );
+    }
+    return super.createAttachmentPlaybackLease(id);
   }
 }
 
@@ -468,7 +487,7 @@ void main() {
   );
 
   testWidgets(
-    'an audio attachment in history is playable from its stored bytes',
+    'an audio attachment in history is playable from a short loopback lease',
     (tester) async {
       final repo = _repo(
         messages: {
@@ -494,7 +513,6 @@ void main() {
         sizeBytes: 3,
         kind: 'audio',
       );
-      repo.attachmentBytes['att_audio'] = [7, 8, 9];
       final driver = _FakeAudioDriver();
 
       await tester.pumpWidget(
@@ -518,9 +536,8 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 20));
 
-      expect(driver.playPayloads, [
-        [7, 8, 9],
-      ]);
+      expect(driver.playUrls, ['http://127.0.0.1/fixture-audio/att_audio']);
+      expect(driver.playPayloads, isEmpty);
       expect(find.bySemanticsLabel('Pause audio'), findsOneWidget);
     },
   );
@@ -624,7 +641,7 @@ void main() {
   );
 
   testWidgets(
-    'an offline audio content fetch shows a retryable playback offline line',
+    'an offline audio playback lease shows a retryable playback offline line',
     (tester) async {
       final repo = _OfflineAttachmentRepository(
         conversations: [_conv('cv_1')],
@@ -643,7 +660,7 @@ void main() {
             ),
           ],
         },
-        offlineByteIds: {'att_audio'},
+        offlinePlaybackLeaseIds: {'att_audio'},
       );
       repo.attachmentMetas['att_audio'] = const AttachmentMeta(
         id: 'att_audio',
@@ -673,6 +690,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
 
       expect(driver.playPayloads, isEmpty);
+      expect(driver.playUrls, isEmpty);
       expect(find.text('Offline — tap to retry playback'), findsOneWidget);
       expect(find.bySemanticsLabel('Play audio'), findsOneWidget);
     },
@@ -681,7 +699,8 @@ void main() {
   testWidgets(
     'an audio attachment whose original content is gone becomes an unavailable tombstone',
     (tester) async {
-      final repo = _repo(
+      final repo = _OfflineAttachmentRepository(
+        conversations: [_conv('cv_1')],
         messages: {
           'cv_1': [
             ChatMessage(
@@ -697,6 +716,7 @@ void main() {
             ),
           ],
         },
+        missingPlaybackLeaseIds: {'att_audio'},
       );
       repo.attachmentMetas['att_audio'] = const AttachmentMeta(
         id: 'att_audio',
@@ -726,6 +746,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
 
       expect(driver.playPayloads, isEmpty);
+      expect(driver.playUrls, isEmpty);
       expect(find.text('Unavailable'), findsOneWidget);
       expect(find.bySemanticsLabel('Play audio'), findsNothing);
       expect(

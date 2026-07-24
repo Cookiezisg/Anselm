@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 
 import '../../../core/contract/attachment.dart';
 import '../../../core/contract/conversation.dart';
@@ -23,6 +24,22 @@ import '../../../core/sse/frame.dart';
 import '../../../core/sse/sse_gateway.dart';
 import 'conversation_signal.dart';
 import 'turn_signal.dart';
+
+@immutable
+class AttachmentPlaybackLease {
+  const AttachmentPlaybackLease({required this.url, required this.expiresAt});
+
+  final String url;
+  final DateTime expiresAt;
+
+  factory AttachmentPlaybackLease.fromJson(Map<String, dynamic> json) =>
+      AttachmentPlaybackLease(
+        url: (json['url'] as String?) ?? '',
+        expiresAt:
+            DateTime.tryParse((json['expiresAt'] as String?) ?? '') ??
+            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+      );
+}
 
 /// How the conversation list is ordered. Mirrors the backend's three sort values exactly (a sealed
 /// closed set — the rail's sort menu offers only these). [wire] is the `?sort=` query value.
@@ -121,6 +138,12 @@ abstract interface class ChatRepository {
   /// The raw bytes (`GET /attachments/{id}/content`, non-envelope) — image thumbnails decode from
   /// this; loopback-only, so per-image fetch is cheap. 原始字节(非 envelope)——图缩略图由此解码;loopback 便宜。
   Future<List<int>> getAttachmentBytes(String id);
+
+  /// A short loopback playback URL for sent audio attachments. The mint request is authenticated, but
+  /// the returned URL is an opaque short-lived lease because native audio players cannot attach bearer
+  /// headers to their media fetch. 已发送音频附件的短期本机播放 URL。签发请求鉴权；返回 URL 靠 opaque 短租约，
+  /// 因原生播放器无法给媒体请求加 bearer header。
+  Future<AttachmentPlaybackLease> createAttachmentPlaybackLease(String id);
 
   /// A single conversation by id (`GET /{id}`) — the rail re-reads ONE row on a lifecycle signal it did
   /// not originate (auto-title, or a change from another window). 单取一条,供 rail 据非自身发起的信号重读一行。
@@ -410,6 +433,13 @@ class LiveChatRepository implements ChatRepository {
   @override
   Future<List<int>> getAttachmentBytes(String id) =>
       _api.getBytes('/api/v1/attachments/$id/content');
+
+  @override
+  Future<AttachmentPlaybackLease> createAttachmentPlaybackLease(String id) =>
+      _api.postEntity(
+        '/api/v1/attachments/$id/playback-lease',
+        AttachmentPlaybackLease.fromJson,
+      );
 
   @override
   Future<Conversation> getConversation(String id) =>

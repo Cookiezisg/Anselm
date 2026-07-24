@@ -19,4 +19,4 @@ audience: [human, ai]
 
 ## 2. 契约（引用）
 
-端点（upload / get / download `:id/content` / delete 软删）→ [api.md](../api.md) · 表 `attachments`（软删；blob 在文件系统）与其可再生 `attachment_derivatives` / 任务条件化 `attachment_perceptions` 媒体工作表（均见 [database.md](../database.md)，后两者不持原件）· 码 `ATTACHMENT_*` 4(domain)+1(app extraction)+1(app tool `ATTACHMENT_ID_REQUIRED`) 及媒体工作 `MEDIA_INVALID_REQUEST`/`MEDIA_NOT_FOUND` → [error-codes.md](../error-codes.md) · ID：`att_`/`mdr_`/`mpr_`。被消费：chat（ToContentParts 渲染）、catalog（attachment source）、media worker（代理/感知产物）。
+端点（upload / get / download `:id/content` / audio `:id/playback-lease` + bearerless `attachment-playback/{token}` / delete 软删）→ [api.md](../api.md) · 表 `attachments`（软删；blob 在文件系统）与其可再生 `attachment_derivatives` / 任务条件化 `attachment_perceptions` 媒体工作表（均见 [database.md](../database.md)，后两者不持原件）· 码 `ATTACHMENT_*` 5(domain)+1(app extraction)+1(app tool `ATTACHMENT_ID_REQUIRED`) 及媒体工作 `MEDIA_INVALID_REQUEST`/`MEDIA_NOT_FOUND` → [error-codes.md](../error-codes.md) · ID：`att_`/`mdr_`/`mpr_`。被消费：chat（ToContentParts 渲染）、catalog（attachment source）、media worker（代理/感知产物）。
