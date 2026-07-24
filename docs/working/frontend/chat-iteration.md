@@ -571,6 +571,20 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 
 **验收**:四段结构真机核对;组头批量动作确认框内容盘点诚实;fork/退驻地的组间迁移;分组计数与翻页一致(无漂移);置顶不重复;i18n 新键;五电池;testend 覆盖两个新端点 + workdir-groups 投影;文档 1:1(api.md/domains/conversation.md/contract.md)。
 
+## §5.16 CH-0 · chat @ 提及回归修复(0724 用户报,紧急)
+
+> 用户:「chat 里 @ 没有出现那个选择页面,@ 不了东西了。」既有功能断裂 = 回归,排最前修。
+
+**复现法(用户指定)**:`make -C backend seed && make -C frontend app`(seed 里有现成实体)→ composer 里打 `@` → 面板应弹未弹。
+
+**triage 纪律**:
+1. **先在干净 main 复现**——报告来自用户真机,当时树上有另一会话的在飞改动(audio/multimodal);先排除在飞改动才知道是不是已提交历史里的回归。
+2. 已定位的链路起点(读码所得,供施工时省一步):`chat_composer.dart:160-199` —— `activeMentionQuery`(token 识别)→ `mentionSourceProvider.search`(注意 :181 **查询失败静默关面板**的分支——后端没起/接口失败时面板永不弹,症状一致)→ debounce/seq 竞态守卫 → `OverlayPortal`(:648)。逐环验。
+3. 嫌疑名单(按序排查,不预设):①search 抛错走了静默关面板分支 ②G10 曾动过 `mention_names.dart`(NUL 字节改 `\u0000` 转义,当时判语义等价——重验)③OverlayPortal/TapRegion 宿主变化。
+4. **修复必须配回归测试**:「打 @ → 面板弹出 → 选中插药丸」全链 widget 测——这次断裂无测试报警,说明现有矩阵没锁这条主干行为。
+
+**归位**:施工序 **⓪ 号位**(在 Flutter 升级之前修——先在现版本定位,避免升级变量混淆)。Fable 亲自(debug 需判断)。
+
 ## §6 open questions(施工前清)
 
 1. ~~施工顺序~~ → **已拍板(0723,用户「都听你的」)**:**①Flutter 升 3.44**(独立一步:改钉值 → `make setup` → 根 `make verify` → 真机冒烟,确认无回归)→ **②CR-1a**(拆壳的 LayoutBuilder;RI 大半 + 海洋跳动 + 偶发崩溃皆挂其下,先拆再量剩余)→ ③CR-1b/CR-2/CR-3 → ④RI(治本后重估余量)→ ⑤TS → ⑥CH-a/b/c → ⑦VT → ⑧EA → ⑨SK → ⑩ES → ⑪WD1/2/3。**理由**:①② 会动到后续多批共用的同一批文件,先做省重复返工;功能批按「见效快→依赖重」排。
@@ -592,6 +606,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 
 | # | 批 | 谁 |
 |---|---|---|
+| ⓪ | CH-0 @ 提及回归修复(§5.16,真机复现定位) | Fable |
 | ① | Flutter 升 3.44(改钉 → setup → 全量 verify → 真机冒烟) | Fable |
 | ② | CR-1a 拆壳 LayoutBuilder | Fable |
 | ③ | CR-1b 滚动监听 ×9 + CR-2 错误钩子 | Fable |
