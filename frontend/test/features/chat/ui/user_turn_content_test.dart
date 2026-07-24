@@ -156,6 +156,33 @@ void main() {
     },
   );
 
+  testWidgets('playable audio card exposes an optional timestamp jump', (
+    tester,
+  ) async {
+    var jumped = 0;
+    await tester.pumpWidget(
+      host(
+        UserTurnContent(
+          text: '',
+          attachments: [
+            UserAttachment(
+              id: 'voice',
+              kind: 'audio',
+              filename: 'standup.m4a',
+              timestampMs: 65000,
+              onPlayTap: () {},
+              onTimestampTap: () => jumped++,
+            ),
+          ],
+        ),
+      ),
+    );
+
+    expect(find.bySemanticsLabel('Jump to 1:05'), findsOneWidget);
+    await tester.tap(find.bySemanticsLabel('Jump to 1:05'));
+    expect(jumped, 1);
+  });
+
   testWidgets('audio card surfaces media preparation sidecar state', (
     tester,
   ) async {

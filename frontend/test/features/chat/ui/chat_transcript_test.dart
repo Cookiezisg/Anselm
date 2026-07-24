@@ -151,6 +151,7 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   final durations = StreamController<Duration>.broadcast();
   final statuses = StreamController<AttachmentAudioStatus>.broadcast();
   final playPayloads = <List<int>>[];
+  final seeks = <Duration>[];
   var stopCalls = 0;
   var disposeCalls = 0;
 
@@ -167,6 +168,12 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   Future<void> playBytes(List<int> bytes, {String? mimeType}) async {
     playPayloads.add(List<int>.of(bytes));
     statuses.add(AttachmentAudioStatus.playing);
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    seeks.add(position);
+    positions.add(position);
   }
 
   @override
@@ -537,6 +544,63 @@ void main() {
       expect(find.text('voice.webm'), findsOneWidget);
       expect(find.text('Preparing media…'), findsOneWidget);
       expect(find.bySemanticsLabel('Play audio'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'an audio attachment timestamp reference seeks the active player',
+    (tester) async {
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            ChatMessage(
+              id: 'msg_u',
+              conversationId: 'cv_1',
+              role: 'user',
+              status: 'completed',
+              attrs: {
+                'attachments': ['att_audio'],
+                'audioTimestamps': {'att_audio': 65000},
+              },
+              blocks: [_blk('bu', 'text', '听这个时间点')],
+              createdAt: DateTime.utc(2026, 7, 2, 10),
+            ),
+          ],
+        },
+      );
+      repo.attachmentMetas['att_audio'] = const AttachmentMeta(
+        id: 'att_audio',
+        filename: 'voice.webm',
+        mimeType: 'audio/webm',
+        sizeBytes: 3,
+        kind: 'audio',
+      );
+      repo.attachmentBytes['att_audio'] = [7, 8, 9];
+      final driver = _FakeAudioDriver();
+
+      await tester.pumpWidget(
+        _host(
+          repo,
+          overrides: [
+            attachmentAudioDriverFactoryProvider.overrideWithValue(
+              () => driver,
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      await _settle(tester);
+      await tester.pump(const Duration(milliseconds: 30)); // metadata future
+
+      await tester.tap(find.bySemanticsLabel('Play audio'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(find.bySemanticsLabel('Jump to 1:05'), findsOneWidget);
+      await tester.tap(find.bySemanticsLabel('Jump to 1:05'));
+      await tester.pump();
+
+      expect(driver.seeks, [const Duration(seconds: 65)]);
     },
   );
 

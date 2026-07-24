@@ -1506,6 +1506,9 @@ class Translations$attach$en {
 	/// en: 'Pause audio'
 	String get pauseAudio => 'Pause audio';
 
+	/// en: 'Jump to $timestamp'
+	String jumpToAudioTimestamp({required Object timestamp}) => 'Jump to ${timestamp}';
+
 	/// en: 'Loading audio…'
 	String get loadingAudio => 'Loading audio…';
 
@@ -8344,6 +8347,7 @@ extension on Translations {
 			'attach.retryPreparation' => 'Retry media preparation',
 			'attach.playAudio' => 'Play audio',
 			'attach.pauseAudio' => 'Pause audio',
+			'attach.jumpToAudioTimestamp' => ({required Object timestamp}) => 'Jump to ${timestamp}',
 			'attach.loadingAudio' => 'Loading audio…',
 			'attach.audioPlaybackFailed' => 'Playback failed — tap to retry',
 			'attach.audioPlaybackUnavailable' => 'Playback not available yet',

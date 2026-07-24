@@ -19,12 +19,14 @@ class UserAttachment {
     this.mimeType,
     this.sizeBytes,
     this.durationMs,
+    this.timestampMs,
     this.preparation,
     this.playbackProgress = 0,
     this.playing = false,
     this.state = AnAttachmentState.ready,
     this.thumb,
     this.onPlayTap,
+    this.onTimestampTap,
     this.onTap,
   });
 
@@ -36,6 +38,7 @@ class UserAttachment {
   final String? mimeType;
   final int? sizeBytes;
   final int? durationMs;
+  final int? timestampMs;
   final AttachmentPreparation? preparation;
   final double playbackProgress;
   final bool playing;
@@ -49,6 +52,11 @@ class UserAttachment {
   /// must render an honest unavailable state instead of an inert-looking play action.
   /// 音频附件播放切换。null 表示播放尚未接入，音频卡必须诚实显示不可播放，而不是给一个假按钮。
   final VoidCallback? onPlayTap;
+
+  /// Optional jump to a cited audio timestamp. This is inert unless the host can seek/play the
+  /// attachment, so protocol support can arrive later without changing the card contract.
+  /// 可选音频时间戳引用跳转。宿主能 seek/play 时才接入，后续协议补字段无需再改卡片契约。
+  final VoidCallback? onTimestampTap;
 
   /// ready=open (right island later) / failed=retry / oversized=load. 打开/重试/加载。
   final VoidCallback? onTap;

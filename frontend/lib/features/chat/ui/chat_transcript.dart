@@ -471,6 +471,7 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
             filename: m.filename,
             mimeType: m.mimeType.isEmpty ? null : m.mimeType,
             sizeBytes: m.sizeBytes,
+            timestampMs: _attachmentTimestampMs(widget.turn, id),
             preparation: m.preparation,
             // Images render as real thumbnails — bytes stream from the sidecar, cached by id in
             // Flutter's ImageCache, DECODED capped to the thumb's widest display (280 logical × dpr):
@@ -512,6 +513,43 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         audioAttachmentBuilder: (a) => _TranscriptAudioAttachment(a),
       ),
     );
+  }
+
+  int? _attachmentTimestampMs(BlockNode turn, String attachmentId) {
+    final raw =
+        turn.content?['audioTimestamps'] ??
+        turn.content?['attachmentTimestamps'];
+    return switch (raw) {
+      Map() => _intMs(raw[attachmentId]),
+      List() => _timestampFromList(raw, attachmentId),
+      _ => null,
+    };
+  }
+
+  int? _timestampFromList(List<dynamic> raw, String attachmentId) {
+    for (final item in raw) {
+      if (item is! Map) continue;
+      final id = item['attachmentId'] ?? item['id'];
+      if (id != attachmentId) continue;
+      return _intMs(
+        item['timestampMs'] ??
+            item['ms'] ??
+            item['offsetMs'] ??
+            item['startMs'],
+      );
+    }
+    return null;
+  }
+
+  int? _intMs(Object? raw) {
+    final value = switch (raw) {
+      int() => raw,
+      num() => raw.round(),
+      String() => int.tryParse(raw),
+      _ => null,
+    };
+    if (value == null || value < 0) return null;
+    return value;
   }
 
   Widget _assistant(BuildContext context, WidgetRef ref) {
@@ -724,6 +762,7 @@ class _TranscriptAudioAttachmentState
       durationLabel: audioDurationLabel(
         duration?.inMilliseconds ?? widget.attachment.durationMs,
       ),
+      timestampLabel: audioDurationLabel(widget.attachment.timestampMs),
       statusLine: statusLine,
       busy: playback.isLoading(widget.attachment.id),
       progress: playback.progressFor(widget.attachment.id),
@@ -739,6 +778,18 @@ class _TranscriptAudioAttachmentState
                       .getAttachmentBytes(widget.attachment.id),
                   mimeType: widget.attachment.mimeType,
                 )
+          : null,
+      onTimestampTap:
+          state == AnAttachmentState.ready &&
+              widget.attachment.timestampMs != null
+          ? () {
+              ref
+                  .read(attachmentAudioPlaybackProvider.notifier)
+                  .seek(
+                    widget.attachment.id,
+                    Duration(milliseconds: widget.attachment.timestampMs!),
+                  );
+            }
           : null,
       onTap: widget.attachment.onTap,
     );

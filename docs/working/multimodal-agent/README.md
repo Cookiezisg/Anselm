@@ -983,9 +983,11 @@ queued/processing/failed/cancelled/unavailable 诚实显示到音频卡状态行
 已发送附件复用同一个 `attachmentPreparationLine`，避免两套准备态文案漂移。composer 附件按钮已升级为
 菜单，保留选择文件入口，并新增“录制音频附件”：录制使用本地 `record` 文件模式生成 `.m4a` 临时文件，停止后
 读取 bytes、删除临时文件，再进入现有 `PendingAttachments.addBytes` 上传链路；它是原始音频附件入口，不受
-Anselm Auto 听写能力限制，也不会自动发送。未完成：附件内容 lease/loopback 播放源的生产 E2E（当前
-`audioplayers` URL source 不支持 header，与 bearer loopback 鉴权直接冲突，不能硬接）、时间戳引用跳转、
-离线态端到端文案与恢复路径。
+Anselm Auto 听写能力限制，也不会自动发送。音频卡已具备可选时间戳引用跳转能力：当用户消息 attrs 提供
+`audioTimestamps`/`attachmentTimestamps`（map 或列表形）时，卡片显示“跳到 mm:ss”，并通过同一
+single-active playback controller 对当前附件 seek；无时间点或播放器未接入时不显示假入口。未完成：附件内容
+lease/loopback 播放源的生产 E2E（当前 `audioplayers` URL source 不支持 header，与 bearer loopback
+鉴权直接冲突，不能硬接）、离线态端到端文案与恢复路径。
 
 **出口**：语音听写和原始音频理解心智不混淆。
 

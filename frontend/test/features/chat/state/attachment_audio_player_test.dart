@@ -16,6 +16,7 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   final statuses = StreamController<AttachmentAudioStatus>.broadcast();
   final playPayloads = <List<int>>[];
   final playMimeTypes = <String?>[];
+  final seeks = <Duration>[];
   var pauseCalls = 0;
   var resumeCalls = 0;
   var stopCalls = 0;
@@ -37,6 +38,12 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
     playPayloads.add(List<int>.of(bytes));
     playMimeTypes.add(mimeType);
     statuses.add(AttachmentAudioStatus.playing);
+  }
+
+  @override
+  Future<void> seek(Duration position) async {
+    seeks.add(position);
+    positions.add(position);
   }
 
   @override
@@ -183,6 +190,38 @@ void main() {
       expect(state.progressFor('att_1'), 1);
     },
   );
+
+  test(
+    'seek clamps to the known duration and updates local progress',
+    () async {
+      final (c, driver) = _setup();
+      final n = c.read(attachmentAudioPlaybackProvider.notifier);
+
+      await n.toggle('att_1', loadBytes: () async => [1]);
+      driver.durations.add(const Duration(seconds: 10));
+      await _tick();
+
+      await n.seek('att_1', const Duration(seconds: 12));
+      await _tick();
+
+      expect(driver.seeks, [const Duration(seconds: 10)]);
+      expect(
+        c.read(attachmentAudioPlaybackProvider).positionFor('att_1'),
+        const Duration(seconds: 10),
+      );
+      expect(c.read(attachmentAudioPlaybackProvider).progressFor('att_1'), 1);
+    },
+  );
+
+  test('seek is ignored unless the requested attachment is active', () async {
+    final (c, driver) = _setup();
+
+    await c
+        .read(attachmentAudioPlaybackProvider.notifier)
+        .seek('att_1', const Duration(seconds: 3));
+
+    expect(driver.seeks, isEmpty);
+  });
 
   test('play failure leaves a retryable active error state', () async {
     final (c, driver) = _setup();

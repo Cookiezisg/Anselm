@@ -2020,6 +2020,7 @@
     "retryPreparation": "Retry media preparation",
     "playAudio": "Play audio",
     "pauseAudio": "Pause audio",
+    "jumpToAudioTimestamp": "Jump to $timestamp",
     "loadingAudio": "Loading audio…",
     "audioPlaybackFailed": "Playback failed — tap to retry",
     "audioPlaybackUnavailable": "Playback not available yet",

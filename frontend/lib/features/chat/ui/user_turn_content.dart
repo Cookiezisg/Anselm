@@ -114,6 +114,7 @@ class UserTurnContent extends StatelessWidget {
               sizeBytes: a.sizeBytes,
             ),
             durationLabel: audioDurationLabel(a.durationMs),
+            timestampLabel: audioDurationLabel(a.timestampMs),
             statusLine: attachmentPreparationLine(
               Translations.of(context),
               a.preparation,
@@ -122,6 +123,7 @@ class UserTurnContent extends StatelessWidget {
             playing: a.playing,
             state: a.state,
             onPlayTap: a.onPlayTap,
+            onTimestampTap: a.onTimestampTap,
             onTap: a.onTap,
           )
         else

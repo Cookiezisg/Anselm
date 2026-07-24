@@ -23,11 +23,13 @@ class AnAudioAttachmentCard extends StatelessWidget {
     required this.metaLine,
     this.state = AnAttachmentState.ready,
     this.durationLabel,
+    this.timestampLabel,
     this.statusLine,
     this.busy = false,
     this.progress = 0,
     this.playing = false,
     this.onPlayTap,
+    this.onTimestampTap,
     this.onTap,
     super.key,
   });
@@ -36,11 +38,13 @@ class AnAudioAttachmentCard extends StatelessWidget {
   final String metaLine;
   final AnAttachmentState state;
   final String? durationLabel;
+  final String? timestampLabel;
   final String? statusLine;
   final bool busy;
   final double progress;
   final bool playing;
   final VoidCallback? onPlayTap;
+  final VoidCallback? onTimestampTap;
 
   /// failed/oversized fallback action; ready opening is intentionally separate from playback.
   /// 失败/超大回退动作；ready 打开与播放刻意分离。
@@ -48,6 +52,9 @@ class AnAudioAttachmentCard extends StatelessWidget {
 
   bool get _playable =>
       state == AnAttachmentState.ready && onPlayTap != null && !busy;
+
+  bool get _timestampInteractive =>
+      _playable && timestampLabel != null && onTimestampTap != null;
 
   bool get _fallbackInteractive =>
       onTap != null &&
@@ -81,6 +88,7 @@ class AnAudioAttachmentCard extends StatelessWidget {
     final clamped = progress.isFinite
         ? progress.clamp(0.0, 1.0).toDouble()
         : 0.0;
+    final timestamp = timestampLabel;
     final body = Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -144,6 +152,16 @@ class AnAudioAttachmentCard extends StatelessWidget {
             Text(duration, style: AnText.mono.copyWith(color: c.inkFaint)),
           ],
         ),
+        if (_timestampInteractive && timestamp != null) ...[
+          const SizedBox(height: AnSpace.s8),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: _TimestampButton(
+              label: t.attach.jumpToAudioTimestamp(timestamp: timestamp),
+              onTap: onTimestampTap,
+            ),
+          ),
+        ],
       ],
     );
 
@@ -179,6 +197,53 @@ class AnAudioAttachmentCard extends StatelessWidget {
         ),
         child: child,
       );
+}
+
+class _TimestampButton extends StatelessWidget {
+  const _TimestampButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Semantics(
+      container: true,
+      button: true,
+      label: label,
+      child: ExcludeSemantics(
+        child: AnInteractive(
+          onTap: onTap,
+          builder: (ctx, states) {
+            final colors = ctx.colors;
+            return Container(
+              padding: const EdgeInsets.symmetric(
+                horizontal: AnSpace.s8,
+                vertical: AnSpace.s4,
+              ),
+              decoration: BoxDecoration(
+                color: states.isActive ? colors.accentSoft : colors.surface,
+                border: Border.all(
+                  color: states.isActive ? colors.accent : colors.line,
+                  width: AnSize.hairline,
+                ),
+                borderRadius: BorderRadius.circular(AnRadius.pill),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(AnIcons.locate, size: AnSize.iconXs, color: c.accent),
+                  const SizedBox(width: AnSpace.s4),
+                  Text(label, style: AnText.label.copyWith(color: c.accent)),
+                ],
+              ),
+            );
+          },
+        ),
+      ),
+    );
+  }
 }
 
 class _PlayButton extends StatelessWidget {

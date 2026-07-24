@@ -27,6 +27,7 @@ abstract interface class AttachmentAudioDriver {
   Stream<AttachmentAudioStatus> get statusStream;
 
   Future<void> playBytes(List<int> bytes, {String? mimeType});
+  Future<void> seek(Duration position);
   Future<void> pause();
   Future<void> resume();
   Future<void> stop();
@@ -62,6 +63,9 @@ class AudioplayersAttachmentAudioDriver implements AttachmentAudioDriver {
   Future<void> playBytes(List<int> bytes, {String? mimeType}) => _player.play(
     audioplayers.BytesSource(Uint8List.fromList(bytes), mimeType: mimeType),
   );
+
+  @override
+  Future<void> seek(Duration position) => _player.seek(position);
 
   @override
   Future<void> pause() => _player.pause();
@@ -233,6 +237,14 @@ class AttachmentAudioPlaybackController
     state = const AttachmentAudioPlaybackState();
   }
 
+  Future<void> seek(String attachmentId, Duration position) async {
+    if (state.activeAttachmentId != attachmentId || state.error != null) return;
+    final target = _clampSeekPosition(position, state.duration);
+    await _driver.seek(target);
+    if (!ref.mounted) return;
+    state = state.copyWith(position: target, completed: false);
+  }
+
   void _onPosition(Duration position) {
     if (!ref.mounted) return;
     if (state.activeAttachmentId == null) return;
@@ -306,4 +318,11 @@ bool _isMissingAttachmentContent(Object error) {
   final text = error.toString();
   return text.contains('attachment content not found') ||
       text.contains('ATTACHMENT_NOT_FOUND');
+}
+
+Duration _clampSeekPosition(Duration position, Duration? duration) {
+  if (position < Duration.zero) return Duration.zero;
+  final d = duration;
+  if (d != null && d >= Duration.zero && position > d) return d;
+  return position;
 }
