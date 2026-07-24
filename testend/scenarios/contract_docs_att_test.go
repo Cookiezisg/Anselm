@@ -639,3 +639,116 @@ func TestContractDocsAtt_DocumentAttachScopeAndIterate(t *testing.T) {
 	wc.GET("/api/v1/conversations/"+convID).OK(t, nil)
 	wc.Do("POST", "/api/v1/documents/doc_ffffffffffffffff:iterate", map[string]any{"request": "x"}).Fail(t, 404, "DOCUMENT_NOT_FOUND")
 }
+
+// docsattC_rawNoHeaders 打一个**不带任何 Anselm header** 的请求(无 workspace、无 bearer)——playback
+// fetch 路由存在的全部意义就是它必须在这种状态下可用(原生音频栈无法附加 header)。
+//
+// A raw request carrying NO Anselm headers (no workspace, no bearer) — the entire point of the playback
+// fetch route is that it must work in exactly this state, because native audio stacks cannot attach headers.
+func docsattC_rawNoHeaders(t *testing.T, url, rangeHdr string) (int, http.Header, []byte) {
+	t.Helper()
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		t.Fatalf("raw no-header get %s: %v", url, err)
+	}
+	if rangeHdr != "" {
+		req.Header.Set("Range", rangeHdr)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("raw no-header get %s: %v", url, err)
+	}
+	defer resp.Body.Close()
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, resp.Header, body
+}
+
+// TestContractDocsAtt_AudioPlaybackLease — 音频播放租约的契约黑盒(T5.1:本片改了 N 系列端点与错误码,
+// 而 testend 断言既无编译器也不进 make verify、且天然搜不到,故必须显式补)。
+//
+// 钉死五条:①只有 audio 能签发,其余 415 ATTACHMENT_PLAYBACK_UNSUPPORTED ②签发仍走 workspace 门
+// ③fetch **不带任何 header** 能取到原字节——豁免的全部意义 ④Range 得到 206 + Content-Range(播放器 seek
+// 的物理前提)⑤未知 token 与过期一律 404 ATTACHMENT_NOT_FOUND,且 URL 不可从 attachment id / sha 推导
+// (token 是凭证,泄漏可推导性等于泄漏凭证)。
+//
+// 诚实边界:testend 不设 `ANSELM_AUTH_TOKEN`(bearer 关),故本场景端到端证明的是 **workspace 门的豁免**;
+// bearer 豁免与「前缀穿越打不到受保护 handler」由 middleware 单测钉死,不在此重复。
+func TestContractDocsAtt_AudioPlaybackLease(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "playback-ws"}).Field(t, "id")
+	wc := c.WS(wsID)
+
+	audioBytes := []byte("ID3fakeaudio-payload-for-range-requests-0123456789")
+	var audio, text docsattC_att
+	if err := json.Unmarshal(wc.Upload(t, "/api/v1/attachments", "song.mp3", "audio/mpeg", audioBytes).Data, &audio); err != nil {
+		t.Fatalf("upload audio: %v", err)
+	}
+	if err := json.Unmarshal(wc.Upload(t, "/api/v1/attachments", "notes.txt", "text/plain", []byte("not audio")).Data, &text); err != nil {
+		t.Fatalf("upload text: %v", err)
+	}
+
+	// ① 非 audio 一律拒签——bearerless fetch 路由绝不能变成任意附件的通用下载旁路。
+	wc.Do("POST", "/api/v1/attachments/"+text.ID+"/playback-lease", nil).
+		Fail(t, 415, "ATTACHMENT_PLAYBACK_UNSUPPORTED")
+
+	// ② 签发本身仍走常规 workspace 门:无 workspace header 不得签发。
+	if r := c.Do("POST", "/api/v1/attachments/"+audio.ID+"/playback-lease", nil); r.Status < 400 {
+		t.Fatalf("minting a lease must still require the workspace header, got %d %s", r.Status, r.Raw)
+	}
+
+	var lease struct {
+		URL       string `json:"url"`
+		ExpiresAt string `json:"expiresAt"`
+	}
+	wc.POST("/api/v1/attachments/"+audio.ID+"/playback-lease", nil).OK(t, &lease)
+	if !strings.Contains(lease.URL, "/api/v1/attachment-playback/") || lease.ExpiresAt == "" {
+		t.Fatalf("lease must answer {url,expiresAt} pointing at the playback route, got %+v", lease)
+	}
+	// ⑤a token 不可从已知标识推导——URL 里出现 attachment id 或 sha 即等于把凭证公开。
+	if strings.Contains(lease.URL, audio.ID) || (audio.SHA256 != "" && strings.Contains(lease.URL, audio.SHA256)) {
+		t.Fatalf("playback token must not be derivable from the attachment id/sha: %s", lease.URL)
+	}
+
+	// ③ 不带任何 header 取原字节——这正是 audioplayers 的处境。
+	status, hdr, body := docsattC_rawNoHeaders(t, lease.URL, "")
+	if status != 200 || !bytes.Equal(body, audioBytes) {
+		t.Fatalf("header-less playback fetch must serve the original bytes: status=%d byteEqual=%v", status, bytes.Equal(body, audioBytes))
+	}
+	if ct := hdr.Get("Content-Type"); ct != "audio/mpeg" {
+		t.Errorf("playback must stream the stored mime, want audio/mpeg got %q", ct)
+	}
+
+	// ④ Range → 206 + Content-Range:播放器 seek 与分段加载的物理前提。
+	status, hdr, body = docsattC_rawNoHeaders(t, lease.URL, "bytes=10-19")
+	if status != 206 || !bytes.Equal(body, audioBytes[10:20]) {
+		t.Fatalf("Range request must answer 206 with exactly the asked slice: status=%d body=%q", status, body)
+	}
+	if cr := hdr.Get("Content-Range"); !strings.HasPrefix(cr, "bytes 10-19/") {
+		t.Errorf("206 must carry an honest Content-Range, got %q", cr)
+	}
+
+	// ⑤b 未知 token → 404 ATTACHMENT_NOT_FOUND(与「存在但过期」同码,不泄漏 token 是否存在过)。
+	base := lease.URL[:strings.LastIndex(lease.URL, "/")+1]
+	status, _, body = docsattC_rawNoHeaders(t, base+"definitely-not-a-real-token", "")
+	if status != 404 {
+		t.Fatalf("unknown playback token must 404, got %d %s", status, body)
+	}
+	var env struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &env) != nil || env.Error.Code != "ATTACHMENT_NOT_FOUND" {
+		t.Fatalf("unknown token must answer the N1 envelope with ATTACHMENT_NOT_FOUND (same code as expired — no existence oracle), got %s", body)
+	}
+
+	// 软删后旧租约必须失效——租约不得成为绕过删除的后门。
+	if r := wc.DELETE("/api/v1/attachments/" + audio.ID); r.Status != 204 {
+		t.Fatalf("delete audio: got %d", r.Status)
+	}
+	if status, _, body = docsattC_rawNoHeaders(t, lease.URL, ""); status != 404 {
+		t.Fatalf("a lease minted before soft-delete must stop serving bytes, got %d %s", status, body)
+	}
+}
