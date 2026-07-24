@@ -1,7 +1,9 @@
 import 'package:flutter/widgets.dart' show ImageProvider, VoidCallback;
 
+import '../../../core/contract/attachment.dart';
 import '../../../core/model/byte_format.dart';
 import '../../../core/ui/an_attachment_card.dart' show AnAttachmentState;
+import '../../../i18n/strings.g.dart';
 
 /// The sent-bubble view of one attachment — resolved metadata + (for images) a decoded thumb source. The
 /// RESOLVER (data layer, lands with transcript assembly) produces these; fixtures/gallery hand-build them.
@@ -17,6 +19,7 @@ class UserAttachment {
     this.mimeType,
     this.sizeBytes,
     this.durationMs,
+    this.preparation,
     this.playbackProgress = 0,
     this.playing = false,
     this.state = AnAttachmentState.ready,
@@ -33,6 +36,7 @@ class UserAttachment {
   final String? mimeType;
   final int? sizeBytes;
   final int? durationMs;
+  final AttachmentPreparation? preparation;
   final double playbackProgress;
   final bool playing;
   final AnAttachmentState state;
@@ -92,4 +96,37 @@ String attachmentMetaLine({
   }
   if (sizeBytes != null && sizeBytes >= 0) parts.add(formatBytes(sizeBytes));
   return parts.join(' · ');
+}
+
+/// Stable media-preparation sidecar line for sent attachments. The backend owns the state; the UI renders
+/// only coarse honest phases and never invents a percentage. Ready/not-required are intentionally silent.
+/// 已发送附件的媒体准备侧车文案。状态归后端；UI 只呈现粗粒度诚实阶段，绝不伪造百分比。ready/not_required 静默。
+String? attachmentPreparationLine(
+  Translations t,
+  AttachmentPreparation? preparation,
+) {
+  final p = preparation;
+  if (p == null) return null;
+  final status = p.status;
+  final phase = p.phase;
+  if (status == 'failed' || phase == 'failed') {
+    return t.attach.mediaPreparationFailed;
+  }
+  if (status == 'cancelled' || phase == 'cancelled') {
+    return t.attach.mediaPreparationCancelled;
+  }
+  if (status == 'unavailable' || phase == 'unavailable') {
+    return t.attach.mediaPreparationUnavailable;
+  }
+  if (status == 'queued' ||
+      status == 'processing' ||
+      status == 'pending' ||
+      status == 'running' ||
+      phase == 'queued' ||
+      phase == 'processing' ||
+      phase == 'pending' ||
+      phase == 'running') {
+    return t.attach.preparingMedia;
+  }
+  return null;
 }

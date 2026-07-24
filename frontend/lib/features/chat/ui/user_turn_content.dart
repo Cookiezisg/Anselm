@@ -7,6 +7,7 @@ import '../../../core/ui/an_audio_attachment_card.dart';
 import '../../../core/ui/an_attachment_card.dart';
 import '../../../core/ui/an_attachment_thumb.dart';
 import '../../../core/ui/an_ref_pill.dart';
+import '../../../i18n/strings.g.dart';
 import '../model/mention_spans.dart';
 import '../model/user_attachment.dart';
 
@@ -53,7 +54,7 @@ class UserTurnContent extends StatelessWidget {
 
     final sections = <Widget>[
       if (thumbs.isNotEmpty) _thumbRegion(thumbs),
-      if (cards.isNotEmpty) _cardRegion(cards),
+      if (cards.isNotEmpty) _cardRegion(context, cards),
       if (trimmed.isNotEmpty) _mentionText(context, trimmed),
     ];
     if (sections.isEmpty) return const SizedBox.shrink();
@@ -97,7 +98,7 @@ class UserTurnContent extends StatelessWidget {
     );
   }
 
-  Widget _cardRegion(List<UserAttachment> cards) => Wrap(
+  Widget _cardRegion(BuildContext context, List<UserAttachment> cards) => Wrap(
     spacing: AnSpace.s8,
     runSpacing: AnSpace.s8,
     children: [
@@ -113,6 +114,10 @@ class UserTurnContent extends StatelessWidget {
               sizeBytes: a.sizeBytes,
             ),
             durationLabel: audioDurationLabel(a.durationMs),
+            statusLine: attachmentPreparationLine(
+              Translations.of(context),
+              a.preparation,
+            ),
             progress: a.playbackProgress,
             playing: a.playing,
             state: a.state,

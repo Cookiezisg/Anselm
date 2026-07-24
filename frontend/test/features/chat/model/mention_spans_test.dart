@@ -1,5 +1,7 @@
+import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/features/chat/model/mention_spans.dart';
 import 'package:anselm/features/chat/model/user_attachment.dart';
+import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // The mention position derivation (consuming left→right literal match — the backend stores NO offsets) +
@@ -137,5 +139,70 @@ void main() {
         );
       },
     );
+  });
+
+  group('attachmentPreparationLine', () {
+    test('maps active phases to a coarse preparing line', () {
+      LocaleSettings.setLocaleRaw('en');
+
+      expect(
+        attachmentPreparationLine(
+          t,
+          const AttachmentPreparation(phase: 'queued'),
+        ),
+        t.attach.preparingMedia,
+      );
+      expect(
+        attachmentPreparationLine(
+          t,
+          const AttachmentPreparation(phase: 'processing'),
+        ),
+        t.attach.preparingMedia,
+      );
+      expect(
+        attachmentPreparationLine(
+          t,
+          const AttachmentPreparation(status: 'running'),
+        ),
+        t.attach.preparingMedia,
+      );
+    });
+
+    test('maps terminal failures and stays silent when ready', () {
+      LocaleSettings.setLocaleRaw('en');
+
+      expect(
+        attachmentPreparationLine(
+          t,
+          const AttachmentPreparation(status: 'failed', phase: 'proxy_image'),
+        ),
+        t.attach.mediaPreparationFailed,
+      );
+      expect(
+        attachmentPreparationLine(
+          t,
+          const AttachmentPreparation(phase: 'cancelled'),
+        ),
+        t.attach.mediaPreparationCancelled,
+      );
+      expect(
+        attachmentPreparationLine(
+          t,
+          const AttachmentPreparation(phase: 'unavailable'),
+        ),
+        t.attach.mediaPreparationUnavailable,
+      );
+      expect(
+        attachmentPreparationLine(t, const AttachmentPreparation()),
+        isNull,
+      );
+      expect(
+        attachmentPreparationLine(
+          t,
+          const AttachmentPreparation(status: 'ready'),
+        ),
+        isNull,
+      );
+    });
   });
 }

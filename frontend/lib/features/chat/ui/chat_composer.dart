@@ -762,13 +762,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
 
   String? _preparationMeta(Translations t, PendingAttachment a) {
     if (a.status != 'ready') return null;
-    return switch (a.preparation?.status) {
-      'pending' || 'running' => t.attach.preparingMedia,
-      'failed' => t.attach.mediaPreparationFailed,
-      'cancelled' => t.attach.mediaPreparationCancelled,
-      'unavailable' => t.attach.mediaPreparationUnavailable,
-      _ => null,
-    };
+    return attachmentPreparationLine(t, a.preparation);
   }
 
   IconData? _preparationActionIcon(PendingAttachment a) {

@@ -500,6 +500,47 @@ void main() {
   );
 
   testWidgets(
+    'an audio attachment in history surfaces media preparation state',
+    (tester) async {
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            ChatMessage(
+              id: 'msg_u',
+              conversationId: 'cv_1',
+              role: 'user',
+              status: 'completed',
+              attrs: {
+                'attachments': ['att_audio'],
+              },
+              blocks: [_blk('bu', 'text', '听这个')],
+              createdAt: DateTime.utc(2026, 7, 2, 10),
+            ),
+          ],
+        },
+      );
+      repo.attachmentMetas['att_audio'] = const AttachmentMeta(
+        id: 'att_audio',
+        filename: 'voice.webm',
+        mimeType: 'audio/webm',
+        sizeBytes: 3,
+        kind: 'audio',
+        preparation: AttachmentPreparation(phase: 'processing'),
+      );
+      repo.attachmentBytes['att_audio'] = [7, 8, 9];
+
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      await _settle(tester);
+      await tester.pump(const Duration(milliseconds: 30)); // metadata future
+
+      expect(find.text('voice.webm'), findsOneWidget);
+      expect(find.text('Preparing media…'), findsOneWidget);
+      expect(find.bySemanticsLabel('Play audio'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'an audio attachment whose original content is gone becomes an unavailable tombstone',
     (tester) async {
       final repo = _repo(

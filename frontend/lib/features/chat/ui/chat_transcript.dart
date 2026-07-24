@@ -471,6 +471,7 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
             filename: m.filename,
             mimeType: m.mimeType.isEmpty ? null : m.mimeType,
             sizeBytes: m.sizeBytes,
+            preparation: m.preparation,
             // Images render as real thumbnails — bytes stream from the sidecar, cached by id in
             // Flutter's ImageCache, DECODED capped to the thumb's widest display (280 logical × dpr):
             // a full-res phone photo would park ~48MB in the cache for a 280px slot (R2).
@@ -710,7 +711,9 @@ class _TranscriptAudioAttachmentState
         ? t.attach.loadingAudio
         : playbackError == AttachmentAudioError.playbackFailed
         ? t.attach.audioPlaybackFailed
-        : null;
+        : missing
+        ? null
+        : attachmentPreparationLine(t, widget.attachment.preparation);
     return AnAudioAttachmentCard(
       filename: widget.attachment.filename,
       metaLine: attachmentMetaLine(

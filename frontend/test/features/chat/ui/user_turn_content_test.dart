@@ -1,5 +1,6 @@
 import 'dart:typed_data';
 
+import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/model/mention_spans.dart';
@@ -154,6 +155,29 @@ void main() {
       expect(opened, 0);
     },
   );
+
+  testWidgets('audio card surfaces media preparation sidecar state', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        const UserTurnContent(
+          text: '',
+          attachments: [
+            UserAttachment(
+              id: 'voice',
+              kind: 'audio',
+              filename: 'standup.m4a',
+              preparation: AttachmentPreparation(phase: 'processing'),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    expect(find.byType(AnAudioAttachmentCard), findsOneWidget);
+    expect(find.text('Preparing media…'), findsOneWidget);
+  });
 
   testWidgets('tombstone (missing) swallows taps; failed card fires retry', (
     tester,
