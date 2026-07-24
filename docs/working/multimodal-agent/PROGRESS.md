@@ -23,8 +23,8 @@ landed-into:
 | 阶段 | 内容 | 状态 |
 |---|---|---|
 | **A** | 收掉 audio playback lease 片 | ✅ **完成**(`623c3746`,已推送) |
-| **B** | 跨两仓审计(跨仓契约 / §13 测试矩阵 / §3.3 不变量守卫) | 🔨 进行中 |
-| **C** | 按发现分批修 | ⏳ 待 B |
+| **B** | 跨两仓审计(跨仓契约 / §13 测试矩阵 / §3.3 不变量守卫) | ✅ **完成**(三路 + 主会话亲验,结论见下) |
+| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · **C-3 阻断1 未动** · C-4 ADR 未动) |
 | **D** | 收口(§15 订正 / 台账 / ADR / CLAUDE 重述 / 归档) | ⏳ 待 C |
 | **E** | 真机端到端验收 + 《真实环境验收指南》 | ⏳ 待 D |
 | **F** | WRK-077 十七步(见 `working/frontend/chat-iteration.md` §7) | ⏳ 待 E |
@@ -189,3 +189,20 @@ token 256 位 `crypto/rand` + URL-safe base64 · `kind=audio` 在签发与取用
 **第四条的诊断(已排除的假设都记下,免得重走)**:该场景的收尾窗机制与压缩时序纠缠。已确认:①按上述配方改造后**软预算确实学到了**(日志 `input_budget: 31864` 的回合内 editing 为证)②改造后**完全没有任何压缩日志** → `MaybeCompact` 提前返回 ③已试过把 stall 从第 1 次挪到第 3 次 utility 调用(让撑窗的是尾部压缩而非回合内 editing)——仍红 ④已试过给槽内回合也报 `PromptTokens: 60000`(因 `lastContextMeasurement` 取**最新**一条,槽回合默认 100 会让尾部压缩看着 100 判「未越线」)——仍红。**下一步该查**:`chatC_setup` 建的 convW 走的是否与另三条不同的 host 装配;以及收尾窗期间 `MaybeCompact` 是否被 finalize 路径跳过。
 
 **为什么还原而不留改**:它本来就是红的;留一个被我改过又仍红的测试,会让人误判是我的改动导致。宁可红得干净。
+
+
+---
+
+## 当前状态快照(2026-07-25 03:40)
+
+**已推送**:`623c3746`(A 片)· `3bc3282b`(台账+审计+playback testend)· `ff6aca85`(不变量审计)· `160030a4`(mock 使能)· `1a015efe`(三条压缩场景改造)
+
+**门禁**:根 `make verify` 四门全绿 ✅ · `make -C backend testend` **4 红 → 1 红** ✅
+
+### 下一段接手的优先序(按价值)
+
+1. **🔴 阻断 1(最高)**:网关必须实现 media handle 消费端。桌面端已按 §6.1「completion 只引用网关签发的 handle」发布,网关 `validateImage`/`validateVideo` 却只收 base64 data URI、`InboundRequest` 无 handle 字段 → **受管路由带图/视频的对话 100% 失败**。网关侧已有 lease 生产端与上游拉取端(`fetchPath`),缺的只是 chat 端点接受一个指向自家 lease 的引用并校验 install 归属/未过期/MIME。**同时必须补一条把 media lease 与 chat completion 串起来的 e2e**——两仓各自全绿而交界无人守,正是它活到今天的原因。
+2. **🟠 高危两条**:`multimodal.available` 需并入 `MEDIA_ENABLED`;网关 `supportedMIME` 白名单与桌面端 `image/*` 判据需对齐(HEIC/AVIF 现在会硬中断整回合)。
+3. **🔴 不变量守卫 0/10**:先做 #10(主仓后端零日志脱敏,移植网关 `logx.redactAttr` 运行时底座)与 #9(Flutter 侧 `ANSELM_BACKEND_URL` 无 scheme/host 校验)。
+4. **C-4 ADR**:本战役零 ADR,而它做了媒体三层、一次性 lease 协议、profile 学习、ASR 代理链等架构级取舍。
+5. **最后一条红 testend**:诊断与四条已排除假设见上;**新线索**——该测试同文件前半段(convG/B-chat-2)也向同一 mock 队列 Enqueue 过 dlg 回合,若有未消费残留会让后半段的回合对齐整体错位,值得先查这个。
