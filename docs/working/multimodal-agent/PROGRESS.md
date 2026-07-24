@@ -24,7 +24,7 @@ landed-into:
 |---|---|---|
 | **A** | 收掉 audio playback lease 片 | ✅ **完成**(`623c3746`,已推送) |
 | **B** | 跨两仓审计(跨仓契约 / §13 测试矩阵 / §3.3 不变量守卫) | ✅ **完成**(三路 + 主会话亲验,结论见下) |
-| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · **C-3 阻断1 未动** · C-4 ADR 未动) |
+| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · C-3 阻断1 **设计已立 ADR、实现待做** · C-4 ADR 0011 ✅ · C-5 #10 脱敏底座 ✅) |
 | **D** | 收口(§15 订正 / 台账 / ADR / CLAUDE 重述 / 归档) | ⏳ 待 C |
 | **E** | 真机端到端验收 + 《真实环境验收指南》 | ⏳ 待 D |
 | **F** | WRK-077 十七步(见 `working/frontend/chat-iteration.md` §7) | ⏳ 待 E |
@@ -206,3 +206,30 @@ token 256 位 `crypto/rand` + URL-safe base64 · `kind=audio` 在签发与取用
 3. **🔴 不变量守卫 0/10**:先做 #10(主仓后端零日志脱敏,移植网关 `logx.redactAttr` 运行时底座)与 #9(Flutter 侧 `ANSELM_BACKEND_URL` 无 scheme/host 校验)。
 4. **C-4 ADR**:本战役零 ADR,而它做了媒体三层、一次性 lease 协议、profile 学习、ASR 代理链等架构级取舍。
 5. **最后一条红 testend**:诊断与四条已排除假设见上;**新线索**——该测试同文件前半段(convG/B-chat-2)也向同一 mock 队列 Enqueue 过 dlg 回合,若有未消费残留会让后半段的回合对齐整体错位,值得先查这个。
+
+
+---
+
+## C 续:已完成两件 + 阻断 1 的实现路线已定死
+
+### C-4 ✅ ADR 0011 · 受管路由的媒体引用契约(`docs/decisions/0011-gateway-media-handle-contract.md`)
+
+本战役此前**零 ADR**(C0 与 §16 都要求)。0011 把阻断 1 的设计立成决策,实现即照做:
+
+- **网关接受一种、且仅一种非 data-URI 媒体引用**——自家签发的 lease fetch URL(`{base}/v1/media/leases/{id}/content?token=…`),**不接受任何其他 http(s) URL**(SSRF/下载放大/MIME 欺骗护栏不变)。
+- **分层**:形状识别归 domain(纯函数,无 IO);**归属与时效校验归 app 层新增 DIP 端口**(`chat.Deps` 现无 media 端口),复用 `OpenLease` 已有复合谓词——active + 未过期 + HMAC 对得上 + token hash 匹配 + **属当前 install**;任一不成立归并为无信息泄露的 not-found。
+- **计量**:lease 引用对 `MaxDecodedBytes` 记 **0 字节**(媒体从不经 chat body,这正是 M1 的目的),**但仍计入 `MaxParts`**(部件数是提示复杂度护栏,与传输方式无关)。
+- **渲染不变**:该 URL 本就是为上游拉取而签的短期签名 URL,校验通过原样透传。
+- **必须同时补一条把 lease 与 completion 串起来的 e2e** —— 这条 bug 活到今天正因两仓测试各覆盖一半。
+
+**实现待做**(4 处):`internal/domain/chat/content.go`(形状识别 + `validateImage`/`validateVideo` 接受)· 暴露 refs 给 app 层 · `internal/app/chat/service.go`(新端口 + 逐条校验)· e2e。
+
+### C-5 ✅ 不变量 #10 第一道机械守卫:后端脱敏底座(`721a7918`)
+
+`internal/infra/logger/redact.go` + `redact_test.go`。**core 包装**而非评审规则:作用于每条记录的每个字段、每个调用点(含此后新写的);包在 TEE 之外故 stderr 与轮转支持日志两个 sink 一次覆盖、新增 sink 不可能挂在它下面;敏感键**整字段替换**而非只换字符串成员(敏感键可能经 `zap.Any` 携带任意结构,编码器会径直展开)。
+
+**诚实边界(已写进文件头,不得被后来者误读)**:这是**按键名的黑名单——是底线,不是证明**。全新键名仍会漏;§3.3 #10 仍缺的**调用点扫描**要另外补。
+
+测试含一条反向断言:普通诊断(`conversation_id`/`attachment_id`/`step`/`route`)必须原样保留——过宽的底座会被人直接关掉。
+
+**门禁**:根 `make verify` 四门全绿;`make -C backend testend` 仍只剩那 1 条既有红项(脱敏未破坏任何黑盒断言)。
