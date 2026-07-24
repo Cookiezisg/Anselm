@@ -111,3 +111,56 @@ func (s *Store) SavePerception(ctx context.Context, perception *mediadomain.Perc
 	}
 	return nil
 }
+
+func (s *Store) ListPendingDerivatives(ctx context.Context, limit int) ([]*mediadomain.Derivative, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := s.derivatives.WhereEq("status", mediadomain.StatusPending).Order("created_at ASC").Limit(limit).Find(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("mediastore.ListPendingDerivatives: %w", err)
+	}
+	return rows, nil
+}
+
+func (s *Store) ListPendingPerceptions(ctx context.Context, limit int) ([]*mediadomain.Perception, error) {
+	if limit <= 0 {
+		limit = 100
+	}
+	rows, err := s.perceptions.WhereEq("status", mediadomain.StatusPending).Order("created_at ASC").Limit(limit).Find(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("mediastore.ListPendingPerceptions: %w", err)
+	}
+	return rows, nil
+}
+
+// RequeueRunning is the crash-recovery half of media processing. A running row can only survive a
+// process death because graceful workers terminalise their work; at the next boot it is safe to
+// return it to pending and retry from the immutable original.
+func (s *Store) RequeueRunning(ctx context.Context) (int, error) {
+	n, err := s.derivatives.WhereEq("status", mediadomain.StatusRunning).Update(ctx, "status", mediadomain.StatusPending)
+	if err != nil {
+		return 0, fmt.Errorf("mediastore.RequeueRunning derivatives: %w", err)
+	}
+	m, err := s.perceptions.WhereEq("status", mediadomain.StatusRunning).Update(ctx, "status", mediadomain.StatusPending)
+	if err != nil {
+		return 0, fmt.Errorf("mediastore.RequeueRunning perceptions: %w", err)
+	}
+	return int(n + m), nil
+}
+
+func (s *Store) ListReadyDerivativeBlobs(ctx context.Context) ([]string, error) {
+	rows, err := s.derivatives.WhereEq("status", mediadomain.StatusReady).Find(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("mediastore.ListReadyDerivativeBlobs: %w", err)
+	}
+	seen := make(map[string]bool, len(rows))
+	out := make([]string, 0, len(rows))
+	for _, row := range rows {
+		if row.BlobSHA256 != "" && !seen[row.BlobSHA256] {
+			seen[row.BlobSHA256] = true
+			out = append(out, row.BlobSHA256)
+		}
+	}
+	return out, nil
+}

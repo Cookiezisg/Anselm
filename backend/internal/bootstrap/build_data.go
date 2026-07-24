@@ -8,6 +8,7 @@ import (
 	cryptoinfra "github.com/sunweilin/anselm/backend/internal/infra/crypto"
 	dbinfra "github.com/sunweilin/anselm/backend/internal/infra/db"
 	blobfs "github.com/sunweilin/anselm/backend/internal/infra/fs/blob"
+	mediafs "github.com/sunweilin/anselm/backend/internal/infra/fs/media"
 	memoryfs "github.com/sunweilin/anselm/backend/internal/infra/fs/memory"
 	skillfs "github.com/sunweilin/anselm/backend/internal/infra/fs/skill"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -69,9 +70,10 @@ type stores struct {
 	media        *mediastore.Store
 	search       *searchstore.Store
 
-	memory *memoryfs.Store
-	skill  *skillfs.Store
-	blob   *blobfs.Store
+	memory         *memoryfs.Store
+	skill          *skillfs.Store
+	blob           *blobfs.Store
+	mediaArtifacts *mediafs.Store
 }
 
 // infra holds the stateless infrastructure singletons shared across services.
@@ -229,8 +231,9 @@ func buildStores(database *ormpkg.DB, enc cryptodomain.Encryptor, dataDir string
 		media:        mediastore.New(database),
 		search:       searchstore.New(database),
 
-		memory: memoryfs.New(dataDir),
-		skill:  skillfs.New(dataDir),
-		blob:   blobfs.New(dataDir),
+		memory:         memoryfs.New(dataDir),
+		skill:          skillfs.New(dataDir),
+		blob:           blobfs.New(dataDir),
+		mediaArtifacts: mediafs.New(dataDir),
 	}
 }

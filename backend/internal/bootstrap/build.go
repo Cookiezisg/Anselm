@@ -396,6 +396,11 @@ func (a *App) Boot(ctx context.Context) {
 		} else if n > 0 {
 			a.log.Info("bootstrap: reclaimed orphaned attachment blobs", zap.Int("count", n))
 		}
+		if n, err := a.svc.media.GC(wsCtx); err != nil {
+			a.log.Warn("bootstrap: media artifact GC failed", zap.Error(err))
+		} else if n > 0 {
+			a.log.Info("bootstrap: reclaimed orphaned media artifacts", zap.Int("count", n))
+		}
 		// D1: the trigger listen-registry is in-memory, so re-engage the listener for every
 		// active workflow ("replay active references on boot").
 		// D1：trigger 监听注册表是内存的，为每个 active workflow 重挂监听（boot 重放 active 引用）。
@@ -415,6 +420,21 @@ func (a *App) Boot(ctx context.Context) {
 			a.log.Info("bootstrap: accounted missed cron ticks", zap.Int("missed", n))
 		}
 	})
+	// Media GC above must finish before its worker can write a new artifact: otherwise a just-written
+	// CAS file could precede its ready row and look orphaned to the same boot's sweep. Start only
+	// after all workspace reconciliation/GC is complete; a later request self-enqueues its own work.
+	// 媒体 GC 必须先于 worker：否则刚落 CAS、尚未来得及提交 ready 行的产物会被同一轮启动扫描误判孤儿。
+	// 逐 workspace 对账/GC 完成后才启动；之后的新请求自行入队。
+	if workspaces, err := a.svc.workspace.List(ctx); err == nil {
+		ids := make([]string, 0, len(workspaces))
+		for _, w := range workspaces {
+			ids = append(ids, w.ID)
+		}
+		a.svc.media.Start(ids)
+	} else {
+		a.log.Warn("bootstrap: list workspaces for media start", zap.Error(err))
+		a.svc.media.Start(nil)
+	}
 
 	// Firing-drain ticker: trigger listeners persist Firings to the durable inbox; the scheduler claims
 	// them here on a fixed cadence and enqueues each onto the Advance pool. The approval/timer timeout
@@ -756,6 +776,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.svc.search.Close(ctx) // bounded by the shutdown ctx — a first-demand model download can't stall shutdown (R14)
 	a.svc.mcp.Shutdown(ctx)
 	a.svc.handler.Shutdown(ctx)
+	a.svc.media.Close(ctx) // processors may use sandbox/attachment reads; stop them before either dependency closes
 	if err := a.svc.sandbox.Shutdown(ctx); err != nil {
 		a.log.Warn("bootstrap: sandbox shutdown", zap.Error(err))
 	}

@@ -816,8 +816,11 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   task 或模型任一变化都会产生新 work，而非误复用旧结果。启动装配已接入，但尚未改变聊天的 inline-media wire。
 - 已验证：应用层对无序 map 参数生成同一 canonical JSON hash；store 层覆盖 exact reuse、参数/source/task/
   model 失效和 workspace 隔离；`go test ./...` 通过。
-- worker 生命周期、取消、崩溃恢复、boot GC；
-- 进度模型；
+- 已落地（worker 骨架）：派生产物写入独立 media CAS，绝不与原件共用 attachment GC；单 worker 仅领取
+  pending、ready 记录绝不重跑；优雅关闭把中断项退回 pending，硬崩遗留 running 在下次 boot 归还；媒体 GC
+  严格发生在 worker 启动前，避免“写入 artifact、尚未提交 ready 行”时被误删。当前没有配置具体图片/文档/
+  音视频 processor，故这一步不会悄悄改变现有附件/聊天行为。
+- concrete processor、用户取消/retry API、进度模型；
 - 磁盘配额和清理；
 - fake processor 测试。
 

@@ -87,3 +87,36 @@ func TestClaimDerivative_WorkspaceIsolation(t *testing.T) {
 		t.Fatalf("same identity in another workspace must be independent: created=%v err=%v", created, err)
 	}
 }
+
+func TestRequeueRunning_RecoversOnlyInterruptedWorkAndKeepsReadyBlob(t *testing.T) {
+	s := newStore(t)
+	ctx := mediaCtx()
+	running, _, err := s.ClaimDerivative(ctx, derivative("mdr_running", "source-a", "params-a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	running.Status = mediadomain.StatusRunning
+	if err := s.SaveDerivative(ctx, running); err != nil {
+		t.Fatal(err)
+	}
+	ready, _, err := s.ClaimDerivative(ctx, derivative("mdr_ready", "source-b", "params-a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	ready.Status, ready.BlobSHA256 = mediadomain.StatusReady, "abc"
+	if err := s.SaveDerivative(ctx, ready); err != nil {
+		t.Fatal(err)
+	}
+	n, err := s.RequeueRunning(ctx)
+	if err != nil || n != 1 {
+		t.Fatalf("requeue = (%d, %v), want (1, nil)", n, err)
+	}
+	pending, err := s.ListPendingDerivatives(ctx, 10)
+	if err != nil || len(pending) != 1 || pending[0].ID != running.ID {
+		t.Fatalf("pending after recovery = %+v, %v", pending, err)
+	}
+	shas, err := s.ListReadyDerivativeBlobs(ctx)
+	if err != nil || len(shas) != 1 || shas[0] != "abc" {
+		t.Fatalf("ready blobs = %v, %v", shas, err)
+	}
+}

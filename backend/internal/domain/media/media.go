@@ -98,4 +98,8 @@ type Repository interface {
 	ClaimPerception(ctx context.Context, perception *Perception) (got *Perception, created bool, err error)
 	SaveDerivative(ctx context.Context, derivative *Derivative) error
 	SavePerception(ctx context.Context, perception *Perception) error
+	ListPendingDerivatives(ctx context.Context, limit int) ([]*Derivative, error)
+	ListPendingPerceptions(ctx context.Context, limit int) ([]*Perception, error)
+	RequeueRunning(ctx context.Context) (int, error)
+	ListReadyDerivativeBlobs(ctx context.Context) ([]string, error)
 }
