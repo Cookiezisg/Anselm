@@ -18,6 +18,7 @@ import '../model/mention_query.dart';
 import '../model/mention_spans.dart';
 import 'mention_text_controller.dart';
 import '../model/user_attachment.dart';
+import '../state/audio_attachment_recorder.dart';
 import '../state/chat_drafts.dart';
 import '../state/pending_attachments.dart';
 import '../state/conversation_stream_provider.dart';
@@ -511,6 +512,43 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   Future<void> _finishSpeechInput() =>
       ref.read(speechInputProvider.notifier).finish();
 
+  Future<void> _startAudioAttachmentRecording() async {
+    if (ref.read(speechInputProvider).active) return;
+    _focus.requestFocus();
+    await ref.read(audioAttachmentRecorderProvider.notifier).start();
+  }
+
+  Future<void> _finishAudioAttachmentRecording() async {
+    final recorded = await ref
+        .read(audioAttachmentRecorderProvider.notifier)
+        .finish();
+    if (!mounted || recorded == null) return;
+    await _att.addBytes(
+      recorded.bytes,
+      filename: recorded.filename,
+      mimeType: recorded.mimeType,
+    );
+  }
+
+  void _applyAudioAttachmentRecording(
+    AudioAttachmentRecorderState? previous,
+    AudioAttachmentRecorderState next,
+  ) {
+    final err = next.error;
+    if (err == null || err == previous?.error) return;
+    final t = Translations.of(context).chat;
+    ref.read(noticeCenterProvider.notifier).show(
+      switch (err) {
+        audioAttachmentErrorPermissionDenied =>
+          t.audioAttachmentPermissionDenied,
+        _ => t.audioAttachmentFailed,
+      },
+      tone: err == audioAttachmentErrorPermissionDenied
+          ? AnTone.warn
+          : AnTone.danger,
+    );
+  }
+
   void _applySpeechInput(SpeechInputState? previous, SpeechInputState next) {
     if (!next.active && next.canRetry) {
       _ensureSpeechRetryAnchor();
@@ -658,11 +696,26 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       semanticLabel: t.chat.mentionEntity,
       onPressed: _insertMentionTrigger,
     ),
-    AnButton.iconOnly(
-      AnIcons.attach,
-      size: AnButtonSize.md,
-      semanticLabel: t.chat.attachFile,
-      onPressed: _pickFiles,
+    AnMenu(
+      alignEnd: false,
+      entries: [
+        AnMenuItem(
+          label: t.chat.attachMenuFiles,
+          icon: AnIcons.attach,
+          onTap: _pickFiles,
+        ),
+        AnMenuItem(
+          label: t.chat.recordAudioAttachment,
+          icon: AnIcons.microphone,
+          onTap: _startAudioAttachmentRecording,
+        ),
+      ],
+      anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
+        AnIcons.attach,
+        size: AnButtonSize.md,
+        semanticLabel: t.chat.attachFile,
+        onPressed: toggle,
+      ),
     ),
   ];
 
@@ -805,8 +858,20 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     Translations t,
     List<PendingAttachment> pending,
     SpeechInputState speech,
+    AudioAttachmentRecorderState audioAttachment,
   ) {
     final attachments = _attachmentStrip(context, t, pending);
+    final audioAttachmentMeter = audioAttachment.active
+        ? AnVoiceMeter(
+            label: audioAttachment.finishing
+                ? t.chat.audioAttachmentSaving
+                : t.chat.audioAttachmentRecording,
+            duration: audioAttachment.elapsed,
+            level: audioAttachment.level,
+            active: audioAttachment.recording,
+            finalizing: audioAttachment.finishing,
+          )
+        : null;
     final voice = speech.active
         ? AnVoiceMeter(
             label: speech.finishing
@@ -825,7 +890,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             _speechAfter != null
         ? _speechRetryCard(context, t)
         : null;
-    final parts = [?attachments, ?voice, ?retry];
+    final parts = [?attachments, ?audioAttachmentMeter, ?voice, ?retry];
     if (parts.isEmpty) return null;
     if (parts.length == 1) return parts.single;
     return Column(
@@ -878,17 +943,35 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     ref.listen<SpeechInputState>(speechInputProvider, _applySpeechInput);
+    ref.listen<AudioAttachmentRecorderState>(
+      audioAttachmentRecorderProvider,
+      _applyAudioAttachmentRecording,
+    );
     final id = widget.conversationId;
     final pending = ref.watch(pendingAttachmentsProvider(_draftKey));
     final speech = ref.watch(speechInputProvider);
+    final audioAttachment = ref.watch(audioAttachmentRecorderProvider);
     if (!speech.active && speech.canRetry) {
       _ensureSpeechRetryAnchor();
     }
-    final strip = _composerStrip(context, t, pending, speech);
+    final strip = _composerStrip(context, t, pending, speech, audioAttachment);
     final speechAvailable = ref.watch(speechInputAvailableProvider);
     final uploading = pending.any((a) => a.status == 'uploading');
     final ready = pending.any((a) => a.status == 'ready');
-    final canVoice = speechAvailable && !_hasText && !ready && !uploading;
+    final canVoice =
+        speechAvailable &&
+        !audioAttachment.active &&
+        !_hasText &&
+        !ready &&
+        !uploading;
+    final audioAttachmentTrailing = audioAttachment.active
+        ? _trailingButton(
+            key: const ValueKey('audio-attachment-stop'),
+            icon: AnIcons.stop,
+            label: t.chat.stopAudioAttachmentRecording,
+            onPressed: _finishAudioAttachmentRecording,
+          )
+        : null;
     final voiceTrailing = speech.active
         ? _trailingButton(
             key: const ValueKey('voice-stop'),
@@ -915,7 +998,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             floating: widget._floating,
             lead: _lead(t),
             attachments: strip,
-            trailing: speech.active
+            trailing: audioAttachment.active
+                ? audioAttachmentTrailing
+                : speech.active
                 ? voiceTrailing
                 : (_hasText || ready) && !uploading && !_submittingNew
                 ? _trailingButton(
@@ -943,6 +1028,8 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
                 label: t.chat.stop,
                 onPressed: () => ctl.cancelTurn(),
               )
+            : audioAttachment.active
+            ? audioAttachmentTrailing
             : speech.active
             ? voiceTrailing
             : (_hasText || ready) && !uploading

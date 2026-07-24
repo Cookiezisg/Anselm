@@ -188,6 +188,24 @@ class Translations$chat$en {
 	/// en: 'Voice input couldn't start'
 	String get voiceInputFailed => 'Voice input couldn\'t start';
 
+	/// en: 'Recording audio attachment'
+	String get audioAttachmentRecording => 'Recording audio attachment';
+
+	/// en: 'Saving audio attachment'
+	String get audioAttachmentSaving => 'Saving audio attachment';
+
+	/// en: 'Record audio attachment'
+	String get recordAudioAttachment => 'Record audio attachment';
+
+	/// en: 'Stop audio recording'
+	String get stopAudioAttachmentRecording => 'Stop audio recording';
+
+	/// en: 'Microphone permission is off. Enable microphone access in system settings, then try again.'
+	String get audioAttachmentPermissionDenied => 'Microphone permission is off. Enable microphone access in system settings, then try again.';
+
+	/// en: 'Audio recording couldn't be attached'
+	String get audioAttachmentFailed => 'Audio recording couldn\'t be attached';
+
 	/// en: 'Stop generating'
 	String get stop => 'Stop generating';
 
@@ -249,6 +267,9 @@ class Translations$chat$en {
 
 	/// en: 'Attach files'
 	String get attachFile => 'Attach files';
+
+	/// en: 'Choose files'
+	String get attachMenuFiles => 'Choose files';
 
 	/// en: 'Drop files to attach'
 	String get dropToAttach => 'Drop files to attach';
@@ -6505,6 +6526,12 @@ extension on Translations {
 			'chat.voiceRetryAction' => 'Retry transcription',
 			'chat.voiceDiscardAction' => 'Delete voice draft',
 			'chat.voiceInputFailed' => 'Voice input couldn\'t start',
+			'chat.audioAttachmentRecording' => 'Recording audio attachment',
+			'chat.audioAttachmentSaving' => 'Saving audio attachment',
+			'chat.recordAudioAttachment' => 'Record audio attachment',
+			'chat.stopAudioAttachmentRecording' => 'Stop audio recording',
+			'chat.audioAttachmentPermissionDenied' => 'Microphone permission is off. Enable microphone access in system settings, then try again.',
+			'chat.audioAttachmentFailed' => 'Audio recording couldn\'t be attached',
 			'chat.stop' => 'Stop generating',
 			'chat.thinking' => 'thinking',
 			'chat.thought' => 'thought',
@@ -6531,6 +6558,7 @@ extension on Translations {
 			'chat.modelAuto' => 'Auto',
 			'chat.mentionEntity' => 'Mention an entity',
 			'chat.attachFile' => 'Attach files',
+			'chat.attachMenuFiles' => 'Choose files',
 			'chat.dropToAttach' => 'Drop files to attach',
 			'chat.tool.calling' => 'Calling',
 			'chat.tool.called' => 'Called',
@@ -6964,6 +6992,8 @@ extension on Translations {
 			'chat.tool.gotModelConfig' => 'Read model config',
 			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
 			'chat.tool.memSourceUser' => 'you',
 			'chat.tool.memSourceAi' => 'AI',
@@ -6971,8 +7001,6 @@ extension on Translations {
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
-			_ => null,
-		} ?? switch (path) {
 			'chat.gate.approve' => 'Allow',
 			'chat.gate.approveAlways' => 'Always allow',
 			'chat.gate.approveAlwaysHint' => ({required Object tool}) => 'Don\'t ask again for ${tool} this conversation (forgotten on restart)',
@@ -7478,6 +7506,8 @@ extension on Translations {
 			'a11y.editField' => ({required Object field}) => 'Edit ${field}',
 			'a11y.addTagTo' => ({required Object field}) => 'Add tag: ${field}',
 			'a11y.displayOptions' => 'Display options',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.moreActions' => 'More actions',
 			'a11y.newSubpage' => 'New sub-page',
 			'a11y.graphZoomIn' => 'Zoom in',
@@ -7485,8 +7515,6 @@ extension on Translations {
 			'a11y.graphFit' => 'Fit to view',
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => 'Node ${id}, ${kind}, ${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON tree, ${count} items',
 			'a11y.diff' => ({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed',
@@ -7992,6 +8020,8 @@ extension on Translations {
 			'settings.notifOsDesc' => 'Delivered via the OS notification center while unfocused',
 			'settings.notifToast' => 'In-app notices',
 			'settings.notifToastDesc' => 'Show notices at the top of the app; danger-level errors bypass this',
+			_ => null,
+		} ?? switch (path) {
 			'settings.silentHint' => 'Silenced — important items still land in the bell inbox',
 			'settings.autoStage' => 'Sidestage auto-open',
 			'settings.autoStageDesc' => 'The right island stages tool runs automatically',
@@ -7999,8 +8029,6 @@ extension on Translations {
 			'settings.stageFirst' => 'First per chat',
 			'settings.stageAlways' => 'Every time',
 			'settings.sendKey' => 'Send key',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sendKeyDesc' => 'Shift+Enter always inserts a newline',
 			'settings.sendEnter' => 'Enter sends',
 			'settings.sendCmdEnter' => '⌘Enter sends',

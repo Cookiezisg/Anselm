@@ -108,6 +108,12 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get voiceRetryAction => '重试转写';
 	@override String get voiceDiscardAction => '删除语音草稿';
 	@override String get voiceInputFailed => '语音输入启动失败';
+	@override String get audioAttachmentRecording => '正在录制音频附件';
+	@override String get audioAttachmentSaving => '正在保存音频附件';
+	@override String get recordAudioAttachment => '录制音频附件';
+	@override String get stopAudioAttachmentRecording => '停止音频录制';
+	@override String get audioAttachmentPermissionDenied => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。';
+	@override String get audioAttachmentFailed => '音频录制无法添加为附件';
 	@override String get stop => '停止生成';
 	@override String get thinking => 'thinking';
 	@override String get thought => 'thought';
@@ -129,6 +135,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get modelAuto => 'Auto';
 	@override String get mentionEntity => 'Mention an entity';
 	@override String get attachFile => 'Attach files';
+	@override String get attachMenuFiles => '选择文件';
 	@override String get dropToAttach => 'Drop files to attach';
 	@override late final _Translations$chat$tool$zh_CN tool = _Translations$chat$tool$zh_CN._(_root);
 	@override late final _Translations$chat$gate$zh_CN gate = _Translations$chat$gate$zh_CN._(_root);
@@ -2770,6 +2777,12 @@ extension on TranslationsZhCn {
 			'chat.voiceRetryAction' => '重试转写',
 			'chat.voiceDiscardAction' => '删除语音草稿',
 			'chat.voiceInputFailed' => '语音输入启动失败',
+			'chat.audioAttachmentRecording' => '正在录制音频附件',
+			'chat.audioAttachmentSaving' => '正在保存音频附件',
+			'chat.recordAudioAttachment' => '录制音频附件',
+			'chat.stopAudioAttachmentRecording' => '停止音频录制',
+			'chat.audioAttachmentPermissionDenied' => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。',
+			'chat.audioAttachmentFailed' => '音频录制无法添加为附件',
 			'chat.stop' => '停止生成',
 			'chat.thinking' => 'thinking',
 			'chat.thought' => 'thought',
@@ -2796,6 +2809,7 @@ extension on TranslationsZhCn {
 			'chat.modelAuto' => 'Auto',
 			'chat.mentionEntity' => 'Mention an entity',
 			'chat.attachFile' => 'Attach files',
+			'chat.attachMenuFiles' => '选择文件',
 			'chat.dropToAttach' => 'Drop files to attach',
 			'chat.tool.calling' => '正在调用',
 			'chat.tool.called' => '已调用',
@@ -3229,6 +3243,8 @@ extension on TranslationsZhCn {
 			'chat.tool.gotModelConfig' => '已读模型配置',
 			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
 			'chat.tool.memSourceUser' => '你',
 			'chat.tool.memSourceAi' => 'AI',
@@ -3236,8 +3252,6 @@ extension on TranslationsZhCn {
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
-			_ => null,
-		} ?? switch (path) {
 			'chat.gate.approve' => '允许',
 			'chat.gate.approveAlways' => '总是允许',
 			'chat.gate.approveAlwaysHint' => ({required Object tool}) => '本对话内不再询问 ${tool}(重启即忘)',
@@ -3743,6 +3757,8 @@ extension on TranslationsZhCn {
 			'a11y.editField' => ({required Object field}) => '编辑 ${field}',
 			'a11y.addTagTo' => ({required Object field}) => '添加标签:${field}',
 			'a11y.displayOptions' => '显示选项',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.moreActions' => '更多操作',
 			'a11y.newSubpage' => '新建子页面',
 			'a11y.graphZoomIn' => '放大',
@@ -3750,8 +3766,6 @@ extension on TranslationsZhCn {
 			'a11y.graphFit' => '适应画布',
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => '节点 ${id},${kind},${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON 树,${count} 项',
 			'a11y.diff' => ({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}',
@@ -4257,6 +4271,8 @@ extension on TranslationsZhCn {
 			'settings.notifOsDesc' => '窗口未聚焦时经系统通知中心送达',
 			'settings.notifToast' => '应用内提醒',
 			'settings.notifToastDesc' => '在软件顶部显示提醒;危险级错误不受此限',
+			_ => null,
+		} ?? switch (path) {
 			'settings.silentHint' => '已静音,重要事项仍会进铃铛收件箱',
 			'settings.autoStage' => '右岛自动登台',
 			'settings.autoStageDesc' => '工具运行时右岛自动展示现场',
@@ -4264,8 +4280,6 @@ extension on TranslationsZhCn {
 			'settings.stageFirst' => '每对话首次',
 			'settings.stageAlways' => '每次',
 			'settings.sendKey' => '发送键',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sendKeyDesc' => 'Shift+Enter 始终换行',
 			'settings.sendEnter' => 'Enter 发送',
 			'settings.sendCmdEnter' => '⌘Enter 发送',

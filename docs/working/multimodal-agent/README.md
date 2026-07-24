@@ -969,7 +969,7 @@ realtime 断线会保留已转写草稿并给出断开提示；录音期本地�
 - 录制为音频附件入口；
 - 原件删除/离线的诚实降级。
 
-当前落地状态（2026-07-24）：已发送音频附件不再走 generic file card；`UserTurnContent`
+当前落地状态（2026-07-25）：已发送音频附件不再走 generic file card；`UserTurnContent`
 会将 `kind=audio` 渲染为专用 `AnAudioAttachmentCard`，固定露出音频图标、播放位、时间轴、
 时长槽和播放状态文案。transcript 现已通过可替换的单实例音频播放 driver 接入真实附件 bytes 播放：
 同一时间只允许一个已发送音频附件处于 active，点击同一附件在播放/暂停/恢复之间切换，切换到另一附件会先停旧源；
@@ -980,9 +980,12 @@ transcript widget test 锁定历史音频附件从 repository 取 bytes 并调�
 404/已删除会被分类为终态 tombstone，音频卡切到不可交互的 “Unavailable”，不再把原件缺失伪装成可重试播放失败；
 瞬时读取/播放失败仍保留可重试状态。已发送音频附件会读取 `AttachmentMeta.preparation` 侧车，把
 queued/processing/failed/cancelled/unavailable 诚实显示到音频卡状态行；composer 待发附件与 transcript
-已发送附件复用同一个 `attachmentPreparationLine`，避免两套准备态文案漂移。未完成：附件内容
-lease/loopback 播放源的生产 E2E（当前 `audioplayers` URL source 不支持 header，与 bearer loopback
-鉴权直接冲突，不能硬接）、时间戳引用跳转、录制为音频附件入口、离线态端到端文案与恢复路径。
+已发送附件复用同一个 `attachmentPreparationLine`，避免两套准备态文案漂移。composer 附件按钮已升级为
+菜单，保留选择文件入口，并新增“录制音频附件”：录制使用本地 `record` 文件模式生成 `.m4a` 临时文件，停止后
+读取 bytes、删除临时文件，再进入现有 `PendingAttachments.addBytes` 上传链路；它是原始音频附件入口，不受
+Anselm Auto 听写能力限制，也不会自动发送。未完成：附件内容 lease/loopback 播放源的生产 E2E（当前
+`audioplayers` URL source 不支持 header，与 bearer loopback 鉴权直接冲突，不能硬接）、时间戳引用跳转、
+离线态端到端文案与恢复路径。
 
 **出口**：语音听写和原始音频理解心智不混淆。
 

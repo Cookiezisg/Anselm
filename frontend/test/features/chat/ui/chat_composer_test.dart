@@ -11,6 +11,7 @@ import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
+import 'package:anselm/features/chat/state/audio_attachment_recorder.dart';
 import 'package:anselm/features/chat/state/chat_drafts.dart';
 import 'package:anselm/features/chat/state/conversation_header.dart';
 import 'package:anselm/features/chat/state/new_conversation.dart';
@@ -209,6 +210,30 @@ class _RestoredRetrySpeech extends SpeechInputController {
   @override
   Future<void> discardRetry() async {
     state = const SpeechInputState();
+  }
+}
+
+class _FakeAudioAttachmentRecorder extends AudioAttachmentRecorder {
+  @override
+  AudioAttachmentRecorderState build() => const AudioAttachmentRecorderState();
+
+  @override
+  Future<void> start() async {
+    state = const AudioAttachmentRecorderState(
+      recording: true,
+      elapsed: Duration(seconds: 3),
+      level: 0.5,
+    );
+  }
+
+  @override
+  Future<RecordedAudioAttachment?> finish() async {
+    state = const AudioAttachmentRecorderState();
+    return const RecordedAudioAttachment(
+      bytes: [1, 2, 3, 4],
+      filename: 'recorded-voice.m4a',
+      mimeType: 'audio/mp4',
+    );
   }
 }
 
@@ -1254,6 +1279,50 @@ void main() {
         await _settle(tester);
         expect(repo.retriedPreparations, [repo.uploads.single.id]);
         expect(find.text('Preparing media…'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'attachment menu can record an audio attachment into the pending upload strip',
+      (tester) async {
+        final repo = FixtureChatRepository(
+          conversations: [_conv('cv_1')],
+          messages: {'cv_1': []},
+        );
+        await tester.pumpWidget(
+          _host(
+            repo,
+            overrides: [
+              audioAttachmentRecorderProvider.overrideWith(
+                _FakeAudioAttachmentRecorder.new,
+              ),
+            ],
+          ),
+        );
+        await _settle(tester);
+
+        await tester.tap(find.bySemanticsLabel('Attach files'));
+        await tester.pump(const Duration(milliseconds: 80));
+        expect(find.text('Choose files'), findsOneWidget);
+        await tester.tap(find.text('Record audio attachment'));
+        await _settle(tester);
+        await tester.pump(const Duration(milliseconds: 260));
+
+        expect(find.text('Recording audio attachment'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('audio-attachment-stop')),
+          findsOneWidget,
+        );
+
+        await tester.tap(find.byKey(const ValueKey('audio-attachment-stop')));
+        await _settle(tester);
+
+        expect(repo.uploads, hasLength(1));
+        expect(repo.uploads.single.mimeType, 'audio/mp4');
+        expect(repo.uploads.single.size, 4);
+        expect(repo.uploads.single.filename, 'recorded-voice.m4a');
+        expect(find.byType(AnAttachmentChip), findsOneWidget);
+        expect(find.text(repo.uploads.single.filename), findsOneWidget);
       },
     );
 
