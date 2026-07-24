@@ -1228,7 +1228,9 @@ void main() {
         );
         repo.nextUploadPreparation = const AttachmentPreparation(
           status: 'running',
+          phase: 'processing',
           target: 'model-default',
+          canCancel: true,
         );
         await tester.pumpWidget(_host(repo));
         final c = ProviderScope.containerOf(

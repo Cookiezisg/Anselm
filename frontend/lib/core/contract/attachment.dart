@@ -29,21 +29,26 @@ abstract class AttachmentMeta with _$AttachmentMeta {
 }
 
 /// App-managed media preparation for an attachment. Images currently report the model-default proxy
-/// lifecycle (`pending|running|ready|failed`); non-media or not-yet-managed media returns `not_required`.
-/// `unavailable` means the sidecar status query failed but the attachment metadata is still usable.
+/// lifecycle (`pending|running|ready|failed|cancelled`); non-media or not-yet-managed media returns
+/// `not_required`. `phase` is a stable UI grouping (`queued|processing|ready|failed|cancelled|...`);
+/// canCancel/canRetry are server-owned action hints with status fallback in older clients.
 ///
 /// 附件的应用侧媒体准备状态。当前 image 报 model-default 代理生命周期；非媒体/尚未管理的媒体为
-/// `not_required`；`unavailable` 表示状态查询失败但附件元数据仍可用。
+/// `not_required`；`phase` 是稳定 UI 分组，canCancel/canRetry 是服务端动作提示。
 @freezed
 abstract class AttachmentPreparation with _$AttachmentPreparation {
   const factory AttachmentPreparation({
     @Default('not_required') String status,
+    @Default('') String phase,
     @Default('') String target,
     @Default(0) int width,
     @Default(0) int height,
     @Default('') String mimeType,
     @Default(0) int sizeBytes,
     @Default('') String errorCode,
+    @Default(false) bool canCancel,
+    @Default(false) bool canRetry,
+    DateTime? updatedAt,
   }) = _AttachmentPreparation;
 
   factory AttachmentPreparation.fromJson(Map<String, dynamic> json) =>

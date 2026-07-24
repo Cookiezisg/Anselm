@@ -796,7 +796,9 @@ class FixtureChatRepository implements ChatRepository {
     cancelledPreparations.add(id);
     final prep = const AttachmentPreparation(
       status: 'cancelled',
+      phase: 'cancelled',
       target: 'model-default',
+      canRetry: true,
     );
     final meta = await getAttachment(id);
     attachmentMetas[id] = meta.copyWith(preparation: prep);
@@ -808,7 +810,9 @@ class FixtureChatRepository implements ChatRepository {
     retriedPreparations.add(id);
     final prep = const AttachmentPreparation(
       status: 'pending',
+      phase: 'queued',
       target: 'model-default',
+      canCancel: true,
     );
     final meta = await getAttachment(id);
     attachmentMetas[id] = meta.copyWith(preparation: prep);

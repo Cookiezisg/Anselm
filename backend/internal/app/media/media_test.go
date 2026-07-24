@@ -287,7 +287,7 @@ func TestPreparation_ImageClaimsModelDefaultStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preparation: %v", err)
 	}
-	if prep.Status != PreparationStatusPending || prep.Target != DerivativeModelDefault {
+	if prep.Status != PreparationStatusPending || prep.Phase != "queued" || prep.Target != DerivativeModelDefault || !prep.CanCancel || prep.CanRetry {
 		t.Fatalf("image preparation should claim model-default pending work: %+v", prep)
 	}
 	repo.derivative.Status = mediadomain.StatusReady
@@ -295,13 +295,15 @@ func TestPreparation_ImageClaimsModelDefaultStatus(t *testing.T) {
 	repo.derivative.SizeBytes = 123
 	repo.derivative.Width = 640
 	repo.derivative.Height = 480
+	repo.derivative.UpdatedAt = time.Unix(123, 0)
 
 	prep, err = svc.Preparation(ctx, "att_1")
 	if err != nil {
 		t.Fatalf("ready preparation: %v", err)
 	}
 	if prep.Status != PreparationStatusReady || prep.MimeType != "image/jpeg" ||
-		prep.SizeBytes != 123 || prep.Width != 640 || prep.Height != 480 {
+		prep.SizeBytes != 123 || prep.Width != 640 || prep.Height != 480 ||
+		prep.Phase != "ready" || prep.CanCancel || prep.CanRetry || prep.UpdatedAt == nil {
 		t.Fatalf("ready preparation metadata not surfaced: %+v", prep)
 	}
 }
@@ -326,7 +328,7 @@ func TestPreparation_SurfaceCancelledStatus(t *testing.T) {
 	if err != nil {
 		t.Fatalf("cancelled preparation: %v", err)
 	}
-	if prep.Status != mediadomain.StatusCancelled {
+	if prep.Status != mediadomain.StatusCancelled || prep.Phase != "cancelled" || !prep.CanRetry || prep.CanCancel {
 		t.Fatalf("cancelled preparation should surface cancelled, got %+v", prep)
 	}
 }
@@ -338,7 +340,7 @@ func TestPreparation_NonImageNotRequired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("preparation: %v", err)
 	}
-	if prep.Status != PreparationStatusNotRequired || repo.derivative != nil {
+	if prep.Status != PreparationStatusNotRequired || prep.Phase != "not_required" || repo.derivative != nil {
 		t.Fatalf("non-image should not claim derivative work: prep=%+v derivative=%+v", prep, repo.derivative)
 	}
 }

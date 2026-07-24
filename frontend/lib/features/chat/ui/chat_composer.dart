@@ -773,27 +773,37 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
 
   IconData? _preparationActionIcon(PendingAttachment a) {
     if (a.preparationBusy) return null;
-    return switch (a.preparation?.status) {
-      'pending' || 'running' => AnIcons.stop,
-      'failed' || 'cancelled' => AnIcons.refresh,
-      _ => null,
-    };
+    if (_canCancelPreparation(a)) return AnIcons.stop;
+    if (_canRetryPreparation(a)) return AnIcons.refresh;
+    return null;
   }
 
   String? _preparationActionLabel(Translations t, PendingAttachment a) =>
-      switch (a.preparation?.status) {
-        'pending' || 'running' => t.attach.cancelPreparation,
-        'failed' || 'cancelled' => t.attach.retryPreparation,
-        _ => null,
-      };
+      _canCancelPreparation(a)
+      ? t.attach.cancelPreparation
+      : _canRetryPreparation(a)
+      ? t.attach.retryPreparation
+      : null;
 
   VoidCallback? _preparationAction(PendingAttachment a) {
     if (a.preparationBusy) return null;
-    return switch (a.preparation?.status) {
-      'pending' || 'running' => () => _att.cancelPreparation(a.localId),
-      'failed' || 'cancelled' => () => _att.retryPreparation(a.localId),
-      _ => null,
-    };
+    if (_canCancelPreparation(a)) {
+      return () => _att.cancelPreparation(a.localId);
+    }
+    if (_canRetryPreparation(a)) return () => _att.retryPreparation(a.localId);
+    return null;
+  }
+
+  bool _canCancelPreparation(PendingAttachment a) {
+    final p = a.preparation;
+    return p != null &&
+        (p.canCancel || p.status == 'pending' || p.status == 'running');
+  }
+
+  bool _canRetryPreparation(PendingAttachment a) {
+    final p = a.preparation;
+    return p != null &&
+        (p.canRetry || p.status == 'failed' || p.status == 'cancelled');
   }
 
   Widget? _composerStrip(

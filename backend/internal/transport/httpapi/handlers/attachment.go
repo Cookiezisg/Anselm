@@ -155,6 +155,7 @@ func (h *AttachmentHandler) mutatePreparation(w http.ResponseWriter, r *http.Req
 	if h.media == nil {
 		responsehttpapi.Success(w, http.StatusServiceUnavailable, mediaapp.Preparation{
 			Status:    mediaapp.PreparationStatusUnavailable,
+			Phase:     "unavailable",
 			ErrorCode: "MEDIA_PREPARATION_UNAVAILABLE",
 		})
 		return
@@ -192,7 +193,7 @@ func (h *AttachmentHandler) response(ctx context.Context, a *attachmentdomain.At
 	prep, err := h.media.Preparation(ctx, a.ID)
 	if err != nil {
 		h.log.Warn("attachment: media preparation unavailable", zap.String("attachment_id", a.ID), zap.Error(err))
-		prep = mediaapp.Preparation{Status: mediaapp.PreparationStatusUnavailable, ErrorCode: "MEDIA_PREPARATION_UNAVAILABLE"}
+		prep = mediaapp.Preparation{Status: mediaapp.PreparationStatusUnavailable, Phase: "unavailable", ErrorCode: "MEDIA_PREPARATION_UNAVAILABLE"}
 	}
 	out.Preparation = &prep
 	return out

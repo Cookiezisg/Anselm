@@ -323,7 +323,7 @@ $AttachmentPreparationCopyWith<$Res>? get preparation {
 /// @nodoc
 mixin _$AttachmentPreparation {
 
- String get status; String get target; int get width; int get height; String get mimeType; int get sizeBytes; String get errorCode;
+ String get status; String get phase; String get target; int get width; int get height; String get mimeType; int get sizeBytes; String get errorCode; bool get canCancel; bool get canRetry; DateTime? get updatedAt;
 /// Create a copy of AttachmentPreparation
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -336,16 +336,16 @@ $AttachmentPreparationCopyWith<AttachmentPreparation> get copyWith => _$Attachme
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is AttachmentPreparation&&(identical(other.status, status) || other.status == status)&&(identical(other.target, target) || other.target == target)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is AttachmentPreparation&&(identical(other.status, status) || other.status == status)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.target, target) || other.target == target)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.canCancel, canCancel) || other.canCancel == canCancel)&&(identical(other.canRetry, canRetry) || other.canRetry == canRetry)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,status,target,width,height,mimeType,sizeBytes,errorCode);
+int get hashCode => Object.hash(runtimeType,status,phase,target,width,height,mimeType,sizeBytes,errorCode,canCancel,canRetry,updatedAt);
 
 @override
 String toString() {
-  return 'AttachmentPreparation(status: $status, target: $target, width: $width, height: $height, mimeType: $mimeType, sizeBytes: $sizeBytes, errorCode: $errorCode)';
+  return 'AttachmentPreparation(status: $status, phase: $phase, target: $target, width: $width, height: $height, mimeType: $mimeType, sizeBytes: $sizeBytes, errorCode: $errorCode, canCancel: $canCancel, canRetry: $canRetry, updatedAt: $updatedAt)';
 }
 
 
@@ -356,7 +356,7 @@ abstract mixin class $AttachmentPreparationCopyWith<$Res>  {
   factory $AttachmentPreparationCopyWith(AttachmentPreparation value, $Res Function(AttachmentPreparation) _then) = _$AttachmentPreparationCopyWithImpl;
 @useResult
 $Res call({
- String status, String target, int width, int height, String mimeType, int sizeBytes, String errorCode
+ String status, String phase, String target, int width, int height, String mimeType, int sizeBytes, String errorCode, bool canCancel, bool canRetry, DateTime? updatedAt
 });
 
 
@@ -373,16 +373,20 @@ class _$AttachmentPreparationCopyWithImpl<$Res>
 
 /// Create a copy of AttachmentPreparation
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? target = null,Object? width = null,Object? height = null,Object? mimeType = null,Object? sizeBytes = null,Object? errorCode = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? status = null,Object? phase = null,Object? target = null,Object? width = null,Object? height = null,Object? mimeType = null,Object? sizeBytes = null,Object? errorCode = null,Object? canCancel = null,Object? canRetry = null,Object? updatedAt = freezed,}) {
   return _then(_self.copyWith(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
 as String,target: null == target ? _self.target : target // ignore: cast_nullable_to_non_nullable
 as String,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
 as int,mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast_nullable_to_non_nullable
 as String,sizeBytes: null == sizeBytes ? _self.sizeBytes : sizeBytes // ignore: cast_nullable_to_non_nullable
 as int,errorCode: null == errorCode ? _self.errorCode : errorCode // ignore: cast_nullable_to_non_nullable
-as String,
+as String,canCancel: null == canCancel ? _self.canCancel : canCancel // ignore: cast_nullable_to_non_nullable
+as bool,canRetry: null == canRetry ? _self.canRetry : canRetry // ignore: cast_nullable_to_non_nullable
+as bool,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 
@@ -467,10 +471,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String status,  String target,  int width,  int height,  String mimeType,  int sizeBytes,  String errorCode)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String status,  String phase,  String target,  int width,  int height,  String mimeType,  int sizeBytes,  String errorCode,  bool canCancel,  bool canRetry,  DateTime? updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _AttachmentPreparation() when $default != null:
-return $default(_that.status,_that.target,_that.width,_that.height,_that.mimeType,_that.sizeBytes,_that.errorCode);case _:
+return $default(_that.status,_that.phase,_that.target,_that.width,_that.height,_that.mimeType,_that.sizeBytes,_that.errorCode,_that.canCancel,_that.canRetry,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -488,10 +492,10 @@ return $default(_that.status,_that.target,_that.width,_that.height,_that.mimeTyp
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String status,  String target,  int width,  int height,  String mimeType,  int sizeBytes,  String errorCode)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String status,  String phase,  String target,  int width,  int height,  String mimeType,  int sizeBytes,  String errorCode,  bool canCancel,  bool canRetry,  DateTime? updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _AttachmentPreparation():
-return $default(_that.status,_that.target,_that.width,_that.height,_that.mimeType,_that.sizeBytes,_that.errorCode);case _:
+return $default(_that.status,_that.phase,_that.target,_that.width,_that.height,_that.mimeType,_that.sizeBytes,_that.errorCode,_that.canCancel,_that.canRetry,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -508,10 +512,10 @@ return $default(_that.status,_that.target,_that.width,_that.height,_that.mimeTyp
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String status,  String target,  int width,  int height,  String mimeType,  int sizeBytes,  String errorCode)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String status,  String phase,  String target,  int width,  int height,  String mimeType,  int sizeBytes,  String errorCode,  bool canCancel,  bool canRetry,  DateTime? updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _AttachmentPreparation() when $default != null:
-return $default(_that.status,_that.target,_that.width,_that.height,_that.mimeType,_that.sizeBytes,_that.errorCode);case _:
+return $default(_that.status,_that.phase,_that.target,_that.width,_that.height,_that.mimeType,_that.sizeBytes,_that.errorCode,_that.canCancel,_that.canRetry,_that.updatedAt);case _:
   return null;
 
 }
@@ -523,16 +527,20 @@ return $default(_that.status,_that.target,_that.width,_that.height,_that.mimeTyp
 @JsonSerializable()
 
 class _AttachmentPreparation implements AttachmentPreparation {
-  const _AttachmentPreparation({this.status = 'not_required', this.target = '', this.width = 0, this.height = 0, this.mimeType = '', this.sizeBytes = 0, this.errorCode = ''});
+  const _AttachmentPreparation({this.status = 'not_required', this.phase = '', this.target = '', this.width = 0, this.height = 0, this.mimeType = '', this.sizeBytes = 0, this.errorCode = '', this.canCancel = false, this.canRetry = false, this.updatedAt});
   factory _AttachmentPreparation.fromJson(Map<String, dynamic> json) => _$AttachmentPreparationFromJson(json);
 
 @override@JsonKey() final  String status;
+@override@JsonKey() final  String phase;
 @override@JsonKey() final  String target;
 @override@JsonKey() final  int width;
 @override@JsonKey() final  int height;
 @override@JsonKey() final  String mimeType;
 @override@JsonKey() final  int sizeBytes;
 @override@JsonKey() final  String errorCode;
+@override@JsonKey() final  bool canCancel;
+@override@JsonKey() final  bool canRetry;
+@override final  DateTime? updatedAt;
 
 /// Create a copy of AttachmentPreparation
 /// with the given fields replaced by the non-null parameter values.
@@ -547,16 +555,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AttachmentPreparation&&(identical(other.status, status) || other.status == status)&&(identical(other.target, target) || other.target == target)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _AttachmentPreparation&&(identical(other.status, status) || other.status == status)&&(identical(other.phase, phase) || other.phase == phase)&&(identical(other.target, target) || other.target == target)&&(identical(other.width, width) || other.width == width)&&(identical(other.height, height) || other.height == height)&&(identical(other.mimeType, mimeType) || other.mimeType == mimeType)&&(identical(other.sizeBytes, sizeBytes) || other.sizeBytes == sizeBytes)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.canCancel, canCancel) || other.canCancel == canCancel)&&(identical(other.canRetry, canRetry) || other.canRetry == canRetry)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,status,target,width,height,mimeType,sizeBytes,errorCode);
+int get hashCode => Object.hash(runtimeType,status,phase,target,width,height,mimeType,sizeBytes,errorCode,canCancel,canRetry,updatedAt);
 
 @override
 String toString() {
-  return 'AttachmentPreparation(status: $status, target: $target, width: $width, height: $height, mimeType: $mimeType, sizeBytes: $sizeBytes, errorCode: $errorCode)';
+  return 'AttachmentPreparation(status: $status, phase: $phase, target: $target, width: $width, height: $height, mimeType: $mimeType, sizeBytes: $sizeBytes, errorCode: $errorCode, canCancel: $canCancel, canRetry: $canRetry, updatedAt: $updatedAt)';
 }
 
 
@@ -567,7 +575,7 @@ abstract mixin class _$AttachmentPreparationCopyWith<$Res> implements $Attachmen
   factory _$AttachmentPreparationCopyWith(_AttachmentPreparation value, $Res Function(_AttachmentPreparation) _then) = __$AttachmentPreparationCopyWithImpl;
 @override @useResult
 $Res call({
- String status, String target, int width, int height, String mimeType, int sizeBytes, String errorCode
+ String status, String phase, String target, int width, int height, String mimeType, int sizeBytes, String errorCode, bool canCancel, bool canRetry, DateTime? updatedAt
 });
 
 
@@ -584,16 +592,20 @@ class __$AttachmentPreparationCopyWithImpl<$Res>
 
 /// Create a copy of AttachmentPreparation
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? target = null,Object? width = null,Object? height = null,Object? mimeType = null,Object? sizeBytes = null,Object? errorCode = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? status = null,Object? phase = null,Object? target = null,Object? width = null,Object? height = null,Object? mimeType = null,Object? sizeBytes = null,Object? errorCode = null,Object? canCancel = null,Object? canRetry = null,Object? updatedAt = freezed,}) {
   return _then(_AttachmentPreparation(
 status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
+as String,phase: null == phase ? _self.phase : phase // ignore: cast_nullable_to_non_nullable
 as String,target: null == target ? _self.target : target // ignore: cast_nullable_to_non_nullable
 as String,width: null == width ? _self.width : width // ignore: cast_nullable_to_non_nullable
 as int,height: null == height ? _self.height : height // ignore: cast_nullable_to_non_nullable
 as int,mimeType: null == mimeType ? _self.mimeType : mimeType // ignore: cast_nullable_to_non_nullable
 as String,sizeBytes: null == sizeBytes ? _self.sizeBytes : sizeBytes // ignore: cast_nullable_to_non_nullable
 as int,errorCode: null == errorCode ? _self.errorCode : errorCode // ignore: cast_nullable_to_non_nullable
-as String,
+as String,canCancel: null == canCancel ? _self.canCancel : canCancel // ignore: cast_nullable_to_non_nullable
+as bool,canRetry: null == canRetry ? _self.canRetry : canRetry // ignore: cast_nullable_to_non_nullable
+as bool,updatedAt: freezed == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 

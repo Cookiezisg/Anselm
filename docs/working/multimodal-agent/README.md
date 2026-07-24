@@ -816,7 +816,9 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   不会留下 DB 指向已删除文件。
 - 已落地（fake processor worker tests）：media service 使用 fake processor 覆盖 durable identity 去重、
   worker ready 写入、retry 重新入队、running cancel 胜过迟到 ready 写入等核心并发/恢复路径。
-- 进度模型。
+- 已落地（preparation progress model）：`preparation` DTO 新增 `phase`、`canCancel`、`canRetry`、`updatedAt`；
+  phase 只表达诚实阶段（queued/processing/ready/failed/cancelled/not_required/unavailable），不伪造百分比。
+  前端优先使用服务端 action hints，旧状态仍作 fallback。
 
 **出口**：同一附件重复请求不重算，参数/source 改变准确失效。
 

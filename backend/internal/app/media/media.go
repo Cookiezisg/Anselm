@@ -72,13 +72,17 @@ const (
 //
 // Preparation 是面向 UI 的附件媒体准备状态面。它刻意只含元数据：无 URL、无字节、无任务化 prompt 文本。
 type Preparation struct {
-	Status    string `json:"status"`
-	Target    string `json:"target,omitempty"`
-	Width     int    `json:"width,omitempty"`
-	Height    int    `json:"height,omitempty"`
-	MimeType  string `json:"mimeType,omitempty"`
-	SizeBytes int64  `json:"sizeBytes,omitempty"`
-	ErrorCode string `json:"errorCode,omitempty"`
+	Status    string     `json:"status"`
+	Phase     string     `json:"phase,omitempty"`
+	Target    string     `json:"target,omitempty"`
+	Width     int        `json:"width,omitempty"`
+	Height    int        `json:"height,omitempty"`
+	MimeType  string     `json:"mimeType,omitempty"`
+	SizeBytes int64      `json:"sizeBytes,omitempty"`
+	ErrorCode string     `json:"errorCode,omitempty"`
+	CanCancel bool       `json:"canCancel,omitempty"`
+	CanRetry  bool       `json:"canRetry,omitempty"`
+	UpdatedAt *time.Time `json:"updatedAt,omitempty"`
 }
 
 const (
@@ -385,7 +389,7 @@ func (s *Service) CancelPreparation(ctx context.Context, attachmentID string) (P
 		return Preparation{}, err
 	}
 	if a.Kind != attachmentdomain.KindImage {
-		return Preparation{Status: PreparationStatusNotRequired}, nil
+		return Preparation{Status: PreparationStatusNotRequired, Phase: "not_required"}, nil
 	}
 	derivative, _, err := s.ClaimDerivative(ctx, attachmentID, DerivativeModelDefault, ImageDerivativeParams{Version: 2, Quality: 90, Format: "auto"})
 	if err != nil {
@@ -404,7 +408,7 @@ func (s *Service) RetryPreparation(ctx context.Context, attachmentID string) (Pr
 		return Preparation{}, err
 	}
 	if a.Kind != attachmentdomain.KindImage {
-		return Preparation{Status: PreparationStatusNotRequired}, nil
+		return Preparation{Status: PreparationStatusNotRequired, Phase: "not_required"}, nil
 	}
 	derivative, _, err := s.ClaimDerivative(ctx, attachmentID, DerivativeModelDefault, ImageDerivativeParams{Version: 2, Quality: 90, Format: "auto"})
 	if err != nil {
@@ -429,7 +433,7 @@ func (s *Service) Preparation(ctx context.Context, attachmentID string) (Prepara
 		return Preparation{}, err
 	}
 	if a.Kind != attachmentdomain.KindImage {
-		return Preparation{Status: PreparationStatusNotRequired}, nil
+		return Preparation{Status: PreparationStatusNotRequired, Phase: "not_required"}, nil
 	}
 	derivative, _, err := s.ClaimDerivative(ctx, attachmentID, DerivativeModelDefault, ImageDerivativeParams{Version: 2, Quality: 90, Format: "auto"})
 	if err != nil {
@@ -440,7 +444,7 @@ func (s *Service) Preparation(ctx context.Context, attachmentID string) (Prepara
 
 func preparationFromDerivative(derivative *mediadomain.Derivative) Preparation {
 	if derivative == nil {
-		return Preparation{Status: PreparationStatusUnavailable}
+		return Preparation{Status: PreparationStatusUnavailable, Phase: "unavailable"}
 	}
 	status := derivative.Status
 	switch status {
@@ -448,14 +452,42 @@ func preparationFromDerivative(derivative *mediadomain.Derivative) Preparation {
 	default:
 		status = PreparationStatusUnavailable
 	}
+	updatedAt := derivative.UpdatedAt
+	var updatedAtPtr *time.Time
+	if !updatedAt.IsZero() {
+		updatedAtPtr = &updatedAt
+	}
 	return Preparation{
 		Status:    status,
+		Phase:     preparationPhase(status),
 		Target:    derivative.Kind,
 		Width:     derivative.Width,
 		Height:    derivative.Height,
 		MimeType:  derivative.MimeType,
 		SizeBytes: derivative.SizeBytes,
 		ErrorCode: derivative.ErrorCode,
+		CanCancel: status == mediadomain.StatusPending || status == mediadomain.StatusRunning,
+		CanRetry:  status == mediadomain.StatusFailed || status == mediadomain.StatusCancelled,
+		UpdatedAt: updatedAtPtr,
+	}
+}
+
+func preparationPhase(status string) string {
+	switch status {
+	case mediadomain.StatusPending:
+		return "queued"
+	case mediadomain.StatusRunning:
+		return "processing"
+	case mediadomain.StatusReady:
+		return "ready"
+	case mediadomain.StatusFailed:
+		return "failed"
+	case mediadomain.StatusCancelled:
+		return "cancelled"
+	case PreparationStatusNotRequired:
+		return "not_required"
+	default:
+		return "unavailable"
 	}
 }
 

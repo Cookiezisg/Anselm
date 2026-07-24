@@ -40,22 +40,32 @@ _AttachmentPreparation _$AttachmentPreparationFromJson(
   Map<String, dynamic> json,
 ) => _AttachmentPreparation(
   status: json['status'] as String? ?? 'not_required',
+  phase: json['phase'] as String? ?? '',
   target: json['target'] as String? ?? '',
   width: (json['width'] as num?)?.toInt() ?? 0,
   height: (json['height'] as num?)?.toInt() ?? 0,
   mimeType: json['mimeType'] as String? ?? '',
   sizeBytes: (json['sizeBytes'] as num?)?.toInt() ?? 0,
   errorCode: json['errorCode'] as String? ?? '',
+  canCancel: json['canCancel'] as bool? ?? false,
+  canRetry: json['canRetry'] as bool? ?? false,
+  updatedAt: json['updatedAt'] == null
+      ? null
+      : DateTime.parse(json['updatedAt'] as String),
 );
 
 Map<String, dynamic> _$AttachmentPreparationToJson(
   _AttachmentPreparation instance,
 ) => <String, dynamic>{
   'status': instance.status,
+  'phase': instance.phase,
   'target': instance.target,
   'width': instance.width,
   'height': instance.height,
   'mimeType': instance.mimeType,
   'sizeBytes': instance.sizeBytes,
   'errorCode': instance.errorCode,
+  'canCancel': instance.canCancel,
+  'canRetry': instance.canRetry,
+  'updatedAt': instance.updatedAt?.toIso8601String(),
 };
