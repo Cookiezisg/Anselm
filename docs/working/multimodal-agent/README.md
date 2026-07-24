@@ -862,7 +862,9 @@ lease refresh/reuse 与生产 E2E 验证。
   `offset/chars/page/preview` 与继续读取说明，不返回全文；有 `# Page N` 标记的 PDF/文档按页形成 chunk，
   无页标记时按固定字符窗口切分。超长索引可用 `nextOffset` + `index:true` 继续枚举，Agent 可先看索引，
   再用 query 或 offset 精读相关片段。
-- OCR/tiles；
+- 已落地（图片 tiles）：`inspect_media(tiles:true)` 对 image 返回原图尺寸与 normalized tile crop map，
+  不调用模型、不传图片；Agent 可先用它给长截图/密集图定位，再用返回的 crop 做一次视觉精查。
+- OCR；
 - document parse/chunk/index/map-reduce；
 - 视觉/文档质量与 token/延迟 A/B。
 

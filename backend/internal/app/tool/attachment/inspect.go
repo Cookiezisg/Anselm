@@ -1,6 +1,7 @@
 package attachment
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/json"
@@ -9,6 +10,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+
+	"github.com/disintegration/imaging"
 
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	mediaapp "github.com/sunweilin/anselm/backend/internal/app/media"
@@ -21,9 +24,11 @@ const (
 	inspectMediaMaxOutputTokens       = 900
 	inspectMediaTextDefaultLimitChars = 12_000
 	inspectMediaTextMaxLimitChars     = 40_000
+	inspectMediaMaxTileRows           = 8
+	inspectMediaMaxTileCols           = 8
 )
 
-const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId and return concise, bounded text evidence. For images, this uses the default vision-capable Anselm route and sends only one bounded image proxy/crop; it does not dump image bytes into the conversation. For text/documents, it reuses local extraction plus query/page/offset windows and does not call a model, so large files are returned as evidence slices instead of flooding context. Audio/video time ranges are future capabilities and return a self-correcting note.`
+const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId and return concise, bounded text evidence. For images, this uses the default vision-capable Anselm route and sends only one bounded image proxy/crop; it does not dump image bytes into the conversation. For long or dense images, pass tiles:true first to get a compact normalized tile map without calling a model, then inspect a chosen crop. For text/documents, it reuses local extraction plus query/page/offset windows and does not call a model, so large files are returned as evidence slices instead of flooding context. Audio/video time ranges are future capabilities and return a self-correcting note.`
 
 var inspectMediaSchema = json.RawMessage(`{
 	"type": "object",
@@ -39,6 +44,9 @@ var inspectMediaSchema = json.RawMessage(`{
 		"maxMatches": {"type": "integer", "minimum": 1, "maximum": 10, "description": "For text/document query mode, max literal matches. Defaults to 5."},
 		"startMs": {"type": "integer", "minimum": 0, "description": "Reserved for audio/video inspection; not supported yet."},
 		"endMs": {"type": "integer", "minimum": 0, "description": "Reserved for audio/video inspection; not supported yet."},
+		"tiles": {"type": "boolean", "description": "For image attachments, return a compact normalized tile map instead of calling a vision model. Use a returned crop with a follow-up inspect_media call."},
+		"tileRows": {"type": "integer", "minimum": 1, "maximum": 8, "description": "Optional tile rows for image tiles mode. Defaults from image aspect ratio."},
+		"tileCols": {"type": "integer", "minimum": 1, "maximum": 8, "description": "Optional tile columns for image tiles mode. Defaults from image aspect ratio."},
 		"crop": {
 			"type": "object",
 			"description": "Optional normalized crop rectangle over the image before inspection.",
@@ -136,6 +144,12 @@ func (t *InspectMedia) ValidateInput(args json.RawMessage) error {
 	if a.EndMS > 0 && a.StartMS > 0 && a.EndMS <= a.StartMS {
 		return fmt.Errorf("inspect_media: endMs must be greater than startMs")
 	}
+	if a.TileRows < 0 || a.TileRows > inspectMediaMaxTileRows {
+		return fmt.Errorf("inspect_media: tileRows must be 0/default or between 1 and %d", inspectMediaMaxTileRows)
+	}
+	if a.TileCols < 0 || a.TileCols > inspectMediaMaxTileCols {
+		return fmt.Errorf("inspect_media: tileCols must be 0/default or between 1 and %d", inspectMediaMaxTileCols)
+	}
 	return nil
 }
 
@@ -166,6 +180,9 @@ func (t *InspectMedia) Execute(ctx context.Context, argsJSON string) (string, er
 	_, original, err := t.svc.Download(ctx, args.AttachmentID)
 	if err != nil {
 		return "", err
+	}
+	if args.Tiles {
+		return inspectImageTiles(meta, original, args)
 	}
 	bundle, err := t.resolver.ResolveInspectMedia(ctx)
 	if err != nil {
@@ -219,6 +236,9 @@ type inspectMediaArgs struct {
 	MaxMatches   int          `json:"maxMatches"`
 	StartMS      int64        `json:"startMs"`
 	EndMS        int64        `json:"endMs"`
+	Tiles        bool         `json:"tiles"`
+	TileRows     int          `json:"tileRows"`
+	TileCols     int          `json:"tileCols"`
 	Crop         *inspectCrop `json:"crop"`
 	Detail       string       `json:"detail"`
 }
@@ -248,6 +268,25 @@ type inspectMediaResult struct {
 	Transport    string       `json:"transport"`
 	Notes        []string     `json:"notes,omitempty"`
 	Answer       string       `json:"answer"`
+}
+
+type inspectImageTilesResult struct {
+	AttachmentID string             `json:"attachmentId"`
+	Filename     string             `json:"filename"`
+	Mime         string             `json:"mime"`
+	Width        int                `json:"width"`
+	Height       int                `json:"height"`
+	TileRows     int                `json:"tileRows"`
+	TileCols     int                `json:"tileCols"`
+	Tiles        []inspectImageTile `json:"tiles"`
+	Usage        string             `json:"usage"`
+}
+
+type inspectImageTile struct {
+	Index int         `json:"index"`
+	Row   int         `json:"row"`
+	Col   int         `json:"col"`
+	Crop  inspectCrop `json:"crop"`
 }
 
 type inspectTextResult struct {
@@ -299,6 +338,83 @@ func (t *InspectMedia) inspectTextual(ctx context.Context, meta *attachmentdomai
 		Notes:        notes,
 		Evidence:     evidence,
 	}), nil
+}
+
+func inspectImageTiles(meta *attachmentdomain.Attachment, original []byte, args inspectMediaArgs) (string, error) {
+	img, err := imaging.Decode(bytes.NewReader(original), imaging.AutoOrientation(true))
+	if err != nil {
+		return "", fmt.Errorf("inspect_media: decode image for tiles: %w", err)
+	}
+	bounds := img.Bounds()
+	width, height := bounds.Dx(), bounds.Dy()
+	rows, cols := normalizedTileGrid(width, height, args.TileRows, args.TileCols)
+	tiles := make([]inspectImageTile, 0, rows*cols)
+	for row := 0; row < rows; row++ {
+		for col := 0; col < cols; col++ {
+			x0 := float64(col) / float64(cols)
+			y0 := float64(row) / float64(rows)
+			x1 := float64(col+1) / float64(cols)
+			y1 := float64(row+1) / float64(rows)
+			tiles = append(tiles, inspectImageTile{
+				Index: len(tiles) + 1,
+				Row:   row + 1,
+				Col:   col + 1,
+				Crop: inspectCrop{
+					X:      roundCropCoord(x0),
+					Y:      roundCropCoord(y0),
+					Width:  roundCropCoord(x1 - x0),
+					Height: roundCropCoord(y1 - y0),
+				},
+			})
+		}
+	}
+	return toolappJSON(inspectImageTilesResult{
+		AttachmentID: meta.ID,
+		Filename:     meta.Filename,
+		Mime:         meta.MimeType,
+		Width:        width,
+		Height:       height,
+		TileRows:     rows,
+		TileCols:     cols,
+		Tiles:        tiles,
+		Usage:        "Pick a tile crop and call inspect_media again with that crop and a specific question. tiles:true does not call a vision model.",
+	}), nil
+}
+
+func normalizedTileGrid(width, height, requestedRows, requestedCols int) (int, int) {
+	rows, cols := requestedRows, requestedCols
+	if rows == 0 && cols == 0 {
+		switch {
+		case height > width*2 && width > 0:
+			rows = min(inspectMediaMaxTileRows, max(2, ceilDiv(height, max(1, width*2))))
+			cols = 1
+		case width > height*2 && height > 0:
+			rows = 1
+			cols = min(inspectMediaMaxTileCols, max(2, ceilDiv(width, max(1, height*2))))
+		default:
+			rows = 2
+			cols = 2
+		}
+	}
+	if rows == 0 {
+		rows = 1
+	}
+	if cols == 0 {
+		cols = 1
+	}
+	return min(inspectMediaMaxTileRows, max(1, rows)), min(inspectMediaMaxTileCols, max(1, cols))
+}
+
+func ceilDiv(a, b int) int {
+	if b <= 0 {
+		return a
+	}
+	return (a + b - 1) / b
+}
+
+func roundCropCoord(v float64) float64 {
+	rounded, _ := strconv.ParseFloat(fmt.Sprintf("%.6f", v), 64)
+	return rounded
 }
 
 func (t *InspectMedia) renderImage(ctx context.Context, meta *attachmentdomain.Attachment, original []byte, args inspectMediaArgs) (renderedInspectImage, error) {

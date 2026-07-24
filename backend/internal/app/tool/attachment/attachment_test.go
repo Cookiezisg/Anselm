@@ -499,6 +499,48 @@ func TestInspectMedia_ManagedGatewayStagesBoundedProxy(t *testing.T) {
 	}
 }
 
+func TestInspectMedia_ImageTilesReturnsCropMapWithoutCallingModel(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	img := image.NewNRGBA(image.Rect(0, 0, 20, 100))
+	for y := 0; y < 100; y++ {
+		for x := 0; x < 20; x++ {
+			img.SetNRGBA(x, y, color.NRGBA{R: 255, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+	a, err := svc.Upload(ctx, "long.png", "image/png", buf.Bytes())
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	client := llminfra.NewMockClient()
+	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{Client: client, Vision: true}}}
+	out, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"map the screenshot","tiles":true}`)
+	if err != nil {
+		t.Fatalf("inspect tiles: %v", err)
+	}
+	var got inspectImageTilesResult
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("tiles should be JSON: %v\n%s", err, out)
+	}
+	if got.Width != 20 || got.Height != 100 || got.TileRows < 2 || got.TileCols != 1 || len(got.Tiles) != got.TileRows {
+		t.Fatalf("unexpected tile map: %+v", got)
+	}
+	first := got.Tiles[0]
+	if first.Index != 1 || first.Row != 1 || first.Col != 1 ||
+		first.Crop.X != 0 || first.Crop.Y != 0 || first.Crop.Width != 1 || first.Crop.Height <= 0 {
+		t.Fatalf("first tile crop wrong: %+v", first)
+	}
+	if client.CallCount() != 0 {
+		t.Fatalf("tiles mode must not call the vision model, calls=%d", client.CallCount())
+	}
+	if !strings.Contains(got.Usage, "crop") || !strings.Contains(got.Usage, "does not call a vision model") {
+		t.Fatalf("usage should guide follow-up crop inspection: %+v", got)
+	}
+}
+
 func TestInspectMedia_TextQueryReturnsBoundedEvidenceWithoutCallingModel(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	body := strings.Repeat("alpha ", 20) + "needle payload " + strings.Repeat("tail ", 20)
