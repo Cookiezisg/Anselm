@@ -20,6 +20,7 @@ help:
 	@echo "  make test      run Go unit tests"
 	@echo "  make testend   run black-box acceptance tests (slow)"
 	@echo "  make evals     run real-model golden journeys (costs tokens)"
+	@echo "  make qwen-evals run opt-in Qwen image/video/audio + tool golden (costs tokens)"
 	@echo "  make build     build ../bin/anselm-server"
 	@echo "  make verify    check format, vet, build, and tests"
 	@echo "  make clean     remove backend build output and dev data"
@@ -85,6 +86,15 @@ evals: deps
 	@set -a; [ -f $(ROOT)/.env ] && source $(ROOT)/.env; set +a; \
 	cd $(ROOT)/testend && EVALS=1 $(RUN) go test -count=1 -timeout 30m ./golden/...
 
+# Requires EVALS_KEY and EVALS_BASE_URL to be supplied by the caller. The test itself enforces
+# provider=qwen and materializes hash-verified fixtures; no key or endpoint is stored in this repo.
+qwen-evals: deps
+	@set -a; [ -f $(ROOT)/.env ] && source $(ROOT)/.env; set +a; \
+	[ -n "$$EVALS_KEY" ] || { echo "✗ qwen-evals requires EVALS_KEY in the invoking environment"; exit 2; }; \
+	[ -n "$$EVALS_BASE_URL" ] || { echo "✗ qwen-evals requires workspace-specific EVALS_BASE_URL"; exit 2; }; \
+	cd $(ROOT)/testend && EVALS=1 EVALS_QWEN_MULTIMODAL=1 EVALS_PROVIDER=qwen \
+	$(RUN) go test -count=1 -timeout 30m -run '^TestGolden_C2_QwenMultimodalInputAndToolContinuation$$' ./golden/...
+
 build: deps
 	@mkdir -p $(ROOT)/bin
 	@$(RUN) go build -o $(ROOT)/bin/anselm-server ./cmd/server
@@ -106,4 +116,4 @@ clean: stop
 	@rm -rf $(DATA) $(ROOT)/bin/anselm-server
 	@echo "✓ backend cleaned"
 
-.PHONY: help toolchain setup deps run seed stop format test testend evals build verify clean
+.PHONY: help toolchain setup deps run seed stop format test testend evals qwen-evals build verify clean

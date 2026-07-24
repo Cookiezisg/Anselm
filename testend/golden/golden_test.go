@@ -33,19 +33,21 @@ func TestMain(m *testing.M) {
 }
 
 // realModel resolves the real-model wire config from the environment. EVALS_* win; otherwise
-// fall back to deepseek (key from DEEPSEEK_API_KEY, the repo-root .env name). Empty key → skip.
+// fall back to DeepSeek (key from DEEPSEEK_API_KEY, the repo-root .env name). EVALS_PROVIDER
+// selects the wire dialect; it defaults to deepseek so existing golden commands do not change.
 //
-// realModel 从环境解析真模型线缆配置。EVALS_* 优先；否则落 deepseek（key 取 DEEPSEEK_API_KEY，
-// 仓库根 .env 的名字）。key 空 → skip。
-func realModel(t *testing.T) (baseURL, model, key string) {
+// realModel 从环境解析真模型线缆配置。EVALS_* 优先；否则落 DeepSeek（key 取 DEEPSEEK_API_KEY，
+// 仓库根 .env 的名字）。EVALS_PROVIDER 选 wire dialect，默认 deepseek 保持既有命令行为。key 空 → skip。
+func realModel(t *testing.T) (provider, baseURL, model, key string) {
 	t.Helper()
 	key = firstNonEmpty(os.Getenv("EVALS_KEY"), os.Getenv("DEEPSEEK_API_KEY"))
 	if key == "" {
 		t.Skip("no real-model key (set DEEPSEEK_API_KEY or EVALS_KEY); make evals loads repo-root .env")
 	}
+	provider = firstNonEmpty(os.Getenv("EVALS_PROVIDER"), "deepseek")
 	baseURL = firstNonEmpty(os.Getenv("EVALS_BASE_URL"), "https://api.deepseek.com")
 	model = firstNonEmpty(os.Getenv("EVALS_MODEL"), "deepseek-v4-flash")
-	return baseURL, model, key
+	return provider, baseURL, model, key
 }
 
 func firstNonEmpty(vs ...string) string {
@@ -57,22 +59,22 @@ func firstNonEmpty(vs ...string) string {
 	return ""
 }
 
-// evalWS boots a server, registers the real model as an openai-format key, probes it, and sets
+// evalWS boots a server, registers the real model with its actual provider dialect, probes it, and sets
 // it as the default for the requested scenarios. Returns the workspace-bound client.
 //
-// evalWS 拉起 server、把真模型注册成 openai 格式 key、探活、设为所点 scenario 的默认，返回绑
+// evalWS 拉起 server、把真模型按实际 provider 注册为 key、探活、设为所点 scenario 的默认，返回绑
 // workspace 的 client。
 func evalWS(t *testing.T, scenarios ...string) *harness.Client {
 	t.Helper()
-	baseURL, model, key := realModel(t)
+	provider, baseURL, model, key := realModel(t)
 	srv := harness.Start(t)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "eval-ws", "language": "en"}).Field(t, "id")
 	wc := c.WS(wsID)
-	// provider 用 "deepseek"（真实用户的选法）。外部模型的静态目录只辅助能力渲染，绝不
-	// 作为上下文预算权威；长对话金标会让它自然撞真实上游窗口，再验证透明恢复与运行时学习。
+	// 外部模型的静态目录只辅助能力渲染，绝不作为上下文预算权威；长对话金标会让它自然撞真实上游
+	// 窗口，再验证透明恢复与运行时学习。C2 Qwen 金标必须经 qwen provider，不能借 OpenAI renderer。
 	keyID := wc.POST("/api/v1/api-keys", map[string]any{
-		"provider": "deepseek", "displayName": "deepseek", "key": key, "baseUrl": baseURL,
+		"provider": provider, "displayName": provider, "key": key, "baseUrl": baseURL,
 	}).Field(t, "id")
 	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
 	if len(scenarios) == 0 {

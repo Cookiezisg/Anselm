@@ -783,7 +783,11 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 - stream/modalities/thinking/tool/usage/error；
 - attachment caps 与 provider specs 一致；
 - 外部模型 API Key 下的 Qwen 新加坡 domain；
-- provider 单元/集成金标。
+- provider 单元/集成金标。已新增显式付费的 C2 黑盒金标：须提供 `EVALS_KEY`、
+  `EVALS_BASE_URL=https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`，再运行
+  `EVALS_PROVIDER=qwen make -C backend qwen-evals`。它校验固定图/MP4/WAV 素材、分别真实调用
+  Qwen3.7 图像/视频、Omni 音频，并确认 Qwen3.7 工具调用后有 `tool_result` 与最终续答；没有本机
+  secret 时安全跳过，绝不以静态测试冒充真实调用。
 
 **出口**：本地外部模型 API Key 下的 Qwen 可分别完成图、视频、音频和工具 continuation。
 
