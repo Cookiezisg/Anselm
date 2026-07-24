@@ -24,7 +24,7 @@ landed-into:
 |---|---|---|
 | **A** | 收掉 audio playback lease 片 | ✅ **完成**(`623c3746`,已推送) |
 | **B** | 跨两仓审计(跨仓契约 / §13 测试矩阵 / §3.3 不变量守卫) | ✅ **完成**(三路 + 主会话亲验,结论见下) |
-| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · **C-3 阻断1:domain 半 ✅、app 半待做** · C-4 ADR 0011 ✅ · C-5 #10 脱敏底座 ✅) |
+| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · **C-3 阻断1:三块地基 ✅、chat 接线待做** · C-4 ADR 0011 ✅ · C-5 #10 脱敏底座 ✅) |
 | **D** | 收口(§15 订正 / 台账 / ADR / CLAUDE 重述 / 归档) | ⏳ 待 C |
 | **E** | 真机端到端验收 + 《真实环境验收指南》 | ⏳ 待 D |
 | **F** | WRK-077 十七步(见 `working/frontend/chat-iteration.md` §7) | ⏳ 待 E |
@@ -254,3 +254,25 @@ token 256 位 `crypto/rand` + URL-safe base64 · `kind=audio` 在签发与取用
 3. **跨接 e2e**:把 media lease 与 chat completion 串起来——这条 bug 活到今天正因两仓测试各覆盖一半
 
 **桌面端配套**:`infra/llm/media.go` 的 `Upload` 现返回**已绝对化**的 URL(它已严格校验 `fetchPath` 必须相对且前缀 `/v1/media/leases/`),受管路由需改为**保留相对形**上行;BYOK 路径不受影响。
+
+
+---
+
+## C-3 阻断 1 · 三块地基已落并推送(网关仓 `59a254f` / `b76efe0` / `264361d`)
+
+网关仓全仓 `go build` + `go vet` + `go test ./...` **54 包全绿**;`deploy/build_stage_test.sh` 通过。
+
+| 块 | 内容 |
+|---|---|
+| **① 形状识别(domain)** `59a254f` | `parseMediaLeaseRef` 只认相对 `/v1/media/leases/{id}/content?token=…`;`validateImage`/`validateVideo` 接受并计**零解码字节**;`MediaLeaseRefs()` 按线缆序交出全部引用。敌意用例逐条钉死,**含指向我们自己 host 的绝对 URL 也必须拒**(一旦允许绝对形,`evil.example` 同样能过) |
+| **② 授权谓词(app/media)** `b76efe0` | `VerifyLease` 比 `OpenLease` **多一条** `lease.InstallID != installID`——OpenLease 服务未鉴权的 provider 拉取路由、签名 token 即全部凭证;chat 运行在已知 install 之下,**别人的 lease 即便 token 验得过也必须拒**。一切失败归并 `ErrNotFound`(不作存在性预言)。不打开对象 |
+| **③ 公开 origin 配置** `264361d` | `MEDIA_PUBLIC_BASE_URL`:`MEDIA_ENABLED` 时必填、**无默认值**(猜错等于把不可达或别人的 URL 交给上游);严校验必须是**裸 https origin**(带 path/query 会让构造的相对引用解析到意外位置,http 等于把带能力 URL 明文交 provider);部署由已校验的 `GATEWAY_DOMAIN` 派生,不新增部署输入 |
+
+### 剩下的最后一块:chat 接线(设计已定死,照做即可)
+
+1. **domain 加一个重写方法**(parts 的字段未导出,重写必须留在 domain 包内):
+   `func (in InboundRequest) WithAbsoluteMediaLeaseURLs(base string) InboundRequest` —— 把每个 lease 引用绝对化为 `base + relativePath`。
+2. **`app/chat.Deps` 加端口**:`MediaLeases interface{ VerifyLease(ctx, installID, leaseID, token string) (string, error) }`,由 `mediaSvc` 实现(已就绪);`bootstrap/build.go:236` 处注入,`MEDIA_ENABLED=false` 时为 nil。
+3. **`service.go` 在 `ValidateAndClassify` 之后、`Reserve` 之前**:取 `MediaLeaseRefs()`;非空而端口为 nil → `ErrMediaUnavailable`;**逐个** `VerifyLease`,任一失败 → 归并的 not-found 错误;全过后 `req = req.WithAbsoluteMediaLeaseURLs(cfg.MediaPublicBaseURL)`。**须先确认 sanitize→forward 路径上被转发的是哪一个请求对象**,重写必须落在真正发给上游的那个。
+4. **跨接 e2e(不可省)**:把 media lease 与 chat completion 串起来——这条 bug 活到今天正因两仓测试各覆盖一半。至少断言:合法 lease 的图片对话成功且上游收到**绝对**URL、他人 lease 被拒、过期 lease 被拒、绝对形引用被拒。
+5. **桌面端配套**:`infra/llm/media.go` 的 `Upload` 现返回**已绝对化**的 URL(它已严格校验 `fetchPath` 必须相对且前缀 `/v1/media/leases/`),受管路由需改为**保留相对形**上行;BYOK 路径不受影响。**两仓必须同批上线**——否则相对形发给旧网关、或绝对形发给新网关,都会被拒。
