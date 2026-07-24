@@ -68,10 +68,13 @@ const modelDefaultImageWait = 2 * time.Second
 // proxies. It is stored as canonical JSON so a worker can reproduce the exact transform represented
 // by ParamsHash.
 type ImageDerivativeParams struct {
-	MaxEdge int        `json:"maxEdge,omitempty"`
-	Quality int        `json:"quality,omitempty"`
-	Format  string     `json:"format,omitempty"`
-	Crop    *ImageCrop `json:"crop,omitempty"`
+	Version   int        `json:"version,omitempty"`
+	MaxEdge   int        `json:"maxEdge,omitempty"`
+	MaxWidth  int        `json:"maxWidth,omitempty"`
+	MaxHeight int        `json:"maxHeight,omitempty"`
+	Quality   int        `json:"quality,omitempty"`
+	Format    string     `json:"format,omitempty"`
+	Crop      *ImageCrop `json:"crop,omitempty"`
 }
 
 type ImageCrop struct {
@@ -191,7 +194,7 @@ func (s *Service) ClaimPerception(ctx context.Context, attachmentID, kind, provi
 // generated yet, this method claims/enqueues the work and returns ready=false so the caller can fall
 // back to the original for this turn without blocking the user.
 func (s *Service) ModelDefaultImage(ctx context.Context, attachmentID string) ([]byte, string, bool, error) {
-	derivative, _, err := s.ClaimDerivative(ctx, attachmentID, DerivativeModelDefault, ImageDerivativeParams{MaxEdge: 2048, Quality: 90, Format: "auto"})
+	derivative, _, err := s.ClaimDerivative(ctx, attachmentID, DerivativeModelDefault, ImageDerivativeParams{Version: 2, Quality: 90, Format: "auto"})
 	if err != nil {
 		return nil, "", false, err
 	}

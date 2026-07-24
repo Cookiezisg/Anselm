@@ -30,7 +30,7 @@ func (p *ImageProcessor) Derive(ctx context.Context, attachment *attachmentdomai
 	if attachment.Kind != attachmentdomain.KindImage {
 		return DerivativeResult{}, fmt.Errorf("mediaapp.ImageProcessor: unsupported attachment kind %q", attachment.Kind)
 	}
-	params, err := parseImageParams(derivative.Kind, derivative.ParamsJSON)
+	params, err := parseImageParams(derivative.ParamsJSON)
 	if err != nil {
 		return DerivativeResult{}, err
 	}
@@ -44,12 +44,12 @@ func (p *ImageProcessor) Derive(ctx context.Context, attachment *attachmentdomai
 			return DerivativeResult{}, err
 		}
 	}
-	if params.MaxEdge > 0 {
-		img = resizeMaxEdge(img, params.MaxEdge)
-	}
+	traits := inspectImage(img)
+	params = applyImageDefaults(derivative.Kind, params, traits)
+	img = resizeToFit(img, params)
 	var out bytes.Buffer
 	mimeType := "image/jpeg"
-	if shouldEncodePNG(params.Format, img) {
+	if shouldEncodePNG(params.Format, img, traits) {
 		mimeType = "image/png"
 		err = imaging.Encode(&out, img, imaging.PNG)
 	} else {
@@ -71,47 +71,83 @@ func (p *ImageProcessor) Perceive(context.Context, *attachmentdomain.Attachment,
 	return PerceptionResult{}, fmt.Errorf("mediaapp.ImageProcessor: perception is not implemented")
 }
 
-func parseImageParams(kind, raw string) (ImageDerivativeParams, error) {
-	params := defaultsForImageKind(kind)
+func parseImageParams(raw string) (ImageDerivativeParams, error) {
+	params := ImageDerivativeParams{}
 	if raw == "" {
 		return params, nil
 	}
 	if err := json.Unmarshal([]byte(raw), &params); err != nil {
 		return ImageDerivativeParams{}, fmt.Errorf("mediaapp.ImageProcessor: params: %w", err)
 	}
-	if params.MaxEdge <= 0 {
-		params.MaxEdge = defaultsForImageKind(kind).MaxEdge
-	}
-	if params.Quality <= 0 {
-		params.Quality = defaultsForImageKind(kind).Quality
-	}
-	if params.Format == "" {
-		params.Format = defaultsForImageKind(kind).Format
-	}
 	return params, nil
 }
 
-func defaultsForImageKind(kind string) ImageDerivativeParams {
+type imageTraits struct {
+	long    bool
+	graphic bool
+	alpha   bool
+}
+
+func applyImageDefaults(kind string, params ImageDerivativeParams, traits imageTraits) ImageDerivativeParams {
+	def := defaultsForImageKind(kind, traits)
+	if params.MaxEdge <= 0 {
+		params.MaxEdge = def.MaxEdge
+	}
+	if params.MaxWidth <= 0 {
+		params.MaxWidth = def.MaxWidth
+	}
+	if params.MaxHeight <= 0 {
+		params.MaxHeight = def.MaxHeight
+	}
+	if params.Quality <= 0 {
+		params.Quality = def.Quality
+	}
+	if params.Format == "" {
+		params.Format = def.Format
+	}
+	return params
+}
+
+func defaultsForImageKind(kind string, traits imageTraits) ImageDerivativeParams {
 	switch kind {
 	case DerivativeThumbnail:
 		return ImageDerivativeParams{MaxEdge: 320, Quality: 82, Format: "auto"}
 	case DerivativeModelDetail:
 		return ImageDerivativeParams{MaxEdge: 2048, Quality: 92, Format: "auto"}
 	default:
+		if traits.long {
+			return ImageDerivativeParams{MaxWidth: 1536, MaxHeight: 8192, Quality: 90, Format: "auto"}
+		}
 		return ImageDerivativeParams{MaxEdge: 2048, Quality: 90, Format: "auto"}
 	}
 }
 
-func resizeMaxEdge(img image.Image, maxEdge int) image.Image {
+func resizeToFit(img image.Image, params ImageDerivativeParams) image.Image {
 	b := img.Bounds()
 	w, h := b.Dx(), b.Dy()
-	if w <= 0 || h <= 0 || (w <= maxEdge && h <= maxEdge) {
+	if w <= 0 || h <= 0 {
 		return img
 	}
-	if w >= h {
-		return imaging.Resize(img, maxEdge, 0, imaging.Lanczos)
+	maxW, maxH := params.MaxWidth, params.MaxHeight
+	if params.MaxEdge > 0 {
+		if maxW <= 0 || params.MaxEdge < maxW {
+			maxW = params.MaxEdge
+		}
+		if maxH <= 0 || params.MaxEdge < maxH {
+			maxH = params.MaxEdge
+		}
 	}
-	return imaging.Resize(img, 0, maxEdge, imaging.Lanczos)
+	if maxW <= 0 {
+		maxW = w
+	}
+	if maxH <= 0 {
+		maxH = h
+	}
+	scale := math.Min(float64(maxW)/float64(w), float64(maxH)/float64(h))
+	if scale >= 1 {
+		return img
+	}
+	return imaging.Resize(img, max(1, int(math.Round(float64(w)*scale))), max(1, int(math.Round(float64(h)*scale))), imaging.Lanczos)
 }
 
 func cropNormalized(img image.Image, crop ImageCrop) (image.Image, error) {
@@ -149,21 +185,39 @@ func clamp01(v float64) float64 {
 	return v
 }
 
-func shouldEncodePNG(format string, img image.Image) bool {
+func inspectImage(img image.Image) imageTraits {
+	b := img.Bounds()
+	w, h := b.Dx(), b.Dy()
+	if w <= 0 || h <= 0 {
+		return imageTraits{}
+	}
+	long := float64(max(w, h))/float64(min(w, h)) >= 3
+	stepX := max(1, w/64)
+	stepY := max(1, h/64)
+	seen := map[uint32]struct{}{}
+	samples := 0
+	alpha := false
+	for y := b.Min.Y; y < b.Max.Y; y += stepY {
+		for x := b.Min.X; x < b.Max.X; x += stepX {
+			r, g, bb, a := color.NRGBAModel.Convert(img.At(x, y)).RGBA()
+			if a != 0xffff {
+				alpha = true
+			}
+			key := uint32((r>>13)<<6 | (g>>13)<<3 | (bb >> 13))
+			seen[key] = struct{}{}
+			samples++
+		}
+	}
+	diversity := float64(len(seen)) / float64(max(1, min(samples, 512)))
+	return imageTraits{long: long, graphic: alpha || diversity < 0.35, alpha: alpha}
+}
+
+func shouldEncodePNG(format string, img image.Image, traits imageTraits) bool {
 	switch strings.ToLower(strings.TrimSpace(format)) {
 	case "png":
 		return true
 	case "jpeg", "jpg":
 		return false
 	}
-	b := img.Bounds()
-	for y := b.Min.Y; y < b.Max.Y; y++ {
-		for x := b.Min.X; x < b.Max.X; x++ {
-			_, _, _, a := color.NRGBAModel.Convert(img.At(x, y)).RGBA()
-			if a != 0xffff {
-				return true
-			}
-		}
-	}
-	return false
+	return traits.alpha || traits.graphic
 }
