@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"database/sql"
+	"encoding/json"
 	"image"
 	"image/color"
 	"image/png"
@@ -154,6 +155,38 @@ func TestReadAttachment_TextPagination(t *testing.T) {
 	}
 }
 
+func TestReadAttachment_IndexReturnsChunkOffsetsWithoutDumpingBody(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	body := strings.Repeat("a", readAttachmentIndexChunkChars*2) +
+		strings.Repeat("b", readAttachmentIndexPreviewChars+8) +
+		"UNINDEXED_SECRET_AFTER_PREVIEW"
+	a, err := svc.Upload(ctx, "long.txt", "text/plain", []byte(body))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","index":true}`)
+	if err != nil {
+		t.Fatalf("read index: %v", err)
+	}
+	var idx attachmentTextIndex
+	if err := json.Unmarshal([]byte(out), &idx); err != nil {
+		t.Fatalf("index should be JSON: %v\n%s", err, out)
+	}
+	if idx.TotalChars != len([]rune(`Attached file "`+a.Filename+`":`+"\n"+body)) || len(idx.Chunks) < 3 {
+		t.Fatalf("index metadata wrong: %+v", idx)
+	}
+	if idx.Chunks[0].Offset != 0 || idx.Chunks[1].Offset != readAttachmentIndexChunkChars ||
+		idx.Chunks[0].Chars != readAttachmentIndexChunkChars {
+		t.Fatalf("chunk offsets wrong: %+v", idx.Chunks[:2])
+	}
+	if strings.Contains(out, "UNINDEXED_SECRET_AFTER_PREVIEW") {
+		t.Fatalf("index should not dump full body text: %q", out)
+	}
+	if !strings.Contains(idx.Usage, "offset") {
+		t.Fatalf("index should tell the agent how to continue: %+v", idx)
+	}
+}
+
 func TestReadAttachment_TextQueryReturnsBoundedSnippets(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	body := strings.Repeat("alpha ", 30) +
@@ -228,6 +261,35 @@ func TestReadAttachment_DocumentUsesTextCache(t *testing.T) {
 	}
 	if cache.calls != 1 || !strings.Contains(out, "cached document text") || strings.Contains(out, "extraction is unavailable") {
 		t.Fatalf("document read should use text cache; calls=%d out=%q", cache.calls, out)
+	}
+}
+
+func TestReadAttachment_IndexIncludesDocumentPageMarkers(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "report.pdf", "application/pdf", []byte("%PDF bytes"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	cache := &fakeTextCache{text: "# Page 1\nintro\n\n# Page 2\ntarget evidence\n\n# Page 3\nappendix"}
+	out, err := (&ReadAttachment{svc: svc, textCache: cache}).Execute(ctx, `{"id":"`+a.ID+`","index":true}`)
+	if err != nil {
+		t.Fatalf("read index: %v", err)
+	}
+	var idx attachmentTextIndex
+	if err := json.Unmarshal([]byte(out), &idx); err != nil {
+		t.Fatalf("index should be JSON: %v\n%s", err, out)
+	}
+	if cache.calls != 1 || len(idx.Chunks) < 3 {
+		t.Fatalf("document index should use cache and expose chunks; calls=%d idx=%+v", cache.calls, idx)
+	}
+	var foundPage2 bool
+	for _, chunk := range idx.Chunks {
+		if chunk.PageStart == 2 && strings.Contains(chunk.Preview, "# Page 2") {
+			foundPage2 = true
+		}
+	}
+	if !foundPage2 {
+		t.Fatalf("page 2 chunk missing from index: %+v", idx.Chunks)
 	}
 }
 

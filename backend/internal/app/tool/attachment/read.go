@@ -15,6 +15,9 @@ import (
 const (
 	readAttachmentDefaultLimitChars = 80_000
 	readAttachmentMaxLimitChars     = 120_000
+	readAttachmentIndexChunkChars   = 8_000
+	readAttachmentIndexMaxChunks    = 200
+	readAttachmentIndexPreviewChars = 160
 
 	readAttachmentDefaultSearchContextChars = 800
 	readAttachmentMaxSearchContextChars     = 2_000
@@ -23,13 +26,14 @@ const (
 	readAttachmentMaxQueryChars             = 512
 )
 
-const readAttachmentDescription = `Read an uploaded attachment's content back into the conversation by id (find ids via list_attachments). Text and document files (PDF/Office) are text-extracted. By default this returns a bounded page: limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. For large text/doc attachments, prefer query mode: pass query plus optional contextChars/maxMatches to return only matching snippets with character offsets. Images and other binary files return a descriptor (filename, mime, size) with a note that their content can't be text-extracted here; use inspect_media for images.`
+const readAttachmentDescription = `Read an uploaded attachment's content back into the conversation by id (find ids via list_attachments). Text and document files (PDF/Office) are text-extracted. For large text/doc attachments, prefer index:true first: it returns a compact chunk/page index with offsets and previews, not the full body. Then use query mode or offset/limitChars to fetch only the relevant slice. By default this returns a bounded page: limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. Query mode returns bounded snippets around literal matches. Images and other binary files return a descriptor; use inspect_media for images.`
 
 var readAttachmentSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["id"],
 	"properties": {
 		"id": {"type": "string"},
+		"index": {"type": "boolean", "description": "When true for text/document attachments, return a compact chunk/page index with offsets and previews instead of body text. Use this before reading a large file."},
 		"offset": {"type": "integer", "minimum": 0, "description": "Character offset into the extracted text page. Use nextOffset from a previous result to continue."},
 		"limitChars": {"type": "integer", "minimum": 1, "maximum": 120000, "description": "Maximum characters to return in page mode. Defaults to 80000; capped at 120000."},
 		"query": {"type": "string", "maxLength": 512, "description": "Optional literal text query. When present, returns bounded snippets around matches instead of a page."},
@@ -105,6 +109,9 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 		if err != nil {
 			return "", err
 		}
+		if a.Index {
+			return indexAttachmentText(meta, text), nil
+		}
 		if strings.TrimSpace(a.Query) != "" {
 			return searchAttachmentText(text, a.Query, normalizeSearchContext(a.ContextChars), normalizeSearchMatches(a.MaxMatches)), nil
 		}
@@ -135,6 +142,7 @@ func uncachedAttachmentText(ctx context.Context, svc *attachmentapp.Service, att
 
 type readArgs struct {
 	ID           string `json:"id"`
+	Index        bool   `json:"index"`
 	Offset       int    `json:"offset"`
 	LimitChars   int    `json:"limitChars"`
 	Query        string `json:"query"`
@@ -210,6 +218,157 @@ func pageAttachmentText(text string, offset, limit int) string {
 		next = fmt.Sprintf(" nextOffset=%d", end)
 	}
 	return fmt.Sprintf("%s\n\n[read_attachment pagination: offset=%d chars=%d totalChars=%d%s]", body, offset, end-offset, total, next)
+}
+
+type attachmentTextIndex struct {
+	AttachmentID string                `json:"attachmentId"`
+	Filename     string                `json:"filename"`
+	Kind         string                `json:"kind"`
+	TotalChars   int                   `json:"totalChars"`
+	ChunkChars   int                   `json:"chunkChars"`
+	Chunks       []attachmentTextChunk `json:"chunks"`
+	Truncated    bool                  `json:"truncated"`
+	NextOffset   int                   `json:"nextOffset,omitempty"`
+	Usage        string                `json:"usage"`
+}
+
+type attachmentTextChunk struct {
+	Index     int    `json:"index"`
+	Offset    int    `json:"offset"`
+	Chars     int    `json:"chars"`
+	PageStart int    `json:"pageStart,omitempty"`
+	PageEnd   int    `json:"pageEnd,omitempty"`
+	Preview   string `json:"preview"`
+}
+
+type textRegion struct {
+	start int
+	end   int
+	page  int
+}
+
+func indexAttachmentText(meta *attachmentdomain.Attachment, text string) string {
+	runes := []rune(text)
+	total := len(runes)
+	chunks, truncated, nextOffset := chunkAttachmentText(text, readAttachmentIndexChunkChars, readAttachmentIndexMaxChunks)
+	out := attachmentTextIndex{
+		AttachmentID: meta.ID,
+		Filename:     meta.Filename,
+		Kind:         meta.Kind,
+		TotalChars:   total,
+		ChunkChars:   readAttachmentIndexChunkChars,
+		Chunks:       chunks,
+		Truncated:    truncated,
+		NextOffset:   nextOffset,
+		Usage:        "Pick a chunk offset and call read_attachment with offset+limitChars, or use query for literal search. Index output intentionally omits full body text.",
+	}
+	raw, err := json.Marshal(out)
+	if err != nil {
+		return fmt.Sprintf("read_attachment index unavailable for %q: %v", meta.Filename, err)
+	}
+	return string(raw)
+}
+
+func chunkAttachmentText(text string, chunkChars, maxChunks int) ([]attachmentTextChunk, bool, int) {
+	if chunkChars <= 0 {
+		chunkChars = readAttachmentIndexChunkChars
+	}
+	if maxChunks <= 0 {
+		maxChunks = readAttachmentIndexMaxChunks
+	}
+	runes := []rune(text)
+	total := len(runes)
+	regions := pageTextRegions(text)
+	if len(regions) == 0 {
+		regions = []textRegion{{start: 0, end: total}}
+	}
+	chunks := make([]attachmentTextChunk, 0, min(maxChunks, len(regions)))
+	for _, region := range regions {
+		for start := region.start; start < region.end; start += chunkChars {
+			if len(chunks) >= maxChunks {
+				return chunks, true, start
+			}
+			end := start + chunkChars
+			if end > region.end {
+				end = region.end
+			}
+			chunk := attachmentTextChunk{
+				Index:   len(chunks) + 1,
+				Offset:  start,
+				Chars:   end - start,
+				Preview: chunkPreview(runes[start:end]),
+			}
+			if region.page > 0 {
+				chunk.PageStart = region.page
+				chunk.PageEnd = region.page
+			}
+			chunks = append(chunks, chunk)
+		}
+	}
+	return chunks, false, 0
+}
+
+func pageTextRegions(text string) []textRegion {
+	total := len([]rune(text))
+	lines := strings.SplitAfter(text, "\n")
+	regions := []textRegion{}
+	offset := 0
+	currentPage := 0
+	currentStart := 0
+	seenPage := false
+	for _, line := range lines {
+		lineRunes := len([]rune(line))
+		if page, ok := parsePageMarker(line); ok {
+			if seenPage || offset > currentStart {
+				regions = append(regions, textRegion{start: currentStart, end: offset, page: currentPage})
+			}
+			seenPage = true
+			currentPage = page
+			currentStart = offset
+		}
+		offset += lineRunes
+	}
+	if seenPage {
+		regions = append(regions, textRegion{start: currentStart, end: total, page: currentPage})
+		return regions
+	}
+	return nil
+}
+
+func parsePageMarker(line string) (int, bool) {
+	trimmed := strings.TrimSpace(line)
+	if !strings.HasPrefix(trimmed, "# Page ") {
+		return 0, false
+	}
+	rest := strings.TrimSpace(strings.TrimPrefix(trimmed, "# Page "))
+	page := 0
+	for _, r := range rest {
+		if r < '0' || r > '9' {
+			break
+		}
+		page = page*10 + int(r-'0')
+	}
+	return page, page > 0
+}
+
+func chunkPreview(runes []rune) string {
+	text := strings.TrimSpace(string(runes))
+	if text == "" {
+		return ""
+	}
+	lines := strings.Split(text, "\n")
+	preview := ""
+	for _, line := range lines {
+		if trimmed := strings.TrimSpace(line); trimmed != "" {
+			preview = strings.Join(strings.Fields(trimmed), " ")
+			break
+		}
+	}
+	pr := []rune(preview)
+	if len(pr) <= readAttachmentIndexPreviewChars {
+		return preview
+	}
+	return string(pr[:readAttachmentIndexPreviewChars]) + "…"
 }
 
 type textMatch struct {

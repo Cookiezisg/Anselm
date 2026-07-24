@@ -856,6 +856,9 @@ lease refresh/reuse 与生产 E2E 验证。
 - 已落地（文档抽取缓存）：text/document 工具读取接入 `document-text-v1` media derivative；同一 attachment
   source SHA + 版本参数首次抽取后写入 media artifact CAS，后续 `read_attachment` / `inspect_media` 直接复用
   ready 文本证据，避免每次工具调用重复启动 sandbox 抽取，也不把用户问题写入缓存键。
+- 已落地（文档 chunk/index）：`read_attachment(index:true)` 对 text/document 返回紧凑 JSON 索引，只含
+  `offset/chars/page/preview` 与继续读取说明，不返回全文；有 `# Page N` 标记的 PDF/文档按页形成 chunk，
+  无页标记时按固定字符窗口切分。Agent 可先看索引，再用 query 或 offset 精读相关片段。
 - OCR/tiles；
 - document parse/chunk/index/map-reduce；
 - 视觉/文档质量与 token/延迟 A/B。
