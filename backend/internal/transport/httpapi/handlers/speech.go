@@ -19,9 +19,11 @@ import (
 )
 
 const (
-	speechMaxFrameBytes = 256 * 1024
-	speechSessionMaxAge = 2 * time.Minute
-	speechWriteWait     = 10 * time.Second
+	speechMaxFrameBytes    = 256 * 1024
+	speechSessionMaxAge    = 2 * time.Minute
+	speechDefaultPongWait  = 30 * time.Second
+	speechDefaultPingEvery = 10 * time.Second
+	speechWriteWait        = 10 * time.Second
 )
 
 type ProofHeaders interface {
@@ -32,17 +34,26 @@ type ProofHeaders interface {
 // gateway. The gateway owns Qwen ASR config and credentials; the sidecar owns
 // the device-proof private key; the Flutter client only sees transcript events.
 type SpeechHandler struct {
-	svc    *speechapp.Service
-	proof  ProofHeaders
-	dialer *websocket.Dialer
-	log    *zap.Logger
+	svc       *speechapp.Service
+	proof     ProofHeaders
+	dialer    *websocket.Dialer
+	pongWait  time.Duration
+	pingEvery time.Duration
+	log       *zap.Logger
 }
 
 func NewSpeechHandler(svc *speechapp.Service, proof ProofHeaders, log *zap.Logger) *SpeechHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &SpeechHandler{svc: svc, proof: proof, dialer: websocket.DefaultDialer, log: log.Named("handlers.speech")}
+	return &SpeechHandler{
+		svc:       svc,
+		proof:     proof,
+		dialer:    websocket.DefaultDialer,
+		pongWait:  speechDefaultPongWait,
+		pingEvery: speechDefaultPingEvery,
+		log:       log.Named("handlers.speech"),
+	}
 }
 
 func (h *SpeechHandler) Register(mux Registrar) {
@@ -83,9 +94,19 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = downConn.Close() }()
 	downConn.SetReadLimit(speechMaxFrameBytes)
 	deadline := time.Now().Add(speechSessionMaxAge)
-	_ = downConn.SetReadDeadline(deadline)
-	_ = upConn.SetReadDeadline(deadline.Add(speechWriteWait))
+	_ = downConn.SetReadDeadline(speechReadDeadline(deadline, h.pongWait))
+	_ = upConn.SetReadDeadline(speechReadDeadline(deadline, h.pongWait))
+	downConn.SetPongHandler(func(string) error {
+		return downConn.SetReadDeadline(speechReadDeadline(deadline, h.pongWait))
+	})
+	upConn.SetPongHandler(func(string) error {
+		return upConn.SetReadDeadline(speechReadDeadline(deadline, h.pongWait))
+	})
 	client := &speechClientWriter{conn: downConn}
+	stopHeartbeat := make(chan struct{})
+	defer close(stopHeartbeat)
+	go speechHeartbeat(stopHeartbeat, downConn, deadline, h.pingEvery)
+	go speechHeartbeat(stopHeartbeat, upConn, deadline, h.pingEvery)
 
 	upDone := make(chan struct{})
 	go func() {
@@ -97,6 +118,7 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 				_ = downConn.SetReadDeadline(time.Now())
 				return
 			}
+			_ = upConn.SetReadDeadline(speechReadDeadline(deadline, h.pongWait))
 			if mt != websocket.TextMessage && mt != websocket.BinaryMessage {
 				continue
 			}
@@ -123,6 +145,7 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			return
 		}
+		_ = downConn.SetReadDeadline(speechReadDeadline(deadline, h.pongWait))
 		switch mt {
 		case websocket.BinaryMessage:
 			if len(payload) == 0 || len(payload) > speechMaxFrameBytes {
@@ -224,6 +247,34 @@ func validSpeechControl(payload []byte) bool {
 func writeSpeechRaw(conn *websocket.Conn, mt int, payload []byte) error {
 	_ = conn.SetWriteDeadline(time.Now().Add(speechWriteWait))
 	return conn.WriteMessage(mt, payload)
+}
+
+func speechReadDeadline(max time.Time, wait time.Duration) time.Time {
+	deadline := time.Now().Add(wait)
+	if deadline.After(max) {
+		return max
+	}
+	return deadline
+}
+
+func speechHeartbeat(stop <-chan struct{}, conn *websocket.Conn, max time.Time, every time.Duration) {
+	ticker := time.NewTicker(every)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			if time.Now().After(max) {
+				_ = conn.SetReadDeadline(time.Now())
+				return
+			}
+			if err := conn.WriteControl(websocket.PingMessage, nil, time.Now().Add(speechWriteWait)); err != nil {
+				_ = conn.SetReadDeadline(time.Now())
+				return
+			}
+		}
+	}
 }
 
 type speechClientWriter struct {
