@@ -1,6 +1,10 @@
 import 'package:anselm/core/contract/conversation.dart';
+import 'package:anselm/core/contract/model_capability.dart';
+import 'package:anselm/core/contract/workspace.dart' as workspace_contract;
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/model/model_capabilities.dart';
+import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
@@ -12,10 +16,12 @@ import 'package:anselm/features/chat/state/new_conversation.dart';
 import 'package:anselm/features/chat/state/pending_attachments.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/ui/chat_composer.dart';
+import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 // The composer's behaviour contract: Enter sends / Shift+Enter newline / IME-composing Enter never
@@ -57,16 +63,23 @@ class _FakeSelected extends SelectedConversation {
   ConversationRef? build() => const ConversationRef('cv_1');
 }
 
+class _SpeechWorkspace extends ActiveWorkspace {
+  @override
+  String? build() => 'ws_demo0000000000';
+}
+
 Widget _host(
   FixtureChatRepository repo, {
   Widget? child,
   SettingsPrefs? prefs,
+  List<Override> overrides = const [],
 }) => ProviderScope(
   overrides: [
     chatRepositoryProvider.overrideWithValue(repo),
     selectedConversationProvider.overrideWith(_FakeSelected.new),
     mentionSourceProvider.overrideWithValue(_FakeMentions()),
     if (prefs != null) settingsPrefsProvider.overrideWithValue(prefs),
+    ...overrides,
   ],
   child: TranslationProvider(
     child: MaterialApp(
@@ -83,6 +96,35 @@ Widget _host(
     ),
   ),
 );
+
+workspace_contract.Workspace _workspaceWithDefaultModel(
+  String apiKeyId,
+  String modelId,
+) {
+  final at = DateTime.utc(2026, 7, 1);
+  return workspace_contract.Workspace(
+    id: 'ws_demo0000000000',
+    name: 'Demo',
+    language: 'zh-CN',
+    defaultDialogue: workspace_contract.ModelRef(
+      apiKeyId: apiKeyId,
+      modelId: modelId,
+    ),
+    createdAt: at,
+    updatedAt: at,
+  );
+}
+
+List<Override> _speechModelOverrides({
+  required workspace_contract.Workspace workspace,
+  required List<ModelCapability> caps,
+}) => [
+  activeWorkspaceProvider.overrideWith(_SpeechWorkspace.new),
+  settingsRepositoryProvider.overrideWithValue(
+    FixtureSettingsRepository(workspace: workspace),
+  ),
+  modelCapabilitiesProvider.overrideWith((ref) async => caps),
+];
 
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 3; i++) {
@@ -258,6 +300,77 @@ void main() {
     await tester.enterText(find.byType(TextField), 'x');
     await tester.pump();
     expect(find.byIcon(AnIcons.send), findsOneWidget);
+  });
+
+  testWidgets(
+    'voice input appears only for empty Anselm Auto composer and yields to send after typing',
+    (tester) async {
+      final repo = FixtureChatRepository(
+        conversations: [_conv('cv_1')],
+        messages: {'cv_1': []},
+      );
+      await tester.pumpWidget(
+        _host(
+          repo,
+          overrides: _speechModelOverrides(
+            workspace: _workspaceWithDefaultModel(
+              'aki_demo_managed0',
+              'anselm-auto',
+            ),
+            caps: const [
+              ModelCapability(
+                apiKeyId: 'aki_demo_managed0',
+                provider: 'anselm',
+                modelId: 'anselm-auto',
+                displayName: 'Anselm Auto',
+              ),
+            ],
+          ),
+        ),
+      );
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('voice')), findsOneWidget);
+      expect(find.byIcon(AnIcons.microphone), findsOneWidget);
+      expect(find.byKey(const ValueKey('send')), findsNothing);
+
+      await tester.enterText(find.byType(TextField), 'hello');
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('voice')), findsNothing);
+      expect(find.byKey(const ValueKey('send')), findsOneWidget);
+    },
+  );
+
+  testWidgets('voice input is hidden for external model defaults', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_1')],
+      messages: {'cv_1': []},
+    );
+    await tester.pumpWidget(
+      _host(
+        repo,
+        overrides: _speechModelOverrides(
+          workspace: _workspaceWithDefaultModel('aki_ext', 'gpt-4o'),
+          caps: const [
+            ModelCapability(
+              apiKeyId: 'aki_ext',
+              provider: 'openai',
+              modelId: 'gpt-4o',
+              displayName: 'GPT-4o',
+            ),
+          ],
+        ),
+      ),
+    );
+    await _settle(tester);
+    expect(find.byKey(const ValueKey('voice')), findsNothing);
+    expect(find.byIcon(AnIcons.microphone), findsNothing);
+    expect(find.byKey(const ValueKey('send')), findsNothing);
+
+    await tester.enterText(find.byType(TextField), 'hello');
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('send')), findsOneWidget);
   });
 
   testWidgets('single-line height is INVARIANT to the send button appearing', (

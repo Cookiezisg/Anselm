@@ -882,6 +882,12 @@ lease refresh/reuse 与生产 E2E 验证。
 - eligibility contract：仅 `anselm` dialogue route 发布能力，BYOK/custom 一律 unavailable；
 - fake upstream 与真 key eval。
 
+当前落地状态（2026-07-24）：后端已有 `GET /api/v1/speech/asr` WebSocket 代理，只解析受管
+`anselm` gateway install，向上游 `/v1/speech/asr` 透传 PCM binary 与 `finish|commit` 控制帧，并把
+partial/final/session 事件原样回给 Flutter；测试覆盖 device-proof dial、client binary→upstream、
+upstream delta→client、nonce refresh 路径。未落地/未验收：heartbeat、断线重连、本地 buffer、offline fallback、
+quota/ledger、真 key eval。
+
 **出口**：三类断网、取消、超时、权限前置均不丢最终可恢复状态。
 
 ### V1 · composer 麦克风 UI
@@ -897,6 +903,12 @@ lease refresh/reuse 与生产 E2E 验证。
 - 根据当前 dialogue route 即时显示/隐藏 microphone；BYOK/custom 显示不可用原因而不发起探测；
 - gallery specimen + widget matrix；
 - macOS/Windows/Linux 真机。
+
+当前落地状态（2026-07-24）：composer 已接 `record` PCM16/16k/mono stream + speech WebSocket；
+空文本、无 ready/uploading 附件且当前有效 dialogue route 为 `anselm/anselm-auto` 时，发送圆钮切为麦克风；
+输入文字/存在可发送附件时让位给发送；录音中切为 stop；partial/final transcript 写入可编辑 draft，停止后不自动发送。
+widget 测试已锁定“Anselm Auto 空输入显示麦克风、打字后切发送、外部模型默认不显示麦克风”。未落地/未验收：
+波形/时长、断网 fallback UI、权限拒绝专项 UI、gallery matrix、三平台真机。
 
 **出口**：一分钟中英混合听写、取消、断网 fallback、权限拒绝全程无误发送/吞内容。
 
