@@ -137,33 +137,29 @@ func doRequest(httpClient *http.Client, httpReq *http.Request, errPrefix string,
 // classifyHTTPError 把 HTTP 状态 + body 映射为带 sentinel 包装的 domain 错误。放共享层
 // （非某个 provider），因为 status→error 映射与 provider 无关。
 func classifyHTTPError(status int, body []byte) error {
-	msg := strings.TrimSpace(string(body))
-	if len(msg) > 200 {
-		msg = msg[:200] + "..."
-	}
 	switch status {
 	case http.StatusUnauthorized:
-		return fmt.Errorf("%w (401): %s", ErrAuthFailed, msg)
+		return fmt.Errorf("%w (401)", ErrAuthFailed)
 	case http.StatusForbidden:
-		return fmt.Errorf("%w (403): %s", ErrAuthFailed, msg)
+		return fmt.Errorf("%w (403)", ErrAuthFailed)
 	case http.StatusTooManyRequests:
-		return fmt.Errorf("%w (429): %s", ErrRateLimited, msg)
+		return fmt.Errorf("%w (429)", ErrRateLimited)
 	case http.StatusPaymentRequired:
 		// Free-tier gateway signals monthly budget exhaustion as 402. Map to ErrQuotaExhausted
 		// (non-retryable) so a depleted free tier fails honestly instead of burning 3 retries.
 		//
 		// 免费档网关用 402 报本月额度耗尽。映射 ErrQuotaExhausted（不可重试），让耗尽的免费档诚实失败、
 		// 不空烧 3 次重试。
-		return fmt.Errorf("%w (402): %s", ErrQuotaExhausted, msg)
+		return fmt.Errorf("%w (402)", ErrQuotaExhausted)
 	case http.StatusBadRequest, http.StatusRequestEntityTooLarge, http.StatusUnprocessableEntity:
 		if reason := requestRejectionReason(body); reason != "" {
 			return &RequestRejectedError{Reason: reason, Status: status}
 		}
-		return fmt.Errorf("%w (%d): %s", ErrBadRequest, status, msg)
+		return fmt.Errorf("%w (%d)", ErrBadRequest, status)
 	case http.StatusNotFound:
-		return fmt.Errorf("%w (404): %s", ErrModelNotFound, msg)
+		return fmt.Errorf("%w (404)", ErrModelNotFound)
 	default:
-		return fmt.Errorf("%w (%d): %s", ErrProviderError, status, msg)
+		return fmt.Errorf("%w (%d)", ErrProviderError, status)
 	}
 }
 

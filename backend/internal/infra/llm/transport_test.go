@@ -40,6 +40,16 @@ func TestClassifyHTTPError_GatewayContextReasonIsTyped(t *testing.T) {
 	}
 }
 
+func TestClassifyHTTPError_NeverLeaksProviderBodyWhenUnclassified(t *testing.T) {
+	secretEcho := `{"error":{"message":"request contained sk-super-secret and private prompt text"}}`
+	for _, status := range []int{http.StatusBadRequest, http.StatusUnauthorized, http.StatusInternalServerError} {
+		err := classifyHTTPError(status, []byte(secretEcho))
+		if strings.Contains(err.Error(), "sk-super-secret") || strings.Contains(err.Error(), "private prompt text") {
+			t.Fatalf("status %d leaked provider body: %v", status, err)
+		}
+	}
+}
+
 func TestClassifyHTTPError_RequestBodyTooLargeIsNotContext(t *testing.T) {
 	err := classifyHTTPError(http.StatusRequestEntityTooLarge, []byte(`{"error":{"code":"REQUEST_BODY_TOO_LARGE","message":"request body exceeds the configured size limit"}}`))
 	if IsContextLengthError(err) {
