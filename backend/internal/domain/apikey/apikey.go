@@ -68,10 +68,11 @@ const (
 //
 // Credentials 是发给调用方的明文凭证包；Key 为明文，禁日志 / 禁持久化。
 type Credentials struct {
-	Provider  string
-	Key       string
-	BaseURL   string
-	APIFormat string
+	Provider              string
+	Key                   string
+	BaseURL               string
+	APIFormat             string
+	CredentialFingerprint string // opaque digest of the encrypted-at-rest credential revision; never plaintext
 }
 
 // ProbedKey is a read-only snapshot of one key's probe archive, handed to the

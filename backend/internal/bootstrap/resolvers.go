@@ -20,6 +20,7 @@ import (
 	subagentapp "github.com/sunweilin/anselm/backend/internal/app/subagent"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	modelprofiledomain "github.com/sunweilin/anselm/backend/internal/domain/modelprofile"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
@@ -72,19 +73,21 @@ func (r *modelResolver) resolve(ctx context.Context, scenario string, override *
 	// 不是预留额：预扣理论最大输出（如 DeepSeek 的 384K）会在普通回合白白丢掉 1M 输入
 	// 上下文的大段空间。loop 从不本地拒绝；若上游对“输入+本次请求输出”的实际规则更紧，
 	// 则以其权威超限响应触发恢复。
-	if r.windows != nil {
+	if provider == "anselm" && r.windows != nil {
 		if window, _ := r.windows.ContextBudget(ctx, provider, req.ModelID); window > 0 {
 			req.InputBudgetTokens = window
 		}
 	}
-	if v, ok := r.lookup.find(ctx, provider, req.ModelID); ok {
-		req.TextInputBudgetTokens = v.TextInputLimit
-		req.MultimodalInputBudgetTokens = v.MultimodalInputLimit
-		// The managed gateway's published output limit is a product contract,
-		// not merely catalog decoration. Send it explicitly so gateway
-		// accounting, context headroom, and the upstream wire all agree.
-		if provider == "anselm" && v.MaxOutput > 0 {
-			req.MaxTokens = v.MaxOutput
+	if provider == "anselm" {
+		if v, ok := r.lookup.find(ctx, provider, req.ModelID); ok {
+			req.TextInputBudgetTokens = v.TextInputLimit
+			req.MultimodalInputBudgetTokens = v.MultimodalInputLimit
+			// The managed gateway's published output limit is a product contract,
+			// not merely catalog decoration. Send it explicitly so gateway
+			// accounting, context headroom, and the upstream wire all agree.
+			if provider == "anselm" && v.MaxOutput > 0 {
+				req.MaxTokens = v.MaxOutput
+			}
 		}
 	}
 	return client, req, provider, apiKeyID, err
@@ -148,7 +151,16 @@ func (r chatResolver) bundle(ctx context.Context, scenario string, override *mod
 	// Caps 取自解析出的模型目录项（vision / native-docs）；未知模型得零 caps，chat 保守渲染附件而非
 	// 过度声明。
 	caps := r.lookup.contentCaps(ctx, provider, req.ModelID)
-	return chatapp.Bundle{Client: client, Request: req, Caps: caps, Provider: provider}, nil
+	profile := modelprofiledomain.Identity{}
+	if provider != "anselm" {
+		profile = modelprofiledomain.Identity{
+			Provider: provider, APIKeyID: req.RuntimeRoute.APIKeyID,
+			EndpointFingerprint:   req.RuntimeRoute.EndpointFingerprint,
+			CredentialFingerprint: req.RuntimeRoute.CredentialFingerprint,
+			ModelID:               req.ModelID, ConfigFingerprint: req.RuntimeRoute.ConfigFingerprint,
+		}
+	}
+	return chatapp.Bundle{Client: client, Request: req, Caps: caps, Provider: provider, RuntimeProfile: profile}, nil
 }
 
 // --- contextmgr (utility model for the compaction summary) ---

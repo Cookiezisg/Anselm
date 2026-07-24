@@ -28,6 +28,7 @@ import (
 	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	modelprofiledomain "github.com/sunweilin/anselm/backend/internal/domain/modelprofile"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -119,10 +120,11 @@ type ContentCapabilities struct {
 // Bundle 是即用 LLM client + 预填 base Request + 模型内容能力。对标 agentapp.LLMBundle，多 Caps
 // （chat 按当前模型渲染附件）。
 type Bundle struct {
-	Client   llminfra.Client
-	Request  llminfra.Request
-	Caps     ContentCapabilities
-	Provider string // which provider produced the turn (message provenance)
+	Client         llminfra.Client
+	Request        llminfra.Request
+	Caps           ContentCapabilities
+	Provider       string                      // which provider produced the turn (message provenance)
+	RuntimeProfile modelprofiledomain.Identity // incomplete/zero for Anselm Auto; route class is filled by the loop host
 }
 
 // ModelResolver turns the conversation's model override (nil = workspace dialogue default) into
@@ -158,6 +160,14 @@ type ConversationTitler interface {
 // attachmentapp.Service 满足之（适配器转 ContentCapabilities → attachment.Capabilities）。
 type AttachmentRenderer interface {
 	ToContentParts(ctx context.Context, ids []string, caps ContentCapabilities) ([]llminfra.ContentPart, error)
+}
+
+// RuntimeProfileStore learns a conservative, expiring prompt budget from real
+// external-provider outcomes. It is deliberately a narrow port so chat need
+// not know persistence, scoring, or any provider's static context table.
+type RuntimeProfileStore interface {
+	Observe(ctx context.Context, observation modelprofiledomain.Observation) error
+	Budget(ctx context.Context, identity modelprofiledomain.Identity) (int, bool, error)
 }
 
 // MemoryProvider / CatalogProvider / DocumentRenderer / TodoReminder are the System Prompt and
@@ -196,17 +206,18 @@ type Deps struct {
 	// nil → chat has no MCP tools (degrades gracefully). Wired in build_services to mcptool.DynamicTools.
 	// DynamicTools 返回 ctx workspace 已连 MCP server 的工具（per-request 懒取）——它们不在静态 Toolset
 	// （MCP server 是 workspace 域 + 可变）。nil → chat 无 MCP 工具（优雅降级）。
-	DynamicTools   func(context.Context) []toolapp.Tool
-	Memory         MemoryProvider
-	Catalog        CatalogProvider
-	Documents      DocumentRenderer
-	Todo           TodoReminder
-	Bridge         streamdomain.Bridge    // messages stream instance; nil → no live push (REST history still works)
-	EntitiesBridge streamdomain.Bridge    // entities stream (SSE-C): loop mirrors build tool_call deltas here; nil → no entity-panel live fill
-	Titler         ConversationTitler     // auto-title writer (also emits conversation.auto_titled); nil → no auto-titling
-	Compactor      Compactor              // context compaction; nil → no compaction
-	Touchpoints    *touchpointapp.Service // conversation context ledger; nil → no touch recording 对话触点台账
-	SkillPreauth   SkillPreauthorizer     // @-mention skill activation's pre-auth half; nil → @skill injects instructions but grants no pre-approval
+	DynamicTools    func(context.Context) []toolapp.Tool
+	Memory          MemoryProvider
+	Catalog         CatalogProvider
+	Documents       DocumentRenderer
+	Todo            TodoReminder
+	Bridge          streamdomain.Bridge    // messages stream instance; nil → no live push (REST history still works)
+	EntitiesBridge  streamdomain.Bridge    // entities stream (SSE-C): loop mirrors build tool_call deltas here; nil → no entity-panel live fill
+	Titler          ConversationTitler     // auto-title writer (also emits conversation.auto_titled); nil → no auto-titling
+	Compactor       Compactor              // context compaction; nil → no compaction
+	RuntimeProfiles RuntimeProfileStore    // external-model evidence; nil → natural recovery still works, no learning
+	Touchpoints     *touchpointapp.Service // conversation context ledger; nil → no touch recording 对话触点台账
+	SkillPreauth    SkillPreauthorizer     // @-mention skill activation's pre-auth half; nil → @skill injects instructions but grants no pre-approval
 }
 
 // SkillPreauthorizer applies the side-effect half of a @-mention skill activation (WRK-076): it

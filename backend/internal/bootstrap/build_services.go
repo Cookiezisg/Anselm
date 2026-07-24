@@ -26,6 +26,7 @@ import (
 	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
 	memoryapp "github.com/sunweilin/anselm/backend/internal/app/memory"
 	modelapp "github.com/sunweilin/anselm/backend/internal/app/model"
+	modelprofileapp "github.com/sunweilin/anselm/backend/internal/app/modelprofile"
 	notificationapp "github.com/sunweilin/anselm/backend/internal/app/notification"
 	relationapp "github.com/sunweilin/anselm/backend/internal/app/relation"
 	sandboxapp "github.com/sunweilin/anselm/backend/internal/app/sandbox"
@@ -90,6 +91,7 @@ type services struct {
 	freetier      *freetierapp.Provisioner
 	freetierQuota *freetierapp.QuotaReader
 	modelCaps     *modelapp.CapabilityService
+	modelProfile  *modelprofileapp.Service
 	relation      *relationapp.Service
 	catalog       *catalogapp.Service
 	notification  *notificationapp.Service
@@ -154,6 +156,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	freetier := freetierapp.NewProvisioner(keys, ws, llminfra.NewInstallClient(inf.proofHTTP, inf.proofPublicKey), cryptoinfra.MachineFingerprint, log)
 	freetierQuota := freetierapp.NewQuotaReader(keys, llminfra.NewQuotaClient(inf.proofHTTP), log)
 	modelCaps := modelapp.NewCapabilityService(keys, log)
+	modelProfile := modelprofileapp.NewService(st.modelprofile, log)
 	cat := catalogapp.NewService(log)
 	mem := memoryapp.NewService(st.memory, notif, log)
 	sbx := sandboxapp.NewService(st.sandbox, dataDir, notif, log)
@@ -341,16 +344,17 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			}
 			return tools
 		},
-		Memory:         mem,
-		Catalog:        cat,
-		Documents:      NewDocumentRenderer(doc),
-		Todo:           todo,
-		Bridge:         bus.messages,
-		EntitiesBridge: bus.entities,
-		Titler:         conv,
-		Compactor:      ctxmgr,
-		Touchpoints:    tp,
-		SkillPreauth:   skill, // @skill 激活的预授权半（WRK-076）；内容半走 mention resolver
+		Memory:          mem,
+		Catalog:         cat,
+		Documents:       NewDocumentRenderer(doc),
+		Todo:            todo,
+		Bridge:          bus.messages,
+		EntitiesBridge:  bus.entities,
+		Titler:          conv,
+		Compactor:       ctxmgr,
+		RuntimeProfiles: modelProfile,
+		Touchpoints:     tp,
+		SkillPreauth:    skill, // @skill 激活的预授权半（WRK-076）；内容半走 mention resolver
 	}, log)
 
 	// D1 execution lifecycle: workflow drives the trigger binder (activate/stage/deactivate/kill engage
@@ -539,7 +543,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	mcp.SetNotifier(notif)
 
 	s := &services{
-		workspace: ws, apikey: keys, modelCaps: modelCaps, relation: rel, catalog: cat,
+		workspace: ws, apikey: keys, modelCaps: modelCaps, modelProfile: modelProfile, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
 		touchpoint: tp, toolNames: toolNames, toolCatalog: toolCatalog,
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,

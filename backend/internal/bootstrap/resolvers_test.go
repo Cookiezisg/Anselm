@@ -25,18 +25,21 @@ type fakeCreds struct{ lastID string }
 
 func (c *fakeCreds) ResolveCredentialsByID(_ context.Context, apiKeyID string) (apikeydomain.Credentials, error) {
 	c.lastID = apiKeyID
-	return apikeydomain.Credentials{Provider: "mock", Key: "secret", BaseURL: "http://mock"}, nil
+	return apikeydomain.Credentials{Provider: "mock", Key: "secret", BaseURL: "http://mock", CredentialFingerprint: "credential-revision"}, nil
 }
 
 // fakeCaps is a CapabilityLister with one usable (mock, default_model) entry carrying caps.
 type fakeCaps struct{}
 
 func (fakeCaps) List(context.Context) ([]modelapp.CapabilityView, error) {
-	return []modelapp.CapabilityView{{
-		Provider: "mock", ModelID: "default_model",
-		ContextWindow: 100000, MaxOutput: 8000, Vision: true, Video: true, Audio: true, NativeDocs: true,
-		MaxMediaParts: 3, MaxMediaBytes: 42,
-	}}, nil
+	return []modelapp.CapabilityView{
+		{
+			Provider: "mock", ModelID: "default_model",
+			ContextWindow: 100000, MaxOutput: 8000, Vision: true, Video: true, Audio: true, NativeDocs: true,
+			MaxMediaParts: 3, MaxMediaBytes: 42,
+		},
+		{Provider: "anselm", ModelID: "managed_model", ContextWindow: 100000, MaxOutput: 8000},
+	}, nil
 }
 
 func newResolvers() (ModelResolvers, *fakePicker, *fakeCreds) {
@@ -63,10 +66,14 @@ func TestModelResolvers_ScenarioRouting(t *testing.T) {
 	if cr.lastID != "default_key" {
 		t.Fatalf("creds resolved for %q, want default_key", cr.lastID)
 	}
-	// The full 100K provider window is available for ordinary prompt history.
-	// MaxOutput is a theoretical ceiling, never a hidden 8K input reservation.
-	if b.Request.InputBudgetTokens != 100000 {
-		t.Fatalf("InputBudgetTokens = %d, want full context window 100000", b.Request.InputBudgetTokens)
+	// External metadata may be stale/custom/route-dependent; it is not an
+	// admission budget. Learning starts from an honest unknown (0).
+	if b.Request.InputBudgetTokens != 0 {
+		t.Fatalf("external InputBudgetTokens = %d, want unknown 0", b.Request.InputBudgetTokens)
+	}
+	if b.RuntimeProfile.Provider != "mock" || b.RuntimeProfile.APIKeyID != "default_key" ||
+		b.RuntimeProfile.EndpointFingerprint == "" || b.RuntimeProfile.CredentialFingerprint == "" || b.RuntimeProfile.ConfigFingerprint == "" {
+		t.Fatalf("external runtime profile identity missing: %+v", b.RuntimeProfile)
 	}
 
 	// chat utility
@@ -143,13 +150,13 @@ func TestConversationSummary_Adapter(t *testing.T) {
 func TestModelInfoLookup_WindowAndCaps(t *testing.T) {
 	lookup := NewModelInfoLookup(fakeCaps{})
 
-	// One lookup, two consumers — WindowResolver (contextmgr) reads the budget...
+	// Only the managed gateway publishes an Anselm-owned authoritative budget.
 	wr := lookup.WindowResolver()
-	if w, o := wr.ContextBudget(context.Background(), "mock", "default_model"); w != 100000 || o != 8000 {
+	if w, o := wr.ContextBudget(context.Background(), "anselm", "managed_model"); w != 100000 || o != 8000 {
 		t.Fatalf("ContextBudget(known) = (%d,%d), want (100000,8000)", w, o)
 	}
-	if w, o := wr.ContextBudget(context.Background(), "mock", "unknown"); w != 0 || o != 0 {
-		t.Fatalf("ContextBudget(unknown) must be (0,0) so contextmgr skips, got (%d,%d)", w, o)
+	if w, o := wr.ContextBudget(context.Background(), "mock", "default_model"); w != 0 || o != 0 {
+		t.Fatalf("external ContextBudget must be unknown (0,0), got (%d,%d)", w, o)
 	}
 
 	// ...and chat's Bundle.Caps reads vision/native-docs from the same lookup.

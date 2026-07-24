@@ -195,6 +195,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 			ModelID:        bundle.Request.ModelID, // provenance: which model
 		},
 		caps:                 bundle.Caps,
+		runtimeProfile:       bundle.RuntimeProfile,
 		summary:              conv.Summary,
 		summaryCoversUpToSeq: conv.SummaryCoversUpToSeq,
 	}

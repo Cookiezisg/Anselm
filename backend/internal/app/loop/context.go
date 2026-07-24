@@ -57,12 +57,22 @@ type ContextObservation struct {
 	Compacted        bool
 	CompactionMode   string
 	Recovery         bool
+	Succeeded        bool
+	ContextOverflow  bool
 }
 
 // ContextObserver is an optional Host capability used by chat to persist the
 // last per-request context size separately from the run's aggregate token cost.
 type ContextObserver interface {
 	ObserveContext(ctx context.Context, observation ContextObservation)
+}
+
+// RuntimeBudgetResolver optionally supplies a learned soft budget for this
+// concrete outbound route. It is consulted only after the rendered prompt is
+// known (text vs multimodal), never used to reject locally, and may return zero
+// while an external model is still being learned.
+type RuntimeBudgetResolver interface {
+	RuntimeInputBudget(ctx context.Context, route string) int
 }
 
 type contextTracker struct {

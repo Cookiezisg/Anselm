@@ -170,6 +170,11 @@ func Run(
 			fp := measureRequest(req)
 			predicted := contextTrack.predict(fp.total)
 			budget := req.ActiveInputBudgetTokens()
+			if resolver, ok := host.(RuntimeBudgetResolver); ok {
+				if learned := resolver.RuntimeInputBudget(ctx, routeName(req)); learned > 0 {
+					budget = learned
+				}
+			}
 
 			// Routine prompt editing: cheap/lossless refetchable tool-output
 			// clearing first, then a structured checkpoint only if still needed.
@@ -213,6 +218,8 @@ func Run(
 					ToolSchemaBytes: fp.tools, HistoryBytes: fp.history,
 					ClearedToolBytes: clearedBytes, Compacted: compacted,
 					CompactionMode: compactionMode, Recovery: attempt > 0,
+					Succeeded:       sr != messagesdomain.StopReasonError,
+					ContextOverflow: sr == messagesdomain.StopReasonError && llminfra.IsContextLengthError(streamErr),
 				})
 			}
 			log.Debug("llm context sampled",

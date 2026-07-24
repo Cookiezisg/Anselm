@@ -239,6 +239,11 @@ type Request struct {
 	// {"reasoning_effort":"high"}）。每个 adapter 只读自己认识的 key——跨家零中立抽象。
 	Options map[string]string
 
+	// RuntimeRoute is opaque local-only route identity metadata for learned
+	// context profiles. It is never serialized to an upstream provider and never
+	// contains a plaintext endpoint or credential.
+	RuntimeRoute RuntimeRoute
+
 	// DisableStream forces non-streaming wire mode (Ollama+tools workaround).
 	// DisableStream 强制 non-streaming（Ollama 有 tools 时绕 bug）。
 	DisableStream bool
@@ -261,6 +266,15 @@ type Request struct {
 	// Zero values fall back to InputBudgetTokens.
 	TextInputBudgetTokens       int
 	MultimodalInputBudgetTokens int
+}
+
+// RuntimeRoute carries non-secret fingerprints that identify an external
+// model route and its configuration for local runtime-profile learning.
+type RuntimeRoute struct {
+	APIKeyID              string
+	EndpointFingerprint   string
+	CredentialFingerprint string
+	ConfigFingerprint     string
 }
 
 // HasNativeMedia reports whether the concrete request prompt contains a native

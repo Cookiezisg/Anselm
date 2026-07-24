@@ -24,6 +24,7 @@ import (
 	handlerstore "github.com/sunweilin/anselm/backend/internal/infra/store/handler"
 	mcpstore "github.com/sunweilin/anselm/backend/internal/infra/store/mcp"
 	messagesstore "github.com/sunweilin/anselm/backend/internal/infra/store/messages"
+	modelprofilestore "github.com/sunweilin/anselm/backend/internal/infra/store/modelprofile"
 	notificationstore "github.com/sunweilin/anselm/backend/internal/infra/store/notification"
 	relationstore "github.com/sunweilin/anselm/backend/internal/infra/store/relation"
 	sandboxstore "github.com/sunweilin/anselm/backend/internal/infra/store/sandbox"
@@ -63,6 +64,7 @@ type stores struct {
 	flowrun      *flowrunstore.Store
 	conversation *conversationstore.Store
 	messages     *messagesstore.Store
+	modelprofile *modelprofilestore.Store
 	search       *searchstore.Store
 
 	memory *memoryfs.Store
@@ -166,6 +168,7 @@ func allSchemas() []string {
 	s = append(s, flowrunstore.Schema...)
 	s = append(s, conversationstore.Schema...)
 	s = append(s, messagesstore.Schema...)
+	s = append(s, modelprofilestore.Schema...)
 	s = append(s, searchstore.Schema...)
 	return s
 }
@@ -219,6 +222,7 @@ func buildStores(database *ormpkg.DB, enc cryptodomain.Encryptor, dataDir string
 		flowrun:      flowrunstore.New(database),
 		conversation: conversationstore.New(database),
 		messages:     messagesstore.New(database),
+		modelprofile: modelprofilestore.New(database),
 		search:       searchstore.New(database),
 
 		memory: memoryfs.New(dataDir),

@@ -15,6 +15,10 @@ package modelclient
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"sort"
+	"strings"
 
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
@@ -65,6 +69,40 @@ func Resolve(
 	if err != nil {
 		return nil, llminfra.Request{}, "", "", err
 	}
-	req := llminfra.Request{ModelID: ref.ModelID, Key: creds.Key, BaseURL: baseURL, Options: ref.Options}
+	req := llminfra.Request{
+		ModelID: ref.ModelID, Key: creds.Key, BaseURL: baseURL, Options: ref.Options,
+		RuntimeRoute: llminfra.RuntimeRoute{
+			APIKeyID:              ref.APIKeyID,
+			EndpointFingerprint:   fingerprint(baseURL),
+			CredentialFingerprint: creds.CredentialFingerprint,
+			ConfigFingerprint:     configFingerprint(ref.ModelID, ref.Options),
+		},
+	}
 	return client, req, creds.Provider, ref.APIKeyID, nil
+}
+
+func fingerprint(value string) string {
+	sum := sha256.Sum256([]byte(value))
+	return hex.EncodeToString(sum[:])
+}
+
+// configFingerprint deliberately hashes native option names and values in a
+// deterministic order. It is not a capability claim: it only prevents learned
+// context evidence from leaking across materially different request settings.
+func configFingerprint(modelID string, options map[string]string) string {
+	keys := make([]string, 0, len(options))
+	for k := range options {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	var b strings.Builder
+	b.WriteString(modelID)
+	b.WriteByte(0)
+	for _, k := range keys {
+		b.WriteString(k)
+		b.WriteByte(0)
+		b.WriteString(options[k])
+		b.WriteByte(0)
+	}
+	return fingerprint(b.String())
 }

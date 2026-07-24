@@ -14,10 +14,12 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
+	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	modelprofiledomain "github.com/sunweilin/anselm/backend/internal/domain/modelprofile"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	messagesstore "github.com/sunweilin/anselm/backend/internal/infra/store/messages"
@@ -82,6 +84,23 @@ func (panicClient) Stream(_ context.Context, _ llminfra.Request) iter.Seq[llminf
 }
 
 type fakeResolver struct{ client llminfra.Client }
+
+type fakeRuntimeProfiles struct {
+	budget       int
+	budgetOK     bool
+	identities   []modelprofiledomain.Identity
+	observations []modelprofiledomain.Observation
+}
+
+func (f *fakeRuntimeProfiles) Observe(_ context.Context, o modelprofiledomain.Observation) error {
+	f.observations = append(f.observations, o)
+	return nil
+}
+
+func (f *fakeRuntimeProfiles) Budget(_ context.Context, i modelprofiledomain.Identity) (int, bool, error) {
+	f.identities = append(f.identities, i)
+	return f.budget, f.budgetOK, nil
+}
 
 func (r fakeResolver) ResolveChat(_ context.Context, _ *modeldomain.ModelRef) (Bundle, error) {
 	return Bundle{
@@ -215,6 +234,40 @@ func newSvc(t *testing.T, client llminfra.Client, bridge streamdomain.Bridge) (*
 		Bridge:        bridge,
 	}
 	return NewService(store, deps, zap.NewNop()), store
+}
+
+func TestChatHostRuntimeProfileUsesExactRouteAndRecordsOnlySafeFacts(t *testing.T) {
+	profiles := &fakeRuntimeProfiles{budget: 700_000, budgetOK: true}
+	h := &chatHost{
+		svc:          &Service{deps: Deps{RuntimeProfiles: profiles}, log: zap.NewNop()},
+		assistantMsg: &messagesdomain.Message{},
+		runtimeProfile: modelprofiledomain.Identity{
+			Provider: "custom", APIKeyID: "aki_1", EndpointFingerprint: "endpoint",
+			CredentialFingerprint: "credential", ModelID: "model", ConfigFingerprint: "config",
+		},
+	}
+	if got := h.RuntimeInputBudget(context.Background(), "multimodal"); got != 700_000 {
+		t.Fatalf("runtime budget = %d, want 700000", got)
+	}
+	if len(profiles.identities) != 1 || profiles.identities[0].RequestClass != modelprofiledomain.RequestClassMultimodal {
+		t.Fatalf("budget identity = %+v", profiles.identities)
+	}
+
+	h.ObserveContext(context.Background(), loopapp.ContextObservation{
+		Route: "text", Succeeded: true, PredictedInput: 800_000, ActualInput: 799_123, RequestBytes: 2_400_000,
+	})
+	h.ObserveContext(context.Background(), loopapp.ContextObservation{
+		Route: "multimodal", ContextOverflow: true, PredictedInput: 500_000, RequestBytes: 1_500_000,
+	})
+	if len(profiles.observations) != 2 {
+		t.Fatalf("observations = %d", len(profiles.observations))
+	}
+	if got := profiles.observations[0]; got.Kind != modelprofiledomain.ObservationSuccess || got.Identity.RequestClass != modelprofiledomain.RequestClassText || got.ActualInputTokens != 799_123 {
+		t.Fatalf("success observation = %+v", got)
+	}
+	if got := profiles.observations[1]; got.Kind != modelprofiledomain.ObservationContextOverflow || got.Identity.RequestClass != modelprofiledomain.RequestClassMultimodal || got.ActualInputTokens != 0 {
+		t.Fatalf("overflow observation = %+v", got)
+	}
 }
 
 func ctxWS(id string) context.Context {

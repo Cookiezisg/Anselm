@@ -72,6 +72,12 @@ type windowResolver struct{ lookup ModelInfoLookup }
 var _ contextmgrapp.WindowResolver = windowResolver{}
 
 func (w windowResolver) ContextBudget(ctx context.Context, provider, modelID string) (window, maxOutput int) {
+	// The managed gateway publishes an Anselm-owned, authoritative contract.
+	// External providers may be stale, custom, or silently route-dependent, so
+	// their catalog metadata is never used as a context-admission budget.
+	if provider != "anselm" {
+		return 0, 0
+	}
 	v, ok := w.lookup.find(ctx, provider, modelID)
 	if !ok {
 		return 0, 0

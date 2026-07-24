@@ -10,6 +10,8 @@ package apikey
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -375,11 +377,21 @@ func (s *Service) ResolveCredentialsByID(ctx context.Context, apiKeyID string) (
 		return apikeydomain.Credentials{}, fmt.Errorf("apikey.Service.ResolveCredentialsByID: decrypt: %w", err)
 	}
 	return apikeydomain.Credentials{
-		Provider:  k.Provider,
-		Key:       string(plain),
-		BaseURL:   resolveBaseURL(k),
-		APIFormat: k.APIFormat,
+		Provider:              k.Provider,
+		Key:                   string(plain),
+		BaseURL:               resolveBaseURL(k),
+		APIFormat:             k.APIFormat,
+		CredentialFingerprint: encryptedRevisionFingerprint(k.KeyEncrypted),
 	}, nil
+}
+
+// encryptedRevisionFingerprint is an opaque route-identity component for
+// runtime model learning. Hashing the encrypted blob (rather than plaintext)
+// keeps API-key material out of the profile pipeline while still invalidating
+// a learned profile whenever a key rotation produces a new ciphertext.
+func encryptedRevisionFingerprint(ciphertext string) string {
+	sum := sha256.Sum256([]byte(ciphertext))
+	return hex.EncodeToString(sum[:])
 }
 
 // MarkInvalidByID flips a key's status to error by id (e.g. caller hit 401/403),

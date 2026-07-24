@@ -9,6 +9,7 @@ import (
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	modelprofiledomain "github.com/sunweilin/anselm/backend/internal/domain/modelprofile"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -40,18 +41,41 @@ type chatHost struct {
 	// summaryCoversUpToSeq 是压缩水位线：seq ≤ 它的 block 已并入 summary、从 LLM 历史丢弃。真相源
 	// （崩溃安全：contextmgr 先写 summary+水位再写 archived 标记，崩溃不会重复计数）。
 	summaryCoversUpToSeq int64
+	// runtimeProfile identifies an external route without prompt/key material.
+	// Its RequestClass is filled per concrete rendered request.
+	runtimeProfile modelprofiledomain.Identity
 }
 
 // Interface assertions: a compile error fires if chatHost drifts from the loop hook surface.
 //
 // 接口断言：chatHost 若偏离 loop 钩子面则编译失败。
 var (
-	_ loopapp.Host             = (*chatHost)(nil)
-	_ loopapp.AutoActivator    = (*chatHost)(nil)
-	_ loopapp.ReminderProvider = (*chatHost)(nil)
-	_ loopapp.PromptCompactor  = (*chatHost)(nil)
-	_ loopapp.ContextObserver  = (*chatHost)(nil)
+	_ loopapp.Host                  = (*chatHost)(nil)
+	_ loopapp.AutoActivator         = (*chatHost)(nil)
+	_ loopapp.ReminderProvider      = (*chatHost)(nil)
+	_ loopapp.PromptCompactor       = (*chatHost)(nil)
+	_ loopapp.ContextObserver       = (*chatHost)(nil)
+	_ loopapp.RuntimeBudgetResolver = (*chatHost)(nil)
 )
+
+// RuntimeInputBudget asks the learned-profile service for the exact rendered
+// route. It is a soft proactive-edit trigger only; errors/unknowns leave the
+// loop ungoverned until a real provider overflow teaches it otherwise.
+func (h *chatHost) RuntimeInputBudget(ctx context.Context, route string) int {
+	if h.svc.deps.RuntimeProfiles == nil {
+		return 0
+	}
+	identity := h.runtimeIdentity(route)
+	budget, ok, err := h.svc.deps.RuntimeProfiles.Budget(ctx, identity)
+	if err != nil {
+		h.svc.log.Warn("runtime model profile lookup failed", zap.Error(err))
+		return 0
+	}
+	if !ok {
+		return 0
+	}
+	return budget
+}
 
 // CompactPrompt delegates semantic in-turn checkpointing to contextmgr when
 // wired. Returning the original projection lets loop's deterministic emergency
@@ -68,7 +92,7 @@ func (h *chatHost) CompactPrompt(ctx context.Context, history []llminfra.LLMMess
 
 // ObserveContext stores per-sampling context facts separately from the
 // assistant turn's aggregate token charge. No prompt content is retained.
-func (h *chatHost) ObserveContext(_ context.Context, o loopapp.ContextObservation) {
+func (h *chatHost) ObserveContext(ctx context.Context, o loopapp.ContextObservation) {
 	if h.assistantMsg.Attrs == nil {
 		h.assistantMsg.Attrs = make(map[string]any)
 	}
@@ -97,6 +121,37 @@ func (h *chatHost) ObserveContext(_ context.Context, o loopapp.ContextObservatio
 		stats["recoveries"] = intValue(stats["recoveries"]) + 1
 	}
 	h.assistantMsg.Attrs["contextUsage"] = stats
+
+	if h.svc.deps.RuntimeProfiles == nil || (!o.Succeeded && !o.ContextOverflow) {
+		return
+	}
+	kind := modelprofiledomain.ObservationSuccess
+	if o.ContextOverflow {
+		kind = modelprofiledomain.ObservationContextOverflow
+	}
+	if err := h.svc.deps.RuntimeProfiles.Observe(ctx, modelprofiledomain.Observation{
+		Identity:             h.runtimeIdentity(o.Route),
+		Kind:                 kind,
+		PredictedInputTokens: o.PredictedInput,
+		ActualInputTokens:    o.ActualInput,
+		RequestBytes:         o.RequestBytes,
+		Recovery:             o.Recovery,
+	}); err != nil {
+		h.svc.log.Warn("runtime model profile observation failed", zap.Error(err))
+	}
+}
+
+func (h *chatHost) runtimeIdentity(route string) modelprofiledomain.Identity {
+	identity := h.runtimeProfile
+	switch route {
+	case "text":
+		identity.RequestClass = modelprofiledomain.RequestClassText
+	case "multimodal":
+		identity.RequestClass = modelprofiledomain.RequestClassMultimodal
+	default:
+		identity.RequestClass = ""
+	}
+	return identity
 }
 
 func intValue(v any) int {

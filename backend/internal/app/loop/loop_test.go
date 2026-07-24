@@ -96,6 +96,23 @@ type autoActivateHost struct {
 	lazy []toolapp.Tool // activated when a tool not in the base set is requested
 }
 
+type runtimeBudgetHost struct {
+	*fakeHost
+	budget       int
+	observations []ContextObservation
+}
+
+func (h *runtimeBudgetHost) RuntimeInputBudget(_ context.Context, route string) int {
+	if route != "text" {
+		return 0
+	}
+	return h.budget
+}
+
+func (h *runtimeBudgetHost) ObserveContext(_ context.Context, o ContextObservation) {
+	h.observations = append(h.observations, o)
+}
+
 func (h *autoActivateHost) TryActivateForTool(_ context.Context, name string) []toolapp.Tool {
 	for _, t := range h.lazy {
 		if t.Name() == name {
@@ -241,6 +258,22 @@ func TestRun_ContextBudgetContinuesInsteadOfSoftStop(t *testing.T) {
 	res3 := Run(context.Background(), host3, &fakeClient{scripts: scripts()}, llminfra.Request{InputBudgetTokens: 100000}, 5, nil)
 	if res3.Steps != 2 || host3.fin.stopReason != messagesdomain.StopReasonEndTurn {
 		t.Fatalf("under-budget step must not stop, got steps=%d stop=%q", res3.Steps, host3.fin.stopReason)
+	}
+}
+
+func TestRun_RuntimeBudgetOverridesUnknownStaticBudgetAndObservesOutcome(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{textEv("ok"), finishEv()}}}
+	host := &runtimeBudgetHost{
+		fakeHost: &fakeHost{history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "hi"}}},
+		budget:   777_000,
+	}
+	Run(context.Background(), host, client, llminfra.Request{InputBudgetTokens: 0}, 1, nil)
+	if len(host.observations) != 1 {
+		t.Fatalf("observations = %d, want 1", len(host.observations))
+	}
+	o := host.observations[0]
+	if o.InputBudget != 777_000 || !o.Succeeded || o.ContextOverflow || o.Route != "text" {
+		t.Fatalf("runtime budget observation = %+v", o)
 	}
 }
 
