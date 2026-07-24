@@ -430,13 +430,24 @@ func qwenThinkingKnobs() []Knob {
 
 // qwenSpecs is Qwen's static catalog, most-specific prefix first. The qwen3 line controls
 // thinking by enable_thinking+thinking_budget; qwen-long/qwen-max have no thinking. Numbers
-// per DashScope docs, 2026-06.
+// per DashScope docs, 2026-07. `vision` represents image input only; video/audio are set by
+// qwenNativeInputCaps below because modelSpec deliberately remains the shared minimal catalog
+// shape for every provider.
 //
 // qwenSpecs 是 Qwen 静态目录，最具体前缀在前。qwen3 线靠 enable_thinking+thinking_budget
-// 控思考；qwen-long/qwen-max 无思考。数值据 DashScope 文档 2026-06。
+// 控思考；qwen-long/qwen-max 无思考。数值据 DashScope 文档 2026-07。vision 只代表图片输入；
+// video/audio 由下方 qwenNativeInputCaps 设置，避免为一家 provider 膨胀全局共享目录结构。
 var qwenSpecs = []modelSpec{
+	// Qwen3.7 is the current flagship visual route: text/image/video, 1M context, 64K output.
+	{"qwen3.7-plus", 1_000_000, 65_536, qwenThinkingKnobs(), true, false},
+	// Qwen3.5 Omni is a real multimodal (image/video/audio) input model, but its physical
+	// context is 64K. Its public model table does not publish one text-only max-output number;
+	// leave out=0 rather than inventing one. Output-audio support is deliberately not advertised
+	// here: this Client only owns input/content streaming today; TTS has a dedicated later phase.
+	{"qwen3.5-omni-plus", 65_536, 0, nil, true, false},
+	{"qwen3.5-omni-flash", 65_536, 0, nil, true, false},
 	{"qwen3-max", 262144, 32768, qwenThinkingKnobs(), false, false},
-	{"qwen3.5-plus", 1000000, 65536, qwenThinkingKnobs(), false, false},
+	{"qwen3.5-plus", 1_000_000, 65_536, qwenThinkingKnobs(), true, false},
 	{"qwen-plus", 1000000, 32768, qwenThinkingKnobs(), false, false},
 	{"qwen-flash", 1000000, 32768, qwenThinkingKnobs(), false, false},
 	{"qwen-turbo", 131072, 16384, qwenThinkingKnobs(), false, false},
@@ -444,9 +455,31 @@ var qwenSpecs = []modelSpec{
 	{"qwen-max", 32768, 8192, nil, false, false},
 }
 
-// DescribeModels parses Qwen's id-only /models body against the static catalog.
+// qwenNativeInputCaps enriches the generic image bit in modelSpec with Qwen's actual native
+// input contract. This is intentionally a capability declaration, not an application-side media
+// transport allowance: current attachments are inline data URLs, whereas Alibaba's 2GB remote
+// video limit requires the later leased-object transport. Leaving MaxMedia* at zero ensures we
+// do not falsely turn that upstream object-store limit into an unsafe local-body promise.
+func qwenNativeInputCaps(modelID string) (video, audio bool) {
+	id := strings.ToLower(strings.TrimSpace(modelID))
+	switch {
+	case strings.HasPrefix(id, "qwen3.7-plus"), strings.HasPrefix(id, "qwen3.5-plus"):
+		return true, false
+	case strings.HasPrefix(id, "qwen3.5-omni-plus"), strings.HasPrefix(id, "qwen3.5-omni-flash"):
+		return true, true
+	default:
+		return false, false
+	}
+}
+
+// DescribeModels parses Qwen's id-only /models body against the static catalog and augments
+// the video/audio bits for the families whose compatible-mode content wire we implement.
 //
 // DescribeModels 解析 Qwen 仅含 id 的 /models 返回，查静态目录。
 func (p *qwenProvider) DescribeModels(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(qwenSpecs, raw), nil
+	models := describeFromSpecs(qwenSpecs, raw)
+	for i := range models {
+		models[i].Video, models[i].Audio = qwenNativeInputCaps(models[i].ID)
+	}
+	return models, nil
 }

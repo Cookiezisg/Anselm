@@ -49,6 +49,20 @@ func TestQwenBuildRequest(t *testing.T) {
 	}
 }
 
+func TestQwenBuildRequest_UsesConfiguredRegionalWorkspaceEndpoint(t *testing.T) {
+	const singapore = "https://ws_123.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1"
+	httpReq, err := newQwenProvider().BuildRequest(context.Background(), Request{
+		ModelID: "qwen3.7-plus", Key: "k", BaseURL: singapore,
+		Messages: []LLMMessage{{Role: RoleUser, Content: "hi"}},
+	})
+	if err != nil {
+		t.Fatalf("BuildRequest: %v", err)
+	}
+	if got, want := httpReq.URL.String(), singapore+"/chat/completions"; got != want {
+		t.Errorf("regional request URL = %q, want %q", got, want)
+	}
+}
+
 func TestQwenBuildRequest_EncodesVideoAndAudioParts(t *testing.T) {
 	req := Request{ModelID: "qwen3.5-omni-plus", Key: "k", BaseURL: "https://example.test", Messages: []LLMMessage{{
 		Role: RoleUser, Parts: []ContentPart{
@@ -67,6 +81,40 @@ func TestQwenBuildRequest_EncodesVideoAndAudioParts(t *testing.T) {
 		if !strings.Contains(body, want) {
 			t.Errorf("Qwen wire missing %q: %s", want, body)
 		}
+	}
+}
+
+func TestQwenDescribeModels_AdvertisesNativeInputTruthfully(t *testing.T) {
+	models, err := newQwenProvider().DescribeModels(`{"data":[
+		{"id":"qwen3.7-plus"},
+		{"id":"qwen3.7-plus-2026-05-26"},
+		{"id":"qwen3.5-omni-plus"},
+		{"id":"qwen3.5-plus"},
+		{"id":"not-in-our-catalog"}
+	]}`)
+	if err != nil {
+		t.Fatalf("DescribeModels: %v", err)
+	}
+	byID := make(map[string]ModelInfo, len(models))
+	for _, model := range models {
+		byID[model.ID] = model
+	}
+	if len(byID) != 4 {
+		t.Fatalf("described models = %#v, want four known models", models)
+	}
+	for _, id := range []string{"qwen3.7-plus", "qwen3.7-plus-2026-05-26"} {
+		m := byID[id]
+		if m.ContextWindow != 1_000_000 || m.MaxOutput != 65_536 || !m.Vision || !m.Video || m.Audio {
+			t.Errorf("%s caps = %+v, want 1M/64K/image+video", id, m)
+		}
+	}
+	omni := byID["qwen3.5-omni-plus"]
+	if omni.ContextWindow != 65_536 || omni.MaxOutput != 0 || !omni.Vision || !omni.Video || !omni.Audio {
+		t.Errorf("omni caps = %+v, want truthful 64K image+video+audio and no invented max output", omni)
+	}
+	plus := byID["qwen3.5-plus"]
+	if plus.ContextWindow != 1_000_000 || plus.MaxOutput != 65_536 || !plus.Vision || !plus.Video || plus.Audio {
+		t.Errorf("qwen3.5-plus caps = %+v, want 1M/64K image+video", plus)
 	}
 }
 

@@ -129,6 +129,10 @@ Qwen3.7-plus；音频由 Qwen3.5 Omni 做一次任务相关的感知，再把可
 - 新加坡区域 key 已在本机和现有服务器分别真实调用：
   - `qwen3.7-plus`：HTTP 200，文本输出正常；
   - `qwen3.5-omni-plus`：强制 stream 路线 HTTP 200，文本输出正常。
+- 外部模型 API Key 模式保留用户填写的完整 provider endpoint；新加坡工作区使用
+  `https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1`，不会被 Qwen
+  adapter 改写成公共 China endpoint。该 URL 是 workspace 标识而非 secret；API key 仍只进本地
+  sidecar 的加密凭证存储。
 - key、网络、TLS、区域和两个模型的调用权限均已证实；测试未把 key 写入代码、文件或环境配置。
 - 正式上线仍必须换用未在聊天中出现过的新 key，并存入服务器 secret。
 
@@ -772,7 +776,7 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 
 **目标**：Anselm 能诚实描述并编码 Qwen3.7/Omni。
 
-- 已落地（第一块）：Qwen compatible-mode renderer 现原生编码 `video_url` 与 `input_audio`；视频保持 data/public URL，音频按官方 `{data,format}` 形状带 data URL。wire 测试锁定，尚未宣称媒体一次性上传或放开 transport body。
+- 已落地（第一、二块）：Qwen compatible-mode renderer 现原生编码 `video_url` 与 `input_audio`；视频保持 data/public URL，音频按官方 `{data,format}` 形状带 data URL。目录诚实发布 `qwen3.7-plus` 的 1M/64K、图片/视频输入，`qwen3.5-omni-*` 的 64K、图片/视频/音频输入；Omni 未公开统一 text max-output 数字时保持未知，绝不杜撰。wire/capability 测试锁定，尚未宣称媒体一次性上传或放开 transport body。
 
 - Qwen specs：1M Qwen3.7、64K Omni、max output、vision/video/audio；
 - Qwen content renderer 支持 video/audio；
