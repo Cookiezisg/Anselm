@@ -15,9 +15,15 @@ import (
 const (
 	readAttachmentDefaultLimitChars = 80_000
 	readAttachmentMaxLimitChars     = 120_000
+
+	readAttachmentDefaultSearchContextChars = 800
+	readAttachmentMaxSearchContextChars     = 2_000
+	readAttachmentDefaultSearchMatches      = 5
+	readAttachmentMaxSearchMatches          = 10
+	readAttachmentMaxQueryChars             = 512
 )
 
-const readAttachmentDescription = `Read an uploaded attachment's content back into the conversation by id (find ids via list_attachments). Text and document files (PDF/Office) are text-extracted and returned as a bounded page: default limitChars=80000, max 120000; pass offset with the returned nextOffset to continue. Images and other binary files return a descriptor (filename, mime, size) with a note that their content can't be text-extracted here; use inspect_media for images.`
+const readAttachmentDescription = `Read an uploaded attachment's content back into the conversation by id (find ids via list_attachments). Text and document files (PDF/Office) are text-extracted. By default this returns a bounded page: limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. For large text/doc attachments, prefer query mode: pass query plus optional contextChars/maxMatches to return only matching snippets with character offsets. Images and other binary files return a descriptor (filename, mime, size) with a note that their content can't be text-extracted here; use inspect_media for images.`
 
 var readAttachmentSchema = json.RawMessage(`{
 	"type": "object",
@@ -25,7 +31,10 @@ var readAttachmentSchema = json.RawMessage(`{
 	"properties": {
 		"id": {"type": "string"},
 		"offset": {"type": "integer", "minimum": 0, "description": "Character offset into the extracted text page. Use nextOffset from a previous result to continue."},
-		"limitChars": {"type": "integer", "minimum": 1, "maximum": 120000, "description": "Maximum characters to return. Defaults to 80000; capped at 120000."}
+		"limitChars": {"type": "integer", "minimum": 1, "maximum": 120000, "description": "Maximum characters to return in page mode. Defaults to 80000; capped at 120000."},
+		"query": {"type": "string", "maxLength": 512, "description": "Optional literal text query. When present, returns bounded snippets around matches instead of a page."},
+		"contextChars": {"type": "integer", "minimum": 1, "maximum": 2000, "description": "Characters of surrounding context on each side of a query match. Defaults to 800; capped at 2000."},
+		"maxMatches": {"type": "integer", "minimum": 1, "maximum": 10, "description": "Maximum query matches to return. Defaults to 5; capped at 10."}
 	}
 }`)
 
@@ -51,6 +60,15 @@ func (t *ReadAttachment) ValidateInput(args json.RawMessage) error {
 	}
 	if a.LimitChars < 0 || a.LimitChars > readAttachmentMaxLimitChars {
 		return fmt.Errorf("read_attachment: limitChars must be 0/default or between 1 and %d", readAttachmentMaxLimitChars)
+	}
+	if len([]rune(strings.TrimSpace(a.Query))) > readAttachmentMaxQueryChars {
+		return fmt.Errorf("read_attachment: query must be <= %d characters", readAttachmentMaxQueryChars)
+	}
+	if a.ContextChars < 0 || a.ContextChars > readAttachmentMaxSearchContextChars {
+		return fmt.Errorf("read_attachment: contextChars must be 0/default or between 1 and %d", readAttachmentMaxSearchContextChars)
+	}
+	if a.MaxMatches < 0 || a.MaxMatches > readAttachmentMaxSearchMatches {
+		return fmt.Errorf("read_attachment: maxMatches must be 0/default or between 1 and %d", readAttachmentMaxSearchMatches)
 	}
 	return nil
 }
@@ -84,7 +102,11 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 		if err != nil {
 			return "", err
 		}
-		return pageAttachmentText(flattenText(parts), a.Offset, normalizeReadLimit(a.LimitChars)), nil
+		text := flattenText(parts)
+		if strings.TrimSpace(a.Query) != "" {
+			return searchAttachmentText(text, a.Query, normalizeSearchContext(a.ContextChars), normalizeSearchMatches(a.MaxMatches)), nil
+		}
+		return pageAttachmentText(text, a.Offset, normalizeReadLimit(a.LimitChars)), nil
 	default: // image / audio / video / other — content isn't text-extractable here
 		return fmt.Sprintf(
 			"Attachment %q (id %s, %s, %d bytes, kind %s): this tool cannot turn its content into text. An image is seen by the model ONLY if the model has vision support AND the image is attached to the chat turn — if the current model is text-only it cannot see this image at all, so do not keep trying to read it; ask the user to describe it or switch to a vision model. Audio/video/other binaries have no extractor here.",
@@ -93,9 +115,12 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 }
 
 type readArgs struct {
-	ID         string `json:"id"`
-	Offset     int    `json:"offset"`
-	LimitChars int    `json:"limitChars"`
+	ID           string `json:"id"`
+	Offset       int    `json:"offset"`
+	LimitChars   int    `json:"limitChars"`
+	Query        string `json:"query"`
+	ContextChars int    `json:"contextChars"`
+	MaxMatches   int    `json:"maxMatches"`
 }
 
 // flattenText joins the text of every text part into one tool-result string. ToContentParts on a
@@ -127,6 +152,26 @@ func normalizeReadLimit(limit int) int {
 	return limit
 }
 
+func normalizeSearchContext(contextChars int) int {
+	if contextChars <= 0 {
+		return readAttachmentDefaultSearchContextChars
+	}
+	if contextChars > readAttachmentMaxSearchContextChars {
+		return readAttachmentMaxSearchContextChars
+	}
+	return contextChars
+}
+
+func normalizeSearchMatches(maxMatches int) int {
+	if maxMatches <= 0 {
+		return readAttachmentDefaultSearchMatches
+	}
+	if maxMatches > readAttachmentMaxSearchMatches {
+		return readAttachmentMaxSearchMatches
+	}
+	return maxMatches
+}
+
 func pageAttachmentText(text string, offset, limit int) string {
 	runes := []rune(text)
 	total := len(runes)
@@ -146,4 +191,78 @@ func pageAttachmentText(text string, offset, limit int) string {
 		next = fmt.Sprintf(" nextOffset=%d", end)
 	}
 	return fmt.Sprintf("%s\n\n[read_attachment pagination: offset=%d chars=%d totalChars=%d%s]", body, offset, end-offset, total, next)
+}
+
+type textMatch struct {
+	start int
+	end   int
+}
+
+func searchAttachmentText(text, query string, contextChars, maxMatches int) string {
+	query = strings.TrimSpace(query)
+	runes := []rune(text)
+	totalChars := len(runes)
+	matches, totalMatches := findLiteralRuneMatches(runes, query, maxMatches)
+	if totalMatches == 0 {
+		return fmt.Sprintf("No matches for query %q in attachment text. totalChars=%d. Try a different query or read_attachment with offset/limitChars to page through the text.", query, totalChars)
+	}
+	var sb strings.Builder
+	fmt.Fprintf(&sb, "read_attachment search: query=%q matches=%d returned=%d totalChars=%d contextChars=%d", query, totalMatches, len(matches), totalChars, contextChars)
+	for i, m := range matches {
+		start := m.start - contextChars
+		if start < 0 {
+			start = 0
+		}
+		end := m.end + contextChars
+		if end > totalChars {
+			end = totalChars
+		}
+		prefix := ""
+		if start > 0 {
+			prefix = "…"
+		}
+		suffix := ""
+		if end < totalChars {
+			suffix = "…"
+		}
+		fmt.Fprintf(&sb, "\n\n[match %d offset=%d chars=%d]\n%s%s%s", i+1, m.start, end-start, prefix, string(runes[start:end]), suffix)
+	}
+	if totalMatches > len(matches) {
+		fmt.Fprintf(&sb, "\n\n[read_attachment search truncated: returned=%d of %d matches; narrow query or raise maxMatches up to %d]", len(matches), totalMatches, readAttachmentMaxSearchMatches)
+	}
+	return sb.String()
+}
+
+func findLiteralRuneMatches(haystack []rune, query string, maxMatches int) ([]textMatch, int) {
+	needle := []rune(strings.ToLower(strings.TrimSpace(query)))
+	if len(needle) == 0 || len(haystack) == 0 || len(needle) > len(haystack) {
+		return nil, 0
+	}
+	lowerHaystack := []rune(strings.ToLower(string(haystack)))
+	matches := make([]textMatch, 0, maxMatches)
+	total := 0
+	for i := 0; i <= len(lowerHaystack)-len(needle); {
+		if hasRunePrefix(lowerHaystack[i:], needle) {
+			total++
+			if len(matches) < maxMatches {
+				matches = append(matches, textMatch{start: i, end: i + len(needle)})
+			}
+			i += len(needle)
+			continue
+		}
+		i++
+	}
+	return matches, total
+}
+
+func hasRunePrefix(haystack, prefix []rune) bool {
+	if len(prefix) > len(haystack) {
+		return false
+	}
+	for i, r := range prefix {
+		if haystack[i] != r {
+			return false
+		}
+	}
+	return true
 }

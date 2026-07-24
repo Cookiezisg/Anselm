@@ -844,6 +844,9 @@ lease refresh/reuse 与生产 E2E 验证。
   `not_required`，侧车异常降级 `unavailable` 且不影响原始附件可发送。
 - 已落地（文档工具分页）：`read_attachment` 对 text/document 默认只返回 80K 字符页，最大 120K，
   截断时给 `nextOffset`；agent 不再因一次重读旧 PDF/文本把 400K 抽取内容重新塞进主上下文。
+- 已落地（文档工具检索）：`read_attachment(query, contextChars?, maxMatches?)` 对 text/document 支持
+  大小写不敏感 literal search，只返回匹配片段、字符 offset、总匹配数；默认 5 条、每侧 800
+  字符上下文，硬上限 10 条/每侧 2000 字符。agent 可以先按关键词取证，再必要时用 offset 精读邻近页。
 - OCR/tiles；
 - document parse/chunk/index/map-reduce；
 - `inspect_media` 的 document page 能力；

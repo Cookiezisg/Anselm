@@ -149,6 +149,50 @@ func TestReadAttachment_TextPagination(t *testing.T) {
 	}
 }
 
+func TestReadAttachment_TextQueryReturnsBoundedSnippets(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	body := strings.Repeat("alpha ", 30) +
+		"first TARGET payload " +
+		strings.Repeat("middle ", 30) +
+		"second target payload " +
+		strings.Repeat("tail ", 30)
+	a, err := svc.Upload(ctx, "search.txt", "text/plain", []byte(body))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","query":"target","contextChars":8,"maxMatches":1}`)
+	if err != nil {
+		t.Fatalf("read query: %v", err)
+	}
+	if !strings.Contains(out, `read_attachment search: query="target"`) ||
+		!strings.Contains(out, "matches=2") ||
+		!strings.Contains(out, "returned=1") ||
+		!strings.Contains(out, "[match 1 offset=") {
+		t.Fatalf("query output should include search metadata and first match: %q", out)
+	}
+	if !strings.Contains(out, "TARGET") || strings.Contains(out, "second target payload") {
+		t.Fatalf("query output should return only a bounded first snippet: %q", out)
+	}
+	if !strings.Contains(out, "search truncated") {
+		t.Fatalf("query output should say when more matches exist: %q", out)
+	}
+}
+
+func TestReadAttachment_TextQueryNoMatchSelfCorrects(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "notes.txt", "text/plain", []byte("alpha beta gamma"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","query":"delta"}`)
+	if err != nil {
+		t.Fatalf("read query: %v", err)
+	}
+	if !strings.Contains(out, `No matches for query "delta"`) || !strings.Contains(out, "offset/limitChars") {
+		t.Fatalf("no-match query should self-correct: %q", out)
+	}
+}
+
 func TestReadAttachment_BinaryDescriptor(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	a, err := svc.Upload(ctx, "photo.png", "image/png", []byte("\x89PNG fake bytes"))
@@ -190,6 +234,15 @@ func TestReadAttachment_ValidateInput(t *testing.T) {
 	}
 	if err := (&ReadAttachment{}).ValidateInput([]byte(`{"id":"att_1","limitChars":120001}`)); err == nil {
 		t.Fatal("oversized limit should fail validation")
+	}
+	if err := (&ReadAttachment{}).ValidateInput([]byte(`{"id":"att_1","query":"` + strings.Repeat("x", readAttachmentMaxQueryChars+1) + `"}`)); err == nil {
+		t.Fatal("oversized query should fail validation")
+	}
+	if err := (&ReadAttachment{}).ValidateInput([]byte(`{"id":"att_1","contextChars":2001}`)); err == nil {
+		t.Fatal("oversized contextChars should fail validation")
+	}
+	if err := (&ReadAttachment{}).ValidateInput([]byte(`{"id":"att_1","maxMatches":11}`)); err == nil {
+		t.Fatal("oversized maxMatches should fail validation")
 	}
 	if err := (&ListAttachments{}).ValidateInput(nil); err != nil {
 		t.Fatalf("list takes no args, got %v", err)

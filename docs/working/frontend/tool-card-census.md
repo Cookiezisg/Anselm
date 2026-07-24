@@ -1309,9 +1309,9 @@ active 指针移到旧版本号,然后**重启实例**跑它。name/description/
 
 ### read_attachment
 - 用途:按 id 把已上传附件内容拉回对话。
-- args:`id` string 必填(sentinel `ATTACHMENT_ID_REQUIRED` 仅空 id;未知 id 是软失败串);`offset` int 可选(字符偏移,≥0);`limitChars` int 可选(default 80000,max 120000)。
+- args:`id` string 必填(sentinel `ATTACHMENT_ID_REQUIRED` 仅空 id;未知 id 是软失败串);分页模式 `offset` int 可选(字符偏移,≥0)、`limitChars` int 可选(default 80000,max 120000);检索模式 `query` string 可选(max 512)、`contextChars` int 可选(default 800,max 2000,每侧上下文)、`maxMatches` int 可选(default 5,max 10)。
 - 返回(原始字符串,按 kind 分叉):
-  - `text`/`document`:走 ToContentParts 共享抽取引擎(NativeDocs 关,PDF/Office 抽成文本),多 part 以 `\n` 拼接后分页。模板首段仍是文本内联 `Attached file "<name>"(truncated)?:\n<body>` 或文档抽取 `Attached document "<name>" (text-extracted, truncated)?:\n<body>`；抽取失败降级占位 `[document "<name>" attached, but its text could not be extracted]`。超过页限时尾部追加 `[read_attachment pagination: offset=0 chars=80000 totalChars=N nextOffset=80000]`；显式 offset 越界返回自纠句。单次最大体积约 120K 字符。
+  - `text`/`document`:走 ToContentParts 共享抽取引擎(NativeDocs 关,PDF/Office 抽成文本),多 part 以 `\n` 拼接。无 `query` 时分页：模板首段仍是文本内联 `Attached file "<name>"(truncated)?:\n<body>` 或文档抽取 `Attached document "<name>" (text-extracted, truncated)?:\n<body>`；抽取失败降级占位 `[document "<name>" attached, but its text could not be extracted]`。超过页限时尾部追加 `[read_attachment pagination: offset=0 chars=80000 totalChars=N nextOffset=80000]`；显式 offset 越界返回自纠句。单次最大体积约 120K 字符。带 `query` 时返回检索形：首行 `read_attachment search: query="..." matches=N returned=M totalChars=N contextChars=N`，随后若干 `[match i offset=N chars=N]` 片段；未命中返回 `No matches for query ...` 自纠句；匹配数超过返回数时追加 `[read_attachment search truncated: ...]`。
   - `image`/`audio`/`video`/`other`:返回描述符长句 `Attachment "<filename>" (id …, <mime>, <N> bytes, kind <kind>): this tool cannot turn its content into text. An image is seen by the model ONLY if…`(教模型别重试、让用户描述或换 vision 模型)。
 - 软失败:not found → `Attachment "<id>" not found. Call list_attachments to see available files.`
 - 只读、无副作用。

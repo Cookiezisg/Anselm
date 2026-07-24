@@ -1916,6 +1916,10 @@ function/handler/agent/workflow|trigger 分支,**没有 control/approval**——
   RawResultDisclosure(原始串)。
 - **退化态**:not found 软失败串→窗内原样 + 回执「未找到」(族文法 7);分页 footer
   `[read_attachment pagination: ... nextOffset=N]` 入白名单，回执追加「可继续」而不是假装读完整文。
+- **检索态**:args 带 `query` 时后端返回 `read_attachment search: query="..." matches=N returned=M ...`
+  + `[match i offset=N chars=N]` 片段；回执用「命中 N 处/显示 M 处」，机器窗显示片段而非全文页；
+  `No matches for query ...` 入白名单，回执「未命中」；`[read_attachment search truncated: ...]`
+  入白名单，提示可缩窄 query 或提高 `maxMatches`。
 - **交互**:附件卡 onTap v1 惰性(附件无海洋);文本可选中复制;分页 footer 出现时给「继续读取」动作
   （填同一工具 `offset=nextOffset`），不要要求用户复制 120K 工具结果；机器窗 copy 只复制当前页。
 - **新原语**:复用 AnAttachmentCard + 族级件;文件名/截断标记解析器(纯函数,单测锁形);
