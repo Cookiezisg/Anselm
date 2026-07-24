@@ -61,14 +61,20 @@ func (r *modelResolver) resolve(ctx context.Context, scenario string, override *
 	if err != nil {
 		return client, req, provider, apiKeyID, err
 	}
-	// Stamp the fallback input budget (window − maxOutput). The ReAct loop uses
-	// it only to trigger proactive prompt editing/checkpointing, never to reject
-	// or soft-stop a turn. Unknown window (0) disables proactive editing.
-	// 盖上兜底输入预算（window − maxOutput）。ReAct loop 仅据它触发主动 prompt
-	// editing/checkpoint，绝不本地拒绝或软停；window 未知（0）则关闭主动编辑。
+	// Stamp the provider-advertised context window as the fallback prompt-editing
+	// budget. MaxOutput is a capability ceiling, not a reservation: reserving a
+	// model's theoretical maximum (for example DeepSeek's 384K) would discard a
+	// large, usable portion of its 1M input context on ordinary turns. The loop
+	// never rejects locally; if this provider's real input+requested-output rule
+	// is tighter, its authoritative overflow response triggers recovery.
+	//
+	// 盖上上游公布的完整上下文窗口，作为 prompt editing 的兜底预算。MaxOutput 是能力上限，
+	// 不是预留额：预扣理论最大输出（如 DeepSeek 的 384K）会在普通回合白白丢掉 1M 输入
+	// 上下文的大段空间。loop 从不本地拒绝；若上游对“输入+本次请求输出”的实际规则更紧，
+	// 则以其权威超限响应触发恢复。
 	if r.windows != nil {
-		if window, maxOut := r.windows.ContextBudget(ctx, provider, req.ModelID); window > maxOut {
-			req.InputBudgetTokens = window - maxOut
+		if window, _ := r.windows.ContextBudget(ctx, provider, req.ModelID); window > 0 {
+			req.InputBudgetTokens = window
 		}
 	}
 	if v, ok := r.lookup.find(ctx, provider, req.ModelID); ok {

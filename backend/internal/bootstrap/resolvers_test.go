@@ -63,6 +63,11 @@ func TestModelResolvers_ScenarioRouting(t *testing.T) {
 	if cr.lastID != "default_key" {
 		t.Fatalf("creds resolved for %q, want default_key", cr.lastID)
 	}
+	// The full 100K provider window is available for ordinary prompt history.
+	// MaxOutput is a theoretical ceiling, never a hidden 8K input reservation.
+	if b.Request.InputBudgetTokens != 100000 {
+		t.Fatalf("InputBudgetTokens = %d, want full context window 100000", b.Request.InputBudgetTokens)
+	}
 
 	// chat utility
 	if _, err := rs.Chat().ResolveUtility(ctx); err != nil || pk.lastScenario != modeldomain.ScenarioUtility {

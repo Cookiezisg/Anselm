@@ -166,8 +166,11 @@ func (s *Service) MaybeCompact(ctx context.Context, conversationID string) error
 		return nil // no turn carrying per-sampling context accounting yet
 	}
 	if inputBudget <= 0 {
-		window, maxOutput := s.deps.Windows.ContextBudget(ctx, last.Provider, last.ModelID)
-		inputBudget = window - maxOutput
+		// Match the live loop's provider-authoritative policy: a catalog's
+		// theoretical output ceiling is not an input reservation. A real overflow
+		// is still recovered by the sampling loop before durable compaction runs.
+		window, _ := s.deps.Windows.ContextBudget(ctx, last.Provider, last.ModelID)
+		inputBudget = window
 	}
 	if inputBudget <= 0 {
 		return nil // unknown budget — don't compact blind
