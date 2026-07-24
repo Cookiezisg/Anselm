@@ -387,8 +387,34 @@ func TestReadAttachment_BinaryDescriptor(t *testing.T) {
 	// A descriptor, not bytes: filename + kind + the can't-extract note + the vision-honesty (F151:
 	// don't imply attaching guarantees a text-only model can see the image).
 	if !strings.Contains(out, "photo.png") || !strings.Contains(out, "image") ||
-		!strings.Contains(out, "cannot turn its content into text") || !strings.Contains(out, "vision") {
+		!strings.Contains(out, "cannot turn this media into text") ||
+		!strings.Contains(out, "inspect_media") ||
+		!strings.Contains(out, "vision") {
 		t.Fatalf("read of binary should return an honest descriptor: %q", out)
+	}
+}
+
+func TestReadAttachment_AudioVideoDescriptorPointsToInspectMediaCapsule(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	audio, err := svc.Upload(ctx, "voice.mp3", "audio/mpeg", []byte("ID3 audio"))
+	if err != nil {
+		t.Fatalf("upload audio: %v", err)
+	}
+	video, err := svc.Upload(ctx, "clip.mp4", "video/mp4", []byte("\x00\x00\x00\x18ftypisom video"))
+	if err != nil {
+		t.Fatalf("upload video: %v", err)
+	}
+	for _, id := range []string{audio.ID, video.ID} {
+		out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+id+`"}`)
+		if err != nil {
+			t.Fatalf("read media %s: %v", id, err)
+		}
+		if !strings.Contains(out, "read_attachment cannot turn this media into text") ||
+			!strings.Contains(out, "inspect_media") ||
+			!strings.Contains(out, "metadata capsule") ||
+			!strings.Contains(out, "startMs/endMs") {
+			t.Fatalf("audio/video descriptor should guide the agent to inspect_media capsule: %q", out)
+		}
 	}
 }
 

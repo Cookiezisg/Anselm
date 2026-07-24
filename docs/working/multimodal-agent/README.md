@@ -898,7 +898,8 @@ lease refresh/reuse 与生产 E2E 验证。
 - 已落地（metadata capsule 地基）：`media.Service.MediaProbe` 为 audio/video 生成本地、可缓存、
   metadata-only 的 `media-probe-v1` perception capsule，按 source SHA + range params 复用；不读原始媒体字节、
   不调用模型、不伪造 transcript/OCR/scene。`inspect_media` 对 audio/video 现在返回该 capsule 与后续
-  ASR/keyframe/time-range 建议，而不是把 raw media 带进主上下文。
+  ASR/keyframe/time-range 建议，而不是把 raw media 带进主上下文；`read_attachment` 对 audio/video 明确
+  返回 descriptor 并引导 agent 改用 `inspect_media` 的 metadata capsule，而不是继续误读二进制。
 - audio proxy/ASR/non-speech/prosody；
 - video probe/scene/keyframe/audio/OCR/timeline；
 - task-conditioned perception；

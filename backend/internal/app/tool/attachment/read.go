@@ -27,7 +27,7 @@ const (
 	readAttachmentMaxQueryChars             = 512
 )
 
-const readAttachmentDescription = `Read an uploaded attachment's content back into the conversation by id (find ids via list_attachments). Text and document files (PDF/Office) are text-extracted. Large text/doc attachments automatically return a compact chunk/page index with offsets and previews instead of body text when called without query, offset, or limitChars; pass index:true explicitly to request the index at any size. Then use query mode or explicit offset/limitChars to fetch only the relevant slice. Page mode limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. Query mode returns bounded snippets around literal matches. Images and other binary files return a descriptor; use inspect_media for images.`
+const readAttachmentDescription = `Read an uploaded attachment's content back into the conversation by id (find ids via list_attachments). Text and document files (PDF/Office) are text-extracted. Large text/doc attachments automatically return a compact chunk/page index with offsets and previews instead of body text when called without query, offset, or limitChars; pass index:true explicitly to request the index at any size. Then use query mode or explicit offset/limitChars to fetch only the relevant slice. Page mode limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. Query mode returns bounded snippets around literal matches. Images/audio/video and other binaries return descriptors; use inspect_media for bounded image evidence or audio/video metadata capsules.`
 
 var readAttachmentSchema = json.RawMessage(`{
 	"type": "object",
@@ -120,10 +120,25 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 			return indexAttachmentText(meta, text, 0), nil
 		}
 		return pageAttachmentText(text, a.Offset, normalizeReadLimit(a.LimitChars)), nil
-	default: // image / audio / video / other — content isn't text-extractable here
+	case attachmentdomain.KindImage, attachmentdomain.KindAudio, attachmentdomain.KindVideo:
+		return mediaReadDescriptor(meta), nil
+	default: // other binary — content isn't text-extractable here
 		return fmt.Sprintf(
-			"Attachment %q (id %s, %s, %d bytes, kind %s): this tool cannot turn its content into text. An image is seen by the model ONLY if the model has vision support AND the image is attached to the chat turn — if the current model is text-only it cannot see this image at all, so do not keep trying to read it; ask the user to describe it or switch to a vision model. Audio/video/other binaries have no extractor here.",
+			"Attachment %q (id %s, %s, %d bytes, kind %s): this tool cannot turn its content into text. No extractor is available for this binary kind.",
 			meta.Filename, meta.ID, meta.MimeType, meta.SizeBytes, meta.Kind), nil
+	}
+}
+
+func mediaReadDescriptor(meta *attachmentdomain.Attachment) string {
+	base := fmt.Sprintf("Attachment %q (id %s, %s, %d bytes, kind %s): read_attachment cannot turn this media into text or dump raw bytes into the conversation.",
+		meta.Filename, meta.ID, meta.MimeType, meta.SizeBytes, meta.Kind)
+	switch meta.Kind {
+	case attachmentdomain.KindImage:
+		return base + " Use inspect_media with a specific question for bounded visual evidence; if the current model route has no vision support, ask the user to describe it or switch to a vision-capable route."
+	case attachmentdomain.KindAudio, attachmentdomain.KindVideo:
+		return base + " Use inspect_media with a specific question and optional startMs/endMs to get a bounded local metadata capsule. Rich transcript, OCR, scenes, and keyframes are not available from read_attachment."
+	default:
+		return base
 	}
 }
 
