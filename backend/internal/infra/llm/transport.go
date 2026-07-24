@@ -143,6 +143,18 @@ func classifyHTTPError(status int, body []byte) error {
 	case http.StatusForbidden:
 		return fmt.Errorf("%w (403)", ErrAuthFailed)
 	case http.StatusTooManyRequests:
+		// 429 is not one thing. The managed gateway sends it both for a transient rate limit AND
+		// for a DEPLETED monthly install quota, and the two want opposite handling: rate limiting
+		// is retryable (back off and it clears), an exhausted quota is not (retrying burns three
+		// attempts and still fails, and the user is told "too many requests" when the truth is
+		// "your allowance is gone"). Read the structured code before trusting the status.
+		//
+		// 429 不是一件事。受管网关用它同时表示**瞬时限流**与**本月 install 配额耗尽**,而两者要求相反的
+		// 处置:限流可重试(退避即恢复),配额耗尽不可重试(重试白烧三次仍失败,且会把「你的额度用完了」
+		// 说成「请求太频繁」)。故先读结构化 code,再决定是否相信状态码。
+		if quotaExhaustedCode(body) {
+			return fmt.Errorf("%w (429)", ErrQuotaExhausted)
+		}
 		return fmt.Errorf("%w (429)", ErrRateLimited)
 	case http.StatusPaymentRequired:
 		// Free-tier gateway signals monthly budget exhaustion as 402. Map to ErrQuotaExhausted
@@ -218,4 +230,27 @@ func streamProviderError(code, message string) error {
 		return &RequestRejectedError{Reason: reason, Status: http.StatusBadRequest}
 	}
 	return fmt.Errorf("%w: upstream stream rejected the request", ErrProviderError)
+}
+
+// quotaExhaustedCode reports whether a 429 body carries the managed gateway's exhausted-allowance
+// codes rather than a transient rate limit. Only the closed set is honoured; unknown codes keep the
+// status's default meaning, so a new gateway code never silently becomes "non-retryable".
+//
+// quotaExhaustedCode 判断一个 429 的响应体带的是受管网关的**额度耗尽**码,而非瞬时限流。只认闭集;未知码
+// 保留状态码的默认含义,故网关新增的码绝不会无声地变成「不可重试」。
+func quotaExhaustedCode(body []byte) bool {
+	var env struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(body, &env) != nil {
+		return false
+	}
+	switch env.Error.Code {
+	case "QUOTA_EXHAUSTED", "INSTALL_CAP_REACHED":
+		return true
+	default:
+		return false
+	}
 }

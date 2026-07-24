@@ -134,3 +134,45 @@ func TestScanSSELines_CtxCancelBreaksKeepAliveDribble(t *testing.T) {
 		t.Fatal("scanSSELines hung on a keep-alive stream with a cancelled ctx (F33 regression)")
 	}
 }
+
+// 429 carries two opposite meanings on the managed gateway: a transient rate limit (retryable) and
+// a depleted monthly allowance (not). Classifying both as ErrRateLimited made an exhausted quota
+// burn three retries and then tell the user "too many requests" — the one message that suggests
+// waiting will help, when nothing will until the month rolls over.
+//
+// 受管网关的 429 同时承载两种相反含义:瞬时限流(可重试)与本月额度耗尽(不可)。把两者都归成
+// ErrRateLimited,会让配额耗尽白烧三次重试,然后告诉用户「请求太频繁」——偏偏是那句暗示「等等就好」的话,
+// 而在跨月之前等多久都没用。
+func TestClassifyHTTPError_429SeparatesRateLimitFromExhaustedQuota(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want error
+	}{
+		{"transient rate limit", `{"error":{"code":"RATE_LIMITED"}}`, ErrRateLimited},
+		{"upstream busy", `{"error":{"code":"UPSTREAM_BUSY"}}`, ErrRateLimited},
+		{"monthly quota gone", `{"error":{"code":"QUOTA_EXHAUSTED"}}`, ErrQuotaExhausted},
+		{"install cap reached", `{"error":{"code":"INSTALL_CAP_REACHED"}}`, ErrQuotaExhausted},
+		// An unknown code must keep the status's default meaning: a new gateway code silently
+		// becoming non-retryable would be its own bug. 未知码保留状态码默认含义。
+		{"unknown code", `{"error":{"code":"SOMETHING_NEW"}}`, ErrRateLimited},
+		{"unparseable body", `not json`, ErrRateLimited},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := classifyHTTPError(429, []byte(tc.body))
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("classify(429, %s) = %v, want %v", tc.body, err, tc.want)
+			}
+		})
+	}
+
+	// The retry policy is the thing that actually differs; assert it, not just the sentinel.
+	// 真正有区别的是重试策略;断言它,而不只是断言哨兵值。
+	if isRetryable(classifyHTTPError(429, []byte(`{"error":{"code":"QUOTA_EXHAUSTED"}}`))) {
+		t.Fatal("an exhausted allowance must not be retried")
+	}
+	if !isRetryable(classifyHTTPError(429, []byte(`{"error":{"code":"RATE_LIMITED"}}`))) {
+		t.Fatal("a transient rate limit must stay retryable")
+	}
+}
