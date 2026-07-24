@@ -106,4 +106,5 @@ type Repository interface {
 	ListPendingPerceptions(ctx context.Context, limit int) ([]*Perception, error)
 	RequeueRunning(ctx context.Context) (int, error)
 	ListReadyDerivativeBlobs(ctx context.Context) ([]string, error)
+	ListReadyDerivatives(ctx context.Context) ([]*Derivative, error)
 }

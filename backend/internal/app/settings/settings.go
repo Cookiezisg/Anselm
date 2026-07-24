@@ -377,7 +377,7 @@ func validate(l limitspkg.Limits) error {
 		l.Agent.MaxSteps, l.Agent.InvokeMaxTurns,
 		l.Timeout.LLMIdleSec, l.Timeout.LLMStreamMaxSec, l.Timeout.MCPCallSec, l.Timeout.BashDefaultTimeoutSec, l.Timeout.FunctionRunSec, l.Timeout.AgentInvokeSec, l.Timeout.HandlerCallSec, l.Timeout.ChatTurnSec,
 		l.Tools.ReadDefaultLines, l.Tools.BashOutputCapKB, l.Tools.ToolResultCapKB,
-		l.Guards.AttachmentMaxMB, l.Guards.WebhookBodyMaxMB,
+		l.Guards.AttachmentMaxMB, l.Guards.WebhookBodyMaxMB, l.Guards.MediaCacheMaxMB,
 	}
 	for _, v := range ints {
 		if v <= 0 {

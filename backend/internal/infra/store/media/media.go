@@ -186,3 +186,11 @@ func (s *Store) ListReadyDerivativeBlobs(ctx context.Context) ([]string, error) 
 	}
 	return out, nil
 }
+
+func (s *Store) ListReadyDerivatives(ctx context.Context) ([]*mediadomain.Derivative, error) {
+	rows, err := s.derivatives.WhereEq("status", mediadomain.StatusReady).Order("updated_at ASC").Find(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("mediastore.ListReadyDerivatives: %w", err)
+	}
+	return rows, nil
+}

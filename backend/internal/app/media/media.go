@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -16,6 +17,7 @@ import (
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	mediadomain "github.com/sunweilin/anselm/backend/internal/domain/media"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -544,8 +546,26 @@ func (s *Service) Close(ctx context.Context) {
 }
 
 // GC reclaims only unreferenced regenerated artifacts. Originals remain exclusively under the
-// attachment service's GC policy.
+// attachment service's GC policy. It also enforces the per-workspace media cache budget by evicting
+// the oldest ready derivatives first; evicted rows become failed with a specific code so the next
+// request can regenerate them instead of pointing at deleted bytes.
 func (s *Service) GC(ctx context.Context) (int, error) {
+	removed, err := s.sweepArtifacts(ctx)
+	if err != nil {
+		return 0, err
+	}
+	evicted, err := s.evictOverBudget(ctx, int64(limitspkg.Current().Guards.MediaCacheMaxMB)<<20)
+	if err != nil {
+		return removed, err
+	}
+	if evicted == 0 {
+		return removed, nil
+	}
+	removedAfterEvict, err := s.sweepArtifacts(ctx)
+	return removed + removedAfterEvict, err
+}
+
+func (s *Service) sweepArtifacts(ctx context.Context) (int, error) {
 	shas, err := s.repo.ListReadyDerivativeBlobs(ctx)
 	if err != nil {
 		return 0, err
@@ -555,6 +575,76 @@ func (s *Service) GC(ctx context.Context) (int, error) {
 		keep[sha] = true
 	}
 	return s.artifacts.Sweep(ctx, keep)
+}
+
+type readyBlobGroup struct {
+	sha       string
+	sizeBytes int64
+	updatedAt time.Time
+	rows      []*mediadomain.Derivative
+}
+
+func (s *Service) evictOverBudget(ctx context.Context, maxBytes int64) (int, error) {
+	if maxBytes <= 0 {
+		return 0, nil
+	}
+	rows, err := s.repo.ListReadyDerivatives(ctx)
+	if err != nil {
+		return 0, err
+	}
+	groups := map[string]*readyBlobGroup{}
+	var total int64
+	for _, row := range rows {
+		if row.BlobSHA256 == "" {
+			continue
+		}
+		g, ok := groups[row.BlobSHA256]
+		if !ok {
+			size := row.SizeBytes
+			if size < 0 {
+				size = 0
+			}
+			g = &readyBlobGroup{sha: row.BlobSHA256, sizeBytes: size, updatedAt: row.UpdatedAt}
+			groups[row.BlobSHA256] = g
+			total += size
+		}
+		if row.UpdatedAt.Before(g.updatedAt) {
+			g.updatedAt = row.UpdatedAt
+		}
+		g.rows = append(g.rows, row)
+	}
+	if total <= maxBytes {
+		return 0, nil
+	}
+	candidates := make([]*readyBlobGroup, 0, len(groups))
+	for _, g := range groups {
+		candidates = append(candidates, g)
+	}
+	sort.Slice(candidates, func(i, j int) bool {
+		return candidates[i].updatedAt.Before(candidates[j].updatedAt)
+	})
+	evicted := 0
+	for _, g := range candidates {
+		if total <= maxBytes {
+			break
+		}
+		for _, row := range g.rows {
+			row.Status = mediadomain.StatusFailed
+			row.BlobSHA256 = ""
+			row.MimeType = ""
+			row.SizeBytes = 0
+			row.Width = 0
+			row.Height = 0
+			row.DurationMS = 0
+			row.ErrorCode = "MEDIA_ARTIFACT_EVICTED"
+			if err := s.repo.SaveDerivative(ctx, row); err != nil {
+				return evicted, err
+			}
+			evicted++
+		}
+		total -= g.sizeBytes
+	}
+	return evicted, nil
 }
 
 func (s *Service) enqueuePending(ctx context.Context) {

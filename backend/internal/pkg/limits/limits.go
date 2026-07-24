@@ -117,6 +117,9 @@ type GuardLimits struct {
 	// WebhookBodyMaxMB caps an inbound webhook body (consumer: infra/trigger/webhook).
 	// WebhookBodyMaxMB 限入站 webhook body（消费方：infra/trigger/webhook）。
 	WebhookBodyMaxMB int `json:"webhookBodyMaxMB"`
+	// MediaCacheMaxMB caps regenerable media artifacts per workspace (consumer: mediaapp.GC).
+	// MediaCacheMaxMB 限每个 workspace 的可再生媒体 artifact 缓存（消费方：mediaapp.GC）。
+	MediaCacheMaxMB int `json:"mediaCacheMaxMB"`
 }
 
 // Default returns the operative defaults — the constants enforced when settings.json
@@ -142,7 +145,7 @@ func Default() Limits {
 			BashOutputCapKB:  256,
 			ToolResultCapKB:  256,
 		},
-		Guards: GuardLimits{AttachmentMaxMB: 50, WebhookBodyMaxMB: 10},
+		Guards: GuardLimits{AttachmentMaxMB: 50, WebhookBodyMaxMB: 10, MediaCacheMaxMB: 512},
 	}
 }
 
@@ -192,6 +195,7 @@ func Schema() []FieldSpec {
 		{"tools.toolResultCapKB", "tools", float64(d.Tools.ToolResultCapKB), 1, 0, false, "KB", "Cap on any tool_result fed back to the LLM."},
 		{"guards.attachmentMaxMB", "guards", float64(d.Guards.AttachmentMaxMB), 1, 0, false, "MB", "Cap on one uploaded file."},
 		{"guards.webhookBodyMaxMB", "guards", float64(d.Guards.WebhookBodyMaxMB), 1, 0, false, "MB", "Cap on an inbound webhook body."},
+		{"guards.mediaCacheMaxMB", "guards", float64(d.Guards.MediaCacheMaxMB), 1, 0, false, "MB", "Cap on regenerable media artifacts per workspace."},
 	}
 }
 
@@ -248,6 +252,9 @@ func WithDefaults(l Limits) Limits {
 	}
 	if l.Guards.WebhookBodyMaxMB == 0 {
 		l.Guards.WebhookBodyMaxMB = d.Guards.WebhookBodyMaxMB
+	}
+	if l.Guards.MediaCacheMaxMB == 0 {
+		l.Guards.MediaCacheMaxMB = d.Guards.MediaCacheMaxMB
 	}
 	return l
 }

@@ -120,4 +120,8 @@ func TestRequeueRunning_RecoversOnlyInterruptedWorkAndKeepsReadyBlob(t *testing.
 	if err != nil || len(shas) != 1 || shas[0] != "abc" {
 		t.Fatalf("ready blobs = %v, %v", shas, err)
 	}
+	readyRows, err := s.ListReadyDerivatives(ctx)
+	if err != nil || len(readyRows) != 1 || readyRows[0].ID != ready.ID {
+		t.Fatalf("ready derivatives = %+v, %v", readyRows, err)
+	}
 }

@@ -11,6 +11,7 @@ import (
 
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	mediadomain "github.com/sunweilin/anselm/backend/internal/domain/media"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -33,6 +34,7 @@ func (f fakeAttachments) Download(_ context.Context, id string) (*attachmentdoma
 
 type fakeRepo struct {
 	derivative *mediadomain.Derivative
+	ready      []*mediadomain.Derivative
 	perception *mediadomain.Perception
 }
 
@@ -69,6 +71,27 @@ func (f *fakeRepo) ListPendingPerceptions(context.Context, int) ([]*mediadomain.
 }
 func (f *fakeRepo) RequeueRunning(context.Context) (int, error) { return 0, nil }
 func (f *fakeRepo) ListReadyDerivativeBlobs(context.Context) ([]string, error) {
+	rows := f.ready
+	if len(rows) == 0 && f.derivative != nil && f.derivative.Status == mediadomain.StatusReady {
+		rows = []*mediadomain.Derivative{f.derivative}
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, row := range rows {
+		if row.BlobSHA256 != "" && !seen[row.BlobSHA256] {
+			seen[row.BlobSHA256] = true
+			out = append(out, row.BlobSHA256)
+		}
+	}
+	return out, nil
+}
+func (f *fakeRepo) ListReadyDerivatives(context.Context) ([]*mediadomain.Derivative, error) {
+	if len(f.ready) > 0 {
+		return f.ready, nil
+	}
+	if f.derivative != nil && f.derivative.Status == mediadomain.StatusReady {
+		return []*mediadomain.Derivative{f.derivative}, nil
+	}
 	return nil, nil
 }
 
@@ -86,7 +109,16 @@ func (f fakeArtifacts) Put(_ context.Context, data []byte) (string, error) {
 func (f fakeArtifacts) Get(_ context.Context, sha string) ([]byte, error) {
 	return f.data[sha], nil
 }
-func (fakeArtifacts) Sweep(context.Context, map[string]bool) (int, error) { return 0, nil }
+func (f fakeArtifacts) Sweep(_ context.Context, keep map[string]bool) (int, error) {
+	removed := 0
+	for sha := range f.data {
+		if !keep[sha] {
+			delete(f.data, sha)
+			removed++
+		}
+	}
+	return removed, nil
+}
 
 type fakeProcessor struct {
 	mu      sync.Mutex
@@ -308,6 +340,46 @@ func TestPreparation_NonImageNotRequired(t *testing.T) {
 	}
 	if prep.Status != PreparationStatusNotRequired || repo.derivative != nil {
 		t.Fatalf("non-image should not claim derivative work: prep=%+v derivative=%+v", prep, repo.derivative)
+	}
+}
+
+func TestGC_EvictsOldestReadyArtifactsOverBudget(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	limits := limitspkg.Default()
+	limits.Guards.MediaCacheMaxMB = 1
+	limitspkg.SetProvider(func() limitspkg.Limits { return limits })
+
+	oldSHA := mediadomain.Hash([]byte("old-proxy"))
+	newSHA := mediadomain.Hash([]byte("new-proxy"))
+	old := &mediadomain.Derivative{
+		ID: "mdr_old", Status: mediadomain.StatusReady, BlobSHA256: oldSHA, MimeType: "image/jpeg",
+		SizeBytes: 700 << 10, Width: 10, Height: 10, UpdatedAt: time.Unix(100, 0),
+	}
+	newer := &mediadomain.Derivative{
+		ID: "mdr_new", Status: mediadomain.StatusReady, BlobSHA256: newSHA, MimeType: "image/jpeg",
+		SizeBytes: 700 << 10, Width: 10, Height: 10, UpdatedAt: time.Unix(200, 0),
+	}
+	artifacts := fakeArtifacts{data: map[string][]byte{oldSHA: []byte("old"), newSHA: []byte("new")}}
+	svc := NewService(fakeAttachments{}, &fakeRepo{ready: []*mediadomain.Derivative{old, newer}}, artifacts, zap.NewNop())
+
+	removed, err := svc.GC(reqctxpkg.SetWorkspaceID(context.Background(), "ws_1"))
+	if err != nil {
+		t.Fatalf("gc: %v", err)
+	}
+	if removed != 1 {
+		t.Fatalf("removed = %d, want 1", removed)
+	}
+	if old.Status != mediadomain.StatusFailed || old.ErrorCode != "MEDIA_ARTIFACT_EVICTED" || old.BlobSHA256 != "" || old.SizeBytes != 0 {
+		t.Fatalf("old derivative not evicted cleanly: %+v", old)
+	}
+	if newer.Status != mediadomain.StatusReady || newer.BlobSHA256 != newSHA {
+		t.Fatalf("newer derivative should stay ready: %+v", newer)
+	}
+	if _, ok := artifacts.data[oldSHA]; ok {
+		t.Fatal("evicted artifact bytes survived sweep")
+	}
+	if _, ok := artifacts.data[newSHA]; !ok {
+		t.Fatal("kept artifact bytes were swept")
 	}
 }
 

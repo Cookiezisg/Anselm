@@ -23,7 +23,7 @@ func TestDefault_MatchesPreWiringConstants(t *testing.T) {
 	if d.Tools.ReadDefaultLines != 2000 || d.Tools.BashOutputCapKB != 256 || d.Tools.ToolResultCapKB != 256 {
 		t.Fatalf("tools defaults drifted: %+v", d.Tools)
 	}
-	if d.Guards.AttachmentMaxMB != 50 || d.Guards.WebhookBodyMaxMB != 10 {
+	if d.Guards.AttachmentMaxMB != 50 || d.Guards.WebhookBodyMaxMB != 10 || d.Guards.MediaCacheMaxMB != 512 {
 		t.Fatalf("guards defaults drifted: %+v", d.Guards)
 	}
 }

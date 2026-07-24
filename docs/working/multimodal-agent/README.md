@@ -806,8 +806,11 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 - 已落地（preparation 前端动作）：composer 待发附件保存 upload 返回的 `preparation` 侧车；image 代理准备
   `pending/running` 时显示“正在准备媒体”并给取消按钮，`failed/cancelled` 给重试按钮。该状态不阻塞发送：
   上传 ready 仍表示附件本身可用，preparation 仅代表后台媒体代理优化。
+- 已落地（media cache budget）：新增 `guards.mediaCacheMaxMB`（默认 512MB）作为每 workspace 可再生媒体
+  artifact 缓存上限；boot GC 先扫不再被 ready derivative 引用的孤儿 artifact，再按最旧 ready derivative
+  回收超预算 artifact。被回收的 derivative 降级为 `failed` + `MEDIA_ARTIFACT_EVICTED`，下次请求可重新生成，
+  不会留下 DB 指向已删除文件。
 - concrete processor、进度模型；
-- 磁盘配额和清理；
 - fake processor 测试。
 
 **出口**：同一附件重复请求不重算，参数/source 改变准确失效。
