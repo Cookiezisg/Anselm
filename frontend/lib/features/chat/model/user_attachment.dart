@@ -16,8 +16,12 @@ class UserAttachment {
     required this.filename,
     this.mimeType,
     this.sizeBytes,
+    this.durationMs,
+    this.playbackProgress = 0,
+    this.playing = false,
     this.state = AnAttachmentState.ready,
     this.thumb,
+    this.onPlayTap,
     this.onTap,
   });
 
@@ -28,11 +32,19 @@ class UserAttachment {
   final String filename;
   final String? mimeType;
   final int? sizeBytes;
+  final int? durationMs;
+  final double playbackProgress;
+  final bool playing;
   final AnAttachmentState state;
 
   /// Decoded image source (kind==image, fetched from the loopback content endpoint — never a remote URL).
   /// 缩略图源(仅 image;来自 loopback 内容端点,绝非远程 URL)。
   final ImageProvider? thumb;
+
+  /// Playback toggle for audio attachments. Null means playback is not wired yet and the audio card
+  /// must render an honest unavailable state instead of an inert-looking play action.
+  /// 音频附件播放切换。null 表示播放尚未接入，音频卡必须诚实显示不可播放，而不是给一个假按钮。
+  final VoidCallback? onPlayTap;
 
   /// ready=open (right island later) / failed=retry / oversized=load. 打开/重试/加载。
   final VoidCallback? onTap;
@@ -42,6 +54,22 @@ class UserAttachment {
   /// 以图瓦片渲染(否则文件卡):ready 且有图源。超大/失败/missing 的图回落文件卡(诚实,不渲幽灵图框)。
   bool get rendersAsThumb =>
       kind == 'image' && state == AnAttachmentState.ready && thumb != null;
+}
+
+/// mm:ss / h:mm:ss audio duration label. Null or negative means unknown.
+/// 音频时长标签；null/负数表示未知。
+String? audioDurationLabel(int? durationMs) {
+  if (durationMs == null || durationMs < 0) return null;
+  final total = (durationMs / 1000).round();
+  final hours = total ~/ 3600;
+  final minutes = (total % 3600) ~/ 60;
+  final seconds = total % 60;
+  final ss = seconds.toString().padLeft(2, '0');
+  if (hours > 0) {
+    final mm = minutes.toString().padLeft(2, '0');
+    return '$hours:$mm:$ss';
+  }
+  return '$minutes:$ss';
 }
 
 /// The card's "TYPE · SIZE" meta line — extension from the filename (fallback: the mime subtype),

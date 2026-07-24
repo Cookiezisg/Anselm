@@ -2011,6 +2011,9 @@
     "mediaPreparationUnavailable": "Media prep unavailable",
     "cancelPreparation": "Cancel media preparation",
     "retryPreparation": "Retry media preparation",
+    "playAudio": "Play audio",
+    "pauseAudio": "Pause audio",
+    "audioPlaybackUnavailable": "Playback not available yet",
     "remove": "Remove"
   }
 }

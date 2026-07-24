@@ -132,6 +132,7 @@ lib/core/ui/an_action_group.dart	converged
 lib/core/ui/an_attachment_card.dart	converged
 lib/core/ui/an_attachment_chip.dart	reviewed
 lib/core/ui/an_attachment_thumb.dart	converged
+lib/core/ui/an_audio_attachment_card.dart	pending
 lib/core/ui/an_auto_grid.dart	converged
 lib/core/ui/an_batch_bar.dart	pending
 lib/core/ui/an_brand_icon.dart	reviewed

@@ -113,6 +113,7 @@ final GalleryItem userTurnGalleryItem = GalleryItem(
             kind: 'audio',
             filename: 'standup-recording.m4a',
             sizeBytes: 3984588,
+            durationMs: 65000,
           ),
           UserAttachment(
             id: 'd',

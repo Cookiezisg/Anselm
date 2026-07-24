@@ -9,6 +9,7 @@ export '../model/sidebar_model.dart';
 export '../model/status_state.dart' show AnStatus, AnTone;
 export 'an_a11y.dart';
 export 'an_action_group.dart';
+export 'an_audio_attachment_card.dart';
 export 'an_attachment_card.dart';
 export 'an_attachment_thumb.dart';
 export 'an_auto_grid.dart';

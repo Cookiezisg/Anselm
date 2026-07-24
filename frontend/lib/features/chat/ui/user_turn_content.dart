@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/ui/an_audio_attachment_card.dart';
 import '../../../core/ui/an_attachment_card.dart';
 import '../../../core/ui/an_attachment_thumb.dart';
 import '../../../core/ui/an_ref_pill.dart';
@@ -99,17 +100,33 @@ class UserTurnContent extends StatelessWidget {
     runSpacing: AnSpace.s8,
     children: [
       for (final a in cards)
-        AnAttachmentCard(
-          kind: a.kind,
-          filename: a.filename,
-          metaLine: attachmentMetaLine(
+        if (a.kind == 'audio')
+          AnAudioAttachmentCard(
             filename: a.filename,
-            mimeType: a.mimeType,
-            sizeBytes: a.sizeBytes,
+            metaLine: attachmentMetaLine(
+              filename: a.filename,
+              mimeType: a.mimeType,
+              sizeBytes: a.sizeBytes,
+            ),
+            durationLabel: audioDurationLabel(a.durationMs),
+            progress: a.playbackProgress,
+            playing: a.playing,
+            state: a.state,
+            onPlayTap: a.onPlayTap,
+            onTap: a.onTap,
+          )
+        else
+          AnAttachmentCard(
+            kind: a.kind,
+            filename: a.filename,
+            metaLine: attachmentMetaLine(
+              filename: a.filename,
+              mimeType: a.mimeType,
+              sizeBytes: a.sizeBytes,
+            ),
+            state: a.state,
+            onTap: a.onTap,
           ),
-          state: a.state,
-          onTap: a.onTap,
-        ),
     ],
   );
 

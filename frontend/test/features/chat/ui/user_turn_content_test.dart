@@ -93,6 +93,68 @@ void main() {
     },
   );
 
+  testWidgets(
+    'audio attachments render as audio cards with honest playback state',
+    (tester) async {
+      await tester.pumpWidget(
+        host(
+          const UserTurnContent(
+            text: '听这个',
+            attachments: [
+              UserAttachment(
+                id: 'voice',
+                kind: 'audio',
+                filename: 'standup.m4a',
+                mimeType: 'audio/mp4',
+                sizeBytes: 1024,
+                durationMs: 65000,
+              ),
+            ],
+          ),
+        ),
+      );
+      expect(find.byType(AnAudioAttachmentCard), findsOneWidget);
+      expect(find.byType(AnAttachmentCard), findsNothing);
+      expect(find.text('1:05'), findsOneWidget);
+      expect(find.text('Playback not available yet'), findsOneWidget);
+      expect(
+        find.bySemanticsLabel('Playback not available yet'),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'playable audio card exposes play action without using the generic open tap',
+    (tester) async {
+      var played = 0;
+      var opened = 0;
+      await tester.pumpWidget(
+        host(
+          UserTurnContent(
+            text: '',
+            attachments: [
+              UserAttachment(
+                id: 'voice',
+                kind: 'audio',
+                filename: 'standup.m4a',
+                mimeType: 'audio/mp4',
+                sizeBytes: 1024,
+                durationMs: 9000,
+                playbackProgress: 0.5,
+                onPlayTap: () => played++,
+                onTap: () => opened++,
+              ),
+            ],
+          ),
+        ),
+      );
+      await tester.tap(find.bySemanticsLabel('Play audio'));
+      expect(played, 1);
+      expect(opened, 0);
+    },
+  );
+
   testWidgets('tombstone (missing) swallows taps; failed card fires retry', (
     tester,
   ) async {

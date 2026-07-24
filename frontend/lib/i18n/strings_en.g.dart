@@ -1479,6 +1479,15 @@ class Translations$attach$en {
 	/// en: 'Retry media preparation'
 	String get retryPreparation => 'Retry media preparation';
 
+	/// en: 'Play audio'
+	String get playAudio => 'Play audio';
+
+	/// en: 'Pause audio'
+	String get pauseAudio => 'Pause audio';
+
+	/// en: 'Playback not available yet'
+	String get audioPlaybackUnavailable => 'Playback not available yet';
+
 	/// en: 'Remove'
 	String get remove => 'Remove';
 }
@@ -8299,6 +8308,9 @@ extension on Translations {
 			'attach.mediaPreparationUnavailable' => 'Media prep unavailable',
 			'attach.cancelPreparation' => 'Cancel media preparation',
 			'attach.retryPreparation' => 'Retry media preparation',
+			'attach.playAudio' => 'Play audio',
+			'attach.pauseAudio' => 'Pause audio',
+			'attach.audioPlaybackUnavailable' => 'Playback not available yet',
 			'attach.remove' => 'Remove',
 			_ => null,
 		};
