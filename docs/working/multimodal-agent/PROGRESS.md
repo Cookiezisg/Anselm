@@ -359,3 +359,35 @@ provider → 拿到网关自己拼的绝对 URL
 **已做**:§15 的 7 条「是否确认」订正为「已确认」(用户确认决策早已拍板、代码正按其执行,标记只是滞后)· ADR 0011 补齐(战役此前零 ADR)· 台账持续更新。
 
 **刻意未做**:`CLAUDE.md` 状态节重述、填 `landed-into`、移入 `archive/`。这三件是**战役完成的收口仪式**——而 C 尚有余项、E(真机端到端验收)与 F(WRK-077 十七步)一步未动。现在做它们,等于把没做完的写成做完了,**直接违反本 goal 自己的铁律**(「没跑的绝不写成跑过了」)。它们应在 C 清零、E 跑完之后再做。
+
+
+---
+
+## 接手指南(2026-07-25 会话结束时的精确状态)
+
+### 环境
+
+主工作树 `~/Documents/.../Anselm` 的文件权限在会话中途被 macOS 撤销,本轮后半段在 **`/tmp/anselm-work`(从远端克隆)** 完成,门禁照跑、已推送。恢复权限后主树 `git pull` 即可;若报「本地改动会被覆盖」,`git checkout -- frontend/lib/core/process/backend_controller.dart frontend/test/core/process/backend_controller_test.dart` 再 pull——远端那份内容等价,**不丢东西**。
+
+### C 剩余三项(均有明确路径)
+
+1. **受管 key 能力画像开通后从不刷新**(中危,价值最高)
+   `app/freetier/freetier.go:154` 把 `TestResponse: llminfra.AnselmProbeBody()`——一份**本地硬编码常量**(`infra/llm/anselm.go:175`)——存进受管 key,而 `app/model/capability.go` 的全部能力都从这份存档派生。唯一刷新路径是 `apikey.Test()`(会把 live `/v1/models` 原文写回 `test_response`),而**开通流程从不调用它**。
+   后果:`text.available`/`multimodal.available` 在实践中恒为 true;网关真实发布的任何 limit 变更都到不了桌面端;前面那些 route profile 解析代码在受管路径上**只解析这条自己写的常量**。
+   **做法**:`CreateManaged` 成功后触发一次真实探针(给 freetier 的 `Keys` 端口加一个 `Test(ctx, keyID)`,或直接复用 apikey 服务的 probe),把真实响应体写回。注意保持 best-effort:探针失败不得让开通失败(离线首启仍要能用),但要留下可观测的降级信号。
+
+2. **`MEDIA_UPLOAD_MAX_BYTES`(默认 100MiB)从不发布**(中危)
+   网关在 `app/media/media.go:176` 强制它,但 `uploadResponse` 只发 `chunkMaxBytes`、`anselm_capabilities` 也没有该字段;桌面端 `guards.attachmentMaxMB` 用户可调到 >100 → `Create` 400 → 归成泛化 `ErrBadRequest`。默认 50MB < 100MiB 所以现在不炸。**做法**:在 create 响应或 capabilities 里发布上限,桌面端据此校验并给可操作提示。
+
+3. **网关 PoW 领号闸是热开关而桌面端零 PoW 实现**(中危,现关闭)
+   `INSTALL_POW_MODE` 可在 dashboard 在线改成 enforce;届时所有新装桌面端的免费档开通会**静默失败**(`freetier.go:145-148` 只打一条 Warn)。**做法**:要么桌面端实现 PoW 求解,要么至少让开通失败可见(现在是静默的)。
+
+### 不变量守卫:2/10 有了真守卫
+
+#9(Flutter loopback)与 #10(后端脱敏底座)已落。**#10 仍缺调用点扫描**——现有的是按键名的黑名单,新键名仍会漏;两仓都还没有任何机械扫描日志/metrics 调用点的守卫。其余八条见上文审计表。
+
+### D/E/F
+
+- **D 剩**:`CLAUDE.md` 状态节重述、`landed-into`、移 `archive/` —— **必须等 C 清零且 E 跑完**,否则是把没做完的写成做完。
+- **E**:需主工作树权限恢复(要驱动真 app)。三项只能用户本人做的已登记:Windows/Linux 真机、正式 key 轮换、真人语音内容。
+- **F**:WRK-077 十七步,规范在 `working/frontend/chat-iteration.md` §7(含分工与模型绑定)。
