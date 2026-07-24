@@ -28,9 +28,17 @@ NotificationItem _n(
   id: id,
   type: 'function.created',
   payload: {'name': name},
-  createdAt: createdAt ?? DateTime.now().subtract(const Duration(minutes: 5)),
+  // Default rows intentionally sit in the local «今天» bucket. `now - 5min` flakes just after midnight
+  // by slipping into «昨天» while the test still asserts the Today head.
+  // 默认行固定落在本地「今天」组。`now - 5min` 在午夜后几分钟会滑到「昨天」导致门禁抖动。
+  createdAt: createdAt ?? _todayNoon(),
   readAt: read ? DateTime.now() : null,
 );
+
+DateTime _todayNoon() {
+  final now = DateTime.now();
+  return DateTime(now.year, now.month, now.day, 12);
+}
 
 // A row that lands in the «昨天» bucket — yesterday at LOCAL noon (robust near midnight, unlike a raw
 // `now - 26h` which can slip into «更早»). 落在「昨天」组的行(昨日本地正午,近午夜也稳)。

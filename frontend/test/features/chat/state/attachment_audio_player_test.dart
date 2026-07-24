@@ -140,6 +140,25 @@ void main() {
   );
 
   test(
+    'explicit stop clears active playback state and stops the driver',
+    () async {
+      final (c, driver) = _setup();
+      final n = c.read(attachmentAudioPlaybackProvider.notifier);
+
+      await n.toggle('att_1', loadBytes: () async => [1]);
+      await n.stop();
+
+      final state = c.read(attachmentAudioPlaybackProvider);
+      expect(driver.stopCalls, 1);
+      expect(state.activeAttachmentId, isNull);
+      expect(state.playing, isFalse);
+      expect(state.loading, isFalse);
+      expect(state.completed, isFalse);
+      expect(state.error, isNull);
+    },
+  );
+
+  test(
     'driver streams update duration, position, progress and completion',
     () async {
       final (c, driver) = _setup();

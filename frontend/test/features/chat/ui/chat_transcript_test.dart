@@ -115,6 +115,7 @@ class _FakeSelected extends SelectedConversation {
 
 Widget _host(
   FixtureChatRepository repo, {
+  String conversationId = 'cv_1',
   List<Override> overrides = const [],
 }) => ProviderScope(
   overrides: [
@@ -126,7 +127,7 @@ Widget _host(
     child: MaterialApp(
       debugShowCheckedModeBanner: false,
       theme: AnTheme.light(),
-      home: const Scaffold(body: ChatTranscriptView(conversationId: 'cv_1')),
+      home: Scaffold(body: ChatTranscriptView(conversationId: conversationId)),
     ),
   ),
 );
@@ -150,6 +151,7 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   final durations = StreamController<Duration>.broadcast();
   final statuses = StreamController<AttachmentAudioStatus>.broadcast();
   final playPayloads = <List<int>>[];
+  var stopCalls = 0;
   var disposeCalls = 0;
 
   @override
@@ -174,7 +176,10 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   Future<void> resume() async => statuses.add(AttachmentAudioStatus.playing);
 
   @override
-  Future<void> stop() async => statuses.add(AttachmentAudioStatus.stopped);
+  Future<void> stop() async {
+    stopCalls++;
+    statuses.add(AttachmentAudioStatus.stopped);
+  }
 
   @override
   Future<void> dispose() async {
@@ -493,6 +498,110 @@ void main() {
       expect(find.bySemanticsLabel('Pause audio'), findsOneWidget);
     },
   );
+
+  testWidgets('audio playback stops when switching transcript conversation', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_1'), _conv('cv_2')],
+      messages: {
+        'cv_1': [
+          ChatMessage(
+            id: 'msg_u',
+            conversationId: 'cv_1',
+            role: 'user',
+            status: 'completed',
+            attrs: {
+              'attachments': ['att_audio'],
+            },
+            blocks: [_blk('bu', 'text', '听这个')],
+            createdAt: DateTime.utc(2026, 7, 2, 10),
+          ),
+        ],
+        'cv_2': [],
+      },
+    );
+    repo.attachmentMetas['att_audio'] = const AttachmentMeta(
+      id: 'att_audio',
+      filename: 'voice.webm',
+      mimeType: 'audio/webm',
+      sizeBytes: 3,
+      kind: 'audio',
+    );
+    repo.attachmentBytes['att_audio'] = [7, 8, 9];
+    final driver = _FakeAudioDriver();
+    final overrides = [
+      attachmentAudioDriverFactoryProvider.overrideWithValue(() => driver),
+    ];
+
+    await tester.pumpWidget(_host(repo, overrides: overrides));
+    await tester.pump();
+    await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.tap(find.bySemanticsLabel('Play audio'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+    expect(find.bySemanticsLabel('Pause audio'), findsOneWidget);
+
+    await tester.pumpWidget(
+      _host(repo, conversationId: 'cv_2', overrides: overrides),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(driver.stopCalls, 1);
+    expect(find.bySemanticsLabel('Pause audio'), findsNothing);
+  });
+
+  testWidgets('audio playback stops when transcript unmounts', (tester) async {
+    final repo = _repo(
+      messages: {
+        'cv_1': [
+          ChatMessage(
+            id: 'msg_u',
+            conversationId: 'cv_1',
+            role: 'user',
+            status: 'completed',
+            attrs: {
+              'attachments': ['att_audio'],
+            },
+            blocks: [_blk('bu', 'text', '听这个')],
+            createdAt: DateTime.utc(2026, 7, 2, 10),
+          ),
+        ],
+      },
+    );
+    repo.attachmentMetas['att_audio'] = const AttachmentMeta(
+      id: 'att_audio',
+      filename: 'voice.webm',
+      mimeType: 'audio/webm',
+      sizeBytes: 3,
+      kind: 'audio',
+    );
+    repo.attachmentBytes['att_audio'] = [7, 8, 9];
+    final driver = _FakeAudioDriver();
+
+    await tester.pumpWidget(
+      _host(
+        repo,
+        overrides: [
+          attachmentAudioDriverFactoryProvider.overrideWithValue(() => driver),
+        ],
+      ),
+    );
+    await tester.pump();
+    await _settle(tester);
+    await tester.pump(const Duration(milliseconds: 30));
+    await tester.tap(find.bySemanticsLabel('Play audio'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    await tester.pumpWidget(const SizedBox.shrink());
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    expect(driver.stopCalls, 1);
+  });
 
   testWidgets(
     'shorter-than-a-screen content docks to MIN — the first row clears the floating head',

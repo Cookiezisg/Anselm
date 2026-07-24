@@ -669,48 +669,72 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
   }
 }
 
-class _TranscriptAudioAttachment extends ConsumerWidget {
+class _TranscriptAudioAttachment extends ConsumerStatefulWidget {
   const _TranscriptAudioAttachment(this.attachment);
 
   final UserAttachment attachment;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_TranscriptAudioAttachment> createState() =>
+      _TranscriptAudioAttachmentState();
+}
+
+class _TranscriptAudioAttachmentState
+    extends ConsumerState<_TranscriptAudioAttachment> {
+  AttachmentAudioPlaybackController? _playbackController;
+  bool _wasActive = false;
+
+  @override
+  void dispose() {
+    // The row owns the visible playback lifetime. If the active audio row leaves the tree because the
+    // user switched conversations or navigated away, stop through the controller captured during build
+    // instead of reading ref during dispose (Riverpod marks that unsafe).
+    // 播放生命周期归音频行。active 行因切会话/离开页面卸载时，用 build 阶段捕获的 controller 停止；
+    // dispose 内不再读 ref。
+    final controller = _playbackController;
+    if (_wasActive && controller != null) unawaited(controller.stop());
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final t = Translations.of(context);
     final playback = ref.watch(attachmentAudioPlaybackProvider);
-    final duration = playback.durationFor(attachment.id);
-    final statusLine = playback.isLoading(attachment.id)
+    _playbackController = ref.read(attachmentAudioPlaybackProvider.notifier);
+    _wasActive = playback.isActive(widget.attachment.id);
+    final duration = playback.durationFor(widget.attachment.id);
+    final statusLine = playback.isLoading(widget.attachment.id)
         ? t.attach.loadingAudio
-        : playback.errorFor(attachment.id) != null
+        : playback.errorFor(widget.attachment.id) != null
         ? t.attach.audioPlaybackFailed
         : null;
     return AnAudioAttachmentCard(
-      filename: attachment.filename,
+      filename: widget.attachment.filename,
       metaLine: attachmentMetaLine(
-        filename: attachment.filename,
-        mimeType: attachment.mimeType,
-        sizeBytes: attachment.sizeBytes,
+        filename: widget.attachment.filename,
+        mimeType: widget.attachment.mimeType,
+        sizeBytes: widget.attachment.sizeBytes,
       ),
       durationLabel: audioDurationLabel(
-        duration?.inMilliseconds ?? attachment.durationMs,
+        duration?.inMilliseconds ?? widget.attachment.durationMs,
       ),
       statusLine: statusLine,
-      busy: playback.isLoading(attachment.id),
-      progress: playback.progressFor(attachment.id),
-      playing: playback.isPlaying(attachment.id),
-      state: attachment.state,
-      onPlayTap: attachment.state == AnAttachmentState.ready
+      busy: playback.isLoading(widget.attachment.id),
+      progress: playback.progressFor(widget.attachment.id),
+      playing: playback.isPlaying(widget.attachment.id),
+      state: widget.attachment.state,
+      onPlayTap: widget.attachment.state == AnAttachmentState.ready
           ? () => ref
                 .read(attachmentAudioPlaybackProvider.notifier)
                 .toggle(
-                  attachment.id,
+                  widget.attachment.id,
                   loadBytes: () => ref
                       .read(chatRepositoryProvider)
-                      .getAttachmentBytes(attachment.id),
-                  mimeType: attachment.mimeType,
+                      .getAttachmentBytes(widget.attachment.id),
+                  mimeType: widget.attachment.mimeType,
                 )
           : null,
-      onTap: attachment.onTap,
+      onTap: widget.attachment.onTap,
     );
   }
 }

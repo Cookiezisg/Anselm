@@ -166,6 +166,7 @@ class AttachmentAudioPlaybackController
         state.playing &&
         !state.loading) {
       await _driver.pause();
+      if (!ref.mounted) return;
       if (token == _operation) {
         state = state.copyWith(loading: false, playing: false);
       }
@@ -177,6 +178,7 @@ class AttachmentAudioPlaybackController
         !state.loading &&
         state.error == null) {
       await _driver.resume();
+      if (!ref.mounted) return;
       if (token == _operation) {
         state = state.copyWith(loading: false, playing: true, clearError: true);
       }
@@ -186,6 +188,7 @@ class AttachmentAudioPlaybackController
     if (state.activeAttachmentId != null &&
         state.activeAttachmentId != attachmentId) {
       await _driver.stop();
+      if (!ref.mounted) return;
     }
 
     state = AttachmentAudioPlaybackState(
@@ -194,9 +197,9 @@ class AttachmentAudioPlaybackController
     );
     try {
       final bytes = await loadBytes();
-      if (token != _operation) return;
+      if (!ref.mounted || token != _operation) return;
       await _driver.playBytes(bytes, mimeType: mimeType);
-      if (token != _operation) return;
+      if (!ref.mounted || token != _operation) return;
       state = state.copyWith(
         loading: false,
         playing: true,
@@ -205,7 +208,7 @@ class AttachmentAudioPlaybackController
         clearError: true,
       );
     } catch (_) {
-      if (token != _operation) return;
+      if (!ref.mounted || token != _operation) return;
       state = AttachmentAudioPlaybackState(
         activeAttachmentId: attachmentId,
         error: 'playback_failed',
@@ -216,20 +219,24 @@ class AttachmentAudioPlaybackController
   Future<void> stop() async {
     _operation++;
     await _driver.stop();
+    if (!ref.mounted) return;
     state = const AttachmentAudioPlaybackState();
   }
 
   void _onPosition(Duration position) {
+    if (!ref.mounted) return;
     if (state.activeAttachmentId == null) return;
     state = state.copyWith(position: position, completed: false);
   }
 
   void _onDuration(Duration duration) {
+    if (!ref.mounted) return;
     if (state.activeAttachmentId == null) return;
     state = state.copyWith(duration: duration);
   }
 
   void _onStatus(AttachmentAudioStatus status) {
+    if (!ref.mounted) return;
     if (state.activeAttachmentId == null) return;
     state = switch (status) {
       AttachmentAudioStatus.playing => state.copyWith(
