@@ -107,6 +107,13 @@ abstract interface class ChatRepository {
   /// dangling uploads don't pile up (the backend has no GC). 软删附件——移除待发 chip 时调,防悬挂堆积。
   Future<void> deleteAttachment(String id);
 
+  /// Cancel the app-managed media preparation sidecar for an attachment. This never deletes or blocks
+  /// the attachment itself; it only stops background proxy/perception work.
+  Future<AttachmentPreparation> cancelAttachmentPreparation(String id);
+
+  /// Retry a failed/cancelled app-managed media preparation sidecar.
+  Future<AttachmentPreparation> retryAttachmentPreparation(String id);
+
   /// One attachment's metadata (`GET /attachments/{id}`) — the bubble resolves filename/kind/size from
   /// the id-only `attrs.attachments` snapshot. 附件元数据——泡从纯 id 快照解析名/类/大小。
   Future<AttachmentMeta> getAttachment(String id);
@@ -381,6 +388,20 @@ class LiveChatRepository implements ChatRepository {
   @override
   Future<void> deleteAttachment(String id) =>
       _api.delete('/api/v1/attachments/$id');
+
+  @override
+  Future<AttachmentPreparation> cancelAttachmentPreparation(String id) =>
+      _api.postEntity(
+        '/api/v1/attachments/$id/preparation/cancel',
+        AttachmentPreparation.fromJson,
+      );
+
+  @override
+  Future<AttachmentPreparation> retryAttachmentPreparation(String id) =>
+      _api.postEntity(
+        '/api/v1/attachments/$id/preparation/retry',
+        AttachmentPreparation.fromJson,
+      );
 
   @override
   Future<AttachmentMeta> getAttachment(String id) =>

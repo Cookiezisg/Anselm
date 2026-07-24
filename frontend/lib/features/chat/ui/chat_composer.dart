@@ -702,7 +702,10 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
         for (final a in pending)
           // A pending IMAGE with bytes in hand shows a real thumbnail tile (memory-decoded, ✕ on the
           // corner); everything else is the filename chip. 有字节的图=真缩略瓦片(角上 ✕);其余=文件名 chip。
-          if (a.isImage && a.bytes != null && a.status != 'failed')
+          if (a.isImage &&
+              a.bytes != null &&
+              a.status != 'failed' &&
+              _preparationMeta(t, a) == null)
             // The remove affordance is the primitive's own slot (批5 A-035 — the hand-rolled Stack
             // retires). 移除示能=原语自有槽(手搓 Stack 退役)。
             AnAttachmentThumb(
@@ -726,29 +729,71 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
               key: ValueKey(a.localId),
               kind: a.isImage ? 'image' : 'other',
               filename: a.filename,
-              meta: switch (a.status) {
-                'uploading' => t.attach.uploading,
-                // Unreadable-at-intake failures kept no bytes — they are NOT retryable; only upload
-                // failures (bytes in hand) offer the tap-to-retry. 入口不可读的失败无字节、不可重试;
-                // 仅上传失败(字节在手)给「点按重试」。
-                'failed' =>
-                  a.bytes != null
-                      ? t.attach.failedRetry
-                      : t.attach.failedUnreadable,
-                _ => attachmentMetaLine(
-                  filename: a.filename,
-                  mimeType: a.mimeType,
-                  sizeBytes: a.sizeBytes,
-                ),
-              },
+              meta:
+                  _preparationMeta(t, a) ??
+                  switch (a.status) {
+                    'uploading' => t.attach.uploading,
+                    // Unreadable-at-intake failures kept no bytes — they are NOT retryable; only upload
+                    // failures (bytes in hand) offer the tap-to-retry. 入口不可读的失败无字节、不可重试;
+                    // 仅上传失败(字节在手)给「点按重试」。
+                    'failed' =>
+                      a.bytes != null
+                          ? t.attach.failedRetry
+                          : t.attach.failedUnreadable,
+                    _ => attachmentMetaLine(
+                      filename: a.filename,
+                      mimeType: a.mimeType,
+                      sizeBytes: a.sizeBytes,
+                    ),
+                  },
               uploading: a.status == 'uploading',
               failed: a.status == 'failed',
               onRetry: a.bytes != null ? () => _att.retry(a.localId) : null,
+              actionIcon: _preparationActionIcon(a),
+              actionLabel: _preparationActionLabel(t, a),
+              actionBusy: a.preparationBusy,
+              onAction: _preparationAction(a),
               onRemove: () => _att.remove(a.localId),
               removeLabel: t.feedback.dismiss,
             ),
       ],
     );
+  }
+
+  String? _preparationMeta(Translations t, PendingAttachment a) {
+    if (a.status != 'ready') return null;
+    return switch (a.preparation?.status) {
+      'pending' || 'running' => t.attach.preparingMedia,
+      'failed' => t.attach.mediaPreparationFailed,
+      'cancelled' => t.attach.mediaPreparationCancelled,
+      'unavailable' => t.attach.mediaPreparationUnavailable,
+      _ => null,
+    };
+  }
+
+  IconData? _preparationActionIcon(PendingAttachment a) {
+    if (a.preparationBusy) return null;
+    return switch (a.preparation?.status) {
+      'pending' || 'running' => AnIcons.stop,
+      'failed' || 'cancelled' => AnIcons.refresh,
+      _ => null,
+    };
+  }
+
+  String? _preparationActionLabel(Translations t, PendingAttachment a) =>
+      switch (a.preparation?.status) {
+        'pending' || 'running' => t.attach.cancelPreparation,
+        'failed' || 'cancelled' => t.attach.retryPreparation,
+        _ => null,
+      };
+
+  VoidCallback? _preparationAction(PendingAttachment a) {
+    if (a.preparationBusy) return null;
+    return switch (a.preparation?.status) {
+      'pending' || 'running' => () => _att.cancelPreparation(a.localId),
+      'failed' || 'cancelled' => () => _att.retryPreparation(a.localId),
+      _ => null,
+    };
   }
 
   Widget? _composerStrip(

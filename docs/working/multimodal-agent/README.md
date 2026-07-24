@@ -803,7 +803,10 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 - 已落地（preparation cancel/retry HTTP）：`POST /api/v1/attachments/{id}/preparation/cancel` 与
   `POST /api/v1/attachments/{id}/preparation/retry` 返回现有 envelope 的 `data: preparation`，复用同一
   model-default work 身份；media service 不可用时明确返回 `unavailable` 侧车，原件本身仍可继续发送。
-- concrete processor、前端取消/retry 按钮、进度模型；
+- 已落地（preparation 前端动作）：composer 待发附件保存 upload 返回的 `preparation` 侧车；image 代理准备
+  `pending/running` 时显示“正在准备媒体”并给取消按钮，`failed/cancelled` 给重试按钮。该状态不阻塞发送：
+  上传 ready 仍表示附件本身可用，preparation 仅代表后台媒体代理优化。
+- concrete processor、进度模型；
 - 磁盘配额和清理；
 - fake processor 测试。
 

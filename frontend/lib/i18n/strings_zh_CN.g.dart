@@ -663,10 +663,16 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String get unavailable => '已不可用';
 	@override String get retry => '点按重试';
 	@override String get tapToLoad => '点按加载';
-	@override String get uploading => 'Uploading…';
-	@override String get failedRetry => 'Failed — tap to retry';
+	@override String get uploading => '上传中…';
+	@override String get failedRetry => '失败 — 点按重试';
 	@override String get failedUnreadable => '无法读取文件';
-	@override String get remove => 'Remove';
+	@override String get preparingMedia => '正在准备媒体…';
+	@override String get mediaPreparationFailed => '媒体准备失败';
+	@override String get mediaPreparationCancelled => '媒体准备已取消';
+	@override String get mediaPreparationUnavailable => '媒体准备不可用';
+	@override String get cancelPreparation => '取消媒体准备';
+	@override String get retryPreparation => '重试媒体准备';
+	@override String get remove => '移除';
 }
 
 // Path: chat.time
@@ -4559,10 +4565,16 @@ extension on TranslationsZhCn {
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',
 			'attach.tapToLoad' => '点按加载',
-			'attach.uploading' => 'Uploading…',
-			'attach.failedRetry' => 'Failed — tap to retry',
+			'attach.uploading' => '上传中…',
+			'attach.failedRetry' => '失败 — 点按重试',
 			'attach.failedUnreadable' => '无法读取文件',
-			'attach.remove' => 'Remove',
+			'attach.preparingMedia' => '正在准备媒体…',
+			'attach.mediaPreparationFailed' => '媒体准备失败',
+			'attach.mediaPreparationCancelled' => '媒体准备已取消',
+			'attach.mediaPreparationUnavailable' => '媒体准备不可用',
+			'attach.cancelPreparation' => '取消媒体准备',
+			'attach.retryPreparation' => '重试媒体准备',
+			'attach.remove' => '移除',
 			_ => null,
 		};
 	}

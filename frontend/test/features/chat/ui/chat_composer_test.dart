@@ -1,3 +1,4 @@
+import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/core/contract/workspace.dart' as workspace_contract;
@@ -1215,6 +1216,42 @@ void main() {
           c.read(pendingAttachmentsProvider('cv_1')),
           isEmpty,
         ); // cleared after send 发后清
+      },
+    );
+
+    testWidgets(
+      'image preparation can be cancelled and retried from the chip',
+      (tester) async {
+        final repo = FixtureChatRepository(
+          conversations: [_conv('cv_1')],
+          messages: {'cv_1': []},
+        );
+        repo.nextUploadPreparation = const AttachmentPreparation(
+          status: 'running',
+          target: 'model-default',
+        );
+        await tester.pumpWidget(_host(repo));
+        final c = ProviderScope.containerOf(
+          tester.element(find.byType(ChatComposer)),
+        );
+        await c
+            .read(pendingAttachmentsProvider('cv_1').notifier)
+            .addBytes([1, 2, 3], filename: 'a.png', mimeType: 'image/png');
+        await tester.pump();
+
+        expect(find.byType(AnAttachmentChip), findsOneWidget);
+        expect(find.byType(AnAttachmentThumb), findsNothing);
+        expect(find.text('Preparing media…'), findsOneWidget);
+
+        await tester.tap(find.bySemanticsLabel('Cancel media preparation'));
+        await _settle(tester);
+        expect(repo.cancelledPreparations, [repo.uploads.single.id]);
+        expect(find.text('Media prep cancelled'), findsOneWidget);
+
+        await tester.tap(find.bySemanticsLabel('Retry media preparation'));
+        await _settle(tester);
+        expect(repo.retriedPreparations, [repo.uploads.single.id]);
+        expect(find.text('Preparing media…'), findsOneWidget);
       },
     );
 

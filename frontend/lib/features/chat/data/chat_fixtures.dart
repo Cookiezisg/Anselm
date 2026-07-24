@@ -753,7 +753,10 @@ class FixtureChatRepository implements ChatRepository {
   final List<({String id, String filename, String? mimeType, int size})>
   uploads = [];
   final List<String> deletedAttachments = [];
+  final List<String> cancelledPreparations = [];
+  final List<String> retriedPreparations = [];
   bool failNextUpload = false;
+  AttachmentPreparation? nextUploadPreparation;
 
   @override
   Future<AttachmentMeta> uploadAttachment({
@@ -773,17 +776,44 @@ class FixtureChatRepository implements ChatRepository {
       size: bytes.length,
     ));
     attachmentBytes[id] = bytes;
+    final prep = nextUploadPreparation;
+    nextUploadPreparation = null;
     return AttachmentMeta(
       id: id,
       filename: filename,
       mimeType: mimeType ?? '',
       sizeBytes: bytes.length,
       kind: (mimeType ?? '').startsWith('image/') ? 'image' : 'other',
+      preparation: prep,
     );
   }
 
   @override
   Future<void> deleteAttachment(String id) async => deletedAttachments.add(id);
+
+  @override
+  Future<AttachmentPreparation> cancelAttachmentPreparation(String id) async {
+    cancelledPreparations.add(id);
+    final prep = const AttachmentPreparation(
+      status: 'cancelled',
+      target: 'model-default',
+    );
+    final meta = await getAttachment(id);
+    attachmentMetas[id] = meta.copyWith(preparation: prep);
+    return prep;
+  }
+
+  @override
+  Future<AttachmentPreparation> retryAttachmentPreparation(String id) async {
+    retriedPreparations.add(id);
+    final prep = const AttachmentPreparation(
+      status: 'pending',
+      target: 'model-default',
+    );
+    final meta = await getAttachment(id);
+    attachmentMetas[id] = meta.copyWith(preparation: prep);
+    return prep;
+  }
 
   /// Seedable metadata rows for [getAttachment] (uploads are auto-visible too). 可种元数据行。
   final Map<String, AttachmentMeta> attachmentMetas = {};

@@ -1,8 +1,10 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:mime/mime.dart';
 
+import '../../../core/contract/attachment.dart';
 import '../data/chat_providers.dart';
 
 /// One attachment waiting in the composer: local identity + upload lifecycle. [status] is a tiny closed
@@ -19,6 +21,8 @@ class PendingAttachment {
     this.status = 'uploading',
     this.attachmentId,
     this.bytes,
+    this.preparation,
+    this.preparationBusy = false,
   });
 
   final String localId;
@@ -28,6 +32,8 @@ class PendingAttachment {
   final String status; // uploading | ready | failed
   final String? attachmentId;
   final List<int>? bytes; // retained for retry 重试留存
+  final AttachmentPreparation? preparation;
+  final bool preparationBusy;
 
   bool get isImage => (mimeType ?? '').startsWith('image/');
 
@@ -35,6 +41,8 @@ class PendingAttachment {
     String? status,
     String? attachmentId,
     bool dropBytes = false,
+    AttachmentPreparation? preparation,
+    bool? preparationBusy,
   }) => PendingAttachment(
     localId: localId,
     filename: filename,
@@ -43,6 +51,8 @@ class PendingAttachment {
     status: status ?? this.status,
     attachmentId: attachmentId ?? this.attachmentId,
     bytes: dropBytes ? null : bytes,
+    preparation: preparation ?? this.preparation,
+    preparationBusy: preparationBusy ?? this.preparationBusy,
   );
 }
 
@@ -63,7 +73,16 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
   int _seq = 0;
 
   @override
-  List<PendingAttachment> build() => const [];
+  List<PendingAttachment> build() {
+    ref.onDispose(() {
+      for (final timer in _preparationPollTimers.values) {
+        timer.cancel();
+      }
+      _preparationPollTimers.clear();
+      _preparationRefreshing.clear();
+    });
+    return const [];
+  }
 
   bool get hasUploading => state.any((a) => a.status == 'uploading');
   int get failedCount => state.where((a) => a.status == 'failed').length;
@@ -127,6 +146,8 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
   /// leak class the late-completion delete guards against). 在途守卫:连点重试不得并发双上传(后到
   /// 结果覆盖先到 id=服务端孤儿,与迟到完成守卫同一泄漏类)。
   final Set<String> _inFlight = {};
+  final Map<String, Timer> _preparationPollTimers = {};
+  final Set<String> _preparationRefreshing = {};
 
   Future<void> _upload(String localId) async {
     if (_inFlight.contains(localId)) return;
@@ -158,15 +179,93 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
         (p) => p._with(
           status: 'ready',
           attachmentId: meta.id,
+          preparation: meta.preparation,
           dropBytes: !p.isImage,
         ),
       );
+      if (_isActivePreparation(meta.preparation)) {
+        _startPreparationPoll(localId);
+      }
     } catch (_) {
       _patch(localId, (p) => p._with(status: 'failed'));
     } finally {
       _inFlight.remove(localId);
     }
   }
+
+  Future<void> cancelPreparation(String localId) async => _mutatePreparation(
+    localId,
+    ref.read(chatRepositoryProvider).cancelAttachmentPreparation,
+  );
+
+  Future<void> retryPreparation(String localId) async => _mutatePreparation(
+    localId,
+    ref.read(chatRepositoryProvider).retryAttachmentPreparation,
+  );
+
+  Future<void> _mutatePreparation(
+    String localId,
+    Future<AttachmentPreparation> Function(String attachmentID) action,
+  ) async {
+    final a = state.where((a) => a.localId == localId).firstOrNull;
+    final id = a?.attachmentId;
+    if (a == null || id == null || a.preparationBusy) return;
+    _patch(localId, (p) => p._with(preparationBusy: true));
+    try {
+      final prep = await action(id);
+      _patch(
+        localId,
+        (p) => p._with(preparation: prep, preparationBusy: false),
+      );
+      if (_isActivePreparation(prep)) {
+        _startPreparationPoll(localId);
+      } else {
+        _stopPreparationPoll(localId);
+      }
+    } catch (_) {
+      _patch(localId, (p) => p._with(preparationBusy: false));
+    }
+  }
+
+  void _startPreparationPoll(String localId) {
+    if (_preparationPollTimers.containsKey(localId)) return;
+    var attempts = 0;
+    _preparationPollTimers[localId] = Timer.periodic(
+      const Duration(milliseconds: 800),
+      (_) async {
+        attempts++;
+        final a = state.where((a) => a.localId == localId).firstOrNull;
+        final id = a?.attachmentId;
+        if (a == null ||
+            id == null ||
+            attempts > 10 ||
+            !_isActivePreparation(a.preparation)) {
+          _stopPreparationPoll(localId);
+          return;
+        }
+        if (!_preparationRefreshing.add(localId)) return;
+        try {
+          final meta = await ref.read(chatRepositoryProvider).getAttachment(id);
+          _patch(localId, (p) => p._with(preparation: meta.preparation));
+          if (!_isActivePreparation(meta.preparation)) {
+            _stopPreparationPoll(localId);
+          }
+        } catch (_) {
+          _stopPreparationPoll(localId);
+        } finally {
+          _preparationRefreshing.remove(localId);
+        }
+      },
+    );
+  }
+
+  void _stopPreparationPoll(String localId) {
+    _preparationPollTimers.remove(localId)?.cancel();
+    _preparationRefreshing.remove(localId);
+  }
+
+  bool _isActivePreparation(AttachmentPreparation? p) =>
+      p != null && (p.status == 'pending' || p.status == 'running');
 
   void remove(String localId) {
     final a = state.where((a) => a.localId == localId).firstOrNull;
@@ -179,6 +278,7 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
           .deleteAttachment(a.attachmentId!)
           .ignore();
     }
+    _stopPreparationPoll(localId);
     state = [
       for (final p in state)
         if (p.localId != localId) p,
@@ -186,7 +286,12 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
   }
 
   /// After a successful send — local only (the message references the uploads). 发送成功后清本地。
-  void clear() => state = const [];
+  void clear() {
+    for (final localId in _preparationPollTimers.keys.toList()) {
+      _stopPreparationPoll(localId);
+    }
+    state = const [];
+  }
 
   void _patch(String localId, PendingAttachment Function(PendingAttachment) f) {
     state = [for (final p in state) p.localId == localId ? f(p) : p];

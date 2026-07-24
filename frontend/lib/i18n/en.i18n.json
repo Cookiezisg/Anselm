@@ -2005,6 +2005,12 @@
     "uploading": "Uploading…",
     "failedRetry": "Failed — tap to retry",
     "failedUnreadable": "Couldn't read file",
+    "preparingMedia": "Preparing media…",
+    "mediaPreparationFailed": "Media prep failed",
+    "mediaPreparationCancelled": "Media prep cancelled",
+    "mediaPreparationUnavailable": "Media prep unavailable",
+    "cancelPreparation": "Cancel media preparation",
+    "retryPreparation": "Retry media preparation",
     "remove": "Remove"
   }
 }

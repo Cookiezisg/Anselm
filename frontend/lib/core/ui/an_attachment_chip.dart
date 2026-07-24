@@ -26,6 +26,10 @@ class AnAttachmentChip extends StatelessWidget {
     this.uploading = false,
     this.failed = false,
     this.onRetry,
+    this.actionIcon,
+    this.onAction,
+    this.actionLabel,
+    this.actionBusy = false,
     this.onRemove,
     this.removeLabel,
     super.key,
@@ -42,6 +46,10 @@ class AnAttachmentChip extends StatelessWidget {
   final bool uploading;
   final bool failed;
   final VoidCallback? onRetry;
+  final IconData? actionIcon;
+  final VoidCallback? onAction;
+  final String? actionLabel;
+  final bool actionBusy;
   final VoidCallback? onRemove;
 
   /// a11y label for the remove ✕ — worded by the host (core/ui never hardcodes copy). 移除的读屏文案由宿主给。
@@ -84,6 +92,18 @@ class AnAttachmentChip extends StatelessWidget {
             style: AnText.label.copyWith(color: failed ? c.danger : c.inkFaint),
           ),
         ),
+        if (onAction != null || actionBusy) ...[
+          const SizedBox(width: AnSpace.s2),
+          if (actionBusy)
+            const AnSpinner()
+          else
+            AnButton.iconOnly(
+              actionIcon ?? AnIcons.action,
+              size: AnButtonSize.sm,
+              semanticLabel: actionLabel ?? '',
+              onPressed: onAction,
+            ),
+        ],
         if (onRemove != null) ...[
           const SizedBox(width: AnSpace.s2),
           AnButton.iconOnly(

@@ -2002,9 +2002,15 @@
     "unavailable": "已不可用",
     "retry": "点按重试",
     "tapToLoad": "点按加载",
-    "uploading": "Uploading…",
-    "failedRetry": "Failed — tap to retry",
+    "uploading": "上传中…",
+    "failedRetry": "失败 — 点按重试",
     "failedUnreadable": "无法读取文件",
-    "remove": "Remove"
+    "preparingMedia": "正在准备媒体…",
+    "mediaPreparationFailed": "媒体准备失败",
+    "mediaPreparationCancelled": "媒体准备已取消",
+    "mediaPreparationUnavailable": "媒体准备不可用",
+    "cancelPreparation": "取消媒体准备",
+    "retryPreparation": "重试媒体准备",
+    "remove": "移除"
   }
 }

@@ -1461,6 +1461,24 @@ class Translations$attach$en {
 	/// en: 'Couldn't read file'
 	String get failedUnreadable => 'Couldn\'t read file';
 
+	/// en: 'Preparing media…'
+	String get preparingMedia => 'Preparing media…';
+
+	/// en: 'Media prep failed'
+	String get mediaPreparationFailed => 'Media prep failed';
+
+	/// en: 'Media prep cancelled'
+	String get mediaPreparationCancelled => 'Media prep cancelled';
+
+	/// en: 'Media prep unavailable'
+	String get mediaPreparationUnavailable => 'Media prep unavailable';
+
+	/// en: 'Cancel media preparation'
+	String get cancelPreparation => 'Cancel media preparation';
+
+	/// en: 'Retry media preparation'
+	String get retryPreparation => 'Retry media preparation';
+
 	/// en: 'Remove'
 	String get remove => 'Remove';
 }
@@ -8275,6 +8293,12 @@ extension on Translations {
 			'attach.uploading' => 'Uploading…',
 			'attach.failedRetry' => 'Failed — tap to retry',
 			'attach.failedUnreadable' => 'Couldn\'t read file',
+			'attach.preparingMedia' => 'Preparing media…',
+			'attach.mediaPreparationFailed' => 'Media prep failed',
+			'attach.mediaPreparationCancelled' => 'Media prep cancelled',
+			'attach.mediaPreparationUnavailable' => 'Media prep unavailable',
+			'attach.cancelPreparation' => 'Cancel media preparation',
+			'attach.retryPreparation' => 'Retry media preparation',
 			'attach.remove' => 'Remove',
 			_ => null,
 		};
