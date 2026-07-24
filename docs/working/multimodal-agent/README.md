@@ -835,11 +835,11 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   上游拉取的短期 HMAC fetch URL。该 endpoint 不接受客户端上传 proof 的替代品，且不可用/过期 token 一律
   归并为无信息泄露的 not-found。
 - 已落地（sidecar 主路径）：受管 Anselm 路由的图片与 MP4 走上述 protocol，聊天 request 只留下 expiring
-  HTTPS URL；客户端校验每一 chunk 的 server offset，拒绝错误确认；同一 `LoadHistory` 渲染中的同 SHA+MIME
-  只上传一次。普通 BYOK 不猜测支持该私有协议，保留各自 provider 的原生 inline wire。
-- 待落地：跨回合 lease reuse/refresh（当前同一 ReAct 已只传一次，但下一次聊天重建历史仍会重新取得短 lease）、
-  upload resume 查询、取消/删除 API、MIME magic sniff 与 access-log/redaction 审计，以及部署时启用网关媒体
-  配置后的真实端到端抓包。
+  HTTPS URL；客户端校验每一 chunk 的 server offset，拒绝错误确认；lease 仅在进程内按网关/install/MIME/SHA
+  缓存，离过期 30 秒自动刷新，因此同一 ReAct 与后续聊天的历史重建都不重复上传同一原件。普通 BYOK 不猜测支持
+  该私有协议，保留各自 provider 的原生 inline wire。
+- 待落地：upload resume 查询、取消/删除 API、MIME magic sniff 与 access-log/redaction 审计，以及部署时启用
+  网关媒体配置后的真实端到端抓包。
 
 **当前出口**：单次十步 ReAct 对同一媒体只上传一次；本地主聊天 wire 无重复 base64。M1 完整出口仍要求跨回合
 lease refresh/reuse 与生产 E2E 验证。
