@@ -46,6 +46,19 @@ type LLMTurn struct {
 	CompletionTokens int // default 10
 	StallMS          int // flush the first text chunk, then stall this long (cancel scenarios)
 	Status           int // non-zero → respond with this HTTP status + OpenAI error envelope
+
+	// ErrorMessage overrides the scripted-failure envelope's message. It exists so a scenario can
+	// script a rejection the CLIENT will CLASSIFY, not merely receive: `requestRejectionReason`
+	// (backend/internal/infra/llm/transport.go) reads this text to decide whether a failure is a
+	// recoverable context-length overflow. Without it every scripted failure looks like a generic
+	// provider fault, which is why "provider first overflow → transparent recovery" had no
+	// black-box coverage at all. Empty → the generic message.
+	//
+	// ErrorMessage 覆写脚本化失败信封的 message。它的存在是为了让场景能脚本化一次**会被客户端分类**的
+	// 拒绝、而不只是被收到:`requestRejectionReason` 正是读这段文本来判定失败是否为可恢复的上下文超限。
+	// 没有它,一切脚本化失败都长得像泛化 provider 故障——这正是「provider 首次 overflow → 透明恢复」
+	// 此前在黑盒侧零覆盖的原因。空 → 泛化文案。
+	ErrorMessage string
 }
 
 // PromptDump is one captured request — the model's-eye view of the conversation.
@@ -264,10 +277,14 @@ func (m *LLMMock) handleCompletions(w http.ResponseWriter, r *http.Request) {
 		turn.CompletionTokens = 10
 	}
 	if turn.Status != 0 {
+		message := turn.ErrorMessage
+		if message == "" {
+			message = "scripted provider failure"
+		}
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(turn.Status)
 		_ = json.NewEncoder(w).Encode(map[string]any{
-			"error": map[string]any{"message": "scripted provider failure", "type": "mock_error"},
+			"error": map[string]any{"message": message, "type": "mock_error"},
 		})
 		return
 	}
