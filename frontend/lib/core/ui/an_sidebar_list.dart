@@ -454,14 +454,19 @@ class _AnSidebarListState extends State<AnSidebarList> {
   );
 
   // Wraps a row in the SliverAnimatedList's size tween so a collapse/expand slides the row's height (the
-  // children slide up under their head; axisAlignment -1 anchors to the top). 折叠补间:行高滑动(-1 顶锚)。
+  // children slide up under their head; the alignment anchors to the top). 折叠补间:行高滑动(顶锚)。
   Widget _animatedRow(
     BuildContext context,
     SidebarFlatNode n,
     Animation<double> animation,
   ) => SizeTransition(
     sizeFactor: animation,
-    axisAlignment: -1,
+    // Flutter 3.44 retired axisAlignment for `alignment`, which controls BOTH axes. -1 on the
+    // cross axis meant "pin to the start" while the row grew; AlignmentDirectional.topStart is
+    // that same intent expressed on both axes, and it reads correctly under RTL.
+    // Flutter 3.44 用 alignment(双轴)取代 axisAlignment。原 -1 表示「生长时钉住起始边」;
+    // AlignmentDirectional.topStart 是同一意图的双轴写法,且在 RTL 下语义正确。
+    alignment: AlignmentDirectional.topStart,
     child: _flatRow(context, n),
   );
 

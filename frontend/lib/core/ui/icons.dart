@@ -17,8 +17,29 @@ abstract final class AnIcons {
   // same glyph, thinner stroke. Lucide300 ≈ demo stroke 1.7. 更细字重族,码点共享、笔画更细。
   static const String _family = 'Lucide300';
   static const String _pkg = 'lucide_icons_flutter';
-  static IconData _thin(IconData base) =>
-      IconData(base.codePoint, fontFamily: _family, fontPackage: _pkg);
+  // Flutter 3.44 tightened `IconData`'s const contract: `codePoint` must be a constant, and reading
+  // it off another IconData at runtime is no longer const-foldable. The derivation is unchanged —
+  // same glyph, thinner family — it simply cannot be advertised as const, so the factory is now a
+  // plain function and its results stay `static final` (they already were).
+  //
+  // Flutter 3.44 收紧了 IconData 的 const 契约:codePoint 必须是常量,运行时从另一个 IconData 上取它
+  // 不再可被 const 折叠。推导本身没变(同码点、更细字重族),只是不能再宣称 const;工厂改为普通函数,
+  // 其产物仍是 static final(本来就是)。
+  static IconData _thin(IconData base) {
+    // The suppression is deliberate and its cost is known: a non-const IconData opts this icon out
+    // of Flutter's icon TREE-SHAKING, so the full font ships. That is already the status quo here —
+    // the whole point of this file is to re-family Lucide glyphs at runtime, which cannot be const
+    // by construction — and the app bundles the Lucide faces as assets regardless. If icon
+    // tree-shaking ever becomes a size lever, the fix is to generate the const table at build time,
+    // NOT to delete this ignore.
+    //
+    // 这条抑制是刻意的,代价也清楚:非 const 的 IconData 会让该图标退出 Flutter 的图标 tree-shaking,
+    // 整份字体照打包。本文件现状本就如此——它的全部目的就是在运行时给 Lucide 字形换字重族,构造上
+    // 不可能 const——且 app 无论如何都把 Lucide 字体作为 asset 打包。将来若图标 tree-shaking 成为
+    // 体积杠杆,正解是**构建期生成 const 表**,而不是删掉这条 ignore。
+    // ignore: non_const_argument_for_const_parameter
+    return IconData(base.codePoint, fontFamily: _family, fontPackage: _pkg);
+  }
 
   // ── chrome ──
   static final IconData chevronRight = _thin(LucideIcons.chevronRight);

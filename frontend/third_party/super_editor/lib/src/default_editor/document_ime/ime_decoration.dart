@@ -48,6 +48,24 @@ abstract class TextInputConnectionDecorator implements TextInputConnection {
           textDirection: textDirection,
           textAlign: textAlign);
 
+  // VENDOR PATCH (Anselm, Flutter 3.44) — `TextInputConnection.setStyle` was deprecated in favour of
+  // `updateStyle(TextInputStyle)`. A DECORATOR must forward every member of the interface it
+  // decorates, so the new one has to be added here or the whole class stops compiling ("missing
+  // implementations for TextInputConnection.updateStyle"). Forwarding is all this file ever does;
+  // there is no behaviour to decide.
+  //
+  // Keep BOTH: the deprecated setStyle is still on the interface, and dropping it would break any
+  // caller Flutter has not migrated yet. Delete it only when Flutter removes it.
+  //
+  // vendor 补丁(Anselm,Flutter 3.44)—— `setStyle` 被 `updateStyle(TextInputStyle)` 取代。装饰器
+  // **必须**转发它所装饰接口的每一个成员,故新成员不加在这里,整个类就编译不过(报「缺 updateStyle
+  // 实现」)。本文件做的全部事情就是转发,没有行为可裁决。
+  //
+  // **两个都留**:被弃用的 setStyle 仍在接口上,删了会让 Flutter 尚未迁移的调用方断掉。等 Flutter
+  // 真正移除它时再删。
+  @override
+  void updateStyle(TextInputStyle style) => client?.updateStyle(style);
+
   @override
   void requestAutofill() => client?.requestAutofill();
 

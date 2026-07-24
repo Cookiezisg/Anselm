@@ -592,7 +592,17 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 3. Go 版本(mise 钉值)≥1.24 则 `os.Root`,否则 EvalSymlinks+前缀——施工 WD1 时核对。
 4. 排队时按停止:清不清队列——CH-a 交互稿时定。
 5. ~~ES 批 B 类引导文案~~ → **已拍板(0723):一套通用「创建首个版本」**(不逐实体分化)。
-6. ~~TS 批 Flutter 版本~~ → **已拍板(0723):升级到 3.44**(`mise.toml` 改钉值),顺带拿到 3.41→3.44 的其余选择相关修复。升级本身独立成一步先做:改钉值 → `make setup` → 根 `make verify` 全绿 → 真机冒烟,确认无回归再进 TS 主体。
+6. ~~TS 批 Flutter 版本~~ → **已升级到 3.44.8(0725 实施)。实施记录见下,含一条调研没抓到的真阻碍。**
+
+   **① vendored super_editor 编译不过**:`DocumentImeInputClient` 缺 `TextInputConnection.updateStyle`。这正是升级前调研列出的 3.44 破坏性变更之一(`setStyle` 弃用 → `updateStyle`),但当时逐条对照本仓代码**九条全部零命中**——因为**它藏在 `third_party/` 的 vendored 依赖里**,不在 grep 范围。教训:**破坏性变更的命中面必须包含 vendored 第三方**,否则会得出「零命中」的假安全结论。修法:装饰器补 `updateStyle` 转发(装饰器必须转发所装饰接口的每个成员,无行为可裁决);`setStyle` **保留**——它仍在接口上,删了会断掉 Flutter 尚未迁移的调用方。
+
+   **② `axisAlignment` → `alignment`** 两处(`an_sidebar_list` / `notification_tray`):3.44 用双轴 `alignment` 取代单轴 `axisAlignment`;原 `-1` 的意图是「生长时钉住起始边」,等价写法 `AlignmentDirectional.topStart`,且 RTL 下语义正确。
+
+   **③ `IconData.codePoint` const 契约收紧**(`icons.dart`):用了 `ignore`,但**代价写进了注释**——非 const 的 IconData 会退出图标 tree-shaking。本文件的全部目的就是运行时给 Lucide 换字重族、构造上不可能 const,且字体本就作为 asset 打包,故现状未变。**将来若体积成为杠杆,正解是构建期生成 const 表,而不是删掉那条 ignore。**
+
+   **⚠️ 一条流程教训(比上面三条更值得记)**:验证升级时用了 `make verify | tail`,连续两次读到 "exit code 0" 而实际上**三个前端测试组全红**——管道的退出码是 `tail` 的,不是 `make` 的。这个写法看起来完全无害,却会**把门禁结果整个吞掉**。**验门禁一律显式取 `$?`**(`make verify > log 2>&1; echo $?`),绝不让 `make` 的退出码经过管道。
+
+7. ~~TS 批 Flutter 版本(旧条)~~ → **已拍板(0723):升级到 3.44**(`mise.toml` 改钉值),顺带拿到 3.41→3.44 的其余选择相关修复。升级本身独立成一步先做:改钉值 → `make setup` → 根 `make verify` 全绿 → 真机冒烟,确认无回归再进 TS 主体。
 8. ~~VT 批「删除版本」是否做~~ → **已拍板(0723):不做。** ⋯ 菜单本批只落「设为活跃版本」(搬 `:revert` 现成件)+「展开 diff」两项,零后端改动。删除版本的三个真问题(D1 归属 / diff 链断裂 / `:revert` 目标消失)未解,**不留半成品、不预埋端点**;将来真要做,单独走一次后端裁决。
 7. ~~TS 批「鼠标拖滚」取舍~~ → **已拍板(0723):删掉 `PointerDeviceKind.mouse`**。滚轮/触控板/滚动条/触屏全不受影响,失去的只是"按住左键拖内容"这个**手机习惯**、换回全 app 文字可选。这不是权衡而是**纠错**——Flutter 桌面默认本就不含 mouse 且是刻意设计(官方文档明述理由即"让滚动容器里的文字可选"),当初覆写的注释「the base desktop set omits mouse」把这份刻意读成了疏漏。**同提交把该注释重写成当前事实,别再留误导下一个人的话。**
 

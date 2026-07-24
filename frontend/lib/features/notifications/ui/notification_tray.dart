@@ -27,7 +27,7 @@ import 'notification_row.dart';
 ///
 /// **Collapse/expand rides the SAME rail mechanism as [AnSidebarList]** (0719 user follow-up: "the slide
 /// effect was lost"): the feed heads+rows are held in [_flat] locked to a [SliverAnimatedList] (GlobalKey).
-/// A user TOGGLE remove/inserts that bucket's contiguous row range with a [SizeTransition] (`axisAlignment
+/// A user TOGGLE remove/inserts that bucket's contiguous row range with a [SizeTransition] (`alignment
 /// -1`, top-anchored) over [AnMotion.mid] (reduced → instant) — a real slide, never an instant jump; while
 /// a DATA/filter change (feed refresh / loadMore / mark-read / search / unread-only) re-flattens fresh under
 /// a NEW key with no insert/remove animation (the tween is only for user toggles). The «待你处理» band is a
@@ -195,14 +195,16 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
   }
 
   // Wraps an entry in the SliverAnimatedList's size tween so a collapse/expand slides its height (the rows
-  // slide up under their head; axisAlignment -1 anchors to the top — the rail slide). 折叠补间:行高滑动(-1 顶锚)。
+  // slide up under their head; the alignment anchors to the top — the rail slide).
+  // 折叠补间:行高滑动(顶锚)。
   Widget _animatedEntry(
     BuildContext context,
     _TrayEntry entry,
     Animation<double> animation,
   ) => SizeTransition(
     sizeFactor: animation,
-    axisAlignment: -1,
+    // Flutter 3.44 retired axisAlignment for the two-axis `alignment`. 见 an_sidebar_list 同处注释。
+    alignment: AlignmentDirectional.topStart,
     child: _entryWidget(context, entry),
   );
 
