@@ -8,6 +8,7 @@ import (
 	"iter"
 	"net/http"
 	"strconv"
+	"strings"
 )
 
 // qwenProvider speaks Qwen DashScope's compatible-mode /chat/completions API, fully
@@ -232,12 +233,21 @@ func toQwenTools(defs []ToolDef) []qwenTool {
 }
 
 type qwenContentPart struct {
-	Type     string        `json:"type"`
-	Text     string        `json:"text,omitempty"`
-	ImageURL *qwenImageURL `json:"image_url,omitempty"`
+	Type       string          `json:"type"`
+	Text       string          `json:"text,omitempty"`
+	ImageURL   *qwenImageURL   `json:"image_url,omitempty"`
+	VideoURL   *qwenVideoURL   `json:"video_url,omitempty"`
+	InputAudio *qwenInputAudio `json:"input_audio,omitempty"`
 }
 type qwenImageURL struct {
 	URL string `json:"url"`
+}
+type qwenVideoURL struct {
+	URL string `json:"url"`
+}
+type qwenInputAudio struct {
+	Data   string `json:"data"`
+	Format string `json:"format"`
 }
 
 // buildQwenUserMsg renders a user turn: plain text, or multimodal content parts (text + image_url
@@ -257,6 +267,16 @@ func buildQwenUserMsg(m LLMMessage) (qwenMessage, error) {
 			parts = append(parts, qwenContentPart{Type: "text", Text: part.Text})
 		case "image_url":
 			parts = append(parts, qwenContentPart{Type: "image_url", ImageURL: &qwenImageURL{URL: part.ImageURL}})
+		case PartVideoURL:
+			parts = append(parts, qwenContentPart{Type: "video_url", VideoURL: &qwenVideoURL{URL: part.VideoURL}})
+		case PartInputAudio:
+			format := strings.TrimPrefix(part.MediaType, "audio/")
+			if format == "" {
+				format = "wav"
+			}
+			parts = append(parts, qwenContentPart{Type: "input_audio", InputAudio: &qwenInputAudio{
+				Data: "data:" + part.MediaType + ";base64," + part.Data, Format: format,
+			}})
 		}
 	}
 	raw, err := json.Marshal(parts)

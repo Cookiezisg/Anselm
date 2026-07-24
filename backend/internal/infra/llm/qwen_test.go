@@ -49,6 +49,27 @@ func TestQwenBuildRequest(t *testing.T) {
 	}
 }
 
+func TestQwenBuildRequest_EncodesVideoAndAudioParts(t *testing.T) {
+	req := Request{ModelID: "qwen3.5-omni-plus", Key: "k", BaseURL: "https://example.test", Messages: []LLMMessage{{
+		Role: RoleUser, Parts: []ContentPart{
+			{Type: PartText, Text: "describe"},
+			{Type: PartVideoURL, VideoURL: "data:video/mp4;base64,VIDEO"},
+			{Type: PartInputAudio, MediaType: "audio/wav", Data: "AUDIO"},
+		},
+	}}}
+	httpReq, err := newQwenProvider().BuildRequest(context.Background(), req)
+	if err != nil {
+		t.Fatalf("BuildRequest: %v", err)
+	}
+	raw, _ := io.ReadAll(httpReq.Body)
+	body := string(raw)
+	for _, want := range []string{`"type":"video_url"`, `"url":"data:video/mp4;base64,VIDEO"`, `"type":"input_audio"`, `"data":"data:audio/wav;base64,AUDIO"`, `"format":"wav"`} {
+		if !strings.Contains(body, want) {
+			t.Errorf("Qwen wire missing %q: %s", want, body)
+		}
+	}
+}
+
 // TestQwenBuildRequestThinkingKnobs drives Qwen's native knobs from Options:
 // enable_thinking ("true"/"false" → *bool) and thinking_budget (digit string → int).
 // Values pass through verbatim with no normalization.
