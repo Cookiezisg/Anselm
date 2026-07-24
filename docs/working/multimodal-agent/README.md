@@ -850,9 +850,11 @@ lease refresh/reuse 与生产 E2E 验证。
 - 已落地（native document envelope）：即便模型声明 `NativeDocs`，PDF/文档原件也必须计入同一
   `MaxMediaParts/MaxMediaBytes` 单回合媒体 envelope；超预算时优先走文本抽取/分页重读路线，没有 extractor
   时给明确 budget 占位，禁止绕过护栏把 base64 文件硬塞进请求。
+- 已落地（`inspect_media` 文本/文档证据）：`inspect_media` 对 text/document 不再返回“未来支持”，而是复用
+  本地抽取 + query/page/offset 有界窗口返回 JSON 证据，不调用模型、不倾倒全文；PDF extractor 产出
+  `# Page N` 标记，page 命中时只回该页，缺少真实页标记时明确退化为固定字符窗口。
 - OCR/tiles；
 - document parse/chunk/index/map-reduce；
-- `inspect_media` 的 document page 能力；
 - 视觉/文档质量与 token/延迟 A/B。
 
 **出口**：金标准确率不退化，媒体 bytes/token/时延显著下降。

@@ -152,7 +152,7 @@ def extract(mime, buf):
     if mime == "application/pdf":
         import pdfplumber
         with pdfplumber.open(buf) as pdf:
-            return "\n\n".join((pg.extract_text() or "") for pg in pdf.pages)
+            return "\n\n".join("# Page %d\n%s" % (i, (pg.extract_text() or "")) for i, pg in enumerate(pdf.pages, 1))
     if mime == "application/vnd.openxmlformats-officedocument.wordprocessingml.document":
         import docx
         return "\n".join(p.text for p in docx.Document(buf).paragraphs)

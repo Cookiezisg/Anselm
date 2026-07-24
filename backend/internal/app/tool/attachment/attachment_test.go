@@ -29,6 +29,10 @@ import (
 // newToolSvc 起一个真 attachment Service（元数据 store + temp 目录 CAS blob）在 workspace ctx 下
 // ——工具被端到端跑通（tool → app → store/blob），全离线。不配 extractor：文本附件原生内联。
 func newToolSvc(t *testing.T) (*attachmentapp.Service, context.Context) {
+	return newToolSvcWithExtractor(t, nil)
+}
+
+func newToolSvcWithExtractor(t *testing.T, ext attachmentapp.Extractor) (*attachmentapp.Service, context.Context) {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -41,7 +45,7 @@ func newToolSvc(t *testing.T) (*attachmentapp.Service, context.Context) {
 			t.Fatalf("schema: %v", err)
 		}
 	}
-	svc := attachmentapp.NewService(attachmentstore.New(ormpkg.Open(sqlDB)), blobfs.New(t.TempDir()), nil, zap.NewNop())
+	svc := attachmentapp.NewService(attachmentstore.New(ormpkg.Open(sqlDB)), blobfs.New(t.TempDir()), ext, zap.NewNop())
 	return svc, reqctxpkg.SetWorkspaceID(context.Background(), "ws_test")
 }
 
@@ -319,9 +323,57 @@ func TestInspectMedia_ManagedGatewayStagesBoundedProxy(t *testing.T) {
 	}
 }
 
-func TestInspectMedia_NonImageSoftFailsWithoutCallingModel(t *testing.T) {
+func TestInspectMedia_TextQueryReturnsBoundedEvidenceWithoutCallingModel(t *testing.T) {
 	svc, ctx := newToolSvc(t)
-	a, err := svc.Upload(ctx, "notes.txt", "text/plain", []byte("hello"))
+	body := strings.Repeat("alpha ", 20) + "needle payload " + strings.Repeat("tail ", 20)
+	a, err := svc.Upload(ctx, "notes.txt", "text/plain", []byte(body))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	client := llminfra.NewMockClient()
+	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{Client: client, Vision: true}}}
+	out, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"find the relevant line","query":"needle","contextChars":6,"maxMatches":1}`)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	if !strings.Contains(out, `"mode":"query"`) ||
+		!strings.Contains(out, `read_attachment search: query=\"needle\"`) ||
+		!strings.Contains(out, "needle paylo") ||
+		client.CallCount() != 0 {
+		t.Fatalf("text inspect should return bounded local evidence without LLM call; out=%q calls=%d", out, client.CallCount())
+	}
+}
+
+type fakeToolExtractor struct{ text string }
+
+func (f fakeToolExtractor) Extract(context.Context, string, []byte) (string, error) {
+	return f.text, nil
+}
+
+func TestInspectMedia_DocumentPageReturnsMarkedExtractedPage(t *testing.T) {
+	svc, ctx := newToolSvcWithExtractor(t, fakeToolExtractor{text: "# Page 1\nintro\n\n# Page 2\ntarget evidence\n\n# Page 3\nappendix"})
+	a, err := svc.Upload(ctx, "report.pdf", "application/pdf", []byte("%PDF bytes"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	client := llminfra.NewMockClient()
+	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{Client: client, Vision: true}}}
+	out, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"what is on page 2?","page":2,"limitChars":200}`)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	if !strings.Contains(out, `"mode":"page"`) ||
+		!strings.Contains(out, "# Page 2") ||
+		!strings.Contains(out, "target evidence") ||
+		strings.Contains(out, "# Page 3") ||
+		client.CallCount() != 0 {
+		t.Fatalf("document page inspect should return the requested extracted page only; out=%q calls=%d", out, client.CallCount())
+	}
+}
+
+func TestInspectMedia_AudioSoftFailsWithoutCallingModel(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "voice.mp3", "audio/mpeg", []byte("ID3 audio"))
 	if err != nil {
 		t.Fatalf("upload: %v", err)
 	}
@@ -331,8 +383,8 @@ func TestInspectMedia_NonImageSoftFailsWithoutCallingModel(t *testing.T) {
 	if err != nil {
 		t.Fatalf("inspect: %v", err)
 	}
-	if !strings.Contains(out, "supports image attachments only") || client.CallCount() != 0 {
-		t.Fatalf("non-image should soft-fail without LLM call; out=%q calls=%d", out, client.CallCount())
+	if !strings.Contains(out, "Audio/video time-range inspection is not implemented yet") || client.CallCount() != 0 {
+		t.Fatalf("audio should soft-fail without LLM call; out=%q calls=%d", out, client.CallCount())
 	}
 }
 
@@ -349,6 +401,12 @@ func TestInspectMedia_ValidateInput(t *testing.T) {
 	}
 	if err := tool.ValidateInput([]byte(`{"attachmentId":"att_1","question":"x","detail":"high"}`)); err != nil {
 		t.Fatalf("valid input should pass: %v", err)
+	}
+	if err := tool.ValidateInput([]byte(`{"attachmentId":"att_1","question":"x","limitChars":40001}`)); err == nil {
+		t.Fatal("oversized inspect text limit should fail")
+	}
+	if err := tool.ValidateInput([]byte(`{"attachmentId":"att_1","question":"x","query":"` + strings.Repeat("x", readAttachmentMaxQueryChars+1) + `"}`)); err == nil {
+		t.Fatal("oversized inspect query should fail")
 	}
 }
 
