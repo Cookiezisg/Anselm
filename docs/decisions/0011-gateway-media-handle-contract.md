@@ -1,0 +1,49 @@
+---
+id: DOC-058
+type: decision
+status: active
+owner: @weilin
+created: 2026-07-25
+reviewed: 2026-07-25
+review-due: 2099-12-31
+audience: [human, ai]
+---
+
+# 0011 — 受管路由的媒体引用契约:网关必须消费自家签发的 lease
+
+## 背景 / Context
+
+WRK-078 的 M1 目标是「聊天请求退出大 base64 时代」。规范 §6.1 第 3 条写明:**completion 只引用网关签发的 handle**。
+
+2026-07-25 的跨仓审计发现该目标**只建成了生产端**:
+
+- **桌面端已按此发布**:受管路由(`caps.RemoteMedia != nil`)把 media lease 的绝对 HTTPS URL 直接写进 `ContentPart.ImageURL` / `VideoURL`(`backend/internal/app/attachment/attachment.go` 的 image/video 分支与 `stagedMediaURL`),`inspect_media` 的图像复查同理。
+- **网关从未实现消费端**:`internal/domain/chat/content.go` 的 `validateImage` 对非 `data:` 前缀一律返错、`validateVideo` 必须 `data:video/mp4;base64,`;`internal/domain/chat/chat.go` 的 `InboundRequest` **没有任何 media handle 字段**。
+
+后果:**受管路由每一次带图片或视频的对话都被网关 400 拒绝**。两仓各自门禁全绿——桌面端测试用 fake uploader 断言产出 HTTPS URL,网关测试用 data URI 断言非 data URI 必 400,**交界处无人守**(网关 e2e 对 `media/leases|fetchPath|leaseId` 零命中)。
+
+## 决策 / Decision
+
+**网关的 chat 内容契约接受一种、且仅一种非 data-URI 媒体引用:它自己签发的 lease fetch URL。**
+
+1. **形状**:`{gatewayBase}/v1/media/leases/{leaseId}/content?token={fetchToken}` —— 即 `complete` 响应中 `fetchPath` 的绝对化形式。**不接受任何其他 http(s) URL**(SSRF、下载放大与 MIME 欺骗的护栏不变,`明确不做` §1.2 第 3 条)。
+
+2. **分层**:形状识别归 domain(纯函数,无 IO);**归属与时效校验归 app 层**——domain 不持有仓储。为此给 `app/chat.Deps` 增加一道 DIP 端口(如 `MediaLeases.Verify(ctx, installID, leaseID, token)`),由 media service 实现,复用 `OpenLease` 已有的复合谓词:**状态为 active、未过期、HMAC 签名对得上、token hash 匹配、且属当前 install**。任一不成立 → 归并为无信息泄露的 not-found 语义(与既有 lease fetch 一致,不作存在性预言)。
+
+3. **计量**:lease 引用对 `MaxDecodedBytes` 记 **0 字节**——媒体字节从不经过 chat body,这正是 M1 的目的;体量护栏由 `MEDIA_UPLOAD_MAX_BYTES` 在上传侧承担。**但仍计入 `MaxParts`**:部件数是提示复杂度的护栏,与传输方式无关。
+
+4. **渲染不变**:lease fetch URL 本就是**为上游拉取而签**的短期签名 URL,校验通过后原样透传给 provider,不重写、不内联、不代取。
+
+5. **`data:` 路径保留不动**:BYOK 与非受管路径继续走内联 data URI。本决策只新增一条受管专用的引用形态。
+
+## 后果 / Consequences
+
+- 受管路由的图片/视频对话从「必 400」变为可用;`inspect_media` 的视觉复查随之恢复。
+- 网关新增一处必须 install-bound 的授权判定。**它是新的攻击面**:未做归属校验就等于让任一 install 引用他人 lease,故第 2 条的复合谓词不可简化。
+- **必须同时补一条把 media lease 与 chat completion 串起来的 e2e**。这条 bug 之所以活到今天,正因为两仓测试各自只覆盖自己那半;没有跨接测试,同类问题会再次发生。
+- `MEDIA_ENABLED=false` 的部署下 lease 无从签发,故该形态自然不出现;但 `anselm_capabilities.multimodal.available` 仍须并入 `MEDIA_ENABLED`(独立缺陷,见 PROGRESS 高危 1),否则桌面端会宣称支持却在上传第一步吃 503。
+
+## 备选 / Alternatives
+
+- **桌面端退回内联 data URI**:能立刻消除 400,但等于放弃 M1(每次 sampling 重传、base64 33% 膨胀、视频很快越过合理 body 上限),与 §6.3 逐条相悖。**否决。**
+- **在 `InboundRequest` 新增顶层 `mediaId` 字段**:更「干净」,但要改客户端已发布的 wire、且偏离 OpenAI 兼容形状(`content parts` 是既有联合)。用既有 `image_url`/`video_url` 承载自家 lease URL 的侵入面更小。**否决,但若将来 wire 重整可重议。**
