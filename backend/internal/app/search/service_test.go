@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -701,6 +702,41 @@ func TestEmbedWorker_BackfillsAndInvalidates(t *testing.T) {
 		defer repo.mu.Unlock()
 		return len(repo.embedded) == 2
 	})
+}
+
+type sizeLimitedEmbedder struct {
+	limit int
+	calls []int
+}
+
+func (e *sizeLimitedEmbedder) Model() string { return "size-limited" }
+
+func (e *sizeLimitedEmbedder) Embed(_ context.Context, texts []string) ([][]float32, error) {
+	for _, text := range texts {
+		e.calls = append(e.calls, len([]rune(text)))
+		if len([]rune(text)) > e.limit {
+			return nil, errors.New("input (4108 tokens) is too large to process; increase the physical batch size")
+		}
+	}
+	vecs := make([][]float32, len(texts))
+	for i := range vecs {
+		vecs[i] = []float32{1, 0, 0}
+	}
+	return vecs, nil
+}
+
+func TestEmbedWithFallback_RetriesOnlyOversizedEmbeddingInput(t *testing.T) {
+	provider := &sizeLimitedEmbedder{limit: 2_048}
+	long := strings.Repeat("x", 8_192)
+	vecs, err := embedWithFallback(context.Background(), provider, []string{"short", long})
+	if err != nil || len(vecs) != 2 {
+		t.Fatalf("embedWithFallback = %v, %v", vecs, err)
+	}
+	// First call is the normal batch; the long source then converges via 8192 →
+	// 4096 → 2048. No global source cap silently erased the original record.
+	if got, want := provider.calls, []int{5, 8192, 5, 8192, 4096, 2048}; !slices.Equal(got, want) {
+		t.Fatalf("embedding attempt rune lengths = %v, want %v", got, want)
+	}
 }
 
 // TestEmbedWorker_PersistentUpsertFailureTerminatesRound — R9: when every

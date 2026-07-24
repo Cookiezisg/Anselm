@@ -2,10 +2,12 @@ package search
 
 import (
 	"context"
+	"fmt"
 	"math"
 	"sort"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"go.uber.org/zap"
 
@@ -259,7 +261,7 @@ func (s *Service) backfill(ws string) {
 		for i, d := range missing {
 			texts[i] = embedText(d.Title, d.Body)
 		}
-		vecs, err := prov.Embed(ctx, texts)
+		vecs, err := embedWithFallback(ctx, prov, texts)
 		if err != nil {
 			// Expected while the engine downloads/boots — the next kick retries.
 			// 引擎下载/启动期间属预期——下次 kick 重试。
@@ -293,6 +295,69 @@ func (s *Service) backfill(ws string) {
 
 func embedText(title, body string) string {
 	return searchdomain.CapRunes(strings.TrimSpace(title + "\n" + body))
+}
+
+// embedWithFallback keeps semantic indexing available when a local embedding
+// runtime rejects one oversized source chunk. The normal path remains a single
+// batch. Only the concrete llama.cpp "input too large / physical batch" class
+// fans out to individually retried, UTF-8-safe prefixes; a network outage or
+// model failure stays a single graceful lexical fallback.
+//
+// This is deliberately at the embedding boundary, rather than a global source
+// truncation: full text remains durable and lexically searchable, while the
+// semantic layer retains as much of each oversized source as its active model
+// can honestly embed.
+func embedWithFallback(ctx context.Context, prov searchdomain.EmbeddingProvider, texts []string) ([][]float32, error) {
+	vecs, err := prov.Embed(ctx, texts)
+	if err == nil {
+		if len(vecs) != len(texts) {
+			return nil, fmt.Errorf("embedding provider returned %d vectors for %d texts", len(vecs), len(texts))
+		}
+		return vecs, nil
+	}
+	if !isEmbeddingInputTooLarge(err) {
+		return nil, err
+	}
+
+	// A batch can fail because only one document exceeds the model's context.
+	// Retry independently so short neighbours still get indexed, and halve only
+	// the rejected document until it fits. Five attempts take 8192 runes down to
+	// 256, which is safely below the builtin embedder's 2048-token physical batch.
+	out := make([][]float32, len(texts))
+	for i, text := range texts {
+		vec, err := embedOneWithFallback(ctx, prov, text)
+		if err != nil {
+			return nil, err
+		}
+		out[i] = vec
+	}
+	return out, nil
+}
+
+func embedOneWithFallback(ctx context.Context, prov searchdomain.EmbeddingProvider, text string) ([]float32, error) {
+	for attempt := 0; ; attempt++ {
+		vecs, err := prov.Embed(ctx, []string{text})
+		if err == nil {
+			if len(vecs) != 1 {
+				return nil, fmt.Errorf("embedding provider returned %d vectors for one text", len(vecs))
+			}
+			return vecs[0], nil
+		}
+		if !isEmbeddingInputTooLarge(err) || attempt >= 5 {
+			return nil, err
+		}
+		runes := utf8.RuneCountInString(text)
+		if runes <= 1 {
+			return nil, err
+		}
+		text = string([]rune(text)[:max(1, runes/2)])
+	}
+}
+
+func isEmbeddingInputTooLarge(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "input") && strings.Contains(msg, "too large") &&
+		(strings.Contains(msg, "physical batch") || strings.Contains(msg, "context") || strings.Contains(msg, "token"))
 }
 
 // --- hybrid fusion ------------------------------------------------------------
