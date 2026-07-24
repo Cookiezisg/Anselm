@@ -98,6 +98,8 @@ func ValidStatus(status string) bool {
 type Repository interface {
 	ClaimDerivative(ctx context.Context, derivative *Derivative) (got *Derivative, created bool, err error)
 	ClaimPerception(ctx context.Context, perception *Perception) (got *Perception, created bool, err error)
+	GetDerivative(ctx context.Context, id string) (*Derivative, error)
+	GetPerception(ctx context.Context, id string) (*Perception, error)
 	SaveDerivative(ctx context.Context, derivative *Derivative) error
 	SavePerception(ctx context.Context, perception *Perception) error
 	ListPendingDerivatives(ctx context.Context, limit int) ([]*Derivative, error)

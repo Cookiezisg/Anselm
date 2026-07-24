@@ -47,6 +47,18 @@ func (f *fakeRepo) ClaimPerception(_ context.Context, p *mediadomain.Perception)
 	f.perception = p
 	return p, true, nil
 }
+func (f *fakeRepo) GetDerivative(_ context.Context, id string) (*mediadomain.Derivative, error) {
+	if f.derivative == nil || f.derivative.ID != id {
+		return nil, mediadomain.ErrNotFound
+	}
+	return f.derivative, nil
+}
+func (f *fakeRepo) GetPerception(_ context.Context, id string) (*mediadomain.Perception, error) {
+	if f.perception == nil || f.perception.ID != id {
+		return nil, mediadomain.ErrNotFound
+	}
+	return f.perception, nil
+}
 func (f *fakeRepo) SaveDerivative(context.Context, *mediadomain.Derivative) error { return nil }
 func (f *fakeRepo) SavePerception(context.Context, *mediadomain.Perception) error { return nil }
 func (f *fakeRepo) ListPendingDerivatives(context.Context, int) ([]*mediadomain.Derivative, error) {
@@ -80,6 +92,7 @@ type fakeProcessor struct {
 	mu      sync.Mutex
 	derives int
 	derived chan struct{}
+	block   chan struct{}
 }
 
 func (f *fakeProcessor) Derive(_ context.Context, _ *attachmentdomain.Attachment, _ []byte, _ *mediadomain.Derivative) (DerivativeResult, error) {
@@ -89,6 +102,9 @@ func (f *fakeProcessor) Derive(_ context.Context, _ *attachmentdomain.Attachment
 	select {
 	case f.derived <- struct{}{}:
 	default:
+	}
+	if f.block != nil {
+		<-f.block
 	}
 	return DerivativeResult{Data: []byte("proxy"), MimeType: "image/webp", Width: 320, Height: 240}, nil
 }
@@ -258,6 +274,31 @@ func TestPreparation_ImageClaimsModelDefaultStatus(t *testing.T) {
 	}
 }
 
+func TestPreparation_SurfaceCancelledStatus(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a", Kind: attachmentdomain.KindImage}}, repo, fakeArtifacts{}, zap.NewNop())
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+
+	prep, err := svc.Preparation(ctx, "att_1")
+	if err != nil {
+		t.Fatalf("preparation: %v", err)
+	}
+	cancelled, err := svc.CancelDerivative(ctx, repo.derivative.ID)
+	if err != nil {
+		t.Fatalf("cancel: %v", err)
+	}
+	if cancelled.Status != mediadomain.StatusCancelled {
+		t.Fatalf("cancelled work status = %+v", cancelled)
+	}
+	prep, err = svc.Preparation(ctx, "att_1")
+	if err != nil {
+		t.Fatalf("cancelled preparation: %v", err)
+	}
+	if prep.Status != mediadomain.StatusCancelled {
+		t.Fatalf("cancelled preparation should surface cancelled, got %+v", prep)
+	}
+}
+
 func TestPreparation_NonImageNotRequired(t *testing.T) {
 	repo := &fakeRepo{}
 	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a", Kind: attachmentdomain.KindDocument}}, repo, fakeArtifacts{}, zap.NewNop())
@@ -282,5 +323,79 @@ func TestModelDefaultImage_WaitsForStartedWorker(t *testing.T) {
 	data, mime, ready, err := svc.ModelDefaultImage(reqctxpkg.SetWorkspaceID(context.Background(), "ws_1"), "att_1")
 	if err != nil || !ready || string(data) != "proxy" || mime != "image/webp" {
 		t.Fatalf("proxy = (%q, %q, %v, %v)", data, mime, ready, err)
+	}
+}
+
+func TestRetryDerivative_RequeuesFailedWork(t *testing.T) {
+	repo := &fakeRepo{}
+	processor := &fakeProcessor{derived: make(chan struct{}, 1)}
+	artifacts := fakeArtifacts{data: map[string][]byte{}}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a"}}, repo, artifacts, zap.NewNop())
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+
+	derivative, _, err := svc.ClaimDerivative(ctx, "att_1", "model-default", map[string]any{"width": 320})
+	if err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	derivative.Status, derivative.ErrorCode = mediadomain.StatusFailed, "MEDIA_DERIVATIVE_FAILED"
+	if err := repo.SaveDerivative(ctx, derivative); err != nil {
+		t.Fatalf("save failed status: %v", err)
+	}
+	svc.SetProcessor(processor)
+	svc.Start([]string{"ws_1"})
+	t.Cleanup(func() { svc.Close(context.Background()) })
+	retried, err := svc.RetryDerivative(ctx, derivative.ID)
+	if err != nil {
+		t.Fatalf("retry: %v", err)
+	}
+	if retried.Status != mediadomain.StatusPending || retried.ErrorCode != "" {
+		t.Fatalf("retry should reset to pending: %+v", retried)
+	}
+	select {
+	case <-processor.derived:
+	case <-time.After(time.Second):
+		t.Fatal("retry did not enqueue failed work")
+	}
+}
+
+func TestCancelDerivativeDuringProcessingWinsOverReadyWrite(t *testing.T) {
+	repo := &fakeRepo{}
+	processor := &fakeProcessor{derived: make(chan struct{}, 1), block: make(chan struct{})}
+	artifacts := fakeArtifacts{data: map[string][]byte{}}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a"}}, repo, artifacts, zap.NewNop())
+	svc.SetProcessor(processor)
+	svc.Start([]string{"ws_1"})
+	t.Cleanup(func() { svc.Close(context.Background()) })
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+
+	derivative, _, err := svc.ClaimDerivative(ctx, "att_1", "model-default", map[string]any{"width": 320})
+	if err != nil {
+		t.Fatalf("claim: %v", err)
+	}
+	select {
+	case <-processor.derived:
+	case <-time.After(time.Second):
+		t.Fatal("worker did not start")
+	}
+	cancelled, err := svc.CancelDerivative(ctx, derivative.ID)
+	if err != nil {
+		t.Fatalf("cancel running: %v", err)
+	}
+	if cancelled.Status != mediadomain.StatusCancelled {
+		t.Fatalf("cancelled status = %+v", cancelled)
+	}
+	close(processor.block)
+
+	deadline := time.After(time.Second)
+	for repo.derivative.Status != mediadomain.StatusCancelled {
+		select {
+		case <-deadline:
+			t.Fatalf("processing completion overwrote cancellation: %+v", repo.derivative)
+		default:
+			time.Sleep(time.Millisecond)
+		}
+	}
+	if repo.derivative.BlobSHA256 != "" {
+		t.Fatalf("cancelled work must not publish a blob: %+v", repo.derivative)
 	}
 }

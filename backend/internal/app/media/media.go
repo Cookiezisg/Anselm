@@ -303,6 +303,80 @@ func (s *Service) DocumentText(ctx context.Context, attachmentID string, extract
 	return "", err
 }
 
+func (s *Service) CancelDerivative(ctx context.Context, id string) (*mediadomain.Derivative, error) {
+	if strings.TrimSpace(id) == "" {
+		return nil, mediadomain.ErrInvalidRequest
+	}
+	derivative, err := s.repo.GetDerivative(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	switch derivative.Status {
+	case mediadomain.StatusPending, mediadomain.StatusRunning, mediadomain.StatusFailed:
+		derivative.Status, derivative.ErrorCode = mediadomain.StatusCancelled, ""
+		if err := s.repo.SaveDerivative(ctx, derivative); err != nil {
+			return nil, err
+		}
+	}
+	return derivative, nil
+}
+
+func (s *Service) RetryDerivative(ctx context.Context, id string) (*mediadomain.Derivative, error) {
+	if strings.TrimSpace(id) == "" {
+		return nil, mediadomain.ErrInvalidRequest
+	}
+	derivative, err := s.repo.GetDerivative(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	switch derivative.Status {
+	case mediadomain.StatusFailed, mediadomain.StatusCancelled:
+		derivative.Status, derivative.ErrorCode = mediadomain.StatusPending, ""
+		if err := s.repo.SaveDerivative(ctx, derivative); err != nil {
+			return nil, err
+		}
+		s.enqueue(ctx, job{derivative: derivative})
+	}
+	return derivative, nil
+}
+
+func (s *Service) CancelPerception(ctx context.Context, id string) (*mediadomain.Perception, error) {
+	if strings.TrimSpace(id) == "" {
+		return nil, mediadomain.ErrInvalidRequest
+	}
+	perception, err := s.repo.GetPerception(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	switch perception.Status {
+	case mediadomain.StatusPending, mediadomain.StatusRunning, mediadomain.StatusFailed:
+		perception.Status, perception.ErrorCode = mediadomain.StatusCancelled, ""
+		if err := s.repo.SavePerception(ctx, perception); err != nil {
+			return nil, err
+		}
+	}
+	return perception, nil
+}
+
+func (s *Service) RetryPerception(ctx context.Context, id string) (*mediadomain.Perception, error) {
+	if strings.TrimSpace(id) == "" {
+		return nil, mediadomain.ErrInvalidRequest
+	}
+	perception, err := s.repo.GetPerception(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	switch perception.Status {
+	case mediadomain.StatusFailed, mediadomain.StatusCancelled:
+		perception.Status, perception.ErrorCode = mediadomain.StatusPending, ""
+		if err := s.repo.SavePerception(ctx, perception); err != nil {
+			return nil, err
+		}
+		s.enqueue(ctx, job{perception: perception})
+	}
+	return perception, nil
+}
+
 // Preparation returns and, for supported attachments, claims the durable preparation work needed by
 // the default chat path. Images currently publish the model-default proxy status; other kinds have
 // no app-managed preparation yet and return not_required.
@@ -330,7 +404,7 @@ func preparationFromDerivative(derivative *mediadomain.Derivative) Preparation {
 	}
 	status := derivative.Status
 	switch status {
-	case mediadomain.StatusPending, mediadomain.StatusRunning, mediadomain.StatusReady, mediadomain.StatusFailed:
+	case mediadomain.StatusPending, mediadomain.StatusRunning, mediadomain.StatusReady, mediadomain.StatusFailed, mediadomain.StatusCancelled:
 	default:
 		status = PreparationStatusUnavailable
 	}
@@ -518,6 +592,15 @@ func (s *Service) runJob(ctx context.Context, j job) {
 }
 
 func (s *Service) runDerivative(ctx context.Context, derivative *mediadomain.Derivative) {
+	latest, err := s.repo.GetDerivative(ctx, derivative.ID)
+	if err != nil {
+		s.log.Warn("media: derivative reload failed", zap.String("work_id", derivative.ID))
+		return
+	}
+	if latest.Status != mediadomain.StatusPending {
+		return
+	}
+	derivative = latest
 	derivative.Status, derivative.ErrorCode = mediadomain.StatusRunning, ""
 	if err := s.repo.SaveDerivative(ctx, derivative); err != nil {
 		s.log.Warn("media: derivative start persistence failed", zap.String("work_id", derivative.ID))
@@ -529,6 +612,9 @@ func (s *Service) runDerivative(ctx context.Context, derivative *mediadomain.Der
 		if processErr == nil {
 			sha, putErr := s.artifacts.Put(ctx, result.Data)
 			if putErr == nil {
+				if s.workCancelled(reqctxpkg.Detached(derivative.WorkspaceID), derivative.ID, true) {
+					return
+				}
 				derivative.Status, derivative.BlobSHA256, derivative.MimeType = mediadomain.StatusReady, sha, result.MimeType
 				derivative.SizeBytes, derivative.Width, derivative.Height, derivative.DurationMS = int64(len(result.Data)), result.Width, result.Height, result.DurationMS
 				err = s.repo.SaveDerivative(ctx, derivative)
@@ -540,6 +626,9 @@ func (s *Service) runDerivative(ctx context.Context, derivative *mediadomain.Der
 		}
 	}
 	if err != nil {
+		if s.workCancelled(reqctxpkg.Detached(derivative.WorkspaceID), derivative.ID, true) {
+			return
+		}
 		if ctx.Err() != nil {
 			derivative.Status, derivative.ErrorCode = mediadomain.StatusPending, ""
 		} else {
@@ -551,6 +640,15 @@ func (s *Service) runDerivative(ctx context.Context, derivative *mediadomain.Der
 }
 
 func (s *Service) runPerception(ctx context.Context, perception *mediadomain.Perception) {
+	latest, err := s.repo.GetPerception(ctx, perception.ID)
+	if err != nil {
+		s.log.Warn("media: perception reload failed", zap.String("work_id", perception.ID))
+		return
+	}
+	if latest.Status != mediadomain.StatusPending {
+		return
+	}
+	perception = latest
 	perception.Status, perception.ErrorCode = mediadomain.StatusRunning, ""
 	if err := s.repo.SavePerception(ctx, perception); err != nil {
 		s.log.Warn("media: perception start persistence failed", zap.String("work_id", perception.ID))
@@ -560,6 +658,9 @@ func (s *Service) runPerception(ctx context.Context, perception *mediadomain.Per
 	if err == nil {
 		result, processErr := s.processor.Perceive(ctx, a, original, perception)
 		if processErr == nil {
+			if s.workCancelled(reqctxpkg.Detached(perception.WorkspaceID), perception.ID, false) {
+				return
+			}
 			perception.Status, perception.CapsuleJSON = mediadomain.StatusReady, result.CapsuleJSON
 			perception.InputTokens, perception.OutputTokens = result.InputTokens, result.OutputTokens
 			err = s.repo.SavePerception(ctx, perception)
@@ -568,6 +669,9 @@ func (s *Service) runPerception(ctx context.Context, perception *mediadomain.Per
 		}
 	}
 	if err != nil {
+		if s.workCancelled(reqctxpkg.Detached(perception.WorkspaceID), perception.ID, false) {
+			return
+		}
 		if ctx.Err() != nil {
 			perception.Status, perception.ErrorCode = mediadomain.StatusPending, ""
 		} else {
@@ -576,4 +680,13 @@ func (s *Service) runPerception(ctx context.Context, perception *mediadomain.Per
 		_ = s.repo.SavePerception(reqctxpkg.Detached(perception.WorkspaceID), perception)
 		s.log.Warn("media: perception processing failed", zap.String("work_id", perception.ID))
 	}
+}
+
+func (s *Service) workCancelled(ctx context.Context, id string, derivative bool) bool {
+	if derivative {
+		row, err := s.repo.GetDerivative(ctx, id)
+		return err == nil && row.Status == mediadomain.StatusCancelled
+	}
+	row, err := s.repo.GetPerception(ctx, id)
+	return err == nil && row.Status == mediadomain.StatusCancelled
 }

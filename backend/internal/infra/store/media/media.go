@@ -92,6 +92,28 @@ func (s *Store) ClaimPerception(ctx context.Context, want *mediadomain.Perceptio
 	return got, false, nil
 }
 
+func (s *Store) GetDerivative(ctx context.Context, id string) (*mediadomain.Derivative, error) {
+	row, err := s.derivatives.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, ormpkg.ErrNotFound) {
+			return nil, mediadomain.ErrNotFound
+		}
+		return nil, fmt.Errorf("mediastore.GetDerivative: %w", err)
+	}
+	return row, nil
+}
+
+func (s *Store) GetPerception(ctx context.Context, id string) (*mediadomain.Perception, error) {
+	row, err := s.perceptions.Get(ctx, id)
+	if err != nil {
+		if errors.Is(err, ormpkg.ErrNotFound) {
+			return nil, mediadomain.ErrNotFound
+		}
+		return nil, fmt.Errorf("mediastore.GetPerception: %w", err)
+	}
+	return row, nil
+}
+
 func (s *Store) SaveDerivative(ctx context.Context, derivative *mediadomain.Derivative) error {
 	if !mediadomain.ValidStatus(derivative.Status) {
 		return mediadomain.ErrInvalidRequest

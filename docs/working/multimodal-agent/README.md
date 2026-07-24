@@ -796,7 +796,11 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   pending、ready 记录绝不重跑；优雅关闭把中断项退回 pending，硬崩遗留 running 在下次 boot 归还；媒体 GC
   严格发生在 worker 启动前，避免“写入 artifact、尚未提交 ready 行”时被误删。当前没有配置具体图片/文档/
   音视频 processor，故这一步不会悄悄改变现有附件/聊天行为。
-- concrete processor、用户取消/retry API、进度模型；
+- 已落地（work cancel/retry 基础）：media service 对 derivative/perception 提供 durable cancel/retry；
+  failed/cancelled 可回 pending 并重新入队，pending/running 可标 cancelled。worker 开跑前会重读状态，
+  处理过程中被取消的 work 不会被完成结果覆盖成 ready/failed；`preparation` 侧车已能诚实透出
+  `cancelled`。用户可见 HTTP/前端动作仍在后续 UX 切片接入。
+- concrete processor、用户可见取消/retry API、进度模型；
 - 磁盘配额和清理；
 - fake processor 测试。
 
