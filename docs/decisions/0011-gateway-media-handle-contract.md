@@ -28,7 +28,15 @@ WRK-078 的 M1 目标是「聊天请求退出大 base64 时代」。规范 §6.1
 
 1. **形状**:`{gatewayBase}/v1/media/leases/{leaseId}/content?token={fetchToken}` —— 即 `complete` 响应中 `fetchPath` 的绝对化形式。**不接受任何其他 http(s) URL**(SSRF、下载放大与 MIME 欺骗的护栏不变,`明确不做` §1.2 第 3 条)。
 
-2. **⚠️ host 必须校验(实现时发现,补入决策)**:仅校验「路径形状 + lease 归属」**不足**。攻击者可以拿自己**合法**的 leaseId+token,拼成 `https://evil.example/v1/media/leases/{自己的id}/content?token={自己的token}` —— 归属校验会通过,而**上游 provider 会去拉 evil.example**,这是一条经由 provider 的 SSRF。故:**绝对 URL 的 host 必须逐字等于网关自己配置的公开 host**;或更稳妥,**只接受相对路径形**(`/v1/media/leases/{id}/content?token=…`)并由网关自行绝对化——后者从结构上消灭了 host 这个变量,代价是桌面端要改成发相对形。**实现前先在两仓间定死其一,不要两边各猜。**
+2. **⚠️ host 绝不可由客户端提供 —— 采用相对路径形(实现调研后定案)**
+
+   仅校验「路径形状 + lease 归属」**不足**:攻击者可以拿自己**合法**的 leaseId+token,拼成 `https://evil.example/v1/media/leases/{自己的id}/content?token={自己的token}` —— 归属校验会通过,而**上游 provider 会去拉 evil.example**。这是一条经由 provider 的 SSRF。
+
+   **定案:客户端在 `image_url`/`video_url` 里发 `fetchPath` 的相对形**(`/v1/media/leases/{id}/content?token=…`),**网关校验形状 + 归属后,用自己配置的公开 base 绝对化再交给 provider**。
+
+   **为什么不是「校验绝对 URL 的 host」**:实现调研查明,网关目前**只有上游的 base URL**(`DEEPSEEK_BASE_URL` / `DASHSCOPE_BASE_URL`),**没有任何关于自身公开 URL 的配置**。而无论选哪条路,网关都**必须**知道自己的公开 base——因为最终得交给 provider 一个可拉取的**绝对** URL。既然这项配置无论如何都要新增,那就选**从结构上消灭 host 这个变量**的那条:host 永不由客户端提供,SSRF 不是「被检查掉」而是「不可表达」。
+
+   **两仓改动**:①网关新增 `PUBLIC_BASE_URL`(启动期硬配置,与既有 upstream base 同层)②桌面端 `infra/llm/media.go` 的 `Upload` 目前返回**已绝对化**的 URL(它已严格校验 `fetchPath` 必须相对且前缀 `/v1/media/leases/`)——改为受管路由下**保留相对形**上行;BYOK 路径不受影响。
 
 3. **分层**:形状识别归 domain(纯函数,无 IO);**归属与时效校验归 app 层**——domain 不持有仓储。为此给 `app/chat.Deps` 增加一道 DIP 端口(如 `MediaLeases.Verify(ctx, installID, leaseID, token)`),由 media service 实现,复用 `OpenLease` 已有的复合谓词:**状态为 active、未过期、HMAC 签名对得上、token hash 匹配、且属当前 install**。任一不成立 → 归并为无信息泄露的 not-found 语义(与既有 lease fetch 一致,不作存在性预言)。
 
@@ -41,7 +49,7 @@ WRK-078 的 M1 目标是「聊天请求退出大 base64 时代」。规范 §6.1
 ## 后果 / Consequences
 
 - 受管路由的图片/视频对话从「必 400」变为可用;`inspect_media` 的视觉复查随之恢复。
-- 网关新增一处必须 install-bound 的授权判定。**它是新的攻击面**:未做归属校验就等于让任一 install 引用他人 lease,故第 3 条的复合谓词不可简化;而**第 2 条的 host 校验与它同等必要**——少了它,归属校验通过的请求仍能把 provider 引向任意 host。
+- 网关新增一处必须 install-bound 的授权判定。**它是新的攻击面**:未做归属校验就等于让任一 install 引用他人 lease,故第 3 条的复合谓词不可简化;而**第 2 条的 host 校验与它同等必要**——少了它,归属校验通过的请求仍能把 provider 引向任意 host;定案的相对路径形使该 host 不可由客户端表达,故这条风险是被**消灭**而非被检查。
 - **必须同时补一条把 media lease 与 chat completion 串起来的 e2e**。这条 bug 之所以活到今天,正因为两仓测试各自只覆盖自己那半;没有跨接测试,同类问题会再次发生。
 - `MEDIA_ENABLED=false` 的部署下 lease 无从签发,故该形态自然不出现;但 `anselm_capabilities.multimodal.available` 仍须并入 `MEDIA_ENABLED`(独立缺陷,见 PROGRESS 高危 1),否则桌面端会宣称支持却在上传第一步吃 503。
 
