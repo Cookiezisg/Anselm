@@ -1309,9 +1309,9 @@ active 指针移到旧版本号,然后**重启实例**跑它。name/description/
 
 ### read_attachment
 - 用途:按 id 把已上传附件内容拉回对话。
-- args:`id` string 必填(sentinel `ATTACHMENT_ID_REQUIRED` 仅空 id;未知 id 是软失败串)。
+- args:`id` string 必填(sentinel `ATTACHMENT_ID_REQUIRED` 仅空 id;未知 id 是软失败串);`offset` int 可选(字符偏移,≥0);`limitChars` int 可选(default 80000,max 120000)。
 - 返回(原始字符串,按 kind 分叉):
-  - `text`/`document`:走 ToContentParts 共享抽取引擎(NativeDocs 关,PDF/Office 抽成文本),多 part 以 `\n` 拼接。模板:文本内联 `Attached file "<name>"(truncated)?:\n<body>`;文档抽取 `Attached document "<name>" (text-extracted, truncated)?:\n<body>`;抽取失败降级占位 `[document "<name>" attached, but its text could not be extracted]`。**截断上限 400,000 字符(≈100K token,保头部)**——最大体积 ~400KB。
+  - `text`/`document`:走 ToContentParts 共享抽取引擎(NativeDocs 关,PDF/Office 抽成文本),多 part 以 `\n` 拼接后分页。模板首段仍是文本内联 `Attached file "<name>"(truncated)?:\n<body>` 或文档抽取 `Attached document "<name>" (text-extracted, truncated)?:\n<body>`；抽取失败降级占位 `[document "<name>" attached, but its text could not be extracted]`。超过页限时尾部追加 `[read_attachment pagination: offset=0 chars=80000 totalChars=N nextOffset=80000]`；显式 offset 越界返回自纠句。单次最大体积约 120K 字符。
   - `image`/`audio`/`video`/`other`:返回描述符长句 `Attachment "<filename>" (id …, <mime>, <N> bytes, kind <kind>): this tool cannot turn its content into text. An image is seen by the model ONLY if…`(教模型别重试、让用户描述或换 vision 模型)。
 - 软失败:not found → `Attachment "<id>" not found. Call list_attachments to see available files.`
 - 只读、无副作用。
@@ -1343,7 +1343,7 @@ active 指针移到旧版本号,然后**重启实例**跑它。name/description/
 | edit_skill | body | **整份 SKILL.md 替换** | JSON `{updated}` | ✅ skill/edit | — |
 | delete_skill | — | — | JSON `{deleted,+dependents?}` | — | **硬删不可逆** |
 | list_attachments | — | — | JSON | — | — |
-| read_attachment | — | — | 字符串(≤~400KB) | — | — |
+| read_attachment | — | — | 字符串(≤120K/页) | — | — |
 | inspect_media | — | — | JSON 文本证据 | — | — |
 
 

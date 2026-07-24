@@ -842,6 +842,8 @@ lease refresh/reuse 与生产 E2E 验证。
 - 已落地（准备状态）：`POST /attachments` 与 `GET /attachments/{id}` 返回 `preparation` 侧车；image
   上传/查询会认领 `model-default` 代理 work 并暴露 `pending/running/ready/failed`，非 image 为
   `not_required`，侧车异常降级 `unavailable` 且不影响原始附件可发送。
+- 已落地（文档工具分页）：`read_attachment` 对 text/document 默认只返回 80K 字符页，最大 120K，
+  截断时给 `nextOffset`；agent 不再因一次重读旧 PDF/文本把 400K 抽取内容重新塞进主上下文。
 - OCR/tiles；
 - document parse/chunk/index/map-reduce；
 - `inspect_media` 的 document page 能力；

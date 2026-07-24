@@ -118,6 +118,37 @@ func TestReadAttachment_TextContent(t *testing.T) {
 	}
 }
 
+func TestReadAttachment_TextPagination(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "long.txt", "text/plain", []byte(strings.Repeat("abcdef", 10)))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","limitChars":40}`)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !strings.Contains(out, `Attached file "long.txt"`) ||
+		!strings.Contains(out, "nextOffset=40") ||
+		!strings.Contains(out, "totalChars=") {
+		t.Fatalf("first page should preserve the template and advertise nextOffset: %q", out)
+	}
+	next, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","offset":40,"limitChars":40}`)
+	if err != nil {
+		t.Fatalf("read next: %v", err)
+	}
+	if strings.Contains(next, `Attached file "long.txt"`) || !strings.Contains(next, "offset=40") {
+		t.Fatalf("offset page should return the requested slice with pagination footer: %q", next)
+	}
+	empty, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","offset":999,"limitChars":40}`)
+	if err != nil {
+		t.Fatalf("read empty: %v", err)
+	}
+	if !strings.Contains(empty, "No attachment text at offset 999") {
+		t.Fatalf("out-of-range offset should self-correct: %q", empty)
+	}
+}
+
 func TestReadAttachment_BinaryDescriptor(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	a, err := svc.Upload(ctx, "photo.png", "image/png", []byte("\x89PNG fake bytes"))
@@ -153,6 +184,12 @@ func TestReadAttachment_ValidateInput(t *testing.T) {
 	}
 	if err := (&ReadAttachment{}).ValidateInput([]byte(`{"id":"att_1"}`)); err != nil {
 		t.Fatalf("non-empty id should pass, got %v", err)
+	}
+	if err := (&ReadAttachment{}).ValidateInput([]byte(`{"id":"att_1","offset":-1}`)); err == nil {
+		t.Fatal("negative offset should fail validation")
+	}
+	if err := (&ReadAttachment{}).ValidateInput([]byte(`{"id":"att_1","limitChars":120001}`)); err == nil {
+		t.Fatal("oversized limit should fail validation")
 	}
 	if err := (&ListAttachments{}).ValidateInput(nil); err != nil {
 		t.Fatalf("list takes no args, got %v", err)

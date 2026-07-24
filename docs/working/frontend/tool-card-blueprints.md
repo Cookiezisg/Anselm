@@ -1914,12 +1914,10 @@ function/handler/agent/workflow|trigger 分支,**没有 control/approval**——
   unavailable for this model]`(extractor 未配,attachment.go:285)**两形均入白名单**→窗内
   danger 色行(回执均「未能抽取」——它们是 document 类的合法输出形,不入白名单会错落「字符量」形);
   RawResultDisclosure(原始串)。
-- **退化态**:not found 软失败串→窗内原样 + 回执「未找到」(族文法 7);400K 上限→封顶 + 「N+ 字符」注记。
-- **交互**:附件卡 onTap v1 惰性(附件无海洋);文本可选中复制;**逃生口(宪法 #8,必须物理存在)**:
-  窗与 Raw 双双封顶 ~6000 chars 而线缆最大 400K 字符、附件又无海洋可跳(对比 read_document 有
-  文档海洋兜底)——机器窗头加**「复制全文」affordance**:点击复制未截断完整原文(完整串就在
-  result block 内存里,零额外请求)+ 短暂「已复制 N 字符」确认;这是本卡唯一的全文通路,不得省略
-  (顺手回应 palette 机器窗 copy 缺口)。
+- **退化态**:not found 软失败串→窗内原样 + 回执「未找到」(族文法 7);分页 footer
+  `[read_attachment pagination: ... nextOffset=N]` 入白名单，回执追加「可继续」而不是假装读完整文。
+- **交互**:附件卡 onTap v1 惰性(附件无海洋);文本可选中复制;分页 footer 出现时给「继续读取」动作
+  （填同一工具 `offset=nextOffset`），不要要求用户复制 120K 工具结果；机器窗 copy 只复制当前页。
 - **新原语**:复用 AnAttachmentCard + 族级件;文件名/截断标记解析器(纯函数,单测锁形);
   **ToolWindow「复制全文」affordance**(窗头小改,见汇总)。
 - **Wow**:附件在对话里始终一张脸——发的时候什么卡,模型读回来还是什么卡,下面多一扇「它读到了什么」的窗。
@@ -1955,10 +1953,10 @@ function/handler/agent/workflow|trigger 分支,**没有 control/approval**——
 | **ToolReadingWindow** | 排版态阅读窗:AnSunkenPanel(bubble inset)+ AnMarkdown 15/1.6 + AnFadeCollapse(fadeColor=surfaceSunken);read_document / get_approval 共用 | feature skin |
 | **AnThinTable mono 列开关** | 列级 `mono:bool`(CEL/ref/签名列等宽);小改现有原语非新建 | core 小改 |
 | **AnKvRow 行级 mono 开关** | 行级 `mono:bool`——本族 KV 几乎张张混排散文值(description)与 mono 值(id/CEL/签名/`modelId @ apiKeyId`/webhook path),现状 `mono` 是 AnKv 列表级布尔(an_field.dart)只能全 mono 或全散文;与 AnThinTable mono 列同族小改 | core 小改 |
-| **ToolWindow「复制全文」affordance** | 机器窗头 copy 钮:复制未截断完整原文 + 「已复制 N 字符」确认(完整串在 result block 内存,零请求);read_attachment 的唯一全文逃生口(宪法 #8——窗与 Raw 双封顶 6000 而线缆 400K、附件无海洋),他族窗可共用 | core 小改 |
+| **ToolWindow「复制当前页」affordance** | 机器窗头 copy 钮:复制当前页原文 + 「已复制 N 字符」确认；read_attachment 现由后端分页，全文逃生口变为 footer 驱动的继续读取动作 | core 小改 |
 | **maskedValue helper** | 敏感值掩码 `••••`(webhook secret / sensitive init-arg),覆盖 KV 与 Raw 双投影 + 掩码注记(族文法 5④) | 纯函数 |
 | **moustache 插值预处理** | get_approval 模板 `{{ input.* }}` 段包成行内 code span 的展示投影(纯函数单测锁形;已带反引号不二次包;**围栏码区段整段跳过不注入**;Raw 保原文) | 纯函数 |
-| **模板解析器×2** | read_document 头部模板(**严格行序状态机,一步不匹配整串降级**)/ read_attachment **六形前缀**(文本/抽取/媒体/抽取失败/抽取不可用/not-found;**截断标记只认首行头**)的纯函数解析(单测锁形 + 反例:body 含 "(truncated)" 不假报、多行 description 注入) | 纯函数 |
+| **模板解析器×2** | read_document 头部模板(**严格行序状态机,一步不匹配整串降级**)/ read_attachment **六形前缀 + 分页 footer**(文本/抽取/媒体/抽取失败/抽取不可用/not-found;**截断标记只认首行头**)的纯函数解析(单测锁形 + 反例:body 含 "(truncated)" 不假报、多行 description 注入) | 纯函数 |
 | **toolIcon 精确表补条** | control/approval/skill/trigger/attachment 五形补进 AnIcons.toolIcon 精确表(现状:control/approval/skill 落扳手,get_trigger 错落 workflow 形,read_attachment 错落 doc 形;精确表先于关键字推断可覆写;attachment 用已有 `AnIcons.attach`) | core 小改 |
 
 ## 族内建造顺序建议
