@@ -840,8 +840,9 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   该私有协议，保留各自 provider 的原生 inline wire。
 - 已落地（ambiguous PUT recovery）：网关受 device proof 保护的 upload-status 返回 open cursor；sidecar 在
   chunk 响应中断、无法确定服务端是否 fsync 时先读 cursor，再从已确认 offset 继续，绝不盲重放。
-- 待落地：取消/删除 API、MIME magic sniff 与 access-log/redaction 审计，以及部署时启用网关媒体配置后的
-  真实端到端抓包。
+- 已落地（cancel/delete）：受 proof 保护的 DELETE 先 durable abort 再删私有暂存字节；sidecar 对上传失败或
+  caller cancel 使用独立的一秒有界上下文 best-effort 回收，cleanup 失败绝不覆盖原始错误，网关 TTL/GC 仍作兜底。
+- 待落地：MIME magic sniff 与 access-log/redaction 审计，以及部署时启用网关媒体配置后的真实端到端抓包。
 
 **当前出口**：单次十步 ReAct 对同一媒体只上传一次；本地主聊天 wire 无重复 base64。M1 完整出口仍要求跨回合
 lease refresh/reuse 与生产 E2E 验证。

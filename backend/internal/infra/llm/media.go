@@ -50,6 +50,11 @@ type leaseFlight struct {
 // 瞬间的 URL。
 const leaseRefreshSkew = 30 * time.Second
 
+// cleanupTimeout bounds best-effort server-side staging cleanup after a caller cancellation or a
+// failed upload. It intentionally does not inherit the caller context: that context is often
+// already cancelled, while the gateway still needs a signed DELETE to reclaim private bytes.
+const cleanupTimeout = time.Second
+
 func NewMediaClient(c *http.Client) *MediaClient {
 	return &MediaClient{http: c, leases: make(map[string]cachedLease), inFlight: make(map[string]*leaseFlight)}
 }
@@ -129,6 +134,12 @@ func (c *MediaClient) upload(ctx context.Context, baseURL, installID, mime strin
 	if created.UploadID == "" || created.ChunkMaxBytes <= 0 {
 		return "", time.Time{}, fmt.Errorf("llm.media: invalid create response")
 	}
+	uploadCompleted := false
+	defer func() {
+		if !uploadCompleted {
+			c.cancelUpload(baseURL, installID, created.UploadID)
+		}
+	}()
 	for offset, recoveries := 0, 0; offset < len(data); {
 		end := offset + created.ChunkMaxBytes
 		if end > len(data) {
@@ -195,6 +206,7 @@ func (c *MediaClient) upload(ctx context.Context, baseURL, installID, mime strin
 		}
 		return "", time.Time{}, err
 	}
+	uploadCompleted = true
 	return u.ResolveReference(p).String(), expiresAt, nil
 }
 
@@ -206,6 +218,24 @@ func (c *MediaClient) uploadOffset(ctx context.Context, baseURL, installID, uplo
 		return 0, err
 	}
 	return status.Offset, nil
+}
+
+// cancelUpload is deliberately best-effort. A successful durable abort makes the staging object
+// unusable immediately; any unavailable gateway is still covered by its bounded TTL/GC lifecycle.
+// Cleanup errors must not hide the original upload failure from the user.
+func (c *MediaClient) cancelUpload(baseURL, installID, uploadID string) {
+	ctx, cancel := context.WithTimeout(context.Background(), cleanupTimeout)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodDelete, strings.TrimRight(baseURL, "/")+"/media/uploads/"+url.PathEscape(uploadID), nil)
+	if err != nil {
+		return
+	}
+	req.Header.Set(deviceproofinfra.HeaderInstallID, installID)
+	resp, err := c.http.Do(req)
+	if err == nil && resp != nil {
+		_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 4<<10))
+		_ = resp.Body.Close()
+	}
 }
 
 func normalizedMediaMIME(mime string) string { return strings.ToLower(strings.TrimSpace(mime)) }

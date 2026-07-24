@@ -80,18 +80,27 @@ func TestMediaClientUpload_ResumableProofAndProviderURL(t *testing.T) {
 }
 
 func TestMediaClientUpload_RejectsBadAppendAcknowledgement(t *testing.T) {
+	cancels := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost:
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/media/uploads":
 			_ = json.NewEncoder(w).Encode(map[string]any{"uploadId": "upl_test", "chunkMaxBytes": 4})
-		case http.MethodPut:
+		case r.Method == http.MethodPut && r.URL.Path == "/media/uploads/upl_test":
 			_ = json.NewEncoder(w).Encode(map[string]any{"offset": 0})
+		case r.Method == http.MethodDelete && r.URL.Path == "/media/uploads/upl_test":
+			cancels++
+			w.WriteHeader(http.StatusNoContent)
+		default:
+			t.Fatalf("unexpected %s %s", r.Method, r.URL.Path)
 		}
 	}))
 	defer server.Close()
 	_, err := NewMediaClient(server.Client()).Upload(context.Background(), server.URL, "ins_test", "image/png", []byte("data"))
 	if err == nil || !strings.Contains(err.Error(), "acknowledged offset") {
 		t.Fatalf("err = %v, want rejected acknowledgement", err)
+	}
+	if cancels != 1 {
+		t.Fatalf("cancel requests = %d, want one cleanup DELETE", cancels)
 	}
 }
 
