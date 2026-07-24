@@ -744,6 +744,15 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 
 **目标**：让 Anselm Auto 有网关权威能力合同，让未知外部模型不靠静态窗口表也能透明恢复并逐步收敛。
 
+**2026-07-24 实施进度**：
+
+- 已落地：外部模型 profile 以 endpoint / 加密凭证版本 / model / text-or-multimodal / config 的不透明指纹隔离；只存数值足迹，绝不存 prompt、附件、原始上游报错或明文 key。
+- 已落地：外部模型不再把静态目录的 context window 当主动压缩预算；首个真实且无输出/无工具副作用的 context overflow 走同一步透明 checkpoint 重试。只有该重试成功后，才产生带 30% 余量、30 天 TTL 的软预算；密钥轮换、端点/模型/配置/模态变更天然换画像，后续更低 overflow 只会收紧预算。
+- 已落地：`contextUsage` 留下 overflow/recovery 的安全测量；未分类的上游 HTTP body 不再透传到用户面。Anselm Auto 仍唯一使用网关 `anselm_capabilities` 的 route profile（文本 1M、当前媒体 262K）。
+- 已落地：Flutter 已解析并呈现 text / media 两条 input limit，而不是把一个泛化窗口误作全部事实。
+- 待验收：真实“首次自然恢复 → 学习后稳定治理”金标已加 `EVALS_NATURAL_OVERFLOW=1` 双门，但当前本机无 `EVALS_KEY` / `DEEPSEEK_API_KEY`，故安全跳过、未产生计费；补齐本地环境后必须跑一次。
+- 待完成：把 Anselm Auto 从普通模型 picker 分离为无参数的默认模式；外部模型表单改为已确认 contract 的控件 + 受控 native JSON 高级通道；模糊上游错误的隔离判别器。
+
 - 网关 `Anselm Auto` 单一默认选择；route profile 发布 context、模态、输出与配置 schema；
 - 外部模型 runtime profile 持久化：endpoint/key 指纹/model/request class/config 指纹、成功/失败足迹、usage、
   置信度、TTL/降级；
