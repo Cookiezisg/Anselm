@@ -24,7 +24,7 @@ landed-into:
 |---|---|---|
 | **A** | 收掉 audio playback lease 片 | ✅ **完成**(`623c3746`,已推送) |
 | **B** | 跨两仓审计(跨仓契约 / §13 测试矩阵 / §3.3 不变量守卫) | ✅ **完成**(三路 + 主会话亲验,结论见下) |
-| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · C-3 阻断1 **设计已立 ADR、实现待做** · C-4 ADR 0011 ✅ · C-5 #10 脱敏底座 ✅) |
+| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · **C-3 阻断1:domain 半 ✅、app 半待做** · C-4 ADR 0011 ✅ · C-5 #10 脱敏底座 ✅) |
 | **D** | 收口(§15 订正 / 台账 / ADR / CLAUDE 重述 / 归档) | ⏳ 待 C |
 | **E** | 真机端到端验收 + 《真实环境验收指南》 | ⏳ 待 D |
 | **F** | WRK-077 十七步(见 `working/frontend/chat-iteration.md` §7) | ⏳ 待 E |
@@ -233,3 +233,24 @@ token 256 位 `crypto/rand` + URL-safe base64 · `kind=audio` 在签发与取用
 测试含一条反向断言:普通诊断(`conversation_id`/`attachment_id`/`step`/`route`)必须原样保留——过宽的底座会被人直接关掉。
 
 **门禁**:根 `make verify` 四门全绿;`make -C backend testend` 仍只剩那 1 条既有红项(脱敏未破坏任何黑盒断言)。
+
+
+---
+
+## C-3 阻断 1 · domain 半已落(网关仓 `59a254f`)
+
+**ADR 0011 的 host 口径已定案**:只收**相对** fetch path,网关用自己配置的公开 base 绝对化。定案依据是实现调研查明的一条事实——网关目前**只有上游** base URL(`DEEPSEEK_BASE_URL`/`DASHSCOPE_BASE_URL`)、**没有任何自身公开 URL 的配置**;而无论选哪条路都必须新增它(最终得交给 provider 一个可拉取的绝对 URL),故选**从结构上消灭 host 变量**的那条:host 永不由客户端提供,SSRF **不可表达**而非「被检查掉」。
+
+**已落**(`internal/domain/chat/medialease.go` + `medialease_test.go` + `content.go`):
+- `parseMediaLeaseRef` 只认 `/v1/media/leases/{id}/content?token=…`;凡带 scheme/host/userinfo、traversal、嵌套 id、缺 token、错前后缀一律拒
+- `validateImage`/`validateVideo` 接受它并计**零解码字节**;data URI 路径与字节护栏原样不变
+- `InboundRequest.MediaLeaseRefs()` 按线缆序交出全部引用供 app 层校验
+- 敌意用例逐条钉死,**含「绝对 URL 指向我们自己的 host」也必须拒**——一旦允许绝对形,`evil.example` 就同样能过
+- 网关全仓 `go build` + `go vet` + `go test ./...` 54 包全绿
+
+**app 半待做**(3 件,ADR 已写死):
+1. `app/chat.Deps` 加 DIP 端口(`MediaLeases.Verify(ctx, installID, leaseID, token)`),由 media service 实现,复用 `OpenLease` 复合谓词(active + 未过期 + HMAC 对得上 + token hash 匹配 + **属当前 install**);任一不成立归并为无信息泄露的 not-found
+2. `service.go` 在 `ValidateAndClassify` 之后逐引用校验,**再**用新增的 `PUBLIC_BASE_URL` 绝对化后交 provider
+3. **跨接 e2e**:把 media lease 与 chat completion 串起来——这条 bug 活到今天正因两仓测试各覆盖一半
+
+**桌面端配套**:`infra/llm/media.go` 的 `Upload` 现返回**已绝对化**的 URL(它已严格校验 `fetchPath` 必须相对且前缀 `/v1/media/leases/`),受管路由需改为**保留相对形**上行;BYOK 路径不受影响。
