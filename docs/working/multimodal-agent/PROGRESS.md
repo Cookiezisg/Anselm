@@ -25,7 +25,7 @@ landed-into:
 | **A** | 收掉 audio playback lease 片 | ✅ **完成**(`623c3746`,已推送) |
 | **B** | 跨两仓审计(跨仓契约 / §13 测试矩阵 / §3.3 不变量守卫) | ✅ **完成**(三路 + 主会话亲验,结论见下) |
 | **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · **C-3 阻断1 ✅ 两仓已修并推送** · C-4 ADR 0011 ✅ · C-5 #10 脱敏底座 ✅ · 高危两条待做) |
-| **D** | 收口(§15 订正 / 台账 / ADR / CLAUDE 重述 / 归档) | ⏳ 待 C |
+| **D** | 收口 | 🔨 部分(§15 订正 ✅ · ADR 0011 ✅ · 台账持续 ✅ · **CLAUDE 重述 / landed-into / 归档刻意未做**——见下) |
 | **E** | 真机端到端验收 + 《真实环境验收指南》 | ⏳ 待 D |
 | **F** | WRK-077 十七步(见 `working/frontend/chat-iteration.md` §7) | ⏳ 待 E |
 
@@ -317,3 +317,45 @@ provider → 拿到网关自己拼的绝对 URL
 - 🟡 中危若干(错误码归类、`version==1` 硬相等、受管 key 画像不刷新、ASR 握手错误压平等)
 - 不变量守卫 #9(Flutter loopback)与其余八条
 - 最后 1 条红 testend
+
+
+---
+
+## 2026-07-25 续:环境阻塞与绕行、C 收尾、D 的诚实边界
+
+### ⚠️ 环境:`~/Documents` 权限被撤销,已绕行
+
+会话中途 macOS 对 `~/Documents`(含 `~/Desktop`)的授权失效,主工作树的 `git`/读文件全部 `Operation not permitted`。**Go/mise/`~/.local/share` 不受影响**,故改为**从远端克隆到 `/tmp/anselm-work` 继续**,门禁照跑。
+
+> **用户须知**:主工作树里原有一处未提交改动(Flutter loopback 守卫)。它已在克隆里重做并推送(`fd7d83d5`),内容等价。恢复权限后主树 `git pull` 若报「本地改动会被覆盖」,直接 `git checkout -- frontend/lib/core/process/backend_controller.dart frontend/test/core/process/backend_controller_test.dart` 再 pull 即可——**不会丢任何东西**,远端那份就是同一份。
+
+### C 收尾清单
+
+| 项 | 状态 |
+|---|---|
+| 阻断 1(受管路由带图/视频必 400) | ✅ 两仓已修并上线 |
+| 高危 1 `multimodal.available` 并入 `MEDIA_ENABLED` | ✅ |
+| 高危 2 HEIC/AVIF 硬中断整回合 → 降级注记 | ✅ |
+| 中危 429 限流/额度耗尽混淆(白烧三次重试) | ✅ |
+| 中危 `version==1` 硬相等(升 v2 静默丢 profile) | ✅ |
+| 中危 ASR 握手错误压平成「语音不可用」 | ✅ |
+| 不变量 #10 后端零日志脱敏 | ✅ core 级底座 |
+| 不变量 #9 Flutter 侧零 loopback 守卫 | ✅ |
+| 最后 1 条红 testend | 🔴 见下 |
+| 其余中危(受管 key 画像不刷新、`MEDIA_UPLOAD_MAX_BYTES` 不发布、PoW 领号闸) | ⏳ |
+
+### 🔴 `TestContractChat_GeneratingFlagAndFinalizeWindow` — 已排除的假设(勿重走)
+
+**已确证**:按 C1.5 配方改造后 ①软预算**确实学到**(日志 `input_budget: 31864` 的回合内 editing 为证,恰 1 次)②五回合跑完后探针显示 `summary="" watermark=0` ——**尾部持久压缩根本没跑** ③但 202/409 收尾窗断言**是过的**,说明确有东西在尾部停了 8s。
+
+**已证伪(两条,均由我自己提出后推翻)**:
+1. ~~前半段 convG 留了未消费的 mock 队列导致回合错位~~ —— convG 有标题、恰消费 1 个 dlg 回合,队列干净。
+2. ~~后续 utility 的 stall 把摘要落盘推出 20s 断言窗~~ —— 只让撑窗那一次 stall、其余快返,仍红。
+
+**下一位该做的**:别再从外部猜。直接在 `contextmgr.MaybeCompact` 的每个 early-return 上打临时日志,一次就能看出是哪一道闸拦下的(候选:`lastContextMeasurement` 返回的是哪一条 turn、`inputBudget` 是否为 0、两道 `triggerRatio` 闸、`hasUncompactedAttachments`)。同结构的 `TestChat_CompactionWatermark` 是**绿**的,故差异一定在这两个测试之间,范围很小。
+
+### D 的诚实边界(为什么只做了一半)
+
+**已做**:§15 的 7 条「是否确认」订正为「已确认」(用户确认决策早已拍板、代码正按其执行,标记只是滞后)· ADR 0011 补齐(战役此前零 ADR)· 台账持续更新。
+
+**刻意未做**:`CLAUDE.md` 状态节重述、填 `landed-into`、移入 `archive/`。这三件是**战役完成的收口仪式**——而 C 尚有余项、E(真机端到端验收)与 F(WRK-077 十七步)一步未动。现在做它们,等于把没做完的写成做完了,**直接违反本 goal 自己的铁律**(「没跑的绝不写成跑过了」)。它们应在 C 清零、E 跑完之后再做。
