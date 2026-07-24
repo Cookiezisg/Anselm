@@ -98,7 +98,19 @@ func (p *anselmProvider) DescribeModels(raw string) ([]ModelInfo, error) {
 		text, multimodal routeProfile
 	}, len(wire.Data))
 	for _, m := range wire.Data {
-		if m.Capabilities != nil && m.Capabilities.Version == 1 && m.Capabilities.Routing == "content" {
+		// Accept version >= 1, not == 1. The gateway's own plan (WRK-078 §7.2) is to publish a v2
+		// profile once audio perception lands; an exact-equality gate would make that rollout
+		// SILENTLY discard every real route profile and fall back to the static constants below —
+		// no error, no log, just a desktop quietly governing itself by hard-coded numbers while the
+		// gateway publishes different ones. Forward compatibility here is cheap because the fields
+		// this code reads are additive: a v2 payload still carries text/multimodal, and anything
+		// new is ignored by the decoder until this side learns about it.
+		//
+		// 接受 version >= 1,而非 == 1。网关自己的计划(WRK-078 §7.2)是音频感知落地后发布 v2 profile;
+		// 精确相等的闸会让那次上线**静默丢弃**全部真实 route profile、退回下面的静态常量——不报错、不打日志,
+		// 只是桌面端悄悄按硬编码数字自治,而网关公布的是另一套。此处的前向兼容很便宜:本代码读的字段是**增量**
+		// 的——v2 载荷仍带 text/multimodal,新增字段在本侧学会之前由解码器忽略。
+		if m.Capabilities != nil && m.Capabilities.Version >= 1 && m.Capabilities.Routing == "content" {
 			capsByID[m.ID] = struct {
 				text, multimodal routeProfile
 			}{m.Capabilities.Text, m.Capabilities.Multimodal}

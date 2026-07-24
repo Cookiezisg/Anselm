@@ -271,3 +271,39 @@ func TestInstallClient(t *testing.T) {
 		t.Error("empty token should error")
 	}
 }
+
+// A future capability version must not silently disable the whole extension. The gateway plans a v2
+// profile (WRK-078 §7.2); with an exact `== 1` gate that rollout would have made every desktop fall
+// back to hard-coded constants — no error, no log — while the gateway published different numbers.
+// The fields read here are additive, so a v2 payload is still readable.
+//
+// 未来的能力版本不得静默停用整个扩展。网关计划发布 v2 profile(§7.2);精确 `== 1` 的闸会让那次上线把每个
+// 桌面端退回硬编码常量——不报错、不打日志——而网关公布的是另一套数字。本处读的字段是**增量**的,故 v2 载荷
+// 仍可读。
+func TestDescribeModelsAcceptsFutureCapabilityVersions(t *testing.T) {
+	const probe = `{"data":[{"id":"anselm-auto","anselm_capabilities":{
+		"version":2,"routing":"content",
+		"text":{"input_limit":2000000,"output_limit":32768,"available":true},
+		"multimodal":{"input_limit":1500000,"output_limit":32768,"available":true}}}]}`
+	models, err := DescribeModels("anselm", probe)
+	if err != nil {
+		t.Fatalf("DescribeModels: %v", err)
+	}
+	if len(models) == 0 {
+		t.Fatal("probe must yield the managed model")
+	}
+	m := models[0]
+	if m.TextInputLimit != 2_000_000 || m.MultimodalInputLimit != 1_500_000 || m.MaxOutput != 32_768 {
+		t.Fatalf("a v2 profile must be honoured, not discarded for the static fallback: %+v", m)
+	}
+
+	// An unknown ROUTING is still refused: that field names the contract's shape, and guessing at an
+	// unrecognised one would be inventing behaviour. 未知 routing 仍拒:该字段命名契约形状,猜它等于凭空发明行为。
+	const wrongRouting = `{"data":[{"id":"anselm-auto","anselm_capabilities":{
+		"version":2,"routing":"something-else",
+		"text":{"input_limit":2000000,"output_limit":32768,"available":true}}}]}`
+	got, _ := DescribeModels("anselm", wrongRouting)
+	if len(got) > 0 && got[0].TextInputLimit == 2_000_000 {
+		t.Fatal("an unrecognised routing contract must fall back, not be trusted")
+	}
+}
