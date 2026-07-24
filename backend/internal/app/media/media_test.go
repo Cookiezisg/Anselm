@@ -202,6 +202,34 @@ func TestModelDefaultImage_ReturnsReadyArtifactOrSchedulesWork(t *testing.T) {
 	}
 }
 
+func TestDocumentText_CachesExtractedTextBySourceAndVersion(t *testing.T) {
+	repo := &fakeRepo{}
+	artifacts := fakeArtifacts{data: map[string][]byte{}}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a", Kind: attachmentdomain.KindDocument}}, repo, artifacts, zap.NewNop())
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+	calls := 0
+
+	first, err := svc.DocumentText(ctx, "att_1", func(context.Context, *attachmentdomain.Attachment, []byte) (string, error) {
+		calls++
+		return "# Page 1\ncached text", nil
+	})
+	if err != nil || first != "# Page 1\ncached text" {
+		t.Fatalf("first document text = (%q, %v)", first, err)
+	}
+	if repo.derivative == nil || repo.derivative.Kind != DerivativeDocumentText ||
+		repo.derivative.Status != mediadomain.StatusReady || repo.derivative.MimeType != "text/plain; charset=utf-8" {
+		t.Fatalf("ready document derivative not persisted: %+v", repo.derivative)
+	}
+
+	second, err := svc.DocumentText(ctx, "att_1", func(context.Context, *attachmentdomain.Attachment, []byte) (string, error) {
+		calls++
+		return "should not run", nil
+	})
+	if err != nil || second != first || calls != 1 {
+		t.Fatalf("cached document text = (%q, calls=%d, err=%v), want first text and one extraction", second, calls, err)
+	}
+}
+
 func TestPreparation_ImageClaimsModelDefaultStatus(t *testing.T) {
 	repo := &fakeRepo{}
 	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a", Kind: attachmentdomain.KindImage}}, repo, fakeArtifacts{}, zap.NewNop())

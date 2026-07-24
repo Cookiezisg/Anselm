@@ -84,6 +84,7 @@ type InspectMedia struct {
 	svc            *attachmentapp.Service
 	resolver       InspectMediaResolver
 	imageProcessor imageDeriver
+	textCache      TextCache
 }
 
 type imageDeriver interface {
@@ -265,11 +266,10 @@ type inspectTextResult struct {
 }
 
 func (t *InspectMedia) inspectTextual(ctx context.Context, meta *attachmentdomain.Attachment, args inspectMediaArgs) (string, error) {
-	parts, err := t.svc.ToContentParts(ctx, []string{meta.ID}, attachmentapp.Capabilities{Vision: false, NativeDocs: false})
+	text, err := attachmentText(ctx, t.svc, t.textCache, meta)
 	if err != nil {
 		return "", err
 	}
-	text := flattenText(parts)
 	limit := normalizeInspectTextLimit(args.LimitChars)
 	notes := ignoredTextInspectFields(args)
 	mode := "window"

@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
+	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	blobfs "github.com/sunweilin/anselm/backend/internal/infra/fs/blob"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	attachmentstore "github.com/sunweilin/anselm/backend/internal/infra/store/attachment"
@@ -197,6 +198,39 @@ func TestReadAttachment_TextQueryNoMatchSelfCorrects(t *testing.T) {
 	}
 }
 
+type fakeTextCache struct {
+	calls int
+	text  string
+	err   error
+}
+
+func (f *fakeTextCache) DocumentText(ctx context.Context, attachmentID string, extract func(context.Context, *attachmentdomain.Attachment, []byte) (string, error)) (string, error) {
+	f.calls++
+	if f.err != nil {
+		return "", f.err
+	}
+	if f.text != "" {
+		return f.text, nil
+	}
+	return extract(ctx, &attachmentdomain.Attachment{ID: attachmentID}, nil)
+}
+
+func TestReadAttachment_DocumentUsesTextCache(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "report.pdf", "application/pdf", []byte("%PDF bytes"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	cache := &fakeTextCache{text: "# Page 1\ncached document text"}
+	out, err := (&ReadAttachment{svc: svc, textCache: cache}).Execute(ctx, `{"id":"`+a.ID+`"}`)
+	if err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if cache.calls != 1 || !strings.Contains(out, "cached document text") || strings.Contains(out, "extraction is unavailable") {
+		t.Fatalf("document read should use text cache; calls=%d out=%q", cache.calls, out)
+	}
+}
+
 func TestReadAttachment_BinaryDescriptor(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	a, err := svc.Upload(ctx, "photo.png", "image/png", []byte("\x89PNG fake bytes"))
@@ -368,6 +402,27 @@ func TestInspectMedia_DocumentPageReturnsMarkedExtractedPage(t *testing.T) {
 		strings.Contains(out, "# Page 3") ||
 		client.CallCount() != 0 {
 		t.Fatalf("document page inspect should return the requested extracted page only; out=%q calls=%d", out, client.CallCount())
+	}
+}
+
+func TestInspectMedia_DocumentUsesTextCachePage(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "report.pdf", "application/pdf", []byte("%PDF bytes"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	cache := &fakeTextCache{text: "# Page 1\nintro\n\n# Page 2\ncached page evidence\n\n# Page 3\nappendix"}
+	client := llminfra.NewMockClient()
+	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{Client: client, Vision: true}}, textCache: cache}
+	out, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"what is on page 2?","page":2}`)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	if cache.calls != 1 ||
+		!strings.Contains(out, "cached page evidence") ||
+		strings.Contains(out, "# Page 3") ||
+		client.CallCount() != 0 {
+		t.Fatalf("document inspect should use text cache page without LLM call; calls=%d out=%q llm=%d", cache.calls, out, client.CallCount())
 	}
 }
 

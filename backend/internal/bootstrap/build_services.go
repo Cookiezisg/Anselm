@@ -302,7 +302,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			workflowtool.WorkflowTools(wf, searchSvc, sched, rel),
 			triggertool.TriggerTools(trg, searchSvc, rel),
 			documenttool.DocumentTools(doc, searchSvc),
-			attachmenttool.AttachmentTools(att, NewInspectMediaResolver(resolvers.Chat(), llminfra.NewMediaClient(inf.proofHTTP))),
+			attachmenttool.AttachmentTools(att, NewInspectMediaResolver(resolvers.Chat(), llminfra.NewMediaClient(inf.proofHTTP)), media),
 			memorytool.MemoryTools(mem),
 			modeltool.ModelConfigTools(ws, keys, modelCaps),
 			mcptool.MCPTools(mcp),

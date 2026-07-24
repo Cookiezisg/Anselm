@@ -41,7 +41,10 @@ var readAttachmentSchema = json.RawMessage(`{
 // ReadAttachment implements the read_attachment system tool.
 //
 // ReadAttachment 是 read_attachment 系统工具的实现。
-type ReadAttachment struct{ svc *attachmentapp.Service }
+type ReadAttachment struct {
+	svc       *attachmentapp.Service
+	textCache TextCache
+}
 
 func (t *ReadAttachment) Name() string                { return "read_attachment" }
 func (t *ReadAttachment) Description() string         { return readAttachmentDescription }
@@ -98,11 +101,10 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 	// 文本、而非递交模型在此读不了的原始 file part。
 	switch meta.Kind {
 	case attachmentdomain.KindText, attachmentdomain.KindDocument:
-		parts, err := t.svc.ToContentParts(ctx, []string{a.ID}, attachmentapp.Capabilities{Vision: false, NativeDocs: false})
+		text, err := attachmentText(ctx, t.svc, t.textCache, meta)
 		if err != nil {
 			return "", err
 		}
-		text := flattenText(parts)
 		if strings.TrimSpace(a.Query) != "" {
 			return searchAttachmentText(text, a.Query, normalizeSearchContext(a.ContextChars), normalizeSearchMatches(a.MaxMatches)), nil
 		}
@@ -112,6 +114,23 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 			"Attachment %q (id %s, %s, %d bytes, kind %s): this tool cannot turn its content into text. An image is seen by the model ONLY if the model has vision support AND the image is attached to the chat turn — if the current model is text-only it cannot see this image at all, so do not keep trying to read it; ask the user to describe it or switch to a vision model. Audio/video/other binaries have no extractor here.",
 			meta.Filename, meta.ID, meta.MimeType, meta.SizeBytes, meta.Kind), nil
 	}
+}
+
+func attachmentText(ctx context.Context, svc *attachmentapp.Service, cache TextCache, meta *attachmentdomain.Attachment) (string, error) {
+	if meta.Kind == attachmentdomain.KindDocument && cache != nil {
+		return cache.DocumentText(ctx, meta.ID, func(extractCtx context.Context, _ *attachmentdomain.Attachment, _ []byte) (string, error) {
+			return uncachedAttachmentText(extractCtx, svc, meta.ID)
+		})
+	}
+	return uncachedAttachmentText(ctx, svc, meta.ID)
+}
+
+func uncachedAttachmentText(ctx context.Context, svc *attachmentapp.Service, attachmentID string) (string, error) {
+	parts, err := svc.ToContentParts(ctx, []string{attachmentID}, attachmentapp.Capabilities{Vision: false, NativeDocs: false})
+	if err != nil {
+		return "", err
+	}
+	return flattenText(parts), nil
 }
 
 type readArgs struct {

@@ -853,6 +853,9 @@ lease refresh/reuse 与生产 E2E 验证。
 - 已落地（`inspect_media` 文本/文档证据）：`inspect_media` 对 text/document 不再返回“未来支持”，而是复用
   本地抽取 + query/page/offset 有界窗口返回 JSON 证据，不调用模型、不倾倒全文；PDF extractor 产出
   `# Page N` 标记，page 命中时只回该页，缺少真实页标记时明确退化为固定字符窗口。
+- 已落地（文档抽取缓存）：text/document 工具读取接入 `document-text-v1` media derivative；同一 attachment
+  source SHA + 版本参数首次抽取后写入 media artifact CAS，后续 `read_attachment` / `inspect_media` 直接复用
+  ready 文本证据，避免每次工具调用重复启动 sandbox 抽取，也不把用户问题写入缓存键。
 - OCR/tiles；
 - document parse/chunk/index/map-reduce；
 - 视觉/文档质量与 token/延迟 A/B。

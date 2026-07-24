@@ -83,6 +83,7 @@ const (
 	DerivativeThumbnail    = "thumbnail"
 	DerivativeModelDefault = "model-default"
 	DerivativeModelDetail  = "model-detail"
+	DerivativeDocumentText = "document-text-v1"
 )
 
 const modelDefaultImageWait = 2 * time.Second
@@ -105,6 +106,10 @@ type ImageCrop struct {
 	Y      float64 `json:"y"`
 	Width  float64 `json:"width"`
 	Height float64 `json:"height"`
+}
+
+type DocumentTextParams struct {
+	Version int `json:"version"`
 }
 
 type Service struct {
@@ -230,6 +235,72 @@ func (s *Service) ModelDefaultImage(ctx context.Context, attachmentID string) ([
 		return nil, "", false, fmt.Errorf("mediaapp.ModelDefaultImage: artifact: %w", err)
 	}
 	return data, derivative.MimeType, true, nil
+}
+
+// DocumentText returns cached extracted text for text/document tooling. It is intentionally a
+// synchronous lazy cache rather than a worker job: extraction is requested only when an agent reads
+// a document, and the ready derivative then prevents repeated sandbox extraction on later
+// read_attachment / inspect_media calls for the same source.
+func (s *Service) DocumentText(ctx context.Context, attachmentID string, extract func(context.Context, *attachmentdomain.Attachment, []byte) (string, error)) (string, error) {
+	if strings.TrimSpace(attachmentID) == "" || extract == nil {
+		return "", mediadomain.ErrInvalidRequest
+	}
+	a, err := s.attachments.Get(ctx, attachmentID)
+	if err != nil {
+		return "", err
+	}
+	encoded, err := json.Marshal(DocumentTextParams{Version: 1})
+	if err != nil {
+		return "", fmt.Errorf("mediaapp.DocumentText: params: %w", err)
+	}
+	derivative, _, err := s.repo.ClaimDerivative(ctx, &mediadomain.Derivative{
+		ID:           idgenpkg.New("mdr"),
+		AttachmentID: a.ID,
+		Kind:         DerivativeDocumentText,
+		SourceSHA256: a.SHA256,
+		ParamsHash:   mediadomain.Hash(encoded),
+		ParamsJSON:   string(encoded),
+		Status:       mediadomain.StatusPending,
+	})
+	if err != nil {
+		return "", err
+	}
+	if derivative.Status == mediadomain.StatusReady && derivative.BlobSHA256 != "" {
+		data, err := s.artifacts.Get(ctx, derivative.BlobSHA256)
+		if err == nil {
+			return string(data), nil
+		}
+		s.log.Warn("media: document text artifact missing; regenerating", zap.String("work_id", derivative.ID), zap.Error(err))
+	}
+	derivative.Status, derivative.ErrorCode = mediadomain.StatusRunning, ""
+	if err := s.repo.SaveDerivative(ctx, derivative); err != nil {
+		return "", err
+	}
+	a, original, err := s.attachments.Download(ctx, attachmentID)
+	if err == nil {
+		var text string
+		text, err = extract(ctx, a, original)
+		if err == nil {
+			sha, putErr := s.artifacts.Put(ctx, []byte(text))
+			if putErr == nil {
+				derivative.Status, derivative.BlobSHA256, derivative.MimeType = mediadomain.StatusReady, sha, "text/plain; charset=utf-8"
+				derivative.SizeBytes, derivative.Width, derivative.Height, derivative.DurationMS = int64(len(text)), 0, 0, 0
+				derivative.ErrorCode = ""
+				if saveErr := s.repo.SaveDerivative(ctx, derivative); saveErr != nil {
+					return "", saveErr
+				}
+				return text, nil
+			}
+			err = putErr
+		}
+	}
+	if ctx.Err() != nil {
+		derivative.Status, derivative.ErrorCode = mediadomain.StatusPending, ""
+	} else {
+		derivative.Status, derivative.ErrorCode = mediadomain.StatusFailed, "MEDIA_DERIVATIVE_FAILED"
+	}
+	_ = s.repo.SaveDerivative(reqctxpkg.Detached(derivative.WorkspaceID), derivative)
+	return "", err
 }
 
 // Preparation returns and, for supported attachments, claims the durable preparation work needed by

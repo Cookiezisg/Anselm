@@ -15,8 +15,11 @@
 package attachment
 
 import (
+	"context"
+
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
@@ -27,19 +30,30 @@ import (
 // 软失败成工具结果串，让 LLM 用真 id 重试。
 var ErrIDRequired = errorspkg.New(errorspkg.KindInvalid, "ATTACHMENT_ID_REQUIRED", "id is required")
 
+// TextCache is an optional media-ingestion cache for expensive document text extraction. It stores
+// only bounded text artifacts keyed by attachment source SHA + versioned params; prompt/task text
+// never enters the cache key.
+type TextCache interface {
+	DocumentText(ctx context.Context, attachmentID string, extract func(context.Context, *attachmentdomain.Attachment, []byte) (string, error)) (string, error)
+}
+
 // AttachmentTools constructs the attachment system tools over one Service. inspect_media is
 // registered only when a resolver is supplied, because it needs an LLM vision route; the two
 // metadata/text tools stay available in every boot.
 //
 // AttachmentTools 用一个 Service 构造 attachment 系统工具。inspect_media 仅在传入 resolver 时注册，
 // 因其需要 LLM 视觉路由；两个 metadata/text 工具每次 boot 都可用。
-func AttachmentTools(svc *attachmentapp.Service, resolver InspectMediaResolver) []toolapp.Tool {
+func AttachmentTools(svc *attachmentapp.Service, resolver InspectMediaResolver, textCacheOpt ...TextCache) []toolapp.Tool {
+	var textCache TextCache
+	if len(textCacheOpt) > 0 {
+		textCache = textCacheOpt[0]
+	}
 	tools := []toolapp.Tool{
 		&ListAttachments{svc: svc},
-		&ReadAttachment{svc: svc},
+		&ReadAttachment{svc: svc, textCache: textCache},
 	}
 	if resolver != nil {
-		tools = append(tools, &InspectMedia{svc: svc, resolver: resolver, imageProcessor: mediaImageProcessor{}})
+		tools = append(tools, &InspectMedia{svc: svc, resolver: resolver, imageProcessor: mediaImageProcessor{}, textCache: textCache})
 	}
 	return tools
 }
