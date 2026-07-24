@@ -1,5 +1,6 @@
 import 'package:anselm/core/contract/api_key.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/contract/workspace.dart';
 import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
@@ -16,10 +17,15 @@ import 'package:flutter_test/flutter_test.dart';
 // the S-3 add-form state machine, and the S-15 capabilities invalidation.
 // S2 电池:免费档卡三面/密钥列表(受管锁顶)/S-3 表单状态机/S-15 能力目录失效。
 
-Widget _host(FixtureSettingsRepository repo) => ProviderScope(
+Widget _host(
+  FixtureSettingsRepository repo, {
+  List<ModelCapability>? capabilities,
+}) => ProviderScope(
   overrides: [
     settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
     settingsRepositoryProvider.overrideWithValue(repo),
+    if (capabilities != null)
+      modelCapabilitiesProvider.overrideWith((ref) async => capabilities),
   ],
   child: TranslationProvider(
     child: MaterialApp(
@@ -232,5 +238,68 @@ void main() {
       await c.read(modelCapabilitiesProvider.future);
       expect(fetches, 2, reason: 'key 变更 → 能力目录重取(S-15)');
     });
+  });
+
+  group('默认模型模式 default model mode', () {
+    testWidgets(
+      'Anselm Auto applies directly; external native controls stay behind an explicit choice',
+      (tester) async {
+        final repo = FixtureSettingsRepository();
+        const managed = ModelCapability(
+          apiKeyId: 'aki_anselm',
+          keyName: 'Anselm Free',
+          provider: 'anselm',
+          modelId: 'anselm-auto',
+          displayName: 'Anselm Auto',
+          textInputLimit: 1000000,
+          multimodalInputLimit: 262144,
+        );
+        const external = ModelCapability(
+          apiKeyId: 'aki_openai',
+          keyName: 'Personal OpenAI',
+          provider: 'openai',
+          modelId: 'gpt-test',
+          displayName: 'Test model',
+          knobs: [
+            ModelKnob(
+              key: 'reasoning_effort',
+              type: 'enum',
+              values: ['low', 'high'],
+              defaultValue: 'low',
+            ),
+          ],
+        );
+        await tester.pumpWidget(
+          _host(repo, capabilities: const [managed, external]),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.tap(find.text(t.settings.keys.pickerChange).first);
+        await tester.pumpAndSettle();
+
+        expect(find.text(t.settings.keys.anselmAuto), findsOneWidget);
+        expect(find.text(t.settings.keys.externalModel), findsOneWidget);
+        expect(
+          find.text(t.settings.keys.stageCredential),
+          findsNothing,
+          reason: '未选外部模式时不暴露凭证、模型或原生参数选择器',
+        );
+
+        await tester.tap(find.text(t.settings.keys.anselmAuto));
+        await tester.pumpAndSettle();
+        expect(
+          repo.workspace.defaultDialogue,
+          const ModelRef(apiKeyId: 'aki_anselm', modelId: 'anselm-auto'),
+        );
+
+        await tester.tap(find.text(t.settings.keys.externalModel));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(t.settings.keys.stageCredential),
+          findsOneWidget,
+          reason: '外部路线才进入原有的凭证→模型→确认参数流程',
+        );
+      },
+    );
   });
 }

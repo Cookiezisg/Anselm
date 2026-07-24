@@ -1907,6 +1907,10 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get pickerApply => '应用';
 	@override String get pickerChange => '修改';
 	@override String get pickerClose => '收起';
+	@override String get anselmAuto => 'Anselm Auto';
+	@override String get anselmAutoDesc => '由网关管理路由与推理';
+	@override String get externalModel => '外部模型';
+	@override String get externalModelDesc => '选择模型及其已确认的原生设置';
 	@override String get visionBadge => '视觉';
 	@override String get videoBadge => '视频';
 	@override String get audioBadge => '音频';
@@ -4287,6 +4291,10 @@ extension on TranslationsZhCn {
 			'settings.keys.pickerApply' => '应用',
 			'settings.keys.pickerChange' => '修改',
 			'settings.keys.pickerClose' => '收起',
+			'settings.keys.anselmAuto' => 'Anselm Auto',
+			'settings.keys.anselmAutoDesc' => '由网关管理路由与推理',
+			'settings.keys.externalModel' => '外部模型',
+			'settings.keys.externalModelDesc' => '选择模型及其已确认的原生设置',
 			'settings.keys.visionBadge' => '视觉',
 			'settings.keys.videoBadge' => '视频',
 			'settings.keys.audioBadge' => '音频',

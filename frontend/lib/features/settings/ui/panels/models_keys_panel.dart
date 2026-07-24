@@ -845,7 +845,7 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
         if (_open)
           Padding(
             padding: const EdgeInsets.only(top: AnSpace.s8, bottom: AnSpace.s8),
-            child: ModelPickerPanel(
+            child: _DefaultModelModePanel(
               key: ValueKey('picker:${widget.scenario}'),
               caps: caps,
               initial: cur,
@@ -857,6 +857,122 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
             ),
           ),
       ],
+    );
+  }
+}
+
+/// The workspace-default selector separates Anselm Auto from external models.
+/// Anselm's gateway is one fixed product mode: it owns routing and reasoning,
+/// therefore it intentionally has no credential/model/knob picker. The old
+/// three-stage picker remains available only after the user explicitly picks
+/// an external model route.
+///
+/// 默认模型选择器把 Anselm Auto 与外部模型分开。网关是一个固定产品模式：路由与推理由它
+/// 自己拥有，故刻意没有 credential/model/knob picker；用户明确选择外部模型后才进入原
+/// 三段 picker。
+class _DefaultModelModePanel extends StatefulWidget {
+  const _DefaultModelModePanel({
+    required this.caps,
+    required this.onApply,
+    this.initial,
+    this.clearable = false,
+    this.onClear,
+    this.onAddKey,
+    super.key,
+  });
+
+  final List<ModelCapability> caps;
+  final ModelRef? initial;
+  final bool clearable;
+  final void Function(
+    String apiKeyId,
+    String modelId,
+    Map<String, String> options,
+  )
+  onApply;
+  final VoidCallback? onClear;
+  final VoidCallback? onAddKey;
+
+  @override
+  State<_DefaultModelModePanel> createState() => _DefaultModelModePanelState();
+}
+
+class _DefaultModelModePanelState extends State<_DefaultModelModePanel> {
+  late bool _external;
+
+  List<ModelCapability> get _managed =>
+      widget.caps.where((cap) => cap.provider == 'anselm').toList();
+  List<ModelCapability> get _externalCaps =>
+      widget.caps.where((cap) => cap.provider != 'anselm').toList();
+
+  @override
+  void initState() {
+    super.initState();
+    final current = widget.initial;
+    _external =
+        current != null &&
+        _externalCaps.any(
+          (cap) =>
+              cap.apiKeyId == current.apiKeyId &&
+              cap.modelId == current.modelId,
+        );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final managed = _managed.firstOrNull;
+    if (managed == null) {
+      // Before free-tier provisioning there is no Auto route to offer; retaining
+      // the external picker is honest and keeps setup unblocked.
+      return ModelPickerPanel(
+        caps: _externalCaps,
+        initial: widget.initial,
+        clearable: widget.clearable,
+        onApply: widget.onApply,
+        onClear: widget.onClear,
+        onAddKey: widget.onAddKey,
+      );
+    }
+
+    return AnCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AnRow(
+            leadWidget: const AnBrandIcon.anselm(size: AnBrandSize.sm),
+            label: t.settings.keys.anselmAuto,
+            meta: t.settings.keys.anselmAutoDesc,
+            selected: !_external,
+            onSelect: () => widget.onApply(
+              managed.apiKeyId,
+              managed.modelId,
+              const <String, String>{},
+            ),
+          ),
+          if (_externalCaps.isNotEmpty) ...[
+            const SizedBox(height: AnSpace.s8),
+            AnRow(
+              leadWidget: const AnBrandIcon.glyph('↗', size: AnBrandSize.sm),
+              label: t.settings.keys.externalModel,
+              meta: t.settings.keys.externalModelDesc,
+              selected: _external,
+              onSelect: () => setState(() => _external = true),
+            ),
+            if (_external) ...[
+              const SizedBox(height: AnSpace.s12),
+              ModelPickerPanel(
+                caps: _externalCaps,
+                initial: widget.initial,
+                clearable: widget.clearable,
+                onApply: widget.onApply,
+                onClear: widget.onClear,
+                onAddKey: widget.onAddKey,
+              ),
+            ],
+          ],
+        ],
+      ),
     );
   }
 }

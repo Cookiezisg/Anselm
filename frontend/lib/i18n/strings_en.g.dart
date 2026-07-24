@@ -4623,6 +4623,18 @@ class Translations$settings$keys$en {
 	/// en: 'Close'
 	String get pickerClose => 'Close';
 
+	/// en: 'Anselm Auto'
+	String get anselmAuto => 'Anselm Auto';
+
+	/// en: 'Gateway-managed routing and reasoning'
+	String get anselmAutoDesc => 'Gateway-managed routing and reasoning';
+
+	/// en: 'External model'
+	String get externalModel => 'External model';
+
+	/// en: 'Choose a model and only its confirmed native settings'
+	String get externalModelDesc => 'Choose a model and only its confirmed native settings';
+
 	/// en: 'Vision'
 	String get visionBadge => 'Vision';
 
@@ -7954,6 +7966,10 @@ extension on Translations {
 			'settings.keys.pickerApply' => 'Apply',
 			'settings.keys.pickerChange' => 'Change',
 			'settings.keys.pickerClose' => 'Close',
+			'settings.keys.anselmAuto' => 'Anselm Auto',
+			'settings.keys.anselmAutoDesc' => 'Gateway-managed routing and reasoning',
+			'settings.keys.externalModel' => 'External model',
+			'settings.keys.externalModelDesc' => 'Choose a model and only its confirmed native settings',
 			'settings.keys.visionBadge' => 'Vision',
 			'settings.keys.videoBadge' => 'Video',
 			'settings.keys.audioBadge' => 'Audio',
