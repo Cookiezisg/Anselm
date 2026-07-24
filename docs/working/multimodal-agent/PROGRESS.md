@@ -24,7 +24,7 @@ landed-into:
 |---|---|---|
 | **A** | 收掉 audio playback lease 片 | ✅ **完成**(`623c3746`,已推送) |
 | **B** | 跨两仓审计(跨仓契约 / §13 测试矩阵 / §3.3 不变量守卫) | ✅ **完成**(三路 + 主会话亲验,结论见下) |
-| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · **C-3 阻断1:三块地基 ✅、chat 接线待做** · C-4 ADR 0011 ✅ · C-5 #10 脱敏底座 ✅) |
+| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · **C-3 阻断1 ✅ 两仓已修并推送** · C-4 ADR 0011 ✅ · C-5 #10 脱敏底座 ✅ · 高危两条待做) |
 | **D** | 收口(§15 订正 / 台账 / ADR / CLAUDE 重述 / 归档) | ⏳ 待 C |
 | **E** | 真机端到端验收 + 《真实环境验收指南》 | ⏳ 待 D |
 | **F** | WRK-077 十七步(见 `working/frontend/chat-iteration.md` §7) | ⏳ 待 E |
@@ -276,3 +276,44 @@ token 256 位 `crypto/rand` + URL-safe base64 · `kind=audio` 在签发与取用
 3. **`service.go` 在 `ValidateAndClassify` 之后、`Reserve` 之前**:取 `MediaLeaseRefs()`;非空而端口为 nil → `ErrMediaUnavailable`;**逐个** `VerifyLease`,任一失败 → 归并的 not-found 错误;全过后 `req = req.WithAbsoluteMediaLeaseURLs(cfg.MediaPublicBaseURL)`。**须先确认 sanitize→forward 路径上被转发的是哪一个请求对象**,重写必须落在真正发给上游的那个。
 4. **跨接 e2e(不可省)**:把 media lease 与 chat completion 串起来——这条 bug 活到今天正因两仓测试各覆盖一半。至少断言:合法 lease 的图片对话成功且上游收到**绝对**URL、他人 lease 被拒、过期 lease 被拒、绝对形引用被拒。
 5. **桌面端配套**:`infra/llm/media.go` 的 `Upload` 现返回**已绝对化**的 URL(它已严格校验 `fetchPath` 必须相对且前缀 `/v1/media/leases/`),受管路由需改为**保留相对形**上行;BYOK 路径不受影响。**两仓必须同批上线**——否则相对形发给旧网关、或绝对形发给新网关,都会被拒。
+
+
+---
+
+## 🎉 C-3 阻断 1 · 修复完成(两仓已推送)
+
+**网关仓**:`59a254f` 形状识别 → `b76efe0` 授权谓词 → `264361d` 公开 origin 配置 → **`bc62f19` chat 接线 + 跨接测试**
+**主仓**:**`dbc27b14`** 桌面端改发相对形 + 文档同步
+
+**门禁**:网关全仓 `go build`/`go vet`/`go test ./...` 全绿、`deploy/build_stage_test.sh` 通过;主仓根 `make verify` 四门全绿。
+
+### 最终形态
+
+```
+桌面端  → 只发相对引用  /v1/media/leases/{id}/content?token=…
+网关   → ① domain 识形状(带 scheme/host/traversal/嵌套 id/缺 token 一律拒)
+        ② app 层逐引用 VerifyLease(针对**已鉴权解析出的** install,非客户端自报;
+           失败归并 not-found,不做他人 lease id 的存在性预言机)
+        ③ **全部**通过后才用 MEDIA_PUBLIC_BASE_URL 绝对化
+provider → 拿到网关自己拼的绝对 URL
+```
+
+**核心安全性质**:host 从来不是客户端能提供的值,故经 provider 的 SSRF **不可表达**,而非「被检查掉」。
+
+### 沿途发现并一并处理的三件
+
+1. **一条 ADR 本来会漏掉的 SSRF**:仅校验「形状 + 归属」不足——攻击者拿自己**合法**的 lease 就能拼出 `evil.example/...`,归属能过、provider 去拉。写 ADR 时发现并补入,**因而才有了「只收相对形」这个定案**。
+2. **配置缺口**:网关此前**只有上游** base URL、没有任何自身公开 URL 的配置。新增 `MEDIA_PUBLIC_BASE_URL`(必填无默认、严校验必须裸 https origin、部署由已校验的 `GATEWAY_DOMAIN` 派生)。
+3. **Go 经典陷阱**:装配处若把类型化 nil 指针直接塞进接口,会得到**非 nil** 接口,chat 的 `s.leases == nil` 守卫静默失效,把「拒绝」变成空指针解引用。用 `mediaLeasesOrNil` 挡住并注释说明。
+
+### ⚠️ 上线约束
+
+**两仓必须同批上线**——相对形发给旧网关、或绝对形发给新网关,都会被拒。
+
+### C 剩余
+
+- 🟠 高危 1:`multimodal.available` 并入 `MEDIA_ENABLED`
+- 🟠 高危 2:网关 `supportedMIME` 白名单 vs 桌面端 `image/*` 判据(HEIC/AVIF 现会硬中断整回合)
+- 🟡 中危若干(错误码归类、`version==1` 硬相等、受管 key 画像不刷新、ASR 握手错误压平等)
+- 不变量守卫 #9(Flutter loopback)与其余八条
+- 最后 1 条红 testend
