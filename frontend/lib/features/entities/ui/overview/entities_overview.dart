@@ -7,8 +7,9 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/time_format.dart';
-import '../../../../core/shell/shell_chrome.dart';
+import '../../../../core/perf/frame_safe.dart';
 import '../../../../core/runtime.dart';
+import '../../../../core/shell/shell_chrome.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
@@ -53,7 +54,11 @@ class _EntitiesOverviewViewState extends ConsumerState<EntitiesOverviewView> {
 
   void _onScroll() {
     final collapsed = _scroll.hasClients && _scroll.offset > AnSpace.s64;
-    ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    // Read the offset HERE, dirty the head LATER if a frame is in flight (CR-1b). 先读偏移,帧在飞则延后弄脏。
+    runFrameSafe(() {
+      if (!mounted) return;
+      ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    });
   }
 
   void _scrollToTop() {

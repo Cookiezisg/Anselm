@@ -180,6 +180,19 @@ composer 生成中收 Enter → 入队;输入框上方队列 chip 行(点开改/
 **做法**:①结构性——头折叠改**局部 `ValueNotifier<bool>`** + 头部就地 `ValueListenableBuilder` 消费,滚动永不弄脏壳的 build scope(顺带去掉每帧滚动重建全壳的开销);②兜底律——滚动监听器内一切外溢副作用按 `SchedulerBinding.schedulerPhase` 判相位,帧在飞则 `addPostFrameCallback` 延后;③`jumpTo` 同理延后;④核对 `setCollapsed` 是否去重(现每滚动帧都调)。
 **验收**:六海洋滚动+切选区无异常;`flutter test` 加一条「滚动期内容尺寸突变不产生 layout 期 markNeedsBuild」的守卫测试。
 
+→ **已施工(0725,施工序③)。施工中推翻了本节两条判断,如实记下:**
+
+**推翻①:方案①(改局部 `ValueNotifier`)治不到病,已弃。** 它基于两个错误前提:(a)以为 `setCollapsed` 每滚动帧都弄脏——实际 `shell_chrome.dart:121` **首行就去重**,只在跨阈值时改状态;(b)以为病在「弄脏了壳的 build scope」——`shellHeadProvider` 的唯一 watcher 是 `OceanBreadcrumb` 一个小 widget,**根本不重建全壳**。真正的病只有一个:**相位**。而换成 `ValueNotifier` 后,在布局期 notify 同样让消费者 setState-during-build——换了个壳、病一模一样。故只做方案②/③,且落**地基**而非九处手抄(原则 #8):新原语 `core/perf/frame_safe.dart` 的 `runFrameSafe`,只在 `SchedulerPhase.persistentCallbacks`(= build/布局/绘制)延后,且延到**同一帧**的后帧回调。**无条件延后比 bug 本身更糟**——那会给每次滚动回调加一帧延迟;安全相位下它是同步直执行,故包住 `jumpTo` 三处**零行为变化**,纯白拿加固。
+
+**推翻②:不是九处,是十一处——本节那份名单漏了一整类。** 源码级守卫写完立刻抓到 `features/library/ui/an_document_editor.dart` 的第 10 个滚动监听器,顺藤查出 `library_ocean.dart:153 onScroll`(同步 `setCollapsed`)与 `:161 onActive`(同步改 provider)两处真病灶。**漏掉的原因值得记**:副作用**在另一个文件里、隔着一层 widget 回调**,对「找同时含滚动监听器与 `ref.read` 的文件」这种搜法是**隐形的**。修法不是去改那两个消费者,而是堵**发射端那条缝**——`an_document_editor._onScroll` 与 `_emitActiveHeading` 出口各包一道闸,则所有消费者(现有的与将来的)都免疫,且没人需要知道这条规则存在。
+
+**测试(三层,每层都验过「拆掉就红」)**:
+- `test/core/perf/frame_safe_test.dart` 三条。第一条是**真回归**——用真 widget 树复现 `setState() or markNeedsBuild() called during build`。**写这条踩了两个假构造**,都记进了注释:(a)只让内容缩短——viewport 对越界滚动走 ballistic 活动、在布局**之后**校正,复现不了;(b)在**首次**布局就 `jumpTo`——控制器尚未 attach,那次跳转根本没发生,测试全程空转。两者都是**绿的**,而绿得毫无意义。必须逼出第二次布局才真红。
+- `test/guards/scroll_listener_phase_guard_test.dart` 源码级守卫:扫中 10 个文件,把一处真回归(改回旧写法)照打;附一条「守卫不是空绿」的自证。**它看不见什么也写进了头注释**——只查 `_onScroll` 体,转交同文件私有方法再弄脏会放行。**它是地板,不是证明。**
+- 新文件按机制登记进 `convergence_coverage.txt`(pending)。
+
+**CR-2 同批做掉**:`error_boundary.dart` 的 `FlutterError.onError` 内加 `resetErrorCount()`(`kDebugMode` 档)。Flutter 只给一帧内**第一条**错误打完整 dump,而一次布局期违规会在同一帧连环炸出几十条——**恰恰是我们要的诊断被折叠掉**,CR-1 那两份崩溃日志读不出现场就单凭这一条。「dump 落文件」一项**不做**:前端侧无可对齐的崩溃落盘设施(WRK-042 是后端侧),按原则 #8 不新造。
+
 ### CR-2:错误钩子在连环崩时丢失定位信息
 
 Flutter 只对**一帧内第一条**错误打完整 dump(含肇事 widget + 堆栈),其后全折叠成 `Another exception was thrown: …`——本次日志正因此无法直接指认现场。`core/error/error_boundary.dart:18` 未调 `FlutterError.resetErrorCount()`。
@@ -624,7 +637,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⓪ | CH-0 @ 提及回归修复(§5.16,真机复现定位) | 主会话 |
 | ① | ~~Flutter 升 3.44~~ **已完成 0725**(改钉 → setup → 全量 verify 四门禁全绿,commit `563c5ab2`)。**真机冒烟未做**——待 E 类真机档一并补,别当已验 | 主会话 |
 | ② | ~~CR-1a 拆壳 LayoutBuilder(架构根,最重一刀)~~ **已完成 0725**(记录见 §5 CR-1a 条) | 主会话 |
-| ③ | CR-1b 滚动监听 ×9 + CR-2 错误钩子 | 主会话 |
+| ③ | ~~CR-1b 滚动监听 ×9 + CR-2 错误钩子~~ **已完成 0725**(实为 **11 处**,名单漏一类;记录见 §5 CR-1b 条) | 主会话 |
 | ④ | CR-3 Output 树高度 | 派 Sonnet 5 |
 | ⑤ | RI 右岛四病灶 + 「禁止条件包装」军规+守卫 | 主会话 |
 | ⑥ | TS 文本选择 | 混合:拓扑/手势/焦点 主会话;disabled 铺原语 派 Sonnet 5 |

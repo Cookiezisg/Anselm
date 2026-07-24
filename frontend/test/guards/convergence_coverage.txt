@@ -88,6 +88,7 @@ lib/core/notice/notice_center.dart	reviewed
 lib/core/overlay/an_overlay.dart	reviewed
 lib/core/perf/coalescing_notifier.dart	converged
 lib/core/perf/debouncer.dart	converged
+lib/core/perf/frame_safe.dart	pending
 lib/core/perf/pulse_clock.dart	reviewed
 lib/core/perf/value_listenable_selector.dart	converged
 lib/core/platform/app_relaunch.dart	converged

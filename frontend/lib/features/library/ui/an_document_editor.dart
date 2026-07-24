@@ -7,6 +7,7 @@ import '../../../core/design/an_fonts.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/editor/an_editor.dart';
 import '../../../core/entity/mention_source.dart';
+import '../../../core/perf/frame_safe.dart';
 import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_doc_header.dart';
@@ -104,7 +105,21 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
   }
 
   void _onScroll() {
-    widget.onScroll?.call(_scroll.offset);
+    // The phase gate belongs HERE, at the seam, not in each consumer: past this point the callback is
+    // arbitrary code we don't own, and it typically dirties a provider (library_ocean's onScroll folds
+    // the shell breadcrumb, onActiveHeading drives the outline). Guarding the emitter makes every
+    // consumer — present and future — safe from the layout-phase notification (CR-1b), and no consumer
+    // has to know the rule exists. Note this site is invisible to a grep for scroll listeners that
+    // dirty state: the side effect lives in another file behind a callback, which is exactly why the
+    // CR-1 audit's list of nine missed it.
+    // 相位闸该落在**这条缝**上,而非每个消费者里:越过此点就是我们不拥有的任意代码,而它通常会弄脏 provider
+    // (library_ocean 的 onScroll 折叠壳面包屑,onActiveHeading 驱动大纲)。守住发射端,则所有消费者——现有的
+    // 与将来的——都对布局期通知免疫(CR-1b),且没人需要知道这条规则存在。记一笔:本处对「找会弄脏状态的滚动
+    // 监听器」这种 grep 是**隐形的**——副作用在另一个文件、隔着回调,CR-1 审计那份九处名单正是这样漏掉它的。
+    final offset = _scroll.offset;
+    runFrameSafe(() {
+      if (mounted) widget.onScroll?.call(offset);
+    });
     // Throttle the heading walk (C-029): emit at most every 50ms during a scroll, and a single trailing
     // emit after it settles so the final active heading is never stale. 节流+尾沿。
     _headingTrailing?.cancel();
@@ -187,7 +202,13 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
         break;
       }
     }
-    cb(active);
+    // Same seam, same gate — this runs synchronously from _onScroll on the un-throttled branch, so it
+    // inherits the layout phase. Inline in a safe phase, so the throttled Timer path is unchanged.
+    // 同一条缝、同一道闸——未被节流的那条分支是从 _onScroll **同步**跑下来的,会继承布局相位;安全相位下
+    // 是同步直执行,故节流 Timer 那条路径行为不变。
+    runFrameSafe(() {
+      if (mounted) cb(active);
+    });
   }
 
   @override

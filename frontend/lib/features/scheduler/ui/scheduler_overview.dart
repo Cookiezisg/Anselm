@@ -5,6 +5,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/time_format.dart';
+import '../../../core/perf/frame_safe.dart';
 import '../../../core/shell/oceans.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/ui.dart';
@@ -78,7 +79,11 @@ class _SchedulerOverviewViewState extends ConsumerState<SchedulerOverviewView> {
   // «Scheduler / Overview» appears top-left; back at top it yields. 下滑出浮层头面包屑,回顶让位。
   void _onScroll() {
     final collapsed = _scroll.hasClients && _scroll.offset > AnSpace.s64;
-    ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    // Read the offset HERE, dirty the head LATER if a frame is in flight (CR-1b). 先读偏移,帧在飞则延后弄脏。
+    runFrameSafe(() {
+      if (!mounted) return;
+      ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    });
   }
 
   void _scrollToTop() {

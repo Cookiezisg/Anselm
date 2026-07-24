@@ -9,22 +9,23 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/messages/block_tree_reducer.dart';
+import '../../../core/model/model_capabilities.dart';
 import '../../../core/perf/coalescing_notifier.dart';
+import '../../../core/perf/frame_safe.dart';
 import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
-import '../model/conversation_transcript.dart';
 import '../data/attachment_image_provider.dart';
 import '../data/chat_providers.dart';
-import '../state/attachment_meta.dart';
-import '../state/attachment_audio_player.dart';
+import '../model/conversation_transcript.dart';
 import '../model/user_attachment.dart';
+import '../state/attachment_audio_player.dart';
+import '../state/attachment_meta.dart';
+import '../state/conversation_header.dart';
 import '../state/conversation_stream_provider.dart';
 import '../state/conversation_stream_state.dart';
 import '../state/pending_interactions_provider.dart';
 import '../state/transcript_jump_provider.dart';
-import '../../../core/model/model_capabilities.dart';
-import '../state/conversation_header.dart';
 import 'chat_head.dart';
 import 'chat_tool_card.dart';
 import 'chat_turn.dart';
@@ -230,15 +231,24 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     _pinned = _dockTarget(pos) - pos.pixels <= _pinSlack;
     if (pos.pixels - pos.minScrollExtent <= _loadOlderSlack) {
       // Guarded inside the controller (cursor/loading/hasMore). 控制器内自守。
-      ref
-          .read(conversationStreamProvider(widget.conversationId).notifier)
-          .loadOlder();
+      // Deferred out of the layout phase — a viewport notifies this listener from performLayout, and
+      // loadOlder dirties the provider (CR-1b). 移出布局相位:viewport 会在 performLayout 里通知本监听器,
+      // 而 loadOlder 会弄脏 provider。
+      runFrameSafe(() {
+        if (!mounted) return;
+        ref
+            .read(conversationStreamProvider(widget.conversationId).notifier)
+            .loadOlder();
+      });
     }
     if (pos.maxScrollExtent - pos.pixels <= _loadOlderSlack) {
-      // Window mode's forward continuation — same guard style, downward. 窗口模式向前续翻,同守卫。
-      ref
-          .read(conversationStreamProvider(widget.conversationId).notifier)
-          .loadNewer();
+      // Window mode's forward continuation — same guard style, same deferral. 窗口模式向前续翻,同守卫、同延后。
+      runFrameSafe(() {
+        if (!mounted) return;
+        ref
+            .read(conversationStreamProvider(widget.conversationId).notifier)
+            .loadNewer();
+      });
     }
   }
 

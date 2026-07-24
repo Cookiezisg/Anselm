@@ -519,3 +519,14 @@ A1/A2(媒体)需**网关先部署**;A3(音频播放 seek)与 A5 后半需**重�
 **为什么这样安全**:壳恒为 `MaterialApp.home`(`app/app_shell.dart:328` 与壳测试的 `wrap()` 皆是),窗宽即权威;S11 冻结闸要的量全可由窗宽推出。**证据**:26 条既有壳测试零改动全过,**含窄窗/宽窗两条 S11 冻结闸测试**——几何等价不是推理,是测出来的。
 
 **守卫**(新增 1 条):`the shell builds its contents OUTSIDE any layout callback`。断言写成**祖先关系**——岛之上不得有 `LayoutBuilder`,而非「壳内哪里都不许有」。第一版按后者写,红了:`AnButton` 之流叶子原语合法地自量。记这一笔是因为**过严的守卫和漏掉的守卫一样坏**,它会逼下一个人去删守卫而不是去修问题。
+
+### ③ CR-1b 滚动监听相位闸 + CR-2 错误钩子 ✅ 门禁绿(`REAL_EXIT=0`)
+
+**推翻了工单里的两条判断**,都如实写进了 chat-iteration.md §5 CR-1b 条:
+
+1. **工单方案①(头折叠改局部 `ValueNotifier`)治不到病,已弃。** 它基于两个错误前提:`setCollapsed` 其实**已去重**、`shellHeadProvider` 其实**不重建全壳**(唯一 watcher 是 `OceanBreadcrumb`)。真正的病只有相位一条,而 `ValueNotifier` 在布局期 notify 同样 setState-during-build——换壳不换病。
+2. **不是九处,是十一处。** 源码守卫写完立刻抓到第 10 个滚动监听器(`an_document_editor`),顺出 `library_ocean` 的两处真病灶。漏掉的原因:副作用在**另一个文件、隔着 widget 回调**,对「同一文件里既有监听器又有 `ref.read`」的搜法**隐形**。修在**发射端那条缝**,所有消费者一次免疫。
+
+**地基化**:`core/perf/frame_safe.dart` 的 `runFrameSafe`,只在 `persistentCallbacks` 延后、且延到同一帧后帧回调;安全相位同步直执行,故包住 `jumpTo` 三处零行为变化。**无条件延后比 bug 更糟**(每次滚动回调加一帧延迟)。
+
+**每层测试都验过「拆掉就红」**——包括反证时发现自己第一版回归测试是**空转的绿**:内容缩短走 ballistic、布局后才校正;首次布局 `jumpTo` 时控制器还没 attach。改成逼出第二次布局才真复现 `setState() called during build`。

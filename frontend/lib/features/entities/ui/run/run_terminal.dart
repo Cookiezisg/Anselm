@@ -2,37 +2,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
+import '../../../../core/design/typography.dart';
 import '../../../../core/model/status_state.dart' show AnStatus;
-import '../../../../core/ui/an_panel_head.dart';
+import '../../../../core/perf/frame_safe.dart';
+import '../../../../core/run/approval_gate.dart';
+import '../../../../core/shell/right_panel.dart';
+import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_callout.dart';
+import '../../../../core/ui/an_cast_row.dart';
 import '../../../../core/ui/an_code_block.dart';
-import '../../../../core/ui/an_term_viewport.dart';
+import '../../../../core/ui/an_expand_reveal.dart';
+import '../../../../core/ui/an_hover_region.dart';
+import '../../../../core/ui/an_ledger_row.dart';
+import '../../../../core/ui/an_panel_head.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_scroll_behavior.dart';
 import '../../../../core/ui/an_section.dart';
+import '../../../../core/ui/an_stat_bar.dart';
 import '../../../../core/ui/an_state.dart';
+import '../../../../core/ui/an_status_dot.dart';
+import '../../../../core/ui/an_term_viewport.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_format.dart';
 import '../../data/entity_kind.dart';
 import '../../state/detail/entity_detail.dart';
 import '../../state/detail/entity_detail_provider.dart';
-import '../../../../core/shell/right_panel.dart';
+import '../../state/run/recent_runs_provider.dart';
 import '../../state/run/run_terminal_controller.dart';
 import '../../state/run/run_terminal_state.dart';
 import '../../state/selected_entity.dart';
-import '../../../../core/run/approval_gate.dart';
-import '../../../../core/design/colors.dart';
-import '../../../../core/design/typography.dart';
-import '../../../../core/ui/an_status_dot.dart';
-import '../../../../core/ui/an_button.dart';
-import '../../../../core/ui/an_hover_region.dart';
-import '../../../../core/ui/an_expand_reveal.dart';
-import '../../../../core/ui/an_ledger_row.dart';
-import '../../../../core/ui/an_stat_bar.dart';
-import '../../state/run/recent_runs_provider.dart';
-import '../../../../core/ui/an_cast_row.dart';
 import 'block_tree_view.dart';
 import 'run_editor_card.dart';
 
@@ -72,7 +73,13 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
     if (!_scroll.hasClients) return;
     final p = _scroll.position;
     final atBottom = (p.maxScrollExtent - p.pixels) < AnSize.followSlop;
-    if (atBottom != _stick) setState(() => _stick = atBottom);
+    // A viewport notifies this listener from performLayout; setState there is illegal (CR-1b).
+    // viewport 会在 performLayout 里通知本监听器,在那儿 setState 非法。
+    if (atBottom != _stick) {
+      runFrameSafe(() {
+        if (mounted && atBottom != _stick) setState(() => _stick = atBottom);
+      });
+    }
   }
 
   void _autoscroll() {

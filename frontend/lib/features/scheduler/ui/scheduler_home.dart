@@ -11,6 +11,7 @@ import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/model/time_range.dart';
+import '../../../core/perf/frame_safe.dart';
 import '../../../core/run/provenance_line.dart';
 import '../../../core/run/run_nav.dart';
 import '../../../core/shell/shell_chrome.dart';
@@ -78,7 +79,11 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
 
   void _onScroll() {
     final collapsed = _scroll.hasClients && _scroll.offset > AnSpace.s64;
-    ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    // Read the offset HERE, dirty the head LATER if a frame is in flight (CR-1b). 先读偏移,帧在飞则延后弄脏。
+    runFrameSafe(() {
+      if (!mounted) return;
+      ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    });
   }
 
   void _scrollToTop() {
@@ -99,8 +104,13 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
       final prevId = prev is SchedulerWorkflow ? prev.workflowId : null;
       final nextId = next is SchedulerWorkflow ? next.workflowId : null;
       if (prevId == nextId || nextId == null) return;
-      if (_scroll.hasClients) _scroll.jumpTo(0);
-      ref.read(shellHeadProvider.notifier).setCollapsed(false);
+      // No-op in a safe phase (runs inline); only defers if a frame is in flight — jumpTo notifies
+      // scroll listeners SYNCHRONOUSLY (CR-1b). 安全相位下同步直执行,只在帧在飞时延后——jumpTo 会**同步**通知滚动监听器。
+      runFrameSafe(() {
+        if (!mounted) return;
+        if (_scroll.hasClients) _scroll.jumpTo(0);
+        ref.read(shellHeadProvider.notifier).setCollapsed(false);
+      });
     });
 
     if (!rail.hasValue) {

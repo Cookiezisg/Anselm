@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/notice/notice_center.dart';
+import '../../../core/perf/frame_safe.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_last_good.dart';
@@ -69,7 +70,11 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
 
   void _onScroll() {
     final collapsed = _scroll.hasClients && _scroll.offset > _threshold;
-    ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    // Read the offset HERE, dirty the head LATER if a frame is in flight (CR-1b). 先读偏移,帧在飞则延后弄脏。
+    runFrameSafe(() {
+      if (!mounted) return;
+      ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    });
   }
 
   void _scrollToTop() {
@@ -88,8 +93,13 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
     ref.listen(selectedEntityProvider, (prev, next) {
       if (prev == next) return;
       if (_tab != 'overview') setState(() => _tab = 'overview');
-      if (_scroll.hasClients) _scroll.jumpTo(0);
-      ref.read(shellHeadProvider.notifier).setCollapsed(false);
+      // No-op in a safe phase (runs inline); only defers if a frame is in flight — jumpTo notifies
+      // scroll listeners SYNCHRONOUSLY (CR-1b). 安全相位下同步直执行,只在帧在飞时延后——jumpTo 会**同步**通知滚动监听器。
+      runFrameSafe(() {
+        if (!mounted) return;
+        if (_scroll.hasClients) _scroll.jumpTo(0);
+        ref.read(shellHeadProvider.notifier).setCollapsed(false);
+      });
     });
 
     // No selection → the Overview home (retires the "select an entity" tombstone; the ocean's default

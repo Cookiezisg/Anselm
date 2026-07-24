@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/perf/frame_safe.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_page.dart';
@@ -52,9 +53,12 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
 
   void _onScroll() {
     if (!mounted) return;
-    ref
-        .read(shellHeadProvider.notifier)
-        .setCollapsed(_scroll.offset > _threshold);
+    final collapsed = _scroll.hasClients && _scroll.offset > _threshold;
+    // Read the offset HERE, dirty the head LATER if a frame is in flight (CR-1b). 先读偏移,帧在飞则延后弄脏。
+    runFrameSafe(() {
+      if (!mounted) return;
+      ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    });
   }
 
   void _bindHead(String title) {
@@ -119,8 +123,13 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
     ref.listen(settingsPanelProvider, (prev, next) {
       if (prev != next) {
         ref.read(settingsDetailProvider.notifier).pop();
-        if (_scroll.hasClients) _scroll.jumpTo(0);
-        ref.read(shellHeadProvider.notifier).setCollapsed(false);
+        // No-op in a safe phase (runs inline); only defers if a frame is in flight — jumpTo notifies
+        // scroll listeners SYNCHRONOUSLY (CR-1b). 安全相位下同步直执行,只在帧在飞时延后——jumpTo 会**同步**通知滚动监听器。
+        runFrameSafe(() {
+          if (!mounted) return;
+          if (_scroll.hasClients) _scroll.jumpTo(0);
+          ref.read(shellHeadProvider.notifier).setCollapsed(false);
+        });
       }
     });
     return CallbackShortcuts(

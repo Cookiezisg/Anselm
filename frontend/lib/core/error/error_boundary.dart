@@ -17,6 +17,16 @@ import '../ui/icons.dart';
 void installErrorHandlers() {
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.presentError(details); // keep the rich console dump
+    // Flutter dumps the offending widget + stack for only the FIRST error of a frame; every later one
+    // collapses to "Another exception was thrown: …". One layout-phase violation cascades into dozens
+    // of errors in a single frame, so the collapsing hid exactly the diagnostics we needed — the
+    // WRK-077 CR-1 crash logs were unreadable for this reason alone. Resetting the counter costs
+    // console volume and nothing else, so it is worth it wherever a human can read the console.
+    // Flutter 只给**一帧内第一条**错误打完整 dump(肇事 widget + 堆栈),其后全折叠成「Another exception
+    // was thrown: …」。一次布局期违规会在同一帧连环炸出几十条,于是**恰恰是我们要的诊断信息被折叠掉**
+    // ——WRK-077 CR-1 的崩溃日志读不出现场,单凭这一条。重置计数只多花控制台篇幅,故凡有人能读控制台的
+    // 档位就值得开。
+    if (kDebugMode) FlutterError.resetErrorCount();
     debugPrint('[anselm] flutter error: ${details.exceptionAsString()}');
   };
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {

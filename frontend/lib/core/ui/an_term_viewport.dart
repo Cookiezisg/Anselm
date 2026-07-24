@@ -4,6 +4,7 @@ import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import '../perf/frame_safe.dart';
 import 'an_edge_fade.dart';
 import 'an_follow_pill.dart';
 import 'an_interactive.dart';
@@ -99,10 +100,16 @@ class _AnStickViewportState extends State<AnStickViewport> {
     final off = _scroll.offset;
     final above = off > 1.0;
     final below = off < max - 1.0;
+    // A viewport notifies this listener from performLayout; setState there is illegal (CR-1b).
+    // viewport 会在 performLayout 里通知本监听器,在那儿 setState 非法。
     if (above != _above || below != _below) {
-      setState(() {
-        _above = above;
-        _below = below;
+      runFrameSafe(() {
+        if (!mounted) return;
+        if (above == _above && below == _below) return;
+        setState(() {
+          _above = above;
+          _below = below;
+        });
       });
     }
   }

@@ -4,8 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/api_error.dart';
-import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/trigger.dart';
+import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -13,6 +13,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/graph/flowrun_timeline.dart';
 import '../../../core/graph/graph_run_state.dart';
 import '../../../core/model/time_format.dart';
+import '../../../core/perf/frame_safe.dart';
 import '../../../core/run/approval_gate.dart';
 import '../../../core/run/flowrun_node_list.dart';
 import '../../../core/run/provenance_line.dart';
@@ -88,7 +89,11 @@ class _SchedulerRunViewState extends ConsumerState<SchedulerRunView> {
 
   void _onScroll() {
     final collapsed = _scroll.hasClients && _scroll.offset > AnSpace.s64;
-    ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    // Read the offset HERE, dirty the head LATER if a frame is in flight (CR-1b). 先读偏移,帧在飞则延后弄脏。
+    runFrameSafe(() {
+      if (!mounted) return;
+      ref.read(shellHeadProvider.notifier).setCollapsed(collapsed);
+    });
   }
 
   void _scrollToTop() {
