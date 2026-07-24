@@ -799,8 +799,11 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 - 已落地（work cancel/retry 基础）：media service 对 derivative/perception 提供 durable cancel/retry；
   failed/cancelled 可回 pending 并重新入队，pending/running 可标 cancelled。worker 开跑前会重读状态，
   处理过程中被取消的 work 不会被完成结果覆盖成 ready/failed；`preparation` 侧车已能诚实透出
-  `cancelled`。用户可见 HTTP/前端动作仍在后续 UX 切片接入。
-- concrete processor、用户可见取消/retry API、进度模型；
+  `cancelled`。
+- 已落地（preparation cancel/retry HTTP）：`POST /api/v1/attachments/{id}/preparation/cancel` 与
+  `POST /api/v1/attachments/{id}/preparation/retry` 返回现有 envelope 的 `data: preparation`，复用同一
+  model-default work 身份；media service 不可用时明确返回 `unavailable` 侧车，原件本身仍可继续发送。
+- concrete processor、前端取消/retry 按钮、进度模型；
 - 磁盘配额和清理；
 - fake processor 测试。
 

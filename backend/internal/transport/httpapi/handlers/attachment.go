@@ -12,6 +12,7 @@ import (
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	mediaapp "github.com/sunweilin/anselm/backend/internal/app/media"
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
+	mediadomain "github.com/sunweilin/anselm/backend/internal/domain/media"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
@@ -33,6 +34,8 @@ type AttachmentHandler struct {
 // AttachmentPreparation 是 upload/get 响应可附带的媒体准备状态侧车。
 type AttachmentPreparation interface {
 	Preparation(ctx context.Context, attachmentID string) (mediaapp.Preparation, error)
+	CancelPreparation(ctx context.Context, attachmentID string) (mediaapp.Preparation, error)
+	RetryPreparation(ctx context.Context, attachmentID string) (mediaapp.Preparation, error)
 }
 
 // NewAttachmentHandler constructs the handler.
@@ -52,6 +55,8 @@ func (h *AttachmentHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/attachments", h.Upload)
 	mux.HandleFunc("GET /api/v1/attachments/{id}", h.Get)
 	mux.HandleFunc("GET /api/v1/attachments/{id}/content", h.Content)
+	mux.HandleFunc("POST /api/v1/attachments/{id}/preparation/cancel", h.CancelPreparation)
+	mux.HandleFunc("POST /api/v1/attachments/{id}/preparation/retry", h.RetryPreparation)
 	mux.HandleFunc("DELETE /api/v1/attachments/{id}", h.Delete)
 }
 
@@ -136,6 +141,42 @@ func (h *AttachmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.NoContent(w)
+}
+
+func (h *AttachmentHandler) CancelPreparation(w http.ResponseWriter, r *http.Request) {
+	h.mutatePreparation(w, r, "cancel")
+}
+
+func (h *AttachmentHandler) RetryPreparation(w http.ResponseWriter, r *http.Request) {
+	h.mutatePreparation(w, r, "retry")
+}
+
+func (h *AttachmentHandler) mutatePreparation(w http.ResponseWriter, r *http.Request, op string) {
+	if h.media == nil {
+		responsehttpapi.Success(w, http.StatusServiceUnavailable, mediaapp.Preparation{
+			Status:    mediaapp.PreparationStatusUnavailable,
+			ErrorCode: "MEDIA_PREPARATION_UNAVAILABLE",
+		})
+		return
+	}
+	var (
+		prep mediaapp.Preparation
+		err  error
+	)
+	switch op {
+	case "cancel":
+		prep, err = h.media.CancelPreparation(r.Context(), r.PathValue("id"))
+	case "retry":
+		prep, err = h.media.RetryPreparation(r.Context(), r.PathValue("id"))
+	default:
+		responsehttpapi.FromDomainError(w, h.log, mediadomain.ErrInvalidRequest)
+		return
+	}
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, prep)
 }
 
 type attachmentResponse struct {

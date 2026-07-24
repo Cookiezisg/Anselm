@@ -377,6 +377,44 @@ func (s *Service) RetryPerception(ctx context.Context, id string) (*mediadomain.
 	return perception, nil
 }
 
+func (s *Service) CancelPreparation(ctx context.Context, attachmentID string) (Preparation, error) {
+	a, err := s.attachments.Get(ctx, attachmentID)
+	if err != nil {
+		return Preparation{}, err
+	}
+	if a.Kind != attachmentdomain.KindImage {
+		return Preparation{Status: PreparationStatusNotRequired}, nil
+	}
+	derivative, _, err := s.ClaimDerivative(ctx, attachmentID, DerivativeModelDefault, ImageDerivativeParams{Version: 2, Quality: 90, Format: "auto"})
+	if err != nil {
+		return Preparation{}, err
+	}
+	derivative, err = s.CancelDerivative(ctx, derivative.ID)
+	if err != nil {
+		return Preparation{}, err
+	}
+	return preparationFromDerivative(derivative), nil
+}
+
+func (s *Service) RetryPreparation(ctx context.Context, attachmentID string) (Preparation, error) {
+	a, err := s.attachments.Get(ctx, attachmentID)
+	if err != nil {
+		return Preparation{}, err
+	}
+	if a.Kind != attachmentdomain.KindImage {
+		return Preparation{Status: PreparationStatusNotRequired}, nil
+	}
+	derivative, _, err := s.ClaimDerivative(ctx, attachmentID, DerivativeModelDefault, ImageDerivativeParams{Version: 2, Quality: 90, Format: "auto"})
+	if err != nil {
+		return Preparation{}, err
+	}
+	derivative, err = s.RetryDerivative(ctx, derivative.ID)
+	if err != nil {
+		return Preparation{}, err
+	}
+	return preparationFromDerivative(derivative), nil
+}
+
 // Preparation returns and, for supported attachments, claims the durable preparation work needed by
 // the default chat path. Images currently publish the model-default proxy status; other kinds have
 // no app-managed preparation yet and return not_required.
