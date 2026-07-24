@@ -57,6 +57,29 @@ type PerceptionResult struct {
 }
 
 const (
+	PreparationStatusNotRequired = "not_required"
+	PreparationStatusPending     = mediadomain.StatusPending
+	PreparationStatusRunning     = mediadomain.StatusRunning
+	PreparationStatusReady       = mediadomain.StatusReady
+	PreparationStatusFailed      = mediadomain.StatusFailed
+	PreparationStatusUnavailable = "unavailable"
+)
+
+// Preparation is the small, UI-facing readiness surface for an attachment's app-managed media
+// proxies. It is intentionally metadata only: no URLs, no bytes, no task-conditioned prompt text.
+//
+// Preparation 是面向 UI 的附件媒体准备状态面。它刻意只含元数据：无 URL、无字节、无任务化 prompt 文本。
+type Preparation struct {
+	Status    string `json:"status"`
+	Target    string `json:"target,omitempty"`
+	Width     int    `json:"width,omitempty"`
+	Height    int    `json:"height,omitempty"`
+	MimeType  string `json:"mimeType,omitempty"`
+	SizeBytes int64  `json:"sizeBytes,omitempty"`
+	ErrorCode string `json:"errorCode,omitempty"`
+}
+
+const (
 	DerivativeThumbnail    = "thumbnail"
 	DerivativeModelDefault = "model-default"
 	DerivativeModelDetail  = "model-detail"
@@ -207,6 +230,48 @@ func (s *Service) ModelDefaultImage(ctx context.Context, attachmentID string) ([
 		return nil, "", false, fmt.Errorf("mediaapp.ModelDefaultImage: artifact: %w", err)
 	}
 	return data, derivative.MimeType, true, nil
+}
+
+// Preparation returns and, for supported attachments, claims the durable preparation work needed by
+// the default chat path. Images currently publish the model-default proxy status; other kinds have
+// no app-managed preparation yet and return not_required.
+//
+// Preparation 返回并（对支持的附件）认领默认聊天路径所需的 durable 准备工作。当前 image 发布
+// model-default 代理状态；其它 kind 尚无 app-managed preparation，返回 not_required。
+func (s *Service) Preparation(ctx context.Context, attachmentID string) (Preparation, error) {
+	a, err := s.attachments.Get(ctx, attachmentID)
+	if err != nil {
+		return Preparation{}, err
+	}
+	if a.Kind != attachmentdomain.KindImage {
+		return Preparation{Status: PreparationStatusNotRequired}, nil
+	}
+	derivative, _, err := s.ClaimDerivative(ctx, attachmentID, DerivativeModelDefault, ImageDerivativeParams{Version: 2, Quality: 90, Format: "auto"})
+	if err != nil {
+		return Preparation{}, err
+	}
+	return preparationFromDerivative(derivative), nil
+}
+
+func preparationFromDerivative(derivative *mediadomain.Derivative) Preparation {
+	if derivative == nil {
+		return Preparation{Status: PreparationStatusUnavailable}
+	}
+	status := derivative.Status
+	switch status {
+	case mediadomain.StatusPending, mediadomain.StatusRunning, mediadomain.StatusReady, mediadomain.StatusFailed:
+	default:
+		status = PreparationStatusUnavailable
+	}
+	return Preparation{
+		Status:    status,
+		Target:    derivative.Kind,
+		Width:     derivative.Width,
+		Height:    derivative.Height,
+		MimeType:  derivative.MimeType,
+		SizeBytes: derivative.SizeBytes,
+		ErrorCode: derivative.ErrorCode,
+	}
 }
 
 func (s *Service) waitReadyDerivative(ctx context.Context, derivative *mediadomain.Derivative, maxWait time.Duration) *mediadomain.Derivative {

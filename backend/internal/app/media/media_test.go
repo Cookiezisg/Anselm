@@ -202,6 +202,46 @@ func TestModelDefaultImage_ReturnsReadyArtifactOrSchedulesWork(t *testing.T) {
 	}
 }
 
+func TestPreparation_ImageClaimsModelDefaultStatus(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a", Kind: attachmentdomain.KindImage}}, repo, fakeArtifacts{}, zap.NewNop())
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+
+	prep, err := svc.Preparation(ctx, "att_1")
+	if err != nil {
+		t.Fatalf("preparation: %v", err)
+	}
+	if prep.Status != PreparationStatusPending || prep.Target != DerivativeModelDefault {
+		t.Fatalf("image preparation should claim model-default pending work: %+v", prep)
+	}
+	repo.derivative.Status = mediadomain.StatusReady
+	repo.derivative.MimeType = "image/jpeg"
+	repo.derivative.SizeBytes = 123
+	repo.derivative.Width = 640
+	repo.derivative.Height = 480
+
+	prep, err = svc.Preparation(ctx, "att_1")
+	if err != nil {
+		t.Fatalf("ready preparation: %v", err)
+	}
+	if prep.Status != PreparationStatusReady || prep.MimeType != "image/jpeg" ||
+		prep.SizeBytes != 123 || prep.Width != 640 || prep.Height != 480 {
+		t.Fatalf("ready preparation metadata not surfaced: %+v", prep)
+	}
+}
+
+func TestPreparation_NonImageNotRequired(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a", Kind: attachmentdomain.KindDocument}}, repo, fakeArtifacts{}, zap.NewNop())
+	prep, err := svc.Preparation(reqctxpkg.SetWorkspaceID(context.Background(), "ws_1"), "att_1")
+	if err != nil {
+		t.Fatalf("preparation: %v", err)
+	}
+	if prep.Status != PreparationStatusNotRequired || repo.derivative != nil {
+		t.Fatalf("non-image should not claim derivative work: prep=%+v derivative=%+v", prep, repo.derivative)
+	}
+}
+
 func TestModelDefaultImage_WaitsForStartedWorker(t *testing.T) {
 	repo := &fakeRepo{}
 	processor := &fakeProcessor{derived: make(chan struct{}, 1)}

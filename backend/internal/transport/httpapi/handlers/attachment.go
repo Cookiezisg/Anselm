@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strconv"
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
+	mediaapp "github.com/sunweilin/anselm/backend/internal/app/media"
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
@@ -21,18 +23,26 @@ import (
 // AttachmentHandler 提供 /api/v1/attachments/* 的 4 端点：multipart 上传、元数据取、原始字节下载、
 // 软删。字节内容寻址（CAS）存储，经 chat 把 id 解析成 provider content part 进 LLM。
 type AttachmentHandler struct {
-	svc *attachmentapp.Service
-	log *zap.Logger
+	svc   *attachmentapp.Service
+	media AttachmentPreparation
+	log   *zap.Logger
+}
+
+// AttachmentPreparation is the optional media-readiness sidecar attached to upload/get responses.
+//
+// AttachmentPreparation 是 upload/get 响应可附带的媒体准备状态侧车。
+type AttachmentPreparation interface {
+	Preparation(ctx context.Context, attachmentID string) (mediaapp.Preparation, error)
 }
 
 // NewAttachmentHandler constructs the handler.
 //
 // NewAttachmentHandler 构造 handler。
-func NewAttachmentHandler(svc *attachmentapp.Service, log *zap.Logger) *AttachmentHandler {
+func NewAttachmentHandler(svc *attachmentapp.Service, media AttachmentPreparation, log *zap.Logger) *AttachmentHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &AttachmentHandler{svc: svc, log: log.Named("handlers.attachment")}
+	return &AttachmentHandler{svc: svc, media: media, log: log.Named("handlers.attachment")}
 }
 
 // Register wires the endpoints onto mux.
@@ -86,7 +96,7 @@ func (h *AttachmentHandler) Upload(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Created(w, a)
+	responsehttpapi.Created(w, h.response(r.Context(), a))
 }
 
 func (h *AttachmentHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -95,7 +105,7 @@ func (h *AttachmentHandler) Get(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, a)
+	responsehttpapi.Success(w, http.StatusOK, h.response(r.Context(), a))
 }
 
 // Content streams the raw blob bytes with the stored mime type — for the frontend to preview /
@@ -126,4 +136,23 @@ func (h *AttachmentHandler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.NoContent(w)
+}
+
+type attachmentResponse struct {
+	*attachmentdomain.Attachment
+	Preparation *mediaapp.Preparation `json:"preparation,omitempty"`
+}
+
+func (h *AttachmentHandler) response(ctx context.Context, a *attachmentdomain.Attachment) attachmentResponse {
+	out := attachmentResponse{Attachment: a}
+	if h.media == nil || a == nil {
+		return out
+	}
+	prep, err := h.media.Preparation(ctx, a.ID)
+	if err != nil {
+		h.log.Warn("attachment: media preparation unavailable", zap.String("attachment_id", a.ID), zap.Error(err))
+		prep = mediaapp.Preparation{Status: mediaapp.PreparationStatusUnavailable, ErrorCode: "MEDIA_PREPARATION_UNAVAILABLE"}
+	}
+	out.Preparation = &prep
+	return out
 }

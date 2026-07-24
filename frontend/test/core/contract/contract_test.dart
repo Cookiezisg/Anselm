@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/api_error.dart';
+import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/page.dart';
 import 'package:anselm/core/contract/workspace.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -151,6 +152,34 @@ void main() {
         expect(ws.defaultDialogue?.modelId, 'm');
         // round-trip preserves identity
         expect(Workspace.fromJson(ws.toJson()), ws);
+      });
+
+      test('AttachmentMeta parses optional preparation sidecar', () {
+        final meta = AttachmentMeta.fromJson({
+          'id': 'att_1',
+          'sha256': 'abc',
+          'filename': 'shot.png',
+          'mimeType': 'image/png',
+          'sizeBytes': 1234,
+          'kind': 'image',
+          'createdAt': '2026-07-24T00:00:00.000Z',
+          'preparation': {
+            'status': 'ready',
+            'target': 'model-default',
+            'width': 640,
+            'height': 480,
+            'mimeType': 'image/jpeg',
+            'sizeBytes': 456,
+          },
+        });
+        expect(meta.preparation?.status, 'ready');
+        expect(meta.preparation?.target, 'model-default');
+        expect(meta.preparation?.width, 640);
+        expect(meta.toJson()['preparation']['mimeType'], 'image/jpeg');
+
+        final legacy = AttachmentMeta.fromJson({'id': 'att_2'});
+        expect(legacy.preparation, isNull);
+        expect(legacy.kind, 'other');
       });
     },
   );

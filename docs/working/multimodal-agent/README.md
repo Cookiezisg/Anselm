@@ -839,9 +839,11 @@ lease refresh/reuse 与生产 E2E 验证。
 - 已落地（图片重取）：`inspect_media` lazy tool 支持 image 附件按 `attachmentId + question + crop/detail`
   做一次受控视觉检查；工具内部发送有界代理图，主对话只收到 JSON 文本证据。触点目录按
   `attachmentId` 记录 viewed，方便右侧岛/审计知道 agent 复看了哪个附件。
+- 已落地（准备状态）：`POST /attachments` 与 `GET /attachments/{id}` 返回 `preparation` 侧车；image
+  上传/查询会认领 `model-default` 代理 work 并暴露 `pending/running/ready/failed`，非 image 为
+  `not_required`，侧车异常降级 `unavailable` 且不影响原始附件可发送。
 - OCR/tiles；
 - document parse/chunk/index/map-reduce；
-- attachment bubble preparation 状态；
 - `inspect_media` 的 document page 能力；
 - 视觉/文档质量与 token/延迟 A/B。
 
