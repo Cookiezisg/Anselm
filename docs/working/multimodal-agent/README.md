@@ -713,15 +713,19 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 
 **目标**：先彻底解决 `input too large`，使后续媒体链有可靠 Agent 宿主。
 
-- 审查并完成当前 worktree 的 context changes；
-- sampling route-aware budget；
-- housekeeping/checkpoint/provider-overflow recovery；
-- utility/primary/deterministic 三层 checkpoint；
-- durable summary/watermark；
-- `contextUsage` 观测；
-- 长对话、长 tool result、不可分大输入测试；
-- 调整 80/90/target 水位；
-- 主仓 reference/concept/CLAUDE 当前状态同步。
+- 已落地：sampling route-aware budget 与 runtime learned soft budget 接入 ReAct loop；预算只触发整理，
+  不做本地拒绝。
+- 已落地：provider-confirmed context overflow 在无输出、无工具副作用时走同一步透明 recovery retry；
+  recovery path 依次为 utility semantic checkpoint、primary semantic checkpoint、deterministic emergency
+  checkpoint。
+- 已落地：durable summary/watermark 与 LLM history 读取过滤已把 archived/cold blocks 从热路径移出；
+  长 tool result 可被 prompt view 清理为 refetch marker。
+- 已落地：`contextUsage` 观测记录安全数值足迹（route、预算、predicted/actual、overflow/recovery），不记录
+  prompt、附件或上游原始错误。
+- 已落地测试：长对话、长 tool result、provider overflow recovery、不可分大输入失败面均有覆盖；水位为
+  80% routine edit / 55% target shrink。
+- 待验收：需要真实 1M 长对话/长单回合 eval 在补齐外部 eval key 后跑一次，验证“可自动恢复的 overflow
+  不用户可见”。
 
 **出口**：纯文本 1M 压力测试中不出现可自动恢复的用户可见 overflow。
 
@@ -810,8 +814,9 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   artifact 缓存上限；boot GC 先扫不再被 ready derivative 引用的孤儿 artifact，再按最旧 ready derivative
   回收超预算 artifact。被回收的 derivative 降级为 `failed` + `MEDIA_ARTIFACT_EVICTED`，下次请求可重新生成，
   不会留下 DB 指向已删除文件。
-- concrete processor、进度模型；
-- fake processor 测试。
+- 已落地（fake processor worker tests）：media service 使用 fake processor 覆盖 durable identity 去重、
+  worker ready 写入、retry 重新入队、running cancel 胜过迟到 ready 写入等核心并发/恢复路径。
+- 进度模型。
 
 **出口**：同一附件重复请求不重算，参数/source 改变准确失效。
 
