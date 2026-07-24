@@ -105,7 +105,7 @@ func (p *zhipuProvider) ParseStream(ctx context.Context, resp *http.Response, re
 
 func emitZhipuChunk(chunk zhipuChunk, state *zhipuToolState, yield func(StreamEvent) bool) bool {
 	if chunk.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: in-stream: %s", ErrProviderError, chunk.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: streamProviderError("", chunk.Error.Message)})
 		return false
 	}
 	if len(chunk.Choices) == 0 {

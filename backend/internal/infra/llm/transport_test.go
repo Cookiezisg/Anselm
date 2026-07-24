@@ -61,6 +61,21 @@ func TestClassifyHTTPError_RequestBodyTooLargeIsNotContext(t *testing.T) {
 	}
 }
 
+func TestStreamProviderError_RecognizesContextWithoutLeakingProviderText(t *testing.T) {
+	err := streamProviderError("", "input too large: sk-super-secret and private prompt text")
+	if !IsContextLengthError(err) {
+		t.Fatalf("stream context rejection lost typed reason: %T %v", err, err)
+	}
+	if strings.Contains(err.Error(), "sk-super-secret") || strings.Contains(err.Error(), "private prompt text") {
+		t.Fatalf("stream provider text leaked through typed rejection: %v", err)
+	}
+
+	err = streamProviderError("", "arbitrary upstream failure with sk-super-secret")
+	if !errors.Is(err, ErrProviderError) || strings.Contains(err.Error(), "sk-super-secret") {
+		t.Fatalf("unclassified stream error must stay sanitized provider error: %v", err)
+	}
+}
+
 func TestScanSSELines(t *testing.T) {
 	r := strings.NewReader(
 		"data: {\"a\":1}\n\n" +

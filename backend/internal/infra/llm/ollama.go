@@ -134,7 +134,7 @@ func (p *ollamaProvider) ParseStream(ctx context.Context, resp *http.Response, r
 
 func emitOllamaChunk(chunk ollamaChunk, state *ollamaToolState, yield func(StreamEvent) bool) bool {
 	if chunk.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: in-stream: %s", ErrProviderError, chunk.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: streamProviderError("", chunk.Error.Message)})
 		return false
 	}
 	if len(chunk.Choices) == 0 {
@@ -207,7 +207,7 @@ func parseOllamaNonStreaming(body io.Reader, yield func(StreamEvent) bool) {
 		return
 	}
 	if resp.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: %s", ErrProviderError, resp.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: streamProviderError("", resp.Error.Message)})
 		return
 	}
 	if len(resp.Choices) == 0 {

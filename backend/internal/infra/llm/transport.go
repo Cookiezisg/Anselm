@@ -204,3 +204,18 @@ func requestRejectionReason(body []byte) string {
 		return ""
 	}
 }
+
+// streamProviderError applies the same closed rejection vocabulary to providers that report an
+// error after returning HTTP 200/SSE. Provider text is inspected only in-process to recognize a
+// recoverable reason, then discarded: neither the EventError nor the user-facing turn can echo it.
+//
+// streamProviderError 把同一闭集拒绝词表用于 HTTP 200/SSE 后才报错的 provider。只在进程内检查
+// provider 文本以识别可恢复原因，随即丢弃：EventError 与用户可见回合都不会回显它。
+func streamProviderError(code, message string) error {
+	// Some providers split an error code and message while others only provide a message. Joining
+	// them here is internal-only and bounded by the already-decoded SSE object.
+	if reason := requestRejectionReason([]byte(code + " " + message)); reason != "" {
+		return &RequestRejectedError{Reason: reason, Status: http.StatusBadRequest}
+	}
+	return fmt.Errorf("%w: upstream stream rejected the request", ErrProviderError)
+}

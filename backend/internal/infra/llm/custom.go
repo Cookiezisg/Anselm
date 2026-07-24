@@ -100,7 +100,7 @@ func emitCustomChunk(chunk customChunk, state *customToolState, yield func(Strea
 	// A chunk-level error object inside a 200 stream (rare; e.g. content filter) — surface it.
 	// 200 流里出现 chunk 级 error 对象（罕见，如内容过滤）——透出。
 	if chunk.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: in-stream: %s", ErrProviderError, chunk.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: streamProviderError("", chunk.Error.Message)})
 		return false
 	}
 	if len(chunk.Choices) == 0 {
@@ -172,7 +172,7 @@ func parseCustomNonStreaming(body io.Reader, yield func(StreamEvent) bool) {
 		return
 	}
 	if resp.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: %s", ErrProviderError, resp.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: streamProviderError("", resp.Error.Message)})
 		return
 	}
 	if len(resp.Choices) == 0 {

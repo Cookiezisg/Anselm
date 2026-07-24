@@ -179,8 +179,8 @@ func TestOpenRouterParseStreamInStreamError(t *testing.T) {
 			if !errors.Is(ev.Err, ErrProviderError) {
 				t.Errorf("err = %v, want wraps ErrProviderError", ev.Err)
 			}
-			if !strings.Contains(ev.Err.Error(), "upstream exploded") {
-				t.Errorf("err = %v, want contains upstream message", ev.Err)
+			if strings.Contains(ev.Err.Error(), "upstream exploded") {
+				t.Errorf("err = %v, must not echo upstream message", ev.Err)
 			}
 		}
 	}

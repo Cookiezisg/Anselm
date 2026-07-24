@@ -115,11 +115,11 @@ func (p *qwenProvider) ParseStream(ctx context.Context, resp *http.Response, req
 // 非空）——参数无效时 DashScope 以 200 chunk 返回，不得静默丢弃。
 func emitQwenChunk(chunk qwenChunk, state *qwenToolState, yield func(StreamEvent) bool) bool {
 	if chunk.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: in-stream: %s", ErrProviderError, chunk.Error.Message)})
+		yield(StreamEvent{Type: EventError, Err: streamProviderError("", chunk.Error.Message)})
 		return false
 	}
 	if chunk.Code != "" {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("%w: qwen: %s: %s", ErrProviderError, chunk.Code, chunk.Message)})
+		yield(StreamEvent{Type: EventError, Err: streamProviderError(chunk.Code, chunk.Message)})
 		return false
 	}
 	if len(chunk.Choices) == 0 {

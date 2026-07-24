@@ -111,7 +111,7 @@ func emitOpenRouterChunk(chunk orChunk, state *orToolState, yield func(StreamEve
 	if chunk.Error != nil {
 		yield(StreamEvent{
 			Type: EventError,
-			Err:  fmt.Errorf("%w: in-stream: %s", ErrProviderError, chunk.Error.Message),
+			Err:  streamProviderError("", chunk.Error.Message),
 		})
 		return false
 	}

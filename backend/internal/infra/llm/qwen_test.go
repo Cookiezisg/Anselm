@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -197,7 +198,7 @@ func TestQwenParseStreamFlatError(t *testing.T) {
 	if ev.Type != EventError {
 		t.Fatalf("type = %s, want error", ev.Type)
 	}
-	if ev.Err == nil || !strings.Contains(ev.Err.Error(), "InvalidParameter") {
-		t.Errorf("err = %v, want flat code surfaced", ev.Err)
+	if ev.Err == nil || !errors.Is(ev.Err, ErrProviderError) || strings.Contains(ev.Err.Error(), "InvalidParameter") {
+		t.Errorf("err = %v, want sanitized provider error", ev.Err)
 	}
 }

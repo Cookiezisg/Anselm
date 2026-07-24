@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -146,7 +147,7 @@ func TestMoonshotParseStreamInStreamError(t *testing.T) {
 	if len(events) != 1 || events[0].Type != EventError {
 		t.Fatalf("events = %+v, want single error", events)
 	}
-	if !strings.Contains(events[0].Err.Error(), "boom") {
-		t.Errorf("err = %v, want to contain boom", events[0].Err)
+	if !errors.Is(events[0].Err, ErrProviderError) || strings.Contains(events[0].Err.Error(), "boom") {
+		t.Errorf("err = %v, want sanitized ErrProviderError", events[0].Err)
 	}
 }
