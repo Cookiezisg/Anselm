@@ -270,12 +270,14 @@ func buildQwenUserMsg(m LLMMessage) (qwenMessage, error) {
 		case PartVideoURL:
 			parts = append(parts, qwenContentPart{Type: "video_url", VideoURL: &qwenVideoURL{URL: part.VideoURL}})
 		case PartInputAudio:
-			format := strings.TrimPrefix(part.MediaType, "audio/")
-			if format == "" {
-				format = "wav"
+			mediaType := strings.TrimSpace(part.MediaType)
+			if mediaType == "" {
+				// Attachment rendering always supplies a MIME type. Keep direct callers safe too: a
+				// valid WAV data URL is preferable to emitting an invalid empty media type.
+				mediaType = "audio/wav"
 			}
 			parts = append(parts, qwenContentPart{Type: "input_audio", InputAudio: &qwenInputAudio{
-				Data: "data:" + part.MediaType + ";base64," + part.Data, Format: format,
+				Data: "data:" + mediaType + ";base64," + part.Data, Format: qwenAudioFormat(mediaType),
 			}})
 		}
 	}
@@ -284,6 +286,25 @@ func buildQwenUserMsg(m LLMMessage) (qwenMessage, error) {
 		return qwenMessage{}, fmt.Errorf("llm.qwen: marshal parts: %w", err)
 	}
 	return qwenMessage{Role: "user", Content: raw}, nil
+}
+
+// qwenAudioFormat converts MIME vocabulary to the `input_audio.format` values Qwen accepts. An
+// MP3 attachment is canonically audio/mpeg, but Qwen requires format="mp3", not "mpeg".
+//
+// qwenAudioFormat 将 MIME 词汇转换为 Qwen input_audio.format 接受的值。MP3 附件规范 MIME 是
+// audio/mpeg，但 Qwen 要 format="mp3"，不能机械截成 "mpeg"。
+func qwenAudioFormat(mediaType string) string {
+	switch strings.ToLower(strings.TrimSpace(mediaType)) {
+	case "audio/mpeg", "audio/mp3":
+		return "mp3"
+	case "audio/wav", "audio/x-wav", "audio/wave":
+		return "wav"
+	default:
+		if format := strings.TrimPrefix(strings.ToLower(strings.TrimSpace(mediaType)), "audio/"); format != "" {
+			return format
+		}
+		return "wav"
+	}
 }
 
 func qwenJSONString(s string) json.RawMessage {

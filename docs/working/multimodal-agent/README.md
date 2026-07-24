@@ -776,7 +776,7 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 
 **目标**：Anselm 能诚实描述并编码 Qwen3.7/Omni。
 
-- 已落地（第一、二块）：Qwen compatible-mode renderer 现原生编码 `video_url` 与 `input_audio`；视频保持 data/public URL，音频按官方 `{data,format}` 形状带 data URL。目录诚实发布 `qwen3.7-plus` 的 1M/64K、图片/视频输入，`qwen3.5-omni-*` 的 64K、图片/视频/音频输入；Omni 未公开统一 text max-output 数字时保持未知，绝不杜撰。wire/capability 测试锁定，尚未宣称媒体一次性上传或放开 transport body。
+- 已落地（第一、二块）：Qwen compatible-mode renderer 现原生编码 `video_url` 与 `input_audio`；视频保持 data/public URL，音频按官方 `{data,format}` 形状带 data URL（`audio/mpeg` 正确映射为 Qwen 所需的 `mp3`）。目录诚实发布 `qwen3.7-plus` 的 1M/64K、图片/视频输入，`qwen3.5-omni-*` 的 64K、图片/视频/音频输入；Omni 未公开统一 text max-output 数字时保持未知，绝不杜撰。wire/capability 测试锁定，尚未宣称媒体一次性上传或放开 transport body。
 
 - Qwen specs：1M Qwen3.7、64K Omni、max output、vision/video/audio；
 - Qwen content renderer 支持 video/audio；

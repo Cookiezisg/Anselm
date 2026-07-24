@@ -84,6 +84,22 @@ func TestQwenBuildRequest_EncodesVideoAndAudioParts(t *testing.T) {
 	}
 }
 
+func TestQwenBuildRequest_MapsMP3MIMEToQwenAudioFormat(t *testing.T) {
+	httpReq, err := newQwenProvider().BuildRequest(context.Background(), Request{
+		ModelID: "qwen3.5-omni-plus", Key: "k", BaseURL: "https://example.test",
+		Messages: []LLMMessage{{Role: RoleUser, Parts: []ContentPart{{
+			Type: PartInputAudio, MediaType: "audio/mpeg", Data: "MP3",
+		}}}},
+	})
+	if err != nil {
+		t.Fatalf("BuildRequest: %v", err)
+	}
+	body, _ := io.ReadAll(httpReq.Body)
+	if got := string(body); !strings.Contains(got, `"data":"data:audio/mpeg;base64,MP3"`) || !strings.Contains(got, `"format":"mp3"`) {
+		t.Errorf("MP3 Qwen wire = %s, want audio/mpeg data URL + format mp3", got)
+	}
+}
+
 func TestQwenDescribeModels_AdvertisesNativeInputTruthfully(t *testing.T) {
 	models, err := newQwenProvider().DescribeModels(`{"data":[
 		{"id":"qwen3.7-plus"},
