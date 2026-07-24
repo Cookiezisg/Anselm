@@ -909,8 +909,8 @@ offline fallback、quota/ledger、真 key eval。
 输入文字/存在可发送附件时让位给发送；录音中切为 stop；partial/final transcript 写入可编辑 draft，停止后不自动发送。
 conversation model override 优先于 workspace default，header 未就绪时不开放麦克风，避免短暂错把外部模型当
 Anselm Auto。widget 测试已锁定“Anselm Auto 空输入显示麦克风、打字后切发送、外部模型默认不显示麦克风、
-会话 override 外部模型时不显示麦克风”。未落地/未验收：波形/时长、断网 fallback UI、权限拒绝专项 UI、
-gallery matrix、三平台真机。
+会话 override 外部模型时不显示麦克风”。gallery 已补空态 mic 与录音中 stop 的 `AnComposer` 视觉 specimen。
+未落地/未验收：波形/时长、断网 fallback UI、权限拒绝专项 UI、三平台真机。
 
 **出口**：一分钟中英混合听写、取消、断网 fallback、权限拒绝全程无误发送/吞内容。
 

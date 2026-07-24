@@ -7,12 +7,13 @@ import 'specimen.dart';
 // The chat composer (AnComposer) in its states — dev-only strings, i18n-exempt (like the rest of the
 // catalog). INTERACTIVE: click into any box to see the accent focus halo, type to watch the pill↔card
 // morph. The send/stop glyph is the host's call (the primitive just renders `trailing`), so each state
-// passes the right one: none (empty), send ↑ (has text), stop (generating). No specimen auto-focuses — a
-// focused TextField blinks its caret forever, which would hang the matrix test's pumpAndSettle.
+// passes the right one: none (empty), microphone (voice-ready), send ↑ (has text), stop
+// (generating/recording). No specimen auto-focuses — a focused TextField blinks its caret forever,
+// which would hang the matrix test's pumpAndSettle.
 //
 // 聊天发送框各态。dev 明文串豁免 i18n。可交互:点入见 accent 聚焦光环、打字看药丸↔卡片演变。send/stop 由宿主定
-// (原语只渲 trailing),故每态给对的那个:空=无 / 有字=send↑ / 生成中=stop。无 specimen 自动聚焦(聚焦的输入框
-// 光标永远闪 → 挂死 matrix 的 pumpAndSettle)。
+// (原语只渲 trailing),故每态给对的那个:空=无 / 可语音=mic / 有字=send↑ / 生成中或录音中=stop。无 specimen
+// 自动聚焦(聚焦的输入框光标永远闪 → 挂死 matrix 的 pumpAndSettle)。
 
 const double _composerW =
     560; // narrowed toward the 720 reading column feel for the gallery cell 逼近阅读列观感
@@ -36,6 +37,18 @@ final GalleryItem chatComposerGalleryItem = GalleryItem(
     GallerySpecimen(
       '有字 · 单行 (send ↑)',
       (_) => const _ComposerSpecimen(seed: '帮我看下这个 workflow 为什么失败', send: true),
+      span: true,
+      maxWidth: _composerW,
+    ),
+    GallerySpecimen(
+      '空态 · 语音输入 (mic)',
+      (_) => const _ComposerSpecimen(voice: true),
+      span: true,
+      maxWidth: _composerW,
+    ),
+    GallerySpecimen(
+      '语音输入中 · stop',
+      (_) => const _ComposerSpecimen(seed: '我想让它每天九点', recording: true),
       span: true,
       maxWidth: _composerW,
     ),
@@ -89,6 +102,8 @@ class _ComposerSpecimen extends StatefulWidget {
     this.seed = '',
     this.hint = '问点什么…',
     this.send = false,
+    this.voice = false,
+    this.recording = false,
     this.generating = false,
     this.attachments = false,
     this.floating = false,
@@ -97,6 +112,8 @@ class _ComposerSpecimen extends StatefulWidget {
   final String seed;
   final String hint;
   final bool send;
+  final bool voice;
+  final bool recording;
   final bool generating;
   final bool attachments;
   final bool floating;
@@ -124,13 +141,13 @@ class _ComposerSpecimenState extends State<_ComposerSpecimen> {
     // and keep it the SAME control tier as lead (lg + primary round — the product arrangement) — a
     // taller trailing popping in would grow the whole box. trailing 加 key + 与 lead 同档(lg,产品排布:
     // 实心墨圆)——异档 trailing 出现会撑高整盒。
-    final Widget? trailing = widget.generating
+    final Widget? trailing = widget.generating || widget.recording
         ? AnButton.iconOnly(
             AnIcons.stop,
             variant: AnButtonVariant.primary,
             round: true,
             size: AnButtonSize.lg,
-            semanticLabel: '停止',
+            semanticLabel: widget.recording ? '停止语音输入' : '停止',
             onPressed: () {},
             key: const ValueKey('stop'),
           )
@@ -143,6 +160,16 @@ class _ComposerSpecimenState extends State<_ComposerSpecimen> {
             semanticLabel: '发送',
             onPressed: () {},
             key: const ValueKey('send'),
+          )
+        : widget.voice
+        ? AnButton.iconOnly(
+            AnIcons.microphone,
+            variant: AnButtonVariant.primary,
+            round: true,
+            size: AnButtonSize.lg,
+            semanticLabel: '语音输入',
+            onPressed: () {},
+            key: const ValueKey('voice'),
           )
         : null;
     return AnComposer(
