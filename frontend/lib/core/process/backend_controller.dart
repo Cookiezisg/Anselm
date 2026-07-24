@@ -20,10 +20,17 @@ enum BackendPhase { starting, ready, crashed }
 /// 时 token 亦 null)。
 @immutable
 class BackendState {
-  const BackendState(this.phase, {this.baseUrl, this.authToken, this.error});
+  const BackendState(
+    this.phase, {
+    this.baseUrl,
+    this.authToken,
+    this.dataDir,
+    this.error,
+  });
   final BackendPhase phase;
   final String? baseUrl;
   final String? authToken;
+  final String? dataDir;
   final String? error;
 
   bool get isReady => phase == BackendPhase.ready && baseUrl != null;
@@ -173,6 +180,7 @@ class BackendController {
     BackendPhase.ready,
     baseUrl: _baseUrl,
     authToken: _authToken,
+    dataDir: _resolvedDataDir(),
   );
 
   Future<String> _spawn(String token) async {
@@ -199,7 +207,7 @@ class BackendController {
       // 上膛后端死人开关:我们全程握着子进程 stdin,任何形式的退出都会让管道 EOF → 后端跑有序关停。
       'ANSELM_PARENT_WATCH': '1',
     };
-    if (dataDir != null) env['ANSELM_DATA_DIR'] = dataDir!;
+    env['ANSELM_DATA_DIR'] = _resolvedDataDir();
     // P5 (C-030): the keychain resolve is the ADR-0008-sensitive step (a fresh install mints + reads back
     // the master key; an existing install reads it). Time it separately so the cold-start trace shows
     // whether keychain access (vs the Go boot) is a bottleneck. 主密钥解析单独计时(ADR-0008 敏感步)。
@@ -257,6 +265,15 @@ class BackendController {
     final dir = File(Platform.resolvedExecutable).parent.path;
     final name = Platform.isWindows ? 'anselm-server.exe' : 'anselm-server';
     return '$dir/$name';
+  }
+
+  String _resolvedDataDir() {
+    final configured = dataDir ?? Platform.environment['ANSELM_DATA_DIR'];
+    if (configured != null && configured.isNotEmpty) return configured;
+    final home =
+        Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+    if (home == null || home.isEmpty) return '.anselm';
+    return '$home/.anselm';
   }
 
   /// Poll `GET /api/v1/health` (sending the bearer token, which the backend now requires) until

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:anselm/core/process/backend_controller.dart';
 import 'package:anselm/core/runtime.dart';
@@ -113,11 +114,86 @@ class _FakeWebSocketSink implements WebSocketSink {
   Future close([int? closeCode, String? closeReason]) => _inner.close();
 }
 
+class _FakeDraftStore implements SpeechDraftStore {
+  _FakeDraftStore([List<Uint8List>? seed]) : frames = seed ?? [];
+
+  final List<Uint8List> frames;
+  var began = false;
+  var cleared = false;
+
+  @override
+  Future<void> begin() async {
+    began = true;
+    cleared = false;
+    frames.clear();
+  }
+
+  @override
+  Future<void> append(List<int> bytes) async {
+    frames.add(Uint8List.fromList(bytes));
+  }
+
+  @override
+  Future<List<Uint8List>> load() async => List<Uint8List>.of(frames);
+
+  @override
+  Future<void> clear() async {
+    cleared = true;
+    frames.clear();
+  }
+}
+
 Future<void> _flushAsync() async {
   await Future<void>.delayed(const Duration(milliseconds: 20));
 }
 
 void main() {
+  test('restores persisted retry draft and replays PCM on retry', () async {
+    final store = _FakeDraftStore([
+      Uint8List.fromList([9, 8]),
+      Uint8List.fromList([7]),
+    ]);
+    final sockets = <_FakeWebSocketChannel>[];
+    final container = ProviderContainer(
+      overrides: [
+        speechInputAvailableProvider.overrideWithValue(true),
+        backendStartupProvider.overrideWith(_ReadyBackend.new),
+        speechDraftStoreProvider.overrideWithValue(store),
+        speechSocketConnectorProvider.overrideWithValue((uri, headers) {
+          final socket = _FakeWebSocketChannel();
+          sockets.add(socket);
+          return socket;
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    final sub = container.listen(speechInputProvider, (_, _) {});
+    addTearDown(sub.close);
+    await _flushAsync();
+
+    var state = container.read(speechInputProvider);
+    expect(state.canRetry, isTrue);
+    expect(state.error, isNull);
+
+    await container.read(speechInputProvider.notifier).retry();
+    await _flushAsync();
+
+    expect(sockets, hasLength(1));
+    expect(sockets.single.sent, [
+      [9, 8],
+      [7],
+      '{"type":"finish"}',
+    ]);
+
+    sockets.single.incoming.add('{"type":"session.finished"}');
+    await _flushAsync();
+
+    state = container.read(speechInputProvider);
+    expect(state.canRetry, isFalse);
+    expect(state.active, isFalse);
+    expect(store.cleared, isTrue);
+  });
+
   test('live socket loss reconnects once and replays buffered PCM', () async {
     final capture = _FakeCapture();
     final sockets = <_FakeWebSocketChannel>[];

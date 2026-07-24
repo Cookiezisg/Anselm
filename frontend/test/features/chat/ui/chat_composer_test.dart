@@ -196,6 +196,21 @@ class _RetryableConnectionLostSpeech extends SpeechInputController {
   }
 }
 
+class _RestoredRetrySpeech extends SpeechInputController {
+  @override
+  SpeechInputState build() => const SpeechInputState(canRetry: true);
+
+  @override
+  Future<void> retry() async {
+    state = const SpeechInputState(committed: 'restored voice');
+  }
+
+  @override
+  Future<void> discardRetry() async {
+    state = const SpeechInputState();
+  }
+}
+
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 3; i++) {
     await tester.pump(const Duration(milliseconds: 20));
@@ -670,6 +685,32 @@ void main() {
 
     expect(_composerText(tester), 'hello world');
     expect(find.text('hello worhello world'), findsNothing);
+    expect(find.byKey(const ValueKey('voice-retry-card')), findsNothing);
+  });
+
+  testWidgets('restored voice retry draft shows retry card on first build', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_1')],
+      messages: {'cv_1': []},
+    );
+    await tester.pumpWidget(
+      _host(
+        repo,
+        overrides: [speechInputProvider.overrideWith(_RestoredRetrySpeech.new)],
+      ),
+    );
+    await _settle(tester);
+
+    expect(find.byKey(const ValueKey('voice-retry-card')), findsOneWidget);
+
+    tester
+        .widget<AnButton>(_buttonWithLabel('Retry transcription'))
+        .onPressed!();
+    await _settle(tester);
+
+    expect(_composerText(tester), 'restored voice');
     expect(find.byKey(const ValueKey('voice-retry-card')), findsNothing);
   });
 

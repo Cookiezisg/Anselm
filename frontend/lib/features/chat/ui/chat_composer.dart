@@ -512,6 +512,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       ref.read(speechInputProvider.notifier).finish();
 
   void _applySpeechInput(SpeechInputState? previous, SpeechInputState next) {
+    if (!next.active && next.canRetry) {
+      _ensureSpeechRetryAnchor();
+    }
     final err = next.error;
     if (err != null && err != previous?.error) {
       final t = Translations.of(context).chat;
@@ -541,6 +544,15 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     if (!next.active) {
       if (!next.canRetry) _clearSpeechAnchor();
     }
+  }
+
+  void _ensureSpeechRetryAnchor() {
+    if (_speechBefore != null && _speechAfter != null) return;
+    final sel = _ctrl.selection;
+    final offset = sel.isValid ? sel.start : _ctrl.text.length;
+    _speechBefore = _ctrl.text.substring(0, offset);
+    _speechAfter = _ctrl.text.substring(offset);
+    _speechLastMerged = _ctrl.text;
   }
 
   void _mergeSpeechText(SpeechInputState next) {
@@ -820,6 +832,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final id = widget.conversationId;
     final pending = ref.watch(pendingAttachmentsProvider(_draftKey));
     final speech = ref.watch(speechInputProvider);
+    if (!speech.active && speech.canRetry) {
+      _ensureSpeechRetryAnchor();
+    }
     final strip = _composerStrip(context, t, pending, speech);
     final speechAvailable = ref.watch(speechInputAvailableProvider);
     final uploading = pending.any((a) => a.status == 'uploading');

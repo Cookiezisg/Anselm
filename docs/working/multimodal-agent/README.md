@@ -924,7 +924,7 @@ conversation model override 优先于 workspace default，header 未就绪时不
 Anselm Auto。widget 测试已锁定“Anselm Auto 空输入显示麦克风、打字后切发送、外部模型默认不显示麦克风、
 会话 override 外部模型时不显示麦克风”。gallery 已补空态 mic 与录音中 stop 的 `AnComposer` 视觉 specimen。
 录音状态条已显示时长与实时电平波形；权限拒绝会给出系统设置恢复提示，不再落入泛化启动失败。
-realtime 断线会保留已转写草稿并给出断开提示；录音期本地保留有界 PCM buffer，仍在 recording 时 socket loss 会自动重连一次并重放 buffer，第二次断线或收尾失败后展示 retry/delete 卡；retry 会重放本次录音重新转写并替换同一草稿插入区，delete 会移除这段语音草稿。未落地/未验收：跨 app 崩溃的持久化离线 ASR fallback、三平台真机。
+realtime 断线会保留已转写草稿并给出断开提示；录音期本地保留有界 PCM buffer，仍在 recording 时 socket loss 会自动重连一次并重放 buffer，第二次断线或收尾失败后展示 retry/delete 卡；retry 会重放本次录音重新转写并替换同一草稿插入区，delete 会移除这段语音草稿。跨进程 fallback 已落地：录音 PCM 同步追加到 `<dataDir>/client/speech-drafts/current.pcm`，正常完成/取消/不可重试错误会清理；app 崩溃或重启后 composer 可恢复 retry/delete 卡并由用户显式重放转写，不自动发送。未验收：三平台真机。
 网关返回 `SPEECH_AUDIO_TOO_LONG` 时，Flutter 现在给出 2 分钟上限的明确 warning，保留已转写草稿，但不展示重试卡，也不继续保留不可重试的本地音频 buffer。
 
 **出口**：一分钟中英混合听写、取消、断网 fallback、权限拒绝全程无误发送/吞内容。

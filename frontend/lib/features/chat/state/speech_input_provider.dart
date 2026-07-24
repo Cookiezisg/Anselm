@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -21,6 +22,7 @@ const speechInputErrorConnectionLost = 'connection_lost';
 const speechInputErrorTooLong = 'too_long';
 const speechInputErrorFailed = 'failed';
 const _speechRetryMaxBytes = 5 * 1024 * 1024;
+const _speechReplayFrameBytes = 4096;
 const _speechLiveReconnectAttempts = 1;
 
 typedef SpeechSocketConnector =
@@ -30,6 +32,75 @@ final speechSocketConnectorProvider = Provider<SpeechSocketConnector>(
   (ref) =>
       (uri, headers) => IOWebSocketChannel.connect(uri, headers: headers),
 );
+
+abstract interface class SpeechDraftStore {
+  Future<void> begin();
+  Future<void> append(List<int> bytes);
+  Future<List<Uint8List>> load();
+  Future<void> clear();
+}
+
+final speechDraftStoreProvider = Provider<SpeechDraftStore>((ref) {
+  final backend = ref.read(backendStartupProvider);
+  return FileSpeechDraftStore(_speechDraftDataDir(backend.dataDir));
+});
+
+class FileSpeechDraftStore implements SpeechDraftStore {
+  FileSpeechDraftStore(this.dataDir);
+
+  final String dataDir;
+
+  File get _file => File('$dataDir/client/speech-drafts/current.pcm');
+
+  @override
+  Future<void> begin() async {
+    await _file.parent.create(recursive: true);
+    await _file.writeAsBytes(const [], flush: true);
+  }
+
+  @override
+  Future<void> append(List<int> bytes) async {
+    if (bytes.isEmpty) return;
+    await _file.parent.create(recursive: true);
+    await _file.writeAsBytes(bytes, mode: FileMode.append, flush: true);
+  }
+
+  @override
+  Future<List<Uint8List>> load() async {
+    if (!await _file.exists()) return const [];
+    final bytes = await _file.readAsBytes();
+    if (bytes.isEmpty) return const [];
+    final frames = <Uint8List>[];
+    for (
+      var offset = 0;
+      offset < bytes.length;
+      offset += _speechReplayFrameBytes
+    ) {
+      var end = offset + _speechReplayFrameBytes;
+      if (end > bytes.length) end = bytes.length;
+      frames.add(Uint8List.fromList(bytes.sublist(offset, end)));
+    }
+    return frames;
+  }
+
+  @override
+  Future<void> clear() async {
+    final file = _file;
+    if (await file.exists()) {
+      await file.delete();
+    }
+  }
+}
+
+String _speechDraftDataDir(String? dataDir) {
+  if (dataDir != null && dataDir.isNotEmpty) return dataDir;
+  final envDir = Platform.environment['ANSELM_DATA_DIR'];
+  if (envDir != null && envDir.isNotEmpty) return envDir;
+  final home =
+      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+  if (home == null || home.isEmpty) return '.anselm';
+  return '$home/.anselm';
+}
 
 abstract interface class SpeechAudioCapture {
   Future<bool> hasPermission();
@@ -183,10 +254,17 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   var _remainingLiveReconnects = 0;
   final List<Uint8List> _retryFrames = [];
   var _retryBytes = 0;
+  Future<void> _draftWrite = Future<void>.value();
+  SpeechDraftStore? _draftStore;
+  bool _disposed = false;
 
   @override
   SpeechInputState build() {
+    _disposed = false;
+    _draftStore = ref.read(speechDraftStoreProvider);
+    unawaited(Future<void>.microtask(_restoreRetryDraft));
     ref.onDispose(() {
+      _disposed = true;
       unawaited(_close(cancelRecorder: true, resetState: false));
     });
     return const SpeechInputState();
@@ -203,6 +281,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     _replaying = false;
     _remainingLiveReconnects = _speechLiveReconnectAttempts;
     _clearRetryBuffer();
+    unawaited(_beginPersistedDraft());
     try {
       _connectSocket();
 
@@ -380,7 +459,18 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     final type = decoded['type'] as String? ?? '';
     if (type == 'session.finished') {
       _serverFinished = true;
-      unawaited(_close(cancelRecorder: false, keepText: true));
+      state = state.copyWith(
+        recording: false,
+        finishing: false,
+        partial: '',
+        level: 0,
+        canRetry: false,
+      );
+      _clearRetryBuffer();
+      unawaited(_clearPersistedDraft());
+      unawaited(
+        _close(cancelRecorder: false, keepText: true, keepRetryBuffer: true),
+      );
       return;
     }
     if (type == 'error') {
@@ -499,11 +589,59 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     if (frame.isEmpty) return;
     _retryFrames.add(frame);
     _retryBytes += frame.length;
+    unawaited(_appendPersistedFrame(frame));
   }
 
   void _clearRetryBuffer() {
     _retryFrames.clear();
     _retryBytes = 0;
+  }
+
+  Future<void> _restoreRetryDraft() async {
+    if (state.active || state.canRetry || _retryFrames.isNotEmpty) return;
+    final store = _draftStore;
+    if (store == null) return;
+    try {
+      final frames = await store.load();
+      if (_disposed || frames.isEmpty || state.active || state.canRetry) return;
+      _clearRetryBuffer();
+      for (final frame in frames) {
+        if (_retryBytes >= _speechRetryMaxBytes) break;
+        final remaining = _speechRetryMaxBytes - _retryBytes;
+        final kept = frame.length <= remaining
+            ? frame
+            : Uint8List.fromList(frame.take(remaining).toList());
+        if (kept.isEmpty) continue;
+        _retryFrames.add(kept);
+        _retryBytes += kept.length;
+      }
+      if (_retryFrames.isEmpty) return;
+      state = const SpeechInputState(canRetry: true);
+    } catch (_) {
+      // A corrupt or unreadable local draft must not break the composer. The live recorder remains
+      // usable; the next successful begin/clear will repair the file.
+    }
+  }
+
+  Future<void> _beginPersistedDraft() =>
+      _queueDraftWrite((store) => store.begin());
+
+  Future<void> _appendPersistedFrame(Uint8List frame) =>
+      _queueDraftWrite((store) => store.append(frame));
+
+  Future<void> _clearPersistedDraft() =>
+      _queueDraftWrite((store) => store.clear());
+
+  Future<void> _queueDraftWrite(
+    Future<void> Function(SpeechDraftStore store) op,
+  ) {
+    final store = _draftStore;
+    if (store == null) return Future<void>.value();
+    _draftWrite = _draftWrite
+        .catchError((_) {})
+        .then((_) => op(store))
+        .catchError((_) {});
+    return _draftWrite;
   }
 
   Future<void> _close({
@@ -536,7 +674,10 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       _channel = null;
     }
     _replaying = false;
-    if (!keepRetryBuffer) _clearRetryBuffer();
+    if (!keepRetryBuffer) {
+      _clearRetryBuffer();
+      await _clearPersistedDraft();
+    }
     if (!resetState) return;
     if (!keepText) {
       state = const SpeechInputState();
