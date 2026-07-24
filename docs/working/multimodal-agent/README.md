@@ -985,9 +985,11 @@ queued/processing/failed/cancelled/unavailable 诚实显示到音频卡状态行
 读取 bytes、删除临时文件，再进入现有 `PendingAttachments.addBytes` 上传链路；它是原始音频附件入口，不受
 Anselm Auto 听写能力限制，也不会自动发送。音频卡已具备可选时间戳引用跳转能力：当用户消息 attrs 提供
 `audioTimestamps`/`attachmentTimestamps`（map 或列表形）时，卡片显示“跳到 mm:ss”，并通过同一
-single-active playback controller 对当前附件 seek；无时间点或播放器未接入时不显示假入口。未完成：附件内容
+single-active playback controller 对当前附件 seek；无时间点或播放器未接入时不显示假入口。离线态也已分层：
+附件 metadata transport 失败显示可重试离线卡、不再误判为已删除；音频原件 bytes 拉取 transport 失败显示
+“已离线，点按重试播放”，仍保留播放按钮作为恢复路径；404/已删除仍是不可交互 tombstone。未完成：附件内容
 lease/loopback 播放源的生产 E2E（当前 `audioplayers` URL source 不支持 header，与 bearer loopback
-鉴权直接冲突，不能硬接）、离线态端到端文案与恢复路径。
+鉴权直接冲突，不能硬接）。
 
 **出口**：语音听写和原始音频理解心智不混淆。
 

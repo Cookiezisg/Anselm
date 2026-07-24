@@ -59,6 +59,7 @@ class AnAudioAttachmentCard extends StatelessWidget {
   bool get _fallbackInteractive =>
       onTap != null &&
       (state == AnAttachmentState.failed ||
+          state == AnAttachmentState.offline ||
           state == AnAttachmentState.oversized);
 
   @override
@@ -78,6 +79,7 @@ class AnAudioAttachmentCard extends StatelessWidget {
     final stateLine = switch (state) {
       AnAttachmentState.missing => t.attach.unavailable,
       AnAttachmentState.failed => t.attach.retry,
+      AnAttachmentState.offline => t.attach.offlineRetry,
       AnAttachmentState.oversized => t.attach.tapToLoad,
       AnAttachmentState.ready when statusLine != null => statusLine!,
       AnAttachmentState.ready when !_playable =>

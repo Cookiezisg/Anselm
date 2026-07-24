@@ -670,6 +670,7 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String get unavailable => '已不可用';
 	@override String get retry => '点按重试';
 	@override String get tapToLoad => '点按加载';
+	@override String get offlineRetry => '已离线 — 点按重试';
 	@override String get uploading => '上传中…';
 	@override String get failedRetry => '失败 — 点按重试';
 	@override String get failedUnreadable => '无法读取文件';
@@ -684,6 +685,7 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String jumpToAudioTimestamp({required Object timestamp}) => '跳到 ${timestamp}';
 	@override String get loadingAudio => '正在加载音频…';
 	@override String get audioPlaybackFailed => '播放失败 — 点按重试';
+	@override String get audioPlaybackOffline => '已离线 — 点按重试播放';
 	@override String get audioPlaybackUnavailable => '暂不能播放';
 	@override String get remove => '移除';
 }
@@ -4585,6 +4587,7 @@ extension on TranslationsZhCn {
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',
 			'attach.tapToLoad' => '点按加载',
+			'attach.offlineRetry' => '已离线 — 点按重试',
 			'attach.uploading' => '上传中…',
 			'attach.failedRetry' => '失败 — 点按重试',
 			'attach.failedUnreadable' => '无法读取文件',
@@ -4599,6 +4602,7 @@ extension on TranslationsZhCn {
 			'attach.jumpToAudioTimestamp' => ({required Object timestamp}) => '跳到 ${timestamp}',
 			'attach.loadingAudio' => '正在加载音频…',
 			'attach.audioPlaybackFailed' => '播放失败 — 点按重试',
+			'attach.audioPlaybackOffline' => '已离线 — 点按重试播放',
 			'attach.audioPlaybackUnavailable' => '暂不能播放',
 			'attach.remove' => '移除',
 			_ => null,

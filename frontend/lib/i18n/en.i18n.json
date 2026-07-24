@@ -2009,6 +2009,7 @@
     "unavailable": "Unavailable",
     "retry": "Tap to retry",
     "tapToLoad": "Tap to load",
+    "offlineRetry": "Offline — tap to retry",
     "uploading": "Uploading…",
     "failedRetry": "Failed — tap to retry",
     "failedUnreadable": "Couldn't read file",
@@ -2023,6 +2024,7 @@
     "jumpToAudioTimestamp": "Jump to $timestamp",
     "loadingAudio": "Loading audio…",
     "audioPlaybackFailed": "Playback failed — tap to retry",
+    "audioPlaybackOffline": "Offline — tap to retry playback",
     "audioPlaybackUnavailable": "Playback not available yet",
     "remove": "Remove"
   }

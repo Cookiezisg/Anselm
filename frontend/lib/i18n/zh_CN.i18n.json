@@ -2009,6 +2009,7 @@
     "unavailable": "已不可用",
     "retry": "点按重试",
     "tapToLoad": "点按加载",
+    "offlineRetry": "已离线 — 点按重试",
     "uploading": "上传中…",
     "failedRetry": "失败 — 点按重试",
     "failedUnreadable": "无法读取文件",
@@ -2023,6 +2024,7 @@
     "jumpToAudioTimestamp": "跳到 $timestamp",
     "loadingAudio": "正在加载音频…",
     "audioPlaybackFailed": "播放失败 — 点按重试",
+    "audioPlaybackOffline": "已离线 — 点按重试播放",
     "audioPlaybackUnavailable": "暂不能播放",
     "remove": "移除"
   }

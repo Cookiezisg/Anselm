@@ -16,6 +16,7 @@ enum AttachmentAudioStatus { stopped, playing, paused, completed }
 abstract final class AttachmentAudioError {
   static const playbackFailed = 'playback_failed';
   static const attachmentMissing = 'attachment_missing';
+  static const attachmentOffline = 'attachment_offline';
 }
 
 /// Replaceable driver for sent audio attachment playback. The controller owns a single instance, so only
@@ -303,6 +304,9 @@ String _playbackErrorCode(Object error) {
   if (_isMissingAttachmentContent(error)) {
     return AttachmentAudioError.attachmentMissing;
   }
+  if (_isOfflineAttachmentContent(error)) {
+    return AttachmentAudioError.attachmentOffline;
+  }
   return AttachmentAudioError.playbackFailed;
 }
 
@@ -318,6 +322,17 @@ bool _isMissingAttachmentContent(Object error) {
   final text = error.toString();
   return text.contains('attachment content not found') ||
       text.contains('ATTACHMENT_NOT_FOUND');
+}
+
+bool _isOfflineAttachmentContent(Object error) {
+  if (error case ApiException(:final isTransport) when isTransport) {
+    return true;
+  }
+  final text = error.toString().toLowerCase();
+  return text.contains('connection refused') ||
+      text.contains('connection timed out') ||
+      text.contains('network is unreachable') ||
+      text.contains('no route to host');
 }
 
 Duration _clampSeekPosition(Duration position, Duration? duration) {

@@ -1473,6 +1473,9 @@ class Translations$attach$en {
 	/// en: 'Tap to load'
 	String get tapToLoad => 'Tap to load';
 
+	/// en: 'Offline — tap to retry'
+	String get offlineRetry => 'Offline — tap to retry';
+
 	/// en: 'Uploading…'
 	String get uploading => 'Uploading…';
 
@@ -1514,6 +1517,9 @@ class Translations$attach$en {
 
 	/// en: 'Playback failed — tap to retry'
 	String get audioPlaybackFailed => 'Playback failed — tap to retry';
+
+	/// en: 'Offline — tap to retry playback'
+	String get audioPlaybackOffline => 'Offline — tap to retry playback';
 
 	/// en: 'Playback not available yet'
 	String get audioPlaybackUnavailable => 'Playback not available yet';
@@ -8336,6 +8342,7 @@ extension on Translations {
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',
 			'attach.tapToLoad' => 'Tap to load',
+			'attach.offlineRetry' => 'Offline — tap to retry',
 			'attach.uploading' => 'Uploading…',
 			'attach.failedRetry' => 'Failed — tap to retry',
 			'attach.failedUnreadable' => 'Couldn\'t read file',
@@ -8350,6 +8357,7 @@ extension on Translations {
 			'attach.jumpToAudioTimestamp' => ({required Object timestamp}) => 'Jump to ${timestamp}',
 			'attach.loadingAudio' => 'Loading audio…',
 			'attach.audioPlaybackFailed' => 'Playback failed — tap to retry',
+			'attach.audioPlaybackOffline' => 'Offline — tap to retry playback',
 			'attach.audioPlaybackUnavailable' => 'Playback not available yet',
 			'attach.remove' => 'Remove',
 			_ => null,

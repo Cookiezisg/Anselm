@@ -23,6 +23,9 @@ enum AnAttachmentState {
   /// Transient fetch failure — tap retries. 网络失败,点按重试。
   failed,
 
+  /// Transport/offline fetch failure — tap retries. 离线/后端不可达,点按重试。
+  offline,
+
   /// An image too large to auto-fetch — tap to load (renders as a CARD until loaded). 超大图,点按加载。
   oversized,
 }
@@ -72,6 +75,7 @@ class AnAttachmentCard extends StatelessWidget {
       onTap != null &&
       (state == AnAttachmentState.ready ||
           state == AnAttachmentState.failed ||
+          state == AnAttachmentState.offline ||
           state == AnAttachmentState.oversized);
 
   @override
@@ -95,6 +99,7 @@ class AnAttachmentCard extends StatelessWidget {
     final meta = switch (state) {
       AnAttachmentState.missing => t.attach.unavailable,
       AnAttachmentState.failed => t.attach.retry,
+      AnAttachmentState.offline => t.attach.offlineRetry,
       AnAttachmentState.oversized => t.attach.tapToLoad,
       _ => metaLine,
     };

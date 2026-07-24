@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/core/model/model_capabilities.dart';
@@ -194,6 +195,24 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
     await positions.close();
     await durations.close();
     await statuses.close();
+  }
+}
+
+class _OfflineAttachmentRepository extends FixtureChatRepository {
+  _OfflineAttachmentRepository({
+    required super.conversations,
+    required super.messages,
+    this.offlineByteIds = const {},
+  });
+
+  final Set<String> offlineByteIds;
+
+  @override
+  Future<List<int>> getAttachmentBytes(String id) async {
+    if (offlineByteIds.contains(id)) {
+      throw ApiException.transport('connection refused');
+    }
+    return super.getAttachmentBytes(id);
   }
 }
 
@@ -601,6 +620,61 @@ void main() {
       await tester.pump();
 
       expect(driver.seeks, [const Duration(seconds: 65)]);
+    },
+  );
+
+  testWidgets(
+    'an offline audio content fetch shows a retryable playback offline line',
+    (tester) async {
+      final repo = _OfflineAttachmentRepository(
+        conversations: [_conv('cv_1')],
+        messages: {
+          'cv_1': [
+            ChatMessage(
+              id: 'msg_u',
+              conversationId: 'cv_1',
+              role: 'user',
+              status: 'completed',
+              attrs: {
+                'attachments': ['att_audio'],
+              },
+              blocks: [_blk('bu', 'text', '听这个')],
+              createdAt: DateTime.utc(2026, 7, 2, 10),
+            ),
+          ],
+        },
+        offlineByteIds: {'att_audio'},
+      );
+      repo.attachmentMetas['att_audio'] = const AttachmentMeta(
+        id: 'att_audio',
+        filename: 'voice.webm',
+        mimeType: 'audio/webm',
+        sizeBytes: 3,
+        kind: 'audio',
+      );
+      final driver = _FakeAudioDriver();
+
+      await tester.pumpWidget(
+        _host(
+          repo,
+          overrides: [
+            attachmentAudioDriverFactoryProvider.overrideWithValue(
+              () => driver,
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      await _settle(tester);
+      await tester.pump(const Duration(milliseconds: 30)); // metadata future
+
+      await tester.tap(find.bySemanticsLabel('Play audio'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(driver.playPayloads, isEmpty);
+      expect(find.text('Offline — tap to retry playback'), findsOneWidget);
+      expect(find.bySemanticsLabel('Play audio'), findsOneWidget);
     },
   );
 

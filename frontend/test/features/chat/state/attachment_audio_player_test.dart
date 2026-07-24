@@ -238,6 +238,25 @@ void main() {
     expect(state.errorFor('att_1'), 'playback_failed');
   });
 
+  test('transport failure is a retryable offline state', () async {
+    final (c, driver) = _setup();
+
+    await c
+        .read(attachmentAudioPlaybackProvider.notifier)
+        .toggle(
+          'att_1',
+          loadBytes: () async =>
+              throw ApiException.transport('connection refused'),
+        );
+
+    final state = c.read(attachmentAudioPlaybackProvider);
+    expect(state.activeAttachmentId, 'att_1');
+    expect(state.loading, isFalse);
+    expect(state.playing, isFalse);
+    expect(state.errorFor('att_1'), AttachmentAudioError.attachmentOffline);
+    expect(driver.playPayloads, isEmpty);
+  });
+
   test(
     'missing attachment content leaves a terminal missing error state',
     () async {

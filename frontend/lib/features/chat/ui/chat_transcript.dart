@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/api_error.dart';
 import '../../../core/contract/messages/block_content.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -490,11 +491,12 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
                   )
                 : null,
           ),
-          AsyncError() => UserAttachment(
+          AsyncError(:final error) => UserAttachment(
             id: id,
             kind: 'other',
             filename: id,
-            state: AnAttachmentState.missing,
+            state: _attachmentMetaErrorState(error),
+            onTap: () => ref.invalidate(attachmentMetaProvider(id)),
           ),
           _ => UserAttachment(
             id: id,
@@ -550,6 +552,28 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
     };
     if (value == null || value < 0) return null;
     return value;
+  }
+
+  AnAttachmentState _attachmentMetaErrorState(Object error) {
+    if (error case ApiException(:final isNotFound) when isNotFound) {
+      return AnAttachmentState.missing;
+    }
+    if (error case ApiException(:final isTransport) when isTransport) {
+      return AnAttachmentState.offline;
+    }
+    final text = error.toString().toLowerCase();
+    if (text.contains('client_transport') ||
+        text.contains('connection refused') ||
+        text.contains('connection timed out') ||
+        text.contains('network is unreachable') ||
+        text.contains('no route to host')) {
+      return AnAttachmentState.offline;
+    }
+    if (text.contains('attachment not found') ||
+        text.contains('attachment_not_found')) {
+      return AnAttachmentState.missing;
+    }
+    return AnAttachmentState.failed;
   }
 
   Widget _assistant(BuildContext context, WidgetRef ref) {
@@ -749,6 +773,8 @@ class _TranscriptAudioAttachmentState
         ? t.attach.loadingAudio
         : playbackError == AttachmentAudioError.playbackFailed
         ? t.attach.audioPlaybackFailed
+        : playbackError == AttachmentAudioError.attachmentOffline
+        ? t.attach.audioPlaybackOffline
         : missing
         ? null
         : attachmentPreparationLine(t, widget.attachment.preparation);

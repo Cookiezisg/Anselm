@@ -206,6 +206,34 @@ void main() {
     expect(find.text('Preparing media…'), findsOneWidget);
   });
 
+  testWidgets(
+    'offline attachment card is retryable and not a missing tombstone',
+    (tester) async {
+      var retried = 0;
+      await tester.pumpWidget(
+        host(
+          UserTurnContent(
+            text: '',
+            attachments: [
+              UserAttachment(
+                id: 'doc',
+                kind: 'document',
+                filename: 'brief.pdf',
+                state: AnAttachmentState.offline,
+                onTap: () => retried++,
+              ),
+            ],
+          ),
+        ),
+      );
+
+      expect(find.text('Offline — tap to retry'), findsOneWidget);
+      expect(find.text('Unavailable'), findsNothing);
+      await tester.tap(find.text('brief.pdf'));
+      expect(retried, 1);
+    },
+  );
+
   testWidgets('tombstone (missing) swallows taps; failed card fires retry', (
     tester,
   ) async {
