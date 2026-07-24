@@ -90,9 +90,11 @@ type fakeRuntimeProfiles struct {
 	budgetOK     bool
 	identities   []modelprofiledomain.Identity
 	observations []modelprofiledomain.Observation
+	observeCtx   context.Context
 }
 
-func (f *fakeRuntimeProfiles) Observe(_ context.Context, o modelprofiledomain.Observation) error {
+func (f *fakeRuntimeProfiles) Observe(ctx context.Context, o modelprofiledomain.Observation) error {
+	f.observeCtx = ctx
 	f.observations = append(f.observations, o)
 	return nil
 }
@@ -271,6 +273,20 @@ func TestChatHostRuntimeProfileUsesExactRouteAndRecordsOnlySafeFacts(t *testing.
 	usage := h.assistantMsg.Attrs["contextUsage"].(map[string]any)
 	if usage["contextOverflows"] != 1 || usage["lastOverflowPredictedInputTokens"] != 500_000 || usage["lastOverflowRequestBytes"] != 1_500_000 {
 		t.Fatalf("overflow observability = %#v", usage)
+	}
+
+	// Profile evidence survives a cancelled request, but retains workspace
+	// scope for the store. 画像证据跨请求取消，workspace 隔离不丢。
+	cancelled, cancel := context.WithCancel(ctxWS("ws_profile"))
+	cancel()
+	h.ObserveContext(cancelled, loopapp.ContextObservation{
+		Route: "text", Succeeded: true, PredictedInput: 1, RequestBytes: 1,
+	})
+	if profiles.observeCtx == nil || profiles.observeCtx.Err() != nil {
+		t.Fatalf("profile write inherited cancellation: %v", profiles.observeCtx)
+	}
+	if ws, ok := reqctxpkg.GetWorkspaceID(profiles.observeCtx); !ok || ws != "ws_profile" {
+		t.Fatalf("profile write lost workspace scope: %q %v", ws, ok)
 	}
 }
 

@@ -134,7 +134,15 @@ func (h *chatHost) ObserveContext(ctx context.Context, o loopapp.ContextObservat
 	if o.ContextOverflow {
 		kind = modelprofiledomain.ObservationContextOverflow
 	}
-	if err := h.svc.deps.RuntimeProfiles.Observe(ctx, modelprofiledomain.Observation{
+	// Runtime evidence is a best-effort durable learning write, not part of the
+	// user-visible stream transaction. Preserve the workspace isolation while
+	// letting a user cancel/timeout after the upstream response without losing a
+	// verified overflow→recovery pair.
+	observeCtx := ctx
+	if workspaceID, ok := reqctxpkg.GetWorkspaceID(ctx); ok {
+		observeCtx = reqctxpkg.Detached(workspaceID)
+	}
+	if err := h.svc.deps.RuntimeProfiles.Observe(observeCtx, modelprofiledomain.Observation{
 		Identity:             h.runtimeIdentity(o.Route),
 		Kind:                 kind,
 		PredictedInputTokens: o.PredictedInput,
