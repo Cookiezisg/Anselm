@@ -494,19 +494,22 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
               // — is where a monstrous result may live at all. 树是虚拟化 viewport,必须由宿主给定高
               // (原语自身契约,不能 shrinkWrap);正是这个界让 650KB 只花可见行的钱,也正因如此巨物只能
               // 住在岛里而非页上。
-              SizedBox(
-                // Content-height up to the cap (WRK-070 B8 用户点名帧): a 3-key result must not prop
-                // open a 240 viewport of blank. Initially-visible rows = top-level keys (openDepth 1);
-                // deeper expansion scrolls WITHIN the box — the tree stays virtualized either way.
-                // 按内容高、上限封顶:3 键结果不许撑 240 空白;初始可见行=顶层键数,更深展开在框内滚。
-                height: (node.result.length * AnSize.row)
-                    .clamp(AnSize.row, AnSize.jsonViewport)
-                    .toDouble(),
-                child: AnJsonTree(
-                  data: node.result,
-                  showRoot: false,
-                  openDepth: 1,
-                ),
+              // Content-height up to the cap (WRK-070 B8 用户点名帧): a 3-key result must not prop open a
+              // 240 viewport of blank. The CAP is ours to state; the HEIGHT is not ours to compute — this
+              // host used to derive it from `node.result.length`, the top-level key count, which is the
+              // one number that stops being true the instant anything is expanded (WRK-077 CR-3: 2 keys
+              // → a 64px box, so opening an 8-element array pushed every new row under an unmarked fold
+              // and the tree read as "click does nothing"). The primitive knows its live row count, sizes
+              // itself, and fades its edge when there genuinely is more.
+              // 按内容高、上限封顶:3 键结果不许撑 240 空白。**上限**该由我们说,**高度**不该由我们算——本宿主
+              // 原先据 `node.result.length`(顶层键数)推高,而这恰是「一旦有任何展开就不再成立」的那个数
+              // (WRK-077 CR-3:2 键 → 64px 框,于是展开 8 元素数组时新行全被推到一条无标记的折线之下,树读
+              // 起来就是「点了没反应」)。原语知道自己的活行数:它自量高,并在真的还有内容时把边缘渐隐掉。
+              AnJsonTree(
+                data: node.result,
+                showRoot: false,
+                openDepth: 1,
+                maxHeight: AnSize.jsonViewport,
               ),
             ],
           ),

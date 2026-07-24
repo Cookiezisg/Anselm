@@ -7,6 +7,8 @@ import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import '../perf/frame_safe.dart';
+import 'an_edge_fade.dart';
 import 'an_interactive.dart';
 import 'an_scroll_behavior.dart';
 import 'icons.dart';
@@ -43,6 +45,7 @@ class AnJsonTree extends StatefulWidget {
     this.rootLabel = 'root',
     this.showRoot = true,
     this.openDepth,
+    this.maxHeight,
     super.key,
   }) : assert(
          data == null || jsonString == null,
@@ -64,6 +67,19 @@ class AnJsonTree extends StatefulWidget {
   /// Initial expand depth (default: root → 2, no-root → 1). 默认展开深度。
   final int? openDepth;
 
+  /// SELF-SIZING mode: bound the viewport to the CURRENT visible-row count, capped at this height —
+  /// instead of the caller pinning a height it cannot know. Without it the host has to guess, and the
+  /// only quantity a host can see is the top-level key count, which is wrong the moment anything is
+  /// expanded (WRK-077 CR-3: a 2-key result gave a 64px box, so expanding an 8-element array put every
+  /// new row below the fold and the tree read as "click does nothing"). The box grows and shrinks with
+  /// the tree and never exceeds the cap, so the virtualization guarantee is untouched.
+  ///
+  /// **自量高**模式:视口跟随**当前可见行数**、以此高封顶——而不是让调用方钉一个它无法知道的高。没有它,
+  /// 宿主只能猜,而宿主唯一看得见的量是顶层键数;一旦有任何展开,这个量就是错的(WRK-077 CR-3:2 键结果
+  /// 给出 64px 框,于是展开 8 元素数组时新行全在折线以下,树读起来就是「点了没反应」)。框随树长随树缩、
+  /// 绝不越顶,故虚拟化保证不受影响。
+  final double? maxHeight;
+
   @override
   State<AnJsonTree> createState() => _AnJsonTreeState();
 }
@@ -75,28 +91,117 @@ const int _maxVal =
 
 class _AnJsonTreeState extends State<AnJsonTree> {
   final TreeSliverController _controller = TreeSliverController();
+  final ScrollController _scroll = ScrollController();
   late List<TreeSliverNode<_JNode>> _tree;
   String? _parseError;
+
+  /// Which paths were open before the current rebuild — null on the first build (use [openDepth]).
+  /// 本次重建前哪些路径是展开的;首建为 null(用 openDepth)。
+  Set<String>? _restore;
+  bool _above = false;
+  bool _below = false;
 
   @override
   void initState() {
     super.initState();
     _rebuild();
+    _scroll.addListener(_onScroll);
+  }
+
+  @override
+  void dispose() {
+    _scroll.removeListener(_onScroll);
+    _scroll.dispose();
+    super.dispose();
   }
 
   @override
   void didUpdateWidget(AnJsonTree old) {
     super.didUpdateWidget(old);
-    if (old.data != widget.data ||
-        old.jsonString != widget.jsonString ||
+    // Dart compares Map/List by IDENTITY, so `old.data != widget.data` fires whenever anything upstream
+    // decodes a fresh object with the very same content — an SSE tick, a poll, a DTO rebuild — and the
+    // rebuild wiped every expansion the reader had opened. Verified with a widget probe before fixing:
+    // expand a depth-1 branch, re-pump an EQUAL-but-new Map, and the children were gone.
+    //
+    // Deep-comparing the data would be the obvious fix and the wrong one: a ~650KB result would pay a
+    // full walk on every tick, to answer a question we don't actually care about. What the reader cares
+    // about is that THEIR expansions survive, so that is what we preserve — by path, in O(open nodes),
+    // which is also correct when the data genuinely did change a little.
+    //
+    // A structural change (root shown/labelled differently, a new openDepth) is an explicit request to
+    // re-seed the shape, so it deliberately does NOT preserve.
+    //
+    // Dart 对 Map/List 按**身份**判等,故上游只要解出一个内容完全相同的新对象(SSE tick / 轮询 / DTO 重建),
+    // `old.data != widget.data` 就成立,重建会抹掉读者已展开的一切。**修之前先用 widget 探针验过**:展开
+    // 一个 depth-1 分支,再灌一个内容相同的新 Map,子行就没了。
+    //
+    // 深比数据是显而易见、但错的修法:~650KB 结果要为每个 tick 付一次全量走查,去回答一个我们其实不关心的
+    // 问题。读者关心的是**他自己的展开**还在,那就保它——按路径、O(已展开节点),而且在数据确实小改时同样正确。
+    //
+    // 结构性变更(根的显隐/名、新的 openDepth)是明确要求重铺形状,故**刻意不**保留。
+    final structural =
         old.showRoot != widget.showRoot ||
         old.rootLabel != widget.rootLabel ||
-        old.openDepth != widget.openDepth) {
-      _rebuild();
+        old.openDepth != widget.openDepth;
+    if (structural ||
+        !identical(old.data, widget.data) ||
+        old.jsonString != widget.jsonString) {
+      _rebuild(preserveOpen: !structural);
     }
   }
 
-  void _rebuild() {
+  /// The paths currently expanded, walked from the live nodes. 当前展开的路径(据活节点走查)。
+  Set<String> _openPaths() {
+    final out = <String>{};
+    void walk(List<TreeSliverNode<_JNode>> nodes) {
+      for (final node in nodes) {
+        if (node.children.isEmpty) continue;
+        if (node.isExpanded) out.add(node.content.path);
+        walk(node.children);
+      }
+    }
+
+    walk(_tree);
+    return out;
+  }
+
+  /// Rows the viewport would show right now — a node plus, if it is open, its subtree.
+  /// 视口此刻会显示的行数——节点本身,若其展开则加上子树。
+  int _visibleRows() {
+    var n = 0;
+    void walk(List<TreeSliverNode<_JNode>> nodes) {
+      for (final node in nodes) {
+        n++;
+        if (node.isExpanded) walk(node.children);
+      }
+    }
+
+    walk(_tree);
+    return n;
+  }
+
+  void _onScroll() {
+    if (!_scroll.hasClients) return;
+    final max = _scroll.position.maxScrollExtent;
+    final off = _scroll.offset;
+    final above = off > 1.0;
+    final below = off < max - 1.0;
+    // A scroll listener is notified from inside performLayout; dirtying there is illegal (CR-1b).
+    // 滚动监听器会在 performLayout 内部被通知,在那儿弄脏非法。
+    if (above != _above || below != _below) {
+      runFrameSafe(() {
+        if (!mounted) return;
+        if (above == _above && below == _below) return;
+        setState(() {
+          _above = above;
+          _below = below;
+        });
+      });
+    }
+  }
+
+  void _rebuild({bool preserveOpen = false}) {
+    _restore = preserveOpen ? _openPaths() : null;
     _parseError = null;
     Object? data;
     if (widget.jsonString != null) {
@@ -119,9 +224,9 @@ class _AnJsonTreeState extends State<AnJsonTree> {
     final kind = _kindOf(data);
     if (!widget.showRoot && (kind == _JKind.object || kind == _JKind.array)) {
       // No root row → the data's entries ARE the top level, at depth 0 (flush, like the demo). 无根→顶层 depth 0。
-      return _children(data, 0, openDepth, ctx);
+      return _children(data, 0, openDepth, ctx, '');
     }
-    return [_buildNode(widget.rootLabel, data, 0, openDepth, ctx)];
+    return [_buildNode(widget.rootLabel, data, 0, openDepth, ctx, '')];
   }
 
   List<TreeSliverNode<_JNode>> _children(
@@ -129,6 +234,7 @@ class _AnJsonTreeState extends State<AnJsonTree> {
     int depth,
     int openDepth,
     _BuildCtx ctx,
+    String parentPath,
   ) {
     final entries = value is List
         ? [for (var i = 0; i < value.length; i++) MapEntry('$i', value[i])]
@@ -142,6 +248,7 @@ class _AnJsonTreeState extends State<AnJsonTree> {
           TreeSliverNode(
             _JNode(
               label: '…',
+              path: '$parentPath/…',
               kind: _JKind.nullValue,
               moreCount: entries.length - i,
             ),
@@ -150,7 +257,14 @@ class _AnJsonTreeState extends State<AnJsonTree> {
         break;
       }
       out.add(
-        _buildNode(entries[i].key, entries[i].value, depth, openDepth, ctx),
+        _buildNode(
+          entries[i].key,
+          entries[i].value,
+          depth,
+          openDepth,
+          ctx,
+          parentPath,
+        ),
       );
     }
     return out;
@@ -162,30 +276,43 @@ class _AnJsonTreeState extends State<AnJsonTree> {
     int depth,
     int openDepth,
     _BuildCtx ctx,
+    String parentPath,
   ) {
     ctx.count++;
     final kind = _kindOf(value);
+    // Keys are joined with '/' — a key containing a slash could in principle collide with a nested path,
+    // which would restore the wrong branch's open state. Harmless (a wrongly-open row, never wrong data)
+    // and not worth an escaping scheme. 键以 '/' 相连:含斜杠的键理论上可与嵌套路径撞,导致恢复错分支的展开态
+    // ——无害(顶多多开一行,数据永不会错),不值得为它引入转义。
+    final path = '$parentPath/$key';
     if (kind != _JKind.object && kind != _JKind.array) {
       return TreeSliverNode(
-        _JNode(label: key, kind: kind, value: _valueText(value, kind)),
+        _JNode(
+          label: key,
+          path: path,
+          kind: kind,
+          value: _valueText(value, kind),
+        ),
       );
     }
     if (ctx.seen.contains(value)) {
       // Circular ref (hand-built Map) → don't recurse (a stack overflow otherwise). 环→不下钻。
       return TreeSliverNode(
-        _JNode(label: key, kind: _JKind.nullValue, circular: true),
+        _JNode(label: key, path: path, kind: _JKind.nullValue, circular: true),
       );
     }
     ctx.seen.add(value!);
-    final children = _children(value, depth + 1, openDepth, ctx);
+    final children = _children(value, depth + 1, openDepth, ctx, path);
     ctx.seen.remove(value);
     final s = _summary(value, kind);
     // value: s lets an EMPTY collection render in the leaf path as a dim "{0}"/"[0]" (no fake chevron
     // button — children.isEmpty falls to leaf in _buildRow). value:s 让空集合走叶路径(无假分支钮)。
     return TreeSliverNode(
-      _JNode(label: key, kind: kind, summary: s, value: s),
+      _JNode(label: key, path: path, kind: kind, summary: s, value: s),
       children: children,
-      expanded: depth < openDepth,
+      // A preserved open-set wins over openDepth: on a data refresh the reader's own expansions are the
+      // truth, not the seed depth. 保留下来的展开集优先于 openDepth:数据刷新时读者自己的展开才是真相。
+      expanded: _restore?.contains(path) ?? depth < openDepth,
     );
   }
 
@@ -224,32 +351,114 @@ class _AnJsonTreeState extends State<AnJsonTree> {
     // throws inside a shrink-wrapping viewport), so AnJsonTree REQUIRES a bounded height from its parent
     // (a panel / inspector body / a SizedBox), like AnPage. That bounded viewport is what makes the
     // virtualization (build only visible rows) possible for a ~650KB result. 须有界高(虚拟化前提,不支持 shrinkWrap)。
+    Widget tree = ScrollConfiguration(
+      behavior: const AnScrollBehavior(),
+      child: CustomScrollView(
+        controller: _scroll,
+        slivers: [
+          TreeSliver<_JNode>(
+            tree: _tree,
+            controller: _controller,
+            indentation: TreeSliverIndentationType.none,
+            // reduced → AnimationStyle.noAnimation (the cleaner no-motion path; flutter#153889's
+            // duration-zero freeze was fixed in 3.41.9 — both skip now — but noAnimation stays correct).
+            // reduced 走 noAnimation(更干净;#153889 的 duration-zero 冻结 3.41.9 已修,仍用 noAnimation)。
+            toggleAnimationStyle: reduced
+                ? AnimationStyle.noAnimation
+                : AnimationStyle(
+                    curve: AnMotion.easeOut,
+                    duration: AnMotion.mid,
+                  ),
+            treeRowExtentBuilder: (node, dimensions) => AnSize.row,
+            treeNodeBuilder: _buildRow,
+            // Self-sizing mode has to re-measure when the tree folds. In every other mode the height is
+            // the caller's, so there is nothing to recompute and we don't rebuild. Inline in a safe
+            // phase — a toggle comes from a tap, not from layout. 自量高模式在折叠时须重新量;其余模式高
+            // 归调用方、无可重算,故不重建。安全相位下同步执行(toggle 来自点击、不来自布局)。
+            onNodeToggle: widget.maxHeight == null
+                ? null
+                : (_) => runFrameSafe(() {
+                    if (mounted) setState(() {});
+                  }),
+          ),
+        ],
+      ),
+    );
+
+    // The scroll affordance. A bounded viewport that silently hides rows is the whole reason CR-3 read
+    // as "click does nothing": the tree DID expand, the new rows were simply below a fold with no edge
+    // to suggest one existed. Each fade shows only while that side genuinely has more, so a tree that
+    // fits shows none.
+    //
+    // The Stack and both strips are UNCONDITIONAL, and the strips fade by opacity rather than appearing
+    // and disappearing. Writing this the natural way — `if (_above || _below) tree = Stack(...)` — moved
+    // the CustomScrollView between two different positions in the tree the first time a fade turned on,
+    // which remounted it and threw "TreeSliverController is already associated with another TreeSliver".
+    // That is the ticket book's own no-conditional-wrapping law (§5.8 RI), and it bit here within the
+    // hour of being written down: a wrapper that comes and goes is a remount, every time.
+    //
+    // 滚动示能。有界视口无声藏行,正是 CR-3 读起来像「点了没反应」的全部原因:树**确实**展开了,新行只是落在
+    // 一条没有任何边缘提示的折线之下。每侧渐隐只在那一侧真的还有内容时显示,故装得下的树两侧都不显示。
+    //
+    // Stack 与两条渐隐带**无条件**恒在,靠不透明度淡入淡出、而非出现/消失。按自然写法写(`if (_above ||
+    // _below) tree = Stack(...)`)会在第一次亮起渐隐时把 CustomScrollView 从树的一个位置搬到另一个位置,
+    // 于是它被重挂、抛出「TreeSliverController is already associated with another TreeSliver」。这正是本
+    // 工单册自己那条**禁止条件包装**军规(§5.8 RI),而它在写下的当天就在这里咬了一口:**来来去去的包装层
+    // 就是重挂**,每次都是。
+    tree = Stack(
+      children: [
+        Positioned.fill(child: tree),
+        Positioned(
+          top: 0,
+          left: 0,
+          right: 0,
+          height: AnSpace.s12,
+          child: AnimatedOpacity(
+            opacity: _above ? 1 : 0,
+            duration: reduced ? Duration.zero : AnMotion.fast,
+            child: AnEdgeFade(fromTop: true, color: c.surface),
+          ),
+        ),
+        Positioned(
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: AnSpace.s12,
+          child: AnimatedOpacity(
+            opacity: _below ? 1 : 0,
+            duration: reduced ? Duration.zero : AnMotion.fast,
+            child: AnEdgeFade(fromTop: false, color: c.surface),
+          ),
+        ),
+      ],
+    );
+
+    // Same law, one allowance stated out loud: this wrapper IS conditional, on a CONSTRUCTOR argument.
+    // Flipping maxHeight between null and non-null on a live instance would remount the subtree — no call
+    // site does (each passes a literal), and there is no unconditional form, because a null cap means the
+    // parent owns the bound and a SizedBox must not be there at all.
+    // 同一条法,一处例外要说在明面上:本包装层**是**条件的,条件是一个**构造参数**。在活实例上让 maxHeight
+    // 在 null 与非 null 之间翻会重挂子树——没有调用点这么做(各自传字面量),且此处无法写成无条件形式:cap 为
+    // null 意味着界归父级,那时 SizedBox 根本不该在树上。
+    if (widget.maxHeight != null) {
+      final h = (_visibleRows() * AnSize.row).clamp(
+        AnSize.row,
+        widget.maxHeight!,
+      );
+      // Grow/shrink with the fold animation rather than snapping a frame ahead of the rows.
+      // 随折叠动效长缩,而不是比行提前一帧硬跳。
+      tree = AnimatedSize(
+        duration: reduced ? Duration.zero : AnMotion.mid,
+        curve: AnMotion.easeOut,
+        alignment: Alignment.topCenter,
+        child: SizedBox(height: h.toDouble(), child: tree),
+      );
+    }
+
     return Semantics(
       container: true,
       label: context.t.a11y.jsonTree(count: topCount),
-      child: ScrollConfiguration(
-        behavior: const AnScrollBehavior(),
-        child: CustomScrollView(
-          slivers: [
-            TreeSliver<_JNode>(
-              tree: _tree,
-              controller: _controller,
-              indentation: TreeSliverIndentationType.none,
-              // reduced → AnimationStyle.noAnimation (the cleaner no-motion path; flutter#153889's
-              // duration-zero freeze was fixed in 3.41.9 — both skip now — but noAnimation stays correct).
-              // reduced 走 noAnimation(更干净;#153889 的 duration-zero 冻结 3.41.9 已修,仍用 noAnimation)。
-              toggleAnimationStyle: reduced
-                  ? AnimationStyle.noAnimation
-                  : AnimationStyle(
-                      curve: AnMotion.easeOut,
-                      duration: AnMotion.mid,
-                    ),
-              treeRowExtentBuilder: (node, dimensions) => AnSize.row,
-              treeNodeBuilder: _buildRow,
-            ),
-          ],
-        ),
-      ),
+      child: tree,
     );
   }
 
@@ -397,6 +606,7 @@ class _AnJsonTreeState extends State<AnJsonTree> {
 class _JNode {
   const _JNode({
     required this.label,
+    required this.path,
     required this.kind,
     this.value,
     this.summary,
@@ -404,6 +614,9 @@ class _JNode {
     this.moreCount = 0,
   });
   final String label;
+
+  /// Slash-joined key path from the root — the identity the open-set is preserved by. 路径=展开集的身份。
+  final String path;
   final _JKind kind;
   final String? value; // leaf value text 叶值
   final String? summary; // branch {n} / [n] 分支摘要
