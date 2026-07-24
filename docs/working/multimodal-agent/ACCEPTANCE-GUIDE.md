@@ -32,9 +32,36 @@ landed-into:
 
 ---
 
-## A 类 · AI 可代跑(恢复主树权限后)
+## ⚠️ A 类为什么**只能**从真 app 跑 —— 一次实测结论(2026-07-25)
+
+有人(包括 AI)会想走捷径:不启动 GUI,直接跑一个 CLI 后端连上真实数据目录、用 curl 打 API 做验收。
+**这条路走不通,而且它走不通是件好事。**
+
+实测过程与结果:把真实数据目录(`~/Library/Containers/website.anselm.app/Data/.anselm`)**只读复制**到
+临时目录、用另一个二进制启动后端 → 健康检查 200、真实 workspace 与受管 key 都能列出 → 发一条真实对话 →
+回合失败,原因是:
+
+```
+apikey.Service.ResolveCredentialsByID: decrypt: aesgcm: open: cipher: message authentication failed
+```
+
+**这正是 [ADR 0008](../../decisions/0008-master-key-keychain.md) 主密钥设计在按预期工作**:凭证由 keychain
+里的主密钥加密,而那把钥匙绑定签名 app;**另一个进程搬不走它**。换言之——
+
+> **A 类每一项都必须从真正的 app 里跑。** 任何「用 CLI 或脚本代跑 A 类」的方案都会在解密这一步失败;
+> 若某天它**不**失败了,那说明凭证边界破了,那本身就是最高优先级的安全缺陷。
+
+(该实测只操作副本,原库未被触碰;副本与进程已清理。)
+
+---
+
+## A 类 · AI 可代跑(需真 app;恢复主树权限后)
 
 ### A1. 受管路由的图片端到端(**本轮修复的验收**)
+
+> 🔴 **硬前置:网关必须先重新部署。** 生产网关 `api.anselm.website` 现在跑的是**旧代码**——它还不认相对
+> lease 引用,而桌面端已改成发相对形。**在网关部署本轮提交之前,A1 必定失败**,且失败信息会是
+> `image_url must be a base64 data URI`。这不是回归,是两仓未同批上线。**先部署网关,再跑 A1。**
 
 ```bash
 make -C backend seed && make -C frontend app
