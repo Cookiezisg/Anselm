@@ -18,6 +18,7 @@ import (
 	"context"
 
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
+	mediaapp "github.com/sunweilin/anselm/backend/internal/app/media"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
@@ -37,6 +38,12 @@ type TextCache interface {
 	DocumentText(ctx context.Context, attachmentID string, extract func(context.Context, *attachmentdomain.Attachment, []byte) (string, error)) (string, error)
 }
 
+// MediaProbeCache is the optional media-ingestion cache for local audio/video evidence capsules.
+// It returns metadata-only capsules now and is the seam where ASR/keyframe capsules attach later.
+type MediaProbeCache interface {
+	MediaProbe(ctx context.Context, attachmentID string, startMS, endMS int64) (mediaapp.MediaProbeCapsule, error)
+}
+
 // AttachmentTools constructs the attachment system tools over one Service. inspect_media is
 // registered only when a resolver is supplied, because it needs an LLM vision route; the two
 // metadata/text tools stay available in every boot.
@@ -48,12 +55,16 @@ func AttachmentTools(svc *attachmentapp.Service, resolver InspectMediaResolver, 
 	if len(textCacheOpt) > 0 {
 		textCache = textCacheOpt[0]
 	}
+	var mediaProbe MediaProbeCache
+	if p, ok := textCache.(MediaProbeCache); ok {
+		mediaProbe = p
+	}
 	tools := []toolapp.Tool{
 		&ListAttachments{svc: svc},
 		&ReadAttachment{svc: svc, textCache: textCache},
 	}
 	if resolver != nil {
-		tools = append(tools, &InspectMedia{svc: svc, resolver: resolver, imageProcessor: mediaImageProcessor{}, textCache: textCache})
+		tools = append(tools, &InspectMedia{svc: svc, resolver: resolver, imageProcessor: mediaImageProcessor{}, textCache: textCache, mediaProbe: mediaProbe})
 	}
 	return tools
 }

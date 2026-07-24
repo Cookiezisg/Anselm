@@ -744,7 +744,8 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 - 已落地：外部模型的高级 native JSON 编辑器与通用 knob 表单双向同步；JSON 只能携带当前已探测 model 公开的 string 旋钮和值，前端立即拒绝 `model`、认证、URL、messages、tools、stream 等非契约字段，服务端仍作同一验证。
 - 已落地：`get_model_config` 工具返回可用模型的 context/output、text/multimodal route budget、模态位、media envelope 与 `nativeOptions` knobs，使 Agent 能从真实配置回答“这个模型支持什么配置”，而不是猜外部文档。
 - 已落地：HTTP 与 HTTP 200/SSE 流内的 provider 拒绝统一经闭集 reason 判别；识别到 context-length 时同样进入无输出、无工具副作用的透明 checkpoint 重试，未识别的上游文本只在进程内判别后丢弃，用户面仅见脱敏 provider error。
-- 待完成：对仍无法以闭集 reason 判别的异常，评估是否需要独立、无上下文且不携带原始错误文本的二次诊断；默认不猜测、不重试。
+- 已评估：对仍无法以闭集 reason 判别的异常不做二次 LLM 诊断；默认不猜测、不重试，且不携带原始
+  provider 错误文本进入用户面或模型面。现有 HTTP/SSE 分类测试覆盖 body/text 脱敏与 context-length 闭集识别。
 - 待验收：单元/黑盒已覆盖主路径；真实外部模型“首次自然恢复 → 后续稳定治理”金标仍需本机补齐 key 后烧一次。
 
 **出口**：未知外部模型不因本地猜测被拒绝；自然 overflow 对用户透明恢复；Anselm Auto 与外部模型模式都只暴露
@@ -894,6 +895,10 @@ lease refresh/reuse 与生产 E2E 验证。
 
 **目标**：用 evidence capsule 取代主循环反复原生媒体。
 
+- 已落地（metadata capsule 地基）：`media.Service.MediaProbe` 为 audio/video 生成本地、可缓存、
+  metadata-only 的 `media-probe-v1` perception capsule，按 source SHA + range params 复用；不读原始媒体字节、
+  不调用模型、不伪造 transcript/OCR/scene。`inspect_media` 对 audio/video 现在返回该 capsule 与后续
+  ASR/keyframe/time-range 建议，而不是把 raw media 带进主上下文。
 - audio proxy/ASR/non-speech/prosody；
 - video probe/scene/keyframe/audio/OCR/timeline；
 - task-conditioned perception；

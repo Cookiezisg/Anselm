@@ -90,6 +90,7 @@ const (
 	DerivativeModelDefault = "model-default"
 	DerivativeModelDetail  = "model-detail"
 	DerivativeDocumentText = "document-text-v1"
+	PerceptionMediaProbe   = "media-probe-v1"
 )
 
 const modelDefaultImageWait = 2 * time.Second
@@ -116,6 +117,26 @@ type ImageCrop struct {
 
 type DocumentTextParams struct {
 	Version int `json:"version"`
+}
+
+type MediaProbeParams struct {
+	Version int   `json:"version"`
+	StartMS int64 `json:"startMs,omitempty"`
+	EndMS   int64 `json:"endMs,omitempty"`
+}
+
+type MediaProbeCapsule struct {
+	AttachmentID       string `json:"attachmentId"`
+	Filename           string `json:"filename"`
+	Kind               string `json:"kind"`
+	Mime               string `json:"mime"`
+	SizeBytes          int64  `json:"sizeBytes"`
+	SourceSHA256Prefix string `json:"sourceSha256Prefix"`
+	StartMS            int64  `json:"startMs,omitempty"`
+	EndMS              int64  `json:"endMs,omitempty"`
+	Mode               string `json:"mode"`
+	Evidence           string `json:"evidence"`
+	Usage              string `json:"usage"`
 }
 
 type Service struct {
@@ -307,6 +328,92 @@ func (s *Service) DocumentText(ctx context.Context, attachmentID string, extract
 	}
 	_ = s.repo.SaveDerivative(reqctxpkg.Detached(derivative.WorkspaceID), derivative)
 	return "", err
+}
+
+// MediaProbe returns a deterministic, local metadata capsule for audio/video attachments. It is a
+// deliberately modest M3 foundation: no model call, no raw bytes in prompt/log/DB, and no fake ASR
+// or scene understanding. The cached capsule gives the agent bounded evidence plus a stable place
+// for later ASR/keyframe processors to attach richer time-range evidence.
+func (s *Service) MediaProbe(ctx context.Context, attachmentID string, startMS, endMS int64) (MediaProbeCapsule, error) {
+	if strings.TrimSpace(attachmentID) == "" || startMS < 0 || endMS < 0 || (endMS > 0 && startMS > 0 && endMS <= startMS) {
+		return MediaProbeCapsule{}, mediadomain.ErrInvalidRequest
+	}
+	a, err := s.attachments.Get(ctx, attachmentID)
+	if err != nil {
+		return MediaProbeCapsule{}, err
+	}
+	if a.Kind != attachmentdomain.KindAudio && a.Kind != attachmentdomain.KindVideo {
+		return MediaProbeCapsule{}, mediadomain.ErrInvalidRequest
+	}
+	params := MediaProbeParams{Version: 1, StartMS: startMS, EndMS: endMS}
+	encoded, err := json.Marshal(params)
+	if err != nil {
+		return MediaProbeCapsule{}, fmt.Errorf("mediaapp.MediaProbe: params: %w", err)
+	}
+	perception, _, err := s.repo.ClaimPerception(ctx, &mediadomain.Perception{
+		ID:           idgenpkg.New("mpr"),
+		AttachmentID: a.ID,
+		Kind:         PerceptionMediaProbe,
+		SourceSHA256: a.SHA256,
+		TaskHash:     mediadomain.Hash([]byte(PerceptionMediaProbe)),
+		Provider:     "local",
+		Model:        PerceptionMediaProbe,
+		ParamsHash:   mediadomain.Hash(encoded),
+		ParamsJSON:   string(encoded),
+		Status:       mediadomain.StatusPending,
+	})
+	if err != nil {
+		return MediaProbeCapsule{}, err
+	}
+	if perception.Status == mediadomain.StatusReady && strings.TrimSpace(perception.CapsuleJSON) != "" {
+		var capsule MediaProbeCapsule
+		if err := json.Unmarshal([]byte(perception.CapsuleJSON), &capsule); err == nil {
+			return capsule, nil
+		}
+		s.log.Warn("media: probe capsule unreadable; regenerating", zap.String("work_id", perception.ID))
+	}
+	perception.Status, perception.ErrorCode = mediadomain.StatusRunning, ""
+	if err := s.repo.SavePerception(ctx, perception); err != nil {
+		return MediaProbeCapsule{}, err
+	}
+	capsule := BuildMediaProbeCapsule(a, startMS, endMS)
+	raw, err := json.Marshal(capsule)
+	if err != nil {
+		perception.Status, perception.ErrorCode = mediadomain.StatusFailed, "MEDIA_PROBE_FAILED"
+		_ = s.repo.SavePerception(reqctxpkg.Detached(perception.WorkspaceID), perception)
+		return MediaProbeCapsule{}, fmt.Errorf("mediaapp.MediaProbe: capsule: %w", err)
+	}
+	perception.Status, perception.CapsuleJSON = mediadomain.StatusReady, string(raw)
+	perception.InputTokens, perception.OutputTokens, perception.ErrorCode = 0, 0, ""
+	if err := s.repo.SavePerception(ctx, perception); err != nil {
+		return MediaProbeCapsule{}, err
+	}
+	return capsule, nil
+}
+
+func BuildMediaProbeCapsule(a *attachmentdomain.Attachment, startMS, endMS int64) MediaProbeCapsule {
+	prefix := a.SHA256
+	if len(prefix) > 12 {
+		prefix = prefix[:12]
+	}
+	usage := "This is local metadata only. Use it to decide whether to request transcription, keyframes, or a narrower time range; it does not contain audio transcript, OCR, scene labels, or raw media."
+	evidence := fmt.Sprintf("%s attachment %q is available as local metadata: mime=%s sizeBytes=%d.", a.Kind, a.Filename, a.MimeType, a.SizeBytes)
+	if startMS > 0 || endMS > 0 {
+		evidence = fmt.Sprintf("%s Requested time range: startMs=%d endMs=%d.", evidence, startMS, endMS)
+	}
+	return MediaProbeCapsule{
+		AttachmentID:       a.ID,
+		Filename:           a.Filename,
+		Kind:               a.Kind,
+		Mime:               a.MimeType,
+		SizeBytes:          a.SizeBytes,
+		SourceSHA256Prefix: prefix,
+		StartMS:            startMS,
+		EndMS:              endMS,
+		Mode:               "metadata",
+		Evidence:           evidence,
+		Usage:              usage,
+	}
 }
 
 func (s *Service) CancelDerivative(ctx context.Context, id string) (*mediadomain.Derivative, error) {

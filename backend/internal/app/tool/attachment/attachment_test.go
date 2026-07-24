@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
+	mediaapp "github.com/sunweilin/anselm/backend/internal/app/media"
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	blobfs "github.com/sunweilin/anselm/backend/internal/infra/fs/blob"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -610,20 +611,28 @@ func TestInspectMedia_DocumentUsesTextCachePage(t *testing.T) {
 	}
 }
 
-func TestInspectMedia_AudioSoftFailsWithoutCallingModel(t *testing.T) {
+func TestInspectMedia_AudioReturnsMetadataCapsuleWithoutCallingModel(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	a, err := svc.Upload(ctx, "voice.mp3", "audio/mpeg", []byte("ID3 audio"))
 	if err != nil {
 		t.Fatalf("upload: %v", err)
 	}
 	client := llminfra.NewMockClient()
-	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{Client: client, Vision: true}}}
-	out, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"what is it?"}`)
+	probe := &fakeMediaProbeCache{capsule: mediaapp.BuildMediaProbeCapsule(a, 100, 900)}
+	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{Client: client, Vision: true}}, mediaProbe: probe}
+	out, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"what is it?","startMs":100,"endMs":900}`)
 	if err != nil {
 		t.Fatalf("inspect: %v", err)
 	}
-	if !strings.Contains(out, "Audio/video time-range inspection is not implemented yet") || client.CallCount() != 0 {
-		t.Fatalf("audio should soft-fail without LLM call; out=%q calls=%d", out, client.CallCount())
+	var got inspectTemporalResult
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("audio probe should be JSON: %v\n%s", err, out)
+	}
+	if got.Kind != attachmentdomain.KindAudio || got.Mode != "metadata" ||
+		got.StartMS != 100 || got.EndMS != 900 ||
+		!strings.Contains(got.Usage, "local metadata only") ||
+		client.CallCount() != 0 || probe.calls != 1 {
+		t.Fatalf("audio should return metadata capsule without LLM call; got=%+v calls=%d probe=%d", got, client.CallCount(), probe.calls)
 	}
 }
 
@@ -656,6 +665,16 @@ type fakeInspectResolver struct {
 
 func (f fakeInspectResolver) ResolveInspectMedia(context.Context) (InspectMediaBundle, error) {
 	return f.bundle, f.err
+}
+
+type fakeMediaProbeCache struct {
+	capsule mediaapp.MediaProbeCapsule
+	calls   int
+}
+
+func (f *fakeMediaProbeCache) MediaProbe(_ context.Context, _ string, _, _ int64) (mediaapp.MediaProbeCapsule, error) {
+	f.calls++
+	return f.capsule, nil
 }
 
 type fakeUploader struct {

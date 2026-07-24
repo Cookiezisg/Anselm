@@ -3,6 +3,7 @@ package media
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -46,6 +47,11 @@ func (f *fakeRepo) ClaimDerivative(_ context.Context, d *mediadomain.Derivative)
 	return d, true, nil
 }
 func (f *fakeRepo) ClaimPerception(_ context.Context, p *mediadomain.Perception) (*mediadomain.Perception, bool, error) {
+	if f.perception != nil && f.perception.AttachmentID == p.AttachmentID && f.perception.Kind == p.Kind &&
+		f.perception.SourceSHA256 == p.SourceSHA256 && f.perception.TaskHash == p.TaskHash &&
+		f.perception.Provider == p.Provider && f.perception.Model == p.Model && f.perception.ParamsHash == p.ParamsHash {
+		return f.perception, false, nil
+	}
 	f.perception = p
 	return p, true, nil
 }
@@ -275,6 +281,38 @@ func TestDocumentText_CachesExtractedTextBySourceAndVersion(t *testing.T) {
 	})
 	if err != nil || second != first || calls != 1 {
 		t.Fatalf("cached document text = (%q, calls=%d, err=%v), want first text and one extraction", second, calls, err)
+	}
+}
+
+func TestMediaProbe_CachesMetadataCapsuleBySourceAndRange(t *testing.T) {
+	repo := &fakeRepo{}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{
+		ID: "att_1", SHA256: "0123456789abcdef", Filename: "voice.mp3",
+		MimeType: "audio/mpeg", SizeBytes: 1234, Kind: attachmentdomain.KindAudio,
+	}}, repo, fakeArtifacts{}, zap.NewNop())
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+
+	first, err := svc.MediaProbe(ctx, "att_1", 1000, 3000)
+	if err != nil {
+		t.Fatalf("probe: %v", err)
+	}
+	if first.Kind != attachmentdomain.KindAudio || first.Mode != "metadata" || first.SourceSHA256Prefix != "0123456789ab" ||
+		first.StartMS != 1000 || first.EndMS != 3000 || !strings.Contains(first.Usage, "local metadata only") {
+		t.Fatalf("unexpected probe capsule: %+v", first)
+	}
+	if repo.perception == nil || repo.perception.Kind != PerceptionMediaProbe || repo.perception.Provider != "local" ||
+		repo.perception.Model != PerceptionMediaProbe || repo.perception.Status != mediadomain.StatusReady ||
+		strings.Contains(repo.perception.CapsuleJSON, "what does the user ask") {
+		t.Fatalf("probe perception not cached safely: %+v", repo.perception)
+	}
+	cachedJSON := repo.perception.CapsuleJSON
+
+	second, err := svc.MediaProbe(ctx, "att_1", 1000, 3000)
+	if err != nil {
+		t.Fatalf("cached probe: %v", err)
+	}
+	if second != first || repo.perception.CapsuleJSON != cachedJSON {
+		t.Fatalf("cached probe should reuse the same capsule: first=%+v second=%+v", first, second)
 	}
 }
 

@@ -28,7 +28,7 @@ const (
 	inspectMediaMaxTileCols           = 8
 )
 
-const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId and return concise, bounded text evidence. For images, this uses the default vision-capable Anselm route and sends only one bounded image proxy/crop; it does not dump image bytes into the conversation. For long or dense images, pass tiles:true first to get a compact normalized tile map without calling a model, then inspect a chosen crop. For text/documents, it reuses local extraction plus query/page/offset windows and does not call a model, so large files are returned as evidence slices instead of flooding context. Audio/video time ranges are future capabilities and return a self-correcting note.`
+const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId and return concise, bounded text evidence. For images, this uses the default vision-capable Anselm route and sends only one bounded image proxy/crop; it does not dump image bytes into the conversation. For long or dense images, pass tiles:true first to get a compact normalized tile map without calling a model, then inspect a chosen crop. For text/documents, it reuses local extraction plus query/page/offset windows and does not call a model, so large files are returned as evidence slices instead of flooding context. For audio/video, it currently returns a local metadata capsule with optional time-range intent; it does not fake transcript, OCR, scenes, or raw-media understanding.`
 
 var inspectMediaSchema = json.RawMessage(`{
 	"type": "object",
@@ -42,8 +42,8 @@ var inspectMediaSchema = json.RawMessage(`{
 		"limitChars": {"type": "integer", "minimum": 1, "maximum": 40000, "description": "For text/document attachments, maximum evidence characters. Defaults to 12000; capped at 40000."},
 		"contextChars": {"type": "integer", "minimum": 1, "maximum": 2000, "description": "For text/document query mode, characters of context on each side. Defaults to 800."},
 		"maxMatches": {"type": "integer", "minimum": 1, "maximum": 10, "description": "For text/document query mode, max literal matches. Defaults to 5."},
-		"startMs": {"type": "integer", "minimum": 0, "description": "Reserved for audio/video inspection; not supported yet."},
-		"endMs": {"type": "integer", "minimum": 0, "description": "Reserved for audio/video inspection; not supported yet."},
+		"startMs": {"type": "integer", "minimum": 0, "description": "For audio/video metadata capsules, optional requested start time in milliseconds. Rich ASR/keyframe perception is not available yet."},
+		"endMs": {"type": "integer", "minimum": 0, "description": "For audio/video metadata capsules, optional requested end time in milliseconds. Rich ASR/keyframe perception is not available yet."},
 		"tiles": {"type": "boolean", "description": "For image attachments, return a compact normalized tile map instead of calling a vision model. Use a returned crop with a follow-up inspect_media call."},
 		"tileRows": {"type": "integer", "minimum": 1, "maximum": 8, "description": "Optional tile rows for image tiles mode. Defaults from image aspect ratio."},
 		"tileCols": {"type": "integer", "minimum": 1, "maximum": 8, "description": "Optional tile columns for image tiles mode. Defaults from image aspect ratio."},
@@ -93,6 +93,7 @@ type InspectMedia struct {
 	resolver       InspectMediaResolver
 	imageProcessor imageDeriver
 	textCache      TextCache
+	mediaProbe     MediaProbeCache
 }
 
 type imageDeriver interface {
@@ -172,9 +173,11 @@ func (t *InspectMedia) Execute(ctx context.Context, argsJSON string) (string, er
 	case attachmentdomain.KindImage:
 	case attachmentdomain.KindText, attachmentdomain.KindDocument:
 		return t.inspectTextual(ctx, meta, args)
+	case attachmentdomain.KindAudio, attachmentdomain.KindVideo:
+		return t.inspectTemporal(ctx, meta, args)
 	default:
 		return fmt.Sprintf(
-			"inspect_media currently supports image and text/document attachments. Attachment %q (id %s) is kind %s / %s. Audio/video time-range inspection is not implemented yet; attach a transcript or use speech input for dictation.",
+			"inspect_media currently supports image, text/document, audio, and video attachments. Attachment %q (id %s) is kind %s / %s, which has no extractor yet.",
 			meta.Filename, meta.ID, meta.Kind, meta.MimeType), nil
 	}
 	_, original, err := t.svc.Download(ctx, args.AttachmentID)
@@ -304,6 +307,22 @@ type inspectTextResult struct {
 	Evidence     string   `json:"evidence"`
 }
 
+type inspectTemporalResult struct {
+	AttachmentID       string   `json:"attachmentId"`
+	Filename           string   `json:"filename"`
+	Kind               string   `json:"kind"`
+	Mime               string   `json:"mime"`
+	SizeBytes          int64    `json:"sizeBytes"`
+	SourceSHA256Prefix string   `json:"sourceSha256Prefix"`
+	Question           string   `json:"question"`
+	StartMS            int64    `json:"startMs,omitempty"`
+	EndMS              int64    `json:"endMs,omitempty"`
+	Mode               string   `json:"mode"`
+	Notes              []string `json:"notes,omitempty"`
+	Evidence           string   `json:"evidence"`
+	Usage              string   `json:"usage"`
+}
+
 func (t *InspectMedia) inspectTextual(ctx context.Context, meta *attachmentdomain.Attachment, args inspectMediaArgs) (string, error) {
 	text, err := attachmentText(ctx, t.svc, t.textCache, meta)
 	if err != nil {
@@ -337,6 +356,35 @@ func (t *InspectMedia) inspectTextual(ctx context.Context, meta *attachmentdomai
 		Mode:         mode,
 		Notes:        notes,
 		Evidence:     evidence,
+	}), nil
+}
+
+func (t *InspectMedia) inspectTemporal(ctx context.Context, meta *attachmentdomain.Attachment, args inspectMediaArgs) (string, error) {
+	notes := ignoredTemporalInspectFields(args)
+	capsule := mediaapp.BuildMediaProbeCapsule(meta, args.StartMS, args.EndMS)
+	if t.mediaProbe != nil {
+		got, err := t.mediaProbe.MediaProbe(ctx, meta.ID, args.StartMS, args.EndMS)
+		if err != nil {
+			return "", err
+		}
+		capsule = got
+	} else {
+		notes = append(notes, "media probe cache is unavailable; returned uncached local metadata")
+	}
+	return toolappJSON(inspectTemporalResult{
+		AttachmentID:       capsule.AttachmentID,
+		Filename:           capsule.Filename,
+		Kind:               capsule.Kind,
+		Mime:               capsule.Mime,
+		SizeBytes:          capsule.SizeBytes,
+		SourceSHA256Prefix: capsule.SourceSHA256Prefix,
+		Question:           strings.TrimSpace(args.Question),
+		StartMS:            capsule.StartMS,
+		EndMS:              capsule.EndMS,
+		Mode:               capsule.Mode,
+		Notes:              notes,
+		Evidence:           capsule.Evidence,
+		Usage:              capsule.Usage,
 	}), nil
 }
 
@@ -520,6 +568,26 @@ func ignoredTextInspectFields(args inspectMediaArgs) []string {
 	}
 	if strings.TrimSpace(args.Query) != "" && args.Offset > 0 {
 		notes = append(notes, "query mode ignores offset for text/document inspection")
+	}
+	return notes
+}
+
+func ignoredTemporalInspectFields(args inspectMediaArgs) []string {
+	var notes []string
+	if args.Crop != nil {
+		notes = append(notes, "crop is only applicable to image attachments and was ignored")
+	}
+	if args.Detail != "" {
+		notes = append(notes, "detail is only applicable to image attachments and was ignored")
+	}
+	if args.Page > 0 {
+		notes = append(notes, "page is only applicable to text/document attachments and was ignored")
+	}
+	if args.Offset > 0 || args.LimitChars > 0 || strings.TrimSpace(args.Query) != "" {
+		notes = append(notes, "query/offset/limitChars are only applicable to text/document attachments and were ignored")
+	}
+	if args.Tiles || args.TileRows > 0 || args.TileCols > 0 {
+		notes = append(notes, "tiles are only applicable to image attachments and were ignored")
 	}
 	return notes
 }
