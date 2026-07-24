@@ -1,0 +1,88 @@
+{
+  "version": 1,
+  "cases": [
+    {
+      "id": "photo-scene",
+      "kind": "image",
+      "file": "photo.jpeg",
+      "source": "pinned-remote",
+      "sha256": "9eeaa87013b4e800930e8a411b58ff9e2fd5383906b1a022f4a712720af34cc2",
+      "question": "Describe the people, animals, and setting. State uncertainty instead of inventing fine detail."
+    },
+    {
+      "id": "text-screenshot",
+      "kind": "image",
+      "file": "text-screenshot.png",
+      "source": "deterministic-generator",
+      "sha256": "d9e25c4c819767e254e4efb43867a048abe037041c10c28a82cb9a594b3a33f7",
+      "question": "Read the large heading and report the six-digit number.",
+      "mustContain": ["ANSELM GOLD", "314159"]
+    },
+    {
+      "id": "long-image",
+      "kind": "image",
+      "file": "long-image.png",
+      "source": "deterministic-generator",
+      "sha256": "ae0af9ab792ad0b03cb0fc6ab413637c60807d504eabab4ea6042a477c950341",
+      "question": "List the first and last numbered section without omitting that the image is vertically long.",
+      "mustContain": ["SECTION 01", "SECTION 12"]
+    },
+    {
+      "id": "pdf-page",
+      "kind": "document",
+      "file": "gold.pdf",
+      "source": "deterministic-generator",
+      "sha256": "a6a646004b46bf3f7190b08d1a06b0347841dbe8abe025231e86e78ae99efd15",
+      "question": "Return the sentinel and page number.",
+      "mustContain": ["271828", "PAGE 1"]
+    },
+    {
+      "id": "office-docx",
+      "kind": "document",
+      "file": "gold.docx",
+      "source": "deterministic-generator",
+      "sha256": "bf0e75b380b71f3c67f067289ff900393111c211137e7ab196153c252441b60a",
+      "question": "Return the Office sentinel.",
+      "mustContain": ["OFFICE SENTINEL 161803"]
+    },
+    {
+      "id": "short-video",
+      "kind": "video",
+      "file": "short.mp4",
+      "source": "pinned-remote",
+      "sha256": "848ae8897c34cd7f776a00e82f42635266edc077afb0106bb02644a1557bc210",
+      "question": "Summarize the principal visible action with timestamps."
+    },
+    {
+      "id": "long-video",
+      "kind": "video",
+      "file": "long.mp4",
+      "source": "derived-from-short-video",
+      "sha256": "3d64b9e0a8d9df61da587ed26325853ce536207a8d67460e620038c09976fcff",
+      "question": "Identify the repeated scene pattern and cite an early and a late timestamp."
+    },
+    {
+      "id": "speech",
+      "kind": "audio",
+      "file": "speech.wav",
+      "source": "pinned-remote",
+      "sha256": "9265eff0f665ec1067f806491afddf3e5434c4519441f39ca8047ac0ae309b1e",
+      "question": "Transcribe the speech and preserve its language."
+    },
+    {
+      "id": "music",
+      "kind": "audio",
+      "file": "music.wav",
+      "source": "deterministic-generator",
+      "sha256": "5db8951b455ed97dddfff04149d9cb8cb649496dbf480e68ebbd70d321bfb864",
+      "question": "Describe the repeated rising three-note pattern and state that it is synthetic, not speech."
+    },
+    {
+      "id": "mixed-media",
+      "kind": "mixed",
+      "files": ["photo.jpeg", "speech.wav"],
+      "source": "composition",
+      "question": "Report visual and audio evidence separately; do not claim the audio came from the photographed scene."
+    }
+  ]
+}

@@ -3,6 +3,7 @@ package contextmgr
 import (
 	"fmt"
 	"strings"
+	"unicode/utf8"
 
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 )
@@ -61,9 +62,23 @@ func excerpt(b messagesdomain.Block) string {
 		label = b.Type + ":" + tool
 	}
 	if len(c) > maxBlockExcerptBytes {
-		c = c[:maxBlockExcerptBytes] + "…[truncated]"
+		c = truncateUTF8Bytes(c, maxBlockExcerptBytes) + "…[truncated]"
 	}
 	return "[" + label + "] " + c
+}
+
+func truncateUTF8Bytes(s string, maxBytes int) string {
+	if maxBytes <= 0 {
+		return ""
+	}
+	if len(s) <= maxBytes {
+		return s
+	}
+	end := maxBytes
+	for end > 0 && !utf8.RuneStart(s[end]) {
+		end--
+	}
+	return s[:end]
 }
 
 // cleanSummary trims whitespace and strips a leading ``` fence if the model wrapped its output.
