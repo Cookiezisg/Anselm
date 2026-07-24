@@ -50,6 +50,15 @@ type Installer interface {
 type Keys interface {
 	List(ctx context.Context, filter apikeydomain.ListFilter) ([]*apikeydomain.APIKey, string, error)
 	CreateManaged(ctx context.Context, in apikeyapp.ManagedCreateInput) (*apikeydomain.APIKey, error)
+	// Test probes the key's provider and writes the LIVE response back as the key's capability
+	// archive. Provisioning seeds a hard-coded placeholder so the app is usable offline on first
+	// boot; without this refresh that placeholder would be the ONLY thing the capability catalogue
+	// ever sees, and every real route profile the gateway publishes would be invisible.
+	//
+	// Test 探测该 key 的 provider,并把 **live** 响应写回作为该 key 的能力档案。开通时先播一份硬编码占位,
+	// 使首启离线也能用;没有这次刷新,那份占位就会是能力目录**唯一**见过的东西,网关真实发布的每一份
+	// route profile 都到不了这里。
+	Test(ctx context.Context, id string) (*apikeyapp.TestResult, error)
 }
 
 // Defaults is the workspace port for seeding scenario defaults (a subset of *workspaceapp.Service),
@@ -163,6 +172,7 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 		return nil
 	}
 	p.log.Info("free-tier provisioned (managed anselm key created)")
+	p.refreshCapabilities(ctx, k.ID)
 	p.seedDefaults(ctx, k.ID)
 	return nil
 }
@@ -180,5 +190,30 @@ func (p *Provisioner) seedDefaults(ctx context.Context, keyID string) {
 	ref := modeldomain.ModelRef{APIKeyID: keyID, ModelID: llminfra.AnselmModelID}
 	if err := p.defaults.SeedDefaultsIfUnset(ctx, ref); err != nil {
 		p.log.Warn("free-tier: seeding workspace default models failed", zap.Error(err))
+	}
+}
+
+// refreshCapabilities replaces the seeded placeholder archive with the gateway's LIVE `/v1/models`
+// answer, so the managed key's published limits/modalities are the gateway's truth rather than a
+// constant compiled into this binary.
+//
+// Best-effort ON PURPOSE: first boot may be offline, and a managed key that works with placeholder
+// capabilities is far better than a provisioning step that fails because the network was down. But
+// the degradation is LOGGED — a silent fallback to hard-coded numbers is exactly how a desktop ends
+// up quietly governing itself by values the gateway no longer publishes.
+//
+// refreshCapabilities 用网关 **live** 的 `/v1/models` 应答替换开通时播下的占位档案,使受管 key 公布的
+// 上限/模态是**网关的真相**,而不是编进本二进制的一个常量。
+//
+// **刻意**做成 best-effort:首启可能离线,而「带占位能力但能用的受管 key」远好过「因为断网而失败的开通」。
+// 但降级要**留日志**——静默退回硬编码数字,正是桌面端悄悄按网关早已不再公布的值自治的那条路。
+func (p *Provisioner) refreshCapabilities(ctx context.Context, keyID string) {
+	if p.keys == nil || keyID == "" {
+		return
+	}
+	if _, err := p.keys.Test(ctx, keyID); err != nil {
+		p.log.Warn("free-tier: live capability probe failed; keeping the seeded placeholder archive "+
+			"(published limits may lag the gateway until the next successful probe)",
+			zap.Error(err))
 	}
 }

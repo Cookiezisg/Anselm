@@ -19,6 +19,18 @@ type fakeKeys struct {
 	rows      []*apikeydomain.APIKey
 	created   []apikeyapp.ManagedCreateInput
 	createErr error
+	tested    []string
+	testErr   error
+}
+
+// Test records the live-capability refresh the provisioner performs after minting the managed key.
+// Test 记录 provisioner 在铸出受管 key 后所做的 live 能力刷新。
+func (f *fakeKeys) Test(_ context.Context, id string) (*apikeyapp.TestResult, error) {
+	f.tested = append(f.tested, id)
+	if f.testErr != nil {
+		return nil, f.testErr
+	}
+	return &apikeyapp.TestResult{}, nil
 }
 
 func (f *fakeKeys) List(_ context.Context, filter apikeydomain.ListFilter) ([]*apikeydomain.APIKey, string, error) {
@@ -205,5 +217,42 @@ func TestEnsure_SeedsDefaultsOnSelfHeal(t *testing.T) {
 	}
 	if len(defs.seeded) != 1 || defs.seeded[0].APIKeyID != "aki_existing" {
 		t.Fatalf("existing key must still seed defaults with its own id, got %+v", defs.seeded)
+	}
+}
+
+// The managed key's capability archive is seeded with a hard-coded placeholder so a first boot works
+// offline. If provisioning stopped there, that constant would be the ONLY thing the capability
+// catalogue ever sees and every real route profile the gateway publishes would be invisible — the
+// desktop would quietly govern itself by numbers compiled into its own binary.
+//
+// A failing probe must NOT fail provisioning (offline first boot must still yield a usable key), but
+// it must not be silent either.
+//
+// 受管 key 的能力档案先播一份硬编码占位,使首启离线也能用。若开通到此为止,那个常量就会是能力目录**唯一**
+// 见过的东西,网关真实发布的每一份 route profile 都到不了桌面端——它会悄悄按编进自己二进制的数字自治。
+//
+// 探针失败**不得**让开通失败(离线首启仍须产出可用的 key),但也不得无声无息。
+func TestProvisionRefreshesCapabilitiesFromTheGateway(t *testing.T) {
+	keys := &fakeKeys{}
+	ok, err := newProv(keys, &fakeInstaller{installID: "ins_1"}, okFP).ProvisionNow(context.Background())
+	if err != nil || !ok {
+		t.Fatalf("provision → (%v,%v), want (true,nil)", ok, err)
+	}
+	if len(keys.created) != 1 {
+		t.Fatalf("want one managed key, got %d", len(keys.created))
+	}
+	if len(keys.tested) != 1 || keys.tested[0] == "" {
+		t.Fatalf("provisioning must refresh the placeholder archive with a live probe, tested=%v", keys.tested)
+	}
+
+	// A probe failure degrades, it does not abort: an offline first boot still yields a usable key.
+	// 探针失败只降级、不中止:离线首启仍产出可用的 key。
+	keys2 := &fakeKeys{testErr: errors.New("offline")}
+	ok2, err2 := newProv(keys2, &fakeInstaller{installID: "ins_2"}, okFP).ProvisionNow(context.Background())
+	if err2 != nil || !ok2 {
+		t.Fatalf("a failed capability probe must not fail provisioning → (%v,%v)", ok2, err2)
+	}
+	if len(keys2.created) != 1 {
+		t.Fatalf("the managed key must still exist after a failed probe, got %d", len(keys2.created))
 	}
 }
