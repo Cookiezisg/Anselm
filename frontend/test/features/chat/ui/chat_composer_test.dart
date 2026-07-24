@@ -15,6 +15,7 @@ import 'package:anselm/features/chat/state/conversation_header.dart';
 import 'package:anselm/features/chat/state/new_conversation.dart';
 import 'package:anselm/features/chat/state/pending_attachments.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
+import 'package:anselm/features/chat/state/speech_input_provider.dart';
 import 'package:anselm/features/chat/ui/chat_composer.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -125,6 +126,13 @@ List<Override> _speechModelOverrides({
   ),
   modelCapabilitiesProvider.overrideWith((ref) async => caps),
 ];
+
+class _PermissionDeniedSpeech extends SpeechInputController {
+  @override
+  Future<void> start() async {
+    state = const SpeechInputState(error: speechInputErrorPermissionDenied);
+  }
+}
 
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 3; i++) {
@@ -417,6 +425,51 @@ void main() {
       expect(find.byIcon(AnIcons.microphone), findsNothing);
     },
   );
+
+  testWidgets('voice permission denial shows a specific recovery hint', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_1')],
+      messages: {'cv_1': []},
+    );
+    await tester.pumpWidget(
+      _host(
+        repo,
+        overrides: [
+          ..._speechModelOverrides(
+            workspace: _workspaceWithDefaultModel(
+              'aki_demo_managed0',
+              'anselm-auto',
+            ),
+            caps: const [
+              ModelCapability(
+                apiKeyId: 'aki_demo_managed0',
+                provider: 'anselm',
+                modelId: 'anselm-auto',
+                displayName: 'Anselm Auto',
+              ),
+            ],
+          ),
+          speechInputProvider.overrideWith(_PermissionDeniedSpeech.new),
+        ],
+      ),
+    );
+    await _settle(tester);
+
+    await tester.tap(find.byKey(const ValueKey('voice')));
+    await _settle(tester);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ChatComposer)),
+    );
+    final notice = container.read(noticeCenterProvider).current?.message;
+    expect(
+      notice?.text,
+      'Microphone permission is off. Enable microphone access in system settings, then try again.',
+    );
+    expect(notice?.tone, AnTone.warn);
+  });
 
   testWidgets('single-line height is INVARIANT to the send button appearing', (
     tester,

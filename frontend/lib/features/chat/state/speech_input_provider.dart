@@ -14,6 +14,10 @@ import '../../settings/state/workspaces_provider.dart';
 import 'conversation_header.dart';
 import 'selected_conversation.dart';
 
+const speechInputErrorUnavailable = 'unavailable';
+const speechInputErrorPermissionDenied = 'permission_denied';
+const speechInputErrorFailed = 'failed';
+
 class SpeechInputState {
   const SpeechInputState({
     this.recording = false,
@@ -109,7 +113,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   Future<void> start() async {
     if (state.active) return;
     if (!ref.read(speechInputAvailableProvider)) {
-      state = const SpeechInputState(error: 'unavailable');
+      state = const SpeechInputState(error: speechInputErrorUnavailable);
       return;
     }
     state = const SpeechInputState(recording: true);
@@ -132,7 +136,9 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       _recorder = recorder;
       final allowed = await recorder.hasPermission();
       if (!allowed) {
-        throw StateError('microphone permission denied');
+        await _close(cancelRecorder: true);
+        state = const SpeechInputState(error: speechInputErrorPermissionDenied);
+        return;
       }
       final stream = await recorder.startStream(
         const RecordConfig(
@@ -147,7 +153,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       }, onError: (Object e) => _fail(e));
     } catch (e) {
       await _close(cancelRecorder: true);
-      state = SpeechInputState(error: e.toString());
+      state = const SpeechInputState(error: speechInputErrorFailed);
     }
   }
 

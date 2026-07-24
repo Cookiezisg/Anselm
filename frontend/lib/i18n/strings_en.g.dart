@@ -158,6 +158,9 @@ class Translations$chat$en {
 	/// en: 'Voice input is available only with Anselm Auto'
 	String get voiceInputUnavailable => 'Voice input is available only with Anselm Auto';
 
+	/// en: 'Microphone permission is off. Enable microphone access in system settings, then try again.'
+	String get voiceInputPermissionDenied => 'Microphone permission is off. Enable microphone access in system settings, then try again.';
+
 	/// en: 'Voice input couldn't start'
 	String get voiceInputFailed => 'Voice input couldn\'t start';
 
@@ -6435,6 +6438,7 @@ extension on Translations {
 			'chat.voiceInput' => 'Voice input',
 			'chat.stopVoiceInput' => 'Stop voice input',
 			'chat.voiceInputUnavailable' => 'Voice input is available only with Anselm Auto',
+			'chat.voiceInputPermissionDenied' => 'Microphone permission is off. Enable microphone access in system settings, then try again.',
 			'chat.voiceInputFailed' => 'Voice input couldn\'t start',
 			'chat.stop' => 'Stop generating',
 			'chat.thinking' => 'thinking',
@@ -6910,9 +6914,9 @@ extension on Translations {
 			'chat.gate.submit' => 'Send',
 			'chat.gate.answerPlaceholder' => 'Type your answer…',
 			'chat.gate.decidedApproved' => 'Allowed',
-			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
 			_ => null,
 		} ?? switch (path) {
+			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
 			'chat.gate.decidedDenied' => 'Denied',
 			'chat.gate.decidedDeclined' => 'Skipped',
 			'chat.contextCompacted' => 'Context compacted',
@@ -7424,9 +7428,9 @@ extension on Translations {
 			'a11y.fmtBold' => 'Bold',
 			'a11y.fmtItalic' => 'Italic',
 			'a11y.fmtStrike' => 'Strikethrough',
-			'a11y.fmtCode' => 'Inline code',
 			_ => null,
 		} ?? switch (path) {
+			'a11y.fmtCode' => 'Inline code',
 			'a11y.fmtLink' => 'Link',
 			'a11y.relationSummary' => ({required Object nodes, required Object edges}) => 'Relationship graph. ${nodes} entities, ${edges} relations.',
 			'a11y.relationNode' => ({required Object name, required Object kind, required Object count}) => '${name}, ${kind}, referenced by ${count}',
@@ -7938,9 +7942,9 @@ extension on Translations {
 			'settings.webLocal' => 'Local fetch',
 			'settings.webJina' => 'Jina proxy',
 			'settings.defaultModelLink' => 'Default chat model → Models & keys',
-			'settings.langEn' => 'English',
 			_ => null,
 		} ?? switch (path) {
+			'settings.langEn' => 'English',
 			'settings.langZh' => '简体中文',
 			'settings.keys.freeTier' => 'Free tier',
 			'settings.keys.freeTierName' => 'Anselm Free · Auto multimodal',

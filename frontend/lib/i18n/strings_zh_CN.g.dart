@@ -98,6 +98,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get voiceInput => '语音输入';
 	@override String get stopVoiceInput => '停止语音输入';
 	@override String get voiceInputUnavailable => '语音输入仅支持 Anselm Auto';
+	@override String get voiceInputPermissionDenied => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。';
 	@override String get voiceInputFailed => '语音输入启动失败';
 	@override String get stop => '停止生成';
 	@override String get thinking => 'thinking';
@@ -2740,6 +2741,7 @@ extension on TranslationsZhCn {
 			'chat.voiceInput' => '语音输入',
 			'chat.stopVoiceInput' => '停止语音输入',
 			'chat.voiceInputUnavailable' => '语音输入仅支持 Anselm Auto',
+			'chat.voiceInputPermissionDenied' => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。',
 			'chat.voiceInputFailed' => '语音输入启动失败',
 			'chat.stop' => '停止生成',
 			'chat.thinking' => 'thinking',
@@ -3215,9 +3217,9 @@ extension on TranslationsZhCn {
 			'chat.gate.submit' => '发送',
 			'chat.gate.answerPlaceholder' => '输入你的回答…',
 			'chat.gate.decidedApproved' => '已允许',
-			'chat.gate.decidedApprovedAlways' => '已允许 · 本对话总是',
 			_ => null,
 		} ?? switch (path) {
+			'chat.gate.decidedApprovedAlways' => '已允许 · 本对话总是',
 			'chat.gate.decidedDenied' => '已拒绝',
 			'chat.gate.decidedDeclined' => '已跳过',
 			'chat.contextCompacted' => '上下文已压缩',
@@ -3729,9 +3731,9 @@ extension on TranslationsZhCn {
 			'a11y.fmtBold' => '加粗',
 			'a11y.fmtItalic' => '斜体',
 			'a11y.fmtStrike' => '删除线',
-			'a11y.fmtCode' => '行内代码',
 			_ => null,
 		} ?? switch (path) {
+			'a11y.fmtCode' => '行内代码',
 			'a11y.fmtLink' => '链接',
 			'a11y.relationSummary' => ({required Object nodes, required Object edges}) => '关系图。${nodes} 个实体，${edges} 条关系。',
 			'a11y.relationNode' => ({required Object name, required Object kind, required Object count}) => '${name}，${kind}，被 ${count} 个实体引用',
@@ -4243,9 +4245,9 @@ extension on TranslationsZhCn {
 			'settings.webLocal' => '本地抓取',
 			'settings.webJina' => 'Jina 代理',
 			'settings.defaultModelLink' => '默认对话模型 → 模型与密钥',
-			'settings.langEn' => 'English',
 			_ => null,
 		} ?? switch (path) {
+			'settings.langEn' => 'English',
 			'settings.langZh' => '简体中文',
 			'settings.keys.freeTier' => '免费档',
 			'settings.keys.freeTierName' => 'Anselm Free · 自动多模态',

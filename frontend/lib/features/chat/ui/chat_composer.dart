@@ -502,11 +502,20 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     if (err != null && err != previous?.error) {
       _speechBefore = null;
       _speechAfter = null;
+      final t = Translations.of(context).chat;
       ref
           .read(noticeCenterProvider.notifier)
           .show(
-            Translations.of(context).chat.voiceInputFailed,
-            tone: AnTone.danger,
+            switch (err) {
+              speechInputErrorUnavailable => t.voiceInputUnavailable,
+              speechInputErrorPermissionDenied => t.voiceInputPermissionDenied,
+              _ => t.voiceInputFailed,
+            },
+            tone: switch (err) {
+              speechInputErrorUnavailable ||
+              speechInputErrorPermissionDenied => AnTone.warn,
+              _ => AnTone.danger,
+            },
           );
       return;
     }
