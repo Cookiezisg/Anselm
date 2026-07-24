@@ -1734,6 +1734,8 @@
       "videoBadge": "Video",
       "audioBadge": "Audio",
       "docsBadge": "Docs",
+      "textContextBadge": "Text $context",
+      "mediaContextBadge": "Media $context",
       "noCapsGuide": "No usable models yet — add a key that passes its probe first",
       "searchSection": "Search"
     },

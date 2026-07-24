@@ -4635,6 +4635,12 @@ class Translations$settings$keys$en {
 	/// en: 'Docs'
 	String get docsBadge => 'Docs';
 
+	/// en: 'Text $context'
+	String textContextBadge({required Object context}) => 'Text ${context}';
+
+	/// en: 'Media $context'
+	String mediaContextBadge({required Object context}) => 'Media ${context}';
+
 	/// en: 'No usable models yet — add a key that passes its probe first'
 	String get noCapsGuide => 'No usable models yet — add a key that passes its probe first';
 
@@ -7952,6 +7958,8 @@ extension on Translations {
 			'settings.keys.videoBadge' => 'Video',
 			'settings.keys.audioBadge' => 'Audio',
 			'settings.keys.docsBadge' => 'Docs',
+			'settings.keys.textContextBadge' => ({required Object context}) => 'Text ${context}',
+			'settings.keys.mediaContextBadge' => ({required Object context}) => 'Media ${context}',
 			'settings.keys.noCapsGuide' => 'No usable models yet — add a key that passes its probe first',
 			'settings.keys.searchSection' => 'Search',
 			'settings.ws.section' => 'Workspaces',

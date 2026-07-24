@@ -1026,7 +1026,16 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
                 leadless: true,
                 label: m.displayName.isEmpty ? m.modelId : m.displayName,
                 meta: [
-                  if (m.contextWindow > 0) fmtCtx(m.contextWindow),
+                  if (m.textInputLimit > 0)
+                    t.settings.keys.textContextBadge(
+                      context: fmtCtx(m.textInputLimit),
+                    )
+                  else if (m.contextWindow > 0)
+                    fmtCtx(m.contextWindow),
+                  if (m.multimodalInputLimit > 0)
+                    t.settings.keys.mediaContextBadge(
+                      context: fmtCtx(m.multimodalInputLimit),
+                    ),
                   if (m.vision) t.settings.keys.visionBadge,
                   if (m.video) t.settings.keys.videoBadge,
                   if (m.audio) t.settings.keys.audioBadge,

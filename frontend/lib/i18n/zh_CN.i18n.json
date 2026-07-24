@@ -1734,6 +1734,8 @@
       "videoBadge": "视频",
       "audioBadge": "音频",
       "docsBadge": "文档",
+      "textContextBadge": "文本 $context",
+      "mediaContextBadge": "媒体 $context",
       "noCapsGuide": "还没有可用模型——先添加一把探测通过的密钥",
       "searchSection": "搜索"
     },

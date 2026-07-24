@@ -34,6 +34,9 @@ _ModelCapability _$ModelCapabilityFromJson(Map<String, dynamic> json) =>
       displayName: json['displayName'] as String? ?? '',
       contextWindow: (json['contextWindow'] as num?)?.toInt() ?? 0,
       maxOutput: (json['maxOutput'] as num?)?.toInt() ?? 0,
+      textInputLimit: (json['textInputLimit'] as num?)?.toInt() ?? 0,
+      multimodalInputLimit:
+          (json['multimodalInputLimit'] as num?)?.toInt() ?? 0,
       vision: json['vision'] as bool? ?? false,
       video: json['video'] as bool? ?? false,
       audio: json['audio'] as bool? ?? false,
@@ -56,6 +59,8 @@ Map<String, dynamic> _$ModelCapabilityToJson(_ModelCapability instance) =>
       'displayName': instance.displayName,
       'contextWindow': instance.contextWindow,
       'maxOutput': instance.maxOutput,
+      'textInputLimit': instance.textInputLimit,
+      'multimodalInputLimit': instance.multimodalInputLimit,
       'vision': instance.vision,
       'video': instance.video,
       'audio': instance.audio,

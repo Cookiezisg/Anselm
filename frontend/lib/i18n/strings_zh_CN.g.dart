@@ -1911,6 +1911,8 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get videoBadge => '视频';
 	@override String get audioBadge => '音频';
 	@override String get docsBadge => '文档';
+	@override String textContextBadge({required Object context}) => '文本 ${context}';
+	@override String mediaContextBadge({required Object context}) => '媒体 ${context}';
 	@override String get noCapsGuide => '还没有可用模型——先添加一把探测通过的密钥';
 	@override String get searchSection => '搜索';
 }
@@ -4289,6 +4291,8 @@ extension on TranslationsZhCn {
 			'settings.keys.videoBadge' => '视频',
 			'settings.keys.audioBadge' => '音频',
 			'settings.keys.docsBadge' => '文档',
+			'settings.keys.textContextBadge' => ({required Object context}) => '文本 ${context}',
+			'settings.keys.mediaContextBadge' => ({required Object context}) => '媒体 ${context}',
 			'settings.keys.noCapsGuide' => '还没有可用模型——先添加一把探测通过的密钥',
 			'settings.keys.searchSection' => '搜索',
 			'settings.ws.section' => '工作区',

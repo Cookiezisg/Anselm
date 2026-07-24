@@ -43,6 +43,8 @@ abstract class ModelCapability with _$ModelCapability {
     @Default('') String displayName,
     @Default(0) int contextWindow,
     @Default(0) int maxOutput,
+    @Default(0) int textInputLimit,
+    @Default(0) int multimodalInputLimit,
     @Default(false) bool vision,
     @Default(false) bool video,
     @Default(false) bool audio,
