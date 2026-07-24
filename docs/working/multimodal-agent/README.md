@@ -858,7 +858,8 @@ lease refresh/reuse 与生产 E2E 验证。
   ready 文本证据，避免每次工具调用重复启动 sandbox 抽取，也不把用户问题写入缓存键。
 - 已落地（文档 chunk/index）：`read_attachment(index:true)` 对 text/document 返回紧凑 JSON 索引，只含
   `offset/chars/page/preview` 与继续读取说明，不返回全文；有 `# Page N` 标记的 PDF/文档按页形成 chunk，
-  无页标记时按固定字符窗口切分。Agent 可先看索引，再用 query 或 offset 精读相关片段。
+  无页标记时按固定字符窗口切分。超长索引可用 `nextOffset` + `index:true` 继续枚举，Agent 可先看索引，
+  再用 query 或 offset 精读相关片段。
 - OCR/tiles；
 - document parse/chunk/index/map-reduce；
 - 视觉/文档质量与 token/延迟 A/B。

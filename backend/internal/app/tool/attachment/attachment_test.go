@@ -187,6 +187,36 @@ func TestReadAttachment_IndexReturnsChunkOffsetsWithoutDumpingBody(t *testing.T)
 	}
 }
 
+func TestReadAttachment_IndexContinuesFromOffset(t *testing.T) {
+	text := strings.Repeat("a", 12) + strings.Repeat("b", 12) + strings.Repeat("c", 12)
+	chunks, truncated, next := chunkAttachmentText(text, 0, 10, 2)
+	if !truncated || next != 20 || len(chunks) != 2 {
+		t.Fatalf("first helper page = chunks=%+v truncated=%v next=%d", chunks, truncated, next)
+	}
+	continued, truncated, next := chunkAttachmentText(text, next, 10, 2)
+	if truncated || next != 0 || len(continued) != 2 ||
+		continued[0].Offset != 20 || !strings.HasPrefix(continued[0].Preview, "bb") {
+		t.Fatalf("continued helper page = chunks=%+v truncated=%v next=%d", continued, truncated, next)
+	}
+
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "long.txt", "text/plain", []byte(strings.Repeat("x", readAttachmentIndexChunkChars+20)))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","index":true,"offset":8000}`)
+	if err != nil {
+		t.Fatalf("read continued index: %v", err)
+	}
+	var idx attachmentTextIndex
+	if err := json.Unmarshal([]byte(out), &idx); err != nil {
+		t.Fatalf("index should be JSON: %v\n%s", err, out)
+	}
+	if idx.Offset != 8000 || len(idx.Chunks) != 1 || idx.Chunks[0].Offset != 8000 {
+		t.Fatalf("index should continue from requested offset: %+v", idx)
+	}
+}
+
 func TestReadAttachment_TextQueryReturnsBoundedSnippets(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	body := strings.Repeat("alpha ", 30) +

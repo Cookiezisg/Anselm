@@ -33,8 +33,8 @@ var readAttachmentSchema = json.RawMessage(`{
 	"required": ["id"],
 	"properties": {
 		"id": {"type": "string"},
-		"index": {"type": "boolean", "description": "When true for text/document attachments, return a compact chunk/page index with offsets and previews instead of body text. Use this before reading a large file."},
-		"offset": {"type": "integer", "minimum": 0, "description": "Character offset into the extracted text page. Use nextOffset from a previous result to continue."},
+		"index": {"type": "boolean", "description": "When true for text/document attachments, return a compact chunk/page index with offsets and previews instead of body text. Use this before reading a large file; pass offset with nextOffset to continue the index."},
+		"offset": {"type": "integer", "minimum": 0, "description": "Character offset into the extracted text page or index. Use nextOffset from a previous result to continue."},
 		"limitChars": {"type": "integer", "minimum": 1, "maximum": 120000, "description": "Maximum characters to return in page mode. Defaults to 80000; capped at 120000."},
 		"query": {"type": "string", "maxLength": 512, "description": "Optional literal text query. When present, returns bounded snippets around matches instead of a page."},
 		"contextChars": {"type": "integer", "minimum": 1, "maximum": 2000, "description": "Characters of surrounding context on each side of a query match. Defaults to 800; capped at 2000."},
@@ -110,7 +110,7 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 			return "", err
 		}
 		if a.Index {
-			return indexAttachmentText(meta, text), nil
+			return indexAttachmentText(meta, text, a.Offset), nil
 		}
 		if strings.TrimSpace(a.Query) != "" {
 			return searchAttachmentText(text, a.Query, normalizeSearchContext(a.ContextChars), normalizeSearchMatches(a.MaxMatches)), nil
@@ -225,6 +225,7 @@ type attachmentTextIndex struct {
 	Filename     string                `json:"filename"`
 	Kind         string                `json:"kind"`
 	TotalChars   int                   `json:"totalChars"`
+	Offset       int                   `json:"offset"`
 	ChunkChars   int                   `json:"chunkChars"`
 	Chunks       []attachmentTextChunk `json:"chunks"`
 	Truncated    bool                  `json:"truncated"`
@@ -247,15 +248,22 @@ type textRegion struct {
 	page  int
 }
 
-func indexAttachmentText(meta *attachmentdomain.Attachment, text string) string {
+func indexAttachmentText(meta *attachmentdomain.Attachment, text string, offset int) string {
 	runes := []rune(text)
 	total := len(runes)
-	chunks, truncated, nextOffset := chunkAttachmentText(text, readAttachmentIndexChunkChars, readAttachmentIndexMaxChunks)
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > total {
+		offset = total
+	}
+	chunks, truncated, nextOffset := chunkAttachmentText(text, offset, readAttachmentIndexChunkChars, readAttachmentIndexMaxChunks)
 	out := attachmentTextIndex{
 		AttachmentID: meta.ID,
 		Filename:     meta.Filename,
 		Kind:         meta.Kind,
 		TotalChars:   total,
+		Offset:       offset,
 		ChunkChars:   readAttachmentIndexChunkChars,
 		Chunks:       chunks,
 		Truncated:    truncated,
@@ -269,7 +277,7 @@ func indexAttachmentText(meta *attachmentdomain.Attachment, text string) string 
 	return string(raw)
 }
 
-func chunkAttachmentText(text string, chunkChars, maxChunks int) ([]attachmentTextChunk, bool, int) {
+func chunkAttachmentText(text string, offset, chunkChars, maxChunks int) ([]attachmentTextChunk, bool, int) {
 	if chunkChars <= 0 {
 		chunkChars = readAttachmentIndexChunkChars
 	}
@@ -278,13 +286,26 @@ func chunkAttachmentText(text string, chunkChars, maxChunks int) ([]attachmentTe
 	}
 	runes := []rune(text)
 	total := len(runes)
+	if offset < 0 {
+		offset = 0
+	}
+	if offset > total {
+		offset = total
+	}
 	regions := pageTextRegions(text)
 	if len(regions) == 0 {
 		regions = []textRegion{{start: 0, end: total}}
 	}
 	chunks := make([]attachmentTextChunk, 0, min(maxChunks, len(regions)))
 	for _, region := range regions {
-		for start := region.start; start < region.end; start += chunkChars {
+		if region.end <= offset {
+			continue
+		}
+		start := region.start
+		if start < offset {
+			start = offset
+		}
+		for ; start < region.end; start += chunkChars {
 			if len(chunks) >= maxChunks {
 				return chunks, true, start
 			}
