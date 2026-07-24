@@ -2013,6 +2013,8 @@
     "retryPreparation": "重试媒体准备",
     "playAudio": "播放音频",
     "pauseAudio": "暂停音频",
+    "loadingAudio": "正在加载音频…",
+    "audioPlaybackFailed": "播放失败 — 点按重试",
     "audioPlaybackUnavailable": "暂不能播放",
     "remove": "移除"
   }

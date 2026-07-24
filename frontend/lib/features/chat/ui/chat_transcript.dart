@@ -16,6 +16,7 @@ import '../model/conversation_transcript.dart';
 import '../data/attachment_image_provider.dart';
 import '../data/chat_providers.dart';
 import '../state/attachment_meta.dart';
+import '../state/attachment_audio_player.dart';
 import '../model/user_attachment.dart';
 import '../state/conversation_stream_provider.dart';
 import '../state/conversation_stream_state.dart';
@@ -507,6 +508,7 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         text: ConversationTranscript.turnText(widget.turn),
         mentions: ConversationTranscript.turnMentions(widget.turn),
         attachments: attachments,
+        audioAttachmentBuilder: (a) => _TranscriptAudioAttachment(a),
       ),
     );
   }
@@ -663,6 +665,52 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _TranscriptAudioAttachment extends ConsumerWidget {
+  const _TranscriptAudioAttachment(this.attachment);
+
+  final UserAttachment attachment;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
+    final playback = ref.watch(attachmentAudioPlaybackProvider);
+    final duration = playback.durationFor(attachment.id);
+    final statusLine = playback.isLoading(attachment.id)
+        ? t.attach.loadingAudio
+        : playback.errorFor(attachment.id) != null
+        ? t.attach.audioPlaybackFailed
+        : null;
+    return AnAudioAttachmentCard(
+      filename: attachment.filename,
+      metaLine: attachmentMetaLine(
+        filename: attachment.filename,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+      ),
+      durationLabel: audioDurationLabel(
+        duration?.inMilliseconds ?? attachment.durationMs,
+      ),
+      statusLine: statusLine,
+      busy: playback.isLoading(attachment.id),
+      progress: playback.progressFor(attachment.id),
+      playing: playback.isPlaying(attachment.id),
+      state: attachment.state,
+      onPlayTap: attachment.state == AnAttachmentState.ready
+          ? () => ref
+                .read(attachmentAudioPlaybackProvider.notifier)
+                .toggle(
+                  attachment.id,
+                  loadBytes: () => ref
+                      .read(chatRepositoryProvider)
+                      .getAttachmentBytes(attachment.id),
+                  mimeType: attachment.mimeType,
+                )
+          : null,
+      onTap: attachment.onTap,
     );
   }
 }

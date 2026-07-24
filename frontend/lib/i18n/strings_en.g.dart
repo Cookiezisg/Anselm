@@ -1485,6 +1485,12 @@ class Translations$attach$en {
 	/// en: 'Pause audio'
 	String get pauseAudio => 'Pause audio';
 
+	/// en: 'Loading audio…'
+	String get loadingAudio => 'Loading audio…';
+
+	/// en: 'Playback failed — tap to retry'
+	String get audioPlaybackFailed => 'Playback failed — tap to retry';
+
 	/// en: 'Playback not available yet'
 	String get audioPlaybackUnavailable => 'Playback not available yet';
 
@@ -8310,6 +8316,8 @@ extension on Translations {
 			'attach.retryPreparation' => 'Retry media preparation',
 			'attach.playAudio' => 'Play audio',
 			'attach.pauseAudio' => 'Pause audio',
+			'attach.loadingAudio' => 'Loading audio…',
+			'attach.audioPlaybackFailed' => 'Playback failed — tap to retry',
 			'attach.audioPlaybackUnavailable' => 'Playback not available yet',
 			'attach.remove' => 'Remove',
 			_ => null,

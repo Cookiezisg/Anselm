@@ -2013,6 +2013,8 @@
     "retryPreparation": "Retry media preparation",
     "playAudio": "Play audio",
     "pauseAudio": "Pause audio",
+    "loadingAudio": "Loading audio…",
+    "audioPlaybackFailed": "Playback failed — tap to retry",
     "audioPlaybackUnavailable": "Playback not available yet",
     "remove": "Remove"
   }

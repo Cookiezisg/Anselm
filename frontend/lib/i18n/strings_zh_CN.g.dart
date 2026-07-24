@@ -674,6 +674,8 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String get retryPreparation => '重试媒体准备';
 	@override String get playAudio => '播放音频';
 	@override String get pauseAudio => '暂停音频';
+	@override String get loadingAudio => '正在加载音频…';
+	@override String get audioPlaybackFailed => '播放失败 — 点按重试';
 	@override String get audioPlaybackUnavailable => '暂不能播放';
 	@override String get remove => '移除';
 }
@@ -4579,6 +4581,8 @@ extension on TranslationsZhCn {
 			'attach.retryPreparation' => '重试媒体准备',
 			'attach.playAudio' => '播放音频',
 			'attach.pauseAudio' => '暂停音频',
+			'attach.loadingAudio' => '正在加载音频…',
+			'attach.audioPlaybackFailed' => '播放失败 — 点按重试',
 			'attach.audioPlaybackUnavailable' => '暂不能播放',
 			'attach.remove' => '移除',
 			_ => null,

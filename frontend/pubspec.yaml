@@ -83,6 +83,9 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   record: ^6.2.1
   web_socket_channel: ^3.0.3
+  # Local playback for sent audio attachments. Wrapped behind AttachmentAudioDriver so the feature can
+  # swap player backends without leaking plugin APIs into transcript/UI code.
+  audioplayers: ^6.7.1
 
 # super_editor is VENDORED (third_party/super_editor = the pub 0.3.0-dev.40 lib/ + pubspec + LICENSE,
 # copied verbatim) so ONE file — src/default_editor/layout_single_column/_presenter.dart — can be patched:

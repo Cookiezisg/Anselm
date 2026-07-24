@@ -28,6 +28,7 @@ class UserTurnContent extends StatelessWidget {
     required this.text,
     this.mentions = const [],
     this.attachments = const [],
+    this.audioAttachmentBuilder,
     this.onMentionTap,
     super.key,
   });
@@ -35,6 +36,7 @@ class UserTurnContent extends StatelessWidget {
   final String text;
   final List<MentionSnapshot> mentions;
   final List<UserAttachment> attachments;
+  final Widget Function(UserAttachment attachment)? audioAttachmentBuilder;
 
   /// The live navigation intent off a pill tap; null → pills render but stay inert. 药丸点按意图;null=惰性。
   final ValueChanged<AnRefTarget>? onMentionTap;
@@ -100,7 +102,9 @@ class UserTurnContent extends StatelessWidget {
     runSpacing: AnSpace.s8,
     children: [
       for (final a in cards)
-        if (a.kind == 'audio')
+        if (a.kind == 'audio' && audioAttachmentBuilder != null)
+          audioAttachmentBuilder!(a)
+        else if (a.kind == 'audio')
           AnAudioAttachmentCard(
             filename: a.filename,
             metaLine: attachmentMetaLine(

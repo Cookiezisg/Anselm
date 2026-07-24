@@ -342,6 +342,7 @@ lib/features/chat/model/stage_director.dart	reviewed
 lib/features/chat/model/tool_card_state.dart	converged
 lib/features/chat/model/tool_receipts.dart	reviewed
 lib/features/chat/model/user_attachment.dart	reviewed
+lib/features/chat/state/attachment_audio_player.dart	converged
 lib/features/chat/state/attachment_meta.dart	converged
 lib/features/chat/state/chat_drafts.dart	converged
 lib/features/chat/state/conversation_header.dart	converged

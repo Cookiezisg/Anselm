@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/core/model/model_capabilities.dart';
@@ -8,6 +10,7 @@ import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
+import 'package:anselm/features/chat/state/attachment_audio_player.dart';
 import 'package:anselm/features/chat/state/conversation_stream_provider.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/ui/chat_thinking.dart';
@@ -15,6 +18,7 @@ import 'package:anselm/features/chat/ui/chat_transcript.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
 // The transcript view. Pins: phase surfaces, block dispatch to the locked modules (markdown /
@@ -109,10 +113,14 @@ class _FakeSelected extends SelectedConversation {
   ConversationRef? build() => const ConversationRef('cv_1');
 }
 
-Widget _host(FixtureChatRepository repo) => ProviderScope(
+Widget _host(
+  FixtureChatRepository repo, {
+  List<Override> overrides = const [],
+}) => ProviderScope(
   overrides: [
     chatRepositoryProvider.overrideWithValue(repo),
     selectedConversationProvider.overrideWith(_FakeSelected.new),
+    ...overrides,
   ],
   child: TranslationProvider(
     child: MaterialApp(
@@ -134,6 +142,46 @@ FixtureChatRepository _repo({Map<String, List<ChatMessage>>? messages}) =>
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 3; i++) {
     await tester.pump(const Duration(milliseconds: 20));
+  }
+}
+
+class _FakeAudioDriver implements AttachmentAudioDriver {
+  final positions = StreamController<Duration>.broadcast();
+  final durations = StreamController<Duration>.broadcast();
+  final statuses = StreamController<AttachmentAudioStatus>.broadcast();
+  final playPayloads = <List<int>>[];
+  var disposeCalls = 0;
+
+  @override
+  Stream<Duration> get positionStream => positions.stream;
+
+  @override
+  Stream<Duration> get durationStream => durations.stream;
+
+  @override
+  Stream<AttachmentAudioStatus> get statusStream => statuses.stream;
+
+  @override
+  Future<void> playBytes(List<int> bytes, {String? mimeType}) async {
+    playPayloads.add(List<int>.of(bytes));
+    statuses.add(AttachmentAudioStatus.playing);
+  }
+
+  @override
+  Future<void> pause() async => statuses.add(AttachmentAudioStatus.paused);
+
+  @override
+  Future<void> resume() async => statuses.add(AttachmentAudioStatus.playing);
+
+  @override
+  Future<void> stop() async => statuses.add(AttachmentAudioStatus.stopped);
+
+  @override
+  Future<void> dispose() async {
+    disposeCalls++;
+    await positions.close();
+    await durations.close();
+    await statuses.close();
   }
 }
 
@@ -385,6 +433,64 @@ void main() {
         findsOneWidget,
       ); // a thumb, not a file card 缩略非文件卡
       expect(find.byType(AnAttachmentCard), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'an audio attachment in history is playable from its stored bytes',
+    (tester) async {
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            ChatMessage(
+              id: 'msg_u',
+              conversationId: 'cv_1',
+              role: 'user',
+              status: 'completed',
+              attrs: {
+                'attachments': ['att_audio'],
+              },
+              blocks: [_blk('bu', 'text', '听这个')],
+              createdAt: DateTime.utc(2026, 7, 2, 10),
+            ),
+          ],
+        },
+      );
+      repo.attachmentMetas['att_audio'] = const AttachmentMeta(
+        id: 'att_audio',
+        filename: 'voice.webm',
+        mimeType: 'audio/webm',
+        sizeBytes: 3,
+        kind: 'audio',
+      );
+      repo.attachmentBytes['att_audio'] = [7, 8, 9];
+      final driver = _FakeAudioDriver();
+
+      await tester.pumpWidget(
+        _host(
+          repo,
+          overrides: [
+            attachmentAudioDriverFactoryProvider.overrideWithValue(
+              () => driver,
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      await _settle(tester);
+      await tester.pump(const Duration(milliseconds: 30)); // metadata future
+
+      expect(find.text('voice.webm'), findsOneWidget);
+      expect(find.bySemanticsLabel('Play audio'), findsOneWidget);
+
+      await tester.tap(find.bySemanticsLabel('Play audio'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(driver.playPayloads, [
+        [7, 8, 9],
+      ]);
+      expect(find.bySemanticsLabel('Pause audio'), findsOneWidget);
     },
   );
 

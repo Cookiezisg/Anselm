@@ -23,6 +23,8 @@ class AnAudioAttachmentCard extends StatelessWidget {
     required this.metaLine,
     this.state = AnAttachmentState.ready,
     this.durationLabel,
+    this.statusLine,
+    this.busy = false,
     this.progress = 0,
     this.playing = false,
     this.onPlayTap,
@@ -34,6 +36,8 @@ class AnAudioAttachmentCard extends StatelessWidget {
   final String metaLine;
   final AnAttachmentState state;
   final String? durationLabel;
+  final String? statusLine;
+  final bool busy;
   final double progress;
   final bool playing;
   final VoidCallback? onPlayTap;
@@ -42,7 +46,8 @@ class AnAudioAttachmentCard extends StatelessWidget {
   /// 失败/超大回退动作；ready 打开与播放刻意分离。
   final VoidCallback? onTap;
 
-  bool get _playable => state == AnAttachmentState.ready && onPlayTap != null;
+  bool get _playable =>
+      state == AnAttachmentState.ready && onPlayTap != null && !busy;
 
   bool get _fallbackInteractive =>
       onTap != null &&
@@ -67,6 +72,7 @@ class AnAudioAttachmentCard extends StatelessWidget {
       AnAttachmentState.missing => t.attach.unavailable,
       AnAttachmentState.failed => t.attach.retry,
       AnAttachmentState.oversized => t.attach.tapToLoad,
+      AnAttachmentState.ready when statusLine != null => statusLine!,
       AnAttachmentState.ready when !_playable =>
         t.attach.audioPlaybackUnavailable,
       _ => metaLine,
@@ -117,7 +123,12 @@ class AnAudioAttachmentCard extends StatelessWidget {
               ),
             ),
             const SizedBox(width: AnSpace.s8),
-            _PlayButton(enabled: _playable, playing: playing, onTap: onPlayTap),
+            _PlayButton(
+              enabled: _playable,
+              playing: playing,
+              disabledLabel: statusLine,
+              onTap: onPlayTap,
+            ),
           ],
         ),
         const SizedBox(height: AnSpace.s8),
@@ -174,11 +185,13 @@ class _PlayButton extends StatelessWidget {
   const _PlayButton({
     required this.enabled,
     required this.playing,
+    required this.disabledLabel,
     required this.onTap,
   });
 
   final bool enabled;
   final bool playing;
+  final String? disabledLabel;
   final VoidCallback? onTap;
 
   @override
@@ -186,7 +199,7 @@ class _PlayButton extends StatelessWidget {
     final t = Translations.of(context);
     final label = enabled
         ? (playing ? t.attach.pauseAudio : t.attach.playAudio)
-        : t.attach.audioPlaybackUnavailable;
+        : disabledLabel ?? t.attach.audioPlaybackUnavailable;
     return Semantics(
       container: true,
       button: true,
