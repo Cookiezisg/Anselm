@@ -28,13 +28,15 @@ WRK-078 的 M1 目标是「聊天请求退出大 base64 时代」。规范 §6.1
 
 1. **形状**:`{gatewayBase}/v1/media/leases/{leaseId}/content?token={fetchToken}` —— 即 `complete` 响应中 `fetchPath` 的绝对化形式。**不接受任何其他 http(s) URL**(SSRF、下载放大与 MIME 欺骗的护栏不变,`明确不做` §1.2 第 3 条)。
 
-2. **分层**:形状识别归 domain(纯函数,无 IO);**归属与时效校验归 app 层**——domain 不持有仓储。为此给 `app/chat.Deps` 增加一道 DIP 端口(如 `MediaLeases.Verify(ctx, installID, leaseID, token)`),由 media service 实现,复用 `OpenLease` 已有的复合谓词:**状态为 active、未过期、HMAC 签名对得上、token hash 匹配、且属当前 install**。任一不成立 → 归并为无信息泄露的 not-found 语义(与既有 lease fetch 一致,不作存在性预言)。
+2. **⚠️ host 必须校验(实现时发现,补入决策)**:仅校验「路径形状 + lease 归属」**不足**。攻击者可以拿自己**合法**的 leaseId+token,拼成 `https://evil.example/v1/media/leases/{自己的id}/content?token={自己的token}` —— 归属校验会通过,而**上游 provider 会去拉 evil.example**,这是一条经由 provider 的 SSRF。故:**绝对 URL 的 host 必须逐字等于网关自己配置的公开 host**;或更稳妥,**只接受相对路径形**(`/v1/media/leases/{id}/content?token=…`)并由网关自行绝对化——后者从结构上消灭了 host 这个变量,代价是桌面端要改成发相对形。**实现前先在两仓间定死其一,不要两边各猜。**
 
-3. **计量**:lease 引用对 `MaxDecodedBytes` 记 **0 字节**——媒体字节从不经过 chat body,这正是 M1 的目的;体量护栏由 `MEDIA_UPLOAD_MAX_BYTES` 在上传侧承担。**但仍计入 `MaxParts`**:部件数是提示复杂度的护栏,与传输方式无关。
+3. **分层**:形状识别归 domain(纯函数,无 IO);**归属与时效校验归 app 层**——domain 不持有仓储。为此给 `app/chat.Deps` 增加一道 DIP 端口(如 `MediaLeases.Verify(ctx, installID, leaseID, token)`),由 media service 实现,复用 `OpenLease` 已有的复合谓词:**状态为 active、未过期、HMAC 签名对得上、token hash 匹配、且属当前 install**。任一不成立 → 归并为无信息泄露的 not-found 语义(与既有 lease fetch 一致,不作存在性预言)。
 
-4. **渲染不变**:lease fetch URL 本就是**为上游拉取而签**的短期签名 URL,校验通过后原样透传给 provider,不重写、不内联、不代取。
+4. **计量**:lease 引用对 `MaxDecodedBytes` 记 **0 字节**——媒体字节从不经过 chat body,这正是 M1 的目的;体量护栏由 `MEDIA_UPLOAD_MAX_BYTES` 在上传侧承担。**但仍计入 `MaxParts`**:部件数是提示复杂度的护栏,与传输方式无关。
 
-5. **`data:` 路径保留不动**:BYOK 与非受管路径继续走内联 data URI。本决策只新增一条受管专用的引用形态。
+5. **渲染不变**:lease fetch URL 本就是**为上游拉取而签**的短期签名 URL,校验通过后原样透传给 provider,不重写、不内联、不代取。
+
+6. **`data:` 路径保留不动**:BYOK 与非受管路径继续走内联 data URI。本决策只新增一条受管专用的引用形态。
 
 ## 后果 / Consequences
 
