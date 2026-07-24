@@ -15,6 +15,7 @@ import (
 const (
 	readAttachmentDefaultLimitChars = 80_000
 	readAttachmentMaxLimitChars     = 120_000
+	readAttachmentAutoIndexChars    = 40_000
 	readAttachmentIndexChunkChars   = 8_000
 	readAttachmentIndexMaxChunks    = 200
 	readAttachmentIndexPreviewChars = 160
@@ -26,7 +27,7 @@ const (
 	readAttachmentMaxQueryChars             = 512
 )
 
-const readAttachmentDescription = `Read an uploaded attachment's content back into the conversation by id (find ids via list_attachments). Text and document files (PDF/Office) are text-extracted. For large text/doc attachments, prefer index:true first: it returns a compact chunk/page index with offsets and previews, not the full body. Then use query mode or offset/limitChars to fetch only the relevant slice. By default this returns a bounded page: limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. Query mode returns bounded snippets around literal matches. Images and other binary files return a descriptor; use inspect_media for images.`
+const readAttachmentDescription = `Read an uploaded attachment's content back into the conversation by id (find ids via list_attachments). Text and document files (PDF/Office) are text-extracted. Large text/doc attachments automatically return a compact chunk/page index with offsets and previews instead of body text when called without query, offset, or limitChars; pass index:true explicitly to request the index at any size. Then use query mode or explicit offset/limitChars to fetch only the relevant slice. Page mode limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. Query mode returns bounded snippets around literal matches. Images and other binary files return a descriptor; use inspect_media for images.`
 
 var readAttachmentSchema = json.RawMessage(`{
 	"type": "object",
@@ -115,6 +116,9 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 		if strings.TrimSpace(a.Query) != "" {
 			return searchAttachmentText(text, a.Query, normalizeSearchContext(a.ContextChars), normalizeSearchMatches(a.MaxMatches)), nil
 		}
+		if shouldAutoIndexAttachmentText(a, text) {
+			return indexAttachmentText(meta, text, 0), nil
+		}
 		return pageAttachmentText(text, a.Offset, normalizeReadLimit(a.LimitChars)), nil
 	default: // image / audio / video / other — content isn't text-extractable here
 		return fmt.Sprintf(
@@ -177,6 +181,14 @@ func normalizeReadLimit(limit int) int {
 		return readAttachmentMaxLimitChars
 	}
 	return limit
+}
+
+func shouldAutoIndexAttachmentText(a readArgs, text string) bool {
+	return !a.Index &&
+		a.Offset == 0 &&
+		a.LimitChars == 0 &&
+		strings.TrimSpace(a.Query) == "" &&
+		len([]rune(text)) > readAttachmentAutoIndexChars
 }
 
 func normalizeSearchContext(contextChars int) int {

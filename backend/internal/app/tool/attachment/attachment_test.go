@@ -217,6 +217,56 @@ func TestReadAttachment_IndexContinuesFromOffset(t *testing.T) {
 	}
 }
 
+func TestReadAttachment_LargeDefaultAutoIndexes(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	body := strings.Repeat("a", readAttachmentIndexChunkChars*6) +
+		strings.Repeat("b", readAttachmentIndexPreviewChars+8) +
+		"AUTO_INDEX_SECRET_AFTER_PREVIEW"
+	a, err := svc.Upload(ctx, "large.txt", "text/plain", []byte(body))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`"}`)
+	if err != nil {
+		t.Fatalf("read large default: %v", err)
+	}
+	var idx attachmentTextIndex
+	if err := json.Unmarshal([]byte(out), &idx); err != nil {
+		t.Fatalf("large default should auto-index as JSON: %v\n%s", err, out)
+	}
+	if idx.TotalChars <= readAttachmentAutoIndexChars || len(idx.Chunks) < 2 || idx.ChunkChars != readAttachmentIndexChunkChars {
+		t.Fatalf("auto-index metadata wrong: %+v", idx)
+	}
+	if strings.Contains(out, "AUTO_INDEX_SECRET_AFTER_PREVIEW") || len(out) > 20_000 {
+		t.Fatalf("auto-index should stay compact and omit body tail: len=%d out=%q", len(out), out)
+	}
+	if !strings.Contains(idx.Usage, "offset") || !strings.Contains(idx.Usage, "limitChars") {
+		t.Fatalf("auto-index should explain how to fetch slices: %+v", idx)
+	}
+}
+
+func TestReadAttachment_ExplicitLimitBypassesAutoIndex(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	body := "VISIBLE_BEGIN_" + strings.Repeat("x", readAttachmentAutoIndexChars+200)
+	a, err := svc.Upload(ctx, "large.txt", "text/plain", []byte(body))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","limitChars":40}`)
+	if err != nil {
+		t.Fatalf("read large explicit page: %v", err)
+	}
+	var idx attachmentTextIndex
+	if err := json.Unmarshal([]byte(out), &idx); err == nil {
+		t.Fatalf("explicit limit should return page text, not index JSON: %+v", idx)
+	}
+	if !strings.Contains(out, `Attached file "large.txt"`) ||
+		!strings.Contains(out, "VISIBLE_BEGIN") ||
+		!strings.Contains(out, "nextOffset=40") {
+		t.Fatalf("explicit limit should page through body text: %q", out)
+	}
+}
+
 func TestReadAttachment_TextQueryReturnsBoundedSnippets(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	body := strings.Repeat("alpha ", 30) +

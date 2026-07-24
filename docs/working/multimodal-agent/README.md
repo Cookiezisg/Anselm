@@ -842,8 +842,10 @@ lease refresh/reuse 与生产 E2E 验证。
 - 已落地（准备状态）：`POST /attachments` 与 `GET /attachments/{id}` 返回 `preparation` 侧车；image
   上传/查询会认领 `model-default` 代理 work 并暴露 `pending/running/ready/failed`，非 image 为
   `not_required`，侧车异常降级 `unavailable` 且不影响原始附件可发送。
-- 已落地（文档工具分页）：`read_attachment` 对 text/document 默认只返回 80K 字符页，最大 120K，
-  截断时给 `nextOffset`；agent 不再因一次重读旧 PDF/文本把 400K 抽取内容重新塞进主上下文。
+- 已落地（文档工具分页/安全默认）：`read_attachment` 对小型 text/document 仍可直接读；对大型
+  text/document 在未指定 `query/offset/limitChars` 时自动返回紧凑索引而不是正文。显式分页读取时默认
+  80K 字符页、最大 120K，截断时给 `nextOffset`；agent 不再因一次无参数重读旧 PDF/文本把 400K
+  抽取内容重新塞进主上下文。
 - 已落地（文档工具检索）：`read_attachment(query, contextChars?, maxMatches?)` 对 text/document 支持
   大小写不敏感 literal search，只返回匹配片段、字符 offset、总匹配数；默认 5 条、每侧 800
   字符上下文，硬上限 10 条/每侧 2000 字符。agent 可以先按关键词取证，再必要时用 offset 精读邻近页。
