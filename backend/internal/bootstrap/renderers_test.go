@@ -22,7 +22,7 @@ func (f *fakeParts) ToContentParts(_ context.Context, _ []string, caps attachmen
 
 func TestAttachmentRenderer_BridgesCaps(t *testing.T) {
 	fp := &fakeParts{}
-	r := NewAttachmentRenderer(fp)
+	r := NewAttachmentRenderer(fp, nil)
 	// Deliberately asymmetric flags and a finite envelope catch a dropped/scrambled bridge field.
 	if _, err := r.ToContentParts(context.Background(), []string{"att_1"}, chatapp.ContentCapabilities{
 		Vision: true, Video: true, Audio: false, NativeDocs: false, MaxMediaParts: 3, MaxMediaBytes: 42,
@@ -32,6 +32,27 @@ func TestAttachmentRenderer_BridgesCaps(t *testing.T) {
 	if !fp.gotCaps.Vision || !fp.gotCaps.Video || fp.gotCaps.Audio || fp.gotCaps.NativeDocs ||
 		fp.gotCaps.MaxMediaParts != 3 || fp.gotCaps.MaxMediaBytes != 42 {
 		t.Fatalf("caps mis-bridged: got %+v", fp.gotCaps)
+	}
+}
+
+type fakeMediaUploader struct{}
+
+func (fakeMediaUploader) Upload(context.Context, string, string, string, []byte) (string, error) {
+	return "https://media.example/source", nil
+}
+
+func TestAttachmentRenderer_BridgesManagedGatewayOnlyWhenConfigured(t *testing.T) {
+	fp := &fakeParts{}
+	r := NewAttachmentRenderer(fp, fakeMediaUploader{})
+	_, err := r.ToContentParts(context.Background(), []string{"att_1"}, chatapp.ContentCapabilities{
+		ManagedGateway: &chatapp.ManagedGatewayMedia{BaseURL: "https://api.example/v1", InstallID: "ins_1"},
+	})
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if fp.gotCaps.RemoteMedia == nil || fp.gotCaps.RemoteMedia.BaseURL != "https://api.example/v1" ||
+		fp.gotCaps.RemoteMedia.InstallID != "ins_1" || fp.gotCaps.RemoteMedia.Uploader == nil {
+		t.Fatalf("managed gateway not bridged: %+v", fp.gotCaps.RemoteMedia)
 	}
 }
 

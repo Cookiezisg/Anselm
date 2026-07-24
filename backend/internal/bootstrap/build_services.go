@@ -336,7 +336,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	chat := chatapp.NewService(st.messages, chatapp.Deps{
 		Conversations: conv,
 		Resolver:      resolvers.Chat(),
-		Attachments:   NewAttachmentRenderer(att),
+		Attachments:   NewAttachmentRenderer(att, llminfra.NewMediaClient(inf.proofHTTP)),
 		Toolset:       toolset,
 		// Per-request MCP dynamic tools for the ctx workspace (F52): chat ranks + offers them via
 		// search_tools just like static lazy tools. Error → no MCP tools (best-effort, never fails a turn).

@@ -28,6 +28,12 @@ func (c *fakeCreds) ResolveCredentialsByID(_ context.Context, apiKeyID string) (
 	return apikeydomain.Credentials{Provider: "mock", Key: "secret", BaseURL: "http://mock", CredentialFingerprint: "credential-revision"}, nil
 }
 
+type gatewayCreds struct{}
+
+func (gatewayCreds) ResolveCredentialsByID(_ context.Context, _ string) (apikeydomain.Credentials, error) {
+	return apikeydomain.Credentials{Provider: "anselm", Key: "ins_test", BaseURL: "https://api.anselm.website/v1"}, nil
+}
+
 // fakeCaps is a CapabilityLister with one usable (mock, default_model) entry carrying caps.
 type fakeCaps struct{}
 
@@ -38,7 +44,7 @@ func (fakeCaps) List(context.Context) ([]modelapp.CapabilityView, error) {
 			ContextWindow: 100000, MaxOutput: 8000, Vision: true, Video: true, Audio: true, NativeDocs: true,
 			MaxMediaParts: 3, MaxMediaBytes: 42,
 		},
-		{Provider: "anselm", ModelID: "managed_model", ContextWindow: 100000, MaxOutput: 8000},
+		{Provider: "anselm", ModelID: "managed_model", ContextWindow: 100000, MaxOutput: 8000, Vision: true, Video: true, MaxMediaParts: 8, MaxMediaBytes: 3 << 20},
 	}, nil
 }
 
@@ -168,5 +174,30 @@ func TestModelInfoLookup_WindowAndCaps(t *testing.T) {
 	if !b.Caps.Vision || !b.Caps.Video || !b.Caps.Audio || !b.Caps.NativeDocs ||
 		b.Caps.MaxMediaParts != 3 || b.Caps.MaxMediaBytes != 42 {
 		t.Fatalf("chat Caps must come from the lookup, got %+v", b.Caps)
+	}
+}
+
+func TestChatResolver_ManagedGatewayStagesMediaWithoutInlineEnvelope(t *testing.T) {
+	lookup := NewModelInfoLookup(fakeCaps{})
+	resolver := chatResolver{
+		core: &modelResolver{
+			picker:  &fakePicker{},
+			keys:    gatewayCreds{},
+			factory: llminfra.NewFactory(),
+			windows: lookup.WindowResolver(),
+			lookup:  lookup,
+		},
+		lookup: lookup,
+	}
+	b, err := resolver.ResolveChat(context.Background(), &modeldomain.ModelRef{APIKeyID: "managed", ModelID: "managed_model"})
+	if err != nil {
+		t.Fatalf("ResolveChat: %v", err)
+	}
+	if b.Caps.ManagedGateway == nil || b.Caps.ManagedGateway.BaseURL != "https://api.anselm.website/v1" ||
+		b.Caps.ManagedGateway.InstallID != "ins_test" {
+		t.Fatalf("managed media target = %+v", b.Caps.ManagedGateway)
+	}
+	if b.Caps.MaxMediaParts != 0 || b.Caps.MaxMediaBytes != 0 {
+		t.Fatalf("remote media must not inherit inline envelope: %+v", b.Caps)
 	}
 }

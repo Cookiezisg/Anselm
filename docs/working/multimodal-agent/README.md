@@ -830,17 +830,19 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 
 **目标**：聊天请求退出大 base64 时代。
 
-- 网关 multipart/resumable upload；
-- opaque install-bound lease；
-- private object storage / provider fetch；
-- cancel/delete/TTL/GC；
-- sidecar client、重试、断点续传；
-- ownership、MIME/magic、大小、并发安全；
-- access log/错误 redaction；
-- completion handle wire；
-- 删除 inline-media 主路径。
+- 已落地（网关）：device-proof create → strict-offset raw chunk → complete 的可恢复 staging protocol；SQLite
+  upload/lease 状态机、私有 staging file、TTL/crash recovery/GC、opaque install-bound lease，以及仅供
+  上游拉取的短期 HMAC fetch URL。该 endpoint 不接受客户端上传 proof 的替代品，且不可用/过期 token 一律
+  归并为无信息泄露的 not-found。
+- 已落地（sidecar 主路径）：受管 Anselm 路由的图片与 MP4 走上述 protocol，聊天 request 只留下 expiring
+  HTTPS URL；客户端校验每一 chunk 的 server offset，拒绝错误确认；同一 `LoadHistory` 渲染中的同 SHA+MIME
+  只上传一次。普通 BYOK 不猜测支持该私有协议，保留各自 provider 的原生 inline wire。
+- 待落地：跨回合 lease reuse/refresh（当前同一 ReAct 已只传一次，但下一次聊天重建历史仍会重新取得短 lease）、
+  upload resume 查询、取消/删除 API、MIME magic sniff 与 access-log/redaction 审计，以及部署时启用网关媒体
+  配置后的真实端到端抓包。
 
-**出口**：十步 ReAct 对同一媒体只上传一次；抓包无重复 base64。
+**当前出口**：单次十步 ReAct 对同一媒体只上传一次；本地主聊天 wire 无重复 base64。M1 完整出口仍要求跨回合
+lease refresh/reuse 与生产 E2E 验证。
 
 ### M2 · 图片与文档优化
 

@@ -151,6 +151,17 @@ func (r chatResolver) bundle(ctx context.Context, scenario string, override *mod
 	// Caps 取自解析出的模型目录项（vision / native-docs）；未知模型得零 caps，chat 保守渲染附件而非
 	// 过度声明。
 	caps := r.lookup.contentCaps(ctx, provider, req.ModelID)
+	if provider == "anselm" && (caps.Vision || caps.Video) && req.BaseURL != "" && req.Key != "" {
+		// Only the managed gateway has this private staging/fetch contract. Removing the inline
+		// decoded-byte envelope here is intentional: the chat request now carries tiny HTTPS URLs;
+		// upload-size/MIME policy belongs to the authenticated gateway, which sees the real bytes.
+		//
+		// 只有受管网关拥有这份私有暂存/拉取协议。此处去掉内联解码字节额度是刻意的：聊天请求现在只带很小
+		// 的 HTTPS URL；上传大小/MIME policy 应归于能看到真实字节的已鉴权网关。
+		caps.ManagedGateway = &chatapp.ManagedGatewayMedia{BaseURL: req.BaseURL, InstallID: req.Key}
+		caps.MaxMediaParts = 0
+		caps.MaxMediaBytes = 0
+	}
 	profile := modelprofiledomain.Identity{}
 	if provider != "anselm" {
 		profile = modelprofiledomain.Identity{

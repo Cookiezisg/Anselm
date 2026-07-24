@@ -71,7 +71,11 @@ func (h *chatHost) loadHistoryFull(ctx context.Context) ([]llminfra.LLMMessage, 
 			if len(m.Blocks) > 0 && len(h.unfolded(m.Blocks)) == 0 {
 				continue
 			}
-			out = append(out, h.userMessage(ctx, m))
+			user, err := h.userMessage(ctx, m)
+			if err != nil {
+				return nil, err
+			}
+			out = append(out, user)
 		case messagesdomain.RoleAssistant:
 			if m.ID == h.assistantMsgID {
 				continue

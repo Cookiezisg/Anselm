@@ -165,6 +165,34 @@ type Capabilities struct {
 	// 可选的单回合解码媒体额度。零值表示解析模型未发布 app 侧上限；provider 专属校验仍由 provider 执行。
 	MaxMediaParts int
 	MaxMediaBytes int64
+	// RemoteMedia, when set by the composition root for the managed gateway, replaces inline
+	// image/video data URLs with a short-lived remote source. This package owns the decision of
+	// which attachment kinds may use it; bootstrap owns the transport implementation.
+	//
+	// RemoteMedia 由 composition root 仅为受管网关注入时，会把内联 image/video data URL 换成短期
+	// remote source。本包拥有哪些附件类型可使用它的判断；bootstrap 拥有传输实现。
+	RemoteMedia *RemoteMedia
+}
+
+// RemoteMediaUploader stages one immutable byte sequence and returns its provider-fetchable,
+// expiring HTTPS URL. It is a narrow application port so attachment rendering never depends on a
+// concrete HTTP client or gateway implementation.
+//
+// RemoteMediaUploader 暂存一份不可变字节并返回 provider 可拉取、会过期的 HTTPS URL。它是窄应用端口，
+// 使附件渲染永不依赖具体 HTTP client 或网关实现。
+type RemoteMediaUploader interface {
+	Upload(ctx context.Context, baseURL, installID, mime string, data []byte) (string, error)
+}
+
+// RemoteMedia is the per-turn managed-gateway destination. InstallID is a public install handle;
+// device proof is added by the uploader's HTTP transport and never crosses this boundary.
+//
+// RemoteMedia 是每回合的受管网关目的地。InstallID 是公开 install handle；device proof 由 uploader
+// 的 HTTP transport 添加，绝不穿过此边界。
+type RemoteMedia struct {
+	BaseURL   string
+	InstallID string
+	Uploader  RemoteMediaUploader
 }
 
 // ToContentParts resolves attachment ids into provider-agnostic LLM content parts for one user turn
@@ -207,6 +235,12 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 	out := make([]llminfra.ContentPart, 0, len(ids))
 	mediaParts := 0
 	var mediaBytes int64
+	// A duplicate attachment in one user turn must not create multiple leases or send the same
+	// bytes twice. The URL is intentionally per-turn only: leases are install-bound and expiring.
+	//
+	// 同一 user 回合重复附件绝不能创建多个 lease 或重复传字节。URL 故意只作每回合缓存：lease 绑定 install
+	// 且会过期。
+	remoteURLs := make(map[string]string)
 	for _, id := range ids {
 		a := byID[id]
 		if a == nil {
@@ -226,7 +260,13 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		}
 		switch a.Kind {
 		case attachmentdomain.KindImage:
-			if caps.Vision && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
+			if caps.Vision && caps.RemoteMedia != nil {
+				source, err := stagedMediaURL(ctx, caps.RemoteMedia, remoteURLs, a, data)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, llminfra.ContentPart{Type: llminfra.PartImageURL, ImageURL: source})
+			} else if caps.Vision && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartImageURL, ImageURL: dataURL(a.MimeType, data)})
 				mediaParts++
 				mediaBytes += int64(len(data))
@@ -234,7 +274,13 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 				out = append(out, unavailableMediaNote("image", a.Filename, caps.Vision, "vision", caps, mediaParts, mediaBytes, int64(len(data))))
 			}
 		case attachmentdomain.KindVideo:
-			if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
+			if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && caps.RemoteMedia != nil {
+				source, err := stagedMediaURL(ctx, caps.RemoteMedia, remoteURLs, a, data)
+				if err != nil {
+					return nil, err
+				}
+				out = append(out, llminfra.ContentPart{Type: llminfra.PartVideoURL, VideoURL: source})
+			} else if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartVideoURL, VideoURL: dataURL("video/mp4", data)})
 				mediaParts++
 				mediaBytes += int64(len(data))
@@ -274,6 +320,25 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		}
 	}
 	return out, nil
+}
+
+func stagedMediaURL(ctx context.Context, remote *RemoteMedia, cache map[string]string, a *attachmentdomain.Attachment, data []byte) (string, error) {
+	if remote == nil || remote.Uploader == nil || remote.BaseURL == "" || remote.InstallID == "" {
+		return "", fmt.Errorf("attachment: managed media destination is unavailable")
+	}
+	key := a.SHA256 + "\x00" + normalizedMIME(a.MimeType)
+	if source := cache[key]; source != "" {
+		return source, nil
+	}
+	source, err := remote.Uploader.Upload(ctx, remote.BaseURL, remote.InstallID, a.MimeType, data)
+	if err != nil {
+		return "", fmt.Errorf("attachment: stage %q for managed media: %w", a.Filename, err)
+	}
+	if source == "" {
+		return "", fmt.Errorf("attachment: managed media returned an empty source for %q", a.Filename)
+	}
+	cache[key] = source
+	return source, nil
 }
 
 func fitsMediaEnvelope(caps Capabilities, usedParts int, usedBytes, nextBytes int64) bool {

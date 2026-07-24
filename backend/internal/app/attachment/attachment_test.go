@@ -243,6 +243,68 @@ func TestToContentParts_NativeVideoAndAudioRespectCapabilities(t *testing.T) {
 	}
 }
 
+type fakeRemoteMediaUploader struct {
+	calls int
+	got   []struct {
+		baseURL, installID, mime string
+		data                     []byte
+	}
+	url string
+	err error
+}
+
+func (f *fakeRemoteMediaUploader) Upload(_ context.Context, baseURL, installID, mime string, data []byte) (string, error) {
+	f.calls++
+	f.got = append(f.got, struct {
+		baseURL, installID, mime string
+		data                     []byte
+	}{baseURL: baseURL, installID: installID, mime: mime, data: append([]byte(nil), data...)})
+	return f.url, f.err
+}
+
+func TestToContentParts_ManagedMediaStagesImageAndVideoOnce(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	imageData := []byte("\x89PNG image")
+	videoData := []byte("\x00\x00\x00\x18ftypisom video")
+	image, _ := svc.Upload(ctx, "photo.png", "image/png", imageData)
+	video, _ := svc.Upload(ctx, "clip.mp4", "video/mp4", videoData)
+	uploader := &fakeRemoteMediaUploader{url: "https://media.example/v1/media/leases/mls_1/content?token=t"}
+	caps := Capabilities{
+		Vision: true, Video: true,
+		RemoteMedia: &RemoteMedia{BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader},
+	}
+
+	// Repeat the image id deliberately: one turn reuses its expiring source instead of re-uploading
+	// the immutable CAS bytes. Video must use the same mechanism, while no data URL survives.
+	parts, err := svc.ToContentParts(ctx, []string{image.ID, video.ID, image.ID}, caps)
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if len(parts) != 3 || parts[0].ImageURL != uploader.url || parts[1].VideoURL != uploader.url || parts[2].ImageURL != uploader.url {
+		t.Fatalf("parts = %+v, want remote image/video URLs", parts)
+	}
+	if uploader.calls != 2 {
+		t.Fatalf("uploads = %d, want one each for image and video", uploader.calls)
+	}
+	if uploader.got[0].baseURL != "https://api.example/v1" || uploader.got[0].installID != "ins_1" ||
+		uploader.got[0].mime != "image/png" || !bytes.Equal(uploader.got[0].data, imageData) ||
+		uploader.got[1].mime != "video/mp4" || !bytes.Equal(uploader.got[1].data, videoData) {
+		t.Fatalf("upload inputs = %+v", uploader.got)
+	}
+}
+
+func TestToContentParts_ManagedMediaFailureStopsTurn(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	image, _ := svc.Upload(ctx, "photo.png", "image/png", []byte("\x89PNG image"))
+	uploader := &fakeRemoteMediaUploader{err: errors.New("gateway unavailable")}
+	_, err := svc.ToContentParts(ctx, []string{image.ID}, Capabilities{
+		Vision: true, RemoteMedia: &RemoteMedia{BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader},
+	})
+	if err == nil || !strings.Contains(err.Error(), "gateway unavailable") || uploader.calls != 1 {
+		t.Fatalf("err = %v; uploads = %d, want surfaced staging failure", err, uploader.calls)
+	}
+}
+
 func TestToContentParts_MediaEnvelopeDegradesWithoutDroppingOrder(t *testing.T) {
 	svc, _, ctx := newSvc(t)
 	first, _ := svc.Upload(ctx, "first.png", "image/png", []byte("one"))

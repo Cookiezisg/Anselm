@@ -27,22 +27,31 @@ type AttachmentParts interface {
 //
 // attachmentRenderer 把 attachment.Service 适配成 chat 的 AttachmentRenderer 端口，把 chat 的
 // ContentCapabilities 桥接到 attachment 包自己的 Capabilities 类型（互不 import）。
-type attachmentRenderer struct{ svc AttachmentParts }
+type attachmentRenderer struct {
+	svc   AttachmentParts
+	media attachmentapp.RemoteMediaUploader
+}
 
 // NewAttachmentRenderer wraps attachment.Service as chat's AttachmentRenderer.
 //
 // NewAttachmentRenderer 把 attachment.Service 包成 chat 的 AttachmentRenderer。
-func NewAttachmentRenderer(svc AttachmentParts) chatapp.AttachmentRenderer {
-	return attachmentRenderer{svc: svc}
+func NewAttachmentRenderer(svc AttachmentParts, media attachmentapp.RemoteMediaUploader) chatapp.AttachmentRenderer {
+	return attachmentRenderer{svc: svc, media: media}
 }
 
 var _ chatapp.AttachmentRenderer = attachmentRenderer{}
 
 func (a attachmentRenderer) ToContentParts(ctx context.Context, ids []string, caps chatapp.ContentCapabilities) ([]llminfra.ContentPart, error) {
-	return a.svc.ToContentParts(ctx, ids, attachmentapp.Capabilities{
+	attachmentCaps := attachmentapp.Capabilities{
 		Vision: caps.Vision, Video: caps.Video, Audio: caps.Audio, NativeDocs: caps.NativeDocs,
 		MaxMediaParts: caps.MaxMediaParts, MaxMediaBytes: caps.MaxMediaBytes,
-	})
+	}
+	if caps.ManagedGateway != nil && a.media != nil {
+		attachmentCaps.RemoteMedia = &attachmentapp.RemoteMedia{
+			BaseURL: caps.ManagedGateway.BaseURL, InstallID: caps.ManagedGateway.InstallID, Uploader: a.media,
+		}
+	}
+	return a.svc.ToContentParts(ctx, ids, attachmentCaps)
 }
 
 // DocStore is the slice of document.Service the document/knowledge renderers need.

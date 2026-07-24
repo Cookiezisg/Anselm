@@ -111,6 +111,26 @@ type ContentCapabilities struct {
 	// 有限内联媒体额度。
 	MaxMediaParts int
 	MaxMediaBytes int64
+	// ManagedGateway is present only for Anselm's built-in, device-proven gateway. It tells the
+	// attachment adapter to stage native image/video bytes once and hand the provider an expiring
+	// HTTPS source instead of embedding base64 in every sampling request. It contains the public
+	// install id, never a credential secret.
+	//
+	// ManagedGateway 仅在 Anselm 内置、设备证明的网关上出现。它让附件适配器把原生图/视频只暂存一次，
+	// 向 provider 交付带过期时间的 HTTPS source，而非在每次 sampling 请求塞入 base64。它只含公开的
+	// install id，绝不含 credential secret。
+	ManagedGateway *ManagedGatewayMedia
+}
+
+// ManagedGatewayMedia identifies the one gateway that understands Anselm's private media-lease
+// protocol. It deliberately lives alongside the content capabilities: ordinary BYOK endpoints
+// must not be guessed to support an Anselm-only upload/fetch contract.
+//
+// ManagedGatewayMedia 标识理解 Anselm 私有 media-lease 协议的唯一网关。它刻意与内容能力同处：普通
+// BYOK endpoint 绝不能被猜测为支持 Anselm 专属的上传/拉取协议。
+type ManagedGatewayMedia struct {
+	BaseURL   string
+	InstallID string
 }
 
 // Bundle is a ready-to-run LLM client + a pre-filled base Request (ModelID/Key/BaseURL/Options)

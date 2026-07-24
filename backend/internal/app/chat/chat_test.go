@@ -127,11 +127,12 @@ func (r fakeResolver) ResolveUtility(_ context.Context) (Bundle, error) {
 type fakeAttachmentRenderer struct {
 	parts []llminfra.ContentPart
 	ids   []string
+	err   error
 }
 
 func (r *fakeAttachmentRenderer) ToContentParts(_ context.Context, ids []string, _ ContentCapabilities) ([]llminfra.ContentPart, error) {
 	r.ids = append([]string(nil), ids...)
-	return r.parts, nil
+	return r.parts, r.err
 }
 
 // fakeConvs returns one fixed conversation for any id (or err, if set, to simulate a foreign/missing id).
@@ -436,6 +437,22 @@ func TestSend_AttachmentOnlyPersistsAndReplays(t *testing.T) {
 	}
 	if got, want := renderer.ids, []string{"att_video_1"}; !slices.Equal(got, want) {
 		t.Fatalf("renderer ids = %v, want %v", got, want)
+	}
+}
+
+func TestLoadHistory_ReportsAttachmentTransportFailure(t *testing.T) {
+	svc, store := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
+	ctx := ctxWS("ws_1")
+	if err := store.CreateMessage(ctx, &messagesdomain.Message{
+		ID: "msg_user", ConversationID: "cv_1", Role: messagesdomain.RoleUser, Status: messagesdomain.StatusCompleted,
+		Attrs: map[string]any{attrAttachments: []any{"att_image_1"}},
+	}, []messagesdomain.Block{{Type: messagesdomain.BlockTypeText, Content: "describe this"}}); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	svc.deps.Attachments = &fakeAttachmentRenderer{err: errors.New("media lease unavailable")}
+	_, err := (&chatHost{svc: svc, conversationID: "cv_1", assistantMsgID: "msg_assistant"}).LoadHistory(ctx)
+	if err == nil || !strings.Contains(err.Error(), "media lease unavailable") {
+		t.Fatalf("LoadHistory error = %v, want surfaced attachment transport failure", err)
 	}
 }
 

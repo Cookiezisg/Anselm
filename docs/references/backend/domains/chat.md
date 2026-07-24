@@ -49,4 +49,4 @@ audience: [human, ai]
 
 ## 7. 跨域集成
 
-消费：conversation（线程配置）/ messages（持久化）/ loop（引擎）/ toolset（resident+lazy）/ attachment（多模态渲染，按模型 caps 门控）/ memory·catalog·document（各贡献 system prompt 一段，连同 user 自定义 prompt + environment + 静态规则段 + `conversation_management` 段[声明压缩自动·无手动 compact 按钮·归档/置顶走 `manage_conversation`，杜绝 agent 臆造按钮，F38]组成完整 prompt）/ todo（reminder）/ model（resolve）/ contextmgr（**压缩全自动、无手动路由**——每次 sampling 即时治理 + 回合收尾 durable 检查，无 LLM 工具/UI 按钮可手动 compact）/ humanloop（broker）。被消费：`invoke_agent` 嵌套呈现（E3）、subagent 落 sub-message、aispawn 的 `:iterate`/`:triage` 开对话。
+消费：conversation（线程配置）/ messages（持久化）/ loop（引擎）/ toolset（resident+lazy）/ attachment（多模态渲染，按模型 caps 门控；内置 Anselm 网关的图片/MP4 先换成短期 remote media lease URL，聊天 wire 不含原始 base64）/ memory·catalog·document（各贡献 system prompt 一段，连同 user 自定义 prompt + environment + 静态规则段 + `conversation_management` 段[声明压缩自动·无手动 compact 按钮·归档/置顶走 `manage_conversation`，杜绝 agent 臆造按钮，F38]组成完整 prompt）/ todo（reminder）/ model（resolve）/ contextmgr（**压缩全自动、无手动路由**——每次 sampling 即时治理 + 回合收尾 durable 检查，无 LLM 工具/UI 按钮可手动 compact）/ humanloop（broker）。被消费：`invoke_agent` 嵌套呈现（E3）、subagent 落 sub-message、aispawn 的 `:iterate`/`:triage` 开对话。

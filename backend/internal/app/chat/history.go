@@ -5,8 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	"go.uber.org/zap"
-
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -74,7 +72,11 @@ func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, erro
 			if len(h.unfolded(m.Blocks)) == 0 {
 				continue
 			}
-			out = append(out, h.userMessage(ctx, m))
+			user, err := h.userMessage(ctx, m)
+			if err != nil {
+				return nil, fmt.Errorf("chatapp.LoadHistory: render user message %s: %w", m.ID, err)
+			}
+			out = append(out, user)
 		case messagesdomain.RoleAssistant:
 			if m.ID == h.assistantMsgID {
 				continue // the turn being generated right now — no blocks to replay yet
@@ -134,13 +136,14 @@ func isEmptyAssistant(msgs []llminfra.LLMMessage) bool {
 
 // userMessage renders one persisted user turn to an LLM message: plain text when there are no
 // attachments, otherwise a text part followed by the attachment renderer's multimodal parts
-// (image_url / inline file / extracted text, gated by the model's capabilities). A render
-// failure degrades to text-only — a turn never fails to load over a bad attachment.
+// (image_url / inline file / extracted text, gated by the model's capabilities). Missing blobs
+// already become explicit text notes in attachment.Service; real rendering/transport failures
+// must surface rather than silently omitting a user-selected managed media object.
 //
 // userMessage 把一个持久 user 回合渲成 LLM 消息：无附件时纯文本，否则一个 text 部件后接附件渲染器
-// 的多模态部件（image_url / 内联 file / 抽取文本，按模型能力门控）。渲染失败降级为纯文本——回合
-// 绝不因坏附件而加载失败。
-func (h *chatHost) userMessage(ctx context.Context, m *messagesdomain.Message) llminfra.LLMMessage {
+// 的多模态部件（image_url / 内联 file / 抽取文本，按模型能力门控）。缺失 blob 已在 attachment 层成为
+// 明确文字占位；真实渲染/传输失败必须向用户返回，绝不静默漏掉用户选中的受管媒体。
+func (h *chatHost) userMessage(ctx context.Context, m *messagesdomain.Message) (llminfra.LLMMessage, error) {
 	text := userText(m)
 	// Prepend the frozen @-mention snapshots so the referenced entities' content is inline.
 	// 前置冻结的 @ mention 快照，使被引用实体内容内联。
@@ -153,14 +156,12 @@ func (h *chatHost) userMessage(ctx context.Context, m *messagesdomain.Message) l
 	}
 	ids := attachmentIDsOf(m)
 	if len(ids) == 0 || h.svc.deps.Attachments == nil {
-		return llminfra.LLMMessage{Role: llminfra.RoleUser, Content: text}
+		return llminfra.LLMMessage{Role: llminfra.RoleUser, Content: text}, nil
 	}
 
 	parts, err := h.svc.deps.Attachments.ToContentParts(ctx, ids, h.caps)
 	if err != nil {
-		h.svc.log.Warn("chatapp.userMessage: attachment render failed; text only",
-			zap.String("messageId", m.ID), zap.Error(err))
-		return llminfra.LLMMessage{Role: llminfra.RoleUser, Content: text}
+		return llminfra.LLMMessage{}, fmt.Errorf("render attachments: %w", err)
 	}
 
 	msg := llminfra.LLMMessage{Role: llminfra.RoleUser}
@@ -168,7 +169,7 @@ func (h *chatHost) userMessage(ctx context.Context, m *messagesdomain.Message) l
 		msg.Parts = append(msg.Parts, llminfra.ContentPart{Type: llminfra.PartText, Text: text})
 	}
 	msg.Parts = append(msg.Parts, parts...)
-	return msg
+	return msg, nil
 }
 
 // userText concatenates a turn's text blocks (newline-joined). User turns carry only text blocks;

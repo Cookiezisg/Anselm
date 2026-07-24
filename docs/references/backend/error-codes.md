@@ -94,6 +94,13 @@ audience: [human, ai]
 | `INTERACTION_INVALID_ACTION` | 422 | action must be one of: approve, approve_always, deny, accept, decline（details.validActions 带合法集） |
 | `STREAM_IN_PROGRESS` | 409 | this conversation already has an assistant turn running |
 
+### `app/media`
+
+| code | HTTP | message |
+|---|---|---|
+| `MEDIA_INVALID_REQUEST` | 400 | invalid media preparation request |
+| `MEDIA_NOT_FOUND` | 404 | media work not found |
+
 ### `app/freetier`
 
 | code | HTTP | message |
