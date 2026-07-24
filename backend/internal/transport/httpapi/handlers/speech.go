@@ -71,7 +71,12 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = upConn.Close() }()
 
-	downConn, err := websocket.Upgrade(w, r, nil, speechMaxFrameBytes, speechMaxFrameBytes)
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  speechMaxFrameBytes,
+		WriteBufferSize: speechMaxFrameBytes,
+		CheckOrigin:     func(*http.Request) bool { return true },
+	}
+	downConn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		return
 	}
