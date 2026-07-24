@@ -9,7 +9,7 @@ review-due: 2026-10-04
 audience: [human, ai]
 ---
 
-# 工具卡完美态蓝图 —— 113 工具逐个设计(2026-07-06 已拍板)
+# 工具卡完美态蓝图 —— 114 工具逐个设计(2026-07-06 已拍板，2026-07-24 增补 inspect_media)
 
 > **这是什么**:chat 工具卡 pivot 初衷(「每个 tool call 都是量身插件级呈现,核心动作**纯可视化看见变化本身**——图长出来、代码被写出来、旧图 morph 成新图」)的全量设计蓝图:**113 具名工具 + MCP 动态族 + mount 附节,17 族逐工具**给出收起行 / 活期生长秀 / 落定体 / edit morph / 退化态 / 新原语 / 可行性注记。
 > **怎么来的**:64-agent 编队——12 路普查(9 路后端契约逐工具提取 + 框架机制 + 前端乐器盘点 + 图画布勘探,见底册 [`tool-card-census.md`](tool-card-census.md))→ 17 族设计师(共同宪法约束)→ 17 路对抗审察(可行性谎言 / 诚实违规 / 性能陷阱 / 文法破坏)→ 修订落回 → 总合成裁决 12 处族间冲突。
@@ -1664,7 +1664,7 @@ function/handler/agent/workflow|trigger 分支,**没有 control/approval**——
 
 ---
 
-# F06 — entity-get 族(get×8 + read_document + read_attachment,共 10)
+# F06 — entity-get 族(get×8 + read_document + read_attachment + inspect_media,共 11)
 
 > 族定位(WRK-053 §4):「正在查看 X → 已查看」;完美态 = **「模型看到了什么」的诚实小陈列**:
 > 实体身份行 + 关键字段 KV + 大内容折叠。全族只读、零 progress、非 BuildTool——克制是本族的完美。
@@ -1674,7 +1674,8 @@ function/handler/agent/workflow|trigger 分支,**没有 control/approval**——
 ## 族级统一文法
 
 1. **动词对**:实体 get 一律「正在查看〈类名词〉→ 已查看〈类名词〉」(Viewing/Viewed function…);
-   `read_document`「正在阅读文档 → 已阅读文档」;`read_attachment`「正在读取附件 → 已读取附件」。
+   `read_document`「正在阅读文档 → 已阅读文档」;`read_attachment`「正在读取附件 → 已读取附件」;
+   `inspect_media`「正在检查附件 → 已检查附件」。
 2. **chip 落定换名(族签名动效)**:活期 chip = args 里的 id(`argStringPartial`,容忍半截);落定后
    `target(state)` 优先读输出里的 `name`(read_document 解析首行 `# <name>`,read_attachment 解析
    引号内文件名)——收起行从 `fn_a1b2c3…` 无感变成 `fetch-weather`,id 移入展开体。历史读起来像目录。
@@ -1701,7 +1702,8 @@ function/handler/agent/workflow|trigger 分支,**没有 control/approval**——
       可 `••••` 掩码,但**掩码必带注记**(「N 个敏感值已掩码——完整值在实体面板」),不得静默。
 6. **图标**(现状按 icons.dart 已核):关键字推断覆盖 function/handler/agent/workflow(实体形);
    `get_trigger` 命中 `workflow|trigger` 正则落 **workflow 形(非 trigger 实体形,错形)**;
-   `read_document`/`read_attachment` 命中 `read` 关键字落 **doc 形**(read_attachment 非落扳手——错形而非缺口);
+  `read_document`/`read_attachment` 命中 `read` 关键字落 **doc 形**(read_attachment 非落扳手——错形而非缺口);
+  `inspect_media` 当前会落通用形，须精确表补 attachment/vision 形；
    `get_control`/`get_approval`/`get_skill` 无命中→兜底扳手。**须补精确表**(精确表先于关键字推断,可覆写):
    control→分支形、approval→勾形、skill→书形、trigger→zap 实体形、attachment→回形针
    (`AnIcons.attach` 已存在,直接复用),与 entities rail 同形。
@@ -1926,6 +1928,21 @@ function/handler/agent/workflow|trigger 分支,**没有 control/approval**——
   "(truncated)" 而首行头无标记→回执必须是字符量、非「已截断」;②抽取不可用形样例(第五形);
   kind 无法从输出稳取(媒体句含 kind 字段可解析,文本句不含)→ AnAttachmentCard kind 允许 fallback other。
 
+### `inspect_media` — 正在检查附件 → 已检查附件
+- **收起行**:回形针/视觉 icon(补精确表)· chip=`args.attachmentId` → 落定从 JSON `filename`
+  换名 · 回执=`{width}×{height} · {detail}`；`notes` 非空时追加「有忽略项」灰徽，不判失败。
+- **活期**:settle-only；工具内部会调用视觉模型，但 Tool 接口不发 progress，前端不应伪造进度条。
+- **落定体**:AnAttachmentCard 身份行 + 「视觉证据」机器窗：优先渲染 JSON `answer` 为可选中文本块；
+  次行展示 `mime · width×height · transport(managed-url/data-url)`；有 `crop` 时用 KV 展示 normalized
+  rect；`notes` 用诚实行。RawResultDisclosure 保留完整 JSON。
+- **退化态**:非 image kind / route 无 vision / not found 都是工具成功返回的软失败文本或 JSON，卡片应按内容给
+  warn/empty 诚实态，不因 Execute err 才显示失败。unknown JSON/string 都退回 generic 机器窗。
+- **新原语**:无必须新增；复用 AnAttachmentCard、AnKv、AnJsonTree/RawResultDisclosure。若要做小预览，只能依赖
+  attachment 展品座，不从工具结果拿图片字节（结果不含图片）。
+- **Wow**:压缩后的 agent 能清楚说明「我复看了哪张图、看的是哪个裁剪、证据是什么」，而不是把整图重新塞进主时间线。
+- **可行性**:输出是稳定 JSON；字段固定为 `attachmentId/filename/mime/width/height/crop/detail/transport/notes/answer`。
+  单测应锁：①answer 长文本截断但 Raw 保留；②notes 非空；③非 image 软失败串 fallback。
+
 ---
 
 ## 族级新原语汇总
@@ -1954,7 +1971,8 @@ function/handler/agent/workflow|trigger 分支,**没有 control/approval**——
 4. **get_trigger / get_control / get_approval**:KV/表投影 + ToolReadingWindow 首落(approval 模板)。
 5. **get_workflow**:节点表落地;画布缩略图**挂起**等 F04 画布原语,留槽不阻塞。
 6. **read_document**:ToolReadingWindow 完全体 + 模板解析器 + 回归锁(族 showpiece)。
-7. **read_attachment**:AnAttachmentCard 复用 + 六形解析 + 「复制全文」逃生口,收尾。
+7. **read_attachment / inspect_media**:AnAttachmentCard 复用 + 六形解析 + 「复制全文」逃生口 + 视觉证据 JSON
+   窗,收尾。
 
 
 ---

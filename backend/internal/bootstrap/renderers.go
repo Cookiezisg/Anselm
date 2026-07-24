@@ -7,6 +7,7 @@ import (
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	chatapp "github.com/sunweilin/anselm/backend/internal/app/chat"
 	documentapp "github.com/sunweilin/anselm/backend/internal/app/document"
+	attachmenttool "github.com/sunweilin/anselm/backend/internal/app/tool/attachment"
 	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -53,6 +54,42 @@ func (a attachmentRenderer) ToContentParts(ctx context.Context, ids []string, ca
 		}
 	}
 	return a.svc.ToContentParts(ctx, ids, attachmentCaps)
+}
+
+// inspectMediaResolver adapts chat's default model resolver to inspect_media's narrower port. It
+// deliberately resolves the default dialogue route (override=nil), so ad-hoc media inspection follows
+// the same Anselm Auto model-routing contract as the main chat surface.
+//
+// inspectMediaResolver 把 chat 默认模型 resolver 适配为 inspect_media 的窄端口。它刻意解析默认
+// dialogue 路由（override=nil），使临时媒体检查沿用主聊天面的 Anselm Auto 路由契约。
+type inspectMediaResolver struct {
+	resolver chatapp.ModelResolver
+	media    attachmentapp.RemoteMediaUploader
+}
+
+// NewInspectMediaResolver constructs inspect_media's model resolver.
+//
+// NewInspectMediaResolver 构造 inspect_media 的模型 resolver。
+func NewInspectMediaResolver(resolver chatapp.ModelResolver, media attachmentapp.RemoteMediaUploader) attachmenttool.InspectMediaResolver {
+	return inspectMediaResolver{resolver: resolver, media: media}
+}
+
+var _ attachmenttool.InspectMediaResolver = inspectMediaResolver{}
+
+func (r inspectMediaResolver) ResolveInspectMedia(ctx context.Context) (attachmenttool.InspectMediaBundle, error) {
+	b, err := r.resolver.ResolveChat(ctx, nil)
+	if err != nil {
+		return attachmenttool.InspectMediaBundle{}, err
+	}
+	out := attachmenttool.InspectMediaBundle{
+		Client: b.Client, Request: b.Request, Vision: b.Caps.Vision, Provider: b.Provider,
+	}
+	if b.Caps.ManagedGateway != nil && r.media != nil {
+		out.RemoteMedia = &attachmentapp.RemoteMedia{
+			BaseURL: b.Caps.ManagedGateway.BaseURL, InstallID: b.Caps.ManagedGateway.InstallID, Uploader: r.media,
+		}
+	}
+	return out, nil
 }
 
 // DocStore is the slice of document.Service the document/knowledge renderers need.

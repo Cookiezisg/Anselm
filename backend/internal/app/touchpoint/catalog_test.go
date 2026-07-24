@@ -33,6 +33,7 @@ func TestExtract_ArgKeyed(t *testing.T) {
 		{"get_function", "functionId", "fn_1", "function", touchpointdomain.VerbViewed},
 		{"read_document", "id", "doc_1", "document", touchpointdomain.VerbViewed},
 		{"read_attachment", "id", "att_1", touchpointdomain.ItemKindAttachment, touchpointdomain.VerbViewed},
+		{"inspect_media", "attachmentId", "att_1", touchpointdomain.ItemKindAttachment, touchpointdomain.VerbViewed},
 		{"search_function_executions", "functionId", "fn_1", "function", touchpointdomain.VerbViewed},
 		{"activate_workflow", "workflowId", "wf_1", "workflow", touchpointdomain.VerbEdited},
 		{"update_agent_meta", "agentId", "ag_1", "agent", touchpointdomain.VerbEdited},

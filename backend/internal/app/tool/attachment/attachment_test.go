@@ -1,8 +1,12 @@
 package attachment
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
+	"image"
+	"image/color"
+	"image/png"
 	"strings"
 	"testing"
 
@@ -11,6 +15,7 @@ import (
 
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	blobfs "github.com/sunweilin/anselm/backend/internal/infra/fs/blob"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	attachmentstore "github.com/sunweilin/anselm/backend/internal/infra/store/attachment"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -42,11 +47,31 @@ func newToolSvc(t *testing.T) (*attachmentapp.Service, context.Context) {
 
 func TestAttachmentTools_NamesAndCount(t *testing.T) {
 	svc, _ := newToolSvc(t)
-	tools := AttachmentTools(svc)
+	tools := AttachmentTools(svc, nil)
 	if len(tools) != 2 {
 		t.Fatalf("want 2 tools, got %d", len(tools))
 	}
 	want := map[string]bool{"list_attachments": false, "read_attachment": false}
+	for _, tl := range tools {
+		if _, ok := want[tl.Name()]; !ok {
+			t.Fatalf("unexpected tool %s", tl.Name())
+		}
+		want[tl.Name()] = true
+	}
+	for name, seen := range want {
+		if !seen {
+			t.Fatalf("missing tool %s", name)
+		}
+	}
+}
+
+func TestAttachmentTools_WithInspectMedia(t *testing.T) {
+	svc, _ := newToolSvc(t)
+	tools := AttachmentTools(svc, fakeInspectResolver{})
+	if len(tools) != 3 {
+		t.Fatalf("want 3 tools, got %d", len(tools))
+	}
+	want := map[string]bool{"list_attachments": false, "read_attachment": false, "inspect_media": false}
 	for _, tl := range tools {
 		if _, ok := want[tl.Name()]; !ok {
 			t.Fatalf("unexpected tool %s", tl.Name())
@@ -132,4 +157,143 @@ func TestReadAttachment_ValidateInput(t *testing.T) {
 	if err := (&ListAttachments{}).ValidateInput(nil); err != nil {
 		t.Fatalf("list takes no args, got %v", err)
 	}
+}
+
+func TestInspectMedia_ImageUsesVisionModelAndReturnsBoundedTextEvidence(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	img := testPNG(t, color.NRGBA{R: 255, A: 255})
+	a, err := svc.Upload(ctx, "red.png", "image/png", img)
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	client := llminfra.NewMockClient()
+	client.PushScript(llminfra.MockScript{Events: []llminfra.StreamEvent{
+		{Type: llminfra.EventText, Delta: "The image shows a red square."},
+		{Type: llminfra.EventFinish},
+	}})
+	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{
+		Client: client,
+		Request: llminfra.Request{
+			ModelID: "anselm-auto",
+			Tools:   []llminfra.ToolDef{{Name: "should_not_leak"}},
+		},
+		Vision: true,
+	}}}
+
+	out, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"What color is it?"}`)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	if !strings.Contains(out, "red square") || !strings.Contains(out, `"attachmentId":"`+a.ID+`"`) {
+		t.Fatalf("inspect output should contain bounded text evidence and metadata: %q", out)
+	}
+	req := client.LastRequest()
+	if req.ModelID != "anselm-auto" || len(req.Tools) != 0 || req.MaxTokens != inspectMediaMaxOutputTokens {
+		t.Fatalf("unexpected inspect request: model=%q tools=%d max=%d", req.ModelID, len(req.Tools), req.MaxTokens)
+	}
+	if len(req.Messages) != 1 || len(req.Messages[0].Parts) != 2 {
+		t.Fatalf("inspect request should send text + one image part: %+v", req.Messages)
+	}
+	if req.Messages[0].Parts[1].Type != llminfra.PartImageURL ||
+		!strings.HasPrefix(req.Messages[0].Parts[1].ImageURL, "data:image/") {
+		t.Fatalf("inspect image part should be a bounded data image URL, got %+v", req.Messages[0].Parts[1])
+	}
+}
+
+func TestInspectMedia_ManagedGatewayStagesBoundedProxy(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "red.png", "image/png", testPNG(t, color.NRGBA{R: 255, A: 255}))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	client := llminfra.NewMockClient()
+	client.PushScript(llminfra.MockScript{Events: []llminfra.StreamEvent{{Type: llminfra.EventText, Delta: "ok"}}})
+	uploader := &fakeUploader{url: "https://media.example/lease"}
+	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{
+		Client:  client,
+		Request: llminfra.Request{ModelID: "anselm-auto"},
+		Vision:  true,
+		RemoteMedia: &attachmentapp.RemoteMedia{
+			BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader,
+		},
+	}}}
+	if _, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"describe it","crop":{"x":0,"y":0,"width":0.5,"height":0.5},"detail":"high"}`); err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	req := client.LastRequest()
+	if got := req.Messages[0].Parts[1].ImageURL; got != uploader.url {
+		t.Fatalf("image should use managed URL, got %q", got)
+	}
+	if uploader.mime == "" || len(uploader.data) == 0 {
+		t.Fatalf("uploader should receive rendered proxy bytes")
+	}
+}
+
+func TestInspectMedia_NonImageSoftFailsWithoutCallingModel(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "notes.txt", "text/plain", []byte("hello"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	client := llminfra.NewMockClient()
+	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{Client: client, Vision: true}}}
+	out, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"what is it?"}`)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	if !strings.Contains(out, "supports image attachments only") || client.CallCount() != 0 {
+		t.Fatalf("non-image should soft-fail without LLM call; out=%q calls=%d", out, client.CallCount())
+	}
+}
+
+func TestInspectMedia_ValidateInput(t *testing.T) {
+	tool := &InspectMedia{}
+	if err := tool.ValidateInput([]byte(`{"attachmentId":"","question":"x"}`)); err == nil {
+		t.Fatal("empty attachmentId should fail")
+	}
+	if err := tool.ValidateInput([]byte(`{"attachmentId":"att_1","question":""}`)); err == nil {
+		t.Fatal("empty question should fail")
+	}
+	if err := tool.ValidateInput([]byte(`{"attachmentId":"att_1","question":"x","crop":{"x":0,"y":0,"width":0,"height":1}}`)); err == nil {
+		t.Fatal("empty crop width should fail")
+	}
+	if err := tool.ValidateInput([]byte(`{"attachmentId":"att_1","question":"x","detail":"high"}`)); err != nil {
+		t.Fatalf("valid input should pass: %v", err)
+	}
+}
+
+type fakeInspectResolver struct {
+	bundle InspectMediaBundle
+	err    error
+}
+
+func (f fakeInspectResolver) ResolveInspectMedia(context.Context) (InspectMediaBundle, error) {
+	return f.bundle, f.err
+}
+
+type fakeUploader struct {
+	url  string
+	mime string
+	data []byte
+}
+
+func (f *fakeUploader) Upload(_ context.Context, _, _, mime string, data []byte) (string, error) {
+	f.mime = mime
+	f.data = append([]byte(nil), data...)
+	return f.url, nil
+}
+
+func testPNG(t *testing.T, c color.NRGBA) []byte {
+	t.Helper()
+	img := image.NewNRGBA(image.Rect(0, 0, 24, 24))
+	for y := 0; y < 24; y++ {
+		for x := 0; x < 24; x++ {
+			img.SetNRGBA(x, y, c)
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		t.Fatalf("encode png: %v", err)
+	}
+	return buf.Bytes()
 }

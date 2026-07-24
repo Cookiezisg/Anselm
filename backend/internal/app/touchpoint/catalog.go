@@ -128,6 +128,7 @@ var catalog = map[string]rule{
 	"read_document":              {kind: relationdomain.EntityKindDocument, verb: touchpointdomain.VerbViewed, argKey: "id"},
 	"get_skill":                  {kind: relationdomain.EntityKindSkill, verb: touchpointdomain.VerbViewed, argKey: "name", nameIsID: true},
 	"read_attachment":            {kind: touchpointdomain.ItemKindAttachment, verb: touchpointdomain.VerbViewed, argKey: "id"},
+	"inspect_media":              {kind: touchpointdomain.ItemKindAttachment, verb: touchpointdomain.VerbViewed, argKey: "attachmentId"},
 	"capability_check_workflow":  {kind: relationdomain.EntityKindWorkflow, verb: touchpointdomain.VerbViewed, argKey: "workflowId"},
 	"search_function_executions": {kind: relationdomain.EntityKindFunction, verb: touchpointdomain.VerbViewed, argKey: "functionId"},
 	"search_handler_calls":       {kind: relationdomain.EntityKindHandler, verb: touchpointdomain.VerbViewed, argKey: "handlerId"},
