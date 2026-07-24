@@ -373,6 +373,51 @@ void main() {
     expect(find.byKey(const ValueKey('send')), findsOneWidget);
   });
 
+  testWidgets(
+    'voice input follows conversation model override over workspace Auto',
+    (tester) async {
+      final repo = FixtureChatRepository(
+        conversations: [
+          _conv('cv_1').copyWith(
+            modelOverride: const ModelRef(
+              apiKeyId: 'aki_ext',
+              modelId: 'gpt-4o',
+            ),
+          ),
+        ],
+        messages: {'cv_1': []},
+      );
+      await tester.pumpWidget(
+        _host(
+          repo,
+          overrides: _speechModelOverrides(
+            workspace: _workspaceWithDefaultModel(
+              'aki_demo_managed0',
+              'anselm-auto',
+            ),
+            caps: const [
+              ModelCapability(
+                apiKeyId: 'aki_demo_managed0',
+                provider: 'anselm',
+                modelId: 'anselm-auto',
+                displayName: 'Anselm Auto',
+              ),
+              ModelCapability(
+                apiKeyId: 'aki_ext',
+                provider: 'openai',
+                modelId: 'gpt-4o',
+                displayName: 'GPT-4o',
+              ),
+            ],
+          ),
+        ),
+      );
+      await _settle(tester);
+      expect(find.byKey(const ValueKey('voice')), findsNothing);
+      expect(find.byIcon(AnIcons.microphone), findsNothing);
+    },
+  );
+
   testWidgets('single-line height is INVARIANT to the send button appearing', (
     tester,
   ) async {

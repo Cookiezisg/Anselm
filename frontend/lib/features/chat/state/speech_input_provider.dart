@@ -65,7 +65,9 @@ final speechInputAvailableProvider = Provider<bool>((ref) {
         ref.watch(landingModelProvider) ??
         _tupleFromWorkspaceModelRef(workspace?.defaultDialogue);
   } else {
-    final header = ref.watch(conversationHeaderProvider(selected.id)).value;
+    final headerState = ref.watch(conversationHeaderProvider(selected.id));
+    if (!headerState.hasValue) return false;
+    final header = headerState.value;
     effective =
         _tupleFromConversationModelRef(header?.modelOverride) ??
         _tupleFromWorkspaceModelRef(workspace?.defaultDialogue);
