@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:record/record.dart';
@@ -18,6 +19,7 @@ const speechInputErrorUnavailable = 'unavailable';
 const speechInputErrorPermissionDenied = 'permission_denied';
 const speechInputErrorConnectionLost = 'connection_lost';
 const speechInputErrorFailed = 'failed';
+const _speechRetryMaxBytes = 5 * 1024 * 1024;
 
 class SpeechInputState {
   const SpeechInputState({
@@ -28,6 +30,7 @@ class SpeechInputState {
     this.elapsed = Duration.zero,
     this.level = 0,
     this.error,
+    this.canRetry = false,
   });
 
   final bool recording;
@@ -37,6 +40,7 @@ class SpeechInputState {
   final Duration elapsed;
   final double level;
   final String? error;
+  final bool canRetry;
 
   String get text => committed + partial;
   bool get active => recording || finishing;
@@ -49,6 +53,7 @@ class SpeechInputState {
     Duration? elapsed,
     double? level,
     String? error,
+    bool? canRetry,
     bool clearError = false,
   }) => SpeechInputState(
     recording: recording ?? this.recording,
@@ -58,6 +63,7 @@ class SpeechInputState {
     elapsed: elapsed ?? this.elapsed,
     level: level ?? this.level,
     error: clearError ? null : error ?? this.error,
+    canRetry: canRetry ?? this.canRetry,
   );
 }
 
@@ -114,6 +120,9 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   Timer? _elapsedTimer;
   DateTime? _startedAt;
   bool _serverFinished = false;
+  bool _replaying = false;
+  final List<Uint8List> _retryFrames = [];
+  var _retryBytes = 0;
 
   @override
   SpeechInputState build() {
@@ -131,26 +140,10 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     }
     state = const SpeechInputState(recording: true);
     _serverFinished = false;
+    _replaying = false;
+    _clearRetryBuffer();
     try {
-      final uri = _speechUri();
-      final headers = _headers();
-      final channel = IOWebSocketChannel.connect(uri, headers: headers);
-      _channel = channel;
-      _socketSub = channel.stream.listen(
-        _handleGatewayEvent,
-        onError: (Object e) => _fail(e),
-        onDone: () {
-          if (state.active && !_serverFinished) {
-            _stopMeters();
-            state = state.copyWith(
-              recording: false,
-              finishing: false,
-              level: 0,
-              error: speechInputErrorConnectionLost,
-            );
-          }
-        },
-      );
+      _connectSocket();
 
       final recorder = AudioRecorder();
       _recorder = recorder;
@@ -169,7 +162,10 @@ class SpeechInputController extends Notifier<SpeechInputState> {
         ),
       );
       _audioSub = stream.listen((bytes) {
-        if (bytes.isNotEmpty) _channel?.sink.add(bytes);
+        if (bytes.isNotEmpty) {
+          _rememberFrame(bytes);
+          _channel?.sink.add(bytes);
+        }
       }, onError: (Object e) => _fail(e));
       _startMeters(recorder);
     } catch (e) {
@@ -190,6 +186,52 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     _channel?.sink.add(jsonEncode({'type': 'finish'}));
   }
 
+  Future<void> retry() async {
+    if (state.active || !state.canRetry || _retryFrames.isEmpty) return;
+    if (!ref.read(speechInputAvailableProvider)) {
+      state = state.copyWith(
+        recording: false,
+        finishing: false,
+        error: speechInputErrorUnavailable,
+        canRetry: true,
+      );
+      return;
+    }
+    final snapshot = state;
+    state = SpeechInputState(
+      finishing: true,
+      committed: snapshot.text,
+      elapsed: snapshot.elapsed,
+    );
+    _serverFinished = false;
+    _replaying = true;
+    try {
+      _connectSocket();
+      for (final frame in List<Uint8List>.of(_retryFrames)) {
+        _channel?.sink.add(frame);
+      }
+      _channel?.sink.add(jsonEncode({'type': 'finish'}));
+    } catch (_) {
+      await _close(
+        cancelRecorder: false,
+        resetState: false,
+        keepRetryBuffer: true,
+      );
+      state = SpeechInputState(
+        committed: snapshot.committed,
+        partial: snapshot.partial,
+        elapsed: snapshot.elapsed,
+        error: speechInputErrorFailed,
+        canRetry: _retryFrames.isNotEmpty,
+      );
+    }
+  }
+
+  Future<void> discardRetry() async {
+    await _close(cancelRecorder: true, resetState: false);
+    state = const SpeechInputState();
+  }
+
   Future<void> cancel() async {
     try {
       _channel?.sink.add(jsonEncode({'type': 'cancel'}));
@@ -198,6 +240,22 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       // gone. The gateway's session max age remains the remote cleanup fallback.
     }
     await _close(cancelRecorder: true);
+  }
+
+  void _connectSocket() {
+    final uri = _speechUri();
+    final headers = _headers();
+    final channel = IOWebSocketChannel.connect(uri, headers: headers);
+    _channel = channel;
+    _socketSub = channel.stream.listen(
+      _handleGatewayEvent,
+      onError: (Object e) => _fail(e),
+      onDone: () {
+        if (state.active && !_serverFinished) {
+          unawaited(_failAsync(speechInputErrorConnectionLost));
+        }
+      },
+    );
   }
 
   Uri _speechUri() {
@@ -241,13 +299,21 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       return;
     }
     if (type.endsWith('.completed')) {
+      _clearReplayTranscriptIfNeeded();
       final text = _completedText(decoded);
       state = state.copyWith(committed: state.committed + text, partial: '');
       return;
     }
     if (type.endsWith('.delta')) {
+      _clearReplayTranscriptIfNeeded();
       state = state.copyWith(partial: _deltaText(decoded));
     }
+  }
+
+  void _clearReplayTranscriptIfNeeded() {
+    if (!_replaying) return;
+    _replaying = false;
+    state = state.copyWith(committed: '', partial: '', clearError: true);
   }
 
   String _completedText(Map<String, dynamic> event) {
@@ -301,19 +367,42 @@ class SpeechInputController extends Notifier<SpeechInputState> {
 
   Future<void> _failAsync(String error) async {
     final snapshot = state;
-    await _close(cancelRecorder: true, resetState: false);
+    final retryable = _retryFrames.isNotEmpty;
+    await _close(
+      cancelRecorder: true,
+      resetState: false,
+      keepRetryBuffer: true,
+    );
     state = SpeechInputState(
       committed: snapshot.committed,
       partial: snapshot.partial,
       elapsed: snapshot.elapsed,
       error: error,
+      canRetry: retryable,
     );
+  }
+
+  void _rememberFrame(List<int> bytes) {
+    if (_retryBytes >= _speechRetryMaxBytes) return;
+    final remaining = _speechRetryMaxBytes - _retryBytes;
+    final frame = Uint8List.fromList(
+      bytes.length <= remaining ? bytes : bytes.take(remaining).toList(),
+    );
+    if (frame.isEmpty) return;
+    _retryFrames.add(frame);
+    _retryBytes += frame.length;
+  }
+
+  void _clearRetryBuffer() {
+    _retryFrames.clear();
+    _retryBytes = 0;
   }
 
   Future<void> _close({
     required bool cancelRecorder,
     bool keepText = false,
     bool resetState = true,
+    bool keepRetryBuffer = false,
   }) async {
     _stopMeters();
     await _audioSub?.cancel();
@@ -329,6 +418,8 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     _recorder = null;
     await _channel?.sink.close();
     _channel = null;
+    _replaying = false;
+    if (!keepRetryBuffer) _clearRetryBuffer();
     if (!resetState) return;
     if (!keepText) {
       state = const SpeechInputState();

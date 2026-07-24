@@ -102,6 +102,10 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get voiceInputUnavailable => '语音输入仅支持 Anselm Auto';
 	@override String get voiceInputPermissionDenied => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。';
 	@override String get voiceInputConnectionLost => '语音输入已断开。已转写出的文字已保留在输入框中。';
+	@override String get voiceRetryTitle => '语音输入中断';
+	@override String get voiceRetryBody => '草稿已保留，可用本地录音重放一次重新转写。';
+	@override String get voiceRetryAction => '重试转写';
+	@override String get voiceDiscardAction => '删除语音草稿';
 	@override String get voiceInputFailed => '语音输入启动失败';
 	@override String get stop => '停止生成';
 	@override String get thinking => 'thinking';
@@ -2748,6 +2752,10 @@ extension on TranslationsZhCn {
 			'chat.voiceInputUnavailable' => '语音输入仅支持 Anselm Auto',
 			'chat.voiceInputPermissionDenied' => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。',
 			'chat.voiceInputConnectionLost' => '语音输入已断开。已转写出的文字已保留在输入框中。',
+			'chat.voiceRetryTitle' => '语音输入中断',
+			'chat.voiceRetryBody' => '草稿已保留，可用本地录音重放一次重新转写。',
+			'chat.voiceRetryAction' => '重试转写',
+			'chat.voiceDiscardAction' => '删除语音草稿',
 			'chat.voiceInputFailed' => '语音输入启动失败',
 			'chat.stop' => '停止生成',
 			'chat.thinking' => 'thinking',
@@ -3216,12 +3224,12 @@ extension on TranslationsZhCn {
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
 			'chat.gate.approve' => '允许',
+			_ => null,
+		} ?? switch (path) {
 			'chat.gate.approveAlways' => '总是允许',
 			'chat.gate.approveAlwaysHint' => ({required Object tool}) => '本对话内不再询问 ${tool}(重启即忘)',
 			'chat.gate.deny' => '拒绝',
 			'chat.gate.decline' => '不回答',
-			_ => null,
-		} ?? switch (path) {
 			'chat.gate.submit' => '发送',
 			'chat.gate.answerPlaceholder' => '输入你的回答…',
 			'chat.gate.decidedApproved' => '已允许',
@@ -3730,12 +3738,12 @@ extension on TranslationsZhCn {
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => '节点 ${id},${kind},${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
 			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.jsonTree' => ({required Object count}) => 'JSON 树,${count} 项',
 			'a11y.diff' => ({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}',
 			'a11y.loading' => '加载中',
 			'a11y.timeoutBudget' => '时限',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.fmtBold' => '加粗',
 			'a11y.fmtItalic' => '斜体',
 			'a11y.fmtStrike' => '删除线',
@@ -4244,12 +4252,12 @@ extension on TranslationsZhCn {
 			'settings.stageAlways' => '每次',
 			'settings.sendKey' => '发送键',
 			'settings.sendKeyDesc' => 'Shift+Enter 始终换行',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sendEnter' => 'Enter 发送',
 			'settings.sendCmdEnter' => '⌘Enter 发送',
 			'settings.webFetch' => '网页抓取模式',
 			'settings.webFetchDesc' => '本地抓取更私密;Jina 代理更能读动态页面',
-			_ => null,
-		} ?? switch (path) {
 			'settings.webLocal' => '本地抓取',
 			'settings.webJina' => 'Jina 代理',
 			'settings.defaultModelLink' => '默认对话模型 → 模型与密钥',

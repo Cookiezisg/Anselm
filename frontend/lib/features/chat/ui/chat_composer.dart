@@ -6,7 +6,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
 
 import '../../../core/settings/settings_prefs.dart';
+import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
+import '../../../core/design/typography.dart';
 import '../../../core/entity/mention_source.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/ui/ui.dart';
@@ -75,6 +77,8 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   bool _submittingNew = false;
   String? _speechBefore;
   String? _speechAfter;
+  String? _speechLastMerged;
+  bool _applyingSpeechMerge = false;
 
   // ── @ typeahead state @ 预输入态 ──
   final LayerLink _link = LayerLink();
@@ -123,7 +127,16 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   void _onChanged() {
     ref.read(chatDraftsProvider).set(_draftKey, _ctrl.text);
     final has = _ctrl.text.trim().isNotEmpty;
-    if (has != _hasText) setState(() => _hasText = has);
+    var needsBuild = has != _hasText;
+    if (needsBuild) _hasText = has;
+    if (!_applyingSpeechMerge &&
+        _speechLastMerged != null &&
+        _ctrl.text != _speechLastMerged &&
+        !ref.read(speechInputProvider).active) {
+      _clearSpeechAnchor();
+      needsBuild = true;
+    }
+    if (needsBuild) setState(() {});
     _syncMentionQuery();
   }
 
@@ -490,6 +503,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final end = sel.isValid ? sel.end : start;
     _speechBefore = _ctrl.text.substring(0, start);
     _speechAfter = _ctrl.text.substring(end);
+    _speechLastMerged = null;
     _focus.requestFocus();
     await ref.read(speechInputProvider.notifier).start();
   }
@@ -502,8 +516,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     if (err != null && err != previous?.error) {
       final t = Translations.of(context).chat;
       _mergeSpeechText(next);
-      _speechBefore = null;
-      _speechAfter = null;
+      if (!next.canRetry) _clearSpeechAnchor();
       ref
           .read(noticeCenterProvider.notifier)
           .show(
@@ -524,8 +537,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     }
     _mergeSpeechText(next);
     if (!next.active) {
-      _speechBefore = null;
-      _speechAfter = null;
+      if (!next.canRetry) _clearSpeechAnchor();
     }
   }
 
@@ -536,13 +548,43 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     final inserted = next.text;
     final merged = before + inserted + after;
     if (_ctrl.text != merged) {
+      _applyingSpeechMerge = true;
       _ctrl.value = TextEditingValue(
         text: merged,
         selection: TextSelection.collapsed(
           offset: before.length + inserted.length,
         ),
       );
+      _applyingSpeechMerge = false;
     }
+    _speechLastMerged = merged;
+  }
+
+  void _clearSpeechAnchor() {
+    _speechBefore = null;
+    _speechAfter = null;
+    _speechLastMerged = null;
+  }
+
+  Future<void> _retrySpeechInput() async {
+    if (_speechBefore == null || _speechAfter == null) return;
+    _focus.requestFocus();
+    await ref.read(speechInputProvider.notifier).retry();
+  }
+
+  Future<void> _discardSpeechRetry() async {
+    final before = _speechBefore;
+    final after = _speechAfter;
+    if (before != null && after != null) {
+      _applyingSpeechMerge = true;
+      _ctrl.value = TextEditingValue(
+        text: before + after,
+        selection: TextSelection.collapsed(offset: before.length),
+      );
+      _applyingSpeechMerge = false;
+    }
+    _clearSpeechAnchor();
+    await ref.read(speechInputProvider.notifier).discardRetry();
   }
 
   /// The composer chrome wrapped as the picker's ANCHOR: the portal's follower hangs the panel above
@@ -713,15 +755,51 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             finalizing: speech.finishing,
           )
         : null;
-    if (attachments == null) return voice;
-    if (voice == null) return attachments;
+    final retry =
+        !speech.active &&
+            speech.canRetry &&
+            _speechBefore != null &&
+            _speechAfter != null
+        ? _speechRetryCard(context, t)
+        : null;
+    final parts = [?attachments, ?voice, ?retry];
+    if (parts.isEmpty) return null;
+    if (parts.length == 1) return parts.single;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        attachments,
-        const SizedBox(height: AnSpace.s8),
-        voice,
+        for (var i = 0; i < parts.length; i++) ...[
+          if (i > 0) const SizedBox(height: AnSpace.s8),
+          parts[i],
+        ],
       ],
+    );
+  }
+
+  Widget _speechRetryCard(BuildContext context, Translations t) {
+    final c = context.colors;
+    return AnInfoCard(
+      key: const ValueKey('voice-retry-card'),
+      title: t.chat.voiceRetryTitle,
+      icon: AnIcons.microphone,
+      actions: [
+        AnButton(
+          label: t.chat.voiceRetryAction,
+          icon: AnIcons.refresh,
+          onPressed: _retrySpeechInput,
+        ),
+        AnButton(
+          label: t.chat.voiceDiscardAction,
+          icon: AnIcons.trash,
+          variant: AnButtonVariant.danger,
+          outline: true,
+          onPressed: _discardSpeechRetry,
+        ),
+      ],
+      child: Text(
+        t.chat.voiceRetryBody,
+        style: AnText.body.copyWith(color: c.inkMuted),
+      ),
     );
   }
 

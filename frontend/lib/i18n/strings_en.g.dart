@@ -170,6 +170,18 @@ class Translations$chat$en {
 	/// en: 'Voice input disconnected. I kept the text that was already transcribed.'
 	String get voiceInputConnectionLost => 'Voice input disconnected. I kept the text that was already transcribed.';
 
+	/// en: 'Voice input was interrupted'
+	String get voiceRetryTitle => 'Voice input was interrupted';
+
+	/// en: 'I kept the draft and can replay the local recording once to transcribe it again.'
+	String get voiceRetryBody => 'I kept the draft and can replay the local recording once to transcribe it again.';
+
+	/// en: 'Retry transcription'
+	String get voiceRetryAction => 'Retry transcription';
+
+	/// en: 'Delete voice draft'
+	String get voiceDiscardAction => 'Delete voice draft';
+
 	/// en: 'Voice input couldn't start'
 	String get voiceInputFailed => 'Voice input couldn\'t start';
 
@@ -6451,6 +6463,10 @@ extension on Translations {
 			'chat.voiceInputUnavailable' => 'Voice input is available only with Anselm Auto',
 			'chat.voiceInputPermissionDenied' => 'Microphone permission is off. Enable microphone access in system settings, then try again.',
 			'chat.voiceInputConnectionLost' => 'Voice input disconnected. I kept the text that was already transcribed.',
+			'chat.voiceRetryTitle' => 'Voice input was interrupted',
+			'chat.voiceRetryBody' => 'I kept the draft and can replay the local recording once to transcribe it again.',
+			'chat.voiceRetryAction' => 'Retry transcription',
+			'chat.voiceDiscardAction' => 'Delete voice draft',
 			'chat.voiceInputFailed' => 'Voice input couldn\'t start',
 			'chat.stop' => 'Stop generating',
 			'chat.thinking' => 'thinking',
@@ -6919,12 +6935,12 @@ extension on Translations {
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
 			'chat.gate.approve' => 'Allow',
+			_ => null,
+		} ?? switch (path) {
 			'chat.gate.approveAlways' => 'Always allow',
 			'chat.gate.approveAlwaysHint' => ({required Object tool}) => 'Don\'t ask again for ${tool} this conversation (forgotten on restart)',
 			'chat.gate.deny' => 'Deny',
 			'chat.gate.decline' => 'Don\'t answer',
-			_ => null,
-		} ?? switch (path) {
 			'chat.gate.submit' => 'Send',
 			'chat.gate.answerPlaceholder' => 'Type your answer…',
 			'chat.gate.decidedApproved' => 'Allowed',
@@ -7433,12 +7449,12 @@ extension on Translations {
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => 'Node ${id}, ${kind}, ${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
 			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.jsonTree' => ({required Object count}) => 'JSON tree, ${count} items',
 			'a11y.diff' => ({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed',
 			'a11y.loading' => 'Loading',
 			'a11y.timeoutBudget' => 'time budget',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.fmtBold' => 'Bold',
 			'a11y.fmtItalic' => 'Italic',
 			'a11y.fmtStrike' => 'Strikethrough',
@@ -7947,12 +7963,12 @@ extension on Translations {
 			'settings.stageAlways' => 'Every time',
 			'settings.sendKey' => 'Send key',
 			'settings.sendKeyDesc' => 'Shift+Enter always inserts a newline',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sendEnter' => 'Enter sends',
 			'settings.sendCmdEnter' => '⌘Enter sends',
 			'settings.webFetch' => 'Web fetch mode',
 			'settings.webFetchDesc' => 'Local fetch is more private; the Jina proxy reads dynamic pages better',
-			_ => null,
-		} ?? switch (path) {
 			'settings.webLocal' => 'Local fetch',
 			'settings.webJina' => 'Jina proxy',
 			'settings.defaultModelLink' => 'Default chat model → Models & keys',
