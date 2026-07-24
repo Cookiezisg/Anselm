@@ -60,6 +60,9 @@ func (t *ReadAttachment) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", fmt.Errorf("read_attachment: %w", err)
 	}
+	if err := t.ValidateInput([]byte(argsJSON)); err != nil {
+		return "", err
+	}
 	meta, err := t.svc.Get(ctx, a.ID)
 	if err != nil {
 		if errors.Is(err, attachmentdomain.ErrNotFound) {
