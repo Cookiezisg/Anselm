@@ -595,19 +595,21 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ① | Flutter 升 3.44(改钉 → setup → 全量 verify → 真机冒烟) | Fable |
 | ② | CR-1a 拆壳 LayoutBuilder | Fable |
 | ③ | CR-1b 滚动监听 ×9 + CR-2 错误钩子 | Fable |
-| ④ | CR-3 Output 树高度 | 派 |
+| ④ | CR-3 Output 树高度 | 派 **sonnet** |
 | ⑤ | RI 右岛四病灶 + 「禁止条件包装」军规+守卫 | Fable |
-| ⑥ | TS 文本选择 | 混合:拓扑/手势/焦点 Fable;disabled 铺原语 派 |
+| ⑥ | TS 文本选择 | 混合:拓扑/手势/焦点 Fable;disabled 铺原语 派 **sonnet** |
 | ⑦ | CH-a 动作排+复制+排队 | Fable |
 | ⑧ | CH-b fork / CH-c retry(前后端) | Fable |
-| ⑨ | VT 版本页 | 混合:diff hunk+虚拟化 Fable;页面组装 派 |
-| ⑩ | EA 实体 ⋯ 菜单 | 派 |
-| ⑪ | SK 密钥分栏 | 派 |
-| ⑫ | ES 空态退役 ×13 | 派 |
-| ⑬ | LR+LI rail 重构+文案+tooltip 地基 | 混合:typeHeadActionsBuilder Fable;铺开 派 |
+| ⑨ | VT 版本页 | 混合:diff hunk+虚拟化 Fable;页面组装 派 **opus**(脸面页,UI 品味权重高) |
+| ⑩ | EA 实体 ⋯ 菜单 | 派 **sonnet** |
+| ⑪ | SK 密钥分栏 | 派 **sonnet** |
+| ⑫ | ES 空态退役 ×13 | 派 **sonnet** |
+| ⑬ | LR+LI rail 重构+文案+tooltip 地基 | 混合:typeHeadActionsBuilder Fable;铺开 派 **sonnet** |
 | ⑭ | WD1 驻地地基 | Fable |
-| ⑮ | WD1.5 rail 驻地分组(CL) | 混合:后端投影 Fable;rail 组装 派 |
+| ⑮ | WD1.5 rail 驻地分组(CL) | 混合:后端投影 Fable;rail 组装 派 **opus**(分组无漂移/置顶去重有状态逻辑) |
 | ⑯ | WD2 git 操作 / WD3 worktree | Fable |
+
+**派出模型判据**:按「一次过概率」定档、非按单价——返工回合(主模型复审 token + 墙钟)比子代理 token 贵得多。样板化/规格写死 → sonnet;有 UI 品味或状态逻辑 → opus;**不用 haiku**(本库文法纪律严,省的钱不够付返工);调研/读码照旧 opus。
 
 **派出协议(五条,G 战役教训)**:①简报=本册对应节+禁区清单(不许动的文件/不许自造抽象)②一批一提交、文档同步同责(#9)③Fable 逐行对抗复审后才准提交(全量读 diff,非抽查)④门禁由主会话跑(不与子代理抢树)⑤视觉批每批交用户真机截图验收。
 
