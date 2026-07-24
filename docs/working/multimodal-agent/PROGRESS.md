@@ -133,3 +133,44 @@ token 256 位 `crypto/rand` + URL-safe base64 · `kind=audio` 在签发与取用
 3. `testend/fixtures/manifest.json` 的 10 条媒体金标里 **7 条只有生成器 sha256 自测、无任何消费断言**
 
 **门禁归属提醒**:`testend/scenarios`、`testend/golden`、网关 `internal/e2e`(build tag)、网关 live ASR、`deploy/*_test.sh` **五套都不在 `make verify` 里**。§16「§13 无未解释红项」若以 verify 全绿为准,会漏掉这五套的全部证据。
+
+### 🔴 §3.3 十条不变量守卫:**0/10 达标**(§16 硬性要求)
+
+第三路审计结论,已抽验其最高影响的几条。**两个仓都有写这类守卫的成熟手艺**(`backend/internal/pkg/errors/standard_test.go:33` 的 AST 全仓扫描、frontend 的 `convergence_guard` / `no_emoji_guard` / `demo_parity_guard`)——**一条都没用在这十条上**。
+
+三条框架事实(决定了每条的上限):**主仓无 CI 也无 git hook**(`.github` 不存在),全靠人手跑 `make verify`;网关仓有真 CI。`testend`/`evals` 按 T5 明文不入 verify,守卫若只活在那里就是弱守卫。主仓无不变量登记册(`grep WRK-078` 零命中);网关有 `invariants.md`(GW-INV-01..48,71 处代码引用)但 `cmd/docs` 不校验登记册与代码的对应。
+
+| # | 不变量 | 守卫 | 能挡住新违反写法 |
+|---|---|---|---|
+| 1 | DB 行是真相 | **无** | 否 |
+| 2 | 原件本地唯一 | **无**;现行代码四处违反字面表述,**两处被测试锁成了正确行为** | 否 |
+| 3 | 每媒体每任务一次感知 | 部分(传输半真守卫;**感知半守着一条生产里没人走的通道**) | 否 |
+| 4 | 证据可回溯 | 部分;**反例已在测试套件里跑绿** | 否 |
+| 5 | inspect_media 存在 | 部分(挡得住删工具) | 否(默认关的 flag 可全绿绕过) |
+| 6 | 窗口诚实 | 部分(主仓 Omni `65_536` 是唯一真钉死;**网关侧全是同义反复**——断言「目录值 == 同一个目录常量」) | 否 |
+| 7 | provider 是 hard-limit 权威 | 部分(只覆盖当初被修的那条路径) | 否 |
+| 8 | 安全护栏保留 | 部分(body cap 链级继承 + 字面量钉死是真的;限流/磁盘/配额/并发/超时全无) | 部分 |
+| 9 | 密钥不下沉 UI | 部分(服务端 `RequireLoopbackHost` 有真守卫;**Flutter 侧零守卫**) | 否 |
+| 10 | 内容不进观测面 | 部分(**网关有运行时脱敏底座**;**主仓后端零脱敏**;两仓均无调用点扫描) | 否 |
+
+**最该先处理的两条**:
+- **#10 主仓后端零脱敏**:`infra/logger/zap.go` 无任何字段钩子,任何 `zap.String("prompt", …)` 原样写进 stderr **与轮转文件**;content-adjacent 的 37 处日志里 26 处直传 `zap.Error(err)`(如 `attachment.go:459` 把沙箱抽取器错误原文入日志,极易嵌文件路径/文件名/内容片段)。网关那套 `logx.redactAttr` 运行时底座值得移植。
+- **#9 Flutter 侧零守卫**:`ANSELM_BACKEND_URL` dev 逃生口**不做任何 scheme/host 校验**,设成 `https://evil.example` 则全 app(含 bearer 与 ASR WebSocket)整体打过去;现有测试只断言正路径产出 `127.0.0.1`。
+
+---
+
+## C · 修复进行中
+
+### C-1 ✅ playback lease 的 testend 契约覆盖(T5.1 缺口)
+
+`TestContractDocsAtt_AudioPlaybackLease` 已补(`3bc3282b`):只有 audio 可签发 / 签发仍走 workspace 门 / 无 header fetch 可取原字节 / Range 得 206+Content-Range / 未知 token 与软删后一律 404 不作存在性预言。单跑绿。
+
+### C-2 🔨 四条红 testend 的诊断(**已定性:陈旧测试,非回归**)
+
+**根因**(主会话逐层追证):`bootstrap/model_info.go:74-80` 的 `windowResolver.ContextBudget` 对 `provider != "anselm"` 返 `(0,0)` → `contextUsage.inputBudgetTokens` 为 0 → `contextmgr.MaybeCompact`(`:175-177`)走「unknown budget — don't compact blind」直接返回。testend 用的是 mock BYOK 模型(`dlgModel = "gpt-4o"`),**故持久压缩整条链不再运行**。
+
+**一次被我撤回的错误修法(记录以免重犯)**:我曾判定该 anselm-only 守卫「打错了对象」——admission 路径在 `resolvers.go:76` 调用点已按 anselm 门控,而本 resolver 的唯一接口消费者是**持久压缩(非准入闸)**,故 contextmgr 里那段写明的 catalog 兜底成了永不可达的死代码。**但 `resolvers_test.go:165` 有一条故意的断言**要求外部 provider 必返 `(0,0)`,且规范 §4.2 明写「外部模型未知/低置信 → **不因本地窗口猜测压缩**;完整尝试」——**规范与既有测试站在一边,我的判断错了,已 `git checkout` 撤回**。
+
+设计其实自洽:模型不抱怨就不必压;真撞墙 → 透明恢复 → 学到软预算(`loop.go:172-177` 的 `RuntimeInputBudget` 覆盖后经 `ObserveContext(InputBudget: budget)` 落进 `contextUsage`)→ 此后持久压缩正常工作。
+
+**待办(下一段接手即可照做)**:四条测试(`TestChat_CompactionWatermark` / `TestPromptR6_PostCompactionView` / `TestContractChat_MessagesPhysicalTruth` / `TestContractChat_GeneratingFlagAndFinalizeWindow`)须按 C1.5 设计重写为「**先驱动一次真 overflow 让模型学到预算,再断言持久压缩**」。前置改动:`testend/harness/llmmock.go:266-272` 的脚本化失败目前把 message 硬编码成 `"scripted provider failure"`,需加一个可自定义错误文案的字段(如 `LLMTurn.ErrorMessage`),使其能被 `IsContextLengthError`(`infra/llm/llm.go:82`,判 `RequestRejectedError.Reason == RejectionContextLength`)识别。**顺带闭合 §13.1 的一条缺口**——「provider 首次 overflow」此前在 testend 无法黑盒。
