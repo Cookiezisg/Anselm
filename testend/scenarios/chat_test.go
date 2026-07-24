@@ -405,22 +405,51 @@ func TestChat_CompactionWatermark(t *testing.T) {
 	// The conversation is user-titled → no autotitle call; the utility queue serves ONLY the
 	// compaction summary.
 	// 对话用户已命名 → 不触发起标题；utility 队列只出压缩摘要。
-	mock.Enqueue(utilModel, harness.LLMTurn{Text: "MOCK-SUMMARY-OF-OLDER-TURNS"})
+	// An EXTERNAL (BYOK) model has no catalog-derived compaction budget by design (C1.5 / §4.2:
+	// "外部模型未知/低置信 → 不因本地窗口猜测压缩"). A soft budget exists only after a real
+	// provider overflow is transparently recovered — modelprofile.Budget requires
+	// RecoveredOverflows > 0 and returns 0.7×LowestOverflowPredicted. So this scenario must EARN
+	// the budget the way production does: overflow once, recover in-step, and only then does the
+	// durable tail compaction have a line to cross.
+	//
+	// 外部(BYOK)模型按设计没有目录推导的压缩预算(C1.5/§4.2「不因本地窗口猜测压缩」)。软预算只在一次
+	// 真实 provider 溢出被透明恢复后才存在(modelprofile.Budget 要求 RecoveredOverflows>0,返
+	// 0.7×最低溢出预测)。故本场景必须像生产那样**挣**到预算:先溢出一次、同步内恢复,持久尾部压缩才有线可越。
+	// Once a budget is learned the loop ALSO does in-turn prompt editing through the same utility
+	// queue, so the durable tail summary is not the second utility call — it is simply the last one.
+	// Every scripted utility turn therefore carries the same marker: the assertion is "the rolling
+	// summary persisted", not "which utility call produced it".
+	//
+	// 学到预算后 loop 还会经同一 utility 队列做回合内 prompt editing,故尾部持久摘要并不是第二次 utility
+	// 调用、而只是最后一次。所以每个脚本 utility 回合都带同一标记:断言的是「滚动摘要落盘了」,不是「哪次
+	// utility 调用产生的」。
+	utilTurns := make([]harness.LLMTurn, 12)
+	for i := range utilTurns {
+		utilTurns[i] = harness.LLMTurn{Text: "MOCK-SUMMARY-OF-OLDER-TURNS"}
+	}
+	mock.Enqueue(utilModel, utilTurns...)
 	filler := strings.Repeat("filler words about the ancient topic. ", 800) // ~30KB/turn
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{Text: "noted 1"},
 		harness.LLMTurn{Text: "noted 2"},
 		harness.LLMTurn{Text: "noted 3"},
-		// Turn 4 reports real input tokens over the (lowered) trigger line.
-		// 第 4 回合上报的真实 input token 越过（调低后的）触发线。
-		harness.LLMTurn{Text: "noted 4", PromptTokens: 60000},
+		// Turn 4 attempt 1: a provider-confirmed context overflow. The loop checkpoints and retries
+		// the SAME step; the pair teaches the runtime profile a soft budget.
+		// 第 4 回合首次尝试:provider 权威上下文溢出。loop 做 checkpoint 并重试**同一步**;这一对教会
+		// 运行时画像一个软预算。
+		harness.LLMTurn{Status: 400, ErrorMessage: "context length exceeded"},
+		harness.LLMTurn{Text: "noted 4"},
+		// Turn 5 now runs UNDER the learned budget and reports real input tokens over the (lowered)
+		// trigger line → durable compaction at its tail.
+		// 第 5 回合已在学到的预算下运行,上报的真实 input token 越过(调低后的)触发线 → 尾部持久压缩。
+		harness.LLMTurn{Text: "noted 5", PromptTokens: 60000},
 		harness.LLMTurn{Text: "answer about recall"},
 	)
 
 	convID := convCreate(t, wc, "compaction")
 	mid := sendMsg(t, wc, convID, "TURN1-ANCIENT-MARKER "+filler)
 	waitTurn(t, wc, convID, mid, 30000)
-	for i := 2; i <= 4; i++ {
+	for i := 2; i <= 5; i++ {
 		mid = sendMsg(t, wc, convID, fmt.Sprintf("TURN%d-MARKER %s", i, filler))
 		waitTurn(t, wc, convID, mid, 30000)
 	}

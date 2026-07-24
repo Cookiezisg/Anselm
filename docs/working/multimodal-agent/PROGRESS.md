@@ -174,3 +174,18 @@ token 256 位 `crypto/rand` + URL-safe base64 · `kind=audio` 在签发与取用
 设计其实自洽:模型不抱怨就不必压;真撞墙 → 透明恢复 → 学到软预算(`loop.go:172-177` 的 `RuntimeInputBudget` 覆盖后经 `ObserveContext(InputBudget: budget)` 落进 `contextUsage`)→ 此后持久压缩正常工作。
 
 **待办(下一段接手即可照做)**:四条测试(`TestChat_CompactionWatermark` / `TestPromptR6_PostCompactionView` / `TestContractChat_MessagesPhysicalTruth` / `TestContractChat_GeneratingFlagAndFinalizeWindow`)须按 C1.5 设计重写为「**先驱动一次真 overflow 让模型学到预算,再断言持久压缩**」。前置改动:`testend/harness/llmmock.go:266-272` 的脚本化失败目前把 message 硬编码成 `"scripted provider failure"`,需加一个可自定义错误文案的字段(如 `LLMTurn.ErrorMessage`),使其能被 `IsContextLengthError`(`infra/llm/llm.go:82`,判 `RequestRejectedError.Reason == RejectionContextLength`)识别。**顺带闭合 §13.1 的一条缺口**——「provider 首次 overflow」此前在 testend 无法黑盒。
+
+### C-2 结果:4 条红 testend → **3 条修绿,1 条留红并给出精确诊断**
+
+**修法(已验证的配方)**:外部(BYOK)模型按 C1.5 设计**必须先挣到软预算**——先脚本化一次真 provider 溢出(`LLMTurn{Status:400, ErrorMessage:"context length exceeded"}`)让 loop 同步内 checkpoint 恢复,`modelprofile.Budget` 才产出 `0.7 × 最低溢出预测`;此后末回合上报真实 input token 才有线可越。**另一个必踩的坑**:学到预算后 loop 也会经**同一** utility 队列做回合内 editing,故 utility 队列须给足,且尾部持久摘要**不是第二次** utility 调用、只是最后一次——所以每个脚本 utility 回合都带同一标记,断言「摘要落盘了」而非「哪次调用产生的」。
+
+| 场景 | 结果 |
+|---|---|
+| `TestChat_CompactionWatermark` | ✅ 绿(实测 `context overflow recovered` + `input_budget: 37846 ≈ 0.7×54066`) |
+| `TestPromptR6_PostCompactionView` | ✅ 绿 |
+| `TestContractChat_MessagesPhysicalTruth` | ✅ 绿 |
+| `TestContractChat_GeneratingFlagAndFinalizeWindow` | 🔴 **仍红(本就红,已还原到原状,未留半改)** |
+
+**第四条的诊断(已排除的假设都记下,免得重走)**:该场景的收尾窗机制与压缩时序纠缠。已确认:①按上述配方改造后**软预算确实学到了**(日志 `input_budget: 31864` 的回合内 editing 为证)②改造后**完全没有任何压缩日志** → `MaybeCompact` 提前返回 ③已试过把 stall 从第 1 次挪到第 3 次 utility 调用(让撑窗的是尾部压缩而非回合内 editing)——仍红 ④已试过给槽内回合也报 `PromptTokens: 60000`(因 `lastContextMeasurement` 取**最新**一条,槽回合默认 100 会让尾部压缩看着 100 判「未越线」)——仍红。**下一步该查**:`chatC_setup` 建的 convW 走的是否与另三条不同的 host 装配;以及收尾窗期间 `MaybeCompact` 是否被 finalize 路径跳过。
+
+**为什么还原而不留改**:它本来就是红的;留一个被我改过又仍红的测试,会让人误判是我的改动导致。宁可红得干净。

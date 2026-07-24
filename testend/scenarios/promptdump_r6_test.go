@@ -318,19 +318,28 @@ func TestPromptR6_PostCompactionView(t *testing.T) {
 	wc, mock := chatSetup(t, true)
 	wc.PATCH("/api/v1/limits", map[string]any{"context": map[string]any{"triggerRatio": 0.1}}).OK(t, nil)
 
-	// 压缩保留近窗——需要足够的可折叠旧回合（与 W4 同形：4 回合、末回合越线）。
-	mock.Enqueue(utilModel, harness.LLMTurn{Text: "R6-ROLLING-SUMMARY"})
+	// 压缩保留近窗——需要足够的可折叠旧回合。**外部(BYOK)模型必须先挣到软预算**:按 C1.5/§4.2,
+	// 外部模型不因本地窗口猜测压缩,预算只在一次真实 provider 溢出被透明恢复后才存在
+	// (modelprofile.Budget 要求 RecoveredOverflows>0)。故此处先溢出一次、同步内恢复,再让末回合越线。
+	// 学到预算后 loop 也会经同一 utility 队列做回合内 editing,故每个 utility 回合都带同一标记。
+	utilTurns := make([]harness.LLMTurn, 12)
+	for i := range utilTurns {
+		utilTurns[i] = harness.LLMTurn{Text: "R6-ROLLING-SUMMARY"}
+	}
+	mock.Enqueue(utilModel, utilTurns...)
 	filler := strings.Repeat("ancient words. ", 1500)
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{Text: "n1"},
 		harness.LLMTurn{Text: "n2"},
 		harness.LLMTurn{Text: "n3"},
-		harness.LLMTurn{Text: "n4", PromptTokens: 60000},
-		harness.LLMTurn{Text: "n5"},
+		harness.LLMTurn{Status: 400, ErrorMessage: "context length exceeded"},
+		harness.LLMTurn{Text: "n4"},
+		harness.LLMTurn{Text: "n5", PromptTokens: 60000},
+		harness.LLMTurn{Text: "n6"},
 	)
 	convID := convCreate(t, wc, "post compaction")
 	waitTurn(t, wc, convID, sendMsg(t, wc, convID, "OLDMARK-1 "+filler), 30000)
-	for i := 2; i <= 4; i++ {
+	for i := 2; i <= 5; i++ {
 		waitTurn(t, wc, convID, sendMsg(t, wc, convID, fmt.Sprintf("OLDMARK-%d %s", i, filler)), 30000)
 	}
 	harness.Eventually(t, 20000, "summary persists", func() bool {

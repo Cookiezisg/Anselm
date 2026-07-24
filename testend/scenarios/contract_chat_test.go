@@ -759,18 +759,27 @@ func TestContractChat_MessagesPhysicalTruth(t *testing.T) {
 	srv, wc, mock, _, _ := chatC_setup(t, true)
 	wc.PATCH("/api/v1/limits", map[string]any{"context": map[string]any{"triggerRatio": 0.1}}).OK(t, nil)
 
-	mock.Enqueue(utilModel, harness.LLMTurn{Text: "IMMUTABLE-SUMMARY-MARK"})
+	// 外部(BYOK)模型必须先挣到软预算(C1.5/§4.2:不因本地窗口猜测压缩;预算只在真实溢出被透明恢复后
+	// 存在)。故先溢出一次、同步内恢复,再让末回合越线。学到预算后 loop 也经同一 utility 队列做回合内
+	// editing,故每个 utility 回合都带同一标记。
+	utilTurns := make([]harness.LLMTurn, 12)
+	for i := range utilTurns {
+		utilTurns[i] = harness.LLMTurn{Text: "IMMUTABLE-SUMMARY-MARK"}
+	}
+	mock.Enqueue(utilModel, utilTurns...)
 	filler := strings.Repeat("immutability filler words. ", 800)
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{Text: "noted 1"},
 		harness.LLMTurn{Text: "noted 2"},
 		harness.LLMTurn{Text: "noted 3"},
-		harness.LLMTurn{Text: "noted 4", PromptTokens: 60000},
+		harness.LLMTurn{Status: 400, ErrorMessage: "context length exceeded"},
+		harness.LLMTurn{Text: "noted 4"},
+		harness.LLMTurn{Text: "noted 5", PromptTokens: 60000},
 	)
 	convID := convCreate(t, wc, "physical truth")
 	turn1Content := "IMMUTABLE-TURN1-MARKER " + filler
 	waitTurn(t, wc, convID, sendMsg(t, wc, convID, turn1Content), 30000)
-	for i := 2; i <= 4; i++ {
+	for i := 2; i <= 5; i++ {
 		waitTurn(t, wc, convID, sendMsg(t, wc, convID, fmt.Sprintf("TURN%d %s", i, filler)), 30000)
 	}
 	harness.Eventually(t, 20000, "compaction persists the rolling summary + watermark", func() bool {
