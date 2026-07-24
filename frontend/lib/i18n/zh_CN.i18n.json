@@ -44,6 +44,7 @@
     "voiceInputUnavailable": "语音输入仅支持 Anselm Auto",
     "voiceInputPermissionDenied": "麦克风权限未开启。请在系统设置里允许麦克风访问后重试。",
     "voiceInputConnectionLost": "语音输入已断开。已转写出的文字已保留在输入框中。",
+    "voiceInputTooLong": "语音输入最长 2 分钟。已转写出的文字已保留在输入框中。",
     "voiceRetryTitle": "语音输入中断",
     "voiceRetryBody": "草稿已保留，可用本地录音重放一次重新转写。",
     "voiceRetryAction": "重试转写",

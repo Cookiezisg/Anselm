@@ -170,6 +170,9 @@ class Translations$chat$en {
 	/// en: 'Voice input disconnected. I kept the text that was already transcribed.'
 	String get voiceInputConnectionLost => 'Voice input disconnected. I kept the text that was already transcribed.';
 
+	/// en: 'Voice input is limited to 2 minutes. I kept the text that was already transcribed.'
+	String get voiceInputTooLong => 'Voice input is limited to 2 minutes. I kept the text that was already transcribed.';
+
 	/// en: 'Voice input was interrupted'
 	String get voiceRetryTitle => 'Voice input was interrupted';
 
@@ -6463,6 +6466,7 @@ extension on Translations {
 			'chat.voiceInputUnavailable' => 'Voice input is available only with Anselm Auto',
 			'chat.voiceInputPermissionDenied' => 'Microphone permission is off. Enable microphone access in system settings, then try again.',
 			'chat.voiceInputConnectionLost' => 'Voice input disconnected. I kept the text that was already transcribed.',
+			'chat.voiceInputTooLong' => 'Voice input is limited to 2 minutes. I kept the text that was already transcribed.',
 			'chat.voiceRetryTitle' => 'Voice input was interrupted',
 			'chat.voiceRetryBody' => 'I kept the draft and can replay the local recording once to transcribe it again.',
 			'chat.voiceRetryAction' => 'Retry transcription',
@@ -6934,9 +6938,9 @@ extension on Translations {
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
-			'chat.gate.approve' => 'Allow',
 			_ => null,
 		} ?? switch (path) {
+			'chat.gate.approve' => 'Allow',
 			'chat.gate.approveAlways' => 'Always allow',
 			'chat.gate.approveAlwaysHint' => ({required Object tool}) => 'Don\'t ask again for ${tool} this conversation (forgotten on restart)',
 			'chat.gate.deny' => 'Deny',
@@ -7448,9 +7452,9 @@ extension on Translations {
 			'a11y.graphFit' => 'Fit to view',
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => 'Node ${id}, ${kind}, ${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => 'Code block, ${lang}, ${lines} lines',
-			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			_ => null,
 		} ?? switch (path) {
+			'a11y.codeBlockPlain' => ({required Object lines}) => 'Code block, ${lines} lines',
 			'a11y.jsonTree' => ({required Object count}) => 'JSON tree, ${count} items',
 			'a11y.diff' => ({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed',
 			'a11y.loading' => 'Loading',
@@ -7962,9 +7966,9 @@ extension on Translations {
 			'settings.stageFirst' => 'First per chat',
 			'settings.stageAlways' => 'Every time',
 			'settings.sendKey' => 'Send key',
-			'settings.sendKeyDesc' => 'Shift+Enter always inserts a newline',
 			_ => null,
 		} ?? switch (path) {
+			'settings.sendKeyDesc' => 'Shift+Enter always inserts a newline',
 			'settings.sendEnter' => 'Enter sends',
 			'settings.sendCmdEnter' => '⌘Enter sends',
 			'settings.webFetch' => 'Web fetch mode',

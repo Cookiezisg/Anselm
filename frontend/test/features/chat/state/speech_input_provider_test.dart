@@ -202,4 +202,41 @@ void main() {
     expect(capture.cancelled, isTrue);
     expect(capture.disposed, isTrue);
   });
+
+  test('gateway audio-too-long error is explicit and not retryable', () async {
+    final capture = _FakeCapture();
+    final sockets = <_FakeWebSocketChannel>[];
+    final container = ProviderContainer(
+      overrides: [
+        speechInputAvailableProvider.overrideWithValue(true),
+        backendStartupProvider.overrideWith(_ReadyBackend.new),
+        speechAudioCaptureFactoryProvider.overrideWithValue(() => capture),
+        speechSocketConnectorProvider.overrideWithValue((uri, headers) {
+          final socket = _FakeWebSocketChannel();
+          sockets.add(socket);
+          return socket;
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    final sub = container.listen(speechInputProvider, (_, _) {});
+    addTearDown(sub.close);
+
+    await container.read(speechInputProvider.notifier).start();
+    capture.audio.add([1, 2, 3]);
+    await _flushAsync();
+
+    sockets.single.incoming.add(
+      '{"type":"error","code":"SPEECH_AUDIO_TOO_LONG"}',
+    );
+    await _flushAsync();
+
+    final state = container.read(speechInputProvider);
+    expect(state.recording, isFalse);
+    expect(state.error, speechInputErrorTooLong);
+    expect(state.canRetry, isFalse);
+    expect(state.committed + state.partial, isEmpty);
+    expect(capture.cancelled, isTrue);
+    expect(capture.disposed, isTrue);
+  });
 }

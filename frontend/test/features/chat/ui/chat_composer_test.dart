@@ -155,6 +155,19 @@ class _ConnectionLostSpeech extends SpeechInputController {
   }
 }
 
+class _TooLongSpeech extends SpeechInputController {
+  @override
+  Future<void> start() async {
+    state = const SpeechInputState(
+      committed: 'hello ',
+      partial: 'wor',
+      elapsed: Duration(minutes: 2),
+      error: speechInputErrorTooLong,
+      canRetry: false,
+    );
+  }
+}
+
 class _RetryableConnectionLostSpeech extends SpeechInputController {
   @override
   Future<void> start() async {
@@ -564,6 +577,53 @@ void main() {
       container.read(noticeCenterProvider).current?.message.text,
       'Voice input disconnected. I kept the text that was already transcribed.',
     );
+  });
+
+  testWidgets('voice too long keeps draft and does not show retry card', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_1')],
+      messages: {'cv_1': []},
+    );
+    await tester.pumpWidget(
+      _host(
+        repo,
+        overrides: [
+          ..._speechModelOverrides(
+            workspace: _workspaceWithDefaultModel(
+              'aki_demo_managed0',
+              'anselm-auto',
+            ),
+            caps: const [
+              ModelCapability(
+                apiKeyId: 'aki_demo_managed0',
+                provider: 'anselm',
+                modelId: 'anselm-auto',
+                displayName: 'Anselm Auto',
+              ),
+            ],
+          ),
+          speechInputProvider.overrideWith(_TooLongSpeech.new),
+        ],
+      ),
+    );
+    await _settle(tester);
+
+    await tester.tap(find.byKey(const ValueKey('voice')));
+    await _settle(tester);
+
+    expect(find.widgetWithText(TextField, 'hello wor'), findsOneWidget);
+    expect(find.byKey(const ValueKey('voice-retry-card')), findsNothing);
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ChatComposer)),
+    );
+    final notice = container.read(noticeCenterProvider).current?.message;
+    expect(
+      notice?.text,
+      'Voice input is limited to 2 minutes. I kept the text that was already transcribed.',
+    );
+    expect(notice?.tone, AnTone.warn);
   });
 
   testWidgets('voice disconnect retry replaces the same draft segment', (

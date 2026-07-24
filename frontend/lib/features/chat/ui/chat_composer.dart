@@ -524,12 +524,14 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
               speechInputErrorUnavailable => t.voiceInputUnavailable,
               speechInputErrorPermissionDenied => t.voiceInputPermissionDenied,
               speechInputErrorConnectionLost => t.voiceInputConnectionLost,
+              speechInputErrorTooLong => t.voiceInputTooLong,
               _ => t.voiceInputFailed,
             },
             tone: switch (err) {
               speechInputErrorUnavailable ||
               speechInputErrorConnectionLost ||
-              speechInputErrorPermissionDenied => AnTone.warn,
+              speechInputErrorPermissionDenied ||
+              speechInputErrorTooLong => AnTone.warn,
               _ => AnTone.danger,
             },
           );

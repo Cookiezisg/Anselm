@@ -18,6 +18,7 @@ import 'selected_conversation.dart';
 const speechInputErrorUnavailable = 'unavailable';
 const speechInputErrorPermissionDenied = 'permission_denied';
 const speechInputErrorConnectionLost = 'connection_lost';
+const speechInputErrorTooLong = 'too_long';
 const speechInputErrorFailed = 'failed';
 const _speechRetryMaxBytes = 5 * 1024 * 1024;
 const _speechLiveReconnectAttempts = 1;
@@ -457,9 +458,11 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     return ((clamped + 60.0) / 60.0).clamp(0.0, 1.0).toDouble();
   }
 
-  String _errorFromGatewayCode(String code) => code == 'SPEECH_UPSTREAM_CLOSED'
-      ? speechInputErrorConnectionLost
-      : speechInputErrorFailed;
+  String _errorFromGatewayCode(String code) => switch (code) {
+    'SPEECH_UPSTREAM_CLOSED' => speechInputErrorConnectionLost,
+    'SPEECH_AUDIO_TOO_LONG' => speechInputErrorTooLong,
+    _ => speechInputErrorFailed,
+  };
 
   void _fail(Object e) {
     unawaited(_failAsync(speechInputErrorConnectionLost));
@@ -470,11 +473,12 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     bool socketAlreadyClosed = false,
   }) async {
     final snapshot = state;
-    final retryable = _retryFrames.isNotEmpty;
+    final retryable =
+        _retryFrames.isNotEmpty && error != speechInputErrorTooLong;
     await _close(
       cancelRecorder: true,
       resetState: false,
-      keepRetryBuffer: true,
+      keepRetryBuffer: retryable,
       skipSocket: socketAlreadyClosed,
     );
     state = SpeechInputState(

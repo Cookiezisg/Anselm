@@ -44,6 +44,7 @@
     "voiceInputUnavailable": "Voice input is available only with Anselm Auto",
     "voiceInputPermissionDenied": "Microphone permission is off. Enable microphone access in system settings, then try again.",
     "voiceInputConnectionLost": "Voice input disconnected. I kept the text that was already transcribed.",
+    "voiceInputTooLong": "Voice input is limited to 2 minutes. I kept the text that was already transcribed.",
     "voiceRetryTitle": "Voice input was interrupted",
     "voiceRetryBody": "I kept the draft and can replay the local recording once to transcribe it again.",
     "voiceRetryAction": "Retry transcription",
