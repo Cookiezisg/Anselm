@@ -144,6 +144,23 @@ class BackendController {
     try {
       final external = _externalUrl();
       if (external != null && external.isNotEmpty) {
+        // The dev escape hatch must still land on loopback. Every request this app makes — the
+        // bearer token, the workspace header, attachment bytes, the ASR audio stream — is addressed
+        // at this base URL, so an `ANSELM_BACKEND_URL` pointing anywhere else would ship the whole
+        // session off-machine. Invariant §3.3 #9 ("keys never sink to the UI; Flutter only talks to
+        // loopback") was previously enforced only on the SERVER side, which guards who may call IN,
+        // not where this client calls OUT.
+        //
+        // dev 逃生口仍必须落在 loopback 上。本 app 发出的每一次请求——bearer、workspace header、附件字节、
+        // ASR 音频流——都寄到这个 base URL,故 `ANSELM_BACKEND_URL` 指向别处就等于把整场会话运出本机。
+        // 不变量 §3.3 #9(密钥不下沉 UI、Flutter 只连 loopback)此前**只在服务端**强制,而服务端守的是
+        // 「谁能打进来」,不是「本客户端往哪儿打出去」。
+        if (!isLoopbackBaseUrl(external)) {
+          throw StateError(
+            'ANSELM_BACKEND_URL must point at loopback (127.0.0.1 / ::1 / localhost); '
+            'refusing to send this session off-machine: $external',
+          );
+        }
         _authToken = null; // dev backend has no per-launch token
         _baseUrl = external;
         await _awaitHealth(external, token: null);
@@ -343,4 +360,25 @@ class BackendController {
 Future<AppExitResponse> stopBackendOnExit(BackendController controller) async {
   await controller.stop();
   return AppExitResponse.exit;
+}
+
+/// Whether a base URL addresses this machine only — the client-side half of invariant §3.3 #9.
+///
+/// Deliberately a denylist-free positive check: the host must BE one of the loopback names, rather
+/// than "not obviously external". Anything unparseable, hostless, or non-http(s) is refused too, so
+/// a malformed value fails closed instead of being handed to Dio.
+///
+/// 判断 base URL 是否只寻址本机——不变量 §3.3 #9 的**客户端**那一半。
+///
+/// 刻意是**白名单式的肯定判断**而非「看起来不像外部」:host 必须**就是** loopback 名之一。无法解析、没有
+/// host、非 http(s) 的值同样拒绝,故畸形值失败关闭、而不是被交给 Dio。
+bool isLoopbackBaseUrl(String raw) {
+  final uri = Uri.tryParse(raw.trim());
+  if (uri == null ||
+      !uri.hasScheme ||
+      (uri.scheme != 'http' && uri.scheme != 'https')) {
+    return false;
+  }
+  final host = uri.host.toLowerCase();
+  return host == '127.0.0.1' || host == '::1' || host == 'localhost';
 }

@@ -335,4 +335,47 @@ void main() {
       expect(c.state.value.error, contains('giving up'));
     },
   );
+  // Invariant §3.3 #9's CLIENT half: the server's RequireLoopbackHost guards who may call IN; it
+  // cannot stop this app from calling OUT. Every request carries the bearer token and workspace
+  // header, so a non-loopback ANSELM_BACKEND_URL would ship the whole session — attachments and ASR
+  // audio included — off-machine. Before this guard the dev escape hatch was unchecked.
+  //
+  // 不变量 §3.3 #9 的**客户端**那一半:服务端的 RequireLoopbackHost 守的是「谁能打进来」,拦不住本 app
+  // 「往哪儿打出去」。每次请求都带 bearer 与 workspace header,故非 loopback 的 ANSELM_BACKEND_URL 会把
+  // 整场会话——含附件与 ASR 音频——运出本机。有这道守卫之前,dev 逃生口完全不设防。
+  test('isLoopbackBaseUrl accepts only this machine', () {
+    for (final ok in [
+      'http://127.0.0.1:8080',
+      'https://localhost:9999',
+      'http://localhost',
+      'HTTP://127.0.0.1:1/',
+    ]) {
+      expect(isLoopbackBaseUrl(ok), isTrue, reason: '$ok must be accepted');
+    }
+    for (final bad in [
+      'https://evil.example',
+      'http://127.0.0.1.evil.example', // suffix trick 后缀障眼法
+      'http://169.254.169.254', // cloud metadata 云元数据
+      'http://0.0.0.0:8080', // binds everywhere, not loopback 全绑定,非环回
+      'ftp://localhost',
+      'localhost:8080', // no scheme 无 scheme
+      '',
+      '   ',
+    ]) {
+      expect(isLoopbackBaseUrl(bad), isFalse, reason: '$bad must be refused');
+    }
+  });
+
+  test(
+    'a non-loopback ANSELM_BACKEND_URL is refused instead of used',
+    () async {
+      final c = BackendController(
+        externalUrl: () => 'https://evil.example',
+        probe: Dio(),
+      );
+      await c.start();
+      expect(c.state.value.phase, BackendPhase.crashed);
+      expect(c.state.value.error, contains('loopback'));
+    },
+  );
 }
