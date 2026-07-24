@@ -26,7 +26,7 @@ WRK-078 的 M1 目标是「聊天请求退出大 base64 时代」。规范 §6.1
 
 **网关的 chat 内容契约接受一种、且仅一种非 data-URI 媒体引用:它自己签发的 lease fetch URL。**
 
-1. **形状**:`{gatewayBase}/v1/media/leases/{leaseId}/content?token={fetchToken}` —— 即 `complete` 响应中 `fetchPath` 的绝对化形式。**不接受任何其他 http(s) URL**(SSRF、下载放大与 MIME 欺骗的护栏不变,`明确不做` §1.2 第 3 条)。
+1. **形状**:`/v1/media/leases/{leaseId}/content?token={fetchToken}` —— 即 `complete` 响应中 `fetchPath` **原样的相对形**(不绝对化,理由见第 2 条)。**除此之外不接受任何 http(s) URL**:凡带 scheme 或 host 的一律拒,与既有「网关绝不 fetch 客户端 URL」的护栏同向(SSRF、下载放大、MIME 欺骗;`明确不做` §1.2 第 3 条)。
 
 2. **⚠️ host 绝不可由客户端提供 —— 采用相对路径形(实现调研后定案)**
 
