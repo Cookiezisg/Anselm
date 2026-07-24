@@ -1,7 +1,7 @@
 ---
 id: WRK-078
 type: working
-status: draft
+status: active
 owner: "@weilin"
 created: 2026-07-23
 reviewed: 2026-07-23
@@ -12,7 +12,7 @@ landed-into:
 
 # WRK-078 · 1M 全模态 Agent：上下文、媒体摄取、Qwen 路由与语音交互
 
-> **状态：待用户 review，未授权施工。**
+> **状态：核心方向已由用户拍板，按 §12 顺序施工。**
 >
 > 本战役横跨两个仓库：桌面端 + 本地 sidecar 位于 Anselm；公网免费档网关位于
 > `Anselm-API-Serve`。任何一端单独完成都不构成产品能力上线。
@@ -34,6 +34,7 @@ Qwen3.7-plus；音频由 Qwen3.5 Omni 做一次任务相关的感知，再把可
 4. 小媒体近乎无感；大媒体有诚实的“准备 → 理解 → 就绪”进度，不以模糊的“文件太大”拒绝。
 5. 麦克风用于流式听写，停止后可以修改再发送；原始音频理解仍作为正式多模态附件存在。
 6. 主 Agent 不因语音出现而退化为 64K Omni 会话，工具能力、长期记忆和压缩治理保持一致。
+7. 默认只有一个 `Anselm Auto` 选择：网关自行选择真实 route；只有显式 BYOK 的高级用户才选择外部模型和配置。
 
 ---
 
@@ -52,6 +53,7 @@ Qwen3.7-plus；音频由 Qwen3.5 Omni 做一次任务相关的感知，再把可
 | 语音输入 | 桌面三平台录音、实时 partial/final 转写、取消、断线恢复、离线 fallback |
 | 语音输出 | 输入链稳定后，以主 Agent 文本为源做流式 TTS，不替换主 Agent |
 | 成本诚实 | Qwen 文本/图像/视频/音频分项费率与 usage 入账；预算预留不漏算也不过度拒绝 |
+| 模型配置诚实 | 普通用户只使用 Anselm Auto；BYOK 的表单只显示该模型已确认支持的原生配置，专家可提交受控 native JSON |
 | 生产质量 | 单元/集成/testend/真机/故障注入/性能/隐私门禁齐全，文档与代码同提交 |
 
 ### 1.2 明确不做
@@ -143,7 +145,11 @@ Qwen3.7-plus；音频由 Qwen3.5 Omni 做一次任务相关的感知，再把可
 
 ## §3 最终架构与不可破坏的不变量
 
-### 3.1 模型路线
+### 3.1 Anselm Auto 的内部模型路线
+
+下表是网关的内部路由合同，不是给普通用户的 model picker。产品默认只显示一个不可替换的
+`Anselm Auto`；网关按输入模态、任务、可用性与成本选择实际 route，并发布该 route 的权威能力和预算。
+用户只有显式进入 BYOK 高级模式才选择外部 provider/model。
 
 | 本次具体输入 | 感知阶段 | 主 Agent | 对话预算 |
 |---|---|---|---|
@@ -205,26 +211,30 @@ sidecar proxy/片段
 
 完整利用不是每轮硬塞到 1,000,000 token，而是：
 
-- 不再用 256K 或 UTF-8 estimate 提前拒绝真实 1M route；
-- input budget 按 `provider context − 本次实际 output reserve` 动态计算；
-- estimate 只决定何时整理，provider confirmed overflow 才代表真正超限；
+- Anselm Auto 按网关发布的 route profile 使用真实预算，不再用 256K 或 UTF-8 estimate 提前拒绝；
+- 外部 BYOK 模型初始不宣称知道窗口、不设本地 admission 闸；
+- 外部模型第一次**自然**触到上游上下文限制时，在没有输出 token 或工具副作用的同一步内透明压缩并重试；
+- 成功 usage 与自然 overflow 只形成“观察到的安全 prompt 预算”，不伪装为模型宣传窗口；
+- estimate/footprint 仅是跨请求可比较的内部尺子，绝不是硬限制权威；
 - 大多数对话在需要前不做有损压缩；
 - 超限时自动治理并继续同一步，不把内部容量错误抛给用户。
 
 ### 4.2 sampling 前分层治理
 
-建议最终水位（Phase C0 用真实 eval 调优，数字不是未经验证的常量）：
+建议最终水位（Phase C0/C1.5 用真实 eval 调优，数字不是未经验证的常量）：
 
-| 水位 | 动作 | 信息损失 |
+| profile 状态/水位 | 动作 | 信息损失 |
 |---|---|---|
-| <80% | 不动 | 无 |
-| ≥80% | housekeeping：旧可重取 tool result → marker，保留最近完整工具组 | 近似无；可精确重取 |
-| ≥90% | semantic continuation checkpoint，目标回落约 65–75% | 有损但结构化、可重取 |
+| Anselm Auto authoritative，或 BYOK 已学习且高置信：低于安全线 | 不动 | 无 |
+| 已知安全线附近 | housekeeping：旧可重取 tool result → marker，保留最近完整工具组 | 近似无；可精确重取 |
+| 已知安全线附近仍不够 | semantic continuation checkpoint，目标回落到有足够恢复余量的位置 | 有损但结构化、可重取 |
+| BYOK 未知/低置信 | 不因本地窗口猜测压缩；完整尝试 | 无 |
 | provider overflow | 对同一 sampling 做 recovery checkpoint 后透明重试一次 | 同上 |
 | recovery 仍 overflow | 仅当最新不可分输入自身过大才诚实失败，并给可操作建议 | 不撒谎 |
 
-当前实现的 80%→55% 是安全基线；本战役须用 1M 长对话 eval 比较 55/65/75% 的重复压缩次数、任务
-成功率和成本，再确定终值。
+对 Anselm Auto，网关 profile 给出 route-specific 安全线；对外部模型，安全线从“最大成功足迹”与
+“最小上下文超限足迹”的保守区间收敛。route/model/config 变化、长期未使用或发现更低失败点时必须降低
+置信度，不可永久相信旧样本。
 
 ### 4.3 checkpoint 必须保留
 
@@ -248,9 +258,25 @@ assistant message 的 `attrs.contextUsage` 分开记录：
 - cleared tool bytes；
 - housekeeping/checkpoint/recovery 次数和模式；
 - provider reported usage；
+- profile source、置信度、最大成功与最小失败足迹（均无内容）；
+- 清洗后的上下文错误分类及是否透明恢复；
 - 不记录任何内容正文。
 
 UI 默认不展示工程数字；诊断面板和导出诊断包可读取。
+
+### 4.5 Model profile 与配置 contract
+
+能力与配置分开建模。普通聊天固定为 `Anselm Auto`，不显示 model picker 或 provider 参数；网关下发
+权威 route profile。BYOK 先选择 provider/key/model，再取得当前有效 profile：
+
+1. 能力三态：`confirmed`、`unsupported`、`unknown`；普通表单只展示 `confirmed` 字段；
+2. 配置 schema 是 provider-native 的 typed option map，字段可含 model/模式条件，例如
+   `enable_thinking`、`thinking_budget`、`reasoning_effort`；不制造跨 provider 的伪统一 effort；
+3. 表单与受控 `nativeSettings` JSON 是同一状态。JSON 可覆盖表单字段，但禁止覆盖 model、认证、URL、
+   messages、tools 或其他请求骨架；
+4. schema 来源按优先级：Anselm gateway route profile → provider 可读元数据 → adapter 的安全家族默认
+   → 用户 profile override → 运行时成功/失败观测；未知能力不承诺；
+5. 用户显式 JSON 报参数不支持时，记录该模型/配置组合的负能力，但不得悄悄删除用户参数后重试。
 
 ---
 
@@ -714,6 +740,22 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 
 **出口**：纯文本 1M 压力测试中不出现可自动恢复的用户可见 overflow。
 
+### C1.5 · Runtime model profile、自然撞墙与动态配置
+
+**目标**：让 Anselm Auto 有网关权威能力合同，让未知外部模型不靠静态窗口表也能透明恢复并逐步收敛。
+
+- 网关 `Anselm Auto` 单一默认选择；route profile 发布 context、模态、输出与配置 schema；
+- BYOK runtime profile 持久化：endpoint/key 指纹/model/request class/config 指纹、成功/失败足迹、usage、
+  置信度、TTL/降级；
+- 上游错误分类：结构化 code/adapter 规则优先，清洗错误的严格 JSON 判别只作模糊兜底；
+- 无输出、无工具副作用时的自然 overflow 同步压缩重试；单条不可分输入保留诚实可操作错误；
+- profile 高置信后的主动治理；profile 变更、过期、低位失败后的降置信与重学习；
+- 动态 capability/config contract、BYOK form、受控 native JSON、用户 override；
+- 单元、黑盒、故障注入与真实外部模型“首次自然恢复 → 后续稳定治理”金标。
+
+**出口**：未知外部模型不因本地猜测被拒绝；自然 overflow 对用户透明恢复；Anselm Auto 与 BYOK 都只暴露
+诚实的能力/配置；没有可恢复的用户可见上下文错误。
+
 ### C2 · 主仓 Qwen 能力补齐
 
 **目标**：Anselm 能诚实描述并编码 Qwen3.7/Omni。
@@ -992,7 +1034,7 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 | 1 | 主路由采用 §3.1：DeepSeek text、Qwen3.7 visual、Omni perception | 是否确认 |
 | 2 | Kimi 迁移后物理删除，无 fallback | 是否确认 |
 | 3 | text/visual 主 Agent 均发布真实 1M；Omni 明示 64K 感知器 | 是否确认 |
-| 4 | 80% housekeeping、约 90% semantic checkpoint，目标 65–75%，由 eval 定终值 | 是否确认 |
+| 4 | Anselm Auto 用网关 profile；外部模型自然撞墙透明恢复并学习安全预算，高置信后才主动治理 | 已确认 |
 | 5 | 原件长期只在本地；公网只放 proxy/片段短租约 | 是否确认 |
 | 6 | 图片默认长边约 2048；文字截图优先无损 | 是否确认 |
 | 7 | 长视频默认关键帧+音轨+按需片段，不整段反复送 | 是否确认 |
@@ -1000,7 +1042,9 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 | 9 | 原始音频通过附件/“录制为音频附件”，不靠长按麦克风 | 是否确认 |
 | 10 | 语音输出先做消息朗读；full-duplex 后置 | 是否确认 |
 | 11 | 免费档媒体使用新加坡 private object storage 短租约 | 是否确认/指定存储 |
-| 12 | working 的执行顺序 C0→C1→C2→C3→M0…H0 | 是否调整优先级 |
+| 12 | working 的执行顺序 C0→C1→C1.5→C2→C3→M0…H0 | 已确认 |
+| 13 | 默认 UI 只显示 Anselm Auto；BYOK 才显示 provider/model picker | 已确认 |
+| 14 | BYOK 表单完全由有效 capability/config profile 驱动；专家可填受控 native JSON | 已确认 |
 
 ---
 
@@ -1046,4 +1090,3 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   <https://pub.dev/packages/record>
 - Apple 麦克风权限  
   <https://developer.apple.com/documentation/BundleResources/Information-Property-List/NSMicrophoneUsageDescription>
-
