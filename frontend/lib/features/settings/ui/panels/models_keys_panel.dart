@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -1018,6 +1020,9 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
   String? _modelId;
   final Map<String, String> _knobValues = {};
   final Map<String, TextEditingController> _intCtls = {};
+  late final TextEditingController _nativeOptionsCtl;
+  bool _advancedNativeOptions = false;
+  String? _nativeOptionsError;
 
   @override
   void initState() {
@@ -1028,6 +1033,7 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
       _modelId = init.modelId;
       _knobValues.addAll(init.options);
     }
+    _nativeOptionsCtl = TextEditingController(text: _nativeOptionsJSON());
   }
 
   @override
@@ -1035,6 +1041,7 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
     for (final ctl in _intCtls.values) {
       ctl.dispose();
     }
+    _nativeOptionsCtl.dispose();
     super.dispose();
   }
 
@@ -1053,6 +1060,122 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
 
   /// ctx window → compact figure (128000 → 128K). 上下文窗→紧凑数字。
   static String fmtCtx(int n) => n >= 1000 ? '${(n / 1000).round()}K' : '$n';
+
+  Map<String, String> _selectedOptions([ModelCapability? cap]) {
+    final selected = cap ?? _cap;
+    if (selected == null) return const <String, String>{};
+    return <String, String>{
+      for (final k in selected.knobs)
+        if ((_knobValues[k.key] ?? '').isNotEmpty &&
+            _knobValues[k.key] != k.defaultValue)
+          k.key: _knobValues[k.key]!,
+    };
+  }
+
+  String _nativeOptionsJSON([ModelCapability? cap]) =>
+      const JsonEncoder.withIndent('  ').convert(_selectedOptions(cap));
+
+  void _syncNativeOptions([ModelCapability? cap]) {
+    if (!_advancedNativeOptions) return;
+    final next = _nativeOptionsJSON(cap);
+    if (_nativeOptionsCtl.text == next) return;
+    _nativeOptionsCtl.value = TextEditingValue(
+      text: next,
+      selection: TextSelection.collapsed(offset: next.length),
+    );
+  }
+
+  void _setKnob(ModelKnob knob, String value) {
+    setState(() {
+      _knobValues[knob.key] = value;
+      _nativeOptionsError = null;
+      _syncNativeOptions();
+    });
+  }
+
+  void _selectKey(String id) {
+    if (_keyId == id) return;
+    setState(() {
+      _keyId = id;
+      _modelId = null;
+      _knobValues.clear();
+      _intCtls.clear();
+      _nativeOptionsError = null;
+      _nativeOptionsCtl.text = _nativeOptionsJSON();
+    });
+  }
+
+  void _selectModel(ModelCapability model) {
+    if (_modelId == model.modelId) return;
+    setState(() {
+      _modelId = model.modelId;
+      _knobValues.clear();
+      _intCtls.clear();
+      _nativeOptionsError = null;
+      _nativeOptionsCtl.text = _nativeOptionsJSON(model);
+    });
+  }
+
+  bool _validNativeValue(ModelKnob knob, String value) => switch (knob.type) {
+    'enum' => knob.values.contains(value),
+    'bool' => value == 'true' || value == 'false',
+    'int' => int.tryParse(value) != null,
+    _ => false,
+  };
+
+  void _applyNativeOptions(BuildContext context, ModelCapability cap) {
+    final t = Translations.of(context);
+    try {
+      final decoded = jsonDecode(_nativeOptionsCtl.text);
+      if (decoded is! Map) {
+        setState(
+          () => _nativeOptionsError = t.settings.keys.nativeSettingsInvalid,
+        );
+        return;
+      }
+      final knobs = {for (final k in cap.knobs) k.key: k};
+      final next = <String, String>{};
+      for (final entry in decoded.entries) {
+        if (entry.key is! String || entry.value is! String) {
+          setState(
+            () => _nativeOptionsError = t.settings.keys.nativeSettingsInvalid,
+          );
+          return;
+        }
+        final knob = knobs[entry.key];
+        if (knob == null) {
+          setState(
+            () =>
+                _nativeOptionsError = t.settings.keys.nativeSettingsUnsupported,
+          );
+          return;
+        }
+        if (!_validNativeValue(knob, entry.value)) {
+          setState(
+            () => _nativeOptionsError =
+                t.settings.keys.nativeSettingsInvalidValue,
+          );
+          return;
+        }
+        if (entry.value != knob.defaultValue) next[entry.key] = entry.value;
+      }
+      setState(() {
+        _knobValues
+          ..clear()
+          ..addAll(next);
+        for (final knob in cap.knobs.where((k) => k.type == 'int')) {
+          final ctl = _intCtls[knob.key];
+          if (ctl != null) ctl.text = _knobValue(knob);
+        }
+        _nativeOptionsError = null;
+        _syncNativeOptions(cap);
+      });
+    } on FormatException {
+      setState(
+        () => _nativeOptionsError = t.settings.keys.nativeSettingsInvalid,
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -1118,14 +1241,7 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
                       : sample.keyName,
                   meta: sample.provider,
                   selected: id == _keyId,
-                  onSelect: () => setState(() {
-                    if (_keyId != id) {
-                      _keyId = id;
-                      _modelId = null;
-                      _knobValues.clear();
-                      _intCtls.clear();
-                    }
-                  }),
+                  onSelect: () => _selectKey(id),
                 );
               },
             ),
@@ -1158,13 +1274,7 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
                   if (m.nativeDocs) t.settings.keys.docsBadge,
                 ].join(' · '),
                 selected: m.modelId == _modelId,
-                onSelect: () => setState(() {
-                  if (_modelId != m.modelId) {
-                    _modelId = m.modelId;
-                    _knobValues.clear();
-                    _intCtls.clear();
-                  }
-                }),
+                onSelect: () => _selectModel(m),
               ),
           ],
           if (cap != null && cap.knobs.isNotEmpty) ...[
@@ -1189,23 +1299,62 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
                       value: k.values.contains(_knobValue(k))
                           ? _knobValue(k)
                           : null,
-                      onChanged: (v) => setState(() => _knobValues[k.key] = v),
+                      onChanged: (v) => _setKnob(k, v),
                     ),
                   ),
                   'bool' => AnSwitch(
                     value: _knobValue(k) == 'true',
-                    onChanged: (v) => setState(() => _knobValues[k.key] = '$v'),
+                    onChanged: (v) => _setKnob(k, '$v'),
                   ),
                   _ => SizedBox(
                     width: AnSize.numField,
                     child: AnInput(
                       controller: _intCtl(k),
                       mono: true,
-                      onChanged: (v) => _knobValues[k.key] = v.trim(),
+                      onChanged: (v) => _setKnob(k, v.trim()),
                     ),
                   ),
                 },
               ),
+          ],
+          if (cap != null && cap.knobs.isNotEmpty) ...[
+            const SizedBox(height: AnSpace.s12),
+            AnSettingRow(
+              label: t.settings.keys.nativeSettings,
+              desc: t.settings.keys.nativeSettingsDesc,
+              child: AnSwitch(
+                value: _advancedNativeOptions,
+                onChanged: (enabled) => setState(() {
+                  _advancedNativeOptions = enabled;
+                  _nativeOptionsError = null;
+                  if (enabled) _nativeOptionsCtl.text = _nativeOptionsJSON(cap);
+                }),
+              ),
+            ),
+            if (_advancedNativeOptions) ...[
+              const SizedBox(height: AnSpace.s8),
+              AnInput(
+                controller: _nativeOptionsCtl,
+                multiline: true,
+                mono: true,
+                block: true,
+                semanticLabel: t.settings.keys.nativeSettings,
+              ),
+              if (_nativeOptionsError != null) ...[
+                const SizedBox(height: AnSpace.s4),
+                Text(
+                  _nativeOptionsError!,
+                  style: AnText.meta.copyWith(color: c.danger),
+                ),
+              ],
+              const SizedBox(height: AnSpace.s8),
+              AnButton(
+                label: t.settings.keys.nativeSettingsApply,
+                size: AnButtonSize.sm,
+                outline: true,
+                onPressed: () => _applyNativeOptions(context, cap),
+              ),
+            ],
           ],
           const SizedBox(height: AnSpace.s12),
           Row(
@@ -1217,13 +1366,11 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
                 onPressed: (cap == null)
                     ? null
                     : () {
-                        final options = <String, String>{
-                          for (final k in cap.knobs)
-                            if ((_knobValues[k.key] ?? '').isNotEmpty &&
-                                _knobValues[k.key] != k.defaultValue)
-                              k.key: _knobValues[k.key]!,
-                        };
-                        widget.onApply(cap.apiKeyId, cap.modelId, options);
+                        widget.onApply(
+                          cap.apiKeyId,
+                          cap.modelId,
+                          _selectedOptions(cap),
+                        );
                       },
               ),
               if (widget.clearable && widget.onClear != null) ...[

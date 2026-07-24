@@ -4635,6 +4635,24 @@ class Translations$settings$keys$en {
 	/// en: 'Choose a model and only its confirmed native settings'
 	String get externalModelDesc => 'Choose a model and only its confirmed native settings';
 
+	/// en: 'Advanced native JSON'
+	String get nativeSettings => 'Advanced native JSON';
+
+	/// en: 'Only published settings for this model; it cannot change the model, credentials, or request shape'
+	String get nativeSettingsDesc => 'Only published settings for this model; it cannot change the model, credentials, or request shape';
+
+	/// en: 'Apply JSON'
+	String get nativeSettingsApply => 'Apply JSON';
+
+	/// en: 'Enter a JSON object with string setting values'
+	String get nativeSettingsInvalid => 'Enter a JSON object with string setting values';
+
+	/// en: 'This JSON includes a setting this model has not published'
+	String get nativeSettingsUnsupported => 'This JSON includes a setting this model has not published';
+
+	/// en: 'One or more values are not valid for this model'
+	String get nativeSettingsInvalidValue => 'One or more values are not valid for this model';
+
 	/// en: 'Vision'
 	String get visionBadge => 'Vision';
 
@@ -7970,6 +7988,12 @@ extension on Translations {
 			'settings.keys.anselmAutoDesc' => 'Gateway-managed routing and reasoning',
 			'settings.keys.externalModel' => 'External model',
 			'settings.keys.externalModelDesc' => 'Choose a model and only its confirmed native settings',
+			'settings.keys.nativeSettings' => 'Advanced native JSON',
+			'settings.keys.nativeSettingsDesc' => 'Only published settings for this model; it cannot change the model, credentials, or request shape',
+			'settings.keys.nativeSettingsApply' => 'Apply JSON',
+			'settings.keys.nativeSettingsInvalid' => 'Enter a JSON object with string setting values',
+			'settings.keys.nativeSettingsUnsupported' => 'This JSON includes a setting this model has not published',
+			'settings.keys.nativeSettingsInvalidValue' => 'One or more values are not valid for this model',
 			'settings.keys.visionBadge' => 'Vision',
 			'settings.keys.videoBadge' => 'Video',
 			'settings.keys.audioBadge' => 'Audio',

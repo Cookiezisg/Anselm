@@ -752,7 +752,8 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 - 已落地：Flutter 已解析并呈现 text / media 两条 input limit，而不是把一个泛化窗口误作全部事实。
 - 待验收：真实“首次自然恢复 → 学习后稳定治理”金标已加 `EVALS_NATURAL_OVERFLOW=1` 双门，但当前本机无 `EVALS_KEY` / `DEEPSEEK_API_KEY`，故安全跳过、未产生计费；补齐本地环境后必须跑一次。
 - 已落地：默认设置页把 Anselm Auto 分离为无参数的网关模式；只有显式选择外部模型才进入凭证/模型/已确认 native knob。所有 workspace default、agent override、conversation override 的非空 options 均在写时匹配精确已探测 key/model 的公开 knob 与值，未知或非法参数显式失败，adapter 不再静默丢设置。
-- 待完成：外部模型表单的受控 native JSON 高级编辑器（与同一 contract 双向同步，且永不覆盖 model、认证、URL、messages、tools、stream）；模糊上游错误的隔离判别器。
+- 已落地：外部模型的高级 native JSON 编辑器与通用 knob 表单双向同步；JSON 只能携带当前已探测 model 公开的 string 旋钮和值，前端立即拒绝 `model`、认证、URL、messages、tools、stream 等非契约字段，服务端仍作同一验证。
+- 待完成：模糊上游错误的隔离判别器。
 
 - 网关 `Anselm Auto` 单一默认选择；route profile 发布 context、模态、输出与配置 schema；
 - 外部模型 runtime profile 持久化：endpoint/key 指纹/model/request class/config 指纹、成功/失败足迹、usage、

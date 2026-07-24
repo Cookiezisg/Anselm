@@ -1,5 +1,6 @@
 import 'package:anselm/core/contract/api_key.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/ui/an_switch.dart';
 import 'package:anselm/core/contract/workspace.dart';
 import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/contract/model_capability.dart';
@@ -298,6 +299,43 @@ void main() {
           find.text(t.settings.keys.stageCredential),
           findsOneWidget,
           reason: '外部路线才进入原有的凭证→模型→确认参数流程',
+        );
+
+        await tester.tap(find.text('Personal OpenAI'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Test model'));
+        await tester.pumpAndSettle();
+        expect(find.text(t.settings.keys.nativeSettings), findsOneWidget);
+
+        await tester.tap(find.byType(AnSwitch).last);
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.byType(TextField).last,
+          '{"model":"other"}',
+        );
+        await tester.tap(find.text(t.settings.keys.nativeSettingsApply));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(t.settings.keys.nativeSettingsUnsupported),
+          findsOneWidget,
+          reason: '高级 JSON 不能越过公开旋钮去重写模型或请求主体',
+        );
+        await tester.enterText(
+          find.byType(TextField).last,
+          '{"reasoning_effort":"high"}',
+        );
+        await tester.tap(find.text(t.settings.keys.nativeSettingsApply));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(t.settings.keys.pickerApply));
+        await tester.pumpAndSettle();
+        expect(
+          repo.workspace.defaultDialogue,
+          const ModelRef(
+            apiKeyId: 'aki_openai',
+            modelId: 'gpt-test',
+            options: {'reasoning_effort': 'high'},
+          ),
+          reason: '高级 JSON 与通用旋钮共用同一份持久化 options',
         );
       },
     );

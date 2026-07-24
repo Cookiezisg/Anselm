@@ -1911,6 +1911,12 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get anselmAutoDesc => '由网关管理路由与推理';
 	@override String get externalModel => '外部模型';
 	@override String get externalModelDesc => '选择模型及其已确认的原生设置';
+	@override String get nativeSettings => '高级原生 JSON';
+	@override String get nativeSettingsDesc => '仅限此模型已公开的设置；不能修改模型、凭证或请求形状';
+	@override String get nativeSettingsApply => '应用 JSON';
+	@override String get nativeSettingsInvalid => '请输入值均为字符串的 JSON 对象';
+	@override String get nativeSettingsUnsupported => 'JSON 包含此模型未公开的设置';
+	@override String get nativeSettingsInvalidValue => '一个或多个值不符合此模型的契约';
 	@override String get visionBadge => '视觉';
 	@override String get videoBadge => '视频';
 	@override String get audioBadge => '音频';
@@ -4295,6 +4301,12 @@ extension on TranslationsZhCn {
 			'settings.keys.anselmAutoDesc' => '由网关管理路由与推理',
 			'settings.keys.externalModel' => '外部模型',
 			'settings.keys.externalModelDesc' => '选择模型及其已确认的原生设置',
+			'settings.keys.nativeSettings' => '高级原生 JSON',
+			'settings.keys.nativeSettingsDesc' => '仅限此模型已公开的设置；不能修改模型、凭证或请求形状',
+			'settings.keys.nativeSettingsApply' => '应用 JSON',
+			'settings.keys.nativeSettingsInvalid' => '请输入值均为字符串的 JSON 对象',
+			'settings.keys.nativeSettingsUnsupported' => 'JSON 包含此模型未公开的设置',
+			'settings.keys.nativeSettingsInvalidValue' => '一个或多个值不符合此模型的契约',
 			'settings.keys.visionBadge' => '视觉',
 			'settings.keys.videoBadge' => '视频',
 			'settings.keys.audioBadge' => '音频',
