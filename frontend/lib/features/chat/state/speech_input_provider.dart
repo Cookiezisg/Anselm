@@ -160,7 +160,15 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     _channel?.sink.add(jsonEncode({'type': 'finish'}));
   }
 
-  Future<void> cancel() => _close(cancelRecorder: true);
+  Future<void> cancel() async {
+    try {
+      _channel?.sink.add(jsonEncode({'type': 'cancel'}));
+    } catch (_) {
+      // Best-effort: cancellation must still tear down local recording even if the socket is already
+      // gone. The gateway's session max age remains the remote cleanup fallback.
+    }
+    await _close(cancelRecorder: true);
+  }
 
   Uri _speechUri() {
     final backend = ref.read(backendStartupProvider);

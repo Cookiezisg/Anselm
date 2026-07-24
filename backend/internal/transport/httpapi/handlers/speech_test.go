@@ -131,3 +131,20 @@ func TestSpeechHandlerProxiesClientFramesToManagedGateway(t *testing.T) {
 		t.Fatalf("proof got install=%q url=%q", proof.gotInstall, proof.gotURL)
 	}
 }
+
+func TestValidSpeechControl_AllowsKnownControlsOnly(t *testing.T) {
+	for _, typ := range []string{"finish", "commit", "cancel"} {
+		if !validSpeechControl([]byte(`{"type":"` + typ + `"}`)) {
+			t.Fatalf("control %q should be valid", typ)
+		}
+	}
+	for _, raw := range [][]byte{
+		[]byte(`{"type":"pause"}`),
+		[]byte(`{"kind":"finish"}`),
+		[]byte(`not-json`),
+	} {
+		if validSpeechControl(raw) {
+			t.Fatalf("control %s should be rejected", raw)
+		}
+	}
+}

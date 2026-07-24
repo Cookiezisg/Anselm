@@ -883,10 +883,10 @@ lease refresh/reuse 与生产 E2E 验证。
 - fake upstream 与真 key eval。
 
 当前落地状态（2026-07-24）：后端已有 `GET /api/v1/speech/asr` WebSocket 代理，只解析受管
-`anselm` gateway install，向上游 `/v1/speech/asr` 透传 PCM binary 与 `finish|commit` 控制帧，并把
+`anselm` gateway install，向上游 `/v1/speech/asr` 透传 PCM binary 与 `finish|commit|cancel` 控制帧，并把
 partial/final/session 事件原样回给 Flutter；测试覆盖 device-proof dial、client binary→upstream、
-upstream delta→client、nonce refresh 路径。未落地/未验收：heartbeat、断线重连、本地 buffer、offline fallback、
-quota/ledger、真 key eval。
+upstream delta→client、nonce refresh 与控制帧白名单路径。未落地/未验收：heartbeat、断线重连、本地 buffer、
+offline fallback、quota/ledger、真 key eval。
 
 **出口**：三类断网、取消、超时、权限前置均不丢最终可恢复状态。
 

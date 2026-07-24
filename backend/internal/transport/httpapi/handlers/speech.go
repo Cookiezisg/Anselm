@@ -218,7 +218,7 @@ func validSpeechControl(payload []byte) bool {
 	if err := json.Unmarshal(payload, &in); err != nil {
 		return false
 	}
-	return in.Type == "commit" || in.Type == "finish"
+	return in.Type == "commit" || in.Type == "finish" || in.Type == "cancel"
 }
 
 func writeSpeechRaw(conn *websocket.Conn, mt int, payload []byte) error {
