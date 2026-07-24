@@ -95,6 +95,70 @@ func TestMediaClientUpload_RejectsBadAppendAcknowledgement(t *testing.T) {
 	}
 }
 
+func TestMediaClientUpload_ReconcilesAmbiguousChunkBeforeContinuing(t *testing.T) {
+	const installID = "ins_test"
+	const uploadID = "upl_test"
+	data := []byte("abcdef")
+	var offset int
+	var statusReads int
+	var chunks []string
+	firstChunk := true
+	expiresAt := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Header.Get(deviceproofinfra.HeaderInstallID) != installID {
+			t.Fatalf("install header = %q", r.Header.Get(deviceproofinfra.HeaderInstallID))
+		}
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/media/uploads":
+			_ = json.NewEncoder(w).Encode(map[string]any{"uploadId": uploadID, "chunkMaxBytes": 3})
+		case r.Method == http.MethodGet && r.URL.Path == "/media/uploads/"+uploadID:
+			statusReads++
+			_ = json.NewEncoder(w).Encode(map[string]any{"offset": offset})
+		case r.Method == http.MethodPut && r.URL.Path == "/media/uploads/"+uploadID:
+			body, err := io.ReadAll(r.Body)
+			if err != nil {
+				t.Fatal(err)
+			}
+			gotOffset, err := strconv.Atoi(r.Header.Get("Upload-Offset"))
+			if err != nil || gotOffset != offset {
+				t.Fatalf("chunk offset = %q with cursor %d: %v", r.Header.Get("Upload-Offset"), offset, err)
+			}
+			chunks = append(chunks, r.Header.Get("Upload-Offset")+":"+string(body))
+			offset += len(body) // Simulate fsync + durable cursor advance before the response is lost.
+			if firstChunk {
+				firstChunk = false
+				hj, ok := w.(http.Hijacker)
+				if !ok {
+					t.Fatal("test server must support connection hijacking")
+				}
+				conn, _, err := hj.Hijack()
+				if err != nil {
+					t.Fatal(err)
+				}
+				_ = conn.Close() // The client cannot know whether this chunk committed.
+				return
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"offset": offset})
+		case r.Method == http.MethodPost && r.URL.Path == "/media/uploads/"+uploadID+"/complete":
+			_ = json.NewEncoder(w).Encode(map[string]any{"fetchPath": "/v1/media/leases/mls_test/content?token=opaque", "expiresAt": expiresAt})
+		default:
+			t.Fatalf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	got, err := NewMediaClient(server.Client()).Upload(context.Background(), server.URL, installID, "image/png", data)
+	if err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	if want := server.URL + "/v1/media/leases/mls_test/content?token=opaque"; got != want {
+		t.Fatalf("fetch URL = %q, want %q", got, want)
+	}
+	if statusReads != 1 || strings.Join(chunks, ",") != "0:abc,3:def" {
+		t.Fatalf("status reads=%d chunks=%v; want one cursor reconciliation without replay", statusReads, chunks)
+	}
+}
+
 func TestMediaClientUpload_RefreshesLeaseInsideSafetyWindow(t *testing.T) {
 	creates := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
