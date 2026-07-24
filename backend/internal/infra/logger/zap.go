@@ -59,5 +59,10 @@ func New(dev bool, logDir string) (*zap.Logger, error) {
 		cores = append(cores, zapcore.NewCore(zapcore.NewJSONEncoder(fileEC), fileSink, level))
 	}
 
-	return zap.New(zapcore.NewTee(cores...)), nil
+	// The redaction floor wraps the TEE, so BOTH sinks (stderr and the rotating support-log file)
+	// are covered by one pass and no future sink can be added below it. See redact.go for why this
+	// is a core wrapper and why it is a floor, not a proof.
+	// 脱敏底座包在 TEE 之外:stderr 与轮转支持日志**两个 sink** 一次覆盖,且此后新增的 sink 不可能挂在它
+	// 下面。为何做成 core 包装、为何只是底线而非证明,见 redact.go。
+	return zap.New(redactCore{Core: zapcore.NewTee(cores...)}), nil
 }
