@@ -68,8 +68,16 @@ func TestMediaClientUpload_ResumableProofAndProviderURL(t *testing.T) {
 	if got, want := chunks, []string{"0:abcd", "4:efgh", "8:i"}; len(got) != len(want) || strings.Join(got, ",") != strings.Join(want, ",") {
 		t.Fatalf("chunks = %#v, want %#v", got, want)
 	}
-	if want := server.URL + "/v1/media/leases/mls_test/content?token=opaque"; url != want {
-		t.Fatalf("fetch URL = %q, want %q", url, want)
+	// RELATIVE on purpose (ADR 0011): the gateway prepends its OWN configured public origin before
+	// handing the reference upstream. If the client supplied the host, a caller holding a legitimate
+	// lease could aim the upstream provider at any origin — an SSRF executed by the provider.
+	// 刻意**相对**(ADR 0011):网关在交给上游前拼上**自己**配置的公开 origin。若 host 由客户端提供,
+	// 持有合法 lease 的调用方就能把上游 provider 指向任意 origin——由 provider 代为执行的 SSRF。
+	if want := "/v1/media/leases/mls_test/content?token=opaque"; url != want {
+		t.Fatalf("fetch path = %q, want %q (relative — the gateway owns the origin)", url, want)
+	}
+	if strings.Contains(url, server.URL) || strings.Contains(url, "://") {
+		t.Fatalf("the client must never emit a host in a lease reference, got %q", url)
 	}
 	// The next user message rebuilds history, but must reuse the still-valid, install-bound lease
 	// rather than stream the immutable attachment through the gateway a second time.
@@ -160,8 +168,8 @@ func TestMediaClientUpload_ReconcilesAmbiguousChunkBeforeContinuing(t *testing.T
 	if err != nil {
 		t.Fatalf("Upload: %v", err)
 	}
-	if want := server.URL + "/v1/media/leases/mls_test/content?token=opaque"; got != want {
-		t.Fatalf("fetch URL = %q, want %q", got, want)
+	if want := "/v1/media/leases/mls_test/content?token=opaque"; got != want {
+		t.Fatalf("fetch path = %q, want %q (relative — the gateway owns the origin)", got, want)
 	}
 	if statusReads != 1 || strings.Join(chunks, ",") != "0:abc,3:def" {
 		t.Fatalf("status reads=%d chunks=%v; want one cursor reconciliation without replay", statusReads, chunks)

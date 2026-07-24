@@ -833,8 +833,9 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   upload/lease 状态机、私有 staging file、TTL/crash recovery/GC、opaque install-bound lease，以及仅供
   上游拉取的短期 HMAC fetch URL。该 endpoint 不接受客户端上传 proof 的替代品，且不可用/过期 token 一律
   归并为无信息泄露的 not-found。
-- 已落地（sidecar 主路径）：受管 Anselm 路由的图片与 MP4 走上述 protocol，聊天 request 只留下 expiring
-  HTTPS URL；客户端校验每一 chunk 的 server offset，拒绝错误确认；lease 仅在进程内按网关/install/MIME/SHA
+- 已落地（sidecar 主路径）：受管 Anselm 路由的图片与 MP4 走上述 protocol，聊天 request 只留下**短期 lease 的
+  相对引用**（ADR 0011：host 由网关自己拼，绝不由客户端提供——否则持有合法 lease 的调用方就能把上游 provider
+  指向任意 origin，即一条由 provider 代为执行的 SSRF）；客户端校验每一 chunk 的 server offset，拒绝错误确认；lease 仅在进程内按网关/install/MIME/SHA
   缓存，离过期 30 秒自动刷新，因此同一 ReAct 与后续聊天的历史重建都不重复上传同一原件。普通 BYOK 不猜测支持
   该私有协议，保留各自 provider 的原生 inline wire。
 - 已落地（ambiguous PUT recovery）：网关受 device proof 保护的 upload-status 返回 open cursor；sidecar 在
@@ -851,6 +852,12 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   干净路径不再命中豁免）。**诚实边界**：该路由用 `http.ServeContent` 只保证 Range 的 206/Content-Range 语义
   正确，**并非流式**——`svc.Download` 仍整份读入内存，播放器 seek 发的每个 Range 请求都会重读整个对象；
   本地单用户中等音频可接受，不得把它描述成省内存优化。
+- 已落地（网关消费端，2026-07-25）：此前 M1 **只建成了生产端**——桌面端已按 §6.1「completion 只引用网关签发的
+  handle」发布，而网关 `validateImage`/`validateVideo` 对非 `data:` 一律 400、`InboundRequest` 无 handle 字段，
+  故**受管路由每次带图/视频的对话都被 400 拒绝**；两仓门禁各自全绿、交界无人守。现已按 ADR 0011 补齐：网关接受
+  自家签发的**相对** lease 引用（形状识别在 domain、`install`-bound 归属校验在 app 层、失败归并 not-found 不做
+  存在性预言），全部校验通过后用新增的 `MEDIA_PUBLIC_BASE_URL` 绝对化再交上游；并补上**跨接测试**（合法引用以
+  绝对 URL 抵达上游 / 不可校验的永不转发 / 媒体禁用时拒绝 / 客户端提供的绝对 URL 仍直接拒）。
 - 待落地：部署时启用网关媒体配置后的真实端到端抓包。
 - 待落地：播放路径真流式化（在 CAS 上开 `io.ReadSeeker` 缝），消除每 Range 请求整份读入。
 

@@ -59,11 +59,21 @@ func NewMediaClient(c *http.Client) *MediaClient {
 	return &MediaClient{http: c, leases: make(map[string]cachedLease), inFlight: make(map[string]*leaseFlight)}
 }
 
-// Upload returns the absolute, short-lived provider fetch URL. It sends raw
-// chunks rather than base64 so desktop→gateway bandwidth and memory stay bounded.
+// Upload returns the gateway's own RELATIVE, short-lived lease fetch path. It sends raw chunks
+// rather than base64 so desktop→gateway bandwidth and memory stay bounded.
 //
-// Upload 返回绝对、短期有效的 provider fetch URL。它发送 raw chunk 而非 base64，使 desktop→gateway
+// It deliberately does NOT absolutize (ADR 0011). The gateway accepts a lease reference only in its
+// relative form and prepends its OWN configured public origin before handing the result upstream.
+// If the client were allowed to supply the host, a caller holding a legitimate lease of their own
+// could point the upstream provider at any origin — an SSRF executed by the provider. Keeping the
+// value relative makes that host unrepresentable rather than merely checked.
+//
+// Upload 返回网关自己的**相对**短期 lease fetch path。它发送 raw chunk 而非 base64，使 desktop→gateway
 // 带宽与内存保持有界。
+//
+// 它**刻意不绝对化**(ADR 0011):网关只接受相对形的 lease 引用,并在交给上游前拼上**自己**配置的公开
+// origin。若允许客户端提供 host,持有自己合法 lease 的调用方就能把上游 provider 指向任意 origin——一条
+// 由 provider 代为执行的 SSRF。保持相对形使那个 host **不可表达**,而非仅仅「被检查」。
 func (c *MediaClient) Upload(ctx context.Context, baseURL, installID, mime string, data []byte) (string, error) {
 	if c == nil || c.http == nil || len(data) == 0 {
 		return "", fmt.Errorf("llm.media: invalid client or data")
@@ -195,10 +205,6 @@ func (c *MediaClient) upload(ctx context.Context, baseURL, installID, mime strin
 		}
 		return "", time.Time{}, fmt.Errorf("llm.media: expired lease response")
 	}
-	u, err := url.Parse(strings.TrimRight(baseURL, "/") + "/")
-	if err != nil {
-		return "", time.Time{}, err
-	}
 	p, err := url.Parse(completed.FetchPath)
 	if err != nil || p.IsAbs() || p.Host != "" || !strings.HasPrefix(p.Path, "/v1/media/leases/") || p.RawQuery == "" {
 		if err == nil {
@@ -207,7 +213,9 @@ func (c *MediaClient) upload(ctx context.Context, baseURL, installID, mime strin
 		return "", time.Time{}, err
 	}
 	uploadCompleted = true
-	return u.ResolveReference(p).String(), expiresAt, nil
+	// Returned RELATIVE on purpose — the gateway prepends its own public origin. See Upload's
+	// contract. 刻意返回**相对**形——由网关拼上它自己的公开 origin。见 Upload 契约。
+	return p.String(), expiresAt, nil
 }
 
 func (c *MediaClient) uploadOffset(ctx context.Context, baseURL, installID, uploadID string) (int, error) {
