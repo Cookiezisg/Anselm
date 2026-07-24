@@ -578,3 +578,38 @@ func TestInlineText_CapsOversized(t *testing.T) {
 		t.Fatalf("small text should be inlined whole, got %q", small)
 	}
 }
+
+// A managed-route image whose format the staging endpoint cannot accept must degrade to an honest
+// note — never abort the turn. HEIC is the case that matters: it is the iPhone default, the image
+// proxy's decoder cannot read it, so the ORIGINAL bytes are what would be offered, and the gateway
+// would 400 them. Before this guard, a user attaching a photo straight from their phone lost the
+// entire answer to an opaque failure.
+//
+// The note is deliberately not silence: dropping the image and answering anyway would let the model
+// speak as if it had seen it.
+//
+// 受管路由下 staging 端点无法接受其格式的图片必须降级为一句诚实注记,**绝不**中断回合。HEIC 是要害:它是
+// iPhone 默认格式,图片代理的解码器读不了它,故被送出的是**原件**字节、网关会 400。有这道守卫之前,用户从
+// 手机随手附一张照片就会把整个回答赔进一个不知所云的失败里。
+//
+// 注记刻意不是「沉默」:丢掉图片照常回答,会让模型表现得像看过它一样。
+func TestToContentParts_ManagedUndeliverableFormatDegradesInsteadOfStoppingTurn(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	heic, _ := svc.Upload(ctx, "IMG_0001.HEIC", "image/heic", []byte("heic-bytes"))
+	uploader := &fakeRemoteMediaUploader{}
+	parts, err := svc.ToContentParts(ctx, []string{heic.ID}, Capabilities{
+		Vision: true, RemoteMedia: &RemoteMedia{BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader},
+	})
+	if err != nil {
+		t.Fatalf("an undeliverable format must not fail the turn: %v", err)
+	}
+	if uploader.calls != 0 {
+		t.Fatalf("an undeliverable format must never be uploaded (the gateway would 400 it), calls=%d", uploader.calls)
+	}
+	if len(parts) != 1 || parts[0].Type != llminfra.PartText {
+		t.Fatalf("want exactly one text note, got %+v", parts)
+	}
+	if !strings.Contains(parts[0].Text, "IMG_0001.HEIC") || !strings.Contains(parts[0].Text, "image/heic") {
+		t.Fatalf("the note must name the file and its format so the answer stays honest, got %q", parts[0].Text)
+	}
+}

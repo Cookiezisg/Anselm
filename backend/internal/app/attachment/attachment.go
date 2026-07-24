@@ -274,6 +274,17 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		case attachmentdomain.KindImage:
 			if caps.Vision && caps.RemoteMedia != nil {
 				stageData, stageMIME := managedImageBytes(ctx, caps.RemoteMedia, a, data)
+				// An undeliverable format must not take the whole turn down with it. Uploading it
+				// anyway would 400 at the gateway and abort the turn; a note keeps the answer
+				// alive and stays honest about what the model did NOT see.
+				// 不可交付的格式不得把整个回合一起拖垮:照传会在网关 400 并中断回合;一句注记让回答活着,
+				// 同时对「模型**没**看到什么」保持诚实。
+				if !managedStagingAccepts(stageMIME) {
+					out = append(out, textNote(
+						"image %q attached, but its format (%s) cannot yet be prepared for the model; convert it to JPEG, PNG or WebP and re-attach",
+						a.Filename, stageMIME))
+					continue
+				}
 				source, err := stagedMediaURL(ctx, caps.RemoteMedia, remoteURLs, a, stageMIME, stageData)
 				if err != nil {
 					return nil, err
@@ -337,6 +348,33 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		}
 	}
 	return out, nil
+}
+
+// managedStagingMIMEs is the closed set the managed gateway's staging endpoint accepts. It is a
+// MIRROR of the gateway's own supportedMIME check, kept here so an undeliverable format is caught
+// BEFORE the upload attempt — the difference matters a lot: a rejected upload aborts the whole
+// chat turn, whereas catching it here degrades to an honest note the same way the BYOK path does.
+//
+// Why the two sides can drift at all: the desktop classifies anything `image/*` as KindImage
+// (HEIC — the iPhone default — AVIF, BMP, TIFF, SVG all qualify), while the gateway accepts six
+// concrete types. The image proxy would normally normalise those away, but the decoder cannot read
+// HEIC/AVIF, so the proxy never becomes ready and the ORIGINAL bytes are what get offered.
+//
+// managedStagingMIMEs 是受管网关 staging 端点接受的闭集,是对网关自身 supportedMIME 的**镜像**——放在这里
+// 是为了在**上传之前**就发现无法交付的格式:差别很大——上传被拒会**中断整个聊天回合**,而在此拦下则像 BYOK
+// 路径那样降级为一句诚实注记。
+//
+// 两侧为何会漂移:桌面端把一切 `image/*` 判为 KindImage(HEIC〔iPhone 默认〕/AVIF/BMP/TIFF/SVG 都算),
+// 而网关只接受六个具体类型。图片代理本应把它们归一化掉,但解码器读不了 HEIC/AVIF,代理永远不会 ready,
+// 于是被送出去的是**原件**字节。
+var managedStagingMIMEs = map[string]struct{}{
+	"image/jpeg": {}, "image/png": {}, "image/webp": {},
+	"video/mp4": {}, "audio/wav": {}, "audio/mpeg": {},
+}
+
+func managedStagingAccepts(mime string) bool {
+	_, ok := managedStagingMIMEs[normalizedMIME(mime)]
+	return ok
 }
 
 func managedImageBytes(ctx context.Context, remote *RemoteMedia, a *attachmentdomain.Attachment, original []byte) ([]byte, string) {
