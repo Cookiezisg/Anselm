@@ -864,7 +864,7 @@ lease refresh/reuse 与生产 E2E 验证。
   `model-detail` 三类派生图；执行参数以 canonical `params_json` 落表、`params_hash` 仍作身份，故 crop/detail
   能被 worker 精确复现而不把用户任务文本写入表。处理链使用成熟 imaging 库：EXIF auto-orientation、最长边
   缩放、normalized crop、透明图保 PNG、普通图 JPEG。内置 Anselm 网关发送图片时优先上传 ready 的
-  `model-default` 代理图；代理未 ready 时本回合不阻塞，退回原件上传并让后台任务追上，后续 sampling/回合复用
+  `model-default` 代理图；代理未 ready 时本回合最多短暂等待本地 worker 产出，超时/失败才退回原件上传并让后台任务继续追上，后续 sampling/回合复用
   代理图。
 - image thumbnail/default/detail；
 - screenshot/photo/long-image 分型；

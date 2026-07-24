@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"strings"
 	"sync"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -60,6 +61,8 @@ const (
 	DerivativeModelDefault = "model-default"
 	DerivativeModelDetail  = "model-detail"
 )
+
+const modelDefaultImageWait = 2 * time.Second
 
 // ImageDerivativeParams is the stable, non-secret execution contract for deterministic image
 // proxies. It is stored as canonical JSON so a worker can reproduce the exact transform represented
@@ -192,6 +195,7 @@ func (s *Service) ModelDefaultImage(ctx context.Context, attachmentID string) ([
 	if err != nil {
 		return nil, "", false, err
 	}
+	derivative = s.waitReadyDerivative(ctx, derivative, modelDefaultImageWait)
 	if derivative.Status != mediadomain.StatusReady || derivative.BlobSHA256 == "" {
 		return nil, "", false, nil
 	}
@@ -200,6 +204,40 @@ func (s *Service) ModelDefaultImage(ctx context.Context, attachmentID string) ([
 		return nil, "", false, fmt.Errorf("mediaapp.ModelDefaultImage: artifact: %w", err)
 	}
 	return data, derivative.MimeType, true, nil
+}
+
+func (s *Service) waitReadyDerivative(ctx context.Context, derivative *mediadomain.Derivative, maxWait time.Duration) *mediadomain.Derivative {
+	if derivative.Status == mediadomain.StatusReady || maxWait <= 0 {
+		return derivative
+	}
+	s.mu.Lock()
+	canWait := s.started && !s.closing && s.processor != nil
+	s.mu.Unlock()
+	if !canWait {
+		return derivative
+	}
+	deadline := time.NewTimer(maxWait)
+	defer deadline.Stop()
+	tick := time.NewTicker(10 * time.Millisecond)
+	defer tick.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return derivative
+		case <-deadline.C:
+			return derivative
+		case <-tick.C:
+			got, _, err := s.repo.ClaimDerivative(ctx, derivative)
+			if err != nil {
+				return derivative
+			}
+			derivative = got
+			switch derivative.Status {
+			case mediadomain.StatusReady, mediadomain.StatusFailed, mediadomain.StatusCancelled:
+				return derivative
+			}
+		}
+	}
 }
 
 // Start recovers work interrupted by a prior crash, then drains durable pending work with one

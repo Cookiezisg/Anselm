@@ -201,3 +201,18 @@ func TestModelDefaultImage_ReturnsReadyArtifactOrSchedulesWork(t *testing.T) {
 		t.Fatalf("ready proxy = (%q, %q, %v, %v)", data, mime, ready, err)
 	}
 }
+
+func TestModelDefaultImage_WaitsForStartedWorker(t *testing.T) {
+	repo := &fakeRepo{}
+	processor := &fakeProcessor{derived: make(chan struct{}, 1)}
+	artifacts := fakeArtifacts{data: map[string][]byte{}}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a"}}, repo, artifacts, zap.NewNop())
+	svc.SetProcessor(processor)
+	svc.Start([]string{"ws_1"})
+	t.Cleanup(func() { svc.Close(context.Background()) })
+
+	data, mime, ready, err := svc.ModelDefaultImage(reqctxpkg.SetWorkspaceID(context.Background(), "ws_1"), "att_1")
+	if err != nil || !ready || string(data) != "proxy" || mime != "image/webp" {
+		t.Fatalf("proxy = (%q, %q, %v, %v)", data, mime, ready, err)
+	}
+}
