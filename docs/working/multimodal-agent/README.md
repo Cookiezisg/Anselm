@@ -90,19 +90,19 @@ Qwen3.7-plus；音频由 Qwen3.5 Omni 做一次任务相关的感知，再把可
 
 - 附件原件已进入本地内容寻址 CAS；消息只冻结 attachment id，持久层方向正确。
 - composer 的文件选择、粘贴、拖放都读取完整字节并立即上传，当前没有推理代理生成步骤。
-- `attachment.Service.ToContentParts` 每次构建 LLM 历史都会读取 blob：
-  - image → 原始 data URL；
-  - MP4 → 原始 data URL；
-  - WAV/MP3 → 完整 base64；
-  - native document → 完整 base64；
-  - 非 native document → 最多约 400K 字符抽取文本内联。
-- 只要带附件的 user message 仍位于活跃 prompt，每次 sampling 都可能重新读取、编码、传输并计费媒体。
-  一次十步 ReAct 不是“一次媒体调用”，而可能成为十次。
-- Qwen provider 已独立拥有 wire/stream parser，但当前 user content renderer 只承载 text + image；
-  video/audio 尚未接入该 provider。
+- `attachment.Service.ToContentParts` 已按模型能力和 media envelope 分流：
+  - image → 普通 BYOK 走有界 envelope 内联；Anselm 网关优先上传 `model-default` 代理图短租约；
+  - MP4 → 普通 BYOK 走 `video_url`；Anselm 网关走 resumable upload 短租约；
+  - WAV/MP3 → 支持 audio 的 provider 走 `input_audio`，不支持时明确降级；
+  - native document → 仅在模型声明 `NativeDocs` 且 envelope 容纳时递交 file part；
+  - 非 native document / 大文档工具读取 → 本地抽取、分页、索引、query，并缓存 `document-text-v1`。
+- 带附件 user message 仍位于活跃 prompt 时，图片/视频的内置 Anselm 主路径已避免十步 ReAct 重复上传同一媒体；
+  普通 BYOK 仍按各 provider 原生 inline wire，不假设支持 Anselm 私有 lease protocol。
+- Qwen provider 已独立拥有 wire/stream parser，user content renderer 已支持 text/image/video/audio；
+  Qwen3.7 目录发布 1M 图/视频输入，Omni 发布 64K 图/视频/音频感知能力。
 - attachment 能力模型已有 `Vision/Video/Audio/NativeDocs/MaxMedia*`，可作为新摄取层的消费端，不需推倒
   attachment 域。
-- 上下文治理已有正在收口的实现：
+- 上下文治理已作为本战役基线落地：
   - provider 权威 hard limit；
   - estimate 只触发 prompt editing、不本地拒绝；
   - route-aware text/multimodal budget；
@@ -110,7 +110,8 @@ Qwen3.7-plus；音频由 Qwen3.5 Omni 做一次任务相关的感知，再把可
   - semantic continuation checkpoint；
   - confirmed overflow 透明压缩重试；
   - 回合边界 durable summary + watermark。
-- 上述上下文改动仍在当前 worktree，尚未作为本战役的已验收基线宣告完成。
+- 单元/黑盒已覆盖长对话、长 tool result、provider overflow recovery、不可分大输入失败面；仍待真实
+  1M provider eval 作为外部验收。
 
 ### 2.2 Anselm-API-Serve 网关
 
@@ -118,9 +119,9 @@ Qwen3.7-plus；音频由 Qwen3.5 Omni 做一次任务相关的感知，再把可
 - 纯文本当前走 `deepseek-v4-flash`；任意图片/视频当前走 `qwen3.7-plus`；合法音频固定
   `AUDIO_UNAVAILABLE`。
 - text 与 visual route 都发布 1M；产品输出 cap 当前为 16,384。
-- 媒体只接受 user role 内联 base64：JPEG/PNG/WebP、MP4、WAV/MP3。远程 URL/file/PDF 被拒。
-- 生产请求体上限 8 MiB，最多 8 个媒体 part、3 MiB decoded media。这防止服务被炸，却也让大量正常
-  相片、视频无法进入能力路线。
+- 媒体主路径已新增 device-proof resumable upload + install-bound short lease：图片/MP4 可由 sidecar
+  一次性 staging 后以短期 HTTPS source 交给网关；旧 inline body cap 与 media lease cap 分离。
+- 生产请求体上限仍保护 JSON/chat body；媒体配置与 lease 真实抓包仍是 M1 生产验收项。
 - input estimate 已只用于成本报价，不再作为 context admission gate；provider 400/413/422 归一。
 - provider、账本 CHECK、rate card、metrics、readiness、dashboard 和文档均只把 `deepseek|qwen` 视为运行时闭集成员。
 
@@ -794,13 +795,14 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
   `attachment_derivatives` / `attachment_perceptions`。每条记录以 workspace、attachment、kind、
   source SHA、canonical params hash 为身份；感知再加 task hash、provider、model。task 仅落 SHA-256，
   不把用户问题、原件、原始上游回复写入台账。唯一索引在并发冲突时收敛到同一条 pending work；source、参数、
-  task 或模型任一变化都会产生新 work，而非误复用旧结果。启动装配已接入，但尚未改变聊天的 inline-media wire。
+  task 或模型任一变化都会产生新 work，而非误复用旧结果。启动装配、图片代理、文档抽取缓存与
+  audio/video metadata capsule 已接入；内置 Anselm 图片/MP4 主路径已退出重复 base64 上传。
 - 已验证：应用层对无序 map 参数生成同一 canonical JSON hash；store 层覆盖 exact reuse、参数/source/task/
   model 失效和 workspace 隔离；`go test ./...` 通过。
 - 已落地（worker 骨架）：派生产物写入独立 media CAS，绝不与原件共用 attachment GC；单 worker 仅领取
   pending、ready 记录绝不重跑；优雅关闭把中断项退回 pending，硬崩遗留 running 在下次 boot 归还；媒体 GC
-  严格发生在 worker 启动前，避免“写入 artifact、尚未提交 ready 行”时被误删。当前没有配置具体图片/文档/
-  音视频 processor，故这一步不会悄悄改变现有附件/聊天行为。
+  严格发生在 worker 启动前，避免“写入 artifact、尚未提交 ready 行”时被误删。当前已配置图片 processor；
+  文档抽取缓存与 audio/video metadata capsule 走同步 lazy cache，后续 ASR/keyframe 再接入 perception worker。
 - 已落地（work cancel/retry 基础）：media service 对 derivative/perception 提供 durable cancel/retry；
   failed/cancelled 可回 pending 并重新入队，pending/running 可标 cancelled。worker 开跑前会重读状态，
   处理过程中被取消的 work 不会被完成结果覆盖成 ready/failed；`preparation` 侧车已能诚实透出
