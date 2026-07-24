@@ -29,6 +29,7 @@ type AttachmentSource interface {
 // regenerate, so its lifecycle must never share the original blob GC's keep-set.
 type ArtifactStore interface {
 	Put(ctx context.Context, data []byte) (sha256 string, err error)
+	Get(ctx context.Context, sha256 string) ([]byte, error)
 	Sweep(ctx context.Context, keep map[string]bool) (int, error)
 }
 
@@ -52,6 +53,29 @@ type PerceptionResult struct {
 	CapsuleJSON  string
 	InputTokens  int
 	OutputTokens int
+}
+
+const (
+	DerivativeThumbnail    = "thumbnail"
+	DerivativeModelDefault = "model-default"
+	DerivativeModelDetail  = "model-detail"
+)
+
+// ImageDerivativeParams is the stable, non-secret execution contract for deterministic image
+// proxies. It is stored as canonical JSON so a worker can reproduce the exact transform represented
+// by ParamsHash.
+type ImageDerivativeParams struct {
+	MaxEdge int        `json:"maxEdge,omitempty"`
+	Quality int        `json:"quality,omitempty"`
+	Format  string     `json:"format,omitempty"`
+	Crop    *ImageCrop `json:"crop,omitempty"`
+}
+
+type ImageCrop struct {
+	X      float64 `json:"x"`
+	Y      float64 `json:"y"`
+	Width  float64 `json:"width"`
+	Height float64 `json:"height"`
 }
 
 type Service struct {
@@ -119,7 +143,7 @@ func (s *Service) ClaimDerivative(ctx context.Context, attachmentID, kind string
 	}
 	got, created, err := s.repo.ClaimDerivative(ctx, &mediadomain.Derivative{
 		ID: idgenpkg.New("mdr"), AttachmentID: a.ID, Kind: strings.TrimSpace(kind),
-		SourceSHA256: a.SHA256, ParamsHash: mediadomain.Hash(encoded), Status: mediadomain.StatusPending,
+		SourceSHA256: a.SHA256, ParamsHash: mediadomain.Hash(encoded), ParamsJSON: string(encoded), Status: mediadomain.StatusPending,
 	})
 	if err != nil {
 		return nil, false, err
@@ -149,7 +173,7 @@ func (s *Service) ClaimPerception(ctx context.Context, attachmentID, kind, provi
 	got, created, err := s.repo.ClaimPerception(ctx, &mediadomain.Perception{
 		ID: idgenpkg.New("mpr"), AttachmentID: a.ID, Kind: strings.TrimSpace(kind), SourceSHA256: a.SHA256,
 		TaskHash: mediadomain.Hash([]byte(task)), Provider: strings.TrimSpace(provider), Model: strings.TrimSpace(model),
-		ParamsHash: mediadomain.Hash(encoded), Status: mediadomain.StatusPending,
+		ParamsHash: mediadomain.Hash(encoded), ParamsJSON: string(encoded), Status: mediadomain.StatusPending,
 	})
 	if err != nil {
 		return nil, false, err
@@ -158,6 +182,24 @@ func (s *Service) ClaimPerception(ctx context.Context, attachmentID, kind, provi
 		s.enqueue(ctx, job{perception: got})
 	}
 	return got, created, nil
+}
+
+// ModelDefaultImage returns a ready model-default image proxy when one exists. If it has not been
+// generated yet, this method claims/enqueues the work and returns ready=false so the caller can fall
+// back to the original for this turn without blocking the user.
+func (s *Service) ModelDefaultImage(ctx context.Context, attachmentID string) ([]byte, string, bool, error) {
+	derivative, _, err := s.ClaimDerivative(ctx, attachmentID, DerivativeModelDefault, ImageDerivativeParams{MaxEdge: 2048, Quality: 90, Format: "auto"})
+	if err != nil {
+		return nil, "", false, err
+	}
+	if derivative.Status != mediadomain.StatusReady || derivative.BlobSHA256 == "" {
+		return nil, "", false, nil
+	}
+	data, err := s.artifacts.Get(ctx, derivative.BlobSHA256)
+	if err != nil {
+		return nil, "", false, fmt.Errorf("mediaapp.ModelDefaultImage: artifact: %w", err)
+	}
+	return data, derivative.MimeType, true, nil
 }
 
 // Start recovers work interrupted by a prior crash, then drains durable pending work with one

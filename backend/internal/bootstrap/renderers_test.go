@@ -22,7 +22,7 @@ func (f *fakeParts) ToContentParts(_ context.Context, _ []string, caps attachmen
 
 func TestAttachmentRenderer_BridgesCaps(t *testing.T) {
 	fp := &fakeParts{}
-	r := NewAttachmentRenderer(fp, nil)
+	r := NewAttachmentRenderer(fp, nil, nil)
 	// Deliberately asymmetric flags and a finite envelope catch a dropped/scrambled bridge field.
 	if _, err := r.ToContentParts(context.Background(), []string{"att_1"}, chatapp.ContentCapabilities{
 		Vision: true, Video: true, Audio: false, NativeDocs: false, MaxMediaParts: 3, MaxMediaBytes: 42,
@@ -43,7 +43,7 @@ func (fakeMediaUploader) Upload(context.Context, string, string, string, []byte)
 
 func TestAttachmentRenderer_BridgesManagedGatewayOnlyWhenConfigured(t *testing.T) {
 	fp := &fakeParts{}
-	r := NewAttachmentRenderer(fp, fakeMediaUploader{})
+	r := NewAttachmentRenderer(fp, fakeMediaUploader{}, nil)
 	_, err := r.ToContentParts(context.Background(), []string{"att_1"}, chatapp.ContentCapabilities{
 		ManagedGateway: &chatapp.ManagedGatewayMedia{BaseURL: "https://api.example/v1", InstallID: "ins_1"},
 	})

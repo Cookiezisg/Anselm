@@ -20,12 +20,13 @@ func newStore(t *testing.T) *Store {
 	}
 	db.SetMaxOpenConns(1)
 	t.Cleanup(func() { _ = db.Close() })
+	ormDB := ormpkg.Open(db)
 	for _, statement := range Schema {
 		if _, err := db.Exec(statement); err != nil {
 			t.Fatalf("schema: %v", err)
 		}
 	}
-	return New(ormpkg.Open(db))
+	return New(ormDB)
 }
 
 func mediaCtx() context.Context { return reqctxpkg.SetWorkspaceID(context.Background(), "ws_1") }

@@ -262,6 +262,17 @@ func (f *fakeRemoteMediaUploader) Upload(_ context.Context, baseURL, installID, 
 	return f.url, f.err
 }
 
+type fakeImageProxy struct {
+	data  []byte
+	mime  string
+	ready bool
+	err   error
+}
+
+func (f fakeImageProxy) ModelDefaultImage(context.Context, string) ([]byte, string, bool, error) {
+	return f.data, f.mime, f.ready, f.err
+}
+
 func TestToContentParts_ManagedMediaStagesImageAndVideoOnce(t *testing.T) {
 	svc, _, ctx := newSvc(t)
 	imageData := []byte("\x89PNG image")
@@ -289,6 +300,28 @@ func TestToContentParts_ManagedMediaStagesImageAndVideoOnce(t *testing.T) {
 	if uploader.got[0].baseURL != "https://api.example/v1" || uploader.got[0].installID != "ins_1" ||
 		uploader.got[0].mime != "image/png" || !bytes.Equal(uploader.got[0].data, imageData) ||
 		uploader.got[1].mime != "video/mp4" || !bytes.Equal(uploader.got[1].data, videoData) {
+		t.Fatalf("upload inputs = %+v", uploader.got)
+	}
+}
+
+func TestToContentParts_ManagedImageStagesModelDefaultProxyWhenReady(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	image, _ := svc.Upload(ctx, "photo.png", "image/png", []byte("original image"))
+	uploader := &fakeRemoteMediaUploader{url: "https://media.example/v1/media/leases/mls_1/content?token=t"}
+	parts, err := svc.ToContentParts(ctx, []string{image.ID}, Capabilities{
+		Vision: true,
+		RemoteMedia: &RemoteMedia{
+			BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader,
+			Images: fakeImageProxy{data: []byte("proxy image"), mime: "image/jpeg", ready: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if len(parts) != 1 || parts[0].ImageURL != uploader.url {
+		t.Fatalf("parts = %+v", parts)
+	}
+	if uploader.calls != 1 || uploader.got[0].mime != "image/jpeg" || !bytes.Equal(uploader.got[0].data, []byte("proxy image")) {
 		t.Fatalf("upload inputs = %+v", uploader.got)
 	}
 }

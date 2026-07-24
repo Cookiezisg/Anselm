@@ -184,6 +184,15 @@ type RemoteMediaUploader interface {
 	Upload(ctx context.Context, baseURL, installID, mime string, data []byte) (string, error)
 }
 
+// ImageProxy returns a bounded model-ready image when the media worker has produced one. ready=false
+// means the caller should use the original for this turn and let the background worker catch up.
+//
+// ImageProxy 在媒体 worker 已产出时返回有界、面向模型的图片代理；ready=false 表示本回合继续用原件、
+// 后台任务自行追上。
+type ImageProxy interface {
+	ModelDefaultImage(ctx context.Context, attachmentID string) (data []byte, mime string, ready bool, err error)
+}
+
 // RemoteMedia is the per-turn managed-gateway destination. InstallID is a public install handle;
 // device proof is added by the uploader's HTTP transport and never crosses this boundary.
 //
@@ -193,6 +202,7 @@ type RemoteMedia struct {
 	BaseURL   string
 	InstallID string
 	Uploader  RemoteMediaUploader
+	Images    ImageProxy
 }
 
 // ToContentParts resolves attachment ids into provider-agnostic LLM content parts for one user turn
@@ -261,7 +271,8 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		switch a.Kind {
 		case attachmentdomain.KindImage:
 			if caps.Vision && caps.RemoteMedia != nil {
-				source, err := stagedMediaURL(ctx, caps.RemoteMedia, remoteURLs, a, data)
+				stageData, stageMIME := managedImageBytes(ctx, caps.RemoteMedia, a, data)
+				source, err := stagedMediaURL(ctx, caps.RemoteMedia, remoteURLs, a, stageMIME, stageData)
 				if err != nil {
 					return nil, err
 				}
@@ -275,7 +286,7 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 			}
 		case attachmentdomain.KindVideo:
 			if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && caps.RemoteMedia != nil {
-				source, err := stagedMediaURL(ctx, caps.RemoteMedia, remoteURLs, a, data)
+				source, err := stagedMediaURL(ctx, caps.RemoteMedia, remoteURLs, a, normalizedMIME(a.MimeType), data)
 				if err != nil {
 					return nil, err
 				}
@@ -322,15 +333,26 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 	return out, nil
 }
 
-func stagedMediaURL(ctx context.Context, remote *RemoteMedia, cache map[string]string, a *attachmentdomain.Attachment, data []byte) (string, error) {
+func managedImageBytes(ctx context.Context, remote *RemoteMedia, a *attachmentdomain.Attachment, original []byte) ([]byte, string) {
+	if remote == nil || remote.Images == nil {
+		return original, normalizedMIME(a.MimeType)
+	}
+	data, mime, ready, err := remote.Images.ModelDefaultImage(ctx, a.ID)
+	if err != nil || !ready || len(data) == 0 || normalizedMIME(mime) == "" {
+		return original, normalizedMIME(a.MimeType)
+	}
+	return data, normalizedMIME(mime)
+}
+
+func stagedMediaURL(ctx context.Context, remote *RemoteMedia, cache map[string]string, a *attachmentdomain.Attachment, mime string, data []byte) (string, error) {
 	if remote == nil || remote.Uploader == nil || remote.BaseURL == "" || remote.InstallID == "" {
 		return "", fmt.Errorf("attachment: managed media destination is unavailable")
 	}
-	key := a.SHA256 + "\x00" + normalizedMIME(a.MimeType)
+	key := a.SHA256 + "\x00" + normalizedMIME(mime)
 	if source := cache[key]; source != "" {
 		return source, nil
 	}
-	source, err := remote.Uploader.Upload(ctx, remote.BaseURL, remote.InstallID, a.MimeType, data)
+	source, err := remote.Uploader.Upload(ctx, remote.BaseURL, remote.InstallID, mime, data)
 	if err != nil {
 		return "", fmt.Errorf("attachment: stage %q for managed media: %w", a.Filename, err)
 	}

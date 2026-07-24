@@ -60,10 +60,19 @@ func (f *fakeRepo) ListReadyDerivativeBlobs(context.Context) ([]string, error) {
 	return nil, nil
 }
 
-type fakeArtifacts struct{}
+type fakeArtifacts struct {
+	data map[string][]byte
+}
 
-func (fakeArtifacts) Put(_ context.Context, data []byte) (string, error) {
-	return mediadomain.Hash(data), nil
+func (f fakeArtifacts) Put(_ context.Context, data []byte) (string, error) {
+	sha := mediadomain.Hash(data)
+	if f.data != nil {
+		f.data[sha] = data
+	}
+	return sha, nil
+}
+func (f fakeArtifacts) Get(_ context.Context, sha string) ([]byte, error) {
+	return f.data[sha], nil
 }
 func (fakeArtifacts) Sweep(context.Context, map[string]bool) (int, error) { return 0, nil }
 
@@ -102,6 +111,9 @@ func TestClaimDerivative_CanonicalParamsAndSourceAreTheIdentity(t *testing.T) {
 	if first.SourceSHA256 != "source-a" || first.Status != mediadomain.StatusPending {
 		t.Fatalf("derivative did not bind original source/pending status: %+v", first)
 	}
+	if first.ParamsJSON != `{"height":2048,"width":2048}` {
+		t.Fatalf("canonical params json = %q", first.ParamsJSON)
+	}
 }
 
 func TestClaimPerception_HashesTaskInsteadOfPersistingIt(t *testing.T) {
@@ -127,7 +139,8 @@ func TestClaimRejectsIncompleteRequest(t *testing.T) {
 func TestWorker_ProcessesOneDurableIdentityOnlyOnce(t *testing.T) {
 	repo := &fakeRepo{}
 	processor := &fakeProcessor{derived: make(chan struct{}, 2)}
-	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a"}}, repo, fakeArtifacts{}, zap.NewNop())
+	artifacts := fakeArtifacts{data: map[string][]byte{}}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a"}}, repo, artifacts, zap.NewNop())
 	svc.SetProcessor(processor)
 	svc.Start([]string{"ws_1"})
 	t.Cleanup(func() { svc.Close(context.Background()) })
@@ -140,6 +153,15 @@ func TestWorker_ProcessesOneDurableIdentityOnlyOnce(t *testing.T) {
 	case <-processor.derived:
 	case <-time.After(time.Second):
 		t.Fatal("worker did not process pending derivative")
+	}
+	deadline := time.After(time.Second)
+	for first.Status != mediadomain.StatusReady || first.BlobSHA256 != mediadomain.Hash([]byte("proxy")) {
+		select {
+		case <-deadline:
+			t.Fatalf("worker result was not persisted on durable work: %+v", first)
+		default:
+			time.Sleep(time.Millisecond)
+		}
 	}
 	if first.Status != mediadomain.StatusReady || first.BlobSHA256 != mediadomain.Hash([]byte("proxy")) {
 		t.Fatalf("worker result was not persisted on durable work: %+v", first)
@@ -157,5 +179,25 @@ func TestWorker_ProcessesOneDurableIdentityOnlyOnce(t *testing.T) {
 	defer processor.mu.Unlock()
 	if processor.derives != 1 {
 		t.Fatalf("processor calls = %d, want 1", processor.derives)
+	}
+}
+
+func TestModelDefaultImage_ReturnsReadyArtifactOrSchedulesWork(t *testing.T) {
+	repo := &fakeRepo{}
+	artifacts := fakeArtifacts{data: map[string][]byte{}}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a"}}, repo, artifacts, zap.NewNop())
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+
+	if data, _, ready, err := svc.ModelDefaultImage(ctx, "att_1"); err != nil || ready || data != nil {
+		t.Fatalf("first proxy should only claim pending work: data=%q ready=%v err=%v", data, ready, err)
+	}
+	repo.derivative.Status = mediadomain.StatusReady
+	repo.derivative.MimeType = "image/jpeg"
+	repo.derivative.BlobSHA256 = mediadomain.Hash([]byte("proxy"))
+	artifacts.data[repo.derivative.BlobSHA256] = []byte("proxy")
+
+	data, mime, ready, err := svc.ModelDefaultImage(ctx, "att_1")
+	if err != nil || !ready || string(data) != "proxy" || mime != "image/jpeg" {
+		t.Fatalf("ready proxy = (%q, %q, %v, %v)", data, mime, ready, err)
 	}
 }

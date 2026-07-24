@@ -187,6 +187,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	todo := todoapp.NewService(st.todo, bus.messages, log)
 	att := attachmentapp.NewService(st.attachment, st.blob, attachmentapp.NewSandboxExtractor(sbx), log)
 	media := mediaapp.NewService(att, st.media, st.mediaArtifacts, log)
+	media.SetProcessor(mediaapp.NewImageProcessor())
 	fn := functionapp.NewService(st.function, prov, functionapp.NewSandboxAdapter(sbx, dataDir, bus.entities), notif, log)
 	fn.SetEntitiesBridge(bus.entities) // SSE-C: env 物化尝试行 tee 到 function 构建终端（不分入口）
 	hd := handlerapp.NewService(st.handler, prov, handlerapp.NewSandboxAdapter(sbx, dataDir), inf.encryptor, handlerapp.DefaultClientFactory, notif, log)
@@ -339,7 +340,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	chat := chatapp.NewService(st.messages, chatapp.Deps{
 		Conversations: conv,
 		Resolver:      resolvers.Chat(),
-		Attachments:   NewAttachmentRenderer(att, llminfra.NewMediaClient(inf.proofHTTP)),
+		Attachments:   NewAttachmentRenderer(att, llminfra.NewMediaClient(inf.proofHTTP), media),
 		Toolset:       toolset,
 		// Per-request MCP dynamic tools for the ctx workspace (F52): chat ranks + offers them via
 		// search_tools just like static lazy tools. Error → no MCP tools (best-effort, never fails a turn).

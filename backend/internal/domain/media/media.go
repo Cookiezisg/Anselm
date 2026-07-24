@@ -35,6 +35,7 @@ type Derivative struct {
 	Kind         string    `db:"kind" json:"kind"`
 	SourceSHA256 string    `db:"source_sha256" json:"sourceSha256"`
 	ParamsHash   string    `db:"params_hash" json:"paramsHash"`
+	ParamsJSON   string    `db:"params_json" json:"-"`
 	Status       string    `db:"status" json:"status"`
 	BlobSHA256   string    `db:"blob_sha256" json:"blobSha256"`
 	MimeType     string    `db:"mime_type" json:"mimeType"`
@@ -60,6 +61,7 @@ type Perception struct {
 	Provider     string    `db:"provider" json:"provider"`
 	Model        string    `db:"model" json:"model"`
 	ParamsHash   string    `db:"params_hash" json:"paramsHash"`
+	ParamsJSON   string    `db:"params_json" json:"-"`
 	Status       string    `db:"status" json:"status"`
 	CapsuleJSON  string    `db:"capsule_json" json:"-"`
 	InputTokens  int       `db:"input_tokens" json:"inputTokens"`

@@ -15,7 +15,7 @@ import (
 var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS attachment_derivatives (
 		id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, attachment_id TEXT NOT NULL,
-		kind TEXT NOT NULL, source_sha256 TEXT NOT NULL, params_hash TEXT NOT NULL,
+		kind TEXT NOT NULL, source_sha256 TEXT NOT NULL, params_hash TEXT NOT NULL, params_json TEXT NOT NULL DEFAULT '',
 		status TEXT NOT NULL CHECK (status IN ('pending','running','ready','failed','cancelled')),
 		blob_sha256 TEXT NOT NULL DEFAULT '', mime_type TEXT NOT NULL DEFAULT '', size_bytes INTEGER NOT NULL DEFAULT 0,
 		width INTEGER NOT NULL DEFAULT 0, height INTEGER NOT NULL DEFAULT 0, duration_ms INTEGER NOT NULL DEFAULT 0,
@@ -26,7 +26,7 @@ var Schema = []string{
 	`CREATE TABLE IF NOT EXISTS attachment_perceptions (
 		id TEXT PRIMARY KEY, workspace_id TEXT NOT NULL, attachment_id TEXT NOT NULL,
 		kind TEXT NOT NULL, source_sha256 TEXT NOT NULL, task_hash TEXT NOT NULL,
-		provider TEXT NOT NULL, model TEXT NOT NULL, params_hash TEXT NOT NULL,
+		provider TEXT NOT NULL, model TEXT NOT NULL, params_hash TEXT NOT NULL, params_json TEXT NOT NULL DEFAULT '',
 		status TEXT NOT NULL CHECK (status IN ('pending','running','ready','failed','cancelled')),
 		capsule_json TEXT NOT NULL DEFAULT '', input_tokens INTEGER NOT NULL DEFAULT 0, output_tokens INTEGER NOT NULL DEFAULT 0,
 		error_code TEXT NOT NULL DEFAULT '', created_at DATETIME NOT NULL, updated_at DATETIME NOT NULL
