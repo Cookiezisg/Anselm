@@ -783,7 +783,7 @@ class FixtureChatRepository implements ChatRepository {
       filename: filename,
       mimeType: mimeType ?? '',
       sizeBytes: bytes.length,
-      kind: (mimeType ?? '').startsWith('image/') ? 'image' : 'other',
+      kind: _fixtureAttachmentKind(mimeType),
       preparation: prep,
     );
   }
@@ -847,7 +847,7 @@ class FixtureChatRepository implements ChatRepository {
       filename: up.filename,
       mimeType: up.mimeType ?? '',
       sizeBytes: up.size,
-      kind: (up.mimeType ?? '').startsWith('image/') ? 'image' : 'other',
+      kind: _fixtureAttachmentKind(up.mimeType),
     );
   }
 
@@ -865,4 +865,22 @@ class FixtureChatRepository implements ChatRepository {
       await c.close();
     }
   }
+}
+
+String _fixtureAttachmentKind(String? mimeType) {
+  final mime = (mimeType ?? '').toLowerCase().trim();
+  if (mime.startsWith('image/')) return 'image';
+  if (mime.startsWith('audio/')) return 'audio';
+  if (mime.startsWith('video/')) return 'video';
+  if (mime.startsWith('text/')) return 'text';
+  if (mime == 'application/pdf' ||
+      mime ==
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+      mime ==
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' ||
+      mime ==
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation') {
+    return 'document';
+  }
+  return 'other';
 }

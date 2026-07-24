@@ -161,6 +161,42 @@ void main() {
       });
 
       test(
+        'uploadAttachment classifies media kinds like the backend',
+        () async {
+          final r = _repo();
+          final rows = [
+            await r.uploadAttachment(
+              bytes: [1],
+              filename: 'voice.mp3',
+              mimeType: 'audio/mpeg',
+            ),
+            await r.uploadAttachment(
+              bytes: [1],
+              filename: 'clip.mp4',
+              mimeType: 'video/mp4',
+            ),
+            await r.uploadAttachment(
+              bytes: [1],
+              filename: 'notes.txt',
+              mimeType: 'text/plain',
+            ),
+            await r.uploadAttachment(
+              bytes: [1],
+              filename: 'report.pdf',
+              mimeType: 'application/pdf',
+            ),
+          ];
+          expect(rows.map((a) => a.kind), [
+            'audio',
+            'video',
+            'text',
+            'document',
+          ]);
+          expect((await r.getAttachment(rows[0].id)).kind, 'audio');
+        },
+      );
+
+      test(
         'writing a missing id throws (mirrors 404 CONVERSATION_NOT_FOUND)',
         () async {
           expect(
