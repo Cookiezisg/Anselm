@@ -809,8 +809,13 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 
 **目标**：建立原件/派生/感知三层，不先改漂亮 UI。
 
-- derivative/perception domain + DB + repository；
-- params hash、source sha 失效、record-once；
+- 已落地（2026-07-24，地基第一块）：新增独立 `media` domain 与 SQLite 的
+  `attachment_derivatives` / `attachment_perceptions`。每条记录以 workspace、attachment、kind、
+  source SHA、canonical params hash 为身份；感知再加 task hash、provider、model。task 仅落 SHA-256，
+  不把用户问题、原件、原始上游回复写入台账。唯一索引在并发冲突时收敛到同一条 pending work；source、参数、
+  task 或模型任一变化都会产生新 work，而非误复用旧结果。启动装配已接入，但尚未改变聊天的 inline-media wire。
+- 已验证：应用层对无序 map 参数生成同一 canonical JSON hash；store 层覆盖 exact reuse、参数/source/task/
+  model 失效和 workspace 隔离；`go test ./...` 通过。
 - worker 生命周期、取消、崩溃恢复、boot GC；
 - 进度模型；
 - 磁盘配额和清理；

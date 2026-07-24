@@ -23,6 +23,7 @@ import (
 	functionstore "github.com/sunweilin/anselm/backend/internal/infra/store/function"
 	handlerstore "github.com/sunweilin/anselm/backend/internal/infra/store/handler"
 	mcpstore "github.com/sunweilin/anselm/backend/internal/infra/store/mcp"
+	mediastore "github.com/sunweilin/anselm/backend/internal/infra/store/media"
 	messagesstore "github.com/sunweilin/anselm/backend/internal/infra/store/messages"
 	modelprofilestore "github.com/sunweilin/anselm/backend/internal/infra/store/modelprofile"
 	notificationstore "github.com/sunweilin/anselm/backend/internal/infra/store/notification"
@@ -65,6 +66,7 @@ type stores struct {
 	conversation *conversationstore.Store
 	messages     *messagesstore.Store
 	modelprofile *modelprofilestore.Store
+	media        *mediastore.Store
 	search       *searchstore.Store
 
 	memory *memoryfs.Store
@@ -169,6 +171,7 @@ func allSchemas() []string {
 	s = append(s, conversationstore.Schema...)
 	s = append(s, messagesstore.Schema...)
 	s = append(s, modelprofilestore.Schema...)
+	s = append(s, mediastore.Schema...)
 	s = append(s, searchstore.Schema...)
 	return s
 }
@@ -223,6 +226,7 @@ func buildStores(database *ormpkg.DB, enc cryptodomain.Encryptor, dataDir string
 		conversation: conversationstore.New(database),
 		messages:     messagesstore.New(database),
 		modelprofile: modelprofilestore.New(database),
+		media:        mediastore.New(database),
 		search:       searchstore.New(database),
 
 		memory: memoryfs.New(dataDir),

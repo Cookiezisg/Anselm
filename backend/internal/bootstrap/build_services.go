@@ -24,6 +24,7 @@ import (
 	functionapp "github.com/sunweilin/anselm/backend/internal/app/function"
 	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
 	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
+	mediaapp "github.com/sunweilin/anselm/backend/internal/app/media"
 	memoryapp "github.com/sunweilin/anselm/backend/internal/app/memory"
 	modelapp "github.com/sunweilin/anselm/backend/internal/app/model"
 	modelprofileapp "github.com/sunweilin/anselm/backend/internal/app/modelprofile"
@@ -92,6 +93,7 @@ type services struct {
 	freetierQuota *freetierapp.QuotaReader
 	modelCaps     *modelapp.CapabilityService
 	modelProfile  *modelprofileapp.Service
+	media         *mediaapp.Service
 	relation      *relationapp.Service
 	catalog       *catalogapp.Service
 	notification  *notificationapp.Service
@@ -181,6 +183,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	doc := documentapp.NewService(st.document, notif, log)
 	todo := todoapp.NewService(st.todo, bus.messages, log)
 	att := attachmentapp.NewService(st.attachment, st.blob, attachmentapp.NewSandboxExtractor(sbx), log)
+	media := mediaapp.NewService(att, st.media, log)
 	fn := functionapp.NewService(st.function, prov, functionapp.NewSandboxAdapter(sbx, dataDir, bus.entities), notif, log)
 	fn.SetEntitiesBridge(bus.entities) // SSE-C: env 物化尝试行 tee 到 function 构建终端（不分入口）
 	hd := handlerapp.NewService(st.handler, prov, handlerapp.NewSandboxAdapter(sbx, dataDir), inf.encryptor, handlerapp.DefaultClientFactory, notif, log)
@@ -551,7 +554,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	mcp.SetNotifier(notif)
 
 	s := &services{
-		workspace: ws, apikey: keys, modelCaps: modelCaps, modelProfile: modelProfile, relation: rel, catalog: cat,
+		workspace: ws, apikey: keys, modelCaps: modelCaps, modelProfile: modelProfile, media: media, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
 		touchpoint: tp, toolNames: toolNames, toolCatalog: toolCatalog,
 		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
