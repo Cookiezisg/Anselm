@@ -796,7 +796,11 @@ attachment/assistant 的准备进度优先复用 `messages` SSE 的 ephemeral bl
 - 已落地：provider adapter/registry、rate card/ledger/reserve/settle、config/env/readiness/dashboard/metrics；
   初始 DB migration 只允许当前闭集 `deepseek|gemini|qwen`；e2e、race、故障注入、文档与部署构建脚本均已通过。
 - 已落地：Anselm 静态 fallback 与 synthetic probe 的 visual profile 均为 1M。
-- 待验收：GitHub CI、Qwen 真实金标、canary/deploy 与部署后 health/models/text/visual 冒烟；真实运行时继续使用
+- 已验收：2026-07-24 已通过两轮 GitHub CI 及生产级 race / integration / fuzz / coverage / docs / lint / vuln
+  门禁；因项目未上线，已从受确认的部署工作流中一次性清除旧 Kimi-era SQLite 状态，生产 Qwen 版网关完成
+  双本机 gate、公开 `/healthz` 及静态站点 smoke，均为成功。`/v1/models` 未携带 device proof 返回 401，符合
+  鉴权合同。
+- 待验收：使用新 device install/proof 进行真实 Qwen text/visual 计费链与模型目录 smoke；真实运行时继续使用
   version 1 的 text/multimodal route profiles，音频 capability v2 随 M3 才发布。
 
 **出口**：text/visual route 都真实可用；视觉 profile 发布 1M；账本对账为零差异。
