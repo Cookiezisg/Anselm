@@ -2,11 +2,13 @@ package model
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"go.uber.org/zap"
 
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 )
 
 // fakeProbeReader feeds canned probe archives without an apikey store.
@@ -69,5 +71,29 @@ func TestCapabilityListEmptyOnNoKeys(t *testing.T) {
 	}
 	if len(views) != 0 {
 		t.Errorf("got %d views, want 0", len(views))
+	}
+}
+
+func TestCapabilityValidateOptions_OnlyPermitsPublishedNativeContract(t *testing.T) {
+	svc := NewCapabilityService(fakeProbeReader{keys: []apikeydomain.ProbedKey{{
+		ID: "aki_oa", Provider: "openai", TestStatus: apikeydomain.TestStatusOK,
+		TestResponse: `{"object":"list","data":[{"id":"gpt-5.5"},{"id":"gpt-4o"}]}`,
+	}}}, zap.NewNop())
+	ctx := context.Background()
+
+	if err := svc.ValidateOptions(ctx, modeldomain.ModelRef{APIKeyID: "aki_oa", ModelID: "gpt-5.5", Options: map[string]string{"reasoning_effort": "high"}}); err != nil {
+		t.Fatalf("published enum value must pass: %v", err)
+	}
+	if err := svc.ValidateOptions(ctx, modeldomain.ModelRef{APIKeyID: "aki_oa", ModelID: "gpt-5.5", Options: map[string]string{"reasoning_effort": "turbo"}}); !errors.Is(err, modeldomain.ErrOptionValueInvalid) {
+		t.Fatalf("unknown enum value = MODEL_OPTION_VALUE_INVALID, got %v", err)
+	}
+	if err := svc.ValidateOptions(ctx, modeldomain.ModelRef{APIKeyID: "aki_oa", ModelID: "gpt-4o", Options: map[string]string{"reasoning_effort": "high"}}); !errors.Is(err, modeldomain.ErrOptionUnsupported) {
+		t.Fatalf("unpublished knob = MODEL_OPTION_UNSUPPORTED, got %v", err)
+	}
+	if err := svc.ValidateOptions(ctx, modeldomain.ModelRef{APIKeyID: "aki_oa", ModelID: "unlisted-but-runnable", Options: map[string]string{"reasoning_effort": "high"}}); !errors.Is(err, modeldomain.ErrOptionUnsupported) {
+		t.Fatalf("unprobed model cannot gain an implicit passthrough, got %v", err)
+	}
+	if err := svc.ValidateOptions(ctx, modeldomain.ModelRef{APIKeyID: "aki_oa", ModelID: "unlisted-but-runnable"}); err != nil {
+		t.Fatalf("unknown model with no native settings remains usable: %v", err)
 	}
 }

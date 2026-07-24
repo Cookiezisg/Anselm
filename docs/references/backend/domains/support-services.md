@@ -27,7 +27,7 @@ audience: [human, ai]
 
 ## model —— 模型选择与能力
 
-无存储：默认在 workspace 列、覆盖在实体字段。定义 `ModelRef` 值 + 三场景白名单（dialogue/utility/agent）+ **覆盖优先默认兜底**规则；`CapabilityService` 读 apikey 的 probe 归档、经各 provider 自描述的 `DescribeModels` 聚合模型目录（`vision/video/audio/nativeDocs` 与可选的单回合 `maxMediaParts/maxMediaBytes` 一起供 chat 附件门控和前端诚实展示）。**LLM 工具**：只读 `get_model_config`（`tool/model`，无参；投影三场景默认 ModelRef + 已配 key 的**脱敏**形（`KeyMasked`、绝不出明文）+ CapabilityService 可用模型）——使 agent 从真 workspace 配置答「我在用什么」、不必 grep 主机 FS（后者会泄露 `.env` 明文 key 并臆造假审计，F68）。码 `MODEL_*` 3。
+无存储：默认在 workspace 列、覆盖在实体字段。定义 `ModelRef` 值 + 三场景白名单（dialogue/utility/agent）+ **覆盖优先默认兜底**规则；`CapabilityService` 读 apikey 的 probe 归档、经各 provider 自描述的 `DescribeModels` 聚合模型目录（`vision/video/audio/nativeDocs` 与可选的单回合 `maxMediaParts/maxMediaBytes` 一起供 chat 附件门控和前端诚实展示）。每条持久化 ModelRef 的非空 `options` 都必须精确匹配该已探测 key/model 公开的 native knob 与值：未知字段→`MODEL_OPTION_UNSUPPORTED`，非法值→`MODEL_OPTION_VALUE_INVALID`；空 options 不要求目录命中，因此未探测/custom 模型仍可运行、却不会假装支持未知配置。**LLM 工具**：只读 `get_model_config`（`tool/model`，无参；投影三场景默认 ModelRef + 已配 key 的**脱敏**形（`KeyMasked`、绝不出明文）+ CapabilityService 可用模型）——使 agent 从真 workspace 配置答「我在用什么」、不必 grep 主机 FS（后者会泄露 `.env` 明文 key 并臆造假审计，F68）。码 `MODEL_*` 5。
 
 ## websearch —— 搜索配置词汇
 

@@ -248,7 +248,7 @@ func (s *Service) Search(ctx context.Context, query string) ([]*agentdomain.Agen
 //
 // Create 持久化新 Agent + v1（active）并同步 relation 边。无 env、无 sandbox。
 func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agent, *agentdomain.Version, error) {
-	if err := modelrefapp.Validate(ctx, in.ModelOverride, agentdomain.ErrInvalidModelOverride, s.keyChecker); err != nil {
+	if err := modelrefapp.Validate(ctx, in.ModelOverride, agentdomain.ErrInvalidModelOverride, s.keyChecker, s.optionValidator); err != nil {
 		return nil, nil, err
 	}
 
@@ -292,7 +292,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*agentdomain.Version,
 	if err != nil {
 		return nil, fmt.Errorf("agentapp.Edit: %w", err)
 	}
-	if err := modelrefapp.Validate(ctx, in.ModelOverride, agentdomain.ErrInvalidModelOverride, s.keyChecker); err != nil {
+	if err := modelrefapp.Validate(ctx, in.ModelOverride, agentdomain.ErrInvalidModelOverride, s.keyChecker, s.optionValidator); err != nil {
 		return nil, err
 	}
 

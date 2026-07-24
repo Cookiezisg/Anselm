@@ -87,6 +87,15 @@ var (
 	// ErrRefInvalid: a model selection is missing apiKeyId or modelId.
 	// ErrRefInvalid：模型选择缺 apiKeyId 或 modelId。
 	ErrRefInvalid = errorspkg.New(errorspkg.KindInvalid, "MODEL_REF_INVALID", "model selection requires both apiKeyId and modelId")
+
+	// ErrOptionUnsupported: a saved native option is not published for the selected model. This is
+	// deliberately fail-loud: silently dropping an unrecognised option makes a settings screen lie.
+	// ErrOptionUnsupported：已保存的原生参数并非所选模型公开支持。刻意 loud fail：静默丢掉未知参数会让设置页撒谎。
+	ErrOptionUnsupported = errorspkg.New(errorspkg.KindUnprocessable, "MODEL_OPTION_UNSUPPORTED", "native model option is not supported by the selected model")
+
+	// ErrOptionValueInvalid: a native option's value does not satisfy the model's published contract.
+	// ErrOptionValueInvalid：原生参数的值不满足该模型公开的契约。
+	ErrOptionValueInvalid = errorspkg.New(errorspkg.KindInvalid, "MODEL_OPTION_VALUE_INVALID", "native model option value is invalid")
 )
 
 // ModelPicker resolves a workspace's default ModelRef for a scenario. Implemented by app/workspace

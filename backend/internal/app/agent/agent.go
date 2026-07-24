@@ -132,13 +132,14 @@ type RelationSyncer interface {
 //
 // Service 编排 agent domain。
 type Service struct {
-	repo       agentdomain.Repository
-	search     searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
-	invoke     InvokeDeps
-	relations  RelationSyncer                  // nil disables relation hooks
-	notif      notificationdomain.Emitter      // nil-tolerant
-	keyChecker modelrefapp.KeyExistenceChecker // nil → modelOverride apiKeyId existence not checked at write (F153)
-	log        *zap.Logger
+	repo            agentdomain.Repository
+	search          searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
+	invoke          InvokeDeps
+	relations       RelationSyncer                  // nil disables relation hooks
+	notif           notificationdomain.Emitter      // nil-tolerant
+	keyChecker      modelrefapp.KeyExistenceChecker // nil → modelOverride apiKeyId existence not checked at write (F153)
+	optionValidator modelrefapp.OptionValidator     // nil → native option contract not checked at write
+	log             *zap.Logger
 }
 
 // NewService wires the service; nil repo / log is a wiring bug. invoke deps + relations are
@@ -173,6 +174,11 @@ func (s *Service) SetInvokeDeps(deps InvokeDeps) { s.invoke = deps }
 // SetKeyChecker 装配后注入 apikey 存在性探针（apikeyapp；无环——apikey 不依赖 agent/conversation/workspace）。
 // 使 Create/Edit 在写时拒绝指向不存在 apiKeyId 的 modelOverride（F153）。nil → 跳过存在性校验。
 func (s *Service) SetKeyChecker(c modelrefapp.KeyExistenceChecker) { s.keyChecker = c }
+
+// SetOptionValidator installs the probe-derived native setting contract for model overrides.
+//
+// SetOptionValidator 为 model override 装入探测派生的原生设置契约。
+func (s *Service) SetOptionValidator(v modelrefapp.OptionValidator) { s.optionValidator = v }
 
 // nameOfAgent returns a.Name, or "" when a is nil (best-effort notify name never breaks business).
 //

@@ -55,6 +55,8 @@ InvokeAgent(in)
   │   ├─ skill.Guide(v.Skill) → system prompt 的执行指南段
   │   ├─ Resolver.ResolveAgent(modelOverride) → LLM bundle（nil=默认 agent 场景模型）
   │   │   （F153：modelOverride 在 Create/Edit **写时**经 `modelref.Validate` 校结构 + **apiKeyId 存在性**——引用不存在 key 即 `API_KEY_NOT_FOUND`、非只此处 invoke 时失败；modelId 拼写不校、留 fail-loud）
+  │   │   非空 native options 还在写时匹配该精确已探测 key/model 的公开 knob 契约；未知/非法值分别为
+  │   │   `MODEL_OPTION_UNSUPPORTED`/`MODEL_OPTION_VALUE_INVALID`，绝不由 adapter 静默丢弃。
   │   ├─ ctx 装饰：tool_call 嵌套（E3）+ entities 流 agent scope 镜像（SSE-C）
   │   ├─ ctx WithTimeout(limits.Timeout.AgentInvokeSec) — 整次运行墙钟封顶
   │   └─ loop.Run(agentHost, maxTurns 默认 10 − 已重放步数)

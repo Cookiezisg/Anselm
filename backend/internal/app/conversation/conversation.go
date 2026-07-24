@@ -103,7 +103,8 @@ type Service struct {
 	//
 	// keyChecker 是可选 apikey 存在性钩子（apikeyapp，后注入）：Update 在写时拒绝指向不存在 apiKeyId 的
 	// modelOverride（API_KEY_NOT_FOUND），而非只在 chat 时。nil → 跳过存在性校验（旧 fail-loud-at-chat）。（F153）
-	keyChecker modelrefapp.KeyExistenceChecker
+	keyChecker      modelrefapp.KeyExistenceChecker
+	optionValidator modelrefapp.OptionValidator
 }
 
 // DocumentResolver resolves attached-document references to their live documents (missing ids are
@@ -218,6 +219,11 @@ func (s *Service) SetDocumentResolver(r DocumentResolver) { s.docResolver = r }
 // SetKeyChecker 装配后注入 apikey 存在性探针（apikeyapp；无环）。使 Update 在写时拒绝指向不存在 apiKeyId
 // 的 modelOverride（F153）。nil → 跳过存在性校验。
 func (s *Service) SetKeyChecker(c modelrefapp.KeyExistenceChecker) { s.keyChecker = c }
+
+// SetOptionValidator installs the probe-derived native setting contract for model overrides.
+//
+// SetOptionValidator 为 model override 装入探测派生的原生设置契约。
+func (s *Service) SetOptionValidator(v modelrefapp.OptionValidator) { s.optionValidator = v }
 
 // validateAttachedDocs rejects a PATCH that attaches a doc id which does not exist (F168-M5). Only the
 // NEW list is checked (old data is not re-validated — F167's render-time warning backstops that); an
@@ -374,7 +380,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 	}
 	if in.ModelOverride != nil {
 		ref := *in.ModelOverride // *ModelRef; nil = clear
-		if err := modelrefapp.Validate(ctx, ref, conversationdomain.ErrInvalidModelOverride, s.keyChecker); err != nil {
+		if err := modelrefapp.Validate(ctx, ref, conversationdomain.ErrInvalidModelOverride, s.keyChecker, s.optionValidator); err != nil {
 			return nil, err
 		}
 		c.ModelOverride = ref

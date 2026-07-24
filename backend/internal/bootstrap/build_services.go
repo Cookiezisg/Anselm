@@ -395,6 +395,14 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ag.SetKeyChecker(keys)
 	conv.SetKeyChecker(keys)
 	ws.SetKeyChecker(keys)
+	// A setting is configurable only when the exact probed key/model pair publishes its native
+	// contract. This prevents stale or crafted clients from persisting options an adapter would
+	// otherwise silently discard; empty options still keep unknown models usable.
+	// 设置只有在精确已探测 key/model 对公开其原生契约时才可配置。此举阻止陈旧或伪造客户端持久化
+	// adapter 原本会静默丢弃的参数；空 options 仍使未知模型可用。
+	ag.SetOptionValidator(modelCaps)
+	conv.SetOptionValidator(modelCaps)
+	ws.SetOptionValidator(modelCaps)
 	// stats ports: blob walk + chat's in-flight snapshot (WRK-062 S-11). stats 端口。
 	ws.SetStatsPorts(st.blob, chat.GeneratingIDs)
 

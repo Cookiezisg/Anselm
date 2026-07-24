@@ -483,6 +483,8 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `MODEL_NOT_CONFIGURED` | 422 | no model configured for scenario |
+| `MODEL_OPTION_UNSUPPORTED` | 422 | native model option is not supported by the selected model |
+| `MODEL_OPTION_VALUE_INVALID` | 400 | native model option value is invalid |
 | `MODEL_REF_INVALID` | 400 | model selection requires both apiKeyId and modelId |
 | `MODEL_SCENARIO_INVALID` | 400 | unknown model scenario |
 

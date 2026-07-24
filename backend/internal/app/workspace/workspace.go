@@ -57,7 +57,8 @@ type Service struct {
 	// keyChecker 是可选 apikey 存在性钩子（apikeyapp，后注入）：SetDefault 在写时拒绝指向不存在 apiKeyId 的
 	// scenario 默认（API_KEY_NOT_FOUND）。与 ReferencesAPIKey（已挡删被默认引用的 key）对称——两向现一致。
 	// nil → 跳过存在性校验。（F153）
-	keyChecker modelrefapp.KeyExistenceChecker
+	keyChecker      modelrefapp.KeyExistenceChecker
+	optionValidator modelrefapp.OptionValidator
 
 	// Stats ports (bootstrap, post-build; both optional — nil degrades honestly): blobSizer walks
 	// the workspace file tree under a time budget; generating snapshots chat's in-flight ids.
@@ -119,6 +120,12 @@ func (s *Service) SetOnCreated(h CreatedHook) { s.onCreated = h }
 // SetKeyChecker 装配后注入 apikey 存在性探针（apikeyapp；无环）。使 SetDefault 在写时拒绝指向不存在
 // apiKeyId 的 scenario 默认（F153）。nil → 跳过存在性校验。
 func (s *Service) SetKeyChecker(c modelrefapp.KeyExistenceChecker) { s.keyChecker = c }
+
+// SetOptionValidator installs the probe-derived native-setting contract. A nil validator keeps
+// partial wiring and narrow unit tests functional; production always wires model capabilities.
+//
+// SetOptionValidator 装入探测派生的原生设置契约。nil 保持 partial wiring 与窄单测可用；生产必接模型能力目录。
+func (s *Service) SetOptionValidator(v modelrefapp.OptionValidator) { s.optionValidator = v }
 
 // NewService wires dependencies; panics on nil logger.
 //
@@ -356,7 +363,7 @@ func (s *Service) SetDefault(ctx context.Context, id, scenario string, ref *mode
 	// (clear) skips both. modelId spelling stays fail-loud-at-invoke (no authoritative catalog).
 	// 结构（MODEL_REF_INVALID）+ apiKeyId 存在性（写时 API_KEY_NOT_FOUND，F153）。nil ref（清除）两者皆跳。
 	// modelId 拼写留 fail-loud-at-invoke（无权威目录）。
-	if err := modelrefapp.Validate(ctx, ref, modeldomain.ErrRefInvalid, s.keyChecker); err != nil {
+	if err := modelrefapp.Validate(ctx, ref, modeldomain.ErrRefInvalid, s.keyChecker, s.optionValidator); err != nil {
 		return nil, err
 	}
 	w, err := s.repo.Get(ctx, id)

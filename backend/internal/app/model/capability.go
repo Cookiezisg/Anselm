@@ -9,10 +9,13 @@ package model
 
 import (
 	"context"
+	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llmpkg "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
@@ -107,4 +110,68 @@ func (s *CapabilityService) List(ctx context.Context) ([]CapabilityView, error) 
 		}
 	}
 	return out, nil
+}
+
+// ValidateOptions enforces the contract behind the generic settings picker before a ModelRef is
+// persisted. Only values listed by the exact probed key/model pair may cross this boundary; the
+// provider adapter consequently never has to silently ignore a user-visible setting. A model with
+// no published knobs remains runnable with an empty options map, which keeps unprobed/custom
+// models usable without pretending their native request schema is known.
+//
+// ValidateOptions 在 ModelRef 持久化前落实通用设置 picker 背后的契约。只有该精确已探测
+// key/model 对列出的值可穿过这道边界，因此 provider adapter 无须静默忽略用户可见设置。没有公开
+// knobs 的模型仍可带空 options 运行，既保留未探测/custom 模型可用性，也不假装知道其原生请求 schema。
+func (s *CapabilityService) ValidateOptions(ctx context.Context, ref modeldomain.ModelRef) error {
+	if len(ref.Options) == 0 {
+		return nil
+	}
+	caps, err := s.List(ctx)
+	if err != nil {
+		return err
+	}
+	var cap *CapabilityView
+	for i := range caps {
+		if caps[i].APIKeyID == ref.APIKeyID && caps[i].ModelID == ref.ModelID {
+			cap = &caps[i]
+			break
+		}
+	}
+	if cap == nil {
+		return modeldomain.ErrOptionUnsupported
+	}
+	knobs := make(map[string]llmpkg.Knob, len(cap.Knobs))
+	for _, knob := range cap.Knobs {
+		knobs[knob.Key] = knob
+	}
+	for key, value := range ref.Options {
+		knob, ok := knobs[key]
+		if !ok || strings.TrimSpace(key) == "" {
+			return modeldomain.ErrOptionUnsupported
+		}
+		if !validKnobValue(knob, value) {
+			return modeldomain.ErrOptionValueInvalid
+		}
+	}
+	return nil
+}
+
+func validKnobValue(knob llmpkg.Knob, value string) bool {
+	switch knob.Type {
+	case "enum":
+		for _, allowed := range knob.Values {
+			if value == allowed {
+				return true
+			}
+		}
+		return false
+	case "bool":
+		return value == "true" || value == "false"
+	case "int":
+		_, err := strconv.Atoi(value)
+		return err == nil
+	default:
+		// A descriptor with an unknown control type must never become an implicit
+		// passthrough. Publish a supported type first, then make it configurable.
+		return false
+	}
 }
