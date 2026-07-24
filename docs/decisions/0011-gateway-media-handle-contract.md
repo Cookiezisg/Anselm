@@ -41,7 +41,7 @@ WRK-078 的 M1 目标是「聊天请求退出大 base64 时代」。规范 §6.1
 ## 后果 / Consequences
 
 - 受管路由的图片/视频对话从「必 400」变为可用;`inspect_media` 的视觉复查随之恢复。
-- 网关新增一处必须 install-bound 的授权判定。**它是新的攻击面**:未做归属校验就等于让任一 install 引用他人 lease,故第 2 条的复合谓词不可简化。
+- 网关新增一处必须 install-bound 的授权判定。**它是新的攻击面**:未做归属校验就等于让任一 install 引用他人 lease,故第 3 条的复合谓词不可简化;而**第 2 条的 host 校验与它同等必要**——少了它,归属校验通过的请求仍能把 provider 引向任意 host。
 - **必须同时补一条把 media lease 与 chat completion 串起来的 e2e**。这条 bug 之所以活到今天,正因为两仓测试各自只覆盖自己那半;没有跨接测试,同类问题会再次发生。
 - `MEDIA_ENABLED=false` 的部署下 lease 无从签发,故该形态自然不出现;但 `anselm_capabilities.multimodal.available` 仍须并入 `MEDIA_ENABLED`(独立缺陷,见 PROGRESS 高危 1),否则桌面端会宣称支持却在上传第一步吃 503。
 
