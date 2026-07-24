@@ -133,6 +133,60 @@ func TestSpeechHandlerProxiesClientFramesToManagedGateway(t *testing.T) {
 	}
 }
 
+func TestSpeechHandlerRelaysGatewayErrorsVerbatim(t *testing.T) {
+	upgrader := websocket.Upgrader{}
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		c, err := upgrader.Upgrade(w, r, nil)
+		if err != nil {
+			t.Errorf("upgrade upstream: %v", err)
+			return
+		}
+		defer func() { _ = c.Close() }()
+		mt, _, err := c.ReadMessage()
+		if err != nil {
+			t.Errorf("read upstream: %v", err)
+			return
+		}
+		if mt != websocket.BinaryMessage {
+			t.Errorf("first upstream message type = %d", mt)
+		}
+		_ = c.WriteJSON(map[string]string{
+			"type": "error",
+			"code": "SPEECH_AUDIO_TOO_LONG",
+		})
+	}))
+	defer upstream.Close()
+
+	svc := speechapp.New(speechTestKeys{
+		rows: []*apikeydomain.APIKey{{ID: "aki_1", Provider: "anselm"}},
+		creds: apikeydomain.Credentials{
+			Provider: "anselm",
+			Key:      "ins_1",
+			BaseURL:  upstream.URL + "/v1",
+		},
+	})
+	h := NewSpeechHandler(svc, &fakeProofHeaders{}, zap.NewNop())
+	downstream := httptest.NewServer(http.HandlerFunc(h.ASR))
+	defer downstream.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(strings.Replace(downstream.URL, "http://", "ws://", 1), nil)
+	if err != nil {
+		t.Fatalf("dial downstream: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	if err := conn.WriteMessage(websocket.BinaryMessage, []byte("pcm")); err != nil {
+		t.Fatal(err)
+	}
+	_, payload, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(payload), `"code":"SPEECH_AUDIO_TOO_LONG"`) {
+		t.Fatalf("gateway error was not relayed verbatim: %s", payload)
+	}
+}
+
 func TestSpeechHandlerHeartbeatsBothWebSocketLegs(t *testing.T) {
 	upstreamPing := make(chan struct{}, 1)
 	downstreamPing := make(chan struct{}, 1)
