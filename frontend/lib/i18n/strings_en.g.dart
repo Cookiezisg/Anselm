@@ -167,6 +167,9 @@ class Translations$chat$en {
 	/// en: 'Microphone permission is off. Enable microphone access in system settings, then try again.'
 	String get voiceInputPermissionDenied => 'Microphone permission is off. Enable microphone access in system settings, then try again.';
 
+	/// en: 'Voice input disconnected. I kept the text that was already transcribed.'
+	String get voiceInputConnectionLost => 'Voice input disconnected. I kept the text that was already transcribed.';
+
 	/// en: 'Voice input couldn't start'
 	String get voiceInputFailed => 'Voice input couldn\'t start';
 
@@ -6447,6 +6450,7 @@ extension on Translations {
 			'chat.voiceFinalizing' => 'Finishing',
 			'chat.voiceInputUnavailable' => 'Voice input is available only with Anselm Auto',
 			'chat.voiceInputPermissionDenied' => 'Microphone permission is off. Enable microphone access in system settings, then try again.',
+			'chat.voiceInputConnectionLost' => 'Voice input disconnected. I kept the text that was already transcribed.',
 			'chat.voiceInputFailed' => 'Voice input couldn\'t start',
 			'chat.stop' => 'Stop generating',
 			'chat.thinking' => 'thinking',
@@ -6919,9 +6923,9 @@ extension on Translations {
 			'chat.gate.approveAlwaysHint' => ({required Object tool}) => 'Don\'t ask again for ${tool} this conversation (forgotten on restart)',
 			'chat.gate.deny' => 'Deny',
 			'chat.gate.decline' => 'Don\'t answer',
-			'chat.gate.submit' => 'Send',
 			_ => null,
 		} ?? switch (path) {
+			'chat.gate.submit' => 'Send',
 			'chat.gate.answerPlaceholder' => 'Type your answer…',
 			'chat.gate.decidedApproved' => 'Allowed',
 			'chat.gate.decidedApprovedAlways' => 'Allowed · always this conversation',
@@ -7433,9 +7437,9 @@ extension on Translations {
 			'a11y.diff' => ({required Object added, required Object removed}) => 'Diff, ${added} added, ${removed} removed',
 			'a11y.loading' => 'Loading',
 			'a11y.timeoutBudget' => 'time budget',
-			'a11y.fmtBold' => 'Bold',
 			_ => null,
 		} ?? switch (path) {
+			'a11y.fmtBold' => 'Bold',
 			'a11y.fmtItalic' => 'Italic',
 			'a11y.fmtStrike' => 'Strikethrough',
 			'a11y.fmtCode' => 'Inline code',
@@ -7947,9 +7951,9 @@ extension on Translations {
 			'settings.sendCmdEnter' => '⌘Enter sends',
 			'settings.webFetch' => 'Web fetch mode',
 			'settings.webFetchDesc' => 'Local fetch is more private; the Jina proxy reads dynamic pages better',
-			'settings.webLocal' => 'Local fetch',
 			_ => null,
 		} ?? switch (path) {
+			'settings.webLocal' => 'Local fetch',
 			'settings.webJina' => 'Jina proxy',
 			'settings.defaultModelLink' => 'Default chat model → Models & keys',
 			'settings.langEn' => 'English',

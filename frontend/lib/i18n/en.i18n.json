@@ -43,6 +43,7 @@
     "voiceFinalizing": "Finishing",
     "voiceInputUnavailable": "Voice input is available only with Anselm Auto",
     "voiceInputPermissionDenied": "Microphone permission is off. Enable microphone access in system settings, then try again.",
+    "voiceInputConnectionLost": "Voice input disconnected. I kept the text that was already transcribed.",
     "voiceInputFailed": "Voice input couldn't start",
     "stop": "Stop generating",
     "thinking": "thinking",

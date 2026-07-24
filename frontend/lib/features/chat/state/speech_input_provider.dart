@@ -16,6 +16,7 @@ import 'selected_conversation.dart';
 
 const speechInputErrorUnavailable = 'unavailable';
 const speechInputErrorPermissionDenied = 'permission_denied';
+const speechInputErrorConnectionLost = 'connection_lost';
 const speechInputErrorFailed = 'failed';
 
 class SpeechInputState {
@@ -112,6 +113,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   StreamSubscription<Amplitude>? _amplitudeSub;
   Timer? _elapsedTimer;
   DateTime? _startedAt;
+  bool _serverFinished = false;
 
   @override
   SpeechInputState build() {
@@ -128,6 +130,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       return;
     }
     state = const SpeechInputState(recording: true);
+    _serverFinished = false;
     try {
       final uri = _speechUri();
       final headers = _headers();
@@ -137,8 +140,14 @@ class SpeechInputController extends Notifier<SpeechInputState> {
         _handleGatewayEvent,
         onError: (Object e) => _fail(e),
         onDone: () {
-          if (state.active) {
-            state = state.copyWith(recording: false, finishing: false);
+          if (state.active && !_serverFinished) {
+            _stopMeters();
+            state = state.copyWith(
+              recording: false,
+              finishing: false,
+              level: 0,
+              error: speechInputErrorConnectionLost,
+            );
           }
         },
       );
@@ -222,11 +231,13 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     if (decoded is! Map<String, dynamic>) return;
     final type = decoded['type'] as String? ?? '';
     if (type == 'session.finished') {
+      _serverFinished = true;
       unawaited(_close(cancelRecorder: false, keepText: true));
       return;
     }
     if (type == 'error') {
-      _fail(StateError(decoded['code']?.toString() ?? 'speech error'));
+      final code = decoded['code']?.toString() ?? '';
+      unawaited(_failAsync(_errorFromGatewayCode(code)));
       return;
     }
     if (type.endsWith('.completed')) {
@@ -280,9 +291,23 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     return ((clamped + 60.0) / 60.0).clamp(0.0, 1.0).toDouble();
   }
 
+  String _errorFromGatewayCode(String code) => code == 'SPEECH_UPSTREAM_CLOSED'
+      ? speechInputErrorConnectionLost
+      : speechInputErrorFailed;
+
   void _fail(Object e) {
-    unawaited(_close(cancelRecorder: true));
-    state = const SpeechInputState(error: speechInputErrorFailed);
+    unawaited(_failAsync(speechInputErrorConnectionLost));
+  }
+
+  Future<void> _failAsync(String error) async {
+    final snapshot = state;
+    await _close(cancelRecorder: true, resetState: false);
+    state = SpeechInputState(
+      committed: snapshot.committed,
+      partial: snapshot.partial,
+      elapsed: snapshot.elapsed,
+      error: error,
+    );
   }
 
   Future<void> _close({

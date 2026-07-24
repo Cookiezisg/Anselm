@@ -500,25 +500,36 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
   void _applySpeechInput(SpeechInputState? previous, SpeechInputState next) {
     final err = next.error;
     if (err != null && err != previous?.error) {
+      final t = Translations.of(context).chat;
+      _mergeSpeechText(next);
       _speechBefore = null;
       _speechAfter = null;
-      final t = Translations.of(context).chat;
       ref
           .read(noticeCenterProvider.notifier)
           .show(
             switch (err) {
               speechInputErrorUnavailable => t.voiceInputUnavailable,
               speechInputErrorPermissionDenied => t.voiceInputPermissionDenied,
+              speechInputErrorConnectionLost => t.voiceInputConnectionLost,
               _ => t.voiceInputFailed,
             },
             tone: switch (err) {
               speechInputErrorUnavailable ||
+              speechInputErrorConnectionLost ||
               speechInputErrorPermissionDenied => AnTone.warn,
               _ => AnTone.danger,
             },
           );
       return;
     }
+    _mergeSpeechText(next);
+    if (!next.active) {
+      _speechBefore = null;
+      _speechAfter = null;
+    }
+  }
+
+  void _mergeSpeechText(SpeechInputState next) {
     final before = _speechBefore;
     final after = _speechAfter;
     if (before == null || after == null) return;
@@ -531,10 +542,6 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
           offset: before.length + inserted.length,
         ),
       );
-    }
-    if (!next.active) {
-      _speechBefore = null;
-      _speechAfter = null;
     }
   }
 
