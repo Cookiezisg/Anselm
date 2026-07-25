@@ -144,6 +144,13 @@ abstract final class AnIcons {
   static final IconData folder = _thin(
     LucideIcons.folder,
   ); // LS / directory listing 目录
+  // The residency breadcrumb's MISSING state (WRK-083 B4). Once the button went glyph-only there was no
+  // label left to carry the warning, and AnButton has no `warn` variant to tint it with (only ghost /
+  // primary / danger / icon) — so the alarm rides the GLYPH. That is the better channel anyway: it survives
+  // dark mode and colour-blindness, which a tint does not.
+  // 驻地面包屑的**不存在**态(WRK-083 B4)。按钮改纯字形后已无标签承载警示,而 AnButton 没有 `warn` 变体可着色
+  // (只有 ghost/primary/danger/icon)——故警报骑在**字形**上。这本就是更好的通道:暗色与色盲下都还成立,着色不然。
+  static final IconData folderMissing = _thin(LucideIcons.folderX);
   static final IconData refresh = _thin(
     LucideIcons.refreshCw,
   ); // restart_handler / reconnect_mcp 重启/重连

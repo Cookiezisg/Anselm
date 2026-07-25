@@ -189,9 +189,18 @@ void main() {
       await tester.pumpAndSettle();
       final t = Translations.of(tester.element(find.byType(ChatHead)));
 
-      // The line names the SOURCE by its CURRENT title (the wire carries only the id, so the name is
-      // read fresh — a renamed source always shows its real name).
-      // 血缘行用源的**当前**标题指名(线缆只带 id,故名字读时新鲜取——改过名的源永远显真名)。
+      // The name is BEHIND the glyph now (WRK-083 B4): the breadcrumb carries no names, so the head shows
+      // nothing until the button is opened. This assertion was inverted rather than deleted — it used to
+      // demand the label on the closed head, and leaving that on record is what makes the change legible.
+      // 名字现在**在字形背后**(WRK-083 B4):面包屑不带名字,故不点开时头部什么都不显。这条断言是**反转**而非
+      // 删除——它原本要求收起态就显标签,把这次反转留在案上,改动才读得出来。
+      expect(find.text(t.chat.forkedFrom(title: 'Original')), findsNothing);
+
+      // Open it: the source's CURRENT title appears (the wire carries only the id, so the name is read
+      // fresh — a renamed source always shows its real name), and that row navigates.
+      // 点开:源的**当前**标题出现(线缆只带 id,故名字读时新鲜取——改过名的源永远显真名),点那一行导航。
+      await tester.tap(find.byIcon(AnIcons.control).first);
+      await tester.pumpAndSettle();
       expect(find.text(t.chat.forkedFrom(title: 'Original')), findsOneWidget);
       await tester.tap(find.text(t.chat.forkedFrom(title: 'Original')));
       await tester.pumpAndSettle();
@@ -239,7 +248,94 @@ void main() {
       await tester.pumpWidget(w);
       await tester.pumpAndSettle();
       final t = Translations.of(tester.element(find.byType(ChatHead)));
+      // Behind the glyph, same as the named case (B4). 与具名那格同理,在字形背后(B4)。
+      await tester.tap(find.byIcon(AnIcons.control).first);
+      await tester.pumpAndSettle();
       expect(find.text(t.chat.forkedFromUnknown), findsOneWidget);
     },
   );
+
+  // ── WRK-083 B3 + B4 · the breadcrumb's shape invariants ──
+  //
+  // These are CLASS guards, not instance guards. B3 was reported as "the residency button is the wrong
+  // size — it should match the model picker", and B4 as "neither the fork nor the residency needs to spell
+  // out a name in the breadcrumb". Pinning only those two widgets would let the next control added to the
+  // head reintroduce either defect, so both assertions quantify over EVERY button in the head.
+  //
+  // 这两条是**类**守卫、不是实例守卫。B3 报的是「驻地按钮尺寸不对,应对齐模型选择器」,B4 报的是「分叉和驻地都
+  // 不必在面包屑写出名字」。只钉住那两个 widget 的话,下一个加进头部的控件就能把两个缺陷再引入一次,故两条断言
+  // 都对头部里的**每一个**按钮全称量化。
+  testWidgets('B3: every breadcrumb control sits on the model picker rung', (
+    tester,
+  ) async {
+    final src = _conv('cv_src', title: 'Original');
+    final at = DateTime.utc(2026, 7, 2, 9);
+    final fork = Conversation(
+      id: 'cv_fork',
+      title: 'Original (fork)',
+      createdAt: at,
+      updatedAt: at,
+      lastMessageAt: at,
+      workDir: '/tmp/some/deeply/nested/project',
+      forkedFromConversationId: 'cv_src',
+      forkedFromMessageId: 'msg_a1',
+    );
+    final repo = FixtureChatRepository(
+      conversations: [fork, src],
+      messages: const {},
+    );
+    final (w, _, _) = _hostRouted(repo, const ConversationRef('cv_fork'));
+    await tester.pumpWidget(w);
+    await tester.pumpAndSettle();
+
+    final buttons = tester.widgetList<AnButton>(
+      find.descendant(
+        of: find.byType(ChatHead),
+        matching: find.byType(AnButton),
+      ),
+    );
+    expect(buttons, isNotEmpty, reason: 'the head must render its controls');
+    for (final b in buttons) {
+      expect(
+        b.size,
+        AnButtonSize.md,
+        reason:
+            'a breadcrumb control at ${b.size} reads as a second-class box beside the '
+            'md model picker and mis-centres in the 44pt head band (WRK-083 B3)',
+      );
+    }
+  });
+
+  testWidgets('B4: the closed breadcrumb spells out no names', (tester) async {
+    final src = _conv('cv_src', title: 'Original');
+    final at = DateTime.utc(2026, 7, 2, 9);
+    final fork = Conversation(
+      id: 'cv_fork',
+      title: 'Original (fork)',
+      createdAt: at,
+      updatedAt: at,
+      lastMessageAt: at,
+      workDir: '/tmp/some/deeply/nested/project',
+      forkedFromConversationId: 'cv_src',
+      forkedFromMessageId: 'msg_a1',
+    );
+    final repo = FixtureChatRepository(
+      conversations: [fork, src],
+      messages: const {},
+    );
+    final (w, _, _) = _hostRouted(repo, const ConversationRef('cv_fork'));
+    await tester.pumpWidget(w);
+    await tester.pumpAndSettle();
+
+    // The residency's directory name — neither its basename nor its full path — is on the head.
+    // 驻地的目录名——basename 与完整路径都不在头部。
+    expect(find.textContaining('project'), findsNothing);
+    expect(find.textContaining('/tmp/some'), findsNothing);
+    // Nor the fork source's title. 分叉源的标题也不在。
+    final t = Translations.of(tester.element(find.byType(ChatHead)));
+    expect(find.text(t.chat.forkedFrom(title: 'Original')), findsNothing);
+    // The thread's OWN title stays — that is the breadcrumb's subject, not a reference to elsewhere.
+    // 线程**自己**的标题留着——那是面包屑的主语,不是指向别处的引用。
+    expect(find.text('Original (fork)'), findsOneWidget);
+  });
 }

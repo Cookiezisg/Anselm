@@ -23,17 +23,25 @@ import '../state/work_dir.dart';
 ///     agent's reach is the whole machine, and an empty folder would imply a container that simply has
 ///     nothing in it. (拍板 #8 and §3.1 both say 电脑图标; the WD1 brief's paraphrase said "浅灰空文件夹" — the
 ///     spec's own reasoning wins and the deviation is recorded in the batch log.)
-///   - **Mounted** → folder + the directory's own name, truncated in a narrow window (the full path lives in
-///     the menu's identity head, where there is room for it).
-///   - **Missing** → folder + name in the WARN tone. The user mounted a directory and then moved or deleted
-///     it; saying so is the point (`WorkDirInfo.exists == false`), because every relative path and every Bash
-///     command in this thread now has nowhere to land.
+///   - **Mounted** → a FOLDER glyph. The directory's name is deliberately NOT on the breadcrumb: a path
+///     fragment is the one thing a breadcrumb cannot show honestly (a basename is ambiguous between a dozen
+///     `ui/` directories, and the full path does not fit), so the identity lives one click away in the menu's
+///     head, where there is room for all of it. The tooltip names it on hover.
+///   - **Missing** → the same folder glyph in the WARN tone. The user mounted a directory and then moved or
+///     deleted it; saying so is the point (`WorkDirInfo.exists == false`), because every relative path and
+///     every Bash command in this thread now has nowhere to land.
+///
+/// **Glyph-only in all three states** (WRK-083 B4). That is what keeps this button a fixed 28pt square: it
+/// never reflows the breadcrumb when a thread is mounted, left, or renamed, and the title beside it never
+/// shifts. It sits at [AnButtonSize.md] — the SAME rung as the model menu at the other end of the head
+/// (WRK-083 B3); the old `sm` made a 24pt box that read as a second-class control next to a 28pt one and
+/// mis-centred in the 44pt head band.
 ///
 /// It is never disabled mid-generation: switching takes effect on the NEXT turn (the ctx is seeded per turn
 /// from the row), so blocking the button would withhold a harmless action for a state it cannot corrupt.
 ///
-/// The button is ALWAYS this widget — the three states differ only in glyph / label / tone, never in
-/// structure, so nothing here remounts when a probe lands (禁止条件包装).
+/// The button is ALWAYS this widget AND always the same geometry — the three states differ only in glyph and
+/// tone, never in structure or size, so nothing here remounts or reflows when a probe lands (禁止条件包装).
 ///
 /// 驻地按钮——面包屑里那个文件夹，紧挨在线程名之前（WRK-077 WD1）。它就是「我们 zoom 到**这里**了」面向用户的
 /// 全部表面，恰有三态：
@@ -41,14 +49,20 @@ import '../state/work_dir.dart';
 ///   - **未挂** → **电脑**字形、不是空文件夹。语义诚实：没有工作目录时 agent 的活动范围是**整台机器**，而一个空
 ///     文件夹会暗示「一个恰好什么都没装的容器」。（拍板 #8 与 §3.1 都写「电脑图标」；WD1 简报的转述写作
 ///     「浅灰空文件夹」——规格自带的理由胜出，偏离已记入本批记录。）
-///   - **已挂** → 文件夹 + 目录自己的名字，窄窗截断（完整路径在菜单的身份头里，那里有地方放它）。
-///   - **不存在** → 文件夹 + 名字，warn 色。用户挂了一个目录、然后把它移走或删了；把这件事说出来正是要点
+///   - **已挂** → 文件夹字形。目录名**刻意不上面包屑**：路径片段恰恰是面包屑没法诚实显示的东西（basename 在十几个
+///     `ui/` 之间有歧义，完整路径又放不下），故身份放在**一击之外**的菜单头里，那里放得下全部。hover 时 tooltip 报名。
+///   - **不存在** → 同一个文件夹字形、warn 色。用户挂了一个目录、然后把它移走或删了；把这件事说出来正是要点
 ///     （`WorkDirInfo.exists == false`），因为这条线程里每个相对路径、每条 Bash 命令现在都无处落地。
+///
+/// **三态一律纯字形**（WRK-083 B4）。正是这一点让它恒为 28pt 方块：挂载、退出、改名都不会让面包屑重排，旁边的
+/// 标题也从不移位。尺寸取 [AnButtonSize.md]——与头部另一端的模型菜单**同一档**（WRK-083 B3）；旧的 `sm` 是 24pt
+/// 盒子，挨着 28pt 的读作二等控件，且在 44pt 头带里没居中。
 ///
 /// 它在生成中**从不禁用**：切换在**下一**回合生效（ctx 每回合从行播种），故禁掉它等于为一个它无法破坏的状态
 /// 扣下一个无害动作。
 ///
-/// 按钮**恒是**本组件——三态只差字形/标签/色调、结构从不变，故一次探测落地时此处什么都不重挂（禁止条件包装）。
+/// 按钮**恒是**本组件、**且恒是同一几何**——三态只差字形与色调，结构与尺寸从不变，故一次探测落地时此处既不重挂
+/// 也不重排（禁止条件包装）。
 class ChatWorkDirButton extends ConsumerWidget {
   const ChatWorkDirButton({required this.conversationId, super.key});
 
@@ -94,19 +108,25 @@ class ChatWorkDirButton extends ConsumerWidget {
       anchorBuilder: (context, toggle, isOpen) => AnTooltip(
         message: _tooltip(t, mounted ? info : const WorkDirInfo()),
         child: AnButton(
-          // The two states are genuinely different GEOMETRY — square glyph-only vs glyph+label — and AnButton
-          // animates its own box, which cannot interpolate a fixed 24pt width into an unbounded one (it
-          // asserts). Keying by state builds a fresh box at the target shape instead of tweening into it.
-          // This is not the wrapper-swap the RI 军规 forbids: nothing is wrapped or unwrapped, one LEAF button
-          // changes shape, and it changes only when the user actually mounts or leaves a directory.
-          // 两态是真正不同的**几何**——纯字形方块 vs 字形+标签——而 AnButton 会自己动画它的盒子,那无法把一个固定
-          // 24pt 宽插值成无界宽(它会 assert)。按状态给 key 使它在目标形状上**新建**一个盒子、而不是补间过去。
-          // 这**不是** RI 军规所禁的「套/摘包装」:没有任何东西被包装或解包装,是**一个叶子按钮**改变形状,且它只在
-          // 用户真的挂上或退出一个目录时才改变。
-          key: ValueKey(mounted),
-          label: mounted ? _basename(storedPath) : null,
-          icon: mounted ? AnIcons.folder : AnIcons.laptop,
-          size: AnButtonSize.sm,
+          // NO key, and no label in any state. Both states are now the SAME geometry — a 28pt glyph-only
+          // square — so there is nothing for AnButton's box animation to interpolate and nothing to rebuild
+          // a fresh box for. The old `ValueKey(mounted)` existed solely because mounting swapped a fixed-width
+          // square for an unbounded glyph+label box, which AnButton cannot tween (it asserts); with the label
+          // gone that swap no longer happens, so keeping the key would throw away and re-inflate the button on
+          // every mount/leave for no reason at all.
+          // **无 key、任何状态都无 label**。两态现在是**同一几何**——28pt 纯字形方块——故 AnButton 的盒子动画没有
+          // 东西可插值、也没有理由新建盒子。旧的 `ValueKey(mounted)` 存在的唯一理由是:挂载会把定宽方块换成无界的
+          // 字形+标签盒,而 AnButton 补间不了(它会 assert);标签去掉后那次换形不再发生,再留着这个 key 就是在每次
+          // 挂载/退出时白白丢弃并重新 inflate 这个按钮。
+          // Three states, three GLYPHS — laptop (whole machine) / folder (zoomed in) / folder-x (the
+          // directory is gone). The alarm has to live here now: with the label removed there is no text to
+          // carry it, and AnButton has no `warn` variant to tint with. A glyph also beats a tint — it
+          // survives dark mode and colour-blindness.
+          // 三态三**字形**——laptop(整台机器)/ folder(已 zoom 进去)/ folder-x(目录没了)。警报必须落在这里:标签
+          // 去掉后没有文本能承载它,而 AnButton 没有 `warn` 变体可着色。字形也胜过着色——暗色与色盲下都还成立。
+          icon: !mounted
+              ? AnIcons.laptop
+              : (missing ? AnIcons.folderMissing : AnIcons.folder),
           onPressed: () {
             if (!isOpen) {
               ref.read(workDirProvider(conversationId).notifier).refresh();
@@ -116,12 +136,14 @@ class ChatWorkDirButton extends ConsumerWidget {
         ),
       ),
       entries: _entries(context, ref, t, mounted ? info : const WorkDirInfo()),
-      // A textual state can't carry the warn tone through AnButton's variants (there is no `warn` variant and
-      // inventing one for a breadcrumb would be a design-system change), so the WARNING lives in the label's
-      // own glyph + the menu's first line. The tooltip already names the path and its absence.
-      // 文本态无法经 AnButton 的 variant 承载 warn 色(没有 warn 变体,而为一个面包屑铸一个是在改设计系统),故
-      // **警示**落在标签自己的字形 + 菜单第一行。tooltip 已点出路径与它的缺席。
-      key: ValueKey('workdir-menu-$conversationId${missing ? '-missing' : ''}'),
+      // Keyed by the THREAD only. The old key also carried the missing-state, which discarded and
+      // re-inflated the whole menu every time a probe flipped `exists` — churn for nothing, since `entries`
+      // is rebuilt from the fresh info on every build anyway. The thread half stays: switching conversations
+      // is a genuine identity change and an open popover must not survive it.
+      // **只按线程**给 key。旧 key 还带着「不存在」态,于是每次探测翻转 `exists` 都把整个菜单丢弃重挂——纯粹的
+      // 空转,因为 `entries` 本来每次 build 都按新鲜 info 重建。线程那一半保留:切换对话是真正的身份变更,开着的
+      // 浮层不该活过它。
+      key: ValueKey('workdir-menu-$conversationId'),
     );
   }
 

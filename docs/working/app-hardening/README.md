@@ -286,11 +286,16 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 | # | 现象 | 根因层 | 修复 | 守卫 | 门禁为何没抓到 | 状态 |
 |---|---|---|---|---|---|---|
 | B1 | 改驻地后左岛不刷新 | 失效责任散落各变更点(§0) | | | | 待修 |
-| B2 | 菜单项溢出 23px | `AnMenuItem` 原语(§0) | | | | 待修 |
-| B3 | 驻地按钮尺寸 | — | | | | 待修 |
-| B4 | 面包屑不该显名字 | — | | | | 待修 |
+| B2 | 菜单项溢出(真机复现为 **148px**,截图那次 23px——溢出量随路径长度变,不是固定值) | `AnMenuItem` 原语(§0) | | | | 待修 |
+| B3 | 驻地按钮尺寸不对齐模型选择器 | 面包屑控件的**档位**无人约束:驻地/分叉写死 `sm`(24pt/icon12)、模型菜单用默认 `md`(28pt/icon16) | `4a3d5d05` | `chat_head_test` **B3**:对 `ChatHead` 下**每一个** `AnButton` 全称断言 `size == md`(先证红 ✓) | **无覆盖**——从没有测试看过头部控件的尺寸;像素断言也抓不到,因为两种尺寸都能正常渲染 | ✅ 已修 |
+| B4 | 面包屑不该显具体名字 | 同上:面包屑**是否携带数据派生文本**无人约束 | `4a3d5d05` | `chat_head_test` **B4**:断言收起态的头部不含目录 basename / 全路径 / 分叉源标题,但保留线程**自己**的标题(先证红 ✓) | **无覆盖**——旧测试反而**要求**显示名字(`mounted: the basename labels the button` 等 5 条),它们已**反转**而非删除,反转留在案上 | ✅ 已修 |
 | B5 | 窄窗右岛跳变 | 右岛宽度双事实源(§0) | | | | 待修 |
 | **L1** | `GET /conversations/cv_xxx` 及 `/messages` **404**,23:43 ×2、00:59 又 ×2(另一 ID) | 待查 | | | | **待查**——app 在请求不存在的对话,疑似删除/分叉后残留旧选区 |
+| **L2** | **冷启动必抛** riverpod 断言:`setState() or markNeedsBuild() called during build`,`UncontrolledProviderScope` 被标脏于 `ConversationRail` 构建期间 | 待查。栈:`ConversationRail` build → `conversationListProvider.build`(`conversation_list_provider.dart:152`)→ `ref.watch(chatRepositoryProvider)` 首次创建(`chat_providers.dart:15`)→ `watch(apiClientProvider)` → flush 祖先时 `dioProvider` **正脏**(它 watch `backendStartupProvider`)→ 通知既有监听者 → `_invalidateSelf` → 在 build 阶段调度刷新。疑似启动门控放行与后端就绪态翻转**同帧** | | | | **待查**——眼睛①当场抓到;界面无任何症状,异常被 riverpod 吞掉 |
+
+**B3/B4 施工中主动扩大的两处**(如实记档,非工单点名):
+1. **`AnIcons.folderMissing`(新增语义图标)**。按钮改纯字形后,「目录已不存在」失去了全部可见通道——旧注释声称警示「落在标签自己的字形」,但代码里标签只是 `_basename()`,**那句注释本就与代码不符**。AnButton 没有 `warn` 变体可着色(只有 ghost/primary/danger/icon),故警报改骑**字形**(`folder` → `folder-x`)。字形也胜过着色:暗色与色盲下都还成立。
+2. **`_ForkLineage` 从「带标签的钮」变成「纯字形 + 菜单」**。单纯摘掉标签会造成一个更糟的交互:点击即导航,而字形本身什么都没说——**你无法在不跳过去的前提下知道它通向哪**。故点击改为**展开**,名字就是它展开出来的东西。这同时让面包屑两个字形说同一套文法(字形 → 菜单 → 身份在菜单头)。
 
 **已解释、不再追的历史异常**(同次考古所得,记此以免重复调查):
 `/speech/asr` 500 ×6(`Hijacker` 缺转发,已修,23:23 后转 400)·

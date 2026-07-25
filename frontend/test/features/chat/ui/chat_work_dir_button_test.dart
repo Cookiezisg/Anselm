@@ -4,6 +4,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/notice/notice_center.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/work_dir.dart';
@@ -124,25 +125,44 @@ void main() {
       expect(find.text(t.chat.workDir.git), findsNothing);
     });
 
-    // MOUNTED shows the directory's own NAME, not the whole path — the path is in the menu's identity head
-    // where there is room. 已挂显示目录自己的**名字**、不是整条路径——路径在菜单身份头里,那里有地方。
-    testWidgets('mounted: the basename labels the button', (tester) async {
+    // MOUNTED is glyph-only too (WRK-083 B4). This assertion is INVERTED, not deleted: it used to demand
+    // the basename ON the crumb, and keeping the reversal on record is what makes the change legible. The
+    // name now lives one click away in the menu's identity head, which is also where the FULL path is — a
+    // basename on a breadcrumb is ambiguous between a dozen `ui/` directories anyway.
+    // 已挂态同样只有字形(WRK-083 B4)。这条断言是**反转**而非删除:它原本要求 basename 就在面包屑上,把这次
+    // 反转留在案上、改动才读得出来。名字现在在**一击之外**的菜单身份头里,完整路径也在那儿——反正 basename
+    // 放在面包屑上,在十几个 `ui/` 之间根本没有区分度。
+    testWidgets('mounted: the crumb is glyph-only, the name is in the menu', (
+      tester,
+    ) async {
       final h = _host(workDir: _root);
       await tester.pumpWidget(h.widget);
       await tester.pumpAndSettle();
-      expect(find.text('anselm'), findsOneWidget);
+      expect(
+        find.text('anselm'),
+        findsNothing,
+        reason: 'the basename belongs in the menu, not the crumb (B4)',
+      );
       expect(
         find.text(_root),
         findsNothing,
         reason: 'the full path belongs in the menu, not the crumb',
       );
+      // Open it and the identity is there. 点开,身份就在那儿。
+      await _openMenu(tester);
+      expect(find.textContaining(_root), findsWidgets);
     });
 
-    // MISSING: the row is still mounted (path non-empty) but the directory is gone. The menu SAYS so — this
-    // is the one state where silence would let every relative path in the thread fail mysteriously.
-    // 不存在:行仍是已挂(路径非空)但目录不在了。菜单**说出来**——这是唯一一个「沉默会让线程里每个相对路径神秘失败」
-    // 的状态。
-    testWidgets('missing: the menu names the absence', (tester) async {
+    // MISSING: the row is still mounted (path non-empty) but the directory is gone. With the label gone the
+    // alarm has to ride the GLYPH — folder-x, not folder — because AnButton has no `warn` variant to tint
+    // with. The menu still says it in words; this is the one state where silence would let every relative
+    // path in the thread fail mysteriously.
+    // 不存在:行仍是已挂(路径非空)但目录不在了。标签去掉后警报必须骑在**字形**上——folder-x 而非 folder——
+    // 因为 AnButton 没有 `warn` 变体可着色。菜单仍用文字说出来;这是唯一一个「沉默会让线程里每个相对路径神秘
+    // 失败」的状态。
+    testWidgets('missing: the glyph itself changes, and the menu says so', (
+      tester,
+    ) async {
       final h = _host(
         workDir: _root,
         projections: const {_root: WorkDirInfo(path: _root)},
@@ -150,10 +170,11 @@ void main() {
       await tester.pumpWidget(h.widget);
       await tester.pumpAndSettle();
       expect(
-        find.text('anselm'),
+        find.byIcon(AnIcons.folderMissing),
         findsOneWidget,
-        reason: 'a missing directory still names itself',
+        reason: 'a missing directory must be visible on the crumb itself',
       );
+      expect(find.byIcon(AnIcons.folder), findsNothing);
 
       await _openMenu(tester);
       final t = await _t();
@@ -265,19 +286,25 @@ void main() {
   });
 
   group('mount / switch / leave 挂·切换·退出', () {
-    // Picking a directory PATCHes the row, and the button re-labels from the ECHOED value — never from the
-    // string that was sent (the backend normalizes `~` and Cleans the path).
-    // 挑一个目录会 PATCH 那一行,而按钮据**回显**值重新贴标签——绝不据发出去的那个字符串(后端会展开 `~`、Clean 路径)。
-    testWidgets('choose mounts, and the crumb re-labels', (tester) async {
+    // Picking a directory PATCHes the row, and the crumb adopts the ECHOED value — never the string that
+    // was sent (the backend normalizes `~` and Cleans the path). The visible proof is now the GLYPH
+    // (laptop → folder) rather than a label, since the crumb spells out no names (WRK-083 B4).
+    // 挑一个目录会 PATCH 那一行,面包屑采纳**回显**值——绝不是发出去的那个字符串(后端会展开 `~`、Clean 路径)。
+    // 可见证据现在是**字形**(laptop → folder)而不是标签,因为面包屑不写名字(WRK-083 B4)。
+    testWidgets('choose mounts, and the crumb adopts the echoed path', (
+      tester,
+    ) async {
       final h = _host(picked: _root);
       await tester.pumpWidget(h.widget);
       await tester.pumpAndSettle();
+      expect(find.byIcon(AnIcons.laptop), findsOneWidget);
 
       await _openMenu(tester);
       await tester.tap(find.text((await _t()).chat.workDir.choose));
       await tester.pumpAndSettle();
 
-      expect(find.text('anselm'), findsOneWidget);
+      expect(find.byIcon(AnIcons.folder), findsOneWidget);
+      expect(find.byIcon(AnIcons.laptop), findsNothing);
       final row = await h.repo.getConversation('cv_1');
       expect(row.workDir, _root);
     });
@@ -316,7 +343,9 @@ void main() {
 
       final row = await h.repo.getConversation('cv_1');
       expect(row.workDir, isEmpty);
-      expect(find.text('anselm'), findsNothing);
+      // Back to the laptop glyph — the whole machine again. 回到 laptop 字形——又是整台机器了。
+      expect(find.byIcon(AnIcons.laptop), findsOneWidget);
+      expect(find.byIcon(AnIcons.folder), findsNothing);
     });
   });
 
@@ -347,10 +376,17 @@ void main() {
       // already are is a row that does nothing). 另一个目录按名字提供;**当前**那个不重复出现(切到你已经在的地方
       // 是一行什么都不做的项)。
       expect(find.text('other'), findsOneWidget);
+      // The current one appears ONLY in the identity head's full path, never as a switch-to row. The old
+      // assertion allowed exactly one hit because the button carried the basename; with the crumb gone
+      // glyph-only (WRK-083 B4) that hit is gone too, so the basename must now appear ZERO times as a row
+      // label — the head renders the whole path, which `find.text('anselm')` does not match.
+      // 当前那个**只**出现在身份头的完整路径里,绝不作为「切过去」的行。旧断言允许恰好一次命中,是因为按钮带着
+      // basename;面包屑改纯字形后(WRK-083 B4)那次命中也没了,故 basename 现在必须**零次**作为行标签出现——
+      // 身份头渲的是整条路径,`find.text('anselm')` 匹配不到它。
       expect(
         find.text('anselm'),
-        findsOneWidget,
-        reason: 'once — the button label, not a recency row',
+        findsNothing,
+        reason: 'the current residency is never offered as a switch-to row',
       );
     });
 
@@ -560,11 +596,13 @@ void main() {
       );
     });
 
-    // WORKTREE is the one-shot: the action moves the RESIDENCY, so the breadcrumb must re-label to the new
-    // directory's own name without anybody re-reading the row by hand.
-    // **worktree** 是那条一条龙:动作移动**驻地**,故面包屑必须重新贴上新目录自己的名字、而不需要谁手动再读一遍那一行。
+    // WORKTREE is the one-shot: the action moves the RESIDENCY, and the stored row must follow it without
+    // anybody re-reading the row by hand. The crumb no longer spells the new directory out (WRK-083 B4), so
+    // the proof moved to where the truth actually is — the row, plus the identity head that renders it.
+    // **worktree** 是那条一条龙:动作移动**驻地**,存下来的那一行必须跟着走、不需要谁手动再读一遍。面包屑不再
+    // 写出新目录名(WRK-083 B4),故证据挪到真相所在处——那一行,加上渲染它的身份头。
     testWidgets(
-      'worktree: the one-shot moves the residency and the crumb follows',
+      'worktree: the one-shot moves the residency and the row follows',
       (tester) async {
         _desktopSurface(tester);
         final h = _host(workDir: _root, projections: const {_root: _cleanRepo});
@@ -581,10 +619,12 @@ void main() {
 
         expect(h.repo.addedWorktrees, ['wd3']);
         expect((await h.repo.getConversation('cv_1')).workDir, '$_root-wd3');
+        // Re-open: the identity head names the NEW directory. 重新点开:身份头指名**新**目录。
+        await _openMenu(tester);
         expect(
-          find.text('anselm-wd3'),
-          findsOneWidget,
-          reason: 'the crumb reads the NEW directory',
+          find.textContaining('$_root-wd3'),
+          findsWidgets,
+          reason: 'the menu head reads the NEW directory',
         );
       },
     );

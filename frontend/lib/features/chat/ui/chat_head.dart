@@ -130,22 +130,37 @@ class ChatHead extends ConsumerWidget {
   }
 }
 
-/// The forked thread's ancestry, as light as it gets: one small「分叉自 ×××」button in the head that
-/// navigates back to the source.
+/// The forked thread's ancestry: a glyph-only button in the head that OPENS to reveal「分叉自 ×××」,
+/// whose row navigates back to the source.
+///
+/// **Why a menu and not a labelled button** (WRK-083 B4): the breadcrumb shows no names — not the
+/// residency's directory, not the fork's parent — because a name there is either too long to fit or too
+/// short to disambiguate, and either way it reflows the head every time it loads or changes. But taking the
+/// label off a button that navigates on click would leave you unable to find out where it goes WITHOUT
+/// going there: the glyph alone names nothing, and the trip is the only way to learn. So the click opens
+/// instead of jumps, and the name is the thing it opens onto. One extra click on a rare action buys back
+/// the ability to look before you leap — and it makes both breadcrumb glyphs speak the same grammar
+/// (glyph → menu → the identity in the menu's head).
 ///
 /// The source's NAME is not on the fork's own row (the wire carries only the id — lineage is
 /// provenance, not an embedded copy that would go stale on a rename), so it is read fresh through
-/// [forkSourceProvider]. Three states, all honest and all the SAME slot (the button is always this
-/// row's child once a thread is a fork, so the head's children never shift): named once loaded, and a
-/// generic "another conversation" while loading OR when the source is gone (a fork outlives its
-/// parent by design — the ids simply dangle, nothing cascades, and the read never retries).
+/// [forkSourceProvider]. Two honest states in the SAME slot (the button is always this row's child once a
+/// thread is a fork, so the head's children never shift): named once loaded, and a generic "another
+/// conversation" while loading OR when the source is gone (a fork outlives its parent by design — the ids
+/// simply dangle, nothing cascades, and the read never retries).
 ///
-/// 分叉线程的来处,轻到极限:头部一个小小的「分叉自 ×××」钮,点回源头。
+/// 分叉线程的来处:头部一个纯字形钮,**点开**才显「分叉自 ×××」,点那一行回源头。
+///
+/// **为什么是菜单而不是带标签的钮**(WRK-083 B4):面包屑上不放名字——驻地的目录名不放,分叉的父名也不放——因为
+/// 那里的名字要么长得放不下、要么短得没区分度,而且无论哪种都会在它加载或变化时让整个头部重排。但**把标签从一个
+/// 点击即跳转的钮上摘掉**,会让你无法在**不跳过去**的前提下知道它通向哪:光一个字形什么都没说,而那趟跳转是唯一
+/// 的获知方式。所以点击改成**展开**、名字就是它展开出来的东西。一个罕用动作多付一次点击,换回「先看再跳」的能力
+/// ——并且让面包屑两个字形说同一套文法(字形 → 菜单 → 身份在菜单头里)。
 ///
 /// 源的**名字**不在分叉自己的行上(线缆只带 id——血缘是溯源、不是会随改名过期的内嵌副本),故经
-/// forkSourceProvider 读时新鲜取。三种状态都诚实、且**同一个槽位**(线程一旦是分叉,钮恒为该行的 child,
-/// 故头部 children 从不移位):加载好即具名,加载中**或**源已不在时用泛称「另一个对话」(分叉活得比父长是
-/// 设计使然——id 只是悬空、不级联任何东西,且那次读不重试)。
+/// forkSourceProvider 读时新鲜取。**同一个槽位**里两种诚实状态(线程一旦是分叉,钮恒为该行的 child,故头部
+/// children 从不移位):加载好即具名,加载中**或**源已不在时用泛称「另一个对话」(分叉活得比父长是设计使然——
+/// id 只是悬空、不级联任何东西,且那次读不重试)。
 class _ForkLineage extends ConsumerWidget {
   const _ForkLineage({required this.sourceId});
 
@@ -162,11 +177,20 @@ class _ForkLineage extends ConsumerWidget {
         : t.chat.forkedFrom(title: title);
     return Padding(
       padding: const EdgeInsets.only(right: AnSpace.s8),
-      child: AnButton(
-        label: label,
-        icon: AnIcons.control,
-        size: AnButtonSize.sm,
-        onPressed: () => context.go(conversationLocation(sourceId)),
+      child: AnMenu(
+        // Start-aligned like the residency menu at the other end of the breadcrumb. 与面包屑另一端的驻地菜单同侧。
+        alignEnd: false,
+        anchorBuilder: (context, toggle, isOpen) => AnTooltip(
+          message: label,
+          child: AnButton(icon: AnIcons.control, onPressed: toggle),
+        ),
+        entries: [
+          AnMenuItem(
+            label: label,
+            icon: AnIcons.control,
+            onTap: () => context.go(conversationLocation(sourceId)),
+          ),
+        ],
       ),
     );
   }
