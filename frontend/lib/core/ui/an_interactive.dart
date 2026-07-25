@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 
 import 'an_a11y.dart';
 import 'an_hover_region.dart';
+import 'an_selection_region.dart';
 
 /// The kit's canonical "visually engaged" predicate — hovered, pressed, OR (keyboard-)focused — so
 /// every control derives its hover/active surface the SAME way (no per-widget hovered||pressed vs
@@ -35,6 +36,7 @@ class AnInteractive extends StatefulWidget {
     this.focusNode,
     this.autofocus = false,
     this.cursor,
+    this.chrome = false,
     super.key,
   });
 
@@ -71,6 +73,21 @@ class AnInteractive extends StatefulWidget {
 
   /// Cursor override; defaults to a click cursor when activatable. 光标覆盖;可激活时默认 click。
   final MouseCursor? cursor;
+
+  /// This surface's text is CHROME, not prose — a button label, a tab title, a keycap. Chrome opts out of
+  /// text selection entirely ([SelectionContainer.disabled]), which also drops the I-beam, because letting
+  /// it be selected only pollutes what `Cmd+A` puts on the clipboard.
+  ///
+  /// The default is false, i.e. selectable, because most surfaces built on this substrate are CONTENT rows
+  /// (a transcript row, an entity row) whose text a reader has every reason to want to copy. Chrome is the
+  /// minority and says so explicitly.
+  ///
+  /// 本面的文字是 **chrome、不是正文**——按钮文案、tab 标题、键帽。chrome 整体退出文字选择
+  /// ([SelectionContainer.disabled]),连 I-beam 一起去掉,因为让它可选只会污染 `Cmd+A` 放进剪贴板的东西。
+  ///
+  /// 缺省 false(即可选),因为搭在本基座上的大多数面是**内容行**(transcript 行、实体行),读者完全有理由想复制
+  /// 它们的文字。chrome 是少数,故由它显式声明。
+  final bool chrome;
 
   @override
   State<AnInteractive> createState() => _AnInteractiveState();
@@ -136,6 +153,25 @@ class _AnInteractiveState extends State<AnInteractive>
 
   void _activate() => widget.onTap?.call();
 
+  // POINTER activation only. A row's onTap beats the enclosing SelectableRegion in the gesture arena
+  // (Flutter #141151 — the deeper competitor wins), so clicking a row never starts a selection gesture and
+  // the region is never focused; Cmd+A / Cmd+C then silently do nothing. Handing the region focus here
+  // costs nothing, because a mouse click does not focus this surface anyway (FocusableActionDetector shows
+  // its ring on KEYBOARD focus, and nothing here calls requestFocus on tap).
+  //
+  // Deliberately NOT wired into [_activate]: that is the Enter/Space path, and moving focus to the region
+  // there would throw the user out of the list they are navigating.
+  //
+  // 只走**指针**激活。行的 onTap 在手势竞技场里赢过外层 SelectableRegion(Flutter #141151——更深者赢),于是点击
+  // 一行永不开启选择手势、域也永不聚焦,Cmd+A / Cmd+C 随后静默失效。在此把焦点交给域是零代价的,因为鼠标点击本就
+  // 不会聚焦本面(FocusableActionDetector 的焦点环只在**键盘**聚焦时显,且这里没有任何地方在 tap 时 requestFocus)。
+  //
+  // **刻意不**接进 [_activate]:那是 Enter/Space 路径,在那里把焦点搬到域上会把用户从他正在浏览的列表里甩出去。
+  void _handlePointerTap() {
+    AnSelectionRegion.focusOf(context)?.requestFocus();
+    widget.onTap?.call();
+  }
+
   @override
   Widget build(BuildContext context) {
     final canActivate = _canActivate;
@@ -143,12 +179,33 @@ class _AnInteractiveState extends State<AnInteractive>
     // Pressed is the one state FAD doesn't track — keep a GestureDetector for it + the tap. pressed 自管。
     Widget result = GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: canActivate ? widget.onTap : null,
+      onTap: canActivate ? _handlePointerTap : null,
       onTapDown: canActivate ? (_) => _set(() => _pressed = true) : null,
       onTapUp: canActivate ? (_) => _set(() => _pressed = false) : null,
       onTapCancel: canActivate ? () => _set(() => _pressed = false) : null,
       child: widget.builder(context, _states),
     );
+
+    // Inside a selection region, selectable text installs an I-beam — correct over prose, wrong over a
+    // whole row that is itself a button. `DefaultSelectionStyle.mouseCursor` is the framework's lever for
+    // exactly this. Mounted UNCONDITIONALLY with a null cursor when inert, because a wrapper that comes and
+    // goes remounts the subtree (CLAUDE.md 禁止条件包装).
+    // 在选择域内,可选文字会挂上 I-beam——在正文上是对的,在「整行本身就是按钮」上是错的。
+    // `DefaultSelectionStyle.mouseCursor` 正是框架为此提供的杠杆。**无条件**挂载、惰性时传 null 光标,因为
+    // 来来去去的包装层会重挂子树(CLAUDE.md 禁止条件包装)。
+    result = DefaultSelectionStyle(
+      mouseCursor: canActivate
+          ? (widget.cursor ?? SystemMouseCursors.click)
+          : null,
+      child: result,
+    );
+
+    // Conditional on a CONSTRUCTOR argument, which no call site flips on a live instance — the one
+    // allowance the no-conditional-wrapping law makes, stated out loud (there is no unconditional form:
+    // `SelectionContainer.disabled` has no "enabled" parameter).
+    // 条件是一个**构造参数**,没有调用点会在活实例上翻它——这是「禁止条件包装」唯一的例外,写在明面上
+    // (此处无法写成无条件形式:`SelectionContainer.disabled` 没有「启用」参数)。
+    if (widget.chrome) result = SelectionContainer.disabled(child: result);
 
     return FocusableActionDetector(
       enabled: canActivate,

@@ -126,6 +126,8 @@ class AnButton extends StatelessWidget {
         child: Opacity(
           opacity: enabled ? 1 : AnOpacity.disabled,
           child: AnInteractive(
+            // A label, not prose (TS 排除清单). 文案、非正文。
+            chrome: true,
             enabled: enabled,
             onTap: onPressed,
             focusNode: focusNode,

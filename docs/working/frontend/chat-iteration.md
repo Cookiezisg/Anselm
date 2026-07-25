@@ -420,6 +420,30 @@ Flutter 团队在 issue #141151 明确:手势竞技场里**更深者赢**,`Selec
 
 **验收**:①删 mouse 后 23 处滚动容器手感回归(触控板滚动不受影响)②中心/右岛各自划选+`Cmd+A`+`Cmd+C`③可点击行 onTap 仍触发、光标正确④流式中拖选不被打断⑤守卫测试:`dragDevices` 无 mouse、chrome 原语子树 registrar 为 null、`WidgetTester.dragFrom` 跨多个 Text 划选断言拼接文本、拖拽起点落在 padding/disabled/空白三例(历史断言点)。
 
+→ **已施工(0725,施工序⑥)。红线、拓扑、焦点、光标、chrome 排除、流式互斥六项落地;两项未做,如实列在末尾。**
+
+**红线①(删 mouse)**:`AnScrollBehavior` 现在**完全不覆写** `dragDevices`。发现一件必须记的事——**既有测试 `an_scroll_behavior_test.dart` 断言了 `contains(PointerDeviceKind.mouse)`**,即套件在把这个缺陷钉住。该断言已**反转而非删除**,好让翻案留在记录里;常驻守卫另立 `test/guards/drag_devices_guard_test.dart`。
+
+**拓扑**:新原语 `AnSelectionRegion`(`core/ui/`),全 app 恰好两个实例,都在壳里:海洋内容根(`_OceanRegion` 的 `Positioned.fill`,故头带/scrim/角控全在域外)与右岛内容根(在惰化三层**之内**,故收起的岛两边都选不到)。左岛 rail、顶带、grip 天然在两域之外——**这一点顺带砍掉了排除清单的一大半**:rail 全部行、通知铃托盘、顶带舞台本就不在任何域内,不需要 `disabled`。
+
+**焦点(必补①)**:域公开自己的 `FocusNode`,`AnInteractive` 在**指针**激活时把焦点交过去。**刻意不接进 `_activate`**(Enter/Space 路径)——在那里搬焦点会把用户从他正在浏览的列表里甩出去。两个方向各有一条测试互为镜像。
+
+**光标(必补②)**:`AnInteractive` 恒挂 `DefaultSelectionStyle`,`mouseCursor` 在可激活时给 click、否则 null(恒挂是「禁止条件包装」的要求)。
+
+**chrome 排除**:`AnInteractive` 新增 `chrome` 开关(缺省 **false=可选**,因为搭在这个基座上的多数面是**内容行**,读者完全有理由想复制),`AnButton`/`AnTabs` 传 true;`AnKeycap` 直接 `disabled`。**`AnCodeEditor` 与 super_editor 门面 `AnEditor` 用 `disabled` 而非嵌套域**——嵌套只隔离选区,两套系统仍在抢同一个 pan 手势。
+
+**流式互斥(必补④,本节自称价值最大的一条)**:`chat_transcript._jumpToBottom` 在 `SelectableRegionSelectionStatusScope` 为 `changing` 时直接返回。没有它,「划选文字」与「看回复流出来」互斥,而那恰是读者最想复制点东西的时刻。若流恰好在拖拽期间结束就停在读者放下的位置——**这是对的结果、不是缺口**。
+
+**测试五条**,含一条**真端到端**:鼠标拖过两个 `Text` → `Cmd+C` → 断言**真正落到剪贴板上的文本**含两行。踩到两个坑,都写进了注释:①`flutter_test` 默认报告**移动**平台,那里复制键是 `Ctrl+C`,不覆写目标平台则 `Cmd+C` 打在空处、测试会「证明」剪贴板坏了;②`debugDefaultTargetPlatformOverride` 必须在**测试体内**还原,`addTearDown` 太晚(不变量检查在它之前)。
+
+**一条诚实边界**:这条划选测试**证明不了红线①**。把 mouse 加回 `dragDevices`,它依然**绿**——单次 `moveTo` 跳跃在手势竞技场里的解算与真实指针逐帧移动不同,我未能构造出复现该失效的 widget 测试。故回归改由「直接断言 mouse 不在其中」来守,因果依据是 Flutter 官方 breaking-change 文档、不是我的测试。**这一点已写进测试注释,免得后人以为它守着那条红线。**
+
+**两项未做**:
+- **必补③「复制全文必须走数据源」**——本节自己写明它「与 §4 CH-a 是同一件事、合并施工」,故留到 **CH-a(施工序⑦)**。
+- **排除清单的装饰性元数据(时间戳/计数/状态灯)** 未逐处 `disabled`。理由:它们散在各 feature 的行里、不在少数几个原语内,逐处铺开是一次大范围改动;而当前状态下它们被选中只是**污染 `Cmd+A` 的剪贴板内容**、不影响任何交互。**留作真机看过实际观感后再定**(可能反而希望时间戳可复制)。
+
+**上一条 open question 的答案**:「版本风险(需拍板)」中的跨行复制丢换行,已由施工序①升 3.44 解决,无需选项②③。
+
 ## §5.11 VT 批 · 实体版本页改全宽手风琴(0723 用户提方案)
 
 **问题**:`version_tab.dart:68-79` 是 `Row(Expanded(flex:2, 列表) | s16 | Expanded(flex:3, AnVersionDiff))`——在本就不宽的内容列里再对切一刀,diff 只剩 ~60% 宽,**代码横向被砍**(用户截图:`min(times or 1, 10) * random.r` 后半截没了)。
@@ -670,7 +694,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ③ | ~~CR-1b 滚动监听 ×9 + CR-2 错误钩子~~ **已完成 0725**(实为 **11 处**,名单漏一类;记录见 §5 CR-1b 条) | 主会话 |
 | ④ | ~~CR-3 Output 树高度~~ **已完成 0725**。**改判为主会话亲自**——本节有两处「施工时定稿」+ 一条待验隐患,按上面分工判据①(有未决裁决)不该外派;记录见 §5.7 | 主会话(原定派 Sonnet 5) |
 | ⑤ | ~~RI 右岛四病灶 + 「禁止条件包装」军规+守卫~~ **已完成 0725**(四病灶全落 + 军规入 CLAUDE.md/design-system + 行为式重挂守卫;推翻本节「加重项」判断,做法 #2/#3 各有取舍,见 §5.9) | 主会话 |
-| ⑥ | TS 文本选择 | 混合:拓扑/手势/焦点 主会话;disabled 铺原语 派 Sonnet 5 |
+| ⑥ | ~~TS 文本选择~~ **已完成 0725**(红线/拓扑/焦点/光标/chrome 排除/流式互斥六项;必补③并入 CH-a、装饰性元数据留真机后定,见 §5.10) | 主会话(未派——排除清单被拓扑砍掉大半后不值一次简报) |
 | ⑦ | CH-a 动作排+复制+排队 | 主会话 |
 | ⑧ | CH-b fork / CH-c retry(前后端) | 主会话 |
 | ⑨ | VT 版本页 | 混合:diff hunk+虚拟化 主会话;页面组装 派 Opus 5(脸面页,品味权重高) |

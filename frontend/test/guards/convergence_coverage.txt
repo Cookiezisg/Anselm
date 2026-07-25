@@ -238,6 +238,7 @@ lib/core/ui/an_seamless_field.dart	converged
 lib/core/ui/an_secret_field.dart	reviewed
 lib/core/ui/an_section.dart	converged
 lib/core/ui/an_segmented.dart	reviewed
+lib/core/ui/an_selection_region.dart	pending
 lib/core/ui/an_setting_row.dart	reviewed
 lib/core/ui/an_shell.dart	reviewed
 lib/core/ui/an_shimmer_text.dart	converged

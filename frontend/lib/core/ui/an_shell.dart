@@ -7,6 +7,7 @@ import '../perf/frame_safe.dart';
 import 'an_button.dart';
 import 'an_expand_reveal.dart';
 import 'an_island.dart';
+import 'an_selection_region.dart';
 import 'an_window_controls.dart';
 import 'icons.dart';
 
@@ -467,7 +468,14 @@ class _OceanRegion extends StatelessWidget {
     final c = context.colors;
     return Stack(
       children: [
-        Positioned.fill(child: ocean ?? const _Placeholder('Ocean')),
+        // Selection region #1 of 2 — the ocean's CONTENT only. Everything else in this Stack (the head
+        // band, the scrim, the corner controls) stays outside, so Cmd+A never sweeps chrome into the
+        // clipboard. See [AnSelectionRegion] for why the count is two.
+        // 二域之一——**只**是海洋的内容。本 Stack 里其余一切(头带、scrim、角控)都在域外,故 Cmd+A 绝不会把
+        // chrome 扫进剪贴板。为何恰好两个见 [AnSelectionRegion]。
+        Positioned.fill(
+          child: AnSelectionRegion(child: ocean ?? const _Placeholder('Ocean')),
+        ),
         // Scrim: content fades out behind the head band (island → transparent). Click-through. scrim 渐隐、穿透。
         Positioned(
           top: 0,
@@ -844,7 +852,13 @@ class _RightRevealState extends State<_RightReveal>
         excluding: !widget.open,
         child: ExcludeSemantics(
           excluding: !widget.open,
-          child: IgnorePointer(ignoring: !widget.open, child: widget.child),
+          child: IgnorePointer(
+            ignoring: !widget.open,
+            // Selection region #2 of 2 — the right island's content. INSIDE the inert layers, so a closed
+            // island cannot be selected from either. 二域之二——右岛内容。放在惰化三层**之内**,故收起的岛
+            // 两边都选不到。
+            child: AnSelectionRegion(child: widget.child),
+          ),
         ),
       ),
     );

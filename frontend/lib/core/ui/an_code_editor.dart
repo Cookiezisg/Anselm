@@ -346,7 +346,16 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      // AnCodeEditor owns its OWN selection (SelectableText.rich when read-only, a TextField when
+      // editable), so it opts out of the enclosing region entirely. `disabled` and NOT a nested region:
+      // nesting isolates the SELECTION but leaves both systems competing for the same pan gesture, and the
+      // inner one does not always win.
+      // AnCodeEditor 有**自己**的选区(只读走 SelectableText.rich、可编走 TextField),故整体退出外层域。
+      // 用 `disabled` 而**非**嵌套域:嵌套只隔离**选区**,两套系统仍在抢同一个 pan 手势,而内层并不总是赢。
+      SelectionContainer.disabled(child: _body(context));
+
+  Widget _body(BuildContext context) {
     if (widget.inline) return _inlineBody(context);
     if (widget.live && !widget.editable) return _framedLive(context);
     final capped = _cappedOrNull();

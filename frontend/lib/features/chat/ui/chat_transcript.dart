@@ -220,6 +220,25 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
 
   void _jumpToBottom() {
     if (!mounted || !_scroll.hasClients) return;
+    // Never yank the viewport out from under a selection in progress. A streaming reply ticks many times a
+    // second, and each tick would dock to the bottom mid-drag — which moves the content under the pointer
+    // and ends the drag. This is the single most valuable half of TS: without it, "select text" and
+    // "watch a reply stream" are mutually exclusive, which is exactly when a reader most wants to copy
+    // something.
+    //
+    // If the stream happens to finish DURING the drag we simply stay where the reader put us. That is the
+    // right outcome, not a gap: a reader who is selecting text has said where they want to be.
+    //
+    // 绝不在选区进行中把视口从用户手底下抽走。流式回复每秒 tick 数次,每次 tick 都会在拖拽途中贴底——那会让
+    // 指针下的内容移动、拖拽随之终止。这是 TS 里价值最大的一半:没有它,「划选文字」与「看回复流出来」互斥,
+    // 而那恰恰是读者最想复制点东西的时刻。
+    //
+    // 若流恰好在拖拽期间结束,我们就停在读者放下的位置。这是**对的结果**、不是缺口:正在划选的读者已经表明了
+    // 他想待在哪里。
+    if (SelectableRegionSelectionStatusScope.maybeOf(context)?.value ==
+        SelectableRegionSelectionStatus.changing) {
+      return;
+    }
     final pos = _scroll.position;
     final target = _dockTarget(pos);
     if (pos.pixels != target) _scroll.jumpTo(target);

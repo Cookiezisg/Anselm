@@ -288,6 +288,8 @@ class _AnTabsState extends State<AnTabs> with WidgetsBindingObserver {
     // a11y: AnInteractive emits button + `selected` + the label Text as the accessible name ("Source,
     // selected button") — the safe path (no tab/tabBar SemanticsRole; see class doc). a11y 走 selected button。
     return AnInteractive(
+      // A label, not prose (TS 排除清单). 文案、非正文。
+      chrome: true,
       key: _tabKeys[i],
       enabled: widget.enabled,
       selected: selected,

@@ -51,7 +51,11 @@ class AnKeycap extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final child = state == AnKeycapState.idle ? _caps(c) : _plate(c);
+    // A keycap glyph is chrome — never prose. Selecting it only pollutes Cmd+A (TS 排除清单).
+    // 键帽字形是 chrome、绝非正文;可选只会污染 Cmd+A。
+    final child = SelectionContainer.disabled(
+      child: state == AnKeycapState.idle ? _caps(c) : _plate(c),
+    );
     return MouseRegion(
       cursor: onTap == null ? MouseCursor.defer : SystemMouseCursors.click,
       child: GestureDetector(

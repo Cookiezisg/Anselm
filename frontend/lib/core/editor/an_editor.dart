@@ -558,7 +558,15 @@ class AnEditorState extends State<AnEditor> {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      // super_editor drives an entire DocumentSelection of its own, so it opts out of the enclosing text
+      // region — `disabled`, NOT a nested region: nesting isolates the selection but leaves the two systems
+      // competing for the same pan gesture (TS 排除清单).
+      // super_editor 自带一整套 DocumentSelection,故退出外层文字域——用 `disabled` 而**非**嵌套域:嵌套只隔离
+      // 选区,两套系统仍在抢同一个 pan 手势。
+      SelectionContainer.disabled(child: _body(context));
+
+  Widget _body(BuildContext context) {
     // Bare SuperEditor — no box wrapper (sliver protocol). IME input is CJK's lifeline. The stylesheet
     // carries the An prose voice onto the TEXT blocks (E2a); the block skins are ComponentBuilders; the
     // slash popover is a DOCUMENT OVERLAY LAYER (timing-safe, positions after layout). 裸 SuperEditor,IME 输入源;
