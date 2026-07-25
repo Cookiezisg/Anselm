@@ -1,11 +1,16 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
+import '../../../core/contract/model_capability.dart';
+import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
+import '../../../core/design/typography.dart';
 import '../../../core/ui/an_hover_region.dart';
 import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
+import 'chat_head.dart';
 
 /// The faint icon row that hugs the bottom edge of a transcript turn (§3.2 动作排).
 ///
@@ -16,16 +21,17 @@ import '../../../i18n/strings.g.dart';
 /// row at all — there is nothing to copy yet, and the only meaningful action mid-stream is Stop, which
 /// lives in the composer.
 ///
-/// Copy and fork are wired here. Retry and version paging remain PLACEHOLDERS (rendered, disabled,
-/// tooltip says so) — they need the backend work in CH-c. Rendering them disabled rather than hiding
-/// them is deliberate: the row's shape stops moving between batches, and a reader who looks for
-/// "retry" learns it exists and is coming rather than concluding it doesn't.
-///
 /// Fork's tooltip differs by role, because the two mean different things to a reader: on an ASSISTANT
 /// turn it is "branch from here", i.e. keep everything up to and including this reply; on a USER turn
 /// it is "branch before I said this", i.e. keep the thread up to the previous reply and hand the
 /// sentence back as editable draft text. The widget only reports the tap — the caller owns which
 /// message the fork cuts at and whether a prefill rides along (it is the one holding the turn list).
+///
+/// Retry, edit-resend and version paging (CH-c) are each present ONLY where they are true (§3.2): retry on
+/// the last ASSISTANT turn, edit-resend on the last USER turn, and the pager on any turn that actually has
+/// more than one version. None of them is rendered-but-disabled the way the CH-b placeholders were: a
+/// placeholder tells a reader "this exists and is coming", whereas a permanently-disabled retry on a
+/// historical turn would say "this could work here" about something that never can.
 ///
 /// transcript 回合下沿那排浅灰小图标(§3.2 动作排)。
 ///
@@ -33,18 +39,25 @@ import '../../../i18n/strings.g.dart';
 /// 动作排就是找不到的动作排;**历史轮**hover 才现——长 transcript 上几十排常显图标读作杂乱,并与正文抢注意力。
 /// **正在生成**的回合完全不显示动作排:此刻没有可复制的东西,而流中唯一有意义的动作是「停止」,它住在 composer。
 ///
-/// 复制与**分叉**已接通。重试、版本翻页仍是**占位**(渲出来、禁用、tooltip 明说)——它们要等 CH-c 的后端工作。
-/// 渲成禁用而不是隐藏是刻意的:动作排的形状在批次之间不再变动,而来找「重试」的读者会知道它存在且在路上。
-///
 /// 分叉的 tooltip **按角色不同**,因为这两件事对读者的含义不同:在 **assistant** 回合上是「从这里分叉」——
 /// 留下直到这条回复(含)的一切;在 **user** 回合上是「在我说出这句之前分叉」——线程留到上一条回复,而这句话
 /// 作为可编辑草稿还给你。本 widget 只上报点击——切在哪条消息、是否带预填由**调用方**拥有(手上有回合列表的是它)。
+///
+/// 重试、编辑重发、版本翻页(CH-c)各只在**为真**之处出现(§3.2):重试在末条 **assistant** 回合、编辑重发在末条
+/// **user** 回合、翻页只在真有多个版本的回合上。三者都**不**像 CH-b 的占位那样「渲出来但禁用」:占位是告诉读者
+/// 「它存在且在路上」,而一个历史回合上永久禁用的重试则是在对一件**永远**不可能的事说「这里也许能行」。
 class TurnActions extends StatefulWidget {
   const TurnActions({
     required this.copyText,
     required this.role,
     required this.alwaysVisible,
     this.onFork,
+    this.onRetry,
+    this.retryCaps = const [],
+    this.onEdit,
+    this.versionIndex = 0,
+    this.versionCount = 1,
+    this.onVersion,
     super.key,
   });
 
@@ -62,6 +75,29 @@ class TurnActions extends StatefulWidget {
   /// Branch from this turn into a new conversation. Null disables the button (kept rendered, so the
   /// row's shape never moves). 从本回合分叉出新对话;null 即禁用(仍渲出,故动作排形状恒定)。
   final VoidCallback? onFork;
+
+  /// Regenerate this answer, optionally with a different model (null = keep whatever the thread is set to).
+  /// Null omits the retry affordance entirely — only the last assistant turn can be retried.
+  /// 重生成这个回答,可选换模型(null = 用线程现有的设置)。本回调为 null 时整个重试入口不出现——只有末条 assistant
+  /// 回合可重试。
+  final void Function(({String apiKeyId, String modelId})? modelOverride)?
+  onRetry;
+
+  /// The models offered by「换模型重试」— the same capability list the head's picker shows. 换模型重试的可选模型。
+  final List<ModelCapability> retryCaps;
+
+  /// Put this turn back into an editable state and resend it as a new version. Null omits the affordance —
+  /// only the last user turn can be edit-resent.
+  /// 把本回合放回可编辑态、作为新版本重发。null 即入口不出现——只有末条 user 回合可编辑重发。
+  final VoidCallback? onEdit;
+
+  /// Which version of this turn is on screen, and how many there are. [versionCount] ≤ 1 omits the pager
+  /// entirely — a turn with one version has nothing to page. 屏上是第几版 / 共几版;versionCount ≤ 1 时不渲翻页。
+  final int versionIndex;
+  final int versionCount;
+
+  /// Show version [index] (already clamped by the caller). 显示第 index 版(调用方已钳制)。
+  final ValueChanged<int>? onVersion;
 
   @override
   State<TurnActions> createState() => _TurnActionsState();
@@ -132,17 +168,123 @@ class _TurnActionsState extends State<TurnActions> {
                   : t.chat.actions.fork,
               onTap: widget.onFork,
             ),
-            if (widget.role == TurnActionsRole.assistant) ...[
+            if (widget.onEdit != null) ...[
               const SizedBox(width: AnSpace.s4),
               _action(
-                icon: AnIcons.refresh,
-                tip: t.chat.actions.retryComing,
-                onTap: null,
+                icon: AnIcons.edit,
+                tip: t.chat.actions.editResend,
+                onTap: widget.onEdit,
               ),
+            ],
+            if (widget.onRetry != null) ...[
+              const SizedBox(width: AnSpace.s4),
+              _retryMenu(t),
+            ],
+            if (widget.versionCount > 1) ...[
+              const SizedBox(width: AnSpace.s8),
+              _pager(context, t),
             ],
           ],
         ),
       ),
+    );
+  }
+
+  /// Retry as a MENU rather than a bare button, because「可换模型」has to live somewhere and a second icon
+  /// beside the first would say nothing about the relationship between them. The first row is the plain retry
+  /// (one pick — the common case, and it means "keep whatever this thread is set to"); the model list
+  /// underneath is the head's own picker, reused.
+  ///
+  /// No row is check-marked and there is no Auto: a per-turn model cannot CLEAR the thread's override, and
+  /// knowing which model is current would cost a subscription to the one provider CH-b found re-polls a
+  /// failed read forever (see the caller's note).
+  ///
+  /// 重试做成**菜单**而非裸按钮,因为「可换模型」总得有个地方住,而在第一个图标旁再加一个图标说不出两者的关系。
+  /// 首行是朴素重试(一次点击——常见情形,含义是「用这条线程现有的设置」);下方的模型列表就是头部那个选择器本身、复用之。
+  ///
+  /// 没有任何一行被打勾、也没有 Auto:逐回合的模型无法**清除**线程的 override,而「当前是哪个模型」要付一次订阅——订的正是
+  /// CH-b 查明「失败的读会永远重轮询」的那个 provider(见调用处注释)。
+  Widget _retryMenu(Translations t) {
+    final onRetry = widget.onRetry!;
+    return chatModelMenu(
+      t: t,
+      caps: widget.retryCaps,
+      current: null,
+      includeAuto: false,
+      leadingEntries: [
+        AnMenuItem(
+          label: t.chat.actions.retry,
+          icon: AnIcons.refresh,
+          onTap: () => onRetry(null),
+        ),
+        if (widget.retryCaps.isNotEmpty)
+          AnMenuSection(t.chat.actions.retryWithModel),
+      ],
+      onSelect: (ref) => onRetry(ref),
+      anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
+        AnIcons.refresh,
+        size: AnButtonSize.sm,
+        semanticLabel: t.chat.actions.retry,
+        onPressed: toggle,
+      ),
+    );
+  }
+
+  /// `‹ 2/2 ›` — the version pager, plus the one thing it must not leave unsaid: which version everything
+  /// AFTER this turn was generated from. While the reader is looking at the current version there is nothing
+  /// to disclaim, so the note is absent; the moment they page back, the note appears and says so. A pager
+  /// that silently showed an old answer inside a thread built on a newer one would be the lie this whole
+  /// feature has to avoid.
+  ///
+  /// `‹ 2/2 ›`——版本翻页,外加它绝不能不说的那件事:本回合**之后**的一切是据**哪一版**生成的。读者在看现行版时没有
+  /// 什么要声明,故注记缺席;他一往回翻,注记就出现并说明。一个默默显示旧回答、而线程其实建立在更新一版之上的翻页,
+  /// 正是整个 feature 必须避免的那个谎。
+  Widget _pager(BuildContext context, Translations t) {
+    final c = context.colors;
+    final i = widget.versionIndex;
+    final n = widget.versionCount;
+    final onVersion = widget.onVersion;
+    // Named, not inlined twice: it reads better, and it keeps the arithmetic off the EdgeInsets line —
+    // the convergence ratchet flags a bare number there, and it is right to (spacing must come from
+    // tokens, and a `- 1` sitting inside a padding call is exactly how a private size tier starts).
+    // 起个名、不内联两遍:更好读,且把算术从 EdgeInsets 那一行挪开——收敛棘轮会判该行的裸数字,而它判得对
+    // (间距必须来自代币,而一个 `- 1` 坐在 padding 调用里正是私铸尺寸档的起头)。
+    final isCurrent = i == n - 1;
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnButton.iconOnly(
+          AnIcons.chevronLeft,
+          size: AnButtonSize.sm,
+          semanticLabel: t.chat.actions.versionPrev,
+          onPressed: i > 0 && onVersion != null ? () => onVersion(i - 1) : null,
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: AnSpace.s4),
+          child: Text(
+            '${i + 1}/$n',
+            style: AnText.meta.copyWith(color: c.inkMuted),
+          ),
+        ),
+        AnButton.iconOnly(
+          AnIcons.chevronRight,
+          size: AnButtonSize.sm,
+          semanticLabel: t.chat.actions.versionNext,
+          onPressed: i < n - 1 && onVersion != null
+              ? () => onVersion(i + 1)
+              : null,
+        ),
+        // The note occupies zero width on the current version rather than being conditionally wrapped, so
+        // paging never remounts the pager (CLAUDE.md 禁止条件包装).
+        // 在现行版上注记占零宽、而非被条件包装,故翻页绝不重挂翻页器本身(CLAUDE.md 禁止条件包装)。
+        Padding(
+          padding: EdgeInsets.only(left: isCurrent ? AnSpace.s0 : AnSpace.s8),
+          child: Text(
+            isCurrent ? '' : t.chat.actions.versionBasedOn(n: n),
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+        ),
+      ],
     );
   }
 

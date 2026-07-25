@@ -221,9 +221,29 @@ type Message struct {
 	OutputTokens int            `db:"output_tokens" json:"outputTokens"`
 	Provider     string         `db:"provider" json:"provider,omitempty"` // 溯源：产此回合的 provider
 	ModelID      string         `db:"model_id" json:"modelId,omitempty"`  // 溯源：产此回合的模型
-	Attrs        map[string]any `db:"attrs,json" json:"attrs,omitempty"`  // attachments / mentions 快照（freeze-on-send）
+	Attrs        map[string]any `db:"attrs,json" json:"attrs,omitempty"`  // attachments / mentions 快照（freeze-on-send）+ AttrRetryOf
 	CreatedAt    time.Time      `db:"created_at,created" json:"createdAt"`
 	UpdatedAt    time.Time      `db:"updated_at,updated" json:"updatedAt"`
+
+	// SupersededBy is the version pointer: "" = the CURRENT version, otherwise the id of the newer
+	// turn that replaced this one (retry / edit-resend, WRK-077 CH-c). It is a POINTER, never a
+	// deletion — the row stays, stays readable, and the three REST read forms keep returning it so the
+	// UI can page back through old versions. What it governs is the LLM's view: LoadThreadForLLM adds
+	// `superseded_by = ''` as the third condition of the same family as the subagent filter and the
+	// compaction watermark, so a regenerated answer never reaches the model twice.
+	//
+	// The inverse pointer rides the NEW turn's Attrs under AttrRetryOf, which is what the front end
+	// groups versions by (the loaded copy of an older version predates its own supersede write, so its
+	// SupersededBy can be stale client-side; a retryOf chain never is).
+	//
+	// SupersededBy 是版本指针："" = **现行版**，否则是取代本回合的那条新回合 id（重试 / 编辑重发，
+	// WRK-077 CH-c）。它是**指针、绝非删除**——行仍在、仍可读，三种 REST 读形态照常返回它，使 UI 能往回
+	// 翻旧版。它统辖的是 **LLM 视图**：`LoadThreadForLLM` 把 `superseded_by = ''` 作为与 subagent 过滤、
+	// 压缩水位**同族的第三个条件**下推，故被重生成掉的回答绝不会二次喂给模型。
+	//
+	// 反向指针在**新**回合的 Attrs 里（键 AttrRetryOf），那才是前端组版本组所据——旧版在客户端的那份副本
+	// 早于它自己被 supersede 的那次写，故其 SupersededBy 可能过期，而 retryOf 链不会。
+	SupersededBy string `db:"superseded_by" json:"supersededBy,omitempty"`
 
 	// Blocks is the turn's content tree, hydrated by the store on read and supplied by the
 	// caller on write — never a column (db:"-"). On a user turn it's the lone text block; on
@@ -233,6 +253,16 @@ type Message struct {
 	// 是单个 text block；assistant 回合是 loop 产出（text / reasoning / tool_call / tool_result）。
 	Blocks []Block `db:"-" json:"blocks,omitempty"`
 }
+
+// AttrRetryOf is the Message.Attrs key carrying the id of the turn this one is a NEW VERSION of —
+// the inverse of SupersededBy, written on the new row so it rides both the REST projection and the
+// messages-stream frames without a new frame type (E1/E2). Declared here, beside the field it
+// mirrors, so the version-pointer pair has one home.
+//
+// AttrRetryOf 是 Message.Attrs 里那个键：装本回合是**哪一条**的新版本——SupersededBy 的反向，写在新行上，
+// 故它同时随 REST 投影与 messages 流帧走、无需新帧型（E1/E2）。声明在它所镜像的字段旁边，使版本指针这一
+// 对有唯一的家。
+const AttrRetryOf = "retryOf"
 
 // Roles a Message carries. There is no system/tool message row — the system prompt is built
 // per-turn by chat (not persisted as a turn) and tool results are tool_result Blocks under an
@@ -287,6 +317,16 @@ type Repository interface {
 	//
 	// GetMessage 返回一个回合并 hydrate 其 Blocks；缺失时 ErrMessageNotFound。
 	GetMessage(ctx context.Context, id string) (*Message, error)
+
+	// MarkSuperseded points one turn at the newer turn that replaced it (retry / edit-resend). It is
+	// the ONLY write that touches an already-terminal turn, and it writes a POINTER COLUMN only — no
+	// content, no status, no deletion (D1: this table is an append-only Log). ErrMessageNotFound when
+	// the id is absent from this workspace.
+	//
+	// MarkSuperseded 把一个回合指向取代它的那条新回合（重试 / 编辑重发）。它是唯一会碰已终态回合的写，
+	// 且只写**指针列**——不改内容、不改状态、不删行（D1：本表是 append-only Log）。id 在本 workspace
+	// 不存在时返 ErrMessageNotFound。
+	MarkSuperseded(ctx context.Context, messageID, supersededBy string) error
 
 	// ListMessages returns one keyset page of a conversation's turns, newest-first, each with
 	// Blocks hydrated (the REST history endpoint, N4 pagination).

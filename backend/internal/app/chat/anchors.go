@@ -172,6 +172,17 @@ func buildAnchors(msgs []*messagesdomain.Message, blocks []*messagesdomain.Block
 		cluster.count, cluster.first = 0, nil
 	}
 	for _, m := range msgs {
+		// A superseded turn is an EARLIER VERSION, not an occurrence: the transcript folds it into its
+		// version group and renders one row, so an anchor for it would either duplicate the excerpt ("you
+		// said this twice") or offer a jump to a bubble that is not on screen. Old versions are reachable
+		// through the version pager; the scene bar names what happened once. Same family as the LLM
+		// assembly filter — applied here for honesty rather than for tokens.
+		// 被取代的回合是**更早的版本**、不是一次发生：transcript 把它折进版本组、只渲一行，故给它建锚点要么让
+		// 节选重复（「你说了两遍」）、要么给出一个跳向屏幕上并不存在的气泡的跳转。旧版由版本翻页可达；场次条说的
+		// 是发生过一次的事。与 LLM 装配过滤同族——此处为的是诚实、不是 token。
+		if m.SupersededBy != "" {
+			continue
+		}
 		if m.Role == messagesdomain.RoleUser {
 			flush()
 			title := ""

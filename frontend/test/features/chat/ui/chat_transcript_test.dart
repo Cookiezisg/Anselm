@@ -113,6 +113,24 @@ ChatBlock _blk(
   attrs: attrs,
 );
 
+/// The capability catalog every transcript host hands the retry menu (WRK-077 CH-c). Two entries so a test can
+/// tell「换模型重试」picked the RIGHT one rather than merely picked something.
+/// 每个 transcript 宿主交给重试菜单的能力目录(WRK-077 CH-c)。两项,使测试能分辨「换模型重试」挑对了、而不只是挑了个东西。
+const _caps = [
+  ModelCapability(
+    apiKeyId: 'ak_1',
+    modelId: 'gpt-4o',
+    displayName: 'GPT-4o',
+    provider: 'openai',
+  ),
+  ModelCapability(
+    apiKeyId: 'ak_2',
+    modelId: 'deepseek-chat',
+    displayName: 'DeepSeek Chat',
+    provider: 'deepseek',
+  ),
+];
+
 class _FakeSelected extends SelectedConversation {
   @override
   ConversationRef? build() => const ConversationRef('cv_1');
@@ -126,6 +144,14 @@ Widget _host(
   overrides: [
     chatRepositoryProvider.overrideWithValue(repo),
     selectedConversationProvider.overrideWith(_FakeSelected.new),
+    // The tail assistant turn's action row offers「换模型重试」, so the transcript now reads the capability
+    // catalog. Left un-overridden it reaches the real api client, fails, and Riverpod's default backoff leaves
+    // a pending timer AFTER the tree is disposed — which the test binding rightly calls an error. Every other
+    // suite that mounts a model picker overrides it the same way (chat_head_test / chat_composer_test).
+    // 尾巴上 assistant 回合的动作排提供「换模型重试」,故 transcript 现在会读能力目录。不 override 它就会打到真 api
+    // client、失败,而 Riverpod 默认退避会在树销毁**之后**留下一个 pending timer——测试 binding 理应把它判为错误。
+    // 其余每个挂载模型选择器的套件都这样 override(chat_head_test / chat_composer_test)。
+    modelCapabilitiesProvider.overrideWith((ref) async => _caps),
     ...overrides,
   ],
   child: TranslationProvider(
@@ -155,6 +181,7 @@ Widget _host(
       chatRepositoryProvider.overrideWithValue(repo),
       selectedConversationProvider.overrideWith(_FakeSelected.new),
       goRouterProvider.overrideWithValue(router),
+      modelCapabilitiesProvider.overrideWith((ref) async => _caps),
     ],
   );
   addTearDown(container.dispose);
@@ -1384,6 +1411,207 @@ void main() {
       // Nothing was minted server-side: a thread where nothing has been said IS the landing.
       // 服务端什么都没铸:什么都没说过的线程**就是** landing。
       expect((await repo.listConversations()).items.length, 1);
+    },
+  );
+  // ── CH-c: retry / edit-resend / version paging ──────────────────────────────
+
+  /// Three rows, so「末轮」is a real claim and not the only row there is: the last assistant turn may be
+  /// retried, the last user turn may be edited, and NEITHER affordance may appear on the history above them.
+  /// 三行,使「末轮」是一个真主张、而不是「那里只有一行」:末条 assistant 可重试、末条 user 可编辑,而两个入口都不许出现在
+  /// 它们上方的历史里。
+  FixtureChatRepository retryRepo() => _repo(
+    messages: {
+      'cv_1': [
+        _turn('m1', 'user', blocks: [_blk('b1', 'text', 'OLD ASK')]),
+        _turn('m2', 'assistant', blocks: [_blk('b2', 'text', 'OLD REPLY')]),
+        _turn('m3', 'user', blocks: [_blk('b3', 'text', 'LAST ASK')]),
+        _turn('m4', 'assistant', blocks: [_blk('b4', 'text', 'LAST REPLY')]),
+      ],
+    },
+  );
+
+  testWidgets(
+    'retry lives ONLY on the last assistant turn; edit-resend ONLY on the last user turn',
+    (tester) async {
+      final repo = retryRepo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+
+      // Four turns are on screen, and exactly ONE of each affordance exists. The count is the assertion:
+      // a retry on every assistant row would say「重试」about answers the backend answers 409 for.
+      // 屏上四个回合,而每种入口**恰好一个**。数量本身就是断言:每行 assistant 都给重试,等于对后端一律 409 的回答说「重试」。
+      expect(find.text('LAST REPLY'), findsOneWidget);
+      expect(find.byTooltip(t.chat.actions.retry), findsOneWidget);
+      expect(find.byTooltip(t.chat.actions.editResend), findsOneWidget);
+      // Copy is on every turn (CH-a), so the row itself is present on the history — only these two are not.
+      // 复制在每个回合上(CH-a),故历史上动作排本身在——只有这两个不在。
+      expect(
+        find.byTooltip(t.action.copy),
+        findsNWidgets(4),
+        reason: 'the action row itself is unchanged on history rows',
+      );
+    },
+  );
+
+  testWidgets('the retry menu regenerates, and「换模型重试」picks the model', (
+    tester,
+  ) async {
+    final repo = retryRepo();
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
+
+    // The anchor opens a MENU (not an immediate retry): the plain row, then one row per model.
+    await tester.tap(find.byTooltip(t.chat.actions.retry));
+    await tester.pumpAndSettle();
+    expect(find.text(t.chat.actions.retryWithModel), findsOneWidget);
+    expect(find.text('DeepSeek Chat'), findsOneWidget);
+    // No Auto row: a per-turn model cannot CLEAR the thread's override, so offering「Auto」would lie.
+    // 没有 Auto 行:逐回合模型无法**清除**线程 override,给出「Auto」即撒谎。
+    expect(find.text(t.chat.modelAuto), findsNothing);
+
+    await tester.tap(find.text(t.chat.actions.retry).last);
+    await tester.pumpAndSettle();
+    expect(repo.lastRetry?.conversationId, 'cv_1');
+    expect(
+      repo.lastRetry?.content,
+      '',
+      reason: 'a plain retry regenerates — it does not re-ask',
+    );
+    expect(repo.lastRetry?.modelOverride, isNull);
+
+    // And again, this time picking a model: the SAME endpoint, with a per-turn override.
+    await tester.tap(find.byTooltip(t.chat.actions.retry));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('DeepSeek Chat'));
+    await tester.pumpAndSettle();
+    expect(repo.lastRetry?.modelOverride?.modelId, 'deepseek-chat');
+    expect(repo.lastRetry?.content, '');
+  });
+
+  testWidgets(
+    'edit-resend puts the sentence back in place and resends it as a new version',
+    (tester) async {
+      final repo = retryRepo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+
+      await tester.tap(find.byTooltip(t.chat.actions.editResend));
+      await tester.pumpAndSettle();
+      // In place: the field is seeded with the ORIGINAL sentence, right where the bubble was.
+      // 原地:输入框以**原句**为种子,就在气泡本来所在的位置。
+      final field = find.byType(EditableText).last;
+      expect(tester.widget<EditableText>(field).controller.text, 'LAST ASK');
+
+      await tester.enterText(field, 'EDITED ASK');
+      await tester.tap(find.text(t.chat.actions.editResendSubmit));
+      await tester.pumpAndSettle();
+
+      expect(repo.lastRetry?.content, 'EDITED ASK');
+      // Zero deletion: the fixture mirrors the backend, so the OLD row is still there, superseded.
+      // 零删除:夹具镜像后端,故**旧行仍在**、只是被取代。
+      final rows = (await repo.listMessages('cv_1')).items;
+      final old = rows.firstWhere((m) => m.id == 'm3');
+      expect(old.supersededBy, isNotEmpty);
+      expect(
+        rows.where((m) => m.role == 'user').length,
+        3,
+        reason: 'two original questions + the edited one — the old row is kept',
+      );
+    },
+  );
+
+  testWidgets(
+    'a retried turn renders ONE row with a pager, and paging back reveals the old version + says what the thread is based on',
+    (tester) async {
+      // A thread whose last answer has been retried twice: three versions, ONE of them current. Built as
+      // durable rows (the shape a reload produces) rather than by driving the UI, because the pager's whole
+      // job is to be right about history it did not witness.
+      // 一条末答被重试过两次的线程:三个版本、其中**一个**现行。用耐久行搭(重载后的形状)、不靠驱动 UI,因为翻页的全部
+      // 职责就是对它没亲眼见过的历史作出正确判断。
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            _turn('m1', 'user', blocks: [_blk('b1', 'text', 'ASK')]),
+            _turn(
+              'm2',
+              'assistant',
+              blocks: [_blk('b2', 'text', 'V1')],
+            ).copyWith(supersededBy: 'm3'),
+            _turn(
+              'm3',
+              'assistant',
+              blocks: [_blk('b3', 'text', 'V2')],
+            ).copyWith(supersededBy: 'm4', attrs: const {'retryOf': 'm2'}),
+            _turn(
+              'm4',
+              'assistant',
+              blocks: [_blk('b4', 'text', 'V3')],
+            ).copyWith(attrs: const {'retryOf': 'm3'}),
+          ],
+        },
+      );
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+
+      // ONE row, not three: the current version, with `3/3` beside it. Showing all three would be the
+      // duplicate transcript the grouping exists to prevent.
+      // **一行、不是三行**:现行版,旁边 `3/3`。三行全渲正是分组要防的重复 transcript。
+      expect(find.text('V3'), findsOneWidget);
+      expect(find.text('V1'), findsNothing);
+      expect(find.text('V2'), findsNothing);
+      expect(find.text('3/3'), findsOneWidget);
+      // On the current version there is nothing to disclaim, so no note.
+      expect(find.text(t.chat.actions.versionBasedOn(n: 3)), findsNothing);
+
+      // Page back twice: the OLD versions are readable, and the note now says which version the thread
+      // actually continued from — the one thing the pager must not leave unsaid.
+      // 往回翻两次:旧版可读,且注记现在说出线程**实际**是从哪一版继续的——翻页绝不能不说的那件事。
+      await tester.tap(find.byTooltip(t.chat.actions.versionPrev));
+      await tester.pumpAndSettle();
+      expect(find.text('V2'), findsOneWidget);
+      expect(find.text('V3'), findsNothing);
+      expect(find.text('2/3'), findsOneWidget);
+      expect(find.text(t.chat.actions.versionBasedOn(n: 3)), findsOneWidget);
+
+      await tester.tap(find.byTooltip(t.chat.actions.versionPrev));
+      await tester.pumpAndSettle();
+      expect(find.text('V1'), findsOneWidget);
+      expect(find.text('1/3'), findsOneWidget);
+      expect(find.text(t.chat.actions.versionBasedOn(n: 3)), findsOneWidget);
+
+      // Forward again to the current version: the note goes away, because there is nothing left to disclaim.
+      await tester.tap(find.byTooltip(t.chat.actions.versionNext));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byTooltip(t.chat.actions.versionNext));
+      await tester.pumpAndSettle();
+      expect(find.text('V3'), findsOneWidget);
+      expect(find.text('3/3'), findsOneWidget);
+      expect(find.text(t.chat.actions.versionBasedOn(n: 3)), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'an un-retried transcript shows no pager at all — one version has nothing to page',
+    (tester) async {
+      final repo = retryRepo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+      expect(find.byTooltip(t.chat.actions.versionPrev), findsNothing);
+      expect(find.byTooltip(t.chat.actions.versionNext), findsNothing);
+      expect(find.text('1/1'), findsNothing);
     },
   );
 }

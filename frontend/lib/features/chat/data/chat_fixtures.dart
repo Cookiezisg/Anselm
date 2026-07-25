@@ -534,6 +534,95 @@ class FixtureChatRepository implements ChatRepository {
     return assistantId;
   }
 
+  /// Mirrors the backend's `:retry`: APPEND the new version(s), point the replaced row(s) at them through
+  /// `supersededBy`, and hand back the new assistant id. Zero deletion, exactly like the real thing — a
+  /// fixture that dropped the old row would let a broken version pager pass its own tests.
+  ///
+  /// 镜像后端 `:retry`:**追加**新版本、经 `supersededBy` 把被替换的行指向它们、返回新 assistant id。零删除,与真
+  /// 后端一模一样——一个把旧行丢掉的夹具会让坏掉的版本翻页在自己的测试里蒙混过关。
+  @override
+  Future<String> retryTurn(
+    String conversationId, {
+    String content = '',
+    ({String apiKeyId, String modelId})? modelOverride,
+  }) async {
+    if (failNextRetry) {
+      failNextRetry = false;
+      throw StateError('scripted retry failure');
+    }
+    if (!_all.any((c) => c.id == conversationId)) {
+      throw StateError('conversation not found: $conversationId');
+    }
+    final rows = _messages.putIfAbsent(conversationId, () => []);
+    // The current tail, by the rule the backend uses: rows that are not themselves an earlier version.
+    // 末尾的现行行,按后端同一条规则:本身还不是「更早版本」的行。
+    final live = rows.where((m) => m.supersededBy.isEmpty).toList();
+    if (live.isEmpty) {
+      throw StateError('message not found'); // mirrors 404 MESSAGE_NOT_FOUND
+    }
+    final oldAsst = live.last.role == 'assistant' ? live.last : null;
+    ChatMessage? oldUser;
+    for (final m in live) {
+      if (m.role == 'user') oldUser = m;
+    }
+
+    final now = DateTime.now();
+    void supersede(ChatMessage? row, String by) {
+      if (row == null) return;
+      final i = rows.indexWhere((m) => m.id == row.id);
+      if (i >= 0) rows[i] = rows[i].copyWith(supersededBy: by);
+    }
+
+    if (content.isNotEmpty) {
+      final newUserId = 'msg_fx_u${_idSeq++}';
+      rows.add(
+        ChatMessage(
+          id: newUserId,
+          conversationId: conversationId,
+          role: 'user',
+          status: 'completed',
+          attrs: {
+            if (oldUser != null) 'retryOf': oldUser.id,
+            // The original attachment references ride along — an edit-resend is the same message said
+            // differently. 原来的附件引用随行——编辑重发是同一条消息换个说法。
+            if (oldUser?.attrs?['attachments'] != null)
+              'attachments': oldUser!.attrs!['attachments'],
+          },
+          blocks: [
+            ChatBlock(
+              id: 'blk_fx_${_idSeq++}',
+              type: 'text',
+              content: content,
+              status: 'completed',
+            ),
+          ],
+          createdAt: now,
+        ),
+      );
+      supersede(oldUser, newUserId);
+    }
+
+    final assistantId = 'msg_fx_a${_idSeq++}';
+    rows.add(
+      ChatMessage(
+        id: assistantId,
+        conversationId: conversationId,
+        role: 'assistant',
+        status: 'pending',
+        attrs: {if (oldAsst != null) 'retryOf': oldAsst.id},
+        createdAt: now,
+      ),
+    );
+    supersede(oldAsst, assistantId);
+    lastRetry = (
+      conversationId: conversationId,
+      content: content,
+      modelOverride: modelOverride,
+      assistantId: assistantId,
+    );
+    return assistantId;
+  }
+
   @override
   Future<void> cancelTurn(String conversationId) async {
     cancelled.add(
@@ -590,6 +679,19 @@ class FixtureChatRepository implements ChatRepository {
   List<String> lastSendAttachmentIds = const [];
   final List<String> cancelled = [];
   final List<String> seen = [];
+
+  /// What `retryTurn` recorded — lets a test assert WHICH branch and WHICH model the action row asked for
+  /// (regenerate = empty content). retryTurn 的记录——使测试能断言动作排要的是哪个分支、哪个模型(重生成=空 content)。
+  ({
+    String conversationId,
+    String content,
+    ({String apiKeyId, String modelId})? modelOverride,
+    String assistantId,
+  })?
+  lastRetry;
+
+  /// One-shot scripted `retryTurn` failure (the 409 / offline path the action row must surface). 一次性重试失败脚本。
+  bool failNextRetry = false;
 
   /// Script one realtime frame into a conversation's feed (the demo's fake streaming + tests).
   /// 向某会话的帧流脚本化推一帧(demo 假流式 + 测试)。

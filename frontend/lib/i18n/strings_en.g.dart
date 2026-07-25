@@ -3170,8 +3170,29 @@ class Translations$chat$actions$en {
 	/// en: 'Fork before this message'
 	String get forkBefore => 'Fork before this message';
 
-	/// en: 'Retry (coming in CH-c)'
-	String get retryComing => 'Retry (coming in CH-c)';
+	/// en: 'Retry'
+	String get retry => 'Retry';
+
+	/// en: 'Retry with another model'
+	String get retryWithModel => 'Retry with another model';
+
+	/// en: 'Wait for the current reply to finish'
+	String get retryBusy => 'Wait for the current reply to finish';
+
+	/// en: 'Edit and resend'
+	String get editResend => 'Edit and resend';
+
+	/// en: 'Resend'
+	String get editResendSubmit => 'Resend';
+
+	/// en: 'Previous version'
+	String get versionPrev => 'Previous version';
+
+	/// en: 'Next version'
+	String get versionNext => 'Next version';
+
+	/// en: 'the thread continued from version $n'
+	String versionBasedOn({required Object n}) => 'the thread continued from version ${n}';
 
 	/// en: '$n waiting to send'
 	String queueHead({required Object n}) => '${n} waiting to send';
@@ -7233,7 +7254,14 @@ extension on Translations {
 			'chat.stage.rtStopped' => 'stopped',
 			'chat.actions.fork' => 'Fork from here',
 			'chat.actions.forkBefore' => 'Fork before this message',
-			'chat.actions.retryComing' => 'Retry (coming in CH-c)',
+			'chat.actions.retry' => 'Retry',
+			'chat.actions.retryWithModel' => 'Retry with another model',
+			'chat.actions.retryBusy' => 'Wait for the current reply to finish',
+			'chat.actions.editResend' => 'Edit and resend',
+			'chat.actions.editResendSubmit' => 'Resend',
+			'chat.actions.versionPrev' => 'Previous version',
+			'chat.actions.versionNext' => 'Next version',
+			'chat.actions.versionBasedOn' => ({required Object n}) => 'the thread continued from version ${n}',
 			'chat.actions.queueHead' => ({required Object n}) => '${n} waiting to send',
 			'chat.actions.queueEdit' => 'Edit this queued message',
 			'chat.actions.queueRemove' => 'Remove from queue',
@@ -7640,6 +7668,8 @@ extension on Translations {
 			'ref.agent' => 'Agent',
 			'ref.document' => 'Document',
 			'ref.conversation' => 'Conversation',
+			_ => null,
+		} ?? switch (path) {
 			'ref.skill' => 'Skill',
 			'ref.mcp' => 'MCP',
 			'ref.trigger' => 'Trigger',
@@ -7647,8 +7677,6 @@ extension on Translations {
 			'ref.approval' => 'Approval',
 			'graph.kind.trigger' => 'Trigger',
 			'graph.kind.action' => 'Action',
-			_ => null,
-		} ?? switch (path) {
 			'graph.kind.agent' => 'Agent',
 			'graph.kind.control' => 'Branch',
 			'graph.kind.approval' => 'Approval',
@@ -8154,6 +8182,8 @@ extension on Translations {
 			'settings.themeSystem' => 'System',
 			'settings.themeDesc' => 'System follows the macOS appearance',
 			'settings.zoom' => 'UI zoom',
+			_ => null,
+		} ?? switch (path) {
 			'settings.zoomDesc' => 'Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0',
 			'settings.fonts' => 'Fonts',
 			'settings.fontUi' => 'Interface font',
@@ -8161,8 +8191,6 @@ extension on Translations {
 			'settings.fontContent' => 'Content font',
 			'settings.fontContentDesc' => 'Chat message text and the document body only. Serif = Source Han Serif (Latin + 简体中文). Applies instantly.',
 			'settings.fontCode' => 'Code font',
-			_ => null,
-		} ?? switch (path) {
 			'settings.fontCodeDesc' => 'Every monospace surface — code blocks, terminals, diffs, ids. Applies after a restart.',
 			'settings.fontBundled' => 'Bundled',
 			'settings.fontSystem' => 'System',

@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/messages/block_content.dart';
+import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/chat/model/conversation_transcript.dart';
@@ -678,6 +679,143 @@ void main() {
 
         t.applyFrame(_close('sub1'));
         expect(identical(t.subagentBlocks, first), isFalse);
+      },
+    );
+  });
+  // ── version groups (WRK-077 CH-c) 版本组 ──
+
+  group('version groups', () {
+    // The list the transcript renders is a list of GROUPS, so this is the function that decides whether a
+    // retried round reads as one turn with a pager or as the same question answered twice.
+    // transcript 渲的是一个**组**的列表,故这个函数决定了一个被重试过的回合读起来是「一个回合 + 翻页」还是「同一个问题
+    // 被答了两遍」。
+    List<BlockNode> nodes(List<ChatMessage> rows) => [
+      for (final m in rows) ConversationTranscript.hydrateTurn(m),
+    ];
+
+    test('a thread nobody retried is one group per turn, in order', () {
+      final groups = ConversationTranscript.groupVersions(
+        nodes([
+          _turn('m1', 'user', blocks: [_blk('b1', 'text', 'ask')]),
+          _turn('m2', 'assistant', blocks: [_blk('b2', 'text', 'reply')]),
+        ]),
+      );
+      expect(groups.length, 2);
+      expect(groups.every((g) => g.count == 1), isTrue);
+      expect(groups.first.root.id, 'm1');
+      expect(groups.last.current.id, 'm2');
+    });
+
+    test('a retry chain collapses into ONE group, oldest → newest', () {
+      final groups = ConversationTranscript.groupVersions(
+        nodes([
+          _turn('m1', 'user', blocks: [_blk('b1', 'text', 'ask')]),
+          _turn('m2', 'assistant', blocks: [_blk('b2', 'text', 'v1')]),
+          _turn(
+            'm3',
+            'assistant',
+            attrs: const {'retryOf': 'm2'},
+            blocks: [_blk('b3', 'text', 'v2')],
+          ),
+          _turn(
+            'm4',
+            'assistant',
+            attrs: const {'retryOf': 'm3'},
+            blocks: [_blk('b4', 'text', 'v3')],
+          ),
+        ]),
+      );
+      expect(groups.length, 2, reason: 'the question + ONE answer group');
+      final answers = groups.last;
+      expect(answers.versions.map((n) => n.id), ['m2', 'm3', 'm4']);
+      expect(answers.root.id, 'm2');
+      expect(
+        answers.current.id,
+        'm4',
+        reason: 'the last link is what the thread continued from',
+      );
+      expect(answers.at(99).id, 'm4', reason: 'a stale index clamps');
+      expect(answers.at(-1).id, 'm2');
+    });
+
+    test(
+      'an edit-resend groups the QUESTION too, and the two groups stay separate',
+      () {
+        final groups = ConversationTranscript.groupVersions(
+          nodes([
+            _turn('m1', 'user', blocks: [_blk('b1', 'text', 'old ask')]),
+            _turn('m2', 'assistant', blocks: [_blk('b2', 'text', 'old reply')]),
+            _turn(
+              'm3',
+              'user',
+              attrs: const {'retryOf': 'm1'},
+              blocks: [_blk('b3', 'text', 'new ask')],
+            ),
+            _turn(
+              'm4',
+              'assistant',
+              attrs: const {'retryOf': 'm2'},
+              blocks: [_blk('b4', 'text', 'new reply')],
+            ),
+          ]),
+        );
+        // Two groups of two, each at its ROOT's position — so the question still comes before the answer, and a
+        // resend does not shove the round to the bottom of the transcript.
+        // 两个各含两版的组,各自在其**根**的位置——故问句仍在回答之前,重发不会把这一轮推到 transcript 底部。
+        expect(groups.length, 2);
+        expect(groups.first.versions.map((n) => n.id), ['m1', 'm3']);
+        expect(groups.last.versions.map((n) => n.id), ['m2', 'm4']);
+      },
+    );
+
+    test('a version whose predecessor is not loaded becomes its own root', () {
+      // The paged reality: a `?around=` window can hold v2 without v1. Grouping must describe what IS loaded
+      // (a group of one) rather than drop the row or dangle at a node it does not have.
+      // 分页的现实:一扇 `?around=` 窗可能有 v2 而没有 v1。分组必须描述**已加载的东西**(一个单成员组),而不是丢掉这行
+      // 或悬空指向一个它没有的节点。
+      final groups = ConversationTranscript.groupVersions(
+        nodes([
+          _turn(
+            'm3',
+            'assistant',
+            attrs: const {'retryOf': 'm2'},
+            blocks: [_blk('b3', 'text', 'v2')],
+          ),
+        ]),
+      );
+      expect(groups.length, 1);
+      expect(groups.single.count, 1);
+      expect(groups.single.current.id, 'm3');
+    });
+
+    test(
+      'every input turn appears in exactly one group, even with a pointer cycle',
+      () {
+        // The backend cannot mint a cycle; a corrupted/garbage attrs pair could. Terminating on the visited set
+        // matters because the alternative is an infinite walk inside a build.
+        // 后端造不出环;一对损坏/垃圾 attrs 可能。在 visited 集上终止之所以重要,是因为另一种结果是 build 里的无限走查。
+        final rows = nodes([
+          _turn(
+            'm1',
+            'assistant',
+            attrs: const {'retryOf': 'm2'},
+            blocks: [_blk('b1', 'text', 'a')],
+          ),
+          _turn(
+            'm2',
+            'assistant',
+            attrs: const {'retryOf': 'm1'},
+            blocks: [_blk('b2', 'text', 'b')],
+          ),
+        ]);
+        final groups = ConversationTranscript.groupVersions(rows);
+        final seen = <String>{};
+        for (final g in groups) {
+          for (final v in g.versions) {
+            expect(seen.add(v.id), isTrue, reason: 'no turn is rendered twice');
+          }
+        }
+        expect(seen, {'m1', 'm2'});
       },
     );
   });

@@ -19,12 +19,19 @@ import (
 // （带回合终态元数据 + token 记账）。loop 发 block 词表；chat 发这一个 message 级类型。
 const nodeTypeMessage = "message"
 
-// messageOpenContent rides message_start: just the role, so the front end can render the right
-// bubble before any block streams in.
+// messageOpenContent rides message_start: the role, so the front end can render the right bubble
+// before any block streams in, plus RetryOf when this turn is a new VERSION of an earlier one
+// (WRK-077 CH-c). The pointer travels on the existing message node's content — no new frame type, no
+// new stream (E1/E2) — because a client that did NOT initiate the retry has no other way to learn that
+// the arriving turn replaces one already on screen rather than following it.
 //
-// messageOpenContent 随 message_start：只带 role，使前端在任何 block 流入前就能渲对的气泡。
+// messageOpenContent 随 message_start：带 role，使前端在任何 block 流入前就能渲对的气泡；当本回合是更早
+// 某回合的**新版本**时另带 RetryOf（WRK-077 CH-c）。指针搭在**既有** message 节点的 content 上——不加新帧
+// 型、不加新流（E1/E2）——因为一个**不是**发起方的客户端没有别的办法知道：正在到来的这个回合是**取代**屏幕
+// 上已有的那一条、而不是接在它后面。
 type messageOpenContent struct {
-	Role string `json:"role"`
+	Role    string `json:"role"`
+	RetryOf string `json:"retryOf,omitempty"`
 }
 
 // messageUserContent is the user turn's close snapshot — the echoed text (+ attachment ids) the
@@ -35,6 +42,7 @@ type messageUserContent struct {
 	Role          string   `json:"role"`
 	Content       string   `json:"content"`
 	AttachmentIDs []string `json:"attachmentIds,omitempty"`
+	RetryOf       string   `json:"retryOf,omitempty"` // 编辑重发：本句取代的那条 user 回合（见 messageOpenContent）
 }
 
 // messageStopContent is the assistant turn's close snapshot: terminal status + stop reason +
@@ -65,21 +73,37 @@ func (s *Service) emitUserMessage(ctx context.Context, conversationID string, m 
 	s.publishFrame(ctx, conversationID, m.ID, streamdomain.Close{
 		Status: messagesdomain.StatusCompleted,
 		Result: &streamdomain.Node{
-			Type:    nodeTypeMessage,
-			Content: streamdomain.JSONContent(messageUserContent{Role: messagesdomain.RoleUser, Content: text, AttachmentIDs: attachmentIDsOf(m)}),
+			Type: nodeTypeMessage,
+			Content: streamdomain.JSONContent(messageUserContent{
+				Role: messagesdomain.RoleUser, Content: text,
+				AttachmentIDs: attachmentIDsOf(m), RetryOf: retryOfOf(m),
+			}),
 		},
 	})
 }
 
 // emitMessageStart opens the assistant turn's message node; loop then nests its block nodes
-// under msgID (their Open.ParentID = msgID).
+// under the message id (their Open.ParentID = that id). It takes the whole row rather than the id so
+// the version pointer has exactly one home — Attrs — read the same way here and by the REST projection.
 //
-// emitMessageStart 开 assistant 回合的 message 节点；loop 随后把 block 节点嵌在 msgID 下
-// （其 Open.ParentID = msgID）。
-func (s *Service) emitMessageStart(ctx context.Context, conversationID, msgID string) {
-	s.publishFrame(ctx, conversationID, msgID, streamdomain.Open{
-		Node: streamdomain.Node{Type: nodeTypeMessage, Content: streamdomain.JSONContent(messageOpenContent{Role: messagesdomain.RoleAssistant})},
+// emitMessageStart 开 assistant 回合的 message 节点；loop 随后把 block 节点嵌在该 id 下（其
+// Open.ParentID = 该 id）。它收整行而非 id，使版本指针只有一个家——Attrs——此处与 REST 投影同款读法。
+func (s *Service) emitMessageStart(ctx context.Context, conversationID string, m *messagesdomain.Message) {
+	s.publishFrame(ctx, conversationID, m.ID, streamdomain.Open{
+		Node: streamdomain.Node{Type: nodeTypeMessage, Content: streamdomain.JSONContent(
+			messageOpenContent{Role: messagesdomain.RoleAssistant, RetryOf: retryOfOf(m)})},
 	})
+}
+
+// retryOfOf reads the version pointer Retry snapshotted into Message.Attrs. Attrs survives a JSON
+// round-trip through the store, so the value is a plain string either way; a missing key (every
+// ordinary turn) is "".
+//
+// retryOfOf 读 Retry 快照进 Message.Attrs 的版本指针。Attrs 经 store 走一趟 JSON 往返，两种情形下值都是
+// 纯字符串；键缺失（所有普通回合）即 ""。
+func retryOfOf(m *messagesdomain.Message) string {
+	s, _ := m.Attrs[messagesdomain.AttrRetryOf].(string)
+	return s
 }
 
 // emitMessageStop closes the assistant turn's message node with its terminal metadata — the

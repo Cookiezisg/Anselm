@@ -415,7 +415,7 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 	if err := s.messages.CreateMessage(ctx, asstMsg, nil); err != nil {
 		return "", err
 	}
-	s.emitMessageStart(ctx, conversationID, asstMsg.ID)
+	s.emitMessageStart(ctx, conversationID, asstMsg)
 
 	// Enqueue: carries the per-run identity the detached queue goroutine needs (the Send ctx is
 	// gone by the time the turn runs).
@@ -456,6 +456,18 @@ type task struct {
 	// activateSkills 把被 @ 的 skill 名从 Send 带到运行 goroutine，在 loop 跑前于队列 agent state
 	// 上预授权其 allowed-tools（Send ctx 无 agent state；内容已冻结进 user 回合的 mentions）。
 	activateSkills []string
+	// modelOverride is a Retry's optional per-turn model choice ("answer that again with a different
+	// model"). Nil = resolve the conversation's own override, which is every ordinary turn. It rides the
+	// task rather than the conversation head because it governs ONE answer, not the thread's setting.
+	// modelOverride 是 Retry 可选的**逐回合**模型选择（「用别的模型再答一遍」）。nil = 解析对话自己的
+	// override，也就是所有普通回合。它走 task 而非对话头，因为它统辖**一个回答**、不是线程设置。
+	modelOverride *modeldomain.ModelRef
+	// retryOf is the id of the turn this generation is a new version of (Retry) — re-seeded onto the
+	// host's assistant message so WriteFinalize's wholesale Attrs write cannot drop the pointer that
+	// the front end groups versions by. "" for an ordinary Send.
+	// retryOf 是本次生成所替换的那个回合 id（Retry）——它被重新种到 host 的 assistant message 上，使
+	// WriteFinalize 对 Attrs 的整体重写不会丢掉前端组版本组所依据的那个指针。普通 Send 为 ""。
+	retryOf string
 }
 
 // convQueue serializes one conversation's generations: a single goroutine drains a small buffered

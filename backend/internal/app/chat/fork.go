@@ -63,10 +63,20 @@ func (s *Service) Fork(ctx context.Context, conversationID, atMessageID string) 
 	// 在首次插入**之前**铸出每个被复制 block 的新 id：parent_block_id 可能指向**更早**消息里的 block
 	// （subagent 回合挂在其父回合的 tool_call block 上），故整张 remap 表必须在任何行落地前就存在。
 	// 计划新 seq 随同一次走查得出——insertBlocks 按重放顺序连续发 seq，故这个计数**就是**该 block 将得的 seq。
+	// The MESSAGE ids are pre-minted in the same walk, for the same reason: a retried turn's rows point
+	// at each other (superseded_by forward, attrs.retryOf back), so a copy that kept the SOURCE's ids
+	// would leave the fork's version chain pointing into the source thread — and, worse, would reset
+	// every copied superseded_by to '' and hand the model TWO versions of the same turn.
+	//
+	// **message id 也在同一次走查里预铸**，理由相同：一个被重试过的回合，它的行彼此**互指**（superseded_by
+	// 向前、attrs.retryOf 向后），故一份保留**源** id 的复制会让分叉的版本链指进源线程——更糟的是，会把每条
+	// 被复制行的 superseded_by 重置成 ''，于是模型拿到同一回合的**两个**版本。
+	newMsgID := make(map[string]string, len(prefix))
 	newBlockID := make(map[string]string)
 	newBlockSeq := make(map[string]int64)
 	var plannedSeq int64
 	for _, m := range prefix {
+		newMsgID[m.ID] = idgenpkg.New("msg")
 		for _, b := range m.Blocks {
 			newBlockID[b.ID] = idgenpkg.New("blk")
 			plannedSeq++
@@ -92,7 +102,7 @@ func (s *Service) Fork(ctx context.Context, conversationID, atMessageID string) 
 	lastMsgID := ""
 	for _, m := range prefix {
 		row := &messagesdomain.Message{
-			ID:             idgenpkg.New("msg"),
+			ID:             newMsgID[m.ID],
 			ConversationID: fork.ID,
 			SubagentID:     m.SubagentID,
 			Role:           m.Role,
@@ -104,10 +114,18 @@ func (s *Service) Fork(ctx context.Context, conversationID, atMessageID string) 
 			OutputTokens:   m.OutputTokens,
 			Provider:       m.Provider,
 			ModelID:        m.ModelID,
-			// Attrs rides verbatim: the attachment / mention snapshots inside it are ids and frozen
-			// content, both of which the fork legitimately shares with the source.
-			// Attrs 逐字带走：里面的附件 / 提及快照是 id 与冻结内容，两者分叉与源都可正当共享。
-			Attrs: m.Attrs,
+			// Attrs rides verbatim EXCEPT the version pointer, which is remapped (see forkAttrs): the
+			// attachment / mention snapshots inside it are ids and frozen content, both of which the fork
+			// legitimately shares with the source.
+			// Attrs 逐字带走、**除**版本指针（见 forkAttrs，它被 remap）：里面的附件 / 提及快照是 id 与冻结
+			// 内容，两者分叉与源都可正当共享。
+			Attrs: forkAttrs(m.Attrs, newMsgID),
+			// The version pointer follows the copy: a superseding row cut AWAY by the prefix window leaves
+			// the zero value, which is exactly right — inside the fork, with no newer version present, this
+			// row IS the current one.
+			// 版本指针随复制走：被前缀窗**切掉**的那个取代者留下零值，而这恰好正确——在分叉里，既然更新的版本
+			// 根本不在，这一行**就是**现行版。
+			SupersededBy: newMsgID[m.SupersededBy],
 		}
 		blocks := make([]messagesdomain.Block, 0, len(m.Blocks))
 		for _, b := range m.Blocks {
@@ -145,6 +163,38 @@ func (s *Service) Fork(ctx context.Context, conversationID, atMessageID string) 
 		s.notifySearchMessage(ctx, fork.ID, lastMsgID)
 	}
 	return fork, nil
+}
+
+// forkAttrs copies one row's Attrs with the version pointer re-based onto the fork's own message ids.
+// Every other key (attachment ids, frozen @-mention snapshots, contextUsage) rides verbatim, so the map
+// is only cloned when there is actually a pointer to rewrite — an ordinary turn keeps sharing the
+// loaded map, which is safe because nothing mutates it.
+//
+// A retryOf whose target fell outside the prefix window is DROPPED rather than left dangling: the front
+// end groups versions by that chain, and a pointer to a row the fork does not contain would make this
+// version the root of a group of one — which is the truth about it inside the fork.
+//
+// forkAttrs 复制一行的 Attrs，并把版本指针重定基到分叉自己的 message id 上。其余每个键（附件 id、冻结的 @ 提及
+// 快照、contextUsage）逐字带走，故只有**真有指针要改写**时才克隆这个 map——普通回合继续共享加载来的那份，这是
+// 安全的，因为没有任何东西改它。
+//
+// 目标落在前缀窗之外的 retryOf 被**丢弃**、而非留成悬空指针：前端按那条链组版本组，而一个指向分叉根本没有的行的
+// 指针会让这个版本成为**只有一个成员的组的根**——那在分叉里正是关于它的事实。
+func forkAttrs(attrs map[string]any, newMsgID map[string]string) map[string]any {
+	old, ok := attrs[messagesdomain.AttrRetryOf].(string)
+	if !ok || old == "" {
+		return attrs
+	}
+	out := make(map[string]any, len(attrs))
+	for k, v := range attrs {
+		out[k] = v
+	}
+	if mapped := newMsgID[old]; mapped != "" {
+		out[messagesdomain.AttrRetryOf] = mapped
+	} else {
+		delete(out, messagesdomain.AttrRetryOf)
+	}
+	return out
 }
 
 // forkPrefix cuts the thread at atMessageID INCLUSIVE (empty = the whole thread, i.e. fork at the

@@ -60,9 +60,9 @@ audience: [human, ai]
 |---|---|---|
 | `conversations.work_dir` 列 | TEXT,空=未挂;PATCH 面(与 title/model_override 同径);DTO 进前端契约 | D 系列登记 database.md;N3 wire `workDir` |
 | `conversations.forked_from_conversation_id` / `forked_from_message_id` 列 | 血缘;fork 时另发一条 relation 边(fork→源)喂关系图 | D 系列登记 |
-| `messages.superseded_by` 列 | 空=现行版;retry/编辑重发时旧行写新 msg id。LLM 装配过滤 `superseded_by=''`;REST 三读形态**返全部**(前端翻页需要旧版),新版消息 attrs 带 `retryOf` 供前端组版本组。指针实现允许施工时微调,**语义不变:零删除、旧版永可读** | D 系列登记;非逻辑删除(行仍返、UI 可翻看),合 D1 |
+| ~~`messages.superseded_by` 列~~ **已落地 0725**(记录见下 CH-c) | 空=现行版;retry/编辑重发时旧行写新 msg id。LLM 装配过滤 `superseded_by=''`;REST 三读形态**返全部**(前端翻页需要旧版),新版消息 attrs 带 `retryOf` 供前端组版本组。指针实现允许施工时微调,**语义不变:零删除、旧版永可读** | D 系列登记;非逻辑删除(行仍返、UI 可翻看),合 D1 |
 | ~~`POST /conversations/{id}:fork {atMessageId}`~~ **已落地 0725,两处偏离草案见下** | 前缀复制(**含** atMessageId):对话头(system_prompt/attached_documents/model_override/work_dir)+ 前缀窗内全部消息行(含 subagent 行,LLM 装配自然排除)+ blocks(seq 从 1 重排、parent remap、context_role 重置);summary:at 点在水位后 → summary+水位同抄,at 点在水位前 → 不带 summary、水位 0(summary 概括了超出前缀的内容,带走即撒谎);标题「原标题 (fork)」+ auto_titled=false;返 201 新 Conversation。**user 消息「分叉预填」变体是前端糖**:对 user 消息分叉 = 后端 fork 至它的前一条,前端把原句填进新对话 composer | N5 动作后缀;api.md + domains/conversation.md;testend |
-| `POST /conversations/{id}:retry {content?, modelOverride?}` | 仅当末回合已终态,否则 409。无 `content` = 重生成:supersede 末 assistant,入队重跑(不写新 user 回合);有 `content` = 编辑重发:supersede 末 user+assistant 两条,落新 user 回合(保留原附件引用)+ 新 assistant 回合。SSE 走既有帧型(新回合正常 open/delta/close,message attrs 带 `retryOf`),**不加新流不加新帧型**(E1/E2) | N5;api.md;testend |
+| ~~`POST /conversations/{id}:retry {content?, modelOverride?}`~~ **已落地 0725**(记录见下 CH-c) | 仅当末回合已终态,否则 409。无 `content` = 重生成:supersede 末 assistant,入队重跑(不写新 user 回合);有 `content` = 编辑重发:supersede 末 user+assistant 两条,落新 user 回合(保留原附件引用)+ 新 assistant 回合。SSE 走既有帧型(新回合正常 open/delta/close,message attrs 带 `retryOf`),**不加新流不加新帧型**(E1/E2) | N5;api.md;testend |
 | `GET /conversations/{id}/workdir` | `{path, exists, isGitRepo, branch, dirty}`(WD2 加 `branches[]`,WD3 加 `worktrees[]`);现算派生投影,无游标(N4 有界投影同类) | api.md;N4 登记 |
 | block 型 `marker` | CHECK 封闭集加一型(六→七):行内标记块,attrs `{kind:'workdir', from, to}`——驻地中途切换落一条 durable 标记,翻旧对话不迷路(现有 compaction 低语同类呈现)。将来可复用其他 kind | D 系列 CHECK 立法;events.md node.type 不变(marker 随消息读取,不新增 SSE 帧型,施工时核对呈现路径) |
 | 系统提示注入 | 挂驻地的对话,每轮系统提示带「工作目录 X · 分支 Y」;subagent 继承(`subagent.go:181` fresh AgentState 处播种) | domains/chat.md |
@@ -90,6 +90,42 @@ audience: [human, ai]
 **user 预填变体**:切点在**点击时**据活回合列表求得(不作 prop 传——落定行按 id 记忆化,prop 会冻结在首次构建那刻,深跳窗前追加历史会让它过期);原句经**既有** `ChatDrafts` 接缝写进**新**线程的草稿键,`ChatComposer.initState` 抵达时读走。前面什么都没有的 user 回合 → 导航 landing + 写 landing 草稿键(什么都没说过的线程**就是** landing,铸一个空孪生是更差的答案)。
 
 **一处主动修正**:血缘行原想复用 `conversationHeaderProvider(srcId)`,但它无 `retry:` 覆盖 → 源被删后会指数退避**永远轮询 404**。改用吞错返 null、永不重试的 `forkSourceProvider`——分叉刻意活得比父长,「读不到源」是正常稳态。
+
+
+**CH-c 施工记录(0725,施工序⑧ 后半)——契约逐字落地,四处裁决入档:**
+
+**后端**:新列 `messages.superseded_by`(`ALTER TABLE … ADD COLUMN`、不并进 `CREATE`,照 conversations 分叉血缘两列的先例;**刻意无索引**——唯一读它的谓词搭在既有 `conversation_id` 扫描上、结果集就是一条线程)。装配过滤是 `store/messages/messages.go` 的 `LoadThreadForLLM` 里 `WhereEq("subagent_id","")` **紧接的下一行** `WhereEq("superseded_by","")`——正是工单点名的「第三个同族条件」。唯一写者 `MarkSuperseded` = 单列部分 `Updates`,不碰 content/status/created_at。`:retry` 两分支在 `app/chat/retry.go`;**写序刻意是「先落新行、后 supersede 旧行」**(两步之间失败留下一个**看得见的重复问句**、自我修正;反序失败会从模型视图里删掉一次交流、且什么都不留下)。
+
+**409 判定读的是两处状态**,因为它们答两个不同问题:内存 `IsGenerating()`(此刻是否有回合在跑或在排队槽里)+ **`LoadThread` 末行的 `Status`** 是否属三终态(硬崩溃留下的 `pending`/`streaming` 行不是可叠着重试的东西)。两者都弹既有 `STREAM_IN_PROGRESS`——**本批零新错误码**(一条非终态的尾巴**就是**一个仍在跑的回合;无回合可重试复用 `MESSAGE_NOT_FOUND`,与 `?around=`/`:fork` 同一身份锚点)。故 `error-codes.md` **未改**(改了会触发门禁的幽灵登记红,同 CH-b)。
+
+**裁决①:`modelOverride` 是逐回合、不回写对话头。** 契约只说「可选 = 换模型重试」。它随 `task` 走、在 `processTask` 里胜过 `conv.ModelOverride`:「用别的模型再答一遍」是对**一个回答**的表态,而改线程默认本就有它自己的 `PATCH`。行的 `provider`/`model_id` 溯源随即记下究竟哪个模型产出了这个版本,故版本翻页无需猜。
+
+**裁决②:编辑重发只带原附件、不带 @ 提及快照。** 契约逐字只点名「保留原附件引用」。提及是冻结的**内容**而非引用,而编辑后的文本完全可能已删掉那个 `@`——带走它等于把消息已经不再说的话喂给模型。retry body 也没有 `mentions` 键(契约是 `{content?, modelOverride?}`),故重新解析同样不在桌面上:**一条编辑过的句子就是不提及任何东西**,直到再走一次 Send。若日后要支持,需给 body 加 `mentions`、与 Send 同源。
+
+**裁决③:装配过滤必须补两处同族点,否则有个单向阀式的洞。** ①**contextmgr 的压缩读**——`LoadThreadForLLM` 把被重试掉的回答挡在历史外,可一旦它被折进 `conversation.summary`,内容就**回流**进此后每一次 prompt,而摘要不是后面某个过滤器能收回的话(顺带让 `protectedFrom` 数真回合、不数版本);②**`buildAnchors` 跳过被取代的回合**——transcript 把旧版折进版本组、只渲一行,给某个版本建锚点要么让节选重复(「你说了两遍」)、要么给出一个跳向屏上不存在的气泡的跳转。`SumTokens`(usage)**刻意不过滤**:那些 token 是真花掉的。
+
+**裁决④:`retryOf` 上 SSE,因为旁观客户端别无他法。** 它搭在**既有** `message` 节点的 content 上(assistant 侧 `messageOpenContent.retryOf` / user 回声侧 `messageUserContent.retryOf`,同一个 `retryOfOf(m)` 从 Attrs 读),**不加新流不加新帧型**(E1/E2)。一个**不是发起方**的客户端没有别的办法知道「正在到来的回合是**取代**屏上已有那条、而不是接在它后面」。
+
+**两个必修的隐蔽点**(不修就静默错):①**`WriteFinalize` 整体重写 Attrs**,故 `retryOf` 必须由 `task.retryOf` 在 `processTask` 重新种到 host 的 message 上;`failTurn` 同理改收整个 `task`——一次模型解析失败的重试若丢了指针,那个失败版本会渲成**多出来的一轮**,而用坏模型重试正是读者最需要翻回去的时刻。②**`Fork` 必须把 message id 也预铸并 remap 两个版本指针**:保留源 id 会让分叉的链指进源线程,而**丢掉** `superseded_by` 更糟——它把每条被复制的行重置成「现行」,于是模型拿到同一个问题的**两个**回答(被前缀窗切掉的取代者留下零值,这恰好正确;目标落窗外的 `retryOf` 丢弃而非悬空)。
+
+**testend 五项**(`scenarios/chat_retry_test.go`,主会话自跑全绿):重生成 · 编辑重发 · 非终态 409(且**拒绝必须真的是拒绝**——零行写入、零 supersede 指针;cancel 后同一重试即被接受)· 版本链(三版在线缆上双向可走,**第二次重试必须接在最新版上**——否则链分叉、「基于哪一版」就有两个答案;顺带断言场次条不给被取代的版本建锚点)· **LLM 装配只看到现行版**(promptdump 取**重试之后**那个回合的请求——重试自己的请求早于它自己的内容、什么都证明不了)。
+
+**前端**:`supersededBy` 进 DTO(线缆忠实镜像),但**组版本走 `attrs.retryOf` 这条向后指针链、刻意不走 `supersededBy`**——一份在自己被 supersede **之前**就加载过的旧版副本,它的 `supersededBy` 在本进程里仍读作空(过期),而向后指针链永不过期。纯模型件 `ConversationTranscript.groupVersions` 把链折成 `TurnVersions`(`current` = 链的**最后一环** = 线程后续所基于的那一版);不变量「**每个输入回合恰好出现在一个组里**」由单测钉住,两处降级(前驱未加载→单成员组、指针成环→终止)刻意。
+
+**三处 UI 落点**:①**重试** = 末条 assistant 回合的动作排,做成 `AnMenu`(首行朴素重试,下面一段「换个模型重试」)——**复用 `chatModelMenu`**、给它加了 `leadingEntries` + `includeAuto` 两个可选参;`includeAuto:false` 是诚实所需:逐回合模型**无法清除**线程 override,缺席意为「用线程的」而非「用 workspace 默认」,带着 Auto 行复用会让它对「点它会发生什么」撒谎。②**编辑重发** = 末条 user 回合,`ChatTurn` 保持挂载、只换它的**子**(`UserTurnContent` ↔ `AnInput(multiline)` + 取消/重发),动作排用 `Offstage(offstage:)` 翻参数而非条件包装。③**版本翻页** `‹ 2/2 ›` 在动作排尾,`versionCount ≤ 1` 时整个不渲(一个版本没有可翻的)。
+
+**「后续基于哪一版」的标记** = 显示的版本**不是链的最后一环**时才出现(看现行版时没有什么要声明、故注记缺席;一往回翻就出现并说明)。它在现行版上**占零宽、而非被条件包装**,故翻页绝不重挂翻页器自身。
+
+**两条必须写明的缓存律**(都是 §3.2 记过的那类冻结陷阱的新面孔):①**版本坐标进缓存键**(`turn.id#2/3`)——`2/3` 是这一行渲染内容的一部分,后续某页带进第 4 个版本时,被缓存的行会永远宣称 `2/3`;②**带尾巴动作的行不进缓存**——末条 **user** 回合已落定、又不是末轮,故它**本会**被缓存,于是「编辑重发」会冻在它身上、继续提议替换一个已不是末轮的回合。而 `tailActionable` 里那个 `!hasInFlight` **承重两次**:它诚实(生成中末回合不是可替换的回合、后端会 409),且它是让末条 user 行在回复流式期间**仍可缓存**的原因——没有它,那行会随每个 delta 重建、破掉 BuildSpy 流式性能不变量(实测:正是这条把该门禁弄红了一次)。
+
+**一处主动降级:重试菜单不打勾、不显当前模型名。** 那要多订一次 `conversationHeaderProvider`——正是 CH-b 查明「无 `retry:` 覆盖、失败的读会指数退避永远轮询」的那个 provider。它换来的只是某个模型名旁边一个勾;而菜单首行本就写着「重试」、意为「用这条线程现有的设置」,两种情形下都诚实。
+
+**一条既有测试的改动**:`chat_transcript_test` 的两个宿主加 `modelCapabilitiesProvider` override(新增 `_caps` 常量两项)。理由:动作排现在真的读能力目录,不 override 就打到真 api client、失败,而 Riverpod 默认退避会在树销毁**之后**留下 pending timer——测试 binding 理应判红。与其余每个挂载模型选择器的套件同法(`chat_head_test`/`chat_composer_test`)。另删 i18n 键 `chat.actions.retryComing`(占位 tooltip「CH-c 批将至」现在会撒谎)。
+
+**新增 i18n 键**(en/zh 各 8):`chat.actions.{retry, retryWithModel, retryBusy, editResend, editResendSubmit, versionPrev, versionNext, versionBasedOn}`。
+
+**已知未做**:跨组联动——若读者先把某条 assistant 回答翻到旧版、**再**编辑重发那条 user 问句,该 assistant 组会在新回答流式期间显示新版(「正在生成的那一版恒是你看到的那一版」这条覆盖律),流完后回到读者放它的地方、并带上「后续基于第 N 版」注记。那不是谎、是读者刻意翻过去的位置,故不加跨组耦合去追。
+
 
 ---
 
@@ -133,7 +169,9 @@ audience: [human, ai]
 
 **测试八条**,含一条真端到端(点复制 → 断言**真正落到剪贴板**的文本)与一条**揭示前后同一个 element**(靠不透明度、不靠条件子树——后者会重挂动作排、丢掉「已复制」态,即军规那条)。
 
-**本步剩余:§3.4 排队未做。** 它是独立的一块(composer 状态机 + 队列 chip 行 + `↑` 取回),与动作排零耦合;分开提交而不是攒成一个大提交。open question「排队时按停止清不清队列」仍待定,施工排队时给交互稿定。
+→ **重试(可换模型)· 编辑重发 · 版本翻页已施工(0725,施工序⑧ 后半 / CH-c)。** 形态、三处落点、两条缓存律、「基于哪一版」标记的算法与一处主动降级,全部记在 §2.2 的 CH-c 条。**两处与本表措辞的偏离,如实记档**:①动作排图标序保持既有的 复制 · 分叉 · 编辑重发/重试 · 翻页,**未按本表把重试挪到分叉之前**——CH-a 已发布的形状不为措辞顺序而挪(读者已建立肌肉记忆,而两种顺序都读得通);②本表只给 AI 回复配了翻页,施工时**给 user 组也配了**:编辑重发同样产生版本,不给它翻页,读者的旧句子在 UI 里就彻底不可达,而那与「旧版永可回看」直接冲突。翻页只在真有多个版本时出现,故普通对话上两者形状完全一致。
+
+**动作排一节至此收口:§3.2 全部动作已落地**(复制/分叉 见上,重试/编辑重发/翻页 见 §2.2 CH-c 条);§3.4 排队亦已落地(见该节),open question「排队时按停止清不清队列」已在那里裁定。
 
 ---
 
@@ -166,7 +204,7 @@ composer 生成中收 Enter → 入队;输入框上方队列 chip 行(点开改/
 |---|---|---|---|
 | **CH-a 动作排+复制+排队** | 3.2 骨架(复制/分叉入口占位)+ 3.4 排队 | 零 | 五电池(空/超长/流中/队列极值/注入);排队与 409 的竞态测试 |
 | **CH-b fork 全套** | `:fork` + 消息级/左岛入口 + 血缘行 + (fork) 标题 | `:fork` 端点 + 两列 + relation 边 + testend(前缀窗/seq 重排/嵌套 remap/summary 两分支/附件共享) | fork 深历史对话真机验;分叉预填变体 |
-| **CH-c 重试+编辑重发** | 版本翻页 UI + 重试(换模型)+ 编辑重发 | `:retry` + `superseded_by` + 装配过滤 + testend(重生成/编辑重发/非终态 409/版本链) | 翻页回看旧版;继续聊后基于版标记 |
+| **CH-c 重试+编辑重发** ✅ **0725** | 版本翻页 UI + 重试(换模型)+ 编辑重发 | `:retry` + `superseded_by` + 装配过滤 + testend(重生成/编辑重发/非终态 409/版本链) | 翻页回看旧版;继续聊后基于版标记 |
 | **WD1 驻地地基** | 按钮三态 + 选/切/退 + 最近目录 + 菜单①②段 + git 只读段 + marker 标记 + demo fixture | `work_dir` 列/PATCH + ctx 播种(**翻案两处旧立法注释**)+ 三族工具定根(Bash cmd.Dir/相对路径/越界写强制闸)+ workdir 端点 v1 + 系统提示注入 + subagent 继承 + `marker` 型立法 + testend | 挂/不挂两态行为;越界写弹闸;相对路径工具卡显示 |
 | **WD1.5 rail 驻地分组(CL 批,§5.15)** | chat 左岛四段重组:新对话·搜索 / 置顶 / 驻地组 ×N(组头 ⋯ 批量动作)/ 最近(仅无驻地) | workdir-groups 有界投影 + List `?workDir=` 过滤 + 整组归档/删除两动作 + testend | 分组无漂移;命名防误读(绝不出现「删除目录」);fork/退驻地迁移 |
 | **WD2 git 操作** | 菜单 git 段:切换/新建分支 | workdir 端点加 branches[] + 操作动作(shell out git,不重造) | 脏区切分支的护栏语义 |
@@ -174,7 +212,7 @@ composer 生成中收 Enter → 入队;输入框上方队列 chip 行(点开改/
 
 **建议施工顺序**:**CR-1 → CR-2**(真机崩溃,插队最前,见 §5.5)→ CH-a → CH-b → CH-c → WD1 → WD2 → WD3(待用户最终确认,§6)。
 
-**文档同步面总表**(#9):database.md(四处列/CHECK)· api.md(两 :action + workdir 端点)· domains/{conversation,chat}.md · events.md(marker 呈现路径)· frontend contract.md(DTO)· features/chat.md(动作排/驻地按钮形态)· CLAUDE.md chat 状态节(战役收口整体重述)。
+**文档同步面总表**(#9):database.md(四处列/CHECK)· api.md(**三** :action［`:fork`/`:retry` 已落］+ workdir 端点)· domains/{conversation,chat}.md · events.md(marker 呈现路径)· frontend contract.md(DTO)· features/chat.md(动作排/驻地按钮形态)· CLAUDE.md chat 状态节(战役收口整体重述)。
 
 ---
 
@@ -837,7 +875,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⑤ | ~~RI 右岛四病灶 + 「禁止条件包装」军规+守卫~~ **已完成 0725**(四病灶全落 + 军规入 CLAUDE.md/design-system + 行为式重挂守卫;推翻本节「加重项」判断,做法 #2/#3 各有取舍,见 §5.9) | 主会话 |
 | ⑥ | ~~TS 文本选择~~ **已完成 0725**(红线/拓扑/焦点/光标/chrome 排除/流式互斥六项;必补③并入 CH-a、装饰性元数据留真机后定,见 §5.10) | 主会话(未派——排除清单被拓扑砍掉大半后不值一次简报) |
 | ⑦ | ~~CH-a 动作排+复制+排队~~ **已完成 0725**(动作排+复制见 §3.2 记录;排队见 §3.4 记录,含 open question④ 裁定) | 主会话 |
-| ⑧ | CH-b fork **已完成 0725**(前后端 + testend 五项,两处契约冲突已裁决入档);**CH-c retry 未做**,是本步剩余 | 派 Opus 5 + 主会话复审 |
+| ⑧ | ~~CH-b fork + CH-c retry~~ **已完成 0725**——CH-b(前后端 + testend 五项,两处契约冲突已裁决入档)· CH-c(`superseded_by` + `:retry` 两分支 + 装配过滤三点 + testend 五项 + 前端三入口与版本翻页;四处裁决 + 两处措辞偏离入档,记录见 §2.2 CH-c 条) | 派 Opus 5 + 主会话复审 ✅ |
 | ⑨ | ~~VT 版本页~~ **已完成 0725**(全宽手风琴 + hunk 只显变更 + 真虚拟化;三处偏离工单措辞已入档;降级曲线主会话复跑复现) | 派 Opus 5 ✅ |
 | ⑩ | ~~EA 实体 ⋯ 菜单~~ **已完成 0725**(七 kind 菜单 + 6 个 repository 封装;**纠正本节四处**〔restart 早已封装 / iterate 非无参 / 立即运行须导航〔唯一执行点立法〕/ 调试台=右岛而非 tab〕+ 查实删除无引用守卫,见 §5.12) | 派 Sonnet 5 ✅ |
 | ⑪ | ~~SK 密钥分栏~~ **已完成 0725**(派 Sonnet 5 建、主会话逐行复审并改了一处 + 跑门禁;记录见 §5.6) | 派 Sonnet 5 ✅ |

@@ -294,3 +294,142 @@ func TestFork_MessagelessSourceCopiesHeadOnly(t *testing.T) {
 		t.Errorf("want zero copied rows, got %d", len(got))
 	}
 }
+
+// retriedFixture seeds one thread whose last round has been retried once — two assistant rows pointing
+// at each other (superseded_by forward, attrs.retryOf back) over the REAL store, because both pointers
+// are physical columns/JSON a fake repo would not police.
+//
+//	msg_u1  user      "one question"
+//	msg_a1  assistant "FIRST ANSWER"   superseded_by = msg_a2
+//	msg_a2  assistant "SECOND ANSWER"  attrs.retryOf = msg_a1   ← current
+//
+// retriedFixture 在**真** store 上播一条末回合被重试过一次的线程——两条互指的 assistant 行（superseded_by 向前、
+// attrs.retryOf 向后），因为这两个指针都是 fake repo 管不住的物理列 / JSON。形状见上。
+func retriedFixture(t *testing.T) (*Service, messagesdomain.Repository) {
+	t.Helper()
+	sqlDB, err := sql.Open("sqlite", ":memory:")
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	sqlDB.SetMaxOpenConns(1)
+	t.Cleanup(func() { _ = sqlDB.Close() })
+	for _, stmt := range messagesstore.Schema {
+		if _, err := sqlDB.Exec(stmt); err != nil {
+			t.Fatalf("schema: %v", err)
+		}
+	}
+	store := messagesstore.New(ormpkg.Open(sqlDB))
+	svc := NewService(store, Deps{Conversations: fakeConvs{
+		conv: &conversationdomain.Conversation{ID: "cv_src", Title: "Retried"}, fork: &forkRec{},
+	}}, zap.NewNop())
+	ctx := ctxWS("ws_1")
+
+	seed := func(m *messagesdomain.Message, text string) {
+		t.Helper()
+		m.ConversationID, m.Status = "cv_src", messagesdomain.StatusCompleted
+		if err := store.CreateMessage(ctx, m, []messagesdomain.Block{
+			{Type: messagesdomain.BlockTypeText, Content: text},
+		}); err != nil {
+			t.Fatalf("seed %s: %v", m.ID, err)
+		}
+	}
+	seed(&messagesdomain.Message{ID: "msg_u1", Role: messagesdomain.RoleUser}, "one question")
+	seed(&messagesdomain.Message{ID: "msg_a1", Role: messagesdomain.RoleAssistant}, "FIRST ANSWER")
+	seed(&messagesdomain.Message{ID: "msg_a2", Role: messagesdomain.RoleAssistant,
+		Attrs: map[string]any{messagesdomain.AttrRetryOf: "msg_a1"}}, "SECOND ANSWER")
+	if err := store.MarkSuperseded(ctx, "msg_a1", "msg_a2"); err != nil {
+		t.Fatalf("supersede: %v", err)
+	}
+	return svc, store
+}
+
+// TestFork_VersionChainRebasedIntoTheFork is the CH-b × CH-c interaction, and the one a naive copy gets
+// silently wrong. A copy that kept the SOURCE's message ids would leave the fork's version chain pointing
+// into the source thread; worse, dropping superseded_by would reset every copied version to "current" and
+// hand the model BOTH answers to the same question. The fork must re-base the two pointers exactly as it
+// re-bases parent_block_id.
+//
+// TestFork_VersionChainRebasedIntoTheFork 是 CH-b × CH-c 的交汇处，也是朴素复制会**静默**做错的那一处。保留**源**
+// message id 的复制会让分叉的版本链指进源线程；更糟的是，丢掉 superseded_by 会把每个被复制的版本重置成「现行」，
+// 于是模型拿到同一个问题的**两个**回答。分叉必须像它重排 parent_block_id 一样精确地重排这两个指针。
+func TestFork_VersionChainRebasedIntoTheFork(t *testing.T) {
+	svc, store := retriedFixture(t)
+	ctx := ctxWS("ws_1")
+
+	fork, err := svc.Fork(ctx, "cv_src", "")
+	if err != nil {
+		t.Fatalf("fork: %v", err)
+	}
+	copied := forkThread(t, store, fork.ID)
+	if len(copied) != 3 {
+		t.Fatalf("every version travels (the fork copies the durable truth), got %d rows", len(copied))
+	}
+	byText := map[string]*messagesdomain.Message{}
+	for _, m := range copied {
+		if len(m.Blocks) > 0 {
+			byText[m.Blocks[0].Content] = m
+		}
+	}
+	older, newer := byText["FIRST ANSWER"], byText["SECOND ANSWER"]
+	if older == nil || newer == nil {
+		t.Fatalf("both versions must be copied, got %+v", byText)
+	}
+	if older.SupersededBy != newer.ID {
+		t.Errorf("copied supersededBy = %q, want the fork's own newer row %q", older.SupersededBy, newer.ID)
+	}
+	if got := retryOfOf(newer); got != older.ID {
+		t.Errorf("copied attrs.retryOf = %q, want the fork's own older row %q", got, older.ID)
+	}
+	// The consequence that matters: the fork feeds the model ONE answer.
+	llm, err := store.LoadThreadForLLM(ctx, fork.ID, 0)
+	if err != nil {
+		t.Fatalf("LoadThreadForLLM: %v", err)
+	}
+	if len(llm) != 2 {
+		t.Fatalf("the fork's LLM view must be one question + one answer, got %d rows", len(llm))
+	}
+	for _, m := range llm {
+		for _, b := range m.Blocks {
+			if b.Content == "FIRST ANSWER" {
+				t.Fatal("the fork fed the model a superseded version")
+			}
+		}
+	}
+}
+
+// TestFork_CutAtAnOlderVersionLeavesItCurrent: a cut that lands ON the older version leaves the newer one
+// outside the prefix window. Inside that fork the older row is the ONLY version of the round, so its
+// forward pointer must be EMPTY — not a dangling id, and not a pointer that hides the fork's only answer
+// from its own model.
+//
+// TestFork_CutAtAnOlderVersionLeavesItCurrent：切点落在**旧版**上时，新版落在前缀窗外。在那份分叉里旧行是该回合
+// **唯一**的版本，故它的前向指针必须**为空**——不是一个悬空 id，也不是一个把分叉唯一的回答藏起来不给它自己的模型看
+// 的指针。
+func TestFork_CutAtAnOlderVersionLeavesItCurrent(t *testing.T) {
+	svc, store := retriedFixture(t)
+	ctx := ctxWS("ws_1")
+
+	fork, err := svc.Fork(ctx, "cv_src", "msg_a1")
+	if err != nil {
+		t.Fatalf("fork at the older version: %v", err)
+	}
+	copied := forkThread(t, store, fork.ID)
+	if len(copied) != 2 {
+		t.Fatalf("the prefix stops at the cut, got %d rows", len(copied))
+	}
+	for _, m := range copied {
+		if m.SupersededBy != "" {
+			t.Errorf("a superseding row cut away by the prefix must leave an EMPTY pointer, got %q", m.SupersededBy)
+		}
+		if got := retryOfOf(m); got != "" {
+			t.Errorf("a retryOf whose target is outside the window must be dropped, got %q", got)
+		}
+	}
+	llm, err := store.LoadThreadForLLM(ctx, fork.ID, 0)
+	if err != nil {
+		t.Fatalf("LoadThreadForLLM: %v", err)
+	}
+	if len(llm) != 2 {
+		t.Fatalf("the fork must feed the model its own only round, got %d rows", len(llm))
+	}
+}

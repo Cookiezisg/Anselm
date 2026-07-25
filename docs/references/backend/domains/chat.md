@@ -24,7 +24,7 @@ audience: [human, ai]
 ## 3. 回合生命周期
 
 `chatHost` 实现 loop.Host（agentHost 的持久化对应物）：
-- **LoadHistory**：经 `LoadThreadForLLM(convID, 水位)` **读最小化载入**——subagent 子消息排除（`subagent_id = ''`，内部 trace 不进父历史）+ 压缩已折叠块过滤（`seq > 水位`，即 seq ≤ `summaryCoversUpToSeq` 的块已并入 conversation.summary、从不读盘）**双双下推 SQL**，故长单对话会话不再每轮从盘重读整张含折叠的 block 表。水位是折叠的权威信号（`archived` 是其 best-effort 冗余标记、恒 seq ≤ 水位；水位恒落回合边界），故 LLM 可见集与"整 LoadThread + 读后 Go 过滤"逐字相同——读后的 Go 过滤（subagent 跳过、`unfolded`、空回合跳过）留作双保险、对已过滤集是 no-op。summary 前置；user 回合按模型能力渲染多模态附件。（`LoadThread`——全内容——仍服务 UI reload / 自动标题 / 压缩 / subagent 轨迹读。）
+- **LoadHistory**：经 `LoadThreadForLLM(convID, 水位)` **读最小化载入**——**同族三个排除全部下推 SQL**：subagent 子消息（`subagent_id = ''`，内部 trace 不进父历史）+ **被取代的版本**（`superseded_by = ''`，重试/编辑重发的早期版本，见 §3.5）+ 压缩已折叠块（`seq > 水位`，即 seq ≤ `summaryCoversUpToSeq` 的块已并入 conversation.summary、从不读盘），故长单对话会话不再每轮从盘重读整张含折叠的 block 表。水位是折叠的权威信号（`archived` 是其 best-effort 冗余标记、恒 seq ≤ 水位；水位恒落回合边界），故 LLM 可见集与"整 LoadThread + 读后 Go 过滤"逐字相同——读后的 Go 过滤（subagent 跳过、`unfolded`、空回合跳过）留作双保险、对已过滤集是 no-op。summary 前置；user 回合按模型能力渲染多模态附件。（`LoadThread`——全内容——仍服务 UI reload / 自动标题 / 压缩 / subagent 轨迹读。）
 - **Tools 每步重算**：resident + `search_tools` + 本对话近期已 activated 的 lazy 工具。inactive inventory 在 system prompt 只放 name + ≤180 rune 首行简介；`search_tools` 的 durable tool_result 只返 `{name,purpose}` 激活清单，完整 schema 仅在**下一请求的 tools 字段出现一次**，不再双份占上下文。AgentState 用 16 项 recency set，重新发现刷新、最旧淘汰，防长会话最终退化为“全工具常驻”。**AutoActivator**——LLM 直接点名 lazy 工具时自动激活（免先跑 search_tools）。
 - **ReminderProvider**：每步前注入 live todo 清单为临时 `<system-reminder>`（不污染持久历史）。
 - **PromptCompactor + ContextObserver**：每次 sampling 前由 loop 做 route-aware 上下文治理；chatHost 把结构化 semantic checkpoint 委派给 contextmgr/utility model，并把最后一次成功 prompt 的真实 input/budget/route、request 组件 bytes、edit/compaction/recovery 计数写进 assistant `Attrs.contextUsage`。这与 `Message.InputTokens` 的整轮累计计费量严格分栏。
@@ -32,6 +32,26 @@ audience: [human, ai]
 - **recency + 未读 watermark（经 `ConversationReader` 端口）**：Send 落 user 回合后 `TouchLastMessage(…, unread=false)`、WriteFinalize 落 assistant 回合后 `TouchLastMessage(…, unread = status==completed)`——**这条不对称就是未读信号**：用户发送=已读、完成的回复=未读、取消/出错终态=不算（queued-cancel 路径不调 Touch、不动 unread）。两次都把 unread 折进 last_message_at 的同一原子 UPDATE（自己的消息绝不半提交成未读）。端口另有 `MarkSeen`（`:seen` 动作用户打开线程时清 unread）。详见 [conversation.md](conversation.md) 的 hasUnread。
 - 回合后（仍在队列槽内防竞态）：首回合自动起标题（utility 模型、best-effort）+ 同步触发 durable 上下文压缩检查（contextmgr）；**长单回合不再等到这里才处理**，loop 已在每个 sampling 前做旧 tool_result 清理与 continuation checkpoint，并在 provider 权威超限时透明重试同一步。**utility 默认由 freetier provisioning 播种**——建 workspace / 每次 boot 自愈时把受管 `anselm-auto` 播成 dialogue/utility/agent 三 scenario 默认（只填未设、绝不覆盖用户显式选择，见 [support-services](support-services.md) 的 freetier），故 `ResolveUtility` 开箱即解析。标题据首条 user+assistant 摘要、**按对话语言**产出，经 `SetAutoTitle` 落 Title+AutoTitled 并发**单条** `conversation.auto_titled`。压缩水位统辖整回合：旧附件跨水位前把持久附件 id 写入摘要，后续 agent 只能经 `read_attachment` 重读，不编造已移出上下文的媒体细节。utility 缺席时，loop 仍可用主模型 semantic checkpoint，失败再走确定性应急 checkpoint；回合边界 durable summarize 则 best-effort 跳过。
 - maxSteps **实时读** `limits.Current().Agent.MaxSteps`（默认 25，`PATCH /limits` 热换下回合即生效；高于 agent invoke 默认的 `InvokeMaxTurns`=10——交互对话合理串更多步）；触顶诚实报 stop_reason `max_steps` + error_code `MAX_STEPS_REACHED` + "继续"提示。
+
+## 3.5 原地重试 / 编辑重发（`POST /{id}:retry`，WRK-077 CH-c）
+
+**分支模型是「版本指针」、不是删改**：`messages` 是 D1 Log 表，故「重试」= 旧行写 `superseded_by` = 新行 id（唯一写者 `MarkSuperseded`，**单列部分 UPDATE**、不碰 content/status/created_at）+ 新行 `attrs.retryOf` = 旧行 id，**零删除**。为何合 D1、以及本列**不是**软删，见 [database.md](../database.md) `messages` 行的判据段。
+
+**`Retry(RetryInput{Content, ModelOverride})` 的两分支**（`app/chat/retry.go`）：无 `Content` = **重生成**（supersede 末 assistant、开一条新 streaming assistant 行、入**既有** convQueue，不写新 user 回合）；有 `Content` = **编辑重发**（supersede 末 user + 其 assistant 两条，落带编辑后文本的新 user 回合 + 新 assistant 回合）。**写序刻意是「先落新行、后 supersede 旧行」**：两步之间失败留下一个**看得见的重复问句**（自我修正——下次重试把两种写法一起 supersede，且屏幕上诚实），而反序失败会从模型视图里**删掉**一次交流且什么都不留下。编辑重发的新 user 行 Attrs = **原附件 id**（附件内容寻址、引用不花钱）+ `retryOf`；**@ 提及快照刻意不带**（冻结**内容**而非引用，编辑后的文本可能已删掉那个 `@`），且触点台账把 `attached` 触碰**重锚**到现在是现行版的那一行（`lastMessageId` 是跳转目标，指向已被折进版本组的行会把读者送到屏上不存在的气泡）。
+
+**替换目标的选取**（`retryTargets`）：只看**现行且顶层**的行（`superseded_by = '' && subagent_id = ''`）——已被取代的行是更早的版本，第二次重试必须替换**最新**版而不是某个祖先，否则版本链会分叉、「后续基于哪一版」就有两个答案；subagent 行根本不是本线程的回合。尾巴合法地可以是**一条没有回答的 user 行**（崩溃清扫过的线程、或生成从未开始的编辑重发），此时「重生成」自然降级为「把缺的那个回答产出来」，无需别处任何特例。
+
+**409 门读两处**，因为它们答两个不同问题：内存队列 `IsGenerating`（此刻是否有回合在跑/在排）+ **末行的耐久状态**（线程自己的尾巴是否终态——硬崩溃留下的 pending/streaming 行不是可叠着重试的东西）。两者都用**既有** `STREAM_IN_PROGRESS`：一条非终态的尾巴**就是**一个（就耐久真相而言）仍在跑的回合，它不需要自己的码。无回合可重试 → 复用 `MESSAGE_NOT_FOUND`（message id 在此与 `?around=`/`:fork` 一样是坐标）。**本批零新错误码。**
+
+**`modelOverride` 是逐回合的**：它随 `task` 走、在 `processTask` 里胜过 `conv.ModelOverride`，**绝不回写对话头**——「用别的模型再答一遍」是对**一个回答**的表态、不是改线程设置（那有它自己的 PATCH）；行的 `provider`/`model_id` 溯源随即记下究竟哪个模型产出了这个版本。
+
+**`retryOf` 必须被重新种到 host 的 assistant message 上**（`task.retryOf` → `processTask`）：`WriteFinalize` **整体重写** Attrs，只在 `CreateMessage` 时写的 `retryOf` 会在回合收尾那一刻被抹掉；`failTurn` 同理收整个 `task` 而非裸 message id——一次模型解析失败的重试必须留住版本指针，否则那个失败的版本会渲成**多出来的一轮**而不是版本翻页里的一页（而用坏模型重试正是读者最需要翻回去的时刻）。
+
+**SSE 不加新流、不加新帧型**（E1/E2）：`retryOf` 搭在**既有** `message` 节点的 content 上（assistant 侧 `messageOpenContent.retryOf`、user 回声侧 `messageUserContent.retryOf`，两者都由 `retryOfOf(m)` 从 Attrs 读同一个源）。它必须上线缆，因为一个**不是发起方**的客户端没有别的办法知道「正在到来的这个回合是**取代**屏幕上已有的那一条、而不是接在它后面」。
+
+**同族过滤的另外两处**（都不是 token 优化、是诚实）：① **contextmgr 的压缩读**在唯一读点丢掉被取代的回合——否则装配过滤就有一个**单向阀式的洞**：`LoadThreadForLLM` 把被重试掉的回答挡在历史之外，可一旦它被折进 `conversation.summary`，内容就会**回流**进此后每一次 prompt，而摘要不是后面某个过滤器能收回的话（顺带让 `protectedFrom` 数的是真回合、不是版本）；② **`buildAnchors` 跳过被取代的回合**——transcript 把旧版折进版本组、只渲一行，故给某个版本建锚点要么让节选重复（「你说了两遍」）、要么给出一个跳向屏上并不存在的气泡的跳转。**`SumTokens`（usage）刻意不过滤**：那些 token 是真花掉的。
+
+**分叉 × 重试的交汇**（CH-b × CH-c）：`Fork` 必须把**message id 也预铸**并 remap 两个版本指针（`superseded_by` 与 `attrs.retryOf`）——保留源 id 的复制会让分叉的版本链指进源线程，而**丢掉** `superseded_by` 更糟：它会把每条被复制的行重置成「现行」，于是模型拿到同一个问题的**两个**回答。被前缀窗**切掉**的取代者留下零值，这恰好正确（在分叉里，既然更新的版本根本不在，该行**就是**现行版）；目标落在窗外的 `retryOf` 被**丢弃**而非留成悬空指针。
 
 ## 4. 人在环
 
@@ -43,7 +63,7 @@ audience: [human, ai]
 
 ## 6. 契约（引用）
 
-端点（send/cancel/interactions/usage/system-prompt-preview/messages 三读形态[cursor·around·dir=newer]/anchors）→ [api.md](../api.md) · 码 4 个（`EMPTY_CONTENT` 400 / `STREAM_IN_PROGRESS` 409 / `NO_PENDING_INTERACTION` 404 / `INTERACTION_INVALID_ACTION` 422）→ [error-codes.md](../error-codes.md)。注：message 行的 `error_code` 字段（如 `LLM_RESOLVE_ERROR`/`MAX_STEPS_REACHED`）是**回合级错误码**（前端展示），与 HTTP wire code 是两个命名空间。
+端点（send/cancel/**retry**/interactions/usage/system-prompt-preview/messages 三读形态[cursor·around·dir=newer]/anchors）→ [api.md](../api.md) · 码 4 个（`EMPTY_CONTENT` 400 / `STREAM_IN_PROGRESS` 409 / `NO_PENDING_INTERACTION` 404 / `INTERACTION_INVALID_ACTION` 422）→ [error-codes.md](../error-codes.md)（**`:retry` 不引入新码**——非终态末回合复用 `STREAM_IN_PROGRESS`、无回合可重试复用 `MESSAGE_NOT_FOUND`，见 §3.5）。注：message 行的 `error_code` 字段（如 `LLM_RESOLVE_ERROR`/`MAX_STEPS_REACHED`）是**回合级错误码**（前端展示），与 HTTP wire code 是两个命名空间。
 
 **导航锚点（`GET /{id}/anchors`，场次条）**：`chatapp.ListAnchors` 归属前置校验后走 `ListAnchorSource` lean 扫描 → `buildAnchors` 建锚（oldest-first）→ 反转 newest-first → 内存 keyset 分页（游标键 `(at, blockId|messageId)`）。锚点分类学（业界收敛 + WRK-061）：**人类内容是主锚与硬边界**——`user`（回合首行节选 ≤120 rune）；锚点间连续非危险 tool_call 折叠为一条 `tools` 簇（count 计数、钉簇首块，跨回合可并）；`danger`（attrs.danger=dangerous 逐条露出，title=工具名·entityName）/ `compaction`（块型）/ `abnormal`（回合 status error/cancelled，title=stopReason→errorCode→status 回退）同样打断簇；`gate`（待决人闸）来自 broker.Pending——**无日志行的活状态**，只前置首页顶、不占 limit、置身 keyset 之外（重连本就重拉首页）。落在 chatapp（而非独立 service）正因 gate 只有 broker 可给。
 

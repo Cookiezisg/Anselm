@@ -111,7 +111,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 				zap.String("messageId", t.assistantMsgID),
 				zap.Any("recover", r),
 				zap.ByteString("stack", debug.Stack()))
-			s.failTurn(reqctxpkg.Detached(t.workspaceID), conversationID, t.assistantMsgID, "INTERNAL_ERROR", "internal error during generation")
+			s.failTurn(reqctxpkg.Detached(t.workspaceID), conversationID, t, "INTERNAL_ERROR", "internal error during generation")
 		}
 	}()
 	base := reqctxpkg.Detached(t.workspaceID)
@@ -173,13 +173,25 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 
 	conv, err := s.deps.Conversations.Get(ctx, conversationID)
 	if err != nil {
-		s.failTurn(ctx, conversationID, t.assistantMsgID, "INTERNAL_ERROR", "load conversation: "+err.Error())
+		s.failTurn(ctx, conversationID, t, "INTERNAL_ERROR", "load conversation: "+err.Error())
 		return
 	}
 
-	bundle, err := s.deps.Resolver.ResolveChat(ctx, conv.ModelOverride)
+	// A Retry's per-turn model wins over the thread's own override for THIS generation only (nothing is
+	// written back to the head): "answer that again with a different model" is a statement about one
+	// answer, not a change to the thread's setting (which has its own PATCH). The provenance columns
+	// below then record which model actually produced this version.
+	//
+	// Retry 的**逐回合**模型在**本次生成**里胜过线程自己的 override（不回写头行）：「用别的模型再答一遍」是对
+	// **一个回答**的表态、不是改线程设置（那有它自己的 PATCH）。下面那两列溯源随即记下究竟是哪个模型产出了这个
+	// 版本。
+	override := conv.ModelOverride
+	if t.modelOverride != nil {
+		override = t.modelOverride
+	}
+	bundle, err := s.deps.Resolver.ResolveChat(ctx, override)
 	if err != nil {
-		s.failTurn(ctx, conversationID, t.assistantMsgID, "LLM_RESOLVE_ERROR", err.Error())
+		s.failTurn(ctx, conversationID, t, "LLM_RESOLVE_ERROR", err.Error())
 		return
 	}
 
@@ -193,6 +205,11 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 			Role:           messagesdomain.RoleAssistant,
 			Provider:       bundle.Provider,        // provenance: which provider produced this turn
 			ModelID:        bundle.Request.ModelID, // provenance: which model
+			// Re-seed the version pointer: WriteFinalize persists Attrs WHOLESALE, so a retryOf written
+			// only at CreateMessage time would be erased the moment the turn finalizes.
+			// 重新种上版本指针：WriteFinalize **整体**落 Attrs，故只在 CreateMessage 时写的 retryOf 会在回合
+			// 收尾那一刻被抹掉。
+			Attrs: retryAttrs(t.retryOf),
 		},
 		caps:                 bundle.Caps,
 		runtimeProfile:       bundle.RuntimeProfile,
@@ -244,26 +261,32 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 
 // failTurn marks an assistant turn terminal-error before the loop ever runs (model resolve or
 // conversation load failed) and pushes message_stop, so the streaming bubble never hangs. Runs
-// on a detached context for the same reason WriteFinalize does.
+// on a detached context for the same reason WriteFinalize does. It takes the whole task, not a bare
+// message id, because FinalizeMessage rewrites Attrs wholesale: a retry whose model failed to resolve
+// must keep its version pointer, or the failed version would render as an extra turn instead of as one
+// page of the version pager (a retry with a bad model is exactly when the reader needs to page back).
 //
-// failTurn 在 loop 还没跑就把 assistant 回合标记为终态错误（模型解析或对话加载失败）并推
-// message_stop，使流式气泡不挂死。出于与 WriteFinalize 相同的理由在 detached context 上跑。
-func (s *Service) failTurn(ctx context.Context, conversationID, msgID, code, msg string) {
+// failTurn 在 loop 还没跑就把 assistant 回合标记为终态错误（模型解析或对话加载失败）并推 message_stop，使流式
+// 气泡不挂死。出于与 WriteFinalize 相同的理由在 detached context 上跑。它收整个 task、而非一个裸 message id，
+// 因为 FinalizeMessage 会整体重写 Attrs：一次模型解析失败的重试必须留住它的版本指针，否则那个失败的版本会渲成
+// **多出来的一轮**、而不是版本翻页里的一页（用坏模型重试正是读者最需要翻回去的时刻）。
+func (s *Service) failTurn(ctx context.Context, conversationID string, t task, code, msg string) {
 	wsID, _ := reqctxpkg.GetWorkspaceID(ctx)
 	dctx := reqctxpkg.Detached(wsID)
 	dctx = reqctxpkg.SetConversationID(dctx, conversationID)
 
 	m := &messagesdomain.Message{
-		ID:             msgID,
+		ID:             t.assistantMsgID,
 		ConversationID: conversationID,
 		Role:           messagesdomain.RoleAssistant,
 		Status:         messagesdomain.StatusError,
 		StopReason:     messagesdomain.StopReasonError,
 		ErrorCode:      code,
 		ErrorMessage:   msg,
+		Attrs:          retryAttrs(t.retryOf),
 	}
 	if err := s.messages.FinalizeMessage(dctx, m, nil); err != nil {
-		s.log.Warn("chatapp.failTurn: finalize failed", zap.String("messageId", msgID), zap.Error(err))
+		s.log.Warn("chatapp.failTurn: finalize failed", zap.String("messageId", m.ID), zap.Error(err))
 	}
 	s.emitMessageStop(dctx, conversationID, m)
 }

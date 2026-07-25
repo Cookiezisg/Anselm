@@ -26,6 +26,41 @@ class PendingSend {
   bool failed = false;
 }
 
+/// One turn as the reader sees it: every version of it, oldest → newest (WRK-077 CH-c). An ordinary turn
+/// is a group of one, which is why the transcript can render groups unconditionally.
+///
+/// [current] is the version the conversation CONTINUED FROM, and it is deliberately the last link of the
+/// chain rather than the row whose `supersededBy` is empty. Those two answers agree on the server, but not
+/// necessarily in this process: the loaded copy of an older version predates its own supersede write, so
+/// its `supersededBy` can still read empty here. Chain position cannot go stale — a new version only ever
+/// arrives by pointing back at the one it replaces.
+///
+/// 一个回合在读者眼中的样子:它的所有版本,最旧 → 最新(WRK-077 CH-c)。普通回合是**只有一个成员的组**,故 transcript
+/// 可以无条件地渲染「组」。
+///
+/// [current] 是对话**后续所基于**的那一版,且它刻意取**链的最后一环**、而不是那条 `supersededBy` 为空的行。这两个
+/// 答案在服务端一致,在本进程里未必:一份旧版副本的加载早于它自己被 supersede 的那次写,故它的 `supersededBy` 在这里
+/// 可能仍读作空。链的位置不会过期——一个新版本抵达的唯一方式就是指回它所替换的那一版。
+class TurnVersions {
+  const TurnVersions(this.versions);
+
+  /// Oldest → newest. Never empty. 最旧 → 最新,恒非空。
+  final List<BlockNode> versions;
+
+  /// The FIRST version — the group's stable identity (a later retry appends, never re-roots), so it is what
+  /// a per-group selection is keyed by. 第一版——组的稳定身份(后续重试只追加、绝不换根),故按它键住逐组选择。
+  BlockNode get root => versions.first;
+
+  /// The version everything after this turn was generated from. 此回合之后的一切都是据这一版生成的。
+  BlockNode get current => versions.last;
+
+  int get count => versions.length;
+
+  /// Version [i] (0-based), clamped — a stale selection index (a group that grew, a window that shrank)
+  /// must land on a real version rather than throw. 取第 i 版(0 基、钳制)——过期的选择下标必须落在真版本上、不抛。
+  BlockNode at(int i) => versions[i.clamp(0, versions.length - 1)];
+}
+
 /// The transcript merge model for ONE conversation — pure Dart (framework-free, unit-tested like
 /// [BlockTreeReducer]). Three layers, strictly separated so REST and the stream are NEVER double-fed:
 ///
@@ -440,6 +475,13 @@ class ConversationTranscript {
     return parts.join('\n\n');
   }
 
+  /// The turn this one is a NEW VERSION of (retry / edit-resend) — `attrs.retryOf` on a REST row, the same
+  /// key inline on the live `message` frame. Empty on every ordinary turn.
+  /// 本回合是**哪一条**的新版本(重试 / 编辑重发)——REST 行的 `attrs.retryOf`,live `message` 帧内联同名键。
+  /// 所有普通回合为空。
+  static String turnRetryOf(BlockNode n) =>
+      (n.content?['retryOf'] as String?) ?? '';
+
   /// The frozen attachment ids: REST attrs key `attachments`, live echo key `attachmentIds`.
   /// 冻结附件 id:REST 键 attachments、live 回声键 attachmentIds。
   static List<String> turnAttachmentIds(BlockNode n) {
@@ -461,6 +503,76 @@ class ConversationTranscript {
           available: e.containsKey('content'),
         ),
     ];
+  }
+
+  /// Collapse [turns] into version groups (WRK-077 CH-c). A retried round arrives as SEVERAL rows — the
+  /// wire returns every version, because the pager needs them — so rendering the list as-is would show the
+  /// same question answered twice. Each group renders as ONE row that pages between its versions.
+  ///
+  /// The chain is walked over `attrs.retryOf` (each new version points BACK at the one it replaces), not
+  /// over `supersededBy`: see [TurnVersions]. A group sits at its ROOT's position, so retrying does not
+  /// make a turn jump to the bottom of the transcript — a new version is the same turn said again, not a
+  /// later one.
+  ///
+  /// Two degradations are deliberate, because a paged transcript cannot guarantee both ends of a chain are
+  /// loaded: a version whose predecessor is NOT in [turns] becomes its own root (a group of one — the truth
+  /// about what is loaded), and a pointer cycle (which the backend cannot produce) terminates instead of
+  /// spinning. Neither can drop a row — every input turn appears in exactly one group, which is the invariant
+  /// this function is unit-tested against.
+  ///
+  /// 把 [turns] 折成版本组(WRK-077 CH-c)。一个被重试过的回合是**好几行**抵达的——线缆返回每一个版本,因为翻页需要
+  /// 它们——故原样渲染会显示同一个问题被答了两遍。每组渲成**一行**、在其版本间翻页。
+  ///
+  /// 链沿 `attrs.retryOf` 走(每个新版本**指回**它所替换的那一版)、不沿 `supersededBy`:见 [TurnVersions]。组坐落在
+  /// 其**根**的位置,故重试不会让一个回合跳到 transcript 底部——新版本是同一个回合又说了一遍、不是后来的一个回合。
+  ///
+  /// 两处降级是刻意的,因为分页的 transcript 无法保证一条链的两端都已加载:前驱**不在** [turns] 里的版本自成一根
+  /// (只有一个成员的组——那正是关于「已加载了什么」的事实),而指针成环(后端造不出来)会终止、不打转。两者都**不会丢行**
+  /// ——每个输入回合恰好出现在一个组里,而这正是本函数被单测钉住的不变量。
+  static List<TurnVersions> groupVersions(List<BlockNode> turns) {
+    // The common path is a conversation nobody retried anything in: one walk to find out, then the identity
+    // grouping with no maps allocated at all.
+    // 常路径是「没人重试过任何东西」的对话:走一趟查明,然后零 map 分配地做恒等分组。
+    var hasVersions = false;
+    for (final n in turns) {
+      if (turnRetryOf(n).isNotEmpty) {
+        hasVersions = true;
+        break;
+      }
+    }
+    if (!hasVersions) {
+      return [
+        for (final n in turns) TurnVersions([n]),
+      ];
+    }
+    final loaded = {for (final n in turns) n.id};
+    final successor = <String, BlockNode>{};
+    for (final n in turns) {
+      final prev = turnRetryOf(n);
+      if (prev.isEmpty || !loaded.contains(prev)) continue;
+      successor[prev] = n;
+    }
+    // ONE set does all three jobs: it skips a later version (its own group already took it — the walk below
+    // placed it), it terminates a pointer cycle, and it guarantees the no-row-dropped invariant, because a turn
+    // is only ever skipped when something already claimed it. That is why there is no separate "is this a later
+    // version" test: a chain whose root is missing or circular simply becomes the entry point we reached first,
+    // which is strictly better than a row that renders nowhere.
+    // **一个集合**干三件事:跳过后续版本(它自己的组已经收了它——下面那趟走查放的)、终止指针环、并保证「不丢行」不变量,
+    // 因为一个回合只在**已经被谁认领**时才被跳过。这正是**没有**单独「这是不是后续版本」判定的原因:一条根缺失或成环的链就
+    // 以我们最先到达的那个节点作入口,而那严格优于一个渲染在任何地方都不出现的行。
+    final placed = <String>{};
+    final out = <TurnVersions>[];
+    for (final n in turns) {
+      if (!placed.add(n.id)) continue;
+      final chain = <BlockNode>[n];
+      var next = successor[n.id];
+      while (next != null && placed.add(next.id)) {
+        chain.add(next);
+        next = successor[next.id];
+      }
+      out.add(TurnVersions(chain));
+    }
+    return out;
   }
 
   /// Hydrate one REST turn into the node shape live frames produce. The message-level wire fields ride

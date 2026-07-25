@@ -1281,7 +1281,14 @@ class _Translations$chat$actions$zh_CN extends Translations$chat$actions$en {
 	// Translations
 	@override String get fork => '从这里分叉';
 	@override String get forkBefore => '在这条消息之前分叉';
-	@override String get retryComing => '重试(CH-c 批将至)';
+	@override String get retry => '重试';
+	@override String get retryWithModel => '换个模型重试';
+	@override String get retryBusy => '等这条回复结束';
+	@override String get editResend => '编辑重发';
+	@override String get editResendSubmit => '重发';
+	@override String get versionPrev => '上一版';
+	@override String get versionNext => '下一版';
+	@override String versionBasedOn({required Object n}) => '后续基于第 ${n} 版';
 	@override String queueHead({required Object n}) => '${n} 条待发送';
 	@override String get queueEdit => '编辑这条排队消息';
 	@override String get queueRemove => '从队列移除';
@@ -3410,7 +3417,14 @@ extension on TranslationsZhCn {
 			'chat.stage.rtStopped' => '已停止',
 			'chat.actions.fork' => '从这里分叉',
 			'chat.actions.forkBefore' => '在这条消息之前分叉',
-			'chat.actions.retryComing' => '重试(CH-c 批将至)',
+			'chat.actions.retry' => '重试',
+			'chat.actions.retryWithModel' => '换个模型重试',
+			'chat.actions.retryBusy' => '等这条回复结束',
+			'chat.actions.editResend' => '编辑重发',
+			'chat.actions.editResendSubmit' => '重发',
+			'chat.actions.versionPrev' => '上一版',
+			'chat.actions.versionNext' => '下一版',
+			'chat.actions.versionBasedOn' => ({required Object n}) => '后续基于第 ${n} 版',
 			'chat.actions.queueHead' => ({required Object n}) => '${n} 条待发送',
 			'chat.actions.queueEdit' => '编辑这条排队消息',
 			'chat.actions.queueRemove' => '从队列移除',
@@ -3817,6 +3831,8 @@ extension on TranslationsZhCn {
 			'ref.agent' => '智能体',
 			'ref.document' => '文档',
 			'ref.conversation' => '会话',
+			_ => null,
+		} ?? switch (path) {
 			'ref.skill' => '技能',
 			'ref.mcp' => 'MCP',
 			'ref.trigger' => '触发器',
@@ -3824,8 +3840,6 @@ extension on TranslationsZhCn {
 			'ref.approval' => '审批',
 			'graph.kind.trigger' => '触发',
 			'graph.kind.action' => '动作',
-			_ => null,
-		} ?? switch (path) {
 			'graph.kind.agent' => '智能体',
 			'graph.kind.control' => '分支',
 			'graph.kind.approval' => '审批',
@@ -4331,6 +4345,8 @@ extension on TranslationsZhCn {
 			'settings.themeSystem' => '跟随系统',
 			'settings.themeDesc' => '跟随系统将随 macOS 外观自动切换',
 			'settings.zoom' => '界面缩放',
+			_ => null,
+		} ?? switch (path) {
 			'settings.zoomDesc' => '整体缩放界面,与 ⌘+ / ⌘− / ⌘0 同步',
 			'settings.fonts' => '字体',
 			'settings.fontUi' => '界面字体',
@@ -4338,8 +4354,6 @@ extension on TranslationsZhCn {
 			'settings.fontContent' => '内容字体',
 			'settings.fontContentDesc' => '仅 chat 消息与文档正文。衬线=思源宋 SC(拉丁+简体中文)。即时生效。',
 			'settings.fontCode' => '代码字体',
-			_ => null,
-		} ?? switch (path) {
 			'settings.fontCodeDesc' => '一切等宽处——代码块、终端、diff、ID 等。重启后生效。',
 			'settings.fontBundled' => '内置',
 			'settings.fontSystem' => '跟随系统',

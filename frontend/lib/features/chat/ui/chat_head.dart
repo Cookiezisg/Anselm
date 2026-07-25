@@ -164,10 +164,23 @@ class _ForkLineage extends ConsumerWidget {
   }
 }
 
-/// The one model menu every chat surface shares — the head's landing/thread pickers AND the
-/// LLM_RESOLVE_ERROR banner's「重选模型」CTA (拍板 #16): Auto (clear) + one entry per capability.
-/// [anchorBuilder] swaps the anchor face (default: a button labeled with the current choice).
-/// 各 chat 面共用的模型菜单(头部两态 + 解析失败横幅 CTA):Auto+每能力一项;anchorBuilder 换锚脸。
+/// The one model menu every chat surface shares — the head's landing/thread pickers, the
+/// LLM_RESOLVE_ERROR banner's「重选模型」CTA (拍板 #16), AND the action row's retry-with-another-model
+/// (WRK-077 CH-c): Auto (clear) + one entry per capability. [anchorBuilder] swaps the anchor face
+/// (default: a button labeled with the current choice).
+///
+/// [leadingEntries] ride ABOVE the model list and [includeAuto] drops the Auto row. Both exist for the retry
+/// menu, whose grammar differs in one honest way: its first row is「重试」(keep whatever this thread is set
+/// to) and it has NO Auto, because a retry cannot CLEAR a thread's override — an absent per-turn model means
+/// "use the thread's", not "use the workspace default". Showing Auto there would make the row lie about what
+/// picking it does.
+///
+/// 各 chat 面共用的模型菜单(头部两态、解析失败横幅 CTA、**以及**动作排的「换模型重试」,WRK-077 CH-c):
+/// Auto+每能力一项;anchorBuilder 换锚脸。
+///
+/// [leadingEntries] 骑在模型列表**上方**、[includeAuto] 去掉 Auto 行。两者为重试菜单而存在,它的文法有一处诚实的
+/// 不同:首行是「重试」(用这条线程现有的设置)、且**没有** Auto,因为重试无法**清除**线程的 override——缺席的逐回合
+/// 模型意为「用线程的」、不是「用 workspace 默认」。在那里显示 Auto 会让这一行对「点它会发生什么」撒谎。
 Widget chatModelMenu({
   required Translations t,
   required List<ModelCapability> caps,
@@ -175,6 +188,8 @@ Widget chatModelMenu({
   required ValueChanged<({String apiKeyId, String modelId})?> onSelect,
   Widget Function(BuildContext context, VoidCallback toggle, bool isOpen)?
   anchorBuilder,
+  List<AnMenuEntry> leadingEntries = const [],
+  bool includeAuto = true,
 }) {
   // The anchor lives at the head's LEFT (landing: far left; thread: right after the title), so the
   // menu opens DOWN-RIGHT (start-aligned — AnMenu defaults to end); the popover flips on overflow.
@@ -205,11 +220,13 @@ Widget chatModelMenu({
         (context, toggle, isOpen) =>
             AnButton(label: anchorLabel, onPressed: toggle),
     entries: [
-      AnMenuItem(
-        label: t.chat.modelAuto,
-        checked: current == null,
-        onTap: () => onSelect(null),
-      ),
+      ...leadingEntries,
+      if (includeAuto)
+        AnMenuItem(
+          label: t.chat.modelAuto,
+          checked: current == null,
+          onTap: () => onSelect(null),
+        ),
       for (final cap in caps)
         AnMenuItem(
           label: cap.displayName.isEmpty ? cap.modelId : cap.displayName,

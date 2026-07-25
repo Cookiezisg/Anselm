@@ -55,6 +55,18 @@ abstract class ChatBlock with _$ChatBlock {
 /// `attachments`(id 数组、发送序)+ `mentions`(快照 {type,id,name,content?}——坏引用降级 name
 /// "(unavailable)" 且**无 content 键**)。[subagentId]≠'' = 嵌套 subagent 回合(不入顶层 transcript)。
 /// 线缆序 = keyset 新→旧;水化反转为时间序。
+///
+/// [supersededBy] + `attrs.retryOf` are the VERSION PAIR (WRK-077 CH-c): retry / edit-resend never delete
+/// a turn — they append a new one and point the old row at it. A non-empty [supersededBy] means "an
+/// EARLIER version": the row keeps coming back from all three read forms so the version pager can show
+/// it, and only the backend's LLM assembly filters on it. Grouping in the UI walks `attrs.retryOf` (the
+/// BACK pointer) instead, because a copy of an older version loaded BEFORE its own supersede write carries
+/// a stale [supersededBy], while a chain of back pointers can never be stale.
+///
+/// [supersededBy] 与 `attrs.retryOf` 是**版本对**(WRK-077 CH-c):重试 / 编辑重发从不删回合——它们追加一条新的、
+/// 并把旧行指向它。[supersededBy] 非空 = **更早的版本**:该行照常从三种读形态返回,使版本翻页能显示它,只有后端的
+/// LLM 装配按它过滤。UI 侧组版本改走 `attrs.retryOf`(**向后**指针),因为一份在自己被 supersede **之前**就加载过的
+/// 旧版副本带的 [supersededBy] 是过期的,而一条向后指针的链永不会过期。
 @freezed
 abstract class ChatMessage with _$ChatMessage {
   const factory ChatMessage({
@@ -62,6 +74,7 @@ abstract class ChatMessage with _$ChatMessage {
     @Default('') String conversationId,
     @Default('') String subagentId,
     required String role,
+    @Default('') String supersededBy,
     @Default('') String status,
     @Default('') String stopReason,
     @Default('') String errorCode,

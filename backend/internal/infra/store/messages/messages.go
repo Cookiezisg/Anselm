@@ -80,6 +80,28 @@ var Schema = []string{
 	)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_blocks_conv_seq ON message_blocks(conversation_id, seq)`,
 	`CREATE INDEX IF NOT EXISTS idx_blocks_message ON message_blocks(message_id, seq)`,
+
+	// Column evolution — the version pointer (WRK-077 CH-c). ADD COLUMN (not baked into the CREATE) so
+	// an existing install gains it on next boot, exactly as conversations' fork-lineage pair did;
+	// SQLite has no ADD COLUMN IF NOT EXISTS, so re-runs rely on db.Migrate treating "duplicate column
+	// name" as already-applied. NOT NULL DEFAULT '' rather than NULLable: '' already means "this is the
+	// current version", and a nullable column would only buy a second spelling of the same absence.
+	//
+	// Deliberately UNindexed. The one predicate that reads it (`superseded_by = ''` in
+	// LoadThreadForLLM) rides an existing conversation_id scan whose result set is one thread — a
+	// second index would cost every turn's insert to save nothing on a scan that is already bounded by
+	// the thread. This column is NOT a soft delete (D1): the row is never hidden from the REST reads,
+	// only from the LLM's history projection.
+	//
+	// 列演化——版本指针（WRK-077 CH-c）。用 ADD COLUMN（不并进 CREATE）使已有安装下次启动补列，与
+	// conversations 的分叉血缘两列同法；SQLite 无 ADD COLUMN IF NOT EXISTS，重复执行靠 db.Migrate 把
+	// "duplicate column name" 视作已应用。用 NOT NULL DEFAULT '' 而非可空：'' 已表达「这是现行版」，
+	// 可空只会为同一种「不存在」多买一种拼法。
+	//
+	// **刻意不建索引**：唯一读它的谓词（LoadThreadForLLM 里的 `superseded_by = ''`）搭在既有的
+	// conversation_id 扫描上、结果集就是一条线程——多一个索引是让每次插入付钱，去省一次本就被线程界住的
+	// 扫描。本列**不是软删**（D1）：行从不对 REST 读隐身，只对 LLM 历史投影隐身。
+	`ALTER TABLE messages ADD COLUMN superseded_by TEXT NOT NULL DEFAULT ''`,
 }
 
 // Store implements messagesdomain.Repository over pkg/orm. It keeps root-bound repos for reads
@@ -148,6 +170,27 @@ func (s *Store) FinalizeMessage(ctx context.Context, m *messagesdomain.Message, 
 		}
 		return insertBlocks(ctx, tx, m, blocks)
 	})
+}
+
+// MarkSuperseded writes the version pointer on one turn — a single-column partial Updates (never
+// Save), mirroring FinalizeMessage's shape: the auto workspace filter rides the WHERE, so n == 0 means
+// "no such message in this workspace". Nothing else is touched: not content, not status, not
+// created_at. This is the whole physical footprint of "supersede" (D1 — the row stays and stays
+// readable; only the LLM projection filters on it).
+//
+// MarkSuperseded 在一个回合上写版本指针——单列部分 Updates（绝非 Save），形状照 FinalizeMessage：WHERE 带
+// 自动 workspace 过滤，故 n == 0 即「本 workspace 无此 message」。其它一律不碰：不动内容、不动状态、不动
+// created_at。这就是「supersede」的全部物理足迹（D1——行仍在、仍可读，只有 LLM 投影按它过滤）。
+func (s *Store) MarkSuperseded(ctx context.Context, messageID, supersededBy string) error {
+	n, err := s.msgs.WhereEq("id", messageID).
+		Updates(ctx, map[string]any{"superseded_by": supersededBy})
+	if err != nil {
+		return fmt.Errorf("messagesstore.MarkSuperseded: %w", err)
+	}
+	if n == 0 {
+		return messagesdomain.ErrMessageNotFound
+	}
+	return nil
 }
 
 func (s *Store) GetMessage(ctx context.Context, id string) (*messagesdomain.Message, error) {
@@ -331,21 +374,33 @@ func (s *Store) LoadThread(ctx context.Context, conversationID string) ([]*messa
 	return rows, nil
 }
 
-// LoadThreadForLLM returns the conversation oldest-first for LLM-history assembly: it drops subagent
-// sub-messages at the message level (subagent_id = ”, never part of the parent's LLM history) and
-// hydrates each turn with only its blocks past the compaction watermark (seq > minSeq, the folded
-// rows whose content now lives in conversation.summary). This is the read-minimized path — the
-// folded/subagent rows are never read from disk — replacing the prior full LoadThread + post-read Go
-// filtering on the hot LLM-history path. minSeq ≤ 0 reads every block (no compaction yet).
+// LoadThreadForLLM returns the conversation oldest-first for LLM-history assembly. THREE exclusions of
+// one family live here, all pushed into SQL:
 //
-// LoadThreadForLLM 返回对话（最旧在前）供组装 LLM 历史：在消息层丢 subagent 子消息（subagent_id = ”、
-// 从不属父 LLM 历史），每回合只 hydrate 越过压缩水位的 block（seq > minSeq、内容已并入 conversation.summary
-// 的已折叠行）。这是读最小化路径——已折叠/subagent 行从不读盘——替代 LLM-history 热路径上原本的整 LoadThread +
-// 读后 Go 过滤。minSeq ≤ 0 读所有 block（尚无压缩）。
+//	subagent_id = ''    — a subagent's sub-messages are never part of the parent's LLM history
+//	superseded_by = ''  — only the CURRENT version of a retried / edit-resent turn (WRK-077 CH-c)
+//	seq > minSeq        — blocks folded into conversation.summary by the compactor
+//
+// This is the read-minimized path — the folded / subagent / superseded rows are never read from disk —
+// replacing the prior full LoadThread + post-read Go filtering on the hot LLM-history path. minSeq ≤ 0
+// reads every block (no compaction yet). The superseded predicate is what makes retry honest: the old
+// answer stays on disk and stays readable over REST, but the model is never shown two versions of the
+// same turn.
+//
+// LoadThreadForLLM 返回对话（最旧在前）供组装 LLM 历史。**同族三个排除**都在这里、都下推 SQL：
+//
+//	subagent_id = ''    —— subagent 子消息从不属父的 LLM 历史
+//	superseded_by = ''  —— 被重试 / 编辑重发的回合只取**现行版**（WRK-077 CH-c）
+//	seq > minSeq        —— 已被压缩器并入 conversation.summary 的 block
+//
+// 这是读最小化路径——已折叠 / subagent / 已被取代的行从不读盘——替代 LLM-history 热路径上原本的整
+// LoadThread + 读后 Go 过滤。minSeq ≤ 0 读所有 block（尚无压缩）。superseded 那条谓词正是让重试诚实的东西：
+// 旧回答留在盘上、经 REST 仍可读，但模型永不会看到同一回合的两个版本。
 func (s *Store) LoadThreadForLLM(ctx context.Context, conversationID string, minSeq int64) ([]*messagesdomain.Message, error) {
 	rows, err := s.msgs.
 		WhereEq("conversation_id", conversationID).
 		WhereEq("subagent_id", "").
+		WhereEq("superseded_by", "").
 		Order("created_at ASC, id ASC").
 		Find(ctx)
 	if err != nil {

@@ -217,6 +217,32 @@ abstract interface class ChatRepository {
     List<({String type, String id})> mentions,
   });
 
+  /// Replace the conversation's LAST round with a new version (`POST /{id}:retry` → 202, returns the new
+  /// ASSISTANT message id — the same shape as [sendMessage], because it is the same kind of act: a
+  /// generation that streams over the messages SSE).
+  ///
+  /// An empty [content] REGENERATES (the same question, answered again). A non-empty one EDIT-RESENDS: the
+  /// question is replaced too, keeping the original attachment references. [modelOverride] applies to THIS
+  /// TURN ONLY and is never written to the thread's setting (that has its own PATCH — [setModelOverride]).
+  ///
+  /// Nothing is deleted: the replaced rows keep coming back from the history reads with `supersededBy` set,
+  /// which is what the version pager reads. 409 `STREAM_IN_PROGRESS` while the last round has not settled;
+  /// 404 `MESSAGE_NOT_FOUND` when there is no round to retry.
+  ///
+  /// 把对话的**末回合**换成一个新版本(`POST /{id}:retry` → 202,返回新 **assistant** message id——与
+  /// [sendMessage] 同形,因为它是同一种行为:一次经 messages SSE 流式的生成)。
+  ///
+  /// [content] 为空 = **重生成**(同一个问题、再答一次);非空 = **编辑重发**:问句也一起换,并保留原来的附件引用。
+  /// [modelOverride] **只作用于本回合**、绝不写进线程设置(那有它自己的 PATCH——[setModelOverride])。
+  ///
+  /// 什么都不删:被替换的行照常从历史读返回、带上 `supersededBy`,那正是版本翻页所读。末回合未落定 → 409
+  /// `STREAM_IN_PROGRESS`;无回合可重试 → 404 `MESSAGE_NOT_FOUND`。
+  Future<String> retryTurn(
+    String conversationId, {
+    String content,
+    ({String apiKeyId, String modelId})? modelOverride,
+  });
+
   /// Cancel the in-flight turn (`POST /{id}:cancel` → 204, idempotent). The terminal arrives via the
   /// stream's `message_stop` — the client never fabricates one. 取消在途回合;终态经流帧到达、不本地伪造。
   Future<void> cancelTurn(String conversationId);
@@ -550,6 +576,29 @@ class LiveChatRepository implements ChatRepository {
       'mentions': [
         for (final m in mentions) {'type': m.type, 'id': m.id},
       ],
+    },
+  );
+
+  @override
+  Future<String> retryTurn(
+    String conversationId, {
+    String content = '',
+    ({String apiKeyId, String modelId})? modelOverride,
+  }) => _api.postForId(
+    '${_path(conversationId)}:retry',
+    // Both keys are OMITTED when absent rather than sent empty/null: the backend reads an absent content
+    // as "regenerate" and an absent modelOverride as "use whatever this thread is set to", so omitting is
+    // what the wire actually means. An explicit null modelOverride would read as a tristate CLEAR, which
+    // retry has no case for.
+    // 两个键缺省时**省略**、不发空/null:后端把缺席的 content 解作「重生成」、缺席的 modelOverride 解作「用这条
+    // 线程现有的设置」,故省略正是线缆的本意。显式 null 会被读成三态的**清除**,而重试没有那一格。
+    body: {
+      if (content.isNotEmpty) 'content': content,
+      if (modelOverride != null)
+        'modelOverride': {
+          'apiKeyId': modelOverride.apiKeyId,
+          'modelId': modelOverride.modelId,
+        },
     },
   );
 

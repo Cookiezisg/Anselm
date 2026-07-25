@@ -54,6 +54,7 @@ func (f *fakeMessages) FinalizeMessage(context.Context, *messagesdomain.Message,
 func (f *fakeMessages) GetMessage(context.Context, string) (*messagesdomain.Message, error) {
 	return nil, nil
 }
+func (f *fakeMessages) MarkSuperseded(context.Context, string, string) error { return nil }
 func (f *fakeMessages) ListMessages(context.Context, string, string, int) ([]*messagesdomain.Message, string, error) {
 	return nil, "", nil
 }

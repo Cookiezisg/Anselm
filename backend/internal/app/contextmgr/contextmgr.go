@@ -161,6 +161,18 @@ func (s *Service) MaybeCompact(ctx context.Context, conversationID string) error
 	if err != nil {
 		return err
 	}
+	// Compaction must see EXACTLY what the LLM sees, so superseded turns (earlier versions of a retried /
+	// edit-resent round, WRK-077 CH-c) are dropped right here, at the single read site. Without this the
+	// assembly filter has a hole with a one-way valve: LoadThreadForLLM keeps a retried-away answer out of
+	// history, but folding that answer into conversation.summary would inject its content BACK into every
+	// later prompt — and a summary is not something a later filter can un-say. It also keeps
+	// `protectedFrom` counting real turns rather than versions.
+	//
+	// 压缩必须看到与 LLM **完全一样**的东西，故被取代的回合（一次重试 / 编辑重发的早期版本，WRK-077 CH-c）就在
+	// 这唯一的读点上被丢掉。没有这一句，装配过滤就有一个**单向阀式的洞**：LoadThreadForLLM 把被重试掉的回答挡在
+	// 历史之外，可一旦那个回答被折进 conversation.summary，它的内容就会**回流**进此后每一次 prompt——而摘要不是
+	// 后面某个过滤器能收回的话。它同时让 `protectedFrom` 数的是真回合、不是版本。
+	thread = currentVersions(thread)
 	last, lastPromptTokens, inputBudget, promptEdited := lastContextMeasurement(thread)
 	if last == nil {
 		return nil // no turn carrying per-sampling context accounting yet
@@ -206,6 +218,24 @@ func (s *Service) MaybeCompact(ctx context.Context, conversationID string) error
 	// ② summarize the oldest non-protected span into the running summary.
 	// ② 把最旧的非保护 span 摘要并入滚动 summary。
 	return s.summarize(ctx, conversationID, thread, protectedFrom, summary, watermark)
+}
+
+// currentVersions keeps only the turns that are still the current version of their round
+// (superseded_by = ”). Same predicate the store pushes into LoadThreadForLLM — repeated in Go here
+// because compaction reads the FULL thread (it needs folded blocks and their seq numbers, which the
+// LLM view deliberately omits), so it cannot borrow that query.
+//
+// currentVersions 只留仍是其回合**现行版**的回合（superseded_by = ”）。与 store 下推进 LoadThreadForLLM 的
+// 是同一个谓词——在此用 Go 重述一遍，因为压缩读的是**整条**线程（它要已折叠的 block 及其 seq，而 LLM 视图刻意
+// 不给），故借不了那条查询。
+func currentVersions(thread []*messagesdomain.Message) []*messagesdomain.Message {
+	out := make([]*messagesdomain.Message, 0, len(thread))
+	for _, m := range thread {
+		if m.SupersededBy == "" {
+			out = append(out, m)
+		}
+	}
+	return out
 }
 
 // lastContextMeasurement returns the newest assistant turn carrying the

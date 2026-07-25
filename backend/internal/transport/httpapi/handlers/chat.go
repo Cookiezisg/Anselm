@@ -7,18 +7,20 @@ import (
 
 	chatapp "github.com/sunweilin/anselm/backend/internal/app/chat"
 	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
 // ChatHandler serves the chat engine's 8 routes: send a message (202, streams over the messages
 // SSE), list a conversation's history (paged), the conversation-level actions (:cancel / :seen →
-// 204, :fork → 201 + the new thread), and the debug/usage/anchor/interaction reads. The assistant
-// turn itself is delivered over the messages stream, not this REST surface.
+// 204, :fork → 201 + the new thread, :retry → 202 + the new assistant turn's id), and the
+// debug/usage/anchor/interaction reads. The assistant turn itself is delivered over the messages
+// stream, not this REST surface.
 //
 // ChatHandler 提供 chat 引擎 8 条路由：发消息（202，经 messages SSE 流式）、列对话历史（分页）、对话级
-// 动作（:cancel / :seen → 204，:fork → 201 + 新线程）、调试/用量/锚点/交互读。assistant 回合本身经
-// messages 流交付、不在此 REST 面。
+// 动作（:cancel / :seen → 204，:fork → 201 + 新线程，:retry → 202 + 新 assistant 回合 id）、调试/用量/
+// 锚点/交互读。assistant 回合本身经 messages 流交付、不在此 REST 面。
 type ChatHandler struct {
 	svc *chatapp.Service
 	log *zap.Logger
@@ -40,7 +42,7 @@ func NewChatHandler(svc *chatapp.Service, log *zap.Logger) *ChatHandler {
 func (h *ChatHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/conversations/{id}/messages", h.Send)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/messages", h.List)
-	mux.HandleFunc("POST /api/v1/conversations/{idAction}", h.postAction) // :cancel / :seen / :fork(N5 动作后缀)
+	mux.HandleFunc("POST /api/v1/conversations/{idAction}", h.postAction) // :cancel / :seen / :fork / :retry(N5 动作后缀)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/system-prompt-preview", h.SystemPromptPreview)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/usage", h.Usage)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/interactions", h.ListInteractions)
@@ -170,15 +172,28 @@ type forkConversationRequest struct {
 	AtMessageID string `json:"atMessageId"`
 }
 
+// retryConversationRequest is the two-branch retry payload. Both fields are optional: an absent /
+// empty content is REGENERATE (answer the same question again), a non-empty one is EDIT-RESEND (replace
+// the question too). modelOverride is a plain pointer, NOT the PATCH tristate — retry has no "clear"
+// case to express, because absent already means "use whatever this thread is set to".
+//
+// retryConversationRequest 是重试的两分支载荷。两个字段都可选：content 缺省/空 = **重生成**（把同一个问题再答
+// 一次），非空 = **编辑重发**（连问题一起换）。modelOverride 是**朴素指针、非** PATCH 那个三态——重试没有「清除」
+// 这一格要表达，因为「缺席」本就意味着「用这条线程现有的设置」。
+type retryConversationRequest struct {
+	Content       string                `json:"content"`
+	ModelOverride *modeldomain.ModelRef `json:"modelOverride,omitempty"`
+}
+
 // postAction dispatches the conversation-level :action POSTs that share the {idAction} pattern
-// (Go 1.22 ServeMux allows ONE handler per pattern, so :cancel / :seen / :fork are switched here
-// rather than registered as separate routes). :cancel and :seen return 204 and fall through to the
-// shared tail; :fork returns 201 + the new Conversation and therefore returns early. An unknown
-// action is 404.
+// (Go 1.22 ServeMux allows ONE handler per pattern, so :cancel / :seen / :fork / :retry are switched
+// here rather than registered as separate routes). :cancel and :seen return 204 and fall through to the
+// shared tail; :fork returns 201 + the new Conversation and :retry returns 202 + the new assistant
+// message id, so both return early. An unknown action is 404.
 //
 // postAction 派发共享 {idAction} 模式的对话级 :action（Go 1.22 ServeMux 每模式仅一处理器，故 :cancel /
-// :seen / :fork 在此 switch、而非各注册一条路由）。:cancel 与 :seen 返 204、走共享尾；:fork 返 201 +
-// 新 Conversation，故提前 return。未知动作 404。
+// :seen / :fork / :retry 在此 switch、而非各注册一条路由）。:cancel 与 :seen 返 204、走共享尾；:fork 返 201 +
+// 新 Conversation、:retry 返 202 + 新 assistant message id，故两者都提前 return。未知动作 404。
 func (h *ChatHandler) postAction(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -205,6 +220,30 @@ func (h *ChatHandler) postAction(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		responsehttpapi.Created(w, fork)
+		return
+	case "retry":
+		// Retry replaces the conversation's last round with a NEW VERSION and streams it over the
+		// messages SSE, so it answers exactly as Send does: 202 + the new assistant message id. The old
+		// version is not deleted — it gets a superseded_by pointer and keeps coming back from all three
+		// read forms, which is what the UI's version pager reads. 409 STREAM_IN_PROGRESS when the last
+		// round has not settled; 404 MESSAGE_NOT_FOUND when there is no round to retry.
+		// Retry 把对话的末回合换成一个**新版本**并经 messages SSE 推流，故它的应答与 Send 完全一样：202 + 新
+		// assistant message id。旧版**不删**——它被写上 superseded_by 指针、并照常从三种读形态返回，那正是 UI
+		// 版本翻页所读。末回合未落定 → 409 STREAM_IN_PROGRESS；无回合可重试 → 404 MESSAGE_NOT_FOUND。
+		var req retryConversationRequest
+		if err := decodeJSONOptional(r, &req); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		msgID, err := h.svc.Retry(r.Context(), id, chatapp.RetryInput{
+			Content:       req.Content,
+			ModelOverride: req.ModelOverride,
+		})
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Success(w, http.StatusAccepted, map[string]string{"id": msgID}) // 异步动作返新资源 id 统一 {id}
 		return
 	case "cancel":
 		// Cancel stops the conversation's running turn (204). Graceful no-op when nothing runs.

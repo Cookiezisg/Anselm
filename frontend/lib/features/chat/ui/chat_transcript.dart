@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/api_error.dart';
+import '../../../core/contract/model_capability.dart';
 import '../../../core/contract/messages/block_content.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -127,6 +128,13 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
 
   final ScrollController _scroll = ScrollController();
   final Map<String, Widget> _settledRowCache = {};
+
+  /// Which version each version group is showing, keyed by the group's ROOT message id. Absent = the current
+  /// version (the pager's default). It lives here rather than in the row because a settled row is memoized
+  /// by id — a selection stored inside one would vanish the next time the cache answered.
+  /// 每个版本组正在显示第几版,按组的**根** message id 键住。缺席 = 现行版(翻页默认)。它住在这里而非住在行里,因为落定行
+  /// 按 id 记忆化——存在行里的选择会在缓存下一次作答时消失。
+  final Map<String, int> _versionChoice = {};
   CoalescingNotifier<ConversationTranscript>? _attached;
   bool _pinned = true;
   int _lastPendingCount = 0;
@@ -147,7 +155,11 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
   @override
   void didUpdateWidget(_TranscriptList old) {
     super.didUpdateWidget(old);
-    if (old.conversationId != widget.conversationId) _settledRowCache.clear();
+    if (old.conversationId != widget.conversationId) {
+      _settledRowCache.clear();
+      _versionChoice
+          .clear(); // page selections belong to the thread that was open 翻页选择属于刚才那条线程
+    }
   }
 
   @override
@@ -316,12 +328,53 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
         // belong to the present and hide until the「回到现场」pill (or a send) rejoins it.
         // 窗口模式:settled 即被跳离的窗——live 回合与乐观泡属于现场,藏到「回到现场」pill(或发送)归队。
         final windowMode = t.windowMode;
-        final older = t.settled.take(t.olderCount).toList(growable: false);
-        final head = [
-          ...t.settled.skip(t.olderCount),
+        // Version groups collapse BEFORE the anchor split, not per-sliver: a chain can straddle the anchor
+        // (its root in an older page, its newest version in the head), and grouping each half on its own
+        // would render that turn twice — once as an old version and once as a new one, which is exactly the
+        // duplicate the pager exists to prevent.
+        // 版本组在**锚切分之前**折叠、不逐 sliver 折:一条链可能横跨锚(根在老页、最新版在头页),各自分组会把那个回合
+        // **渲两遍**——一遍作旧版、一遍作新版,而那正是翻页要防的重复。
+        final groups = ConversationTranscript.groupVersions([
+          ...t.settled,
           if (!windowMode) ...t.liveTurns,
-        ];
+        ]);
+        // A group sits at its ROOT's position (a new version is the same turn said again, not a later turn),
+        // so the anchor split counts the groups whose root fell in the prepended pages — those ids form a
+        // prefix of the group list, hence the break.
+        // 组坐落在其**根**的位置(新版本是同一个回合又说了一遍、不是后来的回合),故锚切分数的是「根落在已上翻页里」的
+        // 组——那些 id 构成组列表的一个前缀,故可 break。
+        final olderIds = {for (final n in t.settled.take(t.olderCount)) n.id};
+        var olderGroups = 0;
+        for (final g in groups) {
+          if (!olderIds.contains(g.root.id)) break;
+          olderGroups++;
+        }
+        final older = groups.take(olderGroups).toList(growable: false);
+        final head = groups.skip(olderGroups).toList(growable: false);
         final pending = windowMode ? const <PendingSend>[] : t.pending;
+        // Retry / edit-resend exist only on the TAIL, mirroring the backend's own rule (`:retry` replaces the
+        // last round and 409s otherwise). They are withheld while a jump window is open (the tail is not even
+        // loaded) and while an optimistic bubble sits below (the round the reader sees as last is not the one
+        // the server would replace). Both the last group and the last USER group live in `head` by
+        // construction — `older` only ever holds prepended pages.
+        // 重试 / 编辑重发只存在于**尾巴**上,镜像后端自己的规则(`:retry` 替换末回合、否则 409)。跳转窗开着时不给
+        // (尾巴根本没加载),下面还有乐观泡时也不给(读者看作末轮的那一轮不是服务端会替换的那一轮)。末组与末条 user 组
+        // 按构造都在 `head` 里——`older` 只装已上翻的页。
+        // `!hasInFlight` is load-bearing twice over. It is honest (mid-generation the last round is not a round
+        // to replace — the backend 409s), and it is what keeps the last USER row CACHEABLE while a reply
+        // streams: a row carrying a tail action cannot be cached (see _rowFor), so without this the settled
+        // user turn would rebuild on every delta and break the streaming-perf invariant. The cache therefore
+        // only ever holds the no-tail-action variant, which is exactly the variant it is asked for.
+        // `!hasInFlight` 承重两次。它诚实(生成中,末回合不是可替换的回合——后端会 409),而它同时是让末条 **user** 行在
+        // 回复流式期间**仍可缓存**的原因:带尾巴动作的行不能缓存(见 _rowFor),没有这一条,那条已落定的 user 回合会随每个
+        // delta 重建、破掉流式性能不变量。于是缓存里只会存「无尾巴动作」那个变体——而那恰是它被问到的那个变体。
+        final tailActionable = !windowMode && pending.isEmpty && !t.hasInFlight;
+        var lastUserGroup = -1;
+        for (var i = 0; i < head.length; i++) {
+          if (ConversationTranscript.turnRole(head[i].current) == 'user') {
+            lastUserGroup = i;
+          }
+        }
         final list = CustomScrollView(
           controller: _scroll,
           center: _centerKey,
@@ -347,8 +400,9 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
                         ),
                       );
                     }
-                    // Rows above the anchor are history by construction — never the last turn.
-                    // 锚上的行按构造就是历史,绝不可能是末轮。
+                    // Rows above the anchor are history by construction — never the last turn, and never
+                    // the tail the retry/edit actions belong to.
+                    // 锚上的行按构造就是历史,绝不可能是末轮,也绝不是重试/编辑所属的那条尾巴。
                     return _rowFor(older[older.length - 1 - i], isLast: false);
                   },
                 ),
@@ -365,9 +419,16 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
                     if (i < head.length) {
                       // An optimistic bubble below means the last SETTLED turn is no longer the
                       // bottom of the transcript. 下面还有乐观泡时,最后一条落定回合已不是 transcript 底部。
+                      final isTail = i == head.length - 1;
                       return _rowFor(
                         head[i],
-                        isLast: i == head.length - 1 && pending.isEmpty,
+                        isLast: isTail && pending.isEmpty,
+                        canRetry:
+                            tailActionable &&
+                            isTail &&
+                            ConversationTranscript.turnRole(head[i].current) ==
+                                'assistant',
+                        canEdit: tailActionable && i == lastUserGroup,
                       );
                     }
                     return _PendingRow(
@@ -420,7 +481,29 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
   // rebuild once if scrolled back). 身份缓存有界:末插=近渲染,逐最旧=已滚远行,可见窗不受影响。
   static const _rowCacheCap = 400;
 
-  Widget _rowFor(BlockNode turn, {required bool isLast}) {
+  Widget _rowFor(
+    TurnVersions group, {
+    required bool isLast,
+    bool canRetry = false,
+    bool canEdit = false,
+  }) {
+    // Which version of this turn is on screen. The default is the CURRENT one (what the thread continued
+    // from) — a reader who has never touched the pager must be looking at the answer everything after it was
+    // built on. The choice is keyed by the group's ROOT because that id is stable across further retries.
+    // 屏上是本回合的第几版。默认**现行版**(线程后续所基于的那一版)——从没碰过翻页的读者,看的必须是「其后的一切据以
+    // 构建」的那个回答。选择按组的**根** id 键住,因为该 id 跨此后的每次重试都稳定。
+    // One override on the stored choice: a version that is being GENERATED RIGHT NOW is always the one you
+    // see. Otherwise a reader who had paged back before hitting retry would watch a reply stream into a row
+    // that is off screen — the pager would be showing an old answer while the new one arrived invisibly.
+    // 存下的选择只有一个覆盖:**正在生成**的那一版恒是你看到的那一版。否则一个在按重试前往回翻过页的读者,会看着回复流进
+    // 一个屏上不存在的行——翻页显示着旧回答,而新回答无形中抵达。
+    final index = group.current.isOpen
+        ? group.count - 1
+        : (_versionChoice[group.root.id] ?? group.count - 1).clamp(
+            0,
+            group.count - 1,
+          );
+    final turn = group.at(index);
     Widget row;
     // The LAST turn is deliberately not cached. Its action row is always-visible while a historical
     // turn's is hover-only (§3.2), so "am I last" is part of what the row renders — and a cached
@@ -430,8 +513,24 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     // **末轮刻意不缓存。** 它的动作排恒显、而历史轮 hover 才现(§3.2),故「我是不是末轮」是这一行渲染内容的
     // 一部分——被缓存的实例会把这个答案**冻结在建它的那一刻**,于是下一轮到来后留下一排过期的常显图标。少缓一行
     // 零代价:流式中底部那轮是 **open** 的,它本来也不进缓存。
-    if (!turn.isOpen && !isLast) {
-      row = _settledRowCache[turn.id] ??= () {
+    //
+    // The TAIL-ACTION rows are excluded for exactly the same reason, and the last USER turn is why this has to
+    // be spelled out: it is settled and it is not last, so it WOULD be cached — and then「编辑重发」would freeze
+    // on it and go on offering to replace a round that is no longer the last one. It becomes cacheable again
+    // the moment a newer round arrives, which is precisely when the answer flips to false.
+    // **带尾巴动作的行**因完全相同的理由排除,而末条 **user** 回合正是这条必须写明的原因:它已落定、又不是末轮,故它
+    // **本会**被缓存——于是「编辑重发」会冻在它身上、继续提议替换一个已经不是末轮的回合。新一轮到来的那一刻它又可缓,
+    // 而那恰是这个答案翻成 false 的时刻。
+    if (!turn.isOpen && !isLast && !canRetry && !canEdit) {
+      // The version coordinates go INTO the cache key, not just the turn id: `2/3` is part of what the row
+      // renders, and a later page that brings a fourth version in would otherwise leave a cached row
+      // claiming `2/3` forever — the same freeze the isLast exclusion above guards against.
+      // 版本坐标**进缓存键**、不只是 turn id:`2/3` 是这一行渲染内容的一部分,而后续某页带进第 4 个版本时,被缓存的行
+      // 会永远宣称 `2/3`——与上面 isLast 排除所防的是同一种冻结。
+      final cacheKey = group.count == 1
+          ? turn.id
+          : '${turn.id}#${index + 1}/${group.count}';
+      row = _settledRowCache[cacheKey] ??= () {
         if (_settledRowCache.length >= _rowCacheCap) {
           _settledRowCache.remove(_settledRowCache.keys.first);
         }
@@ -440,6 +539,9 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
           streaming: false,
           isLast: false,
           conversationId: widget.conversationId,
+          versionIndex: index,
+          versionCount: group.count,
+          onVersion: _versionPicker(group.root.id),
           key: ValueKey(turn.id),
         );
       }();
@@ -449,6 +551,11 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
         streaming: turn.isOpen,
         isLast: isLast,
         conversationId: widget.conversationId,
+        canRetry: canRetry,
+        canEdit: canEdit,
+        versionIndex: index,
+        versionCount: group.count,
+        onVersion: _versionPicker(group.root.id),
         key: ValueKey(turn.id),
       );
     }
@@ -457,6 +564,12 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     }
     return row;
   }
+
+  /// The pager's commit, hoisted OUT of the row: a row is memoized by id, so the selection must live above
+  /// it (a per-row choice would be destroyed the moment the cache handed the row back).
+  /// 翻页的落点提到**行之外**:行按 id 记忆化,故选择必须住在它上面(逐行的选择会在缓存把行还回来的那一刻被销毁)。
+  ValueChanged<int> _versionPicker(String rootId) =>
+      (i) => setState(() => _versionChoice[rootId] = i);
 }
 
 /// One transcript turn, centered in the reading column with the inter-turn gap. 一条回合(阅读列+轮距)。
@@ -466,6 +579,11 @@ class _TurnRow extends ConsumerStatefulWidget {
     required this.streaming,
     required this.isLast,
     required this.conversationId,
+    this.canRetry = false,
+    this.canEdit = false,
+    this.versionIndex = 0,
+    this.versionCount = 1,
+    this.onVersion,
     super.key,
   });
 
@@ -475,6 +593,19 @@ class _TurnRow extends ConsumerStatefulWidget {
   /// The bottom of the transcript — its action row is always visible (§3.2). transcript 底部,动作排恒显。
   final bool isLast;
   final String conversationId;
+
+  /// This is the tail assistant turn: it may be regenerated (`:retry`). 这是尾巴上的 assistant 回合,可重生成。
+  final bool canRetry;
+
+  /// This is the last user turn: it may be edited and resent in place (`:retry {content}`).
+  /// 这是末条 user 回合,可原地编辑重发。
+  final bool canEdit;
+
+  /// Version coordinates + the pager's commit (owned by the list — a row is memoized by id).
+  /// 版本坐标 + 翻页落点(归列表所有——行按 id 记忆化)。
+  final int versionIndex;
+  final int versionCount;
+  final ValueChanged<int>? onVersion;
 
   @override
   ConsumerState<_TurnRow> createState() => _TurnRowState();
@@ -491,6 +622,18 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
   // build——无缓存则每 tick 重解析全部落定散块(非仅唯一开块);返回同实例短路重建,换主题仍重渲(继承件依赖与
   // 实例无关,故无需主题键)。只缓纯 prop text 块(toolCall 块 watch 活 provider 须保反应性,绝不缓)。
   final _textCache = <String, Widget>{};
+
+  /// The edit-resend field, alive only while the reader is editing this turn. A controller (not a bare
+  /// string) so the caret survives every rebuild the streaming list performs around it.
+  /// 编辑重发的输入控制器,仅在读者正编辑本回合期间存在。用 controller(而非裸字符串)使光标能活过流式列表在它周围做的
+  /// 每一次重建。
+  TextEditingController? _edit;
+
+  @override
+  void dispose() {
+    _edit?.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -562,19 +705,38 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
           ),
         },
     ];
+    final editing = _edit;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Editing swaps the bubble's CHILD, never wraps it: `ChatTurn` stays mounted so the bubble keeps its
+        // identity, its width and its place in the reading column while the sentence becomes editable
+        // (CLAUDE.md 禁止条件包装 — the ban is on wrappers coming and going, not on content genuinely
+        // becoming something else, which is exactly what an in-place edit is).
+        // 编辑替换气泡的**子**、绝不包裹它:ChatTurn 保持挂载,故气泡在句子变可编辑期间保住身份、宽度与它在阅读列里的
+        // 位置(CLAUDE.md 禁止条件包装——禁的是包装层来来去去、不是内容真的变成了别的东西,而原地编辑正是后者)。
         ChatTurn(
           role: ChatRole.user,
-          child: UserTurnContent(
-            text: ConversationTranscript.turnText(widget.turn),
-            mentions: ConversationTranscript.turnMentions(widget.turn),
-            attachments: attachments,
-            audioAttachmentBuilder: (a) => _TranscriptAudioAttachment(a),
-          ),
+          child: editing == null
+              ? UserTurnContent(
+                  text: ConversationTranscript.turnText(widget.turn),
+                  mentions: ConversationTranscript.turnMentions(widget.turn),
+                  attachments: attachments,
+                  audioAttachmentBuilder: (a) => _TranscriptAudioAttachment(a),
+                )
+              : _EditResendField(
+                  controller: editing,
+                  onCancel: _cancelEdit,
+                  onSubmit: _submitEdit,
+                ),
         ),
-        _actions(TurnActionsRole.user),
+        // The action row stays MOUNTED while editing and merely goes offstage — the sanctioned parameter flip
+        // (`Offstage(offstage:)`), not a subtree that comes and goes.
+        // 编辑期间动作排保持**挂载**、只是下台——用获准的翻参数形态(`Offstage(offstage:)`),不是来来去去的子树。
+        Offstage(
+          offstage: editing != null,
+          child: _actions(TurnActionsRole.user),
+        ),
       ],
     );
   }
@@ -682,6 +844,24 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
   /// composer。返回零高盒而非省略,好让列的 children 保持形状——一条回合落定时不会顶得兄弟节点重挂。
   Widget _actions(TurnActionsRole role) {
     if (widget.streaming) return const SizedBox.shrink();
+    // The model list is read ONLY on the row that can actually retry — one extra watch on one row, not a
+    // capability list per turn in the transcript. A conditional watch is legal in Riverpod (this is not a hook).
+    //
+    // The thread's current model is deliberately NOT read here. It would mean a second subscription — to
+    // `conversationHeaderProvider`, the one provider CH-b already found has no `retry:` override, so a failed
+    // read backs off and re-polls forever behind a row that has already degraded. All it would buy is a
+    // check-mark next to one model name; the menu's own first row already says「重试」and means "keep whatever
+    // this thread is set to", which is the honest statement either way.
+    // 模型列表**只在真能重试的那一行**读——一行多一次订阅,而不是让 transcript 里每个回合都订阅一份能力列表。
+    // Riverpod 允许条件 watch(它不是 hook)。
+    //
+    // 线程当前的模型**刻意不在此读**。那会多一次订阅——订 `conversationHeaderProvider`,而它正是 CH-b 已经查明
+    // 「没有 `retry:` 覆盖」的那个 provider:一次失败的读会退避重试、在一个已经优雅降级的行后面永远轮询。它换来的
+    // 只是某个模型名旁边的一个勾;而菜单第一行本就写着「重试」、意思是「用这条线程现有的设置」,两种情形下都诚实。
+    final caps = widget.canRetry
+        ? (ref.watch(modelCapabilitiesProvider).value ??
+              const <ModelCapability>[])
+        : const <ModelCapability>[];
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s4),
       child: TurnActions(
@@ -689,8 +869,114 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         role: role,
         alwaysVisible: widget.isLast,
         onFork: _fork,
+        onRetry: widget.canRetry ? _retry : null,
+        retryCaps: caps,
+        onEdit: widget.canEdit ? _startEdit : null,
+        versionIndex: widget.versionIndex,
+        versionCount: widget.versionCount,
+        onVersion: widget.onVersion,
       ),
     );
+  }
+
+  /// Regenerate this answer as a NEW VERSION (`:retry`), optionally with a different model.
+  ///
+  /// "Is the thread busy" is checked AT TAP TIME rather than carried as a prop, for the same reason the fork
+  /// cut point is: a settled row is memoized by id, so a prop would freeze at the moment the row was built and
+  /// a stale `false` would let a click through mid-generation. Reading the controller on tap always sees now.
+  /// The backend refuses that click anyway (409 on a non-terminal tail) — this is so the reader is told WHY
+  /// instead of watching an action fail.
+  ///
+  /// The pager is pointed at the version that is about to exist (index == the current count): once the new
+  /// version lands the count grows by one and that index IS the newest, so the reply the reader just asked for
+  /// is the one they watch stream. If the request fails, the same index clamps harmlessly back to the current
+  /// version.
+  ///
+  /// 把这个回答作为**新版本**重生成(`:retry`),可选换模型。
+  ///
+  /// 「线程忙不忙」在**点击时**查、不作 prop 传,理由与分叉切点相同:落定行按 id 记忆化,prop 会冻结在建行那一刻,一个过期的
+  /// `false` 会让一次点击在生成中放行。点击时读控制器永远看到「现在」。后端本就会拒那次点击(非终态尾巴 409)——这里是为了让
+  /// 读者被**告知原因**,而不是看着一个动作失败。
+  ///
+  /// 翻页被指向**即将存在**的那一版(下标 == 当前版本数):新版本一落地,版本数加一,该下标**就是**最新那一版,故读者刚要的
+  /// 那个回复正是他看着流出来的那个。请求失败时同一个下标无害地钳回现行版。
+  Future<void> _retry(
+    ({String apiKeyId, String modelId})? modelOverride,
+  ) async {
+    if (_refuseWhileBusy()) return;
+    widget.onVersion?.call(widget.versionCount);
+    try {
+      await ref
+          .read(chatRepositoryProvider)
+          .retryTurn(widget.conversationId, modelOverride: modelOverride);
+    } catch (_) {
+      if (!mounted) return;
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(context.t.chat.actionFailed, tone: AnTone.danger);
+    }
+  }
+
+  /// Put the sentence back into an editable state, in place. The transcript's own text is the seed — the
+  /// composer is not involved, because「原地换整轮」means the reader edits where the sentence already is.
+  /// 把句子原地放回可编辑态。种子取 transcript 自己的文本——不牵扯 composer,因为「原地换整轮」的意思正是读者在句子
+  /// **本来所在的地方**编辑它。
+  void _startEdit() {
+    if (_refuseWhileBusy()) return;
+    setState(
+      () => _edit = TextEditingController(
+        text: ConversationTranscript.turnText(widget.turn),
+      ),
+    );
+  }
+
+  void _cancelEdit() {
+    final ctl = _edit;
+    setState(() => _edit = null);
+    ctl?.dispose();
+  }
+
+  /// Resend the edited sentence as a new version of the whole round (`:retry {content}`) — the server replaces
+  /// both halves, so nothing here has to guess at the answer. An empty edit is a cancel: replacing a message
+  /// with nothing is not a message.
+  /// 把编辑后的句子作为整个回合的新版本重发(`:retry {content}`)——服务端替换两半,故此处无需对回答做任何猜测。空的编辑
+  /// 等同取消:把一条消息换成什么都没有,那不是一条消息。
+  Future<void> _submitEdit() async {
+    final text = _edit?.text.trim() ?? '';
+    if (text.isEmpty) {
+      _cancelEdit();
+      return;
+    }
+    if (_refuseWhileBusy()) return;
+    _cancelEdit();
+    widget.onVersion?.call(widget.versionCount);
+    try {
+      await ref
+          .read(chatRepositoryProvider)
+          .retryTurn(widget.conversationId, content: text);
+    } catch (_) {
+      if (!mounted) return;
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(context.t.chat.actionFailed, tone: AnTone.danger);
+    }
+  }
+
+  /// True (and says so) when a turn is in flight: `:retry` replaces the LAST ROUND, and a round that has not
+  /// finished is not a round to replace. 有回合在飞时返 true 并说明:`:retry` 替换**末回合**,而一个没结束的回合不是可
+  /// 替换的回合。
+  bool _refuseWhileBusy() {
+    final busy = ref
+        .read(conversationStreamProvider(widget.conversationId).notifier)
+        .transcript
+        .value
+        .hasInFlight;
+    if (busy) {
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(context.t.chat.actions.retryBusy);
+    }
+    return busy;
   }
 
   /// Branch this turn into a new conversation, then open it.
@@ -956,6 +1242,66 @@ class _TranscriptAudioAttachmentState
             }
           : null,
       onTap: widget.attachment.onTap,
+    );
+  }
+}
+
+/// The in-place edit-resend field: the sentence, editable, with Cancel / Resend right under it (§3.2
+/// 「原地换整轮」). Multiline, because a chat message is prose and an edit that could not reach the second
+/// paragraph would only be an edit of short messages. Enter inserts a newline (the field is a textarea, not
+/// the composer) — resending is an explicit act, since it replaces a round rather than adding one.
+///
+/// It is a local composition of kit primitives (`AnInput` + two `AnButton`s), not a new primitive: nothing
+/// else in the app edits a transcript turn, so there is no second caller to share a widget with.
+///
+/// 原地编辑重发的输入面:句子本身可编辑,下面紧跟取消 / 重发(§3.2「原地换整轮」)。多行——聊天消息是散文,一个到不了第二段
+/// 的编辑只能算短消息的编辑。Enter 换行(这是文本域、不是 composer)——重发是明确的动作,因为它**替换**一个回合而非新增一个。
+///
+/// 它是套件原语的**局部组合**(`AnInput` + 两个 `AnButton`)、不是新原语:app 里没有第二处会编辑 transcript 回合,故没有第二个
+/// 调用方可与之共享一个 widget。
+class _EditResendField extends StatelessWidget {
+  const _EditResendField({
+    required this.controller,
+    required this.onCancel,
+    required this.onSubmit,
+  });
+
+  final TextEditingController controller;
+  final VoidCallback onCancel;
+  final VoidCallback onSubmit;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        AnInput(
+          controller: controller,
+          multiline: true,
+          block: true,
+          autofocus: true,
+          semanticLabel: t.chat.actions.editResend,
+        ),
+        const SizedBox(height: AnSpace.s8),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnButton(
+              label: t.action.cancel,
+              size: AnButtonSize.sm,
+              onPressed: onCancel,
+            ),
+            const SizedBox(width: AnSpace.s8),
+            AnButton(
+              label: t.chat.actions.editResendSubmit,
+              size: AnButtonSize.sm,
+              variant: AnButtonVariant.primary,
+              onPressed: onSubmit,
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

@@ -328,7 +328,7 @@ as DateTime?,
 /// @nodoc
 mixin _$ChatMessage {
 
- String get id; String get conversationId; String get subagentId; String get role; String get status; String get stopReason; String get errorCode; String get errorMessage; int get inputTokens; int get outputTokens; String get provider; String get modelId; Map<String, dynamic>? get attrs; List<ChatBlock> get blocks; DateTime get createdAt;
+ String get id; String get conversationId; String get subagentId; String get role; String get supersededBy; String get status; String get stopReason; String get errorCode; String get errorMessage; int get inputTokens; int get outputTokens; String get provider; String get modelId; Map<String, dynamic>? get attrs; List<ChatBlock> get blocks; DateTime get createdAt;
 /// Create a copy of ChatMessage
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -341,16 +341,16 @@ $ChatMessageCopyWith<ChatMessage> get copyWith => _$ChatMessageCopyWithImpl<Chat
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChatMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.subagentId, subagentId) || other.subagentId == subagentId)&&(identical(other.role, role) || other.role == role)&&(identical(other.status, status) || other.status == status)&&(identical(other.stopReason, stopReason) || other.stopReason == stopReason)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.modelId, modelId) || other.modelId == modelId)&&const DeepCollectionEquality().equals(other.attrs, attrs)&&const DeepCollectionEquality().equals(other.blocks, blocks)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ChatMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.subagentId, subagentId) || other.subagentId == subagentId)&&(identical(other.role, role) || other.role == role)&&(identical(other.supersededBy, supersededBy) || other.supersededBy == supersededBy)&&(identical(other.status, status) || other.status == status)&&(identical(other.stopReason, stopReason) || other.stopReason == stopReason)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.modelId, modelId) || other.modelId == modelId)&&const DeepCollectionEquality().equals(other.attrs, attrs)&&const DeepCollectionEquality().equals(other.blocks, blocks)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,conversationId,subagentId,role,status,stopReason,errorCode,errorMessage,inputTokens,outputTokens,provider,modelId,const DeepCollectionEquality().hash(attrs),const DeepCollectionEquality().hash(blocks),createdAt);
+int get hashCode => Object.hash(runtimeType,id,conversationId,subagentId,role,supersededBy,status,stopReason,errorCode,errorMessage,inputTokens,outputTokens,provider,modelId,const DeepCollectionEquality().hash(attrs),const DeepCollectionEquality().hash(blocks),createdAt);
 
 @override
 String toString() {
-  return 'ChatMessage(id: $id, conversationId: $conversationId, subagentId: $subagentId, role: $role, status: $status, stopReason: $stopReason, errorCode: $errorCode, errorMessage: $errorMessage, inputTokens: $inputTokens, outputTokens: $outputTokens, provider: $provider, modelId: $modelId, attrs: $attrs, blocks: $blocks, createdAt: $createdAt)';
+  return 'ChatMessage(id: $id, conversationId: $conversationId, subagentId: $subagentId, role: $role, supersededBy: $supersededBy, status: $status, stopReason: $stopReason, errorCode: $errorCode, errorMessage: $errorMessage, inputTokens: $inputTokens, outputTokens: $outputTokens, provider: $provider, modelId: $modelId, attrs: $attrs, blocks: $blocks, createdAt: $createdAt)';
 }
 
 
@@ -361,7 +361,7 @@ abstract mixin class $ChatMessageCopyWith<$Res>  {
   factory $ChatMessageCopyWith(ChatMessage value, $Res Function(ChatMessage) _then) = _$ChatMessageCopyWithImpl;
 @useResult
 $Res call({
- String id, String conversationId, String subagentId, String role, String status, String stopReason, String errorCode, String errorMessage, int inputTokens, int outputTokens, String provider, String modelId, Map<String, dynamic>? attrs, List<ChatBlock> blocks, DateTime createdAt
+ String id, String conversationId, String subagentId, String role, String supersededBy, String status, String stopReason, String errorCode, String errorMessage, int inputTokens, int outputTokens, String provider, String modelId, Map<String, dynamic>? attrs, List<ChatBlock> blocks, DateTime createdAt
 });
 
 
@@ -378,12 +378,13 @@ class _$ChatMessageCopyWithImpl<$Res>
 
 /// Create a copy of ChatMessage
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? conversationId = null,Object? subagentId = null,Object? role = null,Object? status = null,Object? stopReason = null,Object? errorCode = null,Object? errorMessage = null,Object? inputTokens = null,Object? outputTokens = null,Object? provider = null,Object? modelId = null,Object? attrs = freezed,Object? blocks = null,Object? createdAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? conversationId = null,Object? subagentId = null,Object? role = null,Object? supersededBy = null,Object? status = null,Object? stopReason = null,Object? errorCode = null,Object? errorMessage = null,Object? inputTokens = null,Object? outputTokens = null,Object? provider = null,Object? modelId = null,Object? attrs = freezed,Object? blocks = null,Object? createdAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,conversationId: null == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
 as String,subagentId: null == subagentId ? _self.subagentId : subagentId // ignore: cast_nullable_to_non_nullable
 as String,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
+as String,supersededBy: null == supersededBy ? _self.supersededBy : supersededBy // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,stopReason: null == stopReason ? _self.stopReason : stopReason // ignore: cast_nullable_to_non_nullable
 as String,errorCode: null == errorCode ? _self.errorCode : errorCode // ignore: cast_nullable_to_non_nullable
@@ -480,10 +481,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String conversationId,  String subagentId,  String role,  String status,  String stopReason,  String errorCode,  String errorMessage,  int inputTokens,  int outputTokens,  String provider,  String modelId,  Map<String, dynamic>? attrs,  List<ChatBlock> blocks,  DateTime createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String conversationId,  String subagentId,  String role,  String supersededBy,  String status,  String stopReason,  String errorCode,  String errorMessage,  int inputTokens,  int outputTokens,  String provider,  String modelId,  Map<String, dynamic>? attrs,  List<ChatBlock> blocks,  DateTime createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ChatMessage() when $default != null:
-return $default(_that.id,_that.conversationId,_that.subagentId,_that.role,_that.status,_that.stopReason,_that.errorCode,_that.errorMessage,_that.inputTokens,_that.outputTokens,_that.provider,_that.modelId,_that.attrs,_that.blocks,_that.createdAt);case _:
+return $default(_that.id,_that.conversationId,_that.subagentId,_that.role,_that.supersededBy,_that.status,_that.stopReason,_that.errorCode,_that.errorMessage,_that.inputTokens,_that.outputTokens,_that.provider,_that.modelId,_that.attrs,_that.blocks,_that.createdAt);case _:
   return orElse();
 
 }
@@ -501,10 +502,10 @@ return $default(_that.id,_that.conversationId,_that.subagentId,_that.role,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String conversationId,  String subagentId,  String role,  String status,  String stopReason,  String errorCode,  String errorMessage,  int inputTokens,  int outputTokens,  String provider,  String modelId,  Map<String, dynamic>? attrs,  List<ChatBlock> blocks,  DateTime createdAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String conversationId,  String subagentId,  String role,  String supersededBy,  String status,  String stopReason,  String errorCode,  String errorMessage,  int inputTokens,  int outputTokens,  String provider,  String modelId,  Map<String, dynamic>? attrs,  List<ChatBlock> blocks,  DateTime createdAt)  $default,) {final _that = this;
 switch (_that) {
 case _ChatMessage():
-return $default(_that.id,_that.conversationId,_that.subagentId,_that.role,_that.status,_that.stopReason,_that.errorCode,_that.errorMessage,_that.inputTokens,_that.outputTokens,_that.provider,_that.modelId,_that.attrs,_that.blocks,_that.createdAt);case _:
+return $default(_that.id,_that.conversationId,_that.subagentId,_that.role,_that.supersededBy,_that.status,_that.stopReason,_that.errorCode,_that.errorMessage,_that.inputTokens,_that.outputTokens,_that.provider,_that.modelId,_that.attrs,_that.blocks,_that.createdAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -521,10 +522,10 @@ return $default(_that.id,_that.conversationId,_that.subagentId,_that.role,_that.
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String conversationId,  String subagentId,  String role,  String status,  String stopReason,  String errorCode,  String errorMessage,  int inputTokens,  int outputTokens,  String provider,  String modelId,  Map<String, dynamic>? attrs,  List<ChatBlock> blocks,  DateTime createdAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String conversationId,  String subagentId,  String role,  String supersededBy,  String status,  String stopReason,  String errorCode,  String errorMessage,  int inputTokens,  int outputTokens,  String provider,  String modelId,  Map<String, dynamic>? attrs,  List<ChatBlock> blocks,  DateTime createdAt)?  $default,) {final _that = this;
 switch (_that) {
 case _ChatMessage() when $default != null:
-return $default(_that.id,_that.conversationId,_that.subagentId,_that.role,_that.status,_that.stopReason,_that.errorCode,_that.errorMessage,_that.inputTokens,_that.outputTokens,_that.provider,_that.modelId,_that.attrs,_that.blocks,_that.createdAt);case _:
+return $default(_that.id,_that.conversationId,_that.subagentId,_that.role,_that.supersededBy,_that.status,_that.stopReason,_that.errorCode,_that.errorMessage,_that.inputTokens,_that.outputTokens,_that.provider,_that.modelId,_that.attrs,_that.blocks,_that.createdAt);case _:
   return null;
 
 }
@@ -536,13 +537,14 @@ return $default(_that.id,_that.conversationId,_that.subagentId,_that.role,_that.
 @JsonSerializable()
 
 class _ChatMessage implements ChatMessage {
-  const _ChatMessage({required this.id, this.conversationId = '', this.subagentId = '', required this.role, this.status = '', this.stopReason = '', this.errorCode = '', this.errorMessage = '', this.inputTokens = 0, this.outputTokens = 0, this.provider = '', this.modelId = '', final  Map<String, dynamic>? attrs, final  List<ChatBlock> blocks = const <ChatBlock>[], required this.createdAt}): _attrs = attrs,_blocks = blocks;
+  const _ChatMessage({required this.id, this.conversationId = '', this.subagentId = '', required this.role, this.supersededBy = '', this.status = '', this.stopReason = '', this.errorCode = '', this.errorMessage = '', this.inputTokens = 0, this.outputTokens = 0, this.provider = '', this.modelId = '', final  Map<String, dynamic>? attrs, final  List<ChatBlock> blocks = const <ChatBlock>[], required this.createdAt}): _attrs = attrs,_blocks = blocks;
   factory _ChatMessage.fromJson(Map<String, dynamic> json) => _$ChatMessageFromJson(json);
 
 @override final  String id;
 @override@JsonKey() final  String conversationId;
 @override@JsonKey() final  String subagentId;
 @override final  String role;
+@override@JsonKey() final  String supersededBy;
 @override@JsonKey() final  String status;
 @override@JsonKey() final  String stopReason;
 @override@JsonKey() final  String errorCode;
@@ -582,16 +584,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChatMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.subagentId, subagentId) || other.subagentId == subagentId)&&(identical(other.role, role) || other.role == role)&&(identical(other.status, status) || other.status == status)&&(identical(other.stopReason, stopReason) || other.stopReason == stopReason)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.modelId, modelId) || other.modelId == modelId)&&const DeepCollectionEquality().equals(other._attrs, _attrs)&&const DeepCollectionEquality().equals(other._blocks, _blocks)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ChatMessage&&(identical(other.id, id) || other.id == id)&&(identical(other.conversationId, conversationId) || other.conversationId == conversationId)&&(identical(other.subagentId, subagentId) || other.subagentId == subagentId)&&(identical(other.role, role) || other.role == role)&&(identical(other.supersededBy, supersededBy) || other.supersededBy == supersededBy)&&(identical(other.status, status) || other.status == status)&&(identical(other.stopReason, stopReason) || other.stopReason == stopReason)&&(identical(other.errorCode, errorCode) || other.errorCode == errorCode)&&(identical(other.errorMessage, errorMessage) || other.errorMessage == errorMessage)&&(identical(other.inputTokens, inputTokens) || other.inputTokens == inputTokens)&&(identical(other.outputTokens, outputTokens) || other.outputTokens == outputTokens)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.modelId, modelId) || other.modelId == modelId)&&const DeepCollectionEquality().equals(other._attrs, _attrs)&&const DeepCollectionEquality().equals(other._blocks, _blocks)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,conversationId,subagentId,role,status,stopReason,errorCode,errorMessage,inputTokens,outputTokens,provider,modelId,const DeepCollectionEquality().hash(_attrs),const DeepCollectionEquality().hash(_blocks),createdAt);
+int get hashCode => Object.hash(runtimeType,id,conversationId,subagentId,role,supersededBy,status,stopReason,errorCode,errorMessage,inputTokens,outputTokens,provider,modelId,const DeepCollectionEquality().hash(_attrs),const DeepCollectionEquality().hash(_blocks),createdAt);
 
 @override
 String toString() {
-  return 'ChatMessage(id: $id, conversationId: $conversationId, subagentId: $subagentId, role: $role, status: $status, stopReason: $stopReason, errorCode: $errorCode, errorMessage: $errorMessage, inputTokens: $inputTokens, outputTokens: $outputTokens, provider: $provider, modelId: $modelId, attrs: $attrs, blocks: $blocks, createdAt: $createdAt)';
+  return 'ChatMessage(id: $id, conversationId: $conversationId, subagentId: $subagentId, role: $role, supersededBy: $supersededBy, status: $status, stopReason: $stopReason, errorCode: $errorCode, errorMessage: $errorMessage, inputTokens: $inputTokens, outputTokens: $outputTokens, provider: $provider, modelId: $modelId, attrs: $attrs, blocks: $blocks, createdAt: $createdAt)';
 }
 
 
@@ -602,7 +604,7 @@ abstract mixin class _$ChatMessageCopyWith<$Res> implements $ChatMessageCopyWith
   factory _$ChatMessageCopyWith(_ChatMessage value, $Res Function(_ChatMessage) _then) = __$ChatMessageCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String conversationId, String subagentId, String role, String status, String stopReason, String errorCode, String errorMessage, int inputTokens, int outputTokens, String provider, String modelId, Map<String, dynamic>? attrs, List<ChatBlock> blocks, DateTime createdAt
+ String id, String conversationId, String subagentId, String role, String supersededBy, String status, String stopReason, String errorCode, String errorMessage, int inputTokens, int outputTokens, String provider, String modelId, Map<String, dynamic>? attrs, List<ChatBlock> blocks, DateTime createdAt
 });
 
 
@@ -619,12 +621,13 @@ class __$ChatMessageCopyWithImpl<$Res>
 
 /// Create a copy of ChatMessage
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? conversationId = null,Object? subagentId = null,Object? role = null,Object? status = null,Object? stopReason = null,Object? errorCode = null,Object? errorMessage = null,Object? inputTokens = null,Object? outputTokens = null,Object? provider = null,Object? modelId = null,Object? attrs = freezed,Object? blocks = null,Object? createdAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? conversationId = null,Object? subagentId = null,Object? role = null,Object? supersededBy = null,Object? status = null,Object? stopReason = null,Object? errorCode = null,Object? errorMessage = null,Object? inputTokens = null,Object? outputTokens = null,Object? provider = null,Object? modelId = null,Object? attrs = freezed,Object? blocks = null,Object? createdAt = null,}) {
   return _then(_ChatMessage(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,conversationId: null == conversationId ? _self.conversationId : conversationId // ignore: cast_nullable_to_non_nullable
 as String,subagentId: null == subagentId ? _self.subagentId : subagentId // ignore: cast_nullable_to_non_nullable
 as String,role: null == role ? _self.role : role // ignore: cast_nullable_to_non_nullable
+as String,supersededBy: null == supersededBy ? _self.supersededBy : supersededBy // ignore: cast_nullable_to_non_nullable
 as String,status: null == status ? _self.status : status // ignore: cast_nullable_to_non_nullable
 as String,stopReason: null == stopReason ? _self.stopReason : stopReason // ignore: cast_nullable_to_non_nullable
 as String,errorCode: null == errorCode ? _self.errorCode : errorCode // ignore: cast_nullable_to_non_nullable
