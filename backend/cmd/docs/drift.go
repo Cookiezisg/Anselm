@@ -97,7 +97,8 @@ func (l *linter) checkDrift(backendDir string) {
 	l.driftEvents(backendDir, tables)
 	l.driftEndpoints(backendDir)
 	l.driftTables(tables)
-	l.driftDTO(filepath.Dir(backendDir)) // repo root = backend/ 的父目录
+	l.driftDTO(filepath.Dir(backendDir))              // repo root = backend/ 的父目录
+	l.driftSignalVocabulary(filepath.Dir(backendDir)) // 线缆动词 → 前端 switch 覆盖(WRK-083 B1)
 }
 
 // walkGo streams every non-test .go file under dir into fn, comments stripped (doc comments carry

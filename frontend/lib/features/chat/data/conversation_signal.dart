@@ -62,7 +62,26 @@ class ConversationSignal {
     'unpinned' ||
     'auto_titled' ||
     'model_override' ||
+    // WRK-083 B1. The backend has emitted `conversation.work_dir` since WRK-077 WD1; this table never
+    // learned the verb, so every residency mount/switch/leave fell through to [unknown] and the rail's
+    // `_onSignal` returned without doing anything. That is the whole of "改驻地后左岛不刷新" — the rail's
+    // regrouping machinery was already built for it (`applyUpdate` re-buckets by `_axisOf` and re-asks the
+    // server for group counts, with a comment reasoning about the just-LEFT-a-residency case), it simply
+    // never received the signal that would run it.
+    // WRK-083 B1。后端自 WRK-077 WD1 起就在发 `conversation.work_dir`;本表从未学会这个动词,于是每一次挂/切/退
+    // 驻地都落进 [unknown],rail 的 `_onSignal` 直接 return。这就是「改驻地后左岛不刷新」的全部——rail 的重分组
+    // 机器**早就为它建好了**(`applyUpdate` 按 `_axisOf` 重新归段、并向服务端重问组计数,注释里连「刚离开驻地」
+    // 那一格都推演过),它只是从没收到那个会让它跑起来的信号。
+    'work_dir' ||
     'compacted' => ConversationAction.updated,
+    // Unknown is a real fallback, not a dumping ground: the protocol is open (CLAUDE.md keeps SSE
+    // `node.type` unsealed), so a verb this build has never heard of must degrade quietly rather than
+    // crash. The cost is that a verb the backend DOES emit and this table forgot is also swallowed
+    // quietly — which is exactly how B1 survived. `cmd/docs`'s signal-vocabulary drift pass exists to
+    // make that impossible to repeat: it diffs this switch against the family registered in events.md.
+    // unknown 是真兜底、不是垃圾桶:协议是开放的(CLAUDE.md 明写 SSE `node.type` 不封闭),故本构建没听过的动词
+    // 必须安静降级、而不是崩。代价是**后端确实在发、而本表漏了**的动词同样被安静吞掉——B1 正是这么活下来的。
+    // `cmd/docs` 的信号词表漂移 pass 就是为了让这件事不可能重演:它把这个 switch 与 events.md 里登记的族逐字 diff。
     _ => ConversationAction.unknown,
   };
 

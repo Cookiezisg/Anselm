@@ -237,3 +237,110 @@ func (l *linter) driftDTO(repoRoot string) {
 		l.warnf("drift: %d anchored DTO mirror pairs checked, %d anchors without a same-named Go struct skipped (anchor + same name = the opt-in keys)", checked, skippedNames)
 	}
 }
+
+// ── signal-vocabulary drift: the wire's action verbs vs the frontend's switch ──
+//
+// The SSE notification protocol is deliberately OPEN (CLAUDE.md keeps `node.type` unsealed), so the
+// frontend maps verbs through a `switch` with an `unknown` fallback. That fallback is correct — a build
+// must not crash on a verb it has never heard of — but it is also silent, and silence is the exact
+// failure mode of WRK-083 B1: the backend had emitted `conversation.work_dir` since WRK-077 WD1, the
+// Dart switch never learned it, every residency change fell through to `unknown`, and the rail's
+// `_onSignal` returned without doing anything. Nothing was red. Nothing was logged. The rail's own
+// regrouping machinery had already been written for exactly this case and simply never ran.
+//
+// No behavioural test catches that: whoever adds the next verb writes it on the Go side, sees green,
+// and ships. So the law is mechanical — every verb registered in the events.md family MUST appear in
+// the frontend switch that maps that domain.
+//
+// events.md (not the Go source) is the reference on purpose. Conversation verbs are assigned to a
+// variable and emitted as `"conversation." + action`, which `driftEvents` explicitly cannot reassemble
+// (see its `reDynPrefix` note) — but events.md registers the whole family by hand, and driftEvents
+// already guards THAT registration against the code. Chaining onto it gives backend → doc → frontend
+// without re-deriving what the first leg already proved.
+//
+// ── 信号词表漂移:线缆动作动词 vs 前端 switch ──
+//
+// SSE 通知协议**刻意开放**(CLAUDE.md 明写 `node.type` 不封闭),故前端用带 `unknown` 兜底的 `switch` 映射
+// 动词。那个兜底是对的——构建不该因为没听过的动词而崩——但它也是**安静的**,而安静正是 WRK-083 B1 的失败形态:
+// 后端自 WRK-077 WD1 起就在发 `conversation.work_dir`,Dart switch 从未学会它,每次驻地变更都落进 `unknown`,
+// rail 的 `_onSignal` 直接 return。没有红、没有日志。rail 自己的重分组机器早就为这一格写好了,只是从没跑过。
+//
+// 行为测试抓不到:加下一个动词的人在 Go 侧写完、看到全绿、发版。故本法机械化——events.md 族里登记的**每一个**
+// 动词,都必须出现在映射该域的前端 switch 里。
+//
+// 参照 events.md 而非 Go 源是刻意的。对话动词被赋给变量、以 `"conversation." + action` 发出,而 `driftEvents`
+// 明说它重组不了这种形态(见其 `reDynPrefix` 注释);但 events.md 手写登记了整个族,而 driftEvents 已经在拿代码
+// 守着**那份登记**。接上它即得「后端 → 文档 → 前端」,不必把第一段已证过的东西再推一遍。
+
+// signalVocabularies maps a wire domain to the frontend file whose switch must cover it.
+// signalVocabularies:线缆域 → 必须覆盖它的前端 switch 所在文件。
+var signalVocabularies = map[string]string{
+	"conversation": filepath.Join(
+		"frontend", "lib", "features", "chat", "data", "conversation_signal.dart",
+	),
+}
+
+var (
+	// The registered family in events.md, e.g. `conversation.{created, updated, **work_dir**}`.
+	reEventsFamily = regexp.MustCompile("`([a-z_]+)\\.\\{([^}]+)\\}`")
+	// A quoted verb in the Dart switch, e.g. 'work_dir'. Dart string literals are single-quoted here.
+	reDartVerb = regexp.MustCompile(`'([a-z_]+)'`)
+)
+
+// driftSignalVocabulary diffs each registered event family against the frontend switch that consumes it.
+//
+// driftSignalVocabulary 把每个已登记事件族与消费它的前端 switch 逐动词 diff。
+func (l *linter) driftSignalVocabulary(repoRoot string) {
+	doc, ok := l.readDoc(filepath.Join("references", "backend", "events.md"))
+	if !ok {
+		return
+	}
+	registered := map[string]map[string]bool{}
+	for _, g := range reEventsFamily.FindAllStringSubmatch(doc, -1) {
+		domain := g[1]
+		if _, wanted := signalVocabularies[domain]; !wanted {
+			continue
+		}
+		set := registered[domain]
+		if set == nil {
+			set = map[string]bool{}
+			registered[domain] = set
+		}
+		for _, raw := range strings.Split(g[2], ",") {
+			// events.md emphasises new members with `**verb**` — strip the markdown, keep the verb.
+			// events.md 用 `**动词**` 强调新成员——剥掉 markdown、留下动词。
+			v := strings.TrimSpace(strings.ReplaceAll(raw, "*", ""))
+			if v != "" {
+				set[v] = true
+			}
+		}
+	}
+
+	for domain, rel := range signalVocabularies {
+		verbs := registered[domain]
+		if len(verbs) == 0 {
+			l.errf("drift: events.md registers no `%s.{…}` family — the signal-vocabulary guard for %s has nothing to check", domain, rel)
+			continue
+		}
+		b, err := os.ReadFile(filepath.Join(repoRoot, rel))
+		if err != nil {
+			l.errf("drift: cannot read %s for the %s signal vocabulary: %v", rel, domain, err)
+			continue
+		}
+		mapped := map[string]bool{}
+		for _, g := range reDartVerb.FindAllStringSubmatch(string(b), -1) {
+			mapped[g[1]] = true
+		}
+		var missing []string
+		for v := range verbs {
+			if !mapped[v] {
+				missing = append(missing, v)
+			}
+		}
+		sort.Strings(missing)
+		for _, v := range missing {
+			l.errf("drift: events.md registers `%s.%s` but %s never maps that verb — it would fall through to the silent `unknown` fallback (WRK-083 B1)",
+				domain, v, filepath.Base(rel))
+		}
+	}
+}

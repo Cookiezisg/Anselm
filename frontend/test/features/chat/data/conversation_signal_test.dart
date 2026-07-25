@@ -78,6 +78,20 @@ void main() {
     expect(act('conversation.pinned'), ConversationAction.updated);
     expect(act('conversation.unpinned'), ConversationAction.updated);
     expect(act('conversation.model_override'), ConversationAction.updated);
+    // WRK-083 B1 — and the reason this test could not be the guard. It enumerates the vocabulary BY
+    // HAND, so it drifts exactly the way the switch it checks drifts: `work_dir` was added to the
+    // backend in WRK-077 WD1, nobody added it here, and the missing line looked identical to a line
+    // that was never needed. The mechanical cross-check now lives in `cmd/docs`
+    // (`driftSignalVocabulary`), which diffs the switch against the family registered in events.md.
+    // This line stays because a behavioural assertion still says something the diff cannot: that the
+    // verb collapses to `updated` — i.e. that the rail RE-READS the row — rather than merely being
+    // present somewhere in the file.
+    // WRK-083 B1——也正是本测试当不了守卫的原因。它**手工**列举词表,故它与它所检查的 switch 以完全相同的方式漂移:
+    // `work_dir` 在 WRK-077 WD1 加进后端,没人往这里补,而缺的那一行看起来与「本来就不需要的一行」一模一样。机械
+    // 对账现在住在 `cmd/docs`(`driftSignalVocabulary`),它把 switch 与 events.md 登记的族逐字 diff。这一行保留,
+    // 因为行为断言仍说了 diff 说不出的事:该动词坍缩为 `updated`——即 rail 会**重读那一行**——而不只是「在文件里
+    // 某处出现过」。
+    expect(act('conversation.work_dir'), ConversationAction.updated);
     expect(act('conversation.compacted'), ConversationAction.updated);
     expect(act('conversation.surprise'), ConversationAction.unknown);
   });

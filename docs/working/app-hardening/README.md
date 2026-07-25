@@ -285,13 +285,13 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 
 | # | 现象 | 根因层 | 修复 | 守卫 | 门禁为何没抓到 | 状态 |
 |---|---|---|---|---|---|---|
-| B1 | 改驻地后左岛不刷新 | 失效责任散落各变更点(§0) | | | | 待修 · **已在真机二次复现**(见下「B1 复现」) |
+| B1 | 改驻地后左岛不刷新 | **契约漂移,不是「忘了 invalidate」**(§0 的原判据被实证推翻,见下「B1 根因订正」):后端自 WRK-077 WD1 起发 `conversation.work_dir`,而前端 `conversation_signal.dart` 的动词表**从未学会它** → 落进 `_ => unknown` → rail 的 `_onSignal` 直接 `return` | `19e9ee0e` | **双守卫**:① 机械——`cmd/docs` 新增 `driftSignalVocabulary`,把 events.md 登记的 `conversation.{…}` 族与 Dart switch 逐动词 diff(先证红 ✓,报「events.md registers \`conversation.work_dir\` but conversation_signal.dart never maps that verb」);② 行为——`conversation_list_provider_test` 新增「a work_dir frame off the **WIRE**」,从真信封投影后喂给 notifier(先证红 ✓) | **有测但两条都测在缝的两侧**:① `conversation_signal_test` 的「action vocab collapses correctly」**手工列举**词表、漏了新动词(它自己也是 bug,已补);② rail 的重分组由「leaving a residency…」直接调 `applyUpdate` 测过。**线缆动词→枚举那道缝从没人测**——一整个子系统全绿,功能却是死的 | ✅ 已修 |
 | B2 | 菜单项溢出(真机复现为 **148px**,截图那次 23px——溢出量随路径长度变,不是固定值) | **不是那一处调用点,是整个行族的 `meta` 契约**:`AnMenuItem` 与 `AnRow` 都把 meta 作为**裸 `Text`** 放进 `Row`,而非弹性 child 拿到的是**无界**主轴约束 → `TextOverflow.ellipsis` 从不生效。守卫证明 `AnRow` 同病(同一输入溢出 **776px**),只是没人报过——rail 的 meta 都是时间戳与计数 | `55707ffc` | `test/guards/row_family_meta_overflow_guard_test.dart`:**两个原语 × 四种宿主宽度**灌荒唐 meta,断言 `takeException()` 为空(先证红:三格分别溢出 668/776/856px ✓) | **无覆盖**——从没有测试在窄宿主里渲过行族原语;既有测试都喂正常长度的 meta,于是那条无界约束永远不发作 | ✅ 已修 |
 | B3 | 驻地按钮尺寸不对齐模型选择器 | 面包屑控件的**档位**无人约束:驻地/分叉写死 `sm`(24pt/icon12)、模型菜单用默认 `md`(28pt/icon16) | `08b8f215` | `chat_head_test` **B3**:对 `ChatHead` 下**每一个** `AnButton` 全称断言 `size == md`(先证红 ✓) | **无覆盖**——从没有测试看过头部控件的尺寸;像素断言也抓不到,因为两种尺寸都能正常渲染 | ✅ 已修 |
 | B4 | 面包屑不该显具体名字 | 同上:面包屑**是否携带数据派生文本**无人约束 | `08b8f215` | `chat_head_test` **B4**:断言收起态的头部不含目录 basename / 全路径 / 分叉源标题,但保留线程**自己**的标题(先证红 ✓) | **无覆盖**——旧测试反而**要求**显示名字(`mounted: the basename labels the button` 等 5 条),它们已**反转**而非删除,反转留在案上 | ✅ 已修 |
 | B5 | 窄窗右岛跳变 | 右岛宽度双事实源(§0) | | | | 待修 |
 | **L1** | `GET /conversations/cv_xxx` 及 `/messages` **404**,23:43 ×2、00:59 又 ×2(另一 ID) | 待查 | | | | **待查**——app 在请求不存在的对话,疑似删除/分叉后残留旧选区 |
-| **L2** | **冷启动必抛** riverpod 断言:`setState() or markNeedsBuild() called during build`,`UncontrolledProviderScope` 被标脏于 `ConversationRail` 构建期间 | 待查。栈:`ConversationRail` build → `conversationListProvider.build`(`conversation_list_provider.dart:152`)→ `ref.watch(chatRepositoryProvider)` 首次创建(`chat_providers.dart:15`)→ `watch(apiClientProvider)` → flush 祖先时 `dioProvider` **正脏**(它 watch `backendStartupProvider`)→ 通知既有监听者 → `_invalidateSelf` → 在 build 阶段调度刷新。疑似启动门控放行与后端就绪态翻转**同帧** | | | | **待查**——眼睛①当场抓到;界面无任何症状,异常被 riverpod 吞掉 |
+| **L2** | **冷启动与热重启必现**(确定性,非偶发——热重启后再次逐字复现) riverpod 断言:`setState() or markNeedsBuild() called during build`,`UncontrolledProviderScope` 被标脏于 `ConversationRail` 构建期间 | 待查。栈:`ConversationRail` build → `conversationListProvider.build`(`conversation_list_provider.dart:152`)→ `ref.watch(chatRepositoryProvider)` 首次创建(`chat_providers.dart:15`)→ `watch(apiClientProvider)` → flush 祖先时 `dioProvider` **正脏**(它 watch `backendStartupProvider`)→ 通知既有监听者 → `_invalidateSelf` → 在 build 阶段调度刷新。疑似启动门控放行与后端就绪态翻转**同帧** | | | | **待查**——眼睛①当场抓到;界面无任何症状,异常被 riverpod 吞掉 |
 
 ### B1 复现(2026-07-26 02:16,真机,意外但完整)
 
@@ -308,6 +308,20 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 **判读**:退出驻地这个动作本身完全正确(库、投影、面包屑字形三处都对),**唯独左岛没跟上**——正是 B1 报的
 那件事,只不过用户报的是「修改后」,这里是「退出后」,同一个失效缺口的两个入口。这进一步坐实 §0 铁律二对
 B1 根因的判断:**失效责任散落在各个变更点**,补一行 `invalidate` 只会修好其中一个入口。
+
+### B1 根因订正(§0 的原判据被实证推翻,记档而非默默改口)
+
+§0 铁律二里我判 B1 的根是「失效责任散落在各个变更点」,证据是 `addWorktree` 自己手写了一句
+`invalidate` 而 `set()` 走另一条 patch 路径、两条都忘了列表。**那个判断是错的。**
+
+读码到底后事实是:rail 的重分组机器**早就建好了**——`applyUpdate` 按 `_axisOf` 重新归段、并向服务端
+重问组计数,注释里连「刚离开驻地的线程带着空 workDir 到达、而它的组从未展开过所以我们从没持有过那一行」
+这种边角都推演过。它不是没建,是**从没被触发过**:后端发的 `conversation.work_dir` 在前端动词表里不存在,
+落进 `_ => unknown`,`_onSignal` 直接 `return`。
+
+**订正的意义不在于我判错了,而在于两种根因导出完全不同的修法**:按原判会去补 `invalidate` 调用——那会
+在**已经正确**的机器旁边再搭一台,而真正的缺口(动词表)原封不动,下一个动词照样静默。真机验证:挂上驻地
+的瞬间新组出现、`Recents` 13→12,零刷新。
 
 ### L1 收窄(尚未定论,但线索大幅前进)
 

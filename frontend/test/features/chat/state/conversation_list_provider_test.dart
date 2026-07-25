@@ -1,3 +1,4 @@
+import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
@@ -622,6 +623,68 @@ void main() {
     expect(s.recents.rows.map((r) => r.id), ['cv_a1']);
     expect(s.groups, isEmpty);
   });
+
+  // WRK-083 B1 — the same regrouping, but reached the way the APP reaches it: off the wire.
+  //
+  // The test above calls `applyUpdate` directly, and every other signal test builds a
+  // `ConversationSignal` from the Dart enum. Both skip the one seam that was actually broken: the wire
+  // verb → enum mapping. The backend had emitted `conversation.work_dir` since WRK-077 WD1, that switch
+  // had never learned the verb, so every residency change collapsed to `unknown` and the rail returned
+  // without doing anything — with the regrouping machinery above sitting there fully built and fully
+  // tested. A whole subsystem was green and the feature was dead.
+  //
+  // So this test starts from a real notification ENVELOPE and projects it exactly as the SSE gateway
+  // would. Feed it the wrong verb and it goes red; nothing else in the suite does.
+  //
+  // WRK-083 B1——同一次重分组,但走的是 **app 真正走的那条路**:从线缆来。
+  //
+  // 上面那条直接调 `applyUpdate`,而其余每条信号测试都用 Dart 枚举**构造** `ConversationSignal`。两者都跳过了
+  // 真正坏掉的那道缝:线缆动词 → 枚举的映射。后端自 WRK-077 WD1 起就在发 `conversation.work_dir`,那个 switch
+  // 从未学会这个动词,于是每次驻地变更都坍缩成 `unknown`、rail 直接 return——而上面那台重分组机器就在那儿,建得
+  // 完完整整、测得妥妥当当。**一整个子系统全绿,功能却是死的。**
+  //
+  // 故本测试从一条**真信封**出发,按 SSE 网关的做法投影它。喂错动词它就红;全套测试里没有第二条会红。
+  test(
+    'a work_dir frame off the WIRE regroups the row (not just applyUpdate)',
+    () async {
+      final repo = FixtureChatRepository(
+        conversations: [_c('cv_a1', 'alpha one', workDir: '/w/alpha')],
+      );
+      final c = _container(repo);
+      await c.read(conversationListProvider.future);
+      expect(
+        c.read(conversationListProvider).value!.groups,
+        isNotEmpty,
+        reason: 'precondition: the row starts inside a residency group',
+      );
+
+      await repo.setWorkDir('cv_a1', ''); // the server-side change 服务端那一半
+      final wire = ConversationSignal.fromEnvelope(
+        const StreamEnvelope(
+          seq: 7,
+          scope: StreamScope(kind: 'notification', id: 'noti_1'),
+          id: 'noti_1',
+          frame: FrameSignal(
+            node: StreamNode(
+              type: 'conversation.work_dir',
+              content: {'conversationId': 'cv_a1'},
+            ),
+          ),
+        ),
+      );
+      expect(
+        wire,
+        isNotNull,
+        reason: 'the notifications frame must project to a conversation signal',
+      );
+      repo.emitSignal(wire!);
+
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      final s = c.read(conversationListProvider).value!;
+      expect(s.recents.rows.map((r) => r.id), ['cv_a1']);
+      expect(s.groups, isEmpty);
+    },
+  );
 
   test(
     'an in-place update keeps the row where it is — a dot flip must not reorder the rail',
