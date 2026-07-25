@@ -1997,6 +1997,8 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get freeEnable => '启用免费档';
 	@override String get freeEnableHint => '将向 Anselm 网关注册本机匿名指纹以分配额度';
 	@override String get freeProvisioning => '正在开通…';
+	@override String get freeRepairHint => '读不到免费档配额——设备注册可能已失效。修复会重新登记本设备;对话与设置不受影响。';
+	@override String get freeRepair => '修复免费档';
 	@override String get freeRefresh => '刷新';
 	@override String get freeFailed => '开通未完成(离线或网关不可达),稍后可重试';
 	@override String get modelKeysSection => '模型密钥';
@@ -4519,6 +4521,8 @@ extension on TranslationsZhCn {
 			'settings.keys.freeEnable' => '启用免费档',
 			'settings.keys.freeEnableHint' => '将向 Anselm 网关注册本机匿名指纹以分配额度',
 			'settings.keys.freeProvisioning' => '正在开通…',
+			'settings.keys.freeRepairHint' => '读不到免费档配额——设备注册可能已失效。修复会重新登记本设备;对话与设置不受影响。',
+			'settings.keys.freeRepair' => '修复免费档',
 			'settings.keys.freeRefresh' => '刷新',
 			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
 			'settings.keys.modelKeysSection' => '模型密钥',

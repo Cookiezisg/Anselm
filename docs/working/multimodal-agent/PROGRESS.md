@@ -778,3 +778,50 @@ A1/A2(媒体)需**网关先部署**;A3(音频播放 seek)与 A5 后半需**重�
 **`CLAUDE.md` 已按 #7「状态即重述」整体重述**——它从 WD1 起完全没提驻地,那是真漂移。现在 chat 那行写进了四段 rail(含诚实律)、消息动作排(含「复制取自 model 而非选区」的理由)、生成中排队(含「按停止不清队列」的裁决)、驻地全套(含「只闸写不闸读」与「脏区切分支直接拒绝」两条要害);后端那行写进了 fork 的 summary 水位重定基、`superseded_by` **是指针不是软删**、以及压缩读那侧的单向阀。
 
 **`chat-iteration.md` 填了 `landed-into`(13 个文档)、`status: draft → active`,但刻意没归档**:真机验收未做,而它需要 GUI 与完整原生工具链、由用户自己驱动。归档条件写在册首:真机过一遍且无新工单 → `status: landed` + 移 `docs/archive/`。**这是「没跑的绝不写成跑过了」在归档这一步的落法——不能因为代码收口就把一份还等着真机的册子搬进归档。**
+
+---
+
+## E 真机验收 —— 权限恢复后第一次真跑(0725 晚)
+
+### 卡点的真身:macOS TCC,按 claude-code **版本**分身份
+
+被拒的不是 git、不是工具权限,是 **TCC**:跑会话的二进制在
+`~/Library/Application Support/Claude/claude-code/<版本>/claude.app` 里,**每次 claude-code 升版就是一个新的 TCC 身份**,旧版本的授权不继承(用户截图里那个 `2.1.185` 条目就是同一现象的旧壳)。证据很干净:同一个 shell 里 `~/.ssh`、`~/.claude` 能读(点目录不在 TCC 目录保护范围),而 `Documents`/`Desktop`/`Downloads` —— 恰好 TCC 保护的那三个 —— 全被拒。升到 2.1.219 后授权生效。
+
+**这一道闸解释了此前全部「未验」**:读不了主树 → 写不进构建产物 → 跑不了 `make app` → 只能退去用**已安装的**旧 bundle(构建于 07-21)→ 凡要新构建才看得见的东西一律看不到。
+
+**顺带对齐**:此前一整轮是在 `/tmp/anselm-work`(remote 克隆)里干、push 回 origin;主树落后 30 个提交,已 pull;主树里一处独有改进(`http://[::1]x` 畸形 IPv6 恶意输入用例)已解冲突提交(`44eb227c`)。`/tmp/anselm-work` 已删,主库门禁四项全绿。
+
+### 网关部署:不是「部署失败」,是**从没被允许开始**
+
+`deploy` 一直是 **skipped 而非 failed** —— 它挂在 `ci` 的 `workflow_run` 上、以 ci 成功为闸。ci 从 07-24 20:12 起连红三次,原因只有一条:`misspell` 挑出 `internal/domain/chat/medialease.go` 三处英式拼写(`recognises`/`recognised`/`recognise`)。同一 run 里 `test`(3m52s)/`sbom`/`hygiene`/`vuln`/`frontend-drift` **全绿**。
+
+三个英式拼写卡住整条流水线 16 小时,线上一直停在 07-24 13:13 那版 —— **ADR 0011 的 lease 消费端根本没上线**,这就是 A1/A2「需网关先部署」那道阻塞的真实身份。改美式拼写后 ci 绿、**deploy 成功(5m55s)**。
+
+**教训**:我在网关仓推了三个提交却从未看它的 CI。Anselm 侧的 `make verify` 管不到那边,**跨仓改动必须两边都看**。
+
+### 第一次真跑抓到的两件事
+
+**① 麦克风圆钮出现了** —— A5 前半的验收点。空输入框 + 受管路由下渲成麦克风,证明新构建确实带上了 V1。(完整 A5 待走授权流程。)
+
+**② 「Couldn't load conversations」是**陈旧后端**,不是代码 bug** ——
+`make app` 打印 “reusing backend already on :8742”,复用的后端**起于今天 01:32**,比 21:23 那次 pull 早 20 小时,跑的是 WD1.5 之前的代码。后端日志逐条对照:
+
+```
+GET /api/v1/conversations                → 200
+GET /api/v1/conversations/workdir-groups → 404   ← 旧二进制没这条路由
+```
+
+而路由在当前代码里确实注册着(`handlers/conversation.go:53`)。**这次是靠查进程启动时间抓到的**(`ps -o lstart`),不是靠猜——与前一轮「去找老构建产物」同一类陷阱,只是那次栽了、这次先验了。
+
+**留一条待议(未修)**:`workdir-groups` 404 会让 rail 整体判失败并显示「Couldn't load conversations」,尽管 `conversations` 本身是 200。两半同批上线时无害,但**分组投影失败不该让整条 rail 变空**。属健壮性缺口,记档待议,不在本次擅自改。
+
+### 死结自愈(0725 深夜)—— E 实测第一个真缺陷,已修
+
+**现场**:用户前两天清过网关库,Personal 工作区 07-23 注册的 install 随之消失。此后每次受管调用 401 `INVALID_INSTALL`,而产品内**无任何恢复路径**——受管 key 不可删不可改(`API_KEY_IMMUTABLE`)、`freetier:provision` 见有行即空操作、设置页免费档卡在错误态只渲一行红字。**永久死结。**
+
+**修法(两半)**:
+- 后端:`ProvisionNow` 先按有无行分流;有行则探测,**仅当**网关答结构化码 `INVALID_INSTALL` 时自愈——重新登记设备 + 新增 `apikey.RotateManagedCredential`(app 内部修复缝,不暴露 HTTP,拒非受管行)**就地**换 install id。行 id 不变,scenario 默认零重接。瞬时失败(离线/限流)绝不轮换——那会因网络眨眼毁掉好 install(三条单测钉死)。
+- 前端:免费档卡错误分支补「修复免费档」按钮(与空态「启用」同打 provision)。
+
+**真死结上端到端验证**:修复前同 key 401 INVALID_INSTALL → provision → **同一把 key**(aki_1f70…)test `{"ok":true}`,配额卡 0/5000 正常渲染。四门禁全绿。

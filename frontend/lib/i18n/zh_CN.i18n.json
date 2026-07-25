@@ -1796,6 +1796,8 @@
       "freeEnable": "启用免费档",
       "freeEnableHint": "将向 Anselm 网关注册本机匿名指纹以分配额度",
       "freeProvisioning": "正在开通…",
+      "freeRepairHint": "读不到免费档配额——设备注册可能已失效。修复会重新登记本设备;对话与设置不受影响。",
+      "freeRepair": "修复免费档",
       "freeRefresh": "刷新",
       "freeFailed": "开通未完成(离线或网关不可达),稍后可重试",
       "modelKeysSection": "模型密钥",

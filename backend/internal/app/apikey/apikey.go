@@ -178,6 +178,60 @@ func (s *Service) CreateManaged(ctx context.Context, in ManagedCreateInput) (*ap
 	return k, nil
 }
 
+// RotateManagedCredential swaps a MANAGED row's secret in place — same row id, new credential — and
+// re-seeds the capability archive the way CreateManaged does. It exists for exactly one caller, the
+// free-tier provisioner's self-heal: when the gateway no longer recognizes the stored install id
+// (its database was wiped or the install was revoked), the workspace is otherwise dead-ended — the
+// managed row is immutable to the user (Update/Delete return ErrManaged by design), provisioning
+// sees an existing row and no-ops, and every managed call 401s forever. Found live (E 真机验收,
+// 0725): the gateway database was cleared and the desktop had no recovery path at all.
+//
+// Keeping the ROW and swapping the SECRET is the point: the row id is what workspace scenario
+// defaults reference, so healing in place means nothing else has to be rewired. The method refuses
+// non-managed rows — user keys rotate through Update, and the immutability guard there stays intact.
+// Deliberately NOT reachable over HTTP; it is an app-internal repair seam.
+//
+// RotateManagedCredential 就地更换**受管**行的秘密——行 id 不变、凭证换新——并按 CreateManaged 的方式重播
+// 能力档案。它只有一个调用方:免费档 provisioner 的自愈。当网关不再认存储的 install id(网关库被清、或
+// install 被吊销),workspace 会陷入死结——受管行对用户不可变(Update/Delete 按设计返 ErrManaged)、
+// provision 见有行即空操作、每次受管调用永远 401。真机验收(0725)实地撞上:网关库清过一次,桌面端没有
+// 任何恢复路径。
+//
+// **保行换秘**正是要点:workspace 的 scenario 默认引用的就是这个行 id,就地治好意味着其余一切无需重接。
+// 本方法拒绝非受管行——用户 key 走 Update 轮换,那里的不可变守卫原样生效。刻意**不**暴露到 HTTP;
+// 这是 app 内部的修复缝。
+func (s *Service) RotateManagedCredential(ctx context.Context, id, newKey, testResponse string) error {
+	k, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return err
+	}
+	if meta, ok := GetProviderMeta(k.Provider); !ok || !meta.Managed {
+		return apikeydomain.ErrManaged
+	}
+	trimmed := strings.TrimSpace(newKey)
+	if trimmed == "" {
+		return apikeydomain.ErrKeyRequired
+	}
+	ciphertext, err := s.encryptor.Encrypt(ctx, []byte(trimmed))
+	if err != nil {
+		return fmt.Errorf("apikey.Service.RotateManagedCredential: encrypt: %w", err)
+	}
+	now := time.Now().UTC()
+	k.KeyEncrypted = string(ciphertext)
+	k.KeyMasked = maskKey(trimmed)
+	k.TestStatus = apikeydomain.TestStatusOK
+	k.TestError = ""
+	k.TestResponse = testResponse
+	k.LastTestedAt = &now
+	k.UpdatedAt = now
+	if err := s.repo.Save(ctx, k); err != nil {
+		return err
+	}
+	s.log.Info("managed apikey credential rotated in place",
+		zap.String("key_id", k.ID), zap.String("provider", k.Provider))
+	return nil
+}
+
 func validateCreate(in CreateInput) error {
 	if !isValidProvider(in.Provider) {
 		return apikeydomain.ErrInvalidProvider

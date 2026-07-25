@@ -272,9 +272,29 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
                 ],
               ],
             ),
-            AsyncError() => Text(
-              t.settings.keys.keyOpFailed,
-              style: AnText.label.copyWith(color: c.danger),
+            // The error branch carries the SAME repair CTA as the empty branch. A dead install
+            // lands exactly here (the quota proxy 401s), and before this the card showed one line
+            // of red text and nothing actionable — the workspace was dead-ended in the UI even
+            // after the backend learned to heal (ProvisionNow re-registers on INVALID_INSTALL).
+            // 错误分支带上与空分支**同一个**修复入口。install 死了恰好落在这里(配额代理 401),此前这卡
+            // 只渲一行红字、无可操作——即便后端已会自愈(ProvisionNow 对 INVALID_INSTALL 重新登记),
+            // UI 上 workspace 仍是死结。
+            AsyncError() => Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.settings.keys.freeRepairHint,
+                  style: AnText.meta.copyWith(color: c.danger),
+                ),
+                const SizedBox(height: AnSpace.s8),
+                AnButton(
+                  label: _provisioning
+                      ? t.settings.keys.freeProvisioning
+                      : t.settings.keys.freeRepair,
+                  variant: AnButtonVariant.primary,
+                  onPressed: _provisioning ? null : _provision,
+                ),
+              ],
             ),
             _ => const AnMeter(ratio: null),
           },

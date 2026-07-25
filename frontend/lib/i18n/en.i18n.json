@@ -1796,6 +1796,8 @@
       "freeEnable": "Enable free tier",
       "freeEnableHint": "Registers this machine's anonymous fingerprint with the Anselm gateway for a quota",
       "freeProvisioning": "Provisioning…",
+      "freeRepairHint": "Couldn't read the free-tier quota — the device registration may have been revoked. Repair re-registers this device; conversations and settings are untouched.",
+      "freeRepair": "Repair free tier",
       "freeRefresh": "Refresh",
       "freeFailed": "Provisioning incomplete (offline or gateway unreachable) — retry later",
       "modelKeysSection": "Model keys",

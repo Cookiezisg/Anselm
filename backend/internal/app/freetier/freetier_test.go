@@ -15,22 +15,41 @@ import (
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
-type fakeKeys struct {
-	rows      []*apikeydomain.APIKey
-	created   []apikeyapp.ManagedCreateInput
-	createErr error
-	tested    []string
-	testErr   error
+type rotation struct {
+	id, newKey, testResponse string
 }
 
-// Test records the live-capability refresh the provisioner performs after minting the managed key.
-// Test 记录 provisioner 在铸出受管 key 后所做的 live 能力刷新。
+type fakeKeys struct {
+	rows       []*apikeydomain.APIKey
+	created    []apikeyapp.ManagedCreateInput
+	createErr  error
+	tested     []string
+	testErr    error
+	testResult *apikeyapp.TestResult // scripted probe verdict; nil → zero-value result 脚本化探测结论
+	rotated    []rotation
+	rotateErr  error
+}
+
+// Test records the live-capability refresh the provisioner performs after minting the managed key,
+// and doubles as the heal path's probe — [testResult] scripts the verdict.
+// Test 记录 provisioner 铸 key 后的 live 能力刷新,同时兼任自愈路径的探针——testResult 脚本化结论。
 func (f *fakeKeys) Test(_ context.Context, id string) (*apikeyapp.TestResult, error) {
 	f.tested = append(f.tested, id)
 	if f.testErr != nil {
 		return nil, f.testErr
 	}
+	if f.testResult != nil {
+		return f.testResult, nil
+	}
 	return &apikeyapp.TestResult{}, nil
+}
+
+func (f *fakeKeys) RotateManagedCredential(_ context.Context, id, newKey, testResponse string) error {
+	if f.rotateErr != nil {
+		return f.rotateErr
+	}
+	f.rotated = append(f.rotated, rotation{id: id, newKey: newKey, testResponse: testResponse})
+	return nil
 }
 
 func (f *fakeKeys) List(_ context.Context, filter apikeydomain.ListFilter) ([]*apikeydomain.APIKey, string, error) {
@@ -110,6 +129,81 @@ func TestProvisionNow_ReportsHonestly(t *testing.T) {
 	ok, err = newProv(&fakeKeys{}, &fakeInstaller{err: errors.New("gateway down")}, okFP).ProvisionNow(context.Background())
 	if err != nil || ok {
 		t.Fatalf("degraded provision → (%v,%v), want (false,nil)", ok, err)
+	}
+}
+
+// The dead-install heal (E 真机验收 0725): the gateway database was wiped, the stored install id no
+// longer existed, and the workspace was permanently dead — the managed row is user-immutable and
+// EnsureForWorkspace no-ops on existing rows. ProvisionNow must repair exactly this state.
+// 死 install 自愈:网关库被清、存储的 install id 不复存在,workspace 永久死结(受管行不可变 + ensure 见行
+// 空操作)。ProvisionNow 必须修复恰好这一种状态。
+func TestProvisionNow_HealsDeadInstall(t *testing.T) {
+	keys := &fakeKeys{
+		rows: []*apikeydomain.APIKey{{ID: "aki_dead", Provider: "anselm"}},
+		testResult: &apikeyapp.TestResult{
+			OK:      false,
+			Message: `HTTP 401: {"error":{"code":"INVALID_INSTALL","message":"missing or invalid install id"}}`,
+		},
+	}
+	inst := &fakeInstaller{installID: "ins_reborn"}
+	ok, err := newProv(keys, inst, okFP).ProvisionNow(context.Background())
+	if err != nil || !ok {
+		t.Fatalf("heal → (%v,%v), want (true,nil)", ok, err)
+	}
+	if len(keys.rotated) != 1 {
+		t.Fatalf("want exactly one rotation, got %d", len(keys.rotated))
+	}
+	r := keys.rotated[0]
+	if r.id != "aki_dead" || r.newKey != "ins_reborn" {
+		t.Errorf("rotation = %+v; want the SAME row id with the fresh install id", r)
+	}
+	if r.testResponse == "" {
+		t.Error("the placeholder capability archive must be reseeded with the rotation")
+	}
+	if len(keys.created) != 0 {
+		t.Error("heal must rotate in place, never mint a second row (defaults reference the id)")
+	}
+}
+
+// The narrow-trigger law: a probe can fail for a dozen transient reasons (offline, gateway restart,
+// rate limit) and rotating on any of them would destroy a WORKING install because the network
+// blinked. Only the gateway's structured INVALID_INSTALL verdict may trigger.
+// 窄触发律:探测失败有一打瞬时原因,在其中任何一种上轮换=因网络眨眼毁掉好 install。只有网关结构化的
+// INVALID_INSTALL 结论可触发。
+func TestProvisionNow_TransientFailureNeverRotates(t *testing.T) {
+	for _, res := range []*apikeyapp.TestResult{
+		{OK: false, Message: "dial tcp 127.0.0.1:443: connect: connection refused"},
+		{OK: false, Message: "HTTP 429: rate limited"},
+		{OK: true}, // healthy 健康
+	} {
+		keys := &fakeKeys{rows: []*apikeydomain.APIKey{{ID: "aki_live", Provider: "anselm"}}, testResult: res}
+		inst := &fakeInstaller{installID: "ins_should_not_exist"}
+		ok, err := newProv(keys, inst, okFP).ProvisionNow(context.Background())
+		if err != nil || !ok {
+			t.Fatalf("existing row → (%v,%v), want (true,nil)", ok, err)
+		}
+		if len(keys.rotated) != 0 {
+			t.Errorf("probe %q must NOT rotate", res.Message)
+		}
+		if inst.gotHash != "" {
+			t.Errorf("probe %q must NOT re-install", res.Message)
+		}
+	}
+}
+
+// A failed heal leaves the row as it was — best-effort like the rest of the package; the next
+// explicit provision retries. 自愈失败保持原行——与全包同为 best-effort,下次显式 provision 再试。
+func TestProvisionNow_HealFailureLeavesRowIntact(t *testing.T) {
+	keys := &fakeKeys{
+		rows:       []*apikeydomain.APIKey{{ID: "aki_dead", Provider: "anselm"}},
+		testResult: &apikeyapp.TestResult{OK: false, Message: `HTTP 401: {"error":{"code":"INVALID_INSTALL"}}`},
+	}
+	ok, err := newProv(keys, &fakeInstaller{err: errors.New("gateway down mid-heal")}, okFP).ProvisionNow(context.Background())
+	if err != nil || !ok {
+		t.Fatalf("failed heal → (%v,%v), want (true,nil) — the row still exists", ok, err)
+	}
+	if len(keys.rotated) != 0 {
+		t.Error("re-install failed — nothing may have been rotated")
 	}
 }
 

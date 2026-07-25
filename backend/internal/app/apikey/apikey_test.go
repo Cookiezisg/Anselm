@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -343,5 +344,51 @@ func TestMarkInvalidByID(t *testing.T) {
 	}
 	if repo.items[k.ID].TestStatus != apikeydomain.TestStatusError {
 		t.Errorf("not marked invalid: %q", repo.items[k.ID].TestStatus)
+	}
+}
+
+// The heal seam (WRK-078 E 0725): swap a managed row's secret in place, same row id — the state a
+// gateway-side install wipe leaves behind has no other exit (the row is user-immutable and
+// provisioning no-ops on existing rows).
+// 修复缝:就地换受管行的秘密、行 id 不变——网关侧清掉 install 后的状态没有别的出口(行对用户不可变、
+// provision 见行即空操作)。
+func TestRotateManagedCredential_SwapsInPlace(t *testing.T) {
+	s, repo := newSvc(nil)
+	now := time.Now().UTC()
+	repo.items["aki_m"] = &apikeydomain.APIKey{
+		ID: "aki_m", Provider: "anselm", DisplayName: "Anselm Free",
+		KeyEncrypted: "ENC:ins_dead", KeyMasked: "ins_dea...ead",
+		TestStatus: apikeydomain.TestStatusError, TestError: "HTTP 401: INVALID_INSTALL",
+		CreatedAt: now, UpdatedAt: now,
+	}
+
+	if err := s.RotateManagedCredential(ctxWS(), "aki_m", "ins_fresh_0123456789", "probe-body"); err != nil {
+		t.Fatal(err)
+	}
+	k := repo.items["aki_m"]
+	if k.KeyEncrypted != "ENC:ins_fresh_0123456789" {
+		t.Errorf("credential not swapped: %q", k.KeyEncrypted)
+	}
+	if k.TestStatus != apikeydomain.TestStatusOK || k.TestError != "" {
+		t.Errorf("probe archive not reseeded: status=%q err=%q", k.TestStatus, k.TestError)
+	}
+	if k.TestResponse != "probe-body" {
+		t.Errorf("placeholder archive not written: %q", k.TestResponse)
+	}
+	if k.ID != "aki_m" {
+		t.Errorf("row id must survive the rotation (workspace defaults reference it): %q", k.ID)
+	}
+}
+
+// A non-managed row must be refused — user keys rotate through Update, where the immutability guard
+// (and its validation) lives. 非受管行必须拒绝——用户 key 走 Update 轮换,不可变守卫在那里。
+func TestRotateManagedCredential_RefusesUnmanaged(t *testing.T) {
+	s, repo := newSvc(nil)
+	repo.items["aki_u"] = &apikeydomain.APIKey{ID: "aki_u", Provider: "deepseek", KeyEncrypted: "ENC:sk-x"}
+	if err := s.RotateManagedCredential(ctxWS(), "aki_u", "sk-new", ""); !errors.Is(err, apikeydomain.ErrManaged) {
+		t.Fatalf("want ErrManaged, got %v", err)
+	}
+	if repo.items["aki_u"].KeyEncrypted != "ENC:sk-x" {
+		t.Error("unmanaged row must be untouched")
 	}
 }

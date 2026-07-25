@@ -19,6 +19,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -59,6 +60,12 @@ type Keys interface {
 	// 使首启离线也能用;没有这次刷新,那份占位就会是能力目录**唯一**见过的东西,网关真实发布的每一份
 	// route profile 都到不了这里。
 	Test(ctx context.Context, id string) (*apikeyapp.TestResult, error)
+	// RotateManagedCredential swaps the managed row's secret in place (same row id) — the heal seam
+	// for an install the gateway no longer recognizes. See ProvisionNow.
+	//
+	// RotateManagedCredential 就地更换受管行的秘密(行 id 不变)——网关不再认该 install 时的修复缝。
+	// 见 ProvisionNow。
+	RotateManagedCredential(ctx context.Context, id, newKey, testResponse string) error
 }
 
 // Defaults is the workspace port for seeding scenario defaults (a subset of *workspaceapp.Service),
@@ -112,14 +119,87 @@ func NewProvisioner(keys Keys, defaults Defaults, installer Installer, fp Finger
 // ProvisionNow 是用户侧变体(POST /freetier:provision,S-7):同一幂等 ensure,但**报告结果**——之后存在
 // 受管行(原有或新建)返 true,开通降级(离线/网关挂/无指纹)返 false。降级路径不是错误、不抛;仅存储失败冒泡。
 func (p *Provisioner) ProvisionNow(ctx context.Context) (bool, error) {
-	if err := p.EnsureForWorkspace(ctx); err != nil {
-		return false, err
-	}
+	// Branch FIRST on whether a row exists: the fresh path already probes once inside
+	// EnsureForWorkspace (refreshCapabilities), so running the heal probe there too would knock on
+	// the gateway twice per provision for nothing.
+	// 先按有无行分流:全新路径在 EnsureForWorkspace 内已探测一次(refreshCapabilities),再跑自愈探针
+	// 等于每次开通白敲网关两下。
 	existing, _, err := p.keys.List(ctx, apikeydomain.ListFilter{Provider: providerName, Limit: 1})
 	if err != nil {
 		return false, fmt.Errorf("freetier.ProvisionNow: list: %w", err)
 	}
-	return len(existing) > 0, nil
+	if len(existing) > 0 {
+		p.seedDefaults(ctx, existing[0].ID) // same self-heal EnsureForWorkspace runs on this path 与 ensure 同款自愈
+		p.healIfInstallDead(ctx, existing[0].ID)
+		return true, nil
+	}
+	if err := p.EnsureForWorkspace(ctx); err != nil {
+		return false, err
+	}
+	after, _, err := p.keys.List(ctx, apikeydomain.ListFilter{Provider: providerName, Limit: 1})
+	if err != nil {
+		return false, fmt.Errorf("freetier.ProvisionNow: list: %w", err)
+	}
+	return len(after) > 0, nil
+}
+
+// healIfInstallDead probes the existing managed key and, ONLY when the gateway answers
+// INVALID_INSTALL, re-registers the device and swaps the credential in place.
+//
+// Why this exists: the managed row is immutable to the user and EnsureForWorkspace no-ops on an
+// existing row, so a workspace whose install vanished on the gateway side (its database wiped, the
+// install revoked) was permanently dead — every managed call 401s and nothing in the product could
+// repair it. Found live during E acceptance (0725): the operator had cleared the gateway database.
+//
+// Why the trigger is this narrow: a probe can fail for a dozen transient reasons — offline, gateway
+// restarting, rate limit — and rotating the credential on any of them would DESTROY a working
+// install because the network blinked. INVALID_INSTALL is the gateway's structured wire code for
+// "this identity does not exist here" (a closed public set, same contract quotaExhaustedCode leans
+// on), which is precisely the one state where re-registering is the only way forward. Matching the
+// code inside the probe's message is deliberate: the probe archives the upstream body verbatim, and
+// the code is a stable wire constant, not display prose.
+//
+// Best-effort like everything else in this package: a failed heal logs and leaves the row as it was
+// — the next explicit provision retries.
+//
+// healIfInstallDead 探测既有受管 key,**仅当**网关答 INVALID_INSTALL 时重新登记设备并就地换秘。
+//
+// 为什么需要它:受管行对用户不可变、EnsureForWorkspace 见行即空操作,于是 install 在网关侧消失的
+// workspace(网关库被清、install 被吊销)会永久死结——每次受管调用 401,产品内无任何修复路径。
+// E 真机验收(0725)实地撞上:操作者清过一次网关库。
+//
+// 为什么触发条件收这么窄:探测失败有一打瞬时原因——离线、网关重启、限流——在其中任何一种上轮换凭证,
+// 等于因为网络眨了下眼就**毁掉**一个好端端的 install。INVALID_INSTALL 是网关「此身份在我这里不存在」的
+// 结构化线缆码(封闭公开集,与 quotaExhaustedCode 依赖同一契约),恰是「重新登记是唯一出路」的那一种状态。
+// 在探测消息里匹配该码是刻意的:探针原样存档上游 body,而码是稳定线缆常量、不是展示文案。
+//
+// 与本包其余一切同为 best-effort:自愈失败只留日志、行保持原样——下次显式 provision 再试。
+func (p *Provisioner) healIfInstallDead(ctx context.Context, keyID string) {
+	res, err := p.keys.Test(ctx, keyID)
+	if err != nil || res == nil || res.OK {
+		return // healthy, or a failure with no verdict — never rotate on those 健康,或无结论的失败——都不轮换
+	}
+	if !strings.Contains(res.Message, "INVALID_INSTALL") {
+		return
+	}
+	raw, err := p.fp()
+	if err != nil {
+		p.log.Warn("free-tier heal skipped: no machine fingerprint", zap.Error(err))
+		return
+	}
+	sum := sha256.Sum256([]byte(raw))
+	inst, err := p.installer.Install(ctx, llminfra.AnselmBaseURL, hex.EncodeToString(sum[:]), clientID)
+	if err != nil {
+		p.log.Warn("free-tier heal skipped: re-install failed", zap.Error(err))
+		return
+	}
+	if err := p.keys.RotateManagedCredential(ctx, keyID, inst.InstallID, llminfra.AnselmProbeBody()); err != nil {
+		p.log.Warn("free-tier heal: rotating managed credential failed", zap.Error(err))
+		return
+	}
+	p.log.Info("free-tier healed: gateway no longer knew the install; re-registered and rotated in place",
+		zap.String("key_id", keyID))
+	p.refreshCapabilities(ctx, keyID)
 }
 
 // EnsureForWorkspace 幂等确保 workspace 有受管 anselm 凭证。契约 best-effort：每个失败路径都 log 并返

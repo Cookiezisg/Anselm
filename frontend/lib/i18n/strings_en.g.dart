@@ -4832,6 +4832,12 @@ class Translations$settings$keys$en {
 	/// en: 'Provisioning…'
 	String get freeProvisioning => 'Provisioning…';
 
+	/// en: 'Couldn't read the free-tier quota — the device registration may have been revoked. Repair re-registers this device; conversations and settings are untouched.'
+	String get freeRepairHint => 'Couldn\'t read the free-tier quota — the device registration may have been revoked. Repair re-registers this device; conversations and settings are untouched.';
+
+	/// en: 'Repair free tier'
+	String get freeRepair => 'Repair free tier';
+
 	/// en: 'Refresh'
 	String get freeRefresh => 'Refresh';
 
@@ -8455,6 +8461,8 @@ extension on Translations {
 			'settings.keys.freeEnable' => 'Enable free tier',
 			'settings.keys.freeEnableHint' => 'Registers this machine\'s anonymous fingerprint with the Anselm gateway for a quota',
 			'settings.keys.freeProvisioning' => 'Provisioning…',
+			'settings.keys.freeRepairHint' => 'Couldn\'t read the free-tier quota — the device registration may have been revoked. Repair re-registers this device; conversations and settings are untouched.',
+			'settings.keys.freeRepair' => 'Repair free tier',
 			'settings.keys.freeRefresh' => 'Refresh',
 			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
 			'settings.keys.modelKeysSection' => 'Model keys',
