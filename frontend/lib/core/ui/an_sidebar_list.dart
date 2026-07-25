@@ -64,6 +64,7 @@ class AnSidebarList extends StatefulWidget {
     this.newRowActions = const [],
     this.showFilter = true,
     this.rowActionsBuilder,
+    this.typeHeadActionsBuilder,
     this.labelWidgetFor,
     this.editingRowId,
     this.onRenameCommit,
@@ -107,6 +108,17 @@ class AnSidebarList extends StatefulWidget {
 
   /// Optional trailing actions per row (e.g. a ⋯ menu), keyed by row id. 行尾动作(⋯ 菜单),按 id。
   final List<Widget> Function(String rowId)? rowActionsBuilder;
+
+  /// Optional trailing actions per TYPE HEAD (e.g. a «new» / «install» button), keyed by
+  /// [SidebarType.foldKey] (its stable fold identity — [SidebarType.pageKey] if set, else
+  /// [SidebarType.label]; a caller that needs a locale-independent key sets [SidebarType.pageKey] to a
+  /// literal id even when the section doesn't actually paginate). Mirrors [rowActionsBuilder]'s grammar —
+  /// same hover-reveal trail slot on [AnRow], just for the section head instead of a row. null/empty for a
+  /// head → no actions on it (a headless type never reaches this: it renders no head at all).
+  /// 类型头尾动作(如「新建」/「安装」钮),按 SidebarType.foldKey(稳定折叠身份:优先 pageKey、否则 label;需
+  /// locale-无关键的调用方可把 pageKey 设成字面 id,即使该段并不真分页)。镜像 rowActionsBuilder 的文法——同一个
+  /// AnRow hover 揭示尾槽,只是作用于段头而非行。该头 null/空=无动作(headless 类型本就不出头,不会到这)。
+  final List<Widget> Function(String typeId)? typeHeadActionsBuilder;
 
   /// Optional per-row label OVERRIDE widget (e.g. a one-shot typewriter while a fresh auto-title lands);
   /// null → the row's static label. The MODEL stays pure (no widgets in SidebarRow) — overrides live at
@@ -504,6 +516,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
       open: open,
       onSelect: () => _toggle(n.key),
       onToggle: () => _toggle(n.key),
+      actions: widget.typeHeadActionsBuilder?.call(t.foldKey) ?? const [],
     );
     return sticky ? _opaque(context, row) : row;
   }

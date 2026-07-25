@@ -232,7 +232,8 @@ void main() {
     });
 
     testWidgets(
-      'empty library → the collapsed shape: New page + Documents / Skills heads, no tombstone',
+      'empty library → the collapsed shape: search + Documents / Skills heads (each carrying its '
+      'create action), no top New row, no tombstone',
       (tester) async {
         await tester.pumpWidget(
           _host(
@@ -242,25 +243,44 @@ void main() {
         );
         await tester.pump();
         await tester.pump();
-        // 用户 0718 拍板: an empty library = the FULL rail with rows removed — New page + both section heads
-        // render, no «Nothing here yet» tombstone. 空态=满态收起:New page + 双组头恒在、无墓碑。
+        // 0723 拍板: the rail's top stays search-only — the New row is retired, creation sank to
+        // each type head's trailing action (asserted below). 顶部只留搜索,New 行退役、建动作下沉类型头。
         expect(find.byType(AnSidebarList), findsOneWidget);
         expect(
           find.byType(AnState),
           findsNothing,
         ); // the old empty tombstone is retired 墓碑退役
-        expect(find.text('New page'), findsOneWidget);
+        expect(
+          find.text('New page'),
+          findsNothing,
+        ); // no more top-of-rail New row (0723) 顶部 New 行已退役
         expect(
           find.text(t.library.documents),
           findsOneWidget,
         ); // Documents head
         expect(find.text(t.library.skills), findsOneWidget); // Skills head
+        // Documents head trailing «+» (creation's new home). Documents 头尾「+」(建动作新家)。
+        expect(
+          find.byWidgetPredicate(
+            (w) => w is AnButton && w.semanticLabel == t.library.kNew,
+          ),
+          findsOneWidget,
+        );
+        // Skills head trailing download button (the install-from-source entry, migrated from the
+        // retired New row's trailing action). Skills 头尾下载钮(从来源安装入口,自退役 New 行迁来)。
+        expect(
+          find.byWidgetPredicate(
+            (w) =>
+                w is AnButton && w.semanticLabel == t.library.skillInstallTitle,
+          ),
+          findsOneWidget,
+        );
       },
     );
 
     testWidgets(
-      'B2 active: the New row creates a root page immediately, selects it, and flags the title '
-      'for one-shot autofocus (no inline-rename)',
+      'B2 active: the Documents type head\'s trailing + creates a root page immediately, selects '
+      'it, and flags the title for one-shot autofocus (no inline-rename)',
       (tester) async {
         final repo = _repo();
         late WidgetRef ref;
@@ -278,9 +298,20 @@ void main() {
         await tester.pump();
         await tester.pump();
         final before = (await repo.getTree()).length;
-        await tester.tap(
-          find.text('New page'),
-        ); // the New row label (B9: unified to "New <thing>") 新建行标签
+        // Creation sank from the retired top New row to the Documents type head's trailing «+»
+        // (0723) — hover-revealed by AnRow's trail, same as a page row's own «+» below, so invoke
+        // onPressed directly (mirrors the B3 row-+ test): reachability is AnRow's shared concern,
+        // this asserts the WIRING. 建动作自退役 New 行下沉到文档头尾「+」——AnRow trail hover 揭示,
+        // 同下方行「+」测法直调 onPressed(可达性归 AnRow 共用,此处断言接线)。
+        final newBtn = tester
+            .widgetList<AnButton>(
+              find.byWidgetPredicate(
+                (w) => w is AnButton && w.semanticLabel == t.library.kNew,
+              ),
+            )
+            .toList();
+        expect(newBtn, hasLength(1));
+        newBtn.single.onPressed!();
         await tester.pumpAndSettle();
         final tree = await repo.getTree();
         // A new root page was created + became the selection; the active-create path DOESN'T inline-rename —
@@ -296,6 +327,30 @@ void main() {
           sel.id,
           reason: '主动新建把新 doc 标记为标题聚焦意图',
         );
+      },
+    );
+
+    testWidgets(
+      'the Skills type head\'s trailing download button opens the install-from-source dialog '
+      '(0723: migrated here from the retired New row\'s trailing action)',
+      (tester) async {
+        await tester.pumpWidget(_host(_repo(), const LibraryRail()));
+        await tester.pump();
+        await tester.pump();
+        final dl = tester
+            .widgetList<AnButton>(
+              find.byWidgetPredicate(
+                (w) =>
+                    w is AnButton &&
+                    w.semanticLabel == t.library.skillInstallTitle,
+              ),
+            )
+            .toList();
+        expect(dl, hasLength(1));
+        dl.single.onPressed!();
+        await tester.pumpAndSettle();
+        expect(find.text(t.library.skillInstallTitle), findsOneWidget);
+        expect(find.text(t.library.skillInstallExplainer), findsOneWidget);
       },
     );
 

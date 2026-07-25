@@ -21,15 +21,18 @@ import 'skill_install_dialog.dart';
 import 'library_rail_model.dart';
 
 /// The left-island Documents navigator — one [AnSidebarList] over two sections (the recursive document
-/// page tree + the flat skill list), with CRUD: the New row (and each page row's hover `[+]`) creates an
-/// untitled page IMMEDIATELY and opens it in the ocean with focus on its title (the inline-rename idiom is
-/// retired from the new-doc flow — kept only for the ⋯-menu Rename). Each row hovers `[+][⋯]`: pages get
-/// New-child / Rename / Duplicate / Delete, skills get Delete (skills have no rename — `name` is the
-/// slug/identity — and no child). Writes go straight through the repository seam and the two providers are
-/// `invalidate`d to refetch. Deleting the open selection clears it. Filtering stays client-side.
+/// page tree + the flat skill list). The rail's TOP stays search-only (0723 拍板): creation sinks to each
+/// section's type head instead — Documents' head trailing `[+]` (and each page row's hover `[+]`) creates
+/// an untitled page IMMEDIATELY and opens it in the ocean with focus on its title (the inline-rename idiom
+/// is retired from the new-doc flow — kept only for the ⋯-menu Rename); Skills' head trailing download
+/// button opens the install-from-source dialog (WRK-076 F2). Each row hovers `[+][⋯]`: pages get New-child
+/// / Rename / Duplicate / Delete, skills get Delete (skills have no rename — `name` is the slug/identity —
+/// and no child). Writes go straight through the repository seam and the two providers are `invalidate`d
+/// to refetch. Deleting the open selection clears it. Filtering stays client-side.
 ///
-/// 左岛文档导航:AnSidebarList 双段(文档页树 + skill 扁平列)+ CRUD:New 行(及每页行 hover `[+]`)立即建
-/// 未命名页 → 进海洋、焦点落标题(行内改名退出新建流程,仅留给 ⋯ 菜单);行 hover `[+][⋯]`:页=建子/改名/复制/删除,
+/// 左岛文档导航:AnSidebarList 双段(文档页树 + skill 扁平列)。rail 顶部只留搜索(0723 拍板):建动作下沉到
+/// 各段类型头——文档头尾「+」(及每页行 hover `[+]`)立即建未命名页 → 进海洋、焦点落标题(行内改名退出新建流程,
+/// 仅留给 ⋯ 菜单);技能头尾下载钮开「从来源安装」对话框(WRK-076 F2)。行 hover `[+][⋯]`:页=建子/改名/复制/删除,
 /// skill=删除(name 即 slug 身份、无改名亦无子)。写过 repository 缝、两 provider invalidate 重取;删选中即清选区。
 class LibraryRail extends ConsumerStatefulWidget {
   const LibraryRail({super.key});
@@ -57,8 +60,9 @@ class _LibraryRailState extends ConsumerState<LibraryRail> {
 
     return AnRailStates(
       // Aggregate over both lists: loading = neither resolved; error = both failed with nothing. Zero
-      // documents AND zero skills is NOT a state — the list renders New page + search + the Documents /
-      // Skills heads (满态收起的形状). 两列表聚合:载=均未解 / 错=均败且无;全零不是态,直落列表(渲 New page + 搜索 + 双组头)。
+      // documents AND zero skills is NOT a state — the list renders search + the Documents / Skills heads
+      // (each with its trailing create action) — 满态收起的形状. 两列表聚合:载=均未解 / 错=均败且无;全零不是态,
+      // 直落列表(渲搜索 + 双类型头,各带尾建动作)。
       loading: !anyData && (treeAsync.isLoading || skillsAsync.isLoading),
       error: !anyData && treeAsync.hasError && skillsAsync.hasError,
       strings: AnRailStrings(
@@ -90,17 +94,35 @@ class _LibraryRailState extends ConsumerState<LibraryRail> {
                   : selected.id),
         // Selection = navigation (the URL is the truth; selectedDocProvider derives from it). 选中=导航。
         onSelect: (id) => context.go(_locationForRow(id)),
-        // The New row creates a root page (skill creation lives in the skill editor, P4c). New 建根页。
-        onNew: _newDocument,
-        // Trailing on the New row: «install skills from a source» (WRK-076 F2). New 行尾:从来源安装。
-        newRowActions: [
-          AnButton.iconOnly(
-            AnIcons.download,
-            size: AnButtonSize.sm,
-            semanticLabel: t.library.skillInstallTitle,
-            onPressed: _openInstall,
-          ),
-        ],
+        // Top-of-rail New row retired (0723 拍板): creation sinks to each type head's trailing action
+        // instead — the rail's top stays search-only. 顶部 New 行退役:建动作下沉到类型头尾动作,顶部只留搜索。
+        showNew: false,
+        // Documents head gets a «+» (new root page); Skills head gets the «install from source» download
+        // button (migrated here from the retired New row, WRK-076 F2 origin). 文档头「+」建根页;技能头=
+        // 「从来源安装」下载钮(自退役 New 行迁来)。
+        typeHeadActionsBuilder: (typeId) {
+          if (typeId == kDocumentsTypeId) {
+            return [
+              AnButton.iconOnly(
+                AnIcons.plus,
+                size: AnButtonSize.sm,
+                semanticLabel: t.library.kNew,
+                onPressed: _newDocument,
+              ),
+            ];
+          }
+          if (typeId == kSkillsTypeId) {
+            return [
+              AnButton.iconOnly(
+                AnIcons.download,
+                size: AnButtonSize.sm,
+                semanticLabel: t.library.skillInstallTitle,
+                onPressed: _openInstall,
+              ),
+            ];
+          }
+          return const [];
+        },
         editingRowId: _editingId,
         onRenameCommit: _renameDocument,
         onRenameCancel: () => setState(() => _editingId = null),

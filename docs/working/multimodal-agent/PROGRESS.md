@@ -658,3 +658,15 @@ A1/A2(媒体)需**网关先部署**;A3(音频播放 seek)与 A5 后半需**重�
 一处地基覆盖全部纯图标按钮。**普查结论当场被证实**:改完立刻有 **7 处**手工 `AnTooltip` 包裹变成**双层**、六条既有测试转红——正是「原语只生不收」之罪的实证。那 7 处已解包(每处 `message` 与 `semanticLabel` 本就是同一表达式,零信息损失)。
 
 守卫三条:iconOnly 有 tooltip / 带 label 的没有 / **手工再包一层会被抓到**(断言的正是「双层」这个现象,而不是含糊的「有一个」)。已写进 design-system 的 AnButton 条目。
+
+### ⑬ LR + LI:rail 重构 / 文案标准化 / 首屏说明 ✅ 门禁绿(`REAL_EXIT=0`)
+
+派 Sonnet 5 建、主会话逐行复审 + **亲自复验守卫与两条依据** + 跑门禁。
+
+**地基**:`AnSidebarList` 加 `typeHeadActionsBuilder`(逐字镜像 `rowActionsBuilder`),四海洋通用。Library 顶部只留搜索,创建动作下沉到类型头(文档头 `+`、技能头下载钮)。
+
+**「无 New 行」不需要新东西**:工单要求核实 `_newRow()` 的渲染条件——结论是 `showNew` **本就存在**且是结构性门控,`false` 时整行不入树。**主会话核实:`showNew` 在 diff 里零命中。** 不必为此新造一个来来去去的包装层(军规禁的)。
+
+**守卫**:主会话**亲自复验非空绿**——把 `library.filter` 改回 `Search Page`,守卫转红且报错精确到键名与原因;还原即绿。另有反向 sanity 钉住 19 个真·非占位键不被误伤(过严的守卫和漏掉的一样坏),头注释写明它看不见什么。
+
+**顺带查实一个真缺陷**:安装对话框**缺 `Material` 祖先**——`AnInput` 建在 Material 的 `TextField` 上(断言 `debugCheckHasMaterial`),而 `anPanelRoute` 是裸 `RawDialogRoute`;经同一路由的姊妹对话框早已带 `MaterialType.transparency`。已按同一先例修。**用户那张截图是否正是这次失效无从确证**(app 会就地渲报错替身而非崩溃),但缺陷与用户看到什么无关。

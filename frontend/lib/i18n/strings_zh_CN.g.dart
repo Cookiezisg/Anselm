@@ -227,7 +227,7 @@ class _Translations$scheduler$zh_CN extends Translations$scheduler$en {
 	@override String get neverRan => '—';
 	@override String get sectionNeverRan => '未运行';
 	@override String get sectionInactive => '停用';
-	@override String get filterPlaceholder => '搜索…';
+	@override String get filterPlaceholder => '搜索工作流…';
 	@override String get sortLabel => '排序';
 	@override String get sortActivity => '最近活动';
 	@override String get sortName => '名称';
@@ -497,7 +497,7 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get editorHint => '输入正文,按 / 唤起命令';
 	@override String get addDescription => '添加简介…';
 	@override String get addTag => '添加标签';
-	@override String get filter => '搜索页面';
+	@override String get filter => '搜索页面…';
 	@override String get kNew => '新建页面';
 	@override String get errorTitle => '无法加载知识库';
 	@override String get errorHint => '本地引擎没有返回它。';
@@ -532,6 +532,7 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get skillLocallyModified => '本地有改动——更新会覆盖，确认强制更新？';
 	@override String get skillForceUpdate => '强制更新';
 	@override String get skillInstallTitle => '从来源安装 Skill';
+	@override String get skillInstallExplainer => '安装会经互联网从该来源取回 skill 文件，存进你的 skill 库。部分 skill 还会为其工具申请预授权——一旦批准，这些工具此后运行将跳过确认弹窗。';
 	@override String get skillInstallHint => 'GitHub 仓库（owner/repo 或 URL）或 tarball 地址';
 	@override String get skillInstallInspect => '解析来源';
 	@override String get skillInstallGo => '安装所选';
@@ -3459,7 +3460,7 @@ extension on TranslationsZhCn {
 			'scheduler.neverRan' => '—',
 			'scheduler.sectionNeverRan' => '未运行',
 			'scheduler.sectionInactive' => '停用',
-			'scheduler.filterPlaceholder' => '搜索…',
+			'scheduler.filterPlaceholder' => '搜索工作流…',
 			'scheduler.sortLabel' => '排序',
 			'scheduler.sortActivity' => '最近活动',
 			'scheduler.sortName' => '名称',
@@ -4165,7 +4166,7 @@ extension on TranslationsZhCn {
 			'library.editorHint' => '输入正文,按 / 唤起命令',
 			'library.addDescription' => '添加简介…',
 			'library.addTag' => '添加标签',
-			'library.filter' => '搜索页面',
+			'library.filter' => '搜索页面…',
 			'library.kNew' => '新建页面',
 			'library.errorTitle' => '无法加载知识库',
 			'library.errorHint' => '本地引擎没有返回它。',
@@ -4259,6 +4260,7 @@ extension on TranslationsZhCn {
 			'library.skillLocallyModified' => '本地有改动——更新会覆盖，确认强制更新？',
 			'library.skillForceUpdate' => '强制更新',
 			'library.skillInstallTitle' => '从来源安装 Skill',
+			'library.skillInstallExplainer' => '安装会经互联网从该来源取回 skill 文件，存进你的 skill 库。部分 skill 还会为其工具申请预授权——一旦批准，这些工具此后运行将跳过确认弹窗。',
 			'library.skillInstallHint' => 'GitHub 仓库（owner/repo 或 URL）或 tarball 地址',
 			'library.skillInstallInspect' => '解析来源',
 			'library.skillInstallGo' => '安装所选',
@@ -4327,9 +4329,9 @@ extension on TranslationsZhCn {
 			'settings.fontFiraCode' => 'Fira Code',
 			'settings.fontCascadia' => 'Cascadia Code',
 			'settings.fontSystemMono' => '跟随系统等宽',
-			'settings.fontRestartHint' => '重启后生效',
 			_ => null,
 		} ?? switch (path) {
+			'settings.fontRestartHint' => '重启后生效',
 			'settings.language' => '语言',
 			'settings.languageRow' => '语言',
 			'settings.languageDesc' => '同时设定界面语言与当前工作区的 AI 输出语言',

@@ -95,6 +95,67 @@ void main() {
   );
 
   testWidgets(
+    'typeHeadActionsBuilder wires trailing actions onto the type head, keyed by SidebarType.foldKey '
+    '(mirrors rowActionsBuilder\'s per-row grammar, just for the head)',
+    (tester) async {
+      final calls = <String>[];
+      await tester.pumpWidget(
+        host(
+          AnSidebarList(
+            model: model(),
+            onSelect: (_) {},
+            typeHeadActionsBuilder: (typeId) => [
+              AnButton.iconOnly(
+                AnIcons.plus,
+                size: AnButtonSize.sm,
+                semanticLabel: 'add-$typeId',
+                onPressed: () => calls.add(typeId),
+              ),
+            ],
+          ),
+        ),
+      );
+      // Keyed by foldKey — the fixture type has no pageKey, so foldKey falls back to its label
+      // ('Functions'). 按 foldKey 取(该 fixture 无 pageKey,foldKey 退回 label)。
+      final btn = tester
+          .widgetList<AnButton>(
+            find.byWidgetPredicate(
+              (w) => w is AnButton && w.semanticLabel == 'add-Functions',
+            ),
+          )
+          .toList();
+      expect(btn, hasLength(1));
+      // Hover-revealed by AnRow's trail (same as a row action) — invoke onPressed directly, mirroring
+      // how row-action wiring is asserted elsewhere; reachability itself is AnRow's own concern.
+      // AnRow trail hover 揭示(同行动作)——直调 onPressed(可达性归 AnRow 自身)。
+      btn.single.onPressed!();
+      expect(calls, ['Functions']);
+      // The type head still toggles on the REST of the row (the action doesn't swallow the whole
+      // row's tap) — unchanged disclosure behaviour. 类型头本体仍可折叠(动作不吞整行点击)。
+      await tester.tap(find.text('Functions'));
+      await tester.pumpAndSettle();
+      expect(find.text('normalize-input'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'showNew: false structurally drops the New row — not a disabled/empty stand-in',
+    (tester) async {
+      await tester.pumpWidget(
+        host(AnSidebarList(model: model(), onSelect: (_) {}, showNew: false)),
+      );
+      // No New row at all: neither its label nor an AnRow carrying the model's plus icon renders —
+      // "no New row" is the ABSENCE of the row from the tree, not an unclickable stand-in.
+      // 「无 New 行」=行本身不在树里,不是渲个不可点的占位。
+      expect(find.text('New'), findsNothing);
+      // The rest of the chrome (filter + type head + rows) is untouched by the flag. 其余 chrome 不受影响。
+      expect(find.byType(AnRailFilterField), findsOneWidget);
+      expect(find.text('Functions'), findsOneWidget);
+      expect(find.text('normalize-input'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'editingRowId swaps that row for an in-place rename field; commit bubbles (id, value)',
     (tester) async {
       String? gotId, gotValue;

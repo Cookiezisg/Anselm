@@ -28,6 +28,14 @@ class LibraryRailLabels {
 /// [SidebarModel] id-space, and the consumer can disambiguate a selection by the prefix. skill 行 id 加前缀。
 const String kSkillRowPrefix = 'skill:';
 
+/// Stable, locale-independent ids for the rail's two type heads — set as [SidebarType.pageKey] purely for
+/// identity (neither section actually paginates; hasMore/loadingMore/loadError all stay false, so no
+/// footer/sentinel is ever emitted). Lets [AnSidebarList.typeHeadActionsBuilder] key off a stable id
+/// instead of matching the localized head label. 两类型头的稳定 locale-无关 id——设为 pageKey 纯为身份(两段都不
+/// 真分页,hasMore 等恒 false、不出 footer/哨兵),使 typeHeadActionsBuilder 可按稳定 id 取而非匹配本地化头 label。
+const String kDocumentsTypeId = 'documents';
+const String kSkillsTypeId = 'skills';
+
 /// PURE projection: the flat document tree + the flat skill list → one [SidebarModel] with two sections
 /// (Documents = the recursive page tree assembled by parentId + position; Skills = a flat slug list). The
 /// documents section is a genuine tree ([SidebarRow.children]); a node with children renders a fold
@@ -83,11 +91,13 @@ SidebarModel buildLibraryRailModel(
           SidebarType(
             label: labels.documents,
             icon: AnIcons.doc,
+            pageKey: kDocumentsTypeId,
             rows: docRows,
           ),
           SidebarType(
             label: labels.skills,
             icon: AnIcons.skill,
+            pageKey: kSkillsTypeId,
             rows: skillRows,
           ),
         ],

@@ -679,6 +679,20 @@ Flutter 团队在 issue #141151 明确:手势竞技场里**更深者赢**,`Selec
 
 **验收**:Library rail 顶部只有搜索;两个类型头各自的动作 hover 可见、可点、有 tooltip(接 §5.13);无 New 行形态不留空行;两处文案中英皆改;守卫测试就位;`make -C frontend quick` 绿 + 真机截图。
 
+→ **已施工(0725,施工序⑬)。派 Sonnet 5 建、主会话逐行复审 + 亲自复验守卫与两条依据 + 跑门禁。**
+
+**地基**:`AnSidebarList` 加 `typeHeadActionsBuilder`(签名逐字镜像 `rowActionsBuilder`,按 `SidebarType.foldKey` 取,动作走 `AnRow` 既有的 hover 揭示尾槽)。**四海洋通用**,本批只改 Library。
+
+**「无 New 行」形态不需要新东西**:本节写着「`_newRow()` 的渲染条件需核实」——核实结论是 `showNew`(默认 true)**本就存在**且是**结构性**门控(`if (widget.showNew) _newRow()`),`false` 时整行不入树。**主会话核实:`showNew` 在本批 diff 里零命中,确系既有能力。** Library 传 `showNew: false` 即可,不必为此新造一个来来去去的包装层(那正是军规禁的)。
+
+**守卫**:`test/guards/search_placeholder_guard_test.dart`。扫描规则按**调用点实际接线的三种命名**(`filter:` / `filterPlaceholder:` / `placeholder:`)选键,合规式 EN `^Search [a-z].+…$` / ZH `^搜索.+…$`,并显式查三个 ASCII 点的假省略号。**主会话亲自复验了非空绿**:把 `library.filter` 改回 `Search Page` → 守卫转红,报错精确到键名与原因;还原即绿。另有一条 **反向 sanity** 钉住 19 个真·非占位的 filter/search 键不被误伤——**过严的守卫和漏掉的守卫一样坏**。**它看不见什么写在头注释里**:两个不合三种命名的真占位键(`settings.mem.searchHint` / `settings.mcp.searchMarket`,今天都合规但无守卫)、只读 i18n 表(硬编码文案它看不见——那由零硬编码律另管)、只判机械形状不判单复数与地道性。
+
+**LI 批首屏自我解释已落**:标题与输入框之间加一句说明,把「经互联网从该来源取回文件、存进你的 skill 库」与「预授权=这些工具此后跳过确认弹窗」**前置到「解析来源」之前**。
+
+**顺带查实一个真缺陷**:该对话框**缺 `Material` 祖先**。`AnInput` 建在 Material 的 `TextField` 上(`an_input.dart:162`,断言 `debugCheckHasMaterial`),而 `anPanelRoute` 是裸 `RawDialogRoute`、不在任何 `Scaffold` 内;经同一路由的姊妹对话框 `skill_tool_picker.dart:274` **早已**带着 `MaterialType.transparency` 正是为此。已按同一先例修。**注**:用户当初那张截图看到的是否正是这次失效(app 装了 `ErrorWidget.builder`,抛错会就地渲报错替身而非崩溃),**无从确证**——但缺陷本身与用户看到什么无关。
+
+**一处小尾巴没清**:`LibraryRailLabels.newLabel` / `SidebarModel.newLabel` 现在恒不渲染(`showNew: false`),成了死参数。子代理按「不自己发起重构」的偏好留着未删——复审同意,删它属于另一次决定。
+
 ## §5.15 CL 批 · chat 左岛按驻地分组(0724 用户提,依赖 WD1)
 
 > 用户:「加了文件夹概念后,chat 左岛组织形式要变:新对话、搜索、置顶,下面是各个工作目录(组也有按钮,归档/删除整个工作目录),最下面才是最近。」
@@ -787,7 +801,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⑩ | ~~EA 实体 ⋯ 菜单~~ **已完成 0725**(七 kind 菜单 + 6 个 repository 封装;**纠正本节四处**〔restart 早已封装 / iterate 非无参 / 立即运行须导航〔唯一执行点立法〕/ 调试台=右岛而非 tab〕+ 查实删除无引用守卫,见 §5.12) | 派 Sonnet 5 ✅ |
 | ⑪ | ~~SK 密钥分栏~~ **已完成 0725**(派 Sonnet 5 建、主会话逐行复审并改了一处 + 跑门禁;记录见 §5.6) | 派 Sonnet 5 ✅ |
 | ⑫ | ~~ES 空态退役 ×13~~ **已完成 0725**(A 类 6 + 错误态 1〔本节分类有误已纠〕+ B 类 6;`insetEmpty` 已删;**B 类只有引导没有动作——创建入口不存在**,见 §5.8) | 派 Sonnet 5 ✅ |
-| ⑬ | LR+LI rail 重构+文案+tooltip 地基 | 混合:typeHeadActionsBuilder 主会话;铺开 派 Sonnet 5 |
+| ⑬ | ~~LR+LI rail 重构+文案+tooltip 地基~~ **已完成 0725**(tooltip 地基主会话亲做;rail 重构+文案+守卫+首屏说明 派 Sonnet 5、主会话复验守卫非空绿;记录见 §5.13/§5.14) | 混合 ✅ |
 | ⑭ | WD1 驻地地基 | 主会话 |
 | ⑮ | WD1.5 rail 驻地分组(CL) | 混合:后端投影 主会话;rail 组装 派 Opus 5(分组无漂移/置顶去重有状态逻辑) |
 | ⑯ | WD2 git 操作 / WD3 worktree | 主会话 |

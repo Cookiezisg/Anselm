@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Material, MaterialType;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -107,79 +108,102 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
     final t = context.t;
     final c = context.colors;
     final previews = _previews;
-    return Center(
-      child: SizedBox(
-        width: 520,
-        child: AnCard(
-          child: ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 560),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(t.library.skillInstallTitle, style: AnText.h3),
-                const SizedBox(height: AnSpace.s12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: AnInput(
-                        controller: _sourceCtl,
-                        placeholder: t.library.skillInstallHint,
-                        onSubmitted: (_) => _inspect(),
-                      ),
-                    ),
-                    const SizedBox(width: AnSpace.s8),
-                    AnButton(
-                      label: t.library.skillInstallInspect,
-                      onPressed: _busy ? null : _inspect,
-                    ),
-                  ],
-                ),
-                if (_error != null) ...[
-                  const SizedBox(height: AnSpace.s8),
-                  Text(_error!, style: AnText.meta.copyWith(color: c.danger)),
-                ],
-                const SizedBox(height: AnSpace.s12),
-                Flexible(
-                  child: previews == null
-                      ? const SizedBox.shrink()
-                      : previews.isEmpty
-                      ? AnState(
-                          kind: AnStateKind.empty,
-                          title: t.library.skillInstallNone,
-                        )
-                      : ListView(
-                          shrinkWrap: true,
-                          children: [
-                            for (final p in previews)
-                              _candidateTile(context, p),
-                          ],
-                        ),
-                ),
-                if (previews != null && previews.any((p) => p.installable)) ...[
-                  const SizedBox(height: AnSpace.s8),
+    // Material(transparency): this dialog lives in a RawDialogRoute (anPanelRoute), outside any
+    // Scaffold — its AnInput/TextField (the source field below) needs a Material ancestor (else the
+    // debug yellow underline / no-Material assert). Mirrors skill_tool_picker.dart's same fix for the
+    // same reason (WRK-077 §5.13 顺带发现 — 与 iconOnly tooltip 同批的又一处「顺带」). Material(transparency):
+    // 本对话框活在 RawDialogRoute(anPanelRoute)里,脱离 Scaffold——其 AnInput/TextField(下方来源框)须
+    // Material 祖先(否则 debug 黄下划线/no-Material 断言)。同 skill_tool_picker.dart 已有的同款修法。
+    return Material(
+      type: MaterialType.transparency,
+      child: Center(
+        child: SizedBox(
+          width: 520,
+          child: AnCard(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxHeight: 560),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(t.library.skillInstallTitle, style: AnText.h3),
+                  const SizedBox(height: AnSpace.s6),
+                  // Self-explain BEFORE the point of no return (解析来源): what this does (fetches over the
+                  // net), where it lands (your library), and what pre-authorization means — the ONE safety
+                  // note used to only surface after candidates were picked (skillInstallPreauthNote below),
+                  // by which point the user had already committed to reading this far. 前置自解释(在「解析
+                  // 来源」之前):做什么(联网取)、落哪(你的库)、预授权何意——原本唯一的安全提示曾只在勾选候选后
+                  // 才现(下方 skillInstallPreauthNote),那时用户已读到这一步才看见最该先知道的话。
                   Text(
-                    t.library.skillInstallPreauthNote,
-                    style: AnText.meta.copyWith(color: c.warn),
+                    t.library.skillInstallExplainer,
+                    style: AnText.meta.copyWith(color: c.inkMuted),
                   ),
                   const SizedBox(height: AnSpace.s12),
                   Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
                     children: [
-                      AnButton(
-                        label: t.action.cancel,
-                        onPressed: () => Navigator.of(context).maybePop(),
+                      Expanded(
+                        child: AnInput(
+                          controller: _sourceCtl,
+                          placeholder: t.library.skillInstallHint,
+                          onSubmitted: (_) => _inspect(),
+                        ),
                       ),
                       const SizedBox(width: AnSpace.s8),
                       AnButton(
-                        label: t.library.skillInstallGo,
-                        variant: AnButtonVariant.primary,
-                        onPressed: (_busy || _picked.isEmpty) ? null : _install,
+                        label: t.library.skillInstallInspect,
+                        onPressed: _busy ? null : _inspect,
                       ),
                     ],
                   ),
+                  if (_error != null) ...[
+                    const SizedBox(height: AnSpace.s8),
+                    Text(_error!, style: AnText.meta.copyWith(color: c.danger)),
+                  ],
+                  const SizedBox(height: AnSpace.s12),
+                  Flexible(
+                    child: previews == null
+                        ? const SizedBox.shrink()
+                        : previews.isEmpty
+                        ? AnState(
+                            kind: AnStateKind.empty,
+                            title: t.library.skillInstallNone,
+                          )
+                        : ListView(
+                            shrinkWrap: true,
+                            children: [
+                              for (final p in previews)
+                                _candidateTile(context, p),
+                            ],
+                          ),
+                  ),
+                  if (previews != null &&
+                      previews.any((p) => p.installable)) ...[
+                    const SizedBox(height: AnSpace.s8),
+                    Text(
+                      t.library.skillInstallPreauthNote,
+                      style: AnText.meta.copyWith(color: c.warn),
+                    ),
+                    const SizedBox(height: AnSpace.s12),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        AnButton(
+                          label: t.action.cancel,
+                          onPressed: () => Navigator.of(context).maybePop(),
+                        ),
+                        const SizedBox(width: AnSpace.s8),
+                        AnButton(
+                          label: t.library.skillInstallGo,
+                          variant: AnButtonVariant.primary,
+                          onPressed: (_busy || _picked.isEmpty)
+                              ? null
+                              : _install,
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
         ),

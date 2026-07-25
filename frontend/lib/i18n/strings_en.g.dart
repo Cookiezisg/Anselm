@@ -484,8 +484,8 @@ class Translations$scheduler$en {
 	/// en: 'Inactive'
 	String get sectionInactive => 'Inactive';
 
-	/// en: 'Search…'
-	String get filterPlaceholder => 'Search…';
+	/// en: 'Search workflows…'
+	String get filterPlaceholder => 'Search workflows…';
 
 	/// en: 'Sort'
 	String get sortLabel => 'Sort';
@@ -1032,8 +1032,8 @@ class Translations$library$en {
 	/// en: 'Add a tag'
 	String get addTag => 'Add a tag';
 
-	/// en: 'Search Page'
-	String get filter => 'Search Page';
+	/// en: 'Search pages…'
+	String get filter => 'Search pages…';
 
 	/// en: 'New page'
 	String get kNew => 'New page';
@@ -1132,6 +1132,9 @@ class Translations$library$en {
 
 	/// en: 'Install skills from a source'
 	String get skillInstallTitle => 'Install skills from a source';
+
+	/// en: 'Installing fetches the skill's files from that source over the internet and adds them to your library. Some skills also request pre-authorization for their tools — once approved, those tools skip the confirmation prompt each time they run.'
+	String get skillInstallExplainer => 'Installing fetches the skill\'s files from that source over the internet and adds them to your library. Some skills also request pre-authorization for their tools — once approved, those tools skip the confirmation prompt each time they run.';
 
 	/// en: 'GitHub repo (owner/repo or URL) or a tarball URL'
 	String get skillInstallHint => 'GitHub repo (owner/repo or URL) or a tarball URL';
@@ -7262,7 +7265,7 @@ extension on Translations {
 			'scheduler.neverRan' => '—',
 			'scheduler.sectionNeverRan' => 'Never ran',
 			'scheduler.sectionInactive' => 'Inactive',
-			'scheduler.filterPlaceholder' => 'Search…',
+			'scheduler.filterPlaceholder' => 'Search workflows…',
 			'scheduler.sortLabel' => 'Sort',
 			'scheduler.sortActivity' => 'Recent activity',
 			'scheduler.sortName' => 'Name',
@@ -7968,7 +7971,7 @@ extension on Translations {
 			'library.editorHint' => 'Start writing, or press / for commands',
 			'library.addDescription' => 'Add a description…',
 			'library.addTag' => 'Add a tag',
-			'library.filter' => 'Search Page',
+			'library.filter' => 'Search pages…',
 			'library.kNew' => 'New page',
 			'library.errorTitle' => 'Couldn\'t load your library',
 			'library.errorHint' => 'The local engine didn\'t return it.',
@@ -8062,6 +8065,7 @@ extension on Translations {
 			'library.skillLocallyModified' => 'Local edits exist — updating will overwrite them. Force update?',
 			'library.skillForceUpdate' => 'Force update',
 			'library.skillInstallTitle' => 'Install skills from a source',
+			'library.skillInstallExplainer' => 'Installing fetches the skill\'s files from that source over the internet and adds them to your library. Some skills also request pre-authorization for their tools — once approved, those tools skip the confirmation prompt each time they run.',
 			'library.skillInstallHint' => 'GitHub repo (owner/repo or URL) or a tarball URL',
 			'library.skillInstallInspect' => 'Inspect source',
 			'library.skillInstallGo' => 'Install selected',
@@ -8130,9 +8134,9 @@ extension on Translations {
 			'settings.fontFiraCode' => 'Fira Code',
 			'settings.fontCascadia' => 'Cascadia Code',
 			'settings.fontSystemMono' => 'System mono',
-			'settings.fontRestartHint' => 'Takes effect after a restart',
 			_ => null,
 		} ?? switch (path) {
+			'settings.fontRestartHint' => 'Takes effect after a restart',
 			'settings.language' => 'Language',
 			'settings.languageRow' => 'Language',
 			'settings.languageDesc' => 'Sets both the UI language and this workspace\'s AI output language',
