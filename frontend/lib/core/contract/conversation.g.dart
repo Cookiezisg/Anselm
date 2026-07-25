@@ -57,6 +57,22 @@ Map<String, dynamic> _$ModelRefToJson(_ModelRef instance) => <String, dynamic>{
   'modelId': instance.modelId,
 };
 
+_WorkDirGroup _$WorkDirGroupFromJson(Map<String, dynamic> json) =>
+    _WorkDirGroup(
+      workDir: json['workDir'] as String? ?? '',
+      activeCount: (json['activeCount'] as num?)?.toInt() ?? 0,
+      archivedCount: (json['archivedCount'] as num?)?.toInt() ?? 0,
+      lastMessageAt: DateTime.parse(json['lastMessageAt'] as String),
+    );
+
+Map<String, dynamic> _$WorkDirGroupToJson(_WorkDirGroup instance) =>
+    <String, dynamic>{
+      'workDir': instance.workDir,
+      'activeCount': instance.activeCount,
+      'archivedCount': instance.archivedCount,
+      'lastMessageAt': instance.lastMessageAt.toIso8601String(),
+    };
+
 _WorkDirInfo _$WorkDirInfoFromJson(Map<String, dynamic> json) => _WorkDirInfo(
   path: json['path'] as String? ?? '',
   exists: json['exists'] as bool? ?? false,

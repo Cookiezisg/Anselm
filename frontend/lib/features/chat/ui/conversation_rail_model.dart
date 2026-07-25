@@ -1,7 +1,11 @@
+import 'package:flutter/widgets.dart' show IconData;
+
 import '../../../core/contract/conversation.dart';
 import '../../../core/model/sidebar_model.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/ui/icons.dart';
+import '../state/conversation_list_provider.dart';
+import '../state/conversation_list_state.dart';
 
 /// The lead status dot for a conversation rail row — or null for a plain active thread (no dot, the
 /// common case). Precedence, highest first:
@@ -47,10 +51,10 @@ class ConvTimeStrings {
 
 /// The relative-time label for a row (just now / N min / N hr / yesterday / N days / a numeric date for
 /// older). Calendar-day based in LOCAL time; older than 7 days → `y/m/d` (locale-neutral numerics). This
-/// is the per-row timestamp; it does NOT drive grouping (the rail groups only Pinned vs Recents).
+/// is the per-row timestamp; it does NOT drive grouping (the rail's groups are residencies, not time buckets).
 ///
 /// 行的相对时间(刚刚/N 分钟/N 小时/昨天/N 天/更老用数字日期)。本地日历日;>7 天 → `年/月/日`(纯数字)。仅是行时间戳,
-/// 不参与分组(rail 只分 置顶 / 最近 两组)。
+/// 不参与分组(rail 的组是驻地、不是时间桶)。
 String conversationTimeLabel(DateTime atUtc, DateTime now, ConvTimeStrings s) {
   final at = atUtc.toLocal();
   final days = DateTime(
@@ -69,10 +73,12 @@ String conversationTimeLabel(DateTime atUtc, DateTime now, ConvTimeStrings s) {
   return '${at.year}/${at.month}/${at.day}';
 }
 
-/// The i18n labels the rail model needs — New/filter chrome, the two section labels (Pinned / Recents),
-/// and the time strings. Bundled so the pure builder takes one struct (mirrors entities' RailLabels).
+/// The i18n labels the rail model needs — New/filter chrome, the two flat section labels (Pinned / Recents),
+/// and the time strings. Bundled so the pure builder takes one struct (mirrors entities' RailLabels). The
+/// residency groups need no label from here: a group is named by its own directory.
 ///
-/// rail 模型需的 i18n 标签——New/过滤 chrome、两个分节标签(置顶 / 最近)、时间串。打包成一个 struct 喂纯 builder(镜像 entities RailLabels)。
+/// rail 模型需的 i18n 标签——New/过滤 chrome、两个平段标签(置顶 / 最近)、时间串。打包成一个 struct 喂纯 builder
+/// (镜像 entities RailLabels)。驻地组不需要此处任何标签:一个组由它自己的目录命名。
 class ConvRailLabels {
   const ConvRailLabels({
     required this.newLabel,
@@ -89,29 +95,107 @@ class ConvRailLabels {
   final ConvTimeStrings time;
 }
 
-/// Project the loaded conversations onto a [SidebarModel] for [AnSidebarList], FULLY mirroring the
-/// entities rail: ONE [SidebarGroup] holding two icon'd, collapsible [SidebarType] sections — Pinned
-/// (pin icon) and Recents (history icon) — each with a count + its rows. There is exactly ONE head code
-/// path (the entities AnRow type head: icon lead, count right-aligned, rows indented), no bespoke flush
-/// head and no time buckets. Each row carries {id, title, relative-time meta, lead dot}. A section is
-/// emitted only when it has rows (no empty Pinned). Single-domain: NO client-side sort (the server
-/// orders via ConvSort → ?sort=), so rows keep arrival order within each section.
+/// A DISPLAY name per residency path, disambiguated against its siblings.
 ///
-/// 把已加载对话投影成 SidebarModel 喂 AnSidebarList,**完整镜像 entities rail**:一个 SidebarGroup 持两个带 icon 的可折叠
-/// SidebarType——置顶(pin 图标)与 最近(history 图标)——各带计数 + 其行。**只有一条头路径**(entities 的 AnRow 类型头:图标 lead、
-/// 计数右对齐、行缩进),无自造 flush 头、无时间桶。每行={id, 标题, 相对时间 meta, 前导点}。单域:无客户端排序。
+/// A directory is named by its own last segment — `~/code/anselm` is «anselm», which is what the user calls
+/// it. But two mounted directories can share that name (`~/work/anselm` and `~/fork/anselm`), and two
+/// identical rail heads are worse than a long one: the user cannot tell which folder they are about to
+/// archive. So a colliding name grows LEFTWARD one parent segment at a time, and only for the paths that
+/// actually collide — the algorithm is «shortest suffix that is unique», not «show everything».
 ///
-/// 分节发射规则(用户 0718 拍板 · 空态=满态收起的形状):**零对话**时**两组头都渲**(空的 置顶 + 最近)——它演示收起的
-/// 完整形状、教新人结构;**有数据但无置顶**时仍**藏空 置顶**(既有规则不动)。计数只在有货(n>0)时渲,空组头不显「0」。
+/// Growth is per-collision-cluster and repeats, because one extra segment need not settle it
+/// (`a/x/anselm` vs `b/x/anselm` both become `x/anselm` and must grow again). A path that runs out of
+/// segments stops growing and keeps its full spelling — it cannot collide with anything else at that point
+/// (two identical paths are one residency).
+///
+/// 每个驻地路径的**显示名**，对着它的兄弟消歧。
+///
+/// 一个目录由它自己的末段命名——`~/code/anselm` 就是「anselm」，那正是用户对它的叫法。但两个已挂目录可以同名
+/// （`~/work/anselm` 与 `~/fork/anselm`），而两个一模一样的 rail 组头比一个长组头更糟:用户分不清自己正要归档哪个
+/// 文件夹。故撞名者**向左**逐段生长，且**只有真正撞上的那些**才生长——算法是「唯一的最短后缀」、不是「全都显示」。
+///
+/// 生长按撞名簇进行且**反复**，因为多一段未必能分开（`a/x/anselm` 与 `b/x/anselm` 都会变成 `x/anselm`、还得再长）。
+/// 段用尽的路径停止生长、保留它完整的拼法——那时它不可能再与任何东西撞（两条完全相同的路径就是同一个驻地）。
+Map<String, String> workDirGroupLabels(Iterable<String> paths) {
+  final all = paths.toList(growable: false);
+  final segments = {for (final p in all) p: _segments(p)};
+  final depth = {for (final p in all) p: 1};
+  var grew = true;
+  while (grew) {
+    grew = false;
+    final byLabel = <String, List<String>>{};
+    for (final p in all) {
+      byLabel.putIfAbsent(_suffix(p, segments[p]!, depth[p]!), () => []).add(p);
+    }
+    for (final cluster in byLabel.values) {
+      if (cluster.length < 2) continue;
+      for (final p in cluster) {
+        if (depth[p]! < segments[p]!.length) {
+          depth[p] = depth[p]! + 1;
+          grew = true;
+        }
+      }
+    }
+  }
+  return {for (final p in all) p: _suffix(p, segments[p]!, depth[p]!)};
+}
+
+// Path segments, separator-agnostic (a Windows residency arrives with backslashes) and empty-tolerant.
+// 路径分段,分隔符不敏感(Windows 驻地带反斜杠)且容忍空段。
+List<String> _segments(String path) =>
+    path.split(RegExp(r'[/\\]')).where((s) => s.isNotEmpty).toList();
+
+// The last `depth` segments, joined by '/'. A path with no segments at all (a bare root) has no name to
+// show, so it degrades to its own spelling rather than to an empty head.
+// 末 `depth` 段、以 '/' 连。完全没有段的路径(裸根)没有名字可显,故退化成它自己的拼法、而不是一个空组头。
+String _suffix(String path, List<String> segs, int depth) {
+  if (segs.isEmpty) return path;
+  return segs.sublist(segs.length - depth.clamp(1, segs.length)).join('/');
+}
+
+// How many threads a group holds in the scope the rail is currently showing — the head's number, and the
+// test for whether the group renders at all. 一个组在 rail 当前所显范围下装着几条线程——组头的那个数,也是它是否渲染的判据。
+int _scopeCount(WorkDirGroup g, bool showArchived) =>
+    showArchived ? g.activeCount + g.archivedCount : g.activeCount;
+
+/// Project the loaded rail state onto a [SidebarModel] for [AnSidebarList] — FOUR sections in the order the
+/// user asked for: **Pinned**, then one section per **residency group**, then **Recents**.
+///
+///   - **Pinned** (pin icon) — every pinned thread, across residencies. Pinned WINS: a pinned thread is here
+///     and NOT in its residency group, so it renders exactly once.
+///   - **📁 residency groups** — one per mounted directory, named by [workDirGroupLabels] (collisions grow a
+///     parent segment), counted from the SERVER's projection so the number cannot drift with scrolling,
+///     ordered by the group's own recency. All but the FIRST start folded: the folder metaphor is
+///     click-to-open, folding keeps «Recents» reachable without scrolling past everything, and a folded
+///     section fetches nothing at all — while the most-recently-active group, which is where you were just
+///     working, is open. Each group's `pageKey` is its axis key, so its tail sentinel fetches its first page
+///     when it is expanded AND scrolled into view.
+///   - **Recents** (history icon) — ONLY the threads that live in no directory. A residency thread is in its
+///     group and nowhere else, so nothing is duplicated here either.
+///
+/// A section is emitted only when it has something to show, EXCEPT the zero-data case: with no conversations
+/// at all, Pinned + Recents both render empty (the collapsed shape of the full rail, 用户 0718 拍板) — but no
+/// residency group is invented, because a group with nothing in it does not exist (it is a projection).
+///
+/// 把已加载的 rail 态投影成 SidebarModel 喂 AnSidebarList——**四段**、顺序就是用户要的:**置顶**、每个**驻地组**一段、
+/// **最近**。
+///
+///   - **置顶**(pin 图标)——所有置顶线程、跨驻地。**置顶赢**:置顶线程在这里、**不**在它的驻地组里,故恰好渲一次。
+///   - **📁 驻地组**——每个已挂目录一个,名字由 [workDirGroupLabels] 给(撞名者补父路径),计数取**服务端**投影故
+///     不随滚动漂移,按组自身最近活跃排序。**除第一个外**默认收起:文件夹的心智就是点开、收起使「最近」不必翻过一切
+///     才够得着,而收起的段**什么都不取**——同时那个最近活跃的组(你刚在里面干活的那个)是开着的。每组的 `pageKey`
+///     就是它的轴键,故它的尾哨兵在它被展开**且**滚进视野时取它的第一页。
+///   - **最近**(history 图标)——**仅**不住在任何目录里的线程。驻地线程在它的组里、别处没有,故此处也不重复。
+///
+/// 段只在有货时发射,**除零数据情形**:完全没有对话时,置顶 + 最近都渲空(满态收起的形状,用户 0718 拍板)——但**不**
+/// 凭空造驻地组,因为一个什么都没装的组**并不存在**(它是投影)。
 SidebarModel buildConversationRailModel(
-  List<Conversation> rows, {
+  ConversationListState data, {
   required DateTime now,
   required ConvRailLabels labels,
   bool showCount = true,
   bool showTime = true,
-  bool hasMore = false,
-  bool loadingMore = false,
-  bool loadMoreFailed = false,
+  bool showArchived = false,
 }) {
   // showTime/showCount are the ⚙ "show time" / "show counts" toggles: a null meta/count renders nothing
   // (AnRow omits the trailing time; the section head omits the count). showTime/showCount = ⚙ 开关:meta/count 为 null 则不渲。
@@ -126,19 +210,59 @@ SidebarModel buildConversationRailModel(
     dot: conversationDot(c),
   );
 
-  final pinned = [
-    for (final c in rows)
-      if (c.pinned) toRow(c),
-  ];
-  final recents = [
-    for (final c in rows)
-      if (!c.pinned) toRow(c),
-  ];
-  // Zero conversations = show BOTH heads (the collapsed shape of the full rail); with data, the "hide empty
-  // Pinned" rule holds. Count renders only when it has货 (n>0) — a "0" on an empty head is noise.
-  // 零对话=两组头都渲(满态收起形);有数据则藏空置顶。计数仅 n>0 时渲(空组头的「0」是噪声)。
-  final zeroData = rows.isEmpty;
   int? count(int n) => showCount && n > 0 ? n : null;
+
+  SidebarType axisSection({
+    required String? label,
+    required IconData icon,
+    required String axisKey,
+    required ConvAxis axis,
+    int? headCount,
+    bool initiallyFolded = false,
+  }) => SidebarType(
+    label: label,
+    icon: icon,
+    count: count(headCount ?? axis.rows.length),
+    pageKey: axisKey,
+    hasMore: axis.hasMore,
+    loadingMore: axis.loadingMore,
+    // M9: failure = a manual retry row, never an auto-refire 失败=手动重试行,绝非自动重触发
+    loadError: axis.loadFailed,
+    initiallyFolded: initiallyFolded,
+    rows: [for (final c in axis.rows) toRow(c)],
+  );
+
+  // A query REPLACES the structure with one flat, headless result list (see [ConversationListState.searching]):
+  // a folded folder fetches nothing, so narrowing the four sections would hide every match the user had not
+  // already scrolled into view. Headless because a result list has no folder to head and no count to state —
+  // the rows ARE the answer.
+  // 有查询词时结构被**替换**成一条平的、**无头**的结果列表(见 [ConversationListState.searching]):收起的文件夹
+  // 什么都不取,故收窄那四段会藏掉每一条用户尚未滚进视野的匹配。无头,因为结果列表没有文件夹可作头、也没有计数可
+  // 声明——那些**行本身**就是答案。
+  if (data.searching) {
+    return SidebarModel(
+      newLabel: labels.newLabel,
+      filterPlaceholder: labels.filter,
+      groups: [
+        SidebarGroup(
+          types: [
+            SidebarType(
+              pageKey: recentsAxisKey,
+              hasMore: data.recents.hasMore,
+              loadingMore: data.recents.loadingMore,
+              loadError: data.recents.loadFailed,
+              rows: [for (final c in data.recents.rows) toRow(c)],
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // Zero conversations anywhere = render BOTH flat heads (the collapsed shape of the full rail); with data,
+  // an empty Pinned stays hidden. 完全无对话=两个平段头都渲(满态收起形);有数据则藏空置顶。
+  final zeroData = data.allRows.isEmpty && data.groups.isEmpty;
+  final groupLabels = workDirGroupLabels(data.groups.map((g) => g.workDir));
 
   return SidebarModel(
     newLabel: labels.newLabel,
@@ -146,26 +270,42 @@ SidebarModel buildConversationRailModel(
     groups: [
       SidebarGroup(
         types: [
-          if (pinned.isNotEmpty || zeroData)
-            SidebarType(
+          if (data.pinned.rows.isNotEmpty || zeroData)
+            axisSection(
               label: labels.pinned,
               icon: AnIcons.pin,
-              count: count(pinned.length),
-              rows: pinned,
+              axisKey: pinnedAxisKey,
+              axis: data.pinned,
             ),
-          if (recents.isNotEmpty || zeroData)
-            SidebarType(
+          // The head count is the SERVER's — the projection counts the whole workspace's threads in that
+          // residency, so it does not change as the user scrolls the group. Which of the two counts (or their
+          // sum) is the honest number depends on what the rail is showing.
+          // 组头计数是**服务端**的——投影数的是该驻地在整个 workspace 里的线程，故它不随用户滚动该组而变。两个计数
+          // 中哪个（或二者之和）才是诚实的那个数，取决于 rail 正在显示什么。
+          for (final (i, g) in data.groups.indexed)
+            // A group whose count IN THE CURRENT SCOPE is zero does not render at all: archiving a folder's
+            // last thread must make the folder go away, exactly as deleting it does (a group is a projection
+            // — it exists only while something is in it). The projection still reports the group, because its
+            // archived threads are still there and «show archived» will bring the whole folder back.
+            // 在**当前范围**下计数为零的组根本不渲:归档一个文件夹最后一条线程必须让那个文件夹消失,与删掉它一样
+            // (组是投影——它只在里面还有东西时存在)。投影仍报告该组,因为它的归档线程还在、开「显示已归档」会把整个
+            // 文件夹带回来。
+            if (_scopeCount(g, showArchived) > 0)
+              axisSection(
+                label: groupLabels[g.workDir] ?? g.workDir,
+                icon: AnIcons.folder,
+                axisKey: workDirAxisKey(g.workDir),
+                axis:
+                    data.groupAxes[g.workDir] ?? const ConvAxis(hasMore: true),
+                headCount: _scopeCount(g, showArchived),
+                initiallyFolded: i > 0,
+              ),
+          if (data.recents.rows.isNotEmpty || zeroData)
+            axisSection(
               label: labels.recents,
               icon: AnIcons.history,
-              count: count(recents.length),
-              pageKey:
-                  'recents', // the single paginated axis (pinned all land on page one) 唯一分页轴
-              hasMore: hasMore,
-              loadingMore: loadingMore,
-              loadError:
-                  loadMoreFailed, // M9: failure = a manual retry row, never an auto-refire 失败=手动重试行
-
-              rows: recents,
+              axisKey: recentsAxisKey,
+              axis: data.recents,
             ),
         ],
       ),

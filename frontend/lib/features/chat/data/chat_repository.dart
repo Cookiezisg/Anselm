@@ -73,6 +73,66 @@ enum ConvArchive {
   };
 }
 
+/// Which pin states the list returns — the backend `?pinned=`. [any] omits the parameter (both, the
+/// long-standing default); the grouped rail (WD1.5) asks for the two halves SEPARATELY so every thread
+/// renders exactly once: the Pinned section is [pinnedOnly], the residency groups and Recents are
+/// [unpinnedOnly].
+///
+/// 列表返回哪些置顶态——后端 `?pinned=`。[any] 省略该参数(两者,长期默认);分组后的 rail(WD1.5)**分别**取两半,
+/// 使每条线程恰好渲一次:置顶段是 [pinnedOnly],驻地组与「最近」是 [unpinnedOnly]。
+enum ConvPin {
+  any,
+  pinnedOnly,
+  unpinnedOnly;
+
+  String? get wire => switch (this) {
+    ConvPin.any => null,
+    ConvPin.pinnedOnly => 'true',
+    ConvPin.unpinnedOnly => 'false',
+  };
+}
+
+/// Which residency the list is confined to — the backend `?workDir=`, whose three states are read off the
+/// KEY'S PRESENCE, not its value:
+///
+///   - [ConvWorkDir.any] — the key is absent: no residency filter at all (every conversation).
+///   - [ConvWorkDir.unmounted] — the key is present and EMPTY (`?workDir=`): ONLY the threads that live in
+///     no directory. This is the rail's Recents section, and it is why the filter cannot be a plain
+///     nullable string: `''` here is a MEANINGFUL value, not the absence of one.
+///   - [ConvWorkDir.of] — one residency, the rail's group axis. The path must be the STORED absolute one
+///     (the value `GET /workdir-groups` handed back), because the backend compares it verbatim.
+///
+/// 列表被限定在哪个驻地——后端 `?workDir=`,其三态按**键是否出现**读、不按值读:[any] 键缺席=完全不按驻地过滤;
+/// [unmounted] 键出现且为空(`?workDir=`)=**仅**不住在任何目录里的线程(rail 的「最近」段,也正是该过滤不能是
+/// 可空裸字符串的原因:`''` 在此是一个**有意义的值**、不是「没有值」);[of] = 一个驻地(rail 的组轴,路径须是**存
+/// 下来**的那个绝对路径——即 `GET /workdir-groups` 回的值,后端逐字比较)。
+class ConvWorkDir {
+  const ConvWorkDir._(this.path);
+
+  /// One residency. 一个驻地。
+  const ConvWorkDir.of(String path) : this._(path);
+
+  /// No residency filter — the parameter is omitted entirely. 不过滤——参数完全省略。
+  static const any = ConvWorkDir._(null);
+
+  /// Only the unmounted threads — the parameter is sent EMPTY. 仅未挂——参数发空值。
+  static const unmounted = ConvWorkDir._('');
+
+  final String? path;
+
+  /// null → omit the key; otherwise send it (possibly empty). null → 省略键;否则发出(可为空)。
+  String? get wire => path;
+
+  @override
+  bool operator ==(Object other) => other is ConvWorkDir && other.path == path;
+
+  @override
+  int get hashCode => path.hashCode;
+
+  @override
+  String toString() => 'ConvWorkDir(${path ?? 'any'})';
+}
+
 /// THE seam for the Chat feature's data access — every read/realtime/action the feature makes passes
 /// through here, so the whole feature can be driven by one [FixtureChatRepository] override (no
 /// per-provider HTTP/SSE mocking), exactly as the Entities feature does. [LiveChatRepository] wires the
@@ -95,7 +155,44 @@ abstract interface class ChatRepository {
     ConvSort sort,
     ConvArchive archive,
     String? search,
+    ConvWorkDir workDir,
+    ConvPin pinned,
   });
+
+  /// The rail's residency GROUPING (`GET /conversations/workdir-groups`) — one row per directory some
+  /// unpinned thread lives in, most-recently-active first. Bounded, uncursored, parameterless.
+  ///
+  /// It is a SERVER read rather than a client-side `groupBy` over the loaded rows for one reason: the rail
+  /// pages forever, so grouping a window would make membership and counts drift as you scroll. The counts
+  /// this returns are the whole workspace's, and they do not move when the user scrolls.
+  ///
+  /// rail 的驻地**分组**(`GET /conversations/workdir-groups`)——每个住着未置顶线程的目录一行、最近活跃在前。
+  /// 有界、无游标、零参数。
+  ///
+  /// 它是**服务端**读、而不是对已加载行做客户端 `groupBy`，只为一个理由:rail 无限翻页，对一窗分组会让成员与
+  /// 计数随滚动漂移。它返回的计数是**整个 workspace** 的，且用户滚动时它们不动。
+  Future<List<WorkDirGroup>> workdirGroups();
+
+  /// Archive a whole residency group in ONE request (`POST /conversations:archive-workdir`) → how many
+  /// conversations actually CHANGED. Not a loop of N PATCHes: a loop can stop half-way, leaving a folder the
+  /// user asked to file away neither filed nor unfiled.
+  ///
+  /// 一个请求归档整个驻地组(`POST /conversations:archive-workdir`)→ 真正**改变**了几条对话。不是 N 次 PATCH 的
+  /// 循环:循环会半途停下，把用户要收起的一个文件夹留在既非收起也非未收起的状态。
+  Future<int> archiveWorkDir(String workDir);
+
+  /// Delete a whole residency group in ONE request (`POST /conversations:delete-workdir`) → how many
+  /// conversations were deleted.
+  ///
+  /// It deletes CONVERSATIONS. Not the directory, not one file on disk, not one message row (messages are an
+  /// append-only log with no delete). Pinned threads of that residency survive. This is exactly why the menu
+  /// item that calls it says «delete all conversations» and never «delete the directory».
+  ///
+  /// 一个请求删除整个驻地组(`POST /conversations:delete-workdir`)→ 删了几条对话。
+  ///
+  /// 它删的是**对话**。不是那个目录、不是盘上任何一个文件、也不是任何一条消息行(消息是只追加的日志、没有删除)。
+  /// 该驻地的置顶线程存活。这正是调用它的那个菜单项写作「删除全部对话」、而**绝不**写作「删除目录」的原因。
+  Future<int> deleteWorkDir(String workDir);
 
   /// Rename a thread (`PATCH {title}`). Returns the authoritative updated object so the caller patches
   /// its list state from it (the initiator never waits on the SSE echo — notifications are for OTHER
@@ -408,6 +505,8 @@ class LiveChatRepository implements ChatRepository {
     ConvSort sort = ConvSort.activity,
     ConvArchive archive = ConvArchive.active,
     String? search,
+    ConvWorkDir workDir = ConvWorkDir.any,
+    ConvPin pinned = ConvPin.any,
   }) {
     final q = <String, dynamic>{
       'cursor': ?cursor,
@@ -415,12 +514,53 @@ class LiveChatRepository implements ChatRepository {
       'sort': sort.wire,
       'archived': ?archive.wire,
       'search': ?search,
+      // `workDir` is PRESENCE-sensitive on the wire: an empty value means "only the unmounted threads",
+      // which is not the same request as omitting the key. The `?` spread omits null and keeps `''`.
+      // `workDir` 在线缆上**对键是否出现敏感**:空值意为「仅未挂的线程」，与省略该键**不是**同一个请求。`?` 展开
+      // 省略 null、保留 `''`。
+      'workDir': ?workDir.wire,
+      'pinned': ?pinned.wire,
     };
     return _api.getPage(
       '/api/v1/conversations',
       Conversation.fromJson,
       query: q,
     );
+  }
+
+  // A bounded projection: `getPage(...).items` is the house idiom for the uncursored `{data:[…]}` reads
+  // (documents/tree, /tools) — there is no cursor to carry, so the page's coordinates are simply empty.
+  // 有界投影:`getPage(...).items` 是无游标 `{data:[…]}` 读的本库惯用形(documents/tree、/tools)——没有游标要带，
+  // 故页坐标就是空的。
+  @override
+  Future<List<WorkDirGroup>> workdirGroups() async => (await _api.getPage(
+    '/api/v1/conversations/workdir-groups',
+    WorkDirGroup.fromJson,
+  )).items;
+
+  @override
+  Future<int> archiveWorkDir(String workDir) =>
+      _workDirAction('archive-workdir', workDir, 'archived');
+
+  @override
+  Future<int> deleteWorkDir(String workDir) =>
+      _workDirAction('delete-workdir', workDir, 'deleted');
+
+  // Both residency-wide actions answer `{workDir, <verb>: n}` where n is how many conversations actually
+  // changed — the rail folds that number, not its own guess, so an already-archived group honestly reports 0.
+  // 两个驻地级动作都答 `{workDir, <动词>: n}`，n 是真正改变了几条对话——rail 折入**那个**数、而不是自己的猜测，
+  // 故一个已归档的组诚实地报 0。
+  Future<int> _workDirAction(
+    String action,
+    String workDir,
+    String field,
+  ) async {
+    final data = await _api.postData(
+      '/api/v1/conversations:$action',
+      body: {'workDir': workDir},
+    );
+    final n = data[field];
+    return n is int ? n : 0;
   }
 
   // Each write is one PATCH of one semantic field (rename / pin / archive) or a DELETE — the response is

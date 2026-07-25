@@ -80,19 +80,34 @@ var Schema = []string{
 	// next boot, and a re-run relies on db.Migrate reading "duplicate column name" as already-applied.
 	// TEXT NOT NULL DEFAULT '' rather than NULLable — '' already means "not mounted".
 	//
-	// Deliberately UNindexed IN THIS BATCH: the only reader is the open thread's own head row (one row,
-	// by primary key, per turn). WD1.5 adds a rail GROUPED by this column (`GET /conversations/
-	// workdir-groups` + `?workDir=`), and that is when a `(workspace_id, work_dir)` index earns its
-	// keep — adding it now would pay insert cost for a query no one issues yet.
+	// Now INDEXED (WD1.5): the rail groups by this column and pages inside one group, so the column went
+	// from "read one row by primary key per turn" to "GROUP BY over the whole workspace on every rail
+	// paint" — which is exactly the load the WD1 comment said would earn the index its keep. The index
+	// below is that index; see idx_conversations_ws_workdir.
 	//
 	// 列演化——驻地（WRK-077 WD1）。与上方分叉血缘两列同一条结果幂等 ADD COLUMN 径的第三次使用,理由相同:
 	// 已有安装下次启动补列、重复执行靠 db.Migrate 把 "duplicate column name" 视作已应用。用 TEXT NOT NULL
 	// DEFAULT '' 而非可空——'' 已表达「未挂」。
 	//
-	// **本批刻意不建索引**:唯一读者是当前线程自己的头行（按主键、一行、每回合一次）。WD1.5 才会按本列
-	// **分组**出 rail（`GET /conversations/workdir-groups` + `?workDir=`）,**那时** `(workspace_id,
-	// work_dir)` 索引才挣得回它的钱——现在就加是为一个还没人发的查询预付插入代价。
+	// **现已建索引（WD1.5）**:rail 按本列分组、并在单个组内翻页,故本列从「每回合按主键读一行」变成了「每次
+	// rail 绘制都对整个 workspace 做一次 GROUP BY」——正是 WD1 注释所说「索引挣得回它的钱」的那种负载。下面
+	// 那条就是它，见 idx_conversations_ws_workdir。
 	`ALTER TABLE conversations ADD COLUMN work_dir TEXT NOT NULL DEFAULT ''`,
+
+	// Residency index (WRK-077 WD1.5) — added AFTER the ADD COLUMN it depends on (statements are ordered
+	// and applied in order; indexing a column that does not exist yet fails on a fresh install). It serves
+	// BOTH of the rail's residency reads with one structure: the `workdir-groups` GROUP BY walks
+	// (workspace_id, work_dir) as an index range and gets `MAX(last_message_at)` from the trailing key
+	// without touching the table, and `?workDir=<path>` page-scans one contiguous run of the same index in
+	// the exact order the page needs. `pinned` is deliberately NOT in the key: the pin predicate cuts a
+	// single-user handful of rows and putting it ahead of work_dir would break the grouping's range scan.
+	//
+	// 驻地索引（WRK-077 WD1.5）——排在它所依赖的 ADD COLUMN **之后**（语句有序、按序应用;给一个还不存在的列
+	// 建索引会在全新安装上失败）。一个结构服务 rail 的**两条**驻地读:`workdir-groups` 的 GROUP BY 把
+	// (workspace_id, work_dir) 当索引区间走、并从尾键直接拿到 `MAX(last_message_at)` 而不碰表；`?workDir=<path>`
+	// 则以页所需的**确切顺序**扫同一索引里一段连续区间。`pinned` **刻意不进键**:置顶谓词切掉的是单用户量级的
+	// 寥寥几行，把它放在 work_dir 之前会毁掉分组的区间扫。
+	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_workdir ON conversations(workspace_id, work_dir, last_message_at DESC) WHERE deleted_at IS NULL`,
 }
 
 // Store implements conversationdomain.Repository over pkg/orm.
@@ -162,6 +177,23 @@ func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) 
 		// no archived predicate — both active and archived
 	default: // ArchiveActive
 		q = q.WhereEq("archived", false)
+	}
+	// Exactly one pin predicate per scope (or none for PinAny). The grouped rail asks for the two halves
+	// separately so each thread is rendered exactly once. 每个 scope 恰一个置顶谓词（PinAny 不加）。
+	switch filter.Pinned {
+	case conversationdomain.PinPinned:
+		q = q.WhereEq("pinned", true)
+	case conversationdomain.PinUnpinned:
+		q = q.WhereEq("pinned", false)
+	default: // PinAny
+	}
+	// The residency filter's three states (see ListFilter.WorkDir): nil adds nothing, &"" asks for the
+	// unmounted ones — an equality on the empty string, NOT "no filter", which is exactly why the field is a
+	// pointer — and &path narrows to one group.
+	// 驻地过滤的三态（见 ListFilter.WorkDir）:nil 什么都不加、&"" 要未挂的那些（对**空串**的等值比较、**不是**
+	// 「不过滤」，这正是该字段是指针的原因）、&path 收窄到一个组。
+	if filter.WorkDir != nil {
+		q = q.WhereEq("work_dir", *filter.WorkDir)
 	}
 	q = q.WhereLike("title", filter.Search)
 	// Sort is always pinned-first; the secondary key is recency (default) or creation order. The

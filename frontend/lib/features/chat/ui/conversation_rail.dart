@@ -8,6 +8,7 @@ import '../../../core/model/status_state.dart';
 import '../../../core/notice/notice_center.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/overlay/an_overlay.dart';
+import '../../../core/platform/open_in_system.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_rail_states.dart';
@@ -19,6 +20,7 @@ import '../../../i18n/strings.g.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../state/conversation_list_provider.dart';
+import '../state/conversation_list_state.dart';
 import '../state/fork_conversation.dart';
 import '../state/selected_conversation.dart';
 import '../state/title_reveals.dart';
@@ -38,10 +40,32 @@ import 'conversation_rail_model.dart';
 /// folded into the list optimistically ([ConversationListNotifier.applyUpdate]/`applyDelete`) — the
 /// initiator never waits on the SSE echo. `_editingId` is transient widget state (which row is mid-rename).
 ///
-/// 左岛对话导航。watch list + selected,解出四态之一(骨架/错+重试/空/AnSidebarList,置顶 + 最近两组),选择经 URL 写回
-/// (唯一真相源)。镜像 EntityRail,去掉 per-kind。每行 hover 显 ⋯ 菜单(STEP 7)收齐逐线程动作:就地改名(经 editingRowId
-/// → 复用 AnInlineEdit)、置顶/取消、归档/取消、删除(danger + 确认框)。写打到 repository,权威响应乐观折进列表(不等 SSE 回声)。
+/// **The rail is grouped by RESIDENCY (WRK-077 WD1.5)**: Pinned, then one 📁 section per working directory,
+/// then Recents (only the threads that live in no directory). Each residency section head carries its own ⋯
+/// menu — «archive all conversations» / «delete all conversations» (danger, behind a confirm dialog that
+/// inventories exactly how many threads move) and «reveal in Finder».
+///
+/// ⚠️ **The wording of those two items is load-bearing, not cosmetic.** «Delete the directory» — or any
+/// phrasing containing the word *directory* — would be read as deleting the real folder on disk, with the
+/// user's actual work inside it. The action deletes CONVERSATIONS: not the folder, not one file, not one
+/// message row. So the menu says «delete all conversations», the confirm dialog states the count and says in
+/// so many words that nothing on disk is deleted, and the word «directory» appears in neither. «Reveal in
+/// Finder» sits in the same menu on purpose — it is the item that demonstrates the folder is something we
+/// merely point at. A guard test asserts the absence of that word (see conversation_rail_test).
+///
+/// 左岛对话导航。watch list + selected,解出四态之一(骨架/错+重试/空/AnSidebarList),选择经 URL 写回(唯一真相源)。
+/// 镜像 EntityRail,去掉 per-kind。每行 hover 显 ⋯ 菜单收齐逐线程动作:就地改名(经 editingRowId → 复用 AnInlineEdit)、
+/// 置顶/取消、归档/取消、删除(danger + 确认框)。写打到 repository,权威响应乐观折进列表(不等 SSE 回声)。
 /// _editingId 是瞬时 widget 态(哪行在改名中)。
+///
+/// **rail 按驻地分组(WRK-077 WD1.5)**:置顶、每个工作目录一个 📁 段、最后是「最近」(仅不住在任何目录里的线程)。每个
+/// 驻地段的**组头**带它自己的 ⋯ 菜单——「归档全部对话」/「删除全部对话」(danger,确认框**逐条盘点**有几条线程会动)
+/// 与「在访达中显示」。
+///
+/// ⚠️ **那两个菜单项的措辞是承重的、不是装饰。**「删除目录」——或任何含「目录」字样的说法——会被读成删掉磁盘上那个
+/// 真文件夹、连里面用户真正的活一起。该动作删的是**对话**:不是文件夹、不是任何一个文件、也不是任何一条消息行。故菜单
+/// 写「删除全部对话」,确认框报出数目并**明说**磁盘上什么都不会被删,而「目录」二字**两处都不出现**。「在访达中显示」
+/// 刻意同处一菜单——它正是那个演示「文件夹只是我们指着的东西」的项。守卫测试断言那两个字的缺席(见 conversation_rail_test)。
 class ConversationRail extends ConsumerStatefulWidget {
   const ConversationRail({super.key});
 
@@ -79,7 +103,6 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     // The two placeholder states over the ONE list AsyncValue: loading = nothing resolved yet; error =
     // failed with nothing loaded. Zero rows is NOT a state — the list renders its chrome + empty Pinned /
     // Recents heads (满态收起的形状). 两占位态基于单个列表 AsyncValue;零行不是态,直落列表(渲 chrome + 空组头)。
-    final rows = async.value?.rows ?? const <Conversation>[];
     return AnRailStates(
       loading: async.isLoading && !async.hasValue,
       error: async.hasError && !async.hasValue,
@@ -90,9 +113,13 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
       ),
       onRetry: () => ref.invalidate(conversationListProvider),
       builder: () {
-        // id → conversation, so the per-row ⋯ menu can read the current pin/archive state for its labels.
-        // id→对话,供逐行 ⋯ 菜单按现态出置顶/归档标签。
-        final byId = {for (final c in rows) c.id: c};
+        // The loaded state, or an empty one while the very first page is in flight (AnRailStates already owns
+        // the skeleton; this keeps the builder total). 已加载态;首页在途时给空态(骨架归 AnRailStates,此处保持全函数)。
+        final data = async.value ?? const ConversationListState();
+        // id → conversation ACROSS ALL FOUR SECTIONS, so the per-row ⋯ menu can read the current
+        // pin/archive/residency state for its labels wherever that row happens to live.
+        // id→对话、**跨全部四段**,使逐行 ⋯ 菜单无论该行住在哪一段都能按现态出标签。
+        final byId = {for (final c in data.allRows) c.id: c};
         final reveals = ref.watch(titleRevealsProvider);
         return AnSidebarList(
           // A fresh auto-title lands as a one-shot typewriter in its row (the head plays the same title
@@ -108,13 +135,11 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
             );
           },
           model: buildConversationRailModel(
-            rows,
+            data,
             now: AnTimePulse.quantizedNow, // 同拍同刻,模型相等性记忆化不被破(S8)
             showCount: showCount,
             showTime: showTime,
-            hasMore: async.value?.hasMore ?? false,
-            loadingMore: async.value?.loadingMore ?? false,
-            loadMoreFailed: async.value?.loadMoreFailed ?? false,
+            showArchived: archived,
             labels: ConvRailLabels(
               newLabel: t.chat.kNew,
               filter: t.chat.filter,
@@ -137,9 +162,13 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
           // The row id IS the conversation id — navigate straight to it (route is the source of truth).
           onSelect: (id) => context.go(conversationLocation(id)),
           onFilterChanged: _onFilter,
-          onLoadMore: (_) => _list
-              .loadMore(), // the recents tail pages the conversation list 最近段尾翻列表
-          onRetryLoad: (_) => _list.loadMore(),
+          // Every section is its own paginated axis and the pageKey IS the axis key — Pinned, Recents, and
+          // one per residency. A residency section's FIRST page rides the same sentinel, so a folded group
+          // fetches nothing and an expanded one fetches only when scrolled into view.
+          // 每段都是自己的分页轴、pageKey **就是**轴键——置顶、最近、每驻地一个。驻地段的**第一页**走同一个哨兵,
+          // 故收起的组什么都不取、展开的也只在滚进视野时才取。
+          onLoadMore: _list.loadMoreAxis,
+          onRetryLoad: _list.loadMoreAxis,
           editingRowId: _editingId,
           onRenameCommit: _rename,
           onRenameCancel: () => setState(() => _editingId = null),
@@ -147,6 +176,19 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
             final c = byId[id];
             if (c == null) return const [];
             return [_rowMenu(t, c)];
+          },
+          // The residency section heads get the ⋯ menu; Pinned / Recents get none — they are not folders and
+          // have nothing folder-wide to do. Reuses the LR batch's typeHeadActionsBuilder seam verbatim.
+          // 驻地段头拿 ⋯ 菜单;置顶 / 最近没有——它们不是文件夹、也没有目录级的事可做。逐字复用 LR 批的
+          // typeHeadActionsBuilder 地基。
+          typeHeadActionsBuilder: (typeId) {
+            final dir = workDirOfAxis(typeId);
+            if (dir == null) return const [];
+            final group = data.groups
+                .where((g) => g.workDir == dir)
+                .firstOrNull;
+            if (group == null) return const [];
+            return [_groupMenu(t, group)];
           },
         );
       },
@@ -202,6 +244,62 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
           icon: AnIcons.trash,
           danger: true,
           onTap: () => _confirmDelete(c),
+        ),
+      ],
+    );
+  }
+
+  /// The ⋯ menu on a RESIDENCY section head — the folder-wide actions, and the single most sensitive piece of
+  /// wording in this batch.
+  ///
+  /// Three items: «archive all conversations», «delete all conversations» (danger), and «reveal in Finder».
+  /// The first two say **conversations** because that is what they touch; a label mentioning the directory
+  /// would be read as an offer to delete the real folder on disk — the user's actual work — which nothing here
+  /// does or could do. «Reveal in Finder» belongs in the same menu for exactly that reason: it is the item
+  /// that shows the folder is something we point at, never something we own.
+  ///
+  /// The head's own count is what the confirm dialog inventories, and it can be that number because the
+  /// action's scope IS the group's scope (that residency, unpinned) — see the backend contract.
+  ///
+  /// **驻地**段头上的 ⋯ 菜单——目录级动作,以及本批**最敏感**的一处措辞。
+  ///
+  /// 三项:「归档全部对话」、「删除全部对话」(danger)、「在访达中显示」。前两项说的是**对话**,因为它们碰的就是对话;
+  /// 一个提到目录的标签会被读成「提议删掉磁盘上那个真文件夹」——用户真正的活——而这里没有任何东西在做、也做不到那件事。
+  /// 「在访达中显示」正因如此属于同一个菜单:它是那个表明「文件夹是我们指着的东西、绝不是我们拥有的东西」的项。
+  ///
+  /// 组头**自己的**计数就是确认框盘点的那个数,而它之所以能是那个数,是因为动作的范围**就是**组的范围(该驻地、未置顶)
+  /// ——见后端契约。
+  Widget _groupMenu(Translations t, WorkDirGroup g) {
+    final w = t.chat.workDir;
+    // The inventory is the WHOLE group, both archive states — the actions are deliberately blind to the
+    // "show archived" toggle (a destructive action must not depend on a view preference), so the number the
+    // dialog states must be blind to it too.
+    // 盘点是**整个**组、两种归档态——动作刻意对「显示已归档」开关盲(破坏性动作不该取决于视图偏好),故确认框报出的数
+    // 也必须对它盲。
+    final total = g.activeCount + g.archivedCount;
+    return AnMenu(
+      anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
+        AnIcons.more,
+        size: AnButtonSize.sm,
+        semanticLabel: t.a11y.moreActions,
+        onPressed: toggle,
+      ),
+      entries: [
+        AnMenuItem(
+          label: w.groupArchiveAll,
+          icon: AnIcons.archive,
+          onTap: () => _confirmGroupArchive(g, total),
+        ),
+        AnMenuItem(
+          label: w.groupDeleteAll,
+          icon: AnIcons.trash,
+          danger: true,
+          onTap: () => _confirmGroupDelete(g, total),
+        ),
+        AnMenuItem(
+          label: w.revealFinder,
+          icon: AnIcons.folder,
+          onTap: () => _reveal(g.workDir),
         ),
       ],
     );
@@ -335,6 +433,93 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     } catch (_) {
       _noticeFail();
     }
+  }
+
+  // ── residency-group actions (one request each, never a loop of N) 驻地组动作(各一次请求、绝不循环 N 次) ──
+
+  Future<void> _confirmGroupArchive(WorkDirGroup g, int total) async {
+    final w = context.t.chat.workDir;
+    final ok = await _confirmGroup(
+      title: w.groupArchiveTitle,
+      message: w.groupArchiveBody(count: total, name: _folderName(g.workDir)),
+      confirmLabel: w.groupArchiveConfirm,
+    );
+    if (!ok) return;
+    try {
+      await _repo.archiveWorkDir(g.workDir);
+      await _list.applyWorkDirGroupChanged(g.workDir);
+    } catch (_) {
+      _noticeFail();
+    }
+  }
+
+  Future<void> _confirmGroupDelete(WorkDirGroup g, int total) async {
+    final w = context.t.chat.workDir;
+    final ok = await _confirmGroup(
+      title: w.groupDeleteTitle,
+      message: w.groupDeleteBody(count: total, name: _folderName(g.workDir)),
+      confirmLabel: w.groupDeleteConfirm,
+    );
+    if (!ok) return;
+    // The open thread may have been one of them — the route is the truth, so clear the selection before the
+    // rail's rows go. 打开着的那条可能正在其中——路由是真相,故在 rail 的行消失之前先清选区。
+    final open = ref.read(selectedConversationProvider)?.id;
+    final openWasHere =
+        open != null &&
+        ref
+                .read(conversationListProvider)
+                .value
+                ?.allRows
+                .where((c) => c.id == open)
+                .firstOrNull
+                ?.workDir ==
+            g.workDir;
+    try {
+      await _repo.deleteWorkDir(g.workDir);
+      await _list.applyWorkDirGroupChanged(g.workDir);
+      if (!mounted) return;
+      if (openWasHere) context.go('/');
+    } catch (_) {
+      _noticeFail();
+    }
+  }
+
+  Future<bool> _confirmGroup({
+    required String title,
+    required String message,
+    required String confirmLabel,
+  }) {
+    final t = context.t;
+    return ref
+        .read(overlayProvider.notifier)
+        .confirm(
+          title: title,
+          message: message,
+          confirmLabel: confirmLabel,
+          cancelLabel: t.action.cancel,
+          barrierLabel: t.feedback.dialogBarrier,
+        );
+  }
+
+  Future<void> _reveal(String path) async {
+    if (await revealInSystem(path)) return;
+    if (!mounted) return;
+    ref
+        .read(noticeCenterProvider.notifier)
+        .show(context.t.chat.workDir.openFailed, tone: AnTone.warn);
+  }
+
+  // The folder's own name — the same thing the group head shows, so the dialog names what the user clicked.
+  // A trailing separator degrades to the full path rather than to an empty name.
+  // 文件夹自己的名字——与组头显示的同一样东西,故确认框点出的正是用户点的那个。末尾带分隔符时退化成完整路径、而非空名。
+  static String _folderName(String path) {
+    final trimmed =
+        path.length > 1 && (path.endsWith('/') || path.endsWith(r'\'))
+        ? path.substring(0, path.length - 1)
+        : path;
+    final i = trimmed.lastIndexOf(RegExp(r'[/\\]'));
+    final name = i < 0 ? trimmed : trimmed.substring(i + 1);
+    return name.isEmpty ? path : name;
   }
 
   void _noticeFail() {

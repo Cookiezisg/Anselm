@@ -851,6 +851,31 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 
 **验收**:四段结构真机核对;组头批量动作确认框内容盘点诚实;fork/退驻地的组间迁移;分组计数与翻页一致(无漂移);置顶不重复;i18n 新键;五电池;testend 覆盖两个新端点 + workdir-groups 投影;文档 1:1(api.md/domains/conversation.md/contract.md)。
 
+→ **已施工(0725,施工序⑮)。后端投影 + 前端 rail 组装同批落地。**
+
+**后端四件（比工单多一件,理由在下）**:
+- **`GET /conversations/workdir-groups`** → `[{workDir, activeCount, archivedCount, lastMessageAt}]`。**偏离工单措辞的一处**:工单写 `count` 单个计数,实际**分列两个**。理由是诚实——组头计数依「显示已归档」开关而变,而两个**批量动作刻意对那个开关盲**(破坏性动作不该取决于视图偏好),故确认框盘点的数必须是**和**。若只给一个 `count`,它要么让组头撒谎、要么让确认框撒谎;分列则**端点还能保持零参数**（否则要一个 `?archived=`,而那会让它既不属 N4 有界投影的①形也不属②形——api.md 前言已因此扩写②形:判据是「收不收真参数」、不是「返一个还是返一批」）。
+- **List 加 `?workDir=`（三态、按键是否出现读）**——缺席=不过滤 / **出现且为空**=仅无驻地 / 有值=仅该驻地。domain 侧 `ListFilter.WorkDir *string`，指针正因中间那态:`""` 在此是**有意义的过滤值**、不是「没有过滤」。
+- **⚠️ 多加了 `?pinned=`（三态）**——**工单没列这一条,这是本批唯一新增的契约面,理由如下**:结构要求「置顶赢、不在驻地组重复」,而这要求置顶段**完整**。其余各轴都按驻地过滤之后,「所有置顶线程」**再也**不能靠既有的「置顶都落首页」假定复原——一条住在**收起**的组里的置顶线程根本不会被取回来,于是置顶段会**漏行**(一个真 bug、不是效率问题)。加一个与 `?archived=` 同族的三态过滤后,rail 的四段 = 四条服务端查询、**零客户端重分桶**,且置顶段的计数也变成权威的。
+- **两个集合级动作 `POST /conversations:archive-workdir` / `:delete-workdir`**（body `{workDir}`,返真正改变了几条）。**事务边界**:store 的 `ArchiveWorkDir`/`SoftDeleteWorkDir` 在**一个** `db.Transaction` 里 Pluck 出 id 集 + 施加**一条**语句 + **交叉核对行数与 id 数**;逐行级联（停生成 / 丢 humanloop 授权 / relation 边 / 触点台账 / 逐行既有回声）在**提交之后**跑、best-effort。**整组删除到底删了什么**:那些 `conversations` 行上的 `deleted_at` 戳 + 每条线程的 relation 边与触点台账。**没删什么**:任何消息行（`messages`/`message_blocks` 无 `deleted_at`、绝不物理删）、以及**文件系统上的任何东西**。**范围**:该驻地下的**未置顶**对话(置顶存活;archive 只动未归档行故重跑报 0、delete 跨归档态)。**空 `workDir` 拒 400 `INVALID_REQUEST`**（`''` 是正当的列表过滤、但**不是一个组**;接受它会让一次请求扫掉每一条从未选过目录的线程）· 非绝对拒 422 `CONVERSATION_INVALID_WORK_DIR`。**零新错误码**。
+
+**诚实律的落实（本批第一优先）**:组头菜单 = 「归档全部对话 / 删除全部对话 / 在访达中显示」(EN: Archive all conversations / Delete all conversations / Reveal in Finder)。确认框:归档「归档这些对话？」+「「anselm」里的 12 个对话将移入归档，随时可以取回。置顶的对话不受影响。」;删除「删除这些对话？」+「「anselm」里的 12 个对话将被永久移除。**磁盘上什么都不会被删除——文件一个都不动。**置顶的对话不受影响。」**钉法**:`conversation_rail_test` 的 `honesty law · the residency-group wording never says «directory»` 遍历 `AppLocale.values`、对 8 条文案断言中文不含「目录」（注意「工作目录」**包含**它,故组的措辞也不能退回驻地按钮的词汇表）、英文不匹配 `/director|folder/i`,并**正面**要求删除框说出「磁盘/disk」且带那个计数——**可怕词的缺席不等于一句安抚**。
+
+**重名消歧算法**（`workDirGroupLabels`,纯函数、6 条单测）:每个路径先取**末段**;把撞名的**簇**各自向左多取一段、**反复**直到唯一或段用尽（`a/x/anselm` vs `b/x/anselm` 一段不够、要两段）;**只有真撞上的才长**（旁边的 `notes` 不动）。分隔符 `/` 与 `\` 都算段（Windows 驻地）。**组间排序键** = 服务端的 `MAX(last_message_at) DESC, work_dir ASC`（全序,故两次相同请求绝不互换）。
+
+**两处施工时定的裁决**:①**组默认收起、只有第一个(最近活跃那个)打开**——文件夹的心智是点开、收起使「最近」不必翻过一切才够得着,且收起的段**什么都不取**;而你刚干活的那个组是开着的。②**在当前范围下计数为 0 的组不渲染**——归档掉一个文件夹最后一条线程必须让它像被删掉一样消失（投影仍报告该组,因为它的归档线程还在、开「显示已归档」会把整个文件夹带回来）。
+
+**惰性取数不靠新回调**:每段都是一个分页轴、`pageKey` **就是** notifier 的轴键（`pinned` / `recents` / `wd:<path>`）,组轴以「未加载 + `hasMore: true`」起步,故它的**第一页**由 rail **既有**的尾哨兵在该段被展开**且**滚进视野时才取——没有「展开时取数」这种特设回调。
+
+**施工中查实并封掉的一个真洞（工单没提、但分组一落地就存在）**:rail 的**搜索**。收起的文件夹什么都不取,故一次只把四段各自收窄的搜索会对**每一条用户尚未滚进视野的对话**答「没有匹配」——相对 WD1.5 之前是**功能回归**。裁决:**搜索替换结构、不过滤结构**——有查询词时 rail 变成对整个 workspace 的一条**平的、无头的**结果列表（对驻地盲、对置顶盲）,清掉查询词即恢复四段。那也正是这个问题的诚实读法:哪些**对话**匹配、不是哪些文件夹匹配。测试 `SEARCHING replaces the structure: one flat list that reaches into FOLDED folders` 钉住它（含一条住在从未取过行的文件夹里的匹配）。
+
+**testend 场景（5 个,`scenarios/chat_workdir_group_test.go`）**:`TestChatWorkDirGroups_{ProjectionMatchesReality, ListFilters, ArchiveWholeGroup, DeleteWholeGroup, CountsDoNotDriftAcrossPaging}`。
+
+**⚠️ 一条诚实边界**:工单要求「整组删除断言**消息行仍在**」——那条断言**在黑盒里不可观测**。每条消息读路径都被一次对话存在性检查所辖（`chatapp.ListMessages` 先 `Conversations.Get`）,故一条已立碑线程的 `GET /{id}/messages` 按设计答 404,线缆**分不清**「线程的行被立碑了」与「它的消息被抹了」。故 D1 的证明改做在两张表都看得见的地方:后端单测 `TestDeleteWorkDir_NeverTouchesAMessageRow`（同库立起 messages schema → 写一个真回合 → 删整组 → 从 messages store 把 message 与 block 行**逐字节**读回来）。testend 那个场景转而断言线缆**能**证明的最强那些,并把这条边界写进了它自己的注释与 `domains/conversation.md`。
+
+**顺带强化地基一处**:`ormpkg.ParseDBTime`——原始读（GROUP BY / UNION / FILTER）拿不到驱动的声明类型转换,聚合列一律作 TEXT 回来,而 flowrun store 已为此手抄了一份三格式解码。新增地基函数并让 flowrun 的私有 helper **一行转发**过去（设计原则 #8:该由地基提供的样板不在业务层再抄一遍）。
+
+
 ## §5.16 CH-0 · chat @ 提及回归修复(0724 用户报,紧急)
 
 > 用户:「chat 里 @ 没有出现那个选择页面,@ 不了东西了。」既有功能断裂 = 回归,排最前修。
@@ -925,7 +950,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⑫ | ~~ES 空态退役 ×13~~ **已完成 0725**(A 类 6 + 错误态 1〔本节分类有误已纠〕+ B 类 6;`insetEmpty` 已删;**B 类只有引导没有动作——创建入口不存在**,见 §5.8) | 派 Sonnet 5 ✅ |
 | ⑬ | ~~LR+LI rail 重构+文案+tooltip 地基~~ **已完成 0725**(tooltip 地基主会话亲做;rail 重构+文案+守卫+首屏说明 派 Sonnet 5、主会话复验守卫非空绿;记录见 §5.13/§5.14) | 混合 ✅ |
 | ⑭ | ~~WD1 驻地地基~~ **已完成 0725**（后端八件 + 前端按钮/菜单/标记/最近目录 + 文档九处 + 单测 41 条 / testend 六场景 / widget 15 条；**三处与简报措辞的偏离**与**一处主动加固**已记档，见 §2.2 WD1 条） | 主会话 |
-| ⑮ | WD1.5 rail 驻地分组(CL) | 混合:后端投影 主会话;rail 组装 派 Opus 5(分组无漂移/置顶去重有状态逻辑) |
+| ⑮ | ~~WD1.5 rail 驻地分组(CL)~~ **已完成 0725**(后端四件〔投影两计数分列 / `?workDir=` / **多加的 `?pinned=`** / 两个事务型批量动作〕+ 前端四段 rail 多轴态 + 组头菜单与两个确认框 + 诚实律守卫 + 文档五处;**三处偏离/新增与一条诚实边界已入档**,见 §5.15) | 主会话 ✅ |
 | ⑯ | WD2 git 操作 / WD3 worktree | 主会话 |
 
 **派出协议(五条,G 战役教训)**:①简报 = 本册对应节 + 禁区清单(不许动的文件 / 不许自造抽象)②一批一提交、文档同步同责(#9)③**主会话逐行对抗复审后才准提交**(全量读 diff,非抽查)④门禁由主会话跑(不与子代理抢树)⑤视觉批每批交用户真机截图验收。

@@ -36,7 +36,15 @@
       "markMounted": "工作目录 → $to",
       "markSwitched": "工作目录 $from → $to",
       "markLeft": "已退出工作目录 $from",
-      "openFailed": "本机无法打开"
+      "openFailed": "本机无法打开",
+      "groupArchiveAll": "归档全部对话",
+      "groupDeleteAll": "删除全部对话",
+      "groupArchiveTitle": "归档这些对话？",
+      "groupArchiveBody": "「$name」里的 $count 个对话将移入归档，随时可以取回。置顶的对话不受影响。",
+      "groupArchiveConfirm": "全部归档",
+      "groupDeleteTitle": "删除这些对话？",
+      "groupDeleteBody": "「$name」里的 $count 个对话将被永久移除。磁盘上什么都不会被删除——文件一个都不动。置顶的对话不受影响。",
+      "groupDeleteConfirm": "全部删除"
     },
     "pin": "置顶",
     "unpin": "取消置顶",

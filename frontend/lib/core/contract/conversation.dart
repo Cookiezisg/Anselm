@@ -87,6 +87,46 @@ abstract class ModelRef with _$ModelRef {
       _$ModelRefFromJson(json);
 }
 
+/// ONE residency group of the chat rail — `GET /conversations/workdir-groups`, mirroring
+/// `conversation.WorkDirGroup`. A PROJECTION, not an entity: no table, no id, no lifecycle. A group exists
+/// exactly as long as some UNPINNED thread carries that [workDir], and the last one leaving makes it vanish
+/// on its own — so there is no "empty group" state to render or manage.
+///
+/// It comes from the server rather than being grouped client-side because the rail pages FOREVER: grouping
+/// one loaded window would make membership and counts DRIFT as you scroll — the head would state a number
+/// that changes while nothing about the workspace changed.
+///
+/// [activeCount] / [archivedCount] are reported separately so the endpoint takes NO parameters: the rail's
+/// "show archived" toggle picks or sums them for the head, and a bulk action (deliberately blind to that
+/// toggle — a destructive action must not depend on a view preference) inventories the SUM. Pinned threads
+/// are in NEITHER count: they render in the rail's own Pinned section and must appear exactly once, and the
+/// two bulk actions skip them too, which is what lets one number head the group AND inventory its confirm
+/// dialog. [lastMessageAt] spans both archive states, so toggling the view never reorders the groups.
+///
+/// chat 左岛的**一个**驻地组——`GET /conversations/workdir-groups`,镜像 `conversation.WorkDirGroup`。它是
+/// **投影、不是实体**:无表、无 id、无生命周期。一个组存在的时长恰好等于「还有**未置顶**线程带着那个 [workDir]」,
+/// 最后一个离开它就自行消失——故没有「空组」态要渲、也没有要管理的。
+///
+/// 它来自服务端、而不是在客户端分组,因为 rail 是**无限**翻页的:对一个已加载窗做分组会让成员与计数随滚动**漂移**
+/// ——组头会报出一个在 workspace 什么都没变时自己会变的数。
+///
+/// [activeCount] / [archivedCount] **分开**上报,使该端点**不收任何参数**:rail 的「显示已归档」开关自行取其一或
+/// 求和作组头,而批量动作（**刻意对那个开关盲**——破坏性动作不该取决于一个视图偏好）盘点二者之**和**。置顶线程
+/// **两个计数都不含**:它们渲在 rail 自己的置顶段、必须恰好出现一次,而两个批量动作同样跳过它们——正是这一点让
+/// **一个**数既作组头、又作它的确认框盘点。[lastMessageAt] 跨两种归档态,故切换视图绝不重排组序。
+@freezed
+abstract class WorkDirGroup with _$WorkDirGroup {
+  const factory WorkDirGroup({
+    @Default('') String workDir,
+    @Default(0) int activeCount,
+    @Default(0) int archivedCount,
+    required DateTime lastMessageAt,
+  }) = _WorkDirGroup;
+
+  factory WorkDirGroup.fromJson(Map<String, dynamic> json) =>
+      _$WorkDirGroupFromJson(json);
+}
+
 /// The residency's LIVE projection — `GET /conversations/{id}/workdir`, mirroring
 /// `conversation.WorkDirInfo`. Recomputed per request and cached nowhere: the filesystem and git ARE the
 /// truth, so a directory the user just deleted, or a branch they just switched in their own terminal, reads

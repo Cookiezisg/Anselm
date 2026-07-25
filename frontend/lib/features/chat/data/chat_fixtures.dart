@@ -91,6 +91,8 @@ class FixtureChatRepository implements ChatRepository {
     ConvSort sort = ConvSort.activity,
     ConvArchive archive = ConvArchive.active,
     String? search,
+    ConvWorkDir workDir = ConvWorkDir.any,
+    ConvPin pinned = ConvPin.any,
   }) async {
     if (failNextListConversations) {
       failNextListConversations = false;
@@ -104,6 +106,16 @@ class FixtureChatRepository implements ChatRepository {
         ConvArchive.all => true,
       };
       if (!scopeOk) return false;
+      // The residency filter's three states, read exactly as the backend reads them: null = don't filter,
+      // '' = only the unmounted ones, a path = only that residency.
+      // 驻地过滤的三态,读法与后端逐字一致:null=不过滤、''=仅未挂、路径=仅该驻地。
+      if (workDir.path != null && c.workDir != workDir.path) return false;
+      final pinOk = switch (pinned) {
+        ConvPin.any => true,
+        ConvPin.pinnedOnly => c.pinned,
+        ConvPin.unpinnedOnly => !c.pinned,
+      };
+      if (!pinOk) return false;
       if (term.isNotEmpty && !c.title.toLowerCase().contains(term)) {
         return false;
       }
@@ -111,6 +123,67 @@ class FixtureChatRepository implements ChatRepository {
     }).toList()..sort(_comparator(sort));
     return _page(rows, cursor, limit);
   }
+
+  /// The residency grouping, computed the way the backend's GROUP BY computes it: over EVERY seeded row (not
+  /// a loaded window — that is the whole point), unpinned only, non-empty residency only, the two archive
+  /// counts separate, most-recently-active first with the path as a total-order tiebreaker.
+  ///
+  /// 驻地分组,按后端 GROUP BY 的同一算法算:对**每一条**种子行(不是一个已加载窗——那正是要点)、仅未置顶、仅非空
+  /// 驻地、两个归档计数分列、最近活跃在前并以路径作全序 tiebreaker。
+  @override
+  Future<List<WorkDirGroup>> workdirGroups() async {
+    final byDir = <String, List<Conversation>>{};
+    for (final c in _all) {
+      if (c.pinned || c.workDir.isEmpty) continue;
+      byDir.putIfAbsent(c.workDir, () => []).add(c);
+    }
+    return [
+      for (final e in byDir.entries)
+        WorkDirGroup(
+          workDir: e.key,
+          activeCount: e.value.where((c) => !c.archived).length,
+          archivedCount: e.value.where((c) => c.archived).length,
+          lastMessageAt: e.value
+              .map((c) => c.lastMessageAt)
+              .reduce((a, b) => a.isAfter(b) ? a : b),
+        ),
+    ]..sort((a, b) {
+      final byTime = b.lastMessageAt.compareTo(a.lastMessageAt);
+      return byTime != 0 ? byTime : a.workDir.compareTo(b.workDir);
+    });
+  }
+
+  @override
+  Future<int> archiveWorkDir(String workDir) async {
+    archivedWorkDirs.add(workDir);
+    final ids = _groupMembers(workDir, (c) => !c.archived);
+    for (final id in ids) {
+      _mutate(id, (c) => c.copyWith(archived: true));
+    }
+    return ids.length;
+  }
+
+  @override
+  Future<int> deleteWorkDir(String workDir) async {
+    deletedWorkDirs.add(workDir);
+    final doomed = _groupMembers(workDir, (_) => true).toSet();
+    _all.removeWhere((c) => doomed.contains(c.id));
+    return doomed.length;
+  }
+
+  // Both bulk actions share the GROUP's scope — that residency, UNPINNED only — because the head's count and
+  // the confirm dialog's inventory are the same number and must stay so. An empty workDir names no group and
+  // therefore matches nothing (the backend rejects it outright; here it simply cannot select a row).
+  // 两个批量动作共享**组**的范围——该驻地、**仅未置顶**——因为组头的计数与确认框的盘点是同一个数、必须保持一致。
+  // 空 workDir 点不出任何组、故匹配不到任何行(后端直接拒它;此处它单纯选不出行)。
+  List<String> _groupMembers(
+    String workDir,
+    bool Function(Conversation) extra,
+  ) => [
+    if (workDir.isNotEmpty)
+      for (final c in _all)
+        if (!c.pinned && c.workDir == workDir && extra(c)) c.id,
+  ];
 
   // ── writes (mutate the seed list, mirroring the backend's PATCH/DELETE) ──
 
@@ -155,11 +228,22 @@ class FixtureChatRepository implements ChatRepository {
   Future<Conversation> setArchived(String id, bool archived) async =>
       _mutate(id, (c) => c.copyWith(archived: archived));
 
+  /// Which ids were deleted ONE AT A TIME, and which residencies were deleted as a GROUP. Recorded
+  /// separately because the difference is the point of the group endpoints: a test asserts the rail issued
+  /// ONE group request and not a loop of N per-row deletes (a loop can stop half-way).
+  ///
+  /// 哪些 id 是**逐条**删的、哪些驻地是**成组**删的。分开记录,因为这个区别正是那两个组端点存在的意义:测试要断言
+  /// rail 发的是**一次**组请求、而不是 N 次逐行删除的循环(循环会半途停下)。
+  final List<String> deletedIds = [];
+  final List<String> deletedWorkDirs = [];
+  final List<String> archivedWorkDirs = [];
+
   @override
   Future<void> deleteConversation(String id) async {
     if (!_all.any((c) => c.id == id)) {
       throw StateError('conversation not found: $id');
     }
+    deletedIds.add(id);
     _all.removeWhere((c) => c.id == id);
   }
 

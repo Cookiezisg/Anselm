@@ -1623,6 +1623,30 @@ class Translations$chat$workDir$en {
 
 	/// en: 'Could not open that on this system'
 	String get openFailed => 'Could not open that on this system';
+
+	/// en: 'Archive all conversations'
+	String get groupArchiveAll => 'Archive all conversations';
+
+	/// en: 'Delete all conversations'
+	String get groupDeleteAll => 'Delete all conversations';
+
+	/// en: 'Archive these conversations?'
+	String get groupArchiveTitle => 'Archive these conversations?';
+
+	/// en: 'The $count conversations in “$name” move to the archive. You can bring them back any time. Pinned threads are left alone.'
+	String groupArchiveBody({required Object count, required Object name}) => 'The ${count} conversations in “${name}” move to the archive. You can bring them back any time. Pinned threads are left alone.';
+
+	/// en: 'Archive all'
+	String get groupArchiveConfirm => 'Archive all';
+
+	/// en: 'Delete these conversations?'
+	String get groupDeleteTitle => 'Delete these conversations?';
+
+	/// en: 'The $count conversations in “$name” are removed for good. Nothing on disk is deleted — no files, nothing. Pinned threads are left alone.'
+	String groupDeleteBody({required Object count, required Object name}) => 'The ${count} conversations in “${name}” are removed for good. Nothing on disk is deleted — no files, nothing. Pinned threads are left alone.';
+
+	/// en: 'Delete all'
+	String get groupDeleteConfirm => 'Delete all';
 }
 
 // Path: chat.time
@@ -6746,6 +6770,14 @@ extension on Translations {
 			'chat.workDir.markSwitched' => ({required Object from, required Object to}) => 'Working directory ${from} → ${to}',
 			'chat.workDir.markLeft' => ({required Object from}) => 'Left the working directory ${from}',
 			'chat.workDir.openFailed' => 'Could not open that on this system',
+			'chat.workDir.groupArchiveAll' => 'Archive all conversations',
+			'chat.workDir.groupDeleteAll' => 'Delete all conversations',
+			'chat.workDir.groupArchiveTitle' => 'Archive these conversations?',
+			'chat.workDir.groupArchiveBody' => ({required Object count, required Object name}) => 'The ${count} conversations in “${name}” move to the archive. You can bring them back any time. Pinned threads are left alone.',
+			'chat.workDir.groupArchiveConfirm' => 'Archive all',
+			'chat.workDir.groupDeleteTitle' => 'Delete these conversations?',
+			'chat.workDir.groupDeleteBody' => ({required Object count, required Object name}) => 'The ${count} conversations in “${name}” are removed for good. Nothing on disk is deleted — no files, nothing. Pinned threads are left alone.',
+			'chat.workDir.groupDeleteConfirm' => 'Delete all',
 			'chat.pin' => 'Pin',
 			'chat.unpin' => 'Unpin',
 			'chat.archive' => 'Archive',
@@ -7214,6 +7246,8 @@ extension on Translations {
 			'chat.tool.todoCleared' => 'Checklist cleared',
 			'chat.tool.gettingRelations' => 'Checking relations',
 			'chat.tool.gotRelations' => 'Checked relations',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.relCount' => ({required Object n}) => '${n} edges',
 			'chat.tool.relNoEdges' => 'No relations',
 			'chat.tool.relArrow' => '→',
@@ -7222,8 +7256,6 @@ extension on Translations {
 			'chat.tool.capRunnable' => 'structurally runnable',
 			'chat.tool.capProblems' => ({required Object n}) => '${n} problems',
 			'chat.tool.capWarnings' => ({required Object n}) => '${n} warnings',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.capProblemsLabel' => 'Problems',
 			'chat.tool.capWarningsLabel' => 'Warnings',
 			'chat.tool.capResolved' => 'deps resolved',
@@ -7728,6 +7760,8 @@ extension on Translations {
 			'notifications.verb.envRebuilt' => 'environment rebuilt',
 			'notifications.verb.configUpdated' => 'config updated',
 			'notifications.verb.configCleared' => 'config cleared',
+			_ => null,
+		} ?? switch (path) {
 			'notifications.verb.installed' => 'installed',
 			'notifications.verb.removed' => 'removed',
 			'notifications.verb.reconnected' => 'reconnected',
@@ -7736,8 +7770,6 @@ extension on Translations {
 			'notifications.verb.restartFailed' => 'restart failed',
 			'notifications.verb.runFailed' => 'run failed',
 			'notifications.verb.needsAttention' => 'needs attention',
-			_ => null,
-		} ?? switch (path) {
 			'notifications.verb.recovered' => 'recovered',
 			'notifications.verb.waitingApproval' => 'is waiting for approval',
 			'notifications.verb.envReady' => 'environment ready',
@@ -8242,6 +8274,8 @@ extension on Translations {
 			'settings.scope.device' => 'This device',
 			'settings.scope.workspace' => 'Workspace',
 			'settings.scope.machine' => 'This machine',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sections.prefs' => 'Preferences',
 			'settings.sections.resources' => 'Resources',
 			'settings.sections.system' => 'System',
@@ -8250,8 +8284,6 @@ extension on Translations {
 			'settings.panels.chat' => 'Chat',
 			'settings.panels.modelsKeys' => 'Models & keys',
 			'settings.panels.mcp' => 'MCP servers',
-			_ => null,
-		} ?? switch (path) {
 			'settings.panels.memory' => 'Memory',
 			'settings.panels.sandbox' => 'Sandbox',
 			'settings.panels.workspaces' => 'Workspaces',

@@ -728,6 +728,14 @@ class _Translations$chat$workDir$zh_CN extends Translations$chat$workDir$en {
 	@override String markSwitched({required Object from, required Object to}) => '工作目录 ${from} → ${to}';
 	@override String markLeft({required Object from}) => '已退出工作目录 ${from}';
 	@override String get openFailed => '本机无法打开';
+	@override String get groupArchiveAll => '归档全部对话';
+	@override String get groupDeleteAll => '删除全部对话';
+	@override String get groupArchiveTitle => '归档这些对话？';
+	@override String groupArchiveBody({required Object name, required Object count}) => '「${name}」里的 ${count} 个对话将移入归档，随时可以取回。置顶的对话不受影响。';
+	@override String get groupArchiveConfirm => '全部归档';
+	@override String get groupDeleteTitle => '删除这些对话？';
+	@override String groupDeleteBody({required Object name, required Object count}) => '「${name}」里的 ${count} 个对话将被永久移除。磁盘上什么都不会被删除——文件一个都不动。置顶的对话不受影响。';
+	@override String get groupDeleteConfirm => '全部删除';
 }
 
 // Path: chat.time
@@ -2870,6 +2878,14 @@ extension on TranslationsZhCn {
 			'chat.workDir.markSwitched' => ({required Object from, required Object to}) => '工作目录 ${from} → ${to}',
 			'chat.workDir.markLeft' => ({required Object from}) => '已退出工作目录 ${from}',
 			'chat.workDir.openFailed' => '本机无法打开',
+			'chat.workDir.groupArchiveAll' => '归档全部对话',
+			'chat.workDir.groupDeleteAll' => '删除全部对话',
+			'chat.workDir.groupArchiveTitle' => '归档这些对话？',
+			'chat.workDir.groupArchiveBody' => ({required Object name, required Object count}) => '「${name}」里的 ${count} 个对话将移入归档，随时可以取回。置顶的对话不受影响。',
+			'chat.workDir.groupArchiveConfirm' => '全部归档',
+			'chat.workDir.groupDeleteTitle' => '删除这些对话？',
+			'chat.workDir.groupDeleteBody' => ({required Object name, required Object count}) => '「${name}」里的 ${count} 个对话将被永久移除。磁盘上什么都不会被删除——文件一个都不动。置顶的对话不受影响。',
+			'chat.workDir.groupDeleteConfirm' => '全部删除',
 			'chat.pin' => '置顶',
 			'chat.unpin' => '取消置顶',
 			'chat.archive' => '归档',
@@ -3338,6 +3354,8 @@ extension on TranslationsZhCn {
 			'chat.tool.todoCleared' => '清单已清空',
 			'chat.tool.gettingRelations' => '正在查关系',
 			'chat.tool.gotRelations' => '已查关系',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.relCount' => ({required Object n}) => '${n} 条关系',
 			'chat.tool.relNoEdges' => '无关系',
 			'chat.tool.relArrow' => '→',
@@ -3346,8 +3364,6 @@ extension on TranslationsZhCn {
 			'chat.tool.capRunnable' => '结构可运行',
 			'chat.tool.capProblems' => ({required Object n}) => '${n} 问题',
 			'chat.tool.capWarnings' => ({required Object n}) => '${n} 警示',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.capProblemsLabel' => '问题',
 			'chat.tool.capWarningsLabel' => '警示',
 			'chat.tool.capResolved' => '依赖已解析',
@@ -3852,6 +3868,8 @@ extension on TranslationsZhCn {
 			'notifications.verb.envRebuilt' => '环境已重建',
 			'notifications.verb.configUpdated' => '配置已更新',
 			'notifications.verb.configCleared' => '配置已清空',
+			_ => null,
+		} ?? switch (path) {
 			'notifications.verb.installed' => '已安装',
 			'notifications.verb.removed' => '已移除',
 			'notifications.verb.reconnected' => '已重连',
@@ -3860,8 +3878,6 @@ extension on TranslationsZhCn {
 			'notifications.verb.restartFailed' => '重启失败',
 			'notifications.verb.runFailed' => '运行失败',
 			'notifications.verb.needsAttention' => '需要关注',
-			_ => null,
-		} ?? switch (path) {
 			'notifications.verb.recovered' => '已恢复',
 			'notifications.verb.waitingApproval' => '等待审批',
 			'notifications.verb.envReady' => '环境就绪',
@@ -4366,6 +4382,8 @@ extension on TranslationsZhCn {
 			'settings.scope.device' => '本机',
 			'settings.scope.workspace' => '工作区',
 			'settings.scope.machine' => '全机',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sections.prefs' => '偏好',
 			'settings.sections.resources' => '资源',
 			'settings.sections.system' => '系统',
@@ -4374,8 +4392,6 @@ extension on TranslationsZhCn {
 			'settings.panels.chat' => '对话',
 			'settings.panels.modelsKeys' => '模型与密钥',
 			'settings.panels.mcp' => 'MCP 服务器',
-			_ => null,
-		} ?? switch (path) {
 			'settings.panels.memory' => '记忆',
 			'settings.panels.sandbox' => '沙箱',
 			'settings.panels.workspaces' => '工作区',

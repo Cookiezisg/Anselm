@@ -608,6 +608,278 @@ as String,
 
 
 /// @nodoc
+mixin _$WorkDirGroup {
+
+ String get workDir; int get activeCount; int get archivedCount; DateTime get lastMessageAt;
+/// Create a copy of WorkDirGroup
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$WorkDirGroupCopyWith<WorkDirGroup> get copyWith => _$WorkDirGroupCopyWithImpl<WorkDirGroup>(this as WorkDirGroup, _$identity);
+
+  /// Serializes this WorkDirGroup to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkDirGroup&&(identical(other.workDir, workDir) || other.workDir == workDir)&&(identical(other.activeCount, activeCount) || other.activeCount == activeCount)&&(identical(other.archivedCount, archivedCount) || other.archivedCount == archivedCount)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,workDir,activeCount,archivedCount,lastMessageAt);
+
+@override
+String toString() {
+  return 'WorkDirGroup(workDir: $workDir, activeCount: $activeCount, archivedCount: $archivedCount, lastMessageAt: $lastMessageAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $WorkDirGroupCopyWith<$Res>  {
+  factory $WorkDirGroupCopyWith(WorkDirGroup value, $Res Function(WorkDirGroup) _then) = _$WorkDirGroupCopyWithImpl;
+@useResult
+$Res call({
+ String workDir, int activeCount, int archivedCount, DateTime lastMessageAt
+});
+
+
+
+
+}
+/// @nodoc
+class _$WorkDirGroupCopyWithImpl<$Res>
+    implements $WorkDirGroupCopyWith<$Res> {
+  _$WorkDirGroupCopyWithImpl(this._self, this._then);
+
+  final WorkDirGroup _self;
+  final $Res Function(WorkDirGroup) _then;
+
+/// Create a copy of WorkDirGroup
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? workDir = null,Object? activeCount = null,Object? archivedCount = null,Object? lastMessageAt = null,}) {
+  return _then(_self.copyWith(
+workDir: null == workDir ? _self.workDir : workDir // ignore: cast_nullable_to_non_nullable
+as String,activeCount: null == activeCount ? _self.activeCount : activeCount // ignore: cast_nullable_to_non_nullable
+as int,archivedCount: null == archivedCount ? _self.archivedCount : archivedCount // ignore: cast_nullable_to_non_nullable
+as int,lastMessageAt: null == lastMessageAt ? _self.lastMessageAt : lastMessageAt // ignore: cast_nullable_to_non_nullable
+as DateTime,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [WorkDirGroup].
+extension WorkDirGroupPatterns on WorkDirGroup {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _WorkDirGroup value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _WorkDirGroup() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _WorkDirGroup value)  $default,){
+final _that = this;
+switch (_that) {
+case _WorkDirGroup():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _WorkDirGroup value)?  $default,){
+final _that = this;
+switch (_that) {
+case _WorkDirGroup() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String workDir,  int activeCount,  int archivedCount,  DateTime lastMessageAt)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _WorkDirGroup() when $default != null:
+return $default(_that.workDir,_that.activeCount,_that.archivedCount,_that.lastMessageAt);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String workDir,  int activeCount,  int archivedCount,  DateTime lastMessageAt)  $default,) {final _that = this;
+switch (_that) {
+case _WorkDirGroup():
+return $default(_that.workDir,_that.activeCount,_that.archivedCount,_that.lastMessageAt);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String workDir,  int activeCount,  int archivedCount,  DateTime lastMessageAt)?  $default,) {final _that = this;
+switch (_that) {
+case _WorkDirGroup() when $default != null:
+return $default(_that.workDir,_that.activeCount,_that.archivedCount,_that.lastMessageAt);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _WorkDirGroup implements WorkDirGroup {
+  const _WorkDirGroup({this.workDir = '', this.activeCount = 0, this.archivedCount = 0, required this.lastMessageAt});
+  factory _WorkDirGroup.fromJson(Map<String, dynamic> json) => _$WorkDirGroupFromJson(json);
+
+@override@JsonKey() final  String workDir;
+@override@JsonKey() final  int activeCount;
+@override@JsonKey() final  int archivedCount;
+@override final  DateTime lastMessageAt;
+
+/// Create a copy of WorkDirGroup
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$WorkDirGroupCopyWith<_WorkDirGroup> get copyWith => __$WorkDirGroupCopyWithImpl<_WorkDirGroup>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$WorkDirGroupToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkDirGroup&&(identical(other.workDir, workDir) || other.workDir == workDir)&&(identical(other.activeCount, activeCount) || other.activeCount == activeCount)&&(identical(other.archivedCount, archivedCount) || other.archivedCount == archivedCount)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,workDir,activeCount,archivedCount,lastMessageAt);
+
+@override
+String toString() {
+  return 'WorkDirGroup(workDir: $workDir, activeCount: $activeCount, archivedCount: $archivedCount, lastMessageAt: $lastMessageAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$WorkDirGroupCopyWith<$Res> implements $WorkDirGroupCopyWith<$Res> {
+  factory _$WorkDirGroupCopyWith(_WorkDirGroup value, $Res Function(_WorkDirGroup) _then) = __$WorkDirGroupCopyWithImpl;
+@override @useResult
+$Res call({
+ String workDir, int activeCount, int archivedCount, DateTime lastMessageAt
+});
+
+
+
+
+}
+/// @nodoc
+class __$WorkDirGroupCopyWithImpl<$Res>
+    implements _$WorkDirGroupCopyWith<$Res> {
+  __$WorkDirGroupCopyWithImpl(this._self, this._then);
+
+  final _WorkDirGroup _self;
+  final $Res Function(_WorkDirGroup) _then;
+
+/// Create a copy of WorkDirGroup
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? workDir = null,Object? activeCount = null,Object? archivedCount = null,Object? lastMessageAt = null,}) {
+  return _then(_WorkDirGroup(
+workDir: null == workDir ? _self.workDir : workDir // ignore: cast_nullable_to_non_nullable
+as String,activeCount: null == activeCount ? _self.activeCount : activeCount // ignore: cast_nullable_to_non_nullable
+as int,archivedCount: null == archivedCount ? _self.archivedCount : archivedCount // ignore: cast_nullable_to_non_nullable
+as int,lastMessageAt: null == lastMessageAt ? _self.lastMessageAt : lastMessageAt // ignore: cast_nullable_to_non_nullable
+as DateTime,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
 mixin _$WorkDirInfo {
 
  String get path; bool get exists; bool get isGitRepo; String get branch; bool get dirty;

@@ -21,11 +21,13 @@ Conversation _c(
   bool pinned = false,
   bool archived = false,
   int hour = 12,
+  String workDir = '',
 }) => Conversation(
   id: id,
   title: title,
   pinned: pinned,
   archived: archived,
+  workDir: workDir,
   createdAt: _at(hour),
   updatedAt: _at(hour),
   lastMessageAt: _at(hour),
@@ -505,6 +507,214 @@ void main() {
         greaterThan(first.rows.length),
         reason: 'the next page landed 下一页落地',
       );
+    },
+  );
+
+  // ── WD1.5 · the four sections, as STATE 四段(状态层) ──
+
+  test(
+    'build resolves four sections: Pinned (any residency) · groups · Recents (unmounted only)',
+    () async {
+      final c = _container(
+        FixtureChatRepository(
+          conversations: [
+            _c('cv_pin', 'pinned in alpha', pinned: true, workDir: '/w/alpha'),
+            _c('cv_a1', 'alpha one', workDir: '/w/alpha', hour: 11),
+            _c('cv_b1', 'beta one', workDir: '/w/beta', hour: 10),
+            _c('cv_home', 'no folder', hour: 9),
+          ],
+        ),
+      );
+      final s = await c.read(conversationListProvider.future);
+      // Pinned holds every pinned thread whatever its residency; Recents holds ONLY the unmounted ones.
+      // 置顶段收所有置顶线程、无论驻地;「最近」只收未挂的。
+      expect(s.pinned.rows.map((r) => r.id), ['cv_pin']);
+      expect(s.recents.rows.map((r) => r.id), ['cv_home']);
+      // The group heads come from the projection, most-recently-active first — NOT from the loaded rows.
+      expect(s.groups.map((g) => g.workDir), ['/w/alpha', '/w/beta']);
+      expect(
+        s.groups.first.activeCount,
+        1,
+      ); // the pinned member is NOT counted here
+      // No group's rows are fetched by build: a folded folder costs nothing, and its first page rides the
+      // rail's own tail sentinel. build 不取任何组的行:收起的文件夹零成本,首页走 rail 自己的尾哨兵。
+      expect(s.groupAxes, isEmpty);
+    },
+  );
+
+  test('a group axis pages on its own key, and only when asked', () async {
+    final c = _container(
+      FixtureChatRepository(
+        conversations: [
+          for (var i = 0; i < 35; i++)
+            _c('cv_a$i', 'alpha $i', workDir: '/w/alpha', hour: 12),
+          _c('cv_home', 'no folder'),
+        ],
+      ),
+    );
+    await c.read(conversationListProvider.future);
+    final n = c.read(conversationListProvider.notifier);
+
+    await n.loadMoreAxis(workDirAxisKey('/w/alpha'));
+    var s = c.read(conversationListProvider).value!;
+    expect(s.groupAxes['/w/alpha']!.rows.length, 30); // _pageSize
+    expect(s.groupAxes['/w/alpha']!.hasMore, isTrue);
+    // Recents was untouched by the group's paging — the axes are genuinely separate queries.
+    // 「最近」没被组的翻页碰到——各轴是真正分开的查询。
+    expect(s.recents.rows.map((r) => r.id), ['cv_home']);
+
+    await n.loadMoreAxis(workDirAxisKey('/w/alpha'));
+    s = c.read(conversationListProvider).value!;
+    expect(s.groupAxes['/w/alpha']!.rows.length, 35);
+    expect(s.groupAxes['/w/alpha']!.hasMore, isFalse);
+    expect(
+      s.groupAxes['/w/alpha']!.rows.map((r) => r.id).toSet().length,
+      35,
+    ); // no dup, no miss
+  });
+
+  test(
+    'pinning MOVES a row from its group to Pinned — never duplicates it',
+    () async {
+      final repo = FixtureChatRepository(
+        conversations: [_c('cv_a1', 'alpha one', workDir: '/w/alpha')],
+      );
+      final c = _container(repo);
+      await c.read(conversationListProvider.future);
+      final n = c.read(conversationListProvider.notifier);
+      await n.loadMoreAxis(workDirAxisKey('/w/alpha'));
+      expect(
+        c
+            .read(conversationListProvider)
+            .value!
+            .groupAxes['/w/alpha']!
+            .rows
+            .length,
+        1,
+      );
+
+      n.applyUpdate(await repo.setPinned('cv_a1', true));
+      await Future<void>.delayed(
+        const Duration(milliseconds: 600),
+      ); // the coalesced projection re-read
+      final s = c.read(conversationListProvider).value!;
+      expect(s.pinned.rows.map((r) => r.id), ['cv_a1']);
+      expect(s.groupAxes['/w/alpha']?.rows ?? const [], isEmpty);
+      // Its group had only that one unpinned thread, so the group is gone from the projection too.
+      // 那个组只有那一条未置顶线程,故它也从投影里消失了。
+      expect(s.groups, isEmpty);
+      // And it appears exactly once across the whole rail. 而它在整个 rail 上恰好出现一次。
+      expect(s.allRows.where((r) => r.id == 'cv_a1').length, 1);
+    },
+  );
+
+  test('leaving a residency moves the row back to Recents', () async {
+    final repo = FixtureChatRepository(
+      conversations: [_c('cv_a1', 'alpha one', workDir: '/w/alpha')],
+    );
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    final n = c.read(conversationListProvider.notifier);
+
+    n.applyUpdate(await repo.setWorkDir('cv_a1', ''));
+    await Future<void>.delayed(const Duration(milliseconds: 600));
+    final s = c.read(conversationListProvider).value!;
+    expect(s.recents.rows.map((r) => r.id), ['cv_a1']);
+    expect(s.groups, isEmpty);
+  });
+
+  test(
+    'an in-place update keeps the row where it is — a dot flip must not reorder the rail',
+    () async {
+      final repo = FixtureChatRepository(
+        conversations: [
+          _c('cv_a', 'A', hour: 11),
+          _c('cv_b', 'B', hour: 10),
+          _c('cv_c', 'C', hour: 9),
+        ],
+      );
+      final c = _container(repo);
+      await c.read(conversationListProvider.future);
+      final n = c.read(conversationListProvider.notifier);
+
+      final middle = c.read(conversationListProvider).value!.rows[1];
+      n.applyUpdate(middle.copyWith(isGenerating: true));
+      final s = c.read(conversationListProvider).value!;
+      expect(s.rows.map((r) => r.id), ['cv_a', 'cv_b', 'cv_c']);
+      expect(s.rows[1].isGenerating, isTrue);
+    },
+  );
+
+  test(
+    'a group bulk action drops that group axis and re-asks the projection — one read, not N echoes',
+    () async {
+      final repo = FixtureChatRepository(
+        conversations: [
+          _c('cv_a1', 'alpha one', workDir: '/w/alpha'),
+          _c('cv_a2', 'alpha two', workDir: '/w/alpha'),
+          _c('cv_home', 'no folder'),
+        ],
+      );
+      final c = _container(repo);
+      await c.read(conversationListProvider.future);
+      final n = c.read(conversationListProvider.notifier);
+      await n.loadMoreAxis(workDirAxisKey('/w/alpha'));
+      expect(c.read(conversationListProvider).value!.groupAxes, isNotEmpty);
+
+      expect(await repo.deleteWorkDir('/w/alpha'), 2);
+      await n.applyWorkDirGroupChanged('/w/alpha');
+      final s = c.read(conversationListProvider).value!;
+      expect(s.groups, isEmpty);
+      expect(s.groupAxes, isEmpty);
+      expect(s.recents.rows.map((r) => r.id), ['cv_home']);
+      // ONE group request, never a loop of per-row deletes. **一次**组请求、绝不是逐行删除的循环。
+      expect(repo.deletedWorkDirs, ['/w/alpha']);
+      expect(repo.deletedIds, isEmpty);
+    },
+  );
+
+  test(
+    'SEARCHING replaces the structure: one flat list that reaches into FOLDED folders',
+    () async {
+      // The hole this closes: a folded folder fetches nothing, so a search that merely narrowed the four
+      // sections would answer "no matches" for a thread the user had not already scrolled into view.
+      // 它封的洞:收起的文件夹什么都不取,故一次只是收窄那四段的搜索会对用户尚未滚进视野的线程答「没有匹配」。
+      final c = _container(
+        FixtureChatRepository(
+          conversations: [
+            _c('cv_deep', 'quarterly report', workDir: '/w/never-opened'),
+            _c('cv_pin', 'quarterly pinned', pinned: true, workDir: '/w/alpha'),
+            _c('cv_home', 'quarterly homeless'),
+            _c('cv_other', 'unrelated chatter'),
+          ],
+        ),
+      );
+      await c.read(conversationListProvider.future);
+      c.read(conversationSearchProvider.notifier).set('quarterly');
+      final s = await c.read(conversationListProvider.future);
+
+      expect(s.searching, isTrue);
+      expect(s.groups, isEmpty);
+      expect(s.pinned.rows, isEmpty);
+      // All three matches, including the one inside a folder whose rows were never fetched, and the pinned
+      // one — the result list is residency-blind and pin-blind.
+      // 三条匹配全在,包括那条住在从未取过行的文件夹里的、以及那条置顶的——结果列表对驻地盲、对置顶盲。
+      expect(s.rows.map((r) => r.id).toSet(), {'cv_deep', 'cv_pin', 'cv_home'});
+
+      // Clearing the query restores the four-section rail. 清掉查询词即恢复四段 rail。
+      c.read(conversationSearchProvider.notifier).set('');
+      final back = await c.read(conversationListProvider.future);
+      expect(back.searching, isFalse);
+      // Only ONE group comes back: /w/alpha's single thread is PINNED, and pinned threads are hoisted into
+      // the Pinned section and counted in no group — so that residency has no group at all.
+      // 只回来**一个**组:/w/alpha 那唯一一条线程是**置顶**的,而置顶线程被提到置顶段、不计入任何组——故那个驻地
+      // 根本没有组。
+      expect(back.groups.map((g) => g.workDir), ['/w/never-opened']);
+      expect(back.pinned.rows.map((r) => r.id), ['cv_pin']);
+      expect(back.recents.rows.map((r) => r.id).toSet(), {
+        'cv_home',
+        'cv_other',
+      });
     },
   );
 }

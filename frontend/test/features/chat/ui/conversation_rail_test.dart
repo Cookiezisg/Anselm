@@ -11,6 +11,7 @@ import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/chat_repository.dart';
+import 'package:anselm/features/chat/state/conversation_list_provider.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/ui/conversation_rail.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -25,12 +26,19 @@ import 'package:go_router/go_router.dart';
 // ⚙ menu's toggles actually drive the list (turning "show time" off removes the row timestamps). The
 // pixel look is verified separately by the PNG capture harness.
 
-Conversation _c(String id, String title, {bool pinned = false, DateTime? at}) {
+Conversation _c(
+  String id,
+  String title, {
+  bool pinned = false,
+  DateTime? at,
+  String workDir = '',
+}) {
   final ts = at ?? DateTime.utc(2026, 6, 26, 12);
   return Conversation(
     id: id,
     title: title,
     pinned: pinned,
+    workDir: workDir,
     createdAt: ts,
     updatedAt: ts,
     lastMessageAt: ts,
@@ -86,6 +94,13 @@ class _FakeOverlay extends AnOverlayController {
   final bool result;
   bool confirmCalled = false;
 
+  /// Every word the last confirm() put in front of the user. The residency-group tests assert on this —
+  /// the wording is the feature, so it has to be inspectable.
+  /// 上一次 confirm() 摆在用户面前的每一个字。驻地组测试断言它——措辞就是功能,故它必须可被检查。
+  String lastTitle = '';
+  String lastMessage = '';
+  String lastConfirmLabel = '';
+
   @override
   Future<bool> confirm({
     required String title,
@@ -96,6 +111,9 @@ class _FakeOverlay extends AnOverlayController {
     AnDialogTone confirmTone = AnDialogTone.danger,
   }) async {
     confirmCalled = true;
+    lastTitle = title;
+    lastMessage = message ?? '';
+    lastConfirmLabel = confirmLabel;
     return result;
   }
 }
@@ -422,6 +440,299 @@ void main() {
       expect(head.forkedFromMessageId, 'msg_a1');
       final copied = await repo.listMessages(forkId);
       expect(copied.items.length, 2);
+    },
+  );
+
+  // ── WD1.5 · the rail grouped by RESIDENCY 按驻地分组 ──
+
+  // Open a SECTION HEAD's ⋯ menu — same real-mouse dance as a row's (the trail actions are IgnorePointer'd
+  // until hovered), keyed off the head's own label. 开**段头**的 ⋯ 菜单——与行的同一套真鼠标舞步。
+  Future<void> openHeadMenu(WidgetTester tester, String headLabel) async {
+    WidgetsBinding.instance.focusManager.highlightStrategy =
+        FocusHighlightStrategy.alwaysTraditional;
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(() => mouse.removePointer());
+    final head = find.text(headLabel);
+    await mouse.moveTo(tester.getCenter(head));
+    await tester.pump();
+    final more = find.descendant(
+      of: find.ancestor(of: head, matching: find.byType(Row)).last,
+      matching: find.byIcon(AnIcons.more),
+    );
+    final p = tester.getCenter(more.first);
+    await mouse.moveTo(p);
+    await tester.pump();
+    await mouse.down(p);
+    await mouse.up();
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets(
+    'four sections: Pinned · 📁 residency groups · Recents — and a pinned residency thread is NOT duplicated',
+    (tester) async {
+      final repo = FixtureChatRepository(
+        conversations: [
+          _c('cv_pin', 'pinned in alpha', pinned: true, workDir: '/w/alpha'),
+          _c(
+            'cv_a1',
+            'alpha one',
+            workDir: '/w/alpha',
+            at: DateTime.utc(2026, 6, 26, 11),
+          ),
+          _c(
+            'cv_b1',
+            'beta one',
+            workDir: '/w/beta',
+            at: DateTime.utc(2026, 6, 25, 11),
+          ),
+          _c('cv_home', 'no folder at all'),
+        ],
+      );
+      await tester.pumpWidget(_host(repo));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester
+          .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
+      await tester
+          .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
+
+      // The heads: Pinned, the two folders (named by their own last segment), Recents.
+      expect(find.text(t.chat.bucket.pinned), findsOneWidget);
+      expect(find.text('alpha'), findsOneWidget);
+      expect(find.text('beta'), findsOneWidget);
+      expect(find.text(t.chat.bucket.recents), findsOneWidget);
+
+      // Pinned wins: the pinned thread renders under 置顶 and NOT inside alpha, exactly once.
+      // 置顶赢:置顶线程渲在「置顶」下、**不**在 alpha 里,恰好一次。
+      expect(find.text('pinned in alpha'), findsOneWidget);
+      // Recents holds ONLY the thread that lives in no directory.
+      expect(find.text('no folder at all'), findsOneWidget);
+      // alpha is the most recently active group → it starts OPEN, so its row is on screen; beta starts
+      // folded, so beta's row is not built at all (and beta fetched nothing).
+      // alpha 是最近活跃的组 → 它默认**打开**,故它的行在屏上;beta 默认收起,故 beta 的行根本没被建(也什么都没取)。
+      expect(find.text('alpha one'), findsOneWidget);
+      expect(find.text('beta one'), findsNothing);
+      expect(tester.takeException(), isNull);
+
+      // Expanding beta fetches its first page through the same tail sentinel every axis uses.
+      // 展开 beta 会经每个轴共用的同一个尾哨兵取它的第一页。
+      await tester.tap(find.text('beta'));
+      await tester.pumpAndSettle();
+      expect(find.text('beta one'), findsOneWidget);
+    },
+  );
+
+  testWidgets('a residency head carries exactly three actions', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        FixtureChatRepository(
+          conversations: [_c('cv_a1', 'alpha one', workDir: '/w/alpha')],
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester
+        .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
+    await openHeadMenu(tester, 'alpha');
+
+    final w = t.chat.workDir;
+    expect(find.text(w.groupArchiveAll), findsOneWidget);
+    expect(find.text(w.groupDeleteAll), findsOneWidget);
+    // «Reveal in Finder» belongs here on purpose: it is the item that shows the folder is something we
+    // point at, never something we own. 「在访达中显示」刻意在此:它表明文件夹是我们**指着**的东西、绝非我们拥有的。
+    expect(find.text(w.revealFinder), findsOneWidget);
+  });
+
+  // ⚠️ THE HONESTY LAW, as an assertion. «Delete the directory» — or any phrasing containing the word
+  // *directory* — would be read as deleting the real folder on disk with the user's work inside it. Both
+  // group actions delete/archive CONVERSATIONS and nothing else, so neither the menu labels nor the confirm
+  // dialogs may contain that word, in either language. This test is the thing that keeps a future edit
+  // honest: a well-meaning «删除该目录下的全部对话» would turn it red.
+  //
+  // ⚠️ **诚实律**,做成断言。「删除目录」——或任何含「目录」字样的说法——会被读成删掉磁盘上那个真文件夹、连里面用户
+  // 的活一起。两个组动作删/归档的都是**对话**、别无其他,故菜单标签与确认框**两种语言下**都不得含那两个字。本测试
+  // 正是让未来某次编辑保持诚实的东西:一句好心的「删除该目录下的全部对话」会让它转红。
+  test('honesty law · the residency-group wording never says «directory»', () {
+    // Chinese: 「目录」 is the forbidden sequence — note that 「工作目录」 CONTAINS it, so the group wording may
+    // not fall back on the residency button's own vocabulary either.
+    // 中文:「目录」是被禁的序列——注意「工作目录」**包含**它,故组的措辞也不能退回驻地按钮自己的词汇表。
+    const zhForbidden = '目录';
+    // English: any spelling of directory / directories, and «folder» too — the same misreading in English is
+    // "it will delete my folder". 英文:directory/directories 的任何拼法,连 folder 一并禁——英文里同一种误读是
+    // 「它会删掉我的文件夹」。
+    final enForbidden = RegExp(r'director|folder', caseSensitive: false);
+
+    for (final loc in AppLocale.values) {
+      final w = loc.buildSync().chat.workDir;
+      final wording = <String>[
+        w.groupArchiveAll,
+        w.groupDeleteAll,
+        w.groupArchiveTitle,
+        w.groupArchiveBody(count: 12, name: 'anselm'),
+        w.groupArchiveConfirm,
+        w.groupDeleteTitle,
+        w.groupDeleteBody(count: 12, name: 'anselm'),
+        w.groupDeleteConfirm,
+      ];
+      for (final s in wording) {
+        expect(
+          s.contains(zhForbidden),
+          isFalse,
+          reason: '[$loc] 「$zhForbidden」 must never appear: $s',
+        );
+        expect(
+          enForbidden.hasMatch(s),
+          isFalse,
+          reason: '[$loc] directory/folder must never appear: $s',
+        );
+      }
+      // And the DELETE dialog must say, positively, that nothing on disk goes — the absence of a scary word
+      // is not the same as a reassurance. 而**删除**对话框必须**正面**说出磁盘上什么都不会没——可怕词的缺席不等于一句安抚。
+      final body = w.groupDeleteBody(count: 12, name: 'anselm');
+      expect(
+        body.contains('磁盘') || body.toLowerCase().contains('disk'),
+        isTrue,
+        reason:
+            '[$loc] the delete dialog must state that nothing on disk is deleted: $body',
+      );
+      // The inventory is a COUNT, not a vague "these" — the user is told exactly how many threads move.
+      // 盘点是一个**数**、不是含糊的「这些」——用户被告知究竟有几条线程会动。
+      expect(
+        body.contains('12'),
+        isTrue,
+        reason: '[$loc] the delete dialog must inventory the count: $body',
+      );
+      expect(
+        w.groupArchiveBody(count: 12, name: 'anselm').contains('12'),
+        isTrue,
+      );
+    }
+  });
+
+  testWidgets(
+    'archive-all inventories the WHOLE group and files exactly it — one request, pinned spared',
+    (tester) async {
+      final overlay = _FakeOverlay(true);
+      final repo = FixtureChatRepository(
+        conversations: [
+          _c('cv_a1', 'alpha one', workDir: '/w/alpha'),
+          _c('cv_a2', 'alpha two', workDir: '/w/alpha'),
+          _c('cv_pin', 'alpha pinned', pinned: true, workDir: '/w/alpha'),
+          _c('cv_home', 'no folder at all'),
+        ],
+      );
+      await tester.pumpWidget(_host(repo, overlay: overlay));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester
+          .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
+      await tester
+          .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
+      await openHeadMenu(tester, 'alpha');
+      await tester.tap(find.text(t.chat.workDir.groupArchiveAll));
+      await tester.pumpAndSettle();
+
+      expect(overlay.confirmCalled, isTrue);
+      // The dialog inventories the group's own count (2), not the workspace's, and names the folder the user
+      // clicked. 确认框盘点的是**这个组自己**的数(2)、不是整个 workspace 的,并点出用户点的那个文件夹。
+      expect(overlay.lastMessage, contains('2'));
+      expect(overlay.lastMessage, contains('alpha'));
+
+      // The group's unpinned threads left the active list; the pinned one and the folderless one stayed.
+      // 组内未置顶的线程离开了活跃列表;置顶那条与没有文件夹那条留下。
+      expect(find.text('alpha one'), findsNothing);
+      expect(find.text('alpha two'), findsNothing);
+      expect(find.text('alpha pinned'), findsOneWidget);
+      expect(find.text('no folder at all'), findsOneWidget);
+      // The group itself is gone from the rail: a projection with nothing unpinned left in it does not exist.
+      // 组本身从 rail 上消失了:一个已无未置顶成员的投影并不存在。
+      expect(find.text('alpha'), findsNothing);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets('delete-all removes the group but leaves the machine alone', (
+    tester,
+  ) async {
+    final overlay = _FakeOverlay(true);
+    final repo = FixtureChatRepository(
+      conversations: [
+        _c('cv_a1', 'alpha one', workDir: '/w/alpha'),
+        _c('cv_a2', 'alpha two', workDir: '/w/alpha'),
+        _c('cv_home', 'no folder at all'),
+      ],
+    );
+    await tester.pumpWidget(_host(repo, overlay: overlay));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester
+        .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
+    await openHeadMenu(tester, 'alpha');
+    await tester.tap(find.text(t.chat.workDir.groupDeleteAll));
+    await tester.pumpAndSettle();
+
+    expect(overlay.lastConfirmLabel, t.chat.workDir.groupDeleteConfirm);
+    expect(find.text('alpha one'), findsNothing);
+    expect(find.text('alpha two'), findsNothing);
+    expect(find.text('alpha'), findsNothing);
+    expect(find.text('no folder at all'), findsOneWidget);
+    // What the repository saw is ONE group request, never a loop of per-row deletes.
+    // repository 看到的是**一次**组请求、绝不是逐行删除的循环。
+    expect(repo.deletedIds, isEmpty);
+    expect(repo.deletedWorkDirs, ['/w/alpha']);
+  });
+
+  testWidgets('cancelling the confirm changes nothing at all', (tester) async {
+    final overlay = _FakeOverlay(false);
+    final repo = FixtureChatRepository(
+      conversations: [_c('cv_a1', 'alpha one', workDir: '/w/alpha')],
+    );
+    await tester.pumpWidget(_host(repo, overlay: overlay));
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester
+        .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
+    await openHeadMenu(tester, 'alpha');
+    await tester.tap(find.text(t.chat.workDir.groupDeleteAll));
+    await tester.pumpAndSettle();
+
+    expect(overlay.confirmCalled, isTrue);
+    expect(repo.deletedWorkDirs, isEmpty);
+    expect(find.text('alpha one'), findsOneWidget);
+    expect(find.text('alpha'), findsOneWidget);
+  });
+
+  testWidgets(
+    'leaving a residency moves the thread back to Recents and takes the empty group with it',
+    (tester) async {
+      final repo = FixtureChatRepository(
+        conversations: [
+          _c('cv_a1', 'alpha one', workDir: '/w/alpha'),
+          _c('cv_home', 'no folder at all'),
+        ],
+      );
+      await tester.pumpWidget(_host(repo));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester
+          .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
+      await tester
+          .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
+      expect(find.text('alpha'), findsOneWidget);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ConversationRail)),
+      );
+      // The residency button's own action, seen from the rail: PATCH workDir='' → the row belongs to Recents
+      // now, and its group has no unpinned member left. 驻地按钮自己的动作:PATCH workDir='' → 该行现在属于「最近」,
+      // 而它那个组已无未置顶成员。
+      final left = await repo.setWorkDir('cv_a1', '');
+      container.read(conversationListProvider.notifier).applyUpdate(left);
+      await tester.pump(
+        const Duration(milliseconds: 500),
+      ); // the coalesced projection re-read
+      await tester.pumpAndSettle();
+
+      expect(find.text('alpha'), findsNothing);
+      final state = container.read(conversationListProvider).value!;
+      expect(state.recents.rows.map((r) => r.id), contains('cv_a1'));
+      expect(state.groups, isEmpty);
     },
   );
 }

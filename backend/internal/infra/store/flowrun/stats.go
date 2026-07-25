@@ -94,6 +94,7 @@ import (
 	"time"
 
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -379,21 +380,14 @@ func (s *Store) RunStats(ctx context.Context, q flowrundomain.StatsQuery) (*flow
 	return out, nil
 }
 
-// parseDBTime decodes a DATETIME expression result (e.g. MAX(started_at)) the driver hands back
-// as text: an expression column has no declared type, so the driver's own time auto-parse does
-// not fire. Layouts mirror the driver's write format plus the naive legacy form (assumed UTC).
+// parseDBTime decodes a DATETIME expression result (e.g. MAX(started_at)) the driver hands back as text:
+// an expression column has no declared type, so the driver's own time auto-parse does not fire. The
+// layouts live in the orm foundation now ([ormpkg.ParseDBTime]) — EVERY raw-read store needs the same
+// decode, so it belongs there rather than once per domain (设计原则 #8).
 //
-// parseDBTime 解码表达式列（如 MAX(started_at)）返回的 DATETIME 文本：表达式列无声明类型，驱动的
-// 时间自动解析不触发。layout 对齐驱动写入格式 + 无时区旧形（按 UTC）。
+// parseDBTime 解码表达式列（如 MAX(started_at)）返回的 DATETIME 文本：表达式列无声明类型，驱动的时间自动解析
+// 不触发。那些 layout 现住在 orm 地基里（[ormpkg.ParseDBTime]）——**每个**走原始读的 store 都要同一份解码，故
+// 它属于地基、而非每域一份（设计原则 #8）。
 func parseDBTime(raw string) (time.Time, error) {
-	for _, layout := range []string{
-		"2006-01-02 15:04:05.999999999-07:00", // glebarez/go-sqlite write format. 驱动写入格式。
-		"2006-01-02 15:04:05.999999999",       // naive legacy rows. 无时区旧行。
-		time.RFC3339Nano,
-	} {
-		if ts, err := time.Parse(layout, raw); err == nil {
-			return ts.UTC(), nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("unrecognized DATETIME text %q", raw)
+	return ormpkg.ParseDBTime(raw)
 }

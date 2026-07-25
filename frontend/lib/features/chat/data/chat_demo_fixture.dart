@@ -1530,6 +1530,45 @@ DemoChatRepository demoChatRepository() {
         const Duration(hours: 2),
         workDir: _demoGoneWorkDir,
       ),
+      // WD1.5 — the rail's residency GROUPS need a group with several threads in it, a SECOND directory whose
+      // last segment COLLIDES with the first (so `make demo` shows the disambiguation actually working:
+      // «code/anselm» vs «fork/anselm» instead of two identical heads), and a PINNED thread that lives in a
+      // residency — which must render under 置顶 and NOT inside its group, so the demo SHOWS the
+      // no-duplication rule holding rather than only claiming it.
+      // WD1.5——rail 的驻地**组**需要:一个里面有好几条线程的组、一个末段与它**撞名**的**第二个**目录(使 `make demo`
+      // 真的看得见消歧在起作用:「code/anselm」对「fork/anselm」、而不是两个一模一样的组头)、以及一条**住在驻地里的
+      // 置顶**线程——它必须渲在「置顶」下、**不**在它的组里,故 demo 把「不重复」这条规则**演**出来、而不只是宣称它。
+      conv(
+        'cv_resident_2',
+        '驻地 · pkg/orm 的 keyset 对齐',
+        const Duration(minutes: 24),
+        workDir: _demoWorkDir,
+      ),
+      conv(
+        'cv_resident_3',
+        '驻地 · 归档线那条例外',
+        const Duration(hours: 5),
+        workDir: _demoWorkDir,
+      ),
+      conv(
+        'cv_resident_pinned',
+        '驻地 · 置顶不在组里重复',
+        const Duration(minutes: 40),
+        pinned: true,
+        workDir: _demoWorkDir,
+      ),
+      conv(
+        'cv_fork_1',
+        '另一棵树 · 三岛壳的宽度冻结',
+        const Duration(hours: 8),
+        workDir: _demoForkWorkDir,
+      ),
+      conv(
+        'cv_fork_2',
+        '另一棵树 · 右岛速览带',
+        const Duration(days: 2),
+        workDir: _demoForkWorkDir,
+      ),
       conv(
         'cv_migrate',
         '旧版迁移笔记',
@@ -2431,5 +2470,12 @@ DemoChatRepository demoChatRepository() {
 ///
 /// demo 的驻地路径。**刻意**放在一个看起来像样的 home 下、**刻意不是**真的:demo 绝不该依赖某个文件夹在跑它的那台
 /// 机器上存在,也绝不该提议去定位一个真实存在的文件夹。
+/// [_demoForkWorkDir] ends in the SAME segment as [_demoWorkDir] on purpose — it is the collision the rail's
+/// group-label disambiguation exists for, and a demo that never collides would show a feature that looks like
+/// it does nothing.
+///
+/// [_demoForkWorkDir] 的末段与 [_demoWorkDir] **刻意相同**——它正是 rail 的组标签消歧所为之存在的那次撞名,而一份
+/// 从不撞名的 demo 会把一个功能演成「看起来什么也没做」。
 const _demoWorkDir = '/Users/you/code/anselm';
 const _demoGoneWorkDir = '/Users/you/code/old-prototype';
+const _demoForkWorkDir = '/Users/you/fork/anselm';

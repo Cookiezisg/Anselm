@@ -94,6 +94,17 @@ func (f *fakeTouchpoints) PurgeConversation(_ context.Context, id string) error 
 // newSvc 把 Service 接在真 in-memory store + fake 上，使测试离线走全栈 app→store→orm。
 func newSvc(t *testing.T) (*Service, *fakeEmitter, *fakeRelations, context.Context) {
 	t.Helper()
+	svc, em, rel, _, ctx := newSvcDB(t)
+	return svc, em, rel, ctx
+}
+
+// newSvcDB is newSvc plus the raw *sql.DB. The residency-group tests need it to install a SQLite trigger
+// that makes ONE row of a bulk write fail — the only honest way to prove the write is all-or-nothing.
+//
+// newSvcDB 是 newSvc 再加上裸 *sql.DB。驻地组的测试需要它来装一个 SQLite 触发器、让批量写的**其中一行**失败
+// ——那是证明该写「全有或全无」的唯一诚实办法。
+func newSvcDB(t *testing.T) (*Service, *fakeEmitter, *fakeRelations, *sql.DB, context.Context) {
+	t.Helper()
 	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
 		t.Fatalf("open: %v", err)
@@ -110,7 +121,7 @@ func newSvc(t *testing.T) (*Service, *fakeEmitter, *fakeRelations, context.Conte
 	rel := &fakeRelations{}
 	svc.SetRelationSyncer(rel)
 	svc.SetTouchpointPurger(&fakeTouchpoints{})
-	return svc, em, rel, reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+	return svc, em, rel, sqlDB, reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
 }
 
 func TestCreate_TrimsTitle_EmitsCreated(t *testing.T) {

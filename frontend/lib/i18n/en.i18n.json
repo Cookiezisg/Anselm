@@ -36,7 +36,15 @@
       "markMounted": "Working directory → $to",
       "markSwitched": "Working directory $from → $to",
       "markLeft": "Left the working directory $from",
-      "openFailed": "Could not open that on this system"
+      "openFailed": "Could not open that on this system",
+      "groupArchiveAll": "Archive all conversations",
+      "groupDeleteAll": "Delete all conversations",
+      "groupArchiveTitle": "Archive these conversations?",
+      "groupArchiveBody": "The $count conversations in “$name” move to the archive. You can bring them back any time. Pinned threads are left alone.",
+      "groupArchiveConfirm": "Archive all",
+      "groupDeleteTitle": "Delete these conversations?",
+      "groupDeleteBody": "The $count conversations in “$name” are removed for good. Nothing on disk is deleted — no files, nothing. Pinned threads are left alone.",
+      "groupDeleteConfirm": "Delete all"
     },
     "pin": "Pin",
     "unpin": "Unpin",

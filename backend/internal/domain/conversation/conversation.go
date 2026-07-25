@@ -163,6 +163,46 @@ type WorkDirInfo struct {
 	Dirty     bool   `json:"dirty"`
 }
 
+// WorkDirGroup is ONE residency group in the rail's grouped projection (WRK-077 WD1.5): the directory,
+// how many threads live in it, and when it was last active. It is a PROJECTION, not an entity — there is
+// no table, no id, no lifecycle: a group exists exactly as long as some conversation carries that
+// work_dir, and the last thread leaving makes it vanish on its own. Hence no "empty group" to manage.
+//
+// It exists because the rail pages FOREVER: grouping a single page client-side would make membership and
+// counts drift as the user scrolls — the rail would state a number that changes without anything changing.
+// So the grouping is computed server-side over the whole workspace, in one GROUP BY.
+//
+// The counted set is the UNPINNED threads of that residency. A pinned thread is hoisted into the rail's
+// own Pinned section and must appear exactly once, so counting it here would make the head's number
+// disagree with the rows underneath it. The same rule governs the two bulk actions (see Repository), which
+// is why one number can honestly head the group AND inventory the confirm dialog.
+//
+// TWO counts, no parameters: `ActiveCount` and `ArchivedCount` are reported separately so the caller needs
+// no query parameter and no second request — the rail's "show archived" toggle picks or sums them, and a
+// bulk action (which is deliberately scope-BLIND: a destructive action must not depend on a view toggle)
+// inventories the sum. LastMessageAt spans BOTH, so toggling the view never reorders the groups.
+//
+// WorkDirGroup 是 rail 分组投影里的**一个**驻地组（WRK-077 WD1.5）:目录、住着几条线程、最近一次活跃在何时。
+// 它是**投影、不是实体**——无表、无 id、无生命周期:一个组存在的时长恰好等于「还有对话带着那个 work_dir」，
+// 最后一条离开它就自行消失。故没有「空组」要管理。
+//
+// 它之所以存在:rail 是**无限**翻页的——在一窗内做客户端分组会让成员与计数随滚动**漂移**，于是 rail 会报出
+// 一个在什么都没变的情况下自己会变的数。故分组在服务端对整个 workspace 一次 GROUP BY 算出。
+//
+// 被计数的集合是该驻地的**未置顶**线程。置顶线程被提到 rail 自己的置顶段、且必须**恰好出现一次**，故在此
+// 计入它会让组头的数与它下面的行**不一致**。两个批量动作遵守同一条规则（见 Repository），正因如此**一个**数
+// 既能诚实地作组头、又能诚实地作确认框的盘点。
+//
+// **两个计数、零参数**:ActiveCount 与 ArchivedCount 分开上报，使调用方**不需要**查询参数、也不需要第二次请求
+// ——rail 的「显示已归档」开关自行取其一或求和，而批量动作（**刻意对范围盲**:一个破坏性动作不该依赖一个视图
+// 开关）盘点二者之和。LastMessageAt 跨**两者**，故切换视图绝不重排组的顺序。
+type WorkDirGroup struct {
+	WorkDir       string    `json:"workDir"`
+	ActiveCount   int       `json:"activeCount"`
+	ArchivedCount int       `json:"archivedCount"`
+	LastMessageAt time.Time `json:"lastMessageAt"`
+}
+
 // ForkTitleSuffix is appended to the source title so a fork is recognizable in the rail from turn
 // zero. A starting name, not an auto-title — AutoTitled stays false on a fork.
 //
@@ -230,12 +270,50 @@ const (
 	ListSortName     ListSort = "name"     // pinned-first, then title A–Z (case-insensitive) — "by name"
 )
 
+// PinScope selects which pin states the conversation list returns. The zero value PinAny is "both" — the
+// long-standing default, so every caller that predates the rail's grouping keeps its exact behavior.
+//
+// It exists for ONE reason (WRK-077 WD1.5): the grouped rail renders the pinned threads in their own
+// section and the residency groups underneath, and each thread must appear EXACTLY once. Without a pin
+// filter, "all pinned threads" could only be recovered by assuming they all land on the first page of the
+// unfiltered list — an assumption that a rail whose other axes are residency-filtered can no longer lean
+// on, because a pinned thread living in a COLLAPSED group would never be fetched at all. So the pinned
+// section gets its own exact query, and the residency axes ask for the unpinned complement.
+//
+// PinScope 选列表返回哪些置顶态。零值 PinAny = 两者皆返——长期以来的默认，故一切早于 rail 分组的调用方行为
+// 逐字不变。
+//
+// 它的存在只为**一件**事（WRK-077 WD1.5）:分组后的 rail 把置顶线程渲在它们自己的段里、驻地组在其下，而每条
+// 线程必须**恰好出现一次**。没有置顶过滤时，「所有置顶线程」只能靠「它们都落在未过滤列表的首页」这个假定去
+// 复原——而一个其余各轴都按驻地过滤的 rail **再也**靠不住它了:住在一个**收起**的组里的置顶线程根本不会被取
+// 回来。故置顶段拿到它自己的精确查询，驻地各轴则要那个未置顶的补集。
+type PinScope string
+
+const (
+	PinAny      PinScope = ""         // pinned + unpinned (default / zero value)
+	PinPinned   PinScope = "pinned"   // pinned only — the rail's Pinned section
+	PinUnpinned PinScope = "unpinned" // unpinned only — the rail's residency groups + Recents
+)
+
 type ListFilter struct {
 	Cursor  string
 	Limit   int
 	Search  string
 	Archive ArchiveScope // "" → ArchiveActive (active only)
 	Sort    ListSort     // "" → ListSortActivity
+	Pinned  PinScope     // "" → PinAny (both)
+
+	// WorkDir is the RESIDENCY filter, and it is a PLAIN POINTER precisely because it needs three states
+	// that no string alone can express: nil = no filter at all (every conversation, the pre-WD1.5 default),
+	// &"" = ONLY the unmounted ones (the rail's Recents section — the threads that live in no directory),
+	// &path = only that residency (one rail group, paged on its own). The middle state is the reason for the
+	// pointer: `""` is a MEANINGFUL filter value here, not the absence of one.
+	//
+	// WorkDir 是**驻地**过滤，且它之所以是**朴素指针**，恰因它需要三个状态、而单个字符串表达不了:nil = 完全
+	// 不过滤（每条对话，WD1.5 之前的默认）、&"" = **仅未挂**的那些（rail 的「最近」段——不住在任何目录里的
+	// 线程）、&path = 仅该驻地（一个 rail 组，自行翻页）。中间那一态正是要指针的原因:`""` 在这里是一个**有意义
+	// 的过滤值**、不是「没有过滤」。
+	WorkDir *string
 }
 
 // UpdateInput is the PATCH payload; a nil field is left unchanged. ModelOverride is a
@@ -328,4 +406,40 @@ type Repository interface {
 	// （未知 id 上 no-op 返 nil）。不动 last_message_at，故打开线程绝不重排活跃列表。
 	MarkSeen(ctx context.Context, id string) error
 	SoftDelete(ctx context.Context, id string) error
+
+	// WorkDirGroups aggregates the workspace's UNPINNED conversations by their residency — one row per
+	// distinct non-empty work_dir, ordered most-recently-active first. A single GROUP BY over the whole
+	// workspace, which is the whole point: the numbers must not depend on how far the rail has scrolled.
+	// A residency with no unpinned threads left simply is not in the result (no empty groups to manage).
+	//
+	// WorkDirGroups 把本 workspace 的**未置顶**对话按驻地聚合——每个不同的非空 work_dir 一行、按最近活跃降序。
+	// 对整个 workspace 一次 GROUP BY，而这正是要点:那些数字不该取决于 rail 滚了多远。已无未置顶线程的驻地
+	// 干脆不出现在结果里（没有空组要管理）。
+	WorkDirGroups(ctx context.Context) ([]WorkDirGroup, error)
+
+	// ArchiveWorkDir archives every UNPINNED, not-yet-archived conversation of one residency in ONE
+	// statement inside ONE transaction, and returns the ids it actually flipped (already-archived rows are
+	// excluded, so the count never overstates what changed and the caller emits no echo for a no-op).
+	//
+	// SoftDeleteWorkDir soft-deletes every UNPINNED conversation of one residency the same way — ACROSS
+	// archive states, because a destructive action must not silently depend on which view toggle happens to
+	// be on. It stamps `deleted_at` on the conversation rows and NOTHING else: `messages` /
+	// `message_blocks` are D1 Log tables and are never touched, here or anywhere.
+	//
+	// Both read the id set and write in the SAME transaction: the returned ids are exactly the rows the
+	// statement changed, so a caller cascading per-row side effects (cancel generation, purge edges, purge
+	// the touchpoint ledger) can never act on a row that was not in fact written — and a mid-write failure
+	// leaves NO half-archived / half-deleted group.
+	//
+	// ArchiveWorkDir 在**一个**事务里用**一条**语句归档某驻地下每一条**未置顶、尚未归档**的对话，并返回它
+	// 真正翻动的 id（已归档的行被排除，故计数绝不夸大改了什么、调用方也不为 no-op 发回声）。
+	//
+	// SoftDeleteWorkDir 以同样方式软删某驻地下每一条**未置顶**对话——**跨归档态**，因为一个破坏性动作不该
+	// 静默地取决于哪个视图开关正好开着。它只在**对话行**上盖 `deleted_at`、别的什么都不动:`messages` /
+	// `message_blocks` 是 D1 Log 表，此处与任何别处都绝不碰它们。
+	//
+	// 两者都在**同一**事务里读 id 集并写:返回的 id 恰是该语句改动的那些行，故调用方逐行级联的副作用（停生成、
+	// 清 relation 边、清触点台账）绝不可能作用在一条其实没被写的行上——而中途失败**不留**半归档 / 半删除的组。
+	ArchiveWorkDir(ctx context.Context, workDir string) ([]string, error)
+	SoftDeleteWorkDir(ctx context.Context, workDir string) ([]string, error)
 }
