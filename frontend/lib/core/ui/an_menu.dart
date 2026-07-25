@@ -194,7 +194,45 @@ class _AnMenuState extends State<AnMenu> {
                   : null,
             ),
             const SizedBox(width: AnSpace.s8),
+            // NOT [AnTwoZone], even though that primitive exists for exactly this two-zone shape and caps
+            // meta at 45%. It is built on `LayoutBuilder`, and this popover wraps its body in
+            // `IntrinsicWidth` (to hug the widest row) — `LayoutBuilder` throws outright when asked for an
+            // intrinsic dimension ("does not support returning intrinsic dimensions"), which was verified
+            // by probe rather than assumed. So the same RULE is expressed here with flex, which needs no
+            // speculative layout pass. AnDropdown can and does use AnTwoZone: its popover is a plain
+            // `ConstrainedBox` with no intrinsic pass.
+            //
+            // **不用 [AnTwoZone]**,尽管那个原语正是为这种两区形状而生、且把 meta 限在 45%。它建在 `LayoutBuilder`
+            // 上,而本浮层把 body 包在 `IntrinsicWidth` 里(为了贴最宽那行)——`LayoutBuilder` 被问及 intrinsic 尺寸时
+            // **直接抛**(「does not support returning intrinsic dimensions」),这一点是**探针实测**、不是推断。故此处
+            // 用 flex 表达同一条**规则**,它不需要那趟推测性布局。AnDropdown 能用也确实在用 AnTwoZone:它的浮层是
+            // 纯 `ConstrainedBox`、没有 intrinsic 那一趟。
+            //
+            // The label:meta flex split is the row family's ONE rule about secondary text (WRK-083 B2):
+            // metadata may claim at most a third of the row, and it ellipsizes there rather than pushing
+            // the row open. Written the obvious way — a bare `Text` for the meta — it is NOT flexible, so
+            // `Row` lays it out with UNBOUNDED main-axis constraints, `TextOverflow.ellipsis` never
+            // engages, and a long value paints straight past the popover's edge (the real report was a
+            // 148px bar under 「最近目录」, whose meta is a full filesystem path). `IntrinsicWidth` makes it
+            // worse, not better: it asks for the untruncated width, `menuMaxWidth` refuses, and the child
+            // measured against the first is painted into the second.
+            //
+            // `Align` is what keeps the meta pinned RIGHT. A loose `Flexible` hands its child a 0..allowance
+            // box; a bare `Text` would hug its content and sit immediately after the label's two-thirds,
+            // stranded mid-row. `Align` takes the whole allowance and right-aligns inside it, which is
+            // exactly where the meta used to land back when the label's `Expanded` pushed it there.
+            //
+            // label:meta 的 flex 配比就是行族关于**次要文本**的唯一规矩(WRK-083 B2):元信息最多占一行的三分之一,
+            // 到那里就省略号、而不是把行撑开。按显然的写法(meta 用裸 `Text`)它**不是**弹性的,于是 `Row` 用**无界**
+            // 主轴约束布局它,`TextOverflow.ellipsis` 根本不生效,长值直接画到浮层外(真实报告是「最近目录」下 148px
+            // 的黄黑条,那一行的 meta 是一条完整文件系统路径)。`IntrinsicWidth` 让事情更糟而非更好:它按**未截断**
+            // 的宽度索要,`menuMaxWidth` 拒绝,而按前者量过的 child 被画进后者。
+            //
+            // `Align` 是把 meta 钉在**右**边的那一手。loose 的 `Flexible` 给 child 一个 0..额度 的盒子;裸 `Text`
+            // 会贴着内容、紧跟在标签那三分之二之后,搁浅在行中央。`Align` 吃满整个额度并在其中右对齐,那正是从前
+            // 标签的 `Expanded` 把 meta 顶过去的位置。
             Expanded(
+              flex: 2,
               child: Text(
                 item.label,
                 maxLines: 1,
@@ -204,11 +242,17 @@ class _AnMenuState extends State<AnMenu> {
             ),
             if (item.meta != null) ...[
               const SizedBox(width: AnSpace.s8),
-              Text(
-                item.meta!,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.metaTabular().copyWith(color: c.inkFaint),
+              Flexible(
+                child: Align(
+                  alignment: Alignment.centerRight,
+                  child: Text(
+                    item.meta!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.right,
+                    style: AnText.metaTabular().copyWith(color: c.inkFaint),
+                  ),
+                ),
               ),
             ],
           ],

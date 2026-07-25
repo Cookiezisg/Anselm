@@ -285,13 +285,39 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 
 | # | 现象 | 根因层 | 修复 | 守卫 | 门禁为何没抓到 | 状态 |
 |---|---|---|---|---|---|---|
-| B1 | 改驻地后左岛不刷新 | 失效责任散落各变更点(§0) | | | | 待修 |
-| B2 | 菜单项溢出(真机复现为 **148px**,截图那次 23px——溢出量随路径长度变,不是固定值) | `AnMenuItem` 原语(§0) | | | | 待修 |
-| B3 | 驻地按钮尺寸不对齐模型选择器 | 面包屑控件的**档位**无人约束:驻地/分叉写死 `sm`(24pt/icon12)、模型菜单用默认 `md`(28pt/icon16) | `4a3d5d05` | `chat_head_test` **B3**:对 `ChatHead` 下**每一个** `AnButton` 全称断言 `size == md`(先证红 ✓) | **无覆盖**——从没有测试看过头部控件的尺寸;像素断言也抓不到,因为两种尺寸都能正常渲染 | ✅ 已修 |
-| B4 | 面包屑不该显具体名字 | 同上:面包屑**是否携带数据派生文本**无人约束 | `4a3d5d05` | `chat_head_test` **B4**:断言收起态的头部不含目录 basename / 全路径 / 分叉源标题,但保留线程**自己**的标题(先证红 ✓) | **无覆盖**——旧测试反而**要求**显示名字(`mounted: the basename labels the button` 等 5 条),它们已**反转**而非删除,反转留在案上 | ✅ 已修 |
+| B1 | 改驻地后左岛不刷新 | 失效责任散落各变更点(§0) | | | | 待修 · **已在真机二次复现**(见下「B1 复现」) |
+| B2 | 菜单项溢出(真机复现为 **148px**,截图那次 23px——溢出量随路径长度变,不是固定值) | **不是那一处调用点,是整个行族的 `meta` 契约**:`AnMenuItem` 与 `AnRow` 都把 meta 作为**裸 `Text`** 放进 `Row`,而非弹性 child 拿到的是**无界**主轴约束 → `TextOverflow.ellipsis` 从不生效。守卫证明 `AnRow` 同病(同一输入溢出 **776px**),只是没人报过——rail 的 meta 都是时间戳与计数 | `f09db18e` | `test/guards/row_family_meta_overflow_guard_test.dart`:**两个原语 × 四种宿主宽度**灌荒唐 meta,断言 `takeException()` 为空(先证红:三格分别溢出 668/776/856px ✓) | **无覆盖**——从没有测试在窄宿主里渲过行族原语;既有测试都喂正常长度的 meta,于是那条无界约束永远不发作 | ✅ 已修 |
+| B3 | 驻地按钮尺寸不对齐模型选择器 | 面包屑控件的**档位**无人约束:驻地/分叉写死 `sm`(24pt/icon12)、模型菜单用默认 `md`(28pt/icon16) | `08b8f215` | `chat_head_test` **B3**:对 `ChatHead` 下**每一个** `AnButton` 全称断言 `size == md`(先证红 ✓) | **无覆盖**——从没有测试看过头部控件的尺寸;像素断言也抓不到,因为两种尺寸都能正常渲染 | ✅ 已修 |
+| B4 | 面包屑不该显具体名字 | 同上:面包屑**是否携带数据派生文本**无人约束 | `08b8f215` | `chat_head_test` **B4**:断言收起态的头部不含目录 basename / 全路径 / 分叉源标题,但保留线程**自己**的标题(先证红 ✓) | **无覆盖**——旧测试反而**要求**显示名字(`mounted: the basename labels the button` 等 5 条),它们已**反转**而非删除,反转留在案上 | ✅ 已修 |
 | B5 | 窄窗右岛跳变 | 右岛宽度双事实源(§0) | | | | 待修 |
 | **L1** | `GET /conversations/cv_xxx` 及 `/messages` **404**,23:43 ×2、00:59 又 ×2(另一 ID) | 待查 | | | | **待查**——app 在请求不存在的对话,疑似删除/分叉后残留旧选区 |
 | **L2** | **冷启动必抛** riverpod 断言:`setState() or markNeedsBuild() called during build`,`UncontrolledProviderScope` 被标脏于 `ConversationRail` 构建期间 | 待查。栈:`ConversationRail` build → `conversationListProvider.build`(`conversation_list_provider.dart:152`)→ `ref.watch(chatRepositoryProvider)` 首次创建(`chat_providers.dart:15`)→ `watch(apiClientProvider)` → flush 祖先时 `dioProvider` **正脏**(它 watch `backendStartupProvider`)→ 通知既有监听者 → `_invalidateSelf` → 在 build 阶段调度刷新。疑似启动门控放行与后端就绪态翻转**同帧** | | | | **待查**——眼睛①当场抓到;界面无任何症状,异常被 riverpod 吞掉 |
+
+### B1 复现(2026-07-26 02:16,真机,意外但完整)
+
+热重载时驻地菜单仍开着,一次本意打在别处的点击落到了「Leave working directory」上。四个信号源交叉印证,
+故事完整,**顺带把 B1 钉死了**:
+
+| 信号源 | 说的话 |
+|---|---|
+| **④ SQLite** `marker` 块 | `{"from":"…/ShopeeFileFolder","to":""}` @ `18:16:02 UTC` = **本地 02:16:02**,与那次点击同秒 |
+| **④ SQLite** `conversations` | 全库仅 **1** 条带 `work_dir`(且是另一条对话) |
+| 服务端 `GET /conversations/workdir-groups` | 只报 **1** 个驻地组 |
+| **① 界面** | rail 仍显示 **2** 个组,被清空的 `ShopeeFileFolder` 组还在,里面还挂着那条对话 |
+
+**判读**:退出驻地这个动作本身完全正确(库、投影、面包屑字形三处都对),**唯独左岛没跟上**——正是 B1 报的
+那件事,只不过用户报的是「修改后」,这里是「退出后」,同一个失效缺口的两个入口。这进一步坐实 §0 铁律二对
+B1 根因的判断:**失效责任散落在各个变更点**,补一行 `invalidate` 只会修好其中一个入口。
+
+### L1 收窄(尚未定论,但线索大幅前进)
+
+四条 404 的两个对话 id 都查到了,**两条都存在于库中且未软删**:
+`cv_d45bb2114af8e189`(「Perplexity AI 界面截图描述」)与 `cv_09f46603668c74d7`(「每日好运签技能介绍」),
+**均属 workspace `ws_428e187e6c4d2f0f`(Personal)**。而 D2 物理隔离决定:在**另一个** workspace 下问这两个 id,
+后端只会答 404。当晚另有 workspace `ws_b79831cbb00dfa09`(演示工作台)存在。
+
+**收窄后的假设**:切换 workspace(或以持久化选区冷启动)时,**选中的对话没有跟着清空**,于是 app 继续去问一条
+在当前 workspace 里不可见的对话。待做:按此假设构造复现。
 
 **B3/B4 施工中主动扩大的两处**(如实记档,非工单点名):
 1. **`AnIcons.folderMissing`(新增语义图标)**。按钮改纯字形后,「目录已不存在」失去了全部可见通道——旧注释声称警示「落在标签自己的字形」,但代码里标签只是 `_basename()`,**那句注释本就与代码不符**。AnButton 没有 `warn` 变体可着色(只有 ghost/primary/danger/icon),故警报改骑**字形**(`folder` → `folder-x`)。字形也胜过着色:暗色与色盲下都还成立。

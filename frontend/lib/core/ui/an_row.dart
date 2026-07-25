@@ -151,9 +151,26 @@ class AnRow extends StatelessWidget {
           _lead(c, active, reduced),
           const SizedBox(width: AnSpace.s8),
         ],
-        Expanded(child: _labelBlock(c, active)),
+        // Same label:meta split as AnMenuItem, and for the same reason (WRK-083 B2): the trail was a
+        // NON-flexible child, so `Row` measured it with unbounded main-axis constraints and its
+        // ellipsis never engaged — a long meta painted straight past the row. Nobody had reported it
+        // here because rail metas are timestamps and counts, but "no caller has hit it yet" is not a
+        // fix; the guard proves this primitive overflowed by 776px on the same input that broke the menu.
+        //
+        // `Align` keeps the trail pinned right — a loose `Flexible` would let it hug its content and
+        // strand it just after the label's two-thirds. 与 AnMenuItem 同一配比、同一理由(WRK-083 B2):
+        // trail 此前是**非弹性** child,`Row` 用无界主轴约束量它、省略号从不生效,长 meta 直接画到行外。此处没人
+        // 报过,是因为 rail 的 meta 都是时间戳与计数——但「还没有调用方撞上」不是修复;守卫证明同一份输入下本原语
+        // 溢出 776px,与菜单同源。`Align` 把 trail 钉在右侧,否则 loose `Flexible` 会让它贴住内容、搁浅在标签的
+        // 三分之二之后。
+        Expanded(flex: 2, child: _labelBlock(c, active)),
         const SizedBox(width: AnSpace.s8),
-        _trail(c, active),
+        Flexible(
+          child: Align(
+            alignment: _hasHint ? Alignment.topRight : Alignment.centerRight,
+            child: _trail(c, active),
+          ),
+        ),
       ],
     );
 

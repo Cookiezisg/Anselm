@@ -376,6 +376,20 @@ void main() {
       // already are is a row that does nothing). 另一个目录按名字提供;**当前**那个不重复出现(切到你已经在的地方
       // 是一行什么都不做的项)。
       expect(find.text('other'), findsOneWidget);
+      // NAME + shortened PARENT, not name + full path (WRK-083 B2). The full path was what overflowed the
+      // menu, and once the primitive caps `meta` at a third of the row the ellipsis eats a path's
+      // DISTINGUISHING end and leaves its useless head (`/Users/you…`). Last-two-components keeps the part
+      // that actually tells two same-named directories apart. Asserted here rather than on the private
+      // helper because this is the contract the USER sees.
+      // **名字 + 简写父目录**,不是名字 + 完整路径(WRK-083 B2)。完整路径正是撑破菜单的那个,而原语把 `meta` 限到
+      // 一行三分之一后,省略号吃掉的恰是路径**有区分度**的那一端、留下没用的头(`/Users/you…`)。留最后两段,保住的
+      // 才是真正能把两个同名目录分开的部分。断言写在这里而不是那个私有 helper 上,因为这才是**用户看到**的契约。
+      expect(find.text('…/code'), findsOneWidget);
+      expect(
+        find.text(_other),
+        findsNothing,
+        reason: 'the full path is never the meta',
+      );
       // The current one appears ONLY in the identity head's full path, never as a switch-to row. The old
       // assertion allowed exactly one hit because the button carried the basename; with the crumb gone
       // glyph-only (WRK-083 B4) that hit is gone too, so the basename must now appear ZERO times as a row

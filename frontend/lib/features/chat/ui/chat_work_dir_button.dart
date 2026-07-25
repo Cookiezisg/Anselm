@@ -210,10 +210,18 @@ class ChatWorkDirButton extends ConsumerWidget {
       // 最近列表——机器级、零后端。**当前**驻地被滤掉:提议切到你已经在的地方，是一行什么都不做的菜单项。
       if (recent.where((p) => p != info.path).isNotEmpty) ...[
         AnMenuSection(w.recent),
+        // NAME + shortened PARENT, the recent-items idiom every file picker uses — not name + full path.
+        // The full path was what overflowed the menu (WRK-083 B2), and now that the primitive caps `meta`
+        // at a third of the row it would be worse than useless: `/Users/SP1…` identifies nothing. The
+        // parent is what actually disambiguates two directories that share a basename, and `~` buys back
+        // the ~14 characters that make it fit.
+        // **名字 + 简写父目录**,每个文件选择器都用的「最近项」惯用法——不是名字 + 完整路径。完整路径正是把菜单
+        // 撑破的那一个(WRK-083 B2),而如今原语把 `meta` 限在一行的三分之一,它会比无用更糟:`/Users/SP1…` 什么
+        // 都指认不出。真正区分两个同名目录的是**父目录**,而 `~` 省下的那十几个字符正好让它放得下。
         for (final path in recent.where((p) => p != info.path))
           AnMenuItem(
             label: _basename(path),
-            meta: path,
+            meta: _shortParent(path),
             icon: AnIcons.folder,
             onTap: () => _apply(context, ref, path),
           ),
@@ -407,6 +415,55 @@ class ChatWorkDirButton extends ConsumerWidget {
     final i = trimmed.lastIndexOf('/');
     final name = i < 0 ? trimmed : trimmed.substring(i + 1);
     return name.isEmpty ? path : name;
+  }
+
+  /// The directory's PARENT, cut down to its LAST component — the second line of a recent-items row.
+  ///
+  /// It exists to DISAMBIGUATE, not to identify: two residencies can share a basename (`ui`, `frontend`,
+  /// `src`), and the enclosing folder's name is the shortest thing that tells them apart. The full parent
+  /// is the wrong answer twice over — it does not fit in the third of a row the primitive allows
+  /// (WRK-083 B2), and what survives the ellipsis is its useless HEAD (`/Users/SP1…`), because a path's
+  /// distinguishing end is the part that gets cut.
+  ///
+  /// ONE component, not two. Two was tried on the real app first and still did not fit: `…/Shopee/Sho…`
+  /// and `…/Documents/…` were what the user would actually have seen — a truncation of a truncation,
+  /// which says less than nothing. One component always fits inside the allowance and is the whole of the
+  /// disambiguating information anyway.
+  ///
+  /// Deliberately NOT `~`-folded. Folding needs `$HOME`, and under the macOS sandbox `$HOME` is the app's
+  /// CONTAINER (`~/Library/Containers/website.anselm.app/Data`), not the login home — so the prefix never
+  /// matches a real path the user picked and the fold silently does nothing. This was observed on the real
+  /// app, not reasoned about. Being independent of the environment also makes this function a pure
+  /// function of its argument, which is why it can be unit-tested at all.
+  ///
+  /// 目录的**父目录**,砍到**最后一段**——「最近项」行的第二行信息。
+  ///
+  /// 它是为了**区分**、不是为了**指认**:两个驻地可以同名(`ui`/`frontend`/`src`),而外层文件夹的名字是能把它们分开
+  /// 的最短那个东西。完整父路径错在两处——它放不进原语允许的那三分之一行(WRK-083 B2),而且省略号留下的恰恰是它
+  /// 无用的**头**(`/Users/SP1…`),因为路径有区分度的那一端正是被切掉的那端。
+  ///
+  /// **一段、不是两段**。两段先在真机上试过、仍然放不下:用户实际会看到的是 `…/Shopee/Sho…` 与 `…/Documents/…`
+  /// ——一次截断的再截断,说的比什么都不说还少。一段总能装进额度,而它本就是全部的区分信息。
+  ///
+  /// **刻意不做 `~` 折叠**。折叠需要 `$HOME`,而 macOS 沙盒下 `$HOME` 是 app 的**容器**
+  /// (`~/Library/Containers/website.anselm.app/Data`)、不是登录主目录——于是前缀永远匹配不上用户挑的真实路径,
+  /// 折叠静默失效。这是在真机上**看到**的,不是推想的。不依赖环境也让本函数成为其入参的纯函数,正因如此它才可被单测。
+  static String _shortParent(String path) {
+    final trimmed = path.endsWith('/') && path.length > 1
+        ? path.substring(0, path.length - 1)
+        : path;
+    final i = trimmed.lastIndexOf('/');
+    // '/foo' or a bare name — no parent worth printing. '/foo' 或裸名——无父可印。
+    if (i <= 0) return '';
+    final parts = trimmed
+        .substring(0, i)
+        .split('/')
+        .where((s) => s.isNotEmpty)
+        .toList();
+    if (parts.isEmpty) return '/';
+    // The leading ellipsis is honest, not decoration: it says the parent has more above this component.
+    // 前导省略号是诚实、不是装饰:它说明父目录在这一段之上还有内容。
+    return parts.length == 1 ? '/${parts.first}' : '…/${parts.last}';
   }
 }
 
