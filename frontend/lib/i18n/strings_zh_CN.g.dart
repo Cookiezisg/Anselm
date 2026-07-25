@@ -2627,7 +2627,8 @@ class _Translations$entities$detail$state$zh_CN extends Translations$entities$de
 	@override String get noActivationsHint => '该触发器每次动作(触发与否)都会在此留一行。';
 	@override String get noFirings => '无派发';
 	@override String get noFiringsHint => '一次触发扇给 workflow 后,其处置显示在此。';
-	@override String get noActiveVersion => '无活动版本';
+	@override String get createFirstVersion => '尚无版本';
+	@override String get createFirstVersionHint => '创建一个版本以激活该实体。';
 	@override String get errorTitle => '无法加载该实体';
 	@override String get errorHint => '本地引擎没有返回它。';
 	@override String get loadMore => '加载更多';
@@ -3989,7 +3990,8 @@ extension on TranslationsZhCn {
 			'entities.detail.state.noActivationsHint' => '该触发器每次动作(触发与否)都会在此留一行。',
 			'entities.detail.state.noFirings' => '无派发',
 			'entities.detail.state.noFiringsHint' => '一次触发扇给 workflow 后,其处置显示在此。',
-			'entities.detail.state.noActiveVersion' => '无活动版本',
+			'entities.detail.state.createFirstVersion' => '尚无版本',
+			'entities.detail.state.createFirstVersionHint' => '创建一个版本以激活该实体。',
 			'entities.detail.state.errorTitle' => '无法加载该实体',
 			'entities.detail.state.errorHint' => '本地引擎没有返回它。',
 			'entities.detail.state.loadMore' => '加载更多',
@@ -4290,9 +4292,9 @@ extension on TranslationsZhCn {
 			'settings.patchFailed' => '保存失败,已恢复原值',
 			'settings.notifLevel' => '通知级别',
 			'settings.notifLevelDesc' => '决定哪些事件弹出提醒;需要你处理的事项永远送达',
-			'settings.levelAll' => '全部',
 			_ => null,
 		} ?? switch (path) {
+			'settings.levelAll' => '全部',
 			'settings.levelImportant' => '仅需处理',
 			'settings.levelSilent' => '静音',
 			'settings.notifOs' => '系统通知',

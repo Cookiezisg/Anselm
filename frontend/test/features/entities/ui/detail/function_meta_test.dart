@@ -3,6 +3,7 @@ import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_editable_value.dart';
 import 'package:anselm/core/ui/an_kv.dart';
+import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/core/ui/an_tags.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:flutter/gestures.dart';
@@ -124,6 +125,31 @@ void main() {
           findsNWidgets(2),
           reason: '标签行 + 依赖行,同一套 KV tags 文法',
         );
+      },
+    );
+
+    testWidgets(
+      'no dependencies → a single dash KV row, not the inbox-icon tombstone '
+      '(WRK-077 ⑫ 用户点名帧)',
+      (tester) async {
+        final v = _v(2).copyWith(dependencies: const []);
+        final fn = _fn().copyWith(activeVersion: v);
+        final repo = FixtureEntityRepository(
+          functions: [fn],
+          functionVersions: {
+            'fn_1': [v],
+          },
+        );
+        await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
+        // Same AnKv/tags grammar as the populated case — the label survives, the tombstone
+        // (AnState) is gone entirely from the tree.
+        expect(find.text(t.entities.detail.card.deps), findsOneWidget);
+        expect(find.byType(AnState), findsNothing);
+        final depsRow = tester
+            .widgetList<AnKv>(find.byType(AnKv))
+            .expand((kv) => kv.rows)
+            .firstWhere((r) => r.label == t.entities.detail.card.deps);
+        expect(depsRow.tags, isEmpty); // AnKvRow.tags self-renders the dash
       },
     );
 

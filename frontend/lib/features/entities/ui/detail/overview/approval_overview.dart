@@ -19,7 +19,7 @@ class ApprovalOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = context.t.entities.detail;
     final v = approval.activeVersion;
-    if (v == null) return insetEmpty(d.state.noActiveVersion);
+    if (v == null) return noVersionGuide(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -31,7 +31,7 @@ class ApprovalOverview extends StatelessWidget {
         AnSection(
           label: d.sec.input,
           variant: AnSectionVariant.plain,
-          children: [fieldList(v.inputs, emptyTitle: d.val.none)],
+          children: [fieldList(v.inputs, emptyLabel: d.sec.input)],
         ),
         AnSection(
           label: d.sec.template,

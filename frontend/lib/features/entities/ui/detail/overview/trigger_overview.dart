@@ -61,7 +61,7 @@ class TriggerOverview extends StatelessWidget {
         AnSection(
           label: d.sec.firePayload,
           variant: AnSectionVariant.plain,
-          children: [fieldList(trigger.outputs, emptyTitle: d.val.none)],
+          children: [fieldList(trigger.outputs, emptyLabel: d.sec.firePayload)],
         ),
       ],
     );

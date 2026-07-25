@@ -22,7 +22,7 @@ class HandlerOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = context.t.entities.detail;
     final v = hd.activeVersion;
-    if (v == null) return insetEmpty(d.state.noActiveVersion);
+    if (v == null) return noVersionGuide(context);
 
     // Sensitive defaults are NEVER rendered. 敏感默认值绝不渲染。
     String argSummary(InitArgSpec a) => [
@@ -72,7 +72,9 @@ class HandlerOverview extends StatelessWidget {
           variant: AnSectionVariant.plain,
           children: [
             if (v.initArgsSchema.isEmpty)
-              insetEmpty(d.val.none)
+              // Same AnKv grammar as the populated case — one row, dash value, section's own
+              // label (WRK-077 ⑫ — retired the inbox-icon tombstone). 同一套 AnKv 文法,不再起空态。
+              kvList([(d.sec.initArgs, d.val.none)])
             else
               kvList([
                 for (final a in v.initArgsSchema) (a.name, argSummary(a)),

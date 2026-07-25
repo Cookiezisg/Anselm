@@ -40,7 +40,7 @@ class FunctionOverview extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final d = context.t.entities.detail;
     final v = fn.activeVersion;
-    if (v == null) return insetEmpty(d.state.noActiveVersion);
+    if (v == null) return noVersionGuide(context);
     final codeLines = '\n'.allMatches(v.code).length + 1;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -98,12 +98,12 @@ class FunctionOverview extends ConsumerWidget {
             AnInfoCard(
               title: d.sec.input,
               icon: AnIcons.byKey('enter'),
-              child: fieldList(v.inputs, emptyTitle: d.val.none),
+              child: fieldList(v.inputs, emptyLabel: d.sec.input),
             ),
             AnInfoCard(
               title: d.sec.output,
               icon: AnIcons.byKey('run'),
-              child: fieldList(v.outputs, emptyTitle: d.val.none),
+              child: fieldList(v.outputs, emptyLabel: d.sec.output),
             ),
           ],
         ),
@@ -129,15 +129,12 @@ class FunctionOverview extends ConsumerWidget {
                     (d.kv.syncedAt, fmtTime(v.envSyncedAt)),
                   ], meta: true),
                   const SizedBox(height: AnSpace.s8),
-                  if (v.dependencies.isEmpty)
-                    insetEmpty(
-                      d.val.none,
-                    ) // the feature's one empty-state idiom 同一空态惯用法
-                  else
-                    // A LABELED tags row — bare unlabeled rows read as mystery words («pydantic»,
-                    // WRK-070 B12 用户点名帧). KV grammar like every sibling line of this card.
-                    // 带标签的 tags 行——无标签裸行读作神秘词;与本卡每一行同一套 KV 文法。
-                    AnKv(rows: [AnKvRow.tags(d.card.deps, v.dependencies)]),
+                  // A LABELED tags row — bare unlabeled rows read as mystery words («pydantic»,
+                  // WRK-070 B12 用户点名帧); AnKvRow.tags renders its own em-dash when the list is
+                  // empty, so there's no separate tombstone branch to maintain (WRK-077 ⑫). KV
+                  // grammar like every sibling line of this card. 带标签的 tags 行——无标签裸行读作神秘
+                  // 词;空表自带 —(免分支墓碑);与本卡每一行同一套 KV 文法。
+                  AnKv(rows: [AnKvRow.tags(d.card.deps, v.dependencies)]),
                 ],
               ),
             ),

@@ -313,6 +313,18 @@ height: (node.result.length * AnSize.row).clamp(AnSize.row, AnSize.jsonViewport)
 
 **验收**:六实体详情页各自的空字段真机核对(截图);无墓碑残留;`insetEmpty` 已删;i18n 新键;`make -C frontend quick` 绿。
 
+→ **已施工(0725,施工序⑫)。派 Sonnet 5 建、主会话逐行复审 + 跑门禁。`insetEmpty` 已删(零使用者,grep 实证)。**
+
+**用户点名那处的样子**:`function_overview` 的依赖现在是 `AnKv(rows: [AnKvRow.tags(d.card.deps, v.dependencies)])`,**无条件**——`AnKvRow.tags` 空表时自出破折号,于是 `依赖 —` 是一行 32px、与本卡其余五行同文法。顺带消掉一个条件分支(原先 `if (empty) 墓碑 else 标签行` 正是「禁止条件包装」那一类)。
+
+**本节的分类有一处错,子代理查实并纠正**:`workflow_overview` 那处**不是标签字段**,它是 `if (g == null)` —— 图 JSON blob **解析失败**。那是**错误**、不是空值,压成一行 KV 会是范畴错误。已改为 `AnState(kind: error, size: inset)`——仍消掉 `insetEmpty`,但换成对的字形。**故真实构成是 6 个 A 类 + 1 个错误态 + 6 个 B 类 = 13**,总数与本节一致、分类不一致。
+
+**多出一处**:追「零使用者」时发现 `trigger_overview` 也在用 `fieldList`(Fire payload),即第 7 个消费者。trigger 是本节六实体之外的支撑类,同法一并改(否则删不掉 `insetEmpty`)。
+
+**B 类只交付了一半,如实记**:本节要求「引导 + **动作**(创建入口)」。子代理通读 `EntityRepository` 与 UI 后确认——**六个实体今天都没有可达的「创建版本」入口**(function/handler/agent 的版本内容按立法是 AI-only + 只读;control/approval/workflow 也没有创建版本的示能)。按简报的兜底条款,只渲了文案引导(`尚无版本` + `创建一个版本以激活该实体`)、**没有造一个通向空处的假按钮**。**这一点部分推翻了本节 B 类的方案**:那个「创建入口」并不存在,要么另立工单造它,要么承认 B 类的终态就是纯文案引导。
+
+**一处留待真机看观感**:`fieldList` 空表时那一行的标签取了调用方自己的段/卡标题,于是「Inputs」卡头下面跟着一行「Inputs —」——**语法一致但略显重复**。备选是渲一个无标签的裸破折号,但 WRK-070 B12 明确警告过无标签裸行读作神秘词。此处不猜,列为真机观感项。
+
 ## §5.9 RI 批 · 右岛开合闪烁+卡顿(0723 用户提:「左岛丝滑、海洋平滑,右岛闪+卡」)
 
 **用户观感是对的,而且成因是结构不对称——左岛有的两样东西,右岛都没有。**
@@ -752,7 +764,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⑨ | VT 版本页 | 混合:diff hunk+虚拟化 主会话;页面组装 派 Opus 5(脸面页,品味权重高) |
 | ⑩ | EA 实体 ⋯ 菜单 | 派 Sonnet 5 |
 | ⑪ | ~~SK 密钥分栏~~ **已完成 0725**(派 Sonnet 5 建、主会话逐行复审并改了一处 + 跑门禁;记录见 §5.6) | 派 Sonnet 5 ✅ |
-| ⑫ | ES 空态退役 ×13 | 派 Sonnet 5 |
+| ⑫ | ~~ES 空态退役 ×13~~ **已完成 0725**(A 类 6 + 错误态 1〔本节分类有误已纠〕+ B 类 6;`insetEmpty` 已删;**B 类只有引导没有动作——创建入口不存在**,见 §5.8) | 派 Sonnet 5 ✅ |
 | ⑬ | LR+LI rail 重构+文案+tooltip 地基 | 混合:typeHeadActionsBuilder 主会话;铺开 派 Sonnet 5 |
 | ⑭ | WD1 驻地地基 | 主会话 |
 | ⑮ | WD1.5 rail 驻地分组(CL) | 混合:后端投影 主会话;rail 组装 派 Opus 5(分组无漂移/置顶去重有状态逻辑) |

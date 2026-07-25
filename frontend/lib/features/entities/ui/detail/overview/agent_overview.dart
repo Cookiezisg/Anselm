@@ -25,7 +25,7 @@ class AgentOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = context.t.entities.detail;
     final v = agent.activeVersion;
-    if (v == null) return insetEmpty(d.state.noActiveVersion);
+    if (v == null) return noVersionGuide(context);
     final mo = v.modelOverride;
     final mh = mountHealth;
     final unhealthy = mh?.mounts.where((m) => !m.healthy).length ?? 0;
@@ -62,11 +62,14 @@ class AgentOverview extends StatelessWidget {
             AnInfoCard(
               title: d.card.tools,
               icon: AnIcons.byKey('tool'),
-              child: v.tools.isEmpty
-                  ? insetEmpty(d.val.none)
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+              // The wrapper (Column) stays mounted either way — only its `children` list flips
+              // (WRK-077 ⑫: a bare dash row, same AnRow grammar as the populated rows, replaces
+              // the old inbox-icon tombstone). 包装层恒挂,只翻 children;空表用同一套 AnRow 文法。
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: v.tools.isEmpty
+                    ? [AnRow(label: d.val.none, passive: true)]
+                    : [
                         for (final tr in v.tools)
                           AnRow(
                             icon: AnIcons.byKey(_refKind(tr.ref)),
@@ -75,23 +78,26 @@ class AgentOverview extends StatelessWidget {
                             passive: true,
                           ),
                       ],
-                    ),
+              ),
             ),
             AnInfoCard(
               title: d.card.skill,
               icon: AnIcons.byKey('skill'),
-              child: (v.skill == null || v.skill!.isEmpty)
-                  ? insetEmpty(d.val.none)
-                  : kvList([(d.kv.name, v.skill)]),
+              child: kvList([
+                (
+                  d.kv.name,
+                  (v.skill == null || v.skill!.isEmpty) ? d.val.none : v.skill,
+                ),
+              ]),
             ),
             AnInfoCard(
               title: d.card.knowledge,
               icon: AnIcons.byKey('doc'),
-              child: v.knowledge.isEmpty
-                  ? insetEmpty(d.val.none)
-                  : Column(
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: v.knowledge.isEmpty
+                    ? [AnRow(label: d.val.none, passive: true)]
+                    : [
                         for (final k in v.knowledge)
                           AnRow(
                             icon: AnIcons.byKey('doc'),
@@ -99,13 +105,18 @@ class AgentOverview extends StatelessWidget {
                             passive: true,
                           ),
                       ],
-                    ),
+              ),
             ),
             AnInfoCard(
               title: d.card.model,
               icon: AnIcons.byKey('agent'),
+              // mo == null → this agent INHERITS the workspace default (not "empty" — WRK-077 ⑫
+              // fixed a mis-rendered tombstone here). Same AnKv row grammar either way; `meta: true`
+              // rides the existing chrome-13 value tier as the weak "inherited" cue (no new
+              // primitive). mo==null=继承工作区默认(非空,此前误渲墓碑);仍同一套 AnKv 行文法,
+              // meta:true 借既有 chrome 13 档权充「弱继承」标记,不新造件。
               child: mo == null
-                  ? insetEmpty(d.val.modelDefault)
+                  ? kvList([(d.kv.model, d.val.modelDefault)], meta: true)
                   : kvList([
                       (d.kv.model, mo.modelId),
                       for (final o in mo.options.entries) (o.key, o.value),
@@ -136,12 +147,12 @@ class AgentOverview extends StatelessWidget {
             AnInfoCard(
               title: d.sec.input,
               icon: AnIcons.byKey('enter'),
-              child: fieldList(v.inputs, emptyTitle: d.val.none),
+              child: fieldList(v.inputs, emptyLabel: d.sec.input),
             ),
             AnInfoCard(
               title: d.sec.output,
               icon: AnIcons.byKey('run'),
-              child: fieldList(v.outputs, emptyTitle: d.val.none),
+              child: fieldList(v.outputs, emptyLabel: d.sec.output),
             ),
           ],
         ),

@@ -86,11 +86,20 @@ void main() {
     ); // behavior meaningless without a timeout → dropped
   });
 
-  testWidgets('no active version → honest empty inset', (tester) async {
-    await tester.pumpWidget(
-      _host(ApprovalOverview(approval: _apf().copyWith(activeVersion: null))),
-    );
-    await tester.pump();
-    expect(find.byType(AnState), findsOneWidget);
-  });
+  testWidgets(
+    'no active version → the shared "create first version" guide, not the '
+    'inbox-icon tombstone (WRK-077 ⑫)',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(ApprovalOverview(approval: _apf().copyWith(activeVersion: null))),
+      );
+      await tester.pump();
+      final d = TranslationProvider.of(
+        tester.element(find.byType(ApprovalOverview)),
+      ).translations.entities.detail;
+      expect(find.byType(AnState), findsOneWidget); // one guide block
+      expect(find.text(d.state.createFirstVersion), findsOneWidget);
+      expect(find.text(d.state.createFirstVersionHint), findsOneWidget);
+    },
+  );
 }

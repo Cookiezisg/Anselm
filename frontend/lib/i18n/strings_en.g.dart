@@ -6259,8 +6259,11 @@ class Translations$entities$detail$state$en {
 	/// en: 'When a fire fans out to a workflow, its disposition shows here.'
 	String get noFiringsHint => 'When a fire fans out to a workflow, its disposition shows here.';
 
-	/// en: 'No active version'
-	String get noActiveVersion => 'No active version';
+	/// en: 'No versions yet'
+	String get createFirstVersion => 'No versions yet';
+
+	/// en: 'Create a version to activate this entity.'
+	String get createFirstVersionHint => 'Create a version to activate this entity.';
 
 	/// en: 'Couldn't load this entity'
 	String get errorTitle => 'Couldn\'t load this entity';
@@ -7758,7 +7761,8 @@ extension on Translations {
 			'entities.detail.state.noActivationsHint' => 'Every time this trigger acts — fired or not — a row appears here.',
 			'entities.detail.state.noFirings' => 'Nothing dispatched',
 			'entities.detail.state.noFiringsHint' => 'When a fire fans out to a workflow, its disposition shows here.',
-			'entities.detail.state.noActiveVersion' => 'No active version',
+			'entities.detail.state.createFirstVersion' => 'No versions yet',
+			'entities.detail.state.createFirstVersionHint' => 'Create a version to activate this entity.',
 			'entities.detail.state.errorTitle' => 'Couldn\'t load this entity',
 			'entities.detail.state.errorHint' => 'The local engine didn\'t return it.',
 			'entities.detail.state.loadMore' => 'Load more',
@@ -8059,9 +8063,9 @@ extension on Translations {
 			'settings.patchFailed' => 'Save failed — value restored',
 			'settings.notifLevel' => 'Notification level',
 			'settings.notifLevelDesc' => 'Which events pop up — items that need your action are always delivered',
-			'settings.levelAll' => 'All',
 			_ => null,
 		} ?? switch (path) {
+			'settings.levelAll' => 'All',
 			'settings.levelImportant' => 'Needs you',
 			'settings.levelSilent' => 'Silent',
 			'settings.notifOs' => 'System notifications',

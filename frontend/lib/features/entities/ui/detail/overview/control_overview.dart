@@ -18,7 +18,7 @@ class ControlOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final d = context.t.entities.detail;
     final v = control.activeVersion;
-    if (v == null) return insetEmpty(d.state.noActiveVersion);
+    if (v == null) return noVersionGuide(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -30,14 +30,16 @@ class ControlOverview extends StatelessWidget {
         AnSection(
           label: d.sec.input,
           variant: AnSectionVariant.plain,
-          children: [fieldList(v.inputs, emptyTitle: d.val.none)],
+          children: [fieldList(v.inputs, emptyLabel: d.sec.input)],
         ),
         AnSection(
           label: d.sec.branches,
           variant: AnSectionVariant.plain,
           children: [
             if (v.branches.isEmpty)
-              insetEmpty(d.val.none)
+              // Same AnKv grammar as everywhere else — one row, dash value, section's own label
+              // (WRK-077 ⑫ — retired the inbox-icon tombstone). 同一套 AnKv 文法,不再起空态。
+              kvList([(d.sec.branches, d.val.none)])
             else
               for (final b in v.branches) ControlBranchRow(branch: b),
           ],

@@ -11,6 +11,7 @@ import '../../../../../core/ui/an_graph_canvas.dart';
 import '../../../../../core/ui/an_info_card.dart';
 import '../../../../../core/ui/an_row.dart';
 import '../../../../../core/ui/an_section.dart';
+import '../../../../../core/ui/an_state.dart';
 import '../../../../../core/ui/icons.dart';
 import '../../../../../i18n/strings.g.dart';
 import '../../../data/entity_format.dart';
@@ -38,7 +39,7 @@ class WorkflowOverview extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final d = context.t.entities.detail;
     final v = wf.activeVersion;
-    if (v == null) return insetEmpty(d.state.noActiveVersion);
+    if (v == null) return noVersionGuide(context);
     final g = graphOf(v);
 
     // Hero live overlay — the SAME run-terminal state the right island operates on (页 hero=仪表盘、
@@ -70,9 +71,16 @@ class WorkflowOverview extends ConsumerWidget {
           variant: AnSectionVariant.plain,
           children: [
             if (g == null)
-              insetEmpty(
-                d.graph.unparseable,
-              ) // bad blob — honest, not blank 坏 blob 诚实呈现
+              // A corrupt/unparseable graph blob is an ERROR, not an empty field — WRK-077 ⑫
+              // reclassified this out of the inbox-icon "empty" tombstone into the kit's own
+              // error state (still inset-sized, still honest, right glyph this time).
+              // 图 blob 解析失败是错误、非字段空值——WRK-077 ⑫ 改用 AnState 的 error 态(仍 inset、仍
+              // 诚实呈现,只是换对字形)。
+              AnState(
+                kind: AnStateKind.error,
+                size: AnStateSize.inset,
+                title: d.graph.unparseable,
+              )
             else
               AnGraphCanvas(
                 graph: g,
