@@ -825,3 +825,13 @@ GET /api/v1/conversations/workdir-groups → 404   ← 旧二进制没这条路�
 - 前端:免费档卡错误分支补「修复免费档」按钮(与空态「启用」同打 provision)。
 
 **真死结上端到端验证**:修复前同 key 401 INVALID_INSTALL → provision → **同一把 key**(aki_1f70…)test `{"ok":true}`,配额卡 0/5000 正常渲染。四门禁全绿。
+
+### A1 首跑失败的定位与根治(0725 深夜)—— ADR 0012
+
+自愈之后 A1 仍 400:`UPSTREAM_REJECTED / invalid_request`。判别实验矩阵(全部生产实测,细节在 [ADR 0012](../../decisions/0012-gateway-media-inline-upstream.md)):base64 通 / 公网 URL 通 / 带 token query 通 / lease 形路径放裸域通 / 同一内容放裸域通——**唯独 `api.anselm.website` 上的真实 lease URL 稳定 400**,且临时开的源站访问日志证明拉取器**从未连入**。上游拉取器在其边缘按主机拒了 `api.` 前缀,不可见不可控。
+
+**根治**:网关不再要求 provider 回拉——校验通过后把 lease 内容读出、以 data URI **内联**进上游请求(`OpenLeaseForInstall` 与 VerifyLease 同一严格谓词;`MAX_MEDIA_DECODED_BYTES` 改在内联处执行;`MEDIA_PUBLIC_BASE_URL` 整体拆除)。桌面端**零改动**(仍发相对 lease 引用)。网关 `14d2adc`,verify+lint 全绿,CI/deploy 在跑。
+
+**顺带修**:上游 4xx 此前完全不留日志(这次定位为此付了约一小时黑盒探测),现 journal 记 backend/status/reason/provider_message。
+
+**临时物清理**:桌面侧 TEMP-DIAG 日志行已还原;服务器上的判别实验静态文件待 deploy 验收后一并清。
