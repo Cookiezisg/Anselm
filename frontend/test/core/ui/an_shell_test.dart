@@ -715,6 +715,78 @@ void main() {
       },
     );
 
+    // WRK-083 B5 — the direction the test above cannot cover.
+    //
+    // Closing the right island is the safe direction: the target state has no right island at all, so its
+    // width never enters the arithmetic and the gate cannot be wrong about it. OPENING is where the two
+    // sources of truth meet — and they disagreed. `_takenOf` used the RESTING `rightWidth` (320) while the
+    // island actually lays out at `rightWidth.clamp(rightIslandMin, rightCeiling)`, and in a narrow window
+    // the ceiling really does bite: at this very window size (the one the test above already uses)
+    // ceiling = (1084 − 328 − 480 − 8).clamp(280, 640) = 280. So the gate froze the ocean at 428 while the
+    // settled truth was 468 — a 40px snap the moment the freeze lifted. That is the whole of the user's
+    // 「小窗口下右岛开合仍跳变」, and it is invisible at full screen because there the ceiling never clamps.
+    //
+    // The assertion is the INVARIANT, not the number: whatever width the ocean settles at, every frame of
+    // the slide must already be at that width. A test pinned to 468 would go stale the day a token moves;
+    // this one stays true.
+    //
+    // WRK-083 B5——上面那条测试**覆盖不到**的方向。
+    //
+    // **关闭**是安全方向:终态压根没有右岛,它的宽度从不进入算式,闸不可能算错。**打开**才是两个事实源相遇的地方
+    // ——而它们不一致。`_takenOf` 用的是**静息** `rightWidth`(320),而右岛实际按
+    // `rightWidth.clamp(rightIslandMin, rightCeiling)` 布局;窄窗下那个上限**真的会夹**:就在上面那条测试用的
+    // 同一个窗宽下,ceiling = (1084 − 328 − 480 − 8).clamp(280, 640) = 280。于是闸把海洋冻在 428,而落定的真相
+    // 是 468——冻结一解除就 snap 40px。这就是用户「小窗口下右岛开合仍跳变」的全部,而全屏下看不见,因为那里上限
+    // 从不夹取。
+    //
+    // 断言的是**不变量**、不是那个数字:海洋最终落在哪个宽度,滑动的每一帧就必须已经在那个宽度上。钉死 468 的
+    // 测试会在某个令牌变动的那天过期;这一条不会。
+    testWidgets(
+      'NARROW window, OPENING: the frozen width IS the settled width (no snap)',
+      (tester) async {
+        tester.view.physicalSize = const Size(1100, 800);
+        tester.view.devicePixelRatio = 1.0;
+        addTearDown(tester.view.reset);
+
+        final widths = <double>[];
+        final open = ValueNotifier(
+          false,
+        ); // starts CLOSED — we are testing the OPEN direction 从收起开始
+        addTearDown(open.dispose);
+        const probeKey = ValueKey('oceanProbe');
+        await tester.pumpWidget(
+          hostWithToggle(
+            open,
+            LayoutBuilder(
+              builder: (_, c) {
+                widths.add(c.maxWidth);
+                return const SizedBox.expand(key: probeKey);
+              },
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        open.value = true; // reveal the right island 揭开右岛
+        widths.clear();
+        await tester.pump(); // the flip frame 翻转帧
+        await tester.pump(const Duration(milliseconds: 40));
+        await tester.pump(const Duration(milliseconds: 60));
+        final duringSlide = widths.toSet();
+
+        await tester.pumpAndSettle();
+        final settled = tester.getSize(find.byKey(probeKey)).width;
+
+        expect(
+          duringSlide,
+          anyOf(isEmpty, equals({settled})),
+          reason:
+              'the ocean was frozen at $duringSlide but settles at $settled — '
+              'the freeze gate and the island disagree about the island width (WRK-083 B5)',
+        );
+      },
+    );
+
     testWidgets(
       'WIDE window: the slide keeps the continuous relayout (cheap — the 720 column never re-shapes)',
       (tester) async {

@@ -142,29 +142,72 @@ class _AnShellState extends State<AnShell> {
   bool _leftAnimating = false;
   bool _rightAnimating = false;
 
-  // The ocean-width the CURRENT target state implies, remembered across a target flip so the freeze
-  // gate can consider BOTH ends of the animation (either end inside the reflow zone freezes).
-  // 目标态占宽记账(翻转前的旧值即动画起点)——冻结闸看动画两端,任一端入 reflow 区即冻。
-  double _prevTaken = 0;
+  // The state the animation is coming FROM, kept as the raw INPUTS rather than a derived number.
+  //
+  // It used to be a pre-computed `_prevTaken`, and that is what made WRK-083 B5 possible: "how much room
+  // do the islands take" depends on the shell's width (the right island's ceiling is carved out of it),
+  // and `initState` / `didUpdateWidget` cannot see that width. Deriving there forced a second, width-blind
+  // copy of the arithmetic. Storing the inputs lets BOTH ends of the animation be measured in `build`, by
+  // the one function that knows the width — so there is exactly one answer to the question.
+  //
+  // 动画的**起点态**,存**原始输入**而非派生数字。
+  //
+  // 它原本是预先算好的 `_prevTaken`,而那正是 WRK-083 B5 得以成立的原因:「两岛占多少地方」取决于**壳宽**
+  // (右岛的上限就是从壳宽里抠出来的),而 `initState` / `didUpdateWidget` 看不见壳宽。在那里求值就逼出了这套
+  // 算术的**第二份、且对宽度失明的**副本。改存输入,动画两端就都能在 `build` 里由唯一知道宽度的那个函数量出来
+  // ——于是这个问题只有一个答案。
+  ({
+    bool leftCollapsed,
+    double leftWidth,
+    bool inspectorOpen,
+    double rightWidth,
+  })?
+  _prevState;
 
+  static double _leftTakenOf(bool collapsed, double width) =>
+      collapsed ? 0.0 : width + AnSize.shellGap;
+
+  /// The right island's live drag ceiling — the width left over once the left island, the ocean's floor
+  /// and the gaps are paid for, itself clamped to the island's own range.
+  ///
+  /// 右岛的实时拖拽上限——付掉左岛、海洋保底与间距后剩下的宽度,再钳进右岛自己的量程。
+  static double _rightCeilingOf(double shellWidth, double leftTaken) =>
+      (shellWidth - leftTaken - AnSize.oceanMin - AnSize.shellGap).clamp(
+        AnSize.rightIslandMin,
+        AnSize.rightIslandMax,
+      );
+
+  /// How much horizontal room the islands occupy in a given state — walking the SAME clamp chain the
+  /// right island itself walks (`_RightReveal` lays out at `_w.clamp(rightIslandMin, maxWidth)`).
+  ///
+  /// That agreement is the whole point (WRK-083 B5). This used to read the RESTING [AnShell.rightWidth]
+  /// while the island rendered at the clamped one, and in a narrow window the ceiling really bites: at a
+  /// 1100pt window the ceiling is 280 against a resting 320, so the gate froze the ocean 40pt narrower
+  /// than the width it would settle into and the freeze lifted with a visible snap. Full screen never
+  /// showed it because there the ceiling never clamps — which is exactly why the bug read as
+  /// 「只有小窗口才跳」.
+  ///
+  /// 某个状态下两岛占用的横向宽度——走的是右岛**自己走的那条钳制链**
+  /// (`_RightReveal` 按 `_w.clamp(rightIslandMin, maxWidth)` 布局)。
+  ///
+  /// 这份一致正是要害(WRK-083 B5)。它此前读的是**静息**的 [AnShell.rightWidth],而岛渲染用的是钳制后的值;
+  /// 窄窗下那个上限真的会夹:1100pt 窗口下上限是 280、静息值是 320,于是闸把海洋冻得比它将要落定的宽度**窄 40pt**,
+  /// 冻结一解除就是一次看得见的 snap。全屏永远看不到,因为那里上限从不夹取——这正是这个 bug 读起来像
+  /// 「只有小窗口才跳」的原因。
   double _takenOf({
+    required double shellWidth,
     required bool leftCollapsed,
     required double leftWidth,
     required bool inspectorOpen,
     required double rightWidth,
-  }) =>
-      (leftCollapsed ? 0.0 : leftWidth + AnSize.shellGap) +
-      (inspectorOpen ? rightWidth + AnSize.shellGap : 0.0);
-
-  @override
-  void initState() {
-    super.initState();
-    _prevTaken = _takenOf(
-      leftCollapsed: widget.leftCollapsed,
-      leftWidth: widget.leftWidth,
-      inspectorOpen: widget.inspectorOpen,
-      rightWidth: widget.rightWidth,
+  }) {
+    final leftTaken = _leftTakenOf(leftCollapsed, leftWidth);
+    if (!inspectorOpen) return leftTaken;
+    final right = rightWidth.clamp(
+      AnSize.rightIslandMin,
+      _rightCeilingOf(shellWidth, leftTaken),
     );
+    return leftTaken + right + AnSize.shellGap;
   }
 
   @override
@@ -172,7 +215,7 @@ class _AnShellState extends State<AnShell> {
     super.didUpdateWidget(old);
     if (old.leftCollapsed != widget.leftCollapsed ||
         old.inspectorOpen != widget.inspectorOpen) {
-      _prevTaken = _takenOf(
+      _prevState = (
         leftCollapsed: old.leftCollapsed,
         leftWidth: old.leftWidth,
         inspectorOpen: old.inspectorOpen,
@@ -250,28 +293,43 @@ class _AnShellState extends State<AnShell> {
             // The right island may be dragged wide (rightIslandMax) but the OCEAN keeps its floor: the
             // live drag ceiling is whatever width remains after the left island + oceanMin + gaps.
             // 右岛可拖宽,但海洋保底优先:动态上限=扣除左岛/海洋下限/间距后的余宽。
-            final leftTaken = widget.leftCollapsed
-                ? 0.0
-                : widget.leftWidth + AnSize.shellGap;
-            final rightCeiling =
-                (shellWidth - leftTaken - AnSize.oceanMin - AnSize.shellGap)
-                    .clamp(AnSize.rightIslandMin, AnSize.rightIslandMax);
+            final leftTaken = _leftTakenOf(
+              widget.leftCollapsed,
+              widget.leftWidth,
+            );
+            final rightCeiling = _rightCeilingOf(shellWidth, leftTaken);
 
             // ── the reveal-freeze gate (S11, see the State doc) 开合冻结闸 ──
             final targetTaken = _takenOf(
+              shellWidth: shellWidth,
               leftCollapsed: widget.leftCollapsed,
               leftWidth: widget.leftWidth,
               inspectorOpen: widget.inspectorOpen,
               rightWidth: widget.rightWidth,
             );
+            final prev = _prevState;
+            final prevTaken = prev == null
+                ? targetTaken
+                : _takenOf(
+                    shellWidth: shellWidth,
+                    leftCollapsed: prev.leftCollapsed,
+                    leftWidth: prev.leftWidth,
+                    inspectorOpen: prev.inspectorOpen,
+                    rightWidth: prev.rightWidth,
+                  );
+            // Floored at ZERO, not at [AnSize.oceanMin]. The ocean's floor is a preference the layout
+            // honours while it can, and in a window too narrow to satisfy everyone the right island's own
+            // minimum wins — so the ocean really does render below `oceanMin`. Clamping here would have the
+            // gate freeze the ocean at a width the layout is never going to produce, which is the same
+            // class of lie B5 was (a second opinion about a number the layout already decides).
+            // 下限取**零**、不取 [AnSize.oceanMin]。海洋保底是布局**力所能及时**遵守的偏好,而窗口窄到无法两全时,
+            // 右岛自己的最小值胜出——于是海洋**真的**会渲得低于 `oceanMin`。在这里钳制,等于让闸把海洋冻在一个布局
+            // 永远不会产出的宽度上,与 B5 是同一类谎(对一个布局已经决定了的数字发表第二意见)。
             final targetOceanW = (shellWidth - targetTaken).clamp(
-              AnSize.oceanMin,
+              0.0,
               shellWidth,
             );
-            final prevOceanW = (shellWidth - _prevTaken).clamp(
-              AnSize.oceanMin,
-              shellWidth,
-            );
+            final prevOceanW = (shellWidth - prevTaken).clamp(0.0, shellWidth);
             final freeze =
                 (_leftAnimating || _rightAnimating) &&
                 (targetOceanW < _reflowFloor || prevOceanW < _reflowFloor);
