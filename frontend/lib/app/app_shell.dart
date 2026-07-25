@@ -21,6 +21,8 @@ import '../features/chat/ui/chat_toc.dart';
 import '../features/chat/ui/conversation_rail.dart';
 import '../features/library/state/library_state.dart';
 import '../features/library/ui/library_ocean.dart';
+import '../core/workspace/workspace_switch.dart';
+import '../features/settings/state/workspaces_provider.dart';
 import '../features/library/ui/library_rail.dart';
 import '../features/library/ui/library_inspector.dart';
 import '../core/shell/right_panel.dart';
@@ -288,7 +290,34 @@ class _AppShellState extends ConsumerState<AppShell> {
             anchorBuilder: (context, toggle, isOpen) =>
                 AnWorkspaceButton(name: wsName, onTap: toggle, isOpen: isOpen),
             entries: [
-              AnMenuItem(label: wsName, checked: true, onTap: () {}),
+              // EVERY workspace, not just the current one (WRK-083 L3). This used to be a single inert
+              // row echoing the name already printed on the button above it — so a user with two
+              // workspaces had no way to reach the second one from the shell at all, and the menu's
+              // one and only informative row told them something they could already see. The
+              // architecture doc has always described this menu as「切换/新建/工作区设置」; the switch
+              // third of it simply was not wired.
+              //
+              // Same action the settings panel's row click uses — `switchTo` is the whole hot-switch
+              // choreography (leave the deep link, then set id+name, then let the reactive cascade
+              // re-fetch and reconnect the three streams). Reaching for it here rather than re-rolling
+              // the beats is the point: two switch entry points, one choreography.
+              //
+              // **每一个** workspace,不只是当前那个(WRK-083 L3)。这里原本是**一行不可点的**、复述着它上方
+              // 按钮已经印出来的名字——于是有两个 workspace 的用户从壳里**根本到不了**第二个,而这个菜单唯一
+              // 一行有信息量的内容,告诉他的是他已经看得见的事。架构文档一直把这个菜单描述为
+              // 「切换/新建/工作区设置」;那三分之一的「切换」只是从来没接上线。
+              //
+              // 用的是设置页里点行所用的**同一个动作**——`switchTo` 是整套热切换编舞(先离开深链、再设 id+name、
+              // 然后交给响应式级联去重取并重连三条流)。在这里去够它、而不是把那几拍重抄一遍,正是要点:两个切换
+              // 入口,一套编舞。
+              for (final w in ref.watch(workspacesProvider).value ?? const [])
+                AnMenuItem(
+                  label: w.name,
+                  checked: w.id == ref.watch(activeWorkspaceProvider),
+                  onTap: () => ref
+                      .read(workspaceSwitchProvider)
+                      .switchTo(id: w.id, name: w.name),
+                ),
               AnMenuItem(
                 label: context.t.shell.newWorkspace,
                 icon: AnIcons.plus,

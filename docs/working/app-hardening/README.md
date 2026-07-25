@@ -290,7 +290,8 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 | B3 | 驻地按钮尺寸不对齐模型选择器 | 面包屑控件的**档位**无人约束:驻地/分叉写死 `sm`(24pt/icon12)、模型菜单用默认 `md`(28pt/icon16) | `08b8f215` | `chat_head_test` **B3**:对 `ChatHead` 下**每一个** `AnButton` 全称断言 `size == md`(先证红 ✓) | **无覆盖**——从没有测试看过头部控件的尺寸;像素断言也抓不到,因为两种尺寸都能正常渲染 | ✅ 已修 |
 | B4 | 面包屑不该显具体名字 | 同上:面包屑**是否携带数据派生文本**无人约束 | `08b8f215` | `chat_head_test` **B4**:断言收起态的头部不含目录 basename / 全路径 / 分叉源标题,但保留线程**自己**的标题(先证红 ✓) | **无覆盖**——旧测试反而**要求**显示名字(`mounted: the basename labels the button` 等 5 条),它们已**反转**而非删除,反转留在案上 | ✅ 已修 |
 | B5 | 窄窗右岛跳变 | **右岛宽度双事实源**(§0 判据成立):`_takenOf` 读**静息** `rightWidth`(320),右岛实际按 `rightWidth.clamp(rightIslandMin, rightCeiling)` 布局。1100pt 窗口下 ceiling = `(1084−328−480−8).clamp(280,640)` = **280** → 闸把海洋冻在比落定值窄 40pt 处,冻结一解除即 snap。**第二层同病**:`targetOceanW` 上那个 `.clamp(oceanMin, …)` 也在撒谎——窗口窄到无法两全时 `rightIslandMin` 压过海洋保底,海洋**真的**会渲到 468 < `oceanMin` 480 | `5ca651c8` | `an_shell_test` **「NARROW window, OPENING」**:断言**不变量**(滑动每一帧的宽度 == 落定宽度),不钉具体像素(钉死的数字会在令牌变动那天过期)。先证红 ✓(冻在 480、落定 468) | **有测但只测了安全方向**:既有「NARROW window: an island slide…」用的**正是同一个 1100pt 窗口**(夹取已经在发生!),但它只测**关闭**——终态没有右岛,右岛宽度从不进入算式,闸不可能算错。**打开**才是两个事实源相遇的方向,而那个方向没人测 | ✅ 已修 |
-| **L1** | `GET /conversations/cv_xxx` 及 `/messages` **404**,23:43 ×2、00:59 又 ×2(另一 ID) | 待查 | | | | **待查**——app 在请求不存在的对话,疑似删除/分叉后残留旧选区 |
+| **L1** | `GET /conversations/{id}` 及 `/messages`、`/workdir` **404**——真机构造复现:选中一条对话后切 workspace,同一瞬间三条 404 | **切换编舞的「先离开」只是语句顺序、不是时间顺序**。`go('/')` 同步更新 router,但 watch 选区的 widget 要**下一帧**才重建,而只有当最后一个松手,按旧对话 id 分家的 `autoDispose.family` 才真正死掉。在那个窗口里翻 workspace,repository 级联就在它们**还活着**时开火 | `PLACEHOLDER_L1` | `hot_switch_test`「after a switch, nothing asks about the old conversation」——断言落在**线缆**上(切换后不得有针对旧对话的请求),并带**对照组**(不切换时零请求)。守卫经历三次自我纠错才成立:①第一版断言「id 翻转时 URL 是 `/`」是**空绿**(`go` 同步改 URL,带病版本同样通过);②夹具对一切路径答 `{data:[]}`,`getConversation` 解析不了、错误路径重读,守卫把那次重读当成缺陷;③把 SSE 网关 stub 掉又让它空绿——**正是网关重建把陈旧 provider 拽回人间**。先证红 ✓(回滚后 2 条) | **无覆盖**:既有 `hot_switch_test` 只断言「切换后 URL 是 `/`、id 是新的」,那两条在带病版本里**同样成立**。没有任何测试问过「切换之后还有谁在发请求」 | 🟡 **实测 3 条 → 1 条**,残留一条 `/messages`(见下「L1 残留」) |
+| **L3** | 左岛底栏的 workspace 菜单**只列当前那一个**——有两个 workspace 的用户从壳里根本切不过去(服务端 `/workspaces` 返两个,菜单列一个) | 菜单那一行是**写死**的 `AnMenuItem(label: wsName, checked: true, onTap: () {})`:它复述着打开它的那颗按钮上已经印着的名字,且不可点。架构文档一直把这个菜单描述为「切换/新建/工作区设置」——**「切换」那三分之一从来没接上线** | `PLACEHOLDER_L1` | `test/app/workspace_switcher_test.dart`:喂三个 workspace,断言**每一个**都在菜单里、且点非当前项真的切过去。守的是**数目**不是字符串(断言「Personal 与演示工作台都在列」对一个把这两个名字写死的菜单同样会通过)。先证红 ✓ | **无覆盖**——从没有测试把菜单的行数与 `/workspaces` 对过。界面上它毫无破绽:菜单打得开、看着也对、当前项旁边还有个勾 | ✅ 已修 |
 | **L2** | 冷启动与热重启**必现**的 riverpod 断言 `setState() called during build` | **懒刷新的脏跨过了 build 边界**:`WorkspaceBootstrap` 先 `read(apiClientProvider)` 把 dio+apiClient 挂起来,随后在 await 之后 set `activeWorkspaceProvider`——而 dio **watch** 着它(那个 watch 就是热切换脉搏)。dio 就此变脏,riverpod 懒刷新,于是这份脏一直搁到某个 **widget** 的 build 走下那条链(rail → `chatRepositoryProvider` → `apiClientProvider`),刷新在 build 里跑、apiClient 自我失效、调度 refresh = 对 scope 的 `setState`。**在 build 中途** | `c76740f7` | **双守卫,都先证红**:① 行为——`provider_settle_guard_test` 用 40 行复现同一条断言(build 外 set → 后续 build 首次 watch);② **源码级**——`workspace_write_guard_test` 扫 `lib/**`,任何绕过 `setActiveWorkspace` 直接调 `.notifier).set(` 的文件即红(行为测试对**新增的绕行调用点**一无所知,而绕行正是最容易犯的错:它编译得过、id 也设对了,损害落在别处) | **没有任何测试覆盖 provider 图的时序**。既有测试要么 `overrideWithValue(apiClient)` 绕开真链(`workspace_bootstrap_test`),要么只在 `ProviderContainer` 里跑、根本没有 widget build 阶段(`hot_switch_test`)。**「脏是否跨过 build 边界」这件事,之前一个字都没测过** | ✅ 已修 |
 
 ### B1 复现(2026-07-26 02:16,真机,意外但完整)
@@ -308,6 +309,20 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 **判读**:退出驻地这个动作本身完全正确(库、投影、面包屑字形三处都对),**唯独左岛没跟上**——正是 B1 报的
 那件事,只不过用户报的是「修改后」,这里是「退出后」,同一个失效缺口的两个入口。这进一步坐实 §0 铁律二对
 B1 根因的判断:**失效责任散落在各个变更点**,补一行 `invalidate` 只会修好其中一个入口。
+
+### L1 残留(3 条 → 1 条,如实记录,不宣布全好)
+
+修复(切换动作等导航落地再翻 id)在真机上把三条 404 砍到**恰好一条**:`/conversations/{旧}` 与
+`/workdir` 消失,只剩 `/messages`。单测守卫覆盖 header 与 transcript 两个 family 且均已证红,但它**抓不到
+这最后一条**——真机上 `conversationStreamProvider` 被一张 family 网(`sidestageActivityProvider` →
+`stageDirectorProvider`/`touchpointLedgerProvider`/`rundownProvider`)牵着,而壳始终挂载,单测宿主复现不出
+那份持有关系。
+
+**试过且被自己证伪的一条**:`dio.close(force: true)`——假设是「跨越切换的在飞请求在发送时才读 header,于是带着
+新 workspace 去问旧行」。真机实测**结果不变**,故该改动已撤销。留一个注释里写着假因果的改动,比不改更糟。
+
+**下一步(已定位,未施工)**:让 `conversationStreamProvider` 的 `_hydrate` 在 workspace 已变时不发请求——
+它是 `unawaited` 的即发即忘,是唯一还能在 provider 将死未死之际把请求送出去的地方。
 
 ### B5 的真机复看边界(如实划清,不冒充)
 

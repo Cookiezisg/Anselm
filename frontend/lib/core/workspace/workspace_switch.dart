@@ -1,3 +1,4 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../router/navigation.dart';
@@ -28,8 +29,10 @@ class WorkspaceSwitch {
     // detail page briefly queries the old id under the new workspace (a 404 flash).
     // 先导航:级联重取前旧深链必须先离场,否则未卸载的详情页会在新 workspace 下查旧 id(404 闪)。
     _ref.read(goRouterProvider).go('/');
-    setActiveWorkspace(_ref, id);
-    _ref.read(activeWorkspaceNameProvider.notifier).set(name);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      setActiveWorkspace(_ref, id);
+      _ref.read(activeWorkspaceNameProvider.notifier).set(name);
+    });
   }
 }
 
