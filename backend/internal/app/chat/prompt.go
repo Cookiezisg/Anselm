@@ -81,6 +81,11 @@ func (s *Service) buildSystemPrompt(ctx context.Context, conv *conversationdomai
 	}
 	sections = append(sections,
 		section{"user_system_prompt", conv.SystemPrompt},
+		// The residency sits next to environment because it IS environment: where "here" is, this turn.
+		// Empty on an unmounted thread, and empty sections are dropped below, so a thread with no work dir
+		// gets a byte-identical prompt to pre-WD1. 驻地紧邻 environment,因为它**就是** environment:本回合
+		// 「这里」是哪儿。未挂线程返空、空段在下面被丢掉,故无工作目录的线程 prompt 与 WD1 之前逐字节相同。
+		section{"work_dir", workDirSection(ctx, conv.WorkDir)},
 		section{"environment", environmentSection(ctx)},
 		section{"architecture_rules", architectureRulesSection},
 		section{"conversation_management", conversationSection},

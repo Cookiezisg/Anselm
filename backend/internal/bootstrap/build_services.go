@@ -388,6 +388,11 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// so the rail can show a "needs you" dot — same post-build port pattern.
 	// List/Get 同样据 chat 的 humanloop broker（待决 interaction）派生每行 awaitingInput，使 rail 显「等你」点——同款后注入端口。
 	conv.SetAwaitingInputQuerier(chat)
+	// Switching the work dir mid-thread appends a durable in-line mark to the conversation (a `marker`
+	// block) — messages belong to chat, so conversation reaches it through the same post-build port.
+	// 线程中途切换工作目录会给对话追加一条持久行内标记（`marker` 块）——消息归 chat，故 conversation 经
+	// 同款后注入端口去找它。
+	conv.SetWorkDirMarker(chat)
 	// Update validates attachedDocuments against live documents (reject a dangling/deleted doc id at
 	// attach time, 422 — F168-M5). doc was built before conv and does not depend on it, so no cycle.
 	// Update 据存活文档校验 attachedDocuments（attach 时拒悬挂/已删 doc id，422——F168-M5）。doc 先于 conv

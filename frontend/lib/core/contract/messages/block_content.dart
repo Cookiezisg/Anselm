@@ -14,13 +14,18 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 part 'block_content.freezed.dart';
 part 'block_content.g.dart';
 
-/// The sealed set of block types (CLAUDE.md "6 block 型"): the six persisted `message_blocks` kinds
-/// (messages.go:55-81). `message` is the meta WRAPPER node (chat top-of-turn; NOT a persisted block,
+/// The sealed set of block types (CLAUDE.md "7 block 型"): the seven persisted `message_blocks` kinds
+/// (messages.go:55-118). `message` is the meta WRAPPER node (chat top-of-turn; NOT a persisted block,
 /// NOT mirrored to the agent entities stream) and `unknown` is the forward-compat fallback — both are
 /// modelled here so a reducer can classify any wire `node.type`. The on-wire string is OPEN
 /// ([StreamNode.type]); this enum is only the consumer's classification.
 ///
-/// block 型枚举:6 个持久化块型 + `message`(元包装,非持久块、不镜像到 agent entities 流)+ `unknown`
+/// [marker] never arrives on the stream — it is a durable in-line mark another subsystem appends to the
+/// thread (today: a mid-thread residency switch, `attrs {kind:'workdir', from, to}`), read back through
+/// `GET /{id}/messages` exactly like [compaction]. Its `content` is EMPTY by contract: the label is
+/// rendered client-side from attrs so it appears in the user's own language.
+///
+/// block 型枚举:7 个持久化块型 + `message`(元包装,非持久块、不镜像到 agent entities 流)+ `unknown`
 /// 兜底。线缆 node.type 是开放串([StreamNode.type]),本枚举只是消费方的归类。
 @JsonEnum()
 enum BlockKind {
@@ -36,6 +41,8 @@ enum BlockKind {
   progress,
   @JsonValue('compaction')
   compaction,
+  @JsonValue('marker')
+  marker,
   @JsonValue('message')
   message,
   unknown,
@@ -50,6 +57,7 @@ BlockKind blockKindFromWire(String wire) => switch (wire) {
   'tool_result' => BlockKind.toolResult,
   'progress' => BlockKind.progress,
   'compaction' => BlockKind.compaction,
+  'marker' => BlockKind.marker,
   'message' => BlockKind.message,
   _ => BlockKind.unknown,
 };

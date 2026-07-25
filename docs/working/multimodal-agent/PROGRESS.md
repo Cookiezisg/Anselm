@@ -716,3 +716,23 @@ A1/A2(媒体)需**网关先部署**;A3(音频播放 seek)与 A5 后半需**重�
 **复审改了一处**:CH-c 在 `turn_actions.dart` 里手搓了一个 `EdgeInsets` 字面量,被**收敛棘轮**抓到(`n - 1` 的裸数字坐在 padding 调用里)。已把条件提出成命名的 `isCurrent`——它本就用两次;棘轮判得对:间距必须来自代币,而一个 `- 1` 坐在 padding 里正是私铸尺寸档的起头。
 
 **未做**:编辑重发**不携带 @ 提及**(契约只点了附件;提及快照是冻结的**内容**,而编辑后的文本可能已删掉那个 `@`;body 也没有 `mentions` 键,重解析无从下手)。留档,将来要支持须给 retry body 加 `mentions`、与 Send 同源。
+
+### ⑭ WD1 对话工作目录(驻地)地基 ✅ 门禁绿(`REAL_EXIT=0`)+ 主会话自跑 6 testend + 9 对抗路径全绿
+
+派 Opus 5 建、主会话逐行复审 + **亲自读完路径判定** + 跑门禁 + 自跑两套测试。用户原话:「工作目录我是希望是一个**可选项**……只是告诉 ai 我们 zoom in 到这里。但是**如果想看外面什么的,都可以**。」
+
+**要害落对了:只闸写、不闸读。** `Inside(root,target)` 我逐行读过,处处 fail-closed:`root==""` 放行(驻地可选)→ `filepath.Rel` 挡 `..` 穿越**与兄弟目录前缀陷阱**(`HasPrefix("/root-evil/x","/root")` 为真,这正是不用 HasPrefix 的理由)→ `os.OpenRoot` 打不开即 false → 逐组件 `r.Stat`(**Stat 而非 Lstat**:Write/Edit 会**跟随**末段符号链接,故末段指向根外是真逃逸)→ 只有 `ErrNotExist` 才止步放行(缺失组件之下确实藏不了出根链接)。
+
+**Go 钉值 1.25,故走 `os.Root`**;但子代理**没有信文档**——先写探针实测 darwin/go1.25 下绝对/相对/目录三种向外符号链接**都**报 `path escapes from parent`,因为若 `os.Root` 会 chroot 重写绝对目标,它的判决就会与 `os.WriteFile` 实际跟随的东西分叉、**低报**逃逸。
+
+**一处如实记档的保守边界**:`filepath.Rel` 那步大小写敏感,故 macOS/Windows 上同一目录的不同大小写拼法会**多要一次确认**——**绝不会静默放行**;有专测钉住这个不对称。
+
+**CHECK 六→七的守卫是等价性闸**(不是断言新值在里面):从活 Schema **派生**出「旧装机」夹具(仅移除 `,'marker'`),再 PRAGMA 断言「升级后的表 == 全新装机的表」。故「往 CREATE 加了列却忘了 rebuild」会在那里红,而不是**静默从真实用户的消息历史里删掉一列**。
+
+**ctx 播种选 `reqctx` 而非 `AgentState`**,第二个理由是决定性的:subagent 继承因此**免费**(sub-ctx 由父回合的 ctx 派生),而 sub-run 刻意拿**全新** AgentState(不污染 SeenFiles),存那儿会被静默丢掉。
+
+**两处旧立法注释已翻案**(外加三处工单没点名的),`marker` 的呈现路径核对结论:`events.md` 的 `node.type` **确实不变**——`compaction` 的唯一写入者也不发帧,「7 种持久化型 / 5 种流式型」的差早于 WD1,marker 是它第二个成员;文档已写明**为何**不变。
+
+**超出简报的一处主动widening**:search 三件(Grep/Glob/LS)也定了根——否则 `Read("src/x.go")` 能用而 `Grep(path:"src")` 不能,是同一条规则的两个答案。
+
+**复审注意到的两个真 bug(子代理自己发现并修)**:①按钮两态几何不同而 `AnButton` 会动画自己的盒子,`AnimatedContainer` 在 finite→unbounded 上**断言**;第一版从异步探测读「挂没挂」,于是每次打开已挂线程都先渲一帧未挂再形变——测试里崩、app 里也崩。②`WorkDirController` 原先自己 PATCH 行,标签挂载后不更新——行的真相在另一个 provider,只有 SSE 回声能救,违反「发起者用自己权威响应回填」。

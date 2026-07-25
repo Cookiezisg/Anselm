@@ -13,6 +13,7 @@ import '../state/conversation_header.dart';
 import '../state/fork_conversation.dart';
 import '../state/selected_conversation.dart';
 import '../state/title_reveals.dart';
+import 'chat_work_dir_button.dart';
 
 /// The chat ocean's floating-head content. On a THREAD: the title (in-place renameable — the same PATCH
 /// as the rail's ⋯ rename) then the per-thread MODEL picker nudged right by it. On the LANDING: the
@@ -73,6 +74,13 @@ class ChatHead extends ConsumerWidget {
       // shell's head-trailing slot so it sits beside the panel-right toggle. min:头收紧到内容(题+模型)靠左;场次钮已挪到 shell 头尾槽。
       mainAxisSize: MainAxisSize.min,
       children: [
+        // The RESIDENCY button leads the breadcrumb, BEFORE the name: "where we are" reads left of "what this
+        // is", the same order a file path has. It is always this row's first child (it renders its own
+        // unmounted state rather than disappearing), so the title / lineage / model slots never shift.
+        // 驻地按钮领着面包屑、在名字**之前**:「我们在哪」读在「这是什么」左边,与一条文件路径同序。它**恒是**本行
+        // 第一个 child(它自己渲未挂态、而不是消失),故标题 / 血缘 / 模型三个槽位从不移位。
+        ChatWorkDirButton(conversationId: id),
+        const SizedBox(width: AnSpace.s4),
         Flexible(
           child: revealing
               ? SizedBox(

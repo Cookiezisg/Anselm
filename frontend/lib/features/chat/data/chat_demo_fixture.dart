@@ -1235,6 +1235,7 @@ DemoChatRepository demoChatRepository() {
     bool generating = false,
     bool awaiting = false,
     bool unread = false,
+    String workDir = '',
   }) {
     final at = ago(since);
     return Conversation(
@@ -1249,6 +1250,7 @@ DemoChatRepository demoChatRepository() {
       isGenerating: generating,
       awaitingInput: awaiting,
       hasUnread: unread,
+      workDir: workDir,
     );
   }
 
@@ -1509,6 +1511,25 @@ DemoChatRepository demoChatRepository() {
       ), // D-012: its Cast ledger fails its first fetch 台账首拉失败
       for (final c in pastChats)
         c.conv, // D-005 history — rail paginates past its 30-row page 历史使 rail 翻页
+      // WD1 — the residency's THREE button states, demo-able without a real folder on the machine (the
+      // fixture scripts the projections below). A mounted git repo (folder + name + branch + dirty), a
+      // mounted directory that VANISHED (the warning), and every other thread above is the unmounted
+      // laptop state — so `make demo` shows all three side by side.
+      // WD1——驻地按钮**三态**,机器上不需要真文件夹即可演(投影由下方夹具脚本化)。一个已挂的 git 仓库(文件夹+
+      // 名字+分支+脏点)、一个**已消失**的已挂目录(警示),而上面其余每条线程都是未挂的电脑态——故 `make demo`
+      // 把三态并排摆出来。
+      conv(
+        'cv_resident',
+        '驻地 · 在 anselm 里干活',
+        const Duration(minutes: 6),
+        workDir: _demoWorkDir,
+      ),
+      conv(
+        'cv_resident_gone',
+        '驻地 · 目录已不在',
+        const Duration(hours: 2),
+        workDir: _demoGoneWorkDir,
+      ),
       conv(
         'cv_migrate',
         '旧版迁移笔记',
@@ -1518,6 +1539,92 @@ DemoChatRepository demoChatRepository() {
     ],
     messages: {
       for (final c in pastChats) c.conv.id: c.msgs,
+      // WD1 — the residency's in-line MARK, mid-thread. Its wire shape is the real one: a synthetic
+      // assistant turn holding ONE `marker` block whose content is EMPTY and whose attrs carry
+      // {kind, from, to} (the label is localized client-side, so a fixture that put a sentence in
+      // `content` would be demoing something the backend never sends).
+      // WD1——驻地的**行内标记**,线程中途。它的线缆形状就是真实那个:一个合成 assistant 回合,持**一个**
+      // `marker` 块、content **为空**、attrs 带 {kind, from, to}(标签在客户端本地化,故一份把句子塞进
+      // `content` 的夹具演的是后端从不发送的东西)。
+      'cv_resident': [
+        msg(
+          'm_wd1',
+          'cv_resident',
+          'user',
+          const Duration(minutes: 9),
+          blocks: [blk('b_wd1', 'text', '看一下 backend/internal 下面都有什么')],
+        ),
+        msg(
+          'm_wd2',
+          'cv_resident',
+          'assistant',
+          const Duration(minutes: 9),
+          blocks: [
+            blk(
+              'b_wd2',
+              'text',
+              '`internal/` 下是四层:`transport/`(HTTP)、`app/`(编排)、`domain/`(实体与仓储契约)、'
+                  '`infra/`(store/db/llm/sandbox)。相对路径现在以这个目录为根,所以我直接读了 `internal/`。',
+            ),
+          ],
+        ),
+        msg(
+          'm_wd3',
+          'cv_resident',
+          'assistant',
+          const Duration(minutes: 7),
+          blocks: [
+            blk(
+              'b_wd3',
+              'marker',
+              '',
+              attrs: {
+                'kind': 'workdir',
+                'from': '/Users/you/code/scratch',
+                'to': _demoWorkDir,
+              },
+            ),
+          ],
+        ),
+        msg(
+          'm_wd4',
+          'cv_resident',
+          'user',
+          const Duration(minutes: 6),
+          blocks: [blk('b_wd4', 'text', '好,那现在在这里跑一下测试')],
+        ),
+        msg(
+          'm_wd5',
+          'cv_resident',
+          'assistant',
+          const Duration(minutes: 6),
+          blocks: [
+            blk('b_wd5', 'text', '`go test ./...` 在这个目录里跑,不需要 cd——工作目录已经是它了。'),
+          ],
+        ),
+      ],
+      'cv_resident_gone': [
+        msg(
+          'm_wg1',
+          'cv_resident_gone',
+          'user',
+          const Duration(hours: 2, minutes: 1),
+          blocks: [blk('b_wg1', 'text', '这个目录我好像挪走了')],
+        ),
+        msg(
+          'm_wg2',
+          'cv_resident_gone',
+          'assistant',
+          const Duration(hours: 2),
+          blocks: [
+            blk(
+              'b_wg2',
+              'text',
+              '是的——面包屑上那个文件夹现在是警示态,菜单第一行说明它已不存在。重新选一个目录,或者退出工作目录都可以。',
+            ),
+          ],
+        ),
+      ],
       for (final s in shows) s.conv.id: s.messages,
       // D-012 — a real short transcript; opening its Cast (right island) fails its first touchpoint
       // fetch → the error+retry state, then Retry succeeds (the override above is one-shot). 出错与恢复。
@@ -2298,5 +2405,31 @@ DemoChatRepository demoChatRepository() {
     kind: 'text',
     sha256: '9f86d081884c7d65a0f0b3c2',
   );
+  // WD1 — the residency PROJECTIONS. Scripted rather than probed because the demo must show the git segment
+  // (branch + dirty) and the missing-directory warning on ANY machine, including one where neither path
+  // exists. The mounted-but-not-a-repo case is the fixture's own default (exists=true, isGitRepo=false), and
+  // every other thread is unmounted, so all four shapes the button can render are on screen.
+  // WD1——驻地**投影**。脚本化而非真探,因为 demo 必须在**任何**机器上都能展示 git 段(分支+脏点)与目录缺失警示,
+  // 包括两条路径都不存在的机器。「已挂但不是仓库」是夹具自己的默认(exists=true、isGitRepo=false),其余每条线程都
+  // 未挂,故按钮能渲的四种形状全在屏上。
+  repo.workDirInfos[_demoWorkDir] = const WorkDirInfo(
+    path: _demoWorkDir,
+    exists: true,
+    isGitRepo: true,
+    branch: 'main',
+    dirty: true,
+  );
+  repo.workDirInfos[_demoGoneWorkDir] = const WorkDirInfo(
+    path: _demoGoneWorkDir,
+  );
   return repo;
 }
+
+/// The demo's residency paths. Deliberately UNDER a plausible home dir and deliberately NOT real: the demo
+/// must never depend on a folder existing on whoever's machine is running it, and it must never offer to
+/// reveal one that does.
+///
+/// demo 的驻地路径。**刻意**放在一个看起来像样的 home 下、**刻意不是**真的:demo 绝不该依赖某个文件夹在跑它的那台
+/// 机器上存在,也绝不该提议去定位一个真实存在的文件夹。
+const _demoWorkDir = '/Users/you/code/anselm';
+const _demoGoneWorkDir = '/Users/you/code/old-prototype';

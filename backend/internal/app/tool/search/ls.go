@@ -14,6 +14,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	fspathpkg "github.com/sunweilin/anselm/backend/internal/pkg/fspath"
 	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 const (
@@ -21,7 +22,7 @@ const (
 	maxLSLimit     = 1000
 )
 
-const lsDescription = `List a directory's immediate contents (non-recursive), directories first. Absolute path or ~ (e.g. "~/Downloads"). The primitive for looking inside a folder and drilling into subdirectories — like opening it in a file browser. Use Glob to find files by name pattern, Grep to find by content.`
+const lsDescription = `List a directory's immediate contents (non-recursive), directories first. Absolute path, ~, or relative to the conversation's working directory when one is mounted. The primitive for looking inside a folder and drilling into subdirectories — like opening it in a file browser. Use Glob to find files by name pattern, Grep to find by content.`
 
 var lsSchema = json.RawMessage(`{
 	"type": "object",
@@ -64,10 +65,10 @@ func (t *LS) Name() string                { return "LS" }
 func (t *LS) Description() string         { return lsDescription }
 func (t *LS) Parameters() json.RawMessage { return lsSchema }
 
-// ValidateInput requires a non-empty path and non-negative limit; ~ / absolute
-// resolution is deferred to Execute via fspath.Expand.
+// ValidateInput requires a non-empty path and non-negative limit; ~ / absolute / work-dir-relative
+// resolution is deferred to Execute via fspath.ExpandIn.
 //
-// ValidateInput 要求 path 非空、limit 非负;~ / 绝对解析留给 Execute 的 fspath.Expand。
+// ValidateInput 要求 path 非空、limit 非负;~ / 绝对 / 驻地相对的解析留给 Execute 的 fspath.ExpandIn。
 func (t *LS) ValidateInput(args json.RawMessage) error {
 	var a lsArgs
 	if err := json.Unmarshal(args, &a); err != nil {
@@ -103,7 +104,7 @@ func (t *LS) Execute(ctx context.Context, argsJSON string) (string, error) {
 	}
 	args.normalize()
 
-	abs, err := fspathpkg.Expand(args.Path)
+	abs, err := fspathpkg.ExpandIn(reqctxpkg.GetWorkDir(ctx), args.Path)
 	if err != nil {
 		return err.Error(), nil
 	}

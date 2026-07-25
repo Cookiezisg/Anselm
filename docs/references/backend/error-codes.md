@@ -385,6 +385,7 @@ audience: [human, ai]
 |---|---|---|
 | `CONVERSATION_ATTACHED_DOC_NOT_FOUND` | 422 | conversation attaches a document that does not exist (F168-M5; `details.missing`) |
 | `CONVERSATION_INVALID_MODEL_OVERRIDE` | 422 | invalid modelOverride (apiKeyId and modelId both required) |
+| `CONVERSATION_INVALID_WORK_DIR` | 422 | invalid workDir (must be an absolute path, or empty to unmount) |
 | `CONVERSATION_NOT_FOUND` | 404 | conversation not found |
 
 ### `domain/document`
@@ -685,7 +686,7 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `FSPATH_EMPTY_PATH` | 400 | path is required |
-| `FSPATH_NOT_ABSOLUTE` | 400 | path must be absolute (the agent has no working directory; pass an absolute path or one starting with ~) |
+| `FSPATH_NOT_ABSOLUTE` | 400 | path must be absolute (no work directory is mounted for this conversation; pass an absolute path or one starting with ~) |
 | `FSPATH_NO_HOME` | 500 | cannot expand ~: home directory is unknown |
 
 ### `pkg/orm`

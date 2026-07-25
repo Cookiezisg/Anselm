@@ -109,6 +109,42 @@ type BuildSpec struct {
 	Op   string // "create" | "edit"
 }
 
+// FileWriteTool is an optional interface for tools whose call physically writes ONE file at a path
+// carried in its own args (Write / Edit). It exists for the residency's write gate (WRK-077 WD1): when a
+// conversation has a work dir mounted, a write landing OUTSIDE that subtree is escalated to a human
+// confirmation no matter what danger level the LLM self-reported — an out-of-root write is a fact about
+// the TARGET PATH, and the model's own honesty about it cannot be the last line of defence.
+//
+// The loop asserts this exactly the way it asserts BuildTool: the gate stays generic (it cannot tell a
+// `file_path` from a `content`) and each tool answers for its own arg shape. Returning "" — unparseable
+// args, no path — falls through to the normal danger gate, which is correct: a write whose target cannot
+// be determined will fail in Execute anyway, and inventing a confirmation for it would train the user to
+// click through prompts that mean nothing.
+//
+// NOT one of Tool's five methods (which stay exactly five, S18): an optional capability interface is how
+// this codebase already extends a tool without widening the contract every tool must satisfy.
+//
+// FileWriteTool 是可选接口，用于「一次调用物理地写**一个**文件、且路径就在自己 args 里」的工具
+// （Write / Edit）。它为驻地的越界写闸而存在（WRK-077 WD1）：当对话挂了工作目录时，落在该子树**之外**的
+// 写会被升级为一次人工确认，**无论** LLM 自报了哪个 danger 等级——越界写是关于**目标路径**的一个事实，
+// 模型对此的诚实不能是最后一道防线。
+//
+// loop 断言它的方式与断言 BuildTool 完全一致：闸保持通用（它分不清 `file_path` 与 `content`）、每个工具
+// 为自己的 args 形状负责。返回 "" ——args 解不开、没有路径——会落回普通 danger 闸，这是对的：一次目标都
+// 定不下来的写在 Execute 里本来也会失败，而为它凭空造一次确认，只会训练用户闭眼点掉什么都不代表的弹窗。
+//
+// 它**不在** Tool 的五方法里（五个仍是恰五个，S18）：可选能力接口正是本仓库既有的「扩展一个工具而不加宽
+// 每个工具都必须满足的契约」的做法。
+type FileWriteTool interface {
+	// WriteTarget returns the raw, UNRESOLVED path from args (the ~ / relative / absolute form the LLM
+	// wrote). Resolution is the caller's job so that exactly ONE place applies the residency root —
+	// resolving here would duplicate fspath and let the two copies drift.
+	//
+	// WriteTarget 返回 args 里**未解析**的原始路径（LLM 写下的 ~ / 相对 / 绝对形态）。解析是调用方的活，
+	// 使施加驻地根的地方**恰有一处**——在此解析会复制一份 fspath、让两份逐渐走偏。
+	WriteTarget(argsJSON json.RawMessage) string
+}
+
 // ToJSON renders any value as a compact JSON string for a tool result. Marshal failure (only
 // possible for non-JSON-able values like channels — a programming error, not runtime input)
 // degrades to fmt %v so the LLM still sees something rather than an empty string. One shared

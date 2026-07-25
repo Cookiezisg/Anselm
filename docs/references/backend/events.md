@@ -32,8 +32,15 @@ audience: [human, ai]
 | 流 | node.type 当前全集 |
 |---|---|
 | entities | `build`（create/edit 内容镜像）· `run`（执行中间产出 / flowrun tick，路由节点带 `port`）· `run_started`（**durable**：flowrun 出生，`{flowrunId, origin}`）· `run_terminal`（**durable**：flowrun 终态 completed/failed/cancelled）· `fire`（trigger 扇出）· `status`（ephemeral：mcp 连接态转移 / trigger 暂停态转移 `{paused}`） |
-| messages | `message`（start/stop，durable 带快照）· `text` · `reasoning` · `tool_call` · `tool_result` · `progress`（块级 open/delta/close）· `interaction`（ephemeral 信号：create + resolve 两态，resolve 帧带 `resolved:true`）· `todo`（信号）· `touchpoint`（信号） |
+| messages | `message`（start/stop，durable 带快照）· `text` · `reasoning` · `tool_call` · `tool_result` · `progress`（块级 open/delta/close）· `interaction`（ephemeral 信号：create + resolve 两态，resolve 帧带 `resolved:true`）· `todo`（信号）· `touchpoint`（信号）。**注意：这里是 5 个块型，而 `message_blocks` 有 7 个** ——差的两个（`compaction` / `marker`）**从不上流**，见下方「不上流的两个块型」 |
 | notifications | node.type = 事件类型字符串 `<domain>.<action>`（见下方各域登记） |
+
+**不上流的两个块型（登记为何 `node.type` 不变）**：`message_blocks` 的 CHECK 是 **7 型**，而 messages 流的块级 `node.type` 只有 **5 个**。差额不是遗漏，是两条**刻意**的呈现路径——两者都由**别的子系统**在回合之间追加，而不是由 loop 在回合**内**流式产出，故它们没有 open/delta/close 生命周期可推：
+
+- **`compaction`**（contextmgr 的 `writeAnchor`）——压缩标记块，随 `GET /{id}/messages` 读回。
+- **`marker`**（chat 的 `MarkWorkDirSwitch`，WRK-077 WD1）——驻地在线程中途切换的行内标记，`attrs {kind:'workdir', from, to}`，**同一条路径**：`CreateMessage` 落一个合成 assistant 回合 + 一个块，客户端从普通消息读里拿到它。
+
+两者都**不新增 SSE 流、不新增帧型**（E1/E2 成立）。**为何不发帧也够**：切换驻地是一次 REST `PATCH`，而它本就广播 `conversation.work_dir` 生命周期回声（notifications 流，⤳ 仅帧档），正看着线程的客户端收到它即重读——一条为「已经有回声在飞」的事件再铸一个 messages 帧型，是给同一件事发两遍。**施工时已核对呈现路径**：块经 `hydrateBlockContent` 的默认分支（`{...attrs, content}`）进 `BlockNode.content`，前端 transcript 按 `BlockKind.marker` 渲一条带标发丝线，与 compaction 低语同族。
 
 ## notifications 流（生命周期事件，`<domain>.<action>`）
 
@@ -95,7 +102,7 @@ audience: [human, ai]
 
 **messages 流（主战场）**：message_start/stop（durable，close 带快照）· 块级 open/delta/close（text/reasoning/tool_call/tool_result/progress 实时流，E2 delta=ephemeral）· **interaction 信号**（ephemeral，**create + resolve 两态**——pending 时发 `humanloop.Request`，resolve 时发对称帧带 `resolved:true`[使前端清提示 + 会话 `awaitingInput`「等你」点而不靠 tool_result 反推]；broker pending 表是真相、重连走 REST 重同步）· todo 信号 · **touchpoint 信号**（durable，`node.type="touchpoint"`，scope=conversation，事件 ID=行 id `tp_`，payload=**单条聚合行视图**[幂等 upsert，重放安全]——对话触点台账的实时推送，写侧=chat Send[mentioned/attached] + loop 工具咽喉[created/edited/viewed/executed/deleted]，best-effort、漏推由 REST 兜回）· subagent 子树经 `Open.ParentID` 嵌套（E3）。
 
-**notifications**：⤳ `conversation.{created, updated, deleted, archived, unarchived, pinned, unpinned, auto_titled, model_override, compacted}`（**全族仅帧**——对话生命周期都是 rail 对账回声，rail 收信号后重读对话自身的行；`updated` = 仅改 title/systemPrompt/attachedDocuments 的默认动作；archived/unarchived·pinned/unpinned 为 toggle 动作；`compacted` payload {coversUpToSeq, summaryBytes}——压缩器写）· `memory`：⊞ `{created, updated[内容写], deleted}` / ⤳ `updated[pin 回声]`（与内容写共用 "memory.updated" 词，档位在 setPinned 调用点选）· `sandbox.env_status_changed`：⤳ `installing`（构建开始瞬时回声）/ ⊞ `ready`·`failed`（终态）· ⤳ `sandbox.env_deleted`（env 回收内务回声）。
+**notifications**：⤳ `conversation.{created, updated, deleted, archived, unarchived, pinned, unpinned, auto_titled, model_override, **work_dir**, compacted}`（**全族仅帧**——对话生命周期都是 rail 对账回声，rail 收信号后重读对话自身的行；`updated` = 仅改 title/systemPrompt/attachedDocuments 的默认动作；**`work_dir`** = 驻地挂/切/退（WRK-077 WD1；**只在值真变时发**，重复 PATCH 同一路径是 no-op，故它绝不会为「什么都没改」刷 rail）；archived/unarchived·pinned/unpinned 为 toggle 动作；`compacted` payload {coversUpToSeq, summaryBytes}——压缩器写）· `memory`：⊞ `{created, updated[内容写], deleted}` / ⤳ `updated[pin 回声]`（与内容写共用 "memory.updated" 词，档位在 setPinned 调用点选）· `sandbox.env_status_changed`：⤳ `installing`（构建开始瞬时回声）/ ⊞ `ready`·`failed`（终态）· ⤳ `sandbox.env_deleted`（env 回收内务回声）。
 
 ## P6 支撑域挂载
 

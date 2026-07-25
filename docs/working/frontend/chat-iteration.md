@@ -127,6 +127,47 @@ audience: [human, ai]
 **已知未做**:跨组联动——若读者先把某条 assistant 回答翻到旧版、**再**编辑重发那条 user 问句,该 assistant 组会在新回答流式期间显示新版(「正在生成的那一版恒是你看到的那一版」这条覆盖律),流完后回到读者放它的地方、并带上「后续基于第 N 版」注记。那不是谎、是读者刻意翻过去的位置,故不加跨组耦合去追。
 
 
+
+**WD1 施工记录（0725，施工序⑭）——驻地地基，三处与简报措辞的偏离 + 一处主动加固，逐条裁决入档：**
+
+**后端·新列与 CHECK 立法**：`conversations.work_dir` 走 `ALTER TABLE … ADD COLUMN`（**第三次**用这条结果幂等径，照分叉血缘两列的先例；`TEXT NOT NULL DEFAULT ''`，**本批刻意无索引**——唯一读者是当前线程自己的头行，而 WD1.5 要按本列**分组**出 rail，`(workspace_id, work_dir)` 索引到**那时**才挣得回它的钱）。`message_blocks.type` 的 CHECK **六 → 七**加 `'marker'`，SQLite 无法 ALTER CHECK 故走 `db.MigrateRebuild`（**第三例**，前两例是 `trigger_firings.status += 'missed'` 与 `flowrun_nodes.status += 'cancelled'`）。**本表重建有两处特别**：①它装的是**用户说过的话**，拷错不是 bug、是数据丢失；②`superseded_by` 那句 ALTER 落在 **`messages`**、不在 `message_blocks` 上，故本表现行形状**就是**它的 `CREATE`（13 列全内联、无 ALTER 补的列要记）。守卫照 `trigger/rebuild_test.go` 写成**等价性**门禁而非举例：「老安装」夹具从**现行** Schema **派生**（只把 `,'marker'` 拿掉）、随后逐 PRAGMA 断言「升级后的表 == 全新安装的表」，故往 `CREATE` 加一列却忘了重建会在此挂掉——而不是从一个真实数据库里静默删掉那一列。
+
+**后端·ctx 播种走哪条路**：**`reqctx`，不是 `AgentState`**。判据两条，第二条是决定性的：①它是从对话行读来的**逐回合不可变配置**、不是工具改了再读回的可变状态；②**subagent 继承因此免费**——`subagent.Spawn` 的子 ctx 由父回合 ctx 派生，驻地原封不动带过去、**零管线代码**；而子运行**刻意**拿一个全新 `AgentState`（不污染父 `SeenFiles`），若驻地存在那儿会被**静默丢掉**，于是父线程 zoom 在某处、subagent 却开始把相对路径解析到虚空。播种点是 `runner.go processTask` 在**读头行之后**、`loop.Run` **之前**（顺序承重：那一列是真相源，且「中途切换在**下一**回合生效」正是按钮对用户的承诺，故按钮在生成中**不禁用**）。
+
+**后端·三族工具各自改在哪一行**：①**文件工具**——`fspath` 是路径规则的唯一物理执行点，故改的是**它**（新增 `ExpandIn(root, p)`：root 为空时**逐字等于**旧 `Expand`），六个吃路径的工具各改一行调用：`filesystem/{read.go:130, write.go:99, edit.go:117}` + `search/{grep.go:193, glob.go:125, ls.go:106}`。**搜索三件套一并改是刻意的**——让 `Read("src/x.go")` 成立而 `Grep(path:"src")` 不成立，是同一条规则的两种答案；工单只点名 Read/Write/Edit，此处如实记为**一处主动扩大**。②**Bash**——`buildShellCmd` 加 `cmd.Dir = workDir`（`shell/bash.go`，此前该函数注释明写「No Dir is set (no cwd)」）；`workDir` **显式**传参而非在函数里读 ctx，因为后台路径刻意用 `context.Background()`（驻地必须像那个进程一样活过启动它的回合，读一个已死的 ctx 会静默得到 `""`）。③**越界写闸**——`loop/tools.go dispatchWithGate` 的门条件从「自报 dangerous」变成「自报 dangerous **或** `writesOutsideWorkDir`」。
+
+**后端·路径判定最终走 `os.Root`，Go 钉值 `1.25`**（`mise.toml`，`go version` 实测 go1.25.11 darwin/arm64）。**但没有照指示直接用**——先写探针实测了 `os.Root` 的语义，因为若它像 chroot 那样把**绝对**符号链接目标重写到根内解析，它的判词就会与 `os.WriteFile` 真正会跟随的目标分道扬镳、**低报**逃逸。实测（darwin/go1.25）：绝对、相对**与目录**三种指向根外的链接，`Root.Stat` 全报 `path escapes from parent`，即它与真 syscall 一致，可以承重。最终实现是**两段**：先 `filepath.Rel` 挡**兄弟目录**（`/root-evil` vs `/root`——`os.Root` 对它压根无话可说，因为它不在根里；而这正是朴素 `strings.HasPrefix` 会答错的那一格），再自顶向下逐组件 `Root.Stat`（**Stat 而非 Lstat**：Write/Edit 会**跟随**末段链接，故指向根外的末段是真逃逸），首个 `ErrNotExist` 即止步（不存在之物之下不可能有链接——这让「全新 Write 的目标还不存在」这一格变得**精确**而非近似）。**fail-closed**：解不开的根、逃逸、权限错一律答「在外面」→ 宁可**多**弹一次人闸。**一处如实记档的保守边界**：`filepath.Rel` 那一步对大小写敏感，故在大小写不敏感的文件系统（macOS/Windows）上，驻地 `/root` 而目标拼作 `/Root/x` 会**多设一次闸**；根给的是 symlink 而目标给真实路径同理。两者各多付一次确认，**都绝不可能让一次外部写悄悄通过**——这个不对称是刻意的，且有对抗测试钉住它保守、永不宽松。
+
+**后端·翻案两处旧立法注释（重述后原文）**：
+- `tool/shell/shell.go` 包注释，原「**Two deliberate constraints: NO cwd.** The desktop agent has no project root or "current directory"; Bash never remembers a working directory.（两处刻意约束：① 无 cwd——桌面 agent 无项目根/当前目录……cwd 概念全局废弃）」→ 现「**Two facts about where commands run: The cwd is the CONVERSATION's, and only when the user mounted one.** A thread may carry a work dir (its "residency", `conversations.work_dir`); when it does, Bash sets `cmd.Dir` to it so `ls` and every relative path in the command mean what the user means by "here". Unmounted — the default — nothing is set and the child inherits the backend process's directory… Either way `cd` never carries across calls: **this package still keeps NO state of its own about directories**, it just reads the one the turn's ctx hands it (`reqctx.GetWorkDir`).」——要害是保住那条真正没变的事实（本包不自持目录状态）、同时删尽那条已假的（cwd 概念全局废弃）。
+- `pkg/agentstate/agentstate.go` 包注释，原「**cwd is deliberately absent** — the desktop agent has no working directory, so shell adds no cwd slot.（cwd 刻意不设——桌面 agent 无工作目录，shell 不引入 cwd）」→ 现「The conversation's work dir (its "residency") is **deliberately NOT a slot here even though it too spans tools**: it is per-turn IMMUTABLE CONFIG read off the conversation row, not state that tools mutate and read back, so it rides ctx instead (`reqctx.SetWorkDir`). That placement is also what makes **subagent inheritance free** — a sub-run gets a FRESH AgentState on purpose (no SeenFiles pollution), which would have **DROPPED** a residency stored here…」——结论（此处不设槽）不变，理由**整个换掉**：从「不存在这种东西」变成「它存在，但它不属于这里，而且放这里会坏掉继承」。
+- **另有第三处旧立法必须一并翻，工单未点名**：`pkg/fspath` 的包注释原写「It is the single physical enforcement point of Anselm's **"always absolute, never a current directory"** rule…there is no cwd to resolve a relative path against」——那句话现在是**条件真**。已整体重述成两条规则（未挂 / 挂了驻地）并明写 `Inside` 是安全谓词。顺带 `ErrNotAbsolute` 的**文案**也改了（「the agent has no working directory」→「no work directory is mounted for this conversation」），故 `error-codes.md` 那一行同提交跟改——**它是被机械契约漂移检测覆盖的**，不改即红。第四处：`search` 包注释同款重述，并明写「驻地从不**收窄**这三个工具」。第五处：`loop/tools.go` 有一句「without adding a **seventh** messages-block type」——marker 现在**就是**第七个，那句话已改成「without adding a block type for it」。
+
+**后端·越界写闸的实现选择（一处设计裁决）**：`loop` 必须保持通用（它分不清 `file_path` 与 `content`），故判定经**可选能力接口** `toolapp.FileWriteTool`（`WriteTarget(argsJSON) string`，返回 args 里**未解析**的原始路径），断言方式与既有 `BuildTool` **完全一致**——那是本仓库已有的「扩展一个工具而不加宽每个工具都必须满足的契约」的做法，故 `Tool` 的**五方法仍是恰五个**（S18 未破）。解析刻意留给调用方，使施加驻地根的地方**恰有一处**（`fspath.ExpandIn`）：两个解析器终会互相不同意，而那份不同意会**静默地**成为一个洞。**两个豁免都被跳过**：`approve_always` 是按 (对话, 工具) 记的，照顾它会把一次「行，那边那个文件」变成此后**任何**位置每次 `Write` 的长期许可——用户回答的是一个**路径**、不是一个工具；skill 的 `allowed-tools` 是在谁都还不知道它要写到**哪里**之前作出的同形承诺。**闸载荷加了恰一个键**：`outsideWorkDir: true`，且**只在越界时出现**，故普通 danger 确认的载荷与每个既有客户端已在解析的形状**逐字节相同**。这一个键是必需的，不是装饰：没有它，用户会为一次模型自称 `safe` 的写面对一个批准框、却无从知道**为什么**——而一个无法自我解释的弹窗只会被闭眼点掉。
+
+**marker 的呈现路径核对结论：`events.md` 的 `node.type` 确实不变，且已在文档里写明为何不变。** 核对方法是读**代码**而非推理：`compaction` 块的唯一写者 `contextmgr.writeAnchor` 走 `CreateMessage`、**不发任何帧**，而 `compaction` 也确实不在 messages 流的 `node.type` 全集里——即「持久块型 7 个、流上块型 5 个」这个差额**在 WD1 之前就已存在**，marker 只是第二个成员。`MarkWorkDirSwitch` 逐字照那条路径写。另外三处按构造成立、已各自核对：①它永不进 prompt——`BlocksToAssistantLLM` 是**类型白名单**，marker 在 switch 里根本没有 case；②它不建场次条锚点——`buildAnchors` 的 switch 同理，故 `api.md` 的 6 种锚点词汇保持封闭；③前端拿得到 attrs——`hydrateBlockContent` 的默认分支是 `{...attrs, content}`，故 `{kind, from, to}` 自然进 `BlockNode.content`。**已在 `events.md` 增一节「不上流的两个块型」**，因为一个读者若发现 7 个块型只有 5 个流类型，必须能分辨「刻意」与「有人忘了」。
+
+**三处与简报措辞的偏离，如实记档**：
+1. **未挂态图标 = 电脑，不是「浅灰空文件夹」。** 简报写「未挂（浅灰空文件夹）」，而 §1 拍板 #8 与 §3.1 **两处**都写「电脑图标」并给了理由（**语义诚实：没有工作目录时 agent 的活动范围就是整台机器**）。规格自带的理由胜出：一个空文件夹会暗示「一个恰好什么都没装的容器」，而事实相反——未挂时 agent 能去的地方**更多**、不是更少。
+2. **「不存在」态的警示落在菜单第一行 + tooltip，不是按钮的 warn 底色。** `AnButton` 没有 `warn` 变体，而为一个面包屑铸一个是在改设计系统（越权）。故警示态由 tooltip（「工作目录已不存在：X」）+ 菜单首行（「该目录已不存在」）+ 被禁用的「在访达中显示 / 在终端打开」共同承担。
+3. **本批不新增「三态」颜色语义，但**「不存在」**只在探测已回答之后才敢声称**——探测在飞时读作「还不知道」。证据的缺席不是警示态：stat 还在路上就闪「目录已不存在」是这个按钮在撒谎。
+
+**一处主动加固（发现了一个真 crash）**：按钮的两态是真正不同的**几何**（纯字形方块 vs 字形+标签），而 `AnButton` 会自己动画它的盒子——`AnimatedContainer` **无法**把固定 24pt 宽插值成无界宽，它直接 assert（`Cannot interpolate between finite constraints and unbounded constraints`）。第一版把「有没有挂」读自**异步投影**，于是每次打开一条已挂线程都会先渲一帧未挂、再形变——**测试里当场崩，真机上也一样**。两处一起修：①**形状改由线程存下来的行决定**（`conversationHeaderProvider`，头部本就 watch 着它），故按钮**第一帧**就知道自己的形状、那一帧的形变整个消失；②真正的挂/退（用户动作，罕见）给 `AnButton` 一个按状态的 `key`，使它在目标形状上**新建**盒子而非补间过去。**这不是 RI 军规所禁的条件包装**：没有任何东西被套上或摘掉，是**一个叶子按钮**改变形状，且只在用户真的挂上或退出目录时改变——理由已写进代码注释。
+
+**一处顺带的地基强化（原则 #8）**：`openWithSystem` / `revealInSystem` 原本住在 `features/library/ui/skill_file_preview.dart` 里。chat 的驻地菜单需要它们，而 **feature 之间不得互相 import**，故它们**上移**到 `core/platform/open_in_system.dart`（并新增 `openInTerminal`），library 改为 import——而不是在 chat 里手抄第二份。三个函数都返 `bool` 而非 `void`：一个静默什么都不做的菜单项（这台 Linux 上没有终端、沙箱环境）比一个承认失败的更糟，故失败会出一条 notice。
+
+**前端·按钮三态与菜单三段的落点**：按钮 = `features/chat/ui/chat_work_dir_button.dart` 的 `ChatWorkDirButton`，挂进 `chat_head.dart` 的头部行**第一个 child**（在名字**之前**——「我们在哪」读在「这是什么」左边，与一条文件路径同序），且它**恒是**第一个 child（自己渲未挂态、不消失），故标题 / 血缘 / 模型三个槽位从不移位。菜单用 `AnMenu` 自己的词汇表达右岛那套三段式文法：**`AnMenuSection(完整路径)` 就是身份头**（唯一放得下整条路径的地方）+ 在访达中显示 / 在终端打开 → 切换/选择 + 退出 → 最近目录 → git 段（**仅当真是仓库**：分支 + 脏/干净，`disabled: true` **只读**；切/建分支归 WD2、worktree 归 WD3，**刻意不摆禁用占位**——那等于承诺一个本批没有的形状）。未挂线程拿到 §3.1 指定的那个**小**菜单（选择 + 最近），因为没有身份可作头、也没有什么可退出。**最近目录**存 `SettingsPrefs` 的 `an.chat.recentWorkDirs`（机器级轴、零后端，JSON 串同 `an.shortcuts`；登记进 `settingsImplicitKeys` 以过三相等门禁），最近在前、去重、封顶 8（超过一小把之后「最近」就不再是回忆、而变成一份用户得去阅读的目录），**当前驻地被滤出列表**（提议切到你已经在的地方是一行什么都不做的项），坏值退化成空而不抛。
+
+**一处状态归属裁决**：**行归 `conversationHeaderProvider`、投影归 `workDirProvider`。** 第一版让 `workDirProvider` 自己 PATCH，结果按钮标签在挂载后**不更新**——因为行的真相在另一个 provider 里，只有 SSE 回声会救它。而本仓的规则是「发起端权威 PATCH 响应即 patch state，**不等回声**」（回声是给**别的**客户端的）。故 `ConversationHeaderController.setWorkDir` 与 `rename`/`setModel` 逐字同法，而 `WorkDirController.set` 退为**唯一编排点**（写行 → 记最近目录 → 按**回显**路径重探投影）。投影的读**刻意不重试**、错误吞成未挂：这是面包屑上的装饰，探测失败必须渲成「无驻地」，绝不渲成错误态，也绝不成为 CH-b 查明的那种指数退避轮询。
+
+**新增 i18n 键（en/zh 各 19）**：`chat.workDir.{buttonNone, buttonMounted, buttonMissing, choose, switch, leave, recent, revealFinder, openTerminal, git, branch, detached, dirty, clean, missing, markMounted, markSwitched, markLeft, openFailed}`（`switch` 是 Dart 关键字，slang 生成 `kSwitch`）。**未删任何既有键。**
+
+**demo fixture**：两条驻地线程 + 脚本化投影，使**三态**在**任何**机器上并排可见而不依赖真文件夹——`cv_resident`（已挂 git 仓库：文件夹 + 名字 + `main` + 脏点，transcript 里含一条真实形状的 `marker` 行）· `cv_resident_gone`（已挂但目录**已消失**：警示态）· 其余每条线程都是未挂的电脑态。夹具新增 `workDirInfos` 按路径脚本化投影（`FixtureChatRepository`）。
+
+**改动的既有测试：零。** 本批没有反转或删除任何既有断言——所有新行为都落在此前不存在的表面上（新列 / 新端点 / 新块型 / 新按钮），而未挂路径的行为**逐字未变**（这一点本身由 testend 的成对断言 + `TestExpandIn_EmptyRootIsExpand` 钉住）。`chat_transcript.dart` 的 `BlockKind` switch 因新增枚举成员而必须加一个 case，那是编译器要求、不是断言改动。
+
+**没做的部分（与原因）**：①**WD2/WD3**（分支切换/新建、`git worktree add`）——工单明令本批不做，故 `WorkDirInfo` 里**不预埋** `branches[]`/`worktrees[]`（不留半成品、不预埋端点，同 §6 的「删除版本」裁决）。②**WD1.5（CL 批 rail 按驻地分组）**——独立工单，其三个后端小件（`workdir-groups` 投影 / `?workDir=` 过滤 / 两个批量动作）本批**一件未做**；本批只留下它需要的那一列，并在 `database.md` 明写「那时才建 `(workspace_id, work_dir)` 索引」。③**真机截图验收**——`make -C frontend demo` 需要完整原生工具链，不入门禁；夹具已备三态，待真机档一并做（同 §7 施工序①「Flutter 升级的真机冒烟未做」的记法，**别当已验**）。④**驻地按钮的窄窗截断实测**——按钮走 `AnButton` 的标准标签路径，未另测极长目录名下的布局。
+
 ---
 
 **零后端项**:复制消息(前端 markdown 拼装,工具卡不进剪贴板)· 排队(前端队列,回合终态后逐条 send)· 最近目录(前端机器级持久化轴)。
@@ -141,6 +182,8 @@ audience: [human, ai]
 - **驻地菜单**(三段式文法,右岛同语言):①身份头=完整路径 + 在 Finder 中显示 / 在终端打开;②驻地操作=切换工作目录… / 退出工作目录;③git 段(仅仓库)=当前分支+脏点(WD1)、切换/新建分支(WD2)、**为此对话开一个 worktree**(WD3:`git worktree add` 平行目录 + 驻地自动切过去)。
 - **中途切换**:对话流落 `marker` 行内标记「📁 驻地 → X」。
 - demo 模式配 fixture 假脸(app/demo 共壳律)。
+
+→ **已施工（0725，施工序⑭ / WD1）。** 按钮三态、菜单三段、最近目录、marker 呈现与四处偏离/加固，全部记在 §2.2 的 WD1 条。
 
 ### 3.2 消息动作排
 
@@ -836,7 +879,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 
 1. ~~施工顺序~~ → **已拍板(0723,用户「都听你的」)**:**①Flutter 升 3.44**(独立一步:改钉值 → `make setup` → 根 `make verify` → 真机冒烟,确认无回归)→ **②CR-1a**(拆壳的 LayoutBuilder;RI 大半 + 海洋跳动 + 偶发崩溃皆挂其下,先拆再量剩余)→ ③CR-1b/CR-2/CR-3 → ④RI(治本后重估余量)→ ⑤TS → ⑥CH-a/b/c → ⑦VT → ⑧EA → ⑨SK → ⑩ES → ⑪WD1/2/3。**理由**:①② 会动到后续多批共用的同一批文件,先做省重复返工;功能批按「见效快→依赖重」排。
 2. auto-title 对 fork 对话的接管触发条件(现逻辑是否只看首回合)——施工 CH-b 时读码核对。
-3. Go 版本(mise 钉值)≥1.24 则 `os.Root`,否则 EvalSymlinks+前缀——施工 WD1 时核对。
+3. ~~Go 版本（mise 钉值）≥1.24 则 `os.Root`，否则 EvalSymlinks+前缀~~ → **已核对（0725 施工 WD1）：`mise.toml` 钉 `go = "1.25"`（`go version` 实测 go1.25.11 darwin/arm64）→ 走 `os.Root`。** 并且**先实测了它的语义再定**：写了一个探针，在 darwin/go1.25 上对**绝对**、**相对**与**目录**三种指向根外的符号链接分别 `Root.Stat`，三种全报 `path escapes from parent`。这一步不是形式——若 `os.Root` 像 chroot 那样把**绝对**链接目标重写到根内解析，它的判词就会与真 syscall（`os.Rename`/`os.WriteFile` 会跟随的那个目标）分道扬镳，于是「用 os.Root」这条指示本身会**低报**逃逸、成为安全洞。实测证明它不会，故它可以承重。判定另需 `filepath.Rel` 先挡兄弟目录（`/root-evil` vs `/root`——`os.Root` 对它无话可说，因为它压根不在根里）。
 4. ~~排队时按停止:清不清队列~~ → **已裁定(0725 施工⑦后半):不清。** 理由见 §3.4 施工记录与 `chat_queue.dart` 的类注释;测试 `chat_queue_test` 与 `chat_composer_test` 各钉一条。
 5. ~~ES 批 B 类引导文案~~ → **已拍板(0723):一套通用「创建首个版本」**(不逐实体分化)。
 6. ~~TS 批 Flutter 版本~~ → **已升级到 3.44.8(0725 实施)。实施记录见下,含一条调研没抓到的真阻碍。**
@@ -881,7 +924,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⑪ | ~~SK 密钥分栏~~ **已完成 0725**(派 Sonnet 5 建、主会话逐行复审并改了一处 + 跑门禁;记录见 §5.6) | 派 Sonnet 5 ✅ |
 | ⑫ | ~~ES 空态退役 ×13~~ **已完成 0725**(A 类 6 + 错误态 1〔本节分类有误已纠〕+ B 类 6;`insetEmpty` 已删;**B 类只有引导没有动作——创建入口不存在**,见 §5.8) | 派 Sonnet 5 ✅ |
 | ⑬ | ~~LR+LI rail 重构+文案+tooltip 地基~~ **已完成 0725**(tooltip 地基主会话亲做;rail 重构+文案+守卫+首屏说明 派 Sonnet 5、主会话复验守卫非空绿;记录见 §5.13/§5.14) | 混合 ✅ |
-| ⑭ | WD1 驻地地基 | 主会话 |
+| ⑭ | ~~WD1 驻地地基~~ **已完成 0725**（后端八件 + 前端按钮/菜单/标记/最近目录 + 文档九处 + 单测 41 条 / testend 六场景 / widget 15 条；**三处与简报措辞的偏离**与**一处主动加固**已记档，见 §2.2 WD1 条） | 主会话 |
 | ⑮ | WD1.5 rail 驻地分组(CL) | 混合:后端投影 主会话;rail 组装 派 Opus 5(分组无漂移/置顶去重有状态逻辑) |
 | ⑯ | WD2 git 操作 / WD3 worktree | 主会话 |
 

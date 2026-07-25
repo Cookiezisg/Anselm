@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	"go.uber.org/zap"
@@ -14,6 +15,7 @@ import (
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	fspathpkg "github.com/sunweilin/anselm/backend/internal/pkg/fspath"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -78,13 +80,14 @@ func runTools(
 }
 
 // runOneTool executes one tool call and returns its tool_result block, live-pushing the block
-// lifecycle. A self-reported-dangerous call is gated for human approval first when a humanloop
-// broker is in ctx (chat / nested agent); otherwise pure trust — the danger level rode the
+// lifecycle. When a humanloop broker is in ctx (chat / nested agent) the call may be gated for human
+// approval first — either because the LLM self-reported `dangerous` or because it would write outside
+// the conversation's residency (see dispatchWithGate). Otherwise pure trust: the danger level rode the
 // tool_call node and the call just runs.
 //
 // runOneTool 执行一次 tool 调用、返回其 tool_result block，并实时推 block 生命周期。当 ctx 里有 humanloop
-// broker 时（chat / 嵌套 agent），自报 dangerous 的调用先门控到人批准；否则纯信任——danger 已随
-// tool_call 节点上行、调用直接跑。
+// broker 时（chat / 嵌套 agent），该调用可能先被门控到人批准——或因 LLM 自报 `dangerous`、或因它会写到对话
+// 驻地之外（见 dispatchWithGate）。否则纯信任——danger 已随 tool_call 节点上行、调用直接跑。
 func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, log *zap.Logger) []messagesdomain.Block {
 	argsJSON, _ := json.Marshal(tc.Arguments)
 	// Seed this call's id so a tool can learn its own tool_call block id (the Subagent tool
@@ -102,11 +105,11 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	// execution starts here, possibly much later (first Python runtime / venv setup is the visible
 	// example).  Open the existing tool_result node at that real boundary and close it with the
 	// durable result snapshot below.  This gives every consumer one honest execution lifecycle
-	// without adding a seventh messages-block type or making reconnect replay ambiguous.
+	// without adding a block type for it or making reconnect replay ambiguous.
 	//
 	// tool_call 的 Close 只表示模型写完参数，绝不表示工具已完成；真实执行从这里才开始（首次 Python
 	// runtime/venv 准备尤其可见）。复用既有 tool_result：此处 Open，结束时带耐久结果快照 Close，既给
-	// 消费端一条诚实执行生命周期，又不新增第七种 messages block、不断重连回放。
+	// 消费端一条诚实执行生命周期，又不为它新增块型、不断重连回放。
 	em := newEmitter(ctx, log)
 	blockID := idgenpkg.New("blk")
 	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, streamdomain.JSONContent(toolResultContent{}))
@@ -142,20 +145,28 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	return append(pcap.take(), result)
 }
 
-// dispatchWithGate runs the tool, gating a self-reported-dangerous call on human approval first
-// when a humanloop broker is in ctx (chat / nested agent runs seed one; subagent / workflow do not
-// → pure trust). It is interrupt-before-side-effect: a denied tool never executes — the denial is
-// recorded as the result so the model re-routes; a cancelled ctx (the run aborted) records that.
-// approve / approve_always fall through and execute (approve_always also session-whitelists, so the
-// next dangerous call to this tool in this conversation skips the gate). The active skill's
-// allowed-tools also pre-approve (a skill declares the tools it expects, so a dangerous call
-// it intends skips the per-call confirmation) — see skillPreApproves.
+// dispatchWithGate runs the tool, first gating it on human approval when a humanloop broker is in ctx
+// (chat / nested agent runs seed one; subagent / workflow do not → pure trust). TWO things open the gate:
+//
+//   - The LLM self-reported `dangerous`. Bypassable, because the model's own judgement is what raised
+//     it: approve_always session-whitelists the (conversation, tool) pair, and the active skill's
+//     allowed-tools pre-authorize the tools a skill declared it would use (see skillPreApproves).
+//   - The call would WRITE OUTSIDE the conversation's residency (WRK-077 WD1). NOT bypassable, and it
+//     ignores the self-reported level entirely — see writesOutsideWorkDir for why a fact about the target
+//     path outranks the model's opinion about it, and the block below for why neither bypass applies.
+//
+// It is interrupt-before-side-effect: a denied tool never executes — the denial is recorded as the result
+// so the model re-routes; a cancelled ctx (the run aborted) records that.
 //
 // dispatchWithGate 跑工具，但当 ctx 里有 humanloop broker 时（chat / 嵌套 agent 运行 seed 之；subagent /
-// workflow 不 → 纯信任），先把自报 dangerous 的调用门控到人批准。interrupt-before-side-effect：被拒的工具绝不
-// 执行——拒绝记为结果使模型改道；ctx 取消（运行中止）记下之。approve / approve_always 落下去执行（approve_always
-// 还会话白名单，使本对话下次对该工具的危险调用跳过门）。active skill 的 allowed-tools 同样预授权（skill
-// 声明它期待的工具，故它有意的危险调用跳过逐次确认）——见 skillPreApproves。
+// workflow 不 → 纯信任），先把它门控到人批准。**两件事**会开这道闸：
+//
+//   - LLM 自报 `dangerous`。**可豁免**，因为抬起它的正是模型自己的判断：approve_always 会话白名单
+//     (对话, 工具) 这一对，active skill 的 allowed-tools 预授权它声明会用的工具（见 skillPreApproves）。
+//   - 该调用会**写到对话驻地之外**（WRK-077 WD1）。**不可豁免**，且它**完全无视**自报等级——为何一个关于
+//     目标路径的**事实**盖过模型对它的**意见**，见 writesOutsideWorkDir；为何两个豁免都不适用，见下方那一块。
+//
+// interrupt-before-side-effect：被拒的工具绝不执行——拒绝记为结果使模型改道；ctx 取消（运行中止）记下之。
 // The fourth return (executed) tells the ledger apart from the model: deny / cancel-before-run
 // return ok=true (a smooth "didn't run" RESULT the model reroutes on), yet the tool never
 // executed — recording a touch for it would book a phantom (e.g. a DENIED delete_agent must
@@ -165,10 +176,33 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 // 「没跑」结果),但工具从未执行——为其记触碰即幽灵账(被**拒绝**的 delete_agent 绝不能产生
 // `deleted` 台账行)。
 func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok, executed bool) {
-	if b := humanloopapp.From(ctx); b != nil && tc.Danger == string(toolapp.DangerDangerous) {
+	outsideWorkDir := writesOutsideWorkDir(ctx, t, argsJSON)
+	if b := humanloopapp.From(ctx); b != nil && (tc.Danger == string(toolapp.DangerDangerous) || outsideWorkDir) {
 		convID, _ := reqctxpkg.GetConversationID(ctx)
-		if !b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name) {
-			prompt, _ := json.Marshal(map[string]any{"summary": tc.Summary, "args": json.RawMessage(argsJSON)})
+		// An out-of-root write skips BOTH bypasses on purpose. approve_always is per (conversation, tool),
+		// so honouring it would turn one "yes, edit that file over there" into a standing licence for every
+		// later Write anywhere — the user answered about a PATH, not about the tool. The active skill's
+		// allowed-tools are the same shape of promise ("this skill uses Write"), made before anyone knew
+		// where it would write. Neither ever authorized leaving the residency.
+		//
+		// 越界写**刻意**跳过**两个**豁免。approve_always 是按 (对话, 工具) 记的,故照顾它会把一次「行,改
+		// 那边那个文件」变成此后**任何**位置每次 Write 的长期许可——用户回答的是一个**路径**、不是一个工具。
+		// active skill 的 allowed-tools 是同一形状的承诺（「本 skill 会用 Write」）,而它是在谁都还不知道
+		// 它要写到哪里之前作出的。两者都从未授权「离开驻地」。
+		if outsideWorkDir || (!b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name)) {
+			// The reason rides the prompt only when it IS the reason, so an ordinary danger confirmation's
+			// payload stays byte-identical to what every existing client already parses. Without this key
+			// the user would face an approval dialog for a write the model called `safe` and have no way to
+			// learn why — a prompt that cannot explain itself gets clicked through.
+			//
+			// 理由**仅在它就是理由时**才上 prompt,故普通 danger 确认的载荷与每个既有客户端已在解析的形状
+			// 逐字节相同。没有这个键,用户会为一次模型自称 `safe` 的写面对一个批准框、却无从知道为什么——
+			// 一个无法自我解释的弹窗只会被闭眼点掉。
+			payload := map[string]any{"summary": tc.Summary, "args": json.RawMessage(argsJSON)}
+			if outsideWorkDir {
+				payload["outsideWorkDir"] = true
+			}
+			prompt, _ := json.Marshal(payload)
 			resp, err := b.Request(ctx, humanloopapp.Request{
 				ToolCallID:     tc.ID,
 				Kind:           humanloopapp.KindDanger,
@@ -193,10 +227,60 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 	return output, errMsg, ok, true
 }
 
+// writesOutsideWorkDir reports whether this call physically writes a file outside the conversation's
+// residency — the one condition that forces the human gate regardless of the LLM's self-reported danger
+// (WRK-077 WD1). False whenever there is no residency, which is the default, so an unmounted conversation
+// behaves exactly as it did before WD1.
+//
+// Why this outranks the self-report: everywhere else the danger level is the model's honest opinion about
+// its own action, and that is the design (S18: no central permission gate, pure trust + per-call
+// confirmation). "Am I about to write outside the folder the user pointed at?" is not an opinion — it is
+// a computable fact about the target path, and the user's whole instruction for the residency was that
+// looking outside is free while WRITING outside is the thing to ask about. A model that resolves a path
+// slightly wrong, or that judges an overwrite `safe` because the content looks harmless, must not be able
+// to skip that question. Reads are never gated here: the residency is a zoom, not a jail.
+//
+// It reads the raw path through the SAME fspath.ExpandIn the tool itself will use, so the gate judges the
+// exact file Execute will open — a second resolver would eventually disagree with the first, and the
+// disagreement would silently be a hole. Inside() is fail-closed, so an unresolvable root or an escaping
+// symlink gates rather than passes.
+//
+// writesOutsideWorkDir 报告本次调用是否会把文件写到对话驻地**之外**——那是**唯一**无视 LLM 自报 danger 而
+// 强制人闸的条件（WRK-077 WD1）。无驻地时恒 false，而那是默认，故未挂对话的行为与 WD1 之前**完全**一致。
+//
+// 为何它盖过自报：其余一切地方，danger 等级都是模型对自己行为的诚实意见，而那正是设计（S18：无中央权限
+// 门控，纯信任 + 逐次确认）。而「我是不是正要写到用户指的那个文件夹外面去?」**不是**意见——它是关于目标
+// 路径的一个可计算的**事实**，而用户对驻地的全部指示就是：往外**看**随便，往外**写**才是要问的那件事。一个
+// 把路径解析得稍有偏差、或因为内容看起来无害就判某次覆写 `safe` 的模型，绝不能有跳过这个问题的能力。
+// 此处从不拦**读**：驻地是 zoom、不是牢。
+//
+// 它经**同一个** fspath.ExpandIn 读那个原始路径——正是工具自己将要用的那一个，故闸判的就是 Execute 将要打开
+// 的那个文件；两个解析器终会互相不同意，而那份不同意会静默地成为一个洞。Inside() 是 fail-closed 的，故解不开
+// 的根或逃逸的符号链接是**设闸**、不是放行。
+func writesOutsideWorkDir(ctx context.Context, t toolapp.Tool, argsJSON []byte) bool {
+	root := reqctxpkg.GetWorkDir(ctx)
+	if root == "" {
+		return false
+	}
+	fw, isWriter := t.(toolapp.FileWriteTool)
+	if !isWriter {
+		return false
+	}
+	raw := fw.WriteTarget(argsJSON)
+	if strings.TrimSpace(raw) == "" {
+		return false // no determinable target: Execute will refuse it anyway (see FileWriteTool)
+	}
+	target, err := fspathpkg.ExpandIn(root, raw)
+	if err != nil {
+		return false // an unresolvable path never reaches the filesystem; Execute reports the real reason
+	}
+	return !fspathpkg.Inside(root, target)
+}
+
 // skillPreApproves reports whether the run's active skill declared this tool in its allowed-tools.
 // A skill's allowed-tools are a PRE-AUTHORIZATION, not a restriction: a dangerous call the
 // active skill expects skips the per-call confirmation. No agent state / no active skill → false
-// (the gate stands). The active skill is recorded by skill activation (skill/activate.go).
+// (the gate stands). It does NOT reach the residency write gate — see dispatchWithGate.
 //
 // skillPreApproves 报告本次运行的 active skill 是否在其 allowed-tools 里声明了该工具。skill 的 allowed-tools
 // 是**预授权**、非限制：active skill 期待的危险调用跳过逐次确认。无 agent state / 无 active skill →

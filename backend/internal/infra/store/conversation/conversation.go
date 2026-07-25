@@ -74,6 +74,25 @@ var Schema = []string{
 	// 从不作过滤条件。
 	`ALTER TABLE conversations ADD COLUMN forked_from_conversation_id TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE conversations ADD COLUMN forked_from_message_id TEXT NOT NULL DEFAULT ''`,
+
+	// Column evolution — the residency (WRK-077 WD1). Third use of the same idempotent-by-outcome ADD
+	// COLUMN path as the fork-lineage pair above, for the same reasons: an existing install gains it on
+	// next boot, and a re-run relies on db.Migrate reading "duplicate column name" as already-applied.
+	// TEXT NOT NULL DEFAULT '' rather than NULLable — '' already means "not mounted".
+	//
+	// Deliberately UNindexed IN THIS BATCH: the only reader is the open thread's own head row (one row,
+	// by primary key, per turn). WD1.5 adds a rail GROUPED by this column (`GET /conversations/
+	// workdir-groups` + `?workDir=`), and that is when a `(workspace_id, work_dir)` index earns its
+	// keep — adding it now would pay insert cost for a query no one issues yet.
+	//
+	// 列演化——驻地（WRK-077 WD1）。与上方分叉血缘两列同一条结果幂等 ADD COLUMN 径的第三次使用,理由相同:
+	// 已有安装下次启动补列、重复执行靠 db.Migrate 把 "duplicate column name" 视作已应用。用 TEXT NOT NULL
+	// DEFAULT '' 而非可空——'' 已表达「未挂」。
+	//
+	// **本批刻意不建索引**:唯一读者是当前线程自己的头行（按主键、一行、每回合一次）。WD1.5 才会按本列
+	// **分组**出 rail（`GET /conversations/workdir-groups` + `?workDir=`）,**那时** `(workspace_id,
+	// work_dir)` 索引才挣得回它的钱——现在就加是为一个还没人发的查询预付插入代价。
+	`ALTER TABLE conversations ADD COLUMN work_dir TEXT NOT NULL DEFAULT ''`,
 }
 
 // Store implements conversationdomain.Repository over pkg/orm.

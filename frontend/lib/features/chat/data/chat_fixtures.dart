@@ -129,6 +129,25 @@ class FixtureChatRepository implements ChatRepository {
       _mutate(id, (c) => c.copyWith(title: title.trim()));
 
   @override
+  Future<Conversation> setWorkDir(String id, String workDir) async =>
+      _mutate(id, (c) => c.copyWith(workDir: workDir.trim()));
+
+  /// Scripted residency projections by path — the demo and the widget tests need a directory that is a git
+  /// repo, one that is not, and one that is GONE, without any of them existing on the machine running the
+  /// test. Absent from the map → a plain existing directory (the common case).
+  ///
+  /// 按路径脚本化的驻地投影——demo 与 widget 测试需要一个是 git 仓库的目录、一个不是的、以及一个**已消失**的,
+  /// 而它们都不该真的存在于跑测试的那台机器上。map 里没有 → 一个普通的存在目录(常见情形)。
+  final Map<String, WorkDirInfo> workDirInfos = {};
+
+  @override
+  Future<WorkDirInfo> workDirInfo(String id) async {
+    final path = _all.firstWhere((c) => c.id == id).workDir;
+    if (path.isEmpty) return const WorkDirInfo();
+    return workDirInfos[path] ?? WorkDirInfo(path: path, exists: true);
+  }
+
+  @override
   Future<Conversation> setPinned(String id, bool pinned) async =>
       _mutate(id, (c) => c.copyWith(pinned: pinned));
 

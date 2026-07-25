@@ -25,6 +25,7 @@ _Conversation _$ConversationFromJson(Map<String, dynamic> json) =>
       forkedFromConversationId:
           json['forkedFromConversationId'] as String? ?? '',
       forkedFromMessageId: json['forkedFromMessageId'] as String? ?? '',
+      workDir: json['workDir'] as String? ?? '',
     );
 
 Map<String, dynamic> _$ConversationToJson(_Conversation instance) =>
@@ -43,6 +44,7 @@ Map<String, dynamic> _$ConversationToJson(_Conversation instance) =>
       'hasUnread': instance.hasUnread,
       'forkedFromConversationId': instance.forkedFromConversationId,
       'forkedFromMessageId': instance.forkedFromMessageId,
+      'workDir': instance.workDir,
     };
 
 _ModelRef _$ModelRefFromJson(Map<String, dynamic> json) => _ModelRef(
@@ -54,3 +56,20 @@ Map<String, dynamic> _$ModelRefToJson(_ModelRef instance) => <String, dynamic>{
   'apiKeyId': instance.apiKeyId,
   'modelId': instance.modelId,
 };
+
+_WorkDirInfo _$WorkDirInfoFromJson(Map<String, dynamic> json) => _WorkDirInfo(
+  path: json['path'] as String? ?? '',
+  exists: json['exists'] as bool? ?? false,
+  isGitRepo: json['isGitRepo'] as bool? ?? false,
+  branch: json['branch'] as String? ?? '',
+  dirty: json['dirty'] as bool? ?? false,
+);
+
+Map<String, dynamic> _$WorkDirInfoToJson(_WorkDirInfo instance) =>
+    <String, dynamic>{
+      'path': instance.path,
+      'exists': instance.exists,
+      'isGitRepo': instance.isGitRepo,
+      'branch': instance.branch,
+      'dirty': instance.dirty,
+    };

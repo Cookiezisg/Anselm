@@ -7,9 +7,14 @@
 //
 // Scope = creator chooses. Slots: SeenFiles (filesystem's write-before-read, LRU-bounded so a
 // long refactor over thousands of files can't grow it without limit), discoveredTools
-// (search_tools' lazy-tool discovery), and activeSkill (skill's pre-approved tool scope). cwd is
-// deliberately absent — the desktop agent has no working directory, so shell adds no cwd slot.
-// agentstate grows on demand, no speculative fields.
+// (search_tools' lazy-tool discovery), and activeSkill (skill's pre-approved tool scope).
+//
+// The conversation's work dir (its "residency") is deliberately NOT a slot here even though it too
+// spans tools: it is per-turn IMMUTABLE CONFIG read off the conversation row, not state that tools
+// mutate and read back, so it rides ctx instead (reqctx.SetWorkDir). That placement is also what makes
+// subagent inheritance free — a sub-run gets a FRESH AgentState on purpose (no SeenFiles pollution),
+// which would have DROPPED a residency stored here, whereas its ctx is derived from the parent's and
+// carries the work dir along untouched. agentstate grows on demand, no speculative fields.
 //
 // Package agentstate 持有对话级跨 tool 调用的共享状态。它存在是因为某些安全不变式（如写前必读、
 // skill 预授权域）跨工具——单个工具的 args 表达不了，所以 host 把 AgentState 埋进 ctx，工具间靠
@@ -18,7 +23,11 @@
 //
 // 作用域 = 创建者决定。字段：SeenFiles（filesystem 写前必读，LRU 有界，使跨数千文件的长重构不会
 // 无界增长）、discoveredTools（search_tools 的 lazy 工具发现）与 activeSkill（skill 的预授权工具域）。
-// cwd 刻意不设——桌面 agent 无工作目录，shell 不引入 cwd。agentstate 按需生长，不预留。
+//
+// 对话的工作目录（它的「驻地」）**刻意不在此设槽**，尽管它同样跨工具：它是从对话行读来的**逐回合不可变
+// 配置**、不是工具改了再读回的状态，故它搭 ctx（reqctx.SetWorkDir）。这个安放位置也正是 subagent 继承
+// 免费的原因——子运行**刻意**拿到一个全新 AgentState（不污染 SeenFiles），那会**丢掉**存在这里的驻地；
+// 而它的 ctx 由父 ctx 派生、原封不动地把工作目录带了过去。agentstate 按需生长，不预留。
 package agentstate
 
 import (

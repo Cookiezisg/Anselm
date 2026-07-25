@@ -17,6 +17,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	fspathpkg "github.com/sunweilin/anselm/backend/internal/pkg/fspath"
 	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 const (
@@ -24,7 +25,7 @@ const (
 	maxGlobLimit     = 1000
 )
 
-const globDescription = `Find files by glob pattern (supports ** recursion) under a root, sorted by mtime desc; returns JSON {root,matches:[{path,type,size,mtime}],total,truncated}. Root is required (absolute or ~). Narrow the root first (LS to look around) rather than globbing all of ~ — that scans huge trees. Use Grep for content.`
+const globDescription = `Find files by glob pattern (supports ** recursion) under a root, sorted by mtime desc; returns JSON {root,matches:[{path,type,size,mtime}],total,truncated}. Root is required (absolute, ~, or relative to the mounted working directory). Narrow the root first (LS to look around) rather than globbing all of ~ — that scans huge trees. Use Grep for content.`
 
 var globSchema = json.RawMessage(`{
 	"type": "object",
@@ -36,7 +37,7 @@ var globSchema = json.RawMessage(`{
 		},
 		"path": {
 			"type": "string",
-			"description": "Search root: absolute path or ~ (e.g. \"~/projects\"). Required — the agent has no current directory. Keep this narrow; do not glob the whole home dir."
+			"description": "Search root: absolute path, ~, or relative to the conversation's working directory when one is mounted. Required. Keep this narrow; do not glob the whole home dir."
 		},
 		"limit": {
 			"type": "number",
@@ -90,7 +91,7 @@ func (t *Glob) Description() string         { return globDescription }
 func (t *Glob) Parameters() json.RawMessage { return globSchema }
 
 // ValidateInput requires non-empty pattern and path, non-negative limit; pattern
-// syntax errors and ~ / absolute resolution are deferred to Execute.
+// syntax errors and ~ / absolute / work-dir-relative resolution are deferred to Execute.
 //
 // ValidateInput 要求 pattern / path 非空、limit 非负;pattern 语法错与 ~ / 绝对解析留 Execute。
 func (t *Glob) ValidateInput(args json.RawMessage) error {
@@ -110,10 +111,10 @@ func (t *Glob) ValidateInput(args json.RawMessage) error {
 	return nil
 }
 
-// Execute resolves the root via fspath.Expand, runs doublestar.Glob over os.DirFS,
+// Execute resolves the root via fspath.ExpandIn (work-dir-relative when a residency is mounted), runs doublestar.Glob over os.DirFS,
 // stats matches, sorts mtime-desc, caps to limit, returns JSON.
 //
-// Execute 经 fspath.Expand 解析根,在 os.DirFS 上跑 doublestar.Glob,stat 每项,
+// Execute 经 fspath.ExpandIn 解析根(挂了驻地时相对路径以它为根),在 os.DirFS 上跑 doublestar.Glob,stat 每项,
 // 按 mtime 降序并截断,返 JSON。
 func (t *Glob) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args globArgs
@@ -122,7 +123,7 @@ func (t *Glob) Execute(ctx context.Context, argsJSON string) (string, error) {
 	}
 	args.normalize()
 
-	root, err := fspathpkg.Expand(args.Path)
+	root, err := fspathpkg.ExpandIn(reqctxpkg.GetWorkDir(ctx), args.Path)
 	if err != nil {
 		return err.Error(), nil
 	}

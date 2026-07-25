@@ -174,9 +174,19 @@ func (s *Service) Spawn(ctx context.Context, agentType, prompt string) (string, 
 	// (no SeenFiles/discovered pollution of the parent), and MessageID = subMsgID so loop's
 	// blocks nest under the sub-message. Bridge / conversation / workspace / locale are inherited.
 	//
+	// The conversation's WORK DIR is inherited too, and for free — deriving from ctx carries it along,
+	// which is precisely why the residency lives in reqctx and not in AgentState (WRK-077 WD1, decision
+	// #7 "a subagent inherits its parent's residency"). Had it been an AgentState slot, the deliberate
+	// fresh instance two lines below would have silently dropped it, and a subagent would have started
+	// resolving relative paths against nothing while its parent was zoomed in somewhere.
+	//
 	// 子运行 ctx：标记 subagent（递归守卫 + todo 作用域）、全新 AgentState（不污染父 SeenFiles/
 	// discovered）、MessageID = subMsgID 使 loop 的 block 挂 sub-message 下。Bridge / conversation /
 	// workspace / locale 继承。
+	//
+	// 对话的**工作目录**同样继承，且**免费**——从 ctx 派生即把它带了过来，而这正是驻地住在 reqctx、不住在
+	// AgentState 的原因（WRK-077 WD1，拍板 #7「subagent 继承父对话驻地」）。若它当初是 AgentState 的一个槽，
+	// 下面两行处**刻意**的全新实例会静默丢掉它，于是父线程 zoom 在某处、subagent 却开始把相对路径解析到虚空。
 	subCtx := reqctxpkg.SetSubagentID(ctx, runID)
 	subCtx = reqctxpkg.WithAgentState(subCtx, agentstatepkg.New())
 	subCtx = reqctxpkg.SetMessageID(subCtx, subMsgID)

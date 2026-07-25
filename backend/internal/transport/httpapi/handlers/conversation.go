@@ -14,12 +14,13 @@ import (
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
-// ConversationHandler serves the 5 /api/v1/conversations/* CRUD endpoints. The tokensUsed
-// enrichment + the system-prompt-preview endpoint are chat data (message_blocks token sum /
-// prompt assembly) and live on ChatHandler, not here.
+// ConversationHandler serves the 5 /api/v1/conversations/* CRUD endpoints plus the residency
+// projection (`GET /{id}/workdir`). The tokensUsed enrichment + the system-prompt-preview endpoint are
+// chat data (message_blocks token sum / prompt assembly) and live on ChatHandler, not here.
 //
-// ConversationHandler 提供 /api/v1/conversations/* 的 5 个 CRUD 端点。tokensUsed 富化 +
-// system-prompt-preview 端点属 chat 数据（message_blocks token 求和 / prompt 拼装），归 ChatHandler。
+// ConversationHandler 提供 /api/v1/conversations/* 的 5 个 CRUD 端点 + 驻地投影（`GET /{id}/workdir`）。
+// tokensUsed 富化 + system-prompt-preview 端点属 chat 数据（message_blocks token 求和 / prompt 拼装），
+// 归 ChatHandler。
 type ConversationHandler struct {
 	svc *conversationapp.Service
 	log *zap.Logger
@@ -44,6 +45,7 @@ func (h *ConversationHandler) Register(mux Registrar) {
 	mux.HandleFunc("GET /api/v1/conversations/{id}", h.Get)
 	mux.HandleFunc("PATCH /api/v1/conversations/{id}", h.Update)
 	mux.HandleFunc("DELETE /api/v1/conversations/{id}", h.Delete)
+	mux.HandleFunc("GET /api/v1/conversations/{id}/workdir", h.WorkDir)
 }
 
 type createConversationRequest struct {
@@ -64,6 +66,13 @@ type updateConversationRequest struct {
 	Pinned            *bool                              `json:"pinned,omitempty"`
 	ModelOverride     *modeldomain.ModelRef              `json:"modelOverride,omitempty"`
 	hasModelOverride  bool
+	// WorkDir needs no `has` companion: unlike modelOverride, its cleared value is the empty STRING, so
+	// `{"workDir":""}` decodes to a non-nil pointer to "" and says "unmount" all by itself. An absent key
+	// is the nil pointer = leave unchanged, as with every other field here.
+	//
+	// WorkDir 不需要 `has` 伴生字段:不同于 modelOverride,它清除后的值是**空字符串**,故 `{"workDir":""}`
+	// 解出一个指向 "" 的非 nil 指针、它自己就说出了「退出驻地」。缺键即 nil 指针 = 不动,与此处其余字段一致。
+	WorkDir *string `json:"workDir,omitempty"`
 }
 
 // UnmarshalJSON detects whether `modelOverride` was present as a key (vs absent), to distinguish
@@ -166,6 +175,7 @@ func (h *ConversationHandler) Update(w http.ResponseWriter, r *http.Request) {
 		AttachedDocuments: req.AttachedDocuments,
 		Archived:          req.Archived,
 		Pinned:            req.Pinned,
+		WorkDir:           req.WorkDir,
 	}
 	if req.hasModelOverride {
 		in.ModelOverride = &req.ModelOverride // **ModelRef tristate; req.ModelOverride nil = clear
@@ -176,6 +186,39 @@ func (h *ConversationHandler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, c)
+}
+
+// WorkDir returns the residency's live projection for one conversation: the mounted path plus what is
+// true about it right now (exists / git repo / branch / dirty). Recomputed per request and cached
+// nowhere — the filesystem and git are the truth, so a directory the user just deleted, or a branch they
+// just switched in their own terminal, reads as it now IS.
+//
+// N4: a derived BOUNDED PROJECTION, so no cursor and no `nextCursor`. It is not a stored collection at
+// all — it is ONE object computed on demand, in the same class as `GET /storage-stat` rather than the
+// trigger-schedule kind that takes real window parameters. It accepts NO parameters, so there is nothing
+// to clamp and nothing to 422 over, and it never reports truncation.
+//
+// An UNMOUNTED conversation returns 200 with the zero projection (empty path, exists=false), not 404:
+// "this thread has no residency" is a successful answer to the question, and the button that calls this
+// has to render the unmounted state too. Only an unknown conversation is a 404.
+//
+// WorkDir 返回某对话驻地的活投影：已挂路径 + 此刻关于它为真的东西（存在 / 是否 git 仓库 / 分支 / 脏）。
+// 逐请求现算、零缓存——文件系统与 git 才是真相，故用户刚删掉的目录、或刚在自己终端里切的分支，读作它
+// **现在的样子**。
+//
+// N4：派生的**有界投影**，故无游标、无 `nextCursor`。它根本不是已存集合——它是**一个**按需现算的对象，与
+// `GET /storage-stat` 同类，而**不是** trigger-schedule 那种收真窗口参数的一类。它**不收任何参数**，故无从
+// 钳制、无从 422，也从不上报截断。
+//
+// **未挂**对话返 200 + 零投影（空路径、exists=false）、**不是** 404：「这条线程没有驻地」是对该问题的一个
+// **成功**回答，而调用它的那个按钮也得渲染未挂态。只有对话本身不存在才是 404。
+func (h *ConversationHandler) WorkDir(w http.ResponseWriter, r *http.Request) {
+	info, err := h.svc.WorkDirInfo(r.Context(), r.PathValue("id"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, info)
 }
 
 func (h *ConversationHandler) Delete(w http.ResponseWriter, r *http.Request) {

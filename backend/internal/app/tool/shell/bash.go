@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -15,6 +16,7 @@ import (
 
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 )
@@ -63,7 +65,7 @@ var (
 	ErrInvalidTimeout = errorspkg.New(errorspkg.KindInvalid, "SHELL_INVALID_TIMEOUT", fmt.Sprintf("timeout must be between 0 and %d ms", maxTimeoutMS))
 )
 
-const bashDescription = `Run a shell command (POSIX sh on Unix, cmd.exe /c on Windows). Output is combined stdout+stderr, capped at 256KB, with an exit-code footer. There is no persistent working directory — pass absolute paths, or prefix a single command with "cd /abs/dir && ..." (cd does NOT carry across calls). Set run_in_background for long-running commands, then poll with BashOutput and stop with KillShell.`
+const bashDescription = `Run a shell command (POSIX sh on Unix, cmd.exe /c on Windows). Output is combined stdout+stderr, capped at 256KB, with an exit-code footer. Runs in the conversation's working directory when one is mounted (the system prompt names it), otherwise in no particular directory — then pass absolute paths. Either way cd does NOT carry across calls: prefix a single command with "cd /abs/dir && ..." to run it elsewhere. Set run_in_background for long-running commands, then poll with BashOutput and stop with KillShell.`
 
 var bashSchema = json.RawMessage(`{
 	"type": "object",
@@ -131,27 +133,53 @@ func (t *Bash) Execute(ctx context.Context, argsJSON string) (string, error) {
 		return formatForegroundResult("", -1, "blocked: "+reason+" (refused; rephrase if intentional)"), nil
 	}
 
+	// The residency (WD1): a mounted work dir becomes the child's cwd, so `ls`, `git status` and every
+	// relative path in the command mean what the user means by "here". Empty = unmounted = exactly the
+	// previous behaviour (no Dir; the child inherits the backend process's directory).
+	//
+	// A mounted-but-unusable dir is REFUSED rather than silently ignored. exec would fail with an opaque
+	// chdir error, and falling back to "no Dir" would be worse than either: the command would run in the
+	// sidecar's own directory while the thread still claims to live somewhere else, so every relative
+	// path in it would quietly hit the wrong tree. The state is rare (the user moved or deleted the
+	// directory after mounting it) and it is exactly what WorkDirInfo.Exists=false shows in the UI.
+	//
+	// 驻地（WD1）：已挂的工作目录成为子进程的 cwd，故 `ls`、`git status` 与命令里每个相对路径都表示
+	// 用户所说的「这里」。空 = 未挂 = 与此前行为**完全**一致（不设 Dir，子进程继承后端进程的目录）。
+	//
+	// 已挂但不可用的目录**予以拒绝**、而非静默忽略。exec 会以一个含义不明的 chdir 错误失败，而回落到
+	// 「不设 Dir」比两者都糟：命令会在 sidecar 自己的目录里跑、而线程仍声称自己住在别处，于是命令里每个
+	// 相对路径都会悄悄打到错误的树上。此状态罕见（用户挂完之后把目录移走或删了），且它正是 UI 里
+	// WorkDirInfo.Exists=false 所显示的那一格。
+	workDir := reqctxpkg.GetWorkDir(ctx)
+	if workDir != "" {
+		if st, err := os.Stat(workDir); err != nil || !st.IsDir() {
+			return "The conversation's working directory is no longer usable: " + workDir +
+				". Ask the user to pick it again (or turn it off), or pass absolute paths.", nil
+		}
+	}
+
 	if args.Background {
-		return t.runBackground(cmdText)
+		return t.runBackground(cmdText, workDir)
 	}
 
 	timeoutMS := args.Timeout
 	if timeoutMS == 0 {
 		timeoutMS = limitspkg.Current().Timeout.BashDefaultTimeoutSec * 1000
 	}
-	return t.runForeground(ctx, cmdText, time.Duration(timeoutMS)*time.Millisecond)
+	return t.runForeground(ctx, cmdText, time.Duration(timeoutMS)*time.Millisecond, workDir)
 }
 
 // runForeground execs command with a wall-clock timeout and returns formatted combined
-// stdout+stderr (capped). No cwd — the child inherits the backend process's directory.
+// stdout+stderr (capped). workDir is the conversation's residency (already verified usable by
+// Execute); empty means no cwd — the child inherits the backend process's directory.
 //
-// runForeground 带墙钟超时执行 command，返合并 stdout+stderr（截断）。无 cwd——子进程继承
-// 后端进程的目录。
-func (t *Bash) runForeground(ctx context.Context, command string, timeout time.Duration) (string, error) {
+// runForeground 带墙钟超时执行 command，返合并 stdout+stderr（截断）。workDir 是对话驻地（Execute
+// 已验其可用）；空表示无 cwd——子进程继承后端进程的目录。
+func (t *Bash) runForeground(ctx context.Context, command string, timeout time.Duration, workDir string) (string, error) {
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	cmd := buildShellCmd(runCtx, command)
+	cmd := buildShellCmd(runCtx, command, workDir)
 	// Timeout / cancel must kill the whole process group, not just sh — and WaitDelay force-closes
 	// the pipes so Run returns even if something survives holding them (see WaitDelay).
 	//
@@ -224,12 +252,15 @@ func capOutput(b []byte) string {
 }
 
 // runBackground starts the command detached so it outlives the chat turn; reaped via
-// KillShell or shutdown Stop().
+// KillShell or shutdown Stop(). workDir is passed EXPLICITLY rather than read from a ctx, because the
+// detached child deliberately gets context.Background() — the residency must survive the turn that
+// launched it, exactly as the process does.
 //
 // runBackground 用 detached ctx 启动，让子进程 outlive 单次 chat turn；清理走 KillShell 或
-// 关停 Stop()。
-func (t *Bash) runBackground(command string) (string, error) {
-	cmd := buildShellCmd(context.Background(), command)
+// 关停 Stop()。workDir **显式**传入、而非从某个 ctx 读，因为 detached 子进程刻意拿到的是
+// context.Background()——驻地必须像进程本身一样活过启动它的那个回合。
+func (t *Bash) runBackground(command, workDir string) (string, error) {
+	cmd := buildShellCmd(context.Background(), command, workDir)
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {
@@ -304,18 +335,21 @@ func pumpReader(wg *sync.WaitGroup, proc *BgProcess, r io.Reader) {
 }
 
 // buildShellCmd builds *exec.Cmd; Unix uses /bin/sh -c, Windows uses cmd.exe /c (not
-// PowerShell). No Dir is set (no cwd) and Env is inherited from the backend process. The child
-// gets its own process group (Unix) so kills reach grandchildren too.
+// PowerShell). Dir is the conversation's residency when one is mounted and is left unset otherwise (the
+// child then inherits the backend process's directory); Env is always inherited. The child gets its own
+// process group (Unix) so kills reach grandchildren too.
 //
 // buildShellCmd 构造 *exec.Cmd；Unix 用 /bin/sh -c，Windows 用 cmd.exe /c（不用 PowerShell）。
-// 不设 Dir（无 cwd），Env 继承后端进程。子进程自成进程组（Unix），使杀进程能波及孙进程。
-func buildShellCmd(ctx context.Context, command string) *exec.Cmd {
+// 挂了驻地时 Dir 即驻地，否则不设（子进程继承后端进程的目录）；Env 恒继承。子进程自成进程组（Unix），
+// 使杀进程能波及孙进程。
+func buildShellCmd(ctx context.Context, command, workDir string) *exec.Cmd {
 	var cmd *exec.Cmd
 	if runtime.GOOS == "windows" {
 		cmd = exec.CommandContext(ctx, "cmd", "/c", command)
 	} else {
 		cmd = exec.CommandContext(ctx, "/bin/sh", "-c", command)
 	}
+	cmd.Dir = workDir
 	setProcessGroup(cmd)
 	return cmd
 }

@@ -19,7 +19,7 @@ audience: [human, ai]
 
 `Send` 是**两段式**（头部先验对话存在——404 早退不落孤儿行；归档对话**自动解档**后照常接收，软失败不挡消息）：① 同步落 user 回合（text block + 附件 id/@提及快照（见 §5 freeze-on-send）进 Attrs）+ 开 assistant 回合（streaming、无 block——先 mint id 作流锚点）+ 发 message_start；② 任务入该对话的 `convQueue`。**每对话一个抽取 goroutine 串行生成**（同时一个 assistant 回合 → block seq 分配天然无竞争）；生成中（`q.running`，至 finalize 放行）再 Send 直接 409 `STREAM_IN_PROGRESS`（不排队）；回合收尾活（同步压缩检查，可达秒级真 LLM 调用）期间的 Send 落进**单槽缓冲**、紧随其后被服务，槽满仍 409。队列 **5 分钟无任务自毁**（休眠对话零成本），新 Send 按需重建；拆卸与投递在 q.mu 下原子互斥（task 不可能滞留死 channel）。**Shutdown 即时**：cancel 全部在跑回合 + stop 信号短路每个队列（不等 idle timer）。
 
-**processTask 的 ctx 装配**（Send ctx 早已消失，全部重建）：`Detached(ws)` + locale + conversationID + messageID + AgentState + messages 流桥 + entities 流桥（build 镜像）+ humanloop broker + **回合总墙钟 `WithTimeout(limits.Timeout.ChatTurnSec)`**（默认 1800s、可 `PATCH /limits`；步数封顶 MaxSteps 之上的**时间兜底**——流/工具卡过每步守卫（F93 流总墙钟、F83/F92 工具墙钟）的回合否则在 detached ctx 上永跑、卡 isGenerating + 阻塞 graceful shutdown，F100）+ cancel（Cancel 端点 / shutdown 触发）。
+**processTask 的 ctx 装配**（Send ctx 早已消失，全部重建）：`Detached(ws)` + locale + conversationID + messageID + AgentState + messages 流桥 + entities 流桥（build 镜像）+ humanloop broker + **驻地 `SetWorkDir(conv.WorkDir)`**（WD1，见 §8——**在读头行之后**种，故中途切换在**下一**回合生效） + **回合总墙钟 `WithTimeout(limits.Timeout.ChatTurnSec)`**（默认 1800s、可 `PATCH /limits`；步数封顶 MaxSteps 之上的**时间兜底**——流/工具卡过每步守卫（F93 流总墙钟、F83/F92 工具墙钟）的回合否则在 detached ctx 上永跑、卡 isGenerating + 阻塞 graceful shutdown，F100）+ cancel（Cancel 端点 / shutdown 触发）。
 
 ## 3. 回合生命周期
 
@@ -53,6 +53,18 @@ audience: [human, ai]
 
 **分叉 × 重试的交汇**（CH-b × CH-c）：`Fork` 必须把**message id 也预铸**并 remap 两个版本指针（`superseded_by` 与 `attrs.retryOf`）——保留源 id 的复制会让分叉的版本链指进源线程，而**丢掉** `superseded_by` 更糟：它会把每条被复制的行重置成「现行」，于是模型拿到同一个问题的**两个**回答。被前缀窗**切掉**的取代者留下零值，这恰好正确（在分叉里，既然更新的版本根本不在，该行**就是**现行版）；目标落在窗外的 `retryOf` 被**丢弃**而非留成悬空指针。
 
+## 3.6 驻地（对话工作目录）的 chat 侧三件事（WRK-077 WD1）
+
+驻地本身是 conversation 的一列（见 [conversation.md](conversation.md)）；chat 拥有它在**回合里**的三处兑现。
+
+**① ctx 播种**：`processTask` 在**读头行之后**、`loop.Run` **之前**种 `reqctx.SetWorkDir(ctx, conv.WorkDir)`。顺序承重两次：那一列是真相源，且「中途切换在**下一**回合生效」正是驻地按钮对用户的承诺（按钮因此在生成中**不禁用**）。从 `ctx` 派生保住回合的超时与 cancel。
+
+**② 每轮 system prompt 带一段 `work_dir`**（`prompt.go`，紧邻 `environment`——它**就是** environment：本回合「这里」是哪儿）：路径 + 分支（若是 git 仓库），随后三句话——相对路径以此解析、Bash 从这里起步、**「你仍可用绝对路径读机器上任何地方，这是焦点、不是限制」**，最后点明往外写会先问用户。诚实陈述 zoom 是必需的：一个被暗示自己被关起来的 agent 会拒掉它本被允许做的事，然后为此与用户争辩；而一次没被预告的强制确认读起来就是一次随机卡顿。**只跑廉价 git 探针**（`rev-parse --abbrev-ref HEAD`，O(1)）——**脏态刻意缺席**：它要走整个工作树、在 prompt 与模型首次工具调用之间本就会变，而模型自己跑一次 `git status` 即可；驻地**路径**才是它无从自行发现的东西。未挂线程该段为空、`buildSystemPrompt` 丢掉空段，故**未挂线程的 prompt 与 WD1 之前逐字节相同**（`GET /{id}/system-prompt-preview` 复用同一函数，故预览与模型所见仍逐字一致）。
+
+**③ subagent 继承（拍板 #7）——免费**：`subagent.Spawn` 的子 ctx 由父回合 ctx 派生，故驻地原封不动带过去，**零管线代码**。这正是驻地住 `reqctx` 而非 `AgentState` 的原因：子运行**刻意**拿一个全新 AgentState（不污染父 `SeenFiles`），存那儿会被静默丢掉，于是父线程 zoom 在某处、subagent 却开始把相对路径解析到虚空。`pkg/agentstate` 的包注释已就此重述（旧文写「桌面 agent 无工作目录，shell 不引入 cwd」）。
+
+**④ 中途切换的 `marker` 块由 chat 写**（`MarkWorkDirSwitch`，即 conversation 的 `WorkDirMarker` 端口——消息归 chat）：一个合成 assistant 回合 + 一个 `marker` 块，与 compaction 锚（`contextmgr.writeAnchor`）**完全同形**，因为两者答的是同一类问题：关于**这段对话**的某件事在两个回合之间变了。**刻意不发 SSE 帧**——该块随普通 `GET /{id}/messages` 读回，故 [events.md](../events.md) 的 messages `node.type` 词表分毫不动、E1/E2 成立；正看着线程的客户端靠 PATCH 本就广播的 `conversation.work_dir` 回声重读。**空线程不落标记**；`content` 恒空（标签客户端本地化）。它对模型不可见**不靠过滤**——`BlocksToAssistantLLM` 是类型白名单，marker 在里面没有 case。
+
 ## 4. 人在环
 
 危险工具（LLM 自报 dangerous）/ `ask_user` 在 loop 内**阻塞**于 humanloop broker。chat 注入的 Surface 把待决交互推成 messages 流的 **ephemeral** `interaction` 信号（即时弹出）；**broker 内存 pending 表是真相源**——重连客户端走 `GET .../interactions` 重新同步。`ResolveInteraction` 先校验 action 属封闭决策集（approve/approve_always/deny/accept/decline，枚举外 → `422 INTERACTION_INVALID_ACTION` 带 `details.validActions`，先于 broker 查找就拒——loop 门是 fail-safe，非 approve 一律拒，故拼错的 action 不再无声拒掉一个危险工具），再把决定交给 broker（approve 跑 / deny 反馈 / approve_always 加**对话级会话白名单**——active skill 的 allowed-tools 也是预授权来源）；重复 POST 安全（`NO_PENDING_INTERACTION` 404）。broker 经 ctx 流入嵌套 agent 运行（嵌套不冒泡，阻塞的 goroutine hold 整栈）。broker 是 **app 级单例**（比任一对话活得久），故 always-allow 白名单按 `conversationID` 键、**对话删除时经 `ForgetConversation` 钩子（conversation 删除级联调）整批清掉**——否则授权会越过删除永久泄漏在内存里（与 stream-stop 的 `Cancel` 区分：后者只停在途生成、对话仍活、保留白名单）。
@@ -69,4 +81,4 @@ audience: [human, ai]
 
 ## 7. 跨域集成
 
-消费：conversation（线程配置）/ messages（持久化）/ loop（引擎）/ toolset（resident+lazy）/ attachment（多模态渲染，按模型 caps 门控；内置 Anselm 网关的图片/MP4 先换成短期 remote media lease URL，聊天 wire 不含原始 base64）/ memory·catalog·document（各贡献 system prompt 一段，连同 user 自定义 prompt + environment + 静态规则段 + `conversation_management` 段[声明压缩自动·无手动 compact 按钮·归档/置顶走 `manage_conversation`，杜绝 agent 臆造按钮，F38]组成完整 prompt）/ todo（reminder）/ model（resolve）/ contextmgr（**压缩全自动、无手动路由**——每次 sampling 即时治理 + 回合收尾 durable 检查，无 LLM 工具/UI 按钮可手动 compact）/ humanloop（broker）。被消费：`invoke_agent` 嵌套呈现（E3）、subagent 落 sub-message、aispawn 的 `:iterate`/`:triage` 开对话。
+消费：conversation（线程配置）/ messages（持久化）/ loop（引擎）/ toolset（resident+lazy）/ attachment（多模态渲染，按模型 caps 门控；内置 Anselm 网关的图片/MP4 先换成短期 remote media lease URL，聊天 wire 不含原始 base64）/ memory·catalog·document（各贡献 system prompt 一段，连同 user 自定义 prompt + **work_dir 段（驻地，仅挂载时，见 §3.6）** + environment + 静态规则段 + `conversation_management` 段[声明压缩自动·无手动 compact 按钮·归档/置顶走 `manage_conversation`，杜绝 agent 臆造按钮，F38]组成完整 prompt）/ todo（reminder）/ model（resolve）/ contextmgr（**压缩全自动、无手动路由**——每次 sampling 即时治理 + 回合收尾 durable 检查，无 LLM 工具/UI 按钮可手动 compact）/ humanloop（broker）。被消费：`invoke_agent` 嵌套呈现（E3）、subagent 落 sub-message、aispawn 的 `:iterate`/`:triage` 开对话。

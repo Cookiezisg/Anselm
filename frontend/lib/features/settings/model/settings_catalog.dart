@@ -167,4 +167,8 @@ const List<SettingsKey<dynamic>> settingsImplicitKeys = [
   SettingsKeys.chatShowArchived,
   SettingsKeys.chatShowGroupCount,
   SettingsKeys.chatShowTime,
+  // The residency's recent-directory list: remembered per machine, surfaced only in chat's work-dir menu —
+  // there is no panel that should offer to edit a recency list. 驻地最近目录表:按机器记、只在 chat 驻地菜单里
+  // 露面——没有哪个面板该提供「编辑一份最近列表」。
+  SettingsKeys.chatRecentWorkDirs,
 ];

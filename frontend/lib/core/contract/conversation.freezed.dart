@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Conversation {
 
- String get id; String get title; bool get autoTitled; bool get archived; bool get pinned; ModelRef? get modelOverride; DateTime get createdAt; DateTime get updatedAt; DateTime get lastMessageAt; bool get isGenerating; bool get awaitingInput; bool get hasUnread; String get forkedFromConversationId; String get forkedFromMessageId;
+ String get id; String get title; bool get autoTitled; bool get archived; bool get pinned; ModelRef? get modelOverride; DateTime get createdAt; DateTime get updatedAt; DateTime get lastMessageAt; bool get isGenerating; bool get awaitingInput; bool get hasUnread; String get forkedFromConversationId; String get forkedFromMessageId; String get workDir;
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $ConversationCopyWith<Conversation> get copyWith => _$ConversationCopyWithImpl<C
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.autoTitled, autoTitled) || other.autoTitled == autoTitled)&&(identical(other.archived, archived) || other.archived == archived)&&(identical(other.pinned, pinned) || other.pinned == pinned)&&(identical(other.modelOverride, modelOverride) || other.modelOverride == modelOverride)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.isGenerating, isGenerating) || other.isGenerating == isGenerating)&&(identical(other.awaitingInput, awaitingInput) || other.awaitingInput == awaitingInput)&&(identical(other.hasUnread, hasUnread) || other.hasUnread == hasUnread)&&(identical(other.forkedFromConversationId, forkedFromConversationId) || other.forkedFromConversationId == forkedFromConversationId)&&(identical(other.forkedFromMessageId, forkedFromMessageId) || other.forkedFromMessageId == forkedFromMessageId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.autoTitled, autoTitled) || other.autoTitled == autoTitled)&&(identical(other.archived, archived) || other.archived == archived)&&(identical(other.pinned, pinned) || other.pinned == pinned)&&(identical(other.modelOverride, modelOverride) || other.modelOverride == modelOverride)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.isGenerating, isGenerating) || other.isGenerating == isGenerating)&&(identical(other.awaitingInput, awaitingInput) || other.awaitingInput == awaitingInput)&&(identical(other.hasUnread, hasUnread) || other.hasUnread == hasUnread)&&(identical(other.forkedFromConversationId, forkedFromConversationId) || other.forkedFromConversationId == forkedFromConversationId)&&(identical(other.forkedFromMessageId, forkedFromMessageId) || other.forkedFromMessageId == forkedFromMessageId)&&(identical(other.workDir, workDir) || other.workDir == workDir));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,autoTitled,archived,pinned,modelOverride,createdAt,updatedAt,lastMessageAt,isGenerating,awaitingInput,hasUnread,forkedFromConversationId,forkedFromMessageId);
+int get hashCode => Object.hash(runtimeType,id,title,autoTitled,archived,pinned,modelOverride,createdAt,updatedAt,lastMessageAt,isGenerating,awaitingInput,hasUnread,forkedFromConversationId,forkedFromMessageId,workDir);
 
 @override
 String toString() {
-  return 'Conversation(id: $id, title: $title, autoTitled: $autoTitled, archived: $archived, pinned: $pinned, modelOverride: $modelOverride, createdAt: $createdAt, updatedAt: $updatedAt, lastMessageAt: $lastMessageAt, isGenerating: $isGenerating, awaitingInput: $awaitingInput, hasUnread: $hasUnread, forkedFromConversationId: $forkedFromConversationId, forkedFromMessageId: $forkedFromMessageId)';
+  return 'Conversation(id: $id, title: $title, autoTitled: $autoTitled, archived: $archived, pinned: $pinned, modelOverride: $modelOverride, createdAt: $createdAt, updatedAt: $updatedAt, lastMessageAt: $lastMessageAt, isGenerating: $isGenerating, awaitingInput: $awaitingInput, hasUnread: $hasUnread, forkedFromConversationId: $forkedFromConversationId, forkedFromMessageId: $forkedFromMessageId, workDir: $workDir)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $ConversationCopyWith<$Res>  {
   factory $ConversationCopyWith(Conversation value, $Res Function(Conversation) _then) = _$ConversationCopyWithImpl;
 @useResult
 $Res call({
- String id, String title, bool autoTitled, bool archived, bool pinned, ModelRef? modelOverride, DateTime createdAt, DateTime updatedAt, DateTime lastMessageAt, bool isGenerating, bool awaitingInput, bool hasUnread, String forkedFromConversationId, String forkedFromMessageId
+ String id, String title, bool autoTitled, bool archived, bool pinned, ModelRef? modelOverride, DateTime createdAt, DateTime updatedAt, DateTime lastMessageAt, bool isGenerating, bool awaitingInput, bool hasUnread, String forkedFromConversationId, String forkedFromMessageId, String workDir
 });
 
 
@@ -65,7 +65,7 @@ class _$ConversationCopyWithImpl<$Res>
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? autoTitled = null,Object? archived = null,Object? pinned = null,Object? modelOverride = freezed,Object? createdAt = null,Object? updatedAt = null,Object? lastMessageAt = null,Object? isGenerating = null,Object? awaitingInput = null,Object? hasUnread = null,Object? forkedFromConversationId = null,Object? forkedFromMessageId = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? autoTitled = null,Object? archived = null,Object? pinned = null,Object? modelOverride = freezed,Object? createdAt = null,Object? updatedAt = null,Object? lastMessageAt = null,Object? isGenerating = null,Object? awaitingInput = null,Object? hasUnread = null,Object? forkedFromConversationId = null,Object? forkedFromMessageId = null,Object? workDir = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -81,6 +81,7 @@ as bool,awaitingInput: null == awaitingInput ? _self.awaitingInput : awaitingInp
 as bool,hasUnread: null == hasUnread ? _self.hasUnread : hasUnread // ignore: cast_nullable_to_non_nullable
 as bool,forkedFromConversationId: null == forkedFromConversationId ? _self.forkedFromConversationId : forkedFromConversationId // ignore: cast_nullable_to_non_nullable
 as String,forkedFromMessageId: null == forkedFromMessageId ? _self.forkedFromMessageId : forkedFromMessageId // ignore: cast_nullable_to_non_nullable
+as String,workDir: null == workDir ? _self.workDir : workDir // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
@@ -178,10 +179,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread,  String forkedFromConversationId,  String forkedFromMessageId)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread,  String forkedFromConversationId,  String forkedFromMessageId,  String workDir)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Conversation() when $default != null:
-return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread,_that.forkedFromConversationId,_that.forkedFromMessageId);case _:
+return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread,_that.forkedFromConversationId,_that.forkedFromMessageId,_that.workDir);case _:
   return orElse();
 
 }
@@ -199,10 +200,10 @@ return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinne
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread,  String forkedFromConversationId,  String forkedFromMessageId)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread,  String forkedFromConversationId,  String forkedFromMessageId,  String workDir)  $default,) {final _that = this;
 switch (_that) {
 case _Conversation():
-return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread,_that.forkedFromConversationId,_that.forkedFromMessageId);case _:
+return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread,_that.forkedFromConversationId,_that.forkedFromMessageId,_that.workDir);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -219,10 +220,10 @@ return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinne
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread,  String forkedFromConversationId,  String forkedFromMessageId)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread,  String forkedFromConversationId,  String forkedFromMessageId,  String workDir)?  $default,) {final _that = this;
 switch (_that) {
 case _Conversation() when $default != null:
-return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread,_that.forkedFromConversationId,_that.forkedFromMessageId);case _:
+return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread,_that.forkedFromConversationId,_that.forkedFromMessageId,_that.workDir);case _:
   return null;
 
 }
@@ -234,7 +235,7 @@ return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinne
 @JsonSerializable()
 
 class _Conversation implements Conversation {
-  const _Conversation({required this.id, this.title = '', this.autoTitled = false, this.archived = false, this.pinned = false, this.modelOverride, required this.createdAt, required this.updatedAt, required this.lastMessageAt, this.isGenerating = false, this.awaitingInput = false, this.hasUnread = false, this.forkedFromConversationId = '', this.forkedFromMessageId = ''});
+  const _Conversation({required this.id, this.title = '', this.autoTitled = false, this.archived = false, this.pinned = false, this.modelOverride, required this.createdAt, required this.updatedAt, required this.lastMessageAt, this.isGenerating = false, this.awaitingInput = false, this.hasUnread = false, this.forkedFromConversationId = '', this.forkedFromMessageId = '', this.workDir = ''});
   factory _Conversation.fromJson(Map<String, dynamic> json) => _$ConversationFromJson(json);
 
 @override final  String id;
@@ -251,6 +252,7 @@ class _Conversation implements Conversation {
 @override@JsonKey() final  bool hasUnread;
 @override@JsonKey() final  String forkedFromConversationId;
 @override@JsonKey() final  String forkedFromMessageId;
+@override@JsonKey() final  String workDir;
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
@@ -265,16 +267,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.autoTitled, autoTitled) || other.autoTitled == autoTitled)&&(identical(other.archived, archived) || other.archived == archived)&&(identical(other.pinned, pinned) || other.pinned == pinned)&&(identical(other.modelOverride, modelOverride) || other.modelOverride == modelOverride)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.isGenerating, isGenerating) || other.isGenerating == isGenerating)&&(identical(other.awaitingInput, awaitingInput) || other.awaitingInput == awaitingInput)&&(identical(other.hasUnread, hasUnread) || other.hasUnread == hasUnread)&&(identical(other.forkedFromConversationId, forkedFromConversationId) || other.forkedFromConversationId == forkedFromConversationId)&&(identical(other.forkedFromMessageId, forkedFromMessageId) || other.forkedFromMessageId == forkedFromMessageId));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.autoTitled, autoTitled) || other.autoTitled == autoTitled)&&(identical(other.archived, archived) || other.archived == archived)&&(identical(other.pinned, pinned) || other.pinned == pinned)&&(identical(other.modelOverride, modelOverride) || other.modelOverride == modelOverride)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.isGenerating, isGenerating) || other.isGenerating == isGenerating)&&(identical(other.awaitingInput, awaitingInput) || other.awaitingInput == awaitingInput)&&(identical(other.hasUnread, hasUnread) || other.hasUnread == hasUnread)&&(identical(other.forkedFromConversationId, forkedFromConversationId) || other.forkedFromConversationId == forkedFromConversationId)&&(identical(other.forkedFromMessageId, forkedFromMessageId) || other.forkedFromMessageId == forkedFromMessageId)&&(identical(other.workDir, workDir) || other.workDir == workDir));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,autoTitled,archived,pinned,modelOverride,createdAt,updatedAt,lastMessageAt,isGenerating,awaitingInput,hasUnread,forkedFromConversationId,forkedFromMessageId);
+int get hashCode => Object.hash(runtimeType,id,title,autoTitled,archived,pinned,modelOverride,createdAt,updatedAt,lastMessageAt,isGenerating,awaitingInput,hasUnread,forkedFromConversationId,forkedFromMessageId,workDir);
 
 @override
 String toString() {
-  return 'Conversation(id: $id, title: $title, autoTitled: $autoTitled, archived: $archived, pinned: $pinned, modelOverride: $modelOverride, createdAt: $createdAt, updatedAt: $updatedAt, lastMessageAt: $lastMessageAt, isGenerating: $isGenerating, awaitingInput: $awaitingInput, hasUnread: $hasUnread, forkedFromConversationId: $forkedFromConversationId, forkedFromMessageId: $forkedFromMessageId)';
+  return 'Conversation(id: $id, title: $title, autoTitled: $autoTitled, archived: $archived, pinned: $pinned, modelOverride: $modelOverride, createdAt: $createdAt, updatedAt: $updatedAt, lastMessageAt: $lastMessageAt, isGenerating: $isGenerating, awaitingInput: $awaitingInput, hasUnread: $hasUnread, forkedFromConversationId: $forkedFromConversationId, forkedFromMessageId: $forkedFromMessageId, workDir: $workDir)';
 }
 
 
@@ -285,7 +287,7 @@ abstract mixin class _$ConversationCopyWith<$Res> implements $ConversationCopyWi
   factory _$ConversationCopyWith(_Conversation value, $Res Function(_Conversation) _then) = __$ConversationCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String title, bool autoTitled, bool archived, bool pinned, ModelRef? modelOverride, DateTime createdAt, DateTime updatedAt, DateTime lastMessageAt, bool isGenerating, bool awaitingInput, bool hasUnread, String forkedFromConversationId, String forkedFromMessageId
+ String id, String title, bool autoTitled, bool archived, bool pinned, ModelRef? modelOverride, DateTime createdAt, DateTime updatedAt, DateTime lastMessageAt, bool isGenerating, bool awaitingInput, bool hasUnread, String forkedFromConversationId, String forkedFromMessageId, String workDir
 });
 
 
@@ -302,7 +304,7 @@ class __$ConversationCopyWithImpl<$Res>
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? autoTitled = null,Object? archived = null,Object? pinned = null,Object? modelOverride = freezed,Object? createdAt = null,Object? updatedAt = null,Object? lastMessageAt = null,Object? isGenerating = null,Object? awaitingInput = null,Object? hasUnread = null,Object? forkedFromConversationId = null,Object? forkedFromMessageId = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? autoTitled = null,Object? archived = null,Object? pinned = null,Object? modelOverride = freezed,Object? createdAt = null,Object? updatedAt = null,Object? lastMessageAt = null,Object? isGenerating = null,Object? awaitingInput = null,Object? hasUnread = null,Object? forkedFromConversationId = null,Object? forkedFromMessageId = null,Object? workDir = null,}) {
   return _then(_Conversation(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -318,6 +320,7 @@ as bool,awaitingInput: null == awaitingInput ? _self.awaitingInput : awaitingInp
 as bool,hasUnread: null == hasUnread ? _self.hasUnread : hasUnread // ignore: cast_nullable_to_non_nullable
 as bool,forkedFromConversationId: null == forkedFromConversationId ? _self.forkedFromConversationId : forkedFromConversationId // ignore: cast_nullable_to_non_nullable
 as String,forkedFromMessageId: null == forkedFromMessageId ? _self.forkedFromMessageId : forkedFromMessageId // ignore: cast_nullable_to_non_nullable
+as String,workDir: null == workDir ? _self.workDir : workDir // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
@@ -597,6 +600,281 @@ class __$ModelRefCopyWithImpl<$Res>
 apiKeyId: null == apiKeyId ? _self.apiKeyId : apiKeyId // ignore: cast_nullable_to_non_nullable
 as String,modelId: null == modelId ? _self.modelId : modelId // ignore: cast_nullable_to_non_nullable
 as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$WorkDirInfo {
+
+ String get path; bool get exists; bool get isGitRepo; String get branch; bool get dirty;
+/// Create a copy of WorkDirInfo
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$WorkDirInfoCopyWith<WorkDirInfo> get copyWith => _$WorkDirInfoCopyWithImpl<WorkDirInfo>(this as WorkDirInfo, _$identity);
+
+  /// Serializes this WorkDirInfo to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkDirInfo&&(identical(other.path, path) || other.path == path)&&(identical(other.exists, exists) || other.exists == exists)&&(identical(other.isGitRepo, isGitRepo) || other.isGitRepo == isGitRepo)&&(identical(other.branch, branch) || other.branch == branch)&&(identical(other.dirty, dirty) || other.dirty == dirty));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,path,exists,isGitRepo,branch,dirty);
+
+@override
+String toString() {
+  return 'WorkDirInfo(path: $path, exists: $exists, isGitRepo: $isGitRepo, branch: $branch, dirty: $dirty)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $WorkDirInfoCopyWith<$Res>  {
+  factory $WorkDirInfoCopyWith(WorkDirInfo value, $Res Function(WorkDirInfo) _then) = _$WorkDirInfoCopyWithImpl;
+@useResult
+$Res call({
+ String path, bool exists, bool isGitRepo, String branch, bool dirty
+});
+
+
+
+
+}
+/// @nodoc
+class _$WorkDirInfoCopyWithImpl<$Res>
+    implements $WorkDirInfoCopyWith<$Res> {
+  _$WorkDirInfoCopyWithImpl(this._self, this._then);
+
+  final WorkDirInfo _self;
+  final $Res Function(WorkDirInfo) _then;
+
+/// Create a copy of WorkDirInfo
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? path = null,Object? exists = null,Object? isGitRepo = null,Object? branch = null,Object? dirty = null,}) {
+  return _then(_self.copyWith(
+path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
+as String,exists: null == exists ? _self.exists : exists // ignore: cast_nullable_to_non_nullable
+as bool,isGitRepo: null == isGitRepo ? _self.isGitRepo : isGitRepo // ignore: cast_nullable_to_non_nullable
+as bool,branch: null == branch ? _self.branch : branch // ignore: cast_nullable_to_non_nullable
+as String,dirty: null == dirty ? _self.dirty : dirty // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [WorkDirInfo].
+extension WorkDirInfoPatterns on WorkDirInfo {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _WorkDirInfo value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _WorkDirInfo() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _WorkDirInfo value)  $default,){
+final _that = this;
+switch (_that) {
+case _WorkDirInfo():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _WorkDirInfo value)?  $default,){
+final _that = this;
+switch (_that) {
+case _WorkDirInfo() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String path,  bool exists,  bool isGitRepo,  String branch,  bool dirty)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _WorkDirInfo() when $default != null:
+return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String path,  bool exists,  bool isGitRepo,  String branch,  bool dirty)  $default,) {final _that = this;
+switch (_that) {
+case _WorkDirInfo():
+return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String path,  bool exists,  bool isGitRepo,  String branch,  bool dirty)?  $default,) {final _that = this;
+switch (_that) {
+case _WorkDirInfo() when $default != null:
+return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _WorkDirInfo implements WorkDirInfo {
+  const _WorkDirInfo({this.path = '', this.exists = false, this.isGitRepo = false, this.branch = '', this.dirty = false});
+  factory _WorkDirInfo.fromJson(Map<String, dynamic> json) => _$WorkDirInfoFromJson(json);
+
+@override@JsonKey() final  String path;
+@override@JsonKey() final  bool exists;
+@override@JsonKey() final  bool isGitRepo;
+@override@JsonKey() final  String branch;
+@override@JsonKey() final  bool dirty;
+
+/// Create a copy of WorkDirInfo
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$WorkDirInfoCopyWith<_WorkDirInfo> get copyWith => __$WorkDirInfoCopyWithImpl<_WorkDirInfo>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$WorkDirInfoToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkDirInfo&&(identical(other.path, path) || other.path == path)&&(identical(other.exists, exists) || other.exists == exists)&&(identical(other.isGitRepo, isGitRepo) || other.isGitRepo == isGitRepo)&&(identical(other.branch, branch) || other.branch == branch)&&(identical(other.dirty, dirty) || other.dirty == dirty));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,path,exists,isGitRepo,branch,dirty);
+
+@override
+String toString() {
+  return 'WorkDirInfo(path: $path, exists: $exists, isGitRepo: $isGitRepo, branch: $branch, dirty: $dirty)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$WorkDirInfoCopyWith<$Res> implements $WorkDirInfoCopyWith<$Res> {
+  factory _$WorkDirInfoCopyWith(_WorkDirInfo value, $Res Function(_WorkDirInfo) _then) = __$WorkDirInfoCopyWithImpl;
+@override @useResult
+$Res call({
+ String path, bool exists, bool isGitRepo, String branch, bool dirty
+});
+
+
+
+
+}
+/// @nodoc
+class __$WorkDirInfoCopyWithImpl<$Res>
+    implements _$WorkDirInfoCopyWith<$Res> {
+  __$WorkDirInfoCopyWithImpl(this._self, this._then);
+
+  final _WorkDirInfo _self;
+  final $Res Function(_WorkDirInfo) _then;
+
+/// Create a copy of WorkDirInfo
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? path = null,Object? exists = null,Object? isGitRepo = null,Object? branch = null,Object? dirty = null,}) {
+  return _then(_WorkDirInfo(
+path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
+as String,exists: null == exists ? _self.exists : exists // ignore: cast_nullable_to_non_nullable
+as bool,isGitRepo: null == isGitRepo ? _self.isGitRepo : isGitRepo // ignore: cast_nullable_to_non_nullable
+as bool,branch: null == branch ? _self.branch : branch // ignore: cast_nullable_to_non_nullable
+as String,dirty: null == dirty ? _self.dirty : dirty // ignore: cast_nullable_to_non_nullable
+as bool,
   ));
 }
 

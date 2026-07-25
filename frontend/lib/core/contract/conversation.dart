@@ -31,6 +31,21 @@ part 'conversation.g.dart';
 /// forkedFromConversationId / forkedFromMessageId 是分叉血缘(`POST /{id}:fork`):源线程 + 前缀复制停在
 /// 的那条消息。服务端一次写定、永不更新——分叉**是**新线程,故这对 id 是**溯源**、非活链接:源日后可被删,
 /// 届时头部血缘行只是不渲。两者皆空 = 普通线程。系统写、线缆只读。
+///
+/// [workDir] is the thread's optional RESIDENCY: an absolute directory the agent is zoomed in on. Empty =
+/// not mounted, the default. Unlike the flags above it is USER-EDITABLE and rides the PATCH surface next to
+/// [modelOverride] — but as a PLAIN string, not a tristate: the column's empty value already means
+/// "unmounted", so `''` IS the clear. Mounted, it does three things server-side (relative paths resolve
+/// against it, Bash runs in it, the system prompt names it) and one thing client-side: the breadcrumb's
+/// folder button. It is NOT a sandbox — reads outside are untouched, only writes outside ask for
+/// confirmation. Whether the directory still EXISTS is not on this row: that is the live projection
+/// ([WorkDirInfo], `GET /{id}/workdir`), because the answer changes without the row changing.
+///
+/// workDir 是线程可选的**驻地**:agent 已 zoom in 的一个绝对目录。空 = 未挂(默认)。不同于上面那些标志,它
+/// **用户可改**、与 modelOverride 并列走 PATCH 面——但是**朴素字符串**、不是三态:该列的空值已表示「未挂」,故
+/// `''` **就是**清除。挂上后它在服务端做三件事(相对路径以它解析、Bash 在它里面跑、system prompt 点出它),在
+/// 客户端做一件事:面包屑那个文件夹按钮。它**不是**沙箱——往外读分毫不受影响,只有往外写才要确认。目录**是否
+/// 还在**不在这一行上:那是活投影([WorkDirInfo],`GET /{id}/workdir`),因为那个答案会在行不变的情况下改变。
 @freezed
 abstract class Conversation with _$Conversation {
   const factory Conversation({
@@ -48,6 +63,7 @@ abstract class Conversation with _$Conversation {
     @Default(false) bool hasUnread,
     @Default('') String forkedFromConversationId,
     @Default('') String forkedFromMessageId,
+    @Default('') String workDir,
   }) = _Conversation;
 
   factory Conversation.fromJson(Map<String, dynamic> json) =>
@@ -69,4 +85,35 @@ abstract class ModelRef with _$ModelRef {
 
   factory ModelRef.fromJson(Map<String, dynamic> json) =>
       _$ModelRefFromJson(json);
+}
+
+/// The residency's LIVE projection — `GET /conversations/{id}/workdir`, mirroring
+/// `conversation.WorkDirInfo`. Recomputed per request and cached nowhere: the filesystem and git ARE the
+/// truth, so a directory the user just deleted, or a branch they just switched in their own terminal, reads
+/// as it now is. This is why the folder button's three states can be honest.
+///
+/// [path] echoes the row's column so one read serves the whole menu. [exists] false with a non-empty
+/// [path] is the WARNING state (mounted, then moved or deleted) — a real thing to render, not an error.
+/// [branch] / [dirty] are meaningful only when [isGitRepo]; WD1 shows them READ-ONLY (switching branches is
+/// WD2, worktrees WD3).
+///
+/// 驻地的**活投影**——`GET /conversations/{id}/workdir`,镜像 `conversation.WorkDirInfo`。逐请求现算、零缓存:
+/// 文件系统与 git **就是**真相,故用户刚删掉的目录、或刚在自己终端里切的分支,读作它**现在的样子**。这正是那个
+/// 文件夹按钮的三态能够诚实的原因。
+///
+/// path 回显行上那一列,使一次读服务整个菜单。path 非空而 exists 为 false 是**警示**态(挂过、然后被移走或删了)
+/// ——那是要渲的真实状态、不是错误。branch / dirty 仅在 isGitRepo 时有意义;WD1 **只读**地显示它们(切分支归
+/// WD2、worktree 归 WD3)。
+@freezed
+abstract class WorkDirInfo with _$WorkDirInfo {
+  const factory WorkDirInfo({
+    @Default('') String path,
+    @Default(false) bool exists,
+    @Default(false) bool isGitRepo,
+    @Default('') String branch,
+    @Default(false) bool dirty,
+  }) = _WorkDirInfo;
+
+  factory WorkDirInfo.fromJson(Map<String, dynamic> json) =>
+      _$WorkDirInfoFromJson(json);
 }

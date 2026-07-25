@@ -1,5 +1,4 @@
 import 'dart:convert' show utf8;
-import 'dart:io' show Platform, Process;
 import 'dart:typed_data';
 
 import 'package:csv/csv.dart';
@@ -15,6 +14,7 @@ import '../../../core/editor/an_editor.dart';
 import '../../../core/model/byte_format.dart';
 import '../../../core/notice/notice_center.dart';
 import '../../../core/perf/debouncer.dart';
+import '../../../core/platform/open_in_system.dart';
 import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_code_editor.dart';
 import '../../../core/ui/an_deferred_loading.dart';
@@ -94,34 +94,6 @@ IconData skillFileIcon(String path) => switch (skillFileKindOf(path)) {
   SkillFileKind.image || SkillFileKind.svg => AnIcons.image,
   _ => AnIcons.file,
 };
-
-/// Open a file with the OS default app / reveal it in the system file manager — the universal
-/// escape hatch for anything we don't render inline. Desktop-only process calls; failures are
-/// soft (a notice), never a crash.
-///
-/// 用系统默认应用打开 / 在系统文件管理器里定位——一切不内嵌渲染类型的万能逃生口。桌面进程
-/// 调用;失败软处理(notice)、绝不崩。
-Future<void> openWithSystem(String absPath) async {
-  if (Platform.isMacOS) {
-    await Process.run('open', [absPath]);
-  } else if (Platform.isWindows) {
-    await Process.run('explorer', [absPath]);
-  } else {
-    await Process.run('xdg-open', [absPath]);
-  }
-}
-
-Future<void> revealInSystem(String absPath) async {
-  if (Platform.isMacOS) {
-    await Process.run('open', ['-R', absPath]);
-  } else if (Platform.isWindows) {
-    await Process.run('explorer', ['/select,', absPath]);
-  } else {
-    // Linux 无跨桌面标准的「定位」——打开所在目录即诚实近似。
-    final dir = absPath.substring(0, absPath.lastIndexOf('/'));
-    await Process.run('xdg-open', [dir]);
-  }
-}
 
 /// One bundled file rendered in the center, by kind. [skillDir] powers the system-open actions
 /// (absolute path = dir + / + rel). Non-markdown views CLEAR the inspector outline on mount —

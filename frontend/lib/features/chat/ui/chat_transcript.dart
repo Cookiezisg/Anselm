@@ -35,6 +35,7 @@ import 'chat_tool_card.dart';
 import 'chat_turn.dart';
 import 'turn_actions.dart';
 import 'chat_context_mark.dart';
+import 'chat_work_dir_button.dart';
 import 'chat_thinking.dart';
 import 'user_turn_content.dart';
 
@@ -1086,6 +1087,20 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         // The context-compaction whisper — a system timeline marker, localized from the block's marker.
         // 上下文压缩低语——系统时间轴标记,从块 marker 本地化。
         return ChatContextMark(marker: b.displayText);
+      case BlockKind.marker:
+        // A durable in-line MARK about the conversation itself. Today there is exactly one kind — the
+        // residency switched mid-thread — and the payload rides `attrs` (hydrated INTO content by
+        // hydrateBlockContent), never the content column, which is empty by contract so the label can be
+        // localized. An unknown future kind renders NOTHING rather than a raw attrs dump: this row is chrome
+        // between turns, and a mark nobody can read is worse than a mark nobody sees.
+        // 关于对话本身的持久**行内标记**。今天恰有一种 kind——驻地在线程中途被切换——载荷搭 `attrs`(由
+        // hydrateBlockContent 水化**进** content)、绝不搭 content 列(它按契约为空,使标签可本地化)。未来的未知 kind
+        // 渲**什么都不渲**、而不是把 attrs 倒出来:这一行是回合之间的 chrome,一条没人读得懂的标记比一条没人看见的更糟。
+        if (b.content?['kind'] != 'workdir') return null;
+        return ChatWorkDirMark(
+          from: (b.content?['from'] as String?) ?? '',
+          to: (b.content?['to'] as String?) ?? '',
+        );
       case BlockKind.message:
         // A nested subagent's message wrapper is flattened INTO its parent tool card (ToolCardState.of),
         // never rendered as a top-level transcript row. 嵌套 subagent 的 message 包装摊平进工具卡,不作顶层行。

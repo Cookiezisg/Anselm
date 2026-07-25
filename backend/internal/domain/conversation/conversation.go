@@ -109,6 +109,58 @@ type Conversation struct {
 	// Summary / AutoTitled）。
 	ForkedFromConversationID string `db:"forked_from_conversation_id" json:"forkedFromConversationId,omitempty"`
 	ForkedFromMessageID      string `db:"forked_from_message_id"      json:"forkedFromMessageId,omitempty"`
+
+	// WorkDir is the thread's optional RESIDENCY: an absolute directory the agent is zoomed in on.
+	// Empty = not mounted, which is the whole-machine status quo (every host tool stays available, it
+	// just has no focus). Mounted, it does exactly three things: relative paths resolve against it,
+	// Bash runs in it, and the system prompt says where "here" is.
+	//
+	// It is NOT a cage. Reads outside it are untouched by design (the user's words: "if I want to look
+	// outside, I can"); only WRITES outside it escalate to a human confirmation. That is why this is
+	// one plain column on the thread and not a permission model.
+	//
+	// A user-editable setting, so it rides the PATCH surface next to Title / ModelOverride — unlike
+	// Summary / AutoTitled / Unread, which are system-write.
+	//
+	// WorkDir 是线程可选的**驻地**:agent 已 zoom in 的一个绝对目录。空 = 未挂,即整台机器的现状（宿主
+	// 工具全都还在、只是没有焦点）。挂上后它只做三件事:相对路径以它解析、Bash 在它里面跑、system prompt
+	// 说明「这里」是哪里。
+	//
+	// 它**不是**笼子。按设计,往外读分毫不受影响（用户原话:「想看外面什么的,都可以」）;只有往外**写**
+	// 才升级为一次人工确认。正因如此,它是线程上一个朴素的列、而非一套权限模型。
+	//
+	// 它是用户可改的设置,故与 Title / ModelOverride 并列走 PATCH 面——不同于系统写的 Summary /
+	// AutoTitled / Unread。
+	WorkDir string `db:"work_dir" json:"workDir,omitempty"`
+}
+
+// WorkDirInfo is the residency's LIVE projection: what is true about the mounted directory right now,
+// computed per request and stored nowhere. `GET /conversations/{id}/workdir` returns it.
+//
+// A derived projection, not a stored collection — hence no cursor (N4's bounded-projection class):
+// the filesystem and git ARE the source of truth, and a cached copy would become a lie the moment the
+// user switches branch in their own terminal. Path echoes the column so a client needs one read, not
+// two; every other field answers a question the column cannot (does it still exist? a repo? which
+// branch? any uncommitted work?).
+//
+// Exists=false with a non-empty Path is a real, renderable state: the user mounted a directory and
+// then moved or deleted it. The residency button warns instead of silently pretending.
+//
+// WorkDirInfo 是驻地的**活投影**:此刻关于已挂目录为真的东西,逐请求现算、不存任何地方。
+// `GET /conversations/{id}/workdir` 返回它。
+//
+// 派生投影、非已存集合——故无游标（N4 的「有界投影」那一类）:文件系统与 git **就是**真相源,缓存副本
+// 在用户于自己终端里切一次分支的那一刻就成了谎。Path 回显该列,使客户端读一次而非两次;其余每个字段都
+// 回答那个列答不了的问题（它还在吗?是仓库吗?哪个分支?有没有没提交的活?）。
+//
+// Path 非空而 Exists=false 是一个真实且可渲染的状态:用户挂了一个目录,然后把它移走或删了。驻地按钮
+// 会警示、而不是静默装作无事。
+type WorkDirInfo struct {
+	Path      string `json:"path"`
+	Exists    bool   `json:"exists"`
+	IsGitRepo bool   `json:"isGitRepo"`
+	Branch    string `json:"branch,omitempty"`
+	Dirty     bool   `json:"dirty"`
 }
 
 // ForkTitleSuffix is appended to the source title so a fork is recognizable in the rail from turn
@@ -198,6 +250,14 @@ type UpdateInput struct {
 	Archived          *bool
 	Pinned            *bool
 	ModelOverride     **modeldomain.ModelRef
+	// WorkDir is a PLAIN pointer, not the tristate ModelOverride needs: the column's own empty value
+	// already means "not mounted", so `""` IS the clear and there is no third state to express.
+	// (ModelOverride needs **T only because its cleared value is a nil struct pointer, not "".)
+	//
+	// WorkDir 是**朴素**指针、不是 ModelOverride 那种三态:该列自己的空值已经表示「未挂」,故 `""`
+	// **就是**清除、没有第三种状态要表达。（ModelOverride 之所以要 **T,只因它清除后的值是 nil 结构
+	// 指针、而不是 ""。）
+	WorkDir *string
 }
 
 var (
@@ -221,6 +281,22 @@ var (
 	// 时即 422、Details 带缺失 id——照 agent 的 eager knowledge 挂载校验，而非静默接受悬挂引用、只在后续渲染
 	// 时才警告（F168-M5；F167 渲染警告仍兜底此处不回溯校验的老数据）。
 	ErrAttachedDocumentNotFound = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_ATTACHED_DOC_NOT_FOUND", "conversation attaches a document that does not exist")
+
+	// ErrInvalidWorkDir: a non-empty workDir that fspath.Expand cannot turn into an absolute path.
+	// This is the one validation the residency needs and it is PHYSICAL, not theater (设计原则 #6): a
+	// relative root cannot root anything — every relative path resolved against it would come out
+	// relative too and be refused later by PathGuard, leaving the thread carrying a residency that
+	// silently does nothing. Existence is deliberately NOT checked: a directory that has since been
+	// moved or deleted is a legitimate, renderable state (WorkDirInfo.Exists=false), so demanding it at
+	// write time would reject an honest mount for a condition that can change a second later. The
+	// generic FSPATH_* primitive is translated here per the error-code convention.
+	//
+	// ErrInvalidWorkDir:非空 workDir 而 fspath.Expand 无法把它变成绝对路径。这是驻地唯一需要的校验,
+	// 且它是**物理**的、非校验剧场（设计原则 #6）:相对的根扎不住任何东西——以它解析出的每个相对路径
+	// 仍是相对的、随后会被 PathGuard 拒掉,于是线程带着一个**静默无效**的驻地。**刻意不校验存在性**:
+	// 已被移走或删掉的目录是合法且可渲染的状态（WorkDirInfo.Exists=false）,在写时强求它等于为一个
+	// 下一秒就可能改变的条件拒掉一次诚实的挂载。按错误码约定,泛型 FSPATH_* 原语在此翻成具体码。
+	ErrInvalidWorkDir = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_INVALID_WORK_DIR", "invalid workDir (must be an absolute path, or empty to unmount)")
 )
 
 // Repository is the storage contract; workspace isolation + soft-delete are applied by the

@@ -96,6 +96,7 @@ lib/core/platform/factory_reset.dart	converged
 lib/core/platform/host_platform.dart	converged
 lib/core/platform/launch_at_login.dart	converged
 lib/core/platform/open_external_url.dart	converged
+lib/core/platform/open_in_system.dart	pending
 lib/core/platform/window_bounds.dart	converged
 lib/core/platform/window_fullscreen.dart	converged
 lib/core/platform/window_zoom.dart	converged
@@ -371,6 +372,7 @@ lib/features/chat/state/stage_truth.dart	converged
 lib/features/chat/state/title_reveals.dart	converged
 lib/features/chat/state/touchpoint_ledger.dart	reviewed
 lib/features/chat/state/transcript_jump_provider.dart	converged
+lib/features/chat/state/work_dir.dart	pending
 lib/features/chat/ui/chat_composer.dart	reviewed
 lib/features/chat/ui/chat_context_mark.dart	reviewed
 lib/features/chat/ui/chat_head.dart	converged
@@ -380,6 +382,7 @@ lib/features/chat/ui/chat_toc.dart	reviewed
 lib/features/chat/ui/chat_tool_card.dart	converged
 lib/features/chat/ui/chat_transcript.dart	converged
 lib/features/chat/ui/chat_turn.dart	reviewed
+lib/features/chat/ui/chat_work_dir_button.dart	pending
 lib/features/chat/ui/conversation_rail.dart	converged
 lib/features/chat/ui/conversation_rail_model.dart	converged
 lib/features/chat/ui/log_drawer.dart	converged

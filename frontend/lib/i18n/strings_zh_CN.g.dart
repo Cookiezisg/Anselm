@@ -86,6 +86,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get fork => '分叉对话';
 	@override String forkedFrom({required Object title}) => '分叉自 ${title}';
 	@override String get forkedFromUnknown => '分叉自另一个对话';
+	@override late final _Translations$chat$workDir$zh_CN workDir = _Translations$chat$workDir$zh_CN._(_root);
 	@override String get pin => '置顶';
 	@override String get unpin => '取消置顶';
 	@override String get archive => '归档';
@@ -699,6 +700,34 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String get audioPlaybackOffline => '已离线 — 点按重试播放';
 	@override String get audioPlaybackUnavailable => '暂不能播放';
 	@override String get remove => '移除';
+}
+
+// Path: chat.workDir
+class _Translations$chat$workDir$zh_CN extends Translations$chat$workDir$en {
+	_Translations$chat$workDir$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get buttonNone => '未设工作目录';
+	@override String buttonMounted({required Object path}) => '工作目录：${path}';
+	@override String buttonMissing({required Object path}) => '工作目录已不存在：${path}';
+	@override String get choose => '选择工作目录…';
+	@override String get kSwitch => '切换工作目录…';
+	@override String get leave => '退出工作目录';
+	@override String get recent => '最近目录';
+	@override String get revealFinder => '在访达中显示';
+	@override String get openTerminal => '在终端打开';
+	@override String get git => 'Git';
+	@override String branch({required Object name}) => '分支 ${name}';
+	@override String get detached => '游离 HEAD';
+	@override String get dirty => '有未提交改动';
+	@override String get clean => '无未提交改动';
+	@override String get missing => '该目录已不存在';
+	@override String markMounted({required Object to}) => '工作目录 → ${to}';
+	@override String markSwitched({required Object from, required Object to}) => '工作目录 ${from} → ${to}';
+	@override String markLeft({required Object from}) => '已退出工作目录 ${from}';
+	@override String get openFailed => '本机无法打开';
 }
 
 // Path: chat.time
@@ -2822,6 +2851,25 @@ extension on TranslationsZhCn {
 			'chat.fork' => '分叉对话',
 			'chat.forkedFrom' => ({required Object title}) => '分叉自 ${title}',
 			'chat.forkedFromUnknown' => '分叉自另一个对话',
+			'chat.workDir.buttonNone' => '未设工作目录',
+			'chat.workDir.buttonMounted' => ({required Object path}) => '工作目录：${path}',
+			'chat.workDir.buttonMissing' => ({required Object path}) => '工作目录已不存在：${path}',
+			'chat.workDir.choose' => '选择工作目录…',
+			'chat.workDir.kSwitch' => '切换工作目录…',
+			'chat.workDir.leave' => '退出工作目录',
+			'chat.workDir.recent' => '最近目录',
+			'chat.workDir.revealFinder' => '在访达中显示',
+			'chat.workDir.openTerminal' => '在终端打开',
+			'chat.workDir.git' => 'Git',
+			'chat.workDir.branch' => ({required Object name}) => '分支 ${name}',
+			'chat.workDir.detached' => '游离 HEAD',
+			'chat.workDir.dirty' => '有未提交改动',
+			'chat.workDir.clean' => '无未提交改动',
+			'chat.workDir.missing' => '该目录已不存在',
+			'chat.workDir.markMounted' => ({required Object to}) => '工作目录 → ${to}',
+			'chat.workDir.markSwitched' => ({required Object from, required Object to}) => '工作目录 ${from} → ${to}',
+			'chat.workDir.markLeft' => ({required Object from}) => '已退出工作目录 ${from}',
+			'chat.workDir.openFailed' => '本机无法打开',
 			'chat.pin' => '置顶',
 			'chat.unpin' => '取消置顶',
 			'chat.archive' => '归档',
@@ -3298,6 +3346,8 @@ extension on TranslationsZhCn {
 			'chat.tool.capRunnable' => '结构可运行',
 			'chat.tool.capProblems' => ({required Object n}) => '${n} 问题',
 			'chat.tool.capWarnings' => ({required Object n}) => '${n} 警示',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.capProblemsLabel' => '问题',
 			'chat.tool.capWarningsLabel' => '警示',
 			'chat.tool.capResolved' => '依赖已解析',
@@ -3317,8 +3367,6 @@ extension on TranslationsZhCn {
 			'chat.tool.marketCount' => ({required Object n}) => '${n} 个服务器',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} 必填 env',
 			'chat.tool.gettingModelConfig' => '正在读模型配置',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.gotModelConfig' => '已读模型配置',
 			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
@@ -3812,6 +3860,8 @@ extension on TranslationsZhCn {
 			'notifications.verb.restartFailed' => '重启失败',
 			'notifications.verb.runFailed' => '运行失败',
 			'notifications.verb.needsAttention' => '需要关注',
+			_ => null,
+		} ?? switch (path) {
 			'notifications.verb.recovered' => '已恢复',
 			'notifications.verb.waitingApproval' => '等待审批',
 			'notifications.verb.envReady' => '环境就绪',
@@ -3831,8 +3881,6 @@ extension on TranslationsZhCn {
 			'ref.agent' => '智能体',
 			'ref.document' => '文档',
 			'ref.conversation' => '会话',
-			_ => null,
-		} ?? switch (path) {
 			'ref.skill' => '技能',
 			'ref.mcp' => 'MCP',
 			'ref.trigger' => '触发器',
@@ -4326,6 +4374,8 @@ extension on TranslationsZhCn {
 			'settings.panels.chat' => '对话',
 			'settings.panels.modelsKeys' => '模型与密钥',
 			'settings.panels.mcp' => 'MCP 服务器',
+			_ => null,
+		} ?? switch (path) {
 			'settings.panels.memory' => '记忆',
 			'settings.panels.sandbox' => '沙箱',
 			'settings.panels.workspaces' => '工作区',
@@ -4345,8 +4395,6 @@ extension on TranslationsZhCn {
 			'settings.themeSystem' => '跟随系统',
 			'settings.themeDesc' => '跟随系统将随 macOS 外观自动切换',
 			'settings.zoom' => '界面缩放',
-			_ => null,
-		} ?? switch (path) {
 			'settings.zoomDesc' => '整体缩放界面,与 ⌘+ / ⌘− / ⌘0 同步',
 			'settings.fonts' => '字体',
 			'settings.fontUi' => '界面字体',

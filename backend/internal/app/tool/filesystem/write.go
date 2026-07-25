@@ -32,7 +32,7 @@ var writeSchema = json.RawMessage(`{
 	"properties": {
 		"file_path": {
 			"type": "string",
-			"description": "The absolute path to the file to write (must be absolute)"
+			"description": "Path to the file to write. Absolute, or relative to the conversation's working directory when one is mounted (the system prompt names it)."
 		},
 		"content": {
 			"type": "string",
@@ -96,7 +96,7 @@ func (t *Write) Execute(ctx context.Context, argsJSON string) (string, error) {
 		return "", fmt.Errorf("Write.Execute: %w", err)
 	}
 
-	cleaned, err := fspathpkg.Expand(args.FilePath)
+	cleaned, err := fspathpkg.ExpandIn(reqctxpkg.GetWorkDir(ctx), args.FilePath)
 	if err != nil {
 		return err.Error(), nil
 	}
@@ -180,4 +180,25 @@ func (t *Write) Execute(ctx context.Context, argsJSON string) (string, error) {
 	return "Wrote " + cleaned, nil
 }
 
-var _ toolapp.Tool = (*Write)(nil)
+// WriteTarget exposes the call's file_path for the residency write gate (toolapp.FileWriteTool). Raw and
+// unresolved on purpose — the loop applies the work-dir root through the ONE fspath chokepoint, so there
+// is never a second interpretation of the same string. Best-effort by contract: bad args return "" and
+// the call falls back to the ordinary danger gate.
+//
+// WriteTarget 为驻地写闸暴露本次调用的 file_path（toolapp.FileWriteTool）。**刻意**原始未解析——由 loop 经
+// **唯一**的 fspath 咽喉施加驻地根，故同一个字符串永不会有第二种解释。按契约 best-effort：坏 args 返 "" 并
+// 落回普通 danger 闸。
+func (t *Write) WriteTarget(args json.RawMessage) string {
+	var a struct {
+		FilePath string `json:"file_path"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil {
+		return ""
+	}
+	return a.FilePath
+}
+
+var (
+	_ toolapp.Tool          = (*Write)(nil)
+	_ toolapp.FileWriteTool = (*Write)(nil)
+)

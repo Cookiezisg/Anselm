@@ -69,7 +69,7 @@ var Schema = []string{
 		message_id      TEXT NOT NULL,
 		parent_block_id TEXT NOT NULL DEFAULT '',
 		seq             INTEGER NOT NULL,
-		type            TEXT NOT NULL CHECK(type IN ('text','reasoning','tool_call','tool_result','compaction','progress')),
+		type            TEXT NOT NULL CHECK(type IN ('text','reasoning','tool_call','tool_result','compaction','progress','marker')),
 		attrs           TEXT NOT NULL DEFAULT 'null',
 		content         TEXT NOT NULL DEFAULT '',
 		status          TEXT NOT NULL CHECK(status IN ('pending','streaming','completed','error','cancelled')),
@@ -103,6 +103,69 @@ var Schema = []string{
 	// 扫描。本列**不是软删**（D1）：行从不对 REST 读隐身，只对 LLM 历史投影隐身。
 	`ALTER TABLE messages ADD COLUMN superseded_by TEXT NOT NULL DEFAULT ''`,
 }
+
+// BlocksMarkerMarker / BlocksCheckRebuild: the block `type` CHECK gained a SEVENTH word, 'marker' (a
+// durable in-line mark for a mid-thread residency switch — WRK-077 WD1), and SQLite cannot ALTER a
+// CHECK, so an existing install must REBUILD the table. Third use of db.MigrateRebuild, same mechanism
+// and contract as trigger_firings' 'missed' (工单⑨) and flowrun_nodes' 'cancelled': idempotent BY
+// OUTCOME — it rebuilds only while the live sqlite_master DDL lacks the marker word, so a fresh install
+// (the CREATE above already carries it) and every post-rebuild boot are no-ops.
+//
+// Two things about THIS table's rebuild, both load-bearing:
+//   - message_blocks is an append-only Log table with a UNIQUE (conversation_id, seq) index — the seq
+//     monotonicity guarantee. The copy preserves it trivially because the source already satisfies it.
+//   - The `superseded_by` ALTER above lands on `messages`, NOT on message_blocks, so this table's
+//     current shape is exactly its CREATE: the rebuild declares the same 13 columns inline and copies
+//     them explicitly, with no ALTER-added column to remember (unlike flowrun_nodes, which had two).
+//
+// The marker word is `'marker'` WITH quotes so it cannot match the column named `parent_block_id` or
+// any other identifier — MigrateRebuild does a substring test on the stored DDL.
+//
+// BlocksMarkerMarker / BlocksCheckRebuild：块 `type` 的 CHECK 加了**第七**个词 'marker'（线程中途切换驻地
+// 的持久行内标记——WRK-077 WD1），而 SQLite 无法 ALTER CHECK，故已有安装必须**重建**该表。db.MigrateRebuild
+// 的第三次使用，机制与契约同 trigger_firings 的 'missed'（工单⑨）与 flowrun_nodes 的 'cancelled'：**结果
+// 幂等**——仅当 sqlite_master 现行 DDL 缺该标记词才重建，故全新安装（上方 CREATE 已含该词）与重建后的每次
+// 启动都是 no-op。
+//
+// 本表重建有两处特别、皆承重：
+//   - message_blocks 是 append-only Log 表，带 UNIQUE (conversation_id, seq)——即 seq 单调保证。拷贝天然
+//     保住它，因为源表本就满足。
+//   - 上方的 `superseded_by` ALTER 落在 `messages`、**不在** message_blocks 上，故本表的现行形状**就是**
+//     它的 CREATE：重建把同样 13 列内联声明并逐列拷贝，没有任何 ALTER 补的列需要记（不同于 flowrun_nodes
+//     那两列）。
+//
+// 标记词是**带引号**的 `'marker'`，故它不可能匹配到 `parent_block_id` 这类标识符——MigrateRebuild 对落库
+// DDL 做的是子串判定。
+var (
+	BlocksMarkerMarker = "'marker'"
+
+	BlocksCheckRebuild = []string{
+		`CREATE TABLE message_blocks_rebuild (
+			id              TEXT PRIMARY KEY,
+			workspace_id    TEXT NOT NULL,
+			conversation_id TEXT NOT NULL,
+			message_id      TEXT NOT NULL,
+			parent_block_id TEXT NOT NULL DEFAULT '',
+			seq             INTEGER NOT NULL,
+			type            TEXT NOT NULL CHECK(type IN ('text','reasoning','tool_call','tool_result','compaction','progress','marker')),
+			attrs           TEXT NOT NULL DEFAULT 'null',
+			content         TEXT NOT NULL DEFAULT '',
+			status          TEXT NOT NULL CHECK(status IN ('pending','streaming','completed','error','cancelled')),
+			error           TEXT NOT NULL DEFAULT '',
+			context_role    TEXT NOT NULL DEFAULT 'hot' CHECK(context_role IN ('hot','warm','cold','archived')),
+			created_at      DATETIME NOT NULL,
+			updated_at      DATETIME NOT NULL
+		)`,
+		`INSERT INTO message_blocks_rebuild
+			SELECT id, workspace_id, conversation_id, message_id, parent_block_id, seq, type, attrs,
+				content, status, error, context_role, created_at, updated_at
+			FROM message_blocks`,
+		`DROP TABLE message_blocks`,
+		`ALTER TABLE message_blocks_rebuild RENAME TO message_blocks`,
+		`CREATE UNIQUE INDEX idx_blocks_conv_seq ON message_blocks(conversation_id, seq)`,
+		`CREATE INDEX idx_blocks_message ON message_blocks(message_id, seq)`,
+	}
+)
 
 // Store implements messagesdomain.Repository over pkg/orm. It keeps root-bound repos for reads
 // and rebuilds tx-bound repos inside Transaction for the atomic two-table writes.

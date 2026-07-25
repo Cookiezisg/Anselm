@@ -147,6 +147,15 @@ func openDB(dataDir string) (*ormpkg.DB, error) {
 	if err := dbinfra.MigrateRebuild(database, "flowrun_nodes", flowrunstore.NodesCancelledMarker, flowrunstore.NodesCheckRebuild...); err != nil {
 		return nil, fmt.Errorf("bootstrap: migrate-rebuild: %w", err)
 	}
+	// Same mechanism, third table: message_blocks' type gained 'marker' (six → seven) so a mid-thread
+	// residency switch leaves a durable in-line mark and a reader scrolling back can see WHERE the
+	// working directory changed.
+	//
+	// 同一机制、第三张表：message_blocks 的 type 加了 'marker'（六 → 七），使线程中途切换驻地留下一条持久
+	// 行内标记，往回翻的读者能看见工作目录**变在哪里**。
+	if err := dbinfra.MigrateRebuild(database, "message_blocks", messagesstore.BlocksMarkerMarker, messagesstore.BlocksCheckRebuild...); err != nil {
+		return nil, fmt.Errorf("bootstrap: migrate-rebuild: %w", err)
+	}
 	return database, nil
 }
 

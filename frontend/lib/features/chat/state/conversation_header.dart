@@ -53,6 +53,21 @@ class ConversationHeaderController extends AsyncNotifier<Conversation> {
     if (ref.mounted) state = AsyncData(updated);
   }
 
+  /// Mount / switch / unmount the thread's RESIDENCY (`PATCH {workDir}`; `''` unmounts). The ROW belongs to
+  /// this controller — same authoritative-response-patches-state rule as [rename] / [setModel], so the
+  /// breadcrumb's folder re-labels immediately instead of waiting on the notification echo (which exists for
+  /// OTHER clients). The residency's live PROJECTION (exists / branch / dirty) is a different question and
+  /// lives in [workDirProvider]; [WorkDirController.set] orchestrates the two.
+  ///
+  /// 挂 / 切换 / 退出线程**驻地**(`PATCH {workDir}`;`''` 即退出)。**行**归本控制器——与 rename / setModel 同一条
+  /// 「权威响应即 patch state」规则,故面包屑那个文件夹**立即**重新贴标签、不等通知回声(回声是给**别的**客户端的)。
+  /// 驻地的活**投影**(存在 / 分支 / 脏)是另一个问题、住在 workDirProvider;两者由 WorkDirController.set 编排。
+  Future<Conversation> setWorkDir(String workDir) async {
+    final updated = await _repo.setWorkDir(conversationId, workDir);
+    if (ref.mounted) state = AsyncData(updated);
+    return updated;
+  }
+
   /// Set / clear the per-thread model (tristate PATCH). 设/清线程级模型(三态 PATCH)。
   Future<void> setModel(({String apiKeyId, String modelId})? refValue) async {
     final updated = await _repo.setModelOverride(conversationId, refValue);

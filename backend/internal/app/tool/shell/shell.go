@@ -3,10 +3,14 @@
 // adapters (no domain / store / handler / DDL / HTTP) implementing the app/tool 5-method
 // contract; they belong in Toolset.Resident (high-frequency, always available).
 //
-// Two deliberate constraints:
-//   - NO cwd. The desktop agent has no project root or "current directory"; Bash never
-//     remembers a working directory. To target a dir, pass absolute paths or prefix a
-//     single command with "cd /abs && ...". (The cwd concept is globally dropped.)
+// Two facts about where commands run:
+//   - The cwd is the CONVERSATION's, and only when the user mounted one. A thread may carry a work
+//     dir (its "residency", conversations.work_dir); when it does, Bash sets cmd.Dir to it so `ls`
+//     and every relative path in the command mean what the user means by "here". Unmounted — the
+//     default — nothing is set and the child inherits the backend process's directory, so absolute
+//     paths (or a leading "cd /abs && …") remain the way to target a directory. Either way cd never
+//     carries across calls: this package still keeps NO state of its own about directories, it just
+//     reads the one the turn's ctx hands it (reqctx.GetWorkDir).
 //   - NO per-conversation sandbox auto-route here. Routing python/node commands into a
 //     conversation scratch env needs the conversation lifecycle; this package runs the
 //     plain system shell and takes no sandbox dependency.
@@ -19,8 +23,11 @@
 // ProcessManager 管理后台任务。它们是叶子工具适配器（无 domain/store/handler/DDL/HTTP），
 // 实现 app/tool 的 5 方法契约；归 Toolset.Resident（高频常驻）。
 //
-// 两处刻意约束：① 无 cwd——桌面 agent 无项目根/当前目录，
-// Bash 不记忆工作目录，要定位目录用绝对路径或单条命令内 "cd /abs && ..."（cwd 概念全局废弃）；
+// 关于命令在哪里跑的两个事实：① cwd 是**对话的**，且仅在用户挂了它时才有——线程可以带一个工作目录
+// （它的「驻地」，conversations.work_dir）；带了时 Bash 把 cmd.Dir 设为它，故 `ls` 与命令里每个相对
+// 路径都表示用户所说的「这里」。未挂（默认）则什么都不设、子进程继承后端进程的目录，故定位目录仍靠
+// 绝对路径（或开头的 "cd /abs && …"）。两种情形下 cd 都不跨调用留存：本包**仍然**不自持任何关于目录
+// 的状态，它只是读回合 ctx 递给它的那一个（reqctx.GetWorkDir）；
 // ② 此处不做 per-conversation sandbox auto-route——把 python/node 路由进对话 scratch env
 // 需 conversation 生命周期，本包跑 plain 系统 shell、不依赖 sandbox。
 //

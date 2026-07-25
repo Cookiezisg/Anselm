@@ -125,6 +125,8 @@ class Translations$chat$en {
 	/// en: 'Forked from another conversation'
 	String get forkedFromUnknown => 'Forked from another conversation';
 
+	late final Translations$chat$workDir$en workDir = Translations$chat$workDir$en.internal(_root);
+
 	/// en: 'Pin'
 	String get pin => 'Pin';
 
@@ -1555,6 +1557,72 @@ class Translations$attach$en {
 
 	/// en: 'Remove'
 	String get remove => 'Remove';
+}
+
+// Path: chat.workDir
+class Translations$chat$workDir$en {
+	Translations$chat$workDir$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'No working directory'
+	String get buttonNone => 'No working directory';
+
+	/// en: 'Working directory: $path'
+	String buttonMounted({required Object path}) => 'Working directory: ${path}';
+
+	/// en: 'Working directory is missing: $path'
+	String buttonMissing({required Object path}) => 'Working directory is missing: ${path}';
+
+	/// en: 'Choose working directory…'
+	String get choose => 'Choose working directory…';
+
+	/// en: 'Switch working directory…'
+	String get kSwitch => 'Switch working directory…';
+
+	/// en: 'Leave working directory'
+	String get leave => 'Leave working directory';
+
+	/// en: 'Recent directories'
+	String get recent => 'Recent directories';
+
+	/// en: 'Reveal in Finder'
+	String get revealFinder => 'Reveal in Finder';
+
+	/// en: 'Open in Terminal'
+	String get openTerminal => 'Open in Terminal';
+
+	/// en: 'Git'
+	String get git => 'Git';
+
+	/// en: 'Branch $name'
+	String branch({required Object name}) => 'Branch ${name}';
+
+	/// en: 'Detached HEAD'
+	String get detached => 'Detached HEAD';
+
+	/// en: 'Uncommitted changes'
+	String get dirty => 'Uncommitted changes';
+
+	/// en: 'No uncommitted changes'
+	String get clean => 'No uncommitted changes';
+
+	/// en: 'This directory no longer exists'
+	String get missing => 'This directory no longer exists';
+
+	/// en: 'Working directory → $to'
+	String markMounted({required Object to}) => 'Working directory → ${to}';
+
+	/// en: 'Working directory $from → $to'
+	String markSwitched({required Object from, required Object to}) => 'Working directory ${from} → ${to}';
+
+	/// en: 'Left the working directory $from'
+	String markLeft({required Object from}) => 'Left the working directory ${from}';
+
+	/// en: 'Could not open that on this system'
+	String get openFailed => 'Could not open that on this system';
 }
 
 // Path: chat.time
@@ -6659,6 +6727,25 @@ extension on Translations {
 			'chat.fork' => 'Fork conversation',
 			'chat.forkedFrom' => ({required Object title}) => 'Forked from ${title}',
 			'chat.forkedFromUnknown' => 'Forked from another conversation',
+			'chat.workDir.buttonNone' => 'No working directory',
+			'chat.workDir.buttonMounted' => ({required Object path}) => 'Working directory: ${path}',
+			'chat.workDir.buttonMissing' => ({required Object path}) => 'Working directory is missing: ${path}',
+			'chat.workDir.choose' => 'Choose working directory…',
+			'chat.workDir.kSwitch' => 'Switch working directory…',
+			'chat.workDir.leave' => 'Leave working directory',
+			'chat.workDir.recent' => 'Recent directories',
+			'chat.workDir.revealFinder' => 'Reveal in Finder',
+			'chat.workDir.openTerminal' => 'Open in Terminal',
+			'chat.workDir.git' => 'Git',
+			'chat.workDir.branch' => ({required Object name}) => 'Branch ${name}',
+			'chat.workDir.detached' => 'Detached HEAD',
+			'chat.workDir.dirty' => 'Uncommitted changes',
+			'chat.workDir.clean' => 'No uncommitted changes',
+			'chat.workDir.missing' => 'This directory no longer exists',
+			'chat.workDir.markMounted' => ({required Object to}) => 'Working directory → ${to}',
+			'chat.workDir.markSwitched' => ({required Object from, required Object to}) => 'Working directory ${from} → ${to}',
+			'chat.workDir.markLeft' => ({required Object from}) => 'Left the working directory ${from}',
+			'chat.workDir.openFailed' => 'Could not open that on this system',
 			'chat.pin' => 'Pin',
 			'chat.unpin' => 'Unpin',
 			'chat.archive' => 'Archive',
@@ -7135,6 +7222,8 @@ extension on Translations {
 			'chat.tool.capRunnable' => 'structurally runnable',
 			'chat.tool.capProblems' => ({required Object n}) => '${n} problems',
 			'chat.tool.capWarnings' => ({required Object n}) => '${n} warnings',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.capProblemsLabel' => 'Problems',
 			'chat.tool.capWarningsLabel' => 'Warnings',
 			'chat.tool.capResolved' => 'deps resolved',
@@ -7154,8 +7243,6 @@ extension on Translations {
 			'chat.tool.marketCount' => ({required Object n}) => '${n} servers',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} required env',
 			'chat.tool.gettingModelConfig' => 'Reading model config',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.gotModelConfig' => 'Read model config',
 			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
@@ -7649,6 +7736,8 @@ extension on Translations {
 			'notifications.verb.restartFailed' => 'restart failed',
 			'notifications.verb.runFailed' => 'run failed',
 			'notifications.verb.needsAttention' => 'needs attention',
+			_ => null,
+		} ?? switch (path) {
 			'notifications.verb.recovered' => 'recovered',
 			'notifications.verb.waitingApproval' => 'is waiting for approval',
 			'notifications.verb.envReady' => 'environment ready',
@@ -7668,8 +7757,6 @@ extension on Translations {
 			'ref.agent' => 'Agent',
 			'ref.document' => 'Document',
 			'ref.conversation' => 'Conversation',
-			_ => null,
-		} ?? switch (path) {
 			'ref.skill' => 'Skill',
 			'ref.mcp' => 'MCP',
 			'ref.trigger' => 'Trigger',
@@ -8163,6 +8250,8 @@ extension on Translations {
 			'settings.panels.chat' => 'Chat',
 			'settings.panels.modelsKeys' => 'Models & keys',
 			'settings.panels.mcp' => 'MCP servers',
+			_ => null,
+		} ?? switch (path) {
 			'settings.panels.memory' => 'Memory',
 			'settings.panels.sandbox' => 'Sandbox',
 			'settings.panels.workspaces' => 'Workspaces',
@@ -8182,8 +8271,6 @@ extension on Translations {
 			'settings.themeSystem' => 'System',
 			'settings.themeDesc' => 'System follows the macOS appearance',
 			'settings.zoom' => 'UI zoom',
-			_ => null,
-		} ?? switch (path) {
 			'settings.zoomDesc' => 'Scales the whole UI, synced with ⌘+ / ⌘− / ⌘0',
 			'settings.fonts' => 'Fonts',
 			'settings.fontUi' => 'Interface font',

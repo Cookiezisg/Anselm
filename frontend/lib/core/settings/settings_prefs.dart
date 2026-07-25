@@ -235,6 +235,17 @@ abstract final class SettingsKeys {
     true,
   );
   static const chatShowTime = SettingsKey<bool>('an.chat.showTime', true);
+  // The residency's "recent directories" list (WRK-077 WD1) — a MACHINE-level axis with ZERO backend: which
+  // folders this person works in is a property of their machine, not of a workspace, and a conversation
+  // already stores the one it is actually mounted on. JSON-encoded String because SettingsPrefs is typed to
+  // bool/double/String (the same shape `an.shortcuts` uses for its map).
+  // 驻地的「最近目录」表(WRK-077 WD1)——**机器级**轴、**零后端**:这个人在哪些文件夹里干活是他机器的属性、
+  // 不是某个工作区的属性,而对话本就存着它真正挂上的那一个。用 JSON 串,因为 SettingsPrefs 只认
+  // bool/double/String(与 `an.shortcuts` 存 map 同一形状)。
+  static const chatRecentWorkDirs = SettingsKey<String>(
+    'an.chat.recentWorkDirs',
+    '',
+  ); // ["/abs/dir", …] most-recent-first
 
   // ── shortcuts 快捷键 (S6: JSON map of rebound global commands) ──
   static const shortcuts = SettingsKey<String>(
@@ -270,6 +281,7 @@ abstract final class SettingsKeys {
     chatShowArchived,
     chatShowGroupCount,
     chatShowTime,
+    chatRecentWorkDirs,
     shortcuts,
   ];
 

@@ -177,6 +177,22 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 		return
 	}
 
+	// Seed the residency (WD1). It must come AFTER the head read (the column is the source of truth and a
+	// mid-thread switch takes effect on the NEXT turn, exactly as the button promises) and BEFORE
+	// loop.Run, so every tool in this turn sees it: relative paths root here, Bash starts here, and the
+	// write gate knows what "outside" means. Deriving from `ctx` keeps the turn's timeout + cancel intact.
+	//
+	// Because this rides ctx rather than AgentState, a subagent spawned in this turn inherits the
+	// residency for free (subagent.go derives its sub-ctx from this one and deliberately resets AgentState).
+	//
+	// 种下驻地（WD1）。它必须在读头行**之后**（那一列是真相源,且中途切换在**下一**回合生效,正如按钮所承诺）、
+	// 在 loop.Run **之前**,使本回合每个工具都看得见它:相对路径扎在这里、Bash 从这里起步、越界写闸知道
+	// 「外面」是什么意思。从 `ctx` 派生,保住回合的超时与 cancel。
+	//
+	// 因为它搭在 ctx 而非 AgentState 上,本回合派出的 subagent **免费**继承驻地（subagent.go 从此 ctx 派生
+	// 子 ctx,并刻意重置 AgentState）。
+	ctx = reqctxpkg.SetWorkDir(ctx, conv.WorkDir)
+
 	// A Retry's per-turn model wins over the thread's own override for THIS generation only (nothing is
 	// written back to the head): "answer that again with a different model" is a statement about one
 	// answer, not a change to the thread's setting (which has its own PATCH). The provenance columns

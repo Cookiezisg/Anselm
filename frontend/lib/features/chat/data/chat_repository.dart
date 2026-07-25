@@ -103,6 +103,27 @@ abstract interface class ChatRepository {
   /// semantic field (the backend's `action` is otherwise undefined). 重命名,返权威对象供调用方 patch 列表(不等 SSE)。
   Future<Conversation> renameConversation(String id, String title);
 
+  /// Mount / switch / unmount the thread's RESIDENCY (`PATCH {workDir}`). A PLAIN string, not the tristate
+  /// [setModelOverride] needs: the column's empty value already means "unmounted", so `''` IS the clear and
+  /// there is no third state to express. The path is normalized SERVER-side (`~` expanded, Cleaned), so the
+  /// returned row — not the string that was sent — is the authoritative value to render.
+  ///
+  /// 挂 / 切换 / 退出线程**驻地**(`PATCH {workDir}`)。是**朴素**字符串、不是 setModelOverride 那种三态:该列的
+  /// 空值已表示「未挂」,故 `''` **就是**清除、没有第三种状态要表达。路径在**服务端**归一化(展开 `~`、Clean),
+  /// 故要渲的权威值是**返回的行**、不是发出去的那个字符串。
+  Future<Conversation> setWorkDir(String id, String workDir);
+
+  /// The residency's LIVE projection (`GET /{id}/workdir`): does the directory still exist, is it a git repo,
+  /// which branch, any uncommitted work. Recomputed server-side per call and cached nowhere, so the folder
+  /// button's three states stay honest — a directory the user deleted, or a branch they switched in their own
+  /// terminal, shows as it now is. An UNMOUNTED thread answers successfully with the zero projection (empty
+  /// path, exists=false), never a 404: the button has to render that state too.
+  ///
+  /// 驻地的**活投影**(`GET /{id}/workdir`):目录还在吗、是 git 仓库吗、哪个分支、有没有没提交的活。服务端逐次
+  /// 现算、零缓存,故文件夹按钮的三态保持诚实——用户删掉的目录、或他在自己终端里切的分支,显示成它**现在的样子**。
+  /// **未挂**线程以零投影(空路径、exists=false)**成功**作答、绝非 404:那个按钮也得渲染那一态。
+  Future<WorkDirInfo> workDirInfo(String id);
+
   /// Pin / unpin (`PATCH {pinned}`). 置顶/取消(PATCH {pinned})。
   Future<Conversation> setPinned(String id, bool pinned);
 
@@ -409,6 +430,22 @@ class LiveChatRepository implements ChatRepository {
   @override
   Future<Conversation> renameConversation(String id, String title) => _api
       .patchEntity(_path(id), Conversation.fromJson, body: {'title': title});
+
+  @override
+  Future<Conversation> setWorkDir(
+    String id,
+    String workDir,
+  ) => _api.patchEntity(
+    _path(id),
+    Conversation.fromJson,
+    // A plain string: '' unmounts. The key is always PRESENT — an absent key would mean "leave unchanged".
+    // 朴素字符串:'' 即退出驻地。键恒**出现**——缺键意为「不动」。
+    body: {'workDir': workDir},
+  );
+
+  @override
+  Future<WorkDirInfo> workDirInfo(String id) =>
+      _api.getEntity('${_path(id)}/workdir', WorkDirInfo.fromJson);
 
   @override
   Future<Conversation> setPinned(String id, bool pinned) => _api.patchEntity(

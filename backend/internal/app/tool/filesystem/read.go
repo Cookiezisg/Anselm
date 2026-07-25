@@ -51,7 +51,7 @@ var readSchema = json.RawMessage(`{
 	"properties": {
 		"file_path": {
 			"type": "string",
-			"description": "The absolute path to the file to read"
+			"description": "Path to the file to read. Absolute, or relative to the conversation's working directory when one is mounted (the system prompt names it)."
 		},
 		"offset": {
 			"type": "number",
@@ -127,7 +127,7 @@ func (t *Read) Execute(ctx context.Context, argsJSON string) (string, error) {
 		args.Limit = limitspkg.Current().Tools.ReadDefaultLines
 	}
 
-	cleaned, err := fspathpkg.Expand(args.FilePath)
+	cleaned, err := fspathpkg.ExpandIn(reqctxpkg.GetWorkDir(ctx), args.FilePath)
 	if err != nil {
 		return err.Error(), nil
 	}

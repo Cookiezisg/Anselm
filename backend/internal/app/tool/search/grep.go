@@ -14,6 +14,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	fspathpkg "github.com/sunweilin/anselm/backend/internal/pkg/fspath"
 	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 var (
@@ -30,7 +31,7 @@ var (
 	// ErrPathRequired: path missing — there is no current directory to default to.
 	//
 	// ErrPathRequired：path 缺失——没有当前目录可作默认。
-	ErrPathRequired = errorspkg.New(errorspkg.KindInvalid, "SEARCH_PATH_REQUIRED", "path is required (absolute or ~; the agent has no current directory)")
+	ErrPathRequired = errorspkg.New(errorspkg.KindInvalid, "SEARCH_PATH_REQUIRED", "path is required (absolute, ~, or relative to the mounted working directory)")
 
 	// ErrNegativeLimit: a numeric limit (limit / -A / -B / -C / head_limit) given negative.
 	// Shared by LS / Glob / Grep — one code for the same physical violation.
@@ -45,7 +46,7 @@ const (
 	OutputModeCount            = "count"
 )
 
-const grepDescription = `Regex content search across files (ripgrep). Never call grep/rg via Bash. Root path required (absolute or ~); narrow it first (LS to look around) rather than grepping all of ~. Filter by glob or type; output_mode files_with_matches (default) | content | count.`
+const grepDescription = `Regex content search across files (ripgrep). Never call grep/rg via Bash. Root path required (absolute, ~, or relative to the mounted working directory); narrow it first (LS to look around) rather than grepping all of ~. Filter by glob or type; output_mode files_with_matches (default) | content | count.`
 
 var grepSchema = json.RawMessage(`{
 	"type": "object",
@@ -57,7 +58,7 @@ var grepSchema = json.RawMessage(`{
 		},
 		"path": {
 			"type": "string",
-			"description": "File or directory to search in: absolute path or ~ (e.g. \"~/projects\"). Required — the agent has no current directory. Keep it narrow."
+			"description": "File or directory to search in: absolute path, ~, or relative to the conversation's working directory when one is mounted. Required. Keep it narrow."
 		},
 		"glob": {
 			"type": "string",
@@ -177,11 +178,11 @@ func (t *Grep) ValidateInput(args json.RawMessage) error {
 	return nil
 }
 
-// Execute resolves the root via fspath.Expand then dispatches to the rg or stdlib
+// Execute resolves the root via fspath.ExpandIn (work-dir-relative when a residency is mounted) then dispatches to the rg or stdlib
 // backend; both share args / output / cap semantics so the LLM sees consistent
 // behaviour regardless of whether ripgrep is installed.
 //
-// Execute 经 fspath.Expand 解析根,再分派到 rg 或 stdlib 后端;两者共享 args /
+// Execute 经 fspath.ExpandIn 解析根(挂了驻地时相对路径以它为根),再分派到 rg 或 stdlib 后端;两者共享 args /
 // 输出 / cap 语义,使 LLM 不论是否装了 ripgrep 都看到一致行为。
 func (t *Grep) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args grepArgs
@@ -190,7 +191,7 @@ func (t *Grep) Execute(ctx context.Context, argsJSON string) (string, error) {
 	}
 	args.normalize()
 
-	abs, err := fspathpkg.Expand(args.Path)
+	abs, err := fspathpkg.ExpandIn(reqctxpkg.GetWorkDir(ctx), args.Path)
 	if err != nil {
 		return err.Error(), nil
 	}

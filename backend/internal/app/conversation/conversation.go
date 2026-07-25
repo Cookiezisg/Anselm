@@ -25,6 +25,7 @@ import (
 	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	fspathpkg "github.com/sunweilin/anselm/backend/internal/pkg/fspath"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
@@ -106,6 +107,14 @@ type Service struct {
 	// modelOverride（API_KEY_NOT_FOUND），而非只在 chat 时。nil → 跳过存在性校验（旧 fail-loud-at-chat）。（F153）
 	keyChecker      modelrefapp.KeyExistenceChecker
 	optionValidator modelrefapp.OptionValidator
+
+	// workDirMarker is the optional residency-mark hook (chatapp, injected post-build like canceler):
+	// switching the work dir mid-thread drops a durable in-line mark so a reader scrolling back can see
+	// where "here" changed. nil → the switch persists but leaves no mark. See workdir.go.
+	//
+	// workDirMarker 是可选驻地标记钩子（chatapp，与 canceler 同款后注入）：线程中途切换工作目录会落一条
+	// 持久行内标记，使往回翻的读者看见「这里」是在哪儿变的。nil → 切换照常落库、只是不留标记。见 workdir.go。
+	workDirMarker WorkDirMarker
 }
 
 // DocumentResolver resolves attached-document references to their live documents (missing ids are
@@ -310,6 +319,15 @@ func (s *Service) CreateWithSystemPrompt(ctx context.Context, title, systemPromp
 // Archived / Pinned **刻意不复制**：分叉是你刚打开的线程，故无论源搁在哪个架子上，它都以活跃、
 // 未置顶起步。AutoTitled 保持 false——「X (fork)」是可改的起步名，且无标题的源产出无标题的分叉，
 // 使 chat 的自动命名仍有它的回合。
+//
+// WorkDir IS copied (WD1): the residency is what the copied conversation was ABOUT, and the prefix the
+// fork inherits is full of tool calls that ran in that directory — a fork landing nowhere would make
+// every relative path in its own history unreadable. It is also what puts the fork in the same rail
+// group as its source (WD1.5).
+//
+// WorkDir **要**复制（WD1）：驻地正是被复制的那段对话**在谈的地方**，而分叉继承的前缀里满是在那个目录
+// 里跑过的工具调用——一个落在虚空里的分叉会让它自己历史中的每个相对路径都读不懂。它也正是让分叉与源
+// 落进同一个 rail 组的东西（WD1.5）。
 func (s *Service) Fork(ctx context.Context, in conversationdomain.ForkInput) (*conversationdomain.Conversation, error) {
 	if in.Source == nil {
 		return nil, errorspkg.ErrInvalidRequest
@@ -322,6 +340,7 @@ func (s *Service) Fork(ctx context.Context, in conversationdomain.ForkInput) (*c
 		SummaryCoversUpToSeq:     in.SummaryCoversUpToSeq,
 		AttachedDocuments:        in.Source.AttachedDocuments,
 		ModelOverride:            in.Source.ModelOverride,
+		WorkDir:                  in.Source.WorkDir,
 		LastMessageAt:            time.Now().UTC(),
 		ForkedFromConversationID: in.Source.ID,
 		ForkedFromMessageID:      in.AtMessageID,
@@ -396,9 +415,11 @@ func (s *Service) MarkSeen(ctx context.Context, id string) error {
 	return s.repo.MarkSeen(ctx, id)
 }
 
-// Update applies a PATCH (nil = leave; for ModelOverride nil = leave, &nil = clear, &(&ref) = set).
+// Update applies a PATCH (nil = leave; for ModelOverride nil = leave, &nil = clear, &(&ref) = set;
+// for WorkDir nil = leave, &"" = unmount, &path = mount).
 //
-// Update 部分更新（nil = 不动；ModelOverride nil = 不动、&nil = 清除、&(&ref) = 设置）。
+// Update 部分更新（nil = 不动；ModelOverride nil = 不动、&nil = 清除、&(&ref) = 设置；WorkDir
+// nil = 不动、&"" = 退出驻地、&path = 挂驻地）。
 func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conversationdomain.Conversation, error) {
 	c, err := s.repo.Get(ctx, id)
 	if err != nil {
@@ -441,8 +462,37 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 		c.ModelOverride = ref
 		action = "model_override"
 	}
+	// The residency (WD1). Normalizing through fspath.Expand is what makes the column trustworthy for
+	// every downstream reader: `~/proj` is stored as a real absolute path, so ExpandIn / Inside / cmd.Dir
+	// never have to re-guess, and a relative string is refused ONCE here instead of failing silently on
+	// every later tool call. markerFrom is captured for the durable in-line mark written after the row
+	// lands (below) — before the write we still know both ends, after it we would only know one.
+	//
+	// 驻地（WD1）。经 fspath.Expand 归一,正是让这一列对每个下游读者都可信的做法:`~/proj` 存成真绝对路径,
+	// 故 ExpandIn / Inside / cmd.Dir 永不必再猜一遍,而相对字符串在此被拒**一次**、不是在此后每次工具调用
+	// 里静默失效。markerFrom 为行落地**之后**（见下）要写的持久行内标记留住旧值——写之前我们还知道两端,
+	// 写之后就只知道一端了。
+	markerFrom, markerTo, workDirChanged := "", "", false
+	if in.WorkDir != nil {
+		next := strings.TrimSpace(*in.WorkDir)
+		if next != "" {
+			abs, err := fspathpkg.Expand(next)
+			if err != nil {
+				return nil, conversationdomain.ErrInvalidWorkDir
+			}
+			next = abs
+		}
+		if next != c.WorkDir {
+			markerFrom, markerTo, workDirChanged = c.WorkDir, next, true
+			c.WorkDir = next
+			action = "work_dir"
+		}
+	}
 	if err := s.repo.Update(ctx, c); err != nil {
 		return nil, err
+	}
+	if workDirChanged {
+		s.markWorkDirSwitch(ctx, c.ID, markerFrom, markerTo)
 	}
 	s.emit(ctx, c.ID, action, map[string]any{"title": c.Title, "archived": c.Archived, "pinned": c.Pinned})
 	// Fill the derived flag so a PATCH (e.g. pinning a conversation mid-generation) returns the same

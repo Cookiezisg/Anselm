@@ -46,12 +46,14 @@ type Block struct {
 	UpdatedAt      time.Time      `db:"updated_at,updated" json:"updatedAt"`
 }
 
-// Block types — the content-tree node kinds loop emits. Deeper hierarchy (a subagent's
-// message subtree under a tool_call) is expressed via stream Open.ParentID, NOT via new
-// block types, so this set stays minimal.
+// Block types — SEVEN kinds, the closed set the store's CHECK enforces. Five are what loop emits for a
+// turn's content; two (compaction, marker) are synthetic marks another subsystem drops onto the thread.
+// Deeper hierarchy (a subagent's message subtree under a tool_call) is expressed via stream
+// Open.ParentID, NOT via new block types, so this set stays minimal.
 //
-// Block 类型——loop 发的内容树节点种类。更深层级（subagent 消息子树挂在 tool_call 下）
-// 经 stream Open.ParentID 表达、**不**靠新增块型，故此集合保持精简。
+// Block 类型——**七**型,store 的 CHECK 强制的封闭集。五个是 loop 为一个回合的内容所发;两个
+// （compaction、marker）是别的子系统落到线程上的合成标记。更深层级（subagent 消息子树挂在 tool_call 下）
+// 经 stream Open.ParentID 表达、**不**靠新增块型,故此集合保持精简。
 const (
 	BlockTypeText       = "text"
 	BlockTypeReasoning  = "reasoning"
@@ -78,6 +80,46 @@ const (
 	// （BlocksToAssistantLLM）是类型白名单——text/reasoning/tool_call/tool_result——故 progress 块永不回喂
 	// 模型。LLM 读的耐久答案仍是 tool_result；progress 是耐久的 UI 细节。
 	BlockTypeProgress = "progress"
+
+	// BlockTypeMarker is a durable IN-LINE MARK on the thread: something about the conversation itself
+	// changed, and a reader scrolling back later must be able to see WHERE. Attrs carry the kind and its
+	// payload — `{kind:"workdir", from, to}` is the first and only kind (WRK-077 WD1: the residency was
+	// switched mid-thread, so every tool call above this line ran somewhere else).
+	//
+	// Content is deliberately EMPTY: the label is rendered client-side from attrs, because the front end
+	// must show it in the user's own language and a Go-side string would be a hardcoded locale on a
+	// durable row (i18n 铁律). Nothing in this block is for the model — like progress, it simply has no
+	// case in BlocksToAssistantLLM's type whitelist, so it can never reach a prompt. It also gets no
+	// scene-bar anchor: an anchor is a place you jump TO, and a one-line mark is not a destination (the
+	// 6-kind anchor vocabulary in api.md stays closed).
+	//
+	// The kind lives in attrs rather than becoming N block types because the CHECK is a closed set that
+	// costs a whole-table rebuild to widen — one `marker` type with an open attrs kind means the NEXT
+	// durable mark (a model switch, a system-prompt edit) is a pure app-layer change.
+	//
+	// BlockTypeMarker 是线程上的持久**行内标记**:关于对话本身的某件事变了,而日后往回翻的读者必须能看见
+	// 它变在**哪里**。attrs 承载 kind 及其载荷——`{kind:"workdir", from, to}` 是第一个也是目前唯一的 kind
+	// （WRK-077 WD1:驻地在线程中途被切换,故这条线以上的每次工具调用都跑在别处）。
+	//
+	// Content **刻意为空**:标签由客户端据 attrs 渲染,因为前端必须用用户自己的语言显示它,而 Go 侧写一个
+	// 字符串等于把某一种语言硬编码进一条持久行（i18n 铁律）。本块里没有任何东西是给模型的——与 progress
+	// 一样,它在 BlocksToAssistantLLM 的类型白名单里根本没有 case,故永不可能进入 prompt。它同样**不建**
+	// 场次条锚点:锚点是你**跳过去**的地方,而一行标记不是目的地（api.md 里 6 种锚点词汇保持封闭）。
+	//
+	// kind 放在 attrs 里、而非铸成 N 个块型,因为 CHECK 是封闭集、加词要付一次整表重建——一个 `marker` 型
+	// 配一个开放的 attrs kind,意味着**下一个**持久标记（换模型、改 system prompt）是纯 app 层改动。
+	BlockTypeMarker = "marker"
+)
+
+// Marker attrs keys — the kind discriminator + the workdir kind's two ends. Named here (not spelled at
+// each site) because the frontend mirrors these exact strings.
+//
+// marker attrs 键——kind 判别符 + workdir kind 的两端。在此命名（而非各处手拼）,因为前端逐字镜像这些串。
+const (
+	MarkerAttrKind    = "kind"
+	MarkerKindWorkDir = "workdir"
+	MarkerAttrFrom    = "from"
+	MarkerAttrTo      = "to"
 )
 
 // IsValidBlockType reports whether t is a known block type (store CHECK / contract对账).
@@ -85,7 +127,7 @@ const (
 // IsValidBlockType 报告 t 是否已知块型（供 store CHECK / 契约对账）。
 func IsValidBlockType(t string) bool {
 	switch t {
-	case BlockTypeText, BlockTypeReasoning, BlockTypeToolCall, BlockTypeToolResult, BlockTypeCompaction, BlockTypeProgress:
+	case BlockTypeText, BlockTypeReasoning, BlockTypeToolCall, BlockTypeToolResult, BlockTypeCompaction, BlockTypeProgress, BlockTypeMarker:
 		return true
 	}
 	return false
