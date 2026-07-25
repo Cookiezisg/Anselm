@@ -10,7 +10,6 @@ import '../design/typography.dart';
 import 'an_button.dart';
 import 'an_code_surface.dart';
 import 'an_term_viewport.dart';
-import 'an_tooltip.dart';
 import 'icons.dart';
 import 'syntax_highlighter.dart';
 
@@ -679,14 +678,11 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
   // Tooltip mirrors the demo's title. 小图标动作:复用 AnButton.iconOnly(带 a11y 标签 + hover)+ Tooltip。
   Widget _barIcon(IconData icon, String label, VoidCallback onTap) {
     // AnTooltip, not Material Tooltip — bar isomorphism with AnVersionDiff (复审 #38). 同构用 AnTooltip。
-    return AnTooltip(
-      message: label,
-      child: AnButton.iconOnly(
-        icon,
-        size: AnButtonSize.sm,
-        semanticLabel: label,
-        onPressed: onTap,
-      ),
+    return AnButton.iconOnly(
+      icon,
+      size: AnButtonSize.sm,
+      semanticLabel: label,
+      onPressed: onTap,
     );
   }
 

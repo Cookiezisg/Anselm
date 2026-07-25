@@ -77,13 +77,10 @@ class _TranscriptTocState extends ConsumerState<TranscriptToc> {
     return AnPopover(
       controller: _pop,
       alignEnd: false,
-      anchor: AnTooltip(
-        message: t.chat.toc.button,
-        child: AnButton.iconOnly(
-          AnIcons.listBulleted,
-          onPressed: _toggle,
-          semanticLabel: t.chat.toc.button,
-        ),
+      anchor: AnButton.iconOnly(
+        AnIcons.listBulleted,
+        onPressed: _toggle,
+        semanticLabel: t.chat.toc.button,
       ),
       overlayBuilder: (context, _) => _TocPanel(
         conversationId: widget.conversationId,

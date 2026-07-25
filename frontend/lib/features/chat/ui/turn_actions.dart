@@ -4,7 +4,6 @@ import 'package:flutter/widgets.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/ui/an_hover_region.dart';
 import '../../../core/ui/an_button.dart';
-import '../../../core/ui/an_tooltip.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 
@@ -140,13 +139,10 @@ class _TurnActionsState extends State<TurnActions> {
     required IconData icon,
     required String tip,
     required VoidCallback? onTap,
-  }) => AnTooltip(
-    message: tip,
-    child: AnButton.iconOnly(
-      icon,
-      size: AnButtonSize.sm,
-      semanticLabel: tip,
-      onPressed: onTap,
-    ),
+  }) => AnButton.iconOnly(
+    icon,
+    size: AnButtonSize.sm,
+    semanticLabel: tip,
+    onPressed: onTap,
   );
 }

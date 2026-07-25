@@ -34,13 +34,10 @@ final List<GallerySpecimen> sidestageSpecimens = [
     (_) => Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        AnTooltip(
-          message: '跳到发生处',
-          child: AnButton.iconOnly(
-            AnIcons.locate,
-            semanticLabel: '跳到发生处',
-            onPressed: () {},
-          ),
+        AnButton.iconOnly(
+          AnIcons.locate,
+          semanticLabel: '跳到发生处',
+          onPressed: () {},
         ),
         const SizedBox(width: 8),
         AnTooltip(

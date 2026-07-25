@@ -642,6 +642,12 @@ Flutter 团队在 issue #141151 明确:手势竞技场里**更深者赢**,`Selec
 
 **验收**:入口在技能组头/⋯ 菜单可发现;hover 有文字提示;首屏读得懂;iconOnly 普查结论入档;`make -C frontend quick` 绿。
 
+→ **本节那条「顺带发现」已单独施工(0725,主会话亲自——它牵动 87 处、不宜外派)。**
+
+`AnButton.iconOnly` 现在**自带 tooltip**(取 `semanticLabel`),一处地基覆盖全部纯图标按钮。**普查结论证实**:改完立刻有 **7 处**手工 `AnTooltip` 包裹变成**双层**、六条既有测试转红——这正是「原语只生不收」之罪的实证,那 7 处已解包(每处的 `message` 与 `semanticLabel` 本就是同一个表达式,解包零信息损失)。守卫 `an_button_test` 三条:iconOnly 有 tooltip / 带 label 的没有 / 手工再包一层会被抓到(断言正是「双层」这一现象)。已写进 `design-system.md` 的 AnButton 条目。
+
+**本节其余三项(入口迁移 / 首屏说明前置 / placeholder 可见性)未做**——它们与 §5.14 的 Library rail 重构同属施工序⑬,尚未施工。
+
 ## §5.14 LR 批 · 左岛 rail 创建动作下沉 + 搜索文案标准化(0723 用户拍板)
 
 ### ① Library rail 重构

@@ -12,7 +12,6 @@ import '../model/code_diff.dart';
 import 'an_button.dart';
 import 'an_code_surface.dart';
 import 'an_term_viewport.dart';
-import 'an_tooltip.dart';
 import 'icons.dart';
 import 'syntax_highlighter.dart';
 import 'text_measure.dart';
@@ -315,24 +314,18 @@ class _AnVersionDiffState extends State<AnVersionDiff> {
       ),
       child: Row(
         children: [
-          AnTooltip(
-            message: copyTip,
-            child: AnButton.iconOnly(
-              _copied ? AnIcons.check : AnIcons.copy,
-              size: AnButtonSize.sm,
-              semanticLabel: copyTip,
-              onPressed: _copy,
-            ),
+          AnButton.iconOnly(
+            _copied ? AnIcons.check : AnIcons.copy,
+            size: AnButtonSize.sm,
+            semanticLabel: copyTip,
+            onPressed: _copy,
           ),
           const SizedBox(width: AnSpace.s4),
-          AnTooltip(
-            message: t.action.wrap,
-            child: AnButton.iconOnly(
-              AnIcons.wrap,
-              size: AnButtonSize.sm,
-              semanticLabel: t.action.wrap,
-              onPressed: () => setState(() => _wrap = !_wrap),
-            ),
+          AnButton.iconOnly(
+            AnIcons.wrap,
+            size: AnButtonSize.sm,
+            semanticLabel: t.action.wrap,
+            onPressed: () => setState(() => _wrap = !_wrap),
           ),
           if (widget.range != null) ...[
             const SizedBox(width: AnSpace.s8),

@@ -7,7 +7,6 @@ import '../design/typography.dart';
 import '../../i18n/strings.g.dart';
 import 'an_button.dart';
 import 'an_status_dot.dart';
-import 'an_tooltip.dart';
 import 'an_freshness_halo.dart';
 import 'an_interactive.dart';
 import 'icons.dart';
@@ -216,14 +215,11 @@ class AnCastRow extends StatelessWidget {
     IconData icon,
     String label,
     VoidCallback onTap,
-  ) => AnTooltip(
-    message: label,
-    child: AnButton.iconOnly(
-      icon,
-      size: AnButtonSize.sm,
-      onPressed: onTap,
-      semanticLabel: label,
-    ),
+  ) => AnButton.iconOnly(
+    icon,
+    size: AnButtonSize.sm,
+    onPressed: onTap,
+    semanticLabel: label,
   );
 
   static String timeLabel(BuildContext context, DateTime at) {

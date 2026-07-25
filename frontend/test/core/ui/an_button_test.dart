@@ -98,4 +98,73 @@ void main() {
       );
     },
   );
+
+  // WRK-077 §5.13 — an icon-only button now carries its own tooltip.
+  //
+  // The count is the argument: 87 `AnButton.iconOnly` uses against 28 `AnTooltip` uses, i.e. most icon
+  // buttons said NOTHING on hover. `semanticLabel` reached the semantics tree only — right for a screen
+  // reader, invisible to eyes. The user hit exactly this and had to come ask what a button was
+  // (「Library 里,新建页面为什么有一个下载的按钮…这是什么东西?」). Fixing it in the kit retired seven
+  // hand-written wraps at once; a labelled button still gets none, because its label IS the text.
+  //
+  // WRK-077 §5.13——纯图标按钮现在自带 tooltip。
+  //
+  // **数目**就是论据:`AnButton.iconOnly` 87 处 vs `AnTooltip` 28 处,即多数图标按钮 hover 时什么也不说。
+  // `semanticLabel` 只到语义树——对读屏是对的,对眼睛不存在。用户正是撞在这上面、不得不来问一个按钮是什么。
+  // 落在地基上一举退掉七处手写包裹;**带文案的按钮仍然没有** tooltip,因为它的文案本身就是那段文字。
+  group('icon-only buttons speak on hover (WRK-077 §5.13)', () {
+    testWidgets('iconOnly gets a tooltip from its semanticLabel', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        host(
+          AnButton.iconOnly(
+            AnIcons.copy,
+            semanticLabel: 'Copy',
+            onPressed: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Copy'), findsOneWidget);
+    });
+
+    testWidgets('a LABELLED button gets none — the label already says it', (
+      tester,
+    ) async {
+      await tester.pumpWidget(host(AnButton(label: 'Save', onPressed: () {})));
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Save'), findsNothing);
+      expect(find.text('Save'), findsOneWidget);
+    });
+
+    testWidgets('exactly ONE tooltip — no doubling with an outer AnTooltip', (
+      tester,
+    ) async {
+      // Seven call sites used to wrap iconOnly in AnTooltip by hand; after the kit change those became
+      // DOUBLE tooltips and six tests went red, which is how the redundancy was found. They are unwrapped
+      // now — this pins that a stray re-wrap is caught rather than silently nesting.
+      // 原有七处手工把 iconOnly 包进 AnTooltip;地基改动后它们变成**双层** tooltip、六条测试转红,冗余正是这样
+      // 被发现的。现已解包——本条钉住「再有人包回去会被抓到」,而不是无声嵌套。
+      await tester.pumpWidget(
+        host(
+          AnTooltip(
+            message: 'Copy',
+            child: AnButton.iconOnly(
+              AnIcons.copy,
+              semanticLabel: 'Copy',
+              onPressed: () {},
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.byTooltip('Copy'),
+        findsNWidgets(2),
+        reason:
+            'a hand-wrap on top of the kit tooltip nests two — unwrap the call site',
+      );
+    });
+  });
 }
