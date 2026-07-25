@@ -835,3 +835,11 @@ GET /api/v1/conversations/workdir-groups → 404   ← 旧二进制没这条路�
 **顺带修**:上游 4xx 此前完全不留日志(这次定位为此付了约一小时黑盒探测),现 journal 记 backend/status/reason/provider_message。
 
 **临时物清理**:桌面侧 TEMP-DIAG 日志行已还原;服务器上的判别实验静态文件待 deploy 验收后一并清。
+
+### E 实测台账(0725 深夜,新网关部署后)
+
+- **A3(音频附件)部分通过**:wav 经「附件→Choose files」入 composer(chip 带 WAV·191.2KB)→ 发送 → 用户泡内渲出**音频卡**(播放钮+进度条)→ 受管路由完整回合跑通(inspect_media ×2 / list_attachments / search_tools / Bash `which whisper`,最终诚实答复「无转写工具」+三个替代方案,auto-title 正常)。**播放/seek 未验**——见下一条工具边界。
+- **工具边界(记档,防将来误报)**:computer-use 的合成滚轮事件在本机对**任何 app 都无效**(Finder 对照实验:同样纹丝不动)——транскript 滚不动**不是 app bug**。滚轮/触控板手感、A3 的 seek、以及 TS 的划选体感只能由用户真手验。
+- **A5(麦克风)走到权限流现场**:空输入框圆钮=麦克风(受管路由)→ 点击进入 Recording 态(红点+00:00+电平条+停止方钮)→ **系统麦克风授权弹窗弹出**(计时器停在 00:00 等授权,符合预期)。「允许后录音→停止→可编辑草稿不自动发」待用户点掉系统弹窗后续验。
+- **网关内联版已上线**(deploy 5m47s,23:02 重启),A1 待重跑。
+- 服务器上的判别实验静态残留已清(test-a1.* 与 /v1 目录)。
