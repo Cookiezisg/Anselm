@@ -627,7 +627,11 @@
     },
     "actions": {
       "forkComing": "从这里分叉(CH-b 批将至)",
-      "retryComing": "重试(CH-c 批将至)"
+      "retryComing": "重试(CH-c 批将至)",
+      "queueHead": "$n 条待发送",
+      "queueEdit": "编辑这条排队消息",
+      "queueRemove": "从队列移除",
+      "queueAttachmentsOnly": "$n 个附件"
     }
   },
   "appName": "Anselm",

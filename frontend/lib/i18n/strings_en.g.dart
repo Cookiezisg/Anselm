@@ -3141,6 +3141,18 @@ class Translations$chat$actions$en {
 
 	/// en: 'Retry (coming in CH-c)'
 	String get retryComing => 'Retry (coming in CH-c)';
+
+	/// en: '$n waiting to send'
+	String queueHead({required Object n}) => '${n} waiting to send';
+
+	/// en: 'Edit this queued message'
+	String get queueEdit => 'Edit this queued message';
+
+	/// en: 'Remove from queue'
+	String get queueRemove => 'Remove from queue';
+
+	/// en: '$n attachment(s)'
+	String queueAttachmentsOnly({required Object n}) => '${n} attachment(s)';
 }
 
 // Path: scheduler.overview
@@ -7114,6 +7126,10 @@ extension on Translations {
 			'chat.stage.rtStopped' => 'stopped',
 			'chat.actions.forkComing' => 'Fork from here (coming in CH-b)',
 			'chat.actions.retryComing' => 'Retry (coming in CH-c)',
+			'chat.actions.queueHead' => ({required Object n}) => '${n} waiting to send',
+			'chat.actions.queueEdit' => 'Edit this queued message',
+			'chat.actions.queueRemove' => 'Remove from queue',
+			'chat.actions.queueAttachmentsOnly' => ({required Object n}) => '${n} attachment(s)',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
@@ -7527,12 +7543,12 @@ extension on Translations {
 			'graph.kind.control' => 'Branch',
 			'graph.kind.approval' => 'Approval',
 			'graph.kind.unknown' => 'Unknown',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.flagYes' => 'yes',
 			'a11y.flagNo' => 'no',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
 			'a11y.editField' => ({required Object field}) => 'Edit ${field}',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.addTagTo' => ({required Object field}) => 'Add tag: ${field}',
 			'a11y.displayOptions' => 'Display options',
 			'a11y.moreActions' => 'More actions',
@@ -8041,12 +8057,12 @@ extension on Translations {
 			'settings.notifLevel' => 'Notification level',
 			'settings.notifLevelDesc' => 'Which events pop up — items that need your action are always delivered',
 			'settings.levelAll' => 'All',
+			_ => null,
+		} ?? switch (path) {
 			'settings.levelImportant' => 'Needs you',
 			'settings.levelSilent' => 'Silent',
 			'settings.notifOs' => 'System notifications',
 			'settings.notifOsDesc' => 'Delivered via the OS notification center while unfocused',
-			_ => null,
-		} ?? switch (path) {
 			'settings.notifToast' => 'In-app notices',
 			'settings.notifToastDesc' => 'Show notices at the top of the app; danger-level errors bypass this',
 			'settings.silentHint' => 'Silenced — important items still land in the bell inbox',

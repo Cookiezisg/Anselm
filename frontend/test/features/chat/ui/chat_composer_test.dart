@@ -373,7 +373,7 @@ void main() {
   });
 
   testWidgets(
-    'while generating: Enter is swallowed and the trailing button is STOP → cancel',
+    'while generating: Enter QUEUES (§3.4) and the trailing button is STOP → cancel',
     (tester) async {
       final repo = FixtureChatRepository(
         conversations: [_conv('cv_1')],
@@ -393,15 +393,50 @@ void main() {
       await tester.pump();
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await _settle(tester);
-      expect(repo.lastSend, isNull); // gated 门控住了
+
+      // Still never a concurrent turn — that half of the old contract stands. 仍绝不并发开轮:旧契约这一半不变。
+      expect(repo.lastSend, isNull);
+
+      // But the message is now QUEUED, not left sitting in the field (§3.4). This assertion is the INVERSE
+      // of what it used to be: the test read `controller.text == '想插话'`, i.e. it pinned the behaviour where
+      // pressing Enter left the sentence in place and told the reader nothing about why. Inverted rather than
+      // deleted, so the reversal is on the record.
+      //
+      // 但消息现在**入队**了、不再干坐在输入框里(§3.4)。本断言与原先**正好相反**:它原本读
+      // `controller.text == '想插话'`,也就是把「按 Enter 后句子留在原处、且不告诉读者为什么」这个行为钉住了。
+      // 此处**反转而非删除**,好让这次翻案留在记录里。
       expect(
         tester.widget<TextField>(find.byType(TextField)).controller!.text,
-        '想插话',
-      ); // kept 字还在
+        isEmpty,
+        reason:
+            'Enter moved it into the queue, so the field is free to type the next one',
+      );
+      expect(
+        find.text('想插话'),
+        findsOneWidget,
+        reason: 'the queue chip shows it',
+      );
+
+      // The queue chip makes the composer TALLER, and its shape morph is a spring. `_settle` above is a
+      // bounded 3×20ms pump — this suite cannot use pumpAndSettle because the streaming shimmers never
+      // settle — so without this the tap lands while the box is still growing and the stop button is
+      // momentarily outside its parent's bounds (measured: box bottom 336 vs button 334–348). Not a product
+      // defect; a harness artifact that only shows up once something makes the composer grow.
+      // 队列 chip 让 composer **变高**,而它的形状形变是 spring。上面的 `_settle` 是有界的 3×20ms
+      // (本套件不能用 pumpAndSettle——流式微光永不停),故少了这一步,点击会落在盒子还在长高的途中,停止按钮
+      // 此刻正短暂地位于父级边界之外(实测:盒底 336,而按钮 334–348)。**不是产品缺陷**,是夹具产物——只有当
+      // 某个东西让 composer 长高时才会现形。
+      await tester.pump(const Duration(milliseconds: 400));
 
       await tester.tap(find.byIcon(AnIcons.stop));
       await _settle(tester);
       expect(repo.cancelled, ['cv_1']);
+
+      // Stop does NOT discard it — the §3.4 open question, decided in chat_queue.dart. Stop is a statement
+      // about the turn in flight, not about messages the reader has not withdrawn.
+      // 「停止」不丢弃它——§3.4 那个待定问题,在 chat_queue.dart 裁定。停止是对**在飞那一轮**的表态,不是对读者
+      // 并未撤回的消息的表态。
+      expect(find.text('想插话'), findsOneWidget);
     },
   );
 

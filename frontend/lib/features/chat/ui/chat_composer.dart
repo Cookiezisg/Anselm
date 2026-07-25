@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pasteboard/pasteboard.dart';
 
+import '../../../core/perf/frame_safe.dart';
 import '../../../core/settings/settings_prefs.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -20,6 +21,7 @@ import 'mention_text_controller.dart';
 import '../model/user_attachment.dart';
 import '../state/audio_attachment_recorder.dart';
 import '../state/chat_drafts.dart';
+import '../state/chat_queue.dart';
 import '../state/pending_attachments.dart';
 import '../state/conversation_stream_provider.dart';
 import '../state/speech_input_provider.dart';
@@ -327,6 +329,18 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       return KeyEventResult.ignored;
     }
 
+    // `↑` on an EMPTY field pulls the last queued message back (§3.4). Only when empty: the arrow must
+    // still move the caret through text the reader is editing.
+    // 空框上按 `↑` 取回最后一条排队消息(§3.4)。**仅**在空框时:框里有字时方向键仍须正常移动光标。
+    final cid = widget.conversationId;
+    if (key == LogicalKeyboardKey.arrowUp &&
+        event is KeyDownEvent &&
+        _ctrl.text.isEmpty &&
+        cid != null &&
+        ref.read(chatQueueProvider(cid)).isNotEmpty) {
+      _retrieveLastQueued();
+      return KeyEventResult.handled;
+    }
     if (key != LogicalKeyboardKey.enter &&
         key != LogicalKeyboardKey.numpadEnter) {
       return KeyEventResult.ignored;
@@ -345,11 +359,85 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
         HardwareKeyboard.instance.isMetaPressed ||
         HardwareKeyboard.instance.isControlPressed;
     if (wantsCmd && !cmdHeld) return KeyEventResult.ignored; // newline 换行
-    // While generating the send affordance is a STOP button — the keyboard path must agree: swallow
-    // (never a concurrent turn), don't insert a newline either. 生成中键盘同 UI:吞掉、不发也不换行。
-    if (_generating) return KeyEventResult.handled;
+    // While generating, Enter QUEUES (§3.4). It used to be swallowed outright, which is the one behaviour
+    // that punishes typing ahead: the reader's sentence stayed in the field, they pressed Enter again a
+    // few seconds later, and nothing told them why the first press did nothing. Never a concurrent turn —
+    // the queue drains one at a time when the pipeline goes idle.
+    // 生成中 Enter **入队**(§3.4)。原先是直接吞掉,而那恰是唯一会惩罚「先打后发」的行为:读者的句子留在框里,
+    // 几秒后他再按一次 Enter,却没有任何东西告诉他第一次为什么没反应。绝不并发开轮——管道空闲时队列逐条排出。
+    if (_generating) {
+      _enqueue();
+      return KeyEventResult.handled;
+    }
     _send();
     return KeyEventResult.handled;
+  }
+
+  // ── the send queue (§3.4) 发送队列 ──
+
+  ChatQueue? get _queue {
+    final id = widget.conversationId;
+    return id == null ? null : ref.read(chatQueueProvider(id).notifier);
+  }
+
+  /// Move what is in the field into the queue, exactly as a send would have read it — same trim, same
+  /// mention resolution, same ready-attachment ids. Anything else would make a queued message differ from
+  /// the message the reader thought they were sending.
+  /// 把框里的东西移进队列,**读法与发送完全一致**:同样的 trim、同样的提及解析、同样的 ready 附件 id。任何别的
+  /// 读法都会让排队消息与读者以为自己发出的那条消息不同。
+  void _enqueue() {
+    final q = _queue;
+    if (q == null) return;
+    final text = _ctrl.text.trim();
+    final attachmentIds = _att.readyIds;
+    if (text.isEmpty && attachmentIds.isEmpty) return;
+    if (_att.hasUploading) return; // never queue half a payload 上传中不入队
+    q.enqueue(
+      QueuedMessage(
+        localId: q.nextLocalId(),
+        text: text,
+        mentions: _liveMentions(text),
+        attachmentIds: attachmentIds,
+      ),
+    );
+    _clearField();
+  }
+
+  /// Pull the last queued message back into the field — the `↑` affordance, for "wait, let me change
+  /// that". Refuses while the field holds something, because overwriting unsent text to recover other
+  /// unsent text is a net loss.
+  /// 把最后一条排队消息取回输入框(`↑`),给「等等,我改一下」。框里有东西时拒绝——为找回一段未发文字而覆盖
+  /// 另一段未发文字是净亏。
+  void _retrieveLastQueued() {
+    if (_ctrl.text.isNotEmpty) return;
+    final m = _queue?.takeLast();
+    if (m == null) return;
+    _ctrl.text = m.text;
+    for (final mention in m.mentions) {
+      _ctrl.pillNames.add(mention.name);
+    }
+    _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    _focus.requestFocus();
+  }
+
+  /// Send the head of the queue. Called when the pipeline goes idle — one at a time, so the transcript
+  /// order stays the reader's order. 发送队首。管道空闲时调用——一次一条,故 transcript 顺序保持读者的顺序。
+  void _drainQueue() {
+    final id = widget.conversationId;
+    if (id == null || _generating) return;
+    final m = _queue?.takeFirst();
+    if (m == null) return;
+    ref
+        .read(conversationStreamProvider(id).notifier)
+        .send(m.text, mentions: m.mentions, attachmentIds: m.attachmentIds);
+  }
+
+  void _clearField() {
+    _ctrl.clear();
+    _picked.clear();
+    _ctrl.pillNames.clear();
+    _att.clear();
+    ref.read(chatDraftsProvider).clear(_draftKey);
   }
 
   // ── attachments: three intakes, one funnel 附件三入口一漏斗 ──
@@ -890,7 +978,13 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             _speechAfter != null
         ? _speechRetryCard(context, t)
         : null;
-    final parts = [?attachments, ?audioAttachmentMeter, ?voice, ?retry];
+    final parts = [
+      ?_queueStrip(context, t),
+      ?attachments,
+      ?audioAttachmentMeter,
+      ?voice,
+      ?retry,
+    ];
     if (parts.isEmpty) return null;
     if (parts.length == 1) return parts.single;
     return Column(
@@ -902,6 +996,89 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
         ],
       ],
     );
+  }
+
+  /// The queue chip row (§3.4) — one chip per message waiting to send, above the input.
+  ///
+  /// It exists because a queue the reader cannot see is a queue they cannot trust: without it, pressing
+  /// Enter while a reply streams either does nothing visible (the old behaviour) or silently stores text
+  /// that surfaces minutes later in an order the reader can no longer predict. Tapping a chip pulls that
+  /// message back into the field to edit; the ✕ drops it. Null when the queue is empty, so nothing occupies
+  /// the strip in the ordinary case.
+  ///
+  /// 队列 chip 行(§3.4)——每条待发送消息一枚 chip,置于输入框之上。
+  ///
+  /// 它存在的理由是:**看不见的队列就是不敢信的队列**。没有它,回复流式中按 Enter 要么看不到任何反应(旧行为),
+  /// 要么静默存下一段文字、几分钟后以读者已无法预期的顺序冒出来。点 chip 把那条消息取回框里改;✕ 丢掉它。
+  /// 队列为空时返回 null,故寻常情况下这条带不占位。
+  Widget? _queueStrip(BuildContext context, Translations t) {
+    final id = widget.conversationId;
+    if (id == null) return null;
+    final queued = ref.watch(chatQueueProvider(id));
+    if (queued.isEmpty) return null;
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          t.chat.actions.queueHead(n: queued.length),
+          style: AnText.label.copyWith(color: c.inkMuted),
+        ),
+        const SizedBox(height: AnSpace.s4),
+        Wrap(
+          spacing: AnSpace.s4,
+          runSpacing: AnSpace.s4,
+          children: [
+            for (final m in queued)
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnChip(
+                    _queuePreview(m, t),
+                    look: AnChipLook.outlined,
+                    tooltip: t.chat.actions.queueEdit,
+                    onTap: () => _editQueued(m),
+                  ),
+                  AnButton.iconOnly(
+                    AnIcons.close,
+                    size: AnButtonSize.sm,
+                    semanticLabel: t.chat.actions.queueRemove,
+                    onPressed: () => ref
+                        .read(chatQueueProvider(id).notifier)
+                        .removeAt(m.localId),
+                  ),
+                ],
+              ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  /// A one-line preview. An attachment-only message has no text to show, so it says how many files it
+  /// carries rather than rendering an empty chip.
+  /// 单行预览。只带附件的消息没有文字可显,故报它带几个文件、而不是渲一枚空 chip。
+  String _queuePreview(QueuedMessage m, Translations t) {
+    // Standard truncation tier, not a hand-rolled substring (AnTrunc exists for exactly this).
+    // 走标准截断档、不手搓 substring(AnTrunc 就是为此而在)。
+    if (m.text.isNotEmpty) return truncate(m.text, AnTrunc.line);
+    return t.chat.actions.queueAttachmentsOnly(n: m.attachmentIds.length);
+  }
+
+  /// Pull a specific queued message back into the field to edit. Refuses while the field holds something —
+  /// same reason as `↑`: overwriting unsent text to recover other unsent text is a net loss.
+  /// 把某条排队消息取回框里改。框里有东西时拒绝——与 `↑` 同理:为找回一段未发文字而覆盖另一段未发文字是净亏。
+  void _editQueued(QueuedMessage m) {
+    if (_ctrl.text.isNotEmpty) return;
+    final id = widget.conversationId;
+    if (id == null) return;
+    ref.read(chatQueueProvider(id).notifier).removeAt(m.localId);
+    _ctrl.text = m.text;
+    for (final mention in m.mentions) {
+      _ctrl.pillNames.add(mention.name);
+    }
+    _ctrl.selection = TextSelection.collapsed(offset: _ctrl.text.length);
+    _focus.requestFocus();
   }
 
   Widget _speechRetryCard(BuildContext context, Translations t) {
@@ -1021,6 +1198,20 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
       valueListenable: ctl.transcript,
       builder: (context, transcript, _) {
         final generating = transcript.hasInFlight;
+        // The pipeline just went idle and the reader has messages waiting → send the head. Deferred out of
+        // the build phase (this IS a build), and one at a time, so the transcript order stays the reader's
+        // order and no two turns are ever in flight.
+        //
+        // Driven from here rather than from a listener because the notifier instance is replaced whenever
+        // the controller rebuilds — a listener attached in initState would end up watching a dead object,
+        // which is the exact bug class the comment above this builder already warns about.
+        //
+        // 管道刚转空闲且读者有消息在等 → 发队首。移出 build 相位(**此处正是 build**),且一次一条,故 transcript
+        // 顺序保持读者的顺序、绝不会有两轮同时在飞。
+        //
+        // 由此处驱动而非挂 listener:controller 每次重建都会**换掉** notifier 实例,在 initState 挂的 listener
+        // 最终会盯着一个死对象——正是本 builder 上方那条注释已经警告过的那类 bug。
+        if (!generating) runFrameSafe(() => mounted ? _drainQueue() : null);
         final Widget? trailing = generating
             ? _trailingButton(
                 key: const ValueKey('stop'),

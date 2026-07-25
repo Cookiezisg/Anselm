@@ -1271,6 +1271,10 @@ class _Translations$chat$actions$zh_CN extends Translations$chat$actions$en {
 	// Translations
 	@override String get forkComing => '从这里分叉(CH-b 批将至)';
 	@override String get retryComing => '重试(CH-c 批将至)';
+	@override String queueHead({required Object n}) => '${n} 条待发送';
+	@override String get queueEdit => '编辑这条排队消息';
+	@override String get queueRemove => '从队列移除';
+	@override String queueAttachmentsOnly({required Object n}) => '${n} 个附件';
 }
 
 // Path: scheduler.overview
@@ -3355,6 +3359,10 @@ extension on TranslationsZhCn {
 			'chat.stage.rtStopped' => '已停止',
 			'chat.actions.forkComing' => '从这里分叉(CH-b 批将至)',
 			'chat.actions.retryComing' => '重试(CH-c 批将至)',
+			'chat.actions.queueHead' => ({required Object n}) => '${n} 条待发送',
+			'chat.actions.queueEdit' => '编辑这条排队消息',
+			'chat.actions.queueRemove' => '从队列移除',
+			'chat.actions.queueAttachmentsOnly' => ({required Object n}) => '${n} 个附件',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',
@@ -3768,12 +3776,12 @@ extension on TranslationsZhCn {
 			'graph.kind.control' => '分支',
 			'graph.kind.approval' => '审批',
 			'graph.kind.unknown' => '未知',
+			_ => null,
+		} ?? switch (path) {
 			'a11y.flagYes' => '是',
 			'a11y.flagNo' => '否',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
 			'a11y.editField' => ({required Object field}) => '编辑 ${field}',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.addTagTo' => ({required Object field}) => '添加标签:${field}',
 			'a11y.displayOptions' => '显示选项',
 			'a11y.moreActions' => '更多操作',
@@ -4282,12 +4290,12 @@ extension on TranslationsZhCn {
 			'settings.notifLevel' => '通知级别',
 			'settings.notifLevelDesc' => '决定哪些事件弹出提醒;需要你处理的事项永远送达',
 			'settings.levelAll' => '全部',
+			_ => null,
+		} ?? switch (path) {
 			'settings.levelImportant' => '仅需处理',
 			'settings.levelSilent' => '静音',
 			'settings.notifOs' => '系统通知',
 			'settings.notifOsDesc' => '窗口未聚焦时经系统通知中心送达',
-			_ => null,
-		} ?? switch (path) {
 			'settings.notifToast' => '应用内提醒',
 			'settings.notifToastDesc' => '在软件顶部显示提醒;危险级错误不受此限',
 			'settings.silentHint' => '已静音,重要事项仍会进铃铛收件箱',
