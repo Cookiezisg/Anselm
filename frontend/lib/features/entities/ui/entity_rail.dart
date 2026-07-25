@@ -3,13 +3,22 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/design/tokens.dart';
+import '../../../core/model/status_state.dart';
+import '../../../core/notice/notice_center.dart';
+import '../../../core/overlay/an_overlay.dart';
 import '../../../core/perf/debouncer.dart';
+import '../../../core/shell/right_panel.dart';
+import '../../../core/ui/an_button.dart';
 import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_rail_states.dart';
 import '../../../core/ui/an_sidebar_list.dart';
+import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/entity_kind.dart';
 import '../data/entity_labels.dart';
+import '../data/entity_providers.dart';
+import '../data/entity_repository.dart';
+import '../data/entity_row.dart';
 import '../state/entity_list_provider.dart';
 import '../state/rail_model.dart';
 import '../state/rail_sort.dart';
@@ -34,6 +43,8 @@ class EntityRail extends ConsumerStatefulWidget {
 
 class _EntityRailState extends ConsumerState<EntityRail> {
   final _debounce = Debouncer(AnMotion.searchDebounce);
+
+  EntityRepository get _repo => ref.read(entityRepositoryProvider);
 
   @override
   void dispose() {
@@ -111,6 +122,14 @@ class _EntityRailState extends ConsumerState<EntityRail> {
         onFilterChanged: _onFilter,
         onLoadMore: _onLoadMore,
         onRetryLoad: _onLoadMore, // retry = just page again 重试即再翻
+        rowActionsBuilder: (id) {
+          // the pinned Overview row carries no ⋯ 总览行无 ⋯
+          if (id == entitiesOverviewRowId) return const [];
+          final kind = kindForId(groups, id);
+          final row = kind == null ? null : rowForId(groups, id);
+          if (kind == null || row == null) return const [];
+          return [_rowMenu(t, kind, row)];
+        },
       ),
     );
   }
@@ -150,5 +169,209 @@ class _EntityRailState extends ConsumerState<EntityRail> {
     for (final kind in EntityKind.values) {
       ref.invalidate(entityListProvider(kind));
     }
+  }
+
+  // ── per-row ⋯ menu (hover-revealed, WRK-077 施工序⑩/EA) ───────────────────
+  //
+  // Every kind shares three items — Open (navigate) · Edit with AI (`:iterate`, in place) · Delete
+  // (danger + confirm) — plus kind-specific ones. The HONESTY RULE (most important): an action that
+  // needs the user's own typed arguments (`:run`/`:call`/`:invoke` all require an `args`/`input` body;
+  // workflow `:trigger`'s optional payload still deserves the SAME review the app's ONE execution point
+  // gives every other verb, 0718 拍板) never fires blind from a menu tap — those items only NAVIGATE to
+  // the entity (which reveals the right-island debugger for the now-selected entity, `runTerminalProvider`
+  // family keyed off [selectedEntityProvider] — mirrors the `reproduce` action in log_tab.dart). Only
+  // truly parameter-free actions (restart / activate / deactivate / pause / resume / delete) execute in
+  // place. `:iterate` sends a FIXED canned opening line (never free-typed user args, mirroring `:fire`'s
+  // synthesized `{manual:true}`) because the backend rejects an empty `request` — the real free-form ask
+  // happens in the chat conversation this opens, same as any new thread.
+  //
+  // 每 kind 共三项——打开(导航)· AI 编辑(`:iterate`,就地)· 删除(danger+确认)——外加 kind 专属项。诚实律
+  // (最重要):需要用户自己填参数的动作(`:run`/`:call`/`:invoke` 都要 args/input 体;workflow `:trigger` 的
+  // payload 虽可选,但理应享有本 app 唯一执行点给其余动词的同一份复核,0718 拍板)绝不在菜单里盲跑——这些项只
+  // 导航到实体(此举据 selectedEntityProvider 揭示右岛调试台,镜像 log_tab.dart 的「用这份输入」)。只有真正
+  // 无参的动作(重启/上线/下线/暂停/恢复/删除)就地执行。`:iterate` 发一句固定开场白(绝非用户自由参数,镜像
+  // `:fire` 合成的 `{manual:true}`)——因为后端拒绝空 request;真正的自由诉求在随后打开的对话里,如同任何新线程。
+  Widget _rowMenu(Translations t, EntityKind kind, EntityRow row) {
+    final rm = t.entities.rail.menu;
+    return AnMenu(
+      anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
+        AnIcons.more,
+        size: AnButtonSize.sm,
+        semanticLabel: t.a11y.moreActions,
+        onPressed: toggle,
+      ),
+      entries: [
+        AnMenuItem(
+          label: rm.open,
+          icon: AnIcons.open,
+          onTap: () => context.go(entityLocation(kind, row.id)),
+        ),
+        if (kind == EntityKind.function)
+          AnMenuItem(
+            label: rm.run,
+            icon: AnIcons.run,
+            onTap: () => _openDebugger(kind, row.id),
+          ),
+        if (kind == EntityKind.handler) ...[
+          AnMenuItem(
+            label: rm.call,
+            icon: AnIcons.run,
+            onTap: () => _openDebugger(kind, row.id),
+          ),
+          AnMenuItem(
+            label: rm.restart,
+            icon: AnIcons.refresh,
+            onTap: () => _restartHandler(row.id),
+          ),
+        ],
+        if (kind == EntityKind.agent)
+          AnMenuItem(
+            label: rm.invoke,
+            icon: AnIcons.run,
+            onTap: () => _openDebugger(kind, row.id),
+          ),
+        if (kind == EntityKind.workflow) ...[
+          AnMenuItem(
+            label: rm.triggerNow,
+            icon: AnIcons.run,
+            onTap: () => _openDebugger(kind, row.id),
+          ),
+          // Activate/deactivate are the SAME slot, picked by the row's current lifecycle — never both
+          // (the task's «二选一、不并列» rule). 同一格位按现态二选一(不并列)。
+          AnMenuItem(
+            label: row.lifecycleState == 'active' ? rm.deactivate : rm.activate,
+            icon: row.lifecycleState == 'active' ? AnIcons.pause : AnIcons.run,
+            onTap: () => _toggleWorkflowLifecycle(row),
+          ),
+          AnMenuItem(
+            label: rm.openEditor,
+            icon: AnIcons.edit,
+            onTap: () => context.go(workflowEditorLocation(row.id)),
+          ),
+        ],
+        if (kind == EntityKind.trigger)
+          // Pause/resume are the SAME slot, picked by the row's persisted `paused` — never both.
+          // 同一格位按 paused 二选一(不并列)。
+          AnMenuItem(
+            label: row.paused == true ? rm.resume : rm.pause,
+            icon: row.paused == true ? AnIcons.run : AnIcons.pause,
+            onTap: () => _toggleTriggerPaused(row),
+          ),
+        AnMenuItem(
+          label: rm.iterate,
+          icon: AnIcons.iterate,
+          onTap: () => _iterate(kind, row.id),
+        ),
+        AnMenuItem(
+          label: t.action.delete,
+          icon: AnIcons.trash,
+          danger: true,
+          onTap: () => _confirmDelete(kind, row),
+        ),
+      ],
+    );
+  }
+
+  // Navigate to the entity (sets selection) AND force the right island open — the entity ocean's
+  // right-island run terminal is bound to the SELECTED entity ([runTerminalProvider] family), so
+  // selecting it is what makes "the detail debugger" show THIS entity; the explicit `.set(false)`
+  // guarantees it's visible even if the user had previously collapsed it (same gesture as log_tab.dart's
+  // «reproduce» action). 导航即设选区 + 强制展开右岛(run 终端按选区绑定;显式展开防用户曾收起)。
+  void _openDebugger(EntityKind kind, String id) {
+    context.go(entityLocation(kind, id));
+    ref.read(rightPanelCollapsedProvider.notifier).set(false);
+  }
+
+  Future<void> _restartHandler(String id) async {
+    try {
+      await _repo.restartHandler(id);
+      ref.invalidate(entityListProvider(EntityKind.handler));
+    } catch (_) {
+      _noticeFail();
+    }
+  }
+
+  Future<void> _toggleWorkflowLifecycle(EntityRow row) async {
+    try {
+      if (row.lifecycleState == 'active') {
+        await _repo.deactivateWorkflow(row.id);
+      } else {
+        await _repo.activateWorkflow(row.id);
+      }
+      ref.invalidate(entityListProvider(EntityKind.workflow));
+    } catch (_) {
+      _noticeFail();
+    }
+  }
+
+  Future<void> _toggleTriggerPaused(EntityRow row) async {
+    try {
+      if (row.paused == true) {
+        await _repo.resumeTrigger(row.id);
+      } else {
+        await _repo.pauseTrigger(row.id);
+      }
+      // Unlike restart/activate/deactivate (which ALSO get an independent durable lifecycle signal —
+      // this invalidate is belt-and-suspenders there), :pause/:resume fan ONLY an ephemeral panel
+      // signal — this invalidate is the ONLY thing that keeps the row's «Pause»/«Resume» label from
+      // going stale. 不同于重启/上线/下线(还另有 durable 生命周期信号兜底,这里的 invalidate 是双保险);
+      // :pause/:resume 只发 ephemeral 面板信号——这行 invalidate 是行标签不卡旧态的唯一保障。
+      ref.invalidate(entityListProvider(EntityKind.trigger));
+    } catch (_) {
+      _noticeFail();
+    }
+  }
+
+  Future<void> _iterate(EntityKind kind, String id) async {
+    final t = context.t;
+    try {
+      final convId = await _repo.iterateEntity(
+        kind,
+        id,
+        request: t.entities.rail.iterateRequest,
+      );
+      if (!mounted) return;
+      // Cross-feature nav by literal path (features/* don't import each other, ADR 0004) — mirrors
+      // scheduler_run.dart/scheduler_run_inspector.dart's own `context.go('/chat/$id')`. 跨 feature 走字面
+      // 路径(features 互不依赖),镜像 scheduler 侧既有先例。
+      context.go('/chat/$convId');
+    } catch (_) {
+      _noticeFail();
+    }
+  }
+
+  Future<void> _confirmDelete(EntityKind kind, EntityRow row) async {
+    final t = context.t;
+    final ok = await ref
+        .read(overlayProvider.notifier)
+        .confirm(
+          title: t.entities.rail.deleteTitle,
+          message: t.entities.rail.deleteBody(
+            name: row.name.trim().isEmpty ? '…' : row.name,
+          ),
+          confirmLabel: t.action.delete,
+          cancelLabel: t.action.cancel,
+          barrierLabel: t.feedback.dialogBarrier,
+        );
+    if (!ok) return;
+    try {
+      await _repo.deleteEntity(kind, row.id);
+      ref.invalidate(entityListProvider(kind));
+      if (!mounted) return;
+      // Deleting the open entity leaves a dead detail — clear the selection (route is the truth).
+      // 删选中即清选区(路由为真相)。
+      if (ref.read(selectedEntityProvider) == EntityRef(kind, row.id)) {
+        context.go('/');
+      }
+    } catch (_) {
+      _noticeFail();
+    }
+  }
+
+  void _noticeFail() {
+    if (!mounted) return;
+    ref
+        .read(noticeCenterProvider.notifier)
+        .show(context.t.entities.rail.actionFailed, tone: AnTone.danger);
   }
 }

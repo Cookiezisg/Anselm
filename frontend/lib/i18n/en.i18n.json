@@ -1148,6 +1148,26 @@
     "sortName": "Name",
     "displayLabel": "Display",
     "showCount": "Show counts",
+    "rail": {
+      "menu": {
+        "open": "Open",
+        "run": "Run…",
+        "call": "Call method…",
+        "invoke": "Invoke…",
+        "triggerNow": "Run now…",
+        "restart": "Restart instance",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "openEditor": "Open editor",
+        "pause": "Pause",
+        "resume": "Resume",
+        "iterate": "Edit with AI"
+      },
+      "iterateRequest": "Help me make changes to this.",
+      "deleteTitle": "Delete this entity?",
+      "deleteBody": "“$name” will be removed.",
+      "actionFailed": "Action failed"
+    },
     "detail": {
       "crumbRoot": "Entities",
       "tab": {

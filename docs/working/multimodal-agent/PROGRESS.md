@@ -636,3 +636,17 @@ A1/A2(媒体)需**网关先部署**;A3(音频播放 seek)与 A5 后半需**重�
 **B 类只交付了一半,如实记**:本节要求「引导 + **动作**」,而通读代码确认**六个实体今天都没有可达的「创建版本」入口**(function/handler/agent 的版本内容按立法 AI-only 只读;其余三种也无该示能)。故只渲文案引导、**没造通向空处的假按钮**。这**部分推翻了 B 类的方案**——要么另立工单造那个入口,要么承认 B 类终态就是纯文案。
 
 **一处留真机看观感**:`fieldList` 空表那一行的标签取了卡头标题,于是「Inputs」卡头下跟一行「Inputs —」,语法一致但略重复;备选(无标签裸破折号)与 WRK-070 B12「无标签裸行读作神秘词」冲突。不猜,列真机项。
+
+### ⑩ EA 实体 rail 行内 ⋯ 菜单 ✅ 门禁绿(`REAL_EXIT=0`)
+
+派 Sonnet 5 建、主会话逐行复审并**亲自核实四条纠正**、跑门禁。七 kind 菜单 + 6 个 repository 封装(activate/deactivate/pause/resume/iterate/delete)。
+
+**本批纠正了工单四处**(都已核实,不是子代理的说法):
+1. 「处理器 restart ❌」错——`restartHandler` 早已封装(`entity_repository.dart:202/620`),diff 里零命中。
+2. `:iterate` **不是**无参动作——`aispawn.go:131` 明写 `request == "" → ErrEmptyRequest`。落法:发固定开场白(照 `:fire` 的 `{manual:true}` 先例),自由诉求交给随后那个对话。
+3. **最重要**:工作流「立即运行」改为**导航**。`ocean_header.dart:51` 逐字写着「动词 CTA 退役(0718 拍板**唯一执行点**:execution lives only in the right-island debugger)」——菜单里盲跑等于重开一扇被明确关掉的门。
+4. 「导航去详情调试台」没有那个 tab——详情 tab 只有概览/版本/日志,能跑的是右岛 `RunTerminal`(按选区绑定)。故导航 = 选中 + 强制展开右岛,复用 `log_tab.dart` 已有手势。
+
+**删除的引用守卫:查实与工单假设不同。** 七 kind 的 DELETE **从不因入向引用拒绝**(不像 api-key 的 `API_KEY_IN_USE`——那个先例真实存在);一律软删+清边,再经**异步聚合**的 `relation.dependency_broken` 通知点名谁挂了空引用。后端**没有**「预览依赖数」的 GET 端点,前端物理上拿不到预览。故删除=标准确认框+通用失败 toast;工单「引用冲突诚实报错」这条,正确落地是**诚实说明它不会冲突**。
+
+**顺带修三处 fixture 真 bug**:三个种子表原先直接赋 `const []`,删除/upsert 会在 const 列表上抛——本批的删除动作会真的踩到。

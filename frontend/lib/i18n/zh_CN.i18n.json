@@ -1148,6 +1148,26 @@
     "sortName": "名称",
     "displayLabel": "显示",
     "showCount": "显示分组计数",
+    "rail": {
+      "menu": {
+        "open": "打开",
+        "run": "运行…",
+        "call": "调用方法…",
+        "invoke": "调用…",
+        "triggerNow": "立即运行…",
+        "restart": "重启实例",
+        "activate": "上线",
+        "deactivate": "下线",
+        "openEditor": "打开编辑器",
+        "pause": "暂停",
+        "resume": "恢复",
+        "iterate": "AI 编辑"
+      },
+      "iterateRequest": "帮我修改一下这个。",
+      "deleteTitle": "删除这个实体?",
+      "deleteBody": "「$name」将被删除。",
+      "actionFailed": "操作失败"
+    },
     "detail": {
       "crumbRoot": "实体",
       "tab": {

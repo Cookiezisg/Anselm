@@ -220,6 +220,42 @@ abstract interface class EntityRepository {
   /// shape is uniform). 把 active 指针移到指定版本号(版本化 kind 通用,端点同形)。
   Future<void> revertVersion(EntityKind kind, String id, int version);
 
+  // ── rail row menu (WRK-077 施工序⑩/EA) — the no-arg lifecycle verbs + delete + AI-iterate, uniform
+  // across every rail kind where they apply. 行 ⋯ 菜单:无参生命周期动词 + 删除 + AI 编辑,跨 rail kind 同形。
+  /// `POST :activate` — bring a workflow online (attach its trigger listeners + flip lifecycle to
+  /// active). Idempotent. 上线(挂监听 + 翻 active),幂等。
+  Future<WorkflowEntity> activateWorkflow(String id);
+
+  /// `POST :deactivate` — take a workflow offline gracefully (detach listeners; in-flight runs finish,
+  /// landing inactive or draining). 下线(摘监听,在途 run 跑完落 inactive/draining)。
+  Future<WorkflowEntity> deactivateWorkflow(String id);
+
+  /// `POST :pause` — the trigger's runtime stop-the-bleeding switch: persists `paused=true` and
+  /// unregisters the source listener. Idempotent. 暂停(持久化 + 注销源监听),幂等。
+  Future<TriggerEntity> pauseTrigger(String id);
+
+  /// `POST :resume` — flips a paused trigger back on (re-registers with its CURRENT config if any
+  /// active workflow still references it). Idempotent. 恢复(翻回 + 视引用重注册),幂等。
+  Future<TriggerEntity> resumeTrigger(String id);
+
+  /// `POST :iterate` — open an AI working conversation to edit this entity (the entity is @-mentioned
+  /// into the first turn; [request] is what the user wants changed — REQUIRED and non-empty, the
+  /// backend 400s an empty one). Returns the new conversation id (202). Uniform across all 7 rail
+  /// kinds. 开 AI 编辑对话(entity 首条 @-mention;request 必填非空)→ 新对话 id。七 kind 同形。
+  Future<String> iterateEntity(
+    EntityKind kind,
+    String id, {
+    required String request,
+  });
+
+  /// `DELETE` — soft-delete + purge relation edges. Uniform path across all 7 rail kinds; the backend
+  /// NEVER blocks on incoming references (unlike api-key's `API_KEY_IN_USE`) — it purges the edges and
+  /// raises an async, aggregated `relation.dependency_broken` notification naming whatever was left
+  /// with a dangling mount, so this call itself only fails on a genuine transport/not-found error.
+  /// 删除(软删 + 清关系边)。七 kind 同路径形状;后端从不因入向引用挡删(不同于 api-key 的 IN_USE)——
+  /// 清边后异步发聚合通知点名悬空挂载者,故本调用本身只在真传输/404 错误时失败。
+  Future<void> deleteEntity(EntityKind kind, String id);
+
   // ── ref-picker candidates (lean id/name/meta projections for the workflow node-ref picker) ─────
   // These families are NOT the four rail EntityKinds, so they get their own list endpoints. The
   // picker only needs id + display name (+ an optional meta), never the full entity. 非四大 rail 实体的
@@ -615,6 +651,45 @@ class LiveEntityRepository implements EntityRepository {
         (m) => m,
         body: {'version': version},
       );
+
+  // ── rail row menu ────────────────────────────────────────────────────────
+  @override
+  Future<WorkflowEntity> activateWorkflow(String id) => _api.postEntity(
+    '${EntityKind.workflow.itemPath(id)}:activate',
+    WorkflowEntity.fromJson,
+  );
+
+  @override
+  Future<WorkflowEntity> deactivateWorkflow(String id) => _api.postEntity(
+    '${EntityKind.workflow.itemPath(id)}:deactivate',
+    WorkflowEntity.fromJson,
+  );
+
+  @override
+  Future<TriggerEntity> pauseTrigger(String id) => _api.postEntity(
+    '${EntityKind.trigger.itemPath(id)}:pause',
+    TriggerEntity.fromJson,
+  );
+
+  @override
+  Future<TriggerEntity> resumeTrigger(String id) => _api.postEntity(
+    '${EntityKind.trigger.itemPath(id)}:resume',
+    TriggerEntity.fromJson,
+  );
+
+  @override
+  Future<String> iterateEntity(
+    EntityKind kind,
+    String id, {
+    required String request,
+  }) => _api.postForId(
+    '${kind.itemPath(id)}:iterate',
+    body: {'request': request},
+  );
+
+  @override
+  Future<void> deleteEntity(EntityKind kind, String id) =>
+      _api.delete(kind.itemPath(id));
 
   @override
   Future<MountHealthReport> getMountHealth(String id) => _api.getEntity(

@@ -463,6 +463,7 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	@override String get sortName => '名称';
 	@override String get displayLabel => '显示';
 	@override String get showCount => '显示分组计数';
+	@override late final _Translations$entities$rail$zh_CN rail = _Translations$entities$rail$zh_CN._(_root);
 	@override late final _Translations$entities$detail$zh_CN detail = _Translations$entities$detail$zh_CN._(_root);
 	@override late final _Translations$entities$run$zh_CN run = _Translations$entities$run$zh_CN._(_root);
 	@override late final _Translations$entities$val$zh_CN val = _Translations$entities$val$zh_CN._(_root);
@@ -1648,6 +1649,20 @@ class _Translations$graph$kind$zh_CN extends Translations$graph$kind$en {
 	@override String get unknown => '未知';
 }
 
+// Path: entities.rail
+class _Translations$entities$rail$zh_CN extends Translations$entities$rail$en {
+	_Translations$entities$rail$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override late final _Translations$entities$rail$menu$zh_CN menu = _Translations$entities$rail$menu$zh_CN._(_root);
+	@override String get iterateRequest => '帮我修改一下这个。';
+	@override String get deleteTitle => '删除这个实体?';
+	@override String deleteBody({required Object name}) => '「${name}」将被删除。';
+	@override String get actionFailed => '操作失败';
+}
+
 // Path: entities.detail
 class _Translations$entities$detail$zh_CN extends Translations$entities$detail$en {
 	_Translations$entities$detail$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -2343,6 +2358,27 @@ class _Translations$feedback$cast$verb$zh_CN extends Translations$feedback$cast$
 	@override String get attached => '附上';
 	@override String get deleted => '删除';
 	@override String get unknown => '触碰';
+}
+
+// Path: entities.rail.menu
+class _Translations$entities$rail$menu$zh_CN extends Translations$entities$rail$menu$en {
+	_Translations$entities$rail$menu$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get open => '打开';
+	@override String get run => '运行…';
+	@override String get call => '调用方法…';
+	@override String get invoke => '调用…';
+	@override String get triggerNow => '立即运行…';
+	@override String get restart => '重启实例';
+	@override String get activate => '上线';
+	@override String get deactivate => '下线';
+	@override String get openEditor => '打开编辑器';
+	@override String get pause => '暂停';
+	@override String get resume => '恢复';
+	@override String get iterate => 'AI 编辑';
 }
 
 // Path: entities.detail.tab
@@ -3830,6 +3866,22 @@ extension on TranslationsZhCn {
 			'entities.sortName' => '名称',
 			'entities.displayLabel' => '显示',
 			'entities.showCount' => '显示分组计数',
+			'entities.rail.menu.open' => '打开',
+			'entities.rail.menu.run' => '运行…',
+			'entities.rail.menu.call' => '调用方法…',
+			'entities.rail.menu.invoke' => '调用…',
+			'entities.rail.menu.triggerNow' => '立即运行…',
+			'entities.rail.menu.restart' => '重启实例',
+			'entities.rail.menu.activate' => '上线',
+			'entities.rail.menu.deactivate' => '下线',
+			'entities.rail.menu.openEditor' => '打开编辑器',
+			'entities.rail.menu.pause' => '暂停',
+			'entities.rail.menu.resume' => '恢复',
+			'entities.rail.menu.iterate' => 'AI 编辑',
+			'entities.rail.iterateRequest' => '帮我修改一下这个。',
+			'entities.rail.deleteTitle' => '删除这个实体?',
+			'entities.rail.deleteBody' => ({required Object name}) => '「${name}」将被删除。',
+			'entities.rail.actionFailed' => '操作失败',
 			'entities.detail.crumbRoot' => '实体',
 			'entities.detail.tab.overview' => '概览',
 			'entities.detail.tab.versions' => '版本',
@@ -4276,6 +4328,8 @@ extension on TranslationsZhCn {
 			'settings.fontCascadia' => 'Cascadia Code',
 			'settings.fontSystemMono' => '跟随系统等宽',
 			'settings.fontRestartHint' => '重启后生效',
+			_ => null,
+		} ?? switch (path) {
 			'settings.language' => '语言',
 			'settings.languageRow' => '语言',
 			'settings.languageDesc' => '同时设定界面语言与当前工作区的 AI 输出语言',
@@ -4292,8 +4346,6 @@ extension on TranslationsZhCn {
 			'settings.patchFailed' => '保存失败,已恢复原值',
 			'settings.notifLevel' => '通知级别',
 			'settings.notifLevelDesc' => '决定哪些事件弹出提醒;需要你处理的事项永远送达',
-			_ => null,
-		} ?? switch (path) {
 			'settings.levelAll' => '全部',
 			'settings.levelImportant' => '仅需处理',
 			'settings.levelSilent' => '静音',

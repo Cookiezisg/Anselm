@@ -977,6 +977,7 @@ class Translations$entities$en {
 	/// en: 'Show counts'
 	String get showCount => 'Show counts';
 
+	late final Translations$entities$rail$en rail = Translations$entities$rail$en.internal(_root);
 	late final Translations$entities$detail$en detail = Translations$entities$detail$en.internal(_root);
 	late final Translations$entities$run$en run = Translations$entities$run$en.internal(_root);
 	late final Translations$entities$val$en val = Translations$entities$val$en.internal(_root);
@@ -4069,6 +4070,28 @@ class Translations$graph$kind$en {
 	String get unknown => 'Unknown';
 }
 
+// Path: entities.rail
+class Translations$entities$rail$en {
+	Translations$entities$rail$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+	late final Translations$entities$rail$menu$en menu = Translations$entities$rail$menu$en.internal(_root);
+
+	/// en: 'Help me make changes to this.'
+	String get iterateRequest => 'Help me make changes to this.';
+
+	/// en: 'Delete this entity?'
+	String get deleteTitle => 'Delete this entity?';
+
+	/// en: '“$name” will be removed.'
+	String deleteBody({required Object name}) => '“${name}” will be removed.';
+
+	/// en: 'Action failed'
+	String get actionFailed => 'Action failed';
+}
+
 // Path: entities.detail
 class Translations$entities$detail$en {
 	Translations$entities$detail$en.internal(this._root);
@@ -5658,6 +5681,51 @@ class Translations$feedback$cast$verb$en {
 
 	/// en: 'Touched'
 	String get unknown => 'Touched';
+}
+
+// Path: entities.rail.menu
+class Translations$entities$rail$menu$en {
+	Translations$entities$rail$menu$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Open'
+	String get open => 'Open';
+
+	/// en: 'Run…'
+	String get run => 'Run…';
+
+	/// en: 'Call method…'
+	String get call => 'Call method…';
+
+	/// en: 'Invoke…'
+	String get invoke => 'Invoke…';
+
+	/// en: 'Run now…'
+	String get triggerNow => 'Run now…';
+
+	/// en: 'Restart instance'
+	String get restart => 'Restart instance';
+
+	/// en: 'Activate'
+	String get activate => 'Activate';
+
+	/// en: 'Deactivate'
+	String get deactivate => 'Deactivate';
+
+	/// en: 'Open editor'
+	String get openEditor => 'Open editor';
+
+	/// en: 'Pause'
+	String get pause => 'Pause';
+
+	/// en: 'Resume'
+	String get resume => 'Resume';
+
+	/// en: 'Edit with AI'
+	String get iterate => 'Edit with AI';
 }
 
 // Path: entities.detail.tab
@@ -7601,6 +7669,22 @@ extension on Translations {
 			'entities.sortName' => 'Name',
 			'entities.displayLabel' => 'Display',
 			'entities.showCount' => 'Show counts',
+			'entities.rail.menu.open' => 'Open',
+			'entities.rail.menu.run' => 'Run…',
+			'entities.rail.menu.call' => 'Call method…',
+			'entities.rail.menu.invoke' => 'Invoke…',
+			'entities.rail.menu.triggerNow' => 'Run now…',
+			'entities.rail.menu.restart' => 'Restart instance',
+			'entities.rail.menu.activate' => 'Activate',
+			'entities.rail.menu.deactivate' => 'Deactivate',
+			'entities.rail.menu.openEditor' => 'Open editor',
+			'entities.rail.menu.pause' => 'Pause',
+			'entities.rail.menu.resume' => 'Resume',
+			'entities.rail.menu.iterate' => 'Edit with AI',
+			'entities.rail.iterateRequest' => 'Help me make changes to this.',
+			'entities.rail.deleteTitle' => 'Delete this entity?',
+			'entities.rail.deleteBody' => ({required Object name}) => '“${name}” will be removed.',
+			'entities.rail.actionFailed' => 'Action failed',
 			'entities.detail.crumbRoot' => 'Entities',
 			'entities.detail.tab.overview' => 'Overview',
 			'entities.detail.tab.versions' => 'Versions',
@@ -8047,6 +8131,8 @@ extension on Translations {
 			'settings.fontCascadia' => 'Cascadia Code',
 			'settings.fontSystemMono' => 'System mono',
 			'settings.fontRestartHint' => 'Takes effect after a restart',
+			_ => null,
+		} ?? switch (path) {
 			'settings.language' => 'Language',
 			'settings.languageRow' => 'Language',
 			'settings.languageDesc' => 'Sets both the UI language and this workspace\'s AI output language',
@@ -8063,8 +8149,6 @@ extension on Translations {
 			'settings.patchFailed' => 'Save failed — value restored',
 			'settings.notifLevel' => 'Notification level',
 			'settings.notifLevelDesc' => 'Which events pop up — items that need your action are always delivered',
-			_ => null,
-		} ?? switch (path) {
 			'settings.levelAll' => 'All',
 			'settings.levelImportant' => 'Needs you',
 			'settings.levelSilent' => 'Silent',

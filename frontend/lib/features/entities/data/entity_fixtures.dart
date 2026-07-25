@@ -78,10 +78,10 @@ class FixtureEntityRepository implements EntityRepository {
        _mcpTools = mcpTools ?? const {},
        _triggers = triggers ?? const [],
        _controls = controls ?? const [],
-       _controlLogics = controlLogics ?? const [],
+       _controlLogics = List.of(controlLogics ?? const []),
        _approvals = approvals ?? const [],
-       _approvalForms = approvalForms ?? const [],
-       _triggerEntities = triggerEntities ?? const [],
+       _approvalForms = List.of(approvalForms ?? const []),
+       _triggerEntities = List.of(triggerEntities ?? const []),
        _activations = activations ?? const {},
        _firings = firings ?? const {},
        _handlerConfigs = handlerConfigs ?? const {};
@@ -965,6 +965,101 @@ class FixtureEntityRepository implements EntityRepository {
     );
   }
 
+  // ── rail row menu ────────────────────────────────────────────────────────
+  @override
+  Future<WorkflowEntity> activateWorkflow(String id) async {
+    final next = (await getWorkflow(
+      id,
+    )).copyWith(lifecycleState: 'active', active: true);
+    upsertWorkflow(next);
+    emitLifecycle(
+      EntitySignal(
+        kind: EntityKind.workflow,
+        id: id,
+        action: EntityAction.updated,
+        durable: true,
+      ),
+    );
+    return next;
+  }
+
+  @override
+  Future<WorkflowEntity> deactivateWorkflow(String id) async {
+    final next = (await getWorkflow(
+      id,
+    )).copyWith(lifecycleState: 'inactive', active: false);
+    upsertWorkflow(next);
+    emitLifecycle(
+      EntitySignal(
+        kind: EntityKind.workflow,
+        id: id,
+        action: EntityAction.updated,
+        durable: true,
+      ),
+    );
+    return next;
+  }
+
+  // Mirrors the real backend: :pause/:resume fan an EPHEMERAL entities-stream `status` frame (the
+  // panel's own scope), NEVER a durable notifications-stream lifecycle signal — so, like the live
+  // path, this does NOT emitLifecycle. Callers must refresh the rail list themselves. 镜像真后端:
+  // pause/resume 只发面板 ephemeral 信号,不发 durable 生命周期——故此处不 emitLifecycle,调用方自行刷列表。
+  @override
+  Future<TriggerEntity> pauseTrigger(String id) async {
+    final next = (await getTrigger(
+      id,
+    )).copyWith(paused: true, listening: false, nextFireAt: null);
+    upsertTrigger(next);
+    return next;
+  }
+
+  @override
+  Future<TriggerEntity> resumeTrigger(String id) async {
+    final next = (await getTrigger(id)).copyWith(paused: false);
+    upsertTrigger(next);
+    return next;
+  }
+
+  @override
+  Future<String> iterateEntity(
+    EntityKind kind,
+    String id, {
+    required String request,
+  }) async {
+    if (request.trim().isEmpty) {
+      throw ArgumentError('iterateEntity: request must be non-empty');
+    }
+    return 'cv_${kind.name}_${id}_iterate';
+  }
+
+  @override
+  Future<void> deleteEntity(EntityKind kind, String id) async {
+    switch (kind) {
+      case EntityKind.function:
+        _functions.removeWhere((e) => e.id == id);
+      case EntityKind.handler:
+        _handlers.removeWhere((e) => e.id == id);
+      case EntityKind.agent:
+        _agents.removeWhere((e) => e.id == id);
+      case EntityKind.workflow:
+        _workflows.removeWhere((e) => e.id == id);
+      case EntityKind.control:
+        _controlLogics.removeWhere((e) => e.id == id);
+      case EntityKind.approval:
+        _approvalForms.removeWhere((e) => e.id == id);
+      case EntityKind.trigger:
+        _triggerEntities.removeWhere((e) => e.id == id);
+    }
+    emitLifecycle(
+      EntitySignal(
+        kind: kind,
+        id: id,
+        action: EntityAction.deleted,
+        durable: true,
+      ),
+    );
+  }
+
   @override
   Future<FlowrunComposite> replayFlowrun(String flowrunId) async {
     final comp = _flowrunDetail[flowrunId];
@@ -1051,6 +1146,8 @@ class FixtureEntityRepository implements EntityRepository {
   void upsertHandler(HandlerEntity e) => _upsert(_handlers, e, (x) => x.id);
   void upsertAgent(AgentEntity e) => _upsert(_agents, e, (x) => x.id);
   void upsertWorkflow(WorkflowEntity e) => _upsert(_workflows, e, (x) => x.id);
+  void upsertTrigger(TriggerEntity e) =>
+      _upsert(_triggerEntities, e, (x) => x.id);
 
   static void _upsert<T>(List<T> list, T e, String Function(T) id) {
     final i = list.indexWhere((x) => id(x) == id(e));

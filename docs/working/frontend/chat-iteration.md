@@ -604,6 +604,22 @@ Flutter 团队在 issue #141151 明确:手势竞技场里**更深者赢**,`Selec
 
 **验收**:七种 kind 各自菜单真机核对;删除走确认 + 引用冲突诚实报错;工作流上线/下线与 rail 状态点联动;`:iterate` 开出对话并导航;i18n 新键;五电池;`make -C frontend quick` 绿。
 
+→ **已施工(0725,施工序⑩)。派 Sonnet 5 建、主会话逐行复审 + 核实四条纠正 + 跑门禁。本节被纠正了四处,逐条记:**
+
+**纠正①:上表「处理器 restart ❌」是错的。** `restartHandler` 早在本批之前就已封装(接口 + Live + Fixture 三处都有),只是从未被任何 UI 调用。**主会话核实:diff 里 `restartHandler` 零命中,而 `entity_repository.dart:202/620` 确实早已存在。**
+
+**纠正②:`:iterate` 不是无参动作。** `backend/internal/app/aispawn/aispawn.go:131` 有 `if request == "" { return "", ErrEmptyRequest }`——`{request: string}` 是**必填非空**的首条消息。本节把它列进「无参动作」清单是错的。落法:菜单发一句**固定**开场白(i18n 键,非用户自由输入,照 `:fire` 的 `{manual:true}` 先例),真正的自由诉求交给随后打开的那个对话本身。**这既不是空跑、也不是逼用户先填表单。**
+
+**纠正③(最重要):工作流「立即运行」改为导航,不再就地跑 `:trigger`。** 诚实律的无参白名单本就不含 `:trigger`(payload 可选 ≠ 无参),而更硬的理由是**本项目已有立法**:`ocean_header.dart:51` 明写「动词 CTA 退役(0718 拍板**唯一执行点**:execution lives only in the right-island debugger;两扇 Run 门是两个不同的行为)」。**主会话已核实该注释逐字存在。** 让菜单里的「立即运行」盲跑,等于重开一扇被明确关掉的门。改为导航后与 run/call/invoke 三者同一文法。
+
+**纠正④:「导航去详情调试台」没有那个 tab。** 详情页的 tab 只有 概览/版本/日志(workflow 是运行驾驶舱=**观测**面、无起跑表单);真正能跑的界面是**右岛 `RunTerminal`**,它按 `selectedEntityProvider` 绑定。故「导航」= 选中实体 + 强制展开右岛,复用 `log_tab.dart:138-143` 已有的同一手势,**不是编造的新能力**。
+
+**删除的引用守卫:实际行为与本节假设不同,已查实。** 七个 kind 的 DELETE **从不因入向引用拒绝**——不像 api-key 的 `API_KEY_IN_USE`(那个先例真实存在,主会话已核实)。实体的删除一律软删 → 清边,并在清边前快照被留下悬空引用的依赖方,随后经**异步聚合**的 `relation.dependency_broken` 通知点名「谁挂了个空引用」——好意提醒,**绝不挡删除**。后端也**没有**任何「预览依赖数」的 GET 端点(`CountDependents`/`ListDependents` 只在 `relation.go` 内部用,全 handler 目录零调用),故前端**物理上拿不到**「删了会影响几个东西」的预览。结论:行菜单的删除就是标准确认框 + 通用失败 toast,**没有需要特殊呈现的拒绝码**。本节「引用冲突诚实报错」这条验收项,正确的落地是「诚实地说明它不会冲突」。
+
+**顺带修了三处 fixture 真 bug**:`_controlLogics`/`_approvalForms`/`_triggerEntities` 原先直接赋 `const []`,删除/upsert 会在 const 列表上抛。本批的删除动作会真的踩到它。
+
+**触发器的 PATCH(改名)没做**:本节的菜单定稿从未把改名列进触发器项(只有暂停/恢复),表格那栏的 PATCH 更像 CRUD 覆盖率笔记;实体 rail 目前任何 kind 都没有行内改名(与 conversation rail 不同),不在本批擅自开这个头。
+
 ## §5.13 LI 批 · Library「新建页面」旁的下载钮不可解(0723 用户提)
 
 > 用户:「Library 里,新建页面为什么有一个下载的按钮,打开是这个?这是什么东西?」
@@ -762,7 +778,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⑦ | ~~CH-a 动作排+复制+排队~~ **已完成 0725**(动作排+复制见 §3.2 记录;排队见 §3.4 记录,含 open question④ 裁定) | 主会话 |
 | ⑧ | CH-b fork / CH-c retry(前后端) | 主会话 |
 | ⑨ | VT 版本页 | 混合:diff hunk+虚拟化 主会话;页面组装 派 Opus 5(脸面页,品味权重高) |
-| ⑩ | EA 实体 ⋯ 菜单 | 派 Sonnet 5 |
+| ⑩ | ~~EA 实体 ⋯ 菜单~~ **已完成 0725**(七 kind 菜单 + 6 个 repository 封装;**纠正本节四处**〔restart 早已封装 / iterate 非无参 / 立即运行须导航〔唯一执行点立法〕/ 调试台=右岛而非 tab〕+ 查实删除无引用守卫,见 §5.12) | 派 Sonnet 5 ✅ |
 | ⑪ | ~~SK 密钥分栏~~ **已完成 0725**(派 Sonnet 5 建、主会话逐行复审并改了一处 + 跑门禁;记录见 §5.6) | 派 Sonnet 5 ✅ |
 | ⑫ | ~~ES 空态退役 ×13~~ **已完成 0725**(A 类 6 + 错误态 1〔本节分类有误已纠〕+ B 类 6;`insetEmpty` 已删;**B 类只有引导没有动作——创建入口不存在**,见 §5.8) | 派 Sonnet 5 ✅ |
 | ⑬ | LR+LI rail 重构+文案+tooltip 地基 | 混合:typeHeadActionsBuilder 主会话;铺开 派 Sonnet 5 |

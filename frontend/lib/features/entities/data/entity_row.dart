@@ -36,6 +36,9 @@ abstract class EntityRow with _$EntityRow {
     @Default(false) bool needsAttention,
     // trigger badge — read-derived: is its listener hot (≥1 active workflow references it). trigger 徽:listener 热否。
     bool? listening,
+    // trigger badge — the persisted runtime stop-the-bleeding switch (scheduler 工单⑦). Plucked so the
+    // rail row menu can render «Pause»/«Resume» without a second fetch. trigger 的暂停开关(菜单据此二选一)。
+    bool? paused,
   }) = _EntityRow;
 
   /// Project a raw list-item map (a bare entity with embedded activeVersion) onto a rail row. Badge
@@ -66,5 +69,6 @@ abstract class EntityRow with _$EntityRow {
         lifecycleState: m['lifecycleState'] as String?,
         needsAttention: m['needsAttention'] as bool? ?? false,
         listening: m['listening'] as bool?,
+        paused: m['paused'] as bool?,
       );
 }

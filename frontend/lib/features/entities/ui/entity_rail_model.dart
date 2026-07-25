@@ -111,3 +111,17 @@ EntityKind? kindForId(List<RailGroup> groups, String id) {
   }
   return null;
 }
+
+/// The loaded row for [id] across every kind's live list, or null if not (yet) loaded — the row-menu
+/// builder needs the FULL row (not just the kind) to render state-dependent labels (workflow «上线»/
+/// «下线» by [EntityRow.lifecycleState], trigger «暂停»/«恢复» by [EntityRow.paused]). 据已载行取整行
+/// (非仅 kind)——行菜单要按现态渲二选一标签。
+EntityRow? rowForId(List<RailGroup> groups, String id) {
+  for (final g in groups) {
+    final rows = g.state.value?.rows ?? const <EntityRow>[];
+    for (final r in rows) {
+      if (r.id == id) return r;
+    }
+  }
+  return null;
+}
