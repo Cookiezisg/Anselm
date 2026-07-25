@@ -858,3 +858,7 @@ GET /api/v1/conversations/workdir-groups → 404   ← 旧二进制没这条路�
 - **A5 麦克风状态机 ✅ 通过**:空态圆钮=麦克风 → 点击弹系统授权(录音 UI 就位、计时冻结在 00:00 等授权=诚实)→ 授权后计时真走+电平条活 → 停止 → 空转写=干净收场、**绝不自动发送**。中断恢复路径(「Voice input was interrupted」+ Retry/Delete)跨 app 重启存活并成功重放转写。真人语音准确率留 C3。
 - **A3 音频卡 ✅ 渲染与回合通过**;播放/seek 手感留用户(合成滚轮/拖拽事件在本机对任何 app 无效,已 Finder 对照实证)。
 - **A4(长对话)未跑**——最烧配额,今晚配额已用 9+/5000,留待专场。
+
+**补两条(0725 收口)**:
+- **停止钮打断在飞工具 ✅**:glob 在飞时点停 → 两卡落定「Globbed」+ `Stopped` 横幅 + composer 回空闲,无残留状态。
+- **候选缺陷记档(未修)**:Glob 工具无自身墙钟上限——`**/*.heic` 全树扫了 549s 仍在跑,唯一兜底是 30 分钟的 `timeout.chatTurnSec`。Advanced limits 的 timeout 族里没有 glob/search 一档。归 C 类候选工单。
