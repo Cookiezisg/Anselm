@@ -282,6 +282,7 @@ lib/core/ui/term_fold.dart	converged
 lib/core/ui/text_measure.dart	pending
 lib/core/ui/tone.dart	reviewed
 lib/core/ui/ui.dart	converged
+lib/core/workspace/set_active_workspace.dart	pending
 lib/core/workspace/workspace_bootstrap.dart	converged
 lib/core/workspace/workspace_switch.dart	converged
 lib/dev/demo_main.dart	reviewed

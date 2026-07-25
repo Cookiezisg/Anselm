@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../router/navigation.dart';
 import '../runtime.dart';
+import 'set_active_workspace.dart';
 
 /// The workspace HOT-SWITCH action (WRK-062 S3-pre, 拍板 #17). One choreography, three beats:
 /// ① leave the old workspace's deep link (`go('/')` — every selection is URL-derived, so this clears
@@ -27,7 +28,7 @@ class WorkspaceSwitch {
     // detail page briefly queries the old id under the new workspace (a 404 flash).
     // 先导航:级联重取前旧深链必须先离场,否则未卸载的详情页会在新 workspace 下查旧 id(404 闪)。
     _ref.read(goRouterProvider).go('/');
-    _ref.read(activeWorkspaceProvider.notifier).set(id);
+    setActiveWorkspace(_ref, id);
     _ref.read(activeWorkspaceNameProvider.notifier).set(name);
   }
 }

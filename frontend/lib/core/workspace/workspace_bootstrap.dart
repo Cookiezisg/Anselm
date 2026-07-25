@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../i18n/strings.g.dart';
 import '../contract/workspace.dart';
 import '../runtime.dart';
+import 'set_active_workspace.dart';
 
 /// Cold-start workspace resolution — the single auth axis every workspace-scoped API needs (without it
 /// they all 401 UNAUTH_NO_WORKSPACE). After the backend is ready: list `/workspaces`; use the first if
@@ -35,7 +36,11 @@ class WorkspaceBootstrap extends AsyncNotifier<String> {
             },
           );
     // After the await — past the synchronous build, so setting another provider is safe. 过同步 build 后设。
-    ref.read(activeWorkspaceProvider.notifier).set(ws.id);
+    // Goes through [setActiveWorkspace], which settles the runtime chain in the same breath: the id
+    // change dirties dio, and leaving that dirt for a widget's first watch to flush is WRK-083 L2 (an
+    // assertion on every single cold start). 走 setActiveWorkspace,顺手把运行时链摊平:id 一变 dio 就脏,
+    // 把这份脏留给某个 widget 的首次 watch 去刷,就是 WRK-083 L2(每次冷启动必抛的那条断言)。
+    setActiveWorkspace(ref, ws.id);
     ref
         .read(activeWorkspaceNameProvider.notifier)
         .set(ws.name); // for the sidebar footer 供底栏显示
