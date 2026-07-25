@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/conversation.dart';
+import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/overlay/an_overlay.dart';
 import 'package:anselm/core/router/navigation.dart';
@@ -35,6 +36,19 @@ Conversation _c(String id, String title, {bool pinned = false, DateTime? at}) {
     lastMessageAt: ts,
   );
 }
+
+/// One transcript row for the fork fixture (the rail's fork copies the thread, so it needs rows).
+/// 分叉夹具的一条回合行(rail 的分叉会复制线程,故需要行)。
+ChatMessage _m(String id, String role, String text) => ChatMessage(
+  id: id,
+  conversationId: 'cv_a',
+  role: role,
+  status: 'completed',
+  createdAt: DateTime.utc(2026, 6, 26, 12),
+  blocks: [
+    ChatBlock(id: 'blk_$id', messageId: id, type: 'text', content: text),
+  ],
+);
 
 Widget _host(ChatRepository repo, {AnOverlayController? overlay}) {
   const rail = Scaffold(
@@ -197,10 +211,10 @@ void main() {
     },
   );
 
-  // ── STEP 7: the per-row ⋯ menu (rename / pin / archive / delete) ──
+  // ── STEP 7: the per-row ⋯ menu (rename / fork / pin / archive / delete) ──
 
   testWidgets(
-    'hovering a row reveals the ⋯ menu listing rename / pin / archive / delete',
+    'hovering a row reveals the ⋯ menu listing rename / fork / pin / archive / delete',
     (tester) async {
       await tester.pumpWidget(
         _host(FixtureChatRepository(conversations: [_c('cv_a', 'thread A')])),
@@ -209,6 +223,10 @@ void main() {
       await _openRowMenu(tester, 'thread A');
 
       expect(find.text(t.chat.rename), findsOneWidget);
+      expect(
+        find.text(t.chat.fork),
+        findsOneWidget,
+      ); // CH-b: fork lives here too
       expect(find.text(t.chat.pin), findsOneWidget); // not pinned → "Pin"
       expect(find.text(t.chat.archive), findsOneWidget);
       expect(find.text(t.action.delete), findsOneWidget);
@@ -355,6 +373,55 @@ void main() {
         '/',
       );
       expect(container.read(selectedConversationProvider), isNull);
+    },
+  );
+
+  // ── the left-island fork entry (CH-b) ──
+
+  testWidgets(
+    'the ⋯ menu forks from the LATEST message, grows a new rail row and navigates to it',
+    (tester) async {
+      final repo = FixtureChatRepository(
+        conversations: [_c('cv_a', 'thread A')],
+        messages: {
+          'cv_a': [
+            _m('msg_u1', 'user', 'ASK'),
+            _m('msg_a1', 'assistant', 'ANSWER'),
+          ],
+        },
+      );
+      await tester.pumpWidget(_host(repo));
+      await tester.pump(const Duration(milliseconds: 50));
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ConversationRail)),
+      );
+
+      await _openRowMenu(tester, 'thread A');
+      expect(find.text(t.chat.fork), findsOneWidget);
+      await tester.tap(find.text(t.chat.fork));
+      await tester.pumpAndSettle();
+
+      // The fork is a NEW row, titled from the source, and the source survives untouched.
+      // 分叉是一条**新**行、标题源自源线程,而源分毫不动地活着。
+      expect(find.text('thread A (fork)'), findsOneWidget);
+      expect(find.text('thread A'), findsOneWidget);
+      // We navigated INTO the fork (a fork you cannot see is a fork you have to go find).
+      final path = container
+          .read(goRouterProvider)
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .path;
+      expect(path, isNot('/'));
+      expect(path, startsWith('/chat/'));
+      final forkId = path.substring('/chat/'.length);
+      expect(forkId, isNot('cv_a'));
+      // From the latest message = the whole thread came along, with lineage stamped.
+      final head = await repo.getConversation(forkId);
+      expect(head.forkedFromConversationId, 'cv_a');
+      expect(head.forkedFromMessageId, 'msg_a1');
+      final copied = await repo.listMessages(forkId);
+      expect(copied.items.length, 2);
     },
   );
 }

@@ -223,7 +223,72 @@ void main() {
       );
       await tester.pumpAndSettle();
       expect(find.byTooltip('Retry (coming in CH-c)'), findsNothing);
-      expect(find.byTooltip('Fork from here (coming in CH-b)'), findsOneWidget);
+      // Retry is still the CH-c placeholder; fork is LIVE as of CH-b, and its label differs by role
+      // (a user row means "before this message"). 重试仍是 CH-c 占位;分叉自 CH-b 起已接通,且标签按角色不同。
+      expect(find.byTooltip('Fork before this message'), findsOneWidget);
+    },
+  );
+
+  // ── the message-level fork entry (CH-b) ──
+
+  testWidgets('an assistant row offers "Fork from here" and reports the tap', (
+    tester,
+  ) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      host(
+        TurnActions(
+          copyText: 'body',
+          role: TurnActionsRole.assistant,
+          alwaysVisible: true,
+          onFork: () => taps++,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Fork from here'), findsOneWidget);
+    expect(find.byTooltip('Fork before this message'), findsNothing);
+    await tester.tap(find.byTooltip('Fork from here'));
+    await tester.pumpAndSettle();
+    expect(taps, 1, reason: 'the fork button must be live, not a placeholder');
+  });
+
+  testWidgets(
+    'a user row says "Fork before this message" — the two roles mean different cuts',
+    (tester) async {
+      var taps = 0;
+      await tester.pumpWidget(
+        host(
+          TurnActions(
+            copyText: 'body',
+            role: TurnActionsRole.user,
+            alwaysVisible: true,
+            onFork: () => taps++,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Fork from here'), findsNothing);
+      await tester.tap(find.byTooltip('Fork before this message'));
+      await tester.pumpAndSettle();
+      expect(taps, 1);
+    },
+  );
+
+  testWidgets(
+    'a null onFork disables the button but still RENDERS it — the row never changes shape',
+    (tester) async {
+      await tester.pumpWidget(
+        host(
+          const TurnActions(
+            copyText: 'body',
+            role: TurnActionsRole.assistant,
+            alwaysVisible: true,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Fork from here'), findsOneWidget);
     },
   );
 }

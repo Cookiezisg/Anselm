@@ -13,6 +13,7 @@ import (
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	conversationstore "github.com/sunweilin/anselm/backend/internal/infra/store/conversation"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -49,13 +50,33 @@ func (f *fakeEmitter) last() string {
 	return f.events[len(f.events)-1]
 }
 
-// fakeRelations records PurgeEntity calls.
+// fakeRelations records PurgeEntity and SyncIncoming calls.
 //
-// fakeRelations 记录 PurgeEntity 调用。
-type fakeRelations struct{ purged []string }
+// fakeRelations 记录 PurgeEntity 与 SyncIncoming 调用。
+type fakeRelations struct {
+	purged   []string
+	incoming []syncCall
+}
+
+// syncCall is one recorded SyncIncoming: fixed endpoint + kind scope + edges — the three things the
+// fork lineage edge must get exactly right (writing it from the SOURCE's outgoing side instead
+// would wipe every entity that conversation ever built).
+//
+// syncCall 是一次记录下来的 SyncIncoming：固定端 + kind 范围 + 边——分叉血缘边必须分毫不差的三件事
+// （改从**源**的出向侧写会抹掉该对话曾建过的所有实体）。
+type syncCall struct {
+	toKind, toID string
+	kindScope    []string
+	edges        []relationdomain.SyncEdge
+}
 
 func (f *fakeRelations) PurgeEntity(_ context.Context, kind, id string) error {
 	f.purged = append(f.purged, kind+":"+id)
+	return nil
+}
+
+func (f *fakeRelations) SyncIncoming(_ context.Context, toKind, toID string, kindScope []string, edges []relationdomain.SyncEdge) error {
+	f.incoming = append(f.incoming, syncCall{toKind: toKind, toID: toID, kindScope: kindScope, edges: edges})
 	return nil
 }
 
@@ -361,5 +382,97 @@ func TestUpdate_RejectsDanglingModelOverrideKey(t *testing.T) {
 	var clear *modeldomain.ModelRef // &nil = clear
 	if _, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &clear}); err != nil {
 		t.Fatalf("clearing (&nil) must skip existence, got %v", err)
+	}
+}
+
+// TestFork_HeadCopiesConfigStampsLineageAndCarriesSummary: the head half of a fork. Config the fork
+// runtime needs (systemPrompt / attachedDocuments / modelOverride) is copied verbatim; the shelf
+// state (archived / pinned) is NOT (a fork is a thread you just opened); the title gets the fixed
+// suffix with AutoTitled left false so chat's auto-titler is not fooled into thinking the name is
+// its own; the lineage pair is stamped; and the caller's summary-carry decision is applied as given
+// (the branch itself is chat's — it owns the message rows the watermark indexes).
+func TestFork_HeadCopiesConfigStampsLineageAndCarriesSummary(t *testing.T) {
+	svc, em, rel, ctx := newSvc(t)
+	svc.SetDocumentResolver(fakeDocResolver{known: map[string]bool{"doc_ok": true}})
+	src, _ := svc.Create(ctx, "Original")
+	atts := []documentdomain.AttachedDocument{{DocumentID: "doc_ok"}}
+	ref := &modeldomain.ModelRef{APIKeyID: "aki_1", ModelID: "m"}
+	prompt := "be concise"
+	pinned, archived := true, true
+	src, err := svc.Update(ctx, src.ID, UpdateInput{
+		SystemPrompt: &prompt, AttachedDocuments: &atts, ModelOverride: &ref,
+		Pinned: &pinned, Archived: &archived,
+	})
+	if err != nil {
+		t.Fatalf("seed source: %v", err)
+	}
+
+	fork, err := svc.Fork(ctx, conversationdomain.ForkInput{
+		Source: src, AtMessageID: "msg_cut", Summary: "older turns", SummaryCoversUpToSeq: 4,
+	})
+	if err != nil {
+		t.Fatalf("fork: %v", err)
+	}
+	if fork.ID == src.ID || fork.ID[:3] != "cv_" {
+		t.Fatalf("fork must be a NEW cv_ row, got %q (source %q)", fork.ID, src.ID)
+	}
+	if fork.Title != "Original (fork)" || fork.AutoTitled {
+		t.Errorf("title/autoTitled = %q/%v, want %q/false", fork.Title, fork.AutoTitled, "Original (fork)")
+	}
+	if fork.SystemPrompt != prompt || len(fork.AttachedDocuments) != 1 || fork.ModelOverride == nil ||
+		fork.ModelOverride.APIKeyID != "aki_1" {
+		t.Errorf("runtime config not copied: %+v", fork)
+	}
+	if fork.Pinned || fork.Archived {
+		t.Errorf("shelf state must NOT travel: pinned=%v archived=%v", fork.Pinned, fork.Archived)
+	}
+	if fork.ForkedFromConversationID != src.ID || fork.ForkedFromMessageID != "msg_cut" {
+		t.Errorf("lineage = %q/%q, want %q/%q",
+			fork.ForkedFromConversationID, fork.ForkedFromMessageID, src.ID, "msg_cut")
+	}
+	if fork.Summary != "older turns" || fork.SummaryCoversUpToSeq != 4 {
+		t.Errorf("summary carry not applied as given: %q/%d", fork.Summary, fork.SummaryCoversUpToSeq)
+	}
+	// The row must READ BACK the same (the two columns are real, not just struct fields).
+	back, err := svc.Get(ctx, fork.ID)
+	if err != nil || back.ForkedFromConversationID != src.ID || back.ForkedFromMessageID != "msg_cut" {
+		t.Fatalf("lineage must round-trip through the columns: %v %+v", err, back)
+	}
+	// The source is untouched — a fork is pure append.
+	if again, _ := svc.Get(ctx, src.ID); again.Title != "Original" || again.ForkedFromConversationID != "" {
+		t.Errorf("source must be untouched: %+v", again)
+	}
+	if em.last() != "conversation.created" {
+		t.Errorf("fork must emit conversation.created so the rail grows the row, got %q", em.last())
+	}
+	// Lineage edge: `create`, from the SOURCE into the FORK, keyed on the FORK's incoming side.
+	if len(rel.incoming) != 1 {
+		t.Fatalf("want exactly one SyncIncoming, got %+v", rel.incoming)
+	}
+	got := rel.incoming[0]
+	if got.toKind != relationdomain.EntityKindConversation || got.toID != fork.ID {
+		t.Errorf("edge must be keyed on the FORK's incoming side, got %s:%s", got.toKind, got.toID)
+	}
+	if len(got.kindScope) != 1 || got.kindScope[0] != relationdomain.KindCreate {
+		t.Errorf("kindScope = %v, want [create]", got.kindScope)
+	}
+	if len(got.edges) != 1 || got.edges[0].OtherID != src.ID ||
+		got.edges[0].OtherKind != relationdomain.EntityKindConversation ||
+		got.edges[0].Kind != relationdomain.KindCreate {
+		t.Errorf("edge = %+v, want create from conversation %s", got.edges, src.ID)
+	}
+}
+
+// TestFork_UntitledSourceStaysUntitled: a bare "(fork)" would be a name that says nothing, so an
+// untitled source yields an untitled fork and chat's auto-titler still gets its turn.
+func TestFork_UntitledSourceStaysUntitled(t *testing.T) {
+	svc, _, _, ctx := newSvc(t)
+	src, _ := svc.Create(ctx, "   ")
+	fork, err := svc.Fork(ctx, conversationdomain.ForkInput{Source: src})
+	if err != nil {
+		t.Fatalf("fork: %v", err)
+	}
+	if fork.Title != "" || fork.AutoTitled {
+		t.Errorf("title/autoTitled = %q/%v, want empty/false", fork.Title, fork.AutoTitled)
 	}
 }

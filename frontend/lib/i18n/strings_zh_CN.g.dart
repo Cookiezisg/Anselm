@@ -83,6 +83,9 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get showCount => '显示分组计数';
 	@override String get showTime => '显示时间';
 	@override String get rename => '重命名';
+	@override String get fork => '分叉对话';
+	@override String forkedFrom({required Object title}) => '分叉自 ${title}';
+	@override String get forkedFromUnknown => '分叉自另一个对话';
 	@override String get pin => '置顶';
 	@override String get unpin => '取消置顶';
 	@override String get archive => '归档';
@@ -1276,7 +1279,8 @@ class _Translations$chat$actions$zh_CN extends Translations$chat$actions$en {
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
-	@override String get forkComing => '从这里分叉(CH-b 批将至)';
+	@override String get fork => '从这里分叉';
+	@override String get forkBefore => '在这条消息之前分叉';
 	@override String get retryComing => '重试(CH-c 批将至)';
 	@override String queueHead({required Object n}) => '${n} 条待发送';
 	@override String get queueEdit => '编辑这条排队消息';
@@ -2808,6 +2812,9 @@ extension on TranslationsZhCn {
 			'chat.showCount' => '显示分组计数',
 			'chat.showTime' => '显示时间',
 			'chat.rename' => '重命名',
+			'chat.fork' => '分叉对话',
+			'chat.forkedFrom' => ({required Object title}) => '分叉自 ${title}',
+			'chat.forkedFromUnknown' => '分叉自另一个对话',
 			'chat.pin' => '置顶',
 			'chat.unpin' => '取消置顶',
 			'chat.archive' => '归档',
@@ -3303,11 +3310,11 @@ extension on TranslationsZhCn {
 			'chat.tool.marketCount' => ({required Object n}) => '${n} 个服务器',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} 必填 env',
 			'chat.tool.gettingModelConfig' => '正在读模型配置',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.gotModelConfig' => '已读模型配置',
 			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
 			'chat.tool.memSourceUser' => '你',
 			'chat.tool.memSourceAi' => 'AI',
@@ -3401,7 +3408,8 @@ extension on TranslationsZhCn {
 			'chat.stage.rtRunning' => '运行中',
 			'chat.stage.rtCrashed' => '已崩溃',
 			'chat.stage.rtStopped' => '已停止',
-			'chat.actions.forkComing' => '从这里分叉(CH-b 批将至)',
+			'chat.actions.fork' => '从这里分叉',
+			'chat.actions.forkBefore' => '在这条消息之前分叉',
 			'chat.actions.retryComing' => '重试(CH-c 批将至)',
 			'chat.actions.queueHead' => ({required Object n}) => '${n} 条待发送',
 			'chat.actions.queueEdit' => '编辑这条排队消息',
@@ -3816,12 +3824,12 @@ extension on TranslationsZhCn {
 			'ref.approval' => '审批',
 			'graph.kind.trigger' => '触发',
 			'graph.kind.action' => '动作',
+			_ => null,
+		} ?? switch (path) {
 			'graph.kind.agent' => '智能体',
 			'graph.kind.control' => '分支',
 			'graph.kind.approval' => '审批',
 			'graph.kind.unknown' => '未知',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.flagYes' => '是',
 			'a11y.flagNo' => '否',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
@@ -4330,12 +4338,12 @@ extension on TranslationsZhCn {
 			'settings.fontContent' => '内容字体',
 			'settings.fontContentDesc' => '仅 chat 消息与文档正文。衬线=思源宋 SC(拉丁+简体中文)。即时生效。',
 			'settings.fontCode' => '代码字体',
+			_ => null,
+		} ?? switch (path) {
 			'settings.fontCodeDesc' => '一切等宽处——代码块、终端、diff、ID 等。重启后生效。',
 			'settings.fontBundled' => '内置',
 			'settings.fontSystem' => '跟随系统',
 			'settings.fontSans' => '无衬线(内置)',
-			_ => null,
-		} ?? switch (path) {
 			'settings.fontSerif' => '衬线',
 			'settings.fontJetBrainsMono' => 'JetBrains Mono',
 			'settings.fontFiraCode' => 'Fira Code',

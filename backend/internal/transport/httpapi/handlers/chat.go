@@ -11,12 +11,14 @@ import (
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
-// ChatHandler serves the chat engine's 7 endpoints: send a message (202, streams over the
-// messages SSE), list a conversation's history (paged), and cancel the running turn (204). The
-// assistant turn itself is delivered over the messages stream, not this REST surface.
+// ChatHandler serves the chat engine's 8 routes: send a message (202, streams over the messages
+// SSE), list a conversation's history (paged), the conversation-level actions (:cancel / :seen →
+// 204, :fork → 201 + the new thread), and the debug/usage/anchor/interaction reads. The assistant
+// turn itself is delivered over the messages stream, not this REST surface.
 //
-// ChatHandler 提供 chat 引擎 7 端点：发消息（202，经 messages SSE 流式）、列对话历史（分页）、取消
-// 运行回合（204）。assistant 回合本身经 messages 流交付、不在此 REST 面。
+// ChatHandler 提供 chat 引擎 8 条路由：发消息（202，经 messages SSE 流式）、列对话历史（分页）、对话级
+// 动作（:cancel / :seen → 204，:fork → 201 + 新线程）、调试/用量/锚点/交互读。assistant 回合本身经
+// messages 流交付、不在此 REST 面。
 type ChatHandler struct {
 	svc *chatapp.Service
 	log *zap.Logger
@@ -38,7 +40,7 @@ func NewChatHandler(svc *chatapp.Service, log *zap.Logger) *ChatHandler {
 func (h *ChatHandler) Register(mux Registrar) {
 	mux.HandleFunc("POST /api/v1/conversations/{id}/messages", h.Send)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/messages", h.List)
-	mux.HandleFunc("POST /api/v1/conversations/{idAction}", h.postAction) // :cancel(N5——取消在途生成是动作、非删子资源)
+	mux.HandleFunc("POST /api/v1/conversations/{idAction}", h.postAction) // :cancel / :seen / :fork(N5 动作后缀)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/system-prompt-preview", h.SystemPromptPreview)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/usage", h.Usage)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/interactions", h.ListInteractions)
@@ -159,12 +161,24 @@ func (h *ChatHandler) Anchors(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Paged(w, items, next, next != "")
 }
 
-// postAction dispatches the conversation-level :action POSTs that share the {idAction} pattern
-// (Go 1.22 ServeMux allows ONE handler per pattern, so :cancel and :seen are switched here rather
-// than registered as separate routes). Both return 204; an unknown action is 404.
+// forkConversationRequest is the fork's cut point. Optional: an omitted / empty atMessageId forks
+// at the latest message (the rail's "fork this conversation", which has no message id at hand).
 //
-// postAction 派发共享 {idAction} 模式的对话级 :action（Go 1.22 ServeMux 每模式仅一处理器，故 :cancel 与 :seen
-// 在此 switch、而非各注册一条路由）。两者均返 204；未知动作 404。
+// forkConversationRequest 是分叉的切点。可选：缺省 / 空 atMessageId 表示从最新消息处分叉（左岛 rail
+// 的「分叉对话」，它手上没有 message id）。
+type forkConversationRequest struct {
+	AtMessageID string `json:"atMessageId"`
+}
+
+// postAction dispatches the conversation-level :action POSTs that share the {idAction} pattern
+// (Go 1.22 ServeMux allows ONE handler per pattern, so :cancel / :seen / :fork are switched here
+// rather than registered as separate routes). :cancel and :seen return 204 and fall through to the
+// shared tail; :fork returns 201 + the new Conversation and therefore returns early. An unknown
+// action is 404.
+//
+// postAction 派发共享 {idAction} 模式的对话级 :action（Go 1.22 ServeMux 每模式仅一处理器，故 :cancel /
+// :seen / :fork 在此 switch、而非各注册一条路由）。:cancel 与 :seen 返 204、走共享尾；:fork 返 201 +
+// 新 Conversation，故提前 return。未知动作 404。
 func (h *ChatHandler) postAction(w http.ResponseWriter, r *http.Request) {
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok {
@@ -172,6 +186,26 @@ func (h *ChatHandler) postAction(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	switch action {
+	case "fork":
+		// Fork branches the thread into a NEW conversation carrying the prefix through atMessageId
+		// (inclusive); the source is untouched. 201 + the new Conversation — a fork is a resource the
+		// client navigates to, so it ships the whole row rather than a bare id (no async turn to await,
+		// unlike the 202 {id} spawners).
+		// Fork 把线程分叉成一条**新**对话、承载直到 atMessageId（含）的前缀；源分毫不动。201 + 新
+		// Conversation——分叉是客户端要导航过去的资源，故直接给整行、而非裸 id（与 202 {id} 那些 spawner
+		// 不同，这里没有异步回合要等）。
+		var req forkConversationRequest
+		if err := decodeJSONOptional(r, &req); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		fork, err := h.svc.Fork(r.Context(), id, req.AtMessageID)
+		if err != nil {
+			responsehttpapi.FromDomainError(w, h.log, err)
+			return
+		}
+		responsehttpapi.Created(w, fork)
+		return
 	case "cancel":
 		// Cancel stops the conversation's running turn (204). Graceful no-op when nothing runs.
 		// Cancel 停止对话运行中的回合（204）。无运行回合时优雅 no-op。

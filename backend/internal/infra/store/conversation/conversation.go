@@ -57,6 +57,23 @@ var Schema = []string{
 	// 使按创建序翻 rail 是索引区间扫而非全工作区扫 + 临时 b-tree filesort（keyset 游标无从收窄）。与上两条同族;
 	// 文档化且可达的排序模式不该在长期线程列表上退化成 O(N²)（R12 族）。
 	`CREATE INDEX IF NOT EXISTS idx_conversations_ws_created ON conversations(workspace_id, pinned DESC, created_at DESC, id DESC) WHERE deleted_at IS NULL`,
+
+	// Column evolution — fork lineage (WRK-077 CH-b). ADD COLUMN (not baked into the CREATE) so an
+	// existing install gains the pair on next boot; SQLite has no ADD COLUMN IF NOT EXISTS, so
+	// re-runs rely on db.Migrate treating "duplicate column name" on an ALTER … ADD COLUMN as
+	// already-applied. NOT NULL DEFAULT '' rather than NULLable (the trigger.paused precedent): the
+	// domain field is a plain string, and "" already means "not a fork" — a nullable column would
+	// buy a second spelling of the same absence and a nil scan for every pre-fork row. Deliberately
+	// UNindexed: lineage is read one row at a time (the open thread's own head), never filtered on.
+	//
+	// 列演化——分叉血缘（WRK-077 CH-b）。用 ADD COLUMN（不并进 CREATE）使已有安装下次启动补这对列；
+	// SQLite 无 ADD COLUMN IF NOT EXISTS，重复执行靠 db.Migrate 把 ALTER … ADD COLUMN 的
+	// "duplicate column name" 视作已应用。用 NOT NULL DEFAULT '' 而非可空（照 trigger.paused 先例）：
+	// domain 字段是纯 string，且 "" 已表达「不是分叉」——可空列只会为同一种「不存在」多买一种拼法 +
+	// 给每条 fork 之前的旧行一次 nil 扫描。**刻意不建索引**：血缘每次只读一行（当前线程自己的头行）、
+	// 从不作过滤条件。
+	`ALTER TABLE conversations ADD COLUMN forked_from_conversation_id TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE conversations ADD COLUMN forked_from_message_id TEXT NOT NULL DEFAULT ''`,
 }
 
 // Store implements conversationdomain.Repository over pkg/orm.

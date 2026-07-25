@@ -14,6 +14,9 @@
     "showCount": "Show counts",
     "showTime": "Show time",
     "rename": "Rename",
+    "fork": "Fork conversation",
+    "forkedFrom": "Forked from $title",
+    "forkedFromUnknown": "Forked from another conversation",
     "pin": "Pin",
     "unpin": "Unpin",
     "archive": "Archive",
@@ -626,7 +629,8 @@
       "rtStopped": "stopped"
     },
     "actions": {
-      "forkComing": "Fork from here (coming in CH-b)",
+      "fork": "Fork from here",
+      "forkBefore": "Fork before this message",
       "retryComing": "Retry (coming in CH-c)",
       "queueHead": "$n waiting to send",
       "queueEdit": "Edit this queued message",

@@ -156,6 +156,88 @@ class FixtureChatRepository implements ChatRepository {
   }
 
   @override
+  Future<Conversation> forkConversation(
+    String id, {
+    String? atMessageId,
+  }) async {
+    final src = _all.where((c) => c.id == id).firstOrNull;
+    if (src == null) {
+      throw StateError(
+        'conversation not found: $id',
+      ); // mirrors 404 CONVERSATION_NOT_FOUND
+    }
+    final thread = _messages[id] ?? const <ChatMessage>[];
+    // Prefix window, INCLUSIVE of the cut; a null atMessageId means "the latest message".
+    // 前缀窗、**含**切点;atMessageId 为 null 即「最新消息」。
+    var cut = thread.length - 1;
+    if (atMessageId != null && atMessageId.isNotEmpty) {
+      cut = thread.indexWhere((m) => m.id == atMessageId);
+      if (cut < 0) {
+        throw StateError(
+          'message not found: $atMessageId',
+        ); // mirrors 404 MESSAGE_NOT_FOUND
+      }
+    }
+    final prefix = thread.take(cut + 1).toList();
+
+    final now = DateTime.now();
+    final fork = Conversation(
+      id: 'cv_fx_${_idSeq++}',
+      title: src.title.trim().isEmpty ? '' : '${src.title.trim()} (fork)',
+      modelOverride: src.modelOverride,
+      createdAt: now,
+      updatedAt: now,
+      lastMessageAt: now,
+      forkedFromConversationId: src.id,
+      forkedFromMessageId: prefix.isEmpty ? '' : prefix.last.id,
+    );
+
+    // Mint every new block id up front, then remap: parentBlockId may point at a block in an EARLIER
+    // message (a subagent turn hangs off its parent turn's tool_call block), exactly as the backend's
+    // replay does. seq restarts at 1 across the whole prefix.
+    // 先铸出全部新 block id 再 remap:parentBlockId 可能指向**更早**消息里的 block(subagent 回合挂在其父
+    // 回合的 tool_call block 上),与后端重放一致。seq 跨整个前缀从 1 重启。
+    final newBlockId = <String, String>{};
+    for (final m in prefix) {
+      for (final b in m.blocks) {
+        newBlockId[b.id] = 'blk_fx_${_idSeq++}';
+      }
+    }
+    var seq = 0;
+    final copied = <ChatMessage>[];
+    for (final m in prefix) {
+      final msgId = 'msg_fx_${_idSeq++}';
+      copied.add(
+        m.copyWith(
+          id: msgId,
+          conversationId: fork.id,
+          blocks: [
+            for (final b in m.blocks)
+              b.copyWith(
+                id: newBlockId[b.id]!,
+                conversationId: fork.id,
+                messageId: msgId,
+                parentBlockId: newBlockId[b.parentBlockId] ?? '',
+                seq: ++seq,
+              ),
+          ],
+        ),
+      );
+    }
+    _messages[fork.id] = copied;
+    _all.insert(0, fork);
+    // Mirror the backend's notifications echo so the rail inserts the new row (demo/tests). 镜像回声。
+    emitSignal(
+      ConversationSignal(
+        id: fork.id,
+        action: ConversationAction.created,
+        durable: true,
+      ),
+    );
+    return fork;
+  }
+
+  @override
   Stream<ConversationSignal> lifecycleSignals() => _lazySignals.stream;
 
   // ── the per-thread transcript surface 逐线程 transcript 面 ──

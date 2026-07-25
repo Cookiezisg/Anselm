@@ -11,7 +11,9 @@ import 'package:anselm/features/chat/ui/chat_head.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:anselm/core/router/navigation.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 // The head's two states (landing model picker / thread title+picker) and the auto-title FAKE STREAM:
 // a queued reveal renders the one-shot typewriter, done → back to the renameable title + dequeued.
@@ -67,6 +69,47 @@ class _Selected extends SelectedConversation {
   return (w, container);
 }
 
+/// A ROUTED host — the lineage line navigates with `context.go`, which needs a real router (the plain
+/// [_host] mounts a bare MaterialApp). 路由版宿主——血缘行用 context.go 导航,需要真 router。
+(Widget, ProviderContainer, GoRouter) _hostRouted(
+  FixtureChatRepository repo,
+  ConversationRef? selected,
+) {
+  const head = Scaffold(
+    body: Align(alignment: Alignment.topLeft, child: ChatHead()),
+  );
+  final router = GoRouter(
+    initialLocation: '/chat/${selected?.id ?? ''}',
+    routes: [
+      GoRoute(path: '/', builder: (_, _) => head),
+      GoRoute(path: '/chat/:id', builder: (_, _) => head),
+    ],
+  );
+  addTearDown(router.dispose);
+  final container = ProviderContainer(
+    overrides: [
+      chatRepositoryProvider.overrideWithValue(repo),
+      selectedConversationProvider.overrideWith(() => _Selected(selected)),
+      goRouterProvider.overrideWithValue(router),
+      modelCapabilitiesProvider.overrideWith(
+        (ref) async => const <ModelCapability>[],
+      ),
+    ],
+  );
+  addTearDown(container.dispose);
+  final w = UncontrolledProviderScope(
+    container: container,
+    child: TranslationProvider(
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        routerConfig: router,
+      ),
+    ),
+  );
+  return (w, container, router);
+}
+
 void main() {
   testWidgets(
     'landing (no selection) renders the sticky model picker, no title',
@@ -115,6 +158,88 @@ void main() {
         findsOneWidget,
       ); // back to the static read-only title 回静态只读标题
       expect(find.byType(AnTypewriter), findsNothing);
+    },
+  );
+
+  // ── the fork lineage line (CH-b) ──
+
+  testWidgets(
+    'a forked thread shows「分叉自 ×××」in the head and clicking it goes back to the source',
+    (tester) async {
+      final src = _conv('cv_src', title: 'Original');
+      final at = DateTime.utc(2026, 7, 2, 9);
+      final fork = Conversation(
+        id: 'cv_fork',
+        title: 'Original (fork)',
+        createdAt: at,
+        updatedAt: at,
+        lastMessageAt: at,
+        forkedFromConversationId: 'cv_src',
+        forkedFromMessageId: 'msg_a1',
+      );
+      final repo = FixtureChatRepository(
+        conversations: [fork, src],
+        messages: const {},
+      );
+      final (w, _, router) = _hostRouted(
+        repo,
+        const ConversationRef('cv_fork'),
+      );
+      await tester.pumpWidget(w);
+      await tester.pumpAndSettle();
+      final t = Translations.of(tester.element(find.byType(ChatHead)));
+
+      // The line names the SOURCE by its CURRENT title (the wire carries only the id, so the name is
+      // read fresh — a renamed source always shows its real name).
+      // 血缘行用源的**当前**标题指名(线缆只带 id,故名字读时新鲜取——改过名的源永远显真名)。
+      expect(find.text(t.chat.forkedFrom(title: 'Original')), findsOneWidget);
+      await tester.tap(find.text(t.chat.forkedFrom(title: 'Original')));
+      await tester.pumpAndSettle();
+      expect(
+        router.routerDelegate.currentConfiguration.uri.path,
+        '/chat/cv_src',
+      );
+    },
+  );
+
+  testWidgets('an ordinary thread renders NO lineage line at all', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_plain', title: 'Plain')],
+      messages: const {},
+    );
+    final (w, _, _) = _hostRouted(repo, const ConversationRef('cv_plain'));
+    await tester.pumpWidget(w);
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(ChatHead)));
+    expect(find.textContaining(t.chat.forkedFromUnknown), findsNothing);
+    expect(find.textContaining('Forked from'), findsNothing);
+  });
+
+  testWidgets(
+    'a fork whose source is GONE degrades to the generic line — a fork outlives its parent by design',
+    (tester) async {
+      final at = DateTime.utc(2026, 7, 2, 9);
+      final fork = Conversation(
+        id: 'cv_fork',
+        title: 'Orphan (fork)',
+        createdAt: at,
+        updatedAt: at,
+        lastMessageAt: at,
+        forkedFromConversationId: 'cv_deleted',
+        forkedFromMessageId: 'msg_a1',
+      );
+      // The source is absent from the repo → getConversation throws (the fixture's 404 mirror).
+      final repo = FixtureChatRepository(
+        conversations: [fork],
+        messages: const {},
+      );
+      final (w, _, _) = _hostRouted(repo, const ConversationRef('cv_fork'));
+      await tester.pumpWidget(w);
+      await tester.pumpAndSettle();
+      final t = Translations.of(tester.element(find.byType(ChatHead)));
+      expect(find.text(t.chat.forkedFromUnknown), findsOneWidget);
     },
   );
 }

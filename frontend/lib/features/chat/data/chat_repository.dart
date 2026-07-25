@@ -112,6 +112,17 @@ abstract interface class ChatRepository {
   /// Soft-delete (`DELETE` → 204, tombstoned server-side; the rail just drops the row). 软删(204)。
   Future<void> deleteConversation(String id);
 
+  /// Fork a thread into a NEW conversation (`POST /{id}:fork {atMessageId?}` → 201). The prefix through
+  /// [atMessageId] (INCLUSIVE) is copied — head config, message rows, blocks with seq renumbered and
+  /// nesting remapped — and the source is untouched. A null [atMessageId] forks at the latest message
+  /// (the rail entry, which holds no message id). Returns the authoritative new row so the caller folds
+  /// it into the list state and navigates to it.
+  ///
+  /// 分叉成一条**新**对话(`POST /{id}:fork {atMessageId?}` → 201)。复制直到 atMessageId(**含它**)的前缀
+  /// ——头配置、消息行、seq 重排 + 嵌套 remap 的 blocks——源分毫不动。atMessageId 为 null = 从**最新**消息
+  /// 处分叉(左岛入口手上没有 message id)。返权威新行供调用方折进列表态并导航过去。
+  Future<Conversation> forkConversation(String id, {String? atMessageId});
+
   /// Upload one attachment (`POST /attachments`, multipart field `file`, 50MB cap server-side) →
   /// the authoritative row (id goes into the send's attachmentIds). 上传附件(multipart `file`)→ 权威行。
   Future<AttachmentMeta> uploadAttachment({
@@ -444,6 +455,19 @@ class LiveChatRepository implements ChatRepository {
   @override
   Future<Conversation> getConversation(String id) =>
       _api.getEntity(_path(id), Conversation.fromJson);
+
+  @override
+  Future<Conversation> forkConversation(
+    String id, {
+    String? atMessageId,
+  }) => _api.postEntity(
+    '${_path(id)}:fork',
+    Conversation.fromJson,
+    // A null atMessageId is OMITTED, not sent as "" — the backend treats an absent key and an empty
+    // string alike, and omitting keeps the wire honest about "no cut point given".
+    // atMessageId 为 null 时**省略**该键、不发空串——后端对缺键与空串同解,省略让线缆诚实表达「未给切点」。
+    body: {'atMessageId': ?atMessageId},
+  );
 
   @override
   Stream<ConversationSignal> lifecycleSignals() {

@@ -95,6 +95,49 @@ type Conversation struct {
 	// 读位置粒度，且直接存答案彻底绕开墙上时钟比较（无 NTP 回拨 / 粗 tick 误判）。重启照样记得（是列）。系统写、线缆只读、
 	// 不进 PATCH（同 Summary / AutoTitled）。
 	Unread bool `db:"unread" json:"hasUnread"`
+
+	// ForkedFromConversationID / ForkedFromMessageID are the fork lineage: the source thread and the
+	// message its prefix copy stopped at (inclusive). Written once at fork time and never updated —
+	// a fork IS a new thread, not a view of the old one, so the pair is provenance, not a live link:
+	// the source may later be deleted, the ids then dangle, and the UI simply shows no lineage line.
+	// Both empty = an ordinary thread. System-write, wire read-only, never accepted in PATCH (like
+	// Summary / AutoTitled).
+	//
+	// ForkedFromConversationID / ForkedFromMessageID 是分叉血缘：源线程 + 前缀复制停在的那条消息（含它）。
+	// fork 时一次写定、永不更新——分叉**是**新线程、不是旧线程的视图，故这对 id 是溯源、非活链接：源日后
+	// 可被删，届时 id 悬空、UI 只是不显血缘行。两者皆空 = 普通线程。系统写、线缆只读、不进 PATCH（同
+	// Summary / AutoTitled）。
+	ForkedFromConversationID string `db:"forked_from_conversation_id" json:"forkedFromConversationId,omitempty"`
+	ForkedFromMessageID      string `db:"forked_from_message_id"      json:"forkedFromMessageId,omitempty"`
+}
+
+// ForkTitleSuffix is appended to the source title so a fork is recognizable in the rail from turn
+// zero. A starting name, not an auto-title — AutoTitled stays false on a fork.
+//
+// ForkTitleSuffix 追加在源标题后，使分叉在 rail 里从第 0 轮起就可辨。它是起步名、非自动命名——
+// 分叉的 AutoTitled 恒 false。
+const ForkTitleSuffix = " (fork)"
+
+// ForkInput is the head half of a fork. The message rows are chat's half (it owns them), so the
+// two meet here: chat resolves the prefix window and decides whether the source's compaction
+// summary is still truthful for that prefix, conversation writes the head row.
+//
+// Summary / SummaryCoversUpToSeq are the CARRY decision already made by the caller — empty + 0
+// means "do not carry" (the prefix ends before the summary's coverage, so inheriting it would
+// describe turns the fork does not contain). SummaryCoversUpToSeq is expressed in the FORK's own
+// block numbering (blocks are renumbered from 1), not the source's.
+//
+// ForkInput 是分叉的「头」半。消息行是 chat 的半（它拥有消息），故两半在此交汇：chat 定前缀窗、
+// 判源的压缩摘要对该前缀是否仍然诚实，conversation 写头行。
+//
+// Summary / SummaryCoversUpToSeq 是调用方**已做好**的携带决定——空 + 0 即「不携带」（前缀止于摘要
+// 覆盖线之前，继承它等于描述分叉根本没有的回合）。SummaryCoversUpToSeq 用**分叉自身**的 block 编号
+// （block 从 1 重排），不是源的编号。
+type ForkInput struct {
+	Source               *Conversation
+	AtMessageID          string
+	Summary              string
+	SummaryCoversUpToSeq int64
 }
 
 // ArchiveScope selects which archive states the conversation list returns. The zero value is

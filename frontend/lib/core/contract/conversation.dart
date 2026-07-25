@@ -21,6 +21,16 @@ part 'conversation.g.dart';
 /// json_serializable 直接忽略那些线缆键。三个标志系统写、线缆只读(不进 PATCH),各驱动一个 rail 状态点:
 /// isGenerating(在途 assistant 回合→蓝呼吸)、awaitingInput(≥1 待决人在环→琥珀)、hasUnread(完成的回复未看→绿)。
 /// 前两个服务端逐请求派生;hasUnread 是持久列。archived 在 rail 显归档时驱动灰色标记。
+///
+/// [forkedFromConversationId] / [forkedFromMessageId] are the fork lineage (`POST /{id}:fork`): the
+/// source thread and the message its prefix copy stopped at. Written once server-side and never
+/// updated — a fork IS a new thread, so the pair is PROVENANCE, not a live link: the source may
+/// later be deleted, and the head's lineage line then simply does not render. Both empty = an
+/// ordinary thread. System-write, wire read-only.
+///
+/// forkedFromConversationId / forkedFromMessageId 是分叉血缘(`POST /{id}:fork`):源线程 + 前缀复制停在
+/// 的那条消息。服务端一次写定、永不更新——分叉**是**新线程,故这对 id 是**溯源**、非活链接:源日后可被删,
+/// 届时头部血缘行只是不渲。两者皆空 = 普通线程。系统写、线缆只读。
 @freezed
 abstract class Conversation with _$Conversation {
   const factory Conversation({
@@ -36,6 +46,8 @@ abstract class Conversation with _$Conversation {
     @Default(false) bool isGenerating,
     @Default(false) bool awaitingInput,
     @Default(false) bool hasUnread,
+    @Default('') String forkedFromConversationId,
+    @Default('') String forkedFromMessageId,
   }) = _Conversation;
 
   factory Conversation.fromJson(Map<String, dynamic> json) =>

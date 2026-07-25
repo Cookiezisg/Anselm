@@ -16,10 +16,16 @@ import '../../../i18n/strings.g.dart';
 /// row at all — there is nothing to copy yet, and the only meaningful action mid-stream is Stop, which
 /// lives in the composer.
 ///
-/// Copy is wired here. Fork, retry and version paging are declared as PLACEHOLDERS (rendered, disabled,
-/// tooltip says so) — they need the backend work in CH-b / CH-c. Rendering them disabled rather than
-/// hiding them is deliberate: the row's shape stops moving between batches, and a reader who looks for
-/// "fork" learns it exists and is coming rather than concluding it doesn't.
+/// Copy and fork are wired here. Retry and version paging remain PLACEHOLDERS (rendered, disabled,
+/// tooltip says so) — they need the backend work in CH-c. Rendering them disabled rather than hiding
+/// them is deliberate: the row's shape stops moving between batches, and a reader who looks for
+/// "retry" learns it exists and is coming rather than concluding it doesn't.
+///
+/// Fork's tooltip differs by role, because the two mean different things to a reader: on an ASSISTANT
+/// turn it is "branch from here", i.e. keep everything up to and including this reply; on a USER turn
+/// it is "branch before I said this", i.e. keep the thread up to the previous reply and hand the
+/// sentence back as editable draft text. The widget only reports the tap — the caller owns which
+/// message the fork cuts at and whether a prefill rides along (it is the one holding the turn list).
 ///
 /// transcript 回合下沿那排浅灰小图标(§3.2 动作排)。
 ///
@@ -27,14 +33,18 @@ import '../../../i18n/strings.g.dart';
 /// 动作排就是找不到的动作排;**历史轮**hover 才现——长 transcript 上几十排常显图标读作杂乱,并与正文抢注意力。
 /// **正在生成**的回合完全不显示动作排:此刻没有可复制的东西,而流中唯一有意义的动作是「停止」,它住在 composer。
 ///
-/// 复制**已接通**。分叉、重试、版本翻页是**占位**(渲出来、禁用、tooltip 明说)——它们要等 CH-b / CH-c 的后端
-/// 工作。渲成禁用而不是隐藏是刻意的:动作排的形状在批次之间不再变动,而来找「分叉」的读者会知道它存在且在路上,
-/// 不会以为没有。
+/// 复制与**分叉**已接通。重试、版本翻页仍是**占位**(渲出来、禁用、tooltip 明说)——它们要等 CH-c 的后端工作。
+/// 渲成禁用而不是隐藏是刻意的:动作排的形状在批次之间不再变动,而来找「重试」的读者会知道它存在且在路上。
+///
+/// 分叉的 tooltip **按角色不同**,因为这两件事对读者的含义不同:在 **assistant** 回合上是「从这里分叉」——
+/// 留下直到这条回复(含)的一切;在 **user** 回合上是「在我说出这句之前分叉」——线程留到上一条回复,而这句话
+/// 作为可编辑草稿还给你。本 widget 只上报点击——切在哪条消息、是否带预填由**调用方**拥有(手上有回合列表的是它)。
 class TurnActions extends StatefulWidget {
   const TurnActions({
     required this.copyText,
     required this.role,
     required this.alwaysVisible,
+    this.onFork,
     super.key,
   });
 
@@ -48,6 +58,10 @@ class TurnActions extends StatefulWidget {
 
   /// The last turn's row is always shown; a historical turn's appears on hover. 末轮恒显、历史 hover 现。
   final bool alwaysVisible;
+
+  /// Branch from this turn into a new conversation. Null disables the button (kept rendered, so the
+  /// row's shape never moves). 从本回合分叉出新对话;null 即禁用(仍渲出,故动作排形状恒定)。
+  final VoidCallback? onFork;
 
   @override
   State<TurnActions> createState() => _TurnActionsState();
@@ -113,8 +127,10 @@ class _TurnActionsState extends State<TurnActions> {
             const SizedBox(width: AnSpace.s4),
             _action(
               icon: AnIcons.control,
-              tip: t.chat.actions.forkComing,
-              onTap: null,
+              tip: widget.role == TurnActionsRole.user
+                  ? t.chat.actions.forkBefore
+                  : t.chat.actions.fork,
+              onTap: widget.onFork,
             ),
             if (widget.role == TurnActionsRole.assistant) ...[
               const SizedBox(width: AnSpace.s4),

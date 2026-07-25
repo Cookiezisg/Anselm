@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/model_capability.dart';
 import '../../../core/design/colors.dart';
@@ -9,6 +10,7 @@ import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../core/model/model_capabilities.dart';
 import '../state/conversation_header.dart';
+import '../state/fork_conversation.dart';
 import '../state/selected_conversation.dart';
 import '../state/title_reveals.dart';
 
@@ -97,6 +99,15 @@ class ChatHead extends ConsumerWidget {
                 ),
         ),
         const SizedBox(width: AnSpace.s8),
+        // The lineage line rides INSIDE the head row rather than becoming a second line: the head is a
+        // fixed-height band (AnSize.titlebar), so a stacked line would change the band's height
+        // contract for every ocean. It is ALWAYS this row's child (it collapses to a zero-width box on
+        // an ordinary thread) so the model menu's slot index never moves — the same reason the
+        // transcript's action row returns a shrink box instead of being omitted.
+        // 血缘行骑在头部行**内**、不另起一行:头部是定高带(AnSize.titlebar),叠一行会改动所有海洋的带高契约。
+        // 它**恒为**本行的 child(普通线程上收成零宽盒),故模型菜单的槽位下标从不移动——与 transcript 动作排
+        // 返回零高盒而非省略是同一个理由。
+        _ForkLineage(sourceId: conv.forkedFromConversationId),
         chatModelMenu(
           t: t,
           caps: caps,
@@ -107,6 +118,48 @@ class ChatHead extends ConsumerWidget {
               ref.read(conversationHeaderProvider(id).notifier).setModel(v),
         ),
       ],
+    );
+  }
+}
+
+/// The forked thread's ancestry, as light as it gets: one small「分叉自 ×××」button in the head that
+/// navigates back to the source.
+///
+/// The source's NAME is not on the fork's own row (the wire carries only the id — lineage is
+/// provenance, not an embedded copy that would go stale on a rename), so it is read fresh through
+/// [forkSourceProvider]. Three states, all honest and all the SAME slot (the button is always this
+/// row's child once a thread is a fork, so the head's children never shift): named once loaded, and a
+/// generic "another conversation" while loading OR when the source is gone (a fork outlives its
+/// parent by design — the ids simply dangle, nothing cascades, and the read never retries).
+///
+/// 分叉线程的来处,轻到极限:头部一个小小的「分叉自 ×××」钮,点回源头。
+///
+/// 源的**名字**不在分叉自己的行上(线缆只带 id——血缘是溯源、不是会随改名过期的内嵌副本),故经
+/// forkSourceProvider 读时新鲜取。三种状态都诚实、且**同一个槽位**(线程一旦是分叉,钮恒为该行的 child,
+/// 故头部 children 从不移位):加载好即具名,加载中**或**源已不在时用泛称「另一个对话」(分叉活得比父长是
+/// 设计使然——id 只是悬空、不级联任何东西,且那次读不重试)。
+class _ForkLineage extends ConsumerWidget {
+  const _ForkLineage({required this.sourceId});
+
+  final String sourceId;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    if (sourceId.isEmpty) return const SizedBox.shrink();
+    final t = Translations.of(context);
+    final src = ref.watch(forkSourceProvider(sourceId));
+    final title = src.value?.title.trim() ?? '';
+    final label = title.isEmpty
+        ? t.chat.forkedFromUnknown
+        : t.chat.forkedFrom(title: title);
+    return Padding(
+      padding: const EdgeInsets.only(right: AnSpace.s8),
+      child: AnButton(
+        label: label,
+        icon: AnIcons.control,
+        size: AnButtonSize.sm,
+        onPressed: () => context.go(conversationLocation(sourceId)),
+      ),
     );
   }
 }

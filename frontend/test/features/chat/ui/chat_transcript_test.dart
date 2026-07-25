@@ -7,12 +7,14 @@ import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_repository.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/attachment_audio_player.dart';
+import 'package:anselm/features/chat/state/chat_drafts.dart';
 import 'package:anselm/features/chat/state/conversation_stream_provider.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/ui/chat_thinking.dart';
@@ -22,6 +24,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 
 // The transcript view. Pins: phase surfaces, block dispatch to the locked modules (markdown /
 // thinking / tool placeholder / cancelled banner), LIVE streaming reaching the leaf, the BuildSpy
@@ -133,6 +136,40 @@ Widget _host(
     ),
   ),
 );
+
+/// A ROUTED transcript host — the fork action navigates with `context.go`, which the bare-MaterialApp
+/// [_host] cannot serve. Returns the container + router so a test can read the drafts store and the
+/// landed path. 路由版 transcript 宿主——分叉动作用 context.go 导航,裸 MaterialApp 的 _host 服务不了。
+(Widget, ProviderContainer, GoRouter) _hostRouted(FixtureChatRepository repo) {
+  const view = Scaffold(body: ChatTranscriptView(conversationId: 'cv_1'));
+  final router = GoRouter(
+    initialLocation: '/chat/cv_1',
+    routes: [
+      GoRoute(path: '/', builder: (_, _) => view),
+      GoRoute(path: '/chat/:id', builder: (_, _) => view),
+    ],
+  );
+  addTearDown(router.dispose);
+  final container = ProviderContainer(
+    overrides: [
+      chatRepositoryProvider.overrideWithValue(repo),
+      selectedConversationProvider.overrideWith(_FakeSelected.new),
+      goRouterProvider.overrideWithValue(router),
+    ],
+  );
+  addTearDown(container.dispose);
+  final w = UncontrolledProviderScope(
+    container: container,
+    child: TranslationProvider(
+      child: MaterialApp.router(
+        debugShowCheckedModeBanner: false,
+        theme: AnTheme.light(),
+        routerConfig: router,
+      ),
+    ),
+  );
+  return (w, container, router);
+}
 
 FixtureChatRepository _repo({Map<String, List<ChatMessage>>? messages}) =>
     FixtureChatRepository(
@@ -1236,4 +1273,117 @@ void main() {
     final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
     expect(find.text(t.chat.repickModel), findsNothing);
   });
+
+  // ── the message-level fork entry + the user-turn prefill variant (CH-b) ──
+
+  testWidgets(
+    'forking an ASSISTANT turn cuts AT it, opens the fork, and prefills nothing',
+    (tester) async {
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            _turn('m1', 'user', blocks: [_blk('b1', 'text', 'ASK ONE')]),
+            _turn('m2', 'assistant', blocks: [_blk('b2', 'text', 'REPLY ONE')]),
+            _turn('m3', 'user', blocks: [_blk('b3', 'text', 'ASK TWO')]),
+            _turn('m4', 'assistant', blocks: [_blk('b4', 'text', 'REPLY TWO')]),
+          ],
+        },
+      );
+      final (w, container, router) = _hostRouted(repo);
+      await tester.pumpWidget(w);
+      await tester.pumpAndSettle();
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+
+      // The SECOND assistant turn is the last row, so its action row is always visible.
+      await tester.tap(find.byTooltip(t.chat.actions.fork).last);
+      await tester.pumpAndSettle();
+
+      final path = router.routerDelegate.currentConfiguration.uri.path;
+      expect(path, startsWith('/chat/'));
+      final forkId = path.substring('/chat/'.length);
+      expect(forkId, isNot('cv_1'));
+      // Cut AT the assistant turn = all four rows travel; nothing is queued in the composer.
+      // 切**在** assistant 回合 = 四行全部随行;composer 里什么都没排。
+      final head = await repo.getConversation(forkId);
+      expect(head.forkedFromConversationId, 'cv_1');
+      expect(head.forkedFromMessageId, 'm4');
+      expect((await repo.listMessages(forkId)).items.length, 4);
+      expect(container.read(chatDraftsProvider).of(forkId), '');
+    },
+  );
+
+  testWidgets(
+    'forking a USER turn cuts at the PREVIOUS row and hands the sentence back as the fork\'s draft',
+    (tester) async {
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            _turn('m1', 'user', blocks: [_blk('b1', 'text', 'ASK ONE')]),
+            _turn('m2', 'assistant', blocks: [_blk('b2', 'text', 'REPLY ONE')]),
+            _turn('m3', 'user', blocks: [_blk('b3', 'text', 'ASK TWO')]),
+          ],
+        },
+      );
+      final (w, container, router) = _hostRouted(repo);
+      await tester.pumpWidget(w);
+      await tester.pumpAndSettle();
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+
+      // The last row is the SECOND user turn — its fork means "stop before I said this".
+      await tester.tap(find.byTooltip(t.chat.actions.forkBefore).last);
+      await tester.pumpAndSettle();
+
+      final forkId = router.routerDelegate.currentConfiguration.uri.path
+          .substring('/chat/'.length);
+      expect(forkId, isNot('cv_1'));
+      // The cut is the PREVIOUS row (the assistant reply), so the thread stops just short of the
+      // sentence — and the sentence comes back as editable draft text on the NEW thread.
+      // 切点是**上一行**(那条 assistant 回复),故线程停在这句话之前——而这句话作为可编辑草稿落在**新**线程上。
+      final head = await repo.getConversation(forkId);
+      expect(head.forkedFromMessageId, 'm2');
+      expect((await repo.listMessages(forkId)).items.length, 2);
+      expect(container.read(chatDraftsProvider).of(forkId), 'ASK TWO');
+      // The source is untouched — all three rows still there.
+      expect((await repo.listMessages('cv_1')).items.length, 3);
+    },
+  );
+
+  testWidgets(
+    'forking the FIRST user turn goes to the landing with the sentence prefilled — an empty twin would be a worse answer',
+    (tester) async {
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            _turn(
+              'm1',
+              'user',
+              blocks: [_blk('b1', 'text', 'THE FIRST THING')],
+            ),
+          ],
+        },
+      );
+      final (w, container, router) = _hostRouted(repo);
+      await tester.pumpWidget(w);
+      await tester.pumpAndSettle();
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+
+      await tester.tap(find.byTooltip(t.chat.actions.forkBefore).last);
+      await tester.pumpAndSettle();
+
+      expect(router.routerDelegate.currentConfiguration.uri.path, '/');
+      expect(
+        container.read(chatDraftsProvider).of(ChatDrafts.landingKey),
+        'THE FIRST THING',
+      );
+      // Nothing was minted server-side: a thread where nothing has been said IS the landing.
+      // 服务端什么都没铸:什么都没说过的线程**就是** landing。
+      expect((await repo.listConversations()).items.length, 1);
+    },
+  );
 }

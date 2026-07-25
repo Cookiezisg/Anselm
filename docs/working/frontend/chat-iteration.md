@@ -61,12 +61,37 @@ audience: [human, ai]
 | `conversations.work_dir` 列 | TEXT,空=未挂;PATCH 面(与 title/model_override 同径);DTO 进前端契约 | D 系列登记 database.md;N3 wire `workDir` |
 | `conversations.forked_from_conversation_id` / `forked_from_message_id` 列 | 血缘;fork 时另发一条 relation 边(fork→源)喂关系图 | D 系列登记 |
 | `messages.superseded_by` 列 | 空=现行版;retry/编辑重发时旧行写新 msg id。LLM 装配过滤 `superseded_by=''`;REST 三读形态**返全部**(前端翻页需要旧版),新版消息 attrs 带 `retryOf` 供前端组版本组。指针实现允许施工时微调,**语义不变:零删除、旧版永可读** | D 系列登记;非逻辑删除(行仍返、UI 可翻看),合 D1 |
-| `POST /conversations/{id}:fork {atMessageId}` | 前缀复制(**含** atMessageId):对话头(system_prompt/attached_documents/model_override/work_dir)+ 前缀窗内全部消息行(含 subagent 行,LLM 装配自然排除)+ blocks(seq 从 1 重排、parent remap、context_role 重置);summary:at 点在水位后 → summary+水位同抄,at 点在水位前 → 不带 summary、水位 0(summary 概括了超出前缀的内容,带走即撒谎);标题「原标题 (fork)」+ auto_titled=false;返 201 新 Conversation。**user 消息「分叉预填」变体是前端糖**:对 user 消息分叉 = 后端 fork 至它的前一条,前端把原句填进新对话 composer | N5 动作后缀;api.md + domains/conversation.md;testend |
+| ~~`POST /conversations/{id}:fork {atMessageId}`~~ **已落地 0725,两处偏离草案见下** | 前缀复制(**含** atMessageId):对话头(system_prompt/attached_documents/model_override/work_dir)+ 前缀窗内全部消息行(含 subagent 行,LLM 装配自然排除)+ blocks(seq 从 1 重排、parent remap、context_role 重置);summary:at 点在水位后 → summary+水位同抄,at 点在水位前 → 不带 summary、水位 0(summary 概括了超出前缀的内容,带走即撒谎);标题「原标题 (fork)」+ auto_titled=false;返 201 新 Conversation。**user 消息「分叉预填」变体是前端糖**:对 user 消息分叉 = 后端 fork 至它的前一条,前端把原句填进新对话 composer | N5 动作后缀;api.md + domains/conversation.md;testend |
 | `POST /conversations/{id}:retry {content?, modelOverride?}` | 仅当末回合已终态,否则 409。无 `content` = 重生成:supersede 末 assistant,入队重跑(不写新 user 回合);有 `content` = 编辑重发:supersede 末 user+assistant 两条,落新 user 回合(保留原附件引用)+ 新 assistant 回合。SSE 走既有帧型(新回合正常 open/delta/close,message attrs 带 `retryOf`),**不加新流不加新帧型**(E1/E2) | N5;api.md;testend |
 | `GET /conversations/{id}/workdir` | `{path, exists, isGitRepo, branch, dirty}`(WD2 加 `branches[]`,WD3 加 `worktrees[]`);现算派生投影,无游标(N4 有界投影同类) | api.md;N4 登记 |
 | block 型 `marker` | CHECK 封闭集加一型(六→七):行内标记块,attrs `{kind:'workdir', from, to}`——驻地中途切换落一条 durable 标记,翻旧对话不迷路(现有 compaction 低语同类呈现)。将来可复用其他 kind | D 系列 CHECK 立法;events.md node.type 不变(marker 随消息读取,不新增 SSE 帧型,施工时核对呈现路径) |
 | 系统提示注入 | 挂驻地的对话,每轮系统提示带「工作目录 X · 分支 Y」;subagent 继承(`subagent.go:181` fresh AgentState 处播种) | domains/chat.md |
 | 越界写强制闸 | Write/Edit 目标 canonical 路径在驻地子树外 → 无视 LLM 自报 danger,强制走人闸。路径判定不手搓:Go ≥1.24 用 `os.Root`,否则 `EvalSymlinks`+前缀校验(OWASP 共识;Cursor denylist 被绕的教训 → 主防线是根内白区,PathGuard 黑名单继续兜底) | domains/tool 域文档 |
+
+**CH-b 施工记录(0725,施工序⑧ 前半)——两处契约草案与后端现实冲突,已裁决:**
+
+**冲突①:relation 边的动词与方向。** 草案写「另发一条 relation 边(fork→源)」。后端现实是边 kind 为 **CHECK 强制的 4 动词封闭集**(`create/edit/equip/link`,`relations` 表 `CREATE TABLE` 内)。铸第 5 个动词 `fork` 是 ~22 文件改动(整表 `MigrateRebuild` + 3 索引重建 + 前端两个精确集断言硬红 + 推翻 `entitykind.go` 里「四个动词即覆盖全部关系」的立法注释)——那是一次独立的架构决定,不该夹在 CH-b 里。**裁决:用已立法的 `create`**(「源线程产出了本线程的第一版」字面为真;图上渲成「创建」,对 fork 也读得通),并把方向**反转为 源 → 分叉**。
+> **方向反转还排掉一个真陷阱**(主会话已核实):`SyncOutgoing` 是 replace-all diff-sync,按**源**的出向侧写会抹掉该对话曾建过的**所有** function/handler/agent 的 `create` 边;改按**分叉的入向侧** `SyncIncoming`,而一个分叉永远只有一个父,故 replace-all 恰好精确、重复 fork 幂等。权威血缘本就在两列里,边只为喂图。
+
+**冲突②:本批零新错误码。** 未知 `atMessageId` 复用 `MESSAGE_NOT_FOUND`(message id 是坐标,与 `?around=` 同一身份锚点 404)、未知对话复用 `CONVERSATION_NOT_FOUND`;其余情形**无物理失败**(空 body 是合法的「从最新处」、无消息的源是合法的纯配置副本、源在生成中也不冲突)。为凑一条码造校验剧场违反设计原则 #6,故 `error-codes.md` **未改**(改了会触发门禁的幽灵登记红)。
+
+**另两处**:`atMessageId` 做成**可选**(缺省=从最新处——左岛 rail 行手上没有 message id,让它先取一个只为说出线程自己的末端是一趟白跑的往返);`work_dir` **未复制**,该列在 `conversations` 表尚不存在(属 WD1 批,按草案指示未加列)。
+
+**未复用 `CreateWithSystemPrompt`**:它只造 title + systemPrompt,而分叉头还要 attachedDocuments / modelOverride / summary / 水位 / 血缘五项,走它是三趟往返 + 一个仍缺的 setter。
+
+**summary 两分支的要害是水位要重定基**,不是照抄:分叉把 block 从 1 重排,逐字带走源的水位数字会藏错行。判定在 `app/chat/fork.go` 的 `forkSummary()`。
+
+**testend 五项(主会话自跑复现全绿)**:前缀窗(含切点/到此为止/空 body/双 404 且不留孤儿头/源不动)· seq 重排 + 嵌套 remap(**先断言夹具够硬**——源里嵌套块 `MIN(seq)≠1`,否则「忘了重排」测不出来)· summary 两分支(切最新处→摘要随行且水位 ≤ 分叉自身 block 数=证明是重定基;切首条→两半都不带,并用 promptdump 证明下轮没喂给模型)· 附件共享(线缆同 `att_` id + 表行数不变 + 内容仍可取)。
+
+**顺带记一条 testend 抖动**(非本批引入):主会话自跑全量 testend 时 `TestMCP_ScriptedServerLifecycle` 报 `progress notification must land in call logs, got ""`;**单独跑 6 秒即过**——是 `-parallel 16` 负载下的时序抖动,与对话 fork 零接触面。留档以免下次有人把它当回归查。
+
+**前端三入口**:①消息级——`turn_actions.dart` 那个原本禁用的占位接通(按角色分「从这里分叉」/「在这条消息之前分叉」);②左岛——会话 rail 的 ⋯ 加「分叉对话」(从最新处);③血缘行——`chat_head.dart` 的 `_ForkLineage` **骑在头部行内、不另起一行**(头部是定高带,叠一行会改所有海洋的带高契约),且**恒为**该行 child(普通线程收成零宽盒),故模型菜单槽位下标从不移动。
+
+**user 预填变体**:切点在**点击时**据活回合列表求得(不作 prop 传——落定行按 id 记忆化,prop 会冻结在首次构建那刻,深跳窗前追加历史会让它过期);原句经**既有** `ChatDrafts` 接缝写进**新**线程的草稿键,`ChatComposer.initState` 抵达时读走。前面什么都没有的 user 回合 → 导航 landing + 写 landing 草稿键(什么都没说过的线程**就是** landing,铸一个空孪生是更差的答案)。
+
+**一处主动修正**:血缘行原想复用 `conversationHeaderProvider(srcId)`,但它无 `retry:` 覆盖 → 源被删后会指数退避**永远轮询 404**。改用吞错返 null、永不重试的 `forkSourceProvider`——分叉刻意活得比父长,「读不到源」是正常稳态。
+
+---
 
 **零后端项**:复制消息(前端 markdown 拼装,工具卡不进剪贴板)· 排队(前端队列,回合终态后逐条 send)· 最近目录(前端机器级持久化轴)。
 
@@ -812,7 +837,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⑤ | ~~RI 右岛四病灶 + 「禁止条件包装」军规+守卫~~ **已完成 0725**(四病灶全落 + 军规入 CLAUDE.md/design-system + 行为式重挂守卫;推翻本节「加重项」判断,做法 #2/#3 各有取舍,见 §5.9) | 主会话 |
 | ⑥ | ~~TS 文本选择~~ **已完成 0725**(红线/拓扑/焦点/光标/chrome 排除/流式互斥六项;必补③并入 CH-a、装饰性元数据留真机后定,见 §5.10) | 主会话(未派——排除清单被拓扑砍掉大半后不值一次简报) |
 | ⑦ | ~~CH-a 动作排+复制+排队~~ **已完成 0725**(动作排+复制见 §3.2 记录;排队见 §3.4 记录,含 open question④ 裁定) | 主会话 |
-| ⑧ | CH-b fork / CH-c retry(前后端) | 主会话 |
+| ⑧ | CH-b fork **已完成 0725**(前后端 + testend 五项,两处契约冲突已裁决入档);**CH-c retry 未做**,是本步剩余 | 派 Opus 5 + 主会话复审 |
 | ⑨ | ~~VT 版本页~~ **已完成 0725**(全宽手风琴 + hunk 只显变更 + 真虚拟化;三处偏离工单措辞已入档;降级曲线主会话复跑复现) | 派 Opus 5 ✅ |
 | ⑩ | ~~EA 实体 ⋯ 菜单~~ **已完成 0725**(七 kind 菜单 + 6 个 repository 封装;**纠正本节四处**〔restart 早已封装 / iterate 非无参 / 立即运行须导航〔唯一执行点立法〕/ 调试台=右岛而非 tab〕+ 查实删除无引用守卫,见 §5.12) | 派 Sonnet 5 ✅ |
 | ⑪ | ~~SK 密钥分栏~~ **已完成 0725**(派 Sonnet 5 建、主会话逐行复审并改了一处 + 跑门禁;记录见 §5.6) | 派 Sonnet 5 ✅ |

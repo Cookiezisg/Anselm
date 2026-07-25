@@ -17,6 +17,47 @@ import (
 // *Service 直接满足它——签名一致——故装配是纯注入、无需适配器。
 type RelationSyncer interface {
 	PurgeEntity(ctx context.Context, kind, id string) error
+	SyncIncoming(ctx context.Context, toKind, toID string, kindScope []string, edges []relationdomain.SyncEdge) error
+}
+
+// syncForkEdge records a fork's lineage in the relation graph.
+//
+// The verb is the legislated `create` — "conversation created the entity (v1)" is literally what
+// happened: the source thread produced this thread's first version. No 5th edge verb is minted for
+// it (the 4-verb set is a CHECK-enforced closed vocabulary; the endpoints' from_kind/to_kind
+// already say "conversation → conversation", so the pair is unambiguous without a new word), and
+// the authoritative lineage lives in the forked_from_* columns regardless.
+//
+// Written from the FORK's INCOMING side on purpose. SyncIncoming replaces the whole edge set
+// matching (fixed endpoint, kindScope), and a fork has exactly one parent forever — so replace-all
+// is exact here and re-forking is idempotent. The mirror call keyed on the SOURCE's outgoing side
+// would be a disaster: it would wipe every `create` edge to the functions/handlers/agents that
+// conversation ever built.
+//
+// syncForkEdge 把分叉血缘记入关系图。
+//
+// 动词用已立法的 `create`——「conversation 创造实体（产生 v1）」正是实际发生的事：源线程产出了本
+// 线程的第一版。**不**为它新铸第 5 个边动词（4 动词集是 CHECK 强制的封闭词汇；两端的
+// from_kind/to_kind 已说明「conversation → conversation」，故无需新词即无歧义），况且权威血缘
+// 本就在 forked_from_* 两列里。
+//
+// **刻意**从分叉的**入向**侧写。SyncIncoming 会替换匹配（固定端, kindScope）的整个边集，而一个
+// 分叉永远只有一个父——故此处 replace-all 恰好精确、重复 fork 幂等。镜像地按**源**的出向侧写会是
+// 灾难：它会抹掉该对话曾建过的所有 function/handler/agent 的 `create` 边。
+func (s *Service) syncForkEdge(ctx context.Context, forkID, sourceID string) {
+	if s.relations == nil {
+		return
+	}
+	edges := []relationdomain.SyncEdge{{
+		OtherKind: relationdomain.EntityKindConversation,
+		OtherID:   sourceID,
+		Kind:      relationdomain.KindCreate,
+	}}
+	if err := s.relations.SyncIncoming(ctx, relationdomain.EntityKindConversation, forkID,
+		[]string{relationdomain.KindCreate}, edges); err != nil {
+		s.log.Warn("conversation fork: sync lineage edge failed",
+			zap.String("conversationId", forkID), zap.String("sourceId", sourceID), zap.Error(err))
+	}
 }
 
 // purgeRelations cascade-removes every edge touching the deleted conversation.

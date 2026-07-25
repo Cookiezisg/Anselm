@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$Conversation {
 
- String get id; String get title; bool get autoTitled; bool get archived; bool get pinned; ModelRef? get modelOverride; DateTime get createdAt; DateTime get updatedAt; DateTime get lastMessageAt; bool get isGenerating; bool get awaitingInput; bool get hasUnread;
+ String get id; String get title; bool get autoTitled; bool get archived; bool get pinned; ModelRef? get modelOverride; DateTime get createdAt; DateTime get updatedAt; DateTime get lastMessageAt; bool get isGenerating; bool get awaitingInput; bool get hasUnread; String get forkedFromConversationId; String get forkedFromMessageId;
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $ConversationCopyWith<Conversation> get copyWith => _$ConversationCopyWithImpl<C
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.autoTitled, autoTitled) || other.autoTitled == autoTitled)&&(identical(other.archived, archived) || other.archived == archived)&&(identical(other.pinned, pinned) || other.pinned == pinned)&&(identical(other.modelOverride, modelOverride) || other.modelOverride == modelOverride)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.isGenerating, isGenerating) || other.isGenerating == isGenerating)&&(identical(other.awaitingInput, awaitingInput) || other.awaitingInput == awaitingInput)&&(identical(other.hasUnread, hasUnread) || other.hasUnread == hasUnread));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.autoTitled, autoTitled) || other.autoTitled == autoTitled)&&(identical(other.archived, archived) || other.archived == archived)&&(identical(other.pinned, pinned) || other.pinned == pinned)&&(identical(other.modelOverride, modelOverride) || other.modelOverride == modelOverride)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.isGenerating, isGenerating) || other.isGenerating == isGenerating)&&(identical(other.awaitingInput, awaitingInput) || other.awaitingInput == awaitingInput)&&(identical(other.hasUnread, hasUnread) || other.hasUnread == hasUnread)&&(identical(other.forkedFromConversationId, forkedFromConversationId) || other.forkedFromConversationId == forkedFromConversationId)&&(identical(other.forkedFromMessageId, forkedFromMessageId) || other.forkedFromMessageId == forkedFromMessageId));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,autoTitled,archived,pinned,modelOverride,createdAt,updatedAt,lastMessageAt,isGenerating,awaitingInput,hasUnread);
+int get hashCode => Object.hash(runtimeType,id,title,autoTitled,archived,pinned,modelOverride,createdAt,updatedAt,lastMessageAt,isGenerating,awaitingInput,hasUnread,forkedFromConversationId,forkedFromMessageId);
 
 @override
 String toString() {
-  return 'Conversation(id: $id, title: $title, autoTitled: $autoTitled, archived: $archived, pinned: $pinned, modelOverride: $modelOverride, createdAt: $createdAt, updatedAt: $updatedAt, lastMessageAt: $lastMessageAt, isGenerating: $isGenerating, awaitingInput: $awaitingInput, hasUnread: $hasUnread)';
+  return 'Conversation(id: $id, title: $title, autoTitled: $autoTitled, archived: $archived, pinned: $pinned, modelOverride: $modelOverride, createdAt: $createdAt, updatedAt: $updatedAt, lastMessageAt: $lastMessageAt, isGenerating: $isGenerating, awaitingInput: $awaitingInput, hasUnread: $hasUnread, forkedFromConversationId: $forkedFromConversationId, forkedFromMessageId: $forkedFromMessageId)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $ConversationCopyWith<$Res>  {
   factory $ConversationCopyWith(Conversation value, $Res Function(Conversation) _then) = _$ConversationCopyWithImpl;
 @useResult
 $Res call({
- String id, String title, bool autoTitled, bool archived, bool pinned, ModelRef? modelOverride, DateTime createdAt, DateTime updatedAt, DateTime lastMessageAt, bool isGenerating, bool awaitingInput, bool hasUnread
+ String id, String title, bool autoTitled, bool archived, bool pinned, ModelRef? modelOverride, DateTime createdAt, DateTime updatedAt, DateTime lastMessageAt, bool isGenerating, bool awaitingInput, bool hasUnread, String forkedFromConversationId, String forkedFromMessageId
 });
 
 
@@ -65,7 +65,7 @@ class _$ConversationCopyWithImpl<$Res>
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? autoTitled = null,Object? archived = null,Object? pinned = null,Object? modelOverride = freezed,Object? createdAt = null,Object? updatedAt = null,Object? lastMessageAt = null,Object? isGenerating = null,Object? awaitingInput = null,Object? hasUnread = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? title = null,Object? autoTitled = null,Object? archived = null,Object? pinned = null,Object? modelOverride = freezed,Object? createdAt = null,Object? updatedAt = null,Object? lastMessageAt = null,Object? isGenerating = null,Object? awaitingInput = null,Object? hasUnread = null,Object? forkedFromConversationId = null,Object? forkedFromMessageId = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -79,7 +79,9 @@ as DateTime,lastMessageAt: null == lastMessageAt ? _self.lastMessageAt : lastMes
 as DateTime,isGenerating: null == isGenerating ? _self.isGenerating : isGenerating // ignore: cast_nullable_to_non_nullable
 as bool,awaitingInput: null == awaitingInput ? _self.awaitingInput : awaitingInput // ignore: cast_nullable_to_non_nullable
 as bool,hasUnread: null == hasUnread ? _self.hasUnread : hasUnread // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,forkedFromConversationId: null == forkedFromConversationId ? _self.forkedFromConversationId : forkedFromConversationId // ignore: cast_nullable_to_non_nullable
+as String,forkedFromMessageId: null == forkedFromMessageId ? _self.forkedFromMessageId : forkedFromMessageId // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 /// Create a copy of Conversation
@@ -176,10 +178,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread,  String forkedFromConversationId,  String forkedFromMessageId)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Conversation() when $default != null:
-return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread);case _:
+return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread,_that.forkedFromConversationId,_that.forkedFromMessageId);case _:
   return orElse();
 
 }
@@ -197,10 +199,10 @@ return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinne
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread,  String forkedFromConversationId,  String forkedFromMessageId)  $default,) {final _that = this;
 switch (_that) {
 case _Conversation():
-return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread);case _:
+return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread,_that.forkedFromConversationId,_that.forkedFromMessageId);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -217,10 +219,10 @@ return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinne
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String title,  bool autoTitled,  bool archived,  bool pinned,  ModelRef? modelOverride,  DateTime createdAt,  DateTime updatedAt,  DateTime lastMessageAt,  bool isGenerating,  bool awaitingInput,  bool hasUnread,  String forkedFromConversationId,  String forkedFromMessageId)?  $default,) {final _that = this;
 switch (_that) {
 case _Conversation() when $default != null:
-return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread);case _:
+return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinned,_that.modelOverride,_that.createdAt,_that.updatedAt,_that.lastMessageAt,_that.isGenerating,_that.awaitingInput,_that.hasUnread,_that.forkedFromConversationId,_that.forkedFromMessageId);case _:
   return null;
 
 }
@@ -232,7 +234,7 @@ return $default(_that.id,_that.title,_that.autoTitled,_that.archived,_that.pinne
 @JsonSerializable()
 
 class _Conversation implements Conversation {
-  const _Conversation({required this.id, this.title = '', this.autoTitled = false, this.archived = false, this.pinned = false, this.modelOverride, required this.createdAt, required this.updatedAt, required this.lastMessageAt, this.isGenerating = false, this.awaitingInput = false, this.hasUnread = false});
+  const _Conversation({required this.id, this.title = '', this.autoTitled = false, this.archived = false, this.pinned = false, this.modelOverride, required this.createdAt, required this.updatedAt, required this.lastMessageAt, this.isGenerating = false, this.awaitingInput = false, this.hasUnread = false, this.forkedFromConversationId = '', this.forkedFromMessageId = ''});
   factory _Conversation.fromJson(Map<String, dynamic> json) => _$ConversationFromJson(json);
 
 @override final  String id;
@@ -247,6 +249,8 @@ class _Conversation implements Conversation {
 @override@JsonKey() final  bool isGenerating;
 @override@JsonKey() final  bool awaitingInput;
 @override@JsonKey() final  bool hasUnread;
+@override@JsonKey() final  String forkedFromConversationId;
+@override@JsonKey() final  String forkedFromMessageId;
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
@@ -261,16 +265,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.autoTitled, autoTitled) || other.autoTitled == autoTitled)&&(identical(other.archived, archived) || other.archived == archived)&&(identical(other.pinned, pinned) || other.pinned == pinned)&&(identical(other.modelOverride, modelOverride) || other.modelOverride == modelOverride)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.isGenerating, isGenerating) || other.isGenerating == isGenerating)&&(identical(other.awaitingInput, awaitingInput) || other.awaitingInput == awaitingInput)&&(identical(other.hasUnread, hasUnread) || other.hasUnread == hasUnread));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Conversation&&(identical(other.id, id) || other.id == id)&&(identical(other.title, title) || other.title == title)&&(identical(other.autoTitled, autoTitled) || other.autoTitled == autoTitled)&&(identical(other.archived, archived) || other.archived == archived)&&(identical(other.pinned, pinned) || other.pinned == pinned)&&(identical(other.modelOverride, modelOverride) || other.modelOverride == modelOverride)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.lastMessageAt, lastMessageAt) || other.lastMessageAt == lastMessageAt)&&(identical(other.isGenerating, isGenerating) || other.isGenerating == isGenerating)&&(identical(other.awaitingInput, awaitingInput) || other.awaitingInput == awaitingInput)&&(identical(other.hasUnread, hasUnread) || other.hasUnread == hasUnread)&&(identical(other.forkedFromConversationId, forkedFromConversationId) || other.forkedFromConversationId == forkedFromConversationId)&&(identical(other.forkedFromMessageId, forkedFromMessageId) || other.forkedFromMessageId == forkedFromMessageId));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,title,autoTitled,archived,pinned,modelOverride,createdAt,updatedAt,lastMessageAt,isGenerating,awaitingInput,hasUnread);
+int get hashCode => Object.hash(runtimeType,id,title,autoTitled,archived,pinned,modelOverride,createdAt,updatedAt,lastMessageAt,isGenerating,awaitingInput,hasUnread,forkedFromConversationId,forkedFromMessageId);
 
 @override
 String toString() {
-  return 'Conversation(id: $id, title: $title, autoTitled: $autoTitled, archived: $archived, pinned: $pinned, modelOverride: $modelOverride, createdAt: $createdAt, updatedAt: $updatedAt, lastMessageAt: $lastMessageAt, isGenerating: $isGenerating, awaitingInput: $awaitingInput, hasUnread: $hasUnread)';
+  return 'Conversation(id: $id, title: $title, autoTitled: $autoTitled, archived: $archived, pinned: $pinned, modelOverride: $modelOverride, createdAt: $createdAt, updatedAt: $updatedAt, lastMessageAt: $lastMessageAt, isGenerating: $isGenerating, awaitingInput: $awaitingInput, hasUnread: $hasUnread, forkedFromConversationId: $forkedFromConversationId, forkedFromMessageId: $forkedFromMessageId)';
 }
 
 
@@ -281,7 +285,7 @@ abstract mixin class _$ConversationCopyWith<$Res> implements $ConversationCopyWi
   factory _$ConversationCopyWith(_Conversation value, $Res Function(_Conversation) _then) = __$ConversationCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String title, bool autoTitled, bool archived, bool pinned, ModelRef? modelOverride, DateTime createdAt, DateTime updatedAt, DateTime lastMessageAt, bool isGenerating, bool awaitingInput, bool hasUnread
+ String id, String title, bool autoTitled, bool archived, bool pinned, ModelRef? modelOverride, DateTime createdAt, DateTime updatedAt, DateTime lastMessageAt, bool isGenerating, bool awaitingInput, bool hasUnread, String forkedFromConversationId, String forkedFromMessageId
 });
 
 
@@ -298,7 +302,7 @@ class __$ConversationCopyWithImpl<$Res>
 
 /// Create a copy of Conversation
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? autoTitled = null,Object? archived = null,Object? pinned = null,Object? modelOverride = freezed,Object? createdAt = null,Object? updatedAt = null,Object? lastMessageAt = null,Object? isGenerating = null,Object? awaitingInput = null,Object? hasUnread = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? title = null,Object? autoTitled = null,Object? archived = null,Object? pinned = null,Object? modelOverride = freezed,Object? createdAt = null,Object? updatedAt = null,Object? lastMessageAt = null,Object? isGenerating = null,Object? awaitingInput = null,Object? hasUnread = null,Object? forkedFromConversationId = null,Object? forkedFromMessageId = null,}) {
   return _then(_Conversation(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,title: null == title ? _self.title : title // ignore: cast_nullable_to_non_nullable
@@ -312,7 +316,9 @@ as DateTime,lastMessageAt: null == lastMessageAt ? _self.lastMessageAt : lastMes
 as DateTime,isGenerating: null == isGenerating ? _self.isGenerating : isGenerating // ignore: cast_nullable_to_non_nullable
 as bool,awaitingInput: null == awaitingInput ? _self.awaitingInput : awaitingInput // ignore: cast_nullable_to_non_nullable
 as bool,hasUnread: null == hasUnread ? _self.hasUnread : hasUnread // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,forkedFromConversationId: null == forkedFromConversationId ? _self.forkedFromConversationId : forkedFromConversationId // ignore: cast_nullable_to_non_nullable
+as String,forkedFromMessageId: null == forkedFromMessageId ? _self.forkedFromMessageId : forkedFromMessageId // ignore: cast_nullable_to_non_nullable
+as String,
   ));
 }
 

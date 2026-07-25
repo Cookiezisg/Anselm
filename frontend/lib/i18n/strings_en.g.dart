@@ -116,6 +116,15 @@ class Translations$chat$en {
 	/// en: 'Rename'
 	String get rename => 'Rename';
 
+	/// en: 'Fork conversation'
+	String get fork => 'Fork conversation';
+
+	/// en: 'Forked from $title'
+	String forkedFrom({required Object title}) => 'Forked from ${title}';
+
+	/// en: 'Forked from another conversation'
+	String get forkedFromUnknown => 'Forked from another conversation';
+
 	/// en: 'Pin'
 	String get pin => 'Pin';
 
@@ -3155,8 +3164,11 @@ class Translations$chat$actions$en {
 
 	// Translations
 
-	/// en: 'Fork from here (coming in CH-b)'
-	String get forkComing => 'Fork from here (coming in CH-b)';
+	/// en: 'Fork from here'
+	String get fork => 'Fork from here';
+
+	/// en: 'Fork before this message'
+	String get forkBefore => 'Fork before this message';
 
 	/// en: 'Retry (coming in CH-c)'
 	String get retryComing => 'Retry (coming in CH-c)';
@@ -6623,6 +6635,9 @@ extension on Translations {
 			'chat.showCount' => 'Show counts',
 			'chat.showTime' => 'Show time',
 			'chat.rename' => 'Rename',
+			'chat.fork' => 'Fork conversation',
+			'chat.forkedFrom' => ({required Object title}) => 'Forked from ${title}',
+			'chat.forkedFromUnknown' => 'Forked from another conversation',
 			'chat.pin' => 'Pin',
 			'chat.unpin' => 'Unpin',
 			'chat.archive' => 'Archive',
@@ -7118,11 +7133,11 @@ extension on Translations {
 			'chat.tool.marketCount' => ({required Object n}) => '${n} servers',
 			'chat.tool.mcpEnvRequired' => ({required Object n}) => '${n} required env',
 			'chat.tool.gettingModelConfig' => 'Reading model config',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.gotModelConfig' => 'Read model config',
 			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
 			'chat.tool.memSourceUser' => 'you',
 			'chat.tool.memSourceAi' => 'AI',
@@ -7216,7 +7231,8 @@ extension on Translations {
 			'chat.stage.rtRunning' => 'running',
 			'chat.stage.rtCrashed' => 'crashed',
 			'chat.stage.rtStopped' => 'stopped',
-			'chat.actions.forkComing' => 'Fork from here (coming in CH-b)',
+			'chat.actions.fork' => 'Fork from here',
+			'chat.actions.forkBefore' => 'Fork before this message',
 			'chat.actions.retryComing' => 'Retry (coming in CH-c)',
 			'chat.actions.queueHead' => ({required Object n}) => '${n} waiting to send',
 			'chat.actions.queueEdit' => 'Edit this queued message',
@@ -7631,12 +7647,12 @@ extension on Translations {
 			'ref.approval' => 'Approval',
 			'graph.kind.trigger' => 'Trigger',
 			'graph.kind.action' => 'Action',
+			_ => null,
+		} ?? switch (path) {
 			'graph.kind.agent' => 'Agent',
 			'graph.kind.control' => 'Branch',
 			'graph.kind.approval' => 'Approval',
 			'graph.kind.unknown' => 'Unknown',
-			_ => null,
-		} ?? switch (path) {
 			'a11y.flagYes' => 'yes',
 			'a11y.flagNo' => 'no',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
@@ -8145,12 +8161,12 @@ extension on Translations {
 			'settings.fontContent' => 'Content font',
 			'settings.fontContentDesc' => 'Chat message text and the document body only. Serif = Source Han Serif (Latin + 简体中文). Applies instantly.',
 			'settings.fontCode' => 'Code font',
+			_ => null,
+		} ?? switch (path) {
 			'settings.fontCodeDesc' => 'Every monospace surface — code blocks, terminals, diffs, ids. Applies after a restart.',
 			'settings.fontBundled' => 'Bundled',
 			'settings.fontSystem' => 'System',
 			'settings.fontSans' => 'Sans (bundled)',
-			_ => null,
-		} ?? switch (path) {
 			'settings.fontSerif' => 'Serif',
 			'settings.fontJetBrainsMono' => 'JetBrains Mono',
 			'settings.fontFiraCode' => 'Fira Code',

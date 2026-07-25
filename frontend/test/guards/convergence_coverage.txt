@@ -354,6 +354,7 @@ lib/features/chat/state/conversation_list_provider.dart	converged
 lib/features/chat/state/conversation_list_state.dart	converged
 lib/features/chat/state/conversation_stream_provider.dart	converged
 lib/features/chat/state/conversation_stream_state.dart	converged
+lib/features/chat/state/fork_conversation.dart	pending
 lib/features/chat/state/mention_names.dart	converged
 lib/features/chat/state/new_conversation.dart	converged
 lib/features/chat/state/pending_attachments.dart	converged

@@ -22,6 +22,9 @@ _Conversation _$ConversationFromJson(Map<String, dynamic> json) =>
       isGenerating: json['isGenerating'] as bool? ?? false,
       awaitingInput: json['awaitingInput'] as bool? ?? false,
       hasUnread: json['hasUnread'] as bool? ?? false,
+      forkedFromConversationId:
+          json['forkedFromConversationId'] as String? ?? '',
+      forkedFromMessageId: json['forkedFromMessageId'] as String? ?? '',
     );
 
 Map<String, dynamic> _$ConversationToJson(_Conversation instance) =>
@@ -38,6 +41,8 @@ Map<String, dynamic> _$ConversationToJson(_Conversation instance) =>
       'isGenerating': instance.isGenerating,
       'awaitingInput': instance.awaitingInput,
       'hasUnread': instance.hasUnread,
+      'forkedFromConversationId': instance.forkedFromConversationId,
+      'forkedFromMessageId': instance.forkedFromMessageId,
     };
 
 _ModelRef _$ModelRefFromJson(Map<String, dynamic> json) => _ModelRef(

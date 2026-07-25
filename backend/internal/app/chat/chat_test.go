@@ -143,11 +143,21 @@ type fakeConvs struct {
 	conv *conversationdomain.Conversation
 	err  error
 	rec  *touchRec
+	fork *forkRec
 }
 
 // touchRec streams each TouchLastMessage's unread argument for cross-goroutine assertions.
 type touchRec struct {
 	unread chan bool
+}
+
+// forkRec captures the head half of a fork (the ForkInput chat hands conversation) so a fork test
+// can assert the lineage stamp and the summary-carry branch without a real conversation store.
+//
+// forkRec 捕获分叉的「头」半（chat 交给 conversation 的 ForkInput），使分叉测试无需真 conversation
+// store 即可断言血缘盖章与摘要携带分支。
+type forkRec struct {
+	in conversationdomain.ForkInput
 }
 
 func (c fakeConvs) Get(_ context.Context, id string) (*conversationdomain.Conversation, error) {
@@ -856,3 +866,24 @@ func (f fakeConvs) TouchLastMessage(_ context.Context, _ string, _ time.Time, un
 }
 
 func (f fakeConvs) MarkSeen(context.Context, string) error { return nil }
+
+// Fork stands in for the conversation service's head write: it records the ForkInput and returns a
+// head whose fields mirror what the real service builds from it, so fork_test.go can assert both
+// halves (the input chat computed, and the head the replay then writes rows against).
+//
+// Fork 顶替 conversation service 的头写：记下 ForkInput，并返回一个字段与真 service 据它构造的头
+// 一致的头行，使 fork_test.go 能断言两半（chat 算出的输入，以及重放随后据以写行的那个头）。
+func (f fakeConvs) Fork(_ context.Context, in conversationdomain.ForkInput) (*conversationdomain.Conversation, error) {
+	if f.fork != nil {
+		f.fork.in = in
+	}
+	return &conversationdomain.Conversation{
+		ID:                       "cv_forked",
+		Title:                    in.Source.Title + conversationdomain.ForkTitleSuffix,
+		SystemPrompt:             in.Source.SystemPrompt,
+		Summary:                  in.Summary,
+		SummaryCoversUpToSeq:     in.SummaryCoversUpToSeq,
+		ForkedFromConversationID: in.Source.ID,
+		ForkedFromMessageID:      in.AtMessageID,
+	}, nil
+}

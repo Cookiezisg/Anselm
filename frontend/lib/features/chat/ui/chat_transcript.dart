@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/api_error.dart';
 import '../../../core/contract/messages/block_content.dart';
@@ -24,7 +25,9 @@ import '../state/attachment_meta.dart';
 import '../state/conversation_header.dart';
 import '../state/conversation_stream_provider.dart';
 import '../state/conversation_stream_state.dart';
+import '../state/fork_conversation.dart';
 import '../state/pending_interactions_provider.dart';
+import '../state/selected_conversation.dart';
 import '../state/transcript_jump_provider.dart';
 import 'chat_head.dart';
 import 'chat_tool_card.dart';
@@ -685,8 +688,64 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         copyText: ConversationTranscript.turnCopyText(widget.turn),
         role: role,
         alwaysVisible: widget.isLast,
+        onFork: _fork,
       ),
     );
+  }
+
+  /// Branch this turn into a new conversation, then open it.
+  ///
+  /// The cut point is resolved AT TAP TIME off the live turn list rather than passed in as a prop: a
+  /// settled row is memoized by id (`_settledRowCache`), so a "previous turn id" prop would freeze at
+  /// the moment the row was first built and a deep-jump window that prepends history would leave it
+  /// stale. Reading the controller on tap always sees the current list.
+  ///
+  /// Two shapes, because the two roles mean different things (§3.2): forking an ASSISTANT turn keeps
+  /// everything through that reply (`atMessageId` = this turn); forking a USER turn means "stop before
+  /// I said this", so the cut is the PREVIOUS turn and the sentence comes back as composer draft text.
+  /// A user turn with nothing before it forks to the LANDING — a thread where nothing has been said IS
+  /// the landing, so minting an empty twin would be a worse answer than going there.
+  ///
+  /// 把本回合分叉成新对话并打开它。
+  ///
+  /// 切点在**点击时**据活回合列表求得、而非作为 prop 传入:落定行按 id 记忆化(`_settledRowCache`),故
+  /// 「上一回合 id」这个 prop 会**冻结在行首次构建那一刻**,而向前追加历史的深跳窗会让它过期。点击时读控制器
+  /// 永远看到当前列表。
+  ///
+  /// 两种形态,因为两个角色含义不同(§3.2):分叉 **assistant** 回合保留直到那条回复的一切(atMessageId=本回合);
+  /// 分叉 **user** 回合意为「停在我说出这句之前」,故切点是**上一条**回合、而这句话作为 composer 草稿回来。
+  /// 前面什么都没有的 user 回合分叉到 **landing**——什么都没说过的线程**就是** landing,铸一个空的孪生线程
+  /// 是比去那里更差的答案。
+  Future<void> _fork() async {
+    final role = ConversationTranscript.turnRole(widget.turn);
+    var atMessageId = widget.turn.id;
+    var prefill = '';
+    if (role == 'user') {
+      prefill = ConversationTranscript.turnText(widget.turn);
+      final turns = ref
+          .read(conversationStreamProvider(widget.conversationId).notifier)
+          .transcript
+          .value
+          .turns;
+      final i = turns.indexWhere((n) => n.id == widget.turn.id);
+      atMessageId = i > 0 ? turns[i - 1].id : '';
+    }
+    try {
+      final result = await ref.read(forkConversationProvider)(
+        widget.conversationId,
+        atMessageId: atMessageId,
+        prefill: prefill,
+      );
+      if (!mounted) return;
+      context.go(
+        result.landing ? '/' : conversationLocation(result.conversationId),
+      );
+    } catch (_) {
+      if (!mounted) return;
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(context.t.chat.actionFailed, tone: AnTone.danger);
+    }
   }
 
   Widget? _block(BuildContext context, WidgetRef ref, BlockNode b) {

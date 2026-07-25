@@ -14,6 +14,9 @@
     "showCount": "显示分组计数",
     "showTime": "显示时间",
     "rename": "重命名",
+    "fork": "分叉对话",
+    "forkedFrom": "分叉自 $title",
+    "forkedFromUnknown": "分叉自另一个对话",
     "pin": "置顶",
     "unpin": "取消置顶",
     "archive": "归档",
@@ -626,7 +629,8 @@
       "rtStopped": "已停止"
     },
     "actions": {
-      "forkComing": "从这里分叉(CH-b 批将至)",
+      "fork": "从这里分叉",
+      "forkBefore": "在这条消息之前分叉",
       "retryComing": "重试(CH-c 批将至)",
       "queueHead": "$n 条待发送",
       "queueEdit": "编辑这条排队消息",

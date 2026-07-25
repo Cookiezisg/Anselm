@@ -19,6 +19,7 @@ import '../../../i18n/strings.g.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import '../state/conversation_list_provider.dart';
+import '../state/fork_conversation.dart';
 import '../state/selected_conversation.dart';
 import '../state/title_reveals.dart';
 import 'conversation_rail_model.dart';
@@ -158,9 +159,15 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
     if (mounted) ref.read(conversationSearchProvider.notifier).set(v);
   });
 
-  /// The per-row ⋯ menu (hover-revealed) — every per-thread action in one place: rename / pin·unpin /
+  /// The per-row ⋯ menu (hover-revealed) — every per-thread action in one place: rename / fork / pin·unpin /
   /// archive·unarchive / delete. Pin & archive labels flip on the row's current state; delete is a danger
-  /// item that opens a confirm dialog. ⋯ 行菜单:改名/置顶/归档/删除(置顶·归档按现态翻标签;删除 danger + 确认)。
+  /// item that opens a confirm dialog. Fork sits here because the rail is where you act on a thread you are
+  /// NOT reading — from here it can only mean "from the latest", which is exactly what the endpoint does
+  /// with an omitted atMessageId (a rail row holds no message id, and asking the rail to fetch one just to
+  /// name the thread's own tip would be a round-trip for nothing).
+  /// ⋯ 行菜单:改名/**分叉**/置顶/归档/删除(置顶·归档按现态翻标签;删除 danger + 确认)。分叉在此,因为 rail 是你
+  /// 对**没在读**的线程动手的地方——从这里它只能意为「从最新处」,而那正是端点在 atMessageId 缺省时做的事(rail 行
+  /// 手上没有 message id,让它先取一个只为说出线程自己的末端,是一趟白跑的往返)。
   Widget _rowMenu(Translations t, Conversation c) {
     return AnMenu(
       anchorBuilder: (context, toggle, isOpen) => AnButton.iconOnly(
@@ -174,6 +181,11 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
           label: t.chat.rename,
           icon: AnIcons.edit,
           onTap: () => setState(() => _editingId = c.id),
+        ),
+        AnMenuItem(
+          label: t.chat.fork,
+          icon: AnIcons.control,
+          onTap: () => _fork(c.id),
         ),
         AnMenuItem(
           label: c.pinned ? t.chat.unpin : t.chat.pin,
@@ -259,6 +271,20 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
   Future<void> _setArchived(String id, bool archived) async {
     try {
       _list.applyUpdate(await _repo.setArchived(id, archived));
+    } catch (_) {
+      _noticeFail();
+    }
+  }
+
+  // Fork from the LATEST message (no atMessageId) and open the new thread — a fork you cannot see is a
+  // fork you have to go find, so the rail entry navigates like selecting a row does. The list fold
+  // happens inside the shared helper.
+  // 从**最新**消息处分叉(不给 atMessageId)并打开新线程——看不见的分叉是还得自己去找的分叉,故 rail 入口
+  // 像选行一样导航过去。列表折入在共用 helper 里做。
+  Future<void> _fork(String id) async {
+    try {
+      final result = await ref.read(forkConversationProvider)(id);
+      if (mounted) context.go(conversationLocation(result.conversationId));
     } catch (_) {
       _noticeFail();
     }

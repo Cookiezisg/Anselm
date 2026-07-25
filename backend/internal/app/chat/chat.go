@@ -92,6 +92,12 @@ type ConversationReader interface {
 	//
 	// MarkSeen 清 unread 标志（chat 的 :seen 动作在用户打开线程时转发至此）。
 	MarkSeen(ctx context.Context, id string) error
+	// Fork writes a forked thread's head row (config copy + lineage + the summary-carry decision the
+	// caller already made). chat owns the message rows, conversation owns the head — see Fork in fork.go.
+	//
+	// Fork 写分叉线程的头行（配置复制 + 血缘 + 调用方已做好的摘要携带决定）。消息行归 chat、头行归
+	// conversation——见 fork.go 的 Fork。
+	Fork(ctx context.Context, in conversationdomain.ForkInput) (*conversationdomain.Conversation, error)
 }
 
 // ContentCapabilities is what the resolved model can natively ingest — supplied by the resolver

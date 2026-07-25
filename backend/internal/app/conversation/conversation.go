@@ -24,6 +24,7 @@ import (
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
@@ -290,6 +291,60 @@ func (s *Service) CreateWithSystemPrompt(ctx context.Context, title, systemPromp
 	}
 	s.emit(ctx, c.ID, "created", map[string]any{"title": c.Title})
 	return c, nil
+}
+
+// Fork writes the forked thread's HEAD row: the source's runtime config copied verbatim
+// (systemPrompt / attachedDocuments / modelOverride), the lineage pair stamped, the caller's
+// summary-carry decision applied, and the title suffixed. It is the head half of a fork — chat
+// replays the message rows, because chat owns them.
+//
+// Archived / Pinned are deliberately NOT copied: a fork is a thread you just opened, so it starts
+// active and unpinned no matter what shelf the source sits on. AutoTitled stays false — "X (fork)"
+// is a starting name the user may rename, and an untitled source yields an untitled fork so chat's
+// auto-titler still gets its turn.
+//
+// Fork 写分叉线程的**头**行：源的运行时配置逐字复制（systemPrompt / attachedDocuments /
+// modelOverride）、盖血缘对、施加调用方的摘要携带决定、标题加后缀。这是分叉的头半——消息行由
+// chat 重放，因为消息归 chat。
+//
+// Archived / Pinned **刻意不复制**：分叉是你刚打开的线程，故无论源搁在哪个架子上，它都以活跃、
+// 未置顶起步。AutoTitled 保持 false——「X (fork)」是可改的起步名，且无标题的源产出无标题的分叉，
+// 使 chat 的自动命名仍有它的回合。
+func (s *Service) Fork(ctx context.Context, in conversationdomain.ForkInput) (*conversationdomain.Conversation, error) {
+	if in.Source == nil {
+		return nil, errorspkg.ErrInvalidRequest
+	}
+	c := &conversationdomain.Conversation{
+		ID:                       idgenpkg.New("cv"),
+		Title:                    forkTitle(in.Source.Title),
+		SystemPrompt:             in.Source.SystemPrompt,
+		Summary:                  in.Summary,
+		SummaryCoversUpToSeq:     in.SummaryCoversUpToSeq,
+		AttachedDocuments:        in.Source.AttachedDocuments,
+		ModelOverride:            in.Source.ModelOverride,
+		LastMessageAt:            time.Now().UTC(),
+		ForkedFromConversationID: in.Source.ID,
+		ForkedFromMessageID:      in.AtMessageID,
+	}
+	if err := s.repo.Insert(ctx, c); err != nil {
+		return nil, err
+	}
+	s.emit(ctx, c.ID, "created", map[string]any{"title": c.Title})
+	s.syncForkEdge(ctx, c.ID, in.Source.ID)
+	return c, nil
+}
+
+// forkTitle suffixes a non-empty source title; an untitled source stays untitled so the fork's
+// first turn is auto-titled normally (a bare "(fork)" would be a name that says nothing).
+//
+// forkTitle 给非空源标题加后缀；无标题的源保持无标题，使分叉首回合正常自动命名（裸「(fork)」
+// 是一个什么都没说的名字）。
+func forkTitle(sourceTitle string) string {
+	t := strings.TrimSpace(sourceTitle)
+	if t == "" {
+		return ""
+	}
+	return t + conversationdomain.ForkTitleSuffix
 }
 
 // Get fetches one conversation by id (workspace-scoped by the orm layer).
