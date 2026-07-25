@@ -1,13 +1,32 @@
 ---
 id: WRK-077
 type: working
-status: draft
+status: active
 owner: "@weilin"
 created: 2026-07-23
-reviewed: 2026-07-23
+reviewed: 2026-07-25
 review-due: 2026-10-21
 audience: [human, ai]
+landed-into:
+  - CLAUDE.md
+  - docs/references/backend/api.md
+  - docs/references/backend/database.md
+  - docs/references/backend/error-codes.md
+  - docs/references/backend/domains/conversation.md
+  - docs/references/backend/domains/chat.md
+  - docs/references/backend/domains/messages.md
+  - docs/references/backend/domains/relation.md
+  - docs/references/backend/foundation/loop.md
+  - docs/references/backend/foundation/platform-pkgs.md
+  - docs/references/frontend/contract.md
+  - docs/references/frontend/design-system.md
+  - docs/references/frontend/features/entities.md
 ---
+
+> **施工状态(0725)**:§7 施工序 **⓪→⑯ 全部代码收口**,17 步各自一提交、门禁全绿、文档同提交 1:1 同步。
+> **本册尚未归档**,因为**真机验收未做**——它需要 GUI 与完整原生工具链,由用户自己驱动 app 完成。待验清单集中在
+> `docs/working/multimodal-agent/ACCEPTANCE-GUIDE.md`;各批记录里凡写「未做/留真机」的都在其中。
+> 归档条件:真机验收过一遍且无新工单 → `status: landed` + 移 `docs/archive/`。
 
 # WRK-077 · Chat 迭代:驻地(可选工作目录)+ 会话操作补全
 
