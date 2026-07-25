@@ -339,15 +339,22 @@ class _AppShellState extends ConsumerState<AppShell> {
         // Documents → the properties inspector; chat → the sidestage; scheduler → the run flagship's
         // two-faced inspector; entities → the run terminal (the shell only reveals it when that ocean
         // has a selection). documents→属性面板;chat→侧幕;scheduler→run 旗舰双脸检查器;entities→run 终端。
+        // The right island's content is a LAZY IndexedStack too — the inspector twin of [_OceanStack] and
+        // [_RailStack] (RI 病灶②). It used to be a four-way ternary, so switching oceans changed the slot's
+        // runtimeType and tore the whole inspector down and rebuilt it: the left island had been given this
+        // keep-alive back in S3 and the right island never was, which is the asymmetry behind the user's
+        // "the left island is silky, the right one flickers".
+        // 右岛内容也走懒 IndexedStack——[_OceanStack]/[_RailStack] 的 inspector 孪生件(RI 病灶②)。原先是一条
+        // 四路三元链,切海洋即改 slot 的 runtimeType、整棵 inspector 拆掉重建;左岛早在 S3 就拿到了这套保活,
+        // 右岛从来没有——这正是用户「左岛丝滑、右岛闪」背后的不对称。
         inspector: AnInspector(
           headless: true,
-          child: onLibrary
-              ? const LibraryInspector()
-              : chatConversation != null
-              ? StagePanel(conversationId: chatConversation)
-              : onScheduler
-              ? const SchedulerRunInspector()
-              : const RunTerminal(),
+          child: _InspectorStack(
+            onLibrary: onLibrary,
+            chatConversation: chatConversation,
+            onScheduler: onScheduler,
+            onEntities: ocean == OceanKind.entities,
+          ),
         ),
         inspectorOpen: hasSelection && !rightCollapsed,
         rightWidth: chrome.rightWidth,
@@ -437,6 +444,89 @@ class _OceanPlaceholder extends StatelessWidget {
 /// 中心海洋=懒 IndexedStack:首访才建、此后常驻折叠后,重选瞬时且保滚动位/展开态(keepAlive 保数据、此保 widget 态);
 /// 未访海洋是零成本 SizedBox 直到首显,冷启不急挂四海洋齐发请求;非栈海洋(scheduler 占位)走末位占位槽,
 /// 栈(及其中常驻海洋)在占位期也不卸。
+/// The right-island content host — the inspector's twin of [_OceanStack] / [_RailStack] (RI 病灶②): each
+/// face is built on first reveal and then stays MOUNTED behind the fold, so switching oceans away and back
+/// no longer tears it down and rebuilds it (which cost a from-scratch inflate plus every provider inside
+/// re-subscribing — the flicker the user reported).
+///
+/// The slot predicates are the SAME conditions the four-way ternary used, in the same order, so which face
+/// shows is unchanged. The trailing slot is the nothing-to-show case (settings, or chat with no activity);
+/// it was previously the ternary's `RunTerminal` fallthrough, which the shell never revealed because
+/// `hasSelection` is false there — giving it its own empty slot says that out loud instead of leaning on an
+/// invisible fallthrough.
+///
+/// The chat face needs an id, and the route's selection goes null the moment another ocean is entered, so
+/// the LAST conversation is remembered — otherwise the sidestage would unmount on every ocean switch and
+/// the keep-alive would buy nothing on the one face that has the most state to lose.
+///
+/// 右岛内容宿主——[_OceanStack]/[_RailStack] 的 inspector 孪生件(RI 病灶②):每张脸首次揭示才建、建后常驻
+/// 折叠,于是切走海洋再回来不再拆掉重建(那代价是一次从零 inflate + 其中每个 provider 重新订阅——用户报的那个闪)。
+///
+/// 槽判据与原四路三元链**逐条同条件、同顺序**,故显示哪张脸不变。末位槽是「无可显」情形(settings,或无活动的
+/// chat);它原先是三元链落到 `RunTerminal` 的兜底,而壳在那里因 `hasSelection` 为假从不揭示——给它一个自己的空槽
+/// 是把这件事说在明面上,而不是倚赖一个看不见的兜底。
+///
+/// chat 那张脸需要一个 id,而进入别的海洋时路由选区立刻变 null,故**记住最后一个**对话——否则侧幕会在每次切换
+/// 海洋时卸载,保活在最有状态可丢的那张脸上恰好什么也没买到。
+class _InspectorStack extends StatefulWidget {
+  const _InspectorStack({
+    required this.onLibrary,
+    required this.chatConversation,
+    required this.onScheduler,
+    required this.onEntities,
+  });
+
+  final bool onLibrary;
+  final String? chatConversation;
+  final bool onScheduler;
+  final bool onEntities;
+
+  @override
+  State<_InspectorStack> createState() => _InspectorStackState();
+}
+
+class _InspectorStackState extends State<_InspectorStack> {
+  static const _slotLibrary = 0;
+  static const _slotChat = 1;
+  static const _slotScheduler = 2;
+  static const _slotEntities = 3;
+  static const _slotNone = 4;
+
+  String? _lastChat;
+
+  @override
+  Widget build(BuildContext context) {
+    if (widget.chatConversation != null) _lastChat = widget.chatConversation;
+    final slot = widget.onLibrary
+        ? _slotLibrary
+        : widget.chatConversation != null
+        ? _slotChat
+        : widget.onScheduler
+        ? _slotScheduler
+        : widget.onEntities
+        ? _slotEntities
+        : _slotNone;
+    final chatId = _lastChat;
+    return AnLazyIndexedStack(
+      index: slot,
+      count: _slotNone + 1,
+      sizing: StackFit.expand,
+      builder: (context, i) => switch (i) {
+        _slotLibrary => const LibraryInspector(),
+        // A visited chat slot always has a remembered id by construction — it could only have been
+        // visited while one was selected. 访问过的 chat 槽按构造必有记住的 id——它只可能在选中时被访问过。
+        _slotChat =>
+          chatId == null
+              ? const SizedBox.shrink()
+              : StagePanel(conversationId: chatId),
+        _slotScheduler => const SchedulerRunInspector(),
+        _slotEntities => const RunTerminal(),
+        _ => const SizedBox.shrink(),
+      },
+    );
+  }
+}
+
 class _OceanStack extends StatelessWidget {
   const _OceanStack({required this.active});
 

@@ -9,12 +9,42 @@ import 'package:anselm/core/ui/an_window_controls.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/semantics.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Skeleton guards for the three-island shell: a draggable left island (240–400, default 320) +
 /// a USER-DRAGGABLE right island (280–640, default 320, live-clamped so the ocean keeps its floor) +
 /// the open ocean. 三岛 shell 骨架守卫:左岛可拖(240–400 默认 320)+ 右岛可拖(280–640 默认 320,
 /// 实时钳制保海洋下限)+ 敞开海洋。
+// `find.bySemanticsLabel` reads each render object's `debugSemantics`, which LINGERS after a node has
+// been excluded from the semantics tree — the render object is still there holding its last computed
+// value. That was harmless while the collapsed inspector remounted (fresh render objects, nothing stale
+// to read), and it became a false positive the moment RI made the subtree persist. Walking the tree asks
+// the question the test actually means: can a screen reader reach this right now?
+//
+// `find.bySemanticsLabel` 读的是各 render object 的 `debugSemantics`,而节点被排除出语义树后这个值会**残留**
+// ——render object 还在,还揣着它上次算出的值。在「收起的 inspector 会重挂」的年代这无害(render object 是新的、
+// 没有残留可读);RI 让子树持久化的那一刻,它就变成了假阳性。走一遍语义树问的才是本测试真正想问的:此刻屏幕
+// 阅读器能不能到达它?
+bool _inSemanticsTree(WidgetTester tester, String label) {
+  var found = false;
+  void walk(SemanticsNode n) {
+    if (n.label == label) found = true;
+    n.visitChildren((c) {
+      walk(c);
+      return true;
+    });
+  }
+
+  // Root the walk at the shell's own node rather than the binding's semantics owner — the latter is
+  // reachable only through the deprecated `pipelineOwner` (semantics owners are per-view now), and
+  // `getSemantics` resolves to the nearest enclosing node, which is above both islands.
+  // 从壳自己的节点起走,而不是 binding 的语义 owner:后者只能经已弃用的 `pipelineOwner` 拿到(语义 owner 现在
+  // 是按 view 分的),而 `getSemantics` 解析到的是最近的外层节点,那已在两岛之上。
+  walk(tester.getSemantics(find.byType(AnShell)));
+  return found;
+}
+
 void main() {
   // AnShell now reads context.t for the panel-button labels → wrap in TranslationProvider. 套件读 i18n。
   Widget wrap(Widget shell) => TranslationProvider(
@@ -208,28 +238,28 @@ void main() {
       await tester.pumpWidget(shell(true));
       await tester.pumpAndSettle();
       expect(
-        find.bySemanticsLabel('inspectorProbe'),
-        findsOneWidget,
+        _inSemanticsTree(tester, 'inspectorProbe'),
+        isTrue,
       ); // open → announced
 
-      // Mid-close: the island is STILL painted (sliding out, content held full-width behind the clip) — the
-      // ExcludeFocus/ExcludeSemantics wrapper must keep it inert NOW (this is the transient the wrapper guards;
-      // once fully closed the subtree is dropped entirely). 滑出中仍绘制,惰化包裹须此刻生效。
+      // Mid-close: the island is STILL painted (sliding out, content held full-width behind the clip), so the
+      // ExcludeFocus/ExcludeSemantics/IgnorePointer layers — mounted always, their booleans flipped (RI 病灶①)
+      // — must make it inert NOW. 滑出中仍绘制,故三层惰化(恒挂、翻布尔)须此刻生效。
       await tester.pumpWidget(shell(false));
       await tester.pump(
         const Duration(milliseconds: 120),
       ); // partway through the slide-out 滑出途中
       expect(
-        find.bySemanticsLabel('inspectorProbe'),
-        findsNothing,
+        _inSemanticsTree(tester, 'inspectorProbe'),
+        isFalse,
         reason: 'sliding-out content excluded from semantics',
       );
 
       await tester.pumpAndSettle();
       expect(
-        find.bySemanticsLabel('inspectorProbe'),
-        findsNothing,
-        reason: 'fully closed → subtree removed (SizedBox.shrink)',
+        _inSemanticsTree(tester, 'inspectorProbe'),
+        isFalse,
+        reason: 'fully closed → unreachable',
       );
       handle.dispose();
     },
@@ -654,10 +684,17 @@ void main() {
         // 1100 − 2×shellPad(8) = 1084 box; left 320+8, right 320+8 → ocean 428 (< reflow floor);
         // closing the right island targets 1084−328 = 756 — STILL under the floor → freeze.
         open.value = false; // slide the right island away 收右岛
-        await tester
-            .pump(); // target flip; the freeze arms on the post-frame 翻转帧
+        widths.clear();
+        // NOTHING is skipped from here on. This used to pump the flip, then a frame, then clear the list
+        // "to ignore the pre-freeze frame(s)". That accommodation turns out to have been unnecessary: on
+        // the flip frame the reveal controller has not ticked, so the ocean's width is unchanged and the
+        // probe does not re-run at all. Keeping the skip would have hidden a future regression that DID
+        // relayout on the flip frame, so it is gone.
+        // **从这里起一帧都不跳过。** 原先是先 pump 翻转帧、再 pump 一帧,然后清空列表「忽略冻结生效前的帧」。
+        // 那份容忍其实不必要:翻转那一帧揭示控制器还没走动,海洋宽度没变,探针根本不会重跑。而留着这个跳过,
+        // 会遮住将来某个**真的**在翻转帧 relayout 的回归,故删掉。
+        await tester.pump(); // the flip frame itself 翻转帧本身
         await tester.pump(const Duration(milliseconds: 40));
-        widths.clear(); // ignore the pre-freeze frame(s) 忽略冻结生效前的帧
         await tester.pump(const Duration(milliseconds: 60));
         await tester.pump(const Duration(milliseconds: 60));
         // The strongest possible evidence: the builder never re-ran mid-slide (constraints pinned
@@ -666,7 +703,8 @@ void main() {
         expect(
           widths.toSet(),
           anyOf(isEmpty, equals({756.0})),
-          reason: 'mid-slide the ocean is pinned at its target width',
+          reason:
+              'from the FIRST frame of the slide the ocean is pinned at its target width',
         );
         await tester.pumpAndSettle();
         expect(
@@ -766,4 +804,121 @@ void main() {
     // LayoutBuilder 的等价前提。
     expect(tester.getSize(island).width, greaterThan(0));
   });
+
+  // ───────────────── WRK-077 RI · the remount guard ─────────────────
+  //
+  // Every one of the RI defects was the SAME mechanism with three faces: a wrapper that comes and goes
+  // changes a slot's runtimeType, `Widget.canUpdate` says no, and the whole subtree unmounts and
+  // re-inflates. Faces: the collapsed inspector wrapped in ExcludeFocus (病灶①), the freeze gate wrapping
+  // the ocean in ClipRect+OverflowBox (病灶④), and the island dropping its subtree at t == 0 (病灶③).
+  //
+  // No pixel assertion catches this — the layout is CORRECT before and after, it is the identity that is
+  // lost, and what the user feels is the cost of losing it (providers re-subscribe → flicker; a hundred
+  // elements inflate in one frame → stutter; a transcript re-shaped at a new width → the reading position
+  // flies away). So the guard counts MOUNTS. A subtree that survives a toggle mounts exactly once.
+  //
+  // 每一个 RI 病灶都是**同一个机制的三张脸**:来来去去的包装层改变 slot 的 runtimeType,`Widget.canUpdate`
+  // 判否,整棵子树卸载重挂。三张脸:收起的 inspector 被 ExcludeFocus 裹住(病灶①)、冻结闸把海洋裹进
+  // ClipRect+OverflowBox(病灶④)、岛在 t == 0 时丢掉子树(病灶③)。
+  //
+  // 任何像素断言都抓不到它——前后布局都**对**,丢掉的是身份,而用户感受到的是丢掉身份的代价(provider 重新
+  // 订阅→闪;一帧 inflate 上百 element→卡;transcript 按新宽重排→阅读位置飞掉)。故守卫**数挂载次数**:
+  // 一棵活过切换的子树,只挂载一次。
+
+  testWidgets('RI: toggling the islands NEVER remounts the ocean or the inspector', (
+    tester,
+  ) async {
+    // NARROW on purpose: the freeze gate only arms when the ocean is under the reflow floor (768), which is
+    // why the user saw the ocean jump in a window and not in fullscreen. A wide-window-only guard would
+    // have declared 病灶④ fixed while it was untouched.
+    // **刻意用窄窗**:冻结闸只在海洋低于 reflow 底线(768)时才上膛,这正是用户「窗口化才跳、全屏不跳」的原因。
+    // 只在宽窗验的守卫会宣布病灶④已修,而它根本没被碰过。
+    tester.view.physicalSize = const Size(1100, 800);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final oceanMounts = _MountCount();
+    final inspectorMounts = _MountCount();
+
+    Widget shell({required bool leftCollapsed, required bool inspectorOpen}) =>
+        wrap(
+          AnShell(
+            sidebar: const Text('Sidebar'),
+            ocean: _CountsMounts(
+              counter: oceanMounts,
+              child: const Text('Ocean'),
+            ),
+            inspector: _CountsMounts(
+              counter: inspectorMounts,
+              child: const Text('Inspector'),
+            ),
+            leftCollapsed: leftCollapsed,
+            inspectorOpen: inspectorOpen,
+          ),
+        );
+
+    await tester.pumpWidget(shell(leftCollapsed: false, inspectorOpen: true));
+    await tester.pumpAndSettle();
+    expect(oceanMounts.value, 1, reason: 'OCEAN initial mount');
+    expect(inspectorMounts.value, 1, reason: 'INSPECTOR initial mount');
+
+    // Close the inspector, half-way and then fully — the freeze gate arms and disarms across this.
+    // 关右岛,先中途再到底——冻结闸在这中间上膛又下膛。
+    await tester.pumpWidget(shell(leftCollapsed: false, inspectorOpen: false));
+    await tester.pump(const Duration(milliseconds: 120));
+    await tester.pumpAndSettle();
+
+    // Re-open it. 再开回来。
+    await tester.pumpWidget(shell(leftCollapsed: false, inspectorOpen: true));
+    await tester.pumpAndSettle();
+
+    // And the left island, both ways. 左岛也来回一趟。
+    await tester.pumpWidget(shell(leftCollapsed: true, inspectorOpen: true));
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(shell(leftCollapsed: false, inspectorOpen: true));
+    await tester.pumpAndSettle();
+
+    expect(
+      oceanMounts.value,
+      1,
+      reason:
+          'the ocean was rebuilt — a wrapper is being added/removed around it (RI 病灶④)',
+    );
+    expect(
+      inspectorMounts.value,
+      1,
+      reason:
+          'the inspector was rebuilt — a wrapper is being added/removed around it, or its subtree is '
+          'dropped when closed (RI 病灶①/③)',
+    );
+  });
+}
+
+/// A mutable counter the probe writes its mount count into. 探针写入挂载次数的可变计数器。
+class _MountCount {
+  int value = 0;
+}
+
+/// Counts how many times it is MOUNTED (not built). A subtree that keeps its element identity across a
+/// toggle mounts exactly once; a remount is the defect, and it is invisible to any layout assertion.
+/// 数**挂载**(非重建)次数。跨切换保住 element 身份的子树只挂载一次;重挂才是缺陷,而它对任何布局断言都隐形。
+class _CountsMounts extends StatefulWidget {
+  const _CountsMounts({required this.counter, required this.child});
+
+  final _MountCount counter;
+  final Widget child;
+
+  @override
+  State<_CountsMounts> createState() => _CountsMountsState();
+}
+
+class _CountsMountsState extends State<_CountsMounts> {
+  @override
+  void initState() {
+    super.initState();
+    widget.counter.value += 1;
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }

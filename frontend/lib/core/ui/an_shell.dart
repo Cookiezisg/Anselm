@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
+import '../perf/frame_safe.dart';
 import 'an_button.dart';
 import 'an_expand_reveal.dart';
 import 'an_island.dart';
@@ -177,12 +178,32 @@ class _AnShellState extends State<AnShell> {
         rightWidth: old.rightWidth,
       );
     }
+    // Arm the gate in the same frame the toggle lands, rather than relying on the child's slide-start
+    // report (which, arriving mid-build, can only take effect a frame later).
+    //
+    // MEASURED, because the ticket claimed otherwise: the late arming does NOT leak a relayout. On the flip
+    // frame the child's controller has not ticked yet, so the ocean's width is unchanged and nothing
+    // relayouts; the gate is armed by the first frame where the width actually moves. Removing the
+    // arming again leaves every S11 test green — so this is not a fix, it is the invariant stated in the
+    // code instead of being an accident of when the controller happens to tick. The ticket's "the first
+    // frame is unfrozen and the last is already thawed, both ends leak" is wrong on both ends: a late
+    // DISARM is harmless too (one extra frame pinned at the TARGET width, which is the final width).
+    //
+    // 在**切换落地的同一帧**上膛,而不依赖子件报告滑动开始(那份报告在 build 中途抵达,最早只能下一帧生效)。
+    //
+    // **实测过,因为工单的判断与此相反**:晚一帧上膛**不会**漏出 relayout。翻转那一帧子件的控制器尚未走动,海洋
+    // 宽度没变、无处 relayout;而在宽度真正开始移动的第一帧,闸已经上膛。把这两行删掉,S11 全部测试依然绿——
+    // 所以这不是一个修复,而是把不变量**写进代码**,不再让它是「控制器恰好何时走动」的副产品。工单那句「首帧未冻、
+    // 末帧已解,两端都露」两端都不成立:晚一帧**下膛**同样无害(多冻一帧在**终态宽**上,而那就是最终宽度)。
+    if (old.leftCollapsed != widget.leftCollapsed) _leftAnimating = true;
+    if (old.inspectorOpen != widget.inspectorOpen) _rightAnimating = true;
   }
 
-  // Reveal status arrives synchronously from a child's didUpdateWidget (mid-build) — defer a frame.
-  // 状态从子的 didUpdateWidget 同步到达(build 中)——推迟一帧。
+  // The SETTLE only (see didUpdateWidget for the arming). It arrives synchronously from a child's
+  // didUpdateWidget, i.e. mid-build, so it must not dirty the shell in place.
+  // 只走**落定**(上膛见 didUpdateWidget)。它从子件的 didUpdateWidget 同步到达,即 build 中途,故不可就地弄脏壳。
   void _setAnimating({required bool left, required bool value}) {
-    WidgetsBinding.instance.addPostFrameCallback((_) {
+    runFrameSafe(() {
       if (!mounted) return;
       if ((left ? _leftAnimating : _rightAnimating) == value) return;
       setState(() => left ? _leftAnimating = value : _rightAnimating = value);
@@ -269,24 +290,42 @@ class _AnShellState extends State<AnShell> {
               onToggleRight: widget.onToggleRight,
               rightActivity: widget.rightActivity,
             );
-            if (freeze) {
-              // Lay the ocean out ONCE at its TARGET width; the sliding island covers/reveals the
-              // clipped edge. A left-island slide pins the ocean to its END edge (the LEFT edge is
-              // the moving one), a right-island slide pins to START. On the animation's last frame
-              // the freeze lifts and the Expanded width equals the pinned width — zero jump.
-              // 终态宽一次排版,滑动的岛盖/揭被裁边。左岛动画钉尾缘(左缘在动),右岛动画钉首缘;
-              // 末帧解冻时 Expanded 宽=钉宽,零跳变。
-              oceanHost = ClipRect(
-                child: OverflowBox(
-                  alignment: _leftAnimating && !_rightAnimating
-                      ? AlignmentDirectional.centerEnd
-                      : AlignmentDirectional.centerStart,
-                  minWidth: targetOceanW,
-                  maxWidth: targetOceanW,
-                  child: oceanHost,
-                ),
-              );
-            }
+            // Lay the ocean out ONCE at its TARGET width while an island slides; the island covers or
+            // reveals the clipped edge. A left-island slide pins the ocean to its END edge (the LEFT edge
+            // is the moving one), a right-island slide pins to START.
+            //
+            // The clip and the overflow box are UNCONDITIONAL and the freeze is expressed in their
+            // PARAMETERS — the same idiom the right island already uses for its shadow
+            // (`clipper: cond ? const _UnclippedRect() : null`). Adding and removing these two wrappers
+            // instead, which is how this was written, changed the ocean slot's runtimeType twice per
+            // toggle and so REBUILT THE WHOLE OCEAN twice — the gate opening once and closing once. With
+            // a chat transcript (variable-height items addressed by a pixel offset) a rebuild at a new
+            // width re-shapes every paragraph, so the same offset then points at a completely different
+            // message: the user's "the ocean jumps twice, very obviously", captured frame by frame on
+            // their machine. The cruellest part is that this gate exists to make narrow-window toggles
+            // SMOOTHER, and it was the sole cause of the jitter there.
+            //
+            // 岛滑动时海洋按**终态宽**一次排版,由岛盖住/揭开被裁的边。左岛滑动钉尾缘(左缘在动),右岛钉首缘。
+            //
+            // 裁切与溢出框**无条件**恒在,冻结只体现在它们的**参数**里——与右岛为阴影所用的同一范式
+            // (`clipper: cond ? const _UnclippedRect() : null`)。原写法是把这两层包装加上去、再摘下来,
+            // 于是每次切换让海洋 slot 的 runtimeType 变两次、**整棵海洋重建两次**(闸开一次、闸闭一次)。而
+            // chat transcript 是变高条目 + 像素偏移寻址,按新宽重建会 re-shape 每个段落,同一偏移随后指向的
+            // 已是完全不同的消息:这就是用户那句「海洋明显跳两下」,并已在他机器上逐帧截证。最刺的是,这道闸
+            // 本就是为了让窄窗切换**更顺滑**而建,而它是窄窗抖动的唯一成因。
+            oceanHost = ClipRect(
+              clipper: freeze ? null : const _UnclippedRect(),
+              child: OverflowBox(
+                alignment: _leftAnimating && !_rightAnimating
+                    ? AlignmentDirectional.centerEnd
+                    : AlignmentDirectional.centerStart,
+                // null → pass the incoming constraints straight through, i.e. no pinning at all.
+                // null → 原样透传入约束,即完全不钉。
+                minWidth: freeze ? targetOceanW : null,
+                maxWidth: freeze ? targetOceanW : null,
+                child: oceanHost,
+              ),
+            );
 
             return Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -653,8 +692,17 @@ class _LeftRevealState extends State<_LeftReveal>
       animation: _ctl,
       builder: (context, _) {
         final t = _ctl.value;
-        // fully collapsed: take no space 全收:不占位
-        if (t == 0) return const SizedBox.shrink();
+        // Fully collapsed: take no space, but stay MOUNTED. Returning SizedBox.shrink() here — which is
+        // what this did — destroys the island's whole subtree, so re-opening pays a from-scratch inflate
+        // plus every provider inside re-subscribing and re-fetching. That is the flicker, and on the right
+        // island, which opens and closes on every selection and every auto-reveal, it is the whole of the
+        // felt cost. Offstage keeps the subtree and its state while skipping BOTH layout and paint, and it
+        // drops out of semantics on its own — so nothing is paid for a closed island beyond the memory it
+        // already occupies, and re-opening is a layout, not a rebirth.
+        // 全收:不占位,但**保持挂载**。原写法在这里返回 SizedBox.shrink(),那会销毁整棵岛子树,于是重开要付
+        // 一次从零 inflate,外加其中每个 provider 重新订阅与取数。这就是那个「闪」;而右岛每次选中、每次自动
+        // 揭示都开合一遍,这份代价就是它全部的体感来源。Offstage 保住子树与其状态,同时跳过**布局与绘制**,
+        // 且自行退出语义树——于是关着的岛除了本就占的内存不再付任何代价,重开是一次布局、而不是一次重生。
         final fullyOpen = t >= 1.0;
         final island = SizedBox(
           width: _w * t,
@@ -669,22 +717,25 @@ class _LeftRevealState extends State<_LeftReveal>
             ),
           ),
         );
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            island,
-            // Grip + 8px gap: draggable only at full open; just an animating gap while sliding. grip+间距。
-            SizedBox(
-              width: AnSize.shellGap * t,
-              child: fullyOpen
-                  ? _Grip(
-                      key: const ValueKey('anShellLeftGrip'),
-                      onDrag: _onDrag,
-                      onDragEnd: _onDragEnd,
-                    )
-                  : null,
-            ),
-          ],
+        return Offstage(
+          offstage: t == 0,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              island,
+              // Grip + 8px gap: draggable only at full open; just an animating gap while sliding. grip+间距。
+              SizedBox(
+                width: AnSize.shellGap * t,
+                child: fullyOpen
+                    ? _Grip(
+                        key: const ValueKey('anShellLeftGrip'),
+                        onDrag: _onDrag,
+                        onDragEnd: _onDragEnd,
+                      )
+                    : null,
+              ),
+            ],
+          ),
         );
       },
     );
@@ -777,20 +828,35 @@ class _RightRevealState extends State<_RightReveal>
   Widget build(BuildContext context) {
     // A ceiling that shrank below the resting width (window resize) squeezes honestly. 上限收窄如实挤。
     final w = _w.clamp(AnSize.rightIslandMin, widget.maxWidth);
+    // All three layers stay MOUNTED and only their booleans flip. Written the obvious way —
+    // `open ? child : ExcludeFocus(...)` — the slot's runtimeType changes on every toggle, so
+    // `Widget.canUpdate` says no and the ENTIRE inspector unmounts and re-inflates: in BOTH directions.
+    // That is what the user saw as "the right island flickers and stutters while the left one is silky":
+    // a heavy subtree torn down and rebuilt on the animation's first frame, its providers re-subscribing
+    // and re-fetching (the flicker) while a hundred elements inflate in one frame (the stutter). The left
+    // island never wrapped its child conditionally, which is the whole of the asymmetry.
+    // 三层恒挂,只翻布尔。按显然的写法(`open ? child : ExcludeFocus(...)`),slot 的 runtimeType 每次切换
+    // 都变,`Widget.canUpdate` 判否,于是**整棵 inspector 卸载重挂——开、关两个方向都是**。这正是用户看到的
+    // 「左岛丝滑、右岛闪+卡」:动画第一帧里一棵重子树被拆掉重建,其 provider 重新订阅取数(闪),同一帧
+    // inflate 上百个 element(卡)。左岛从来没有对 child 做条件包装——这就是全部的不对称。
     final island = AnIsland(
-      child: widget.open
-          ? widget.child
-          : ExcludeFocus(
-              child: ExcludeSemantics(
-                child: IgnorePointer(child: widget.child),
-              ),
-            ),
+      child: ExcludeFocus(
+        excluding: !widget.open,
+        child: ExcludeSemantics(
+          excluding: !widget.open,
+          child: IgnorePointer(ignoring: !widget.open, child: widget.child),
+        ),
+      ),
     );
     return AnimatedBuilder(
       animation: _ctl,
       builder: (context, _) {
         final t = _ctl.value;
-        if (t == 0) return const SizedBox.shrink();
+        // Fully collapsed: take no space, but stay MOUNTED — see the left island's note. This side is where
+        // it matters: the right island opens and closes on every selection and every auto-reveal, so a
+        // subtree destroyed at t == 0 is a from-scratch inflate plus a provider re-subscribe/re-fetch,
+        // several times a minute. 全收:不占位但**保持挂载**——理由见左岛处注释。这一侧才是要害:右岛每次
+        // 选中、每次自动揭示都开合一遍,t == 0 时销毁子树就意味着每分钟数次的从零 inflate + provider 重订阅取数。
         final fullyOpen = t >= 1.0;
         final slot = SizedBox(
           width: w * t,
@@ -801,25 +867,28 @@ class _RightRevealState extends State<_RightReveal>
             child: SizedBox(width: w, child: island),
           ),
         );
-        return Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // The gap doubles as the width grip (mirrors the left island's grammar). 间隙即把手。
-            SizedBox(
-              width: AnSize.shellGap * t,
-              child: fullyOpen && widget.onWidthCommitted != null
-                  ? _Grip(
-                      key: const ValueKey('anShellRightGrip'),
-                      onDrag: _onDrag,
-                      onDragEnd: _onDragEnd,
-                    )
-                  : null,
-            ),
-            ClipRect(
-              clipper: fullyOpen ? const _UnclippedRect() : null,
-              child: slot,
-            ),
-          ],
+        return Offstage(
+          offstage: t == 0,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // The gap doubles as the width grip (mirrors the left island's grammar). 间隙即把手。
+              SizedBox(
+                width: AnSize.shellGap * t,
+                child: fullyOpen && widget.onWidthCommitted != null
+                    ? _Grip(
+                        key: const ValueKey('anShellRightGrip'),
+                        onDrag: _onDrag,
+                        onDragEnd: _onDragEnd,
+                      )
+                    : null,
+              ),
+              ClipRect(
+                clipper: fullyOpen ? const _UnclippedRect() : null,
+                child: slot,
+              ),
+            ],
+          ),
         );
       },
     );
