@@ -11,6 +11,11 @@ audience: [human, ai]
 
 # 0011 — 受管路由的媒体引用契约:网关必须消费自家签发的 lease
 
+> **⚠️ 部分被取代**:本篇的**上游那半**(网关用 `MEDIA_PUBLIC_BASE_URL` 把引用绝对化、交 provider 回拉)已由
+> [ADR 0012](0012-gateway-media-inline-upstream.md) 取代为**内联转发**——上游拉取器在其边缘按主机拒绝本网关,
+> 线上判别实验实证。**入站那半仍是现行法且不可动摇**:桌面端→网关只接受**相对形** lease 引用,凡带 scheme/host
+> 一律拒(那条形状约束本身就是 SSRF 的对策,见下文条目 2)。读本篇时请连 0012 一起读。
+
 ## 背景 / Context
 
 WRK-078 的 M1 目标是「聊天请求退出大 base64 时代」。规范 §6.1 第 3 条写明:**completion 只引用网关签发的 handle**。

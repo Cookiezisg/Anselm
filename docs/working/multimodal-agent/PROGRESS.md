@@ -24,10 +24,16 @@ landed-into:
 |---|---|---|
 | **A** | 收掉 audio playback lease 片 | ✅ **完成**(`623c3746`,已推送) |
 | **B** | 跨两仓审计(跨仓契约 / §13 测试矩阵 / §3.3 不变量守卫) | ✅ **完成**(三路 + 主会话亲验,结论见下) |
-| **C** | 按发现分批修 | 🔨 进行中(C-1 ✅ · C-2 3/4 ✅ · **C-3 阻断1 ✅ 两仓已修并推送** · C-4 ADR 0011 ✅ · C-5 #10 脱敏底座 ✅ · 高危两条待做) |
-| **D** | 收口 | 🔨 部分(§15 订正 ✅ · ADR 0011 ✅ · 台账持续 ✅ · **CLAUDE 重述 / landed-into / 归档刻意未做**——见下) |
-| **E** | 真机端到端验收 + 指南 | 🔨 部分(指南 ✅ · **真机跑通一个完整回合并截图 ✅** · A 类完整验收待重建 app;三条新发现见下) |
-| **F** | WRK-077 十七步(见 `working/frontend/chat-iteration.md` §7) | ⏳ 待 E |
+| **C** | 按发现分批修 | ✅ **完成**(审计发现清零 `c7988b0a`;此后真机又抓出**五个新缺陷**,同样一批一提交修掉——见下「真机反哺」段) |
+| **D** | 收口 | ✅ **完成**(§15 订正 ✅ · ADR 0011 ✅ + **0012** ✅ · 台账 ✅ · **CLAUDE.md 后端节重述** ✅ · **GOVERNANCE 补「部分取代」规则** ✅ · 归档见下) |
+| **E** | 真机端到端验收 + 指南 | ✅ **A 类跑完并回填指南**(A1 图片 ✅ / A2 HEIC ✅ / A5 麦克风 ✅ / A3 卡片与回合 ✅、手感移 C4 / **A4 长对话未跑**——最烧配额,留专场);B 类需密钥预算、C 类只有用户能做,均已成册 |
+| **F** | WRK-077 十七步(见 `working/frontend/chat-iteration.md` §7) | ✅ **17/17 全部收口**,含 ⓪ @ 提及**真机全链验通**(嫌疑②③ 排除) |
+
+**归档裁决(D)**:两册**都不归档**,且理由不同——
+- `chat-iteration.md`(WRK-077):代码 17/17 完成,但本册自订的归档闸是「真机验收过一遍」,而余下的是一批**只有人能判的视觉观感项**(截图/空表破折号/窄窗漂移/时间戳是否可选/极长路径截断)。已全部收拢进 `ACCEPTANCE-GUIDE.md` **C5**,闸已写精确。
+- `multimodal-agent/`(WRK-078,即本册与指南):`ACCEPTANCE-GUIDE.md` 是**活清单**——A4 未跑、B 类待密钥预算、C 类待用户。把一份还有待办的清单移进只读墓地,等于把待办藏起来。
+
+**这正是 `landed-into` 该空着的情形**:结论**已经**提取到常驻文档(CLAUDE.md 后端节 / `references/backend/{api,domains/support-services,domains/attachment}.md` / `references/frontend/{architecture,design-system}.md` / ADR 0011+0012 / GOVERNANCE),但**册子本身还在服役**。填 `landed-into` 是归档动作的一部分,不是「提取完就填」。
 
 ---
 
@@ -868,3 +874,19 @@ GET /api/v1/conversations/workdir-groups → 404   ← 旧二进制没这条路�
 关 app 时日志尾巴:`Concurrent modification during iteration: _Map len:0` @ `SseGateway.dispose`。
 **根因**:每个懒建 demux controller 注册时带 `onCancel: () => registry.remove(key)`,而 `dispose()` **边遍历同一个 map 边 close**——close 终止订阅、onCancel 开火、表项在迭代器脚下消失。每次退出与每次 **workspace 切换**(同一条 dispose 路径)都会撞上,只因 zone handler 在退出路上吃掉它才一直没人看见。
 **修**:先快照两张表、先 clear 再关。回归测试**反证过**:带病版编译干净、且以真实的 `Concurrent modification during iteration: _Map len:3` 失败(第一次反证是我自己拼坏了代码、只证明了「编译不过」,重做才算数)。
+
+---
+
+## 真机反哺(0725 深夜)—— 门禁全绿之后才现身的五个缺陷
+
+两仓 `make verify` / `go test` / testend 全绿、审计发现清零之后,**第一次真正把 app 跑起来**,抓出五个真缺陷。它们的共同点:**都在 mock 与 fake 覆盖不到的接缝上**。
+
+| # | 缺陷 | 为什么门禁看不见 |
+|---|---|---|
+| 1 | 受管 install 在网关侧消失后**产品内无恢复路径**(永久 401 死结) | 需要「网关库被清」这个真实历史事件 |
+| 2 | 媒体上游运输形态错(provider 拒绝回拉本网关公开主机) | 需要真 provider 的**边缘策略**,任何 mock 都会老实拉 |
+| 3 | 日志中间件缺 `Hijacker` 转发 → **一切 WebSocket 路由**裸 500 且零日志 | 单测直接调 handler,不经中间件栈 |
+| 4 | `SseGateway.dispose` 并发修改 → **每次退出与每次切工作区**都抛异常 | 退出路径无人断言,且 zone handler 把它吃掉了 |
+| 5 | 上游 4xx 与 ASR 握手失败**零日志**(可诊断性) | 缺陷是「没有输出」,没有测试会断言一条不存在的日志 |
+
+五条各自一提交、文档同提交、门禁绿,且**每条都配了反证过的回归测试**(带病版编译干净且真红)。#3 与 #4 顺带立了两条法:**包装转发律**(recorder 挡在每条路由前,没转发的接口=从整个 API 面被静默剥掉)与 **dispose 先快照再关**(懒建 controller 的 `onCancel` 会在迭代器脚下改集合)。

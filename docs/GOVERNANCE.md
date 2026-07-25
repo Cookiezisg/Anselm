@@ -135,6 +135,8 @@ draft → active → superseded → archived
 
 `decision` 不走「superseded→改」——ADR 不可变，被推翻时**新建**一篇 ADR 并把旧篇 `status` 置 `superseded`、`superseded-by` 指向新篇。
 
+**部分取代**(0725 补:ADR 0012 只推翻了 0011 的上游那半,入站那半仍是现行法):旧篇 `status` **保持 `active`**——把仍在生效的法条标成 superseded 是让文档撒谎,而 `superseded-by` 会诱导读者整篇跳过。做法是在旧篇标题下加一段**前向指针**,写明**哪一半被谁取代、哪一半仍然有效**;新篇同样写明它 supersede 的是哪一半。加前向指针是**补元数据**、不是改决定,不违反 ADR 不可变——不可变禁的是「回头把当初的判断改成后来的判断」。
+
 ---
 
 ## 7. 同步触发表（★ doc-code parity 的执行点）
