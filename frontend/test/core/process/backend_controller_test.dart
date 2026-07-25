@@ -357,6 +357,11 @@ void main() {
       'http://127.0.0.1.evil.example', // suffix trick 后缀障眼法
       'http://169.254.169.254', // cloud metadata 云元数据
       'http://0.0.0.0:8080', // binds everywhere, not loopback 全绑定,非环回
+      // A malformed IPv6 literal: the bracket closes and then junk follows. Uri.parse tolerates it and
+      // yields a host that is NOT '::1', so a whitelist that compared loosely would let it through.
+      // 畸形 IPv6 字面量:方括号闭合后还跟着垃圾。Uri.parse 容忍它、解出的 host 并**不是** '::1',故一个
+      // 比较得松的白名单会放它过去。
+      'http://[::1]x',
       'ftp://localhost',
       'localhost:8080', // no scheme 无 scheme
       '',
