@@ -127,20 +127,24 @@ void main() {
     }
 
     test(
-      'setActive re-derives active flags IN PLACE + preserves the selected row',
+      'setActive re-derives active flags IN PLACE + leaves the open cards open',
       () async {
         final c = await ready(_repo());
         final n = c.read(versionListProvider(_ref).notifier);
-        // Select the older v1 (index 1) then activate it — selection must NOT snap back to newest.
-        n.select(1);
-        expect(c.read(versionListProvider(_ref)).value!.selectedIndex, 1);
+        // Open the older v1's card, then activate v1 from its ⋯ menu — the reader's open card must NOT
+        // be swept away (WRK-077 VT: the accordion's open set replaced the old single selected index;
+        // the property under test is the same one — a set-active reconciles IN PLACE and never
+        // re-pages). 展开更旧的 v1 再设为活跃:已展开的卡不许被扫掉(开合集取代了旧的单一选中下标,被测性质
+        // 不变:就地重算、绝不重取)。
+        n.toggleExpanded(1);
+        expect(c.read(versionListProvider(_ref)).value!.expanded, {2, 1});
 
         await n.setActive(1);
         final st = c.read(versionListProvider(_ref)).value!;
         expect(
-          st.selectedIndex,
-          1,
-          reason: 'selection preserved, not reset to 0',
+          st.expanded,
+          {2, 1},
+          reason: 'open cards preserved, not reset to the fresh-page default',
         );
         expect(st.versions.firstWhere((r) => r.version == 1).active, isTrue);
         expect(st.versions.firstWhere((r) => r.version == 2).active, isFalse);

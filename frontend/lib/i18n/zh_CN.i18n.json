@@ -1119,7 +1119,12 @@
   },
   "diff": {
     "added": "新增",
-    "removed": "删除"
+    "removed": "删除",
+    "folded": "… 省略 $n 行",
+    "showAll": "展开全部($n 行)",
+    "onlyChanges": "只显变更",
+    "show": "展开 diff",
+    "hide": "收起 diff"
   },
   "tree": {
     "invalidJson": "无效 JSON",

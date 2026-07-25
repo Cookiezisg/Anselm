@@ -557,6 +557,22 @@ Flutter 团队在 issue #141151 明确:手势竞技场里**更深者赢**,`Selec
 
 **验收**:窄窗下代码不再横向被砍;逐行展开/收起动效与侧幕一致;展开集跨滚动虚拟化保持(粘性);「展开全部」后长文件不掉帧(带 profile);五电池(空/单版本/超长行/百版本/极端 diff);真机截图。
 
+→ **已施工(0725,施工序⑨)。派 Sonnet 5 建、主会话复审 + 跑门禁。逐条对照本节:**
+
+**做到的**:①全宽手风琴(`Row(Expanded|Expanded)` 对切**物理删除**,一版一行 `AnRow(collapsible:true)` + `AnExpandReveal.builder` 就地展开,lead 常驻 chevron、`selected: open`)②行上信息给足(版本号 mono · 时间 · 说明 · 结构摘要 → hint;**+N −N** → trail meta;活动标记 → trail 常驻点;hover ⋯ 菜单)③**hunk 只显变更**(新 `unchangedGaps` 纯函数,上下文 **3**=`diff -U3`/git 默认,省略段可点、单行不折、全无变更不折)④**虚拟化**(行改 sliver:非 wrap `SliverFixedExtentList`[一次量出的行盒]、wrap `SliverList`;`shrinkWrap` 按 LayoutBuilder 真给的高判——装得下贴自身高、高过钳高转惰性;**逐行 `IntrinsicWidth` 物理删除**,横向宽=等宽字符宽×最长渲染行一次算出;LCS 按 (before,after,live) 记忆化,翻 wrap/展 gap 不重跑)⑤**默认开 wrap**(新 `wrap` 参数,与 `AnCodeEditor.wrap` 同契约)⑥「展开全部 (N 行)」逃生行(`onHunksChanged` 受控手,模式住 `VersionListState`,⋯ 菜单是第二入口、同一真相)⑦「设为活跃版本」从 diff 下 footer 钮**搬进 ⋯ 菜单**(零后端改动)。两个开合集按**版本号**记键、外置于 widget(侧幕纪律);打开 tab 即展开最新版本。
+
+**三处与本节措辞不同,逐条给理由:**
+
+**一、活动版本标记落成 trail 的常驻状态点、不是 chip。** 本节拍板写「活动版本标记自然走 trail(chip)」——但 `AnRow` 的 trail 只有三个槽:`meta`(String)、`actions`(**hover 才揭示**)、`trailingDot`(`AnStatus`,常驻)。chip 是 widget,只能进 `actions`,而那会让活动标记在静息态消失(等于没有标记);给 `AnRow` 加一个 chip 槽是改原语,本批禁区明写「新建的只有 AnVersionDiff 的 hunk 模式与虚拟化」。故取 `trailingDot`——**拍板的实质(lead 归 chevron、标记移到 trail、不跟 AnRow 较劲)全部落地**,只是形态是点而非 chip。
+
+**二、`+N −N` 在 provider 取数时按页算一次,不在 build 里算。** 行上要显计数就得跑 LCS;放 build 则每次手风琴 toggle 都替 20 行重跑。落法:`VersionRow.added/removed`(可空)在 `_fetch` 后按页算一次(源相同直接跳过),与 `summary` 同一处、同一「页边界行无值」诚实降级。**null 不渲**,绝不显撒谎的 `+0 −0`。
+
+**三、⑥ 的「按钮」落成卡下整宽逃生行 + ⋯ 菜单项两处,没有动 diff 的 bar。** bar 与 `AnCodeEditor` 同构是 WRK-066 拍板,不为本批加第三枚钮;逃生行走套件既有展开全部文法(`AnFadeCollapse` 开关行 / `AnLedgerList` 逃生行同形)。本节表里「`AnFadeCollapse`」那一格只被借用**文法与 i18n 语气**(`Show all (N lines)`),没有真包一层 `AnFadeCollapse`——它只钳高度、不换内容,物理上做不出「hunk ↔ 整份」。
+
+**`lineDiff` 实测降级点(真跑,非推测)**:`(m+1)(n+1)>4M`≈**2000×2000 行**处翻闸;闸下最坏一档 1998×1998(恰 4,000,000 cell)真跑 LCS **25ms**(1500→18ms / 1000→6ms / 500→2ms),闸上**0ms**(整段替换,全删+全增)。结论:过闸前最坏丢一帧、绝不卡死,**不换 Myers**。附带发现:退化后 3000×3000 是 6002 行**零上下文**——hunk 无可折,**只剩虚拟化**挡在读者与 6002 个 widget 之间(已入五电池测)。
+
+**顺手修的真 bug**:行号列在亚像素差一点点时会把 `18` 折成两行、行高翻倍(等高档下更是直接打破「每行一行」前提)——行号/符号列补 `maxLines:1, softWrap:false`,列宽向上取整。
+
 ## §5.12 EA 批 · 实体 rail 每行 ⋯ 动作菜单(0723 用户提)
 
 > 用户:「实体这些,每个实体右侧要加 ⋯ 功能,就像其他的一样,里面放对应的很多快捷功能。例如删除、激活什么的,**根据每个自己来定**。」
@@ -797,7 +813,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⑥ | ~~TS 文本选择~~ **已完成 0725**(红线/拓扑/焦点/光标/chrome 排除/流式互斥六项;必补③并入 CH-a、装饰性元数据留真机后定,见 §5.10) | 主会话(未派——排除清单被拓扑砍掉大半后不值一次简报) |
 | ⑦ | ~~CH-a 动作排+复制+排队~~ **已完成 0725**(动作排+复制见 §3.2 记录;排队见 §3.4 记录,含 open question④ 裁定) | 主会话 |
 | ⑧ | CH-b fork / CH-c retry(前后端) | 主会话 |
-| ⑨ | VT 版本页 | 混合:diff hunk+虚拟化 主会话;页面组装 派 Opus 5(脸面页,品味权重高) |
+| ⑨ | ~~VT 版本页~~ **已完成 0725**(全宽手风琴 + hunk 只显变更 + 真虚拟化;三处偏离工单措辞已入档;降级曲线主会话复跑复现) | 派 Opus 5 ✅ |
 | ⑩ | ~~EA 实体 ⋯ 菜单~~ **已完成 0725**(七 kind 菜单 + 6 个 repository 封装;**纠正本节四处**〔restart 早已封装 / iterate 非无参 / 立即运行须导航〔唯一执行点立法〕/ 调试台=右岛而非 tab〕+ 查实删除无引用守卫,见 §5.12) | 派 Sonnet 5 ✅ |
 | ⑪ | ~~SK 密钥分栏~~ **已完成 0725**(派 Sonnet 5 建、主会话逐行复审并改了一处 + 跑门禁;记录见 §5.6) | 派 Sonnet 5 ✅ |
 | ⑫ | ~~ES 空态退役 ×13~~ **已完成 0725**(A 类 6 + 错误态 1〔本节分类有误已纠〕+ B 类 6;`insetEmpty` 已删;**B 类只有引导没有动作——创建入口不存在**,见 §5.8) | 派 Sonnet 5 ✅ |

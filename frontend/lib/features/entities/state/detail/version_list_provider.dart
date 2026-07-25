@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/model/code_diff.dart';
 import '../../../../core/state/keyset_paging.dart';
 import '../../data/entity_format.dart';
 import '../../data/entity_kind.dart';
@@ -31,6 +32,11 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
       versions: page.rows,
       nextCursor: page.next,
       hasMore: page.more,
+      // The NEWEST version opens with the tab: «what changed last» is the question the tab exists to
+      // answer, and an all-collapsed first paint would answer nothing (首屏自我解释). Every other row
+      // is the reader's own click. 最新版本随 tab 打开(本 tab 存在的意义就是回答「最近改了什么」,全收起
+      // 的首屏什么也没回答);其余行归读者自己点。
+      expanded: page.rows.isEmpty ? const <int>{} : {page.rows.first.version},
     );
   }
 
@@ -67,10 +73,11 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
   );
 
   /// `POST :revert` — move the entity's active pointer to [version], then reconcile detail + the
-  /// active flags IN PLACE (no self-invalidation → the user's selected row is preserved, not snapped
-  /// back to newest). Re-entry guarded + pending-flagged via [VersionListState.activatingVersion];
-  /// throws on failure (caller toasts) after clearing the flag. 移 active 指针 → 就地重算 active 标记
-  /// (不 invalidateSelf,选区不回弹到最新);防重入 + pending 标记;失败清标记后上抛(调用方 toast)。
+  /// active flags IN PLACE (no self-invalidation → the reader's open cards stay open, and the list is
+  /// not snapped back to a fresh page). Re-entry guarded + pending-flagged via
+  /// [VersionListState.activatingVersion]; throws on failure (caller toasts) after clearing the flag.
+  /// 移 active 指针 → 就地重算 active 标记(不 invalidateSelf,已展开的卡不被合上、列表不回弹);防重入 +
+  /// pending 标记;失败清标记后上抛(调用方 toast)。
   Future<void> setActive(int version) async {
     final cur = state.value;
     if (cur == null || cur.activatingVersion != null) {
@@ -84,8 +91,8 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
       ); // header badge / hero reconcile from truth
       final now = state.value;
       if (now == null) return;
-      // Re-derive active flags on the loaded rows — no refetch, so selectedIndex + paging survive.
-      // 就地重算 active 标记,不重取,选区与已翻页面保住。
+      // Re-derive active flags on the loaded rows — no refetch, so the open sets + paging survive.
+      // 就地重算 active 标记,不重取,开合集与已翻页面保住。
       state = AsyncData(
         now.copyWith(
           versions: [
@@ -102,15 +109,75 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
     }
   }
 
-  /// Pick the version to show on the diff's `after` side (compared against the next-older loaded row).
-  /// 选 diff 的 after 版本(与下一更旧版本比)。
-  void select(int index) {
+  /// Flip one version's diff card open/closed — the accordion's ONE user path (the row body and its ⋯
+  /// menu both call it). 翻转一行的 diff 卡(行身与 ⋯ 菜单同走此一条)。
+  void toggleExpanded(int version) {
     final cur = state.value;
-    if (cur == null || index < 0 || index >= cur.versions.length) return;
-    state = AsyncData(cur.copyWith(selectedIndex: index));
+    if (cur == null) return;
+    state = AsyncData(
+      cur.copyWith(
+        expanded: cur.expanded.contains(version)
+            ? ({...cur.expanded}..remove(version))
+            : {...cur.expanded, version},
+      ),
+    );
+  }
+
+  /// Show the WHOLE text of [version] instead of the changed hunks (idempotent). Opening the full text
+  /// implies opening the card — the menu entrance must never leave a mode set on a closed row.
+  /// 显整份文本(幂等);展开全部即隐含展开该卡——菜单入口绝不给收起的行留下一个看不见的模式。
+  void setFullSource(int version, bool full) {
+    final cur = state.value;
+    if (cur == null) return;
+    state = AsyncData(
+      cur.copyWith(
+        fullSource: full
+            ? {...cur.fullSource, version}
+            : ({...cur.fullSource}..remove(version)),
+        expanded: full ? {...cur.expanded, version} : cur.expanded,
+      ),
+    );
+  }
+
+  // Line counts per row, computed ONCE per fetched page (never in build — the LCS is real work and a
+  // rebuild-time count would re-run it on every accordion toggle). Each row counts against the next
+  // OLDER loaded row, exactly the pair the row's diff card renders, so the row's «+N −N» and the card's
+  // bar can never disagree. A page-boundary row gets no counts (same degrade as `summary`), and the
+  // earliest version legitimately has none. Identical sources skip the diff outright.
+  // 逐行行计数,按页只算一次(绝不放 build:LCS 是真开销,放 build 则每次手风琴 toggle 都重跑)。每行与
+  // 「下一更旧的已载入行」比——正是该行 diff 卡渲的那一对,故行上计数与卡内 bar 不可能对不上。页边界行无计数
+  // (与 summary 同降级),最早版本本就没有。源相同则直接跳过 diff。
+  List<VersionRow> _withDiffCounts(List<VersionRow> rows) => [
+    for (var i = 0; i < rows.length; i++)
+      if (i + 1 >= rows.length)
+        rows[i]
+      else if (rows[i].src == rows[i + 1].src)
+        rows[i].copyWith(added: 0, removed: 0)
+      else
+        _counted(rows[i], rows[i + 1].src),
+  ];
+
+  VersionRow _counted(VersionRow row, String older) {
+    var added = 0;
+    var removed = 0;
+    for (final line in lineDiff(older, row.src)) {
+      if (line.op == DiffOp.add) {
+        added++;
+      } else if (line.op == DiffOp.del) {
+        removed++;
+      }
+    }
+    return row.copyWith(added: added, removed: removed);
   }
 
   Future<({List<VersionRow> rows, String? next, bool more})> _fetch(
+    String? cursor,
+  ) async {
+    final page = await _fetchRaw(cursor);
+    return (rows: _withDiffCounts(page.rows), next: page.next, more: page.more);
+  }
+
+  Future<({List<VersionRow> rows, String? next, bool more})> _fetchRaw(
     String? cursor,
   ) async {
     final activeId =

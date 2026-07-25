@@ -3373,6 +3373,15 @@ const _diffAfter =
     '    return x + y\n'
     '    # done';
 
+// A LONG body with ONE change in the middle — the hunk-mode specimen needs something to fold (a
+// four-line diff has nothing). 长正文、中间一处变更:hunk 样品得有可折之物(四行 diff 没有)。
+String _hunkBody({required bool changed}) => [
+  for (var i = 1; i <= 40; i++)
+    (i == 20 && changed)
+        ? '    total += weight[$i] * 2  # doubled'
+        : '    total += weight[$i]',
+].join('\n');
+
 final GalleryCategory
 _g5CodeData = GalleryCategory('代码与数据 Code & Data', AnIcons.function, [
   GalleryItem(
@@ -3660,6 +3669,21 @@ _g5CodeData = GalleryCategory('代码与数据 Code & Data', AnIcons.function, [
           after: _diffAfter,
           lang: 'py',
           range: 'v1',
+        ),
+        span: true,
+      ),
+      GallerySpecimen(
+        'hunk 只显变更 (省略段可点) + wrap 默认开',
+        (_) => AnVersionDiff(
+          before: _hunkBody(changed: false),
+          after: _hunkBody(changed: true),
+          lang: 'py',
+          range: 'v7 → v8',
+          reading: true,
+          hunks: true,
+          wrap: true,
+          maxHeight: AnSize.codeViewport,
+          onHunksChanged: (_) {},
         ),
         span: true,
       ),

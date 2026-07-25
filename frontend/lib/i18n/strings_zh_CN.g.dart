@@ -414,6 +414,11 @@ class _Translations$diff$zh_CN extends Translations$diff$en {
 	// Translations
 	@override String get added => '新增';
 	@override String get removed => '删除';
+	@override String folded({required Object n}) => '… 省略 ${n} 行';
+	@override String showAll({required Object n}) => '展开全部(${n} 行)';
+	@override String get onlyChanges => '只显变更';
+	@override String get show => '展开 diff';
+	@override String get hide => '收起 diff';
 }
 
 // Path: tree
@@ -3845,6 +3850,11 @@ extension on TranslationsZhCn {
 			'a11y.relationExpand' => '展开关系图',
 			'diff.added' => '新增',
 			'diff.removed' => '删除',
+			'diff.folded' => ({required Object n}) => '… 省略 ${n} 行',
+			'diff.showAll' => ({required Object n}) => '展开全部(${n} 行)',
+			'diff.onlyChanges' => '只显变更',
+			'diff.show' => '展开 diff',
+			'diff.hide' => '收起 diff',
 			'tree.invalidJson' => '无效 JSON',
 			'tree.circular' => '[循环引用]',
 			'tree.moreItems' => ({required Object count}) => '${count} 项已省略',
@@ -4324,13 +4334,13 @@ extension on TranslationsZhCn {
 			'settings.fontBundled' => '内置',
 			'settings.fontSystem' => '跟随系统',
 			'settings.fontSans' => '无衬线(内置)',
+			_ => null,
+		} ?? switch (path) {
 			'settings.fontSerif' => '衬线',
 			'settings.fontJetBrainsMono' => 'JetBrains Mono',
 			'settings.fontFiraCode' => 'Fira Code',
 			'settings.fontCascadia' => 'Cascadia Code',
 			'settings.fontSystemMono' => '跟随系统等宽',
-			_ => null,
-		} ?? switch (path) {
 			'settings.fontRestartHint' => '重启后生效',
 			'settings.language' => '语言',
 			'settings.languageRow' => '语言',

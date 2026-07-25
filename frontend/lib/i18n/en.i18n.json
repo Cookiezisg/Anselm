@@ -1119,7 +1119,12 @@
   },
   "diff": {
     "added": "Added",
-    "removed": "Removed"
+    "removed": "Removed",
+    "folded": "… $n unchanged lines",
+    "showAll": "Show all ($n lines)",
+    "onlyChanges": "Only changes",
+    "show": "Show diff",
+    "hide": "Hide diff"
   },
   "tree": {
     "invalidJson": "Invalid JSON",

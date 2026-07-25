@@ -670,3 +670,17 @@ A1/A2(媒体)需**网关先部署**;A3(音频播放 seek)与 A5 后半需**重�
 **守卫**:主会话**亲自复验非空绿**——把 `library.filter` 改回 `Search Page`,守卫转红且报错精确到键名与原因;还原即绿。另有反向 sanity 钉住 19 个真·非占位键不被误伤(过严的守卫和漏掉的一样坏),头注释写明它看不见什么。
 
 **顺带查实一个真缺陷**:安装对话框**缺 `Material` 祖先**——`AnInput` 建在 Material 的 `TextField` 上(断言 `debugCheckHasMaterial`),而 `anPanelRoute` 是裸 `RawDialogRoute`;经同一路由的姊妹对话框早已带 `MaterialType.transparency`。已按同一先例修。**用户那张截图是否正是这次失效无从确证**(app 会就地渲报错替身而非崩溃),但缺陷与用户看到什么无关。
+
+### ⑨ VT 实体版本页改全宽手风琴 ✅ 门禁绿(`REAL_EXIT=0`)
+
+派 Opus 5 建(工单定「脸面页、品味权重高」)、主会话逐行复审 + **复跑降级曲线** + 跑门禁。
+
+左右对切**物理删除**,改全宽手风琴(`AnRow(collapsible)` + 行下就地展开);`AnVersionDiff` 新增 hunk「只显变更」模式(上下文 3 行=`git diff` 同值)与**真虚拟化**(非 wrap 走 `SliverFixedExtentList`、wrap 走 `SliverList`;逐行 `IntrinsicWidth` **确已删除**——主会话核实只剩解释它为何被删的注释)。横向宽改为「最长行字符数 × 等宽字符宽」一次算术,复用既有 `text_measure.dart`。
+
+**降级点是真测的,主会话复跑复现**:闸恰在 `(m+1)(n+1)>4M`≈2000×2000 行翻;过闸前最坏 1997 行 35ms(=丢一帧,绝不卡死),闸上 0ms。6002 行退化 diff 在有界卡里**最多挂 17 行**。结论:**不换 Myers**。
+
+**三处偏离工单措辞,都有物理理由且已入档**:①活动版本标记落成 trail 常驻状态点而非 chip——`AnRow` 的 trail 只有 `meta`/`actions`(**hover 才现**)/`trailingDot`(常驻),chip 只能进 `actions`,那会让标记在静息态**消失**;给 AnRow 加 chip 槽 = 改原语,超出本批。拍板实质(lead 归 chevron、标记移 trail、不与 AnRow 较劲)全部落地。②没真包 `AnFadeCollapse`(它只钳高度、换不了内容,做不出「hunk ↔ 整份」),借的是它的文法与语气。③没往 diff bar 加第三枚钮(bar 与 `AnCodeEditor` 同构是 WRK-066 拍板),「展开全部」走卡下逃生行 + ⋯ 菜单两处入口、同一状态。
+
+**顺手修一个真 bug**:行号列在亚像素差时会把 `18` 折成两行、行高翻倍(等高档下直接打破「每行一行」前提)——补 `maxLines:1,softWrap:false` + 列宽向上取整。
+
+**未做**:删除版本(按拍板不做、菜单里没有、无预埋);真机截图(子会话无 GUI);真帧时间线(widget 测拿不到 FrameTiming,改为断言「每帧挂载行数有界」+ 打印墙钟)。

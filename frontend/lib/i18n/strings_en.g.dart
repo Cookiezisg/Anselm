@@ -883,6 +883,21 @@ class Translations$diff$en {
 
 	/// en: 'Removed'
 	String get removed => 'Removed';
+
+	/// en: '… $n unchanged lines'
+	String folded({required Object n}) => '… ${n} unchanged lines';
+
+	/// en: 'Show all ($n lines)'
+	String showAll({required Object n}) => 'Show all (${n} lines)';
+
+	/// en: 'Only changes'
+	String get onlyChanges => 'Only changes';
+
+	/// en: 'Show diff'
+	String get show => 'Show diff';
+
+	/// en: 'Hide diff'
+	String get hide => 'Hide diff';
 }
 
 // Path: tree
@@ -7650,6 +7665,11 @@ extension on Translations {
 			'a11y.relationExpand' => 'Expand relationship graph',
 			'diff.added' => 'Added',
 			'diff.removed' => 'Removed',
+			'diff.folded' => ({required Object n}) => '… ${n} unchanged lines',
+			'diff.showAll' => ({required Object n}) => 'Show all (${n} lines)',
+			'diff.onlyChanges' => 'Only changes',
+			'diff.show' => 'Show diff',
+			'diff.hide' => 'Hide diff',
 			'tree.invalidJson' => 'Invalid JSON',
 			'tree.circular' => '[Circular]',
 			'tree.moreItems' => ({required Object count}) => '${count} more (truncated)',
@@ -8129,13 +8149,13 @@ extension on Translations {
 			'settings.fontBundled' => 'Bundled',
 			'settings.fontSystem' => 'System',
 			'settings.fontSans' => 'Sans (bundled)',
+			_ => null,
+		} ?? switch (path) {
 			'settings.fontSerif' => 'Serif',
 			'settings.fontJetBrainsMono' => 'JetBrains Mono',
 			'settings.fontFiraCode' => 'Fira Code',
 			'settings.fontCascadia' => 'Cascadia Code',
 			'settings.fontSystemMono' => 'System mono',
-			_ => null,
-		} ?? switch (path) {
 			'settings.fontRestartHint' => 'Takes effect after a restart',
 			'settings.language' => 'Language',
 			'settings.languageRow' => 'Language',

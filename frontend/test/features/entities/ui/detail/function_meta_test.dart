@@ -244,7 +244,18 @@ void main() {
     });
   });
 
-  group('version tab — diff pinned, action below', () {
+  // WRK-077 VT rewrote this tab from «left list | right diff» into a full-width accordion, so the two
+  // gates below moved with it: the diff is no longer pinned at the top of a right column (there IS no
+  // column) and «Set active» is no longer a footer button under it (it lives in the row's ⋯ menu). What
+  // still MUST hold — and is what these two assert — is that opening the tab already answers «what
+  // changed last» with exactly ONE card, and that a version's card opens BELOW its own row, so nothing
+  // above the tapped row ever moves. The accordion's own behaviour (five batteries, hunks, the ⋯ menu,
+  // sticky opens) lives in version_tab_test.dart.
+  // VT 批把本 tab 从「左列表|右 diff」改成全宽手风琴,故这两道闸随之搬家:diff 不再钉在右列顶(已无右列)、
+  // 「设为活跃版本」不再是它下面的 footer 钮(已进行内 ⋯ 菜单)。仍必须成立、也正是这两测断言的:打开 tab 即以
+  // **恰一张**卡回答「最近改了什么」;某版本的卡在**它自己那行下面**展开,故被点行以上的一切不动。手风琴自身
+  // 行为(五电池/hunk/⋯ 菜单/粘性)在 version_tab_test.dart。
+  group('version tab — the newest card opens in place, below its own row', () {
     Future<void> pump(WidgetTester tester, FixtureEntityRepository repo) async {
       final container = ProviderContainer(
         overrides: [entityRepositoryProvider.overrideWithValue(repo)],
@@ -270,28 +281,32 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('active version selected → diff shows, no set-active button', (
-      tester,
-    ) async {
-      await pump(tester, _repo()); // v2 active, index 0 default
-      expect(find.byType(AnVersionDiff), findsOneWidget);
-      expect(find.text('Set active'), findsNothing);
-    });
+    testWidgets(
+      'newest version opens with the tab → exactly one card, no stray set-active button',
+      (tester) async {
+        await pump(tester, _repo()); // v2 active + newest → its card is open
+        expect(find.byType(AnVersionDiff), findsOneWidget);
+        // The action is a ⋯ menu item now, so nothing says «Set active» until the menu is opened —
+        // and never for the active version at all. 动作已进 ⋯ 菜单,未开菜单不出现,活动版本更不出现。
+        expect(find.text('Set active'), findsNothing);
+      },
+    );
 
-    testWidgets('older version selected → set-active appears BELOW the diff', (
+    testWidgets('an older version opens its own card BELOW its own row', (
       tester,
     ) async {
       await pump(tester, _repo());
       await tester.tap(find.text('v1'));
       await tester.pumpAndSettle();
-      final diff = find.byType(AnVersionDiff);
-      final btn = find.text('Set active');
-      expect(diff, findsOneWidget);
-      expect(btn, findsOneWidget);
-      // The action's top edge is below the diff's bottom edge — it can never shift the diff. 动作在 diff 下方。
+      // Two cards now: the default-open newest + the one just opened. 两张卡:默认开的最新 + 刚展开的。
+      expect(find.byType(AnVersionDiff), findsNWidgets(2));
+      final v1Row = find.text('v1');
+      final v1Card = find.byType(AnVersionDiff).last;
+      // The card's top edge sits below the tapped row's bottom edge — expansion pushes DOWN only, so
+      // nothing above the row can move. 卡顶在被点行之下:展开只向下推,行以上的一切不动。
       expect(
-        tester.getTopLeft(btn).dy,
-        greaterThan(tester.getBottomLeft(diff).dy - 1),
+        tester.getTopLeft(v1Card).dy,
+        greaterThan(tester.getBottomLeft(v1Row).dy - 1),
       );
     });
   });

@@ -3,7 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 
 // lineDiff = the pure LCS line diff behind AnVersionDiff. Framework-free golden tests: op sequence
 // correctness on the cases that matter (identical / pure add / pure del / mid change / repeated lines
-// / empty before / degrade gate). 纯 LCS diff 的 golden 单测。
+// / empty before / degrade gate) + unchangedGaps, the hunk fold over those ops (WRK-077 VT).
+// 纯 LCS diff 的 golden 单测 + unchangedGaps(hunk 折叠,VT 批)。
 void main() {
   List<DiffOp> ops(List<DiffLine> d) => [for (final l in d) l.op];
   List<String> texts(List<DiffLine> d) => [for (final l in d) l.text];
@@ -127,4 +128,77 @@ void main() {
       expect(count(d, DiffOp.add), 0);
     },
   );
+
+  group('unchangedGaps — the hunk fold (WRK-077 VT)', () {
+    List<DiffOp> ctx(int n) => List.filled(n, DiffOp.context);
+
+    test('the context window is 3 (diff -U3 / git default)', () {
+      expect(diffContextLines, 3);
+    });
+
+    test('keeps 3 lines each side of a change, folds the rest', () {
+      // 10 context · 1 add · 10 context → the fold drops lines 0..6 and 14..20. 各留 3 行、其余折掉。
+      final gaps = unchangedGaps([...ctx(10), DiffOp.add, ...ctx(10)]);
+      expect(gaps, [(start: 0, count: 7), (start: 14, count: 7)]);
+    });
+
+    test(
+      'no change anywhere → NO gaps (the earliest version renders whole)',
+      () {
+        expect(unchangedGaps(ctx(200)), isEmpty);
+      },
+    );
+
+    test('a single dropped line is never folded (the marker costs that row)', () {
+      // change · 3 kept · 1 droppable · 3 kept · change → the lone line stays. 单行不折。
+      final ops = [
+        DiffOp.add,
+        ...ctx(7),
+        DiffOp.add,
+      ]; // 7 = 3 + 1 + 3 → the middle line is the only candidate
+      expect(unchangedGaps(ops), isEmpty);
+    });
+
+    test('two changes 8 context apart DO fold the two middle lines', () {
+      final gaps = unchangedGaps([DiffOp.add, ...ctx(8), DiffOp.add]);
+      expect(gaps, [(start: 4, count: 2)]);
+    });
+
+    test('a change at either edge clamps the window (no negative/overrun)', () {
+      final gaps = unchangedGaps([DiffOp.del, ...ctx(9)]);
+      expect(gaps, [(start: 4, count: 6)]);
+      final tail = unchangedGaps([...ctx(9), DiffOp.del]);
+      expect(tail, [(start: 0, count: 6)]);
+    });
+
+    test('a custom window widens/narrows the kept band', () {
+      final wide = unchangedGaps([
+        ...ctx(10),
+        DiffOp.add,
+        ...ctx(10),
+      ], context: 5);
+      expect(wide, [(start: 0, count: 5), (start: 16, count: 5)]);
+    });
+
+    test('gaps never overlap a change and never touch each other', () {
+      final ops = [...ctx(20), DiffOp.add, ...ctx(20), DiffOp.del, ...ctx(20)];
+      final gaps = unchangedGaps(ops);
+      for (final g in gaps) {
+        for (var i = g.start; i < g.start + g.count; i++) {
+          expect(ops[i], DiffOp.context, reason: 'a gap only swallows context');
+        }
+      }
+      for (var i = 1; i < gaps.length; i++) {
+        expect(
+          gaps[i].start,
+          greaterThan(gaps[i - 1].start + gaps[i - 1].count),
+          reason: 'a kept line separates two gaps',
+        );
+      }
+    });
+
+    test('empty input → empty', () {
+      expect(unchangedGaps(const []), isEmpty);
+    });
+  });
 }

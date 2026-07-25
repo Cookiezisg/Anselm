@@ -9,7 +9,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // STEP 4 gate — the versions tab: kind-erased rows newest-first, the active flag against the entity's
-// activeVersionId, select() moves the diff target, loadMore appends.
+// activeVersionId, the accordion's open sets (WRK-077 VT: the newest version opens with the tab,
+// toggleExpanded flips one row, setFullSource implies open), per-row +N/−N counts, loadMore appends.
 
 final _t = DateTime.utc(2026, 6, 26);
 const _ref = EntityRef(EntityKind.function, 'fn_1');
@@ -37,7 +38,7 @@ Future<ProviderContainer> _ready(FixtureEntityRepository repo) async {
 
 void main() {
   test(
-    'rows map newest-first with the active flag + select moves the target',
+    'rows map newest-first with the active flag + the newest row opens; toggleExpanded flips one row',
     () async {
       final c = await _ready(
         FixtureEntityRepository(
@@ -60,10 +61,30 @@ void main() {
       expect(st.versions[0].active, isTrue); // v2 is the active version
       expect(st.versions[1].active, isFalse);
       expect(st.versions[0].src, 'code v2');
-      expect(st.selectedIndex, 0);
+      // WRK-077 VT: there is no single «selected index» any more — the accordion's open set is the
+      // truth, and the NEWEST version opens with the tab (首屏自我解释). 无选中下标,开合集即真相。
+      expect(st.expanded, {2});
+      expect(st.fullSource, isEmpty);
+      // v2 counts against v1 ('code v2' vs 'code v1' = one line replaced). 行计数对下一更旧行算。
+      expect((st.versions[0].added, st.versions[0].removed), (1, 1));
+      // The oldest LOADED row has no older neighbour → no counts (never a lying «+0 −0»). 末行无计数。
+      expect(st.versions[1].added, isNull);
+      expect(st.versions[1].removed, isNull);
 
-      c.read(versionListProvider(_ref).notifier).select(1);
-      expect(c.read(versionListProvider(_ref)).value!.selectedIndex, 1);
+      final n = c.read(versionListProvider(_ref).notifier);
+      n.toggleExpanded(1);
+      expect(c.read(versionListProvider(_ref)).value!.expanded, {2, 1});
+      n.toggleExpanded(2);
+      expect(c.read(versionListProvider(_ref)).value!.expanded, {1});
+
+      // «Show all» on a collapsed row opens it too — a mode set on a closed card would be invisible.
+      // 对收起的行「展开全部」会一并展开它(收起的卡上设模式=看不见)。
+      n.setFullSource(2, true);
+      final st2 = c.read(versionListProvider(_ref)).value!;
+      expect(st2.fullSource, {2});
+      expect(st2.expanded, {1, 2});
+      n.setFullSource(2, false);
+      expect(c.read(versionListProvider(_ref)).value!.fullSource, isEmpty);
     },
   );
 
