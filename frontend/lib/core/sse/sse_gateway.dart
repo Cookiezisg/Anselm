@@ -123,13 +123,23 @@ class SseGateway {
     for (final c in _connections.values) {
       await c.stop();
     }
-    for (final c in _byScope.values) {
-      await c.close();
-    }
-    for (final c in _byKind.values) {
-      await c.close();
-    }
+    // Snapshot BEFORE closing: each lazy controller was registered with
+    // `onCancel: () => registry.remove(key)`, and close() ends its subscriptions, which fires that
+    // onCancel — so closing while iterating the live map mutates the very collection under the
+    // iterator. This died with ConcurrentModificationError on every app exit (workspace switch too —
+    // the other dispose path), caught live in the shutdown log (0725).
+    // 关之前先快照:每个懒建 controller 注册时带着 `onCancel: () => registry.remove(key)`,而 close() 会
+    // 终止其订阅、触发那个 onCancel——边遍历活 map 边关,等于在迭代器脚下改集合。每次 app 退出(以及
+    // workspace 切换那条 dispose 路径)都以 ConcurrentModificationError 收场,0725 关停日志实锤。
+    final scoped = List.of(_byScope.values);
+    final kinds = List.of(_byKind.values);
     _byScope.clear();
     _byKind.clear();
+    for (final c in scoped) {
+      await c.close();
+    }
+    for (final c in kinds) {
+      await c.close();
+    }
   }
 }

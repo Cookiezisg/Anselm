@@ -862,3 +862,9 @@ GET /api/v1/conversations/workdir-groups → 404   ← 旧二进制没这条路�
 **补两条(0725 收口)**:
 - **停止钮打断在飞工具 ✅**:glob 在飞时点停 → 两卡落定「Globbed」+ `Stopped` 横幅 + composer 回空闲,无残留状态。
 - **候选缺陷记档(未修)**:Glob 工具无自身墙钟上限——`**/*.heic` 全树扫了 549s 仍在跑,唯一兜底是 30 分钟的 `timeout.chatTurnSec`。Advanced limits 的 timeout 族里没有 glob/search 一档。归 C 类候选工单。
+
+### 关停路径缺陷(0725 收尾)—— app 每次退出都以异常收场
+
+关 app 时日志尾巴:`Concurrent modification during iteration: _Map len:0` @ `SseGateway.dispose`。
+**根因**:每个懒建 demux controller 注册时带 `onCancel: () => registry.remove(key)`,而 `dispose()` **边遍历同一个 map 边 close**——close 终止订阅、onCancel 开火、表项在迭代器脚下消失。每次退出与每次 **workspace 切换**(同一条 dispose 路径)都会撞上,只因 zone handler 在退出路上吃掉它才一直没人看见。
+**修**:先快照两张表、先 clear 再关。回归测试**反证过**:带病版编译干净、且以真实的 `Concurrent modification during iteration: _Map len:3` 失败(第一次反证是我自己拼坏了代码、只证明了「编译不过」,重做才算数)。

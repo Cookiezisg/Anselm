@@ -36,7 +36,7 @@ core/                      # 跨切共享层(不依赖上层)
   workspace/               # workspace_bootstrap(冷启动列/建 workspace+设 activeWorkspace;**read 非 watch**——生产者出环,否则切换被拽回首个)+ workspace_switch(热切换动作:先 go('/') 离旧深链再设 id+name,其余交响应级联;feature 粘性态[chat landing 模型/打字机队列]各自 watch id 自愈)
   contract/                # 后端投影 DTO(freezed/json,1:1 镜像后端):api_error(N1 信封 + AnselmErr 码) · page(N4 keyset/聚合) · workspace(+ModelRef) · entities/(Quadrinity ~22 DTO,见 contract.md)
   net/                     # api_client:唯一 HTTP 边界,标准契约只编码一次 + workspace/bearer(ANSELM_AUTH_TOKEN)拦截器
-  sse/                     # 3 流地基:frame(线缆 + seq 派生 durable) · sse_parser · sse_connection(重连 + 410 续传 + full-jitter + bearer) · sse_gateway(per-scope/per-kind demux,Riverpod 之下)
+  sse/                     # 3 流地基:frame(线缆 + seq 派生 durable) · sse_parser · sse_connection(重连 + 410 续传 + full-jitter + bearer) · sse_gateway(per-scope/per-kind demux,Riverpod 之下;懒建 controller 带 `onCancel` 自摘登记,故 **dispose 必须先快照再关**——边遍历活 map 边 close 会在迭代器脚下改集合,0725 真机关停实锤)
   process/                 # backend_controller:sidecar 监督(抢端口 / health 门控 / 有界崩溃重启 / SIGTERM→kill 优雅关停 / 铸 ANSELM_AUTH_TOKEN / 退出卫生 WRK-070 T2:干净退出经 AppLifecycleListener.onExitRequested→stopBackendOnExit 优雅停后放行,崩溃路径靠 ANSELM_PARENT_WATCH=1 上膛的后端 stdin 死人开关——app 握子进程 stdin 终生,任何退出形态管道必 EOF→后端汇入同一有序关停)
   perf/                    # coalescing_notifier(L2:值同步无损、监听者每帧≤1 通知 —— 流式 firehose 防整页重建) · debouncer(尾沿防抖原语,run/dispose;rail 搜索框逐键防抖)
   state/                   # 框架无关 Riverpod 状态原语:bool_pref(BoolPrefNotifier:单 bool UI 偏好,toggle/set) · keyset_paging(两 mixin:KeysetQueryPaging=query-reset epoch 守卫[实体/对话 rail] · KeysetScopedPaging=autoDispose ref.mounted 守卫[版本/日志详情 tab])
