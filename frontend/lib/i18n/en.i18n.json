@@ -624,6 +624,10 @@
       "rtRunning": "running",
       "rtCrashed": "crashed",
       "rtStopped": "stopped"
+    },
+    "actions": {
+      "forkComing": "Fork from here (coming in CH-b)",
+      "retryComing": "Retry (coming in CH-c)"
     }
   },
   "appName": "Anselm",

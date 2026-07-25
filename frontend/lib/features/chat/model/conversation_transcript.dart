@@ -412,6 +412,34 @@ class ConversationTranscript {
         .trim();
   }
 
+  /// The text to put on the clipboard for a turn — its PROSE, from the model.
+  ///
+  /// Reading the model rather than the rendered widgets is not a style choice. `Cmd+A` inside a lazy list
+  /// only reaches the items that are currently BUILT (Flutter #153478), so a selection-based copy silently
+  /// truncates a long turn at the viewport edge. The model has the whole thing (TS 必补③).
+  ///
+  /// Only `text` blocks contribute. Reasoning is the model thinking out loud, tool calls and results are
+  /// machinery, and progress/compaction are bookkeeping — none of it is what "copy this reply" means, and
+  /// all of it would have to be hand-deleted from whatever the reader pasted.
+  ///
+  /// 一条回合放进剪贴板的文本——它的**正文**,取自 model。
+  ///
+  /// 读 model 而非渲出来的 widget 不是风格取舍:懒列表里的 `Cmd+A` 只能触及**当前已建**的条目
+  /// (Flutter #153478),故基于选区的复制会在视口边缘**静默**截断一条长回合。model 手上有全文(TS 必补③)。
+  ///
+  /// 只有 `text` 块计入。reasoning 是模型在出声地想,tool 调用与结果是机械,progress/compaction 是记账——
+  /// 没有一样是「复制这条回复」的意思,而每一样都得让读者从粘贴出来的东西里手工删掉。
+  static String turnCopyText(BlockNode n) {
+    final inline = n.content?['content'];
+    if (inline is String && inline.trim().isNotEmpty) return inline.trim();
+    final parts = <String>[
+      for (final c in n.children)
+        if (c.kind == BlockKind.text)
+          if (c.displayText.trim().isNotEmpty) c.displayText.trim(),
+    ];
+    return parts.join('\n\n');
+  }
+
   /// The frozen attachment ids: REST attrs key `attachments`, live echo key `attachmentIds`.
   /// 冻结附件 id:REST 键 attachments、live 回声键 attachmentIds。
   static List<String> turnAttachmentIds(BlockNode n) {

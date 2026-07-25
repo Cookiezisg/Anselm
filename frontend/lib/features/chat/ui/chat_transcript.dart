@@ -29,6 +29,7 @@ import '../state/transcript_jump_provider.dart';
 import 'chat_head.dart';
 import 'chat_tool_card.dart';
 import 'chat_turn.dart';
+import 'turn_actions.dart';
 import 'chat_context_mark.dart';
 import 'chat_thinking.dart';
 import 'user_turn_content.dart';
@@ -343,7 +344,9 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
                         ),
                       );
                     }
-                    return _rowFor(older[older.length - 1 - i]);
+                    // Rows above the anchor are history by construction — never the last turn.
+                    // 锚上的行按构造就是历史,绝不可能是末轮。
+                    return _rowFor(older[older.length - 1 - i], isLast: false);
                   },
                 ),
               ),
@@ -356,7 +359,14 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
                 delegate: SliverChildBuilderDelegate(
                   childCount: head.length + pending.length,
                   (context, i) {
-                    if (i < head.length) return _rowFor(head[i]);
+                    if (i < head.length) {
+                      // An optimistic bubble below means the last SETTLED turn is no longer the
+                      // bottom of the transcript. 下面还有乐观泡时,最后一条落定回合已不是 transcript 底部。
+                      return _rowFor(
+                        head[i],
+                        isLast: i == head.length - 1 && pending.isEmpty,
+                      );
+                    }
                     return _PendingRow(
                       conversationId: widget.conversationId,
                       pending: pending[i - head.length],
@@ -407,9 +417,17 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
   // rebuild once if scrolled back). 身份缓存有界:末插=近渲染,逐最旧=已滚远行,可见窗不受影响。
   static const _rowCacheCap = 400;
 
-  Widget _rowFor(BlockNode turn) {
+  Widget _rowFor(BlockNode turn, {required bool isLast}) {
     Widget row;
-    if (!turn.isOpen) {
+    // The LAST turn is deliberately not cached. Its action row is always-visible while a historical
+    // turn's is hover-only (§3.2), so "am I last" is part of what the row renders — and a cached
+    // instance would freeze that answer at the moment it was built, leaving a stale always-on row
+    // behind once the next turn arrives. Excluding one row costs nothing: during streaming the bottom
+    // turn is the OPEN one, which was never cached either.
+    // **末轮刻意不缓存。** 它的动作排恒显、而历史轮 hover 才现(§3.2),故「我是不是末轮」是这一行渲染内容的
+    // 一部分——被缓存的实例会把这个答案**冻结在建它的那一刻**,于是下一轮到来后留下一排过期的常显图标。少缓一行
+    // 零代价:流式中底部那轮是 **open** 的,它本来也不进缓存。
+    if (!turn.isOpen && !isLast) {
       row = _settledRowCache[turn.id] ??= () {
         if (_settledRowCache.length >= _rowCacheCap) {
           _settledRowCache.remove(_settledRowCache.keys.first);
@@ -417,6 +435,7 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
         return _TurnRow(
           turn: turn,
           streaming: false,
+          isLast: false,
           conversationId: widget.conversationId,
           key: ValueKey(turn.id),
         );
@@ -424,7 +443,8 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     } else {
       row = _TurnRow(
         turn: turn,
-        streaming: true,
+        streaming: turn.isOpen,
+        isLast: isLast,
         conversationId: widget.conversationId,
         key: ValueKey(turn.id),
       );
@@ -441,12 +461,16 @@ class _TurnRow extends ConsumerStatefulWidget {
   const _TurnRow({
     required this.turn,
     required this.streaming,
+    required this.isLast,
     required this.conversationId,
     super.key,
   });
 
   final BlockNode turn;
   final bool streaming;
+
+  /// The bottom of the transcript — its action row is always visible (§3.2). transcript 底部,动作排恒显。
+  final bool isLast;
   final String conversationId;
 
   @override
@@ -535,14 +559,20 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
           ),
         },
     ];
-    return ChatTurn(
-      role: ChatRole.user,
-      child: UserTurnContent(
-        text: ConversationTranscript.turnText(widget.turn),
-        mentions: ConversationTranscript.turnMentions(widget.turn),
-        attachments: attachments,
-        audioAttachmentBuilder: (a) => _TranscriptAudioAttachment(a),
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        ChatTurn(
+          role: ChatRole.user,
+          child: UserTurnContent(
+            text: ConversationTranscript.turnText(widget.turn),
+            mentions: ConversationTranscript.turnMentions(widget.turn),
+            attachments: attachments,
+            audioAttachmentBuilder: (a) => _TranscriptAudioAttachment(a),
+          ),
+        ),
+        _actions(TurnActionsRole.user),
+      ],
     );
   }
 
@@ -635,7 +665,26 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
             if (blocks.isNotEmpty) const SizedBox(height: AnSpace.s12),
             banner,
           ],
+          _actions(TurnActionsRole.assistant),
         ],
+      ),
+    );
+  }
+
+  /// The turn's action row (§3.2). A turn that is still GENERATING gets none: there is nothing to copy
+  /// yet, and mid-stream the only meaningful action is Stop, which lives in the composer. Returned as a
+  /// zero-height box rather than omitted, so the column's child list keeps its shape and a turn settling
+  /// does not remount its siblings (CLAUDE.md 禁止条件包装).
+  /// 回合的动作排(§3.2)。**正在生成**的回合没有:此刻无可复制,而流中唯一有意义的动作是「停止」,它住在
+  /// composer。返回零高盒而非省略,好让列的 children 保持形状——一条回合落定时不会顶得兄弟节点重挂。
+  Widget _actions(TurnActionsRole role) {
+    if (widget.streaming) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: AnSpace.s4),
+      child: TurnActions(
+        copyText: ConversationTranscript.turnCopyText(widget.turn),
+        role: role,
+        alwaysVisible: widget.isLast,
       ),
     );
   }

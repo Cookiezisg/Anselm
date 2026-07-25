@@ -142,6 +142,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get contextCompacted => '上下文已压缩';
 	@override String contextCompactedCount({required Object n}) => '上下文已压缩 · ${n} 条更早消息已折叠进摘要';
 	@override late final _Translations$chat$stage$zh_CN stage = _Translations$chat$stage$zh_CN._(_root);
+	@override late final _Translations$chat$actions$zh_CN actions = _Translations$chat$actions$zh_CN._(_root);
 }
 
 // Path: status
@@ -1259,6 +1260,17 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get rtRunning => '运行中';
 	@override String get rtCrashed => '已崩溃';
 	@override String get rtStopped => '已停止';
+}
+
+// Path: chat.actions
+class _Translations$chat$actions$zh_CN extends Translations$chat$actions$en {
+	_Translations$chat$actions$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get forkComing => '从这里分叉(CH-b 批将至)';
+	@override String get retryComing => '重试(CH-c 批将至)';
 }
 
 // Path: scheduler.overview
@@ -3341,6 +3353,8 @@ extension on TranslationsZhCn {
 			'chat.stage.rtRunning' => '运行中',
 			'chat.stage.rtCrashed' => '已崩溃',
 			'chat.stage.rtStopped' => '已停止',
+			'chat.actions.forkComing' => '从这里分叉(CH-b 批将至)',
+			'chat.actions.retryComing' => '重试(CH-c 批将至)',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',
@@ -3758,10 +3772,10 @@ extension on TranslationsZhCn {
 			'a11y.flagNo' => '否',
 			'a11y.editingField' => ({required Object field}) => '正在编辑 ${field}',
 			'a11y.editField' => ({required Object field}) => '编辑 ${field}',
-			'a11y.addTagTo' => ({required Object field}) => '添加标签:${field}',
-			'a11y.displayOptions' => '显示选项',
 			_ => null,
 		} ?? switch (path) {
+			'a11y.addTagTo' => ({required Object field}) => '添加标签:${field}',
+			'a11y.displayOptions' => '显示选项',
 			'a11y.moreActions' => '更多操作',
 			'a11y.newSubpage' => '新建子页面',
 			'a11y.graphZoomIn' => '放大',
@@ -4272,10 +4286,10 @@ extension on TranslationsZhCn {
 			'settings.levelSilent' => '静音',
 			'settings.notifOs' => '系统通知',
 			'settings.notifOsDesc' => '窗口未聚焦时经系统通知中心送达',
-			'settings.notifToast' => '应用内提醒',
-			'settings.notifToastDesc' => '在软件顶部显示提醒;危险级错误不受此限',
 			_ => null,
 		} ?? switch (path) {
+			'settings.notifToast' => '应用内提醒',
+			'settings.notifToastDesc' => '在软件顶部显示提醒;危险级错误不受此限',
 			'settings.silentHint' => '已静音,重要事项仍会进铃铛收件箱',
 			'settings.autoStage' => '右岛自动登台',
 			'settings.autoStageDesc' => '工具运行时右岛自动展示现场',

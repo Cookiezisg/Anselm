@@ -424,6 +424,7 @@ lib/features/chat/ui/tool_card_workflow.dart	reviewed
 lib/features/chat/ui/tool_hit_list.dart	converged
 lib/features/chat/ui/tool_interaction_gate.dart	converged
 lib/features/chat/ui/transcript_peek.dart	converged
+lib/features/chat/ui/turn_actions.dart	pending
 lib/features/chat/ui/user_turn_content.dart	converged
 lib/features/entities/data/entity_demo_fixture.dart	reviewed
 lib/features/entities/data/entity_fixtures.dart	converged

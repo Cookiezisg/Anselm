@@ -284,6 +284,7 @@ class Translations$chat$en {
 	String contextCompactedCount({required Object n}) => 'Context compacted · ${n} earlier messages folded into the summary';
 
 	late final Translations$chat$stage$en stage = Translations$chat$stage$en.internal(_root);
+	late final Translations$chat$actions$en actions = Translations$chat$actions$en.internal(_root);
 }
 
 // Path: status
@@ -3125,6 +3126,21 @@ class Translations$chat$stage$en {
 
 	/// en: 'stopped'
 	String get rtStopped => 'stopped';
+}
+
+// Path: chat.actions
+class Translations$chat$actions$en {
+	Translations$chat$actions$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Fork from here (coming in CH-b)'
+	String get forkComing => 'Fork from here (coming in CH-b)';
+
+	/// en: 'Retry (coming in CH-c)'
+	String get retryComing => 'Retry (coming in CH-c)';
 }
 
 // Path: scheduler.overview
@@ -7096,6 +7112,8 @@ extension on Translations {
 			'chat.stage.rtRunning' => 'running',
 			'chat.stage.rtCrashed' => 'crashed',
 			'chat.stage.rtStopped' => 'stopped',
+			'chat.actions.forkComing' => 'Fork from here (coming in CH-b)',
+			'chat.actions.retryComing' => 'Retry (coming in CH-c)',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
@@ -7513,10 +7531,10 @@ extension on Translations {
 			'a11y.flagNo' => 'no',
 			'a11y.editingField' => ({required Object field}) => 'Editing ${field}',
 			'a11y.editField' => ({required Object field}) => 'Edit ${field}',
-			'a11y.addTagTo' => ({required Object field}) => 'Add tag: ${field}',
-			'a11y.displayOptions' => 'Display options',
 			_ => null,
 		} ?? switch (path) {
+			'a11y.addTagTo' => ({required Object field}) => 'Add tag: ${field}',
+			'a11y.displayOptions' => 'Display options',
 			'a11y.moreActions' => 'More actions',
 			'a11y.newSubpage' => 'New sub-page',
 			'a11y.graphZoomIn' => 'Zoom in',
@@ -8027,10 +8045,10 @@ extension on Translations {
 			'settings.levelSilent' => 'Silent',
 			'settings.notifOs' => 'System notifications',
 			'settings.notifOsDesc' => 'Delivered via the OS notification center while unfocused',
-			'settings.notifToast' => 'In-app notices',
-			'settings.notifToastDesc' => 'Show notices at the top of the app; danger-level errors bypass this',
 			_ => null,
 		} ?? switch (path) {
+			'settings.notifToast' => 'In-app notices',
+			'settings.notifToastDesc' => 'Show notices at the top of the app; danger-level errors bypass this',
 			'settings.silentHint' => 'Silenced — important items still land in the bell inbox',
 			'settings.autoStage' => 'Sidestage auto-open',
 			'settings.autoStageDesc' => 'The right island stages tool runs automatically',

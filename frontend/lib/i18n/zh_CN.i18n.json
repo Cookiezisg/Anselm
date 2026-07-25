@@ -624,6 +624,10 @@
       "rtRunning": "运行中",
       "rtCrashed": "已崩溃",
       "rtStopped": "已停止"
+    },
+    "actions": {
+      "forkComing": "从这里分叉(CH-b 批将至)",
+      "retryComing": "重试(CH-c 批将至)"
     }
   },
   "appName": "Anselm",
