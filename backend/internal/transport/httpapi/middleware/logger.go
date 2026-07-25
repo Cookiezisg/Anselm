@@ -1,6 +1,9 @@
 package middleware
 
 import (
+	"bufio"
+	"fmt"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -75,4 +78,23 @@ func (r *statusRecorder) Flush() {
 	if f, ok := r.ResponseWriter.(http.Flusher); ok {
 		f.Flush()
 	}
+}
+
+// Hijack forwards the underlying Hijacker. A wrapper that hides it turns EVERY WebSocket route into
+// a plain-text 500: gorilla's Upgrade needs to take over the TCP connection, asks the writer for
+// http.Hijacker, and finds this struct instead of the real thing. Found live (E 真机验收 0725):
+// /speech/asr answered "Internal Server Error" with no log line from any handler — the request died
+// inside Upgrade, in front of all of them. Flush got delegated for SSE when this recorder was born;
+// Hijack is the same obligation for WS.
+//
+// Hijack 转发底层的 Hijacker。包装层藏住它,**每一条 WebSocket 路由**都会变成裸文本 500:gorilla 的
+// Upgrade 需要接管 TCP 连接,向 writer 要 http.Hijacker,结果拿到的是本结构体而非真身。真机验收(0725)
+// 实地撞上:/speech/asr 答「Internal Server Error」,且任何 handler 都没留一行日志——请求死在 Upgrade
+// 里、死在它们全部的前面。这个 recorder 出生时就为 SSE 委托了 Flush;Hijack 是对 WS 的同一义务。
+func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := r.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("middleware.statusRecorder: underlying ResponseWriter does not support hijacking")
+	}
+	return hj.Hijack()
 }

@@ -843,3 +843,18 @@ GET /api/v1/conversations/workdir-groups → 404   ← 旧二进制没这条路�
 - **A5(麦克风)走到权限流现场**:空输入框圆钮=麦克风(受管路由)→ 点击进入 Recording 态(红点+00:00+电平条+停止方钮)→ **系统麦克风授权弹窗弹出**(计时器停在 00:00 等授权,符合预期)。「允许后录音→停止→可编辑草稿不自动发」待用户点掉系统弹窗后续验。
 - **网关内联版已上线**(deploy 5m47s,23:02 重启),A1 待重跑。
 - 服务器上的判别实验静态残留已清(test-a1.* 与 /v1 目录)。
+
+### 语音 WebSocket 根治(0725 深夜)—— 一行中间件缺口杀死整个语音功能
+
+**症状**:`/speech/asr` 稳定 500,body 是 22 字节裸文本 `Internal Server Error`,**两侧零日志**。
+**归因路径**:22 字节 ≠ 我们的 envelope → 逐层排除 handler/FromDomainError/Recover → 判别实验:普通 GET 得 12 字节裸 `Bad Request` → 两者都是 gorilla `Upgrade` 的 `http.Error` → **`statusRecorder`(日志中间件)转发了 `Flush`(为 SSE)却没实现 `http.Hijacker`**,WS 升级拿不到 TCP 连接、死在所有 handler 之前。
+**修**:转发 `Hijack` + 守卫测试(「包装转发律」:recorder 挡在每条路由前,没转发的接口=从整个 API 面被静默剥掉)+ 未分类握手失败补留因日志。
+**修后实证**:握手 **HTTP=101**,`session.created / qwen3-asr-flash-realtime` 穿过 sidecar→CF→Caddy→网关→DashScope 全链回来。
+
+### E 验收终局(0725 深夜)
+
+- **A1 图片端到端 ✅ 通过**:附合成图提问 → Qwen 精确描述(蓝方块内嵌绿三角在左、独立橙红圆在右)→ ADR 0011+0012 全管道(附件→代理图→断点上传→lease→相对引用→网关校验→**内联**→Qwen)实证打通。中文 auto-title 正常。
+- **A2 HEIC 降级 ✅ 核心通过**:composer 显「Media prep failed」(代理 worker 不认 HEIC,预期);发送后**回合不失败**,模型收到降级注记并自主 glob 找文件。观察记档:模型选择 `**/*.heic` 全树 glob 跑了 60s+(工具超时会兜,composer 停止钮可打断)——模型行为,非缺陷。
+- **A5 麦克风状态机 ✅ 通过**:空态圆钮=麦克风 → 点击弹系统授权(录音 UI 就位、计时冻结在 00:00 等授权=诚实)→ 授权后计时真走+电平条活 → 停止 → 空转写=干净收场、**绝不自动发送**。中断恢复路径(「Voice input was interrupted」+ Retry/Delete)跨 app 重启存活并成功重放转写。真人语音准确率留 C3。
+- **A3 音频卡 ✅ 渲染与回合通过**;播放/seek 手感留用户(合成滚轮/拖拽事件在本机对任何 app 无效,已 Finder 对照实证)。
+- **A4(长对话)未跑**——最烧配额,今晚配额已用 9+/5000,留待专场。

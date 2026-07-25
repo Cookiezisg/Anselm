@@ -88,6 +88,10 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 			responsehttpapi.FromDomainError(w, h.log, classified)
 			return
 		}
+		// The UNCLASSIFIED handshake failure keeps its cause in the local journal — tonight's WS
+		// outage produced zero log lines anywhere, and attributing it took a middleware bisection.
+		// 未分类的握手失败把起因留在本地日志——今晚的 WS 故障两侧零日志,归因靠中间件二分。
+		h.log.Warn("asr gateway handshake failed (unclassified)", zap.Error(err))
 		responsehttpapi.FromDomainError(w, h.log, speechapp.ErrUnavailable.WithCause(err))
 		return
 	}
