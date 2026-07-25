@@ -4606,8 +4606,8 @@ class Translations$settings$keys$en {
 	/// en: 'Provisioning incomplete (offline or gateway unreachable) — retry later'
 	String get freeFailed => 'Provisioning incomplete (offline or gateway unreachable) — retry later';
 
-	/// en: 'API keys'
-	String get keysSection => 'API keys';
+	/// en: 'Model keys'
+	String get modelKeysSection => 'Model keys';
 
 	/// en: 'Add key'
 	String get addKey => 'Add key';
@@ -4714,8 +4714,11 @@ class Translations$settings$keys$en {
 	/// en: 'Default search key'
 	String get searchDefault => 'Default search key';
 
-	/// en: 'Used by the WebSearch tool (category=search keys)'
-	String get searchDefaultDesc => 'Used by the WebSearch tool (category=search keys)';
+	/// en: 'Used by the WebSearch tool — only probed-OK search keys are offered'
+	String get searchDefaultDesc => 'Used by the WebSearch tool — only probed-OK search keys are offered';
+
+	/// en: 'Hasn't passed its probe yet — won't be offered as the default'
+	String get searchKeyNotProbedHint => 'Hasn\'t passed its probe yet — won\'t be offered as the default';
 
 	/// en: 'Operation failed'
 	String get keyOpFailed => 'Operation failed';
@@ -4804,8 +4807,8 @@ class Translations$settings$keys$en {
 	/// en: 'No usable models yet — add a key that passes its probe first'
 	String get noCapsGuide => 'No usable models yet — add a key that passes its probe first';
 
-	/// en: 'Search'
-	String get searchSection => 'Search';
+	/// en: 'Search keys'
+	String get searchSection => 'Search keys';
 }
 
 // Path: settings.ws
@@ -8091,7 +8094,7 @@ extension on Translations {
 			'settings.keys.freeProvisioning' => 'Provisioning…',
 			'settings.keys.freeRefresh' => 'Refresh',
 			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
-			'settings.keys.keysSection' => 'API keys',
+			'settings.keys.modelKeysSection' => 'Model keys',
 			'settings.keys.addKey' => 'Add key',
 			'settings.keys.testKey' => 'Test',
 			'settings.keys.editKey' => 'Edit',
@@ -8127,7 +8130,8 @@ extension on Translations {
 			'settings.keys.clearDefault' => 'Clear',
 			'settings.keys.notConfiguredWarn' => 'No default chat model set — chats cannot start',
 			'settings.keys.searchDefault' => 'Default search key',
-			'settings.keys.searchDefaultDesc' => 'Used by the WebSearch tool (category=search keys)',
+			'settings.keys.searchDefaultDesc' => 'Used by the WebSearch tool — only probed-OK search keys are offered',
+			'settings.keys.searchKeyNotProbedHint' => 'Hasn\'t passed its probe yet — won\'t be offered as the default',
 			'settings.keys.keyOpFailed' => 'Operation failed',
 			'settings.keys.refreshModels' => 'Refresh model list',
 			'settings.keys.pickProvider' => 'Choose a provider',
@@ -8157,7 +8161,7 @@ extension on Translations {
 			'settings.keys.textContextBadge' => ({required Object context}) => 'Text ${context}',
 			'settings.keys.mediaContextBadge' => ({required Object context}) => 'Media ${context}',
 			'settings.keys.noCapsGuide' => 'No usable models yet — add a key that passes its probe first',
-			'settings.keys.searchSection' => 'Search',
+			'settings.keys.searchSection' => 'Search keys',
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',
 			'settings.ws.newWorkspace' => 'New workspace',

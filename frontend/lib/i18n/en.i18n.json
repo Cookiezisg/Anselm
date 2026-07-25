@@ -1709,7 +1709,7 @@
       "freeProvisioning": "Provisioning…",
       "freeRefresh": "Refresh",
       "freeFailed": "Provisioning incomplete (offline or gateway unreachable) — retry later",
-      "keysSection": "API keys",
+      "modelKeysSection": "Model keys",
       "addKey": "Add key",
       "testKey": "Test",
       "editKey": "Edit",
@@ -1745,7 +1745,8 @@
       "clearDefault": "Clear",
       "notConfiguredWarn": "No default chat model set — chats cannot start",
       "searchDefault": "Default search key",
-      "searchDefaultDesc": "Used by the WebSearch tool (category=search keys)",
+      "searchDefaultDesc": "Used by the WebSearch tool — only probed-OK search keys are offered",
+      "searchKeyNotProbedHint": "Hasn't passed its probe yet — won't be offered as the default",
       "keyOpFailed": "Operation failed",
       "refreshModels": "Refresh model list",
       "pickProvider": "Choose a provider",
@@ -1775,7 +1776,7 @@
       "textContextBadge": "Text $context",
       "mediaContextBadge": "Media $context",
       "noCapsGuide": "No usable models yet — add a key that passes its probe first",
-      "searchSection": "Search"
+      "searchSection": "Search keys"
     },
     "ws": {
       "section": "Workspaces",

@@ -1709,7 +1709,7 @@
       "freeProvisioning": "正在开通…",
       "freeRefresh": "刷新",
       "freeFailed": "开通未完成(离线或网关不可达),稍后可重试",
-      "keysSection": "API 密钥",
+      "modelKeysSection": "模型密钥",
       "addKey": "添加密钥",
       "testKey": "测试",
       "editKey": "编辑",
@@ -1745,7 +1745,8 @@
       "clearDefault": "清除",
       "notConfiguredWarn": "未设默认对话模型,对话将无法开始",
       "searchDefault": "默认搜索密钥",
-      "searchDefaultDesc": "WebSearch 工具所用(category=search 的可用密钥)",
+      "searchDefaultDesc": "WebSearch 工具所用——只提供探测通过的搜索密钥",
+      "searchKeyNotProbedHint": "尚未通过探测,不会进入默认候选",
       "keyOpFailed": "操作失败",
       "refreshModels": "刷新模型列表",
       "pickProvider": "选择提供商",
@@ -1775,7 +1776,7 @@
       "textContextBadge": "文本 $context",
       "mediaContextBadge": "媒体 $context",
       "noCapsGuide": "还没有可用模型——先添加一把探测通过的密钥",
-      "searchSection": "搜索"
+      "searchSection": "搜索密钥"
     },
     "ws": {
       "section": "工作区",

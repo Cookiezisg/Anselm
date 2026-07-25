@@ -1908,7 +1908,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get freeProvisioning => '正在开通…';
 	@override String get freeRefresh => '刷新';
 	@override String get freeFailed => '开通未完成(离线或网关不可达),稍后可重试';
-	@override String get keysSection => 'API 密钥';
+	@override String get modelKeysSection => '模型密钥';
 	@override String get addKey => '添加密钥';
 	@override String get testKey => '测试';
 	@override String get editKey => '编辑';
@@ -1944,7 +1944,8 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get clearDefault => '清除';
 	@override String get notConfiguredWarn => '未设默认对话模型,对话将无法开始';
 	@override String get searchDefault => '默认搜索密钥';
-	@override String get searchDefaultDesc => 'WebSearch 工具所用(category=search 的可用密钥)';
+	@override String get searchDefaultDesc => 'WebSearch 工具所用——只提供探测通过的搜索密钥';
+	@override String get searchKeyNotProbedHint => '尚未通过探测,不会进入默认候选';
 	@override String get keyOpFailed => '操作失败';
 	@override String get refreshModels => '刷新模型列表';
 	@override String get pickProvider => '选择提供商';
@@ -1974,7 +1975,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String textContextBadge({required Object context}) => '文本 ${context}';
 	@override String mediaContextBadge({required Object context}) => '媒体 ${context}';
 	@override String get noCapsGuide => '还没有可用模型——先添加一把探测通过的密钥';
-	@override String get searchSection => '搜索';
+	@override String get searchSection => '搜索密钥';
 }
 
 // Path: settings.ws
@@ -4324,7 +4325,7 @@ extension on TranslationsZhCn {
 			'settings.keys.freeProvisioning' => '正在开通…',
 			'settings.keys.freeRefresh' => '刷新',
 			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
-			'settings.keys.keysSection' => 'API 密钥',
+			'settings.keys.modelKeysSection' => '模型密钥',
 			'settings.keys.addKey' => '添加密钥',
 			'settings.keys.testKey' => '测试',
 			'settings.keys.editKey' => '编辑',
@@ -4360,7 +4361,8 @@ extension on TranslationsZhCn {
 			'settings.keys.clearDefault' => '清除',
 			'settings.keys.notConfiguredWarn' => '未设默认对话模型,对话将无法开始',
 			'settings.keys.searchDefault' => '默认搜索密钥',
-			'settings.keys.searchDefaultDesc' => 'WebSearch 工具所用(category=search 的可用密钥)',
+			'settings.keys.searchDefaultDesc' => 'WebSearch 工具所用——只提供探测通过的搜索密钥',
+			'settings.keys.searchKeyNotProbedHint' => '尚未通过探测,不会进入默认候选',
 			'settings.keys.keyOpFailed' => '操作失败',
 			'settings.keys.refreshModels' => '刷新模型列表',
 			'settings.keys.pickProvider' => '选择提供商',
@@ -4390,7 +4392,7 @@ extension on TranslationsZhCn {
 			'settings.keys.textContextBadge' => ({required Object context}) => '文本 ${context}',
 			'settings.keys.mediaContextBadge' => ({required Object context}) => '媒体 ${context}',
 			'settings.keys.noCapsGuide' => '还没有可用模型——先添加一把探测通过的密钥',
-			'settings.keys.searchSection' => '搜索',
+			'settings.keys.searchSection' => '搜索密钥',
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',
 			'settings.ws.newWorkspace' => '新建工作区',

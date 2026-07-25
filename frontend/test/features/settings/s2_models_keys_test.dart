@@ -1,5 +1,7 @@
 import 'package:anselm/core/contract/api_key.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/ui/an_dropdown.dart';
+import 'package:anselm/core/ui/an_section.dart';
 import 'package:anselm/core/ui/an_switch.dart';
 import 'package:anselm/core/contract/workspace.dart';
 import 'package:anselm/core/model/model_capabilities.dart';
@@ -196,6 +198,7 @@ void main() {
         expect(container.read(settingsDetailProvider), (
           kind: 'editKey',
           id: boundId,
+          category: null,
         ), reason: '行点击=编辑该行');
         await tester.enterText(find.byType(TextField).at(0), 'renamed');
         await tester.ensureVisible(find.text(t.settings.keys.saveKey));
@@ -340,6 +343,149 @@ void main() {
             options: {'reasoning_effort': 'high'},
           ),
           reason: '高级 JSON 与通用旋钮共用同一份持久化 options',
+        );
+      },
+    );
+  });
+
+  group('provider 类别拆分 category split (WRK-077 施工序⑪)', () {
+    testWidgets(
+      'model section shows only llm-category keys; search section only search-category keys',
+      (tester) async {
+        final now = DateTime.utc(2026, 7, 25);
+        final repo = FixtureSettingsRepository()
+          ..keys.addAll([
+            ApiKey(
+              id: 'aki_openai',
+              provider: 'openai',
+              displayName: 'my-openai',
+              testStatus: 'ok',
+              createdAt: now,
+              updatedAt: now,
+            ),
+            ApiKey(
+              id: 'aki_brave',
+              provider: 'brave',
+              displayName: 'my-brave',
+              testStatus: 'ok',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          ]);
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+
+        final modelSection = find.byWidgetPredicate(
+          (w) => w is AnSection && w.label == t.settings.keys.modelKeysSection,
+        );
+        final searchSection = find.byWidgetPredicate(
+          (w) => w is AnSection && w.label == t.settings.keys.searchSection,
+        );
+        expect(modelSection, findsOneWidget);
+        expect(searchSection, findsOneWidget);
+
+        expect(
+          find.descendant(of: modelSection, matching: find.text('my-openai')),
+          findsOneWidget,
+          reason: 'llm 类 key 落模型密钥区',
+        );
+        expect(
+          find.descendant(of: modelSection, matching: find.text('my-brave')),
+          findsNothing,
+          reason: 'search 类 key 不得混进模型密钥区',
+        );
+        expect(
+          find.descendant(of: searchSection, matching: find.text('my-brave')),
+          findsOneWidget,
+          reason: 'search 类 key 落搜索密钥区',
+        );
+        expect(
+          find.descendant(of: searchSection, matching: find.text('my-openai')),
+          findsNothing,
+          reason: 'llm 类 key 不得混进搜索密钥区',
+        );
+      },
+    );
+
+    testWidgets(
+      'ADD stage-0 logo grid filters to the category it was opened from',
+      (tester) async {
+        final repo = FixtureSettingsRepository();
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+
+        // Model keys' "+ 添加" (first on screen) → llm-only grid. 模型密钥「+ 添加」(屏上第一个)→仅 llm。
+        await tester.tap(find.text(t.settings.keys.addKey).first);
+        await tester.pumpAndSettle();
+        expect(find.text('OpenAI'), findsOneWidget);
+        expect(find.text('DeepSeek'), findsOneWidget);
+        expect(
+          find.text('Brave Search'),
+          findsNothing,
+          reason: '模型添加流的厂家网格不该混进搜索厂家',
+        );
+        await tester.tap(find.text(t.settings.keys.cancel));
+        await tester.pumpAndSettle();
+
+        // Search keys' "+ 添加" (last on screen) → search-only grid. 搜索密钥「+ 添加」(屏上最后一
+        // 个)→仅 search。
+        await tester.tap(find.text(t.settings.keys.addKey).last);
+        await tester.pumpAndSettle();
+        expect(find.text('Brave Search'), findsOneWidget);
+        expect(find.text('OpenAI'), findsNothing, reason: '搜索添加流的厂家网格不该混进模型厂家');
+        expect(find.text('DeepSeek'), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'the default-search dropdown only offers probed-OK keys; unprobed rows say so',
+      (tester) async {
+        final now = DateTime.utc(2026, 7, 25);
+        final repo = FixtureSettingsRepository()
+          ..keys.addAll([
+            ApiKey(
+              id: 'aki_brave_ok',
+              provider: 'brave',
+              displayName: 'brave-ok',
+              testStatus: 'ok',
+              createdAt: now,
+              updatedAt: now,
+            ),
+            ApiKey(
+              // testStatus defaults to 'pending' — the not-yet-probed row. testStatus 默认 pending。
+              id: 'aki_brave_pending',
+              provider: 'brave',
+              displayName: 'brave-pending',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          ]);
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+
+        // Both rows render — the honesty patch EXPLAINS, never hides. 两行都渲——诚实补丁只解释、不隐藏。
+        expect(find.text('brave-ok'), findsOneWidget);
+        expect(find.text('brave-pending'), findsOneWidget);
+
+        // The not-probed hint sits under exactly the pending row. 未过测提示只挂未过测那行。
+        expect(
+          find.text(t.settings.keys.searchKeyNotProbedHint),
+          findsOneWidget,
+        );
+
+        final dropdown = tester.widget<AnDropdown<String>>(
+          find.byType(AnDropdown<String>),
+        );
+        final offeredIds = dropdown.options.map((o) => o.value).toSet();
+        expect(
+          offeredIds.contains('aki_brave_ok'),
+          isTrue,
+          reason: '探测通过的 key 进候选',
+        );
+        expect(
+          offeredIds.contains('aki_brave_pending'),
+          isFalse,
+          reason: '未探测通过的 key 不得进默认候选(诚实补丁)',
         );
       },
     );

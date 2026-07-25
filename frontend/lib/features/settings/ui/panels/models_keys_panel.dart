@@ -39,19 +39,24 @@ import '../../state/api_keys_provider.dart';
 import '../../state/settings_detail_provider.dart';
 import '../../state/workspace_prefs_provider.dart';
 
-/// ④ 模型与密钥 — the resource flagship, FOUR zones (0719 重构): ① the managed free-tier card
-/// (quota meter / enable CTA) ② the PROVIDERS zone — brand-logo key rows (managed locked on top),
-/// the add flow starting from a vendor LOGO GRID, save auto-probes (`:test`) into the green/red
-/// status ③ scenario defaults — each row collapses to a one-line summary and expands into the
-/// reusable THREE-STAGE picker (credential → model [context window + capabilities] → native knobs
-/// rendered generically) applying `{apiKeyId, modelId, options}` ④ the search zone (search-category
-/// keys + the one-layer default pick). Every key mutation invalidates the capabilities catalog (S-15).
+/// ④ 模型与密钥 — the resource flagship, THREE zones (0725 重构 — category finally drawn on the
+/// face, WRK-077 施工序⑪): ① the MODEL-KEYS zone — the managed free-tier card (quota meter / enable
+/// CTA) atop brand-logo BYOK rows for llm-category providers (managed row locked on top), the add
+/// flow starting from a vendor LOGO GRID scoped to that category, save auto-probes (`:test`) into
+/// the green/red status ② scenario defaults — each row collapses to a one-line summary and expands
+/// into the reusable THREE-STAGE picker (credential → model [context window + capabilities] →
+/// native knobs rendered generically) applying `{apiKeyId, modelId, options}` ③ the SEARCH-KEYS zone
+/// — BYOK rows for search-category providers (its own logo-grid-scoped add flow) with the
+/// default-search pick living beside the keys it governs (never a floating zone at the panel's
+/// bottom); rows that haven't probed OK say so plainly, since the default picker only offers
+/// `testStatus == 'ok'` keys. Every key mutation invalidates the capabilities catalog (S-15).
 ///
-/// 模型与密钥——资源旗舰,四区(0719 重构):①受管免费档卡(配额条/启用 CTA)②提供商区——品牌 logo
-/// 密钥行(受管行锁顶),添加流程从厂家 logo 网格起步,保存即探测(:test)落绿红状态 ③场景默认——
-/// 每行收起一句话摘要,点开进**可复用三段面板**(凭证→模型[上下文窗+能力徽]→原生 knobs 通用渲染),
-/// 应用 `{apiKeyId, modelId, options}` ④搜索区(search 类密钥+一层默认选择)。密钥变更皆
-/// invalidate 能力目录(S-15)。
+/// 模型与密钥——资源旗舰,三区(0725 重构——类别终于上脸,WRK-077 施工序⑪):①模型密钥区——受管免费档卡
+/// (配额条/启用 CTA)顶着 llm 类 BYOK 品牌 logo 密钥行(受管行锁顶),添加流程从**限同类**的厂家 logo
+/// 网格起步,保存即探测(:test)落绿红状态 ②场景默认——每行收起一句话摘要,点开进**可复用三段面板**
+/// (凭证→模型[上下文窗+能力徽]→原生 knobs 通用渲染),应用 `{apiKeyId, modelId, options}` ③搜索密钥区
+/// ——search 类 BYOK 行(自带限同类添加流程)与它管的默认搜索选择挨着(不再是面板底部的孤悬区);未探测
+/// 通过的行明说,因为默认选择器只收 testStatus == 'ok' 的 key。密钥变更皆 invalidate 能力目录(S-15)。
 class ModelsKeysPanel extends ConsumerWidget {
   const ModelsKeysPanel({super.key});
 
@@ -60,8 +65,35 @@ class ModelsKeysPanel extends ConsumerWidget {
     final detail = ref.watch(settingsDetailProvider);
     if (detail != null &&
         (detail.kind == 'addKey' || detail.kind == 'editKey')) {
-      return KeyForm(editingId: detail.id);
+      return KeyForm(editingId: detail.id, category: detail.category);
     }
+
+    return const Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _FreeTierCard(),
+        SizedBox(height: AnSpace.s24),
+        _ModelKeysSection(),
+        SizedBox(height: AnSpace.s24),
+        _DefaultsSection(),
+        SizedBox(height: AnSpace.s24),
+        _SearchKeysSection(),
+      ],
+    );
+  }
+}
+
+/// Zone ① (body) — model keys: BYOK rows for llm-category providers, managed row pinned on top and
+/// locked. A provider absent from the catalog (or the catalog still loading) defaults here — [category]
+/// on [ProviderMeta] itself defaults to 'llm', so "not explicitly search" IS the model classification,
+/// never a silent vanish while `providersProvider` is in flight. 模型密钥区:llm 类 BYOK 行,受管行锁顶。
+/// 目录里查无(或目录尚未拉到)的 provider 默认落此区——ProviderMeta.category 本身默认 'llm',「非显式
+/// search」即模型分类,不会在 providersProvider 飞行中悄悄消失。
+class _ModelKeysSection extends ConsumerWidget {
+  const _ModelKeysSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
     final keys = ref.watch(apiKeysProvider);
     final providers =
@@ -70,61 +102,65 @@ class ModelsKeysPanel extends ConsumerWidget {
       for (final p in providers)
         if (p.managed) p.name,
     };
+    final searchNames = {
+      for (final p in providers)
+        if (p.category == 'search') p.name,
+    };
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return AnSection(
+      label: t.settings.keys.modelKeysSection,
+      variant: AnSectionVariant.quiet,
+      actions: [
+        const AnScopeBadge(AnSettingScope.workspace),
+        const SizedBox(width: AnSpace.s8),
+        AnButton(
+          label: t.settings.keys.addKey,
+          icon: AnIcons.plus,
+          size: AnButtonSize.sm,
+          outline: true,
+          onPressed: () => ref
+              .read(settingsDetailProvider.notifier)
+              .push('addKey', category: 'llm'),
+        ),
+      ],
       children: [
-        const _FreeTierCard(),
-        const SizedBox(height: AnSpace.s24),
-        AnSection(
-          label: t.settings.keys.keysSection,
-          variant: AnSectionVariant.quiet,
-          actions: [
-            const AnScopeBadge(AnSettingScope.workspace),
-            const SizedBox(width: AnSpace.s8),
-            AnButton(
-              label: t.settings.keys.addKey,
-              icon: AnIcons.plus,
-              size: AnButtonSize.sm,
-              outline: true,
-              onPressed: () =>
-                  ref.read(settingsDetailProvider.notifier).push('addKey'),
-            ),
-          ],
-          children: [
-            switch (keys) {
-              AsyncData(:final value) when value.isEmpty => Padding(
-                padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
-                child: AnState(
-                  kind: AnStateKind.empty,
-                  title: t.settings.keys.keysSection,
-                  size: AnStateSize.inset,
-                ),
-              ),
-              AsyncData(:final value) => Column(
-                children: [
-                  // Managed rows pinned on top, locked (no edit/delete affordances — S-1's UI half).
-                  // 受管行锁顶,无编辑删除入口(S-1 前端半)。
-                  for (final k in [
-                    ...value.where((k) => managedNames.contains(k.provider)),
-                    ...value.where((k) => !managedNames.contains(k.provider)),
-                  ])
-                    _KeyRow(row: k, managed: managedNames.contains(k.provider)),
-                ],
-              ),
-              AsyncError() => AnState(
-                kind: AnStateKind.error,
-                title: t.settings.keys.keyOpFailed,
+        switch (keys) {
+          AsyncData(:final value)
+              when value.every((k) => searchNames.contains(k.provider)) =>
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
+              child: AnState(
+                kind: AnStateKind.empty,
+                title: t.settings.keys.modelKeysSection,
                 size: AnStateSize.inset,
               ),
-              _ => const SizedBox(height: AnSize.row),
-            },
-          ],
-        ),
-        const SizedBox(height: AnSpace.s24),
-        const _DefaultsSection(),
-        const SizedBox(height: AnSpace.s24),
-        const _SearchSection(),
+            ),
+          AsyncData(:final value) => Column(
+            children: [
+              // Managed rows pinned on top, locked (no edit/delete affordances — S-1's UI half).
+              // 受管行锁顶,无编辑删除入口(S-1 前端半)。
+              for (final k in [
+                ...value.where(
+                  (k) =>
+                      managedNames.contains(k.provider) &&
+                      !searchNames.contains(k.provider),
+                ),
+                ...value.where(
+                  (k) =>
+                      !managedNames.contains(k.provider) &&
+                      !searchNames.contains(k.provider),
+                ),
+              ])
+                _KeyRow(row: k, managed: managedNames.contains(k.provider)),
+            ],
+          ),
+          AsyncError() => AnState(
+            kind: AnStateKind.error,
+            title: t.settings.keys.keyOpFailed,
+            size: AnStateSize.inset,
+          ),
+          _ => const SizedBox(height: AnSize.row),
+        },
       ],
     );
   }
@@ -249,13 +285,16 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
 }
 
 /// One key row — brand-logo lead + resting identity (name + meta incl. the managed mark) + the
-/// persistent probe dot at the trail + hover actions (BYOK only). 密钥一行:品牌 logo 前导 +
-/// 静息身份常驻 + 探测状态点尾端常驻,动作 hover 现(仅 BYOK)。
+/// persistent probe dot at the trail + hover actions (BYOK only). [hint] is an optional note under
+/// the label — the search-keys zone uses it for the honesty patch ("hasn't probed OK, won't be
+/// offered as the default"). 密钥一行:品牌 logo 前导 + 静息身份常驻 + 探测状态点尾端常驻,动作 hover
+/// 现(仅 BYOK)。hint=label 下可选注记——搜索密钥区借它做诚实补丁(「未探测通过,不会进默认」)。
 class _KeyRow extends ConsumerWidget {
-  const _KeyRow({required this.row, required this.managed});
+  const _KeyRow({required this.row, required this.managed, this.hint});
 
   final ApiKey row;
   final bool managed;
+  final String? hint;
 
   Future<void> _delete(BuildContext context, WidgetRef ref) async {
     final t = Translations.of(context);
@@ -328,6 +367,7 @@ class _KeyRow extends ConsumerWidget {
                 .read(settingsDetailProvider.notifier)
                 .push('editKey', id: row.id),
       label: row.displayName,
+      hint: hint,
       // Managed identity rides the ALWAYS-visible meta — the hover slot is for actions, and a
       // managed row has none. 受管身份走常驻 meta——hover 槽只放动作,受管行没有动作。
       meta:
@@ -377,9 +417,14 @@ class _KeyRow extends ConsumerWidget {
 /// 解锁保存。S-3 状态机不变:首次提交成功即绑 id,重试一律 PATCH;编辑态起步即 PATCH,非空密钥=旋转
 /// (S-4 就地警示);保存后自动探测(:test),飞行中按钮带转圈。
 class KeyForm extends ConsumerStatefulWidget {
-  const KeyForm({this.editingId, super.key});
+  const KeyForm({this.editingId, this.category, super.key});
 
   final String? editingId;
+
+  /// The provider category ('llm' | 'search') the stage-0 logo grid scopes to — null shows every
+  /// non-managed provider (the pre-0725 behaviour; editing never sets this since the provider is
+  /// already fixed). 厂家 logo 网格限定的类别;null=不过滤(0725 前行为;编辑态不设,provider 已定)。
+  final String? category;
 
   @override
   ConsumerState<KeyForm> createState() => _KeyFormState();
@@ -475,6 +520,9 @@ class _KeyFormState extends ConsumerState<KeyForm> {
     final providers =
         (ref.watch(providersProvider).value ?? const <ProviderMeta>[])
             .where((p) => !p.managed)
+            .where(
+              (p) => widget.category == null || p.category == widget.category,
+            )
             .toList();
     final meta = providers.where((p) => p.name == _provider).firstOrNull;
     final editing = widget.editingId != null;
@@ -854,8 +902,12 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
               clearable: widget.clearable && cur != null,
               onApply: _apply,
               onClear: _clear,
-              onAddKey: () =>
-                  ref.read(settingsDetailProvider.notifier).push('addKey'),
+              // Scenario defaults are ALWAYS an llm-category model route — scope the grid so the
+              // jump-to-add-key doesn't dump search vendors into a model picker. 场景默认恒为 llm
+              // 类模型路线——网格限类,不把搜索厂家掺进模型选择器。
+              onAddKey: () => ref
+                  .read(settingsDetailProvider.notifier)
+                  .push('addKey', category: 'llm'),
             ),
           ),
       ],
@@ -1389,32 +1441,53 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
   }
 }
 
-/// Zone ④ — the search zone: the search-category default key, a one-layer pick over probed search
-/// keys. 搜索区:默认搜索 key,一层选择(已探测 search 类 key)。
-class _SearchSection extends ConsumerWidget {
-  const _SearchSection();
+/// Zone ③ (body) — search keys: the search-category default pick living BESIDE the BYOK rows it
+/// governs (0725 重构: 不再是面板底部的孤悬区), its own logo-grid-scoped add flow. The default
+/// dropdown only offers `testStatus == 'ok'` keys (honesty half 1); every OTHER row says plainly it
+/// hasn't probed OK and won't be offered (honesty half 2) — otherwise a freshly-added key silently
+/// vanishes from the dropdown with no clue why. 搜索密钥区:默认选择与它管的 BYOK 行挨着(0725 重构:
+/// 不再悬空面板底),自带限类添加流程。默认下拉只收 testStatus == 'ok'(诚实一半);其余每行明说未
+/// 探测通过、不会进默认(诚实二半)——否则刚加的 key 从下拉里消失却无从知晓原因。
+class _SearchKeysSection extends ConsumerWidget {
+  const _SearchKeysSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
     final ws = ref.watch(workspacePrefsProvider).value;
-    final keys = ref.watch(apiKeysProvider).value ?? const <ApiKey>[];
+    final keysAsync = ref.watch(apiKeysProvider);
+    final allKeys = keysAsync.value ?? const <ApiKey>[];
     final providers =
         ref.watch(providersProvider).value ?? const <ProviderMeta>[];
     final searchProviders = {
       for (final p in providers)
         if (p.category == 'search') p.name,
     };
-    final searchKeys = keys
-        .where(
-          (k) => searchProviders.contains(k.provider) && k.testStatus == 'ok',
-        )
+    final managedNames = {
+      for (final p in providers)
+        if (p.managed) p.name,
+    };
+    final searchKeys = allKeys
+        .where((k) => searchProviders.contains(k.provider))
         .toList();
+    final okKeys = searchKeys.where((k) => k.testStatus == 'ok').toList();
 
     return AnSection(
       label: t.settings.keys.searchSection,
       variant: AnSectionVariant.quiet,
-      actions: const [AnScopeBadge(AnSettingScope.workspace)],
+      actions: [
+        const AnScopeBadge(AnSettingScope.workspace),
+        const SizedBox(width: AnSpace.s8),
+        AnButton(
+          label: t.settings.keys.addKey,
+          icon: AnIcons.plus,
+          size: AnButtonSize.sm,
+          outline: true,
+          onPressed: () => ref
+              .read(settingsDetailProvider.notifier)
+              .push('addKey', category: 'search'),
+        ),
+      ],
       children: [
         AnSettingRow(
           label: t.settings.keys.searchDefault,
@@ -1427,7 +1500,7 @@ class _SearchSection extends ConsumerWidget {
                   value: '',
                   label: t.settings.keys.clearDefault,
                 ),
-                for (final k in searchKeys)
+                for (final k in okKeys)
                   AnDropdownOption(
                     value: k.id,
                     label: k.displayName,
@@ -1459,6 +1532,39 @@ class _SearchSection extends ConsumerWidget {
             ),
           ),
         ),
+        switch (keysAsync) {
+          AsyncData() when searchKeys.isEmpty => Padding(
+            padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
+            child: AnState(
+              kind: AnStateKind.empty,
+              title: t.settings.keys.searchSection,
+              size: AnStateSize.inset,
+            ),
+          ),
+          AsyncData() => Column(
+            children: [
+              for (final k in searchKeys)
+                _KeyRow(
+                  row: k,
+                  // Derived, not hard-coded false: no search provider is managed today, but a hard
+                  // `false` would hand a future managed one the edit/delete affordances that S-1 says
+                  // it must not have — and nothing would fail until it shipped.
+                  // 推导得来、不写死 false:今天没有受管的搜索厂家,但写死 false 会给将来某个受管厂家发上
+                  // S-1 明令它不该有的编辑/删除入口,而在它上线之前不会有任何东西报错。
+                  managed: managedNames.contains(k.provider),
+                  hint: k.testStatus == 'ok'
+                      ? null
+                      : t.settings.keys.searchKeyNotProbedHint,
+                ),
+            ],
+          ),
+          AsyncError() => AnState(
+            kind: AnStateKind.error,
+            title: t.settings.keys.keyOpFailed,
+            size: AnStateSize.inset,
+          ),
+          _ => const SizedBox(height: AnSize.row),
+        },
       ],
     );
   }

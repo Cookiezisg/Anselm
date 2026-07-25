@@ -110,6 +110,9 @@ void main() {
     await pumpPanel(tester, SettingsPanel.modelsKeys);
     expect(find.text('Anselm Free'), findsWidgets);
     expect(find.text('DeepSeek (personal)'), findsOneWidget);
+    // 0725: the panel split model/search into two AnSections — a seed in EACH keeps
+    // expectNoEmptyFace() honest for both, not just the model half. 两段各留种子。
+    expect(find.text('Brave Search'), findsOneWidget);
     expectNoErrorFace();
     expectNoEmptyFace();
   });

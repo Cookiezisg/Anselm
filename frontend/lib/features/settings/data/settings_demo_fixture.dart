@@ -7,13 +7,17 @@ import '../../../core/contract/workspace.dart';
 import 'settings_repository.dart';
 
 /// The zero-backend settings fixture `make demo` mounts: a managed free-tier row with live quota +
-/// one BYOK key, so the models-and-keys panel and the chat model picker both have something honest
-/// to show; plus seeded memories, MCP servers and sandbox runtimes/envs so every settings panel shows
-/// populated state instead of an empty placeholder (D-032/033/034). Capabilities are core-level (S-15)
-/// so they ship as a separate list the demo assembly overrides [modelCapabilitiesProvider] with.
+/// one BYOK llm key + one BYOK search key (0725: the models&keys panel split model/search into two
+/// sections — a seed in EACH keeps both honest, not just the model half), so the models-and-keys
+/// panel and the chat model picker both have something honest to show; plus seeded memories, MCP
+/// servers and sandbox runtimes/envs so every settings panel shows populated state instead of an
+/// empty placeholder (D-032/033/034). Capabilities are core-level (S-15) so they ship as a separate
+/// list the demo assembly overrides [modelCapabilitiesProvider] with.
 ///
-/// make demo 挂的零后端 settings fixture:受管免费档+BYOK+配额,加记忆/MCP server/沙箱运行时·env 种子,
-/// 使每个设置面板都显有数据态而非空占位(D-032/033/034)。能力目录在 core(S-15),单独出列表由装配 override。
+/// make demo 挂的零后端 settings fixture:受管免费档+一把 BYOK llm key+一把 BYOK 搜索 key(0725:模型
+/// 与密钥面板拆了模型/搜索两段,两段各留种子才诚实,不能只顾模型半区)+配额,加记忆/MCP server/沙箱
+/// 运行时·env 种子,使每个设置面板都显有数据态而非空占位(D-032/033/034)。能力目录在 core(S-15),
+/// 单独出列表由装配 override。
 SettingsRepository demoSettingsRepository() {
   final at = DateTime.utc(2026, 7, 1, 9);
   return FixtureSettingsRepository()
@@ -30,6 +34,14 @@ SettingsRepository demoSettingsRepository() {
         id: 'aki_demo_byok0000',
         provider: 'deepseek',
         displayName: 'DeepSeek (personal)',
+        testStatus: 'ok',
+        createdAt: at,
+        updatedAt: at,
+      ),
+      ApiKey(
+        id: 'aki_demo_search000',
+        provider: 'brave',
+        displayName: 'Brave Search',
         testStatus: 'ok',
         createdAt: at,
         updatedAt: at,
