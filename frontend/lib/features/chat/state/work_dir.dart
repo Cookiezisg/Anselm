@@ -85,6 +85,52 @@ class WorkDirController extends AsyncNotifier<WorkDirInfo> {
     final info = await _probe();
     if (ref.mounted) state = AsyncData(info);
   }
+
+  /// Switch to an existing branch (WD2). The action's OWN response is the new state — the server re-probes
+  /// after the checkout, so adopting it means the menu never shows one frame of the old branch.
+  ///
+  /// Failures are deliberately NOT swallowed here (unlike the read): the read is decoration on a breadcrumb,
+  /// while this is a change the user asked for, and the guardrail's whole value is the sentence it refuses with
+  /// («commit or stash them, then switch branches»). The caller renders it.
+  ///
+  /// 切到一条已存在的分支（WD2）。该动作**自己**的响应就是新状态——服务端在 checkout 之后重探，故采用它意味着菜单
+  /// 绝不会显示一帧旧分支。
+  ///
+  /// 此处**刻意不吞**失败（与那次读相反）:读是面包屑上的装饰，而这是用户要求的一次**改动**，且那道护栏的全部价值就在
+  /// 它拒绝时说的那句话（「先提交或贮藏，再切换分支」）。由调用方去渲它。
+  Future<void> switchBranch(String branch) =>
+      _apply(() => _repo.switchBranch(conversationId, branch));
+
+  /// Create a branch at the current HEAD and move onto it (WD2). Allowed with uncommitted work: the new branch
+  /// starts where you already are, so nothing can collide.
+  ///
+  /// 在当前 HEAD 上建一条分支并移过去（WD2）。有未提交的活时**允许**:新分支起点就是你已经在的地方，什么都撞不上。
+  Future<void> createBranch(String branch) =>
+      _apply(() => _repo.createBranch(conversationId, branch));
+
+  /// Open a worktree for this conversation and follow the residency into it (WD3).
+  ///
+  /// The thread's stored ROW moved server-side, so the header provider is invalidated too — the breadcrumb's
+  /// folder reads its label from the row (that is what lets it know its shape on the first frame), and leaving
+  /// the row stale would show the new branch under the old directory's name.
+  ///
+  /// 为本对话开一份 worktree，并让驻地跟进去（WD3）。
+  ///
+  /// 线程存下来的**行**在服务端动了，故 header provider 也要失效——面包屑那个文件夹的标签读自那一行（正是它让按钮第一
+  /// 帧就知道自己的形状），把那一行留在过期状态会显示成「新分支挂在旧目录名下」。
+  Future<void> addWorktree(String name) async {
+    await _apply(() => _repo.addWorktree(conversationId, name));
+    ref.invalidate(conversationHeaderProvider(conversationId));
+  }
+
+  /// Run one residency-changing action and adopt its authoritative projection. Errors propagate; the state is
+  /// only replaced on success, so a refused action leaves the menu describing reality.
+  ///
+  /// 跑一个改变驻地的动作并采用它权威的投影。错误向上抛;仅成功时替换 state，故一次被拒的动作会让菜单继续描述现实。
+  Future<void> _apply(Future<WorkDirInfo> Function() action) async {
+    final info = await action();
+    if (ref.mounted) state = AsyncData(info);
+  }
 }
 
 final workDirProvider = AsyncNotifierProvider.autoDispose

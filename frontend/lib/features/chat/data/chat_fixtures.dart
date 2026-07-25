@@ -220,6 +220,95 @@ class FixtureChatRepository implements ChatRepository {
     return workDirInfos[path] ?? WorkDirInfo(path: path, exists: true);
   }
 
+  /// The residency's git ACTIONS (WD2 + WD3), scripted the same way the projections are: the demo and the
+  /// widget tests must exercise switching a branch and opening a worktree on machines where none of these
+  /// directories exist.
+  ///
+  /// [gitFailure] arms the NEXT action to throw — the failure copy ("commit or stash them, then switch
+  /// branches") is a first-class thing to render, so a fixture that could only succeed would leave the one
+  /// path that actually needs testing untested.
+  ///
+  /// 驻地的 git **动作**（WD2 + WD3），与那些投影同样脚本化:demo 与 widget 测试必须能在这些目录一个都不存在的机器上
+  /// 走通「切分支」与「开 worktree」。
+  ///
+  /// [gitFailure] 给**下一次**动作装上抛出——失败文案（「先提交或贮藏，再切换分支」）是一等要渲的东西，故一个只会成功
+  /// 的夹具会把唯一真正需要测的那条路留在没测过的状态。
+  Object? gitFailure;
+  final List<String> switchedBranches = [];
+  final List<String> createdBranches = [];
+  final List<String> addedWorktrees = [];
+
+  Object? _takeGitFailure() {
+    final f = gitFailure;
+    gitFailure = null;
+    return f;
+  }
+
+  @override
+  Future<WorkDirInfo> switchBranch(String id, String branch) async {
+    final failure = _takeGitFailure();
+    if (failure != null) throw failure;
+    switchedBranches.add(branch);
+    return _reproject(id, (info) => info.copyWith(branch: branch));
+  }
+
+  @override
+  Future<WorkDirInfo> createBranch(String id, String branch) async {
+    final failure = _takeGitFailure();
+    if (failure != null) throw failure;
+    createdBranches.add(branch);
+    return _reproject(
+      id,
+      (info) =>
+          info.copyWith(branch: branch, branches: [branch, ...info.branches]),
+    );
+  }
+
+  /// The one-shot: the residency MOVES, so the row moves too — the whole point of WD3 is that a client does not
+  /// have to orchestrate three calls. The derived path mirrors the backend's `make worktree` convention
+  /// (a sibling named `<repo>-<name>`, branch `wt/<name>`) so the fixture reads like the real thing.
+  ///
+  /// 一条龙:驻地**移动**，故那一行也跟着动——WD3 的全部意义就是客户端不必自己编排三次调用。派生路径镜像后端的
+  /// `make worktree` 约定（兄弟位、名为 `<repo>-<name>`、分支 `wt/<name>`），使夹具读起来就是真东西。
+  @override
+  Future<WorkDirInfo> addWorktree(String id, String name) async {
+    final failure = _takeGitFailure();
+    if (failure != null) throw failure;
+    addedWorktrees.add(name);
+    final from = _all.firstWhere((c) => c.id == id).workDir;
+    final target = '$from-$name';
+    final branch = 'wt/$name';
+    final info = WorkDirInfo(
+      path: target,
+      exists: true,
+      isGitRepo: true,
+      branch: branch,
+      branches: [branch, ...(workDirInfos[from]?.branches ?? const [])],
+      worktrees: [
+        WorkTreeInfo(path: from, branch: workDirInfos[from]?.branch ?? ''),
+        WorkTreeInfo(path: target, branch: branch, current: true),
+      ],
+    );
+    workDirInfos[target] = info;
+    _mutate(id, (c) => c.copyWith(workDir: target));
+    return info;
+  }
+
+  /// Fold a change into the scripted projection for the thread's CURRENT residency, so a later read sees what
+  /// the action returned (a fixture whose action result and later read disagree teaches the wrong lesson).
+  ///
+  /// 把一次改动折进该线程**当前**驻地的脚本投影，使随后的读看到动作返回的东西（一个「动作结果与随后的读互相矛盾」的
+  /// 夹具会教出错的道理）。
+  WorkDirInfo _reproject(String id, WorkDirInfo Function(WorkDirInfo) f) {
+    final path = _all.firstWhere((c) => c.id == id).workDir;
+    final next = f(
+      workDirInfos[path] ??
+          WorkDirInfo(path: path, exists: true, isGitRepo: true),
+    );
+    workDirInfos[path] = next;
+    return next;
+  }
+
   @override
   Future<Conversation> setPinned(String id, bool pinned) async =>
       _mutate(id, (c) => c.copyWith(pinned: pinned));

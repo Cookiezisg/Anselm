@@ -134,16 +134,25 @@ abstract class WorkDirGroup with _$WorkDirGroup {
 ///
 /// [path] echoes the row's column so one read serves the whole menu. [exists] false with a non-empty
 /// [path] is the WARNING state (mounted, then moved or deleted) — a real thing to render, not an error.
-/// [branch] / [dirty] are meaningful only when [isGitRepo]; WD1 shows them READ-ONLY (switching branches is
-/// WD2, worktrees WD3).
+/// [branch] / [dirty] / [branches] / [worktrees] are meaningful only when [isGitRepo].
+///
+/// [branches] and [worktrees] (WD2 / WD3) are what make the menu's git segment ACTIONABLE rather than a
+/// read-out — you cannot offer to switch to a branch you never listed. Both stay cursor-free because both are
+/// BOUNDED: [branches] is `refs/heads` only (the branches this person created; a fetched `refs/remotes` is the
+/// set that runs to thousands), and [worktrees] is however many checkouts exist — the current one INCLUDED and
+/// flagged, since the honest answer to "which worktrees does this repo have" contains the one you stand in.
 ///
 /// 驻地的**活投影**——`GET /conversations/{id}/workdir`,镜像 `conversation.WorkDirInfo`。逐请求现算、零缓存:
 /// 文件系统与 git **就是**真相,故用户刚删掉的目录、或刚在自己终端里切的分支,读作它**现在的样子**。这正是那个
 /// 文件夹按钮的三态能够诚实的原因。
 ///
 /// path 回显行上那一列,使一次读服务整个菜单。path 非空而 exists 为 false 是**警示**态(挂过、然后被移走或删了)
-/// ——那是要渲的真实状态、不是错误。branch / dirty 仅在 isGitRepo 时有意义;WD1 **只读**地显示它们(切分支归
-/// WD2、worktree 归 WD3)。
+/// ——那是要渲的真实状态、不是错误。branch / dirty / branches / worktrees 仅在 isGitRepo 时有意义。
+///
+/// branches 与 worktrees（WD2 / WD3）正是让菜单 git 段**可操作**、而非一段读数的东西——没列出来的分支无从提议切
+/// 过去。两者都无游标,因为两者都**有界**:branches **只**取 `refs/heads`（这个人自己建的那些分支;会跑到上千条的是
+/// fetch 来的 `refs/remotes`）,worktrees 则是实际存在多少份 checkout 就多少条——**含**当前那一份并标出它,因为
+/// 「这个仓库有哪些 worktree」的诚实答案包含你正站着的那一份。
 @freezed
 abstract class WorkDirInfo with _$WorkDirInfo {
   const factory WorkDirInfo({
@@ -152,8 +161,37 @@ abstract class WorkDirInfo with _$WorkDirInfo {
     @Default(false) bool isGitRepo,
     @Default('') String branch,
     @Default(false) bool dirty,
+    @Default(<String>[]) List<String> branches,
+    @Default(<WorkTreeInfo>[]) List<WorkTreeInfo> worktrees,
   }) = _WorkDirInfo;
 
   factory WorkDirInfo.fromJson(Map<String, dynamic> json) =>
       _$WorkDirInfoFromJson(json);
+}
+
+/// ONE parallel checkout of the residency's repository (WD3) — mirrors `conversation.WorkTreeInfo`: where it
+/// lives, which branch it has out ([branch] empty = detached), and whether it is the one this conversation is
+/// mounted on.
+///
+/// It carries no id and no lifecycle for the same reason [WorkDirGroup] does not: a worktree exists exactly as
+/// long as git says it does, and the truth is `git worktree list` — not a table. [current] is decided
+/// SERVER-side against the work tree's ROOT, so a residency mounted on a SUBDIRECTORY still knows which
+/// worktree it stands in and the menu never offers a switch to where the user already is.
+///
+/// 驻地所在仓库的**一份**平行 checkout（WD3）——镜像 `conversation.WorkTreeInfo`:它在哪、出着哪条分支（branch 空 =
+/// detached）、以及它是不是本对话所挂的那一份。
+///
+/// 它没有 id、没有生命周期,理由与 WorkDirGroup 相同:一个 worktree 存在的时长恰好等于 git 说它存在的时长,而真相是
+/// `git worktree list`——不是某张表。current 在**服务端**拿工作树的**根**判定,故挂在**子目录**上的驻地依然知道自己
+/// 站在哪一份里,菜单也就绝不会提议切到用户已经在的地方。
+@freezed
+abstract class WorkTreeInfo with _$WorkTreeInfo {
+  const factory WorkTreeInfo({
+    @Default('') String path,
+    @Default('') String branch,
+    @Default(false) bool current,
+  }) = _WorkTreeInfo;
+
+  factory WorkTreeInfo.fromJson(Map<String, dynamic> json) =>
+      _$WorkTreeInfoFromJson(json);
 }

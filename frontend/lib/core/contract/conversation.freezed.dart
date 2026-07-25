@@ -882,7 +882,7 @@ as DateTime,
 /// @nodoc
 mixin _$WorkDirInfo {
 
- String get path; bool get exists; bool get isGitRepo; String get branch; bool get dirty;
+ String get path; bool get exists; bool get isGitRepo; String get branch; bool get dirty; List<String> get branches; List<WorkTreeInfo> get worktrees;
 /// Create a copy of WorkDirInfo
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -895,16 +895,16 @@ $WorkDirInfoCopyWith<WorkDirInfo> get copyWith => _$WorkDirInfoCopyWithImpl<Work
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkDirInfo&&(identical(other.path, path) || other.path == path)&&(identical(other.exists, exists) || other.exists == exists)&&(identical(other.isGitRepo, isGitRepo) || other.isGitRepo == isGitRepo)&&(identical(other.branch, branch) || other.branch == branch)&&(identical(other.dirty, dirty) || other.dirty == dirty));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkDirInfo&&(identical(other.path, path) || other.path == path)&&(identical(other.exists, exists) || other.exists == exists)&&(identical(other.isGitRepo, isGitRepo) || other.isGitRepo == isGitRepo)&&(identical(other.branch, branch) || other.branch == branch)&&(identical(other.dirty, dirty) || other.dirty == dirty)&&const DeepCollectionEquality().equals(other.branches, branches)&&const DeepCollectionEquality().equals(other.worktrees, worktrees));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,path,exists,isGitRepo,branch,dirty);
+int get hashCode => Object.hash(runtimeType,path,exists,isGitRepo,branch,dirty,const DeepCollectionEquality().hash(branches),const DeepCollectionEquality().hash(worktrees));
 
 @override
 String toString() {
-  return 'WorkDirInfo(path: $path, exists: $exists, isGitRepo: $isGitRepo, branch: $branch, dirty: $dirty)';
+  return 'WorkDirInfo(path: $path, exists: $exists, isGitRepo: $isGitRepo, branch: $branch, dirty: $dirty, branches: $branches, worktrees: $worktrees)';
 }
 
 
@@ -915,7 +915,7 @@ abstract mixin class $WorkDirInfoCopyWith<$Res>  {
   factory $WorkDirInfoCopyWith(WorkDirInfo value, $Res Function(WorkDirInfo) _then) = _$WorkDirInfoCopyWithImpl;
 @useResult
 $Res call({
- String path, bool exists, bool isGitRepo, String branch, bool dirty
+ String path, bool exists, bool isGitRepo, String branch, bool dirty, List<String> branches, List<WorkTreeInfo> worktrees
 });
 
 
@@ -932,14 +932,16 @@ class _$WorkDirInfoCopyWithImpl<$Res>
 
 /// Create a copy of WorkDirInfo
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? path = null,Object? exists = null,Object? isGitRepo = null,Object? branch = null,Object? dirty = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? path = null,Object? exists = null,Object? isGitRepo = null,Object? branch = null,Object? dirty = null,Object? branches = null,Object? worktrees = null,}) {
   return _then(_self.copyWith(
 path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
 as String,exists: null == exists ? _self.exists : exists // ignore: cast_nullable_to_non_nullable
 as bool,isGitRepo: null == isGitRepo ? _self.isGitRepo : isGitRepo // ignore: cast_nullable_to_non_nullable
 as bool,branch: null == branch ? _self.branch : branch // ignore: cast_nullable_to_non_nullable
 as String,dirty: null == dirty ? _self.dirty : dirty // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,branches: null == branches ? _self.branches : branches // ignore: cast_nullable_to_non_nullable
+as List<String>,worktrees: null == worktrees ? _self.worktrees : worktrees // ignore: cast_nullable_to_non_nullable
+as List<WorkTreeInfo>,
   ));
 }
 
@@ -1024,10 +1026,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String path,  bool exists,  bool isGitRepo,  String branch,  bool dirty)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String path,  bool exists,  bool isGitRepo,  String branch,  bool dirty,  List<String> branches,  List<WorkTreeInfo> worktrees)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _WorkDirInfo() when $default != null:
-return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty);case _:
+return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty,_that.branches,_that.worktrees);case _:
   return orElse();
 
 }
@@ -1045,10 +1047,10 @@ return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String path,  bool exists,  bool isGitRepo,  String branch,  bool dirty)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String path,  bool exists,  bool isGitRepo,  String branch,  bool dirty,  List<String> branches,  List<WorkTreeInfo> worktrees)  $default,) {final _that = this;
 switch (_that) {
 case _WorkDirInfo():
-return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty);case _:
+return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty,_that.branches,_that.worktrees);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1065,10 +1067,10 @@ return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String path,  bool exists,  bool isGitRepo,  String branch,  bool dirty)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String path,  bool exists,  bool isGitRepo,  String branch,  bool dirty,  List<String> branches,  List<WorkTreeInfo> worktrees)?  $default,) {final _that = this;
 switch (_that) {
 case _WorkDirInfo() when $default != null:
-return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty);case _:
+return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty,_that.branches,_that.worktrees);case _:
   return null;
 
 }
@@ -1080,7 +1082,7 @@ return $default(_that.path,_that.exists,_that.isGitRepo,_that.branch,_that.dirty
 @JsonSerializable()
 
 class _WorkDirInfo implements WorkDirInfo {
-  const _WorkDirInfo({this.path = '', this.exists = false, this.isGitRepo = false, this.branch = '', this.dirty = false});
+  const _WorkDirInfo({this.path = '', this.exists = false, this.isGitRepo = false, this.branch = '', this.dirty = false, final  List<String> branches = const <String>[], final  List<WorkTreeInfo> worktrees = const <WorkTreeInfo>[]}): _branches = branches,_worktrees = worktrees;
   factory _WorkDirInfo.fromJson(Map<String, dynamic> json) => _$WorkDirInfoFromJson(json);
 
 @override@JsonKey() final  String path;
@@ -1088,6 +1090,20 @@ class _WorkDirInfo implements WorkDirInfo {
 @override@JsonKey() final  bool isGitRepo;
 @override@JsonKey() final  String branch;
 @override@JsonKey() final  bool dirty;
+ final  List<String> _branches;
+@override@JsonKey() List<String> get branches {
+  if (_branches is EqualUnmodifiableListView) return _branches;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_branches);
+}
+
+ final  List<WorkTreeInfo> _worktrees;
+@override@JsonKey() List<WorkTreeInfo> get worktrees {
+  if (_worktrees is EqualUnmodifiableListView) return _worktrees;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_worktrees);
+}
+
 
 /// Create a copy of WorkDirInfo
 /// with the given fields replaced by the non-null parameter values.
@@ -1102,16 +1118,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkDirInfo&&(identical(other.path, path) || other.path == path)&&(identical(other.exists, exists) || other.exists == exists)&&(identical(other.isGitRepo, isGitRepo) || other.isGitRepo == isGitRepo)&&(identical(other.branch, branch) || other.branch == branch)&&(identical(other.dirty, dirty) || other.dirty == dirty));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkDirInfo&&(identical(other.path, path) || other.path == path)&&(identical(other.exists, exists) || other.exists == exists)&&(identical(other.isGitRepo, isGitRepo) || other.isGitRepo == isGitRepo)&&(identical(other.branch, branch) || other.branch == branch)&&(identical(other.dirty, dirty) || other.dirty == dirty)&&const DeepCollectionEquality().equals(other._branches, _branches)&&const DeepCollectionEquality().equals(other._worktrees, _worktrees));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,path,exists,isGitRepo,branch,dirty);
+int get hashCode => Object.hash(runtimeType,path,exists,isGitRepo,branch,dirty,const DeepCollectionEquality().hash(_branches),const DeepCollectionEquality().hash(_worktrees));
 
 @override
 String toString() {
-  return 'WorkDirInfo(path: $path, exists: $exists, isGitRepo: $isGitRepo, branch: $branch, dirty: $dirty)';
+  return 'WorkDirInfo(path: $path, exists: $exists, isGitRepo: $isGitRepo, branch: $branch, dirty: $dirty, branches: $branches, worktrees: $worktrees)';
 }
 
 
@@ -1122,7 +1138,7 @@ abstract mixin class _$WorkDirInfoCopyWith<$Res> implements $WorkDirInfoCopyWith
   factory _$WorkDirInfoCopyWith(_WorkDirInfo value, $Res Function(_WorkDirInfo) _then) = __$WorkDirInfoCopyWithImpl;
 @override @useResult
 $Res call({
- String path, bool exists, bool isGitRepo, String branch, bool dirty
+ String path, bool exists, bool isGitRepo, String branch, bool dirty, List<String> branches, List<WorkTreeInfo> worktrees
 });
 
 
@@ -1139,13 +1155,284 @@ class __$WorkDirInfoCopyWithImpl<$Res>
 
 /// Create a copy of WorkDirInfo
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? path = null,Object? exists = null,Object? isGitRepo = null,Object? branch = null,Object? dirty = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? path = null,Object? exists = null,Object? isGitRepo = null,Object? branch = null,Object? dirty = null,Object? branches = null,Object? worktrees = null,}) {
   return _then(_WorkDirInfo(
 path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
 as String,exists: null == exists ? _self.exists : exists // ignore: cast_nullable_to_non_nullable
 as bool,isGitRepo: null == isGitRepo ? _self.isGitRepo : isGitRepo // ignore: cast_nullable_to_non_nullable
 as bool,branch: null == branch ? _self.branch : branch // ignore: cast_nullable_to_non_nullable
 as String,dirty: null == dirty ? _self.dirty : dirty // ignore: cast_nullable_to_non_nullable
+as bool,branches: null == branches ? _self._branches : branches // ignore: cast_nullable_to_non_nullable
+as List<String>,worktrees: null == worktrees ? _self._worktrees : worktrees // ignore: cast_nullable_to_non_nullable
+as List<WorkTreeInfo>,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$WorkTreeInfo {
+
+ String get path; String get branch; bool get current;
+/// Create a copy of WorkTreeInfo
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$WorkTreeInfoCopyWith<WorkTreeInfo> get copyWith => _$WorkTreeInfoCopyWithImpl<WorkTreeInfo>(this as WorkTreeInfo, _$identity);
+
+  /// Serializes this WorkTreeInfo to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is WorkTreeInfo&&(identical(other.path, path) || other.path == path)&&(identical(other.branch, branch) || other.branch == branch)&&(identical(other.current, current) || other.current == current));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,path,branch,current);
+
+@override
+String toString() {
+  return 'WorkTreeInfo(path: $path, branch: $branch, current: $current)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $WorkTreeInfoCopyWith<$Res>  {
+  factory $WorkTreeInfoCopyWith(WorkTreeInfo value, $Res Function(WorkTreeInfo) _then) = _$WorkTreeInfoCopyWithImpl;
+@useResult
+$Res call({
+ String path, String branch, bool current
+});
+
+
+
+
+}
+/// @nodoc
+class _$WorkTreeInfoCopyWithImpl<$Res>
+    implements $WorkTreeInfoCopyWith<$Res> {
+  _$WorkTreeInfoCopyWithImpl(this._self, this._then);
+
+  final WorkTreeInfo _self;
+  final $Res Function(WorkTreeInfo) _then;
+
+/// Create a copy of WorkTreeInfo
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? path = null,Object? branch = null,Object? current = null,}) {
+  return _then(_self.copyWith(
+path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
+as String,branch: null == branch ? _self.branch : branch // ignore: cast_nullable_to_non_nullable
+as String,current: null == current ? _self.current : current // ignore: cast_nullable_to_non_nullable
+as bool,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [WorkTreeInfo].
+extension WorkTreeInfoPatterns on WorkTreeInfo {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _WorkTreeInfo value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _WorkTreeInfo() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _WorkTreeInfo value)  $default,){
+final _that = this;
+switch (_that) {
+case _WorkTreeInfo():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _WorkTreeInfo value)?  $default,){
+final _that = this;
+switch (_that) {
+case _WorkTreeInfo() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String path,  String branch,  bool current)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _WorkTreeInfo() when $default != null:
+return $default(_that.path,_that.branch,_that.current);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String path,  String branch,  bool current)  $default,) {final _that = this;
+switch (_that) {
+case _WorkTreeInfo():
+return $default(_that.path,_that.branch,_that.current);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String path,  String branch,  bool current)?  $default,) {final _that = this;
+switch (_that) {
+case _WorkTreeInfo() when $default != null:
+return $default(_that.path,_that.branch,_that.current);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _WorkTreeInfo implements WorkTreeInfo {
+  const _WorkTreeInfo({this.path = '', this.branch = '', this.current = false});
+  factory _WorkTreeInfo.fromJson(Map<String, dynamic> json) => _$WorkTreeInfoFromJson(json);
+
+@override@JsonKey() final  String path;
+@override@JsonKey() final  String branch;
+@override@JsonKey() final  bool current;
+
+/// Create a copy of WorkTreeInfo
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$WorkTreeInfoCopyWith<_WorkTreeInfo> get copyWith => __$WorkTreeInfoCopyWithImpl<_WorkTreeInfo>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$WorkTreeInfoToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _WorkTreeInfo&&(identical(other.path, path) || other.path == path)&&(identical(other.branch, branch) || other.branch == branch)&&(identical(other.current, current) || other.current == current));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,path,branch,current);
+
+@override
+String toString() {
+  return 'WorkTreeInfo(path: $path, branch: $branch, current: $current)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$WorkTreeInfoCopyWith<$Res> implements $WorkTreeInfoCopyWith<$Res> {
+  factory _$WorkTreeInfoCopyWith(_WorkTreeInfo value, $Res Function(_WorkTreeInfo) _then) = __$WorkTreeInfoCopyWithImpl;
+@override @useResult
+$Res call({
+ String path, String branch, bool current
+});
+
+
+
+
+}
+/// @nodoc
+class __$WorkTreeInfoCopyWithImpl<$Res>
+    implements _$WorkTreeInfoCopyWith<$Res> {
+  __$WorkTreeInfoCopyWithImpl(this._self, this._then);
+
+  final _WorkTreeInfo _self;
+  final $Res Function(_WorkTreeInfo) _then;
+
+/// Create a copy of WorkTreeInfo
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? path = null,Object? branch = null,Object? current = null,}) {
+  return _then(_WorkTreeInfo(
+path: null == path ? _self.path : path // ignore: cast_nullable_to_non_nullable
+as String,branch: null == branch ? _self.branch : branch // ignore: cast_nullable_to_non_nullable
+as String,current: null == current ? _self.current : current // ignore: cast_nullable_to_non_nullable
 as bool,
   ));
 }

@@ -384,9 +384,17 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `CONVERSATION_ATTACHED_DOC_NOT_FOUND` | 422 | conversation attaches a document that does not exist (F168-M5; `details.missing`) |
+| `CONVERSATION_BRANCH_EXISTS` | 409 | a branch by that name already exists（WD2 `workdir:create-branch`——**冲突、不静默切过去**:「新建分支」与「切到恰好叫这名字的分支」是两种意图，静默执行后者正是用户落到别人的活上面的方式） |
+| `CONVERSATION_BRANCH_NOT_FOUND` | 404 | no local branch by that name（WD2 `workdir:switch-branch`;在 checkout **之前**问，故也封掉了 `git checkout` 的 DWIM——一个拼错永不会悄悄变成一条远端跟踪分支） |
+| `CONVERSATION_GIT_FAILED` | 422 | git refused the operation（WD2/WD3 兜底;**`details.git` 带 git 的逐字 stderr**——为每条 git 消息铸一个 sentinel 是一张永远不全的表，而把理由吞掉更糟） |
+| `CONVERSATION_INVALID_BRANCH` | 422 | invalid branch name (git check-ref-format refused it)（用 git 自己的工具校验、不手搓规则［原则 #8］;另拒空与前导 `-`——一个以 `-` 开头的**合法** ref 会被下一条命令读成选项） |
 | `CONVERSATION_INVALID_MODEL_OVERRIDE` | 422 | invalid modelOverride (apiKeyId and modelId both required) |
 | `CONVERSATION_INVALID_WORK_DIR` | 422 | invalid workDir (must be an absolute path, or empty to unmount) |
+| `CONVERSATION_INVALID_WORKTREE_NAME` | 422 | invalid worktree name (must be one path segment usable as a branch name)（WD3;比分支名**更严**——名字**也会**成为一个目录段，而正是这份更严让派生路径可证明地落在仓库兄弟位） |
 | `CONVERSATION_NOT_FOUND` | 404 | conversation not found |
+| `CONVERSATION_WORK_DIR_DIRTY` | 422 | the working directory has uncommitted changes — commit or stash them, then switch branches（**WD2 的护栏**、本批唯一真正的决定;只守**切到已存在的分支**，**新建**分支刻意不受此门——立法见 [domains/conversation.md](domains/conversation.md)） |
+| `CONVERSATION_WORK_DIR_NOT_GIT_REPO` | 422 | the conversation's working directory is not a git repository（未挂 / 已消失 / 普通目录 / 无 `git` 二进制**收成一个**答案——四种情形下用户的下一步完全相同;**读**侧对同样这些情形只答 `isGitRepo=false`，因为一次读不该失败、而一次**写**必须说出「改动没发生」） |
+| `CONVERSATION_WORKTREE_EXISTS` | 409 | that worktree directory already exists（WD3;**`details.path`** 带挡路的那个目录——一句不带路径的「这名字被占了」会让用户去猜。目录里装着某人的活、可能是另一个会话的，静默接管它正是两个 agent 编辑同一棵树的方式） |
 
 ### `domain/document`
 

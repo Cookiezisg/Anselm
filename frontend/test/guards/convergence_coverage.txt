@@ -375,6 +375,7 @@ lib/features/chat/state/transcript_jump_provider.dart	converged
 lib/features/chat/state/work_dir.dart	pending
 lib/features/chat/ui/chat_composer.dart	reviewed
 lib/features/chat/ui/chat_context_mark.dart	reviewed
+lib/features/chat/ui/chat_git_actions.dart	pending
 lib/features/chat/ui/chat_head.dart	converged
 lib/features/chat/ui/chat_ocean.dart	reviewed
 lib/features/chat/ui/chat_thinking.dart	converged

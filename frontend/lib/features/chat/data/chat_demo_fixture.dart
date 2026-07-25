@@ -2451,12 +2451,26 @@ DemoChatRepository demoChatRepository() {
   // WD1——驻地**投影**。脚本化而非真探,因为 demo 必须在**任何**机器上都能展示 git 段(分支+脏点)与目录缺失警示,
   // 包括两条路径都不存在的机器。「已挂但不是仓库」是夹具自己的默认(exists=true、isGitRepo=false),其余每条线程都
   // 未挂,故按钮能渲的四种形状全在屏上。
+  // WD2/WD3 — the git segment is ACTIONABLE now, so the demo has to carry the two lists that make it so: a
+  // switcher with nothing in it is a feature that looks like it does nothing. This residency is deliberately
+  // DIRTY, which is also the state the guardrail speaks in — so the demo shows «commit or stash first» in place
+  // of the branch rows, and that is the more informative of the two shapes to have on screen (the other one is
+  // just a list of names). The `-wd3` sibling is a worktree the user could move this thread into.
+  // WD2/WD3——git 段如今是**可操作**的,故 demo 必须带上让它成为如此的那两个列表:一个里面什么都没有的切换器,是一个
+  // 「看起来什么也没做」的功能。这个驻地**刻意是脏的**,而那也正是护栏说话的那一态——于是 demo 用「先提交或贮藏」
+  // 顶替分支行,而那是两种形状里更有信息量的一个(另一个只是一串名字)。`-wd3` 那个兄弟位是用户可以把本线程移进去的
+  // 一份 worktree。
   repo.workDirInfos[_demoWorkDir] = const WorkDirInfo(
     path: _demoWorkDir,
     exists: true,
     isGitRepo: true,
     branch: 'main',
     dirty: true,
+    branches: ['main', 'wt/wd3', 'feat/residency'],
+    worktrees: [
+      WorkTreeInfo(path: _demoWorkDir, branch: 'main', current: true),
+      WorkTreeInfo(path: '$_demoWorkDir-wd3', branch: 'wt/wd3'),
+    ],
   );
   repo.workDirInfos[_demoGoneWorkDir] = const WorkDirInfo(
     path: _demoGoneWorkDir,

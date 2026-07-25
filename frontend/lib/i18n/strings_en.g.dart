@@ -1647,6 +1647,72 @@ class Translations$chat$workDir$en {
 
 	/// en: 'Delete all'
 	String get groupDeleteConfirm => 'Delete all';
+
+	/// en: 'Switch branch'
+	String get switchBranchSection => 'Switch branch';
+
+	/// en: 'New branch…'
+	String get newBranch => 'New branch…';
+
+	/// en: 'New branch'
+	String get newBranchTitle => 'New branch';
+
+	/// en: 'Created at the commit you have checked out, then switched to. Uncommitted changes come along — nothing can conflict.'
+	String get newBranchExplainer => 'Created at the commit you have checked out, then switched to. Uncommitted changes come along — nothing can conflict.';
+
+	/// en: 'feat/my-change'
+	String get newBranchField => 'feat/my-change';
+
+	/// en: 'Create and switch'
+	String get newBranchConfirm => 'Create and switch';
+
+	/// en: 'Commit or stash your changes first, then switch branches'
+	String get dirtyBlocksSwitch => 'Commit or stash your changes first, then switch branches';
+
+	/// en: 'Worktrees'
+	String get worktreeSection => 'Worktrees';
+
+	/// en: 'Open a worktree for this conversation…'
+	String get worktreeNew => 'Open a worktree for this conversation…';
+
+	/// en: 'Open a worktree'
+	String get worktreeTitle => 'Open a worktree';
+
+	/// en: 'Creates a parallel checkout next to the repository, on a branch named wt/<name>, and moves this conversation into it. Nothing here is committed or pushed.'
+	String get worktreeExplainer => 'Creates a parallel checkout next to the repository, on a branch named wt/<name>, and moves this conversation into it. Nothing here is committed or pushed.';
+
+	/// en: 'my-session'
+	String get worktreeField => 'my-session';
+
+	/// en: 'Open worktree'
+	String get worktreeConfirm => 'Open worktree';
+
+	/// en: 'The working directory has uncommitted changes. Commit or stash them, then switch branches.'
+	String get errDirty => 'The working directory has uncommitted changes. Commit or stash them, then switch branches.';
+
+	/// en: 'This working directory is not a git repository. Switch to one that is.'
+	String get errNotRepo => 'This working directory is not a git repository. Switch to one that is.';
+
+	/// en: 'Git will not accept that name. Letters, digits, “-”, “_” and “/” are safe.'
+	String get errInvalidBranch => 'Git will not accept that name. Letters, digits, “-”, “_” and “/” are safe.';
+
+	/// en: 'That branch is gone. Reopen the menu to see the branches that are there now.'
+	String get errBranchMissing => 'That branch is gone. Reopen the menu to see the branches that are there now.';
+
+	/// en: 'A branch by that name already exists. Pick another name, or switch to it from the menu.'
+	String get errBranchExists => 'A branch by that name already exists. Pick another name, or switch to it from the menu.';
+
+	/// en: 'A worktree name has to be a single folder name — no “/” and no “..”.'
+	String get errWorktreeName => 'A worktree name has to be a single folder name — no “/” and no “..”.';
+
+	/// en: 'That folder already exists. Pick another name, or switch this conversation into it from the menu.'
+	String get errWorktreeExists => 'That folder already exists. Pick another name, or switch this conversation into it from the menu.';
+
+	/// en: 'Git refused: $reason'
+	String errGit({required Object reason}) => 'Git refused: ${reason}';
+
+	/// en: 'That did not work, and nothing was changed. Try again.'
+	String get errFallback => 'That did not work, and nothing was changed. Try again.';
 }
 
 // Path: chat.time
@@ -6778,6 +6844,28 @@ extension on Translations {
 			'chat.workDir.groupDeleteTitle' => 'Delete these conversations?',
 			'chat.workDir.groupDeleteBody' => ({required Object count, required Object name}) => 'The ${count} conversations in “${name}” are removed for good. Nothing on disk is deleted — no files, nothing. Pinned threads are left alone.',
 			'chat.workDir.groupDeleteConfirm' => 'Delete all',
+			'chat.workDir.switchBranchSection' => 'Switch branch',
+			'chat.workDir.newBranch' => 'New branch…',
+			'chat.workDir.newBranchTitle' => 'New branch',
+			'chat.workDir.newBranchExplainer' => 'Created at the commit you have checked out, then switched to. Uncommitted changes come along — nothing can conflict.',
+			'chat.workDir.newBranchField' => 'feat/my-change',
+			'chat.workDir.newBranchConfirm' => 'Create and switch',
+			'chat.workDir.dirtyBlocksSwitch' => 'Commit or stash your changes first, then switch branches',
+			'chat.workDir.worktreeSection' => 'Worktrees',
+			'chat.workDir.worktreeNew' => 'Open a worktree for this conversation…',
+			'chat.workDir.worktreeTitle' => 'Open a worktree',
+			'chat.workDir.worktreeExplainer' => 'Creates a parallel checkout next to the repository, on a branch named wt/<name>, and moves this conversation into it. Nothing here is committed or pushed.',
+			'chat.workDir.worktreeField' => 'my-session',
+			'chat.workDir.worktreeConfirm' => 'Open worktree',
+			'chat.workDir.errDirty' => 'The working directory has uncommitted changes. Commit or stash them, then switch branches.',
+			'chat.workDir.errNotRepo' => 'This working directory is not a git repository. Switch to one that is.',
+			'chat.workDir.errInvalidBranch' => 'Git will not accept that name. Letters, digits, “-”, “_” and “/” are safe.',
+			'chat.workDir.errBranchMissing' => 'That branch is gone. Reopen the menu to see the branches that are there now.',
+			'chat.workDir.errBranchExists' => 'A branch by that name already exists. Pick another name, or switch to it from the menu.',
+			'chat.workDir.errWorktreeName' => 'A worktree name has to be a single folder name — no “/” and no “..”.',
+			'chat.workDir.errWorktreeExists' => 'That folder already exists. Pick another name, or switch this conversation into it from the menu.',
+			'chat.workDir.errGit' => ({required Object reason}) => 'Git refused: ${reason}',
+			'chat.workDir.errFallback' => 'That did not work, and nothing was changed. Try again.',
 			'chat.pin' => 'Pin',
 			'chat.unpin' => 'Unpin',
 			'chat.archive' => 'Archive',
@@ -7224,6 +7312,8 @@ extension on Translations {
 			'chat.tool.gettingAgentExec' => 'Opening agent run',
 			'chat.tool.gotAgentExec' => 'Opened agent run',
 			'chat.tool.transcriptSteps' => ({required Object n}) => 'Trajectory · ${n} steps',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.transcriptOpenFull' => 'View full trajectory',
 			'chat.tool.transcriptEmpty' => 'No trajectory recorded',
 			'chat.tool.transcriptCapped' => ({required Object shown, required Object total}) => 'showing ${shown}/${total} blocks',
@@ -7246,8 +7336,6 @@ extension on Translations {
 			'chat.tool.todoCleared' => 'Checklist cleared',
 			'chat.tool.gettingRelations' => 'Checking relations',
 			'chat.tool.gotRelations' => 'Checked relations',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.relCount' => ({required Object n}) => '${n} edges',
 			'chat.tool.relNoEdges' => 'No relations',
 			'chat.tool.relArrow' => '→',
@@ -7738,6 +7826,8 @@ extension on Translations {
 			'shell.workspaceSettings' => 'Workspace settings',
 			'notifications.title' => 'Notifications',
 			'notifications.needsYou' => 'Needs you',
+			_ => null,
+		} ?? switch (path) {
 			'notifications.feed' => 'Notifications',
 			'notifications.markAllRead' => 'Mark all read',
 			'notifications.markAllUnread' => 'Mark all unread',
@@ -7760,8 +7850,6 @@ extension on Translations {
 			'notifications.verb.envRebuilt' => 'environment rebuilt',
 			'notifications.verb.configUpdated' => 'config updated',
 			'notifications.verb.configCleared' => 'config cleared',
-			_ => null,
-		} ?? switch (path) {
 			'notifications.verb.installed' => 'installed',
 			'notifications.verb.removed' => 'removed',
 			'notifications.verb.reconnected' => 'reconnected',
@@ -8252,6 +8340,8 @@ extension on Translations {
 			'library.skillInstallHint' => 'GitHub repo (owner/repo or URL) or a tarball URL',
 			'library.skillInstallInspect' => 'Inspect source',
 			'library.skillInstallGo' => 'Install selected',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillInstallDone' => 'Install finished',
 			'library.skillInstallNone' => 'No installable skills in this source',
 			'library.skillInstallPreauthNote' => 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve',
@@ -8274,8 +8364,6 @@ extension on Translations {
 			'settings.scope.device' => 'This device',
 			'settings.scope.workspace' => 'Workspace',
 			'settings.scope.machine' => 'This machine',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sections.prefs' => 'Preferences',
 			'settings.sections.resources' => 'Resources',
 			'settings.sections.system' => 'System',

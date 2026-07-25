@@ -221,6 +221,60 @@ abstract interface class ChatRepository {
   /// **未挂**线程以零投影(空路径、exists=false)**成功**作答、绝非 404:那个按钮也得渲染那一态。
   Future<WorkDirInfo> workDirInfo(String id);
 
+  /// Switch the residency onto an EXISTING local branch (`POST /{id}/workdir:switch-branch {branch}`, WD2).
+  /// Returns the re-probed projection, so the caller renders the new branch without a second read.
+  ///
+  /// THE GUARDRAIL lives server-side: a dirty work tree is refused 422 `CONVERSATION_WORK_DIR_DIRTY` and the
+  /// message names the next step (commit or stash, then switch). Never `--force`, never a silent stash —
+  /// carrying uncommitted work onto another branch behind the user's back is the outcome that must not happen.
+  /// Other refusals: 404 `CONVERSATION_BRANCH_NOT_FOUND`, 422 `CONVERSATION_INVALID_BRANCH`, 422
+  /// `CONVERSATION_WORK_DIR_NOT_GIT_REPO`, 422 `CONVERSATION_GIT_FAILED` (git's own stderr in `details.git`).
+  ///
+  /// 把驻地切到一条**已存在**的本地分支(`POST /{id}/workdir:switch-branch {branch}`,WD2)。返回重探后的投影,
+  /// 故调用方无须第二次读就能渲出新分支。
+  ///
+  /// **护栏在服务端**:脏工作树拒为 422 `CONVERSATION_WORK_DIR_DIRTY`,message 点出下一步(先提交或贮藏,再切)。
+  /// 绝不 `--force`、绝不静默 stash——在用户背后把未提交的活带到另一条分支上,正是不能发生的那个结局。其余拒绝:
+  /// 404 `CONVERSATION_BRANCH_NOT_FOUND`、422 `CONVERSATION_INVALID_BRANCH`、422
+  /// `CONVERSATION_WORK_DIR_NOT_GIT_REPO`、422 `CONVERSATION_GIT_FAILED`(git 自己的 stderr 在 `details.git`)。
+  Future<WorkDirInfo> switchBranch(String id, String branch);
+
+  /// Create a branch at the residency's current HEAD and switch onto it
+  /// (`POST /{id}/workdir:create-branch {branch}`, WD2).
+  ///
+  /// A DIRTY work tree is deliberately fine here, unlike [switchBranch]: the new branch starts at the commit
+  /// already checked out, so the work tree does not change and no conflict can exist — "I started, then
+  /// realized this deserves its own branch" is the most common branching flow there is. An existing name is 409
+  /// `CONVERSATION_BRANCH_EXISTS`.
+  ///
+  /// 在驻地当前 HEAD 上建一条分支并切过去(`POST /{id}/workdir:create-branch {branch}`,WD2)。
+  ///
+  /// 与 switchBranch 不同,此处脏工作树**刻意**无妨:新分支起点就是已 checkout 的那个 commit,故工作树不变、冲突不
+  /// 可能存在——「先动手,然后意识到这该有自己的分支」是最常见的开分支流程。名字已存在 → 409
+  /// `CONVERSATION_BRANCH_EXISTS`。
+  Future<WorkDirInfo> createBranch(String id, String branch);
+
+  /// Open a parallel worktree for this conversation and MOVE the residency into it — one request
+  /// (`POST /{id}/workdir:add-worktree {name}`, WD3). Returns the projection of the NEW directory.
+  ///
+  /// A NAME, never a path: the target is DERIVED by the repository's `make worktree` convention (a SIBLING of
+  /// the repo named `<repo>-<name>`, on branch `wt/<name>`), which is both why an app-made worktree is
+  /// indistinguishable from a discipline-made one and why this can never write a checkout anywhere else. The
+  /// thread also gains WD1's durable `marker` block, because its residency really moved. Refusals: 409
+  /// `CONVERSATION_WORKTREE_EXISTS` (`details.path` names the directory in the way), 422
+  /// `CONVERSATION_INVALID_WORKTREE_NAME`, 422 `CONVERSATION_WORK_DIR_NOT_GIT_REPO`, 422
+  /// `CONVERSATION_GIT_FAILED`.
+  ///
+  /// 为本对话开一份平行 worktree 并把驻地**移进去**——**一次**请求(`POST /{id}/workdir:add-worktree {name}`,WD3)。
+  /// 返回**新**目录的投影。
+  ///
+  /// 收**名字**、绝不收路径:目标按本仓 `make worktree` 约定**派生**(仓库的**兄弟**位、名为 `<repo>-<name>`、分支
+  /// `wt/<name>`)——正是这一点既让 app 建的 worktree 与纪律建的无从区分,也让它永不可能往别处写出一份 checkout。
+  /// 线程另会多一条 WD1 的持久 `marker` 块,因为它的驻地真的移动了。拒绝:409 `CONVERSATION_WORKTREE_EXISTS`
+  /// (`details.path` 点出挡路的目录)、422 `CONVERSATION_INVALID_WORKTREE_NAME`、422
+  /// `CONVERSATION_WORK_DIR_NOT_GIT_REPO`、422 `CONVERSATION_GIT_FAILED`。
+  Future<WorkDirInfo> addWorktree(String id, String name);
+
   /// Pin / unpin (`PATCH {pinned}`). 置顶/取消(PATCH {pinned})。
   Future<Conversation> setPinned(String id, bool pinned);
 
@@ -586,6 +640,38 @@ class LiveChatRepository implements ChatRepository {
   @override
   Future<WorkDirInfo> workDirInfo(String id) =>
       _api.getEntity('${_path(id)}/workdir', WorkDirInfo.fromJson);
+
+  // The three residency git actions (WD2 + WD3). Each returns the re-probed projection rather than 204: one
+  // switch changes several of its fields at once, so a client made to re-GET is a client that paints one frame
+  // of the old branch. They ride the `workdir` SUB-resource because the conversation-level `{id}:action`
+  // pattern already belongs to chat's :cancel/:seen/:fork/:retry dispatcher.
+  // 三个驻地 git 动作(WD2 + WD3)。各返回重探后的投影、不是 204:一次切换同时改它好几个字段,故一个被迫再 GET 一次的
+  // 客户端就是一个会画出一帧旧分支的客户端。它们骑在 `workdir` **子**资源上,因为对话级 `{id}:action` 模式已归 chat 的
+  // :cancel/:seen/:fork/:retry 派发器。
+  @override
+  Future<WorkDirInfo> switchBranch(String id, String branch) => _api.postEntity(
+    '${_path(id)}/workdir:switch-branch',
+    WorkDirInfo.fromJson,
+    body: {'branch': branch},
+  );
+
+  @override
+  Future<WorkDirInfo> createBranch(String id, String branch) => _api.postEntity(
+    '${_path(id)}/workdir:create-branch',
+    WorkDirInfo.fromJson,
+    body: {'branch': branch},
+  );
+
+  @override
+  Future<WorkDirInfo> addWorktree(String id, String name) => _api.postEntity(
+    '${_path(id)}/workdir:add-worktree',
+    WorkDirInfo.fromJson,
+    // A NAME, never a path — the server derives the sibling target by the `make worktree` convention, which is
+    // what keeps this from being able to write a checkout anywhere on the disk.
+    // 是**名字**、绝不是路径——服务端按 `make worktree` 约定派生兄弟目标,正是这一点让它无法往磁盘任意处写出一份
+    // checkout。
+    body: {'name': name},
+  );
 
   @override
   Future<Conversation> setPinned(String id, bool pinned) => _api.patchEntity(

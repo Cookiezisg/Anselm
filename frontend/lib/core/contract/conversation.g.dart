@@ -79,6 +79,14 @@ _WorkDirInfo _$WorkDirInfoFromJson(Map<String, dynamic> json) => _WorkDirInfo(
   isGitRepo: json['isGitRepo'] as bool? ?? false,
   branch: json['branch'] as String? ?? '',
   dirty: json['dirty'] as bool? ?? false,
+  branches:
+      (json['branches'] as List<dynamic>?)?.map((e) => e as String).toList() ??
+      const <String>[],
+  worktrees:
+      (json['worktrees'] as List<dynamic>?)
+          ?.map((e) => WorkTreeInfo.fromJson(e as Map<String, dynamic>))
+          .toList() ??
+      const <WorkTreeInfo>[],
 );
 
 Map<String, dynamic> _$WorkDirInfoToJson(_WorkDirInfo instance) =>
@@ -88,4 +96,20 @@ Map<String, dynamic> _$WorkDirInfoToJson(_WorkDirInfo instance) =>
       'isGitRepo': instance.isGitRepo,
       'branch': instance.branch,
       'dirty': instance.dirty,
+      'branches': instance.branches,
+      'worktrees': instance.worktrees.map((e) => e.toJson()).toList(),
+    };
+
+_WorkTreeInfo _$WorkTreeInfoFromJson(Map<String, dynamic> json) =>
+    _WorkTreeInfo(
+      path: json['path'] as String? ?? '',
+      branch: json['branch'] as String? ?? '',
+      current: json['current'] as bool? ?? false,
+    );
+
+Map<String, dynamic> _$WorkTreeInfoToJson(_WorkTreeInfo instance) =>
+    <String, dynamic>{
+      'path': instance.path,
+      'branch': instance.branch,
+      'current': instance.current,
     };

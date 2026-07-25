@@ -63,7 +63,7 @@ audience: [human, ai]
 | ~~`messages.superseded_by` 列~~ **已落地 0725**(记录见下 CH-c) | 空=现行版;retry/编辑重发时旧行写新 msg id。LLM 装配过滤 `superseded_by=''`;REST 三读形态**返全部**(前端翻页需要旧版),新版消息 attrs 带 `retryOf` 供前端组版本组。指针实现允许施工时微调,**语义不变:零删除、旧版永可读** | D 系列登记;非逻辑删除(行仍返、UI 可翻看),合 D1 |
 | ~~`POST /conversations/{id}:fork {atMessageId}`~~ **已落地 0725,两处偏离草案见下** | 前缀复制(**含** atMessageId):对话头(system_prompt/attached_documents/model_override/work_dir)+ 前缀窗内全部消息行(含 subagent 行,LLM 装配自然排除)+ blocks(seq 从 1 重排、parent remap、context_role 重置);summary:at 点在水位后 → summary+水位同抄,at 点在水位前 → 不带 summary、水位 0(summary 概括了超出前缀的内容,带走即撒谎);标题「原标题 (fork)」+ auto_titled=false;返 201 新 Conversation。**user 消息「分叉预填」变体是前端糖**:对 user 消息分叉 = 后端 fork 至它的前一条,前端把原句填进新对话 composer | N5 动作后缀;api.md + domains/conversation.md;testend |
 | ~~`POST /conversations/{id}:retry {content?, modelOverride?}`~~ **已落地 0725**(记录见下 CH-c) | 仅当末回合已终态,否则 409。无 `content` = 重生成:supersede 末 assistant,入队重跑(不写新 user 回合);有 `content` = 编辑重发:supersede 末 user+assistant 两条,落新 user 回合(保留原附件引用)+ 新 assistant 回合。SSE 走既有帧型(新回合正常 open/delta/close,message attrs 带 `retryOf`),**不加新流不加新帧型**(E1/E2) | N5;api.md;testend |
-| `GET /conversations/{id}/workdir` | `{path, exists, isGitRepo, branch, dirty}`(WD2 加 `branches[]`,WD3 加 `worktrees[]`);现算派生投影,无游标(N4 有界投影同类) | api.md;N4 登记 |
+| ~~`GET /conversations/{id}/workdir`~~ **已落地 0725**(WD1 五字段 + WD2 `branches[]` + WD3 `worktrees[]`,记录见下 WD1 / WD2+WD3 条) | `{path, exists, isGitRepo, branch, dirty, branches[], worktrees[]}`;现算派生投影,无游标(N4 有界投影同类——两个内嵌列表仍属「零参数」形,因为端点依旧不收任何参数) | api.md;N4 登记 |
 | block 型 `marker` | CHECK 封闭集加一型(六→七):行内标记块,attrs `{kind:'workdir', from, to}`——驻地中途切换落一条 durable 标记,翻旧对话不迷路(现有 compaction 低语同类呈现)。将来可复用其他 kind | D 系列 CHECK 立法;events.md node.type 不变(marker 随消息读取,不新增 SSE 帧型,施工时核对呈现路径) |
 | 系统提示注入 | 挂驻地的对话,每轮系统提示带「工作目录 X · 分支 Y」;subagent 继承(`subagent.go:181` fresh AgentState 处播种) | domains/chat.md |
 | 越界写强制闸 | Write/Edit 目标 canonical 路径在驻地子树外 → 无视 LLM 自报 danger,强制走人闸。路径判定不手搓:Go ≥1.24 用 `os.Root`,否则 `EvalSymlinks`+前缀校验(OWASP 共识;Cursor denylist 被绕的教训 → 主防线是根内白区,PathGuard 黑名单继续兜底) | domains/tool 域文档 |
@@ -166,9 +166,31 @@ audience: [human, ai]
 
 **改动的既有测试：零。** 本批没有反转或删除任何既有断言——所有新行为都落在此前不存在的表面上（新列 / 新端点 / 新块型 / 新按钮），而未挂路径的行为**逐字未变**（这一点本身由 testend 的成对断言 + `TestExpandIn_EmptyRootIsExpand` 钉住）。`chat_transcript.dart` 的 `BlockKind` switch 因新增枚举成员而必须加一个 case，那是编译器要求、不是断言改动。
 
-**没做的部分（与原因）**：①**WD2/WD3**（分支切换/新建、`git worktree add`）——工单明令本批不做，故 `WorkDirInfo` 里**不预埋** `branches[]`/`worktrees[]`（不留半成品、不预埋端点，同 §6 的「删除版本」裁决）。②**WD1.5（CL 批 rail 按驻地分组）**——独立工单，其三个后端小件（`workdir-groups` 投影 / `?workDir=` 过滤 / 两个批量动作）本批**一件未做**；本批只留下它需要的那一列，并在 `database.md` 明写「那时才建 `(workspace_id, work_dir)` 索引」。③**真机截图验收**——`make -C frontend demo` 需要完整原生工具链，不入门禁；夹具已备三态，待真机档一并做（同 §7 施工序①「Flutter 升级的真机冒烟未做」的记法，**别当已验**）。④**驻地按钮的窄窗截断实测**——按钮走 `AnButton` 的标准标签路径，未另测极长目录名下的布局。
+**没做的部分（与原因）**：①**WD2/WD3**（分支切换/新建、`git worktree add`）——工单明令本批不做，故 `WorkDirInfo` 里**不预埋** `branches[]`/`worktrees[]`（不留半成品、不预埋端点，同 §6 的「删除版本」裁决）。〔**已于施工序⑯ 补齐**——两个字段与三个动作的最终形见下 WD2+WD3 条。〕②**WD1.5（CL 批 rail 按驻地分组）**——独立工单，其三个后端小件（`workdir-groups` 投影 / `?workDir=` 过滤 / 两个批量动作）本批**一件未做**；本批只留下它需要的那一列，并在 `database.md` 明写「那时才建 `(workspace_id, work_dir)` 索引」。③**真机截图验收**——`make -C frontend demo` 需要完整原生工具链，不入门禁；夹具已备三态，待真机档一并做（同 §7 施工序①「Flutter 升级的真机冒烟未做」的记法，**别当已验**）。④**驻地按钮的窄窗截断实测**——按钮走 `AnButton` 的标准标签路径，未另测极长目录名下的布局。
 
 ---
+
+**WD2 + WD3 施工记录（0725，施工序⑯）——护栏定稿、`make worktree` 约定转录，三处偏离 + 两条诚实边界逐条入档：**
+
+**① 脏区切分支的护栏 = 「直接拒绝」（候选 a）。** 三个候选里选它，理由不是保守而是**它是唯一一个连一行活都丢不了的选项**：git 自己的语义是「能带过去就带、冲突才拒」，于是那个**令人意外**的结局（你的活现在待在一条你以为不是的分支上）落在**成功**分支上、而且是**静默**的——对一个 agent 正在其中干活的驻地，那比一个错误更糟（system prompt 里点出的分支变了、活也跟着搬走了）。候选 (b)「让 git 自己判、把失败翻成人话」被否，因为它**照样保留那个静默成功**，翻译层只美化了失败的一半；候选 (c)「提供 stash」被否，因为承担 stash 的生命周期（谁 pop、冲突怎么办）**就是**§1 拍板 #10 明令不做的那个迷你 git 客户端，而一次静默 stash 正是活消失的方式。落地为 422 `CONVERSATION_WORK_DIR_DIRTY`，**message 自带下一步**：英文 *the working directory has uncommitted changes — commit or stash them, then switch branches*，中文（前端 i18n `chat.workDir.errDirty`）「工作目录有未提交的改动。先提交或贮藏，再切换分支。」；菜单里另有一行更短的 `dirtyBlocksSwitch`「先提交或贮藏改动，再切换分支」，因为**脏时那些分支行根本不摆出来**——一个必定被拒的行比不提供更糟，而一个不给理由的禁用行是个谜。脏态在**服务端此刻现读**、不信客户端上次看到的投影（菜单打开之后用户完全可能刚在自己编辑器里改了文件；一道咨询过期投影的护栏不是护栏）。测试三处钉住它：单测断言拒完之后 **HEAD 未动、那个未跟踪文件还在、`git stash list` 为空**；testend 同样三条 + 断言 message 里含 commit/stash；widget 测断言脏时分支行**不出现**、而换成那一行下一步。
+
+**② 与护栏刻意不对称：`:create-branch` 脏时照走。** `checkout -b` 从**当前 HEAD** 起，故工作树一个字节都不变、冲突**不可能**存在——未提交的活只是变成新分支上的未提交的活。那是最常见的开分支流程（「先动手，然后意识到这该有自己的分支」），给它上门等于守一道什么都不守的护栏（设计原则 #6）。这处不对称读者若无人明说会当它是 bug，故单测**成对**写（`TestSwitchBranch_DirtyIsRefusedWithANextStep` / `TestCreateBranch_DirtyIsAllowedBecauseNothingCanCollide`）、testend 也在同一条场景里连着断言。
+
+**③ 路径与分支约定：逐字转录 `make worktree`，但从「主」工作树量起（一处刻意的推广）。** 根 `Makefile` 的 `worktree` 目标是 `git worktree add ../Anselm-$(NAME)` + 分支 `wt/$(NAME)`（分支已存在则复用它，见下 ⑤），CLAUDE.md「多会话纪律」写「一个并发 AI 会话一个 worktree」。转录成 `gitinfo.WorktreeBranchPrefix = "wt/"` + `WorktreeTarget(top, name) = <top 的父目录>/<top 的 basename>-<name>`：Makefile 里写死 `../Anselm-` 是因为 Anselm **就是**它那个根的名字，一般规则取根的 basename，故对挂在**任何**仓库上的驻地都成立。**唯一推广**是量起点用 `MainToplevel`（`git worktree list` 的第一条，git 明文规定它是主工作树）而不是当前树的 `Toplevel`——否则约定会**嵌套**：在 `Anselm-a` 里开一份会得到 `Anselm-a-b`、再一份 `Anselm-a-b-c`，而纪律要的是主仓库旁边**一排平的**兄弟。单测与 testend 都拿 `git rev-parse --show-toplevel` 自己算期望值，绝不假定测试自己那种拼法胜出（macOS 上 `t.TempDir()` 在 `/var/…` 而 git 报 `/private/var/…`）。
+
+**④ 偏离一：worktree 的「分支已存在」不是失败、是复用。** 工单把「分支已存在」列在 WD3 要诚实上报的失败里；`make worktree` 的实际行为是**复用**那条分支（`make worktree-rm` 的收口语明写「branch `wt/<x>` kept — delete it yourself when merged」，故在保留的分支上重开一份 worktree 正是被写进文档的回头路）。**裁决：跟 Makefile**，复用。真正的那种「分支已被占用」——它已在**别处**被 checkout——只有 git 知道，于是它落在 `CONVERSATION_GIT_FAILED` 并带上 git 自己那句话，而**那句话点出了占着它的目录**，正是下一步（单测 `TestGitFailure_CarriesGitsOwnWords` 在真仓库上造出这个局面）。`CONVERSATION_BRANCH_EXISTS`（409）留给 WD2 的 `:create-branch`。
+
+**⑤ 偏离二：三个动作挂在 `workdir` 子资源上，不是 `{id}:switch-branch`。** 物理原因：Go ServeMux 每个模式只许**一个**处理器，而 `POST /api/v1/conversations/{idAction}` 已被 `ChatHandler` 的 `:cancel`/`:seen`/`:fork`/`:retry` 派发器占了，故一个对话级 `:action` 会被迫从**别人**的文件里 switch。挂子资源后各是自己的字面段、自己的路由（与既有 `POST /{id}/sandbox-envs:reset-all` 同形），且读得更真：它们作用于**驻地**，而 `workdir` 正是驻地的名字。
+
+**⑥ 偏离三：`branches[]` 只取 `refs/heads`，且不设上限。** 「有界」这件事必须**真**成立才敢写进 N4 登记。`refs/remotes` 一条不取，正是这个排除让它有界——`refs/heads` 是这个人自己建的那一集（人类尺度），而一份 fetch 过的远端可以带来上千条。既然真有界，就**不设静默上限**（静默截断是让投影撒谎，而为它加一个 `truncated` 又会把这个零参数端点拖成 trigger-schedule 那种「带真参数的窗」形——两形混登正是 WD1 前言警告过的事）。排序用 `--sort=-committerdate`，因为菜单问的是「我刚在哪干活」，按字母排会把今天那条埋在 `chore/…` 后面。
+
+**⑦ 安全：参数数组、名字校验、目标派生。** 所有 git 调用一律 `exec.CommandContext` 传**参数数组**，**全文件零 shell 字符串拼接**。分支名交给 **git 自己的** `check-ref-format refs/heads/<n>`（原则 #8，不手搓 gitrevisions 规则），另加两条纯 Go 前置：拒空/裸 `@`/**前导 `-`**——一个以 `-` 开头的 ref 对 git 是**合法**的、却会被下一条命令读成**选项**（`CheckRefFormat` 的测试把 `-force`、`--upload-pack=evil`、`a..b`、`x;rm -rf /` 等一并钉住）。worktree 名更严：必须是**单个路径段**（拒 `..`／`/`／`\`／绝对写法／前导 `-`）且 `wt/<name>` 过 `check-ref-format`，因为这个名字**也会**成为一个目录段——而正是这份更严让「目标必须落在仓库兄弟位」成为**可证明**的，而不是一句承诺。端点因此**只收名字、绝不收路径**。
+
+**⑧ 切分支不落 `marker`，WD3 落。** `marker` 的语义是「这段对话**住的地方**变了」；分支变化本就在投影里活着，而用户在自己终端里切分支时同样不会落标记——落了才是两套真相。WD3 真的换了目录，故它落一条，且**复用 WD1 既有的 `marker` 块型**（不新增块型、D1 只追加）:驻地切换走 `Service.Update`，那里是唯一一处会归一化路径、追加 `marker`、并发 `conversation.work_dir` 的地方（E1/E2 不加流不加帧型）。
+
+**⑨ 两条诚实边界（记档而非糊过去）。** ①**WD3 的半状态**:worktree 建成之后，若驻地切换那一步失败（对话在此期间被删等），会留下一份**完好的** worktree 与仍在原处的线程。那是可以停在的诚实半状态——什么都没被毁、用户手动挂上即可——故不做补偿删除（删一份刚建好的 checkout 才是真的丢东西）。②**真机截图验收未做**:`make -C frontend demo` 需要完整原生工具链、不入门禁;demo fixture 已备「脏 + 两条分支 + 一个兄弟 worktree」的形状（故 demo 上就能看见护栏那一行），但**没有**真机截图，与施工序①/⑭ 同一记法，**别当已验**。
+
+**没做的部分（与原因）**:①**commit / push / pull / merge / rebase / reset**——§1 拍板 #10 明令不做迷你 git 客户端，工单也点名本批只做「看分支、切分支、开分支」。②**worktree 的删除（`worktree-rm` 的对应动作）**——工单未列;它是破坏性动作、需要自己的确认框与「未合并分支怎么办」的立法，不该夹在本批里。③**分支的远端语义**（fetch/pull/上游跟踪、`refs/remotes` 的呈现）——它把「有界投影」变成需要游标的集合，且没有一条不涉及网络的读法。④**`marker` 的第二种 kind**（如「分支 → X」）——见 ⑧，语义上不该有。
 
 **零后端项**:复制消息(前端 markdown 拼装,工具卡不进剪贴板)· 排队(前端队列,回合终态后逐条 send)· 最近目录(前端机器级持久化轴)。
 
@@ -184,6 +206,8 @@ audience: [human, ai]
 - demo 模式配 fixture 假脸(app/demo 共壳律)。
 
 → **已施工（0725，施工序⑭ / WD1）。** 按钮三态、菜单三段、最近目录、marker 呈现与四处偏离/加固，全部记在 §2.2 的 WD1 条。
+
+→ **git 段已可操作（0725，施工序⑯ / WD2+WD3）。** 状态两行（WD1）之后是:其余每条本地分支各一行（一键切换）· 「新建分支…」· 「为此对话开一个 worktree…」· 其余 worktree 各一行（移进去 = 一次普通驻地变更、走既有 PATCH）。**脏时分支行被一行「先提交或贮藏改动，再切换分支」顶替**。两个要起名字的动作共用一个模态。护栏语义与全部偏离记在 §2.2 的 WD2/WD3 条。
 
 ### 3.2 消息动作排
 
@@ -250,8 +274,8 @@ composer 生成中收 Enter → 入队;输入框上方队列 chip 行(点开改/
 | **CH-c 重试+编辑重发** ✅ **0725** | 版本翻页 UI + 重试(换模型)+ 编辑重发 | `:retry` + `superseded_by` + 装配过滤 + testend(重生成/编辑重发/非终态 409/版本链) | 翻页回看旧版;继续聊后基于版标记 |
 | **WD1 驻地地基** | 按钮三态 + 选/切/退 + 最近目录 + 菜单①②段 + git 只读段 + marker 标记 + demo fixture | `work_dir` 列/PATCH + ctx 播种(**翻案两处旧立法注释**)+ 三族工具定根(Bash cmd.Dir/相对路径/越界写强制闸)+ workdir 端点 v1 + 系统提示注入 + subagent 继承 + `marker` 型立法 + testend | 挂/不挂两态行为;越界写弹闸;相对路径工具卡显示 |
 | **WD1.5 rail 驻地分组(CL 批,§5.15)** | chat 左岛四段重组:新对话·搜索 / 置顶 / 驻地组 ×N(组头 ⋯ 批量动作)/ 最近(仅无驻地) | workdir-groups 有界投影 + List `?workDir=` 过滤 + 整组归档/删除两动作 + testend | 分组无漂移;命名防误读(绝不出现「删除目录」);fork/退驻地迁移 |
-| **WD2 git 操作** | 菜单 git 段:切换/新建分支 | workdir 端点加 branches[] + 操作动作(shell out git,不重造) | 脏区切分支的护栏语义 |
-| **WD3 worktree** | 「为此对话开一个 worktree」 | worktree add + 驻地切换一条龙 | 与 `make worktree` 纪律对齐的路径约定 |
+| ~~**WD2 git 操作**~~ **已完成 0725** | 菜单 git 段:切换/新建分支 | workdir 端点加 branches[] + 操作动作(shell out git,不重造) | 脏区切分支的护栏语义 → **定稿「直接拒绝」**,见 §2.2 WD2/WD3 条① |
+| ~~**WD3 worktree**~~ **已完成 0725** | 「为此对话开一个 worktree」 | worktree add + 驻地切换一条龙 | 与 `make worktree` 纪律对齐的路径约定 → **逐字转录 + 一处刻意推广(从主树量起)**,见 §2.2 WD2/WD3 条③ |
 
 **建议施工顺序**:**CR-1 → CR-2**(真机崩溃,插队最前,见 §5.5)→ CH-a → CH-b → CH-c → WD1 → WD2 → WD3(待用户最终确认,§6)。
 
@@ -951,7 +975,7 @@ rail 无限翻页,一窗内做客户端分组 → 组成员/计数随翻页漂�
 | ⑬ | ~~LR+LI rail 重构+文案+tooltip 地基~~ **已完成 0725**(tooltip 地基主会话亲做;rail 重构+文案+守卫+首屏说明 派 Sonnet 5、主会话复验守卫非空绿;记录见 §5.13/§5.14) | 混合 ✅ |
 | ⑭ | ~~WD1 驻地地基~~ **已完成 0725**（后端八件 + 前端按钮/菜单/标记/最近目录 + 文档九处 + 单测 41 条 / testend 六场景 / widget 15 条；**三处与简报措辞的偏离**与**一处主动加固**已记档，见 §2.2 WD1 条） | 主会话 |
 | ⑮ | ~~WD1.5 rail 驻地分组(CL)~~ **已完成 0725**(后端四件〔投影两计数分列 / `?workDir=` / **多加的 `?pinned=`** / 两个事务型批量动作〕+ 前端四段 rail 多轴态 + 组头菜单与两个确认框 + 诚实律守卫 + 文档五处;**三处偏离/新增与一条诚实边界已入档**,见 §5.15) | 主会话 ✅ |
-| ⑯ | WD2 git 操作 / WD3 worktree | 主会话 |
+| ⑯ | ~~WD2 git 操作 / WD3 worktree~~ **已完成 0725**（`infra/gitinfo` 扩成四读三写 + 三个 `workdir:` 动作端点 + 投影两列表 + **8 条新错误码** + 前端 git 段三动作与一个命名模态 + 文档六处;**脏区护栏定稿为「直接拒绝」**、`make worktree` 约定逐字转录、**三处偏离与两条诚实边界已入档**，见 §2.2 WD2/WD3 条） | 主会话 ✅ |
 
 **派出协议(五条,G 战役教训)**:①简报 = 本册对应节 + 禁区清单(不许动的文件 / 不许自造抽象)②一批一提交、文档同步同责(#9)③**主会话逐行对抗复审后才准提交**(全量读 diff,非抽查)④门禁由主会话跑(不与子代理抢树)⑤视觉批每批交用户真机截图验收。
 

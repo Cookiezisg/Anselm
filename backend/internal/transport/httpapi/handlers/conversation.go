@@ -14,13 +14,16 @@ import (
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
-// ConversationHandler serves the 5 /api/v1/conversations/* CRUD endpoints plus the residency
-// projection (`GET /{id}/workdir`). The tokensUsed enrichment + the system-prompt-preview endpoint are
-// chat data (message_blocks token sum / prompt assembly) and live on ChatHandler, not here.
+// ConversationHandler serves the 5 /api/v1/conversations/* CRUD endpoints plus the whole residency surface:
+// the projection (`GET /{id}/workdir`), the rail's grouping and its two bulk actions, and the three git
+// actions (`workdir:switch-branch` / `:create-branch` / `:add-worktree`). The tokensUsed enrichment + the
+// system-prompt-preview endpoint are chat data (message_blocks token sum / prompt assembly) and live on
+// ChatHandler, not here.
 //
-// ConversationHandler 提供 /api/v1/conversations/* 的 5 个 CRUD 端点 + 驻地投影（`GET /{id}/workdir`）。
-// tokensUsed 富化 + system-prompt-preview 端点属 chat 数据（message_blocks token 求和 / prompt 拼装），
-// 归 ChatHandler。
+// ConversationHandler 提供 /api/v1/conversations/* 的 5 个 CRUD 端点 + 驻地的**整个**面:投影
+// （`GET /{id}/workdir`）、rail 的分组与它那两个批量动作、以及三个 git 动作（`workdir:switch-branch` /
+// `:create-branch` / `:add-worktree`）。tokensUsed 富化 + system-prompt-preview 端点属 chat 数据
+// （message_blocks token 求和 / prompt 拼装），归 ChatHandler。
 type ConversationHandler struct {
 	svc *conversationapp.Service
 	log *zap.Logger
@@ -54,6 +57,21 @@ func (h *ConversationHandler) Register(mux Registrar) {
 	mux.HandleFunc("PATCH /api/v1/conversations/{id}", h.Update)
 	mux.HandleFunc("DELETE /api/v1/conversations/{id}", h.Delete)
 	mux.HandleFunc("GET /api/v1/conversations/{id}/workdir", h.WorkDir)
+	// The three residency GIT actions (WD2 + WD3) ride the `workdir` SUB-RESOURCE rather than the
+	// conversation itself (`{id}:switch-branch`), for a physical reason: Go's ServeMux allows ONE handler per
+	// pattern, and `POST /api/v1/conversations/{idAction}` is already claimed by ChatHandler's
+	// :cancel/:seen/:fork/:retry dispatcher — so a conversation-level `:action` here would have to be switched
+	// from another handler's file. On the sub-resource each is its own literal segment and its own route, the
+	// same shape as `POST /conversations/{id}/sandbox-envs:reset-all`. It also reads truer: these act on the
+	// RESIDENCY, which is precisely what `workdir` names.
+	// 三个驻地 **git** 动作（WD2 + WD3）骑在 `workdir` **子资源**上、而不是对话本身（`{id}:switch-branch`），理由
+	// 是物理的:Go ServeMux 每个模式只许**一个**处理器，而 `POST /api/v1/conversations/{idAction}` 已被
+	// ChatHandler 的 :cancel/:seen/:fork/:retry 派发器占了——故在此写一个对话级 `:action` 就得从**别人**的文件里
+	// switch。挂在子资源上，每一个都是自己的字面段、自己的路由，与 `POST /conversations/{id}/sandbox-envs:reset-all`
+	// 同形。它也读得更真:这些动作作用于**驻地**，而 `workdir` 正是驻地的名字。
+	mux.HandleFunc("POST /api/v1/conversations/{id}/workdir:switch-branch", h.SwitchBranch)
+	mux.HandleFunc("POST /api/v1/conversations/{id}/workdir:create-branch", h.CreateBranch)
+	mux.HandleFunc("POST /api/v1/conversations/{id}/workdir:add-worktree", h.AddWorktree)
 }
 
 type createConversationRequest struct {
@@ -225,9 +243,14 @@ func (h *ConversationHandler) Update(w http.ResponseWriter, r *http.Request) {
 }
 
 // WorkDir returns the residency's live projection for one conversation: the mounted path plus what is
-// true about it right now (exists / git repo / branch / dirty). Recomputed per request and cached
-// nowhere — the filesystem and git are the truth, so a directory the user just deleted, or a branch they
-// just switched in their own terminal, reads as it now IS.
+// true about it right now (exists / git repo / branch / dirty, plus the repository's local `branches[]` and
+// its `worktrees[]`). Recomputed per request and cached nowhere — the filesystem and git are the truth, so a
+// directory the user just deleted, or a branch they just switched in their own terminal, reads as it now IS.
+//
+// The two LISTS (WD2 / WD3) are what make the menu's git segment actionable rather than a read-out — you
+// cannot offer to switch to a branch you never listed. Both stay BOUNDED and cursor-free: `branches[]` is
+// `refs/heads` only (the branches this person created — a fetched `refs/remotes` is the set that runs to
+// thousands), and `worktrees[]` is however many checkouts exist, the current one included and flagged.
 //
 // N4: a derived BOUNDED PROJECTION, so no cursor and no `nextCursor`. It is not a stored collection at
 // all — it is ONE object computed on demand, in the same class as `GET /storage-stat` rather than the
@@ -238,9 +261,13 @@ func (h *ConversationHandler) Update(w http.ResponseWriter, r *http.Request) {
 // "this thread has no residency" is a successful answer to the question, and the button that calls this
 // has to render the unmounted state too. Only an unknown conversation is a 404.
 //
-// WorkDir 返回某对话驻地的活投影：已挂路径 + 此刻关于它为真的东西（存在 / 是否 git 仓库 / 分支 / 脏）。
-// 逐请求现算、零缓存——文件系统与 git 才是真相，故用户刚删掉的目录、或刚在自己终端里切的分支，读作它
-// **现在的样子**。
+// WorkDir 返回某对话驻地的活投影：已挂路径 + 此刻关于它为真的东西（存在 / 是否 git 仓库 / 分支 / 脏，外加仓库的
+// 本地 `branches[]` 与它的 `worktrees[]`）。逐请求现算、零缓存——文件系统与 git 才是真相，故用户刚删掉的目录、或
+// 刚在自己终端里切的分支，读作它**现在的样子**。
+//
+// 那两个**列表**（WD2 / WD3）正是让菜单 git 段可**操作**、而非一段读数的东西——没列出来的分支，无从提议切过去。
+// 两者都保持**有界**、无游标:`branches[]` **只**取 `refs/heads`（这个人自己建的那些分支——会跑到上千条的是 fetch
+// 来的 `refs/remotes`），`worktrees[]` 则是实际存在多少份 checkout 就多少条、含当前那一份并标出它。
 //
 // N4：派生的**有界投影**，故无游标、无 `nextCursor`。它根本不是已存集合——它是**一个**按需现算的对象，与
 // `GET /storage-stat` 同类，而**不是** trigger-schedule 那种收真窗口参数的一类。它**不收任何参数**，故无从
@@ -250,6 +277,126 @@ func (h *ConversationHandler) Update(w http.ResponseWriter, r *http.Request) {
 // **成功**回答，而调用它的那个按钮也得渲染未挂态。只有对话本身不存在才是 404。
 func (h *ConversationHandler) WorkDir(w http.ResponseWriter, r *http.Request) {
 	info, err := h.svc.WorkDirInfo(r.Context(), r.PathValue("id"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, info)
+}
+
+// workDirBranchRequest / workDirWorktreeRequest are the bodies of the residency's git actions. The worktree
+// one takes a NAME and never a path: the target directory is DERIVED (repo sibling `<repo>-<name>`, branch
+// `wt/<name>`, the `make worktree` convention), which is both why an app-made worktree is indistinguishable
+// from a discipline-made one and why this endpoint cannot be talked into writing a checkout anywhere else on
+// the disk.
+//
+// workDirBranchRequest / workDirWorktreeRequest 是驻地 git 动作的 body。worktree 那个收**名字**、绝不收路径:
+// 目标目录是**派生**的（仓库兄弟位 `<repo>-<name>`、分支 `wt/<name>`，即 `make worktree` 约定）——正是这一点既让
+// app 建的 worktree 与纪律建的无从区分，也让这个端点无法被说服往磁盘别处写出一份 checkout。
+type workDirBranchRequest struct {
+	Branch string `json:"branch"`
+}
+
+type workDirWorktreeRequest struct {
+	Name string `json:"name"`
+}
+
+// SwitchBranch handles `POST /api/v1/conversations/{id}/workdir:switch-branch` — move the residency's work
+// tree onto an EXISTING local branch (WD2, N5 `:action` on the workdir sub-resource). Returns 200 + the
+// freshly re-probed `WorkDirInfo`, because one switch changes several of its fields at once and a client
+// forced to re-GET is a client that paints one frame of the old branch.
+//
+// THE GUARDRAIL: a dirty work tree is refused 422 `CONVERSATION_WORK_DIR_DIRTY`, whose message carries the
+// next step (commit or stash, then switch). Never `--force`, never a silent stash — see the sentinel for the
+// full reasoning. Unknown branch → 404 `CONVERSATION_BRANCH_NOT_FOUND`; an illegal name → 422
+// `CONVERSATION_INVALID_BRANCH`; a residency that is not a repository → 422
+// `CONVERSATION_WORK_DIR_NOT_GIT_REPO`; anything else git refuses → 422 `CONVERSATION_GIT_FAILED` carrying
+// git's own stderr in `details.git`.
+//
+// SwitchBranch 处理 `POST /api/v1/conversations/{id}/workdir:switch-branch`——把驻地的工作树移到一条**已存在**
+// 的本地分支上（WD2，workdir 子资源上的 N5 `:action`）。返 200 + **重探**后的 `WorkDirInfo`，因为一次切换同时改
+// 它的好几个字段，而一个被迫再 GET 一次的客户端就是一个会画出一帧旧分支的客户端。
+//
+// **护栏**:脏工作树拒为 422 `CONVERSATION_WORK_DIR_DIRTY`，其 message 带着下一步（先提交或贮藏，再切）。绝不
+// `--force`、绝不静默 stash——完整理由见那个 sentinel。未知分支 → 404 `CONVERSATION_BRANCH_NOT_FOUND`;非法名 →
+// 422 `CONVERSATION_INVALID_BRANCH`;驻地不是仓库 → 422 `CONVERSATION_WORK_DIR_NOT_GIT_REPO`;git 拒的其余一切
+// → 422 `CONVERSATION_GIT_FAILED`，git 自己的 stderr 在 `details.git` 里。
+func (h *ConversationHandler) SwitchBranch(w http.ResponseWriter, r *http.Request) {
+	var req workDirBranchRequest
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	info, err := h.svc.SwitchBranch(r.Context(), r.PathValue("id"), req.Branch)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, info)
+}
+
+// CreateBranch handles `POST /api/v1/conversations/{id}/workdir:create-branch` — create a branch at the
+// residency's current HEAD and switch onto it (WD2). Returns 200 + the re-probed projection.
+//
+// A DIRTY work tree is deliberately ALLOWED here, unlike the switch: the new branch starts at the commit
+// already checked out, so the work tree does not change by a byte and no conflict can exist — refusing the
+// single most common branching flow ("I started, then realized this deserves its own branch") would be a
+// guardrail against nothing. An existing name → 409 `CONVERSATION_BRANCH_EXISTS` (a create and a switch are
+// different intents; quietly doing the second is how a user lands on somebody else's work).
+//
+// CreateBranch 处理 `POST /api/v1/conversations/{id}/workdir:create-branch`——在驻地当前 HEAD 上建一条分支并切
+// 过去（WD2）。返 200 + 重探后的投影。
+//
+// 与切换不同，此处**刻意允许**脏工作树:新分支起点就是已 checkout 的那个 commit，故工作树一个字节都不变、冲突不
+// 可能存在——拒掉最常见的那条开分支流程（「先动手，然后意识到这该有自己的分支」）等于守一道什么都不守的护栏。名字
+// 已存在 → 409 `CONVERSATION_BRANCH_EXISTS`（新建与切换是两种意图，静默执行后者正是用户落到别人的活上面的方式）。
+func (h *ConversationHandler) CreateBranch(w http.ResponseWriter, r *http.Request) {
+	var req workDirBranchRequest
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	info, err := h.svc.CreateBranch(r.Context(), r.PathValue("id"), req.Branch)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, info)
+}
+
+// AddWorktree handles `POST /api/v1/conversations/{id}/workdir:add-worktree` — the WD3 one-shot: create a
+// parallel worktree for this conversation AND move the residency into it. Returns 200 + the projection of
+// the NEW directory, so the client's next paint is already the new residency.
+//
+// Body `{name}`, never a path. The target is derived by the repository's own `make worktree` convention: a
+// SIBLING of the work tree's root named `<root>-<name>`, on branch `wt/<name>`. An existing `wt/<name>`
+// branch is REUSED exactly as the Makefile reuses it (`make worktree-rm` keeps the branch on purpose, so
+// re-opening a worktree on it is the documented way back); an existing DIRECTORY is refused 409
+// `CONVERSATION_WORKTREE_EXISTS` with the path in `details.path`. An illegal name → 422
+// `CONVERSATION_INVALID_WORKTREE_NAME` (stricter than a branch name — it becomes a directory segment too,
+// which is what keeps the derived path provably a sibling).
+//
+// Moving the residency goes through the same PATCH path the folder button uses, so the thread gets its
+// durable `marker` block and its `conversation.work_dir` echo for free (E1/E2: no new stream, no new frame).
+//
+// AddWorktree 处理 `POST /api/v1/conversations/{id}/workdir:add-worktree`——WD3 那条一条龙:为本对话建一份平行
+// worktree **并**把驻地移进去。返 200 + **新**目录的投影，故客户端下一帧画的已经是新驻地。
+//
+// body `{name}`、绝不是路径。目标按本仓自己的 `make worktree` 约定派生:工作树根的**兄弟**位、名为 `<根>-<name>`、
+// 分支 `wt/<name>`。已存在的 `wt/<name>` 分支被**复用**，与 Makefile 的复用完全一致（`make worktree-rm` **刻意**
+// 保留分支，故在它之上重开一份 worktree 正是被写进文档的回头路）;已存在的**目录**拒为 409
+// `CONVERSATION_WORKTREE_EXISTS`，路径在 `details.path` 里。非法名 → 422 `CONVERSATION_INVALID_WORKTREE_NAME`
+// （比分支名更严——它**也会**成为一个目录段，而正是这份更严让派生路径可证明地落在兄弟位）。
+//
+// 移动驻地走的是文件夹按钮用的同一条 PATCH 路径，故线程白得它那条持久 `marker` 块与 `conversation.work_dir`
+// 回声（E1/E2:不加流、不加帧型）。
+func (h *ConversationHandler) AddWorktree(w http.ResponseWriter, r *http.Request) {
+	var req workDirWorktreeRequest
+	if err := decodeJSON(r, &req); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	info, err := h.svc.AddWorktree(r.Context(), r.PathValue("id"), req.Name)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

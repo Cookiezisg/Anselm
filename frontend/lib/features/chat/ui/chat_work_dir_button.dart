@@ -12,6 +12,7 @@ import '../../../core/ui/an_menu.dart';
 import '../../../core/ui/an_tooltip.dart';
 import '../../../core/ui/icons.dart';
 import '../../../i18n/strings.g.dart';
+import 'chat_git_actions.dart';
 import '../state/conversation_header.dart';
 import '../state/work_dir.dart';
 
@@ -195,9 +196,8 @@ class ChatWorkDirButton extends ConsumerWidget {
             onTap: () => _apply(context, ref, path),
           ),
       ],
-      // ③ git — READ-ONLY in WD1. Switching / creating a branch is WD2, a worktree is WD3; showing a disabled
-      // row for them would promise a shape the batch does not have. 只读(WD1)。切/建分支归 WD2、worktree 归 WD3;
-      // 为它们摆一行禁用项等于承诺一个本批并不存在的形状。
+      // ③ git — the state (WD1) and then the three ACTIONS (WD2 switch / new branch, WD3 worktree).
+      // 只在真是仓库时出现:git 段——先是状态(WD1),再是三个**动作**(WD2 切/新建分支、WD3 worktree)。
       if (info.isGitRepo) ...[
         AnMenuSection(w.git),
         AnMenuItem(
@@ -210,8 +210,128 @@ class ChatWorkDirButton extends ConsumerWidget {
           icon: info.dirty ? AnIcons.circle : AnIcons.check,
           disabled: true,
         ),
+        // WD2 · SWITCH — every OTHER local branch, one tap each. Listing them inline rather than behind a
+        // picker is the whole affordance: a residency has a handful of local branches (the projection excludes
+        // `refs/remotes` for exactly this reason), the menu already scrolls at its own max height, and a
+        // one-click switch is why this batch exists.
+        // WD2 · **切换**——其余每一条本地分支各一行。内联列出、不藏在一个选择器后面,正是那份可供性:一个驻地有
+        // 一小把本地分支(投影排除 `refs/remotes` 正为此),菜单本就在自己的最大高度处滚动,而一键切换正是本批
+        // 存在的理由。
+        //
+        // While DIRTY the rows are replaced by ONE line that says why and what to do next, because the server
+        // would refuse anyway (the guardrail: never carry uncommitted work onto another branch behind the
+        // user's back) — offering a row that is certain to fail is worse than not offering it, and a disabled
+        // row with no reason is a mystery.
+        // **脏**时那些行被**一行**「为什么 + 下一步」顶替,因为服务端反正会拒(那道护栏:绝不在用户背后把未提交的活
+        // 带到另一条分支上)——提供一个必定失败的行比不提供更糟,而一个不给理由的禁用行是个谜。
+        if (info.dirty)
+          AnMenuItem(label: w.dirtyBlocksSwitch, disabled: true)
+        else
+          ..._branchRows(context, ref, t, info),
+        AnMenuItem(
+          label: w.newBranch,
+          icon: AnIcons.plus,
+          onTap: () => showChatGitNameDialog(
+            context,
+            title: w.newBranchTitle,
+            explainer: w.newBranchExplainer,
+            placeholder: w.newBranchField,
+            confirmLabel: w.newBranchConfirm,
+            onSubmit: (name) => ref
+                .read(workDirProvider(conversationId).notifier)
+                .createBranch(name),
+          ),
+        ),
+        // WD3 · the one-shot. The dialog names what it will do BEFORE the name is typed, because this one
+        // writes a directory on disk. WD3 · 一条龙。对话框在名字被输入**之前**就说清它会做什么,因为这一个会在
+        // 盘上写出一个目录。
+        AnMenuItem(
+          label: w.worktreeNew,
+          icon: AnIcons.folder,
+          onTap: () => showChatGitNameDialog(
+            context,
+            title: w.worktreeTitle,
+            explainer: w.worktreeExplainer,
+            placeholder: w.worktreeField,
+            confirmLabel: w.worktreeConfirm,
+            onSubmit: (name) => ref
+                .read(workDirProvider(conversationId).notifier)
+                .addWorktree(name),
+          ),
+        ),
+        // The OTHER worktrees of this repository. Moving into one is a plain residency change — the same PATCH
+        // «choose a directory» performs — so it needs no endpoint of its own, and it is the answer to
+        // «that folder already exists»: the worktree you wanted is right here.
+        // 本仓库的**其余** worktree。移进其中一份只是一次普通的驻地变更——与「选择工作目录」那次 PATCH 完全相同
+        // ——故它不需要自己的端点;它也正是「那个文件夹已存在」的答案:你要的那份 worktree 就在这儿。
+        if (info.worktrees.where((t) => !t.current).isNotEmpty) ...[
+          AnMenuSection(w.worktreeSection),
+          for (final tree in info.worktrees.where((t) => !t.current))
+            AnMenuItem(
+              label: _basename(tree.path),
+              meta: tree.branch,
+              icon: AnIcons.folder,
+              onTap: () => _apply(context, ref, tree.path),
+            ),
+        ],
       ],
     ];
+  }
+
+  /// The switchable branches: every local head except the one already checked out (offering a switch to where
+  /// you already are is a row that does nothing — the same rule the recency list follows).
+  ///
+  /// A failure lands in the notice center rather than a dialog: the tap carried no text to preserve, so there
+  /// is nothing to keep open and correct. The copy still names the next step — this path is reachable when the
+  /// tree turned dirty, or the branch vanished, between the menu opening and the tap.
+  ///
+  /// 可切换的分支:除已 checkout 的那一条之外的每一条本地 head（提议切到你已经在的地方是一行什么都不做的项——与
+  /// 最近列表遵守的同一条规则）。
+  ///
+  /// 失败落在通知中心、不是对话框:这次点击**没有**携带任何文字要保留，故没有什么要保持打开并修正。文案仍点出下一步
+  /// ——这条路径在「菜单打开与点击之间工作树变脏了、或那条分支消失了」时可达。
+  List<AnMenuEntry> _branchRows(
+    BuildContext context,
+    WidgetRef ref,
+    Translations t,
+    WorkDirInfo info,
+  ) {
+    final w = t.chat.workDir;
+    final others = info.branches.where((b) => b != info.branch).toList();
+    if (others.isEmpty) return const [];
+    return [
+      AnMenuSection(w.switchBranchSection),
+      for (final branch in others)
+        AnMenuItem(
+          label: branch,
+          icon: AnIcons.control,
+          onTap: () => _runGit(
+            context,
+            ref,
+            () => ref
+                .read(workDirProvider(conversationId).notifier)
+                .switchBranch(branch),
+          ),
+        ),
+    ];
+  }
+
+  /// Run a git action whose failure has no field to sit under, and report the refusal with its next step.
+  ///
+  /// 跑一个「失败时没有输入框可依附」的 git 动作，并把那次拒绝连同它的下一步报出来。
+  Future<void> _runGit(
+    BuildContext context,
+    WidgetRef ref,
+    Future<void> Function() action,
+  ) async {
+    try {
+      await action();
+    } catch (e) {
+      if (!context.mounted) return;
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(gitActionFailure(context.t, e), tone: AnTone.warn);
+    }
   }
 
   /// Pick a directory and mount it. A cancelled picker (null) changes NOTHING — not the row, not the recency

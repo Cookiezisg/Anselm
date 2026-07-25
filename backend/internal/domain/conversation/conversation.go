@@ -141,7 +141,7 @@ type Conversation struct {
 // the filesystem and git ARE the source of truth, and a cached copy would become a lie the moment the
 // user switches branch in their own terminal. Path echoes the column so a client needs one read, not
 // two; every other field answers a question the column cannot (does it still exist? a repo? which
-// branch? any uncommitted work?).
+// branch? any uncommitted work? which branches could we switch to? which parallel checkouts exist?).
 //
 // Exists=false with a non-empty Path is a real, renderable state: the user mounted a directory and
 // then moved or deleted it. The residency button warns instead of silently pretending.
@@ -151,7 +151,8 @@ type Conversation struct {
 //
 // 派生投影、非已存集合——故无游标（N4 的「有界投影」那一类）:文件系统与 git **就是**真相源,缓存副本
 // 在用户于自己终端里切一次分支的那一刻就成了谎。Path 回显该列,使客户端读一次而非两次;其余每个字段都
-// 回答那个列答不了的问题（它还在吗?是仓库吗?哪个分支?有没有没提交的活?）。
+// 回答那个列答不了的问题（它还在吗?是仓库吗?哪个分支?有没有没提交的活?能切到哪些分支?有哪些平行
+// checkout?）。
 //
 // Path 非空而 Exists=false 是一个真实且可渲染的状态:用户挂了一个目录,然后把它移走或删了。驻地按钮
 // 会警示、而不是静默装作无事。
@@ -161,6 +162,39 @@ type WorkDirInfo struct {
 	IsGitRepo bool   `json:"isGitRepo"`
 	Branch    string `json:"branch,omitempty"`
 	Dirty     bool   `json:"dirty"`
+	// Branches are the repository's LOCAL branches, most-recently-committed first (WD2) — what the menu
+	// offers to switch to. `refs/remotes` is deliberately excluded, and that exclusion is what keeps this
+	// a BOUNDED projection with no cursor: refs/heads is the set this person created (human scale), while a
+	// fetched remote can carry thousands.
+	//
+	// Branches 是仓库的**本地**分支、最近提交在前（WD2）——菜单提议切过去的那些。`refs/remotes` **刻意**排除，
+	// 而正是这个排除让它保持为无游标的**有界**投影:refs/heads 是这个人自己建的那一集（人类尺度），而一份
+	// fetch 过的远端可以带来上千条。
+	Branches []string `json:"branches,omitempty"`
+	// Worktrees are every checkout of this repository, the MAIN tree included (WD3). Including the current
+	// one is the honest answer to "which worktrees does this repo have" — `Current` marks where this
+	// residency stands, so the menu can offer the others without the caller re-deriving that.
+	//
+	// Worktrees 是本仓库的每一份 checkout、**含主树**（WD3）。含当前那一份才是「这个仓库有哪些 worktree」的诚实
+	// 答案——`Current` 标出本驻地站在哪一份上，故菜单可以只提议其余那些、而调用方不必自己再推一遍。
+	Worktrees []WorkTreeInfo `json:"worktrees,omitempty"`
+}
+
+// WorkTreeInfo is ONE parallel checkout of the residency's repository (WD3): where it lives, which branch
+// it has out (empty = detached), and whether it is the one this conversation is mounted on.
+//
+// It carries no id and no lifecycle for the same reason WorkDirGroup does not: a worktree exists exactly
+// as long as git says it does, and the truth is `git worktree list` — not a table.
+//
+// WorkTreeInfo 是驻地所在仓库的**一份**平行 checkout（WD3）:它在哪、出着哪条分支（空 = detached）、以及它是不是
+// 本对话所挂的那一份。
+//
+// 它没有 id、没有生命周期，理由与 WorkDirGroup 相同:一个 worktree 存在的时长恰好等于 git 说它存在的时长，而真相
+// 是 `git worktree list`——不是某张表。
+type WorkTreeInfo struct {
+	Path    string `json:"path"`
+	Branch  string `json:"branch,omitempty"`
+	Current bool   `json:"current"`
 }
 
 // WorkDirGroup is ONE residency group in the rail's grouped projection (WRK-077 WD1.5): the directory,
@@ -375,6 +409,101 @@ var (
 	// 已被移走或删掉的目录是合法且可渲染的状态（WorkDirInfo.Exists=false）,在写时强求它等于为一个
 	// 下一秒就可能改变的条件拒掉一次诚实的挂载。按错误码约定,泛型 FSPATH_* 原语在此翻成具体码。
 	ErrInvalidWorkDir = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_INVALID_WORK_DIR", "invalid workDir (must be an absolute path, or empty to unmount)")
+
+	// ErrWorkDirNotGitRepo: a git action (switch / create branch / add worktree — WD2+WD3) was asked of a
+	// residency that is not a git repository — including a residency that is unmounted, gone, or a host
+	// with no `git` binary. The READ side answers `isGitRepo=false` for all of those and that is right (a
+	// menu simply hides its git segment), but a WRITE has to say so out loud: the user asked for a change
+	// and it did not happen.
+	//
+	// ErrWorkDirNotGitRepo:对一个**不是** git 仓库的驻地要求了一个 git 动作（切/建分支、加 worktree——
+	// WD2+WD3）——含驻地未挂、已消失、或本机没有 `git` 二进制。**读**侧对这些一律答 `isGitRepo=false`、
+	// 那是对的（菜单只是不渲 git 段），但一次**写**必须大声说出来:用户要求了一次改动，而它没有发生。
+	ErrWorkDirNotGitRepo = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_WORK_DIR_NOT_GIT_REPO", "the conversation's working directory is not a git repository")
+
+	// ErrWorkDirDirty: the residency has uncommitted changes and the requested action was switching to an
+	// EXISTING branch — WD2's guardrail, and the batch's one real decision (legislated in
+	// `references/backend/domains/conversation.md`).
+	//
+	// The choice is REFUSE — not "let git decide", not "stash it for you". Git's own behaviour is to carry
+	// uncommitted work across when it can and refuse when it collides, which means the SURPRISING outcome
+	// (your work now sits on a branch you did not think it was on) is the SUCCESS path, silently. For a
+	// residency an agent is mid-task in that is worse than an error: the branch named in the system prompt
+	// changed AND the work moved with it. Stashing is refused for the reason the brief gives — a silent
+	// stash is how work disappears, and owning the stash lifecycle (who pops it, what happens on conflict)
+	// is exactly the mini git client this feature is not. Refusing is the only option that cannot lose a
+	// single line: nothing is moved, nothing is forced, nothing is hidden, and the next step is in the
+	// message.
+	//
+	// CREATING a branch is deliberately not gated by this — it starts at the current HEAD, so the work tree
+	// does not change by a byte and no conflict can exist (see gitinfo.CreateBranch).
+	//
+	// ErrWorkDirDirty:驻地有未提交改动，而请求的动作是切到一条**已存在**的分支——WD2 的护栏，也是本批唯一
+	// 真正的决定（立法在 `references/backend/domains/conversation.md`）。
+	//
+	// 选的是**拒绝**——不是「让 git 自己判」、不是「替你 stash」。git 自己的行为是能带过去就带、冲突才拒，
+	// 这意味着那个**令人意外**的结局（你的活现在待在一条你以为不是的分支上）是**成功**路径、而且是静默的。
+	// 对一个 agent 正在其中干活的驻地，那比一个错误更糟:system prompt 里点出的分支变了、活也跟着搬走了。
+	// stash 被拒的理由如简报所言——静默 stash 正是活消失的方式，而承担 stash 的生命周期（谁 pop、冲突怎么办）
+	// 恰恰就是本 feature 不做的那个迷你 git 客户端。拒绝是唯一一个连一行都丢不了的选项:什么都没搬、没强制、
+	// 没藏起来，而下一步就写在消息里。
+	//
+	// **新建**分支刻意不受此门——它从当前 HEAD 起步，故工作树一个字节都不变、冲突不可能存在（见
+	// gitinfo.CreateBranch）。
+	ErrWorkDirDirty = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_WORK_DIR_DIRTY", "the working directory has uncommitted changes — commit or stash them, then switch branches")
+
+	// ErrInvalidBranch: a branch name git will not accept (`git check-ref-format`), empty, or beginning
+	// with `-`. Validated with git's own tool rather than a hand-rolled rule (原则 #8); the leading-dash
+	// rule is ours, because a legal ref starting with `-` would be read as a FLAG by the next command.
+	//
+	// ErrInvalidBranch:git 不会接受的分支名（`git check-ref-format`）、空、或以 `-` 开头。用 git 自己的工具
+	// 校验、不手搓规则（原则 #8）;前导 `-` 那条是我们加的——一个以 `-` 开头的合法 ref 会被下一条命令读成**选项**。
+	ErrInvalidBranch = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_INVALID_BRANCH", "invalid branch name (git check-ref-format refused it)")
+
+	// ErrBranchNotFound: the switch target has no local branch. Asked BEFORE the checkout so the answer is
+	// this rather than git's prose — and so `git checkout`'s DWIM can never quietly turn a typo into a new
+	// remote-tracking branch.
+	//
+	// ErrBranchNotFound:切换目标没有对应的本地分支。在 checkout **之前**问，故答案是这一条、不是 git 的散文
+	// ——也使 `git checkout` 的 DWIM 永不可能把一个拼错悄悄变成一条新的远端跟踪分支。
+	ErrBranchNotFound = errorspkg.New(errorspkg.KindNotFound, "CONVERSATION_BRANCH_NOT_FOUND", "no local branch by that name")
+
+	// ErrBranchExists: creating a branch that is already there. A CONFLICT rather than a silent switch —
+	// «new branch» and «switch to the branch that happens to have this name» are different intents, and
+	// quietly performing the second is how a user lands on somebody else's work.
+	//
+	// ErrBranchExists:要新建的分支已经存在。是**冲突**、不是静默切过去——「新建分支」与「切到恰好叫这个名字
+	// 的分支」是两种不同意图，静默执行后者正是用户落到别人的活上面的方式。
+	ErrBranchExists = errorspkg.New(errorspkg.KindConflict, "CONVERSATION_BRANCH_EXISTS", "a branch by that name already exists")
+
+	// ErrInvalidWorktreeName: the worktree name cannot be BOTH one directory segment and a branch under
+	// `wt/`. Stricter than a branch name because the name becomes a DIRECTORY too, and that strictness is
+	// what keeps the derived path provably a sibling of the repository (see gitinfo.ValidWorktreeName).
+	//
+	// ErrInvalidWorktreeName:worktree 名无法**同时**做一个目录段与 `wt/` 下的一条分支。比分支名更严，因为这个
+	// 名字**也会**成为一个目录，而正是这份更严让派生出的路径可证明地落在仓库的兄弟位置（见
+	// gitinfo.ValidWorktreeName）。
+	ErrInvalidWorktreeName = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_INVALID_WORKTREE_NAME", "invalid worktree name (must be one path segment usable as a branch name)")
+
+	// ErrWorktreeExists: the sibling directory the convention derives is already taken. Reported rather
+	// than reused, because a directory that is already there holds somebody's work — possibly another
+	// session's — and adopting it silently is how two agents end up editing one tree, the very accident the
+	// worktree discipline exists to prevent.
+	//
+	// ErrWorktreeExists:约定派生出的那个兄弟目录已被占用。上报、不复用，因为一个已经在那里的目录装着某人的
+	// 活——可能是另一个会话的——而静默接管它正是两个 agent 编辑同一棵树的方式，也正是 worktree 纪律所要防的
+	// 那场事故。
+	ErrWorktreeExists = errorspkg.New(errorspkg.KindConflict, "CONVERSATION_WORKTREE_EXISTS", "that worktree directory already exists")
+
+	// ErrGitFailed: git itself refused, for a reason this layer did not pre-check. Details carries git's
+	// VERBATIM stderr under `git`. The honest catch-all: the alternatives are inventing a sentinel per git
+	// message (an endless, always-incomplete table) or swallowing the reason — and git's own sentence is the
+	// most useful one anybody has about why a checkout or a worktree add refused.
+	//
+	// ErrGitFailed:git 自己拒了，理由是本层没有预检的那些。Details 在 `git` 键下带 git 的**逐字** stderr。
+	// 诚实的兜底:另两种选择是「为每条 git 消息铸一个 sentinel」（一张无穷且永远不全的表）或「把理由吞掉」——
+	// 而关于「一次 checkout 或 worktree add 为何被拒」，git 自己那句话是所有人手上最有用的一句。
+	ErrGitFailed = errorspkg.New(errorspkg.KindUnprocessable, "CONVERSATION_GIT_FAILED", "git refused the operation")
 )
 
 // Repository is the storage contract; workspace isolation + soft-delete are applied by the

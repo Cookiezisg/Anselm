@@ -62,8 +62,10 @@ func (s *Service) markWorkDirSwitch(ctx context.Context, conversationID, from, t
 // conversation has no residency" is a successful answer to the question, and the button that calls this
 // needs to render the unmounted state too.
 //
-// The git probe runs ONLY when the directory exists and only once (a single `git status --porcelain=v2
-// --branch`), so the cost of an unmounted or missing residency is one os.Stat.
+// The git probes run ONLY when the directory exists, and the bounded LISTS (branches / worktrees, WD2 +
+// WD3) only once it is known to be a repository — so an unmounted or missing residency costs one os.Stat,
+// a plain directory costs that plus one `git status`, and only a real repository pays for the four reads
+// the actionable menu needs.
 //
 // WorkDirInfo 现算某对话驻地的活投影（`GET /{id}/workdir`）。零缓存:文件系统与 git 才是真相,用户刚删掉
 // 目录的对话——或刚在自己终端里切了分支的对话——必须读作它**现在的样子**。
@@ -71,8 +73,9 @@ func (s *Service) markWorkDirSwitch(ctx context.Context, conversationID, from, t
 // 未挂线程返回零投影（空路径、exists=false）而**不是** 404:「这个对话没有驻地」是对该问题的一个**成功**
 // 回答,而调用它的那个按钮也要渲染未挂态。
 //
-// git 探针**仅在**目录存在时跑、且只跑一次（一次 `git status --porcelain=v2 --branch`）,故未挂或已消失的
-// 驻地只花一次 os.Stat。
+// git 探针**仅在**目录存在时跑,而两个有界**列表**（分支 / worktree,WD2 + WD3）**仅在**已知它是仓库之后才跑
+// ——故未挂或已消失的驻地只花一次 os.Stat,普通目录再加一次 `git status`,只有真正的仓库才付那个可操作菜单所需
+// 的四次读。
 func (s *Service) WorkDirInfo(ctx context.Context, id string) (*conversationdomain.WorkDirInfo, error) {
 	c, err := s.repo.Get(ctx, id)
 	if err != nil {
@@ -91,6 +94,26 @@ func (s *Service) WorkDirInfo(ctx context.Context, id string) (*conversationdoma
 	}
 	branch, dirty, isRepo := gitinfoinfra.Status(ctx, c.WorkDir)
 	info.IsGitRepo, info.Branch, info.Dirty = isRepo, branch, dirty
+	if !isRepo {
+		return info, nil
+	}
+	// The two BOUNDED lists (WD2 / WD3) — read only for a repository, because for anything else they are
+	// two guaranteed-empty extra processes. Both are what makes the menu's git segment actionable rather
+	// than a read-out: you cannot offer to switch to a branch you never listed.
+	// 两个**有界**列表（WD2 / WD3）——只对仓库读，因为对其余一切它们是两个必然空手而归的额外进程。正是它们让
+	// 菜单的 git 段可**操作**、而非一段读数:没列出来的分支，无从提议切过去。
+	info.Branches = gitinfoinfra.Branches(ctx, c.WorkDir)
+	// `current` is decided HERE, against the work tree's ROOT rather than the residency string: a residency
+	// mounted on a SUBDIRECTORY of a worktree is still standing in that worktree, and comparing raw paths
+	// would mark none of them current and offer the user a switch to where they already are.
+	// `current` 在**此处**判定、比的是工作树的**根**、不是驻地字符串:挂在某个 worktree 的**子目录**上的驻地仍然
+	// 站在那个 worktree 里，而直接比路径会让**没有**一条被标为 current、于是提议用户切到他已经在的地方。
+	top, _ := gitinfoinfra.Toplevel(ctx, c.WorkDir)
+	for _, wt := range gitinfoinfra.Worktrees(ctx, c.WorkDir) {
+		info.Worktrees = append(info.Worktrees, conversationdomain.WorkTreeInfo{
+			Path: wt.Path, Branch: wt.Branch, Current: top != "" && wt.Path == top,
+		})
+	}
 	return info, nil
 }
 

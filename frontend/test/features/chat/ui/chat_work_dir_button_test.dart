@@ -1,10 +1,13 @@
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/notice/notice_center.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/work_dir.dart';
+import 'package:anselm/features/chat/ui/chat_git_actions.dart';
 import 'package:anselm/features/chat/ui/chat_work_dir_button.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -453,6 +456,313 @@ void main() {
       }
     });
   });
+
+  // ── WD2 + WD3: the git segment is ACTIONABLE ──
+  //
+  // 三件必须钉住的事:①三个动作可点(切分支 / 新建分支 / 开 worktree)②**脏**时的呈现——那道护栏在 UI 上的样子
+  // ③失败文案**说得出下一步**(而不只是「失败了」)。
+  group('git actions git 段三动作', () {
+    // A CLEAN repo offers every other local branch, one tap each — the switcher is the whole point of WD2, and a
+    // switcher that lists nothing is a feature that looks like it does nothing.
+    // **干净**仓库把其余每一条本地分支都摆出来、各一行——切换器正是 WD2 的全部要点,而一个什么都不列的切换器是一个
+    // 「看起来什么也没做」的功能。
+    testWidgets(
+      'a clean repo offers every OTHER branch, and tapping one switches',
+      (tester) async {
+        final h = _host(workDir: _root, projections: const {_root: _cleanRepo});
+        await tester.pumpWidget(h.widget);
+        await tester.pumpAndSettle();
+        await _openMenu(tester);
+
+        final t = await _t();
+        expect(find.text(t.chat.workDir.switchBranchSection), findsOneWidget);
+        expect(find.text('feat/residency'), findsOneWidget);
+        // The CURRENT branch is not repeated as a switch target: offering to switch to where you already are is a
+        // row that does nothing (the same rule the recency list follows).
+        // **当前**分支不作为切换目标重复出现:提议切到你已经在的地方是一行什么都不做的项(与最近列表同一条规则)。
+        expect(find.text('main'), findsNothing);
+        expect(find.text(t.chat.workDir.branch(name: 'main')), findsOneWidget);
+
+        await tester.tap(find.text('feat/residency'));
+        await tester.pumpAndSettle();
+        expect(h.repo.switchedBranches, ['feat/residency']);
+      },
+    );
+
+    // DIRTY is the guardrail's face. The branch rows are replaced by ONE line that says why and what to do next:
+    // the server would refuse anyway (never carry uncommitted work onto another branch behind the user's back),
+    // and a row that is certain to fail is worse than no row. Creating a branch and opening a worktree stay
+    // offered — neither can conflict.
+    // **脏**是那道护栏的脸。分支行被**一行**「为什么 + 下一步」顶替:服务端反正会拒(绝不在用户背后把未提交的活带到
+    // 另一条分支上),而一个必定失败的行比没有更糟。新建分支与开 worktree 仍然提供——两者都不可能冲突。
+    testWidgets('a dirty tree replaces the branch rows with the next step', (
+      tester,
+    ) async {
+      _desktopSurface(tester);
+      final h = _host(
+        workDir: _root,
+        projections: const {
+          _root: WorkDirInfo(
+            path: _root,
+            exists: true,
+            isGitRepo: true,
+            branch: 'main',
+            dirty: true,
+            branches: ['main', 'feat/residency'],
+          ),
+        },
+      );
+      await tester.pumpWidget(h.widget);
+      await tester.pumpAndSettle();
+      await _openMenu(tester);
+
+      final t = await _t();
+      expect(find.text(t.chat.workDir.dirtyBlocksSwitch), findsOneWidget);
+      expect(find.text(t.chat.workDir.switchBranchSection), findsNothing);
+      expect(
+        find.text('feat/residency'),
+        findsNothing,
+        reason: 'a row that is certain to be refused must not be offered',
+      );
+      // The two actions a dirty tree cannot break are still there.
+      // 脏工作树破坏不了的那两个动作仍在。
+      expect(find.text(t.chat.workDir.newBranch), findsOneWidget);
+      expect(find.text(t.chat.workDir.worktreeNew), findsOneWidget);
+    });
+
+    // NEW BRANCH takes a name, so it opens a modal — a menu cannot take dictation. Submitting runs the action and
+    // the panel closes only on success.
+    // **新建分支**要一个名字,故它开一个模态——菜单没法听写。提交会跑那个动作,而面板**仅在成功时**关闭。
+    testWidgets('new branch: the dialog names it and the action runs', (
+      tester,
+    ) async {
+      _desktopSurface(tester);
+      final h = _host(workDir: _root, projections: const {_root: _cleanRepo});
+      await tester.pumpWidget(h.widget);
+      await tester.pumpAndSettle();
+      await _openMenu(tester);
+
+      final t = await _t();
+      await _tapMenu(tester, t.chat.workDir.newBranch);
+      // The dialog explains what it will DO before the point of no return.
+      // 对话框在不可回头之前说清它**会做什么**。
+      expect(find.text(t.chat.workDir.newBranchTitle), findsOneWidget);
+      expect(find.text(t.chat.workDir.newBranchExplainer), findsOneWidget);
+
+      await tester.enterText(find.byType(EditableText), 'feat/wd2');
+      await _tapMenu(tester, t.chat.workDir.newBranchConfirm);
+
+      expect(h.repo.createdBranches, ['feat/wd2']);
+      expect(
+        find.text(t.chat.workDir.newBranchTitle),
+        findsNothing,
+        reason: 'a successful action closes the panel',
+      );
+    });
+
+    // WORKTREE is the one-shot: the action moves the RESIDENCY, so the breadcrumb must re-label to the new
+    // directory's own name without anybody re-reading the row by hand.
+    // **worktree** 是那条一条龙:动作移动**驻地**,故面包屑必须重新贴上新目录自己的名字、而不需要谁手动再读一遍那一行。
+    testWidgets(
+      'worktree: the one-shot moves the residency and the crumb follows',
+      (tester) async {
+        _desktopSurface(tester);
+        final h = _host(workDir: _root, projections: const {_root: _cleanRepo});
+        await tester.pumpWidget(h.widget);
+        await tester.pumpAndSettle();
+        await _openMenu(tester);
+
+        final t = await _t();
+        await _tapMenu(tester, t.chat.workDir.worktreeNew);
+        expect(find.text(t.chat.workDir.worktreeExplainer), findsOneWidget);
+
+        await tester.enterText(find.byType(EditableText), 'wd3');
+        await _tapMenu(tester, t.chat.workDir.worktreeConfirm);
+
+        expect(h.repo.addedWorktrees, ['wd3']);
+        expect((await h.repo.getConversation('cv_1')).workDir, '$_root-wd3');
+        expect(
+          find.text('anselm-wd3'),
+          findsOneWidget,
+          reason: 'the crumb reads the NEW directory',
+        );
+      },
+    );
+
+    // The OTHER worktrees are offered as plain residency switches — no endpoint of their own, and this is the
+    // answer to «that folder already exists»: the worktree you wanted is right here.
+    // **其余** worktree 作为普通的驻地切换提供——不需要自己的端点;它也正是「那个文件夹已存在」的答案:你要的那份
+    // worktree 就在这儿。
+    testWidgets('the other worktrees are offered, the current one is not', (
+      tester,
+    ) async {
+      _desktopSurface(tester);
+      final h = _host(
+        workDir: _root,
+        projections: const {
+          _root: WorkDirInfo(
+            path: _root,
+            exists: true,
+            isGitRepo: true,
+            branch: 'main',
+            branches: ['main'],
+            worktrees: [
+              WorkTreeInfo(path: _root, branch: 'main', current: true),
+              WorkTreeInfo(path: '$_root-wd3', branch: 'wt/wd3'),
+            ],
+          ),
+        },
+      );
+      await tester.pumpWidget(h.widget);
+      await tester.pumpAndSettle();
+      await _openMenu(tester);
+
+      final t = await _t();
+      expect(find.text(t.chat.workDir.worktreeSection), findsOneWidget);
+      expect(find.text('anselm-wd3'), findsOneWidget);
+      await _tapMenu(tester, 'anselm-wd3');
+      expect((await h.repo.getConversation('cv_1')).workDir, '$_root-wd3');
+    });
+  });
+
+  group('failure copy names the next step 失败文案给出下一步', () {
+    // A refusal inside the DIALOG keeps the panel open with the name still in the field, because «that folder
+    // already exists» is a sentence the user answers by typing a different name. A notice that dismisses itself
+    // would take the field away with it.
+    // 对话框**内**的拒绝会保持面板打开、名字还在框里,因为「那个文件夹已存在」是一句用户靠**改名**来回答的话。一条
+    // 会自己消失的提示会把输入框一起带走。
+    testWidgets('a refused worktree keeps the panel open and says what to do', (
+      tester,
+    ) async {
+      _desktopSurface(tester);
+      final h = _host(workDir: _root, projections: const {_root: _cleanRepo});
+      h.repo.gitFailure = const ApiException(
+        code: 'CONVERSATION_WORKTREE_EXISTS',
+        message: 'that worktree directory already exists',
+        httpStatus: 409,
+        details: {'path': '/Users/you/code/anselm-wd3'},
+      );
+      await tester.pumpWidget(h.widget);
+      await tester.pumpAndSettle();
+      await _openMenu(tester);
+
+      final t = await _t();
+      await _tapMenu(tester, t.chat.workDir.worktreeNew);
+      await tester.enterText(find.byType(EditableText), 'wd3');
+      await _tapMenu(tester, t.chat.workDir.worktreeConfirm);
+
+      expect(find.text(t.chat.workDir.errWorktreeExists), findsOneWidget);
+      expect(
+        find.text(t.chat.workDir.worktreeTitle),
+        findsOneWidget,
+        reason:
+            'a refusal is not a dead end — the panel stays so the name can be fixed',
+      );
+      expect(
+        (await h.repo.getConversation('cv_1')).workDir,
+        _root,
+        reason: 'a refused action changed nothing',
+      );
+    });
+
+    // A refused SWITCH has no field to sit under (the tap carried no text), so the next step goes to the notice
+    // center. This path is real: the tree can turn dirty between the menu opening and the tap.
+    // 一次被拒的**切换**没有输入框可依附(那次点击没有携带文字),故下一步落在通知中心。这条路径是真的:工作树可能在
+    // 菜单打开与点击之间变脏。
+    testWidgets(
+      'a refused branch switch reports the next step in the notice center',
+      (tester) async {
+        final h = _host(workDir: _root, projections: const {_root: _cleanRepo});
+        h.repo.gitFailure = const ApiException(
+          code: 'CONVERSATION_WORK_DIR_DIRTY',
+          message: 'the working directory has uncommitted changes',
+          httpStatus: 422,
+        );
+        await tester.pumpWidget(h.widget);
+        await tester.pumpAndSettle();
+        await _openMenu(tester);
+
+        await tester.tap(find.text('feat/residency'));
+        await tester.pumpAndSettle();
+
+        final t = await _t();
+        expect(
+          h.container.read(noticeCenterProvider).current?.message.text,
+          t.chat.workDir.errDirty,
+        );
+      },
+    );
+
+    // The CATCH-ALL forwards git's own sentence, because git names things this layer cannot know — the worktree
+    // already holding a branch, for instance. Replacing it with a guess is how an error becomes useless.
+    // **兜底**转发 git 自己那句话,因为 git 会点出本层无从知道的东西——比如正占着某条分支的那个 worktree。用一句猜测
+    // 替换它,正是一条错误变得没用的方式。
+    testWidgets('the catch-all carries git own words', (tester) async {
+      final t = await _t();
+      final copy = gitActionFailure(
+        t,
+        const ApiException(
+          code: 'CONVERSATION_GIT_FAILED',
+          message: 'git refused the operation',
+          httpStatus: 422,
+          details: {
+            'git':
+                "fatal: 'wt/x' is already used by worktree at '/tmp/a-x'\nhint: ignored",
+          },
+        ),
+      );
+      expect(copy, contains('wt/x'));
+      expect(
+        copy,
+        isNot(contains('hint')),
+        reason:
+            'the FIRST line is the reason; the rest is git talking to itself',
+      );
+      // An error that is not ours at all still says the one thing that matters: nothing changed.
+      // 一个压根不是我们的错误,仍然说出唯一要紧的那件事:什么都没有改动。
+      expect(
+        gitActionFailure(t, StateError('boom')),
+        t.chat.workDir.errFallback,
+      );
+    });
+  });
+}
+
+/// A clean git repository with two local branches — the shape every «offer the switch» test starts from.
+///
+/// 一个干净的、有两条本地分支的 git 仓库——每个「提供切换」测试的起点形状。
+const _cleanRepo = WorkDirInfo(
+  path: _root,
+  exists: true,
+  isGitRepo: true,
+  branch: 'main',
+  branches: ['main', 'feat/residency'],
+);
+
+/// Tap a menu row by its label, scrolling the popover if the row sits below the fold. The git segment makes the
+/// residency menu genuinely LONG (state + branches + three actions + worktrees), and the default 800x600 test
+/// surface cannot show all of it — a raw `tap()` on an off-screen row silently misses and the assertion that
+/// follows blames the wrong thing.
+///
+/// 按标签点一个菜单行，若该行在折叠线之下就滚动那个浮层。git 段让驻地菜单真的**变长**了（状态 + 分支 + 三个动作 +
+/// worktree），而默认 800x600 的测试画布放不下全部——对一个屏外行直接 `tap()` 会静默错过，随后那条断言就会怪错人。
+Future<void> _tapMenu(WidgetTester tester, String label) async {
+  final row = find.text(label);
+  await tester.ensureVisible(row);
+  await tester.pumpAndSettle();
+  await tester.tap(row);
+  await tester.pumpAndSettle();
+}
+
+/// A test surface tall enough for the whole residency menu. The button is real UI on a desktop window; measuring
+/// it in a phone-sized box would test a layout that never ships.
+///
+/// 一块足以容纳整个驻地菜单的测试画布。这个按钮是桌面窗口上的真实 UI；在手机尺寸的盒子里量它，等于测一个永不出货的
+/// 布局。
+void _desktopSurface(WidgetTester tester) {
+  tester.view.physicalSize = const Size(1200, 1600);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
 }
 
 /// The translations for the active locale — read through the same accessor the widgets use, so a key that was

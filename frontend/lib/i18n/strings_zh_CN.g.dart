@@ -736,6 +736,28 @@ class _Translations$chat$workDir$zh_CN extends Translations$chat$workDir$en {
 	@override String get groupDeleteTitle => '删除这些对话？';
 	@override String groupDeleteBody({required Object name, required Object count}) => '「${name}」里的 ${count} 个对话将被永久移除。磁盘上什么都不会被删除——文件一个都不动。置顶的对话不受影响。';
 	@override String get groupDeleteConfirm => '全部删除';
+	@override String get switchBranchSection => '切换分支';
+	@override String get newBranch => '新建分支…';
+	@override String get newBranchTitle => '新建分支';
+	@override String get newBranchExplainer => '在你当前 checkout 的那个提交上创建，然后切过去。未提交的改动会一起带过来——不会有冲突。';
+	@override String get newBranchField => 'feat/my-change';
+	@override String get newBranchConfirm => '创建并切换';
+	@override String get dirtyBlocksSwitch => '先提交或贮藏改动，再切换分支';
+	@override String get worktreeSection => 'Worktree';
+	@override String get worktreeNew => '为此对话开一个 worktree…';
+	@override String get worktreeTitle => '开一个 worktree';
+	@override String get worktreeExplainer => '在仓库旁边建一份平行 checkout，分支名 wt/<名字>，并把本对话移进去。这里不会提交、也不会推送任何东西。';
+	@override String get worktreeField => 'my-session';
+	@override String get worktreeConfirm => '开 worktree';
+	@override String get errDirty => '工作目录有未提交的改动。先提交或贮藏，再切换分支。';
+	@override String get errNotRepo => '这个工作目录不是 git 仓库。换到一个是 git 仓库的目录。';
+	@override String get errInvalidBranch => 'git 不接受这个名字。字母、数字、「-」、「_」与「/」是安全的。';
+	@override String get errBranchMissing => '那条分支已经不在了。重新打开菜单，看看现在有哪些分支。';
+	@override String get errBranchExists => '已有同名分支。换个名字，或从菜单切到它。';
+	@override String get errWorktreeName => 'worktree 的名字必须是一个文件夹名——不能带「/」，也不能是「..」。';
+	@override String get errWorktreeExists => '那个文件夹已经存在。换个名字，或从菜单把本对话切进去。';
+	@override String errGit({required Object reason}) => 'git 拒绝了：${reason}';
+	@override String get errFallback => '没成功，什么都没有改动。再试一次。';
 }
 
 // Path: chat.time
@@ -2886,6 +2908,28 @@ extension on TranslationsZhCn {
 			'chat.workDir.groupDeleteTitle' => '删除这些对话？',
 			'chat.workDir.groupDeleteBody' => ({required Object name, required Object count}) => '「${name}」里的 ${count} 个对话将被永久移除。磁盘上什么都不会被删除——文件一个都不动。置顶的对话不受影响。',
 			'chat.workDir.groupDeleteConfirm' => '全部删除',
+			'chat.workDir.switchBranchSection' => '切换分支',
+			'chat.workDir.newBranch' => '新建分支…',
+			'chat.workDir.newBranchTitle' => '新建分支',
+			'chat.workDir.newBranchExplainer' => '在你当前 checkout 的那个提交上创建，然后切过去。未提交的改动会一起带过来——不会有冲突。',
+			'chat.workDir.newBranchField' => 'feat/my-change',
+			'chat.workDir.newBranchConfirm' => '创建并切换',
+			'chat.workDir.dirtyBlocksSwitch' => '先提交或贮藏改动，再切换分支',
+			'chat.workDir.worktreeSection' => 'Worktree',
+			'chat.workDir.worktreeNew' => '为此对话开一个 worktree…',
+			'chat.workDir.worktreeTitle' => '开一个 worktree',
+			'chat.workDir.worktreeExplainer' => '在仓库旁边建一份平行 checkout，分支名 wt/<名字>，并把本对话移进去。这里不会提交、也不会推送任何东西。',
+			'chat.workDir.worktreeField' => 'my-session',
+			'chat.workDir.worktreeConfirm' => '开 worktree',
+			'chat.workDir.errDirty' => '工作目录有未提交的改动。先提交或贮藏，再切换分支。',
+			'chat.workDir.errNotRepo' => '这个工作目录不是 git 仓库。换到一个是 git 仓库的目录。',
+			'chat.workDir.errInvalidBranch' => 'git 不接受这个名字。字母、数字、「-」、「_」与「/」是安全的。',
+			'chat.workDir.errBranchMissing' => '那条分支已经不在了。重新打开菜单，看看现在有哪些分支。',
+			'chat.workDir.errBranchExists' => '已有同名分支。换个名字，或从菜单切到它。',
+			'chat.workDir.errWorktreeName' => 'worktree 的名字必须是一个文件夹名——不能带「/」，也不能是「..」。',
+			'chat.workDir.errWorktreeExists' => '那个文件夹已经存在。换个名字，或从菜单把本对话切进去。',
+			'chat.workDir.errGit' => ({required Object reason}) => 'git 拒绝了：${reason}',
+			'chat.workDir.errFallback' => '没成功，什么都没有改动。再试一次。',
 			'chat.pin' => '置顶',
 			'chat.unpin' => '取消置顶',
 			'chat.archive' => '归档',
@@ -3332,6 +3376,8 @@ extension on TranslationsZhCn {
 			'chat.tool.gettingAgentExec' => '正在调阅智能体执行',
 			'chat.tool.gotAgentExec' => '已调阅智能体执行',
 			'chat.tool.transcriptSteps' => ({required Object n}) => '轨迹 · ${n} 步',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.transcriptOpenFull' => '查看完整轨迹',
 			'chat.tool.transcriptEmpty' => '无轨迹记录',
 			'chat.tool.transcriptCapped' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 块',
@@ -3354,8 +3400,6 @@ extension on TranslationsZhCn {
 			'chat.tool.todoCleared' => '清单已清空',
 			'chat.tool.gettingRelations' => '正在查关系',
 			'chat.tool.gotRelations' => '已查关系',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.relCount' => ({required Object n}) => '${n} 条关系',
 			'chat.tool.relNoEdges' => '无关系',
 			'chat.tool.relArrow' => '→',
@@ -3846,6 +3890,8 @@ extension on TranslationsZhCn {
 			'shell.workspaceSettings' => '工作区设置',
 			'notifications.title' => '通知',
 			'notifications.needsYou' => '待你处理',
+			_ => null,
+		} ?? switch (path) {
 			'notifications.feed' => '通知',
 			'notifications.markAllRead' => '全部已读',
 			'notifications.markAllUnread' => '全部未读',
@@ -3868,8 +3914,6 @@ extension on TranslationsZhCn {
 			'notifications.verb.envRebuilt' => '环境已重建',
 			'notifications.verb.configUpdated' => '配置已更新',
 			'notifications.verb.configCleared' => '配置已清空',
-			_ => null,
-		} ?? switch (path) {
 			'notifications.verb.installed' => '已安装',
 			'notifications.verb.removed' => '已移除',
 			'notifications.verb.reconnected' => '已重连',
@@ -4360,6 +4404,8 @@ extension on TranslationsZhCn {
 			'library.skillInstallHint' => 'GitHub 仓库（owner/repo 或 URL）或 tarball 地址',
 			'library.skillInstallInspect' => '解析来源',
 			'library.skillInstallGo' => '安装所选',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillInstallDone' => '安装完成',
 			'library.skillInstallNone' => '来源里没有可安装的 skill',
 			'library.skillInstallPreauthNote' => '安装后这些工具将请求免确认预授权——需你显式授权才生效',
@@ -4382,8 +4428,6 @@ extension on TranslationsZhCn {
 			'settings.scope.device' => '本机',
 			'settings.scope.workspace' => '工作区',
 			'settings.scope.machine' => '全机',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sections.prefs' => '偏好',
 			'settings.sections.resources' => '资源',
 			'settings.sections.system' => '系统',
