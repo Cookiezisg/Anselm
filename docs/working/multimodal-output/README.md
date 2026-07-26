@@ -463,11 +463,13 @@ router 四处 · bootstrap 无条件构造 · `speech_generation` 能力位。`m
 > 依赖决策,不该搭在本批里。文件卡诚实说明它是什么、多大、可在外部打开。**此条建议晨间过目**——它是
 > 唯一一处「能力建成但用户看不到成品」的地方。
 
-- 各家全是异步任务 API(wan/Sora/Veo:提交→分钟级→取回)。**V1 形态**:工具 Execute 内
-  「提交+轮询」同步等完,期间经 messages 流 ephemeral 帧推 progress(block 七型现成 progress 型
-  + E2,不加流不加型),前端工具卡真进度条;30 分钟 `timeout.chatTurnSec` 顶棚够用。
-- **明确不做**(落 ADR 否决项):挂 durable flowrun 引擎、「提交后台+通知送达」离场形态——
-  把 chat 工具改造成异步作业系统,V1 不值;10 分钟级需求出现再立新 ADR。
+- **调研实证推翻一处计划**:三家里 **Sora 已公告 2026-09-24 下线**(代拍 D2 不做),而两家在产的
+  **都不报进度百分比**——故原计划的「前端工具卡真进度条」不成立,改为**诚实状态行**(合成的进度条会在
+  99% 停几分钟,Veo 官方区间 11s–6min)。
+- **V1 形态** ✅ 已施工:`infra/llm/videogen.go` 两方言 × 三动词(Submit/Poll/Fetch)+ `tool/generate`
+  轮询循环 + `generate_video` 工具。progress 走既有 `loop.ToolProgress`(不加流、不加块型)。
+  **产物是「可取回的引用」不是 URL**(DashScope 裸签名 URL 带 Authorization 可能被拒、Google 必须带
+  key——方向相反的同一个陷阱)。轮询**爬**向厂商节奏(2s 起 ×1.5 到上限)。守卫四格。
 - **视频不进免费档**(P8):网关不开路由;`generate_video` 只在直连侧按 §3.5 注入,自费不限。
 - 产物 mp4 落盘,视频卡复用附件视频渲染。**金标**:直连真生成一条。
 

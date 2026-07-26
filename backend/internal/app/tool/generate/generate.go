@@ -76,6 +76,28 @@ var speechProviders = map[string]providerSpec{
 
 var speechProviderOrder = []string{"anselm", "openai", "qwen", "zhipu", "google"}
 
+// videoProviders is the closed set of direct-connection video-capable providers. There is NO
+// managed entry: video does not enter the free tier (P8), so the gateway has no video route and
+// `anselm` cannot appear here — on a managed-only workspace `generate_video` is honestly absent.
+//
+// OpenAI is absent for a different reason (代拍 D2): its Videos API was announced for removal on
+// 2026-09-24. A driver with eight weeks of life would be built, reviewed and deleted without ever
+// earning its keep.
+//
+// videoProviders 是直连视频家的封闭集。**没有受管条目**:视频不进免费档(P8),故网关无视频路由、
+// `anselm` 不可能出现在这里——只有受管 key 的 workspace 上 `generate_video` 诚实缺席。
+// OpenAI 缺席的理由不同(代拍 D2):其 Videos API 已公告 2026-09-24 下线,一个只剩八周寿命的 driver
+// 会被建、被复审、被删掉,却从没挣回自己的成本。
+var videoProviders = map[string]providerSpec{
+	"qwen":   {defaultModel: "wan2.7-t2v", nativeBase: "https://dashscope.aliyuncs.com"},
+	"google": {defaultModel: "veo-3.1-fast-generate-preview", nativeBase: "https://generativelanguage.googleapis.com/v1beta"},
+}
+
+var videoProviderOrder = []string{"qwen", "google"}
+
+// ErrNoVideoRoute — no key on this workspace can generate video (the ErrNoImageRoute twin).
+var ErrNoVideoRoute = errorspkg.New(errorspkg.KindUnprocessable, "VIDEO_NO_ROUTE", "no configured key can generate video")
+
 // defaultVoiceFor is each dialect's default voice. A voice name is NOT portable across providers
 // (Cherry exists only at DashScope, coral only at OpenAI, Kore only at Gemini), so an unset voice
 // must resolve per route rather than carry one global string — sending "Cherry" to OpenAI is a
@@ -359,6 +381,102 @@ func (r *Router) SpeechRouteIdentity(ctx context.Context, voice string) (string,
 	return route.provider, route.model, voice, nil
 }
 
+// resolveVideo picks the video route (the resolveImage twin, same law, its own table).
+func (r *Router) resolveVideo(ctx context.Context) (genRoute, error) {
+	return r.resolveIn(ctx, modeldomain.ScenarioVideo, videoProviders, videoProviderOrder, ErrNoVideoRoute)
+}
+
+// VideoAvailable reports whether generate_video should exist for this request (honest absence).
+func (r *Router) VideoAvailable(ctx context.Context) bool {
+	_, err := r.resolveVideo(ctx)
+	return err == nil
+}
+
+// VideoProgress is the callback a caller uses to surface waiting. It receives an honest STATUS
+// LINE, never a percentage: neither supported provider reports one, and synthesizing "elapsed ÷
+// estimated" would park a bar at 99% for minutes (Veo's own documented range is 11s–6min). A bar
+// that lies is worse than a line that says how long it has been waiting.
+//
+// VideoProgress 是调用方用来把「在等」显示出来的回调。它收到的是**诚实的状态行**、绝不是百分比:
+// 两家都不报进度,而用「已耗时÷预估」合成会让进度条在 99% 停几分钟(Veo 自己文档给的区间是 11 秒到
+// 6 分钟)。一个撒谎的进度条比一行「已等多久」更糟。
+type VideoProgress func(line string)
+
+// generateVideo submits, polls to a terminal phase, and fetches the artifact. It is SYNCHRONOUS by
+// decision (ADR 0013): the durable engine is for workflows, and an off-stage form would sever the
+// artifact from the turn that asked for it.
+//
+// generateVideo 提交、轮询到终态、取回产物。**同步是决定**(ADR 0013):durable 引擎是给工作流的,
+// 而离场形态会把产物与提出它的那一轮切断。
+func (r *Router) generateVideo(ctx context.Context, route genRoute, req llminfra.VideoRequest, prog VideoProgress) (llminfra.GeneratedVideo, error) {
+	if prog == nil {
+		prog = func(string) {}
+	}
+	var (
+		job llminfra.VideoJob
+		err error
+	)
+	switch route.provider {
+	case "qwen":
+		job, err = llminfra.SubmitVideoDashScope(ctx, r.HTTP, route.baseURL, route.key, route.model, req)
+	case "google":
+		job, err = llminfra.SubmitVideoGemini(ctx, r.HTTP, route.baseURL, route.key, route.model, req)
+	default:
+		return llminfra.GeneratedVideo{}, ErrNoVideoRoute
+	}
+	if err != nil {
+		return llminfra.GeneratedVideo{}, err
+	}
+	prog(fmt.Sprintf("submitted to %s (%s)\n", route.provider, route.model))
+
+	// Ramp INTO the vendor's cadence rather than starting at it. A flat 15s first wait makes a job
+	// that failed upstream validation — or one that finished fast — pay a full interval of silence
+	// before anyone learns anything. Early polls are cheap; the vendor's documented interval is the
+	// CEILING, which is what its rate-limit guidance is actually about.
+	// **爬**到厂商的节奏、而不是一上来就用它。固定 15s 的首轮等待,会让一个在上游校验就失败的任务
+	// ——或一个很快就好了的任务——先白付一整个周期的沉默。早期轮询很便宜;厂商文档给的间隔是**上限**,
+	// 而它的限流建议说的正是上限。
+	ceiling := llminfra.VideoPollInterval(route.provider)
+	interval := 2 * time.Second
+	started := time.Now()
+	for {
+		select {
+		case <-ctx.Done():
+			// The turn's wall clock ran out (or the user cancelled). The upstream job keeps going and
+			// the money is already spent — say so rather than implying nothing happened.
+			// 回合墙钟到点(或用户取消)。上游任务仍在跑、钱已经花了——说出来,别暗示什么都没发生。
+			return llminfra.GeneratedVideo{}, fmt.Errorf("%w: gave up waiting after %s; the upstream job %s may still complete",
+				llminfra.ErrVideoGenFailed, time.Since(started).Round(time.Second), job.Handle)
+		case <-time.After(interval):
+		}
+		var st llminfra.VideoStatus
+		switch route.provider {
+		case "qwen":
+			st, err = llminfra.PollVideoDashScope(ctx, r.HTTP, route.baseURL, route.key, job.Handle)
+		case "google":
+			st, err = llminfra.PollVideoGemini(ctx, r.HTTP, route.baseURL, route.key, job.Handle)
+		}
+		if err != nil {
+			return llminfra.GeneratedVideo{}, err
+		}
+		elapsed := time.Since(started).Round(time.Second)
+		switch st.Phase {
+		case llminfra.VideoSucceeded:
+			prog(fmt.Sprintf("generated in %s, downloading…\n", elapsed))
+			return llminfra.FetchVideoArtifact(ctx, r.HTTP, st.Artifact)
+		case llminfra.VideoFailed:
+			return llminfra.GeneratedVideo{}, fmt.Errorf("%w: %s", llminfra.ErrVideoGenFailed, st.Reason)
+		default:
+			prog(fmt.Sprintf("%s… (%s elapsed)\n", st.Phase, elapsed))
+		}
+		if interval < ceiling {
+			if interval = interval * 3 / 2; interval > ceiling {
+				interval = ceiling
+			}
+		}
+	}
+}
+
 // GenerateTools builds the family over its route + persistence dependencies. The returned slice is
 // what bootstrap's CapabilityTools closure filters per request.
 //
@@ -367,6 +485,7 @@ func GenerateTools(router *Router, attachments Uploader) []ToolWithAvailability 
 	return []ToolWithAvailability{
 		{Tool: &GenerateImage{router: router, attachments: attachments}, Available: router.ImageAvailable},
 		{Tool: &GenerateSpeech{router: router, attachments: attachments}, Available: router.SpeechAvailable},
+		{Tool: &GenerateVideo{router: router, attachments: attachments}, Available: router.VideoAvailable},
 	}
 }
 
@@ -401,7 +520,14 @@ func extFor(mime string) string {
 		return "aac"
 	case "audio/flac", "audio/x-flac":
 		return "flac"
+	case "video/mp4":
+		return "mp4"
+	case "video/webm":
+		return "webm"
 	default:
+		if strings.HasPrefix(mime, "video/") {
+			return strings.TrimPrefix(mime, "video/")
+		}
 		if strings.HasPrefix(mime, "audio/") {
 			// An unknown audio subtype must not become a .png; keep the subtype as the extension.
 			// 未知音频子类型不得变成 .png;拿子类型当扩展名。
