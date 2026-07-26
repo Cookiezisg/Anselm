@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
@@ -111,14 +112,15 @@ type fakeClient struct {
 	callResult string
 	initErr    error
 	closed     bool
+	callMedia  []mcpdomain.Media
 }
 
 func (c *fakeClient) Initialize(context.Context) error { return c.initErr }
 func (c *fakeClient) ListTools(context.Context) ([]mcpdomain.ToolDef, error) {
 	return c.tools, nil
 }
-func (c *fakeClient) CallTool(context.Context, string, json.RawMessage) (string, error) {
-	return c.callResult, nil
+func (c *fakeClient) CallTool(context.Context, string, json.RawMessage) (string, []mcpdomain.Media, error) {
+	return c.callResult, c.callMedia, nil
 }
 func (c *fakeClient) Close() error       { c.closed = true; return nil }
 func (c *fakeClient) StderrTail() string { return "" }
@@ -397,5 +399,52 @@ func TestPlanFromRegistry(t *testing.T) {
 	}
 	if _, err := svc.PlanFromRegistry(ctxWS("ws_1"), "io.github.nope/none"); err == nil {
 		t.Error("unknown entry must error")
+	}
+}
+
+// --- WRK-082 批B' MCP 媒体入口 media inlet ---------------------------------------
+
+type fakeUploader struct{ uploaded []string }
+
+func (f *fakeUploader) Upload(_ context.Context, filename, mime string, data []byte) (*attachmentdomain.Attachment, error) {
+	f.uploaded = append(f.uploaded, filename)
+	return &attachmentdomain.Attachment{ID: "att_00aa00aa00aa00aa", Filename: filename, MimeType: mime, SizeBytes: int64(len(data))}, nil
+}
+
+// TestCallTool_MediaLandsAsReceipt: an MCP tool returning binary image content produces a
+// first-class attachment and a MediaRef receipt line in the result — never a bare placeholder.
+// Without an uploader wired, the call still succeeds with the placeholder story (honest degrade).
+func TestCallTool_MediaLandsAsReceipt(t *testing.T) {
+	png := []byte{0x89, 0x50, 0x4E, 0x47}
+	fc := &fakeClient{
+		tools:      []mcpdomain.ToolDef{{Name: "screenshot"}},
+		callResult: "[image: image/png]",
+		callMedia:  []mcpdomain.Media{{MimeType: "image/png", Data: png}},
+	}
+	repo := newFakeRepo()
+	svc := svcWith(repo, ctx7Registry(), fc)
+	up := &fakeUploader{}
+	svc.SetUploader(up)
+	ctx := ctxWS("ws_1")
+	st, _ := svc.InstallFromRegistry(ctx, "io.github.upstash/context7", nil)
+
+	res, err := svc.CallTool(ctx, st.ID, "screenshot", json.RawMessage(`{}`), "")
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if !strings.Contains(res, `"attachmentId":"att_00aa00aa00aa00aa"`) ||
+		!strings.Contains(res, `"source":"mcp_media"`) {
+		t.Fatalf("result lacks the MediaRef receipt: %q", res)
+	}
+	if len(up.uploaded) != 1 || !strings.HasPrefix(up.uploaded[0], "mcp-screenshot-0") {
+		t.Fatalf("uploaded = %v", up.uploaded)
+	}
+
+	// No uploader → the call still works, placeholder story intact (best-effort inlet).
+	svc2 := svcWith(newFakeRepo(), ctx7Registry(), fc)
+	st2, _ := svc2.InstallFromRegistry(ctx, "io.github.upstash/context7", nil)
+	res2, err := svc2.CallTool(ctx, st2.ID, "screenshot", json.RawMessage(`{}`), "")
+	if err != nil || strings.Contains(res2, "attachmentId") {
+		t.Fatalf("uploaderless call = %q, %v — want placeholder story, no receipt", res2, err)
 	}
 }

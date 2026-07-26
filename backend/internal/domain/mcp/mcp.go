@@ -221,3 +221,14 @@ var (
 	ErrOAuthNotSupported   = errorspkg.New(errorspkg.KindUnprocessable, "MCP_OAUTH_NOT_SUPPORTED", "mcp server requires oauth but its authorization server does not support dynamic client registration")
 	ErrOAuthReauthRequired = errorspkg.New(errorspkg.KindUnauthorized, "MCP_OAUTH_REAUTH_REQUIRED", "mcp server oauth grant expired or revoked; re-authorization required")
 )
+
+// Media is one binary content item an MCP tool returned (image/audio, decoded bytes). The app
+// layer lands it as a first-class attachment and folds a MediaRef receipt into the text result
+// (WRK-082 批B' MCP 媒体入口) — the model never again sees a "[image: png]" placeholder.
+//
+// Media 是 MCP 工具返回的一件二进制内容(图/音,已解码字节)。app 层落一等附件、把 MediaRef
+// receipt 并进文本结果(批B' MCP 媒体入口)——模型不再见 "[image: png]" 占位符。
+type Media struct {
+	MimeType string
+	Data     []byte
+}

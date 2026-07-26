@@ -70,7 +70,7 @@ func (s ClientSpec) isRemote() bool { return s.URL != "" }
 type Client interface {
 	Initialize(ctx context.Context) error
 	ListTools(ctx context.Context) ([]mcpdomain.ToolDef, error)
-	CallTool(ctx context.Context, name string, args json.RawMessage) (string, error)
+	CallTool(ctx context.Context, name string, args json.RawMessage) (string, []mcpdomain.Media, error)
 	Close() error
 	StderrTail() string
 }
@@ -209,16 +209,16 @@ func (c *client) ListTools(ctx context.Context) ([]mcpdomain.ToolDef, error) {
 // CallTool invokes one tool; ctx carries the per-call timeout; ctx.Done → ErrToolCallTimeout.
 //
 // CallTool 调一个 tool；ctx 携超时；ctx.Done 时返 ErrToolCallTimeout。
-func (c *client) CallTool(ctx context.Context, name string, args json.RawMessage) (string, error) {
+func (c *client) CallTool(ctx context.Context, name string, args json.RawMessage) (string, []mcpdomain.Media, error) {
 	if c.session == nil {
-		return "", fmt.Errorf("mcp.Client.CallTool %s/%s: %w",
+		return "", nil, fmt.Errorf("mcp.Client.CallTool %s/%s: %w",
 			c.spec.Name, name, mcpdomain.ErrServerNotConnected)
 	}
 
 	var argsMap any
 	if len(args) > 0 {
 		if err := json.Unmarshal(args, &argsMap); err != nil {
-			return "", fmt.Errorf("mcp.Client.CallTool %s/%s: parse args: %w", c.spec.Name, name, err)
+			return "", nil, fmt.Errorf("mcp.Client.CallTool %s/%s: parse args: %w", c.spec.Name, name, err)
 		}
 	}
 
@@ -261,10 +261,10 @@ func (c *client) CallTool(ctx context.Context, name string, args json.RawMessage
 	}
 	if err != nil {
 		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
-			return "", fmt.Errorf("mcp.Client.CallTool %s/%s: %w: %v",
+			return "", nil, fmt.Errorf("mcp.Client.CallTool %s/%s: %w: %v",
 				c.spec.Name, name, mcpdomain.ErrToolCallTimeout, err)
 		}
-		return "", fmt.Errorf("mcp.Client.CallTool %s/%s: %w: %v",
+		return "", nil, fmt.Errorf("mcp.Client.CallTool %s/%s: %w: %v",
 			c.spec.Name, name, mcpdomain.ErrToolCallFailed.WithDetails(map[string]any{"reason": err.Error()}), err)
 	}
 	if res.IsError {
@@ -273,10 +273,10 @@ func (c *client) CallTool(ctx context.Context, name string, args json.RawMessage
 		// from the message, this gives the direct-invoke face parity (cf F8/F69).
 		// 把工具错误内容（点名坏字段）带进 Details，使 HTTP :invoke envelope 透出而非裸 MCP_RPC_ERROR。
 		detail := joinContent(res.Content)
-		return "", fmt.Errorf("mcp.Client.CallTool %s/%s: %w: %s",
+		return "", nil, fmt.Errorf("mcp.Client.CallTool %s/%s: %w: %s",
 			c.spec.Name, name, mcpdomain.ErrToolCallFailed.WithDetails(map[string]any{"reason": detail}), detail)
 	}
-	return joinContent(res.Content), nil
+	return joinContent(res.Content), collectMedia(res.Content), nil
 }
 
 // Close shuts down the session (closes the writer → the sandbox subprocess sees EOF). The
@@ -370,9 +370,32 @@ func (o *oauthRoundTripper) RoundTrip(req *http.Request) (*http.Response, error)
 	return o.base.RoundTrip(req)
 }
 
-// joinContent flattens an MCP content array; text verbatim, non-text → placeholder.
+// collectMedia pulls decoded image/audio items out of an MCP content array (WRK-082 批B'):
+// the SDK already base64-decodes Data. Items with empty data/mime are skipped.
 //
-// joinContent 把 MCP content 数组拍平；text 原样，非 text 渲染为占位符。
+// collectMedia 从 MCP content 数组取出已解码的图/音项(批B'):SDK 已解 base64。空 data/mime 跳过。
+func collectMedia(content []mcpsdk.Content) []mcpdomain.Media {
+	var out []mcpdomain.Media
+	for _, c := range content {
+		switch v := c.(type) {
+		case *mcpsdk.ImageContent:
+			if len(v.Data) > 0 && v.MIMEType != "" {
+				out = append(out, mcpdomain.Media{MimeType: v.MIMEType, Data: v.Data})
+			}
+		case *mcpsdk.AudioContent:
+			if len(v.Data) > 0 && v.MIMEType != "" {
+				out = append(out, mcpdomain.Media{MimeType: v.MIMEType, Data: v.Data})
+			}
+		}
+	}
+	return out
+}
+
+// joinContent flattens an MCP content array; text verbatim, non-text → a positional placeholder
+// (the app layer replaces the story by appending MediaRef receipts for collected media).
+//
+// joinContent 把 MCP content 数组拍平;text 原样,非 text 渲占位符(app 层为收集到的媒体追加
+// MediaRef receipt,接管叙事)。
 func joinContent(content []mcpsdk.Content) string {
 	var b strings.Builder
 	for _, c := range content {

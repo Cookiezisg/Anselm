@@ -18,6 +18,7 @@ import (
 	"go.uber.org/zap"
 
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
 	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
@@ -66,10 +67,11 @@ type Service struct {
 	// opener launches the system browser for the OAuth authorize step; swappable in tests.
 	opener BrowserOpener
 
-	mu      sync.RWMutex
-	states  map[string]*mcpdomain.ServerStatus       // mcp_id → live status
-	clients map[string]mcpinfra.Client               // mcp_id → connected client
-	handles map[string]sandboxdomain.LongLivedHandle // mcp_id → sandbox handle (stdio only)
+	mu       sync.RWMutex
+	states   map[string]*mcpdomain.ServerStatus       // mcp_id → live status
+	clients  map[string]mcpinfra.Client               // mcp_id → connected client
+	handles  map[string]sandboxdomain.LongLivedHandle // mcp_id → sandbox handle (stdio only)
+	uploader MediaUploader
 }
 
 // NewService constructs a Service; call Boot before serving.
@@ -132,6 +134,20 @@ func (s *Service) emitNotifWith(ctx context.Context, action, name string, extra 
 // SetEntitiesBridge 装配后装入 entities 流（SSE-C）：CallTool 把工具调用的进度通知 tee 到 server 的 run
 // 终端供实体面板。
 func (s *Service) SetEntitiesBridge(b streamdomain.Bridge) { s.entities = b }
+
+// MediaUploader lands MCP-returned binary content as first-class attachments (批B' 媒体入口);
+// *attachmentapp.Service satisfies it structurally. nil → media items keep their placeholders.
+//
+// MediaUploader 把 MCP 返回的二进制内容落一等附件(批B' 媒体入口);*attachmentapp.Service 结构
+// 满足。nil → 媒体项保留占位符。
+type MediaUploader interface {
+	Upload(ctx context.Context, filename, mime string, data []byte) (*attachmentdomain.Attachment, error)
+}
+
+// SetUploader installs the attachment landing port post-construction (DIP,同 SetEntitiesBridge).
+//
+// SetUploader 构造后装入附件落库端口(DIP,同 SetEntitiesBridge)。
+func (s *Service) SetUploader(u MediaUploader) { s.uploader = u }
 
 // SetBrowserOpener swaps the OAuth browser launcher (tests only).
 func (s *Service) SetBrowserOpener(o BrowserOpener) { s.opener = o }

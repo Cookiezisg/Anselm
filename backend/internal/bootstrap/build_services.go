@@ -197,7 +197,8 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ctl := controlapp.NewService(st.control, notif, log)
 	apf := approvalapp.NewService(st.approval, notif, log)
 	mcp := mcpapp.NewService(st.mcp, mcpinfra.NewCuratedCatalog(mcpinfra.NewGitHubRegistrySource(dataDir, log)), sbx, log)
-	mcp.SetEntitiesBridge(bus.entities) // SSE-C: CallTool tees progress to the server's run terminal
+	mcp.SetEntitiesBridge(bus.entities)
+	mcp.SetUploader(att) // 批B' MCP 媒体入口:二进制内容落一等附件 // SSE-C: CallTool tees progress to the server's run terminal
 	conv := conversationapp.NewService(st.conversation, notif, log)
 	trg := triggerapp.NewService(st.trigger, mux, NewSensorInvoker(fn, hd, mcp), log)
 	trg.SetEntitiesBridge(bus.entities)                                 // SSE-C: every fan-out emits a fire signal to the trigger panel

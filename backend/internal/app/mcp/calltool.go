@@ -10,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
@@ -67,8 +68,29 @@ func (s *Service) CallTool(ctx context.Context, serverID, tool string, args json
 	})
 
 	startedAt := time.Now().UTC()
-	result, err := client.CallTool(cctx, tool, args)
+	result, media, err := client.CallTool(cctx, tool, args)
 	endedAt := time.Now().UTC()
+	// MCP media inlet (WRK-082 批B'): binary content items land as first-class attachments and a
+	// MediaRef receipt line joins the text result — the model (and every renderer) gets the ONE
+	// media currency instead of a "[image: png]" placeholder. Best-effort per item: a failed
+	// upload keeps that item's placeholder story, never fails the call.
+	// MCP 媒体入口(批B'):二进制内容项落一等附件,MediaRef receipt 行并进文本结果——模型(与一切
+	// 渲染面)拿到唯一媒体货币,不再是 "[image: png]" 占位符。逐项 best-effort:某项落库失败保留其
+	// 占位叙事,绝不失败整个调用。
+	if err == nil && len(media) > 0 && s.uploader != nil {
+		for i, item := range media {
+			att, upErr := s.uploader.Upload(ctx, mcpArtifactFilename(tool, i, item.MimeType), item.MimeType, item.Data)
+			if upErr != nil {
+				s.log.Warn("mcpapp: media item upload failed (placeholder kept)", zap.Error(upErr))
+				continue
+			}
+			receipt := toolapp.ToJSON(map[string]any{
+				"attachmentId": att.ID, "filename": att.Filename, "mime": att.MimeType,
+				"sizeBytes": att.SizeBytes, "source": "mcp_media",
+			})
+			result += "\n" + receipt
+		}
+	}
 	if err != nil {
 		runTerm.Close("error", nil)
 		// A failed call appends the server's stderr tail (MCP's log channel) — the progress stream
@@ -237,4 +259,24 @@ func (s *Service) recordResult(ctx context.Context, id string, callErr error) {
 	if newStatus != prev {
 		s.signalStatusChanged(ctx, id, prev, newStatus, lastErr)
 	}
+}
+
+// mcpArtifactFilename names one landed MCP media item.
+//
+// mcpArtifactFilename 给一件落库的 MCP 媒体项命名。
+func mcpArtifactFilename(tool string, index int, mime string) string {
+	ext := "bin"
+	switch mime {
+	case "image/png":
+		ext = "png"
+	case "image/jpeg":
+		ext = "jpg"
+	case "image/webp":
+		ext = "webp"
+	case "audio/mpeg":
+		ext = "mp3"
+	case "audio/wav", "audio/x-wav":
+		ext = "wav"
+	}
+	return fmt.Sprintf("mcp-%s-%d.%s", tool, index, ext)
 }
