@@ -509,34 +509,33 @@ func anthropicKnobs(thinkingValues, effortValues []string) []Knob {
 	return ks
 }
 
-// anthropicSpecs is Anthropic's static catalog, most-specific prefix first. Flagships (Opus
-// 4.8/4.7) take only thinking:adaptive (+ effort incl. xhigh); 4.6 / Sonnet-4.6 add enabled; older
-// models take enabled/disabled with no effort. Numbers per Anthropic model overview, 2026-06.
+// anthropicWire: the Anthropic dialect renders text / image / document (file) blocks.
 //
-// anthropicSpecs 是 Anthropic 静态目录，最具体前缀在前。旗舰（Opus 4.8/4.7）只收 thinking:adaptive
-// （+ effort 含 xhigh）；4.6 / Sonnet-4.6 增 enabled；更老的模型 enabled/disabled 无 effort。数值据
-// Anthropic model overview 2026-06。
-var anthropicSpecs = []modelSpec{
-	{"claude-opus-4-8", 1000000, 128000, anthropicKnobs([]string{"adaptive", "disabled"}, []string{"low", "medium", "high", "xhigh", "max"}), true, true},
-	{"claude-opus-4-7", 1000000, 128000, anthropicKnobs([]string{"adaptive", "disabled"}, []string{"low", "medium", "high", "xhigh", "max"}), true, true},
-	{"claude-opus-4-6", 1000000, 128000, anthropicKnobs([]string{"adaptive", "enabled", "disabled"}, []string{"low", "medium", "high", "max"}), true, true},
-	{"claude-sonnet-4-6", 1000000, 64000, anthropicKnobs([]string{"adaptive", "enabled", "disabled"}, []string{"low", "medium", "high", "max"}), true, true},
-	{"claude-haiku-4-5", 200000, 64000, anthropicKnobs([]string{"enabled", "disabled"}, nil), true, true},
-	{"claude-opus-4-5", 200000, 64000, anthropicKnobs([]string{"enabled", "disabled"}, nil), true, true},
-	{"claude-sonnet-4-5", 200000, 64000, anthropicKnobs([]string{"enabled", "disabled"}, nil), true, true},
-	{"claude-opus-4-1", 200000, 32000, anthropicKnobs([]string{"enabled", "disabled"}, nil), true, true},
-	{"claude-opus-4", 200000, 32000, anthropicKnobs([]string{"enabled", "disabled"}, nil), true, true},
-	{"claude-sonnet-4", 200000, 64000, anthropicKnobs([]string{"enabled", "disabled"}, nil), true, true},
-	{"claude-haiku-4", 200000, 64000, anthropicKnobs([]string{"enabled", "disabled"}, nil), true, true},
-	{"claude", 200000, 64000, anthropicKnobs([]string{"enabled", "disabled"}, nil), true, true},
+// anthropicWire:Anthropic 方言渲 text / image / document(file)块。
+var anthropicWire = partMask{image: true, file: true}
+
+// anthropicKnobRules keeps Anthropic's hand-written thinking/effort surfaces (P4), most-specific
+// prefix first: flagships (Opus 4.8/4.7) take adaptive (+effort incl. xhigh); 4.6 / Sonnet-4.6 add
+// enabled; every other claude id falls back to enabled/disabled with no effort (same generic rule
+// the old table's bare "claude" row expressed). Numbers/modalities come from the catalog.
+//
+// anthropicKnobRules 保留 Anthropic 手写 thinking/effort 面(P4),最具体前缀在前:旗舰
+// (Opus 4.8/4.7)收 adaptive(+effort 含 xhigh);4.6 / Sonnet-4.6 增 enabled;其余 claude id
+// 回落 enabled/disabled 无 effort(即旧表裸 "claude" 行表达的通用规则)。数字/模态出自目录。
+var anthropicKnobRules = []knobRule{
+	{"claude-opus-4-8", anthropicKnobs([]string{"adaptive", "disabled"}, []string{"low", "medium", "high", "xhigh", "max"})},
+	{"claude-opus-4-7", anthropicKnobs([]string{"adaptive", "disabled"}, []string{"low", "medium", "high", "xhigh", "max"})},
+	{"claude-opus-4-6", anthropicKnobs([]string{"adaptive", "enabled", "disabled"}, []string{"low", "medium", "high", "max"})},
+	{"claude-sonnet-4-6", anthropicKnobs([]string{"adaptive", "enabled", "disabled"}, []string{"low", "medium", "high", "max"})},
+	{"claude", anthropicKnobs([]string{"enabled", "disabled"}, nil)},
 }
 
-// DescribeModels parses Anthropic's /v1/models id list ({"data":[{"id":...}]}) against the static
-// catalog. The payload also carries capability fields, but its numeric specs are doc placeholders,
-// so the static table stays authoritative for window/output/knobs.
+// DescribeModels parses Anthropic's /v1/models id list ({"data":[{"id":...}]}) against the
+// followed catalog. The payload also carries capability fields, but its numeric specs are doc
+// placeholders, so the catalog stays authoritative for window/output; knobs stay hand-written.
 //
-// DescribeModels 解析 Anthropic /v1/models 的 id 列表（{"data":[{"id":...}]}）查静态目录。载荷虽带
-// 能力字段，但数值是文档占位，故窗口/输出/旋钮以静态表为准。
+// DescribeModels 解析 Anthropic /v1/models 的 id 列表查 follow 目录。载荷虽带能力字段,数值是
+// 文档占位,故窗口/输出以目录为准;旋钮仍手写。
 func (p *anthropicProvider) DescribeModels(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(anthropicSpecs, raw), nil
+	return describeFromSpecs(catalogSpecs("anthropic", knobsByPrefix(anthropicKnobRules)), raw, anthropicWire), nil
 }

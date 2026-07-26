@@ -75,8 +75,6 @@ func TestMultimodalRendering(t *testing.T) {
 			[]string{`"image_url"`, "data:image/png"}, []string{"doc.pdf"}},
 		{"zhipu", newZhipuProvider(),
 			[]string{`"image_url"`, "data:image/png"}, []string{"doc.pdf"}},
-		{"doubao", newDoubaoProvider(),
-			[]string{`"image_url"`, "data:image/png"}, []string{"doc.pdf"}},
 		{"moonshot", newMoonshotProvider(),
 			[]string{`"image_url"`, "data:image/png"}, []string{"doc.pdf"}},
 		{"openrouter", newOpenRouterProvider(),
@@ -112,7 +110,7 @@ func TestMultimodalRendering(t *testing.T) {
 func TestMultimodalTextOnlyUnchanged(t *testing.T) {
 	builders := map[string]reqBuilder{
 		"deepseek": newDeepSeekProvider(), "qwen": newQwenProvider(), "zhipu": newZhipuProvider(),
-		"doubao": newDoubaoProvider(), "moonshot": newMoonshotProvider(), "openrouter": newOpenRouterProvider(),
+		"moonshot": newMoonshotProvider(), "openrouter": newOpenRouterProvider(),
 		"custom": newCustomProvider(), "ollama": newOllamaProvider(), "anthropic": newAnthropicProvider(),
 	}
 	for name, b := range builders {

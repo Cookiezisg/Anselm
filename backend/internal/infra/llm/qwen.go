@@ -449,58 +449,34 @@ func qwenThinkingKnobs() []Knob {
 	}
 }
 
-// qwenSpecs is Qwen's static catalog, most-specific prefix first. The qwen3 line controls
-// thinking by enable_thinking+thinking_budget; qwen-long/qwen-max have no thinking. Numbers
-// per DashScope docs, 2026-07. `vision` represents image input only; video/audio are set by
-// qwenNativeInputCaps below because modelSpec deliberately remains the shared minimal catalog
-// shape for every provider.
+// qwenWire: the Qwen compatible-mode dialect renders text / image_url / video_url / input_audio
+// parts. Which models actually read video/audio comes from the catalog modalities — this replaces
+// the old qwenNativeInputCaps patch function.
 //
-// qwenSpecs 是 Qwen 静态目录，最具体前缀在前。qwen3 线靠 enable_thinking+thinking_budget
-// 控思考；qwen-long/qwen-max 无思考。数值据 DashScope 文档 2026-07。vision 只代表图片输入；
-// video/audio 由下方 qwenNativeInputCaps 设置，避免为一家 provider 膨胀全局共享目录结构。
-var qwenSpecs = []modelSpec{
-	// Qwen3.7 is the current flagship visual route: text/image/video, 1M context, 64K output.
-	{"qwen3.7-plus", 1_000_000, 65_536, qwenThinkingKnobs(), true, false},
-	// Qwen3.5 Omni is a real multimodal (image/video/audio) input model, but its physical
-	// context is 64K. Its public model table does not publish one text-only max-output number;
-	// leave out=0 rather than inventing one. Output-audio support is deliberately not advertised
-	// here: this Client only owns input/content streaming today; TTS has a dedicated later phase.
-	{"qwen3.5-omni-plus", 65_536, 0, nil, true, false},
-	{"qwen3.5-omni-flash", 65_536, 0, nil, true, false},
-	{"qwen3-max", 262144, 32768, qwenThinkingKnobs(), false, false},
-	{"qwen3.5-plus", 1_000_000, 65_536, qwenThinkingKnobs(), true, false},
-	{"qwen-plus", 1000000, 32768, qwenThinkingKnobs(), false, false},
-	{"qwen-flash", 1000000, 32768, qwenThinkingKnobs(), false, false},
-	{"qwen-turbo", 131072, 16384, qwenThinkingKnobs(), false, false},
-	{"qwen-long", 10000000, 32768, nil, false, false},
-	{"qwen-max", 32768, 8192, nil, false, false},
+// qwenWire:Qwen 兼容模式方言渲 text / image_url / video_url / input_audio;哪些模型真读
+// video/audio 由目录模态决定——取代旧 qwenNativeInputCaps 补丁函数。
+var qwenWire = partMask{image: true, video: true, audio: true}
+
+// qwenKnobRules keeps Qwen's hand-written thinking surfaces (P4), most-specific prefix first:
+// the qwen3/qwen3.5/qwen3.7 lines and qwen-plus/flash/turbo control thinking by
+// enable_thinking+thinking_budget; qwen-max predates thinking. Catalog families outside these
+// rules carry no knobs (conservative, P4).
+//
+// qwenKnobRules 保留 Qwen 手写 thinking 面(P4),最具体前缀在前:qwen3/3.5/3.7 线与
+// qwen-plus/flash/turbo 靠 enable_thinking+thinking_budget 控思考;qwen-max 早于 thinking。
+// 规则外的目录族无旋钮(保守,P4)。
+var qwenKnobRules = []knobRule{
+	{"qwen3.7-plus", qwenThinkingKnobs()},
+	{"qwen3.5-plus", qwenThinkingKnobs()},
+	{"qwen3-max", qwenThinkingKnobs()},
+	{"qwen-plus", qwenThinkingKnobs()},
+	{"qwen-flash", qwenThinkingKnobs()},
+	{"qwen-turbo", qwenThinkingKnobs()},
 }
 
-// qwenNativeInputCaps enriches the generic image bit in modelSpec with Qwen's actual native
-// input contract. This is intentionally a capability declaration, not an application-side media
-// transport allowance: current attachments are inline data URLs, whereas Alibaba's 2GB remote
-// video limit requires the later leased-object transport. Leaving MaxMedia* at zero ensures we
-// do not falsely turn that upstream object-store limit into an unsafe local-body promise.
-func qwenNativeInputCaps(modelID string) (video, audio bool) {
-	id := strings.ToLower(strings.TrimSpace(modelID))
-	switch {
-	case strings.HasPrefix(id, "qwen3.7-plus"), strings.HasPrefix(id, "qwen3.5-plus"):
-		return true, false
-	case strings.HasPrefix(id, "qwen3.5-omni-plus"), strings.HasPrefix(id, "qwen3.5-omni-flash"):
-		return true, true
-	default:
-		return false, false
-	}
-}
-
-// DescribeModels parses Qwen's id-only /models body against the static catalog and augments
-// the video/audio bits for the families whose compatible-mode content wire we implement.
+// DescribeModels parses Qwen's id-only /models body against the followed catalog.
 //
-// DescribeModels 解析 Qwen 仅含 id 的 /models 返回，查静态目录。
+// DescribeModels 解析 Qwen 仅含 id 的 /models 返回,查 follow 目录。
 func (p *qwenProvider) DescribeModels(raw string) ([]ModelInfo, error) {
-	models := describeFromSpecs(qwenSpecs, raw)
-	for i := range models {
-		models[i].Video, models[i].Audio = qwenNativeInputCaps(models[i].ID)
-	}
-	return models, nil
+	return describeFromSpecs(catalogSpecs("qwen", knobsByPrefix(qwenKnobRules)), raw, qwenWire), nil
 }

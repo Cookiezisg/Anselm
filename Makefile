@@ -15,6 +15,7 @@ help:
 	@echo "  make doctor   report the host prerequisites for desktop development"
 	@echo "  make worktree NAME=<x>     new isolated worktree ../Anselm-<x> (one per concurrent session)"
 	@echo "  make worktree-rm NAME=<x>  remove that worktree (must be clean)"
+	@echo "  make update-model-catalog  refresh the vendored models.dev capability catalog"
 	@echo ""
 	@echo "  Local commands: make -C backend help | make -C frontend help | make -C docs help"
 
@@ -110,4 +111,10 @@ worktree-rm:
 	@git worktree remove "../Anselm-$(NAME)"
 	@echo "✓ removed ../Anselm-$(NAME) (branch wt/$(NAME) kept — delete it yourself when merged)"
 
-.PHONY: help toolchain setup verify clean doctor worktree worktree-rm
+# Refreshes the vendored models.dev trim (backend/internal/infra/llm/modelcatalog.json) — the
+# direct-connection capability catalog (WRK-082 批A). Source-equivalent config: review + commit.
+# 刷新 vendored models.dev 裁剪(直连能力目录,WRK-082 批A)。源等价配置:审阅后提交。
+update-model-catalog: toolchain
+	@cd backend && "$(MISE)" exec -- go run ./cmd/modelcatalog
+
+.PHONY: help toolchain setup verify clean doctor worktree worktree-rm update-model-catalog

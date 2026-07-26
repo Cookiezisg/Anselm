@@ -516,24 +516,21 @@ func dsKnobs() []Knob {
 	}
 }
 
-// deepseekSpecs is DeepSeek's static catalog, most-specific prefix first. The V4 line (1M ctx /
-// 384K out) controls thinking by request params; deepseek-chat/reasoner are compat aliases onto
-// deepseek-v4-flash. Numbers per DeepSeek pricing, 2026-06.
+// deepseekWire: the DeepSeek dialect renders text / image_url / video_url / input_audio parts
+// (dsContentPart fields). Whether a given model reads them comes from the catalog modalities.
 //
-// deepseekSpecs 是 DeepSeek 静态目录，最具体前缀在前。V4 线（1M/384K）靠请求参数控思考；
-// deepseek-chat/reasoner 是指向 deepseek-v4-flash 的兼容别名。数值据 DeepSeek 定价 2026-06。
-var deepseekSpecs = []modelSpec{
-	{"deepseek-v4-pro", 1_000_000, 384_000, dsKnobs(), false, false},
-	{"deepseek-v4-flash", 1_000_000, 384_000, dsKnobs(), false, false},
-	{"deepseek-v4", 1_000_000, 384_000, dsKnobs(), false, false},
-	{"deepseek-reasoner", 1_000_000, 384_000, dsKnobs(), false, false},
-	{"deepseek-chat", 1_000_000, 384_000, dsKnobs(), false, false},
-	{"deepseek", 128_000, 64_000, dsKnobs(), false, false},
-}
+// deepseekWire:DeepSeek 方言渲 text / image_url / video_url / input_audio(dsContentPart 字段);
+// 某个模型读不读它们由目录模态决定。
+var deepseekWire = partMask{image: true, video: true, audio: true}
 
-// DescribeModels parses DeepSeek's id-only /models body against the static catalog.
+// deepseekKnobRules: the whole DeepSeek line controls thinking by request params (P4).
 //
-// DescribeModels 解析 DeepSeek 仅含 id 的 /models 返回，查静态目录。
+// deepseekKnobRules:DeepSeek 全线靠请求参数控思考(P4)。
+var deepseekKnobRules = []knobRule{{"deepseek", dsKnobs()}}
+
+// DescribeModels parses DeepSeek's id-only /models body against the followed catalog.
+//
+// DescribeModels 解析 DeepSeek 仅含 id 的 /models 返回,查 follow 目录。
 func (p *deepseekProvider) DescribeModels(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(deepseekSpecs, raw), nil
+	return describeFromSpecs(catalogSpecs("deepseek", knobsByPrefix(deepseekKnobRules)), raw, deepseekWire), nil
 }

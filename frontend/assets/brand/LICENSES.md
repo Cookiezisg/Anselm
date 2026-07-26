@@ -5,7 +5,7 @@ every missing brand falls back to a first-letter plate — no asset is ever requ
 
 ## lobe-icons (`@lobehub/icons-static-svg`) — MIT
 
-LLM provider marks: `openai anthropic gemini deepseek openrouter qwen zhipu moonshot doubao ollama`.
+LLM provider marks: `openai anthropic gemini deepseek openrouter qwen zhipu moonshot ollama`.
 
 MIT License — Copyright (c) 2023 LobeHub, LLC. Permission is hereby granted, free of charge, to any
 person obtaining a copy of this software and associated documentation files (the "Software"), to

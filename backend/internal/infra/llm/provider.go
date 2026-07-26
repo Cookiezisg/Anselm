@@ -130,7 +130,6 @@ func buildProviderRegistry() map[string]Provider {
 		"qwen":       newQwenProvider(),
 		"zhipu":      newZhipuProvider(),
 		"moonshot":   newMoonshotProvider(),
-		"doubao":     newDoubaoProvider(),
 		"openrouter": newOpenRouterProvider(),
 		"ollama":     newOllamaProvider(),
 		"custom":     newCustomProvider(),

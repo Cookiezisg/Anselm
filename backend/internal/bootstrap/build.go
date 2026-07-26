@@ -78,6 +78,13 @@ type App struct {
 	// 恰好一次后续。由 settings service 的 retention-changed 钩子喂（收紧的线必须**现在**回收、不是 6 小时后），
 	// 并在 Boot 时预置一次，使启动清理跑在循环的 goroutine 上、而非拖慢开始服务。
 	retentionKick chan struct{}
+	// catalogDir is where the models.dev catalog refresh caches its trim ("" = in-memory build,
+	// refresh disabled). catalogStop/catalogDone follow the background-loop convention (WRK-082 批A).
+	// catalogDir 是 models.dev 目录刷新的缓存目录(""=内存构建,不刷新);catalogStop/catalogDone
+	// 遵循后台循环惯例(WRK-082 批A)。
+	catalogDir  string
+	catalogStop context.CancelFunc
+	catalogDone <-chan struct{}
 }
 
 const drainInterval = 5 * time.Second
@@ -177,12 +184,25 @@ func Build(cfg Config) (*App, error) {
 	if addr == "" {
 		addr = "127.0.0.1:8080" // loopback-only default (was :8080/all-interfaces) — loopback hardening
 	}
+	// Direct-connection capability catalog: apply a previously cached models.dev trim NOW (local
+	// read, load priority cache > vendored, P11); the background refresh itself starts in Boot.
+	// In-memory builds (DataDir "") skip both — tests run on the vendored snapshot.
+	// 直连能力目录:现在就应用既有 models.dev 缓存裁剪(本地读,优先级 缓存 > vendored,P11);
+	// 后台刷新在 Boot 才启动。内存构建(DataDir 空)双双跳过——测试跑 vendored 快照。
+	catalogDir := ""
+	if cfg.DataDir != "" {
+		catalogDir = filepath.Join(cfg.DataDir, "modelcatalog")
+		if err := llminfra.LoadCatalogCache(catalogDir); err != nil {
+			log.Warn("bootstrap: model catalog cache unreadable (vendored snapshot kept)", zap.Error(err))
+		}
+	}
 	return &App{
-		Handler: routerhttpapi.Chain(mux, log, svc.workspace, cfg.AuthToken),
-		Addr:    addr,
-		log:     log,
-		svc:     svc,
-		db:      database,
+		Handler:    routerhttpapi.Chain(mux, log, svc.workspace, cfg.AuthToken),
+		Addr:       addr,
+		log:        log,
+		svc:        svc,
+		db:         database,
+		catalogDir: catalogDir,
 	}, nil
 }
 
@@ -323,6 +343,13 @@ func (a *App) Serve(ctx context.Context) error {
 // listener、scheduler 崩溃恢复、firing-drain ticker。每步 best-effort 记日志——单子系统 boot 失败只
 // 降级该功能，绝不拖垮整个 server。
 func (a *App) Boot(ctx context.Context) {
+	// models.dev catalog refresh: delayed 30s so it never contends with the startup gate, then
+	// daily; every failure keeps the previous catalog (P11). Disabled for in-memory builds.
+	// models.dev 目录刷新:延迟 30s 绝不与启动门控抢时序,此后每日;一切失败保留旧目录(P11)。
+	// 内存构建不启用。
+	if a.catalogDir != "" {
+		a.catalogStop, a.catalogDone = llminfra.StartCatalogRefresh(a.catalogDir, a.log)
+	}
 	if err := a.svc.sandbox.Bootstrap(ctx); err != nil {
 		a.log.Warn("bootstrap: sandbox bootstrap failed (runtimes degraded)", zap.Error(err))
 	}
@@ -715,6 +742,9 @@ func (a *App) Shutdown(ctx context.Context) {
 	if a.retentionStop != nil {
 		a.retentionStop() // no new retention sweeps → no new purges (工单⑬)
 	}
+	if a.catalogStop != nil {
+		a.catalogStop() // no further models.dev fetches; in-flight fetch is ctx-cancelled
+	}
 	// R3 (option C), F174 pool: the drain/timeout tickers stop FEEDING the pool; their loops return
 	// fast (they only claim + enqueue now). Then give the in-flight POOL workers a bounded grace to
 	// finish their CURRENT node — record-once makes a completed node durable, so the run resumes cleanly
@@ -768,6 +798,13 @@ func (a *App) Shutdown(ctx context.Context) {
 		case <-a.retentionDone: // retention ticker loop returned
 		case <-ctx.Done():
 			a.log.Warn("bootstrap: retention loop did not return within shutdown grace; proceeding")
+		}
+	}
+	if a.catalogDone != nil {
+		select {
+		case <-a.catalogDone: // catalog refresh loop returned (its fetch is ctx-cancelled above)
+		case <-ctx.Done():
+			a.log.Warn("bootstrap: catalog refresh loop did not return within shutdown grace; proceeding")
 		}
 	}
 	a.svc.scheduler.WaitPoolDrained(ctx, drainShutdownGrace) // bounded grace for in-flight nodes to finish cleanly

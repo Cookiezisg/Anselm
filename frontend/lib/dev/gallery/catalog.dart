@@ -3177,7 +3177,6 @@ _g4NavShell = GalleryCategory('导航与壳 Nav & Shell', AnIcons.grip, [
               'qwen',
               'zhipu',
               'moonshot',
-              'doubao',
               'ollama',
             ])
               AnTooltip(

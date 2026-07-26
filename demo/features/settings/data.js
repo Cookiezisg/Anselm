@@ -15,7 +15,6 @@ window.SETTINGS = {
     { name: "qwen", label: "通义千问", glyph: "通", base: "https://dashscope.aliyuncs.com/compatible-mode/v1", category: "llm" },
     { name: "zhipu", label: "智谱 GLM", glyph: "智", base: "https://open.bigmodel.cn/api/paas/v4", category: "llm" },
     { name: "moonshot", label: "Moonshot Kimi", glyph: "K", base: "https://api.moonshot.cn/v1", category: "llm" },
-    { name: "doubao", label: "字节豆包", glyph: "豆", base: "https://ark.cn-beijing.volces.com/api/v3", category: "llm" },
     { name: "ollama", label: "Ollama", glyph: "L", base: "", baseReq: true, category: "llm" },
     { name: "custom", label: "Custom 兼容", glyph: "⚙", base: "", baseReq: true, apiFormat: true, category: "llm" },
     { name: "brave", label: "Brave Search", glyph: "B", base: "https://api.search.brave.com/res/v1", category: "search" },

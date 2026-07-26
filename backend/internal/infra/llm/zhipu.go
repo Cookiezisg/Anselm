@@ -398,28 +398,25 @@ func zhipuThinkingKnobs() []Knob {
 	return []Knob{enumKnob("thinking", "Thinking", []string{"enabled", "disabled"}, "enabled")}
 }
 
-// zhipuSpecs is Zhipu's static catalog, most-specific prefix first. GLM-4.5+ defaults thinking
-// to enabled and exposes the thinking knob; glm-4-long/glm-4-flash predate thinking and carry
-// none. Numbers per Zhipu BigModel docs, 2026-06-04.
+// zhipuWire: the Zhipu dialect renders text / image_url parts only.
 //
-// zhipuSpecs 是智谱静态目录，最具体前缀在前。GLM-4.5+ thinking 默认 enabled 且暴露旋钮；
-// glm-4-long/glm-4-flash 早于 thinking 无旋钮。数值据智谱 BigModel 文档 2026-06-04。
-var zhipuSpecs = []modelSpec{
-	{"glm-5.1", 200000, 128000, zhipuThinkingKnobs(), false, false},
-	{"glm-5-turbo", 200000, 128000, zhipuThinkingKnobs(), false, false},
-	{"glm-5", 200000, 128000, zhipuThinkingKnobs(), false, false},
-	{"glm-4.7-flashx", 200000, 128000, zhipuThinkingKnobs(), false, false},
-	{"glm-4.7-flash", 200000, 128000, zhipuThinkingKnobs(), false, false},
-	{"glm-4.7", 200000, 128000, zhipuThinkingKnobs(), false, false},
-	{"glm-4.6", 200000, 128000, zhipuThinkingKnobs(), false, false},
-	{"glm-4.5", 131072, 96000, zhipuThinkingKnobs(), false, false},
-	{"glm-4-long", 1000000, 4096, nil, false, false},
-	{"glm-4-flash", 131072, 16000, nil, false, false},
+// zhipuWire:智谱方言只渲 text / image_url。
+var zhipuWire = partMask{image: true}
+
+// zhipuKnobRules: GLM-4.5+ lines expose the thinking knob (P4); the same prefixes cover the
+// air/flash/v variants the catalog carries.
+//
+// zhipuKnobRules:GLM-4.5+ 线有 thinking 旋钮(P4);同前缀覆盖目录里的 air/flash/v 变体。
+var zhipuKnobRules = []knobRule{
+	{"glm-5", zhipuThinkingKnobs()},
+	{"glm-4.7", zhipuThinkingKnobs()},
+	{"glm-4.6", zhipuThinkingKnobs()},
+	{"glm-4.5", zhipuThinkingKnobs()},
 }
 
-// DescribeModels parses Zhipu's id-only /models body against the static catalog.
+// DescribeModels parses Zhipu's id-only /models body against the followed catalog.
 //
-// DescribeModels 解析智谱仅含 id 的 /models 返回，查静态目录。
+// DescribeModels 解析智谱仅含 id 的 /models 返回,查 follow 目录。
 func (p *zhipuProvider) DescribeModels(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(zhipuSpecs, raw), nil
+	return describeFromSpecs(catalogSpecs("zhipu", knobsByPrefix(zhipuKnobRules)), raw, zhipuWire), nil
 }

@@ -19,7 +19,8 @@ audience: [human, ai]
 
 ## llm（provider 端口）
 
-`Client` 单方法 `Stream(ctx, Request) iter.Seq[StreamEvent]`——全部 provider（anthropic/openai/google/deepseek/qwen/zhipu/moonshot/doubao/openrouter/ollama/custom/anselm）适配到同一事件流（text/reasoning delta、tool start/delta、finish 带 token 计数）。要点：
+`Client` 单方法 `Stream(ctx, Request) iter.Seq[StreamEvent]`——全部 provider（anthropic/openai/google/deepseek/qwen/zhipu/moonshot/openrouter/ollama/custom/anselm，共 11 家）适配到同一事件流（text/reasoning delta、tool start/delta、finish 带 token 计数）。要点：
+- **能力目录 follow models.dev（WRK-082 批A）**：六个贫 `/models` 家（openai/anthropic/deepseek/qwen/moonshot/zhipu）的能力数字与**模态数组**出自 `modelcatalog.json`（models.dev 裁剪快照,vendored 入库,`make update-model-catalog` 刷新;裁剪谓词 = `tool_call` ∧ 输出含 text ∧ id 不含 realtime）+ 运行时刷新（boot 后 30s 一次、24h TTL、失败静默留旧,缓存 `<dataDir>/modelcatalog/catalog.json` 优先于 vendored）。投影公式 **目录模态 ∧ 方言 partMask**（模型会读 PDF 但方言渲不了 file part 则不宣称——能力描述整条路）;旋钮仍按家手写（`knobRule` 前缀表,P4）。豆包（doubao）随 follow 整家撤除（P2）;gemini/openrouter（富 `/models`）与 ollama/custom 不经目录。
 - **sanitizer**：发送前守 `assistant.tool_calls ↔ tool` 配对——孤儿 tool_call 合成 stub 回复（LLM 看见被打断、严格 provider 不 400）。被取消的回合重续就靠它。
 - **deepseek 全文本 parts 坍缩**：user 回合的 `Parts` 中无 image/video/audio 存活时（如附件被模型能力或媒体额度降级成文本占位）以 `\n\n` join **坍缩回字符串 `content`**——纯文本端点拒收数组形 `content`，且冻结附件逐回合重放，数组形会让该对话每一回合永远 400。任一原生媒体仍走 OpenAI-compatible 数组多模态形。
 - **factory**：按 provider+key 构造 Client，返回 `(Client, 解析后 baseURL, error)`；`DescribeModels` 各 provider 自描述模型目录（model 域消费）。

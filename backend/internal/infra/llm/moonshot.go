@@ -383,23 +383,24 @@ func moonshotThinkingKnobs() []Knob {
 	return []Knob{enumKnob("thinking", "Thinking", []string{"enabled", "disabled"}, "enabled")}
 }
 
-// moonshotSpecs is Moonshot's static catalog, most-specific prefix first. Only kimi-k2.6/k2.5
-// (256K ctx) expose the thinking toggle; the moonshot-v1-* line has no reasoning knob. Retired ids
-// (e.g. kimi-k2-thinking) are intentionally absent. Numbers per Moonshot docs, 2026-06-04.
+// moonshotWire: the Moonshot dialect renders text / image_url parts only — a catalog model
+// listing video input (kimi-k2.6) still projects Video=false until the dialect carries it.
 //
-// moonshotSpecs 是 Moonshot 静态目录，最具体前缀在前。仅 kimi-k2.6/k2.5（256K）有 thinking 开关；
-// moonshot-v1-* 线无思考旋钮。已下线 id（如 kimi-k2-thinking）刻意不收。数值据 Moonshot 文档 2026-06-04。
-var moonshotSpecs = []modelSpec{
-	{"kimi-k2.6", 262144, 32768, moonshotThinkingKnobs(), true, false},
-	{"kimi-k2.5", 262144, 32768, moonshotThinkingKnobs(), true, false},
-	{"moonshot-v1-128k", 131072, 4096, nil, false, false},
-	{"moonshot-v1-32k", 32768, 4096, nil, false, false},
-	{"moonshot-v1-8k", 8192, 4096, nil, false, false},
+// moonshotWire:Moonshot 方言只渲 text / image_url——目录里列 video 输入的模型(kimi-k2.6)
+// 在方言能承载之前仍投影 Video=false。
+var moonshotWire = partMask{image: true}
+
+// moonshotKnobRules: only kimi-k2.6/k2.5 expose the thinking toggle (P4).
+//
+// moonshotKnobRules:仅 kimi-k2.6/k2.5 有 thinking 开关(P4)。
+var moonshotKnobRules = []knobRule{
+	{"kimi-k2.6", moonshotThinkingKnobs()},
+	{"kimi-k2.5", moonshotThinkingKnobs()},
 }
 
-// DescribeModels parses Moonshot's /models body against the static catalog.
+// DescribeModels parses Moonshot's /models body against the followed catalog.
 //
-// DescribeModels 解析 Moonshot /models 返回，查静态目录。
+// DescribeModels 解析 Moonshot /models 返回,查 follow 目录。
 func (p *moonshotProvider) DescribeModels(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(moonshotSpecs, raw), nil
+	return describeFromSpecs(catalogSpecs("moonshot", knobsByPrefix(moonshotKnobRules)), raw, moonshotWire), nil
 }

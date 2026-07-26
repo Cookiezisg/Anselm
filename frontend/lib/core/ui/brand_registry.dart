@@ -14,7 +14,7 @@ import 'an_brand_icon.dart';
 const Set<String> kBrandAssets = {
   // LLM providers (lobe-icons). LLM 厂牌。
   'openai', 'anthropic', 'gemini', 'deepseek', 'openrouter', 'qwen', 'zhipu',
-  'moonshot', 'doubao', 'ollama',
+  'moonshot', 'ollama',
   // Service brands (simple-icons). 服务品牌。
   'brave',
   'github',
@@ -71,7 +71,6 @@ const Map<String, String> kProviderBrand = {
   'qwen': 'qwen',
   'zhipu': 'zhipu',
   'moonshot': 'moonshot',
-  'doubao': 'doubao',
   'ollama': 'ollama',
   'brave': 'brave',
 };

@@ -65,7 +65,14 @@ const (
 	anselmProductOutputLimit   = 16_384
 )
 
-var anselmSpecs = []modelSpec{{AnselmModelID, anselmTextInputLimit, anselmProductOutputLimit, nil, true, false}}
+var anselmSpecs = []modelSpec{{prefix: AnselmModelID, ctx: anselmTextInputLimit, out: anselmProductOutputLimit, in: []string{"text", "image"}, outMod: []string{"text"}}}
+
+// anselmWire: the gateway speaks the DeepSeek body; image is the advertised media input here
+// (Video is derived below from the route profile, Audio stays off until an audio upstream exists).
+//
+// anselmWire:网关讲 DeepSeek body;此处宣称的媒体输入是 image(Video 由下方 route profile 派生,
+// Audio 在音频上游存在前保持关闭)。
+var anselmWire = partMask{image: true}
 
 // DescribeModels parses the gateway's id-only /models body against anselmSpecs (NOT deepseekSpecs).
 // Overriding this is MANDATORY: without it the embedded deepseekProvider.DescribeModels would attach
@@ -76,7 +83,7 @@ var anselmSpecs = []modelSpec{{AnselmModelID, anselmTextInputLimit, anselmProduc
 // deepseekProvider.DescribeModels 会挂 dsKnobs()，给一个会剥离它们的网关在 picker 里显示死的
 // thinking/reasoning_effort 钮。
 func (p *anselmProvider) DescribeModels(raw string) ([]ModelInfo, error) {
-	models := describeFromSpecs(anselmSpecs, raw)
+	models := describeFromSpecs(anselmSpecs, raw, anselmWire)
 	type routeProfile struct {
 		InputLimit  int  `json:"input_limit"`
 		OutputLimit int  `json:"output_limit"`

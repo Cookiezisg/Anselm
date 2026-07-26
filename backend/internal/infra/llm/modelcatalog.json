@@ -1,0 +1,1390 @@
+{
+  "source": "https://models.dev/api.json",
+  "providers": {
+    "anthropic": {
+      "claude-fable-5": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 128000
+      },
+      "claude-haiku-4-5": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 64000
+      },
+      "claude-haiku-4-5-20251001": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 64000
+      },
+      "claude-opus-4-1": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 32000
+      },
+      "claude-opus-4-1-20250805": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 32000
+      },
+      "claude-opus-4-5": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 64000
+      },
+      "claude-opus-4-5-20251101": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 64000
+      },
+      "claude-opus-4-6": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 128000
+      },
+      "claude-opus-4-7": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 128000
+      },
+      "claude-opus-4-8": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 128000
+      },
+      "claude-opus-5": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 128000
+      },
+      "claude-sonnet-4-5": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 64000
+      },
+      "claude-sonnet-4-5-20250929": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 64000
+      },
+      "claude-sonnet-4-6": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 128000
+      },
+      "claude-sonnet-5": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 128000
+      }
+    },
+    "deepseek": {
+      "deepseek-chat": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 384000
+      },
+      "deepseek-reasoner": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 384000
+      },
+      "deepseek-v4-flash": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 384000
+      },
+      "deepseek-v4-pro": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 384000
+      }
+    },
+    "moonshot": {
+      "kimi-k2-0711-preview": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 16384
+      },
+      "kimi-k2-0905-preview": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 262144
+      },
+      "kimi-k2-thinking": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 262144
+      },
+      "kimi-k2-thinking-turbo": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 262144
+      },
+      "kimi-k2-turbo-preview": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 262144
+      },
+      "kimi-k2.5": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 262144
+      },
+      "kimi-k2.6": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 262144
+      },
+      "kimi-k2.7-code": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 262144
+      },
+      "kimi-k2.7-code-highspeed": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 262144
+      },
+      "kimi-k3": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1048576,
+        "maxOut": 131072
+      }
+    },
+    "openai": {
+      "gpt-4": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 8192,
+        "maxOut": 8192
+      },
+      "gpt-4-turbo": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 4096
+      },
+      "gpt-4.1": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1047576,
+        "maxOut": 32768
+      },
+      "gpt-4.1-mini": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1047576,
+        "maxOut": 32768
+      },
+      "gpt-4.1-nano": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1047576,
+        "maxOut": 32768
+      },
+      "gpt-4o": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 16384
+      },
+      "gpt-4o-2024-05-13": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 4096
+      },
+      "gpt-4o-2024-08-06": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 16384
+      },
+      "gpt-4o-2024-11-20": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 16384
+      },
+      "gpt-4o-mini": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 16384
+      },
+      "gpt-5": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 128000
+      },
+      "gpt-5-mini": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 128000
+      },
+      "gpt-5-nano": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 128000
+      },
+      "gpt-5-pro": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 272000
+      },
+      "gpt-5.1": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 128000
+      },
+      "gpt-5.2": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 128000
+      },
+      "gpt-5.2-chat-latest": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 16384
+      },
+      "gpt-5.2-pro": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 128000
+      },
+      "gpt-5.3-chat-latest": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 16384
+      },
+      "gpt-5.3-codex": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 128000
+      },
+      "gpt-5.3-codex-spark": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 32000
+      },
+      "gpt-5.4": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1050000,
+        "maxOut": 128000
+      },
+      "gpt-5.4-mini": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 128000
+      },
+      "gpt-5.4-nano": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 400000,
+        "maxOut": 128000
+      },
+      "gpt-5.4-pro": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1050000,
+        "maxOut": 128000
+      },
+      "gpt-5.5": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1050000,
+        "maxOut": 128000
+      },
+      "gpt-5.5-pro": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1050000,
+        "maxOut": 128000
+      },
+      "gpt-5.6": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1050000,
+        "maxOut": 128000
+      },
+      "gpt-5.6-luna": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1050000,
+        "maxOut": 128000
+      },
+      "gpt-5.6-sol": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1050000,
+        "maxOut": 128000
+      },
+      "gpt-5.6-terra": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1050000,
+        "maxOut": 128000
+      },
+      "o1": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 100000
+      },
+      "o1-pro": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 100000
+      },
+      "o3": {
+        "in": [
+          "text",
+          "image",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 100000
+      },
+      "o3-mini": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 100000
+      },
+      "o3-pro": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 100000
+      },
+      "o4-mini": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 100000
+      }
+    },
+    "qwen": {
+      "qvq-max": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen-flash": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 32768
+      },
+      "qwen-max": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 32768,
+        "maxOut": 8192
+      },
+      "qwen-omni-turbo": {
+        "in": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "out": [
+          "text",
+          "audio"
+        ],
+        "ctx": 32768,
+        "maxOut": 2048
+      },
+      "qwen-plus": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 32768
+      },
+      "qwen-plus-character-ja": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 8192,
+        "maxOut": 512
+      },
+      "qwen-turbo": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 16384
+      },
+      "qwen-vl-max": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen-vl-plus": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen2-5-14b-instruct": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen2-5-32b-instruct": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen2-5-72b-instruct": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen2-5-7b-instruct": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen2-5-omni-7b": {
+        "in": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "out": [
+          "text",
+          "audio"
+        ],
+        "ctx": 32768,
+        "maxOut": 2048
+      },
+      "qwen2-5-vl-72b-instruct": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen2-5-vl-7b-instruct": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen3-14b": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen3-235b-a22b": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 16384
+      },
+      "qwen3-32b": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 16384
+      },
+      "qwen3-8b": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      },
+      "qwen3-coder-30b-a3b-instruct": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3-coder-480b-a35b-instruct": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3-coder-flash": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 65536
+      },
+      "qwen3-coder-plus": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1048576,
+        "maxOut": 65536
+      },
+      "qwen3-max": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3-next-80b-a3b-instruct": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 32768
+      },
+      "qwen3-next-80b-a3b-thinking": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 32768
+      },
+      "qwen3-omni-flash": {
+        "in": [
+          "text",
+          "image",
+          "audio",
+          "video"
+        ],
+        "out": [
+          "text",
+          "audio"
+        ],
+        "ctx": 65536,
+        "maxOut": 16384
+      },
+      "qwen3-vl-235b-a22b": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 32768
+      },
+      "qwen3-vl-30b-a3b": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 32768
+      },
+      "qwen3-vl-plus": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 32768
+      },
+      "qwen3.5-122b-a10b": {
+        "in": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3.5-27b": {
+        "in": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3.5-35b-a3b": {
+        "in": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3.5-397b-a17b": {
+        "in": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3.5-plus": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 65536
+      },
+      "qwen3.6-27b": {
+        "in": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3.6-35b-a3b": {
+        "in": [
+          "text",
+          "image",
+          "video",
+          "audio"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3.6-flash": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 65536
+      },
+      "qwen3.6-max-preview": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 262144,
+        "maxOut": 65536
+      },
+      "qwen3.6-plus": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 65536
+      },
+      "qwen3.7-max": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 65536
+      },
+      "qwen3.7-plus": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 65536
+      },
+      "qwq-plus": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 8192
+      }
+    },
+    "zhipu": {
+      "glm-4.5": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 98304
+      },
+      "glm-4.5-air": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 98304
+      },
+      "glm-4.5-flash": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 131072,
+        "maxOut": 98304
+      },
+      "glm-4.5v": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 64000,
+        "maxOut": 16384
+      },
+      "glm-4.6": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 204800,
+        "maxOut": 131072
+      },
+      "glm-4.6v": {
+        "in": [
+          "text",
+          "image",
+          "video"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 128000,
+        "maxOut": 32768
+      },
+      "glm-4.7": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 204800,
+        "maxOut": 131072
+      },
+      "glm-4.7-flash": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 131072
+      },
+      "glm-4.7-flashx": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 131072
+      },
+      "glm-5": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 204800,
+        "maxOut": 131072
+      },
+      "glm-5.1": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 131072
+      },
+      "glm-5.2": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 1000000,
+        "maxOut": 131072
+      },
+      "glm-5v-turbo": {
+        "in": [
+          "text",
+          "image",
+          "video",
+          "pdf"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 200000,
+        "maxOut": 131072
+      }
+    }
+  }
+}

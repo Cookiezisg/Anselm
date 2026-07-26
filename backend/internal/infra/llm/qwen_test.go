@@ -100,12 +100,23 @@ func TestQwenBuildRequest_MapsMP3MIMEToQwenAudioFormat(t *testing.T) {
 	}
 }
 
+// TestQwenDescribeModels_AdvertisesNativeInputTruthfully now asserts the FOLLOWED truth
+// (WRK-082 P1/P2): numbers and modalities come from the models.dev catalog — qwen-turbo's window
+// is the upstream 1M (the old hand-written 131072 was stale, which is exactly why we follow), and
+// the qwen3.5-omni line is absent upstream, so a served omni id is honestly not described rather
+// than advertised off stale local knowledge.
+//
+// TestQwenDescribeModels_AdvertisesNativeInputTruthfully 改为断言 **follow 后的真相**(P1/P2):
+// 数字与模态出自 models.dev 目录——qwen-turbo 窗口是上游的 1M(旧手写 131072 已陈旧,这正是
+// follow 的理由),qwen3.5-omni 线上游缺席,被服务端列出的 omni id 诚实地不描述、而非拿陈旧
+// 本地知识宣称。
 func TestQwenDescribeModels_AdvertisesNativeInputTruthfully(t *testing.T) {
 	models, err := newQwenProvider().DescribeModels(`{"data":[
 		{"id":"qwen3.7-plus"},
 		{"id":"qwen3.7-plus-2026-05-26"},
 		{"id":"qwen3.5-omni-plus"},
 		{"id":"qwen3.5-plus"},
+		{"id":"qwen-turbo"},
 		{"id":"not-in-our-catalog"}
 	]}`)
 	if err != nil {
@@ -116,7 +127,10 @@ func TestQwenDescribeModels_AdvertisesNativeInputTruthfully(t *testing.T) {
 		byID[model.ID] = model
 	}
 	if len(byID) != 4 {
-		t.Fatalf("described models = %#v, want four known models", models)
+		t.Fatalf("described models = %#v, want exactly the four catalog-known ids", models)
+	}
+	if _, ok := byID["qwen3.5-omni-plus"]; ok {
+		t.Errorf("qwen3.5-omni-plus described despite being absent from the followed catalog (P2)")
 	}
 	for _, id := range []string{"qwen3.7-plus", "qwen3.7-plus-2026-05-26"} {
 		m := byID[id]
@@ -124,13 +138,13 @@ func TestQwenDescribeModels_AdvertisesNativeInputTruthfully(t *testing.T) {
 			t.Errorf("%s caps = %+v, want 1M/64K/image+video", id, m)
 		}
 	}
-	omni := byID["qwen3.5-omni-plus"]
-	if omni.ContextWindow != 65_536 || omni.MaxOutput != 0 || !omni.Vision || !omni.Video || !omni.Audio {
-		t.Errorf("omni caps = %+v, want truthful 64K image+video+audio and no invented max output", omni)
-	}
 	plus := byID["qwen3.5-plus"]
 	if plus.ContextWindow != 1_000_000 || plus.MaxOutput != 65_536 || !plus.Vision || !plus.Video || plus.Audio {
 		t.Errorf("qwen3.5-plus caps = %+v, want 1M/64K image+video", plus)
+	}
+	turbo := byID["qwen-turbo"]
+	if turbo.ContextWindow != 1_000_000 || turbo.MaxOutput != 16_384 || turbo.Vision {
+		t.Errorf("qwen-turbo caps = %+v, want the upstream 1M/16K text-only numbers (follow, not the stale 131072)", turbo)
 	}
 }
 

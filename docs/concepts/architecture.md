@@ -91,7 +91,7 @@ Function/Handler 跑真实代码 → 经 **sandbox** 隔离运行；env 缺失�
 ### 3.4 对话运行时
 
 - **Conversation** (`cv_`) → **Chat 引擎**（持久化 ReAct 主机）→ **Messages** (`msg_`/block) 落盘。
-- **Attachment** (`att_`)：CAS 内容寻址存储 + 11 家 provider 多模态注入 + sandbox 本地提取。
+- **Attachment** (`att_`)：CAS 内容寻址存储 + 10 家 provider 多模态注入 + sandbox 本地提取。
 - **Memory**（文件式）：跨对话长期事实（pinned 常驻 + 目录按需读）。
 - **Todo**（TodoWrite）、**Subagent**（递归子对话，写父对话 messages 表）、**Contextmgr**（上下文压缩）。
 

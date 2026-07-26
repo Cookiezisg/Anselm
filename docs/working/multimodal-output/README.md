@@ -100,11 +100,15 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 | P18 | **有意识排除**(写成否决项而非默默漏):通知携带媒体、记忆携带媒体 | 场景价值未明;MediaRef 文法上随时可后补,不欠架构债 |
 | P19 | **真钱实测律 + 零包袱最高执行**:金标/真实 API 调用随便烧,「就是要用真实的去测」;mock/fake 全绿**不算收口**,每批验收必含真实调用证据。两仓未上线,零历史包袱按最高优先级——禁兼容层/迁移垫片/deprecation,直接删直接改;网关 push main(=自动部署到未上线服务器)本地全绿且有把握时可行 | 用户 0727 明确授权(「烧钱随便烧」「授予你非常大的权利」);仍留给用户:密钥增删轮换、买资源/续费支出、删用户真实数据 |
 
-### 1.1 施工中代拍台账(空=尚无;每条注明依据,用户可随时翻案)
+### 1.1 施工中代拍台账(每条注明依据,用户可随时翻案——零包袱,翻案即改)
 
 | # | 代拍决策 | 依据 | 状态 |
 |---|---|---|---|
-| — | — | — | — |
+| A1 | **目录范围谓词**:`tool_call` ∧ 输出含 text;另排除 id 含 `realtime`(今日 2 个) | P1 的「无脑 follow」不含把 embeddings/生图/ASR/MT/OCR 塞进聊天选择器(它们 `tool_call=false` 或输出无 text,机械落选);realtime 模型不讲 /chat/completions,列出即违背 §0「绝无调了才失败」 | ✅ 批A 已实施(`TrimUpstreamCatalog` + 谓词三轴守卫) |
+| A2 | **目录收录 6 家全部 chat 模型**(非只旧表前缀);可见性 = key 探测结果 ∩ 目录 | 新模型随刷新自动出现正是 follow 的意义;可见集仍由用户的 key 真实服务的 /models 决定 | ✅ 批A 已实施 |
+| A3 | **P2 既定后果逐 id 清单**(实测):`qwen3.5-omni-plus/flash`、`qwen-long`、`moonshot-v1-8k/32k/128k`、`glm-4-long`、`glm-4-flash`、`glm-5-turbo`、`gpt-3.5-turbo`(上游标 `tool_call=false`)从直连目录消失;豆包整家撤(后端 provider/前端品牌资产/web demo fixture 三处同批清零) | 上游缺席或谓词落选;方向已拍板知情(§2.3),此为完整清单 | 📋 事实记档 |
+| A4 | **旋钮保守化**:目录新模型无手写 `knobRule` 命中 → 零旋钮(模型可用、无思考控件) | P4「旋钮不折腾」;未核实的族不猜 wire 词表 | ✅ 批A 已实施 |
+| A5 | **方言掩码**(`partMask`):模态布尔投影 = 目录模态 ∧ 方言 wire 能力(例:kimi-k2.6 目录列 video、Moonshot 方言渲不了 video part → `Video=false`) | 「能力宣称必须描述整条路」——网关 `Multimodal.Available` 双半才真先例用在方言上;守卫 `TestDescribe_MaskGatesProjection` | ✅ 批A 已实施 |
 
 ---
 
@@ -283,7 +287,13 @@ scheduler/library。
 
 ---
 
-## §5 批A · models.dev 能力目录(先行,独立可交付)
+## §5 批A · models.dev 能力目录(先行,独立可交付)—— ✅ 已施工(2026-07-27)
+
+> 落地形态:`internal/infra/llm/modelcatalog.{go,json}`(裁剪/校验/`catalogSpecs` + vendored
+> 123 模型)+ `catalogrefresh.go`(30s 延迟 + 24h TTL + fail-silent,bootstrap 接 stop/done 惯例)
+> + `cmd/modelcatalog` + 根 `make update-model-catalog`;六家 spec 表删除、`qwenNativeInputCaps`
+> 删除、豆包三处(后端/前端/demo)清零。守卫:形状/谓词三轴/缓存优先级/掩码投影/失败静默/旋钮
+> 前缀序。**真机核对项**(设置页 6 家数字与 models.dev 对照)留待下次 `make app` 一并复看。
 
 1. `tools/`(或 `cmd/`)拉取裁剪脚本 + 根 `make update-model-catalog`:拉 api.json → 裁 6 家 →
    vendored JSON 入库(S22:源等价配置)。
