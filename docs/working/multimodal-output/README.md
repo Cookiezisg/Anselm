@@ -115,6 +115,7 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 | B5 | **受管播种不填 video 场景**:`SeedDefaultsIfUnset` 跳过 ScenarioVideo | 免费档永不供视频(P8)——播了会显示一个永远路由不通的「已配置」默认 | ✅ 已实施(90d11426) |
 | B6 | **生成模型候选目录手写**(小表:openai gpt-image 系 / google gemini-image 系 / qwen qwen-image 系 / zhipu cogview 系 + 各家默认 id),不走 models.dev | models.dev 生成侧覆盖残缺(alibaba 无 qwen-image 条目、zhipuai 无 cogview 条目,openai 的 gpt-image 又被 chat 谓词裁掉)——P1 的辖区是**聊天目录**,硬 follow 会砍掉三家真实能力,违背 P6/P7 | 📋 批B 施工中 |
 | B7 | **MediaRef 落地形 = 附件引用 receipt**:生成产物经既有 `attachmentapp.Upload(bytes)` 落一等附件行(att_ id + CAS),tool_result 的 content string 内装 JSON receipt `{attachmentId, mime, width, height, source}`——不动块模型,前端复用 attachmentMetaProvider + AttachmentImageProvider 全渲染管线;**工具注入走 `DynamicTools(ctx)` 逐请求缝**(chat.Deps 既有,今日仅 MCP 用)实现诚实缺席——Toolset 是 boot 静态快照,key 热变更必须逐请求判可用性 | 侦察实证:附件域 Upload 即「bytes→记录」唯一入口、tool_result「string 装 JSON」是全族既定形(tool_receipts.dart 逐字钉)、工具层无 per-ctx 能力注入先例而 DynamicTools 缝现成 | 📋 批B 施工中 |
+| B8 | **CapabilityTools 新缝(逐请求 resident)取代「lazy+发现」承载能力工具**:chat.Deps 加 `CapabilityTools func(ctx) []Tool`,host 每步在 resident 后直接并入(完整 schema 随请求),可用性上游过滤 | DynamicTools 的简介**不进** system prompt(读码实证 `toolsOverview` 只渲静态 Overview)——走 lazy 舞步模型不知道自己会画图;能力工具只有 1-3 个小 schema,常驻代价≈零而可见性=100% | ✅ 已实施(06f078d0);subagent 面留批B' |
 | B4 | **品类日闸一个机制吃两批**:新表 `install_category_daily(install,category,day,units)`,图=张数、TTS=字符数同一 units 语义;`Limits.ImageDailyLimit` 默认 10(P8) | P8 说「走既有 per-install 日子限额」——读码后发现既有 `DailySublimit` 是**全请求混计**的日闸,表达不了「10 张图/天」;与其加临时列不如一次建品类通用机制(根修判据:批C 的 5 万字符/天零新机制直接落进同一张表) | 📋 批B 施工中 |
 
 ---
