@@ -1334,7 +1334,6 @@ class _PendingRow extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final t = Translations.of(context);
     final c = context.colors;
     return Center(
       child: ConstrainedBox(
@@ -1363,39 +1362,17 @@ class _PendingRow extends ConsumerWidget {
               if (pending.failed)
                 Padding(
                   padding: const EdgeInsets.only(top: AnSpace.s6),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(AnIcons.error, size: AnSize.icon, color: c.danger),
-                      const SizedBox(width: AnSpace.s6),
-                      Text(
-                        t.chat.sendFailed,
-                        style: AnText.label.copyWith(color: c.danger),
-                      ),
-                      const SizedBox(width: AnSpace.s8),
-                      AnButton(
-                        label: t.chat.retrySend,
-                        size: AnButtonSize.sm,
-                        onPressed: () => ref
-                            .read(
-                              conversationStreamProvider(
-                                conversationId,
-                              ).notifier,
-                            )
-                            .retrySend(pending.localId),
-                      ),
-                      AnButton(
-                        label: t.chat.discard,
-                        size: AnButtonSize.sm,
-                        onPressed: () => ref
-                            .read(
-                              conversationStreamProvider(
-                                conversationId,
-                              ).notifier,
-                            )
-                            .discardFailed(pending.localId),
-                      ),
-                    ],
+                  child: FailedSendRow(
+                    onRetry: () => ref
+                        .read(
+                          conversationStreamProvider(conversationId).notifier,
+                        )
+                        .retrySend(pending.localId),
+                    onDiscard: () => ref
+                        .read(
+                          conversationStreamProvider(conversationId).notifier,
+                        )
+                        .discardFailed(pending.localId),
                   ),
                 ),
             ],
@@ -1434,4 +1411,68 @@ class _StreamingAnswerMarkdown extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) =>
       AnStreamingMarkdown(text, prose: ref.watch(contentFaceProvider));
+}
+
+/// The optimistic bubble's failure line — 「Couldn't send」 plus the two ways out (retry / discard).
+///
+/// It is a WIDGET, not an inline `Row` inside the transcript's build, for one reason: a row that mixes
+/// a localized string with fixed affordances can overflow, and an inline row cannot be rendered by a
+/// test without standing up the whole transcript. WRK-083 L5 was exactly that — a 17px overflow that
+/// only appeared while the backend was down (the one moment this row exists) and in a narrow ocean
+/// (the right island was open). Extracting it makes the failing case a three-line test.
+///
+/// The LABEL is the only flexible part. The icon and the two buttons are fixed affordances — squeezing
+/// a button is how you get an untappable button — so the elastic thing has to be the one thing that
+/// can shrink without losing its function: the sentence, which ellipsizes and still reads. Same rule
+/// the row family learned in B2 and again in L4; this is its third instance.
+///
+/// 乐观泡的失败行——「Couldn't send」加两条出路(重试 / 丢弃)。
+///
+/// 它是一个**组件**、而不是 transcript build 里的内联 `Row`,只为一个理由:混着本地化字符串与固定控件的行**会溢出**,
+/// 而内联的行,测试不把整个 transcript 立起来就渲不出来。WRK-083 L5 正是如此——一条 17px 溢出,只在后端宕机时
+/// (这一行唯一存在的时刻)且海洋窄时(右岛开着)出现。抽出来之后,那个失败场景是三行测试。
+///
+/// **标签是唯一可弹的部分**。图标与两颗按钮是固定 affordance——把按钮挤扁就得到一颗按不动的按钮——所以可弹的只能是
+/// 那个「缩了仍不失去功能」的东西:句子,它省略号之后照样读得懂。与行族在 B2、L4 学到的是同一条规矩;这是第三例。
+class FailedSendRow extends StatelessWidget {
+  const FailedSendRow({
+    required this.onRetry,
+    required this.onDiscard,
+    super.key,
+  });
+
+  final VoidCallback onRetry;
+  final VoidCallback onDiscard;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    final t = Translations.of(context);
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(AnIcons.error, size: AnSize.icon, color: c.danger),
+        const SizedBox(width: AnSpace.s6),
+        Flexible(
+          child: Text(
+            t.chat.sendFailed,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: AnText.label.copyWith(color: c.danger),
+          ),
+        ),
+        const SizedBox(width: AnSpace.s8),
+        AnButton(
+          label: t.chat.retrySend,
+          size: AnButtonSize.sm,
+          onPressed: onRetry,
+        ),
+        AnButton(
+          label: t.chat.discard,
+          size: AnButtonSize.sm,
+          onPressed: onDiscard,
+        ),
+      ],
+    );
+  }
 }

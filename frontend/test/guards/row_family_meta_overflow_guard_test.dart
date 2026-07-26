@@ -2,7 +2,10 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/core/ui/an_menu.dart';
+import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_row.dart';
+import 'package:anselm/features/chat/ui/chat_transcript.dart';
+import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -170,6 +173,35 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  // WRK-083 L5 — the same law, a third caller: a row that mixes a localized sentence with fixed
+  // affordances. Found on the real machine as a 17px overflow, in the one situation where this row
+  // exists at all (the backend was down) and in a narrow ocean (the right island was open). Two
+  // conditions that only coincide during a crash — which is exactly why it survived every prior sweep.
+  //
+  // The button widths are the point: they are what the user must still be able to hit, so the elastic
+  // thing has to be the sentence.
+  //
+  // WRK-083 L5——同一条法,第三个调用方:混着本地化句子与固定 affordance 的行。真机以 17px 溢出抓到,发生在
+  // 这一行**唯一存在**的处境(后端宕机)且海洋窄时(右岛开着)。两个条件只在崩溃时同时成立——这正是它躲过此前
+  // 每一轮扫查的原因。按钮宽度是要害:它们是用户**仍必须点得到**的东西,所以可弹的只能是那个句子。
+  testWidgets('FailedSendRow: the sentence yields, the buttons do not', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: _host(
+          FailedSendRow(onRetry: () {}, onDiscard: () {}),
+          width: 260,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    // Both ways out survive the squeeze — a row that fits by amputating an action is not fixed.
+    // 两条出路都挺过挤压——靠截肢掉一个动作换来的「装得下」不叫修好。
+    expect(find.byType(AnButton), findsNWidgets(2));
   });
 
   // The narrow end of the range: a rail collapsed to its minimum still may not paint outside itself.
