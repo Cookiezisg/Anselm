@@ -446,8 +446,7 @@ zoom-in **正当地**封顶到 ~0.65 所致——封顶是对的行为,小视口
 super_editor 仍活着的 action-tags reactor、抛 `Null as TextNode`——改为**不动触发段**(留一个作者一次 Backspace 可消
 的空行,是比跟 reactor 时序较劲更稳的取舍,原则 #8);②builders 按主题色记忆化,只翻 autofocus id 的 setState 不重建
 builder——把该 id 纳入重建判据。守卫两条(块下方无追加段 + 嵌入编辑器实际持焦),先证红。真机:`/代码块` 回车后直接
-打字,`print(...)` 落进块内第 1 行、带高亮。**表格同 `_insertBlock` 一族,本次只改了 code 走 `focusInside`——表格待同款
-接上(下轮)**。
+打字,`print(...)` 落进块内第 1 行、带高亮。**表格已同款接上(收口)**:走 `focusInside` 后,两种块**各按自己既有的路**抵达内部编辑器,这个区别不是随意的——表格**本来就有**一条:经既有 `_tableKeys` 句柄调 `focusCell(0,0)`(该句柄本为键盘「进表」动作而存在,而它做的恰恰就是聚焦某一格),故**复用它、不再给 builder 穿第二个 autofocus 标志**(原则 #8);代码块没有这样的句柄,仍走 `autofocus` 标志由嵌入编辑器挂载即自取。管道因此从「代码块专用」泛化为「自带内部编辑器的块通用」(`_innerEditorNodeIds` 收 CodeBlockNode + TableBlockNode;分隔线这类**无**内部编辑器的块刻意不在列——对它们把光标放到下面才是对的)。守卫补两格、先证红。**并反转一条既有守卫且留证**:`table on a NON-empty paragraph inserts BELOW` 的末句 `expect(nodes.last, isA<ParagraphNode>())` **本身就在要求那个尾随空段**——它把用户判错的行为写死成了断言,故按 B4 的做法**反转而非删除**、把反转留在案上。真机:`/表格` 回车后直接打字,「姓名」落进**左上角第一格**,表格下方无空段。
 
 **L16 · 右岛属性在编辑中陈旧。** `openDocumentProvider` 编辑中刻意不失效(失效会重建编辑器丢光标),故 loaded doc 一
 打字就陈旧——但属性面板要的只是字数/字节/时刻这些**派生值**,不需要那个被冻结的 provider。**大纲早就从编辑视图实时

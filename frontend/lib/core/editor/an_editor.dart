@@ -178,9 +178,9 @@ class AnEditorState extends State<AnEditor> {
   /// builder reads it, autofocuses that ONE block, and clears it — so a later rebuild never re-grabs
   /// focus. 刚由 slash 插入、待挂载取光标的代码块 id。一次性:builder 读它、autofocus 那一块、随即清空,故后续
   /// 重建不会再夺焦。
-  String? _pendingCodeAutofocus;
+  String? _pendingInnerAutofocus;
 
-  /// The [_pendingCodeAutofocus] value baked into the current [_componentBuilders] — so the memoized
+  /// The [_pendingInnerAutofocus] value baked into the current [_componentBuilders] — so the memoized
   /// builder list rebuilds when the pending id changes (WRK-083 L15). 已烤进当前 builders 的待办 id。
   String? _builtAutofocus;
 
@@ -385,7 +385,7 @@ class AnEditorState extends State<AnEditor> {
     final node = _document.getNodeById(tag.nodeId);
     final plain = node is TextNode ? node.text.toPlainText() : '';
     final emptyAfterSubmit = plain == '/${tag.tag.token}';
-    final codeIdsBefore = _codeNodeIds();
+    final innerIdsBefore = _innerEditorNodeIds();
     _editor.execute([
       const SubmitComposingActionTagRequest(),
       ...command.requests((
@@ -394,42 +394,63 @@ class AnEditorState extends State<AnEditor> {
         emptyAfterSubmit: emptyAfterSubmit,
       )),
     ]);
-    // A command that inserted a code block (the `focusInside` path in the slash menu) leaves no document
-    // caret in it — so hand the ONE newly-appeared code node to its embedded editor for caret-on-mount
-    // (WRK-083 L15). Diffing the id set rather than sniffing the command keeps this at arm's length from
-    // the palette. 若命令插入了代码块(slash 菜单的 focusInside 路径),文档里没有落进它的光标——把**新出现的那一个**
-    // 代码节点交给它的嵌入编辑器挂载即取光标。用 id 集合差分、不嗅探具体命令,与命令表保持距离。
-    final fresh = _codeNodeIds().difference(codeIdsBefore);
+    // A `focusInside` command (slash menu) inserts a block that owns an INNER editor and leaves NO document
+    // caret in it — so hand the ONE newly-appeared node to that inner editor. Diffing the id set rather than
+    // sniffing the command keeps this at arm's length from the palette (WRK-083 L15).
+    //
+    // The two block kinds reach their inner editor by DIFFERENT routes, and the difference is not
+    // arbitrary — a table already had one:
+    //   - table      → `focusCell(0, 0)` through the existing `_tableKeys` handle. That handle exists for
+    //                  the keyboard "enter the table" action, and focusing a cell is exactly what it does;
+    //                  reusing it beats threading a second autofocus flag through the builder (原则 #8).
+    //   - code block → an `autofocus` flag threaded to its embedded AnCodeEditor, because a code block has
+    //                  no such handle and its editor must claim focus when it mounts.
+    //
+    // The now-empty trigger paragraph is deliberately LEFT in place (it sits ABOVE the block — `focusInside`
+    // never replaces it, see `_insertBlock`). Deleting it, in this turn or one frame later, re-enters
+    // super_editor's still-live action-tags reactor and throws `Null as TextNode`. Fighting that reactor's
+    // timing is the hand-rolled trap 原则 #8 warns about; an empty line the writer clears with one Backspace
+    // is the honest trade, and with the caret inside the block they never even land on it.
+    //
+    // `focusInside` 命令插入的是**自带内部编辑器**的块、文档里没有落进它的光标——把**新出现的那一个**节点交给那个
+    // 内部编辑器。用 id 集合差分、不嗅探具体命令,与命令表保持距离(WRK-083 L15)。
+    //
+    // 两种块走**不同**路径抵达各自的内部编辑器,而这个区别不是随意的——表格**本来就有**一条:
+    //   - 表格   → 经既有 `_tableKeys` 句柄调 `focusCell(0, 0)`。该句柄本就是为键盘「进表」动作而存在,而它做的
+    //             恰恰就是聚焦某一格;复用它胜过再给 builder 穿一个 autofocus 标志(原则 #8)。
+    //   - 代码块 → 给嵌入的 AnCodeEditor 传 `autofocus` 标志,因为它没有这样的句柄,只能在挂载时自取焦点。
+    //
+    // 现已空的触发段**刻意保留**(它在块**上方**——`focusInside` 从不替换它,见 `_insertBlock`)。删它,无论本轮还是
+    // 帧后,都会重入 super_editor 仍活着的 action-tags reactor 并抛 `Null as TextNode`。跟那个 reactor 的时序较劲正是
+    // 原则 #8 警告的手搓陷阱;留一个作者一次 Backspace 就能消掉的空行是诚实的取舍,何况光标在块内,他根本落不到那一行。
+    final fresh = _innerEditorNodeIds().difference(innerIdsBefore);
     if (fresh.length == 1) {
-      setState(() => _pendingCodeAutofocus = fresh.first);
-      // The focusInside path inserted the block AFTER the trigger paragraph without replacing it (see
-      // _insertBlock) — so if that paragraph is now empty (the `/query` was the whole node), delete it in
-      // a SEPARATE execute(): the tag reactor has finished with it, and doing it here rather than inside
-      // the insert transaction is what avoids the `Null as TextNode` crash. The caret is already bound for
-      // the block's own editor, so removing the empty line strands nothing.
-      // focusInside 路径在触发段**之后**插块、不替换它(见 _insertBlock)——故若该段现已空(`/query` 是整节点),在
-      // **另一次** execute() 里删它:tag reactor 此时已收尾,放在这里而非插入事务内,正是避开 `Null as TextNode` 崩溃的
-      // 关键。光标已绑给块自己的编辑器,删掉空行不遗留任何东西。
-      // The now-empty trigger paragraph is deliberately LEFT in place. It sits ABOVE the inserted code
-      // block (the block was inserted after it), the caret is bound to the block's embedded editor, and an
-      // empty paragraph reads as nothing — so the writer never sees it. Deleting it in the same turn, or
-      // one frame later, both re-enter super_editor's still-live action-tags reactor and throw
-      // `Null as TextNode` (it re-reads the trigger node as a TextNode). Fighting that reactor's timing is
-      // exactly the hand-rolled trap principle #8 warns against; a blank line the writer can dismiss with
-      // one Backspace is the honest, robust trade.
-      // 现已空的触发段**刻意保留**。它在插入的代码块**上方**(块是在它之后插的),光标已绑到块的嵌入编辑器,空段落
-      // 读起来什么都不是——作者根本看不见它。同轮删、或帧后删,都会重入 super_editor 仍活着的 action-tags reactor
-      // 并抛 `Null as TextNode`(它把触发节点当 TextNode 重读)。跟那个 reactor 的时序较劲,正是原则 #8 警告的手搓陷阱;
-      // 留一个作者一次 Backspace 就能消掉的空行,是诚实且稳健的取舍。
+      final id = fresh.first;
+      if (_document.getNodeById(id) is TableBlockNode) {
+        // The table's cells mount with the table itself, so the handle is only good post-frame.
+        // 表格的格子随表一同挂载,故句柄要到帧后才可用。
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _tableKeys[id]?.currentState?.focusCell(0, 0);
+        });
+      } else {
+        setState(() => _pendingInnerAutofocus = id);
+      }
     }
     // The plugin clears composingActionTag → _onSlashComposingChanged hides the portal. 词法归零→自动隐。
   }
 
-  /// The ids of every [CodeBlockNode] currently in the document. 文档中所有代码块节点 id。
-  Set<String> _codeNodeIds() {
+  /// The ids of every block that owns an INNER editor — a code block's [AnCodeEditor], a table's per-cell
+  /// [SuperTextField]. These are the blocks you insert in order to type INSIDE them, so they are exactly
+  /// the ones that must take the caret on arrival rather than park it in a paragraph below (WRK-083 L15).
+  /// Blocks with no inner editor (a divider) are deliberately absent — for those, parking the caret below
+  /// IS the right behaviour.
+  /// 文档中所有**自带内部编辑器**的块 id——代码块的 [AnCodeEditor]、表格的逐格 [SuperTextField]。它们正是
+  /// 「插进来就是为了往**里**写」的那类块,故必须一到就接住光标,而不是把光标 park 到下方段落(WRK-083 L15)。
+  /// 无内部编辑器的块(分隔线)刻意不在此列——对它们,把光标放到下面才是对的。
+  Set<String> _innerEditorNodeIds() {
     final ids = <String>{};
     for (final node in _document) {
-      if (node is CodeBlockNode) ids.add(node.id);
+      if (node is CodeBlockNode || node is TableBlockNode) ids.add(node.id);
     }
     return ids;
   }
@@ -626,22 +647,22 @@ class AnEditorState extends State<AnEditor> {
     // until the theme flips → same instances → SuperEditor skips the re-style. 样式表+组件建造器按主题稳定
     // 的 colors 记忆化:同实例→SuperEditor 跳全文档重跑 style pipeline。
     final hint = _t.library.editorHint;
-    // `_pendingCodeAutofocus` is in the rebuild predicate ON PURPOSE (WRK-083 L15): the builders are
+    // `_pendingInnerAutofocus` is in the rebuild predicate ON PURPOSE (WRK-083 L15): the builders are
     // memoized on the theme-stable [colors], so without this a `setState` that only flips the pending
     // code-autofocus id would reuse the cached builder list — and the just-inserted block's AnCodeEditor
     // would never receive `autofocus: true`. The value is one-shot (cleared post-build), so this forces
     // exactly one extra rebuild.
-    // `_pendingCodeAutofocus` **刻意**进重建判据(WRK-083 L15):builders 按主题稳定的 [colors] 记忆化,没有这一条,
+    // `_pendingInnerAutofocus` **刻意**进重建判据(WRK-083 L15):builders 按主题稳定的 [colors] 记忆化,没有这一条,
     // 只翻这个待办 id 的 setState 会复用缓存的 builder 列表——刚插入那块的 AnCodeEditor 永远收不到 autofocus:true。
     // 该值一次性(build 后即清),故只强制多一次重建。
     if (!identical(_styleColors, colors) ||
         _hintText != hint ||
         _styleProse != widget.prose ||
-        _builtAutofocus != _pendingCodeAutofocus) {
+        _builtAutofocus != _pendingInnerAutofocus) {
       _styleColors = colors;
       _hintText = hint;
       _styleProse = widget.prose;
-      _builtAutofocus = _pendingCodeAutofocus;
+      _builtAutofocus = _pendingInnerAutofocus;
       _stylesheet = buildAnEditorStylesheet(colors, prose: widget.prose);
       // The selection sweep colour — the An [AnColors.selection] token (semi-transparent accent), replacing
       // the package's hardcoded 0xFFACCEF7. Memoized with the stylesheet (same theme axis). 选区色走 token。
@@ -655,9 +676,9 @@ class AnEditorState extends State<AnEditor> {
           _editor,
           colors,
           _codeKeys,
-          autofocusNodeId: _pendingCodeAutofocus,
+          autofocusNodeId: _pendingInnerAutofocus,
           // One-shot consume: the just-inserted block takes the caret exactly once. 一次性消费。
-          onAutofocusConsumed: () => _pendingCodeAutofocus = null,
+          onAutofocusConsumed: () => _pendingInnerAutofocus = null,
         ),
         AnBlockquoteComponentBuilder(colors),
         // Ordered/unordered list items: marker = prose `•`/`$n.` (not derived from the first char → fixes the

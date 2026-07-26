@@ -250,6 +250,11 @@ List<EditRequest> _table(SlashContext c) {
         [cell(), cell(), cell()],
       ],
     ),
+    // Same reason as the code block, and the user said so in exactly those terms: you insert a table in
+    // order to type into its CELLS. Parking the caret in a paragraph below means the first thing you type
+    // lands under an empty grid (WRK-083 L15). 与代码块同理,而用户的原话正是这个意思:插表格就是为了往**格子里**
+    // 打字。把光标 park 到下方段落,意味着你打的第一个字落在一张空表**下面**。
+    focusInside: true,
   );
 }
 

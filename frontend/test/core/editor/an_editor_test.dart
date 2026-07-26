@@ -508,6 +508,67 @@ void main() {
       },
     );
 
+    // The user judged the SAME defect for tables, in exactly these words: 「我感觉对表格也不合理。不应该是要
+    // 写字母?」 A table is the other block you insert in order to type INSIDE it, so the caret belongs in a
+    // CELL. It reaches its inner editor by a different route than the code block — `focusCell(0,0)` through
+    // the `_tableKeys` handle that already existed for the keyboard "enter the table" action — so it needs
+    // its own two cells; the code block's guards would pass while a table still parked the caret below.
+    // 用户对表格判了**同一个**缺陷,原话:「我感觉对表格也不合理。不应该是要写字母?」表格是另一种「插进来就是为了
+    // 往**里**写」的块,光标该落在**格子**里。它抵达内部编辑器的路径与代码块不同——经既有 `_tableKeys` 句柄调
+    // `focusCell(0,0)`(该句柄本为键盘「进表」而存在)——故须自带两格:只靠代码块那两格,表格仍把光标 park 在下方也照样绿。
+    testWidgets(
+      'a slash-inserted table does NOT append a paragraph below it (L15)',
+      (tester) async {
+        await tester.pumpWidget(slashHost());
+        await tester.pumpAndSettle();
+        await tester.placeCaretInParagraph('p1', 0);
+        await tester.typeImeText('/表格');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('表格').last);
+        await tester.pumpAndSettle();
+
+        final nodes = SuperEditorInspector.findDocument()!.toList();
+        final tableIdx = nodes.indexWhere((n) => n is TableBlockNode);
+        expect(tableIdx, isNonNegative, reason: 'the table was inserted');
+        expect(
+          tableIdx,
+          nodes.length - 1,
+          reason: 'no paragraph was appended below the table (L15)',
+        );
+      },
+    );
+
+    testWidgets("a slash-inserted table's first cell takes the caret (L15)", (
+      tester,
+    ) async {
+      await tester.pumpWidget(slashHost());
+      await tester.pumpAndSettle();
+      await tester.placeCaretInParagraph('p1', 0);
+      await tester.typeImeText('/表格');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('表格').last);
+      await tester.pumpAndSettle();
+
+      // Cells are SuperTextFields; exactly one must hold focus — and it must be the FIRST one, because the
+      // whole point is that the writer's next keystroke lands in the top-left cell.
+      // 格子是 SuperTextField;必须**恰好一个**持焦,且必须是**第一个**——要点就是作者下一个按键落在左上角那一格。
+      final focused = find.byType(SuperTextField).evaluate().where((e) {
+        final w = e.widget as SuperTextField;
+        return w.focusNode?.hasFocus ?? false;
+      }).toList();
+      expect(
+        focused.length,
+        1,
+        reason: 'exactly one cell holds the caret after insertion (L15)',
+      );
+      expect(
+        focused.single,
+        find.byType(SuperTextField).evaluate().first,
+        reason:
+            'it is the FIRST cell — the writer types into the top-left (L15)',
+      );
+    });
+
     testWidgets('Escape dismisses the menu without converting', (tester) async {
       await tester.pumpWidget(slashHost());
       await tester.pumpAndSettle();
@@ -567,36 +628,47 @@ void main() {
       },
     );
 
-    testWidgets(
-      'table on a NON-empty paragraph inserts BELOW, preserving the text',
-      (tester) async {
-        final doc = MutableDocument(
-          nodes: [ParagraphNode(id: 'p1', text: AttributedText('前文'))],
-        );
-        await tester.pumpWidget(_host(doc));
-        await tester.pumpAndSettle();
-        await tester.placeCaretInParagraph('p1', 2);
-        await tester.typeImeText('/biaoge'); // pinyin keyword hits 表格 拼音关键词命中
-        await tester.pumpAndSettle();
-        await tester.tap(find.text('表格'));
-        await tester.pumpAndSettle();
-        final nodes = doc.toList();
-        expect(nodes.whereType<TableBlockNode>(), hasLength(1));
-        final p1 = doc.getNodeById('p1');
-        expect(p1, isA<TextNode>());
-        expect(
-          (p1 as TextNode).text.toPlainText(),
-          '前文',
-          reason: 'non-empty paragraph preserved 非空段保留',
-        );
-        expect(
-          nodes.indexWhere((n) => n is TableBlockNode),
-          greaterThan(nodes.indexWhere((n) => n.id == 'p1')),
-        );
-        expect(nodes.last, isA<ParagraphNode>());
-        expect(tester.takeException(), isNull);
-      },
-    );
+    testWidgets('table on a NON-empty paragraph inserts BELOW, preserving the text', (
+      tester,
+    ) async {
+      final doc = MutableDocument(
+        nodes: [ParagraphNode(id: 'p1', text: AttributedText('前文'))],
+      );
+      await tester.pumpWidget(_host(doc));
+      await tester.pumpAndSettle();
+      await tester.placeCaretInParagraph('p1', 2);
+      await tester.typeImeText('/biaoge'); // pinyin keyword hits 表格 拼音关键词命中
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('表格'));
+      await tester.pumpAndSettle();
+      final nodes = doc.toList();
+      expect(nodes.whereType<TableBlockNode>(), hasLength(1));
+      final p1 = doc.getNodeById('p1');
+      expect(p1, isA<TextNode>());
+      expect(
+        (p1 as TextNode).text.toPlainText(),
+        '前文',
+        reason: 'non-empty paragraph preserved 非空段保留',
+      );
+      expect(
+        nodes.indexWhere((n) => n is TableBlockNode),
+        greaterThan(nodes.indexWhere((n) => n.id == 'p1')),
+      );
+      // REVERSED by WRK-083 L15, kept on the record rather than deleted (same as B4's reversals). This
+      // line used to REQUIRE a trailing ParagraphNode after the table — i.e. it encoded the very
+      // behaviour the user judged wrong (「我感觉对表格也不合理。不应该是要写字母?」): the caret parked in an
+      // empty paragraph BELOW the grid, so the first thing you typed landed under an empty table. The
+      // table is now last, and the caret lives in its first cell.
+      // 本行经 WRK-083 L15 **反转**,留在案上而非删除(同 B4 的反转做法)。它原本**要求**表格后面跟一个空段——
+      // 也就是把用户判错的那个行为写死成了断言(「我感觉对表格也不合理。不应该是要写字母?」):光标 park 在表**下方**
+      // 的空段里,于是你打的第一个字落在一张空表下面。现在表格是最后一个节点,光标在它的第一格里。
+      expect(
+        nodes.last,
+        isA<TableBlockNode>(),
+        reason: 'nothing is appended below the table any more (L15)',
+      );
+      expect(tester.takeException(), isNull);
+    });
   });
 
   // E5a — an entity @mention embedded as an inline placeholder renders as an icon+name pill (not styled
