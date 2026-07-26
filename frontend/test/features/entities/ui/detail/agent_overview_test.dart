@@ -1,5 +1,8 @@
 import 'package:anselm/core/contract/entities/agent.dart';
+import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/workspace.dart';
+import 'package:anselm/core/ui/an_row.dart';
+import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_kv.dart';
 import 'package:anselm/core/ui/an_state.dart';
@@ -15,25 +18,28 @@ import 'package:flutter_test/flutter_test.dart';
 
 final _t = DateTime.utc(2026, 7, 25);
 
-AgentVersion _v({ModelRef? modelOverride}) => AgentVersion(
-  id: 'ag_1_v1',
-  agentId: 'ag_1',
-  version: 1,
-  prompt: 'You are a helpful assistant.',
-  modelOverride: modelOverride,
-  createdAt: _t,
-  updatedAt: _t,
-);
+AgentVersion _v({ModelRef? modelOverride, List<ToolRef> tools = const []}) =>
+    AgentVersion(
+      id: 'ag_1_v1',
+      agentId: 'ag_1',
+      version: 1,
+      prompt: 'You are a helpful assistant.',
+      modelOverride: modelOverride,
+      tools: tools,
+      createdAt: _t,
+      updatedAt: _t,
+    );
 
-AgentEntity _agent({ModelRef? modelOverride}) => AgentEntity(
-  id: 'ag_1',
-  name: 'researcher',
-  description: 'Answers questions',
-  activeVersionId: 'ag_1_v1',
-  activeVersion: _v(modelOverride: modelOverride),
-  createdAt: _t,
-  updatedAt: _t,
-);
+AgentEntity _agent({ModelRef? modelOverride, List<ToolRef> tools = const []}) =>
+    AgentEntity(
+      id: 'ag_1',
+      name: 'researcher',
+      description: 'Answers questions',
+      activeVersionId: 'ag_1_v1',
+      activeVersion: _v(modelOverride: modelOverride, tools: tools),
+      createdAt: _t,
+      updatedAt: _t,
+    );
 
 Widget _host(Widget child) => TranslationProvider(
   child: MaterialApp(
@@ -125,4 +131,40 @@ void main() {
         .firstWhere((r) => r.label == d.kv.model);
     expect(modelRow.meta, isFalse);
   });
+
+  testWidgets(
+    'each mount scheme reads as itself — a sys: capability tool is not a plain tool row',
+    (tester) async {
+      // The four BOUND-TOOL schemes the backend's mount resolver knows. `sys:` is the one whose
+      // target is not a user entity (WRK-082 P14): rendering it with the generic tool glyph hides
+      // that this agent can produce media, which is the single most consequential thing to know
+      // when reading an agent's mounts. 四种绑定工具词法;`sys:` 是目标非用户实体的那一种,渲成通用
+      // tool 字形会藏起「这个 agent 能产媒体」——而这恰是读一个 agent 挂载时最要紧的一条。
+      await tester.pumpWidget(
+        _host(
+          AgentOverview(
+            agent: _agent(
+              tools: const [
+                ToolRef(ref: 'fn_00112233445566aa', name: 'tally'),
+                ToolRef(ref: 'hd_00112233445566bb.hello', name: 'greeter'),
+                ToolRef(ref: 'mcp:srv/echo', name: 'echo'),
+                ToolRef(ref: 'sys:generate_image', name: 'generate image'),
+              ],
+            ),
+            mountHealth: null,
+          ),
+        ),
+      );
+      await tester.pump();
+      IconData? glyphOf(String label) => tester
+          .widgetList<AnRow>(find.byType(AnRow))
+          .firstWhere((r) => r.label == label)
+          .icon;
+      expect(glyphOf('tally'), AnIcons.byKey('function'));
+      expect(glyphOf('greeter'), AnIcons.byKey('handler'));
+      expect(glyphOf('echo'), AnIcons.byKey('mcp'));
+      expect(glyphOf('generate image'), AnIcons.byKey('capability'));
+      expect(glyphOf('generate image'), isNot(AnIcons.byKey('tool')));
+    },
+  );
 }

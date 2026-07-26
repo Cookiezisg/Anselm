@@ -340,6 +340,7 @@ abstract final class AnIcons {
     'memory': memory, // touchpoint kinds (Cast/exhibit faces) 触点 kind 的脸
     'reasoning': reasoning,
     'tool': tool,
+    'capability': iterate, // sys: mounts — a built-in capability tool 能力工具挂载
     'subagent': subagent,
     'turnend': turnEnd,
     'terminal': terminal,

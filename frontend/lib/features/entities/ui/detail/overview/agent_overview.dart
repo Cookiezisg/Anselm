@@ -160,10 +160,19 @@ class AgentOverview extends StatelessWidget {
     );
   }
 
+  /// Ref scheme → glyph, one case per BOUND-TOOL scheme the backend's mount resolver knows
+  /// (`fn_` / `hd_` / `mcp:` / `sys:`). The fourth is a CAPABILITY tool (`sys:generate_image` …,
+  /// WRK-082 P14): it deserves its own glyph because it is the one mount whose target is not a
+  /// user's own entity — reading it as a plain `tool` row hides that this agent can produce media.
+  ///
+  /// ref 词法 → 字形,后端挂载解析器认识的每种**绑定工具**词法一格(`fn_`/`hd_`/`mcp:`/`sys:`)。
+  /// 第四种是**能力**工具(`sys:generate_image` 等,批B' P14):它该有自己的字形,因为它是唯一目标不是
+  /// 用户自己实体的挂载——渲成普通 `tool` 行会把「这个 agent 能产媒体」这件事藏起来。
   String _refKind(String ref) {
     if (ref.startsWith('fn_')) return 'function';
     if (ref.startsWith('hd_')) return 'handler';
     if (ref.startsWith('mcp:')) return 'mcp';
+    if (ref.startsWith('sys:')) return 'capability';
     return 'tool';
   }
 }

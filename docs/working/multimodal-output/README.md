@@ -362,8 +362,11 @@ key/时延/journal 行。形状与实测冲突处以实测为准。
    展开进首条 user 消息)+ tool_result 半(loop 六号可选能力 `MediaExpander`——每步收 MediaRef、
    host 按解析模型模态展开、追加 user 消息只喂后续请求、不落盘;chatHost/agentHost〔兼 workflow-
    agent〕/subagentHost 三实现)。守卫:loop 展开双测 + agent payload 门控 + subagent 三态。
-3. **`sys:` 挂载**(§3.7)后端 ✅:词法 + MountResolver 第四前缀 + mount-health;**剩 agent 编辑器
-   挂载 UI(前端)**。subagent 侧 `SetMultimodal`:能力工具白名单前并入(11903cc0)。
+3. **`sys:` 挂载**(§3.7)✅:后端词法 + MountResolver 第四前缀 + mount-health;subagent 侧
+   `SetMultimodal` 能力工具白名单前并入(11903cc0);前端 agent 概览四词法各读各的字形
+   (`sys:`→capability,渲成通用 tool 行会藏起「这个 agent 能产媒体」),mount-health 段本就逐条
+   报 healthy/reason、`sys:` 免费继承。**本项目无 agent 手编器**(agent 经 `:iterate` AI 编辑 +
+   版本流转),故「挂载 UI」= 概览读得对 + 健康报得准,已全。
 4. **MCP 媒体入口** ✅:`CallTool` 返 `(text,[]Media)`,app 层落一等附件 + receipt 追加
    (`source:"mcp_media"`),逐项 best-effort。
 5. **前端引用卡族**(§3.9)✅:`core/media/` 三件——`media_ref`(后端 `pkg/mediaref` 的逐条孪生件,
