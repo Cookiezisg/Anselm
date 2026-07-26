@@ -718,7 +718,15 @@ func TestFinalizeCancelled(t *testing.T) {
 
 type fakeTitler struct{ called chan string }
 
-func (f *fakeTitler) SetAutoTitle(_ context.Context, _, title string) error {
+// SetAutoTitle HONORS the context, like the real store does (its first act is a `conversationstore.Get`).
+// A fake that ignores cancellation cannot test cancellation — the first draft of the L11 guard passed
+// against the unfixed code for exactly that reason.
+// SetAutoTitle **认 ctx**,与真 store 一致(它第一件事就是 `conversationstore.Get`)。一个无视取消的假件测不了
+// 取消——L11 守卫的初稿正因如此在**未修**的代码上通过了。
+func (f *fakeTitler) SetAutoTitle(ctx context.Context, _, title string) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
 	select {
 	case f.called <- title:
 	default:
@@ -886,4 +894,81 @@ func (f fakeConvs) Fork(_ context.Context, in conversationdomain.ForkInput) (*co
 		ForkedFromConversationID: in.Source.ID,
 		ForkedFromMessageID:      in.AtMessageID,
 	}, nil
+}
+
+// TestAutoTitle_PersistSurvivesAGenerateThatAteTheBudget — the title must LAND even when generating it
+// consumed the whole budget (WRK-083 L11).
+//
+// Real machine: `chatapp.autoTitle: set title failed — conversationstore.Get: orm: first: context
+// deadline exceeded`. One 10s deadline covered three steps with wildly different costs: load thread,
+// generate the title (a network round trip), persist it (a local SQLite read + write). The network
+// step ate the budget, and the title — already generated, sitting in a local variable — was thrown
+// away at the last inch by a deadline that had nothing to do with writing it.
+//
+// The damage is not the log line. `maybeAutoTitle` only fires while a conversation is still untitled,
+// so the loss is silently repaired by the NEXT turn (at the cost of a second LLM call) — and a
+// conversation that only ever had ONE turn keeps the name «New chat» forever, while its perfectly good
+// title died in memory. That is why this test drives a thread with exactly one exchange.
+//
+// TestAutoTitle_PersistSurvivesAGenerateThatAteTheBudget——即便**生成**吃光了预算,标题也必须落得下去
+// (WRK-083 L11)。
+//
+// 真机:`set title failed — conversationstore.Get: context deadline exceeded`。**一个** 10s deadline 盖住了
+// 三个开销天差地别的步骤:读线程、生成标题(一次网络往返)、落盘(一次本地 SQLite 读+写)。网络那步吃光了预算,
+// 而标题——**已经生成出来、就躺在一个局部变量里**——在最后一寸被一个与「写它」毫无关系的 deadline 丢掉。
+//
+// 损害不是那行日志。`maybeAutoTitle` 只在对话仍无标题时开火,故这次丢失会被**下一轮**静默补上(代价是又一次 LLM
+// 调用)——而一条**只发生过一轮**的对话会永远叫「New chat」,它那个完全可用的标题死在内存里。这正是本测试只驱动
+// 一次交流的原因。
+func TestAutoTitle_PersistSurvivesAGenerateThatAteTheBudget(t *testing.T) {
+	saved := autoTitleTimeout
+	autoTitleTimeout = 120 * time.Millisecond // shrink the SLOW half so the test is deterministic, not slow
+	t.Cleanup(func() { autoTitleTimeout = saved })
+
+	store := newStore(t)
+	titler := &fakeTitler{called: make(chan string, 1)}
+	// Slow on EVERY call — a one-shot gate would be spent by the main turn, leaving auto-title's own
+	// generate instant (the first draft of this test was green for exactly that reason). The client
+	// ignores ctx, like a real one that finishes right at the edge: it hands back a complete title
+	// while the deadline is already gone.
+	// **每次调用都慢**——一次性 gate 会被主回合用掉,轮到自动标题时它自己的生成瞬时完成(本测试初稿正因如此是
+	// 绿的)。客户端无视 ctx,如同一个恰好卡在边缘完成的真客户端:它交回一个**完整的**标题,而 deadline 已经过去。
+	slow := &slowClient{script: titleTurn(), delay: 200 * time.Millisecond}
+	svc := NewService(store, Deps{
+		Conversations: fakeConvs{conv: &conversationdomain.Conversation{}}, // untitled
+		Resolver:      fakeResolver{client: slow},
+		Bridge:        newRecordBridge(),
+		Titler:        titler,
+	}, zap.NewNop())
+
+	if _, err := svc.Send(ctxWS("ws_1"), "cv_1", SendInput{Content: "hi"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	select {
+	case title := <-titler.called:
+		if title != "My Conversation Title" {
+			t.Fatalf("auto-title wrong: %q", title)
+		}
+	case <-time.After(3 * time.Second):
+		t.Fatal("a title that was generated must still be PERSISTED — the persist step must not " +
+			"inherit the deadline the generate step already spent (WRK-083 L11)")
+	}
+}
+
+// slowClient delays EVERY Stream call and ignores ctx — the "finished right at the edge" shape.
+// slowClient 每次 Stream 都延迟且无视 ctx——「恰好卡在边缘完成」的形状。
+type slowClient struct {
+	script []llminfra.StreamEvent
+	delay  time.Duration
+}
+
+func (c *slowClient) Stream(_ context.Context, _ llminfra.Request) iter.Seq[llminfra.StreamEvent] {
+	return func(yield func(llminfra.StreamEvent) bool) {
+		time.Sleep(c.delay)
+		for _, ev := range c.script {
+			if !yield(ev) {
+				return
+			}
+		}
+	}
 }

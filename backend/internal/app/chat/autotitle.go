@@ -14,10 +14,29 @@ import (
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
-const (
-	autoTitleTimeout = 10 * time.Second
-	autoTitleMaxLen  = 80
-)
+const autoTitleMaxLen = 80
+
+// autoTitleTimeout budgets the SLOW half — loading the thread and generating the title (a network
+// call). A var, not a const, so a test can shrink it and drive the "the generate step ate the whole
+// budget" case deterministically instead of sleeping ten real seconds.
+//
+// autoTitleTimeout 为**慢的那半**编预算——读线程 + 生成标题(一次网络调用)。用 var 而非 const,好让测试把它
+// 调小、确定性地驱动「生成步吃光了预算」那个情形,而不是真睡十秒。
+var autoTitleTimeout = 10 * time.Second
+
+// autoTitlePersistTimeout budgets the FAST half — one local SQLite read + write. It gets its OWN
+// deadline, freshly derived from the DETACHED context, because sharing the generate budget means the
+// slow step can starve the fast one: the title was already produced, and it was then thrown away at
+// the last inch by a deadline that had nothing to do with writing it (real machine, WRK-083 L11 —
+// `set title failed: conversationstore.Get: context deadline exceeded`). A one-turn conversation
+// stays named "New chat" forever in that case, while its perfectly good title dies in memory.
+// This is S9's rule read to its end: an async finalize must not be cancelled by what preceded it.
+//
+// autoTitlePersistTimeout 为**快的那半**编预算——一次本地 SQLite 读+写。它拿**自己的** deadline、从 detached
+// context 新derive,因为与生成步共用预算意味着慢的会把快的**饿死**:标题**已经生成出来了**,却在最后一寸被一个
+// 与「写它」毫无关系的 deadline 丢掉(真机,WRK-083 L11)。那种情况下,只发过一轮的对话会永远叫「New chat」,
+// 而它那个完全可用的标题死在内存里。这是把 S9 读到底:异步 finalize 不该被它之前的那一步取消。
+const autoTitlePersistTimeout = 5 * time.Second
 
 // autoTitleSystem instructs the utility model to produce a bare title. End-of-prompt phrasing +
 // "output only the title" keeps small models from adding quotes / preamble.
@@ -95,7 +114,11 @@ func (s *Service) autoTitle(conversationID, workspaceID string) {
 	// the sole emit — chat no longer double-notifies.
 	// SetAutoTitle 落 Title+AutoTitled 并在 notifications 流发 conversation.auto_titled（前端据此重读
 	// 行 + 触发标题打字机）。这是唯一发信——chat 不再重复通知。
-	if err := s.deps.Titler.SetAutoTitle(ctx, conversationID, title); err != nil {
+	// The persist gets a FRESH deadline off the DETACHED context — never the leftover of the generate
+	// budget (WRK-083 L11). 落盘从 **detached** context 取一个**新鲜的** deadline——绝不是生成预算的残额。
+	pctx, pcancel := context.WithTimeout(dctx, autoTitlePersistTimeout)
+	defer pcancel()
+	if err := s.deps.Titler.SetAutoTitle(pctx, conversationID, title); err != nil {
 		s.log.Warn("chatapp.autoTitle: set title failed", zap.Error(err))
 		return
 	}
