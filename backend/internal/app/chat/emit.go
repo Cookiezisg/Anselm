@@ -49,8 +49,22 @@ type messageUserContent struct {
 // token accounting (turn metadata — deliberately NOT in any block snapshot). The front end ends
 // the streaming bubble and shows the token cost from this.
 //
+// It repeats RetryOf from [messageOpenContent] because a Close is the DURABLE frame and its snapshot is
+// the replay truth (E2): a client that missed the open — replay after a 410, a window that connected
+// mid-turn, any reconnect — rebuilds the node from this alone, and clients replace content wholesale
+// from it. Without the pointer here, such a client is told the turn FOLLOWS the one above it when it
+// REPLACES it: it renders both versions as consecutive rounds, one question answered twice, no version
+// pager (WRK-083 L6). The store side has the same shape and the same repeat — runner.go re-seeds Attrs
+// because WriteFinalize writes them wholesale.
+//
 // messageStopContent 是 assistant 回合的 close 快照：终态 + stop reason + token 记账（回合元数据
 // ——刻意不进任何 block 快照）。前端据此结束流式气泡并显示 token 成本。
+//
+// 它**重复** [messageOpenContent] 的 RetryOf，因为 Close 是 durable 帧、其快照即 replay 真相（E2）：错过 open 的
+// 客户端——410 后 replay、中途连上的窗口、任何重连——只凭这一份重建节点，且客户端从它**整体覆写** content。这里
+// 缺了指针，这类客户端就被告知本回合**接在**上面那条后面，而真相是**取代**它：两个版本被渲成连续两轮、同一个问题
+// 答两遍、没有版本翻页（WRK-083 L6）。库那侧形状相同、重复也相同——runner.go 因 WriteFinalize 整体写 Attrs 而
+// 重新种一次。
 type messageStopContent struct {
 	Role         string `json:"role"`
 	Status       string `json:"status"`
@@ -59,6 +73,7 @@ type messageStopContent struct {
 	OutputTokens int    `json:"outputTokens"`
 	ErrorCode    string `json:"errorCode,omitempty"`
 	ErrorMessage string `json:"errorMessage,omitempty"`
+	RetryOf      string `json:"retryOf,omitempty"`
 }
 
 // emitUserMessage echoes a complete user turn as one message node (Open then Close) so every
@@ -126,6 +141,7 @@ func (s *Service) emitMessageStop(ctx context.Context, conversationID string, m 
 				OutputTokens: m.OutputTokens,
 				ErrorCode:    m.ErrorCode,
 				ErrorMessage: m.ErrorMessage,
+				RetryOf:      retryOfOf(m),
 			}),
 		},
 	})

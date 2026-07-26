@@ -265,8 +265,8 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 | # | 格 | 做法 / 结论 |
 |---|---|---|
 | R01 | 生成中 `kill -9` 后端 | ✅ **已扫**:发送失败态诚实且可恢复——`⚠ Couldn't send` + **Retry / Discard**,消息保住、不静默丢弃;后端拉回后点 Retry **重发成功**、SSE 三流自动重连、流式恢复。SSE 重连约 4s 退避(合理,只是日志吵)。**注意 dev-attach 模式下 app 不拥有 sidecar,故「监督者自动重启」那条路径未被覆盖**——它是生产专有路径 |
-| R02 | 生成中 `kill -9` app | 重启后 durable 是否真恢复 |
-| R03 | 断网 | 拔网发消息 · 拔网切页 · 恢复后自愈 |
+| R02 | 生成中 `kill -9` app | ✅ **已扫,两半都验**(dev-attach 只覆盖前一半,后一半单独造场)。**(a) durable 恢复**:流式到第 2 段时 `kill -9` app 进程 → 后端**独立跑完**(被杀那刻可见 `灯塔顶端的`,最终多出 **489 字**、`completed`/`end_turn`),**自动命名也在零客户端下完成**(`潮汐与灯塔`),`isGenerating=False` 无卡死;重启 app 开该对话:四段全文完整、无重复、composer 回正常发送态;三源扫查零异常。**(b) 死人开关**(WRK-070 T2 崩溃路径,`ANSELM_PARENT_WATCH`,**此前从未真机验过**):写替身父进程(`scratchpad/hardening/deadman_parent.py`,独立数据目录 + 独立端口,stdin/stderr 皆管道——production 契约逐条复刻)→ 触发语义搜索拉起真 `llama-server` 子进程 → `kill -9` **父进程** → sidecar **未孤儿化**、`llama-server` **随之而去**、文件日志留下完整有序关停两行(**证明 `signal.Ignore(SIGPIPE)` 那道防线成立**——注释记载的失败模式正是「日志零关停行」)。**机制订正**:带走 llama 的**不是**沙箱 kill-set(日志 `all handles killed count:0`——embedder 不归沙箱管),而是 `search/engine.Close()→killProcess()` 的优雅分支,由 `embedder.pid` **被删除**坐实(只有该分支删记录,R2) |
+| R03 | 断网 | ✅ **已扫**(**上游失联**式,非物理拔网——拔网会同时切断本会话到 API 的连接;改法更精确:建一把真 deepseek BYOK 键、跑通基线,再把它的 `baseUrl` 指到拒连端口,即「用着用着网没了」的真实形状)。**拔网发消息**:快速失败、不挂死,红字诚实到位(`LLM_STREAM_ERROR` + 上游原文 `dial tcp 127.0.0.1:1: connect: connection refused`),用户消息保住、重试钮在;**行上落盘**——`status=error` / `stopReason=error` / **`errorCode` + `errorMessage` 都在 message 行上**(先怀疑「原因只活在 SSE 帧里」,重启复验推翻了这个怀疑)。**拔网切页**:切海洋、切对话、翻历史全部正常(本地 sidecar 不受上游影响)。**恢复自愈**:改回真 baseUrl → 点重试 → 当场成功。**扫查副产物**:眼睛② 扫不到这类失败(送出是 202、失败经 SSE,HTTP 日志里无 4xx/5xx,结构化日志零行)——这类失败的账在 **messages 行**上,不在日志里;**这不是缺陷、是扫查方法的边界**,记此以免下次误判「无异常」。**本格逼出 L6**(见下) |
 | R04 | SSE 断线续传 | 410 `SEQ_TOO_OLD` → 重取 REST 再续 |
 | R05 | 五电池灌输入 | 空 / 超长(几万字粘贴)/ 海量(千条消息)/ 极值(emoji · RTL · NUL)/ 注入 |
 | R06 | 极长路径 / 极长实体名 | 驻地按钮截断 · 列表截断 |
@@ -297,6 +297,7 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 | **L3** | 左岛底栏的 workspace 菜单**只列当前那一个**——有两个 workspace 的用户从壳里根本切不过去(服务端 `/workspaces` 返两个,菜单列一个) | 菜单那一行是**写死**的 `AnMenuItem(label: wsName, checked: true, onTap: () {})`:它复述着打开它的那颗按钮上已经印着的名字,且不可点。架构文档一直把这个菜单描述为「切换/新建/工作区设置」——**「切换」那三分之一从来没接上线** | `1fb327f2` | `test/app/workspace_switcher_test.dart`:喂三个 workspace,断言**每一个**都在菜单里、且点非当前项真的切过去。守的是**数目**不是字符串(断言「Personal 与演示工作台都在列」对一个把这两个名字写死的菜单同样会通过)。先证红 ✓ | **无覆盖**——从没有测试把菜单的行数与 `/workspaces` 对过。界面上它毫无破绽:菜单打得开、看着也对、当前项旁边还有个勾 | ✅ 已修 |
 | **L4** | `AnRow` 尾端带**状态点**时仍溢出 **5.8px**——真机扫查(眼睛①)在一次真实对话生成中抓到 | **B2 修复自己引入的回归**:那次修复给**整个 trail** 设了界(`Flexible`+`Align`),却让 trail **内层** Row 的孩子留在自然尺寸。「有界的 trail 装着无界的 row」照样溢出——只是溢得少 | `dcfa4a26` | 守卫加一格:**带 `trailingDot` + 长 meta**(先证红 ✓,917px)。这正是**对话 rail 行的真实形状**(时间戳挨着生成中/未读点) | **B2 的守卫覆盖不足**——它测过「长 meta」也测过「hover 动作」,却从未把**状态点与长 meta render 在一起**。对真实形状而言,「从未一起测过」就是「从未测过」 | ✅ 已修 |
 | **L5** | 发送失败行 `⚠ Couldn't send / Retry / Discard` 溢出 **17px**——**韧性扫查 R01 中抓到**:后端 `kill -9` 后这一行出现,而当时右岛开着、海洋窄 | **与 B2/L4 同一类,第三例**:一个 Row 混着**本地化句子**与**固定 affordance**(图标 + 两颗按钮),而全部 child 都非弹性。`mainAxisSize: min` 帮不上——它只是「贴内容」,内容超出父宽照样溢 | `e12c958a` | 抽出 `FailedSendRow` 组件(**内联 Row 测试渲不出来**,不立起整个 transcript 就够不着)+ 守卫一格:窄宿主下无异常 **且两颗按钮都还在**——靠截肢掉一个动作换来的「装得下」不叫修好。先证红 ✓(133px) | **两个触发条件只在崩溃时同时成立**:这一行只在后端宕机时存在,而溢出还需要海洋窄(右岛开着)。此前每一轮扫查都碰不到这个交集——**是韧性域把它逼出来的** | ✅ 已修 |
+| **L6** | 重试之后,被取代的那一版**作为多出来的一轮**留在屏上——同一个问题答两遍、且没有版本翻页;**只有重启(走 REST)才折叠**成 `‹ 2/2 ›`。R03 断网演练里逼出来的:失败一轮 → 重试成功 → 屏上同时挂着红字失败轮与新答案 | **close 快照不自足**。`retryOf` 只搭了 `message_start`,而 **E2 规定 Close 是 durable 帧、其快照即 replay 真相**,客户端从该快照**整体覆写** content(此律在 `conversation_transcript.dart` 里已被写死过一次——本地 mentions 就是因它才要「每个 durable 帧后补写」)。于是回合一结束,开场送来的指针被抹掉,版本链断在**终点**。**同一种形状后端自己已经栽过一次并立了法**:`chat.md` 白纸黑字记着 `WriteFinalize` **整体重写** Attrs、故 `retryOf` 必须在收尾时**重新种**,连后果都写对了——「那个失败的版本会渲成**多出来的一轮**而不是版本翻页里的一页」。库那一半补了,线缆这一半没有。同文件内 **user 回声的 close 快照带 `RetryOf`**(编辑重发用)、assistant 的不带,是遗漏而非设计 | `<本次提交>` | **两层,皆先证红**:①`retry_test.go` 的 `TestRetry_CloseSnapshotCarriesTheVersionPointer`——断言**穿过真 JSON**(一个永不被序列化的字段蒙混不过去),红:`retryOf=""`;②testend `TestChatRetry_VersionChainWalksOnTheWire` 补 SSE 半——**仅凭 close 帧**重建整条向后链,拉真二进制真 SSE,红:两步各差一个指针。修后两层全绿,`make -C backend verify` + testend retry 全族绿 | **既有覆盖全在 REST**:testend 那条场景名字就叫「WalksOnTheWire」,但它走的是 `GET /messages` 投影——链在那儿**一直是对的**。没有任何测试问过「**只拿 close 帧**能不能重建这条链」,而那正是 replay / 中途连上的第二个窗口 / 每一次重连所处的位置 | ✅ 已修(真机:修复版上重试**当场**折成 `‹ 4/4 ›`;**首次复验作废重做**——那次的 8742 上跑的是 12:06 的旧进程,我的重启因工作目录不对静默失败,是核对进程启动时间才发现,详见下「L6 复验作废」) |
 | **L2** | 冷启动与热重启**必现**的 riverpod 断言 `setState() called during build` | **懒刷新的脏跨过了 build 边界**:`WorkspaceBootstrap` 先 `read(apiClientProvider)` 把 dio+apiClient 挂起来,随后在 await 之后 set `activeWorkspaceProvider`——而 dio **watch** 着它(那个 watch 就是热切换脉搏)。dio 就此变脏,riverpod 懒刷新,于是这份脏一直搁到某个 **widget** 的 build 走下那条链(rail → `chatRepositoryProvider` → `apiClientProvider`),刷新在 build 里跑、apiClient 自我失效、调度 refresh = 对 scope 的 `setState`。**在 build 中途** | `c76740f7` | **双守卫,都先证红**:① 行为——`provider_settle_guard_test` 用 40 行复现同一条断言(build 外 set → 后续 build 首次 watch);② **源码级**——`workspace_write_guard_test` 扫 `lib/**`,任何绕过 `setActiveWorkspace` 直接调 `.notifier).set(` 的文件即红(行为测试对**新增的绕行调用点**一无所知,而绕行正是最容易犯的错:它编译得过、id 也设对了,损害落在别处) | **没有任何测试覆盖 provider 图的时序**。既有测试要么 `overrideWithValue(apiClient)` 绕开真链(`workspace_bootstrap_test`),要么只在 `ProviderContainer` 里跑、根本没有 widget build 阶段(`hot_switch_test`)。**「脏是否跨过 build 边界」这件事,之前一个字都没测过** | ✅ 已修 |
 
 ### B1 复现(2026-07-26 02:16,真机,意外但完整)
@@ -349,7 +350,19 @@ watch activeWorkspace(换世界即弃闩)只是局部不变量、不是修法:�
 (messages/interactions/todos/touchpoints/workdir)各**恰好一次**全 200——卸载不伤重绑;Flutter 终端
 全窗口零输出。
 
-### B1 根因订正### B1 根因订正(§0 的原判据被实证推翻,记档而非默默改口)
+### L6 复验作废(第四次同类陷阱,记档以钉住教训)
+
+L6 修复后的**第一次**真机复验显示「仍然分裂」,几乎被我读成「修法无效」。核对进程启动时间才发现:8742 上跑的是
+**12:06 启动的旧后端**——我那条重启命令的工作目录是仓库根、`go run ./cmd/server` 在那里根本不存在,命令静默失
+败,而随后的 `health=200` 来自**没死的旧进程**。也就是说那次复验是**打在带病版上的**,它什么都没证明。
+
+**教训不是「小心工作目录」,而是**:真机复验前必须先坐实**被验的是哪一个二进制**。健康检查回 200 只证明「有人
+在监听」,不证明「监听的是你刚改的那份」。此后所有后端复验一律先核 `ps -o lstart`(或等价的身份证据)。
+
+这是本战役第四次同类陷阱(前三次:URL 断言空绿 / 夹具自造缺陷 / 未开对话就宣布 0 异常),四次的共同形状是
+**「验证对象没有被真正置于被验状态」**。
+
+### B1 根因订正(§0 的原判据被实证推翻,记档而非默默改口)
 
 §0 铁律二里我判 B1 的根是「失效责任散落在各个变更点」,证据是 `addWorktree` 自己手写了一句
 `invalidate` 而 `set()` 走另一条 patch 路径、两条都忘了列表。**那个判断是错的。**

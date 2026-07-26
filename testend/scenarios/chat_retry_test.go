@@ -49,6 +49,37 @@ func (m retryMsg) retryOf() string {
 	return s
 }
 
+// retryCloseRetryOf digs `retryOf` out of one turn's message_stop snapshot as it arrives on the SSE
+// wire — envelope → frame(kind:"close") → result.content. Everything is read as JSON, never through a
+// Go type, because the property under test is precisely what the BYTES carry (WRK-083 L6).
+// retryCloseRetryOf 从 SSE 线上抵达的某回合 message_stop 快照里挖出 `retryOf`——信封 → frame(kind:"close")
+// → result.content。全程按 JSON 读、绝不经 Go 类型,因为被测性质恰恰是**字节里带了什么**(WRK-083 L6)。
+func retryCloseRetryOf(t *testing.T, sse *harness.SSE, nodeID string) string {
+	t.Helper()
+	for _, e := range sse.Snapshot() {
+		var env struct {
+			ID    string `json:"id"`
+			Frame struct {
+				Kind   string `json:"kind"`
+				Result *struct {
+					Content struct {
+						RetryOf string `json:"retryOf"`
+					} `json:"content"`
+				} `json:"result"`
+			} `json:"frame"`
+		}
+		if err := json.Unmarshal(e.Data, &env); err != nil {
+			continue
+		}
+		if env.ID != nodeID || env.Frame.Kind != "close" || env.Frame.Result == nil {
+			continue
+		}
+		return env.Frame.Result.Content.RetryOf
+	}
+	t.Fatalf("no message_stop frame arrived for %s", nodeID)
+	return ""
+}
+
 // retryList reads the whole history newest-first with the version fields. 取整份历史（最新在前）带版本字段。
 func retryList(t *testing.T, wc *harness.Client, convID string) []retryMsg {
 	t.Helper()
@@ -317,6 +348,15 @@ func TestChatRetry_VersionChainWalksOnTheWire(t *testing.T) {
 		harness.LLMTurn{Text: "V2"},
 		harness.LLMTurn{Text: "V3"},
 	)
+	// The SSE half of "on the wire" (WRK-083 L6). Everything below reads the chain out of REST, and the
+	// chain was RIGHT there while the message_stop snapshot — the only thing a replaying client has —
+	// carried no pointer at all. A client that reconnects mid-round therefore renders a superseded
+	// version as its own round. REST-only coverage cannot see that, which is why this subscription is
+	// opened BEFORE the first send.
+	// 「在线缆上」的 SSE 那一半(WRK-083 L6)。下面的一切都从 REST 读这条链,而链在那儿一直是**对的**——错的是
+	// message_stop 快照(replay 客户端**唯一**拿得到的东西)根本不带指针。于是中途重连的客户端会把一个被取代的
+	// 版本渲成独立一轮。只测 REST 看不见这件事,故这条订阅开在首次发送**之前**。
+	sse := wc.Subscribe(t, "messages")
 	convID := convCreate(t, wc, "three versions")
 	waitTurn(t, wc, convID, sendMsg(t, wc, convID, "answer me"), 30000)
 	waitTurn(t, wc, convID, retryPost(t, wc, convID, ""), 30000)
@@ -355,6 +395,22 @@ func TestChatRetry_VersionChainWalksOnTheWire(t *testing.T) {
 	// Every version keeps its own prose (the pager reads these).
 	if v1.text() != "V1" || v2.text() != "V2" || v3.text() != "V3" {
 		t.Errorf("versions must keep their own prose: %q / %q / %q", v1.text(), v2.text(), v3.text())
+	}
+
+	// …and the SAME back-chain must be reconstructible from the CLOSE FRAMES ALONE (E2: a Close is
+	// durable and its snapshot is the replay truth). Read each version's message_stop out of the stream
+	// and walk retryOf across the snapshots — a client that joined mid-round has nothing else to walk.
+	// ……而同一条向后链必须**仅凭 close 帧**就能重建(E2:Close 是 durable 帧、其快照即 replay 真相)。从流里取出
+	// 每一版的 message_stop、在快照之间走 retryOf——中途连上的客户端没有别的东西可走。
+	for _, step := range []struct{ from, want string }{{v2.ID, v1.ID}, {v3.ID, v2.ID}} {
+		if got := retryCloseRetryOf(t, sse, step.from); got != step.want {
+			t.Errorf("message_stop snapshot for %s carries retryOf %q, want %q — a client replaying "+
+				"from close frames renders the superseded version as a separate round (WRK-083 L6)",
+				step.from, got, step.want)
+		}
+	}
+	if got := retryCloseRetryOf(t, sse, v1.ID); got != "" {
+		t.Errorf("an ordinary turn's close snapshot must carry no retryOf, got %q", got)
 	}
 
 	// The scene bar must not name a superseded turn: the transcript folds old versions into a version

@@ -47,7 +47,9 @@ audience: [human, ai]
 
 **`retryOf` 必须被重新种到 host 的 assistant message 上**（`task.retryOf` → `processTask`）：`WriteFinalize` **整体重写** Attrs，只在 `CreateMessage` 时写的 `retryOf` 会在回合收尾那一刻被抹掉；`failTurn` 同理收整个 `task` 而非裸 message id——一次模型解析失败的重试必须留住版本指针，否则那个失败的版本会渲成**多出来的一轮**而不是版本翻页里的一页（而用坏模型重试正是读者最需要翻回去的时刻）。
 
-**SSE 不加新流、不加新帧型**（E1/E2）：`retryOf` 搭在**既有** `message` 节点的 content 上（assistant 侧 `messageOpenContent.retryOf`、user 回声侧 `messageUserContent.retryOf`，两者都由 `retryOfOf(m)` 从 Attrs 读同一个源）。它必须上线缆，因为一个**不是发起方**的客户端没有别的办法知道「正在到来的这个回合是**取代**屏幕上已有的那一条、而不是接在它后面」。
+**SSE 不加新流、不加新帧型**（E1/E2）：`retryOf` 搭在**既有** `message` 节点的 content 上，**三处**——assistant 开场 `messageOpenContent.retryOf` · assistant **收场 `messageStopContent.retryOf`** · user 回声 `messageUserContent.retryOf`，三者都由 `retryOfOf(m)` 从 Attrs 读同一个源。它必须上线缆，因为一个**不是发起方**的客户端没有别的办法知道「正在到来的这个回合是**取代**屏幕上已有的那一条、而不是接在它后面」。
+
+**收场那一处不是重复、是 replay 的唯一入口**（与上一条 `WriteFinalize` 整体重写 Attrs 是**同一种形状**）：E2 规定 Close 是 durable 帧、其快照即重连真相，而客户端从该快照**整体覆写** content。于是错过 open 的客户端——410 后 replay、中途连上的第二个窗口、任何重连——只凭这一份重建节点；快照缺了指针，它就被告知「本回合**接在**上面那条后面」，把被取代的版本与它的替代者渲成**连续两轮**（同一个问题答两遍、且没有版本翻页）。守卫两层：`retry_test.go` 的 `TestRetry_CloseSnapshotCarriesTheVersionPointer`（穿过真 JSON 读，故不会被一个永不序列化的字段蒙混）+ testend `TestChatRetry_VersionChainWalksOnTheWire` 的 SSE 半（**仅凭 close 帧**重建整条向后链）。
 
 **同族过滤的另外两处**（都不是 token 优化、是诚实）：① **contextmgr 的压缩读**在唯一读点丢掉被取代的回合——否则装配过滤就有一个**单向阀式的洞**：`LoadThreadForLLM` 把被重试掉的回答挡在历史之外，可一旦它被折进 `conversation.summary`，内容就会**回流**进此后每一次 prompt，而摘要不是后面某个过滤器能收回的话（顺带让 `protectedFrom` 数的是真回合、不是版本）；② **`buildAnchors` 跳过被取代的回合**——transcript 把旧版折进版本组、只渲一行，故给某个版本建锚点要么让节选重复（「你说了两遍」）、要么给出一个跳向屏上并不存在的气泡的跳转。**`SumTokens`（usage）刻意不过滤**：那些 token 是真花掉的。
 

@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"encoding/json"
 	"iter"
 	"strings"
 	"sync"
@@ -12,6 +13,7 @@ import (
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
@@ -418,6 +420,95 @@ func TestRetryTargets_PicksTheCurrentTailOnly(t *testing.T) {
 	if _, _, err := retryTargets(onlySub); err != messagesdomain.ErrMessageNotFound {
 		t.Errorf("retryTargets(subagent rows only) = %v, want MESSAGE_NOT_FOUND", err)
 	}
+}
+
+// TestRetry_CloseSnapshotCarriesTheVersionPointer — the version pointer must survive the turn's END on
+// the WIRE, not only in the store (WRK-083 L6).
+//
+// `retryOf` rode message_start alone. But E2 makes Close the durable frame WITH A SNAPSHOT, precisely so
+// a client that missed the open (replay after 410, a second window that connected mid-turn, a reconnect)
+// can still render the turn — and every such client rebuilds the node from that snapshot. A snapshot
+// that omits the pointer tells them "this turn FOLLOWS the one above it" when the truth is "this turn
+// REPLACES it": they render the superseded version and its replacement as two consecutive rounds, the
+// same question answered twice, with no version pager. Real machine: after a retry the failed attempt
+// stayed on screen as its own round; only a restart (REST, where attrs.retryOf is projected) folded them.
+//
+// The store side already learned this exact lesson one file over — runner.go re-seeds retryOf because
+// WriteFinalize writes Attrs WHOLESALE and would otherwise drop a pointer written only at create time.
+// The wire has the same wholesale-overwrite shape (the client replaces content from the close snapshot)
+// and needed the same completeness. The user half already carried it (messageUserContent.RetryOf, for
+// edit-resend); only the assistant half did not.
+//
+// TestRetry_CloseSnapshotCarriesTheVersionPointer——版本指针必须在**线缆**上活过回合的**结束**,而不只是在库里
+// (WRK-083 L6)。
+//
+// `retryOf` 只搭了 message_start。但 E2 规定 Close 是**带快照的** durable 帧,正是为了让错过 open 的客户端
+// (410 后 replay、中途连上的第二个窗口、重连)仍能渲这个回合——而每一个这样的客户端都从那份快照重建节点。缺了指针的
+// 快照告诉它们「本回合**接在**上面那条后面」,而真相是「本回合**取代**它」:于是被取代的版本与它的替代者被渲成两个
+// 连续回合、同一个问题答了两遍、且没有版本翻页。真机:重试之后,失败的那次尝试作为独立一轮留在屏幕上,只有重启
+// (走 REST,attrs.retryOf 在那儿被投影)才折叠。
+//
+// 库那一侧在隔壁文件里已经学过一模一样的教训——runner.go 重新种 retryOf,因为 WriteFinalize **整体**写 Attrs、
+// 否则只在创建时写的指针会掉。线缆是同一种整体覆写形状(客户端从 close 快照替换 content),需要同一种完整性。
+// user 半本来就带着它(messageUserContent.RetryOf,编辑重发用);唯独 assistant 半没有。
+func TestRetry_CloseSnapshotCarriesTheVersionPointer(t *testing.T) {
+	svc, _, bridge, _ := retryFixture(t, "FIRST ANSWER", "SECOND ANSWER")
+	ctx := ctxWS("ws_1")
+
+	first, err := svc.Send(ctx, "cv_1", SendInput{Content: "the question"})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitClose(t, bridge, first)
+	second, err := svc.Retry(ctx, "cv_1", RetryInput{})
+	if err != nil {
+		t.Fatalf("Retry: %v", err)
+	}
+	waitClose(t, bridge, second)
+
+	// Assert on the CLOSE, standalone: this is exactly what a replaying client has and all it has.
+	// 断言落在 close 上、且**孤立地**看它:那正是一个 replay 客户端手里的全部东西。
+	if got := closeRetryOf(t, bridge, second); got != first {
+		t.Errorf("message_stop snapshot retryOf = %q, want %q — a client that replays from the close "+
+			"snapshot renders the superseded version as a separate round (WRK-083 L6)", got, first)
+	}
+	// An ordinary turn must stay clean: `omitempty` means no key at all, so a version pager never
+	// appears where nothing was retried. 普通回合必须干净:omitempty=键都不出现,没重试过的地方绝不冒出翻页。
+	if got := closeRetryOf(t, bridge, first); got != "" {
+		t.Errorf("an ordinary turn's close snapshot must carry no retryOf, got %q", got)
+	}
+}
+
+// closeRetryOf reads `retryOf` out of a turn's message_stop snapshot — through the JSON the client
+// actually receives, not through the Go struct, so a field that never marshals cannot pass.
+// closeRetryOf 从某回合的 message_stop 快照里读 `retryOf`——**穿过客户端真正收到的那份 JSON**、而不是 Go
+// 结构体,故一个永远不会被序列化的字段无法蒙混过关。
+func closeRetryOf(t *testing.T, b *recordBridge, id string) string {
+	t.Helper()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, e := range b.events {
+		if e.ID != id {
+			continue
+		}
+		c, ok := e.Frame.(streamdomain.Close)
+		if !ok || c.Result == nil {
+			continue
+		}
+		raw, err := json.Marshal(c.Result.Content)
+		if err != nil {
+			t.Fatalf("marshal close snapshot: %v", err)
+		}
+		var got struct {
+			RetryOf string `json:"retryOf"`
+		}
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatalf("unmarshal close snapshot: %v", err)
+		}
+		return got.RetryOf
+	}
+	t.Fatalf("no close frame for %s", id)
+	return ""
 }
 
 // blockText returns a turn's first block content. 取一个回合首个 block 的内容。
