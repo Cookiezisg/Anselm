@@ -354,15 +354,19 @@ key/时延/journal 行。形状与实测冲突处以实测为准。
 (llmmock:工具注入有无 × 成功/失败回合)+ 网关 testend + 前端 widget 五电池;
 **金标(P19,不省)**:受管档真出一张图。
 
-## §7 批B' · 全模态贯通·执行面(一次性地基;C/D 自动继承)
+## §7 批B' · 全模态贯通·执行面(一次性地基;C/D 自动继承)—— 后端四件 ✅ 已施工(2026-07-27)
 
-1. **MediaRef 升格**:字段形定稿 → ADR(值类型辖区:tool_result / frn / payload / 文档 URI)。
-2. **消费咽喉**(§3.8):loop 装配处解引用 + 模态门控 + 诚实降级;chat/agent/subagent/workflow-agent
-   一次全通。守卫:引用展开正确性 × 模态门控矩阵(吃得下/吃不下 × 图/音/视频/PDF)。
-3. **`sys:` 挂载**(§3.7):词法 + MountResolver + mount-health + agent 编辑器/工具挂载 UI。
-4. **MCP 媒体入口**:`joinContent` 拍平改结构化——媒体 content 落 media store、结果携 MediaRef;
-   工具卡/模型两侧同时受益。
-5. **前端引用卡族**(§3.9):原语一枚 + 铺三个面(scheduler 运行卷宗节点 result / 右岛调试台 /
+1. **MediaRef 升格** ✅ 代码半:`pkg/mediaref` 纯文法(Key=`attachmentId`/`att_<16hex>`/Collect
+   ≤8 去重,守卫钉文法)。ADR 落批G。
+2. **消费咽喉**(§3.8)✅ **四消费者全通**:payload 半(agent invoke:`Attachments+ContentCaps`
+   展开进首条 user 消息)+ tool_result 半(loop 六号可选能力 `MediaExpander`——每步收 MediaRef、
+   host 按解析模型模态展开、追加 user 消息只喂后续请求、不落盘;chatHost/agentHost〔兼 workflow-
+   agent〕/subagentHost 三实现)。守卫:loop 展开双测 + agent payload 门控 + subagent 三态。
+3. **`sys:` 挂载**(§3.7)后端 ✅:词法 + MountResolver 第四前缀 + mount-health;**剩 agent 编辑器
+   挂载 UI(前端)**。subagent 侧 `SetMultimodal`:能力工具白名单前并入(11903cc0)。
+4. **MCP 媒体入口** ✅:`CallTool` 返 `(text,[]Media)`,app 层落一等附件 + receipt 追加
+   (`source:"mcp_media"`),逐项 best-effort。
+5. **前端引用卡族**(§3.9)**剩**:原语一枚 + 铺三个面(scheduler 运行卷宗节点 result / 右岛调试台 /
    approval 渲染)。
 
 **验收**:§4 workflow 贯通线真机跑通(A 节点出图 → B agent 看见,以 LLM 请求线缆为证);
