@@ -24,7 +24,7 @@ Agent **自己不写代码**：它是一份"LLM 员工配置"——提示词 + *
 - **编辑是全量 Config 快照替换、非 ops**：agent 配置是声明式字段（无代码体），整体替换语义清晰；ops 增量是为代码体设计的。
 - **name 不强制 slug**：function/handler 的 name 是代码标识符（Python 入口/类名，强制 `^[a-z][a-z0-9_-]{0,63}$`）；agent 的 name 是展示身份（"You are <Name>"），可中文/空格。
 
-**`ToolRef{Ref, Name}`**：Ref 合法集 = `fn_<id>` / `hd_<id>.<method>` / `mcp:<server>/<tool>` / **`sys:<name>`（第四形,WRK-082 批B'/P14——内建能力工具,今 `sys:generate_image` 一员;解析时强制可用性:无可用路由 = 不可解析、invoke 大声失败〔与被删 function 同律〕,mount-health 显 Healthy=false 带「配 key 或开免费档」原因）**；**禁 `ag_`**（员工不调员工，domain `ValidateTools` 在 create/edit 时拒；create_agent 的 tools 描述指路：**串联 agent 改用 workflow agent 节点**）。Name 是挂载时存的展示名——运行时**一律按现名重新解析**（实体改名后工具自动用新名）。
+**`ToolRef{Ref, Name}`**：Ref 合法集 = `fn_<id>` / `hd_<id>.<method>` / `mcp:<server>/<tool>` / **`sys:<name>`（第四形,WRK-082 批B'/P14——内建能力工具,今 `sys:generate_image` 与 `sys:generate_speech` 两员;解析时强制可用性:无可用路由 = 不可解析、invoke 大声失败〔与被删 function 同律〕,mount-health 显 Healthy=false 带「配 key 或开免费档」原因）**；**禁 `ag_`**（员工不调员工，domain `ValidateTools` 在 create/edit 时拒；create_agent 的 tools 描述指路：**串联 agent 改用 workflow agent 节点**）。Name 是挂载时存的展示名——运行时**一律按现名重新解析**（实体改名后工具自动用新名）。
 
 **transcript 是核心持久化决策**：agent 运行的完整 block 序列（text/reasoning/tool_call/tool_result 跨步）序列化存进 `Execution.transcript`——**自包含的耐久记录，不进共享 message_blocks 表**。chat 内实时呈现走流（嵌套在 invoke_agent tool_call 下），reload 后前端从 transcript 重水合。
 

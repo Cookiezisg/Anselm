@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
@@ -46,12 +47,20 @@ type fakeProbes struct{ rows []apikeydomain.ProbedKey }
 
 func (f fakeProbes) ListProbed(context.Context) ([]apikeydomain.ProbedKey, error) { return f.rows, nil }
 
-type fakeUploader struct{ last *attachmentdomain.Attachment }
+type fakeUploader struct {
+	last *attachmentdomain.Attachment
+	// Data keeps the uploaded BYTES: for audio the joined stream is the thing under test, and a
+	// row with only a byte count cannot prove the chunks were rejoined into one playable file.
+	// Data 留下上传的**字节**:音频这边被测的正是那条拼好的流,而只有字节数的行证明不了「块被接成
+	// 了一个可播放文件」。
+	Data []byte
+}
 
 func (f *fakeUploader) Upload(_ context.Context, filename, mime string, data []byte) (*attachmentdomain.Attachment, error) {
 	f.last = &attachmentdomain.Attachment{
 		ID: "att_generated0001", Filename: filename, MimeType: mime, SizeBytes: int64(len(data)),
 	}
+	f.Data = data
 	return f.last, nil
 }
 
@@ -171,10 +180,22 @@ func TestExecute_EndToEndOpenAI(t *testing.T) {
 	)
 	up := &fakeUploader{}
 	tools := GenerateTools(router, up)
-	if len(tools) != 1 || tools[0].Tool.Name() != "generate_image" {
-		t.Fatalf("family = %v", tools)
+	// The family grows with each generation capability; find the one under test by NAME rather
+	// than by index, so adding a sibling never silently repoints this test at the wrong tool.
+	// 本族随每项生成能力增长;按**名字**取被测工具而非按下标,新增兄弟才不会把这个测试静默指向
+	// 另一个工具。
+	var img toolapp.Tool
+	names := make([]string, 0, len(tools))
+	for _, tw := range tools {
+		names = append(names, tw.Tool.Name())
+		if tw.Tool.Name() == "generate_image" {
+			img = tw.Tool
+		}
 	}
-	out, err := tools[0].Tool.Execute(context.Background(), `{"prompt":"a lighthouse","aspect":"landscape"}`)
+	if img == nil {
+		t.Fatalf("family = %v, want it to contain generate_image", names)
+	}
+	out, err := img.Execute(context.Background(), `{"prompt":"a lighthouse","aspect":"landscape"}`)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
 	}

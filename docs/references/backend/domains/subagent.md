@@ -17,7 +17,7 @@ audience: [human, ai]
 
 **混血 host**：agentHost 的 prompt 历史 + 静态工具白名单，加 chatHost 的 Detached 落盘 + message_stop（被取消的 subagent 仍落终态防孤儿）。实现 **MediaExpander**（WRK-082 批B' 消费咽喉·tool_result 半，与 chat/agent 同契约）——subagent 工具产出的 MediaRef 经同一 attachment 渲染缝展开、按其解析模型模态门控、当轮回喂模型;渲染失败/未注入只留文本 receipt（诚实降级）。
 
-**双层递归守卫**：① `Subagent` 工具名总从子集剔除（深度 1，子不能再派子）；② 内置类型硬编码（非用户实体）——`Explore`（只读侦察：Read/LS/Glob/Grep，30 轮）/ `Plan`（规划：+WebFetch/WebSearch，25 轮）/ `general-purpose`（父的全部工具减 Subagent，25 轮）。白名单按工具 `Name()` 动词匹配（与 agent 挂载的 ref 合成是**两套正确但不同**的机制——见 agent.md#3）。**能力工具**（`generate_image` 等，批B'）经 `SetMultimodal` 后置注入、在白名单**前**并入父集（`composeTools`）——general-purpose 空表继承（子代理也能生成媒体）、Explore/Plan 只读白名单天然排除；可用性逐 spawn 重估（与 chat 逐请求注入同一份 `capabilityTools` 真相）。
+**双层递归守卫**：① `Subagent` 工具名总从子集剔除（深度 1，子不能再派子）；② 内置类型硬编码（非用户实体）——`Explore`（只读侦察：Read/LS/Glob/Grep，30 轮）/ `Plan`（规划：+WebFetch/WebSearch，25 轮）/ `general-purpose`（父的全部工具减 Subagent，25 轮）。白名单按工具 `Name()` 动词匹配（与 agent 挂载的 ref 合成是**两套正确但不同**的机制——见 agent.md#3）。**能力工具**（`generate_image` / `generate_speech`，批B'/批C）经 `SetMultimodal` 后置注入、在白名单**前**并入父集（`composeTools`）——general-purpose 空表继承（子代理也能生成媒体）、Explore/Plan 只读白名单天然排除；可用性逐 spawn 重估（与 chat 逐请求注入同一份 `capabilityTools` 真相）。
 
 模型 = workspace dialogue 模型（常见情形即父的 effective 模型；承袭显式 per-conversation override 刻意延后）。
 

@@ -179,13 +179,16 @@ audience: [human, ai]
 | `DOCUMENT_NAME_REQUIRED` | 400 | name is required |
 | `DOCUMENT_QUERY_REQUIRED` | 400 | query is required |
 
-### `app/tool/generate`（+ `infra/llm` 生成方言,WRK-082 批B）
+### `app/tool/generate`（+ `infra/llm` 生成方言,WRK-082 批B/批C）
 
 | code | HTTP | message |
 |---|---|---|
 | `IMAGE_NO_ROUTE` | 422 | no configured key can generate images |
 | `IMAGE_PROMPT_REQUIRED` | 400 | prompt is required |
 | `IMAGE_GEN_FAILED` | 503 | image generation failed (dynamic——含上游状态与净化摘录,LLM 据此自调) |
+| `SPEECH_NO_ROUTE` | 422 | no configured key can synthesize speech |
+| `SPEECH_TEXT_REQUIRED` | 400 | text is required |
+| `SPEECH_GEN_FAILED` | 503 | speech synthesis failed (dynamic,同 IMAGE_GEN_FAILED 之律) |
 
 ### `app/tool/filesystem`
 
