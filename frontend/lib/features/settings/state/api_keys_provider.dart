@@ -56,9 +56,9 @@ class ApiKeysController extends AsyncNotifier<List<ApiKey>> {
     await _refresh();
   }
 
-  Future<ApiKey> test(String id) async {
+  Future<void> test(String id) async {
     try {
-      return await ref.read(settingsRepositoryProvider).testKey(id);
+      await ref.read(settingsRepositoryProvider).testKey(id);
     } finally {
       // A FAILED probe also stamped test_status on the row — refresh either way, or the list keeps
       // showing the pre-probe state. 失败探测同样落了行态——无论成败都重拉,否则列表停在探测前。

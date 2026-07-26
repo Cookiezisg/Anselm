@@ -54,8 +54,16 @@ abstract class SettingsRepository {
   /// Throws [ApiError] `API_KEY_IN_USE` with `details.references` when referenced. 被引用抛 IN_USE。
   Future<void> deleteKey(String id);
 
-  /// Probe now — returns the refreshed row (the backend persists the outcome). 立即探测,返新行。
-  Future<ApiKey> testKey(String id);
+  /// Run the server-side probe. Returns nothing: `:test` answers `{ok, message, latencyMs}` and stamps
+  /// `testStatus` on the ROW, and every caller refreshes the list right after — so there is nothing here
+  /// worth handing back. It used to re-read the single row through `GET /api-keys/{id}`, an endpoint that
+  /// **does not exist** (the contract has only list / PATCH / DELETE / `:test`), so a probe that SUCCEEDED
+  /// still ended in a 405 shown to the user as「this method is not allowed for this path」(WRK-083 L18).
+  /// 跑服务端探测。**不返东西**:`:test` 答 `{ok, message, latencyMs}` 并把 `testStatus` 盖在**行**上,而每个
+  /// 调用方紧接着都会重拉列表——这里没有什么值得回传。它原本经 `GET /api-keys/{id}` 重读单行,而那个端点
+  /// **根本不存在**(契约只有 list / PATCH / DELETE / `:test`),于是**探测成功**的一次也以 405 收场、把
+  /// 「this method is not allowed for this path」打到用户脸上(WRK-083 L18)。
+  Future<void> testKey(String id);
 
   /// null = 404 FREETIER_NOT_PROVISIONED (no managed row yet). 未开通映射 null。
   Future<FreetierQuota?> getFreetierQuota();
@@ -295,12 +303,7 @@ class LiveSettingsRepository implements SettingsRepository {
   Future<void> deleteKey(String id) => api.delete('/api/v1/api-keys/$id');
 
   @override
-  Future<ApiKey> testKey(String id) async {
-    await api.postData('/api/v1/api-keys/$id:test');
-    // The probe outcome is persisted server-side — re-read the row for the fresh testStatus.
-    // 探测结果落库,重读行取新状态。
-    return api.getEntity('/api/v1/api-keys/$id', ApiKey.fromJson);
-  }
+  Future<void> testKey(String id) => api.postData('/api/v1/api-keys/$id:test');
 
   @override
   Future<FreetierQuota?> getFreetierQuota() async {
@@ -785,14 +788,16 @@ class FixtureSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<ApiKey> testKey(String id) async {
+  Future<void> testKey(String id) async {
     _maybeFail();
+    // Mirror the server: the probe stamps the ROW and returns nothing (WRK-083 L18). Callers see the new
+    // status through the list refresh, exactly as they do against the real backend.
+    // 镜像服务端:探测把状态盖在**行**上、不返东西(WRK-083 L18);调用方经列表刷新看到新状态,与打真后端时一致。
     final i = keys.indexWhere((k) => k.id == id);
     keys[i] = keys[i].copyWith(
       testStatus: 'ok',
       lastTestedAt: DateTime.now().toUtc(),
     );
-    return keys[i];
   }
 
   @override
