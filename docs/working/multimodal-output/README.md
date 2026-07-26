@@ -424,9 +424,12 @@ router 四处 · bootstrap 无条件构造 · `speech_generation` 能力位。`m
 > 与图像同一条契约,网关从不持有产物字节,故一篇长文的音频不会变成网关的内存与出口流量。
 
 **剩**:
-- 桌面:`infra/llm/speechgen.go`(3 方言 + 共享 `wavHeader` + 按 provider 上限切块拼接)+
-  `speechProviders` **手写表**(catalog 的 chat 谓词会把纯 TTS 模型全滤掉,发现不了)+
-  `resolveSpeech`/`SpeechAvailable` + `generate/speech.go` 工具 + `GenerateTools` 追加一项。
+- 桌面 ✅ 已施工:`infra/llm/speechgen`(三方言 + `BuildWAV`/`ParseWAV`〔**遍历 chunk 表**,真实
+  编码器会夹带 LIST/fact〕/`ConcatAudio`〔**PCM 层**重接,字节追加会留第二个 RIFF 头〕+
+  `SplitSpeechText` 句读切块)· `tool/generate` **提取共享选路法则** `resolveIn`/`routeIn`(图像与
+  语音只差场景、provider 表、无路 sentinel 三样)+ `speechProviders` 手写表 + `defaultVoiceFor`
+  **按路由**解析(音色名不跨家通用,一个全局默认会在四家里的三家打出 400)+ `generate/speech.go`
+  工具 + `GenerateTools` 追加一项(chat 注入与 agent 挂载自动接住)。守卫 12 格。
 - **朗读**(P10,不经 LLM 零 token)+ **缓存**:键=(内容哈希+音色+模型+格式),直接**复用附件
   blob CAS 当持久层**(内容寻址天然去重、GC 走既有 Sweep),零新原语。
 - **金标**:真合成一句;缓存命中零计费以 journal 为证。
