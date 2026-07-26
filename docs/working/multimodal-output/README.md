@@ -111,6 +111,8 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 | A5 | **方言掩码**(`partMask`):模态布尔投影 = 目录模态 ∧ 方言 wire 能力(例:kimi-k2.6 目录列 video、Moonshot 方言渲不了 video part → `Video=false`) | 「能力宣称必须描述整条路」——网关 `Multimodal.Available` 双半才真先例用在方言上;守卫 `TestDescribe_MaskGatesProjection` | ✅ 批A 已实施 |
 | B1 | **网关上游走 DashScope 同步形**:`POST /api/v1/services/aigc/multimodal-generation/generation`(qwen-image-2.0 系,直接返 24h OSS URL)——**免掉整个任务轮询翻译层**;异步 text2image 形(qwen-image-plus)留 fallback 不实现 | 官方文档 2026-07 已把同步形标注为**推荐**且 §2.5 之前的「不走 OpenAI-compat、必须异步」判断已过时一半;同步形上游连接持有几十秒,给该路由单独设宽上游超时即可,比任务存储+轮询薄一个数量级 | 📋 批B 施工中,文档核准依据在案 |
 | B2 | **真 key 实测被权限闸挡下,转晨间解锁**:SSH 上生产服务器被会话权限分类器拒(不绕);本地 .env 无 DASHSCOPE key | 形状已按官方文档四家核准(见 §2.5 修订);真线缆证据(URL 无 key/时延/账单行)等解锁后补——两条路任选:①本地 env 提供 `DASHSCOPE_API_KEY` ②给会话加 SSH 权限规则 | ⏸ 待用户晨间解锁 |
+| B3 | **图像按张价先按工作假设入卡**:qwen-image ≈¥0.25/张 ≈ $0.035 = 35,000,000,000 pUSD/张,rate card 注释钉死「上线前对官方价页对账」 | 无真 key 无法读账单页实价;该价只影响 operator 自家钱包预算闸(reserve==settle 确定性成本),不影响上游真实计费;偏高偏低都只是预算余量问题 | ⏸ 与 B2 一并晨间对账 |
+| B4 | **品类日闸一个机制吃两批**:新表 `install_category_daily(install,category,day,units)`,图=张数、TTS=字符数同一 units 语义;`Limits.ImageDailyLimit` 默认 10(P8) | P8 说「走既有 per-install 日子限额」——读码后发现既有 `DailySublimit` 是**全请求混计**的日闸,表达不了「10 张图/天」;与其加临时列不如一次建品类通用机制(根修判据:批C 的 5 万字符/天零新机制直接落进同一张表) | 📋 批B 施工中 |
 
 ---
 
