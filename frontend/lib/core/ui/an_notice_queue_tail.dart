@@ -7,7 +7,6 @@ import '../notice/notice_center.dart';
 import 'an_interactive.dart';
 import 'an_notice_close_affordance.dart';
 import 'an_status_dot.dart';
-import 'an_tooltip.dart';
 import 'tone.dart';
 
 /// The fixed-cost candidate tail beside the top-band's current card:
@@ -130,81 +129,92 @@ class _AnNoticeQueueTailState extends State<AnNoticeQueueTail> {
         opacity: arrival,
         child: Transform.scale(scale: arrival, child: child),
       ),
-      child: AnTooltip(
-        message: widget.clearLabel,
-        child: Focus(
-          canRequestFocus: false,
-          skipTraversal: true,
-          onFocusChange: _setFocusWithin,
-          child: MouseRegion(
-            onEnter: (_) => _setHovered(true),
-            onExit: (_) => _setHovered(false),
-            child: MergeSemantics(
-              child: Semantics(
-                label: widget.clearLabel,
-                button: true,
-                child: AnInteractive(
-                  onTap: widget.onClear,
-                  builder: (context, states) {
-                    // 32px is only the number runway. The active visual is the island's tile-less
-                    // 28px close face, centred without moving the slot. 32 只给数字跑道;激活面是岛内
-                    // 同款无底 28px X,槽中心不动。
-                    final active = _engaged || states.isActive;
-                    final focused = states.contains(WidgetState.focused);
-                    return SizedBox(
-                      width: AnSize.noticeTailSlot,
-                      height: AnSize.noticeBar,
-                      child: Center(
-                        child: ExcludeSemantics(
-                          child: AnimatedSwitcher(
-                            duration: reduced ? Duration.zero : AnMotion.fast,
-                            switchInCurve: AnMotion.easeOut,
-                            switchOutCurve: AnMotion.easeOut,
-                            layoutBuilder: (current, previous) => Stack(
-                              alignment: Alignment.center,
-                              children: <Widget>[...previous, ?current],
-                            ),
-                            transitionBuilder: (child, animation) =>
-                                FadeTransition(
-                                  opacity: animation,
-                                  child: ScaleTransition(
-                                    scale: Tween<double>(
-                                      begin: 0.86,
-                                      end: 1,
-                                    ).animate(animation),
-                                    child: child,
-                                  ),
+      // NO AnTooltip here (WRK-083 L12). This subtree renders inside the band's
+      // CompositedTransformFollower — the tail follows the centred card's right edge WITHOUT
+      // participating in layout, which is what keeps `1 / 2 / +N` from ever nudging the card left. A
+      // FollowerLayer establishes its paint transform only AFTER layout, while Tooltip's overlay asks
+      // for that transform DURING layout: real machine, every hover threw «The paint transform cannot
+      // be reliably computed because of RenderFollowerLayer(s)» and **no tooltip appeared at all**.
+      // It was a dead affordance charging a rendering assertion per hover, so it is gone rather than
+      // "fixed": the accessible name is the Semantics label below (what a screen reader actually
+      // reads), and the glyph already states the action by changing `+N` → `✕` on hover.
+      //
+      // 此处**不放 AnTooltip**(WRK-083 L12)。这棵子树渲在顶带的 CompositedTransformFollower 里——尾巴跟随
+      // 居中卡片的右缘且**不参与布局**,这正是「1/2/+N 永不把卡往左挤」的保证。而 FollowerLayer 的 paint
+      // transform 要**布局之后**才确立,Tooltip 的 overlay 却在**布局期**就来要它:真机上每次 hover 都抛
+      // 「paint transform cannot be reliably computed because of RenderFollowerLayer(s)」,且**根本不显示任何
+      // tooltip**。它是一个每次 hover 收一次渲染断言的**死示能**,故是**删掉**而不是「修好」:可访问名由下面
+      // 的 Semantics label 承担(那才是屏幕阅读器读的),而字形 hover 时 `+N` → `✕` 已经把动作说清楚了。
+      child: Focus(
+        canRequestFocus: false,
+        skipTraversal: true,
+        onFocusChange: _setFocusWithin,
+        child: MouseRegion(
+          onEnter: (_) => _setHovered(true),
+          onExit: (_) => _setHovered(false),
+          child: MergeSemantics(
+            child: Semantics(
+              label: widget.clearLabel,
+              button: true,
+              child: AnInteractive(
+                onTap: widget.onClear,
+                builder: (context, states) {
+                  // 32px is only the number runway. The active visual is the island's tile-less
+                  // 28px close face, centred without moving the slot. 32 只给数字跑道;激活面是岛内
+                  // 同款无底 28px X,槽中心不动。
+                  final active = _engaged || states.isActive;
+                  final focused = states.contains(WidgetState.focused);
+                  return SizedBox(
+                    width: AnSize.noticeTailSlot,
+                    height: AnSize.noticeBar,
+                    child: Center(
+                      child: ExcludeSemantics(
+                        child: AnimatedSwitcher(
+                          duration: reduced ? Duration.zero : AnMotion.fast,
+                          switchInCurve: AnMotion.easeOut,
+                          switchOutCurve: AnMotion.easeOut,
+                          layoutBuilder: (current, previous) => Stack(
+                            alignment: Alignment.center,
+                            children: <Widget>[...previous, ?current],
+                          ),
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(
+                                opacity: animation,
+                                child: ScaleTransition(
+                                  scale: Tween<double>(
+                                    begin: 0.86,
+                                    end: 1,
+                                  ).animate(animation),
+                                  child: child,
                                 ),
-                            child: active
-                                ? AnNoticeCloseFace(
-                                    key: const ValueKey<String>('clear'),
-                                    active: true,
-                                    focused: focused,
-                                    pressed: states.contains(
-                                      WidgetState.pressed,
-                                    ),
-                                  )
-                                : SizedBox(
-                                    key: ValueKey<String>(visualCount),
-                                    width: AnSize.noticeTailSlot,
-                                    height: AnSize.control,
-                                    child: Center(
-                                      child: Text(
-                                        visualCount,
-                                        maxLines: 1,
-                                        softWrap: false,
-                                        style: AnText.metaTabular().copyWith(
-                                          color: c.inkFaint,
-                                        ),
+                              ),
+                          child: active
+                              ? AnNoticeCloseFace(
+                                  key: const ValueKey<String>('clear'),
+                                  active: true,
+                                  focused: focused,
+                                  pressed: states.contains(WidgetState.pressed),
+                                )
+                              : SizedBox(
+                                  key: ValueKey<String>(visualCount),
+                                  width: AnSize.noticeTailSlot,
+                                  height: AnSize.control,
+                                  child: Center(
+                                    child: Text(
+                                      visualCount,
+                                      maxLines: 1,
+                                      softWrap: false,
+                                      style: AnText.metaTabular().copyWith(
+                                        color: c.inkFaint,
                                       ),
                                     ),
                                   ),
-                          ),
+                                ),
                         ),
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
             ),
           ),

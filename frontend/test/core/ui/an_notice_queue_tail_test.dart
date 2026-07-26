@@ -167,4 +167,86 @@ void main() {
       );
     },
   );
+  // WRK-083 L12 — the tail lives inside a CompositedTransformFollower, and a Flutter [Tooltip] cannot
+  // compute its position there.
+  //
+  // The band's design is deliberate (app_shell `_BandNoticeHost`): the current card is a paint target
+  // centred on its own, and the candidate tail FOLLOWS its right edge through a LayerLink WITHOUT
+  // participating in layout — that is what guarantees «1 / 2 / +N can never nudge the card left». But a
+  // FollowerLayer establishes its paint transform only AFTER layout, and Tooltip's overlay asks for that
+  // transform DURING layout. Real machine: hovering `+N` threw
+  // «The paint transform cannot be reliably computed because of RenderFollowerLayer(s)» — and **no
+  // tooltip appeared at all**. So it was not a mispositioned label, it was a dead affordance that cost a
+  // rendering assertion on every hover. The accessible name never depended on it (the Semantics label
+  // right below is what a screen reader reads), and the glyph already says the thing: `+N` → `✕`.
+  //
+  // The guard hosts the tail the way the app does — INSIDE a follower — because a bare tail cannot
+  // reproduce this at all: every existing test in this file renders it in a plain Center and is green.
+  //
+  // WRK-083 L12——尾巴住在 CompositedTransformFollower 里,而 Flutter 的 [Tooltip] 在那里算不出自己的位置。
+  //
+  // 顶带的设计是刻意的(app_shell 的 `_BandNoticeHost`):当前卡是自己居中的 paint target,候场尾经 LayerLink
+  // **跟随它的右缘且不参与布局**——这正是「1/2/+N 永不把卡往左挤」的保证。但 FollowerLayer 的 paint transform
+  // 要**布局之后**才确立,而 Tooltip 的 overlay 在**布局期**就来要这个 transform。真机:hover `+N` 抛出
+  // 「The paint transform cannot be reliably computed because of RenderFollowerLayer(s)」,且**根本没有任何
+  // tooltip 出现**。所以它不是「标签位置错了」,是一个**死的**示能,代价是每次 hover 抛一次渲染断言。可访问名
+  // 从来不靠它(下面那个 Semantics label 才是屏幕阅读器读的),而字形本身已经把话说清:`+N` → `✕`。
+  //
+  // 守卫必须**按 app 的样子**把尾巴装进 follower——裸着的尾巴根本复现不了:本文件既有的每一条都把它渲在一个
+  // 普通 Center 里,故全是绿的。
+  testWidgets(
+    'hovering the clear affordance inside a FOLLOWER throws nothing (L12)',
+    (tester) async {
+      final link = LayerLink();
+      await tester.pumpWidget(
+        host(
+          SizedBox(
+            width: 400,
+            height: 80,
+            child: Stack(
+              children: [
+                CompositedTransformTarget(
+                  link: link,
+                  child: const SizedBox(width: 40, height: 36),
+                ),
+                Positioned.fill(
+                  child: CompositedTransformFollower(
+                    link: link,
+                    targetAnchor: Alignment.topRight,
+                    followerAnchor: Alignment.topLeft,
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: AnNoticeQueueTail(
+                        cues: cues,
+                        overflowCount: 3,
+                        clearLabel: 'clear 5',
+                        onClear: () {},
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gesture = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await gesture.addPointer(location: Offset.zero);
+      addTearDown(gesture.removePointer);
+      await gesture.moveTo(tester.getCenter(find.text('+3')));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2)); // past the dwell 越过驻留
+      await tester.pumpAndSettle();
+
+      expect(
+        tester.takeException(),
+        isNull,
+        reason:
+            'a hover on the tail must not throw — a Tooltip inside a CompositedTransformFollower '
+            'asserts during layout and shows nothing (WRK-083 L12)',
+      );
+    },
+  );
 }
