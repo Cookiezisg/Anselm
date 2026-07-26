@@ -413,10 +413,17 @@ quota `CategorySpeech` + `SpeechDailyLimit` + **带品类名的 typed 拒绝** �
 (gate 2c 与 rollback 本体零改动) · config 四键 + fail-fast · `TTS_UNAVAILABLE`/
 `TTS_QUOTA_EXHAUSTED`(**避开已被实时 ASR 占用的 `SPEECH_UNAVAILABLE`**) · GW-INV-52/53。
 
+**网关侧已全**(`c566612` 钱层 + `9d0d8e6` 服务层):`infra/upstream/ttsgen`(与 imagegen 共用
+端点、请求嵌套 `input{text,voice}`、响应 `output.audio.url` **直通并归一到 https**〔代拍 C6:上游
+可能返 http 的 OSS URL,而本系统两端都拒明文取产物;OSS 预签名不覆盖 scheme,真钱冒烟出 403 即
+此假设被推翻〕)· `app/tts`(**不叫 app/speech**——那个包名已是实时 ASR)· `handlers/business/audio`
+(`POST /v1/audio/speech`,input ≤500 rune、voice 只界形状不校验目录、**显式拒 `format`**)·
+router 四处 · bootstrap 无条件构造 · `speech_generation` 能力位。`make verify` 全绿,GW-INV-54。
+
+> **注意一处与原设计的偏离**:调研原建议「网关二次 GET 取字节」,实际按 **P13 URL 直通**做——
+> 与图像同一条契约,网关从不持有产物字节,故一篇长文的音频不会变成网关的内存与出口流量。
+
 **剩**:
-- 网关:`infra/upstream/ttsgen.go`(两步:POST→解 `output.audio.url`→**无鉴权头**裸 client GET)
-  + `app/tts`(照 `app/image` 逐行)+ `handlers/business/audio` + router 四处 + bootstrap 无条件
-  构造 + `SpeechGeneration *GenProfile`(version 仍 1)。
 - 桌面:`infra/llm/speechgen.go`(3 方言 + 共享 `wavHeader` + 按 provider 上限切块拼接)+
   `speechProviders` **手写表**(catalog 的 chat 谓词会把纯 TTS 模型全滤掉,发现不了)+
   `resolveSpeech`/`SpeechAvailable` + `generate/speech.go` 工具 + `GenerateTools` 追加一项。
