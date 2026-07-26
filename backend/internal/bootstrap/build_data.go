@@ -56,6 +56,7 @@ type stores struct {
 	todo         *todostore.Store
 	touchpoint   *touchpointstore.Store
 	attachment   *attachmentstore.Store
+	speechCache  *attachmentstore.SpeechCacheStore
 	function     *functionstore.Store
 	handler      *handlerstore.Store
 	agent        *agentstore.Store
@@ -174,6 +175,7 @@ func allSchemas() []string {
 	s = append(s, todostore.Schema...)
 	s = append(s, touchpointstore.Schema...)
 	s = append(s, attachmentstore.Schema...)
+	s = append(s, attachmentstore.SpeechCacheSchema...)
 	s = append(s, functionstore.Schema...)
 	s = append(s, handlerstore.Schema...)
 	s = append(s, agentstore.Schema...)
@@ -229,6 +231,7 @@ func buildStores(database *ormpkg.DB, enc cryptodomain.Encryptor, dataDir string
 		todo:         todostore.New(database),
 		touchpoint:   touchpointstore.New(database),
 		attachment:   attachmentstore.New(database),
+		speechCache:  attachmentstore.NewSpeechCache(database),
 		function:     functionstore.New(database),
 		handler:      handlerstore.New(database),
 		agent:        agentstore.New(database),

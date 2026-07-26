@@ -140,6 +140,7 @@ ID：`mcp_`/`mcl_` · `doc_`（skill 无 id——slug 即身份）
 | `messages` | conversation_id · **subagent_id**（≠'' = subagent 产出）· role/status(CHECK) · stop_reason · error_code/message · input/output_tokens · provider/model_id（溯源）· attrs(json：附件/提及快照 + **`retryOf`** = 本行是**哪一条**的新版本，即 `superseded_by` 的反向指针)· **`superseded_by`**（版本指针，`POST /{id}:retry` 写：`''` = **现行版**，否则是取代本回合的那条新回合 id。**列演化经 `ALTER TABLE … ADD COLUMN` 一句**、不并进 `CREATE`，与 conversations 分叉血缘两列同法（`TEXT NOT NULL DEFAULT ''` 而非可空——`''` 已表达「这是现行版」）。**刻意无索引**：唯一读它的谓词（`LoadThreadForLLM` 的 `superseded_by = ''`）搭在既有 `conversation_id` 扫描上、结果集就是一条线程，多一个索引是让每次插入付钱去省一次本就被线程界住的扫描。唯一写者 `MarkSuperseded` = **单列部分 UPDATE**，不碰 content / status / created_at） | **append-only**（D1）；`msg_`。**`superseded_by` 不是软删、不违 D1**：它只收窄**一类消费者**的视野（`LoadThreadForLLM` 的 LLM 历史投影，及同族的 contextmgr 压缩读与 anchors 建锚），而行本身**留在盘上、照常从三种 REST 读形态返回、`?around=` 深跳仍可寻址、UI 版本翻页可逐版回看**。D1 禁的是**逻辑删除**——让一行对读路径消失；此处没有任何读路径失去这一行，判据就是「零删除、旧版永可读」（把指针改回 `''` 即完全复原）。物理删例外仍恰有本文件 flowrun 节立法的那两个，本列不新增第三个 |
 | `message_blocks` | message_id · parent_block_id · **seq**（落盘分配）· **type(CHECK 七型**——`text`/`reasoning`/`tool_call`/`tool_result`/`compaction`/`progress`/**`marker`**）· attrs/content · status · **context_role**(CHECK hot/warm/cold/archived——压缩投影) | append-only；`blk_`。**CHECK 六 → 七的立法（`marker`，WRK-077 WD1）见下方专条** |
 | `attachments` | sha256(内容寻址，非唯一) · filename · mime_type · kind(image/document/text/audio/video/other) · size_bytes · blob 字节在 infra/fs/blob 按 sha256 寻址 | 软删；`att_`；≤50MB |
+| `speech_cache` | cache_key(sha256(文本+音色+provider+model),`UNIQUE(workspace_id,cache_key)`) · attachment_id · size_bytes · last_used_at | **派生缓存,无 `deleted_at`、行物理淘汰**(D1 第三个物理删例外,立法见下)；`spc_`；per-workspace 50MB LRU |
 | `attachment_derivatives` | attachment_id · kind · source_sha256 · params_hash · **params_json** · status(pending/running/ready/failed/cancelled) · blob_sha256/mime_type/size_bytes · width/height/duration_ms · error_code | 可再生媒体代理；`UNIQUE(workspace_id,attachment_id,kind,source_sha256,params_hash)` 使相同原件+变换并发收敛；`params_json` 是 canonical 非敏感执行参数（如 maxEdge/crop），worker 用它复现变换，身份仍靠 hash；`mdr_`；独立 media CAS，绝不与原件 blob 共用 GC |
 | `attachment_perceptions` | attachment_id · kind · source_sha256 · task_hash · provider/model · params_hash · **params_json** · status(pending/running/ready/failed/cancelled) · capsule_json · input/output_tokens · error_code | 任务条件化的有界证据；`UNIQUE(workspace_id,attachment_id,kind,source_sha256,task_hash,provider,model,params_hash)`；`params_json` 只存非敏感执行参数，task 只落 SHA-256，绝不落原始 prompt/上游原文；`mpr_` |
 | `todos` | **`scope_id`**(pk = subagent id ?? conv id) · conversation_id · subagent_id · items(json ≤64) | 整表替换写 |
@@ -178,3 +179,10 @@ ID：`sd_`。**派生数据**：物理删（实体删/级联/重建即删行）�
 | catalog / mention / websearch / aispawn / humanloop / contextmgr / entitystream：**无表** | 派生/契约/运行时机制 |
 
 > **运行时/infra ID 前缀（无表，S15 仍登记）**：`sig_`（entitystream 信号帧 id）· `bsh_`（shell 工具的 bash 进程句柄）· `subagt_`（subagent run id）· `hdi_`（handler 实例，见 handler 节）。infra 侧 ID 一律用自己前缀、不从消费实体 id 派生。
+
+**`speech_cache` 的物理删(D1 第三个例外,WRK-082 批C/P10)**:朗读缓存是**派生**数据——每一行都能靠
+重新合成重建,而**淘汰是它的目的**、不是业务逻辑丢行。它按 `last_used_at` LRU、以 per-workspace
+50MB 字节预算为界物理删行;被淘汰行指向的**附件按 D1 软删**(墓碑照留,blob 由既有 GC 在无活跃行引用
+该 sha 时回收)。之所以能这么删而不损真相:朗读产物的**唯一**指涉就是它的缓存行——它不挂在任何消息
+上、不出现在任何持久化内容的 MediaRef 里(前端播完即忘)。若将来有功能要**留住**一段朗读,那个功能
+必须自己取一份附件,而不是指望缓存行活着。

@@ -190,6 +190,13 @@ audience: [human, ai]
 | `SPEECH_TEXT_REQUIRED` | 400 | text is required |
 | `SPEECH_GEN_FAILED` | 503 | speech synthesis failed (dynamic,同 IMAGE_GEN_FAILED 之律) |
 
+### `app/readaloud`（朗读,WRK-082 批C/P10）
+
+| code | HTTP | message |
+|---|---|---|
+| `READALOUD_TEXT_REQUIRED` | 400 | text is required |
+| `READALOUD_TEXT_TOO_LONG` | 400 | text exceeds the read-aloud limit |
+
 ### `app/tool/filesystem`
 
 | code | HTTP | message |

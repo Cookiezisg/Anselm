@@ -237,6 +237,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, cfg Config, pr
 		handlershttpapi.NewTodoHandler(s.todo, log),
 		handlershttpapi.NewTouchpointHandler(s.touchpoint, log),
 		handlershttpapi.NewAttachmentHandler(s.attachment, s.media, log),
+		handlershttpapi.NewReadAloudHandler(s.readAloud, log),
 		handlershttpapi.NewFunctionHandler(s.function, s.aispawn, log),
 		handlershttpapi.NewHandlerHandler(s.handler, s.aispawn, log),
 		handlershttpapi.NewAgentHandler(s.agent, s.aispawn, log),

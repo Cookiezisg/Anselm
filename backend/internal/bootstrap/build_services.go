@@ -29,6 +29,7 @@ import (
 	modelapp "github.com/sunweilin/anselm/backend/internal/app/model"
 	modelprofileapp "github.com/sunweilin/anselm/backend/internal/app/modelprofile"
 	notificationapp "github.com/sunweilin/anselm/backend/internal/app/notification"
+	readaloudapp "github.com/sunweilin/anselm/backend/internal/app/readaloud"
 	relationapp "github.com/sunweilin/anselm/backend/internal/app/relation"
 	sandboxapp "github.com/sunweilin/anselm/backend/internal/app/sandbox"
 	schedulerapp "github.com/sunweilin/anselm/backend/internal/app/scheduler"
@@ -106,6 +107,7 @@ type services struct {
 	todo          *todoapp.Service
 	touchpoint    *touchpointapp.Service
 	attachment    *attachmentapp.Service
+	readAloud     *readaloudapp.Service
 	function      *functionapp.Service
 	handler       *handlerapp.Service
 	agent         *agentapp.Service
@@ -346,6 +348,10 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// 同时服务受管网关调用(签名)与产物下载(透传)。
 	genRouter := &generatetool.Router{Picker: ws, Keys: keys, Probes: keys, HTTP: inf.proofHTTP}
 	genTools := generatetool.GenerateTools(genRouter, att)
+	// Read-aloud (WRK-082 批C, P10): the SAME speech router the tool uses, driven by a button
+	// instead of an LLM. Its cache is what makes a second listen free.
+	// 朗读(批C,P10):与工具**同一个**语音路由,由按钮而非 LLM 驱动。它的缓存让第二次听免费。
+	readAloud := readaloudapp.NewService(genRouter, att, st.speechCache, log)
 	// sys: mount registry (批B'/P14): the same capability tools, mountable by agents — one truth
 	// for「什么算能力工具」, two consumers (chat per-request injection + agent mounts).
 	// sys: 挂载注册表(批B'/P14):同一批能力工具供 agent 挂载——「什么算能力工具」一份真相,
@@ -620,7 +626,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		workspace: ws, apikey: keys, modelCaps: modelCaps, modelProfile: modelProfile, media: media, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
 		touchpoint: tp, toolNames: toolNames, toolCatalog: toolCatalog,
-		attachment: att, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
+		attachment: att, readAloud: readAloud, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
 		search: searchSvc, shellMgr: shellTools.Manager, freetier: freetier, freetierQuota: freetierQuota, speech: speech,

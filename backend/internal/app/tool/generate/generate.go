@@ -318,6 +318,47 @@ func (r *Router) synthesizeChunk(ctx context.Context, route genRoute, text, voic
 	}
 }
 
+// SynthesizeSpeech is the read-aloud entry point: the SAME routing and synthesis the tool uses,
+// exposed for callers that are not an LLM (WRK-082 P10 — the message action row reads a message
+// aloud without spending a single token). It returns the audio plus the route's identity, which
+// the caller needs for its cache key: the same text in a different voice is a different artifact.
+//
+// SynthesizeSpeech 是朗读入口:与工具**同一套**选路与合成,暴露给非 LLM 的调用方(P10——消息动作排
+// 读出一条消息,不花一个 token)。它连同音频返回路由身份,因为调用方的缓存键需要它:同一段文字换个
+// 音色就是另一件产物。
+func (r *Router) SynthesizeSpeech(ctx context.Context, text, voice string) (llminfra.GeneratedAudio, string, string, string, error) {
+	route, err := r.resolveSpeech(ctx)
+	if err != nil {
+		return llminfra.GeneratedAudio{}, "", "", "", err
+	}
+	if voice == "" {
+		voice = defaultVoiceFor(route.provider)
+	}
+	audio, err := r.synthesize(ctx, route, text, voice)
+	if err != nil {
+		return llminfra.GeneratedAudio{}, "", "", "", err
+	}
+	return audio, route.provider, route.model, voice, nil
+}
+
+// SpeechRouteIdentity answers WHICH route a synthesis would take, without calling any upstream.
+// Read-aloud needs it to build its cache key before spending anything: the identity is part of
+// the key, so without a no-cost way to learn it, every repeat listen would have to synthesize
+// first and only then discover it could have been served from disk.
+//
+// SpeechRouteIdentity 答出一次合成**会走**哪条路由,不打任何上游。朗读要用它在花钱之前构造缓存键:
+// 身份是键的一部分,故若没有一条零成本的途径知道它,每次重听都得先合成、然后才发现本可以从盘上取。
+func (r *Router) SpeechRouteIdentity(ctx context.Context, voice string) (string, string, string, error) {
+	route, err := r.resolveSpeech(ctx)
+	if err != nil {
+		return "", "", "", err
+	}
+	if voice == "" {
+		voice = defaultVoiceFor(route.provider)
+	}
+	return route.provider, route.model, voice, nil
+}
+
 // GenerateTools builds the family over its route + persistence dependencies. The returned slice is
 // what bootstrap's CapabilityTools closure filters per request.
 //
