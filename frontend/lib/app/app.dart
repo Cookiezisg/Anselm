@@ -48,6 +48,11 @@ class AnApp extends ConsumerWidget {
       // honest end-to-end. 暗色随 S1b 点亮;mode 轴现在接好,偏好端到端诚实。
       darkTheme: AnTheme.dark(),
       themeMode: ref.watch(themeModeProvider),
+      // Zero — see [AnTheme.switchDuration]: the default hands the whole ThemeData (three extensions,
+      // 46 colours in AnColors alone) to AnimatedTheme, which lerps it frame by frame while EVERY
+      // kept-alive screen rebuilds. 零——见 [AnTheme.switchDuration]:默认会把整个 ThemeData 交给
+      // AnimatedTheme 逐帧 lerp,而每一屏保活的界面都跟着重建。
+      themeAnimationDuration: AnTheme.switchDuration,
       // Material component-level localization follows the slang locale (previously unwired — the
       // runtime language switch needs it). Material 组件级本地化跟随 slang(此前未接;运行时切语言需要)。
       locale: TranslationProvider.of(context).flutterLocale,

@@ -19,6 +19,7 @@ import 'core/process/master_key.dart';
 import 'core/router/navigation.dart';
 import 'core/design/an_fonts.dart';
 import 'core/runtime.dart';
+import 'core/settings/app_prefs_providers.dart';
 import 'core/settings/settings_prefs.dart';
 import 'i18n/strings.g.dart';
 
@@ -46,6 +47,14 @@ Future<void> main() async {
       WindowZoom.useSettingsPrefs(
         prefs,
       ); // zoom persists via the central prefs, not a private key
+      // The UI language is a RESTART-TIME axis like the font ones below: resolve the persisted choice
+      // ONCE, here, before the first frame. Leaving it to `LocalePreferenceController.build` meant it
+      // was applied only when the General settings panel — its one consumer — was opened, so the app
+      // booted in the DEVICE language and flipped mid-session (WRK-083 B7).
+      // 界面语言与下面的字体轴一样是**重启期轴**:在此、首帧之前把持久化选择解析**一次**。把它留给
+      // `LocalePreferenceController.build` 意味着只有打开设置「通用」面板(它唯一的消费者)时才应用,于是 app 以
+      // **设备**语言启动、并在会话中途翻脸(WRK-083 B7)。
+      applyLocalePreference(prefs.getString(SettingsKeys.locale));
       // Resolve the RESTART font axes (① UI / ③ code) ONCE before runApp — the persisted choice is baked
       // into AnText's `static final` styles on first build. The ② content axis is HOT (contentFaceProvider),
       // NOT booted here. 启动前解析重启字体轴一次(烤进 AnText final 样式);内容轴热、不在此。

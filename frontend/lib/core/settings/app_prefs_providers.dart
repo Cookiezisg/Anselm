@@ -51,14 +51,42 @@ final themeModeProvider = Provider<ThemeMode>(
 /// UI side only, so core stays free of backend seams.
 /// 界面语言:system(跟随设备)或具体 tag。写入即时应用 slang locale(TranslationProvider 全树重建);
 /// workspace AI 语言双写(拍板 #2)归设置面板动作——本轴只管 UI 侧,core 不沾后端缝。
+/// Apply a stored UI-language value — the SINGLE definition of what a stored value means, shared by
+/// startup and by the settings panel. `system` hands the axis back to the device; anything else pins
+/// that language.
+///
+/// It is top-level on purpose (WRK-083 B7). It used to live inside [LocalePreferenceController.build],
+/// which meant the user's persisted choice was applied only when something WATCHED that provider — and
+/// its one consumer in the whole app is the General settings panel. So the app booted in the DEVICE
+/// language and flipped the entire tree the moment that panel opened. Startup now resolves it itself,
+/// exactly like [AnFonts.applyAtBoot] does for the restart-time font axes.
+///
+/// 应用一个已存的界面语言值——「一个存下来的值是什么意思」的**唯一**定义,启动与设置面板共用。`system` 把这条轴
+/// 交还设备,其余值钉住那门语言。
+///
+/// 它**刻意**是顶层函数(WRK-083 B7)。它原本住在 [LocalePreferenceController.build] 里,这意味着用户持久化的选择
+/// 只有在有人 **watch** 那个 provider 时才会被应用——而它在整个 app 里唯一的消费者是设置的「通用」面板。于是 app 以
+/// **设备**语言启动,并在那个面板被打开的一刻把整棵树翻过去。现在启动自己解析它,与 [AnFonts.applyAtBoot] 处理重启期
+/// 字体轴的做法一模一样。
+void applyLocalePreference(String value) {
+  if (value == 'system') {
+    LocaleSettings.useDeviceLocaleSync();
+  } else {
+    LocaleSettings.setLocaleSync(AppLocaleUtils.parse(value));
+  }
+}
+
 class LocalePreferenceController extends Notifier<String> {
   @override
   String build() {
     final v = ref.read(settingsPrefsProvider).getString(SettingsKeys.locale);
-    // Apply a CONCRETE stored tag at build so the persisted choice takes effect at startup. `system`
-    // applies NOTHING here — main's useDeviceLocaleSync already established it, and re-applying from
-    // a build would stomp whatever locale the host (or a test) set. 建时只应用**具体** tag;system 不动
-    // ——main 已定设备语言,build 里重应用会踩宿主/测试设定。
+    // Startup already applied it ([applyLocalePreference] in main, before the first frame) — this
+    // re-application is the belt to that braces, for hosts that boot the tree WITHOUT main (demo,
+    // gallery, widget tests). `system` still applies nothing: re-running it from a build would stomp
+    // whatever locale the host (or a test) deliberately set.
+    // 启动时已经应用过了(main 里的 [applyLocalePreference],首帧之前)——这里的再应用是它的第二道保险,给那些
+    // **不经过 main** 就把树跑起来的宿主(demo/gallery/widget 测试)。`system` 仍然什么都不做:从 build 里重跑它
+    // 会踩掉宿主(或测试)有意设定的语言。
     if (v != 'system') _apply(v);
     return v;
   }
@@ -70,14 +98,7 @@ class LocalePreferenceController extends Notifier<String> {
     _apply(value);
   }
 
-  void _apply(String value) {
-    if (value == 'system') {
-      LocaleSettings.useDeviceLocaleSync();
-    } else {
-      final locale = AppLocaleUtils.parse(value);
-      LocaleSettings.setLocaleSync(locale);
-    }
-  }
+  void _apply(String value) => applyLocalePreference(value);
 }
 
 final localePreferenceProvider =
