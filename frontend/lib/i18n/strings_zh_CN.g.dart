@@ -2069,6 +2069,10 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String mediaContextBadge({required Object context}) => '媒体 ${context}';
 	@override String get noCapsGuide => '还没有可用模型——先添加一把探测通过的密钥';
 	@override String get searchSection => '搜索密钥';
+	@override String get noModelKeys => '还没有模型密钥';
+	@override String get noModelKeysHint => '添加一把即可用自己的厂商——内置免费档不需要它也能用。';
+	@override String get noSearchKeys => '还没有搜索密钥';
+	@override String get noSearchKeysHint => 'WebSearch 工具需要它;只有探测通过的密钥才会被提供。';
 }
 
 // Path: settings.ws
@@ -4593,6 +4597,10 @@ extension on TranslationsZhCn {
 			'settings.keys.mediaContextBadge' => ({required Object context}) => '媒体 ${context}',
 			'settings.keys.noCapsGuide' => '还没有可用模型——先添加一把探测通过的密钥',
 			'settings.keys.searchSection' => '搜索密钥',
+			'settings.keys.noModelKeys' => '还没有模型密钥',
+			'settings.keys.noModelKeysHint' => '添加一把即可用自己的厂商——内置免费档不需要它也能用。',
+			'settings.keys.noSearchKeys' => '还没有搜索密钥',
+			'settings.keys.noSearchKeysHint' => 'WebSearch 工具需要它;只有探测通过的密钥才会被提供。',
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',
 			'settings.ws.newWorkspace' => '新建工作区',

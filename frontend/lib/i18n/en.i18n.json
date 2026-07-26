@@ -1867,7 +1867,11 @@
       "textContextBadge": "Text $context",
       "mediaContextBadge": "Media $context",
       "noCapsGuide": "No usable models yet — add a key that passes its probe first",
-      "searchSection": "Search keys"
+      "searchSection": "Search keys",
+      "noModelKeys": "No model keys yet",
+      "noModelKeysHint": "Add one to use your own provider — the built-in free tier works without it.",
+      "noSearchKeys": "No search keys yet",
+      "noSearchKeysHint": "The WebSearch tool needs one; only keys that pass the probe are offered."
     },
     "ws": {
       "section": "Workspaces",

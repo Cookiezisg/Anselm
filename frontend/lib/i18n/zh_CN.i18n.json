@@ -1867,7 +1867,11 @@
       "textContextBadge": "文本 $context",
       "mediaContextBadge": "媒体 $context",
       "noCapsGuide": "还没有可用模型——先添加一把探测通过的密钥",
-      "searchSection": "搜索密钥"
+      "searchSection": "搜索密钥",
+      "noModelKeys": "还没有模型密钥",
+      "noModelKeysHint": "添加一把即可用自己的厂商——内置免费档不需要它也能用。",
+      "noSearchKeys": "还没有搜索密钥",
+      "noSearchKeysHint": "WebSearch 工具需要它;只有探测通过的密钥才会被提供。"
     },
     "ws": {
       "section": "工作区",

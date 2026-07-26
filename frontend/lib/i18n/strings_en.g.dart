@@ -5047,6 +5047,18 @@ class Translations$settings$keys$en {
 
 	/// en: 'Search keys'
 	String get searchSection => 'Search keys';
+
+	/// en: 'No model keys yet'
+	String get noModelKeys => 'No model keys yet';
+
+	/// en: 'Add one to use your own provider — the built-in free tier works without it.'
+	String get noModelKeysHint => 'Add one to use your own provider — the built-in free tier works without it.';
+
+	/// en: 'No search keys yet'
+	String get noSearchKeys => 'No search keys yet';
+
+	/// en: 'The WebSearch tool needs one; only keys that pass the probe are offered.'
+	String get noSearchKeysHint => 'The WebSearch tool needs one; only keys that pass the probe are offered.';
 }
 
 // Path: settings.ws
@@ -8533,6 +8545,10 @@ extension on Translations {
 			'settings.keys.mediaContextBadge' => ({required Object context}) => 'Media ${context}',
 			'settings.keys.noCapsGuide' => 'No usable models yet — add a key that passes its probe first',
 			'settings.keys.searchSection' => 'Search keys',
+			'settings.keys.noModelKeys' => 'No model keys yet',
+			'settings.keys.noModelKeysHint' => 'Add one to use your own provider — the built-in free tier works without it.',
+			'settings.keys.noSearchKeys' => 'No search keys yet',
+			'settings.keys.noSearchKeysHint' => 'The WebSearch tool needs one; only keys that pass the probe are offered.',
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',
 			'settings.ws.newWorkspace' => 'New workspace',

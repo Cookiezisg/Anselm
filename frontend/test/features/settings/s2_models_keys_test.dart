@@ -156,6 +156,8 @@ void main() {
         await tester.pumpWidget(_host(repo));
         await tester.pumpAndSettle();
 
+        await tester.ensureVisible(find.text(t.settings.keys.addKey).first);
+        await tester.pumpAndSettle();
         await tester.tap(find.text(t.settings.keys.addKey).first); // 空态 hint 同词
         await tester.pumpAndSettle();
         // ADD stage 0 (0719 重构): the vendor logo grid — no form until a provider is picked. 添加
@@ -278,6 +280,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
+        // Scroll it in first: this panel's height is not a constant (an empty-state hint above can
+        // push it below the fold), and `tap` on an off-screen target only WARNS.
+        // 先滚入视口:本面板高度不是常量(上方空态多一行 hint 就会把它挤下折叠线),而 `tap` 对视口外目标
+        // **只警告不报错**。
+        await tester.ensureVisible(
+          find.text(t.settings.keys.pickerChange).first,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.text(t.settings.keys.pickerChange).first);
         await tester.pumpAndSettle();
 
@@ -296,6 +306,14 @@ void main() {
           const ModelRef(apiKeyId: 'aki_anselm', modelId: 'anselm-auto'),
         );
 
+        // Scroll it in first: this panel's height is not a constant (an empty-state hint above can
+        // push it below the fold), and `tap` on an off-screen target only WARNS.
+        // 先滚入视口:本面板高度不是常量(上方空态多一行 hint 就会把它挤下折叠线),而 `tap` 对视口外目标
+        // **只警告不报错**。
+        await tester.ensureVisible(
+          find.text(t.settings.keys.pickerChange).first,
+        );
+        await tester.pumpAndSettle();
         await tester.tap(find.text(t.settings.keys.pickerChange).first);
         await tester.pumpAndSettle();
         await tester.tap(find.text(t.settings.keys.externalModel));
@@ -415,6 +433,8 @@ void main() {
         await tester.pumpAndSettle();
 
         // Model keys' "+ 添加" (first on screen) → llm-only grid. 模型密钥「+ 添加」(屏上第一个)→仅 llm。
+        await tester.ensureVisible(find.text(t.settings.keys.addKey).first);
+        await tester.pumpAndSettle();
         await tester.tap(find.text(t.settings.keys.addKey).first);
         await tester.pumpAndSettle();
         expect(find.text('OpenAI'), findsOneWidget);
@@ -429,6 +449,8 @@ void main() {
 
         // Search keys' "+ 添加" (last on screen) → search-only grid. 搜索密钥「+ 添加」(屏上最后一
         // 个)→仅 search。
+        await tester.ensureVisible(find.text(t.settings.keys.addKey).last);
+        await tester.pumpAndSettle();
         await tester.tap(find.text(t.settings.keys.addKey).last);
         await tester.pumpAndSettle();
         expect(find.text('Brave Search'), findsOneWidget);

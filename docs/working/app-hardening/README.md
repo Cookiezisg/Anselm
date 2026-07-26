@@ -399,7 +399,30 @@ L6 修复后的**第一次**真机复验显示「仍然分裂」,几乎被我读
 (dev 工具链批量拆 selectable),我方代码零帧;L1 收口验证窗口(重启后)Flutter 终端零输出,全部真实
 用户流程扫查中从未出现。若某天在真实流程(如选中文字时切对话)复现,按新缺陷立项;在那之前不冒充可修。
 
-### 待你拍板:两处空态**复读分区标题、且无一句人话**(P04 扫查所见)
+### 墓碑(L13,用户 0726 当场点名「这里又引入墓碑了」)—— 已修 + 已上类守卫
+
+**判据被扫描收窄到一句话**:全库 12 处 `AnStateKind.empty`,其中 **10 处**用的是**专门的「空」key**
+(`noMatches` / `noTools` / `noCalls` / `noStderr` / `noRuntimes` / `noEnvs` / `noTrace` / `skillInstallNone` …),
+**只有 2 处**借用了**分区标题 key**——`models_keys_panel.dart` 的 `modelKeysSection` 与 `searchSection`。
+那 2 处正是用户指的墓碑:一个图标、一个你**刚在它正上方读过**的词、以及无路可走。
+
+**这是复发形状,不是孤例**:用户 0718 已裁过一次(大表尽头那句墓碑是**删掉**而非改写),而 settings 自己的
+P1 一致性扫荡把「标题重复」与「空态零人话」双双列为**已修**项。它又回来了——故这次**上机械守卫**,不靠人眼。
+
+**修**:两组专用 key(标题 + hint),句式对齐同片设置里既有的空态(`还没有 MCP 服务器` / `暂无环境`)——
+「还没有搜索密钥 / WebSearch 工具需要它;只有探测通过的密钥才会被提供。」中英各一份。
+
+**守卫** `empty_state_tombstone_guard_test`:空态标题**不得**是 `*Section` key。**两次自我纠错才立住**:
+①初版用 6 行窗口找 `title:`,结果**漏掉第一处**——修复自己那段说明注释把 `title:` 挤出了窗口(一条「够得着多远
+取决于旁边写了多少字」的守卫不算守卫),改为**括号配对 + 剥注释**;②初版还把 `*Title`/`*Header` 一并算作标题 key,
+当场误判 `comingSoonTitle`/`notFoundTitle`/`firstUseTitle`/`relayFailedTitle` 四处**专门写的**空态文案——分不清
+「标题」与「分区标题」的守卫只会训练人无视它,故收窄到 `*Section`。
+
+**连带**:空态多一行 hint 使面板变高,`s2_models_keys_test` 两条测试因此失败——它们 `tap` 的目标被挤出视口,
+而 `tap` 对视口外目标**只警告不报错**(与 L8 同一形状,今天第二次)。按该文件**自己已有的做法**补 5 处
+`ensureVisible`。
+
+### (已解决)原「待你拍板」条目
 
 `models_keys_panel.dart` 的两处 `AnState(kind: empty)` 用**分区标题本身**作空态标题、且不带 hint:
 `title: t.settings.keys.modelKeysSection`(模型密钥,第 132 行)与 `title: t.settings.keys.searchSection`

@@ -131,7 +131,15 @@ class _ModelKeysSection extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
               child: AnState(
                 kind: AnStateKind.empty,
-                title: t.settings.keys.modelKeysSection,
+                // NOT the section title (WRK-083 墓碑): an empty state that repeats the heading right
+                // above it is a gravestone — an icon, a word you already read, and no way forward.
+                // Every other empty state in settings names the EMPTINESS (`noTools` / `noEnvs` /
+                // `noMatches`) and says what to do next; these two borrowed a `*Section` key instead.
+                // **不用分区标题**(WRK-083 墓碑):一个复读它正上方标题的空态就是块墓碑——一个图标、一个你刚
+                // 读过的词、以及无路可走。设置里其余每一处空态都点名**空本身**(noTools/noEnvs/noMatches)并说下一步
+                // 该做什么;唯独这两处借了 `*Section` 的 key。
+                title: t.settings.keys.noModelKeys,
+                hint: t.settings.keys.noModelKeysHint,
                 size: AnStateSize.inset,
               ),
             ),
@@ -1557,7 +1565,9 @@ class _SearchKeysSection extends ConsumerWidget {
             padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
             child: AnState(
               kind: AnStateKind.empty,
-              title: t.settings.keys.searchSection,
+              // Same rule as the model-keys empty above (WRK-083 墓碑). 同上,见模型密钥空态。
+              title: t.settings.keys.noSearchKeys,
+              hint: t.settings.keys.noSearchKeysHint,
               size: AnStateSize.inset,
             ),
           ),
