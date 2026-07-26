@@ -23,7 +23,7 @@ audience: [human, ai]
 
 | 目录 | 职责 |
 |---|---|
-| `harness/` | 座架：`server.go`（编译+拉起真二进制、临时 dataDir、空闲端口、等 health、**退出收容**——见下节；sandbox 运行时经 `~/.anselm-testend-cache` 预置——首跑下载、后跑搭车）· `scratch.go`（`RunTests` = 各包 `TestMain` 的实现：把整轮临时收进 `$TMPDIR/anselm-testend/<pid>/` 自清根，正常退出自删、超时/被杀由下一轮按 pid 存活性收——见下节④）· `proc_unix.go`（收容原语：进程组 / SIGTERM / 组存活探针 / 单 pid 探针与杀；testend 实际只跑 unix，故无 windows 孪生）· `client.go`（N1 envelope 解包、workspace 头、`OK`/`Fail(状态,码)` 断言、`Eventually` 异步涟漪轮询）· `llmmock.go`（OpenAI 兼容假模型：剧本化回应驱动 chat/agent/utility 全链零 token；**请求抓包即 promptdump**——线缆上的请求体就是模型真实看到的全部）· `sse.go`（三流订阅与事件断言） |
+| `harness/` | 座架：`server.go`（编译+拉起真二进制、临时 dataDir、空闲端口、等 health、**退出收容**——见下节；sandbox 运行时经 `~/.anselm-testend-cache` 预置——首跑下载、后跑搭车）· `scratch.go`（`RunTests` = 各包 `TestMain` 的实现：把整轮临时收进 `$TMPDIR/anselm-testend/<pid>/` 自清根，正常退出自删、超时/被杀由下一轮按 pid 存活性收——见下节④）· `proc_unix.go`（收容原语：进程组 / SIGTERM / 组存活探针 / 单 pid 探针与杀；testend 实际只跑 unix，故无 windows 孪生）· `client.go`（N1 envelope 解包、workspace 头、`OK`/`Fail(状态,码)` 断言、`Eventually` 异步涟漪轮询）· `llmmock.go`（OpenAI 兼容假模型：剧本化回应驱动 chat/agent/utility 全链零 token；**请求抓包即 promptdump**——线缆上的请求体就是模型真实看到的全部。另兼 **`POST /images/generations`**〔WRK-082 批B:返 `MockPNG`、`ImagePrompts()` 取上游真收到的 prompt〕与 **`LLMTurn.EchoLastToolResult`**〔原样回最后一条 tool 消息:真模型被要求把产物交给下游时会把工具 receipt 抄进终答,而恰是这次抄写让引用抵达下一个 workflow 节点;静态脚本拼不出本次运行刚铸的附件 id,没有它跨节点媒体流水线无法端到端被测〕）· `sse.go`（三流订阅与事件断言） |
 | `scenarios/` | 验收场景 = 普通 go test：每个测试函数是 PLAN 的一个「feature × 情况」单元，函数名即台账行；`-run` 过滤单域 |
 | `golden/` | 真模型金标旅程（12 条端到端，机器可验收终态） |
 

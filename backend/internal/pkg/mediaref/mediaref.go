@@ -11,7 +11,9 @@
 package mediaref
 
 import (
+	"encoding/json"
 	"regexp"
+	"strings"
 )
 
 // Key is the grammar's one field name. A closed vocabulary: producers write it, the consumption
@@ -35,9 +37,16 @@ func IsAttachmentID(s string) bool { return idShape.MatchString(s) }
 
 // Collect walks a decoded JSON value (maps / slices / scalars) and returns every well-formed
 // attachment id found under the grammar Key, deduplicated in first-seen order, capped at MaxRefs.
+// A STRING scalar that contains the grammar Key gets one JSON-decode attempt and its decoded
+// value walked too — receipts routinely travel as text between workflow nodes (an agent's
+// free-text answer becomes `node.text`, the downstream input receives that string), and the
+// chokepoint must recognize them there or the pipeline half of 不变量③ silently dies. The
+// substring gate keeps arbitrary large texts from paying a decode.
 //
 // Collect 走一个已解码 JSON 值(map/slice/标量),按文法 Key 收集所有合法附件 id,按首见序去重、
-// MaxRefs 封顶。
+// MaxRefs 封顶。含文法 Key 的**字符串**标量会得到一次 JSON 解码并继续走其值——receipt 在
+// workflow 节点间常以文本流动(agent 自由文本答案成 `node.text`,下游 input 拿到的是字符串),
+// 咽喉认不出这一形,不变量③的流水线半就静默死掉。子串闸免去任意大文本的解码开销。
 func Collect(v any) []string {
 	var out []string
 	seen := map[string]bool{}
@@ -58,6 +67,16 @@ func Collect(v any) []string {
 		case []any:
 			for _, val := range x {
 				walk(val)
+			}
+		case string:
+			// Gate on the bare Key, not `"Key"` — a receipt nested one level deep arrives with its
+			// quotes backslash-escaped, and a quote-anchored gate would miss exactly that case.
+			// 闸只看裸 Key、不看 `"Key"`——嵌一层的 receipt 引号是转义的,带引号的闸恰好漏掉这一形。
+			if strings.Contains(x, Key) {
+				var decoded any
+				if json.Unmarshal([]byte(x), &decoded) == nil {
+					walk(decoded)
+				}
 			}
 		}
 	}

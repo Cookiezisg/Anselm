@@ -369,8 +369,12 @@ key/时延/journal 行。形状与实测冲突处以实测为准。
 5. **前端引用卡族**(§3.9)**剩**:原语一枚 + 铺三个面(scheduler 运行卷宗节点 result / 右岛调试台 /
    approval 渲染)。
 
-**验收**:§4 workflow 贯通线真机跑通(A 节点出图 → B agent 看见,以 LLM 请求线缆为证);
-MCP 返图模型看得见(找一个真返图的 MCP server 实测);`make verify` 全绿。
+**验收**:§4 workflow 贯通线 ✅ **黑盒真跑通**(`testend/scenarios/workflow_media_test.go`:painter
+节点挂 `sys:generate_image` 画图 → 把 receipt 当终答交出 → viewer 节点经 CEL `paint.text` 收到 →
+消费咽喉解引用 → **viewer 的模型请求里是原生 `image_url` + 生成图的 base64 真字节**,附件字节往返
+逐字节相同。为此给 llmmock 加 `EchoLastToolResult`——静态脚本拼不出本次运行刚铸的附件 id,而真模型
+本就会把 receipt 抄进终答;`pkg/mediaref` 同时认**字符串形** receipt,因为跨节点它就是这么走的);
+**剩**:MCP 返图模型看得见(找一个真返图的 MCP server 实测)、`make verify` 全绿。
 
 ## §8 批C · 出语音(语音闭环收口)
 

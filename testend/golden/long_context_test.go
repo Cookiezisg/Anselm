@@ -122,7 +122,9 @@ func requireLongDialogue(t *testing.T) longDialogueConfig {
 
 func observedContextRecoveries(m evalMsg) int { return contextUsageInt(m, "recoveries") }
 
-func observedOverflowPrediction(m evalMsg) int { return contextUsageInt(m, "lastOverflowPredictedInputTokens") }
+func observedOverflowPrediction(m evalMsg) int {
+	return contextUsageInt(m, "lastOverflowPredictedInputTokens")
+}
 
 func contextUsageInt(m evalMsg, key string) int {
 	if m.Attrs == nil {

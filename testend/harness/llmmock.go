@@ -60,6 +60,19 @@ type LLMTurn struct {
 	// 没有它,一切脚本化失败都长得像泛化 provider 故障——这正是「provider 首次 overflow → 透明恢复」
 	// 此前在黑盒侧零覆盖的原因。空 → 泛化文案。
 	ErrorMessage string
+
+	// EchoLastToolResult replies with the request's last tool message verbatim (Text is ignored).
+	// It exists because a REAL model, told to hand an artifact downstream, copies the tool's
+	// receipt into its own answer — and only that copy makes the reference reach the next
+	// workflow node (an agent node's result IS its final text). A static script cannot spell an
+	// attachment id the run only just minted, so without this the media pipeline across nodes is
+	// untestable end to end.
+	//
+	// EchoLastToolResult 原样回请求里最后一条 tool 消息(忽略 Text)。它的存在是因为**真**模型被要求把
+	// 产物交给下游时,会把工具 receipt 抄进自己的答案——而恰是这次抄写让引用抵达下一个 workflow 节点
+	// (agent 节点的结果**就是**它的终答文本)。静态脚本拼不出这次运行刚铸出的附件 id,没有它,跨节点
+	// 的媒体流水线就无法端到端被测。
+	EchoLastToolResult bool
 }
 
 // PromptDump is one captured request — the model's-eye view of the conversation.
@@ -273,6 +286,14 @@ func (m *LLMMock) handleCompletions(w http.ResponseWriter, r *http.Request) {
 	m.dumps = append(m.dumps, dump)
 	m.mu.Unlock()
 
+	if turn.EchoLastToolResult {
+		for i := len(dump.Messages) - 1; i >= 0; i-- {
+			if dump.Messages[i].Role == "tool" {
+				turn.Text = dump.Messages[i].Content
+				break
+			}
+		}
+	}
 	if turn.PromptTokens == 0 {
 		turn.PromptTokens = 100
 	}
