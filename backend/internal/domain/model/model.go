@@ -46,13 +46,20 @@ func (r ModelRef) IsZero() bool {
 	return r.APIKeyID == "" && r.ModelID == "" && len(r.Options) == 0
 }
 
-// Scenario is one of the fixed workspace-level default model slots.
+// Scenario is one of the fixed workspace-level default model slots. The three
+// generation scenarios (image/speech/video, WRK-082 §3.2) route generation
+// TOOLS to a key, decoupled from the chat scenarios — an Anthropic dialogue
+// model with an OpenAI image key is a fully valid pairing.
 //
-// Scenario 是 workspace 级默认模型槽的固定集合之一。
+// Scenario 是 workspace 级默认模型槽的固定集合之一。三个生成场景(image/speech/video,
+// WRK-082 §3.2)为生成**工具**选路由 key,与聊天场景解耦——Anthropic 聊天 + OpenAI 出图完全成立。
 const (
 	ScenarioDialogue = "dialogue"
 	ScenarioUtility  = "utility"
 	ScenarioAgent    = "agent"
+	ScenarioImage    = "image"
+	ScenarioSpeech   = "speech"
+	ScenarioVideo    = "video"
 )
 
 // IsValidScenario reports whether s is a recognised scenario.
@@ -60,7 +67,7 @@ const (
 // IsValidScenario 报告 s 是否为已知 scenario。
 func IsValidScenario(s string) bool {
 	switch s {
-	case ScenarioDialogue, ScenarioUtility, ScenarioAgent:
+	case ScenarioDialogue, ScenarioUtility, ScenarioAgent, ScenarioImage, ScenarioSpeech, ScenarioVideo:
 		return true
 	default:
 		return false
@@ -71,7 +78,7 @@ func IsValidScenario(s string) bool {
 //
 // ListScenarios 按规范顺序返回所有 scenario。
 func ListScenarios() []string {
-	return []string{ScenarioDialogue, ScenarioUtility, ScenarioAgent}
+	return []string{ScenarioDialogue, ScenarioUtility, ScenarioAgent, ScenarioImage, ScenarioSpeech, ScenarioVideo}
 }
 
 var (

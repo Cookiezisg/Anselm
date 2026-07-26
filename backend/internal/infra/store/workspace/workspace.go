@@ -38,6 +38,11 @@ var Schema = []string{
 		deleted_at   DATETIME
 	)`,
 	`CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_name ON workspaces(name) WHERE deleted_at IS NULL`,
+	// Additive columns for existing databases (outcome-idempotent, see db.Migrate).
+	// 老库加列(结果幂等,见 db.Migrate)。
+	`ALTER TABLE workspaces ADD COLUMN default_image TEXT`,
+	`ALTER TABLE workspaces ADD COLUMN default_speech TEXT`,
+	`ALTER TABLE workspaces ADD COLUMN default_video TEXT`,
 }
 
 // Store implements workspacedomain.Repository over pkg/orm.

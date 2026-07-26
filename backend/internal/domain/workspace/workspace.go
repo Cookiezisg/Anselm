@@ -42,6 +42,11 @@ type Workspace struct {
 	DefaultDialogue *modeldomain.ModelRef `db:"default_dialogue,json" json:"defaultDialogue,omitempty"`
 	DefaultUtility  *modeldomain.ModelRef `db:"default_utility,json" json:"defaultUtility,omitempty"`
 	DefaultAgent    *modeldomain.ModelRef `db:"default_agent,json" json:"defaultAgent,omitempty"`
+	// The three generation scenarios (WRK-082 §3.2) route generation TOOLS, decoupled from chat.
+	// 三个生成场景(WRK-082 §3.2)为生成**工具**选路由,与聊天解耦。
+	DefaultImage  *modeldomain.ModelRef `db:"default_image,json" json:"defaultImage,omitempty"`
+	DefaultSpeech *modeldomain.ModelRef `db:"default_speech,json" json:"defaultSpeech,omitempty"`
+	DefaultVideo  *modeldomain.ModelRef `db:"default_video,json" json:"defaultVideo,omitempty"`
 	// DefaultSearchKeyID is the api-key id chosen for WebSearch (provider implied by the
 	// key). "" = unconfigured. A single explicit choice, not a priority list — the agent
 	// never burns credits probing providers. Implements websearch.SearchKeyPicker via Service.
@@ -119,6 +124,12 @@ func (w *Workspace) DefaultFor(scenario string) *modeldomain.ModelRef {
 		return w.DefaultUtility
 	case modeldomain.ScenarioAgent:
 		return w.DefaultAgent
+	case modeldomain.ScenarioImage:
+		return w.DefaultImage
+	case modeldomain.ScenarioSpeech:
+		return w.DefaultSpeech
+	case modeldomain.ScenarioVideo:
+		return w.DefaultVideo
 	}
 	return nil
 }
@@ -135,6 +146,12 @@ func (w *Workspace) SetDefaultFor(scenario string, ref *modeldomain.ModelRef) {
 		w.DefaultUtility = ref
 	case modeldomain.ScenarioAgent:
 		w.DefaultAgent = ref
+	case modeldomain.ScenarioImage:
+		w.DefaultImage = ref
+	case modeldomain.ScenarioSpeech:
+		w.DefaultSpeech = ref
+	case modeldomain.ScenarioVideo:
+		w.DefaultVideo = ref
 	}
 }
 
@@ -182,7 +199,7 @@ type Repository interface {
 	Save(ctx context.Context, w *Workspace) error
 	Get(ctx context.Context, id string) (*Workspace, error)
 	// Language returns just the workspace's language column — the auth middleware resolves it on
-	// EVERY request, and a full Get pays a 13-column reflective scan + three ModelRef JSON
+	// EVERY request, and a full Get pays a 16-column reflective scan + six ModelRef JSON
 	// unmarshals per hit for one string. Row-absent → ErrNotFound (existence check included).
 	// Language 只取 language 列——auth 中间件每请求解析一次,整行 Get 为一个字符串付 13 列反射扫
 	// + 3 次 ModelRef JSON 反序列化。行缺席 → ErrNotFound(存在性检查含在内)。

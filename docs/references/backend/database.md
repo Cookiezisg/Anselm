@@ -168,7 +168,7 @@ ID：`sd_`。**派生数据**：物理删（实体删/级联/重建即删行）�
 
 | 表 | 说明 |
 |---|---|
-| `workspaces` | **全局表（无 ws 列——它即 workspace）**；语言/三场景模型默认/默认搜索 key/`web_fetch_mode`（local\|jina，CHECK，空=local）；`ws_` |
+| `workspaces` | **全局表（无 ws 列——它即 workspace）**；语言/六场景模型默认（dialogue/utility/agent 聊天三格 + image/speech/video 生成三格〔WRK-082 §3.2,后三列经结果幂等 ALTER 追加〕）/默认搜索 key/`web_fetch_mode`（local\|jina，CHECK，空=local）；`ws_` |
 | `api_keys` | 密文整列加密；probe 归档；软删；`aki_` |
 | `model_runtime_profiles` | 外部模型自然 overflow 学习画像：`identity_key`（ws 内唯一）、provider/api_key_id/model_id/request_class、endpoint/credential/config 三个不可逆指纹、成功/overflow/recovery 计数与最高成功/最低超限预测足迹、`expires_at`；**绝不存 prompt、媒体、上游原文错误或明文 endpoint/key**；`idx_model_runtime_profiles_identity (workspace_id,identity_key)` 唯一 + `idx_model_runtime_profiles_expiry (workspace_id,expires_at)`；`mrp_` |
 | `relations` | from/to (kind,id) × edge kind；硬删（PurgeEntity 级联）；`rel_` |
