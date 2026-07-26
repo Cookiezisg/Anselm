@@ -345,6 +345,14 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// 同时服务受管网关调用(签名)与产物下载(透传)。
 	genRouter := &generatetool.Router{Picker: ws, Keys: keys, Probes: keys, HTTP: inf.proofHTTP}
 	genTools := generatetool.GenerateTools(genRouter, att)
+	// sys: mount registry (批B'/P14): the same capability tools, mountable by agents — one truth
+	// for「什么算能力工具」, two consumers (chat per-request injection + agent mounts).
+	// sys: 挂载注册表(批B'/P14):同一批能力工具供 agent 挂载——「什么算能力工具」一份真相,
+	// 两个消费方(chat 逐请求注入 + agent 挂载)。
+	sysMounts := map[string]mounttool.SysTool{}
+	for _, gt := range genTools {
+		sysMounts[gt.Tool.Name()] = mounttool.SysTool{Tool: gt.Tool, Available: gt.Available}
+	}
 	capabilityTools := func(ctx context.Context) []toolapp.Tool {
 		var out []toolapp.Tool
 		for _, gt := range genTools {
@@ -502,10 +510,21 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// agent 的 ReAct 依赖：LLM resolver + 挂载合成（agent 的工具宇宙恰是其 fn_/hd_/mcp 挂载——绝非系统
 	// 工具表）+ skill 指南 + knowledge 前缀。
 	ag.SetInvokeDeps(agentapp.InvokeDeps{
-		Resolver:       resolvers.Agent(),
-		Mounts:         mounttool.NewResolver(fn, hd, mcp),
-		Skill:          skill,
-		Knowledge:      NewKnowledgeProvider(doc),
+		Resolver:  resolvers.Agent(),
+		Mounts:    mounttool.NewResolver(fn, hd, mcp, sysMounts),
+		Skill:     skill,
+		Knowledge: NewKnowledgeProvider(doc),
+		// Consumption chokepoint (批B' 不变量③): payload MediaRefs → native parts, gated by the
+		// resolved model's real input modalities from the capability catalog.
+		// 消费咽喉(批B' 不变量③):payload MediaRef → 原生 part,按解析模型的真实输入模态门控。
+		Attachments: att,
+		ContentCaps: func(ctx context.Context, provider, modelID string) attachmentapp.Capabilities {
+			c := lookup.contentCaps(ctx, provider, modelID)
+			return attachmentapp.Capabilities{
+				Vision: c.Vision, Video: c.Video, Audio: c.Audio, NativeDocs: c.NativeDocs,
+				MaxMediaParts: c.MaxMediaParts, MaxMediaBytes: c.MaxMediaBytes,
+			}
+		},
 		EntitiesBridge: bus.entities, // SSE-C: agent run mirrors its ReAct trace to the agent panel
 	})
 	// workflow ref resolution (CapabilityCheck + pin closure determinism).

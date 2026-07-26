@@ -24,7 +24,7 @@ Agent **自己不写代码**：它是一份"LLM 员工配置"——提示词 + *
 - **编辑是全量 Config 快照替换、非 ops**：agent 配置是声明式字段（无代码体），整体替换语义清晰；ops 增量是为代码体设计的。
 - **name 不强制 slug**：function/handler 的 name 是代码标识符（Python 入口/类名，强制 `^[a-z][a-z0-9_-]{0,63}$`）；agent 的 name 是展示身份（"You are <Name>"），可中文/空格。
 
-**`ToolRef{Ref, Name}`**：Ref 合法集 = `fn_<id>` / `hd_<id>.<method>` / `mcp:<server>/<tool>`；**禁 `ag_`**（员工不调员工，domain `ValidateTools` 在 create/edit 时拒；create_agent 的 tools 描述指路：**串联 agent 改用 workflow agent 节点**）。Name 是挂载时存的展示名——运行时**一律按现名重新解析**（实体改名后工具自动用新名）。
+**`ToolRef{Ref, Name}`**：Ref 合法集 = `fn_<id>` / `hd_<id>.<method>` / `mcp:<server>/<tool>` / **`sys:<name>`（第四形,WRK-082 批B'/P14——内建能力工具,今 `sys:generate_image` 一员;解析时强制可用性:无可用路由 = 不可解析、invoke 大声失败〔与被删 function 同律〕,mount-health 显 Healthy=false 带「配 key 或开免费档」原因）**；**禁 `ag_`**（员工不调员工，domain `ValidateTools` 在 create/edit 时拒；create_agent 的 tools 描述指路：**串联 agent 改用 workflow agent 节点**）。Name 是挂载时存的展示名——运行时**一律按现名重新解析**（实体改名后工具自动用新名）。
 
 **transcript 是核心持久化决策**：agent 运行的完整 block 序列（text/reasoning/tool_call/tool_result 跨步）序列化存进 `Execution.transcript`——**自包含的耐久记录，不进共享 message_blocks 表**。chat 内实时呈现走流（嵌套在 invoke_agent tool_call 下），reload 后前端从 transcript 重水合。
 
@@ -38,7 +38,7 @@ Agent **自己不写代码**：它是一份"LLM 员工配置"——提示词 + *
 | skill 名 | **执行指南**注入 system prompt（`## Execution guide` 段） | `skillapp.Guide`：渲染正文；**不**设 active-skill（防预授权泄漏父对话）、**不** fork；**create/edit 期 eager 校验存在**（同一 `Guide` 解析、不存在 → `AGENT_SKILL_NOT_FOUND`，免 dangling 名建出 dead-on-arrival agent，F96） |
 | knowledge docIDs | 知识前缀拼进 user 消息 | `BuildKnowledgePrefix`：缺失 doc **大声失败** `AGENT_KNOWLEDGE_NOT_FOUND`（不再 GetBatch WhereIn 静默丢——免 dangling/已删 doc 静默丢 grounding 却报 ok，F98） |
 
-**核心设计**：agent **永不**见通用系统工具表（无 `run_function`/`Read`/`Bash`）——工具宇宙**恰是其挂载**，每个工具预绑定目标（LLM 没有自由 id 参数可乱走）。合成在 `app/tool/mount`：`Resolver` 持三个窄端口（FunctionPort/HandlerPort/MCPPort，DIP、测试可 fake），按 ref 前缀分流出三种绑定工具。
+**核心设计**：agent **永不**见通用系统工具表（无 `run_function`/`Read`/`Bash`）——工具宇宙**恰是其挂载**，每个工具预绑定目标（LLM 没有自由 id 参数可乱走）。合成在 `app/tool/mount`：`Resolver` 持三个窄端口（FunctionPort/HandlerPort/MCPPort，DIP、测试可 fake）+ `sys` 注册表（bootstrap 由能力工具族构建——「什么算能力工具」一份真相,chat 逐请求注入与 agent 挂载两个消费方），按 ref 前缀分流出四种绑定工具。**消费咽喉（批B' 不变量③）**：invoke payload 里的 MediaRef（`attachmentId` 文法,`pkg/mediaref` 收集、≤8 去重）在模型解析后经 `InvokeDeps.Attachments+ContentCaps` 展开成原生 content part——上游 workflow 节点出的图,下游 agent 节点**真的看见**;模型模态不支持则只留文本 receipt（诚实降级）。
 
 **fail-fast**：目标被删（冒具体码如 `FUNCTION_NOT_FOUND`）/ method 不存在（`HANDLER_METHOD_NOT_FOUND`）/ MCP server 离线 / ref 格式坏 / 两挂载合成同名（撞名检测）→ **invoke 失败**（mount 自身问题 = `AGENT_MOUNT_INVALID`）。worker 缺声明能力**绝不静默降级跑**。**create/edit 期 eager 校验全挂载 ref**（skill F96 · knowledge/tool F98——经 invoke 的**同一** resolver：skill→`Guide`、knowledge→`BuildKnowledgePrefix`、tool→`CheckHealth`，不存在即在 build 期拒，免 dangling ref 建出 dead-on-arrival/静默降级的 agent；domain `ValidateTools` 只校格式不校存在）。
 

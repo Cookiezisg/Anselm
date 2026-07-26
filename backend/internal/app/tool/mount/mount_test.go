@@ -95,7 +95,7 @@ func fixtureHd() *handlerdomain.Handler {
 // 其 id 的 RunFunction、TriggeredBy=agent。
 func TestResolve_FunctionMount(t *testing.T) {
 	fn := &fakeFn{f: fixtureFn()}
-	r := NewResolver(fn, nil, nil)
+	r := NewResolver(fn, nil, nil, nil)
 
 	tools, err := r.Resolve(context.Background(), []agentdomain.ToolRef{{Ref: "fn_1"}})
 	if err != nil || len(tools) != 1 {
@@ -132,7 +132,7 @@ func TestResolve_FunctionMount(t *testing.T) {
 // a deleted target / unknown scheme is reported broken (the rest still evaluated).
 func TestCheckHealth_MixedMounts(t *testing.T) {
 	fn := &fakeFn{f: fixtureFn()} // fn_1 exists
-	r := NewResolver(fn, nil, nil)
+	r := NewResolver(fn, nil, nil, nil)
 	health := r.CheckHealth(context.Background(), []agentdomain.ToolRef{
 		{Ref: "fn_1"},     // resolvable
 		{Ref: "fn_ghost"}, // deleted/missing target → broken
@@ -158,7 +158,7 @@ func TestCheckHealth_MixedMounts(t *testing.T) {
 // validation rejects it instead of minting a DOA agent.
 func TestCheckHealth_FlagsNameCollision(t *testing.T) {
 	fn := &fakeFn{f: fixtureFn()} // fn_1 → tool "add_numbers"
-	r := NewResolver(fn, nil, nil)
+	r := NewResolver(fn, nil, nil, nil)
 	health := r.CheckHealth(context.Background(), []agentdomain.ToolRef{
 		{Ref: "fn_1"}, // first claim of "add_numbers"
 		{Ref: "fn_1"}, // same synthesized name → collision
@@ -181,7 +181,7 @@ func TestCheckHealth_FlagsNameCollision(t *testing.T) {
 // 以 TriggeredBy=agent 调用。
 func TestResolve_HandlerMount(t *testing.T) {
 	hd := &fakeHd{h: fixtureHd()}
-	r := NewResolver(nil, hd, nil)
+	r := NewResolver(nil, hd, nil, nil)
 
 	tools, err := r.Resolve(context.Background(), []agentdomain.ToolRef{{Ref: "hd_1.send"}})
 	if err != nil || len(tools) != 1 {
@@ -220,7 +220,7 @@ func TestResolve_MCPMount(t *testing.T) {
 			InputSchema: json.RawMessage(`{"type":"object","properties":{"q":{"type":"string"}}}`),
 		}},
 	}
-	r := NewResolver(nil, nil, mcp)
+	r := NewResolver(nil, nil, mcp, nil)
 
 	tools, err := r.Resolve(context.Background(), []agentdomain.ToolRef{{Ref: "mcp:search/query"}})
 	if err != nil || len(tools) != 1 {
@@ -252,7 +252,7 @@ func TestResolve_MCPOfflineServer(t *testing.T) {
 		servers: []mcpdomain.ServerStatus{{ID: "mcp_1", Name: "search", Status: mcpdomain.StatusFailed}},
 		// ListTools only enumerates callable servers, so a failed server contributes no tools.
 	}
-	r := NewResolver(nil, nil, mcp)
+	r := NewResolver(nil, nil, mcp, nil)
 	_, err := r.Resolve(context.Background(), []agentdomain.ToolRef{{Ref: "mcp:search/query"}})
 	if !errors.Is(err, mcpdomain.ErrServerNotConnected) {
 		t.Fatalf("offline-server mount err = %v, want ErrServerNotConnected (not ErrToolNotFound)", err)
@@ -266,10 +266,10 @@ func TestResolve_MCPOfflineServer(t *testing.T) {
 // 失败——绝不静默跳过。
 func TestResolve_InvalidAndCollision(t *testing.T) {
 	fn := &fakeFn{f: fixtureFn()}
-	r := NewResolver(fn, nil, nil)
+	r := NewResolver(fn, nil, nil, nil)
 
 	for _, ref := range []string{"weird_1", "hd_1", "mcp:noslash"} {
-		if _, err := NewResolver(fn, &fakeHd{h: fixtureHd()}, nil).Resolve(
+		if _, err := NewResolver(fn, &fakeHd{h: fixtureHd()}, nil, nil).Resolve(
 			context.Background(), []agentdomain.ToolRef{{Ref: ref}}); !errors.Is(err, agentdomain.ErrMountInvalid) {
 			t.Fatalf("ref %q err = %v, want ErrMountInvalid", ref, err)
 		}
@@ -283,5 +283,47 @@ func TestResolve_InvalidAndCollision(t *testing.T) {
 	// 目标实体没了 → 具体的 FUNCTION_NOT_FOUND 冒泡（invoke fail-fast）。
 	if _, err := r.Resolve(context.Background(), []agentdomain.ToolRef{{Ref: "fn_gone"}}); !errors.Is(err, functiondomain.ErrNotFound) {
 		t.Fatalf("gone target err = %v, want functiondomain.ErrNotFound", err)
+	}
+}
+
+// ── WRK-082 批B'/P14: sys:<name> mounts ─────────────────────────────────────────
+
+type fakeSysTool struct{ name string }
+
+func (f fakeSysTool) Name() string                                  { return f.name }
+func (fakeSysTool) Description() string                             { return "d" }
+func (fakeSysTool) Parameters() json.RawMessage                     { return json.RawMessage(`{}`) }
+func (fakeSysTool) ValidateInput(json.RawMessage) error             { return nil }
+func (fakeSysTool) Execute(context.Context, string) (string, error) { return "", nil }
+
+// TestSysMounts pins the fourth ref scheme: an available sys tool resolves; a routeless one fails
+// the invoke loudly AND shows unhealthy in the precheck (the same honest-absence rule as chat
+// injection); an unknown sys name is a plain invalid mount.
+func TestSysMounts(t *testing.T) {
+	avail := true
+	sys := map[string]SysTool{
+		"generate_image": {Tool: fakeSysTool{name: "generate_image"}, Available: func(context.Context) bool { return avail }},
+	}
+	r := NewResolver(nil, nil, nil, sys)
+	refs := []agentdomain.ToolRef{{Ref: "sys:generate_image"}}
+
+	tools, err := r.Resolve(context.Background(), refs)
+	if err != nil || len(tools) != 1 || tools[0].Name() != "generate_image" {
+		t.Fatalf("available sys mount: %v %v", tools, err)
+	}
+	if h := r.CheckHealth(context.Background(), refs); !h[0].Healthy || h[0].Name != "generate_image" {
+		t.Fatalf("health = %+v, want healthy", h[0])
+	}
+
+	avail = false // route vanished (key removed) — 路由消失(key 被删)
+	if _, err := r.Resolve(context.Background(), refs); !errors.Is(err, agentdomain.ErrMountInvalid) {
+		t.Fatalf("routeless sys mount err = %v, want ErrMountInvalid (fail loudly, never degrade)", err)
+	}
+	if h := r.CheckHealth(context.Background(), refs); h[0].Healthy || !strings.Contains(h[0].Error, "no usable route") {
+		t.Fatalf("health = %+v, want unhealthy with the how-to reason", h[0])
+	}
+
+	if _, err := r.Resolve(context.Background(), []agentdomain.ToolRef{{Ref: "sys:bogus"}}); !errors.Is(err, agentdomain.ErrMountInvalid) {
+		t.Fatalf("unknown sys name err = %v, want ErrMountInvalid", err)
 	}
 }

@@ -21,6 +21,7 @@ import (
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	jsonrepairpkg "github.com/sunweilin/anselm/backend/internal/pkg/jsonrepair"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
+	mediarefpkg "github.com/sunweilin/anselm/backend/internal/pkg/mediaref"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
@@ -270,8 +271,27 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 		return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("resolve LLM: %w", err)
 	}
 
+	// Consumption chokepoint (WRK-082 批B' 不变量③): MediaRefs riding the invoke payload become
+	// native content parts for the RESOLVED model — a workflow node whose upstream generated an
+	// image hands this agent a receipt, and the agent actually SEES the pixels (modality-gated;
+	// an incapable model keeps the textual receipt only — honest degrade, never a fake).
+	// 消费咽喉(批B' 不变量③):payload 里的 MediaRef 为**解析出的模型**展开成原生 content part——
+	// 上游节点出的图经 receipt 传给本 agent,agent 真的**看见**像素(模态门控;不能看的模型只留
+	// 文本 receipt——诚实降级、绝不假装)。
+	var userParts []llminfra.ContentPart
+	if ids := mediarefpkg.Collect(map[string]any(in.Input)); len(ids) > 0 &&
+		s.invoke.Attachments != nil && s.invoke.ContentCaps != nil {
+		caps := s.invoke.ContentCaps(ctx, bundle.Provider, bundle.Request.ModelID)
+		parts, pErr := s.invoke.Attachments.ToContentParts(ctx, ids, caps)
+		if pErr != nil {
+			return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("render payload media: %w", pErr)
+		}
+		userParts = parts
+	}
+
 	host := &agentHost{
 		userPrompt: userMsg,
+		userParts:  userParts,
 		tools:      tools,
 		replay:     in.ReplaySteps,
 		recorder:   in.Recorder,
@@ -450,6 +470,7 @@ func buildSystemPrompt(a *agentdomain.Agent, v *agentdomain.Version, skillGuide 
 // 记新步（workflow）。
 type agentHost struct {
 	userPrompt string
+	userParts  []llminfra.ContentPart // payload MediaRefs expanded (消费咽喉产物); empty → plain text
 	tools      []toolapp.Tool
 	replay     []RecordedStep
 	recorder   StepRecorder
@@ -457,7 +478,13 @@ type agentHost struct {
 }
 
 func (h *agentHost) LoadHistory(_ context.Context) ([]llminfra.LLMMessage, error) {
-	history := []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: h.userPrompt}}
+	first := llminfra.LLMMessage{Role: llminfra.RoleUser, Content: h.userPrompt}
+	if len(h.userParts) > 0 {
+		// Mirror chat's assembly: the text rides as the first part, media parts follow.
+		// 镜像 chat 装配:文本作首 part,媒体 part 随后。
+		first.Parts = append([]llminfra.ContentPart{{Type: llminfra.PartText, Text: h.userPrompt}}, h.userParts...)
+	}
+	history := []llminfra.LLMMessage{first}
 	for _, step := range h.replay {
 		blocks := append(append([]messagesdomain.Block{}, step.Assistant...), step.ToolResults...)
 		history = append(history, loopapp.BlocksToAssistantLLM(blocks)...)

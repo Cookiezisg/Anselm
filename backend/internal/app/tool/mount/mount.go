@@ -67,6 +67,20 @@ type Resolver struct {
 	fn  FunctionPort
 	hd  HandlerPort
 	mcp MCPPort
+	sys map[string]SysTool
+}
+
+// SysTool is one mountable built-in capability tool (WRK-082 批B'/P14, `sys:<name>` refs — the
+// fourth ref scheme). Availability is evaluated at resolve time: a mounted-but-routeless sys tool
+// fails the invoke loudly (a worker must not run silently degraded), and shows Healthy=false in
+// the mount-health precheck — the same honest-absence rule the chat injection uses.
+//
+// SysTool 是一个可挂载的内建能力工具(批B'/P14,`sys:<name>` ref——第四种 ref 形)。可用性在解析
+// 时评估:挂了却无路由的 sys 工具让 invoke 大声失败(worker 绝不静默降级跑),挂载健康预检显
+// Healthy=false——与 chat 注入同一条诚实缺席法则。
+type SysTool struct {
+	Tool      toolapp.Tool
+	Available func(ctx context.Context) bool
 }
 
 // NewResolver wires the three execution ports; a nil port disables that mount kind (resolving
@@ -74,8 +88,8 @@ type Resolver struct {
 //
 // NewResolver 接三个执行端口；nil 端口禁用对应挂载类（解析该类 ref 即失败——装配缺口大声暴露、
 // 而非工具悄悄缺席）。
-func NewResolver(fn FunctionPort, hd HandlerPort, mcp MCPPort) *Resolver {
-	return &Resolver{fn: fn, hd: hd, mcp: mcp}
+func NewResolver(fn FunctionPort, hd HandlerPort, mcp MCPPort, sys map[string]SysTool) *Resolver {
+	return &Resolver{fn: fn, hd: hd, mcp: mcp, sys: sys}
 }
 
 // Resolve turns every mounted ref into a bound tool, fail-fast on the first unresolvable one.
@@ -100,6 +114,8 @@ func (r *Resolver) Resolve(ctx context.Context, refs []agentdomain.ToolRef) ([]t
 			t, err = r.handlerTool(ctx, ref)
 		case strings.HasPrefix(ref, "mcp:"):
 			t, err = r.mcpTool(ctx, ref)
+		case strings.HasPrefix(ref, "sys:"):
+			t, err = r.sysTool(ctx, ref)
 		default:
 			err = fmt.Errorf("unknown ref scheme: %w", agentdomain.ErrMountInvalid)
 		}
@@ -140,6 +156,8 @@ func (r *Resolver) CheckHealth(ctx context.Context, refs []agentdomain.ToolRef) 
 			t, err = r.handlerTool(ctx, ref)
 		case strings.HasPrefix(ref, "mcp:"):
 			t, err = r.mcpTool(ctx, ref)
+		case strings.HasPrefix(ref, "sys:"):
+			t, err = r.sysTool(ctx, ref)
 		default:
 			err = fmt.Errorf("unknown ref scheme: %w", agentdomain.ErrMountInvalid)
 		}
@@ -403,4 +421,20 @@ func (t *mcpTool) Execute(ctx context.Context, argsJSON string) (string, error) 
 	defer prog.Close()
 	ctx = mcpinfra.WithProgress(ctx, prog.Print)
 	return t.mcp.CallTool(ctx, t.serverID, t.toolName, json.RawMessage(argsJSON), mcpdomain.CallTriggeredByAgent)
+}
+
+// sysTool resolves a sys:<name> ref against the built-in capability registry, enforcing
+// availability (no usable route = unresolvable, exactly like a deleted function).
+//
+// sysTool 对内建能力表解析 sys:<name>,并强制可用性(无可用路由=不可解析,与被删 function 同律)。
+func (r *Resolver) sysTool(ctx context.Context, ref string) (toolapp.Tool, error) {
+	name := strings.TrimPrefix(ref, "sys:")
+	entry, ok := r.sys[name]
+	if !ok {
+		return nil, fmt.Errorf("unknown sys tool %q (want one of the registered capability tools): %w", name, agentdomain.ErrMountInvalid)
+	}
+	if entry.Available != nil && !entry.Available(ctx) {
+		return nil, fmt.Errorf("sys tool %q has no usable route (configure a capable key or enable the free tier): %w", name, agentdomain.ErrMountInvalid)
+	}
+	return entry.Tool, nil
 }

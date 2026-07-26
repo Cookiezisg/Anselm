@@ -20,6 +20,7 @@ import (
 
 	"go.uber.org/zap"
 
+	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	modelrefapp "github.com/sunweilin/anselm/backend/internal/app/modelref"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
@@ -84,6 +85,15 @@ type MountResolver interface {
 	CheckHealth(ctx context.Context, refs []agentdomain.ToolRef) []agentdomain.MountHealth
 }
 
+// AttachmentRenderer renders attachment ids into native content parts (the same seam chat's
+// history assembly uses; *attachmentapp.Service satisfies it structurally).
+//
+// AttachmentRenderer 把附件 id 渲成原生 content part(与 chat 历史装配同一条缝;
+// *attachmentapp.Service 结构满足)。
+type AttachmentRenderer interface {
+	ToContentParts(ctx context.Context, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error)
+}
+
 // SkillGuide renders the version's mounted skill into an execution-guide string injected into
 // the system prompt (no active-skill state, no fork — see skillapp.Guide).
 //
@@ -104,6 +114,16 @@ type InvokeDeps struct {
 	Mounts    MountResolver
 	Skill     SkillGuide
 	Knowledge KnowledgeProvider
+
+	// Attachments + ContentCaps form the CONSUMPTION chokepoint (WRK-082 批B' 不变量③): MediaRefs
+	// found in the invoke payload expand into native content parts, gated by the resolved model's
+	// input modalities. Either nil → refs stay text-only (an honest degrade, never a crash) — but
+	// wiring only one of the pair is a bug the pair-check in runLoop surfaces.
+	// Attachments + ContentCaps 构成**消费咽喉**(批B' 不变量③):payload 里的 MediaRef 展开成原生
+	// content part,按解析出的模型输入模态门控。任一为 nil → 引用留文本(诚实降级、绝不崩)——
+	// 只接一半是 bug,runLoop 的成对检查会暴露。
+	Attachments AttachmentRenderer
+	ContentCaps func(ctx context.Context, provider, modelID string) attachmentapp.Capabilities
 
 	// EntitiesBridge (SSE-C, nil-tolerant): the agent run mirrors its ReAct trace (every block)
 	// onto the entities stream scoped to the agent, so the agent panel shows the run live —
