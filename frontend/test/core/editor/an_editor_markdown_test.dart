@@ -633,4 +633,47 @@ void main() {
       );
     });
   });
+
+  group('media references survive the codec (WRK-082 批F 值形)', () {
+    const id = 'att_00112233445566aa';
+
+    test('an anselm:// image round-trips byte-exactly', () {
+      // The built-in serializer already speaks `![alt](url)`, so the media form needs no codec
+      // code — but it DOES need this guard: a future codec change that started rewriting or
+      // dropping image urls would silently empty every document that stores a generated chart,
+      // and nothing else in the suite would notice.
+      // 内置序列化器本就会说 `![alt](url)`,故媒体形不需要 codec 代码——但它**需要这条守卫**:将来某次
+      // codec 改动一旦开始改写或丢弃图像 url,会静默清空每一份存了生成图表的文档,而套件里没有别的东西
+      // 会察觉。
+      const src = '![chart](anselm://media/$id)';
+      expect(markdownFromDocument(documentFromMarkdown(src)), src);
+    });
+
+    test('an ordinary web image is left exactly as it was', () {
+      const src = '![cat](https://example.com/cat.png)';
+      expect(markdownFromDocument(documentFromMarkdown(src)), src);
+    });
+
+    test('media survives beside the other two things this codec hand-carries', () {
+      // Mentions and fence languages are round-tripped by THIS file's own code; media rides the
+      // built-in path. Mixing all three in one document is the only way to catch an interaction.
+      // 提及与围栏语言由**本文件自己的**代码往返,媒体走内置路径。三者混在一份文档里,是唯一能抓到相互
+      // 影响的方式。
+      final src = [
+        '见 [[wf_00112233445566aa]] 的结果',
+        '',
+        '![chart](anselm://media/$id)',
+        '',
+        '```dart',
+        'void main() {}',
+        '```',
+      ].join('\n');
+      final out = markdownFromDocument(
+        documentFromMarkdown(src, names: {'wf_00112233445566aa': '对账'}),
+      );
+      expect(out, contains('anselm://media/$id'));
+      expect(out, contains('[[wf_00112233445566aa]]'));
+      expect(out, contains('```dart'));
+    });
+  });
 }

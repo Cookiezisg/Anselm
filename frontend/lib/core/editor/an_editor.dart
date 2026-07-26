@@ -20,6 +20,7 @@ import 'an_editor_markdown_shortcuts.dart';
 import 'an_editor_selection.dart';
 import 'an_editor_text_component.dart';
 import 'an_editor_markdown.dart';
+import 'an_editor_media.dart';
 import 'an_editor_mention.dart';
 import 'an_editor_slash_menu.dart';
 import 'an_editor_stylesheet.dart';
@@ -681,6 +682,12 @@ class AnEditorState extends State<AnEditor> {
           onAutofocusConsumed: () => _pendingInnerAutofocus = null,
         ),
         AnBlockquoteComponentBuilder(colors),
+        // Media blocks (WRK-082 批F): resolves `anselm://media/<id>` through the attachment
+        // pipeline. Must precede the defaults — the built-in image component would hand that url
+        // to `Image.network`, which cannot resolve a custom scheme and renders a broken box.
+        // 媒体块(批F):把 `anselm://media/<id>` 经附件管线解析。**须在默认之前**——内置图像组件会把这个
+        // url 交给 `Image.network`,而它解析不了自定义 scheme、只会渲出一个破框。
+        AnMediaImageComponentBuilder(colors),
         // Ordered/unordered list items: marker = prose `•`/`$n.` (not derived from the first char → fixes the
         // code-first-word bug) + inner AnTextComponent (inline-code background). Must precede the defaults.
         // 列表项:记号用正文档(非首字符,修首词代码 bug)+ AnTextComponent 内芯;须在默认前。

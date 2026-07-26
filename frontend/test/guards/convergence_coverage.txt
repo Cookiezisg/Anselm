@@ -55,6 +55,7 @@ lib/core/editor/an_editor_inline_code.dart	converged
 lib/core/editor/an_editor_list_components.dart	pending
 lib/core/editor/an_editor_markdown.dart	converged
 lib/core/editor/an_editor_markdown_shortcuts.dart	converged
+lib/core/editor/an_editor_media.dart	pending
 lib/core/editor/an_editor_mention.dart	converged
 lib/core/editor/an_editor_quote.dart	pending
 lib/core/editor/an_editor_selection.dart	pending
@@ -76,6 +77,7 @@ lib/core/media/attachment_image_provider.dart	pending
 lib/core/media/media_cards.dart	pending
 lib/core/media/media_ref.dart	pending
 lib/core/media/media_source.dart	pending
+lib/core/media/media_uri.dart	pending
 lib/core/messages/args_session.dart	converged
 lib/core/messages/block_tree_reducer.dart	converged
 lib/core/messages/transcript_hydration.dart	converged

@@ -519,15 +519,29 @@ def plot(rows: list) -> dict:
 
 **施工** ✅ function 侧已建(2026-07-27):`app/function/artifacts.go` 采集器 + `SandboxAdapter.Run`
 接 `ANSELM_OUT`/cwd + bootstrap 注入 attachment store。守卫七格,其中两条是**安全**格而非功能格
-(路径逃逸拒在打开任何东西之前、内容嗅探不信扩展名)。**剩**:handler 侧同形接线 + 真机验收
+(路径逃逸拒在打开任何东西之前、内容嗅探不信扩展名)。**代拍 E5:V1 只做 function、handler 延后**。理由是形状而非工作量:function 是**一次性 spawn**,
+「这次运行的产物」有一个物理上无歧义的目录;而 handler 是**长跑实例**,一个进程服务很多次调用,
+要让「这次**调用**的产物」同样无歧义,就得把逐调用输出目录穿过 stdio RPC——即改 `Client` 接口
+(`StreamCall` 多一个参数)、改 driver 协议。为一个需求尚未出现的能力去拓宽 RPC 接口不值得,而本批
+自己的验收标准写的就是**一个 matplotlib function**。真出现「handler 要产出媒体」的用例时按同一条
+文法接上,driver 的派发循环严格串行、`os.chdir` 在那里是安全的(已核实)。
+
+**剩**:真机验收
 (matplotlib 出图表的 fn,右岛调试台渲出图、workflow 下游 agent 看得见)。
 
 ## §11 批F · 文档库全模态(编辑面收口)
 
-1. **值形**:文档内媒体 = MediaRef,markdown 稳定 URI 形(如 `![alt](anselm://media/<id>)`);
-   **codec 三保真守卫扩到含媒体往返**(写→编辑→存,引用零漂移)。
-2. **编辑器**:图走 super_editor 自带 ImageNode;音/视频自定块渲 §3.9 同一族卡;slash 命令
-   (`/图片` 等);拖入/粘贴复用 chat 附件上传管线(上传即入库即有引用)。
+1. **值形** ✅ 已施工:`core/media/media_uri.dart` —— `anselm://media/<attachmentId>`。刻意用
+   **自定义 scheme** 而非指向本机 sidecar 的 http URL:存下 `http://127.0.0.1:<port>/…` 等于把一个端口号
+   烤进**用户的文档**(一份比写它的进程活得更久的内容),sidecar 换个端口它就死;scheme 说的是「经这个
+   应用去解析」,那是唯一一句一直为真的话。**codec 侧零代码**——探测实证内置序列化器**原生逐字往返**
+   `![alt](anselm://media/<id>)`,故本项交付的是**守卫**:媒体往返 + 普通网图原样不动 + 三者(提及/围栏
+   语言/媒体)混排互不影响。
+2. **编辑器**:图 ✅ `AnMediaImageComponentBuilder`——认自家 scheme、经**同一条**附件管线解析(内置图像
+   组件会把这个 url 交给 `Image.network`,解析不了自定义 scheme、只渲出破框);**不属于**它的 URL 交回
+   默认组件(文档里完全可以有普通网图)。组件用 `Consumer` 自取 ref 而非让 `AnEditor` 变成
+   ConsumerWidget——后者会把**整个编辑器**订阅到一个只关乎一张图的 provider 上。
+   **剩**:音/视频自定块 + slash 命令(`/图片` 等)+ 拖入/粘贴复用 chat 上传管线。
 3. **补丁协议**:ADR 0009 节点级增量补丁认媒体节点(插入/删除/替换引用)。
 4. **AI 侧**:`create_document`/`edit_document` 内容文法认 MediaRef——agent 画完图直接嵌进在写的文档。
 5. **@提及注入**:文档冻结注入 chat 时经**同一消费咽喉**解引用 + 模态门控——@带图表的文档问模型,
