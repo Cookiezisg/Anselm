@@ -12,6 +12,7 @@
 package harness
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -103,9 +104,10 @@ type LLMMock struct {
 	t   *testing.T
 	srv *httptest.Server
 
-	mu     sync.Mutex
-	queues map[string][]LLMTurn
-	dumps  []PromptDump
+	mu           sync.Mutex
+	queues       map[string][]LLMTurn
+	dumps        []PromptDump
+	imagePrompts []string
 }
 
 // NewLLMMock starts the fake provider on a loopback port and registers cleanup.
@@ -117,6 +119,7 @@ func NewLLMMock(t *testing.T) *LLMMock {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /models", m.handleModels)
 	mux.HandleFunc("POST /chat/completions", m.handleCompletions)
+	mux.HandleFunc("POST /images/generations", m.handleImages)
 	m.srv = httptest.NewServer(mux)
 	t.Cleanup(m.srv.Close)
 	return m
@@ -384,5 +387,48 @@ func (m *LLMMock) plainTurn(w http.ResponseWriter, turn LLMTurn) {
 		"usage": map[string]int{
 			"prompt_tokens": turn.PromptTokens, "completion_tokens": turn.CompletionTokens,
 		},
+	})
+}
+
+// MockPNG is the 1×1 PNG every mocked image generation returns — scenarios assert the stored
+// attachment's bytes equal it, proving the whole artifact pipeline end to end.
+//
+// MockPNG 是每次 mock 生成返回的 1×1 PNG——场景断言落库附件字节与之相等,整条产物管线得证。
+var MockPNG = []byte{
+	0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
+	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
+	0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
+	0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
+	0x42, 0x60, 0x82,
+}
+
+// ImagePrompts returns every prompt POST /images/generations received (order preserved).
+//
+// ImagePrompts 返回 /images/generations 收到的全部 prompt(保序)。
+func (m *LLMMock) ImagePrompts() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.imagePrompts...)
+}
+
+// handleImages speaks the OpenAI images wire (the desktop's openai dialect): records the prompt,
+// returns MockPNG as b64_json — WRK-082 批B's zero-token image upstream.
+//
+// handleImages 讲 OpenAI images 线缆(桌面 openai 方言):记 prompt、返 b64 的 MockPNG——批B 的
+// 零 token 图像上游。
+func (m *LLMMock) handleImages(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Prompt string `json:"prompt"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	m.mu.Lock()
+	m.imagePrompts = append(m.imagePrompts, req.Prompt)
+	m.mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"created": 1,
+		"data": []map[string]any{{
+			"b64_json": base64.StdEncoding.EncodeToString(MockPNG),
+		}},
 	})
 }
