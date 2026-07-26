@@ -193,6 +193,11 @@ func (h *chatHost) Tools(ctx context.Context) []toolapp.Tool {
 	if h.svc.searchTool != nil {
 		tools = append(tools, h.svc.searchTool)
 	}
+	// Capability tools are per-request residents: availability-filtered upstream, full schema here.
+	// 能力工具是逐请求 resident:上游已按可用性过滤,此处直接携完整 schema。
+	if h.svc.deps.CapabilityTools != nil {
+		tools = append(tools, h.svc.deps.CapabilityTools(ctx)...)
+	}
 	if state, ok := reqctxpkg.GetAgentState(ctx); ok {
 		for _, t := range ts.Lazy {
 			if state.IsToolDiscovered(t.Name()) {

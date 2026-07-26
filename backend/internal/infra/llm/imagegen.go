@@ -1,0 +1,367 @@
+package llm
+
+import (
+	"bytes"
+	"context"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"strings"
+	"time"
+
+	deviceproofinfra "github.com/sunweilin/anselm/backend/internal/infra/deviceproof"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+)
+
+// Desktop-side image-generation dialects (WRK-082 批B). Five ways keys can physically generate an
+// image, one neutral result: raw bytes + mime. The tool layer owns routing and persistence; this
+// file owns each provider's wire only. Sizes arrive as provider-appropriate strings picked by
+// ImageSizeFor (P12: the tool exposes a 3-value aspect enum, dialects own concrete resolutions).
+//
+// 桌面侧图像生成方言(批B)。key 物理上出图的五条 wire,一个中立结果:裸字节 + mime。工具层管路由
+// 与落盘;本文件只管各家 wire。尺寸经 ImageSizeFor 译成各家词表(P12:工具只暴露三值 aspect 枚举,
+// 方言层拥有具体分辨率)。
+
+// ErrImageGenFailed is the neutral sentinel for a generation the upstream refused or broke on;
+// Message carries the human-facing cause (LLM reads it, S20).
+//
+// ErrImageGenFailed 是上游拒绝/失败的中立 sentinel;Message 携人话原因(LLM 读它,S20)。
+var ErrImageGenFailed = errorspkg.New(errorspkg.KindUnavailable, "IMAGE_GEN_FAILED", "image generation failed")
+
+// GeneratedImage is one produced artifact, bytes in hand.
+//
+// GeneratedImage 是一件已到手的产物。
+type GeneratedImage struct {
+	Bytes []byte
+	Mime  string
+}
+
+// imageGenBudget bounds one whole generation (sync upstreams run tens of seconds).
+// imageGenBudget 界一次完整生成(同步上游十秒量级)。
+const imageGenBudget = 150 * time.Second
+
+// imageMaxBytes caps a downloaded/decoded artifact (defense against a hostile URL).
+// imageMaxBytes 封顶下载/解码产物(防恶意 URL)。
+const imageMaxBytes = 32 << 20
+
+// ImageSizeFor translates the tool's aspect enum into the provider's concrete size vocabulary
+// ("" = the provider takes no size parameter).
+//
+// ImageSizeFor 把工具的 aspect 枚举译成该家具体尺寸词表(""=该家无尺寸参数)。
+func ImageSizeFor(provider, aspect string) string {
+	type sizes struct{ square, landscape, portrait string }
+	table := map[string]sizes{
+		"openai": {"1024x1024", "1536x1024", "1024x1536"},
+		"zhipu":  {"1024x1024", "1440x720", "720x1440"},
+		"qwen":   {"1024*1024", "1344*768", "768*1344"},
+		"anselm": {"1024x1024", "1344x768", "768x1344"},
+	}
+	s, ok := table[provider]
+	if !ok {
+		return ""
+	}
+	switch aspect {
+	case "landscape":
+		return s.landscape
+	case "portrait":
+		return s.portrait
+	default:
+		return s.square
+	}
+}
+
+// GenerateImageAnselm calls the managed gateway's images endpoint. installID rides the deviceproof
+// header (the transport signs the exact body); the returned 24h OSS URL is downloaded through the
+// same client (the transport passes unmarked requests through untouched).
+//
+// GenerateImageAnselm 打受管网关 images 端点。installID 走 deviceproof 头(transport 对精确 body
+// 签名);返回的 24h OSS URL 经同一 client 下载(transport 对未标记请求原样透传)。
+func GenerateImageAnselm(ctx context.Context, httpc *http.Client, baseURL, installID, prompt, size string) (GeneratedImage, error) {
+	ctx, cancel := context.WithTimeout(ctx, imageGenBudget)
+	defer cancel()
+	body, _ := json.Marshal(map[string]any{"prompt": prompt, "size": size, "n": 1})
+	req, err := newImageRequest(ctx, strings.TrimRight(baseURL, "/")+"/images/generations", body)
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	req.Header.Set(deviceproofinfra.HeaderInstallID, installID)
+	raw, err := doImageRequest(httpc, req, "anselm")
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	var wire struct {
+		Data []struct {
+			URL string `json:"url"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil || len(wire.Data) == 0 || wire.Data[0].URL == "" {
+		return GeneratedImage{}, fmt.Errorf("%w: gateway returned no artifact url", ErrImageGenFailed)
+	}
+	return downloadImage(ctx, httpc, wire.Data[0].URL)
+}
+
+// GenerateImageOpenAI speaks the OpenAI images form; gpt-image models return b64 only.
+//
+// GenerateImageOpenAI 讲 OpenAI images 形;gpt-image 系只返 b64。
+func GenerateImageOpenAI(ctx context.Context, httpc *http.Client, baseURL, key, model, prompt, size string) (GeneratedImage, error) {
+	ctx, cancel := context.WithTimeout(ctx, imageGenBudget)
+	defer cancel()
+	payload := map[string]any{"model": model, "prompt": prompt, "n": 1}
+	if size != "" {
+		payload["size"] = size
+	}
+	body, _ := json.Marshal(payload)
+	req, err := newImageRequest(ctx, strings.TrimRight(baseURL, "/")+"/images/generations", body)
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	raw, err := doImageRequest(httpc, req, "openai")
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	var wire struct {
+		Data []struct {
+			B64  string `json:"b64_json"`
+			URL  string `json:"url"`
+			Mime string `json:"mime_type"`
+		} `json:"data"`
+		OutputFormat string `json:"output_format"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil || len(wire.Data) == 0 {
+		return GeneratedImage{}, fmt.Errorf("%w: openai returned no artifact", ErrImageGenFailed)
+	}
+	if wire.Data[0].B64 != "" {
+		img, err := base64.StdEncoding.DecodeString(wire.Data[0].B64)
+		if err != nil || len(img) == 0 || len(img) > imageMaxBytes {
+			return GeneratedImage{}, fmt.Errorf("%w: openai artifact undecodable", ErrImageGenFailed)
+		}
+		mime := "image/png"
+		if wire.OutputFormat == "jpeg" {
+			mime = "image/jpeg"
+		} else if wire.OutputFormat == "webp" {
+			mime = "image/webp"
+		}
+		return GeneratedImage{Bytes: img, Mime: mime}, nil
+	}
+	if wire.Data[0].URL != "" { // legacy DALL·E form / DALL·E 旧形
+		return downloadImage(ctx, httpc, wire.Data[0].URL)
+	}
+	return GeneratedImage{}, fmt.Errorf("%w: openai returned no artifact", ErrImageGenFailed)
+}
+
+// GenerateImageGemini rides a one-shot generateContent turn with image response modality (the one
+// dialect where generation physically lives on the chat wire, WRK-082 §3.1 exception).
+//
+// GenerateImageGemini 走单轮 generateContent + 图像响应模态(唯一物理长在聊天 wire 上的方言,
+// §3.1 例外)。
+func GenerateImageGemini(ctx context.Context, httpc *http.Client, baseURL, key, model, prompt string) (GeneratedImage, error) {
+	ctx, cancel := context.WithTimeout(ctx, imageGenBudget)
+	defer cancel()
+	body, _ := json.Marshal(map[string]any{
+		"contents":         []map[string]any{{"parts": []map[string]any{{"text": prompt}}}},
+		"generationConfig": map[string]any{"responseModalities": []string{"TEXT", "IMAGE"}},
+	})
+	u := strings.TrimRight(baseURL, "/") + "/models/" + url.PathEscape(model) + ":generateContent"
+	req, err := newImageRequest(ctx, u, body)
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	req.Header.Set("x-goog-api-key", key)
+	raw, err := doImageRequest(httpc, req, "gemini")
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	var wire struct {
+		Candidates []struct {
+			Content struct {
+				Parts []struct {
+					InlineData *struct {
+						MimeType string `json:"mimeType"`
+						Data     string `json:"data"`
+					} `json:"inlineData"`
+				} `json:"parts"`
+			} `json:"content"`
+		} `json:"candidates"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return GeneratedImage{}, fmt.Errorf("%w: gemini response undecodable", ErrImageGenFailed)
+	}
+	for _, c := range wire.Candidates {
+		for _, p := range c.Content.Parts {
+			if p.InlineData == nil || p.InlineData.Data == "" {
+				continue
+			}
+			img, err := base64.StdEncoding.DecodeString(p.InlineData.Data)
+			if err != nil || len(img) == 0 || len(img) > imageMaxBytes {
+				return GeneratedImage{}, fmt.Errorf("%w: gemini artifact undecodable", ErrImageGenFailed)
+			}
+			mime := p.InlineData.MimeType
+			if mime == "" {
+				mime = "image/png"
+			}
+			return GeneratedImage{Bytes: img, Mime: mime}, nil
+		}
+	}
+	return GeneratedImage{}, fmt.Errorf("%w: gemini returned no image part", ErrImageGenFailed)
+}
+
+// GenerateImageDashScope speaks the native sync multimodal-generation form (same wire the managed
+// gateway translates to) and downloads the returned 24h OSS URL.
+//
+// GenerateImageDashScope 讲原生同步 multimodal-generation 形(与受管网关翻译的同一 wire),下载
+// 返回的 24h OSS URL。
+func GenerateImageDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, model, prompt, size string) (GeneratedImage, error) {
+	ctx, cancel := context.WithTimeout(ctx, imageGenBudget)
+	defer cancel()
+	payload := map[string]any{
+		"model": model,
+		"input": map[string]any{
+			"messages": []map[string]any{{
+				"role":    "user",
+				"content": []map[string]any{{"text": prompt}},
+			}},
+		},
+		"parameters": map[string]any{"size": size, "n": 1, "watermark": false},
+	}
+	body, _ := json.Marshal(payload)
+	req, err := newImageRequest(ctx, strings.TrimRight(nativeBase, "/")+"/api/v1/services/aigc/multimodal-generation/generation", body)
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	raw, err := doImageRequest(httpc, req, "qwen")
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	var wire struct {
+		Output struct {
+			Choices []struct {
+				Message struct {
+					Content []struct {
+						Image string `json:"image"`
+					} `json:"content"`
+				} `json:"message"`
+			} `json:"choices"`
+		} `json:"output"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return GeneratedImage{}, fmt.Errorf("%w: dashscope response undecodable", ErrImageGenFailed)
+	}
+	for _, c := range wire.Output.Choices {
+		for _, chunk := range c.Message.Content {
+			if chunk.Image != "" {
+				return downloadImage(ctx, httpc, chunk.Image)
+			}
+		}
+	}
+	return GeneratedImage{}, fmt.Errorf("%w: dashscope returned no artifact url", ErrImageGenFailed)
+}
+
+// GenerateImageZhipu speaks Zhipu's OpenAI-adjacent images form (URL result, 30-day validity).
+//
+// GenerateImageZhipu 讲智谱的类 OpenAI images 形(URL 结果,30 天有效)。
+func GenerateImageZhipu(ctx context.Context, httpc *http.Client, baseURL, key, model, prompt, size string) (GeneratedImage, error) {
+	ctx, cancel := context.WithTimeout(ctx, imageGenBudget)
+	defer cancel()
+	payload := map[string]any{"model": model, "prompt": prompt}
+	if size != "" {
+		payload["size"] = size
+	}
+	body, _ := json.Marshal(payload)
+	req, err := newImageRequest(ctx, strings.TrimRight(baseURL, "/")+"/images/generations", body)
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	req.Header.Set("Authorization", "Bearer "+key)
+	raw, err := doImageRequest(httpc, req, "zhipu")
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	var wire struct {
+		Data []struct {
+			URL string `json:"url"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil || len(wire.Data) == 0 || wire.Data[0].URL == "" {
+		return GeneratedImage{}, fmt.Errorf("%w: zhipu returned no artifact url", ErrImageGenFailed)
+	}
+	return downloadImage(ctx, httpc, wire.Data[0].URL)
+}
+
+func newImageRequest(ctx context.Context, u string, body []byte) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrImageGenFailed, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return req, nil
+}
+
+// doImageRequest runs one call and normalizes failures into ErrImageGenFailed with a bounded,
+// human-facing reason (status + a short sanitized body excerpt — the LLM needs enough to adjust,
+// F7; keys never appear in bodies).
+//
+// doImageRequest 跑一次调用,失败归一成 ErrImageGenFailed + 有界人话原因(状态 + 短净化 body
+// 摘录——LLM 需要足够信息自调,F7;body 里不会有 key)。
+func doImageRequest(httpc *http.Client, req *http.Request, provider string) ([]byte, error) {
+	resp, err := httpc.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s: %v", ErrImageGenFailed, provider, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, imageMaxBytes))
+	if err != nil {
+		return nil, fmt.Errorf("%w: %s: read: %v", ErrImageGenFailed, provider, err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		excerpt := strings.TrimSpace(string(raw))
+		if len(excerpt) > 300 {
+			excerpt = excerpt[:300] + "…"
+		}
+		return nil, fmt.Errorf("%w: %s: HTTP %d: %s", ErrImageGenFailed, provider, resp.StatusCode, excerpt)
+	}
+	return raw, nil
+}
+
+// downloadImage fetches a returned artifact URL (https only) and sniffs its mime.
+//
+// downloadImage 拉取返回的产物 URL(仅 https),嗅探 mime。
+func downloadImage(ctx context.Context, httpc *http.Client, rawURL string) (GeneratedImage, error) {
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Scheme != "https" || u.Host == "" {
+		return GeneratedImage{}, fmt.Errorf("%w: artifact url malformed", ErrImageGenFailed)
+	}
+	cctx, cancel := context.WithTimeout(ctx, imageGenBudget)
+	defer cancel()
+	req, err := http.NewRequestWithContext(cctx, http.MethodGet, rawURL, nil)
+	if err != nil {
+		return GeneratedImage{}, fmt.Errorf("%w: %v", ErrImageGenFailed, err)
+	}
+	resp, err := httpc.Do(req)
+	if err != nil {
+		return GeneratedImage{}, fmt.Errorf("%w: artifact download: %v", ErrImageGenFailed, err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return GeneratedImage{}, fmt.Errorf("%w: artifact download: HTTP %d", ErrImageGenFailed, resp.StatusCode)
+	}
+	data, err := io.ReadAll(io.LimitReader(resp.Body, imageMaxBytes+1))
+	if err != nil || len(data) == 0 {
+		return GeneratedImage{}, fmt.Errorf("%w: artifact download: %v", ErrImageGenFailed, err)
+	}
+	if len(data) > imageMaxBytes {
+		return GeneratedImage{}, fmt.Errorf("%w: artifact exceeds the size cap", ErrImageGenFailed)
+	}
+	mime := resp.Header.Get("Content-Type")
+	if mime == "" || strings.HasPrefix(mime, "application/octet-stream") {
+		mime = http.DetectContentType(data)
+	}
+	if i := strings.IndexByte(mime, ';'); i > 0 {
+		mime = strings.TrimSpace(mime[:i])
+	}
+	return GeneratedImage{Bytes: data, Mime: mime}, nil
+}

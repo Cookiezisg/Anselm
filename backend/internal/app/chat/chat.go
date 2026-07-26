@@ -232,7 +232,15 @@ type Deps struct {
 	// nil → chat has no MCP tools (degrades gracefully). Wired in build_services to mcptool.DynamicTools.
 	// DynamicTools 返回 ctx workspace 已连 MCP server 的工具（per-request 懒取）——它们不在静态 Toolset
 	// （MCP server 是 workspace 域 + 可变）。nil → chat 无 MCP 工具（优雅降级）。
-	DynamicTools    func(context.Context) []toolapp.Tool
+	DynamicTools func(context.Context) []toolapp.Tool
+	// CapabilityTools returns per-request RESIDENT tools that exist only when a runtime capability
+	// route exists (WRK-082 批B honest absence — e.g. generate_image appears iff a key can generate).
+	// Full schemas ride the request like resident tools (no discovery dance — the model must KNOW
+	// it can draw); availability is re-evaluated每步, so a key change lands on the next step.
+	// CapabilityTools 返回逐请求的 **resident** 工具——仅当运行期能力路由存在才出现(批B 诚实缺席,
+	// 如 generate_image 有 key 能出图才在)。完整 schema 同 resident 随请求走(无发现舞步——模型必须
+	// **知道**自己会画);可用性每步重估,key 变更下一步即生效。
+	CapabilityTools func(context.Context) []toolapp.Tool
 	Memory          MemoryProvider
 	Catalog         CatalogProvider
 	Documents       DocumentRenderer

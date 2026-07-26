@@ -50,6 +50,7 @@ import (
 	documenttool "github.com/sunweilin/anselm/backend/internal/app/tool/document"
 	filesystemtool "github.com/sunweilin/anselm/backend/internal/app/tool/filesystem"
 	functiontool "github.com/sunweilin/anselm/backend/internal/app/tool/function"
+	generatetool "github.com/sunweilin/anselm/backend/internal/app/tool/generate"
 	handlertool "github.com/sunweilin/anselm/backend/internal/app/tool/handler"
 	mcptool "github.com/sunweilin/anselm/backend/internal/app/tool/mcp"
 	memorytool "github.com/sunweilin/anselm/backend/internal/app/tool/memory"
@@ -337,6 +338,23 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		Resolver:      resolvers.ContextmgrUtility(),
 		Windows:       lookup.WindowResolver(),
 	}, log)
+	// Generation capability tools (WRK-082 批B): per-request residents, availability-gated by the
+	// image route (honest absence). The proof-carrying HTTP client serves both the managed gateway
+	// call (signed) and artifact downloads (passthrough).
+	// 生成能力工具(批B):逐请求 resident,按图像路由可用性上闸(诚实缺席)。带 proof 的 HTTP client
+	// 同时服务受管网关调用(签名)与产物下载(透传)。
+	genRouter := &generatetool.Router{Picker: ws, Keys: keys, Probes: keys, HTTP: inf.proofHTTP}
+	genTools := generatetool.GenerateTools(genRouter, att)
+	capabilityTools := func(ctx context.Context) []toolapp.Tool {
+		var out []toolapp.Tool
+		for _, gt := range genTools {
+			if gt.Available(ctx) {
+				out = append(out, gt.Tool)
+			}
+		}
+		return out
+	}
+
 	chat := chatapp.NewService(st.messages, chatapp.Deps{
 		Conversations: conv,
 		Resolver:      resolvers.Chat(),
@@ -351,6 +369,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			}
 			return tools
 		},
+		CapabilityTools: capabilityTools,
 		Memory:          mem,
 		Catalog:         cat,
 		Documents:       NewDocumentRenderer(doc),

@@ -43,9 +43,9 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（333 码，按域）
+## 全量登记（336 码，按域）
 
-> `errorspkg.New` 机械抽取（322，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 333。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> `errorspkg.New` 机械抽取（325，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 336。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
 >
 > **机械守卫**：本表与代码的**逐码对齐**由 `make -C docs verify` 的契约漂移检测强制（GOVERNANCE §11.8，`cmd/docs/drift.go`——代码构造了而表没登记、或表登记了而代码没构造，门禁即红并点名）。故「漏登/幽灵」不可能安静发生；**唯汇总计数**（下三数）仍是手工陈述，改码时顺手重算（数错不影响守卫,守卫按码 diff 不数总数）。复核命令：
 > `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 322 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 322 = 322 个唯一 code，全部在表；表 333 行 = 322 + 7 + 4，三数对齐；含 WRK-076 B1 `SKILL_FILE_*` 3 码 + B3 `SKILL_SCRIPT_*` 3 码 + B4 `SKILL_INSTALL_*` 4 码与 `SKILL_NOT_INSTALLED`/`SKILL_LOCALLY_MODIFIED`）。
@@ -178,6 +178,14 @@ audience: [human, ai]
 | `DOCUMENT_ID_REQUIRED` | 400 | id is required |
 | `DOCUMENT_NAME_REQUIRED` | 400 | name is required |
 | `DOCUMENT_QUERY_REQUIRED` | 400 | query is required |
+
+### `app/tool/generate`（+ `infra/llm` 生成方言,WRK-082 批B）
+
+| code | HTTP | message |
+|---|---|---|
+| `IMAGE_NO_ROUTE` | 422 | no configured key can generate images |
+| `IMAGE_PROMPT_REQUIRED` | 400 | prompt is required |
+| `IMAGE_GEN_FAILED` | 503 | image generation failed (dynamic——含上游状态与净化摘录,LLM 据此自调) |
 
 ### `app/tool/filesystem`
 
