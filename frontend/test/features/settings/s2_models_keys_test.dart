@@ -43,6 +43,7 @@ Widget _host(
 
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
+  _imageRowTests();
 
   group('免费档卡 free-tier card', () {
     testWidgets(
@@ -511,5 +512,68 @@ void main() {
         );
       },
     );
+  });
+}
+
+// ── WRK-082 批B:图像生成场景行 image scenario row ──────────────────────────────
+ApiKey _key(String id, String provider, {String status = 'ok'}) => ApiKey(
+  id: id,
+  provider: provider,
+  displayName: '$provider key',
+  testStatus: status,
+  createdAt: DateTime(2026, 7, 1),
+  updatedAt: DateTime(2026, 7, 1),
+);
+
+void _imageRowTests() {
+  group('图像生成场景行 image scenario row', () {
+    testWidgets('honest absence: no capable key → how-to hint + add-key', (
+      tester,
+    ) async {
+      final repo = FixtureSettingsRepository();
+      repo.keys.add(_key('aki_d', 'deepseek')); // text-only provider 纯文本家
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('图像生成'), findsOneWidget);
+      expect(find.text('自动(免费档优先)'), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('imageDefaultToggle')),
+      );
+      await tester.tap(find.byKey(const ValueKey('imageDefaultToggle')));
+      await tester.pumpAndSettle();
+      expect(find.text('还没有能出图的密钥'), findsOneWidget);
+      expect(find.textContaining('出图工具会自动出现'), findsOneWidget);
+    });
+
+    testWidgets('capable keys become candidates; picking one PUTs the scenario', (
+      tester,
+    ) async {
+      final repo = FixtureSettingsRepository();
+      repo.keys.add(_key('aki_o', 'openai'));
+      repo.keys.add(_key('aki_z', 'zhipu', status: 'failed')); // untested 落选
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('imageDefaultToggle')),
+      );
+      await tester.tap(find.byKey(const ValueKey('imageDefaultToggle')));
+      await tester.pumpAndSettle();
+
+      // Only the tested openai key is offered, with its provider default model.
+      // 只有已探测 openai key 成为候选,带该家默认生成模型。
+      final candidate = find.textContaining('gpt-image-2');
+      expect(candidate, findsOneWidget);
+      expect(find.textContaining('cogview-4'), findsNothing);
+
+      await tester.ensureVisible(candidate);
+      await tester.tap(candidate);
+      await tester.pumpAndSettle();
+      // The fixture repo records the PUT: the row summary now shows the selection.
+      // fixture 仓记下 PUT:行摘要显示所选。
+      expect(find.textContaining('gpt-image-2'), findsOneWidget);
+      expect(find.text('自动(免费档优先)'), findsNothing);
+    });
   });
 }

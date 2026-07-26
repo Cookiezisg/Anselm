@@ -1883,7 +1883,14 @@
       "noModelKeys": "No model keys yet",
       "noModelKeysHint": "Add one to use your own provider — the built-in free tier works without it.",
       "noSearchKeys": "No search keys yet",
-      "noSearchKeysHint": "The WebSearch tool needs one; only keys that pass the probe are offered."
+      "noSearchKeysHint": "The WebSearch tool needs one; only keys that pass the probe are offered.",
+      "scenarioImage": "Image generation",
+      "scenarioImageDesc": "Which key the generate_image tool draws with — decoupled from chat models",
+      "imageAutoSummary": "Auto (free tier first)",
+      "imageManagedOption": "Anselm Free (gateway managed)",
+      "imageDefaultModelOf": "default model ${model}",
+      "imageNoRoute": "No key can generate images yet",
+      "imageNoRouteHint": "Add an OpenAI / Gemini / Qwen / Zhipu key, or enable Anselm Free — the tool appears automatically."
     },
     "ws": {
       "section": "Workspaces",

@@ -39,6 +39,11 @@ abstract class Workspace with _$Workspace {
     ModelRef? defaultDialogue,
     ModelRef? defaultUtility,
     ModelRef? defaultAgent,
+    // Generation scenarios (WRK-082 §3.2) — route generation TOOLS, decoupled from chat.
+    // 生成场景(WRK-082 §3.2)——为生成工具选路由,与聊天解耦。
+    ModelRef? defaultImage,
+    ModelRef? defaultSpeech,
+    ModelRef? defaultVideo,
     String? defaultSearchKeyId,
     String? webFetchMode, // local | jina
     DateTime? lastUsedAt,

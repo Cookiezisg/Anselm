@@ -791,6 +791,7 @@ class _DefaultsSection extends ConsumerWidget {
           current: ws?.defaultAgent,
           clearable: true,
         ),
+        _ImageDefaultRow(current: ws?.defaultImage),
         if (ws != null && ws.defaultDialogue == null)
           Padding(
             padding: const EdgeInsets.only(left: AnSpace.s8, top: AnSpace.s4),
@@ -1595,6 +1596,189 @@ class _SearchKeysSection extends ConsumerWidget {
           ),
           _ => const SizedBox(height: AnSize.row),
         },
+      ],
+    );
+  }
+}
+
+/// The image-generation scenario row (WRK-082 批B, 代拍 B9): candidates are KEYS, not chat
+/// models — generation models live outside the chat capability catalog, so the picker offers
+/// each image-capable tested key with its provider's default generation model. Unset is honest:
+/// the tool auto-routes managed-first; zero capable keys renders the how-to-get hint (honest
+/// absence, §3.5 — the tool itself is absent in that state too).
+///
+/// 图像生成场景行(批B,代拍 B9):候选是 **key** 而非聊天模型——生成模型不在聊天能力目录里,
+/// 选择器按「图像家已探测 key × 该家默认生成模型」出选项。未设置=诚实自动(受管优先);零可用
+/// key 渲「怎么获得」提示(诚实缺席,§3.5——彼态下工具本身也不存在)。
+class _ImageDefaultRow extends ConsumerStatefulWidget {
+  const _ImageDefaultRow({required this.current});
+
+  final ModelRef? current;
+
+  @override
+  ConsumerState<_ImageDefaultRow> createState() => _ImageDefaultRowState();
+}
+
+/// Image-capable providers × default generation model — MIRRORS backend
+/// `internal/app/tool/generate/generate.go` imageProviders (代拍 B6/B9; a closed legislated set,
+/// keep the two in lockstep by hand until a wire surface exists).
+///
+/// 图像家 × 默认生成模型——**镜像后端** `tool/generate/generate.go` 的 imageProviders(代拍
+/// B6/B9;封闭立法集,在出现 wire 面之前人工同步)。
+const Map<String, String> _imageProviderDefaults = {
+  'anselm': 'anselm-auto',
+  'openai': 'gpt-image-2',
+  'google': 'gemini-3.1-flash-image-preview',
+  'qwen': 'qwen-image-2.0',
+  'zhipu': 'cogview-4',
+};
+
+class _ImageDefaultRowState extends ConsumerState<_ImageDefaultRow> {
+  bool _open = false;
+
+  Future<void> _apply(String apiKeyId, String modelId) async {
+    try {
+      await ref
+          .read(workspacePrefsProvider.notifier)
+          .setDefaultModel(
+            'image',
+            apiKeyId: apiKeyId,
+            modelId: modelId,
+            options: const {},
+          );
+      if (mounted) setState(() => _open = false);
+    } on ApiException catch (e) {
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(e.message, tone: AnTone.danger);
+    }
+  }
+
+  Future<void> _clear() async {
+    try {
+      await ref
+          .read(workspacePrefsProvider.notifier)
+          .clearDefaultModel('image');
+      if (mounted) setState(() => _open = false);
+    } on ApiException catch (e) {
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(e.message, tone: AnTone.danger);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    final keys = ref.watch(apiKeysProvider).value ?? const <ApiKey>[];
+    final candidates = [
+      for (final k in keys)
+        if (k.testStatus == 'ok' &&
+            _imageProviderDefaults.containsKey(k.provider))
+          k,
+    ];
+    final cur = widget.current;
+    final curKey = cur == null
+        ? null
+        : keys.where((k) => k.id == cur.apiKeyId).firstOrNull;
+    final summary = cur == null
+        ? t.settings.keys.imageAutoSummary
+        : '${cur.modelId}${curKey == null ? '' : ' · ${curKey.displayName}'}';
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnSettingRow(
+          label: t.settings.keys.scenarioImage,
+          desc: t.settings.keys.scenarioImageDesc,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: AnSize.ctlSlotLg),
+                child: Text(
+                  summary,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.label.copyWith(
+                    color: cur == null ? c.inkFaint : c.inkMuted,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AnSpace.s8),
+              AnButton(
+                key: const ValueKey('imageDefaultToggle'),
+                label: _open
+                    ? t.settings.keys.pickerClose
+                    : t.settings.keys.pickerChange,
+                size: AnButtonSize.sm,
+                outline: true,
+                onPressed: () => setState(() => _open = !_open),
+              ),
+            ],
+          ),
+        ),
+        if (_open)
+          Padding(
+            padding: const EdgeInsets.only(top: AnSpace.s8, bottom: AnSpace.s8),
+            child: candidates.isEmpty
+                // Honest absence: say what is missing and how to get it — never an empty grid.
+                // 诚实缺席:说清缺什么、怎么获得——绝不空网格。
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        t.settings.keys.imageNoRoute,
+                        style: AnText.label.copyWith(color: c.inkMuted),
+                      ),
+                      const SizedBox(height: AnSpace.s4),
+                      Text(
+                        t.settings.keys.imageNoRouteHint,
+                        style: AnText.label.copyWith(color: c.inkFaint),
+                      ),
+                      const SizedBox(height: AnSpace.s8),
+                      AnButton(
+                        label: t.settings.keys.addKey,
+                        size: AnButtonSize.sm,
+                        outline: true,
+                        onPressed: () => ref
+                            .read(settingsDetailProvider.notifier)
+                            .push('addKey', category: 'llm'),
+                      ),
+                    ],
+                  )
+                : Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      for (final k in candidates)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: AnSpace.s4),
+                          child: AnButton(
+                            label: k.provider == 'anselm'
+                                ? t.settings.keys.imageManagedOption
+                                : '${k.displayName} · ${t.settings.keys.imageDefaultModelOf(model: _imageProviderDefaults[k.provider]!)}',
+                            size: AnButtonSize.sm,
+                            outline: true,
+                            onPressed: () => _apply(
+                              k.id,
+                              _imageProviderDefaults[k.provider]!,
+                            ),
+                          ),
+                        ),
+                      if (cur != null)
+                        Align(
+                          alignment: Alignment.centerLeft,
+                          child: AnButton(
+                            label: t.settings.keys.clearDefault,
+                            size: AnButtonSize.sm,
+                            outline: true,
+                            onPressed: _clear,
+                          ),
+                        ),
+                    ],
+                  ),
+          ),
       ],
     );
   }

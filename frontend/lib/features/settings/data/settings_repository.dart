@@ -822,6 +822,9 @@ class FixtureSettingsRepository implements SettingsRepository {
       'dialogue' => workspace.copyWith(defaultDialogue: ref),
       'utility' => workspace.copyWith(defaultUtility: ref),
       'agent' => workspace.copyWith(defaultAgent: ref),
+      'image' => workspace.copyWith(defaultImage: ref),
+      'speech' => workspace.copyWith(defaultSpeech: ref),
+      'video' => workspace.copyWith(defaultVideo: ref),
       _ => workspace,
     };
     return workspace;

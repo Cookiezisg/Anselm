@@ -36,6 +36,15 @@ _Workspace _$WorkspaceFromJson(Map<String, dynamic> json) => _Workspace(
   defaultAgent: json['defaultAgent'] == null
       ? null
       : ModelRef.fromJson(json['defaultAgent'] as Map<String, dynamic>),
+  defaultImage: json['defaultImage'] == null
+      ? null
+      : ModelRef.fromJson(json['defaultImage'] as Map<String, dynamic>),
+  defaultSpeech: json['defaultSpeech'] == null
+      ? null
+      : ModelRef.fromJson(json['defaultSpeech'] as Map<String, dynamic>),
+  defaultVideo: json['defaultVideo'] == null
+      ? null
+      : ModelRef.fromJson(json['defaultVideo'] as Map<String, dynamic>),
   defaultSearchKeyId: json['defaultSearchKeyId'] as String?,
   webFetchMode: json['webFetchMode'] as String?,
   lastUsedAt: json['lastUsedAt'] == null
@@ -54,6 +63,9 @@ Map<String, dynamic> _$WorkspaceToJson(_Workspace instance) =>
       'defaultDialogue': instance.defaultDialogue?.toJson(),
       'defaultUtility': instance.defaultUtility?.toJson(),
       'defaultAgent': instance.defaultAgent?.toJson(),
+      'defaultImage': instance.defaultImage?.toJson(),
+      'defaultSpeech': instance.defaultSpeech?.toJson(),
+      'defaultVideo': instance.defaultVideo?.toJson(),
       'defaultSearchKeyId': instance.defaultSearchKeyId,
       'webFetchMode': instance.webFetchMode,
       'lastUsedAt': instance.lastUsedAt?.toIso8601String(),

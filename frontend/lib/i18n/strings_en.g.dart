@@ -5095,6 +5095,27 @@ class Translations$settings$keys$en {
 
 	/// en: 'The WebSearch tool needs one; only keys that pass the probe are offered.'
 	String get noSearchKeysHint => 'The WebSearch tool needs one; only keys that pass the probe are offered.';
+
+	/// en: 'Image generation'
+	String get scenarioImage => 'Image generation';
+
+	/// en: 'Which key the generate_image tool draws with — decoupled from chat models'
+	String get scenarioImageDesc => 'Which key the generate_image tool draws with — decoupled from chat models';
+
+	/// en: 'Auto (free tier first)'
+	String get imageAutoSummary => 'Auto (free tier first)';
+
+	/// en: 'Anselm Free (gateway managed)'
+	String get imageManagedOption => 'Anselm Free (gateway managed)';
+
+	/// en: 'default model ${model}'
+	String imageDefaultModelOf({required Object model}) => 'default model ${model}';
+
+	/// en: 'No key can generate images yet'
+	String get imageNoRoute => 'No key can generate images yet';
+
+	/// en: 'Add an OpenAI / Gemini / Qwen / Zhipu key, or enable Anselm Free — the tool appears automatically.'
+	String get imageNoRouteHint => 'Add an OpenAI / Gemini / Qwen / Zhipu key, or enable Anselm Free — the tool appears automatically.';
 }
 
 // Path: settings.ws
@@ -8597,6 +8618,13 @@ extension on Translations {
 			'settings.keys.noModelKeysHint' => 'Add one to use your own provider — the built-in free tier works without it.',
 			'settings.keys.noSearchKeys' => 'No search keys yet',
 			'settings.keys.noSearchKeysHint' => 'The WebSearch tool needs one; only keys that pass the probe are offered.',
+			'settings.keys.scenarioImage' => 'Image generation',
+			'settings.keys.scenarioImageDesc' => 'Which key the generate_image tool draws with — decoupled from chat models',
+			'settings.keys.imageAutoSummary' => 'Auto (free tier first)',
+			'settings.keys.imageManagedOption' => 'Anselm Free (gateway managed)',
+			'settings.keys.imageDefaultModelOf' => ({required Object model}) => 'default model ${model}',
+			'settings.keys.imageNoRoute' => 'No key can generate images yet',
+			'settings.keys.imageNoRouteHint' => 'Add an OpenAI / Gemini / Qwen / Zhipu key, or enable Anselm Free — the tool appears automatically.',
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',
 			'settings.ws.newWorkspace' => 'New workspace',

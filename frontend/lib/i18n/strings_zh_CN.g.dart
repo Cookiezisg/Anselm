@@ -2085,6 +2085,13 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get noModelKeysHint => '添加一把即可用自己的厂商——内置免费档不需要它也能用。';
 	@override String get noSearchKeys => '还没有搜索密钥';
 	@override String get noSearchKeysHint => 'WebSearch 工具需要它;只有探测通过的密钥才会被提供。';
+	@override String get scenarioImage => '图像生成';
+	@override String get scenarioImageDesc => 'generate_image 工具用哪把密钥出图——与聊天模型解耦';
+	@override String get imageAutoSummary => '自动(免费档优先)';
+	@override String get imageManagedOption => 'Anselm 免费档(网关代管)';
+	@override String imageDefaultModelOf({required Object model}) => '默认模型 ${model}';
+	@override String get imageNoRoute => '还没有能出图的密钥';
+	@override String get imageNoRouteHint => '添加 OpenAI / Gemini / 通义 / 智谱任一密钥,或启用 Anselm 免费档——出图工具会自动出现。';
 }
 
 // Path: settings.ws
@@ -4625,6 +4632,13 @@ extension on TranslationsZhCn {
 			'settings.keys.noModelKeysHint' => '添加一把即可用自己的厂商——内置免费档不需要它也能用。',
 			'settings.keys.noSearchKeys' => '还没有搜索密钥',
 			'settings.keys.noSearchKeysHint' => 'WebSearch 工具需要它;只有探测通过的密钥才会被提供。',
+			'settings.keys.scenarioImage' => '图像生成',
+			'settings.keys.scenarioImageDesc' => 'generate_image 工具用哪把密钥出图——与聊天模型解耦',
+			'settings.keys.imageAutoSummary' => '自动(免费档优先)',
+			'settings.keys.imageManagedOption' => 'Anselm 免费档(网关代管)',
+			'settings.keys.imageDefaultModelOf' => ({required Object model}) => '默认模型 ${model}',
+			'settings.keys.imageNoRoute' => '还没有能出图的密钥',
+			'settings.keys.imageNoRouteHint' => '添加 OpenAI / Gemini / 通义 / 智谱任一密钥,或启用 Anselm 免费档——出图工具会自动出现。',
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',
 			'settings.ws.newWorkspace' => '新建工作区',

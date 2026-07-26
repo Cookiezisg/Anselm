@@ -290,7 +290,9 @@ as Map<String, String>,
 /// @nodoc
 mixin _$Workspace {
 
- String get id; String get name; String? get avatarColor; String get language; ModelRef? get defaultDialogue; ModelRef? get defaultUtility; ModelRef? get defaultAgent; String? get defaultSearchKeyId; String? get webFetchMode;// local | jina
+ String get id; String get name; String? get avatarColor; String get language; ModelRef? get defaultDialogue; ModelRef? get defaultUtility; ModelRef? get defaultAgent;// Generation scenarios (WRK-082 §3.2) — route generation TOOLS, decoupled from chat.
+// 生成场景(WRK-082 §3.2)——为生成工具选路由,与聊天解耦。
+ ModelRef? get defaultImage; ModelRef? get defaultSpeech; ModelRef? get defaultVideo; String? get defaultSearchKeyId; String? get webFetchMode;// local | jina
  DateTime? get lastUsedAt; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of Workspace
 /// with the given fields replaced by the non-null parameter values.
@@ -304,16 +306,16 @@ $WorkspaceCopyWith<Workspace> get copyWith => _$WorkspaceCopyWithImpl<Workspace>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Workspace&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.avatarColor, avatarColor) || other.avatarColor == avatarColor)&&(identical(other.language, language) || other.language == language)&&(identical(other.defaultDialogue, defaultDialogue) || other.defaultDialogue == defaultDialogue)&&(identical(other.defaultUtility, defaultUtility) || other.defaultUtility == defaultUtility)&&(identical(other.defaultAgent, defaultAgent) || other.defaultAgent == defaultAgent)&&(identical(other.defaultSearchKeyId, defaultSearchKeyId) || other.defaultSearchKeyId == defaultSearchKeyId)&&(identical(other.webFetchMode, webFetchMode) || other.webFetchMode == webFetchMode)&&(identical(other.lastUsedAt, lastUsedAt) || other.lastUsedAt == lastUsedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Workspace&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.avatarColor, avatarColor) || other.avatarColor == avatarColor)&&(identical(other.language, language) || other.language == language)&&(identical(other.defaultDialogue, defaultDialogue) || other.defaultDialogue == defaultDialogue)&&(identical(other.defaultUtility, defaultUtility) || other.defaultUtility == defaultUtility)&&(identical(other.defaultAgent, defaultAgent) || other.defaultAgent == defaultAgent)&&(identical(other.defaultImage, defaultImage) || other.defaultImage == defaultImage)&&(identical(other.defaultSpeech, defaultSpeech) || other.defaultSpeech == defaultSpeech)&&(identical(other.defaultVideo, defaultVideo) || other.defaultVideo == defaultVideo)&&(identical(other.defaultSearchKeyId, defaultSearchKeyId) || other.defaultSearchKeyId == defaultSearchKeyId)&&(identical(other.webFetchMode, webFetchMode) || other.webFetchMode == webFetchMode)&&(identical(other.lastUsedAt, lastUsedAt) || other.lastUsedAt == lastUsedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,avatarColor,language,defaultDialogue,defaultUtility,defaultAgent,defaultSearchKeyId,webFetchMode,lastUsedAt,createdAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,name,avatarColor,language,defaultDialogue,defaultUtility,defaultAgent,defaultImage,defaultSpeech,defaultVideo,defaultSearchKeyId,webFetchMode,lastUsedAt,createdAt,updatedAt);
 
 @override
 String toString() {
-  return 'Workspace(id: $id, name: $name, avatarColor: $avatarColor, language: $language, defaultDialogue: $defaultDialogue, defaultUtility: $defaultUtility, defaultAgent: $defaultAgent, defaultSearchKeyId: $defaultSearchKeyId, webFetchMode: $webFetchMode, lastUsedAt: $lastUsedAt, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'Workspace(id: $id, name: $name, avatarColor: $avatarColor, language: $language, defaultDialogue: $defaultDialogue, defaultUtility: $defaultUtility, defaultAgent: $defaultAgent, defaultImage: $defaultImage, defaultSpeech: $defaultSpeech, defaultVideo: $defaultVideo, defaultSearchKeyId: $defaultSearchKeyId, webFetchMode: $webFetchMode, lastUsedAt: $lastUsedAt, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -324,11 +326,11 @@ abstract mixin class $WorkspaceCopyWith<$Res>  {
   factory $WorkspaceCopyWith(Workspace value, $Res Function(Workspace) _then) = _$WorkspaceCopyWithImpl;
 @useResult
 $Res call({
- String id, String name, String? avatarColor, String language, ModelRef? defaultDialogue, ModelRef? defaultUtility, ModelRef? defaultAgent, String? defaultSearchKeyId, String? webFetchMode, DateTime? lastUsedAt, DateTime createdAt, DateTime updatedAt
+ String id, String name, String? avatarColor, String language, ModelRef? defaultDialogue, ModelRef? defaultUtility, ModelRef? defaultAgent, ModelRef? defaultImage, ModelRef? defaultSpeech, ModelRef? defaultVideo, String? defaultSearchKeyId, String? webFetchMode, DateTime? lastUsedAt, DateTime createdAt, DateTime updatedAt
 });
 
 
-$ModelRefCopyWith<$Res>? get defaultDialogue;$ModelRefCopyWith<$Res>? get defaultUtility;$ModelRefCopyWith<$Res>? get defaultAgent;
+$ModelRefCopyWith<$Res>? get defaultDialogue;$ModelRefCopyWith<$Res>? get defaultUtility;$ModelRefCopyWith<$Res>? get defaultAgent;$ModelRefCopyWith<$Res>? get defaultImage;$ModelRefCopyWith<$Res>? get defaultSpeech;$ModelRefCopyWith<$Res>? get defaultVideo;
 
 }
 /// @nodoc
@@ -341,7 +343,7 @@ class _$WorkspaceCopyWithImpl<$Res>
 
 /// Create a copy of Workspace
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? avatarColor = freezed,Object? language = null,Object? defaultDialogue = freezed,Object? defaultUtility = freezed,Object? defaultAgent = freezed,Object? defaultSearchKeyId = freezed,Object? webFetchMode = freezed,Object? lastUsedAt = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? avatarColor = freezed,Object? language = null,Object? defaultDialogue = freezed,Object? defaultUtility = freezed,Object? defaultAgent = freezed,Object? defaultImage = freezed,Object? defaultSpeech = freezed,Object? defaultVideo = freezed,Object? defaultSearchKeyId = freezed,Object? webFetchMode = freezed,Object? lastUsedAt = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -350,6 +352,9 @@ as String?,language: null == language ? _self.language : language // ignore: cas
 as String,defaultDialogue: freezed == defaultDialogue ? _self.defaultDialogue : defaultDialogue // ignore: cast_nullable_to_non_nullable
 as ModelRef?,defaultUtility: freezed == defaultUtility ? _self.defaultUtility : defaultUtility // ignore: cast_nullable_to_non_nullable
 as ModelRef?,defaultAgent: freezed == defaultAgent ? _self.defaultAgent : defaultAgent // ignore: cast_nullable_to_non_nullable
+as ModelRef?,defaultImage: freezed == defaultImage ? _self.defaultImage : defaultImage // ignore: cast_nullable_to_non_nullable
+as ModelRef?,defaultSpeech: freezed == defaultSpeech ? _self.defaultSpeech : defaultSpeech // ignore: cast_nullable_to_non_nullable
+as ModelRef?,defaultVideo: freezed == defaultVideo ? _self.defaultVideo : defaultVideo // ignore: cast_nullable_to_non_nullable
 as ModelRef?,defaultSearchKeyId: freezed == defaultSearchKeyId ? _self.defaultSearchKeyId : defaultSearchKeyId // ignore: cast_nullable_to_non_nullable
 as String?,webFetchMode: freezed == webFetchMode ? _self.webFetchMode : webFetchMode // ignore: cast_nullable_to_non_nullable
 as String?,lastUsedAt: freezed == lastUsedAt ? _self.lastUsedAt : lastUsedAt // ignore: cast_nullable_to_non_nullable
@@ -393,6 +398,42 @@ $ModelRefCopyWith<$Res>? get defaultAgent {
 
   return $ModelRefCopyWith<$Res>(_self.defaultAgent!, (value) {
     return _then(_self.copyWith(defaultAgent: value));
+  });
+}/// Create a copy of Workspace
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ModelRefCopyWith<$Res>? get defaultImage {
+    if (_self.defaultImage == null) {
+    return null;
+  }
+
+  return $ModelRefCopyWith<$Res>(_self.defaultImage!, (value) {
+    return _then(_self.copyWith(defaultImage: value));
+  });
+}/// Create a copy of Workspace
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ModelRefCopyWith<$Res>? get defaultSpeech {
+    if (_self.defaultSpeech == null) {
+    return null;
+  }
+
+  return $ModelRefCopyWith<$Res>(_self.defaultSpeech!, (value) {
+    return _then(_self.copyWith(defaultSpeech: value));
+  });
+}/// Create a copy of Workspace
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ModelRefCopyWith<$Res>? get defaultVideo {
+    if (_self.defaultVideo == null) {
+    return null;
+  }
+
+  return $ModelRefCopyWith<$Res>(_self.defaultVideo!, (value) {
+    return _then(_self.copyWith(defaultVideo: value));
   });
 }
 }
@@ -476,10 +517,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? avatarColor,  String language,  ModelRef? defaultDialogue,  ModelRef? defaultUtility,  ModelRef? defaultAgent,  String? defaultSearchKeyId,  String? webFetchMode,  DateTime? lastUsedAt,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String? avatarColor,  String language,  ModelRef? defaultDialogue,  ModelRef? defaultUtility,  ModelRef? defaultAgent,  ModelRef? defaultImage,  ModelRef? defaultSpeech,  ModelRef? defaultVideo,  String? defaultSearchKeyId,  String? webFetchMode,  DateTime? lastUsedAt,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Workspace() when $default != null:
-return $default(_that.id,_that.name,_that.avatarColor,_that.language,_that.defaultDialogue,_that.defaultUtility,_that.defaultAgent,_that.defaultSearchKeyId,_that.webFetchMode,_that.lastUsedAt,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.name,_that.avatarColor,_that.language,_that.defaultDialogue,_that.defaultUtility,_that.defaultAgent,_that.defaultImage,_that.defaultSpeech,_that.defaultVideo,_that.defaultSearchKeyId,_that.webFetchMode,_that.lastUsedAt,_that.createdAt,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -497,10 +538,10 @@ return $default(_that.id,_that.name,_that.avatarColor,_that.language,_that.defau
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? avatarColor,  String language,  ModelRef? defaultDialogue,  ModelRef? defaultUtility,  ModelRef? defaultAgent,  String? defaultSearchKeyId,  String? webFetchMode,  DateTime? lastUsedAt,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String? avatarColor,  String language,  ModelRef? defaultDialogue,  ModelRef? defaultUtility,  ModelRef? defaultAgent,  ModelRef? defaultImage,  ModelRef? defaultSpeech,  ModelRef? defaultVideo,  String? defaultSearchKeyId,  String? webFetchMode,  DateTime? lastUsedAt,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Workspace():
-return $default(_that.id,_that.name,_that.avatarColor,_that.language,_that.defaultDialogue,_that.defaultUtility,_that.defaultAgent,_that.defaultSearchKeyId,_that.webFetchMode,_that.lastUsedAt,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.name,_that.avatarColor,_that.language,_that.defaultDialogue,_that.defaultUtility,_that.defaultAgent,_that.defaultImage,_that.defaultSpeech,_that.defaultVideo,_that.defaultSearchKeyId,_that.webFetchMode,_that.lastUsedAt,_that.createdAt,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -517,10 +558,10 @@ return $default(_that.id,_that.name,_that.avatarColor,_that.language,_that.defau
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? avatarColor,  String language,  ModelRef? defaultDialogue,  ModelRef? defaultUtility,  ModelRef? defaultAgent,  String? defaultSearchKeyId,  String? webFetchMode,  DateTime? lastUsedAt,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String? avatarColor,  String language,  ModelRef? defaultDialogue,  ModelRef? defaultUtility,  ModelRef? defaultAgent,  ModelRef? defaultImage,  ModelRef? defaultSpeech,  ModelRef? defaultVideo,  String? defaultSearchKeyId,  String? webFetchMode,  DateTime? lastUsedAt,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Workspace() when $default != null:
-return $default(_that.id,_that.name,_that.avatarColor,_that.language,_that.defaultDialogue,_that.defaultUtility,_that.defaultAgent,_that.defaultSearchKeyId,_that.webFetchMode,_that.lastUsedAt,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.name,_that.avatarColor,_that.language,_that.defaultDialogue,_that.defaultUtility,_that.defaultAgent,_that.defaultImage,_that.defaultSpeech,_that.defaultVideo,_that.defaultSearchKeyId,_that.webFetchMode,_that.lastUsedAt,_that.createdAt,_that.updatedAt);case _:
   return null;
 
 }
@@ -532,7 +573,7 @@ return $default(_that.id,_that.name,_that.avatarColor,_that.language,_that.defau
 @JsonSerializable()
 
 class _Workspace implements Workspace {
-  const _Workspace({required this.id, required this.name, this.avatarColor, required this.language, this.defaultDialogue, this.defaultUtility, this.defaultAgent, this.defaultSearchKeyId, this.webFetchMode, this.lastUsedAt, required this.createdAt, required this.updatedAt});
+  const _Workspace({required this.id, required this.name, this.avatarColor, required this.language, this.defaultDialogue, this.defaultUtility, this.defaultAgent, this.defaultImage, this.defaultSpeech, this.defaultVideo, this.defaultSearchKeyId, this.webFetchMode, this.lastUsedAt, required this.createdAt, required this.updatedAt});
   factory _Workspace.fromJson(Map<String, dynamic> json) => _$WorkspaceFromJson(json);
 
 @override final  String id;
@@ -542,6 +583,11 @@ class _Workspace implements Workspace {
 @override final  ModelRef? defaultDialogue;
 @override final  ModelRef? defaultUtility;
 @override final  ModelRef? defaultAgent;
+// Generation scenarios (WRK-082 §3.2) — route generation TOOLS, decoupled from chat.
+// 生成场景(WRK-082 §3.2)——为生成工具选路由,与聊天解耦。
+@override final  ModelRef? defaultImage;
+@override final  ModelRef? defaultSpeech;
+@override final  ModelRef? defaultVideo;
 @override final  String? defaultSearchKeyId;
 @override final  String? webFetchMode;
 // local | jina
@@ -562,16 +608,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Workspace&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.avatarColor, avatarColor) || other.avatarColor == avatarColor)&&(identical(other.language, language) || other.language == language)&&(identical(other.defaultDialogue, defaultDialogue) || other.defaultDialogue == defaultDialogue)&&(identical(other.defaultUtility, defaultUtility) || other.defaultUtility == defaultUtility)&&(identical(other.defaultAgent, defaultAgent) || other.defaultAgent == defaultAgent)&&(identical(other.defaultSearchKeyId, defaultSearchKeyId) || other.defaultSearchKeyId == defaultSearchKeyId)&&(identical(other.webFetchMode, webFetchMode) || other.webFetchMode == webFetchMode)&&(identical(other.lastUsedAt, lastUsedAt) || other.lastUsedAt == lastUsedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Workspace&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.avatarColor, avatarColor) || other.avatarColor == avatarColor)&&(identical(other.language, language) || other.language == language)&&(identical(other.defaultDialogue, defaultDialogue) || other.defaultDialogue == defaultDialogue)&&(identical(other.defaultUtility, defaultUtility) || other.defaultUtility == defaultUtility)&&(identical(other.defaultAgent, defaultAgent) || other.defaultAgent == defaultAgent)&&(identical(other.defaultImage, defaultImage) || other.defaultImage == defaultImage)&&(identical(other.defaultSpeech, defaultSpeech) || other.defaultSpeech == defaultSpeech)&&(identical(other.defaultVideo, defaultVideo) || other.defaultVideo == defaultVideo)&&(identical(other.defaultSearchKeyId, defaultSearchKeyId) || other.defaultSearchKeyId == defaultSearchKeyId)&&(identical(other.webFetchMode, webFetchMode) || other.webFetchMode == webFetchMode)&&(identical(other.lastUsedAt, lastUsedAt) || other.lastUsedAt == lastUsedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,name,avatarColor,language,defaultDialogue,defaultUtility,defaultAgent,defaultSearchKeyId,webFetchMode,lastUsedAt,createdAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,name,avatarColor,language,defaultDialogue,defaultUtility,defaultAgent,defaultImage,defaultSpeech,defaultVideo,defaultSearchKeyId,webFetchMode,lastUsedAt,createdAt,updatedAt);
 
 @override
 String toString() {
-  return 'Workspace(id: $id, name: $name, avatarColor: $avatarColor, language: $language, defaultDialogue: $defaultDialogue, defaultUtility: $defaultUtility, defaultAgent: $defaultAgent, defaultSearchKeyId: $defaultSearchKeyId, webFetchMode: $webFetchMode, lastUsedAt: $lastUsedAt, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'Workspace(id: $id, name: $name, avatarColor: $avatarColor, language: $language, defaultDialogue: $defaultDialogue, defaultUtility: $defaultUtility, defaultAgent: $defaultAgent, defaultImage: $defaultImage, defaultSpeech: $defaultSpeech, defaultVideo: $defaultVideo, defaultSearchKeyId: $defaultSearchKeyId, webFetchMode: $webFetchMode, lastUsedAt: $lastUsedAt, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -582,11 +628,11 @@ abstract mixin class _$WorkspaceCopyWith<$Res> implements $WorkspaceCopyWith<$Re
   factory _$WorkspaceCopyWith(_Workspace value, $Res Function(_Workspace) _then) = __$WorkspaceCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String name, String? avatarColor, String language, ModelRef? defaultDialogue, ModelRef? defaultUtility, ModelRef? defaultAgent, String? defaultSearchKeyId, String? webFetchMode, DateTime? lastUsedAt, DateTime createdAt, DateTime updatedAt
+ String id, String name, String? avatarColor, String language, ModelRef? defaultDialogue, ModelRef? defaultUtility, ModelRef? defaultAgent, ModelRef? defaultImage, ModelRef? defaultSpeech, ModelRef? defaultVideo, String? defaultSearchKeyId, String? webFetchMode, DateTime? lastUsedAt, DateTime createdAt, DateTime updatedAt
 });
 
 
-@override $ModelRefCopyWith<$Res>? get defaultDialogue;@override $ModelRefCopyWith<$Res>? get defaultUtility;@override $ModelRefCopyWith<$Res>? get defaultAgent;
+@override $ModelRefCopyWith<$Res>? get defaultDialogue;@override $ModelRefCopyWith<$Res>? get defaultUtility;@override $ModelRefCopyWith<$Res>? get defaultAgent;@override $ModelRefCopyWith<$Res>? get defaultImage;@override $ModelRefCopyWith<$Res>? get defaultSpeech;@override $ModelRefCopyWith<$Res>? get defaultVideo;
 
 }
 /// @nodoc
@@ -599,7 +645,7 @@ class __$WorkspaceCopyWithImpl<$Res>
 
 /// Create a copy of Workspace
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? avatarColor = freezed,Object? language = null,Object? defaultDialogue = freezed,Object? defaultUtility = freezed,Object? defaultAgent = freezed,Object? defaultSearchKeyId = freezed,Object? webFetchMode = freezed,Object? lastUsedAt = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? avatarColor = freezed,Object? language = null,Object? defaultDialogue = freezed,Object? defaultUtility = freezed,Object? defaultAgent = freezed,Object? defaultImage = freezed,Object? defaultSpeech = freezed,Object? defaultVideo = freezed,Object? defaultSearchKeyId = freezed,Object? webFetchMode = freezed,Object? lastUsedAt = freezed,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_Workspace(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
@@ -608,6 +654,9 @@ as String?,language: null == language ? _self.language : language // ignore: cas
 as String,defaultDialogue: freezed == defaultDialogue ? _self.defaultDialogue : defaultDialogue // ignore: cast_nullable_to_non_nullable
 as ModelRef?,defaultUtility: freezed == defaultUtility ? _self.defaultUtility : defaultUtility // ignore: cast_nullable_to_non_nullable
 as ModelRef?,defaultAgent: freezed == defaultAgent ? _self.defaultAgent : defaultAgent // ignore: cast_nullable_to_non_nullable
+as ModelRef?,defaultImage: freezed == defaultImage ? _self.defaultImage : defaultImage // ignore: cast_nullable_to_non_nullable
+as ModelRef?,defaultSpeech: freezed == defaultSpeech ? _self.defaultSpeech : defaultSpeech // ignore: cast_nullable_to_non_nullable
+as ModelRef?,defaultVideo: freezed == defaultVideo ? _self.defaultVideo : defaultVideo // ignore: cast_nullable_to_non_nullable
 as ModelRef?,defaultSearchKeyId: freezed == defaultSearchKeyId ? _self.defaultSearchKeyId : defaultSearchKeyId // ignore: cast_nullable_to_non_nullable
 as String?,webFetchMode: freezed == webFetchMode ? _self.webFetchMode : webFetchMode // ignore: cast_nullable_to_non_nullable
 as String?,lastUsedAt: freezed == lastUsedAt ? _self.lastUsedAt : lastUsedAt // ignore: cast_nullable_to_non_nullable
@@ -652,6 +701,42 @@ $ModelRefCopyWith<$Res>? get defaultAgent {
 
   return $ModelRefCopyWith<$Res>(_self.defaultAgent!, (value) {
     return _then(_self.copyWith(defaultAgent: value));
+  });
+}/// Create a copy of Workspace
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ModelRefCopyWith<$Res>? get defaultImage {
+    if (_self.defaultImage == null) {
+    return null;
+  }
+
+  return $ModelRefCopyWith<$Res>(_self.defaultImage!, (value) {
+    return _then(_self.copyWith(defaultImage: value));
+  });
+}/// Create a copy of Workspace
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ModelRefCopyWith<$Res>? get defaultSpeech {
+    if (_self.defaultSpeech == null) {
+    return null;
+  }
+
+  return $ModelRefCopyWith<$Res>(_self.defaultSpeech!, (value) {
+    return _then(_self.copyWith(defaultSpeech: value));
+  });
+}/// Create a copy of Workspace
+/// with the given fields replaced by the non-null parameter values.
+@override
+@pragma('vm:prefer-inline')
+$ModelRefCopyWith<$Res>? get defaultVideo {
+    if (_self.defaultVideo == null) {
+    return null;
+  }
+
+  return $ModelRefCopyWith<$Res>(_self.defaultVideo!, (value) {
+    return _then(_self.copyWith(defaultVideo: value));
   });
 }
 }
