@@ -1,12 +1,10 @@
 import 'package:flutter/widgets.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:super_editor/super_editor.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
-import '../design/typography.dart';
-import '../media/attachment_image_provider.dart';
-import '../media/media_source.dart';
+import '../media/media_cards.dart';
+import '../media/media_ref.dart';
 import '../media/media_uri.dart';
 
 /// The document editor's media component (WRK-082 批F). super_editor's own image component fetches
@@ -20,6 +18,11 @@ import '../media/media_uri.dart';
 /// `anselm://media/<id>`——于是一份存了生成图表的文档会渲出一个破框。本 builder 认这个 scheme,并经
 /// **与其余每个面同一条**附件管线解析它(不变量②/④);**不属于**它的图像 URL 交回默认组件,因为文档
 /// 里完全可以有普通网图,那些必须继续以自己的样子渲染。
+///
+/// **一个 markdown 形,三种媒体**。markdown 只有一个「这里有个媒体」的槽——`![alt](url)`——所以音频与
+/// 视频也走它,由 [AnMediaRefCard] 按**附件行的 mime** 分发成图/音/文件卡。发明一种 markdown 之外的
+/// 语法会让文档不再是 markdown(别处打不开、codec 三保真也保不住);而按 **url 猜**类型会在一个改了
+/// 扩展名的文件上撒谎。行说了算,这与聊天、节点检查器、approval 门用的是同一条规矩。
 class AnMediaImageComponentBuilder extends ImageComponentBuilder {
   const AnMediaImageComponentBuilder(this.colors);
 
@@ -43,13 +46,12 @@ class AnMediaImageComponentBuilder extends ImageComponentBuilder {
   }
 }
 
-/// The rendered attachment. It implements [DocumentComponent] via [ImageComponent]'s own contract
-/// by delegating to a plain image widget wrapped in a [BoxComponent] — the editor needs the
-/// component to report its own bounds for selection, and BoxComponent is the package's answer for
-/// any non-text block.
+/// The rendered attachment — delegated to the ONE card family (`AnMediaRefCard`), which dispatches
+/// on the attachment row's mime. The editor therefore shows an image as an image, a voice note as
+/// an audio card and a clip as a file card, without knowing any of that itself.
 ///
-/// 渲出来的附件。它经 [BoxComponent] 满足编辑器对「非文本块」的组件契约——编辑器需要组件自报边界以
-/// 支持选区,而 BoxComponent 正是本包对任何非文本块给出的答案。
+/// 渲出来的附件——交给**一族卡**(`AnMediaRefCard`),它按附件行的 mime 分发。编辑器因此把图渲成图、
+/// 把语音渲成音频卡、把片子渲成文件卡,而它自己对这些一无所知。
 class _AnMediaImageComponent extends StatelessWidget {
   const _AnMediaImageComponent({
     required this.attachmentId,
@@ -60,58 +62,12 @@ class _AnMediaImageComponent extends StatelessWidget {
   final String attachmentId;
   final AnColors colors;
 
-  // A Consumer rather than a WidgetRef parameter: the editor's component builders are plain
-  // objects with no Riverpod scope of their own, and threading a ref down from the host would
-  // force AnEditor itself to become a ConsumerWidget — subscribing the WHOLE editor to a provider
-  // that concerns one image. The Consumer keeps the subscription on the image.
-  //
-  // 用 Consumer 而非 WidgetRef 参数:编辑器的组件 builder 是没有自己 Riverpod 作用域的普通对象,从宿主
-  // 把 ref 穿下来会逼 AnEditor 自己变成 ConsumerWidget——把**整个编辑器**订阅到一个只关乎一张图的
-  // provider 上。Consumer 让订阅留在这张图身上。
   @override
-  Widget build(BuildContext context) => Consumer(builder: _build);
-
-  Widget _build(BuildContext context, WidgetRef wref, Widget? _) {
-    final meta = wref.watch(mediaMetaProvider(attachmentId));
-    // hasError, not the AsyncError class pattern (Riverpod auto-retries — same reasoning as the
-    // chat cards). A row we cannot read is said out loud; a document never shows a broken box.
-    // 用 hasError 而非类模式(Riverpod 自动重试,与聊天卡同理)。读不到的行明说;文档里绝不出现破框。
-    if (meta.hasError) {
-      return BoxComponent(
-        key: key,
-        child: Text(
-          attachmentId,
-          style: AnText.label.copyWith(color: colors.inkFaint),
-        ),
-      );
-    }
-    return BoxComponent(
-      key: key,
-      child: switch (meta) {
-        AsyncData() => ClipRRect(
-          borderRadius: BorderRadius.circular(AnRadius.button),
-          child: Image(
-            image: AttachmentImageProvider(
-              attachmentId,
-              fetch: () => wref.read(mediaSourceProvider).bytes(attachmentId),
-              targetWidth:
-                  (AnSize.content * MediaQuery.devicePixelRatioOf(context))
-                      .round(),
-            ),
-            fit: BoxFit.contain,
-            errorBuilder: (context, _, _) => Text(
-              attachmentId,
-              style: AnText.label.copyWith(color: colors.inkMuted),
-            ),
-          ),
-        ),
-        // Hold the line's height while the row resolves so the reading position never jumps.
-        // 行在解析时先占住高度,阅读位置绝不跳。
-        _ => SizedBox(
-          height: AnSize.control,
-          child: ColoredBox(color: colors.surfaceSubtle),
-        ),
-      },
-    );
-  }
+  Widget build(BuildContext context) => BoxComponent(
+    key: key,
+    child: AnMediaRefCard(
+      mediaRef: AnMediaRef(attachmentId: attachmentId),
+      maxWidth: AnSize.content,
+    ),
+  );
 }
