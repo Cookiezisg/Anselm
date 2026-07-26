@@ -1,5 +1,6 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/core/ui/an_menu.dart';
 import 'package:anselm/core/ui/an_row.dart';
 import 'package:flutter/material.dart';
@@ -137,6 +138,32 @@ void main() {
             Icon(Icons.archive, size: 16),
             Icon(Icons.delete, size: 16),
           ],
+        ),
+        width: AnSize.sidebarMin,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
+
+  // The trailing STATUS DOT case — found by the WRK-083 real-machine sweep as a 5.8px overflow, which
+  // the first version of this guard did not catch because it never rendered a dot and a long meta
+  // together. That combination is what a conversation rail row actually is (a timestamp beside a
+  // generating/unread dot), so "never tested together" meant "never tested at all" for the real shape.
+  //
+  // 尾端**状态点**那一格——由 WRK-083 真机扫查以 5.8px 溢出抓到,而本守卫的第一版没抓到,因为它从未把点与长
+  // meta render 在一起。而那个组合恰恰就是**对话 rail 行的真实形状**(时间戳挨着生成中/未读点),所以「从未一起
+  // 测过」对真实形状而言就是「从未测过」。
+  testWidgets('AnRow: a trailing status dot never squeezes the row open', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        AnRow(
+          label: 'a conversation title',
+          meta: _absurdMeta,
+          trailingDot: AnStatus.run,
+          onSelect: () {},
         ),
         width: AnSize.sidebarMin,
       ),

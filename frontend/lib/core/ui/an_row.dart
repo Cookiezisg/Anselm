@@ -361,10 +361,29 @@ class AnRow extends StatelessWidget {
     if (td == null) return core ?? const SizedBox.shrink();
     // The persistent status dot rides after the meta/actions slot (excluded from a11y — the row's own
     // label carries the meaning). 状态点在 meta/actions 之后常驻(a11y 排除,含义归行 label)。
+    // `core` is FLEXIBLE, the dot is not. The dot is a fixed 6-ish glyph carrying live/gate state, so it
+    // must never be the thing that gets squeezed; the meta beside it is a string that already knows how
+    // to ellipsize — it only needed to be told it may.
+    //
+    // Found by the WRK-083 sweep as a 5.8px overflow, and it is a regression the B2 fix introduced: that
+    // fix bounded the WHOLE trail (`Flexible` + `Align`) but left this inner row's children at their
+    // natural size, so a bounded trail containing an unbounded row still overflowed — just by less. The
+    // B2 guard missed it because it never rendered a row with a `trailingDot` AND a long meta together;
+    // that case now exists in the guard.
+    //
+    // `core` **可弹**,点不可弹。点是承载 live/gate 状态的固定小字形,绝不能是被挤的那个;它旁边的 meta 是一个
+    // **本来就会省略号**的字符串——只是从没人告诉它「你可以」。
+    //
+    // 由 WRK-083 扫查以 5.8px 溢出抓到,且它是 **B2 修复自己引入的回归**:那次修复给**整个 trail** 设了界
+    // (`Flexible` + `Align`),却让这个内层 row 的孩子留在自然尺寸,于是「有界的 trail 装着无界的 row」照样溢出
+    // ——只是溢得少些。B2 的守卫漏掉它,是因为它从未把「带状态点」与「长 meta」render 在一起;那一格现已入守卫。
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        if (core != null) ...[core, const SizedBox(width: AnSpace.s6)],
+        if (core != null) ...[
+          Flexible(child: core),
+          const SizedBox(width: AnSpace.s6),
+        ],
         ExcludeSemantics(child: AnStatusDot(td)),
       ],
     );
