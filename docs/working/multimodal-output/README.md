@@ -109,6 +109,8 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 | A3 | **P2 既定后果逐 id 清单**(实测):`qwen3.5-omni-plus/flash`、`qwen-long`、`moonshot-v1-8k/32k/128k`、`glm-4-long`、`glm-4-flash`、`glm-5-turbo`、`gpt-3.5-turbo`(上游标 `tool_call=false`)从直连目录消失;豆包整家撤(后端 provider/前端品牌资产/web demo fixture 三处同批清零) | 上游缺席或谓词落选;方向已拍板知情(§2.3),此为完整清单 | 📋 事实记档 |
 | A4 | **旋钮保守化**:目录新模型无手写 `knobRule` 命中 → 零旋钮(模型可用、无思考控件) | P4「旋钮不折腾」;未核实的族不猜 wire 词表 | ✅ 批A 已实施 |
 | A5 | **方言掩码**(`partMask`):模态布尔投影 = 目录模态 ∧ 方言 wire 能力(例:kimi-k2.6 目录列 video、Moonshot 方言渲不了 video part → `Video=false`) | 「能力宣称必须描述整条路」——网关 `Multimodal.Available` 双半才真先例用在方言上;守卫 `TestDescribe_MaskGatesProjection` | ✅ 批A 已实施 |
+| B1 | **网关上游走 DashScope 同步形**:`POST /api/v1/services/aigc/multimodal-generation/generation`(qwen-image-2.0 系,直接返 24h OSS URL)——**免掉整个任务轮询翻译层**;异步 text2image 形(qwen-image-plus)留 fallback 不实现 | 官方文档 2026-07 已把同步形标注为**推荐**且 §2.5 之前的「不走 OpenAI-compat、必须异步」判断已过时一半;同步形上游连接持有几十秒,给该路由单独设宽上游超时即可,比任务存储+轮询薄一个数量级 | 📋 批B 施工中,文档核准依据在案 |
+| B2 | **真 key 实测被权限闸挡下,转晨间解锁**:SSH 上生产服务器被会话权限分类器拒(不绕);本地 .env 无 DASHSCOPE key | 形状已按官方文档四家核准(见 §2.5 修订);真线缆证据(URL 无 key/时延/账单行)等解锁后补——两条路任选:①本地 env 提供 `DASHSCOPE_API_KEY` ②给会话加 SSH 权限规则 | ⏸ 待用户晨间解锁 |
 
 ---
 
@@ -156,12 +158,14 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 
 ### 2.5 各家「用自己 key 能生成什么」(物理现实,2026-07 查证到方向级;施工时逐家对官方文档 + 真 key 实测核准)
 
-| 厂商 | 图 | 语音 | 视频 | 备注 |
+**图像四家已于 2026-07-27 按官方文档逐家核准**(批B 第 0 步文档半;语音/视频形状仍为方向级,批C/D 各自核准):
+
+| 厂商 | 图(已核准) | 语音 | 视频 | 备注 |
 |---|---|---|---|---|
-| OpenAI | ✅ gpt-image 系 `/v1/images/generations` | ✅ `/v1/audio/speech` | ✅ Sora(异步) | 标准形 |
-| Gemini | ✅ image 系经 `generateContent` + `responseModalities:["TEXT","IMAGE"]`,图在 `part.inlineData` | ✅ TTS 系 | ✅ Veo(异步) | **聊天 wire 内联出图**,方言在工具 Execute 内承载(§3.1) |
-| 阿里 DashScope | ✅ qwen-image / wan | ✅ qwen3-tts(HTTP)/ CosyVoice(WS) | ✅ wan(异步) | 图像**不走** OpenAI-compat images 形,自家异步任务形,单独适配 |
-| 智谱 | ✅ CogView-4,OpenAI-compat | ✅ | ✅ CogVideoX | 最省事 |
+| 阿里 DashScope | ✅ **同步形官方推荐**:`POST https://{WorkspaceId}.<region>.maas.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation`(qwen-image-2.0 系;messages 形入参、`parameters.size/n`)→ 直接返 **24h OSS URL**;异步 text2image + `GET /api/v1/tasks/{id}` 仅 qwen-image(-plus);2.0 系 512²–2048² 任意总像素、n=1–6;plus 系固定档位、n 恒 1 | ✅ qwen3-tts(HTTP)/ CosyVoice(WS) | ✅ wan(异步:image-generation + poll,URL 24h) | 网关上游选同步形(代拍 B1);host 带 WorkspaceId(网关已有 `DASHSCOPE_WORKSPACE_ID` env,吻合) |
+| OpenAI | ✅ `POST /v1/images/generations`(gpt-image 系)——**只返 `b64_json`,url 形不支持**(url 仅旧 DALL·E,60min) | ✅ `/v1/audio/speech` | ✅ Sora(异步) | 桌面直连方言解 b64 落库,无 URL 中转 |
+| Gemini | ✅ `POST /v1beta/models/gemini-3.1-flash-image-preview:generateContent` + `responseModalities:["TEXT","IMAGE"]`,图在 `part.inlineData`(b64 + mimeType);2.5-flash-image 同形 | ✅ TTS 系 | ✅ Veo(异步) | **聊天 wire 内联出图**,方言在工具 Execute 内承载(§3.1) |
+| 智谱 | ✅ images 形(cogview-4 系);返 **URL,有效期 30 天**;约 ¥0.06/张 | ✅ | ✅ CogVideoX | 最省事 |
 | OpenRouter | 部分(代理 gemini-image 等) | ❌ | ❌ | 按 models.dev `modalities.output` 判 |
 | Anthropic / DeepSeek / Moonshot / Ollama | ❌ | ❌ | ❌ | 物理现实,架构负责「死相好看」(§3.5) |
 
@@ -311,9 +315,10 @@ scheduler/library。
 
 ## §6 批B · 出图(输出侧第一仗;真 key 实证先行)
 
-**第 0 步(P19)**:施工前拿真 key 打真 API——DashScope qwen-image 真提交/轮询/取 URL,实证
-①异步任务形 ②OSS URL 不含 key ③URL 有效期;OpenAI/Gemini/智谱按官方文档核准形状(有 key 的真打)。
-证据写进本节,形状与 §2.5 冲突处以实测为准(代拍记 §1.1)。
+**第 0 步(P19)**:施工前先实证。**文档半已完成(2026-07-27)**——四家图像 API 按官方文档逐家
+核准,证据落 §2.5 修订表 + 代拍 B1(网关走同步上游形);**真线缆半被权限闸挡下**(代拍 B2)——
+SSH 上生产服务器被会话权限分类器拒,本地无 DashScope key,待晨间解锁后补:真出一张、验 URL 无
+key/时延/journal 行。形状与实测冲突处以实测为准。
 
 **网关**(`Anselm-API-Serve`,对应 working 文档在该仓):
 - `POST /v1/images/generations`(OpenAI 形请求:prompt/size/n=1;响应主形 url,P13)。
@@ -435,7 +440,7 @@ worktree 并行,但每仓同一时刻只一个作者会话。
 
 ## §15 风险与已知代价(诚实台账)
 
-- **DashScope 异步翻译层**是批B 最大工作量(不走 OpenAI images 形,LiteLLM 同样绕不开)。
+- ~~DashScope 异步翻译层是批B 最大工作量~~ **已消解**(代拍 B1):官方同步形直接返 URL,网关免任务轮询层;残余风险仅剩「同步上游连接持有几十秒」的超时配置。
 - **super_editor 音/视频自定块**是批F 最大不确定点(ImageNode 自带,音视频块自建;vendor 在手,可扩)。
 - **输入侧带宽照旧**:URL 直通只救输出;3MiB 图上行内联转发仍走 1Mbps——接受慢或某天升带宽,记档不藏。
 - **models.dev 数据错**:follow 上游意味着跟着错;能力侧靠社区修,上下文侧有 modelprofile
