@@ -52,7 +52,7 @@ type wdInfoRow struct {
 func wdInfo(t *testing.T, wc *harness.Client, convID string) wdInfoRow {
 	t.Helper()
 	var info wdInfoRow
-	wc.GET("/api/v1/conversations/" + convID + "/workdir").OK(t, &info)
+	wc.GET("/api/v1/conversations/"+convID+"/workdir").OK(t, &info)
 	return info
 }
 
@@ -118,7 +118,7 @@ func TestChatWorkDir_MountedAndUnmountedStates(t *testing.T) {
 	var head struct {
 		WorkDir string `json:"workDir"`
 	}
-	wc.GET("/api/v1/conversations/" + convID).OK(t, &head)
+	wc.GET("/api/v1/conversations/"+convID).OK(t, &head)
 	if head.WorkDir != root {
 		t.Fatalf("the conversation row must carry workDir, got %q", head.WorkDir)
 	}
@@ -364,7 +364,7 @@ func waitPending(t *testing.T, wc *harness.Client, convID string) pendingRow {
 	var pending []pendingRow
 	harness.Eventually(t, 20000, "an interaction pends for the out-of-root write", func() bool {
 		pending = nil
-		wc.GET("/api/v1/conversations/" + convID + "/interactions").OK(t, &pending)
+		wc.GET("/api/v1/conversations/"+convID+"/interactions").OK(t, &pending)
 		return len(pending) == 1
 	})
 	return pending[0]

@@ -66,7 +66,7 @@ func wdSetArchived(t *testing.T, wc *harness.Client, id string, v bool) {
 func wdList(t *testing.T, wc *harness.Client, query string) ([]convRow, string) {
 	t.Helper()
 	var rows []convRow
-	resp := wc.GET("/api/v1/conversations?" + query).OK(t, &rows)
+	resp := wc.GET("/api/v1/conversations?"+query).OK(t, &rows)
 	return rows, resp.NextCursor
 }
 
@@ -132,7 +132,7 @@ func TestChatWorkDirGroups_ProjectionMatchesReality(t *testing.T) {
 	homeless := convCreate(t, wc, "homeless")
 	b1 := convCreate(t, wc, "b1")
 	wdMount(t, wc, b1, beta)
-	wc.DELETE("/api/v1/conversations/" + a4).OK(t, nil)
+	wc.DELETE("/api/v1/conversations/"+a4).OK(t, nil)
 
 	groups := wdGroups(t, wc)
 	if len(groups) != 2 {
@@ -386,12 +386,12 @@ func TestChatWorkDirGroups_DeleteWholeGroup(t *testing.T) {
 
 	// The threads' OWN rows are tombstoned — 404, never 200-empty. 线程**自己的行**被立碑——404、绝非 200-空。
 	for _, id := range []string{doomed, archived} {
-		wc.GET("/api/v1/conversations/" + id).Fail(t, 404, "CONVERSATION_NOT_FOUND")
-		wc.GET("/api/v1/conversations/" + id + "/messages").Fail(t, 404, "CONVERSATION_NOT_FOUND")
+		wc.GET("/api/v1/conversations/"+id).Fail(t, 404, "CONVERSATION_NOT_FOUND")
+		wc.GET("/api/v1/conversations/"+id+"/messages").Fail(t, 404, "CONVERSATION_NOT_FOUND")
 	}
 	// The pinned survivor kept its whole transcript. 置顶存活者留住了它的整份逐字记录。
 	var msgs []chatMsg
-	wc.GET("/api/v1/conversations/" + pin + "/messages?limit=50").OK(t, &msgs)
+	wc.GET("/api/v1/conversations/"+pin+"/messages?limit=50").OK(t, &msgs)
 	if len(msgs) < 2 {
 		t.Fatalf("the surviving thread's transcript must be intact, got %d messages", len(msgs))
 	}
