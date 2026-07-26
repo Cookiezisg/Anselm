@@ -171,6 +171,18 @@ trigger 是**独立信号源实体**：
 
 > 旧版快照归档在 `version-0.2` git 分支。历史只在 git，不在本文档（**零历史包袱**）。
 
+### 7.1 已立项待做（归档战役的溢出条目）
+
+战役收口归档时，**尚未落地但已拍板要做**的条目落在这里——而不是留在 `archive/`（只读墓地，没人会去那里找 TODO）。
+一条一行，注明来源战役，做完即删（**状态即重述**，不留「曾经待做」的痕迹）。
+
+| 条目 | 来源 | 记 |
+|---|---|---|
+| fork skill 的 `model` / `effort` override | WRK-075 | subagent 的 `ModelResolver` 无 override 口；承袭显式 `conv.ModelOverride` 会越 `reqctx` 的 pkg→domain 边界，故当初延后（`subagent.go` 注释在案） |
+| `POST /skills:install` 的 202 进度流 | WRK-075 | 当前同步阻塞 + 前端 spinner；大仓可选升级为 notifications 流进度 |
+| node 运行时的 `package.json` deps | WRK-075 | 沙箱侧尚未支持 |
+| skill `references/` 进搜索索引 | WRK-075 | 目录即真相后，references 下的文件仍不入全文检索 |
+
 ---
 
 ## 8. 非目标（本轮不做）

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* Foryx demo — Level-1 机械门禁（仿后端 standard_test.go 的“机械守卫防回退”）。
+/* Anselm demo — Level-1 机械门禁（仿后端 standard_test.go 的“机械守卫防回退”）。
    无依赖、纯 Node。扫描 demo/core 与 demo/features 下的 *.js / *.css：
      1) 裸 hex 颜色          → 必须走 tokens.css 的语义色 token
      2) 裸 px / ms（非 0）   → 必须走密度/动效 token

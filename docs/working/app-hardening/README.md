@@ -161,7 +161,7 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 
 已用 Finder 对照实验证实:**computer use 的合成滚轮与拖拽事件在本机对任何 app 均无效**
 (非 Anselm 缺陷)。故:①滚轮/触控板滚动手感与惯性 ②拖拽类(音频 seek、岛宽拖拽、分割线)
-③划选复制手感 —— 全部转 `multimodal-agent/ACCEPTANCE-GUIDE.md` C4 由用户验。
+③划选复制手感 —— 全部转 `ACCEPTANCE-GUIDE.md` C4 由用户验。
 
 ---
 
@@ -535,7 +535,7 @@ P1 一致性扫荡把「标题重复」与「空态零人话」双双列为**已
 6. ☑ **一轮完整操作后三源干净**——Flutter 终端**零** overflow / assertion / 未处理异常;后端**整份日志零 5xx**;
    4xx **每一条都能说出为什么**(27 条:我自己写错 payload 的探针 + 故意造的越界/非法参数 + 修复前复现的 L1/L17/L18)。
    **L18 正是核这本账时逼出来的**——那条 405 是唯一说不出为什么的一条。
-7. ☑ **物理测不了的如实转入 C4**——8 项进 [`ACCEPTANCE-GUIDE` C4](../multimodal-agent/ACCEPTANCE-GUIDE.md#c4-只有你能做的触感三项--wrk-083-转入八项),
+7. ☑ **物理测不了的如实转入 C4**——8 项进 [`ACCEPTANCE-GUIDE` C4](ACCEPTANCE-GUIDE.md#c4-只有你能做的触感三项--wrk-083-转入八项),
    逐项写明**怎么验 / 看什么 / 为什么 AI 做不了**。**不冒充已验**:其中 ⌘±0 缩放已用隔离 widget 测证明三个和弦在代码里是通的,
    转出的只是**手感**复核(我的合成按键发不出 ⌘+标点/数字);死人开关的崩溃路径已在 R02(b) 用替身父进程真机验通,
    转出的只是 release 包上的 ⌘Q 生产路径。

@@ -30,8 +30,8 @@ landed-into:
 | **F** | WRK-077 十七步(见 `working/frontend/chat-iteration.md` §7) | ✅ **17/17 全部收口**,含 ⓪ @ 提及**真机全链验通**(嫌疑②③ 排除) |
 
 **归档裁决(D)**:两册**都不归档**,且理由不同——
-- `chat-iteration.md`(WRK-077):代码 17/17 完成,但本册自订的归档闸是「真机验收过一遍」,而余下的是一批**只有人能判的视觉观感项**(截图/空表破折号/窄窗漂移/时间戳是否可选/极长路径截断)。已全部收拢进 `ACCEPTANCE-GUIDE.md` **C5**,闸已写精确。
-- `multimodal-agent/`(WRK-078,即本册与指南):`ACCEPTANCE-GUIDE.md` 是**活清单**——A4 未跑、B 类待密钥预算、C 类待用户。把一份还有待办的清单移进只读墓地,等于把待办藏起来。
+- `chat-iteration.md`(WRK-077):代码 17/17 完成,但本册自订的归档闸是「真机验收过一遍」,而余下的是一批**只有人能判的视觉观感项**(截图/空表破折号/窄窗漂移/时间戳是否可选/极长路径截断)。已全部收拢进 `../app-hardening/ACCEPTANCE-GUIDE.md` **C5**,闸已写精确。
+- `multimodal-agent/`(WRK-078,即本册与指南):`../app-hardening/ACCEPTANCE-GUIDE.md` 是**活清单**——A4 未跑、B 类待密钥预算、C 类待用户。把一份还有待办的清单移进只读墓地,等于把待办藏起来。
 
 **这正是 `landed-into` 该空着的情形**:结论**已经**提取到常驻文档(CLAUDE.md 后端节 / `references/backend/{api,domains/support-services,domains/attachment}.md` / `references/frontend/{architecture,design-system}.md` / ADR 0011+0012 / GOVERNANCE),但**册子本身还在服役**。填 `landed-into` 是归档动作的一部分,不是「提取完就填」。
 
@@ -403,7 +403,7 @@ provider → 拿到网关自己拼的绝对 URL
 
 ## E · 指南已交付,真机代跑被环境阻塞
 
-**已交付**:[`ACCEPTANCE-GUIDE.md`](ACCEPTANCE-GUIDE.md)(WRK-081)。它把「代码完成」与「产品可用」之间那道桥写成清单,每项四件事齐全:**跑什么、看到什么算过、花多少钱、谁能跑**;并按可跑者分三类——A 类 AI 可代跑(5 项)· B 类需密钥与预算(4 项,三个 make 目标都有双门控、缺 key 安全跳过不计费)· C 类只有你能做(3 项)。
+**已交付**:[`../app-hardening/ACCEPTANCE-GUIDE.md`](../app-hardening/ACCEPTANCE-GUIDE.md)(WRK-081)。它把「代码完成」与「产品可用」之间那道桥写成清单,每项四件事齐全:**跑什么、看到什么算过、花多少钱、谁能跑**;并按可跑者分三类——A 类 AI 可代跑(5 项)· B 类需密钥与预算(4 项,三个 make 目标都有双门控、缺 key 安全跳过不计费)· C 类只有你能做(3 项)。
 
 **真机代跑未做,原因是物理的,不是选择**:①主工作树 `~/Documents` 权限被 macOS 撤销,无法 `make -C frontend app` ②会话早期还开着的 app 已退出,无法继续驱动。二者都需你恢复权限后才能进行。
 
@@ -453,7 +453,7 @@ apikey.Service.ResolveCredentialsByID: decrypt: aesgcm: open: cipher: message au
 
 > **A 类每一项都必须从真 app 跑。** 任何「CLI/脚本代跑 A 类」的方案都会死在解密这一步;若某天它**不**死,那说明凭证边界破了——那本身就是最高优先级的安全缺陷。
 
-已把这条结论连同实测过程写进 [ACCEPTANCE-GUIDE](ACCEPTANCE-GUIDE.md) 页首,免得后来者(或未来的我)再走一遍。**实测只操作副本,原库未触碰;副本与进程已清理。**
+已把这条结论连同实测过程写进 [ACCEPTANCE-GUIDE](../app-hardening/ACCEPTANCE-GUIDE.md) 页首,免得后来者(或未来的我)再走一遍。**实测只操作副本,原库未触碰;副本与进程已清理。**
 
 ### 🔴 另一条本轮才发现的硬前置:A1 需要网关先部署
 

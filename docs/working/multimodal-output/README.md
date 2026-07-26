@@ -294,7 +294,7 @@ speech 路由,零 token。
   真机截图。
 - 契约改动必搜 testend(T5.1 按域前缀);两仓 `make verify` 各自全绿;文档 #9 同提交。
 - 金标(EVALS 门控烧钱):受管出图一张、TTS 一句、(批D)直连视频一条。
-- 真机验收清单随批追加到 `multimodal-agent/ACCEPTANCE-GUIDE.md` 同款诚实律:未跑就写未跑。
+- 真机验收清单随批追加到 `app-hardening/ACCEPTANCE-GUIDE.md` 同款诚实律:未跑就写未跑。
 
 ## §10 施工序
 

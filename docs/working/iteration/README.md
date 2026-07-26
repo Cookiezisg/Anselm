@@ -14,7 +14,7 @@ landed-into:
 
 > AI：读完这个文件夹你就能跑这个 loop。本文件 = 怎么跑 + 怎么判 + 铁律。
 > [`ARCHIVE.md`](ARCHIVE.md) = **探过什么 + 还有什么**（覆盖归档 + frontier，EXPLORE 起手读它）。[`TASKS.md`](TASKS.md) = **下一步做什么**（薄索引）。[`LOG.md`](LOG.md) = **已发现什么**（finding 索引，顶部带「未结 backlog」速查）。[`systems-correctness.md`](systems-correctness.md) = 系统级正确性维度 R1–R21（R1–R20 已修，R21 = F174 待修）。
-> 仓库根 `/Users/SP14921/Documents/Personal/PersonalCodeBase/Foryx`；真模型 key 在根 `.env`（`DEEPSEEK_API_KEY`，deepseek-v4-flash）；运行器 `testend/golden/selfiter_*_test.go`。
+> 仓库根 `/Users/SP14921/Documents/Personal/PersonalCodeBase/Anselm`；真模型 key 在根 `.env`（`DEEPSEEK_API_KEY`，deepseek-v4-flash）；运行器 `testend/golden/selfiter_*_test.go`。
 
 ## 一句话
 

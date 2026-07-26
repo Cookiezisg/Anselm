@@ -1,8 +1,9 @@
 ---
 id: WRK-075
 type: working
-status: active
+status: archived
 owner: @weilin
+landed-into: docs/references/backend/domains/skill.md · docs/concepts/architecture.md §7.1（剩余 backlog 4 条）
 created: 2026-07-22
 reviewed: 2026-07-22
 review-due: 2026-10-20
@@ -10,6 +11,8 @@ audience: [human, ai]
 ---
 
 # Skill 标准化战役 — 对齐 Agent Skills 开放规范（总纲）
+
+> **已归档（2026-07-26）**：B1–B4 + F1 + F2（安装流）全数落地并提交（WRK-076，根 make verify 全绿、真机验收过）；剩余 4 条 backlog 已提取进 architecture.md §7.1。
 
 > 目标：把 skill 从「平台组装的单文件投影」翻转为「**目录即真相**」的标准 Agent Skill——用户可自由安装 GitHub skill、文件夹随意组织、捆绑脚本可执行。法定基线 = [agentskills.io 开放规范](https://agentskills.io/specification)（参考校验器 `agentskills/agentskills` 的 `skills-ref`）；Claude Code 扩展字段按现状已镜像、继续跟随。批次规范单独成篇（`b1-*.md`…），本篇只留总表 + 跨批已拍板决策。
 
