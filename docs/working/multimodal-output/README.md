@@ -430,8 +430,14 @@ router 四处 · bootstrap 无条件构造 · `speech_generation` 能力位。`m
   语音只差场景、provider 表、无路 sentinel 三样)+ `speechProviders` 手写表 + `defaultVoiceFor`
   **按路由**解析(音色名不跨家通用,一个全局默认会在四家里的三家打出 400)+ `generate/speech.go`
   工具 + `GenerateTools` 追加一项(chat 注入与 agent 挂载自动接住)。守卫 12 格。
-- **朗读**(P10,不经 LLM 零 token)+ **缓存**:键=(内容哈希+音色+模型+格式),直接**复用附件
-  blob CAS 当持久层**(内容寻址天然去重、GC 走既有 Sweep),零新原语。
+- **朗读 + 缓存** ✅ 已施工(后端):`app/readaloud` + `POST /read-aloud:read` +
+  `GET /read-aloud/availability`。刻意**不是**工具(工具调用要花 token 和一个回合,去做一件按钮
+  已经毫无歧义表达过的事);返回**附件**而非字节,播放复用既有 playback-lease 一等路径。
+  **要害:探测发生在合成之前**——`SpeechRouteIdentity` 不打上游就答出路由身份,故重听根本走不到
+  provider(合成后再探同样正确、同样花钱,而那恰是本功能绝不能做的事)。键含音色与 provider/model
+  (只按文本做键会让换了音色的用户永远听到旧音色)。`speech_cache` 是 **D1 第三个物理删例外**、
+  已在 database.md 立法(派生数据、可重建、淘汰是目的;被淘汰行的附件按 D1 软删)。守卫七格,每格
+  数**上游调用次数**。**剩前端**:消息动作排朗读按钮 + 播放。
 - **金标**:真合成一句;缓存命中零计费以 journal 为证。
 
 ## §9 批D · 出视频(长任务形态;网关零活)
