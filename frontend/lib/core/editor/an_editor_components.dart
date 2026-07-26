@@ -196,10 +196,23 @@ class CodeBlockComponentViewModel extends SingleColumnLayoutComponentViewModel
 }
 
 class AnCodeBlockComponentBuilder implements ComponentBuilder {
-  const AnCodeBlockComponentBuilder(this.editor, this.colors, this.codeKeys);
+  const AnCodeBlockComponentBuilder(
+    this.editor,
+    this.colors,
+    this.codeKeys, {
+    this.autofocusNodeId,
+    this.onAutofocusConsumed,
+  });
 
   final Editor editor;
   final AnColors colors;
+
+  /// The one code node whose embedded editor should take the caret on this build (a just-inserted block,
+  /// WRK-083 L15); null otherwise. [onAutofocusConsumed] fires when that block builds, so the caret is
+  /// grabbed exactly once. 本次 build 中应挂载即取光标的那**一个**代码节点(刚插入的块);否则 null。该块 build 时
+  /// 触发 onAutofocusConsumed,故只夺焦一次。
+  final String? autofocusNodeId;
+  final VoidCallback? onAutofocusConsumed;
 
   /// One stable [GlobalKey] per code-node id, so the embedded [AnCodeEditor]'s State (its controller /
   /// focus / caret) survives the whole-node replace we run on each keystroke (ReplaceNode remove+insert
@@ -233,6 +246,15 @@ class AnCodeBlockComponentBuilder implements ComponentBuilder {
       componentViewModel.nodeId,
       () => GlobalKey(),
     );
+    // Caret-on-mount for a just-inserted block (WRK-083 L15). Consume the one-shot AFTER this frame so a
+    // rebuild during the same frame still sees it, but the next never re-grabs focus. 刚插入的块挂载即取光标;
+    // 帧后再消费一次性标记(同帧重建仍见得到,下一帧不再夺焦)。
+    final takeCaret = autofocusNodeId == componentViewModel.nodeId;
+    if (takeCaret && onAutofocusConsumed != null) {
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => onAutofocusConsumed!(),
+      );
+    }
     // A cross-block sweep includes this block as a non-collapsed upstream/downstream selection (the styler
     // populates the SelectionAware vm) — tint the whole block so the sweep doesn't show a hole here (the
     // embedded editor knows nothing of document selections). 跨块划选把本块选成非折叠块选区——整块罩 tint,
@@ -263,6 +285,7 @@ class AnCodeBlockComponentBuilder implements ComponentBuilder {
               wrap: true,
               editable: true,
               seamless: true,
+              autofocus: takeCaret,
               onInput: (newCode) => editor.execute([
                 ReplaceNodeRequest(
                   existingNodeId: componentViewModel.nodeId,

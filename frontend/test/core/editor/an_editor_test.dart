@@ -439,6 +439,75 @@ void main() {
       },
     );
 
+    // WRK-083 L15 — inserting a code block via `/` must leave the caret INSIDE it, not in a paragraph
+    // after it. The old `_insertBlock` appended a fresh paragraph and parked the caret THERE for every
+    // block type; the writer would pick 代码块 to type code and the first keystroke landed below the
+    // empty block. A code block's whole reason to exist is to type code, so its embedded AnCodeEditor
+    // takes the caret and no trailing paragraph is added.
+    // WRK-083 L15——经 `/` 插入代码块必须把光标留在**块内**、而不是它后面的段落。旧 `_insertBlock` 对所有块型
+    // 都追加一空段并把光标 park 到那里;作者选「代码块」是想写代码,第一次键入却落到空块下面。代码块存在的全部
+    // 理由就是写代码,故由它的嵌入 AnCodeEditor 取光标、不追加尾段。
+    testWidgets(
+      'a slash-inserted code block does NOT append a paragraph below it (L15)',
+      (tester) async {
+        await tester.pumpWidget(slashHost());
+        await tester.pumpAndSettle();
+        await tester.placeCaretInParagraph('p1', 0);
+        await tester.typeImeText('/代码');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('代码块').last);
+        await tester.pumpAndSettle();
+
+        final nodes = SuperEditorInspector.findDocument()!.toList();
+        final codeIdx = nodes.indexWhere((n) => n is CodeBlockNode);
+        expect(codeIdx, isNonNegative, reason: 'the block was inserted');
+        // The defect was: EVERY block insert appended a fresh empty paragraph AFTER it and parked the caret
+        // there, so the writer's first keystroke landed below the empty code block. The code block must be
+        // the LAST node — nothing was appended below it. (The now-empty trigger paragraph is deliberately
+        // left ABOVE the block; see _selectSlash — deleting it fights super_editor's tag reactor.)
+        // 缺陷是:**每种**块插入后都在其**下方**追加一空段并把光标 park 到那里,作者第一次键入落到空块下面。代码块必须是
+        // **最后一个**节点——它下方什么都没追加。(现已空的触发段刻意留在块**上方**,见 _selectSlash——删它会跟 tag reactor 较劲。)
+        expect(
+          codeIdx,
+          nodes.length - 1,
+          reason: 'no paragraph was appended below the block (L15)',
+        );
+      },
+    );
+
+    testWidgets(
+      "a slash-inserted code block's embedded editor takes the caret (L15)",
+      (tester) async {
+        await tester.pumpWidget(slashHost());
+        await tester.pumpAndSettle();
+        await tester.placeCaretInParagraph('p1', 0);
+        await tester.typeImeText('/代码');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('代码块').last);
+        await tester.pumpAndSettle();
+
+        // The one embedded AnCodeEditor was asked to autofocus, so a focused editable descendant exists
+        // and the document has no caret of its own. 唯一嵌入 AnCodeEditor 被要求 autofocus:存在持焦可编辑后代,
+        // 且文档自身无光标。
+        final codeEditor = tester.widget<AnCodeEditor>(
+          find.byType(AnCodeEditor),
+        );
+        expect(
+          codeEditor.autofocus,
+          isTrue,
+          reason: 'the just-inserted block requests caret-on-mount (L15)',
+        );
+        expect(
+          find.byType(EditableText).evaluate().any((e) {
+            final w = e.widget as EditableText;
+            return w.focusNode.hasFocus;
+          }),
+          isTrue,
+          reason: 'the embedded code editor actually holds focus (L15)',
+        );
+      },
+    );
+
     testWidgets('Escape dismisses the menu without converting', (tester) async {
       await tester.pumpWidget(slashHost());
       await tester.pumpAndSettle();

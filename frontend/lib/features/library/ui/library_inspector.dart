@@ -481,15 +481,21 @@ class _DocProperties extends ConsumerWidget {
     final doc = ref.watch(openDocumentProvider(id));
     final loaded = doc.value;
     final name = loaded?.name.trim() ?? '';
+    // Live metrics OVERRIDE the loaded doc's numbers (WRK-083 L16): openDocumentProvider is frozen
+    // mid-edit to protect the caret, so `loaded.content`/`updatedAt` go stale the instant the writer
+    // types. The edit view feeds char/byte/at live on the same channel as the outline. Null (nothing
+    // typed yet) → the loaded doc's own fields. 活度量覆盖 loaded doc 的数(L16):open provider 编辑中冻结保光标,
+    // loaded 一打字就陈旧;编辑视图与大纲同通道实时喂字数/字节/时刻。null(还没打字)→回退 loaded 自身字段。
+    final live = ref.watch(docLiveMetricsProvider);
     // The glance rides the LOADED doc + the (separately-async) backlink count; null while loading. 速览带走已载 doc + 反链数。
     Widget? sub;
     if (loaded != null) {
       final backlinks = ref.watch(backlinksProvider(id)).value ?? const [];
       sub = _glance(
         context,
-        chars: _charCount(loaded.content),
+        chars: live?.chars ?? _charCount(loaded.content),
         backlinks: backlinks.length,
-        updatedAt: loaded.updatedAt,
+        updatedAt: live?.at ?? loaded.updatedAt,
       );
     }
     return _InspectorShell(
@@ -525,20 +531,24 @@ class _DocProperties extends ConsumerWidget {
 
 /// The page's PROPERTIES group (三段式文法 §3) — the read-only file meta (path · size · modified) as a family
 /// KV list (the page's editable name/description/tags live in the center header). 页属性组:只读文件 meta 键值列。
-class _DocMetaGroup extends StatelessWidget {
+class _DocMetaGroup extends ConsumerWidget {
   const _DocMetaGroup({required this.doc});
 
   final DocumentNode doc;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
+    // Size + modified prefer the LIVE metrics over the frozen doc (WRK-083 L16) — same reason as the
+    // glance above. Path never changes mid-edit, so it stays on the loaded doc. 大小+修改时间优先活度量、
+    // path 编辑中不变故仍读 loaded doc。
+    final live = ref.watch(docLiveMetricsProvider);
     // The family KV list (批6 A-082): path wraps (a flush-right ellipsis would cut its most useful tail).
     // 族键值列(path 换行,贴右省略会砍最有用的尾段)。
     final rows = [
       AnKvRow(t.library.props.path, doc.path, mono: true, wrap: true),
-      AnKvRow(t.library.props.size, formatBytes(doc.sizeBytes)),
-      AnKvRow(t.library.props.modified, fmtDateTime(doc.updatedAt)),
+      AnKvRow(t.library.props.size, formatBytes(live?.bytes ?? doc.sizeBytes)),
+      AnKvRow(t.library.props.modified, fmtDateTime(live?.at ?? doc.updatedAt)),
     ];
     return _GroupSection(
       groupKey: kDocGroupProps,

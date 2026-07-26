@@ -151,9 +151,15 @@ List<EditRequest> _quote(SlashContext c) => [
   ),
 ];
 // Code block = the embedded [CodeBlockNode] (AnCodeEditor), same as the markdown codec + the ```` ``` ````
-// on-type shortcut — NOT a codeAttribution paragraph. 代码块=嵌入 CodeBlockNode,与 codec/on-type 一致。
-List<EditRequest> _code(SlashContext c) =>
-    _insertBlock(c, CodeBlockNode(id: Editor.createNodeId(), code: ''));
+// on-type shortcut — NOT a codeAttribution paragraph. `focusInside`: the caret belongs INSIDE the block
+// (you insert a code block to type code), so skip the trailing paragraph + caret-park — the block's own
+// AnCodeEditor autofocuses instead (WRK-083 L15). 代码块=嵌入 CodeBlockNode。focusInside:光标该进块内(插代码
+// 块就是为了写代码),故不追加尾段/不 park 光标——由块自己的 AnCodeEditor autofocus。
+List<EditRequest> _code(SlashContext c) => _insertBlock(
+  c,
+  CodeBlockNode(id: Editor.createNodeId(), code: ''),
+  focusInside: true,
+);
 List<EditRequest> _ul(SlashContext c) => [
   ConvertParagraphToListItemRequest(
     nodeId: c.nodeId,
@@ -170,16 +176,46 @@ List<EditRequest> _task(SlashContext c) => [
   ConvertParagraphToTaskRequest(nodeId: c.nodeId),
 ];
 
-/// Insert [block] at the trigger paragraph (replace if it'll be empty post-submit, below if not) + a
-/// fresh paragraph after it, and park the caret there so the writer keeps typing.
-/// 插块(提交后空段→替换/非空→下插)+ 尾随新段落收光标。
-List<EditRequest> _insertBlock(SlashContext c, DocumentNode block) {
+/// Insert [block] at the trigger paragraph (replace if it'll be empty post-submit, below if not).
+///
+/// [focusInside] chooses where the caret lands. Default (false): append a fresh paragraph after the
+/// block and park the caret THERE — right for atomic blocks with no inner editing (a divider), and for
+/// blocks whose caret story is a separate concern. true: the block owns an inner editor and the writer
+/// wants to type INTO it (a code block), so neither the trailing paragraph nor the document-caret move
+/// is added — the block's embedded editor autofocuses instead (WRK-083 L15). Adding an empty paragraph
+/// there would be the very bug: the writer types and it lands below the empty block.
+///
+/// 插块(提交后空段→替换/非空→下插)。[focusInside] 决定光标落点。默认(false):在块后加一空段并把光标 park 到那里
+/// ——对无内部编辑的原子块(分隔线)、以及光标另有归属的块合适。true:块自带内部编辑器、作者想往**里**打字(代码块),
+/// 故既不追加尾段、也不移动文档光标——由块的嵌入编辑器 autofocus(WRK-083 L15)。此时再加空段正是那个 bug:一打字就
+/// 落到空块下面。
+List<EditRequest> _insertBlock(
+  SlashContext c,
+  DocumentNode block, {
+  bool focusInside = false,
+}) {
+  // focusInside NEVER replaces the trigger paragraph. The block insert shares its execute() with
+  // SubmitComposingActionTagRequest, whose reaction cleans up the tag ON the trigger paragraph at the end
+  // of the same transaction — replacing that paragraph out from under it throws `Null as TextNode` deep in
+  // super_editor's action_tags reactor. So focusInside always inserts AFTER the trigger and leaves the
+  // (now empty) trigger paragraph for the editor to reconcile; the caret goes to the block's embedded
+  // editor, not to any paragraph, so the leftover empty line is invisible and harmless. Atomic blocks
+  // (divider) keep the classic replace-or-append + caret-park below (WRK-083 L15).
+  // focusInside **绝不替换**触发段落。插块与 SubmitComposingActionTagRequest 共用一次 execute(),后者的 reaction 在
+  // 同一事务末尾**在触发段落上**清理 tag——把那个段落从它脚下换掉,会在 super_editor 的 action_tags reactor 深处抛
+  // `Null as TextNode`。故 focusInside 恒在触发段**之后**插块、把(现已空的)触发段留给编辑器自行调和;光标交给块的嵌入
+  // 编辑器、不落任何段落,残留空行因此不可见且无害。原子块(分隔线)照旧走替换/追加 + 光标 park 到下方。
+  if (focusInside) {
+    return [
+      InsertNodeAfterNodeRequest(existingNodeId: c.nodeId, newNode: block),
+    ];
+  }
+  final insert = c.emptyAfterSubmit
+      ? ReplaceNodeRequest(existingNodeId: c.nodeId, newNode: block)
+      : InsertNodeAfterNodeRequest(existingNodeId: c.nodeId, newNode: block);
   final paraId = Editor.createNodeId();
   return [
-    if (c.emptyAfterSubmit)
-      ReplaceNodeRequest(existingNodeId: c.nodeId, newNode: block)
-    else
-      InsertNodeAfterNodeRequest(existingNodeId: c.nodeId, newNode: block),
+    insert,
     InsertNodeAfterNodeRequest(
       existingNodeId: block.id,
       newNode: ParagraphNode(id: paraId, text: AttributedText('')),

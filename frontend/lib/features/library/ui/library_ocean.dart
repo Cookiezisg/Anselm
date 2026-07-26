@@ -90,6 +90,9 @@ class LibraryOcean extends ConsumerWidget {
       if (next == null) {
         ref.read(shellHeadProvider.notifier).clear();
         ref.read(docOutlineProvider.notifier).clear();
+        ref
+            .read(docLiveMetricsProvider.notifier)
+            .clear(); // L16: don't carry a doc's metrics to none 别把旧度量带到空
         ref.read(docOutlineActiveProvider.notifier).set(null);
       } else if (prev != null && prev != next) {
         // Doc-to-doc switch: a fresh page opens at the top with its big title visible. 换文档从顶部开。
@@ -171,6 +174,9 @@ mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
         ref.read(docOutlineProvider.notifier).set(extractDocOutline(markdown));
+        // Seed the live metrics from the loaded content too, so the panel is right from first paint
+        // (WRK-083 L16). 也从载入内容播种度量,使面板首帧即准。
+        ref.read(docLiveMetricsProvider.notifier).feed(markdown);
       }
     });
   }
@@ -179,6 +185,10 @@ mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   void feedOutlineOnEdit(String markdown) {
     _seededOutlineFor = markdown;
     ref.read(docOutlineProvider.notifier).set(extractDocOutline(markdown));
+    // The inspector's 字数/大小/修改时间 ride the SAME live channel as the outline (WRK-083 L16) — the
+    // frozen openDocumentProvider can't be the source. 右岛字数/大小/时间与大纲走同一条活通道,冻结的 open
+    // provider 当不了源。
+    ref.read(docLiveMetricsProvider.notifier).feed(markdown);
   }
 
   void listenOutlineJumps() {

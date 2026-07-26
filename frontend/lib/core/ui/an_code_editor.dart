@@ -70,6 +70,7 @@ class AnCodeEditor extends StatefulWidget {
     this.reading = false,
     this.live = false,
     this.seamless = false,
+    this.autofocus = false,
     this.maxHeight,
     this.onChanged,
     this.onInput,
@@ -127,6 +128,15 @@ class AnCodeEditor extends StatefulWidget {
   /// seamless → 有框编辑器常驻直接编辑:点即光标、直接打字、无铅笔/存/取消,但保留框+gutter+copy+语言标+高亮;
   /// 需 editable & !inline & !live;编辑经 onInput 逐键流出,外部 code 仅失焦时采纳(两向同步不跳光标)。供文档编辑器嵌入代码块。
   final bool seamless;
+
+  /// Seamless/inline only — request the caret ON MOUNT (WRK-083 L15). Default false: a document with
+  /// many code blocks must NOT have each one grab focus + scroll on load (see [initState]). It is opt-in
+  /// for the ONE case that wants it — a block the writer just inserted via `/代码块`, where the point of
+  /// inserting a code block is to type code, so the caret belongs INSIDE it, not in the paragraph after.
+  /// 仅 seamless/inline——**挂载即取光标**(WRK-083 L15)。默认 false:一篇有很多代码块的文档,绝不能每块加载时都
+  /// 夺焦+抢滚动(见 initState)。只为**唯一**想要它的场景开:作者刚用 `/代码块` 插入的那一块——插代码块就是为了写
+  /// 代码,光标该落在**块内**、而不是它后面的段落。
+  final bool autofocus;
 
   /// Bounded viewport for BOTH faces (an [AnSize] tier, e.g. [AnSize.codeViewport]) — the zero-jump
   /// contract (拍板 #2): a transcript consumer passes the SAME tier for live and settled, so the
@@ -197,7 +207,17 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     // Seamless/inline editors are live from mount — attach the controller up front. Do NOT requestFocus
     // (unlike _enterEdit): a native click lands the caret; auto-focus would steal focus/scroll on mount
     // (e.g. many code blocks in one document). seamless/inline 挂载即活;不 requestFocus(点击落光标,自动夺焦会抢滚动)。
-    if (_inlineEdit || _seamlessEdit) _attachController(widget.code);
+    if (_inlineEdit || _seamlessEdit) {
+      _attachController(widget.code);
+      // Opt-in caret-on-mount for the just-inserted block (WRK-083 L15). Post-frame so the FocusNode is
+      // attached and the layout exists; guarded on `mounted` because a fast insert-then-undo can dispose
+      // us first. 刚插入的块按需挂载即取光标:post-frame 待 FocusNode 与布局就绪;mounted 守住「插了又秒撤」。
+      if (widget.autofocus) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _editFocus.requestFocus();
+        });
+      }
+    }
   }
 
   // Create the edit controller + listen so the gutter line numbers and the a11y line count stay in

@@ -365,6 +365,46 @@ class DocOutlineController extends Notifier<List<DocOutlineEntry>> {
   void clear() => state = const [];
 }
 
+/// The open document's live char count + byte size — what the inspector's 「字数 / 大小 / 修改时间」 shows.
+/// SAME rationale as [docOutlineProvider] (WRK-083 L16): [openDocumentProvider] is deliberately never
+/// invalidated mid-edit (that would rebuild the editor and drop the caret), so the loaded doc goes stale
+/// the moment the writer types — the properties panel used to show the open-time numbers until a full
+/// remount. The outline already re-feeds live from the edit view; the metrics ride the same channel, so
+/// the panel is honest without touching the frozen provider. Null while nothing is open / before the
+/// first edit → the panel falls back to the loaded doc's own fields.
+/// 打开文档的**活**字数+字节大小——右岛「字数/大小/修改时间」所显。与 [docOutlineProvider] 同理(WRK-083 L16):
+/// [openDocumentProvider] 编辑中刻意不失效(否则重建编辑器丢光标),故 loaded doc 一打字就陈旧——属性面板原本要
+/// 到整树重挂才更新。大纲已从编辑视图实时重喂,度量走同一条通道,面板因此诚实、且不碰那个冻结的 provider。无打开/
+/// 首次编辑前为 null → 面板回退到 loaded doc 自身字段。
+typedef DocLiveMetrics = ({int chars, int bytes, DateTime at});
+
+final docLiveMetricsProvider =
+    NotifierProvider<DocLiveMetricsController, DocLiveMetrics?>(
+      DocLiveMetricsController.new,
+    );
+
+class DocLiveMetricsController extends Notifier<DocLiveMetrics?> {
+  @override
+  DocLiveMetrics? build() => null;
+
+  /// Fed on every edit with the CURRENT markdown. `chars` uses the SAME whitespace-stripped rune count
+  /// the inspector's own [_charCount] uses (`\s+`→'' then runes) — a different formula here would make the
+  /// number JUMP as the panel swaps between live and the loaded fallback. `bytes` is the full utf8 length
+  /// (that IS the stored size). `at` stamped locally (UI-thread controller; a plain now is fine).
+  /// 每次编辑用当前 markdown 喂。`chars` 用与 inspector 自己的 [_charCount] **同款**剥空白 rune 计数,否则面板在
+  /// 活值/回退之间切换时数字会**跳**;`bytes` 是完整 utf8 长度(即存储大小);`at` 本地取时。
+  void feed(String markdown) {
+    final stripped = markdown.replaceAll(RegExp(r'\s+'), '');
+    state = (
+      chars: stripped.runes.length,
+      bytes: utf8.encode(markdown).length,
+      at: DateTime.now(),
+    );
+  }
+
+  void clear() => state = null;
+}
+
 /// The outline entry the CENTER viewport is currently reading — the LAST heading scrolled up past the
 /// head band (null = still above the first heading). Fed by the edit view's scroll listener; the
 /// inspector's outline highlights it live. 中心视口正在读的大纲项——最后一个滚过头带的标题(null=还在首个

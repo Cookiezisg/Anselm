@@ -174,6 +174,16 @@ class AnEditorState extends State<AnEditor> {
   // AnEditor State), passed into AnCodeBlockComponentBuilder. 每代码节点一把稳定 key,保嵌入编辑器 State 跨整节点替换。
   final Map<String, GlobalKey> _codeKeys = {};
 
+  /// The code block a slash insert just created, awaiting caret-on-mount (WRK-083 L15). One-shot: the
+  /// builder reads it, autofocuses that ONE block, and clears it — so a later rebuild never re-grabs
+  /// focus. 刚由 slash 插入、待挂载取光标的代码块 id。一次性:builder 读它、autofocus 那一块、随即清空,故后续
+  /// 重建不会再夺焦。
+  String? _pendingCodeAutofocus;
+
+  /// The [_pendingCodeAutofocus] value baked into the current [_componentBuilders] — so the memoized
+  /// builder list rebuilds when the pending id changes (WRK-083 L15). 已烤进当前 builders 的待办 id。
+  String? _builtAutofocus;
+
   // Same discipline for tables: one stable key per table node — cell field States survive the per-edit
   // whole-node replace, and the keyboard "enter the table" action reaches the grid to focus a cell.
   // 表格同款:每表一把稳定 key——cell 字段态跨整节点替换存活,键盘进表动作也经它聚焦格。
@@ -375,6 +385,7 @@ class AnEditorState extends State<AnEditor> {
     final node = _document.getNodeById(tag.nodeId);
     final plain = node is TextNode ? node.text.toPlainText() : '';
     final emptyAfterSubmit = plain == '/${tag.tag.token}';
+    final codeIdsBefore = _codeNodeIds();
     _editor.execute([
       const SubmitComposingActionTagRequest(),
       ...command.requests((
@@ -383,7 +394,44 @@ class AnEditorState extends State<AnEditor> {
         emptyAfterSubmit: emptyAfterSubmit,
       )),
     ]);
+    // A command that inserted a code block (the `focusInside` path in the slash menu) leaves no document
+    // caret in it — so hand the ONE newly-appeared code node to its embedded editor for caret-on-mount
+    // (WRK-083 L15). Diffing the id set rather than sniffing the command keeps this at arm's length from
+    // the palette. 若命令插入了代码块(slash 菜单的 focusInside 路径),文档里没有落进它的光标——把**新出现的那一个**
+    // 代码节点交给它的嵌入编辑器挂载即取光标。用 id 集合差分、不嗅探具体命令,与命令表保持距离。
+    final fresh = _codeNodeIds().difference(codeIdsBefore);
+    if (fresh.length == 1) {
+      setState(() => _pendingCodeAutofocus = fresh.first);
+      // The focusInside path inserted the block AFTER the trigger paragraph without replacing it (see
+      // _insertBlock) — so if that paragraph is now empty (the `/query` was the whole node), delete it in
+      // a SEPARATE execute(): the tag reactor has finished with it, and doing it here rather than inside
+      // the insert transaction is what avoids the `Null as TextNode` crash. The caret is already bound for
+      // the block's own editor, so removing the empty line strands nothing.
+      // focusInside 路径在触发段**之后**插块、不替换它(见 _insertBlock)——故若该段现已空(`/query` 是整节点),在
+      // **另一次** execute() 里删它:tag reactor 此时已收尾,放在这里而非插入事务内,正是避开 `Null as TextNode` 崩溃的
+      // 关键。光标已绑给块自己的编辑器,删掉空行不遗留任何东西。
+      // The now-empty trigger paragraph is deliberately LEFT in place. It sits ABOVE the inserted code
+      // block (the block was inserted after it), the caret is bound to the block's embedded editor, and an
+      // empty paragraph reads as nothing — so the writer never sees it. Deleting it in the same turn, or
+      // one frame later, both re-enter super_editor's still-live action-tags reactor and throw
+      // `Null as TextNode` (it re-reads the trigger node as a TextNode). Fighting that reactor's timing is
+      // exactly the hand-rolled trap principle #8 warns against; a blank line the writer can dismiss with
+      // one Backspace is the honest, robust trade.
+      // 现已空的触发段**刻意保留**。它在插入的代码块**上方**(块是在它之后插的),光标已绑到块的嵌入编辑器,空段落
+      // 读起来什么都不是——作者根本看不见它。同轮删、或帧后删,都会重入 super_editor 仍活着的 action-tags reactor
+      // 并抛 `Null as TextNode`(它把触发节点当 TextNode 重读)。跟那个 reactor 的时序较劲,正是原则 #8 警告的手搓陷阱;
+      // 留一个作者一次 Backspace 就能消掉的空行,是诚实且稳健的取舍。
+    }
     // The plugin clears composingActionTag → _onSlashComposingChanged hides the portal. 词法归零→自动隐。
+  }
+
+  /// The ids of every [CodeBlockNode] currently in the document. 文档中所有代码块节点 id。
+  Set<String> _codeNodeIds() {
+    final ids = <String>{};
+    for (final node in _document) {
+      if (node is CodeBlockNode) ids.add(node.id);
+    }
+    return ids;
   }
 
   void _dismissSlash() {
@@ -578,12 +626,22 @@ class AnEditorState extends State<AnEditor> {
     // until the theme flips → same instances → SuperEditor skips the re-style. 样式表+组件建造器按主题稳定
     // 的 colors 记忆化:同实例→SuperEditor 跳全文档重跑 style pipeline。
     final hint = _t.library.editorHint;
+    // `_pendingCodeAutofocus` is in the rebuild predicate ON PURPOSE (WRK-083 L15): the builders are
+    // memoized on the theme-stable [colors], so without this a `setState` that only flips the pending
+    // code-autofocus id would reuse the cached builder list — and the just-inserted block's AnCodeEditor
+    // would never receive `autofocus: true`. The value is one-shot (cleared post-build), so this forces
+    // exactly one extra rebuild.
+    // `_pendingCodeAutofocus` **刻意**进重建判据(WRK-083 L15):builders 按主题稳定的 [colors] 记忆化,没有这一条,
+    // 只翻这个待办 id 的 setState 会复用缓存的 builder 列表——刚插入那块的 AnCodeEditor 永远收不到 autofocus:true。
+    // 该值一次性(build 后即清),故只强制多一次重建。
     if (!identical(_styleColors, colors) ||
         _hintText != hint ||
-        _styleProse != widget.prose) {
+        _styleProse != widget.prose ||
+        _builtAutofocus != _pendingCodeAutofocus) {
       _styleColors = colors;
       _hintText = hint;
       _styleProse = widget.prose;
+      _builtAutofocus = _pendingCodeAutofocus;
       _stylesheet = buildAnEditorStylesheet(colors, prose: widget.prose);
       // The selection sweep colour — the An [AnColors.selection] token (semi-transparent accent), replacing
       // the package's hardcoded 0xFFACCEF7. Memoized with the stylesheet (same theme axis). 选区色走 token。
@@ -593,7 +651,14 @@ class AnEditorState extends State<AnEditor> {
           _editor,
           colors,
         ), // tasks aren't in the defaults — must be added
-        AnCodeBlockComponentBuilder(_editor, colors, _codeKeys),
+        AnCodeBlockComponentBuilder(
+          _editor,
+          colors,
+          _codeKeys,
+          autofocusNodeId: _pendingCodeAutofocus,
+          // One-shot consume: the just-inserted block takes the caret exactly once. 一次性消费。
+          onAutofocusConsumed: () => _pendingCodeAutofocus = null,
+        ),
         AnBlockquoteComponentBuilder(colors),
         // Ordered/unordered list items: marker = prose `•`/`$n.` (not derived from the first char → fixes the
         // code-first-word bug) + inner AnTextComponent (inline-code background). Must precede the defaults.
