@@ -399,6 +399,17 @@ L6 修复后的**第一次**真机复验显示「仍然分裂」,几乎被我读
 (dev 工具链批量拆 selectable),我方代码零帧;L1 收口验证窗口(重启后)Flutter 终端零输出,全部真实
 用户流程扫查中从未出现。若某天在真实流程(如选中文字时切对话)复现,按新缺陷立项;在那之前不冒充可修。
 
+### 用户裁定:中文界面保留部分英文文案(0726,**binding**)
+
+机械对比 1957 条 i18n 条目:中文档与英文**逐字相同**的 67 条里,47 条含实词。其中约 20 条是本就该一致的
+技术词与品牌名(`cron` / `webhook` / `Python` / `JetBrains Mono` / `$path` / `Anselm` / `exit $code`),
+另约 15 条是 chat 域的**用户可见文案**——`Ask anything…` · `What should we dig into?` · `thinking` /
+`thought` · `Retry` / `Discard` / `Stopped` · `Something went wrong` · `Couldn't load this conversation` ·
+`Attach files` / `Drop files to attach` · `Mention an entity` 等。
+
+**用户 0726 裁定:保留,英文挺好。** 故这不是漏译、是产品声音的一部分——**按 §0 铁律一,这条从此有出处**,
+后续任何会话不得把它当 bug「顺手修掉」。若将来要改,是一次产品决策、不是缺陷修复。
+
 ### 扫查所见、但**不是产品缺陷**的两条(记档,交用户裁,勿默默改)
 
 1. **CocoaPods 与 Swift Package 并存**(每次 `flutter run` 都提示):`All plugins found for macos are
