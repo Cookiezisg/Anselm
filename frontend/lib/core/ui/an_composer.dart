@@ -39,6 +39,9 @@ class AnComposer extends StatefulWidget {
     this.trailing,
     this.attachments,
     this.floating = false,
+    this.readOnly = false,
+    this.focusHalo = true,
+    this.accentHalo = false,
     super.key,
   });
 
@@ -58,26 +61,40 @@ class AnComposer extends StatefulWidget {
   /// Landing (New-chat) variant: lift the box with a float shadow. 落地态:浮起阴影。
   final bool floating;
 
+  /// Keeps the visual shell in place while its host is completing an action. 宿主动作落定前只读。
+  final bool readOnly;
+
+  /// Whether ordinary field focus lights the accent halo. 一般输入焦点是否点亮 accent 光环。
+  final bool focusHalo;
+
+  /// Host-driven accent moment, independent of focus (for commit/activation transitions).
+  /// 宿主驱动的 accent 时刻,独立于焦点(提交/激活过渡)。
+  final bool accentHalo;
+
   @override
   State<AnComposer> createState() => _AnComposerState();
 }
 
 class _AnComposerState extends State<AnComposer> {
   // Reserve for the single-line lead + tail + gaps, used to count wrapped lines AGAINST A FIXED width (so the
-  // multiline decision can't oscillate with the layout it drives). Token-derived for the lg control tier:
-  // two lead buttons + trailing (3 × row) + the row gaps + the horizontal padding + a s24 slack (matches the
-  // old hand-tuned margin) — a button re-tier can no longer silently mis-tune the pill↔card threshold.
-  // 单行 lead/tail/间距留位(固定参考宽防判定抖)。按 lg 控件档从 token 推导:3 钮 + 行间距 + 横向内距 + s24
-  // 余量(对齐旧手调裕度)——按钮换档不再悄悄错调 pill↔card 阈值。
-  static const double _singleLineReserve =
-      3 * AnSize.row + AnSpace.s4 + AnSpace.s8 + 2 * AnSpace.s12 + AnSpace.s24;
+  // multiline decision can't oscillate with the layout it drives). It derives from the actual number of
+  // lead actions plus the trailing slot, so a leadless host doesn't inherit Chat's two phantom controls;
+  // Chat's two-lead + one-tail threshold remains unchanged.
+  // 单行 lead/tail/间距留位(固定参考宽防判定抖)。按实际 lead 数 + trailing 槽推导:无 lead 宿主不继承
+  // Chat 的两个幽灵控件位,而 Chat 的双 lead + 单 tail 阈值原样不动。
+  double get _singleLineReserve =>
+      (widget.lead.length + 1) * AnSize.row +
+      (widget.lead.isEmpty ? AnSpace.s0 : AnSpace.s4) +
+      AnSpace.s8 +
+      2 * AnSpace.s12 +
+      AnSpace.s24;
 
   // Left inset for the wrapped-text line so its optical left edge lands flush with the lead icon glyph on the
-  // row below — derived from the lg pair (row-box · iconLg-glyph) THE LEAD BUTTONS ACTUALLY USE, so it
-  // self-heals if that tier retunes. 换行文字左内距,使其光学左缘与下排图标字形齐平;派生自 lead 按钮**实际用的**
-  // lg 档(row 盒 · iconLg 形),该档重调即自愈。
+  // row below — derived from the md control-box / glyph pair the lead actually uses; a leadless host
+  // disables it entirely. 换行文字左内距,使其光学左缘与下排图标字形齐平;派生自 lead 实际使用的 md
+  // 控件盒/字形配对;无 lead 宿主直接归零。
   static const double _wrapTextInset =
-      (AnSize.row - AnSize.iconLg) / 2 - AnSize.hairline;
+      (AnSize.control - AnSize.icon) / 2 - AnSize.hairline;
 
   // Internal scroll cap for the edit field — 7 reading lines (the 15/1.6 = 24px line box), then scroll.
   // 编辑区滚动上限:7 个阅读行盒(24px),超则内滚。
@@ -126,7 +143,8 @@ class _AnComposerState extends State<AnComposer> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    final focused = widget.focusNode.hasFocus;
+    final haloVisible =
+        widget.accentHalo || (widget.focusHalo && widget.focusNode.hasFocus);
     final reduced = AnMotionPref.reduced(context);
     final shape = reduced
         ? Duration.zero
@@ -168,25 +186,29 @@ class _AnComposerState extends State<AnComposer> {
         // sits BEHIND the white box so its interior is covered (only the outer ring shows, NO blue fill); the
         // accent border sits ON TOP so it reads on the edge. 解耦聚焦层(fast 淡入):辉光在白盒**背后**(内部被盖、
         // 只露外圈、无蓝内填),accent 描边在**上面**(只在边缘)。
-        Widget focusLayer({required BoxDecoration decoration}) =>
-            Positioned.fill(
-              child: IgnorePointer(
-                child: AnimatedOpacity(
-                  opacity: focused ? 1 : 0,
-                  duration: feedback,
-                  curve: AnMotion.easeOut,
-                  child: AnimatedContainer(
-                    duration: shape,
-                    curve: AnMotion.spring,
-                    decoration: decoration,
-                  ),
-                ),
+        Widget focusLayer({
+          required Key opacityKey,
+          required BoxDecoration decoration,
+        }) => Positioned.fill(
+          child: IgnorePointer(
+            child: AnimatedOpacity(
+              key: opacityKey,
+              opacity: haloVisible ? 1 : 0,
+              duration: feedback,
+              curve: AnMotion.easeOut,
+              child: AnimatedContainer(
+                duration: shape,
+                curve: AnMotion.spring,
+                decoration: decoration,
               ),
-            );
+            ),
+          ),
+        );
         return Stack(
           children: [
             // 0 — the soft outer glow, BEHIND (interior gets covered by the box). 辉光在后。
             focusLayer(
+              opacityKey: const ValueKey('composer-halo-glow'),
               decoration: BoxDecoration(
                 borderRadius: radius,
                 boxShadow: [
@@ -212,7 +234,7 @@ class _AnComposerState extends State<AnComposer> {
                 boxShadow: widget.floating ? c.shadowFloat : null,
               ),
               // 12 horizontal / 8 vertical — the 15-input proportion (modern chat composers run
-              // 12-16h/10-12v; with the 32 lg controls the single-line pill lands at 50px, inside
+              // 12-16h/10-12v; with the 28 md controls the single-line pill lands inside
               // the 44-52 industry band). 横 12 纵 8:15 号输入的配比(单行药丸高 50,业界 44-52)。
               padding: const EdgeInsets.symmetric(
                 horizontal: AnSpace.s12,
@@ -228,6 +250,7 @@ class _AnComposerState extends State<AnComposer> {
             ),
             // 2 — the accent ring, ON TOP (edge only, no fill, no shadow). accent 描边在上、仅边缘。
             focusLayer(
+              opacityKey: const ValueKey('composer-halo-ring'),
               decoration: BoxDecoration(
                 borderRadius: radius,
                 border: Border.all(color: c.accentLine, width: AnSize.hairline),
@@ -244,7 +267,7 @@ class _AnComposerState extends State<AnComposer> {
     crossAxisAlignment: CrossAxisAlignment.center,
     children: [
       ...widget.lead,
-      const SizedBox(width: AnSpace.s4),
+      if (widget.lead.isNotEmpty) const SizedBox(width: AnSpace.s4),
       Expanded(child: _editField(context, c)),
       const SizedBox(width: AnSpace.s8),
       _trailing(),
@@ -256,7 +279,10 @@ class _AnComposerState extends State<AnComposer> {
     crossAxisAlignment: CrossAxisAlignment.stretch,
     children: [
       Padding(
-        padding: const EdgeInsets.fromLTRB(_wrapTextInset, 0, AnSpace.s6, 0),
+        padding: EdgeInsets.only(
+          left: widget.lead.isEmpty ? AnSpace.s0 : _wrapTextInset,
+          right: AnSpace.s6,
+        ),
         child: _editField(context, c),
       ),
       const SizedBox(height: AnSpace.s4),
@@ -285,6 +311,8 @@ class _AnComposerState extends State<AnComposer> {
       child: TextField(
         controller: widget.controller,
         focusNode: widget.focusNode,
+        readOnly: widget.readOnly,
+        enableInteractiveSelection: !widget.readOnly,
         minLines: 1,
         maxLines: null,
         keyboardType: TextInputType.multiline,

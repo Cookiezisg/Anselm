@@ -1019,6 +1019,9 @@ class Translations$coldStart$en {
 
 	// Translations
 
+	/// en: 'Anselm · Onboarding Preview'
+	String get onboardingPreviewTitle => 'Anselm · Onboarding Preview';
+
 	/// en: 'Setting up your workspace…'
 	String get connecting => 'Setting up your workspace…';
 
@@ -1028,8 +1031,26 @@ class Translations$coldStart$en {
 	/// en: 'The local engine is reachable but the workspace didn't resolve.'
 	String get errorHint => 'The local engine is reachable but the workspace didn\'t resolve.';
 
-	/// en: 'Personal'
-	String get defaultWorkspace => 'Personal';
+	/// en: 'Create a workspace'
+	String get createWorkspace => 'Create a workspace';
+
+	/// en: 'Workspace name'
+	String get nameLabel => 'Workspace name';
+
+	/// en: 'This workspace already exists'
+	String get alreadyExists => 'This workspace already exists';
+
+	/// en: 'Couldn't create the workspace'
+	String get createFailed => 'Couldn\'t create the workspace';
+
+	/// en: 'WORK №001'
+	String get workIndex => 'WORK №001';
+
+	/// en: 'Christoffel Bisschop · 1862 · Rijksmuseum'
+	String get artCredit => 'Christoffel Bisschop · 1862 · Rijksmuseum';
+
+	/// en: 'Heemskerck and Barents Planning their Second Expedition to the Far North'
+	String get artTitle => 'Heemskerck and Barents Planning their Second Expedition to the Far North';
 }
 
 // Path: library
@@ -8256,10 +8277,17 @@ extension on Translations {
 			'entities.graph.verb.link' => 'links',
 			'entities.graph.verb.create' => 'created',
 			'entities.graph.verb.edit' => 'edited',
+			'coldStart.onboardingPreviewTitle' => 'Anselm · Onboarding Preview',
 			'coldStart.connecting' => 'Setting up your workspace…',
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
-			'coldStart.defaultWorkspace' => 'Personal',
+			'coldStart.createWorkspace' => 'Create a workspace',
+			'coldStart.nameLabel' => 'Workspace name',
+			'coldStart.alreadyExists' => 'This workspace already exists',
+			'coldStart.createFailed' => 'Couldn\'t create the workspace',
+			'coldStart.workIndex' => 'WORK №001',
+			'coldStart.artCredit' => 'Christoffel Bisschop · 1862 · Rijksmuseum',
+			'coldStart.artTitle' => 'Heemskerck and Barents Planning their Second Expedition to the Far North',
 			'library.documents' => 'Documents',
 			'library.skills' => 'Skills',
 			'library.untitled' => 'Untitled',
@@ -8357,6 +8385,8 @@ extension on Translations {
 			'library.skillToolsApproved' => 'Pre-approval active',
 			'library.skillToolsPending' => 'Pre-approval pending',
 			'library.skillApproveTools' => 'Approve pre-authorized tools',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillCheckUpdate' => 'Check for updates',
 			'library.skillUpdateDone' => 'Updated to the upstream version',
 			'library.skillLocallyModified' => 'Local edits exist — updating will overwrite them. Force update?',
@@ -8364,8 +8394,6 @@ extension on Translations {
 			'library.skillInstallTitle' => 'Install skills from a source',
 			'library.skillInstallExplainer' => 'Installing fetches the skill\'s files from that source over the internet and adds them to your library. Some skills also request pre-authorization for their tools — once approved, those tools skip the confirmation prompt each time they run.',
 			'library.skillInstallHint' => 'GitHub repo (owner/repo or URL) or a tarball URL',
-			_ => null,
-		} ?? switch (path) {
 			'library.skillInstallInspect' => 'Inspect source',
 			'library.skillInstallGo' => 'Install selected',
 			'library.skillInstallDone' => 'Install finished',

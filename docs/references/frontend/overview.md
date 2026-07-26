@@ -37,7 +37,7 @@ Anselm 是**本地优先的 agentic workflow 平台**——一个 **Flutter 桌�
         ⌘B 收/开左岛                                  ⌘\ 收/开右岛
 ```
 
-- **四海洋**:`chat`(对话)· `entities`(实体:Function/Handler/Agent/Workflow)· `scheduler`(调度)· `documents`(文档),外加齿轮进的 `settings`。左岛顶部 `AnOceanSwitcher` 切换(matched-geometry 滑动药丸)。**`chat`/`entities`/`documents` 三海洋已完整建成(rail + 中心);`scheduler` 占位「即将推出」**。海洋切换暂走 provider(`selectedOceanProvider`),未路由化;**首次启动落 `chat` 初始页,此后恢复上次选中的海洋(shared_preferences 持久化键 `fy.ocean`)**。
+- **四海洋**:`chat`(对话)· `entities`(实体:Function/Handler/Agent/Workflow)· `scheduler`(调度)· `documents`(文档),外加齿轮进的 `settings`。左岛顶部 `AnOceanSwitcher` 切换(matched-geometry 滑动药丸)。**`chat`/`entities`/`documents` 三海洋已完整建成(rail + 中心);`scheduler` 占位「即将推出」**。海洋切换暂走 provider(`selectedOceanProvider`),未路由化;**后端工作区名册为空时先停在单页创建面,创建成功直接进入普通 `chat` 初始页；已有工作区则直接进壳并恢复上次选中的海洋**(`shared_preferences` 持久化键 `an.ocean`)。
 - **左岛两条独立轴**:① `selectedOceanProvider`(选哪个海洋,驱动 rail + 中心)② `notificationsOpenProvider`(铃 toggle,接管左岛中段、不动中心)。
 - **`AnShell` 自身 Riverpod-free**:状态由 app 层以 props 喂入;壳只管布局/揭示动效/红绿灯对齐。
 
@@ -66,6 +66,7 @@ app/        装配根 + 唯一壳 app_shell.dart + 路由 + 启动门控
 
 - Go 后端作 **sidecar**:Dart 抢一个临时端口 → 经 `ANSELM_ADDR` 拉起后端 → `/api/v1/health` 门控就绪才显壳。dev 时用 `ANSELM_BACKEND_URL` 挂已跑的后端(`make -C backend run`),零后端改。
 - **loopback 三把锁**(在后端):默认绑 `127.0.0.1` + `RequireBearerToken`(`ANSELM_AUTH_TOKEN`)+ `RequireLoopbackHost`(防 DNS rebinding)。
+- **工作区门控只认服务端真相**:`GET /workspaces` 有行即激活首行并放壳,空数组则显示一页 onboarding；不另存 first-run flag,所以出厂重置与恢复数据库不会漂移。页面是一张有界画册跨页：右侧决策列恒宽 460、永不随宽窗拉长，左侧 Rijksmuseum 公版工作场景在余宽中弹性增长并封顶 860，列间距钳在 48–96，作品封顶后的余量回到整体两侧留白；品牌右缘随决策列，不钉窗口边。右侧恒英文 `Create a workspace` + 无 lead 的真 `AnComposer`；静息/聚焦/输入期恒灰边，输入后只浮出与 Chat 同源的蓝色回车钮，Enter 提交才点亮蓝色外环；Shift+Enter 换行、IME 合成期不误发，多行沿用同一药丸→卡片形变。首次创建强制落空白 Chat：旧面不立即卸载，真 Shell 先在其背后布局，gate 以两端 GlobalKey 的实测矩形驱动 560ms paint-only Composer 飞行，画作/标题退场与岛屿/问句入场重叠，末段才把绘制交给真 Chat Composer；两端 `EditableText`/IME 状态不跨树搬家，Shell 从首次挂载起不重挂，reduced motion 直接落位。设置与左下菜单的新建仍经同一行为宿主创建后复用热切换编舞并落 `chat`。`make -C frontend onboard` 用零后端 fixture 重放整段创建→Chat 过渡,不读写真实名册。
 - **DIP 注入**:**workspace**(唯一鉴权轴,header `X-Anselm-Workspace-ID`)+ **baseUrl** 由 `app` 经 `ProviderScope` override 注入;401/410 在 net 层拦截。
 
 ## 6. 视觉灵魂

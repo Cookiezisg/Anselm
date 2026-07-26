@@ -91,6 +91,12 @@ abstract final class AnselmErr {
   /// 409 — a reindex is already running; surface a toast, keep the button disabled.
   static const searchReindexRunning = 'SEARCH_REINDEX_RUNNING';
 
+  /// 409 — workspace names are unique after server-side trimming; creation stays in place and
+  /// surfaces the product-localized duplicate-name copy.
+  ///
+  /// 409 — 工作区名经服务端 trim 后唯一;创建页留在原处并显示产品本地化的重名文案。
+  static const workspaceNameConflict = 'WORKSPACE_NAME_CONFLICT';
+
   /// 422 — approval decision lost the first-wins race (already decided / timed out).
   static const approvalAlreadyDecided = 'APPROVAL_ALREADY_DECIDED';
 

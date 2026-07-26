@@ -8,8 +8,9 @@ import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-// STEP cold-start gate — the workspace bootstrap: use the first workspace if any, else create a default;
-// either way set activeWorkspaceProvider so workspace-scoped APIs stop 401'ing.
+// Cold-start gate — use the first workspace if any; an empty roster is server truth that holds the
+// shell on onboarding until the user explicitly creates one.
+// 冷启动 gate:有行取首行;空名册是服务端真相,壳停在 onboarding,直到用户显式创建。
 
 class _FakeAdapter implements HttpClientAdapter {
   _FakeAdapter(this.respond);
@@ -72,14 +73,30 @@ void main() {
     expect(c.read(activeWorkspaceProvider), 'ws_1');
   });
 
-  test('no workspace → creates a default + sets it active', () async {
-    final c = _container(
-      (o) => o.method == 'POST'
-          ? _json({'data': _ws('ws_new', 'Personal')})
-          : _json({'data': const []}),
-    );
-    final id = await c.read(workspaceBootstrapProvider.future);
-    expect(id, 'ws_new');
-    expect(c.read(activeWorkspaceProvider), 'ws_new');
-  });
+  test(
+    'no workspace → waits for onboarding; explicit create settles the axis',
+    () async {
+      var posts = 0;
+      final c = _container((o) {
+        if (o.method == 'POST') {
+          posts++;
+          return _json({'data': _ws('ws_new', 'Fresh')}, 201);
+        }
+        return _json({'data': const []});
+      });
+      final id = await c.read(workspaceBootstrapProvider.future);
+      expect(id, isNull);
+      expect(posts, 0, reason: 'empty server truth must never silently POST');
+      expect(c.read(activeWorkspaceProvider), isNull);
+
+      final row = await c
+          .read(workspaceBootstrapProvider.notifier)
+          .create('Fresh');
+      expect(row.id, 'ws_new');
+      expect(posts, 1);
+      expect(c.read(activeWorkspaceProvider), 'ws_new');
+      expect(c.read(activeWorkspaceNameProvider), 'Fresh');
+      expect(c.read(workspaceBootstrapProvider).value, 'ws_new');
+    },
+  );
 }

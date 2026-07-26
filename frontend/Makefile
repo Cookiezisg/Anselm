@@ -18,6 +18,7 @@ help:
 	@echo "Anselm 前端（Flutter）— 在 frontend/ 下:"
 	@echo "  启动:  make app      真 app + 真后端(自动起后端 + 热重载)"
 	@echo "         make demo     fixture demo"
+	@echo "         make onboard  首启创建→Chat 过渡预览(fixture,零后端)"
 	@echo "         make gallery  组件画廊（看每个 An* 全态）"
 	@echo "         make perf     profile demo + 帧探针"
 	@echo "         默认设备为 macos；其他 Flutter 设备：make <命令> DEVICE=<设备>"
@@ -96,6 +97,10 @@ verify: deps
 demo: deps
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d $(DEVICE) -t lib/dev/demo_main.dart
 
+# onboard — 空名册首启页→真实壳的完整视觉验收；fixture 隔离、零 sidecar、零持久化。
+onboard: deps
+	@LANG=en_US.UTF-8 $(RUN) flutter run -d $(DEVICE) -t lib/dev/onboarding_main.dart
+
 # perf — demo 的 PROFILE 构建(AOT,接近发行性能)+ 帧探针。**判断性能一律用它**——
 # `make demo` 是 debug(JIT+断言,慢 3-5 倍),拿 debug 手感判卡顿全是幻觉(0716 教训:用户报「滚动
 # 粘滞」,profile 实测满 120fps 零掉帧)。PERF_HUD=true 装帧探针(stdout 报 build/raster/fps,
@@ -137,4 +142,4 @@ clean: toolchain
 	@$(RUN) flutter clean
 	@echo "" && echo "✓ 已清 build/ + .dart_tool/(flutter clean)。下次任一前端命令会自动恢复依赖。"
 
-.PHONY: help toolchain setup deps doctor format gen analyze test verify demo perf gallery app shots clean
+.PHONY: help toolchain setup deps doctor format gen analyze test verify demo onboard perf gallery app shots clean

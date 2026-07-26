@@ -1556,10 +1556,17 @@
     }
   },
   "coldStart": {
+    "onboardingPreviewTitle": "Anselm · Onboarding Preview",
     "connecting": "正在准备工作区…",
     "errorTitle": "无法准备工作区",
     "errorHint": "本地引擎已连通,但工作区未就绪。",
-    "defaultWorkspace": "个人"
+    "createWorkspace": "Create a workspace",
+    "nameLabel": "Workspace name",
+    "alreadyExists": "该工作区已存在",
+    "createFailed": "无法创建工作区",
+    "workIndex": "WORK №001",
+    "artCredit": "Christoffel Bisschop · 1862 · Rijksmuseum",
+    "artTitle": "Heemskerck 与 Barents 规划第二次远征极北之地"
   },
   "library": {
     "documents": "文档",

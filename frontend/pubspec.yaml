@@ -132,6 +132,7 @@ flutter:
   # Bundled brand mark — the app icon SVG (pixel-F squircle), rendered in-UI by AnBrandIcon.
   # 随包品牌标——app 图标 SVG,AnBrandIcon 在 UI 内渲染。
   assets:
+    - assets/art/
     - assets/brand/
     - assets/fonts/
   # Bundled fonts so the bilingual UI + code render deterministically on every machine (no drift from

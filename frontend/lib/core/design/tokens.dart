@@ -284,6 +284,16 @@ abstract final class AnSize {
       480; // field-stack form reading column (network/keys/ws/sandbox/mcp) 字段栈表单列
   static const double formMaxWidthWide =
       640; // long-text / paste editing surface (memory editor, JSON import) 长文编辑面
+  // First-run editorial spread. The right decision column is invariant; only the artwork absorbs
+  // window growth, then surplus width becomes calm outer whitespace. 首启画册跨页:右决策列恒定;只让作品
+  // 吸收窗宽,作品封顶后余量回到两侧留白。
+  static const double onboardingForm =
+      460; // compact workspace decision column 工作区决策列
+  static const double onboardingArtworkMax =
+      860; // artwork growth ceiling 作品增长上限
+  static const double onboardingGapMin = 48; // minimum relationship gap 最小关系间距
+  static const double onboardingGapMax =
+      96; // wide-window relationship gap ceiling 宽窗关系间距上限
   static const double ctlSlot =
       240; // standard control slot (2-seg segmented, dropdowns) 标准控件槽
   static const double ctlSlotLg =
@@ -446,6 +456,9 @@ abstract final class AnMotion {
   static const Duration fast = Duration(milliseconds: 120);
   static const Duration mid = Duration(milliseconds: 240);
   static const Duration slow = Duration(milliseconds: 340);
+  static const Duration onboardingJourney = Duration(
+    milliseconds: 560,
+  ); // first-run matched-geometry handoff 首启共享几何交接
   static const Duration breath = Duration(milliseconds: 1800);
 
   // Decorative-loop repaint cadence (~30fps) — PulseClock's timer interval. Deliberately NOT vsync:

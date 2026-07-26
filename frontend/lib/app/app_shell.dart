@@ -24,6 +24,9 @@ import '../features/library/state/library_state.dart';
 import '../features/library/ui/library_ocean.dart';
 import '../core/workspace/workspace_switch.dart';
 import '../features/settings/state/workspaces_provider.dart';
+import '../features/settings/model/settings_catalog.dart';
+import '../features/settings/state/settings_detail_provider.dart';
+import '../features/settings/state/settings_panel_provider.dart';
 import '../features/library/ui/library_rail.dart';
 import '../features/library/ui/library_inspector.dart';
 import '../core/shell/right_panel.dart';
@@ -335,10 +338,18 @@ class _AppShellState extends ConsumerState<AppShell> {
               AnMenuItem(
                 label: context.t.shell.newWorkspace,
                 icon: AnIcons.plus,
-                // Skeleton: creating workspaces is a follow-up. 骨架:新建工作区为后续。
-                onTap: () => ref
-                    .read(noticeCenterProvider.notifier)
-                    .show(context.t.shell.comingSoonTitle),
+                // The menu opens the canonical Settings create surface instead of growing a second
+                // popover form. Three entry points, one control and one switching choreography.
+                // 菜单打开规范的 Settings 创建面,不再长第二套浮层表单;三入口、一控件、一切换编舞。
+                onTap: () {
+                  ref
+                      .read(settingsPanelProvider.notifier)
+                      .select(SettingsPanel.workspaces);
+                  ref
+                      .read(settingsDetailProvider.notifier)
+                      .push('addWorkspace');
+                  selectOcean(OceanKind.settings);
+                },
               ),
               AnMenuItem(
                 label: context.t.shell.workspaceSettings,

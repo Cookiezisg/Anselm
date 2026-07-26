@@ -8,7 +8,9 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/byte_format.dart';
 import '../../../../core/runtime.dart';
+import '../../../../core/shell/oceans.dart';
 import '../../../../core/ui/ui.dart';
+import '../../../../core/workspace/workspace_create_control.dart';
 import '../../../../core/workspace/workspace_switch.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/settings_detail_provider.dart';
@@ -108,93 +110,29 @@ class _Roster extends ConsumerWidget {
   }
 }
 
-class _CreateForm extends ConsumerStatefulWidget {
+class _CreateForm extends ConsumerWidget {
   const _CreateForm();
 
   @override
-  ConsumerState<_CreateForm> createState() => _CreateFormState();
-}
-
-class _CreateFormState extends ConsumerState<_CreateForm> {
-  final TextEditingController _name = TextEditingController();
-  String _color = kAvatarPalette.first;
-  bool _saving = false;
-  String? _error;
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  Future<void> _create() async {
-    if (_saving || _name.text.trim().isEmpty) return;
-    setState(() {
-      _saving = true;
-      _error = null;
-    });
-    try {
-      await ref
-          .read(workspacesProvider.notifier)
-          .create(name: _name.text.trim(), avatarColor: _color);
-      if (mounted) ref.read(settingsDetailProvider.notifier).pop();
-    } on ApiException catch (e) {
-      setState(() => _error = e.message);
-    } catch (e) {
-      setState(() => _error = '$e');
-    } finally {
-      if (mounted) setState(() => _saving = false);
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final t = Translations.of(context);
-    final c = context.colors;
+  Widget build(BuildContext context, WidgetRef ref) {
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AnFormField(
-            label: t.settings.ws.name,
-            child: AnInput(
-              controller: _name,
-              autofocus: true,
-              onChanged: (_) => setState(() {}),
-            ),
-          ),
-          const SizedBox(height: AnSpace.s12),
-          AnFormField(
-            label: t.settings.ws.color,
-            child: _ColorPicker(
-              value: _color,
-              onChanged: (v) => setState(() => _color = v),
-            ),
-          ),
-          if (_error != null) ...[
-            const SizedBox(height: AnSpace.s8),
-            Text(_error!, style: AnText.label.copyWith(color: c.danger)),
-          ],
-          const SizedBox(height: AnSpace.s16),
-          Row(
-            children: [
-              AnButton(
-                label: t.settings.ws.create,
-                variant: AnButtonVariant.primary,
-                onPressed: _saving || _name.text.trim().isEmpty
-                    ? null
-                    : _create,
-              ),
-              const SizedBox(width: AnSpace.s8),
-              AnButton(
-                label: t.settings.keys.cancel,
-                onPressed: () =>
-                    ref.read(settingsDetailProvider.notifier).pop(),
-              ),
-            ],
-          ),
-        ],
+      child: WorkspaceCreateControl(
+        autofocus: true,
+        onCreate: (name) =>
+            ref.read(workspacesProvider.notifier).create(name: name),
+        onCreated: (workspace) {
+          // Creation is a doorway into the new world, not a roster edit: leave Settings for the
+          // ordinary Chat landing, then reuse the one hot-switch choreography that releases every
+          // old workspace binding before the id flips.
+          // 创建是进入新世界的门、不是名册编辑:先回普通 Chat landing,再复用唯一热切换编舞,在 id
+          // 翻转前释放旧 workspace 的全部绑定。
+          ref.read(selectedOceanProvider.notifier).select(OceanKind.chat);
+          ref.read(settingsDetailProvider.notifier).pop();
+          ref
+              .read(workspaceSwitchProvider)
+              .switchTo(id: workspace.id, name: workspace.name);
+        },
       ),
     );
   }

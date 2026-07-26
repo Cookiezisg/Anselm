@@ -52,13 +52,18 @@ import '../state/speech_input_provider.dart';
 /// (面板开着时 Enter 先于发送被拦)、Esc 关闭且该 token 不再弹;**焦点永不离输入框**。选中插 `@name `
 /// 染伪药丸;药丸后一次退格整删。发送时文本里仍在的 `@name` 快照作 mentions 上行(后端冻结)。
 class ChatComposer extends ConsumerStatefulWidget {
-  const ChatComposer({this.conversationId, this.onSubmitNew, super.key})
-    : assert(
-        conversationId != null || onSubmitNew != null,
-        'ChatComposer needs a conversationId or onSubmitNew',
-      );
+  const ChatComposer({
+    this.conversationId,
+    this.onSubmitNew,
+    this.surfaceKey,
+    super.key,
+  }) : assert(
+         conversationId != null || onSubmitNew != null,
+         'ChatComposer needs a conversationId or onSubmitNew',
+       );
 
   final String? conversationId;
+  final Key? surfaceKey;
   final Future<void> Function(
     String text,
     List<MentionSnapshot> mentions,
@@ -1169,6 +1174,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
         context,
         _pasteInterceptor(
           AnComposer(
+            key: widget.surfaceKey,
             controller: _ctrl,
             focusNode: _focus,
             placeholder: t.chat.placeholder,
@@ -1235,6 +1241,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
           context,
           _pasteInterceptor(
             AnComposer(
+              key: widget.surfaceKey,
               controller: _ctrl,
               focusNode: _focus,
               placeholder: t.chat.placeholder,

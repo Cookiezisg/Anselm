@@ -1556,10 +1556,17 @@
     }
   },
   "coldStart": {
+    "onboardingPreviewTitle": "Anselm · Onboarding Preview",
     "connecting": "Setting up your workspace…",
     "errorTitle": "Couldn't set up the workspace",
     "errorHint": "The local engine is reachable but the workspace didn't resolve.",
-    "defaultWorkspace": "Personal"
+    "createWorkspace": "Create a workspace",
+    "nameLabel": "Workspace name",
+    "alreadyExists": "This workspace already exists",
+    "createFailed": "Couldn't create the workspace",
+    "workIndex": "WORK №001",
+    "artCredit": "Christoffel Bisschop · 1862 · Rijksmuseum",
+    "artTitle": "Heemskerck and Barents Planning their Second Expedition to the Far North"
   },
   "library": {
     "documents": "Documents",

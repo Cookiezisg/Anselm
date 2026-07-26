@@ -4,6 +4,7 @@ import 'package:anselm/core/contract/workspace.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/runtime.dart';
+import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_demo_fixture.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
@@ -18,6 +19,9 @@ import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
 import 'package:anselm/core/workspace/workspace_switch.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
 import 'package:anselm/features/settings/state/workspaces_provider.dart';
+import 'package:anselm/features/settings/model/settings_catalog.dart';
+import 'package:anselm/features/settings/state/settings_detail_provider.dart';
+import 'package:anselm/features/settings/state/settings_panel_provider.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -147,6 +151,23 @@ void main() {
       'ws_three',
       reason: 'the row must run the hot-switch action, not sit there checked',
     );
+
+    // “New workspace” is not a stub and does not grow a second popover form: it opens the canonical
+    // Workspaces/addWorkspace surface in Settings.
+    // 「新建工作区」不是 stub、也不另长浮层表单:直达 Settings 的规范 Workspaces/addWorkspace 面。
+    await tester.tap(find.byType(AnWorkspaceButton));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text(
+        Translations.of(
+          tester.element(find.byType(AppShell)),
+        ).shell.newWorkspace,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(container.read(selectedOceanProvider), OceanKind.settings);
+    expect(container.read(settingsPanelProvider), SettingsPanel.workspaces);
+    expect(container.read(settingsDetailProvider)?.kind, 'addWorkspace');
   });
 
   // WRK-083 L1 (the residual) — the right island's chat face REMEMBERS the last conversation so the

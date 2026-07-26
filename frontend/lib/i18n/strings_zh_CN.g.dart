@@ -487,10 +487,17 @@ class _Translations$coldStart$zh_CN extends Translations$coldStart$en {
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
+	@override String get onboardingPreviewTitle => 'Anselm · Onboarding Preview';
 	@override String get connecting => '正在准备工作区…';
 	@override String get errorTitle => '无法准备工作区';
 	@override String get errorHint => '本地引擎已连通,但工作区未就绪。';
-	@override String get defaultWorkspace => '个人';
+	@override String get createWorkspace => 'Create a workspace';
+	@override String get nameLabel => 'Workspace name';
+	@override String get alreadyExists => '该工作区已存在';
+	@override String get createFailed => '无法创建工作区';
+	@override String get workIndex => 'WORK №001';
+	@override String get artCredit => 'Christoffel Bisschop · 1862 · Rijksmuseum';
+	@override String get artTitle => 'Heemskerck 与 Barents 规划第二次远征极北之地';
 }
 
 // Path: library
@@ -4304,10 +4311,17 @@ extension on TranslationsZhCn {
 			'entities.graph.verb.link' => '链接了',
 			'entities.graph.verb.create' => '创建了',
 			'entities.graph.verb.edit' => '编辑了',
+			'coldStart.onboardingPreviewTitle' => 'Anselm · Onboarding Preview',
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
-			'coldStart.defaultWorkspace' => '个人',
+			'coldStart.createWorkspace' => 'Create a workspace',
+			'coldStart.nameLabel' => 'Workspace name',
+			'coldStart.alreadyExists' => '该工作区已存在',
+			'coldStart.createFailed' => '无法创建工作区',
+			'coldStart.workIndex' => 'WORK №001',
+			'coldStart.artCredit' => 'Christoffel Bisschop · 1862 · Rijksmuseum',
+			'coldStart.artTitle' => 'Heemskerck 与 Barents 规划第二次远征极北之地',
 			'library.documents' => '文档',
 			'library.skills' => '技能',
 			'library.untitled' => '未命名',
@@ -4405,6 +4419,8 @@ extension on TranslationsZhCn {
 			'library.skillToolsApproved' => '预授权已生效',
 			'library.skillToolsPending' => '预授权待确认',
 			'library.skillApproveTools' => '授权预授权工具',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillCheckUpdate' => '检查更新',
 			'library.skillUpdateDone' => '已更新到上游版本',
 			'library.skillLocallyModified' => '本地有改动——更新会覆盖，确认强制更新？',
@@ -4412,8 +4428,6 @@ extension on TranslationsZhCn {
 			'library.skillInstallTitle' => '从来源安装 Skill',
 			'library.skillInstallExplainer' => '安装会经互联网从该来源取回 skill 文件，存进你的 skill 库。部分 skill 还会为其工具申请预授权——一旦批准，这些工具此后运行将跳过确认弹窗。',
 			'library.skillInstallHint' => 'GitHub 仓库（owner/repo 或 URL）或 tarball 地址',
-			_ => null,
-		} ?? switch (path) {
 			'library.skillInstallInspect' => '解析来源',
 			'library.skillInstallGo' => '安装所选',
 			'library.skillInstallDone' => '安装完成',

@@ -8,6 +8,7 @@ import '../../../core/design/typography.dart';
 import '../../../core/design/colors.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../core/ui/ui.dart';
+import '../../../core/workspace/workspace_journey.dart';
 import '../state/chat_drafts.dart';
 import '../state/new_conversation.dart';
 import '../state/pending_attachments.dart';
@@ -112,6 +113,19 @@ class _ChatLanding extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
     final c = context.colors;
+    final journey = WorkspaceJourneyScope.maybeOf(context);
+    final composer = ChatComposer(
+      surfaceKey: journey?.destinationComposerKey,
+      onSubmitNew: (text, mentions, attachmentIds) async {
+        final start = ref.read(startConversationProvider);
+        final id = await start(
+          text,
+          mentions: mentions,
+          attachmentIds: attachmentIds,
+        );
+        if (context.mounted) context.go(conversationLocation(id));
+      },
+    );
     return Column(
       children: [
         const Spacer(flex: 2),
@@ -132,16 +146,15 @@ class _ChatLanding extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(height: AnSpace.s24),
-                  ChatComposer(
-                    onSubmitNew: (text, mentions, attachmentIds) async {
-                      final start = ref.read(startConversationProvider);
-                      final id = await start(
-                        text,
-                        mentions: mentions,
-                        attachmentIds: attachmentIds,
-                      );
-                      if (context.mounted) context.go(conversationLocation(id));
-                    },
+                  ValueListenableBuilder<double>(
+                    valueListenable:
+                        journey?.destinationOpacity ??
+                        _alwaysVisibleComposerOpacity,
+                    builder: (context, opacity, child) => IgnorePointer(
+                      ignoring: opacity < 1,
+                      child: Opacity(opacity: opacity, child: child),
+                    ),
+                    child: composer,
                   ),
                 ],
               ),
@@ -153,3 +166,5 @@ class _ChatLanding extends ConsumerWidget {
     );
   }
 }
+
+final _alwaysVisibleComposerOpacity = ValueNotifier<double>(1);

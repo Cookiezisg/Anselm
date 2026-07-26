@@ -3,6 +3,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/state/settings_detail_provider.dart';
@@ -86,24 +87,39 @@ void main() {
       expect(container.read(activeWorkspaceNameProvider), 'Side');
     });
 
-    testWidgets('create pushes the form; a new workspace lands in the roster', (
-      tester,
-    ) async {
-      final repo = FixtureSettingsRepository();
-      await tester.pumpWidget(_host(repo));
-      await tester.pumpAndSettle();
-      final t = Translations.of(tester.element(find.byType(WorkspacesPanel)));
+    testWidgets(
+      'create is minimal, then switches the new workspace into Chat',
+      (tester) async {
+        final repo = FixtureSettingsRepository();
+        final router = GoRouter(
+          routes: [GoRoute(path: '/', builder: (_, _) => const SizedBox())],
+          initialLocation: '/',
+        );
+        await tester.pumpWidget(_host(repo, router: router));
+        await tester.pumpAndSettle();
+        final t = Translations.of(tester.element(find.byType(WorkspacesPanel)));
 
-      await tester.tap(find.text(t.settings.ws.newWorkspace));
-      await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField).first, 'Fresh');
-      await tester.pumpAndSettle();
-      await tester.tap(find.text(t.settings.ws.create));
-      await tester.pumpAndSettle();
+        await tester.tap(find.text(t.settings.ws.newWorkspace));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(t.settings.ws.color),
+          findsNothing,
+          reason: 'creation is only name→create; colour stays an edit concern',
+        );
+        await tester.enterText(find.byType(TextField).first, 'Fresh');
+        await tester.pumpAndSettle();
+        await tester.tap(find.byKey(const ValueKey('create-workspace')));
+        await tester.pumpAndSettle();
 
-      expect(repo.extraWorkspaces.single.name, 'Fresh');
-      expect(find.text('Fresh'), findsOneWidget, reason: '回名册即见新行');
-    });
+        expect(repo.extraWorkspaces.single.name, 'Fresh');
+        final panelEl = tester.element(find.byType(WorkspacesPanel));
+        final container = ProviderScope.containerOf(panelEl, listen: false);
+        expect(container.read(activeWorkspaceProvider), 'ws_fix1');
+        expect(container.read(activeWorkspaceNameProvider), 'Fresh');
+        expect(container.read(selectedOceanProvider), OceanKind.chat);
+        expect(find.text('Fresh'), findsOneWidget, reason: '名册刷新仍能看见新行');
+      },
+    );
   });
 
   group('危险区 danger zone', () {

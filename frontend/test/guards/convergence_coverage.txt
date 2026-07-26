@@ -6,6 +6,7 @@ lib/app/gate_backdrop.dart	converged
 lib/app/router.dart	converged
 lib/app/window_setup.dart	converged
 lib/app/workspace_gate.dart	converged
+lib/app/workspace_onboarding.dart	converged
 lib/core/contract/api_error.dart	converged
 lib/core/contract/api_key.dart	converged
 lib/core/contract/attachment.dart	converged
@@ -165,6 +166,7 @@ lib/core/ui/an_dropdown.dart	converged
 lib/core/ui/an_edge_fade.dart	converged
 lib/core/ui/an_edit_affordance.dart	converged
 lib/core/ui/an_editable_value.dart	converged
+lib/core/ui/an_editorial_spread.dart	converged
 lib/core/ui/an_expand_reveal.dart	converged
 lib/core/ui/an_fade_collapse.dart	reviewed
 lib/core/ui/an_fade_rise_in.dart	converged
@@ -273,6 +275,7 @@ lib/core/ui/an_voice_meter.dart	pending
 lib/core/ui/an_wash_highlight.dart	converged
 lib/core/ui/an_window.dart	reviewed
 lib/core/ui/an_window_controls.dart	converged
+lib/core/ui/an_workspace_composer_flight.dart	converged
 lib/core/ui/brand_registry.dart	pending
 lib/core/ui/dry_intrinsic_width.dart	converged
 lib/core/ui/entity_kind_visual.dart	converged
@@ -285,6 +288,8 @@ lib/core/ui/tone.dart	reviewed
 lib/core/ui/ui.dart	converged
 lib/core/workspace/set_active_workspace.dart	pending
 lib/core/workspace/workspace_bootstrap.dart	converged
+lib/core/workspace/workspace_create_control.dart	converged
+lib/core/workspace/workspace_journey.dart	converged
 lib/core/workspace/workspace_switch.dart	converged
 lib/dev/demo_main.dart	reviewed
 lib/dev/demo_notice_showcase.dart	pending
@@ -331,6 +336,7 @@ lib/dev/gallery/tool_interaction_gate_specimens.dart	reviewed
 lib/dev/gallery/user_turn_specimens.dart	reviewed
 lib/dev/gallery_main.dart	converged
 lib/dev/markdown_corpus.dart	pending
+lib/dev/onboarding_main.dart	converged
 lib/dev/perf_probe.dart	pending
 lib/features/chat/data/attachment_image_provider.dart	converged
 lib/features/chat/data/chat_demo_fixture.dart	converged
