@@ -83,3 +83,51 @@ func Collect(v any) []string {
 	walk(v)
 	return out
 }
+
+// URIPrefix is the document-text form's prefix: a media reference inside markdown is an image
+// link, `![alt](anselm://media/<id>)`. The front end owns the same grammar (core/media/media_uri).
+//
+// URIPrefix 是文档正文形的前缀:markdown 里的媒体引用是一个图像链接。前端持有同一份文法。
+const URIPrefix = "anselm://media/"
+
+// CollectURIs scans free text for `anselm://media/<id>` references and returns the well-formed
+// ids, first-seen and capped at MaxRefs. It is a scan rather than a parse because the reference
+// lives inside prose — a document body is markdown, and the id is in a link, not a field.
+//
+// CollectURIs 扫自由文本里的 `anselm://media/<id>` 引用,返回合法 id(首见序、MaxRefs 封顶)。它是
+// **扫描**而非解析,因为引用住在散文里——文档正文是 markdown,id 在一个链接里、不在某个字段上。
+func CollectURIs(text string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for i := 0; i < len(text) && len(out) < MaxRefs; {
+		j := strings.Index(text[i:], URIPrefix)
+		if j < 0 {
+			break
+		}
+		start := i + j + len(URIPrefix)
+		end := start
+		for end < len(text) && isIDRune(text[end]) {
+			end++
+		}
+		id := text[start:end]
+		if IsAttachmentID(id) && !seen[id] {
+			seen[id] = true
+			out = append(out, id)
+		}
+		// Always advance past what was just examined. A prefix at the very END of the text leaves
+		// start == end == len(text); stepping "one past" from there walks off the string, which is
+		// exactly the crash a document ending in the bare scheme would have caused.
+		// 恒推进过刚检视的部分。前缀出现在文本**末尾**时 start == end == len(text),从那里再「往前一步」
+		// 会走出字符串——那正是一份以裸 scheme 结尾的文档会引发的崩溃。
+		if end > start {
+			i = end
+		} else {
+			i = start + 1
+		}
+	}
+	return out
+}
+
+func isIDRune(b byte) bool {
+	return b == '_' || (b >= '0' && b <= '9') || (b >= 'a' && b <= 'z') || (b >= 'A' && b <= 'Z')
+}

@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"go.uber.org/zap"
+
 	"context"
 	"fmt"
 	"strings"
@@ -94,7 +96,49 @@ func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, erro
 			out = append(out, msgs...)
 		}
 	}
+	// Attached-document media joins the LAST user turn — the one being answered. It rides there
+	// rather than on the system prompt because a system prompt is a string: the only place a
+	// picture can physically live in a request is a user message's parts. Appending (not replacing)
+	// keeps whatever the user attached themselves.
+	//
+	// 附件文档里的媒体并到**最后一条 user 回合**——正在被回答的那一轮。它挂在这里而不是 system prompt,
+	// 因为 system prompt 是一个**字符串**:一张图在请求里唯一能物理存在的地方,是 user 消息的 parts。
+	// **追加**而非替换,保住用户自己附的东西。
+	if parts := h.attachedDocParts(ctx); len(parts) > 0 {
+		for i := len(out) - 1; i >= 0; i-- {
+			if out[i].Role != llminfra.RoleUser {
+				continue
+			}
+			if out[i].Content != "" && len(out[i].Parts) == 0 {
+				// A plain-text turn becomes a parts turn, its own text first so the question still
+				// reads before the pictures it is about.
+				// 纯文本回合变成 parts 回合,自己的文字在前——问题仍然读在它所问的图之前。
+				out[i].Parts = []llminfra.ContentPart{{Type: llminfra.PartText, Text: out[i].Content}}
+				out[i].Content = ""
+			}
+			out[i].Parts = append(out[i].Parts, parts...)
+			break
+		}
+	}
 	return out, nil
+}
+
+// attachedDocParts expands the attached documents' media references through the SAME chokepoint
+// every other surface uses, gated by this turn's resolved model. A model that cannot see images
+// gets nothing here and still reads the document's text — honest degrade, never a lie.
+//
+// attachedDocParts 经**与其余每个面同一条**咽喉展开附件文档的媒体引用,按本回合已解析模型门控。
+// 看不了图的模型在这里什么都拿不到、仍然读得到文档正文——诚实降级,绝不撒谎。
+func (h *chatHost) attachedDocParts(ctx context.Context) []llminfra.ContentPart {
+	if len(h.attachedDocIDs) == 0 || h.svc.deps.Attachments == nil {
+		return nil
+	}
+	parts, err := h.svc.deps.Attachments.ToContentParts(ctx, h.attachedDocIDs, h.caps)
+	if err != nil {
+		h.svc.log.Warn("chat: attached-document media expansion failed (text kept)", zap.Error(err))
+		return nil
+	}
+	return parts
 }
 
 // unfolded drops the blocks already folded into the conversation summary (seq ≤ watermark) — the

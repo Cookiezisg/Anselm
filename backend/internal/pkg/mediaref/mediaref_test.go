@@ -79,3 +79,50 @@ func TestCollect_JSONStringForm(t *testing.T) {
 		t.Fatalf("key-free JSON must not collect, got %v", got)
 	}
 }
+
+// TestCollectURIs pins the DOCUMENT-TEXT half of the grammar. A document body is markdown, so the
+// reference lives inside prose — which means the scan must end an id at the right character, and
+// must not claim a url that merely looks similar. Getting the boundary wrong would send a
+// nonsense lookup down the attachment pipeline for every document that mentions the scheme.
+//
+// TestCollectURIs 钉文法的**文档正文**半。文档正文是 markdown,故引用住在散文里——这意味着扫描必须在
+// 正确的字符处结束一个 id,且不得认领仅仅长得像的 url。边界弄错,会让每一份提到这个 scheme 的文档都往
+// 附件管线送一次无意义的查询。
+func TestCollectURIs(t *testing.T) {
+	const id = "att_00112233445566aa"
+	body := "# 报告\n\n看这张图:\n\n![chart](anselm://media/" + id + ")\n\n结论如上。"
+	if got := CollectURIs(body); len(got) != 1 || got[0] != id {
+		t.Fatalf("collect = %v, want the one id", got)
+	}
+
+	// The id ends at the closing paren — not at the end of the line, and not swallowing it.
+	// id 在右括号处结束——不到行尾、也不把括号吞进去。
+	if got := CollectURIs("![a](anselm://media/" + id + ") 和 ![b](anselm://media/" + id + ")"); len(got) != 1 {
+		t.Fatalf("the same id twice must dedupe: %v", got)
+	}
+
+	// Look-alikes must not be claimed.
+	for _, foreign := range []string{
+		"https://example.com/anselm/media/" + id,
+		"anselm://document/" + id,
+		"anselm://media/not-an-id",
+		"anselm://media/",
+		"just prose about anselm://media/ with nothing after it",
+	} {
+		if got := CollectURIs(foreign); len(got) != 0 {
+			t.Fatalf("claimed %q → %v", foreign, got)
+		}
+	}
+}
+
+// TestCollectURIs_Capped: a degenerate document cannot expand past what the chokepoint will show.
+func TestCollectURIs_Capped(t *testing.T) {
+	hex := "0123456789abcdef"
+	var b []byte
+	for i := 0; i < 20; i++ {
+		b = append(b, []byte("![x](anselm://media/att_00112233445566"+string(hex[i%16])+string(hex[(i/16)%16])+")\n")...)
+	}
+	if got := CollectURIs(string(b)); len(got) != MaxRefs {
+		t.Fatalf("collect = %d, want the %d cap", len(got), MaxRefs)
+	}
+}

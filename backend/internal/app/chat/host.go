@@ -44,6 +44,18 @@ type chatHost struct {
 	// runtimeProfile identifies an external route without prompt/key material.
 	// Its RequestClass is filled per concrete rendered request.
 	runtimeProfile modelprofiledomain.Identity
+
+	// attachedDocIDs are the attachment ids referenced by the conversation's ATTACHED DOCUMENTS
+	// (WRK-082 批F). A document reaches the model as text in the system prompt, and a system prompt
+	// has no content parts — so a chart inside an @-mentioned document would arrive as the literal
+	// string `![chart](anselm://media/att_…)` and the model would never see a pixel. These ids ride
+	// to LoadHistory, which expands them onto the turn being answered.
+	//
+	// attachedDocIDs 是对话**附件文档**里引用的附件 id(批F)。文档以**文本**进 system prompt,而
+	// system prompt 没有 content part——故一份 @ 进来的文档里的图表,到达模型时会是字面字符串
+	// `![chart](anselm://media/att_…)`,模型一个像素也看不到。这些 id 传到 LoadHistory,由它展开到
+	// **正在被回答的**那一轮上。
+	attachedDocIDs []string
 }
 
 // Interface assertions: a compile error fires if chatHost drifts from the loop hook surface.

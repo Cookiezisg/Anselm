@@ -11,6 +11,7 @@ import (
 	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	mediarefpkg "github.com/sunweilin/anselm/backend/internal/pkg/mediaref"
 )
 
 // AttachmentParts is the slice of attachment.Service the chat renderer needs (ids + the model's
@@ -142,6 +143,33 @@ func (d documentRenderer) RenderAttached(ctx context.Context, atts []documentdom
 		}
 	}
 	return documentapp.RenderAttachedAsXML(docs, missing), nil
+}
+
+// MediaAttachmentIDs scans the attached documents' body text for `anselm://media/<id>` references
+// (WRK-082 批F 值形) and returns the attachment ids, first-seen and capped. It is a plain text scan
+// because a document's body IS markdown — the reference lives in an image link, not in a field.
+//
+// MediaAttachmentIDs 扫附件文档正文里的 `anselm://media/<id>` 引用(批F 值形),返回附件 id(首见序、
+// 封顶)。它是纯文本扫描,因为文档正文**就是** markdown——引用住在一个图像链接里、不在某个字段上。
+func (d documentRenderer) MediaAttachmentIDs(ctx context.Context, atts []documentdomain.AttachedDocument) []string {
+	docs, err := d.svc.ResolveAttached(ctx, atts)
+	if err != nil {
+		return nil
+	}
+	var out []string
+	seen := map[string]bool{}
+	for _, doc := range docs {
+		for _, id := range mediarefpkg.CollectURIs(doc.Content) {
+			if !seen[id] {
+				seen[id] = true
+				out = append(out, id)
+				if len(out) >= mediarefpkg.MaxRefs {
+					return out
+				}
+			}
+		}
+	}
+	return out
 }
 
 // knowledgeProvider adapts document.Service to agent's KnowledgeProvider port: load the agent's

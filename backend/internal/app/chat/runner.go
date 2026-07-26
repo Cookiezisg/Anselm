@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	"runtime/debug"
 	"time"
 
@@ -231,6 +232,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 		runtimeProfile:       bundle.RuntimeProfile,
 		summary:              conv.Summary,
 		summaryCoversUpToSeq: conv.SummaryCoversUpToSeq,
+		attachedDocIDs:       s.attachedDocMedia(ctx, conv),
 	}
 
 	req := bundle.Request
@@ -305,4 +307,18 @@ func (s *Service) failTurn(ctx context.Context, conversationID string, t task, c
 		s.log.Warn("chatapp.failTurn: finalize failed", zap.String("messageId", m.ID), zap.Error(err))
 	}
 	s.emitMessageStop(dctx, conversationID, m)
+}
+
+// attachedDocMedia asks the document renderer which attachments the conversation's attached
+// documents reference. Resolved ONCE per turn at host construction rather than inside LoadHistory,
+// which the loop calls before EVERY step: a document scan per step would re-read the same rows a
+// dozen times to reach the same answer.
+//
+// attachedDocMedia 问文档渲染器:本对话的附件文档引用了哪些附件。每回合在 host 构造时解析**一次**、
+// 而不是放进 LoadHistory——那个方法 loop **每一步**都调:逐步扫文档会为同一个答案把同样的行重读十几遍。
+func (s *Service) attachedDocMedia(ctx context.Context, conv *conversationdomain.Conversation) []string {
+	if s.deps.Documents == nil || len(conv.AttachedDocuments) == 0 {
+		return nil
+	}
+	return s.deps.Documents.MediaAttachmentIDs(ctx, conv.AttachedDocuments)
 }

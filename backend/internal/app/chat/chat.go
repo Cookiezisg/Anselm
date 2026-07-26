@@ -210,6 +210,13 @@ type (
 	}
 	DocumentRenderer interface {
 		RenderAttached(ctx context.Context, atts []documentdomain.AttachedDocument) (string, error)
+		// MediaAttachmentIDs are the attachment ids the attached documents reference in their body
+		// text (WRK-082 批F). Separate from RenderAttached because the two answers go to different
+		// places: the XML goes in the system prompt, the ids become content parts on the user turn.
+		//
+		// MediaAttachmentIDs 是附件文档正文里引用的附件 id(批F)。与 RenderAttached 分开,因为两个答案
+		// 去往不同地方:XML 进 system prompt,id 变成 user 回合上的 content part。
+		MediaAttachmentIDs(ctx context.Context, atts []documentdomain.AttachedDocument) []string
 	}
 	TodoReminder interface {
 		SystemReminder(ctx context.Context) (string, bool)
