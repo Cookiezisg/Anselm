@@ -22,6 +22,42 @@ abstract class MediaSource {
   ///
   /// 原始字节(非 envelope)——图卡解码的来源。
   Future<List<int>> bytes(String id);
+
+  /// Whether read-aloud can run at all (`GET /read-aloud/availability`). Honest absence: with no
+  /// speech-capable key the affordance must not exist, rather than exist and always fail.
+  ///
+  /// 朗读是否根本可用。诚实缺席:没有能说话的 key 时,入口就**不该存在**,而不是存在且必失败。
+  Future<bool> readAloudAvailable();
+
+  /// Synthesize [text] and return the resulting attachment (`POST /read-aloud:read`). Zero-token:
+  /// no LLM is involved. A repeat of the same text+voice is served from the backend cache.
+  ///
+  /// 合成 [text] 并返回产物附件。零 token:没有 LLM 参与。同文本同音色重复请求由后端缓存供给。
+  Future<ReadAloudResult> readAloud(String text, {String? voice});
+}
+
+/// One read-aloud outcome. [cached] is the money fact — the UI renders identically either way, but
+/// a test can prove a second listen never reached a provider.
+///
+/// 一次朗读的结果。[cached] 是**钱**的事实——两种情形 UI 渲得一样,但测试可以据它证明第二次听
+/// 根本没走到 provider。
+class ReadAloudResult {
+  const ReadAloudResult({
+    required this.attachmentId,
+    required this.mimeType,
+    this.cached = false,
+  });
+
+  factory ReadAloudResult.fromJson(Map<String, dynamic> json) =>
+      ReadAloudResult(
+        attachmentId: json['attachmentId'] as String? ?? '',
+        mimeType: json['mimeType'] as String? ?? '',
+        cached: json['cached'] as bool? ?? false,
+      );
+
+  final String attachmentId;
+  final String mimeType;
+  final bool cached;
 }
 
 /// Live implementation over the platform API client.
@@ -39,6 +75,26 @@ class ApiMediaSource implements MediaSource {
   @override
   Future<List<int>> bytes(String id) =>
       _api.getBytes('/api/v1/attachments/$id/content');
+
+  @override
+  Future<bool> readAloudAvailable() async {
+    final data = await _api.getEntity<Map<String, dynamic>>(
+      '/api/v1/read-aloud/availability',
+      (json) => json,
+    );
+    return data['available'] as bool? ?? false;
+  }
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) =>
+      _api.postEntity(
+        '/api/v1/read-aloud:read',
+        ReadAloudResult.fromJson,
+        body: {
+          'text': text,
+          if (voice != null && voice.isNotEmpty) 'voice': voice,
+        },
+      );
 }
 
 /// The seam. Demo / gallery / tests override THIS one provider (same discipline as every feature
@@ -55,6 +111,28 @@ final mediaSourceProvider = Provider<MediaSource>(
 ///
 /// 按 id 取附件元数据。**成功才** keepAlive:附件行不可变,解析结果永不过期;而缓存**失败**会把一次
 /// 超时焊成永久墓碑、再无重试路径(chat 的孪生件已经付过这笔学费)。
+/// Whether the read-aloud affordance should exist. keepAlive: the answer changes only when a key
+/// is added or removed, and a per-turn refetch would put one request behind every hovered row.
+///
+/// 朗读入口该不该存在。keepAlive:这个答案只在增删 key 时变,而逐回合重取会在每一个 hover 过的行
+/// 背后各挂一个请求。
+final readAloudAvailableProvider = FutureProvider<bool>((ref) async {
+  try {
+    final ok = await ref.watch(mediaSourceProvider).readAloudAvailable();
+    ref.keepAlive();
+    return ok;
+  } catch (_) {
+    // A failed probe answers "no button", not an error state. Letting the failure through would
+    // arm Riverpod's auto-retry and put a backoff loop behind an affordance whose whole job is to
+    // be absent when it cannot work — an offline sidecar would spend the session retrying a
+    // question whose honest answer is already "not now".
+    // 探测失败的答案是「没有按钮」,不是错误态。让失败透出去会上膛 Riverpod 的自动重试,在一个
+    // 「不能用就该缺席」的入口背后挂一条退避循环——sidecar 离线时,整场会话都在重问一个诚实答案
+    // 早已是「现在不行」的问题。
+    return false;
+  }
+});
+
 final mediaMetaProvider = FutureProvider.autoDispose
     .family<AttachmentMeta, String>((ref, id) async {
       final m = await ref.watch(mediaSourceProvider).meta(id);

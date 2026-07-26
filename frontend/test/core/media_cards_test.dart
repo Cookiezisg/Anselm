@@ -30,6 +30,13 @@ class _StubSource implements MediaSource {
   // 本测试从不取字节——解码需要真图与真帧。
   @override
   Future<List<int>> bytes(String id) async => const [];
+
+  @override
+  Future<bool> readAloudAvailable() async => false;
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) async =>
+      throw UnimplementedError();
 }
 
 Widget _host(Widget child, {List<Override> overrides = const []}) =>
@@ -176,4 +183,11 @@ class _FailingSource implements MediaSource {
 
   @override
   Future<List<int>> bytes(String id) async => throw Exception('gone');
+
+  @override
+  Future<bool> readAloudAvailable() async => false;
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) async =>
+      throw UnimplementedError();
 }

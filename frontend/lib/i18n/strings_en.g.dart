@@ -3104,6 +3104,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'Saved as attachment'
 	String get generatedImageStored => 'Saved as attachment';
+
+	/// en: 'Synthesizing speech'
+	String get generatingSpeech => 'Synthesizing speech';
+
+	/// en: 'Synthesized speech'
+	String get generatedSpeech => 'Synthesized speech';
+
+	/// en: 'Saved as an audio attachment'
+	String get generatedSpeechStored => 'Saved as an audio attachment';
 }
 
 // Path: chat.gate
@@ -3399,6 +3408,15 @@ class Translations$chat$actions$en {
 
 	/// en: '$n attachment(s)'
 	String queueAttachmentsOnly({required Object n}) => '${n} attachment(s)';
+
+	/// en: 'Read aloud'
+	String get readAloud => 'Read aloud';
+
+	/// en: 'Stop'
+	String get readAloudStop => 'Stop';
+
+	/// en: 'Read-aloud failed'
+	String get readAloudFailed => 'Read-aloud failed';
 }
 
 // Path: scheduler.overview
@@ -7448,6 +7466,9 @@ extension on Translations {
 			'chat.tool.generatingImage' => 'Generating image',
 			'chat.tool.generatedImage' => 'Generated image',
 			'chat.tool.generatedImageStored' => 'Saved as attachment',
+			'chat.tool.generatingSpeech' => 'Synthesizing speech',
+			'chat.tool.generatedSpeech' => 'Synthesized speech',
+			'chat.tool.generatedSpeechStored' => 'Saved as an audio attachment',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -7551,6 +7572,9 @@ extension on Translations {
 			'chat.actions.queueEdit' => 'Edit this queued message',
 			'chat.actions.queueRemove' => 'Remove from queue',
 			'chat.actions.queueAttachmentsOnly' => ({required Object n}) => '${n} attachment(s)',
+			'chat.actions.readAloud' => 'Read aloud',
+			'chat.actions.readAloudStop' => 'Stop',
+			'chat.actions.readAloudFailed' => 'Read-aloud failed',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
 			'status.run' => 'Running',
@@ -7895,14 +7919,14 @@ extension on Translations {
 			'shell.ocean.entities' => 'Entities',
 			'shell.ocean.scheduler' => 'Scheduler',
 			'shell.ocean.library' => 'Library',
+			_ => null,
+		} ?? switch (path) {
 			'shell.comingSoonTitle' => 'Coming soon',
 			'shell.comingSoonHint' => 'This ocean isn\'t built yet.',
 			'shell.settings' => 'Settings',
 			'shell.notifications' => 'Notifications',
 			'shell.workspaceFallback' => 'Workspace',
 			'shell.newWorkspace' => 'New workspace',
-			_ => null,
-		} ?? switch (path) {
 			'shell.workspaceSettings' => 'Workspace settings',
 			'notifications.title' => 'Notifications',
 			'notifications.needsYou' => 'Needs you',
@@ -8409,14 +8433,14 @@ extension on Translations {
 			'library.skillSourceMode' => 'Source',
 			'library.skillRichMode' => 'Rich text',
 			'library.skillModeTooltip' => 'Toggle rich / raw source editing of the manifest',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillFileBinary' => 'Binary file — inline editing unsupported',
 			'library.skillFileSaveFailed' => 'Saving the file failed',
 			'library.skillFiles' => 'Files',
 			'library.skillProvenance' => 'Provenance',
 			'library.skillInstalledFrom' => 'Installed from',
 			'library.skillInstalledAt' => 'Installed',
-			_ => null,
-		} ?? switch (path) {
 			'library.skillToolsApproved' => 'Pre-approval active',
 			'library.skillToolsPending' => 'Pre-approval pending',
 			'library.skillApproveTools' => 'Approve pre-authorized tools',

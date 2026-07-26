@@ -647,6 +647,32 @@ String commandChip(String command) {
 /// model?, width?, height?}`. Null unless `source` matches and `attachmentId` is a non-empty
 /// string — receipts never guess (file-header contract).
 ///
+/// generate_speech——朗读/合成回执(后端 `tool/generate/speech.go`)。与图像回执同一条律:source
+/// 不符或 attachmentId 空即 null——回执绝不猜。
+({
+  String attachmentId,
+  String? mime,
+  int? characters,
+  String? provider,
+  String? model,
+})?
+parseGeneratedSpeech(String? output) {
+  if (output == null || output.isEmpty) return null;
+  final o = _obj(output);
+  if (o == null || o['source'] != 'generate_speech') return null;
+  final id = o['attachmentId'];
+  if (id is! String || id.isEmpty) return null;
+  return (
+    attachmentId: id,
+    mime: o['mime'] is String ? o['mime'] as String : null,
+    characters: (o['characters'] is num)
+        ? (o['characters'] as num).toInt()
+        : null,
+    provider: o['provider'] is String ? o['provider'] as String : null,
+    model: o['model'] is String ? o['model'] as String : null,
+  );
+}
+
 /// generate_image——生成回执(后端 `tool/generate/image.go`,键逐字钉):source 不符或
 /// attachmentId 空即 null——回执绝不猜(文件头契约)。
 ({

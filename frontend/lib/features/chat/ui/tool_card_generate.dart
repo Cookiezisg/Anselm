@@ -8,6 +8,9 @@ import '../../../core/media/attachment_image_provider.dart';
 import '../data/chat_providers.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import '../../../core/ui/an_attachment_card.dart';
+import '../../../core/ui/an_audio_attachment_card.dart';
+import '../state/attachment_audio_player.dart';
 import '../state/attachment_meta.dart';
 
 /// generate_image family body (WRK-082 批B, 代拍 B7): the artifact is a FIRST-CLASS attachment, so
@@ -123,5 +126,72 @@ class _GeneratedImageBody extends ConsumerWidget {
     final model = receipt.model;
     if (model != null && model.isNotEmpty) parts.add(model);
     return parts.join(' · ');
+  }
+}
+
+/// generate_speech family body (WRK-082 批C): the artifact is a first-class AUDIO attachment, so
+/// the body is the SAME card the transcript uses for a sent voice note, driven by the SAME
+/// playback controller. One player, one set of loading/playing states — a second audio widget
+/// here would be a second place for "two things playing at once" to become possible.
+///
+/// generate_speech 族体(批C):产物是一等**音频**附件,故本体就是 transcript 渲一条已发语音用的
+/// **同一张卡**、由**同一个**播放控制器驱动。一个播放器、一套加载/播放态——在这里再写一个音频
+/// widget,就是给「两个东西同时在响」多开一个可能发生的地方。
+Widget generatedSpeechBody(BuildContext context, ToolCardState state) {
+  final r = parseGeneratedSpeech(state.resultText);
+  if (r == null) return const SizedBox.shrink();
+  return _GeneratedSpeechBody(attachmentId: r.attachmentId, mime: r.mime);
+}
+
+class _GeneratedSpeechBody extends ConsumerWidget {
+  const _GeneratedSpeechBody({required this.attachmentId, this.mime});
+
+  final String attachmentId;
+  final String? mime;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final meta = ref.watch(attachmentMetaProvider(attachmentId));
+    final playback = ref.watch(attachmentAudioPlaybackProvider);
+    final c = context.colors;
+    // hasError, not the AsyncError class pattern (Riverpod auto-retries — see the image twin).
+    if (meta.hasError) {
+      return Text(
+        attachmentId,
+        style: AnText.label.copyWith(color: c.inkFaint),
+      );
+    }
+    return switch (meta) {
+      AsyncData(value: final m) => AnAudioAttachmentCard(
+        filename: m.filename.isEmpty ? attachmentId : m.filename,
+        metaLine: _metaLine(m.sizeBytes),
+        busy: playback.isLoading(attachmentId),
+        progress: playback.progressFor(attachmentId),
+        playing: playback.isPlaying(attachmentId),
+        onPlayTap: () => ref
+            .read(attachmentAudioPlaybackProvider.notifier)
+            .toggleUrl(
+              attachmentId,
+              loadUrl: () => ref
+                  .read(chatRepositoryProvider)
+                  .createAttachmentPlaybackLease(attachmentId)
+                  .then((lease) => lease.url),
+              mimeType: m.mimeType.isEmpty ? mime : m.mimeType,
+            ),
+      ),
+      _ => const AnAudioAttachmentCard(
+        filename: '',
+        metaLine: '',
+        state: AnAttachmentState.resolving,
+      ),
+    };
+  }
+
+  String _metaLine(int sizeBytes) {
+    if (sizeBytes <= 0) return '';
+    if (sizeBytes < 1024 * 1024) {
+      return '${(sizeBytes / 1024).toStringAsFixed(0)} KB';
+    }
+    return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }

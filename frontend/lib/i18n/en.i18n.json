@@ -581,7 +581,10 @@
       "firingClaimed": "claimed",
       "generatingImage": "Generating image",
       "generatedImage": "Generated image",
-      "generatedImageStored": "Saved as attachment"
+      "generatedImageStored": "Saved as attachment",
+      "generatingSpeech": "Synthesizing speech",
+      "generatedSpeech": "Synthesized speech",
+      "generatedSpeechStored": "Saved as an audio attachment"
     },
     "gate": {
       "dangerBadge": "Dangerous",
@@ -696,7 +699,10 @@
       "queueHead": "$n waiting to send",
       "queueEdit": "Edit this queued message",
       "queueRemove": "Remove from queue",
-      "queueAttachmentsOnly": "$n attachment(s)"
+      "queueAttachmentsOnly": "$n attachment(s)",
+      "readAloud": "Read aloud",
+      "readAloudStop": "Stop",
+      "readAloudFailed": "Read-aloud failed"
     }
   },
   "appName": "Anselm",

@@ -933,6 +933,25 @@ final Map<String, ToolCardSpec> _catalog = {
     },
     body: generatedImageBody,
   ),
+  'generate_speech': ToolCardSpec(
+    verb: (t, {required bool live}) =>
+        live ? t.chat.tool.generatingSpeech : t.chat.tool.generatedSpeech,
+    target: (s) {
+      final text = argString(s.argsText, 'text');
+      if (text == null || text.isEmpty) return null;
+      return text.length > 40 ? '${text.substring(0, 40)}…' : text;
+    },
+    receipt: (t, s) {
+      final r = parseGeneratedSpeech(s.resultText);
+      if (r == null) return null;
+      final chars = r.characters != null ? ' · ${r.characters}' : '';
+      return (
+        text: '${t.chat.tool.generatedSpeechStored}$chars',
+        tone: ToolReceiptTone.none,
+      );
+    },
+    body: generatedSpeechBody,
+  ),
 
   'list_attachments': _entitySearch(
     kind: (t) => t.chat.tool.kind.attachment,

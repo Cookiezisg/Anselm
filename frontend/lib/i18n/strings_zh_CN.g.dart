@@ -1246,6 +1246,9 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get generatingImage => '正在生成图像';
 	@override String get generatedImage => '已生成图像';
 	@override String get generatedImageStored => '已存为附件';
+	@override String get generatingSpeech => '正在合成语音';
+	@override String get generatedSpeech => '已合成语音';
+	@override String get generatedSpeechStored => '已存为音频附件';
 }
 
 // Path: chat.gate
@@ -1364,6 +1367,9 @@ class _Translations$chat$actions$zh_CN extends Translations$chat$actions$en {
 	@override String get queueEdit => '编辑这条排队消息';
 	@override String get queueRemove => '从队列移除';
 	@override String queueAttachmentsOnly({required Object n}) => '${n} 个附件';
+	@override String get readAloud => '朗读';
+	@override String get readAloudStop => '停止朗读';
+	@override String get readAloudFailed => '朗读失败';
 }
 
 // Path: scheduler.overview
@@ -3462,6 +3468,9 @@ extension on TranslationsZhCn {
 			'chat.tool.generatingImage' => '正在生成图像',
 			'chat.tool.generatedImage' => '已生成图像',
 			'chat.tool.generatedImageStored' => '已存为附件',
+			'chat.tool.generatingSpeech' => '正在合成语音',
+			'chat.tool.generatedSpeech' => '已合成语音',
+			'chat.tool.generatedSpeechStored' => '已存为音频附件',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -3565,6 +3574,9 @@ extension on TranslationsZhCn {
 			'chat.actions.queueEdit' => '编辑这条排队消息',
 			'chat.actions.queueRemove' => '从队列移除',
 			'chat.actions.queueAttachmentsOnly' => ({required Object n}) => '${n} 个附件',
+			'chat.actions.readAloud' => '朗读',
+			'chat.actions.readAloudStop' => '停止朗读',
+			'chat.actions.readAloudFailed' => '朗读失败',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
 			'status.run' => '运行中',
@@ -3909,14 +3921,14 @@ extension on TranslationsZhCn {
 			'shell.ocean.entities' => '实体',
 			'shell.ocean.scheduler' => '调度',
 			'shell.ocean.library' => '文库',
+			_ => null,
+		} ?? switch (path) {
 			'shell.comingSoonTitle' => '即将推出',
 			'shell.comingSoonHint' => '该海洋尚未构建。',
 			'shell.settings' => '设置',
 			'shell.notifications' => '通知',
 			'shell.workspaceFallback' => '工作区',
 			'shell.newWorkspace' => '新建工作区',
-			_ => null,
-		} ?? switch (path) {
 			'shell.workspaceSettings' => '工作区设置',
 			'notifications.title' => '通知',
 			'notifications.needsYou' => '待你处理',
@@ -4423,14 +4435,14 @@ extension on TranslationsZhCn {
 			'library.skillSourceMode' => '源码',
 			'library.skillRichMode' => '富文本',
 			'library.skillModeTooltip' => '切换清单的富文本 / 源码编辑',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillFileBinary' => '二进制文件——不支持在线编辑',
 			'library.skillFileSaveFailed' => '文件保存失败',
 			'library.skillFiles' => '文件',
 			'library.skillProvenance' => '来源',
 			'library.skillInstalledFrom' => '安装自',
 			'library.skillInstalledAt' => '装于',
-			_ => null,
-		} ?? switch (path) {
 			'library.skillToolsApproved' => '预授权已生效',
 			'library.skillToolsPending' => '预授权待确认',
 			'library.skillApproveTools' => '授权预授权工具',

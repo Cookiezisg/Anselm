@@ -581,7 +581,10 @@
       "firingClaimed": "已认领",
       "generatingImage": "正在生成图像",
       "generatedImage": "已生成图像",
-      "generatedImageStored": "已存为附件"
+      "generatedImageStored": "已存为附件",
+      "generatingSpeech": "正在合成语音",
+      "generatedSpeech": "已合成语音",
+      "generatedSpeechStored": "已存为音频附件"
     },
     "gate": {
       "dangerBadge": "危险",
@@ -696,7 +699,10 @@
       "queueHead": "$n 条待发送",
       "queueEdit": "编辑这条排队消息",
       "queueRemove": "从队列移除",
-      "queueAttachmentsOnly": "$n 个附件"
+      "queueAttachmentsOnly": "$n 个附件",
+      "readAloud": "朗读",
+      "readAloudStop": "停止朗读",
+      "readAloudFailed": "朗读失败"
     }
   },
   "appName": "Anselm",

@@ -58,6 +58,7 @@ class TurnActions extends StatefulWidget {
     this.versionIndex = 0,
     this.versionCount = 1,
     this.onVersion,
+    this.readAloudSlot,
     super.key,
   });
 
@@ -98,6 +99,17 @@ class TurnActions extends StatefulWidget {
 
   /// Show version [index] (already clamped by the caller). 显示第 index 版(调用方已钳制)。
   final ValueChanged<int>? onVersion;
+
+  /// The read-aloud affordance (WRK-082 批C, P10), handed in as a SLOT rather than callbacks: it
+  /// owns its own availability + playback subscriptions, and that is what keeps a transcript ROW
+  /// from rebuilding every time either of those moves (the BuildSpy gate catches exactly that).
+  /// Null — or a slot that renders nothing — means this row simply has no speaker: honest absence,
+  /// the same rule that keeps retry off historical turns.
+  ///
+  /// 朗读入口(批C,P10),以**插槽**而非回调传入:它自己持有可用性与播放的订阅,正是这一点让
+  /// transcript 的**行**不会因这两者任一变化而重建(BuildSpy 闸抓的正是这个)。null——或一个什么都
+  /// 不渲的插槽——即这一行没有喇叭:诚实缺席,与重试不出现在历史回合上同一条规矩。
+  final Widget? readAloudSlot;
 
   @override
   State<TurnActions> createState() => _TurnActionsState();
@@ -180,6 +192,7 @@ class _TurnActionsState extends State<TurnActions> {
               const SizedBox(width: AnSpace.s4),
               _retryMenu(t),
             ],
+            if (widget.readAloudSlot != null) widget.readAloudSlot!,
             if (widget.versionCount > 1) ...[
               const SizedBox(width: AnSpace.s8),
               _pager(context, t),

@@ -139,4 +139,29 @@ void main() {
     // id 本身就是诚实兜底行——绝不渲破图。
     expect(find.textContaining('att_0011223344556677'), findsWidgets);
   });
+
+  test('parseGeneratedSpeech pins the backend receipt keys and never guesses', () {
+    const receipt =
+        '{"attachmentId":"att_0011223344556677","filename":"generated-x.wav",'
+        '"mime":"audio/wav","sizeBytes":4096,"provider":"qwen","characters":11,'
+        '"source":"generate_speech","model":"qwen3-tts-flash"}';
+    final r = parseGeneratedSpeech(receipt);
+    expect(r, isNotNull);
+    expect(r!.attachmentId, 'att_0011223344556677');
+    expect(r.mime, 'audio/wav');
+    expect(r.characters, 11);
+    expect(r.provider, 'qwen');
+
+    // The IMAGE receipt must not parse as speech and vice versa: the two families put different
+    // bodies on screen, and a crossover would render an audio player over a picture.
+    // 图像回执不得被当成语音解析、反之亦然:两族在屏上是不同的体,串线会在一张图上渲出播放器。
+    expect(parseGeneratedSpeech(_receipt), isNull);
+    expect(parseGeneratedImage(receipt), isNull);
+    expect(
+      parseGeneratedSpeech('{"attachmentId":"att_x","source":"other"}'),
+      isNull,
+    );
+    expect(parseGeneratedSpeech('not json'), isNull);
+    expect(parseGeneratedSpeech(null), isNull);
+  });
 }

@@ -18,6 +18,7 @@ import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../../../core/media/attachment_image_provider.dart';
+import '../../../core/media/media_source.dart';
 import '../data/chat_providers.dart';
 import '../model/conversation_transcript.dart';
 import '../model/user_attachment.dart';
@@ -876,6 +877,17 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         versionIndex: widget.versionIndex,
         versionCount: widget.versionCount,
         onVersion: widget.onVersion,
+        // Read-aloud rides a SLOT, not props read here: watching the availability + playback
+        // providers in THIS build would subscribe every settled row to them, and the first
+        // availability answer would then rebuild the whole visible transcript (the BuildSpy gate
+        // catches exactly that). The slot is a leaf — only it re-renders.
+        // 朗读走一个**插槽**、而非在此读的 props:在**这个** build 里 watch 可用性与播放 provider,
+        // 会把每一个已落定行都订阅上去,于是第一个可用性答案一到就重建整屏 transcript(BuildSpy 闸
+        // 抓的正是这个)。插槽是叶子——只有它重渲。
+        readAloudSlot: _ReadAloudSlot(
+          turnText: ConversationTranscript.turnCopyText(widget.turn),
+          conversationId: widget.conversationId,
+        ),
       ),
     );
   }
@@ -1475,4 +1487,105 @@ class FailedSendRow extends StatelessWidget {
       ],
     );
   }
+}
+
+/// The read-aloud affordance as its OWN leaf (WRK-082 批C). It exists as a separate widget for a
+/// performance reason that is really a correctness one: the availability and playback providers
+/// change on their own schedule, and subscribing a transcript ROW to them would rebuild every
+/// settled turn each time either moved — the exact thing the identity cache and the BuildSpy gate
+/// exist to prevent. Here the blast radius is one small icon.
+///
+/// 朗读入口作为**自己的**叶子(批C)。它单独成 widget 的理由表面是性能、实质是正确性:可用性与播放
+/// 两个 provider 按自己的节奏变化,把一个 transcript **行**订阅上去,会让两者任一动一下就重建每个已
+/// 落定回合——而这正是身份缓存与 BuildSpy 闸要挡的那件事。放在这里,爆炸半径是一个小图标。
+class _ReadAloudSlot extends ConsumerStatefulWidget {
+  const _ReadAloudSlot({required this.turnText, required this.conversationId});
+
+  final String turnText;
+  final String conversationId;
+
+  @override
+  ConsumerState<_ReadAloudSlot> createState() => _ReadAloudSlotState();
+}
+
+class _ReadAloudSlotState extends ConsumerState<_ReadAloudSlot> {
+  bool _busy = false;
+  String? _attachmentId;
+
+  @override
+  Widget build(BuildContext context) {
+    // `.value ?? false` rather than a loading state: while the availability answer is in flight the
+    // honest render is "no button yet", not a button that might turn out to be a lie.
+    // 用 `.value ?? false` 而非 loading 态:可用性答案在途时,诚实的渲法是「暂无按钮」,不是一个
+    // 可能变成谎言的按钮。
+    final available =
+        (ref.watch(readAloudAvailableProvider).value ?? false) &&
+        widget.turnText.isNotEmpty;
+    if (!available) return const SizedBox.shrink();
+    final playing = ref
+        .watch(attachmentAudioPlaybackProvider)
+        .isPlaying(_attachmentId ?? '');
+    final t = Translations.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: AnSpace.s4),
+      child: AnButton.iconOnly(
+        playing ? AnIcons.stop : AnIcons.speaker,
+        size: AnButtonSize.sm,
+        semanticLabel: playing
+            ? t.chat.actions.readAloudStop
+            : t.chat.actions.readAloud,
+        onPressed: _busy ? null : _readAloud,
+      ),
+    );
+  }
+
+  /// Speak this turn. The FIRST press pays a synthesis round trip; every later press of the same
+  /// text is served from the backend cache and starts playing immediately (P10). Pressing while
+  /// audio plays stops it — the same toggle the audio attachment card uses, so read-aloud and a
+  /// sent voice note behave identically under the same finger.
+  ///
+  /// 朗读本回合。**第一次**按下要付一次合成往返;此后同一段文字的每次按下都由后端缓存供给、立即开播
+  /// (P10)。播放中再按即停止——与音频附件卡同一个 toggle,故朗读与一条发出去的语音在同一根手指下
+  /// 行为一致。
+  Future<void> _readAloud() async {
+    final playback = ref.read(attachmentAudioPlaybackProvider.notifier);
+    final existing = _attachmentId;
+    if (existing != null) {
+      // Already synthesized in this session: straight to the player (pause / resume), asking the
+      // backend nothing. 本次会话已合成过:直接进播放器(暂停/继续),不问后端。
+      await _play(playback, existing);
+      return;
+    }
+    setState(() => _busy = true);
+    try {
+      final res = await ref
+          .read(mediaSourceProvider)
+          .readAloud(widget.turnText);
+      if (!mounted) return;
+      setState(() => _attachmentId = res.attachmentId);
+      await _play(playback, res.attachmentId);
+    } catch (_) {
+      // A failed synthesis says so and leaves no half state; the next press retries cleanly.
+      // 合成失败就说出来、不留半吊子状态;下次按下干净重试。
+      if (mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(context.t.chat.actions.readAloudFailed, tone: AnTone.danger);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _play(
+    AttachmentAudioPlaybackController playback,
+    String attachmentId,
+  ) => playback.toggleUrl(
+    attachmentId,
+    loadUrl: () => ref
+        .read(chatRepositoryProvider)
+        .createAttachmentPlaybackLease(attachmentId)
+        .then((lease) => lease.url),
+    mimeType: 'audio/wav',
+  );
 }

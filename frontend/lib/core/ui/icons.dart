@@ -292,6 +292,13 @@ abstract final class AnIcons {
 
   // ── attachments (backend kind wire: image|document|text|audio|video|other) 附件(后端 kind 线缆) ──
   static final IconData audio = _thin(LucideIcons.music);
+
+  /// Read-aloud (WRK-082 批C). A SPEAKER, not the `audio` music note: the note says "this file is
+  /// audio", while the speaker says "make sound come out" — the action, not the file type.
+  ///
+  /// 朗读(批C)。用**喇叭**、不用 `audio` 那个音符:音符说的是「这个文件是音频」,喇叭说的是
+  /// 「让声音出来」——是动作,不是文件类型。
+  static final IconData speaker = _thin(LucideIcons.volume2);
   static final IconData video = _thin(LucideIcons.film);
   static final IconData file = _thin(LucideIcons.file); // kind=other 通用文件
   static final IconData fileCode = _thin(
@@ -340,7 +347,8 @@ abstract final class AnIcons {
     'memory': memory, // touchpoint kinds (Cast/exhibit faces) 触点 kind 的脸
     'reasoning': reasoning,
     'tool': tool,
-    'capability': iterate, // sys: mounts — a built-in capability tool 能力工具挂载
+    'capability': iterate,
+    'speaker': speaker, // sys: mounts — a built-in capability tool 能力工具挂载
     'subagent': subagent,
     'turnend': turnEnd,
     'terminal': terminal,
