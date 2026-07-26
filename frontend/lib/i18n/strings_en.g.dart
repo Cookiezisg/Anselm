@@ -5134,6 +5134,15 @@ class Translations$settings$keys$en {
 
 	/// en: 'Add an OpenAI / Gemini / Qwen / Zhipu key, or enable Anselm Free — the tool appears automatically.'
 	String get imageNoRouteHint => 'Add an OpenAI / Gemini / Qwen / Zhipu key, or enable Anselm Free — the tool appears automatically.';
+
+	/// en: 'Speech synthesis'
+	String get scenarioSpeech => 'Speech synthesis';
+
+	/// en: 'Which key read-aloud and generate_speech use (unset = automatic, free tier first)'
+	String get scenarioSpeechDesc => 'Which key read-aloud and generate_speech use (unset = automatic, free tier first)';
+
+	/// en: 'No configured key can synthesize speech'
+	String get speechNoRoute => 'No configured key can synthesize speech';
 }
 
 // Path: settings.ws
@@ -8649,6 +8658,9 @@ extension on Translations {
 			'settings.keys.imageDefaultModelOf' => ({required Object model}) => 'default model ${model}',
 			'settings.keys.imageNoRoute' => 'No key can generate images yet',
 			'settings.keys.imageNoRouteHint' => 'Add an OpenAI / Gemini / Qwen / Zhipu key, or enable Anselm Free — the tool appears automatically.',
+			'settings.keys.scenarioSpeech' => 'Speech synthesis',
+			'settings.keys.scenarioSpeechDesc' => 'Which key read-aloud and generate_speech use (unset = automatic, free tier first)',
+			'settings.keys.speechNoRoute' => 'No configured key can synthesize speech',
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',
 			'settings.ws.newWorkspace' => 'New workspace',

@@ -536,7 +536,10 @@ void _imageRowTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('图像生成'), findsOneWidget);
-      expect(find.text('自动(免费档优先)'), findsOneWidget);
+      // Both generation rows are unset, so both read「自动」— the count is the assertion: a
+      // scenario row that silently shared another's state would show one.
+      // 两个生成行都未设,故都读「自动」——**数量**就是断言:一个静默共用了另一个状态的场景行会只显示一个。
+      expect(find.text('自动(免费档优先)'), findsNWidgets(2));
       await tester.ensureVisible(
         find.byKey(const ValueKey('imageDefaultToggle')),
       );
@@ -573,7 +576,59 @@ void _imageRowTests() {
       // The fixture repo records the PUT: the row summary now shows the selection.
       // fixture 仓记下 PUT:行摘要显示所选。
       expect(find.textContaining('gpt-image-2'), findsOneWidget);
-      expect(find.text('自动(免费档优先)'), findsNothing);
+      // The IMAGE row's summary changed; the speech row is still unset, so exactly one「自动」
+      // remains. Asserting "none" here would silently pass if the two rows shared state.
+      // **图像**行的摘要变了;语音行仍未设,故恰剩一个「自动」。此处若断言「一个都不剩」,两行共用
+      // 状态时会静默通过。
+      expect(find.text('自动(免费档优先)'), findsOneWidget);
     });
+
+    testWidgets('speech is its OWN row: an image-capable key does not fill it', (
+      tester,
+    ) async {
+      // A key that can DRAW need not be able to SPEAK. The two rows filter independently, and a
+      // shared candidate list would offer a picture model as a voice.
+      // 能**画**的 key 未必能**说**。两行各自独立过滤,共用候选表会把一个出图模型当音色供出来。
+      final repo = FixtureSettingsRepository();
+      repo.keys.add(_key('aki_o', 'openai'));
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+
+      expect(find.text('语音合成'), findsOneWidget);
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('speechDefaultToggle')),
+      );
+      await tester.tap(find.byKey(const ValueKey('speechDefaultToggle')));
+      await tester.pumpAndSettle();
+
+      // The speech picker offers the TTS model, never the image one.
+      // 语音选择器给的是 TTS 模型、绝不是图像那个。
+      final candidate = find.textContaining('gpt-4o-mini-tts');
+      expect(candidate, findsOneWidget);
+      expect(find.textContaining('gpt-image-2'), findsNothing);
+
+      await tester.ensureVisible(candidate);
+      await tester.tap(candidate);
+      await tester.pumpAndSettle();
+      expect(find.textContaining('gpt-4o-mini-tts'), findsOneWidget);
+    });
+
+    testWidgets(
+      'honest absence is per-capability: a drawing-only key leaves speech empty',
+      (tester) async {
+        // zhipu can do both, deepseek neither — but the point is the SET is consulted per row.
+        final repo = FixtureSettingsRepository();
+        repo.keys.add(_key('aki_d', 'deepseek'));
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+
+        await tester.ensureVisible(
+          find.byKey(const ValueKey('speechDefaultToggle')),
+        );
+        await tester.tap(find.byKey(const ValueKey('speechDefaultToggle')));
+        await tester.pumpAndSettle();
+        expect(find.text('当前没有能合成语音的 key'), findsOneWidget);
+      },
+    );
   });
 }

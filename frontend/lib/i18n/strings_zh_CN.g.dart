@@ -2098,6 +2098,9 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String imageDefaultModelOf({required Object model}) => '默认模型 ${model}';
 	@override String get imageNoRoute => '还没有能出图的密钥';
 	@override String get imageNoRouteHint => '添加 OpenAI / Gemini / 通义 / 智谱任一密钥,或启用 Anselm 免费档——出图工具会自动出现。';
+	@override String get scenarioSpeech => '语音合成';
+	@override String get scenarioSpeechDesc => '朗读与 generate_speech 走哪把 key(未设=自动,免费档优先)';
+	@override String get speechNoRoute => '当前没有能合成语音的 key';
 }
 
 // Path: settings.ws
@@ -4651,6 +4654,9 @@ extension on TranslationsZhCn {
 			'settings.keys.imageDefaultModelOf' => ({required Object model}) => '默认模型 ${model}',
 			'settings.keys.imageNoRoute' => '还没有能出图的密钥',
 			'settings.keys.imageNoRouteHint' => '添加 OpenAI / Gemini / 通义 / 智谱任一密钥,或启用 Anselm 免费档——出图工具会自动出现。',
+			'settings.keys.scenarioSpeech' => '语音合成',
+			'settings.keys.scenarioSpeechDesc' => '朗读与 generate_speech 走哪把 key(未设=自动,免费档优先)',
+			'settings.keys.speechNoRoute' => '当前没有能合成语音的 key',
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',
 			'settings.ws.newWorkspace' => '新建工作区',

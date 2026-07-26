@@ -13,6 +13,7 @@ package harness
 
 import (
 	"encoding/base64"
+	binaryenc "encoding/binary"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -121,6 +122,7 @@ type LLMMock struct {
 	queues       map[string][]LLMTurn
 	dumps        []PromptDump
 	imagePrompts []string
+	speechInputs []string
 }
 
 // NewLLMMock starts the fake provider on a loopback port and registers cleanup.
@@ -133,6 +135,7 @@ func NewLLMMock(t *testing.T) *LLMMock {
 	mux.HandleFunc("GET /models", m.handleModels)
 	mux.HandleFunc("POST /chat/completions", m.handleCompletions)
 	mux.HandleFunc("POST /images/generations", m.handleImages)
+	mux.HandleFunc("POST /audio/speech", m.handleSpeech)
 	m.srv = httptest.NewServer(mux)
 	t.Cleanup(m.srv.Close)
 	return m
@@ -452,4 +455,63 @@ func (m *LLMMock) handleImages(w http.ResponseWriter, r *http.Request) {
 			"b64_json": base64.StdEncoding.EncodeToString(MockPNG),
 		}},
 	})
+}
+
+// MockWAV is the tiny 24kHz/16-bit/mono WAV every mocked synthesis returns — scenarios assert the
+// stored attachment's bytes against it, which proves the whole artifact pipeline end to end. It is
+// a REAL RIFF stream rather than arbitrary bytes because the desktop rejoins chunks at the PCM
+// level: a fake payload would make a multi-chunk test pass for the wrong reason (or fail for one).
+//
+// MockWAV 是每次 mock 合成返回的极小 24kHz/16bit/mono WAV——场景据它断言落库附件字节,整条产物管线
+// 得证。它是**真** RIFF 流而非随便一段字节,因为桌面端在 PCM 层重接块:假载荷会让多块测试因错误的
+// 理由通过(或因错误的理由失败)。
+var MockWAV = buildMockWAV(240) // 240 samples ≈ 10ms
+
+func buildMockWAV(samples int) []byte {
+	pcm := make([]byte, samples*2)
+	out := make([]byte, 44, 44+len(pcm))
+	copy(out[0:4], "RIFF")
+	binaryenc.LittleEndian.PutUint32(out[4:8], uint32(36+len(pcm)))
+	copy(out[8:12], "WAVE")
+	copy(out[12:16], "fmt ")
+	binaryenc.LittleEndian.PutUint32(out[16:20], 16)
+	binaryenc.LittleEndian.PutUint16(out[20:22], 1)
+	binaryenc.LittleEndian.PutUint16(out[22:24], 1)
+	binaryenc.LittleEndian.PutUint32(out[24:28], 24000)
+	binaryenc.LittleEndian.PutUint32(out[28:32], 48000)
+	binaryenc.LittleEndian.PutUint16(out[32:34], 2)
+	binaryenc.LittleEndian.PutUint16(out[34:36], 16)
+	copy(out[36:40], "data")
+	binaryenc.LittleEndian.PutUint32(out[40:44], uint32(len(pcm)))
+	return append(out, pcm...)
+}
+
+// handleSpeech speaks the OpenAI `/audio/speech` wire (shared by the desktop's openai and zhipu
+// dialects): records the input text and answers RAW audio bytes, exactly as both providers do.
+//
+// handleSpeech 讲 OpenAI `/audio/speech` 线缆(桌面 openai 与智谱两方言共用):记下输入文本、返
+// **裸**音频字节,与两家的真实行为一致。
+func (m *LLMMock) handleSpeech(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Input string `json:"input"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	m.mu.Lock()
+	m.speechInputs = append(m.speechInputs, req.Input)
+	m.mu.Unlock()
+	w.Header().Set("Content-Type", "audio/wav")
+	_, _ = w.Write(MockWAV)
+}
+
+// SpeechInputs returns every text the mocked TTS upstream was asked to speak — the count IS the
+// money assertion for read-aloud caching (a cached listen must add nothing here).
+//
+// SpeechInputs 返回 mock TTS 上游被要求念过的每段文本——**次数**就是朗读缓存的钱断言(命中缓存的
+// 一次收听不得在此多出一条)。
+func (m *LLMMock) SpeechInputs() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	out := make([]string, len(m.speechInputs))
+	copy(out, m.speechInputs)
+	return out
 }

@@ -791,7 +791,30 @@ class _DefaultsSection extends ConsumerWidget {
           current: ws?.defaultAgent,
           clearable: true,
         ),
-        _ImageDefaultRow(current: ws?.defaultImage),
+        _GenScenarioRow(
+          scenario: 'image',
+          current: ws?.defaultImage,
+          providerDefaults: _imageProviderDefaults,
+          toggleKey: const ValueKey('imageDefaultToggle'),
+          label: t.settings.keys.scenarioImage,
+          desc: t.settings.keys.scenarioImageDesc,
+          autoSummary: t.settings.keys.imageAutoSummary,
+          noRoute: t.settings.keys.imageNoRoute,
+          noRouteHint: t.settings.keys.imageNoRouteHint,
+          managedOption: t.settings.keys.imageManagedOption,
+        ),
+        _GenScenarioRow(
+          scenario: 'speech',
+          current: ws?.defaultSpeech,
+          providerDefaults: _speechProviderDefaults,
+          toggleKey: const ValueKey('speechDefaultToggle'),
+          label: t.settings.keys.scenarioSpeech,
+          desc: t.settings.keys.scenarioSpeechDesc,
+          autoSummary: t.settings.keys.imageAutoSummary,
+          noRoute: t.settings.keys.speechNoRoute,
+          noRouteHint: t.settings.keys.imageNoRouteHint,
+          managedOption: t.settings.keys.imageManagedOption,
+        ),
         if (ws != null && ws.defaultDialogue == null)
           Padding(
             padding: const EdgeInsets.only(left: AnSpace.s8, top: AnSpace.s4),
@@ -1601,30 +1624,61 @@ class _SearchKeysSection extends ConsumerWidget {
   }
 }
 
-/// The image-generation scenario row (WRK-082 批B, 代拍 B9): candidates are KEYS, not chat
-/// models — generation models live outside the chat capability catalog, so the picker offers
-/// each image-capable tested key with its provider's default generation model. Unset is honest:
-/// the tool auto-routes managed-first; zero capable keys renders the how-to-get hint (honest
-/// absence, §3.5 — the tool itself is absent in that state too).
+/// One GENERATION scenario row (WRK-082 批B/批C). Candidates are KEYS, not chat models —
+/// generation models live outside the chat capability catalog, so the picker offers each capable
+/// tested key with its provider's default generation model. Unset is honest: the tool auto-routes
+/// managed-first; zero capable keys renders the how-to-get hint (honest absence, §3.5 — the tool
+/// itself is absent in that state too).
 ///
-/// 图像生成场景行(批B,代拍 B9):候选是 **key** 而非聊天模型——生成模型不在聊天能力目录里,
-/// 选择器按「图像家已探测 key × 该家默认生成模型」出选项。未设置=诚实自动(受管优先);零可用
-/// key 渲「怎么获得」提示(诚实缺席,§3.5——彼态下工具本身也不存在)。
-class _ImageDefaultRow extends ConsumerStatefulWidget {
-  const _ImageDefaultRow({required this.current});
+/// It is ONE widget parameterized by scenario rather than one per modality: image and speech
+/// differ only in their provider table and their words, and a second copy is precisely where the
+/// two would start behaving differently (the backend made the same call with `resolveIn`).
+///
+/// 一个**生成**场景行(批B/批C)。候选是 **key** 而非聊天模型——生成模型不在聊天能力目录里,选择器
+/// 按「该能力已探测 key × 该家默认生成模型」出选项。未设置=诚实自动(受管优先);零可用 key 渲
+/// 「怎么获得」提示(诚实缺席,§3.5——彼态下工具本身也不存在)。
+///
+/// 它是**按场景参数化的一个** widget、而非每模态一个:图像与语音只差 provider 表与措辞,而抄第二份
+/// 正是两者会开始表现不同的地方(后端在 `resolveIn` 上做了同一个判断)。
+class _GenScenarioRow extends ConsumerStatefulWidget {
+  const _GenScenarioRow({
+    required this.scenario,
+    required this.current,
+    required this.providerDefaults,
+    required this.toggleKey,
+    required this.label,
+    required this.desc,
+    required this.autoSummary,
+    required this.noRoute,
+    required this.noRouteHint,
+    required this.managedOption,
+  });
 
+  /// Wire scenario name (`image` / `speech`) — the same string the backend routes on.
+  final String scenario;
   final ModelRef? current;
 
+  /// Capable providers × default generation model — MIRRORS the backend's own hand-written table
+  /// (`tool/generate/generate.go`). A closed legislated set; kept in lockstep by hand until a wire
+  /// surface exists.
+  ///
+  /// 该能力的家 × 默认生成模型——**镜像后端**自己那张手写表。封闭立法集,在出现 wire 面之前人工同步。
+  final Map<String, String> providerDefaults;
+  final ValueKey<String> toggleKey;
+  final String label;
+  final String desc;
+  final String autoSummary;
+  final String noRoute;
+  final String noRouteHint;
+  final String managedOption;
+
   @override
-  ConsumerState<_ImageDefaultRow> createState() => _ImageDefaultRowState();
+  ConsumerState<_GenScenarioRow> createState() => _GenScenarioRowState();
 }
 
-/// Image-capable providers × default generation model — MIRRORS backend
-/// `internal/app/tool/generate/generate.go` imageProviders (代拍 B6/B9; a closed legislated set,
-/// keep the two in lockstep by hand until a wire surface exists).
+/// Image-capable providers × default generation model — mirrors backend `imageProviders`.
 ///
-/// 图像家 × 默认生成模型——**镜像后端** `tool/generate/generate.go` 的 imageProviders(代拍
-/// B6/B9;封闭立法集,在出现 wire 面之前人工同步)。
+/// 图像家 × 默认生成模型——镜像后端 `imageProviders`。
 const Map<String, String> _imageProviderDefaults = {
   'anselm': 'anselm-auto',
   'openai': 'gpt-image-2',
@@ -1633,7 +1687,21 @@ const Map<String, String> _imageProviderDefaults = {
   'zhipu': 'cogview-4',
 };
 
-class _ImageDefaultRowState extends ConsumerState<_ImageDefaultRow> {
+/// Speech-capable providers × default TTS model — mirrors backend `speechProviders` (批C).
+/// Note it is NOT the same set of models as the image table even where the provider is shared:
+/// a key that can draw cannot necessarily speak, which is why the two rows filter independently.
+///
+/// 语音家 × 默认 TTS 模型——镜像后端 `speechProviders`(批C)。注意即使 provider 相同,模型也**不是**
+/// 图像那张表里的那些:能画的 key 未必能说话,这正是两行各自独立过滤的原因。
+const Map<String, String> _speechProviderDefaults = {
+  'anselm': 'anselm-auto',
+  'openai': 'gpt-4o-mini-tts',
+  'google': 'gemini-2.5-flash-preview-tts',
+  'qwen': 'qwen3-tts-flash',
+  'zhipu': 'glm-tts',
+};
+
+class _GenScenarioRowState extends ConsumerState<_GenScenarioRow> {
   bool _open = false;
 
   Future<void> _apply(String apiKeyId, String modelId) async {
@@ -1641,7 +1709,7 @@ class _ImageDefaultRowState extends ConsumerState<_ImageDefaultRow> {
       await ref
           .read(workspacePrefsProvider.notifier)
           .setDefaultModel(
-            'image',
+            widget.scenario,
             apiKeyId: apiKeyId,
             modelId: modelId,
             options: const {},
@@ -1658,7 +1726,7 @@ class _ImageDefaultRowState extends ConsumerState<_ImageDefaultRow> {
     try {
       await ref
           .read(workspacePrefsProvider.notifier)
-          .clearDefaultModel('image');
+          .clearDefaultModel(widget.scenario);
       if (mounted) setState(() => _open = false);
     } on ApiException catch (e) {
       ref
@@ -1675,7 +1743,7 @@ class _ImageDefaultRowState extends ConsumerState<_ImageDefaultRow> {
     final candidates = [
       for (final k in keys)
         if (k.testStatus == 'ok' &&
-            _imageProviderDefaults.containsKey(k.provider))
+            widget.providerDefaults.containsKey(k.provider))
           k,
     ];
     final cur = widget.current;
@@ -1683,15 +1751,15 @@ class _ImageDefaultRowState extends ConsumerState<_ImageDefaultRow> {
         ? null
         : keys.where((k) => k.id == cur.apiKeyId).firstOrNull;
     final summary = cur == null
-        ? t.settings.keys.imageAutoSummary
+        ? widget.autoSummary
         : '${cur.modelId}${curKey == null ? '' : ' · ${curKey.displayName}'}';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         AnSettingRow(
-          label: t.settings.keys.scenarioImage,
-          desc: t.settings.keys.scenarioImageDesc,
+          label: widget.label,
+          desc: widget.desc,
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -1708,7 +1776,7 @@ class _ImageDefaultRowState extends ConsumerState<_ImageDefaultRow> {
               ),
               const SizedBox(width: AnSpace.s8),
               AnButton(
-                key: const ValueKey('imageDefaultToggle'),
+                key: widget.toggleKey,
                 label: _open
                     ? t.settings.keys.pickerClose
                     : t.settings.keys.pickerChange,
@@ -1729,12 +1797,12 @@ class _ImageDefaultRowState extends ConsumerState<_ImageDefaultRow> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        t.settings.keys.imageNoRoute,
+                        widget.noRoute,
                         style: AnText.label.copyWith(color: c.inkMuted),
                       ),
                       const SizedBox(height: AnSpace.s4),
                       Text(
-                        t.settings.keys.imageNoRouteHint,
+                        widget.noRouteHint,
                         style: AnText.label.copyWith(color: c.inkFaint),
                       ),
                       const SizedBox(height: AnSpace.s8),
@@ -1756,13 +1824,13 @@ class _ImageDefaultRowState extends ConsumerState<_ImageDefaultRow> {
                           padding: const EdgeInsets.only(bottom: AnSpace.s4),
                           child: AnButton(
                             label: k.provider == 'anselm'
-                                ? t.settings.keys.imageManagedOption
-                                : '${k.displayName} · ${t.settings.keys.imageDefaultModelOf(model: _imageProviderDefaults[k.provider]!)}',
+                                ? widget.managedOption
+                                : '${k.displayName} · ${t.settings.keys.imageDefaultModelOf(model: widget.providerDefaults[k.provider]!)}',
                             size: AnButtonSize.sm,
                             outline: true,
                             onPressed: () => _apply(
                               k.id,
-                              _imageProviderDefaults[k.provider]!,
+                              widget.providerDefaults[k.provider]!,
                             ),
                           ),
                         ),

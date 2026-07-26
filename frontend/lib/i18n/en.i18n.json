@@ -1896,7 +1896,10 @@
       "imageManagedOption": "Anselm Free (gateway managed)",
       "imageDefaultModelOf": "default model ${model}",
       "imageNoRoute": "No key can generate images yet",
-      "imageNoRouteHint": "Add an OpenAI / Gemini / Qwen / Zhipu key, or enable Anselm Free — the tool appears automatically."
+      "imageNoRouteHint": "Add an OpenAI / Gemini / Qwen / Zhipu key, or enable Anselm Free — the tool appears automatically.",
+      "scenarioSpeech": "Speech synthesis",
+      "scenarioSpeechDesc": "Which key read-aloud and generate_speech use (unset = automatic, free tier first)",
+      "speechNoRoute": "No configured key can synthesize speech"
     },
     "ws": {
       "section": "Workspaces",
