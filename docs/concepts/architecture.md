@@ -99,6 +99,19 @@ Function/Handler 跑真实代码 → 经 **sandbox** 隔离运行；env 缺失�
 
 **Catalog**（实体名录，给 LLM "有哪些实体"）· **Relation**（实体血缘有向图，4 动词 create/edit/equip/link——结构**终态**）· **Touchpoint**（对话触点台账 `tp_`：对话碰过的一切外部之物按 (对话,物,动词) 聚合落盘——@提及/附件/AI 创建·编辑·看过·执行·删除，写侧=chat Send + loop 工具咽喉双水龙头，读侧=分页 REST + messages 流 durable 信号；relation 答结构、touchpoint 答**历程**，右岛数据地基）· **Mention**（@引用快照）· **Model**（场景→provider/model）· **APIKey**（加密保险箱 + BYOK）· **WebSearch** · **Notification**（持久化通知）· **Workspace**（本地隔离单元）· **Sandbox**（三 runtime）· **Search**（统一检索：12 类实体投影进 FTS5/trigram BM25 + 内置 embedder 语义混合（RRF），四出口——人的综搜/垂搜 HTTP、LLM 的 `search_blocks` 积木面板、8 个垂搜工具换引擎、`Retrieve` RAG 取数口；嵌入引擎 = directInstaller 按需下的 llama-server + EmbeddingGemma 常驻子进程，缺席自动降纯词法。详见 [`domains/search.md`](../references/backend/domains/search.md)）。
 
+### 3.5b 全模态产出（WRK-082）
+
+媒体在系统里有**一种货币**:携 `attachmentId` 的 receipt。宪法是 [ADR 0014](../decisions/0014-mediaref-one-currency.md),四条不变量:
+
+1. **一个值类型**——`pkg/mediaref` 的 `attachmentId` 文法(前端 `core/media/media_ref.dart` 是逐条孪生件)。它认**字符串形**,因为跨 workflow 节点 receipt 就是以文本流动的(agent 的终答成 `node.text`);文档正文另有 `anselm://media/<id>` 形,由同一份文法的 `CollectURIs` 认。
+2. **一间库**——**五个产地**(chat 生成工具 / agent 的 `sys:` 挂载 / MCP 返回的二进制 / function 沙箱产物 / 朗读)全部落 `attachments`,共用它已有的内容寻址去重、GC、播放租约、workspace 隔离与软删。
+3. **两个咽喉**——**产出**侧一律出 receipt(绝不出字节:一段 20 秒 1080p 是几十 MB,让它在 tool_result / frn 行 / SSE 帧里流动等于每次重放都再付一遍);**消费**侧一律经 `attachment.ToContentParts(ids, caps)`,三个入口(agent invoke payload / loop `MediaExpander` 的 tool_result / 附件文档注入)共用同一条,按解析出的模型模态门控——看不了图的模型只留文本 receipt(诚实降级)。
+4. **一族卡**——前端 `AnMediaRefCard` 按**附件行的 mime** 分发(不按 receipt 自称、不按 url 猜),chat 工具卡 / flowrun 节点检查器 / 实体调试台 / approval 门 / 文档编辑器同吃这一族。
+
+**生成是工具、不是第五个实体**(设计原则 #1 的封闭集不动):`generate_image` / `generate_speech` / `generate_video` 是 Tool,经 **CapabilityTools 缝**逐请求 resident 注入 chat、经 **`sys:` 第四挂载词法**进 agent 与 subagent。三者皆**诚实缺席**——运行期无可用路由时,整个工具不存在,而不是存在且必失败。视频是其中唯一的**长**工具:各家全异步,故它同步等完并经既有 `progress` 块流状态行(**不给百分比**,理由见 [ADR 0013](../decisions/0013-video-generation-synchronous-tool.md))。
+
+**受管档只开图与语音**;视频不进免费档,只在直连侧注入。
+
 ### 3.6 AI 工作会话
 
 - **aispawn**：`:iterate`（面对实体，让 AI 改）/ `:triage`（面对执行记录，让 AI 诊断）——本质都是**开一个携带背景的普通对话**。
