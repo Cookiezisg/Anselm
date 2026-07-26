@@ -236,3 +236,32 @@ func TestCreateDocument_DescriptionNoFalseAutoSplit(t *testing.T) {
 		}
 	}
 }
+
+// TestDocumentTools_TeachTheMediaURIForm: an agent that just generated a chart has no way to embed
+// it unless the tool TELLS it the scheme exists — the receipt gives an attachmentId, and nothing
+// in a bare markdown tool would suggest that `anselm://media/<id>` is the url that renders. This is
+// the whole of WRK-082 批F's AI side: the capability is a sentence in a description, and a
+// description that loses that sentence loses the capability with no other symptom.
+//
+// 刚生成完图表的 agent,除非工具**告诉**它这个 scheme 存在,否则它无从把图嵌进去——receipt 给的是
+// 一个 attachmentId,而一个只讲 markdown 的工具里没有任何东西会暗示 `anselm://media/<id>` 才是渲得出来
+// 的那个 url。这就是批F 的 AI 侧全部:能力是描述里的一句话,而一份丢了这句话的描述会连同能力一起丢掉,
+// 且没有任何其它症状。
+func TestDocumentTools_TeachTheMediaURIForm(t *testing.T) {
+	for name, text := range map[string]string{
+		"create_document description": createDocumentDescription,
+		"edit_document description":   editDocumentDescription,
+		"create_document schema":      string(createDocumentSchema),
+		"edit_document schema":        string(editDocumentSchema),
+	} {
+		if !strings.Contains(text, "anselm://media/") {
+			t.Errorf("%s never mentions the media uri form — an agent cannot embed what it is not told about", name)
+		}
+	}
+	// The example must be a real, well-formed id: a placeholder like `<id>` in the EXAMPLE (rather
+	// than in the parameter description) is what a model copies verbatim.
+	// 例子里必须是一个真实合法的 id:例子里放 `<id>` 这种占位符,正是模型会逐字抄下来的东西。
+	if !strings.Contains(createDocumentDescription, "att_0011223344556677") {
+		t.Error("the create_document example must show a well-formed attachment id, not a placeholder")
+	}
+}

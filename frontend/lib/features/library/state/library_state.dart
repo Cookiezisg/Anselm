@@ -387,16 +387,16 @@ class DocLiveMetricsController extends Notifier<DocLiveMetrics?> {
   @override
   DocLiveMetrics? build() => null;
 
-  /// Fed on every edit with the CURRENT markdown. `chars` uses the SAME whitespace-stripped rune count
-  /// the inspector's own [_charCount] uses (`\s+`→'' then runes) — a different formula here would make the
-  /// number JUMP as the panel swaps between live and the loaded fallback. `bytes` is the full utf8 length
+  /// Fed on every edit with the CURRENT markdown. `chars` goes through [documentCharCount] — the
+  /// ONE formula, shared with the inspector's loaded-document fallback, because a second copy makes
+  /// the number JUMP as the panel swaps between live and fallback. `bytes` is the full utf8 length
   /// (that IS the stored size). `at` stamped locally (UI-thread controller; a plain now is fine).
-  /// 每次编辑用当前 markdown 喂。`chars` 用与 inspector 自己的 [_charCount] **同款**剥空白 rune 计数,否则面板在
-  /// 活值/回退之间切换时数字会**跳**;`bytes` 是完整 utf8 长度(即存储大小);`at` 本地取时。
+  /// 每次编辑用当前 markdown 喂。`chars` 走 [documentCharCount]——**唯一**那份公式,与 inspector 的
+  /// 已载入回退共用,因为抄第二份会让面板在活值/回退之间切换时数字**跳**;`bytes` 是完整 utf8 长度
+  /// (即存储大小);`at` 本地取时。
   void feed(String markdown) {
-    final stripped = markdown.replaceAll(RegExp(r'\s+'), '');
     state = (
-      chars: stripped.runes.length,
+      chars: documentCharCount(markdown),
       bytes: utf8.encode(markdown).length,
       at: DateTime.now(),
     );
@@ -446,3 +446,30 @@ final backlinksProvider = FutureProvider.autoDispose
       ref.watch(documentTreeProvider); // refresh alongside the tree 随树刷新
       return ref.watch(libraryRepositoryProvider).listBacklinks(id);
     });
+
+/// The document's «字数» — non-whitespace code points, with MEDIA REFERENCES removed first
+/// (WRK-082 批F). An embedded chart is ~50 characters of `anselm://media/att_…` the reader never
+/// sees, so counting them makes a document of three pictures read as denser prose than a page of
+/// actual writing. The alt text stays counted — it IS prose the reader sees.
+///
+/// ONE function, called by both the live edit channel and the inspector's loaded-document
+/// fallback: two copies would make the number jump as the panel swaps between them, which is the
+/// exact drift the live-metrics comment has warned about since L16.
+///
+/// 文档「字数」——非空白码点,且**先减掉媒体引用**(批F)。一张嵌入图表是约 50 个读者根本看不见的
+/// `anselm://media/att_…` 字符,算进去会让一份三张图的文档读起来比一整页真文字还密。alt 文字仍计数
+/// ——那**是**读者看得见的正文。
+///
+/// **一个**函数,活编辑通道与 inspector 的已载入回退共用:抄两份会让面板在两者之间切换时数字跳,而
+/// 那正是 L16 起活指标注释一直在警告的漂移。
+int documentCharCount(String markdown) => markdown
+    .replaceAll(_mediaLinkUrl, '')
+    .replaceAll(RegExp(r'\s+'), '')
+    .runes
+    .length;
+
+/// The url half of an `![alt](anselm://media/<id>)` embed — matched WITHOUT the alt text so the
+/// caption a reader actually reads still counts toward the document's size.
+///
+/// `![alt](anselm://media/<id>)` 嵌入的 **url 半**——刻意不含 alt 文字,使读者真会读到的说明仍计入大小。
+final RegExp _mediaLinkUrl = RegExp(r'\(anselm://media/[A-Za-z0-9_]*\)');

@@ -11,7 +11,7 @@ import (
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
-const editDocumentDescription = `Update a document's fields; only supplied fields change. content and tags are full replacements (no diff/patch). Renaming cascades the path to all descendants. To change parent, use move_document.`
+const editDocumentDescription = `Update a document's fields; only supplied fields change. content and tags are full replacements (no diff/patch). Renaming cascades the path to all descendants. To change parent, use move_document. To embed an image the workspace already holds — one you just generated, or one attached to this conversation — write a normal markdown image whose url is anselm://media/<attachmentId>, for example: ![sales chart](anselm://media/att_0011223344556677). That is the ONLY form the library renders: a plain https url renders as an external image, and a bare attachment id renders as nothing.`
 
 var editDocumentSchema = json.RawMessage(`{
 	"type": "object",
@@ -20,7 +20,7 @@ var editDocumentSchema = json.RawMessage(`{
 		"id":          {"type": "string"},
 		"name":        {"type": "string", "description": "Renaming cascades path to all descendants."},
 		"description": {"type": "string"},
-		"content":     {"type": "string", "description": "Full replacement; no diff/patch semantics."},
+		"content":     {"type": "string", "description": "Full replacement; no diff/patch semantics. Embed workspace media as an image whose url is anselm://media/<attachmentId>."},
 		"tags":        {"type": "array", "items": {"type": "string"}, "description": "Full replacement."}
 	}
 }`)

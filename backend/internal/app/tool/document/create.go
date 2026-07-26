@@ -11,7 +11,7 @@ import (
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
-const createDocumentDescription = `Create a document in the user's library. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body — max 1MB; larger content is REJECTED (DOCUMENT_CONTENT_TOO_LARGE), not auto-split, so break it into smaller child docs yourself. Name must be unique among siblings (auto-suffixed on collision).`
+const createDocumentDescription = `Create a document in the user's library. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body — max 1MB; larger content is REJECTED (DOCUMENT_CONTENT_TOO_LARGE), not auto-split, so break it into smaller child docs yourself. Name must be unique among siblings (auto-suffixed on collision). To embed an image the workspace already holds — one you just generated, or one attached to this conversation — write a normal markdown image whose url is anselm://media/<attachmentId>, for example: ![sales chart](anselm://media/att_0011223344556677). That is the ONLY form the library renders: a plain https url renders as an external image, and a bare attachment id renders as nothing.`
 
 var createDocumentSchema = json.RawMessage(`{
 	"type": "object",
@@ -20,7 +20,7 @@ var createDocumentSchema = json.RawMessage(`{
 		"name":        {"type": "string", "description": "Document title; no slashes, up to 256 chars."},
 		"parentId":    {"type": ["string", "null"], "description": "Parent doc ID; null/omit = root."},
 		"description": {"type": "string", "description": "One-line catalog summary."},
-		"content":     {"type": "string", "description": "Full markdown body."},
+		"content":     {"type": "string", "description": "Full markdown body. Embed workspace media as an image whose url is anselm://media/<attachmentId>."},
 		"tags":        {"type": "array", "items": {"type": "string"}}
 	}
 }`)

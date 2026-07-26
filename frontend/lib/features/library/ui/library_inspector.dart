@@ -306,10 +306,9 @@ Widget? _skillGlance(
 
 // ── §2 glance strip ──
 
-/// The number of NON-WHITESPACE code points in [content] — a coarse «字数» for the glance (raw markdown
-/// characters; a size proxy, not a linguistic word count). 非空白码点数(粗粒度字数,含 markdown 语法字符)。
-int _charCount(String content) =>
-    content.replaceAll(RegExp(r'\s+'), '').runes.length;
+/// The glance's «字数» — [documentCharCount], the ONE formula the live edit channel also uses.
+/// 速览的「字数」——[documentCharCount],与活编辑通道共用的**唯一**那份公式。
+int _charCount(String content) => documentCharCount(content);
 
 /// A compact count: `840` / `2.4k` / `12k` (trailing `.0` stripped). 紧凑计数。
 String _compactCount(int n) {

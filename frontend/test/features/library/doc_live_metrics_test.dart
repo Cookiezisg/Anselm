@@ -66,6 +66,41 @@ void main() {
           'cleared on deselect/switch so a stale size never bleeds across pages (L16)',
     );
   });
+
+  test('media embeds do not inflate the word count (WRK-082 批F)', () {
+    // An embedded chart is ~50 characters of url the reader never sees. Counting them makes a
+    // document of three pictures read as denser prose than a page of actual writing — and the
+    // caption, which the reader DOES see, must still count.
+    //
+    // 一张嵌入图表是约 50 个读者根本看不见的 url 字符。算进去会让三张图的文档读起来比一整页真文字还密;
+    // 而说明文字——读者**看得见**的那部分——必须仍然计数。
+    const prose = '销量分析';
+    const withMedia = '$prose\n\n![销量图](anselm://media/att_00112233445566aa)\n';
+    expect(
+      documentCharCount(withMedia),
+      // What survives is exactly the prose plus the visible `![销量图]` — the url, and only
+      // the url, is gone. Spelling the survivor out beats arithmetic: the assertion then says
+      // what a READER sees.
+      // 活下来的恰是正文加上看得见的 `![销量图]`——url、且只有 url 消失了。把幸存者写出来胜过做
+      // 算术:这条断言说的是**读者看见了什么**。
+      documentCharCount('$prose![销量图]'),
+      reason: 'only the url disappears from the count; the caption stays',
+    );
+
+    // The live channel and the inspector fallback must agree — a second formula makes the panel's
+    // number JUMP as it swaps between them.
+    // 活通道与 inspector 回退必须一致——抄第二份公式会让面板在两者切换时数字**跳**。
+    final c = container();
+    c.read(docLiveMetricsProvider.notifier).feed(withMedia);
+    expect(c.read(docLiveMetricsProvider)!.chars, documentCharCount(withMedia));
+
+    // Bytes are the STORED size and therefore still include the url — the document really is that
+    // big on disk. 字节是**存储**大小,故仍含 url——文档在盘上确实那么大。
+    expect(
+      c.read(docLiveMetricsProvider)!.bytes,
+      greaterThan(documentCharCount(withMedia)),
+    );
+  });
 }
 
 int _utf8Len(String s) {
