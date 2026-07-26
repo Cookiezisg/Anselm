@@ -9,6 +9,7 @@ import '../../../core/contract/entities/workflow.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/media/media_cards.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/run/approval_gate.dart';
 import '../../../core/run/provenance_line.dart';
@@ -511,6 +512,15 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
                 openDepth: 1,
                 maxHeight: AnSize.jsonViewport,
               ),
+              // A node that produced media shows it, not just its receipt: an attachmentId in the
+              // JSON tree tells you a picture exists, which is not the same as seeing whether it is
+              // the RIGHT picture — and checking that is the whole reason to open a node (WRK-082
+              // 批B' 不变量④, the one card family). Renders nothing when the result carries no ref,
+              // so the common case pays no layout at all.
+              // 出了媒体的节点把媒体**渲出来**、而不只是它的 receipt:JSON 树里的 attachmentId 只告诉你
+              // 「有一张图」,这和看见「是不是**对的**那张」是两回事——而后者正是打开一个节点的全部理由
+              // (批B' 不变量④,一族卡)。结果里没有引用时什么都不渲,常见情形零版面代价。
+              ...AnMediaRefStrip.forPayload(node.result, maxWidth: 260),
             ],
           ),
         // The execution log deep link — the audit row this node's work left behind (工单⑤ execId).

@@ -4,6 +4,7 @@ import '../contract/entities/workflow.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import '../media/media_cards.dart';
 import '../ui/ui.dart';
 import '../../i18n/strings.g.dart';
 
@@ -80,6 +81,10 @@ class _ApprovalGateState extends State<ApprovalGate> {
     final r = context.t.run;
     final c = context.colors;
     final prompt = widget.parked.result['rendered'] as String? ?? '';
+    final media = AnMediaRefStrip.forPayload(
+      widget.parked.result,
+      maxWidth: 240,
+    );
 
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -94,6 +99,15 @@ class _ApprovalGateState extends State<ApprovalGate> {
           AnMarkdown(prompt, scale: AnMarkdownScale.embedded),
           const SizedBox(height: AnSpace.s8),
         ],
+        // A human gate that hides the artifact is not a gate. When the parked node's payload carries
+        // media (an upstream node generated the image this approval is ABOUT), the reviewer sees it
+        // right here — approving «这张图可以发吗?» from an attachment id alone is rubber-stamping
+        // (WRK-082 批B' 不变量④, the one card family). No refs → nothing rendered, gate unchanged.
+        // 藏住产物的人闸不是闸。停驻节点的 payload 带媒体时(上游节点生成的、本次审批**所针对**的那张图),
+        // 审批人就在这里看见它——只凭一个附件 id 去点「这张图可以发吗?」等于盖橡皮章(批B' 不变量④,
+        // 一族卡)。无引用 → 什么都不渲、门原样。
+        ...media,
+        if (media.isNotEmpty) const SizedBox(height: AnSpace.s8),
         if (widget.collectReason && _allowReason) ...[
           if (!_reasonOpen)
             Align(

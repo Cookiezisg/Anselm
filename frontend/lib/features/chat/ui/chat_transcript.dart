@@ -17,7 +17,7 @@ import '../../../core/perf/frame_safe.dart';
 import '../../../core/settings/app_prefs_providers.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
-import '../data/attachment_image_provider.dart';
+import '../../../core/media/attachment_image_provider.dart';
 import '../data/chat_providers.dart';
 import '../model/conversation_transcript.dart';
 import '../model/user_attachment.dart';

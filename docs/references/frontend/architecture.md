@@ -45,6 +45,7 @@ core/                      # 跨切共享层(不依赖上层)
   design/                  # tokens · colors · typography · theme —— 唯一值源,禁内联 px/hex/ms
   platform/                # OS 缝:host_platform(dart:io 收口) · window_zoom(应内 Cmd +/- 缩放)
   model/                   # 框架无关纯模型(无 Flutter import):status_state(状态折叠单源)
+  media/                   # 媒体一族(WRK-082 批B'):media_ref(MediaRef 文法前端半——`attachmentId`/`att_<16hex>`/collectMediaRefs ≤8,**后端 pkg/mediaref 的逐条孪生件**,含**字符串形**识别〔receipt 跨 workflow 节点就是以文本走的〕;两边不一致即出现「模型看得见而界面渲不出」) · media_source(MediaSource 端口 + ApiMediaSource + mediaMetaProvider〔**成功才** keepAlive:附件行不可变,而缓存失败会把一次超时焊成永久墓碑〕——附件是**平台**资源,故各面读媒体不必 import chat) · media_cards(AnMediaRefCard 按**附件行的 mime** 分发〔非 receipt 提示、非逐面自定〕+ AnMediaRefStrip/`forPayload` 展开形〔带间距宿主里空结果不得占槽〕;chat 工具卡 / flowrun 节点检查器 / 实体调试台 / approval 门同吃这一族,不变量④) · attachment_image_provider(按 id 键的 ImageProvider,解码期按显示宽下采样)
   messages/                # 框架无关纯模型:block_tree_reducer(折 open/delta/close→嵌套块树;run 终端 + Chat 4.2 共用,脱 widget 单测)
   graph/                   # 框架无关纯模型:graph_model(图→定位几何)+ graph_run_state(节点行→运行覆层)+ flowrun_timeline(节点行→甘特时段)+ graph_edit_ops(working diff→:edit ops);全脱 widget 单测
   notice/                  # 跨 feature 即时消息中心:双 ListQueue 无 cap + current/两 cue/计数固定投影 + 身份守卫/快照清场；不持通知仓储

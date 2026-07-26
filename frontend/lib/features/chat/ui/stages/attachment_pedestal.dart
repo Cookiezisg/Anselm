@@ -7,7 +7,7 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/model/byte_format.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
-import '../../data/attachment_image_provider.dart';
+import '../../../../core/media/attachment_image_provider.dart';
 import '../../data/chat_providers.dart';
 import '../../state/attachment_meta.dart';
 

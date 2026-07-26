@@ -366,8 +366,13 @@ key/时延/journal 行。形状与实测冲突处以实测为准。
    挂载 UI(前端)**。subagent 侧 `SetMultimodal`:能力工具白名单前并入(11903cc0)。
 4. **MCP 媒体入口** ✅:`CallTool` 返 `(text,[]Media)`,app 层落一等附件 + receipt 追加
    (`source:"mcp_media"`),逐项 best-effort。
-5. **前端引用卡族**(§3.9)**剩**:原语一枚 + 铺三个面(scheduler 运行卷宗节点 result / 右岛调试台 /
-   approval 渲染)。
+5. **前端引用卡族**(§3.9)✅:`core/media/` 三件——`media_ref`(后端 `pkg/mediaref` 的逐条孪生件,
+   含字符串形)+ `media_source`(MediaSource 端口 + 成功才 keepAlive 的 meta provider;附件是**平台**
+   资源,故各面读媒体不必 import chat)+ `media_cards`(`AnMediaRefCard` 按**附件行的 mime** 分发 +
+   `AnMediaRefStrip.forPayload` 展开形)。**三个面已铺**:scheduler 运行卷宗节点 result(JSON 树下)
+   / 实体右岛调试台 run result(**媒体在前、JSON 在后**——跑出了图,图就是答案)/ approval 门
+   (**藏住产物的人闸不是闸**:只凭附件 id 点「这张图可以发吗」等于盖橡皮章)。`AttachmentImageProvider`
+   随之从 chat 提到 core(features 互不依赖)。守卫十条(文法五 + 卡族五)。
 
 **验收**:§4 workflow 贯通线 ✅ **黑盒真跑通**(`testend/scenarios/workflow_media_test.go`:painter
 节点挂 `sys:generate_image` 画图 → 把 receipt 当终答交出 → viewer 节点经 CEL `paint.text` 收到 →

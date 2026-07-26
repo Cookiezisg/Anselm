@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/media/media_cards.dart';
 import '../../../../core/model/status_state.dart' show AnStatus;
 import '../../../../core/perf/frame_safe.dart';
 import '../../../../core/run/approval_gate.dart';
@@ -312,11 +313,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
           if (text.trim().isNotEmpty)
             _section(context, r.outputHeading, AnTermViewport(text: text)),
           if (state.isTerminal && state.output != null)
-            _section(
-              context,
-              r.resultHeading,
-              _mono(context, prettyJson(state.output)),
-            ),
+            _section(context, r.resultHeading, _result(context, state.output)),
           if ((state.logs ?? '').isNotEmpty)
             _section(context, r.logsHeading, _mono(context, state.logs!)),
         ];
@@ -337,11 +334,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
               BlockTreeView(roots: s.tree.roots),
             ),
           if (state.isTerminal && state.output != null)
-            _section(
-              context,
-              r.resultHeading,
-              _mono(context, prettyJson(state.output)),
-            ),
+            _section(context, r.resultHeading, _result(context, state.output)),
         ];
       case EntityKind.workflow:
         return [_nodes(context, state, s)];
@@ -430,6 +423,27 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
 
   // Plain Text — the whole scroll body is one SelectionArea (best-practice over per-row SelectableText).
   Widget _mono(BuildContext context, String text) => AnCodeBlock(text);
+
+  // A run result renders its MEDIA first, then the JSON: when a run produced a picture, the picture
+  // IS the answer and the receipt is bookkeeping — reading an attachment id off a JSON blob and
+  // then having to go find the artifact is exactly the workbench friction this island exists to
+  // remove (WRK-082 批B' 不变量④, the one card family). No refs → nothing but the JSON, as before.
+  // 运行结果**先渲媒体、再渲 JSON**:一次跑出了图,图**就是**答案、receipt 只是记账——从 JSON 里抄一个
+  // 附件 id 再自己去把产物找出来,恰是本岛存在的意义所要消除的那种工作台摩擦(批B' 不变量④,一族卡)。
+  // 无引用 → 一切照旧,只有 JSON。
+  Widget _result(BuildContext context, Object? output) {
+    final media = AnMediaRefStrip.forPayload(output, maxWidth: 240);
+    if (media.isEmpty) return _mono(context, prettyJson(output));
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        ...media,
+        const SizedBox(height: AnSpace.s8),
+        _mono(context, prettyJson(output)),
+      ],
+    );
+  }
 }
 
 /// The bench strip (「最近」段, 0719 拍板): this entity's last five executions off the SAME ledgers

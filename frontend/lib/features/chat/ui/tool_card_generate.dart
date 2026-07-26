@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
-import '../data/attachment_image_provider.dart';
+import '../../../core/media/attachment_image_provider.dart';
 import '../data/chat_providers.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
