@@ -3113,6 +3113,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'Saved as an audio attachment'
 	String get generatedSpeechStored => 'Saved as an audio attachment';
+
+	/// en: 'Generating video'
+	String get generatingVideo => 'Generating video';
+
+	/// en: 'Generated video'
+	String get generatedVideo => 'Generated video';
+
+	/// en: 'Saved as a video attachment'
+	String get generatedVideoStored => 'Saved as a video attachment';
 }
 
 // Path: chat.gate
@@ -5143,6 +5152,15 @@ class Translations$settings$keys$en {
 
 	/// en: 'No configured key can synthesize speech'
 	String get speechNoRoute => 'No configured key can synthesize speech';
+
+	/// en: 'Video generation'
+	String get scenarioVideo => 'Video generation';
+
+	/// en: 'Which key generate_video uses (video is not in the free tier — bring your own)'
+	String get scenarioVideoDesc => 'Which key generate_video uses (video is not in the free tier — bring your own)';
+
+	/// en: 'No configured key can generate video'
+	String get videoNoRoute => 'No configured key can generate video';
 }
 
 // Path: settings.ws
@@ -7478,6 +7496,9 @@ extension on Translations {
 			'chat.tool.generatingSpeech' => 'Synthesizing speech',
 			'chat.tool.generatedSpeech' => 'Synthesized speech',
 			'chat.tool.generatedSpeechStored' => 'Saved as an audio attachment',
+			'chat.tool.generatingVideo' => 'Generating video',
+			'chat.tool.generatedVideo' => 'Generated video',
+			'chat.tool.generatedVideoStored' => 'Saved as a video attachment',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -7925,11 +7946,11 @@ extension on Translations {
 			'shell.expandSidebar' => 'Expand sidebar',
 			'shell.togglePanel' => 'Toggle panel',
 			'shell.ocean.chat' => 'Chat',
+			_ => null,
+		} ?? switch (path) {
 			'shell.ocean.entities' => 'Entities',
 			'shell.ocean.scheduler' => 'Scheduler',
 			'shell.ocean.library' => 'Library',
-			_ => null,
-		} ?? switch (path) {
 			'shell.comingSoonTitle' => 'Coming soon',
 			'shell.comingSoonHint' => 'This ocean isn\'t built yet.',
 			'shell.settings' => 'Settings',
@@ -8439,11 +8460,11 @@ extension on Translations {
 			'library.table.insertColRight' => 'Insert column right',
 			'library.table.deleteCol' => 'Delete column',
 			'library.table.deleteTable' => 'Delete table',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillSourceMode' => 'Source',
 			'library.skillRichMode' => 'Rich text',
 			'library.skillModeTooltip' => 'Toggle rich / raw source editing of the manifest',
-			_ => null,
-		} ?? switch (path) {
 			'library.skillFileBinary' => 'Binary file — inline editing unsupported',
 			'library.skillFileSaveFailed' => 'Saving the file failed',
 			'library.skillFiles' => 'Files',
@@ -8661,6 +8682,9 @@ extension on Translations {
 			'settings.keys.scenarioSpeech' => 'Speech synthesis',
 			'settings.keys.scenarioSpeechDesc' => 'Which key read-aloud and generate_speech use (unset = automatic, free tier first)',
 			'settings.keys.speechNoRoute' => 'No configured key can synthesize speech',
+			'settings.keys.scenarioVideo' => 'Video generation',
+			'settings.keys.scenarioVideoDesc' => 'Which key generate_video uses (video is not in the free tier — bring your own)',
+			'settings.keys.videoNoRoute' => 'No configured key can generate video',
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',
 			'settings.ws.newWorkspace' => 'New workspace',

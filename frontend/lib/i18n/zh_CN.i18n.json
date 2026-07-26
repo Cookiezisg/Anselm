@@ -584,7 +584,10 @@
       "generatedImageStored": "已存为附件",
       "generatingSpeech": "正在合成语音",
       "generatedSpeech": "已合成语音",
-      "generatedSpeechStored": "已存为音频附件"
+      "generatedSpeechStored": "已存为音频附件",
+      "generatingVideo": "正在生成视频",
+      "generatedVideo": "已生成视频",
+      "generatedVideoStored": "已存为视频附件"
     },
     "gate": {
       "dangerBadge": "危险",
@@ -1899,7 +1902,10 @@
       "imageNoRouteHint": "添加 OpenAI / Gemini / 通义 / 智谱任一密钥,或启用 Anselm 免费档——出图工具会自动出现。",
       "scenarioSpeech": "语音合成",
       "scenarioSpeechDesc": "朗读与 generate_speech 走哪把 key(未设=自动,免费档优先)",
-      "speechNoRoute": "当前没有能合成语音的 key"
+      "speechNoRoute": "当前没有能合成语音的 key",
+      "scenarioVideo": "视频生成",
+      "scenarioVideoDesc": "generate_video 走哪把 key(视频不进免费档,须自备密钥)",
+      "videoNoRoute": "当前没有能生成视频的 key"
     },
     "ws": {
       "section": "工作区",

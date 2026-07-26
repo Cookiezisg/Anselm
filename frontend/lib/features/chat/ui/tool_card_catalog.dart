@@ -952,6 +952,25 @@ final Map<String, ToolCardSpec> _catalog = {
     },
     body: generatedSpeechBody,
   ),
+  'generate_video': ToolCardSpec(
+    verb: (t, {required bool live}) =>
+        live ? t.chat.tool.generatingVideo : t.chat.tool.generatedVideo,
+    target: (s) {
+      final prompt = argString(s.argsText, 'prompt');
+      if (prompt == null || prompt.isEmpty) return null;
+      return prompt.length > 40 ? '${prompt.substring(0, 40)}…' : prompt;
+    },
+    receipt: (t, s) {
+      final r = parseGeneratedVideo(s.resultText);
+      if (r == null) return null;
+      final secs = r.seconds != null ? ' · ${r.seconds}s' : '';
+      return (
+        text: '${t.chat.tool.generatedVideoStored}$secs',
+        tone: ToolReceiptTone.none,
+      );
+    },
+    body: generatedVideoBody,
+  ),
 
   'list_attachments': _entitySearch(
     kind: (t) => t.chat.tool.kind.attachment,

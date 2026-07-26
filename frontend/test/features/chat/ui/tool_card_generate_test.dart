@@ -164,4 +164,34 @@ void main() {
     expect(parseGeneratedSpeech('not json'), isNull);
     expect(parseGeneratedSpeech(null), isNull);
   });
+
+  test(
+    'parseGeneratedVideo reports what was MADE, and the three families never cross',
+    () {
+      const receipt =
+          '{"attachmentId":"att_0011223344556677","filename":"generated-x.mp4",'
+          '"mime":"video/mp4","sizeBytes":900000,"provider":"google","seconds":8,'
+          '"aspect":"landscape","source":"generate_video","model":"veo-3.1-fast-generate-preview"}';
+      final r = parseGeneratedVideo(receipt);
+      expect(r, isNotNull);
+      // `seconds` is the length the route actually produced — a 30-second ask is clamped to the
+      // provider's cap, and the receipt must report the clip that exists.
+      // `seconds` 是路由**真正做出来**的长度——30 秒的请求会被钳到该家上限,而 receipt 必须报**存在的**那段。
+      expect(r!.seconds, 8);
+      expect(r.mime, 'video/mp4');
+      expect(r.provider, 'google');
+
+      // Three families, three bodies on screen. A crossover would render a video file card where a
+      // picture belongs, or an audio player over one.
+      // 三族、屏上三种体。串线会在该出图的地方渲出视频文件卡,或在图上盖一个播放器。
+      expect(parseGeneratedVideo(_receipt), isNull);
+      expect(parseGeneratedImage(receipt), isNull);
+      expect(parseGeneratedSpeech(receipt), isNull);
+      expect(
+        parseGeneratedVideo('{"attachmentId":"att_x","source":"other"}'),
+        isNull,
+      );
+      expect(parseGeneratedVideo(null), isNull);
+    },
+  );
 }

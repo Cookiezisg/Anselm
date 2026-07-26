@@ -1249,6 +1249,9 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get generatingSpeech => '正在合成语音';
 	@override String get generatedSpeech => '已合成语音';
 	@override String get generatedSpeechStored => '已存为音频附件';
+	@override String get generatingVideo => '正在生成视频';
+	@override String get generatedVideo => '已生成视频';
+	@override String get generatedVideoStored => '已存为视频附件';
 }
 
 // Path: chat.gate
@@ -2101,6 +2104,9 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get scenarioSpeech => '语音合成';
 	@override String get scenarioSpeechDesc => '朗读与 generate_speech 走哪把 key(未设=自动,免费档优先)';
 	@override String get speechNoRoute => '当前没有能合成语音的 key';
+	@override String get scenarioVideo => '视频生成';
+	@override String get scenarioVideoDesc => 'generate_video 走哪把 key(视频不进免费档,须自备密钥)';
+	@override String get videoNoRoute => '当前没有能生成视频的 key';
 }
 
 // Path: settings.ws
@@ -3474,6 +3480,9 @@ extension on TranslationsZhCn {
 			'chat.tool.generatingSpeech' => '正在合成语音',
 			'chat.tool.generatedSpeech' => '已合成语音',
 			'chat.tool.generatedSpeechStored' => '已存为音频附件',
+			'chat.tool.generatingVideo' => '正在生成视频',
+			'chat.tool.generatedVideo' => '已生成视频',
+			'chat.tool.generatedVideoStored' => '已存为视频附件',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -3921,11 +3930,11 @@ extension on TranslationsZhCn {
 			'shell.expandSidebar' => '展开侧栏',
 			'shell.togglePanel' => '切换面板',
 			'shell.ocean.chat' => '对话',
+			_ => null,
+		} ?? switch (path) {
 			'shell.ocean.entities' => '实体',
 			'shell.ocean.scheduler' => '调度',
 			'shell.ocean.library' => '文库',
-			_ => null,
-		} ?? switch (path) {
 			'shell.comingSoonTitle' => '即将推出',
 			'shell.comingSoonHint' => '该海洋尚未构建。',
 			'shell.settings' => '设置',
@@ -4435,11 +4444,11 @@ extension on TranslationsZhCn {
 			'library.table.insertColRight' => '在右侧插入列',
 			'library.table.deleteCol' => '删除列',
 			'library.table.deleteTable' => '删除表格',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillSourceMode' => '源码',
 			'library.skillRichMode' => '富文本',
 			'library.skillModeTooltip' => '切换清单的富文本 / 源码编辑',
-			_ => null,
-		} ?? switch (path) {
 			'library.skillFileBinary' => '二进制文件——不支持在线编辑',
 			'library.skillFileSaveFailed' => '文件保存失败',
 			'library.skillFiles' => '文件',
@@ -4657,6 +4666,9 @@ extension on TranslationsZhCn {
 			'settings.keys.scenarioSpeech' => '语音合成',
 			'settings.keys.scenarioSpeechDesc' => '朗读与 generate_speech 走哪把 key(未设=自动,免费档优先)',
 			'settings.keys.speechNoRoute' => '当前没有能合成语音的 key',
+			'settings.keys.scenarioVideo' => '视频生成',
+			'settings.keys.scenarioVideoDesc' => 'generate_video 走哪把 key(视频不进免费档,须自备密钥)',
+			'settings.keys.videoNoRoute' => '当前没有能生成视频的 key',
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',
 			'settings.ws.newWorkspace' => '新建工作区',

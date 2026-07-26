@@ -815,6 +815,18 @@ class _DefaultsSection extends ConsumerWidget {
           noRouteHint: t.settings.keys.imageNoRouteHint,
           managedOption: t.settings.keys.imageManagedOption,
         ),
+        _GenScenarioRow(
+          scenario: 'video',
+          current: ws?.defaultVideo,
+          providerDefaults: _videoProviderDefaults,
+          toggleKey: const ValueKey('videoDefaultToggle'),
+          label: t.settings.keys.scenarioVideo,
+          desc: t.settings.keys.scenarioVideoDesc,
+          autoSummary: t.settings.keys.imageAutoSummary,
+          noRoute: t.settings.keys.videoNoRoute,
+          noRouteHint: t.settings.keys.imageNoRouteHint,
+          managedOption: t.settings.keys.imageManagedOption,
+        ),
         if (ws != null && ws.defaultDialogue == null)
           Padding(
             padding: const EdgeInsets.only(left: AnSpace.s8, top: AnSpace.s4),
@@ -1693,6 +1705,17 @@ const Map<String, String> _imageProviderDefaults = {
 ///
 /// 语音家 × 默认 TTS 模型——镜像后端 `speechProviders`(批C)。注意即使 provider 相同,模型也**不是**
 /// 图像那张表里的那些:能画的 key 未必能说话,这正是两行各自独立过滤的原因。
+/// Video-capable providers × default generation model — mirrors backend `videoProviders` (批D).
+/// There is deliberately NO `anselm` entry: video never enters the free tier (P8), so a
+/// managed-only workspace has no video route at all and this picker is honestly empty for it.
+///
+/// 视频家 × 默认生成模型——镜像后端 `videoProviders`(批D)。刻意**没有** `anselm` 条目:视频不进
+/// 免费档(P8),故只有受管 key 的 workspace 根本没有视频路由,这个选择器对它诚实地为空。
+const Map<String, String> _videoProviderDefaults = {
+  'qwen': 'wan2.7-t2v',
+  'google': 'veo-3.1-fast-generate-preview',
+};
+
 const Map<String, String> _speechProviderDefaults = {
   'anselm': 'anselm-auto',
   'openai': 'gpt-4o-mini-tts',

@@ -536,10 +536,10 @@ void _imageRowTests() {
       await tester.pumpAndSettle();
 
       expect(find.text('图像生成'), findsOneWidget);
-      // Both generation rows are unset, so both read「自动」— the count is the assertion: a
-      // scenario row that silently shared another's state would show one.
-      // 两个生成行都未设,故都读「自动」——**数量**就是断言:一个静默共用了另一个状态的场景行会只显示一个。
-      expect(find.text('自动(免费档优先)'), findsNWidgets(2));
+      // All THREE generation rows are unset, so all three read「自动」— the count is the
+      // assertion: a scenario row that silently shared another's state would show fewer.
+      // 三个生成行都未设,故都读「自动」——**数量**就是断言:一个静默共用了别人状态的场景行会让这里少一个。
+      expect(find.text('自动(免费档优先)'), findsNWidgets(3));
       await tester.ensureVisible(
         find.byKey(const ValueKey('imageDefaultToggle')),
       );
@@ -576,11 +576,11 @@ void _imageRowTests() {
       // The fixture repo records the PUT: the row summary now shows the selection.
       // fixture 仓记下 PUT:行摘要显示所选。
       expect(find.textContaining('gpt-image-2'), findsOneWidget);
-      // The IMAGE row's summary changed; the speech row is still unset, so exactly one「自动」
-      // remains. Asserting "none" here would silently pass if the two rows shared state.
-      // **图像**行的摘要变了;语音行仍未设,故恰剩一个「自动」。此处若断言「一个都不剩」,两行共用
+      // The IMAGE row's summary changed; speech and video are still unset, so exactly two「自动」
+      // remain. Asserting "none" here would silently pass if the rows shared state.
+      // **图像**行的摘要变了;语音与视频仍未设,故恰剩两个「自动」。此处若断言「一个都不剩」,各行共用
       // 状态时会静默通过。
-      expect(find.text('自动(免费档优先)'), findsOneWidget);
+      expect(find.text('自动(免费档优先)'), findsNWidgets(2));
     });
 
     testWidgets('speech is its OWN row: an image-capable key does not fill it', (
@@ -630,5 +630,34 @@ void _imageRowTests() {
         expect(find.text('当前没有能合成语音的 key'), findsOneWidget);
       },
     );
+
+    testWidgets('video has NO managed option — it never enters the free tier', (
+      tester,
+    ) async {
+      // A managed key routes images and speech but must NOT appear as a video candidate: video is
+      // not in the free tier, so offering the managed row here would promise a route that does not
+      // exist and fail only when the user actually asks for a video.
+      // 受管 key 能走图像与语音,但**不得**出现在视频候选里:视频不进免费档,把受管行摆在这里等于许一条
+      // 并不存在的路由,而它只会在用户真去要一段视频时才失败。
+      final repo = FixtureSettingsRepository();
+      repo.keys.add(_key('aki_m', 'anselm'));
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('videoDefaultToggle')),
+      );
+      await tester.tap(find.byKey(const ValueKey('videoDefaultToggle')));
+      await tester.pumpAndSettle();
+      expect(find.text('当前没有能生成视频的 key'), findsOneWidget);
+
+      // …while the SAME key is a perfectly good image candidate.
+      await tester.ensureVisible(
+        find.byKey(const ValueKey('imageDefaultToggle')),
+      );
+      await tester.tap(find.byKey(const ValueKey('imageDefaultToggle')));
+      await tester.pumpAndSettle();
+      expect(find.text('还没有能出图的密钥'), findsNothing);
+    });
   });
 }

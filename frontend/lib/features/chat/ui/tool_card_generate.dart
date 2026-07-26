@@ -195,3 +195,63 @@ class _GeneratedSpeechBody extends ConsumerWidget {
     return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
   }
 }
+
+/// generate_video family body (WRK-082 批D). The artifact renders as the kit's FILE CARD, not an
+/// inline player: adding one would mean adopting a desktop video stack (`media_kit` /
+/// `video_player` and their native dependencies), which is a dependency decision of its own and
+/// does not belong to this batch (代拍 D1). The card still says what the file is, how big it is,
+/// and can be opened outside the app — honest about what exists rather than pretending to play it.
+///
+/// generate_video 族体(批D)。产物渲成 kit 的**文件卡**、不是内联播放器:加播放器意味着引入桌面
+/// 视频栈(`media_kit`/`video_player` 及其原生依赖),那是一次独立的依赖决策、不属于本批(代拍 D1)。
+/// 卡仍然说清它是什么文件、多大、可在应用外打开——对**存在的东西**诚实,而不是假装能播它。
+Widget generatedVideoBody(BuildContext context, ToolCardState state) {
+  final r = parseGeneratedVideo(state.resultText);
+  if (r == null) return const SizedBox.shrink();
+  return _GeneratedVideoBody(attachmentId: r.attachmentId, seconds: r.seconds);
+}
+
+class _GeneratedVideoBody extends ConsumerWidget {
+  const _GeneratedVideoBody({required this.attachmentId, this.seconds});
+
+  final String attachmentId;
+  final int? seconds;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final meta = ref.watch(attachmentMetaProvider(attachmentId));
+    final c = context.colors;
+    if (meta.hasError) {
+      return Text(
+        attachmentId,
+        style: AnText.label.copyWith(color: c.inkFaint),
+      );
+    }
+    return switch (meta) {
+      AsyncData(value: final m) => AnAttachmentCard(
+        kind: m.kind.isEmpty ? 'video' : m.kind,
+        filename: m.filename.isEmpty ? attachmentId : m.filename,
+        metaLine: _metaLine(m.sizeBytes),
+      ),
+      _ => const AnAttachmentCard(
+        kind: 'video',
+        filename: '',
+        metaLine: '',
+        state: AnAttachmentState.resolving,
+      ),
+    };
+  }
+
+  String _metaLine(int sizeBytes) {
+    final parts = <String>[];
+    if (seconds != null && seconds! > 0) parts.add('${seconds}s');
+    if (sizeBytes > 0) {
+      parts.add(
+        sizeBytes < 1024 * 1024
+            ? '${(sizeBytes / 1024).toStringAsFixed(0)} KB'
+            : '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
+      );
+    }
+    return parts.join(' · ');
+  }
+}
