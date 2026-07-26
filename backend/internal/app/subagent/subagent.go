@@ -21,6 +21,7 @@ import (
 
 	"go.uber.org/zap"
 
+	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
@@ -74,6 +75,15 @@ type ToolsProvider interface {
 	Tools() []toolapp.Tool
 }
 
+// AttachmentRenderer renders attachment ids into native content parts (the same seam chat/agent
+// use; *attachmentapp.Service satisfies it structurally).
+//
+// AttachmentRenderer 把附件 id 渲成原生 content part(与 chat/agent 同一条缝;
+// *attachmentapp.Service 结构满足)。
+type AttachmentRenderer interface {
+	ToContentParts(ctx context.Context, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error)
+}
+
 // Deps are subagent's injected collaborators (DIP). Messages persists the sub-message; Resolver
 // resolves the model; Tools is the parent registry; Bridge is the messages stream (nil → no live
 // push, REST history still works).
@@ -96,6 +106,19 @@ type Service struct {
 	search searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
 	reg    *Registry
 	log    *zap.Logger
+
+	// Multimodal seam (WRK-082 批B', injected post-construction — the capability-tool set is
+	// wired later in bootstrap than this service). capTools joins the per-request capability
+	// tools (generate_image …) into the parent set BEFORE the type allow-list; renderer+caps
+	// form the consumption chokepoint's tool_result half (loop.MediaExpander). All nil-tolerant:
+	// missing → no capability tools / refs stay text (honest degrade).
+	//
+	// 多模态缝(批B',后置注入——能力工具集在 bootstrap 里比本服务晚成形)。capTools 把逐请求能力
+	// 工具并进父集、再过类型白名单;renderer+caps 是消费咽喉 tool_result 半(loop.MediaExpander)。
+	// 全 nil 容忍:缺 → 无能力工具/引用留文本(诚实降级)。
+	capTools func(ctx context.Context) []toolapp.Tool
+	renderer AttachmentRenderer
+	caps     func(ctx context.Context, provider, modelID string) attachmentapp.Capabilities
 }
 
 // New constructs the Service. nil log → no-op logger.
@@ -114,6 +137,38 @@ var _ skilldomain.SubagentRunner = (*Service)(nil)
 //
 // Registry 暴露内置类型注册表（Subagent 工具读 Names() 作 enum）。
 func (s *Service) Registry() *Registry { return s.reg }
+
+// SetMultimodal injects the WRK-082 批B' seam post-construction (see the field comment).
+//
+// SetMultimodal 后置注入批B' 多模态缝(见字段注释)。
+func (s *Service) SetMultimodal(
+	capTools func(ctx context.Context) []toolapp.Tool,
+	renderer AttachmentRenderer,
+	caps func(ctx context.Context, provider, modelID string) attachmentapp.Capabilities,
+) {
+	s.capTools = capTools
+	s.renderer = renderer
+	s.caps = caps
+}
+
+// composeTools assembles a spawn's tool set: parent registry + per-request capability tools
+// (joined BEFORE the allow-list — general-purpose's empty list inherits them, Explore/Plan's
+// read-only whitelists exclude them by construction), then the type filter. Full slice
+// expression — never grow into the shared registry backing array.
+//
+// composeTools 组装一次 spawn 的工具集:父注册表 + 逐请求能力工具(在白名单**前**并入——
+// general-purpose 空表继承,Explore/Plan 只读白名单天然排除),再过类型过滤。全切片表达式——
+// 绝不长进共享注册表底层数组。
+func (s *Service) composeTools(ctx context.Context, typ Type) []toolapp.Tool {
+	var parentTools []toolapp.Tool
+	if s.deps.Tools != nil {
+		parentTools = s.deps.Tools.Tools()
+	}
+	if s.capTools != nil {
+		parentTools = append(parentTools[:len(parentTools):len(parentTools)], s.capTools(ctx)...)
+	}
+	return filterTools(typ, parentTools)
+}
 
 // Spawn runs one subagent over prompt and returns its final answer. Synchronous: it builds the
 // hybrid host, runs the ReAct loop, and the host persists the sub-message + streams it. A bad
@@ -138,11 +193,7 @@ func (s *Service) Spawn(ctx context.Context, agentType, prompt string) (string, 
 		return "", fmt.Errorf("subagent: resolve model: %w", err)
 	}
 
-	var parentTools []toolapp.Tool
-	if s.deps.Tools != nil {
-		parentTools = s.deps.Tools.Tools()
-	}
-	tools := filterTools(typ, parentTools)
+	tools := s.composeTools(ctx, typ)
 
 	convID, _ := reqctxpkg.GetConversationID(ctx)
 	toolCallID, _ := reqctxpkg.GetToolCallID(ctx) // the spawning tool_call — E3 anchor (empty for a fork skill not under a tool_call)
@@ -191,6 +242,10 @@ func (s *Service) Spawn(ctx context.Context, agentType, prompt string) (string, 
 	subCtx = reqctxpkg.WithAgentState(subCtx, agentstatepkg.New())
 	subCtx = reqctxpkg.SetMessageID(subCtx, subMsgID)
 
+	var hostCaps attachmentapp.Capabilities
+	if s.caps != nil {
+		hostCaps = s.caps(ctx, bundle.Provider, bundle.Request.ModelID)
+	}
 	host := &subagentHost{
 		svc:            s,
 		conversationID: convID,
@@ -198,6 +253,8 @@ func (s *Service) Spawn(ctx context.Context, agentType, prompt string) (string, 
 		userPrompt:     prompt,
 		systemPrompt:   composeSystemPrompt(typ, reqctxpkg.GetLocale(ctx)),
 		tools:          tools,
+		renderer:       s.renderer,
+		caps:           hostCaps,
 	}
 	req := bundle.Request
 	req.System = host.systemPrompt

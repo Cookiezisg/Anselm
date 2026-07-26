@@ -528,6 +528,21 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		},
 		EntitiesBridge: bus.entities, // SSE-C: agent run mirrors its ReAct trace to the agent panel
 	})
+	// subagent's 批B' seam (post-construction — capabilityTools/att are born later in this file
+	// than the service): capability tools join the parent set pre-allow-list (general-purpose
+	// subagents can generate media; Explore/Plan read-only lists exclude them by construction),
+	// and the same consumption chokepoint expands tool_result MediaRefs for the subagent's model.
+	// subagent 的批B' 缝(后置注入——capabilityTools/att 在本文件比该服务晚成形):能力工具在白名单前
+	// 并入父集(general-purpose 子代理能生成媒体;Explore/Plan 只读白名单天然排除),同一消费咽喉为
+	// subagent 的模型展开 tool_result MediaRef。
+	subagentSvc.SetMultimodal(capabilityTools, att,
+		func(ctx context.Context, provider, modelID string) attachmentapp.Capabilities {
+			c := lookup.contentCaps(ctx, provider, modelID)
+			return attachmentapp.Capabilities{
+				Vision: c.Vision, Video: c.Video, Audio: c.Audio, NativeDocs: c.NativeDocs,
+				MaxMediaParts: c.MaxMediaParts, MaxMediaBytes: c.MaxMediaBytes,
+			}
+		})
 	// workflow ref resolution (CapabilityCheck + pin closure determinism).
 	wf.SetResolver(NewRefResolver(fn, hd, ag, ctl, apf, trg, mcp))
 

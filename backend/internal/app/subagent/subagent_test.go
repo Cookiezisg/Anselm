@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"iter"
 	"slices"
 	"strings"
@@ -13,6 +14,7 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
+	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
@@ -255,5 +257,79 @@ func TestSpawn_WallClockTimeout(t *testing.T) {
 	}
 	if st := thread[0].Status; st == messagesdomain.StatusCompleted || st == messagesdomain.StatusStreaming {
 		t.Fatalf("a timed-out subagent sub-message must be a cancel/error terminal, got %q", st)
+	}
+}
+
+// --- WRK-082 批B' subagent 半贯通 -------------------------------------------
+
+// TestComposeTools_CapabilityToolsJoinByType: capability tools (generate_image …) join the
+// parent set BEFORE the allow-list — general-purpose inherits them, Explore's read-only
+// whitelist excludes them, and an un-injected service (nil capTools) composes exactly as before.
+func TestComposeTools_CapabilityToolsJoinByType(t *testing.T) {
+	parent := []toolapp.Tool{fakeTool{"Read"}, fakeTool{"Subagent"}}
+	svc := NewService(Deps{Tools: fakeTools{tools: parent}}, zap.NewNop())
+
+	gp, _ := NewRegistry().Get("general-purpose")
+	explore, _ := NewRegistry().Get("Explore")
+
+	// Un-injected: no capability tools appear. 未注入:不出现能力工具。
+	if got := names(svc.composeTools(context.Background(), gp)); len(got) != 1 || !has(got, "Read") {
+		t.Fatalf("pre-injection compose wrong: %v", got)
+	}
+
+	svc.SetMultimodal(func(context.Context) []toolapp.Tool {
+		return []toolapp.Tool{fakeTool{"generate_image"}}
+	}, nil, nil)
+
+	if got := names(svc.composeTools(context.Background(), gp)); !has(got, "generate_image") || !has(got, "Read") || has(got, "Subagent") {
+		t.Fatalf("general-purpose must inherit capability tools (minus Subagent): %v", got)
+	}
+	if got := names(svc.composeTools(context.Background(), explore)); has(got, "generate_image") {
+		t.Fatalf("Explore's read-only whitelist must exclude capability tools: %v", got)
+	}
+	// The shared parent slice must be untouched (no append into its backing array).
+	// 共享父切片不得被碰(不 append 进其底层数组)。
+	if len(parent) != 2 || parent[0].Name() != "Read" || parent[1].Name() != "Subagent" {
+		t.Fatalf("parent registry slice mutated: %v", names(parent))
+	}
+}
+
+// fakeRenderer records the ids asked for and returns one image part (or errors).
+type fakeRenderer struct {
+	got  [][]string
+	fail bool
+}
+
+func (f *fakeRenderer) ToContentParts(_ context.Context, ids []string, _ attachmentapp.Capabilities) ([]llminfra.ContentPart, error) {
+	f.got = append(f.got, ids)
+	if f.fail {
+		return nil, fmt.Errorf("boom")
+	}
+	return []llminfra.ContentPart{{Type: llminfra.PartImageURL, ImageURL: "data:image/png;base64,xx"}}, nil
+}
+
+// TestSubagentHost_ExpandToolMedia: renderer present → parts; renderer error → nil (warn, the
+// textual receipt stays); renderer nil → nil.
+func TestSubagentHost_ExpandToolMedia(t *testing.T) {
+	svc := NewService(Deps{}, zap.NewNop())
+	r := &fakeRenderer{}
+	h := &subagentHost{svc: svc, renderer: r}
+
+	parts := h.ExpandToolMedia(context.Background(), []string{"att_00aa00aa00aa00aa"})
+	if len(parts) != 1 || parts[0].Type != llminfra.PartImageURL {
+		t.Fatalf("expected the rendered part, got %+v", parts)
+	}
+	if len(r.got) != 1 || len(r.got[0]) != 1 || r.got[0][0] != "att_00aa00aa00aa00aa" {
+		t.Fatalf("renderer asked with %v", r.got)
+	}
+
+	h.renderer = &fakeRenderer{fail: true}
+	if parts := h.ExpandToolMedia(context.Background(), []string{"att_00aa00aa00aa00aa"}); parts != nil {
+		t.Fatalf("renderer failure must degrade to nil, got %+v", parts)
+	}
+
+	h.renderer = nil
+	if parts := h.ExpandToolMedia(context.Background(), []string{"att_00aa00aa00aa00aa"}); parts != nil {
+		t.Fatalf("nil renderer must yield nil, got %+v", parts)
 	}
 }
