@@ -51,7 +51,14 @@ void main() {
       expect((j['activeVersion'] as Map)['inputs'], isA<List>());
     });
 
-    test('FunctionRunResult is the bare (un-enveloped) shape', () {
+    // Renamed from「is the bare (un-enveloped) shape」(WRK-083 L14). That name was the bug written down:
+    // the repository read `:run` bare because this test said it was bare, so `ok` fell back to `false` on
+    // every successful run — and the suite stayed green the whole time, because a round-trip through
+    // `toJson`/`fromJson` never meets the envelope the server actually sends.
+    // 原名「is the bare (un-enveloped) shape」(WRK-083 L14)。那个名字**就是被写下来的 bug**:仓之所以裸读
+    // `:run`,正因为这条测试说它是裸的,于是每次成功运行的 `ok` 都退回 `false`——而测试套件全程是绿的,因为
+    // `toJson`/`fromJson` 的往返**永远碰不到服务器真正发出的那层信封**。
+    test('FunctionRunResult round-trips (the WIRE shape is enveloped)', () {
       const r = FunctionRunResult(
         ok: true,
         output: 5,
@@ -207,20 +214,23 @@ void main() {
       },
     );
 
-    test('InvokeResult is the bare shape with token/step counters', () {
-      const r = InvokeResult(
-        executionId: 'agx_1',
-        ok: true,
-        output: 'done',
-        status: 'completed',
-        stopReason: 'end_turn',
-        steps: 4,
-        tokensIn: 1200,
-        tokensOut: 340,
-        elapsedMs: 5000,
-      );
-      expect(InvokeResult.fromJson(r.toJson()), r);
-    });
+    test(
+      'InvokeResult round-trips with token/step counters (wire is enveloped)',
+      () {
+        const r = InvokeResult(
+          executionId: 'agx_1',
+          ok: true,
+          output: 'done',
+          status: 'completed',
+          stopReason: 'end_turn',
+          steps: 4,
+          tokensIn: 1200,
+          tokensOut: 340,
+          elapsedMs: 5000,
+        );
+        expect(InvokeResult.fromJson(r.toJson()), r);
+      },
+    );
 
     test('AgentExecution carries model + transcript, no logs field', () {
       final ex = AgentExecution(

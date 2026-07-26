@@ -10,7 +10,8 @@ import 'package:flutter_test/flutter_test.dart';
 // STEP 1 gate — the transport rung end-to-end: LiveEntityRepository over a fake HttpClientAdapter (no
 // server), proving each non-obvious decode against the EXACT backend envelope: rail rows from a bare
 // list, the PageWithAggregate whose tally is NESTED under data.aggregates, the flowrun composite
-// (nextCursor inside data), the bare un-enveloped run result, and the request paths/bodies the verbs send.
+// (nextCursor inside data), the ENVELOPED run result (WRK-083 L14 — it was never bare), and the
+// request paths/bodies the verbs send.
 
 class _FakeAdapter implements HttpClientAdapter {
   _FakeAdapter(this.respond);
@@ -152,11 +153,26 @@ void main() {
     },
   );
 
+  // WRK-083 L14 — the fixture now carries the ENVELOPE the server actually sends.
+  //
+  // It used to hand itself `{ok:true,…}` at the top level and assert that came back: a fixture written
+  // to match the client's belief instead of the server's behaviour, so it could not fail. Meanwhile the
+  // real `:run` answers `{"data":{ok:true,…}}` (N1 admits no exception), the repository read it bare,
+  // and `ok` fell back to its `false` default on EVERY successful run — the run terminal captioned a
+  // 94ms success as 失败 while the ledger three lines below showed it green.
+  //
+  // WRK-083 L14——夹具现在带上了**服务器真正发出的那层信封**。
+  //
+  // 它原本在顶层喂自己 `{ok:true,…}` 再断言拿回了它:一个照着**客户端的信念**、而不是**服务器的行为**写出来的
+  // 夹具,故不可能失败。而真实的 `:run` 答的是 `{"data":{ok:true,…}}`(N1 不认例外),仓却裸读,于是**每一次
+  // 成功**运行的 `ok` 都退回 `false`——终端把一次 94ms 的成功标成「失败」,而三行之下的台账里它是绿的。
   test(
-    'runFunction posts {args,version} to :run and decodes the BARE result',
+    'runFunction posts {args,version} to :run and decodes the ENVELOPED result',
     () async {
       final b = _build(
-        (_) => _json({'ok': true, 'output': 42, 'elapsedMs': 7}),
+        (_) => _json({
+          'data': {'ok': true, 'output': 42, 'elapsedMs': 7},
+        }),
       );
       final r = await b.repo.runFunction(
         'fn_1',

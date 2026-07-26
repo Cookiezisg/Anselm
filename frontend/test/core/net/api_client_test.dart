@@ -95,12 +95,15 @@ void main() {
     expect(id, 'run_9');
   });
 
-  test('postBare returns the bare (unwrapped) result', () async {
-    final b = _build((_) => _json({'ok': true, 'out': 42}));
-    final r =
-        await b.client.postBare('/functions/fn_1:run') as Map<String, dynamic>;
-    expect(r['out'], 42);
-  });
+  // `postBare` is GONE (WRK-083 L14). It existed for the three synchronous executors
+  // (`:run`/`:call`/`:invoke`) on the belief that they answer un-enveloped — they do not; N1 admits no
+  // exception. The test that used to sit here fed itself a hand-made bare body and then asserted the
+  // body was bare: it never asked what the server sends, so it could not fail, and it made the loaded
+  // gun look covered. The executors now read `postData` like everything else.
+  // `postBare` **已删**(WRK-083 L14)。它是为三个同步执行器(`:run`/`:call`/`:invoke`)而存在的,前提是
+  // 它们答**不裹信封**——并非如此,N1 不认这种例外。原本站在这里的测试**喂自己一个手造的裸 body、再断言 body
+  // 是裸的**:它从没问过服务器发的是什么,所以它不可能失败,却让那把上膛的枪看起来是被覆盖的。执行器现在与其他
+  // 一切一样走 `postData`。
 
   test('error envelope → typed ApiException (code + status)', () async {
     final b = _build(

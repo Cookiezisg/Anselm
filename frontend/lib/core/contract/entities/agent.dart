@@ -79,7 +79,9 @@ abstract class AgentExecution with _$AgentExecution {
       _$AgentExecutionFromJson(json);
 }
 
-/// The BARE synchronous `:invoke` result (returned directly, not enveloped). invoke.go:63。
+/// The synchronous `:invoke` result — INSIDE the standard N1 envelope (`{"data": {...}}`), like every
+/// other success. Same correction as [FunctionRunResult] (WRK-083 L14).
+/// 同步 `:invoke` 结果——与其他所有成功响应一样**裹在 N1 信封里**。同 [FunctionRunResult] 的订正(WRK-083 L14)。
 @freezed
 abstract class InvokeResult with _$InvokeResult {
   const factory InvokeResult({

@@ -78,8 +78,11 @@ abstract class FunctionExecution with _$FunctionExecution {
       _$FunctionExecutionFromJson(json);
 }
 
-/// The BARE synchronous `:run` result (NOT wrapped in an envelope `data` object — the run handler
-/// returns it directly). run.go:36。
+/// The synchronous `:run` result. It arrives INSIDE the standard N1 envelope like every other success
+/// (`{"data": {...}}`) — this doc used to claim the opposite and the repository read it bare, so `ok`
+/// fell back to `false` on every successful run and the terminal captioned it 失败 (WRK-083 L14).
+/// 同步 `:run` 结果。它与其他所有成功响应一样**裹在 N1 信封里**(`{"data": {...}}`)——本注释原先声称相反,
+/// 而仓也据此裸读,于是每一次**成功**运行的 `ok` 都退回 `false`、终端把它标成「失败」(WRK-083 L14)。
 @freezed
 abstract class FunctionRunResult with _$FunctionRunResult {
   const factory FunctionRunResult({

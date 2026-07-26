@@ -242,15 +242,6 @@ class ApiClient {
     return id;
   });
 
-  /// POST a synchronous executor (`:run`/`:call`/`:invoke`) that returns a BARE result
-  /// (not wrapped in `{data}`/`{result}`). Returns the decoded body as-is.
-  ///
-  /// POST 同步执行器(`:run`/`:call`/`:invoke`),返**裸结果**(不裹 `{data}`/`{result}`)。
-  Future<dynamic> postBare(String path, {Object? body}) => _send(() async {
-    final r = await _dio.post<dynamic>(path, data: body);
-    return r.data;
-  });
-
   /// POST a fire-and-forget action with no product (204) — e.g. `:reindex`, resolve.
   ///
   /// POST 无产物的 fire-and-forget(204)——如 `:reindex`、resolve。

@@ -480,11 +480,18 @@ class LiveEntityRepository implements EntityRepository {
     required Map<String, dynamic> args,
     int? version,
   }) async {
-    final r = await _api.postBare(
+    // The envelope is NOT optional (N1: every success is `{"data": …}`) — the three synchronous
+    // executors are no exception, and reading them BARE made `ok` fall back to its `false` default on
+    // every single successful run. Real machine: a function that ran fine in 94ms was captioned 失败
+    // while the execution ledger three lines below showed the same run green (WRK-083 L14).
+    // 信封不是可选的(N1:成功一律 `{"data": …}`)——三个同步执行器也不例外,而**裸读**让 `ok` 在每一次**成功**
+    // 执行上退回它的 `false` 默认值。真机:一个 94ms 跑通的函数被标成「失败」,而三行之下的执行台账里同一次
+    // 运行是绿的(WRK-083 L14)。
+    final r = await _api.postData(
       EntityKind.function.actionPath(id)!,
       body: {'args': args, 'version': ?version},
     );
-    return FunctionRunResult.fromJson((r as Map).cast<String, dynamic>());
+    return FunctionRunResult.fromJson(r);
   }
 
   @override
@@ -492,7 +499,9 @@ class LiveEntityRepository implements EntityRepository {
     String id, {
     required String method,
     required Map<String, dynamic> args,
-  }) => _api.postBare(
+  }) => _api.postData(
+    // Same envelope rule as runFunction — reading this bare handed the caller the `{data: …}` wrapper
+    // itself as the method's return value. 同 runFunction 的信封律:裸读会把 `{data: …}` 这层壳当成方法返回值。
     EntityKind.handler.actionPath(id)!,
     body: {'method': method, 'args': args},
   );
@@ -503,11 +512,12 @@ class LiveEntityRepository implements EntityRepository {
     required Map<String, dynamic> input,
     int? version,
   }) async {
-    final r = await _api.postBare(
+    // Same envelope rule as runFunction. 同 runFunction 的信封律。
+    final r = await _api.postData(
       EntityKind.agent.actionPath(id)!,
       body: {'input': input, 'version': ?version},
     );
-    return InvokeResult.fromJson((r as Map).cast<String, dynamic>());
+    return InvokeResult.fromJson(r);
   }
 
   @override
