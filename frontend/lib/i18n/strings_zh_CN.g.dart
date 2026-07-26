@@ -1243,6 +1243,9 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get memSourceUser => '你';
 	@override String get memSourceAi => 'AI';
 	@override String get firingClaimed => '已认领';
+	@override String get generatingImage => '正在生成图像';
+	@override String get generatedImage => '已生成图像';
+	@override String get generatedImageStored => '已存为附件';
 }
 
 // Path: chat.gate
@@ -3449,6 +3452,9 @@ extension on TranslationsZhCn {
 			'chat.tool.memSourceUser' => '你',
 			'chat.tool.memSourceAi' => 'AI',
 			'chat.tool.firingClaimed' => '已认领',
+			'chat.tool.generatingImage' => '正在生成图像',
+			'chat.tool.generatedImage' => '已生成图像',
+			'chat.tool.generatedImageStored' => '已存为附件',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -3902,11 +3908,11 @@ extension on TranslationsZhCn {
 			'shell.notifications' => '通知',
 			'shell.workspaceFallback' => '工作区',
 			'shell.newWorkspace' => '新建工作区',
+			_ => null,
+		} ?? switch (path) {
 			'shell.workspaceSettings' => '工作区设置',
 			'notifications.title' => '通知',
 			'notifications.needsYou' => '待你处理',
-			_ => null,
-		} ?? switch (path) {
 			'notifications.feed' => '通知',
 			'notifications.markAllRead' => '全部已读',
 			'notifications.markAllUnread' => '全部未读',
@@ -4416,11 +4422,11 @@ extension on TranslationsZhCn {
 			'library.skillProvenance' => '来源',
 			'library.skillInstalledFrom' => '安装自',
 			'library.skillInstalledAt' => '装于',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillToolsApproved' => '预授权已生效',
 			'library.skillToolsPending' => '预授权待确认',
 			'library.skillApproveTools' => '授权预授权工具',
-			_ => null,
-		} ?? switch (path) {
 			'library.skillCheckUpdate' => '检查更新',
 			'library.skillUpdateDone' => '已更新到上游版本',
 			'library.skillLocallyModified' => '本地有改动——更新会覆盖，确认强制更新？',

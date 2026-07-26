@@ -423,6 +423,7 @@ lib/features/chat/ui/tool_card_entity_get_bodies.dart	converged
 lib/features/chat/ui/tool_card_exec.dart	reviewed
 lib/features/chat/ui/tool_card_flowrun.dart	reviewed
 lib/features/chat/ui/tool_card_fs_search.dart	converged
+lib/features/chat/ui/tool_card_generate.dart	pending
 lib/features/chat/ui/tool_card_io_section.dart	reviewed
 lib/features/chat/ui/tool_card_lifecycle.dart	reviewed
 lib/features/chat/ui/tool_card_memory_web.dart	reviewed

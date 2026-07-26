@@ -578,7 +578,10 @@
       "modelAvail": "$n available models",
       "memSourceUser": "you",
       "memSourceAi": "AI",
-      "firingClaimed": "claimed"
+      "firingClaimed": "claimed",
+      "generatingImage": "Generating image",
+      "generatedImage": "Generated image",
+      "generatedImageStored": "Saved as attachment"
     },
     "gate": {
       "dangerBadge": "Dangerous",

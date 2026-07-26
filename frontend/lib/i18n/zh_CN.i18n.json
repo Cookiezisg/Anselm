@@ -578,7 +578,10 @@
       "modelAvail": "$n 个可用模型",
       "memSourceUser": "你",
       "memSourceAi": "AI",
-      "firingClaimed": "已认领"
+      "firingClaimed": "已认领",
+      "generatingImage": "正在生成图像",
+      "generatedImage": "已生成图像",
+      "generatedImageStored": "已存为附件"
     },
     "gate": {
       "dangerBadge": "危险",

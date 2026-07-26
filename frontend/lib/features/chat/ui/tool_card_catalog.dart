@@ -14,6 +14,7 @@ import 'tool_card_document_skill.dart';
 import 'tool_card_exec.dart';
 import 'tool_card_flowrun.dart';
 import 'tool_card_fs_search.dart';
+import 'tool_card_generate.dart';
 import 'tool_card_ecosystem.dart';
 import 'tool_card_entity_get_bodies.dart';
 import 'tool_card_lifecycle.dart';
@@ -910,6 +911,29 @@ final Map<String, ToolCardSpec> _catalog = {
       row: (t, h) => documentListRow(h),
     ),
   ),
+  // ── generate 族(WRK-082 批B):产物=一等附件,体走 transcript 同管线(代拍 B7)。──
+  'generate_image': ToolCardSpec(
+    verb: (t, {required bool live}) =>
+        live ? t.chat.tool.generatingImage : t.chat.tool.generatedImage,
+    target: (s) {
+      final prompt = argString(s.argsText, 'prompt');
+      if (prompt == null || prompt.isEmpty) return null;
+      return prompt.length > 40 ? '${prompt.substring(0, 40)}…' : prompt;
+    },
+    receipt: (t, s) {
+      final r = parseGeneratedImage(s.resultText);
+      if (r == null) return null;
+      final dims = (r.width != null && r.height != null)
+          ? ' · ${r.width}×${r.height}'
+          : '';
+      return (
+        text: '${t.chat.tool.generatedImageStored}$dims',
+        tone: ToolReceiptTone.none,
+      );
+    },
+    body: generatedImageBody,
+  ),
+
   'list_attachments': _entitySearch(
     kind: (t) => t.chat.tool.kind.attachment,
     listKey: 'attachments',

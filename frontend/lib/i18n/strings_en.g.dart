@@ -3095,6 +3095,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'claimed'
 	String get firingClaimed => 'claimed';
+
+	/// en: 'Generating image'
+	String get generatingImage => 'Generating image';
+
+	/// en: 'Generated image'
+	String get generatedImage => 'Generated image';
+
+	/// en: 'Saved as attachment'
+	String get generatedImageStored => 'Saved as attachment';
 }
 
 // Path: chat.gate
@@ -7415,6 +7424,9 @@ extension on Translations {
 			'chat.tool.memSourceUser' => 'you',
 			'chat.tool.memSourceAi' => 'AI',
 			'chat.tool.firingClaimed' => 'claimed',
+			'chat.tool.generatingImage' => 'Generating image',
+			'chat.tool.generatedImage' => 'Generated image',
+			'chat.tool.generatedImageStored' => 'Saved as attachment',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -7868,11 +7880,11 @@ extension on Translations {
 			'shell.notifications' => 'Notifications',
 			'shell.workspaceFallback' => 'Workspace',
 			'shell.newWorkspace' => 'New workspace',
+			_ => null,
+		} ?? switch (path) {
 			'shell.workspaceSettings' => 'Workspace settings',
 			'notifications.title' => 'Notifications',
 			'notifications.needsYou' => 'Needs you',
-			_ => null,
-		} ?? switch (path) {
 			'notifications.feed' => 'Notifications',
 			'notifications.markAllRead' => 'Mark all read',
 			'notifications.markAllUnread' => 'Mark all unread',
@@ -8382,11 +8394,11 @@ extension on Translations {
 			'library.skillProvenance' => 'Provenance',
 			'library.skillInstalledFrom' => 'Installed from',
 			'library.skillInstalledAt' => 'Installed',
+			_ => null,
+		} ?? switch (path) {
 			'library.skillToolsApproved' => 'Pre-approval active',
 			'library.skillToolsPending' => 'Pre-approval pending',
 			'library.skillApproveTools' => 'Approve pre-authorized tools',
-			_ => null,
-		} ?? switch (path) {
 			'library.skillCheckUpdate' => 'Check for updates',
 			'library.skillUpdateDone' => 'Updated to the upstream version',
 			'library.skillLocallyModified' => 'Local edits exist — updating will overwrite them. Force update?',

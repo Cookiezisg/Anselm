@@ -641,3 +641,34 @@ String commandChip(String command) {
   final first = command.split('\n').first.trim();
   return first.replaceAll(RegExp(r'\s+'), ' ');
 }
+
+/// generate_image — the generation receipt (backend `tool/generate/image.go`, exact keys pinned):
+/// `{attachmentId, filename, mime, sizeBytes, provider, aspect, source:"generate_image",
+/// model?, width?, height?}`. Null unless `source` matches and `attachmentId` is a non-empty
+/// string — receipts never guess (file-header contract).
+///
+/// generate_image——生成回执(后端 `tool/generate/image.go`,键逐字钉):source 不符或
+/// attachmentId 空即 null——回执绝不猜(文件头契约)。
+({
+  String attachmentId,
+  String? mime,
+  int? width,
+  int? height,
+  String? provider,
+  String? model,
+})?
+parseGeneratedImage(String? output) {
+  if (output == null || output.isEmpty) return null;
+  final o = _obj(output);
+  if (o == null || o['source'] != 'generate_image') return null;
+  final id = o['attachmentId'];
+  if (id is! String || id.isEmpty) return null;
+  return (
+    attachmentId: id,
+    mime: o['mime'] is String ? o['mime'] as String : null,
+    width: (o['width'] is num) ? (o['width'] as num).toInt() : null,
+    height: (o['height'] is num) ? (o['height'] as num).toInt() : null,
+    provider: o['provider'] is String ? o['provider'] as String : null,
+    model: o['model'] is String ? o['model'] as String : null,
+  );
+}
