@@ -384,14 +384,44 @@ key/时延/journal 行。形状与实测冲突处以实测为准。
 本就会把 receipt 抄进终答;`pkg/mediaref` 同时认**字符串形** receipt,因为跨节点它就是这么走的);
 **剩**:MCP 返图模型看得见(找一个真返图的 MCP server 实测)、`make verify` 全绿。
 
-## §8 批C · 出语音(语音闭环收口)
+## §8 批C · 出语音(语音闭环收口)—— 网关钱层 ✅ 已施工(2026-07-27)
 
-- 网关:`POST /v1/audio/speech`(OpenAI 形:input/voice/format),上游 qwen3-tts HTTP 非实时形;
-  按字符价格卡;5 万字符/天(P8);SPEECH 能力面双半;URL 直通同 P13。
-- 桌面:`generate_speech` 工具 + **朗读入口**(消息动作排,不经 LLM 零 token);产物 = 既有音频
-  播放卡;默认 Cherry,`voice` 参数留、设置页不开(P10)。
-- **朗读缓存**(P10):键=(内容哈希+音色),LRU 50MB——重听不重复计费。
-- 直连方言:OpenAI `/audio/speech` 形(OpenAI/智谱)+ DashScope 形;无 TTS 的家 §3.5 缺席。
+> **两段扇出调研已完成**(读码 + 联网四家官方文档),结论钉在下面;施工照契约、不照猜。
+
+**调研的三条硬结论(推翻了原工单的两处假设)**:
+1. **DashScope 没有 OpenAI 兼容 TTS 端点**(`/compatible-mode/v1/audio/speech` 不存在,三处独立
+   证据含第三方 404 实测)。故 qwen3-tts **必须**写原生方言:`POST /api/v1/services/aigc/
+   multimodal-generation/generation`,body 嵌套 `input{text,voice,language_type}`,响应是 **JSON
+   带 OSS URL**(24h 过期)、需**二次 GET** 取字节;**无 `format` 参数**——固定 wav 24kHz/16bit/mono。
+   → 原工单写的「OpenAI 形:input/voice/format」对**网关上游**不成立,`format` 从网关线缆去掉。
+2. **方言可共用一份**:OpenAI 与智谱 GLM 的 `/audio/speech` 字段名逐字相同、响应同为裸字节,
+   一个 client + per-provider 能力描述子即可;Gemini 是第三种(base64 裸 PCM,**要自封 44 字节
+   RIFF 头**)。故直连侧是 **3 个方言**而非 4 个。
+3. **内部中间表示统一 24kHz/16-bit/mono PCM**:四家原生输出恰好全是这个规格,于是「解容器→PCM→
+   切块拼接→统一封 WAV」全程**零重采样**;而长文本必须切块(qwen3-tts 单请求 ~500 字符、GLM 1024),
+   **PCM 拼接是纯字节 concat,MP3 帧拼接会留 gapless 缝隙**——这条是格式选型的决定性理由。
+
+**代拍**(记 §1.1):**C1** 品类拒绝改 typed error 而非每品类一个 sentinel · **C2** 价格卡
+`qwen3-tts-flash-assumed-2026-07-27` @14e6 pUSD/字符(¥1/万字符第三方数,官方页 JS 渲染取不到,
+债由 `assumed` 保持可见,与 B3 同一笔晨间对账) · **C3** 网关线缆去掉 `format`(上游根本不支持,
+留着是让契约替代码撒谎) · **C4** 计费单位 = `utf8.RuneCountInString(input)` · **C5** **切块在
+桌面端、不在网关**——网关恒守「一请求=一预留=一结算」,网关内切块会让一次预留覆盖 N 次上游调用、
+把 GW-INV-50 极力避免的「歧义上游」重新引进来。
+
+**已施工(`c566612`)**:billing `InputCharacters` + 卡 + `NewCharactersPlan`/`CharactersCost` ·
+quota `CategorySpeech` + `SpeechDailyLimit` + **带品类名的 typed 拒绝** · quotastore 两个 case
+(gate 2c 与 rollback 本体零改动) · config 四键 + fail-fast · `TTS_UNAVAILABLE`/
+`TTS_QUOTA_EXHAUSTED`(**避开已被实时 ASR 占用的 `SPEECH_UNAVAILABLE`**) · GW-INV-52/53。
+
+**剩**:
+- 网关:`infra/upstream/ttsgen.go`(两步:POST→解 `output.audio.url`→**无鉴权头**裸 client GET)
+  + `app/tts`(照 `app/image` 逐行)+ `handlers/business/audio` + router 四处 + bootstrap 无条件
+  构造 + `SpeechGeneration *GenProfile`(version 仍 1)。
+- 桌面:`infra/llm/speechgen.go`(3 方言 + 共享 `wavHeader` + 按 provider 上限切块拼接)+
+  `speechProviders` **手写表**(catalog 的 chat 谓词会把纯 TTS 模型全滤掉,发现不了)+
+  `resolveSpeech`/`SpeechAvailable` + `generate/speech.go` 工具 + `GenerateTools` 追加一项。
+- **朗读**(P10,不经 LLM 零 token)+ **缓存**:键=(内容哈希+音色+模型+格式),直接**复用附件
+  blob CAS 当持久层**(内容寻址天然去重、GC 走既有 Sweep),零新原语。
 - **金标**:真合成一句;缓存命中零计费以 journal 为证。
 
 ## §9 批D · 出视频(长任务形态;网关零活)
