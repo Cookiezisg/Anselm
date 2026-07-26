@@ -83,6 +83,16 @@ type StepRecorder interface {
 	RecordStep(ctx context.Context, step int, assistant, toolResults []messagesdomain.Block)
 }
 
+// MediaExpander is an OPTIONAL Host capability (type-asserted): it renders attachment ids found
+// in a step's tool results into native content parts for THIS run's model (modality-gated by the
+// host). Hosts without it keep textual receipts only.
+//
+// MediaExpander 是 Host 可选能力(type-asserted):把本步工具结果里的附件 id 渲成**本次运行模型**
+// 的原生 content part(host 负责模态门控)。不实现的 host 只留文本 receipt。
+type MediaExpander interface {
+	ExpandToolMedia(ctx context.Context, ids []string) []llminfra.ContentPart
+}
+
 // Result is the terminal summary of one Run.
 //
 // Result 是一次 Run 的终态汇总。
@@ -351,6 +361,28 @@ func Run(
 		}
 
 		history = extendHistory(history, aBlocks, rBlocks)
+
+		// Consumption chokepoint, tool-result half (WRK-082 批B' 不变量③): MediaRefs riding this
+		// step's tool results (a generated image's receipt, an MCP media receipt) expand into a
+		// follow-up user message with native parts — the model SEES what its tools just produced,
+		// this very turn. Hosts without the capability (or models without the modality) simply
+		// keep the textual receipts: honest degrade, wire-valid either way.
+		// 消费咽喉·tool_result 半(批B' 不变量③):本步工具结果里的 MediaRef(生成图 receipt、MCP
+		// 媒体 receipt)展开成一条带原生 part 的后续 user 消息——模型**当轮**看见工具刚产出的东西。
+		// host 无此能力(或模型无此模态)则保留文本 receipt:诚实降级,两种线缆皆合法。
+		if expander, ok := host.(MediaExpander); ok {
+			if ids := toolResultMediaIDs(rBlocks); len(ids) > 0 {
+				if parts := expander.ExpandToolMedia(ctx, ids); len(parts) > 0 {
+					history = append(history, llminfra.LLMMessage{
+						Role: llminfra.RoleUser,
+						Parts: append([]llminfra.ContentPart{{
+							Type: llminfra.PartText,
+							Text: "Media artifacts referenced by the tool results above:",
+						}}, parts...),
+					})
+				}
+			}
+		}
 
 		// Sub-step replay: journal a fully-completed step so a future :replay
 		// reconstructs history from here instead of re-running this step's LLM + tools.

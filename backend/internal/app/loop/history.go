@@ -1,10 +1,12 @@
 package loop
 
 import (
+	"encoding/json"
 	"fmt"
 
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	mediarefpkg "github.com/sunweilin/anselm/backend/internal/pkg/mediaref"
 )
 
 // warmPreviewBytes caps a warm-projected tool_result's inline length before truncation.
@@ -112,4 +114,33 @@ func ExtractTextContent(blocks []messagesdomain.Block) string {
 		}
 	}
 	return last
+}
+
+// toolResultMediaIDs collects MediaRef attachment ids from a step's tool_result blocks (JSON
+// receipts only — a plain-text result cannot carry the grammar).
+//
+// toolResultMediaIDs 从一步的 tool_result 块收集 MediaRef 附件 id(仅 JSON receipt——纯文本结果
+// 载不动该文法)。
+func toolResultMediaIDs(rBlocks []messagesdomain.Block) []string {
+	var ids []string
+	seen := map[string]bool{}
+	for _, b := range rBlocks {
+		if b.Type != messagesdomain.BlockTypeToolResult || b.Content == "" {
+			continue
+		}
+		var v any
+		if json.Unmarshal([]byte(b.Content), &v) != nil {
+			continue
+		}
+		for _, id := range mediarefpkg.Collect(v) {
+			if !seen[id] {
+				seen[id] = true
+				ids = append(ids, id)
+			}
+			if len(ids) >= mediarefpkg.MaxRefs {
+				return ids
+			}
+		}
+	}
+	return ids
 }

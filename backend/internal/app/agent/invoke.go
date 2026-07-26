@@ -10,6 +10,7 @@ import (
 
 	"go.uber.org/zap"
 
+	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
@@ -278,11 +279,14 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 	// 消费咽喉(批B' 不变量③):payload 里的 MediaRef 为**解析出的模型**展开成原生 content part——
 	// 上游节点出的图经 receipt 传给本 agent,agent 真的**看见**像素(模态门控;不能看的模型只留
 	// 文本 receipt——诚实降级、绝不假装)。
+	var hostCaps attachmentapp.Capabilities
+	if s.invoke.ContentCaps != nil {
+		hostCaps = s.invoke.ContentCaps(ctx, bundle.Provider, bundle.Request.ModelID)
+	}
 	var userParts []llminfra.ContentPart
 	if ids := mediarefpkg.Collect(map[string]any(in.Input)); len(ids) > 0 &&
 		s.invoke.Attachments != nil && s.invoke.ContentCaps != nil {
-		caps := s.invoke.ContentCaps(ctx, bundle.Provider, bundle.Request.ModelID)
-		parts, pErr := s.invoke.Attachments.ToContentParts(ctx, ids, caps)
+		parts, pErr := s.invoke.Attachments.ToContentParts(ctx, ids, hostCaps)
 		if pErr != nil {
 			return loopapp.Result{}, runProvenance{}, nil, fmt.Errorf("render payload media: %w", pErr)
 		}
@@ -296,6 +300,8 @@ func (s *Service) runLoop(ctx context.Context, a *agentdomain.Agent, v *agentdom
 		replay:     in.ReplaySteps,
 		recorder:   in.Recorder,
 		log:        s.log,
+		renderer:   s.invoke.Attachments,
+		caps:       hostCaps,
 	}
 
 	req := bundle.Request
@@ -475,6 +481,28 @@ type agentHost struct {
 	replay     []RecordedStep
 	recorder   StepRecorder
 	log        *zap.Logger
+
+	// renderer + caps power loop.MediaExpander (tool-result half of the chokepoint): the agent
+	// sees media its own tools just produced. Either nil → textual receipts only.
+	// renderer + caps 支撑 loop.MediaExpander(咽喉的 tool_result 半):agent 看见自己工具刚产出的
+	// 媒体。任一 nil → 只留文本 receipt。
+	renderer AttachmentRenderer
+	caps     attachmentapp.Capabilities
+}
+
+// ExpandToolMedia implements loop.MediaExpander — same grammar, same gating as the payload half.
+//
+// ExpandToolMedia 实现 loop.MediaExpander——与 payload 半同文法、同门控。
+func (h *agentHost) ExpandToolMedia(ctx context.Context, ids []string) []llminfra.ContentPart {
+	if h.renderer == nil || len(ids) == 0 {
+		return nil
+	}
+	parts, err := h.renderer.ToContentParts(ctx, ids, h.caps)
+	if err != nil {
+		h.log.Warn("agent: tool media expansion failed (textual receipts kept)", zap.Error(err))
+		return nil
+	}
+	return parts
 }
 
 func (h *agentHost) LoadHistory(_ context.Context) ([]llminfra.LLMMessage, error) {

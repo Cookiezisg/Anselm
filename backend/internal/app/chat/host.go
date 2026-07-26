@@ -186,6 +186,26 @@ func intValue(v any) int {
 // Tools 每步重算 offer 集（loop 契约）：永远是 resident 工具 + search_tools，加上本对话已 discovered
 // 的 lazy 工具（经 search_tools、记在 AgentState）。search_tools 激活 lazy 工具，其完整 schema
 // 随下一请求 tools 列表出现；未激活工具只在 system prompt 留紧凑概览。
+// ExpandToolMedia implements loop.MediaExpander (WRK-082 批B' 消费咽喉·tool_result 半): tool
+// results carrying MediaRef receipts render into native parts for this conversation's model —
+// the model sees the image it just generated (or an MCP tool just returned) within the same turn.
+// Renderer absent or model modality-incapable → nil (the textual receipt stays, honest degrade).
+//
+// ExpandToolMedia 实现 loop.MediaExpander(批B' 消费咽喉·tool_result 半):带 MediaRef receipt 的
+// 工具结果渲成本对话模型的原生 part——模型**同一回合**看见自己刚生成(或 MCP 刚返回)的图。
+// 渲染器缺席或模型模态不支持 → nil(文本 receipt 仍在,诚实降级)。
+func (h *chatHost) ExpandToolMedia(ctx context.Context, ids []string) []llminfra.ContentPart {
+	if h.svc.deps.Attachments == nil || len(ids) == 0 {
+		return nil
+	}
+	parts, err := h.svc.deps.Attachments.ToContentParts(ctx, ids, h.caps)
+	if err != nil {
+		h.svc.log.Warn("chat: tool media expansion failed (textual receipts kept)", zap.Error(err))
+		return nil
+	}
+	return parts
+}
+
 func (h *chatHost) Tools(ctx context.Context) []toolapp.Tool {
 	ts := h.svc.deps.Toolset
 	tools := make([]toolapp.Tool, 0, len(ts.Resident)+1+len(ts.Lazy))

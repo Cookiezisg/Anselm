@@ -13,7 +13,7 @@ audience: [human, ai]
 
 ## 1. 定位 + 心智模型
 
-流式调 LLM → 派发工具 → 扩展历史 → 终态，循环至模型停手或触顶。**四消费者一引擎**（chat/agent/subagent/workflow-agent 经 `Host` 接口，物理上 3 个 Host 实现：`chatHost`/`agentHost`/`subagentHost`——agentHost 同时服务独立 agent 调用与 workflow-agent 节点），只依赖中立件（messages 内容模型 / tool 契约 / llm 端口 / stream）。**Host 三必选**：LoadHistory / Tools（**每步重算**——`search_tools` 激活的 lazy 工具扩张后续步集合）/ WriteFinalize（恰一次收尾，block 落盘是 host 的事——loop 只内存产 block + 实时推流）。**五可选能力（type-assert）**：`ReminderProvider`（每步把 live 状态注入为临时 `<system-reminder>`，历史副本上追加、持久历史不污染）/ `AutoActivator`（LLM 直接点名某未激活 lazy 工具时，标记 discovered 并重建工具集）/ `StepRecorder`（子步重放记账，at-least-once）/ `PromptCompactor`（优先用 host 的 utility 模型生成 continuation checkpoint）/ `ContextObserver`（只观测单次 sampling 的尺寸/route/压缩决策，不持有 prompt 内容）。
+流式调 LLM → 派发工具 → 扩展历史 → 终态，循环至模型停手或触顶。**四消费者一引擎**（chat/agent/subagent/workflow-agent 经 `Host` 接口，物理上 3 个 Host 实现：`chatHost`/`agentHost`/`subagentHost`——agentHost 同时服务独立 agent 调用与 workflow-agent 节点），只依赖中立件（messages 内容模型 / tool 契约 / llm 端口 / stream）。**Host 三必选**：LoadHistory / Tools（**每步重算**——`search_tools` 激活的 lazy 工具扩张后续步集合）/ WriteFinalize（恰一次收尾，block 落盘是 host 的事——loop 只内存产 block + 实时推流）。**六可选能力（type-assert）**：`ReminderProvider`（每步把 live 状态注入为临时 `<system-reminder>`，历史副本上追加、持久历史不污染）/ `AutoActivator`（LLM 直接点名某未激活 lazy 工具时，标记 discovered 并重建工具集）/ `StepRecorder`（子步重放记账，at-least-once）/ `PromptCompactor`（优先用 host 的 utility 模型生成 continuation checkpoint）/ `ContextObserver`（只观测单次 sampling 的尺寸/route/压缩决策，不持有 prompt 内容）/ `MediaExpander`（WRK-082 批B' 消费咽喉·tool_result 半：每步工具跑完后从 tool_result 收集 MediaRef〔`pkg/mediaref` 文法、≤8 去重〕，host 按当前模型模态展开成原生 content part，loop 以一条追加 user 消息〔"Media artifacts referenced by the tool results above:" + parts〕**只**喂给后续请求——工具刚画的图模型当轮就看见；持久历史不写这条消息，无能力/无引用/展开为空皆零追加）。
 
 ## 2. 关键行为
 

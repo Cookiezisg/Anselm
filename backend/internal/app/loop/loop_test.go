@@ -688,3 +688,98 @@ func truncate(s string) string {
 	}
 	return s
 }
+
+// --- WRK-082 批B' consumption chokepoint, tool_result half ------------------
+
+// mediaHost adds the optional MediaExpander capability to fakeHost, recording which ids the
+// loop asked to expand and returning one image part.
+//
+// mediaHost 给 fakeHost 加可选 MediaExpander 能力,记录 loop 请求展开的 id 并返回一个图 part。
+type mediaHost struct {
+	fakeHost
+	got [][]string
+}
+
+func (h *mediaHost) ExpandToolMedia(_ context.Context, ids []string) []llminfra.ContentPart {
+	h.got = append(h.got, ids)
+	return []llminfra.ContentPart{{Type: llminfra.PartImageURL, ImageURL: "data:image/png;base64,xx"}}
+}
+
+// TestRun_ToolResultMediaExpandsForTheModel: a tool receipt carrying a MediaRef makes the NEXT
+// model request contain a user message with the rendered media part — the model sees what its
+// own tool just produced, same turn. Also pins that the expansion rides ONLY the follow-up
+// request (first request untouched).
+func TestRun_ToolResultMediaExpandsForTheModel(t *testing.T) {
+	receipt := `{"attachmentId":"att_00aa00aa00aa00aa","mime":"image/png","source":"generate_image"}`
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+		{toolStartEv(0, "tc_1", "paint"), toolDeltaEv(0, `{"summary":"s","danger":"safe"}`), finishEv()},
+		{textEv("done"), finishEv()},
+	}}
+	host := &mediaHost{fakeHost: fakeHost{tools: []toolapp.Tool{fakeTool{name: "paint", result: receipt}}}}
+
+	Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+
+	if host.fin.status != messagesdomain.StatusCompleted {
+		t.Fatalf("status=%q, want completed", host.fin.status)
+	}
+	if len(host.got) != 1 || len(host.got[0]) != 1 || host.got[0][0] != "att_00aa00aa00aa00aa" {
+		t.Fatalf("expander asked for %v, want exactly the receipt's id once", host.got)
+	}
+	if len(client.captured) != 2 {
+		t.Fatalf("requests=%d, want 2", len(client.captured))
+	}
+	for _, m := range client.captured[0] {
+		for _, p := range m.Parts {
+			if p.Type == llminfra.PartImageURL {
+				t.Fatalf("first request already carries the media part — expansion must ride the follow-up only")
+			}
+		}
+	}
+	found := false
+	for _, m := range client.captured[1] {
+		if m.Role != llminfra.RoleUser {
+			continue
+		}
+		for _, p := range m.Parts {
+			if p.Type == llminfra.PartImageURL && p.ImageURL == "data:image/png;base64,xx" {
+				found = true
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("second request lacks the expanded media part: %+v", client.captured[1])
+	}
+}
+
+// TestRun_ToolResultWithoutMediaExpandsNothing: plain tool results must not summon the expander,
+// and a host WITHOUT the capability runs identically (no extra messages either way).
+//
+// TestRun_ToolResultWithoutMediaExpandsNothing:普通 tool result 不得召唤展开器;无能力 host 行为
+// 完全一致(两边都不多长消息)。
+func TestRun_ToolResultWithoutMediaExpandsNothing(t *testing.T) {
+	script := func() [][]llminfra.StreamEvent {
+		return [][]llminfra.StreamEvent{
+			{toolStartEv(0, "tc_1", "echo"), toolDeltaEv(0, `{"summary":"s","danger":"safe"}`), finishEv()},
+			{textEv("done"), finishEv()},
+		}
+	}
+	// Capability present, no MediaRef in the result → expander never called. 有能力无引用→零调用。
+	c1 := &fakeClient{scripts: script()}
+	h1 := &mediaHost{fakeHost: fakeHost{tools: []toolapp.Tool{fakeTool{name: "echo", result: "plain text"}}}}
+	Run(context.Background(), h1, c1, llminfra.Request{}, 5, nil)
+	if len(h1.got) != 0 {
+		t.Fatalf("expander called for a media-free result: %v", h1.got)
+	}
+	// No capability, receipt present → same message count as capability-present media-free run.
+	// 无能力有 receipt→消息数与上面一致(不长消息、不炸)。
+	receipt := `{"attachmentId":"att_00aa00aa00aa00aa","source":"generate_image"}`
+	c2 := &fakeClient{scripts: script()}
+	h2 := &fakeHost{tools: []toolapp.Tool{fakeTool{name: "echo", result: receipt}}}
+	Run(context.Background(), h2, c2, llminfra.Request{}, 5, nil)
+	if h2.fin.status != messagesdomain.StatusCompleted {
+		t.Fatalf("capability-less host must complete, got %q", h2.fin.status)
+	}
+	if len(c1.captured[1]) != len(c2.captured[1]) {
+		t.Fatalf("message counts diverge: with-cap %d vs without-cap %d", len(c1.captured[1]), len(c2.captured[1]))
+	}
+}
