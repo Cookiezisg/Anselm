@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:anselm/core/process/backend_controller.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/runtime.dart';
+import 'package:anselm/core/shell/inspector_memory.dart';
 import 'package:anselm/core/workspace/workspace_bootstrap.dart';
 import 'package:anselm/core/workspace/workspace_switch.dart';
 import 'package:anselm/features/chat/state/conversation_header.dart';
@@ -129,6 +130,31 @@ class _OpenThread extends ConsumerWidget {
       // 404 砍到一条,而幸存的那一条正是 transcript 流——它握着 SSE 订阅,故活得更久。
       ref.watch(conversationHeaderProvider(sel.id));
       ref.watch(conversationStreamProvider(sel.id));
+    }
+    return const SizedBox();
+  }
+}
+
+/// The right-island stand-in: it holds the conversation-keyed providers for the LIVE selection *or*
+/// the shell's remembered thread — and it is mounted at the ROOT, beside the router, exactly like the
+/// real inspector. So `go('/')` alone never releases it; only clearing the memory does. The latch
+/// mirrors AppShell's wiring verbatim (remember on every entry INTO a conversation).
+/// 右岛替身:为**活选区或壳的线程记忆**握住对话域 provider——且挂在**根**上、与路由并排,和真 inspector 一样。
+/// 于是单靠 `go('/')` 永远放不掉它;只有清记忆才放。上闩逻辑逐字镜像 AppShell(每次**进入**对话时 remember)。
+class _KeepAliveInspector extends ConsumerWidget {
+  const _KeepAliveInspector();
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.listen(selectedConversationProvider, (prev, next) {
+      if (next != null) {
+        ref.read(lastChatThreadProvider.notifier).remember(next.id);
+      }
+    });
+    final sel = ref.watch(selectedConversationProvider);
+    final id = sel?.id ?? ref.watch(lastChatThreadProvider);
+    if (id != null) {
+      ref.watch(conversationHeaderProvider(id));
+      ref.watch(conversationStreamProvider(id));
     }
     return const SizedBox();
   }
@@ -394,6 +420,106 @@ void main() {
     // **在 body 内**拆掉容器。SSE 连接对假 adapter 的 400 的回应是排一次重连退避,而 widget binding 会让
     // 「结束时仍有定时器」的测试判负。在这里 dispose,是趁测试还握着时钟把网关退役。本测试的网关必须是**真的**
     // ——把它 stub 掉,上面那条断言就空绿了,因为**正是网关的重建**把那个陈旧的对话 provider 拽回了人间。
+    c.dispose();
+    await tester.pump(const Duration(seconds: 10));
+  });
+
+  // WRK-083 L1, the RESIDUAL — the guard above releases everything when the route leaves, and the real
+  // shell does not: the right island REMEMBERS the last thread ([lastChatThreadProvider]) so the
+  // sidestage survives an ocean peek, which means `go('/')` alone frees nothing on that island. After
+  // the first fix the real machine still showed FOUR old-conversation requests at every switch
+  // (`interactions`/`touchpoints`/`todos` 200 + `messages` 404 — only ListMessages checks existence).
+  //
+  // The property: beat ① of the switch must clear the memory SYNCHRONOUSLY, in the same instant as
+  // `go('/')`, so the panel unmounts a frame before the axis flips. A memory that merely self-heals by
+  // watching the workspace id resets in the SAME flush that re-runs the stale providers — one frame
+  // too late, and this test stays red that way: the wire assertion below caught exactly that when the
+  // choreography lacked its explicit clear.
+  //
+  // WRK-083 L1 **残留**——上一条守卫的一切都随路由离场而释放,真壳不是:右岛**记住**最后的线程
+  // ([lastChatThreadProvider]),侧幕因此活过「去别的海洋看一眼」,也因此单靠 `go('/')` 在那座岛上什么都放不掉。
+  // 第一轮修复后真机每次切换仍有**四条**旧对话请求(`interactions`/`touchpoints`/`todos` 200 + `messages` 404
+  // ——只有 ListMessages 查存在性)。
+  //
+  // 性质:切换第①拍必须与 `go('/')` **同瞬同步**清记忆,面板才能在轴翻转前一帧卸载。只靠 watch workspace id
+  // 自愈的记忆,会在**重跑陈旧 provider 的同一次 flush**里才复位——晚一帧,而那样本测试就是红的:编舞缺显式
+  // 清除时,下面那条线缆断言抓到的正是这个。
+  testWidgets('the switch also releases the KEPT-ALIVE right island (L1 残留)', (
+    tester,
+  ) async {
+    final adapter = _RecordingAdapter();
+    final router = GoRouter(
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const SizedBox()),
+        GoRoute(path: '/chat/:id', builder: (_, _) => const SizedBox()),
+      ],
+      initialLocation: '/',
+    );
+    final c = _container(
+      dio: Dio(BaseOptions(baseUrl: 'http://127.0.0.1:1'))
+        ..httpClientAdapter = adapter,
+      router: router,
+    );
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: c,
+        // The inspector sits BESIDE the router, not under the route — leaving the route must not be
+        // what releases it, or the test is the previous one again. 替身与路由**并排**、不在路由之下——
+        // 释放它的不能是离开路由,否则本测试就是上一条的复读。
+        child: Stack(
+          textDirection: TextDirection.ltr,
+          children: [
+            MaterialApp.router(routerConfig: router),
+            const _KeepAliveInspector(),
+          ],
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    // Navigate INTO the thread (the rail-click path) so the memory latches like the real shell's.
+    // **导航进入**线程(rail 点击径),记忆像真壳一样上闩。
+    router.go('/chat/cv_old');
+    await tester.pumpAndSettle();
+    expect(
+      c.read(lastChatThreadProvider),
+      'cv_old',
+      reason: 'precondition: the shell memory latched on entry',
+    );
+    expect(
+      adapter.hits('cv_old'),
+      greaterThan(0),
+      reason: 'precondition: the inspector really did fetch the thread',
+    );
+
+    adapter.reset();
+    await tester.pumpAndSettle();
+    expect(
+      adapter.hits('cv_old'),
+      0,
+      reason: 'control: nothing polls on its own',
+    );
+
+    c.read(workspaceSwitchProvider).switchTo(id: 'ws_2', name: 'Two');
+    await tester.pumpAndSettle();
+
+    expect(c.read(activeWorkspaceProvider), 'ws_2');
+    expect(
+      c.read(lastChatThreadProvider),
+      isNull,
+      reason:
+          'beat ① must clear the shell memory — it belongs to the old world',
+    );
+    expect(
+      adapter.hits('cv_old'),
+      0,
+      reason:
+          'the kept-alive island held old-conversation providers across the flip — '
+          "that is L1's residual four-request burst",
+    );
+
+    // Same teardown discipline as the previous test (real gateway + pending backoff timer).
+    // 与上一条同款收尾(真网关 + 待清退避定时器)。
     c.dispose();
     await tester.pump(const Duration(seconds: 10));
   });

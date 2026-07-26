@@ -68,7 +68,7 @@ rail 搜索框从**面板粒度**升到**设置项粒度**——输入「代理�
 
 ## 平台地基(跨切,settings 触发但归 core)
 
-- **热切换**(拍板 #17 方案 B,`core/workspace/`):切 workspace → `dioProvider`/`sseGateway` 重建(**脉搏在 dio 层**,每切换新 Dio + `onDispose(close)`——放 client 层会在共享 Dio 上叠旧拦截器捏已废 Ref 必炸,回归钉入 `hot_switch_test`)→ 全 Live repo → 全 server-state provider 零逐处接线级联重取;生产者 `workspace_bootstrap` 用 `ref.read` 出反应环;粘性态(landingModel/titleReveals)各自 watch id 自愈;选区全 URL 派生故 `go('/')` 即清。`workspace_switch.dart`:同 id 短路 + 先离旧深链再设 id。
+- **热切换**(拍板 #17 方案 B,`core/workspace/`):切 workspace → `dioProvider`/`sseGateway` 重建(**脉搏在 dio 层**,每切换新 Dio + `onDispose(close)`——放 client 层会在共享 Dio 上叠旧拦截器捏已废 Ref 必炸,回归钉入 `hot_switch_test`)→ 全 Live repo → 全 server-state provider 零逐处接线级联重取;生产者 `workspace_bootstrap` 用 `ref.read` 出反应环;粘性态(landingModel/titleReveals)各自 watch id 自愈;选区全 URL 派生故 `go('/')` 即清。`workspace_switch.dart`:同 id 短路 + 第①拍同瞬 go('/') 离深链**并清右岛线程记忆**(`core/shell/inspector_memory.dart`,WRK-083 L1)+ 第②拍 **post-frame** 设 id——「先离开」是先一帧,翻转时仍被监听的对话域 provider 会带旧 id 重跑。
 - **Master key 铸钥**(拍板 #14 / [ADR 0008],`core/process/master_key.dart`):keychain 有条目直用 / **全新安装**(盘上无 db)铸 256-bit 随机钥 + 读回验证 / 旧装机绝不铸(硬注新钥 = 密文全孤儿)/ 任何异常退化机器指纹旧径**启动绝不变砖**。macOS 用 login keychain(`usesDataProtectionKeychain:false`——data-protection 需真证书签名,ad-hoc 编译失败);`BackendController.masterKey` 每 spawn 解析 → `ANSELM_MASTER_KEY` env。
 - **出厂重置**(拍板 #12,`core/platform/factory_reset.dart`):前端编排 = 停 sidecar → 删数据目录 → `resetAll` → `open -n <bundle>` 重启 + `exit(0)`。
 - **更新检查**(拍板 #7,`state/update_check_provider.dart` + `ui/startup_update_check.dart`):独立裸 Dio(**绝不带 loopback 凭据出网**)查 GitHub Releases + semver(怪格式绝不称新);启动自动查(开关控,available 才进入顶带消息舞台,失败沉默)。

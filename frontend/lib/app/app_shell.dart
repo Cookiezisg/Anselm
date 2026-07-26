@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../core/design/tokens.dart';
 import '../core/runtime.dart';
 import '../core/router/navigation.dart';
+import '../core/shell/inspector_memory.dart';
 import '../core/shell/ocean_breadcrumb.dart';
 import '../core/shell/oceans.dart';
 import '../core/shell/shell_chrome.dart';
@@ -120,6 +121,14 @@ class _AppShellState extends ConsumerState<AppShell> {
       // only subscribes to an already-created provider, so it cannot be invalidated mid-build.
       // `read` 在 widget build 外完成冷初始化；下一帧 `watch` 只订阅既有 provider，不会 build 中被失效。
       ref.read(unreadCountProvider);
+      // The build-phase listener below only fires on CHANGES — a cold start straight onto a
+      // /chat/:id deep link never transitions into its selection, so latch it once here.
+      // 下面 build 期的 listener 只在**变更**时开火——冷启动直接落在 /chat/:id 深链上的选区从未「变入」,
+      // 故在此闩一次。
+      final sel = ref.read(selectedConversationProvider);
+      if (sel != null) {
+        ref.read(lastChatThreadProvider.notifier).remember(sel.id);
+      }
       setState(() => _unreadBadgeReady = true);
     });
   }
@@ -159,6 +168,11 @@ class _AppShellState extends ConsumerState<AppShell> {
     ref.listen(selectedConversationProvider, (prev, next) {
       if (next != null) {
         ref.read(selectedOceanProvider.notifier).select(OceanKind.chat);
+        // The shell's remembered chat thread ([lastChatThreadProvider]) latches on every entry INTO a
+        // conversation — never on the way out, so the hot-switch's beat-① clear cannot be re-latched
+        // by the very navigation it performs. 壳的 chat 线程记忆在每次**进入**对话时上闩——绝不在离开时,
+        // 热切换第①拍的清除才不会被它自己执行的导航重新闩上。
+        ref.read(lastChatThreadProvider.notifier).remember(next.id);
       }
     });
     // Same coherence rule for documents: a /documents/... navigation (rail click, deep link, restored
@@ -381,6 +395,7 @@ class _AppShellState extends ConsumerState<AppShell> {
           child: _InspectorStack(
             onLibrary: onLibrary,
             chatConversation: chatConversation,
+            chatThread: chatConversation ?? ref.watch(lastChatThreadProvider),
             onScheduler: onScheduler,
             onEntities: ocean == OceanKind.entities,
           ),
@@ -485,8 +500,13 @@ class _OceanPlaceholder extends StatelessWidget {
 /// invisible fallthrough.
 ///
 /// The chat face needs an id, and the route's selection goes null the moment another ocean is entered, so
-/// the LAST conversation is remembered — otherwise the sidestage would unmount on every ocean switch and
-/// the keep-alive would buy nothing on the one face that has the most state to lose.
+/// it binds [chatThread] — the live selection backed by the shell's remembered thread
+/// ([lastChatThreadProvider]) — otherwise the sidestage would unmount on every ocean switch and the
+/// keep-alive would buy nothing on the one face that has the most state to lose. The memory is a
+/// provider, NOT private widget state, because it must die with the WORKSPACE, not with this widget:
+/// the hot-switch choreography clears it in beat ①, unmounting the StagePanel a frame before the axis
+/// flips — a privately remembered thread survived the switch and its four conversation-keyed providers
+/// re-fetched the old conversation under the new workspace (WRK-083 L1's 404 burst).
 ///
 /// 右岛内容宿主——[_OceanStack]/[_RailStack] 的 inspector 孪生件(RI 病灶②):每张脸首次揭示才建、建后常驻
 /// 折叠,于是切走海洋再回来不再拆掉重建(那代价是一次从零 inflate + 其中每个 provider 重新订阅——用户报的那个闪)。
@@ -495,59 +515,61 @@ class _OceanPlaceholder extends StatelessWidget {
 /// chat);它原先是三元链落到 `RunTerminal` 的兜底,而壳在那里因 `hasSelection` 为假从不揭示——给它一个自己的空槽
 /// 是把这件事说在明面上,而不是倚赖一个看不见的兜底。
 ///
-/// chat 那张脸需要一个 id,而进入别的海洋时路由选区立刻变 null,故**记住最后一个**对话——否则侧幕会在每次切换
-/// 海洋时卸载,保活在最有状态可丢的那张脸上恰好什么也没买到。
-class _InspectorStack extends StatefulWidget {
+/// chat 那张脸需要一个 id,而进入别的海洋时路由选区立刻变 null,故绑 [chatThread]——活选区、以壳的线程记忆
+/// ([lastChatThreadProvider])托底——否则侧幕会在每次切换海洋时卸载,保活在最有状态可丢的那张脸上恰好什么也没买到。
+/// 记忆是 provider、**不是**私有 widget 态,因为它该随 **workspace** 死、而不是随本 widget 活:热切换编舞在第①拍
+/// 清它,让 StagePanel 在轴翻转前一帧卸载——私有记忆会活过切换,它的四个对话域 provider 在新 workspace 下重取旧
+/// 对话(WRK-083 L1 那一簇 404)。
+class _InspectorStack extends StatelessWidget {
   const _InspectorStack({
     required this.onLibrary,
     required this.chatConversation,
+    required this.chatThread,
     required this.onScheduler,
     required this.onEntities,
   });
 
   final bool onLibrary;
+
+  /// The LIVE chat selection (gated to the chat ocean) — drives which slot SHOWS. 活选区(限 chat 海洋),定显示槽。
   final String? chatConversation;
+
+  /// What the chat face BINDS: the live selection backed by the shell memory. chat 脸绑定:活选区、记忆托底。
+  final String? chatThread;
+
   final bool onScheduler;
   final bool onEntities;
 
-  @override
-  State<_InspectorStack> createState() => _InspectorStackState();
-}
-
-class _InspectorStackState extends State<_InspectorStack> {
   static const _slotLibrary = 0;
   static const _slotChat = 1;
   static const _slotScheduler = 2;
   static const _slotEntities = 3;
   static const _slotNone = 4;
 
-  String? _lastChat;
-
   @override
   Widget build(BuildContext context) {
-    if (widget.chatConversation != null) _lastChat = widget.chatConversation;
-    final slot = widget.onLibrary
+    final slot = onLibrary
         ? _slotLibrary
-        : widget.chatConversation != null
+        : chatConversation != null
         ? _slotChat
-        : widget.onScheduler
+        : onScheduler
         ? _slotScheduler
-        : widget.onEntities
+        : onEntities
         ? _slotEntities
         : _slotNone;
-    final chatId = _lastChat;
     return AnLazyIndexedStack(
       index: slot,
       count: _slotNone + 1,
       sizing: StackFit.expand,
       builder: (context, i) => switch (i) {
         _slotLibrary => const LibraryInspector(),
-        // A visited chat slot always has a remembered id by construction — it could only have been
-        // visited while one was selected. 访问过的 chat 槽按构造必有记住的 id——它只可能在选中时被访问过。
+        // A null thread on a visited chat slot is the post-switch state: the memory was cleared, the
+        // panel tears down HERE — this unmount is the fix, not an RI hazard. 访问过的 chat 槽遇 null 线程
+        // =切换后状态:记忆已清,面板在此卸载——这次卸载正是修法本身,不是 RI 病灶。
         _slotChat =>
-          chatId == null
+          chatThread == null
               ? const SizedBox.shrink()
-              : StagePanel(conversationId: chatId),
+              : StagePanel(conversationId: chatThread!),
         _slotScheduler => const SchedulerRunInspector(),
         _slotEntities => const RunTerminal(),
         _ => const SizedBox.shrink(),

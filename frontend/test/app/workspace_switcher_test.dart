@@ -15,6 +15,8 @@ import 'package:anselm/features/notifications/data/notification_demo_fixture.dar
 import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/scheduler/data/scheduler_demo_fixture.dart';
 import 'package:anselm/features/scheduler/data/scheduler_repository.dart';
+import 'package:anselm/core/workspace/workspace_switch.dart';
+import 'package:anselm/features/chat/ui/stage_panel.dart';
 import 'package:anselm/features/settings/state/workspaces_provider.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -144,6 +146,71 @@ void main() {
       container.read(activeWorkspaceProvider),
       'ws_three',
       reason: 'the row must run the hot-switch action, not sit there checked',
+    );
+  });
+
+  // WRK-083 L1 (the residual) — the right island's chat face REMEMBERS the last conversation so the
+  // sidestage survives an ocean peek (deliberate, see _InspectorStack). But a WORKSPACE switch is not
+  // an ocean peek: the remembered thread belongs to the old world, and a memory that survives the
+  // switch keeps a StagePanel mounted (offstage, island folded — invisible) whose four providers
+  // (director→messages / ledger→touchpoints / pending→interactions / rundown→todos) are all keyed by
+  // the old conversation. When the axis flips and the repository cascade fires, they re-run with the
+  // old id under the NEW workspace — the exact four-request burst the real-machine log showed, one of
+  // them a 404.
+  //
+  // This guard is STRUCTURAL, on the real shell: after a switch, no StagePanel may remain mounted —
+  // offstage included, because offstage is precisely where the defect lives. The wire twin (nothing
+  // may ASK about the old conversation) is in test/core/workspace/hot_switch_test.dart.
+  //
+  // WRK-083 L1(残留)——右岛 chat 脸**记住最后一个对话**,让侧幕活过「去别的海洋看一眼」(刻意为之,见
+  // _InspectorStack)。但 workspace 切换不是看一眼:被记住的线程属于**旧世界**,记忆活过切换,就有一个
+  // StagePanel 挂着(offstage,岛折着——不可见),它的四个 provider(director→messages / ledger→touchpoints /
+  // pending→interactions / rundown→todos)全按旧对话分家。轴一翻、repository 级联开火,它们带着旧 id 在**新**
+  // workspace 下重跑——正是真机日志那一簇四条请求,其中一条 404。
+  //
+  // 本守卫是**结构**的、打在真壳上:切换之后不得再有任何 StagePanel 挂载——**含 offstage**,因为缺陷恰恰住在
+  // offstage 里。线缆孪生守卫(不得再有谁**问**旧对话)在 test/core/workspace/hot_switch_test.dart。
+  testWidgets('a workspace switch unbinds the kept-alive sidestage (L1)', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1400, 900);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(_host());
+    await _pump(tester);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(AppShell)),
+      listen: false,
+    );
+    container.read(activeWorkspaceProvider.notifier).state = 'ws_one';
+    await _pump(tester);
+
+    // Open a thread: the inspector's chat slot binds and mounts its StagePanel — offstage, because
+    // chat's island defaults folded; that is exactly why the finder must not skip offstage.
+    // 打开线程:右岛 chat 槽绑定并挂 StagePanel——offstage(chat 岛默认折),这正是 finder 不得跳过 offstage 的原因。
+    container.read(goRouterProvider).go('/chat/cv_sync');
+    await _pump(tester);
+    expect(
+      find.byType(StagePanel, skipOffstage: false),
+      findsOneWidget,
+      reason: 'precondition: opening a thread really did bind the sidestage',
+    );
+
+    container
+        .read(workspaceSwitchProvider)
+        .switchTo(id: 'ws_two', name: '演示工作台');
+    await _pump(tester);
+
+    expect(container.read(activeWorkspaceProvider), 'ws_two');
+    expect(
+      find.byType(StagePanel, skipOffstage: false),
+      findsNothing,
+      reason:
+          'the remembered chat thread belongs to the OLD workspace — a StagePanel that '
+          'survives the switch re-fetches four old-conversation endpoints under the new '
+          "one (WRK-083 L1's 404 burst)",
     );
   });
 }

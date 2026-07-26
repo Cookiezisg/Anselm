@@ -116,6 +116,7 @@ lib/core/runtime.dart	converged
 lib/core/settings/app_prefs_providers.dart	converged
 lib/core/settings/follow_mode.dart	converged
 lib/core/settings/settings_prefs.dart	reviewed
+lib/core/shell/inspector_memory.dart	pending
 lib/core/shell/ocean_breadcrumb.dart	converged
 lib/core/shell/oceans.dart	converged
 lib/core/shell/right_panel.dart	converged
