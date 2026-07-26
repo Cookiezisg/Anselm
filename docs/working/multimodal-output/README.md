@@ -511,9 +511,10 @@ def plot(rows: list) -> dict:
 **路径解析 fail-closed**:声明里的路径经 `fspath.Inside(outDir, …)` 判定,越界即拒(逐组件 Stat、
 `filepath.Rel` 先挡兄弟目录前缀陷阱)——函数是用户代码,它声明 `../../.ssh/id_rsa` 是必然会发生的事。
 
-**施工**:采集器住 `app/function`(handler 侧同形)→ 入 attachment store → 结果携 MediaRef →
-既有渲染/消费面自动继承。**验收**:matplotlib 出图表的 fn,右岛调试台渲出图、workflow 下游
-agent 看得见。
+**施工** ✅ function 侧已建(2026-07-27):`app/function/artifacts.go` 采集器 + `SandboxAdapter.Run`
+接 `ANSELM_OUT`/cwd + bootstrap 注入 attachment store。守卫七格,其中两条是**安全**格而非功能格
+(路径逃逸拒在打开任何东西之前、内容嗅探不信扩展名)。**剩**:handler 侧同形接线 + 真机验收
+(matplotlib 出图表的 fn,右岛调试台渲出图、workflow 下游 agent 看得见)。
 
 ## §11 批F · 文档库全模态(编辑面收口)
 

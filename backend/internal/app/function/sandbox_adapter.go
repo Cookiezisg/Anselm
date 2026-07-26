@@ -30,6 +30,13 @@ type SandboxAdapter struct {
 	svc      *sandboxapp.Service
 	dataDir  string
 	entities streamdomain.Bridge // entities stream (SSE-C); nil → no entity-panel run terminal
+
+	// artifacts lands declared media files as first-class attachments (WRK-082 批E). nil → media
+	// declarations pass through untouched, which keeps every non-wired caller (tests, REST-only
+	// assemblies) correct rather than crashing on a feature they never asked for.
+	// artifacts 把被声明的媒体文件落成一等附件(批E)。nil → 媒体声明原样通过,使每个未接线的调用方
+	// (测试、只跑 REST 的装配)保持正确,而不是被一个它从没要过的功能弄崩。
+	artifacts ArtifactUploader
 }
 
 // NewSandboxAdapter binds the adapter to a sandbox service + the function data root. entities (the
@@ -41,6 +48,12 @@ type SandboxAdapter struct {
 func NewSandboxAdapter(svc *sandboxapp.Service, dataDir string, entities streamdomain.Bridge) *SandboxAdapter {
 	return &SandboxAdapter{svc: svc, dataDir: dataDir, entities: entities}
 }
+
+// SetArtifactUploader injects the media-artifact landing port post-construction (批E) — the
+// attachment service is built later in bootstrap than this adapter.
+//
+// SetArtifactUploader 后置注入媒体产物落盘端口(批E)——attachment 服务在 bootstrap 里比本 adapter 晚成形。
+func (a *SandboxAdapter) SetArtifactUploader(up ArtifactUploader) { a.artifacts = up }
 
 var _ SandboxRunner = (*SandboxAdapter)(nil)
 
@@ -70,6 +83,23 @@ func (a *SandboxAdapter) Run(ctx context.Context, owner sandboxdomain.Owner, fun
 		return nil, fmt.Errorf("functionapp.SandboxAdapter.Run: marshal input: %w", err)
 	}
 
+	// One EMPTY directory per run, handed to the code as $ANSELM_OUT and as its cwd, deleted when
+	// the run ends (批E, 代拍 E1). A function writes artifacts there with a plain relative name
+	// (`plt.savefig("chart.png")`) and never needs an absolute path. Deliberately NOT the residency
+	// or the data dir: those hold the USER's real files, and letting a function write products into
+	// them is letting it litter the working tree — while a per-run temp dir gives "which files did
+	// THIS run produce" a physically unambiguous answer.
+	//
+	// **每次运行一个空目录**,以 $ANSELM_OUT 与 cwd 两种方式交给代码,运行结束即删(批E,代拍 E1)。
+	// 函数用普通相对名写产物、永不需要绝对路径。刻意**不是**驻地、也不是数据目录:那两处是**用户**的真实
+	// 文件,让函数往里写产物就是让它在工作树里乱丢;而 run 级临时目录让「哪些文件是**这次**运行产出的」
+	// 有一个物理上无歧义的答案。
+	outDir, err := os.MkdirTemp("", "anselm-fnout-")
+	if err != nil {
+		return nil, fmt.Errorf("functionapp.SandboxAdapter.Run: mkdir out: %w", err)
+	}
+	defer func() { _ = os.RemoveAll(outDir) }()
+
 	// Tee the function's own print() output (the driver routes it to stderr; the JSON result still
 	// lands on clean stdout) THREE ways: the messages stream under the run_function tool_call (chat
 	// view, ToolProgress), the entities stream's run terminal scoped to this function (panel view,
@@ -86,6 +116,8 @@ func (a *SandboxAdapter) Run(ctx context.Context, owner sandboxdomain.Owner, fun
 	res, spawnErr := a.svc.Spawn(ctx, owner, sandboxdomain.SpawnOpts{
 		Cmd:       "python",
 		Args:      []string{mainPy},
+		Cwd:       outDir,
+		Env:       map[string]string{"ANSELM_OUT": outDir},
 		Stdin:     inputJSON,
 		StreamErr: io.MultiWriter(prog, runTerm, logs),
 	})
@@ -113,8 +145,20 @@ func (a *SandboxAdapter) Run(ctx context.Context, owner sandboxdomain.Owner, fun
 	if err := json.Unmarshal(res.Stdout, &output); err != nil {
 		output = strings.TrimSpace(string(res.Stdout)) // non-JSON stdout → return as string
 	}
+	// Collect declared media BEFORE the deferred cleanup wipes the directory: a `{"$media": …}`
+	// declaration becomes a MediaRef receipt in place, so everything downstream — the consumption
+	// chokepoint, the card family, workflow edges — recognizes it without knowing a function made it.
+	// 在 defer 清目录之前采集被声明的媒体:`{"$media": …}` 就地变成 MediaRef receipt,于是下游一切
+	// ——消费咽喉、一族卡、workflow 的边——都认识它,而无需知道它出自一个 function。
+	collected, notes := collectArtifacts(ctx, a.artifacts, outDir, output)
+	if len(notes) > 0 {
+		// Notes go to the run's logs, never to the result: a skipped artifact is an operator-facing
+		// fact, and putting it in the result would change the shape the caller's schema expects.
+		// 说明进运行 logs、绝不进结果:被跳过的产物是给人看的事实,塞进结果会改变调用方 schema 期待的形状。
+		out.Logs = strings.TrimRight(out.Logs+"\n"+strings.Join(notes, "\n"), "\n")
+	}
 	out.OK = true
-	out.Output = output
+	out.Output = collected
 	return out, nil
 }
 

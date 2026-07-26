@@ -191,7 +191,14 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	att := attachmentapp.NewService(st.attachment, st.blob, attachmentapp.NewSandboxExtractor(sbx), log)
 	media := mediaapp.NewService(att, st.media, st.mediaArtifacts, log)
 	media.SetProcessor(mediaapp.NewImageProcessor())
-	fn := functionapp.NewService(st.function, prov, functionapp.NewSandboxAdapter(sbx, dataDir, bus.entities), notif, log)
+	fnSandbox := functionapp.NewSandboxAdapter(sbx, dataDir, bus.entities)
+	fn := functionapp.NewService(st.function, prov, fnSandbox, notif, log)
+	// Media artifacts a function declares land in the SAME attachment store every other producer
+	// writes to (批E, 不变量②). Injected here rather than at construction because the attachment
+	// service is born later in this file than the sandbox adapter.
+	// function 声明的媒体产物落进与其余每个产地**同一间**附件库(批E,不变量②)。在此注入而非构造时注入,
+	// 因为 attachment 服务在本文件里比 sandbox adapter 晚出生。
+	fnSandbox.SetArtifactUploader(att)
 	fn.SetEntitiesBridge(bus.entities) // SSE-C: env 物化尝试行 tee 到 function 构建终端（不分入口）
 	hd := handlerapp.NewService(st.handler, prov, handlerapp.NewSandboxAdapter(sbx, dataDir), inf.encryptor, handlerapp.DefaultClientFactory, notif, log)
 	hd.SetEntitiesBridge(bus.entities) // SSE-C: Call tees method yields to the handler's run terminal
