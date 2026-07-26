@@ -473,10 +473,46 @@ router 四处 · bootstrap 无条件构造 · `speech_generation` 能力位。`m
 
 ## §10 批E · fn/hd 媒体产物通道(第五个产地)
 
-先写一页 **mini-spec 代拍**(§1.1 记档):①沙箱产出目录约定(function/handler 把媒体文件写到
-约定位置)②result 引用文法(执行结果 JSON 里怎么声明「这个文件是媒体产物」)③大小上限与 mime
-白名单 ④采集时机(执行收尾扫描 vs 显式声明)。施工:采集 → 入 media store → 执行结果携 MediaRef
-→ 既有渲染/消费面自动继承。**验收**:matplotlib 出图表的 fn,右岛调试台渲出图、workflow 下游
+### mini-spec(代拍 E1–E4,2026-07-27;读码后定)
+
+**读码所得**:function 在 venv 沙箱里跑 `main.py`,driver 把函数自己的 `print()` 引到 stderr、
+把返回值 `json.dumps` 到**干净 stdout**;`ExecutionResult.Output` 就是那份 JSON 解出来的 `any`。
+`SpawnOpts.Cwd` 已存在(skill 脚本用它解析兄弟文件)。函数**拿不到** attachment store——它没有
+workspace ctx、没有 HTTP、没有 blob 路径,故它**不可能**自己铸出 `attachmentId`。这一条决定了下面
+四条的全部形状。
+
+**E1 · 产出目录 = 每次运行一个 `ANSELM_OUT` 临时目录**。spawn 前建一个 run 级空目录、经环境变量
+`ANSELM_OUT` 告诉函数,并设为 `Cwd`;函数把媒体写进去(`plt.savefig("chart.png")` 即可,无需知道
+绝对路径)。运行结束**整目录删**。**为何不用驻地或数据目录**:那两处是用户的真实文件,一个函数
+往里写产物等于让它在用户的工作树里拉屎;而 run 级临时目录让「哪些是这次运行的产物」有一个物理上
+无歧义的答案。
+
+**E2 · 引用文法 = 显式声明 `{"$media": "<相对路径>"}`**,由采集器**就地替换**成既有 MediaRef
+receipt(`{attachmentId, filename, mime, sizeBytes, source:"function_artifact"}`)。
+```python
+def plot(rows: list) -> dict:
+    plt.savefig("chart.png")
+    return {"chart": {"$media": "chart.png"}, "n": len(rows)}
+```
+→ 下游拿到的是 `{"chart": {"attachmentId":"att_…", …}, "n": 12}`。**为何是替换而非追加**:替换让
+产物**留在它本来的那个键上**——`node.chart` 就是那张图,而不是「结果里有个 chart 字段,另外还有个
+平级的 artifacts 数组要你自己对应」。也正因如此,不变量①③④全部免费继承:MediaRef 一出现,消费咽喉、
+一族卡、workflow 边全都已经认识它。
+
+**E3 · 上限与白名单**:单件 ≤ **32MiB**(与 `imageMaxBytes` 同档)、单次运行 ≤ **8 件**(与
+`mediaref.MaxRefs` 同数,因为下游本就只展开这么多)。mime 由**内容嗅探**(`http.DetectContentType`)
+决定、**不信扩展名**;白名单 = `image/* · audio/* · video/* · application/pdf`。越界/不在白名单:
+该件**不采集**,并在执行 logs 里写一行说明——**绝不静默丢**,也绝不因为一件产物废掉整次执行。
+
+**E4 · 采集时机 = 显式声明,不扫目录**。扫目录会把 matplotlib 的字体缓存、`__pycache__`、中间
+文件全变成产物,而且它**答不出「这张图属于结果里的哪个字段」**——而那恰是 E2 要的东西。显式声明
+的代价是函数作者要多写一个 `{"$media": …}`,收益是产物有名字、有位置、有归属。
+
+**路径解析 fail-closed**:声明里的路径经 `fspath.Inside(outDir, …)` 判定,越界即拒(逐组件 Stat、
+`filepath.Rel` 先挡兄弟目录前缀陷阱)——函数是用户代码,它声明 `../../.ssh/id_rsa` 是必然会发生的事。
+
+**施工**:采集器住 `app/function`(handler 侧同形)→ 入 attachment store → 结果携 MediaRef →
+既有渲染/消费面自动继承。**验收**:matplotlib 出图表的 fn,右岛调试台渲出图、workflow 下游
 agent 看得见。
 
 ## §11 批F · 文档库全模态(编辑面收口)
