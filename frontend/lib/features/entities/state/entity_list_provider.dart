@@ -40,6 +40,13 @@ class EntityListNotifier extends AsyncNotifier<EntityListState>
     _search = ref.watch(entitySearchProvider);
     final sub = _repo.lifecycleSignals(kind).listen(_onSignal);
     ref.onDispose(sub.cancel);
+    // The same stream's 410: signals in the gap are gone for good, so re-page rather than keep a list
+    // that quietly stopped tracking creates/renames/deletes (WRK-083 L7). 同流 410:缺口里的信号永远没了,
+    // 故重翻整列,而不是留着一个悄悄不再跟踪增删改名的列表。
+    final resyncSub = _repo.lifecycleResync().listen(
+      (_) => ref.invalidateSelf(),
+    );
+    ref.onDispose(resyncSub.cancel);
     final page = await _repo.listEntities(
       kind,
       limit: _pageSize,

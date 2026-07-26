@@ -1089,6 +1089,16 @@ class FixtureChatRepository implements ChatRepository {
   /// Script a messages-stream 410 (tests: the controller must drop live + refetch). 脚本化 410。
   void emitResync() => _resync.add(null);
 
+  @override
+  Stream<void> lifecycleResync() => _lifecycleResync.stream;
+  final StreamController<void> _lifecycleResync = StreamController.broadcast();
+
+  /// Script a NOTIFICATIONS-stream 410 — the one that drops conversation lifecycle signals (rename /
+  /// archive / pin / residency / auto-title). Separate from [emitResync] on purpose: they are different
+  /// streams and the rail must answer both. 脚本化 **notifications** 流 410——丢的是对话生命周期信号
+  /// (改名/归档/置顶/驻地/自动命名)。与 [emitResync] 刻意分开:两条不同的流,rail 两条都得答。
+  void emitLifecycleResync() => _lifecycleResync.add(null);
+
   /// Append a persisted message row (so a later hydration/refetch sees it — the demo script finalizes
   /// its scripted turn through this). 落一条持久消息(后续水化可见;demo 脚本借此定格已完成回合)。
   void appendMessage(String conversationId, ChatMessage message) =>

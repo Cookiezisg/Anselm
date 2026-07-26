@@ -34,6 +34,11 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
     _repo = ref.watch(entityRepositoryProvider);
     final life = _repo.lifecycleSignals(entityRef.kind).listen(_onLifecycle);
     ref.onDispose(life.cancel);
+    // The same stream's 410: an edit that landed inside the gap left no signal, so re-read rather than
+    // show a detail page that silently diverged from the row (WRK-083 L7). 同流 410:落在缺口里的编辑没有
+    // 留下信号,故重读,而不是展示一个已经和行悄悄分家的详情页。
+    final resync = _repo.lifecycleResync().listen((_) => ref.invalidateSelf());
+    ref.onDispose(resync.cancel);
     // The entities (panel) stream is NOT subscribed here: the run terminal owns its own panel
     // subscription, and the future build-mirror banner (create/edit streaming over the entity scope)
     // will add one when it lands — a held no-op subscription was just a duplicate + wasted cost.

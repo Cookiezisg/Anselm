@@ -780,4 +780,49 @@ void main() {
       });
     },
   );
+
+  // WRK-083 L7 — the rail must answer the NOTIFICATIONS stream's 410, not only the messages one.
+  //
+  // Its two live inputs ride two different streams: activity dots on messages, lifecycle (rename /
+  // archive / pin / residency / auto-title / create / delete) on notifications. It subscribed to the
+  // messages resync alone, so a notifications gap silently stopped the rail tracking every one of those
+  // — for the rest of the session, since the rail lives in the keep-alive stack and is never rebuilt by
+  // navigation. Nothing surfaces: no error, no spinner, and every OTHER session behaves perfectly.
+  //
+  // The assertion is that the rail RE-READ the server, so the fixture's row is changed underneath it
+  // WITHOUT a signal — exactly what a dropped signal looks like. A test that emitted a signal too would
+  // pass on the buggy code.
+  //
+  // WRK-083 L7——rail 必须答 **notifications** 流的 410,而不只是 messages 那条。
+  //
+  // 它的两路实时输入骑两条不同的流:活态点在 messages,生命周期(改名/归档/置顶/驻地/自动命名/增删)在
+  // notifications。它只订了 messages 的 resync,于是一个 notifications 缺口会让 rail 静默地不再跟踪上面每一件事
+  // ——一直到会话结束,因为 rail 住在保活栈里、导航永远不会重建它。什么都不会浮现:没有错误、没有转圈,而**别的**
+  // 每一次会话都表现完美。
+  //
+  // 断言的是 rail **重新读了服务端**,故夹具的行是在它脚下**没有信号地**被改掉的——那正是一条被丢掉的信号的样子。
+  // 一个顺手也发一条信号的测试,在带病代码上照样会通过。
+  test('a notifications-stream 410 re-reads the rail (L7)', () async {
+    final repo = FixtureChatRepository(
+      conversations: [_c('cv_a', 'OLD TITLE', hour: 9)],
+    );
+    final c = _container(repo);
+    final first = await c.read(conversationListProvider.future);
+    expect(first.rows.single.title, 'OLD TITLE');
+
+    // The rename lands while the client is deaf — no signal is emitted for it.
+    // 改名发生在客户端聋掉期间——不为它发任何信号。
+    repo.upsert(_c('cv_a', 'RENAMED IN THE GAP', hour: 9));
+    repo.emitLifecycleResync();
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+
+    final after = await c.read(conversationListProvider.future);
+    expect(
+      after.rows.single.title,
+      'RENAMED IN THE GAP',
+      reason:
+          'the notifications 410 dropped the rename signal; only a refetch can recover it '
+          '(WRK-083 L7)',
+    );
+  });
 }

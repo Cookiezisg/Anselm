@@ -171,7 +171,12 @@ void main() {
       // Open the picker.
       await tester.tap(find.text(t.library.props.addTool));
       await tester.pumpAndSettle();
-      // A builtin (fixture catalog has Read) → stored as its name.
+      // A builtin (fixture catalog has Read) → stored as its name. Scroll it in first: the builtin
+      // group is longer than the sheet, so a bare tap lands OUTSIDE the viewport and silently does
+      // nothing (flutter_test only warns). 先滚入视口:内置组比面板长,裸点会落在视口外、静默无效
+      // (flutter_test 只给警告)。
+      await tester.ensureVisible(find.text('Read').last);
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Read').last);
       await tester.pumpAndSettle();
       expect(picks.last, ['Read']);

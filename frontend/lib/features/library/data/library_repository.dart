@@ -124,6 +124,14 @@ abstract interface class LibraryRepository {
   /// 帧一发,携域+动作+行 id(payload 无 id 则 '')。DB 行是真相——信号只说去哪看,列表 provider 据此
   /// 在 `updated`(自动存回声热路径)就地补一行,而非整树重取。
   Stream<LibrarySignal> lifecycleSignals();
+
+  /// The 410 twin of [lifecycleSignals] — same (notifications) stream, so every consumer of the signals
+  /// must refetch on this (WRK-083 L7): `SEQ_TOO_OLD` drops the cursor and reconnects at a fresh head,
+  /// so every signal in the gap is gone for good and a tree that only listens to signals stays stale for
+  /// the rest of the session.
+  /// [lifecycleSignals] 的 410 孪生——同一条(notifications)流,故信号的每个消费方都必须在它上面补取
+  /// (WRK-083 L7):缺口里的信号永远没了,只听信号的页树会陈旧到会话结束。
+  Stream<void> lifecycleResync();
 }
 
 /// One library lifecycle signal: `domain` ∈ {document, skill}, `action` = the verb after the dot
@@ -333,6 +341,10 @@ class LiveLibraryRepository implements LibraryRepository {
         .where((s) => s != null)
         .cast<LibrarySignal>();
   }
+
+  @override
+  Stream<void> lifecycleResync() =>
+      _sse?.resync(StreamName.notifications) ?? const Stream.empty();
 }
 
 /// The Documents feature's data seam, as a provider — defaults to Live; demo / gallery / tests override

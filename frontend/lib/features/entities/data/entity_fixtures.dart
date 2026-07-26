@@ -1128,6 +1128,12 @@ class FixtureEntityRepository implements EntityRepository {
   Stream<EntitySignal> lifecycleSignals(EntityKind kind) =>
       _lazyLifecycle(kind).stream;
   @override
+  Stream<void> lifecycleResync() => _lifecycleResync.stream;
+  final StreamController<void> _lifecycleResync = StreamController.broadcast();
+
+  /// Script a notifications-stream 410 (the gap that loses lifecycle signals). 脚本化 410 缺口。
+  void emitLifecycleResync() => _lifecycleResync.add(null);
+  @override
   Stream<StreamEnvelope> panelSignals(StreamScope scope) =>
       _lazyPanel(scope.key).stream;
 

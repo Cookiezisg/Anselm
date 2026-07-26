@@ -27,6 +27,13 @@ class ConversationHeaderController extends AsyncNotifier<Conversation> {
     _repo = ref.watch(chatRepositoryProvider);
     final sub = _repo.lifecycleSignals().listen(_onSignal);
     ref.onDispose(sub.cancel);
+    // A 410 on that same stream means signals were dropped — re-read the row rather than trust a title
+    // that may have been renamed inside the gap (WRK-083 L7). 同流 410 = 信号被丢,重读该行,别信一个可能在
+    // 缺口里已被改掉的标题。
+    final resyncSub = _repo.lifecycleResync().listen(
+      (_) => ref.invalidateSelf(),
+    );
+    ref.onDispose(resyncSub.cancel);
     return _repo.getConversation(conversationId);
   }
 

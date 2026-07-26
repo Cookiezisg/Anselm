@@ -174,6 +174,17 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
       (_) => ref.invalidateSelf(),
     );
     ref.onDispose(resyncSub.cancel);
+    // …and the OTHER stream's 410 (WRK-083 L7). The dots ride messages; the lifecycle above rides
+    // NOTIFICATIONS, and only that stream's resync can tell us its signals were dropped. Listening to one
+    // and not the other is the shape of the bug: the rail re-paged for the half it could not miss and
+    // stayed stale — renamed, archived, pinned, re-housed threads — on the half it could.
+    // ……以及**另一条**流的 410(WRK-083 L7)。点骑 messages,而上面那条生命周期骑 **notifications**,只有那条流的
+    // resync 才能告诉我们它的信号被丢了。只听其一正是这个 bug 的形状:rail 为漏不掉的那一半重翻了整列,却在会漏的
+    // 那一半——改名/归档/置顶/换驻地的线程——上保持陈旧。
+    final lifecycleResyncSub = _repo.lifecycleResync().listen(
+      (_) => ref.invalidateSelf(),
+    );
+    ref.onDispose(lifecycleResyncSub.cancel);
     ref.onDispose(_cancelRefreshTimers);
     ref.onDispose(() => _groupsRefresh?.cancel());
 

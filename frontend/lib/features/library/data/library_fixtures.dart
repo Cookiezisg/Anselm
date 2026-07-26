@@ -1,5 +1,6 @@
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/relation.dart';
+import 'dart:async';
 import 'dart:convert';
 
 import '../../../core/contract/entities/skill.dart';
@@ -429,6 +430,13 @@ class FixtureLibraryRepository implements LibraryRepository {
   // 零后端零流:demo 的写全走 rail、直接 invalidate。
   @override
   Stream<LibrarySignal> lifecycleSignals() => const Stream.empty();
+
+  @override
+  Stream<void> lifecycleResync() => _lifecycleResync.stream;
+  final StreamController<void> _lifecycleResync = StreamController.broadcast();
+
+  /// Script a notifications-stream 410 (the gap that loses lifecycle signals). 脚本化 410 缺口。
+  void emitLifecycleResync() => _lifecycleResync.add(null);
 
   /// Derived honestly the way the backend does: scan every document body for `[[<id>]]` wikilinks
   /// targeting [documentId] (names hydrated from the live rows). 照后端方式诚实派生:扫全部正文的 `[[id]]`。

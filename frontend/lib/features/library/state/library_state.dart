@@ -49,9 +49,16 @@ class DocumentTreeList extends AsyncNotifier<List<DocumentNode>> {
         _scheduleRefetch();
       }
     });
+    // The same stream's 410 drops every signal in the gap, so the tree refetches rather than sit on a
+    // shape that stopped tracking creates / moves / deletes (WRK-083 L7). It rides the same debounce as
+    // the signals: a resync arriving together with a burst should still cost ONE refetch.
+    // 同流 410 丢掉缺口里的每一条信号,故页树重取,而不是守着一个已不再跟踪新建/移动/删除的形状(L7)。
+    // 它与信号共用同一个防抖:resync 与一阵信号同时到,也只该付一次重取。
+    final resync = repo.lifecycleResync().listen((_) => _scheduleRefetch());
     ref.onDispose(() {
       _debounce?.cancel();
       sub.cancel();
+      resync.cancel();
     });
     return repo.getTree();
   }
@@ -115,9 +122,12 @@ class SkillList extends AsyncNotifier<List<Skill>> {
         _scheduleRefetch();
       }
     });
+    // Same pairing as the document tree above (WRK-083 L7). 与上面页树同款配对。
+    final resync = repo.lifecycleResync().listen((_) => _scheduleRefetch());
     ref.onDispose(() {
       _debounce?.cancel();
       sub.cancel();
+      resync.cancel();
     });
     return repo.listSkills();
   }

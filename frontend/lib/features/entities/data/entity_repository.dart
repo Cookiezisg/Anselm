@@ -274,6 +274,14 @@ abstract interface class EntityRepository {
   /// (notifications stream); the list patches on `durable`, ignores ephemeral. 列表生命周期信号。
   Stream<EntitySignal> lifecycleSignals(EntityKind kind);
 
+  /// The 410 twin of [lifecycleSignals] — same (notifications) stream, so every consumer of the signals
+  /// must refetch on this (WRK-083 L7): `SEQ_TOO_OLD` drops the cursor and reconnects at a fresh head,
+  /// so every signal in the gap is gone for good and a list that only listens to signals stays stale for
+  /// the rest of the session.
+  /// [lifecycleSignals] 的 410 孪生——同一条(notifications)流,故信号的每个消费方都必须在它上面补取
+  /// (WRK-083 L7):`SEQ_TOO_OLD` 丢游标、从新 head 重连,缺口里的信号永远没了,只听信号的列表会陈旧到会话结束。
+  Stream<void> lifecycleResync();
+
   /// Raw panel-realtime frames for ONE instance (run terminal / build mirror / flowrun tick), demuxed
   /// per scope (high-frequency entities stream). 单实例面板实时帧(按 scope demux)。
   Stream<StreamEnvelope> panelSignals(StreamScope scope);
@@ -772,6 +780,10 @@ class LiveEntityRepository implements EntityRepository {
         .where((s) => s != null)
         .cast<EntitySignal>();
   }
+
+  @override
+  Stream<void> lifecycleResync() =>
+      _sse?.resync(StreamName.notifications) ?? const Stream.empty();
 
   @override
   Stream<StreamEnvelope> panelSignals(StreamScope scope) =>
