@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/contract/api_error.dart';
 import '../../../core/contract/entities/document.dart';
 import '../../../core/contract/entities/skill.dart';
 import '../../../core/design/tokens.dart';
@@ -77,13 +78,84 @@ List<AnCrumb> libraryCrumbs(
 /// (scrollToHeading). No selection → the passive-landing DRAFT editor ([_DraftDocView], uncreated until the
 /// first edit). 文档海洋中心:原生 AnDocumentEditor 填满海洋,标题头与正文同页同滚;宿主只绑浮层头 + 随滚折叠 +
 /// 喂大纲焦点 + 应答跳转;无选区=被动着陆草稿编辑器(首次编辑才建)。
-class LibraryOcean extends ConsumerWidget {
+class LibraryOcean extends ConsumerStatefulWidget {
   const LibraryOcean({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<LibraryOcean> createState() => _LibraryOceanState();
+}
+
+class _LibraryOceanState extends ConsumerState<LibraryOcean> {
+  /// The selected document id we have actually SEEN in the tree. It is what makes [_reconcileWithTree]
+  /// safe: "absent from the tree" alone would evict a page the instant it is CREATED (the tree refetch
+  /// is debounced, so a brand-new page is legitimately missing for a moment). Only «seen, then gone»
+  /// means deleted. 我们**确实在树里见过**的选中 id。它是 [_reconcileWithTree] 安全的关键:光凭「树里没有」
+  /// 会在页面**刚建出来**那一刻就把人踢走(树重取有防抖,新页确实会短暂缺席)。只有「见过、又不见了」才叫删除。
+  String? _seenInTree;
+
+  /// Leave a page that no longer exists.
+  ///
+  /// The mechanism already existed for the ONE path the user drives themselves — the rail's own delete
+  /// calls `_clearIfSelected` — but nothing reconciled the other paths, and they are the ones that matter
+  /// most here: an agent's `delete_document`, another view, a 410 recovery, or (even from the rail!) the
+  /// deletion of an ANCESTOR — `Delete` soft-deletes the whole subtree but publishes ONE `deleted` frame
+  /// for the root, so an open child is destroyed with no event naming it. Reconciling against the TREE
+  /// instead of against a delete event covers all of them by construction: the tree is the truth, and a
+  /// row that left it is gone however it went. Without this the ocean keeps presenting a fully editable
+  /// page that no longer exists — the writer types, and every keystroke 404s (WRK-083 L17).
+  ///
+  /// 离开一个已不存在的页面。机制**本来就有**,但只接了用户自己驱动的那一条路(rail 删除调 `_clearIfSelected`);
+  /// 其余路径无人对账,而恰恰是它们要紧:agent 的 `delete_document`、另一个视图、410 恢复,以及(连 rail 自己也算!)
+  /// **祖先**被删——`Delete` 软删整棵子树却只为根发**一条** `deleted` 帧,打开着的子页被销毁却没有任何事件点它的名。
+  /// 与**树**对账而非与删除事件对账,构造上覆盖全部:树是真相,行离开了树就是没了,不论怎么没的。没有这一条,海洋会
+  /// 继续呈现一个**完全可编辑**却已不存在的页面——作者一直打字,而每一次保存都 404(WRK-083 L17)。
+  void _evictIfGone() {
+    final sel = ref.read(selectedDocProvider);
+    // Skills are not in the document tree; the uncreated/just-adopted draft is legitimately absent.
+    // skill 不在文档树里;未创建/刚认领的草稿本就合法缺席。
+    if (sel == null ||
+        sel.isSkill ||
+        sel.id == ref.read(adoptedDraftDocProvider)) {
+      return;
+    }
+    final tree = ref.read(documentTreeProvider).value;
+    if (tree == null) return; // loading / error → no verdict 载入中/出错→不下判断
+    if (tree.any((n) => n.id == sel.id)) return; // still there 还在
+    // Never seen in the tree → newly created, not deleted. 树里没见过→是新建、不是被删。
+    if (_seenInTree != sel.id) return;
+    _seenInTree = null;
+    if (!mounted) return;
+    context.go('/');
+    // Say it plainly. Being silently returned to the home screen mid-sentence is its own small mystery.
+    // 说清楚。写到一半被静默送回主页,本身就是一个小谜团。
+    ref
+        .read(noticeCenterProvider.notifier)
+        .show(context.t.library.docGone, tone: AnTone.danger);
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final selected = ref.watch(selectedDocProvider);
     final adopted = ref.watch(adoptedDraftDocProvider);
+    // Bookkeeping happens HERE, in build, not in the listeners: `ref.listen` fires only on CHANGE, so a
+    // page that was already open when this ocean mounted would never be recorded as «seen» and its later
+    // deletion would be mistaken for a fresh create and let through. Setting a plain field (no setState)
+    // during build is safe — it feeds the next verdict, not this frame's output.
+    // 记账放在 **build 里**、不在监听里:`ref.listen` 只在**变化**时触发,故海洋挂载时就已打开的页面永远不会被记为
+    // 「见过」,它日后被删会被误判成新建而放过。build 中写一个普通字段(不 setState)是安全的——它喂的是下一次判决,
+    // 不是这一帧的输出。
+    final tree = ref.watch(documentTreeProvider).value;
+    if (tree != null &&
+        selected != null &&
+        !selected.isSkill &&
+        selected.id != adopted &&
+        tree.any((n) => n.id == selected.id)) {
+      _seenInTree = selected.id;
+    }
+    // Both axes feed the verdict: the tree changing (a delete landed) and the selection changing
+    // (you opened a page — is it still there?). 两条轴都喂判决:树变了(删除落地)与选区变了(你打开一页,它还在吗)。
+    ref.listen(documentTreeProvider, (_, _) => _evictIfGone());
+    ref.listen(selectedDocProvider, (_, _) => _evictIfGone());
     // Deselection (navigating home / deleting the open node) clears the floating head + stale outline.
     // 取消选区即清浮层头 + 陈旧大纲。
     ref.listen(selectedDocProvider, (prev, next) {
@@ -262,9 +334,33 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
       // must surface (content PATCH is the document's ONLY persistence). 存正文=PATCH content;失败必冒头。
       try {
         await repo.updateDocument(widget.id, {'content': markdown});
-      } catch (_) {
+      } on ApiException catch (e) {
         if (!mounted) {
           return; // widget gone (e.g. flushed on dispose + save failed) → no toast 卸载后不弹
+        }
+        // A 404 is categorically different from a blip and MUST say so (WRK-083 L17): the page was
+        // deleted under the writer — by an agent's delete_document, by another view, or as a descendant
+        // of a deleted parent — so these keystrokes are not saved ANYWHERE and never will be. The old
+        // `catch (_)` flattened it into the same 「操作失败」 as a transient network hiccup, which reads as
+        // "retry in a moment" — the one reading that is certainly wrong here.
+        // 404 与网络抖动**性质不同**、必须说明白(WRK-083 L17):页面在作者笔下被删了(agent 的 delete_document /
+        // 另一个视图 / 作为被删父页的后裔),故这些键入**哪儿都没存**、也永远不会存。旧的 `catch (_)` 把它压成与
+        // 网络抖动同一句「操作失败」,读起来像「过会儿重试」——而那恰恰是此处唯一确定错误的解读。
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(
+              e.isNotFound
+                  ? context.t.library.saveFailedGone
+                  : context.t.library.actionFailed,
+              tone: AnTone.danger,
+              coalesceKey: 'document-autosave:${widget.id}',
+            );
+      } catch (_) {
+        // Anything that isn't an ApiException (decode, plumbing) keeps the generic notice — narrowing the
+        // typed catch above must not let a whole error class escape the save path unreported.
+        // 非 ApiException(解码/管道)照旧给通用提示——上面收窄 catch 绝不能让一整类错误从保存路径静默逃逸。
+        if (!mounted) {
+          return;
         }
         ref
             .read(noticeCenterProvider.notifier)

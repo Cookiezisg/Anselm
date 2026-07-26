@@ -520,6 +520,8 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get deleteSkillTitle => '删除这个技能?';
 	@override String deleteSkillBody({required Object name}) => '技能“${name}”会被删除。';
 	@override String get actionFailed => '操作失败';
+	@override String get docGone => '此页面已被删除';
+	@override String get saveFailedGone => '无法保存——此页面已被删除';
 	@override late final _Translations$library$props$zh_CN props = _Translations$library$props$zh_CN._(_root);
 	@override late final _Translations$library$slash$zh_CN slash = _Translations$library$slash$zh_CN._(_root);
 	@override String get linkHint => '输入或粘贴链接,回车确定';
@@ -4326,6 +4328,8 @@ extension on TranslationsZhCn {
 			'library.deleteSkillTitle' => '删除这个技能?',
 			'library.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
 			'library.actionFailed' => '操作失败',
+			'library.docGone' => '此页面已被删除',
+			'library.saveFailedGone' => '无法保存——此页面已被删除',
 			'library.props.title' => '属性',
 			'library.props.name' => '名称',
 			'library.props.description' => '描述',
@@ -4408,10 +4412,10 @@ extension on TranslationsZhCn {
 			'library.skillInstallTitle' => '从来源安装 Skill',
 			'library.skillInstallExplainer' => '安装会经互联网从该来源取回 skill 文件，存进你的 skill 库。部分 skill 还会为其工具申请预授权——一旦批准，这些工具此后运行将跳过确认弹窗。',
 			'library.skillInstallHint' => 'GitHub 仓库（owner/repo 或 URL）或 tarball 地址',
-			'library.skillInstallInspect' => '解析来源',
-			'library.skillInstallGo' => '安装所选',
 			_ => null,
 		} ?? switch (path) {
+			'library.skillInstallInspect' => '解析来源',
+			'library.skillInstallGo' => '安装所选',
 			'library.skillInstallDone' => '安装完成',
 			'library.skillInstallNone' => '来源里没有可安装的 skill',
 			'library.skillInstallPreauthNote' => '安装后这些工具将请求免确认预授权——需你显式授权才生效',

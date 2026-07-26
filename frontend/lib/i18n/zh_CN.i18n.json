@@ -1582,6 +1582,8 @@
     "deleteSkillTitle": "删除这个技能?",
     "deleteSkillBody": "技能“$name”会被删除。",
     "actionFailed": "操作失败",
+    "docGone": "此页面已被删除",
+    "saveFailedGone": "无法保存——此页面已被删除",
     "props": {
       "title": "属性",
       "name": "名称",

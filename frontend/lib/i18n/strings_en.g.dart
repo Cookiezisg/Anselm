@@ -1100,6 +1100,12 @@ class Translations$library$en {
 	/// en: 'Action failed'
 	String get actionFailed => 'Action failed';
 
+	/// en: 'This page was deleted'
+	String get docGone => 'This page was deleted';
+
+	/// en: 'Can't save — this page was deleted'
+	String get saveFailedGone => 'Can\'t save — this page was deleted';
+
 	late final Translations$library$props$en props = Translations$library$props$en.internal(_root);
 	late final Translations$library$slash$en slash = Translations$library$slash$en.internal(_root);
 
@@ -8274,6 +8280,8 @@ extension on Translations {
 			'library.deleteSkillTitle' => 'Delete this skill?',
 			'library.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
 			'library.actionFailed' => 'Action failed',
+			'library.docGone' => 'This page was deleted',
+			'library.saveFailedGone' => 'Can\'t save — this page was deleted',
 			'library.props.title' => 'Properties',
 			'library.props.name' => 'Name',
 			'library.props.description' => 'Description',
@@ -8356,10 +8364,10 @@ extension on Translations {
 			'library.skillInstallTitle' => 'Install skills from a source',
 			'library.skillInstallExplainer' => 'Installing fetches the skill\'s files from that source over the internet and adds them to your library. Some skills also request pre-authorization for their tools — once approved, those tools skip the confirmation prompt each time they run.',
 			'library.skillInstallHint' => 'GitHub repo (owner/repo or URL) or a tarball URL',
-			'library.skillInstallInspect' => 'Inspect source',
-			'library.skillInstallGo' => 'Install selected',
 			_ => null,
 		} ?? switch (path) {
+			'library.skillInstallInspect' => 'Inspect source',
+			'library.skillInstallGo' => 'Install selected',
 			'library.skillInstallDone' => 'Install finished',
 			'library.skillInstallNone' => 'No installable skills in this source',
 			'library.skillInstallPreauthNote' => 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve',
