@@ -293,7 +293,7 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 | B3 | 驻地按钮尺寸不对齐模型选择器 | 面包屑控件的**档位**无人约束:驻地/分叉写死 `sm`(24pt/icon12)、模型菜单用默认 `md`(28pt/icon16) | `08b8f215` | `chat_head_test` **B3**:对 `ChatHead` 下**每一个** `AnButton` 全称断言 `size == md`(先证红 ✓) | **无覆盖**——从没有测试看过头部控件的尺寸;像素断言也抓不到,因为两种尺寸都能正常渲染 | ✅ 已修 |
 | B4 | 面包屑不该显具体名字 | 同上:面包屑**是否携带数据派生文本**无人约束 | `08b8f215` | `chat_head_test` **B4**:断言收起态的头部不含目录 basename / 全路径 / 分叉源标题,但保留线程**自己**的标题(先证红 ✓) | **无覆盖**——旧测试反而**要求**显示名字(`mounted: the basename labels the button` 等 5 条),它们已**反转**而非删除,反转留在案上 | ✅ 已修 |
 | B5 | 窄窗右岛跳变 | **右岛宽度双事实源**(§0 判据成立):`_takenOf` 读**静息** `rightWidth`(320),右岛实际按 `rightWidth.clamp(rightIslandMin, rightCeiling)` 布局。1100pt 窗口下 ceiling = `(1084−328−480−8).clamp(280,640)` = **280** → 闸把海洋冻在比落定值窄 40pt 处,冻结一解除即 snap。**第二层同病**:`targetOceanW` 上那个 `.clamp(oceanMin, …)` 也在撒谎——窗口窄到无法两全时 `rightIslandMin` 压过海洋保底,海洋**真的**会渲到 468 < `oceanMin` 480 | `5ca651c8` | `an_shell_test` **「NARROW window, OPENING」**:断言**不变量**(滑动每一帧的宽度 == 落定宽度),不钉具体像素(钉死的数字会在令牌变动那天过期)。先证红 ✓(冻在 480、落定 468) | **有测但只测了安全方向**:既有「NARROW window: an island slide…」用的**正是同一个 1100pt 窗口**(夹取已经在发生!),但它只测**关闭**——终态没有右岛,右岛宽度从不进入算式,闸不可能算错。**打开**才是两个事实源相遇的方向,而那个方向没人测 | ✅ 已修 |
-| **L1** | `GET /conversations/{id}` 及 `/messages`、`/workdir` **404**——真机构造复现:选中一条对话后切 workspace,同一瞬间三条 404 | **切换编舞的「先离开」只是语句顺序、不是时间顺序**。`go('/')` 同步更新 router,但 watch 选区的 widget 要**下一帧**才重建,而只有当最后一个松手,按旧对话 id 分家的 `autoDispose.family` 才真正死掉。在那个窗口里翻 workspace,repository 级联就在它们**还活着**时开火 | `1fb327f2` | `hot_switch_test`「after a switch, nothing asks about the old conversation」——断言落在**线缆**上(切换后不得有针对旧对话的请求),并带**对照组**(不切换时零请求)。守卫经历三次自我纠错才成立:①第一版断言「id 翻转时 URL 是 `/`」是**空绿**(`go` 同步改 URL,带病版本同样通过);②夹具对一切路径答 `{data:[]}`,`getConversation` 解析不了、错误路径重读,守卫把那次重读当成缺陷;③把 SSE 网关 stub 掉又让它空绿——**正是网关重建把陈旧 provider 拽回人间**。先证红 ✓(回滚后 2 条) | **无覆盖**:既有 `hot_switch_test` 只断言「切换后 URL 是 `/`、id 是新的」,那两条在带病版本里**同样成立**。没有任何测试问过「切换之后还有谁在发请求」 | 🟡 **实测 3 条 → 1 条**,残留一条 `/messages`(见下「L1 残留」) |
+| **L1** | 选中对话后切 workspace,同一瞬间一簇针对旧对话的请求(首轮 3×404;编舞修后仍 4 条:`interactions`/`touchpoints`/`todos` 200 + `messages` 404——不 404 只因**仅 `ListMessages` 校验存在性**) | **两层,一根**。层①编舞帧序:「先离开」只是语句顺序不是时间顺序——`go('/')` 同步更新 router,但 widget 下一帧才卸、provider 重建又在下一帧**之前** flush,翻转瞬间仍被监听者带旧 id 重跑。层②(残留主体):右岛 `_InspectorStack` 的**私有** `_lastChat` 让 StagePanel(旧对话) 常驻折叠(海洋看一眼侧幕不卸,设计本意),但记忆**随 widget 活而不随 workspace 死**——它监听的 ledger→touchpoints、pending→interactions、rundown→todos 直接重取,director 的 build 更经 `ref.read` 把**已死**的 conversationStreamProvider **复活**再 hydrate=`/messages` 404。四条线一根 | `1fb327f2`(层①:轴翻转移 post-frame)+ `1b4abb22`(层②:记忆上提 `core/shell/inspector_memory.dart` 的 `lastChatThreadProvider`,watch activeWorkspace 换世界即弃 + 编舞第①拍与 `go('/')` **同瞬显式 clear**) | **三层,皆先证红**:①线缆——`hot_switch_test`「nothing asks about the old conversation」(带对照组;三次自我纠错:URL 断言空绿 / 夹具自造缺陷 / stub 网关空绿,详见 git);②线缆·保活维——同文件「KEPT-ALIVE right island」:替身**与路由并排**、经真记忆 provider 持 provider(红:2 条,且**记忆已被自愈复位仍红**——实证只靠 watch 自愈晚一个 flush,清除必须在编舞第①拍);③结构——`workspace_switcher_test`「unbinds the kept-alive sidestage」:真 `AppShell` + `StagePanel` **skipOffstage:false**(缺陷恰住在 offstage 里;对修前代码红) | **无覆盖**:没有任何测试问过「切换之后还有谁在发请求」;守卫①的替身又随路由卸载,没建模「记忆让 provider 活过选区」的保活右岛——守卫绿、真机红,直到守卫②补上那一维 | ✅ 已修(真机:前置断言先行→切 ws **0 条**旧请求[修前 4]、0 条 4xx/5xx;回程重开五端点各**恰一次**全 200,重绑无损) |
 | **L3** | 左岛底栏的 workspace 菜单**只列当前那一个**——有两个 workspace 的用户从壳里根本切不过去(服务端 `/workspaces` 返两个,菜单列一个) | 菜单那一行是**写死**的 `AnMenuItem(label: wsName, checked: true, onTap: () {})`:它复述着打开它的那颗按钮上已经印着的名字,且不可点。架构文档一直把这个菜单描述为「切换/新建/工作区设置」——**「切换」那三分之一从来没接上线** | `1fb327f2` | `test/app/workspace_switcher_test.dart`:喂三个 workspace,断言**每一个**都在菜单里、且点非当前项真的切过去。守的是**数目**不是字符串(断言「Personal 与演示工作台都在列」对一个把这两个名字写死的菜单同样会通过)。先证红 ✓ | **无覆盖**——从没有测试把菜单的行数与 `/workspaces` 对过。界面上它毫无破绽:菜单打得开、看着也对、当前项旁边还有个勾 | ✅ 已修 |
 | **L4** | `AnRow` 尾端带**状态点**时仍溢出 **5.8px**——真机扫查(眼睛①)在一次真实对话生成中抓到 | **B2 修复自己引入的回归**:那次修复给**整个 trail** 设了界(`Flexible`+`Align`),却让 trail **内层** Row 的孩子留在自然尺寸。「有界的 trail 装着无界的 row」照样溢出——只是溢得少 | `dcfa4a26` | 守卫加一格:**带 `trailingDot` + 长 meta**(先证红 ✓,917px)。这正是**对话 rail 行的真实形状**(时间戳挨着生成中/未读点) | **B2 的守卫覆盖不足**——它测过「长 meta」也测过「hover 动作」,却从未把**状态点与长 meta render 在一起**。对真实形状而言,「从未一起测过」就是「从未测过」 | ✅ 已修 |
 | **L5** | 发送失败行 `⚠ Couldn't send / Retry / Discard` 溢出 **17px**——**韧性扫查 R01 中抓到**:后端 `kill -9` 后这一行出现,而当时右岛开着、海洋窄 | **与 B2/L4 同一类,第三例**:一个 Row 混着**本地化句子**与**固定 affordance**(图标 + 两颗按钮),而全部 child 都非弹性。`mainAxisSize: min` 帮不上——它只是「贴内容」,内容超出父宽照样溢 | `e12c958a` | 抽出 `FailedSendRow` 组件(**内联 Row 测试渲不出来**,不立起整个 transcript 就够不着)+ 守卫一格:窄宿主下无异常 **且两颗按钮都还在**——靠截肢掉一个动作换来的「装得下」不叫修好。先证红 ✓(133px) | **两个触发条件只在崩溃时同时成立**:这一行只在后端宕机时存在,而溢出还需要海洋窄(右岛开着)。此前每一轮扫查都碰不到这个交集——**是韧性域把它逼出来的** | ✅ 已修 |
@@ -315,30 +315,39 @@ ephemeral(delta/tick)恒 `seq=0` 且不入 buffer · close 帧带快照 · `pare
 那件事,只不过用户报的是「修改后」,这里是「退出后」,同一个失效缺口的两个入口。这进一步坐实 §0 铁律二对
 B1 根因的判断:**失效责任散落在各个变更点**,补一行 `invalidate` 只会修好其中一个入口。
 
-### L1 残留(3 条 → 1 条,如实记录,不宣布全好)
+### L1 残留(已根治,`1b4abb22`;定位史如实留档)
 
-修复(切换动作等导航落地再翻 id)在真机上把三条 404 砍到**恰好一条**:`/conversations/{旧}` 与
-`/workdir` 消失,只剩 `/messages`。
+编舞修复(`1fb327f2`)把三条 404 砍到一条后,第二轮真机复现(前置条件先坐实——此前一次「0 异常」是
+**空的**,因为对话根本没打开)看清了残留的确切形状:切换后仍有**四条**针对旧对话的请求
+(`interactions` / `touchpoints` / `todos` 200 + `messages` **404**)。那三条不 404,只是因为**只有
+`ListMessages` 校验存在性**——同样是不该发出的请求,后端对它们更宽容而已。
 
-**残留的确切形状**(第二轮真机复现,前置条件先坐实——上一次的「0 异常」是**空的**,因为对话根本没打开):
-切换后仍有**四条**针对旧对话的请求(`interactions` / `touchpoints` / `todos` 200 + `messages` **404**)。
-那三条不 404,只是因为**只有 `ListMessages` 校验存在性**——它们同样是不该发出的请求,只是后端对它们更宽容。
-
-**两条试过并被自己证伪的假设,都已撤销**(留一个注释里写着假因果的改动,比不改更糟):
+**两条试过并被自己证伪的假设,均已撤销**(留一个注释里写着假因果的改动,比不改更糟):
 1. `dio.close(force: true)`——猜「跨越切换的在飞请求在发送时才读 header」。真机结果不变。
-2. `_hydrate` 先让出一个微任务、再检查 `ref.mounted`——猜「注定要死的实例会在那个微任务里被释放」。
-   真机结果不变;**再加一帧(共两帧)也一字不差地相同**,故帧数不是杠杆。
+2. `_hydrate` 先让出一个微任务再查 `ref.mounted`——真机结果不变;**再加一帧(共两帧)也一字不差**,
+   帧数不是杠杆。
 
-**已定位的真正原因(未施工)**:海洋走**懒保活栈**(`_OceanStack` / `AnLazyIndexedStack`,S3 刻意为之
-——切海洋零重建零骨架)。`go('/')` 清掉的是**选区**,而被保活的那一族 transcript provider 并不随之释放,
-于是 workspace 级联开火时它们还活着、带着旧 id 重跑。这解释了为什么 `conversationHeaderProvider` 与
-`workDirProvider`(不在保活栈里)**按时死了**、而 transcript 一族没有。
+**当晚的定位(保活栈留住 transcript 族)方向对、主体错**——读码到底后:transcript 随 landing 换台
+**正常死**(`ChatOcean` 无记忆,选区一空就渲 landing);活过切换的是右岛 `_InspectorStack` 的私有
+`_lastChat`——它刻意让 `StagePanel(旧对话)` 常驻折叠(去别的海洋看一眼、侧幕不卸,设计本意),但记忆
+**随 widget 活而不随 workspace 死**。它监听的四个对话域 provider 与真机四条请求**一一对号**:
+`touchpointLedger`→touchpoints、`pendingInteractions`→interactions、`rundown`→todos 直接重取;
+`stageDirector` 的 build 更经 `ref.read(conversationStreamProvider(旧).notifier)` 把**已经死掉**的
+消息流 provider **复活**、重新 hydrate=`/messages` 404。这也解释了 header/workDir 为何按时死——
+它们不在任何记忆之下。
 
-**下一步**:让选区域 provider 与保活栈的生命周期解耦——它们该随**选区**死,而不是随**海洋**活。这是架构性
-改动(触及 S3 的保活设计),不该在收口前夜草率动手,故本条**留作 🟡 而非宣布已修**。
+**修法**(`1b4abb22`):记忆上提为 `core/shell/inspector_memory.dart` 的 `lastChatThreadProvider`
+(壳级,同 `rightPanelCollapsedProvider` 一族):AppShell 进对话上闩(深链冷启 post-frame 补闩)、
+`_InspectorStack` 改吃 provider(私有态删除),`WorkspaceSwitch` 第①拍与 `go('/')` **同瞬显式
+clear**——面板在轴翻转**前一帧**卸载,翻转时对话域 provider 已零监听,级联不再急重建它们。provider 自身
+watch activeWorkspace(换世界即弃闩)只是局部不变量、不是修法:守卫「KEPT-ALIVE right island」在
+「有自愈、无编舞清除」的中间态下**记忆已复位、线上仍 2 条旧请求**——自愈晚一个 flush,实证清除必须在
+第①拍。
 
-**用户可见性**:界面上没有任何症状(那三条 200 拿到的数据被丢弃,404 被吞掉);它是一条**日志里的**缺陷。
-但按 §0 铁律一,「不影响使用」不是不修的理由——它只决定顺序。
+**真机收口**(热重启装新码,前置断言先行):开 `cv_b6f7c8825b3dc77e`、`/messages` 200 坐实 → 切
+演示工作台 → 水位后**0 条**旧对话请求、0 条 4xx/5xx(修前同操作 4 条)→ 切回重开,五端点
+(messages/interactions/todos/touchpoints/workdir)各**恰好一次**全 200——卸载不伤重绑;Flutter 终端
+全窗口零输出。
 
 ### B1 根因订正### B1 根因订正(§0 的原判据被实证推翻,记档而非默默改口)
 
@@ -354,16 +363,6 @@ B1 根因的判断:**失效责任散落在各个变更点**,补一行 `invalidat
 在**已经正确**的机器旁边再搭一台,而真正的缺口(动词表)原封不动,下一个动词照样静默。真机验证:挂上驻地
 的瞬间新组出现、`Recents` 13→12,零刷新。
 
-### L1 收窄(尚未定论,但线索大幅前进)
-
-四条 404 的两个对话 id 都查到了,**两条都存在于库中且未软删**:
-`cv_d45bb2114af8e189`(「Perplexity AI 界面截图描述」)与 `cv_09f46603668c74d7`(「每日好运签技能介绍」),
-**均属 workspace `ws_428e187e6c4d2f0f`(Personal)**。而 D2 物理隔离决定:在**另一个** workspace 下问这两个 id,
-后端只会答 404。当晚另有 workspace `ws_b79831cbb00dfa09`(演示工作台)存在。
-
-**收窄后的假设**:切换 workspace(或以持久化选区冷启动)时,**选中的对话没有跟着清空**,于是 app 继续去问一条
-在当前 workspace 里不可见的对话。待做:按此假设构造复现。
-
 **B3/B4 施工中主动扩大的两处**(如实记档,非工单点名):
 1. **`AnIcons.folderMissing`(新增语义图标)**。按钮改纯字形后,「目录已不存在」失去了全部可见通道——旧注释声称警示「落在标签自己的字形」,但代码里标签只是 `_basename()`,**那句注释本就与代码不符**。AnButton 没有 `warn` 变体可着色(只有 ghost/primary/danger/icon),故警报改骑**字形**(`folder` → `folder-x`)。字形也胜过着色:暗色与色盲下都还成立。
 2. **`_ForkLineage` 从「带标签的钮」变成「纯字形 + 菜单」**。单纯摘掉标签会造成一个更糟的交互:点击即导航,而字形本身什么都没说——**你无法在不跳过去的前提下知道它通向哪**。故点击改为**展开**,名字就是它展开出来的东西。这同时让面包屑两个字形说同一套文法(字形 → 菜单 → 身份在菜单头)。
@@ -371,7 +370,12 @@ B1 根因的判断:**失效责任散落在各个变更点**,补一行 `invalidat
 **已解释、不再追的历史异常**(同次考古所得,记此以免重复调查):
 `/speech/asr` 500 ×6(`Hijacker` 缺转发,已修,23:23 后转 400)·
 `/freetier/quota` 401 ×11(install 死结,已修)· `media: derivative processing failed`(HEIC,预期)·
-`autoTitle 401`(同 install 死结)。
+`autoTitle 401`(同 install 死结)·
+**`ConcurrentModificationError`(0726 13:0x 扫查所见,framework 内部,记档不吞)**:栈全在 Flutter 的
+`MultiSelectableSelectionContainerDelegate.handleClearSelection`(`selectable_region.dart`,
+`didChangeSelectables` 排的任务边遍历 selectables 边被改)——发生在**两次热重启之间**的窗口
+(dev 工具链批量拆 selectable),我方代码零帧;L1 收口验证窗口(重启后)Flutter 终端零输出,全部真实
+用户流程扫查中从未出现。若某天在真实流程(如选中文字时切对话)复现,按新缺陷立项;在那之前不冒充可修。
 
 ---
 
