@@ -270,10 +270,10 @@ ToolCardSpec _search({
 );
 
 /// F4 builds: create/edit × 8 entities + the trigger pair. The verb carries the KIND NOUN
-/// (正在创建函数/Creating function); create targets the streaming args.name, edit targets the
-/// entity id; the receipt is vN from the output + the env half-success (envStatus failed →
-/// danger → auto-expand); the live body streams the authored content as args flow.
-/// F4 构建族:create/edit×8 实体+trigger 对。动词带**类名词**;create 目标=流中 args.name、
+/// (正在创建函数/Creating function); create targets the entity name read by path ([_createdName]),
+/// edit targets the entity id; the receipt is vN from the output + the env half-success (envStatus
+/// failed → danger → auto-expand); the live body streams the authored content as args flow.
+/// F4 构建族:create/edit×8 实体+trigger 对。动词带**类名词**;create 目标=按路径读的实体名([_createdName])、
 /// edit=实体 id;回执=输出 vN + env 半成功(failed→危险色→自动展开);活体=内容随 args 流入。
 ToolCardSpec _build({
   required String Function(Translations) kind,
@@ -291,7 +291,7 @@ ToolCardSpec _build({
             ? t.chat.tool.updatingKind(kind: kind(t))
             : t.chat.tool.updatedKind(kind: kind(t))),
   target: (s) => create
-      ? s.arg('name')
+      ? toolCardCreatedName(s)
       : (editIdKey == null ? null : argString(s.argsText, editIdKey)),
   receipt:
       receipt ??
@@ -1132,7 +1132,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'activate_skill': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.activatingSkill : t.chat.tool.activatedSkill,
-    target: (s) => s.arg('name'),
+    target: toolCardTopLevelName,
     // The injected output is an instruction payload → a capped machine window (fork answers have no
     // panel; 6000 cap). 注入载荷→capped 机器窗。
     body: (context, s) => activateSkillBody(context, s),
@@ -1434,7 +1434,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'install_mcp_server': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.installingMcp : t.chat.tool.installedMcp,
-    target: (s) => s.arg('name'),
+    target: toolCardTopLevelName,
     receipt: (t, s) => mcpStatusReceipt(t, s.resultText),
     resultFailed: (s) => mcpStatusFailed(s.resultText),
     body: mcpStatusBody,
@@ -1442,14 +1442,14 @@ final Map<String, ToolCardSpec> _catalog = {
   'uninstall_mcp_server': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.uninstallingMcp : t.chat.tool.uninstalledMcp,
-    target: (s) => s.arg('name'),
+    target: toolCardTopLevelName,
     receipt: (t, s) => mcpStatusReceipt(t, s.resultText),
     body: mcpStatusBody,
   ),
   'reconnect_mcp': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.reconnectingMcp : t.chat.tool.reconnectedMcp,
-    target: (s) => s.arg('name'),
+    target: toolCardTopLevelName,
     receipt: (t, s) => mcpStatusReceipt(t, s.resultText),
     resultFailed: (s) => mcpStatusFailed(s.resultText),
     body: mcpStatusBody,
@@ -1669,7 +1669,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'write_memory': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.memorizing : t.chat.tool.memorized,
-    target: (s) => s.arg('name'),
+    target: toolCardTopLevelName,
     receipt: memoryWriteReceipt,
     body: writeMemoryBody,
     // The result-payload soft-reject is the failure fact (status stays completed). 软拒即失败事实。
@@ -1679,7 +1679,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'read_memory': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.recalling : t.chat.tool.recalled,
-    target: (s) => s.arg('name'),
+    target: toolCardTopLevelName,
     receipt: memoryReadReceipt,
     body: readMemoryBody,
     // A read miss is an honest empty — receipt IS the card (no body, no chevron). 读空回执即卡。
@@ -1690,7 +1690,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'forget_memory': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.forgetting : t.chat.tool.forgot,
-    target: (s) => s.arg('name'),
+    target: toolCardTopLevelName,
     receipt: memoryForgetReceipt,
     body: forgetMemoryBody,
   ),

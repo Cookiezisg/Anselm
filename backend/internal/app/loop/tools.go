@@ -352,15 +352,23 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 		return msg, msg, false
 	}
 
+	// Both failure logs render the error through [llmErrText], NOT `zap.Error` — same key, richer value.
+	// `zap.Error` calls `Error()`, which drops Details by construction, so the reason the domain already
+	// computed (which op, which node, the real CEL error) survived only into the LLM's copy and was
+	// thrown away in the operator's. That asymmetry is backwards: the model can retry, the human reading
+	// the log at 3am cannot.
+	// 两条失败日志都经 [llmErrText] 渲染错误、**不用** `zap.Error`——同一个键、更富的值。`zap.Error` 调
+	// `Error()`,而它按构造丢 Details,于是 domain **已经算出来的**原因(哪个 op、哪个节点、真正的 CEL 错误)
+	// 只活进了 LLM 那一份、在运维那一份里被扔掉。这个不对称是反的:模型还能重试,凌晨读日志的人不能。
 	if err := t.ValidateInput(argsJSON); err != nil {
-		log.Warn("tool validate failed", zap.String("tool", name), zap.Error(err))
+		log.Warn("tool validate failed", zap.String("tool", name), zap.String("error", llmErrText(err)))
 		return "input validation failed: " + llmErrText(err), err.Error(), false
 	}
 
 	output, err := t.Execute(ctx, string(argsJSON))
 	output = capToolResult(output)
 	if err != nil {
-		log.Warn("tool execute failed", zap.String("tool", name), zap.Error(err))
+		log.Warn("tool execute failed", zap.String("tool", name), zap.String("error", llmErrText(err)))
 		if output != "" {
 			return output + "\n\n" + llmErrText(err), err.Error(), false
 		}

@@ -876,6 +876,58 @@ Widget _envFixRow(BuildContext context, Map<dynamic, dynamic> a) {
   );
 }
 
+/// The created entity's NAME, read by PATH — never by any-depth key match (WRK-083 L9).
+///
+/// Two arg shapes reach the build family: flat (`{"name":…}`) and ops (`{"ops":[{"op":"set_meta",
+/// "name":…}, …]}`). A create card's target is an IDENTITY, and identity cannot be looked up with
+/// [PartialJsonSession.liveStringNamed]: that one matches the last path segment at ANY depth, scanning
+/// backwards, so in an ops payload it happily returns `ops[2].outputs[2].name` — a declared OUTPUT
+/// FIELD — because it comes after `ops[0].name`. Real machine: a function named `echo_unicode` whose
+/// last output field was `codepoints` was announced as «Created function codepoints», while the
+/// notice band and the sidestage (which do not use this lookup) both named it correctly.
+///
+/// The any-depth lookup stays exactly right for the live BODY (follow whichever `code` / `body` is
+/// growing, wherever it nests) — that is its documented job. It is only wrong for names.
+///
+/// 被创建实体的**名字**,按**路径**读——绝不用任意深度键名匹配(WRK-083 L9)。
+///
+/// 构建族会收到两种参数形状:扁平(`{"name":…}`)与 ops(`{"ops":[{"op":"set_meta","name":…},…]}`)。创建卡的
+/// target 是**身份**,而身份不能用 [PartialJsonSession.liveStringNamed] 去取:它匹配任意深度的**末段**键名、
+/// 且**倒着扫**,于是在 ops 形状里会心安理得地返回 `ops[2].outputs[2].name`——一个**声明出来的输出字段**——只因
+/// 它排在 `ops[0].name` 后面。真机:一个名为 `echo_unicode`、最后一个输出字段叫 `codepoints` 的函数,被宣布成
+/// 「Created function codepoints」,而顶带通知与右岛(它们不用这个取法)都叫对了名字。
+///
+/// 任意深度取法对**活体**依然完全正确(跟住此刻正在生长的 code/body,不论嵌多深)——那是它被文档化的职责。
+/// 它只是不该用来取名字。
+String? toolCardTopLevelName(ToolCardState s) {
+  final session = s.argsSession;
+  final closed = session.closedValueAt(const ['name']);
+  if (closed is String && closed.isNotEmpty) return closed;
+  // Still typing: the in-flight tail AT THAT PATH — same liveness the any-depth lookup gave, without
+  // its ability to wander into a nested key. 仍在打字:**该路径**的在途尾值——保住原有的活性,但不会漫游到
+  // 嵌套的同名键上。
+  final live = session.inFlightStringAt(const ['name']);
+  return (live == null || live.isEmpty) ? null : live;
+}
+
+String? toolCardCreatedName(ToolCardState s) {
+  final session = s.argsSession;
+  // Flat shape first: the top-level key, by exact path. 扁平形状优先:顶层键,精确路径。
+  final flat = toolCardTopLevelName(s);
+  if (flat != null) return flat;
+  // ops shape: the set_meta op owns the entity's name. Only CLOSED ops are visible, so while args
+  // stream the target simply stays absent until set_meta lands — honest, and it lands first in
+  // practice. ops 形状:set_meta 那个 op 拥有实体名。只看得见**已闭合**的 op,故流式期间 target 只是暂缺,
+  // 直到 set_meta 落定——诚实,且实践中它排在最前。
+  for (final op in session.arrayItemsAt(const ['ops'])) {
+    if (op is Map && op['op'] == 'set_meta') {
+      final n = op['name'];
+      if (n is String && n.isNotEmpty) return n;
+    }
+  }
+  return null;
+}
+
 /// The backend EntityKind wire value a build tool operates on (create_function → 'function'), used by
 /// the result-bar adapter [runStatBarOf] for the provenance RefPill + the dual-key id fallback. null = not an entity-CRUD build.
 /// 构建工具作用的实体 kind 线缆值(RefPill + 双键 id 用);null=非 entity-CRUD。
@@ -929,7 +981,7 @@ Widget runStatBarOf(
   // Label: only CREATE's args.name is the entity name; on EDIT the first "name" in args is a nested
   // op field — use the id there. label:仅 create 的 args.name 是实体名;edit 用 id。
   final label = state.toolName.startsWith('create_')
-      ? (state.arg('name') ?? id)
+      ? (toolCardCreatedName(state) ?? id)
       : id;
   final envStatus = out['envStatus'] as String?;
   // handler-edit only: crashed = the honest brick; stopped is BENIGN (never-spawned — census
