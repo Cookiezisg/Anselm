@@ -1938,6 +1938,7 @@ class _Translations$library$slash$zh_CN extends Translations$library$slash$en {
 	@override String get quote => '引用';
 	@override String get code => '代码块';
 	@override String get table => '表格';
+	@override String get media => '媒体';
 	@override String get divider => '分隔线';
 	@override String get todo => '待办';
 }
@@ -4435,6 +4436,7 @@ extension on TranslationsZhCn {
 			'library.slash.quote' => '引用',
 			'library.slash.code' => '代码块',
 			'library.slash.table' => '表格',
+			'library.slash.media' => '媒体',
 			'library.slash.divider' => '分隔线',
 			'library.slash.todo' => '待办',
 			'library.linkHint' => '输入或粘贴链接,回车确定',
@@ -4444,9 +4446,9 @@ extension on TranslationsZhCn {
 			'library.table.insertColLeft' => '在左侧插入列',
 			'library.table.insertColRight' => '在右侧插入列',
 			'library.table.deleteCol' => '删除列',
-			'library.table.deleteTable' => '删除表格',
 			_ => null,
 		} ?? switch (path) {
+			'library.table.deleteTable' => '删除表格',
 			'library.skillSourceMode' => '源码',
 			'library.skillRichMode' => '富文本',
 			'library.skillModeTooltip' => '切换清单的富文本 / 源码编辑',

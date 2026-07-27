@@ -39,7 +39,7 @@ class AnMediaImageComponentBuilder extends ImageComponentBuilder {
       return null; // not ours — the default builder answers / 不是我们的,交回默认组件
     }
     return _AnMediaImageComponent(
-      key: componentContext.componentKey,
+      componentKey: componentContext.componentKey,
       attachmentId: attachmentId,
       colors: colors,
     );
@@ -56,15 +56,31 @@ class _AnMediaImageComponent extends StatelessWidget {
   const _AnMediaImageComponent({
     required this.attachmentId,
     required this.colors,
-    super.key,
+    required this.componentKey,
   });
 
   final String attachmentId;
   final AnColors colors;
 
+  /// super_editor's per-component GlobalKey, carried as a FIELD and mounted on exactly one widget:
+  /// the BoxComponent below, which is what the layout addresses.
+  ///
+  /// It used to be this wrapper's own `key` AND be passed down to BoxComponent — the same GlobalKey
+  /// on two widgets at once, which Flutter rejects. Nothing caught it because no test had ever
+  /// inserted a media node into a LIVE editor; the codec tests round-trip markdown and never build
+  /// a component (WRK-082 H6 found it by adding `/media`).
+  ///
+  /// super_editor 的逐组件 GlobalKey,作为**字段**携带、并且只挂在**一个** widget 上:下面那个
+  /// BoxComponent——布局寻址的正是它。
+  ///
+  /// 它过去**既是**本包装件自己的 `key`、**又**被传给 BoxComponent——同一个 GlobalKey 同时挂在两个
+  /// widget 上,Flutter 直接拒绝。没有任何东西抓到它,因为从来没有测试往**活**编辑器里插过媒体节点;
+  /// codec 测试往返 markdown、从不构建组件(H6 加 `/media` 时撞出来的)。
+  final GlobalKey componentKey;
+
   @override
   Widget build(BuildContext context) => BoxComponent(
-    key: key,
+    key: componentKey,
     child: AnMediaRefCard(
       mediaRef: AnMediaRef(attachmentId: attachmentId),
       maxWidth: AnSize.content,

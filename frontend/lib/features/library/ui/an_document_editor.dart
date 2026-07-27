@@ -1,6 +1,10 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import '../../../core/model/status_state.dart';
+import '../../../core/notice/notice_center.dart';
+import '../../../core/media/media_source.dart';
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/design/an_fonts.dart';
@@ -261,12 +265,53 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
                 onChangedMarkdown: widget.onChangedMarkdown,
                 shrinkWrap: true,
                 prose: prose,
+                pickAndUploadMedia: _pickAndUploadMedia,
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  /// The `/media` command's host half: pick a file, land it as a first-class attachment, answer its
+  /// id. The editor writes the markdown; this writes the bytes.
+  ///
+  /// It lives HERE rather than in `core/editor` because the editor is deliberately Riverpod-free —
+  /// and it goes through `mediaSourceProvider`, the platform media seam, rather than chat's
+  /// repository, because features must not depend on each other. The seam exists for exactly this.
+  ///
+  /// Null on cancel and on failure alike: from the document's side those are the same event — nothing
+  /// to insert. The failure is surfaced to the user by the toast, not by a half-written document.
+  ///
+  /// `/media` 命令的**宿主**那一半:选文件、把它落成一等附件、答出 id。编辑器写 markdown,这里写字节。
+  ///
+  /// 它在**这里**而不在 `core/editor`,因为编辑器刻意不沾 Riverpod;而它走
+  /// `mediaSourceProvider` 这层平台媒体缝、**不走 chat 的 repository**,因为 features 互不依赖。
+  /// 这层缝存在的理由正是这个。
+  ///
+  /// 取消与失败**同样返 null**:从文档那一侧看它们是同一件事——没有东西可插。失败经 toast 告诉用户,
+  /// 而不是靠一份写了一半的文档。
+  Future<String?> _pickAndUploadMedia() async {
+    final file = await openFile();
+    if (file == null) return null;
+    try {
+      final meta = await ref
+          .read(mediaSourceProvider)
+          .upload(
+            bytes: await file.readAsBytes(),
+            filename: file.name,
+            mimeType: file.mimeType ?? '',
+          );
+      return meta.id;
+    } catch (_) {
+      if (mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(context.t.attach.failedUnreadable, tone: AnTone.danger);
+      }
+      return null;
+    }
   }
 
   // The reading-scale header is the [AnDocHeader] primitive (A-113 — the arrangement lives in gallery,

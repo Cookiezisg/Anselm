@@ -32,6 +32,13 @@ class _StubSource implements MediaSource {
   @override
   NativeFetchTarget nativeTarget(String id) =>
       const NativeFetchTarget(uri: 'http://127.0.0.1:0/stub', headers: {});
+
+  @override
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) async => throw UnimplementedError();
   @override
   Future<bool> readAloudAvailable() async => false;
   @override

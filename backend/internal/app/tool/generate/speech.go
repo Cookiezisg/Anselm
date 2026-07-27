@@ -8,6 +8,7 @@ import (
 	"unicode/utf8"
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -110,6 +111,10 @@ func (t *GenerateSpeech) Execute(ctx context.Context, args string) (string, erro
 		"provider":     route.provider,
 		"characters":   utf8.RuneCountInString(text),
 		"source":       "generate_speech",
+		// Exact, measured from the PCM we just produced — not the requested character count and not
+		// a guess. Omitted (0) rather than invented when the bytes are not a readable WAV.
+		// **精确**值,量自我们刚产出的 PCM——不是请求的字符数、也不是猜的。字节不是可读 WAV 时**留 0**、不编。
+		"durationMs": llminfra.AudioDurationMs(audio.Bytes),
 	}
 	if route.model != "" {
 		receipt["model"] = route.model

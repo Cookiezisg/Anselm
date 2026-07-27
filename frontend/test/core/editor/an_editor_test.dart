@@ -1,5 +1,9 @@
 import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:anselm/core/net/api_client.dart';
+import 'package:anselm/core/media/media_source.dart';
+import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/editor/an_editor.dart';
@@ -88,6 +92,7 @@ Widget _host([MutableDocument? doc]) => TranslationProvider(
 int _off(DocumentPosition p) => (p.nodePosition as TextNodePosition).offset;
 
 void main() {
+  _mediaSlashTests();
   setUpAll(
     () => LocaleSettings.setLocaleRaw('zh-CN'),
   ); // slash 标签断言走中文 the tests assert zh labels
@@ -1317,4 +1322,136 @@ class _FakeMentionSource implements MentionSource {
 
   @override
   Future<Map<String, String>> resolveNames(List<String> ids) async => const {};
+}
+
+// --- /media: the one async slash command (WRK-082 H6) ------------------------
+
+void _mediaSlashTests() {
+  MutableDocument emptyDoc() => MutableDocument(
+    nodes: [ParagraphNode(id: 'p1', text: AttributedText(''))],
+  );
+
+  // A ProviderScope is required, not decorative: inserting the node makes the editor render it
+  // through the ONE card family, which reaches for the media port. Without the scope the insert
+  // succeeds and the FRAME explodes — which is how this test first failed, and is itself proof that
+  // the document really got the node.
+  // ProviderScope 是必需的、不是装饰:插入节点会让编辑器经**一族卡**去渲它,而那要伸手拿媒体端口。
+  // 没有 scope 时插入**成功**、渲染那一帧**炸掉**——本测试第一次正是这么红的,而那本身就证明了文档
+  // 真的拿到了那个节点。
+  Widget host(MutableDocument doc, {Future<String?> Function()? pick}) =>
+      ProviderScope(
+        overrides: [
+          mediaSourceProvider.overrideWithValue(const _EditorStubMedia()),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: Scaffold(
+              body: AnEditor.withDocument(doc, pickAndUploadMedia: pick),
+            ),
+          ),
+        ),
+      );
+
+  Future<void> runMediaCommand(WidgetTester tester) async {
+    await tester.placeCaretInParagraph('p1', 0);
+    await tester.typeImeText('/media');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('媒体').last);
+    await tester.pumpAndSettle();
+  }
+
+  // The whole point of the async shape: the id does not exist until an upload has finished, so the
+  // insert has to happen AFTER an await — which is why this one command cannot be `requests` alone.
+  // 异步形态的全部意义:id 在上传完成之前**并不存在**,故插入必须发生在一次 await **之后**——这正是这条
+  // 命令无法只用 `requests` 表达的原因。
+  testWidgets(
+    '/media inserts the uploaded attachment as an anselm media link',
+    (tester) async {
+      final doc = emptyDoc();
+      await tester.pumpWidget(
+        host(doc, pick: () async => 'att_00112233445566aa'),
+      );
+      await tester.pumpAndSettle();
+      await runMediaCommand(tester);
+
+      final images = doc.whereType<ImageNode>().toList();
+      expect(images, hasLength(1));
+      expect(images.single.imageUrl, 'anselm://media/att_00112233445566aa');
+    },
+  );
+
+  // Cancel and failure are the same event from the document's side: nothing to insert. And the
+  // `/media` token must be gone either way — a cancelled pick that left "/media" sitting in the
+  // paragraph would make the user delete it by hand.
+  // 从文档那一侧看,取消与失败是同一件事:没有东西可插。而 `/media` 这个 token **两种情况下都得消失**
+  // ——一次留下 "/media" 的取消,会让用户自己动手去删它。
+  testWidgets('a cancelled pick inserts nothing and leaves no token behind', (
+    tester,
+  ) async {
+    final doc = emptyDoc();
+    await tester.pumpWidget(host(doc, pick: () async => null));
+    await tester.pumpAndSettle();
+    await runMediaCommand(tester);
+
+    expect(doc.whereType<ImageNode>(), isEmpty);
+    final p = doc.getNodeById('p1');
+    expect((p as TextNode).text.toPlainText(), isNot(contains('/media')));
+  });
+
+  // A surface mounted WITHOUT media support must degrade to doing nothing, not to a crash on the
+  // first slash — the callback is optional precisely so a host can leave it out.
+  // 一个**没带**媒体支持挂载起来的面必须退化成「什么也不做」,而不是在第一次敲斜杠时崩——回调是可选的,
+  // 正是为了让宿主可以不给它。
+  testWidgets('no host callback: /media is inert, never an exception', (
+    tester,
+  ) async {
+    final doc = emptyDoc();
+    await tester.pumpWidget(host(doc));
+    await tester.pumpAndSettle();
+    await runMediaCommand(tester);
+
+    expect(doc.whereType<ImageNode>(), isEmpty);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+/// The narrowest MediaSource the editor's rendering path needs: it only has to answer `meta` so the
+/// card family can pick a branch. Bytes are never fetched — no test here decodes a pixel.
+///
+/// 编辑器渲染路径所需的**最窄** MediaSource:它只需答得出 `meta`,好让一族卡选一个分支。字节从不取——
+/// 这里没有任何测试解一个像素。
+class _EditorStubMedia implements MediaSource {
+  const _EditorStubMedia();
+
+  @override
+  Future<AttachmentMeta> meta(String id) async => AttachmentMeta(
+    id: id,
+    filename: 'picked.png',
+    mimeType: 'image/png',
+    sizeBytes: 1,
+    kind: 'image',
+  );
+
+  @override
+  Future<List<int>> bytes(String id) async => const [];
+
+  @override
+  NativeFetchTarget nativeTarget(String id) =>
+      const NativeFetchTarget(uri: 'http://127.0.0.1:0/stub', headers: {});
+
+  @override
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<bool> readAloudAvailable() async => false;
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) async =>
+      throw UnimplementedError();
 }

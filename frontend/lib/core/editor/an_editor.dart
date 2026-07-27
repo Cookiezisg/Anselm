@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../media/media_uri.dart';
+import 'dart:async';
 import 'package:super_editor/super_editor.dart';
 
 import '../../i18n/strings.g.dart';
@@ -63,6 +65,7 @@ class AnEditor extends StatefulWidget {
     this.shrinkWrap = false,
     this.scrollController,
     this.prose,
+    this.pickAndUploadMedia,
   }) : debugDocument = null;
 
   /// Seed the editor with a caller-built document (KNOWN node ids) so widget-tests can drive the robot's
@@ -73,6 +76,7 @@ class AnEditor extends StatefulWidget {
     super.key,
     this.mentionSource,
     this.onChangedMarkdown,
+    this.pickAndUploadMedia,
   }) : initialMarkdown = null,
        resolvedNames = const {},
        shrinkWrap = false,
@@ -111,6 +115,20 @@ class AnEditor extends StatefulWidget {
   /// The stylesheet re-memoizes when this changes (a live switch). 内容字体覆盖:衬线/系统脸覆盖编辑器 prose 块;
   /// null=默认 sans(=现状);代码块与内联码守 mono;变化时样式表重记忆(即时切换)。
   final AnFace? prose;
+
+  /// Picks a file, uploads it, and answers its attachment id — or null when the user cancelled or the
+  /// upload failed. Supplied by the HOST because `core/editor` is deliberately Riverpod-free and cannot
+  /// reach the media port itself; the feature that mounts the editor wires it.
+  ///
+  /// Absent (null) means `/media` simply does nothing — the honest behaviour for a surface mounted
+  /// without media support, rather than a crash on the first slash.
+  ///
+  /// 选一个文件、上传、答出它的附件 id;用户取消或上传失败则 null。由**宿主**提供,因为 `core/editor`
+  /// 刻意不沾 Riverpod、自己够不着媒体端口;挂载编辑器的那个 feature 负责接线。
+  ///
+  /// 缺席(null)即 `/media` **什么也不做**——对一个本就没带媒体支持挂载的面,这是诚实的行为,而不是在
+  /// 第一次敲斜杠时崩掉。
+  final Future<String?> Function()? pickAndUploadMedia;
 
   @override
   State<AnEditor> createState() => AnEditorState();
@@ -387,6 +405,14 @@ class AnEditorState extends State<AnEditor> {
     final plain = node is TextNode ? node.text.toPlainText() : '';
     final emptyAfterSubmit = plain == '/${tag.tag.token}';
     final innerIdsBefore = _innerEditorNodeIds();
+    if (command.insertsMedia) {
+      // Consume the `/media` token FIRST so the paragraph is clean whatever the picker answers — a
+      // cancelled pick must not leave "/media" sitting in the document.
+      // **先**吃掉 `/media` token,使段落无论 picker 答什么都干净——**取消**不该在文档里留下一行 "/media"。
+      _editor.execute([const SubmitComposingActionTagRequest()]);
+      unawaited(_insertPickedMedia(tag.nodeId));
+      return;
+    }
     _editor.execute([
       const SubmitComposingActionTagRequest(),
       ...command.requests((
@@ -448,6 +474,28 @@ class AnEditorState extends State<AnEditor> {
   /// 文档中所有**自带内部编辑器**的块 id——代码块的 [AnCodeEditor]、表格的逐格 [SuperTextField]。它们正是
   /// 「插进来就是为了往**里**写」的那类块,故必须一到就接住光标,而不是把光标 park 到下方段落(WRK-083 L15)。
   /// 无内部编辑器的块(分隔线)刻意不在此列——对它们,把光标放到下面才是对的。
+  /// Awaits the host's picker/upload, then writes the ONE markdown form media has in a document:
+  /// `![alt](anselm://media/<id>)`. Nothing is written when the answer is null (cancelled or failed)
+  /// or when the editor was disposed meanwhile — an upload that outlived its editor must not
+  /// resurrect a document.
+  ///
+  /// 等宿主的选择/上传,然后写入媒体在文档里**唯一**的 markdown 形:`![alt](anselm://media/<id>)`。
+  /// 答案为 null(取消或失败)、或编辑器期间已被销毁时**什么都不写**——一次活得比编辑器久的上传,不得把
+  /// 一份文档复活。
+  Future<void> _insertPickedMedia(String nodeId) async {
+    final pick = widget.pickAndUploadMedia;
+    if (pick == null) return;
+    final id = await pick();
+    if (id == null || id.isEmpty || !mounted) return;
+    if (_document.getNodeById(nodeId) == null) return;
+    _editor.execute([
+      InsertNodeAfterNodeRequest(
+        existingNodeId: nodeId,
+        newNode: ImageNode(id: Editor.createNodeId(), imageUrl: mediaUri(id)),
+      ),
+    ]);
+  }
+
   Set<String> _innerEditorNodeIds() {
     final ids = <String>{};
     for (final node in _document) {

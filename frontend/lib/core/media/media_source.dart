@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../contract/attachment.dart';
+import 'package:dio/dio.dart';
 import '../net/api_client.dart';
 import '../runtime.dart';
 
@@ -28,6 +29,20 @@ abstract class MediaSource {
   ///
   /// 原生播放器该从哪里取这份附件,以及它必须送的头。视频**不走** [bytes]:libmpv 自己流式拉(H5.5)。
   NativeFetchTarget nativeTarget(String id);
+
+  /// Lands bytes as a first-class attachment and returns its row. This is the WRITE half of the
+  /// platform media seam: the document editor needs to insert a picture, and it must not reach into
+  /// chat's repository to do it (features 互不依赖). The seam exists exactly so every surface that
+  /// touches media talks to one port.
+  ///
+  /// 把字节落成一等附件并返回它的行。这是平台媒体缝的**写**那一半:文档编辑器要插一张图,而它**不能**
+  /// 为此伸进 chat 的 repository(features 互不依赖)。这层缝的存在,正是为了让每个碰媒体的面都对同一个
+  /// 端口说话。
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  });
 
   /// Whether read-aloud can run at all (`GET /read-aloud/availability`). Honest absence: with no
   /// speech-capable key the affordance must not exist, rather than exist and always fail.
@@ -85,6 +100,23 @@ class ApiMediaSource implements MediaSource {
   @override
   NativeFetchTarget nativeTarget(String id) =>
       _api.nativeFetchTarget('/api/v1/attachments/$id/content');
+
+  @override
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) => _api.postEntity(
+    '/api/v1/attachments',
+    AttachmentMeta.fromJson,
+    body: FormData.fromMap({
+      'file': MultipartFile.fromBytes(
+        bytes,
+        filename: filename,
+        contentType: mimeType.isEmpty ? null : DioMediaType.parse(mimeType),
+      ),
+    }),
+  );
 
   @override
   Future<bool> readAloudAvailable() async {

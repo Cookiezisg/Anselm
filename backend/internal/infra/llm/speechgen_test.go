@@ -181,3 +181,33 @@ func TestSpeechChunkLimitCoversEveryRoutedProvider(t *testing.T) {
 		}
 	}
 }
+
+// TestAudioDurationMs_MeasuresOrSaysNothing pins both halves of the contract: an exact number when
+// the bytes are a readable WAV, and ZERO — never a guess — when they are not.
+//
+// A receipt that invents a length is worse than one that omits it, because the caller cannot tell
+// an invention from a measurement (WRK-082 H6).
+//
+// TestAudioDurationMs_MeasuresOrSaysNothing 钉住契约的两半:字节是可读 WAV 时给**精确**数,不是时给
+// **零**、而不是猜。
+//
+// 一份**编**长度的 receipt 比一份干脆不写的更糟,因为调用方分不出编造与测量(H6)。
+func TestAudioDurationMs_MeasuresOrSaysNothing(t *testing.T) {
+	// 24kHz / 16-bit / mono — the shape every synthesis in this package produces. Half a second of
+	// PCM is 24000 bytes.
+	// 24kHz/16bit/mono——本包每次合成产出的规格。半秒 PCM 是 24000 字节。
+	wav := BuildWAV(make([]byte, 24000), 24000, 1, 16)
+	if got := AudioDurationMs(wav); got != 500 {
+		t.Fatalf("AudioDurationMs = %dms, want 500ms for half a second of 24kHz mono PCM", got)
+	}
+	for name, b := range map[string][]byte{
+		"empty":       nil,
+		"not a riff":  []byte("ID3 this is an mp3"),
+		"truncated":   wav[:8],
+		"header only": BuildWAV(nil, 24000, 1, 16),
+	} {
+		if got := AudioDurationMs(b); got != 0 {
+			t.Fatalf("%s: AudioDurationMs = %d, want 0 (never guess)", name, got)
+		}
+	}
+}

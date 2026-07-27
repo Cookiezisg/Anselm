@@ -4745,6 +4745,9 @@ class Translations$library$slash$en {
 	/// en: 'Table'
 	String get table => 'Table';
 
+	/// en: 'Media'
+	String get media => 'Media';
+
 	/// en: 'Divider'
 	String get divider => 'Divider';
 
@@ -8453,6 +8456,7 @@ extension on Translations {
 			'library.slash.quote' => 'Quote',
 			'library.slash.code' => 'Code block',
 			'library.slash.table' => 'Table',
+			'library.slash.media' => 'Media',
 			'library.slash.divider' => 'Divider',
 			'library.slash.todo' => 'To-do',
 			'library.linkHint' => 'Type or paste a link, Enter to apply',
@@ -8462,9 +8466,9 @@ extension on Translations {
 			'library.table.insertColLeft' => 'Insert column left',
 			'library.table.insertColRight' => 'Insert column right',
 			'library.table.deleteCol' => 'Delete column',
-			'library.table.deleteTable' => 'Delete table',
 			_ => null,
 		} ?? switch (path) {
+			'library.table.deleteTable' => 'Delete table',
 			'library.skillSourceMode' => 'Source',
 			'library.skillRichMode' => 'Rich text',
 			'library.skillModeTooltip' => 'Toggle rich / raw source editing of the manifest',

@@ -34,12 +34,27 @@ class SlashCommand {
     required this.icon,
     required this.keywords,
     required this.requests,
+    this.insertsMedia = false,
   });
 
   final String Function(Translations t) labelOf;
   final IconData icon;
   final List<String> keywords;
   final List<EditRequest> Function(SlashContext ctx) requests;
+
+  /// Marks the ONE command that cannot be expressed as [requests] alone: inserting media needs a file
+  /// picked and uploaded FIRST, and only then is there an id to write into the document.
+  ///
+  /// It is a flag rather than an async variant of [requests] because `core/editor` is deliberately
+  /// Riverpod-free — it cannot reach the media port itself. The host supplies a callback; this flag is
+  /// how the palette says "call it", keeping the palette declarative and the layering intact.
+  ///
+  /// 标记**唯一**一条无法只用 [requests] 表达的命令:插媒体要**先**选文件、**先**上传,之后才存在一个可以
+  /// 写进文档的 id。
+  ///
+  /// 它是一个标志、而非 [requests] 的异步变体,因为 `core/editor` **刻意不沾 Riverpod**——它自己够不着媒体
+  /// 端口。宿主提供回调,而本标志是调色板说「去调它」的方式:调色板保持声明式,分层不破。
+  final bool insertsMedia;
 
   bool matches(String query, Translations t) {
     if (query.isEmpty) return true;
@@ -117,6 +132,31 @@ final List<SlashCommand> slashCommands = [
     icon: AnIcons.divider,
     keywords: ['divider', 'hr', 'rule', 'fenge'],
     requests: _divider,
+  ),
+  // LAST, and the position is not cosmetic: the palette has a bounded height, so putting a new entry
+  // at the FRONT pushes every block type down a row and moves the hit target of commands a writer
+  // reaches for constantly. It also matches the list's stated order — block types in the order a
+  // writer expects, and media is the one entry that is not a block conversion at all.
+  // **放在最后**,而且这个位置不是装饰:调色板有高度上限,故把新条目放在**开头**会把每一个块型都挤下一行、
+  // 移动写作者天天要点的那些命令的命中区。它也符合本表自述的顺序——块型按书写者预期的阅读序,而媒体是
+  // 其中**唯一**一条根本不是块型转换的。
+  SlashCommand(
+    labelOf: (t) => t.library.slash.media,
+    icon: AnIcons.image,
+    keywords: [
+      'media',
+      'image',
+      'picture',
+      'photo',
+      'video',
+      'audio',
+      'tupian',
+      'meiti',
+    ],
+    // No requests of its own — the host picks + uploads, then the editor writes the insert.
+    // 自己不出 requests——宿主选文件 + 上传,再由编辑器写入插入请求。
+    requests: (_) => const [],
+    insertsMedia: true,
   ),
 ];
 

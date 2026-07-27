@@ -1661,6 +1661,7 @@
       "quote": "Quote",
       "code": "Code block",
       "table": "Table",
+      "media": "Media",
       "divider": "Divider",
       "todo": "To-do"
     },

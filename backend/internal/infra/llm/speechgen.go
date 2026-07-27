@@ -479,3 +479,29 @@ func downloadAudio(ctx context.Context, httpc *http.Client, rawURL string) (Gene
 	}
 	return GeneratedAudio{Bytes: img.Bytes, Mime: img.Mime}, nil
 }
+
+// AudioDurationMs is the exact playing length of a synthesized WAV, or 0 when the bytes are not a
+// WAV this package can read (another provider's mp3, a truncated stream).
+//
+// It exists because the synthesis path already holds everything needed — ParseWAV hands back the
+// PCM plus its sample rate, channel count and sample width — so the duration is arithmetic on data
+// we have, not a second decode. Zero is the honest answer for "cannot tell": a receipt that
+// guesses a length is worse than one that omits it, because a caller cannot tell a guess from a
+// measurement.
+//
+// AudioDurationMs 是合成 WAV 的**精确**播放长度;字节不是本包读得懂的 WAV(别家的 mp3、截断的流)时返 0。
+//
+// 它存在,是因为合成路径手里**本来就有**所需的一切——ParseWAV 交回 PCM 及其采样率、声道数与位宽——故时长
+// 是对**已有数据**的算术,不是第二次解码。「说不出来」的诚实答案是 **0**:一份**猜**长度的 receipt 比一份
+// 干脆不写的更糟,因为调用方分不出猜测与测量。
+func AudioDurationMs(b []byte) int64 {
+	pcm, rate, channels, bits, err := ParseWAV(b)
+	if err != nil || rate <= 0 || channels <= 0 || bits <= 0 {
+		return 0
+	}
+	bytesPerSecond := rate * channels * (bits / 8)
+	if bytesPerSecond <= 0 {
+		return 0
+	}
+	return int64(len(pcm)) * 1000 / int64(bytesPerSecond)
+}
