@@ -631,14 +631,14 @@ void _imageRowTests() {
       },
     );
 
-    testWidgets('video has NO managed option — it never enters the free tier', (
+    testWidgets('video offers the managed option like image and speech', (
       tester,
     ) async {
-      // A managed key routes images and speech but must NOT appear as a video candidate: video is
-      // not in the free tier, so offering the managed row here would promise a route that does not
-      // exist and fail only when the user actually asks for a video.
-      // 受管 key 能走图像与语音,但**不得**出现在视频候选里:视频不进免费档,把受管行摆在这里等于许一条
-      // 并不存在的路由,而它只会在用户真去要一段视频时才失败。
+      // The managed key must appear as a video candidate. This expectation was the exact inverse
+      // until the user put video in the free tier (WRK-082 H1); the row now behaves like its two
+      // siblings, and a user with no key of their own can pick a video default and get a video.
+      // 受管 key 必须作为视频候选出现。在用户把视频放进免费档(H1)之前,这条期望是**完全相反**的;
+      // 该行现在与两个兄弟行为一致,一个自己没有 key 的用户能选一个视频默认、并真拿到片子。
       final repo = FixtureSettingsRepository();
       repo.keys.add(_key('aki_m', 'anselm'));
       await tester.pumpWidget(_host(repo));
@@ -649,9 +649,15 @@ void _imageRowTests() {
       );
       await tester.tap(find.byKey(const ValueKey('videoDefaultToggle')));
       await tester.pumpAndSettle();
-      expect(find.text('当前没有能生成视频的 key'), findsOneWidget);
+      expect(find.text('当前没有能生成视频的 key'), findsNothing);
 
       // …while the SAME key is a perfectly good image candidate.
+      // The managed row is labelled the same way in all three scenarios — the tables differ only
+      // in the direct-connection providers underneath it.
+      // 受管行在三个场景里的标签**完全相同**——三张表的区别只在它下面那些直连家。
+      expect(find.text('Anselm 免费档(网关代管)'), findsOneWidget);
+
+      // …and the SAME key is still a perfectly good image candidate.
       await tester.ensureVisible(
         find.byKey(const ValueKey('imageDefaultToggle')),
       );

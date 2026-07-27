@@ -6,9 +6,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	deviceproofinfra "github.com/sunweilin/anselm/backend/internal/infra/deviceproof"
 
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
@@ -17,7 +20,8 @@ import (
 // asynchronous: submit → poll a handle → fetch the artifact. The shape below is therefore three
 // verbs, not one, and the poll loop is shared while the three verbs differ per provider.
 //
-// Two dialects, not three. OpenAI's Videos API (Sora) is NOT implemented: it was announced for
+// THREE dialects. `anselm` is the managed free tier through the gateway; `qwen` and `google` are
+// direct connections. OpenAI's Videos API (Sora) is NOT implemented: it was announced for
 // removal on 2026-09-24 (代拍 D2). A driver with eight weeks left would be built, reviewed, and
 // deleted without ever earning its keep — and worse, its two unique traits (a real progress
 // percentage, a separate `/content` sub-endpoint) would have shaped this abstraction around a
@@ -26,7 +30,7 @@ import (
 // 桌面侧视频生成方言(批D)。与图像、语音不同,**每一家都是异步的**:提交 → 轮询句柄 → 取回产物。
 // 故下面是三个动词而非一个:轮询循环共用,三个动词各家不同。
 //
-// **两个方言、不是三个**。OpenAI 的 Videos API(Sora)**不实现**:它已公告 2026-09-24 下线(代拍 D2)。
+// **三个方言**。`anselm` 是经网关的受管免费档;`qwen` 与 `google` 是直连。OpenAI 的 Videos API(Sora)**不实现**:它已公告 2026-09-24 下线(代拍 D2)。
 // 一个只剩八周寿命的 driver 会被建、被复审、被删掉,却从没挣回自己的成本;更糟的是它那两个独有特性
 // (真进度百分比、单独的 `/content` 子端点)会把这套抽象塑造成围绕一个正在离场的家。
 //
@@ -117,6 +121,11 @@ func VideoPollInterval(provider string) time.Duration {
 		return 15 * time.Second
 	case "google":
 		return 10 * time.Second
+	case "anselm":
+		// The gateway forwards to wan, so wan's cadence is the real one — polling the
+		// gateway harder only makes the gateway poll DashScope harder.
+		// 网关转发给 wan,故真正的节奏是 wan 的——把网关轮询得更紧,只会让网关把 DashScope 轮询得更紧。
+		return 15 * time.Second
 	default:
 		return 15 * time.Second
 	}
@@ -125,13 +134,125 @@ func VideoPollInterval(provider string) time.Duration {
 // VideoMaxDuration is each provider's hard ceiling in seconds.
 func VideoMaxDuration(provider string) int {
 	switch provider {
-	case "qwen":
-		return 15
+	case "qwen", "anselm":
+		return 15 // anselm forwards to wan / anselm 转发给 wan
 	case "google":
 		return 8
 	default:
 		return 8
 	}
+}
+
+// ── Anselm gateway (managed free tier) ───────────────────────────────────────
+
+// SubmitVideoAnselm submits through the managed gateway. Two things differ from every direct
+// dialect and both matter:
+//
+//  1. The answer is **202**, not 200 — nothing has been generated yet, and the gateway says so in
+//     the status line rather than making the client read a field.
+//  2. The returned id is a **signed handle**, not the upstream task id. It only verifies for the
+//     install that paid for it, so it is opaque here in the strongest sense: this code could not
+//     take it apart even if it wanted to.
+//
+// SubmitVideoAnselm 经受管网关提交。有两处与所有直连方言不同,且两处都重要:
+//
+//  1. 答案是 **202** 而非 200——此刻什么都还没生成,网关在状态行里就说了,不必让客户端去读字段。
+//  2. 返回的 id 是**签名句柄**、不是上游 task id。它只对付过钱的那个 install 验得过,故它在这里是
+//     最强意义上的不透明:本段代码**就算想**也拆不开它。
+func SubmitVideoAnselm(ctx context.Context, httpc *http.Client, baseURL, installID string, req VideoRequest) (VideoJob, error) {
+	if req.DurationSec < 2 || req.DurationSec > VideoMaxDuration("anselm") {
+		return VideoJob{}, fmt.Errorf("%w: duration must be 2-%d seconds", ErrVideoGenFailed, VideoMaxDuration("anselm"))
+	}
+	body, _ := json.Marshal(map[string]any{
+		"prompt":     req.Prompt,
+		"seconds":    req.DurationSec,
+		"aspect":     anselmAspect(req.Aspect),
+		"resolution": anselmResolution(req.Resolution),
+	})
+	httpReq, err := newVideoRequest(ctx, strings.TrimRight(baseURL, "/")+"/videos/generations", body)
+	if err != nil {
+		return VideoJob{}, err
+	}
+	httpReq.Header.Set(deviceproofinfra.HeaderInstallID, installID)
+	raw, err := doVideoRequestAccepting(httpc, httpReq, "anselm", http.StatusAccepted)
+	if err != nil {
+		return VideoJob{}, err
+	}
+	var wire struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil || strings.TrimSpace(wire.ID) == "" {
+		return VideoJob{}, fmt.Errorf("%w: gateway accepted nothing (no handle)", ErrVideoGenFailed)
+	}
+	return VideoJob{Provider: "anselm", Handle: wire.ID}, nil
+}
+
+// PollVideoAnselm reads one handle's state. The gateway already normalized the vendor's six-word
+// vocabulary into four, so this reads its OWN contract rather than re-deriving DashScope's — that
+// is the entire reason the gateway publishes a closed set instead of forwarding the vendor's.
+//
+// PollVideoAnselm 读一个句柄的状态。网关已经把厂商的六字词表归一成四个,故这里读的是**它自己的**
+// 契约、而不是再推一遍 DashScope 的——网关发布一个封闭集而非转发厂商的,理由**就是**这个。
+func PollVideoAnselm(ctx context.Context, httpc *http.Client, baseURL, installID, handle string) (VideoStatus, error) {
+	u := strings.TrimRight(baseURL, "/") + "/videos/" + url.PathEscape(handle)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
+	if err != nil {
+		return VideoStatus{}, fmt.Errorf("%w: %v", ErrVideoGenFailed, err)
+	}
+	httpReq.Header.Set(deviceproofinfra.HeaderInstallID, installID)
+	raw, err := doVideoRequest(httpc, httpReq, "anselm")
+	if err != nil {
+		return VideoStatus{}, err
+	}
+	var wire struct {
+		Status string `json:"status"`
+		URL    string `json:"url"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil {
+		return VideoStatus{}, fmt.Errorf("%w: gateway status unreadable", ErrVideoGenFailed)
+	}
+	switch wire.Status {
+	case "pending":
+		return VideoStatus{Phase: VideoQueued}, nil
+	case "succeeded":
+		if wire.URL == "" {
+			return VideoStatus{}, fmt.Errorf("%w: gateway succeeded with no artifact url", ErrVideoGenFailed)
+		}
+		// A bare pre-signed OSS URL relayed by the gateway: NO headers, and in particular NOT the
+		// install id — sending it to the object store would be both useless and a leak.
+		// 由网关直通的裸预签名 OSS URL:**不带**任何头,尤其**不带** install id——把它送给对象存储
+		// 既没用、又是一次泄漏。
+		return VideoStatus{Phase: VideoSucceeded, Artifact: &VideoArtifact{URL: wire.URL}}, nil
+	case "failed":
+		// The gateway deliberately does not relay the upstream failure text (its own redaction
+		// rule), so there is no reason to invent one here.
+		// 网关刻意不转发上游失败文本(它自己的脱敏律),故这里没有理由编一个出来。
+		return VideoStatus{Phase: VideoFailed, Reason: "the managed gateway reported a failed generation"}, nil
+	default:
+		return VideoStatus{Phase: VideoRunning}, nil
+	}
+}
+
+// anselmAspect / anselmResolution translate the tool's enum into the gateway's wire vocabulary.
+// The gateway takes shape WORDS rather than ratios precisely so this stays a rename and never a
+// ratio computation.
+//
+// anselmAspect / anselmResolution 把工具的 enum 译成网关的线缆词表。网关收**形状词**而非比例,正是
+// 为了让这里永远只是改名、而不是算比例。
+func anselmAspect(aspect string) string {
+	switch aspect {
+	case "portrait", "square":
+		return aspect
+	default:
+		return "landscape"
+	}
+}
+
+func anselmResolution(res string) string {
+	if res == "1080p" {
+		return "1080p"
+	}
+	return "720p"
 }
 
 // ── DashScope (wan) ──────────────────────────────────────────────────────────
@@ -432,6 +553,16 @@ func newVideoRequest(ctx context.Context, u string, body []byte) (*http.Request,
 }
 
 func doVideoRequest(httpc *http.Client, req *http.Request, provider string) ([]byte, error) {
+	return doVideoRequestAccepting(httpc, req, provider, http.StatusOK)
+}
+
+// doVideoRequestAccepting is doVideoRequest with an explicit success code. The managed submit
+// answers 202 — "accepted, nothing generated yet" — and treating that as a failure would turn the
+// single most correct thing the gateway does into an error.
+//
+// doVideoRequestAccepting 是带显式成功码的 doVideoRequest。受管提交答 **202**——「已受理,尚未生成」
+// ——把它当失败,等于把网关做得最对的那一件事变成一个错误。
+func doVideoRequestAccepting(httpc *http.Client, req *http.Request, provider string, wantStatus int) ([]byte, error) {
 	resp, err := httpc.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: %v", ErrVideoGenFailed, provider, err)
@@ -441,7 +572,7 @@ func doVideoRequest(httpc *http.Client, req *http.Request, provider string) ([]b
 	if err != nil {
 		return nil, fmt.Errorf("%w: %s: read: %v", ErrVideoGenFailed, provider, err)
 	}
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != wantStatus {
 		excerpt := strings.TrimSpace(string(raw))
 		if len(excerpt) > 300 {
 			excerpt = excerpt[:300] + "…"

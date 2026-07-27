@@ -5156,8 +5156,8 @@ class Translations$settings$keys$en {
 	/// en: 'Video generation'
 	String get scenarioVideo => 'Video generation';
 
-	/// en: 'Which key generate_video uses (video is not in the free tier — bring your own)'
-	String get scenarioVideoDesc => 'Which key generate_video uses (video is not in the free tier — bring your own)';
+	/// en: 'Which key generate_video uses (unset = automatic, free tier first)'
+	String get scenarioVideoDesc => 'Which key generate_video uses (unset = automatic, free tier first)';
 
 	/// en: 'No configured key can generate video'
 	String get videoNoRoute => 'No configured key can generate video';
@@ -8683,7 +8683,7 @@ extension on Translations {
 			'settings.keys.scenarioSpeechDesc' => 'Which key read-aloud and generate_speech use (unset = automatic, free tier first)',
 			'settings.keys.speechNoRoute' => 'No configured key can synthesize speech',
 			'settings.keys.scenarioVideo' => 'Video generation',
-			'settings.keys.scenarioVideoDesc' => 'Which key generate_video uses (video is not in the free tier — bring your own)',
+			'settings.keys.scenarioVideoDesc' => 'Which key generate_video uses (unset = automatic, free tier first)',
 			'settings.keys.videoNoRoute' => 'No configured key can generate video',
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',

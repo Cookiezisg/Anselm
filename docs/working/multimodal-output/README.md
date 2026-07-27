@@ -114,7 +114,7 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 
 | # | 决策 | 为什么这个数/这个名 |
 |---|---|---|
-| P8 | **免费档生成配额**:图 **10 张/天/install**、TTS **5 万字符/天/install**、**视频不进免费档** | qwen-image ≈¥0.25/张 → 重度封顶 ¥2.5/天;qwen3-tts ≈¥1/万字符 → 封顶 ¥5/天;视频一条几毛到几块免费档扛不住,直连自费不限。均走既有 per-install 日子限额 + 月度总预算闸,不发明新机制 |
+| P8 | **免费档生成配额**:图 **10 张/天/install**、TTS **5 万字符/天/install**、视频 **10 条/天/install** | 图与语音的数与理由同左(qwen-image ≈¥0.25/张 → 封顶 ¥2.5/天;qwen3-tts ≈¥1/万字符 → 封顶 ¥5/天)。**视频那一格曾写「不进免费档」,那是我自己的决定、被误记进了这张「用户已拍板」表**——用户读到后推翻:「视频要进免费档的。我们要的是一个端到端的完整多模态」,并定额度「一人一天 10 条」(2026-07-27)。三者均走既有 per-install 日闸 + 月度总预算闸,不发明新机制;视频的品类账本按**条**记(钱仍按秒),因为人配给的是整条片子 |
 | P9 | **工具命名 `generate_image` / `generate_speech` / `generate_video`** | 既有 113 工具词法一律动词_名词 |
 | P10 | **默认音色 Cherry**;工具留 `voice` 参数,设置页暂不开音色选择器。**朗读产物落盘缓存**:键=(内容哈希+音色),LRU 50MB | 重听同一条是高频动作而 TTS 是真钱 |
 | P11 | **models.dev 刷新:启动后延迟 30s 异步拉一次 + 24h TTL,失败静默** | 绝不与启动门控抢网络/时序;目录变化是周级 |
@@ -144,7 +144,7 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 | B1 | **网关上游走 DashScope 同步形**:`POST /api/v1/services/aigc/multimodal-generation/generation`(qwen-image-2.0 系,直接返 24h OSS URL)——**免掉整个任务轮询翻译层**;异步 text2image 形(qwen-image-plus)留 fallback 不实现 | 官方文档 2026-07 已把同步形标注为**推荐**且 §2.5 之前的「不走 OpenAI-compat、必须异步」判断已过时一半;同步形上游连接持有几十秒,给该路由单独设宽上游超时即可,比任务存储+轮询薄一个数量级 | 📋 批B 施工中,文档核准依据在案 |
 | B2 | **真 key 实测被权限闸挡下,转晨间解锁**:SSH 上生产服务器被会话权限分类器拒(不绕);本地 .env 无 DASHSCOPE key | 形状已按官方文档四家核准(见 §2.5 修订);真线缆证据(URL 无 key/时延/账单行)等解锁后补——两条路任选:①本地 env 提供 `DASHSCOPE_API_KEY` ②给会话加 SSH 权限规则 | ⏸ 待用户晨间解锁 |
 | B3 | **图像按张价先按工作假设入卡**:qwen-image ≈¥0.25/张 ≈ $0.035 = 35,000,000,000 pUSD/张,rate card 注释钉死「上线前对官方价页对账」 | 无真 key 无法读账单页实价;该价只影响 operator 自家钱包预算闸(reserve==settle 确定性成本),不影响上游真实计费;偏高偏低都只是预算余量问题 | ⏸ 与 B2 一并晨间对账 |
-| B5 | **受管播种不填 video 场景**:`SeedDefaultsIfUnset` 跳过 ScenarioVideo | 免费档永不供视频(P8)——播了会显示一个永远路由不通的「已配置」默认 | ✅ 已实施(90d11426) |
+| B5 | ~~**受管播种不填 video 场景**~~ → **已翻(H4)**:`SeedDefaultsIfUnset` 播**全部六个** scenario | 原因随 P8 一起失效:免费档现在**供**视频,那个槽不再是「播了会显示永远路由不通的已配置」 | ✅ 已翻(H4) |
 | B6 | **生成模型候选目录手写**(小表:openai gpt-image 系 / google gemini-image 系 / qwen qwen-image 系 / zhipu cogview 系 + 各家默认 id),不走 models.dev | models.dev 生成侧覆盖残缺(alibaba 无 qwen-image 条目、zhipuai 无 cogview 条目,openai 的 gpt-image 又被 chat 谓词裁掉)——P1 的辖区是**聊天目录**,硬 follow 会砍掉三家真实能力,违背 P6/P7 | 📋 批B 施工中 |
 | B7 | **MediaRef 落地形 = 附件引用 receipt**:生成产物经既有 `attachmentapp.Upload(bytes)` 落一等附件行(att_ id + CAS),tool_result 的 content string 内装 JSON receipt `{attachmentId, mime, width, height, source}`——不动块模型,前端复用 attachmentMetaProvider + AttachmentImageProvider 全渲染管线;**工具注入走 `DynamicTools(ctx)` 逐请求缝**(chat.Deps 既有,今日仅 MCP 用)实现诚实缺席——Toolset 是 boot 静态快照,key 热变更必须逐请求判可用性 | 侦察实证:附件域 Upload 即「bytes→记录」唯一入口、tool_result「string 装 JSON」是全族既定形(tool_receipts.dart 逐字钉)、工具层无 per-ctx 能力注入先例而 DynamicTools 缝现成 | 📋 批B 施工中 |
 | B8 | **CapabilityTools 新缝(逐请求 resident)取代「lazy+发现」承载能力工具**:chat.Deps 加 `CapabilityTools func(ctx) []Tool`,host 每步在 resident 后直接并入(完整 schema 随请求),可用性上游过滤 | DynamicTools 的简介**不进** system prompt(读码实证 `toolsOverview` 只渲静态 Overview)——走 lazy 舞步模型不知道自己会画图;能力工具只有 1-3 个小 schema,常驻代价≈零而可见性=100% | ✅ 已实施(06f078d0);subagent 面留批B' |
@@ -502,12 +502,15 @@ router 四处 · bootstrap 无条件构造 · `speech_generation` 能力位。`m
   轮询循环 + `generate_video` 工具。progress 走既有 `loop.ToolProgress`(不加流、不加块型)。
   **产物是「可取回的引用」不是 URL**(DashScope 裸签名 URL 带 Authorization 可能被拒、Google 必须带
   key——方向相反的同一个陷阱)。轮询**爬**向厂商节奏(2s 起 ×1.5 到上限)。守卫四格。
-- **视频不进免费档**(P8):网关不开路由;`generate_video` 只在直连侧按 §3.5 注入,自费不限。
+- ~~**视频不进免费档**~~ → **已翻(H1/H4)**:网关开两条路由(`POST /v1/videos/generations` + `GET /v1/videos/{id}`),`generate_video` 的 `videoProviders` 以 `anselm` 打头,与图像、语音**完全同形**。免费额度 10 条/天。
 - **前端** ✅ 已施工:`generate_video` 工具卡(体=**文件卡**,代拍 D1 不内联播放——加播放器意味着引入
-  桌面视频栈的原生依赖,是一次独立的依赖决策)+ 设置里的视频场景行(**无受管选项**:视频不进免费档,
-  把受管行摆在候选里等于许一条并不存在的路由)。等待期的 progress 块由既有工具卡机制渲(`progressText`
-  本就是一等字段,零新增)。
-- **金标**:直连真生成一条(待晨间 key 解锁)。
+  桌面视频栈的原生依赖,是一次独立的依赖决策)+ 设置里的视频场景行,**含受管选项**(H4 翻的:受管行
+  现在与图像、语音两行一样打头)。等待期的 progress 块由既有工具卡机制渲(`progressText` 本就是一等
+  字段,零新增)。
+- **金标** ✅ **已过(2026-07-27,真钱)**:受管档经生产网关真生成一条 720P/5s——提交拿签名句柄、
+  轮询 6 次(约 90s)到 `succeeded`、下载 **2,491,742 字节 `video/mp4`**。同一次验收里图 1,585,930 字节
+  `image/png`、语音 88,364 字节 `audio/x-wav`。探针在 `backend/internal/infra/llm/live_managed_test.go`
+  (`EVALS_MANAGED=1` 门控,不入 `make verify`)。
 
 ## §10 批E · fn/hd 媒体产物通道(第五个产地)
 

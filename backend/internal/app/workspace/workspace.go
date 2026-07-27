@@ -403,13 +403,12 @@ func (s *Service) SeedDefaultsIfUnset(ctx context.Context, ref modeldomain.Model
 		return err
 	}
 	changed := false
+	// Every scenario, video included. The managed free tier serves all six (WRK-082 H1: the user
+	// put video in the free tier at 10 clips a day), so there is no longer a slot where seeding the
+	// managed ref would show a "configured" default that can never route.
+	// **全部** scenario,含视频。受管免费档六个全供(H1:用户把视频放进了免费档、一天 10 条),故已不
+	// 存在「播进去会显示一个永远路由不通的『已配置』」的那个槽。
 	for _, scenario := range modeldomain.ListScenarios() {
-		// The managed free tier never serves video (WRK-082 P8) — seeding the managed ref into
-		// that slot would show a "configured" default that can never route (代拍 B5).
-		// 受管免费档永不提供视频(P8)——把受管 ref 播进该槽会显示一个永远路由不通的「已配置」(代拍 B5)。
-		if scenario == modeldomain.ScenarioVideo {
-			continue
-		}
 		if cur := w.DefaultFor(scenario); cur == nil || cur.IsZero() {
 			r := ref // fresh copy per scenario — never alias one *ModelRef across three columns
 			w.SetDefaultFor(scenario, &r)

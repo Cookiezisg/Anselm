@@ -200,26 +200,64 @@ func TestVideo_ImpossibleLengthIsClampedNotSpent(t *testing.T) {
 	}
 }
 
-// TestVideo_HonestAbsence: video never enters the free tier, so a managed-only workspace has no
-// video route at all — while the SAME managed key still routes images. The two capabilities are
-// independent, and a client must not infer one from the other.
-func TestVideo_HonestAbsence(t *testing.T) {
+// TestVideo_ManagedTierRoutesVideo: a workspace whose ONLY key is the managed free tier can
+// generate video (WRK-082 H1, 用户拍板). This test was the exact inverse until the user overturned
+// P8 — it asserted that video was honestly absent here. The inversion is the whole point of H4:
+// the same three capabilities, the same one managed key, no exceptions.
+//
+// TestVideo_ManagedTierRoutesVideo:一个**唯一**的 key 是受管免费档的 workspace 能生成视频(H1,
+// 用户拍板)。在用户推翻 P8 之前,本测试断言的是**完全相反**的事——视频在这里诚实缺席。这次反转正是
+// H4 的全部意义:同样的三个能力、同样的一把受管 key,没有例外。
+func TestVideo_ManagedTierRoutesVideo(t *testing.T) {
 	managedOnly := routerWith(
 		fakePicker{err: modeldomain.ErrNotConfigured},
-		fakeKeys{creds: map[string]apikeydomain.Credentials{"k": {Provider: "anselm", Key: "ins_1"}}},
+		fakeKeys{creds: map[string]apikeydomain.Credentials{"k": {Provider: "anselm", Key: "ins_1", BaseURL: "https://gw.example/v1"}}},
 		fakeProbes{rows: []apikeydomain.ProbedKey{{ID: "k", Provider: "anselm", TestStatus: apikeydomain.TestStatusOK}}},
 	)
-	if managedOnly.VideoAvailable(context.Background()) {
-		t.Fatal("video is not in the free tier, yet a managed-only workspace reports it available")
+	for name, available := range map[string]bool{
+		"video":  managedOnly.VideoAvailable(context.Background()),
+		"image":  managedOnly.ImageAvailable(context.Background()),
+		"speech": managedOnly.SpeechAvailable(context.Background()),
+	} {
+		if !available {
+			t.Fatalf("the managed free tier must route %s", name)
+		}
 	}
-	if !managedOnly.ImageAvailable(context.Background()) {
-		t.Fatal("the same managed key SHOULD still route images — the capabilities are independent")
+	// The managed route carries an install id and NO model: the gateway owns model choice, and a
+	// desktop-side model name here would be a second opinion nobody asked for.
+	// 受管路由带 install id、**不带**模型:模型选择归网关,桌面端在这里写一个模型名等于给出一个
+	// 没人问过的第二意见。
+	route, err := managedOnly.resolveVideo(context.Background())
+	if err != nil {
+		t.Fatalf("resolveVideo: %v", err)
 	}
+	if route.provider != "anselm" || route.installID != "ins_1" || route.model != "" || route.key != "" {
+		t.Fatalf("managed video route = %+v", route)
+	}
+
 	tool := videoTool(t, managedOnly, &fakeUploader{})
-	if _, err := tool.Execute(context.Background(), `{"prompt":"a cat"}`); err == nil {
-		t.Fatal("execute without a video route must fail loudly")
-	}
 	if err := tool.ValidateInput(json.RawMessage(`{"prompt":"  "}`)); err == nil {
 		t.Fatal("blank prompt must be refused")
+	}
+}
+
+// TestVideo_HonestAbsenceWithoutAnyKey: with NO key at all the tool is honestly absent rather than
+// present-and-failing. Absence is the honest shape — a tool the model can see but never use makes
+// it promise the user a video it cannot deliver.
+//
+// TestVideo_HonestAbsenceWithoutAnyKey:一把 key 都没有时,工具**诚实缺席**、而不是「在场但必失败」。
+// 缺席才是诚实的形状——一个模型看得见却永远用不了的工具,会让它向用户许下一段交付不了的视频。
+func TestVideo_HonestAbsenceWithoutAnyKey(t *testing.T) {
+	bare := routerWith(
+		fakePicker{err: modeldomain.ErrNotConfigured},
+		fakeKeys{},
+		fakeProbes{},
+	)
+	if bare.VideoAvailable(context.Background()) {
+		t.Fatal("no key at all, yet video reports available")
+	}
+	tool := videoTool(t, bare, &fakeUploader{})
+	if _, err := tool.Execute(context.Background(), `{"prompt":"a cat"}`); err == nil {
+		t.Fatal("execute without a video route must fail loudly")
 	}
 }

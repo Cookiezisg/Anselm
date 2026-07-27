@@ -1904,7 +1904,7 @@
       "scenarioSpeechDesc": "朗读与 generate_speech 走哪把 key(未设=自动,免费档优先)",
       "speechNoRoute": "当前没有能合成语音的 key",
       "scenarioVideo": "视频生成",
-      "scenarioVideoDesc": "generate_video 走哪把 key(视频不进免费档,须自备密钥)",
+      "scenarioVideoDesc": "generate_video 走哪把 key(未设=自动,免费档优先)",
       "videoNoRoute": "当前没有能生成视频的 key"
     },
     "ws": {

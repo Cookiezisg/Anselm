@@ -106,24 +106,27 @@ var speechProviders = map[string]providerSpec{
 
 var speechProviderOrder = []string{"anselm", "openai", "qwen", "zhipu", "google"}
 
-// videoProviders is the closed set of direct-connection video-capable providers. There is NO
-// managed entry: video does not enter the free tier (P8), so the gateway has no video route and
-// `anselm` cannot appear here — on a managed-only workspace `generate_video` is honestly absent.
+// videoProviders is the closed set of video-capable providers, `anselm` first like its two
+// siblings. Video IS in the free tier: the user overturned the earlier reading with "视频要进免费档的。
+// 我们要的是一个端到端的完整多模态" and set the allowance at 10 clips a day. A user with no key of
+// their own can ask for a video and get one.
 //
 // OpenAI is absent for a different reason (代拍 D2): its Videos API was announced for removal on
 // 2026-09-24. A driver with eight weeks of life would be built, reviewed and deleted without ever
 // earning its keep.
 //
-// videoProviders 是直连视频家的封闭集。**没有受管条目**:视频不进免费档(P8),故网关无视频路由、
-// `anselm` 不可能出现在这里——只有受管 key 的 workspace 上 `generate_video` 诚实缺席。
+// videoProviders 是视频家的封闭集,`anselm` 与另两个兄弟一样排在**第一**。视频**在**免费档里:用户
+// 推翻了先前那个读法——「视频要进免费档的。我们要的是一个端到端的完整多模态」——并把额度定在一天
+// 10 条。一个自己一把 key 都没有的用户,现在开口要视频就能拿到。
 // OpenAI 缺席的理由不同(代拍 D2):其 Videos API 已公告 2026-09-24 下线,一个只剩八周寿命的 driver
 // 会被建、被复审、被删掉,却从没挣回自己的成本。
 var videoProviders = map[string]providerSpec{
+	"anselm": {},
 	"qwen":   {defaultModel: "wan2.7-t2v", nativeFrom: dashScopeNative},
 	"google": {defaultModel: "veo-3.1-fast-generate-preview"}, // generation shares the chat origin
 }
 
-var videoProviderOrder = []string{"qwen", "google"}
+var videoProviderOrder = []string{"anselm", "qwen", "google"}
 
 // ErrNoVideoRoute — no key on this workspace can generate video (the ErrNoImageRoute twin).
 var ErrNoVideoRoute = errorspkg.New(errorspkg.KindUnprocessable, "VIDEO_NO_ROUTE", "no configured key can generate video")
@@ -447,6 +450,8 @@ func (r *Router) generateVideo(ctx context.Context, route genRoute, req llminfra
 		err error
 	)
 	switch route.provider {
+	case "anselm":
+		job, err = llminfra.SubmitVideoAnselm(ctx, r.HTTP, route.baseURL, route.installID, req)
 	case "qwen":
 		job, err = llminfra.SubmitVideoDashScope(ctx, r.HTTP, route.baseURL, route.key, route.model, req)
 	case "google":
@@ -457,7 +462,14 @@ func (r *Router) generateVideo(ctx context.Context, route genRoute, req llminfra
 	if err != nil {
 		return llminfra.GeneratedVideo{}, err
 	}
-	prog(fmt.Sprintf("submitted to %s (%s)\n", route.provider, route.model))
+	// The managed route has no model of its own to name — the gateway owns that choice — so the
+	// line says the provider alone rather than printing an empty pair of parentheses.
+	// 受管路由没有自己的模型可报——那个选择归网关——故这行只说 provider,而不是印一对空括号。
+	if route.model == "" {
+		prog(fmt.Sprintf("submitted to %s\n", route.provider))
+	} else {
+		prog(fmt.Sprintf("submitted to %s (%s)\n", route.provider, route.model))
+	}
 
 	// Ramp INTO the vendor's cadence rather than starting at it. A flat 15s first wait makes a job
 	// that failed upstream validation — or one that finished fast — pay a full interval of silence
@@ -481,6 +493,8 @@ func (r *Router) generateVideo(ctx context.Context, route genRoute, req llminfra
 		}
 		var st llminfra.VideoStatus
 		switch route.provider {
+		case "anselm":
+			st, err = llminfra.PollVideoAnselm(ctx, r.HTTP, route.baseURL, route.installID, job.Handle)
 		case "qwen":
 			st, err = llminfra.PollVideoDashScope(ctx, r.HTTP, route.baseURL, route.key, job.Handle)
 		case "google":

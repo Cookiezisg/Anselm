@@ -1705,13 +1705,14 @@ const Map<String, String> _imageProviderDefaults = {
 ///
 /// 语音家 × 默认 TTS 模型——镜像后端 `speechProviders`(批C)。注意即使 provider 相同,模型也**不是**
 /// 图像那张表里的那些:能画的 key 未必能说话,这正是两行各自独立过滤的原因。
-/// Video-capable providers × default generation model — mirrors backend `videoProviders` (批D).
-/// There is deliberately NO `anselm` entry: video never enters the free tier (P8), so a
-/// managed-only workspace has no video route at all and this picker is honestly empty for it.
+/// Video-capable providers × default generation model — mirrors backend `videoProviders`
+/// (WRK-082 H1). `anselm` leads, exactly like the image and speech tables: video IS in the free
+/// tier, so a workspace with no key of its own can still pick a video default and get one.
 ///
-/// 视频家 × 默认生成模型——镜像后端 `videoProviders`(批D)。刻意**没有** `anselm` 条目:视频不进
-/// 免费档(P8),故只有受管 key 的 workspace 根本没有视频路由,这个选择器对它诚实地为空。
+/// 视频家 × 默认生成模型——镜像后端 `videoProviders`(H1)。`anselm` 打头,与图像、语音两张表**完全
+/// 一样**:视频**在**免费档里,故一个自己一把 key 都没有的 workspace 照样能选一个视频默认、并真拿到片子。
 const Map<String, String> _videoProviderDefaults = {
+  'anselm': 'anselm-auto',
   'qwen': 'wan2.7-t2v',
   'google': 'veo-3.1-fast-generate-preview',
 };

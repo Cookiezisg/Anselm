@@ -14,7 +14,7 @@
 | 地基与引擎（orm / reqctx / **scheduler-flowrun** / loop / stream-llm / sandbox / bootstrap / 小件） | `references/backend/foundation/` |
 | **前端怎么组成、怎么流动（第 0 篇）** | `references/frontend/overview.md` |
 | **前端怎么协作 / 到哪了 / 去哪走（一站式 hub）** | `working/frontend/README.md` |
-| 架构决策（直装运行时 / 统一错误类型 / API 契约 / Flutter / mise / MCP / scheduler / 主密钥 / editor / gateway 设备证明 / 媒体 lease 契约 / 媒体内联上游 / 视频同步工具 / MediaRef 唯一货币） | `decisions/000{1,2,3,4,5,6,7,8,9}-*.md` · `decisions/001{0,1,2,3,4}-*.md` |
+| 架构决策（直装运行时 / 统一错误类型 / API 契约 / Flutter / mise / MCP / scheduler / 主密钥 / editor / gateway 设备证明 / 媒体 lease 契约 / 媒体内联上游 / 视频同步工具 / MediaRef 唯一货币 / 受管视频签名句柄） | `decisions/000{1,2,3,4,5,6,7,8,9}-*.md` · `decisions/001{0,1,2,3,4,5}-*.md` |
 | 数据目录 / 备份 / 跨机迁移 | `how-to/data-migration.md` |
 | 全功能黑盒验收套件（`make -C backend testend` / `evals`） | `references/testend/overview.md` |
 

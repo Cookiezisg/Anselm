@@ -189,7 +189,7 @@ audience: [human, ai]
 | `SPEECH_NO_ROUTE` | 422 | no configured key can synthesize speech |
 | `SPEECH_TEXT_REQUIRED` | 400 | text is required |
 | `SPEECH_GEN_FAILED` | 503 | speech synthesis failed (dynamic,同 IMAGE_GEN_FAILED 之律) |
-| `VIDEO_NO_ROUTE` | 422 | no configured key can generate video(**无受管条目**——视频不进免费档 P8) |
+| `VIDEO_NO_ROUTE` | 422 | no configured key can generate video(受管档**也算**一条路由——视频在免费档里,10 条/天) |
 | `VIDEO_PROMPT_REQUIRED` | 400 | prompt is required |
 | `VIDEO_GEN_FAILED` | 503 | video generation failed (dynamic;含上游拒绝、轮询超时〔连同「上游任务可能仍会完成」的诚实话〕) |
 

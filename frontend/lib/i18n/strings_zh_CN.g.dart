@@ -2105,7 +2105,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get scenarioSpeechDesc => '朗读与 generate_speech 走哪把 key(未设=自动,免费档优先)';
 	@override String get speechNoRoute => '当前没有能合成语音的 key';
 	@override String get scenarioVideo => '视频生成';
-	@override String get scenarioVideoDesc => 'generate_video 走哪把 key(视频不进免费档,须自备密钥)';
+	@override String get scenarioVideoDesc => 'generate_video 走哪把 key(未设=自动,免费档优先)';
 	@override String get videoNoRoute => '当前没有能生成视频的 key';
 }
 
@@ -4667,7 +4667,7 @@ extension on TranslationsZhCn {
 			'settings.keys.scenarioSpeechDesc' => '朗读与 generate_speech 走哪把 key(未设=自动,免费档优先)',
 			'settings.keys.speechNoRoute' => '当前没有能合成语音的 key',
 			'settings.keys.scenarioVideo' => '视频生成',
-			'settings.keys.scenarioVideoDesc' => 'generate_video 走哪把 key(视频不进免费档,须自备密钥)',
+			'settings.keys.scenarioVideoDesc' => 'generate_video 走哪把 key(未设=自动,免费档优先)',
 			'settings.keys.videoNoRoute' => '当前没有能生成视频的 key',
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',

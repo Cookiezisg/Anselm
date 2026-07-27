@@ -123,6 +123,11 @@ type LLMMock struct {
 	dumps        []PromptDump
 	imagePrompts []string
 	speechInputs []string
+	videoPrompts []string
+	// videoPhase is what the next poll answers. Scenarios drive it directly: a real generation
+	// takes minutes and a test must not.
+	// videoPhase 是下一次轮询的答案。场景直接驱动它:真生成要几分钟,而测试不可以。
+	videoPhase string
 }
 
 // NewLLMMock starts the fake provider on a loopback port and registers cleanup.
@@ -136,6 +141,38 @@ func NewLLMMock(t *testing.T) *LLMMock {
 	mux.HandleFunc("POST /chat/completions", m.handleCompletions)
 	mux.HandleFunc("POST /images/generations", m.handleImages)
 	mux.HandleFunc("POST /audio/speech", m.handleSpeech)
+	// The MANAGED video wire (WRK-082 H1): two routes, because the video family has no synchronous
+	// form. This mock plays the GATEWAY, not DashScope — the desktop's anselm dialect talks to the
+	// gateway's own contract (202 + a signed handle, then a four-word phase), and mocking the vendor
+	// instead would test a conversation this code never has.
+	// **受管**视频线缆(H1):两条路由,因为视频族没有同步形态。本 mock 扮的是**网关**、不是 DashScope
+	// ——桌面端的 anselm 方言讲的是网关自己的契约(202 + 签名句柄,然后一个四字状态),去 mock 厂商
+	// 等于测一场这段代码从未发生过的对话。
+	mux.HandleFunc("POST /videos/generations", m.handleVideoSubmit)
+	mux.HandleFunc("GET /videos/{videoId}", m.handleVideoStatus)
+	// GATEWAY MODE (WRK-082 H4). The managed `anselm` provider does not send a bearer token — it
+	// signs every request with a device proof, and the transport refuses to send anything at all
+	// until it has fetched a challenge. So a mock that only serves the business routes cannot be
+	// reached by the managed dialect: the very first probe dies on a 404 challenge.
+	//
+	// The proof itself is NOT verified here, deliberately. Whether a signature is valid is the
+	// gateway's business, and the gateway's own e2e proves it against the real verifier. What this
+	// mock has to do is let the handshake COMPLETE, so that the thing under test — the desktop's
+	// managed dialect — actually gets to speak.
+	//
+	// **网关模式**(H4)。受管 `anselm` provider 不送 bearer token——它给每个请求签一份 device proof,
+	// 而 transport 在拿到 challenge 之前**什么都不发**。故一个只伺候业务路由的 mock **根本够不着**:
+	// 第一次探测就死在 404 challenge 上。
+	//
+	// 这里刻意**不验**那份 proof。签名对不对是**网关**的事,网关自己的 e2e 已在真验证器上证过。本 mock
+	// 要做的是让握手**走完**,好让真正被测的那个东西——桌面端的受管方言——真的开得了口。
+	mux.HandleFunc("GET /v1/proof/challenge", m.handleProofChallenge)
+	mux.HandleFunc("GET /v1/models", m.handleModels)
+	mux.HandleFunc("POST /v1/chat/completions", m.handleCompletions)
+	mux.HandleFunc("POST /v1/images/generations", m.handleImages)
+	mux.HandleFunc("POST /v1/audio/speech", m.handleSpeech)
+	mux.HandleFunc("POST /v1/videos/generations", m.handleVideoSubmit)
+	mux.HandleFunc("GET /v1/videos/{videoId}", m.handleVideoStatus)
 	m.srv = httptest.NewServer(mux)
 	t.Cleanup(m.srv.Close)
 	return m
@@ -145,6 +182,16 @@ func NewLLMMock(t *testing.T) *LLMMock {
 //
 // URL 是放进 apikey 的 base URL（openai provider 自行拼 /chat/completions）。
 func (m *LLMMock) URL() string { return m.srv.URL }
+
+// GatewayURL is the base URL to put on a MANAGED (`anselm`) api-key. It carries the `/v1` prefix
+// the real gateway serves under, because the device-proof transport derives the challenge URL from
+// the request's ORIGIN and appends `/v1/proof/challenge` — a base URL without the prefix would send
+// business calls to one path family and the handshake to another.
+//
+// GatewayURL 是放进**受管**(`anselm`)api-key 的 base URL。它带着真网关服务所在的 `/v1` 前缀,因为
+// device-proof transport 从请求的 **origin** 推 challenge URL 并拼上 `/v1/proof/challenge`——一个不带
+// 前缀的 base URL 会让业务调用走一族路径、握手走另一族。
+func (m *LLMMock) GatewayURL() string { return m.srv.URL + "/v1" }
 
 // Enqueue scripts the next turns for one model id (FIFO). An exhausted queue serves the
 // default turn — scenarios fail on content, not on hangs.
@@ -514,4 +561,75 @@ func (m *LLMMock) SpeechInputs() []string {
 	out := make([]string, len(m.speechInputs))
 	copy(out, m.speechInputs)
 	return out
+}
+
+// handleVideoSubmit answers the gateway's 202 + opaque handle. The handle is deliberately NOT the
+// prompt or any derivable value: the desktop must treat it as opaque, and a mock that returned
+// something guessable would let a bug that parses the handle pass.
+//
+// handleVideoSubmit 答网关的 202 + 不透明句柄。句柄刻意**不是** prompt、也不是任何可推导的值:桌面端
+// 必须把它当不透明物,而一个返回可猜之物的 mock 会放过一个去解析句柄的 bug。
+func (m *LLMMock) handleVideoSubmit(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Prompt  string `json:"prompt"`
+		Seconds int    `json:"seconds"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&req)
+	m.mu.Lock()
+	m.videoPrompts = append(m.videoPrompts, req.Prompt)
+	m.mu.Unlock()
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"id": "aGFuZGxl.c2ln", "object": "video.generation", "status": "pending", "created": 1,
+	})
+}
+
+// handleVideoStatus answers whatever phase the scenario armed, defaulting to `failed` so a test
+// that forgets to arm one ends in seconds with a clear message instead of polling for minutes.
+//
+// handleVideoStatus 答场景装好的那个 phase,默认 `failed`——这样一个忘了装 phase 的测试会在几秒内
+// 带着明确信息结束,而不是轮询几分钟。
+func (m *LLMMock) handleVideoStatus(w http.ResponseWriter, r *http.Request) {
+	m.mu.Lock()
+	phase := m.videoPhase
+	m.mu.Unlock()
+	if phase == "" {
+		phase = "failed"
+	}
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"id": r.PathValue("videoId"), "object": "video.generation", "status": phase,
+	})
+}
+
+// SetVideoPhase arms what the next poll answers.
+//
+// SetVideoPhase 装好下一次轮询的答案。
+func (m *LLMMock) SetVideoPhase(phase string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.videoPhase = phase
+}
+
+// VideoPrompts returns every prompt POST /videos/generations received (order preserved).
+//
+// VideoPrompts 返回 /videos/generations 收到的全部 prompt(保序)。
+func (m *LLMMock) VideoPrompts() []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]string(nil), m.videoPrompts...)
+}
+
+// handleProofChallenge issues a nonce the desktop's device-proof transport can sign against. The
+// expiry is far enough out that no scenario can outlive it.
+//
+// handleProofChallenge 发一个 nonce 供桌面端 device-proof transport 签名。有效期足够长,任何场景都
+// 活不过它。
+func (m *LLMMock) handleProofChallenge(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"nonce":     "testend-proof-nonce",
+		"expiresAt": time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+	})
 }
