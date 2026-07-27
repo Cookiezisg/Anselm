@@ -675,3 +675,122 @@ def chart(points: int) -> dict:
 	traceModel(t, rec)
 	t.Fatal("the function's chart never reached the model as pixels — ADR 0017's expand branch is broken for real producers")
 }
+
+// TestLiveMedia_HandlerArtifactPerCall closes the last producer the other scenarios reach: a
+// HANDLER, which is the one production site whose artifact directory is not a property of the
+// process but of the CALL. A function is a fresh run per invocation, so "this run's artifacts" is
+// trivially well-defined; a handler is a resident instance serving many calls over one stdio pipe,
+// so the out dir has to travel WITH each call (H5: StreamCall's outDir + the driver's `out` field)
+// or "this call's artifacts" is not a well-defined set at all.
+//
+// So it calls TWICE and requires two DIFFERENT artifacts, each attributed to its own call. One call
+// would pass even if the directory were process-global.
+//
+// TestLiveMedia_HandlerArtifactPerCall 补上另外几条够不到的最后一个产地:**handler**——它是唯一一个
+// 产物目录不属于**进程**、而属于**调用**的产地。function 每次调用都是一次全新运行,故「这次运行的产物」
+// 天然良定义;handler 是长跑实例、一条 stdio 管道服务多次调用,故目录必须**随每次调用一起走**(H5:
+// StreamCall 的 outDir + driver 的 `out` 字段),否则「这次调用的产物」根本不是一个良定义的集合。
+//
+// 所以它调**两次**,并要求两件**不同**的产物、各归各的调用。只调一次的话,目录哪怕是进程级全局的也会过。
+func TestLiveMedia_HandlerArtifactPerCall(t *testing.T) {
+	t.Parallel()
+	wc, _, _ := liveQwen(t, "live-hd-chart")
+
+	hdID := hdCreate(t, wc, "chart_keeper", map[string]any{
+		"initBody":     "self.n = 0",
+		"dependencies": []string{"matplotlib"},
+		"methods": []map[string]any{{
+			"name": "plot", "inputs": []any{},
+			"body": `import os
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+self.n += 1
+fig, ax = plt.subplots(figsize=(3, 2), dpi=100)
+ax.plot([0, 1, 2], [0, self.n, self.n * 2])
+ax.set_title("call %d" % self.n)
+out = os.path.join(os.environ["ANSELM_OUT"], "plot.png")
+fig.savefig(out)
+plt.close(fig)
+return {"chart": {"$media": "plot.png"}, "call": self.n}`,
+		}},
+	})
+
+	call := func(n int) (string, int64) {
+		t.Helper()
+		var out struct {
+			Chart struct {
+				AttachmentID string `json:"attachmentId"`
+				SizeBytes    int64  `json:"sizeBytes"`
+				Mime         string `json:"mime"`
+			} `json:"chart"`
+			Call int `json:"call"`
+		}
+		wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{"method": "plot"}).OK(t, &out)
+		if out.Call != n {
+			t.Fatalf("call %d reported itself as %d — the resident instance lost its state", n, out.Call)
+		}
+		if out.Chart.AttachmentID == "" || out.Chart.Mime != "image/png" {
+			t.Fatalf("call %d produced no chart receipt: %+v", n, out.Chart)
+		}
+		return out.Chart.AttachmentID, out.Chart.SizeBytes
+	}
+
+	first, _ := call(1)
+	second, _ := call(2)
+	if first == second {
+		// Same id means the second call re-collected the FIRST call's file: the out dir did not
+		// travel with the call. (Content-addressed dedup cannot explain it — the two charts differ.)
+		// 同一个 id 意味着第二次调用把**第一次**的文件又采了一遍:目录没有随调用走。
+		// (内容寻址去重解释不了它——两张图不一样。)
+		t.Fatalf("both calls yielded %s — the artifact directory is not per-call", first)
+	}
+	for i, id := range []string{first, second} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+id+"/content", "", nil)
+		if content.Status != 200 || !bytes2IsImage(content.Raw) || len(content.Raw) < 2_000 {
+			t.Fatalf("call %d's chart must be a real PNG: HTTP %d, %d bytes", i+1, content.Status, len(content.Raw))
+		}
+	}
+}
+
+// TestLiveMedia_McpImageSeenByModel closes the sixth and last production site. An MCP server is the
+// one producer whose bytes cross a process boundary we do not own: the server hands back an MCP
+// `image` content block over stdio, the binary collector mints a receipt, and the expansion
+// chokepoint must put those exact pixels in front of the model. 终点验收 ③ says it in as many words
+// — "MCP 工具返图模型看得见(不再是 [image: png] 占位符)".
+//
+// TestLiveMedia_McpImageSeenByModel 补上第六个、也是最后一个产地。MCP server 是唯一一个字节要穿过
+// **我们不拥有的**进程边界的产地:server 经 stdio 递回一个 MCP `image` 内容块,二进制采集器铸出 receipt,
+// 而展开咽喉必须把**那些**像素放到模型面前。终点验收 ③ 的原话就是这条。
+func TestLiveMedia_McpImageSeenByModel(t *testing.T) {
+	t.Parallel()
+	wc, rec, _ := liveQwen(t, "live-mcp-image")
+
+	script := writeScriptedMCP(t)
+	wc.PUT("/api/v1/mcp-servers/shots", map[string]any{
+		"description": "returns a picture", "command": "python3", "args": []string{script},
+	}).OK(t, nil)
+
+	convID := convCreate(t, wc, "MCP 返图")
+	mid := sendMsg(t, wc, convID,
+		"调用 shots 这个 MCP server 的 snapshot 工具拿一张图,然后用一句话描述你看到的图。")
+	turn := waitTurn(t, wc, convID, mid, 300000)
+	if turn.Status != "completed" {
+		traceModel(t, rec)
+		t.Fatalf("turn must complete, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+
+	attID := attachmentFrom(t, turn, "mcp_artifact")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) {
+		t.Fatalf("the MCP image must land as a real PNG: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	b64 := base64.StdEncoding.EncodeToString(content.Raw)
+	for _, d := range rec.Dumps() {
+		if d.HasImagePart(b64) {
+			return
+		}
+	}
+	traceModel(t, rec)
+	t.Fatal("the MCP tool's image never reached the model as pixels — it saw a placeholder, which is exactly what 终点验收 ③ forbids")
+}

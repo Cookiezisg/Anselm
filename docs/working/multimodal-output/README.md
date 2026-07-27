@@ -149,7 +149,16 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
   同参数 curl 直测 DashScope **122 秒**完成。现在测试**先断言闸出现过**再批准——这反而成了「H5.6 在一次
   真花钱的调用上确实有效」的最强证据。
 
-**仍无真跑证据的产地**:MCP 二进制产物、handler 沙箱产物。
+**handler 产地已补真跑**(`TestLiveMedia_HandlerArtifactPerCall`):调**两次**、要求两件**不同**产物各归各的
+调用——H5 那条「hd 是长跑实例,产物目录必须随**每次调用**穿过 stdio RPC」由此端到端成立(只调一次的话,
+目录哪怕是进程级全局的也会过)。
+
+**MCP 产地:查出开放缺陷,未修**(`TestLiveMedia_McpImageSeenByModel`,红着留档)。让真模型调一个返图的
+MCP 工具,模型看到的 tool_result 是字面的 **`[image: image/png]`** ——正是终点验收 ③ 明写「**不再是**
+`[image: png]` 占位符」的那个占位符。`app/mcp/calltool.go` 的媒体入口代码在位、`SetUploader(att)` 在
+`build_services.go` 里也确实接了;缺陷在更上游——`client.CallTool` 返回的 `media` 是空的,
+`infra/mcp/client.go:406` 把图渲成了 `[image: %s]` **文本**却没把二进制放进 `media` 返回值。
+下一步:从那里查起。
 
 #### 顺带发现:testend 在 main 上就红着两条,而且其中一条藏着真 bug
 

@@ -48,6 +48,8 @@ for line in sys.stdin:
              "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}}, "required": ["text"]}},
             {"name": "boom", "description": "always fails",
              "inputSchema": {"type": "object", "properties": {}}},
+            {"name": "snapshot", "description": "returns a picture",
+             "inputSchema": {"type": "object", "properties": {}}},
         ]}})
     elif method == "tools/call":
         params = msg.get("params") or {}
@@ -59,6 +61,22 @@ for line in sys.stdin:
                       "params": {"progressToken": token, "progress": 1, "total": 2, "message": "echo halfway"}})
             text = (params.get("arguments") or {}).get("text", "")
             send({"jsonrpc": "2.0", "id": mid, "result": {"content": [{"type": "text", "text": "echo:" + text}]}})
+        elif name == "snapshot":
+            # A REAL PNG built here (zlib + struct, no deps): the media path must be exercised with
+            # bytes a decoder accepts, not a placeholder that only looks like one.
+            # 现场造一张**真** PNG(zlib+struct、零依赖):媒体路径必须用**解码器认的**字节来跑,
+            # 而不是一个只是看起来像的占位符。
+            import base64, struct, zlib
+            w = h = 8
+            raw = b"".join(b"\x00" + bytes([(x * 32) % 256, 80, 160] * w) for x in range(h))
+            def chunk(tag, data):
+                return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data))
+            png = (b"\x89PNG\r\n\x1a\n"
+                   + chunk(b"IHDR", struct.pack(">IIBBBBB", w, h, 8, 2, 0, 0, 0))
+                   + chunk(b"IDAT", zlib.compress(raw))
+                   + chunk(b"IEND", b""))
+            send({"jsonrpc": "2.0", "id": mid, "result": {"content": [
+                {"type": "image", "data": base64.b64encode(png).decode(), "mimeType": "image/png"}]}})
         elif name == "boom":
             print("boom tool exploding on purpose", file=sys.stderr, flush=True)
             send({"jsonrpc": "2.0", "id": mid, "result": {"content": [{"type": "text", "text": "kaboom"}], "isError": True}})
@@ -127,8 +145,8 @@ func TestMCP_ScriptedServerLifecycle(t *testing.T) {
 		"command":     "python3",
 		"args":        []string{script},
 	}).OK(t, &st)
-	if st.Status != "ready" || len(st.Tools) != 2 {
-		t.Fatalf("want ready with 2 tools, got %s lastError=%q tools=%d", st.Status, st.LastError, len(st.Tools))
+	if st.Status != "ready" || len(st.Tools) != 3 {
+		t.Fatalf("want ready with 3 tools, got %s lastError=%q tools=%d", st.Status, st.LastError, len(st.Tools))
 	}
 	// InputSchema passes through verbatim (we never invent schemas). InputSchema 原样透传。
 	for _, tool := range st.Tools {
