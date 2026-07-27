@@ -6,12 +6,12 @@ list(APPEND FLUTTER_PLUGIN_LIST
   desktop_drop
   file_selector_windows
   flutter_secure_storage_windows
-  media_kit_libs_windows_video
   media_kit_video
   pasteboard
   record_windows
   screen_retriever_windows
   url_launcher_windows
+  video_player_win
   window_manager
 )
 

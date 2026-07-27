@@ -345,7 +345,7 @@ lib/dev/gallery_main.dart	converged
 lib/dev/markdown_corpus.dart	pending
 lib/dev/onboarding_main.dart	converged
 lib/dev/perf_probe.dart	pending
-lib/dev/probe_media_kit.dart	pending
+lib/dev/probe_playback.dart	pending
 lib/features/chat/data/chat_demo_fixture.dart	converged
 lib/features/chat/data/chat_fixtures.dart	converged
 lib/features/chat/data/chat_providers.dart	converged

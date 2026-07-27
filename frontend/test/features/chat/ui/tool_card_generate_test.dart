@@ -1,11 +1,12 @@
 import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/messages/block_content.dart';
+import 'package:anselm/core/net/api_client.dart';
+import 'package:anselm/core/media/media_source.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/features/chat/model/tool_receipts.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
-import 'package:anselm/features/chat/state/attachment_meta.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -90,16 +91,21 @@ void main() {
       _host(
         ChatToolCard(node: _settledCall()),
         overrides: [
-          // The fixture repo serves attachment bytes in-process — no dio, no pending timers.
-          // fixture 仓进程内供字节——无 dio、无残留计时器。
+          // The body is a thin wrapper over the ONE card family now (H5.5R), so the seam to stub is
+          // the PLATFORM media port — not chat's own provider. That the override moved is itself the
+          // proof the duplication is gone.
+          // 现在体只是**一族卡**的薄包装(H5.5R),故要打桩的缝是**平台**媒体端口、不是 chat 自己的
+          // provider。override 换了地方这件事本身,就是重复已消失的证据。
           chatRepositoryProvider.overrideWithValue(FixtureChatRepository()),
-          attachmentMetaProvider('att_0011223344556677').overrideWith(
-            (ref) async => const AttachmentMeta(
-              id: 'att_0011223344556677',
-              filename: 'generated-x.png',
-              mimeType: 'image/png',
-              sizeBytes: 1234,
-              kind: 'image',
+          mediaSourceProvider.overrideWithValue(
+            const _StubMedia(
+              AttachmentMeta(
+                id: 'att_0011223344556677',
+                filename: 'generated-x.png',
+                mimeType: 'image/png',
+                sizeBytes: 1234,
+                kind: 'image',
+              ),
             ),
           ),
         ],
@@ -125,9 +131,7 @@ void main() {
         ChatToolCard(node: _settledCall()),
         overrides: [
           chatRepositoryProvider.overrideWithValue(FixtureChatRepository()),
-          attachmentMetaProvider('att_0011223344556677').overrideWith(
-            (ref) => Future<AttachmentMeta>.error(Exception('gone')),
-          ),
+          mediaSourceProvider.overrideWithValue(const _FailingMedia()),
         ],
       ),
     );
@@ -135,9 +139,13 @@ void main() {
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pump(const Duration(milliseconds: 300));
-    // The id itself is the honest fallback line — never a broken image widget.
-    // id 本身就是诚实兜底行——绝不渲破图。
-    expect(find.textContaining('att_0011223344556677'), findsWidgets);
+    // WORDS, not the raw id. This asserted on the att_ id until 2026-07-27 — a SECOND copy of the
+    // same stale expectation (the first lived in media_cards_test), which is exactly what having two
+    // rendering paths cost. One family, one expectation.
+    // **人话,不是裸 id**。本断言在 2026-07-27 之前钉的是 att_ id——那是同一条陈旧期望的**第二份拷贝**
+    // (第一份在 media_cards_test 里),而这正是「两条渲染路径」的代价。一族卡,一份期望。
+    expect(find.textContaining('att_0011223344556677'), findsNothing);
+    expect(find.text('已不可用'), findsOneWidget);
   });
 
   test('parseGeneratedSpeech pins the backend receipt keys and never guesses', () {
@@ -194,4 +202,65 @@ void main() {
       expect(parseGeneratedVideo(null), isNull);
     },
   );
+}
+
+/// The narrowest MediaSource these card tests need: answer `meta`, never fetch bytes.
+/// 这些卡片测试所需的**最窄** MediaSource:答得出 `meta`,从不取字节。
+class _StubMedia implements MediaSource {
+  const _StubMedia(this._meta);
+  final AttachmentMeta _meta;
+
+  @override
+  Future<AttachmentMeta> meta(String id) async => _meta;
+
+  @override
+  Future<List<int>> bytes(String id) async => const [];
+
+  @override
+  NativeFetchTarget nativeTarget(String id) =>
+      const NativeFetchTarget(uri: 'http://127.0.0.1:0/stub', headers: {});
+
+  @override
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<bool> readAloudAvailable() async => false;
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) async =>
+      throw UnimplementedError();
+}
+
+/// A row the app cannot read — the honest-degradation case.
+/// 读不到的行——诚实降级那一格。
+class _FailingMedia implements MediaSource {
+  const _FailingMedia();
+
+  @override
+  Future<AttachmentMeta> meta(String id) async => throw Exception('gone');
+
+  @override
+  Future<List<int>> bytes(String id) async => throw Exception('gone');
+
+  @override
+  NativeFetchTarget nativeTarget(String id) =>
+      const NativeFetchTarget(uri: 'http://127.0.0.1:0/stub', headers: {});
+
+  @override
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<bool> readAloudAvailable() async => false;
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) async =>
+      throw UnimplementedError();
 }

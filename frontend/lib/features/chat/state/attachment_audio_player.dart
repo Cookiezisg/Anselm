@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:media_kit/media_kit.dart' as mk;
+import 'package:video_player/video_player.dart';
 
 import '../../../core/contract/api_error.dart';
 
@@ -43,53 +43,71 @@ abstract interface class AttachmentAudioDriver {
   Future<void> dispose();
 }
 
-/// The media_kit (libmpv) driver — the SAME native stack the inline video card uses (ADR 0016).
+/// The `video_player` driver — the SAME stack the inline video card uses (ADR 0018), which on macOS
+/// is AVFoundation's AVPlayer and on Windows/Linux is FVP. AVPlayer plays audio natively, so audio
+/// costs the app nothing beyond what video already brings.
 ///
-/// It replaced audioplayers rather than sitting beside it: libmpv now ships with the app for video
-/// regardless, so a second native audio stack would be pure additional weight, plus a second thing
-/// that can grab an audio device. The seam above exists precisely so this swap costs the UI nothing.
+/// This is the seam's THIRD implementation (audioplayers → media_kit → video_player) and the UI has
+/// not changed once across all three. That is the entire argument for the seam existing: a driver
+/// swap must never be a UI change.
 ///
-/// media_kit(libmpv)驱动——与内联视频卡**同一套**原生栈(ADR 0016)。
+/// `video_player` 驱动——与内联视频卡**同一套**栈(ADR 0018):macOS 上是 AVFoundation 的 AVPlayer,
+/// Windows/Linux 上是 FVP。AVPlayer 原生就放音频,故音频不再额外花任何代价。
 ///
-/// 它**替掉**了 audioplayers、而不是与之并存:libmpv 现在无论如何都要为视频打进包,故再留一套原生音频栈
-/// 是纯粹的额外重量,外加多一个会去抢音频设备的东西。上面那层缝的存在,正是为了让这次替换对 UI 零成本。
-class MediaKitAttachmentAudioDriver implements AttachmentAudioDriver {
-  MediaKitAttachmentAudioDriver();
+/// 这是这层缝的**第三个**实现(audioplayers → media_kit → video_player),而 UI 在三次之间**一次都没
+/// 改过**。这就是这层缝存在的全部理由:换驱动**绝不该**变成一次 UI 改动。
+class VideoPlayerAttachmentAudioDriver implements AttachmentAudioDriver {
+  VideoPlayerAttachmentAudioDriver();
 
-  // The native player is built on FIRST PLAY, never in the constructor. Constructing one reaches
-  // into libmpv, which does not exist in a widget test — and this driver is instantiated by the
-  // controller's build(), i.e. by every test that renders a transcript. Lazily is the same rule the
-  // inline video card follows, for the same reason (ADR 0016).
-  // 原生播放器在**第一次播放**时才建,绝不在构造函数里。构造它要伸到 libmpv,而 widget test 里没有那一层
-  // ——而本驱动是由 controller 的 build() 实例化的,也就是**每一个**渲 transcript 的测试都会造它。
-  // 惰性与内联视频卡是同一条规矩、同一个理由(ADR 0016)。
-  mk.Player? _player;
+  // The native controller is built on FIRST PLAY, never in the constructor. Constructing one reaches
+  // into the platform layer, which does not exist in a widget test — and this driver is instantiated
+  // by the controller's build(), i.e. by every test that renders a transcript. Lazily is the same
+  // rule the inline video card follows, for the same reason (ADR 0018).
+  // 原生 controller 在**第一次播放**时才建,绝不在构造函数里。构造它要伸到平台层,而 widget test 里没有
+  // 那一层——而本驱动是由 controller 的 build() 实例化的,也就是**每一个**渲 transcript 的测试都会造它。
+  // 惰性与内联视频卡是同一条规矩、同一个理由(ADR 0018)。
+  VideoPlayerController? _player;
   final _positions = StreamController<Duration>.broadcast();
   final _durations = StreamController<Duration>.broadcast();
   final _statuses = StreamController<AttachmentAudioStatus>.broadcast();
+  Duration _lastPosition = Duration.zero;
+  bool _lastPlaying = false;
+  bool _lastCompleted = false;
 
-  mk.Player _ensure() {
-    final existing = _player;
-    if (existing != null) return existing;
-    final player = mk.Player();
-    _player = player;
-    player.stream.position.listen(_positions.add);
-    player.stream.duration.listen(_durations.add);
-    // libmpv reports playing/completed as two independent booleans rather than one enum, so the
-    // normalized status is derived here. `completed` wins: at end-of-file both can be true for a
-    // frame, and reporting "playing" there would leave the UI stuck mid-track forever.
-    // libmpv 用两个独立布尔而非一个枚举报告 playing/completed,故归一状态在此推导。**completed 优先**:
-    // 播放到尾时两者可能同为真一帧,那里报 "playing" 会让 UI 永远卡在半途。
-    player.stream.completed.listen((done) {
-      if (done) _statuses.add(AttachmentAudioStatus.completed);
-    });
-    player.stream.playing.listen((playing) {
-      if (player.state.completed) return;
+  // video_player exposes ONE aggregate ValueNotifier rather than separate streams, so the three
+  // normalized streams are derived here — and each only emits on CHANGE. Without that the position
+  // listener would republish the same value every tick and the UI would rebuild for nothing.
+  // video_player 暴露的是**一个聚合** ValueNotifier、而不是分开的流,故三条归一流在此推导——且各自**只在
+  // 变化时**发。没有这一条,position 监听会每一帧重发同一个值,UI 白白重建。
+  void _onValue() {
+    final p = _player;
+    if (p == null) return;
+    final v = p.value;
+    if (v.position != _lastPosition) {
+      _lastPosition = v.position;
+      _positions.add(v.position);
+    }
+    if (v.duration > Duration.zero) _durations.add(v.duration);
+    // `completed` wins over `isPlaying`: at end-of-file both can read true for a frame, and reporting
+    // "playing" there would leave the UI stuck mid-track forever.
+    // `completed` **压过** `isPlaying`:播到尾时两者可能同为真一帧,那里报 "playing" 会让 UI 永远卡在半途。
+    final completed = v.isCompleted;
+    if (completed != _lastCompleted) {
+      _lastCompleted = completed;
+      if (completed) {
+        _statuses.add(AttachmentAudioStatus.completed);
+        return;
+      }
+    }
+    if (completed) return;
+    if (v.isPlaying != _lastPlaying) {
+      _lastPlaying = v.isPlaying;
       _statuses.add(
-        playing ? AttachmentAudioStatus.playing : AttachmentAudioStatus.paused,
+        v.isPlaying
+            ? AttachmentAudioStatus.playing
+            : AttachmentAudioStatus.paused,
       );
-    });
-    return player;
+    }
   }
 
   @override
@@ -102,11 +120,20 @@ class MediaKitAttachmentAudioDriver implements AttachmentAudioDriver {
   Stream<AttachmentAudioStatus> get statusStream => _statuses.stream;
 
   @override
-  Future<void> playUrl(String url, {String? mimeType}) =>
-      _ensure().open(mk.Media(url));
+  Future<void> playUrl(String url, {String? mimeType}) async {
+    await _player?.dispose();
+    _lastPosition = Duration.zero;
+    _lastPlaying = false;
+    _lastCompleted = false;
+    final player = VideoPlayerController.networkUrl(Uri.parse(url));
+    _player = player;
+    player.addListener(_onValue);
+    await player.initialize();
+    await player.play();
+  }
 
   @override
-  Future<void> seek(Duration position) async => _player?.seek(position);
+  Future<void> seek(Duration position) async => _player?.seekTo(position);
 
   @override
   Future<void> pause() async => _player?.pause();
@@ -115,7 +142,11 @@ class MediaKitAttachmentAudioDriver implements AttachmentAudioDriver {
   Future<void> resume() async => _player?.play();
 
   @override
-  Future<void> stop() async => _player?.stop();
+  Future<void> stop() async {
+    await _player?.pause();
+    await _player?.seekTo(Duration.zero);
+    _statuses.add(AttachmentAudioStatus.stopped);
+  }
 
   @override
   Future<void> dispose() async {
@@ -128,7 +159,7 @@ class MediaKitAttachmentAudioDriver implements AttachmentAudioDriver {
 
 final attachmentAudioDriverFactoryProvider =
     Provider<AttachmentAudioDriver Function()>(
-      (ref) => MediaKitAttachmentAudioDriver.new,
+      (ref) => VideoPlayerAttachmentAudioDriver.new,
     );
 
 @immutable

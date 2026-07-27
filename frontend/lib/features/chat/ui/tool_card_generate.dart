@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../core/media/media_ref.dart';
+import '../../../core/media/media_cards.dart';
 
 import '../../../core/design/colors.dart';
-import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
-import '../../../core/media/attachment_image_provider.dart';
 import '../data/chat_providers.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
@@ -17,116 +17,37 @@ import '../state/attachment_meta.dart';
 /// this body rides the exact same pipeline the transcript's user attachments use — meta via the
 /// kept-alive provider, bytes via the id-keyed image cache, decode capped to the display width.
 /// One card family, zero new media primitives (不变量④的第一个工具卡消费者).
+
+/// Widest a generated artifact renders in a tool card — the card family also uses it as the decode
+/// cap, so a 4000px image never parks a full-size bitmap for this slot.
+/// 生成产物在工具卡里的最宽档——一族卡同时拿它当**解码**上限,故 4000px 的图不会为这个槽停一张全尺寸位图。
+const double _maxW = 320;
+
+/// The three generate_* tool-card bodies. Each artifact is a first-class attachment, so each body is
+/// a THIN wrapper over [AnMediaRefCard] — the ONE card family, dispatching on the attachment ROW's
+/// mime (不变量④).
 ///
-/// generate_image 族体(批B,代拍 B7):产物是一等附件,本体走 transcript 用户附件的同一条管线——
-/// 元数据经 keepAlive provider、字节经按 id 缓存的图源、解码封顶显示宽。一族卡、零新媒体原语
-/// (不变量④的第一个工具卡消费者)。
+/// This file used to hand-roll image rendering and video rendering itself, while its own comment
+/// claimed to be "the family's first tool-card consumer". It was not: it was a second and a third
+/// copy. The cost was invisible until video gained inline playback in H5.5 and did not reach the
+/// place a user actually looks — the chat tool card still drew a file card, because it had its own
+/// branch (WRK-082 H5.5R). A surface that grows its own media branch quietly opts out of every
+/// future modality.
+///
+/// 三个 generate_* 工具卡体。产物都是一等附件,故每个体都只是 [AnMediaRefCard] 的**薄包装**——**一族卡**,
+/// 按附件**行的 mime** 分发(不变量④)。
+///
+/// 本文件过去**自己手搓**了图像渲染与视频渲染,而它自己的注释却写着「一族卡、不变量④的第一个工具卡
+/// 消费者」。**它不是**:它是第二份和第三份拷贝。代价一直看不见,直到 H5.5 给视频加了内联播放、而那个
+/// 播放**没能到达用户真正会看的地方**——chat 工具卡仍然画着一张文件卡,因为它有自己的分支(H5.5R)。
+/// 一个自己长出媒体分支的面,等于静默退出了此后每一个新模态。
 Widget generatedImageBody(BuildContext context, ToolCardState state) {
   final r = parseGeneratedImage(state.resultText);
   if (r == null) return const SizedBox.shrink();
-  return _GeneratedImageBody(receipt: r);
-}
-
-class _GeneratedImageBody extends ConsumerWidget {
-  const _GeneratedImageBody({required this.receipt});
-
-  final ({
-    String attachmentId,
-    String? mime,
-    int? width,
-    int? height,
-    String? provider,
-    String? model,
-  })
-  receipt;
-
-  /// The widest the artifact renders inside a card body — a deliberate step above the transcript
-  /// thumb (the generated image IS the deliverable), still decode-capped to what the slot shows.
-  /// 卡体内产物最宽档——刻意高于 transcript 缩略档(生成图就是交付物),解码仍封顶槽位所需。
-  static const double _maxW = 360;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final id = receipt.attachmentId;
-    final meta = ref.watch(attachmentMetaProvider(id));
-    final c = context.colors;
-    // hasError, not the AsyncError class pattern: Riverpod 3 auto-retries a failed provider, and
-    // during each retry window the state is AsyncLoading again — the class pattern would flicker
-    // the honest line back into a skeleton forever. hasError stays true across retries.
-    // 用 hasError 而非 AsyncError 类模式:Riverpod 3 对失败 provider 自动重试,重试窗内状态又是
-    // AsyncLoading——类模式会让诚实行永远闪回骨架。hasError 跨重试恒真。
-    if (meta.hasError) {
-      // The attachment row is the truth; a missing row is said out loud, never a broken image.
-      // 附件行是真相;行缺失明说,绝不渲一张破图。
-      return Text(id, style: AnText.label.copyWith(color: c.inkFaint));
-    }
-    return switch (meta) {
-      AsyncData(value: final m) => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(AnRadius.button),
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maxW),
-              child: Image(
-                image: AttachmentImageProvider(
-                  id,
-                  fetch: () =>
-                      ref.read(chatRepositoryProvider).getAttachmentBytes(id),
-                  targetWidth: (_maxW * MediaQuery.devicePixelRatioOf(context))
-                      .round(),
-                ),
-                fit: BoxFit.contain,
-                // While bytes stream in, hold layout with the receipt's real aspect so the card
-                // never jumps when pixels arrive (dims ride the receipt precisely for this).
-                // 字节到达前按 receipt 真实比例占位,像素落地卡不跳(receipt 带尺寸正为此)。
-                frameBuilder: (context, child, frame, wasSync) {
-                  if (frame != null || wasSync) return child;
-                  final w = receipt.width, h = receipt.height;
-                  final ratio = (w != null && h != null && w > 0 && h > 0)
-                      ? w / h
-                      : 1.0;
-                  return AspectRatio(
-                    aspectRatio: ratio,
-                    child: ColoredBox(color: c.surfaceSubtle),
-                  );
-                },
-                errorBuilder: (context, _, _) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-                  child: Text(
-                    m.filename,
-                    style: AnText.label.copyWith(color: c.inkMuted),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(height: AnSpace.s4),
-          Text(
-            _metaLine(m.filename),
-            style: AnText.label.copyWith(color: c.inkMuted),
-          ),
-        ],
-      ),
-      _ => ConstrainedBox(
-        constraints: const BoxConstraints(maxWidth: _maxW),
-        child: AspectRatio(
-          aspectRatio: 1,
-          child: ColoredBox(color: c.surfaceSubtle),
-        ),
-      ),
-    };
-  }
-
-  String _metaLine(String filename) {
-    final parts = <String>[filename];
-    final w = receipt.width, h = receipt.height;
-    if (w != null && h != null && w > 0 && h > 0) parts.add('$w×$h');
-    final model = receipt.model;
-    if (model != null && model.isNotEmpty) parts.add(model);
-    return parts.join(' · ');
-  }
+  return AnMediaRefCard(
+    mediaRef: AnMediaRef(attachmentId: r.attachmentId),
+    maxWidth: _maxW,
+  );
 }
 
 /// generate_speech family body (WRK-082 批C): the artifact is a first-class AUDIO attachment, so
@@ -196,62 +117,16 @@ class _GeneratedSpeechBody extends ConsumerWidget {
   }
 }
 
-/// generate_video family body (WRK-082 批D). The artifact renders as the kit's FILE CARD, not an
-/// inline player: adding one would mean adopting a desktop video stack (`media_kit` /
-/// `video_player` and their native dependencies), which is a dependency decision of its own and
-/// does not belong to this batch (代拍 D1). The card still says what the file is, how big it is,
-/// and can be opened outside the app — honest about what exists rather than pretending to play it.
+/// generate_video family body. Inline playback arrives for free through the family — this body does
+/// not know a player exists, and did not change when the playback backend was swapped (ADR 0018).
 ///
-/// generate_video 族体(批D)。产物渲成 kit 的**文件卡**、不是内联播放器:加播放器意味着引入桌面
-/// 视频栈(`media_kit`/`video_player` 及其原生依赖),那是一次独立的依赖决策、不属于本批(代拍 D1)。
-/// 卡仍然说清它是什么文件、多大、可在应用外打开——对**存在的东西**诚实,而不是假装能播它。
+/// generate_video 族体。内联播放**经一族卡免费到达**——本体**不知道**有播放器这回事,而在播放底座被
+/// 更换时(ADR 0018)它一行都没动。
 Widget generatedVideoBody(BuildContext context, ToolCardState state) {
   final r = parseGeneratedVideo(state.resultText);
   if (r == null) return const SizedBox.shrink();
-  return _GeneratedVideoBody(attachmentId: r.attachmentId, seconds: r.seconds);
-}
-
-class _GeneratedVideoBody extends ConsumerWidget {
-  const _GeneratedVideoBody({required this.attachmentId, this.seconds});
-
-  final String attachmentId;
-  final int? seconds;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final meta = ref.watch(attachmentMetaProvider(attachmentId));
-    final c = context.colors;
-    if (meta.hasError) {
-      return Text(
-        attachmentId,
-        style: AnText.label.copyWith(color: c.inkFaint),
-      );
-    }
-    return switch (meta) {
-      AsyncData(value: final m) => AnAttachmentCard(
-        kind: m.kind.isEmpty ? 'video' : m.kind,
-        filename: m.filename.isEmpty ? attachmentId : m.filename,
-        metaLine: _metaLine(m.sizeBytes),
-      ),
-      _ => const AnAttachmentCard(
-        kind: 'video',
-        filename: '',
-        metaLine: '',
-        state: AnAttachmentState.resolving,
-      ),
-    };
-  }
-
-  String _metaLine(int sizeBytes) {
-    final parts = <String>[];
-    if (seconds != null && seconds! > 0) parts.add('${seconds}s');
-    if (sizeBytes > 0) {
-      parts.add(
-        sizeBytes < 1024 * 1024
-            ? '${(sizeBytes / 1024).toStringAsFixed(0)} KB'
-            : '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB',
-      );
-    }
-    return parts.join(' · ');
-  }
+  return AnMediaRefCard(
+    mediaRef: AnMediaRef(attachmentId: r.attachmentId),
+    maxWidth: _maxW,
+  );
 }

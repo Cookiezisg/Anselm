@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"io"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -141,11 +140,28 @@ func (h *AttachmentHandler) Content(w http.ResponseWriter, r *http.Request) {
 		mime = "application/octet-stream"
 	}
 	w.Header().Set("Content-Type", mime)
-	w.Header().Set("Content-Length", strconv.Itoa(len(data)))
 	// inline preview; strip quotes from the filename so the header can't be broken.
 	// 内联预览；从文件名剥引号，避免破坏 header。
 	w.Header().Set("Content-Disposition", `inline; filename="`+strings.ReplaceAll(a.Filename, `"`, "")+`"`)
-	_, _ = w.Write(data)
+	// http.ServeContent, NOT a hand-written Write: it answers RANGE requests (206 + Content-Range),
+	// which is not a nicety — Apple's AVFoundation opens every media URL with `Range: bytes=0-1` and
+	// refuses a server that cannot answer it (CoreMediaErrorDomain -12939, observed on a real run).
+	// Seeking is the same mechanism: without ranges a player can only ever stream from byte zero.
+	//
+	// The previous hand-rolled version worked only because libmpv happens to download linearly. That
+	// is exactly the kind of assumption that does not survive a backend swap, and it did not
+	// (WRK-082 H5.5R). ServeContent also brings conditional requests and correct 416 handling for
+	// free — all of it standard library, none of it ours to maintain (原则 #8).
+	//
+	// 用 http.ServeContent、**不是**手写 Write:它应答 **Range** 请求(206 + Content-Range),而这不是
+	// 锦上添花——Apple 的 AVFoundation 打开每个媒体 URL 时都先发 `Range: bytes=0-1`,答不上来就拒绝
+	// (CoreMediaErrorDomain -12939,真机实测)。**拖进度条是同一套机制**:没有 range,播放器永远只能从
+	// 第 0 字节顺流。
+	//
+	// 之前那版手搓的能用,只是因为 libmpv 恰好线性下载。那正是**换底座就活不过来**的那类假设,而它确实
+	// 没活过来(H5.5R)。ServeContent 还顺带带来条件请求与正确的 416 —— 全是标准库的,没有一行归我们
+	// 维护(原则 #8)。
+	http.ServeContent(w, r, a.Filename, a.CreatedAt, bytes.NewReader(data))
 }
 
 // CreatePlaybackLease mints a short-lived loopback URL for audio playback. The mint endpoint is still

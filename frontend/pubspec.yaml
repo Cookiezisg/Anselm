@@ -88,19 +88,27 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   record: ^6.2.1
   web_socket_channel: ^3.0.3
-  # INLINE VIDEO playback (WRK-082 H5.5). libmpv-backed, the mature answer for Flutter desktop video
-  # — hardware accelerated on all three platforms, NOT hand-rolled (原则 #8). It renders through
-  # Flutter's Texture Registry (macOS: CVPixelBuffer/Metal), so it composites as an ordinary widget
-  # and never inserts an NSView into the window hierarchy — that is why it cannot disturb the
-  # macos_window_utils titlebar/traffic-light chrome, which operates on the NSWindow itself.
+  # INLINE media playback — ONE upper-layer API, implementation chosen PER PLATFORM (ADR 0018).
+  # macOS rides the endorsed AVFoundation implementation: system decoder, Swift Package Manager,
+  # ZERO vendored frameworks. Windows/Linux register `fvp` below, because those two platforms have
+  # no usable system decoder and must carry one — a platform reality, not a package's fault.
   #
-  # 内联**视频**播放(H5.5)。libmpv 底座,是 Flutter 桌面视频的成熟答案——三平台硬解,**不手搓**
-  # (原则 #8)。它经 Flutter 的 Texture Registry 渲染(macOS 走 CVPixelBuffer/Metal),故它以普通
-  # widget 身份参与合成、**绝不往窗口层级插 NSView**——这正是它碰不到 macos_window_utils 那套标题栏/
-  # 红绿灯 chrome 的原因:后者动的是 NSWindow 本身,两者不在同一层。
-  media_kit: ^1.2.6
-  media_kit_video: ^2.0.1
-  media_kit_libs_video: ^1.0.7
+  # 内联媒体播放——**一套**上层 API,实现**按平台选**(ADR 0018)。macOS 走官方背书的 AVFoundation
+  # 实现:系统解码、Swift Package Manager、**零 vendored framework**。Windows/Linux 注册下面的 `fvp`,
+  # 因为那两个平台没有可用的系统解码器、**必须**自带一个——这是平台现实,不是哪个包的错。
+  video_player: ^2.10.0
+  # Windows: the OS's own Media Foundation, via a Windows-ONLY package (~130KB DLL, no bundled
+  # codecs). Its pubspec declares windows and nothing else, so macOS links not one byte of it.
+  # Windows:走系统自带的 Media Foundation,经一个**只声明 windows** 的包(~130KB DLL、不带编解码器)。
+  # 它的 pubspec 只声明 windows,故 macOS **一个字节都不链**。
+  video_player_win: ^3.2.2
+  # Linux: media_kit behind the video_player interface. The bridge is opt-in per platform and the
+  # HEAVY native half lives in a separate, Linux-ONLY libs package — that split is the whole reason
+  # this combination is used instead of one all-platforms package.
+  # Linux:media_kit 藏在 video_player 接口之后。桥接按平台 opt-in,而**重的原生那半**在一个独立的、
+  # **只声明 linux** 的 libs 包里——正是这个拆分,才让这套组合优于任何一个「全平台通吃」的包。
+  video_player_media_kit: ^2.0.0
+  media_kit_libs_linux: any
 
 # super_editor is VENDORED (third_party/super_editor = the pub 0.3.0-dev.40 lib/ + pubspec + LICENSE,
 # copied verbatim) so ONE file — src/default_editor/layout_single_column/_presenter.dart — can be patched:

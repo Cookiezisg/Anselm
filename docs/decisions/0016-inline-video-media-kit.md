@@ -1,7 +1,7 @@
 ---
 id: DOC-063
 type: decision
-status: active
+status: superseded
 owner: @weilin
 created: 2026-07-27
 reviewed: 2026-07-27
@@ -10,6 +10,13 @@ audience: [human, ai]
 ---
 
 # 0016 — 内联播放:引入 media_kit(libmpv),视频经 loopback HTTP 流式取
+
+> **⚠️ 已被 [ADR 0018](0018-playback-video-player-per-platform.md) 取代(2026-07-27,同日)。**
+> 本篇的**目标**仍然成立(内联播放、播放器惰性构造、loopback HTTP 取流、红绿灯不受影响),被取代的是
+> **底座选择与选它的判据**:本篇筛选「Flutter 桌面视频哪家成熟」时**漏掉了 SPM 支持**这一条,而本项目
+> macOS 侧早已全面走 Swift Package Manager。media_kit 因此把一具本已只管空壳的 CocoaPods 残骸重新变成
+> 承重结构,并 vendored 一个 Mpv framework 进 `ephemeral` 目录——随后一次「删生成目录」就打断了整个
+> macOS 构建。保留本篇原文与那次错误的筛选条件,不抹掉。
 
 ## 背景 / Context
 
