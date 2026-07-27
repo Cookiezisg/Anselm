@@ -88,9 +88,6 @@ dependencies:
   flutter_secure_storage: ^10.3.1
   record: ^6.2.1
   web_socket_channel: ^3.0.3
-  # Local playback for sent audio attachments. Wrapped behind AttachmentAudioDriver so the feature can
-  # swap player backends without leaking plugin APIs into transcript/UI code.
-  audioplayers: ^6.7.1
   # INLINE VIDEO playback (WRK-082 H5.5). libmpv-backed, the mature answer for Flutter desktop video
   # — hardware accelerated on all three platforms, NOT hand-rolled (原则 #8). It renders through
   # Flutter's Texture Registry (macOS: CVPixelBuffer/Metal), so it composites as an ordinary widget

@@ -14,8 +14,6 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   final positions = StreamController<Duration>.broadcast();
   final durations = StreamController<Duration>.broadcast();
   final statuses = StreamController<AttachmentAudioStatus>.broadcast();
-  final playPayloads = <List<int>>[];
-  final playMimeTypes = <String?>[];
   final playUrls = <String>[];
   final playUrlMimeTypes = <String?>[];
   final seeks = <Duration>[];
@@ -33,14 +31,6 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
 
   @override
   Stream<AttachmentAudioStatus> get statusStream => statuses.stream;
-
-  @override
-  Future<void> playBytes(List<int> bytes, {String? mimeType}) async {
-    if (playError case final e?) throw e;
-    playPayloads.add(List<int>.of(bytes));
-    playMimeTypes.add(mimeType);
-    statuses.add(AttachmentAudioStatus.playing);
-  }
 
   @override
   Future<void> playUrl(String url, {String? mimeType}) async {
@@ -97,27 +87,28 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
 Future<void> _tick() => Future<void>.delayed(Duration.zero);
 
 void main() {
-  test('first toggle loads bytes and starts one active attachment', () async {
-    final (c, driver) = _setup();
-    await c
-        .read(attachmentAudioPlaybackProvider.notifier)
-        .toggle(
-          'att_1',
-          loadBytes: () async => [1, 2, 3],
-          mimeType: 'audio/webm',
-        );
+  test(
+    'first toggle loads the source and starts one active attachment',
+    () async {
+      final (c, driver) = _setup();
+      await c
+          .read(attachmentAudioPlaybackProvider.notifier)
+          .toggleUrl(
+            'att_1',
+            loadUrl: () async => 'u1,2,3',
+            mimeType: 'audio/webm',
+          );
 
-    final state = c.read(attachmentAudioPlaybackProvider);
-    expect(state.activeAttachmentId, 'att_1');
-    expect(state.playing, isTrue);
-    expect(state.loading, isFalse);
-    expect(driver.playPayloads, [
-      [1, 2, 3],
-    ]);
-    expect(driver.playMimeTypes, ['audio/webm']);
-  });
+      final state = c.read(attachmentAudioPlaybackProvider);
+      expect(state.activeAttachmentId, 'att_1');
+      expect(state.playing, isTrue);
+      expect(state.loading, isFalse);
+      expect(driver.playUrls, ['u1,2,3']);
+      expect(driver.playUrlMimeTypes, ['audio/webm']);
+    },
+  );
 
-  test('url toggle loads a playback lease and starts via UrlSource', () async {
+  test('a toggle loads a playback lease and plays that URL', () async {
     final (c, driver) = _setup();
     await c
         .read(attachmentAudioPlaybackProvider.notifier)
@@ -133,46 +124,40 @@ void main() {
     expect(state.loading, isFalse);
     expect(driver.playUrls, ['http://127.0.0.1/audio/lease']);
     expect(driver.playUrlMimeTypes, ['audio/mpeg']);
-    expect(driver.playPayloads, isEmpty);
   });
 
   test(
-    'same active attachment pauses, then resumes without reloading bytes',
+    'same active attachment pauses, then resumes without reloading',
     () async {
       final (c, driver) = _setup();
       final n = c.read(attachmentAudioPlaybackProvider.notifier);
 
-      await n.toggle('att_1', loadBytes: () async => [1]);
-      await n.toggle('att_1', loadBytes: () async => [9]);
+      await n.toggleUrl('att_1', loadUrl: () async => 'u1');
+      await n.toggleUrl('att_1', loadUrl: () async => 'u9');
       expect(driver.pauseCalls, 1);
       expect(c.read(attachmentAudioPlaybackProvider).playing, isFalse);
 
-      await n.toggle('att_1', loadBytes: () async => [9]);
+      await n.toggleUrl('att_1', loadUrl: () async => 'u9');
       expect(driver.resumeCalls, 1);
-      expect(driver.playPayloads, [
-        [1],
-      ]);
+      expect(driver.playUrls, ['u1']);
     },
   );
 
   test(
-    'switching attachments stops the previous source before playing new bytes',
+    'switching attachments stops the previous source before playing the new one',
     () async {
       final (c, driver) = _setup();
       final n = c.read(attachmentAudioPlaybackProvider.notifier);
 
-      await n.toggle('att_1', loadBytes: () async => [1]);
-      await n.toggle('att_2', loadBytes: () async => [2]);
+      await n.toggleUrl('att_1', loadUrl: () async => 'u1');
+      await n.toggleUrl('att_2', loadUrl: () async => 'u2');
 
       expect(driver.stopCalls, 1);
       expect(
         c.read(attachmentAudioPlaybackProvider).activeAttachmentId,
         'att_2',
       );
-      expect(driver.playPayloads, [
-        [1],
-        [2],
-      ]);
+      expect(driver.playUrls, ['u1', 'u2']);
     },
   );
 
@@ -182,7 +167,7 @@ void main() {
       final (c, driver) = _setup();
       final n = c.read(attachmentAudioPlaybackProvider.notifier);
 
-      await n.toggle('att_1', loadBytes: () async => [1]);
+      await n.toggleUrl('att_1', loadUrl: () async => 'u1');
       await n.stop();
 
       final state = c.read(attachmentAudioPlaybackProvider);
@@ -201,7 +186,7 @@ void main() {
       final (c, driver) = _setup();
       await c
           .read(attachmentAudioPlaybackProvider.notifier)
-          .toggle('att_1', loadBytes: () async => [1]);
+          .toggleUrl('att_1', loadUrl: () async => 'u1');
 
       driver.durations.add(const Duration(seconds: 10));
       driver.positions.add(const Duration(seconds: 3));
@@ -226,7 +211,7 @@ void main() {
       final (c, driver) = _setup();
       final n = c.read(attachmentAudioPlaybackProvider.notifier);
 
-      await n.toggle('att_1', loadBytes: () async => [1]);
+      await n.toggleUrl('att_1', loadUrl: () async => 'u1');
       driver.durations.add(const Duration(seconds: 10));
       await _tick();
 
@@ -258,7 +243,7 @@ void main() {
 
     await c
         .read(attachmentAudioPlaybackProvider.notifier)
-        .toggle('att_1', loadBytes: () async => [1]);
+        .toggleUrl('att_1', loadUrl: () async => 'u1');
 
     final state = c.read(attachmentAudioPlaybackProvider);
     expect(state.activeAttachmentId, 'att_1');
@@ -272,9 +257,9 @@ void main() {
 
     await c
         .read(attachmentAudioPlaybackProvider.notifier)
-        .toggle(
+        .toggleUrl(
           'att_1',
-          loadBytes: () async =>
+          loadUrl: () async =>
               throw ApiException.transport('connection refused'),
         );
 
@@ -283,7 +268,7 @@ void main() {
     expect(state.loading, isFalse);
     expect(state.playing, isFalse);
     expect(state.errorFor('att_1'), AttachmentAudioError.attachmentOffline);
-    expect(driver.playPayloads, isEmpty);
+    expect(driver.playUrls, isEmpty);
   });
 
   test(
@@ -293,9 +278,9 @@ void main() {
 
       await c
           .read(attachmentAudioPlaybackProvider.notifier)
-          .toggle(
+          .toggleUrl(
             'att_1',
-            loadBytes: () async => throw const ApiException(
+            loadUrl: () async => throw const ApiException(
               code: 'ATTACHMENT_NOT_FOUND',
               message: 'attachment not found',
               httpStatus: 404,
@@ -307,7 +292,7 @@ void main() {
       expect(state.loading, isFalse);
       expect(state.playing, isFalse);
       expect(state.errorFor('att_1'), AttachmentAudioError.attachmentMissing);
-      expect(driver.playPayloads, isEmpty);
+      expect(driver.playUrls, isEmpty);
     },
   );
 }

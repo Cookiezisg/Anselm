@@ -216,7 +216,6 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   final positions = StreamController<Duration>.broadcast();
   final durations = StreamController<Duration>.broadcast();
   final statuses = StreamController<AttachmentAudioStatus>.broadcast();
-  final playPayloads = <List<int>>[];
   final playUrls = <String>[];
   final seeks = <Duration>[];
   var stopCalls = 0;
@@ -230,12 +229,6 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
 
   @override
   Stream<AttachmentAudioStatus> get statusStream => statuses.stream;
-
-  @override
-  Future<void> playBytes(List<int> bytes, {String? mimeType}) async {
-    playPayloads.add(List<int>.of(bytes));
-    statuses.add(AttachmentAudioStatus.playing);
-  }
 
   @override
   Future<void> playUrl(String url, {String? mimeType}) async {
@@ -601,7 +594,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
 
       expect(driver.playUrls, ['http://127.0.0.1/fixture-audio/att_audio']);
-      expect(driver.playPayloads, isEmpty);
       expect(find.bySemanticsLabel('Pause audio'), findsOneWidget);
     },
   );
@@ -753,7 +745,6 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 20));
 
-      expect(driver.playPayloads, isEmpty);
       expect(driver.playUrls, isEmpty);
       expect(find.text('Offline — tap to retry playback'), findsOneWidget);
       expect(find.bySemanticsLabel('Play audio'), findsOneWidget);
@@ -809,7 +800,6 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 20));
 
-      expect(driver.playPayloads, isEmpty);
       expect(driver.playUrls, isEmpty);
       expect(find.text('Unavailable'), findsOneWidget);
       expect(find.bySemanticsLabel('Play audio'), findsNothing);

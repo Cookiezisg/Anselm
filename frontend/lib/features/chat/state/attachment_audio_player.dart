@@ -1,8 +1,8 @@
 import 'dart:async';
 
-import 'package:audioplayers/audioplayers.dart' as audioplayers;
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:media_kit/media_kit.dart' as mk;
 
 import '../../../core/contract/api_error.dart';
 
@@ -27,7 +27,14 @@ abstract interface class AttachmentAudioDriver {
   Stream<Duration> get durationStream;
   Stream<AttachmentAudioStatus> get statusStream;
 
-  Future<void> playBytes(List<int> bytes, {String? mimeType});
+  /// Play from a URL. There is deliberately no bytes variant: every attachment this app plays is
+  /// reachable over loopback HTTP (a playback lease, or the sidecar's content endpoint), and a
+  /// sandboxed macOS app cannot hand a native player an arbitrary file path anyway (ADR 0016).
+  /// One source shape means one code path to keep honest.
+  ///
+  /// 从 URL 播。刻意**没有**字节形态:本应用会播的每一份附件都经 loopback HTTP 可达(播放 lease,或
+  /// sidecar 的内容端点),而沙箱化的 macOS app 本来也没法把任意文件路径交给原生播放器(ADR 0016)。
+  /// 一种源形状 = 只有一条要维持诚实的代码路径。
   Future<void> playUrl(String url, {String? mimeType});
   Future<void> seek(Duration position);
   Future<void> pause();
@@ -36,59 +43,92 @@ abstract interface class AttachmentAudioDriver {
   Future<void> dispose();
 }
 
-class AudioplayersAttachmentAudioDriver implements AttachmentAudioDriver {
-  AudioplayersAttachmentAudioDriver() {
-    _player.setReleaseMode(audioplayers.ReleaseMode.stop);
+/// The media_kit (libmpv) driver — the SAME native stack the inline video card uses (ADR 0016).
+///
+/// It replaced audioplayers rather than sitting beside it: libmpv now ships with the app for video
+/// regardless, so a second native audio stack would be pure additional weight, plus a second thing
+/// that can grab an audio device. The seam above exists precisely so this swap costs the UI nothing.
+///
+/// media_kit(libmpv)驱动——与内联视频卡**同一套**原生栈(ADR 0016)。
+///
+/// 它**替掉**了 audioplayers、而不是与之并存:libmpv 现在无论如何都要为视频打进包,故再留一套原生音频栈
+/// 是纯粹的额外重量,外加多一个会去抢音频设备的东西。上面那层缝的存在,正是为了让这次替换对 UI 零成本。
+class MediaKitAttachmentAudioDriver implements AttachmentAudioDriver {
+  MediaKitAttachmentAudioDriver();
+
+  // The native player is built on FIRST PLAY, never in the constructor. Constructing one reaches
+  // into libmpv, which does not exist in a widget test — and this driver is instantiated by the
+  // controller's build(), i.e. by every test that renders a transcript. Lazily is the same rule the
+  // inline video card follows, for the same reason (ADR 0016).
+  // 原生播放器在**第一次播放**时才建,绝不在构造函数里。构造它要伸到 libmpv,而 widget test 里没有那一层
+  // ——而本驱动是由 controller 的 build() 实例化的,也就是**每一个**渲 transcript 的测试都会造它。
+  // 惰性与内联视频卡是同一条规矩、同一个理由(ADR 0016)。
+  mk.Player? _player;
+  final _positions = StreamController<Duration>.broadcast();
+  final _durations = StreamController<Duration>.broadcast();
+  final _statuses = StreamController<AttachmentAudioStatus>.broadcast();
+
+  mk.Player _ensure() {
+    final existing = _player;
+    if (existing != null) return existing;
+    final player = mk.Player();
+    _player = player;
+    player.stream.position.listen(_positions.add);
+    player.stream.duration.listen(_durations.add);
+    // libmpv reports playing/completed as two independent booleans rather than one enum, so the
+    // normalized status is derived here. `completed` wins: at end-of-file both can be true for a
+    // frame, and reporting "playing" there would leave the UI stuck mid-track forever.
+    // libmpv 用两个独立布尔而非一个枚举报告 playing/completed,故归一状态在此推导。**completed 优先**:
+    // 播放到尾时两者可能同为真一帧,那里报 "playing" 会让 UI 永远卡在半途。
+    player.stream.completed.listen((done) {
+      if (done) _statuses.add(AttachmentAudioStatus.completed);
+    });
+    player.stream.playing.listen((playing) {
+      if (player.state.completed) return;
+      _statuses.add(
+        playing ? AttachmentAudioStatus.playing : AttachmentAudioStatus.paused,
+      );
+    });
+    return player;
   }
 
-  final audioplayers.AudioPlayer _player = audioplayers.AudioPlayer();
+  @override
+  Stream<Duration> get positionStream => _positions.stream;
 
   @override
-  Stream<Duration> get positionStream => _player.onPositionChanged;
+  Stream<Duration> get durationStream => _durations.stream;
 
   @override
-  Stream<Duration> get durationStream => _player.onDurationChanged;
-
-  @override
-  Stream<AttachmentAudioStatus> get statusStream =>
-      _player.onPlayerStateChanged.map(
-        (s) => switch (s) {
-          audioplayers.PlayerState.playing => AttachmentAudioStatus.playing,
-          audioplayers.PlayerState.paused => AttachmentAudioStatus.paused,
-          audioplayers.PlayerState.completed => AttachmentAudioStatus.completed,
-          audioplayers.PlayerState.stopped => AttachmentAudioStatus.stopped,
-          audioplayers.PlayerState.disposed => AttachmentAudioStatus.stopped,
-        },
-      );
-
-  @override
-  Future<void> playBytes(List<int> bytes, {String? mimeType}) => _player.play(
-    audioplayers.BytesSource(Uint8List.fromList(bytes), mimeType: mimeType),
-  );
+  Stream<AttachmentAudioStatus> get statusStream => _statuses.stream;
 
   @override
   Future<void> playUrl(String url, {String? mimeType}) =>
-      _player.play(audioplayers.UrlSource(url, mimeType: mimeType));
+      _ensure().open(mk.Media(url));
 
   @override
-  Future<void> seek(Duration position) => _player.seek(position);
+  Future<void> seek(Duration position) async => _player?.seek(position);
 
   @override
-  Future<void> pause() => _player.pause();
+  Future<void> pause() async => _player?.pause();
 
   @override
-  Future<void> resume() => _player.resume();
+  Future<void> resume() async => _player?.play();
 
   @override
-  Future<void> stop() => _player.stop();
+  Future<void> stop() async => _player?.stop();
 
   @override
-  Future<void> dispose() => _player.dispose();
+  Future<void> dispose() async {
+    await _positions.close();
+    await _durations.close();
+    await _statuses.close();
+    await _player?.dispose();
+  }
 }
 
 final attachmentAudioDriverFactoryProvider =
     Provider<AttachmentAudioDriver Function()>(
-      (ref) => AudioplayersAttachmentAudioDriver.new,
+      (ref) => MediaKitAttachmentAudioDriver.new,
     );
 
 @immutable
@@ -173,16 +213,6 @@ class AttachmentAudioPlaybackController
     });
     return const AttachmentAudioPlaybackState();
   }
-
-  Future<void> toggle(
-    String attachmentId, {
-    required Future<List<int>> Function() loadBytes,
-    String? mimeType,
-  }) => _toggleWith<List<int>>(
-    attachmentId,
-    load: loadBytes,
-    play: (bytes) => _driver.playBytes(bytes, mimeType: mimeType),
-  );
 
   Future<void> toggleUrl(
     String attachmentId, {

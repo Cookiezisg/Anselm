@@ -32,6 +32,8 @@ library;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:flutter/widgets.dart';
 import 'package:media_kit/media_kit.dart';
@@ -160,10 +162,81 @@ Future<void> main() async {
     );
     await httpPlayer.dispose();
     await server.close(force: true);
-    exit(0);
   } catch (e) {
     httpDeadline.cancel();
     stderr.writeln('probe_media_kit: FAIL (http) — $e');
     exit(1);
   }
+
+  // ── Audio, and the one number that decides whether it may share this stack ──
+  //
+  // Read-aloud is short-clip and HIGH FREQUENCY (re-listening to the same message is a common
+  // action), and every media_kit Player is a full mpv instance. If spinning one up costs a
+  // noticeable pause before sound, audio should have stayed on its old driver. So this measures
+  // open→playing on a read-aloud-shaped clip (24kHz/16-bit/mono, 2s) rather than assuming.
+  //
+  // ── 音频,以及决定它能否共用这套栈的那**一个数** ──
+  //
+  // 朗读是**短音频 + 高频**(重听同一条是常见动作),而每个 media_kit Player 都是一个完整 mpv 实例。
+  // 若起一个要付出「按下之后明显一顿」的代价,音频就该留在旧驱动上。故这里**量** open→playing 的
+  // 延迟(朗读规格:24kHz/16bit/mono,2 秒),而不是假设。
+  final wav = File('${Directory.systemTemp.path}/probe-media-kit.wav');
+  await wav.writeAsBytes(_readAloudShapedWav());
+  final audio = Player();
+  final audioDeadline = Timer(const Duration(seconds: 20), () {
+    stderr.writeln('probe_media_kit: FAIL (audio) — never started within 20s');
+    exit(1);
+  });
+  audio.stream.error.listen((e) => stderr.writeln('  mpv error: $e'));
+  final started = audio.stream.playing.firstWhere((p) => p);
+  try {
+    final t0 = DateTime.now();
+    await audio.open(Media(wav.path));
+    await started;
+    audioDeadline.cancel();
+    final ms = DateTime.now().difference(t0).inMilliseconds;
+    stdout.writeln(
+      'probe_media_kit: OK (audio) — open→playing ${ms}ms on a 2s read-aloud clip',
+    );
+    await audio.dispose();
+    exit(0);
+  } catch (e) {
+    audioDeadline.cancel();
+    stderr.writeln('probe_media_kit: FAIL (audio) — $e');
+    exit(1);
+  }
+}
+
+/// A 2-second 24kHz/16-bit/mono sine as a real RIFF/WAVE stream — the exact shape read-aloud
+/// produces. Synthesized rather than embedded because the base64 of 94KB of PCM would dwarf this
+/// file, and a real header is what makes the measurement mean anything.
+///
+/// 一段 2 秒 24kHz/16bit/mono 正弦,真 RIFF/WAVE 流——正是朗读产出的规格。**合成**而非内嵌,因为 94KB
+/// PCM 的 base64 会把本文件淹掉;而正因为头是真的,这次测量才有意义。
+Uint8List _readAloudShapedWav() {
+  const rate = 24000, seconds = 2;
+  final samples = rate * seconds;
+  final out = BytesBuilder();
+  void str(String v) => out.add(v.codeUnits);
+  void u32(int v) =>
+      out.add([v & 255, v >> 8 & 255, v >> 16 & 255, v >> 24 & 255]);
+  void u16(int v) => out.add([v & 255, v >> 8 & 255]);
+  str('RIFF');
+  u32(36 + samples * 2);
+  str('WAVE');
+  str('fmt ');
+  u32(16);
+  u16(1); // PCM
+  u16(1); // mono
+  u32(rate);
+  u32(rate * 2);
+  u16(2);
+  u16(16);
+  str('data');
+  u32(samples * 2);
+  for (var i = 0; i < samples; i++) {
+    final v = (math.sin(2 * math.pi * 440 * i / rate) * 12000).round();
+    u16(v & 0xFFFF);
+  }
+  return out.toBytes();
 }
