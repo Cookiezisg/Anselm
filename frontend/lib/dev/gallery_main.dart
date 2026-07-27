@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:anselm/core/media/media_video.dart';
 
 import '../app/window_setup.dart';
 import '../i18n/strings.g.dart';
@@ -12,6 +13,7 @@ Future<void> main() async {
   // Binding FIRST — useDeviceLocaleSync() reads WidgetsBinding.instance.platformDispatcher, so it
   // throws (→ white window) if called before init. 必须先初始化 binding,否则 useDeviceLocaleSync 抛→白屏。
   WidgetsFlutterBinding.ensureInitialized();
+  initMediaPlayback();
   LocaleSettings.useDeviceLocaleSync();
   await initWindow(title: 'Anselm · Gallery');
   // Dev drive-by seams: --dart-define=GALLERY_CAT=<index> opens a category directly (real-machine perf

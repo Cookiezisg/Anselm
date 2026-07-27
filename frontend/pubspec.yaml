@@ -91,6 +91,19 @@ dependencies:
   # Local playback for sent audio attachments. Wrapped behind AttachmentAudioDriver so the feature can
   # swap player backends without leaking plugin APIs into transcript/UI code.
   audioplayers: ^6.7.1
+  # INLINE VIDEO playback (WRK-082 H5.5). libmpv-backed, the mature answer for Flutter desktop video
+  # — hardware accelerated on all three platforms, NOT hand-rolled (原则 #8). It renders through
+  # Flutter's Texture Registry (macOS: CVPixelBuffer/Metal), so it composites as an ordinary widget
+  # and never inserts an NSView into the window hierarchy — that is why it cannot disturb the
+  # macos_window_utils titlebar/traffic-light chrome, which operates on the NSWindow itself.
+  #
+  # 内联**视频**播放(H5.5)。libmpv 底座,是 Flutter 桌面视频的成熟答案——三平台硬解,**不手搓**
+  # (原则 #8)。它经 Flutter 的 Texture Registry 渲染(macOS 走 CVPixelBuffer/Metal),故它以普通
+  # widget 身份参与合成、**绝不往窗口层级插 NSView**——这正是它碰不到 macos_window_utils 那套标题栏/
+  # 红绿灯 chrome 的原因:后者动的是 NSWindow 本身,两者不在同一层。
+  media_kit: ^1.2.6
+  media_kit_video: ^2.0.1
+  media_kit_libs_video: ^1.0.7
 
 # super_editor is VENDORED (third_party/super_editor = the pub 0.3.0-dev.40 lib/ + pubspec + LICENSE,
 # copied verbatim) so ONE file — src/default_editor/layout_single_column/_presenter.dart — can be patched:

@@ -1,5 +1,6 @@
 import 'package:anselm/app/window_setup.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/media/media_video.dart';
 import 'package:anselm/core/editor/an_editor.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:flutter/material.dart';
@@ -14,6 +15,7 @@ Future<void> main() async {
   // MainFlutterWindow hides itself at launch (hiddenWindowAtLaunch); initWindow's windowManager.show()
   // is the ONLY reveal — without it the app runs windowless. 隐藏窗口的唯一显示钥匙,缺它则无窗口。
   WidgetsFlutterBinding.ensureInitialized();
+  initMediaPlayback();
   await initWindow(title: '原生编辑器 harness');
   runApp(const _EditorHarnessApp());
 }

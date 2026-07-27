@@ -78,6 +78,7 @@ lib/core/media/media_cards.dart	pending
 lib/core/media/media_ref.dart	pending
 lib/core/media/media_source.dart	pending
 lib/core/media/media_uri.dart	pending
+lib/core/media/media_video.dart	pending
 lib/core/messages/args_session.dart	converged
 lib/core/messages/block_tree_reducer.dart	converged
 lib/core/messages/transcript_hydration.dart	converged
@@ -344,6 +345,7 @@ lib/dev/gallery_main.dart	converged
 lib/dev/markdown_corpus.dart	pending
 lib/dev/onboarding_main.dart	converged
 lib/dev/perf_probe.dart	pending
+lib/dev/probe_media_kit.dart	pending
 lib/features/chat/data/chat_demo_fixture.dart	converged
 lib/features/chat/data/chat_fixtures.dart	converged
 lib/features/chat/data/chat_providers.dart	converged

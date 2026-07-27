@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/widgets.dart';
+import 'package:anselm/core/media/media_video.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:scaled_app/scaled_app.dart';
 
@@ -39,6 +40,7 @@ Future<void> main() async {
       ScaledWidgetsFlutterBinding.ensureInitialized(
         scaleFactor: WindowZoom.scaleFactorCallback,
       );
+      initMediaPlayback();
       installErrorHandlers();
       LocaleSettings.useDeviceLocaleSync();
       // Central preferences load ONCE before the window opens — geometry restore + every later

@@ -131,6 +131,34 @@ class ApiClient {
   ///
   /// GET 原始信封体(供 `{flowrun, nodes}` 这类 `data` 为多 key 对象、调用方自解的复合读)。
   /// GET raw bytes (non-envelope endpoints — attachment content). 裸字节 GET(非 envelope,附件内容)。
+  /// The absolute URL + the headers this client would attach, for handing a path to a NATIVE
+  /// consumer that does its own fetching (WRK-082 H5.5: libmpv streams video itself).
+  ///
+  /// It exists because a sandboxed macOS app cannot hand a native player an arbitrary file path —
+  /// the entitlements grant only user-selected files, and libmpv answers "Operation not permitted"
+  /// for anything else (observed, not assumed). Loopback HTTP is the one channel already open
+  /// (`com.apple.security.network.client`, granted for the sidecar), and it streams: a 20MB clip
+  /// starts playing before it has finished downloading, and nothing is written to disk twice.
+  ///
+  /// 绝对 URL + 本 client 会挂的头,用于把一条路径交给**自己去取**的原生消费方(H5.5:libmpv 自己流式
+  /// 拉视频)。
+  ///
+  /// 它存在,是因为沙箱化的 macOS app **不能**把任意文件路径交给原生播放器——entitlements 只授权用户
+  /// 亲选的文件,其余一律被 libmpv 答「Operation not permitted」(**实测所得**,非假设)。loopback HTTP
+  /// 是唯一已经开着的通道(`com.apple.security.network.client`,为 sidecar 授的),而且它是**流式**的:
+  /// 一段 20MB 的片子在下完之前就能开播,且没有任何字节被写两遍盘。
+  NativeFetchTarget nativeFetchTarget(String path) {
+    final base = _dio.options.baseUrl.replaceAll(RegExp(r'/$'), '');
+    final headers = <String, String>{};
+    final ws = _workspaceId();
+    if (ws != null && ws.isNotEmpty) headers['X-Anselm-Workspace-ID'] = ws;
+    final token = _authToken();
+    if (token != null && token.isNotEmpty) {
+      headers['Authorization'] = 'Bearer $token';
+    }
+    return NativeFetchTarget(uri: '$base$path', headers: headers);
+  }
+
   Future<List<int>> getBytes(String path) => _send(() async {
     final r = await _dio.get<List<int>>(
       path,
@@ -312,4 +340,17 @@ class ApiClient {
       throw ApiException.transport(e.message ?? 'transport failure');
     }
   }
+}
+
+/// What a native consumer needs to fetch one resource itself: the absolute URL and the headers
+/// this app's interceptor would have attached. Kept as a value type so the media port can pass it
+/// around without anyone downstream reaching for a Dio.
+///
+/// 一个原生消费方自行取一份资源所需之物:绝对 URL,与本应用拦截器本会挂上的那些头。做成值类型,使媒体
+/// 端口可以传递它、而下游任何人都不必去碰 Dio。
+class NativeFetchTarget {
+  const NativeFetchTarget({required this.uri, required this.headers});
+
+  final String uri;
+  final Map<String, String> headers;
 }

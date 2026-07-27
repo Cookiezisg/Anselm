@@ -8,6 +8,7 @@ import '../ui/an_attachment_card.dart';
 import 'attachment_image_provider.dart';
 import 'media_ref.dart';
 import 'media_source.dart';
+import 'media_video.dart';
 
 /// The ONE card family every surface renders a MediaRef with (WRK-082 批B' 不变量④). Dispatch is by
 /// MIME, resolved from the attachment row — never from the receipt's hint and never per-surface:
@@ -51,14 +52,29 @@ class AnMediaRefCard extends ConsumerWidget {
     }
 
     return switch (meta) {
-      AsyncData(value: final m) =>
-        m.mimeType.startsWith('image/')
-            ? _image(context, ref, filename: m.filename, sizeBytes: m.sizeBytes)
-            : AnAttachmentCard(
-                kind: m.kind,
-                filename: m.filename.isEmpty ? id : m.filename,
-                metaLine: _metaLine(m.mimeType, m.sizeBytes),
-              ),
+      AsyncData(value: final m) when m.mimeType.startsWith('image/') => _image(
+        context,
+        ref,
+        filename: m.filename,
+        sizeBytes: m.sizeBytes,
+      ),
+      // Video plays INLINE (WRK-082 H5.5) — the player is built only on tap, so a transcript
+      // scrolled past ten clips starts zero libmpv instances and a widget test never touches the
+      // native layer at all.
+      // 视频**内联播放**(H5.5)——播放器只在点击时才建,故一份滚过十段片子的 transcript 起零个 libmpv,
+      // 而 widget test 根本碰不到原生层。
+      AsyncData(value: final m) when m.mimeType.startsWith('video/') =>
+        AnVideoCard(
+          attachmentId: id,
+          filename: m.filename,
+          metaLine: _metaLine(m.mimeType, m.sizeBytes),
+          maxWidth: maxWidth,
+        ),
+      AsyncData(value: final m) => AnAttachmentCard(
+        kind: m.kind,
+        filename: m.filename.isEmpty ? id : m.filename,
+        metaLine: _metaLine(m.mimeType, m.sizeBytes),
+      ),
       _ => _placeholder(c),
     };
   }

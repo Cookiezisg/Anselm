@@ -23,6 +23,12 @@ abstract class MediaSource {
   /// 原始字节(非 envelope)——图卡解码的来源。
   Future<List<int>> bytes(String id);
 
+  /// Where a NATIVE player should fetch this attachment from, plus the headers it must send.
+  /// Video does not go through [bytes]: libmpv streams it itself (WRK-082 H5.5).
+  ///
+  /// 原生播放器该从哪里取这份附件,以及它必须送的头。视频**不走** [bytes]:libmpv 自己流式拉(H5.5)。
+  NativeFetchTarget nativeTarget(String id);
+
   /// Whether read-aloud can run at all (`GET /read-aloud/availability`). Honest absence: with no
   /// speech-capable key the affordance must not exist, rather than exist and always fail.
   ///
@@ -75,6 +81,10 @@ class ApiMediaSource implements MediaSource {
   @override
   Future<List<int>> bytes(String id) =>
       _api.getBytes('/api/v1/attachments/$id/content');
+
+  @override
+  NativeFetchTarget nativeTarget(String id) =>
+      _api.nativeFetchTarget('/api/v1/attachments/$id/content');
 
   @override
   Future<bool> readAloudAvailable() async {

@@ -2,6 +2,7 @@ import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/editor/an_editor_markdown.dart';
 import 'package:anselm/core/media/media_cards.dart';
+import 'package:anselm/core/net/api_client.dart';
 import 'package:anselm/core/media/media_source.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -27,6 +28,10 @@ class _StubSource implements MediaSource {
   Future<AttachmentMeta> meta(String id) async => _meta;
   @override
   Future<List<int>> bytes(String id) async => const [];
+
+  @override
+  NativeFetchTarget nativeTarget(String id) =>
+      const NativeFetchTarget(uri: 'http://127.0.0.1:0/stub', headers: {});
   @override
   Future<bool> readAloudAvailable() async => false;
   @override

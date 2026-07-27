@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:anselm/core/media/media_video.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 // `Override` (the ProviderScope override type) is exported from misc.dart, not the main barrel (Riverpod
 // 3.x). Named only for demoOverrides's signature. Override 类型在 misc.dart(3.x 主 barrel 不导出)。
@@ -83,6 +84,7 @@ Future<void> main() async {
   ScaledWidgetsFlutterBinding.ensureInitialized(
     scaleFactor: WindowZoom.scaleFactorCallback,
   );
+  initMediaPlayback();
   if (kPerfProbeEnabled) installPerfProbe();
   LocaleSettings.useDeviceLocaleSync();
   // Real persisted prefs in the demo too — chrome memory (island widths / last ocean / window

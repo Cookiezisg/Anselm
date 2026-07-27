@@ -1,6 +1,9 @@
 import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/media/media_cards.dart';
+import 'package:anselm/core/ui/an_attachment_card.dart';
+import 'package:anselm/core/media/media_video.dart';
+import 'package:anselm/core/net/api_client.dart';
 import 'package:anselm/core/media/media_source.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -32,6 +35,10 @@ class _StubSource implements MediaSource {
   Future<List<int>> bytes(String id) async => const [];
 
   @override
+  NativeFetchTarget nativeTarget(String id) =>
+      const NativeFetchTarget(uri: 'http://127.0.0.1:0/stub', headers: {});
+
+  @override
   Future<bool> readAloudAvailable() async => false;
 
   @override
@@ -58,6 +65,7 @@ Widget _host(Widget child, {List<Override> overrides = const []}) =>
     );
 
 void main() {
+  _videoTests();
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
   testWidgets('a payload with no refs renders nothing at all', (tester) async {
@@ -185,9 +193,106 @@ class _FailingSource implements MediaSource {
   Future<List<int>> bytes(String id) async => throw Exception('gone');
 
   @override
+  NativeFetchTarget nativeTarget(String id) =>
+      const NativeFetchTarget(uri: 'http://127.0.0.1:0/stub', headers: {});
+
+  @override
   Future<bool> readAloudAvailable() async => false;
 
   @override
   Future<ReadAloudResult> readAloud(String text, {String? voice}) async =>
       throw UnimplementedError();
+}
+
+// --- inline video (WRK-082 H5.5) --------------------------------------------
+
+void _videoTests() {
+  testWidgets(
+    'a video artifact renders the inline player card, NOT the file card',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          const AnMediaRefStrip(payload: {'text': _receipt}),
+          overrides: [
+            mediaSourceProvider.overrideWithValue(
+              const _StubSource(
+                AttachmentMeta(
+                  id: _id,
+                  filename: 'clip.mp4',
+                  mimeType: 'video/mp4',
+                  sizeBytes: 2491742,
+                  kind: 'video',
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      expect(find.byType(AnVideoCard), findsOneWidget);
+      expect(find.byType(AnAttachmentCard), findsNothing);
+      expect(find.textContaining('clip.mp4'), findsWidgets);
+    },
+  );
+
+  // THE load-bearing guard of this batch. `Player()` reaches into libmpv, which does not exist in
+  // a widget test — so if the card ever built one eagerly, this test would not "fail an
+  // assertion", it would CRASH. That it renders at all is the assertion: ten clips scrolled past
+  // in a transcript start zero native players.
+  //
+  // 本批**承重**的守卫。`Player()` 要伸到 libmpv,而 widget test 里根本没有它——故这张卡若哪天急切地
+  // 构造了一个,本测试不会「断言失败」,它会**崩**。**它能渲出来**这件事本身就是断言:transcript 里
+  // 滚过十段片子,起零个原生播放器。
+  testWidgets('the video card builds no native player until it is tapped', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        const AnMediaRefStrip(payload: {'text': _receipt}),
+        overrides: [
+          mediaSourceProvider.overrideWithValue(
+            const _StubSource(
+              AttachmentMeta(
+                id: _id,
+                filename: 'clip.mp4',
+                mimeType: 'video/mp4',
+                sizeBytes: 2491742,
+                kind: 'video',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(AnVideoCard), findsOneWidget);
+    // Now dispose the whole subtree. A player created off-screen — or leaked in dispose() —
+    // surfaces as a native call here too. Overrides must stay identical: Riverpod forbids changing
+    // their COUNT between pumps, and swapping in an override-free host fails for that reason
+    // rather than for the reason under test.
+    // 现在销毁整棵子树。一个在屏外被创建、或在 dispose() 里泄漏的 player,同样会在这里暴露成原生调用。
+    // overrides 必须保持一致:Riverpod 禁止两次 pump 之间改变它们的**数量**,换成一个没有 override 的
+    // host 会因**那个**理由失败,而不是因为被测的那个理由。
+    await tester.pumpWidget(
+      _host(
+        const SizedBox.shrink(),
+        overrides: [
+          mediaSourceProvider.overrideWithValue(
+            const _StubSource(
+              AttachmentMeta(
+                id: _id,
+                filename: 'clip.mp4',
+                mimeType: 'video/mp4',
+                sizeBytes: 2491742,
+                kind: 'video',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    expect(find.byType(AnVideoCard), findsNothing);
+    expect(tester.takeException(), isNull);
+  });
 }
