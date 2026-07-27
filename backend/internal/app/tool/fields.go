@@ -80,7 +80,24 @@ func injectStandardFields(params json.RawMessage) json.RawMessage {
 		}
 	}
 	props[fieldSummary] = json.RawMessage(`{"type":"string","description":"One sentence: what you're doing and why."}`)
-	props[fieldDanger] = json.RawMessage(`{"type":"string","enum":["safe","cautious","dangerous"],"description":"Risk of THIS call: safe=read-only or reversible; cautious=modifies recoverable state; dangerous=irreversible or external write (waits for user approval). Estimate conservatively."}`)
+	// SPENDING IS IRREVERSIBILITY. The three levels were described purely in terms of state
+	// mutation, and a model reading them could quite reasonably call a video generation "safe" —
+	// it only writes a file. But that file costs real money and a tenth of a day's allowance, and
+	// no amount of undo brings it back. The vocabulary already covered this; the description just
+	// never said the word, so the gate never fired for the one class of call where the user most
+	// wants to be asked (WRK-082 H5.6).
+	//
+	// The anchor is deliberately a RATE, not a tool name: "would the user mind" scales with the
+	// charge, and naming tools here would leave the next paid tool uncalibrated.
+	//
+	// **花钱就是一种不可逆**。三级判据过去只按状态变更描述,而一个照着读的模型完全可以合理地把「生成
+	// 一段视频」判成 safe——它只是写了个文件。但那个文件要花真钱、要吃掉一天额度的十分之一,而且再多的
+	// undo 也换不回来。词表本来就覆盖得了这件事,只是描述里从没出现过那个词,于是在**用户最希望被问一句**
+	// 的那一类调用上,这道闸从来没响过(H5.6)。
+	//
+	// 锚点刻意取**费率**而非工具名:「用户会不会介意」随金额变化,而在这里点名工具,会让下一个花钱的
+	// 工具失去校准。
+	props[fieldDanger] = json.RawMessage(`{"type":"string","enum":["safe","cautious","dangerous"],"description":"Risk of THIS call: safe=read-only or reversible and costs nothing beyond ordinary tokens; cautious=modifies recoverable state, or spends a small metered amount; dangerous=irreversible, an external write, or spends real money at a rate the user would want to be asked about first (waits for user approval). Spending is irreversible too — you cannot un-spend it, so count cost, not just state. Estimate conservatively."}`)
 	props[fieldExecutionGroup] = json.RawMessage(`{"type":"integer","minimum":1,"description":"Parallel-batch id: calls sharing a group run together; groups run in order."}`)
 
 	propsRaw, err := json.Marshal(props)

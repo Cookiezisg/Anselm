@@ -26,14 +26,18 @@ import (
 type DangerLevel string
 
 const (
-	// DangerSafe — read-only or trivially reversible; runs silently.
-	// DangerSafe —— 只读或可逆；静默执行。
+	// DangerSafe — read-only or trivially reversible, and free beyond ordinary tokens; runs silently.
+	// DangerSafe —— 只读或可逆、且除常规 token 外不花钱；静默执行。
 	DangerSafe DangerLevel = "safe"
-	// DangerCautious — modifies recoverable state; runs but is surfaced prominently, no block.
-	// DangerCautious —— 改可恢复状态；执行但前端显著标记、不阻塞。
+	// DangerCautious — modifies recoverable state, or spends a small metered amount; runs but is
+	// surfaced prominently, no block.
+	// DangerCautious —— 改可恢复状态、或花掉一笔有计量的小钱；执行但前端显著标记、不阻塞。
 	DangerCautious DangerLevel = "cautious"
-	// DangerDangerous — irreversible or external write; blocks for user approval.
-	// DangerDangerous —— 不可逆或外部写；阻塞等用户同意。
+	// DangerDangerous — irreversible, an external write, or spends at a rate the user would want to
+	// be asked about; blocks for user approval. SPENDING COUNTS: money cannot be un-spent, so a call
+	// that only writes a file is still dangerous when that file cost real money (WRK-082 H5.6).
+	// DangerDangerous —— 不可逆、外部写、或以用户会想被问一句的费率花钱；阻塞等用户同意。**花钱算数**：
+	// 钱花掉就收不回,故一次「只是写了个文件」的调用,在那个文件要花真钱时**依然是** dangerous（H5.6）。
 	DangerDangerous DangerLevel = "dangerous"
 )
 

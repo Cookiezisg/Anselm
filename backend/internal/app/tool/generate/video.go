@@ -46,9 +46,11 @@ func (t *GenerateVideo) Name() string { return "generate_video" }
 
 func (t *GenerateVideo) Description() string {
 	return "Generate a short video from a text prompt and save it as an attachment. This tool is " +
-		"SLOW — generation takes minutes, and the conversation waits for it, so use it only when the " +
-		"user actually asked for a video. The video is ALREADY saved when this returns; reference it " +
-		"by attachmentId. One call makes one video."
+		"SLOW — generation takes minutes, and the conversation waits for it — and it is the most " +
+		"EXPENSIVE tool here: one clip costs real money and a large slice of the user's daily " +
+		"allowance, and that spend cannot be undone. Declare danger=dangerous so the user is asked " +
+		"first, and use it only when the user actually asked for a video. The video is ALREADY " +
+		"saved when this returns; reference it by attachmentId. One call makes one video."
 }
 
 func (t *GenerateVideo) Parameters() json.RawMessage {

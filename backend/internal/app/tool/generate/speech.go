@@ -40,7 +40,8 @@ func (t *GenerateSpeech) Description() string {
 	return "Synthesize speech from text and save it as an audio attachment. The audio is ALREADY " +
 		"saved and rendered to the user when this returns — reference it by attachmentId if you " +
 		"need to mention it later. Use this when the user asks to hear something, wants a voiceover, " +
-		"or asks for an audio version of some text. One call speaks one text."
+		"or asks for an audio version of some text. It costs a small metered amount per character " +
+		"(declare danger=cautious). One call speaks one text."
 }
 
 func (t *GenerateSpeech) Parameters() json.RawMessage {

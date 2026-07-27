@@ -34,6 +34,7 @@ func (*GenerateImage) Description() string {
 	return "Generate an image from a text prompt using the workspace's configured image route. " +
 		"Returns a JSON receipt with the stored attachmentId — the image is already saved and " +
 		"rendered to the user; reference it by attachmentId if needed. One image per call. " +
+		"It costs a small metered amount per image (declare danger=cautious). " +
 		"Write prompts descriptively (subject, style, lighting, composition)."
 }
 

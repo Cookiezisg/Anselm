@@ -3,6 +3,7 @@ package tool
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 )
 
@@ -243,6 +244,51 @@ func TestBriefDescription(t *testing.T) {
 	for _, c := range cases {
 		if got := BriefDescription(c.in, c.n); got != c.want {
 			t.Errorf("%s: BriefDescription(%q, %d) = %q, want %q", c.name, c.in, c.n, got, c.want)
+		}
+	}
+}
+
+// TestInjectedDangerDescriptionCountsCost guards the one clause whose ABSENCE is invisible.
+//
+// The three levels were described purely as state mutation, so a model reading them could quite
+// reasonably declare a video generation "safe" — it only writes a file. That file costs real money
+// and a large slice of a daily allowance, and the approval gate therefore never fired on the one
+// class of call a user most wants to be asked about. Nothing was red; the description simply never
+// said the word (WRK-082 H5.6).
+//
+// A description is prose, and prose regresses silently. This pins the load-bearing words.
+//
+// TestInjectedDangerDescriptionCountsCost 守的是那条**缺席时看不见**的子句。
+//
+// 三级判据过去只按状态变更描述,于是照着读的模型完全可以合理地把「生成一段视频」判成 safe——它只是写了
+// 个文件。而那个文件要花真钱、吃掉一天额度的一大块,于是在**用户最希望被问一句**的那类调用上,审批闸
+// 从来没响过。没有任何东西是红的;描述里只是从没出现过那个词(H5.6)。
+//
+// 描述是散文,而散文会**静默**退化。本测试钉住那几个承重的词。
+func TestInjectedDangerDescriptionCountsCost(t *testing.T) {
+	raw := injectStandardFields(json.RawMessage(`{"type":"object","properties":{},"required":[]}`))
+	var schema struct {
+		Properties map[string]struct {
+			Description string   `json:"description"`
+			Enum        []string `json:"enum"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(raw, &schema); err != nil {
+		t.Fatalf("injected schema unreadable: %v", err)
+	}
+	danger, ok := schema.Properties["danger"]
+	if !ok {
+		t.Fatal("the framework must inject a danger field")
+	}
+	// The levels stay a closed set of three — cost is a NEW criterion inside them, not a 4th level.
+	// 三级仍是封闭集——成本是它们**内部**的新判据,不是第四级。
+	if len(danger.Enum) != 3 {
+		t.Fatalf("danger enum = %v, want exactly the three levels", danger.Enum)
+	}
+	for _, phrase := range []string{"spends", "money", "irreversible"} {
+		if !strings.Contains(strings.ToLower(danger.Description), phrase) {
+			t.Fatalf("the danger description dropped %q — a paid call will read as safe again:\n%s",
+				phrase, danger.Description)
 		}
 	}
 }
