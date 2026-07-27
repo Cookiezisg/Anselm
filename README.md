@@ -14,7 +14,7 @@ make -C frontend app   # 起桌面 app；自动起或复用本地后端
 
 `make setup` 可重复运行。它使用 [mise](https://mise.jdx.dev/) 固定 Go、Flutter 和 Node；普通命令也会自动恢复本目录缺失的依赖，因此 `make clean` 后可直接继续 `make verify` 或日常开发。
 
-> macOS 桌面真跑仍需完整 Xcode + CocoaPods（Apple 工具链，不由版本管理器安装）。执行 `make doctor` 查看本机前置条件。
+> macOS 桌面真跑仍需完整 Xcode（Apple 工具链，不由版本管理器安装；**CocoaPods 已不再需要**，见 ADR 0019）。执行 `make doctor` 查看本机前置条件。
 
 ## 命令
 

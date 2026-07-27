@@ -126,6 +126,27 @@ dependency_overrides:
   super_editor:
     path: third_party/super_editor
 
+# media_kit_video is VENDORED (third_party/media_kit_video = pub 2.0.1's lib/ + linux/ + LICENSE +
+# pubspec, copied verbatim) for ONE change: its `platforms:` map keeps linux and drops macos/ios/
+# windows/android/web. Only Linux lacks a system decoder, so only Linux needs it — but upstream
+# declares macos, and **a platform declared in a plugin's pubspec is linked into that platform's
+# build**, no matter what the Dart side registers. Since media_kit_video ships a podspec and no
+# Package.swift, that one declaration was enough to make Flutter regenerate a Podfile and re-integrate
+# CocoaPods on every macOS build — for a 100KB texture bridge macOS never calls (it plays video
+# through the official AVFoundation implementation). It was the LAST non-SPM plugin of the 16 macOS
+# ones; dropping the declaration is what lets CocoaPods leave for good. The 4MB of darwin/android/
+# windows native source is dropped with it — dead weight once undeclared.
+#
+# media_kit_video 走 VENDOR(third_party/=pub 2.0.1 的 lib/+linux/+LICENSE+pubspec 逐字拷贝),只为改
+# **一处**:`platforms:` 只留 linux,删 macos/ios/windows/android/web。只有 Linux 没有系统解码器、
+# 故只有 Linux 需要它——而上游声明了 macos,且**插件 pubspec 里声明了的平台就会被链进那个平台的构建**,
+# 与 Dart 侧注册什么无关。它只有 podspec 没有 Package.swift,于是这一行声明就足以让 Flutter 在每次
+# macOS 构建时重新生成 Podfile、把 CocoaPods 整个接回来——为的是一个 macOS 一次也不会调用的 100KB
+# 纹理桥(那边视频走官方 AVFoundation)。它是 16 个 macOS 插件里**最后一个**不支持 SPM 的;删掉这行
+# 声明正是 CocoaPods 得以彻底离场的原因。4MB 的 darwin/android/windows 原生源随之丢弃——不声明即死重。
+  media_kit_video:
+    path: third_party/media_kit_video
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

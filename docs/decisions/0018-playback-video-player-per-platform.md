@@ -1,7 +1,7 @@
 ---
 id: DOC-065
 type: decision
-status: active
+status: superseded
 owner: @weilin
 created: 2026-07-27
 reviewed: 2026-07-27
@@ -11,6 +11,14 @@ audience: [human, ai]
 
 # 0018 — 播放底座:一套官方 API、按平台选实现;CocoaPods 就此拆除
 
+> **⚠️ 已被 [ADR 0019](0019-vendor-media-kit-video-linux-only.md) 取代(2026-07-27,同日)。**
+> 本篇的**判据**(「按平台」必须落在包的平台声明上)与**实现选择**(macOS/iOS AVFoundation、Windows
+> Media Foundation、Linux libmpv)都仍然成立。被取代的原因有两条,且第二条是硬伤:
+> ①本篇**没有拿自己那条判据去检查自己选的包**——`media_kit_video` 的 pubspec 里就声明着 macos,于是
+> CocoaPods 在每次 macOS 构建时被自动接回来;②**本篇 §二「CocoaPods 就此拆除」所报告的操作从未发生**
+> (`Podfile` 从未被删、43 处 pbxproj 引用一处未动、`grep -c Pods = 0` 这个数从未被跑出来过)。
+> 保留本篇原文与那份错误记录,不抹掉;订正与真正的拆除见 0019。
+>
 > **Supersedes [ADR 0016](0016-inline-video-media-kit.md)**(media_kit / libmpv)。0016 的**目标**不变
 > ——内联播放、惰性构造、loopback HTTP 取流——变的是**底座**与选它的那条判据。
 

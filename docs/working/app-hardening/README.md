@@ -506,10 +506,10 @@ P1 一致性扫荡把「标题重复」与「空态零人话」双双列为**已
 
 ### 扫查所见、但**不是产品缺陷**的两条(记档,交用户裁,勿默默改)
 
-1. **CocoaPods 与 Swift Package 并存**(每次 `flutter run` 都提示):`All plugins found for macos are
-   Swift Packages, but your project still has CocoaPods integration.` flutter 建议 `pod deintegrate`
-   + 删 Podfile 以缩短构建。**没动**——这是构建体系决策(且根守则把 CocoaPods 列为真跑的机器层面前置),
-   不该在质量扫查里顺手改。
+1. ~~**CocoaPods 与 Swift Package 并存**~~ —— **已裁定并执行**(2026-07-27,[ADR 0019](../../decisions/0019-vendor-media-kit-video-linux-only.md))。
+   本条当时的判断「这是构建体系决策、不该顺手改」是对的;而它被搁置期间,一个新插件把这具残骸重新变成了
+   承重结构,随后一次「删生成目录」打断了整个 macOS 构建——**搁置一个已知的双系统并存,代价不是零**。
+   现 macOS 侧只剩 SPM。
 2. **本轮夹具自身的一个 bug**(`scratchpad/hardening/app.sh`):`sleep infinity` 在 macOS 的 BSD
    `sleep` 上非法(`usage: sleep number[unit]`),FIFO 持有者其实**从未活着**。它没影响任何结论(热重启
    走 `reload.sh` 自己开写端),但记此以免下次把夹具的怪相当成产品的。

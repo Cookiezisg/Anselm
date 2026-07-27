@@ -48,7 +48,7 @@ setup: toolchain .dart_tool/package_config.json
 deps: setup
 
 # A native runner is an explicit host concern, not a mysterious downstream
-# Xcode/CocoaPods stack trace. Flutter doctor remains the source of truth.
+# Xcode toolchain stack trace. Flutter doctor remains the source of truth.
 doctor: deps
 	@$(RUN) flutter doctor
 	@echo "✓ Flutter doctor completed"
