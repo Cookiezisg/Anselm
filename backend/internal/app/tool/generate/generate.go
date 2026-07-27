@@ -37,10 +37,40 @@ import (
 // 能力共用**:「用哪个模型、在哪个 origin」的形状不随模态变化,而抄第二份就是两者开始漂移的地方。
 type providerSpec struct {
 	defaultModel string
-	// nativeBase overrides the credential's BaseURL for providers whose generation API lives on a
-	// different origin than their chat API ("" = use the credential's BaseURL).
-	// nativeBase 覆盖凭证 BaseURL——生成 API 与聊天 API 不同 origin 的家用(""=用凭证 BaseURL)。
-	nativeBase string
+	// nativeFrom DERIVES the generation origin from the credential's own chat base URL; nil means
+	// the credential's base URL already is the generation origin.
+	//
+	// Deriving rather than hardcoding is not a style choice — it is the only way the user's REGION
+	// survives. DashScope serves Beijing, Singapore and per-workspace domains, a key is valid on
+	// exactly ONE of them, and nothing in the key says which. A hardcoded origin therefore sends a
+	// Singapore key to Beijing and gets a 401 that reads as "your key is bad" (真机实证:同一把 key
+	// 北京 401、新加坡 200)。The chat base URL is the one place the user already told us where they
+	// live, so generation follows it.
+	//
+	// nativeFrom 从凭证自己的聊天 base URL **派生**生成 origin;nil = 凭证 base URL 本身就是生成 origin。
+	//
+	// 派生而非硬编码不是风格选择——它是用户的**区域**得以幸存的唯一方式。DashScope 有北京、新加坡与
+	// 逐 workspace 三种域,一把 key 只在**其中一个**上有效,而 key 本身不说是哪个。硬编码 origin 因此会
+	// 把新加坡的 key 送去北京,换回一个读作「你的 key 不对」的 401(真机实证:同一把 key 北京 401、
+	// 新加坡 200)。聊天 base URL 是用户**已经**告诉过我们他在哪儿的唯一位置,故生成跟着它走。
+	nativeFrom func(credBaseURL string) string
+}
+
+// dashScopeNative strips the OpenAI-compatible path off a DashScope base URL, leaving the origin
+// its NATIVE api (`/api/v1/services/…`) lives on — the same host, a different path.
+//
+// dashScopeNative 把 DashScope base URL 上的 OpenAI 兼容路径剥掉,留下其**原生** api
+// (`/api/v1/services/…`)所在的 origin——同一台主机、不同路径。
+func dashScopeNative(credBaseURL string) string {
+	u := strings.TrimRight(strings.TrimSpace(credBaseURL), "/")
+	u = strings.TrimSuffix(u, "/compatible-mode/v1")
+	if u == "" {
+		// No credential base at all: fall back to the international host rather than Beijing —
+		// a mainland account reaches it too, while the reverse is not true for an intl key.
+		// 完全没有凭证 base:回落**国际**域而非北京——大陆账号也能到它,反之对国际 key 不成立。
+		return "https://dashscope-intl.aliyuncs.com"
+	}
+	return strings.TrimRight(u, "/")
 }
 
 // imageProviders is the closed set of direct-connection image-capable providers, plus the managed
@@ -51,7 +81,7 @@ var imageProviders = map[string]providerSpec{
 	"anselm": {},
 	"openai": {defaultModel: "gpt-image-2"},
 	"google": {defaultModel: "gemini-3.1-flash-image-preview"},
-	"qwen":   {defaultModel: "qwen-image-2.0", nativeBase: "https://dashscope.aliyuncs.com"},
+	"qwen":   {defaultModel: "qwen-image-2.0", nativeFrom: dashScopeNative},
 	"zhipu":  {defaultModel: "cogview-4"},
 }
 
@@ -69,8 +99,8 @@ var imageProviderOrder = []string{"anselm", "openai", "google", "qwen", "zhipu"}
 var speechProviders = map[string]providerSpec{
 	"anselm": {},
 	"openai": {defaultModel: "gpt-4o-mini-tts"},
-	"google": {defaultModel: "gemini-2.5-flash-preview-tts", nativeBase: "https://generativelanguage.googleapis.com/v1beta"},
-	"qwen":   {defaultModel: "qwen3-tts-flash", nativeBase: "https://dashscope.aliyuncs.com"},
+	"google": {defaultModel: "gemini-2.5-flash-preview-tts"}, // generation shares the chat origin
+	"qwen":   {defaultModel: "qwen3-tts-flash", nativeFrom: dashScopeNative},
 	"zhipu":  {defaultModel: "glm-tts"},
 }
 
@@ -89,8 +119,8 @@ var speechProviderOrder = []string{"anselm", "openai", "qwen", "zhipu", "google"
 // OpenAI 缺席的理由不同(代拍 D2):其 Videos API 已公告 2026-09-24 下线,一个只剩八周寿命的 driver
 // 会被建、被复审、被删掉,却从没挣回自己的成本。
 var videoProviders = map[string]providerSpec{
-	"qwen":   {defaultModel: "wan2.7-t2v", nativeBase: "https://dashscope.aliyuncs.com"},
-	"google": {defaultModel: "veo-3.1-fast-generate-preview", nativeBase: "https://generativelanguage.googleapis.com/v1beta"},
+	"qwen":   {defaultModel: "wan2.7-t2v", nativeFrom: dashScopeNative},
+	"google": {defaultModel: "veo-3.1-fast-generate-preview"}, // generation shares the chat origin
 }
 
 var videoProviderOrder = []string{"qwen", "google"}
@@ -245,8 +275,8 @@ func (r *Router) routeIn(specs map[string]providerSpec, noRoute error, provider,
 	if model == "" || model == llminfra.AnselmModelID {
 		model = spec.defaultModel
 	}
-	if spec.nativeBase != "" {
-		baseURL = spec.nativeBase
+	if spec.nativeFrom != nil {
+		baseURL = spec.nativeFrom(baseURL)
 	}
 	return genRoute{provider: provider, model: model, key: key, baseURL: baseURL}, nil
 }

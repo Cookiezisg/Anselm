@@ -23,34 +23,11 @@ func videoTool(t *testing.T, router *Router, up Uploader) *GenerateVideo {
 	return nil
 }
 
-// pointAt redirects one provider's generation origin at a test server for the duration of a test.
-// The spec's nativeBase HARD-OVERRIDES the credential's base url (generation lives on a different
-// origin than chat), so without this a test would send its fake key to the vendor's real endpoint —
-// which is exactly what happened once while writing these.
-//
-// pointAt 在一个测试期间把某家的生成 origin 指向测试服务器。spec 的 nativeBase **硬覆盖**凭证 base url
-// (生成 API 与聊天不同 origin),故没有这一步,测试会把假 key 送到厂商**真实**端点——写这些测试时就
-// 真发生过一次。
-func pointAt(t *testing.T, provider, url string) {
-	t.Helper()
-	old := videoProviders[provider]
-	next := old
-	next.nativeBase = url
-	videoProviders[provider] = next
-	t.Cleanup(func() { videoProviders[provider] = old })
-}
-
-// videoRouter builds a router whose HTTP client trusts the TEST server's certificate. TLS is not
-// incidental here: the artifact fetcher is https-only by iron rule (an artifact url is attacker-
-// influenced), so a plaintext test server would be testing a path production never takes.
-//
-// videoRouter 构建一个信任**测试**服务器证书的 router。这里用 TLS 不是顺手:产物取回按铁律只认 https
-// (产物 url 受攻击者影响),用明文测试服务器等于在测一条生产上根本不走的路。
-func videoRouter(t *testing.T, provider string, c *http.Client) *Router {
+func videoRouter(t *testing.T, provider, base string, c *http.Client) *Router {
 	t.Helper()
 	r := routerWith(
 		fakePicker{err: modeldomain.ErrNotConfigured},
-		fakeKeys{creds: map[string]apikeydomain.Credentials{"k": {Provider: provider, Key: "sk"}}},
+		fakeKeys{creds: map[string]apikeydomain.Credentials{"k": {Provider: provider, Key: "sk", BaseURL: base}}},
 		fakeProbes{rows: []apikeydomain.ProbedKey{{ID: "k", Provider: provider, TestStatus: apikeydomain.TestStatusOK}}},
 	)
 	r.HTTP = c
@@ -96,10 +73,8 @@ func TestVideo_DashScopeSubmitPollFetch(t *testing.T) {
 	}))
 	defer srv.Close()
 	origin = srv.URL
-	pointAt(t, "qwen", srv.URL)
-
 	up := &fakeUploader{}
-	out, err := videoTool(t, videoRouter(t, "qwen", srv.Client()), up).
+	out, err := videoTool(t, videoRouter(t, "qwen", srv.URL, srv.Client()), up).
 		Execute(context.Background(), `{"prompt":"a cat","seconds":5}`)
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -166,9 +141,7 @@ func TestVideo_GeminiCarriesTheKeyOnFetch(t *testing.T) {
 	}))
 	defer srv.Close()
 	origin = srv.URL
-	pointAt(t, "google", srv.URL)
-
-	if _, err := videoTool(t, videoRouter(t, "google", srv.Client()), &fakeUploader{}).
+	if _, err := videoTool(t, videoRouter(t, "google", srv.URL, srv.Client()), &fakeUploader{}).
 		Execute(context.Background(), `{"prompt":"a cat","seconds":8}`); err != nil {
 		t.Fatalf("execute: %v", err)
 	}
@@ -211,10 +184,8 @@ func TestVideo_ImpossibleLengthIsClampedNotSpent(t *testing.T) {
 	}))
 	defer srv.Close()
 	origin = srv.URL
-	pointAt(t, "google", srv.URL)
-
 	up := &fakeUploader{}
-	out, err := videoTool(t, videoRouter(t, "google", srv.Client()), up).
+	out, err := videoTool(t, videoRouter(t, "google", srv.URL, srv.Client()), up).
 		Execute(context.Background(), `{"prompt":"a cat","seconds":30}`)
 	if err != nil {
 		t.Fatalf("execute: %v", err)

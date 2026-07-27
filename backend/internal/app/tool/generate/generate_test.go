@@ -232,3 +232,50 @@ func TestValidateInput_ClosedShape(t *testing.T) {
 		t.Errorf("valid input rejected: %v", err)
 	}
 }
+
+// TestDashScopeNative_PreservesTheUsersRegion is a REGRESSION guard for a real 401 (2026-07-27):
+// the generation dialects hardcoded the Beijing origin, so a Singapore key — valid, paid for, and
+// working fine for chat — got "Incorrect API key provided" from every generate_* call. DashScope
+// serves Beijing, Singapore and per-workspace domains; a key is valid on exactly ONE, and nothing
+// in the key says which. The chat base URL is where the user already told us, so generation
+// derives from it instead of guessing.
+//
+// 这是一次真实 401 的**回归**守卫(2026-07-27):生成方言把北京 origin 写死了,于是一把新加坡的 key
+// ——合法、付过钱、聊天完全正常——在每一次 generate_* 上都收到「Incorrect API key provided」。
+// DashScope 有北京、新加坡与逐 workspace 三种域,一把 key 只在**其中一个**上有效,而 key 本身不说是
+// 哪个。聊天 base URL 是用户**已经**告诉过我们的地方,故生成从它派生、不去猜。
+func TestDashScopeNative_PreservesTheUsersRegion(t *testing.T) {
+	for name, tc := range map[string]struct{ credBase, wantNative string }{
+		"singapore": {"https://dashscope-intl.aliyuncs.com/compatible-mode/v1", "https://dashscope-intl.aliyuncs.com"},
+		"beijing":   {"https://dashscope.aliyuncs.com/compatible-mode/v1", "https://dashscope.aliyuncs.com"},
+		"workspace": {"https://ws_abc.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1", "https://ws_abc.ap-southeast-1.maas.aliyuncs.com"},
+		"trailing":  {"https://dashscope-intl.aliyuncs.com/compatible-mode/v1/", "https://dashscope-intl.aliyuncs.com"},
+		"proxy":     {"https://my-proxy.internal/dashscope", "https://my-proxy.internal/dashscope"},
+	} {
+		if got := dashScopeNative(tc.credBase); got != tc.wantNative {
+			t.Errorf("%s: dashScopeNative(%q) = %q, want %q", name, tc.credBase, got, tc.wantNative)
+		}
+	}
+	// An empty base falls back to the INTERNATIONAL host, not Beijing: a mainland account can
+	// reach it, while the reverse is not true for an international key — so this default fails
+	// for fewer people.
+	// 空 base 回落**国际**域而非北京:大陆账号到得了它,而反过来对国际 key 不成立——故这个默认值
+	// 让更少的人失败。
+	if got := dashScopeNative(""); got != "https://dashscope-intl.aliyuncs.com" {
+		t.Errorf("empty base fell back to %q", got)
+	}
+
+	// And the route really carries it: every qwen generation table derives, none hardcodes.
+	// 而路由真的带着它:qwen 的每张生成表都派生、无一硬编码。
+	for name, table := range map[string]map[string]providerSpec{
+		"image": imageProviders, "speech": speechProviders, "video": videoProviders,
+	} {
+		spec, ok := table["qwen"]
+		if !ok {
+			continue
+		}
+		if spec.nativeFrom == nil {
+			t.Errorf("%s: qwen must DERIVE its generation origin, not inherit a hardcoded one", name)
+		}
+	}
+}
