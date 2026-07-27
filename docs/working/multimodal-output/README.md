@@ -554,12 +554,21 @@ def plot(rows: list) -> dict:
 
 **施工** ✅ function 侧已建(2026-07-27):`app/function/artifacts.go` 采集器 + `SandboxAdapter.Run`
 接 `ANSELM_OUT`/cwd + bootstrap 注入 attachment store。守卫七格,其中两条是**安全**格而非功能格
-(路径逃逸拒在打开任何东西之前、内容嗅探不信扩展名)。**代拍 E5:V1 只做 function、handler 延后**。理由是形状而非工作量:function 是**一次性 spawn**,
-「这次运行的产物」有一个物理上无歧义的目录;而 handler 是**长跑实例**,一个进程服务很多次调用,
-要让「这次**调用**的产物」同样无歧义,就得把逐调用输出目录穿过 stdio RPC——即改 `Client` 接口
-(`StreamCall` 多一个参数)、改 driver 协议。为一个需求尚未出现的能力去拓宽 RPC 接口不值得,而本批
-自己的验收标准写的就是**一个 matplotlib function**。真出现「handler 要产出媒体」的用例时按同一条
-文法接上,driver 的派发循环严格串行、`os.chdir` 在那里是安全的(已核实)。
+(路径逃逸拒在打开任何东西之前、内容嗅探不信扩展名)。~~**代拍 E5:V1 只做 function、handler 延后**~~ → **已翻(H5,2026-07-27)**。当初的理由是形状:handler 是
+长跑实例,要让「这次**调用**的产物」无歧义就得把逐调用输出目录穿过 stdio RPC(改 `Client` 接口 + 改
+driver 协议),而「需求尚未出现」。用户在本轮明确要求补齐第五个产地,故按当初写好的路子接上——事实证明
+那条路子是对的,施工时一处都没改判:
+
+- `StreamCall` 加 `outDir` 参数、`call` 帧加 `out` 字段;driver 收到即 `ANSELM_OUT` + `chdir`,并在
+  **`try/finally`** 里恢复(两条 `continue` 出口否则会把进程留在一个即将被删的目录里)。
+- `chdir` 的安全性来自 client **全程持锁**使派发严格串行——当初「已核实」的那句成立;两处注释现在
+  互相指认这条前提,若锁哪天不再覆盖整次调用,同一提交必须让 driver 停用 `chdir`。
+- 采集器从 `function/artifacts.go` 提升为 **`app/mediaartifact`** 共用包:两个产地共用一份路径逃逸检查、
+  内容嗅探与 mime 白名单(**三个安全决定不分叉**),只在 receipt 的 `source` 上区分。
+- 守卫四格:产物变 receipt(含产地名与嗅出的 mime)/ **每次调用拿到全新空目录**(长跑实例与 function 的
+  唯一区别所在)/ 未接线时零行为变化 / **driver 脚本是合法 Python**——最后这条补的是一个真空白:driver
+  是 Go 字符串常量,本包没有编译器、没有 linter、也没有任何单测解析过它,一个跑偏的缩进会一路绿着发出去、
+  只在真 handler 起进程时以「子进程崩了」现形。该守卫经变异验证(多缩两格即 IndentationError 报红)。
 
 **剩**:真机验收
 (matplotlib 出图表的 fn,右岛调试台渲出图、workflow 下游 agent 看得见)。

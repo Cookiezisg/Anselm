@@ -104,7 +104,10 @@ Function/Handler 跑真实代码 → 经 **sandbox** 隔离运行；env 缺失�
 媒体在系统里有**一种货币**:携 `attachmentId` 的 receipt。宪法是 [ADR 0014](../decisions/0014-mediaref-one-currency.md),四条不变量:
 
 1. **一个值类型**——`pkg/mediaref` 的 `attachmentId` 文法(前端 `core/media/media_ref.dart` 是逐条孪生件)。它认**字符串形**,因为跨 workflow 节点 receipt 就是以文本流动的(agent 的终答成 `node.text`);文档正文另有 `anselm://media/<id>` 形,由同一份文法的 `CollectURIs` 认。
-2. **一间库**——**五个产地**(chat 生成工具 / agent 的 `sys:` 挂载 / MCP 返回的二进制 / function 沙箱产物 / 朗读)全部落 `attachments`,共用它已有的内容寻址去重、GC、播放租约、workspace 隔离与软删。
+2. **一间库**——**五个产地**(chat 生成工具 / agent 的 `sys:` 挂载 / MCP 返回的二进制 / **fn·hd 沙箱产物** / 朗读)全部落 `attachments`,共用它已有的内容寻址去重、GC、播放租约、workspace 隔离与软删。
+
+   第五个产地的两半是 function 与 handler——**仅有的两个以用户代码身份跑在 venv 沙箱里的产地**。这一个事实使它们与其余产地**种类不同**:别的都在进程内跑、手里有 workspace ctx 与附件库,**能自己铸 `attachmentId`**;沙箱里的用户代码不能,它能做的只有写下一个文件、然后**声明**它。故两者共用 `app/mediaartifact` 一个采集器(路径逃逸检查、内容嗅探、mime 白名单**三个安全决定只存一份**),只在 receipt 的 `source` 上区分。
+   两者的目录粒度不同:function 是一次性 spawn,**一次运行就是那个单位**;handler 是长跑实例、一进程服务多次调用,故目录必须**随调用**穿过 stdio RPC,否则「这次**调用**的产物」根本不是一个良定义的集合。
 3. **两个咽喉**——**产出**侧一律出 receipt(绝不出字节:一段 20 秒 1080p 是几十 MB,让它在 tool_result / frn 行 / SSE 帧里流动等于每次重放都再付一遍);**消费**侧一律经 `attachment.ToContentParts(ids, caps)`,三个入口(agent invoke payload / loop `MediaExpander` 的 tool_result / 附件文档注入)共用同一条,按解析出的模型模态门控——看不了图的模型只留文本 receipt(诚实降级)。
 4. **一族卡**——前端 `AnMediaRefCard` 按**附件行的 mime** 分发(不按 receipt 自称、不按 url 猜),chat 工具卡 / flowrun 节点检查器 / 实体调试台 / approval 门 / 文档编辑器同吃这一族。
 

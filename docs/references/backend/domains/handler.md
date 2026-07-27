@@ -60,7 +60,16 @@ stdio 行-JSON：`init`→`ready`/`init_error`；`call{id,method,args}`→`retur
 - **`Timeout`（MethodSpec，ms）**：app 层 `Call` 先解析 method spec——找不到 method 即报 `HANDLER_METHOD_NOT_FOUND`（不进 RPC）；`Timeout>0` 给本次调用加 ctx deadline。
 - **crashed 语义（重要）**：任何读写失败/EOF/协议错乱/**ctx 取消**都把客户端标 `crashed`——包括取消：取消等待意味着回复还在路上，下一个调用会读到错位的迟到回复，**管道已脏**，唯一正确动作是废弃实例（下次 Get 自动重生）。这不是 bug，是协议正确性。
 - driver 拒调 `_` 前缀方法（私有）。
+- **`out`（逐调用产物目录，WRK-082 H5）**：`call` 帧可携 `out`——本次调用的**空**临时目录（`StreamCall` 的 `outDir` 参数；`""`=调用方不采集产物，driver 不动 cwd）。driver 收到即 `os.environ["ANSELM_OUT"]=out` + `os.chdir(out)`，并在 **`try/finally`** 里恢复(两条 `continue` 出口否则会把进程留在一个 Go 侧即将删掉的目录里，下一次调用从不存在的 cwd 起步)。**它是逐调用参数而非 `init` 时定死**：handler 是长跑实例、一进程服务多次调用，「这次**调用**的产物」只有让目录随调用走才无歧义——这正是本能力当初比 function 晚做的全部理由。**`chdir` 的安全性来自 client 全程持 `c.mu`**，使 driver 派发严格一次一个调用；该锁若哪天不再覆盖整次调用，**同一提交**必须让 driver 停用 `chdir`（两处注释互指）。
 - 错误出口：ctx 超时 → `HANDLER_RPC_TIMEOUT`(504)；崩溃 → `HANDLER_CRASHED`(502)；**method 内的 Python 异常原样冒泡**（`HANDLER_CLIENT_CALL_FAILED` + traceback——给 LLM 自纠，刻意不翻译）。**traceback 放进错误 Details**（`{error, traceback}`，非 `fmt.Errorf` 包裹）——因 LLM 错误面 `errorspkg.Surface` 渲 Message+Details 但**剥 fmt 包裹链**（F89/F104/F122 防 Go 路径泄露），traceback 藏包裹里就会在每条 agent/flowrun 路径被剥成不透明 "call failed"（`callFailedErr`，F-handler-call-opaque）。**坏 `__init__` spawn 失败同理**：`spawnInstance` 用 `errorspkg.Wrap`（非 `%w: %v`，后者把内层 `*Error` 拍平出链、Details 全丢）把 init 错误的 traceback Details **抬到** `HANDLER_INSTANCE_SPAWN_FAILED` 上、并 WithCause 保审计链（F116 记 failed call 行 + F131 surface 双补——`Wrap` 是地基助手，凡用 sentinel 包底层结构化错误皆用它，不再 `%w: %v` 拍平）。
+
+### 媒体产物通道（WRK-082 H5，第五个产地的后一半）
+
+**每次调用一个空临时目录**，以 `$ANSELM_OUT` 与 **cwd** 两种方式交给 method，调用结束即删。method 用普通相对名写产物、并在返回值里以 `{"$media": "chart.png"}` **声明**它；`Call` 在 `recordCall` **之前**、`RemoveAll` 之前把声明**就地**换成 MediaRef receipt（`source="handler_artifact"`），故审计记录与 LLM 视图不会对「这次调用产出了什么」各执一词。拒绝原因写进 logs，**绝不弄废这次调用**。
+
+采集器是与 function **共用**的 `app/mediaartifact`——两者是仅有的两个以**用户代码**身份跑在 venv 沙箱里的产地，都不可能自己铸 `attachmentId`（无 workspace ctx、无附件库），能做的只有写文件 + 声明。让 handler 里再有一份采集器，等于让路径逃逸检查、内容嗅探、mime 白名单**这三个安全决定各分叉一次**。两者只在 receipt 的 `source` 上区分。
+
+目录刻意**不是**驻地、也不是数据目录：那两处是**用户**的真实文件，让 handler 往里写产物就是让它在工作树里乱丢。`artifacts` 端口 nil 时**根本不建目录**、声明原样通过——增量能力，绝不新增一种失败模式。
 
 ### config 生命周期（`config.go`）
 

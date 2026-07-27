@@ -1,4 +1,4 @@
-package function
+package mediaartifact
 
 import (
 	"context"
@@ -57,7 +57,7 @@ func TestCollectArtifacts_ReplacesInPlace(t *testing.T) {
 	writeOut(t, dir, "chart.png", tinyPNG)
 	up := &fakeUploader{}
 
-	got, notes := collectArtifacts(context.Background(), up, dir, map[string]any{
+	got, notes := Collect(context.Background(), up, dir, SourceFunction, map[string]any{
 		"chart": map[string]any{MediaKey: "chart.png"},
 		"n":     float64(12),
 	})
@@ -69,7 +69,7 @@ func TestCollectArtifacts_ReplacesInPlace(t *testing.T) {
 		t.Fatalf("sibling data mangled: %+v", m)
 	}
 	chart, _ := m["chart"].(map[string]any)
-	if chart["attachmentId"] != "att_00112233445566aa" || chart["source"] != artifactSource {
+	if chart["attachmentId"] != "att_00112233445566aa" || chart["source"] != string(SourceFunction) {
 		t.Fatalf("chart key is not a MediaRef receipt: %+v", chart)
 	}
 	if chart["mime"] != "image/png" {
@@ -97,7 +97,7 @@ func TestCollectArtifacts_RefusesPathEscape(t *testing.T) {
 	writeOut(t, root, "secret.png", tinyPNG)
 	up := &fakeUploader{}
 
-	got, notes := collectArtifacts(context.Background(), up, outDir, map[string]any{
+	got, notes := Collect(context.Background(), up, outDir, SourceFunction, map[string]any{
 		"stolen": map[string]any{MediaKey: "../secret.png"},
 	})
 	if len(up.uploads) != 0 {
@@ -120,7 +120,7 @@ func TestCollectArtifacts_SniffsContentNotExtension(t *testing.T) {
 	writeOut(t, dir, "chart.png", []byte("#!/bin/sh\nrm -rf /\n"))
 	up := &fakeUploader{}
 
-	_, notes := collectArtifacts(context.Background(), up, dir, map[string]any{
+	_, notes := Collect(context.Background(), up, dir, SourceFunction, map[string]any{
 		"chart": map[string]any{MediaKey: "chart.png"},
 	})
 	if len(up.uploads) != 0 {
@@ -139,7 +139,7 @@ func TestCollectArtifacts_OneBadArtifactDoesNotVoidTheRun(t *testing.T) {
 	writeOut(t, dir, "good.png", tinyPNG)
 	up := &fakeUploader{}
 
-	got, notes := collectArtifacts(context.Background(), up, dir, map[string]any{
+	got, notes := Collect(context.Background(), up, dir, SourceFunction, map[string]any{
 		"good":    map[string]any{MediaKey: "good.png"},
 		"missing": map[string]any{MediaKey: "nope.png"},
 		"total":   float64(7),
@@ -171,7 +171,7 @@ func TestCollectArtifacts_NestedAndCapped(t *testing.T) {
 	payload["items"] = items
 	up := &fakeUploader{}
 
-	got, notes := collectArtifacts(context.Background(), up, dir, payload)
+	got, notes := Collect(context.Background(), up, dir, SourceFunction, payload)
 	if len(up.uploads) != maxArtifacts {
 		t.Fatalf("uploads = %d, want the %d cap", len(up.uploads), maxArtifacts)
 	}
@@ -192,7 +192,7 @@ func TestCollectArtifacts_NestedAndCapped(t *testing.T) {
 // functions correctly — the declaration simply stays a declaration.
 func TestCollectArtifacts_NoUploaderPassesThrough(t *testing.T) {
 	in := map[string]any{"chart": map[string]any{MediaKey: "chart.png"}}
-	got, notes := collectArtifacts(context.Background(), nil, t.TempDir(), in)
+	got, notes := Collect(context.Background(), nil, t.TempDir(), SourceFunction, in)
 	if len(notes) != 0 {
 		t.Fatalf("notes = %v", notes)
 	}
@@ -208,7 +208,7 @@ func TestCollectArtifacts_NoUploaderPassesThrough(t *testing.T) {
 func TestCollectArtifacts_UploadFailureIsNotedNotFatal(t *testing.T) {
 	dir := t.TempDir()
 	writeOut(t, dir, "chart.png", tinyPNG)
-	got, notes := collectArtifacts(context.Background(), &fakeUploader{fail: true}, dir,
+	got, notes := Collect(context.Background(), &fakeUploader{fail: true}, dir, SourceFunction,
 		map[string]any{"chart": map[string]any{MediaKey: "chart.png"}, "n": float64(1)})
 	m, _ := got.(map[string]any)
 	if m["n"] != float64(1) {

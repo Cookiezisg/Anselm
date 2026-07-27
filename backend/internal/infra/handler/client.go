@@ -74,7 +74,22 @@ func pyErr(sentinel *errorspkg.Error, errStr, trace string) error {
 // Client 是 HandlerInstance 子进程的对外契约。
 type Client interface {
 	Init(ctx context.Context, args map[string]any) error
-	StreamCall(ctx context.Context, method string, args map[string]any, onProgress func(any)) (any, error)
+	// StreamCall runs one method. outDir is the EMPTY per-call directory the method may write
+	// media artifacts into (WRK-082 H5); "" means the caller is not collecting artifacts and the
+	// driver leaves the process cwd alone.
+	//
+	// It is a parameter rather than something baked in at Init because a handler is a LONG-LIVED
+	// instance: one process serves many calls, so "this CALL's artifacts" is only unambiguous if
+	// the directory travels with the call. That is the whole reason this capability was deferred
+	// past function's — function is a one-shot spawn and could simply take the dir as its cwd.
+	//
+	// StreamCall 跑一个 method。outDir 是本次调用的**空**目录,method 可往里写媒体产物(H5);
+	// "" 表示调用方不采集产物,driver 不动进程 cwd。
+	//
+	// 它是**参数**而不是 Init 时定死的东西,因为 handler 是**长跑实例**:一个进程服务很多次调用,
+	// 「这次**调用**的产物」只有让目录**随调用一起走**才无歧义。这正是本能力当初比 function 晚做的
+	// 全部理由——function 是一次性 spawn,把目录当 cwd 交出去就够了。
+	StreamCall(ctx context.Context, method string, args map[string]any, outDir string, onProgress func(any)) (any, error)
 	Shutdown(ctx context.Context) error
 	Crashed() bool
 }
@@ -136,11 +151,11 @@ func (c *stdioClient) Init(ctx context.Context, args map[string]any) error {
 	}
 }
 
-func (c *stdioClient) StreamCall(ctx context.Context, method string, args map[string]any, onProgress func(any)) (any, error) {
-	return c.doCall(ctx, method, args, onProgress)
+func (c *stdioClient) StreamCall(ctx context.Context, method string, args map[string]any, outDir string, onProgress func(any)) (any, error) {
+	return c.doCall(ctx, method, args, outDir, onProgress)
 }
 
-func (c *stdioClient) doCall(ctx context.Context, method string, args map[string]any, onProgress func(any)) (any, error) {
+func (c *stdioClient) doCall(ctx context.Context, method string, args map[string]any, outDir string, onProgress func(any)) (any, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 	if c.crashed {
@@ -152,7 +167,16 @@ func (c *stdioClient) doCall(ctx context.Context, method string, args map[string
 
 	c.nextReqID++
 	reqID := c.nextReqID
-	if err := c.send(map[string]any{"type": MsgCall, "id": reqID, "method": method, "args": args}); err != nil {
+	call := map[string]any{"type": MsgCall, "id": reqID, "method": method, "args": args}
+	if outDir != "" {
+		// The whole call is under c.mu, so the driver's dispatch loop sees strictly one call at a
+		// time — which is what makes the driver's chdir safe. If this method ever stops holding
+		// the lock for the whole call, the driver must stop using chdir in the same commit.
+		// 整次调用在 c.mu 之下,故 driver 的派发循环严格一次一个——这正是 driver 里 chdir 安全的
+		// 前提。若本方法哪天不再全程持锁,**同一提交**必须让 driver 停用 chdir。
+		call["out"] = outDir
+	}
+	if err := c.send(call); err != nil {
 		return nil, c.fail(fmt.Errorf("send call: %w", err))
 	}
 

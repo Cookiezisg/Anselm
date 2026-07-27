@@ -6,6 +6,9 @@ import (
 	"database/sql"
 	"errors"
 	"io"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -13,7 +16,9 @@ import (
 	"go.uber.org/zap"
 
 	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	mediaartifactapp "github.com/sunweilin/anselm/backend/internal/app/mediaartifact"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
@@ -91,6 +96,12 @@ type fakeClient struct {
 	result  any
 	callErr error
 	initErr error
+	// outDir records the per-call artifact directory the service handed to this call (H5); write
+	// lets a test act as the sandboxed method and actually produce a file in it.
+	// outDir 记下服务交给本次调用的逐调用产物目录(H5);write 让测试扮演沙箱里的 method、真的在里面
+	// 产出一个文件。
+	outDir string
+	write  func(dir string)
 }
 
 func (c *fakeClient) Init(context.Context, map[string]any) error { return c.initErr }
@@ -98,7 +109,11 @@ func (c *fakeClient) Call(context.Context, string, map[string]any) (any, error) 
 	c.calls++
 	return c.result, c.callErr
 }
-func (c *fakeClient) StreamCall(ctx context.Context, m string, a map[string]any, _ func(any)) (any, error) {
+func (c *fakeClient) StreamCall(ctx context.Context, m string, a map[string]any, outDir string, _ func(any)) (any, error) {
+	c.outDir = outDir
+	if c.write != nil && outDir != "" {
+		c.write(outDir)
+	}
 	return c.Call(ctx, m, a)
 }
 func (c *fakeClient) Shutdown(context.Context) error { return nil }
@@ -532,5 +547,176 @@ func TestAssembleClass(t *testing.T) {
 		if !strings.Contains(out, want) {
 			t.Fatalf("assembled class missing %q:\n%s", want, out)
 		}
+	}
+}
+
+// --- media artifacts (WRK-082 H5) -------------------------------------------
+
+// artifactUploader is the minimal attachment store stand-in: it records what landed and hands
+// back an id, so the test can assert on the receipt rather than on a real blob path.
+type artifactUploader struct {
+	got []string
+}
+
+func (u *artifactUploader) Upload(_ context.Context, filename, mime string, data []byte) (*attachmentdomain.Attachment, error) {
+	u.got = append(u.got, filename+" "+mime)
+	return &attachmentdomain.Attachment{
+		ID: "att_00112233445566aa", Filename: filename, MimeType: mime, SizeBytes: int64(len(data)),
+	}, nil
+}
+
+// tinyPNGBytes is a real 8-byte PNG signature — the collector SNIFFS content, so a fake payload
+// would be refused for the right reason and make this test pass for the wrong one.
+var tinyPNGBytes = []byte{0x89, 'P', 'N', 'G', '\r', '\n', 0x1a, '\n', 0, 0, 0, 0}
+
+// TestCall_HandlerArtifactBecomesReceipt is the H5 contract: a long-lived handler gets a fresh
+// EMPTY directory per CALL, and a file it declares there comes back as a MediaRef receipt marked
+// with the handler source — the same currency function's artifacts use (不变量①), through the same
+// collector, into the same store (不变量②).
+//
+// TestCall_HandlerArtifactBecomesReceipt 是 H5 的契约:长跑 handler **每次调用**拿到一个全新的空目录,
+// 它在里面声明的文件带着 handler 产地作为 MediaRef receipt 回来——与 function 的产物**同一种货币**
+// (不变量①)、经**同一个**采集器、进**同一间**库(不变量②)。
+func TestCall_HandlerArtifactBecomesReceipt(t *testing.T) {
+	svc, _, cl, ctx := newSvc(t)
+	up := &artifactUploader{}
+	svc.SetArtifactUploader(up)
+	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "drawer", false)})
+
+	// Warm the instance, then script the next call to behave like a method that wrote a chart.
+	if _, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}}); err != nil {
+		t.Fatalf("warm call: %v", err)
+	}
+	c := cl.clients[len(cl.clients)-1]
+	var seenDir string
+	c.write = func(dir string) {
+		seenDir = dir
+		if err := os.WriteFile(filepath.Join(dir, "chart.png"), tinyPNGBytes, 0o644); err != nil {
+			t.Fatalf("write artifact: %v", err)
+		}
+	}
+	c.result = map[string]any{"chart": map[string]any{mediaartifactapp.MediaKey: "chart.png"}, "rows": float64(7)}
+
+	res, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	m, _ := res.(map[string]any)
+	chart, _ := m["chart"].(map[string]any)
+	if chart["attachmentId"] != "att_00112233445566aa" {
+		t.Fatalf("declaration was not replaced by a receipt: %+v", m)
+	}
+	if chart["source"] != string(mediaartifactapp.SourceHandler) {
+		t.Fatalf("receipt source = %v, want the handler source (a reader must tell it from a function's)", chart["source"])
+	}
+	if chart["mime"] != "image/png" {
+		t.Fatalf("mime = %v, want the SNIFFED image/png", chart["mime"])
+	}
+	if m["rows"] != float64(7) {
+		t.Fatalf("sibling data mangled: %+v", m)
+	}
+	if len(up.got) != 1 {
+		t.Fatalf("store received %v", up.got)
+	}
+	// The directory is the call's own and is gone once the call returns — "which files did THIS
+	// call produce" must not be answerable by a later call rummaging in a shared place.
+	// 目录属于**这次调用**,调用一返回就没了——「哪些文件是**这次调用**产出的」不能靠后来的调用去一个
+	// 共享地方翻找来回答。
+	if seenDir == "" {
+		t.Fatal("no per-call directory was handed to the method")
+	}
+	if _, statErr := os.Stat(seenDir); !os.IsNotExist(statErr) {
+		t.Fatalf("the per-call directory outlived the call: %v", statErr)
+	}
+}
+
+// TestCall_EachCallGetsAFreshDirectory: a long-lived instance must not let call N see call N-1's
+// files. This is the ONE property that distinguishes handler from function — function's run IS the
+// unit, so it got this for free; handler has to be given it.
+//
+// TestCall_EachCallGetsAFreshDirectory:长跑实例不得让第 N 次调用看见第 N-1 次的文件。这是 handler
+// 与 function **唯一**的区别所在——function 的一次运行**就是**那个单位,它白得这条;handler 必须被
+// 主动给予。
+func TestCall_EachCallGetsAFreshDirectory(t *testing.T) {
+	svc, _, cl, ctx := newSvc(t)
+	svc.SetArtifactUploader(&artifactUploader{})
+	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "twice", false)})
+	if _, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}}); err != nil {
+		t.Fatalf("warm call: %v", err)
+	}
+	c := cl.clients[len(cl.clients)-1]
+
+	var dirs []string
+	var leaked bool
+	c.write = func(dir string) {
+		dirs = append(dirs, dir)
+		entries, _ := os.ReadDir(dir)
+		if len(entries) != 0 {
+			leaked = true
+		}
+		_ = os.WriteFile(filepath.Join(dir, "left-behind.png"), tinyPNGBytes, 0o644)
+	}
+	c.result = map[string]any{"ok": true}
+	for i := 0; i < 3; i++ {
+		if _, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}}); err != nil {
+			t.Fatalf("call %d: %v", i, err)
+		}
+	}
+	if leaked {
+		t.Fatal("a call saw a previous call's artifacts — the directory is not per-call")
+	}
+	if len(dirs) != 3 || dirs[0] == dirs[1] || dirs[1] == dirs[2] {
+		t.Fatalf("directories were reused across calls: %v", dirs)
+	}
+}
+
+// TestCall_WithoutUploaderIsUnchanged: an un-wired service creates no directory and passes media
+// declarations through untouched. The capability is additive — it must never become a new way for
+// an existing caller to fail.
+//
+// TestCall_WithoutUploaderIsUnchanged:未接线的服务**不建目录**、媒体声明原样通过。这是增量能力——
+// 它绝不能变成既有调用方失败的一种新方式。
+func TestCall_WithoutUploaderIsUnchanged(t *testing.T) {
+	svc, _, cl, ctx := newSvc(t)
+	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "plain", false)})
+	if _, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}}); err != nil {
+		t.Fatalf("warm call: %v", err)
+	}
+	c := cl.clients[len(cl.clients)-1]
+	c.result = map[string]any{"chart": map[string]any{mediaartifactapp.MediaKey: "chart.png"}}
+
+	res, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}})
+	if err != nil {
+		t.Fatalf("call: %v", err)
+	}
+	if c.outDir != "" {
+		t.Fatalf("a service with no uploader still created %q", c.outDir)
+	}
+	m, _ := res.(map[string]any)
+	chart, _ := m["chart"].(map[string]any)
+	if chart[mediaartifactapp.MediaKey] != "chart.png" {
+		t.Fatalf("declaration was rewritten without an uploader: %+v", m)
+	}
+}
+
+// TestDriverScript_IsValidPython compiles the driver the way Python will. It exists because the
+// driver is a Go string constant: no compiler, no linter and no unit test in this package ever
+// parses it — every test here talks to fakeClient instead. A stray indentation error would ship
+// green and only surface when a real handler spawns, as an opaque "subprocess crashed".
+//
+// TestDriverScript_IsValidPython 用 Python 自己的方式编译 driver。它存在,是因为 driver 是一个 Go
+// 字符串常量:本包里没有编译器、没有 linter、也没有任何单测**解析过它**——这里的测试全是对 fakeClient
+// 说话。一个跑偏的缩进会一路绿着发出去,只在真 handler 起进程时以一句不透明的「子进程崩了」现形。
+func TestDriverScript_IsValidPython(t *testing.T) {
+	py, err := exec.LookPath("python3")
+	if err != nil {
+		t.Skip("python3 not on PATH")
+	}
+	path := filepath.Join(t.TempDir(), "driver.py")
+	if err := os.WriteFile(path, []byte(DriverScript), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if out, err := exec.Command(py, "-m", "py_compile", path).CombinedOutput(); err != nil {
+		t.Fatalf("driver.py does not compile:\n%s", out)
 	}
 }

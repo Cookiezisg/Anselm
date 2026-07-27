@@ -22,6 +22,7 @@ import (
 
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
 	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
+	mediaartifactapp "github.com/sunweilin/anselm/backend/internal/app/mediaartifact"
 	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
@@ -87,8 +88,23 @@ type Service struct {
 	notif       notificationdomain.Emitter // nil-tolerant
 	relations   RelationSyncer             // nil disables relation hooks
 	entities    streamdomain.Bridge        // entities stream (SSE-C); nil → no entity-panel run terminal
-	log         *zap.Logger
+	// artifacts lands declared media files as first-class attachments (WRK-082 H5). nil → no
+	// per-call output directory is created at all and media declarations pass through untouched,
+	// so every un-wired caller (tests, tools without an attachment store) behaves exactly as
+	// before — the capability is additive, never a new failure mode.
+	// artifacts 把被声明的媒体文件落成一等附件(H5)。nil → 根本不建逐调用输出目录、媒体声明原样通过,
+	// 使每个未接线的调用方(测试、无附件库的工具)行为与从前**完全一致**——这是增量能力,绝不新增
+	// 一种失败模式。
+	artifacts mediaartifactapp.ArtifactUploader
+	log       *zap.Logger
 }
+
+// SetArtifactUploader injects the media-artifact landing port post-construction (H5) — the
+// attachment service takes shape later than this service in bootstrap, the same as function's.
+//
+// SetArtifactUploader 后置注入媒体产物落盘端口(H5)——attachment 服务在 bootstrap 里比本服务晚成形,
+// 与 function 那边同款。
+func (s *Service) SetArtifactUploader(up mediaartifactapp.ArtifactUploader) { s.artifacts = up }
 
 // SetEntitiesBridge installs the entities stream post-construction (SSE-C): Call tees a streaming
 // method's yields onto the handler's run terminal for the entity panel, regardless of caller.

@@ -44,7 +44,7 @@ audience: [human, ai]
 
 **沙箱驱动（精妙处）**：`SandboxAdapter.Run` 写 `main.py` = 用户代码 + driver 模板。driver 在调用期间**把 stdout 重定向到 stderr**、结束后才把 JSON 结果打回真 stdout——既保证 stdout 是可解析的单一 JSON，又让函数自己的 `print()` 变成实时进度（stderr 被**三写**：messages 流 tool_call progress + entities 流 run 终端 + `pkg/logtail` 限长收集器——后者随执行记录落 `logs` 列，run_function 的返回也携带）。
 
-**媒体产物通道（WRK-082 批E，第五个产地）**：每次运行**一个空临时目录**,以 `$ANSELM_OUT` 与 **cwd** 两种方式交给代码,运行结束即删——函数用普通相对名写产物(`plt.savefig("chart.png")`)、永不需要绝对路径。刻意**不是**驻地也不是数据目录:那两处是**用户**的真实文件,让函数往里写产物就是让它在工作树里乱丢;run 级临时目录让「哪些文件是**这次**运行产出的」有一个物理上无歧义的答案(代拍 E1)。
+**媒体产物通道（WRK-082 批E，第五个产地的前一半；后一半是 handler，见 `handler.md`）**：采集器共用 `app/mediaartifact`。每次运行**一个空临时目录**,以 `$ANSELM_OUT` 与 **cwd** 两种方式交给代码,运行结束即删——函数用普通相对名写产物(`plt.savefig("chart.png")`)、永不需要绝对路径。刻意**不是**驻地也不是数据目录:那两处是**用户**的真实文件,让函数往里写产物就是让它在工作树里乱丢;run 级临时目录让「哪些文件是**这次**运行产出的」有一个物理上无歧义的答案(代拍 E1)。
 **引用文法**是**显式声明** `{"$media": "<相对路径>"}`,由 `collectArtifacts` **就地替换**成既有 MediaRef receipt(`{attachmentId,filename,mime,sizeBytes,source:"function_artifact"}`)——就地而非追加,故产物**留在它本该在的那个键上**:`node.chart` **就是**那张图,而不是「结果里有个 chart 字段、另有个平级 artifacts 数组要你自己对应」。也正因如此**不变量①③④全部免费继承**:MediaRef 一出现,消费咽喉、一族卡、workflow 的边就都已经认识它(代拍 E2)。
 **为何不扫目录**(代拍 E4):扫目录会把 matplotlib 字体缓存、`__pycache__`、中间文件全变成产物,且**答不出「这张图属于结果里的哪个字段」**——而那恰是显式声明要的东西。
 **四道闸**:路径经 `fspath.Inside(outDir, …)` **fail-closed**(声明来自用户代码,`../../.ssh/id_rsa` 是迟早会说出口的东西,拒在打开任何东西**之前**)· 单件 ≤32MiB · 单次 ≤`mediaref.MaxRefs`(下游本就只展开这么多) · mime 靠 `http.DetectContentType` **嗅内容不信扩展名**(一个叫 `.png` 其实是 shell 脚本的文件不该凭名字变附件),白名单 `image/* · audio/* · video/* · application/pdf`。**逐件失败、写进 logs、绝不致命**:一张超大的图不该让一次数字都算对了的运行作废;采集不了的声明**原样留下**,故结果绝不会声称一件并不存在的产物存在。uploader 未注入(测试/只跑 REST 的装配)时声明原样通过。

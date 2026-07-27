@@ -202,6 +202,14 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	fn.SetEntitiesBridge(bus.entities) // SSE-C: env 物化尝试行 tee 到 function 构建终端（不分入口）
 	hd := handlerapp.NewService(st.handler, prov, handlerapp.NewSandboxAdapter(sbx, dataDir), inf.encryptor, handlerapp.DefaultClientFactory, notif, log)
 	hd.SetEntitiesBridge(bus.entities) // SSE-C: Call tees method yields to the handler's run terminal
+	// The handler's per-call artifacts land in the SAME store (H5, 不变量②) — the fifth production
+	// site's second half. function and handler are the two producers that run as sandboxed user
+	// code, so they share one collector (app/mediaartifact) and differ only in the receipt's
+	// `source`.
+	// handler 的逐调用产物落进**同一间**库(H5,不变量②)——第五个产地的后一半。function 与 handler 是
+	// 仅有的两个以沙箱用户代码身份跑的产地,故共用一个采集器(app/mediaartifact),只在 receipt 的
+	// `source` 上不同。
+	hd.SetArtifactUploader(att)
 	ag := agentapp.NewService(st.agent, notif, log)
 	ctl := controlapp.NewService(st.control, notif, log)
 	apf := approvalapp.NewService(st.approval, notif, log)

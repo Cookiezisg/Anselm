@@ -11,6 +11,7 @@ import (
 
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	mediaartifactapp "github.com/sunweilin/anselm/backend/internal/app/mediaartifact"
 	sandboxapp "github.com/sunweilin/anselm/backend/internal/app/sandbox"
 	functiondomain "github.com/sunweilin/anselm/backend/internal/domain/function"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
@@ -36,7 +37,7 @@ type SandboxAdapter struct {
 	// assemblies) correct rather than crashing on a feature they never asked for.
 	// artifacts 把被声明的媒体文件落成一等附件(批E)。nil → 媒体声明原样通过,使每个未接线的调用方
 	// (测试、只跑 REST 的装配)保持正确,而不是被一个它从没要过的功能弄崩。
-	artifacts ArtifactUploader
+	artifacts mediaartifactapp.ArtifactUploader
 }
 
 // NewSandboxAdapter binds the adapter to a sandbox service + the function data root. entities (the
@@ -53,7 +54,7 @@ func NewSandboxAdapter(svc *sandboxapp.Service, dataDir string, entities streamd
 // attachment service is built later in bootstrap than this adapter.
 //
 // SetArtifactUploader 后置注入媒体产物落盘端口(批E)——attachment 服务在 bootstrap 里比本 adapter 晚成形。
-func (a *SandboxAdapter) SetArtifactUploader(up ArtifactUploader) { a.artifacts = up }
+func (a *SandboxAdapter) SetArtifactUploader(up mediaartifactapp.ArtifactUploader) { a.artifacts = up }
 
 var _ SandboxRunner = (*SandboxAdapter)(nil)
 
@@ -150,7 +151,7 @@ func (a *SandboxAdapter) Run(ctx context.Context, owner sandboxdomain.Owner, fun
 	// chokepoint, the card family, workflow edges — recognizes it without knowing a function made it.
 	// 在 defer 清目录之前采集被声明的媒体:`{"$media": …}` 就地变成 MediaRef receipt,于是下游一切
 	// ——消费咽喉、一族卡、workflow 的边——都认识它,而无需知道它出自一个 function。
-	collected, notes := collectArtifacts(ctx, a.artifacts, outDir, output)
+	collected, notes := mediaartifactapp.Collect(ctx, a.artifacts, outDir, mediaartifactapp.SourceFunction, output)
 	if len(notes) > 0 {
 		// Notes go to the run's logs, never to the result: a skipped artifact is an operator-facing
 		// fact, and putting it in the result would change the shape the caller's schema expects.

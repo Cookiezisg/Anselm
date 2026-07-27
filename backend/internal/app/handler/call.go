@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"time"
 
@@ -13,6 +14,7 @@ import (
 
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	mediaartifactapp "github.com/sunweilin/anselm/backend/internal/app/mediaartifact"
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
@@ -157,9 +159,48 @@ func (s *Service) Call(ctx context.Context, in CallInput) (any, error) {
 	//             otherwise leak this call's sink into the resident instance's fan forever (R18).
 	//             detach is idempotent, so the explicit post-grace detach() below still controls timing.
 
+	// One EMPTY directory per CALL, handed to the method as $ANSELM_OUT and as its cwd, deleted
+	// when the call ends (WRK-082 H5). A handler is a long-lived instance serving many calls, so
+	// unlike function — a one-shot spawn whose whole run IS the unit — the directory has to travel
+	// with the call for "which files did THIS call produce" to have an answer at all.
+	//
+	// Deliberately NOT the residency or the data dir: those hold the USER's real files, and letting
+	// a handler write products into them is letting it litter the working tree.
+	//
+	// **每次调用一个空目录**,以 $ANSELM_OUT 与 cwd 两种方式交给 method,调用结束即删(H5)。handler 是
+	// 长跑实例、服务很多次调用,故与 function 不同——那是一次性 spawn、整次运行**就是**那个单位——这里
+	// 目录必须**随调用一起走**,「哪些文件是**这次调用**产出的」才有答案。
+	//
+	// 刻意**不是**驻地、也不是数据目录:那两处是**用户**的真实文件,让 handler 往里写产物就是让它在
+	// 工作树里乱丢。
+	outDir := ""
+	if s.artifacts != nil {
+		dir, mkErr := os.MkdirTemp("", "anselm-hdout-")
+		if mkErr == nil {
+			outDir = dir
+			defer func() { _ = os.RemoveAll(dir) }()
+		}
+		// A failed temp dir is NOT a failed call: the handler's actual work does not depend on
+		// being able to produce media. It simply runs without an artifact channel.
+		// 临时目录建失败**不算调用失败**:handler 真正的工作并不依赖能不能产媒体,它照跑,只是这次
+		// 没有产物通道。
+	}
+
 	startedAt := time.Now().UTC()
-	result, err := inst.Client.StreamCall(ctx, in.Method, in.Args, onProgress)
+	result, err := inst.Client.StreamCall(ctx, in.Method, in.Args, outDir, onProgress)
 	endedAt := time.Now().UTC()
+	// Collect BEFORE the deferred RemoveAll (defers run last) and before recordCall, so the
+	// persisted call record holds receipts rather than the raw declarations — the audit view and
+	// the LLM's view must not disagree about what this call produced.
+	// 采集发生在 defer 的 RemoveAll **之前**(defer 最后跑)、也在 recordCall 之前,故落盘的调用记录里
+	// 是 receipt 而不是原始声明——审计视图与 LLM 视图不能对「这次调用产出了什么」各执一词。
+	if outDir != "" && err == nil {
+		collected, notes := mediaartifactapp.Collect(ctx, s.artifacts, outDir, mediaartifactapp.SourceHandler, result)
+		result = collected
+		for _, n := range notes {
+			_, _ = logs.Write([]byte(n + "\n"))
+		}
+	}
 	// stderr grace before detach: stdout (the return frame) and stderr (the prints) are two
 	// independent pipes read by independent goroutines — a print written BEFORE the return
 	// can still arrive after it. A short quiesce keeps those lines inside this call's window.
