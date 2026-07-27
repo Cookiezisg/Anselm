@@ -663,3 +663,57 @@ func TestToContentParts_RemoteMediaObeysTheEnvelope(t *testing.T) {
 		t.Fatalf("uploads = %d — an artifact that cannot be sent must not be uploaded either", uploader.calls)
 	}
 }
+
+// TestUpload_StampsProvenanceFromContext pins the H5.7 debt-payment: every attachment records WHO
+// minted it and INSIDE WHAT, taken from ctx at the one place all producers funnel through.
+//
+// It is a recording-only feature, which is exactly why it needs a guard: nothing reads these columns
+// yet, so a producer that forgets to name itself breaks no test and shows no symptom — it just
+// silently writes a row that can never be back-filled. The evidence has to be right the first time,
+// because the day it is needed is the day it is too late to collect.
+//
+// TestUpload_StampsProvenanceFromContext 钉住 H5.7 还的那笔债:每份附件都记下**谁**铸的、铸在**什么
+// 之内**,在所有产地必经的那一处从 ctx 取。
+//
+// 它是一个**只记录**的能力,而这恰恰是它需要守卫的理由:今天没有任何地方读这几列,故一个忘了给自己
+// 署名的产地**不会让任何测试变红、也不会有任何症状**——它只是静默地写下一行**永远补不回来**的数据。
+// 证据必须一次就对,因为需要它的那天,正是再也收集不到它的那天。
+func TestUpload_StampsProvenanceFromContext(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+
+	// A plain user upload: no producer, no execution. "" is a fact, not a gap.
+	// 普通用户上传:没有产地、没有执行。"" 是一个事实,不是一处缺失。
+	plain, err := svc.Upload(ctx, "photo.png", "image/png", []byte("\x89PNG bytes"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	if plain.Source != "" || plain.OriginConversationID != "" || plain.OriginFlowrunID != "" {
+		t.Fatalf("a user upload invented provenance: %+v", plain)
+	}
+
+	// A tool-minted artifact inside a conversation and a run.
+	toolCtx := reqctxpkg.SetMediaSource(ctx, "generate_video")
+	toolCtx = reqctxpkg.SetConversationID(toolCtx, "cv_1111111111111111")
+	toolCtx = reqctxpkg.SetFlowrunID(toolCtx, "frn_2222222222222222")
+	made, err := svc.Upload(toolCtx, "clip.mp4", "video/mp4", []byte("\x00\x00\x00\x18ftypisom v"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	if made.Source != "generate_video" {
+		t.Fatalf("source = %q, want the producer's own name", made.Source)
+	}
+	if made.OriginConversationID != "cv_1111111111111111" || made.OriginFlowrunID != "frn_2222222222222222" {
+		t.Fatalf("origin = %q/%q, want the ctx scope", made.OriginConversationID, made.OriginFlowrunID)
+	}
+
+	// And it SURVIVES the round trip — a column stamped but not persisted would look identical here
+	// unless the row is actually read back.
+	// 而且它**活过往返**——一个盖上了却没落盘的列,只有真把行读回来才看得出区别。
+	got, err := svc.Get(ctx, made.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.Source != "generate_video" || got.OriginConversationID != "cv_1111111111111111" {
+		t.Fatalf("provenance lost on the round trip: %+v", got)
+	}
+}

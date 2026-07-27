@@ -9,6 +9,7 @@ import (
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // maxSpeechChars bounds one whole utterance (across chunks). It is far above any single
@@ -96,7 +97,8 @@ func (t *GenerateSpeech) Execute(ctx context.Context, args string) (string, erro
 	if err != nil {
 		return "", err
 	}
-	att, err := t.attachments.Upload(ctx, artifactFilename(audio.Mime), audio.Mime, audio.Bytes)
+	att, err := t.attachments.Upload(reqctxpkg.SetMediaSource(ctx, "generate_speech"),
+		artifactFilename(audio.Mime), audio.Mime, audio.Bytes)
 	if err != nil {
 		return "", fmt.Errorf("save speech artifact: %w", err)
 	}

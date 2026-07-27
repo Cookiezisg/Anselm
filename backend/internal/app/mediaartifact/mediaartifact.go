@@ -35,6 +35,7 @@ import (
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	fspathpkg "github.com/sunweilin/anselm/backend/internal/pkg/fspath"
 	mediarefpkg "github.com/sunweilin/anselm/backend/internal/pkg/mediaref"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Media artifacts produced by user code (WRK-082 批E). A function runs in a venv sandbox with no
@@ -225,7 +226,11 @@ func (c *artifactCollector) collect(rel string) map[string]any {
 		c.note("%s: skipped, %s is not a media type this app can render", rel, mime)
 		return nil
 	}
-	att, err := c.up.Upload(c.ctx, filepath.Base(rel), mime, data)
+	// The collector already knows the producer (it is stamped on the receipt below), so the same
+	// name rides ctx into the row's provenance column — one vocabulary, two places, never two lists.
+	// 采集器本来就知道产地(下面盖在 receipt 上的就是它),故同一个名字经 ctx 进到行的溯源列——
+	// **一套词表、两个去处**,绝不维护两份名单。
+	att, err := c.up.Upload(reqctxpkg.SetMediaSource(c.ctx, string(c.source)), filepath.Base(rel), mime, data)
 	if err != nil {
 		c.note("%s: could not be saved (%v)", rel, err)
 		return nil

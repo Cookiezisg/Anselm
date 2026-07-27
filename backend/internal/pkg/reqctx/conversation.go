@@ -113,3 +113,33 @@ func GetToolCallID(ctx context.Context) (string, bool) {
 	id, ok := ctx.Value(toolCallIDKey{}).(string)
 	return id, ok && id != ""
 }
+
+// mediaSourceKey carries the PRODUCER's name for an attachment about to be minted.
+//
+// It rides ctx rather than the Upload signature because that is this codebase's established shape
+// for provenance columns — handler and function already read their six audit columns off ctx (S9).
+// Threading a parameter instead would widen four narrow single-method ports (generate.Uploader,
+// mediaartifact.ArtifactUploader, the MCP uploader, read-aloud) for a value none of them forwards.
+//
+// mediaSourceKey 带着一份**即将被铸出**的附件的产地名。
+//
+// 它走 ctx 而不是 Upload 签名,因为这正是本仓溯源列的既定形状——handler 与 function 的六列审计溯源
+// 本来就从 ctx 读(S9)。改成穿参数,会为了一个四个端口都不转发的值,去拓宽四个窄的单方法端口
+// (generate.Uploader / mediaartifact.ArtifactUploader / MCP uploader / 朗读)。
+type mediaSourceKey struct{}
+
+// SetMediaSource names the producer for attachments minted under this ctx.
+//
+// SetMediaSource 为本 ctx 下铸出的附件标记产地。
+func SetMediaSource(ctx context.Context, source string) context.Context {
+	return context.WithValue(ctx, mediaSourceKey{}, source)
+}
+
+// GetMediaSource returns the producer name, or "" for a plain user upload (the one producer that
+// is not code — a person picked a file).
+//
+// GetMediaSource 返回产地名;""=普通用户上传(唯一一个不是代码的产地——是人挑了个文件)。
+func GetMediaSource(ctx context.Context) string {
+	s, _ := ctx.Value(mediaSourceKey{}).(string)
+	return s
+}

@@ -34,6 +34,26 @@ var Schema = []string{
 		deleted_at   DATETIME
 	)`,
 	`CREATE INDEX IF NOT EXISTS idx_attachments_ws_sha ON attachments(workspace_id, sha256) WHERE deleted_at IS NULL`,
+
+	// Column evolution — provenance (WRK-082 H5.7). Same idempotent-by-outcome ADD COLUMN path the
+	// conversation store uses: an existing install gains these on next boot, and a re-run relies on
+	// db.Migrate reading "duplicate column name" as already-applied.
+	//
+	// NOT NULL DEFAULT '' rather than nullable: all three are plain strings and "" already says
+	// "not recorded", so a nullable column would only buy a second spelling of the same absence.
+	// **Deliberately unindexed** — nothing filters on provenance today; the columns exist so that the
+	// day an ownership check is needed, the evidence is already on disk. Rows minted before they
+	// existed can never be back-filled.
+	//
+	// 列演化——溯源(H5.7)。与 conversation store 同一条**结果幂等**的 ADD COLUMN 路径:已有安装下次启动
+	// 补上,重复执行靠 db.Migrate 把 "duplicate column name" 视作已应用。
+	//
+	// 用 NOT NULL DEFAULT '' 而非可空:三者都是纯 string,而 "" 已经表达了「没记」——可空列只会为同一种
+	// 「不存在」多买一种拼法。**刻意不建索引**:今天没有任何地方按溯源过滤;这几列的存在是为了「需要归属
+	// 校验的那天,证据已经在盘上」。在它们存在之前铸的行**永远补不回来**。
+	`ALTER TABLE attachments ADD COLUMN source TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE attachments ADD COLUMN origin_conversation_id TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE attachments ADD COLUMN origin_flowrun_id TEXT NOT NULL DEFAULT ''`,
 }
 
 // Store implements attachmentdomain.Repository over pkg/orm.

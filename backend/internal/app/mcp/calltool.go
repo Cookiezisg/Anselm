@@ -79,7 +79,8 @@ func (s *Service) CallTool(ctx context.Context, serverID, tool string, args json
 	// 占位叙事,绝不失败整个调用。
 	if err == nil && len(media) > 0 && s.uploader != nil {
 		for i, item := range media {
-			att, upErr := s.uploader.Upload(ctx, mcpArtifactFilename(tool, i, item.MimeType), item.MimeType, item.Data)
+			att, upErr := s.uploader.Upload(reqctxpkg.SetMediaSource(ctx, "mcp"),
+				mcpArtifactFilename(tool, i, item.MimeType), item.MimeType, item.Data)
 			if upErr != nil {
 				s.log.Warn("mcpapp: media item upload failed (placeholder kept)", zap.Error(upErr))
 				continue

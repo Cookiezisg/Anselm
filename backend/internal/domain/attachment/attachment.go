@@ -39,6 +39,32 @@ type Attachment struct {
 	Kind        string     `db:"kind"               json:"kind"`
 	CreatedAt   time.Time  `db:"created_at,created" json:"createdAt"`
 	DeletedAt   *time.Time `db:"deleted_at,deleted" json:"-"`
+
+	// Provenance — WHO minted this row and INSIDE WHAT (WRK-082 H5.7). Recorded, not yet enforced.
+	//
+	// ADR 0014 left one debt written down: a receipt is forgeable text, so a tool can hand back a
+	// JSON blob naming an attachment it never produced. Today that is harmless — single user, and
+	// pkg/orm isolates every read by workspace — but the day this becomes multi-user, the consumption
+	// chokepoint has to verify ownership BEFORE expanding, and it can only verify what was recorded.
+	// Rows minted before these columns existed can never be back-filled, which is the whole argument
+	// for adding them now rather than then.
+	//
+	// Source is the producer's own name (the same vocabulary the receipt stamps: generate_video,
+	// function_artifact, mcp…); "" means a person picked a file. The two origin columns name the
+	// execution it was minted inside — a conversation, a flowrun, or neither.
+	//
+	// 溯源——**谁**铸了这一行、铸在**什么之内**(H5.7)。**只记录、尚不执行**。
+	//
+	// ADR 0014 留下过一笔写在纸上的债:receipt 是可伪造的文本,故一个工具可以交回一段点名了它从未产出过
+	// 的附件的 JSON。今天无害——单用户,且 pkg/orm 逐次读都按 workspace 隔离——但这东西变成多用户的那天,
+	// 消费咽喉必须在展开**之前**校验归属,而它只能校验**被记下来过**的东西。在这几列存在之前铸的行
+	// **永远补不回来**,这正是「现在加、而不是到时候再加」的全部理由。
+	//
+	// Source 是产地自己的名字(与 receipt 盖的是同一套词表:generate_video / function_artifact / mcp…);
+	// ""=某个人挑了个文件。两个 origin 列指出它被铸在哪一次执行之内——一个对话、一次 flowrun,或者都不是。
+	Source               string `db:"source"                 json:"source,omitempty"`
+	OriginConversationID string `db:"origin_conversation_id" json:"-"`
+	OriginFlowrunID      string `db:"origin_flowrun_id"      json:"-"`
 }
 
 // Kind buckets an upload by how it reaches the LLM. image → vision; document / text → text

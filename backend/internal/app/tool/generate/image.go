@@ -8,6 +8,7 @@ import (
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // ErrPromptRequired — the one mandatory business argument.
@@ -93,7 +94,8 @@ func (g *GenerateImage) Execute(ctx context.Context, args string) (string, error
 	if err != nil {
 		return "", err
 	}
-	att, err := g.attachments.Upload(ctx, artifactFilename(img.Mime), img.Mime, img.Bytes)
+	att, err := g.attachments.Upload(reqctxpkg.SetMediaSource(ctx, "generate_image"),
+		artifactFilename(img.Mime), img.Mime, img.Bytes)
 	if err != nil {
 		return "", fmt.Errorf("generate_image: store artifact: %w", err)
 	}

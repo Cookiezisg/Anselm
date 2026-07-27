@@ -27,6 +27,7 @@ import (
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // maxReadChars bounds one read-aloud request. It matches the tool's utterance cap: the router
@@ -132,7 +133,8 @@ func (s *Service) Read(ctx context.Context, text, voice string) (*Result, error)
 		return hit, nil
 	}
 
-	att, err := s.att.Upload(ctx, readFilename(audio.Mime), audio.Mime, audio.Bytes)
+	att, err := s.att.Upload(reqctxpkg.SetMediaSource(ctx, "read_aloud"),
+		readFilename(audio.Mime), audio.Mime, audio.Bytes)
 	if err != nil {
 		return nil, fmt.Errorf("save read-aloud artifact: %w", err)
 	}

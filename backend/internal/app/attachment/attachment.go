@@ -25,6 +25,7 @@ import (
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // BlobStore is the content-addressed byte store (port; infra/fs/blob implements it). Put is a
@@ -81,13 +82,23 @@ func (s *Service) Upload(ctx context.Context, filename, mime string, data []byte
 	if err := s.blobs.Put(ctx, sha, data); err != nil {
 		return nil, fmt.Errorf("attachmentapp.Upload: blob: %w", err)
 	}
+	// Provenance is stamped from ctx at the ONE place every producer funnels through (WRK-082 H5.7).
+	// Recorded, never enforced — see the domain field comments for why it is recorded now and what it
+	// is for. An absent value is "" and that is a fact too: a plain user upload has no producer.
+	// 溯源在**每个产地都必经的那一处**从 ctx 盖上(H5.7)。**只记录、从不执行**——为何现在就记、以及记
+	// 给谁用,见 domain 字段注释。取不到即 "",而那**也是一个事实**:普通用户上传没有产地。
+	conversationID, _ := reqctxpkg.GetConversationID(ctx)
+	flowrunID, _ := reqctxpkg.GetFlowrunID(ctx)
 	a := &attachmentdomain.Attachment{
-		ID:        idgenpkg.New("att"),
-		SHA256:    sha,
-		Filename:  filepath.Base(filename), // display only; blob is keyed by sha, not name
-		MimeType:  mime,
-		SizeBytes: int64(len(data)),
-		Kind:      attachmentdomain.KindFromMIME(mime, filename),
+		ID:                   idgenpkg.New("att"),
+		SHA256:               sha,
+		Filename:             filepath.Base(filename), // display only; blob is keyed by sha, not name
+		MimeType:             mime,
+		SizeBytes:            int64(len(data)),
+		Kind:                 attachmentdomain.KindFromMIME(mime, filename),
+		Source:               reqctxpkg.GetMediaSource(ctx),
+		OriginConversationID: conversationID,
+		OriginFlowrunID:      flowrunID,
 	}
 	if err := s.repo.Insert(ctx, a); err != nil {
 		return nil, err

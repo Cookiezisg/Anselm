@@ -11,6 +11,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 const (
@@ -141,7 +142,8 @@ func (t *GenerateVideo) Execute(ctx context.Context, args string) (string, error
 	if err != nil {
 		return "", err
 	}
-	att, err := t.attachments.Upload(ctx, artifactFilename(video.Mime), video.Mime, video.Bytes)
+	att, err := t.attachments.Upload(reqctxpkg.SetMediaSource(ctx, "generate_video"),
+		artifactFilename(video.Mime), video.Mime, video.Bytes)
 	if err != nil {
 		return "", fmt.Errorf("save video artifact: %w", err)
 	}
