@@ -419,7 +419,19 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		case attachmentdomain.KindText:
 			out = append(out, llminfra.ContentPart{Type: llminfra.PartText, Text: inlineText(a.Filename, data)})
 		case attachmentdomain.KindDocument:
-			if caps.NativeDocs && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
+			// NativeDocs means ONE thing: this model reads **PDF** inline (models_common.go builds it
+			// from the catalog's `pdf` input modality). It was being applied to the whole document
+			// KIND — so a .odt / .docx / .xlsx was base64'd and shipped to a model that never claimed
+			// to read it. The provider either rejects the turn or silently makes something up, and
+			// either way the file's bytes went out on the wire when the honest answer was to extract
+			// its text locally. Found by a testend scenario that was red on main (WRK-082 H7).
+			//
+			// NativeDocs 只意味着**一件事**:这个模型原生读 **PDF**(models_common.go 就是从目录的 `pdf`
+			// 输入模态推出它的)。它却被套用在整个文档**类**上——于是 .odt / .docx / .xlsx 被 base64 塞给
+			// 一个**从没声称能读它**的模型。供应商要么拒掉这一轮、要么静默编一个,而无论哪种,那个文件的
+			// 字节都已经上了线缆,而诚实的做法本是在本地把文本抽出来。由一条在 main 上就红着的 testend
+			// 场景发现(H7)。
+			if caps.NativeDocs && a.MimeType == "application/pdf" && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{
 					Type:      llminfra.PartFile,
 					MediaType: a.MimeType,

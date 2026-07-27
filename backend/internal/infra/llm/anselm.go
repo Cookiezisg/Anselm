@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"os"
+	"strings"
 
 	deviceproofinfra "github.com/sunweilin/anselm/backend/internal/infra/deviceproof"
 )
@@ -37,8 +39,34 @@ func newAnselmProvider() *anselmProvider {
 // key 的 base_url 与 install 端点。
 const AnselmBaseURL = "https://api.anselm.website/v1"
 
+// AnselmGatewayBase resolves the gateway origin actually used at runtime: `ANSELM_GATEWAY_URL` when
+// set, else production.
+//
+// **Why this knob has to exist.** Creating a workspace fires an async free-tier provision, so any
+// process that creates workspaces registers real installs on whatever gateway this resolves to.
+// With a hard-coded constant that was ALWAYS production — one install per workspace, ~50 per full
+// `make -C backend testend` run, and free-tier quota really spent whenever a scenario's generation
+// route fell back to the managed provider. Worse for tests than the pollution: the managed row
+// appears ASYNCHRONOUSLY, so two identical requests seconds apart can resolve to different
+// providers (the fallback order prefers `anselm`), which is exactly how the H7 read-aloud cache
+// acceptance found itself paying twice for the same sentence.
+//
+// AnselmGatewayBase 解析运行时**真正**使用的网关 origin:设了 `ANSELM_GATEWAY_URL` 就用它,否则生产。
+//
+// **这个旋钮为什么必须存在**:建一个 workspace 就会异步开通一次免费档,故**任何会建 workspace 的进程**
+// 都会在此处解析出的那个网关上注册真 install。写死常量时那永远是**生产**——每个 workspace 一个 install、
+// 一次完整 testend 约 50 个,且只要某个场景的生成路由回落到受管家,就真的花掉免费档配额。对测试而言比污染
+// 更糟的是:受管行是**异步**出现的,故相隔几秒的两个相同请求会解析到**不同的供应商**(兜底顺序偏好
+// `anselm`)——H7 的朗读缓存验收正是这样发现自己为同一句话付了两次钱。
+func AnselmGatewayBase() string {
+	if v := strings.TrimRight(strings.TrimSpace(os.Getenv("ANSELM_GATEWAY_URL")), "/"); v != "" {
+		return v
+	}
+	return AnselmBaseURL
+}
+
 func (p *anselmProvider) Name() string           { return "anselm" }
-func (p *anselmProvider) DefaultBaseURL() string { return AnselmBaseURL }
+func (p *anselmProvider) DefaultBaseURL() string { return AnselmGatewayBase() }
 
 // BuildRequest uses DeepSeek's wire body but replaces reusable bearer auth with
 // the public install id. The HTTP device-proof transport signs the final bytes.

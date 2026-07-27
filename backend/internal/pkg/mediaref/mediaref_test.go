@@ -165,3 +165,39 @@ func TestSelfAuthored_IsTheGenerationFamilyOnly(t *testing.T) {
 		}
 	}
 }
+
+// TestCollect_ReceiptEmbeddedInProse pins the shape a REAL agent answer has: a sentence, a fenced
+// code block, and the receipt inside it. The whole string is not JSON, and requiring it to be meant
+// media silently stopped crossing workflow nodes — invisible to every mocked test, because a
+// scripted turn echoes the receipt verbatim and nothing else (WRK-082 H7).
+//
+// TestCollect_ReceiptEmbeddedInProse 钉住**真** agent 答案的形状:一句话、一个围栏代码块、receipt 在
+// 里面。整个字符串不是 JSON,而要求它是,曾让媒体静默地不再跨 workflow 节点——对每个 mock 测试都不可见,
+// 因为脚本化的回合一字不差地回显 receipt、别的什么都不写(H7)。
+func TestCollect_ReceiptEmbeddedInProse(t *testing.T) {
+	answer := "已绘制黄昏的红色灯塔，工具返回的 receipt 如下：\n\n```json\n" +
+		`{"attachmentId":"att_0a2009405c5f2a0c","mime":"image/png","source":"generate_image"}` +
+		"\n```\n希望符合你的要求。"
+	got := Collect(answer)
+	if len(got) != 1 || got[0] != "att_0a2009405c5f2a0c" {
+		t.Fatalf("receipt embedded in prose must be found, got %v", got)
+	}
+
+	// The producer survives the trip: ADR 0017's filter reads `source`, and it can only do that if
+	// the whole receipt object was parsed rather than the id scraped out of the text.
+	// 产地要活着到达:ADR 0017 的过滤读 `source`,而它只有在整份 receipt **被解析**、而非 id 被从文本里
+	// 刮出来时才读得到。
+	if skipped := CollectExcept(answer, SelfAuthored); len(skipped) != 0 {
+		t.Fatalf("a self-authored receipt must be filterable through prose too, got %v", skipped)
+	}
+
+	// Two receipts in one answer, and prose that merely mentions the key without an object.
+	// 一段答案里两份 receipt;以及只提到键名却没有对象的散文。
+	two := "first {\"attachmentId\":\"att_1111111111111111\"} then {\"attachmentId\":\"att_2222222222222222\"}"
+	if got := Collect(two); len(got) != 2 {
+		t.Fatalf("both embedded receipts must be found, got %v", got)
+	}
+	if got := Collect("the attachmentId was lost"); len(got) != 0 {
+		t.Fatalf("prose with no object must yield nothing, got %v", got)
+	}
+}

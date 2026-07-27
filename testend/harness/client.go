@@ -28,6 +28,13 @@ type Client struct {
 	httpc *http.Client
 }
 
+// WorkspaceID is the workspace this client speaks for — needed by scenarios that re-point a
+// workspace default (e.g. a per-scenario dialogue model) after the shared setup ran.
+//
+// WorkspaceID 是本 client 代言的 workspace——供那些在共用 setup 之后要**改某个 workspace 默认值**的
+// 场景使用(例如逐场景的对话模型)。
+func (c *Client) WorkspaceID() string { return c.ws }
+
 // Client returns a client without workspace identity (for /workspaces itself + health).
 //
 // Client 返回不带 workspace 身份的客户端（用于 /workspaces 本身与 health）。

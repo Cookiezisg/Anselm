@@ -188,7 +188,7 @@ func (p *Provisioner) healIfInstallDead(ctx context.Context, keyID string) {
 		return
 	}
 	sum := sha256.Sum256([]byte(raw))
-	inst, err := p.installer.Install(ctx, llminfra.AnselmBaseURL, hex.EncodeToString(sum[:]), clientID)
+	inst, err := p.installer.Install(ctx, llminfra.AnselmGatewayBase(), hex.EncodeToString(sum[:]), clientID)
 	if err != nil {
 		p.log.Warn("free-tier heal skipped: re-install failed", zap.Error(err))
 		return
@@ -229,7 +229,7 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 	sum := sha256.Sum256([]byte(raw))
 	fpHash := hex.EncodeToString(sum[:])
 
-	res, err := p.installer.Install(ctx, llminfra.AnselmBaseURL, fpHash, clientID)
+	res, err := p.installer.Install(ctx, llminfra.AnselmGatewayBase(), fpHash, clientID)
 	if err != nil {
 		p.log.Warn("free-tier provision skipped: install failed", zap.Error(err))
 		return nil
@@ -239,7 +239,7 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 		Provider:     providerName,
 		DisplayName:  displayName,
 		Key:          res.InstallID,
-		BaseURL:      llminfra.AnselmBaseURL,
+		BaseURL:      llminfra.AnselmGatewayBase(),
 		TestResponse: llminfra.AnselmProbeBody(),
 	})
 	if err != nil {

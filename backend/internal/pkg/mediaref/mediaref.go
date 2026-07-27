@@ -125,11 +125,45 @@ func CollectExcept(v any, skip func(source string) bool) []string {
 			// Gate on the bare Key, not `"Key"` — a receipt nested one level deep arrives with its
 			// quotes backslash-escaped, and a quote-anchored gate would miss exactly that case.
 			// 闸只看裸 Key、不看 `"Key"`——嵌一层的 receipt 引号是转义的,带引号的闸恰好漏掉这一形。
-			if strings.Contains(x, Key) {
-				var decoded any
-				if json.Unmarshal([]byte(x), &decoded) == nil {
-					walk(decoded)
+			if !strings.Contains(x, Key) {
+				return
+			}
+			// Whole-string JSON first: the cheap, exact case (a tool_result body, a nested receipt).
+			// 先试整串 JSON:便宜且精确的那一类(tool_result 体、嵌套的 receipt)。
+			var decoded any
+			if json.Unmarshal([]byte(x), &decoded) == nil {
+				walk(decoded)
+				return
+			}
+			// Otherwise scan for receipts EMBEDDED in prose. An agent's final answer is written by a
+			// model, and a model writes "已绘制…receipt 如下:" and then fences the JSON — a string
+			// that is not itself JSON. Requiring the whole answer to parse meant the reference was
+			// dropped and the downstream node received no media at all. That passed every mocked
+			// test, because a scripted turn echoes the receipt VERBATIM and nothing else; the first
+			// real model never did (WRK-082 H7).
+			//
+			// Embedded objects are walked rather than bare ids being regex-scraped, so each receipt
+			// keeps its `source` — which is what ADR 0017's producer filter reads. A bare id carries
+			// no producer, so scraping ids would silently disable that decision.
+			//
+			// 否则扫描**嵌在散文里**的 receipt。agent 的终答是**模型**写的,而模型会写「已绘制…receipt
+			// 如下:」再把 JSON 放进围栏——那是一个**本身不是 JSON** 的字符串。要求整段答案可解析,等于把
+			// 引用整个丢掉、下游节点一点媒体也收不到。这在**每一个** mock 测试里都是绿的,因为脚本化的
+			// 回合会**一字不差**地回显 receipt、别的什么都不写;而第一个真模型从没这么干过(H7)。
+			//
+			// 走的是**解析嵌入对象**而非正则刮裸 id,故每份 receipt 都留着自己的 `source`——那正是
+			// ADR 0017 的产地过滤要读的东西。裸 id 不带产地,刮 id 等于把那个决定静默地关掉。
+			for i := 0; i < len(x) && len(out) < MaxRefs; i++ {
+				if x[i] != '{' {
+					continue
 				}
+				dec := json.NewDecoder(strings.NewReader(x[i:]))
+				var obj any
+				if dec.Decode(&obj) != nil {
+					continue
+				}
+				walk(obj)
+				i += int(dec.InputOffset()) - 1
 			}
 		}
 	}

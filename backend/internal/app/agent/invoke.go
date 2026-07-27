@@ -455,7 +455,14 @@ func buildSystemPrompt(a *agentdomain.Agent, v *agentdomain.Version, skillGuide 
 	if a.Name != "" {
 		identity = "You are " + a.Name + ", a workflow automation worker."
 		if a.Description != "" {
-			identity += " Your role: " + a.Description
+			// Terminate the description: it is USER-authored free text and rarely ends in a period,
+			// so appending the next sentence directly ran two sentences together — the assembled
+			// prompt read "…hands the artifact on Use available tools as needed". Caught by reading
+			// the real wire (WRK-082 H7); no test looked at this string.
+			// 给 description 收尾:它是**用户写的**自由文本、极少自带句号,直接续上下一句会把两句黏成一句
+			// ——装配出来读作「…hands the artifact on Use available tools as needed」。是读真线缆时发现的
+			// (H7);没有任何测试看过这个字符串。
+			identity += " Your role: " + strings.TrimRight(a.Description, " .。") + "."
 		}
 	}
 	prompt := identity +

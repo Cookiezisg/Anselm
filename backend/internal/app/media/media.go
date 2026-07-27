@@ -902,7 +902,12 @@ func (s *Service) runDerivative(ctx context.Context, derivative *mediadomain.Der
 			derivative.Status, derivative.ErrorCode = mediadomain.StatusFailed, "MEDIA_DERIVATIVE_FAILED"
 		}
 		_ = s.repo.SaveDerivative(reqctxpkg.Detached(derivative.WorkspaceID), derivative)
-		s.log.Warn("media: derivative processing failed", zap.String("work_id", derivative.ID))
+		// Carry the cause. Without it this line says only THAT it failed, and the row's
+		// MEDIA_DERIVATIVE_FAILED says the same — leaving no way to find out WHY except to
+		// reproduce under a debugger.
+		// 带上原因。少了它这行只说了「失败了」,而行上的 MEDIA_DERIVATIVE_FAILED 说的是同一件事
+		// ——于是除了挂调试器复现,没有任何办法知道**为什么**。
+		s.log.Warn("media: derivative processing failed", zap.String("work_id", derivative.ID), zap.Error(err))
 	}
 }
 

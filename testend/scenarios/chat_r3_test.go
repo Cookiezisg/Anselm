@@ -75,17 +75,36 @@ func sendWith(t *testing.T, wc *harness.Client, convID string, body map[string]a
 	return wc.POST("/api/v1/conversations/"+convID+"/messages", body).Field(t, "id") // MD3
 }
 
-// TestChatR3_AttachmentsThreeRoutes: 附件三路按模型能力门控（gpt-4o：vision=true、
-// nativeDocs=false）——文本直接内联、图片成 image_url part、PDF 走 sandbox 真抽取后内联。
+// nonNativeDocsModel is a vision model that does NOT read PDF inline, which is what route 3 needs.
+// The default `gpt-4o` used to be one — then the capability catalog was rebuilt from models.dev
+// (批A) and gained `pdf` on gpt-4o's inputs, so this scenario silently started exercising the
+// NATIVE branch while still asserting the extracted text. It stayed red on main because testend is
+// deliberately outside `make verify` (T5). Pinning a dated snapshot keeps the same provider and the
+// same mock while restoring the premise (WRK-082 H7).
+//
+// nonNativeDocsModel 是一个**有视觉、但不原生读 PDF** 的模型,正是第三条路需要的。默认的 `gpt-4o`
+// 曾经就是——后来能力目录按 models.dev 重建(批A),gpt-4o 的输入多了 `pdf`,于是本场景**悄悄改跑了原生
+// 分支**、却仍在断言抽取出来的文本。它就这样在 main 上红着,因为 testend 刻意不进 `make verify`(T5)。
+// 钉一个带日期的快照,供应商与 mock 都不变、而前提回来了(H7)。
+const nonNativeDocsModel = "gpt-4o-2024-11-20"
+
+// TestChatR3_AttachmentsThreeRoutes: 附件三路按模型能力门控（vision=true、nativeDocs=false）
+// ——文本直接内联、图片成 image_url part、PDF 走 sandbox 真抽取后内联。
 func TestChatR3_AttachmentsThreeRoutes(t *testing.T) {
 	t.Parallel()
 	wc, mock := chatSetup(t, false)
+	var keys []struct {
+		ID string `json:"id"`
+	}
+	wc.GET("/api/v1/api-keys?limit=1").OK(t, &keys)
+	wc.PUT("/api/v1/workspaces/"+wc.WorkspaceID()+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keys[0].ID, "modelId": nonNativeDocsModel}).OK(t, nil)
 
 	txtID := uploadAtt(t, wc, "notes.txt", "text/plain", []byte("TXTINLINE bravo content"))
 	pngID := uploadAtt(t, wc, "shot.png", "image/png", tinyPNG)
 	pdfID := uploadAtt(t, wc, "doc.pdf", "application/pdf", buildPDF("PDFEXTRACT alpha"))
 
-	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "read them all"})
+	mock.Enqueue(nonNativeDocsModel, harness.LLMTurn{Text: "read them all"})
 	convID := convCreate(t, wc, "attachments")
 	mid := sendWith(t, wc, convID, map[string]any{
 		"content":       "see the three files",
@@ -97,7 +116,7 @@ func TestChatR3_AttachmentsThreeRoutes(t *testing.T) {
 		t.Fatalf("turn must complete, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
 	}
 
-	raw := string(mock.DumpsFor(dlgModel)[0].Raw)
+	raw := string(mock.DumpsFor(nonNativeDocsModel)[0].Raw)
 	if !strings.Contains(raw, "TXTINLINE") {
 		t.Error("text attachment must inline its content into the model view")
 	}

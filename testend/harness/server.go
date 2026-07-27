@@ -210,6 +210,22 @@ func (s *Server) boot(t *testing.T, bin string) {
 	cmd.Env = append(os.Environ(),
 		"ANSELM_DATA_DIR="+s.DataDir,
 		"ANSELM_ADDR="+addr,
+		// Point the free-tier gateway at a closed loopback port. Creating a workspace fires an async
+		// provision, so WITHOUT this every scenario registered a real install on the PRODUCTION
+		// gateway (~50 per full run) and really spent free-tier quota whenever a generation route
+		// fell back to the managed provider. It also made routing non-deterministic: the managed row
+		// lands asynchronously and the fallback order prefers it, so two identical requests seconds
+		// apart could resolve to different providers. A refused connection fails the provision fast
+		// and leaves the workspace with exactly the keys the scenario created — which is the only
+		// configuration a scenario ever means to test. The two scenarios that touch the free tier
+		// already assert the offline face for precisely this situation.
+		//
+		// 把免费档网关指向一个**关闭的**回环端口。建 workspace 会触发异步开通,故**没有这一行**时每个
+		// 场景都会在**生产**网关上注册一个真 install(整轮约 50 个),并在任一生成路由回落到受管家时真的
+		// 花掉免费档配额。它还让选路不确定:受管行异步落地、而兜底顺序偏好它,于是相隔几秒的两个相同请求
+		// 会解析到不同供应商。连接被拒使开通快速失败,workspace 里就只剩场景自己建的那些 key——那也是场景
+		// **唯一**打算测的配置。碰免费档的那两个场景本就为这种情形写了离线面断言。
+		"ANSELM_GATEWAY_URL=http://127.0.0.1:1/v1",
 	)
 	cmd.Stdout = os.Stderr // backend logs interleave with test output for diagnosis. 后端日志混入测试输出便于诊断。
 	cmd.Stderr = os.Stderr

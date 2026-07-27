@@ -118,9 +118,10 @@ type LLMMock struct {
 	t   *testing.T
 	srv *httptest.Server
 
+	dumpLog // captured requests — shared verbatim with Recorder. 捕获的请求——与 Recorder 逐字共用。
+
 	mu           sync.Mutex
 	queues       map[string][]LLMTurn
-	dumps        []PromptDump
 	imagePrompts []string
 	speechInputs []string
 	videoPrompts []string
@@ -214,46 +215,6 @@ func (m *LLMMock) Clear(model string) {
 	m.mu.Unlock()
 }
 
-// Dumps returns a copy of every captured request so far.
-//
-// Dumps 返回至今捕获的全部请求副本。
-func (m *LLMMock) Dumps() []PromptDump {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	out := make([]PromptDump, len(m.dumps))
-	copy(out, m.dumps)
-	return out
-}
-
-// DumpsFor returns the captured requests addressed to one model id.
-//
-// DumpsFor 返回发给某 model id 的捕获请求。
-func (m *LLMMock) DumpsFor(model string) []PromptDump {
-	var out []PromptDump
-	for _, d := range m.Dumps() {
-		if d.Model == model {
-			out = append(out, d)
-		}
-	}
-	return out
-}
-
-// WaitDumps polls until at least n requests hit the given model id.
-//
-// WaitDumps 轮询直到某 model id 至少收到 n 个请求。
-func (m *LLMMock) WaitDumps(t *testing.T, model string, n, timeoutMS int) []PromptDump {
-	t.Helper()
-	deadline := time.Now().Add(time.Duration(timeoutMS) * time.Millisecond)
-	for time.Now().Before(deadline) {
-		if ds := m.DumpsFor(model); len(ds) >= n {
-			return ds
-		}
-		time.Sleep(50 * time.Millisecond)
-	}
-	t.Fatalf("llmmock: model %s never received %d requests (got %d)", model, n, len(m.DumpsFor(model)))
-	return nil
-}
-
 func (m *LLMMock) handleModels(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	// Catalog-known ids so capability probing works; scenarios may still use any id.
@@ -261,7 +222,16 @@ func (m *LLMMock) handleModels(w http.ResponseWriter, _ *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"object": "list",
 		"data": []map[string]string{
-			{"id": "gpt-4o"}, {"id": "mock-dialogue"}, {"id": "mock-utility"}, {"id": "mock-agent"},
+			// gpt-4o-2024-11-20 is here for one reason: it is a catalog-known VISION model that does
+			// NOT read PDF inline, which is the only way to exercise the sandbox-extraction route now
+			// that plain `gpt-4o` gained `pdf` in the models.dev catalog. A model absent from this
+			// list probes as unknown and falls back to conservative capabilities — which reads as
+			// "the feature is broken" rather than "the fixture is short an id".
+			// gpt-4o-2024-11-20 在这里只为一件事:它是目录已知的**视觉**模型且**不原生读 PDF**,而在
+			// 普通 gpt-4o 于 models.dev 目录里获得 `pdf` 之后,那是唯一还能跑通 sandbox 抽取那条路的办法。
+			// 不在此列表里的模型探测为未知、回落保守能力——读起来像「功能坏了」,其实是夹具少了一个 id。
+			{"id": "gpt-4o"}, {"id": "gpt-4o-2024-11-20"},
+			{"id": "mock-dialogue"}, {"id": "mock-utility"}, {"id": "mock-agent"},
 		},
 	})
 }
@@ -292,38 +262,7 @@ func (m *LLMMock) handleCompletions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dump := PromptDump{Model: req.Model, Raw: raw}
-	for _, t := range req.Tools {
-		dump.Tools = append(dump.Tools, t.Function.Name)
-	}
-	var msgs []struct {
-		Role       string          `json:"role"`
-		Content    json.RawMessage `json:"content"`
-		ToolCallID string          `json:"tool_call_id"`
-		ToolCalls  []struct {
-			Function struct {
-				Name string `json:"name"`
-			} `json:"function"`
-		} `json:"tool_calls"`
-	}
-	_ = json.Unmarshal(req.Messages, &msgs)
-	for _, mm := range msgs {
-		dm := DumpMsg{Role: mm.Role, ToolCallID: mm.ToolCallID}
-		var s string
-		if json.Unmarshal(mm.Content, &s) == nil {
-			dm.Content = s
-		} else {
-			dm.Content = string(mm.Content) // multimodal array — keep raw JSON text. 多模态数组——留原始 JSON 文本。
-		}
-		for _, tc := range mm.ToolCalls {
-			dm.ToolNames = append(dm.ToolNames, tc.Function.Name)
-		}
-		if mm.Role == "system" && dump.System == "" {
-			dump.System = dm.Content
-			continue
-		}
-		dump.Messages = append(dump.Messages, dm)
-	}
+	dump := parsePromptDump(raw)
 
 	m.mu.Lock()
 	q := m.queues[req.Model]
@@ -333,8 +272,8 @@ func (m *LLMMock) handleCompletions(w http.ResponseWriter, r *http.Request) {
 	} else {
 		turn = LLMTurn{Text: "ok."}
 	}
-	m.dumps = append(m.dumps, dump)
 	m.mu.Unlock()
+	m.add(dump)
 
 	if turn.EchoLastToolResult {
 		for i := len(dump.Messages) - 1; i >= 0; i-- {
