@@ -22,8 +22,11 @@ landed-into:
 >
 > - **✅ 真钱真机侧已走完**:key 已落位(H0)、网关已部署并线上验(H3)、七条验收的**模型侧**全部有真钱真线缆
 >   证据(H7,载具 `testend/scenarios/live_media_test.go`,`EVALS_MEDIA=1` 门控)。逐条见 §0.2。
-> - **❌ 人眼侧五格未验**(B1):渲在对话里/点开大图 · 图表卡与工具卡 · 朗读按钮与播放条 · 视频工具卡进度
->   与不冻结 · 编辑器里的图。机器判不了这五格——归 computer-use 复审那一场。
+> - **⚠️ 人眼侧五格:静态渲染已验、交互与时序未验**(B1)。载具 `frontend/test/dev/capture_media_b1.dart`
+>   截了五张真 PNG 并逐张看过:图表卡 · 朗读三态 · 编辑器里的图 **过**;chat 图卡与视频产物卡 **半过**。
+>   查出三条:**F1** 截图夹具自己在画豆腐(已修)· **F2** 生成的语音在加载时宣布「暂不能播放」(已修+守卫)
+>   · **F3 「点开大图」这个功能根本不存在**(**拍板点**)。剩下未验的是**时序**——生成过程中的进度、
+>   对话冻不冻结、真的按下播放——截图看不见,要真机。
 > - **❌ Windows / Linux 播放未验**(B2):vendored 的 `media_kit_video` Linux CMake **一次都没编过**,
 >   [ADR 0019](../../decisions/0019-vendor-media-kit-video-linux-only.md) 目前只有 macOS 侧证据。
 > - **⏳ 两笔价格债仍未销账**(卡 ID 带 `assumed-`,代拍 B3/C2):`qwen-image-assumed-*` 与
@@ -90,18 +93,48 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 字节给真上游,同时把请求存下来。**这是「不采信模型自述」在真钱面前唯一能成立的方式**:此前对着真模型,唯一
 能拿到的证据就是它自己的回答,而「我看见一座灯塔」正是一个**收到一句话而非像素**的模型会说的话。
 
-**每条都分成两半记**:**模型侧**(机器可判,已由真钱验收覆盖)与**人眼侧**(渲染/交互,归 computer-use
-复审那一场)。把两半混成一格,是上一版这张表最容易骗人的地方。
+**每条都分成两半记**:**模型侧**(机器可判,已由真钱验收覆盖)与**人眼侧**(渲染/交互)。把两半混成一格,
+是上一版这张表最容易骗人的地方。
+
+**人眼侧的载具是 `frontend/test/dev/capture_media_b1.dart`**(B1):五格各截一张真 PNG,喂平台媒体缝
+`mediaSourceProvider` 一份 fixture,图是**画在真 canvas 上的真柱状图**(纯色块在任何分辨率下都渲得完美、
+却对「图表看不看得清」一个字都没说)。**它刻意不是断言测试**——断言只能证「widget 在树里」,而这五格问的
+恰是断言问不出的:图糊没糊、卡挤没挤、播放按钮认不认得出来。故它只产 PNG、不入 `make verify`,判断留给
+看图的人。**它能覆盖的是静态渲染,不是交互与时序**:生成过程中的进度、对话冻不冻结、真的按下播放,
+仍要真机。
 
 | # | 模型侧证据 | 人眼侧 | 结论 |
 |---|---|---|---|
-| 1 | ✅ **真钱真图**——`TestLiveMedia_ChatImage`:真模型中文求画→真调工具→**1,523,916 字节真 PNG**落一等附件、字节往返一致;线缆里下一轮**带 receipt 且不带字节**(ADR 0017 用真钱证到了) | ❌ 渲在对话里/点开大图 | **模型侧过** |
+| 1 | ✅ **真钱真图**——`TestLiveMedia_ChatImage`:真模型中文求画→真调工具→**1,523,916 字节真 PNG**落一等附件、字节往返一致;线缆里下一轮**带 receipt 且不带字节**(ADR 0017 用真钱证到了) | ⚠️ 图**渲对了**(`b1_1`,真 PNG 内联 + 文件名·尺寸·体积 meta 行);**「点开大图」这个功能不存在**——见下 F3 | **模型侧过·人眼侧半过** |
 | 2 | ✅ **真钱真线缆**——`TestLiveMedia_WorkflowDownstreamSeesPixels`:下游 agent 的请求里是原生 `image_url` + **与库里逐字节相同**的 base64。**这条验收当场抓出一个真 bug 并修掉**(见下) | — | **过** |
-| 3 | ✅ **真钱真线缆(两个产地各一条)**——`TestLiveMedia_FunctionChartSeenByModel`:fn 真跑 matplotlib 出 PNG→模型请求里是像素;`TestLiveMedia_McpImageSeenByModel`:MCP server 经 stdio 递回 `image` 块→模型请求里是**与库里逐字节相同**的 base64。**后者当场抓出 A1**(见下)。另有 `TestLiveMedia_HandlerArtifactPerCall` 覆盖第五个产地(hd 逐调用产物目录) | ❌ 图表卡/工具卡 | **模型侧过** |
-| 4 | ✅ **真钱真声 + 钱的断言**——`TestLiveMedia_SpeechAndCache`:真 WAV;上游调用数 1→**重听后仍是 1**→换文本才 2;全程 0 次 chat 请求。**重听零计费在响应里看不见**(两次返回一模一样的字节),它只作为**一次没有发生的调用**存在 | ❌ 按钮/播放条 | **模型侧过** |
-| 5 | ✅ **真钱真片**——`TestLiveMedia_VideoDirect`:直连侧提交/轮询/取回三动词走通,真 MP4 落一等附件(受管侧已在 H3 于线上网关证过)。**顺带证了人闸**:这条一度被当成「卡住 122 秒」,查下来是 `dispatchWithGate` 在等批准——模型对 `generate_video` 自报了 `dangerous`、闸正常响了;测试现在**先断言闸响、再批准** | ❌ 工具卡进度/不冻结 | **模型侧过** |
-| 6 | ✅ **真钱**——`TestLiveMedia_DocumentImageInjected`:模型生成真图→自己 `create_document` 嵌进正文→**另一段对话** @ 该文档→线缆里是像素而非 `![](anselm://media/…)` 文本 | ❌ 编辑器里的图 | **模型侧过** |
+| 3 | ✅ **真钱真线缆(两个产地各一条)**——`TestLiveMedia_FunctionChartSeenByModel`:fn 真跑 matplotlib 出 PNG→模型请求里是像素;`TestLiveMedia_McpImageSeenByModel`:MCP server 经 stdio 递回 `image` 块→模型请求里是**与库里逐字节相同**的 base64。**后者当场抓出 A1**(见下)。另有 `TestLiveMedia_HandlerArtifactPerCall` 覆盖第五个产地(hd 逐调用产物目录) | ✅ `b1_2`:整份 fn 结果 payload 递给 `AnMediaRefStrip`,图表内联渲出、坐标轴与数值标签清晰可读 | **过(静态渲染)** |
+| 4 | ✅ **真钱真声 + 钱的断言**——`TestLiveMedia_SpeechAndCache`:真 WAV;上游调用数 1→**重听后仍是 1**→换文本才 2;全程 0 次 chat 请求。**重听零计费在响应里看不见**(两次返回一模一样的字节),它只作为**一次没有发生的调用**存在 | ✅ `b1_3`(**修完一个真缺陷之后**,见下 F2):空闲/加载中/播放中三态可辨——播放三角、加载文案、蓝色进度条 + mono 时长 | **过(静态渲染)** |
+| 5 | ✅ **真钱真片**——`TestLiveMedia_VideoDirect`:直连侧提交/轮询/取回三动词走通,真 MP4 落一等附件(受管侧已在 H3 于线上网关证过)。**顺带证了人闸**:这条一度被当成「卡住 122 秒」,查下来是 `dispatchWithGate` 在等批准——模型对 `generate_video` 自报了 `dangerous`、闸正常响了;测试现在**先断言闸响、再批准** | ⚠️ `b1_4`:**产物卡**对(播放器只在点击时构造,故这是用户先看到的那一态);**生成过程中的进度与「不冻结对话」未验**——那是时序,截图看不见 | **模型侧过·人眼侧半过** |
+| 6 | ✅ **真钱**——`TestLiveMedia_DocumentImageInjected`:模型生成真图→自己 `create_document` 嵌进正文→**另一段对话** @ 该文档→线缆里是像素而非 `![](anselm://media/…)` 文本 | ✅ `b1_5`:编辑器把 `AnSize.content` 宽交给同一族卡,正文里的图满宽渲出 | **过(静态渲染)** |
 | 7 | 主仓 `make verify` ✅ · 网关 `make verify` ✅ + 已部署(H3) · 文档 ✅ · testend ✅ | — | **过** |
+
+#### B1 人眼验收查到的三条(真钱验收全绿、`make verify` 全绿,一条也发现不了)
+
+**F1 · 截图夹具自己在画豆腐**(已修,`capture_support.dart`)。`loadAppFonts` 载了 Inter / MiSans /
+SF Mono / Lucide300,却**从没载过 `AnFonts.mono` 的头脸——内置的 JetBrains Mono**。于是**每一张含 mono
+文本的截图**(id、时长、代码、KV 值)画的都是实心方块,而这个夹具自本身存在起就是这样。它与那行
+Lucide300 注释里写的「漏了全豆腐块、踩过两次的坑」是**同一种失败**,只是换到了代码轴:缺字体从不报错、
+只画豆腐,而截图里的豆腐会被读成 app 的版面缺陷。**先查夹具再报缺陷**——我第一眼就差点把它写成发现。
+
+**F2 · 生成的语音在正常加载时宣布自己坏了**(已修 + 守卫)。`AnAudioAttachmentCard` 的状态行在
+`busy` 之下落进 `ready when !_playable => audioPlaybackUnavailable`,于是显示「暂不能播放」。
+`loadingAudio`(「正在加载音频…」)这个字符串**一直存在**,只是 transcript 在**自己的调用处**算好了传进来,
+而 generate_speech 工具卡(批C)抄了那次调用、**漏了这一步**。修法不是在工具卡补一行,是把这一行推进卡里
+——卡本来就收 `busy`、本来就用它推 `_playable`,让**同一个输入**在两个地方各推一半,正是这次走偏的成因。
+守卫 `test/core/ui/an_audio_attachment_card_test.dart` 四格钉死(busy→loading、显式 statusLine 仍优先、
+无 onPlayTap 时原义不变、空闲态 meta 行)。
+
+**F3 · 「点开大图」这个功能不存在**(**未修,是个拍板点**)。终点验收 ① 的原话是「图渲在对话里、
+**点开大图**」。前半成立;后半**没有实现**:`AnMediaRefCard` 的图分支上没有任何点击处理,
+`an_attachment_thumb.dart:23` 自己写着「onTap 留给**未来的** lightbox / 右岛」,而 chat UI、媒体卡、
+附件卡三处**没有任何** `showDialog` / `Navigator.push`。所以这一格的人眼半**不是没验、是没东西可验**。
+两条路:①做一个 lightbox(点击图卡 → 模态大图,Esc/点外关闭);②改验收——把「点开大图」从 ① 里划掉。
+**我不替你选**:它是你写下的验收原话,而删掉自己的验收条目正是本页 §1 那条教训在讲的事。
 
 #### 这一轮真钱验收抓到的东西(mock 全绿、一个也发现不了)
 

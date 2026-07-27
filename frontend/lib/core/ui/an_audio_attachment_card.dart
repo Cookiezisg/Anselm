@@ -82,6 +82,17 @@ class AnAudioAttachmentCard extends StatelessWidget {
       AnAttachmentState.offline => t.attach.offlineRetry,
       AnAttachmentState.oversized => t.attach.tapToLoad,
       AnAttachmentState.ready when statusLine != null => statusLine!,
+      // Loading is a KNOWN reason, so it must be said before the generic "not playable" — otherwise a
+      // clip that is merely fetching reads as broken. The card already takes [busy] and already
+      // derives _playable from it, so deriving the LINE here too is the only way the two can't drift:
+      // the transcript computed this string at its call site while the generate_speech tool card
+      // (WRK-082 批C) copied the call and dropped it, and every generated clip therefore announced
+      // 「暂不能播放」 while it was loading perfectly normally. Found by the B1 human-eye pass.
+      // 加载中是一个**已知的**原因,故必须排在笼统的「不可播」之前——否则一段只是在取字节的音频会被读成
+      // 坏了。卡本来就收 [busy]、也本来就用它推 _playable,那么**这一行**也在这里推,才是两者不会走偏的
+      // 唯一办法:transcript 在自己的调用处算了这个字符串,而 generate_speech 工具卡(批C)抄了调用、
+      // 漏了它,于是每一段生成的语音在正常加载时都宣布「暂不能播放」。B1 人眼验收查出。
+      AnAttachmentState.ready when busy => t.attach.loadingAudio,
       AnAttachmentState.ready when !_playable =>
         t.attach.audioPlaybackUnavailable,
       _ => metaLine,

@@ -41,12 +41,25 @@ Future<void> loadFont(String family, String path) async {
   await loader.load();
 }
 
-/// Loads the app's real font stack so captures are glyph-faithful: Inter + MiSans + SF Mono +
-/// Lucide300 (the icon face — the variable w300 instance, NOT plain 'Lucide'). Call in setUpAll.
-/// 载入真字体栈(含 Lucide300 图标脸),setUpAll 里调。
+/// Loads the app's real font stack so captures are glyph-faithful: Inter + MiSans + JetBrains Mono
+/// (+ SF Mono as the platform fallback) + Lucide300 (the icon face — the variable w300 instance,
+/// NOT plain 'Lucide'). Call in setUpAll.
+///
+/// **The HEAD family of each axis must be here, not just a fallback.** `AnFonts.mono` defaults to
+/// bundled `JetBrains Mono`, and it went unloaded for as long as this harness existed — so every
+/// capture containing mono text (ids, durations, code, KV values) rendered filled boxes. That is the
+/// SAME failure the Lucide300 line above already exists to prevent, repeated on the code axis: a
+/// missing face never errors, it just draws tofu, and tofu in a screenshot reads as a layout defect
+/// in the app. Found by the WRK-082 B1 human-eye pass, on the audio card's `–:––` duration.
+///
+/// 载入真字体栈,setUpAll 里调。**每条轴的头脸都必须在这儿、不能只靠回落**:`AnFonts.mono` 默认是内置的
+/// JetBrains Mono,而它自本夹具存在起就没被载入过——于是**每一张含 mono 文本的截图**(id、时长、代码、
+/// KV 值)画的都是实心方块。这与上面 Lucide300 那行要防的是**同一种失败**,只是换到了代码轴:缺字体从不
+/// 报错、只画豆腐,而截图里的豆腐会被读成 app 的版面缺陷。B1 人眼验收在音频卡的 `–:––` 上撞出来。
 Future<void> loadAppFonts() async {
   await loadFont('Inter', 'assets/fonts/InterVariable.ttf');
   await loadFont('MiSans', 'assets/fonts/MiSansVF.ttf');
+  await loadFont('JetBrains Mono', 'assets/fonts/JetBrainsMono.ttf');
   await loadFont('SF Mono', '/System/Library/Fonts/SFNSMono.ttf');
   // The icon font ships in the package's pub cache; the family name carries the weight instance.
   // 图标字体在 pub 缓存;family 名带字重档。
