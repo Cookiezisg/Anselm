@@ -705,11 +705,22 @@ func (h *mediaHost) ExpandToolMedia(_ context.Context, ids []string) []llminfra.
 	return []llminfra.ContentPart{{Type: llminfra.PartImageURL, ImageURL: "data:image/png;base64,xx"}}
 }
 
-// TestRun_ToolResultMediaExpandsForTheModel: a tool receipt carrying a MediaRef makes the NEXT
-// model request contain a user message with the rendered media part — the model sees what its
-// own tool just produced, same turn. Also pins that the expansion rides ONLY the follow-up
-// request (first request untouched).
-func TestRun_ToolResultMediaExpandsForTheModel(t *testing.T) {
+// TestRun_SelfAuthoredMediaIsNotFedBack: an artifact the model ORDERED does not come back to it as
+// input. It wrote the prompt, so the pixels add nothing to its next turn — while re-inlining them
+// turns a plain follow-up into a multimodal request, and a big one into a request the upstream
+// refuses outright (observed on a real 3.2MB generated clip: the turn died with a 400 AFTER the
+// video had been generated and paid for).
+//
+// This test asserted the OPPOSITE until 2026-07-27. The rule is now: the PRODUCER decides whether an
+// artifact is model input; size only decides how to degrade one that does need to go.
+//
+// TestRun_SelfAuthoredMediaIsNotFedBack:模型**自己点的**产物不会作为输入回到它那里。prompt 是它写的,
+// 像素对它的下一轮毫无增益——而把字节内联回去会把一次普通的后续请求变成多模态请求,大一点的干脆被上游
+// 拒收(真机实测:一段 3.2MB 的生成视频,**在生成完并付过钱之后**,那一轮以 400 死掉)。
+//
+// 本测试在 2026-07-27 之前断言的是**相反**的事。现行规则:**产地**决定一份产物是不是模型输入;大小只决定
+// 那些**确实该走**的怎么降级。
+func TestRun_SelfAuthoredMediaIsNotFedBack(t *testing.T) {
 	receipt := `{"attachmentId":"att_00aa00aa00aa00aa","mime":"image/png","source":"generate_image"}`
 	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
 		{toolStartEv(0, "tc_1", "paint"), toolDeltaEv(0, `{"summary":"s","danger":"safe"}`), finishEv()},
@@ -722,8 +733,10 @@ func TestRun_ToolResultMediaExpandsForTheModel(t *testing.T) {
 	if host.fin.status != messagesdomain.StatusCompleted {
 		t.Fatalf("status=%q, want completed", host.fin.status)
 	}
-	if len(host.got) != 1 || len(host.got[0]) != 1 || host.got[0][0] != "att_00aa00aa00aa00aa" {
-		t.Fatalf("expander asked for %v, want exactly the receipt's id once", host.got)
+	for _, ids := range host.got {
+		if len(ids) != 0 {
+			t.Fatalf("a self-authored artifact was fed back to the model: %v", host.got)
+		}
 	}
 	if len(client.captured) != 2 {
 		t.Fatalf("requests=%d, want 2", len(client.captured))
@@ -734,6 +747,37 @@ func TestRun_ToolResultMediaExpandsForTheModel(t *testing.T) {
 				t.Fatalf("first request already carries the media part — expansion must ride the follow-up only")
 			}
 		}
+	}
+	for _, m := range client.captured[1] {
+		for _, p := range m.Parts {
+			if p.Type == llminfra.PartImageURL {
+				t.Fatalf("the follow-up request carries media the model itself ordered: %+v", client.captured[1])
+			}
+		}
+	}
+}
+
+// TestRun_EvidenceMediaStillExpands is the OTHER half of the rule, and the reason it is keyed on the
+// producer rather than on "media in a tool_result". A chart a function computed is something the
+// model has NEVER seen — that is the whole point of having asked — so it must still arrive as a
+// real media part. Losing this would quietly turn the computation↔perception loop into a text
+// pipeline that only pretends to look.
+//
+// TestRun_EvidenceMediaStillExpands 是这条规则的**另一半**,也是它按**产地**而非按「tool_result 里有
+// 媒体」判定的理由。function 算出来的图表是模型**从未见过**的东西——那正是它开口要的理由——故它必须
+// 仍然以真媒体 part 到达。丢了这条,「计算↔感知闭环」会静默退化成一条**假装在看**的文本流水线。
+func TestRun_EvidenceMediaStillExpands(t *testing.T) {
+	receipt := `{"attachmentId":"att_00bb00bb00bb00bb","mime":"image/png","source":"function_artifact"}`
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+		{toolStartEv(0, "tc_1", "chart"), toolDeltaEv(0, `{"summary":"s","danger":"safe"}`), finishEv()},
+		{textEv("done"), finishEv()},
+	}}
+	host := &mediaHost{fakeHost: fakeHost{tools: []toolapp.Tool{fakeTool{name: "chart", result: receipt}}}}
+
+	Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+
+	if len(host.got) != 1 || len(host.got[0]) != 1 || host.got[0][0] != "att_00bb00bb00bb00bb" {
+		t.Fatalf("expander asked for %v, want exactly the function artifact once", host.got)
 	}
 	found := false
 	for _, m := range client.captured[1] {
@@ -747,7 +791,7 @@ func TestRun_ToolResultMediaExpandsForTheModel(t *testing.T) {
 		}
 	}
 	if !found {
-		t.Fatalf("second request lacks the expanded media part: %+v", client.captured[1])
+		t.Fatalf("second request lacks the evidence media part: %+v", client.captured[1])
 	}
 }
 

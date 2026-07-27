@@ -132,7 +132,16 @@ func toolResultMediaIDs(rBlocks []messagesdomain.Block) []string {
 		if json.Unmarshal([]byte(b.Content), &v) != nil {
 			continue
 		}
-		for _, id := range mediarefpkg.Collect(v) {
+		// The generation family is EXCLUDED here and only here: this is the tool_result of the step
+		// the model just took, so a picture/clip/utterance it ordered was described by its own prompt
+		// — re-inlining the bytes buys nothing and costs a multimodal request. Everything else
+		// (function artifacts, MCP binaries) is evidence the model has not seen, and still expands.
+		// A model that genuinely wants to look at what it made calls `inspect_media` — pull, not push.
+		// 生成族**只在这里**被排除:这是模型**刚走那一步**的 tool_result,它点的图/片子/语音,描述就是它
+		// 自己写的——把字节再内联回去买不到任何东西,却要付一次多模态请求的钱。其余产地(function 产物、
+		// MCP 二进制)是模型**没见过**的证据,照常展开。真想看自己造的东西的模型去调 `inspect_media`
+		// ——**拉,不是推**。
+		for _, id := range mediarefpkg.CollectExcept(v, mediarefpkg.SelfAuthored) {
 			if !seen[id] {
 				seen[id] = true
 				ids = append(ids, id)

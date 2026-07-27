@@ -126,3 +126,42 @@ func TestCollectURIs_Capped(t *testing.T) {
 		t.Fatalf("collect = %d, want the %d cap", len(got), MaxRefs)
 	}
 }
+
+// TestCollectExcept_VetoesBySourceNotById: the veto reads the receipt's own producer, so the SAME
+// attachment id is skipped when self-authored and kept when it is evidence. Keying on the id
+// instead would make one artifact's fate depend on whichever receipt happened to be seen first.
+//
+// TestCollectExcept_VetoesBySourceNotById:否决读的是 receipt 自己的产地,故**同一个** id 在「自己点的」
+// 那份里被跳过、在「证据」那份里被保留。改成按 id 判定,会让一份产物的命运取决于**先看到哪份 receipt**。
+func TestCollectExcept_VetoesBySourceNotById(t *testing.T) {
+	const id = "att_00aa00aa00aa00aa"
+	generated := map[string]any{Key: id, "source": "generate_video"}
+	evidence := map[string]any{Key: id, "source": "function_artifact"}
+
+	if got := CollectExcept(generated, SelfAuthored); len(got) != 0 {
+		t.Fatalf("self-authored receipt collected: %v", got)
+	}
+	if got := CollectExcept(evidence, SelfAuthored); len(got) != 1 || got[0] != id {
+		t.Fatalf("evidence receipt = %v, want the id", got)
+	}
+	// A nil veto is the plain Collect — the other consumption entries (agent invoke payload) must
+	// keep seeing everything, because a DOWNSTREAM model did not author the upstream's prompt.
+	// nil 否决即普通 Collect——其余消费入口(agent invoke payload)必须照旧全见,因为**下游**模型并没有
+	// 写过上游那条 prompt。
+	if got := Collect(generated); len(got) != 1 {
+		t.Fatalf("plain Collect must not veto: %v", got)
+	}
+}
+
+func TestSelfAuthored_IsTheGenerationFamilyOnly(t *testing.T) {
+	for _, src := range []string{"generate_image", "generate_speech", "generate_video"} {
+		if !SelfAuthored(src) {
+			t.Fatalf("%s must be self-authored", src)
+		}
+	}
+	for _, src := range []string{"function_artifact", "handler_artifact", "mcp", "", "read_aloud"} {
+		if SelfAuthored(src) {
+			t.Fatalf("%s must NOT be self-authored — the model has not seen it", src)
+		}
+	}
+}

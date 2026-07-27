@@ -272,7 +272,16 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		}
 		switch a.Kind {
 		case attachmentdomain.KindImage:
-			if caps.Vision && caps.RemoteMedia != nil {
+			// The envelope binds the REMOTE path too. Lease media used to contribute zero decoded
+			// bytes (it was a reference the provider fetched), but ADR 0012 made the gateway INLINE
+			// the lease content into the upstream body — so the bytes are back on the meter, and the
+			// gateway enforces its per-request budget there. Skipping the check here does not make
+			// the limit go away; it just moves the failure to a 400 that kills the whole turn.
+			// 信封同样约束**远端**路径。lease 媒体过去计零解码字节(它是由 provider 自己去取的引用),但
+			// ADR 0012 把网关改成**把 lease 内容内联进上游请求体**——字节因此回到了表上,而网关就在那里
+			// 执行每请求预算。这里不查,上限不会消失,只是把失败挪成一个**打死整个回合**的 400。
+			if caps.Vision && caps.RemoteMedia != nil &&
+				fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				stageData, stageMIME := managedImageBytes(ctx, caps.RemoteMedia, a, data)
 				// An undeliverable format must not take the whole turn down with it. Uploading it
 				// anyway would 400 at the gateway and abort the turn; a note keeps the answer
@@ -290,6 +299,8 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 					return nil, err
 				}
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartImageURL, ImageURL: source})
+				mediaParts++
+				mediaBytes += int64(len(data))
 			} else if caps.Vision && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartImageURL, ImageURL: dataURL(a.MimeType, data)})
 				mediaParts++
@@ -298,12 +309,15 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 				out = append(out, unavailableMediaNote("image", a.Filename, caps.Vision, "vision", caps, mediaParts, mediaBytes, int64(len(data))))
 			}
 		case attachmentdomain.KindVideo:
-			if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && caps.RemoteMedia != nil {
+			if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && caps.RemoteMedia != nil &&
+				fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				source, err := stagedMediaURL(ctx, caps.RemoteMedia, remoteURLs, a, normalizedMIME(a.MimeType), data)
 				if err != nil {
 					return nil, err
 				}
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartVideoURL, VideoURL: source})
+				mediaParts++
+				mediaBytes += int64(len(data))
 			} else if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartVideoURL, VideoURL: dataURL("video/mp4", data)})
 				mediaParts++

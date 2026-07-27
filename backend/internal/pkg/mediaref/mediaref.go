@@ -47,7 +47,57 @@ func IsAttachmentID(s string) bool { return idShape.MatchString(s) }
 // MaxRefs 封顶。含文法 Key 的**字符串**标量会得到一次 JSON 解码并继续走其值——receipt 在
 // workflow 节点间常以文本流动(agent 自由文本答案成 `node.text`,下游 input 拿到的是字符串),
 // 咽喉认不出这一形,不变量③的流水线半就静默死掉。子串闸免去任意大文本的解码开销。
-func Collect(v any) []string {
+func Collect(v any) []string { return CollectExcept(v, nil) }
+
+// SourceKey names the receipt field every producer stamps with its own identity.
+//
+// SourceKey 是每个产地盖在 receipt 上的产地字段名。
+const SourceKey = "source"
+
+// SelfAuthored reports whether a receipt came from the GENERATION family — an artifact the model
+// asked for by writing its own prompt.
+//
+// It exists because "should this artifact be fed back to the model as input" is decided by its
+// PRODUCER, not by its size or its modality. A picture the model itself ordered adds nothing to
+// that model's next turn: it authored the description, so it already knows what is in there.
+// A chart a function computed is the opposite — that is evidence the model has never seen, and it
+// is the whole point of asking. Size only decides how to DEGRADE when an artifact does need to go;
+// it must never be the thing that decides whether it goes.
+//
+// This is also what the mature implementations do: OpenAI's image_generation tool carries a
+// previous image into the next turn by ID (the model sees `revised_prompt` and call metadata, not
+// the pixels), and a model that genuinely needs to look calls an inspection tool — pull, not push.
+//
+// SelfAuthored 报告一份 receipt 是否出自**生成族**——模型自己写 prompt 要来的产物。
+//
+// 它存在,是因为「这份产物该不该回喂给模型当输入」由它的**产地**决定,不由大小、也不由模态决定。
+// 模型自己点的那张图,对它的下一轮毫无增益:描述是它写的,它**已经知道**里面是什么。而 function 算出来的
+// 那张图表恰恰相反——那是模型**从未见过**的证据,也正是它开口要的理由。大小只决定该走时**怎么降级**,
+// 绝不能成为决定走不走的那个判据。
+//
+// 这也是成熟实现的做法:OpenAI 的 image_generation 工具把上一张图带进下一轮靠的是 **ID**(模型看到的是
+// `revised_prompt` 与调用元数据、不是像素);而真需要看的模型去调一个检视工具——**拉,不是推**。
+func SelfAuthored(source string) bool {
+	switch source {
+	case "generate_image", "generate_speech", "generate_video":
+		return true
+	}
+	return false
+}
+
+// CollectExcept is Collect with a per-receipt veto keyed on its SourceKey. A nil skip collects
+// everything (the plain Collect).
+//
+// The veto is applied at the RECEIPT, not to the id afterwards: the same attachment can legitimately
+// be self-authored in one place and evidence in another (an upstream node generates a chart, a
+// downstream agent must look at it), so the decision belongs where the producer is still named.
+//
+// CollectExcept 是带**逐 receipt 否决**的 Collect,否决依据是它的 SourceKey。skip 为 nil 即全收(即
+// 普通 Collect)。
+//
+// 否决施加在 **receipt** 上、而不是事后施加在 id 上:同一份附件完全可以在一处是「自己点的」、在另一处是
+// 「证据」(上游节点生成一张图表、下游 agent 必须看它),故这个决定必须留在**产地还叫得出名字**的地方。
+func CollectExcept(v any, skip func(source string) bool) []string {
 	var out []string
 	seen := map[string]bool{}
 	var walk func(v any)
@@ -58,8 +108,11 @@ func Collect(v any) []string {
 		switch x := v.(type) {
 		case map[string]any:
 			if id, ok := x[Key].(string); ok && IsAttachmentID(id) && !seen[id] {
-				seen[id] = true
-				out = append(out, id)
+				src, _ := x[SourceKey].(string)
+				if skip == nil || !skip(src) {
+					seen[id] = true
+					out = append(out, id)
+				}
 			}
 			for _, val := range x {
 				walk(val)

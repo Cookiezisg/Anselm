@@ -613,3 +613,53 @@ func TestToContentParts_ManagedUndeliverableFormatDegradesInsteadOfStoppingTurn(
 		t.Fatalf("the note must name the file and its format so the answer stays honest, got %q", parts[0].Text)
 	}
 }
+
+// TestToContentParts_RemoteMediaObeysTheEnvelope is the regression for a real production failure.
+//
+// Lease media used to be exempt from the decoded-bytes envelope: it travelled as a reference the
+// PROVIDER fetched, so it cost the request nothing. ADR 0012 changed that — the gateway now INLINES
+// the lease content into the upstream body — and the check here was never updated. A 3.2MB
+// generated clip therefore sailed past this function and died at the gateway with
+// "media exceeds the per-request decoded size limit", killing the whole turn AFTER the video had
+// been generated and paid for.
+//
+// Skipping the check never made the limit go away; it only moved the failure somewhere that costs
+// the user their turn instead of one honest sentence.
+//
+// TestToContentParts_RemoteMediaObeysTheEnvelope 是一次**真实生产故障**的回归。
+//
+// lease 媒体过去免受解码字节信封的约束:它是由**上游**去取的引用,对本请求零成本。ADR 0012 改了这件事
+// ——网关现在**把 lease 内容内联进上游请求体**——而这里的检查从没跟着更新。于是一段 3.2MB 的生成片子
+// 一路穿过本函数,在网关以「media exceeds the per-request decoded size limit」死掉,而那时视频**已经生成、
+// 已经付过钱**,整个回合报废。
+//
+// 不查这道闸从来不会让上限消失,只会把失败挪到一个「代价是用户的一整轮」而非「一句诚实的话」的地方。
+func TestToContentParts_RemoteMediaObeysTheEnvelope(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	big := append([]byte("\x00\x00\x00\x18ftypisom"), make([]byte, 4096)...)
+	video, _ := svc.Upload(ctx, "big.mp4", "video/mp4", big)
+	huge := append([]byte("\x89PNG"), make([]byte, 4096)...)
+	image, _ := svc.Upload(ctx, "big.png", "image/png", huge)
+	uploader := &fakeRemoteMediaUploader{url: "https://media.example/v1/media/leases/mls_1/content?token=t"}
+	caps := Capabilities{
+		Vision: true, Video: true,
+		MaxMediaBytes: 1024, // smaller than either artifact / 比任一产物都小
+		RemoteMedia:   &RemoteMedia{BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader},
+	}
+
+	parts, err := svc.ToContentParts(ctx, []string{video.ID, image.ID}, caps)
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	for _, p := range parts {
+		if p.Type == llminfra.PartVideoURL || p.Type == llminfra.PartImageURL {
+			t.Fatalf("an over-envelope artifact was still sent as a media part: %+v", parts)
+		}
+	}
+	if len(parts) != 2 {
+		t.Fatalf("parts = %d, want an honest note for each", len(parts))
+	}
+	if uploader.calls != 0 {
+		t.Fatalf("uploads = %d — an artifact that cannot be sent must not be uploaded either", uploader.calls)
+	}
+}
