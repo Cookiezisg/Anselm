@@ -1,14 +1,13 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/media/media_ref.dart';
+import '../../../../core/media/media_cards.dart';
 
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
-import '../../../../core/model/byte_format.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
-import '../../../../core/media/attachment_image_provider.dart';
-import '../../data/chat_providers.dart';
 import '../../state/attachment_meta.dart';
 
 /// The attachment settled-row body (WRK-064) — the still-life pedestal: an image renders its real
@@ -31,27 +30,25 @@ class AttachmentPedestal extends ConsumerWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          if (m.kind == 'image') ...[
-            // The ONE sent-image thumbnail primitive (A-111) — same bounded single-image register
-            // as the chat bubble (thumbMaxW×thumbMaxH), decode errors degrade to the honest slab,
-            // filename is the a11y alt. 唯一缩略图原语:与用户泡同档单图界(私铸 180 顶退役),解码错降级
-            // 诚实板,文件名作 a11y alt。
-            AnAttachmentThumb(
-              image: AttachmentImageProvider(
-                attachmentId,
-                fetch: () => ref
-                    .read(chatRepositoryProvider)
-                    .getAttachmentBytes(attachmentId),
-              ),
-              filename: m.filename,
-              variant: AnThumbVariant.single,
-            ),
-            const SizedBox(height: AnSpace.s8),
-          ],
+          // The ONE card family (不变量④) — dispatching on the attachment ROW's mime, exactly as
+          // chat's tool card, the flowrun node inspector, the entity console and the document
+          // editor do. This used to be a second rendering path that keyed on `kind == 'image'`
+          // itself, so a generated CLIP showed up here as three rows of size/mime/sha with no card
+          // and no way to watch it — the invariant says the family renders media everywhere, and a
+          // surface that grows its own image branch quietly opts out of every future modality
+          // (WRK-082 H6).
+          // **唯一那族卡**(不变量④)——按附件**行的 mime** 分发,与 chat 工具卡、flowrun 节点检查器、
+          // 实体调试台、文档编辑器**完全一样**。这里过去是**第二条**渲染路径、自己认 `kind == 'image'`,
+          // 于是一段生成的**片子**在这儿只有 size/mime/sha 三行,没有卡、也没法看——不变量说的是「一族卡
+          // 到处渲媒体」,而一个自己长出图像分支的面,等于**静默退出了此后每一个新模态**(H6)。
+          AnMediaRefCard(
+            mediaRef: AnMediaRef(attachmentId: attachmentId),
+            maxWidth: AnSize.thumbMaxW,
+          ),
+          const SizedBox(height: AnSpace.s8),
           AnKv(
             dense: true,
             rows: [
-              AnKvRow('size', formatBytes(m.sizeBytes)),
               if (m.mimeType.isNotEmpty)
                 AnKvRow('mime', m.mimeType, mono: true),
               if (m.sha256.isNotEmpty)

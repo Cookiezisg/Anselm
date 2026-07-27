@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/media/media_cards.dart';
+import 'package:anselm/core/media/attachment_image_provider.dart';
 import 'package:anselm/core/ui/an_attachment_card.dart';
 import 'package:anselm/core/media/media_video.dart';
 import 'package:anselm/core/net/api_client.dart';
@@ -65,6 +66,7 @@ Widget _host(Widget child, {List<Override> overrides = const []}) =>
     );
 
 void main() {
+  _batteryTests();
   _videoTests();
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
@@ -147,7 +149,13 @@ void main() {
     );
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 100));
-    expect(find.textContaining(_id), findsWidgets);
+    // WORDS, not the raw id — this asserted `findsWidgets` on the att_ id until 2026-07-27, which
+    // pinned exactly the behaviour that leaked an internal identifier at the user (WRK-082 H6).
+    // The id survives as the semantics anchor, which is where a machine wants it and a person does not.
+    // **人话,不是裸 id**——本断言在 2026-07-27 之前钉的是「找得到 att_ id」,而那恰好钉住了「把内部标识
+    // 漏给用户」这个行为(H6)。id 作为 semantics 锚点仍在,那正是机器要它、而人不要它的地方。
+    expect(find.textContaining(_id), findsNothing);
+    expect(find.text('已不可用'), findsOneWidget);
     expect(find.byType(Image), findsNothing);
   });
 
@@ -294,5 +302,108 @@ void _videoTests() {
     await tester.pump();
     expect(find.byType(AnVideoCard), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+}
+
+// --- the batteries the matrix was missing (迭代铁律④, WRK-082 H6) ---------------
+//
+// The file had empty / unreadable / many-refs but not 超长 / 极值 / 注入. Those three are exactly
+// where a media card meets data it did not author: filenames come from providers and from user
+// code, sizes come from whatever landed, and neither is sanitized on the way in.
+//
+// 本文件此前有 空 / 读不到 / 海量,却没有**超长 / 极值 / 注入**。而那三样恰恰是媒体卡遇到「不是自己
+// 写的数据」的地方:文件名来自上游、也来自用户代码,大小来自落进来的任何东西,两者在入口处都没被消毒。
+void _batteryTests() {
+  Widget hostFor(AttachmentMeta meta) => _host(
+    const AnMediaRefStrip(payload: {'text': _receipt}),
+    overrides: [mediaSourceProvider.overrideWithValue(_StubSource(meta))],
+  );
+
+  testWidgets('超长 — an absurd filename does not overflow the card', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      hostFor(
+        AttachmentMeta(
+          id: _id,
+          filename: '${'とてもながいファイル名' * 40}.png',
+          mimeType: 'image/png',
+          sizeBytes: 1234,
+          kind: 'image',
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('极值 — zero bytes and an absurd size both render', (tester) async {
+    for (final size in <int>[0, 9007199254740991]) {
+      await tester.pumpWidget(
+        hostFor(
+          AttachmentMeta(
+            id: _id,
+            filename: 'edge.mp4',
+            mimeType: 'video/mp4',
+            sizeBytes: size,
+            kind: 'video',
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull, reason: 'sizeBytes=$size');
+    }
+  });
+
+  testWidgets('注入 — markup in a filename is text, never markup', (
+    tester,
+  ) async {
+    const hostile = '<script>alert(1)</script>![x](http://evil/x.png)';
+    await tester.pumpWidget(
+      hostFor(
+        const AttachmentMeta(
+          id: _id,
+          filename: hostile,
+          mimeType: 'image/png',
+          sizeBytes: 10,
+          kind: 'image',
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    // Rendered as literal text — no markdown pass. The ONE image present is the attachment's own,
+    // sourced from the id through AttachmentImageProvider; the `![x](http://evil/x.png)` inside the
+    // filename summons nothing, because a filename is never a source. A provider chooses these
+    // strings, so the card must never let one become markup or a fetch.
+    // 按**字面文本**渲、不过 markdown。在场的**那一张**图是附件自己的,经 AttachmentImageProvider 按 id
+    // 取;文件名里那段 `![x](http://evil/x.png)` **召唤不出任何东西**,因为文件名从来不是图源。这些字符串
+    // 是上游选的,故卡片绝不能让其中之一变成标记、或变成一次抓取。
+    expect(find.textContaining('<script>'), findsWidgets);
+    final images = tester.widgetList<Image>(find.byType(Image)).toList();
+    expect(images, hasLength(1));
+    expect(images.single.image, isA<AttachmentImageProvider>());
+  });
+
+  testWidgets('注入 — a hostile MIME does not pick a renderer', (tester) async {
+    // The family dispatches on the ROW's mime, so a lying mime is the one input that could send an
+    // artifact down the wrong branch. `image/png; charset=<script>` must not read as an image.
+    // 一族卡按**行的 mime** 分发,故一个撒谎的 mime 是唯一可能把产物送错分支的输入。
+    // `image/png; charset=<script>` 不得被读成图像。
+    await tester.pumpWidget(
+      hostFor(
+        const AttachmentMeta(
+          id: _id,
+          filename: 'x.bin',
+          mimeType: 'application/octet-stream; x=image/png',
+          sizeBytes: 10,
+          kind: 'other',
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.byType(Image), findsNothing);
+    expect(find.byType(AnVideoCard), findsNothing);
   });
 }

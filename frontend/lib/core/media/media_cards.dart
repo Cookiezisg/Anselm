@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../i18n/strings.g.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
@@ -47,8 +48,19 @@ class AnMediaRefCard extends ConsumerWidget {
     // 类模式会让诚实行永远闪回占位。hasError 跨重试恒真。
     if (meta.hasError) {
       // The attachment row is the truth; a row we cannot read is said out loud, never a broken image.
-      // 附件行是真相;读不到的行明说,绝不渲一张破图。
-      return Text(id, style: AnText.label.copyWith(color: c.inkFaint));
+      // But "said out loud" has to mean WORDS: this used to print the raw `att_9f3c…` id, which tells
+      // a user nothing they can act on and reads like a leaked internal (WRK-082 H6). The id stays as
+      // the a11y/semantics anchor, the human sentence is what shows.
+      // 附件行是真相;读不到的行明说,绝不渲一张破图。但**「明说」得是人话**:这里过去印的是裸的
+      // `att_9f3c…` id——对用户既无从据以行动、读起来又像漏出来的内部实现(H6)。id 留作 a11y 锚点,
+      // 露在外面的是那句人话。
+      return Semantics(
+        identifier: id,
+        child: Text(
+          context.t.attach.unavailable,
+          style: AnText.label.copyWith(color: c.inkFaint),
+        ),
+      );
     }
 
     return switch (meta) {
