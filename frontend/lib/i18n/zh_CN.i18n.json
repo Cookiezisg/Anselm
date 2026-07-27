@@ -2045,6 +2045,7 @@
       "retentionForever": "永久保留",
       "retentionSaved": "保留策略已更新",
       "database": "数据库",
+      "attachments": "附件",
       "dbFootprint": "$size,其中 $dead 可回收",
       "compact": "压缩数据库",
       "compacting": "压缩中…",

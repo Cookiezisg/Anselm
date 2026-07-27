@@ -5594,6 +5594,9 @@ class Translations$settings$storage$en {
 	/// en: 'Database'
 	String get database => 'Database';
 
+	/// en: 'Attachments'
+	String get attachments => 'Attachments';
+
 	/// en: '$size, of which $dead reclaimable'
 	String dbFootprint({required Object size, required Object dead}) => '${size}, of which ${dead} reclaimable';
 
@@ -8814,6 +8817,7 @@ extension on Translations {
 			'settings.storage.retentionForever' => 'Keep forever',
 			'settings.storage.retentionSaved' => 'Retention updated',
 			'settings.storage.database' => 'Database',
+			'settings.storage.attachments' => 'Attachments',
 			'settings.storage.dbFootprint' => ({required Object size, required Object dead}) => '${size}, of which ${dead} reclaimable',
 			'settings.storage.compact' => 'Compact database',
 			'settings.storage.compacting' => 'Compacting…',

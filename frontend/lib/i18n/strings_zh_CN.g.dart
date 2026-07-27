@@ -2281,6 +2281,7 @@ class _Translations$settings$storage$zh_CN extends Translations$settings$storage
 	@override String get retentionForever => '永久保留';
 	@override String get retentionSaved => '保留策略已更新';
 	@override String get database => '数据库';
+	@override String get attachments => '附件';
 	@override String dbFootprint({required Object size, required Object dead}) => '${size},其中 ${dead} 可回收';
 	@override String get compact => '压缩数据库';
 	@override String get compacting => '压缩中…';
@@ -4798,6 +4799,7 @@ extension on TranslationsZhCn {
 			'settings.storage.retentionForever' => '永久保留',
 			'settings.storage.retentionSaved' => '保留策略已更新',
 			'settings.storage.database' => '数据库',
+			'settings.storage.attachments' => '附件',
 			'settings.storage.dbFootprint' => ({required Object size, required Object dead}) => '${size},其中 ${dead} 可回收',
 			'settings.storage.compact' => '压缩数据库',
 			'settings.storage.compacting' => '压缩中…',

@@ -143,6 +143,14 @@ class StoragePanel extends ConsumerWidget {
               item: SettingsItem.storageDatabase,
               child: _DatabaseRow(),
             ),
+            // Attachments are the OTHER store, and on any install that generates media they are the
+            // BIGGER one: blobs are content-addressed files outside the .db, so a 3MB clip moves the
+            // database line by a few hundred bytes of metadata. Showing only the database was
+            // understating disk by more than half on a lightly-used dev machine (WRK-082 H5.9).
+            // 附件是**另一个**存储,而在任何会生成媒体的安装上,它是**更大的那个**:blob 是 .db 之外按内容
+            // 寻址的文件,故一段 3MB 的片子只让数据库那一行动几百字节的元数据。只显示数据库,在一台轻度
+            // 使用的开发机上就已经把磁盘少报了一半以上(H5.9)。
+            const _AttachmentsRow(),
           ],
         ),
         const SizedBox(height: AnSpace.s24),
@@ -347,9 +355,14 @@ final retentionConfigProvider = FutureProvider<RetentionConfig>(
 /// The DB file's size + dead (reclaimable) space (WRK-070 T4). autoDispose — refetched each panel
 /// open and after a compact (invalidated). 库大小 + 死(可回收)空间;每次打开重取、压缩后失效重取。
 final storageStatProvider =
-    FutureProvider.autoDispose<({int dbBytes, int deadBytes})>(
-      (ref) => ref.watch(settingsRepositoryProvider).storageStat(),
-    );
+    FutureProvider.autoDispose<
+      ({
+        int dbBytes,
+        int deadBytes,
+        int attachmentBytes,
+        int attachmentDeadBytes,
+      })
+    >((ref) => ref.watch(settingsRepositoryProvider).storageStat());
 
 /// «Database» — the DB file's honest footprint (size, of which N reclaimable) and the Compact button.
 /// Compact is a synchronous VACUUM: the button shows a busy «Compacting…» while the DB is locked (a
@@ -425,6 +438,40 @@ class _DatabaseRowState extends ConsumerState<_DatabaseRow> {
           ),
         ],
       ),
+    );
+  }
+}
+
+/// The attachment-blob footprint line — the same shape as the database line so the panel reads one
+/// way for both stores: total, of which reclaimable.
+///
+/// There is deliberately NO clear button here yet. Attachments are CONTENT, not history: a photo
+/// from four months ago is still in the conversation that shows it and possibly embedded in a
+/// document, so a size-driven sweep would silently break things a user can still see. Making the
+/// number visible is the honest first move; what to do about it is a product decision, not a
+/// consequence of this line existing.
+///
+/// 附件 blob 占用行——与数据库那行**同形**,使面板对两个存储读法一致:总量,其中可回收多少。
+///
+/// 这里**刻意还没有**清理按钮。附件是**内容**、不是历史:四个月前那张照片仍然在显示它的那个对话里、
+/// 也可能被嵌在某份文档里,故一次按大小的清扫会**静默弄坏用户还看得见的东西**。把数字显示出来是诚实的
+/// 第一步;拿它怎么办是一个**产品决定**,不是「这一行存在了」的推论。
+class _AttachmentsRow extends ConsumerWidget {
+  const _AttachmentsRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
+    final stat = ref.watch(storageStatProvider).value;
+    return AnSettingRow(
+      label: t.settings.storage.attachments,
+      desc: stat == null
+          ? ''
+          : t.settings.storage.dbFootprint(
+              size: formatBytes(stat.attachmentBytes),
+              dead: formatBytes(stat.attachmentDeadBytes),
+            ),
+      child: const SizedBox.shrink(),
     );
   }
 }

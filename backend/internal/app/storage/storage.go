@@ -11,6 +11,7 @@ package storage
 
 import (
 	"context"
+	"fmt"
 
 	dbinfra "github.com/sunweilin/anselm/backend/internal/infra/db"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
@@ -45,6 +46,26 @@ func New(db *ormpkg.DB) *Service { return &Service{db: db} }
 type Stat struct {
 	DBBytes   int64 `json:"dbBytes"`
 	DeadBytes int64 `json:"deadBytes"`
+
+	// ATTACHMENT bytes, which do NOT live in the .db file at all — blobs are content-addressed
+	// files under workspaces/<ws>/blobs (WRK-082 H5.9). Reporting only dbBytes was already wrong
+	// before video existed: on a lightly-used dev install the blobs were 6.8MB against a 4.9MB
+	// database, so the one panel in this app that talks about disk understated it by more than
+	// half. Generated video makes that gap unbounded — a 3MB clip lands in the blob dir and moves
+	// dbBytes by a few hundred bytes of metadata.
+	//
+	// AttachmentDeadBytes is the soft-deleted half the orphan-blob GC can still reclaim — the exact
+	// counterpart of DeadBytes for the database, so the panel reads the same way for both stores.
+	//
+	// **附件**字节,它们**根本不在** .db 文件里——blob 是 workspaces/<ws>/blobs 下按内容寻址的文件
+	// (H5.9)。只报 dbBytes 在视频出现**之前**就已经是错的:一台轻度使用的开发机上 blobs 6.8MB、
+	// 数据库 4.9MB,于是本应用里**唯一**谈磁盘的那个面板,把磁盘少报了一半以上。而生成视频让这个差距
+	// 变得无界——一段 3MB 的片子落进 blob 目录,只让 dbBytes 动几百字节的元数据。
+	//
+	// AttachmentDeadBytes 是已软删、孤儿 blob GC 仍可回收的那一半——正是数据库 DeadBytes 的对位物,
+	// 使面板读两个存储的方式完全一致。
+	AttachmentBytes     int64 `json:"attachmentBytes"`
+	AttachmentDeadBytes int64 `json:"attachmentDeadBytes"`
 }
 
 // Stat reads the current size + dead space. Read-only apart from the WAL checkpoint Stat needs to
@@ -56,7 +77,43 @@ func (s *Service) Stat(ctx context.Context) (Stat, error) {
 	if err != nil {
 		return Stat{}, err
 	}
-	return Stat{DBBytes: size, DeadBytes: dead}, nil
+	live, deleted, err := attachmentBytes(ctx, s.db)
+	if err != nil {
+		return Stat{}, err
+	}
+	return Stat{DBBytes: size, DeadBytes: dead, AttachmentBytes: live, AttachmentDeadBytes: deleted}, nil
+}
+
+// attachmentBytes sums the rows rather than walking the blob directory: the rows are the truth the
+// user is shown everywhere else, the sum is cheap, and a directory walk would double-count bytes
+// that content-addressed dedup made shared.
+//
+// **Deliberately ACROSS every workspace** — the one place in this file that steps outside D2's
+// automatic isolation, and it does so because the surface demands it. This panel is machine-level:
+// dbBytes already reports one .db file holding every workspace's rows, and DeadBytes the same.
+// Reporting "this workspace's attachments" beside "the whole install's database" would put two
+// different scopes in one panel and quietly answer a question the user did not ask — they are
+// looking at DISK, and the disk is shared. Hence the raw query (orm's read escape hatch) with no
+// workspace predicate, which is the honest shape here and would be a bug anywhere else.
+//
+// attachmentBytes 对**行**求和,不走 blob 目录:行是用户在别处看到的那个真相,求和便宜,而目录遍历会把
+// 内容寻址去重所共享的字节重复计入。
+//
+// **刻意跨全部 workspace** —— 本文件里唯一一处走出 D2 自动隔离的地方,而它这么做是因为**这个面要求它
+// 这么做**。本面板是**机器级**的:dbBytes 报的本就是装着所有 workspace 行的那**一个** .db 文件,
+// DeadBytes 同理。在「整个安装的数据库」旁边报「**本** workspace 的附件」,等于把两种口径塞进同一个
+// 面板、并悄悄回答一个用户没问的问题——他看的是**磁盘**,而磁盘是共享的。故用不带 workspace 谓词的原始
+// 查询(orm 的读侧逃生口):这在此处是诚实的形状,换任何别处都是 bug。
+func attachmentBytes(ctx context.Context, db *ormpkg.DB) (live, deleted int64, err error) {
+	row := db.QueryRow(ctx, `
+		SELECT
+			COALESCE(SUM(CASE WHEN deleted_at IS NULL THEN size_bytes ELSE 0 END), 0),
+			COALESCE(SUM(CASE WHEN deleted_at IS NOT NULL THEN size_bytes ELSE 0 END), 0)
+		FROM attachments`)
+	if scanErr := row.Scan(&live, &deleted); scanErr != nil {
+		return 0, 0, fmt.Errorf("storageapp: attachment bytes: %w", scanErr)
+	}
+	return live, deleted, nil
 }
 
 // CompactResult reports the outcome of a user-triggered VACUUM: bytes handed back to the OS and

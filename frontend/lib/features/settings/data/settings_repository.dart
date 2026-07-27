@@ -170,7 +170,10 @@ abstract class SettingsRepository {
 
   /// The DB file's size + dead (reclaimable) bytes (`GET /storage-stat`, WRK-070 T4). Machine-level:
   /// one .db file for the whole install. 数据库文件大小 + 死（可回收）字节。机器级:整个安装一个 .db 文件。
-  Future<({int dbBytes, int deadBytes})> storageStat();
+  Future<
+    ({int dbBytes, int deadBytes, int attachmentBytes, int attachmentDeadBytes})
+  >
+  storageStat();
 
   /// Compact the DB (`POST /storage:compact`, a synchronous VACUUM). Returns bytes handed back to the
   /// OS + whether it upgraded a mode=0 DB to auto_vacuum=INCREMENTAL. NOT destructive (VACUUM keeps
@@ -539,11 +542,16 @@ class LiveSettingsRepository implements SettingsRepository {
       0;
 
   @override
-  Future<({int dbBytes, int deadBytes})> storageStat() async {
+  Future<
+    ({int dbBytes, int deadBytes, int attachmentBytes, int attachmentDeadBytes})
+  >
+  storageStat() async {
     final d = await api.getData('/api/v1/storage-stat');
     return (
       dbBytes: (d['dbBytes'] as num?)?.toInt() ?? 0,
       deadBytes: (d['deadBytes'] as num?)?.toInt() ?? 0,
+      attachmentBytes: (d['attachmentBytes'] as num?)?.toInt() ?? 0,
+      attachmentDeadBytes: (d['attachmentDeadBytes'] as num?)?.toInt() ?? 0,
     );
   }
 
@@ -1115,6 +1123,13 @@ class FixtureSettingsRepository implements SettingsRepository {
   /// 可脚本的库大小 + 死空间(demo/测试)。压缩把死字节还回并清零,重读即见缩小的文件——面板的前后故事。
   int fixtureDbBytes = 120 * 1024 * 1024;
   int fixtureDeadBytes = 48 * 1024 * 1024;
+  // Deliberately BIGGER than the database in the fixture: on any install that generates media the
+  // attachments are the bigger store, and a demo that showed them as a rounding error would teach
+  // the wrong shape.
+  // fixture 里刻意**比数据库大**:任何会生成媒体的安装上,附件都是更大的那个存储,而一个把它显示成
+  // 舍入误差的 demo,会教出错误的形状。
+  int fixtureAttachmentBytes = 268435456;
+  int fixtureAttachmentDeadBytes = 12582912;
 
   /// Script hook: throw on the next compact (disk-full error-path tests). 脚本钩:下次压缩抛错。
   bool failNextCompact = false;
@@ -1124,8 +1139,15 @@ class FixtureSettingsRepository implements SettingsRepository {
   Completer<void>? compactGate;
 
   @override
-  Future<({int dbBytes, int deadBytes})> storageStat() async =>
-      (dbBytes: fixtureDbBytes, deadBytes: fixtureDeadBytes);
+  Future<
+    ({int dbBytes, int deadBytes, int attachmentBytes, int attachmentDeadBytes})
+  >
+  storageStat() async => (
+    dbBytes: fixtureDbBytes,
+    deadBytes: fixtureDeadBytes,
+    attachmentBytes: fixtureAttachmentBytes,
+    attachmentDeadBytes: fixtureAttachmentDeadBytes,
+  );
 
   @override
   Future<({int reclaimedBytes, bool migrated})> compactStorage() async {

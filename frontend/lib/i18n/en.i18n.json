@@ -2045,6 +2045,7 @@
       "retentionForever": "Keep forever",
       "retentionSaved": "Retention updated",
       "database": "Database",
+      "attachments": "Attachments",
       "dbFootprint": "$size, of which $dead reclaimable",
       "compact": "Compact database",
       "compacting": "Compacting…",
