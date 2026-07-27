@@ -58,3 +58,64 @@ func TestLiveMedia_GeneratedImageFedBackOnce(t *testing.T) {
 	traceModel(t, rec)
 	t.Fatal("the generated image never reached the model as pixels — the confirmation signal is missing")
 }
+
+// TestLiveMedia_SpendLedgerRecordsRealMoney is H10's acceptance, and it has to be real money for
+// the same reason the ledger exists: a mocked generation books a mocked row, which proves the
+// plumbing and nothing about whether the ledger sees what the user is actually charged for. Here a
+// real image is generated against a real key, and the projection must show ONE image with a
+// non-zero estimate — units counted, money estimated, exactly the two-part honesty contract.
+//
+// TestLiveMedia_SpendLedgerRecordsRealMoney 是 H10 的验收,而它必须是真钱,理由与台账存在的理由相同:
+// 一次 mock 生成记一行 mock 账,证明的是管道通、而非台账是否看得见用户**真正被收费**的那件事。这里用
+// 真 key 真出一张图,投影必须显示**一张图 + 非零估算**——用量数出来、金额是估算,恰是那份两半的诚实契约。
+func TestLiveMedia_SpendLedgerRecordsRealMoney(t *testing.T) {
+	t.Parallel()
+	wc, _, _ := liveQwen(t, "live-spend")
+
+	var before struct {
+		Rows []struct {
+			Category string `json:"category"`
+			Units    int64  `json:"units"`
+			EstPUSD  int64  `json:"estPUSD"`
+		} `json:"rows"`
+		Estimated bool `json:"estimated"`
+	}
+	wc.GET("/api/v1/spend").OK(t, &before)
+	if len(before.Rows) != 0 {
+		t.Fatalf("a fresh workspace must have an empty ledger, got %+v", before.Rows)
+	}
+	// The envelope stamps `estimated` so no client can read the money without reading that it is
+	// an estimate. 信封盖 `estimated`,使任何客户端都无法只读钱数而不读「这是估算」。
+	if !before.Estimated {
+		t.Fatal("the spend envelope must declare estimated:true even when empty")
+	}
+
+	convID := convCreate(t, wc, "支出台账验收")
+	mid := sendMsg(t, wc, convID, "画一座黄昏的红色灯塔,然后用一句话说说你画了什么。")
+	if turn := waitTurn(t, wc, convID, mid, 240000); turn.Status != "completed" {
+		t.Fatalf("turn must complete, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+
+	var after struct {
+		Rows []struct {
+			Category string `json:"category"`
+			Provider string `json:"provider"`
+			Units    int64  `json:"units"`
+			EstPUSD  int64  `json:"estPUSD"`
+		} `json:"rows"`
+	}
+	wc.GET("/api/v1/spend").OK(t, &after)
+	if len(after.Rows) != 1 {
+		t.Fatalf("ledger rows = %+v, want exactly one image cell", after.Rows)
+	}
+	r := after.Rows[0]
+	if r.Category != "image" || r.Provider != "qwen" || r.Units != 1 {
+		t.Fatalf("row = %+v, want one qwen image", r)
+	}
+	// The price table knows qwen's image model, so a zero here means the estimate never ran —
+	// which would leave the panel showing a dash for money that was really spent.
+	// 价目表认识 qwen 的图像模型,故这里为 0 意味着估算根本没跑——面板会为**真花掉的钱**显示破折号。
+	if r.EstPUSD <= 0 {
+		t.Fatalf("est = %d, want a non-zero estimate for a priced model", r.EstPUSD)
+	}
+}

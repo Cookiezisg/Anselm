@@ -669,6 +669,7 @@ class _Translations$settings$zh_CN extends Translations$settings$en {
 	@override String get capsuleApprovalsDesc => '待审批在顶带弹出可就地批复的块';
 	@override String get capsuleAttention => '胶囊:需要关注';
 	@override String get capsuleAttentionDesc => '需关注事件(连败、悬空引用)弹出顶带胶囊';
+	@override late final _Translations$settings$spend$zh_CN spend = _Translations$settings$spend$zh_CN._(_root);
 }
 
 // Path: markdown
@@ -2405,6 +2406,26 @@ class _Translations$settings$shortcuts$zh_CN extends Translations$settings$short
 	@override String get cmdZoomOut => '缩小界面';
 	@override String get cmdZoomReset => '重置缩放';
 	@override String get hintModifier => '组合键须含 ⌘/Ctrl 等修饰键';
+}
+
+// Path: settings.spend
+class _Translations$settings$spend$zh_CN extends Translations$settings$spend$en {
+	_Translations$settings$spend$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get title => '自带密钥支出';
+	@override String get window => '近 30 天(直连)';
+	@override String get empty => '这 30 天没有用自己的 key 生成过东西。';
+	@override String get unavailable => '读不到支出台账。';
+	@override String get estimateNote => '用量是数出来的;金额是**估算**——按手写价目表算,权威以供应商账单为准。免费档的用量在上面那张卡里。';
+	@override String get catImage => '图像';
+	@override String get catSpeech => '语音';
+	@override String get catVideo => '视频';
+	@override String unitImages({required Object n}) => '${n} 张';
+	@override String unitChars({required Object n}) => '${n} 字符';
+	@override String unitSeconds({required Object n}) => '${n} 秒';
 }
 
 // Path: chat.tool.kind
@@ -4894,6 +4915,17 @@ extension on TranslationsZhCn {
 			'settings.capsuleApprovalsDesc' => '待审批在顶带弹出可就地批复的块',
 			'settings.capsuleAttention' => '胶囊:需要关注',
 			'settings.capsuleAttentionDesc' => '需关注事件(连败、悬空引用)弹出顶带胶囊',
+			'settings.spend.title' => '自带密钥支出',
+			'settings.spend.window' => '近 30 天(直连)',
+			'settings.spend.empty' => '这 30 天没有用自己的 key 生成过东西。',
+			'settings.spend.unavailable' => '读不到支出台账。',
+			'settings.spend.estimateNote' => '用量是数出来的;金额是**估算**——按手写价目表算,权威以供应商账单为准。免费档的用量在上面那张卡里。',
+			'settings.spend.catImage' => '图像',
+			'settings.spend.catSpeech' => '语音',
+			'settings.spend.catVideo' => '视频',
+			'settings.spend.unitImages' => ({required Object n}) => '${n} 张',
+			'settings.spend.unitChars' => ({required Object n}) => '${n} 字符',
+			'settings.spend.unitSeconds' => ({required Object n}) => '${n} 秒',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

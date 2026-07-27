@@ -1500,6 +1500,8 @@ class Translations$settings$en {
 
 	/// en: 'Attention events (streaks, broken references) pop the band capsule'
 	String get capsuleAttentionDesc => 'Attention events (streaks, broken references) pop the band capsule';
+
+	late final Translations$settings$spend$en spend = Translations$settings$spend$en.internal(_root);
 }
 
 // Path: markdown
@@ -5895,6 +5897,48 @@ class Translations$settings$shortcuts$en {
 	String get hintModifier => 'A chord must include a modifier (⌘/Ctrl…)';
 }
 
+// Path: settings.spend
+class Translations$settings$spend$en {
+	Translations$settings$spend$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Your own keys'
+	String get title => 'Your own keys';
+
+	/// en: 'Last 30 days (direct)'
+	String get window => 'Last 30 days (direct)';
+
+	/// en: 'Nothing generated with your own keys in the last 30 days.'
+	String get empty => 'Nothing generated with your own keys in the last 30 days.';
+
+	/// en: 'The spend ledger could not be read.'
+	String get unavailable => 'The spend ledger could not be read.';
+
+	/// en: 'Units are counted; money is an ESTIMATE from a hand-written price table — your provider's billing console is the authority. Managed free-tier usage is in the card above.'
+	String get estimateNote => 'Units are counted; money is an ESTIMATE from a hand-written price table — your provider\'s billing console is the authority. Managed free-tier usage is in the card above.';
+
+	/// en: 'Images'
+	String get catImage => 'Images';
+
+	/// en: 'Speech'
+	String get catSpeech => 'Speech';
+
+	/// en: 'Video'
+	String get catVideo => 'Video';
+
+	/// en: '$n images'
+	String unitImages({required Object n}) => '${n} images';
+
+	/// en: '$n characters'
+	String unitChars({required Object n}) => '${n} characters';
+
+	/// en: '$n seconds'
+	String unitSeconds({required Object n}) => '${n} seconds';
+}
+
 // Path: chat.tool.kind
 class Translations$chat$tool$kind$en {
 	Translations$chat$tool$kind$en.internal(this._root);
@@ -8928,6 +8972,17 @@ extension on Translations {
 			'settings.capsuleApprovalsDesc' => 'Pending approvals pop an actionable block on the band',
 			'settings.capsuleAttention' => 'Capsule: attention',
 			'settings.capsuleAttentionDesc' => 'Attention events (streaks, broken references) pop the band capsule',
+			'settings.spend.title' => 'Your own keys',
+			'settings.spend.window' => 'Last 30 days (direct)',
+			'settings.spend.empty' => 'Nothing generated with your own keys in the last 30 days.',
+			'settings.spend.unavailable' => 'The spend ledger could not be read.',
+			'settings.spend.estimateNote' => 'Units are counted; money is an ESTIMATE from a hand-written price table — your provider\'s billing console is the authority. Managed free-tier usage is in the card above.',
+			'settings.spend.catImage' => 'Images',
+			'settings.spend.catSpeech' => 'Speech',
+			'settings.spend.catVideo' => 'Video',
+			'settings.spend.unitImages' => ({required Object n}) => '${n} images',
+			'settings.spend.unitChars' => ({required Object n}) => '${n} characters',
+			'settings.spend.unitSeconds' => ({required Object n}) => '${n} seconds',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

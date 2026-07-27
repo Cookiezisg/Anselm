@@ -2140,7 +2140,20 @@
     "capsuleApprovals": "胶囊:待审批",
     "capsuleApprovalsDesc": "待审批在顶带弹出可就地批复的块",
     "capsuleAttention": "胶囊:需要关注",
-    "capsuleAttentionDesc": "需关注事件(连败、悬空引用)弹出顶带胶囊"
+    "capsuleAttentionDesc": "需关注事件(连败、悬空引用)弹出顶带胶囊",
+    "spend": {
+      "title": "自带密钥支出",
+      "window": "近 30 天(直连)",
+      "empty": "这 30 天没有用自己的 key 生成过东西。",
+      "unavailable": "读不到支出台账。",
+      "estimateNote": "用量是数出来的;金额是**估算**——按手写价目表算,权威以供应商账单为准。免费档的用量在上面那张卡里。",
+      "catImage": "图像",
+      "catSpeech": "语音",
+      "catVideo": "视频",
+      "unitImages": "$n 张",
+      "unitChars": "$n 字符",
+      "unitSeconds": "$n 秒"
+    }
   },
   "markdown": {
     "imageNotLoaded": "图片未加载"

@@ -2140,7 +2140,20 @@
     "capsuleApprovals": "Capsule: approvals",
     "capsuleApprovalsDesc": "Pending approvals pop an actionable block on the band",
     "capsuleAttention": "Capsule: attention",
-    "capsuleAttentionDesc": "Attention events (streaks, broken references) pop the band capsule"
+    "capsuleAttentionDesc": "Attention events (streaks, broken references) pop the band capsule",
+    "spend": {
+      "title": "Your own keys",
+      "window": "Last 30 days (direct)",
+      "empty": "Nothing generated with your own keys in the last 30 days.",
+      "unavailable": "The spend ledger could not be read.",
+      "estimateNote": "Units are counted; money is an ESTIMATE from a hand-written price table — your provider's billing console is the authority. Managed free-tier usage is in the card above.",
+      "catImage": "Images",
+      "catSpeech": "Speech",
+      "catVideo": "Video",
+      "unitImages": "$n images",
+      "unitChars": "$n characters",
+      "unitSeconds": "$n seconds"
+    }
   },
   "markdown": {
     "imageNotLoaded": "image not loaded"
