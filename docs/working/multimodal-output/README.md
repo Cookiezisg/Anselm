@@ -109,7 +109,7 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 | 2 | ✅ **真钱真线缆**——`TestLiveMedia_WorkflowDownstreamSeesPixels`:下游 agent 的请求里是原生 `image_url` + **与库里逐字节相同**的 base64。**这条验收当场抓出一个真 bug 并修掉**(见下) | — | **过** |
 | 3 | ✅ **真钱真线缆(两个产地各一条)**——`TestLiveMedia_FunctionChartSeenByModel`:fn 真跑 matplotlib 出 PNG→模型请求里是像素;`TestLiveMedia_McpImageSeenByModel`:MCP server 经 stdio 递回 `image` 块→模型请求里是**与库里逐字节相同**的 base64。**后者当场抓出 A1**(见下)。另有 `TestLiveMedia_HandlerArtifactPerCall` 覆盖第五个产地(hd 逐调用产物目录) | ✅ `b1_2`:整份 fn 结果 payload 递给 `AnMediaRefStrip`,图表内联渲出、坐标轴与数值标签清晰可读 | **过(静态渲染)** |
 | 4 | ✅ **真钱真声 + 钱的断言**——`TestLiveMedia_SpeechAndCache`:真 WAV;上游调用数 1→**重听后仍是 1**→换文本才 2;全程 0 次 chat 请求。**重听零计费在响应里看不见**(两次返回一模一样的字节),它只作为**一次没有发生的调用**存在 | ✅ `b1_3`(**修完一个真缺陷之后**,见下 F2):空闲/加载中/播放中三态可辨——播放三角、加载文案、蓝色进度条 + mono 时长 | **过(静态渲染)** |
-| 5 | ✅ **真钱真片**——`TestLiveMedia_VideoDirect`:直连侧提交/轮询/取回三动词走通,真 MP4 落一等附件(受管侧已在 H3 于线上网关证过)。**顺带证了人闸**:这条一度被当成「卡住 122 秒」,查下来是 `dispatchWithGate` 在等批准——模型对 `generate_video` 自报了 `dangerous`、闸正常响了;测试现在**先断言闸响、再批准** | ⚠️ `b1_4`:**产物卡**对(播放器只在点击时构造,故这是用户先看到的那一态);**生成过程中的进度与「不冻结对话」未验**——那是时序,截图看不见 | **模型侧过·人眼侧半过** |
+| 5 | ✅ **真钱真片**——`TestLiveMedia_VideoDirect`:直连侧提交/轮询/取回三动词走通,真 MP4 落一等附件(受管侧已在 H3 于线上网关证过)。**顺带证了人闸**:这条一度被当成「卡住 122 秒」,查下来是 `dispatchWithGate` 在等批准——模型对 `generate_video` 自报了 `dangerous`、闸正常响了;测试现在**先断言闸响、再批准** | ✅ **真机全程走完**(2026-07-28 00:00 前后,受管免费档、我直接操作用户机器):人闸在真 UI 里弹出〔`Dangerous` 徽标 + 参数表 + Deny/Always allow/Allow〕· 工具卡**计时在走**〔7s→57s〕· **对话不冻结**〔生成中打进整句中文〕· 4.3MB 真 MP4 落卡 · 点播放 AVFoundation 真播 · 走带条重播/进度/时钟/全屏逐个按过 | **过** |
 | 6 | ✅ **真钱**——`TestLiveMedia_DocumentImageInjected`:模型生成真图→自己 `create_document` 嵌进正文→**另一段对话** @ 该文档→线缆里是像素而非 `![](anselm://media/…)` 文本 | ✅ `b1_5`:编辑器把 `AnSize.content` 宽交给同一族卡,正文里的图满宽渲出 | **过(静态渲染)** |
 | 7 | 主仓 `make verify` ✅ · 网关 `make verify` ✅ + 已部署(H3) · 文档 ✅ · testend ✅ | — | **过** |
 
@@ -153,6 +153,32 @@ analyze 与全部断言都是绿的,**只有那张图在喊**。
 守卫 `test/core/media_viewer_test.dart` 七格:点图开查看器 / 关闭按钮 / Escape / 播放暂停 / 播完给重播且
 重播 seek 到零 / 时钟读位置时长 / 全屏内联有而查看器内无。视频那半用 `test/support/fake_video_platform.dart`
 ——**本仓其余每个视频测试都刻意不建 controller,而那正是「根本没有走带控件」一直没被抓到的原因**。
+
+#### 真机验收(2026-07-28 00:00 前后)——查出的最重一条是**我的测试现场在撒谎**
+
+用户授权我直接操作他的机器(屏幕录制 + 辅助功能两项权限都在),故这一轮是**真的点、真的看**:
+`make -C backend seed` → `make -C frontend app` → 在真 UI 里发「生成一条 5 秒的视频」→ 盯完全程。
+
+**F5 · `make app` / `make seed` 会静默复用一个任意老的后端**(已修:把它改成大声的)。两者都打印
+「reusing backend already on :$PORT」然后接着跑。我据此拿到的结论是「**视频播放在 macOS 上失败**」
+——后端日志显示 AVFoundation 确实在拉字节、而 UI 永远停在海报上,看起来像一条硬缺陷。
+
+真因:**跑着的后端启动于 15:08:31,而 `http.ServeContent`〔那行专门为 AVFoundation 的 Range 而写的〕
+提交于 18:23:03**。我对着一个比修复老三小时的二进制,验了一整套验收。重启后端后同一条 curl 立刻答
+`206 Partial Content` + `Accept-Ranges: bytes` + `Content-Range`,播放一次成功。
+
+**代价不是「浪费了一次测试」,是差点把一条不存在的产品缺陷写进档。** 复用本身是对的默认(后端活得比
+app 重启久),错的是**静默**。`run_app.sh` 现在打印它的启动时刻并明说「它不会被重新构建」——0727 那次
+只要有这一行,一眼就看破了。
+
+**F6 · 遮罩太淡**(已修,新 token `AnColors.scrimMedia`)。全屏播片时 composer 与左岛清晰可读、还和走带条
+撞在一起。共享的 `scrim`〔亮 0.28〕是给**确认框**调的——那里背后的上下文**让人安心**;查看器恰恰相反,
+产物**就是**整个屏幕。**B1 那张 `b1_7` 截图上其实已有同样迹象,而我当时判成了「可接受」**——卡片尺寸下
+勉强能忍的东西,放大到全屏就不能忍;这是「截图看不见时序」之外,人眼验收的第二类盲点:**尺度**。
+
+**真机上确认为好的**:人闸在真 UI 弹出且形态完整(`Dangerous` 徽标 + 参数表 + 三个动作)· 工具卡计时
+真在走(7s→57s)· 生成中能往 composer 里打整句中文(**不冻结**)· 产物卡带 `Allowed` 徽标 · AVFoundation
+真播 · 今晚刚写的走带条重播/进度/时钟/全屏逐个按过、全屏与内联**共用同一个 controller**(位置接得上)。
 
 #### 这一轮真钱验收抓到的东西(mock 全绿、一个也发现不了)
 

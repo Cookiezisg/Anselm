@@ -91,7 +91,7 @@ Future<void> _open(
   final t = Translations.of(context);
   final reduced = AnMotionPref.reduced(context);
   final route = RawDialogRoute<void>(
-    barrierColor: context.colors.scrim,
+    barrierColor: context.colors.scrimMedia,
     barrierDismissible: true,
     barrierLabel: t.attach.mediaViewer,
     transitionDuration: reduced ? Duration.zero : AnMotion.mid,

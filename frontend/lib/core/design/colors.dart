@@ -27,6 +27,7 @@ class AnColors extends ThemeExtension<AnColors> {
     required this.line,
     required this.lineStrong,
     required this.scrim,
+    required this.scrimMedia,
     required this.accent,
     required this.accentHover,
     required this.accentSoft,
@@ -85,6 +86,19 @@ class AnColors extends ThemeExtension<AnColors> {
   final Color lineStrong;
   final Color scrim;
 
+  /// The MEDIA scrim — heavier than [scrim] because the two barriers want opposite things. A confirm
+  /// dialog is a small island card and the context behind it is REASSURING: you should still see what
+  /// you are confirming against. A media viewer is the opposite — the artifact IS the screen, and
+  /// anything showing through competes with it. At the shared 0.28 the composer and the left island
+  /// stayed plainly legible behind a fullscreen clip and collided with the transport bar (found on the
+  /// real machine; the B1 screenshot showed the same thing at card size and I wrongly called it fine).
+  ///
+  /// 媒体遮罩——比 [scrim] 重,因为这**两种**遮罩要的是相反的东西。确认框是一张小岛卡,背后的上下文是
+  /// **让人安心**的:你本就该看见自己在对着什么确认。媒体查看器恰恰相反——产物**就是**整个屏幕,任何透出来
+  /// 的东西都在和它抢。用共享的 0.28 时,全屏播一段片子,composer 与左岛清晰可读、还和走带条撞在一起
+  /// (真机上撞见的;B1 那张截图在卡片尺寸下已有同样迹象,而我当时判成了「可接受」)。
+  final Color scrimMedia;
+
   // Emphasis = toB BLUE (demo #0071e3). 强调=商务蓝。
   final Color accent;
   final Color accentHover;
@@ -139,6 +153,7 @@ class AnColors extends ThemeExtension<AnColors> {
     line: Color.fromRGBO(0, 0, 0, 0.08),
     lineStrong: Color.fromRGBO(0, 0, 0, 0.13),
     scrim: Color.fromRGBO(0, 0, 0, 0.28),
+    scrimMedia: Color.fromRGBO(0, 0, 0, 0.82),
     accent: Color(0xFF0071E3), // toB blue (demo --accent) 商务蓝
     accentHover: Color(0xFF0077ED),
     accentSoft: Color.fromRGBO(0, 113, 227, 0.10),
@@ -219,6 +234,7 @@ class AnColors extends ThemeExtension<AnColors> {
     line: Color.fromRGBO(255, 255, 255, 0.10),
     lineStrong: Color.fromRGBO(255, 255, 255, 0.16),
     scrim: Color.fromRGBO(0, 0, 0, 0.50),
+    scrimMedia: Color.fromRGBO(0, 0, 0, 0.88),
     accent: Color(0xFF0A84FF), // toB blue, dark variant (demo) 商务蓝·暗
     accentHover: Color(0xFF409CFF),
     accentSoft: Color.fromRGBO(10, 132, 255, 0.16),
@@ -295,6 +311,7 @@ class AnColors extends ThemeExtension<AnColors> {
     Color? line,
     Color? lineStrong,
     Color? scrim,
+    Color? scrimMedia,
     Color? accent,
     Color? accentHover,
     Color? accentSoft,
@@ -330,6 +347,7 @@ class AnColors extends ThemeExtension<AnColors> {
       line: line ?? this.line,
       lineStrong: lineStrong ?? this.lineStrong,
       scrim: scrim ?? this.scrim,
+      scrimMedia: scrimMedia ?? this.scrimMedia,
       accent: accent ?? this.accent,
       accentHover: accentHover ?? this.accentHover,
       accentSoft: accentSoft ?? this.accentSoft,
@@ -373,6 +391,7 @@ class AnColors extends ThemeExtension<AnColors> {
       line: c(line, other.line),
       lineStrong: c(lineStrong, other.lineStrong),
       scrim: c(scrim, other.scrim),
+      scrimMedia: c(scrimMedia, other.scrimMedia),
       accent: c(accent, other.accent),
       accentHover: c(accentHover, other.accentHover),
       accentSoft: c(accentSoft, other.accentSoft),
