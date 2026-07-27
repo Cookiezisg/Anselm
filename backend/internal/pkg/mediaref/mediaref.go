@@ -35,6 +35,17 @@ var idShape = regexp.MustCompile(`^att_[0-9a-f]{16}$`)
 // IsAttachmentID 报告 s 是否合法附件 id 形。
 func IsAttachmentID(s string) bool { return idShape.MatchString(s) }
 
+// SourceKey names the receipt field every producer stamps with its own identity. Nothing in this
+// package reads it anymore — the producer VETO it once fed died with ADR 0017 (a paired live
+// experiment showed the veto made the generating model re-draw until MAX_STEPS; ADR 0020). It
+// stays because receipts still carry provenance for everyone else: tests assert on it, the
+// attachment row mirrors it (H5.7), and the UI names the producer.
+//
+// SourceKey 是每个产地盖在 receipt 上的产地字段名。本包已不再读它——它曾喂养的产地**否决**随
+// ADR 0017 一起死了(成对真钱实验证明那道否决让生成模型重画到 MAX_STEPS;ADR 0020)。它留着,
+// 因为 receipt 仍为其他人携带产地:测试断言它、附件行镜像它(H5.7)、UI 用它称呼产地。
+const SourceKey = "source"
+
 // Collect walks a decoded JSON value (maps / slices / scalars) and returns every well-formed
 // attachment id found under the grammar Key, deduplicated in first-seen order, capped at MaxRefs.
 // A STRING scalar that contains the grammar Key gets one JSON-decode attempt and its decoded
@@ -47,57 +58,7 @@ func IsAttachmentID(s string) bool { return idShape.MatchString(s) }
 // MaxRefs 封顶。含文法 Key 的**字符串**标量会得到一次 JSON 解码并继续走其值——receipt 在
 // workflow 节点间常以文本流动(agent 自由文本答案成 `node.text`,下游 input 拿到的是字符串),
 // 咽喉认不出这一形,不变量③的流水线半就静默死掉。子串闸免去任意大文本的解码开销。
-func Collect(v any) []string { return CollectExcept(v, nil) }
-
-// SourceKey names the receipt field every producer stamps with its own identity.
-//
-// SourceKey 是每个产地盖在 receipt 上的产地字段名。
-const SourceKey = "source"
-
-// SelfAuthored reports whether a receipt came from the GENERATION family — an artifact the model
-// asked for by writing its own prompt.
-//
-// It exists because "should this artifact be fed back to the model as input" is decided by its
-// PRODUCER, not by its size or its modality. A picture the model itself ordered adds nothing to
-// that model's next turn: it authored the description, so it already knows what is in there.
-// A chart a function computed is the opposite — that is evidence the model has never seen, and it
-// is the whole point of asking. Size only decides how to DEGRADE when an artifact does need to go;
-// it must never be the thing that decides whether it goes.
-//
-// This is also what the mature implementations do: OpenAI's image_generation tool carries a
-// previous image into the next turn by ID (the model sees `revised_prompt` and call metadata, not
-// the pixels), and a model that genuinely needs to look calls an inspection tool — pull, not push.
-//
-// SelfAuthored 报告一份 receipt 是否出自**生成族**——模型自己写 prompt 要来的产物。
-//
-// 它存在,是因为「这份产物该不该回喂给模型当输入」由它的**产地**决定,不由大小、也不由模态决定。
-// 模型自己点的那张图,对它的下一轮毫无增益:描述是它写的,它**已经知道**里面是什么。而 function 算出来的
-// 那张图表恰恰相反——那是模型**从未见过**的证据,也正是它开口要的理由。大小只决定该走时**怎么降级**,
-// 绝不能成为决定走不走的那个判据。
-//
-// 这也是成熟实现的做法:OpenAI 的 image_generation 工具把上一张图带进下一轮靠的是 **ID**(模型看到的是
-// `revised_prompt` 与调用元数据、不是像素);而真需要看的模型去调一个检视工具——**拉,不是推**。
-func SelfAuthored(source string) bool {
-	switch source {
-	case "generate_image", "generate_speech", "generate_video":
-		return true
-	}
-	return false
-}
-
-// CollectExcept is Collect with a per-receipt veto keyed on its SourceKey. A nil skip collects
-// everything (the plain Collect).
-//
-// The veto is applied at the RECEIPT, not to the id afterwards: the same attachment can legitimately
-// be self-authored in one place and evidence in another (an upstream node generates a chart, a
-// downstream agent must look at it), so the decision belongs where the producer is still named.
-//
-// CollectExcept 是带**逐 receipt 否决**的 Collect,否决依据是它的 SourceKey。skip 为 nil 即全收(即
-// 普通 Collect)。
-//
-// 否决施加在 **receipt** 上、而不是事后施加在 id 上:同一份附件完全可以在一处是「自己点的」、在另一处是
-// 「证据」(上游节点生成一张图表、下游 agent 必须看它),故这个决定必须留在**产地还叫得出名字**的地方。
-func CollectExcept(v any, skip func(source string) bool) []string {
+func Collect(v any) []string {
 	var out []string
 	seen := map[string]bool{}
 	var walk func(v any)
@@ -108,11 +69,8 @@ func CollectExcept(v any, skip func(source string) bool) []string {
 		switch x := v.(type) {
 		case map[string]any:
 			if id, ok := x[Key].(string); ok && IsAttachmentID(id) && !seen[id] {
-				src, _ := x[SourceKey].(string)
-				if skip == nil || !skip(src) {
-					seen[id] = true
-					out = append(out, id)
-				}
+				seen[id] = true
+				out = append(out, id)
 			}
 			for _, val := range x {
 				walk(val)
@@ -142,17 +100,17 @@ func CollectExcept(v any, skip func(source string) bool) []string {
 			// test, because a scripted turn echoes the receipt VERBATIM and nothing else; the first
 			// real model never did (WRK-082 H7).
 			//
-			// Embedded objects are walked rather than bare ids being regex-scraped, so each receipt
-			// keeps its `source` — which is what ADR 0017's producer filter reads. A bare id carries
-			// no producer, so scraping ids would silently disable that decision.
+			// Embedded objects are walked rather than bare ids being regex-scraped: parsing keeps
+			// every receipt intact as a value (its source, its dimensions), where a regex would
+			// reduce it to an id and silently discard whatever the next consumer needs.
 			//
 			// 否则扫描**嵌在散文里**的 receipt。agent 的终答是**模型**写的,而模型会写「已绘制…receipt
 			// 如下:」再把 JSON 放进围栏——那是一个**本身不是 JSON** 的字符串。要求整段答案可解析,等于把
 			// 引用整个丢掉、下游节点一点媒体也收不到。这在**每一个** mock 测试里都是绿的,因为脚本化的
 			// 回合会**一字不差**地回显 receipt、别的什么都不写;而第一个真模型从没这么干过(H7)。
 			//
-			// 走的是**解析嵌入对象**而非正则刮裸 id,故每份 receipt 都留着自己的 `source`——那正是
-			// ADR 0017 的产地过滤要读的东西。裸 id 不带产地,刮 id 等于把那个决定静默地关掉。
+			// 走的是**解析嵌入对象**而非正则刮裸 id:解析让每份 receipt 作为**值**保持完整(它的
+			// source、它的尺寸),正则会把它削成一个裸 id、把下一个消费者要的东西静默扔掉。
 			for i := 0; i < len(x) && len(out) < MaxRefs; i++ {
 				if x[i] != '{' {
 					continue

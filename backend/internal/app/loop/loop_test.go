@@ -707,22 +707,23 @@ func (h *mediaHost) ExpandToolMedia(_ context.Context, toolCallID string, ids []
 	return []llminfra.ContentPart{{Type: llminfra.PartImageURL, ImageURL: "data:image/png;base64,xx"}}
 }
 
-// TestRun_SelfAuthoredMediaIsNotFedBack: an artifact the model ORDERED does not come back to it as
-// input. It wrote the prompt, so the pixels add nothing to its next turn — while re-inlining them
-// turns a plain follow-up into a multimodal request, and a big one into a request the upstream
-// refuses outright (observed on a real 3.2MB generated clip: the turn died with a 400 AFTER the
-// video had been generated and paid for).
+// TestRun_SelfAuthoredMediaIsFedBack: an artifact the model ORDERED comes back to it as input.
+// This test asserted the OPPOSITE until 2026-07-28, guarding a producer veto (ADR 0017) whose
+// premise — "it wrote the prompt, so the pixels add nothing" — a paired live experiment falsified:
+// handed a pictureless receipt, `qwen3-vl-plus` treated the generation as failed and re-drew until
+// MAX_STEPS (4 generation calls veto-on vs 1 veto-off, twice each, zero disagreement). Knowing what
+// you asked for is not knowing what you got. Whether the model can RECEIVE the artifact is decided
+// downstream by the capability/envelope gate; the loop's job is to hand the reference over
+// (ADR 0020). The 3.2MB-clip 400 that once justified the veto was an unchecked envelope, fixed
+// separately in fitsMediaEnvelope.
 //
-// This test asserted the OPPOSITE until 2026-07-27. The rule is now: the PRODUCER decides whether an
-// artifact is model input; size only decides how to degrade one that does need to go.
-//
-// TestRun_SelfAuthoredMediaIsNotFedBack:模型**自己点的**产物不会作为输入回到它那里。prompt 是它写的,
-// 像素对它的下一轮毫无增益——而把字节内联回去会把一次普通的后续请求变成多模态请求,大一点的干脆被上游
-// 拒收(真机实测:一段 3.2MB 的生成视频,**在生成完并付过钱之后**,那一轮以 400 死掉)。
-//
-// 本测试在 2026-07-27 之前断言的是**相反**的事。现行规则:**产地**决定一份产物是不是模型输入;大小只决定
-// 那些**确实该走**的怎么降级。
-func TestRun_SelfAuthoredMediaIsNotFedBack(t *testing.T) {
+// TestRun_SelfAuthoredMediaIsFedBack:模型**自己点的**产物会作为输入回到它那里。本测试在 2026-07-28
+// 之前断言**相反**的事,守着一道产地否决(ADR 0017),而其前提——「prompt 是它写的,像素毫无增益」——被
+// 成对真钱实验证伪:拿到没有图的 receipt,`qwen3-vl-plus` 把生成当失败、重画到 MAX_STEPS(否决开 4 次
+// vs 否决关 1 次,各跑两遍零分歧)。**知道自己要什么 ≠ 知道做出来是什么。** 模型收不收得下由下游能力+
+// 信封闸裁决;loop 的职责是把引用递过去(ADR 0020)。当年为否决背书的那次 3.2MB 400,真因是信封没查,
+// 已在 fitsMediaEnvelope 单独修掉。
+func TestRun_SelfAuthoredMediaIsFedBack(t *testing.T) {
 	receipt := `{"attachmentId":"att_00aa00aa00aa00aa","mime":"image/png","source":"generate_image"}`
 	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
 		{toolStartEv(0, "tc_1", "paint"), toolDeltaEv(0, `{"summary":"s","danger":"safe"}`), finishEv()},
@@ -735,10 +736,8 @@ func TestRun_SelfAuthoredMediaIsNotFedBack(t *testing.T) {
 	if host.fin.status != messagesdomain.StatusCompleted {
 		t.Fatalf("status=%q, want completed", host.fin.status)
 	}
-	for _, ids := range host.got {
-		if len(ids) != 0 {
-			t.Fatalf("a self-authored artifact was fed back to the model: %v", host.got)
-		}
+	if len(host.got) != 1 || len(host.got[0]) != 1 || host.got[0][0] != "att_00aa00aa00aa00aa" {
+		t.Fatalf("expander asked for %v, want exactly the generated artifact once", host.got)
 	}
 	if len(client.captured) != 2 {
 		t.Fatalf("requests=%d, want 2", len(client.captured))
@@ -750,12 +749,19 @@ func TestRun_SelfAuthoredMediaIsNotFedBack(t *testing.T) {
 			}
 		}
 	}
+	// The follow-up request must carry the pixels — the confirmation signal whose absence caused
+	// the re-draw loop.
+	// 后续请求必须带上像素——正是这份确认信号的缺席造成了重画循环。
+	found := false
 	for _, m := range client.captured[1] {
 		for _, p := range m.Parts {
 			if p.Type == llminfra.PartImageURL {
-				t.Fatalf("the follow-up request carries media the model itself ordered: %+v", client.captured[1])
+				found = true
 			}
 		}
+	}
+	if !found {
+		t.Fatalf("the follow-up request never carries the generated image: %+v", client.captured[1])
 	}
 }
 

@@ -3,38 +3,46 @@ package mcp
 import (
 	"context"
 	"fmt"
-	"runtime"
+	"time"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
-// drainProgress yields the scheduler so the SDK's async notification handler flushes a call's
-// already-queued progress lines to the sink before the caller unregisters the per-call token. Cheap
-// by design: a no-progress call returns after a couple of yields; a call with progress drains its
-// batch then returns once a yield produces nothing new (each signal means the sink already ran —
-// same goroutine, sequential). maxYields is a hard backstop against a stuck handler goroutine.
+// drainProgress waits a short REAL-TIME quiet window so the SDK's async notification handler
+// flushes a call's already-queued progress lines to the sink before the caller unregisters the
+// per-call token. It counted Gosched yields until 2026-07-28, and that lost progress under load:
+// a yield hands the processor to SOME goroutine, not necessarily the handler, so on a machine
+// running the full parallel testend (16 server universes) two quiet yields elapsed before the
+// handler ever ran — the token was unregistered and the durable call log raced empty (observed as
+// a rare TestMCP_ScriptedServerLifecycle flake; the deterministic repro remains GOMAXPROCS=1).
+// Yield COUNTS are not time. The quiet window is real milliseconds now: a progress-opted call pays
+// ~2ms — noise against a subprocess round-trip — and the deadline still backstops a stuck handler.
 //
-// drainProgress 让出调度，使 SDK 异步通知处理器在调用方注销 per-call token 前把已入队的进度行刷进 sink。
-// 设计上廉价：无进度调用几次让出即返回；有进度调用排空其批次、某次让出无新增即返回（收到信号即意味 sink
-// 已跑——同 goroutine、顺序）。maxYields 作硬兜底，防 handler goroutine 卡死。
+// drainProgress 等一小段**真实时间**的安静窗，使 SDK 异步通知处理器在调用方注销 per-call token 前把已
+// 入队的进度行刷进 sink。2026-07-28 之前它数的是 Gosched 让度次数,而那在重负载下丢进度:一次让度把
+// 处理器交给**某个** goroutine、不保证是 handler,于是在跑满并行 testend(16 个 server 宇宙)的机器上,
+// 两次「安静让度」流逝时 handler 还没跑过——token 被注销,durable 调用日志竞争为空(表现为
+// TestMCP_ScriptedServerLifecycle 的罕见 flake;确定性复现仍是 GOMAXPROCS=1)。**让度次数不是时间。**
+// 安静窗现在是真实毫秒:opt-in 进度的调用付 ~2ms——相对一次子进程往返是噪声——deadline 仍兜底卡死的
+// handler。
 func drainProgress(seen <-chan struct{}) {
 	const (
-		maxYields  = 64
-		quietLimit = 2 // consecutive yields with no new progress → drained
+		quietWindow = 2 * time.Millisecond   // silence this long = drained 安静这么久=已排空
+		maxWait     = 150 * time.Millisecond // hard ceiling against a chatty/stuck handler 硬顶
 	)
-	quiet := 0
-	for range maxYields {
+	deadline := time.NewTimer(maxWait)
+	defer deadline.Stop()
+	for {
+		quiet := time.NewTimer(quietWindow)
 		select {
 		case <-seen:
-			quiet = 0
-			continue
-		default:
-		}
-		if quiet >= quietLimit {
+			quiet.Stop()
+		case <-quiet.C:
+			return
+		case <-deadline.C:
+			quiet.Stop()
 			return
 		}
-		quiet++
-		runtime.Gosched()
 	}
 }
 

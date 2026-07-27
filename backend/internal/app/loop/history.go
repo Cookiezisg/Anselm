@@ -157,16 +157,23 @@ func toolResultMediaIDs(rBlocks []messagesdomain.Block) []toolMediaGroup {
 		if json.Unmarshal([]byte(b.Content), &v) != nil {
 			v = b.Content
 		}
-		// The generation family is EXCLUDED here and only here: this is the tool_result of the step
-		// the model just took, so a picture/clip/utterance it ordered was described by its own prompt
-		// — re-inlining the bytes buys nothing and costs a multimodal request. Everything else
-		// (function artifacts, MCP binaries) is evidence the model has not seen, and still expands.
-		// A model that genuinely wants to look at what it made calls `inspect_media` — pull, not push.
-		// 生成族**只在这里**被排除:这是模型**刚走那一步**的 tool_result,它点的图/片子/语音,描述就是它
-		// 自己写的——把字节再内联回去买不到任何东西,却要付一次多模态请求的钱。其余产地(function 产物、
-		// MCP 二进制)是模型**没见过**的证据,照常展开。真想看自己造的东西的模型去调 `inspect_media`
-		// ——**拉,不是推**。
-		for _, id := range mediarefpkg.CollectExcept(v, mediarefpkg.SelfAuthored) {
+		// The generation family is NOT excluded here — it was, and that veto burned real money
+		// (ADR 0020, superseding 0017). The old reasoning ran "the model wrote the prompt, so it
+		// already knows the content"; a paired live experiment falsified it: with the veto on,
+		// `qwen3-vl-plus` treated the pictureless receipt as failure and re-drew until MAX_STEPS
+		// (4 generation calls); with the veto off, one call and a clean finish — twice each, zero
+		// disagreement. Knowing what you ASKED FOR is not knowing what you GOT. Whether the model
+		// can actually receive the artifact is decided downstream by the capability/envelope gate in
+		// ToContentParts (an audio it cannot hear, a clip over the envelope → text receipt, exactly
+		// as before), which is the RIGHT judge — it asks "can this model take it", not "who wrote
+		// the prompt".
+		// 生成族在这里**不再**被排除——曾经排除过,而那道否决烧了真钱(ADR 0020,取代 0017)。旧论证是
+		// 「prompt 是模型自己写的,它已经知道内容」;成对的真钱实验把它证伪了:否决开,`qwen3-vl-plus`
+		// 把没有图的 receipt 当失败、重画到 MAX_STEPS(4 次出图);否决关,一次收工——各跑两遍,零分歧。
+		// **知道自己要什么 ≠ 知道做出来是什么。** 模型接不接得住,由下游 ToContentParts 的能力+信封闸
+		// 裁决(听不了的音频、超信封的片子 → 文本 receipt,与从前一字不差)——那才是**对的**裁判:它问的
+		// 是「这个模型收得下吗」,不是「prompt 谁写的」。
+		for _, id := range mediarefpkg.Collect(v) {
 			if !seen[id] {
 				seen[id] = true
 				ids = append(ids, id)

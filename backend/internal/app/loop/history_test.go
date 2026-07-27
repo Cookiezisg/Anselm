@@ -24,19 +24,24 @@ func TestToolResultMediaIDs_CarriesTheToolCallID(t *testing.T) {
 			Content: `{"chart":{"attachmentId":"att_1111111111111111","source":"function_artifact"}}`},
 		{Type: messagesdomain.BlockTypeToolResult, ParentBlockID: "tc_two",
 			Content: `{"shot":{"attachmentId":"att_2222222222222222","source":"mcp_artifact"}}`},
-		// The generation family is still excluded — ADR 0017, unchanged by the regrouping.
-		// 生成族仍然被排除——ADR 0017,不因分组而变。
+		// The generation family is collected like everything else — its veto died with ADR 0017
+		// (the veto-on arm of the paired live experiment re-drew until MAX_STEPS; ADR 0020).
+		// 生成族与其余产地一样被收集——它的否决随 ADR 0017 死了(成对真钱实验的否决开那一臂重画到
+		// MAX_STEPS;ADR 0020)。
 		{Type: messagesdomain.BlockTypeToolResult, ParentBlockID: "tc_three",
 			Content: `{"attachmentId":"att_3333333333333333","source":"generate_image"}`},
 	}
 	groups := toolResultMediaIDs(blocks)
-	if len(groups) != 2 {
-		t.Fatalf("groups = %+v, want one per tool_result that carries evidence", groups)
+	if len(groups) != 3 {
+		t.Fatalf("groups = %+v, want one per tool_result that carries media", groups)
 	}
 	if groups[0].toolCallID != "tc_one" || len(groups[0].ids) != 1 || groups[0].ids[0] != "att_1111111111111111" {
 		t.Fatalf("group 0 = %+v, want tc_one's own artifact", groups[0])
 	}
 	if groups[1].toolCallID != "tc_two" || len(groups[1].ids) != 1 {
 		t.Fatalf("group 1 = %+v, want tc_two's own artifact", groups[1])
+	}
+	if groups[2].toolCallID != "tc_three" || len(groups[2].ids) != 1 || groups[2].ids[0] != "att_3333333333333333" {
+		t.Fatalf("group 2 = %+v, want the generated artifact under its own call", groups[2])
 	}
 }

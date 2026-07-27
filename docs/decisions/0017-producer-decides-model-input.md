@@ -1,7 +1,7 @@
 ---
 id: DOC-064
 type: decision
-status: active
+status: superseded
 owner: @weilin
 created: 2026-07-27
 reviewed: 2026-07-27
@@ -10,6 +10,13 @@ audience: [human, ai]
 ---
 
 # 0017 — 产地决定回不回喂:模型自己点的产物不作为它的输入
+
+> **⚠️ 已被 [ADR 0020](0020-capability-decides-model-input.md) 取代(2026-07-28)。**
+> 核心前提「模型自己写的 prompt,它已经知道内容」被成对真钱实验**证伪**:拿到没有图的 receipt,
+> `qwen3-vl-plus` 把生成当失败、重画到 MAX_STEPS(否决开 4 次出图 vs 否决关 1 次,各跑两遍零分歧)
+> ——**知道自己要什么 ≠ 知道做出来是什么**,产地否决正是「一个节点烧掉十张真图」那次事故的病灶。
+> 本文档里那次 3.2MB 视频 400 的真因是**信封没查**(后已由 `fitsMediaEnvelope` 修掉),当时被误诊成
+> 路线错误。仍然成立并由 0020 保留的:**大小只决定怎么降级、不决定走不走**(现由能力闸独家执行)。
 
 ## 背景 / Context
 

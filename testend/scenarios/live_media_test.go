@@ -59,8 +59,9 @@ const liveModel = "qwen3-vl-plus"
 // purpose. The two roles need different things and no single available model does both: the painter
 // must CALL a tool and then STOP, the viewer must SEE an image. `qwen3-vl-plus` sees but will not
 // stop; `qwen-vl-plus` stops but refuses to call the tool at all ("抱歉，我无法直接生成图像");
-// `qwen-vl-max` loops like qwen3-vl-plus. `qwen3.7-max` calls and stops, and the painter never needs
-// vision — ADR 0017 hands the generating model a receipt, never its own pixels.
+// `qwen-vl-max` loops like qwen3-vl-plus. `qwen3.7-max` calls and stops. (Historical note: the
+// looping observed here predates ADR 0020 — under the since-deleted producer veto the painter never
+// saw its own picture, which the paired experiment proved to be the CAUSE of the looping.)
 //
 // livePainterModel 是 workflow **上游** agent 跑的模型,而且**故意**与下游不同。两个角色要的东西不一样,
 // 且没有任何一个可用模型两样都行:画的那个必须**会调工具并且会停**,看的那个必须**看得见图**。
@@ -139,18 +140,17 @@ func attachmentFrom(t *testing.T, turn chatMsg, tool string) string {
 // draw, really calls the tool, a real image comes back, and it lands as a first-class attachment
 // whose bytes round-trip.
 //
-// It also proves ADR 0017 with real money, which no fake could: the generation family returns a
-// RECEIPT ONLY — the model that wrote the prompt does not get the pixels back. Both halves are
-// asserted, because "the receipt is there" is satisfied by an implementation that ALSO ships the
-// bytes, and that implementation is the one that killed a whole turn on a 3.2MB video after paying
-// for it.
+// It also proves ADR 0020's feedback half with real money: the generating model's follow-up view
+// carries the receipt AND the artifact reaches it as pixels (the confirmation signal whose absence
+// made this same model re-draw to MAX_STEPS under the old producer veto). The exactly-once money
+// assertion lives in TestLiveMedia_GeneratedImageFedBackOnce.
 //
 // TestLiveMedia_ChatImage 是终点验收 ① 里机器可判的那半:真模型、被用中文要求画画、**真的**调了工具、
 // 回来一张真图、落成一等附件且字节往返一致。
 //
-// 它还用真钱证明了 ADR 0017——这是假件做不到的:生成族**只回 receipt 不回字节**,写下那条 prompt 的模型
-// 拿不回像素。**两半都断言**,因为「receipt 在」也能被一个**同时把字节也发回去**的实现满足,而正是那个
-// 实现在**已付费之后**用一段 3.2MB 的视频打死了一整轮。
+// 它还用真钱证明 ADR 0020 的回喂半:生成模型的后续视野里带着 receipt,**且**产物以像素抵达它——正是
+// 这份确认信号的缺席,曾让同一个模型在旧产地否决下重画到 MAX_STEPS。「恰好一次」的花钱断言住在
+// TestLiveMedia_GeneratedImageFedBackOnce。
 func TestLiveMedia_ChatImage(t *testing.T) {
 	t.Parallel()
 	wc, rec, _ := liveQwen(t, "live-image")
@@ -184,8 +184,15 @@ func TestLiveMedia_ChatImage(t *testing.T) {
 	if !strings.Contains(string(last.Raw), attID) {
 		t.Fatalf("the model's next view must carry the receipt %s", attID)
 	}
-	if strings.Contains(string(last.Raw), base64.StdEncoding.EncodeToString(content.Raw)) {
-		t.Fatal("ADR 0017 violated: the generating model was fed its own pixels back")
+	fed := false
+	for _, d := range dumps {
+		if d.HasImagePart(base64.StdEncoding.EncodeToString(content.Raw)) {
+			fed = true
+		}
+	}
+	if !fed {
+		t.Fatal("ADR 0020 violated: the generating model never received its own artifact as pixels — " +
+			"the missing confirmation signal is what caused the re-draw loop")
 	}
 }
 

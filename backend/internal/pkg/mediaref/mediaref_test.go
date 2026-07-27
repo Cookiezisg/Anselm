@@ -127,41 +127,27 @@ func TestCollectURIs_Capped(t *testing.T) {
 	}
 }
 
-// TestCollectExcept_VetoesBySourceNotById: the veto reads the receipt's own producer, so the SAME
-// attachment id is skipped when self-authored and kept when it is evidence. Keying on the id
-// instead would make one artifact's fate depend on whichever receipt happened to be seen first.
+// TestCollect_HasNoProducerVeto pins the ABSENCE of the source filter — the guard for ADR 0020.
+// The collector once vetoed the generation family by its receipt's `source`, and that veto burned
+// real money: a paired live experiment showed the generating model, handed a pictureless receipt,
+// re-drawing until MAX_STEPS (4 generation calls veto-on vs 1 veto-off, twice each). Whether the
+// model can RECEIVE an artifact is the capability gate's question downstream; the collector's job
+// is only to find references. If someone reintroduces a producer veto here, this test fails and
+// points at the experiment.
 //
-// TestCollectExcept_VetoesBySourceNotById:否决读的是 receipt 自己的产地,故**同一个** id 在「自己点的」
-// 那份里被跳过、在「证据」那份里被保留。改成按 id 判定,会让一份产物的命运取决于**先看到哪份 receipt**。
-func TestCollectExcept_VetoesBySourceNotById(t *testing.T) {
+// TestCollect_HasNoProducerVeto 钉住产地过滤的**不存在**——ADR 0020 的守卫。收集器曾按 receipt 的
+// `source` 否决生成族,而那道否决烧了真钱:成对真钱实验里,拿到没有图的 receipt 的生成模型重画到
+// MAX_STEPS(否决开 4 次出图 vs 否决关 1 次,各跑两遍)。「模型收不收得下」是下游能力闸的问题;
+// 收集器的职责只是找引用。谁要是在这儿重新引入产地否决,本测试会红,并把他指向那次实验。
+func TestCollect_HasNoProducerVeto(t *testing.T) {
 	const id = "att_00aa00aa00aa00aa"
-	generated := map[string]any{Key: id, "source": "generate_video"}
-	evidence := map[string]any{Key: id, "source": "function_artifact"}
-
-	if got := CollectExcept(generated, SelfAuthored); len(got) != 0 {
-		t.Fatalf("self-authored receipt collected: %v", got)
-	}
-	if got := CollectExcept(evidence, SelfAuthored); len(got) != 1 || got[0] != id {
-		t.Fatalf("evidence receipt = %v, want the id", got)
-	}
-	// A nil veto is the plain Collect — the other consumption entries (agent invoke payload) must
-	// keep seeing everything, because a DOWNSTREAM model did not author the upstream's prompt.
-	// nil 否决即普通 Collect——其余消费入口(agent invoke payload)必须照旧全见,因为**下游**模型并没有
-	// 写过上游那条 prompt。
-	if got := Collect(generated); len(got) != 1 {
-		t.Fatalf("plain Collect must not veto: %v", got)
-	}
-}
-
-func TestSelfAuthored_IsTheGenerationFamilyOnly(t *testing.T) {
-	for _, src := range []string{"generate_image", "generate_speech", "generate_video"} {
-		if !SelfAuthored(src) {
-			t.Fatalf("%s must be self-authored", src)
-		}
-	}
-	for _, src := range []string{"function_artifact", "handler_artifact", "mcp", "", "read_aloud"} {
-		if SelfAuthored(src) {
-			t.Fatalf("%s must NOT be self-authored — the model has not seen it", src)
+	for _, src := range []string{
+		"generate_image", "generate_speech", "generate_video", // the family the dead veto skipped
+		"function_artifact", "handler_artifact", "mcp_media", "read_aloud", "",
+	} {
+		got := Collect(map[string]any{Key: id, SourceKey: src})
+		if len(got) != 1 || got[0] != id {
+			t.Fatalf("source=%q: collect = %v, want the id regardless of producer", src, got)
 		}
 	}
 }
@@ -181,14 +167,6 @@ func TestCollect_ReceiptEmbeddedInProse(t *testing.T) {
 	got := Collect(answer)
 	if len(got) != 1 || got[0] != "att_0a2009405c5f2a0c" {
 		t.Fatalf("receipt embedded in prose must be found, got %v", got)
-	}
-
-	// The producer survives the trip: ADR 0017's filter reads `source`, and it can only do that if
-	// the whole receipt object was parsed rather than the id scraped out of the text.
-	// 产地要活着到达:ADR 0017 的过滤读 `source`,而它只有在整份 receipt **被解析**、而非 id 被从文本里
-	// 刮出来时才读得到。
-	if skipped := CollectExcept(answer, SelfAuthored); len(skipped) != 0 {
-		t.Fatalf("a self-authored receipt must be filterable through prose too, got %v", skipped)
 	}
 
 	// Two receipts in one answer, and prose that merely mentions the key without an object.
