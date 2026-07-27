@@ -67,7 +67,7 @@ for line in sys.stdin:
             # 现场造一张**真** PNG(zlib+struct、零依赖):媒体路径必须用**解码器认的**字节来跑,
             # 而不是一个只是看起来像的占位符。
             import base64, struct, zlib
-            w = h = 8
+            w = h = 64   # 视觉 API 普遍拒收过小的图(8x8 实测 400);夹具得像一张真图
             raw = b"".join(b"\x00" + bytes([(x * 32) % 256, 80, 160] * w) for x in range(h))
             def chunk(tag, data):
                 return struct.pack(">I", len(data)) + tag + data + struct.pack(">I", zlib.crc32(tag + data))
@@ -222,6 +222,19 @@ func TestMCP_ScriptedServerLifecycle(t *testing.T) {
 	wc.POST("/api/v1/mcp-servers/scripted:reconnect", nil).OK(t, &st)
 	if st.Status != "ready" {
 		t.Fatalf("reconnect must restore ready, got %s lastError=%q", st.Status, st.LastError)
+	}
+
+	// snapshot 返图:媒体入口把二进制落成一等附件,并把 MediaRef receipt 并进文本结果——占位符叙事
+	// 由 receipt 接管。这条钉住入口本身、不依赖任何模型;放在**账本算术之后**,因为它自己也会记一笔
+	// 调用,写在中间会让上面每一处 OK 计数都得跟着改——那些数字断言的是 echo/boom 的会计,不该被媒体验证挪动。
+	// snapshot returns a picture: the media inlet lands the binary as a first-class attachment and
+	// joins a MediaRef receipt onto the text result. Pinned here, model-free — and placed AFTER the
+	// ledger arithmetic, because this invoke books a call of its own: putting it earlier would shift
+	// every OK count above, and those numbers assert echo/boom accounting, not media.
+	var snap string
+	wc.POST("/api/v1/mcp-servers/scripted/tools/snapshot:invoke", map[string]any{"args": map[string]any{}}).OK(t, &snap)
+	if !strings.Contains(snap, `"source":"mcp_media"`) || !attIDShape.MatchString(snap) {
+		t.Fatalf("snapshot must carry a MediaRef receipt, got %q", snap)
 	}
 
 	wc.DELETE("/api/v1/mcp-servers/scripted")

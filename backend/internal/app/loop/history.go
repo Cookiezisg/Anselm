@@ -142,9 +142,20 @@ func toolResultMediaIDs(rBlocks []messagesdomain.Block) []toolMediaGroup {
 			continue
 		}
 		var ids []string
+		// A tool_result is NOT necessarily JSON. MCP's is `[image: image/png]\n{"attachmentId":…}`:
+		// a placeholder line the SDK renders, a newline, then the receipt the media inlet appended.
+		// Gating on "the whole body parses as JSON" dropped that entire family on the floor — the
+		// attachment was minted, the receipt was written, and the model still got only the
+		// placeholder, which is precisely what 终点验收 ③ forbids. Falling through to the string form
+		// lets the collector find receipts embedded in text (the same tolerance prose-written agent
+		// answers needed).
+		// tool_result **不一定**是 JSON。MCP 的形状是 `[image: image/png]\n{"attachmentId":…}`:SDK 渲的
+		// 占位行 + 换行 + 媒体入口追加的 receipt。以「整段能解析成 JSON」为闸,把这一整族直接丢在地上
+		// ——附件铸了、receipt 写了,而模型拿到的仍然只有占位符,那正是终点验收 ③ 禁止的东西。落到字符串
+		// 形态,收集器就能找到**嵌在文本里**的 receipt(与散文体 agent 终答所需的是同一份容忍)。
 		var v any
 		if json.Unmarshal([]byte(b.Content), &v) != nil {
-			continue
+			v = b.Content
 		}
 		// The generation family is EXCLUDED here and only here: this is the tool_result of the step
 		// the model just took, so a picture/clip/utterance it ordered was described by its own prompt

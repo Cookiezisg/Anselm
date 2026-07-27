@@ -767,20 +767,53 @@ func TestLiveMedia_McpImageSeenByModel(t *testing.T) {
 	wc, rec, _ := liveQwen(t, "live-mcp-image")
 
 	script := writeScriptedMCP(t)
+	// Require READY, not merely accepted. MCP tools are lazy — they reach the model only after the
+	// server has connected and listed them — so a scenario that fires the prompt on a 2xx races the
+	// spawn and the model simply never sees the tool (observed: search_tools answered "0 servers").
+	// 必须 **ready**,不只是被接受。MCP 工具是 lazy 的——server 连上并列出工具之后才到达模型——故一个
+	// 拿到 2xx 就发提示词的场景会和进程启动赛跑,模型压根见不到那个工具(实测:search_tools 答「0 个」)。
+	var st struct {
+		Status string `json:"status"`
+		Tools  []struct {
+			Name string `json:"name"`
+		} `json:"tools"`
+	}
 	wc.PUT("/api/v1/mcp-servers/shots", map[string]any{
 		"description": "returns a picture", "command": "python3", "args": []string{script},
-	}).OK(t, nil)
+	}).OK(t, &st)
+	if st.Status != "ready" || len(st.Tools) == 0 {
+		t.Fatalf("mcp server must be ready with tools before the model is asked, got %s / %d tools", st.Status, len(st.Tools))
+	}
 
 	convID := convCreate(t, wc, "MCP 返图")
 	mid := sendMsg(t, wc, convID,
-		"调用 shots 这个 MCP server 的 snapshot 工具拿一张图,然后用一句话描述你看到的图。")
+		"先用 search_tools 搜 \"snapshot\" 把工具装出来,然后**只调用一次** mcp__shots__snapshot 拿一张图(拿到就够了,不要重复调用),"+
+			"最后用一句话描述你看到的图。")
+	// The tool is NAMED on purpose. What this scenario must prove is that the picture reaches the
+	// model — not that the model guesses the right search query. Left to itself it sometimes finds
+	// the lazy tool and sometimes gives up ("0 servers"), which would make a media assertion flaky
+	// for a reason that has nothing to do with media.
+	// **刻意点名**那个工具。本场景要证的是**图能到达模型**,不是模型能不能猜对搜索词。放任它自己搜时,
+	// 有时找得到这个 lazy 工具、有时就放弃了(答「0 个 server」)——那会让一条媒体断言因为**与媒体无关**
+	// 的理由变成 flaky。
+	// A MAX_STEPS turn is ACCEPTED here, and that is deliberate. What 终点验收 ③ asks is whether the
+	// picture reaches the model — not whether the model then wraps up gracefully. `qwen3-vl-plus`
+	// re-calls a tool it already called (the same pathology livePainterModel exists to dodge), and
+	// letting that fail this scenario would report a model habit as a media defect. The media
+	// assertions below are unaffected: a looping turn still carries every tool_result it produced.
+	// 这里**接受** MAX_STEPS,而且是刻意的。终点验收 ③ 问的是**图有没有到达模型**,不是模型之后会不会
+	// 漂亮地收尾。`qwen3-vl-plus` 会重复调用它已经调过的工具(正是 livePainterModel 存在所要绕开的那个
+	// 毛病),让它判本场景失败,等于把一个**模型习惯**报成**媒体缺陷**。下面的媒体断言不受影响:一个打转
+	// 的回合照样带着它产出的每一条 tool_result。
 	turn := waitTurn(t, wc, convID, mid, 300000)
-	if turn.Status != "completed" {
+	if turn.Status != "completed" && turn.ErrorCode != "MAX_STEPS_REACHED" {
 		traceModel(t, rec)
-		t.Fatalf("turn must complete, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+		t.Fatalf("turn must complete (or merely run long), got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
 	}
 
-	attID := attachmentFrom(t, turn, "mcp_artifact")
+	// The receipt's source is `mcp_media` — the PRODUCER, as everywhere else in this file.
+	// receipt 的 source 是 `mcp_media`——**产地**,与本文件其余处同律。
+	attID := attachmentFrom(t, turn, "mcp_media")
 	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
 	if content.Status != 200 || !bytes2IsImage(content.Raw) {
 		t.Fatalf("the MCP image must land as a real PNG: HTTP %d, %d bytes", content.Status, len(content.Raw))

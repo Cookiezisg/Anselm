@@ -62,8 +62,8 @@ func TestP4bMcp_OfflineServerAgentSeatAndRecovery(t *testing.T) {
 	wc.PUT("/api/v1/mcp-servers/recover", map[string]any{
 		"description": "offline-face probe", "command": "python3", "args": []string{script},
 	}).OK(t, &st)
-	if st.Status != "ready" || len(st.Tools) != 2 {
-		t.Fatalf("phase1: recover must be ready with echo+boom, got %s tools=%d lastError=%q", st.Status, len(st.Tools), st.LastError)
+	if st.Status != "ready" || len(st.Tools) != 3 {
+		t.Fatalf("phase1: recover must be ready with echo+boom+snapshot, got %s tools=%d lastError=%q", st.Status, len(st.Tools), st.LastError)
 	}
 	agID := agCreate(t, wc, map[string]any{
 		"name": "Recover Worker", "description": "calls a flaky mcp tool", "prompt": "Use your tool.",
