@@ -140,13 +140,23 @@ func (s *Service) Upload(ctx context.Context, filename, mime string, data []byte
 // 它「不把图像字节倾倒进对话」,`read_attachment` 写着二进制「返回描述符」。也就是说,今天的行为**本来
 // 就在违反这两份契约**,本过滤器是**顺手修好了它**、而不是弄坏了什么。工具清单里再没有第三个点名既有
 // 附件的。
-func (s *Service) ToolResultContentParts(ctx context.Context, ids []string, caps Capabilities) ([]llminfra.ContentPart, error) {
-	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+// **The tool call id is a PARAMETER, not a ctx read.** It was a ctx read when H5.8 landed, and that
+// silently killed the whole expansion branch: the loop seeds SetToolCallID only inside the tool's
+// own execution scope, while the expansion runs one level out on the loop's own ctx — where the id
+// is empty, so this function returned nil for EVERY call. Every mocked test seeded the ctx by hand
+// and passed; the first end-to-end run with a real producer (a function's matplotlib chart) showed
+// the model going off to call inspect_media because it had never been handed the pixels.
+// Taking it as an argument also makes a multi-tool step correct by construction — each tool_result
+// expands under ITS OWN call id rather than whatever one id happened to be on ctx.
+//
+// **tool call id 是**参数**,不是从 ctx 读的。** H5.8 落地时它是 ctx 读,而那**静默杀死了整条展开路径**:
+// loop 只在**工具自己的执行作用域内**种 SetToolCallID,而展开发生在外面一层、用的是 loop 自己的 ctx
+// ——那上面 id 是空的,于是本函数对**每一次**调用都返回 nil。每个 mock 测试都手工种了 ctx、于是全绿;
+// 而第一次带真产地的端到端跑(函数的 matplotlib 图表)里,模型跑去调 inspect_media——因为它从来没被
+// 递过那些像素。把它收成参数,还让「一步多工具」天然正确:每个 tool_result 用**自己**那个调用 id 展开,
+// 而不是碰巧躺在 ctx 上的某一个。
+func (s *Service) ToolResultContentParts(ctx context.Context, toolCallID string, ids []string, caps Capabilities) ([]llminfra.ContentPart, error) {
 	if toolCallID == "" || len(ids) == 0 {
-		// No tool call in ctx means this is not a tool_result expansion at all; refuse rather than
-		// silently widen — the callers that legitimately expand anything else call ToContentParts.
-		// ctx 里没有 tool call,说明这根本不是一次 tool_result 展开;宁可拒绝也不静默放宽——正当展开别的
-		// 东西的调用方走 ToContentParts。
 		return nil, nil
 	}
 	metas, err := s.repo.GetBatch(ctx, ids)

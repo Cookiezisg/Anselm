@@ -29,6 +29,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sunweilin/anselm/testend/harness"
 )
@@ -340,9 +341,98 @@ func TestLiveMedia_VideoDirect(t *testing.T) {
 	// so there is no cheaper/faster shape to ask for.
 	// 25 分钟,而且这不是留富余。真队列上一段 720P 片子 15 分钟没跑完,而工具**正确地**继续轮询——
 	// wan2.7 在 DashScope 上没有低于 720P 的档,故没有更便宜更快的形状可要。
-	turn := waitTurn(t, wc, convID, mid, 1500000)
+	// **The danger gate really fires here, and that is the point.** H5.6 put cost into the danger
+	// vocabulary precisely so a call that spends real money at a rate worth asking about reads as
+	// `dangerous` — and a real model, told to generate a video, self-reports exactly that. The loop
+	// then BLOCKS on a human decision. A test that never decides sits in `streaming` forever, which
+	// is what the first three runs of this scenario did: 25 minutes with a single chat request on
+	// the wire and no video submit at all, while the provider itself finishes the same job in 122
+	// seconds (measured directly). The turn was not hung — it was waiting for a person.
+	//
+	// So this approves, like a user clicking through, and ASSERTS the gate appeared. Auto-approving
+	// silently would throw away the strongest evidence H5.6 works on a real paid call.
+	//
+	// **人闸在这里真的响了,而这正是要点。** H5.6 把成本放进 danger 词表,正是为了让一次「以用户会想被
+	// 问一句的费率花钱」的调用读作 `dangerous`——而一个真模型被要求生成视频时,自报的就是它。循环随即
+	// **阻塞**等人决定。一个从不决定的测试会永远停在 `streaming`,这正是本场景前三次跑的样子:25 分钟、
+	// 线缆上只有一次 chat 请求、视频提交一次也没发生,而供应商自己做完同一件事只要 122 秒(直接测过)。
+	// **那一轮没有卡死——它在等人。**
+	//
+	// 所以这里像用户点确认一样批准,并**断言闸出现过**。静默自动批准会扔掉「H5.6 在一次真花钱的调用上
+	// 确实有效」这个最强的证据。
+	gateFired := make(chan string, 4)
+	stop, approverDone := make(chan struct{}), make(chan struct{})
+	// The approver MUST be joined before the test returns. A poller left running past the body hits
+	// the harness's torn-down server, and the client's connection error is a t.Fatalf from a
+	// non-test goroutine — which failed this scenario once while its actual assertions had passed.
+	// 批准协程**必须**在测试返回前被 join。跑过主体的轮询会撞上已拆除的 server,而 client 的连接错误是
+	// 从非测试 goroutine 发出的 t.Fatalf——它曾在**断言本身已经通过**的情况下把本场景判失败一次。
+	defer func() { close(stop); <-approverDone }()
+	go func() {
+		defer close(approverDone)
+		for {
+			var pending []struct {
+				ToolCallID string `json:"toolCallId"`
+				Kind       string `json:"kind"`
+				Tool       string `json:"tool"`
+			}
+			wc.GET("/api/v1/conversations/"+convID+"/interactions").OK(t, &pending)
+			for _, p := range pending {
+				select {
+				case gateFired <- p.Kind + ":" + p.Tool:
+				default:
+				}
+				wc.POST("/api/v1/conversations/"+convID+"/interactions/"+p.ToolCallID,
+					map[string]any{"action": "approve"})
+			}
+			select {
+			case <-stop:
+				return
+			case <-time.After(time.Second):
+			}
+		}
+	}()
+
+	// Poll WITHOUT the fatal-on-timeout helper: when a long tool hangs, the only useful thing a
+	// test can do is show what the turn and the upstream actually did, and waitTurn's Fatalf ends
+	// the test before any of that can be printed.
+	// **不**用超时即 Fatal 的那个 helper:一个长工具卡住时,测试唯一有用的动作是把「这一轮和上游到底
+	// 做了什么」摊出来,而 waitTurn 的 Fatalf 会在那之前就结束测试。
+	var turn chatMsg
+	deadline := time.Now().Add(8 * time.Minute)
+	for time.Now().Before(deadline) {
+		for _, m := range listMsgs(t, wc, convID) {
+			if m.ID == mid {
+				turn = m
+			}
+		}
+		if turn.Status != "" && turn.Status != "pending" && turn.Status != "streaming" {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
 	if turn.Status != "completed" {
+		traceModel(t, rec)
+		for _, b := range turn.Blocks {
+			body := b.Content
+			if len(body) > 300 {
+				body = body[:300] + "…"
+			}
+			t.Logf("block %-12s %s", b.Type, body)
+		}
+		for _, c := range rec.Calls() {
+			t.Logf("upstream %s %s", c.Method, c.Path)
+		}
 		t.Fatalf("turn must complete, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+
+	select {
+	case what := <-gateFired:
+		if what != "danger:generate_video" {
+			t.Fatalf("the interaction that blocked the turn was %q, want danger:generate_video", what)
+		}
+	default:
+		t.Fatal("no danger gate fired for a real paid video generation — H5.6's cost-aware danger vocabulary did not reach the wire")
 	}
 
 	attID := attachmentFrom(t, turn, "generate_video")
@@ -497,4 +587,91 @@ func TestLiveMedia_DocumentImageInjected(t *testing.T) {
 		}
 	}
 	t.Fatal("the @-mentioned document's image never reached the model as pixels — it saw markdown text only")
+}
+
+// TestLiveMedia_FunctionChartSeenByModel is the end-to-end link the other four do NOT cover: a
+// producer that is NOT a generation tool, feeding the consumption chokepoint's EXPAND branch, with a
+// real model on the far end.
+//
+// The whole chain runs for real: the model calls run_function → the REAL sandbox installs matplotlib
+// and executes REAL Python → the script writes a PNG into ANSELM_OUT and declares it with
+// `{"$media": …}` → the collector swaps that declaration for a receipt → and the model's NEXT turn
+// must carry the PIXELS, because ADR 0017 expands what the model has NOT seen (a function's output
+// is evidence; a generation tool's output is the model's own prompt coming back).
+//
+// That last clause is why this test is not redundant with ①. ① proves the SKIP branch (generation →
+// receipt only). Nothing else proves the EXPAND branch against a real model, and the two branches
+// are opposite decisions made in the same function.
+//
+// TestLiveMedia_FunctionChartSeenByModel 是另外四条**没有覆盖**的那一环:一个**不是生成工具**的产地,
+// 喂给消费咽喉的**展开**分支,而远端是一个真模型。
+//
+// 整条链都是真的:模型调 run_function → **真沙箱**装 matplotlib、跑**真 Python** → 脚本把 PNG 写进
+// ANSELM_OUT 并用 `{"$media": …}` 声明 → 采集器把声明换成 receipt → 而模型的**下一轮必须带着像素**,
+// 因为 ADR 0017 展开的是模型**没见过**的东西(函数的产出是**证据**;生成工具的产出是模型自己的 prompt
+// 绕回来)。
+//
+// 最后这句正是它与 ① 不重复的原因:① 证的是**跳过**分支(生成族只回 receipt),而**展开**分支此前对着
+// 真模型一次也没被证过——两个分支是同一个函数里方向相反的两个决定。
+func TestLiveMedia_FunctionChartSeenByModel(t *testing.T) {
+	t.Parallel()
+	wc, rec, _ := liveQwen(t, "live-fn-chart")
+
+	// Real matplotlib, real Agg backend, real PNG bytes on disk. ANSELM_OUT is the run's own
+	// artifact directory — the same contract the docs state, exercised rather than assumed.
+	// 真 matplotlib、真 Agg 后端、盘上真 PNG 字节。ANSELM_OUT 是本次运行自己的产物目录——文档写的
+	// 就是这个契约,这里是**跑它**而不是假定它。
+	code := `import os
+import matplotlib
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt
+
+def chart(points: int) -> dict:
+    xs = list(range(points))
+    ys = [x * x for x in xs]
+    fig, ax = plt.subplots(figsize=(4, 3), dpi=120)
+    ax.plot(xs, ys, marker="o")
+    ax.set_title("squares")
+    out = os.path.join(os.environ["ANSELM_OUT"], "chart.png")
+    fig.savefig(out)
+    plt.close(fig)
+    return {"chart": {"$media": "chart.png"}, "points": points}
+`
+	fnID := wc.POST("/api/v1/functions", map[string]any{
+		"name": "square_chart", "description": "plots y=x^2 and returns the chart image",
+		"code": code, "dependencies": []string{"matplotlib"},
+	}).Field(t, "id")
+
+	convID := convCreate(t, wc, "函数出图给我看")
+	mid := sendMsg(t, wc, convID,
+		"用 run_function 跑一下 square_chart 这个函数,points 传 6。跑完看看它返回的那张图,"+
+			"用一句话说图里的曲线是什么形状。")
+	// First run installs matplotlib into the shared sandbox env (uv, real download) — give it room.
+	// 首跑要把 matplotlib 装进共享沙箱 env(uv、真下载)——给足时间。
+	turn := waitTurn(t, wc, convID, mid, 600000)
+	if turn.Status != "completed" {
+		traceModel(t, rec)
+		t.Fatalf("turn must complete, got %s err=%s/%s (fn %s)", turn.Status, turn.ErrorCode, turn.ErrorMessage, fnID)
+	}
+
+	// The receipt a function artifact carries says `function_artifact` — the PRODUCER, not the tool
+	// that happened to run it. That distinction is what ADR 0017 keys on.
+	// 函数产物的 receipt 写的是 `function_artifact`——**产地**,而不是碰巧跑了它的那个工具。ADR 0017
+	// 判的正是这个区分。
+	attID := attachmentFrom(t, turn, "function_artifact")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) || len(content.Raw) < 3_000 {
+		t.Fatalf("the function's chart must land as a real PNG: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+
+	// THE assertion: the model was handed the chart's pixels, not a sentence about a chart.
+	// **那条**断言:模型拿到的是图表的**像素**,不是一句关于图表的话。
+	b64 := base64.StdEncoding.EncodeToString(content.Raw)
+	for _, d := range rec.Dumps() {
+		if d.HasImagePart(b64) {
+			return
+		}
+	}
+	traceModel(t, rec)
+	t.Fatal("the function's chart never reached the model as pixels — ADR 0017's expand branch is broken for real producers")
 }

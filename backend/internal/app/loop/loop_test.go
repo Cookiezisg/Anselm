@@ -697,11 +697,13 @@ func truncate(s string) string {
 // mediaHost 给 fakeHost 加可选 MediaExpander 能力,记录 loop 请求展开的 id 并返回一个图 part。
 type mediaHost struct {
 	fakeHost
-	got [][]string
+	got     [][]string
+	gotCall []string // the tool_call id each expansion was asked under 每次展开被问及的 tool_call id
 }
 
-func (h *mediaHost) ExpandToolMedia(_ context.Context, ids []string) []llminfra.ContentPart {
+func (h *mediaHost) ExpandToolMedia(_ context.Context, toolCallID string, ids []string) []llminfra.ContentPart {
 	h.got = append(h.got, ids)
+	h.gotCall = append(h.gotCall, toolCallID)
 	return []llminfra.ContentPart{{Type: llminfra.PartImageURL, ImageURL: "data:image/png;base64,xx"}}
 }
 
@@ -778,6 +780,21 @@ func TestRun_EvidenceMediaStillExpands(t *testing.T) {
 
 	if len(host.got) != 1 || len(host.got[0]) != 1 || host.got[0][0] != "att_00bb00bb00bb00bb" {
 		t.Fatalf("expander asked for %v, want exactly the function artifact once", host.got)
+	}
+	// The expansion must be asked under the tool_call that produced it. Reading that id off ctx
+	// instead is what silently disabled this whole branch in the real loop: the id is only seeded
+	// inside the tool's own execution scope, and the expansion runs one level out.
+	// 展开必须**在产出它的那个 tool_call 名下**被问。改成从 ctx 读那个 id,正是这条分支在真 loop 里被
+	// 静默关掉的方式:那个 id 只在**工具自己的执行作用域内**被种下,而展开发生在外面一层。
+	// The id is the loop's OWN tool_call block id — the very value SetToolCallID plants for the
+	// tool's execution, hence the value the artifact's origin_tool_call_id was stamped with. What
+	// matters is that it is present: an empty id makes the expansion chokepoint refuse, which is
+	// exactly how this branch died in production while every mocked test stayed green.
+	// 这个 id 是 loop **自己**的 tool_call 块 id——正是 SetToolCallID 为工具执行种下的那个值,也因此正是
+	// 产物的 origin_tool_call_id 被打上的那个值。要紧的是**它在**:空 id 会让展开咽喉拒绝,而那正是这条
+	// 分支在生产里死掉的方式,同时每个 mock 测试都还绿着。
+	if len(host.gotCall) != 1 || host.gotCall[0] == "" {
+		t.Fatalf("expander asked under %v, want a non-empty producing tool_call id", host.gotCall)
 	}
 	found := false
 	for _, m := range client.captured[1] {

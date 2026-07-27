@@ -500,11 +500,11 @@ type agentHost struct {
 // ExpandToolMedia implements loop.MediaExpander — same grammar, same gating as the payload half.
 //
 // ExpandToolMedia 实现 loop.MediaExpander——与 payload 半同文法、同门控。
-func (h *agentHost) ExpandToolMedia(ctx context.Context, ids []string) []llminfra.ContentPart {
+func (h *agentHost) ExpandToolMedia(ctx context.Context, toolCallID string, ids []string) []llminfra.ContentPart {
 	if h.renderer == nil || len(ids) == 0 {
 		return nil
 	}
-	parts, err := h.renderer.ToolResultContentParts(ctx, ids, h.caps)
+	parts, err := h.renderer.ToolResultContentParts(ctx, toolCallID, ids, h.caps)
 	if err != nil {
 		h.log.Warn("agent: tool media expansion failed (textual receipts kept)", zap.Error(err))
 		return nil

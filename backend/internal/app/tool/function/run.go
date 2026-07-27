@@ -48,9 +48,9 @@ func (t *RunFunction) ValidateInput(args json.RawMessage) error {
 
 func (t *RunFunction) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args struct {
-		FunctionID string         `json:"functionId"`
-		Args       map[string]any `json:"args"`
-		Version    int            `json:"version"`
+		FunctionID string            `json:"functionId"`
+		Args       toolapp.ObjectMap `json:"args"`
+		Version    int               `json:"version"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("run_function: bad args: %w", err)

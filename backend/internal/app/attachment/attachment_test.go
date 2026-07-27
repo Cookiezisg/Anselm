@@ -754,7 +754,7 @@ func TestToolResultContentParts_OnlyWhatThisCallMinted(t *testing.T) {
 		t.Fatalf("upload: %v", err)
 	}
 
-	parts, err := svc.ToolResultContentParts(mineCtx, []string{mine.ID, theirs.ID}, caps)
+	parts, err := svc.ToolResultContentParts(ctx, "tc_mine", []string{mine.ID, theirs.ID}, caps)
 	if err != nil {
 		t.Fatalf("ToolResultContentParts: %v", err)
 	}
@@ -771,9 +771,19 @@ func TestToolResultContentParts_OnlyWhatThisCallMinted(t *testing.T) {
 		t.Fatalf("ToContentParts = %+v (%v), want both — the other entries must stay unnarrowed", both, err)
 	}
 
-	// No tool call in ctx is not a tool_result expansion at all; refuse rather than silently widen.
-	// ctx 里没有 tool call 就根本不是一次 tool_result 展开;宁可拒绝也不静默放宽。
-	if got, _ := svc.ToolResultContentParts(ctx, []string{mine.ID}, caps); len(got) != 0 {
+	// An empty tool call id is not a tool_result expansion at all; refuse rather than silently widen.
+	//
+	// **This assertion used to read the id off ctx, and that is exactly how the branch died in
+	// production.** The test seeded ctx by hand; the loop never did, so every real expansion took
+	// this "refuse" path and no model was ever handed a tool's artifact. The id is a parameter now,
+	// which is why a call site that forgets it cannot compile.
+	//
+	// 空 tool call id 根本不是一次 tool_result 展开;宁可拒绝也不静默放宽。
+	//
+	// **这条断言过去是从 ctx 读那个 id 的,而那正是这条分支在生产里死掉的方式。** 测试**手工**种了 ctx,
+	// 而 loop 从来不种,于是每一次真实展开都走了这条「拒绝」路径、没有任何模型拿到过工具的产物。现在 id
+	// 是**参数**,所以忘了传的调用点根本编译不过。
+	if got, _ := svc.ToolResultContentParts(ctx, "", []string{mine.ID}, caps); len(got) != 0 {
 		t.Fatalf("expanded outside a tool call: %+v", got)
 	}
 }

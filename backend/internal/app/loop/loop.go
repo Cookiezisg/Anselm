@@ -90,7 +90,7 @@ type StepRecorder interface {
 // MediaExpander 是 Host 可选能力(type-asserted):把本步工具结果里的附件 id 渲成**本次运行模型**
 // 的原生 content part(host 负责模态门控)。不实现的 host 只留文本 receipt。
 type MediaExpander interface {
-	ExpandToolMedia(ctx context.Context, ids []string) []llminfra.ContentPart
+	ExpandToolMedia(ctx context.Context, toolCallID string, ids []string) []llminfra.ContentPart
 }
 
 // Result is the terminal summary of one Run.
@@ -371,8 +371,8 @@ func Run(
 		// 媒体 receipt)展开成一条带原生 part 的后续 user 消息——模型**当轮**看见工具刚产出的东西。
 		// host 无此能力(或模型无此模态)则保留文本 receipt:诚实降级,两种线缆皆合法。
 		if expander, ok := host.(MediaExpander); ok {
-			if ids := toolResultMediaIDs(rBlocks); len(ids) > 0 {
-				if parts := expander.ExpandToolMedia(ctx, ids); len(parts) > 0 {
+			for _, g := range toolResultMediaIDs(rBlocks) {
+				if parts := expander.ExpandToolMedia(ctx, g.toolCallID, g.ids); len(parts) > 0 {
 					history = append(history, llminfra.LLMMessage{
 						Role: llminfra.RoleUser,
 						Parts: append([]llminfra.ContentPart{{

@@ -63,11 +63,11 @@ func (h *subagentHost) Tools(_ context.Context) []toolapp.Tool { return h.tools 
 // ExpandToolMedia 实现 loop.MediaExpander(批B' 消费咽喉·tool_result 半)——与 chatHost 同契约:
 // tool result 里的 MediaRef receipt 渲成原生 part,subagent 的模型当轮看见工具刚产的媒体,按其
 // 解析模型的能力门控。
-func (h *subagentHost) ExpandToolMedia(ctx context.Context, ids []string) []llminfra.ContentPart {
+func (h *subagentHost) ExpandToolMedia(ctx context.Context, toolCallID string, ids []string) []llminfra.ContentPart {
 	if h.renderer == nil || len(ids) == 0 {
 		return nil
 	}
-	parts, err := h.renderer.ToolResultContentParts(ctx, ids, h.caps)
+	parts, err := h.renderer.ToolResultContentParts(ctx, toolCallID, ids, h.caps)
 	if err != nil {
 		h.svc.log.Warn("subagent: tool media expansion failed (textual receipts kept)", zap.Error(err))
 		return nil

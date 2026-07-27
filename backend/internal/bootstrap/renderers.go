@@ -21,7 +21,7 @@ import (
 // 的 LLM 内容部件）。*attachmentapp.Service 满足它。
 type AttachmentParts interface {
 	ToContentParts(ctx context.Context, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error)
-	ToolResultContentParts(ctx context.Context, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error)
+	ToolResultContentParts(ctx context.Context, toolCallID string, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error)
 }
 
 // attachmentRenderer adapts attachment.Service to chat's AttachmentRenderer port, bridging chat's
@@ -73,8 +73,8 @@ func (a attachmentRenderer) bridge(caps chatapp.ContentCapabilities) attachmenta
 //
 // ToolResultContentParts 是收窄到 tool_result 的孪生方法;caps 桥接完全一致,故读者唯一需要注意的差别是
 // 它落在**哪个**服务方法上。
-func (a attachmentRenderer) ToolResultContentParts(ctx context.Context, ids []string, caps chatapp.ContentCapabilities) ([]llminfra.ContentPart, error) {
-	return a.svc.ToolResultContentParts(ctx, ids, a.bridge(caps))
+func (a attachmentRenderer) ToolResultContentParts(ctx context.Context, toolCallID string, ids []string, caps chatapp.ContentCapabilities) ([]llminfra.ContentPart, error) {
+	return a.svc.ToolResultContentParts(ctx, toolCallID, ids, a.bridge(caps))
 }
 
 // inspectMediaResolver adapts chat's default model resolver to inspect_media's narrower port. It

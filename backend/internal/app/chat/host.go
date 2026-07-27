@@ -206,11 +206,11 @@ func intValue(v any) int {
 // ExpandToolMedia 实现 loop.MediaExpander(批B' 消费咽喉·tool_result 半):带 MediaRef receipt 的
 // 工具结果渲成本对话模型的原生 part——模型**同一回合**看见自己刚生成(或 MCP 刚返回)的图。
 // 渲染器缺席或模型模态不支持 → nil(文本 receipt 仍在,诚实降级)。
-func (h *chatHost) ExpandToolMedia(ctx context.Context, ids []string) []llminfra.ContentPart {
+func (h *chatHost) ExpandToolMedia(ctx context.Context, toolCallID string, ids []string) []llminfra.ContentPart {
 	if h.svc.deps.Attachments == nil || len(ids) == 0 {
 		return nil
 	}
-	parts, err := h.svc.deps.Attachments.ToolResultContentParts(ctx, ids, h.caps)
+	parts, err := h.svc.deps.Attachments.ToolResultContentParts(ctx, toolCallID, ids, h.caps)
 	if err != nil {
 		h.svc.log.Warn("chat: tool media expansion failed (textual receipts kept)", zap.Error(err))
 		return nil

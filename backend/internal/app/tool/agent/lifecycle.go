@@ -115,8 +115,8 @@ func (t *InvokeAgent) Parameters() json.RawMessage {
 
 func (t *InvokeAgent) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		AgentID string         `json:"agentId"`
-		Input   map[string]any `json:"input"`
+		AgentID string            `json:"agentId"`
+		Input   toolapp.ObjectMap `json:"input"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("invoke_agent: bad args: %w", err)
@@ -136,8 +136,8 @@ func (t *InvokeAgent) ValidateInput(args json.RawMessage) error {
 
 func (t *InvokeAgent) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var a struct {
-		AgentID string         `json:"agentId"`
-		Input   map[string]any `json:"input"`
+		AgentID string            `json:"agentId"`
+		Input   toolapp.ObjectMap `json:"input"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", fmt.Errorf("invoke_agent: bad args: %w", err)

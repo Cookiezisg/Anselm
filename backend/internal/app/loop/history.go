@@ -121,13 +121,27 @@ func ExtractTextContent(blocks []messagesdomain.Block) string {
 //
 // toolResultMediaIDs 从一步的 tool_result 块收集 MediaRef 附件 id(仅 JSON receipt——纯文本结果
 // 载不动该文法)。
-func toolResultMediaIDs(rBlocks []messagesdomain.Block) []string {
-	var ids []string
+// toolMediaGroup pairs one tool_result's media ids with the tool_call that produced them. Grouping
+// is not a nicety: the expansion chokepoint only expands what THIS call minted, so a step with two
+// tool calls must ask twice — one flat id list would make each call's provenance check reject the
+// other's artifacts.
+//
+// toolMediaGroup 把一个 tool_result 的媒体 id 与**产出它的那个 tool_call** 配对。分组不是锦上添花:
+// 展开咽喉只展开**本次调用自己铸出**的东西,故一步里有两个工具调用时必须问两次——一个拉平的 id 列表会
+// 让每个调用的归属检查把**另一个**的产物拒掉。
+type toolMediaGroup struct {
+	toolCallID string
+	ids        []string
+}
+
+func toolResultMediaIDs(rBlocks []messagesdomain.Block) []toolMediaGroup {
+	var groups []toolMediaGroup
 	seen := map[string]bool{}
 	for _, b := range rBlocks {
 		if b.Type != messagesdomain.BlockTypeToolResult || b.Content == "" {
 			continue
 		}
+		var ids []string
 		var v any
 		if json.Unmarshal([]byte(b.Content), &v) != nil {
 			continue
@@ -147,9 +161,14 @@ func toolResultMediaIDs(rBlocks []messagesdomain.Block) []string {
 				ids = append(ids, id)
 			}
 			if len(ids) >= mediarefpkg.MaxRefs {
-				return ids
+				break
 			}
 		}
+		if len(ids) > 0 {
+			// ParentBlockID IS the tool_call id (tools.go sets it when it builds the result block).
+			// ParentBlockID **就是** tool_call id(tools.go 建结果块时设的)。
+			groups = append(groups, toolMediaGroup{toolCallID: b.ParentBlockID, ids: ids})
+		}
 	}
-	return ids
+	return groups
 }

@@ -52,9 +52,9 @@ func (t *CallHandler) ValidateInput(args json.RawMessage) error {
 
 func (t *CallHandler) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args struct {
-		HandlerID string         `json:"handlerId"`
-		Method    string         `json:"method"`
-		Args      map[string]any `json:"args"`
+		HandlerID string            `json:"handlerId"`
+		Method    string            `json:"method"`
+		Args      toolapp.ObjectMap `json:"args"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("call_handler: bad args: %w", err)

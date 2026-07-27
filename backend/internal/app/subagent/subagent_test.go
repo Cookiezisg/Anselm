@@ -312,7 +312,7 @@ func (f *fakeRenderer) ToContentParts(_ context.Context, ids []string, _ attachm
 // WHAT was asked for, and the narrowing itself is covered by the attachment service's own tests.
 // 收窄到 tool_result 的孪生方法委派给同一个函数体:这些假件的作用是观察**要了什么**,而收窄本身
 // 由 attachment 服务自己的测试覆盖。
-func (f *fakeRenderer) ToolResultContentParts(ctx context.Context, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error) {
+func (f *fakeRenderer) ToolResultContentParts(ctx context.Context, toolCallID string, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error) {
 	return f.ToContentParts(ctx, ids, caps)
 }
 
@@ -323,7 +323,7 @@ func TestSubagentHost_ExpandToolMedia(t *testing.T) {
 	r := &fakeRenderer{}
 	h := &subagentHost{svc: svc, renderer: r}
 
-	parts := h.ExpandToolMedia(context.Background(), []string{"att_00aa00aa00aa00aa"})
+	parts := h.ExpandToolMedia(context.Background(), "tc_x", []string{"att_00aa00aa00aa00aa"})
 	if len(parts) != 1 || parts[0].Type != llminfra.PartImageURL {
 		t.Fatalf("expected the rendered part, got %+v", parts)
 	}
@@ -332,12 +332,12 @@ func TestSubagentHost_ExpandToolMedia(t *testing.T) {
 	}
 
 	h.renderer = &fakeRenderer{fail: true}
-	if parts := h.ExpandToolMedia(context.Background(), []string{"att_00aa00aa00aa00aa"}); parts != nil {
+	if parts := h.ExpandToolMedia(context.Background(), "tc_x", []string{"att_00aa00aa00aa00aa"}); parts != nil {
 		t.Fatalf("renderer failure must degrade to nil, got %+v", parts)
 	}
 
 	h.renderer = nil
-	if parts := h.ExpandToolMedia(context.Background(), []string{"att_00aa00aa00aa00aa"}); parts != nil {
+	if parts := h.ExpandToolMedia(context.Background(), "tc_x", []string{"att_00aa00aa00aa00aa"}); parts != nil {
 		t.Fatalf("nil renderer must yield nil, got %+v", parts)
 	}
 }
