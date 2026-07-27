@@ -445,17 +445,31 @@ class _DatabaseRowState extends ConsumerState<_DatabaseRow> {
 /// The attachment-blob footprint line — the same shape as the database line so the panel reads one
 /// way for both stores: total, of which reclaimable.
 ///
-/// There is deliberately NO clear button here yet. Attachments are CONTENT, not history: a photo
-/// from four months ago is still in the conversation that shows it and possibly embedded in a
-/// document, so a size-driven sweep would silently break things a user can still see. Making the
-/// number visible is the honest first move; what to do about it is a product decision, not a
-/// consequence of this line existing.
+/// There is deliberately NO clear button and NO retention line — attachments are never auto-deleted
+/// (WRK-082 H5.9 ruling). flowrun has a retention line because run records are unbounded
+/// machine-generated HISTORY; attachments are CONTENT produced by human action, their volume is set
+/// by the person, and that person can now see the number right here. The managed ceiling of 10
+/// clips a day (~30MB) is the sustained-maximum extreme; real use is a few hundred MB a year.
+///
+/// The directions are also asymmetric: deleting is irreversible and silent, not deleting is
+/// reversible. Giving attachments a line for symmetry with flowrun is exactly the valueless check
+/// design principle #6 warns about.
+///
+/// If capacity ever does bite, the right next step is a MANUAL clear with a preview (list what no
+/// conversation or document references), not a time sweep — a photo from four months ago is still
+/// in the conversation that shows it and may be embedded in a document.
 ///
 /// 附件 blob 占用行——与数据库那行**同形**,使面板对两个存储读法一致:总量,其中可回收多少。
 ///
-/// 这里**刻意还没有**清理按钮。附件是**内容**、不是历史:四个月前那张照片仍然在显示它的那个对话里、
-/// 也可能被嵌在某份文档里,故一次按大小的清扫会**静默弄坏用户还看得见的东西**。把数字显示出来是诚实的
-/// 第一步;拿它怎么办是一个**产品决定**,不是「这一行存在了」的推论。
+/// 这里**刻意没有**清理按钮、**也没有**保留线——附件**永不自动删除**(H5.9 裁定)。flowrun 有保留线,
+/// 是因为 run 记录是**机器无界生成的历史**;附件是**人的动作产生的内容**,量由人决定,而那个人现在就在
+/// 这里看得见这个数字。受管档封顶 10 条视频/天(~30MB)是**持续满额**的极端,真实使用一年几百 MB。
+///
+/// 方向也是不对称的:**删除不可逆且静默,不删可逆**。为了与 flowrun 对称而给附件配一条线,正是设计原则
+/// #6 所说的那种没有价值的校验。
+///
+/// 真出现容量痛点时,正确的下一步是**带预览的手动清理**(列出没有被任何对话或文档引用的那些),**不是**
+/// 按时间清扫——四个月前那张照片仍在显示它的对话里,也可能嵌在某份文档里。
 class _AttachmentsRow extends ConsumerWidget {
   const _AttachmentsRow();
 
