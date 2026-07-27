@@ -1582,6 +1582,27 @@ class Translations$attach$en {
 	/// en: 'Playback not available yet'
 	String get audioPlaybackUnavailable => 'Playback not available yet';
 
+	/// en: 'View full size'
+	String get viewFullSize => 'View full size';
+
+	/// en: 'Close'
+	String get closeViewer => 'Close';
+
+	/// en: 'Media viewer'
+	String get mediaViewer => 'Media viewer';
+
+	/// en: 'Play video'
+	String get playVideo => 'Play video';
+
+	/// en: 'Pause video'
+	String get pauseVideo => 'Pause video';
+
+	/// en: 'Replay'
+	String get replayVideo => 'Replay';
+
+	/// en: 'Fullscreen'
+	String get enterFullscreen => 'Fullscreen';
+
 	/// en: 'Remove'
 	String get remove => 'Remove';
 }
@@ -8928,6 +8949,13 @@ extension on Translations {
 			'attach.audioPlaybackFailed' => 'Playback failed — tap to retry',
 			'attach.audioPlaybackOffline' => 'Offline — tap to retry playback',
 			'attach.audioPlaybackUnavailable' => 'Playback not available yet',
+			'attach.viewFullSize' => 'View full size',
+			'attach.closeViewer' => 'Close',
+			'attach.mediaViewer' => 'Media viewer',
+			'attach.playVideo' => 'Play video',
+			'attach.pauseVideo' => 'Pause video',
+			'attach.replayVideo' => 'Replay',
+			'attach.enterFullscreen' => 'Fullscreen',
 			'attach.remove' => 'Remove',
 			_ => null,
 		};

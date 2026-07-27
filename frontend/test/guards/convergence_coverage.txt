@@ -75,10 +75,12 @@ lib/core/graph/node_ref.dart	converged
 lib/core/graph/relation_graph_config.dart	converged
 lib/core/media/attachment_image_provider.dart	pending
 lib/core/media/media_cards.dart	pending
+lib/core/media/media_player_chrome.dart	pending
 lib/core/media/media_ref.dart	pending
 lib/core/media/media_source.dart	pending
 lib/core/media/media_uri.dart	pending
 lib/core/media/media_video.dart	pending
+lib/core/media/media_viewer.dart	pending
 lib/core/messages/args_session.dart	converged
 lib/core/messages/block_tree_reducer.dart	converged
 lib/core/messages/transcript_hydration.dart	converged

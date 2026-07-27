@@ -2166,6 +2166,13 @@
     "audioPlaybackFailed": "播放失败 — 点按重试",
     "audioPlaybackOffline": "已离线 — 点按重试播放",
     "audioPlaybackUnavailable": "暂不能播放",
+    "viewFullSize": "查看大图",
+    "closeViewer": "关闭",
+    "mediaViewer": "媒体查看器",
+    "playVideo": "播放视频",
+    "pauseVideo": "暂停视频",
+    "replayVideo": "重播",
+    "enterFullscreen": "全屏",
     "remove": "移除"
   }
 }

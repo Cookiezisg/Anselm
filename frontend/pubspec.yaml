@@ -155,6 +155,12 @@ dev_dependencies:
   fake_async: ^1.3.0
   # In-memory WebSocketChannel fakes for state-layer socket tests. 状态层 socket 测试用内存 channel。
   stream_channel: ^2.1.4
+  # The seam a REAL VideoPlayerController can be faked at. The transport bar (WRK-082 B1) is only
+  # testable with a live controller, and every other video test in the repo deliberately builds none
+  # — which is exactly why nothing caught that the bar did not exist at all.
+  # 能把**真** VideoPlayerController 假掉的那层缝。走带控件(B1)只有拿活 controller 才可测,而本仓其余
+  # 视频测试都刻意不建 controller——这正是「那条控件栏根本不存在」一直没被抓到的原因。
+  video_player_platform_interface: ^6.9.0
   # Codegen for contract DTOs (NOT slang — slang stays on its own `dart run slang`, see build.yaml).
   # 契约 DTO 代码生成(不含 slang——slang 自走 dart run slang,见 build.yaml)。
   build_runner: ^2.15.0

@@ -105,7 +105,7 @@ subagent / workflow 的每个执行面、文档库的编辑面,媒体都进得�
 
 | # | 模型侧证据 | 人眼侧 | 结论 |
 |---|---|---|---|
-| 1 | ✅ **真钱真图**——`TestLiveMedia_ChatImage`:真模型中文求画→真调工具→**1,523,916 字节真 PNG**落一等附件、字节往返一致;线缆里下一轮**带 receipt 且不带字节**(ADR 0017 用真钱证到了) | ⚠️ 图**渲对了**(`b1_1`,真 PNG 内联 + 文件名·尺寸·体积 meta 行);**「点开大图」这个功能不存在**——见下 F3 | **模型侧过·人眼侧半过** |
+| 1 | ✅ **真钱真图**——`TestLiveMedia_ChatImage`:真模型中文求画→真调工具→**1,523,916 字节真 PNG**落一等附件、字节往返一致;线缆里下一轮**带 receipt 且不带字节**(ADR 0017 用真钱证到了) | ✅ 图渲对了(`b1_1`)+ **点开大图已建成**(`b1_7`:全分辨率模态、可缩放、Esc/点遮罩/关闭按钮三路关) | **过(静态渲染)** |
 | 2 | ✅ **真钱真线缆**——`TestLiveMedia_WorkflowDownstreamSeesPixels`:下游 agent 的请求里是原生 `image_url` + **与库里逐字节相同**的 base64。**这条验收当场抓出一个真 bug 并修掉**(见下) | — | **过** |
 | 3 | ✅ **真钱真线缆(两个产地各一条)**——`TestLiveMedia_FunctionChartSeenByModel`:fn 真跑 matplotlib 出 PNG→模型请求里是像素;`TestLiveMedia_McpImageSeenByModel`:MCP server 经 stdio 递回 `image` 块→模型请求里是**与库里逐字节相同**的 base64。**后者当场抓出 A1**(见下)。另有 `TestLiveMedia_HandlerArtifactPerCall` 覆盖第五个产地(hd 逐调用产物目录) | ✅ `b1_2`:整份 fn 结果 payload 递给 `AnMediaRefStrip`,图表内联渲出、坐标轴与数值标签清晰可读 | **过(静态渲染)** |
 | 4 | ✅ **真钱真声 + 钱的断言**——`TestLiveMedia_SpeechAndCache`:真 WAV;上游调用数 1→**重听后仍是 1**→换文本才 2;全程 0 次 chat 请求。**重听零计费在响应里看不见**(两次返回一模一样的字节),它只作为**一次没有发生的调用**存在 | ✅ `b1_3`(**修完一个真缺陷之后**,见下 F2):空闲/加载中/播放中三态可辨——播放三角、加载文案、蓝色进度条 + mono 时长 | **过(静态渲染)** |
@@ -129,12 +129,30 @@ Lucide300 注释里写的「漏了全豆腐块、踩过两次的坑」是**同�
 守卫 `test/core/ui/an_audio_attachment_card_test.dart` 四格钉死(busy→loading、显式 statusLine 仍优先、
 无 onPlayTap 时原义不变、空闲态 meta 行)。
 
-**F3 · 「点开大图」这个功能不存在**(**未修,是个拍板点**)。终点验收 ① 的原话是「图渲在对话里、
+**F3 · 「点开大图」这个功能不存在**(**已修**——用户裁定「全都收口做掉」,并追问视频是否也来一个)。终点验收 ① 的原话是「图渲在对话里、
 **点开大图**」。前半成立;后半**没有实现**:`AnMediaRefCard` 的图分支上没有任何点击处理,
 `an_attachment_thumb.dart:23` 自己写着「onTap 留给**未来的** lightbox / 右岛」,而 chat UI、媒体卡、
 附件卡三处**没有任何** `showDialog` / `Navigator.push`。所以这一格的人眼半**不是没验、是没东西可验**。
-两条路:①做一个 lightbox(点击图卡 → 模态大图,Esc/点外关闭);②改验收——把「点开大图」从 ① 里划掉。
-**我不替你选**:它是你写下的验收原话,而删掉自己的验收条目正是本页 §1 那条教训在讲的事。
+两条路曾摆出:①做 lightbox;②改验收把这句划掉。**用户选了做**,并在追问视频时暴露出**更重的一条**——
+
+**F4 · 视频播完就再也看不了了**(已修 + 守卫)。`AnVideoCard` 渲的是**裸的** `VideoPlayer(controller)`,而官方
+`video_player` **自己不带任何控件**。于是一段生成的片子:点海报→播→**停在最后一帧**,不能暂停、不能拖动、
+不能重播、没有音量,想再看一遍只能重新加载对话。**能力建成了,用户用不了。** B1 第一轮没抓到它,因为我只截了
+「点击之前」那一态——这正是「截图看不见时序」那句话的第一个实例。
+
+收口成**一族卡的一次统一**(`core/media/`):`media_player_chrome` 的 `AnVideoControls`(播放/暂停/重播 +
+可拖进度条〔用包自带的 `VideoProgressIndicator`,不手搓手势→时长换算〕+ 位置/时长 + 全屏)· `media_viewer`
+的 `openImageViewer`/`openVideoViewer`(一条 `RawDialogRoute` 两种载荷,与 `an_dialog.dart` 同一套外壳;
+图按**全分辨率**解码、视频**共用那一个活 controller**)。故 chat / flowrun 检查器 / 实体调试台 / 文档编辑器
+**同时**拿到,新模态零渲染代码这条不变量不破。
+
+**顺带又验证了一次这个夹具的价值**:查看器第一张截图上,说明行带着调试用的**黄下划线**——`RawDialogRoute`
+在任何 Scaffold 之外,缺 `Material` 祖先。`an_dialog.dart` 早就为同一个理由写着同一行,而我漏了;
+analyze 与全部断言都是绿的,**只有那张图在喊**。
+
+守卫 `test/core/media_viewer_test.dart` 七格:点图开查看器 / 关闭按钮 / Escape / 播放暂停 / 播完给重播且
+重播 seek 到零 / 时钟读位置时长 / 全屏内联有而查看器内无。视频那半用 `test/support/fake_video_platform.dart`
+——**本仓其余每个视频测试都刻意不建 controller,而那正是「根本没有走带控件」一直没被抓到的原因**。
 
 #### 这一轮真钱验收抓到的东西(mock 全绿、一个也发现不了)
 

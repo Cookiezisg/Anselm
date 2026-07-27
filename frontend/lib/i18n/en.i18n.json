@@ -2166,6 +2166,13 @@
     "audioPlaybackFailed": "Playback failed — tap to retry",
     "audioPlaybackOffline": "Offline — tap to retry playback",
     "audioPlaybackUnavailable": "Playback not available yet",
+    "viewFullSize": "View full size",
+    "closeViewer": "Close",
+    "mediaViewer": "Media viewer",
+    "playVideo": "Play video",
+    "pauseVideo": "Pause video",
+    "replayVideo": "Replay",
+    "enterFullscreen": "Fullscreen",
     "remove": "Remove"
   }
 }

@@ -708,6 +708,13 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String get audioPlaybackFailed => '播放失败 — 点按重试';
 	@override String get audioPlaybackOffline => '已离线 — 点按重试播放';
 	@override String get audioPlaybackUnavailable => '暂不能播放';
+	@override String get viewFullSize => '查看大图';
+	@override String get closeViewer => '关闭';
+	@override String get mediaViewer => '媒体查看器';
+	@override String get playVideo => '播放视频';
+	@override String get pauseVideo => '暂停视频';
+	@override String get replayVideo => '重播';
+	@override String get enterFullscreen => '全屏';
 	@override String get remove => '移除';
 }
 
@@ -4908,6 +4915,13 @@ extension on TranslationsZhCn {
 			'attach.audioPlaybackFailed' => '播放失败 — 点按重试',
 			'attach.audioPlaybackOffline' => '已离线 — 点按重试播放',
 			'attach.audioPlaybackUnavailable' => '暂不能播放',
+			'attach.viewFullSize' => '查看大图',
+			'attach.closeViewer' => '关闭',
+			'attach.mediaViewer' => '媒体查看器',
+			'attach.playVideo' => '播放视频',
+			'attach.pauseVideo' => '暂停视频',
+			'attach.replayVideo' => '重播',
+			'attach.enterFullscreen' => '全屏',
 			'attach.remove' => '移除',
 			_ => null,
 		};

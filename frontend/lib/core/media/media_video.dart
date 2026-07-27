@@ -46,7 +46,9 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../ui/icons.dart';
+import 'media_player_chrome.dart';
 import 'media_source.dart';
+import 'media_viewer.dart';
 
 /// Selects the `video_player` implementation for the platforms the official one does not cover.
 /// Must run after the binding and before any controller is built — every launch surface that can
@@ -146,30 +148,45 @@ class _AnVideoCardState extends ConsumerState<AnVideoCard> {
   Widget build(BuildContext context) {
     final c = context.colors;
     final controller = _controller;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(AnRadius.button),
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: widget.maxWidth),
+    return ConstrainedBox(
+      constraints: BoxConstraints(maxWidth: widget.maxWidth),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(AnRadius.button),
             child: AspectRatio(
               aspectRatio: controller?.value.aspectRatio ?? 16 / 9,
               child: controller == null ? _poster(c) : VideoPlayer(controller),
             ),
           ),
-        ),
-        const SizedBox(height: AnSpace.s4),
-        Text(
-          widget.filename.isEmpty
-              ? widget.metaLine
-              : '${widget.filename} · ${widget.metaLine}',
-          style: AnText.label.copyWith(color: c.inkMuted),
-        ),
-      ],
+          // The transport appears WITH the player and not before — there is nothing to control until
+          // a controller exists, and a dead bar under a poster would be the third thing on this card
+          // that looks operable and is not.
+          // 走带控件**随播放器出现**、不提前:controller 不存在时没有任何东西可控,而海报下面挂一条死的
+          // 控件栏,会是这张卡上第三个「看着能用、其实不能」的东西。
+          if (controller != null) ...[
+            const SizedBox(height: AnSpace.s4),
+            AnVideoControls(
+              controller: controller,
+              onFullscreen: () => openVideoViewer(
+                context,
+                controller: controller,
+                caption: _caption(),
+              ),
+            ),
+          ],
+          const SizedBox(height: AnSpace.s4),
+          Text(_caption(), style: AnText.label.copyWith(color: c.inkMuted)),
+        ],
+      ),
     );
   }
+
+  String _caption() => widget.filename.isEmpty
+      ? widget.metaLine
+      : '${widget.filename} · ${widget.metaLine}';
 
   Widget _poster(AnColors c) => GestureDetector(
     onTap: _start,

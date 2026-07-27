@@ -9,6 +9,7 @@ import '../ui/an_attachment_card.dart';
 import 'attachment_image_provider.dart';
 import 'media_ref.dart';
 import 'media_source.dart';
+import 'media_viewer.dart';
 import 'media_video.dart';
 
 /// The ONE card family every surface renders a MediaRef with (WRK-082 批B' 不变量④). Dispatch is by
@@ -98,6 +99,22 @@ class AnMediaRefCard extends ConsumerWidget {
     required int sizeBytes,
   }) {
     final c = context.colors;
+    // The enlarging gesture. A 1536×1024 artifact in a 320px slot is not a thumbnail of something the
+    // user can also see full size — until now it was the ONLY way it was ever shown. The viewer
+    // decodes at FULL resolution (targetWidth: null), which is a different ImageCache key from the
+    // capped thumbnail on purpose: the capped bitmap is the one worth keeping around, the full one is
+    // for as long as the modal is up.
+    // 「放大」这个手势。1536×1024 的产物塞进 320px 槽位,不是「某个也能看全尺寸的东西的缩略图」——在此之前
+    // 那**就是**它唯一被显示的样子。查看器按**全分辨率**解码(targetWidth: null),这刻意是与封顶缩略图不同
+    // 的 ImageCache 键:值得常驻的是封顶那张,全尺寸那张只活到模态关闭。
+    void openLarge() => openImageViewer(
+      context,
+      image: AttachmentImageProvider(
+        mediaRef.attachmentId,
+        fetch: () => ref.read(mediaSourceProvider).bytes(mediaRef.attachmentId),
+      ),
+      caption: _metaLine('', sizeBytes, filename: filename),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
@@ -106,27 +123,39 @@ class AnMediaRefCard extends ConsumerWidget {
           borderRadius: BorderRadius.circular(AnRadius.button),
           child: ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
-            child: Image(
-              image: AttachmentImageProvider(
-                mediaRef.attachmentId,
-                fetch: () =>
-                    ref.read(mediaSourceProvider).bytes(mediaRef.attachmentId),
-                targetWidth: (maxWidth * MediaQuery.devicePixelRatioOf(context))
-                    .round(),
-              ),
-              fit: BoxFit.contain,
-              // Hold layout with the receipt's own aspect while bytes stream in — the hint exists
-              // precisely so the surrounding panel never jumps when pixels land.
-              // 字节在途时按 receipt 自带比例占位——提示的存在就是为了像素落地时四周面板不跳。
-              frameBuilder: (context, child, frame, wasSync) {
-                if (frame != null || wasSync) return child;
-                return _placeholder(c);
-              },
-              errorBuilder: (context, _, _) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
-                child: Text(
-                  filename.isEmpty ? mediaRef.attachmentId : filename,
-                  style: AnText.label.copyWith(color: c.inkMuted),
+            child: Semantics(
+              button: true,
+              label: context.t.attach.viewFullSize,
+              child: GestureDetector(
+                onTap: openLarge,
+                child: MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: Image(
+                    image: AttachmentImageProvider(
+                      mediaRef.attachmentId,
+                      fetch: () => ref
+                          .read(mediaSourceProvider)
+                          .bytes(mediaRef.attachmentId),
+                      targetWidth:
+                          (maxWidth * MediaQuery.devicePixelRatioOf(context))
+                              .round(),
+                    ),
+                    fit: BoxFit.contain,
+                    // Hold layout with the receipt's own aspect while bytes stream in — the hint
+                    // exists precisely so the surrounding panel never jumps when pixels land.
+                    // 字节在途时按 receipt 自带比例占位——提示的存在就是为了像素落地时四周面板不跳。
+                    frameBuilder: (context, child, frame, wasSync) {
+                      if (frame != null || wasSync) return child;
+                      return _placeholder(c);
+                    },
+                    errorBuilder: (context, _, _) => Padding(
+                      padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
+                      child: Text(
+                        filename.isEmpty ? mediaRef.attachmentId : filename,
+                        style: AnText.label.copyWith(color: c.inkMuted),
+                      ),
+                    ),
+                  ),
                 ),
               ),
             ),

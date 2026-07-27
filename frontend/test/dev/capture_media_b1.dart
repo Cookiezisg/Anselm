@@ -26,10 +26,13 @@ import 'package:anselm/core/media/media_cards.dart';
 import 'package:anselm/core/media/media_ref.dart';
 import 'package:anselm/core/media/media_source.dart';
 import 'package:anselm/core/net/api_client.dart' show NativeFetchTarget;
+import 'package:anselm/core/media/media_player_chrome.dart';
 import 'package:anselm/core/ui/an_audio_attachment_card.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:video_player/video_player.dart';
 
+import '../support/fake_video_platform.dart';
 import 'capture_support.dart';
 
 const _imageId = 'att_b1000000000000aa';
@@ -330,5 +333,57 @@ void main() {
         ),
       ),
     );
+  });
+
+  testWidgets('b1_6 视频走带控件', (tester) async {
+    // A REAL controller over a fake platform — the transport is what B1 found missing, and a
+    // screenshot of it needs an initialized clip with a real duration.
+    // 假平台上的**真** controller——走带控件正是 B1 查出缺失的东西,而给它截图需要一段真有时长的已初始化片子。
+    FakeVideoPlatform().install();
+    final controller = VideoPlayerController.networkUrl(
+      Uri.parse('http://127.0.0.1:0/clip.mp4'),
+    );
+    await tester.runAsync(controller.initialize);
+    addTearDown(controller.dispose);
+    await controller.seekTo(const Duration(seconds: 5));
+    await shoot(
+      tester,
+      'b1_6_video_transport',
+      const Size(520, 300),
+      _slab(
+        '⑤ 视频走带:播放/暂停·可拖进度条·位置/时长·全屏(修之前这一整条不存在)',
+        AnVideoControls(controller: controller, onFullscreen: () {}),
+      ),
+    );
+  });
+
+  testWidgets('b1_7 点开大图', (tester) async {
+    setCaptureSurface(tester, const Size(760, 620));
+    await tester.runAsync(() async => chart = await _chartPng());
+    await tester.pumpWidget(
+      CaptureHost(
+        overrides: [
+          mediaSourceProvider.overrideWithValue(_FixtureSource(chart)),
+        ],
+        home: const Padding(
+          padding: EdgeInsets.all(AnSpace.s16),
+          child: AnMediaRefCard(mediaRef: AnMediaRef(attachmentId: _chartId)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pumpAndSettle();
+    // The gesture 终点验收 ① asked for and nothing implemented until now.
+    // 终点验收 ① 要的那个手势,在此之前没有任何实现。
+    await tester.tap(find.byType(Image).first);
+    await tester.pumpAndSettle();
+    await tester.runAsync(
+      () => Future<void>.delayed(const Duration(milliseconds: 300)),
+    );
+    await tester.pumpAndSettle();
+    await capturePng(tester, 'b1_7_image_viewer');
   });
 }
