@@ -67,7 +67,7 @@ func (h *subagentHost) ExpandToolMedia(ctx context.Context, ids []string) []llmi
 	if h.renderer == nil || len(ids) == 0 {
 		return nil
 	}
-	parts, err := h.renderer.ToContentParts(ctx, ids, h.caps)
+	parts, err := h.renderer.ToolResultContentParts(ctx, ids, h.caps)
 	if err != nil {
 		h.svc.log.Warn("subagent: tool media expansion failed (textual receipts kept)", zap.Error(err))
 		return nil

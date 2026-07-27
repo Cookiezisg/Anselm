@@ -89,6 +89,7 @@ func (s *Service) Upload(ctx context.Context, filename, mime string, data []byte
 	// 给谁用,见 domain 字段注释。取不到即 "",而那**也是一个事实**:普通用户上传没有产地。
 	conversationID, _ := reqctxpkg.GetConversationID(ctx)
 	flowrunID, _ := reqctxpkg.GetFlowrunID(ctx)
+	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
 	a := &attachmentdomain.Attachment{
 		ID:                   idgenpkg.New("att"),
 		SHA256:               sha,
@@ -99,11 +100,75 @@ func (s *Service) Upload(ctx context.Context, filename, mime string, data []byte
 		Source:               reqctxpkg.GetMediaSource(ctx),
 		OriginConversationID: conversationID,
 		OriginFlowrunID:      flowrunID,
+		OriginToolCallID:     toolCallID,
 	}
 	if err := s.repo.Insert(ctx, a); err != nil {
 		return nil, err
 	}
 	return a, nil
+}
+
+// ToolResultContentParts is the tool_result half of the consumption chokepoint (WRK-082 H5.8). It
+// expands ONLY attachments this very tool call minted, then hands the survivors to ToContentParts.
+//
+// **Why "this call" and not "this workspace".** A receipt is text a tool writes, so any tool can
+// name any attachment id and the expander would dutifully inline it. Workspace isolation (already
+// enforced in pkg/orm) stops a cross-workspace read, but inside one workspace the only thing
+// standing between a third-party MCP server and somebody else's file is that it has to guess a
+// 64-bit id. That is a thin thing to rely on, and it costs nothing to remove: every producer that
+// legitimately wants its media seen — MCP binaries, function and handler artifacts — minted it
+// during the call being expanded.
+//
+// **The audit that made this safe.** Two tools do legitimately name an attachment they did not
+// mint: `inspect_media` and `read_attachment`, both of which echo the id they were asked about.
+// Neither wants expansion — `inspect_media`'s own description says it "does not dump image bytes
+// into the conversation", and `read_attachment` says binaries "return descriptors". So today's
+// behaviour was already violating both contracts, and this filter fixes that as a side effect
+// rather than breaking anything. No other tool in the inventory names a pre-existing attachment.
+//
+// ToolResultContentParts 是消费咽喉的 tool_result 那一半(H5.8)。它**只**展开**这一次工具调用自己铸出**
+// 的附件,再把幸存者交给 ToContentParts。
+//
+// **为什么是「这次调用」而不是「这个 workspace」。** receipt 是工具写的文本,故任何工具都能点名任何一个
+// 附件 id,而展开器会老老实实内联它。workspace 隔离(pkg/orm 早已强制)挡得住跨 workspace 读,但在同一个
+// workspace 内,横在第三方 MCP server 与别人的文件之间的,只剩「它得猜中一个 64 位 id」。这是一根很细的
+// 稻草,而拿掉它不花任何代价:每一个**正当地**希望自己的媒体被看到的产地——MCP 二进制、function 与
+// handler 产物——都是在**正被展开的这次调用中**铸出它的。
+//
+// **让这条收紧变得安全的那次审计。** 确有两个工具正当地点名了它们没铸的附件:`inspect_media` 与
+// `read_attachment`,两者都回显被问及的那个 id。而**两者都不想要展开**——`inspect_media` 自己的描述写着
+// 它「不把图像字节倾倒进对话」,`read_attachment` 写着二进制「返回描述符」。也就是说,今天的行为**本来
+// 就在违反这两份契约**,本过滤器是**顺手修好了它**、而不是弄坏了什么。工具清单里再没有第三个点名既有
+// 附件的。
+func (s *Service) ToolResultContentParts(ctx context.Context, ids []string, caps Capabilities) ([]llminfra.ContentPart, error) {
+	toolCallID, _ := reqctxpkg.GetToolCallID(ctx)
+	if toolCallID == "" || len(ids) == 0 {
+		// No tool call in ctx means this is not a tool_result expansion at all; refuse rather than
+		// silently widen — the callers that legitimately expand anything else call ToContentParts.
+		// ctx 里没有 tool call,说明这根本不是一次 tool_result 展开;宁可拒绝也不静默放宽——正当展开别的
+		// 东西的调用方走 ToContentParts。
+		return nil, nil
+	}
+	metas, err := s.repo.GetBatch(ctx, ids)
+	if err != nil {
+		return nil, err
+	}
+	minted := make(map[string]bool, len(metas))
+	for _, a := range metas {
+		if a.OriginToolCallID == toolCallID {
+			minted[a.ID] = true
+		}
+	}
+	kept := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if minted[id] {
+			kept = append(kept, id)
+		}
+	}
+	if len(kept) == 0 {
+		return nil, nil
+	}
+	return s.ToContentParts(ctx, kept, caps)
 }
 
 // Get fetches one attachment's metadata.

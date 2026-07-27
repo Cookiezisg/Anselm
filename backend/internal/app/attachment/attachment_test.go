@@ -717,3 +717,63 @@ func TestUpload_StampsProvenanceFromContext(t *testing.T) {
 		t.Fatalf("provenance lost on the round trip: %+v", got)
 	}
 }
+
+// TestToolResultContentParts_OnlyWhatThisCallMinted is the H5.8 lockdown.
+//
+// A receipt is text a tool writes, so any tool can name any attachment id and the expander would
+// dutifully inline it. Inside one workspace the only thing between a third-party MCP server and
+// someone else's file was that it had to guess a 64-bit id — thin, and free to remove: every
+// producer that legitimately wants its media seen minted it during the call being expanded.
+//
+// The two tools that DO legitimately echo an id they did not mint — inspect_media and
+// read_attachment — both say in their own descriptions that they must NOT dump bytes into the
+// conversation. So this filter fixes two contracts that were quietly being violated, rather than
+// breaking anything.
+//
+// TestToolResultContentParts_OnlyWhatThisCallMinted 是 H5.8 的收口。
+//
+// receipt 是工具写的文本,故任何工具都能点名任何附件 id,而展开器会老老实实内联它。在同一个 workspace 内,
+// 横在第三方 MCP server 与别人的文件之间的只剩「得猜中一个 64 位 id」——很细,而且拿掉它不花代价:每个
+// 正当地希望自己的媒体被看到的产地,都是在**正被展开的这次调用中**铸出它的。
+//
+// 确实会回显自己没铸的 id 的那两个工具——inspect_media 与 read_attachment——在各自的描述里都写明**不得**
+// 把字节倾倒进对话。故本过滤器是**修好了两份正被静默违反的契约**,而不是弄坏了什么。
+func TestToolResultContentParts_OnlyWhatThisCallMinted(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	caps := Capabilities{Vision: true}
+
+	mineCtx := reqctxpkg.SetToolCallID(ctx, "tc_mine")
+	mine, err := svc.Upload(mineCtx, "mine.png", "image/png", []byte("\x89PNG mine"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	// Someone else's artifact: minted by a DIFFERENT call, exactly what an echoed or guessed id is.
+	// 别人的产物:由**另一次**调用铸出——回显的 id 与猜中的 id 都正是这个形状。
+	theirs, err := svc.Upload(reqctxpkg.SetToolCallID(ctx, "tc_theirs"), "theirs.png", "image/png", []byte("\x89PNG theirs"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+
+	parts, err := svc.ToolResultContentParts(mineCtx, []string{mine.ID, theirs.ID}, caps)
+	if err != nil {
+		t.Fatalf("ToolResultContentParts: %v", err)
+	}
+	if len(parts) != 1 || parts[0].Type != llminfra.PartImageURL {
+		t.Fatalf("parts = %+v, want exactly this call's own artifact", parts)
+	}
+
+	// The unnarrowed entry still sees both — the payload and document halves legitimately expand
+	// media nobody minted in a tool call, and narrowing THEM would break attaching a file at all.
+	// 未收窄的入口仍然两个都看得见——payload 与文档那两半正当地展开「没有任何工具调用铸过」的媒体,
+	// 收窄它们会让「附一个文件」这件事整个坏掉。
+	both, err := svc.ToContentParts(mineCtx, []string{mine.ID, theirs.ID}, caps)
+	if err != nil || len(both) != 2 {
+		t.Fatalf("ToContentParts = %+v (%v), want both — the other entries must stay unnarrowed", both, err)
+	}
+
+	// No tool call in ctx is not a tool_result expansion at all; refuse rather than silently widen.
+	// ctx 里没有 tool call 就根本不是一次 tool_result 展开;宁可拒绝也不静默放宽。
+	if got, _ := svc.ToolResultContentParts(ctx, []string{mine.ID}, caps); len(got) != 0 {
+		t.Fatalf("expanded outside a tool call: %+v", got)
+	}
+}

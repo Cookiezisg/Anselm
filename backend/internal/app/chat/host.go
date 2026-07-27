@@ -210,7 +210,7 @@ func (h *chatHost) ExpandToolMedia(ctx context.Context, ids []string) []llminfra
 	if h.svc.deps.Attachments == nil || len(ids) == 0 {
 		return nil
 	}
-	parts, err := h.svc.deps.Attachments.ToContentParts(ctx, ids, h.caps)
+	parts, err := h.svc.deps.Attachments.ToolResultContentParts(ctx, ids, h.caps)
 	if err != nil {
 		h.svc.log.Warn("chat: tool media expansion failed (textual receipts kept)", zap.Error(err))
 		return nil

@@ -54,6 +54,7 @@ var Schema = []string{
 	`ALTER TABLE attachments ADD COLUMN source TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE attachments ADD COLUMN origin_conversation_id TEXT NOT NULL DEFAULT ''`,
 	`ALTER TABLE attachments ADD COLUMN origin_flowrun_id TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE attachments ADD COLUMN origin_tool_call_id TEXT NOT NULL DEFAULT ''`,
 }
 
 // Store implements attachmentdomain.Repository over pkg/orm.

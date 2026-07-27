@@ -92,6 +92,13 @@ type MountResolver interface {
 // *attachmentapp.Service 结构满足)。
 type AttachmentRenderer interface {
 	ToContentParts(ctx context.Context, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error)
+
+	// ToolResultContentParts is the SAME chokepoint narrowed to tool results: it expands only what
+	// this very tool call minted (WRK-082 H5.8). Declared beside its sibling so a reader sees that
+	// the two are not interchangeable — the payload/document halves must keep using ToContentParts.
+	// ToolResultContentParts 是**同一个**咽喉收窄到 tool_result:只展开这次调用自己铸出的东西(H5.8)。
+	// 与兄弟方法并排声明,使读者一眼看出两者**不可互换**——payload/文档那两半必须继续用 ToContentParts。
+	ToolResultContentParts(ctx context.Context, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error)
 }
 
 // SkillGuide renders the version's mounted skill into an execution-guide string injected into

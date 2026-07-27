@@ -20,6 +20,14 @@ func (f *fakeParts) ToContentParts(_ context.Context, _ []string, caps attachmen
 	return nil, nil
 }
 
+// The tool_result-narrowed sibling delegates to the same body: these fakes exist to observe
+// WHAT was asked for, and the narrowing itself is covered by the attachment service's own tests.
+// 收窄到 tool_result 的孪生方法委派给同一个函数体:这些假件的作用是观察**要了什么**,而收窄本身
+// 由 attachment 服务自己的测试覆盖。
+func (f *fakeParts) ToolResultContentParts(ctx context.Context, ids []string, caps attachmentapp.Capabilities) ([]llminfra.ContentPart, error) {
+	return f.ToContentParts(ctx, ids, caps)
+}
+
 func TestAttachmentRenderer_BridgesCaps(t *testing.T) {
 	fp := &fakeParts{}
 	r := NewAttachmentRenderer(fp, nil, nil)

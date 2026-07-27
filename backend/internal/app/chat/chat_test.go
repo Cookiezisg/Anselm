@@ -135,6 +135,14 @@ func (r *fakeAttachmentRenderer) ToContentParts(_ context.Context, ids []string,
 	return r.parts, r.err
 }
 
+// The tool_result-narrowed sibling delegates to the same body: these fakes exist to observe
+// WHAT was asked for, and the narrowing itself is covered by the attachment service's own tests.
+// 收窄到 tool_result 的孪生方法委派给同一个函数体:这些假件的作用是观察**要了什么**,而收窄本身
+// 由 attachment 服务自己的测试覆盖。
+func (r *fakeAttachmentRenderer) ToolResultContentParts(ctx context.Context, ids []string, caps ContentCapabilities) ([]llminfra.ContentPart, error) {
+	return r.ToContentParts(ctx, ids, caps)
+}
+
 // fakeConvs returns one fixed conversation for any id (or err, if set, to simulate a foreign/missing id).
 // rec (when non-nil) streams the unread bit of every TouchLastMessage onto a channel, so a test can
 // assert the unread-watermark wiring across goroutines (the assistant finalize touch runs on the queue

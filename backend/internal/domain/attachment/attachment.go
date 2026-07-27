@@ -65,6 +65,11 @@ type Attachment struct {
 	Source               string `db:"source"                 json:"source,omitempty"`
 	OriginConversationID string `db:"origin_conversation_id" json:"-"`
 	OriginFlowrunID      string `db:"origin_flowrun_id"      json:"-"`
+	// OriginToolCallID is the one provenance column that is ENFORCED (WRK-082 H5.8): the tool_result
+	// chokepoint expands an attachment only when this call is the call that minted it.
+	// OriginToolCallID 是唯一**被执行**的溯源列(H5.8):tool_result 咽喉只在「本次调用就是铸它的那次调用」
+	// 时才展开一份附件。
+	OriginToolCallID string `db:"origin_tool_call_id" json:"-"`
 }
 
 // Kind buckets an upload by how it reaches the LLM. image → vision; document / text → text
