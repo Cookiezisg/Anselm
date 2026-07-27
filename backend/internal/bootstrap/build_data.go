@@ -31,6 +31,7 @@ import (
 	notificationstore "github.com/sunweilin/anselm/backend/internal/infra/store/notification"
 	relationstore "github.com/sunweilin/anselm/backend/internal/infra/store/relation"
 	sandboxstore "github.com/sunweilin/anselm/backend/internal/infra/store/sandbox"
+	spendstore "github.com/sunweilin/anselm/backend/internal/infra/store/spend"
 	todostore "github.com/sunweilin/anselm/backend/internal/infra/store/todo"
 	touchpointstore "github.com/sunweilin/anselm/backend/internal/infra/store/touchpoint"
 	triggerstore "github.com/sunweilin/anselm/backend/internal/infra/store/trigger"
@@ -55,6 +56,7 @@ type stores struct {
 	document     *documentstore.Store
 	todo         *todostore.Store
 	touchpoint   *touchpointstore.Store
+	spend        *spendstore.Store
 	attachment   *attachmentstore.Store
 	speechCache  *attachmentstore.SpeechCacheStore
 	function     *functionstore.Store
@@ -174,6 +176,7 @@ func allSchemas() []string {
 	s = append(s, documentstore.Schema...)
 	s = append(s, todostore.Schema...)
 	s = append(s, touchpointstore.Schema...)
+	s = append(s, spendstore.Schema...)
 	s = append(s, attachmentstore.Schema...)
 	s = append(s, attachmentstore.SpeechCacheSchema...)
 	s = append(s, functionstore.Schema...)
@@ -230,6 +233,7 @@ func buildStores(database *ormpkg.DB, enc cryptodomain.Encryptor, dataDir string
 		document:     documentstore.New(database),
 		todo:         todostore.New(database),
 		touchpoint:   touchpointstore.New(database),
+		spend:        spendstore.New(database),
 		attachment:   attachmentstore.New(database),
 		speechCache:  attachmentstore.NewSpeechCache(database),
 		function:     functionstore.New(database),

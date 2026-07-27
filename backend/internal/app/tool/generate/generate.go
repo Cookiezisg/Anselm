@@ -19,6 +19,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
@@ -191,6 +192,21 @@ type Router struct {
 	Keys   CredsResolver
 	Probes apikeydomain.ProbeReader
 	HTTP   *http.Client
+	// Spend books direct-side paid calls into the generation spend ledger (WRK-082 H10). Optional
+	// (nil in tests); nil-checked at each chokepoint. It sits ON the Router because the Router is
+	// the one place every modality's paid call already passes through — booking in the tools would
+	// be the same line four times and would miss read-aloud.
+	// Spend 把直连侧付费调用记进生成支出台账(H10)。可选(测试为 nil),各咽喉判 nil。放在 Router 上,
+	// 因为每个模态的付费调用**本来**都要经过它——记在工具里等于同一行写四遍,还会漏掉朗读。
+	Spend SpendRecorder
+}
+
+// SpendRecorder is the ledger port the Router books into. Record must never fail the generation
+// (the implementation logs and swallows).
+//
+// SpendRecorder 是 Router 记账的台账端口。Record 绝不让生成失败(实现记日志后吞掉)。
+type SpendRecorder interface {
+	Record(ctx context.Context, category, provider, model string, units int64)
 }
 
 // genRoute is one resolved way to generate (any modality).
@@ -297,6 +313,14 @@ func (r *Router) ImageAvailable(ctx context.Context) bool {
 // generate 在解析出的路由上派发一次图像生成。
 func (r *Router) generate(ctx context.Context, route genRoute, prompt, aspect string) (llminfra.GeneratedImage, error) {
 	size := llminfra.ImageSizeFor(route.provider, aspect)
+	img, err := r.generateDispatch(ctx, route, prompt, size)
+	if err == nil && r.Spend != nil {
+		r.Spend.Record(ctx, "image", route.provider, route.model, 1)
+	}
+	return img, err
+}
+
+func (r *Router) generateDispatch(ctx context.Context, route genRoute, prompt, size string) (llminfra.GeneratedImage, error) {
 	switch route.provider {
 	case "anselm":
 		return llminfra.GenerateImageAnselm(ctx, r.HTTP, route.baseURL, route.installID, prompt, size)
@@ -355,7 +379,16 @@ func (r *Router) synthesize(ctx context.Context, route genRoute, text, voice str
 		}
 		parts = append(parts, part)
 	}
-	return llminfra.ConcatAudio(parts)
+	out, err := llminfra.ConcatAudio(parts)
+	if err == nil && r.Spend != nil {
+		// Book the WHOLE utterance once, in the characters actually sent upstream — chunking is our
+		// implementation detail (a 1200-char utterance is 3 qwen requests but one thing the user
+		// asked for and one price). Counted in runes, matching how every speech provider bills.
+		// 整段记一次,量是**真正发给上游的字符数**——切块是我们的实现细节(1200 字符是 3 次 qwen 请求,
+		// 但对用户是一件事、一个价)。按 rune 数,与各家语音计费口径一致。
+		r.Spend.Record(ctx, "speech", route.provider, route.model, int64(utf8.RuneCountInString(text)))
+	}
+	return out, err
 }
 
 func (r *Router) synthesizeChunk(ctx context.Context, route genRoute, text, voice string) (llminfra.GeneratedAudio, error) {
@@ -461,6 +494,17 @@ func (r *Router) generateVideo(ctx context.Context, route genRoute, req llminfra
 	}
 	if err != nil {
 		return llminfra.GeneratedVideo{}, err
+	}
+	if r.Spend != nil {
+		// Booked at SUBMIT, not at fetch: the money lands when the job is accepted upstream, and a
+		// turn whose wall clock runs out mid-poll has still spent it (same law the managed route
+		// follows, ADR 0015 — "refund only if the client comes back to poll" pays for the patient
+		// and gifts the impatient). Seconds are the billing unit, and req.DurationSec is the value
+		// already clamped to what this route can actually make.
+		// **记在提交**、不在取回:任务被上游接受时钱就落了,而一个在轮询中途墙钟到点的回合**照样花了**
+		// (与受管路由同律,ADR 0015——「只在客户端回来轮询时退款」= 等着的人付钱、走开的人白拿)。
+		// 秒是计费单位,而 req.DurationSec 已是钳到本路由真做得到的那个值。
+		r.Spend.Record(ctx, "video", route.provider, route.model, int64(req.DurationSec))
 	}
 	// The managed route has no model of its own to name — the gateway owns that choice — so the
 	// line says the provider alone rather than printing an empty pair of parentheses.

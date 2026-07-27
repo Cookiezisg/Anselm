@@ -37,6 +37,7 @@ import (
 	settingsapp "github.com/sunweilin/anselm/backend/internal/app/settings"
 	skillapp "github.com/sunweilin/anselm/backend/internal/app/skill"
 	speechapp "github.com/sunweilin/anselm/backend/internal/app/speech"
+	spendapp "github.com/sunweilin/anselm/backend/internal/app/spend"
 	storageapp "github.com/sunweilin/anselm/backend/internal/app/storage"
 	subagentapp "github.com/sunweilin/anselm/backend/internal/app/subagent"
 	todoapp "github.com/sunweilin/anselm/backend/internal/app/todo"
@@ -106,6 +107,7 @@ type services struct {
 	document      *documentapp.Service
 	todo          *todoapp.Service
 	touchpoint    *touchpointapp.Service
+	spend         *spendapp.Service
 	attachment    *attachmentapp.Service
 	readAloud     *readaloudapp.Service
 	function      *functionapp.Service
@@ -361,7 +363,13 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// call (signed) and artifact downloads (passthrough).
 	// 生成能力工具(批B):逐请求 resident,按图像路由可用性上闸(诚实缺席)。带 proof 的 HTTP client
 	// 同时服务受管网关调用(签名)与产物下载(透传)。
-	genRouter := &generatetool.Router{Picker: ws, Keys: keys, Probes: keys, HTTP: inf.proofHTTP}
+	// The spend ledger rides ON the router: it is the single place every modality's paid direct
+	// call already passes through (WRK-082 H10). Managed calls are skipped inside Record — the
+	// gateway journals those authoritatively and booking them twice would double-count.
+	// 支出台账搭在 router 上:每个模态的付费**直连**调用本来都要经过它(H10)。受管调用在 Record 内
+	// 跳过——网关已权威记账,再记一遍就是数两遍。
+	spend := spendapp.New(st.spend, log)
+	genRouter := &generatetool.Router{Picker: ws, Keys: keys, Probes: keys, HTTP: inf.proofHTTP, Spend: spend}
 	genTools := generatetool.GenerateTools(genRouter, att)
 	// Read-aloud (WRK-082 批C, P10): the SAME speech router the tool uses, driven by a button
 	// instead of an LLM. Its cache is what makes a second listen free.
@@ -640,7 +648,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	s := &services{
 		workspace: ws, apikey: keys, modelCaps: modelCaps, modelProfile: modelProfile, media: media, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
-		touchpoint: tp, toolNames: toolNames, toolCatalog: toolCatalog,
+		touchpoint: tp, spend: spend, toolNames: toolNames, toolCatalog: toolCatalog,
 		attachment: att, readAloud: readAloud, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,
