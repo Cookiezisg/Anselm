@@ -7,7 +7,6 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 	"time"
 
@@ -148,14 +147,15 @@ func VideoPollInterval(provider string) time.Duration {
 
 // VideoMaxDuration is each provider's hard ceiling in seconds.
 func VideoMaxDuration(provider string) int {
-	switch provider {
-	case "qwen", "anselm":
-		return 15 // anselm forwards to wan / anselm 转发给 wan
-	case "google":
-		return 8
-	default:
-		return 8
+	// One route, one cap (WRK-085): the managed gateway forwards to wan, whose ceiling is 15s. The
+	// parameter stays because the CLAMP is what matters — a caller asking for 30 seconds must get a
+	// receipt reporting what was actually made, not what was asked.
+	// 一条路一个上限(WRK-085):受管网关转发给 wan,顶棚 15 秒。参数保留是因为**钳制**才是要点——一个
+	// 要 30 秒的调用方,拿到的 receipt 必须报**真做出来的**那个数,不是他要的那个。
+	if provider == "anselm" {
+		return 15
 	}
+	return 0
 }
 
 // ── Anselm gateway (managed free tier) ───────────────────────────────────────
@@ -272,111 +272,6 @@ func anselmResolution(res string) string {
 
 // ── DashScope (wan) ──────────────────────────────────────────────────────────
 
-// SubmitVideoDashScope submits one generation. The `X-DashScope-Async: enable` header is MANDATORY
-// — without it the API answers "current user api does not support synchronous calls", because the
-// video family has no synchronous form at all.
-//
-// SubmitVideoDashScope 提交一次生成。`X-DashScope-Async: enable` 头是**强制**的——缺了它 API 会答
-// 「current user api does not support synchronous calls」,因为视频族**根本没有**同步形态。
-func SubmitVideoDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, model string, req VideoRequest) (VideoJob, error) {
-	if req.DurationSec < 2 || req.DurationSec > VideoMaxDuration("qwen") {
-		return VideoJob{}, fmt.Errorf("%w: duration must be 2-%d seconds for %s", ErrVideoGenFailed, VideoMaxDuration("qwen"), model)
-	}
-	params := map[string]any{
-		"duration":  req.DurationSec,
-		"watermark": false,
-	}
-	input := map[string]any{"prompt": req.Prompt}
-	if req.FirstFrame != nil {
-		// Image-to-video: the frame goes in `img_url` (data URL accepted) and the geometry keys are
-		// OMITTED — the clip takes the frame's own aspect and size. Sending ours anyway is how a
-		// user's 3:2 photo silently becomes a letterboxed 16:9 clip.
-		// 图生视频:首帧走 `img_url`(收 data URL),而几何键**整个略去**——片子取首帧自己的比例与尺寸。
-		// 照旧把我们的递过去,正是用户那张 3:2 的照片静默变成加了黑边的 16:9 的方式。
-		input["img_url"] = req.FirstFrame.String()
-	} else if strings.HasPrefix(model, "wan2.7") || strings.HasPrefix(model, "happyhorse") {
-		// wan2.7 replaced the single `size` with resolution + ratio; 2.6 and earlier still take `size`.
-		// Same provider, two shapes — branch on the model, do not guess.
-		// wan2.7 把单一 `size` 换成了 resolution + ratio;2.6 及更早仍吃 `size`。同一家两种形,按模型分支、不猜。
-		params["resolution"] = dashScopeResolution(req.Resolution)
-		params["ratio"] = dashScopeRatio(req.Aspect)
-	} else {
-		params["size"] = dashScopeSize(req.Resolution, req.Aspect)
-	}
-	body, _ := json.Marshal(map[string]any{
-		"model":      model,
-		"input":      input,
-		"parameters": params,
-	})
-	httpReq, err := newVideoRequest(ctx, strings.TrimRight(nativeBase, "/")+"/api/v1/services/aigc/video-generation/video-synthesis", body)
-	if err != nil {
-		return VideoJob{}, err
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+key)
-	httpReq.Header.Set("X-DashScope-Async", "enable")
-	raw, err := doVideoRequest(httpc, httpReq, "qwen")
-	if err != nil {
-		return VideoJob{}, err
-	}
-	var wire struct {
-		Output struct {
-			TaskID string `json:"task_id"`
-		} `json:"output"`
-	}
-	if err := json.Unmarshal(raw, &wire); err != nil || wire.Output.TaskID == "" {
-		return VideoJob{}, fmt.Errorf("%w: dashscope accepted nothing (no task id)", ErrVideoGenFailed)
-	}
-	return VideoJob{Provider: "qwen", Handle: wire.Output.TaskID, Model: model}, nil
-}
-
-// PollVideoDashScope reads one task's state. The poll request deliberately does NOT carry the
-// async header — that header belongs to submission only.
-//
-// PollVideoDashScope 读一次任务状态。轮询请求刻意**不带**异步头——那个头只属于提交。
-func PollVideoDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, taskID string) (VideoStatus, error) {
-	u := strings.TrimRight(nativeBase, "/") + "/api/v1/tasks/" + taskID
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return VideoStatus{}, fmt.Errorf("%w: %v", ErrVideoGenFailed, err)
-	}
-	httpReq.Header.Set("Authorization", "Bearer "+key)
-	raw, err := doVideoRequest(httpc, httpReq, "qwen")
-	if err != nil {
-		return VideoStatus{}, err
-	}
-	var wire struct {
-		Output struct {
-			TaskStatus string `json:"task_status"`
-			VideoURL   string `json:"video_url"`
-			Code       string `json:"code"`
-			Message    string `json:"message"`
-		} `json:"output"`
-	}
-	if err := json.Unmarshal(raw, &wire); err != nil {
-		return VideoStatus{}, fmt.Errorf("%w: dashscope status unreadable", ErrVideoGenFailed)
-	}
-	switch wire.Output.TaskStatus {
-	case "PENDING":
-		return VideoStatus{Phase: VideoQueued}, nil
-	case "RUNNING":
-		return VideoStatus{Phase: VideoRunning}, nil
-	case "SUCCEEDED":
-		if wire.Output.VideoURL == "" {
-			return VideoStatus{}, fmt.Errorf("%w: dashscope succeeded with no artifact url", ErrVideoGenFailed)
-		}
-		// A bare pre-signed OSS URL: NO headers. Sending Authorization here can make the object
-		// store reject the request. 裸预签名 OSS URL:**不带**头。这里送 Authorization 可能被对象存储拒。
-		return VideoStatus{Phase: VideoSucceeded, Artifact: &VideoArtifact{URL: wire.Output.VideoURL}}, nil
-	case "FAILED", "CANCELED", "UNKNOWN":
-		return VideoStatus{Phase: VideoFailed, Reason: boundedReason(wire.Output.Code, wire.Output.Message)}, nil
-	default:
-		// An unrecognized status is treated as still running rather than as a failure: the closed
-		// set is the VENDOR's, and a new member appearing must not turn a healthy job into an error.
-		// 无法识别的状态按**仍在跑**处理、不按失败:封闭集是**厂商**的,新成员出现不该把一个健康任务变成错误。
-		return VideoStatus{Phase: VideoRunning}, nil
-	}
-}
-
 func dashScopeResolution(res string) string {
 	if res == "1080p" {
 		return "1080P"
@@ -417,103 +312,6 @@ func dashScopeSize(res, aspect string) string {
 }
 
 // ── Gemini (Veo) ─────────────────────────────────────────────────────────────
-
-// SubmitVideoGemini submits one generation as a long-running operation. `durationSeconds` is a
-// STRING on this wire, and 1080p forces exactly 8 seconds — both are validated here so an
-// impossible combination fails before it costs anything.
-//
-// SubmitVideoGemini 以 long-running operation 提交一次生成。`durationSeconds` 在这条线缆上是**字符串**,
-// 且 1080p **强制**恰好 8 秒——两者都在此校验,使不可能的组合在花钱之前就失败。
-func SubmitVideoGemini(ctx context.Context, httpc *http.Client, baseURL, key, model string, req VideoRequest) (VideoJob, error) {
-	dur := req.DurationSec
-	if req.Resolution == "1080p" && dur != 8 {
-		return VideoJob{}, fmt.Errorf("%w: %s requires exactly 8 seconds at 1080p", ErrVideoGenFailed, model)
-	}
-	if dur != 4 && dur != 6 && dur != 8 {
-		return VideoJob{}, fmt.Errorf("%w: %s supports 4, 6 or 8 seconds (asked for %d)", ErrVideoGenFailed, model, dur)
-	}
-	params := map[string]any{
-		"aspectRatio":      geminiAspect(req.Aspect),
-		"durationSeconds":  strconv.Itoa(dur),
-		"personGeneration": "allow_all",
-	}
-	if req.Resolution != "" {
-		params["resolution"] = req.Resolution
-	}
-	body, _ := json.Marshal(map[string]any{
-		"instances":  []any{map[string]any{"prompt": req.Prompt}},
-		"parameters": params,
-	})
-	httpReq, err := newVideoRequest(ctx, strings.TrimRight(baseURL, "/")+"/models/"+model+":predictLongRunning", body)
-	if err != nil {
-		return VideoJob{}, err
-	}
-	httpReq.Header.Set("x-goog-api-key", key)
-	raw, err := doVideoRequest(httpc, httpReq, "google")
-	if err != nil {
-		return VideoJob{}, err
-	}
-	var wire struct {
-		Name string `json:"name"`
-	}
-	if err := json.Unmarshal(raw, &wire); err != nil || wire.Name == "" {
-		return VideoJob{}, fmt.Errorf("%w: gemini accepted nothing (no operation name)", ErrVideoGenFailed)
-	}
-	return VideoJob{Provider: "google", Handle: wire.Name, Model: model}, nil
-}
-
-// PollVideoGemini reads one operation. The handle ALREADY carries its `models/…/operations/…`
-// path, so it is appended to `/v1beta/` directly — treating it as a bare id builds a 404.
-//
-// PollVideoGemini 读一次 operation。句柄**自带** `models/…/operations/…` 路径,故直接拼在 `/v1beta/`
-// 之后——把它当裸 id 处理会拼出一个 404。
-func PollVideoGemini(ctx context.Context, httpc *http.Client, baseURL, key, opName string) (VideoStatus, error) {
-	u := strings.TrimRight(baseURL, "/") + "/" + strings.TrimPrefix(opName, "/")
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u, nil)
-	if err != nil {
-		return VideoStatus{}, fmt.Errorf("%w: %v", ErrVideoGenFailed, err)
-	}
-	httpReq.Header.Set("x-goog-api-key", key)
-	raw, err := doVideoRequest(httpc, httpReq, "google")
-	if err != nil {
-		return VideoStatus{}, err
-	}
-	var wire struct {
-		Done  bool `json:"done"`
-		Error *struct {
-			Code    int    `json:"code"`
-			Message string `json:"message"`
-		} `json:"error"`
-		Response struct {
-			GenerateVideoResponse struct {
-				GeneratedSamples []struct {
-					Video struct {
-						URI string `json:"uri"`
-					} `json:"video"`
-				} `json:"generatedSamples"`
-			} `json:"generateVideoResponse"`
-		} `json:"response"`
-	}
-	if err := json.Unmarshal(raw, &wire); err != nil {
-		return VideoStatus{}, fmt.Errorf("%w: gemini operation unreadable", ErrVideoGenFailed)
-	}
-	if !wire.Done {
-		return VideoStatus{Phase: VideoRunning}, nil
-	}
-	if wire.Error != nil {
-		return VideoStatus{Phase: VideoFailed, Reason: boundedReason(strconv.Itoa(wire.Error.Code), wire.Error.Message)}, nil
-	}
-	for _, s := range wire.Response.GenerateVideoResponse.GeneratedSamples {
-		if uri := strings.TrimSpace(s.Video.URI); uri != "" {
-			// The file URI REQUIRES the API key on fetch — unlike DashScope's bare OSS link.
-			// 该文件 URI 取回时**必须**带 API key——与 DashScope 的裸 OSS 链接相反。
-			return VideoStatus{Phase: VideoSucceeded, Artifact: &VideoArtifact{
-				URL: uri, Headers: map[string]string{"x-goog-api-key": key},
-			}}, nil
-		}
-	}
-	return VideoStatus{Phase: VideoFailed, Reason: "operation finished with no video"}, nil
-}
 
 func geminiAspect(aspect string) string {
 	if aspect == "portrait" {

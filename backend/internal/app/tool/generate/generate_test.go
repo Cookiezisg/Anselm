@@ -1,19 +1,13 @@
 package generate
 
 import (
-	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"image"
-	"image/png"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
-	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
@@ -86,8 +80,16 @@ func TestRoute_FiveBatteries(t *testing.T) {
 		if err != nil || route.provider != "openai" || route.model != "gpt-image-2" {
 			t.Fatalf("route = %+v, %v", route, err)
 		}
-		if !r.ImageAvailable(context.Background()) {
-			t.Fatal("available must be true with an explicit route")
+		// **Resolving is not the same as being available (WRK-085).** The picker still honours an
+		// explicit BYOK choice — that resolution logic is shared with chat and must keep working —
+		// but generation is managed-only, so the tool must not exist for this route. Claiming it
+		// would put a model in the position of promising something that fails at the last hop,
+		// after the user has already written a prompt.
+		// **解析得出 ≠ 可用(WRK-085)。** 选择器仍然尊重用户显式选的 BYOK 模型——那段解析逻辑与 chat
+		// 共用、必须继续工作——但生成只在受管档,故这条路由上工具**不该存在**。照样宣称,等于让模型去许
+		// 一个**在最后一跳才失败**的诺,而那时用户已经写完提示词了。
+		if r.ImageAvailable(context.Background()) {
+			t.Fatal("generation is managed-only; a BYOK route must report the tool absent")
 		}
 	})
 
@@ -145,74 +147,6 @@ func TestRoute_FiveBatteries(t *testing.T) {
 			t.Fatal("deepseek route must fail — provider has no image generation")
 		}
 	})
-}
-
-// TestExecute_EndToEndOpenAI drives the whole tool against a fake OpenAI upstream: b64 artifact →
-// uploaded attachment → receipt JSON with real dimensions.
-//
-// TestExecute_EndToEndOpenAI 对假 OpenAI 上游全链驱动工具:b64 产物 → 落附件 → 带真实尺寸的
-// receipt JSON。
-func TestExecute_EndToEndOpenAI(t *testing.T) {
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, image.NewRGBA(image.Rect(0, 0, 7, 5))); err != nil {
-		t.Fatal(err)
-	}
-	pngBytes := buf.Bytes()
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/v1/images/generations" {
-			t.Errorf("path = %s", r.URL.Path)
-		}
-		var req map[string]any
-		_ = json.NewDecoder(r.Body).Decode(&req)
-		if req["model"] != "gpt-image-2" || req["size"] != "1536x1024" {
-			t.Errorf("wire = %v, want default model + landscape size", req)
-		}
-		_ = json.NewEncoder(w).Encode(map[string]any{
-			"data": []map[string]any{{"b64_json": base64.StdEncoding.EncodeToString(pngBytes)}},
-		})
-	}))
-	defer srv.Close()
-
-	router := routerWith(
-		fakePicker{err: modeldomain.ErrNotConfigured},
-		fakeKeys{creds: map[string]apikeydomain.Credentials{"aki_o": {Provider: "openai", Key: "sk", BaseURL: srv.URL + "/v1"}}},
-		fakeProbes{rows: []apikeydomain.ProbedKey{{ID: "aki_o", Provider: "openai", TestStatus: apikeydomain.TestStatusOK}}},
-	)
-	up := &fakeUploader{}
-	tools := GenerateTools(router, up, nil, nil)
-	// The family grows with each generation capability; find the one under test by NAME rather
-	// than by index, so adding a sibling never silently repoints this test at the wrong tool.
-	// 本族随每项生成能力增长;按**名字**取被测工具而非按下标,新增兄弟才不会把这个测试静默指向
-	// 另一个工具。
-	var img toolapp.Tool
-	names := make([]string, 0, len(tools))
-	for _, tw := range tools {
-		names = append(names, tw.Tool.Name())
-		if tw.Tool.Name() == "generate_image" {
-			img = tw.Tool
-		}
-	}
-	if img == nil {
-		t.Fatalf("family = %v, want it to contain generate_image", names)
-	}
-	out, err := img.Execute(context.Background(), `{"prompt":"a lighthouse","aspect":"landscape"}`)
-	if err != nil {
-		t.Fatalf("execute: %v", err)
-	}
-	var receipt map[string]any
-	if err := json.Unmarshal([]byte(out), &receipt); err != nil {
-		t.Fatalf("receipt not JSON: %v (%s)", err, out)
-	}
-	if receipt["attachmentId"] != "att_generated0001" || receipt["mime"] != "image/png" ||
-		receipt["provider"] != "openai" || receipt["source"] != "generate_image" {
-		t.Fatalf("receipt = %v", receipt)
-	}
-	if receipt["width"] != float64(7) || receipt["height"] != float64(5) {
-		t.Fatalf("dims = %v×%v, want 7×5 sniffed from real bytes", receipt["width"], receipt["height"])
-	}
-	if up.last == nil || !strings.HasPrefix(up.last.Filename, "generated-") {
-		t.Fatalf("uploaded = %+v", up.last)
-	}
 }
 
 // TestValidateInput_ClosedShape: prompt required + bounded, aspect enum closed.

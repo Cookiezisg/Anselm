@@ -19,7 +19,6 @@ import (
 	"net/http"
 	"strings"
 	"time"
-	"unicode/utf8"
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
@@ -133,29 +132,6 @@ var videoProviderOrder = []string{"anselm", "qwen", "google"}
 // ErrNoVideoRoute — no key on this workspace can generate video (the ErrNoImageRoute twin).
 var ErrNoVideoRoute = errorspkg.New(errorspkg.KindUnprocessable, "VIDEO_NO_ROUTE", "no configured key can generate video")
 
-// defaultVoiceFor is each dialect's default voice. A voice name is NOT portable across providers
-// (Cherry exists only at DashScope, coral only at OpenAI, Kore only at Gemini), so an unset voice
-// must resolve per route rather than carry one global string — sending "Cherry" to OpenAI is a
-// 400, and that failure would look like "speech is broken" rather than "wrong voice name".
-//
-// defaultVoiceFor 是各方言的默认音色。音色名**不跨家通用**(Cherry 只在 DashScope、coral 只在
-// OpenAI、Kore 只在 Gemini),故未设音色必须**按路由**解析、而不是带一个全局串——把 "Cherry" 发给
-// OpenAI 是一个 400,而那次失败看起来会像「语音坏了」而不是「音色名不对」。
-func defaultVoiceFor(provider string) string {
-	switch provider {
-	case "openai":
-		return "coral"
-	case "google":
-		return "Kore"
-	case "qwen":
-		return "Cherry"
-	case "zhipu":
-		return "tongtong"
-	default:
-		return "" // managed: the gateway fills its own configured default / 受管:网关填自己的默认
-	}
-}
-
 // ErrNoImageRoute — no key on this workspace can generate images. The tool is not injected in
 // this state (honest absence); the sentinel exists for the direct-call race.
 //
@@ -220,13 +196,6 @@ type Router struct {
 	Keys   CredsResolver
 	Probes apikeydomain.ProbeReader
 	HTTP   *http.Client
-	// Spend books direct-side paid calls into the generation spend ledger (WRK-082 H10). Optional
-	// (nil in tests); nil-checked at each chokepoint. It sits ON the Router because the Router is
-	// the one place every modality's paid call already passes through — booking in the tools would
-	// be the same line four times and would miss read-aloud.
-	// Spend 把直连侧付费调用记进生成支出台账(H10)。可选(测试为 nil),各咽喉判 nil。放在 Router 上,
-	// 因为每个模态的付费调用**本来**都要经过它——记在工具里等于同一行写四遍,还会漏掉朗读。
-	Spend SpendRecorder
 
 	// Media uploads a sample through the managed resumable route and returns the gateway's own
 	// RELATIVE lease reference. Only voice enrollment uses it — the one upstream that will not take
@@ -234,14 +203,6 @@ type Router struct {
 	// Media 经受管断点上传把样本传上去,返回网关自己的**相对** lease 引用。只有音色登记用它——那个唯一
 	// 不肯收字节的上游。可选(测试为 nil);登记路径自己判。
 	Media *llminfra.MediaClient
-}
-
-// SpendRecorder is the ledger port the Router books into. Record must never fail the generation
-// (the implementation logs and swallows).
-//
-// SpendRecorder 是 Router 记账的台账端口。Record 绝不让生成失败(实现记日志后吞掉)。
-type SpendRecorder interface {
-	Record(ctx context.Context, category, provider, model string, units int64)
 }
 
 // genRoute is one resolved way to generate (any modality).
@@ -338,9 +299,20 @@ func (r *Router) routeIn(specs map[string]providerSpec, noRoute error, provider,
 // ImageAvailable reports whether generate_image should exist for this request (honest absence).
 //
 // ImageAvailable 报告 generate_image 本次请求该不该存在(诚实缺席)。
+// **Managed only (WRK-085, 「写」留给自己).** Every generation capability needs a dialect we hand-write
+// and keep current — and every wire surprise this project has paid for landed on that side: one
+// vendor serving two tool-argument conventions from two hostnames, TTS available only over a duplex
+// WebSocket, voice enrollment refusing bytes and demanding a fetchable URL. BYOK keeps「读」(text and
+// multimodal INPUT), whose capability comes from the catalog and whose dialect is the one shape every
+// provider agrees on.
+//
+// **只在受管档(WRK-085,「写」留给自己)。** 每一个生成能力都要一条我们手写并持续跟进的方言——而本项目
+// 为之付过钱的每一次线缆意外都落在那一侧:同一家供应商在两个主机名上服务两种工具参数约定、TTS 只在
+// 双工 WebSocket 上、音色登记拒收字节只要可取的 URL。BYOK 留下的是**「读」**(文本与多模态**输入**),
+// 它的能力来自目录、它的方言是所有供应商唯一一致的那个形状。
 func (r *Router) ImageAvailable(ctx context.Context) bool {
-	_, err := r.resolveImage(ctx)
-	return err == nil
+	route, err := r.resolveImage(ctx)
+	return err == nil && route.provider == "anselm"
 }
 
 // generate dispatches one image generation over the resolved route.
@@ -349,27 +321,19 @@ func (r *Router) ImageAvailable(ctx context.Context) bool {
 func (r *Router) generate(ctx context.Context, route genRoute, prompt, aspect string) (llminfra.GeneratedImage, error) {
 	size := llminfra.ImageSizeFor(route.provider, aspect)
 	img, err := r.generateDispatch(ctx, route, prompt, size)
-	if err == nil && r.Spend != nil {
-		r.Spend.Record(ctx, "image", route.provider, route.model, 1)
-	}
 	return img, err
 }
 
 func (r *Router) generateDispatch(ctx context.Context, route genRoute, prompt, size string) (llminfra.GeneratedImage, error) {
-	switch route.provider {
-	case "anselm":
-		return llminfra.GenerateImageAnselm(ctx, r.HTTP, route.baseURL, route.installID, prompt, size)
-	case "openai":
-		return llminfra.GenerateImageOpenAI(ctx, r.HTTP, route.baseURL, route.key, route.model, prompt, size)
-	case "google":
-		return llminfra.GenerateImageGemini(ctx, r.HTTP, route.baseURL, route.key, route.model, prompt)
-	case "qwen":
-		return llminfra.GenerateImageDashScope(ctx, r.HTTP, route.baseURL, route.key, route.model, prompt, size)
-	case "zhipu":
-		return llminfra.GenerateImageZhipu(ctx, r.HTTP, route.baseURL, route.key, route.model, prompt, size)
-	default:
+	// **One branch, because there is one route (WRK-085).** Generation is managed-only: its dialects
+	// are hand-written and every wire surprise this project paid for landed on that side. A switch
+	// with dead arms would read as「we support four vendors」to the next person.
+	// **一个分支,因为只剩一条路(WRK-085)。** 生成只在受管档:它的方言全靠手写,而本项目为之付过钱的
+	// 每一次线缆意外都落在那一侧。留一个带死分支的 switch,会让下一个人读成「我们支持四家」。
+	if route.provider != "anselm" {
 		return llminfra.GeneratedImage{}, ErrNoImageRoute
 	}
+	return llminfra.GenerateImageAnselm(ctx, r.HTTP, route.baseURL, route.installID, prompt, size)
 }
 
 // edit dispatches one image EDIT over the image route. It resolves through resolveImage on purpose:
@@ -393,32 +357,30 @@ func (r *Router) edit(ctx context.Context, route genRoute, prompt, aspect string
 		img llminfra.GeneratedImage
 		err error
 	)
-	switch route.provider {
-	case "anselm":
-		img, err = llminfra.EditImageAnselm(ctx, r.HTTP, route.baseURL, route.installID, prompt, size, source)
-	case "qwen":
-		img, err = llminfra.EditImageDashScope(ctx, r.HTTP, route.baseURL, route.key, editModelFor(route.model), prompt, size, source)
-	default:
+	if route.provider != "anselm" {
 		return llminfra.GeneratedImage{}, ErrNoEditRoute
 	}
-	if err == nil && r.Spend != nil {
-		// An edit costs an image, and it is billed on the image allowance — the artifact is one
-		// picture however it was made. 改图花的是一张图的钱、记在图的额度上——不管怎么做出来的,产物就是
-		// 一张图。
-		r.Spend.Record(ctx, "image", route.provider, route.model, 1)
-	}
+	img, err = llminfra.EditImageAnselm(ctx, r.HTTP, route.baseURL, route.installID, prompt, size, source)
 	return img, err
 }
 
 // EditAvailable reports whether an edit route resolves — the honest-absence gate for `edit_image`.
 //
 // EditAvailable 报告改图路由是否解析得出——`edit_image` 的诚实缺席闸。
+// **Managed only (WRK-085, 「写」留给自己).** Every generation capability needs a dialect we hand-write
+// and keep current — and every wire surprise this project has paid for landed on that side: one
+// vendor serving two tool-argument conventions from two hostnames, TTS available only over a duplex
+// WebSocket, voice enrollment refusing bytes and demanding a fetchable URL. BYOK keeps「读」(text and
+// multimodal INPUT), whose capability comes from the catalog and whose dialect is the one shape every
+// provider agrees on.
+//
+// **只在受管档(WRK-085,「写」留给自己)。** 每一个生成能力都要一条我们手写并持续跟进的方言——而本项目
+// 为之付过钱的每一次线缆意外都落在那一侧:同一家供应商在两个主机名上服务两种工具参数约定、TTS 只在
+// 双工 WebSocket 上、音色登记拒收字节只要可取的 URL。BYOK 留下的是**「读」**(文本与多模态**输入**),
+// 它的能力来自目录、它的方言是所有供应商唯一一致的那个形状。
 func (r *Router) EditAvailable(ctx context.Context) bool {
 	route, err := r.resolveImage(ctx)
-	if err != nil {
-		return false
-	}
-	return route.provider == "anselm" || route.provider == "qwen"
+	return err == nil && route.provider == "anselm"
 }
 
 // editModelFor resolves the model an EDIT is posted to. On DashScope that is the generation model
@@ -453,9 +415,20 @@ func (r *Router) resolveSpeech(ctx context.Context) (genRoute, error) {
 // SpeechAvailable reports whether generate_speech should exist for this request (honest absence).
 //
 // SpeechAvailable 报告 generate_speech 本次请求该不该存在(诚实缺席)。
+// **Managed only (WRK-085, 「写」留给自己).** Every generation capability needs a dialect we hand-write
+// and keep current — and every wire surprise this project has paid for landed on that side: one
+// vendor serving two tool-argument conventions from two hostnames, TTS available only over a duplex
+// WebSocket, voice enrollment refusing bytes and demanding a fetchable URL. BYOK keeps「读」(text and
+// multimodal INPUT), whose capability comes from the catalog and whose dialect is the one shape every
+// provider agrees on.
+//
+// **只在受管档(WRK-085,「写」留给自己)。** 每一个生成能力都要一条我们手写并持续跟进的方言——而本项目
+// 为之付过钱的每一次线缆意外都落在那一侧:同一家供应商在两个主机名上服务两种工具参数约定、TTS 只在
+// 双工 WebSocket 上、音色登记拒收字节只要可取的 URL。BYOK 留下的是**「读」**(文本与多模态**输入**),
+// 它的能力来自目录、它的方言是所有供应商唯一一致的那个形状。
 func (r *Router) SpeechAvailable(ctx context.Context) bool {
-	_, err := r.resolveSpeech(ctx)
-	return err == nil
+	route, err := r.resolveSpeech(ctx)
+	return err == nil && route.provider == "anselm"
 }
 
 // synthesize speaks one whole text over the resolved route, splitting it into per-provider-sized
@@ -467,9 +440,13 @@ func (r *Router) SpeechAvailable(ctx context.Context) bool {
 // 工具层,因为上限是**路由**的属性;住在这里而非网关,因为网关侧切块会让一次预留覆盖 N 次上游调用
 // (代拍 C5)。
 func (r *Router) synthesize(ctx context.Context, route genRoute, text, voice string) (llminfra.GeneratedAudio, error) {
-	if voice == "" {
-		voice = defaultVoiceFor(route.provider)
-	}
+	// **An unset voice stays unset.** The managed gateway fills its own configured default, and its
+	// voice names belong to the model it actually calls (qwen-audio-3.0's carry a `_v3.6` suffix and
+	// it rejects the older family's names outright). Guessing one here would send a name the upstream
+	// may not know, and that failure reads as「speech is broken」rather than「wrong voice name」.
+	// **不设音色就让它空着。** 受管网关会填自己配置的默认值,而那些音色名属于**它真正调用的那个模型**
+	// (qwen-audio-3.0 的名字带 `_v3.6` 后缀,且它**直接拒绝**旧家族那套名字)。在这里猜一个,等于发出
+	// 一个上游可能不认识的名字,而那次失败读起来像「语音坏了」、不像「音色名不对」。
 	chunks := llminfra.SplitSpeechText(text, llminfra.SpeechChunkLimit(route.provider))
 	if len(chunks) == 0 {
 		return llminfra.GeneratedAudio{}, ErrTextRequired
@@ -486,30 +463,14 @@ func (r *Router) synthesize(ctx context.Context, route genRoute, text, voice str
 		parts = append(parts, part)
 	}
 	out, err := llminfra.ConcatAudio(parts)
-	if err == nil && r.Spend != nil {
-		// Book the WHOLE utterance once, in the characters actually sent upstream — chunking is our
-		// implementation detail (a 1200-char utterance is 3 qwen requests but one thing the user
-		// asked for and one price). Counted in runes, matching how every speech provider bills.
-		// 整段记一次,量是**真正发给上游的字符数**——切块是我们的实现细节(1200 字符是 3 次 qwen 请求,
-		// 但对用户是一件事、一个价)。按 rune 数,与各家语音计费口径一致。
-		r.Spend.Record(ctx, "speech", route.provider, route.model, int64(utf8.RuneCountInString(text)))
-	}
 	return out, err
 }
 
 func (r *Router) synthesizeChunk(ctx context.Context, route genRoute, text, voice string) (llminfra.GeneratedAudio, error) {
-	switch route.provider {
-	case "anselm":
-		return llminfra.GenerateSpeechAnselm(ctx, r.HTTP, route.baseURL, route.installID, text, voice)
-	case "openai", "zhipu":
-		return llminfra.GenerateSpeechOpenAIForm(ctx, r.HTTP, route.provider, route.baseURL, route.key, route.model, text, voice)
-	case "qwen":
-		return llminfra.GenerateSpeechDashScope(ctx, r.HTTP, route.baseURL, route.key, route.model, text, voice)
-	case "google":
-		return llminfra.GenerateSpeechGemini(ctx, r.HTTP, route.baseURL, route.key, route.model, text, voice)
-	default:
+	if route.provider != "anselm" {
 		return llminfra.GeneratedAudio{}, ErrNoSpeechRoute
 	}
+	return llminfra.GenerateSpeechAnselm(ctx, r.HTTP, route.baseURL, route.installID, text, voice)
 }
 
 // SynthesizeSpeech is the read-aloud entry point: the SAME routing and synthesis the tool uses,
@@ -524,9 +485,6 @@ func (r *Router) SynthesizeSpeech(ctx context.Context, text, voice string) (llmi
 	route, err := r.resolveSpeech(ctx)
 	if err != nil {
 		return llminfra.GeneratedAudio{}, "", "", "", err
-	}
-	if voice == "" {
-		voice = defaultVoiceFor(route.provider)
 	}
 	audio, err := r.synthesize(ctx, route, text, voice)
 	if err != nil {
@@ -547,9 +505,6 @@ func (r *Router) SpeechRouteIdentity(ctx context.Context, voice string) (string,
 	if err != nil {
 		return "", "", "", err
 	}
-	if voice == "" {
-		voice = defaultVoiceFor(route.provider)
-	}
 	return route.provider, route.model, voice, nil
 }
 
@@ -559,9 +514,20 @@ func (r *Router) resolveVideo(ctx context.Context) (genRoute, error) {
 }
 
 // VideoAvailable reports whether generate_video should exist for this request (honest absence).
+// **Managed only (WRK-085, 「写」留给自己).** Every generation capability needs a dialect we hand-write
+// and keep current — and every wire surprise this project has paid for landed on that side: one
+// vendor serving two tool-argument conventions from two hostnames, TTS available only over a duplex
+// WebSocket, voice enrollment refusing bytes and demanding a fetchable URL. BYOK keeps「读」(text and
+// multimodal INPUT), whose capability comes from the catalog and whose dialect is the one shape every
+// provider agrees on.
+//
+// **只在受管档(WRK-085,「写」留给自己)。** 每一个生成能力都要一条我们手写并持续跟进的方言——而本项目
+// 为之付过钱的每一次线缆意外都落在那一侧:同一家供应商在两个主机名上服务两种工具参数约定、TTS 只在
+// 双工 WebSocket 上、音色登记拒收字节只要可取的 URL。BYOK 留下的是**「读」**(文本与多模态**输入**),
+// 它的能力来自目录、它的方言是所有供应商唯一一致的那个形状。
 func (r *Router) VideoAvailable(ctx context.Context) bool {
-	_, err := r.resolveVideo(ctx)
-	return err == nil
+	route, err := r.resolveVideo(ctx)
+	return err == nil && route.provider == "anselm"
 }
 
 // VideoProgress is the callback a caller uses to surface waiting. It receives an honest STATUS
@@ -654,12 +620,20 @@ func (r *Router) VoiceCloneAvailable(ctx context.Context) bool {
 //
 // VideoEditAvailable 报告图生视频路由是否解析得出(`animate_image` 的诚实缺席闸)。今天只有 qwen 有
 // 够得着的 i2v 方言。
+// **Managed only (WRK-085, 「写」留给自己).** Every generation capability needs a dialect we hand-write
+// and keep current — and every wire surprise this project has paid for landed on that side: one
+// vendor serving two tool-argument conventions from two hostnames, TTS available only over a duplex
+// WebSocket, voice enrollment refusing bytes and demanding a fetchable URL. BYOK keeps「读」(text and
+// multimodal INPUT), whose capability comes from the catalog and whose dialect is the one shape every
+// provider agrees on.
+//
+// **只在受管档(WRK-085,「写」留给自己)。** 每一个生成能力都要一条我们手写并持续跟进的方言——而本项目
+// 为之付过钱的每一次线缆意外都落在那一侧:同一家供应商在两个主机名上服务两种工具参数约定、TTS 只在
+// 双工 WebSocket 上、音色登记拒收字节只要可取的 URL。BYOK 留下的是**「读」**(文本与多模态**输入**),
+// 它的能力来自目录、它的方言是所有供应商唯一一致的那个形状。
 func (r *Router) VideoEditAvailable(ctx context.Context) bool {
 	route, err := r.resolveVideo(ctx)
-	if err != nil {
-		return false
-	}
-	return route.provider == "anselm" || route.provider == "qwen"
+	return err == nil && route.provider == "anselm"
 }
 
 // generateVideo submits, polls to a terminal phase, and fetches the artifact. It is SYNCHRONOUS by
@@ -676,29 +650,12 @@ func (r *Router) generateVideo(ctx context.Context, route genRoute, req llminfra
 		job llminfra.VideoJob
 		err error
 	)
-	switch route.provider {
-	case "anselm":
-		job, err = llminfra.SubmitVideoAnselm(ctx, r.HTTP, route.baseURL, route.installID, req)
-	case "qwen":
-		job, err = llminfra.SubmitVideoDashScope(ctx, r.HTTP, route.baseURL, route.key, route.model, req)
-	case "google":
-		job, err = llminfra.SubmitVideoGemini(ctx, r.HTTP, route.baseURL, route.key, route.model, req)
-	default:
+	if route.provider != "anselm" {
 		return llminfra.GeneratedVideo{}, ErrNoVideoRoute
 	}
+	job, err = llminfra.SubmitVideoAnselm(ctx, r.HTTP, route.baseURL, route.installID, req)
 	if err != nil {
 		return llminfra.GeneratedVideo{}, err
-	}
-	if r.Spend != nil {
-		// Booked at SUBMIT, not at fetch: the money lands when the job is accepted upstream, and a
-		// turn whose wall clock runs out mid-poll has still spent it (same law the managed route
-		// follows, ADR 0015 — "refund only if the client comes back to poll" pays for the patient
-		// and gifts the impatient). Seconds are the billing unit, and req.DurationSec is the value
-		// already clamped to what this route can actually make.
-		// **记在提交**、不在取回:任务被上游接受时钱就落了,而一个在轮询中途墙钟到点的回合**照样花了**
-		// (与受管路由同律,ADR 0015——「只在客户端回来轮询时退款」= 等着的人付钱、走开的人白拿)。
-		// 秒是计费单位,而 req.DurationSec 已是钳到本路由真做得到的那个值。
-		r.Spend.Record(ctx, "video", route.provider, route.model, int64(req.DurationSec))
 	}
 	// The managed route has no model of its own to name — the gateway owns that choice — so the
 	// line says the provider alone rather than printing an empty pair of parentheses.
@@ -730,14 +687,7 @@ func (r *Router) generateVideo(ctx context.Context, route genRoute, req llminfra
 		case <-time.After(interval):
 		}
 		var st llminfra.VideoStatus
-		switch route.provider {
-		case "anselm":
-			st, err = llminfra.PollVideoAnselm(ctx, r.HTTP, route.baseURL, route.installID, job.Handle)
-		case "qwen":
-			st, err = llminfra.PollVideoDashScope(ctx, r.HTTP, route.baseURL, route.key, job.Handle)
-		case "google":
-			st, err = llminfra.PollVideoGemini(ctx, r.HTTP, route.baseURL, route.key, job.Handle)
-		}
+		st, err = llminfra.PollVideoAnselm(ctx, r.HTTP, route.baseURL, route.installID, job.Handle)
 		if err != nil {
 			return llminfra.GeneratedVideo{}, err
 		}
