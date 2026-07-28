@@ -50,7 +50,7 @@ func TestOpenAIBuildRequest(t *testing.T) {
 		t.Errorf("auth = %q", got)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var oa oaiRequest
+	var oa compatRequest
 	if err := json.Unmarshal(body, &oa); err != nil {
 		t.Fatal(err)
 	}
@@ -75,13 +75,13 @@ func TestOpenAIBuildRequest(t *testing.T) {
 func TestOpenAIBuildRequestNativeKnobs(t *testing.T) {
 	p := newOpenAIProvider()
 	base := Request{ModelID: "o3", Key: "k", BaseURL: "https://x"}
-	encode := func(req Request) oaiRequest {
+	encode := func(req Request) compatRequest {
 		httpReq, err := p.BuildRequest(context.Background(), req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		body, _ := io.ReadAll(httpReq.Body)
-		var oa oaiRequest
+		var oa compatRequest
 		_ = json.Unmarshal(body, &oa)
 		return oa
 	}

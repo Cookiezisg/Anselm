@@ -1,322 +1,83 @@
 package llm
 
 import (
-	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"iter"
-	"net/http"
 	"strings"
 )
 
-// deepseekProvider speaks DeepSeek's /chat/completions API, fully self-contained: its own
-// wire types, message encoding, and SSE chunk parsing — no sharing with the openai
-// provider even though the wire is OpenAI-shaped. DeepSeek specifics: the reasoning_content
-// round-trip rule, thinking:{type} + reasoning_effort encoding, and reasoning_content
-// arriving before content in the stream.
+// newDeepSeekProvider is the DeepSeek family's [compatSpec]. Two things are DeepSeek's alone: the
+// reasoning_content round-trip rule (below) and the thinking + reasoning_effort pair.
 //
-// deepseekProvider 完整自包含地讲 DeepSeek /chat/completions：自己的 wire 类型、消息编码、
-// SSE 解析——即使 wire 是 OpenAI 形状也不与 openai 共享。DeepSeek 特有：reasoning_content
-// round-trip 规则、thinking:{type}+reasoning_effort 编码、流中 reasoning_content 先于 content。
-type deepseekProvider struct{}
+// newDeepSeekProvider 是 DeepSeek 家的 [compatSpec]。**只属于 DeepSeek** 的有两样:下面那条
+// reasoning_content round-trip 规则,以及 thinking + reasoning_effort 这一对。
+func newDeepSeekProvider() *compatProvider {
+	return &compatProvider{spec: compatSpec{
+		name:    "deepseek",
+		baseURL: func() string { return "https://api.deepseek.com" },
+		wire:    deepseekWire,
+		prepare: stripPlainTurnReasoning,
+		parts:   deepseekParts,
+		encode: func(req Request, body *compatRequest) {
+			if req.MaxTokens > 0 {
+				body.MaxTokens = req.MaxTokens
+			}
+			if v := req.Options["thinking"]; v != "" {
+				body.Thinking = &compatThinking{Type: v}
+			}
+			if v := req.Options["reasoning_effort"]; v != "" {
+				body.ReasoningEffort = v
+			}
+		},
+		describe: describeDeepseek,
+	}}
+}
 
-func newDeepSeekProvider() *deepseekProvider { return &deepseekProvider{} }
-
-func (p *deepseekProvider) Name() string           { return "deepseek" }
-func (p *deepseekProvider) DefaultBaseURL() string { return "https://api.deepseek.com" }
-
-// BuildRequest encodes a Request into a DeepSeek /chat/completions HTTP request.
+// stripPlainTurnReasoning drops reasoning_content from assistant turns that carry no tool_calls.
 //
-// reasoning_content round-trip rule: plain assistant turns (no tool_calls) must strip
-// reasoning_content (DeepSeek rejects it on a continuation that carries no tool response);
-// tool-call turns preserve it (V4 reconstructs the chain-of-thought from it).
+// **It is an upstream rule, not a preference.** DeepSeek rejects a continuation whose assistant
+// turn carries reasoning_content without a tool response; tool-call turns must KEEP it, because the
+// chain of thought is reconstructed from it. Getting this backwards fails only on the second turn
+// of a conversation, which is exactly the kind of bug a single-turn test never sees.
 //
-// Native knobs from Options: thinking ("enabled"/"disabled") + reasoning_effort ("high"/"max",
-// DeepSeek's only two native levels).
+// stripPlainTurnReasoning 从**不带 tool_calls** 的 assistant 回合上剥掉 reasoning_content。
 //
-// BuildRequest 把 Request 编码为 DeepSeek 请求。reasoning_content round-trip 规则：纯文字
-// turn 剥、含 tool_calls turn 保留（V4 据此重建思维链）。原生旋钮取自 Options：thinking + reasoning_effort（仅 high/max）。
-func (p *deepseekProvider) BuildRequest(ctx context.Context, req Request) (*http.Request, error) {
-	for i := range req.Messages {
-		m := &req.Messages[i]
+// **这是上游的规则、不是偏好。** DeepSeek 拒绝「assistant 回合带 reasoning_content 却没有工具响应」
+// 的续写;而带 tool_calls 的回合必须**保留**它,因为思维链要据此重建。搞反了只在对话的**第二个**回合
+// 才失败——正是单回合测试永远看不见的那种 bug。
+func stripPlainTurnReasoning(msgs []LLMMessage) []LLMMessage {
+	for i := range msgs {
+		m := &msgs[i]
 		if m.Role == RoleAssistant && len(m.ToolCalls) == 0 {
 			m.ReasoningContent = ""
 		}
 	}
-
-	req.Messages = SanitizeMessages(req.Messages)
-	msgs, err := toDeepSeekMsgs(req.Messages, req.System)
-	if err != nil {
-		return nil, fmt.Errorf("llm.deepseek: build messages: %w", err)
-	}
-	body := dsRequest{
-		Model:    req.ModelID,
-		Messages: msgs,
-		Stream:   !req.DisableStream,
-	}
-	if !req.DisableStream {
-		body.StreamOptions = &dsStreamOptions{IncludeUsage: true}
-	}
-	if len(req.Tools) > 0 {
-		body.Tools = toDeepSeekTools(req.Tools)
-	}
-	if req.MaxTokens > 0 {
-		body.MaxTokens = req.MaxTokens
-	}
-	if v := req.Options["thinking"]; v != "" {
-		body.Thinking = &dsThinking{Type: v}
-	}
-	if v := req.Options["reasoning_effort"]; v != "" {
-		body.ReasoningEffort = v
-	}
-	raw, err := json.Marshal(body)
-	if err != nil {
-		return nil, fmt.Errorf("llm.deepseek: marshal body: %w", err)
-	}
-	httpReq, err := http.NewRequestWithContext(
-		ctx, http.MethodPost, req.BaseURL+"/chat/completions", bytes.NewReader(raw))
-	if err != nil {
-		return nil, fmt.Errorf("llm.deepseek: new request: %w", err)
-	}
-	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+req.Key)
-	return httpReq, nil
+	return msgs
 }
 
-func (p *deepseekProvider) ParseStream(ctx context.Context, resp *http.Response, req Request) iter.Seq[StreamEvent] {
-	return func(yield func(StreamEvent) bool) {
-		if req.DisableStream {
-			parseDeepSeekNonStreaming(resp.Body, yield)
-			return
-		}
-		state := newDeepSeekToolState()
-		scanErr := scanSSELines(ctx, resp.Body, func(payload []byte) bool {
-			if ctx.Err() != nil {
-				return false
-			}
-			var chunk dsChunk
-			if err := json.Unmarshal(payload, &chunk); err != nil {
-				yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.deepseek: malformed SSE chunk: %w", err)})
-				return false
-			}
-			return emitDeepSeekChunk(chunk, state, yield)
-		})
-		if scanErr != nil && ctx.Err() == nil {
-			yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.deepseek: scan: %w", scanErr)})
-		}
-	}
-}
-
-func emitDeepSeekChunk(chunk dsChunk, state *dsToolState, yield func(StreamEvent) bool) bool {
-	if chunk.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: dsResponseError(chunk.Error)})
-		return false
-	}
-	if len(chunk.Choices) == 0 {
-		if chunk.Usage != nil {
-			return yield(StreamEvent{Type: EventFinish, InputTokens: chunk.Usage.PromptTokens, OutputTokens: chunk.Usage.CompletionTokens})
-		}
-		return true
-	}
-
-	choice := chunk.Choices[0]
-	delta := choice.Delta
-
-	// DeepSeek sends reasoning_content before content — preserve that order.
-	// DeepSeek 先发 reasoning_content 再发 content——严格保序。
-	if delta.ReasoningContent != "" {
-		if !yield(StreamEvent{Type: EventReasoning, Delta: delta.ReasoningContent}) {
-			return false
-		}
-	}
-	if delta.Content != "" {
-		if !yield(StreamEvent{Type: EventText, Delta: delta.Content}) {
-			return false
-		}
-	}
-
-	for _, tc := range delta.ToolCalls {
-		idx := state.resolveIndex(tc)
-		if !state.nameSent[idx] && tc.Function.Name != "" {
-			state.nameSent[idx] = true
-			if !yield(StreamEvent{Type: EventToolStart, ToolIndex: idx, ToolID: tc.ID, ToolName: tc.Function.Name}) {
-				return false
-			}
-		}
-		if d := state.args.delta(idx, tc.Function.Arguments); d != "" {
-			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: idx, ArgsDelta: d}) {
-				return false
-			}
-		}
-	}
-
-	if choice.FinishReason != "" {
-		ev := StreamEvent{Type: EventFinish, FinishReason: choice.FinishReason}
-		if chunk.Usage != nil {
-			ev.InputTokens = chunk.Usage.PromptTokens
-			ev.OutputTokens = chunk.Usage.CompletionTokens
-		}
-		return yield(ev)
-	}
-	return true
-}
-
-func parseDeepSeekNonStreaming(body io.Reader, yield func(StreamEvent) bool) {
-	raw, err := io.ReadAll(io.LimitReader(body, 8<<20))
-	if err != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.deepseek: read non-streaming body: %w", err)})
-		return
-	}
-	var resp dsNonStreamResponse
-	if err := json.Unmarshal(raw, &resp); err != nil {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.deepseek: parse non-streaming response: %w", err)})
-		return
-	}
-	if resp.Error != nil {
-		yield(StreamEvent{Type: EventError, Err: dsResponseError(resp.Error)})
-		return
-	}
-	if len(resp.Choices) == 0 {
-		yield(StreamEvent{Type: EventError, Err: fmt.Errorf("llm.deepseek: non-streaming response has no choices: %w", ErrProviderError)})
-		return
-	}
-	msg := resp.Choices[0].Message
-	if msg.ReasoningContent != "" {
-		if !yield(StreamEvent{Type: EventReasoning, Delta: msg.ReasoningContent}) {
-			return
-		}
-	}
-	if msg.Content != "" {
-		if !yield(StreamEvent{Type: EventText, Delta: msg.Content}) {
-			return
-		}
-	}
-	for i, tc := range msg.ToolCalls {
-		if !yield(StreamEvent{Type: EventToolStart, ToolIndex: i, ToolID: tc.ID, ToolName: tc.Function.Name}) {
-			return
-		}
-		if tc.Function.Arguments != "" {
-			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: i, ArgsDelta: tc.Function.Arguments}) {
-				return
-			}
-		}
-	}
-	ev := StreamEvent{Type: EventFinish, FinishReason: resp.Choices[0].FinishReason}
-	if resp.Usage != nil {
-		ev.InputTokens = resp.Usage.PromptTokens
-		ev.OutputTokens = resp.Usage.CompletionTokens
-	}
-	yield(ev)
-}
-
-// ── message encoding ──────────────────────────────────────────────────────────
-
-func toDeepSeekMsgs(msgs []LLMMessage, system string) ([]dsMessage, error) {
-	var out []dsMessage
-	if system != "" {
-		out = append(out, dsMessage{Role: "system", Content: dsJSONString(system)})
-	}
-	for _, m := range msgs {
-		dm, err := toDeepSeekMsg(m)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, dm)
-	}
-	return out, nil
-}
-
-func toDeepSeekMsg(m LLMMessage) (dsMessage, error) {
-	switch m.Role {
-	case RoleUser:
-		return buildDeepSeekUserMsg(m)
-	case RoleAssistant:
-		return buildDeepSeekAssistantMsg(m), nil
-	case RoleTool:
-		return dsMessage{Role: "tool", Content: dsJSONString(m.Content), ToolCallID: m.ToolCallID}, nil
-	default:
-		return dsMessage{}, fmt.Errorf("llm.deepseek: unknown role %q: %w", m.Role, ErrBadRequest)
-	}
-}
-
-func buildDeepSeekAssistantMsg(m LLMMessage) dsMessage {
-	if m.Content == "" && len(m.ToolCalls) == 0 && m.ReasoningContent != "" {
-		m.Content = m.ReasoningContent
-	}
-	dm := dsMessage{
-		Role:             "assistant",
-		ReasoningContent: m.ReasoningContent,
-		Content:          dsJSONString(m.Content),
-	}
-	for _, tc := range m.ToolCalls {
-		dm.ToolCalls = append(dm.ToolCalls, dsToolCall{
-			ID:       tc.ID,
-			Type:     "function",
-			Function: dsFuncCall{Name: tc.Name, Arguments: tc.Arguments},
-		})
-	}
-	return dm
-}
-
-func toDeepSeekTools(defs []ToolDef) []dsTool {
-	out := make([]dsTool, len(defs))
-	for i, d := range defs {
-		out[i] = dsTool{Type: "function", Function: dsFuncDef{Name: d.Name, Description: d.Description, Parameters: d.Parameters}}
-	}
-	return out
-}
-
-type dsContentPart struct {
-	Type       string        `json:"type"`
-	Text       string        `json:"text,omitempty"`
-	ImageURL   *dsImageURL   `json:"image_url,omitempty"`
-	VideoURL   *dsVideoURL   `json:"video_url,omitempty"`
-	InputAudio *dsInputAudio `json:"input_audio,omitempty"`
-}
-type dsImageURL struct {
-	URL string `json:"url"`
-}
-type dsVideoURL struct {
-	URL string `json:"url"`
-}
-type dsInputAudio struct {
-	Data   string `json:"data"`
-	Format string `json:"format"`
-}
-
-// buildDeepSeekUserMsg renders a user turn: plain text, or OpenAI-compatible multimodal parts.
-// The direct DeepSeek catalog only advertises vision today, while anselm's capability router also
-// accepts video/audio; keeping the neutral wire complete here lets the managed provider preserve
-// those parts without a second message encoder. A part this wire cannot carry (e.g. PDF "file") is
-// skipped — the attachment layer extracts it to text. When no native media survives, parts collapse
-// back to a plain string so text-only endpoints never receive an invalid array-form content.
+// deepseekParts renders text / image_url / video_url / input_audio, and collapses back to a plain
+// string when NO media survived: a parts array holding only text is legal but wasteful, and some
+// deployments of this wire treat a media-less array more strictly than a plain string.
 //
-// buildDeepSeekUserMsg 渲染 user 回合：纯文本，或多模态内容块（text + image_url，图为 data-URL，
-// 供视觉模型）。本 provider 无法内联承载的 part（如 PDF "file"）跳过——附件层为它抽成文本。
-// **无图存活时坍缩回纯字符串**：纯文本端点（anselm 免费网关继承本构造器）直接拒收数组形 `content`,
-// 且冻结附件逐回合重放——保持数组会让该对话每一回合永远 400。
-func buildDeepSeekUserMsg(m LLMMessage) (dsMessage, error) {
-	if len(m.Parts) == 0 {
-		return dsMessage{Role: "user", Content: dsJSONString(m.Content)}, nil
-	}
-	parts := make([]dsContentPart, 0, len(m.Parts))
+// deepseekParts 渲 text / image_url / video_url / input_audio,并在**没有媒体幸存**时塌回一个普通
+// 字符串:只装文本的 parts 数组合法但浪费,而这条线缆的某些部署对**无媒体的数组**比对普通字符串更严格。
+func deepseekParts(m LLMMessage) (compatMessage, error) {
+	parts := make([]compatContentPart, 0, len(m.Parts))
 	hasMedia := false
 	for _, part := range m.Parts {
 		switch part.Type {
 		case PartText:
-			parts = append(parts, dsContentPart{Type: PartText, Text: part.Text})
+			parts = append(parts, compatContentPart{Type: PartText, Text: part.Text})
 		case PartImageURL:
 			hasMedia = true
-			parts = append(parts, dsContentPart{Type: PartImageURL, ImageURL: &dsImageURL{URL: part.ImageURL}})
+			parts = append(parts, compatContentPart{Type: PartImageURL, ImageURL: &compatImageURL{URL: part.ImageURL}})
 		case PartVideoURL:
 			hasMedia = true
-			parts = append(parts, dsContentPart{Type: PartVideoURL, VideoURL: &dsVideoURL{URL: part.VideoURL}})
+			parts = append(parts, compatContentPart{Type: PartVideoURL, VideoURL: &compatVideoURL{URL: part.VideoURL}})
 		case PartInputAudio:
 			if format := openAICompatibleAudioFormat(part.MediaType); format != "" && part.Data != "" {
 				hasMedia = true
-				parts = append(parts, dsContentPart{Type: PartInputAudio, InputAudio: &dsInputAudio{Data: part.Data, Format: format}})
+				parts = append(parts, compatContentPart{Type: PartInputAudio, InputAudio: &compatInputAudio{Data: part.Data, Format: format}})
 			}
 		}
 	}
@@ -325,13 +86,13 @@ func buildDeepSeekUserMsg(m LLMMessage) (dsMessage, error) {
 		for i, p := range parts {
 			texts[i] = p.Text
 		}
-		return dsMessage{Role: "user", Content: dsJSONString(strings.Join(texts, "\n\n"))}, nil
+		return compatMessage{Role: "user", Content: jsonString(strings.Join(texts, "\n\n"))}, nil
 	}
 	raw, err := json.Marshal(parts)
 	if err != nil {
-		return dsMessage{}, fmt.Errorf("llm.deepseek: marshal parts: %w", err)
+		return compatMessage{}, fmt.Errorf("llm.deepseek: marshal parts: %w", err)
 	}
-	return dsMessage{Role: "user", Content: raw}, nil
+	return compatMessage{Role: "user", Content: raw}, nil
 }
 
 func openAICompatibleAudioFormat(mediaType string) string {
@@ -344,170 +105,6 @@ func openAICompatibleAudioFormat(mediaType string) string {
 	default:
 		return ""
 	}
-}
-
-func dsJSONString(s string) json.RawMessage {
-	b, _ := json.Marshal(s)
-	return b
-}
-
-// ── tool-call streaming state ──────────────────────────────────────────────────
-
-type dsToolState struct {
-	nameSent     map[int]bool
-	idToIdx      map[string]int
-	nextSynthIdx int
-	// args normalizes incremental vs cumulative tool arguments — see toolargs.go.
-	// args 归一「增量 vs 累积」的工具参数——见 toolargs.go。
-	args *toolArgs
-}
-
-func newDeepSeekToolState() *dsToolState {
-	return &dsToolState{nameSent: map[int]bool{}, idToIdx: map[string]int{}, args: newToolArgs()}
-}
-
-func (s *dsToolState) resolveIndex(tc dsToolCallDelta) int {
-	if tc.Index > 0 {
-		return tc.Index
-	}
-	if tc.ID == "" {
-		return 0
-	}
-	if idx, ok := s.idToIdx[tc.ID]; ok {
-		return idx
-	}
-	idx := s.nextSynthIdx
-	s.idToIdx[tc.ID] = idx
-	s.nextSynthIdx++
-	return idx
-}
-
-// ── DeepSeek wire types ─────────────────────────────────────────────────────────
-
-type dsRequest struct {
-	Model           string           `json:"model"`
-	Messages        []dsMessage      `json:"messages"`
-	Tools           []dsTool         `json:"tools,omitempty"`
-	Stream          bool             `json:"stream"`
-	StreamOptions   *dsStreamOptions `json:"stream_options,omitempty"`
-	MaxTokens       int              `json:"max_tokens,omitempty"`
-	Thinking        *dsThinking      `json:"thinking,omitempty"`
-	ReasoningEffort string           `json:"reasoning_effort,omitempty"`
-}
-
-type dsStreamOptions struct {
-	IncludeUsage bool `json:"include_usage"`
-}
-
-type dsThinking struct {
-	Type string `json:"type"`
-}
-
-type dsMessage struct {
-	Role             string          `json:"role"`
-	Content          json.RawMessage `json:"content,omitempty"`
-	ReasoningContent string          `json:"reasoning_content,omitempty"`
-	ToolCalls        []dsToolCall    `json:"tool_calls,omitempty"`
-	ToolCallID       string          `json:"tool_call_id,omitempty"`
-}
-
-type dsToolCall struct {
-	ID       string     `json:"id"`
-	Type     string     `json:"type"`
-	Function dsFuncCall `json:"function"`
-}
-
-type dsFuncCall struct {
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"`
-}
-
-type dsTool struct {
-	Type     string    `json:"type"`
-	Function dsFuncDef `json:"function"`
-}
-
-type dsFuncDef struct {
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  json.RawMessage `json:"parameters"`
-}
-
-type dsChunk struct {
-	Choices []dsChoice    `json:"choices"`
-	Usage   *dsUsage      `json:"usage"`
-	Error   *dsChunkError `json:"error,omitempty"`
-}
-
-type dsChunkError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Details struct {
-		Reason string `json:"reason"`
-	} `json:"details,omitempty"`
-}
-
-// dsResponseError maps a DeepSeek in-stream / in-body error object to the
-// provider-agnostic error taxonomy. The Anselm gateway can return the same
-// structured rejection envelope either as an HTTP error or an SSE error, so
-// both paths must preserve context-length recovery semantics.
-//
-// dsResponseError 把 DeepSeek 流内/体内 error 映射到 provider 无关错误分类。Anselm
-// 网关可在 HTTP 或 SSE 内返回同一结构化拒绝信封，两条路径都必须保留上下文恢复语义。
-func dsResponseError(e *dsChunkError) error {
-	if e.Code == "BUDGET_EXHAUSTED" {
-		return fmt.Errorf("%w: monthly gateway budget exhausted", ErrQuotaExhausted)
-	}
-	envelope, _ := json.Marshal(map[string]any{"error": e})
-	if reason := requestRejectionReason(envelope); reason != "" {
-		return &RequestRejectedError{Reason: reason}
-	}
-	return fmt.Errorf("%w: in-stream provider error", ErrProviderError)
-}
-
-type dsChoice struct {
-	Delta        dsDelta `json:"delta"`
-	FinishReason string  `json:"finish_reason"`
-}
-
-type dsDelta struct {
-	Content          string            `json:"content"`
-	ReasoningContent string            `json:"reasoning_content"`
-	ToolCalls        []dsToolCallDelta `json:"tool_calls"`
-}
-
-type dsToolCallDelta struct {
-	Index    int         `json:"index"`
-	ID       string      `json:"id"`
-	Function dsFuncDelta `json:"function"`
-}
-
-type dsFuncDelta struct {
-	Name      string `json:"name"`
-	Arguments string `json:"arguments"`
-}
-
-type dsUsage struct {
-	PromptTokens     int `json:"prompt_tokens"`
-	CompletionTokens int `json:"completion_tokens"`
-}
-
-type dsNonStreamResponse struct {
-	Choices []dsNonStreamChoice `json:"choices"`
-	Usage   *dsUsage            `json:"usage"`
-	Error   *dsChunkError       `json:"error,omitempty"`
-}
-
-type dsNonStreamChoice struct {
-	Message      dsNonStreamMessage `json:"message"`
-	FinishReason string             `json:"finish_reason"`
-}
-
-type dsNonStreamMessage struct {
-	Role             string            `json:"role"`
-	Content          string            `json:"content"`
-	ReasoningContent string            `json:"reasoning_content"`
-	ToolCalls        []dsToolCallDelta `json:"tool_calls"`
 }
 
 // ── model catalog (static; DeepSeek /models returns ids only) ───────────────────
@@ -534,6 +131,6 @@ var deepseekKnobRules = []knobRule{{"deepseek", dsKnobs()}}
 // DescribeModels parses DeepSeek's id-only /models body against the followed catalog.
 //
 // DescribeModels 解析 DeepSeek 仅含 id 的 /models 返回,查 follow 目录。
-func (p *deepseekProvider) DescribeModels(raw string) ([]ModelInfo, error) {
+func describeDeepseek(raw string) ([]ModelInfo, error) {
 	return describeFromSpecs(catalogSpecs("deepseek", knobsByPrefix(deepseekKnobRules)), raw, deepseekWire), nil
 }

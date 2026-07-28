@@ -9,14 +9,14 @@ import (
 	"testing"
 )
 
-func deepseekBody(t *testing.T, req Request) dsRequest {
+func deepseekBody(t *testing.T, req Request) compatRequest {
 	t.Helper()
 	httpReq, err := newDeepSeekProvider().BuildRequest(context.Background(), req)
 	if err != nil {
 		t.Fatal(err)
 	}
 	raw, _ := io.ReadAll(httpReq.Body)
-	var dr dsRequest
+	var dr compatRequest
 	if err := json.Unmarshal(raw, &dr); err != nil {
 		t.Fatal(err)
 	}
@@ -41,7 +41,7 @@ func TestDeepSeekBuildRequest(t *testing.T) {
 		t.Errorf("auth = %q", httpReq.Header.Get("Authorization"))
 	}
 	raw, _ := io.ReadAll(httpReq.Body)
-	var dr dsRequest
+	var dr compatRequest
 	_ = json.Unmarshal(raw, &dr)
 	if dr.Thinking == nil || dr.Thinking.Type != "enabled" {
 		t.Errorf("thinking = %+v, want enabled", dr.Thinking)

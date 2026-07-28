@@ -33,7 +33,7 @@ func TestZhipuBuildRequest(t *testing.T) {
 		t.Errorf("auth = %q", got)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var zr zhipuRequest
+	var zr compatRequest
 	if err := json.Unmarshal(body, &zr); err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestZhipuBuildRequestToolless(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var zr zhipuRequest
+	var zr compatRequest
 	_ = json.Unmarshal(body, &zr)
 	// No tools → tool_choice omitted entirely.
 	// 无 tools → tool_choice 整字段省略。
@@ -73,13 +73,13 @@ func TestZhipuBuildRequestToolless(t *testing.T) {
 func TestZhipuBuildRequestThinkingModes(t *testing.T) {
 	p := newZhipuProvider()
 	base := Request{ModelID: "glm-4.6", Key: "k", BaseURL: "https://x"}
-	thinkingOf := func(req Request) *zhipuThinking {
+	thinkingOf := func(req Request) *compatThinking {
 		httpReq, err := p.BuildRequest(context.Background(), req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		body, _ := io.ReadAll(httpReq.Body)
-		var zr zhipuRequest
+		var zr compatRequest
 		_ = json.Unmarshal(body, &zr)
 		return zr.Thinking
 	}

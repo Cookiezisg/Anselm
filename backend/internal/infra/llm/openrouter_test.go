@@ -35,7 +35,7 @@ func TestOpenRouterBuildRequest(t *testing.T) {
 		t.Errorf("auth = %q", got)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var or orRequest
+	var or compatRequest
 	if err := json.Unmarshal(body, &or); err != nil {
 		t.Fatal(err)
 	}
@@ -61,14 +61,14 @@ func TestOpenRouterBuildRequest(t *testing.T) {
 // reasoning_effort → reasoning:{effort}，原样透传。不设 → 完全不发 reasoning 字段（由上游定）。
 func TestOpenRouterBuildRequestReasoningEffort(t *testing.T) {
 	p := newOpenRouterProvider()
-	reasoningOf := func(opts map[string]string) *orReasoning {
+	reasoningOf := func(opts map[string]string) *compatReasoning {
 		req := Request{ModelID: "m", Key: "k", BaseURL: "https://x", Options: opts}
 		httpReq, err := p.BuildRequest(context.Background(), req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		body, _ := io.ReadAll(httpReq.Body)
-		var or orRequest
+		var or compatRequest
 		_ = json.Unmarshal(body, &or)
 		return or.Reasoning
 	}

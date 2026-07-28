@@ -34,7 +34,7 @@ func TestQwenBuildRequest(t *testing.T) {
 		t.Errorf("auth = %q", got)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var qr qwenRequest
+	var qr compatRequest
 	if err := json.Unmarshal(body, &qr); err != nil {
 		t.Fatal(err)
 	}
@@ -156,14 +156,14 @@ func TestQwenDescribeModels_AdvertisesNativeInputTruthfully(t *testing.T) {
 // （"true"/"false" → *bool）与 thinking_budget（数字串 → int）。原生值直接透传、无归一化。
 func TestQwenBuildRequestThinkingKnobs(t *testing.T) {
 	p := newQwenProvider()
-	thinkingOf := func(opts map[string]string) qwenRequest {
+	thinkingOf := func(opts map[string]string) compatRequest {
 		req := Request{ModelID: "qwen3-max", Key: "k", BaseURL: "https://x", Options: opts}
 		httpReq, err := p.BuildRequest(context.Background(), req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		body, _ := io.ReadAll(httpReq.Body)
-		var qr qwenRequest
+		var qr compatRequest
 		_ = json.Unmarshal(body, &qr)
 		return qr
 	}
@@ -223,7 +223,7 @@ func TestQwenBuildRequestStreamFlag(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var qr qwenRequest
+	var qr compatRequest
 	_ = json.Unmarshal(body, &qr)
 	if qr.Stream {
 		t.Errorf("stream = true, want false on DisableStream")

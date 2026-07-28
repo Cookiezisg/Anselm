@@ -37,7 +37,7 @@ func TestMoonshotBuildRequest(t *testing.T) {
 		t.Errorf("content-type = %q", got)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var ms moonshotRequest
+	var ms compatRequest
 	if err := json.Unmarshal(body, &ms); err != nil {
 		t.Fatal(err)
 	}
@@ -69,7 +69,7 @@ func TestMoonshotBuildRequestThinkingModes(t *testing.T) {
 			t.Fatal(err)
 		}
 		body, _ := io.ReadAll(httpReq.Body)
-		var ms moonshotRequest
+		var ms compatRequest
 		_ = json.Unmarshal(body, &ms)
 		if ms.Thinking == nil {
 			return "<nil>"

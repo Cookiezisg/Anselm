@@ -22,11 +22,11 @@ import (
 // 而网关按完整历史自行决定文本 DeepSeek 或图像/视频 Qwen。受管 api_key 行保存公开 install id；设备证明
 // transport 用加密落盘的 Ed25519 私钥逐请求签名。tools 仍原样穿过统一入口。
 type anselmProvider struct {
-	*deepseekProvider
+	*compatProvider
 }
 
 func newAnselmProvider() *anselmProvider {
-	return &anselmProvider{deepseekProvider: newDeepSeekProvider()}
+	return &anselmProvider{compatProvider: newDeepSeekProvider()}
 }
 
 // AnselmBaseURL is the production free-tier gateway base (OpenAI-compat path root, including the
@@ -71,7 +71,7 @@ func (p *anselmProvider) DefaultBaseURL() string { return AnselmGatewayBase() }
 // BuildRequest uses DeepSeek's wire body but replaces reusable bearer auth with
 // the public install id. The HTTP device-proof transport signs the final bytes.
 func (p *anselmProvider) BuildRequest(ctx context.Context, req Request) (*http.Request, error) {
-	httpReq, err := p.deepseekProvider.BuildRequest(ctx, req)
+	httpReq, err := p.compatProvider.BuildRequest(ctx, req)
 	if err != nil {
 		return nil, err
 	}

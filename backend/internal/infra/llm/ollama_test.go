@@ -33,7 +33,7 @@ func TestOllamaBuildRequest(t *testing.T) {
 		t.Errorf("auth = %q", got)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var ol ollamaRequest
+	var ol compatRequest
 	if err := json.Unmarshal(body, &ol); err != nil {
 		t.Fatal(err)
 	}
@@ -60,13 +60,13 @@ func TestOllamaBuildRequest(t *testing.T) {
 func TestOllamaBuildRequestThinkAndOptions(t *testing.T) {
 	p := newOllamaProvider()
 	base := Request{ModelID: "qwen3", Key: "k", BaseURL: "http://x"}
-	encode := func(req Request) ollamaRequest {
+	encode := func(req Request) compatRequest {
 		httpReq, err := p.BuildRequest(context.Background(), req)
 		if err != nil {
 			t.Fatal(err)
 		}
 		body, _ := io.ReadAll(httpReq.Body)
-		var ol ollamaRequest
+		var ol compatRequest
 		_ = json.Unmarshal(body, &ol)
 		return ol
 	}
@@ -134,7 +134,7 @@ func TestOllamaBuildRequestToolsForceNonStream(t *testing.T) {
 		t.Fatal(err)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var ol ollamaRequest
+	var ol compatRequest
 	if err := json.Unmarshal(body, &ol); err != nil {
 		t.Fatal(err)
 	}

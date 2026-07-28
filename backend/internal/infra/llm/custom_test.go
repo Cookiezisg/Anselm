@@ -33,7 +33,7 @@ func TestCustomBuildRequest(t *testing.T) {
 		t.Errorf("auth = %q", got)
 	}
 	body, _ := io.ReadAll(httpReq.Body)
-	var cr customRequest
+	var cr compatRequest
 	if err := json.Unmarshal(body, &cr); err != nil {
 		t.Fatal(err)
 	}
