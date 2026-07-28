@@ -33,6 +33,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-016 | 驻留 handler 的二进制产物也能经 chat 的 lazy `call_handler` 进入视觉消费咽喉；第三次模型请求携带与附件库一致的 PNG，而不是 receipt/占位文本 | handler producer / chat media expansion | `TestHandler_ArtifactReachesVisionModel`：真实 handler sandbox、call_handler 工具、handler_artifact receipt、附件逐字节回读、llmmock 第三请求 exact-byte 断言 | 当前提交 |
 | 2026-07-29 | EVO-017 | chat 在 handler 产物调用已发出进度但尚未完成时取消，回合与 handler 台账均落 `cancelled`，临时输出不会晚到上传，附件行数保持不变且不出现伪造 receipt | cancellation / handler media cleanup | `TestChatCancel_HandlerArtifactLeavesNoOrphan`：真实 chat→call_handler、SSE 进度边界、取消、durable 状态、SQLite attachment count、receipt negative assertion | 当前提交 |
 | 2026-07-29 | EVO-018 | 对含 handler 产物的 assistant 回合做 regenerate 时，旧 assistant 版本被 supersede，handler 不会再次执行、附件不重复铸造；原始附件行与字节仍可读，符合只对现行版本装配 LLM 历史的 retry 语义 | retry / side-effecting media producer | `TestChatRetry_HandlerArtifactDoesNotReexecute`：真实首次 call_handler、重生成、handler calls=1、附件行数不变、原始内容回读 | 当前提交 |
+| 2026-07-29 | EVO-019 | backend 在 handler 媒体调用进行中硬崩溃并重启后，boot sweep 会把 chat 回合对账为 `cancelled`，废弃调用没有晚到附件行 | crash recovery / handler media cleanup | `TestChatCrash_HandlerArtifactLeavesNoOrphan`：真实在途 call_handler、SSE 边界、Kill9→Restart、durable cancelled 状态、SQLite attachment count 不变 | 当前提交 |
 
 ## 追加格式
 

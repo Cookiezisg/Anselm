@@ -115,3 +115,45 @@ func TestChatRetry_HandlerArtifactDoesNotReexecute(t *testing.T) {
 	}
 
 }
+
+// TestChatCrash_HandlerArtifactLeavesNoOrphan covers hard-crash recovery at the same media
+// boundary. Killing the backend while the handler call is in flight must be reconciled on restart
+// to a cancelled turn, without a late attachment row from the abandoned output directory.
+//
+// TestChatCrash_HandlerArtifactLeavesNoOrphan 覆盖同一媒体边界的硬崩溃恢复：handler 调用在途时杀掉
+// backend，重启后的 boot sweep 必须把回合对账为 cancelled，废弃输出目录不得晚到附件表。
+func TestChatCrash_HandlerArtifactLeavesNoOrphan(t *testing.T) {
+	t.Parallel()
+	srv, wc, mock, wsID, _ := chatC_setup(t, false)
+	hdID := hdCreate(t, wc, "crash_artifact_keeper", map[string]any{
+		"methods": []map[string]any{{
+			"name": "plot", "inputs": []any{},
+			"body": "import os, time\nyield {'progress': 'CRASH_ARTIFACT_STARTED'}\ntime.sleep(10)\nopen(os.path.join(os.environ['ANSELM_OUT'], 'plot.png'), 'wb').write(b'late artifact')\nreturn {'chart': {'$media': 'plot.png'}}",
+		}},
+	})
+	mock.Enqueue(dlgModel, harness.LLMTurn{ToolCalls: []harness.MockToolCall{{
+		Name: "call_handler", Args: fw(map[string]any{
+			"handlerId": hdID, "method": "plot", "args": map[string]any{},
+		}),
+	}}})
+	sse := wc.Subscribe(t, "messages")
+	convID := convCreate(t, wc, "crash handler artifact")
+	mid := sendMsg(t, wc, convID, "调用 handler 的 plot，然后模拟崩溃。")
+	sse.WaitFor(t, 15000, "handler call reaches its crash boundary", "CRASH_ARTIFACT_STARTED")
+	rowsBefore := chatC_sqlite(t, srv.DataDir, `SELECT COUNT(*) FROM attachments`)
+
+	srv.Kill9(t)
+	srv.Restart(t)
+	wc2 := srv.Client(t).WS(wsID)
+	harness.Eventually(t, 20000, "boot reconciliation cancels abandoned media turn", func() bool {
+		for _, msg := range listMsgs(t, wc2, convID) {
+			if msg.ID == mid {
+				return msg.Status == "cancelled"
+			}
+		}
+		return false
+	})
+	if after := chatC_sqlite(t, srv.DataDir, `SELECT COUNT(*) FROM attachments`); after != rowsBefore {
+		t.Fatalf("crash-recovered handler must not leave an attachment row: before=%s after=%s", rowsBefore, after)
+	}
+}
