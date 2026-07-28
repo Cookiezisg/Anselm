@@ -90,3 +90,79 @@ func TestFlowrun_CancelParkedRun(t *testing.T) {
 	wc.POST("/api/v1/flowruns/"+runID+":cancel", nil).Fail(t, 422, "FLOWRUN_NOT_CANCELLABLE")
 	wc.POST("/api/v1/flowruns/"+runID+":replay", nil).Fail(t, 422, "FLOWRUN_NOT_REPLAYABLE")
 }
+
+// TestFlowrun_CancelInFlightAgent proves the other cancellation face: an agent already inside a
+// provider call is interrupted, its node is not misreported as failed, and the scheduler remains
+// usable for the next manual run.
+func TestFlowrun_CancelInFlightAgent(t *testing.T) {
+	t.Parallel()
+	wc, mock := agentSetup(t)
+	agID := agCreate(t, wc, map[string]any{
+		"name": "cancelled worker", "description": "in-flight cancel probe", "prompt": "answer briefly",
+	})
+	wfID := wfCreate(t, wc, "cancel_agent_pipe", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "work", "kind": "agent", "ref": agID, "input": map[string]any{"task": "start.task"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "work"}},
+	})
+
+	// Keep the provider call in flight long enough to issue :cancel. The second scripted response
+	// is reserved for the post-cancel run, proving the queue is not poisoned by the interruption.
+	mock.Enqueue(agModel, harness.LLMTurn{Text: "should be cancelled", StallMS: 8000}, harness.LLMTurn{Text: "after cancel"})
+	// POST /flowruns itself waits for the synchronous manual run to finish before replying, so fire
+	// it in the background and discover the durable running row through the list endpoint.
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		_, _ = wc.Try("POST", "/api/v1/flowruns", map[string]any{"workflowId": wfID, "payload": map[string]any{"task": "long task"}})
+	}()
+	runID := ""
+	harness.Eventually(t, 15000, "in-flight agent run becomes running", func() bool {
+		for _, row := range listRunRows(t, wc, "?workflowId="+wfID) {
+			if row.Status == "running" && len(mock.DumpsFor(agModel)) > 0 {
+				runID = row.ID
+				return true
+			}
+		}
+		return false
+	})
+
+	var cancelled struct {
+		Flowrun struct {
+			Status string `json:"status"`
+		} `json:"flowrun"`
+		Nodes json.RawMessage `json:"nodes"`
+	}
+	r := wc.POST("/api/v1/flowruns/"+runID+":cancel", nil)
+	if r.Status != 202 {
+		t.Fatalf("in-flight :cancel must respond 202, got %d/%s body=%s", r.Status, r.Code, r.Raw)
+	}
+	r.OK(t, &cancelled)
+	if cancelled.Flowrun.Status != "cancelled" {
+		t.Fatalf("in-flight agent run must land cancelled, got %+v", cancelled.Flowrun)
+	}
+	if strings.Contains(string(cancelled.Nodes), `"status":"failed"`) || strings.Contains(string(cancelled.Nodes), `"status":"running"`) {
+		t.Fatalf("cancelled run must not expose a lying failed/running agent node: %s", cancelled.Nodes)
+	}
+	<-done
+
+	var second struct {
+		Flowrun struct {
+			ID string `json:"id"`
+		} `json:"flowrun"`
+	}
+	wc.POST("/api/v1/flowruns", map[string]any{"workflowId": wfID, "payload": map[string]any{"task": "follow-up"}}).OK(t, &second)
+	harness.Eventually(t, 30000, "scheduler accepts a fresh run after cancellation", func() bool {
+		var got struct {
+			Flowrun struct {
+				Status string `json:"status"`
+			} `json:"flowrun"`
+		}
+		r := wc.GET("/api/v1/flowruns/" + second.Flowrun.ID)
+		if r.Status != 200 {
+			return false
+		}
+		_ = json.Unmarshal(r.Data, &got)
+		return got.Flowrun.Status == "completed"
+	})
+}

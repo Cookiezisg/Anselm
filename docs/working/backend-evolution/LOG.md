@@ -38,6 +38,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-021 | media cache 超过机器级预算时不会静默丢原件：boot GC 清理派生 CAS、把 ready 行标成 `MEDIA_ARTIFACT_EVICTED` 且可 retry；同一 source/transform identity 可在重启后重新生成 | media cache / boot GC / resource hygiene | `TestAttachmentPreparation_MediaBudgetEvictsAndRegenerates`：真实 `/limits` 设 1MB、>1MB JPEG proxy、Restart、sidecar eviction/error、media CAS 文件清理、原件逐字节回读、retry ready | 当前提交 |
 | 2026-07-29 | EVO-022 | `inspect_media` 对 audio/video 当前诚实地只返回本地 metadata capsule：保留 attachment id、kind、mime、size 与 start/end intent，明确写出不含 transcript；下一次模型请求只收到 JSON evidence，原始媒体字节不会泄漏 | attachment tool / temporal media read | `TestInspectMedia_AudioVideoMetadataCapsule`：真实 HTTP upload、lazy `search_tools`、两次 inspect_media、llmmock tool-message JSON 与 raw-byte negative assertion | 当前提交 |
 | 2026-07-29 | EVO-023 | image `inspect_media` 走真实嵌套视觉调用：内部请求携带 `data:image/*` native part，主对话拿到的是带 attachment/尺寸/detail/answer 的 bounded JSON evidence，不把 provider 原始回答或图像字节直接回灌 | attachment tool / image inspection / nested LLM | `TestInspectMedia_ImageUsesVisionAndReturnsBoundedEvidence`：真实 HTTP upload、lazy discovery、内部 vision wire、外层 tool-message JSON 解析与字段守卫 | 当前提交 |
+| 2026-07-29 | EVO-024 | workflow 中正在 provider 调用的 agent 可经 `POST /flowruns/{id}:cancel` 被打断：run 终止为 `cancelled`，不会留下假 `failed/running` 节点，随后同一 workflow 可接受并完成下一次 run | workflow / scheduler cancellation | `TestFlowrun_CancelInFlightAgent`：真实 agent workflow、异步 manual run、llmmock Stall、list 发现 running、HTTP cancel 202、终态节点负断言、后续 run completed | 当前提交 |
 
 ## 追加格式
 
