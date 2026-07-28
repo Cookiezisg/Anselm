@@ -2050,6 +2050,12 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get provider => '提供方';
 	@override String get displayNameLabel => '名称';
 	@override String get secretLabel => '密钥';
+	@override String get serviceAccountLabel => '服务账号（JSON）';
+	@override String get serviceAccountHint => 'Vertex AI 用服务账号文件鉴权，不是 API key。';
+	@override String get serviceAccountPick => '选择文件…';
+	@override String get serviceAccountPlaceholder => '粘贴 JSON，或选择文件';
+	@override String get serviceAccountBad => '这不是服务账号文件（需要 type、project_id 与 private_key）。';
+	@override String baseUrlTemplateHint({required Object shape}) => '必填——把占位符换成你的值：${shape}';
 	@override String get baseUrlLabel => 'Base URL';
 	@override String get apiFormatLabel => 'API 方言';
 	@override String get saveKey => '保存并测试';
@@ -4642,6 +4648,12 @@ extension on TranslationsZhCn {
 			'settings.keys.provider' => '提供方',
 			'settings.keys.displayNameLabel' => '名称',
 			'settings.keys.secretLabel' => '密钥',
+			'settings.keys.serviceAccountLabel' => '服务账号（JSON）',
+			'settings.keys.serviceAccountHint' => 'Vertex AI 用服务账号文件鉴权，不是 API key。',
+			'settings.keys.serviceAccountPick' => '选择文件…',
+			'settings.keys.serviceAccountPlaceholder' => '粘贴 JSON，或选择文件',
+			'settings.keys.serviceAccountBad' => '这不是服务账号文件（需要 type、project_id 与 private_key）。',
+			'settings.keys.baseUrlTemplateHint' => ({required Object shape}) => '必填——把占位符换成你的值：${shape}',
 			'settings.keys.baseUrlLabel' => 'Base URL',
 			'settings.keys.apiFormatLabel' => 'API 方言',
 			'settings.keys.saveKey' => '保存并测试',

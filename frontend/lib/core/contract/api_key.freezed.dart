@@ -308,7 +308,34 @@ as DateTime,
 /// @nodoc
 mixin _$ProviderMeta {
 
- String get name; String get displayName; String get defaultBaseUrl; bool get baseUrlRequired; bool get managed; String get category;
+ String get name; String get displayName; String get defaultBaseUrl; bool get baseUrlRequired; bool get managed; String get category;// llm | search
+/// Whether this app ships a hand-written spec for the provider (its knobs, its base URL, its
+/// quirks written against its own docs). The ~160 others come straight from models.dev by the
+/// mechanical `npm` → dialect mapping: they work, but nothing here vouches for them — and the UI
+/// needs that distinction to tell「你的 key 不对」apart from「这家我们没试过」.
+///
+/// 本 app 是否为这家手写过 spec(旋钮、base URL、怪癖照它自己的文档写)。其余约 160 家直接来自
+/// models.dev、由机械的 `npm` → 方言映射抵达:它们**能用**,但这里不为它们背书——而 UI 需要这个
+/// 区分,才能把「你的 key 不对」与「这家我们没试过」分开。
+ bool get curated;/// The wire we speak to it. Rendered only when something goes wrong: a failure on an
+/// un-curated provider is a different sentence from a failure on a curated one.
+/// 我们对它说的那条线缆。只在出问题时渲染:未验证的家失败,与已验证的家失败,是两句不同的话。
+ String get dialect;/// A base-URL TEMPLATE the catalog published instead of a usable address — four providers do
+/// this because their endpoint contains the customer's own account or host name
+/// (`https://${DATABRICKS_HOST}/…`). Shown as a hint, never prefilled: submitted verbatim it
+/// produces a connect failure whose message never mentions the literal `${…}` still in the field.
+///
+/// 目录发布的 base URL **模板**、不是可用地址——四家这样,因为端点里含着客户自己的账号或主机名。
+/// 作为**提示**展示、**绝不预填**:原样提交会换来一次连接失败,而那条消息只字不提字段里还躺着的
+/// 那个字面 `${…}`。
+ String get baseUrlHint;/// What the credential field actually holds. Every provider but one takes a pasted string;
+/// Vertex takes a service-account JSON FILE, and a text box labelled「API key」is the wrong
+/// control for it — the user would go looking for a key that does not exist on their project.
+///
+/// 凭证字段**实际装的是什么**。除一家外每家都收一个粘贴的字符串;Vertex 收的是一个服务账号
+/// **JSON 文件**,而一个写着「API key」的文本框对它是**错的控件**——用户会去找一把在他项目里
+/// 根本不存在的 key。
+ String get credential;
 /// Create a copy of ProviderMeta
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -321,16 +348,16 @@ $ProviderMetaCopyWith<ProviderMeta> get copyWith => _$ProviderMetaCopyWithImpl<P
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProviderMeta&&(identical(other.name, name) || other.name == name)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.defaultBaseUrl, defaultBaseUrl) || other.defaultBaseUrl == defaultBaseUrl)&&(identical(other.baseUrlRequired, baseUrlRequired) || other.baseUrlRequired == baseUrlRequired)&&(identical(other.managed, managed) || other.managed == managed)&&(identical(other.category, category) || other.category == category));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProviderMeta&&(identical(other.name, name) || other.name == name)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.defaultBaseUrl, defaultBaseUrl) || other.defaultBaseUrl == defaultBaseUrl)&&(identical(other.baseUrlRequired, baseUrlRequired) || other.baseUrlRequired == baseUrlRequired)&&(identical(other.managed, managed) || other.managed == managed)&&(identical(other.category, category) || other.category == category)&&(identical(other.curated, curated) || other.curated == curated)&&(identical(other.dialect, dialect) || other.dialect == dialect)&&(identical(other.baseUrlHint, baseUrlHint) || other.baseUrlHint == baseUrlHint)&&(identical(other.credential, credential) || other.credential == credential));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,name,displayName,defaultBaseUrl,baseUrlRequired,managed,category);
+int get hashCode => Object.hash(runtimeType,name,displayName,defaultBaseUrl,baseUrlRequired,managed,category,curated,dialect,baseUrlHint,credential);
 
 @override
 String toString() {
-  return 'ProviderMeta(name: $name, displayName: $displayName, defaultBaseUrl: $defaultBaseUrl, baseUrlRequired: $baseUrlRequired, managed: $managed, category: $category)';
+  return 'ProviderMeta(name: $name, displayName: $displayName, defaultBaseUrl: $defaultBaseUrl, baseUrlRequired: $baseUrlRequired, managed: $managed, category: $category, curated: $curated, dialect: $dialect, baseUrlHint: $baseUrlHint, credential: $credential)';
 }
 
 
@@ -341,7 +368,7 @@ abstract mixin class $ProviderMetaCopyWith<$Res>  {
   factory $ProviderMetaCopyWith(ProviderMeta value, $Res Function(ProviderMeta) _then) = _$ProviderMetaCopyWithImpl;
 @useResult
 $Res call({
- String name, String displayName, String defaultBaseUrl, bool baseUrlRequired, bool managed, String category
+ String name, String displayName, String defaultBaseUrl, bool baseUrlRequired, bool managed, String category, bool curated, String dialect, String baseUrlHint, String credential
 });
 
 
@@ -358,7 +385,7 @@ class _$ProviderMetaCopyWithImpl<$Res>
 
 /// Create a copy of ProviderMeta
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? displayName = null,Object? defaultBaseUrl = null,Object? baseUrlRequired = null,Object? managed = null,Object? category = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? displayName = null,Object? defaultBaseUrl = null,Object? baseUrlRequired = null,Object? managed = null,Object? category = null,Object? curated = null,Object? dialect = null,Object? baseUrlHint = null,Object? credential = null,}) {
   return _then(_self.copyWith(
 name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
@@ -366,6 +393,10 @@ as String,defaultBaseUrl: null == defaultBaseUrl ? _self.defaultBaseUrl : defaul
 as String,baseUrlRequired: null == baseUrlRequired ? _self.baseUrlRequired : baseUrlRequired // ignore: cast_nullable_to_non_nullable
 as bool,managed: null == managed ? _self.managed : managed // ignore: cast_nullable_to_non_nullable
 as bool,category: null == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
+as String,curated: null == curated ? _self.curated : curated // ignore: cast_nullable_to_non_nullable
+as bool,dialect: null == dialect ? _self.dialect : dialect // ignore: cast_nullable_to_non_nullable
+as String,baseUrlHint: null == baseUrlHint ? _self.baseUrlHint : baseUrlHint // ignore: cast_nullable_to_non_nullable
+as String,credential: null == credential ? _self.credential : credential // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }
@@ -451,10 +482,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category,  bool curated,  String dialect,  String baseUrlHint,  String credential)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ProviderMeta() when $default != null:
-return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category);case _:
+return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category,_that.curated,_that.dialect,_that.baseUrlHint,_that.credential);case _:
   return orElse();
 
 }
@@ -472,10 +503,10 @@ return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlR
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category,  bool curated,  String dialect,  String baseUrlHint,  String credential)  $default,) {final _that = this;
 switch (_that) {
 case _ProviderMeta():
-return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category);case _:
+return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category,_that.curated,_that.dialect,_that.baseUrlHint,_that.credential);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -492,10 +523,10 @@ return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlR
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category,  bool curated,  String dialect,  String baseUrlHint,  String credential)?  $default,) {final _that = this;
 switch (_that) {
 case _ProviderMeta() when $default != null:
-return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category);case _:
+return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category,_that.curated,_that.dialect,_that.baseUrlHint,_that.credential);case _:
   return null;
 
 }
@@ -507,7 +538,7 @@ return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlR
 @JsonSerializable()
 
 class _ProviderMeta implements ProviderMeta {
-  const _ProviderMeta({required this.name, required this.displayName, this.defaultBaseUrl = '', this.baseUrlRequired = false, this.managed = false, this.category = 'llm'});
+  const _ProviderMeta({required this.name, required this.displayName, this.defaultBaseUrl = '', this.baseUrlRequired = false, this.managed = false, this.category = 'llm', this.curated = true, this.dialect = 'openai-compatible', this.baseUrlHint = '', this.credential = 'api_key'});
   factory _ProviderMeta.fromJson(Map<String, dynamic> json) => _$ProviderMetaFromJson(json);
 
 @override final  String name;
@@ -516,6 +547,37 @@ class _ProviderMeta implements ProviderMeta {
 @override@JsonKey() final  bool baseUrlRequired;
 @override@JsonKey() final  bool managed;
 @override@JsonKey() final  String category;
+// llm | search
+/// Whether this app ships a hand-written spec for the provider (its knobs, its base URL, its
+/// quirks written against its own docs). The ~160 others come straight from models.dev by the
+/// mechanical `npm` → dialect mapping: they work, but nothing here vouches for them — and the UI
+/// needs that distinction to tell「你的 key 不对」apart from「这家我们没试过」.
+///
+/// 本 app 是否为这家手写过 spec(旋钮、base URL、怪癖照它自己的文档写)。其余约 160 家直接来自
+/// models.dev、由机械的 `npm` → 方言映射抵达:它们**能用**,但这里不为它们背书——而 UI 需要这个
+/// 区分,才能把「你的 key 不对」与「这家我们没试过」分开。
+@override@JsonKey() final  bool curated;
+/// The wire we speak to it. Rendered only when something goes wrong: a failure on an
+/// un-curated provider is a different sentence from a failure on a curated one.
+/// 我们对它说的那条线缆。只在出问题时渲染:未验证的家失败,与已验证的家失败,是两句不同的话。
+@override@JsonKey() final  String dialect;
+/// A base-URL TEMPLATE the catalog published instead of a usable address — four providers do
+/// this because their endpoint contains the customer's own account or host name
+/// (`https://${DATABRICKS_HOST}/…`). Shown as a hint, never prefilled: submitted verbatim it
+/// produces a connect failure whose message never mentions the literal `${…}` still in the field.
+///
+/// 目录发布的 base URL **模板**、不是可用地址——四家这样,因为端点里含着客户自己的账号或主机名。
+/// 作为**提示**展示、**绝不预填**:原样提交会换来一次连接失败,而那条消息只字不提字段里还躺着的
+/// 那个字面 `${…}`。
+@override@JsonKey() final  String baseUrlHint;
+/// What the credential field actually holds. Every provider but one takes a pasted string;
+/// Vertex takes a service-account JSON FILE, and a text box labelled「API key」is the wrong
+/// control for it — the user would go looking for a key that does not exist on their project.
+///
+/// 凭证字段**实际装的是什么**。除一家外每家都收一个粘贴的字符串;Vertex 收的是一个服务账号
+/// **JSON 文件**,而一个写着「API key」的文本框对它是**错的控件**——用户会去找一把在他项目里
+/// 根本不存在的 key。
+@override@JsonKey() final  String credential;
 
 /// Create a copy of ProviderMeta
 /// with the given fields replaced by the non-null parameter values.
@@ -530,16 +592,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProviderMeta&&(identical(other.name, name) || other.name == name)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.defaultBaseUrl, defaultBaseUrl) || other.defaultBaseUrl == defaultBaseUrl)&&(identical(other.baseUrlRequired, baseUrlRequired) || other.baseUrlRequired == baseUrlRequired)&&(identical(other.managed, managed) || other.managed == managed)&&(identical(other.category, category) || other.category == category));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProviderMeta&&(identical(other.name, name) || other.name == name)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.defaultBaseUrl, defaultBaseUrl) || other.defaultBaseUrl == defaultBaseUrl)&&(identical(other.baseUrlRequired, baseUrlRequired) || other.baseUrlRequired == baseUrlRequired)&&(identical(other.managed, managed) || other.managed == managed)&&(identical(other.category, category) || other.category == category)&&(identical(other.curated, curated) || other.curated == curated)&&(identical(other.dialect, dialect) || other.dialect == dialect)&&(identical(other.baseUrlHint, baseUrlHint) || other.baseUrlHint == baseUrlHint)&&(identical(other.credential, credential) || other.credential == credential));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,name,displayName,defaultBaseUrl,baseUrlRequired,managed,category);
+int get hashCode => Object.hash(runtimeType,name,displayName,defaultBaseUrl,baseUrlRequired,managed,category,curated,dialect,baseUrlHint,credential);
 
 @override
 String toString() {
-  return 'ProviderMeta(name: $name, displayName: $displayName, defaultBaseUrl: $defaultBaseUrl, baseUrlRequired: $baseUrlRequired, managed: $managed, category: $category)';
+  return 'ProviderMeta(name: $name, displayName: $displayName, defaultBaseUrl: $defaultBaseUrl, baseUrlRequired: $baseUrlRequired, managed: $managed, category: $category, curated: $curated, dialect: $dialect, baseUrlHint: $baseUrlHint, credential: $credential)';
 }
 
 
@@ -550,7 +612,7 @@ abstract mixin class _$ProviderMetaCopyWith<$Res> implements $ProviderMetaCopyWi
   factory _$ProviderMetaCopyWith(_ProviderMeta value, $Res Function(_ProviderMeta) _then) = __$ProviderMetaCopyWithImpl;
 @override @useResult
 $Res call({
- String name, String displayName, String defaultBaseUrl, bool baseUrlRequired, bool managed, String category
+ String name, String displayName, String defaultBaseUrl, bool baseUrlRequired, bool managed, String category, bool curated, String dialect, String baseUrlHint, String credential
 });
 
 
@@ -567,7 +629,7 @@ class __$ProviderMetaCopyWithImpl<$Res>
 
 /// Create a copy of ProviderMeta
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? displayName = null,Object? defaultBaseUrl = null,Object? baseUrlRequired = null,Object? managed = null,Object? category = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? displayName = null,Object? defaultBaseUrl = null,Object? baseUrlRequired = null,Object? managed = null,Object? category = null,Object? curated = null,Object? dialect = null,Object? baseUrlHint = null,Object? credential = null,}) {
   return _then(_ProviderMeta(
 name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
@@ -575,6 +637,10 @@ as String,defaultBaseUrl: null == defaultBaseUrl ? _self.defaultBaseUrl : defaul
 as String,baseUrlRequired: null == baseUrlRequired ? _self.baseUrlRequired : baseUrlRequired // ignore: cast_nullable_to_non_nullable
 as bool,managed: null == managed ? _self.managed : managed // ignore: cast_nullable_to_non_nullable
 as bool,category: null == category ? _self.category : category // ignore: cast_nullable_to_non_nullable
+as String,curated: null == curated ? _self.curated : curated // ignore: cast_nullable_to_non_nullable
+as bool,dialect: null == dialect ? _self.dialect : dialect // ignore: cast_nullable_to_non_nullable
+as String,baseUrlHint: null == baseUrlHint ? _self.baseUrlHint : baseUrlHint // ignore: cast_nullable_to_non_nullable
+as String,credential: null == credential ? _self.credential : credential // ignore: cast_nullable_to_non_nullable
 as String,
   ));
 }

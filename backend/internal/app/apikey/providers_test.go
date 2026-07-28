@@ -76,37 +76,60 @@ func TestProviderMeta_ComesFromTheCatalog(t *testing.T) {
 	}
 }
 
-// TestProviderMeta_UnspeakableDialectIsRefusedAtCreation: the honest-absence law applied to
-// dialects. The example is Vertex, and it is the honest one for a reason the CATALOG states: its
-// credential is a service-account JSON file (`GOOGLE_APPLICATION_CREDENTIALS`), not an API key, so
-// routing it to the ordinary Gemini provider would 401 every time with a message that blames the
-// user's key when Vertex does not take keys at all.
+// TestProviderMeta_CredentialShapeIsDeclared: Vertex is the only provider whose「key」is not a
+// pasted string but a service-account JSON FILE, and the UI cannot guess that. A text box labelled
+// 「API key」would send the user looking for a key that does not exist on their Google project.
 //
-// **Bedrock used to be this test's example and no longer is** — not because the rule softened but
-// because the fact changed: AWS serves an OpenAI-compatible Chat Completions endpoint authenticated
-// by a plain bearer token, so 116 models became reachable with no new code. The `npm` package name
-// (`@ai-sdk/amazon-bedrock`, which speaks Converse over SigV4) had said otherwise, which is the
-// whole lesson: npm names WHICH SDK EXISTS, not WHAT THE PROVIDER CAN SPEAK.
-//
-// TestProviderMeta_UnspeakableDialectIsRefusedAtCreation:诚实缺席律用在方言上。例子用 Vertex,而它是
-// 诚实的那个例子,理由**目录自己写着**:它的凭证是一个**服务账号 JSON 文件**、不是 API key,故把它路由
-// 到普通 Gemini provider 会**每次都 401**,而消息会去怪用户的 key——可 Vertex **根本不收 key**。
-//
-// **Bedrock 曾经是这个测试的例子、现在不是了**——不是规则松了,是**事实变了**:AWS 提供 OpenAI 兼容的
-// Chat Completions 端点、用普通 bearer 鉴权,于是 116 个模型**零新代码**变得可达。而 `npm` 包名
-// (`@ai-sdk/amazon-bedrock`,讲的是 Converse + SigV4)说的是另一回事——这正是那条教训:npm 说的是
-// **存在哪个 SDK**、不是**这家能说什么**。
-func TestProviderMeta_UnspeakableDialectIsRefusedAtCreation(t *testing.T) {
-	if isValidProvider("google-vertex") {
-		t.Error("vertex takes a service-account file, not a key; accepting it moves the failure to a 401 that blames the user")
+// TestProviderMeta_CredentialShapeIsDeclared:Vertex 是唯一「key」不是粘贴字符串、而是一个服务账号
+// **JSON 文件**的家,而 UI 猜不出来。一个写着「API key」的文本框会把用户送去找一把在他的 Google 项目里
+// **根本不存在**的 key。
+func TestProviderMeta_CredentialShapeIsDeclared(t *testing.T) {
+	v, ok := GetProviderMeta("google-vertex")
+	if !ok {
+		t.Fatal("vertex is implemented now (service-account token + OpenAI-compatible endpoint)")
 	}
-	for _, p := range ListProviders(false) {
-		if p.Name == "google-vertex" || p.Name == "google-vertex-anthropic" {
-			t.Errorf("an unspeakable dialect must not be offered: %s", p.Name)
+	if v.Credential != CredentialServiceAccountJSON {
+		t.Errorf("vertex credential = %q, want the file kind", v.Credential)
+	}
+	if v.TestMethod != TestMethodVertexToken {
+		t.Errorf("vertex probe = %q; minting the token IS the check", v.TestMethod)
+	}
+	if !v.BaseURLRequired {
+		t.Error("the vertex host carries the user's region, so it must be supplied")
+	}
+	// Everyone else stays a pasted string — a credential kind that spread would put a file picker in
+	// front of an ordinary API key. 其余各家仍是粘贴字符串——一个会扩散的凭证种类,会把文件选择器摆到
+	// 一把普通 API key 前面。
+	for _, name := range []string{"openai", "groq", "azure", "amazon-bedrock", "anselm"} {
+		m, ok := GetProviderMeta(name)
+		if !ok {
+			continue
+		}
+		if m.Credential != CredentialAPIKey {
+			t.Errorf("%s credential = %q, want a plain key", name, m.Credential)
+		}
+	}
+}
+
+// TestProviderMeta_EveryOfferedProviderIsReachable: the honest-absence law applied to dialects —
+// whatever the offered list contains must be something this build can actually talk to. With Vertex
+// implemented the catalog now has no unspeakable dialect left, so the assertion is stated as the
+// INVARIANT rather than against a particular example that keeps becoming reachable.
+//
+// TestProviderMeta_EveryOfferedProviderIsReachable:诚实缺席律用在方言上——摆出来的每一家都必须是本
+// 构建**真的说得了**的。Vertex 实现之后目录里已**没有**说不了的方言,故这条断言写成**不变量**、而不是
+// 对着某个「总在变得可达」的具体例子。
+func TestProviderMeta_EveryOfferedProviderIsReachable(t *testing.T) {
+	for _, p := range ListProviders(true) {
+		if p.Category != CategoryLLM {
+			continue
+		}
+		if !isValidProvider(p.Name) {
+			t.Errorf("%s is offered but would be refused at key creation", p.Name)
 		}
 	}
 	if !isValidProvider("azure") {
-		t.Error("azure IS implemented now (deployment in the path + api-key header)")
+		t.Error("azure IS implemented (deployment in the path + api-key header)")
 	}
 	// Bedrock's OpenAI-compatible endpoint is region-specific, so the base URL is the user's to
 	// supply — but the provider itself is reachable.

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // TestResult is the outcome of one connectivity probe. It answers ONLY "is this
@@ -93,6 +94,8 @@ func (t *HTTPTester) Test(ctx context.Context, provider, key, baseURL, apiFormat
 		return t.probeGet(ctx, effective+"/models", bearer(key)), nil
 	case TestMethodSearchPing:
 		return t.probeSearchPing(ctx, provider, effective, key), nil
+	case TestMethodVertexToken:
+		return t.probeVertexToken(ctx, key), nil
 	default:
 		panic(fmt.Sprintf("apikey.HTTPTester.Test: TestMethod %q for provider %q has no dispatch branch", meta.TestMethod, provider))
 	}
@@ -225,4 +228,23 @@ func truncate(s string, n int) string {
 		return s
 	}
 	return s[:n] + "..."
+}
+
+// probeVertexToken mints an OAuth2 access token from the service-account file and stops there.
+//
+// **That IS the probe, not a stand-in for one.** Minting is precisely the step that fails when the
+// credential is wrong — a bad file, a revoked account, a key pasted where a file belongs — and
+// Vertex has no OpenAI-shaped model listing to fetch afterwards anyway. Sending the token somewhere
+// just to see a 200 would spend a round trip to learn nothing the mint did not already say.
+//
+// probeVertexToken 用服务账号文件铸一个 OAuth2 access token,到此为止。
+//
+// **它就是探针本身、不是探针的替代品。** 凭证不对时失败的正是「铸」这一步——文件坏了、账号被吊销、
+// 或者本该放文件的地方被粘了一把 key——而 Vertex 之后本来也没有 OpenAI 形的模型列表可拉。把 token
+// 送去某处只为看一个 200,是花一次往返去学一件「铸」这一步已经说完了的事。
+func (t *HTTPTester) probeVertexToken(ctx context.Context, key string) *TestResult {
+	if err := llminfra.VerifyServiceAccount(ctx, key); err != nil {
+		return &TestResult{OK: false, Message: llminfra.ProbeMessage(err)}
+	}
+	return &TestResult{OK: true, Message: "service account accepted; access token minted"}
 }

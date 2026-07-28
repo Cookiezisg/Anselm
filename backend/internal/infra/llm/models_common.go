@@ -220,6 +220,38 @@ func decodeOpenAICompatModelIDs(raw string) []string {
 // describeFromSpecs 对 OpenAI-compat /models 返回里每个 id 查 specs 装配 ModelInfo;无匹配 spec 的
 // id 跳过(目录未知——用户仍可直接用该 id,只是这里没有旋钮/规格)。模态布尔投影 = 目录模态 ∧
 // 方言掩码(见 partMask)。
+// describeAllFromCatalog answers with EVERY model the catalog attributes to a provider, for the one
+// case where there is no /models list to intersect with: Vertex addresses models through publisher
+// paths and has no OpenAI-shaped listing, so the catalog is the only inventory that exists.
+//
+// The ordinary [describeFromSpecs] intersects the provider's own list with the catalog, which is
+// strictly better when the list exists — it stops us offering a model this particular account
+// cannot reach. Reaching for this function where a listing exists would trade that for nothing.
+//
+// describeAllFromCatalog 交回目录归给某家的**每一个**模型,只为那唯一一种情况:**没有 /models 列表**
+// 可以求交——Vertex 按 publisher 路径寻址模型、没有 OpenAI 形的列举,故目录是**存在的唯一**清单。
+//
+// 普通的 [describeFromSpecs] 把该家自己的列表与目录求交,而在列表存在时那严格更好——它避免我们提供
+// 一个**这个账号够不着**的模型。在有列举的地方改用本函数,是拿那个好处换了个零。
+func describeAllFromCatalog(specs []modelSpec, mask partMask) []ModelInfo {
+	out := make([]ModelInfo, 0, len(specs))
+	for _, s := range specs {
+		out = append(out, ModelInfo{
+			ID:            s.prefix,
+			DisplayName:   s.prefix,
+			ContextWindow: s.ctx,
+			MaxOutput:     s.out,
+			Knobs:         s.knobs,
+			Vision:        mask.image && hasModality(s.in, "image"),
+			Video:         mask.video && hasModality(s.in, "video"),
+			Audio:         mask.audio && hasModality(s.in, "audio"),
+			NativeDocs:    mask.file && hasModality(s.in, "pdf"),
+			Tools:         s.tools,
+		})
+	}
+	return out
+}
+
 func describeFromSpecs(specs []modelSpec, raw string, mask partMask) []ModelInfo {
 	ids := decodeOpenAICompatModelIDs(raw)
 	out := make([]ModelInfo, 0, len(ids))

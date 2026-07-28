@@ -128,15 +128,35 @@ moonshot 我们写 `.cn`、它写 `.ai`,至今不知谁对。
 |---|---|---|
 | `@openrouter/…` `@ai-sdk/gateway` `ai-gateway-provider` `merge-gateway…` `@aihubmix/…` | OpenRouter / Vercel / Cloudflare / Merge / AIHubMix | OpenAI 兼容 |
 | `@ai-sdk/groq` `xai` `togetherai` `cerebras` `deepinfra` `perplexity` `mistral` `vercel` | Groq / xAI / Together / Cerebras / DeepInfra / Perplexity / Mistral / v0 | OpenAI 兼容 |
-| `@ai-sdk/google-vertex` | Vertex | Google generateContent |
-| `@ai-sdk/google-vertex/anthropic` | Vertex(Anthropic) | Anthropic Messages |
-| **`@ai-sdk/azure`** | Azure ×2 | **deployment 在路径 + `api-version` query** |
-| **`@ai-sdk/amazon-bedrock`** | Bedrock | **AWS SigV4 签名** |
-| `@ai-sdk/cohere` | Cohere | 待调研 |
-| `@jerome-benoit/sap-ai-provider-v2` `gitlab-ai-provider` `venice-ai-sdk-provider` | SAP / GitLab Duo / Venice | 待调研 |
+| `@ai-sdk/google-vertex` `@ai-sdk/google-vertex/anthropic` | Vertex ×2 | **OpenAI 兼容 body + 服务账号 OAuth2**(H12-d 实测推翻本行原判) |
+| **`@ai-sdk/azure`** | Azure ×2 | **deployment 在路径 + `api-version` query**(body 与 OpenAI 逐字相同) |
+| `@ai-sdk/amazon-bedrock` | Bedrock | **OpenAI 兼容**(H12-d 调研推翻本行原判:Converse+SigV4 只是那个 SDK 的选择) |
+| `@ai-sdk/cohere` | Cohere | OpenAI 兼容(**另一个 base**,见 §4.1) |
+| `@jerome-benoit/sap-ai-provider-v2` `gitlab-ai-provider` `venice-ai-sdk-provider` | SAP / GitLab Duo / Venice | Venice = OpenAI 兼容;SAP / GitLab **留在未验证**(见 §4.1) |
 
-**真正要新写的只有 Azure 与 Bedrock**——它们差在 URL 形状与鉴权方案,**没有任何目录能表达那两样**。
+**开工前写的这一行是错的,两个方向都错**:「真正要新写的只有 Azure 与 Bedrock」——
+Bedrock **不必写**(它自己也在 `/openai/v1` 上讲 OpenAI 兼容、普通 bearer),
+Vertex **必须写**(它看着像 Gemini 的表亲、实际要服务账号)。教训写进代码注释与 `stream-llm.md`:
+**`npm` 说的是「存在哪个 SDK」、不是「这家能说什么」,而它两个方向都会误导。**
 其余长尾**零新代码**,按 OpenAI 兼容默认即可。
+
+### 4.1 三条方言的最终形状(H12-d 收口)
+
+| 方言 | 家数 / 模型 | 与 OpenAI 兼容的差别 | 实现 |
+|---|---|---|---|
+| `openai-compatible` | 159 / 5293 | —— | `compat.go` 一份 |
+| `anthropic` | 9 | Messages API | `anthropic.go` |
+| `azure` | 2 | deployment 在路径 · `api-key` 头 · `api-version` query | `azure.go`(43 行 spec) |
+| `google` | 1 | generateContent | `gemini.go` |
+| `vertex` | 2 / 51 | URL 拼 project+location · 服务账号签 JWT 换 OAuth2 token | `vertex.go`(spec + 两个钩子) |
+
+Azure 与 Vertex **都不是新的 ParseStream**——它们各自只填 `compatSpec` 的 `chatURL` / `auth` 两个钩子,
+因为**它们与 OpenAI 的差别全在 URL 与头上、body 逐字相同**。这正是 H12-a 把八份实现并成一份时
+买到的东西:**新增一条「方言」的代价降到了一份 spec。**
+
+**四家 base URL 的出处**(读官方文档、非凭记忆):cohere 的 OpenAI 兼容端点与其原生 `/v2/chat`
+**不是同一个 base**;venice 是 `api/v1`;gitlab / sap 的 base **因实例而异**,归用户填 ——
+后两家因此**留在未验证**(`Curated=false`),UI 会说「这家我们没试过」。
 
 ---
 

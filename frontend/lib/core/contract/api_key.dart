@@ -40,6 +40,39 @@ abstract class ProviderMeta with _$ProviderMeta {
     @Default(false) bool baseUrlRequired,
     @Default(false) bool managed,
     @Default('llm') String category, // llm | search
+    /// Whether this app ships a hand-written spec for the provider (its knobs, its base URL, its
+    /// quirks written against its own docs). The ~160 others come straight from models.dev by the
+    /// mechanical `npm` → dialect mapping: they work, but nothing here vouches for them — and the UI
+    /// needs that distinction to tell「你的 key 不对」apart from「这家我们没试过」.
+    ///
+    /// 本 app 是否为这家手写过 spec(旋钮、base URL、怪癖照它自己的文档写)。其余约 160 家直接来自
+    /// models.dev、由机械的 `npm` → 方言映射抵达:它们**能用**,但这里不为它们背书——而 UI 需要这个
+    /// 区分,才能把「你的 key 不对」与「这家我们没试过」分开。
+    @Default(true) bool curated,
+
+    /// The wire we speak to it. Rendered only when something goes wrong: a failure on an
+    /// un-curated provider is a different sentence from a failure on a curated one.
+    /// 我们对它说的那条线缆。只在出问题时渲染:未验证的家失败,与已验证的家失败,是两句不同的话。
+    @Default('openai-compatible') String dialect,
+
+    /// A base-URL TEMPLATE the catalog published instead of a usable address — four providers do
+    /// this because their endpoint contains the customer's own account or host name
+    /// (`https://${DATABRICKS_HOST}/…`). Shown as a hint, never prefilled: submitted verbatim it
+    /// produces a connect failure whose message never mentions the literal `${…}` still in the field.
+    ///
+    /// 目录发布的 base URL **模板**、不是可用地址——四家这样,因为端点里含着客户自己的账号或主机名。
+    /// 作为**提示**展示、**绝不预填**:原样提交会换来一次连接失败,而那条消息只字不提字段里还躺着的
+    /// 那个字面 `${…}`。
+    @Default('') String baseUrlHint,
+
+    /// What the credential field actually holds. Every provider but one takes a pasted string;
+    /// Vertex takes a service-account JSON FILE, and a text box labelled「API key」is the wrong
+    /// control for it — the user would go looking for a key that does not exist on their project.
+    ///
+    /// 凭证字段**实际装的是什么**。除一家外每家都收一个粘贴的字符串;Vertex 收的是一个服务账号
+    /// **JSON 文件**,而一个写着「API key」的文本框对它是**错的控件**——用户会去找一把在他项目里
+    /// 根本不存在的 key。
+    @Default('api_key') String credential, // api_key | service_account_json
   }) = _ProviderMeta;
 
   factory ProviderMeta.fromJson(Map<String, dynamic> json) =>

@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"context"
 	"net/http"
 	"net/url"
 	"strings"
@@ -68,7 +69,7 @@ func newAzureProvider() *compatProvider {
 			}
 		},
 		chatURL: azureChatURL,
-		auth:    func(h http.Header, key string) { h.Set("api-key", key) },
+		auth:    func(_ context.Context, h http.Header, key string) error { h.Set("api-key", key); return nil },
 		describe: func(raw string) ([]ModelInfo, error) {
 			return describeFromSpecs(catalogSpecs("azure", openaiKnobs), raw, partMask{image: true, file: true}), nil
 		},

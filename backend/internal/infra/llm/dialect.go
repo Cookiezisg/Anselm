@@ -33,16 +33,19 @@ const (
 	// DialectAzure 用**不同的 URL 形状**(deployment 在路径 + `api-version` query)与 `api-key` 头讲
 	// OpenAI 的 body——见 azure.go。
 	DialectAzure Dialect = "azure"
-	// DialectVertex is Google Cloud Vertex AI, and it is named-but-unspeakable for a reason the
-	// CATALOG states outright: its `env` is PROJECT + LOCATION + `GOOGLE_APPLICATION_CREDENTIALS`,
-	// i.e. a service-account JSON file — not an API key. Routing it to the ordinary Gemini provider
-	// (which sends a key) would 401 every time, and the message would read like the user's key was
-	// wrong when the truth is that Vertex does not take keys at all.
+	// DialectVertex is Google Cloud Vertex AI. It is its own dialect for a reason the CATALOG states
+	// outright: its `env` is PROJECT + LOCATION + `GOOGLE_APPLICATION_CREDENTIALS`, i.e. a
+	// service-account JSON file — not an API key. Routing it to the ordinary Gemini provider (which
+	// sends a key) would 401 every time, and the message would read like the user's key was wrong
+	// when the truth is that Vertex does not take keys at all. See vertex.go: the credential is a
+	// file and the token has to be minted, while the wire itself (`…/endpoints/openapi`) is ordinary
+	// OpenAI-compatible.
 	//
-	// DialectVertex 是 Google Cloud Vertex AI,它「已命名、说不了」的理由**目录自己直说了**:它的
-	// `env` 是 PROJECT + LOCATION + `GOOGLE_APPLICATION_CREDENTIALS`——一个**服务账号 JSON 文件**、
-	// 不是 API key。把它路由到普通 Gemini provider(那个是发 key 的)会**每次都 401**,而消息读起来
-	// 像是用户的 key 错了——真相是 Vertex **根本不收 key**。
+	// DialectVertex 是 Google Cloud Vertex AI。它**自成一条方言**,理由**目录自己直说了**:它的 `env`
+	// 是 PROJECT + LOCATION + `GOOGLE_APPLICATION_CREDENTIALS`——一个**服务账号 JSON 文件**、不是 API
+	// key。把它路由到普通 Gemini provider(那个是发 key 的)会**每次都 401**,而消息读起来像是用户的
+	// key 错了——真相是 Vertex **根本不收 key**。见 vertex.go:凭证是文件、token 要现换,而线缆本身
+	// (`…/endpoints/openapi`)是普通的 OpenAI 兼容。
 	DialectVertex Dialect = "vertex"
 )
 
@@ -98,7 +101,12 @@ func DialectForNPM(npm string) Dialect {
 // Speakable 报告本构建到底说不说得了某条方言。Azure 与 Bedrock 已命名但尚未实现;落在它们上的
 // provider 必须**当场**被拒并说明理由,而不是先收下、再在最后一跳失败。
 func (d Dialect) Speakable() bool {
-	return d == DialectOpenAICompat || d == DialectAnthropic || d == DialectGoogle || d == DialectAzure
+	switch d {
+	case DialectOpenAICompat, DialectAnthropic, DialectGoogle, DialectAzure, DialectVertex:
+		return true
+	default:
+		return false
+	}
 }
 
 // curatedProviders are the upstreams this app ships a hand-written spec for: their knob tables,
@@ -215,6 +223,8 @@ func catalogSynthesized(id string) (Provider, bool) {
 		built = newGeminiProvider()
 	case DialectAzure:
 		built = newAzureProvider()
+	case DialectVertex:
+		built = newVertexProvider()
 	default:
 		built = &compatProvider{spec: compatSpec{
 			name:    info.ID,

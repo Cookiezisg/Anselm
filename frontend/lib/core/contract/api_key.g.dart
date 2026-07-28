@@ -44,6 +44,10 @@ _ProviderMeta _$ProviderMetaFromJson(Map<String, dynamic> json) =>
       baseUrlRequired: json['baseUrlRequired'] as bool? ?? false,
       managed: json['managed'] as bool? ?? false,
       category: json['category'] as String? ?? 'llm',
+      curated: json['curated'] as bool? ?? true,
+      dialect: json['dialect'] as String? ?? 'openai-compatible',
+      baseUrlHint: json['baseUrlHint'] as String? ?? '',
+      credential: json['credential'] as String? ?? 'api_key',
     );
 
 Map<String, dynamic> _$ProviderMetaToJson(_ProviderMeta instance) =>
@@ -54,6 +58,10 @@ Map<String, dynamic> _$ProviderMetaToJson(_ProviderMeta instance) =>
       'baseUrlRequired': instance.baseUrlRequired,
       'managed': instance.managed,
       'category': instance.category,
+      'curated': instance.curated,
+      'dialect': instance.dialect,
+      'baseUrlHint': instance.baseUrlHint,
+      'credential': instance.credential,
     };
 
 _FreetierQuota _$FreetierQuotaFromJson(Map<String, dynamic> json) =>

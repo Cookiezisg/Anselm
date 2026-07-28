@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:file_selector/file_selector.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -655,15 +656,32 @@ class _KeyFormState extends ConsumerState<KeyForm> {
             child: AnInput(controller: _name, block: true),
           ),
           const SizedBox(height: AnSpace.s12),
-          AnFormField(
-            label: t.settings.keys.secretLabel,
-            child: AnSecretField(
-              controller: _secret,
-              placeholder: editing ? t.settings.keys.rotatePlaceholder : null,
-              revealLabel: t.settings.keys.reveal,
-              concealLabel: t.settings.keys.conceal,
+          // The credential control follows what the provider actually takes. Vertex is the only one
+          // that wants a service-account JSON FILE, and offering it a box labelled「API key」would
+          // send the user hunting for a key their Google project does not have. The file is still
+          // stored as one string — it IS one — so this changes the control, not the shape.
+          // 凭证控件跟着**这家真正收什么**走。Vertex 是唯一要服务账号 **JSON 文件**的,给它一个写着
+          // 「API key」的框,会把用户送去找一把他的 Google 项目**根本没有**的 key。文件仍然作为**一个
+          // 字符串**存(它**本来就是**),故这里换的是控件、不是形状。
+          if (meta?.credential == 'service_account_json')
+            AnFormField(
+              label: t.settings.keys.serviceAccountLabel,
+              desc: t.settings.keys.serviceAccountHint,
+              child: _ServiceAccountField(
+                controller: _secret,
+                editing: editing,
+              ),
+            )
+          else
+            AnFormField(
+              label: t.settings.keys.secretLabel,
+              child: AnSecretField(
+                controller: _secret,
+                placeholder: editing ? t.settings.keys.rotatePlaceholder : null,
+                revealLabel: t.settings.keys.reveal,
+                concealLabel: t.settings.keys.conceal,
+              ),
             ),
-          ),
           if (editing)
             Padding(
               padding: const EdgeInsets.only(top: AnSpace.s4),
@@ -680,9 +698,16 @@ class _KeyFormState extends ConsumerState<KeyForm> {
             const SizedBox(height: AnSpace.s12),
             AnFormField(
               label: t.settings.keys.baseUrlLabel,
-              desc: (meta?.baseUrlRequired ?? false)
-                  ? t.settings.keys.baseUrlRequiredHint
-                  : null,
+              // A catalog TEMPLATE outranks the generic「required」note: it says WHERE the account
+              // name goes, which is the only thing the user is actually missing.
+              // 目录**模板**压过那句笼统的「必填」:它说的是**账号名填在哪**,而那正是用户唯一缺的东西。
+              desc: (meta?.baseUrlHint.isNotEmpty ?? false)
+                  ? t.settings.keys.baseUrlTemplateHint(
+                      shape: meta!.baseUrlHint,
+                    )
+                  : ((meta?.baseUrlRequired ?? false)
+                        ? t.settings.keys.baseUrlRequiredHint
+                        : null),
               child: AnInput(controller: _baseUrl, block: true, mono: true),
             ),
           ],
@@ -1883,6 +1908,112 @@ class _GenScenarioRowState extends ConsumerState<_GenScenarioRow> {
                     ],
                   ),
           ),
+      ],
+    );
+  }
+}
+
+/// The credential control for a provider whose「key」is a service-account JSON file (Vertex, and
+/// only Vertex). It is a paste area plus a file picker, because both are real paths: people copy
+/// the file's contents out of a terminal, and people also have it sitting on disk.
+///
+/// **What it must not do is look like an API-key box.** That is the whole reason this widget exists
+/// — the field is the same string column underneath, but a user shown「API key」for Vertex goes
+/// looking through their Google project for something that was never issued.
+///
+/// 凭证控件,给「key」是服务账号 JSON 文件的那一家(Vertex,且只有 Vertex)。它是一个粘贴区加一个文件
+/// 选择器,因为两条路都是真的:有人从终端里把文件内容拷出来,也有人文件就躺在磁盘上。
+///
+/// **它绝不能长得像一个 API key 框。** 那正是这个 widget 存在的全部理由——底下仍是同一个字符串列,但
+/// 一个在 Vertex 这里看见「API key」的用户,会去自己的 Google 项目里翻一样**从来没被签发过**的东西。
+class _ServiceAccountField extends StatefulWidget {
+  const _ServiceAccountField({required this.controller, required this.editing});
+
+  final TextEditingController controller;
+  final bool editing;
+
+  @override
+  State<_ServiceAccountField> createState() => _ServiceAccountFieldState();
+}
+
+class _ServiceAccountFieldState extends State<_ServiceAccountField> {
+  String? _error;
+
+  Future<void> _pick() async {
+    const group = XTypeGroup(label: 'JSON', extensions: ['json']);
+    final file = await openFile(acceptedTypeGroups: const [group]);
+    if (file == null) return;
+    final text = await file.readAsString();
+    if (!mounted) return;
+    setState(() {
+      widget.controller.text = text.trim();
+      _error = _validate(widget.controller.text);
+    });
+  }
+
+  /// Checked HERE, before the key is saved, because the next chance is a token exchange whose
+  /// failure the user reads as「my Google account is broken」. A file that is not a service account
+  /// is the mistake this field will actually see.
+  /// **在这里**查、在 key 存下之前,因为下一次机会是一次换 token,而它的失败在用户读来是「我的 Google
+  /// 账号坏了」。**不是服务账号的文件**,正是这一栏真正会遇到的错误。
+  String? _validate(String raw) {
+    if (raw.isEmpty) return null;
+    final t = Translations.of(context);
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return t.settings.keys.serviceAccountBad;
+      }
+      if (decoded['type'] != 'service_account' ||
+          (decoded['private_key'] as String?)?.isNotEmpty != true ||
+          (decoded['project_id'] as String?)?.isNotEmpty != true) {
+        return t.settings.keys.serviceAccountBad;
+      }
+      return null;
+    } on FormatException {
+      return t.settings.keys.serviceAccountBad;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnInput(
+          controller: widget.controller,
+          block: true,
+          mono: true,
+          multiline: true,
+          placeholder: widget.editing
+              ? t.settings.keys.rotatePlaceholder
+              : t.settings.keys.serviceAccountPlaceholder,
+          onChanged: (v) => setState(() => _error = _validate(v)),
+        ),
+        const SizedBox(height: AnSpace.s6),
+        Row(
+          children: [
+            AnButton(
+              label: t.settings.keys.serviceAccountPick,
+              size: AnButtonSize.sm,
+              outline: true,
+              onPressed: _pick,
+            ),
+            if (_error != null) ...[
+              const SizedBox(width: AnSpace.s8),
+              Flexible(
+                child: Text(
+                  _error!,
+                  style: AnText.meta.copyWith(color: c.danger),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ],
+        ),
       ],
     );
   }

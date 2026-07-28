@@ -92,9 +92,21 @@ func TestDialect_SpeakableIsAboutTheWireNotThePackage(t *testing.T) {
 	if d := DialectForNPM("@ai-sdk/amazon-bedrock"); d != DialectOpenAICompat || !d.Speakable() {
 		t.Errorf("bedrock serves an OpenAI-compatible endpoint with a bearer token, got %q", d)
 	}
+	// Vertex resolves to its OWN dialect rather than to Gemini's, and that separation is the point:
+	// the wire is ordinary OpenAI-compatible, but the credential is a service-account FILE. Routing
+	// it to the Gemini provider (which sends a key) would 401 forever with a message blaming the
+	// user's key. It became speakable once vertex.go minted the token — the dialect split is what
+	// made that possible without touching Gemini.
+	// Vertex 解析到**自己的**方言、而不是 Gemini 的,而这个分开正是要点:线缆是普通的 OpenAI 兼容,
+	// 但凭证是一个服务账号**文件**。路由到 Gemini provider(发 key 的那个)会永远 401、消息还怪用户的
+	// key。它在 vertex.go 会铸 token 之后**才**变得可达——而正是这次方言拆分让那件事**不必碰 Gemini**。
 	for _, npm := range []string{"@ai-sdk/google-vertex", "@ai-sdk/google-vertex/anthropic"} {
-		if d := DialectForNPM(npm); d != DialectVertex || d.Speakable() {
-			t.Errorf("%s takes a service-account file, not a key — it must stay honestly absent, got %q", npm, d)
+		d := DialectForNPM(npm)
+		if d != DialectVertex {
+			t.Errorf("%s must not be folded into the key-sending Gemini dialect, got %q", npm, d)
+		}
+		if !d.Speakable() {
+			t.Errorf("%s is implemented now (service-account token + OpenAI-compatible endpoint)", npm)
 		}
 	}
 }

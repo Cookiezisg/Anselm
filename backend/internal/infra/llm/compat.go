@@ -112,9 +112,19 @@ type compatSpec struct {
 
 	// auth writes the credential header. nil = `Authorization: Bearer`. Azure uses `api-key`, and
 	// sending it as a bearer token gets a 401 that reads exactly like a wrong key.
-	// auth 写凭证头。nil = `Authorization: Bearer`。Azure 用 `api-key`,而把它当 bearer 发会换来一个
-	// **读起来和「key 填错了」一模一样**的 401。
-	auth func(h http.Header, key string)
+	//
+	// It takes a ctx and can FAIL because one member of this dialect has to go get its credential:
+	// Vertex mints a one-hour OAuth2 token from a service-account file, which is a network call that
+	// can be refused. A signature with no error would have forced that failure to be swallowed here
+	// and re-surface later as an unauthenticated request.
+	//
+	// auth 写凭证头。nil = `Authorization: Bearer`。Azure 用 `api-key`,当 bearer 发会换来一个**读起来
+	// 和「key 填错了」一模一样**的 401。
+	//
+	// 它收 ctx 且**可以失败**,因为本方言里有一家必须**去取**自己的凭证:Vertex 用服务账号文件铸一个
+	// 一小时期的 OAuth2 token,那是一次**可能被拒**的网络调用。一个不带 error 的签名会逼这次失败在这里
+	// 被吞掉、再以「一个没鉴权的请求」的形式在后面冒出来。
+	auth func(ctx context.Context, h http.Header, key string) error
 
 	// describe parses this provider's /models probe body. Every family has its own because the
 	// catalog key and the knob table are its own.
@@ -173,7 +183,9 @@ func (p *compatProvider) BuildRequest(ctx context.Context, req Request) (*http.R
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
 	if p.spec.auth != nil {
-		p.spec.auth(httpReq.Header, req.Key)
+		if err := p.spec.auth(ctx, httpReq.Header, req.Key); err != nil {
+			return nil, err
+		}
 	} else {
 		httpReq.Header.Set("Authorization", "Bearer "+req.Key)
 	}

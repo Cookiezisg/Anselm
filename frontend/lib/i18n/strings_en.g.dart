@@ -4990,6 +4990,24 @@ class Translations$settings$keys$en {
 	/// en: 'Key'
 	String get secretLabel => 'Key';
 
+	/// en: 'Service account (JSON)'
+	String get serviceAccountLabel => 'Service account (JSON)';
+
+	/// en: 'Vertex AI authenticates with a service-account file, not an API key.'
+	String get serviceAccountHint => 'Vertex AI authenticates with a service-account file, not an API key.';
+
+	/// en: 'Choose file…'
+	String get serviceAccountPick => 'Choose file…';
+
+	/// en: 'Paste the JSON, or choose the file'
+	String get serviceAccountPlaceholder => 'Paste the JSON, or choose the file';
+
+	/// en: 'That is not a service-account file (needs type, project_id and private_key).'
+	String get serviceAccountBad => 'That is not a service-account file (needs type, project_id and private_key).';
+
+	/// en: 'Required — replace the placeholder: $shape'
+	String baseUrlTemplateHint({required Object shape}) => 'Required — replace the placeholder: ${shape}';
+
 	/// en: 'Base URL'
 	String get baseUrlLabel => 'Base URL';
 
@@ -8715,6 +8733,12 @@ extension on Translations {
 			'settings.keys.provider' => 'Provider',
 			'settings.keys.displayNameLabel' => 'Name',
 			'settings.keys.secretLabel' => 'Key',
+			'settings.keys.serviceAccountLabel' => 'Service account (JSON)',
+			'settings.keys.serviceAccountHint' => 'Vertex AI authenticates with a service-account file, not an API key.',
+			'settings.keys.serviceAccountPick' => 'Choose file…',
+			'settings.keys.serviceAccountPlaceholder' => 'Paste the JSON, or choose the file',
+			'settings.keys.serviceAccountBad' => 'That is not a service-account file (needs type, project_id and private_key).',
+			'settings.keys.baseUrlTemplateHint' => ({required Object shape}) => 'Required — replace the placeholder: ${shape}',
 			'settings.keys.baseUrlLabel' => 'Base URL',
 			'settings.keys.apiFormatLabel' => 'API dialect',
 			'settings.keys.saveKey' => 'Save & test',

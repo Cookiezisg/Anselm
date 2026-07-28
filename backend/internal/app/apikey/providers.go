@@ -32,6 +32,26 @@ const (
 	TestMethodCustom           TestMethod = "custom"
 	TestMethodAlwaysOK         TestMethod = "always_ok"
 	TestMethodSearchPing       TestMethod = "search_ping"
+	// TestMethodVertexToken mints an OAuth2 token from the service-account file and stops there.
+	// It is the RIGHT probe for Vertex, not a fallback: minting is exactly the step that fails when
+	// the credential is wrong, and Vertex has no model listing to fetch afterwards anyway.
+	// TestMethodVertexToken 用服务账号文件铸一个 OAuth2 token,到此为止。它是 Vertex **正确的**探针、
+	// 不是退路:凭证不对时失败的正是「铸」这一步,而 Vertex 之后本来也没有模型列表可拉。
+	TestMethodVertexToken TestMethod = "vertex_token"
+)
+
+// CredentialKind tells the UI what the「key」field actually holds. Every provider but one takes a
+// pasted string; Vertex takes a service-account JSON FILE, and a text box labelled「API key」is the
+// wrong control for it — the user would go looking for a key that does not exist.
+//
+// CredentialKind 告诉 UI 那个「key」字段**实际装的是什么**。除一家外每家都收一个粘贴的字符串;Vertex
+// 收的是一个服务账号 **JSON 文件**,而一个写着「API key」的文本框对它是**错的控件**——用户会去找一把
+// **根本不存在**的 key。
+type CredentialKind string
+
+const (
+	CredentialAPIKey             CredentialKind = "api_key"
+	CredentialServiceAccountJSON CredentialKind = "service_account_json"
 )
 
 // ProviderMeta is what apikey needs to validate, connect to, and probe a
@@ -82,6 +102,9 @@ type ProviderMeta struct {
 	// 它**刻意不是**预填值:原样提交会换来一次连接失败,而那条消息**只字不提**字段里still 躺着的
 	// 那个字面 `${…}`。作为**提示**它则是表单上最有用的东西——它精确指出账号名该填在哪。
 	BaseURLHint string `json:"baseUrlHint,omitempty"`
+	// Credential names what the key field holds — see [CredentialKind].
+	// Credential 说明 key 字段装的是什么——见 [CredentialKind]。
+	Credential CredentialKind `json:"credential"`
 }
 
 // localProviders are the entries models.dev does NOT describe, and each is absent for a reason
@@ -108,15 +131,15 @@ type ProviderMeta struct {
 //
 // 其余一律来自目录。**这张表不得为 models.dev 已经描述的家新增一行**——那正是 H12-c 拆掉的手工表。
 var localProviders = map[string]ProviderMeta{
-	"anselm": {Name: "anselm", DisplayName: "Anselm Free", DefaultBaseURL: "https://api.anselm.website/v1", TestMethod: TestMethodGetModels, Category: CategoryLLM, Managed: true, Curated: true, Dialect: string(llminfra.DialectOpenAICompat)},
-	"ollama": {Name: "ollama", DisplayName: "Ollama (local)", BaseURLRequired: true, TestMethod: TestMethodOllamaTags, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat)},
-	"custom": {Name: "custom", DisplayName: "Custom (OpenAI/Anthropic compatible)", BaseURLRequired: true, TestMethod: TestMethodCustom, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat)},
-	"mock":   {Name: "mock", DisplayName: "Mock (dev)", TestMethod: TestMethodAlwaysOK, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat)},
+	"anselm": {Name: "anselm", DisplayName: "Anselm Free", DefaultBaseURL: "https://api.anselm.website/v1", TestMethod: TestMethodGetModels, Category: CategoryLLM, Managed: true, Curated: true, Dialect: string(llminfra.DialectOpenAICompat), Credential: CredentialAPIKey},
+	"ollama": {Name: "ollama", DisplayName: "Ollama (local)", BaseURLRequired: true, TestMethod: TestMethodOllamaTags, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat), Credential: CredentialAPIKey},
+	"custom": {Name: "custom", DisplayName: "Custom (OpenAI/Anthropic compatible)", BaseURLRequired: true, TestMethod: TestMethodCustom, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat), Credential: CredentialAPIKey},
+	"mock":   {Name: "mock", DisplayName: "Mock (dev)", TestMethod: TestMethodAlwaysOK, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat), Credential: CredentialAPIKey},
 
-	"brave":  {Name: "brave", DisplayName: "Brave Search", DefaultBaseURL: "https://api.search.brave.com/res/v1", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true},
-	"serper": {Name: "serper", DisplayName: "Serper.dev (Google search)", DefaultBaseURL: "https://google.serper.dev", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true},
-	"tavily": {Name: "tavily", DisplayName: "Tavily (AI-tuned search)", DefaultBaseURL: "https://api.tavily.com", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true},
-	"bocha":  {Name: "bocha", DisplayName: "博查 Bocha (CN search)", DefaultBaseURL: "https://api.bochaai.com/v1", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true},
+	"brave":  {Name: "brave", DisplayName: "Brave Search", DefaultBaseURL: "https://api.search.brave.com/res/v1", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true, Credential: CredentialAPIKey},
+	"serper": {Name: "serper", DisplayName: "Serper.dev (Google search)", DefaultBaseURL: "https://google.serper.dev", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true, Credential: CredentialAPIKey},
+	"tavily": {Name: "tavily", DisplayName: "Tavily (AI-tuned search)", DefaultBaseURL: "https://api.tavily.com", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true, Credential: CredentialAPIKey},
+	"bocha":  {Name: "bocha", DisplayName: "博查 Bocha (CN search)", DefaultBaseURL: "https://api.bochaai.com/v1", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true, Credential: CredentialAPIKey},
 }
 
 // knownBaseURLs is the FALLBACK prefill for providers models.dev names but gives no `api` for — and
@@ -163,9 +186,20 @@ func testMethodFor(d llminfra.Dialect) TestMethod {
 		return TestMethodAnthropicModels
 	case llminfra.DialectGoogle:
 		return TestMethodGoogleListModels
+	case llminfra.DialectVertex:
+		return TestMethodVertexToken
 	default:
 		return TestMethodGetModels
 	}
+}
+
+// credentialFor: Vertex is the only dialect whose credential is a file.
+// credentialFor:Vertex 是唯一凭证是**文件**的方言。
+func credentialFor(d llminfra.Dialect) CredentialKind {
+	if d == llminfra.DialectVertex {
+		return CredentialServiceAccountJSON
+	}
+	return CredentialAPIKey
 }
 
 // catalogMeta projects one catalog provider into the metadata apikey needs.
@@ -192,6 +226,7 @@ func catalogMeta(p llminfra.ProviderInfo) ProviderMeta {
 		Category:        CategoryLLM,
 		Curated:         p.Curated,
 		Dialect:         string(p.Dialect),
+		Credential:      credentialFor(p.Dialect),
 	}
 }
 
