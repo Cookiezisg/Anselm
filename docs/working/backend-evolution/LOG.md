@@ -56,6 +56,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-039 | 动画 wire reprobe 找到两处真实断点：backend 原先把带首帧的请求误发到文生视频 `/videos/generations`，且 managed resolver 为 lease URL 清掉了 3 MiB 解码信封；修复后确认 API Serve `/videos/animations` 已真实生成 MP4，但超大产物仍会在续接时撞网关 400，证明下游媒体预算必须保留在应用层 | managed animation route / media envelope / continuation | `TestSubmitVideoAnselm_UsesAnimationRouteForFirstFrame`；文本-only managed reprobe 观察到真实动画 tool result 后续 400；无 key/ID 写入日志 | `2539114b` |
 | 2026-07-29 | EVO-040 | 默认 Anselm managed 动画融合现已通过：用户图片与 capability tools 同回合、危险审批、专用动画路由、异步 MP4、receipt 来源血缘及终态续接全部成立；约 9.6 MB 的生成视频按 3 MiB 网关预算降级为注记而不再杀死回合 | managed-read/write / multimodal tool fusion / animation / media envelope | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_AnimateImageArtifact(TextOnly)?$' -count=1` → PASS（TextOnly 117.866s；融合 116.047s）；无本机 provider key | `2539114b` |
 | 2026-07-29 | EVO-041 | 动画路由与 managed 媒体预算修复后的完整黑盒回归无回归：普通聊天、workflow、MCP/function/handler 产物、取消/重试/崩溃恢复、附件准备与配额资源卫生仍然全绿 | full testend regression | `make -C backend testend` → PASS 309.211s | `2539114b` |
+| 2026-07-29 | EVO-042 | 混合调度的下游像素证据补齐：真实 OpenAI BYOK planner 经透明 recorder 收到与 Anselm managed 生成并落库图片完全一致的 base64 image part；同一回合仍恰好一次生成、receipt provider=anselm | hybrid / managed write → BYOK read / downstream wire | `EVALS_HYBRID=1 EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveHybrid_OpenAIPlansManagedImage$' -count=1` → PASS 16.059s；key 未写日志 | `6d6e98dc` |
 
 ## 追加格式
 
