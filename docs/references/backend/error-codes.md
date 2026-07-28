@@ -113,7 +113,6 @@ audience: [human, ai]
 |---|---|---|
 | `SETTINGS_LIMITS_INVALID` | 400 | limits values out of range |
 | `SETTINGS_RETENTION_INVALID` | 400 | runRetentionDays must be 0 (keep forever) or a positive number of days（scheduler 工单⑬——**唯一的物理约束**：线不能倒着走；未知字段/畸形 JSON 同码。UI 的 30/90/180/永久 值集是产品可供性、后端不强制，60 照收——拒它是校验剧场，设计原则 #6） |
-| `SPEND_WINDOW_INVALID` | 400 | days must be a positive integer（WRK-082 H10 `GET /spend`——与 trigger-schedule 的窗口同律：真参数对**胡话大声失败**、对**野心钳制**（>365 钳到 365）；缺省即 30 天） |
 | `VOICE_NOT_FOUND` | 404 | voice not found（WRK-082 H9） |
 | `VOICE_NAME_TAKEN` | 409 | a voice with this name already exists — delete it first（H9——**不是**「换个名字重试」:覆盖会让第一个登记在上游变成孤儿，故消息点明**先删**） |
 | `VOICE_INVENTORY_FULL` | 409 | voice inventory is full — delete a voice to make room（H9——**库存**非配额：明天不会腾出位置，故消息必须说「删一个」而非「过会儿再来」） |

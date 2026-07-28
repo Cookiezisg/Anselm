@@ -9,7 +9,6 @@ import '../../../core/contract/limits.dart';
 import '../../../core/contract/mcp.dart';
 import '../../../core/contract/network.dart';
 import '../../../core/contract/retention.dart';
-import '../../../core/contract/spend.dart';
 import '../../../core/contract/sandbox.dart';
 import '../../../core/contract/memory.dart';
 import '../../../core/contract/workspace.dart';
@@ -175,11 +174,6 @@ abstract class SettingsRepository {
     ({int dbBytes, int deadBytes, int attachmentBytes, int attachmentDeadBytes})
   >
   storageStat();
-
-  /// The direct-side generation spend projection (`GET /spend`, WRK-082 H10) for the last [days].
-  /// Units are counted; money is an ESTIMATE (see [SpendRow]). Managed spend is absent by design.
-  /// 直连侧生成支出投影(H10)。用量是数的、金额是**估算**(见 [SpendRow]);受管支出按设计不在其中。
-  Future<List<SpendRow>> spend({int days});
 
   /// Compact the DB (`POST /storage:compact`, a synchronous VACUUM). Returns bytes handed back to the
   /// OS + whether it upgraded a mode=0 DB to auto_vacuum=INCREMENTAL. NOT destructive (VACUUM keeps
@@ -559,15 +553,6 @@ class LiveSettingsRepository implements SettingsRepository {
       attachmentBytes: (d['attachmentBytes'] as num?)?.toInt() ?? 0,
       attachmentDeadBytes: (d['attachmentDeadBytes'] as num?)?.toInt() ?? 0,
     );
-  }
-
-  @override
-  Future<List<SpendRow>> spend({int days = 30}) async {
-    final d = await api.getData('/api/v1/spend?days=$days');
-    final rows = (d['rows'] as List?) ?? const [];
-    return rows
-        .map((r) => SpendRow.fromJson(r as Map<String, dynamic>))
-        .toList(growable: false);
   }
 
   @override
@@ -1138,40 +1123,6 @@ class FixtureSettingsRepository implements SettingsRepository {
   /// model as an honest blank, not as free.
   /// 可脚本的支出行(demo/测试)。两家、三品类,外加**一行估价为 0**——那一行正是本 fixture 的要害:
   /// 面板必须把没有价的模型渲成诚实的空,而不是渲成免费。
-  List<SpendRow> fixtureSpend = const [
-    SpendRow(
-      date: '2026-07-28',
-      category: 'image',
-      provider: 'qwen',
-      model: 'qwen-image-2.0',
-      units: 12,
-      estPUSD: 420000000000,
-    ),
-    SpendRow(
-      date: '2026-07-28',
-      category: 'speech',
-      provider: 'qwen',
-      model: 'qwen3-tts-flash',
-      units: 8400,
-      estPUSD: 117600000000,
-    ),
-    SpendRow(
-      date: '2026-07-27',
-      category: 'video',
-      provider: 'qwen',
-      model: 'wan2.7-t2v',
-      units: 15,
-      estPUSD: 1245000000000,
-    ),
-    SpendRow(
-      date: '2026-07-27',
-      category: 'image',
-      provider: 'openai',
-      model: 'some-unlisted-model',
-      units: 3,
-      estPUSD: 0,
-    ),
-  ];
 
   /// Scriptable DB size + dead space (demo + tests). Compact hands the dead bytes back and clears
   /// them, so a re-read shows the shrunk file — the panel's before/after story.
@@ -1203,9 +1154,6 @@ class FixtureSettingsRepository implements SettingsRepository {
     attachmentBytes: fixtureAttachmentBytes,
     attachmentDeadBytes: fixtureAttachmentDeadBytes,
   );
-
-  @override
-  Future<List<SpendRow>> spend({int days = 30}) async => fixtureSpend;
 
   @override
   Future<({int reclaimedBytes, bool migrated})> compactStorage() async {

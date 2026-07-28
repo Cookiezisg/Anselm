@@ -14,7 +14,6 @@ import '../../../../core/model/model_capabilities.dart';
 import '../../../../core/notice/notice_center.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_brand_icon.dart';
-import 'spend_card.dart';
 import '../../../../core/ui/an_card.dart';
 import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_form_field.dart';
@@ -74,10 +73,6 @@ class ModelsKeysPanel extends ConsumerWidget {
       children: [
         _FreeTierCard(),
         SizedBox(height: AnSpace.s12),
-        // The BYOK twin, deliberately adjacent (WRK-082 H10): one card for the managed allowance,
-        // one for what the user's own keys spend. Money lives in one place on this page.
-        // BYOK 孪生件,**刻意相邻**(H10):一张管受管额度、一张管自带 key 花了什么。钱在本页只有一处。
-        SpendCard(),
         SizedBox(height: AnSpace.s24),
         _ModelKeysSection(),
         SizedBox(height: AnSpace.s24),

@@ -39,7 +39,6 @@ lib/core/contract/notification.dart	converged
 lib/core/contract/page.dart	converged
 lib/core/contract/retention.dart	pending
 lib/core/contract/sandbox.dart	converged
-lib/core/contract/spend.dart	pending
 lib/core/contract/todo.dart	converged
 lib/core/contract/touchpoint.dart	converged
 lib/core/contract/workspace.dart	converged
@@ -591,7 +590,6 @@ lib/features/settings/ui/panels/notifications_panel.dart	reviewed
 lib/features/settings/ui/panels/sandbox_panel.dart	reviewed
 lib/features/settings/ui/panels/settings_panels.dart	converged
 lib/features/settings/ui/panels/shortcuts_panel.dart	reviewed
-lib/features/settings/ui/panels/spend_card.dart	pending
 lib/features/settings/ui/panels/storage_panel.dart	reviewed
 lib/features/settings/ui/panels/workspaces_panel.dart	reviewed
 lib/features/settings/ui/settings_anchor.dart	converged
