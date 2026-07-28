@@ -104,6 +104,9 @@ func TestAnselmDescribeModels(t *testing.T) {
 	if !m.Vision || !m.Video || m.Audio || m.NativeDocs {
 		t.Errorf("capabilities = %+v, want image+video only", m)
 	}
+	if !m.Tools {
+		t.Errorf("tools = false, want true: managed gateway forwards tool calls and supports agents")
+	}
 	if m.MaxMediaParts != 8 || m.MaxMediaBytes != 3*1024*1024 {
 		t.Errorf("media envelope = %d/%d, want 8/%d", m.MaxMediaParts, m.MaxMediaBytes, 3*1024*1024)
 	}

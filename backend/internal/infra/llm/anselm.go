@@ -93,7 +93,7 @@ const (
 	anselmProductOutputLimit   = 16_384
 )
 
-var anselmSpecs = []modelSpec{{prefix: AnselmModelID, ctx: anselmTextInputLimit, out: anselmProductOutputLimit, in: []string{"text", "image"}, outMod: []string{"text"}}}
+var anselmSpecs = []modelSpec{{prefix: AnselmModelID, ctx: anselmTextInputLimit, out: anselmProductOutputLimit, in: []string{"text", "image"}, outMod: []string{"text"}, tools: true}}
 
 // anselmWire: the gateway speaks the DeepSeek body; image is the advertised media input here
 // (Video is derived below from the route profile, Audio stays off until an audio upstream exists).
