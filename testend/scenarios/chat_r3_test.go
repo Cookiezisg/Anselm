@@ -502,6 +502,74 @@ func TestChatR3_SubagentNestedTree(t *testing.T) {
 	}
 }
 
+// TestChatR3_SubagentFailureFeedsParent proves that a failed child is a tool-level, inspectable
+// result rather than a falsely successful answer or a parent-request failure. The parent must see
+// the explicit non-authoritative annotation, finish its own turn, and leave the failed sub-message
+// in the durable trace so a user can understand what happened and decide whether to retry.
+func TestChatR3_SubagentFailureFeedsParent(t *testing.T) {
+	t.Parallel()
+	wc, mock := chatSetup(t, false)
+
+	// Keep the parent → child request order deterministic: the first frame asks for the child,
+	// the next provider frame fails the child (the streaming loop deliberately does not retry a
+	// partially observable turn), and the final frame is the parent's recovery response.
+	mock.Enqueue(dlgModel,
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "Subagent",
+			Args: fw(map[string]any{"subagent_type": "general-purpose", "prompt": "child will fail"})}}},
+		harness.LLMTurn{Status: 500},
+		harness.LLMTurn{Text: "parent recovered after the child failure"},
+	)
+
+	convID := convCreate(t, wc, "subagent failure")
+	mid := sendMsg(t, wc, convID, "delegate this, then continue even if the child fails")
+	turn := waitTurn(t, wc, convID, mid, 60000)
+	if turn.Status != "completed" {
+		t.Fatalf("parent turn must complete after a child failure: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+
+	parentSawAnnotation := false
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, "did not finish cleanly") && strings.Contains(block.Content, "partial") {
+			parentSawAnnotation = true
+			break
+		}
+	}
+	if !parentSawAnnotation {
+		t.Fatalf("parent tool result must identify the child answer as non-authoritative: %+v", turn.Blocks)
+	}
+	parentText := false
+	for _, block := range turn.Blocks {
+		if block.Type == "text" && strings.Contains(block.Content, "parent recovered") {
+			parentText = true
+			break
+		}
+	}
+	if !parentText {
+		t.Fatalf("parent must be able to continue after child failure: %+v", turn.Blocks)
+	}
+
+	var msgs []struct {
+		SubagentID string `json:"subagentId"`
+		Status     string `json:"status"`
+	}
+	wc.GET("/api/v1/conversations/"+convID+"/messages?limit=50").OK(t, &msgs)
+	failedChild := false
+	for _, msg := range msgs {
+		if msg.SubagentID != "" && msg.Status == "error" {
+			failedChild = true
+			break
+		}
+	}
+	if !failedChild {
+		t.Fatalf("failed subagent must remain a durable error sub-message: %+v", msgs)
+	}
+
+	dumps := mock.DumpsFor(dlgModel)
+	if len(dumps) < 3 || !dumps[len(dumps)-1].HasMessage("tool", "did not finish cleanly") {
+		t.Fatalf("parent retry request must carry the child failure annotation, dumps=%d", len(dumps))
+	}
+}
+
 // TestChatR3_ReconnectReplay: SSE 重连——fromSeq 续传重放 durable 帧（close 带快照），
 // E2 ephemeral delta 不重放（重连流上无 seq=0 的 delta 残影）。
 func TestChatR3_ReconnectReplay(t *testing.T) {
