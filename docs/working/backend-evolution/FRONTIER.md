@@ -27,7 +27,7 @@ audience: [human, ai]
 | FRT-04 | workflow：生成者 → 下游观看者 | hybrid | 下游收到真实像素而非“图片已生成”文本 | 录制请求包含原始像素 | locked live; reprobe on route change |
 | FRT-05 | MCP/function/handler 产物 → 下游模型 | byok-read / hybrid | 各产地均能成为 MediaRef；不退化为占位字符串 | 产物字节、MediaRef、下游请求 | ready; MCP historical defect needs follow-up |
 | FRT-06 | 文档内图像 → 引用/问答 | managed-read/default / byok-read | 编辑器往返和 LLM 消费保真 | 文档、附件与请求三方一致 | ready |
-| FRT-07 | 音色完整生命周期 | hybrid + managed-write | 预置语音→附件→危险审批→异步登记→克隆合成→库存→删除 | `EVALS_VOICE=1`、inventory、上游 id、删除后状态 | locked live; reprobe on gateway change |
+| FRT-07 | 音色完整生命周期 | hybrid + managed-write | 预置语音→附件→危险审批→异步登记→克隆合成→库存→删除 | 生产 API Serve、inventory、网关句柄到上游 id 的映射、删除后状态 | 重写为 managed E2E |
 | FRT-08 | 朗读缓存与配额 | managed-write | 同文本同音色不二次调用；换输入才花费 | recorder 调用计数 + attachment cached | ready |
 | FRT-09 | 生成工具诚实显隐 | managed-write | 出图/改图/动画/音色各自独立，不能因一个能力存在而全露出 | 工具表 + 具体 route/capability | ready |
 | FRT-10 | 无 tool-call 模型 | byok-read | 可聊天但不作为 agent 可用模型；不被目录裁剪误删 | 模型选择器/API + agent 限制 | ready |
@@ -53,3 +53,4 @@ audience: [human, ai]
 - 不以模型自然语言自述证明它“看见了”媒体；需要线缆或字节证据。
 - 不用 mock 证明真实供应商的异步状态、URL 可达性、计费或流式分片约定。
 - 不把已删除的 BYOK 直连生成路径作为正常能力回归。
+- 不要求本地测试者持有或注入 API Serve 的 provider secret；那会把运维边界错误地拉回产品端。

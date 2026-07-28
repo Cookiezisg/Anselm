@@ -17,11 +17,11 @@ audience: [human, ai]
 |---|---|---|---|
 | WRK-082 · 全模态平台 | archived | `MediaRef` 为跨执行面的值类型；生成是工具；真实媒体验收需保留线缆与字节 | [归档原文](../../archive/multimodal-output/README.md)；ADR 0013–0020 |
 | WRK-085 · BYOK 治理 | active | 写入受管、读取目录；BYOK 多模态输入开放；目录能力与方言实现分工 | [工作原文](../byok-governance/README.md) |
-| 旧 Iteration Loop | superseded as structure | 八拍循环、先泛化后修、后端真相裁决仍有效；其场景表不再代表当前覆盖 | [`legacy/`](legacy/) |
+| 旧 Iteration Loop | superseded as structure | 八拍循环、先泛化后修、后端真相裁决仍有效；其场景表不再代表当前覆盖 | [`archived/`](archived/) |
 
-## legacy 的地位
+## archived 的地位
 
-`legacy/` 保存重构前的文档原貌，供定位旧 finding、历史覆盖快照和系统正确性线索使用：
+`archived/` 保存重构前的文档原貌，供定位旧 finding、历史覆盖快照和系统正确性线索使用：
 
 - `README.md`：旧操作手册。
 - `TASKS.md`：旧任务索引。
