@@ -27,6 +27,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-010 | 默认受管 MP4 输入可走完上传、device-proof staging/lease、部署网关与 durable 对话；规范短片未越过网关发布的 3MiB 解码预算，附件字节保持不变 | managed read / video input | `EVALS_MANAGED=1` 的 `TestLiveManaged_DefaultChatWithVideoAttachment`；SHA 校验 fixture、能力投影、回合终态与附件逐字节回读 | 当前提交 |
 | 2026-07-29 | EVO-011 | 文档 Markdown 中的 `anselm://media/<attachmentId>` 不会停留为 system prompt 的字面字符串：附图经文档扫描后可进入受管媒体消费路径并完成新对话 | managed read / document media reference | `EVALS_MANAGED=1` 的 `TestLiveManaged_DocumentImageReference`；文档挂载、新对话终态与附件逐字节回读 | 当前提交 |
 | 2026-07-29 | EVO-012 | Qwen BYOK 的目录默认 endpoint 与 video 方言可实际接收 MP4：真实 key 的 probe、`qwen3.7-plus` 能力投影、默认模型和附件对话均不借用受管 fallback | BYOK read / Qwen video input | `EVALS_BYOK=1 QWEN_API_KEY=…` 的 `TestLiveBYOK_QwenVideoInput`；harness 默认关闭 gateway，MP4 终态与逐字节回读 | 当前提交 |
+| 2026-07-29 | EVO-013 | function 与驻留 handler 的声明式二进制产物都能经共享 `mediaartifact` collector 落为一等附件；handler 连续调用各自拿到不同 receipt，来源与附件字节均保真，且不需 provider key | function / handler artifact producer | `TestFunction_ArtifactProduct`、`TestHandler_ArtifactPerCallProduct`：真实 HTTP、有效 PNG、连续运行/调用、receipt source、附件逐字节回读 | 当前提交 |
 
 ## 追加格式
 

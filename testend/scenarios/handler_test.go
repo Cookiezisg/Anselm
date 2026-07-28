@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"encoding/base64"
 	"strings"
 	"testing"
 
@@ -22,6 +23,66 @@ func hdCreate(t *testing.T, wc *harness.Client, name string, body map[string]any
 	}
 	// Create 现返裸实体(MD1):data 顶层即 id + 内嵌 activeVersion。
 	return r.Field(t, "id")
+}
+
+// TestHandler_ArtifactPerCallProduct exercises the resident handler's binary artifact contract
+// through the normal HTTP surface, without a provider key or model call. Each call writes a real
+// decoder-valid PNG into its own ANSELM_OUT directory; the returned receipts must be distinct,
+// attributed to the handler producer, and serve the exact bytes from the attachment store.
+//
+// TestHandler_ArtifactPerCallProduct 经正常 HTTP 面验证驻留 handler 的二进制产物契约，不需要供应商
+// key，也不调用模型。每次调用都向自己的 ANSELM_OUT 写入可解码 PNG；返回 receipt 必须各自不同、标明
+// handler 产地，并能从附件库提供原字节。
+func TestHandler_ArtifactPerCallProduct(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hd-artifact-product"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	// Keep the fixture decoder-valid while avoiding matplotlib or any provider dependency in the
+	// acceptance. The call counter changes the file bytes, so content-addressed deduplication cannot
+	// explain identical receipts.
+	// 夹具保持可解码，同时不依赖 matplotlib 或供应商；调用计数改变文件字节，故相同 receipt 不能由内容寻址
+	// 去重解释。
+	pngB64 := base64.StdEncoding.EncodeToString(tinyPNG)
+	hdID := hdCreate(t, wc, "artifact_keeper", map[string]any{
+		"initBody": "self.n = 0",
+		"methods": []map[string]any{{
+			"name": "plot", "inputs": []any{},
+			"body": "import base64, os\nself.n += 1\nraw = base64.b64decode('" + pngB64 + "') + bytes([self.n])\nopen(os.path.join(os.environ['ANSELM_OUT'], 'plot.png'), 'wb').write(raw)\nreturn {'chart': {'$media': 'plot.png'}, 'call': self.n}",
+		}},
+	})
+
+	call := func(want int) string {
+		t.Helper()
+		var out struct {
+			Chart struct {
+				AttachmentID string `json:"attachmentId"`
+				Mime         string `json:"mime"`
+				Source       string `json:"source"`
+			} `json:"chart"`
+			Call int `json:"call"`
+		}
+		wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{"method": "plot", "args": map[string]any{}}).OK(t, &out)
+		if out.Call != want {
+			t.Fatalf("call %d reported itself as %d", want, out.Call)
+		}
+		if out.Chart.AttachmentID == "" || out.Chart.Mime != "image/png" || out.Chart.Source != "handler_artifact" {
+			t.Fatalf("call %d returned an invalid handler receipt: %+v", want, out.Chart)
+		}
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+out.Chart.AttachmentID+"/content", "", nil)
+		if content.Status != 200 || len(content.Raw) != len(tinyPNG)+1 || string(content.Raw[:len(tinyPNG)]) != string(tinyPNG) || content.Raw[len(content.Raw)-1] != byte(want) {
+			t.Fatalf("call %d attachment bytes were not preserved: HTTP %d, %d bytes", want, content.Status, len(content.Raw))
+		}
+		return out.Chart.AttachmentID
+	}
+
+	first := call(1)
+	second := call(2)
+	if first == second {
+		t.Fatalf("two calls returned the same receipt %s; output directory or content addressing is wrong", first)
+	}
 }
 
 // TestHandler_ResidentLifecycleAndCalls: A2 核心——首调 spawn、状态保持（常驻的灵魂）、
