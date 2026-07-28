@@ -131,7 +131,12 @@ func TestLiveManaged_ImageAndSpeech(t *testing.T) {
 	}
 	t.Logf("image: %d bytes, %s", len(got.Bytes), got.Mime)
 
-	audio, err := GenerateSpeechAnselm(context.Background(), httpc, baseURL, installID, "这是一次真钱验收。", "Cherry")
+	// Omit voice deliberately: the managed gateway owns the model-specific default. Sending the
+	// former qwen3-tts preset (Cherry) here would turn this product acceptance into a stale-provider
+	// test — qwen-audio-3.0 correctly rejects that name.
+	// 刻意不传 voice:受管网关拥有模型专属默认值。把旧 qwen3-tts 的 Cherry 塞进这里,会把产品验收
+	// 变成过期 provider 测试——qwen-audio-3.0 正确地拒绝它。
+	audio, err := GenerateSpeechAnselm(context.Background(), httpc, baseURL, installID, "这是一次真钱验收。", "")
 	if err != nil {
 		t.Fatalf("managed speech synthesis: %v", err)
 	}
