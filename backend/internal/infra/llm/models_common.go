@@ -22,6 +22,95 @@ type modelSpec struct {
 	in     []string // input modalities the MODEL accepts (text/image/audio/video/pdf), per catalog
 	outMod []string // output modalities the model produces, per catalog (批B consumes this)
 	tools  bool     // model can call tools — i.e. can drive the agent runtime (H12-b)
+	// reasoning is the model's own declaration of its thinking controls (H12-c). The KNOB rendered
+	// from it is `spelling × this`: the catalog says a control exists and what its values are, the
+	// dialect says what it is called on the wire.
+	// reasoning 是模型自己声明的思考控件(H12-c)。据它渲出的 **Knob = 拼法 × 它**:目录说「有这么一个
+	// 控件、取值是这些」,方言说「它在线缆上叫什么」。
+	reasoning []CatalogReasoning
+}
+
+// knobSpelling is how ONE dialect writes the thinking controls the catalog describes. It is the
+// smallest possible remnant of the hand-written knob tables: four wire strings and a default,
+// instead of a per-model-prefix list that had to be revised every time a vendor shipped a model.
+//
+// **A missing spelling means silence, not a guess.** A family with no `toggle` key simply renders
+// no toggle even when the catalog says the model has one — because emitting a parameter name we
+// invented is how you get a 400 that reads as「这个模型坏了」.
+//
+// knobSpelling 是**一条方言**怎么书写目录所描述的那些思考控件。它是手写旋钮表能剩下的最小残余:
+// 四个线缆字符串加一个默认值,取代一张「厂商每发一个模型就要改一次」的逐前缀表。
+//
+// **拼法缺席即沉默、绝不猜。** 一个没有 `toggle` key 的家,即使目录说这个模型有开关也**不渲**它
+// ——发出一个我们自己发明的参数名,正是「拿到一个读起来像『这个模型坏了』的 400」的方式。
+type knobSpelling struct {
+	effort     string // wire key for an effort enum
+	effortDef  string
+	toggle     string   // wire key for an on/off control
+	toggleVals []string // the two native values, e.g. ["enabled","disabled"]; empty = a real bool
+	toggleDef  string
+	budget     string // wire key for a token budget
+	// withEffort rides along ONLY on models that declare an effort control. OpenAI's `verbosity` is
+	// the one case: it is not a reasoning control, but it shipped with the GPT-5 reasoning family and
+	// older models reject it — so「有 effort 的那些模型」is the honest condition, and it comes from
+	// the catalog rather than from a prefix we would have to revise.
+	//
+	// An unconditional extra would put `verbosity` on gpt-4o, which is how a picker grows a control
+	// the model will refuse (caught by the capability test, not by me).
+	//
+	// withEffort **只**随「声明了 effort 控件的模型」出现。OpenAI 的 `verbosity` 是唯一这种情况:
+	// 它不是推理控件,但它与 GPT-5 推理家族一同发布、更老的模型会拒绝它——故「有 effort 的那些模型」
+	// 是诚实的条件,而这个条件来自**目录**、不是来自一个我们还得不断修订的前缀。
+	//
+	// 无条件的 extra 会把 `verbosity` 挂到 gpt-4o 上,而那正是「选择器长出一个模型会拒绝的控件」的
+	// 方式(是能力测试逮到的,不是我)。
+	withEffort []Knob
+	// byPrefix is the escape hatch for a family whose controls the catalog does NOT fully declare,
+	// and there is exactly one: Anthropic's `thinking` enum takes different value sets per model
+	// (`adaptive/disabled` on the flagships, `adaptive/enabled/disabled` on 4.6, `enabled/disabled`
+	// elsewhere) and models.dev states none of them — it declares only the effort levels. Keeping a
+	// hand table for the half the catalog is silent about is the same rule as everywhere else, not
+	// an exception to it: we maintain what the catalog does not say, and nothing more.
+	// byPrefix 是「目录并未完整声明其控件」的家的逃生口,而这样的家**恰好只有一个**:Anthropic 的
+	// `thinking` 枚举**逐模型**取不同的值集(旗舰 `adaptive/disabled`、4.6 `adaptive/enabled/disabled`、
+	// 其余 `enabled/disabled`),而 models.dev 一个都没说——它只声明了 effort 档位。为目录**沉默的**那
+	// 一半留一张手表,与别处是**同一条规则**、不是它的例外:我们维护目录没说的东西,仅此而已。
+	byPrefix func(id string) []Knob
+}
+
+// knobsFromCatalog renders one model's declared controls through a dialect's spelling.
+//
+// knobsFromCatalog 把一个模型声明的控件,按某条方言的拼法渲出来。
+func (k knobSpelling) knobsFor(id string, rs []CatalogReasoning) []Knob {
+	if k.byPrefix != nil {
+		return k.byPrefix(id)
+	}
+	var out []Knob
+	for _, r := range rs {
+		switch r.Type {
+		case "effort":
+			if k.effort == "" || len(r.Values) == 0 {
+				continue
+			}
+			out = append(out, enumKnob(k.effort, "Reasoning effort", r.Values, k.effortDef))
+			out = append(out, k.withEffort...)
+		case "toggle":
+			if k.toggle == "" {
+				continue
+			}
+			if len(k.toggleVals) == 2 {
+				out = append(out, enumKnob(k.toggle, "Thinking", k.toggleVals, k.toggleDef))
+			} else {
+				out = append(out, boolKnob(k.toggle, "Thinking", k.toggleDef))
+			}
+		case "budget_tokens":
+			if k.budget == "" {
+				continue
+			}
+			out = append(out, intKnob(k.budget, "Thinking budget", ""))
+		}
+	}
+	return out
 }
 
 // partMask declares which ContentPart kinds a provider's BuildRequest can actually render on its

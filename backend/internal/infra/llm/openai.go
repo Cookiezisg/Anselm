@@ -30,7 +30,7 @@ func newOpenAIProvider() *compatProvider {
 			}
 		},
 		describe: func(raw string) ([]ModelInfo, error) {
-			return describeFromSpecs(catalogSpecs("openai", knobsByPrefix(openaiKnobRules)), raw, openaiWire), nil
+			return describeFromSpecs(catalogSpecs("openai", openaiKnobs), raw, openaiWire), nil
 		},
 	}}
 }
@@ -65,39 +65,20 @@ func openaiParts(m LLMMessage) (compatMessage, error) {
 
 // ── model catalog (static; OpenAI /v1/models returns ids only) ──────────────────
 
-// oaiKnobs builds the reasoning_effort + verbosity descriptors for a GPT-5-era model with the
-// given native effort set and default. o-series models get effort only (see openaiSpecs).
-//
-// oaiKnobs 为 GPT-5 代模型构造 reasoning_effort + verbosity 描述符（给定原生 effort 集与默认）。
-// o 系列只有 effort（见 openaiSpecs）。
-func oaiKnobs(effortDefault string, efforts ...string) []Knob {
-	return []Knob{
-		enumKnob("reasoning_effort", "Reasoning effort", efforts, effortDefault),
-		enumKnob("verbosity", "Verbosity", []string{"low", "medium", "high"}, "medium"),
-	}
-}
-
 // openaiWire: the OpenAI dialect renders text / image_url / file parts (see buildParts cases).
 //
 // openaiWire:OpenAI 方言渲 text / image_url / file 三种 part(见 buildParts 的 case)。
 var openaiWire = partMask{image: true, file: true}
 
-// openaiKnobRules keeps OpenAI's hand-written native knob surfaces (P4), most-specific prefix
-// first; capability numbers and modalities come from the models.dev catalog.
-//
-// openaiKnobRules 保留 OpenAI 手写原生旋钮面(P4),最具体前缀在前;能力数字与模态出自
-// models.dev 目录。
-var openaiKnobRules = []knobRule{
-	{"gpt-5.5", oaiKnobs("medium", "none", "low", "medium", "high", "xhigh")},
-	{"gpt-5.4-mini", oaiKnobs("none", "none", "low", "medium", "high", "xhigh")},
-	{"gpt-5.4", oaiKnobs("none", "none", "low", "medium", "high", "xhigh")},
-	{"gpt-5.1", oaiKnobs("none", "none", "low", "medium", "high")},
-	{"gpt-5", oaiKnobs("medium", "minimal", "low", "medium", "high")},
-	{"o3", []Knob{enumKnob("reasoning_effort", "Reasoning effort", []string{"low", "medium", "high"}, "medium")}},
-	{"o4", []Knob{enumKnob("reasoning_effort", "Reasoning effort", []string{"low", "medium", "high"}, "medium")}},
-}
-
 // DescribeModels parses OpenAI's id-only /v1/models body against the followed catalog; ids absent
 // from the catalog are skipped.
 //
 // DescribeModels 解析 OpenAI 仅含 id 的 /v1/models 返回,查 follow 目录;目录外 id 跳过。
+
+// describeOpenai parses OpenAI's id-only /v1/models body against the followed catalog; ids absent
+// from the catalog are skipped.
+//
+// describeOpenai 解析 OpenAI 仅含 id 的 /v1/models 返回,查 follow 目录;目录外 id 跳过。
+func describeOpenai(raw string) ([]ModelInfo, error) {
+	return describeFromSpecs(catalogSpecs("openai", openaiKnobs), raw, openaiWire), nil
+}

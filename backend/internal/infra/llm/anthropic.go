@@ -522,6 +522,12 @@ var anthropicWire = partMask{image: true, file: true}
 // anthropicKnobRules 保留 Anthropic 手写 thinking/effort 面(P4),最具体前缀在前:旗舰
 // (Opus 4.8/4.7)收 adaptive(+effort 含 xhigh);4.6 / Sonnet-4.6 增 enabled;其余 claude id
 // 回落 enabled/disabled 无 effort(即旧表裸 "claude" 行表达的通用规则)。数字/模态出自目录。
+// anthropicKnobSpelling keeps the hand table: models.dev declares Anthropic's EFFORT levels but not
+// its `thinking` value sets, and those differ per model. See knobSpelling.byPrefix.
+// anthropicKnobSpelling 保留手表:models.dev 声明了 Anthropic 的 **effort** 档位,却没声明它的
+// `thinking` 值集,而后者逐模型不同。见 knobSpelling.byPrefix。
+var anthropicKnobSpelling = knobSpelling{byPrefix: knobsByPrefix(anthropicKnobRules)}
+
 var anthropicKnobRules = []knobRule{
 	{"claude-opus-4-8", anthropicKnobs([]string{"adaptive", "disabled"}, []string{"low", "medium", "high", "xhigh", "max"})},
 	{"claude-opus-4-7", anthropicKnobs([]string{"adaptive", "disabled"}, []string{"low", "medium", "high", "xhigh", "max"})},
@@ -537,5 +543,5 @@ var anthropicKnobRules = []knobRule{
 // DescribeModels 解析 Anthropic /v1/models 的 id 列表查 follow 目录。载荷虽带能力字段,数值是
 // 文档占位,故窗口/输出以目录为准;旋钮仍手写。
 func (p *anthropicProvider) DescribeModels(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(catalogSpecs("anthropic", knobsByPrefix(anthropicKnobRules)), raw, anthropicWire), nil
+	return describeFromSpecs(catalogSpecs("anthropic", anthropicKnobSpelling), raw, anthropicWire), nil
 }

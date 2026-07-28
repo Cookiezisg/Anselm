@@ -90,13 +90,6 @@ func qwenAudioFormat(mediaType string) string {
 
 // ── model catalog (static; Qwen /models returns ids only) ───────────────────────
 
-func qwenThinkingKnobs() []Knob {
-	return []Knob{
-		boolKnob("enable_thinking", "Thinking", "false"),
-		intKnob("thinking_budget", "Thinking budget", ""),
-	}
-}
-
 // qwenWire: the Qwen compatible-mode dialect renders text / image_url / video_url / input_audio
 // parts. Which models actually read video/audio comes from the catalog modalities — this replaces
 // the old qwenNativeInputCaps patch function.
@@ -105,26 +98,9 @@ func qwenThinkingKnobs() []Knob {
 // video/audio 由目录模态决定——取代旧 qwenNativeInputCaps 补丁函数。
 var qwenWire = partMask{image: true, video: true, audio: true}
 
-// qwenKnobRules keeps Qwen's hand-written thinking surfaces (P4), most-specific prefix first:
-// the qwen3/qwen3.5/qwen3.7 lines and qwen-plus/flash/turbo control thinking by
-// enable_thinking+thinking_budget; qwen-max predates thinking. Catalog families outside these
-// rules carry no knobs (conservative, P4).
-//
-// qwenKnobRules 保留 Qwen 手写 thinking 面(P4),最具体前缀在前:qwen3/3.5/3.7 线与
-// qwen-plus/flash/turbo 靠 enable_thinking+thinking_budget 控思考;qwen-max 早于 thinking。
-// 规则外的目录族无旋钮(保守,P4)。
-var qwenKnobRules = []knobRule{
-	{"qwen3.7-plus", qwenThinkingKnobs()},
-	{"qwen3.5-plus", qwenThinkingKnobs()},
-	{"qwen3-max", qwenThinkingKnobs()},
-	{"qwen-plus", qwenThinkingKnobs()},
-	{"qwen-flash", qwenThinkingKnobs()},
-	{"qwen-turbo", qwenThinkingKnobs()},
-}
-
 // DescribeModels parses Qwen's id-only /models body against the followed catalog.
 //
 // DescribeModels 解析 Qwen 仅含 id 的 /models 返回,查 follow 目录。
 func describeQwen(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(catalogSpecs("qwen", knobsByPrefix(qwenKnobRules)), raw, qwenWire), nil
+	return describeFromSpecs(catalogSpecs("qwen", qwenKnobs), raw, qwenWire), nil
 }

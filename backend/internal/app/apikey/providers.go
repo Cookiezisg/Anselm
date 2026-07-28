@@ -1,6 +1,10 @@
 package apikey
 
-import "sort"
+import (
+	"sort"
+
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+)
 
 // ProviderCategory groups providers by integration kind (LLM vs search), for
 // display grouping only — no selection logic hangs off it (that's downstream).
@@ -49,39 +53,139 @@ type ProviderMeta struct {
 	Managed    bool             `json:"managed"`
 	TestMethod TestMethod       `json:"-"`
 	Category   ProviderCategory `json:"category"`
+	// Curated marks a provider this app ships a hand-written spec for (knob table, base URL, quirks
+	// written against its own docs). The ~160 others come straight from models.dev and are reached by
+	// the mechanical `npm` → dialect mapping: they work, but nothing here vouches for them, and the
+	// UI needs that distinction to tell「你的 key 不对」apart from「这家我们没试过」(WRK-085 §7).
+	// Curated 标记「本 app 手写过 spec」的家(旋钮表、base URL、怪癖照官方文档写)。另外约 160 家直接
+	// 来自 models.dev、由机械的 `npm` → 方言映射抵达:它们**能用**,但这里不为它们背书,而 UI 需要这个
+	// 区分才能把「你的 key 不对」与「这家我们没试过」分开(WRK-085 §7)。
+	Curated bool `json:"curated"`
+	// Dialect is the wire we would speak to it. A dialect this build cannot speak is refused at key
+	// creation with its own reason — never accepted and then failed at the last hop.
+	// Dialect 是我们要对它说的那条线缆。本构建说不了的方言在**建 key 时**以自己的理由被拒——绝不
+	// 先收下、再在最后一跳失败。
+	Dialect string `json:"dialect"`
 }
 
-var providers = map[string]ProviderMeta{
-	"openai":     {Name: "openai", DisplayName: "OpenAI", DefaultBaseURL: "https://api.openai.com/v1", TestMethod: TestMethodGetModels, Category: CategoryLLM},
-	"anthropic":  {Name: "anthropic", DisplayName: "Anthropic", DefaultBaseURL: "https://api.anthropic.com", TestMethod: TestMethodAnthropicModels, Category: CategoryLLM},
-	"google":     {Name: "google", DisplayName: "Google Gemini", DefaultBaseURL: "https://generativelanguage.googleapis.com/v1beta", TestMethod: TestMethodGoogleListModels, Category: CategoryLLM},
-	"deepseek":   {Name: "deepseek", DisplayName: "DeepSeek", DefaultBaseURL: "https://api.deepseek.com", TestMethod: TestMethodGetModels, Category: CategoryLLM},
-	"anselm":     {Name: "anselm", DisplayName: "Anselm Free", DefaultBaseURL: "https://api.anselm.website/v1", TestMethod: TestMethodGetModels, Category: CategoryLLM, Managed: true},
-	"openrouter": {Name: "openrouter", DisplayName: "OpenRouter", DefaultBaseURL: "https://openrouter.ai/api/v1", TestMethod: TestMethodGetModels, Category: CategoryLLM},
-	"qwen":       {Name: "qwen", DisplayName: "通义千问 (Alibaba Qwen)", DefaultBaseURL: "https://dashscope.aliyuncs.com/compatible-mode/v1", TestMethod: TestMethodGetModels, Category: CategoryLLM},
-	"zhipu":      {Name: "zhipu", DisplayName: "智谱 GLM", DefaultBaseURL: "https://open.bigmodel.cn/api/paas/v4", TestMethod: TestMethodGetModels, Category: CategoryLLM},
-	"moonshot":   {Name: "moonshot", DisplayName: "Moonshot Kimi", DefaultBaseURL: "https://api.moonshot.cn/v1", TestMethod: TestMethodGetModels, Category: CategoryLLM},
-	"ollama":     {Name: "ollama", DisplayName: "Ollama (local)", BaseURLRequired: true, TestMethod: TestMethodOllamaTags, Category: CategoryLLM},
-	"custom":     {Name: "custom", DisplayName: "Custom (OpenAI/Anthropic compatible)", BaseURLRequired: true, TestMethod: TestMethodCustom, Category: CategoryLLM},
-	"mock":       {Name: "mock", DisplayName: "Mock (dev)", TestMethod: TestMethodAlwaysOK, Category: CategoryLLM},
+// localProviders are the entries models.dev does NOT describe, and each is absent for a reason
+// rather than by omission:
+//
+//   - the four search providers — not LLM providers at all;
+//   - `ollama` — a LOCAL daemon, so there is no hosted service for a catalog to list (models.dev has
+//     `ollama-cloud` and `lmstudio`, which are different things);
+//   - `custom` — any endpoint the user names, which is by definition not in a registry;
+//   - `mock` — our own test fixture;
+//   - `anselm` — our own managed gateway.
+//
+// Everything else comes from the catalog. This map must not grow a row for a provider models.dev
+// already describes: that is precisely the hand-maintained table H12-c removed.
+//
+// localProviders 是 models.dev **不描述**的那些条目,而每一条的缺席都有理由、不是遗漏:
+//
+//   - 四个搜索家——根本不是 LLM 供应商;
+//   - `ollama`——**本地** daemon,没有可供目录收录的托管服务(models.dev 有 `ollama-cloud` 与
+//     `lmstudio`,那是别的东西);
+//   - `custom`——用户随手指名的任意端点,按定义不在任何注册表里;
+//   - `mock`——我们自己的测试设施;
+//   - `anselm`——我们自己的受管网关。
+//
+// 其余一律来自目录。**这张表不得为 models.dev 已经描述的家新增一行**——那正是 H12-c 拆掉的手工表。
+var localProviders = map[string]ProviderMeta{
+	"anselm": {Name: "anselm", DisplayName: "Anselm Free", DefaultBaseURL: "https://api.anselm.website/v1", TestMethod: TestMethodGetModels, Category: CategoryLLM, Managed: true, Curated: true, Dialect: string(llminfra.DialectOpenAICompat)},
+	"ollama": {Name: "ollama", DisplayName: "Ollama (local)", BaseURLRequired: true, TestMethod: TestMethodOllamaTags, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat)},
+	"custom": {Name: "custom", DisplayName: "Custom (OpenAI/Anthropic compatible)", BaseURLRequired: true, TestMethod: TestMethodCustom, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat)},
+	"mock":   {Name: "mock", DisplayName: "Mock (dev)", TestMethod: TestMethodAlwaysOK, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat)},
 
-	"brave":  {Name: "brave", DisplayName: "Brave Search", DefaultBaseURL: "https://api.search.brave.com/res/v1", TestMethod: TestMethodSearchPing, Category: CategorySearch},
-	"serper": {Name: "serper", DisplayName: "Serper.dev (Google search)", DefaultBaseURL: "https://google.serper.dev", TestMethod: TestMethodSearchPing, Category: CategorySearch},
-	"tavily": {Name: "tavily", DisplayName: "Tavily (AI-tuned search)", DefaultBaseURL: "https://api.tavily.com", TestMethod: TestMethodSearchPing, Category: CategorySearch},
-	"bocha":  {Name: "bocha", DisplayName: "博查 Bocha (CN search)", DefaultBaseURL: "https://api.bochaai.com/v1", TestMethod: TestMethodSearchPing, Category: CategorySearch},
+	"brave":  {Name: "brave", DisplayName: "Brave Search", DefaultBaseURL: "https://api.search.brave.com/res/v1", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true},
+	"serper": {Name: "serper", DisplayName: "Serper.dev (Google search)", DefaultBaseURL: "https://google.serper.dev", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true},
+	"tavily": {Name: "tavily", DisplayName: "Tavily (AI-tuned search)", DefaultBaseURL: "https://api.tavily.com", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true},
+	"bocha":  {Name: "bocha", DisplayName: "博查 Bocha (CN search)", DefaultBaseURL: "https://api.bochaai.com/v1", TestMethod: TestMethodSearchPing, Category: CategorySearch, Curated: true},
+}
+
+// knownBaseURLs is the FALLBACK prefill for providers models.dev names but gives no `api` for — and
+// that is 24 of the 173, including openai, anthropic, google, azure, bedrock, cohere, xai and groq,
+// because their SDK hard-codes the URL instead of publishing it.
+//
+// **This is not the table H12-c deleted.** That one decided which providers existed; this one only
+// answers「what do we prefill when the catalog says nothing」, and every value here is still just a
+// prefill the user can overwrite. A provider absent from both the catalog's `api` and this map
+// simply requires the user to supply one — and the auth-failure message points at that field
+// (WRK-085 §7), because nobody can maintain a list of「哪几家要自己填」.
+//
+// knownBaseURLs 是「models.dev 收录了、却不给 `api`」那些家的**兜底**预填——而那是 173 家里的 24 家,
+// 含 openai/anthropic/google/azure/bedrock/cohere/xai/groq,因为它们的 SDK 把 URL 写死在自己里面、
+// 不对外公布。
+//
+// **它不是 H12-c 删掉的那张表。** 那张表决定**哪些 provider 存在**;这张只回答「目录什么都没说时预填
+// 什么」,而这里每一个值仍然只是一个**用户可以覆盖**的预填。目录 `api` 与本表都没有的家,就要求用户
+// 自己填——而鉴权失败的消息会**指向那一栏**(WRK-085 §7),因为没有人维护得了一张「哪几家要自己填」的名单。
+var knownBaseURLs = map[string]string{
+	"openai":    "https://api.openai.com/v1",
+	"anthropic": "https://api.anthropic.com",
+	"google":    "https://generativelanguage.googleapis.com/v1beta",
+}
+
+// testMethodFor picks how to knock on a provider's door from its dialect — the same fact that
+// decides how we talk to it decides how we probe it.
+//
+// testMethodFor 按方言决定怎么敲这家的门——决定我们**怎么跟它说话**的那个事实,同时决定**怎么探测**它。
+func testMethodFor(d llminfra.Dialect) TestMethod {
+	switch d {
+	case llminfra.DialectAnthropic:
+		return TestMethodAnthropicModels
+	case llminfra.DialectGoogle:
+		return TestMethodGoogleListModels
+	default:
+		return TestMethodGetModels
+	}
+}
+
+// catalogMeta projects one catalog provider into the metadata apikey needs.
+//
+// catalogMeta 把一家目录 provider 投影成 apikey 需要的元数据。
+func catalogMeta(p llminfra.ProviderInfo) ProviderMeta {
+	base := p.BaseURL
+	if base == "" {
+		base = knownBaseURLs[p.ID]
+	}
+	return ProviderMeta{
+		Name:            p.ID,
+		DisplayName:     p.Name,
+		DefaultBaseURL:  base,
+		BaseURLRequired: base == "",
+		TestMethod:      testMethodFor(p.Dialect),
+		Category:        CategoryLLM,
+		Curated:         p.Curated,
+		Dialect:         string(p.Dialect),
+	}
 }
 
 // GetProviderMeta returns provider metadata; ok=false if not whitelisted.
 //
 // GetProviderMeta 返回 provider 元数据；不在白名单时 ok=false。
 func GetProviderMeta(name string) (ProviderMeta, bool) {
-	m, ok := providers[name]
-	return m, ok
+	if m, ok := localProviders[name]; ok {
+		return m, true
+	}
+	if p, ok := llminfra.CatalogProvider(name); ok {
+		return catalogMeta(p), true
+	}
+	return ProviderMeta{}, false
 }
 
+// isValidProvider accepts a provider we can actually REACH. A catalog provider on a dialect this
+// build does not speak is refused HERE, at key creation, with its own reason — the honest-absence
+// law applied to providers: 功能诚实地不出现,而非调用后失败.
+//
+// isValidProvider 只接受我们**真的够得着**的 provider。落在本构建说不了的方言上的目录 provider 在
+// **这里**、在建 key 时被拒并说明理由——诚实缺席律用在 provider 上:绝不「先收下、调了才失败」。
 func isValidProvider(name string) bool {
-	_, ok := providers[name]
-	return ok
+	if _, ok := localProviders[name]; ok {
+		return true
+	}
+	p, ok := llminfra.CatalogProvider(name)
+	return ok && p.Dialect.Speakable()
 }
 
 // ListProviders returns the supported providers, sorted by name for a stable response (the
@@ -93,12 +197,24 @@ func isValidProvider(name string) bool {
 // 测试设施、非产品 provider——非 dev 从**目录**滤除(S-5),但仍可用于建 key(testend 不带 ANSELM_DEV
 // 也要 POST mock key;只是用户可见的下拉不得出现它)。
 func ListProviders(dev bool) []ProviderMeta {
-	out := make([]ProviderMeta, 0, len(providers))
-	for _, m := range providers {
+	cat := llminfra.CatalogProviders()
+	out := make([]ProviderMeta, 0, len(localProviders)+len(cat))
+	for _, m := range localProviders {
 		if m.Name == "mock" && !dev {
 			continue
 		}
 		out = append(out, m)
+	}
+	for _, p := range cat {
+		// A dialect we cannot speak is not offered. Listing it would be an invitation to a failure
+		// we already know about. 说不了的方言不摆出来——摆出来等于邀请一次我们**早就知道**的失败。
+		if !p.Dialect.Speakable() {
+			continue
+		}
+		if _, local := localProviders[p.ID]; local {
+			continue
+		}
+		out = append(out, catalogMeta(p))
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i].Name < out[j].Name })
 	return out

@@ -109,13 +109,6 @@ func openAICompatibleAudioFormat(mediaType string) string {
 
 // ── model catalog (static; DeepSeek /models returns ids only) ───────────────────
 
-func dsKnobs() []Knob {
-	return []Knob{
-		enumKnob("thinking", "Thinking", []string{"enabled", "disabled"}, "enabled"),
-		enumKnob("reasoning_effort", "Reasoning effort", []string{"high", "max"}, "high"),
-	}
-}
-
 // deepseekWire: the DeepSeek dialect renders text / image_url / video_url / input_audio parts
 // (dsContentPart fields). Whether a given model reads them comes from the catalog modalities.
 //
@@ -123,14 +116,9 @@ func dsKnobs() []Knob {
 // 某个模型读不读它们由目录模态决定。
 var deepseekWire = partMask{image: true, video: true, audio: true}
 
-// deepseekKnobRules: the whole DeepSeek line controls thinking by request params (P4).
+// describeDeepseek parses DeepSeek's id-only /models body against the followed catalog.
 //
-// deepseekKnobRules:DeepSeek 全线靠请求参数控思考(P4)。
-var deepseekKnobRules = []knobRule{{"deepseek", dsKnobs()}}
-
-// DescribeModels parses DeepSeek's id-only /models body against the followed catalog.
-//
-// DescribeModels 解析 DeepSeek 仅含 id 的 /models 返回,查 follow 目录。
+// describeDeepseek 解析 DeepSeek 仅含 id 的 /models 返回,查 follow 目录。
 func describeDeepseek(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(catalogSpecs("deepseek", knobsByPrefix(deepseekKnobRules)), raw, deepseekWire), nil
+	return describeFromSpecs(catalogSpecs("deepseek", deepseekKnobs), raw, deepseekWire), nil
 }

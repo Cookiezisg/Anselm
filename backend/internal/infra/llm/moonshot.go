@@ -24,10 +24,6 @@ func newMoonshotProvider() *compatProvider {
 
 // ── model catalog (static; Moonshot /models is richer but a static catalog suffices here) ──
 
-func moonshotThinkingKnobs() []Knob {
-	return []Knob{enumKnob("thinking", "Thinking", []string{"enabled", "disabled"}, "enabled")}
-}
-
 // moonshotWire: the Moonshot dialect renders text / image_url parts only — a catalog model
 // listing video input (kimi-k2.6) still projects Video=false until the dialect carries it.
 //
@@ -35,17 +31,9 @@ func moonshotThinkingKnobs() []Knob {
 // 在方言能承载之前仍投影 Video=false。
 var moonshotWire = partMask{image: true}
 
-// moonshotKnobRules: only kimi-k2.6/k2.5 expose the thinking toggle (P4).
-//
-// moonshotKnobRules:仅 kimi-k2.6/k2.5 有 thinking 开关(P4)。
-var moonshotKnobRules = []knobRule{
-	{"kimi-k2.6", moonshotThinkingKnobs()},
-	{"kimi-k2.5", moonshotThinkingKnobs()},
-}
-
 // DescribeModels parses Moonshot's /models body against the followed catalog.
 //
 // DescribeModels 解析 Moonshot /models 返回,查 follow 目录。
 func describeMoonshot(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(catalogSpecs("moonshot", knobsByPrefix(moonshotKnobRules)), raw, moonshotWire), nil
+	return describeFromSpecs(catalogSpecs("moonshot", moonshotKnobs), raw, moonshotWire), nil
 }

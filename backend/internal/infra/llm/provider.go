@@ -149,6 +149,16 @@ func lookupProvider(cfg Config) Provider {
 	if p, ok := providerRegistry[cfg.Provider]; ok {
 		return p
 	}
+	// The long tail: any of the ~160 catalog providers this build has no hand-written spec for gets
+	// one synthesized from its `npm` dialect. Falling through to OpenAI as before would have been a
+	// guess with no evidence behind it; this is a guess with the catalog behind it, and the app
+	// layer already refused the key if the dialect were one we cannot speak.
+	// 长尾:约 160 家本构建没有手写 spec 的目录 provider,由它的 `npm` 方言**合成**一个。像从前那样
+	// 一路跌到 OpenAI,是一个背后什么证据都没有的猜测;这个猜测背后有目录,而且方言若是我们说不了的
+	// 那种,app 层在建 key 时就已经拒过了。
+	if p, ok := catalogSynthesized(cfg.Provider); ok {
+		return p
+	}
 	return providerRegistry["openai"]
 }
 

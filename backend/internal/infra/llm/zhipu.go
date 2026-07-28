@@ -27,29 +27,14 @@ func newZhipuProvider() *compatProvider {
 
 // ── model catalog (static; Zhipu /models returns ids only) ──────────────────────
 
-func zhipuThinkingKnobs() []Knob {
-	return []Knob{enumKnob("thinking", "Thinking", []string{"enabled", "disabled"}, "enabled")}
-}
-
 // zhipuWire: the Zhipu dialect renders text / image_url parts only.
 //
 // zhipuWire:智谱方言只渲 text / image_url。
 var zhipuWire = partMask{image: true}
 
-// zhipuKnobRules: GLM-4.5+ lines expose the thinking knob (P4); the same prefixes cover the
-// air/flash/v variants the catalog carries.
-//
-// zhipuKnobRules:GLM-4.5+ 线有 thinking 旋钮(P4);同前缀覆盖目录里的 air/flash/v 变体。
-var zhipuKnobRules = []knobRule{
-	{"glm-5", zhipuThinkingKnobs()},
-	{"glm-4.7", zhipuThinkingKnobs()},
-	{"glm-4.6", zhipuThinkingKnobs()},
-	{"glm-4.5", zhipuThinkingKnobs()},
-}
-
 // DescribeModels parses Zhipu's id-only /models body against the followed catalog.
 //
 // DescribeModels 解析智谱仅含 id 的 /models 返回,查 follow 目录。
 func describeZhipu(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(catalogSpecs("zhipu", knobsByPrefix(zhipuKnobRules)), raw, zhipuWire), nil
+	return describeFromSpecs(catalogSpecs("zhipu", zhipuKnobs), raw, zhipuWire), nil
 }

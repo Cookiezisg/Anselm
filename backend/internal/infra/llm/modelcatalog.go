@@ -33,6 +33,23 @@ type CatalogModel struct {
 	Out    []string `json:"out"`
 	Ctx    int      `json:"ctx"`
 	MaxOut int      `json:"maxOut"`
+	// Reasoning is the model's OWN declaration of which thinking controls it has: an effort enum, an
+	// on/off toggle, a token budget, or several. It replaced a hand-written prefix table that guessed
+	// by model-id ("everything starting with gpt-5"), and the difference matters twice over: the
+	// catalog states it PER MODEL, and it states it for 3744 models rather than for the eight
+	// families we happened to write down.
+	//
+	// What the catalog does NOT say is what the control is CALLED on the wire — `reasoning_effort`
+	// vs `thinking` vs `enable_thinking` — and that is exactly the「方言实现」half we keep
+	// (WRK-085 §3): the catalog describes the model, we know how to say it.
+	//
+	// Reasoning 是模型**自己声明**的思考控件:一个 effort 枚举、一个开关、一个 token 预算,或者几个
+	// 同时有。它取代了一张按 model-id 前缀**猜**的手写表(「gpt-5 开头的都算」),而差别有两重:目录是
+	// **逐模型**说的,而且它为 3744 个模型说,不是只为我们碰巧写下来的那八家。
+	//
+	// 目录**不说**的是这个控件在**线缆上叫什么**——`reasoning_effort` / `thinking` / `enable_thinking`
+	// ——而那恰是我们保留的「方言实现」那一半(WRK-085 §3):**目录描述模型,我们知道怎么把它说出来。**
+	Reasoning []CatalogReasoning `json:"reasoning,omitempty"`
 	// Tools reports whether the model can call tools — i.e. whether it can drive the agent runtime
 	// at all. A model without it is a perfectly good CHAT model and a useless AGENT, and those are
 	// two different facts about the same row; see the trim predicate for why it is carried rather
@@ -43,7 +60,20 @@ type CatalogModel struct {
 	Tools bool `json:"tools"`
 }
 
-// CatalogProvider is one upstream provider as models.dev describes it. The three provider-level
+// CatalogReasoning is one thinking control a model declares, in the catalog's own vocabulary:
+// `effort` (an enum of named levels), `toggle` (on/off), or `budget_tokens` (an integer, sometimes
+// bounded).
+//
+// CatalogReasoning 是模型声明的一个思考控件,用目录自己的词表:`effort`(具名档位枚举)、
+// `toggle`(开关)、`budget_tokens`(整数,有时带上下界)。
+type CatalogReasoning struct {
+	Type   string   `json:"type"`
+	Values []string `json:"values,omitempty"`
+	Min    int      `json:"min,omitempty"`
+	Max    int      `json:"max,omitempty"`
+}
+
+// catalogEntry is one upstream provider as models.dev describes it. The three provider-level
 // fields are exactly the three things we stopped hand-maintaining (H12-c):
 //
 //   - Name — what to call it in the picker.
@@ -55,7 +85,7 @@ type CatalogModel struct {
 //     reason a prefill can never be「just read the catalog」: 149 of 173 declare one, and the 24 that
 //     do not are the ones most people start with.
 //
-// CatalogProvider 是 models.dev 描述的一家上游。三个 provider 级字段恰是我们停止手工维护的三样(H12-c):
+// catalogEntry 是 models.dev 描述的一家上游。三个 provider 级字段恰是我们停止手工维护的三样(H12-c):
 //
 //   - Name——选择器里叫它什么。
 //   - NPM——SDK **包名**,它是我们的**方言线索**、**不是**线缆协议。173 家里 137 家发
@@ -64,7 +94,7 @@ type CatalogModel struct {
 //   - API——base URL,而它对多数一方供应商(openai/anthropic/google/azure/bedrock/cohere/xai/groq…)
 //     **是空的**,因为那些 SDK 把它写死在自己里面。这个缺席正是「预填不可能只是读目录」的全部理由:
 //     173 家里 149 家声明了它,而**没声明的那 24 家恰恰是大多数人一上来就用的**。
-type CatalogProvider struct {
+type catalogEntry struct {
 	Name   string                  `json:"name"`
 	NPM    string                  `json:"npm"`
 	API    string                  `json:"api"`
@@ -79,8 +109,8 @@ type CatalogProvider struct {
 // (qwen / zhipu / moonshot)经 [catalogProviderMap] 抵达它;其余约 167 家按上游 id 寻址——因为我们
 // **没有**自己的名字给它们。
 type ModelCatalog struct {
-	Source    string                     `json:"source"`
-	Providers map[string]CatalogProvider `json:"providers"`
+	Source    string                  `json:"source"`
+	Providers map[string]catalogEntry `json:"providers"`
 }
 
 // catalogProviderMap renames the handful of providers this app knew before it followed the whole
@@ -212,7 +242,13 @@ func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 		NPM    string `json:"npm"`
 		API    string `json:"api"`
 		Models map[string]struct {
-			ToolCall   bool `json:"tool_call"`
+			ToolCall         bool `json:"tool_call"`
+			ReasoningOptions []struct {
+				Type   string   `json:"type"`
+				Values []string `json:"values"`
+				Min    int      `json:"min"`
+				Max    int      `json:"max"`
+			} `json:"reasoning_options"`
 			Modalities struct {
 				Input  []string `json:"input"`
 				Output []string `json:"output"`
@@ -228,7 +264,7 @@ func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 	}
 	out := &ModelCatalog{
 		Source:    "https://models.dev/api.json",
-		Providers: make(map[string]CatalogProvider, len(upstream)),
+		Providers: make(map[string]catalogEntry, len(upstream)),
 	}
 	for theirs, prov := range upstream {
 		models := make(map[string]CatalogModel, len(prov.Models))
@@ -236,13 +272,19 @@ func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 			if !hasModality(m.Modalities.Output, "text") || strings.Contains(id, "realtime") || m.Limit.Context <= 0 {
 				continue
 			}
-			models[id] = CatalogModel{
+			cm := CatalogModel{
 				In:     append([]string(nil), m.Modalities.Input...),
 				Out:    append([]string(nil), m.Modalities.Output...),
 				Ctx:    m.Limit.Context,
 				MaxOut: m.Limit.Output,
 				Tools:  m.ToolCall,
 			}
+			for _, r := range m.ReasoningOptions {
+				cm.Reasoning = append(cm.Reasoning, CatalogReasoning{
+					Type: r.Type, Values: append([]string(nil), r.Values...), Min: r.Min, Max: r.Max,
+				})
+			}
+			models[id] = cm
 		}
 		// A provider whose every model failed the predicate is not carried: an entry with no usable
 		// model is a name in a picker that leads nowhere.
@@ -254,7 +296,7 @@ func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 		if name == "" {
 			name = theirs
 		}
-		out.Providers[theirs] = CatalogProvider{Name: name, NPM: prov.NPM, API: prov.API, Models: models}
+		out.Providers[theirs] = catalogEntry{Name: name, NPM: prov.NPM, API: prov.API, Models: models}
 	}
 	for _, theirs := range catalogRequired {
 		if _, ok := out.Providers[theirs]; !ok {
@@ -301,16 +343,13 @@ func hasModality(list []string, want string) bool {
 //
 // catalogSpecs 从活动目录构建该家的 modelSpec 列表:每个目录模型一条(id 兼作匹配前缀——带日期
 // 变体命中族条目),按前缀长度降序排(保住 matchSpec 的优先规则),旋钮由该家手写规则挂上(P4)。
-func catalogSpecs(provider string, knobsFor func(id string) []Knob) []modelSpec {
+func catalogSpecs(provider string, spelling knobSpelling) []modelSpec {
 	cat := currentCatalog.Load()
 	models := cat.Providers[catalogKey(provider)].Models
 	specs := make([]modelSpec, 0, len(models))
 	for id, m := range models {
-		var knobs []Knob
-		if knobsFor != nil {
-			knobs = knobsFor(id)
-		}
-		specs = append(specs, modelSpec{prefix: id, ctx: m.Ctx, out: m.MaxOut, knobs: knobs, in: m.In, outMod: m.Out, tools: m.Tools})
+		knobs := spelling.knobsFor(id, m.Reasoning)
+		specs = append(specs, modelSpec{prefix: id, ctx: m.Ctx, out: m.MaxOut, knobs: knobs, in: m.In, outMod: m.Out, tools: m.Tools, reasoning: m.Reasoning})
 	}
 	sort.Slice(specs, func(i, j int) bool {
 		if len(specs[i].prefix) != len(specs[j].prefix) {
