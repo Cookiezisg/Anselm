@@ -12,6 +12,9 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -32,6 +35,23 @@ var liveManagedPNG = func() []byte {
 		panic(err)
 	}
 	return b
+}()
+
+// liveManagedAnimationPNG is deliberately larger than the ordinary vision fixture. Video
+// providers commonly impose a minimum first-frame geometry even when their chat vision route
+// accepts tiny images; 512×512 keeps this writer acceptance inside that envelope.
+var liveManagedAnimationPNG = func() []byte {
+	img := image.NewRGBA(image.Rect(0, 0, 512, 512))
+	for y := 0; y < 512; y++ {
+		for x := 0; x < 512; x++ {
+			img.SetRGBA(x, y, color.RGBA{R: uint8(40 + x/4), G: uint8(90 + y/4), B: 180, A: 255})
+		}
+	}
+	var buf bytes.Buffer
+	if err := png.Encode(&buf, img); err != nil {
+		panic(err)
+	}
+	return buf.Bytes()
 }()
 
 func liveManagedWorkspace(t *testing.T, name string) *harness.Client {
@@ -270,7 +290,7 @@ func TestLiveManaged_GenerateVideoArtifact(t *testing.T) {
 func TestLiveManaged_AnimateImageArtifact(t *testing.T) {
 	wc := liveManagedWorkspace(t, "live-managed-image-animation")
 	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
-	sourceID := uploadAtt(t, wc, "first-frame.png", "image/png", liveManagedPNG)
+	sourceID := uploadAtt(t, wc, "first-frame.png", "image/png", liveManagedAnimationPNG)
 	conv := convCreate(t, wc, "managed image animation")
 	msg := sendWith(t, wc, conv, map[string]any{
 		"content":       fmt.Sprintf("请调用 animate_image 恰好一次，把附件 %s 作为首帧生成一段 5 秒视频：镜头缓慢向前推进。先等待危险操作审批，批准后不要再次调用工具，只用一句简短中文确认。", sourceID),
@@ -312,6 +332,62 @@ func TestLiveManaged_AnimateImageArtifact(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("managed image-animation turn produced %d animate_image receipts, want exactly one", count)
+	}
+}
+
+// TestLiveManaged_AnimateImageArtifactTextOnly isolates the managed animation writer from the
+// image-plus-tools fusion sentinel above: the source is still a real uploaded image, but the
+// model-facing turn carries only its attachment id in text. A pass here proves the API Serve
+// async animation route and source lineage independently of the currently blocked multimodal
+// tool-call request shape.
+func TestLiveManaged_AnimateImageArtifactTextOnly(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-image-animation-text-only")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	sourceID := uploadAtt(t, wc, "first-frame.png", "image/png", liveManagedAnimationPNG)
+	conv := convCreate(t, wc, "managed image animation text only")
+	msg := sendMsg(t, wc, conv, fmt.Sprintf("请调用 animate_image 恰好一次，把附件 %s 作为首帧生成一段 5 秒视频：镜头缓慢向前推进。先等待危险操作审批，批准后不要再次调用工具，只用一句简短中文确认。", sourceID))
+	var pending []struct {
+		ToolCallID string `json:"toolCallId"`
+		Kind       string `json:"kind"`
+		Tool       string `json:"tool"`
+	}
+	harness.Eventually(t, 60000, "text-only animate_image asks for dangerous approval", func() bool {
+		pending = nil
+		wc.GET("/api/v1/conversations/"+conv+"/interactions").OK(t, &pending)
+		return len(pending) == 1
+	})
+	if pending[0].Kind != "danger" || pending[0].Tool != "animate_image" {
+		t.Fatalf("text-only animate_image must pause at its danger gate: %+v", pending[0])
+	}
+	wc.POST("/api/v1/conversations/"+conv+"/interactions/"+pending[0].ToolCallID,
+		map[string]any{"action": "approve"}).OK(t, nil)
+	turn := waitTurn(t, wc, conv, msg, 360000)
+	if turn.Status != "completed" {
+		toolResultCount := 0
+		for _, block := range turn.Blocks {
+			if block.Type == "tool_result" {
+				toolResultCount++
+			}
+		}
+		t.Fatalf("text-only managed image-animation turn must complete: status=%s code=%s message=%s toolResultCount=%d", turn.Status, turn.ErrorCode, turn.ErrorMessage, toolResultCount)
+	}
+	outID := attachmentFrom(t, turn, "animate_image")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+outID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsMP4(content.Raw) || len(content.Raw) < 10000 {
+		t.Fatalf("text-only managed image-animation artifact must be real MP4: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	count := 0
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"animate_image"`) {
+			count++
+			if !strings.Contains(block.Content, `"provider":"anselm"`) ||
+				!strings.Contains(block.Content, `"sourceAttachmentId":"`+sourceID+`"`) {
+				t.Fatalf("text-only managed image-animation receipt must name anselm and preserve its source: %s", block.Content)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("text-only managed image-animation turn produced %d animate_image receipts, want exactly one", count)
 	}
 }
 

@@ -177,7 +177,7 @@ func TestModelInfoLookup_WindowAndCaps(t *testing.T) {
 	}
 }
 
-func TestChatResolver_ManagedGatewayStagesMediaWithoutInlineEnvelope(t *testing.T) {
+func TestChatResolver_ManagedGatewayKeepsInlineEnvelopeForLeasedMedia(t *testing.T) {
 	lookup := NewModelInfoLookup(fakeCaps{})
 	resolver := chatResolver{
 		core: &modelResolver{
@@ -197,7 +197,7 @@ func TestChatResolver_ManagedGatewayStagesMediaWithoutInlineEnvelope(t *testing.
 		b.Caps.ManagedGateway.InstallID != "ins_test" {
 		t.Fatalf("managed media target = %+v", b.Caps.ManagedGateway)
 	}
-	if b.Caps.MaxMediaParts != 0 || b.Caps.MaxMediaBytes != 0 {
-		t.Fatalf("remote media must not inherit inline envelope: %+v", b.Caps)
+	if b.Caps.MaxMediaParts != 8 || b.Caps.MaxMediaBytes != 3<<20 {
+		t.Fatalf("managed media must retain gateway inline envelope: %+v", b.Caps)
 	}
 }

@@ -178,13 +178,24 @@ func SubmitVideoAnselm(ctx context.Context, httpc *http.Client, baseURL, install
 	if req.DurationSec < 2 || req.DurationSec > VideoMaxDuration("anselm") {
 		return VideoJob{}, fmt.Errorf("%w: duration must be 2-%d seconds", ErrVideoGenFailed, VideoMaxDuration("anselm"))
 	}
-	body, _ := json.Marshal(map[string]any{
+	payload := map[string]any{
 		"prompt":     req.Prompt,
 		"seconds":    req.DurationSec,
 		"aspect":     anselmAspect(req.Aspect),
 		"resolution": anselmResolution(req.Resolution),
-	})
-	httpReq, err := newVideoRequest(ctx, strings.TrimRight(baseURL, "/")+"/videos/generations", body)
+	}
+	endpoint := "/videos/generations"
+	if req.FirstFrame != nil {
+		// H9 has a distinct managed route and request shape. Sending the first frame to the text
+		// route silently discards the user's source and makes animate_image look like a successful
+		// text-to-video call until the provider rejects the incomplete intent.
+		// H9 的受管路由与请求形状是独立的。把首帧送到文生视频路由会静默丢掉用户源图，让
+		// animate_image 看起来像一次成功的文生视频，直到上游因意图不完整而拒绝。
+		payload["image"] = req.FirstFrame.String()
+		endpoint = "/videos/animations"
+	}
+	body, _ := json.Marshal(payload)
+	httpReq, err := newVideoRequest(ctx, strings.TrimRight(baseURL, "/")+endpoint, body)
 	if err != nil {
 		return VideoJob{}, err
 	}
