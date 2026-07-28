@@ -9,8 +9,11 @@
 package scenarios
 
 import (
+	"bytes"
 	"encoding/base64"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -124,6 +127,90 @@ func TestLiveManaged_DefaultChatWithImageAttachment(t *testing.T) {
 	}
 	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || len(got.Raw) != len(liveManagedPNG) {
 		t.Fatalf("uploaded image must survive the managed multimodal turn: HTTP %d, %d bytes", got.Status, len(got.Raw))
+	}
+}
+
+// managedShortVideoFixture uses the canonical, SHA-verified multimodal fixture rather than a
+// made-up ftyp header. A caller may reuse EVALS_FIXTURE_DIR, otherwise this opt-in test materializes
+// the fixture into its own temporary directory; the materializer fails loudly if the pinned source
+// drifts or ffmpeg cannot derive the rest of the fixture set.
+func managedShortVideoFixture(t *testing.T) []byte {
+	t.Helper()
+	if dir := strings.TrimSpace(os.Getenv("EVALS_FIXTURE_DIR")); dir != "" {
+		data, err := os.ReadFile(filepath.Join(dir, "short.mp4"))
+		if err != nil {
+			t.Fatalf("read short.mp4 from EVALS_FIXTURE_DIR: %v", err)
+		}
+		return data
+	}
+	root := ""
+	wd, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	for dir := wd; ; dir = filepath.Dir(dir) {
+		if _, err := os.Stat(filepath.Join(dir, "fixtures", "cmd", "materialize", "main.go")); err == nil {
+			root = dir
+			break
+		}
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			t.Fatal("could not locate testend fixture materializer")
+		}
+	}
+	out := t.TempDir()
+	cmd := exec.Command("go", "run", "./fixtures/cmd/materialize", "-out", out)
+	cmd.Dir = root
+	if logs, err := cmd.CombinedOutput(); err != nil {
+		t.Fatalf("materialize managed video fixture: %v\n%s", err, strings.TrimSpace(string(logs)))
+	}
+	data, err := os.ReadFile(filepath.Join(out, "short.mp4"))
+	if err != nil {
+		t.Fatalf("read materialized short.mp4: %v", err)
+	}
+	return data
+}
+
+// TestLiveManaged_DefaultChatWithVideoAttachment is the managed MP4 counterpart to the image
+// acceptance: upload → short-lived device-proof media lease → deployed gateway's video route →
+// durable turn. It checks route capability and byte-preserving product state; it deliberately does
+// not confuse a model's text response with proof of visual understanding.
+func TestLiveManaged_DefaultChatWithVideoAttachment(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-video-input")
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Video    bool   `json:"video"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	video := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			video = cap.Video
+			break
+		}
+	}
+	if !video {
+		t.Fatalf("managed default must advertise MP4 input before accepting a video attachment: %+v", caps)
+	}
+
+	clip := managedShortVideoFixture(t)
+	if !bytes2IsMP4(clip) || len(clip) > 3*1024*1024 {
+		t.Fatalf("managed MP4 fixture must be valid and within the published 3MiB decoded budget: %d bytes", len(clip))
+	}
+	attID := uploadAtt(t, wc, "short.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "managed video input")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认请求已收到。不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed video-input chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, clip) {
+		t.Fatalf("uploaded MP4 must survive the managed multimodal turn: HTTP %d, %d bytes", content.Status, len(content.Raw))
 	}
 }
 

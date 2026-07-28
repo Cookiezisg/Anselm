@@ -24,6 +24,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-007 | 静态多模态夹具把 CRC 损坏的字节称作“合法 PNG”；mock 从不解码而掩盖问题，真实受管视觉路由会被上游拒绝 | testend mock / 媒体回归 | `TestLiveManaged_DefaultChatWithImageAttachment` 先红；`TestMockPNGDecodes` 守 decoder-valid fixture；32×32 真图重跑通过 | 当前提交 |
 | 2026-07-29 | EVO-008 | BYOK 视觉输入可在不借用受管 fallback 的情况下走完真实 key 创建、probe、目录能力、默认模型、附件与对话；它证明真实 provider 接受产品请求，不把模型文案误当像素语义证据 | BYOK read / OpenAI-compatible visual input | `EVALS_BYOK=1` + `OPENAI_API_KEY` 的 `TestLiveBYOK_OpenAIImageInput`；harness 默认关闭 gateway，附件字节与 durable turn 双侧断言 | 当前提交 |
 | 2026-07-29 | EVO-009 | 混合路径可以让 BYOK 对话模型调度、但由 Anselm 受管路由出图；默认图像场景仍指向 managed key，receipt 标明 `anselm`，一次受限回合只铸一件真实图片 | hybrid / BYOK planner + managed writer | `EVALS_HYBRID=1 EVALS_MANAGED=1` + `OPENAI_API_KEY` 的 `TestLiveHybrid_OpenAIPlansManagedImage`；受管 route、tool receipt、一次调用和产物字节均断言 | 当前提交 |
+| 2026-07-29 | EVO-010 | 默认受管 MP4 输入可走完上传、device-proof staging/lease、部署网关与 durable 对话；规范短片未越过网关发布的 3MiB 解码预算，附件字节保持不变 | managed read / video input | `EVALS_MANAGED=1` 的 `TestLiveManaged_DefaultChatWithVideoAttachment`；SHA 校验 fixture、能力投影、回合终态与附件逐字节回读 | 当前提交 |
 
 ## 追加格式
 
