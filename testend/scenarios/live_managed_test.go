@@ -11,6 +11,7 @@ package scenarios
 import (
 	"bytes"
 	"encoding/base64"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -258,6 +259,59 @@ func TestLiveManaged_GenerateVideoArtifact(t *testing.T) {
 	}
 	if count != 1 {
 		t.Fatalf("managed video-generation turn produced %d generate_video receipts, want exactly one", count)
+	}
+}
+
+// TestLiveManaged_AnimateImageArtifact is the managed image-to-video regression sentinel: an
+// existing user attachment is supplied as the first frame while the model also receives the
+// capability tools. The expected product seam is a dangerous-operation gate followed by one MP4
+// receipt; a provider/gateway rejection before that gate must stay visible as a live failure rather
+// than being mistaken for a successful text-only animation path.
+func TestLiveManaged_AnimateImageArtifact(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-image-animation")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	sourceID := uploadAtt(t, wc, "first-frame.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed image animation")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       fmt.Sprintf("请调用 animate_image 恰好一次，把附件 %s 作为首帧生成一段 5 秒视频：镜头缓慢向前推进。先等待危险操作审批，批准后不要再次调用工具，只用一句简短中文确认。", sourceID),
+		"attachmentIds": []string{sourceID},
+	})
+	var pending []struct {
+		ToolCallID string `json:"toolCallId"`
+		Kind       string `json:"kind"`
+		Tool       string `json:"tool"`
+	}
+	harness.Eventually(t, 60000, "animate_image asks for dangerous approval", func() bool {
+		pending = nil
+		wc.GET("/api/v1/conversations/"+conv+"/interactions").OK(t, &pending)
+		return len(pending) == 1
+	})
+	if pending[0].Kind != "danger" || pending[0].Tool != "animate_image" {
+		t.Fatalf("animate_image must pause at its danger gate: %+v", pending[0])
+	}
+	wc.POST("/api/v1/conversations/"+conv+"/interactions/"+pending[0].ToolCallID,
+		map[string]any{"action": "approve"}).OK(t, nil)
+	turn := waitTurn(t, wc, conv, msg, 360000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed image-animation turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	outID := attachmentFrom(t, turn, "animate_image")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+outID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsMP4(content.Raw) || len(content.Raw) < 10000 {
+		t.Fatalf("managed image-animation artifact must be real MP4: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	count := 0
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"animate_image"`) {
+			count++
+			if !strings.Contains(block.Content, `"provider":"anselm"`) ||
+				!strings.Contains(block.Content, `"sourceAttachmentId":"`+sourceID+`"`) {
+				t.Fatalf("managed image-animation receipt must name anselm and preserve its source: %s", block.Content)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("managed image-animation turn produced %d animate_image receipts, want exactly one", count)
 	}
 }
 
