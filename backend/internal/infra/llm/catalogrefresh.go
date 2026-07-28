@@ -124,10 +124,11 @@ func refreshCatalogOnce(ctx context.Context, dir string, log *zap.Logger) {
 	}
 	currentCatalog.Store(cat)
 	var count int
-	for _, models := range cat.Providers {
-		count += len(models)
+	for _, p := range cat.Providers {
+		count += len(p.Models)
 	}
-	log.Info("llm: model catalog refreshed from models.dev", zap.Int("models", count))
+	log.Info("llm: model catalog refreshed from models.dev",
+		zap.Int("providers", len(cat.Providers)), zap.Int("models", count))
 }
 
 func fetchTrimmedCatalog(ctx context.Context) (*ModelCatalog, []byte, error) {

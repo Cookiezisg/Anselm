@@ -43,26 +43,77 @@ type CatalogModel struct {
 	Tools bool `json:"tools"`
 }
 
-// ModelCatalog is the trimmed models.dev projection keyed by OUR provider names.
+// CatalogProvider is one upstream provider as models.dev describes it. The three provider-level
+// fields are exactly the three things we stopped hand-maintaining (H12-c):
 //
-// ModelCatalog 是裁剪后的 models.dev 投影,键为**我们的** provider 名。
-type ModelCatalog struct {
-	Source    string                             `json:"source"`
-	Providers map[string]map[string]CatalogModel `json:"providers"`
+//   - Name — what to call it in the picker.
+//   - NPM — the SDK package, which is our DIALECT HINT and **not** a wire protocol. 137 of the 173
+//     ship `@ai-sdk/openai-compatible`; the rest publish their own package while still speaking the
+//     same wire. Reading it as a protocol name would invent 22 dialects that do not exist.
+//   - API — the base URL, and it is EMPTY for most first-party providers (openai, anthropic, google,
+//     azure, bedrock, cohere, xai, groq…) because their SDK hard-codes it. That absence is the whole
+//     reason a prefill can never be「just read the catalog」: 149 of 173 declare one, and the 24 that
+//     do not are the ones most people start with.
+//
+// CatalogProvider 是 models.dev 描述的一家上游。三个 provider 级字段恰是我们停止手工维护的三样(H12-c):
+//
+//   - Name——选择器里叫它什么。
+//   - NPM——SDK **包名**,它是我们的**方言线索**、**不是**线缆协议。173 家里 137 家发
+//     `@ai-sdk/openai-compatible`;其余各自发了个包,说的还是同一条线缆。把它当协议名读,会凭空
+//     发明 22 条**并不存在**的方言。
+//   - API——base URL,而它对多数一方供应商(openai/anthropic/google/azure/bedrock/cohere/xai/groq…)
+//     **是空的**,因为那些 SDK 把它写死在自己里面。这个缺席正是「预填不可能只是读目录」的全部理由:
+//     173 家里 149 家声明了它,而**没声明的那 24 家恰恰是大多数人一上来就用的**。
+type CatalogProvider struct {
+	Name   string                  `json:"name"`
+	NPM    string                  `json:"npm"`
+	API    string                  `json:"api"`
+	Models map[string]CatalogModel `json:"models"`
 }
 
-// catalogProviderMap maps a models.dev provider key to our provider name — exactly the six
-// followed providers; everything else upstream is discarded by the trim.
+// ModelCatalog is the trimmed models.dev projection, keyed by models.dev's OWN provider ids. Our
+// own provider names (qwen / zhipu / moonshot) reach it through [catalogProviderMap]; the other
+// ~167 are addressed by their upstream id because we have no name of our own for them.
 //
-// catalogProviderMap 把 models.dev 的 provider 键映到我们的 provider 名——恰好六家;上游其余
-// 一律被裁剪丢弃。
+// ModelCatalog 是裁剪后的 models.dev 投影,键为 **models.dev 自己的** provider id。我们自己的名字
+// (qwen / zhipu / moonshot)经 [catalogProviderMap] 抵达它;其余约 167 家按上游 id 寻址——因为我们
+// **没有**自己的名字给它们。
+type ModelCatalog struct {
+	Source    string                     `json:"source"`
+	Providers map[string]CatalogProvider `json:"providers"`
+}
+
+// catalogProviderMap renames the handful of providers this app knew before it followed the whole
+// catalog — our vocabulary on the left of the arrow, models.dev's on the right. It is an ALIAS
+// table, not a filter: every other provider is addressed by its upstream id, and nothing is
+// discarded for being absent from this map (H12-c; before that, this map WAS the filter and the
+// catalog held six providers).
+//
+// catalogProviderMap 给「本 app 在 follow 整个目录之前就认识的那几家」改名——箭头左边是我们的词表、
+// 右边是 models.dev 的。它是**别名**表、不是过滤器:其余每一家按上游 id 寻址,而**不在这张表里**
+// 不再意味着被丢弃(H12-c;在那之前,这张表**就是**过滤器,目录里只有六家)。
 var catalogProviderMap = map[string]string{
-	"openai":     "openai",
-	"anthropic":  "anthropic",
-	"deepseek":   "deepseek",
-	"alibaba":    "qwen",
-	"moonshotai": "moonshot",
-	"zhipuai":    "zhipu",
+	"qwen":     "alibaba",
+	"moonshot": "moonshotai",
+	"zhipu":    "zhipuai",
+}
+
+// catalogRequired are the providers whose absence means the refresh is BROKEN rather than merely
+// thinner: they are the ones the app ships knobs and defaults for, so a catalog without them would
+// blank out the picker for an existing user. Everything else may come and go upstream.
+//
+// catalogRequired 是「缺席即刷新**坏了**、而不只是变薄」的那几家:它们是本 app 自带旋钮与默认值的
+// 那些,故一份没有它们的目录会把现有用户的选择器清空。其余各家在上游来去自由。
+var catalogRequired = []string{"openai", "anthropic", "deepseek", "alibaba", "moonshotai", "zhipuai"}
+
+// catalogKey resolves OUR provider name to the models.dev id it lives under.
+//
+// catalogKey 把**我们的** provider 名解析成它在 models.dev 里的 id。
+func catalogKey(ours string) string {
+	if theirs, ok := catalogProviderMap[ours]; ok {
+		return theirs
+	}
+	return ours
 }
 
 // currentCatalog holds the active catalog: the vendored snapshot at init, possibly replaced by a
@@ -105,14 +156,16 @@ func (c *ModelCatalog) validate() error {
 	if c == nil || len(c.Providers) == 0 {
 		return fmt.Errorf("model catalog: empty document")
 	}
-	for _, ours := range catalogProviderMap {
-		models, ok := c.Providers[ours]
-		if !ok || len(models) == 0 {
-			return fmt.Errorf("model catalog: provider %q missing or empty", ours)
+	for _, theirs := range catalogRequired {
+		p, ok := c.Providers[theirs]
+		if !ok || len(p.Models) == 0 {
+			return fmt.Errorf("model catalog: provider %q missing or empty", theirs)
 		}
-		for id, m := range models {
+	}
+	for theirs, p := range c.Providers {
+		for id, m := range p.Models {
 			if id == "" || m.Ctx <= 0 || len(m.In) == 0 || len(m.Out) == 0 {
-				return fmt.Errorf("model catalog: provider %q model %q malformed (ctx=%d in=%d out=%d)", ours, id, m.Ctx, len(m.In), len(m.Out))
+				return fmt.Errorf("model catalog: provider %q model %q malformed (ctx=%d in=%d out=%d)", theirs, id, m.Ctx, len(m.In), len(m.Out))
 			}
 		}
 	}
@@ -155,6 +208,9 @@ func (c *ModelCatalog) validate() error {
 // 直说它是什么:**能聊天、不能当 agent**。
 func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 	var upstream map[string]struct {
+		Name   string `json:"name"`
+		NPM    string `json:"npm"`
+		API    string `json:"api"`
 		Models map[string]struct {
 			ToolCall   bool `json:"tool_call"`
 			Modalities struct {
@@ -172,13 +228,9 @@ func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 	}
 	out := &ModelCatalog{
 		Source:    "https://models.dev/api.json",
-		Providers: make(map[string]map[string]CatalogModel, len(catalogProviderMap)),
+		Providers: make(map[string]CatalogProvider, len(upstream)),
 	}
-	for theirs, ours := range catalogProviderMap {
-		prov, ok := upstream[theirs]
-		if !ok {
-			return nil, fmt.Errorf("models.dev api.json: provider %q absent upstream", theirs)
-		}
+	for theirs, prov := range upstream {
 		models := make(map[string]CatalogModel, len(prov.Models))
 		for id, m := range prov.Models {
 			if !hasModality(m.Modalities.Output, "text") || strings.Contains(id, "realtime") || m.Limit.Context <= 0 {
@@ -192,7 +244,22 @@ func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 				Tools:  m.ToolCall,
 			}
 		}
-		out.Providers[ours] = models
+		// A provider whose every model failed the predicate is not carried: an entry with no usable
+		// model is a name in a picker that leads nowhere.
+		// 所有模型都没过谓词的家不收:一个没有可用模型的条目,是选择器里一个**通向虚无**的名字。
+		if len(models) == 0 {
+			continue
+		}
+		name := prov.Name
+		if name == "" {
+			name = theirs
+		}
+		out.Providers[theirs] = CatalogProvider{Name: name, NPM: prov.NPM, API: prov.API, Models: models}
+	}
+	for _, theirs := range catalogRequired {
+		if _, ok := out.Providers[theirs]; !ok {
+			return nil, fmt.Errorf("models.dev api.json: provider %q absent upstream", theirs)
+		}
 	}
 	if err := out.validate(); err != nil {
 		return nil, err
@@ -236,7 +303,7 @@ func hasModality(list []string, want string) bool {
 // 变体命中族条目),按前缀长度降序排(保住 matchSpec 的优先规则),旋钮由该家手写规则挂上(P4)。
 func catalogSpecs(provider string, knobsFor func(id string) []Knob) []modelSpec {
 	cat := currentCatalog.Load()
-	models := cat.Providers[provider]
+	models := cat.Providers[catalogKey(provider)].Models
 	specs := make([]modelSpec, 0, len(models))
 	for id, m := range models {
 		var knobs []Knob

@@ -57,8 +57,8 @@ func run() error {
 		return fmt.Errorf("write %s: %w (run from backend/)", outPath, err)
 	}
 	var count int
-	for _, models := range cat.Providers {
-		count += len(models)
+	for _, p := range cat.Providers {
+		count += len(p.Models)
 	}
 	fmt.Printf("modelcatalog: wrote %s — %d providers, %d models\n", outPath, len(cat.Providers), count)
 	return nil

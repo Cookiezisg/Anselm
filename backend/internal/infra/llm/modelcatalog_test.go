@@ -34,32 +34,55 @@ func TestVendoredCatalog_ShapeGuard(t *testing.T) {
 	if err != nil {
 		t.Fatalf("vendored snapshot invalid: %v", err)
 	}
-	if len(cat.Providers) != 6 {
-		t.Fatalf("providers = %d, want exactly the six followed", len(cat.Providers))
+	// The catalog now carries the WHOLE upstream registry (H12-c), so the shape guard asserts a
+	// floor rather than an exact count: the six the app ships knobs for must be there, and the long
+	// tail must be there too — a catalog that quietly shrank back to six would mean the trim started
+	// filtering by provider again, which is precisely what H12-c removed.
+	// 目录现在装**整个**上游注册表(H12-c),故形状守卫断言的是**下限**而非确切数量:本 app 自带旋钮的
+	// 那六家必须在,长尾也必须在——一份悄悄缩回六家的目录意味着裁剪又开始按 provider 过滤了,而那正是
+	// H12-c 拆掉的东西。
+	if len(cat.Providers) < 100 {
+		t.Fatalf("providers = %d, want the whole upstream registry (H12-c), not a hand-picked few", len(cat.Providers))
 	}
 	if _, ok := cat.Providers["doubao"]; ok {
 		t.Errorf("doubao present in catalog — P2 removed the provider entirely")
 	}
-	for _, ours := range []string{"openai", "anthropic", "deepseek", "qwen", "moonshot", "zhipu"} {
-		models := cat.Providers[ours]
-		if len(models) == 0 {
-			t.Errorf("provider %q empty", ours)
+	for _, theirs := range catalogRequired {
+		p := cat.Providers[theirs]
+		if len(p.Models) == 0 {
+			t.Errorf("provider %q empty", theirs)
 		}
-		for id := range models {
+		if p.Name == "" {
+			t.Errorf("provider %q carries no display name — the picker would show a bare id", theirs)
+		}
+		for id := range p.Models {
 			if strings.Contains(id, "realtime") {
-				t.Errorf("%s/%s: realtime models must be trimmed (they do not speak /chat/completions)", ours, id)
+				t.Errorf("%s/%s: realtime models must be trimmed (they do not speak /chat/completions)", theirs, id)
 			}
 		}
 	}
+	// The two provider-level facts H12-c stopped hand-maintaining must actually be in the snapshot.
+	// `api` is asserted on a provider that HAS one upstream — most first-party providers ship an
+	// empty `api` because their SDK hard-codes it, and that absence is a fact about models.dev, not
+	// a defect here (it is why a prefill still needs a fallback).
+	// H12-c 停止手工维护的那两个 provider 级事实必须真的在快照里。`api` 断言在一个上游**确实有**它的
+	// 家上——多数一方供应商发的 `api` 是空的(SDK 把它写死了),那个缺席是关于 models.dev 的事实、不是
+	// 这里的缺陷(也正是预填仍然需要兜底的理由)。
+	if got := cat.Providers["deepseek"].API; got != "https://api.deepseek.com" {
+		t.Errorf("deepseek api = %q, want the upstream-declared base URL", got)
+	}
+	if got := cat.Providers["deepseek"].NPM; got == "" {
+		t.Error("deepseek npm is empty — the dialect hint is what H12-c reads instead of a hand-written table")
+	}
 	for _, gone := range []string{"qwen3.5-omni-plus", "qwen3.5-omni-flash", "qwen-long"} {
-		if _, ok := cat.Providers["qwen"][gone]; ok {
+		if _, ok := cat.Providers["alibaba"].Models[gone]; ok {
 			t.Errorf("qwen/%s present — absent upstream, must stay absent here (P1/P2)", gone)
 		}
 	}
-	if m := cat.Providers["anthropic"]["claude-opus-4-8"]; !hasModality(m.In, "pdf") || !hasModality(m.In, "image") {
+	if m := cat.Providers["anthropic"].Models["claude-opus-4-8"]; !hasModality(m.In, "pdf") || !hasModality(m.In, "image") {
 		t.Errorf("claude-opus-4-8 in=%v, want image+pdf per models.dev", m.In)
 	}
-	if m := cat.Providers["qwen"]["qwen3.7-plus"]; !hasModality(m.In, "video") || m.Ctx != 1_000_000 {
+	if m := cat.Providers["alibaba"].Models["qwen3.7-plus"]; !hasModality(m.In, "video") || m.Ctx != 1_000_000 {
 		t.Errorf("qwen3.7-plus = %+v, want video input + 1M ctx per models.dev", m)
 	}
 }
@@ -98,7 +121,7 @@ func TestTrimUpstreamCatalog_ChatPredicate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("trim: %v", err)
 	}
-	oa := cat.Providers["openai"]
+	oa := cat.Providers["openai"].Models
 	if _, ok := oa["chat-ok"]; !ok {
 		t.Errorf("chat-ok missing: %v", oa)
 	}
@@ -126,9 +149,9 @@ func TestCatalog_CacheOverVendored(t *testing.T) {
 		t.Fatal(err)
 	}
 	// Mark the cache by giving qwen3.7-plus a sentinel context window.
-	m := cat.Providers["qwen"]["qwen3.7-plus"]
+	m := cat.Providers["alibaba"].Models["qwen3.7-plus"]
 	m.Ctx = 777_777
-	cat.Providers["qwen"]["qwen3.7-plus"] = m
+	cat.Providers["alibaba"].Models["qwen3.7-plus"] = m
 	data, err := MarshalCatalog(cat)
 	if err != nil {
 		t.Fatal(err)
@@ -254,7 +277,7 @@ func TestTrimUpstreamCatalog_ToolCallIsCarriedNotFiltered(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	got := cat.Providers["openai"]
+	got := cat.Providers["openai"].Models
 	if m, ok := got["chatty-no-tools"]; !ok {
 		t.Error("a tool-less model must SURVIVE the trim — hiding it is deciding for the user, invisibly")
 	} else if m.Tools {
