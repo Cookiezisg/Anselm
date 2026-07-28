@@ -21,6 +21,7 @@ audience: [human, ai]
 | 2026-07-28 | EVO-004 | 真实多模态验收须同时保存上游请求与产物字节，不能采信模型自述 | chat/workflow/MCP/function/handler | `live_media_test.go`，`EVALS_MEDIA=1` | live acceptance |
 | 2026-07-29 | EVO-005 | 受管语音真钱验收硬编码旧 qwen3-tts 音色 `Cherry`，使 qwen-audio-3.0 默认路径假红；默认音色必须由 API Serve 决定 | managed TTS acceptance | `TestLiveManaged_ImageAndSpeech`：旧值失败、空 voice 重跑验证 | 当前提交 |
 | 2026-07-29 | EVO-006 | 新 workspace 在受管 key 落盘后先做网络能力刷新、后播种默认模型；用户首发消息可命中无默认的 `LLM_RESOLVE_ERROR` | freetier onboarding / 默认聊天 | `TestLiveManaged_DefaultChat` 复现；首发黑盒守卫 + `TestEnsure_SeedsDefaultsBeforeLiveCapabilityProbe` | 当前提交 |
+| 2026-07-29 | EVO-007 | 静态多模态夹具把 CRC 损坏的字节称作“合法 PNG”；mock 从不解码而掩盖问题，真实受管视觉路由会被上游拒绝 | testend mock / 媒体回归 | `TestLiveManaged_DefaultChatWithImageAttachment` 先红；`TestMockPNGDecodes` 守 decoder-valid fixture；32×32 真图重跑通过 | 当前提交 |
 
 ## 追加格式
 
