@@ -138,11 +138,10 @@ func TestCompat_WireMaskMatchesTheEncoder(t *testing.T) {
 				{Type: PartInputAudio, MediaType: "audio/wav", Data: "AAA="},
 				{Type: "file", Filename: "d.pdf", MediaType: "application/pdf", Data: "AAA="},
 			}}
-			// OpenAI refuses unknown parts by design; feed it only what it declares.
-			// OpenAI 刻意拒绝未知 part;只喂它声明过的。
+			// OpenAI's known vocabulary excludes video but includes input_audio for its gpt-audio
+			// models; feed the encoder exactly the parts this family claims.
 			if f.name == "openai" {
-				msg.Parts = msg.Parts[:2]
-				msg.Parts = append(msg.Parts, ContentPart{Type: "file", Filename: "d.pdf", MediaType: "application/pdf", Data: "AAA="})
+				msg.Parts = []ContentPart{msg.Parts[0], msg.Parts[1], msg.Parts[3], msg.Parts[4]}
 			}
 			cm, err := p.toMessage(msg)
 			if err != nil {

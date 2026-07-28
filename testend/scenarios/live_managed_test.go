@@ -1147,6 +1147,76 @@ func TestLiveBYOK_GoogleImageInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_OpenAIAudioInput covers the OpenAI-compatible native input_audio part through the
+// product API. The recorder proves the uploaded WAV reaches the real upstream wire; the durable
+// attachment check proves the product did not rewrite the user's source while preparing it.
+func TestLiveBYOK_OpenAIAudioInput(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-openai-audio-input"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-byok-audio", "key": key, "baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Audio    bool   `json:"audio"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	model := "gpt-audio"
+	audio := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "openai" && cap.ModelID == model && cap.Audio {
+			audio = true
+			break
+		}
+	}
+	if !audio {
+		t.Skip("current followed OpenAI catalog does not expose gpt-audio audio input; audio reprobe is not constructible")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": model}).OK(t, nil)
+
+	attID := uploadAtt(t, wc, "input.wav", "audio/wav", harness.MockWAV)
+	conv := convCreate(t, wc, "OpenAI BYOK audio input")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认收到了音频。不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("OpenAI BYOK audio-input chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || !bytes.Equal(got.Raw, harness.MockWAV) {
+		t.Fatalf("uploaded WAV must survive the OpenAI BYOK audio turn: HTTP %d, %d bytes", got.Status, len(got.Raw))
+	}
+	encoded := base64.StdEncoding.EncodeToString(harness.MockWAV)
+	wireAudio, wireEncoded := false, false
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		wireAudio = wireAudio || bytes.Contains(call.Body, []byte(`"input_audio"`))
+		wireEncoded = wireEncoded || bytes.Contains(call.Body, []byte(encoded))
+	}
+	if !wireAudio || !wireEncoded {
+		t.Fatalf("OpenAI upstream must receive the exact native input_audio part: audio=%v encodedBytes=%v calls=%d", wireAudio, wireEncoded, rec.CallsTo("/chat/completions"))
+	}
+}
+
 // TestLiveBYOK_GoogleToolContinuation exercises Gemini's native functionCall/functionResponse
 // round-trip through the ordinary chat loop. It is deliberately one tiny deterministic function:
 // the real provider must request it, the sandbox must execute it, and the second model turn must

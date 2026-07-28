@@ -35,12 +35,12 @@ func newOpenAIProvider() *compatProvider {
 	}}
 }
 
-// openaiParts renders text / image_url / file. The `file` part is the one thing this family adds to
+// openaiParts renders text / image_url / input_audio / file. The `file` part is the one thing this family adds to
 // the floor, and it is why an unknown part type is an ERROR here rather than a skip: OpenAI is the
 // family whose part vocabulary we actually know completely, so a part we cannot name is a bug in
 // the caller, not a degradation we should paper over.
 //
-// openaiParts 渲 text / image_url / file。`file` 是本家在地板之上多出的那一样,也正是这里对未知 part
+// openaiParts 渲 text / image_url / input_audio / file。`file` 是本家在地板之上多出的那一样,也正是这里对未知 part
 // **报错**而非跳过的理由:OpenAI 是我们**真正完整知道**其 part 词汇表的那一家,故一个叫不出名字的
 // part 是调用方的 bug、不是我们该糊过去的降级。
 func openaiParts(m LLMMessage) (compatMessage, error) {
@@ -56,6 +56,12 @@ func openaiParts(m LLMMessage) (compatMessage, error) {
 				Filename: part.Filename,
 				FileData: "data:" + part.MediaType + ";base64," + part.Data,
 			}})
+		case PartInputAudio:
+			if format := openAICompatibleAudioFormat(part.MediaType); format != "" && part.Data != "" {
+				parts = append(parts, compatContentPart{Type: PartInputAudio, InputAudio: &compatInputAudio{
+					Data: part.Data, Format: format,
+				}})
+			}
 		default:
 			return compatMessage{}, fmt.Errorf("llm.openai: unknown part type %q: %w", part.Type, ErrBadRequest)
 		}
@@ -65,10 +71,10 @@ func openaiParts(m LLMMessage) (compatMessage, error) {
 
 // ── model catalog (static; OpenAI /v1/models returns ids only) ──────────────────
 
-// openaiWire: the OpenAI dialect renders text / image_url / file parts (see buildParts cases).
+// openaiWire: the OpenAI dialect renders text / image_url / input_audio / file parts (see buildParts cases).
 //
-// openaiWire:OpenAI 方言渲 text / image_url / file 三种 part(见 buildParts 的 case)。
-var openaiWire = partMask{image: true, file: true}
+// openaiWire:OpenAI 方言渲 text / image_url / input_audio / file 四种 part(见 buildParts 的 case)。
+var openaiWire = partMask{image: true, audio: true, file: true}
 
 // DescribeModels parses OpenAI's id-only /v1/models body against the followed catalog; ids absent
 // from the catalog are skipped.
