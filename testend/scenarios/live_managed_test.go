@@ -256,6 +256,44 @@ func TestLiveManaged_WorkflowGenerateImageToViewer(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
+// capability tools and the tool-result media expander must survive the depth-1 delegated run, and
+// the parent must receive the child's managed receipt without paying for a redraw.
+func TestLiveManaged_SubagentGenerateImageArtifact(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-subagent-image")
+	// Parent steps are: delegate → receive the subagent result → final confirmation. The child has
+	// its own loop budget; capping the parent at two stops before it can acknowledge the result.
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	conv := convCreate(t, wc, "managed subagent image")
+	msg := sendMsg(t, wc, conv,
+		"请派一个 general-purpose subagent。子任务必须调用 generate_image 恰好一次，画一个白底红色圆形；工具成功后把 receipt 原样交回，不要再次调用生成工具。父回合收到后只用一句简短中文确认。")
+	turn := waitTurn(t, wc, conv, msg, 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed subagent image turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	count := 0
+	var attID string
+	for _, block := range turn.Blocks {
+		if block.Type != "tool_result" || !strings.Contains(block.Content, `"source":"generate_image"`) {
+			continue
+		}
+		count++
+		if !strings.Contains(block.Content, `"provider":"anselm"`) {
+			t.Fatalf("subagent generation receipt must name anselm: %s", block.Content)
+		}
+		if attID == "" {
+			attID = attIDShape.FindString(block.Content)
+		}
+	}
+	if count != 1 || attID == "" {
+		t.Fatalf("managed subagent must return exactly one image receipt: count=%d attID=%q blocks=%+v", count, attID, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) || len(content.Raw) < 1000 {
+		t.Fatalf("managed subagent artifact must be a real image: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_GenerateSpeechArtifact is the managed speech counterpart: the default Anselm
 // dialogue model must call generate_speech once, the gateway's returned bytes must be a real WAV,
 // and the tool receipt must identify the managed provider. The two-step cap bounds paid retries.
