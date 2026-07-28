@@ -992,6 +992,62 @@ func TestLiveBYOK_TextProviderSmoke(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_GoogleImageInput covers Google's native Gemini wire on the multimodal read
+// boundary. Unlike the OpenAI-compatible image lane above, this exercises contents/parts mapping,
+// native x-goog-api-key auth and the model-in-path request while keeping the managed gateway closed.
+func TestLiveBYOK_GoogleImageInput(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("GEMINI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires GEMINI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-google-image-input"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "google", "displayName": "live-google-byok-image", "key": key,
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	vision := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "google" && cap.ModelID == "gemini-3-flash-preview" && cap.Vision {
+			vision = true
+			break
+		}
+	}
+	if !vision {
+		t.Fatalf("probed Google BYOK key must expose Gemini image input before selection: %+v", caps)
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gemini-3-flash-preview"}).OK(t, nil)
+
+	attID := uploadAtt(t, wc, "input.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "Google BYOK image input")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认请求已收到。不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("Google BYOK image-input chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || len(got.Raw) != len(liveManagedPNG) {
+		t.Fatalf("uploaded image must survive the Google BYOK multimodal turn: HTTP %d, %d bytes", got.Status, len(got.Raw))
+	}
+}
+
 // TestLiveHybrid_OpenAIPlansManagedImage proves the product's intended mixed ownership: the user
 // supplies the dialogue model, while Anselm supplies and pays for the generation route. It is a
 // deliberately tiny paid sample: at most two loop steps, with the prompt requiring one image call
