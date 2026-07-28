@@ -214,6 +214,53 @@ func TestLiveManaged_GenerateSpeechArtifact(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_GenerateVideoArtifact is the managed long-write acceptance: generate_video must
+// stop at its dangerous-operation gate, resume after approval, walk the gateway's async route, and
+// land one real MP4 attachment. A two-step cap permits only the tool call and final confirmation.
+func TestLiveManaged_GenerateVideoArtifact(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-video-generation")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	conv := convCreate(t, wc, "managed video generation")
+	msg := sendMsg(t, wc, conv,
+		"请调用 generate_video 恰好一次，生成一段 5 秒横向视频：黄昏海边的红色灯塔，镜头缓慢向前推进。先等待危险操作审批，批准后不要再次调用生成工具，只用一句简短中文确认。")
+	var pending []struct {
+		ToolCallID string `json:"toolCallId"`
+		Kind       string `json:"kind"`
+		Tool       string `json:"tool"`
+	}
+	harness.Eventually(t, 60000, "generate_video asks for dangerous approval", func() bool {
+		pending = nil
+		wc.GET("/api/v1/conversations/"+conv+"/interactions").OK(t, &pending)
+		return len(pending) == 1
+	})
+	if pending[0].Kind != "danger" || pending[0].Tool != "generate_video" {
+		t.Fatalf("generate_video must pause at its danger gate: %+v", pending[0])
+	}
+	wc.POST("/api/v1/conversations/"+conv+"/interactions/"+pending[0].ToolCallID,
+		map[string]any{"action": "approve"}).OK(t, nil)
+	turn := waitTurn(t, wc, conv, msg, 360000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed video-generation turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	attID := attachmentFrom(t, turn, "generate_video")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsMP4(content.Raw) || len(content.Raw) < 10000 {
+		t.Fatalf("managed video-generation artifact must be real MP4: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	count := 0
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_video"`) {
+			count++
+			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+				t.Fatalf("managed video-generation receipt must name anselm: %s", block.Content)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("managed video-generation turn produced %d generate_video receipts, want exactly one", count)
+	}
+}
+
 // TestLiveManaged_DefaultChatWithImageAttachment exercises the product seam that cannot be reached
 // by the gateway-client acceptance alone: user upload → attachment store → managed media staging /
 // lease → the deployed gateway's multimodal route → durable chat turn. It deliberately asserts the
