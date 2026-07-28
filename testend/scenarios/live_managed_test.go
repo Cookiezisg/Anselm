@@ -923,6 +923,44 @@ func TestLiveBYOK_QwenVideoInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_QwenChatOnlyAgentRejected proves the user-facing agent boundary for a real
+// chat-only model. The key is probed and selected through the ordinary workspace API, then the
+// agent invocation is rejected before any upstream generation; a text-capable model must remain
+// usable for chat without pretending to be an agent.
+func TestLiveBYOK_QwenChatOnlyAgentRejected(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("QWEN_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires QWEN_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-qwen-chat-only-agent"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "qwen", "displayName": "live-qwen-chat-only", "key": key,
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/agent",
+		map[string]any{"apiKeyId": keyID, "modelId": "qwen-mt-plus"}).OK(t, nil)
+	agID := wc.POST("/api/v1/agents", map[string]any{
+		"name": "Qwen chat-only probe", "description": "capability boundary", "prompt": "Answer briefly.",
+	}).Field(t, "id")
+	var res struct {
+		OK       bool   `json:"ok"`
+		Status   string `json:"status"`
+		ErrorMsg string `json:"errorMsg"`
+		Steps    int    `json:"steps"`
+	}
+	wc.POST("/api/v1/agents/"+agID+":invoke", map[string]any{"input": map[string]any{}}).OK(t, &res)
+	if res.OK || res.Status != "failed" || res.Steps != 0 || !strings.Contains(res.ErrorMsg, "cannot run as an agent") {
+		t.Fatalf("chat-only Qwen agent must fail before any step: %+v", res)
+	}
+}
+
 // TestLiveBYOK_TextProviderSmoke exercises two additional real read-side protocol classes
 // through the product API: DeepSeek's OpenAI-compatible endpoint and Google's native Gemini
 // generateContent endpoint. The managed gateway stays closed for this lane, so a completed turn
