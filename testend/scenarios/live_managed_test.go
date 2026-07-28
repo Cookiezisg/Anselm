@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/sunweilin/anselm/testend/harness"
 )
@@ -122,5 +123,29 @@ func TestLiveManaged_DefaultChatWithImageAttachment(t *testing.T) {
 	}
 	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || len(got.Raw) != len(liveManagedPNG) {
 		t.Fatalf("uploaded image must survive the managed multimodal turn: HTTP %d, %d bytes", got.Status, len(got.Raw))
+	}
+}
+
+// TestLiveManaged_Quota proves the settings-facing product seam: the sidecar retains the device
+// proof privately, resolves this workspace's managed install, and proxies the deployed gateway's
+// live quota rather than presenting an inferred local counter.
+func TestLiveManaged_Quota(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-quota")
+	var q struct {
+		Limit     int64  `json:"limit"`
+		Used      int64  `json:"used"`
+		Remaining int64  `json:"remaining"`
+		ResetAt   string `json:"resetAt"`
+		Available bool   `json:"available"`
+	}
+	wc.GET("/api/v1/freetier/quota").OK(t, &q)
+	if q.Limit <= 0 || q.Used < 0 || q.Remaining < 0 || q.Used+q.Remaining > q.Limit {
+		t.Fatalf("managed quota must be a coherent live counter: %+v", q)
+	}
+	if _, err := time.Parse(time.RFC3339, q.ResetAt); err != nil {
+		t.Fatalf("managed quota resetAt must be RFC3339: %q (%v)", q.ResetAt, err)
+	}
+	if !q.Available {
+		t.Fatalf("a fresh managed install must expose available quota: %+v", q)
 	}
 }
