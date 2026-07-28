@@ -29,6 +29,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-012 | Qwen BYOK 的目录默认 endpoint 与 video 方言可实际接收 MP4：真实 key 的 probe、`qwen3.7-plus` 能力投影、默认模型和附件对话均不借用受管 fallback | BYOK read / Qwen video input | `EVALS_BYOK=1 QWEN_API_KEY=…` 的 `TestLiveBYOK_QwenVideoInput`；harness 默认关闭 gateway，MP4 终态与逐字节回读 | 当前提交 |
 | 2026-07-29 | EVO-013 | function 与驻留 handler 的声明式二进制产物都能经共享 `mediaartifact` collector 落为一等附件；handler 连续调用各自拿到不同 receipt，来源与附件字节均保真，且不需 provider key | function / handler artifact producer | `TestFunction_ArtifactProduct`、`TestHandler_ArtifactPerCallProduct`：真实 HTTP、有效 PNG、连续运行/调用、receipt source、附件逐字节回读 | 当前提交 |
 | 2026-07-29 | EVO-014 | MCP stdio server 的 image content 会经 `mcp_media` receipt 进入同一附件库，并在下一轮视觉对话请求中以原始 base64 `image_url` 送达；模型文案不是证据，抓包字节与附件回读一致才算通过 | MCP producer / chat media expansion | `TestMCP_ArtifactReachesVisionModel`：真实 Python JSON-RPC server、64×64 PNG、receipt、附件回读、llmmock 线缆 exact-byte 断言、chat 触发台账 | 当前提交 |
+| 2026-07-29 | EVO-015 | workflow 可把 function 产物的 MediaRef 从上游 agent 节点的终答交给下游 agent；下游请求包含与附件库逐字节一致的原始 image part，且不需要受管生成或 provider key | workflow / agent-to-agent media | `TestWorkflowMedia_FunctionArtifactToVisionAgent`：真实 function sandbox、flowrun 节点结果、附件回读、第三个模型请求 exact-byte 断言 | 当前提交 |
 
 ## 追加格式
 
