@@ -3,6 +3,7 @@ package scenarios
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -104,5 +105,154 @@ func TestWorkflow_LargeParallelFanoutAndJoin(t *testing.T) {
 	want := "p1:large,p2:large,p3:large,p4:large|p5:large,p6:large,p7:large,p8:large"
 	if !strings.Contains(string(nodes), want) {
 		t.Fatalf("final join must carry every branch's result in declaration order; want %q in %s", want, nodes)
+	}
+}
+
+// TestWorkflow_DeepLoopPersistsEveryIteration is the real HTTP/durable counterpart to the old
+// scheduler-only 25-iteration probe. The action's input deliberately uses the documented
+// has(previous) ? previous : seed form, so the loop exercises scopeFor across every turn instead
+// of accidentally resetting to the trigger payload. It also checks the execution ledger's
+// flowrunIteration join key, not just the final answer.
+func TestWorkflow_DeepLoopPersistsEveryIteration(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wc := c.WS(c.POST("/api/v1/workspaces", map[string]any{"name": "wf-deep-loop"}).OK(t, nil).Field(t, "id"))
+
+	stepFn := fnCreate(t, wc, "deep_loop_step", "def increment(n: int) -> dict:\n    return {'n': n + 1}\n")
+	finishFn := fnCreate(t, wc, "deep_loop_finish", "def finish(n: int) -> dict:\n    return {'final': n}\n")
+	ctlID := wc.POST("/api/v1/controls", map[string]any{
+		"name":   "deep_loop_gate",
+		"inputs": []map[string]any{{"name": "n", "type": "number"}},
+		"branches": []map[string]any{
+			{"port": "done", "when": "input.n >= 25", "emit": map[string]string{"n": "input.n"}},
+			{"port": "retry", "when": "true"},
+		},
+	}).Field(t, "id")
+
+	wfID := wfCreate(t, wc, "deep_loop", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{
+			"id": "step", "kind": "action", "ref": stepFn,
+			"input": map[string]any{"n": "has(step.n) ? step.n : start.n"},
+		}},
+		{"op": "add_node", "node": map[string]any{
+			"id": "gate", "kind": "control", "ref": ctlID,
+			"input": map[string]any{"n": "step.n"},
+		}},
+		{"op": "add_node", "node": map[string]any{
+			"id": "finish", "kind": "action", "ref": finishFn,
+			"input": map[string]any{"n": "gate.n"},
+		}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e-start-step", "from": "start", "to": "step"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e-step-gate", "from": "step", "to": "gate"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e-gate-done", "from": "gate", "to": "finish", "fromPort": "done"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e-gate-retry", "from": "gate", "to": "step", "fromPort": "retry"}},
+	})
+
+	runID, status, nodes := runAndWait(t, wc, wfID, map[string]any{"n": 0}, 120000)
+	if status != "completed" {
+		t.Fatalf("25-iteration loop must complete, got %s nodes=%s", status, nodes)
+	}
+
+	type deepNode struct {
+		NodeID    string         `json:"nodeId"`
+		Status    string         `json:"status"`
+		Iteration int            `json:"iteration"`
+		Result    map[string]any `json:"result"`
+	}
+	// GET /flowruns/{id} is deliberately paged. Walk it instead of trusting the first 50-node
+	// snapshot; a long loop must remain fully inspectable through the public REST surface.
+	var rows []deepNode
+	cursor := ""
+	pagesFetched := 0
+	for page := 0; page < 10; page++ {
+		pagesFetched++
+		path := "/api/v1/flowruns/" + runID + "?limit=10"
+		if cursor != "" {
+			path += "&cursor=" + url.QueryEscape(cursor)
+		}
+		var got struct {
+			Nodes      []deepNode `json:"nodes"`
+			NextCursor string     `json:"nextCursor"`
+		}
+		r := wc.GET(path)
+		if r.Status != 200 {
+			t.Fatalf("deep loop node page %d failed: %d %s", page+1, r.Status, r.Raw)
+		}
+		// Decode the envelope body; the harness also exposes the same cursor as NextCursor.
+		if err := json.Unmarshal(r.Data, &got); err != nil {
+			t.Fatalf("decode deep loop node page %d: %v %s", page+1, err, r.Data)
+		}
+		rows = append(rows, got.Nodes...)
+		if got.NextCursor == "" {
+			break
+		}
+		cursor = got.NextCursor
+		if page == 9 {
+			t.Fatal("deep loop node pagination did not terminate within 10 pages")
+		}
+	}
+	if pagesFetched < 2 {
+		t.Fatalf("deep loop pagination must exercise more than one public node page, fetched %d", pagesFetched)
+	}
+	counts := map[string]int{}
+	iterations := map[string]map[int]bool{}
+	for _, row := range rows {
+		counts[row.NodeID]++
+		if iterations[row.NodeID] == nil {
+			iterations[row.NodeID] = map[int]bool{}
+		}
+		if iterations[row.NodeID][row.Iteration] {
+			t.Fatalf("node %s executed more than once at iteration %d: %+v", row.NodeID, row.Iteration, rows)
+		}
+		iterations[row.NodeID][row.Iteration] = true
+		if row.Status != "completed" {
+			t.Fatalf("deep loop node must complete: %+v", row)
+		}
+	}
+	if counts["start"] != 1 || counts["step"] != 25 || counts["gate"] != 25 || counts["finish"] != 1 || len(rows) != 52 {
+		t.Fatalf("deep loop must persist 1 start + 25 step + 25 gate + 1 finish rows, counts=%v total=%d nodes=%s", counts, len(rows), nodes)
+	}
+	for _, id := range []string{"step", "gate"} {
+		for i := 0; i < 25; i++ {
+			if !iterations[id][i] {
+				t.Fatalf("%s missing durable iteration %d: %+v", id, i, iterations[id])
+			}
+		}
+	}
+	if !iterations["start"][0] || !iterations["finish"][24] {
+		t.Fatalf("loop boundary iterations wrong: start=%v finish=%v", iterations["start"], iterations["finish"])
+	}
+	if !strings.Contains(string(nodes), `"final":25`) {
+		t.Fatalf("finish must observe the accumulated value 25, nodes=%s", nodes)
+	}
+
+	// The execution log must carry the same (flowrun,node,iteration) identity as the durable
+	// node rows; without this, a long loop is impossible to audit or join in the activity view.
+	var page struct {
+		Executions []struct {
+			FlowrunID        string `json:"flowrunId"`
+			FlowrunNodeID    string `json:"flowrunNodeId"`
+			FlowrunIteration int    `json:"flowrunIteration"`
+			Status           string `json:"status"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+stepFn+"/executions").OK(t, &page)
+	seenExecIterations := map[int]bool{}
+	for _, exec := range page.Executions {
+		if exec.FlowrunID != runID {
+			continue
+		}
+		if exec.FlowrunNodeID != "step" || exec.Status != "ok" {
+			t.Fatalf("step execution provenance wrong: %+v", exec)
+		}
+		if seenExecIterations[exec.FlowrunIteration] {
+			t.Fatalf("duplicate step execution iteration %d: %+v", exec.FlowrunIteration, page.Executions)
+		}
+		seenExecIterations[exec.FlowrunIteration] = true
+	}
+	if len(seenExecIterations) != 25 {
+		t.Fatalf("step execution log must expose all 25 flowrun iterations, got %d: %+v", len(seenExecIterations), page.Executions)
 	}
 }
