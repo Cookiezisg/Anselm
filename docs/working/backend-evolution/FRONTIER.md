@@ -24,7 +24,7 @@ audience: [human, ai]
 | FRT-01 | 默认聊天 + 图片/视频附件 + 语音输入 | managed-read/default | Anselm 的实际输入路由、lease 与能力降级正确；语音输入另走 proof-bound ASR WebSocket | 请求形状 + 回合/附件真相；ASR `session.finished` | image / MP4 video / realtime ASR session 通过；chat audio 当前不宣传 |
 | FRT-02 | BYOK 视觉/音视频输入 | byok-read | 多模态输入是正式 BYOK 能力，不被生成边界误关 | 目录能力、wire part 或明确文本降级 | OpenAI image / Google Gemini image / Qwen MP4 video / Qwen WAV audio 真实通过；OpenAI `input_audio` encoder 已修正，`gpt-audio` 产品路径待目录刷新后重跑 |
 | FRT-03 | BYOK 模型调用受管出图 | hybrid | 模型调度与受管生成正确接合，生成者不被重复喂像素导致重画 | tool/receipt、调用次数、产物与后续请求 | OpenAI→managed image 通过；真实 OpenAI continuation wire 已逐字节收到生成图片 |
-| FRT-04 | workflow：生成者 → 下游观看者 | hybrid | 下游收到真实像素而非“图片已生成”文本 | 录制请求包含原始像素 | managed 生成→receipt→BYOK OpenAI viewer 的 workflow exact-byte wire through；纯 managed 下游节点也完成且附件可回读；managed provider wire 仍待 gateway 侧 recorder |
+| FRT-04 | workflow：生成者 → 下游观看者 | hybrid | 下游收到真实像素而非“图片已生成”文本 | 录制请求包含原始像素 | managed 生成→receipt→BYOK OpenAI / Google viewer 的 workflow exact-byte wire through；纯 managed 下游节点也完成且附件可回读；managed provider wire 仍待 gateway 侧 recorder |
 | FRT-05 | MCP/function/handler 产物 → 下游模型 | byok-read / hybrid | 各产地均能成为 MediaRef；不退化为占位字符串 | 产物字节、MediaRef、下游请求 | MCP/function/handler producers and chat/workflow vision wire through；subagent managed generation→receipt state through；reprobe on media/ref encoder changes |
 | FRT-06 | 文档内图像 → 引用/问答 | managed-read/default / byok-read | 编辑器往返和 LLM 消费保真 | 文档、附件与请求三方一致 | managed image-reference 与 BYOK OpenAI exact-byte wire 均通过 |
 | FRT-07 | 音色完整生命周期 | hybrid + managed-write | 预置语音→附件→危险审批→异步登记→克隆合成→库存→删除 | 生产 API Serve、inventory、网关句柄到上游 id 的映射、删除后状态 | 默认 Anselm API managed E2E 通过；网关句柄/default/WAV 修复已被真实链路覆盖 |
