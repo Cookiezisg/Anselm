@@ -58,6 +58,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-041 | 动画路由与 managed 媒体预算修复后的完整黑盒回归无回归：普通聊天、workflow、MCP/function/handler 产物、取消/重试/崩溃恢复、附件准备与配额资源卫生仍然全绿 | full testend regression | `make -C backend testend` → PASS 309.211s | `2539114b` |
 | 2026-07-29 | EVO-042 | 混合调度的下游像素证据补齐：真实 OpenAI BYOK planner 经透明 recorder 收到与 Anselm managed 生成并落库图片完全一致的 base64 image part；同一回合仍恰好一次生成、receipt provider=anselm | hybrid / managed write → BYOK read / downstream wire | `EVALS_HYBRID=1 EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveHybrid_OpenAIPlansManagedImage$' -count=1` → PASS 16.059s；key 未写日志 | `6d6e98dc` |
 | 2026-07-29 | EVO-043 | BYOK 文档消费边界补齐：Markdown 中的 `anselm://media` 图片引用不会停留在 system prompt 文本，真实 OpenAI 请求携带与附件库逐字节一致的 native image part；文档渲染与直接 attachment 两条入口一致 | byok-read / document media reference / downstream wire | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIDocumentImageReference$' -count=1` → PASS 6.114s；key 未写日志 | `2c544e45` |
+| 2026-07-29 | EVO-044 | 默认 Anselm managed workflow 生成者→观看者状态链通过：上游 agent 真实调用 `generate_image`，节点结果保留 managed receipt，生成图片附件可回读，下游独立 agent 完成；受管网关不向桌面暴露 provider wire，像素线缆仍单列为证据缺口 | managed workflow / generation → MediaRef → downstream agent | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_WorkflowGenerateImageToViewer$' -count=1` → PASS 44.204s；无本机 provider key | `356db631` |
 
 ## 追加格式
 
