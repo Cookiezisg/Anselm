@@ -16,7 +16,7 @@ import (
 // speechTool digs the speech member out of the family by name.
 func speechTool(t *testing.T, router *Router, up Uploader) *GenerateSpeech {
 	t.Helper()
-	for _, tw := range GenerateTools(router, up) {
+	for _, tw := range GenerateTools(router, up, nil, nil) {
 		if s, ok := tw.Tool.(*GenerateSpeech); ok {
 			return s
 		}

@@ -114,6 +114,15 @@ audience: [human, ai]
 | `SETTINGS_LIMITS_INVALID` | 400 | limits values out of range |
 | `SETTINGS_RETENTION_INVALID` | 400 | runRetentionDays must be 0 (keep forever) or a positive number of days（scheduler 工单⑬——**唯一的物理约束**：线不能倒着走；未知字段/畸形 JSON 同码。UI 的 30/90/180/永久 值集是产品可供性、后端不强制，60 照收——拒它是校验剧场，设计原则 #6） |
 | `SPEND_WINDOW_INVALID` | 400 | days must be a positive integer（WRK-082 H10 `GET /spend`——与 trigger-schedule 的窗口同律：真参数对**胡话大声失败**、对**野心钳制**（>365 钳到 365）；缺省即 30 天） |
+| `VOICE_NOT_FOUND` | 404 | voice not found（WRK-082 H9） |
+| `VOICE_NAME_TAKEN` | 409 | a voice with this name already exists — delete it first（H9——**不是**「换个名字重试」:覆盖会让第一个登记在上游变成孤儿，故消息点明**先删**） |
+| `VOICE_INVENTORY_FULL` | 409 | voice inventory is full — delete a voice to make room（H9——**库存**非配额：明天不会腾出位置，故消息必须说「删一个」而非「过会儿再来」） |
+| `VOICE_NAME_REQUIRED` | 400 | voice name is required（H9——名字**就是**此后合成用的把手，空名产出的音色永远点不到） |
+| `VOICE_CLONE_FAILED` | 503 | voice enrollment failed（H9——上游拒绝登记的中立 sentinel；Message 携人话原因） |
+| `VOICE_NO_CLONE_ROUTE` | 422 | no configured key can clone voices（H9——克隆比合成**窄**：会说话的 key 未必会克隆） |
+| `IMAGE_SOURCE_REQUIRED` | 400 | attachmentId of the image to edit is required（H9——**没有源图的「改图」就是「出图」**，模型本该去调那个工具；说出来比静默画一张新的有用） |
+| `IMAGE_SOURCE_NOT_IMAGE` | 400 | the referenced attachment is not an image（H9——**花钱之前**拦；也承载「源图超 10MB 上游上限」那一支） |
+| `IMAGE_NO_EDIT_ROUTE` | 422 | the configured image provider cannot edit images（H9——**刻意与 `IMAGE_NO_ROUTE` 分开**：「你没有出图 key」与「你的出图 key 那家不会改图」是两个事实，合并会让用户去找一把他已经有了的 key） |
 
 ### `app/speech`
 

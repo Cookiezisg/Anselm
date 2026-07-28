@@ -25,6 +25,7 @@ import (
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	voicedomain "github.com/sunweilin/anselm/backend/internal/domain/voice"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
@@ -194,6 +195,18 @@ type CredsResolver interface {
 // **唯一一间库**(不变量②)。
 type Uploader interface {
 	Upload(ctx context.Context, filename, mime string, data []byte) (*attachmentdomain.Attachment, error)
+}
+
+// Fetcher is the attachment READ port (satisfied by *attachmentapp.Service) — the half the
+// X→X tools need (WRK-082 H9). Editing an image, animating one, and cloning a voice all begin by
+// reading bytes the user already has, and reading them through the same service that wrote them
+// keeps workspace isolation and the blob layout in exactly one place.
+//
+// Fetcher 是附件的**读**端口(由 *attachmentapp.Service 满足)——X→X 三工具要的那一半(H9)。改图、
+// 让图动起来、克隆音色,都从「读用户已有的字节」开始;经**写它们的同一个服务**去读,使 workspace 隔离
+// 与 blob 布局只存在于一个地方。
+type Fetcher interface {
+	Download(ctx context.Context, id string) (*attachmentdomain.Attachment, []byte, error)
 }
 
 // Router resolves which key/dialect serves a generation scenario: the explicit workspace default
@@ -712,12 +725,44 @@ func (r *Router) generateVideo(ctx context.Context, route genRoute, req llminfra
 // what bootstrap's CapabilityTools closure filters per request.
 //
 // GenerateTools 在路由 + 落盘依赖上构建本族。返回切片由 bootstrap 的 CapabilityTools 闭包逐请求过滤。
-func GenerateTools(router *Router, attachments Uploader) []ToolWithAvailability {
-	return []ToolWithAvailability{
+func GenerateTools(router *Router, attachments Uploader, source Fetcher, voices voicedomain.Repository) []ToolWithAvailability {
+	tools := []ToolWithAvailability{
 		{Tool: &GenerateImage{router: router, attachments: attachments}, Available: router.ImageAvailable},
 		{Tool: &GenerateSpeech{router: router, attachments: attachments}, Available: router.SpeechAvailable},
 		{Tool: &GenerateVideo{router: router, attachments: attachments}, Available: router.VideoAvailable},
 	}
+	// The X→X family (WRK-082 H9) is appended rather than interleaved so the reading order matches
+	// the capability order: everything above makes something from nothing, everything below changes
+	// something that already exists.
+	//
+	// Each carries its OWN availability predicate, narrower than its generating sibling's — being
+	// able to draw does not imply being able to edit, and a workspace whose provider cannot edit
+	// must see no edit tool at all rather than one that exists and always fails (诚实缺席).
+	//
+	// X→X 一族(H9)**追加**而非交错,使阅读顺序对上能力顺序:上面全是「无中生有」,下面全是「改已有的」。
+	//
+	// 每个都带**自己的**可用性谓词,且比它的生成兄弟更窄——会画不等于会改,而家里不会改的 workspace
+	// 应该**根本看不到**改图工具,而不是看到一个存在却必然失败的(诚实缺席)。
+	tools = append(tools,
+		ToolWithAvailability{
+			Tool:      &EditImage{router: router, attachments: attachments, source: source},
+			Available: router.EditAvailable,
+		},
+		ToolWithAvailability{
+			Tool:      &AnimateImage{router: router, attachments: attachments, source: source},
+			Available: router.VideoEditAvailable,
+		},
+	)
+	// enroll_voice needs the voices repository, and a nil one means the assembly root did not wire
+	// it — in which case the tool must be ABSENT rather than present-and-panicking.
+	// enroll_voice 要 voices 仓储,而 nil 意味着装配根没接上——那时工具必须**缺席**,而不是「在场且会 panic」。
+	if voices != nil {
+		tools = append(tools, ToolWithAvailability{
+			Tool:      &EnrollVoice{router: router, source: source, voices: voices},
+			Available: router.VoiceCloneAvailable,
+		})
+	}
+	return tools
 }
 
 // ToolWithAvailability pairs a tool with its per-request existence predicate.

@@ -14,7 +14,7 @@ import (
 
 func videoTool(t *testing.T, router *Router, up Uploader) *GenerateVideo {
 	t.Helper()
-	for _, tw := range GenerateTools(router, up) {
+	for _, tw := range GenerateTools(router, up, nil, nil) {
 		if v, ok := tw.Tool.(*GenerateVideo); ok {
 			return v
 		}

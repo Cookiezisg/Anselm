@@ -69,6 +69,7 @@ import (
 	workflowtool "github.com/sunweilin/anselm/backend/internal/app/tool/workflow"
 	touchpointapp "github.com/sunweilin/anselm/backend/internal/app/touchpoint"
 	triggerapp "github.com/sunweilin/anselm/backend/internal/app/trigger"
+	voiceapp "github.com/sunweilin/anselm/backend/internal/app/voice"
 	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
 	workspaceapp "github.com/sunweilin/anselm/backend/internal/app/workspace"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
@@ -108,6 +109,7 @@ type services struct {
 	todo          *todoapp.Service
 	touchpoint    *touchpointapp.Service
 	spend         *spendapp.Service
+	voice         *voiceapp.Service
 	attachment    *attachmentapp.Service
 	readAloud     *readaloudapp.Service
 	function      *functionapp.Service
@@ -370,7 +372,12 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// 跳过——网关已权威记账,再记一遍就是数两遍。
 	spend := spendapp.New(st.spend, log)
 	genRouter := &generatetool.Router{Picker: ws, Keys: keys, Probes: keys, HTTP: inf.proofHTTP, Spend: spend}
-	genTools := generatetool.GenerateTools(genRouter, att)
+	genTools := generatetool.GenerateTools(genRouter, att, att, st.voice)
+	// The management face for what enroll_voice creates. Without list+delete an inventory of 2 is a
+	// trap: two enrollments and the capability is permanently unavailable with no way out.
+	// enroll_voice 造出来的东西的管理面。没有 list+delete,一个 2 的库存就是**陷阱**:登记两次之后这个
+	// 能力永久不可用,且无路可出。
+	voiceSvc := voiceapp.New(st.voice, genRouter, log)
 	// Read-aloud (WRK-082 批C, P10): the SAME speech router the tool uses, driven by a button
 	// instead of an LLM. Its cache is what makes a second listen free.
 	// 朗读(批C,P10):与工具**同一个**语音路由,由按钮而非 LLM 驱动。它的缓存让第二次听免费。
@@ -648,7 +655,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	s := &services{
 		workspace: ws, apikey: keys, modelCaps: modelCaps, modelProfile: modelProfile, media: media, relation: rel, catalog: cat,
 		notification: notif, memory: mem, sandbox: sbx, document: doc, todo: todo,
-		touchpoint: tp, spend: spend, toolNames: toolNames, toolCatalog: toolCatalog,
+		touchpoint: tp, spend: spend, voice: voiceSvc, toolNames: toolNames, toolCatalog: toolCatalog,
 		attachment: att, readAloud: readAloud, function: fn, handler: hd, agent: ag, trigger: trg, mcp: mcp,
 		skill: skill, control: ctl, approval: apf, workflow: wf, scheduler: sched,
 		conversation: conv, chat: chat, subagent: subagentSvc, contextmgr: ctxmgr,

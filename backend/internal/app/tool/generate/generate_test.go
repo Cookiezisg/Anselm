@@ -179,7 +179,7 @@ func TestExecute_EndToEndOpenAI(t *testing.T) {
 		fakeProbes{rows: []apikeydomain.ProbedKey{{ID: "aki_o", Provider: "openai", TestStatus: apikeydomain.TestStatusOK}}},
 	)
 	up := &fakeUploader{}
-	tools := GenerateTools(router, up)
+	tools := GenerateTools(router, up, nil, nil)
 	// The family grows with each generation capability; find the one under test by NAME rather
 	// than by index, so adding a sibling never silently repoints this test at the wrong tool.
 	// 本族随每项生成能力增长;按**名字**取被测工具而非按下标,新增兄弟才不会把这个测试静默指向
