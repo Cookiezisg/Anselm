@@ -1059,15 +1059,23 @@ func TestLiveBYOK_GoogleListedModelCanBeAccountUnavailable(t *testing.T) {
 		ModelID  string `json:"modelId"`
 	}
 	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
-	listed := false
+	listed, recoverable := false, false
 	for _, cap := range caps {
-		if cap.APIKeyID == keyID && cap.Provider == "google" && cap.ModelID == "gemini-2.5-flash" {
+		if cap.APIKeyID != keyID || cap.Provider != "google" {
+			continue
+		}
+		switch cap.ModelID {
+		case "gemini-2.5-flash":
 			listed = true
-			break
+		case "gemini-3-flash-preview":
+			recoverable = true
 		}
 	}
 	if !listed {
 		t.Skip("current Google account no longer lists gemini-2.5-flash; stale-model reprobe is not constructible")
+	}
+	if !recoverable {
+		t.Skip("current Google account does not expose a known-good recovery model; stale-model recovery reprobe is not constructible")
 	}
 	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
 		map[string]any{"apiKeyId": keyID, "modelId": "gemini-2.5-flash"}).OK(t, nil)
@@ -1089,6 +1097,30 @@ func TestLiveBYOK_GoogleListedModelCanBeAccountUnavailable(t *testing.T) {
 		}
 	}
 	t.Logf("listed-but-unavailable Google model failure: code=%s message=%s", turn.ErrorCode, turn.ErrorMessage)
+
+	// The failure banner's user action is a model re-pick, not a dead-end. Exercise the
+	// recovery on the same conversation so an error turn cannot poison the next send or keep
+	// resolving the stale model behind the scenes.
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gemini-3-flash-preview"}).OK(t, nil)
+	retryMsg := sendMsg(t, wc, conv, "模型已切换，请用一句简短中文确认恢复。不要调用工具。")
+	recovered := waitTurn(t, wc, conv, retryMsg, 180000)
+	if recovered.Status != "completed" {
+		t.Fatalf("a valid model selected after stale-model failure must recover the same conversation: status=%s code=%s message=%s", recovered.Status, recovered.ErrorCode, recovered.ErrorMessage)
+	}
+	foundText := false
+	for _, block := range recovered.Blocks {
+		if block.Type == "text" && strings.TrimSpace(block.Content) != "" {
+			foundText = true
+			break
+		}
+	}
+	if !foundText {
+		t.Fatalf("recovered conversation must persist an assistant text block: %+v", recovered.Blocks)
+	}
+	if got := rec.CallsTo("streamGenerateContent"); got != 2 {
+		t.Fatalf("stale-model failure plus one recovery send must make exactly two generate calls, got %d", got)
+	}
 }
 
 // TestLiveBYOK_GoogleImageInput covers Google's native Gemini wire on the multimodal read
