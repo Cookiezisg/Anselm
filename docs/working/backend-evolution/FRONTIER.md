@@ -27,7 +27,7 @@ audience: [human, ai]
 | FRT-04 | workflow：生成者 → 下游观看者 | hybrid | 下游收到真实像素而非“图片已生成”文本 | 录制请求包含原始像素 | function-artifact workflow wire through; managed generation live locked; reprobe on route change |
 | FRT-05 | MCP/function/handler 产物 → 下游模型 | byok-read / hybrid | 各产地均能成为 MediaRef；不退化为占位字符串 | 产物字节、MediaRef、下游请求 | MCP/function/handler producers and chat/workflow vision wire through; reprobe on media/ref encoder changes |
 | FRT-06 | 文档内图像 → 引用/问答 | managed-read/default / byok-read | 编辑器往返和 LLM 消费保真 | 文档、附件与请求三方一致 | managed image-reference 通过；BYOK / wire pending |
-| FRT-07 | 音色完整生命周期 | hybrid + managed-write | 预置语音→附件→危险审批→异步登记→克隆合成→库存→删除 | 生产 API Serve、inventory、网关句柄到上游 id 的映射、删除后状态 | API Serve 句柄/default/WAV 修复已落地；managed E2E 待重跑 |
+| FRT-07 | 音色完整生命周期 | hybrid + managed-write | 预置语音→附件→危险审批→异步登记→克隆合成→库存→删除 | 生产 API Serve、inventory、网关句柄到上游 id 的映射、删除后状态 | API Serve 句柄/default/WAV 修复已落地；验收已改为默认 Anselm API、managed E2E 待重跑 |
 | FRT-08 | 朗读缓存与配额 | managed-write | 同文本同音色不二次调用；换输入才花费 | recorder 调用计数 + attachment cached | ready |
 | FRT-09 | 生成工具诚实显隐 | managed-write | 出图/改图/动画/音色各自独立，不能因一个能力存在而全露出 | 工具表 + 具体 route/capability | ready |
 | FRT-10 | 无 tool-call 模型 | byok-read | 可聊天但不作为 agent 可用模型；不被目录裁剪误删 | 模型选择器/API + agent 限制 | ready |

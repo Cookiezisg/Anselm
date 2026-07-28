@@ -40,54 +40,31 @@ import (
 // **刻意**会产生的合法状态)。
 const liveVoiceGateway = "https://api.anselm.website/v1"
 
-// liveVoiceModel must CALL a tool and then STOP. `qwen3.7-max` is the one proven to do both
-// (live_media_test.go's livePainterModel, bought with real money) — `qwen3-vl-plus` re-calls a tool
-// it already called, which on this chain would mean enrolling the same voice until the inventory
-// is full.
-//
-// liveVoiceModel 必须**会调工具、然后停**。`qwen3.7-max` 是被证明两样都做到的那个(live_media_test.go
-// 的 livePainterModel,真钱买来的)——`qwen3-vl-plus` 会重复调用它已经调过的工具,在这条链上那意味着
-// **把同一个音色登记到库存满**。
-const liveVoiceModel = "qwen3.7-max"
-
 // liveVoice boots a backend whose free-tier gateway is the deployed one, waits for the managed key
-// to land, and adds a BYOK chat key beside it.
+// to land. The managed Anselm model drives the tool call too: this lane must exercise the product's
+// actual default gateway, not smuggle a provider secret back into the desktop test.
 //
 // **Both halves are needed and neither is redundant.** Generation is managed-only after H11, so the
-// enroll/synthesize routes exist only via the managed install; but a tool has to be CALLED by a
-// model, and the managed tier's chat model is not the one proven to call-and-stop. That split — 写
-// 归受管、读归 BYOK — is the product's actual shape, so testing it is testing what ships.
+// enroll/synthesize routes and the dialogue model must come from the same deployed Anselm service.
 //
-// liveVoice 拉起一个「免费档网关 = 已部署那台」的后端,等受管 key 落地,再在旁边加一把 BYOK 聊天 key。
+// liveVoice 拉起一个「免费档网关 = 已部署那台」的后端，等受管 key 与默认 dialogue 一起就绪。
 //
-// **两半都需要,哪一半都不多余。** H11 之后生成只在受管档,故登记/合成路由**只**经受管 install 存在;
-// 但工具得由**模型**去调,而受管档那个聊天模型不是被证明「会调会停」的那个。这个分工——写归受管、
-// 读归 BYOK——正是产品**真实**的形状,故测它就是测将要发货的东西。
-func liveVoice(t *testing.T, name string) (wc *harness.Client, keyID string) {
+// **两半都需要,哪一半都不多余。** H11 之后登记/合成与 dialogue 都应经受管 install；测试不能再
+// 依赖已删除的本机 DASHSCOPE 配置来伪造这条产品路径。
+func liveVoice(t *testing.T, name string) *harness.Client {
 	t.Helper()
 	if os.Getenv("EVALS_VOICE") != "1" {
-		t.Skip("set EVALS_VOICE=1 (with DASHSCOPE_API_KEY) to run the real-money voice acceptance")
-	}
-	key := os.Getenv("DASHSCOPE_API_KEY")
-	if key == "" {
-		// Fatal, not Skip — asking for the real-money run and silently getting nothing is the exact
-		// failure mode this file exists to end.
-		// Fatal 而非 Skip——要了真钱验收却静默地什么也没跑,正是本文件要终结的那种失败。
-		t.Fatal("EVALS_VOICE=1 but DASHSCOPE_API_KEY is empty — a skipped real-money run is a silent pass")
-	}
-	base := os.Getenv("ANSELM_DASHSCOPE_BASE")
-	if base == "" {
-		t.Fatal("ANSELM_DASHSCOPE_BASE is empty — the workspace-scoped endpoint is per-account and no default is correct")
+		t.Skip("set EVALS_VOICE=1 to run the real-money managed voice acceptance")
 	}
 
 	srv := harness.Start(t, "ANSELM_GATEWAY_URL="+liveVoiceGateway)
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": name}).Field(t, "id")
-	wc = c.WS(wsID)
+	wc := c.WS(wsID)
 
 	// The managed row arrives ASYNCHRONOUSLY (creating a workspace fires a provision). Waiting for it
-	// by name is not optional: without it the generation tools are honestly absent and every
-	// assertion below would fail for a reason that has nothing to do with voices.
+	// and for the default is not optional: without either, generation tools are honestly absent and
+	// the assertion below would fail for a reason unrelated to voices.
 	// 受管行是**异步**到的(建 workspace 触发一次开通)。按名字等它不是可选项:不等,生成工具就诚实地
 	// 不存在,而下面每一条断言都会因为一个与音色毫无关系的原因失败。
 	harness.Eventually(t, 30000, "the managed free-tier key lands", func() bool {
@@ -103,14 +80,17 @@ func liveVoice(t *testing.T, name string) (wc *harness.Client, keyID string) {
 		return false
 	})
 
-	keyID = wc.POST("/api/v1/api-keys", map[string]any{
-		"provider": "qwen", "displayName": "live-voice-chat", "key": key,
-		"baseUrl": strings.TrimRight(base, "/") + "/compatible-mode/v1",
-	}).Field(t, "id")
-	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
-	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
-		map[string]any{"apiKeyId": keyID, "modelId": liveVoiceModel}).OK(t, nil)
-	return wc, keyID
+	var ws struct {
+		DefaultDialogue *struct {
+			APIKeyID string `json:"apiKeyId"`
+			ModelID  string `json:"modelId"`
+		} `json:"defaultDialogue"`
+	}
+	wc.GET("/api/v1/workspaces/"+wsID).OK(t, &ws)
+	if ws.DefaultDialogue == nil || ws.DefaultDialogue.APIKeyID == "" || ws.DefaultDialogue.ModelID == "" {
+		t.Fatalf("managed key became visible before the dialogue default was ready: %+v", ws)
+	}
+	return wc
 }
 
 type liveReadResp struct {
@@ -145,7 +125,7 @@ func liveRead(t *testing.T, wc *harness.Client, text, voice string) liveReadResp
 // 自己的附件库里,故登记走的是真正的「一个**已存在**的附件变成一个音色」那条路,而不必引入一份来历
 // 本身还需要解释的 fixture。
 func TestLiveVoice_EnrollSpeakDelete(t *testing.T) {
-	wc, _ := liveVoice(t, "live-voice")
+	wc := liveVoice(t, "live-voice")
 
 	// ① A real synthesis in a PRESET voice — the reference clip, and simultaneously proof that the
 	//    managed speech route works at all before any cloning is involved.
