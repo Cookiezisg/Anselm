@@ -326,6 +326,74 @@ func TestLiveManaged_GenerateSpeechArtifact(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ReadAloudCache is the managed read-aloud acceptance: the first press really
+// synthesizes, the identical second press returns the same attachment from the local cache without
+// consuming another gateway request, and a different text gets a fresh artifact. The gateway quota
+// snapshot is the product-visible spend witness here; the old provider recorder remains archived
+// because generation now belongs behind Anselm API Serve.
+func TestLiveManaged_ReadAloudCache(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-read-aloud-cache")
+	var avail struct {
+		Available bool `json:"available"`
+	}
+	wc.GET("/api/v1/read-aloud/availability").OK(t, &avail)
+	if !avail.Available {
+		t.Fatal("managed speech route is available, yet read-aloud reports itself unavailable")
+	}
+
+	readQuota := func() struct {
+		Limit     int64  `json:"limit"`
+		Used      int64  `json:"used"`
+		Remaining int64  `json:"remaining"`
+		ResetAt   string `json:"resetAt"`
+		Available bool   `json:"available"`
+	} {
+		t.Helper()
+		var q struct {
+			Limit     int64  `json:"limit"`
+			Used      int64  `json:"used"`
+			Remaining int64  `json:"remaining"`
+			ResetAt   string `json:"resetAt"`
+			Available bool   `json:"available"`
+		}
+		wc.GET("/api/v1/freetier/quota").OK(t, &q)
+		if q.Limit <= 0 || q.Used < 0 || q.Remaining < 0 || q.Used+q.Remaining > q.Limit || !q.Available {
+			t.Fatalf("managed quota must remain coherent and available: %+v", q)
+		}
+		if _, err := time.Parse(time.RFC3339, q.ResetAt); err != nil {
+			t.Fatalf("managed quota resetAt must be RFC3339: %q (%v)", q.ResetAt, err)
+		}
+		return q
+	}
+
+	before := readQuota()
+	first := liveRead(t, wc, "落霞与孤鹜齐飞,秋水共长天一色。", "")
+	if first.Cached || first.AttachmentID == "" || first.SizeBytes < 4000 {
+		t.Fatalf("first managed read must synthesize real audio: %+v", first)
+	}
+	afterFirst := readQuota()
+	if afterFirst.Used <= before.Used {
+		t.Fatalf("first synthesis must consume one gateway request: before=%+v after=%+v", before, afterFirst)
+	}
+
+	again := liveRead(t, wc, "落霞与孤鹜齐飞,秋水共长天一色。", "")
+	if !again.Cached || again.AttachmentID != first.AttachmentID {
+		t.Fatalf("identical managed read must reuse its cached artifact: first=%+v again=%+v", first, again)
+	}
+	afterHit := readQuota()
+	if afterHit.Used != afterFirst.Used {
+		t.Fatalf("cached managed read must not consume another gateway request: afterFirst=%+v afterHit=%+v", afterFirst, afterHit)
+	}
+
+	other := liveRead(t, wc, "孤帆远影碧空尽,唯见长江天际流。", "")
+	if other.Cached || other.AttachmentID == "" || other.AttachmentID == first.AttachmentID {
+		t.Fatalf("different managed text must produce a fresh artifact: first=%+v other=%+v", first, other)
+	}
+	if content := wc.DoRaw("GET", "/api/v1/attachments/"+first.AttachmentID+"/content", "", nil); content.Status != 200 || !bytes2IsWAV(content.Raw) {
+		t.Fatalf("cached managed audio must remain playable: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_GenerateVideoArtifact is the managed long-write acceptance: generate_video must
 // stop at its dangerous-operation gate, resume after approval, walk the gateway's async route, and
 // land one real MP4 attachment. A two-step cap permits only the tool call and final confirmation.
