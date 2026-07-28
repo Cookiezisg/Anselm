@@ -35,7 +35,7 @@ audience: [human, ai]
 | FRT-12 | 工具参数流 | byok-read / hybrid | 累积式与增量式 `arguments` 都能执行一次正确工具调用 | 两类 fixture + 真线缆样本 | locked; reprobe with parser changes |
 | FRT-13 | 取消、重试与恢复中的媒体 | all applicable | 取消回合不留孤儿、重放不错误复用或重复消费 | durable 状态、附件溯源、调用计数 | handler/workflow cancel/retry/crash no-orphan + image preparation ready/failed/cancel/retry + boot budget eviction/regeneration + crash requeue through；真实 webhook 双触发下 serial/skip/buffer_one/replace/allow_all 五种 overlap 策略的 firing disposition 与 flowrun 状态均通过；reprobe on worker/recovery changes |
 | FRT-14 | provider 模型资格漂移 | byok-read | `/models` 可见不等于当前账号可生成；选择后 404 应可解释、不可重试且不污染回合 | `/models` 与最小 generate 对照 + 产品选择/失败状态 | Google `gemini-2.5-flash` 真实通过：可见、可保存选择，首发单次 404、error turn 无 assistant 文本；回合级 code 现保留为 `LLM_MODEL_NOT_FOUND`，失败横幅提供重选模型入口；同一会话切换 `gemini-3-flash-preview` 后恢复完成且仅多一次 generate；模型失效记忆/目录自动降级仍待后续 |
-| FRT-15 | workflow 大图扇出与 AND-join | managed-write / hybrid | 多路 live 入边必须全部完成后才 join；节点按 `(node, iteration)` 只落一次，终值不丢 | HTTP flowrun、节点 durable rows、终点结果 | 12 节点/8 路扇出/两级 join 与 25 迭代深循环（含 REST 节点分页、function flowrunIteration）真实通过；大图 failed replay 仍待后续 |
+| FRT-15 | workflow 大图扇出与 AND-join | managed-write / hybrid | 多路 live 入边必须全部完成后才 join；节点按 `(node, iteration)` 只落一次，终值不丢；失败后可从断点恢复 | HTTP flowrun、节点 durable rows、终点结果、replay 后的调用台账 | 12 节点/8 路扇出/两级 join、25 迭代深循环（含 REST 节点分页、function flowrunIteration）与真实 failed replay（已完成节点复用、驻留 handler 第二次成功、二次 replay 拒绝）均通过；reprobe on scheduler/storage changes |
 
 ## 历史高频 reprobe 组
 
