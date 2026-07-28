@@ -34,7 +34,12 @@ func (f *fakeVoices) Create(_ context.Context, v *voicedomain.Voice) error {
 	return nil
 }
 func (f *fakeVoices) List(context.Context) ([]*voicedomain.Voice, error) { return f.rows, nil }
-func (f *fakeVoices) GetByName(context.Context, string) (*voicedomain.Voice, error) {
+func (f *fakeVoices) GetByName(_ context.Context, name string) (*voicedomain.Voice, error) {
+	for _, v := range f.rows {
+		if v.Name == name {
+			return v, nil
+		}
+	}
 	return nil, voicedomain.ErrNotFound
 }
 func (f *fakeVoices) Delete(context.Context, string) error { return nil }
@@ -135,5 +140,48 @@ func TestEnroll_DangerAnchorIsInTheDescription(t *testing.T) {
 	}
 	if !strings.Contains(d, "PERSISTENT") || !strings.Contains(d, "real person") {
 		t.Fatalf("the anchor must name WHY (persistent state, a real person's voice), got: %s", d)
+	}
+}
+
+// TestResolveVoice_NameBecomesTheUpstreamID guards the hop whose absence made the whole cloning
+// feature decorative: enrollment succeeded, cost money, wrote a row — and every synthesis in that
+// voice then failed upstream, because the name a person chose means nothing to the provider. The
+// store's `GetByName` existed, documented as「解析成上游 id」, and nothing called it.
+//
+// The pass-through half is asserted in the same breath and matters just as much: preset voices are
+// not rows here, so a resolver that rewrote everything would break every synthesis that never
+// involved cloning at all.
+//
+// TestResolveVoice_NameBecomesTheUpstreamID 守的是那个「缺席使整个克隆功能沦为装饰」的一跳:登记成功、
+// 花掉真钱、写下一行——而此后每一次用那个音色的合成都在上游失败,因为人取的名字对供应商毫无意义。
+// store 的 `GetByName` 一直都在、注释写着「解析成上游 id」,却没有任何人调用它。
+//
+// **透传那半在同一口气里断言**,而且同样要紧:预置音色不是这里的行,一个见谁都改写的解析器会弄坏每一次
+// 根本不涉及克隆的合成。
+func TestResolveVoice_NameBecomesTheUpstreamID(t *testing.T) {
+	voices := &fakeVoices{rows: []*voicedomain.Voice{
+		{ID: "vce_1", Name: "narrator", UpstreamID: "anselm-abc123", Provider: "anselm"},
+		// A row that never got an upstream id is unreachable upstream; passing the NAME on gives the
+		// provider something it might at least recognise as a preset, instead of an empty string.
+		// 一行没拿到上游 id 就在上游够不着;把**名字**传下去,至少还给供应商一个它可能认得的预置名,
+		// 而不是一个空串。
+		{ID: "vce_2", Name: "half-made", UpstreamID: "", Provider: "anselm"},
+	}}
+	r := &Router{Voices: voices}
+	for _, tc := range []struct{ in, want string }{
+		{"narrator", "anselm-abc123"},
+		{"  narrator  ", "anselm-abc123"},
+		{"half-made", "half-made"},
+		{"longanhuan_v3.6", "longanhuan_v3.6"}, // a preset — never ours to rewrite
+		{"", ""},
+	} {
+		if got := r.resolveVoice(context.Background(), tc.in); got != tc.want {
+			t.Fatalf("resolveVoice(%q) = %q, want %q", tc.in, got, tc.want)
+		}
+	}
+	// No repository at all (tests, direct-connect assembly) must not panic and must not swallow the
+	// caller's choice. 完全没有仓库时(测试、直连装配)不得 panic,也不得吞掉调用方的选择。
+	if got := (&Router{}).resolveVoice(context.Background(), "narrator"); got != "narrator" {
+		t.Fatalf("a router without a voice repository must pass the name through, got %q", got)
 	}
 }

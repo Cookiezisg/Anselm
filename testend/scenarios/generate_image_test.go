@@ -10,7 +10,6 @@
 package scenarios
 
 import (
-	"bytes"
 	"strings"
 	"testing"
 
@@ -49,12 +48,27 @@ func TestGenerateImage_HonestAbsence(t *testing.T) {
 	}
 }
 
-// TestGenerateImage_EndToEnd: the whole 批B chain on the real binary — injection, execution
-// against the mocked OpenAI images wire, first-class attachment persistence with byte-exact
-// round-trip, the receipt in the tool_result block, and the receipt in the model's next view.
-func TestGenerateImage_EndToEnd(t *testing.T) {
+// TestGenerateImage_OfferedAndReachesTheUpstream covers the half a MOCK can honestly prove, and it
+// stops exactly where a mock stops being evidence.
+//
+// **Why it no longer asserts the artifact.** Generation is managed-only (H11), and the managed image
+// contract hands back an **https URL** that the desktop then fetches — the gateway never returns
+// bytes (its handler has one field, `url`). A plain-http mock therefore cannot stand in: teaching
+// the desktop to also accept `b64_json` would be inventing a contract no gateway speaks, which is
+// the precise mistake this campaign has paid for twice this week. The artifact half — receipt,
+// first-class attachment, byte round-trip, the model really seeing pixels — is asserted for real
+// money in `live_media_test.go`.
+//
+// TestGenerateImage_OfferedAndReachesTheUpstream 覆盖**假件能诚实证明**的那一半,并在假件不再算证据的
+// 地方**恰好停住**。
+//
+// **它为什么不再断言产物。** 生成只在受管档(H11),而受管图像契约交回的是一个 **https URL**、由桌面随后
+// 去取——网关**从不**返回字节(它的 handler 只有 `url` 一个字段)。故一个纯 http 的假件顶替不了:教桌面
+// 端「也收 b64_json」等于发明一个**没有任何网关会说**的契约,而那正是本战役这一周付过两次学费的错误。
+// 产物那一半——receipt、一等附件、字节往返、模型**真的看见**像素——在 `live_media_test.go` 里用真钱断言。
+func TestGenerateImage_OfferedAndReachesTheUpstream(t *testing.T) {
 	t.Parallel()
-	wc, mock := chatSetup(t, false) // openai key + llmmock → image-capable route 图像家路由
+	wc, mock := chatSetupManaged(t)
 
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "generate_image",
@@ -69,7 +83,9 @@ func TestGenerateImage_EndToEnd(t *testing.T) {
 	}
 
 	dumps := mock.DumpsFor(dlgModel)
-	// ① Injection: the tool was offered on the first request. 注入:首请求即 offer。
+	// ① Injection: the tool is offered BECAUSE a managed install exists — the H11 law, and the one
+	//    thing about availability a mock can prove. 注入:工具之所以被 offer,是因为**有受管 install**
+	//    ——H11 的律,也是关于可用性、假件唯一证得了的事。
 	offered := false
 	for _, name := range dumps[0].Tools {
 		if name == "generate_image" {
@@ -77,40 +93,12 @@ func TestGenerateImage_EndToEnd(t *testing.T) {
 		}
 	}
 	if !offered {
-		t.Fatalf("generate_image absent from tools despite an image-capable key: %v", dumps[0].Tools)
+		t.Fatalf("generate_image absent despite a managed install: %v", dumps[0].Tools)
 	}
-	// ② The mocked upstream really got the prompt. mock 上游真收到 prompt。
+	// ② The call really left the desktop and arrived at the managed image route with the prompt
+	//    intact. 调用真的离开了桌面、带着完好的 prompt 抵达受管图像路由。
 	if prompts := mock.ImagePrompts(); len(prompts) != 1 || prompts[0] != "a lighthouse at dusk" {
 		t.Fatalf("image upstream prompts = %v", prompts)
-	}
-	// ③ The tool_result block carries the receipt with the attachment id. tool_result 带 receipt。
-	var receiptJSON string
-	for _, b := range turn.Blocks {
-		if b.Type == "tool_result" && strings.Contains(b.Content, `"source":"generate_image"`) {
-			receiptJSON = b.Content
-		}
-	}
-	if receiptJSON == "" {
-		t.Fatalf("no generate_image receipt in blocks: %+v", turn.Blocks)
-	}
-	attID := extractField(t, receiptJSON, "attachmentId")
-	if !strings.HasPrefix(attID, "att_") {
-		t.Fatalf("receipt attachmentId = %q", attID)
-	}
-	// ④ The artifact is a FIRST-CLASS attachment whose bytes round-trip exactly. 一等附件字节往返。
-	// DoRaw: /content is an N1-exempt raw-bytes endpoint — the enveloped GET would fatal on it.
-	// DoRaw:/content 是 N1 豁免的裸字节端点——走 envelope 的 GET 会在它上 fatal。
-	contentResp := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
-	if contentResp.Status != 200 {
-		t.Fatalf("attachment content: HTTP %d", contentResp.Status)
-	}
-	got := contentResp.Raw
-	if !bytes.Equal(got, harness.MockPNG) {
-		t.Fatalf("stored artifact bytes differ: got %d bytes, want the mock PNG (%d)", len(got), len(harness.MockPNG))
-	}
-	// ⑤ The model's SECOND view contains the receipt (the LLM can reference the artifact). 第二请求见 receipt。
-	if len(dumps) < 2 || !dumps[1].HasMessage("tool", attID) {
-		t.Fatalf("second model view lacks the receipt: dumps=%d", len(dumps))
 	}
 }
 

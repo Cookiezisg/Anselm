@@ -49,6 +49,63 @@ func chatSetup(t *testing.T, withUtility bool) (*harness.Client, *harness.LLMMoc
 	return wc, mock
 }
 
+// chatSetupManaged is chatSetup with a MANAGED install beside the BYOK key: the free-tier gateway
+// points at the same mock, so the workspace really carries an `anselm` row and the generation tools
+// really exist.
+//
+// **After H11 there is no other way to exercise generation at all.** The tools are managed-only, so
+// a workspace with only a BYOK key is a workspace where they honestly do not exist — which is a
+// legitimate state, asserted by the `*_HonestAbsence` scenarios, and the reason those keep using
+// plain chatSetup. Anything that means to test what a generation tool DOES has to come through here.
+//
+// chatSetupManaged 是 chatSetup 外加一个**受管** install:免费档网关指向同一个 mock,故 workspace 真的
+// 带一行 `anselm`、生成工具真的存在。
+//
+// **H11 之后再没有别的路子能跑起生成。** 那些工具只在受管档,故一个只有 BYOK key 的 workspace 就是
+// 「它们诚实地不存在」的 workspace——那是一个**合法**状态,由 `*_HonestAbsence` 那几个场景断言,也正是
+// 它们继续用普通 chatSetup 的理由。凡是想测「生成工具**做了什么**」的,都得走这里。
+func chatSetupManaged(t *testing.T) (*harness.Client, *harness.LLMMock) {
+	t.Helper()
+	// The mock must exist BEFORE the server, because the server has to be booted already pointing at
+	// it: the provision fires on workspace creation and there is no second chance.
+	// mock 必须**先于** server 存在,因为 server 一起来就得已经指着它:开通在建 workspace 时触发,没有
+	// 第二次机会。
+	mock := harness.NewLLMMock(t)
+	srv := harness.Start(t, "ANSELM_GATEWAY_URL="+mock.URL()+"/v1")
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "chat-ws"}).Field(t, "id")
+	wc := c.WS(wsID)
+
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "llmmock", "key": "sk-mock", "baseUrl": mock.URL(),
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": dlgModel}).OK(t, nil)
+
+	// The managed row lands ASYNCHRONOUSLY. Without this wait the generation tools are absent for a
+	// reason that has nothing to do with what the scenario is testing.
+	// 受管行是**异步**落地的。不等它,生成工具会因为一个与本场景所测之事毫无关系的原因而缺席。
+	waitManagedKey(t, wc)
+	return wc, mock
+}
+
+func waitManagedKey(t *testing.T, wc *harness.Client) {
+	t.Helper()
+	harness.Eventually(t, 15000, "the managed free-tier key lands", func() bool {
+		var keys []struct {
+			Provider string `json:"provider"`
+		}
+		wc.GET("/api/v1/api-keys").OK(t, &keys)
+		for _, k := range keys {
+			if k.Provider == "anselm" {
+				return true
+			}
+		}
+		return false
+	})
+}
+
 func convCreate(t *testing.T, wc *harness.Client, title string) string {
 	t.Helper()
 	return wc.POST("/api/v1/conversations", map[string]any{"title": title}).Field(t, "id")

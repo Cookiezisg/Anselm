@@ -364,7 +364,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// 生成能力工具(批B):逐请求 resident,按图像路由可用性上闸(诚实缺席)。带 proof 的 HTTP client
 	// 同时服务受管网关调用(签名)与产物下载(透传)。
 	genRouter := &generatetool.Router{Picker: ws, Keys: keys, Probes: keys, HTTP: inf.proofHTTP,
-		Media: llminfra.NewMediaClient(inf.proofHTTP)}
+		Media: llminfra.NewMediaClient(inf.proofHTTP), Voices: st.voice}
 	genTools := generatetool.GenerateTools(genRouter, att, att, st.voice)
 	// The management face for what enroll_voice creates. Without list+delete an inventory of 2 is a
 	// trap: two enrollments and the capability is permanently unavailable with no way out.

@@ -59,6 +59,12 @@ type Server struct {
 	DataDir string
 	cmd     *exec.Cmd
 	pgid    int
+	// env carries scenario overrides through Restart as well as Start, so a restarted process is
+	// configured exactly like the original — a restart that silently dropped them would change what
+	// the scenario is testing halfway through.
+	// env 让场景覆盖同时经 Restart 与 Start 生效,使重启出的进程与原来配置完全一致——一个静默丢掉它们
+	// 的重启,会在场景跑到一半时改变它正在测的东西。
+	env []string
 }
 
 var (
@@ -173,7 +179,7 @@ func preseedRuntimes(t *testing.T, src, dst string) {
 //
 // Start 在空闲端口 + 临时数据目录上拉起全新 backend，等 health，注册收容（优雅停 + 进程组清扫 +
 // 泄漏自检）与运行时缓存回存。
-func Start(t *testing.T) *Server {
+func Start(t *testing.T, env ...string) *Server {
 	t.Helper()
 	bin := binary(t)
 	dataDir := t.TempDir()
@@ -193,6 +199,7 @@ func Start(t *testing.T) *Server {
 	// 在 boot **之前**注册，故跑在收容**之后**（t.Cleanup 是 LIFO）：缓存只能从已死 server 的数据目录拷，
 	// 绝不能从仍在写盘的活 server 拷。
 	t.Cleanup(s.saveRuntimeCache)
+	s.env = env
 	s.boot(t, bin)
 	return s
 }
@@ -227,6 +234,12 @@ func (s *Server) boot(t *testing.T, bin string) {
 		// **唯一**打算测的配置。碰免费档的那两个场景本就为这种情形写了离线面断言。
 		"ANSELM_GATEWAY_URL=http://127.0.0.1:1/v1",
 	)
+	// Scenario overrides go LAST, because os/exec resolves duplicate keys to the last occurrence.
+	// The one caller today is the real-money acceptance, which must point the free-tier gateway at
+	// the PRODUCTION one — that is the only place the managed generation routes exist.
+	// 场景覆盖放**最后**:os/exec 对重复键取最后一个。今天唯一的调用方是真钱验收,它必须把免费档网关
+	// 指向**生产**那台——受管生成路由只存在于那里。
+	cmd.Env = append(cmd.Env, s.env...)
 	cmd.Stdout = os.Stderr // backend logs interleave with test output for diagnosis. 后端日志混入测试输出便于诊断。
 	cmd.Stderr = os.Stderr
 	setupProcessGroup(cmd)

@@ -16,6 +16,7 @@ import (
 	binaryenc "encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -167,6 +168,17 @@ func NewLLMMock(t *testing.T) *LLMMock {
 	//
 	// 这里刻意**不验**那份 proof。签名对不对是**网关**的事,网关自己的 e2e 已在真验证器上证过。本 mock
 	// 要做的是让握手**走完**,好让真正被测的那个东西——桌面端的受管方言——真的开得了口。
+	// The free-tier lifecycle, so a scenario can point ANSELM_GATEWAY_URL here and get a REAL managed
+	// key instead of a workspace with none. After H11 that is the only way to exercise generation at
+	// all — the tools are managed-only now, so a scenario without an install is a scenario where they
+	// honestly do not exist. Like the proof handshake above, this fakes the gateway's ANSWERS, never
+	// its judgement: quota and billing are the gateway's own e2e's business.
+	// 免费档生命周期,使场景可以把 ANSELM_GATEWAY_URL 指到这里、真的拿到一把**受管** key,而不是一个
+	// 一把 key 都没有的 workspace。H11 之后这是**唯一**能跑起生成的路子——那些工具现在只在受管档,故
+	// 一个没有 install 的场景就是「它们诚实地不存在」的场景。与上面的握手同理:这里假的是网关的**回答**、
+	// 绝不是它的**判断**;配额与计费是网关自己 e2e 的事。
+	mux.HandleFunc("POST /v1/install", m.handleInstall)
+	mux.HandleFunc("GET /v1/quota", m.handleQuota)
 	mux.HandleFunc("GET /v1/proof/challenge", m.handleProofChallenge)
 	mux.HandleFunc("GET /v1/models", m.handleModels)
 	mux.HandleFunc("POST /v1/chat/completions", m.handleCompletions)
@@ -571,4 +583,22 @@ func (m *LLMMock) handleProofChallenge(w http.ResponseWriter, _ *http.Request) {
 		"nonce":     "testend-proof-nonce",
 		"expiresAt": time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
 	})
+}
+
+// handleInstall registers any device that asks. The gateway's real anti-Sybil gates are its own
+// business; refusing here would only stop the desktop's managed dialect from ever speaking.
+// handleInstall 来者不拒。网关真正的防 Sybil 闸是它自己的事;在这里拒绝,只会让桌面端的受管方言永远
+// 开不了口。
+func (m *LLMMock) handleInstall(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"installId":"ins_mock000000001","monthlyQuota":1000000,"resetAt":"2099-01-01T00:00:00Z"}`)
+}
+
+// handleQuota answers a generous, always-available quota: a scenario that wanted to test exhaustion
+// would have to say so, and none does — the gateway owns that logic and tests it for real.
+// handleQuota 答一个宽裕且恒可用的配额:想测耗尽的场景得自己说,而没有场景这么说——那套逻辑归网关,
+// 它自己真测。
+func (m *LLMMock) handleQuota(w http.ResponseWriter, _ *http.Request) {
+	w.Header().Set("Content-Type", "application/json")
+	_, _ = io.WriteString(w, `{"limit":1000000,"used":0,"remaining":1000000,"resetAt":"2099-01-01T00:00:00Z","available":true}`)
 }

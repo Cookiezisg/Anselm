@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -42,6 +43,11 @@ import (
 // carries the human-facing cause (S20).
 //
 // ErrVoiceCloneFailed 是上游拒绝登记的中立 sentinel;Message 携人话原因(S20)。
+// voiceMaxBytes bounds a response body from the voice routes. They answer a small JSON object or
+// nothing at all, so this is a runaway guard, not a product limit.
+// voiceMaxBytes 界音色路由的响应体。它们答一个小 JSON 或**什么都不答**,故这是失控闸、不是产品上限。
+const voiceMaxBytes = 1 << 20
+
 var ErrVoiceCloneFailed = errorspkg.New(errorspkg.KindUnavailable, "VOICE_CLONE_FAILED", "voice enrollment failed")
 
 // voiceCloneBudget bounds one enrollment. Enrollment is a short upload + a synchronous answer, so
@@ -102,9 +108,51 @@ func voiceGateway(ctx context.Context, httpc *http.Client, baseURL, installID, p
 		return nil, err
 	}
 	req.Header.Set(deviceproofinfra.HeaderInstallID, installID)
-	raw, err := doImageRequest(httpc, req, "anselm")
+	// This family does its own HTTP because it differs from generation in two ways that the shared
+	// image helper gets wrong for it:
+	//
+	//   1. **A successful delete is 204 with no body.** The generation helper accepts only 200, so
+	//      the gateway's correct answer came back to the user as「voice enrollment failed」— the
+	//      voice really was gone upstream, and the desktop said otherwise. Real money found it.
+	//   2. **It speaks the wrong family's vocabulary.** Borrowing the image helper made a failed
+	//      voice call report「image generation failed」inside its own details.
+	//
+	// 本族自己发 HTTP,因为它与生成在两件事上不同,而共用的图像 helper 在这两件事上都对它是错的:
+	//
+	//   1. **删除成功是 204、没有 body。** 生成 helper 只认 200,于是网关**正确的**回答传到用户那里
+	//      变成了「voice enrollment failed」——音色在上游**真的**已经没了,而桌面说的是另一回事。
+	//      真钱验收抓到的正是它。
+	//   2. **它说的是另一族的话。** 借用图像 helper 会让一次失败的音色调用在自己的 details 里报
+	//      「image generation failed」。
+	resp, err := httpc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s", ErrVoiceCloneFailed, err.Error())
+		return nil, ErrVoiceCloneFailed.WithDetails(map[string]any{"upstream": err.Error()})
+	}
+	defer func() { _ = resp.Body.Close() }()
+	raw, err := io.ReadAll(io.LimitReader(resp.Body, voiceMaxBytes))
+	if err != nil {
+		return nil, ErrVoiceCloneFailed.WithDetails(map[string]any{"upstream": "read: " + err.Error()})
+	}
+	if resp.StatusCode < 200 || resp.StatusCode > 299 {
+		excerpt := strings.TrimSpace(string(raw))
+		if len(excerpt) > 300 {
+			excerpt = excerpt[:300] + "…"
+		}
+		err = fmt.Errorf("HTTP %d: %s", resp.StatusCode, excerpt)
+	} else {
+		err = nil
+	}
+	if err != nil {
+		// The reason goes in DETAILS, not in a `%w` tail. `errorspkg.Surface` — what both the LLM and
+		// the operator log read — renders Message plus Details and DROPS the wrapped tail, so a
+		// reason appended with `%w` reaches nobody: the enrollment that failed against the real
+		// gateway logged exactly `voice enrollment failed`, and finding out why cost another
+		// real-money round trip. Details are the channel this project already has for that.
+		// 原因放进 **Details**、不放在 `%w` 尾巴上。`errorspkg.Surface`——LLM 与运维日志读的都是它——
+		// 渲染的是 Message 加 Details、**丢掉**被包裹的尾巴,故用 `%w` 缀上的原因**谁也到不了**:那次
+		// 对真网关失败的登记,日志里逐字就是 `voice enrollment failed`,而弄清为什么又花了一个真钱来回。
+		// Details 正是本项目**本来就有**的那条通道。
+		return nil, ErrVoiceCloneFailed.WithDetails(map[string]any{"upstream": err.Error()})
 	}
 	return raw, nil
 }

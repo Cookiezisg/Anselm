@@ -203,6 +203,48 @@ type Router struct {
 	// Media 经受管断点上传把样本传上去,返回网关自己的**相对** lease 引用。只有音色登记用它——那个唯一
 	// 不肯收字节的上游。可选(测试为 nil);登记路径自己判。
 	Media *llminfra.MediaClient
+
+	// Voices turns the NAME a person chose into the id the provider actually knows.
+	//
+	// **Without it the whole cloning feature is decorative**, and it is decorative in the most
+	// expensive way: enrollment succeeds, costs money, and produces a row — and then every attempt to
+	// speak in that voice fails at the upstream, because the name `narrator` means something to us
+	// and nothing to DashScope. The real-money acceptance found exactly that: enroll → OK, speak →
+	// SPEECH_GEN_FAILED. The store had `GetByName` all along, documented as「解析成上游 id」, and
+	// nothing called it.
+	//
+	// It sits on the ROUTER rather than in the tool because read-aloud must resolve identically: the
+	// two speech entry points share `synthesize`, and a translation on only one of them would make a
+	// voice work when the model speaks and fail when the user presses play.
+	//
+	// Voices 把**人取的名字**变成**供应商真正认识的 id**。
+	//
+	// **没有它,整个克隆功能就是装饰**,而且是最贵的那种装饰:登记成功、花掉真钱、落下一行——然后每一次
+	// 用那个音色说话都在上游失败,因为 `narrator` 这个名字对**我们**有意义、对 DashScope 什么也不是。
+	// 真钱验收抓到的正是这个:登记 → OK,说话 → SPEECH_GEN_FAILED。store 里 `GetByName` 一直都在、
+	// 注释还写着「解析成上游 id」,而**没有任何人调用它**。
+	//
+	// 它挂在 **Router** 上而非工具里,因为朗读必须**同样**解析:两个语音入口共用 `synthesize`,只在其中
+	// 一个上做翻译,会让同一个音色「模型说话时能用、用户按播放键时失败」。
+	Voices voicedomain.Repository
+}
+
+// resolveVoice maps a local voice name to its upstream id, and passes anything else through
+// UNCHANGED — preset voices are not rows in our table, and rewriting them would break every
+// synthesis that never involved cloning at all.
+//
+// resolveVoice 把本地音色名映射成上游 id,其余一律**原样透传**——预置音色不是我们表里的行,改写它们会
+// 弄坏每一次**根本不涉及克隆**的合成。
+func (r *Router) resolveVoice(ctx context.Context, voice string) string {
+	name := strings.TrimSpace(voice)
+	if r.Voices == nil || name == "" {
+		return voice
+	}
+	v, err := r.Voices.GetByName(ctx, name)
+	if err != nil || v == nil || v.UpstreamID == "" {
+		return voice
+	}
+	return v.UpstreamID
 }
 
 // genRoute is one resolved way to generate (any modality).
@@ -447,6 +489,7 @@ func (r *Router) synthesize(ctx context.Context, route genRoute, text, voice str
 	// **不设音色就让它空着。** 受管网关会填自己配置的默认值,而那些音色名属于**它真正调用的那个模型**
 	// (qwen-audio-3.0 的名字带 `_v3.6` 后缀,且它**直接拒绝**旧家族那套名字)。在这里猜一个,等于发出
 	// 一个上游可能不认识的名字,而那次失败读起来像「语音坏了」、不像「音色名不对」。
+	voice = r.resolveVoice(ctx, voice)
 	chunks := llminfra.SplitSpeechText(text, llminfra.SpeechChunkLimit(route.provider))
 	if len(chunks) == 0 {
 		return llminfra.GeneratedAudio{}, ErrTextRequired
@@ -505,7 +548,12 @@ func (r *Router) SpeechRouteIdentity(ctx context.Context, voice string) (string,
 	if err != nil {
 		return "", "", "", err
 	}
-	return route.provider, route.model, voice, nil
+	// The identity carries the RESOLVED voice, because the cache key is built from it: a voice
+	// deleted and re-enrolled under the same name is a different voice upstream, and a key that
+	// only knew the name would serve the old one's audio forever.
+	// 身份带的是**解析后**的音色,因为缓存键由它构成:一个被删掉、又用同一个名字重新登记的音色,在上游
+	// 是**另一个**音色,而一个只认得名字的键会永远端出旧那个的音频。
+	return route.provider, route.model, r.resolveVoice(ctx, voice), nil
 }
 
 // resolveVideo picks the video route (the resolveImage twin, same law, its own table).

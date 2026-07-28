@@ -60,7 +60,7 @@ func TestSpeech_HonestAbsence(t *testing.T) {
 // round-trip exactly, and the receipt in the model's next view.
 func TestSpeech_GenerateEndToEnd(t *testing.T) {
 	t.Parallel()
-	wc, mock := chatSetup(t, false) // openai key + llmmock → speech-capable route
+	wc, mock := chatSetupManaged(t)
 
 	mock.Enqueue(dlgModel,
 		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "generate_speech",
@@ -123,7 +123,7 @@ func TestSpeech_GenerateEndToEnd(t *testing.T) {
 // 能满足关于音频的每一条断言。本场景同时证明朗读**不花 token**——chat 模型一次都没被调用。
 func TestReadAloud_SecondListenCostsNothing(t *testing.T) {
 	t.Parallel()
-	wc, mock := chatSetup(t, false)
+	wc, mock := chatSetupManaged(t)
 
 	var avail struct {
 		Available bool `json:"available"`

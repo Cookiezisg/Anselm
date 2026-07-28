@@ -207,19 +207,19 @@ func newImageRequest(ctx context.Context, u string, body []byte) (*http.Request,
 func doImageRequest(httpc *http.Client, req *http.Request, provider string) ([]byte, error) {
 	resp, err := httpc.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s: %v", ErrImageGenFailed, provider, err)
+		return nil, ErrImageGenFailed.WithDetails(map[string]any{"upstream": fmt.Sprintf("%s: %v", provider, err)})
 	}
 	defer func() { _ = resp.Body.Close() }()
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, imageMaxBytes))
 	if err != nil {
-		return nil, fmt.Errorf("%w: %s: read: %v", ErrImageGenFailed, provider, err)
+		return nil, ErrImageGenFailed.WithDetails(map[string]any{"upstream": fmt.Sprintf("%s: read: %v", provider, err)})
 	}
 	if resp.StatusCode != http.StatusOK {
 		excerpt := strings.TrimSpace(string(raw))
 		if len(excerpt) > 300 {
 			excerpt = excerpt[:300] + "…"
 		}
-		return nil, fmt.Errorf("%w: %s: HTTP %d: %s", ErrImageGenFailed, provider, resp.StatusCode, excerpt)
+		return nil, ErrImageGenFailed.WithDetails(map[string]any{"upstream": fmt.Sprintf("%s: HTTP %d: %s", provider, resp.StatusCode, excerpt)})
 	}
 	return raw, nil
 }
