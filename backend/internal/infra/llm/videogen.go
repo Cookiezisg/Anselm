@@ -107,6 +107,21 @@ type VideoRequest struct {
 	DurationSec int
 	Aspect      string // "landscape" | "portrait" | "square" — the tool's enum
 	Resolution  string // "720p" | "1080p"
+	// FirstFrame turns text-to-video into IMAGE-to-video (WRK-082 H9). Nil = text-to-video, the
+	// original shape. It is a data URL rather than a link for the same reason the image editor's
+	// source is: an attachment has no address upstream can fetch, and minting one would be a
+	// hosting responsibility plus an SSRF surface bought for nothing.
+	//
+	// **Aspect and resolution stop being ours to choose when this is set** — the clip inherits the
+	// frame's geometry, so passing our enum alongside would be asking the upstream to letterbox or
+	// crop the very image the user handed us.
+	//
+	// FirstFrame 把「文生视频」变成**图生视频**(H9)。nil = 文生视频、原本那一形。它是 data URL 而非
+	// 链接,理由与改图的源图相同:附件没有上游取得到的地址,而凭空造一个是白买托管责任加 SSRF 面。
+	//
+	// **它一旦设定,aspect 与 resolution 就不再由我们决定**——片子继承首帧的几何,此时还把我们的枚举
+	// 递过去,等于要求上游对用户刚递来的那张图做信箱边或裁切。
+	FirstFrame *DataURL
 }
 
 // VideoPollInterval is each provider's documented polling cadence. DashScope's 15s is an explicit
@@ -271,10 +286,18 @@ func SubmitVideoDashScope(ctx context.Context, httpc *http.Client, nativeBase, k
 		"duration":  req.DurationSec,
 		"watermark": false,
 	}
-	// wan2.7 replaced the single `size` with resolution + ratio; 2.6 and earlier still take `size`.
-	// Same provider, two shapes — branch on the model, do not guess.
-	// wan2.7 把单一 `size` 换成了 resolution + ratio;2.6 及更早仍吃 `size`。同一家两种形,按模型分支、不猜。
-	if strings.HasPrefix(model, "wan2.7") || strings.HasPrefix(model, "happyhorse") {
+	input := map[string]any{"prompt": req.Prompt}
+	if req.FirstFrame != nil {
+		// Image-to-video: the frame goes in `img_url` (data URL accepted) and the geometry keys are
+		// OMITTED — the clip takes the frame's own aspect and size. Sending ours anyway is how a
+		// user's 3:2 photo silently becomes a letterboxed 16:9 clip.
+		// 图生视频:首帧走 `img_url`(收 data URL),而几何键**整个略去**——片子取首帧自己的比例与尺寸。
+		// 照旧把我们的递过去,正是用户那张 3:2 的照片静默变成加了黑边的 16:9 的方式。
+		input["img_url"] = req.FirstFrame.String()
+	} else if strings.HasPrefix(model, "wan2.7") || strings.HasPrefix(model, "happyhorse") {
+		// wan2.7 replaced the single `size` with resolution + ratio; 2.6 and earlier still take `size`.
+		// Same provider, two shapes — branch on the model, do not guess.
+		// wan2.7 把单一 `size` 换成了 resolution + ratio;2.6 及更早仍吃 `size`。同一家两种形,按模型分支、不猜。
 		params["resolution"] = dashScopeResolution(req.Resolution)
 		params["ratio"] = dashScopeRatio(req.Aspect)
 	} else {
@@ -282,7 +305,7 @@ func SubmitVideoDashScope(ctx context.Context, httpc *http.Client, nativeBase, k
 	}
 	body, _ := json.Marshal(map[string]any{
 		"model":      model,
-		"input":      map[string]any{"prompt": req.Prompt},
+		"input":      input,
 		"parameters": params,
 	})
 	httpReq, err := newVideoRequest(ctx, strings.TrimRight(nativeBase, "/")+"/api/v1/services/aigc/video-generation/video-synthesis", body)

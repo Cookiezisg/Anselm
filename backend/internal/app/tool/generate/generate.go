@@ -167,6 +167,21 @@ var ErrNoImageRoute = errorspkg.New(errorspkg.KindUnprocessable, "IMAGE_NO_ROUTE
 // ErrNoSpeechRoute——本 workspace 没有任何 key 能合成语音(ErrNoImageRoute 的孪生)。
 var ErrNoSpeechRoute = errorspkg.New(errorspkg.KindUnprocessable, "SPEECH_NO_ROUTE", "no configured key can synthesize speech")
 
+// ErrNoEditRoute — the resolved image route's provider has no reachable edit dialect. Distinct from
+// ErrNoImageRoute on purpose: "you have no image key" and "your image key's provider cannot edit"
+// are different facts, and collapsing them would send a user hunting for a key they already have.
+//
+// ErrNoEditRoute——解析出的图像路由那一家**没有**够得着的改图方言。刻意与 ErrNoImageRoute 分开:
+// 「你没有出图 key」与「你的出图 key 那家不会改图」是两个不同的事实,合并它们会让用户去找一把他已经
+// 有了的 key。
+var ErrNoEditRoute = errorspkg.New(errorspkg.KindUnprocessable, "IMAGE_NO_EDIT_ROUTE", "the configured image provider cannot edit images")
+
+// ErrNoVoiceCloneRoute — no key on this workspace can enroll a voice. Voice cloning is narrower
+// than speech: a key that speaks does not necessarily clone.
+//
+// ErrNoVoiceCloneRoute——本 workspace 没有任何 key 能登记音色。克隆比合成窄:会说话的 key 未必会克隆。
+var ErrNoVoiceCloneRoute = errorspkg.New(errorspkg.KindUnprocessable, "VOICE_NO_CLONE_ROUTE", "no configured key can clone voices")
+
 // CredsResolver is the apikey port (satisfied by *apikeyapp.Service).
 type CredsResolver interface {
 	ResolveCredentialsByID(ctx context.Context, id string) (apikeydomain.Credentials, error)
@@ -337,6 +352,68 @@ func (r *Router) generateDispatch(ctx context.Context, route genRoute, prompt, s
 	}
 }
 
+// edit dispatches one image EDIT over the image route. It resolves through resolveImage on purpose:
+// editing is the image scenario, so a workspace that configured an image key has configured this
+// too — asking users to pick a second key for "the same provider, one more content chunk" would be
+// a configuration surface invented by our code rather than by the upstream.
+//
+// The provider table is narrower than generation's, though, and that is the honest part: only qwen
+// ships a reachable edit dialect today (官方文档核准 H9 第0步), so every other provider answers
+// ErrNoEditRoute and the tool goes ABSENT rather than failing at call time.
+//
+// edit 在**图像路由**上派发一次改图。刻意经 resolveImage 解析:改图**就是**图像场景,故配好出图 key
+// 的 workspace 也就配好了它——为「同一家、多一个 content 块」再要用户挑一把 key,是我们的代码而非上游
+// 发明出来的配置面。
+//
+// 但**能改图的家比能出图的少**,而那正是诚实的那一半:今天只有 qwen 有够得着的改图方言(H9 第0步官方
+// 文档核准),故其余各家一律答 ErrNoEditRoute、工具**整个缺席**,而不是到调用时才失败。
+func (r *Router) edit(ctx context.Context, route genRoute, prompt, aspect string, source llminfra.DataURL) (llminfra.GeneratedImage, error) {
+	size := llminfra.ImageSizeFor(route.provider, aspect)
+	var (
+		img llminfra.GeneratedImage
+		err error
+	)
+	switch route.provider {
+	case "anselm":
+		img, err = llminfra.EditImageAnselm(ctx, r.HTTP, route.baseURL, route.installID, prompt, size, source)
+	case "qwen":
+		img, err = llminfra.EditImageDashScope(ctx, r.HTTP, route.baseURL, route.key, editModelFor(route.model), prompt, size, source)
+	default:
+		return llminfra.GeneratedImage{}, ErrNoEditRoute
+	}
+	if err == nil && r.Spend != nil {
+		// An edit costs an image, and it is billed on the image allowance — the artifact is one
+		// picture however it was made. 改图花的是一张图的钱、记在图的额度上——不管怎么做出来的,产物就是
+		// 一张图。
+		r.Spend.Record(ctx, "image", route.provider, route.model, 1)
+	}
+	return img, err
+}
+
+// EditAvailable reports whether an edit route resolves — the honest-absence gate for `edit_image`.
+//
+// EditAvailable 报告改图路由是否解析得出——`edit_image` 的诚实缺席闸。
+func (r *Router) EditAvailable(ctx context.Context) bool {
+	route, err := r.resolveImage(ctx)
+	if err != nil {
+		return false
+	}
+	return route.provider == "anselm" || route.provider == "qwen"
+}
+
+// editModelFor maps a generation model to its editing sibling. The two are different model ids on
+// the same endpoint, and defaulting to the generation id would post an edit payload to a model that
+// cannot read the image chunk.
+//
+// editModelFor 把生成模型映射到它的改图兄弟。两者是**同一条端点上的不同模型 id**,而沿用生成 id 会把
+// 一份改图载荷投给一个读不了图像块的模型。
+func editModelFor(genModel string) string {
+	if strings.HasPrefix(genModel, "qwen-image-edit") {
+		return genModel
+	}
+	return "qwen-image-edit"
+}
+
 // resolveSpeech picks the speech route (the resolveImage twin, same law, its own table).
 //
 // resolveSpeech 选语音路(resolveImage 的孪生,同一法则、自己的表)。
@@ -467,6 +544,72 @@ func (r *Router) VideoAvailable(ctx context.Context) bool {
 // 两家都不报进度,而用「已耗时÷预估」合成会让进度条在 99% 停几分钟(Veo 自己文档给的区间是 11 秒到
 // 6 分钟)。一个撒谎的进度条比一行「已等多久」更糟。
 type VideoProgress func(line string)
+
+// EnrollVoice registers a reference clip as a named voice upstream and returns the id synthesis
+// will pass as `voice`. It resolves through the SPEECH route: cloning belongs to the speech
+// scenario, and a key that can speak is the only kind that could ever clone.
+//
+// EnrollVoice 把一段参考音频在上游登记成具名音色,返回合成时作为 `voice` 传的那个 id。它经**语音**
+// 路由解析:克隆属于语音场景,而会说话的 key 是唯一有可能会克隆的那种。
+func (r *Router) EnrollVoice(ctx context.Context, name string, sample llminfra.DataURL) (provider, upstreamID string, err error) {
+	route, err := r.resolveSpeech(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	switch route.provider {
+	case "anselm":
+		id, err := llminfra.EnrollVoiceAnselm(ctx, r.HTTP, route.baseURL, route.installID, name, sample)
+		return route.provider, id, err
+	case "qwen":
+		id, err := llminfra.EnrollVoiceDashScope(ctx, r.HTTP, route.baseURL, route.key, name, sample)
+		return route.provider, id, err
+	default:
+		return "", "", ErrNoVoiceCloneRoute
+	}
+}
+
+// DeleteVoice removes an upstream registration. Called BEFORE the local row goes, because the row
+// is the only thing that knows the upstream id.
+//
+// DeleteVoice 删掉一个上游登记。在本地行消失**之前**调用,因为那一行是唯一知道上游 id 的东西。
+func (r *Router) DeleteVoice(ctx context.Context, provider, upstreamID string) error {
+	route, err := r.resolveSpeech(ctx)
+	if err != nil {
+		return err
+	}
+	switch provider {
+	case "anselm":
+		return llminfra.DeleteVoiceAnselm(ctx, r.HTTP, route.baseURL, route.installID, upstreamID)
+	case "qwen":
+		return llminfra.DeleteVoiceDashScope(ctx, r.HTTP, route.baseURL, route.key, upstreamID)
+	default:
+		return ErrNoVoiceCloneRoute
+	}
+}
+
+// VoiceCloneAvailable reports whether an enrollment route resolves (honest-absence gate).
+//
+// VoiceCloneAvailable 报告登记路由是否解析得出(诚实缺席闸)。
+func (r *Router) VoiceCloneAvailable(ctx context.Context) bool {
+	route, err := r.resolveSpeech(ctx)
+	if err != nil {
+		return false
+	}
+	return route.provider == "anselm" || route.provider == "qwen"
+}
+
+// VideoEditAvailable reports whether an image-to-video route resolves (honest-absence gate for
+// `animate_image`). Only qwen ships a reachable i2v dialect today.
+//
+// VideoEditAvailable 报告图生视频路由是否解析得出(`animate_image` 的诚实缺席闸)。今天只有 qwen 有
+// 够得着的 i2v 方言。
+func (r *Router) VideoEditAvailable(ctx context.Context) bool {
+	route, err := r.resolveVideo(ctx)
+	if err != nil {
+		return false
+	}
+	return route.provider == "anselm" || route.provider == "qwen"
+}
 
 // generateVideo submits, polls to a terminal phase, and fetches the artifact. It is SYNCHRONOUS by
 // decision (ADR 0013): the durable engine is for workflows, and an off-stage form would sever the

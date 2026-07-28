@@ -103,6 +103,40 @@ func GenerateImageAnselm(ctx context.Context, httpc *http.Client, baseURL, insta
 	return downloadImage(ctx, httpc, wire.Data[0].URL)
 }
 
+// EditImageAnselm edits through the managed gateway (WRK-082 H9). The source rides as a base64
+// data URL in the request body — the SAME shape ADR 0011 mandates for every managed media input:
+// the gateway refuses anything carrying a scheme or host, because a fetchable address is the SSRF
+// primitive that shape constraint exists to remove.
+//
+// EditImageAnselm 经受管网关改图(H9)。源图以 base64 data URL 走在请求体里——与 ADR 0011 为**每一种**
+// 受管媒体输入规定的**同一形状**:网关拒收任何带 scheme 或 host 的东西,因为「可取回的地址」正是那条
+// 形状约束要拿掉的 SSRF 原语。
+func EditImageAnselm(ctx context.Context, httpc *http.Client, baseURL, installID, prompt, size string, source DataURL) (GeneratedImage, error) {
+	ctx, cancel := context.WithTimeout(ctx, imageGenBudget)
+	defer cancel()
+	body, _ := json.Marshal(map[string]any{
+		"prompt": prompt, "size": size, "n": 1, "image": source.String(),
+	})
+	req, err := newImageRequest(ctx, strings.TrimRight(baseURL, "/")+"/images/edits", body)
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	req.Header.Set(deviceproofinfra.HeaderInstallID, installID)
+	raw, err := doImageRequest(httpc, req, "anselm")
+	if err != nil {
+		return GeneratedImage{}, err
+	}
+	var wire struct {
+		Data []struct {
+			URL string `json:"url"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(raw, &wire); err != nil || len(wire.Data) == 0 || wire.Data[0].URL == "" {
+		return GeneratedImage{}, fmt.Errorf("%w: gateway returned no artifact url", ErrImageGenFailed)
+	}
+	return downloadImage(ctx, httpc, wire.Data[0].URL)
+}
+
 // GenerateImageOpenAI speaks the OpenAI images form; gpt-image models return b64 only.
 //
 // GenerateImageOpenAI 讲 OpenAI images 形;gpt-image 系只返 b64。
@@ -215,15 +249,46 @@ func GenerateImageGemini(ctx context.Context, httpc *http.Client, baseURL, key, 
 // GenerateImageDashScope 讲原生同步 multimodal-generation 形(与受管网关翻译的同一 wire),下载
 // 返回的 24h OSS URL。
 func GenerateImageDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, model, prompt, size string) (GeneratedImage, error) {
+	return imageDashScope(ctx, httpc, nativeBase, key, model, prompt, size, nil)
+}
+
+// EditImageDashScope edits an EXISTING image (WRK-082 H9). It is the same call as generation with
+// one more content chunk, because that is literally what the upstream is: `qwen-image-edit` posts
+// to the SAME `multimodal-generation/generation` endpoint and differs only by a `{"image": …}`
+// chunk ahead of the text (官方文档核准 2026-07-28). Writing a second client for it would have
+// duplicated the response walk, the download and the error mapping to express one extra array
+// element.
+//
+// The source arrives as a **base64 data URL**, not a link: an attachment lives in the loopback
+// sidecar behind a bearer token, so there is no address upstream could fetch — and inventing a
+// public one for it would be a hosting responsibility and an SSRF surface bought for nothing.
+//
+// EditImageDashScope 改一张**已存在**的图(H9)。它与生成是**同一次调用**、只多一个 content 块——
+// 因为上游就是这么设计的:`qwen-image-edit` 打的是**同一条** `multimodal-generation/generation`,
+// 只在 text 之前多一个 `{"image": …}`(官方文档核准 2026-07-28)。为它另写一个 client,等于把响应
+// 遍历、下载与错误映射全复制一遍,只为表达数组里多一个元素。
+//
+// 源图以 **base64 data URL** 递入、不是链接:附件住在回环 sidecar 的 bearer 之后,上游**没有地址
+// 可取**——而为它凭空造一个公开地址,是白买一份托管责任加一个 SSRF 面。
+func EditImageDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, model, prompt, size string, source DataURL) (GeneratedImage, error) {
+	return imageDashScope(ctx, httpc, nativeBase, key, model, prompt, size, &source)
+}
+
+func imageDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, model, prompt, size string, source *DataURL) (GeneratedImage, error) {
 	ctx, cancel := context.WithTimeout(ctx, imageGenBudget)
 	defer cancel()
+	content := []map[string]any{}
+	if source != nil {
+		// Image FIRST, text second — the documented order, and the one every multimodal model reads
+		// as "here is the thing, here is what to do with it".
+		// **先图后文**——文档给的顺序,也是每个多模态模型读作「这是那个东西、这是要对它做的事」的顺序。
+		content = append(content, map[string]any{"image": source.String()})
+	}
+	content = append(content, map[string]any{"text": prompt})
 	payload := map[string]any{
 		"model": model,
 		"input": map[string]any{
-			"messages": []map[string]any{{
-				"role":    "user",
-				"content": []map[string]any{{"text": prompt}},
-			}},
+			"messages": []map[string]any{{"role": "user", "content": content}},
 		},
 		"parameters": map[string]any{"size": size, "n": 1, "watermark": false},
 	}
@@ -364,4 +429,32 @@ func downloadImage(ctx context.Context, httpc *http.Client, rawURL string) (Gene
 		mime = strings.TrimSpace(mime[:i])
 	}
 	return GeneratedImage{Bytes: data, Mime: mime}, nil
+}
+
+// DataURL is a媒体 payload in the one shape every generation upstream accepts without a fetch:
+// `data:<mime>;base64,<bytes>`. It exists as a TYPE rather than a bare string so a caller cannot
+// accidentally hand a raw URL to a parameter that must never carry one — the whole reason the
+// managed path refuses scheme/host inputs (ADR 0011) is that a fetchable address is an SSRF
+// primitive, and the same discipline belongs on the direct path.
+//
+// DataURL 是一份媒体载荷,形状是每个生成上游都无需回取即可接受的那一种:`data:<mime>;base64,<字节>`。
+// 它是一个**类型**而非裸字符串,好让调用方不可能把一个裸 URL 递进一个绝不该带 URL 的参数——受管路径
+// 拒收 scheme/host(ADR 0011)的全部理由就是「可取回的地址是一个 SSRF 原语」,这条纪律在直连路径上同样成立。
+type DataURL struct {
+	Mime  string
+	Bytes []byte
+}
+
+// String renders the data URL. An empty mime degrades to application/octet-stream rather than
+// emitting `data:;base64,` — a malformed URL would fail upstream with a message about syntax
+// instead of about the missing type.
+//
+// String 渲出 data URL。mime 为空时退化成 application/octet-stream、而非吐出 `data:;base64,`
+// ——畸形 URL 会让上游报一个关于语法的错,而不是关于缺类型的错。
+func (d DataURL) String() string {
+	mime := d.Mime
+	if mime == "" {
+		mime = "application/octet-stream"
+	}
+	return "data:" + mime + ";base64," + base64.StdEncoding.EncodeToString(d.Bytes)
 }
