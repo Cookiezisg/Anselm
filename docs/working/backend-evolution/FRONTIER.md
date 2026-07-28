@@ -21,7 +21,7 @@ audience: [human, ai]
 
 | ID | 路径 | 路由 | 要证明的事实 | 最小证据 | 状态 |
 |---|---|---|---|---|---|
-| FRT-01 | 默认聊天 + 图片/视频附件 | managed-read/default | Anselm 的实际输入路由、lease 与能力降级正确 | 请求形状 + 回合/附件真相 | image / MP4 video 通过；audio 当前不宣传 |
+| FRT-01 | 默认聊天 + 图片/视频附件 + 语音输入 | managed-read/default | Anselm 的实际输入路由、lease 与能力降级正确；语音输入另走 proof-bound ASR WebSocket | 请求形状 + 回合/附件真相；ASR `session.finished` | image / MP4 video / realtime ASR session 通过；chat audio 当前不宣传 |
 | FRT-02 | BYOK 视觉/音视频输入 | byok-read | 多模态输入是正式 BYOK 能力，不被生成边界误关 | 目录能力、wire part 或明确文本降级 | OpenAI image / Qwen MP4 video / Qwen WAV audio 真实通过 |
 | FRT-03 | BYOK 模型调用受管出图 | hybrid | 模型调度与受管生成正确接合，生成者不被重复喂像素导致重画 | tool/receipt、调用次数、产物与后续请求 | OpenAI→managed image 通过；真实 OpenAI continuation wire 已逐字节收到生成图片 |
 | FRT-04 | workflow：生成者 → 下游观看者 | hybrid | 下游收到真实像素而非“图片已生成”文本 | 录制请求包含原始像素 | function-artifact workflow wire through；managed Anselm 生成→receipt→下游节点真实完成且附件可回读；managed provider wire 仍待 gateway 侧 recorder |

@@ -23,10 +23,14 @@ package scenarios
 
 import (
 	"bytes"
+	"encoding/json"
+	"net/http"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/sunweilin/anselm/testend/harness"
 )
 
@@ -109,6 +113,60 @@ func liveRead(t *testing.T, wc *harness.Client, text, voice string) liveReadResp
 	var out liveReadResp
 	wc.POST("/api/v1/read-aloud:read", body).OK(t, &out)
 	return out
+}
+
+// TestLiveVoice_SpeechInputASR covers the other half of the speech surface: the local sidecar's
+// proof-bound WebSocket must reach the deployed Anselm realtime ASR route, forward a bounded PCM
+// frame, and relay the gateway's terminal event. It intentionally does not assert model prose: a
+// silent frame is enough to prove the authenticated transport, session lifecycle, and finish path
+// without pretending that a text transcript is a deterministic visual-style oracle.
+func TestLiveVoice_SpeechInputASR(t *testing.T) {
+	wc := liveVoice(t, "live-voice-input")
+	wsURL := strings.Replace(wc.BaseURL(), "http://", "ws://", 1) + "/api/v1/speech/asr?language=zh"
+	headers := http.Header{}
+	headers.Set(harness.HeaderWorkspace, wc.WorkspaceID())
+	conn, resp, err := websocket.DefaultDialer.Dial(wsURL, headers)
+	if err != nil {
+		status := 0
+		if resp != nil {
+			status = resp.StatusCode
+			_ = resp.Body.Close()
+		}
+		t.Fatalf("managed speech input websocket must open: status=%d", status)
+	}
+	defer func() { _ = conn.Close() }()
+	_ = conn.SetReadDeadline(time.Now().Add(120 * time.Second))
+
+	// 100ms of valid PCM16/16k/mono. The route contract is about transport and lifecycle here;
+	// using silence avoids paying a second synthesis just to manufacture a spoken fixture.
+	if err := conn.WriteMessage(websocket.BinaryMessage, make([]byte, 3200)); err != nil {
+		t.Fatalf("write managed ASR PCM frame: %v", err)
+	}
+	if err := conn.WriteJSON(map[string]string{"type": "finish"}); err != nil {
+		t.Fatalf("finish managed ASR session: %v", err)
+	}
+
+	eventTypes := map[string]int{}
+	for {
+		_, payload, err := conn.ReadMessage()
+		if err != nil {
+			t.Fatalf("read managed ASR event (types=%v): %v", eventTypes, err)
+		}
+		var event struct {
+			Type string `json:"type"`
+			Code string `json:"code"`
+		}
+		if err := json.Unmarshal(payload, &event); err != nil {
+			t.Fatalf("managed ASR returned non-JSON event: %v", err)
+		}
+		eventTypes[event.Type]++
+		if event.Type == "error" {
+			t.Fatalf("managed ASR returned an error event code=%s types=%v", event.Code, eventTypes)
+		}
+		if event.Type == "session.finished" {
+			return
+		}
+	}
 }
 
 // TestLiveVoice_EnrollSpeakDelete walks the whole chain with real money and asserts the four things

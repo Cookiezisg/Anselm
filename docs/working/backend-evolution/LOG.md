@@ -65,6 +65,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-048 | 共享并发面无竞态：loop、chat、workflow、attachment 与 provider 关键包在 race detector 下全绿，动画/lease 修复未引入数据竞争 | concurrency / loop / media / provider | `go test -race ./internal/app/loop ./internal/app/chat ./internal/app/workflow ./internal/app/attachment ./internal/infra/llm` → PASS | 当前提交 |
 | 2026-07-29 | EVO-049 | subagent 多模态产地补齐：真实受管 general-purpose 子运行可调用 `generate_image` 恰好一次，媒体 receipt 回到父对话，provider=anselm，图片附件可回读；父层 3 步预算明确覆盖“委派→收果→收尾” | managed subagent / capability tool / MediaRef | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_SubagentGenerateImageArtifact$' -count=1` → PASS 50.043s；无本机 provider key | `be6078a1` |
 | 2026-07-29 | EVO-050 | 当前工作树通过全仓门禁：backend、frontend、docs 与 web demo 并行验证均绿色；本轮多模态、网关边界与文档同步没有引入跨层回归 | workspace verification / backend evolution gate | `make verify` → PASS（backend + frontend + docs + demo） | 当前提交 |
+| 2026-07-29 | EVO-051 | 受管语音输入补齐真实会话证据：本地 sidecar 通过 workspace 认证与 device-proof 接通部署 API Serve 的 realtime ASR，发送 100ms PCM 帧并收到 `session.finished`；测试只证明握手、转发与生命周期，不把静音帧的文案当转写语义 | managed speech input / realtime ASR / WebSocket | `EVALS_VOICE=1 go test ./scenarios -run '^TestLiveVoice_SpeechInputASR$' -count=1` → PASS 5.31s；无本机 provider key | 当前提交 |
 
 ## 追加格式
 
