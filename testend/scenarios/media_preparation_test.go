@@ -210,3 +210,44 @@ func TestAttachmentPreparation_MediaBudgetEvictsAndRegenerates(t *testing.T) {
 		t.Fatalf("retry must rebuild a usable derivative, got %+v", retried)
 	}
 }
+
+// TestAttachmentPreparation_CrashRequeuesInterruptedWork exercises the hard-crash half of the
+// preparation contract. The upload response has durably created the immutable original and queued
+// its derivative; SIGKILL may leave that derivative pending or running, but the next boot must
+// recover it from the same source instead of leaving a permanently stuck sidecar or losing bytes.
+func TestAttachmentPreparation_CrashRequeuesInterruptedWork(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "media-crash-ws"}).Field(t, "id")
+	wc := c.WS(wsID)
+
+	original := mediaBudgetJPEG(t)
+	resp := wc.Upload(t, "/api/v1/attachments", "crash-recovery.jpg", "image/jpeg", original)
+	if resp.Status != 201 {
+		t.Fatalf("crash-recovery image upload: want 201, got %d %s", resp.Status, resp.Raw)
+	}
+	var att mediaPrepAtt
+	resp.OK(t, &att)
+	if att.Prep.Status != "pending" && att.Prep.Status != "running" && att.Prep.Status != "ready" {
+		t.Fatalf("upload must expose a valid preparation state before crash, got %+v", att.Prep)
+	}
+
+	// Kill immediately after the durable upload response. This intentionally does not wait for a
+	// terminal derivative: the point is recovery of the in-flight preparation, not a clean restart.
+	srv.Kill9(t)
+	srv.Restart(t)
+	wc = srv.Client(t).WS(wsID)
+
+	var ready mediaPrepAtt
+	harness.Eventually(t, 30000, "crash-interrupted image preparation reaches ready after boot", func() bool {
+		ready = mediaPrepGET(t, wc, att.ID)
+		return ready.Prep.Status == "ready"
+	})
+	if ready.Prep.Target != "model-default" || ready.Prep.Width <= 0 || ready.Prep.Height <= 0 || ready.Prep.SizeBytes <= 0 || ready.Prep.CanRetry || ready.Prep.CanCancel {
+		t.Fatalf("recovered preparation must publish a usable ready derivative: %+v", ready.Prep)
+	}
+	if got := wc.DoRaw("GET", "/api/v1/attachments/"+att.ID+"/content", "", nil); got.Status != 200 || !bytes.Equal(got.Raw, original) {
+		t.Fatalf("crash recovery must preserve immutable original: status=%d bytesEqual=%v", got.Status, bytes.Equal(got.Raw, original))
+	}
+}

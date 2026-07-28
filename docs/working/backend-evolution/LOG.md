@@ -40,6 +40,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-023 | image `inspect_media` 走真实嵌套视觉调用：内部请求携带 `data:image/*` native part，主对话拿到的是带 attachment/尺寸/detail/answer 的 bounded JSON evidence，不把 provider 原始回答或图像字节直接回灌 | attachment tool / image inspection / nested LLM | `TestInspectMedia_ImageUsesVisionAndReturnsBoundedEvidence`：真实 HTTP upload、lazy discovery、内部 vision wire、外层 tool-message JSON 解析与字段守卫 | 当前提交 |
 | 2026-07-29 | EVO-024 | workflow 中正在 provider 调用的 agent 可经 `POST /flowruns/{id}:cancel` 被打断：run 终止为 `cancelled`，不会留下假 `failed/running` 节点，随后同一 workflow 可接受并完成下一次 run | workflow / scheduler cancellation | `TestFlowrun_CancelInFlightAgent`：真实 agent workflow、异步 manual run、llmmock Stall、list 发现 running、HTTP cancel 202、终态节点负断言、后续 run completed | 当前提交 |
 | 2026-07-29 | EVO-025 | API Serve 最新网关变更修正了 managed TTS 的句柄解析、默认音色与 WAV 字节/媒体部署注入边界；这些变化直接改变受管音色验收的真实前提，但尚未宣称 managed E2E 已重跑通过 | API Serve / managed voice / deploy media | API Serve commits `63f402f`, `2e308f3`, `b9c046d`; 在 `Anselm-API-Serve` 执行 `go test ./...` 全绿；managed voice/live read-aloud 下一次真实运行作为 FRT-07 reprobe | gateway audit |
+| 2026-07-29 | EVO-026 | image preparation 在上传后硬崩溃可恢复：SIGKILL 留下 running derivative，下一次同 data dir boot 将其 requeue，worker 从不可变原件重新生成 ready proxy，原件字节不变 | attachment / media worker / crash recovery | `TestAttachmentPreparation_CrashRequeuesInterruptedWork`：真实 HTTP 上传、Kill9→Restart 日志 `media: requeued interrupted work`、ready 派生元数据与原件逐字节回读 | 当前提交 |
 
 ## 追加格式
 
