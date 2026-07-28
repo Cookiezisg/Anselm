@@ -1217,6 +1217,100 @@ func TestLiveBYOK_OpenAIAudioInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_OpenAIAudioToolContinuation proves the combined boundary that is easiest to miss:
+// a real gpt-audio turn must carry native input_audio and still remain an agent turn. The first
+// request must call a user-owned function, the sandbox result must be fed back, and the second
+// request must finish without losing the audio/tool wire distinction.
+func TestLiveBYOK_OpenAIAudioToolContinuation(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-openai-audio-tool"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-byok-audio-tool", "key": key, "baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Audio    bool   `json:"audio"`
+		Tools    bool   `json:"tools"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	eligible := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "openai" && cap.ModelID == "gpt-audio" && cap.Audio && cap.Tools {
+			eligible = true
+			break
+		}
+	}
+	if !eligible {
+		t.Skip("current OpenAI account/catalog does not expose gpt-audio audio+tools; combined reprobe is not constructible")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gpt-audio"}).OK(t, nil)
+	fnID := fnCreate(t, wc, "openai_audio_eval_receipt", "def openai_audio_eval_receipt(value: str) -> dict:\n    return {'value': value}\n")
+	// Function creation is HTTP-synchronous for the entity but its sandbox environment is not. Wait
+	// for the active version to become callable so a fast audio model cannot race the registry build.
+	harness.Eventually(t, 30000, "the audio continuation function environment becomes ready", func() bool {
+		var detail struct {
+			ActiveVersion struct {
+				EnvStatus string `json:"envStatus"`
+			} `json:"activeVersion"`
+		}
+		wc.GET("/api/v1/functions/"+fnID).OK(t, &detail)
+		return detail.ActiveVersion.EnvStatus == "ready"
+	})
+
+	attID := uploadAtt(t, wc, "input.wav", "audio/wav", harness.MockOpenAIWAV)
+	conv := convCreate(t, wc, "OpenAI BYOK audio tool continuation")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       fmt.Sprintf("Use the available run_function tool exactly once with functionId %q and args {value: received}. Do not answer before the function returns; then briefly report the returned value.", fnID),
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("OpenAI gpt-audio audio+tool chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	toolCall, toolResult, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			toolName, _ := block.Attrs["tool"].(string)
+			toolCall = toolCall || toolName == "run_function" && strings.Contains(block.Content, fnID)
+		case "tool_result":
+			toolResult = toolResult || strings.Contains(block.Content, "openai_audio_eval_receipt") || strings.Contains(block.Content, `"value":"received"`)
+		case "text":
+			answer += block.Content
+		}
+	}
+	encoded := base64.StdEncoding.EncodeToString(harness.MockOpenAIWAV)
+	wireAudio, wireEncoded, wireTools, chatCalls := false, false, false, 0
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		chatCalls++
+		wireAudio = wireAudio || bytes.Contains(call.Body, []byte(`"input_audio"`))
+		wireEncoded = wireEncoded || bytes.Contains(call.Body, []byte(encoded))
+		wireTools = wireTools || bytes.Contains(call.Body, []byte(`"tools"`))
+	}
+	if !toolCall || !toolResult || !strings.Contains(strings.ToLower(answer), "received") || chatCalls < 2 || !wireAudio || !wireEncoded || !wireTools {
+		t.Fatalf("OpenAI audio+tool continuation lost call/result/text or wire evidence: call=%v result=%v answer=%q chatCalls=%d audio=%v encodedBytes=%v tools=%v", toolCall, toolResult, answer, chatCalls, wireAudio, wireEncoded, wireTools)
+	}
+}
+
 // TestLiveBYOK_GoogleToolContinuation exercises Gemini's native functionCall/functionResponse
 // round-trip through the ordinary chat loop. It is deliberately one tiny deterministic function:
 // the real provider must request it, the sandbox must execute it, and the second model turn must
