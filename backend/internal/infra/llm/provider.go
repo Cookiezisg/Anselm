@@ -150,6 +150,33 @@ func lookupProvider(cfg Config) Provider {
 	if p, ok := providerRegistry[cfg.Provider]; ok {
 		return p
 	}
+	// A catalog id that names a family we DID hand-write a spec for resolves to that spec, not to a
+	// synthesized one. Without this hop the hand-written qwen / zhipu / moonshot providers become
+	// unreachable the moment the app starts offering catalog ids (`alibaba` / `zhipuai` /
+	// `moonshotai`) instead of our own names — and「unreachable」is not a cosmetic loss:
+	//
+	//   - their KNOB SPELLINGS die. A synthesized provider carries [compatKnobs], so a qwen model
+	//     would be sent `reasoning_effort` — a parameter name qwen never declared. That is the exact
+	//     failure the knob design exists to prevent: a 400 that reads like「这个模型坏了」.
+	//   - their ENCODER dies. The synthesized spec has no `encode` at all, so `MaxTokens` would
+	//     simply never reach the wire.
+	//   - their WIRE MASK narrows to text+image, silently un-advertising modalities they can carry.
+	//
+	// 一个目录 id,若它命名的正是我们**手写过 spec** 的那一家,就解析到那份 spec、而不是合成一个。
+	// 没有这一跳,手写的 qwen / zhipu / moonshot 三家会在「app 开始下发目录 id(`alibaba` /
+	// `zhipuai` / `moonshotai`)而不是我们自己的名字」的那一刻起变得**够不着**——而「够不着」
+	// 不是外观上的损失:
+	//
+	//   - 它们的**旋钮拼法**死了。合成的 provider 带的是 [compatKnobs],于是一个 qwen 模型会收到
+	//     `reasoning_effort`——一个 qwen 从没声明过的参数名。那正是旋钮这套设计存在的理由所要挡的
+	//     失败:一个读起来像「这个模型坏了」的 400。
+	//   - 它们的**编码器**死了。合成的 spec **根本没有** `encode`,故 `MaxTokens` 永远到不了线缆。
+	//   - 它们的**线缆掩码**收窄成文本+图,静默地不再宣称自己扛得动的模态。
+	if key, ok := registryKeyForCatalogID[cfg.Provider]; ok {
+		if p, ok := providerRegistry[key]; ok {
+			return p
+		}
+	}
 	// The long tail: any of the ~160 catalog providers this build has no hand-written spec for gets
 	// one synthesized from its `npm` dialect. Falling through to OpenAI as before would have been a
 	// guess with no evidence behind it; this is a guess with the catalog behind it, and the app
@@ -161,6 +188,32 @@ func lookupProvider(cfg Config) Provider {
 		return p
 	}
 	return providerRegistry["openai"]
+}
+
+// registryKeyForCatalogID is [catalogProviderMap] read backwards — models.dev's id on the left, our
+// own name on the right — plus the one row that is not a rename:
+//
+// `moonshotai-cn` is a SECOND catalog provider for the same product (Kimi), listing the identical
+// ten models against the `.cn` host. It is not an alias of our `moonshot` name, so it cannot live in
+// [catalogProviderMap]; but it is the same wire, with the same knob spellings, so routing it to the
+// same hand-written spec is the answer the evidence supports. Its address differs and that is
+// already handled — the base URL rides on the key row, not on the spec.
+//
+// registryKeyForCatalogID 是 [catalogProviderMap] 反着读——左边 models.dev 的 id、右边我们自己的
+// 名字——外加**一条不是改名**的行:
+//
+// `moonshotai-cn` 是**同一个产品**(Kimi)的**第二个**目录条目,对着 `.cn` 主机列着一模一样的十个
+// 模型。它不是我们 `moonshot` 这个名字的别名,故进不了 [catalogProviderMap];但它是**同一条线缆、
+// 同一套旋钮拼法**,故把它路由到同一份手写 spec 是证据支持的答案。地址不同这件事已经有人管了——
+// base URL 骑在 key 行上、不在 spec 上。
+var registryKeyForCatalogID = buildRegistryKeyForCatalogID()
+
+func buildRegistryKeyForCatalogID() map[string]string {
+	out := map[string]string{"moonshotai-cn": "moonshot"}
+	for ours, upstream := range catalogProviderMap {
+		out[upstream] = ours
+	}
+	return out
 }
 
 // ModelInfo is one usable model with its capability specs and configurable knobs, assembled by
