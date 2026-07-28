@@ -480,6 +480,10 @@ func bytes2IsMP4(b []byte) bool {
 	return len(b) > 12 && string(b[4:8]) == "ftyp"
 }
 
+func bytes2IsWAV(b []byte) bool {
+	return len(b) > 12 && string(b[0:4]) == "RIFF" && string(b[8:12]) == "WAVE"
+}
+
 func containsStr(xs []string, want string) bool {
 	for _, x := range xs {
 		if x == want {

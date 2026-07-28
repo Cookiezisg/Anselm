@@ -92,6 +92,71 @@ func TestLiveManaged_DefaultChat(t *testing.T) {
 	t.Fatalf("managed default chat completed without an assistant text block: %+v", turn.Blocks)
 }
 
+// TestLiveManaged_GenerateImageArtifact is the smallest managed-write acceptance: the default
+// Anselm dialogue model must discover and call generate_image once, the managed gateway must return
+// a decoder-valid image, and the tool receipt must land as a first-class attachment owned by Anselm.
+// The two-step cap prevents a model-side redraw loop from turning this probe into unbounded spend.
+func TestLiveManaged_GenerateImageArtifact(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-image-generation")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	conv := convCreate(t, wc, "managed image generation")
+	msg := sendMsg(t, wc, conv,
+		"请调用 generate_image 恰好一次，画一个白底红色圆形。工具成功后只用一句简短中文确认，绝不再次调用生成工具。")
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed image-generation turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	attID := attachmentFrom(t, turn, "generate_image")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) || len(content.Raw) < 1000 {
+		t.Fatalf("managed image-generation artifact must be a real image: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	count := 0
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_image"`) {
+			count++
+			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+				t.Fatalf("managed image-generation receipt must name anselm: %s", block.Content)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("managed image-generation turn produced %d generate_image receipts, want exactly one", count)
+	}
+}
+
+// TestLiveManaged_GenerateSpeechArtifact is the managed speech counterpart: the default Anselm
+// dialogue model must call generate_speech once, the gateway's returned bytes must be a real WAV,
+// and the tool receipt must identify the managed provider. The two-step cap bounds paid retries.
+func TestLiveManaged_GenerateSpeechArtifact(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-speech-generation")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	conv := convCreate(t, wc, "managed speech generation")
+	msg := sendMsg(t, wc, conv,
+		"请调用 generate_speech 恰好一次，把‘海内存知己’读出来。工具成功后只用一句简短中文确认，绝不再次调用生成工具。")
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed speech-generation turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	attID := attachmentFrom(t, turn, "generate_speech")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsWAV(content.Raw) || len(content.Raw) < 4000 {
+		t.Fatalf("managed speech-generation artifact must be real WAV audio: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	count := 0
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_speech"`) {
+			count++
+			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+				t.Fatalf("managed speech-generation receipt must name anselm: %s", block.Content)
+			}
+		}
+	}
+	if count != 1 {
+		t.Fatalf("managed speech-generation turn produced %d generate_speech receipts, want exactly one", count)
+	}
+}
+
 // TestLiveManaged_DefaultChatWithImageAttachment exercises the product seam that cannot be reached
 // by the gateway-client acceptance alone: user upload → attachment store → managed media staging /
 // lease → the deployed gateway's multimodal route → durable chat turn. It deliberately asserts the

@@ -45,6 +45,8 @@ audience: [human, ai]
 | 2026-07-29 | EVO-028 | 本轮跨实体黑盒回归在最新 backend 上全绿：并行真实 HTTP/SSE 场景、媒体准备/崩溃恢复、workflow/handler/MCP/function 产物链均通过；真钱 EVALS 仍按显式门控未触发 | full testend regression | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 260.291s` | 当前提交 |
 | 2026-07-29 | EVO-029 | 最新 API Serve 上默认 Anselm managed voice 全生命周期通过：受管 install/default 就绪后，预置朗读生成参考音频、`enroll_voice` 危险审批与异步登记、库存/上游句柄可见、克隆音色朗读产出不同音频，最后先删上游再删本地行并释放槽位 | managed voice / API Serve TTS / danger approval / inventory | `EVALS_VOICE=1 go test ./scenarios -run '^TestLiveVoice_EnrollSpeakDelete$' -count=1` → PASS 43.50s；未读取本机 provider secret，生产网关 HTTP 真实链路 | 当前提交 |
 | 2026-07-29 | EVO-030 | 默认 Anselm managed 多模态读路径全链路通过：普通聊天、图片附件、MP4 附件、文档内 `anselm://media` 图片引用与免费档配额均在生产 API Serve 上完成；附件原件/回合终态/能力投影均成立，未走 BYOK fallback | managed read / image / video / document media / quota | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(DefaultChat|DefaultChatWithImageAttachment|DefaultChatWithVideoAttachment|DocumentImageReference|Quota)$' -count=1` → PASS 60.627s；无本机 provider key | 当前提交 |
+| 2026-07-29 | EVO-031 | 默认 Anselm managed `generate_image` 写路径通过：默认 dialogue 模型恰调用一次工具，receipt 标出 `provider=anselm`，真实图片附件可解码且字节可回读；回合上限为两步，避免模型重画失控 | managed write / image generation | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_GenerateImageArtifact$' -count=1` → PASS 28.11s；无本机 provider key | 当前提交 |
+| 2026-07-29 | EVO-032 | 默认 Anselm managed `generate_speech` 写路径通过：默认 dialogue 模型恰调用一次工具，receipt 标出 `provider=anselm`，网关返回真实 RIFF/WAVE 音频附件并可回读；两步上限约束付费重试 | managed write / speech generation / API Serve TTS | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_GenerateSpeechArtifact$' -count=1` → PASS 12.42s；无本机 provider key | 当前提交 |
 
 ## 追加格式
 
