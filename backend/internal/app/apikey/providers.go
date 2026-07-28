@@ -140,6 +140,17 @@ var knownBaseURLs = map[string]string{
 	"openai":    "https://api.openai.com/v1",
 	"anthropic": "https://api.anthropic.com",
 	"google":    "https://generativelanguage.googleapis.com/v1beta",
+	// Cohere's OpenAI-compatible endpoint is a SEPARATE base from its native API — the native one is
+	// `/v2/chat` with its own body, and pointing an OpenAI-compatible client at it fails. models.dev
+	// names `@ai-sdk/cohere` (the native SDK) and gives no `api`, so without this row a Cohere key
+	// would have nowhere correct to point.
+	// 来源:https://docs.cohere.com/docs/compatibility-api(Bearer、支持流式与 tool call)。
+	// Cohere 的 OpenAI 兼容端点与它的原生 API **不是同一个 base**——原生是 `/v2/chat` + 自己的 body,
+	// 把 OpenAI 兼容客户端指过去会失败。models.dev 给的是 `@ai-sdk/cohere`(原生 SDK)且没有 `api`,
+	// 故没有这一行,一把 Cohere key 就没有正确的地方可指。
+	"cohere": "https://api.cohere.ai/compatibility/v1",
+	// 来源:https://docs.venice.ai/api-reference/api-spec —— "implements the OpenAI API specification"。
+	"venice": "https://api.venice.ai/api/v1",
 }
 
 // testMethodFor picks how to knock on a provider's door from its dialect — the same fact that

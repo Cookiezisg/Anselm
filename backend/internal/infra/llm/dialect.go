@@ -29,16 +29,21 @@ const (
 	DialectAnthropic    Dialect = "anthropic"
 	DialectGoogle       Dialect = "google"
 	// DialectAzure speaks OpenAI's body over a different URL shape (deployment in the path + an
-	// `api-version` query) with an `api-key` header — see azure.go. DialectBedrock is still only a
-	// NAME: AWS SigV4 request signing plus the Converse API's own body is a dialect of its own, and a
-	// provider we cannot speak to must fail at key creation with「这条方言我们不会说」rather than at
-	// the last hop with a 404.
+	// `api-version` query) with an `api-key` header — see azure.go.
 	// DialectAzure 用**不同的 URL 形状**(deployment 在路径 + `api-version` query)与 `api-key` 头讲
-	// OpenAI 的 body——见 azure.go。DialectBedrock 目前**仍只是个名字**:AWS SigV4 请求签名加 Converse
-	// API 自己的 body 是一条独立方言,而一家我们说不了的方言必须在**建 key 时**以「这条方言我们不会说」
-	// 失败,不是在最后一跳上以 404 失败。
-	DialectAzure   Dialect = "azure"
-	DialectBedrock Dialect = "bedrock"
+	// OpenAI 的 body——见 azure.go。
+	DialectAzure Dialect = "azure"
+	// DialectVertex is Google Cloud Vertex AI, and it is named-but-unspeakable for a reason the
+	// CATALOG states outright: its `env` is PROJECT + LOCATION + `GOOGLE_APPLICATION_CREDENTIALS`,
+	// i.e. a service-account JSON file — not an API key. Routing it to the ordinary Gemini provider
+	// (which sends a key) would 401 every time, and the message would read like the user's key was
+	// wrong when the truth is that Vertex does not take keys at all.
+	//
+	// DialectVertex 是 Google Cloud Vertex AI,它「已命名、说不了」的理由**目录自己直说了**:它的
+	// `env` 是 PROJECT + LOCATION + `GOOGLE_APPLICATION_CREDENTIALS`——一个**服务账号 JSON 文件**、
+	// 不是 API key。把它路由到普通 Gemini provider(那个是发 key 的)会**每次都 401**,而消息读起来
+	// 像是用户的 key 错了——真相是 Vertex **根本不收 key**。
+	DialectVertex Dialect = "vertex"
 )
 
 // npmDialects maps the SDK package names that mean a NON-OpenAI wire. Everything absent from this
@@ -49,11 +54,31 @@ const (
 // **诚实的默认**、不是走投无路的猜测:它是 137 家直接声明的东西,也是其余未列出者实际在做的事。
 var npmDialects = map[string]Dialect{
 	"@ai-sdk/anthropic":               DialectAnthropic,
-	"@ai-sdk/google-vertex/anthropic": DialectAnthropic,
 	"@ai-sdk/google":                  DialectGoogle,
-	"@ai-sdk/google-vertex":           DialectGoogle,
 	"@ai-sdk/azure":                   DialectAzure,
-	"@ai-sdk/amazon-bedrock":          DialectBedrock,
+	"@ai-sdk/google-vertex":           DialectVertex,
+	"@ai-sdk/google-vertex/anthropic": DialectVertex,
+	// **`@ai-sdk/amazon-bedrock` is NOT listed, and that is the correction, not an oversight.**
+	// The package speaks Bedrock's Converse API over SigV4 — a body and a binary event-stream of its
+	// own — so reading the package name as the protocol says "a third full dialect, write 600 lines".
+	// But Bedrock also serves an OpenAI-compatible Chat Completions endpoint at
+	// `https://bedrock-runtime.{region}.amazonaws.com/openai/v1`, authenticated by a plain BEARER
+	// token (`AWS_BEARER_TOKEN_BEDROCK`, which is why that variable is in the catalog's own env
+	// list). 116 models, zero new code, one base URL the user pastes.
+	//
+	// The lesson generalises: `npm` says WHICH SDK EXISTS, not WHAT THE PROVIDER CAN SPEAK. When it
+	// points away from OpenAI, that is worth checking too — this file already warns against reading
+	// it as a protocol name; the warning cuts both ways.
+	//
+	// **`@ai-sdk/amazon-bedrock` 不在表里,而这是一处订正、不是疏漏。** 那个包讲的是 Bedrock 的
+	// Converse API + SigV4——自己的 body、自己的二进制 event-stream——故把包名当协议读,得出的结论是
+	// 「第三条完整方言,写 600 行」。但 Bedrock **同时**在
+	// `https://bedrock-runtime.{region}.amazonaws.com/openai/v1` 上提供 OpenAI 兼容的 Chat
+	// Completions,鉴权是**普通 bearer**(`AWS_BEARER_TOKEN_BEDROCK`——正因如此那个变量才出现在目录
+	// 自己的 env 列表里)。116 个模型、零新代码、一个用户粘贴的 base URL。
+	//
+	// 这条教训是通用的:`npm` 说的是**存在哪个 SDK**、不是**这家能说什么**。当它**指向 OpenAI 之外**
+	// 时,同样值得去查一下——本文件本来就警告过别把它当协议名读,而那句警告**两个方向都成立**。
 }
 
 // DialectForNPM resolves a catalog `npm` value to the wire we would speak.

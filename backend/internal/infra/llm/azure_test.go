@@ -69,17 +69,32 @@ func TestAzure_EscapesTheUserChosenDeploymentAndHonoursTheVersionOverride(t *tes
 	}
 }
 
-// TestAzure_IsSpeakableAndBedrockIsNot: the honest-absence law applied to dialects. Azure now has an
-// implementation, so a key may be created for it; Bedrock is still a NAME, so the refusal must land
-// at key creation with its own reason instead of at the last hop.
+// TestDialect_SpeakableIsAboutTheWireNotThePackage pins the two directions the `npm` hint can
+// mislead in, both of which cost something real:
 //
-// TestAzure_IsSpeakableAndBedrockIsNot:诚实缺席律用在方言上。Azure 现在有实现,故可以为它建 key;
-// Bedrock 仍只是个名字,故拒绝必须落在**建 key 时**、带着自己的理由,而不是落在最后一跳。
-func TestAzure_IsSpeakableAndBedrockIsNot(t *testing.T) {
+//   - `@ai-sdk/amazon-bedrock` speaks Converse over SigV4, so the package name says「third full
+//     dialect」— but Bedrock ALSO serves OpenAI-compatible chat completions with a bearer token, and
+//     reading the package as the protocol would have cost 116 models for nothing.
+//   - `@ai-sdk/google-vertex` looks like Gemini's cousin, but Vertex authenticates with a
+//     service-account file. Routing it to the Gemini provider would 401 forever with a message that
+//     blames the user's key.
+//
+// TestDialect_SpeakableIsAboutTheWireNotThePackage 钉住 `npm` 线索**两个方向**的误导,而两边都有真实代价:
+//
+//   - `@ai-sdk/amazon-bedrock` 讲 Converse + SigV4,故包名说的是「第三条完整方言」——但 Bedrock **同时**
+//     用 bearer 提供 OpenAI 兼容的 chat completions,把包名当协议读会**白白**丢掉 116 个模型。
+//   - `@ai-sdk/google-vertex` 看着像 Gemini 的表亲,但 Vertex 用**服务账号文件**鉴权。路由到 Gemini
+//     provider 会永远 401,而消息去怪用户的 key。
+func TestDialect_SpeakableIsAboutTheWireNotThePackage(t *testing.T) {
 	if !DialectForNPM("@ai-sdk/azure").Speakable() {
-		t.Error("azure is implemented now")
+		t.Error("azure is implemented (deployment in the path + api-key header)")
 	}
-	if DialectForNPM("@ai-sdk/amazon-bedrock").Speakable() {
-		t.Error("bedrock has no implementation; claiming it would move the failure to the last hop")
+	if d := DialectForNPM("@ai-sdk/amazon-bedrock"); d != DialectOpenAICompat || !d.Speakable() {
+		t.Errorf("bedrock serves an OpenAI-compatible endpoint with a bearer token, got %q", d)
+	}
+	for _, npm := range []string{"@ai-sdk/google-vertex", "@ai-sdk/google-vertex/anthropic"} {
+		if d := DialectForNPM(npm); d != DialectVertex || d.Speakable() {
+			t.Errorf("%s takes a service-account file, not a key — it must stay honestly absent, got %q", npm, d)
+		}
 	}
 }

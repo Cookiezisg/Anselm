@@ -76,22 +76,46 @@ func TestProviderMeta_ComesFromTheCatalog(t *testing.T) {
 	}
 }
 
-// TestProviderMeta_UnspeakableDialectIsRefusedAtCreation: Bedrock is in the catalog and has no
-// implementation. It must be absent from the offered list AND rejected by validation — the
-// honest-absence law: 功能诚实地不出现,而非调用后失败.
+// TestProviderMeta_UnspeakableDialectIsRefusedAtCreation: the honest-absence law applied to
+// dialects. The example is Vertex, and it is the honest one for a reason the CATALOG states: its
+// credential is a service-account JSON file (`GOOGLE_APPLICATION_CREDENTIALS`), not an API key, so
+// routing it to the ordinary Gemini provider would 401 every time with a message that blames the
+// user's key when Vertex does not take keys at all.
 //
-// TestProviderMeta_UnspeakableDialectIsRefusedAtCreation:Bedrock 在目录里、没有实现。它必须**不出现**
-// 在可选列表里,并被校验拒绝——诚实缺席律:绝不「先摆出来、调了才失败」。
+// **Bedrock used to be this test's example and no longer is** — not because the rule softened but
+// because the fact changed: AWS serves an OpenAI-compatible Chat Completions endpoint authenticated
+// by a plain bearer token, so 116 models became reachable with no new code. The `npm` package name
+// (`@ai-sdk/amazon-bedrock`, which speaks Converse over SigV4) had said otherwise, which is the
+// whole lesson: npm names WHICH SDK EXISTS, not WHAT THE PROVIDER CAN SPEAK.
+//
+// TestProviderMeta_UnspeakableDialectIsRefusedAtCreation:诚实缺席律用在方言上。例子用 Vertex,而它是
+// 诚实的那个例子,理由**目录自己写着**:它的凭证是一个**服务账号 JSON 文件**、不是 API key,故把它路由
+// 到普通 Gemini provider 会**每次都 401**,而消息会去怪用户的 key——可 Vertex **根本不收 key**。
+//
+// **Bedrock 曾经是这个测试的例子、现在不是了**——不是规则松了,是**事实变了**:AWS 提供 OpenAI 兼容的
+// Chat Completions 端点、用普通 bearer 鉴权,于是 116 个模型**零新代码**变得可达。而 `npm` 包名
+// (`@ai-sdk/amazon-bedrock`,讲的是 Converse + SigV4)说的是另一回事——这正是那条教训:npm 说的是
+// **存在哪个 SDK**、不是**这家能说什么**。
 func TestProviderMeta_UnspeakableDialectIsRefusedAtCreation(t *testing.T) {
-	if isValidProvider("amazon-bedrock") {
-		t.Error("bedrock's dialect has no implementation; accepting the key moves the failure to the last hop")
+	if isValidProvider("google-vertex") {
+		t.Error("vertex takes a service-account file, not a key; accepting it moves the failure to a 401 that blames the user")
 	}
 	for _, p := range ListProviders(false) {
-		if p.Name == "amazon-bedrock" {
-			t.Error("an unspeakable dialect must not be offered")
+		if p.Name == "google-vertex" || p.Name == "google-vertex-anthropic" {
+			t.Errorf("an unspeakable dialect must not be offered: %s", p.Name)
 		}
 	}
 	if !isValidProvider("azure") {
 		t.Error("azure IS implemented now (deployment in the path + api-key header)")
+	}
+	// Bedrock's OpenAI-compatible endpoint is region-specific, so the base URL is the user's to
+	// supply — but the provider itself is reachable.
+	// Bedrock 的 OpenAI 兼容端点按区域不同,故 base URL 归用户填——但这家**本身是够得着的**。
+	m, ok := GetProviderMeta("amazon-bedrock")
+	if !ok || !isValidProvider("amazon-bedrock") {
+		t.Fatal("bedrock speaks OpenAI-compatible chat completions with a bearer token")
+	}
+	if !m.BaseURLRequired {
+		t.Error("the bedrock endpoint carries a region, so the user must supply the base URL")
 	}
 }
