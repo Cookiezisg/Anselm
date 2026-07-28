@@ -1030,6 +1030,67 @@ func TestLiveBYOK_TextProviderSmoke(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_GoogleListedModelCanBeAccountUnavailable proves the honest failure boundary for
+// a model that remains visible in Google's ListModels inventory but is rejected by the current
+// account at generate time. Selection may persist the user's explicit choice; the first turn must
+// fail once, without retrying a non-retryable 404 or pretending an assistant answer exists.
+func TestLiveBYOK_GoogleListedModelCanBeAccountUnavailable(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("GEMINI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires GEMINI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://generativelanguage.googleapis.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-google-listed-unavailable"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "google", "displayName": "live-google-listed-unavailable", "key": key, "baseUrl": rec.URL() + "/v1beta",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	listed := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "google" && cap.ModelID == "gemini-2.5-flash" {
+			listed = true
+			break
+		}
+	}
+	if !listed {
+		t.Skip("current Google account no longer lists gemini-2.5-flash; stale-model reprobe is not constructible")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gemini-2.5-flash"}).OK(t, nil)
+	conv := convCreate(t, wc, "Google listed unavailable model")
+	msg := sendMsg(t, wc, conv, "请用一句简短中文回答：连接测试。不要调用工具。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "error" {
+		t.Fatalf("listed-but-unavailable Google model must end in error: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	if got := rec.CallsTo("streamGenerateContent"); got != 1 {
+		t.Fatalf("non-retryable Google model 404 must make exactly one generate call, got %d", got)
+	}
+	if turn.ErrorCode == "" || turn.ErrorMessage == "" || !strings.Contains(strings.ToLower(turn.ErrorMessage), "model not found") {
+		t.Fatalf("listed-but-unavailable Google model must expose a structured non-empty failure: code=%q message=%q", turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, block := range turn.Blocks {
+		if block.Type == "text" && strings.TrimSpace(block.Content) != "" {
+			t.Fatalf("listed-but-unavailable Google model must not persist an assistant answer: %+v", turn.Blocks)
+		}
+	}
+	t.Logf("listed-but-unavailable Google model failure: code=%s message=%s", turn.ErrorCode, turn.ErrorMessage)
+}
+
 // TestLiveBYOK_GoogleImageInput covers Google's native Gemini wire on the multimodal read
 // boundary. Unlike the OpenAI-compatible image lane above, this exercises contents/parts mapping,
 // native x-goog-api-key auth and the model-in-path request while keeping the managed gateway closed.

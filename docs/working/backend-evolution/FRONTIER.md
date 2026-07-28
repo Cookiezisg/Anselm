@@ -34,7 +34,7 @@ audience: [human, ai]
 | FRT-11 | provider 行为类 | byok-read | compat、Anthropic、Azure、Google、Vertex 的凭证/URL/编码边界正确 | 每类最小 probe + 错误分类 | DeepSeek v4 + Google Gemini 3 文本与原生 functionCall/functionResponse 续接真实通过；Kimi 当前凭证多入口 401；Anthropic/Azure/Vertex 待抽样 |
 | FRT-12 | 工具参数流 | byok-read / hybrid | 累积式与增量式 `arguments` 都能执行一次正确工具调用 | 两类 fixture + 真线缆样本 | locked; reprobe with parser changes |
 | FRT-13 | 取消、重试与恢复中的媒体 | all applicable | 取消回合不留孤儿、重放不错误复用或重复消费 | durable 状态、附件溯源、调用计数 | handler/workflow cancel/retry/crash no-orphan + image preparation ready/failed/cancel/retry + boot budget eviction/regeneration + crash requeue through; reprobe on worker/recovery changes |
-| FRT-14 | provider 模型资格漂移 | byok-read | `/models` 可见不等于当前账号可生成；选择后 404 应可解释、不可重试且不污染回合 | `/models` 与最小 generate 对照 + 产品选择/失败状态 | Google `gemini-2.5-flash` 列出但新用户 generate 404；待模型能力失效记忆/前端提示策略 |
+| FRT-14 | provider 模型资格漂移 | byok-read | `/models` 可见不等于当前账号可生成；选择后 404 应可解释、不可重试且不污染回合 | `/models` 与最小 generate 对照 + 产品选择/失败状态 | Google `gemini-2.5-flash` 真实通过：可见、可保存选择，首发单次 404、error turn 无 assistant 文本；回合级 code 仍为 `LLM_STREAM_ERROR`，模型失效记忆/前端专用分类待后续 |
 
 ## 历史高频 reprobe 组
 
