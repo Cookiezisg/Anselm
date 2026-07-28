@@ -22,6 +22,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-005 | 受管语音真钱验收硬编码旧 qwen3-tts 音色 `Cherry`，使 qwen-audio-3.0 默认路径假红；默认音色必须由 API Serve 决定 | managed TTS acceptance | `TestLiveManaged_ImageAndSpeech`：旧值失败、空 voice 重跑验证 | 当前提交 |
 | 2026-07-29 | EVO-006 | 新 workspace 在受管 key 落盘后先做网络能力刷新、后播种默认模型；用户首发消息可命中无默认的 `LLM_RESOLVE_ERROR` | freetier onboarding / 默认聊天 | `TestLiveManaged_DefaultChat` 复现；首发黑盒守卫 + `TestEnsure_SeedsDefaultsBeforeLiveCapabilityProbe` | 当前提交 |
 | 2026-07-29 | EVO-007 | 静态多模态夹具把 CRC 损坏的字节称作“合法 PNG”；mock 从不解码而掩盖问题，真实受管视觉路由会被上游拒绝 | testend mock / 媒体回归 | `TestLiveManaged_DefaultChatWithImageAttachment` 先红；`TestMockPNGDecodes` 守 decoder-valid fixture；32×32 真图重跑通过 | 当前提交 |
+| 2026-07-29 | EVO-008 | BYOK 视觉输入可在不借用受管 fallback 的情况下走完真实 key 创建、probe、目录能力、默认模型、附件与对话；它证明真实 provider 接受产品请求，不把模型文案误当像素语义证据 | BYOK read / OpenAI-compatible visual input | `EVALS_BYOK=1` + `OPENAI_API_KEY` 的 `TestLiveBYOK_OpenAIImageInput`；harness 默认关闭 gateway，附件字节与 durable turn 双侧断言 | 当前提交 |
 
 ## 追加格式
 
