@@ -81,7 +81,7 @@ iteration 的路由维度以 [WRK-085](../../archive/byok-governance/README.md)�
 | 录制型真钱验收 | 请求线缆、真实二进制、调用次数、异步上游 | 人眼渲染与交互质量 |
 | 人眼/真机复核 | 渲染、进度、播放、交互与可理解性 | 后端字节是否真的到达模型 |
 
-真实受管验收的前提是**已部署的 Anselm API Serve**，不是本地 provider secret。主仓通过 device-proof install 使用网关的公开产品能力；DeepSeek/Qwen 等上游凭证、媒体公开主机、费用账本和配额均留在 API Serve。现存以 `DASHSCOPE_API_KEY` / `ANSELM_DASHSCOPE_BASE` 驱动的 `EVALS_MEDIA`、`EVALS_VOICE` 是迁移前的直连测试缝，不能作为本体系的启动条件；它们须被收敛为不接触 provider secret 的受管端到端验收。
+真实受管验收的前提是**已部署的 Anselm API Serve**，不是本地 provider secret。主仓通过 device-proof install 使用网关的公开产品能力；DeepSeek/Qwen 等上游凭证、媒体公开主机、费用账本和配额均留在 API Serve。现存以 `DASHSCOPE_API_KEY` / `ANSELM_DASHSCOPE_BASE` 驱动的 `EVALS_MEDIA` 是迁移前的直连测试缝，不能作为本体系的启动条件；`EVALS_VOICE` 已迁移为生产 API Serve 的 managed 音色验收，不读取本地 provider secret。旧直连媒体缝仍仅作历史线缆材料，后续按 frontier 重写或归档。
 
 ## 文档边界
 

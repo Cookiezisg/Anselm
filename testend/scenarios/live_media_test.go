@@ -1,3 +1,7 @@
+// live_media_test.go — ARCHIVED direct-provider wire acceptance (WRK-082 H7), retained for historical
+// evidence only. Current product write paths are managed and live in live_managed_test.go/live_voice_test.go.
+// Do not treat EVALS_MEDIA or its local DashScope secrets as a current product entry point.
+//
 // live_media_test.go — WRK-082 H7: the REAL-MONEY acceptance, on the real binary, against a real
 // provider, with the wire kept.
 //

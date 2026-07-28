@@ -42,7 +42,7 @@ audience: [human, ai]
 - 明确本轮走的路由类别，以及是否会触发真实费用、危险操作或生产网关。
 - 对会花费的操作设定最小目标和停止点；不要让模型在生成工具上无界重调。
 - 需要真实上游的场景只使用对应 `EVALS_*` 门控；普通门禁不应偷偷花费。
-- 现存要求本地 `DASHSCOPE_API_KEY` 或 `ANSELM_DASHSCOPE_BASE` 的 live scenario 是历史直连缝；在其重写前不得把它当作产品端到端的验证入口。
+- 现存要求本地 `DASHSCOPE_API_KEY` 或 `ANSELM_DASHSCOPE_BASE` 的 `EVALS_MEDIA` live scenario 是历史直连缝；在其重写前不得把它当作产品端到端的验证入口。`EVALS_VOICE` 已迁移为不读取 provider secret、经生产 API Serve 的 managed 音色验收。
 - 发现行为差异时先保留请求、响应摘要、状态和时间线，再判断是否是缺陷。
 
 ## 当前真相源
