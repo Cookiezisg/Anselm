@@ -61,6 +61,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-044 | 默认 Anselm managed workflow 生成者→观看者状态链通过：上游 agent 真实调用 `generate_image`，节点结果保留 managed receipt，生成图片附件可回读，下游独立 agent 完成；受管网关不向桌面暴露 provider wire，像素线缆仍单列为证据缺口 | managed workflow / generation → MediaRef → downstream agent | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_WorkflowGenerateImageToViewer$' -count=1` → PASS 44.204s；无本机 provider key | `356db631` |
 | 2026-07-29 | EVO-045 | 动画、混合 wire、BYOK 文档引用与 managed workflow 哨兵落地后，backend 全包单测/集成测试仍全绿；未发现 resolver、attachment、loop、workflow、provider 或 transport 回归 | full backend package regression | `go test ./...`（backend）→ PASS；含 173 provider catalog 投影与全部内部 app/infra/store/transport 包 | 当前提交 |
 | 2026-07-29 | EVO-046 | 同一轮 API Serve 网关仓库也全包通过；最新 managed TTS 句柄解析、WAV 双工载荷、媒体主机部署与视频/聊天/lease/quota 路由均保持绿色，backend live 结论所依赖的网关基线没有隐藏红灯 | Anselm API Serve / managed gateway baseline | `go test ./...`（`Anselm-API-Serve`）→ PASS；未改动网关仓库 | 网关 `63f402f` |
+| 2026-07-29 | EVO-047 | BYOK 读侧三入口合跑通过：OpenAI 直接图片、OpenAI 文档 `anselm://media` 图片 exact-byte wire、Qwen MP4 视频均完成真实 key 创建/探针/能力投影/对话；受管 fallback 仍关闭 | byok-read / image / document media / video | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_(OpenAIImageInput|OpenAIDocumentImageReference|QwenVideoInput)$' -count=1` → PASS 17.681s；key 未写日志 | 当前提交 |
 
 ## 追加格式
 
