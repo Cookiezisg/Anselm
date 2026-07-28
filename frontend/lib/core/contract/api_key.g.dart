@@ -73,3 +73,40 @@ Map<String, dynamic> _$FreetierQuotaToJson(_FreetierQuota instance) =>
       'resetAt': instance.resetAt,
       'available': instance.available,
     };
+
+_ClonedVoice _$ClonedVoiceFromJson(Map<String, dynamic> json) => _ClonedVoice(
+  id: json['id'] as String,
+  name: json['name'] as String,
+  provider: json['provider'] as String? ?? '',
+  upstreamId: json['upstreamId'] as String? ?? '',
+  sourceAttachmentId: json['sourceAttachmentId'] as String? ?? '',
+  createdAt: json['createdAt'] as String? ?? '',
+);
+
+Map<String, dynamic> _$ClonedVoiceToJson(_ClonedVoice instance) =>
+    <String, dynamic>{
+      'id': instance.id,
+      'name': instance.name,
+      'provider': instance.provider,
+      'upstreamId': instance.upstreamId,
+      'sourceAttachmentId': instance.sourceAttachmentId,
+      'createdAt': instance.createdAt,
+    };
+
+_VoiceInventory _$VoiceInventoryFromJson(Map<String, dynamic> json) =>
+    _VoiceInventory(
+      items:
+          (json['items'] as List<dynamic>?)
+              ?.map((e) => ClonedVoice.fromJson(e as Map<String, dynamic>))
+              .toList() ??
+          const <ClonedVoice>[],
+      capacity: (json['capacity'] as num?)?.toInt() ?? 0,
+      remaining: (json['remaining'] as num?)?.toInt() ?? 0,
+    );
+
+Map<String, dynamic> _$VoiceInventoryToJson(_VoiceInventory instance) =>
+    <String, dynamic>{
+      'items': instance.items.map((e) => e.toJson()).toList(),
+      'capacity': instance.capacity,
+      'remaining': instance.remaining,
+    };

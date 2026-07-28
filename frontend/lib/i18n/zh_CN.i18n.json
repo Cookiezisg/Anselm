@@ -1811,6 +1811,13 @@
     "langEn": "English",
     "langZh": "简体中文",
     "keys": {
+      "voices": "克隆音色",
+      "voicesEmpty": "还没有克隆音色。让助手用一段音频附件登记一个。",
+      "voicesRemaining": "还能留 $n 个(共 $cap)",
+      "voicesFull": "两个位置都占着了——删掉一个才能腾出地方。",
+      "voicesDelete": "删除",
+      "voicesDeleteFailed": "上游登记没能删掉,音色**保留**了,你可以重试。",
+      "voicesManagedOnly": "克隆音色属于免费档。",
       "freeTier": "免费档",
       "freeTierName": "Anselm Free · 自动多模态",
       "freeUsage": "$used / $limit · $reset 重置",

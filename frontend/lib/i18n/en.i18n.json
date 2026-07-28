@@ -1811,6 +1811,13 @@
     "langEn": "English",
     "langZh": "简体中文",
     "keys": {
+      "voices": "Cloned voices",
+      "voicesEmpty": "No cloned voices yet. Ask the assistant to enroll one from an audio attachment.",
+      "voicesRemaining": "$n of $cap slots free",
+      "voicesFull": "Both slots are taken — delete one to make room.",
+      "voicesDelete": "Delete",
+      "voicesDeleteFailed": "Could not remove the upstream registration. The voice was kept so you can retry.",
+      "voicesManagedOnly": "Cloned voices are part of the free tier.",
       "freeTier": "Free tier",
       "freeTierName": "Anselm Free · Auto multimodal",
       "freeUsage": "$used / $limit · resets $reset",

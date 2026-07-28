@@ -1,16 +1,19 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/ui.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // AnRow = core list row. Tap selects; a collapsible row toggles on the lead + selects elsewhere;
 // passive is inert; collapsible carries `expanded` semantics. AnRow 核心行契约。
 void main() {
-  Widget host(Widget child) => MaterialApp(
+  Widget host(Widget child, {double width = 320}) => MaterialApp(
     debugShowCheckedModeBanner: false,
     theme: AnTheme.light(),
     home: Scaffold(
-      body: Center(child: SizedBox(width: 320, child: child)),
+      body: Center(
+        child: SizedBox(width: width, child: child),
+      ),
     ),
   );
 
@@ -265,4 +268,84 @@ void main() {
     expect(find.text('running job'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
+
+  // A row whose ONLY affordance is a hover-revealed action, and which has nothing to select. Hover is
+  // reported by [AnInteractive]'s FocusableActionDetector, and FAD only tracks it when the surface can
+  // ACTIVATE — so before AnRow supplied its own hover, this button was unreachable with a real mouse
+  // while every widget assertion stayed green: the button is on the tree the whole time, and it is the
+  // HIT TEST that fails. Three shipping call sites had this shape (the sandbox env/runtime rows and the
+  // gallery's own catalog entry) before the voices card made it fail out loud.
+  //
+  // 一个**唯一可操作物是 hover 揭示的动作**、且没有任何东西可选的行。hover 由 [AnInteractive] 的
+  // FocusableActionDetector 报出,而 FAD **只在能激活时**跟踪它——故在 AnRow 自己补 hover 之前,这个按钮
+  // 对真鼠标是够不着的,而所有 widget 断言照绿:按钮**一直在树上**,失败的是**命中测试**。这个形状在
+  // 三处已上线的调用点存在(sandbox 的环境/运行时行、gallery 自己的目录条目),直到音色卡让它出声地红。
+  testWidgets(
+    'hover-revealed actions are reachable on a row with NO onSelect (mouse, not just keyboard)',
+    (tester) async {
+      var fired = 0;
+      await tester.pumpWidget(
+        host(
+          AnRow(
+            label: 'a voice',
+            actions: [
+              AnButton(
+                label: 'Delete',
+                size: AnButtonSize.sm,
+                outline: true,
+                onPressed: () => fired++,
+              ),
+            ],
+          ),
+          width: 420,
+        ),
+      );
+
+      final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await g.addPointer(location: Offset.zero);
+      addTearDown(() => g.removePointer());
+      await tester.pump();
+      await g.moveTo(tester.getCenter(find.byType(AnRow)));
+      await tester.pump();
+
+      await tester.tap(find.widgetWithText(AnButton, 'Delete'));
+      await tester.pump();
+      expect(
+        fired,
+        1,
+        reason: 'the only affordance on the row must be clickable',
+      );
+    },
+  );
+
+  // The other half of the same law: at REST the action stays inert, or it would be a click target with
+  // opacity 0. 同一条律的另一半:静息时动作必须惰性,否则就是一个 opacity 0 的点击靶。
+  testWidgets(
+    '...and stays inert at rest (an invisible button is not a click target)',
+    (tester) async {
+      var fired = 0;
+      await tester.pumpWidget(
+        host(
+          AnRow(
+            label: 'a voice',
+            actions: [
+              AnButton(
+                label: 'Delete',
+                size: AnButtonSize.sm,
+                outline: true,
+                onPressed: () => fired++,
+              ),
+            ],
+          ),
+          width: 420,
+        ),
+      );
+      await tester.tap(
+        find.widgetWithText(AnButton, 'Delete'),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      expect(fired, 0);
+    },
+  );
 }

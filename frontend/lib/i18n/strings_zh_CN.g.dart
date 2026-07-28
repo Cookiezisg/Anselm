@@ -2020,6 +2020,13 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
+	@override String get voices => '克隆音色';
+	@override String get voicesEmpty => '还没有克隆音色。让助手用一段音频附件登记一个。';
+	@override String voicesRemaining({required Object n, required Object cap}) => '还能留 ${n} 个(共 ${cap})';
+	@override String get voicesFull => '两个位置都占着了——删掉一个才能腾出地方。';
+	@override String get voicesDelete => '删除';
+	@override String get voicesDeleteFailed => '上游登记没能删掉,音色**保留**了,你可以重试。';
+	@override String get voicesManagedOnly => '克隆音色属于免费档。';
 	@override String get freeTier => '免费档';
 	@override String get freeTierName => 'Anselm Free · 自动多模态';
 	@override String freeUsage({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · ${reset} 重置';
@@ -4604,6 +4611,13 @@ extension on TranslationsZhCn {
 			'settings.defaultModelLink' => '默认对话模型 → 模型与密钥',
 			'settings.langEn' => 'English',
 			'settings.langZh' => '简体中文',
+			'settings.keys.voices' => '克隆音色',
+			'settings.keys.voicesEmpty' => '还没有克隆音色。让助手用一段音频附件登记一个。',
+			'settings.keys.voicesRemaining' => ({required Object n, required Object cap}) => '还能留 ${n} 个(共 ${cap})',
+			'settings.keys.voicesFull' => '两个位置都占着了——删掉一个才能腾出地方。',
+			'settings.keys.voicesDelete' => '删除',
+			'settings.keys.voicesDeleteFailed' => '上游登记没能删掉,音色**保留**了,你可以重试。',
+			'settings.keys.voicesManagedOnly' => '克隆音色属于免费档。',
 			'settings.keys.freeTier' => '免费档',
 			'settings.keys.freeTierName' => 'Anselm Free · 自动多模态',
 			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · ${reset} 重置',

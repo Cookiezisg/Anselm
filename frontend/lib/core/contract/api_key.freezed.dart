@@ -857,4 +857,557 @@ as bool,
 
 }
 
+
+/// @nodoc
+mixin _$ClonedVoice {
+
+ String get id; String get name; String get provider; String get upstreamId; String get sourceAttachmentId; String get createdAt;
+/// Create a copy of ClonedVoice
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$ClonedVoiceCopyWith<ClonedVoice> get copyWith => _$ClonedVoiceCopyWithImpl<ClonedVoice>(this as ClonedVoice, _$identity);
+
+  /// Serializes this ClonedVoice to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ClonedVoice&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.upstreamId, upstreamId) || other.upstreamId == upstreamId)&&(identical(other.sourceAttachmentId, sourceAttachmentId) || other.sourceAttachmentId == sourceAttachmentId)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,name,provider,upstreamId,sourceAttachmentId,createdAt);
+
+@override
+String toString() {
+  return 'ClonedVoice(id: $id, name: $name, provider: $provider, upstreamId: $upstreamId, sourceAttachmentId: $sourceAttachmentId, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $ClonedVoiceCopyWith<$Res>  {
+  factory $ClonedVoiceCopyWith(ClonedVoice value, $Res Function(ClonedVoice) _then) = _$ClonedVoiceCopyWithImpl;
+@useResult
+$Res call({
+ String id, String name, String provider, String upstreamId, String sourceAttachmentId, String createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class _$ClonedVoiceCopyWithImpl<$Res>
+    implements $ClonedVoiceCopyWith<$Res> {
+  _$ClonedVoiceCopyWithImpl(this._self, this._then);
+
+  final ClonedVoice _self;
+  final $Res Function(ClonedVoice) _then;
+
+/// Create a copy of ClonedVoice
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? name = null,Object? provider = null,Object? upstreamId = null,Object? sourceAttachmentId = null,Object? createdAt = null,}) {
+  return _then(_self.copyWith(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,provider: null == provider ? _self.provider : provider // ignore: cast_nullable_to_non_nullable
+as String,upstreamId: null == upstreamId ? _self.upstreamId : upstreamId // ignore: cast_nullable_to_non_nullable
+as String,sourceAttachmentId: null == sourceAttachmentId ? _self.sourceAttachmentId : sourceAttachmentId // ignore: cast_nullable_to_non_nullable
+as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [ClonedVoice].
+extension ClonedVoicePatterns on ClonedVoice {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _ClonedVoice value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _ClonedVoice() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _ClonedVoice value)  $default,){
+final _that = this;
+switch (_that) {
+case _ClonedVoice():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _ClonedVoice value)?  $default,){
+final _that = this;
+switch (_that) {
+case _ClonedVoice() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String name,  String provider,  String upstreamId,  String sourceAttachmentId,  String createdAt)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _ClonedVoice() when $default != null:
+return $default(_that.id,_that.name,_that.provider,_that.upstreamId,_that.sourceAttachmentId,_that.createdAt);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String name,  String provider,  String upstreamId,  String sourceAttachmentId,  String createdAt)  $default,) {final _that = this;
+switch (_that) {
+case _ClonedVoice():
+return $default(_that.id,_that.name,_that.provider,_that.upstreamId,_that.sourceAttachmentId,_that.createdAt);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String name,  String provider,  String upstreamId,  String sourceAttachmentId,  String createdAt)?  $default,) {final _that = this;
+switch (_that) {
+case _ClonedVoice() when $default != null:
+return $default(_that.id,_that.name,_that.provider,_that.upstreamId,_that.sourceAttachmentId,_that.createdAt);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _ClonedVoice implements ClonedVoice {
+  const _ClonedVoice({required this.id, required this.name, this.provider = '', this.upstreamId = '', this.sourceAttachmentId = '', this.createdAt = ''});
+  factory _ClonedVoice.fromJson(Map<String, dynamic> json) => _$ClonedVoiceFromJson(json);
+
+@override final  String id;
+@override final  String name;
+@override@JsonKey() final  String provider;
+@override@JsonKey() final  String upstreamId;
+@override@JsonKey() final  String sourceAttachmentId;
+@override@JsonKey() final  String createdAt;
+
+/// Create a copy of ClonedVoice
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$ClonedVoiceCopyWith<_ClonedVoice> get copyWith => __$ClonedVoiceCopyWithImpl<_ClonedVoice>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$ClonedVoiceToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ClonedVoice&&(identical(other.id, id) || other.id == id)&&(identical(other.name, name) || other.name == name)&&(identical(other.provider, provider) || other.provider == provider)&&(identical(other.upstreamId, upstreamId) || other.upstreamId == upstreamId)&&(identical(other.sourceAttachmentId, sourceAttachmentId) || other.sourceAttachmentId == sourceAttachmentId)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,id,name,provider,upstreamId,sourceAttachmentId,createdAt);
+
+@override
+String toString() {
+  return 'ClonedVoice(id: $id, name: $name, provider: $provider, upstreamId: $upstreamId, sourceAttachmentId: $sourceAttachmentId, createdAt: $createdAt)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$ClonedVoiceCopyWith<$Res> implements $ClonedVoiceCopyWith<$Res> {
+  factory _$ClonedVoiceCopyWith(_ClonedVoice value, $Res Function(_ClonedVoice) _then) = __$ClonedVoiceCopyWithImpl;
+@override @useResult
+$Res call({
+ String id, String name, String provider, String upstreamId, String sourceAttachmentId, String createdAt
+});
+
+
+
+
+}
+/// @nodoc
+class __$ClonedVoiceCopyWithImpl<$Res>
+    implements _$ClonedVoiceCopyWith<$Res> {
+  __$ClonedVoiceCopyWithImpl(this._self, this._then);
+
+  final _ClonedVoice _self;
+  final $Res Function(_ClonedVoice) _then;
+
+/// Create a copy of ClonedVoice
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? name = null,Object? provider = null,Object? upstreamId = null,Object? sourceAttachmentId = null,Object? createdAt = null,}) {
+  return _then(_ClonedVoice(
+id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
+as String,name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
+as String,provider: null == provider ? _self.provider : provider // ignore: cast_nullable_to_non_nullable
+as String,upstreamId: null == upstreamId ? _self.upstreamId : upstreamId // ignore: cast_nullable_to_non_nullable
+as String,sourceAttachmentId: null == sourceAttachmentId ? _self.sourceAttachmentId : sourceAttachmentId // ignore: cast_nullable_to_non_nullable
+as String,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
+as String,
+  ));
+}
+
+
+}
+
+
+/// @nodoc
+mixin _$VoiceInventory {
+
+ List<ClonedVoice> get items; int get capacity; int get remaining;
+/// Create a copy of VoiceInventory
+/// with the given fields replaced by the non-null parameter values.
+@JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+$VoiceInventoryCopyWith<VoiceInventory> get copyWith => _$VoiceInventoryCopyWithImpl<VoiceInventory>(this as VoiceInventory, _$identity);
+
+  /// Serializes this VoiceInventory to a JSON map.
+  Map<String, dynamic> toJson();
+
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is VoiceInventory&&const DeepCollectionEquality().equals(other.items, items)&&(identical(other.capacity, capacity) || other.capacity == capacity)&&(identical(other.remaining, remaining) || other.remaining == remaining));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(items),capacity,remaining);
+
+@override
+String toString() {
+  return 'VoiceInventory(items: $items, capacity: $capacity, remaining: $remaining)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class $VoiceInventoryCopyWith<$Res>  {
+  factory $VoiceInventoryCopyWith(VoiceInventory value, $Res Function(VoiceInventory) _then) = _$VoiceInventoryCopyWithImpl;
+@useResult
+$Res call({
+ List<ClonedVoice> items, int capacity, int remaining
+});
+
+
+
+
+}
+/// @nodoc
+class _$VoiceInventoryCopyWithImpl<$Res>
+    implements $VoiceInventoryCopyWith<$Res> {
+  _$VoiceInventoryCopyWithImpl(this._self, this._then);
+
+  final VoiceInventory _self;
+  final $Res Function(VoiceInventory) _then;
+
+/// Create a copy of VoiceInventory
+/// with the given fields replaced by the non-null parameter values.
+@pragma('vm:prefer-inline') @override $Res call({Object? items = null,Object? capacity = null,Object? remaining = null,}) {
+  return _then(_self.copyWith(
+items: null == items ? _self.items : items // ignore: cast_nullable_to_non_nullable
+as List<ClonedVoice>,capacity: null == capacity ? _self.capacity : capacity // ignore: cast_nullable_to_non_nullable
+as int,remaining: null == remaining ? _self.remaining : remaining // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+}
+
+
+/// Adds pattern-matching-related methods to [VoiceInventory].
+extension VoiceInventoryPatterns on VoiceInventory {
+/// A variant of `map` that fallback to returning `orElse`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeMap<TResult extends Object?>(TResult Function( _VoiceInventory value)?  $default,{required TResult orElse(),}){
+final _that = this;
+switch (_that) {
+case _VoiceInventory() when $default != null:
+return $default(_that);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// Callbacks receives the raw object, upcasted.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case final Subclass2 value:
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult map<TResult extends Object?>(TResult Function( _VoiceInventory value)  $default,){
+final _that = this;
+switch (_that) {
+case _VoiceInventory():
+return $default(_that);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `map` that fallback to returning `null`.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case final Subclass value:
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? mapOrNull<TResult extends Object?>(TResult? Function( _VoiceInventory value)?  $default,){
+final _that = this;
+switch (_that) {
+case _VoiceInventory() when $default != null:
+return $default(_that);case _:
+  return null;
+
+}
+}
+/// A variant of `when` that fallback to an `orElse` callback.
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return orElse();
+/// }
+/// ```
+
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<ClonedVoice> items,  int capacity,  int remaining)?  $default,{required TResult orElse(),}) {final _that = this;
+switch (_that) {
+case _VoiceInventory() when $default != null:
+return $default(_that.items,_that.capacity,_that.remaining);case _:
+  return orElse();
+
+}
+}
+/// A `switch`-like method, using callbacks.
+///
+/// As opposed to `map`, this offers destructuring.
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case Subclass2(:final field2):
+///     return ...;
+/// }
+/// ```
+
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<ClonedVoice> items,  int capacity,  int remaining)  $default,) {final _that = this;
+switch (_that) {
+case _VoiceInventory():
+return $default(_that.items,_that.capacity,_that.remaining);case _:
+  throw StateError('Unexpected subclass');
+
+}
+}
+/// A variant of `when` that fallback to returning `null`
+///
+/// It is equivalent to doing:
+/// ```dart
+/// switch (sealedClass) {
+///   case Subclass(:final field):
+///     return ...;
+///   case _:
+///     return null;
+/// }
+/// ```
+
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<ClonedVoice> items,  int capacity,  int remaining)?  $default,) {final _that = this;
+switch (_that) {
+case _VoiceInventory() when $default != null:
+return $default(_that.items,_that.capacity,_that.remaining);case _:
+  return null;
+
+}
+}
+
+}
+
+/// @nodoc
+@JsonSerializable()
+
+class _VoiceInventory implements VoiceInventory {
+  const _VoiceInventory({final  List<ClonedVoice> items = const <ClonedVoice>[], this.capacity = 0, this.remaining = 0}): _items = items;
+  factory _VoiceInventory.fromJson(Map<String, dynamic> json) => _$VoiceInventoryFromJson(json);
+
+ final  List<ClonedVoice> _items;
+@override@JsonKey() List<ClonedVoice> get items {
+  if (_items is EqualUnmodifiableListView) return _items;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_items);
+}
+
+@override@JsonKey() final  int capacity;
+@override@JsonKey() final  int remaining;
+
+/// Create a copy of VoiceInventory
+/// with the given fields replaced by the non-null parameter values.
+@override @JsonKey(includeFromJson: false, includeToJson: false)
+@pragma('vm:prefer-inline')
+_$VoiceInventoryCopyWith<_VoiceInventory> get copyWith => __$VoiceInventoryCopyWithImpl<_VoiceInventory>(this, _$identity);
+
+@override
+Map<String, dynamic> toJson() {
+  return _$VoiceInventoryToJson(this, );
+}
+
+@override
+bool operator ==(Object other) {
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _VoiceInventory&&const DeepCollectionEquality().equals(other._items, _items)&&(identical(other.capacity, capacity) || other.capacity == capacity)&&(identical(other.remaining, remaining) || other.remaining == remaining));
+}
+
+@JsonKey(includeFromJson: false, includeToJson: false)
+@override
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_items),capacity,remaining);
+
+@override
+String toString() {
+  return 'VoiceInventory(items: $items, capacity: $capacity, remaining: $remaining)';
+}
+
+
+}
+
+/// @nodoc
+abstract mixin class _$VoiceInventoryCopyWith<$Res> implements $VoiceInventoryCopyWith<$Res> {
+  factory _$VoiceInventoryCopyWith(_VoiceInventory value, $Res Function(_VoiceInventory) _then) = __$VoiceInventoryCopyWithImpl;
+@override @useResult
+$Res call({
+ List<ClonedVoice> items, int capacity, int remaining
+});
+
+
+
+
+}
+/// @nodoc
+class __$VoiceInventoryCopyWithImpl<$Res>
+    implements _$VoiceInventoryCopyWith<$Res> {
+  __$VoiceInventoryCopyWithImpl(this._self, this._then);
+
+  final _VoiceInventory _self;
+  final $Res Function(_VoiceInventory) _then;
+
+/// Create a copy of VoiceInventory
+/// with the given fields replaced by the non-null parameter values.
+@override @pragma('vm:prefer-inline') $Res call({Object? items = null,Object? capacity = null,Object? remaining = null,}) {
+  return _then(_VoiceInventory(
+items: null == items ? _self._items : items // ignore: cast_nullable_to_non_nullable
+as List<ClonedVoice>,capacity: null == capacity ? _self.capacity : capacity // ignore: cast_nullable_to_non_nullable
+as int,remaining: null == remaining ? _self.remaining : remaining // ignore: cast_nullable_to_non_nullable
+as int,
+  ));
+}
+
+
+}
+
 // dart format on

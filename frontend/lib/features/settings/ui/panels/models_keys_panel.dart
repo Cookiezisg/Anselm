@@ -38,6 +38,7 @@ import '../../../../i18n/strings.g.dart';
 import '../../state/api_keys_provider.dart';
 import '../../state/settings_detail_provider.dart';
 import '../../state/workspace_prefs_provider.dart';
+import 'voices_card.dart';
 
 /// ④ 模型与密钥 — the resource flagship, THREE zones (0725 重构 — category finally drawn on the
 /// face, WRK-077 施工序⑪): ① the MODEL-KEYS zone — the managed free-tier card (quota meter / enable
@@ -73,6 +74,10 @@ class ModelsKeysPanel extends ConsumerWidget {
       children: [
         _FreeTierCard(),
         SizedBox(height: AnSpace.s12),
+        // Directly under the free-tier card because that is what it belongs to: cloning exists only
+        // in the managed tier, and enrolling a voice spends managed allowance.
+        // **紧贴**免费档卡下面,因为它就属于那里:克隆只存在于受管档,登记一个音色花的是受管额度。
+        VoicesCard(),
         SizedBox(height: AnSpace.s24),
         _ModelKeysSection(),
         SizedBox(height: AnSpace.s24),

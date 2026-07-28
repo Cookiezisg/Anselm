@@ -68,6 +68,15 @@ abstract class SettingsRepository {
   /// null = 404 FREETIER_NOT_PROVISIONED (no managed row yet). 未开通映射 null。
   Future<FreetierQuota?> getFreetierQuota();
 
+  /// The cloned-voice inventory (`GET /voices`, WRK-082 H9) plus its cap. **N4 exemption ①** —
+  /// bounded enumerable resource, whole set, no cursor. 克隆音色库存 + 上限;有界可枚举、返全集无游标。
+  Future<VoiceInventory> voices();
+
+  /// `DELETE /voices/{id}` — upstream registration first, then the row. An upstream failure ABORTS
+  /// with the row intact, so a retry is safe and the inventory count keeps telling the truth.
+  /// 先删上游登记、再删行。上游失败即中止且行完好,故重试安全、库存计数继续说真话。
+  Future<void> deleteVoice(String id);
+
   /// POST :provision — true when a managed row exists afterwards. 手动开通;事后有行=true。
   Future<bool> provisionFreetier();
 
@@ -307,6 +316,13 @@ class LiveSettingsRepository implements SettingsRepository {
 
   @override
   Future<void> testKey(String id) => api.postData('/api/v1/api-keys/$id:test');
+
+  @override
+  Future<VoiceInventory> voices() async =>
+      VoiceInventory.fromJson(await api.getData('/api/v1/voices'));
+
+  @override
+  Future<void> deleteVoice(String id) => api.delete('/api/v1/voices/$id');
 
   @override
   Future<FreetierQuota?> getFreetierQuota() async {
@@ -810,6 +826,30 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<FreetierQuota?> getFreetierQuota() async => quota;
+
+  VoiceInventory fixtureVoices = const VoiceInventory(
+    items: [
+      ClonedVoice(
+        id: 'vce_1',
+        name: '灯塔',
+        provider: 'anselm',
+        createdAt: '2026-07-28T09:00:00Z',
+      ),
+    ],
+    capacity: 2,
+    remaining: 1,
+  );
+
+  @override
+  Future<VoiceInventory> voices() async => fixtureVoices;
+
+  @override
+  Future<void> deleteVoice(String id) async {
+    fixtureVoices = fixtureVoices.copyWith(
+      items: fixtureVoices.items.where((v) => v.id != id).toList(),
+      remaining: fixtureVoices.remaining + 1,
+    );
+  }
 
   @override
   Future<bool> provisionFreetier() async {

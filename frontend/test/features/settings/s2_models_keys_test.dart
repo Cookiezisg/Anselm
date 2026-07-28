@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/api_key.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_dropdown.dart';
+import 'package:anselm/core/ui/an_row.dart';
 import 'package:anselm/core/ui/an_section.dart';
 import 'package:anselm/core/ui/an_switch.dart';
 import 'package:anselm/core/contract/workspace.dart';
@@ -142,9 +143,26 @@ void main() {
           find.textContaining(t.settings.keys.managedBadge),
           findsOneWidget,
         );
-        // Exactly ONE set of edit/delete affordances (the BYOK row's). 编辑/删除只属 BYOK 行。
-        expect(find.text(t.settings.keys.editKey), findsOneWidget);
-        expect(find.text(t.settings.keys.deleteKey), findsOneWidget);
+        // Edit/delete belong to the BYOK row and to NO managed row. Asserted per ROW, not by counting
+        // the panel: the panel also hosts the cloned-voice card, whose rows carry their own Delete, so
+        // a bare count would answer a question about the whole page instead of about these two rows.
+        // 编辑/删除属 BYOK 行、且**任何**受管行都没有。**逐行**断言而非数整页:本面还住着克隆音色卡、
+        // 它的行自带删除,故光数个数是在回答「整页」的问题、而不是这两行的问题。
+        for (final (row, present) in [('mine', true), ('Anselm Free', false)]) {
+          for (final label in [
+            t.settings.keys.editKey,
+            t.settings.keys.deleteKey,
+          ]) {
+            expect(
+              find.descendant(
+                of: find.widgetWithText(AnRow, row),
+                matching: find.text(label),
+              ),
+              present ? findsOneWidget : findsNothing,
+              reason: '$row · $label',
+            );
+          }
+        }
       },
     );
   });

@@ -63,3 +63,48 @@ abstract class FreetierQuota with _$FreetierQuota {
   factory FreetierQuota.fromJson(Map<String, dynamic> json) =>
       _$FreetierQuotaFromJson(json);
 }
+
+/// One enrolled voice — `GET /api/v1/voices` (WRK-082 H9).
+///
+/// **The inventory is not a quota, and the DTO is where that starts being true.** Nothing frees a
+/// slot with the passage of time: a voice occupies its place until someone deletes it, and creating
+/// one cost real money once. So the UI that renders this must say「delete one」and never「try again
+/// tomorrow」— see [VoiceInventory] for the arithmetic that makes the refusal legible.
+///
+/// 一个已登记的音色(H9)。
+///
+/// **库存不是配额,而这件事从 DTO 就开始为真。** 时间流逝不腾位:一个音色占着它的位直到有人删掉,而
+/// 创建它花过一次真钱。故渲染它的 UI 必须说「删一个」、绝不说「明天再来」——让那句拒绝读得懂的算术
+/// 在 [VoiceInventory] 里。
+@freezed
+abstract class ClonedVoice with _$ClonedVoice {
+  const factory ClonedVoice({
+    required String id,
+    required String name,
+    @Default('') String provider,
+    @Default('') String upstreamId,
+    @Default('') String sourceAttachmentId,
+    @Default('') String createdAt,
+  }) = _ClonedVoice;
+
+  factory ClonedVoice.fromJson(Map<String, dynamic> json) =>
+      _$ClonedVoiceFromJson(json);
+}
+
+/// The voice list plus its inventory arithmetic — the cap IS the reason a user reads this page.
+/// A list of two that does not say「that is all you may keep」leaves the next enrollment's refusal
+/// unexplained.
+///
+/// 音色列表 + 库存算术——**上限正是用户来读这一页的理由**。一个列出两行却不说「你只能留这些」的列表,
+/// 会让下一次登记的拒绝无从解释。
+@freezed
+abstract class VoiceInventory with _$VoiceInventory {
+  const factory VoiceInventory({
+    @Default(<ClonedVoice>[]) List<ClonedVoice> items,
+    @Default(0) int capacity,
+    @Default(0) int remaining,
+  }) = _VoiceInventory;
+
+  factory VoiceInventory.fromJson(Map<String, dynamic> json) =>
+      _$VoiceInventoryFromJson(json);
+}

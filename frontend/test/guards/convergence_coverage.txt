@@ -591,6 +591,7 @@ lib/features/settings/ui/panels/sandbox_panel.dart	reviewed
 lib/features/settings/ui/panels/settings_panels.dart	converged
 lib/features/settings/ui/panels/shortcuts_panel.dart	reviewed
 lib/features/settings/ui/panels/storage_panel.dart	reviewed
+lib/features/settings/ui/panels/voices_card.dart	pending
 lib/features/settings/ui/panels/workspaces_panel.dart	reviewed
 lib/features/settings/ui/settings_anchor.dart	converged
 lib/features/settings/ui/settings_ocean.dart	reviewed

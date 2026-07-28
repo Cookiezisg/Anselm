@@ -107,3 +107,29 @@ final freetierQuotaProvider =
     AsyncNotifierProvider<FreetierQuotaController, FreetierQuota?>(
       FreetierQuotaController.new,
     );
+
+/// The cloned-voice inventory (WRK-082 H9). Deletion goes through here so the cap arithmetic and
+/// the row list can never disagree — they arrive from one authoritative re-read rather than a
+/// client-side decrement.
+///
+/// 克隆音色库存(H9)。删除走这里,使上限算术与行列表**不可能互相矛盾**——它们来自**一次权威重读**,
+/// 而不是客户端自己减一。
+class VoicesController extends AsyncNotifier<VoiceInventory> {
+  @override
+  Future<VoiceInventory> build() =>
+      ref.watch(settingsRepositoryProvider).voices();
+
+  /// Delete one, then re-read. The re-read is the point: the upstream registration is removed
+  /// first and the row only follows if that succeeded, so the server is the only thing that knows
+  /// what actually survived.
+  /// 删一个,然后重读。**重读才是要点**:上游登记先删、行只在那一步成功后才跟着删,故只有服务端知道
+  /// 真正活下来的是什么。
+  Future<void> remove(String id) async {
+    await ref.read(settingsRepositoryProvider).deleteVoice(id);
+    state = AsyncData(await ref.read(settingsRepositoryProvider).voices());
+  }
+}
+
+final voicesProvider = AsyncNotifierProvider<VoicesController, VoiceInventory>(
+  VoicesController.new,
+);

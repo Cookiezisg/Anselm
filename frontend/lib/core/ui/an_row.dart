@@ -4,6 +4,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/status_state.dart';
+import 'an_hover_region.dart';
 import 'an_interactive.dart';
 import 'an_status_dot.dart';
 import 'icons.dart';
@@ -120,12 +121,32 @@ class AnRow extends StatelessWidget {
     // (←/→, WAI-ARIA tree) is owned by the tree CONSUMER's roving-focus group (AnSidebarList), NOT baked
     // into AnRow — so AnRow doesn't grow a competing keyboard owner. collapsible 行透 expanded(屏读播报折叠态);
     // 键盘展开(←/→)归树消费方(AnSidebarList)的 roving 焦点组,不塞进 AnRow(避免双键盘属主)。
-    return AnInteractive(
-      onTap: passive ? null : onSelect,
-      selected: selected,
-      expanded: collapsible ? open : null,
-      cursor: passive ? MouseCursor.defer : null,
-      builder: (context, states) => _row(context, states.isActive && !passive),
+    return _RevealHover(
+      // [AnInteractive] reports hover through [FocusableActionDetector], which only tracks it when the
+      // surface can ACTIVATE. So a row that carries hover-revealed [actions] but NO [onSelect] hides its
+      // only affordance behind a hover that never registers — the button is unreachable with a mouse,
+      // and no pixel assertion can see it, because the widget is on the tree the whole time (it is the
+      // hit test that fails). This supplies the missing hover for exactly that shape.
+      //
+      // Deliberately NOT fixed inside AnInteractive: enabling FAD on an inert surface would also make it
+      // focusable, turning every do-nothing row into a keyboard focus stop.
+      //
+      // [AnInteractive] 的 hover 走 [FocusableActionDetector],而 FAD **只在能激活时**跟踪 hover。于是一个
+      // 带 hover 揭示 [actions]、却没有 [onSelect] 的行,把自己唯一的可操作物藏在了一个**永不发生**的 hover
+      // 后面——鼠标够不着,且**任何像素断言都看不见**,因为那个 widget 一直在树上(失败的是命中测试)。
+      // 此处正是为这一形状补上缺失的 hover。
+      //
+      // **刻意不**在 AnInteractive 里修:让惰性面 FAD-enabled 会连带使它可聚焦,把每个什么都不做的行变成
+      // 一个键盘焦点停靠点。
+      track: !passive && onSelect == null && actions.isNotEmpty,
+      builder: (context, hovered) => AnInteractive(
+        onTap: passive ? null : onSelect,
+        selected: selected,
+        expanded: collapsible ? open : null,
+        cursor: passive ? MouseCursor.defer : null,
+        builder: (context, states) =>
+            _row(context, (states.isActive || hovered) && !passive),
+      ),
     );
   }
 
@@ -424,13 +445,54 @@ class _HoverSwap extends StatelessWidget {
     );
   }
 
-  Widget _layer(Widget child, {required bool visible}) {
-    if (visible) return child;
-    // Hidden but still occupying its layout slot (no reflow on swap) — and fully inert. 隐藏但占位、彻底惰化。
-    return ExcludeFocus(
-      child: IgnorePointer(
-        child: ExcludeSemantics(child: Opacity(opacity: 0, child: child)),
+  // Hidden but still occupying its layout slot (no reflow on swap) — and fully inert. The wrappers are
+  // mounted UNCONDITIONALLY and only their flags flip: `visible ? child : Wrapper(child)` would change
+  // the slot's runtimeType, so `Widget.canUpdate` says no and the whole layer REMOUNTS on every hover
+  // (CLAUDE.md 禁止条件包装 — the RI law).
+  // 隐藏但占位(互换不重排)、且彻底惰化。包装层**无条件**挂载、只翻参数:`visible ? child : Wrapper(child)`
+  // 会改变槽的 runtimeType,于是 `Widget.canUpdate` 判否、**每次 hover 整层重挂**(CLAUDE.md 禁止条件包装)。
+  Widget _layer(Widget child, {required bool visible}) => ExcludeFocus(
+    excluding: !visible,
+    child: IgnorePointer(
+      ignoring: !visible,
+      child: ExcludeSemantics(
+        excluding: !visible,
+        child: Opacity(opacity: visible ? 1 : 0, child: child),
       ),
+    ),
+  );
+}
+
+/// Supplies hover for a row whose [AnRow.actions] have no activation to ride on — see the call site for
+/// why [AnInteractive] cannot report it. The [AnHoverRegion] is mounted unconditionally (禁止条件包装);
+/// [track] only decides whether the edges are wired, so an ordinary activatable row pays nothing and
+/// never double-counts hover with FAD.
+///
+/// 为「actions 没有可搭的激活」的行补 hover——AnInteractive 为何报不出来见调用点。AnHoverRegion **无条件**
+/// 挂载(禁止条件包装),[track] 只决定接不接边沿:普通可激活行零代价,且不会与 FAD 双记 hover。
+class _RevealHover extends StatefulWidget {
+  const _RevealHover({required this.track, required this.builder});
+
+  final bool track;
+  final Widget Function(BuildContext context, bool hovered) builder;
+
+  @override
+  State<_RevealHover> createState() => _RevealHoverState();
+}
+
+class _RevealHoverState extends State<_RevealHover> {
+  bool _hovered = false;
+
+  void _set(bool v) {
+    if (_hovered != v && mounted) setState(() => _hovered = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnHoverRegion(
+      onEnter: widget.track ? (_) => _set(true) : null,
+      onExit: widget.track ? (_) => _set(false) : null,
+      child: widget.builder(context, widget.track && _hovered),
     );
   }
 }

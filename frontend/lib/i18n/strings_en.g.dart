@@ -4900,6 +4900,27 @@ class Translations$settings$keys$en {
 
 	// Translations
 
+	/// en: 'Cloned voices'
+	String get voices => 'Cloned voices';
+
+	/// en: 'No cloned voices yet. Ask the assistant to enroll one from an audio attachment.'
+	String get voicesEmpty => 'No cloned voices yet. Ask the assistant to enroll one from an audio attachment.';
+
+	/// en: '$n of $cap slots free'
+	String voicesRemaining({required Object n, required Object cap}) => '${n} of ${cap} slots free';
+
+	/// en: 'Both slots are taken — delete one to make room.'
+	String get voicesFull => 'Both slots are taken — delete one to make room.';
+
+	/// en: 'Delete'
+	String get voicesDelete => 'Delete';
+
+	/// en: 'Could not remove the upstream registration. The voice was kept so you can retry.'
+	String get voicesDeleteFailed => 'Could not remove the upstream registration. The voice was kept so you can retry.';
+
+	/// en: 'Cloned voices are part of the free tier.'
+	String get voicesManagedOnly => 'Cloned voices are part of the free tier.';
+
 	/// en: 'Free tier'
 	String get freeTier => 'Free tier';
 
@@ -8661,6 +8682,13 @@ extension on Translations {
 			'settings.defaultModelLink' => 'Default chat model → Models & keys',
 			'settings.langEn' => 'English',
 			'settings.langZh' => '简体中文',
+			'settings.keys.voices' => 'Cloned voices',
+			'settings.keys.voicesEmpty' => 'No cloned voices yet. Ask the assistant to enroll one from an audio attachment.',
+			'settings.keys.voicesRemaining' => ({required Object n, required Object cap}) => '${n} of ${cap} slots free',
+			'settings.keys.voicesFull' => 'Both slots are taken — delete one to make room.',
+			'settings.keys.voicesDelete' => 'Delete',
+			'settings.keys.voicesDeleteFailed' => 'Could not remove the upstream registration. The voice was kept so you can retry.',
+			'settings.keys.voicesManagedOnly' => 'Cloned voices are part of the free tier.',
 			'settings.keys.freeTier' => 'Free tier',
 			'settings.keys.freeTierName' => 'Anselm Free · Auto multimodal',
 			'settings.keys.freeUsage' => ({required Object used, required Object limit, required Object reset}) => '${used} / ${limit} · resets ${reset}',
