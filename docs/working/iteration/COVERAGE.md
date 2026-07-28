@@ -4,8 +4,8 @@ type: working
 status: active
 owner: @weilin
 created: 2026-07-02
-reviewed: 2026-07-02
-review-due: 2026-09-30
+reviewed: 2026-07-28
+review-due: 2026-10-26
 audience: [human, ai]
 landed-into:
 ---
@@ -17,6 +17,8 @@ landed-into:
 >
 > **状态词表**：`locked`=有零 token 自动化回归（testend/Go 单测）锁死 · `probed`=历史 lane/判官探过（绿或已修）但无零 token 锁 · `unprobed`=没测过 · `exempt`=不可测/不值得（备注必写原因）。
 > **指针**：locked→测试函数名；probed→F 编号或 ARCHIVE 格名；unprobed→建议测法一短语。
+
+> **历史快照，不是当前活覆盖率（2026-07-28 注）**：本矩阵的 649 行与“100%”只陈述 2026-07-03 那一轮冻结产品的黑盒可覆盖面。它保留为证据，不可用来豁免当前 iteration；当前高频复活、Anselm gateway 与多模态值流的 `reprobe/frontier` 统一登记在 [`ARCHIVE.md`](ARCHIVE.md) §0。
 
 ## 结算（随 phase 推进更新）
 

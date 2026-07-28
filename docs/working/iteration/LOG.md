@@ -4,8 +4,8 @@ type: working
 status: active
 owner: @weilin
 created: 2026-06-18
-reviewed: 2026-06-18
-review-due: 2026-09-16
+reviewed: 2026-07-28
+review-due: 2026-10-26
 audience: [human, ai]
 landed-into:
 ---
@@ -16,7 +16,11 @@ landed-into:
 > 状态：`open` 待修 · `confirmed` 已复现待修 · `fixed` 已修+验+回归 · `watch` 观察 · `not-bug` 判断后非 bug（成本/性能/可恢复且行为正确——不算）· `dup` 被他条覆盖。
 > 新发现追加在表末。**别删行**（同 D1 Log 语义）。
 
-## 📊 当前状态（2026-07-03）—— 全量重测战役进行中
+## 📊 当前状态（2026-07-28）—— 高频复活 + 多模态贯通待真实环境启动
+
+本轮沿用 WRK-026 的 8 拍，不另建制度。真模型主路径切为 **Anselm API / `anselm-auto`**；历史真模型绿格按 [`ARCHIVE.md`](ARCHIVE.md) §0 以 `reprobe` 重回 frontier，且多模态作为 chat / agent / tool / workflow / recovery 全链的横切值流。当前尚未启动端到端环境，**无新增 finding、无预写结论**。
+
+## 📊 历史状态（2026-07-03）—— 全量重测战役收官
 
 **动机**：0621 收官后又发生大量改动（rail 全套 / loopback / SSE Flusher / deepseek parts 坍缩 / touchpoint 全套）+ 历史探针几乎全是 agent 对话面，**纯 REST 契约面从未系统扫过**。目标覆盖率 ~99%，分母显式化于 [COVERAGE.md](COVERAGE.md)（WRK-052，645 场景单元，冻结时 64.3%）。
 

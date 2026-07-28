@@ -57,12 +57,18 @@ const voiceCloneBudget = 90 * time.Second
 // 行动的话失败,而不是变成一个远端 400。
 const VoiceCloneMaxSeconds = 30
 
-// voiceCloneModel is the enrollment model id — the `model` field of the customization call, not the
+// VoiceCloneModel is the enrollment model id — the `model` field of the customization call, not the
 // synthesis model. The voice it mints is then usable by the ordinary TTS route.
 //
-// voiceCloneModel 是**登记**模型 id——customization 调用的 `model` 字段,不是合成模型。它铸出的音色
+// VoiceCloneModel 是**登记**模型 id——customization 调用的 `model` 字段,不是合成模型。它铸出的音色
 // 随后由普通 TTS 路径使用。
-const voiceCloneModel = "qwen-tts"
+//
+// Exported because the spend ledger books enrollments under it: the ledger's model column must be
+// the id we actually called, not a second copy of the string that can drift from it.
+//
+// 导出,因为支出台账按它记登记:台账的 model 列必须是我们**真正调用**的那个 id,而不是一份会与它漂移的
+// 字符串副本。
+const VoiceCloneModel = "qwen-tts"
 
 // EnrollVoiceDashScope registers a reference clip as a named voice and returns the upstream's voice
 // id — the value that goes straight into the `voice` parameter of a later synthesis call.
@@ -71,7 +77,7 @@ const voiceCloneModel = "qwen-tts"
 // 合成调用里 `voice` 参数的取值。
 func EnrollVoiceDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, name string, sample DataURL) (string, error) {
 	raw, err := voiceCustomization(ctx, httpc, nativeBase, key, map[string]any{
-		"model": voiceCloneModel,
+		"model": VoiceCloneModel,
 		"input": map[string]any{
 			"action": "create",
 			"voice":  name,
@@ -108,7 +114,7 @@ func EnrollVoiceDashScope(ctx context.Context, httpc *http.Client, nativeBase, k
 // 才是;把孤儿留在那边,会静默吃掉一份谁也看不见的账号级音色库存。
 func DeleteVoiceDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, voiceID string) error {
 	_, err := voiceCustomization(ctx, httpc, nativeBase, key, map[string]any{
-		"model": voiceCloneModel,
+		"model": VoiceCloneModel,
 		"input": map[string]any{"action": "delete", "voice": voiceID},
 	})
 	return err

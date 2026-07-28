@@ -4,8 +4,8 @@ type: working
 status: active
 owner: @weilin
 created: 2026-06-18
-reviewed: 2026-06-18
-review-due: 2026-09-16
+reviewed: 2026-07-28
+review-due: 2026-10-26
 audience: [human, ai]
 landed-into:
 ---
@@ -13,12 +13,18 @@ landed-into:
 # Iteration Loop —— AI 操作手册（START HERE）
 
 > AI：读完这个文件夹你就能跑这个 loop。本文件 = 怎么跑 + 怎么判 + 铁律。
-> [`ARCHIVE.md`](ARCHIVE.md) = **探过什么 + 还有什么**（覆盖归档 + frontier，EXPLORE 起手读它）。[`TASKS.md`](TASKS.md) = **下一步做什么**（薄索引）。[`LOG.md`](LOG.md) = **已发现什么**（finding 索引，顶部带「未结 backlog」速查）。[`systems-correctness.md`](systems-correctness.md) = 系统级正确性维度 R1–R21（R1–R20 已修，R21 = F174 待修）。
-> 仓库根 `/Users/SP14921/Documents/Personal/PersonalCodeBase/Anselm`；真模型 key 在根 `.env`（`DEEPSEEK_API_KEY`，deepseek-v4-flash）；运行器 `testend/golden/selfiter_*_test.go`。
+> [`ARCHIVE.md`](ARCHIVE.md) = **探过什么 + 还有什么**（覆盖归档 + frontier，EXPLORE 起手读它）。[`TASKS.md`](TASKS.md) = **下一步做什么**（薄索引）。[`LOG.md`](LOG.md) = **已发现什么**（finding 索引，顶部带「未结 backlog」速查）。[`systems-correctness.md`](systems-correctness.md) = 系统级正确性维度（R1–R24 已修，R25 为当前休眠的 open）。
+> 仓库根 `/Users/SP14921/Documents/Personal/PersonalCodeBase/Anselm`；真模型主路径 = **Anselm API / `anselm-auto`**，验的是用户实际得到的受管 key、device proof、gateway、能力路由、媒体与额度全链。直连 DeepSeek/Qwen 等 provider 仅作根因诊断对照，不能替代主结论；运行器仍是 `testend/golden/selfiter_*_test.go`。
 
 ## 一句话
 
 让真 agent 在真模型上跑真任务 → 抓整条轨迹 → 你（Claude）当判官判「工具用得对不对 + 整套工程转得对不对」 → **有就都修** → 重跑同测看前后 → 记一行 → commit。一条延绵不断、线性的迭代线。
+
+## 当前重启（2026-07-28）—— 高频复活 + 多模态贯通
+
+旧 loop **不换制度**：仍按本页 8 拍持续迭代。当前后端已跨过模型路由、gateway、驻地、对话版本树、MediaRef 与全模态产出的结构变化，故历史绿格不再自动豁免；凡依赖这些承重面的旧结论以 `reprobe` 回到 [`ARCHIVE.md`](ARCHIVE.md) frontier，在当前 Anselm 主路径上重新证明、推翻或按新语义闭案。
+
+多模态不是单独功能域，而是本轮的横切值流：每条适用的 chat / agent / subagent / MCP / function / handler / workflow / retry / replay 轨迹，都要检查媒体从来源到载体、下游消费者、能力降级、持久化、费用与 UI 消费是否为同一份事实。
 
 **两个灵魂：**
 - **① 多轮对话，不是一问一答。** **你（Claude）亲自扮演用户**，带一个目标跟 agent 聊 **6-9 轮**——它做错你纠正、它问你答、它绕了你引导，综合判整段。（当前标准目标驱动用户即可，暂不做多人设。）
@@ -49,12 +55,12 @@ landed-into:
 > 拍 2 的展开。**心智：这题无限发散，loop 不是填一张 checklist，是一台"永远看测了什么 → 想还有什么 → 挑最值得的 → 探 → 归档"的发现引擎。** 
 
 **三层记忆（都不是 checklist）：**
-1. **回归套件 = 硬记忆**：锁死的格、零 token 免费复查、**探针永不回碰**。
+1. **回归套件 = 硬记忆**：锁死的格、零 token 免费复查；它默认不必再探，但当其依赖的模型 route、工具目录、消息投影、媒体值流、gateway 或运行时承重面变化时，必须作为 `reprobe` 重回 frontier。静态绿只证明已知契约，不能替代当前真用户轨迹。
 2. [`ARCHIVE.md`](ARCHIVE.md) **= 软记忆**：探过的格（含**绿格**：探了没缺陷）+ 结局签名 + frontier。命中和未命中都记——失败也是覆盖记忆，免重问死问题。
 3. **开放描述符网格**（ARCHIVE §1）：轴随时可加；空格/薄格 = backlog。
 
 **每轮 select 仪式：**
-1. **看** —— 读 ARCHIVE（哪里覆盖、哪格薄、frontier 在哪）+ 回归套件。
+1. **看** —— 读 ARCHIVE（哪里覆盖、哪格薄、哪些历史格因承重变化而 `reprobe`）+ 回归套件。
 2. **想（生成）** —— 脑暴一批候选探针，**双偏置**：(a) **价值** = 朝「一个真 agent 在哪儿最可能卡/被误导/白烧/找不到/恢复不了/等，不要局限」——`promise≠reality` 是最锋利的镜头，但**不止它**；(b) **多样** = 朝 ARCHIVE 的空格/薄格 + 没碰过的 arity/镜头。**并允许发明新轴**（元新颖）。
 3. **挑（过滤三段）** —— ① 砍掉"需要不存在的功能"和"必绿无信息"的（Minimal Criterion）；② 砍掉与归档**结局签名**太近的（换皮不算新）；③ Claude 当兴趣模型按 **novelty × value** 排序，取本轮 fanout 几条。无聊的降权不删（rare re-probe 仍可能）。
 4. **探** —— 多 agent 并发，各演用户跑多轮 + 查后端（拍 2 原样）。
@@ -79,11 +85,11 @@ landed-into:
 
 ## 怎么操作（具体 —— 照着做就能跑）
 
-**① 一次性 · 起真后端 + 配 deepseek**（用我们自己的后端，不是测试 harness）
+**① 一次性 · 起当前源真后端 + 配 Anselm 主路径**（用我们自己的后端，不是测试 harness）
 ```bash
 make -C backend run                  # 真后端：端口 8742、数据 /tmp/anselm-dev（持久）；停用 make -C backend stop
-bash testend/loop/setup.sh   # 等 health → 建 workspace + deepseek api-key + 默认模型 → 写 serve.json
 ```
+> 当前 campaign 的端到端 bootstrap 由实际 Anselm provision / device-proof 环境提供后再落具体命令；不得把旧 `testend/loop/setup.sh` 的 DeepSeek 直连配置当作主验收。该脚本仍可用于 provider 对照诊断。
 > **★ 铁律：探针必须打在『当前源 build 的 fresh backend』（0619 血泪教训）。** `make -C backend run` 若端口已被既存进程占住会复用那个 **stale** binary——**每次提交 fix 后、每轮探针前，必须确保 :8742 跑的是当前源**：`make -C backend stop && make -C backend run`（或核对 `lsof -ti:8742` 进程启动时刻 `ps -o lstart` **晚于**你最后的 fix commit 时间）。harness 会拦截 kill 共享进程——那就 `go build ./cmd/server` 后**另起一个端口**（`ANSELM_ADDR=:8743 ANSELM_DATA_DIR=/tmp/anselm-x <binary>`）、探针 serve.json 指向它。**复用 stale backend = find/verify 全失真**：round 6-12 误打 16:25 旧码、行为复验对已修格全假（fix 靠 commit+make verify 单测+代码确诊才没白做）。
 
 **复验既修格**：直 curl 当前源 fresh backend 比跑 agent lane 更确定——例：`POST /controls {when:"input.("}` 应带 `details.reason`（F69）；`POST /approvals {template,timeout:"0s"}` 应 `APPROVAL_INVALID_TIMEOUT`（F60）；add_node 顶层误放 input 应 `WORKFLOW_INVALID_OPS`（F70）。
@@ -124,7 +130,7 @@ curl -s "$B/api/v1/flowruns/<id>"  -H "$H" | jq '.data'                         
 7. **commit 在专用分支**（不动 `main`）；消息 `fix(loop): F<n> <一句话> [范围]`。
 
 ## 停止信号
-loop **结构上永不"做完"**（NEVER-DONE 不变式，见 EXPLORE 引擎节）——**唯一外部停止信号 = deepseek API 报额度/余额耗尽**（model 调用持续因无额度失败）。此时**不撂挑子**：把当前卡在一半的修做到**干净态**（`make verify` 绿 + 该 commit 的 commit 掉），再收工等下一步。**绝不留半坏状态。**
+loop **结构上永不"做完"**（NEVER-DONE 不变式，见 EXPLORE 引擎节）——**唯一外部停止信号 = 当前 Anselm 主验收路由的额度/配额耗尽**（model 调用持续因无额度失败）。此时**不撂挑子**：把当前卡在一半的修做到**干净态**（`make verify` 绿 + 该 commit 的 commit 掉），再收工等下一步。**绝不留半坏状态。**
 
 ## 文档规范（强制 —— 这些表会无限增长）
 LOG / TASKS 是**索引表非 essay**：一条 = 一行，每格一短语；详情进 commit/test，不进表。违反（写成段落、重复别处已有事实）= 文档腐烂，立刻压回一行。
@@ -136,7 +142,7 @@ LOG / TASKS 是**索引表非 essay**：一条 = 一行，每格一短语；详�
 - [`ARCHIVE.md`](ARCHIVE.md) —— 覆盖归档 + frontier（EXPLORE「想还有什么」的软记忆）。
 - [`LOG.md`](LOG.md) —— finding 索引（append-only 全表；顶部「当前状态」+「未结 backlog」速查未修项）。
 - [`TASKS.md`](TASKS.md) —— 下一步薄索引（续 loop / 清存量两条去向 + 回归套件指针）。
-- [`systems-correctness.md`](systems-correctness.md) —— 系统级正确性维度 R1–R21（进程/泄漏/优雅关闭/死锁等）：R1–R20 已修，R21 = LOG 的 F174（head-of-line blocking）待修。
+- [`systems-correctness.md`](systems-correctness.md) —— 系统级正确性维度（进程/泄漏/优雅关闭/死锁等）：R1–R24 已修，R25 为当前休眠的共享缓存竞态。
 - 操作脚本 `testend/loop/{setup,turn}.sh`（起后端后用）· 回归 `testend/golden/selfiter_*_test.go`。
 
 已知 gap：判官是裸的你 + 单模型（自评偏差，靠后端 ground-truth + 前后对比兜）；回归套真模型成本（尽量转零 token 结构断言）；ARCHIVE 描述符/结局签名目前**手工维护**（靠纪律，无自动 embedding 去重——单人规模够用，量大再自动化）。

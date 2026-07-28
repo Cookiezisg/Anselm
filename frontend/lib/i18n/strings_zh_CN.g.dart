@@ -2423,9 +2423,11 @@ class _Translations$settings$spend$zh_CN extends Translations$settings$spend$en 
 	@override String get catImage => '图像';
 	@override String get catSpeech => '语音';
 	@override String get catVideo => '视频';
+	@override String get catVoice => '音色';
 	@override String unitImages({required Object n}) => '${n} 张';
 	@override String unitChars({required Object n}) => '${n} 字符';
 	@override String unitSeconds({required Object n}) => '${n} 秒';
+	@override String unitVoices({required Object n}) => '${n} 个';
 }
 
 // Path: chat.tool.kind
@@ -4923,9 +4925,11 @@ extension on TranslationsZhCn {
 			'settings.spend.catImage' => '图像',
 			'settings.spend.catSpeech' => '语音',
 			'settings.spend.catVideo' => '视频',
+			'settings.spend.catVoice' => '音色',
 			'settings.spend.unitImages' => ({required Object n}) => '${n} 张',
 			'settings.spend.unitChars' => ({required Object n}) => '${n} 字符',
 			'settings.spend.unitSeconds' => ({required Object n}) => '${n} 秒',
+			'settings.spend.unitVoices' => ({required Object n}) => '${n} 个',
 			'markdown.imageNotLoaded' => '图片未加载',
 			'attach.unavailable' => '已不可用',
 			'attach.retry' => '点按重试',

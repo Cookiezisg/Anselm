@@ -47,6 +47,14 @@ const (
 	// does not un-spend it (same law as the managed route, ADR 0015).
 	// 视频按秒,钱**落在提交**——轮询不回来不等于没花(与受管路由同律,ADR 0015)。
 	CategoryVideo = "video"
+	// CategoryVoice bills per voice ENROLLED, and it is the only category whose purchase persists:
+	// the others buy an artifact that is then yours, this one buys a registration that lives in the
+	// provider's account until deleted. Deleting it reclaims the slot, never the fee — so a
+	// re-enrollment is a NEW row, not a restored one.
+	// CategoryVoice 按**登记的音色个数**计,且它是唯一一个购买会长存的品类:其余买的是一件产物、随后归你,
+	// 这一个买的是一份住在 provider 账号里、直到被删才消失的登记。删掉它收回的是位置、从来不是费用——故
+	// 重新登记是**一行新的**,不是恢复了旧的。
+	CategoryVoice = "voice"
 )
 
 // Entry is one recorded generation call.

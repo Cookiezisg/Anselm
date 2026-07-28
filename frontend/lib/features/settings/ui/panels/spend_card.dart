@@ -122,10 +122,17 @@ class _Totals extends StatelessWidget {
               children: [
                 SizedBox(
                   width: 96,
+                  // Every category is spelled out and the fallback shows the raw key. A default that
+                  // aliased to one of the known four is how the voice category first rendered as
+                  // "Video, N seconds" — silently wrong, and no assertion could see it.
+                  // 每个品类都写全,兜底显示**原始键**。一个把未知别名成已知四者之一的 default,正是音色
+                  // 品类最初渲成「视频,N 秒」的原因——静默地错,且没有任何断言看得见。
                   child: Text(switch (cat) {
                     'image' => t.settings.spend.catImage,
                     'speech' => t.settings.spend.catSpeech,
-                    _ => t.settings.spend.catVideo,
+                    'video' => t.settings.spend.catVideo,
+                    'voice' => t.settings.spend.catVoice,
+                    _ => cat,
                   }, style: AnText.body.copyWith(color: c.ink)),
                 ),
                 Text(switch (cat) {
@@ -135,7 +142,13 @@ class _Totals extends StatelessWidget {
                   'speech' => t.settings.spend.unitChars(
                     n: byCategory[cat]!.units,
                   ),
-                  _ => t.settings.spend.unitSeconds(n: byCategory[cat]!.units),
+                  'video' => t.settings.spend.unitSeconds(
+                    n: byCategory[cat]!.units,
+                  ),
+                  'voice' => t.settings.spend.unitVoices(
+                    n: byCategory[cat]!.units,
+                  ),
+                  _ => '${byCategory[cat]!.units}',
                 }, style: AnText.body.copyWith(color: c.ink)),
                 const Spacer(),
                 Text(

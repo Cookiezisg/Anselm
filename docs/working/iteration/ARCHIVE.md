@@ -4,8 +4,8 @@ type: working
 status: active
 owner: @weilin
 created: 2026-06-18
-reviewed: 2026-06-18
-review-due: 2026-09-16
+reviewed: 2026-07-28
+review-due: 2026-10-26
 audience: [human, ai]
 landed-into:
 ---
@@ -16,6 +16,20 @@ landed-into:
 > **覆盖的单位 = 结局签名，不是措辞。** 两个探针"算同一个"当且仅当它们在 ground-truth 检查上激发**同一组通过/失败**——换皮不算新。details 进 [`LOG.md`](LOG.md) / 回归 test，本表只做坐标 + 指针。
 > **价值是判断、不是机械 diff**（这是 agent 产品）：`promise≠reality` 是最锋利的一面镜子，但**主裁判是 Claude**——从「一个真 agent 在这儿会不会卡 / 被误导 / 白烧 turn / 找不到路 / 恢复不了」holistic 判。镜头列表开放、随时可加。
 
+## §0 当前复活 frontier（2026-07-28）—— 高频 + 多模态
+
+历史绿格是带日期的证据，不是永久豁免。凡主要依赖模型 route、工具目录、消息投影、MediaRef 值流、gateway、额度或运行时生命周期的结论，均标 `reprobe`：在当前 **Anselm API / `anselm-auto`** 主路径以真模型、多轮用户对话和 ground truth 重验。`reprobe` 不预断旧结论错误；结果只能是 `green-current`、`fixed`、`not-bug` 或继续 frontier。
+
+| 组 | 高频轨迹群 | 来源 | 当前状态 |
+|---|---|---|---|
+| A | 首次使用、默认模型、多轮 chat、cancel/queue、history/search/memory、retry/edit-resend/fork | 历史 chat/search/memory 绿格 + 当前对话版本树 | reprobe / frontier |
+| B | 文档/附件/knowledge、驻地读写、人闸、subagent 驻地继承 | 历史 attachment/subagent 绿格 + 当前 residency | reprobe / frontier |
+| C | function/handler/agent 自恢复、工具选择、MCP、workflow/approval/trigger | 历史 build/durable/MCP 绿格 | reprobe |
+| D | 免费档 provision/self-heal、capability route、quota、图片/音频/视频生成与消费、MediaRef 跨 chat/agent/tool/workflow | 当前 Anselm gateway + 全模态值流 | frontier |
+| E | cancel/exit/restart/replay、SSE 重新接地、额度/附件/DB/进程卫生 | 历史 R 维度 + 当前运行时 | reprobe / frontier |
+
+本表不把这五组误写成封闭 checklist：每组内按 novelty × value 挑选主轨迹；确认 finding 立即转 EXPLOIT。完整运行顺序见 [`TASKS.md`](TASKS.md)。
+
 ## §1 描述符轴（松散标签、可生长——不是封闭分类法）
 
 仅用来**保持广度可见 + 让空格现形**，不是给探针套牢笼。任一轴随时可加新值；新值入场即 frontier。
@@ -23,6 +37,12 @@ landed-into:
 - **target（打哪）**：function · handler · agent · workflow · trigger · control · approval · mcp · document · skill · search · memory · conversation · chat · durable-engine · **ai-ops（:iterate/:triage）** · all others, everything…
 - **arity（几方协作）**：单工具 · 多工具组合 · 跨实体 · 多轮迭代 · 并发 · 任何你想到的。
 - **regime（什么处境）**：happy · 报错 · 崩溃恢复 · 并发 · 边界/大输入 · 任何。
+- **value-flow（内容如何流）**：text · attachment · MediaRef。媒体不是 `target=media` 的一个孤岛，而是可穿过所有 target 的值。
+- **origin（谁铸值）**：user · generate · function · handler · MCP。
+- **carrier（值骑在哪）**：message · tool_result · agent payload · flowrun node · document。
+- **consumer（谁消费）**：model · tool · workflow node · UI。
+- **modality（值是什么）**：text · image · audio · video · document。
+- **capability outcome（消费者拿到了什么）**：native part · receipt fallback · honest absence · explicit failure。
 - **镜头（哪种 agent 之痛——价值轴、Claude 判、开放）**：
   - `promise≠reality`（隐形契约：描述/文档/schema 说 X、运行时做 Y）
   - `假成功`（让 agent 以为成了、其实没——还回 ok:true）

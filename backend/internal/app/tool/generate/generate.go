@@ -575,6 +575,14 @@ func (r *Router) EnrollVoice(ctx context.Context, name string, sample llminfra.D
 		return route.provider, id, err
 	case "qwen":
 		id, err := llminfra.EnrollVoiceDashScope(ctx, r.HTTP, route.baseURL, route.key, name, sample)
+		if err == nil && r.Spend != nil {
+			// One voice, one charge, booked at CREATE. Deleting it later reclaims the inventory slot
+			// but not the fee, so this row must never be reversed — a spend view that un-spends money
+			// on delete would tell the user their bill went down when it did not.
+			// 一个音色、一笔费用,**记在创建时**。此后删掉它收回的是库存位、不是那笔钱,故这一行绝不该被
+			// 冲销——一个「删除即退钱」的支出视图,会告诉用户账单降了,而它并没有。
+			r.Spend.Record(ctx, "voice", route.provider, llminfra.VoiceCloneModel, 1)
+		}
 		return route.provider, id, err
 	default:
 		return "", "", ErrNoVoiceCloneRoute
