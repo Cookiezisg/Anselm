@@ -42,6 +42,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-025 | API Serve 最新网关变更修正了 managed TTS 的句柄解析、默认音色与 WAV 字节/媒体部署注入边界；这些变化直接改变受管音色验收的真实前提，但尚未宣称 managed E2E 已重跑通过 | API Serve / managed voice / deploy media | API Serve commits `63f402f`, `2e308f3`, `b9c046d`; 在 `Anselm-API-Serve` 执行 `go test ./...` 全绿；managed voice/live read-aloud 下一次真实运行作为 FRT-07 reprobe | gateway audit |
 | 2026-07-29 | EVO-026 | image preparation 在上传后硬崩溃可恢复：SIGKILL 留下 running derivative，下一次同 data dir boot 将其 requeue，worker 从不可变原件重新生成 ready proxy，原件字节不变 | attachment / media worker / crash recovery | `TestAttachmentPreparation_CrashRequeuesInterruptedWork`：真实 HTTP 上传、Kill9→Restart 日志 `media: requeued interrupted work`、ready 派生元数据与原件逐字节回读 | 当前提交 |
 | 2026-07-29 | EVO-027 | 音色真钱验收不再要求已删除的本机 `DASHSCOPE_*` 凭据或 BYOK Qwen 对话 key：测试改为等待生产 API Serve 的 managed `anselm` 行与默认 dialogue，再由默认 Anselm API 驱动登记工具；真实音色购买尚未重跑 | managed voice acceptance / API boundary | `TestLiveVoice_EnrollSpeakDelete` 静态门控审计通过；无 `EVALS_VOICE=1` 时仅跳过，未宣称上游 enrollment/synthesis/delete 绿 | 当前提交 |
+| 2026-07-29 | EVO-028 | 本轮跨实体黑盒回归在最新 backend 上全绿：并行真实 HTTP/SSE 场景、媒体准备/崩溃恢复、workflow/handler/MCP/function 产物链均通过；真钱 EVALS 仍按显式门控未触发 | full testend regression | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 260.291s` | 当前提交 |
 
 ## 追加格式
 
