@@ -871,24 +871,24 @@ func TestLiveMedia_EditImage(t *testing.T) {
 	// The wire proof: some upstream generation call carried an image block. Without this, a model
 	// that redrew from scratch and a real edit are indistinguishable from here.
 	// 线缆证据:某次上游生成调用带了 image 块。没有它,「从头重画」与「真的改图」在这里无法分辨。
-	var sawSource, sawEditModel bool
+	// The one wire fact that still discriminates: an image block went out. The model id no longer
+	// does — DashScope's generation model edits natively (`qwen-image-2.0` = 生成与编辑的融合), so a
+	// second `qwen-image-edit*` id would be a constant we maintain for a job the model already does,
+	// and those ids are being retired anyway.
+	// 唯一还能判别的线缆事实:有一个 image 块出去了。model id 已经判别不了——DashScope 的生成模型原生
+	// 就会改图(`qwen-image-2.0` 即「生成与编辑的融合」),故第二个 `qwen-image-edit*` id 只是一个为
+	// 「模型自己已经会做的事」而维护的常量,而那些 id 本身也正在退役。
+	var sawSource bool
 	for _, c := range rec.Calls() {
 		if !strings.Contains(c.Path, dashScopeGenPath) {
 			continue
 		}
-		body := string(c.Body)
-		if strings.Contains(body, `"image"`) && strings.Contains(body, "data:image/") {
+		if body := string(c.Body); strings.Contains(body, `"image"`) && strings.Contains(body, "data:image/") {
 			sawSource = true
-		}
-		if strings.Contains(body, "qwen-image-edit") {
-			sawEditModel = true
 		}
 	}
 	if !sawSource {
 		t.Fatal("no upstream generation call carried a data: image block — the source never left this process")
-	}
-	if !sawEditModel {
-		t.Fatal("no upstream call named the edit model — an edit payload was posted at the generation model")
 	}
 
 	content := wc.DoRaw("GET", "/api/v1/attachments/"+outID+"/content", "", nil)

@@ -414,18 +414,27 @@ func (r *Router) EditAvailable(ctx context.Context) bool {
 	return route.provider == "anselm" || route.provider == "qwen"
 }
 
-// editModelFor maps a generation model to its editing sibling. The two are different model ids on
-// the same endpoint, and defaulting to the generation id would post an edit payload to a model that
-// cannot read the image chunk.
+// editModelFor resolves the model an EDIT is posted to. On DashScope that is the generation model
+// itself: `qwen-image-2.0` is documented as "生成与编辑的融合" and答应了两次真钱验证 (2026-07-28,
+// same model, generate then edit, both 200 with an image back).
 //
-// editModelFor 把生成模型映射到它的改图兄弟。两者是**同一条端点上的不同模型 id**,而沿用生成 id 会把
-// 一份改图载荷投给一个读不了图像块的模型。
-func editModelFor(genModel string) string {
-	if strings.HasPrefix(genModel, "qwen-image-edit") {
-		return genModel
-	}
-	return "qwen-image-edit"
-}
+// **The separate `qwen-image-edit*` ids are being retired** (console marks the Plus/Max editing
+// models 即将下线), so keeping a second constant would have meant maintaining a model id that is
+// scheduled to disappear, in order to do a job the model we already call does natively.
+//
+// A non-DashScope route keeps whatever its own credential names — the caller passes the resolved
+// generation model, and this function's job is only to say "the same one".
+//
+// editModelFor 解析一次**改图**该投给哪个模型。在 DashScope 上,那就是生成模型自己:`qwen-image-2.0`
+// 官方描述即「生成与编辑的融合」,并且两次真钱验证都成立(2026-07-28,同一模型先生成后改图,两次 200
+// 且都回来一张图)。
+//
+// **单独的 `qwen-image-edit*` 那几个 id 正在退役**(控制台把 Plus/Max 改图模型标为「即将下线」),故
+// 留着第二个常量,等于为了做一件我们已经在调的模型**原生就会做**的事,去维护一个排期消失的 model id。
+//
+// 非 DashScope 的路由保留它自己凭证里的名字——调用方传进来的就是解析好的生成模型,本函数的职责只是
+// 说一句「就是同一个」。
+func editModelFor(genModel string) string { return genModel }
 
 // resolveSpeech picks the speech route (the resolveImage twin, same law, its own table).
 //
