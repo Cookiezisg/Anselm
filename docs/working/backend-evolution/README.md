@@ -35,7 +35,7 @@ REVIEW → EXPLORE → CONFIRM → GENERALIZE → FIX → VERIFY → LOG → COM
 
 ## 当前产品模型：写留给受管，读交给目录
 
-iteration 的路由维度以 [WRK-085](../byok-governance/README.md) 为唯一治理依据：
+iteration 的路由维度以 [WRK-085](../../archive/byok-governance/README.md)（已 landed，当前事实在 `references/backend/foundation/stream-llm.md`）为治理依据：
 
 | 路径 | 产品职责 | 本体系中的验证重点 |
 |---|---|---|

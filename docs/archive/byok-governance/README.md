@@ -1,19 +1,28 @@
 ---
 id: WRK-085
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-28
-reviewed: 2026-07-28
+reviewed: 2026-07-29
 review-due: 2026-10-26
 audience: [human, ai]
 landed-into:
+  - docs/references/backend/foundation/stream-llm.md
+  - docs/references/backend/api.md
+  - docs/references/frontend/features/settings.md
+  - CLAUDE.md
 ---
 
 # WRK-085 · BYOK 治理:「写」留给自己,「读」交给目录
 
-> 用户 2026-07-28 拍板。本文档是这条治理的**唯一事实源**,直到它 landed 进
-> `references/`。两个工单:**H11**(生成收归受管)、**H12**(BYOK 全覆盖)。
+> 用户 2026-07-28 拍板。**已 landed(2026-07-29)——本文档从此是历史记录,不再是事实源。**
+> 当前事实在 `references/backend/foundation/stream-llm.md`(能力目录 / 方言 / 旋钮 / base URL 三层)、
+> `references/backend/api.md`(`GET /providers` 契约)、`references/frontend/features/settings.md`
+> (供应商市场 + 三种失败)与 `CLAUDE.md`。两个工单 **H11**(生成收归受管)、**H12**(BYOK 全覆盖)均已完成。
+>
+> **下文保留开工时的原样**,包括几处**后来被实测推翻**的判断——那些推翻本身是这份记录最值得留下的
+> 部分,已在 §4 与 §11 就地标注。
 
 ---
 
@@ -227,6 +236,11 @@ ollama.go      openai.go   openrouter.go qwen.go     zhipu.go
 
 我们**一家都没真验过**——只知道「目录说它是 openai-compatible」。故报错要能区分:
 
+> **落地订正**:这句「一家都没真验过」写于开工时。收口时 8 家已带 `curated=true`
+> (openai / anthropic / google / deepseek / alibaba / moonshotai / zhipuai / openrouter——手写过
+> spec、多数用真 key 跑过),其余约 160 家仍是「未验证」。三种失败的分法**不变**,它正是为这个
+> 8 : 160 的分布而设计的。
+
 1. **你的 key 不对** —— 上游 401/403
 2. **这家我们没试过** —— 长尾按 OpenAI 兼容猜的,标「未验证」
 3. **这条方言我们不会说** —— 映不上且用户没自定义
@@ -285,3 +299,51 @@ ollama.go      openai.go   openrouter.go qwen.go     zhipu.go
   不是上游的缺失。上游 5802 个模型里 **284 个输出 image/audio/video**。随 H12-b 改掉。
 - 手写 `prices.go` 整表随 H11 删除。
 - 查实 moonshot 我们写 `.cn` / models.dev 写 `.ai`,哪个对。
+
+---
+
+## 11. 落地状态(2026-07-29 收口)
+
+### 11.1 两个工单
+
+| 工单 | 状态 | 收口事实 |
+|---|---|---|
+| **H11** 生成收归受管 | ✅ | 六个生成工具 + 朗读的 `Available()` 收窄到受管档;直连生成方言约 1700 行整体删除;`prices.go` 整表与直连支出台账随之消失;**多模态输入一行未动** |
+| **H12** BYOK 全覆盖 | ✅ | **173/173**、5585 模型 |
+
+### 11.2 H12 逐步
+
+| 步 | 状态 | 结果 |
+|---|---|---|
+| a | ✅ | 8 份 OpenAI-compat 合并成 1 份 `compat.go` |
+| b | ✅ | 裁剪谓词放宽成「输出含 text ∧ id 不含 realtime ∧ `limit.context > 0`」;`tool_call` 从**过滤器**变成随行事实 `tools`,无工具的模型标「仅聊天 · 不能当 agent」 |
+| c | ✅ | `npm` → 方言;**三张手写表**(provider 白名单 / 方言 / 旋钮)退役;旋钮 = 目录 `reasoning_options` × 方言拼法 |
+| d | ✅ | Azure ✓ · Bedrock **不必写** · Vertex **必须写** · Cohere/Venice 确认 · GitLab/SAP 留在未验证 |
+| e | ✅ | 供应商市场 + 三种失败 + 目录值预填可改 |
+| f | ✅ | base URL 三层兜底,**166 预填 / 10 给形状 / 5 纯空** |
+
+### 11.3 开工时判断错、被实测推翻的三条
+
+**这三条是本记录最值得留下的部分。**
+
+1. **「真正要新写的只有 Azure 与 Bedrock」——两个方向都错。** Bedrock 不必写(它自己也在 `/openai/v1`
+   上讲 OpenAI 兼容、普通 bearer),Vertex 必须写(看着像 Gemini 的表亲,实际要服务账号文件)。
+   教训:**`npm` 说的是「存在哪个 SDK」、不是「这家能说什么」,而它两个方向都会误导。**
+2. **凭记忆写下的 base URL 有两条是错的。** perplexity 没有 `/v1`;deepinfra 的 OpenAI 兼容面是
+   子路径 `/v1/openai`。读源码当场逮到。教训:**一个记错的 URL 会以「你的 key 无效」的形态失败,
+   而那句话是假的**——用户会跑去重抄一把本来就没错的 key。
+3. **c 步把三家「已验证」的家静默变成了未验证的实现。** app 开始下发目录 id(`alibaba` /
+   `zhipuai` / `moonshotai`)而注册表还按我们自己的名字建键,于是它们跌到合成的通用 provider 上:
+   base URL 对、模型列得出来、卡上写着「已验证」,而**旋钮拼法、编码器、线缆掩码全是通用的那一套**。
+   构建绿、测试绿,第一个症状会是一个 400。教训:**「手写过 spec」是一句关于派发的断言,而只有
+   比指针的守卫能了断它。**
+
+### 11.4 诚实缺口(留给用户)
+
+- **azure / bedrock / vertex 三家按官方文档实现、尚未真钱验收**——需要用户自己的 Azure / AWS / GCP
+  凭证,而买资源与密钥留给用户(本会话纪律)。三家的形状风险不同:azure 的 `api-version` 会过期
+  (已给逐 key 覆盖)、bedrock 的 base URL 因区域而异(已给形状)、vertex 的 token 换取是唯一一处
+  **网络调用发生在鉴权里**的路径(失败消息已与「key 不对」分开)。
+- **gitlab / sap-ai-core 留在未验证**:两家的 base URL 都在客户自己的实例里,任何表都装不下;
+  sap 的「key」还是一份自带 URL 与 OAuth client credentials 的 service key,是**第三种凭证形状**,
+  今天没有它的控件。

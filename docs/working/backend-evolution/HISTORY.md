@@ -16,7 +16,7 @@ audience: [human, ai]
 | 工作 | 状态 | 可继承的结论 | 当前入口 |
 |---|---|---|---|
 | WRK-082 · 全模态平台 | archived | `MediaRef` 为跨执行面的值类型；生成是工具；真实媒体验收需保留线缆与字节 | [归档原文](../../archive/multimodal-output/README.md)；ADR 0013–0020 |
-| WRK-085 · BYOK 治理 | active | 写入受管、读取目录；BYOK 多模态输入开放；目录能力与方言实现分工 | [工作原文](../byok-governance/README.md) |
+| WRK-085 · BYOK 治理 | landed | 写入受管、读取目录；BYOK 多模态输入开放；目录能力与方言实现分工 | [工作原文](../../archive/byok-governance/README.md) |
 | 旧 Iteration Loop | superseded as structure | 八拍循环、先泛化后修、后端真相裁决仍有效；其场景表不再代表当前覆盖 | [`archived/`](archived/) |
 
 ## archived 的地位

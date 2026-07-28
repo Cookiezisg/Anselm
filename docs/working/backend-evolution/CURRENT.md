@@ -47,7 +47,7 @@ audience: [human, ai]
 
 ## 当前真相源
 
-- 路由治理：[WRK-085 · BYOK 治理](../byok-governance/README.md)
+- 路由治理：[WRK-085 · BYOK 治理](../../archive/byok-governance/README.md)（已 landed，事实源见 `references/backend/foundation/stream-llm.md`）
 - LLM、目录、方言与工具参数：[stream + llm](../../references/backend/foundation/stream-llm.md)
 - 多模态收口：[WRK-082 历史战役](../../archive/multimodal-output/README.md)
 - chat 能力工具与诚实缺席：[chat domain](../../references/backend/domains/chat.md)
