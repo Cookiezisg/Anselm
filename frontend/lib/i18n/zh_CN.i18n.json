@@ -2150,11 +2150,9 @@
       "catImage": "图像",
       "catSpeech": "语音",
       "catVideo": "视频",
-      "catVoice": "音色",
       "unitImages": "$n 张",
       "unitChars": "$n 字符",
-      "unitSeconds": "$n 秒",
-      "unitVoices": "$n 个"
+      "unitSeconds": "$n 秒"
     }
   },
   "markdown": {

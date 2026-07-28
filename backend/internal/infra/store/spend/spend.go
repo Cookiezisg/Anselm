@@ -26,7 +26,7 @@ var Schema = []string{
 		workspace_id    TEXT NOT NULL,
 		provider        TEXT NOT NULL,
 		model           TEXT NOT NULL DEFAULT '',
-		category        TEXT NOT NULL CHECK (category IN ('image','speech','video','voice')),
+		category        TEXT NOT NULL CHECK (category IN ('image','speech','video')),
 		units           INTEGER NOT NULL,
 		est_pusd        INTEGER NOT NULL DEFAULT 0,
 		conversation_id TEXT NOT NULL DEFAULT '',

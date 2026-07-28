@@ -131,7 +131,6 @@ class _Totals extends StatelessWidget {
                     'image' => t.settings.spend.catImage,
                     'speech' => t.settings.spend.catSpeech,
                     'video' => t.settings.spend.catVideo,
-                    'voice' => t.settings.spend.catVoice,
                     _ => cat,
                   }, style: AnText.body.copyWith(color: c.ink)),
                 ),
@@ -143,9 +142,6 @@ class _Totals extends StatelessWidget {
                     n: byCategory[cat]!.units,
                   ),
                   'video' => t.settings.spend.unitSeconds(
-                    n: byCategory[cat]!.units,
-                  ),
-                  'voice' => t.settings.spend.unitVoices(
                     n: byCategory[cat]!.units,
                   ),
                   _ => '${byCategory[cat]!.units}',

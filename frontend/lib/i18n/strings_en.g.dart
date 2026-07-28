@@ -5929,9 +5929,6 @@ class Translations$settings$spend$en {
 	/// en: 'Video'
 	String get catVideo => 'Video';
 
-	/// en: 'Voices'
-	String get catVoice => 'Voices';
-
 	/// en: '$n images'
 	String unitImages({required Object n}) => '${n} images';
 
@@ -5940,9 +5937,6 @@ class Translations$settings$spend$en {
 
 	/// en: '$n seconds'
 	String unitSeconds({required Object n}) => '${n} seconds';
-
-	/// en: '$n enrolled'
-	String unitVoices({required Object n}) => '${n} enrolled';
 }
 
 // Path: chat.tool.kind
@@ -8986,11 +8980,9 @@ extension on Translations {
 			'settings.spend.catImage' => 'Images',
 			'settings.spend.catSpeech' => 'Speech',
 			'settings.spend.catVideo' => 'Video',
-			'settings.spend.catVoice' => 'Voices',
 			'settings.spend.unitImages' => ({required Object n}) => '${n} images',
 			'settings.spend.unitChars' => ({required Object n}) => '${n} characters',
 			'settings.spend.unitSeconds' => ({required Object n}) => '${n} seconds',
-			'settings.spend.unitVoices' => ({required Object n}) => '${n} enrolled',
 			'markdown.imageNotLoaded' => 'image not loaded',
 			'attach.unavailable' => 'Unavailable',
 			'attach.retry' => 'Tap to retry',

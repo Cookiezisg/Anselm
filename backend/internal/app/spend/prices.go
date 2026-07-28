@@ -44,12 +44,6 @@ var prices = map[priceKey]int64{
 	{spenddomain.CategorySpeech, "qwen", "qwen3-tts-flash"}: 14_000_000,
 	// ¥0.6/second at 720P ≈ $0.083 (gateway card wan2.7-t2v-assumed-2026-07-27).
 	{spenddomain.CategoryVideo, "qwen", "wan2.7-t2v"}: 83_000_000_000,
-	// $0.2 per voice created (gateway card qwen-tts-clone-2026-07-28). The ONE row here that is not
-	// a reconciliation debt: this figure is printed verbatim on the official pricing page, which is
-	// why its gateway twin carries no `assumed-` marker either.
-	// 每创建一个音色 $0.2(网关卡 qwen-tts-clone-2026-07-28)。这里**唯一**一行不是对账债的:这个数字
-	// 逐字印在官方价目页上,也正因如此它在网关那边的孪生卡没有 `assumed-` 标记。
-	{spenddomain.CategoryVoice, "qwen", "qwen-tts"}: 200_000_000_000,
 
 	// ── zhipu — §2.5 verified against the official docs: cogview-4 系约 ¥0.06/张 ≈ $0.0083.
 	//    §2.5 对官方文档核准:约 ¥0.06/张。

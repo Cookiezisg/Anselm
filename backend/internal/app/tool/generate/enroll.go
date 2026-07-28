@@ -137,8 +137,7 @@ func (e *EnrollVoice) Execute(ctx context.Context, args string) (string, error) 
 			ErrSourceNotImage, len(data), llminfra.VoiceCloneMaxSeconds)
 	}
 
-	provider, upstreamID, err := e.router.EnrollVoice(ctx, name,
-		llminfra.DataURL{Mime: src.MimeType, Bytes: data})
+	provider, upstreamID, err := e.router.EnrollVoice(ctx, name, src.MimeType, data)
 	if err != nil {
 		return "", err
 	}

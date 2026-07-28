@@ -371,7 +371,8 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// 支出台账搭在 router 上:每个模态的付费**直连**调用本来都要经过它(H10)。受管调用在 Record 内
 	// 跳过——网关已权威记账,再记一遍就是数两遍。
 	spend := spendapp.New(st.spend, log)
-	genRouter := &generatetool.Router{Picker: ws, Keys: keys, Probes: keys, HTTP: inf.proofHTTP, Spend: spend}
+	genRouter := &generatetool.Router{Picker: ws, Keys: keys, Probes: keys, HTTP: inf.proofHTTP, Spend: spend,
+		Media: llminfra.NewMediaClient(inf.proofHTTP)}
 	genTools := generatetool.GenerateTools(genRouter, att, att, st.voice)
 	// The management face for what enroll_voice creates. Without list+delete an inventory of 2 is a
 	// trap: two enrollments and the capability is permanently unavailable with no way out.

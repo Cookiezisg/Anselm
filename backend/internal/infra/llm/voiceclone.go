@@ -57,108 +57,21 @@ const voiceCloneBudget = 90 * time.Second
 // 行动的话失败,而不是变成一个远端 400。
 const VoiceCloneMaxSeconds = 30
 
-// VoiceCloneModel is the enrollment model id — the `model` field of the customization call, not the
-// synthesis model. The voice it mints is then usable by the ordinary TTS route.
+// EnrollVoiceAnselm enrolls through the managed gateway by NAMING a lease it already holds.
 //
-// VoiceCloneModel 是**登记**模型 id——customization 调用的 `model` 字段,不是合成模型。它铸出的音色
-// 随后由普通 TTS 路径使用。
+// Same ADR 0011 discipline as every other managed media input — the client never supplies an
+// address. The sample rides the ordinary resumable upload, and the gateway alone decides what
+// public URL (if any) the upstream is shown. A 30-second clip therefore never has to fit in a JSON
+// body, and the host stays unrepresentable from here rather than merely validated.
 //
-// Exported because the spend ledger books enrollments under it: the ledger's model column must be
-// the id we actually called, not a second copy of the string that can drift from it.
+// EnrollVoiceAnselm 经受管网关登记,方式是**指名**一个它已经持有的 lease。
 //
-// 导出,因为支出台账按它记登记:台账的 model 列必须是我们**真正调用**的那个 id,而不是一份会与它漂移的
-// 字符串副本。
-const VoiceCloneModel = "qwen-tts"
-
-// EnrollVoiceDashScope registers a reference clip as a named voice and returns the upstream's voice
-// id — the value that goes straight into the `voice` parameter of a later synthesis call.
-//
-// EnrollVoiceDashScope 把一段参考音频登记成一个具名音色,返回上游的 voice id——那个值直接就是此后
-// 合成调用里 `voice` 参数的取值。
-func EnrollVoiceDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, name string, sample DataURL) (string, error) {
-	raw, err := voiceCustomization(ctx, httpc, nativeBase, key, map[string]any{
-		"model": VoiceCloneModel,
-		"input": map[string]any{
-			"action": "create",
-			"voice":  name,
-			"audio":  map[string]any{"data": sample.String()},
-		},
-	})
-	if err != nil {
-		return "", err
-	}
-	var wire struct {
-		Output struct {
-			Voice   string `json:"voice"`
-			VoiceID string `json:"voice_id"`
-		} `json:"output"`
-	}
-	if err := json.Unmarshal(raw, &wire); err != nil {
-		return "", fmt.Errorf("%w: dashscope response undecodable", ErrVoiceCloneFailed)
-	}
-	// Both field names are read because the two cloning families answer with different ones and a
-	// model swap must not silently return an empty id (which would land a voice row pointing at
-	// nothing). 两个字段名都读:两支克隆答的键不同,而换模型绝不能静默返回空 id——那会落下一行指向
-	// 虚无的音色。
-	if id := cmpOr(wire.Output.VoiceID, wire.Output.Voice); id != "" {
-		return id, nil
-	}
-	return "", fmt.Errorf("%w: dashscope minted no voice id", ErrVoiceCloneFailed)
-}
-
-// DeleteVoiceDashScope removes a cloned voice upstream. Called when the user deletes one locally —
-// the local row is not the resource, the upstream registration is, and leaving orphans there would
-// silently consume the per-account voice inventory nobody can see.
-//
-// DeleteVoiceDashScope 删掉上游的克隆音色。用户在本地删除时调用——本地行不是那个资源,**上游的登记**
-// 才是;把孤儿留在那边,会静默吃掉一份谁也看不见的账号级音色库存。
-func DeleteVoiceDashScope(ctx context.Context, httpc *http.Client, nativeBase, key, voiceID string) error {
-	_, err := voiceCustomization(ctx, httpc, nativeBase, key, map[string]any{
-		"model": VoiceCloneModel,
-		"input": map[string]any{"action": "delete", "voice": voiceID},
-	})
-	return err
-}
-
-func voiceCustomization(ctx context.Context, httpc *http.Client, nativeBase, key string, payload map[string]any) ([]byte, error) {
-	ctx, cancel := context.WithTimeout(ctx, voiceCloneBudget)
-	defer cancel()
-	body, _ := json.Marshal(payload)
-	req, err := newImageRequest(ctx, strings.TrimRight(nativeBase, "/")+"/api/v1/services/audio/tts/customization", body)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Set("Authorization", "Bearer "+key)
-	raw, err := doImageRequest(httpc, req, "qwen")
-	if err != nil {
-		// Remap the image sentinel this shared transport carries: a voice enrollment that failed
-		// must not reach the LLM (or the user) describing itself as an image problem.
-		// 重映射共享传输携带的图像 sentinel:一次失败的音色登记,绝不能以「图像出问题」的措辞抵达 LLM
-		// (或用户)。
-		return nil, fmt.Errorf("%w: %s", ErrVoiceCloneFailed, err.Error())
-	}
-	return raw, nil
-}
-
-// cmpOr returns the first non-empty string. (Go 1.22's cmp.Or is generic over comparable with a
-// zero default; spelling it locally keeps this file free of an import for three lines.)
-//
-// cmpOr 返回第一个非空串。
-func cmpOr(a, b string) string {
-	if a != "" {
-		return a
-	}
-	return b
-}
-
-// EnrollVoiceAnselm enrolls through the managed gateway. Same ADR 0011 discipline as every other
-// managed media input: bytes in the body as a data URL, never an address.
-//
-// EnrollVoiceAnselm 经受管网关登记。与其余每一种受管媒体输入同守 ADR 0011:字节以 data URL 走在体里,
-// 绝不是一个地址。
-func EnrollVoiceAnselm(ctx context.Context, httpc *http.Client, baseURL, installID, name string, sample DataURL) (string, error) {
+// 与其余每一种受管媒体输入同守 ADR 0011——客户端**从不**提供地址。样本走普通断点上传,而**只有网关**
+// 决定给上游看什么公开 URL(如果有的话)。故一段 30 秒的音频永远不必塞进 JSON body,而那个 host 从
+// 这里**根本无法表达**、不只是「被校验」。
+func EnrollVoiceAnselm(ctx context.Context, httpc *http.Client, baseURL, installID, name, leaseID string) (string, error) {
 	raw, err := voiceGateway(ctx, httpc, baseURL, installID, "/voices", map[string]any{
-		"name": name, "audio": sample.String(),
+		"name": name, "leaseId": leaseID,
 	})
 	if err != nil {
 		return "", err

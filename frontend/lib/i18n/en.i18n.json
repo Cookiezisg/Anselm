@@ -2150,11 +2150,9 @@
       "catImage": "Images",
       "catSpeech": "Speech",
       "catVideo": "Video",
-      "catVoice": "Voices",
       "unitImages": "$n images",
       "unitChars": "$n characters",
-      "unitSeconds": "$n seconds",
-      "unitVoices": "$n enrolled"
+      "unitSeconds": "$n seconds"
     }
   },
   "markdown": {

@@ -274,3 +274,31 @@ func (c *MediaClient) json(ctx context.Context, method, endpoint, installID stri
 	}
 	return json.Unmarshal(raw, out)
 }
+
+// LeaseIDFromFetchPath extracts the lease id out of the relative fetch path Upload returns.
+//
+// **The token in that path is deliberately discarded.** The gateway re-derives it from the lease
+// itself (`SampleFetchToken`), so sending it back would be handing a capability over a hop that has
+// no use for it. Naming the lease is enough; ownership is what authorizes, not possession of the
+// token.
+//
+// LeaseIDFromFetchPath 从 Upload 返回的相对 fetch path 里抽出 lease id。
+//
+// **那条路径里的 token 被刻意丢弃。** 网关会从 lease 自身重新派生它(`SampleFetchToken`),故把它送回去
+// 等于在一个用不到它的跳上递出一个 capability。**指名 lease 就够了**;授权靠的是归属,不是持有 token。
+func LeaseIDFromFetchPath(fetchPath string) (string, error) {
+	u, err := url.Parse(strings.TrimSpace(fetchPath))
+	if err != nil || u.IsAbs() || u.Host != "" {
+		return "", fmt.Errorf("llm.media: lease fetch path must be relative")
+	}
+	const prefix = "/v1/media/leases/"
+	rest, ok := strings.CutPrefix(u.Path, prefix)
+	if !ok {
+		return "", fmt.Errorf("llm.media: unexpected lease fetch path")
+	}
+	id, _, ok := strings.Cut(rest, "/")
+	if !ok || strings.TrimSpace(id) == "" {
+		return "", fmt.Errorf("llm.media: lease fetch path carries no lease id")
+	}
+	return id, nil
+}

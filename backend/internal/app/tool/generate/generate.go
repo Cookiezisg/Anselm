@@ -227,6 +227,13 @@ type Router struct {
 	// Spend 把直连侧付费调用记进生成支出台账(H10)。可选(测试为 nil),各咽喉判 nil。放在 Router 上,
 	// 因为每个模态的付费调用**本来**都要经过它——记在工具里等于同一行写四遍,还会漏掉朗读。
 	Spend SpendRecorder
+
+	// Media uploads a sample through the managed resumable route and returns the gateway's own
+	// RELATIVE lease reference. Only voice enrollment uses it — the one upstream that will not take
+	// bytes. Optional (nil in tests); the enrollment path checks it.
+	// Media 经受管断点上传把样本传上去,返回网关自己的**相对** lease 引用。只有音色登记用它——那个唯一
+	// 不肯收字节的上游。可选(测试为 nil);登记路径自己判。
+	Media *llminfra.MediaClient
 }
 
 // SpendRecorder is the ledger port the Router books into. Record must never fail the generation
@@ -573,29 +580,35 @@ type VideoProgress func(line string)
 //
 // EnrollVoice 把一段参考音频在上游登记成具名音色,返回合成时作为 `voice` 传的那个 id。它经**语音**
 // 路由解析:克隆属于语音场景,而会说话的 key 是唯一有可能会克隆的那种。
-func (r *Router) EnrollVoice(ctx context.Context, name string, sample llminfra.DataURL) (provider, upstreamID string, err error) {
+func (r *Router) EnrollVoice(ctx context.Context, name, mime string, data []byte) (provider, upstreamID string, err error) {
 	route, err := r.resolveSpeech(ctx)
 	if err != nil {
 		return "", "", err
 	}
-	switch route.provider {
-	case "anselm":
-		id, err := llminfra.EnrollVoiceAnselm(ctx, r.HTTP, route.baseURL, route.installID, name, sample)
-		return route.provider, id, err
-	case "qwen":
-		id, err := llminfra.EnrollVoiceDashScope(ctx, r.HTTP, route.baseURL, route.key, name, sample)
-		if err == nil && r.Spend != nil {
-			// One voice, one charge, booked at CREATE. Deleting it later reclaims the inventory slot
-			// but not the fee, so this row must never be reversed — a spend view that un-spends money
-			// on delete would tell the user their bill went down when it did not.
-			// 一个音色、一笔费用,**记在创建时**。此后删掉它收回的是库存位、不是那笔钱,故这一行绝不该被
-			// 冲销——一个「删除即退钱」的支出视图,会告诉用户账单降了,而它并没有。
-			r.Spend.Record(ctx, "voice", route.provider, llminfra.VoiceCloneModel, 1)
-		}
-		return route.provider, id, err
-	default:
+	// **Managed only, and that is a property of the upstream rather than a product choice.**
+	// `voice-enrollment` accepts no bytes — only an address it can fetch (真机实测). A direct-connect
+	// user's audio lives in this loopback sidecar behind a bearer token, so there is no address to
+	// give: the capability is not merely unimplemented here, it is unreachable. The gateway can do
+	// it because it owns a public media host of its own.
+	//
+	// **只在受管档,而这是上游的属性、不是产品选择。** `voice-enrollment` 不收字节——只收一个它能取的
+	// 地址(真机实测)。直连用户的音频住在这个回环 sidecar 的 bearer 之后,**根本没有地址可给**:这个
+	// 能力在这里不是「没实现」,是**够不着**。网关做得到,因为它自己拥有一台公开媒体主机。
+	if route.provider != "anselm" || r.Media == nil {
 		return "", "", ErrNoVoiceCloneRoute
 	}
+	// Upload first, then name the lease. The client never supplies a host — see EnrollVoiceAnselm.
+	// 先上传、再指名 lease。客户端从不提供 host——见 EnrollVoiceAnselm。
+	fetchPath, err := r.Media.Upload(ctx, route.baseURL, route.installID, mime, data)
+	if err != nil {
+		return "", "", err
+	}
+	leaseID, err := llminfra.LeaseIDFromFetchPath(fetchPath)
+	if err != nil {
+		return "", "", err
+	}
+	id, err := llminfra.EnrollVoiceAnselm(ctx, r.HTTP, route.baseURL, route.installID, name, leaseID)
+	return route.provider, id, err
 }
 
 // DeleteVoice removes an upstream registration. Called BEFORE the local row goes, because the row
@@ -607,25 +620,33 @@ func (r *Router) DeleteVoice(ctx context.Context, provider, upstreamID string) e
 	if err != nil {
 		return err
 	}
-	switch provider {
-	case "anselm":
-		return llminfra.DeleteVoiceAnselm(ctx, r.HTTP, route.baseURL, route.installID, upstreamID)
-	case "qwen":
-		return llminfra.DeleteVoiceDashScope(ctx, r.HTTP, route.baseURL, route.key, upstreamID)
-	default:
+	// Managed only, mirroring enrollment: every row that can exist was created there.
+	// 只在受管档,与登记互为镜像:能存在的每一行都是在那里创建的。
+	if provider != "anselm" {
 		return ErrNoVoiceCloneRoute
 	}
+	return llminfra.DeleteVoiceAnselm(ctx, r.HTTP, route.baseURL, route.installID, upstreamID)
 }
 
 // VoiceCloneAvailable reports whether an enrollment route resolves (honest-absence gate).
 //
+// **Managed only.** `voice-enrollment` will not take bytes — it fetches an address (真机实测). A
+// direct-connect user's audio sits in this loopback sidecar behind a bearer token, so there is no
+// address to hand over: the capability is unreachable there, not merely unimplemented. Claiming the
+// tool anyway would put a model in the position of promising something that fails at the last hop,
+// after the user has already picked a clip and named a voice.
+//
 // VoiceCloneAvailable 报告登记路由是否解析得出(诚实缺席闸)。
+//
+// **只在受管档。** `voice-enrollment` 不肯收字节——它去**取一个地址**(真机实测)。直连用户的音频坐在
+// 这个回环 sidecar 的 bearer 之后,**没有地址可递**:那个能力在那里是**够不着**、不是「没实现」。照样
+// 宣称有这个工具,等于让模型去许一个**在最后一跳才失败**的诺——而那时用户已经挑好了片子、起好了名字。
 func (r *Router) VoiceCloneAvailable(ctx context.Context) bool {
 	route, err := r.resolveSpeech(ctx)
 	if err != nil {
 		return false
 	}
-	return route.provider == "anselm" || route.provider == "qwen"
+	return route.provider == "anselm" && r.Media != nil
 }
 
 // VideoEditAvailable reports whether an image-to-video route resolves (honest-absence gate for
