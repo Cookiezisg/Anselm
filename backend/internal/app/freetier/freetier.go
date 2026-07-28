@@ -252,8 +252,17 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 		return nil
 	}
 	p.log.Info("free-tier provisioned (managed anselm key created)")
-	p.refreshCapabilities(ctx, k.ID)
+	// The key row is visible to concurrent requests as soon as CreateManaged returns. Seed the
+	// out-of-box defaults BEFORE the live capability probe: that probe is best-effort network I/O,
+	// and putting it first creates a user-visible interval where the managed key exists but an
+	// immediate first chat has no model to resolve. The placeholder archive created with the key is
+	// already sufficient for seeding; refresh only enriches its capability facts afterwards.
+	//
+	// CreateManaged 一返回，受管 key 行就已能被并发请求看见。必须在 live capability probe **之前**播种
+	// 开箱默认：探针是 best-effort 网络 I/O，若先跑它，用户首次立刻发消息会落进「key 已有、默认模型还
+	// 没有」的窗口，导致无模型可解析。随 key 写入的占位档案已经足以播种；刷新只在之后丰富能力事实。
 	p.seedDefaults(ctx, k.ID)
+	p.refreshCapabilities(ctx, k.ID)
 	return nil
 }
 

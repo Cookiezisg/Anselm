@@ -28,6 +28,7 @@ type fakeKeys struct {
 	testResult *apikeyapp.TestResult // scripted probe verdict; nil → zero-value result 脚本化探测结论
 	rotated    []rotation
 	rotateErr  error
+	onTest     func()
 }
 
 // Test records the live-capability refresh the provisioner performs after minting the managed key,
@@ -35,6 +36,9 @@ type fakeKeys struct {
 // Test 记录 provisioner 铸 key 后的 live 能力刷新,同时兼任自愈路径的探针——testResult 脚本化结论。
 func (f *fakeKeys) Test(_ context.Context, id string) (*apikeyapp.TestResult, error) {
 	f.tested = append(f.tested, id)
+	if f.onTest != nil {
+		f.onTest()
+	}
 	if f.testErr != nil {
 		return nil, f.testErr
 	}
@@ -95,10 +99,14 @@ func errFP() (string, error) { return "", errors.New("no fingerprint") }
 type fakeDefaults struct {
 	seeded []modeldomain.ModelRef
 	err    error
+	onSeed func()
 }
 
 func (f *fakeDefaults) SeedDefaultsIfUnset(_ context.Context, ref modeldomain.ModelRef) error {
 	f.seeded = append(f.seeded, ref)
+	if f.onSeed != nil {
+		f.onSeed()
+	}
 	return f.err
 }
 
@@ -293,6 +301,24 @@ func TestEnsure_SeedsWorkspaceDefaults(t *testing.T) {
 	}
 	if ref := defs.seeded[0]; ref.APIKeyID != "aki_x" || ref.ModelID != llminfra.AnselmModelID {
 		t.Errorf("seeded ref = %+v, want {aki_x, %s}", ref, llminfra.AnselmModelID)
+	}
+}
+
+// A freshly persisted managed key is immediately visible to another request, while a live
+// capability probe is network I/O. Therefore defaults must land before that probe: otherwise a
+// user who opens a brand-new workspace and sends the first message immediately gets
+// LLM_RESOLVE_ERROR even though the managed key already exists.
+func TestEnsure_SeedsDefaultsBeforeLiveCapabilityProbe(t *testing.T) {
+	seeded := false
+	defs := &fakeDefaults{onSeed: func() { seeded = true }}
+	keys := &fakeKeys{onTest: func() {
+		if !seeded {
+			t.Error("live capability probe ran before the managed defaults were seeded")
+		}
+	}}
+	p := NewProvisioner(keys, defs, &fakeInstaller{installID: "ins_minted"}, okFP, zap.NewNop())
+	if err := p.EnsureForWorkspace(context.Background()); err != nil {
+		t.Fatal(err)
 	}
 }
 
