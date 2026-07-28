@@ -69,6 +69,13 @@ type compatSpec struct {
 	// prepare 在编码前调整消息列表。只有 DeepSeek 需要,而它那条规则是**真实的上游约束**、不是偏好。
 	prepare func([]LLMMessage) []LLMMessage
 
+	// prepareSystemForModel rewrites the system prompt for a model-specific message grammar. Most
+	// compatible endpoints accept a system role; Qwen-MT does not and folds it into the first user
+	// message instead.
+	// prepareSystemForModel 为模型特定的 message grammar 改写 system prompt。大多数兼容端点接受
+	// system role；Qwen-MT 不接受，改把它折进首个 user message。
+	prepareSystemForModel func(modelID, system string, msgs []LLMMessage) (string, []LLMMessage)
+
 	// parts renders one user message's parts. nil = the plain text/image_url pair every family
 	// supports. A family that renders more (OpenAI's file, Qwen's video/audio) or renders them
 	// somewhere else entirely (Ollama's message-level `images`) supplies its own.
@@ -89,6 +96,14 @@ type compatSpec struct {
 	// forceNonStreamWithTools 让**带工具**的请求关掉流式。Ollama 需要它:它流式的 tool call 不可用,
 	// 故这是「能用的非流式」与「流着却产不出可调用东西」之间的选择。
 	forceNonStreamWithTools bool
+
+	// cumulativeText identifies model families whose `delta.content` re-sends the complete text
+	// seen so far instead of an incremental suffix. Most OpenAI-compatible streams are incremental;
+	// this hook keeps the exception explicit and model-scoped rather than risking false prefix matches
+	// for every provider.
+	// cumulativeText 标出 `delta.content` 会重发截至当前的完整文本、而非增量后缀的模型族。大多数
+	// OpenAI 兼容流是增量；这里把例外收在模型级，避免对所有 provider 做有风险的前缀猜测。
+	cumulativeText func(modelID string) bool
 
 	// toolChoice, when set, is sent alongside a non-empty tools array (Zhipu needs "auto" or it
 	// will not call a tool at all).
@@ -148,6 +163,9 @@ func (p *compatProvider) BuildRequest(ctx context.Context, req Request) (*http.R
 	req.Messages = SanitizeMessages(req.Messages)
 	if p.spec.prepare != nil {
 		req.Messages = p.spec.prepare(req.Messages)
+	}
+	if p.spec.prepareSystemForModel != nil {
+		req.System, req.Messages = p.spec.prepareSystemForModel(req.ModelID, req.System, req.Messages)
 	}
 	msgs, err := p.toMessages(req.Messages, req.System)
 	if err != nil {
@@ -217,7 +235,7 @@ func (p *compatProvider) ParseStream(ctx context.Context, resp *http.Response, r
 			parseCompatNonStreaming(p.spec.name, resp.Body, yield)
 			return
 		}
-		state := newToolCallState()
+		state := newToolCallState(p.spec.cumulativeText != nil && p.spec.cumulativeText(req.ModelID))
 		scanErr := scanSSELines(ctx, resp.Body, func(payload []byte) bool {
 			if ctx.Err() != nil {
 				return false
@@ -362,13 +380,17 @@ type toolCallState struct {
 	idToSyntheticIdx map[string]int
 	nextSyntheticIdx int
 	args             *toolArgs
+	text             *deltaAccumulator
+	cumulativeText   bool
 }
 
-func newToolCallState() *toolCallState {
+func newToolCallState(cumulativeText bool) *toolCallState {
 	return &toolCallState{
 		toolNameSent:     map[int]bool{},
 		idToSyntheticIdx: map[string]int{},
 		args:             newToolArgs(),
+		text:             newDeltaAccumulator(),
+		cumulativeText:   cumulativeText,
 	}
 }
 
@@ -418,8 +440,12 @@ func emitCompatChunk(chunk compatChunk, state *toolCallState, yield func(StreamE
 			return false
 		}
 	}
-	if delta.Content != "" {
-		if !yield(StreamEvent{Type: EventText, Delta: delta.Content}) {
+	text := delta.Content
+	if state.cumulativeText {
+		text = state.text.delta(0, text)
+	}
+	if text != "" {
+		if !yield(StreamEvent{Type: EventText, Delta: text}) {
 			return false
 		}
 	}

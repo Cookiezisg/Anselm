@@ -32,6 +32,36 @@ func newQwenProvider() *compatProvider {
 				}
 			}
 		},
+		cumulativeText: func(modelID string) bool {
+			// DashScope's Qwen-MT translation models return the full translated prefix in each SSE
+			// content delta (observed on qwen-mt-plus). Other Qwen families retain normal increments.
+			// DashScope 的 Qwen-MT 翻译模型在每个 SSE content delta 重发完整译文前缀（qwen-mt-plus 真线缆实证）；
+			// 其余 Qwen 家族仍是普通增量。
+			return strings.HasPrefix(modelID, "qwen-mt-")
+		},
+		prepareSystemForModel: func(modelID, system string, msgs []LLMMessage) (string, []LLMMessage) {
+			if !strings.HasPrefix(modelID, "qwen-mt-") || strings.TrimSpace(system) == "" {
+				return system, msgs
+			}
+			prefix := "System instructions:\n" + system + "\n\n"
+			for i := range msgs {
+				if msgs[i].Role != RoleUser {
+					continue
+				}
+				if len(msgs[i].Parts) == 0 {
+					msgs[i].Content = prefix + msgs[i].Content
+					return "", msgs
+				}
+				// A multimodal first user message cannot safely absorb text into its parts here. Put a
+				// text-only user message immediately before it; the provider still sees no system role.
+				out := make([]LLMMessage, 0, len(msgs)+1)
+				out = append(out, LLMMessage{Role: RoleUser, Content: prefix})
+				out = append(out, msgs[:i]...)
+				out = append(out, msgs[i:]...)
+				return "", out
+			}
+			return "", append([]LLMMessage{{Role: RoleUser, Content: prefix}}, msgs...)
+		},
 		describe: describeQwen,
 	}}
 }

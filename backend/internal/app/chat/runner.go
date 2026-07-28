@@ -236,7 +236,16 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	}
 
 	req := bundle.Request
-	req.System = s.buildSystemPrompt(ctx, conv)
+	includeTools := !bundle.Caps.ToolsKnown || bundle.Caps.Tools
+	req.System = s.buildSystemPromptForModel(ctx, conv, includeTools)
+	if !includeTools {
+		// The static prompt describes Anselm's normal tool surface, but this particular model is a
+		// catalogued chat-only route. State the narrower contract explicitly so the model does not
+		// try to invent calls when the request intentionally carries no tool definitions.
+		// 静态 prompt 描述的是 Anselm 的常规工具面，但当前模型是目录明确的 chat-only 路线；明确收窄契约，
+		// 避免请求刻意不带工具定义时模型仍尝试臆造调用。
+		req.System += "\n\n<model_capability> This model can answer in text but cannot call tools. Respond with text only.</model_capability>"
+	}
 
 	// loop.Run always ends with exactly one host.WriteFinalize (persist + message_stop), so the
 	// Result is redundant here. maxSteps is read live (not captured at construction) so a

@@ -219,6 +219,14 @@ func (h *chatHost) ExpandToolMedia(ctx context.Context, toolCallID string, ids [
 }
 
 func (h *chatHost) Tools(ctx context.Context) []toolapp.Tool {
+	// A model.dev/model-catalog row with tools:false is a usable chat model, but its upstream rejects
+	// any tools array (Qwen qwen-mt-plus is the real example). Keep the chat route textual instead of
+	// sending a request guaranteed to fail. Unknown/custom models remain best-effort and keep tools.
+	// 目录 tools:false 的模型仍可聊天、但上游会拒绝任何 tools 数组（真实例子是 Qwen qwen-mt-plus）。
+	// chat 路线改为纯文本，避免发送注定失败的请求；未知/custom 模型仍保留 best-effort 工具。
+	if h.caps.ToolsKnown && !h.caps.Tools {
+		return nil
+	}
 	ts := h.svc.deps.Toolset
 	tools := make([]toolapp.Tool, 0, len(ts.Resident)+1+len(ts.Lazy))
 	tools = append(tools, ts.Resident...)

@@ -278,6 +278,54 @@ func TestQwenParseStream(t *testing.T) {
 	}
 }
 
+func TestQwenParseStreamCumulativeText(t *testing.T) {
+	p := newQwenProvider()
+	resp := &http.Response{Body: sseBody(
+		`data: {"choices":[{"delta":{"content":"Sure"}}]}`,
+		`data: {"choices":[{"delta":{"content":"Sure!"}}]}`,
+		`data: {"choices":[{"delta":{"content":"Sure! What"}}]}`,
+		`data: {"choices":[{"delta":{"content":"Sure! What would you like me to reply with?"},"finish_reason":"stop"}]}`,
+		`data: [DONE]`,
+	)}
+	events := collect(p.ParseStream(context.Background(), resp, Request{ModelID: "qwen-mt-plus"}))
+	var text strings.Builder
+	for _, ev := range events {
+		switch ev.Type {
+		case EventText:
+			text.WriteString(ev.Delta)
+		case EventError:
+			t.Fatalf("unexpected error event: %v", ev.Err)
+		}
+	}
+	if text.String() != "Sure! What would you like me to reply with?" {
+		t.Fatalf("cumulative text = %q, want one translated prefix", text.String())
+	}
+}
+
+func TestQwenBuildRequest_QwenMTFoldsSystemIntoUser(t *testing.T) {
+	p := newQwenProvider()
+	req, err := p.BuildRequest(context.Background(), Request{
+		ModelID: "qwen-mt-plus", Key: "k", BaseURL: "https://example.invalid/v1",
+		System: "Answer briefly.", Messages: []LLMMessage{{Role: RoleUser, Content: "Hello"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(req.Body)
+	var wire struct {
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if len(wire.Messages) != 1 || wire.Messages[0].Role != "user" || !strings.Contains(wire.Messages[0].Content, "System instructions:") || !strings.HasSuffix(wire.Messages[0].Content, "Hello") {
+		t.Fatalf("Qwen-MT wire messages = %+v, want one user message with folded system", wire.Messages)
+	}
+}
+
 // TestQwenParseStreamFlatError verifies the DashScope flat error envelope
 // {code,message,request_id} arriving as a 200 chunk (no nested "error") surfaces as a
 // provider EventError rather than being silently dropped.

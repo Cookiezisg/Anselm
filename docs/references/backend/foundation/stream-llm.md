@@ -19,6 +19,8 @@ audience: [human, ai]
 
 ## llm（provider 端口）
 
+**Qwen-MT chat-only wire（EVO-054）**：目录的 `tools:false` 是真实运行约束而非展示徽章——`qwen-mt-plus` 拒绝 `tools`，也拒绝 `system` role；兼容层对 `qwen-mt-*` 只在 chat 路线不上工具、把系统约束折入首个 `user`，并按模型族把累计式 `delta.content` 归一为增量。已知 chat-only 模型在 agent resolver 处以 `MODEL_NOT_AGENT_CAPABLE` 失败；未知/custom 模型仍保留兼容性 best-effort。
+
 > **当前生成边界（H11 / WRK-085）**：下方“生成方言”长条保留的是旧直连 provider 的线缆证据，不是当前产品入口。现在 `generate_image`、`edit_image`、`animate_image`、`generate_speech`、`generate_video`、`enroll_voice` 均只由 `anselm` managed route 提供；`Router` 的 availability gate 与 dispatch 都以 `provider == "anselm"` 为硬边界。BYOK 继续覆盖文本和多模态输入，旧直连生成实现及 `EVALS_MEDIA` 仅作 archived wire evidence，不能作为产品验收前提；当前真钱路径使用 `EVALS_MANAGED=1` / `EVALS_VOICE=1`，不要求本机 provider secret。
 
 `Client` 单方法 `Stream(ctx, Request) iter.Seq[StreamEvent]`——全部 provider（anthropic/openai/google/deepseek/qwen/zhipu/moonshot/openrouter/ollama/custom/anselm，共 11 家）适配到同一事件流（text/reasoning delta、tool start/delta、finish 带 token 计数）。要点：

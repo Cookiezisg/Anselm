@@ -215,5 +215,15 @@ func (r agentResolver) ResolveAgent(ctx context.Context, override *modeldomain.M
 	if err != nil {
 		return agentapp.LLMBundle{}, err
 	}
+	// A known chat-only model must fail before the ReAct loop reaches the provider. Sending the
+	// agent's tool schema to it turns a deterministic capability mismatch into a vague empty/error
+	// execution (Qwen qwen-mt-plus rejects `tools` with Function call not supported). Unknown/custom
+	// models remain compatible: without a catalog fact we cannot honestly reject them here.
+	// 已知 chat-only 模型须在进入 ReAct loop 前失败。否则把 agent 工具 schema 发上游只会把确定性的能力
+	// 不匹配变成模糊的空答/错误执行（Qwen qwen-mt-plus 真实拒绝 `tools`）。未知/custom 模型保兼容：没有
+	// 目录事实时，我们不能诚实地在此拒绝。
+	if v, ok := r.core.lookup.find(ctx, provider, req.ModelID); ok && !v.Tools {
+		return agentapp.LLMBundle{}, modeldomain.ErrNotAgentCapable
+	}
 	return agentapp.LLMBundle{Client: client, Request: req, APIKeyID: apiKeyID, Provider: provider}, nil
 }

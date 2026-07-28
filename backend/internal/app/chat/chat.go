@@ -111,6 +111,13 @@ type ContentCapabilities struct {
 	Video      bool
 	Audio      bool
 	NativeDocs bool
+	// ToolsKnown distinguishes a catalogued chat-only model from an unknown/custom model. A known
+	// false value suppresses tool definitions on the wire; an unknown value preserves the historical
+	// best-effort behavior for unprobed/custom routes.
+	// ToolsKnown 区分「目录明确知道 chat-only」与「未知/自定义模型」。已知 false 时不上工具线缆；未知
+	// 则保留未探测/custom 路线的历史 best-effort 行为。
+	Tools      bool
+	ToolsKnown bool
 	// MaxMediaParts / MaxMediaBytes are optional app-side guards for one rendered user turn.
 	// Zero means the provider did not publish a finite inline-media envelope.
 	// MaxMediaParts / MaxMediaBytes 是单个渲染 user 回合的可选 app 侧闸；零值表示 provider 未发布
