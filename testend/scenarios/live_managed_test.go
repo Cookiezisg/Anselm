@@ -203,6 +203,59 @@ func TestLiveManaged_EditImageArtifact(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_WorkflowGenerateImageToViewer reprobes the managed workflow value path after
+// the generation route changes: an upstream agent generates one image, hands its MediaRef receipt
+// through the node result, and a separate downstream agent completes against that input.
+func TestLiveManaged_WorkflowGenerateImageToViewer(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-workflow-image")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	var ws struct {
+		DefaultAgent *struct {
+			APIKeyID string `json:"apiKeyId"`
+			ModelID  string `json:"modelId"`
+		} `json:"defaultAgent"`
+	}
+	wc.GET("/api/v1/workspaces/"+wc.WorkspaceID()).OK(t, &ws)
+	if ws.DefaultAgent == nil || ws.DefaultAgent.APIKeyID == "" || ws.DefaultAgent.ModelID == "" {
+		t.Fatalf("managed workflow probe requires a ready default agent model: %+v", ws.DefaultAgent)
+	}
+
+	painter := agCreate(t, wc, map[string]any{
+		"name": "Managed Workflow Painter", "description": "generates one image and hands its receipt on",
+		"prompt": "请调用 generate_image 恰好一次，画一个白底红色圆形；工具成功后把工具 receipt 原样写进最终回答，不要再次调用工具。",
+		"tools":  []map[string]any{{"ref": "sys:generate_image", "name": "generate image"}},
+	})
+	viewer := agCreate(t, wc, map[string]any{
+		"name": "Managed Workflow Viewer", "description": "receives the upstream image receipt",
+		"prompt": "请用一句简短中文确认你已收到上游产物。不要调用工具。",
+	})
+	wfID := wfCreate(t, wc, "managed_image_pipe", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "paint", "kind": "agent", "ref": painter,
+			"input": map[string]any{"task": "start.topic"}}},
+		{"op": "add_node", "node": map[string]any{"id": "look", "kind": "agent", "ref": viewer,
+			"input": map[string]any{"picture": "paint.text"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "paint"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e2", "from": "paint", "to": "look"}},
+	})
+	_, status, nodes := runAndWait(t, wc, wfID, map[string]any{"topic": "a red circle on white"}, 360000)
+	if status != "completed" {
+		t.Fatalf("managed image workflow must complete, got %s nodes=%s", status, nodes)
+	}
+	attID := attIDShape.FindString(string(nodes))
+	if attID == "" {
+		t.Fatalf("managed workflow node result must carry an image MediaRef: %s", nodes)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) || len(content.Raw) < 1000 {
+		t.Fatalf("managed workflow artifact must be a real image: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	nodeText := string(nodes)
+	if !strings.Contains(nodeText, "generate_image") || !strings.Contains(nodeText, "provider") || !strings.Contains(nodeText, "anselm") {
+		t.Fatalf("managed workflow node result must preserve the managed generation receipt: %s", nodes)
+	}
+}
+
 // TestLiveManaged_GenerateSpeechArtifact is the managed speech counterpart: the default Anselm
 // dialogue model must call generate_speech once, the gateway's returned bytes must be a real WAV,
 // and the tool receipt must identify the managed provider. The two-step cap bounds paid retries.
