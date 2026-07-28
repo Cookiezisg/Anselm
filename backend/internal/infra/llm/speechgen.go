@@ -165,19 +165,25 @@ func GenerateSpeechAnselm(ctx context.Context, httpc *http.Client, baseURL, inst
 		return GeneratedAudio{}, err
 	}
 	req.Header.Set(deviceproofinfra.HeaderInstallID, installID)
-	raw, _, err := doSpeechRequest(httpc, req, "anselm")
+	raw, mime, err := doSpeechRequest(httpc, req, "anselm")
 	if err != nil {
 		return GeneratedAudio{}, err
 	}
-	var wire struct {
-		Data []struct {
-			URL string `json:"url"`
-		} `json:"data"`
+	// **The managed route returns RAW AUDIO, like OpenAI's own /audio/speech** — it used to return
+	// a `{data:[{url}]}` envelope, and that changed because the gateway's upstream did: the model
+	// that can synthesize with cloned voices is served only over a duplex WebSocket, which streams
+	// frames and has no artifact URL to relay (WRK-082 H9). One fewer round trip, and one fewer
+	// place a short-lived signed URL can expire between mint and fetch.
+	// **受管路由返回裸音频,与 OpenAI 自己的 /audio/speech 同形**——它此前返 `{data:[{url}]}` 信封,
+	// 变了是因为网关的上游变了:那个能用克隆音色合成的模型只在双工 WebSocket 上提供,它流的是帧、
+	// 没有产物 URL 可转(H9)。少一次往返,也少一个「短时签名 URL 在铸出与取用之间过期」的地方。
+	if len(raw) == 0 {
+		return GeneratedAudio{}, fmt.Errorf("%w: gateway returned no audio", ErrSpeechGenFailed)
 	}
-	if err := json.Unmarshal(raw, &wire); err != nil || len(wire.Data) == 0 || wire.Data[0].URL == "" {
-		return GeneratedAudio{}, fmt.Errorf("%w: gateway returned no artifact url", ErrSpeechGenFailed)
+	if mime == "" {
+		mime = "audio/wav"
 	}
-	return downloadAudio(ctx, httpc, wire.Data[0].URL)
+	return GeneratedAudio{Bytes: raw, Mime: mime}, nil
 }
 
 // GenerateSpeechOpenAIForm speaks the `/audio/speech` shape shared by OpenAI and Zhipu: identical
