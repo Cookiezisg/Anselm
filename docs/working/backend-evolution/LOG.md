@@ -51,6 +51,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-034 | 默认 Anselm managed `generate_image` → `edit_image` 写路径通过：模型先铸一张图，再以 receipt 的 attachmentId 改图；两件均为有效、不同字节的图片，edit receipt 保留 `sourceAttachmentId` 且两次 provider 均为 `anselm`，回合最多四步 | managed write / image edit / MediaRef lineage | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_EditImageArtifact$' -count=1` → PASS 78.28s；无本机 provider key | 当前提交 |
 | 2026-07-29 | EVO-035 | 默认 Anselm managed `generate_video` 写路径通过：工具先停在危险审批，批准后经 API Serve 异步提交/轮询/下载，落下一件可解码 MP4；receipt 恰好一条且 provider 为 `anselm`，两步上限阻止重复付费调用 | managed write / video generation / danger approval / async gateway | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_GenerateVideoArtifact$' -count=1` → PASS 166.71s；无本机 provider key | 当前提交 |
 | 2026-07-29 | EVO-036 | active `stream-llm` 参考补上 H11 生成边界：旧五家图像/三类语音/两家视频方言条只保留为 archived wire evidence；当前六个生成/克隆工具全部硬收口到 `anselm` managed，BYOK 仅读文本与多模态输入，旧 `EVALS_MEDIA` 不得作为产品入口 | H11 routing boundary / reference governance | `rg` 审计 `Router` availability/dispatch 的 `provider == "anselm"` 硬闸，并以 docs verify 验证新增边界注释 | 当前提交 |
+| 2026-07-29 | EVO-037 | Qwen BYOK 多模态金标通过：真实图片、MP4、WAV 三种附件均完成对话，随后真实工具调用续接并返回结果；运行期间受管 gateway 关闭，证明目录能力、Qwen 方言与音频 `input_audio` 线缆均可达 | BYOK-read / image / video / audio / tool continuation | `EVALS=1 EVALS_QWEN_MULTIMODAL=1 EVALS_PROVIDER=qwen EVALS_KEY=<env> EVALS_BASE_URL=<catalog> go test ./golden -run '^TestGolden_C2_QwenMultimodalInputAndToolContinuation$' -count=1 -v` → PASS 206.91s；key 未写日志 | 当前提交 |
 
 ## 追加格式
 
