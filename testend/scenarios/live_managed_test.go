@@ -706,6 +706,11 @@ func TestLiveHybrid_OpenAIPlansManagedImage(t *testing.T) {
 	}
 
 	wc := liveManagedWorkspace(t, "live-hybrid-openai-managed-image")
+	// Keep the planner real while recording the BYOK wire. The generation half still goes through
+	// the deployed Anselm API Serve; this proxy only makes the downstream pixel claim observable.
+	// 让 planner 仍使用真实模型，同时录下 BYOK 线缆。生成半边依旧经过部署中的 Anselm API Serve；代理只为
+	// 让下游像素断言可观察。
+	rec := harness.NewRecorder(t, "https://api.openai.com")
 	var keys []struct {
 		ID       string `json:"id"`
 		Provider string `json:"provider"`
@@ -724,6 +729,7 @@ func TestLiveHybrid_OpenAIPlansManagedImage(t *testing.T) {
 
 	byokKeyID := wc.POST("/api/v1/api-keys", map[string]any{
 		"provider": "openai", "displayName": "live-openai-hybrid", "key": key,
+		"baseUrl": rec.URL() + "/v1",
 	}).Field(t, "id")
 	wc.POST("/api/v1/api-keys/"+byokKeyID+":test", nil).OK(t, nil)
 	var caps []struct {
@@ -781,5 +787,20 @@ func TestLiveHybrid_OpenAIPlansManagedImage(t *testing.T) {
 	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
 	if content.Status != 200 || !bytes2IsImage(content.Raw) {
 		t.Fatalf("managed hybrid artifact must round-trip as an image: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	dumps := rec.DumpsFor("gpt-4.1-mini")
+	if len(dumps) < 2 {
+		t.Fatalf("hybrid BYOK planner wire must contain tool-call and continuation requests, got %d", len(dumps))
+	}
+	b64 := base64.StdEncoding.EncodeToString(content.Raw)
+	fed := false
+	for _, dump := range dumps {
+		if dump.HasImagePart(b64) {
+			fed = true
+			break
+		}
+	}
+	if !fed {
+		t.Fatal("hybrid continuation never sent the managed image bytes to the BYOK planner")
 	}
 }
