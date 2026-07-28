@@ -633,6 +633,79 @@ func TestLiveBYOK_OpenAIImageInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_OpenAIDocumentImageReference proves that the document renderer does not leave an
+// anselm://media URL as system-prompt prose on a BYOK route: the fresh conversation must deliver
+// the referenced attachment as the exact native image part on the real OpenAI wire.
+func TestLiveBYOK_OpenAIDocumentImageReference(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK document-image acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-openai-document-image"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-byok-document", "key": key,
+		"baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	vision := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "openai" && cap.ModelID == "gpt-4.1-mini" && cap.Vision {
+			vision = true
+			break
+		}
+	}
+	if !vision {
+		t.Fatalf("probed OpenAI BYOK model must expose gpt-4.1-mini image input: %+v", caps)
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gpt-4.1-mini"}).OK(t, nil)
+
+	attID := uploadAtt(t, wc, "document-evidence.png", "image/png", liveManagedPNG)
+	docID := wc.POST("/api/v1/documents", map[string]any{
+		"name":    "byok-visual-evidence",
+		"content": "# Evidence\n\n![attached visual](anselm://media/" + attID + ")\n",
+	}).Field(t, "id")
+	conv := convCreate(t, wc, "BYOK document image")
+	wc.PATCH("/api/v1/conversations/"+conv, map[string]any{
+		"attachedDocuments": []map[string]any{{"documentId": docID}},
+	}).OK(t, nil)
+	msg := sendMsg(t, wc, conv, "请简短确认请求已收到。不要调用工具。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("BYOK document-image chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+		t.Fatalf("document-referenced image must survive its BYOK turn: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	dumps := rec.DumpsFor("gpt-4.1-mini")
+	if len(dumps) == 0 {
+		t.Fatal("BYOK document-image turn produced no recorded OpenAI request")
+	}
+	b64 := base64.StdEncoding.EncodeToString(liveManagedPNG)
+	for _, dump := range dumps {
+		if dump.HasImagePart(b64) {
+			return
+		}
+	}
+	t.Fatal("BYOK document image never reached OpenAI as the exact native image part")
+}
+
 // TestLiveBYOK_QwenVideoInput exercises a second real BYOK behavior class: the catalog-derived
 // Qwen endpoint and dialect must carry a normal MP4 attachment as a video part. The harness keeps
 // its managed gateway closed, so an apparent success cannot be a free-tier fallback.
