@@ -2,6 +2,7 @@ package apikey
 
 import (
 	"sort"
+	"strings"
 
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
@@ -66,6 +67,21 @@ type ProviderMeta struct {
 	// Dialect 是我们要对它说的那条线缆。本构建说不了的方言在**建 key 时**以自己的理由被拒——绝不
 	// 先收下、再在最后一跳失败。
 	Dialect string `json:"dialect"`
+	// BaseURLHint is a TEMPLATE the catalog published instead of a usable URL — four providers do
+	// this (`https://${DATABRICKS_HOST}/ai-gateway/mlflow/v1` and friends), because their endpoint
+	// contains the customer's own account or host name.
+	//
+	// It is deliberately NOT the prefilled value: submitted verbatim it produces a connect failure
+	// whose message says nothing about the literal `${…}` still sitting in the field. As a HINT it is
+	// the most useful thing on the form — it shows exactly where the account name goes.
+	//
+	// BaseURLHint 是目录发布的**模板**、不是一个能用的 URL——有四家这样(
+	// `https://${DATABRICKS_HOST}/ai-gateway/mlflow/v1` 之类),因为它们的端点里含着**客户自己的**
+	// 账号名或主机名。
+	//
+	// 它**刻意不是**预填值:原样提交会换来一次连接失败,而那条消息**只字不提**字段里still 躺着的
+	// 那个字面 `${…}`。作为**提示**它则是表单上最有用的东西——它精确指出账号名该填在哪。
+	BaseURLHint string `json:"baseUrlHint,omitempty"`
 }
 
 // localProviders are the entries models.dev does NOT describe, and each is absent for a reason
@@ -145,8 +161,14 @@ func testMethodFor(d llminfra.Dialect) TestMethod {
 //
 // catalogMeta 把一家目录 provider 投影成 apikey 需要的元数据。
 func catalogMeta(p llminfra.ProviderInfo) ProviderMeta {
-	base := p.BaseURL
-	if base == "" {
+	base, hint := p.BaseURL, ""
+	// A `${…}` in the catalog's api is a template, not an address. Demote it to a hint so the form
+	// shows the shape and still demands a real value.
+	// 目录 api 里的 `${…}` 是模板、不是地址。降级成提示:表单**展示形状**、同时仍然要一个真值。
+	if strings.Contains(base, "${") {
+		base, hint = "", p.BaseURL
+	}
+	if base == "" && hint == "" {
 		base = knownBaseURLs[p.ID]
 	}
 	return ProviderMeta{
@@ -154,6 +176,7 @@ func catalogMeta(p llminfra.ProviderInfo) ProviderMeta {
 		DisplayName:     p.Name,
 		DefaultBaseURL:  base,
 		BaseURLRequired: base == "",
+		BaseURLHint:     hint,
 		TestMethod:      testMethodFor(p.Dialect),
 		Category:        CategoryLLM,
 		Curated:         p.Curated,

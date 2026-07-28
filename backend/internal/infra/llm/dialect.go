@@ -28,13 +28,15 @@ const (
 	DialectOpenAICompat Dialect = "openai-compatible"
 	DialectAnthropic    Dialect = "anthropic"
 	DialectGoogle       Dialect = "google"
-	// DialectAzure / DialectBedrock differ in the two things no catalog can express: the URL shape
-	// (deployment in the path + an `api-version` query) and the auth scheme (SigV4 request signing).
-	// They are named here BEFORE they are implemented, because a provider we cannot speak to must
-	// fail at key creation with「这条方言我们不会说」rather than at the last hop with a 404.
-	// DialectAzure / DialectBedrock 差在**任何目录都表达不了**的两样上:URL 形状(deployment 在路径 +
-	// `api-version` query)与鉴权方案(SigV4 请求签名)。它们在**实现之前**就被命名,因为一家我们说不了
-	// 的方言必须在**建 key 时**以「这条方言我们不会说」失败,而不是在最后一跳上以 404 失败。
+	// DialectAzure speaks OpenAI's body over a different URL shape (deployment in the path + an
+	// `api-version` query) with an `api-key` header — see azure.go. DialectBedrock is still only a
+	// NAME: AWS SigV4 request signing plus the Converse API's own body is a dialect of its own, and a
+	// provider we cannot speak to must fail at key creation with「这条方言我们不会说」rather than at
+	// the last hop with a 404.
+	// DialectAzure 用**不同的 URL 形状**(deployment 在路径 + `api-version` query)与 `api-key` 头讲
+	// OpenAI 的 body——见 azure.go。DialectBedrock 目前**仍只是个名字**:AWS SigV4 请求签名加 Converse
+	// API 自己的 body 是一条独立方言,而一家我们说不了的方言必须在**建 key 时**以「这条方言我们不会说」
+	// 失败,不是在最后一跳上以 404 失败。
 	DialectAzure   Dialect = "azure"
 	DialectBedrock Dialect = "bedrock"
 )
@@ -71,7 +73,7 @@ func DialectForNPM(npm string) Dialect {
 // Speakable 报告本构建到底说不说得了某条方言。Azure 与 Bedrock 已命名但尚未实现;落在它们上的
 // provider 必须**当场**被拒并说明理由,而不是先收下、再在最后一跳失败。
 func (d Dialect) Speakable() bool {
-	return d == DialectOpenAICompat || d == DialectAnthropic || d == DialectGoogle
+	return d == DialectOpenAICompat || d == DialectAnthropic || d == DialectGoogle || d == DialectAzure
 }
 
 // curatedProviders are the upstreams this app ships a hand-written spec for: their knob tables,
@@ -186,6 +188,8 @@ func catalogSynthesized(id string) (Provider, bool) {
 		built = newAnthropicProvider()
 	case DialectGoogle:
 		built = newGeminiProvider()
+	case DialectAzure:
+		built = newAzureProvider()
 	default:
 		built = &compatProvider{spec: compatSpec{
 			name:    info.ID,

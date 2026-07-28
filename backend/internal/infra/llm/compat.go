@@ -101,6 +101,21 @@ type compatSpec struct {
 	// 静默丢弃,守卫测试逐家比对二者。
 	wire partMask
 
+	// chatURL builds the endpoint this family posts to. nil = `{base}/chat/completions`, which is what
+	// every OpenAI-compatible provider but one uses. Azure is the exception and the reason this is a
+	// func: its deployment name lives in the PATH and its API version in a query parameter — a shape
+	// no `api` string in any catalog can express.
+	// chatURL 构造本家 POST 的端点。nil = `{base}/chat/completions`,除一家外每个 OpenAI 兼容 provider
+	// 都是它。Azure 是那个例外,也是这里用 func 的理由:它的 deployment 名在**路径**里、API 版本在
+	// **query** 里——一个**任何目录的 `api` 字符串都表达不了**的形状。
+	chatURL func(req Request) string
+
+	// auth writes the credential header. nil = `Authorization: Bearer`. Azure uses `api-key`, and
+	// sending it as a bearer token gets a 401 that reads exactly like a wrong key.
+	// auth 写凭证头。nil = `Authorization: Bearer`。Azure 用 `api-key`,而把它当 bearer 发会换来一个
+	// **读起来和「key 填错了」一模一样**的 401。
+	auth func(h http.Header, key string)
+
 	// describe parses this provider's /models probe body. Every family has its own because the
 	// catalog key and the knob table are its own.
 	// describe 解析本家 /models 探测体。每家自带,因为目录 key 与旋钮表都是自己的。
@@ -148,13 +163,20 @@ func (p *compatProvider) BuildRequest(ctx context.Context, req Request) (*http.R
 	if err != nil {
 		return nil, fmt.Errorf("llm.%s: marshal body: %w", p.spec.name, err)
 	}
-	httpReq, err := http.NewRequestWithContext(
-		ctx, http.MethodPost, req.BaseURL+"/chat/completions", bytes.NewReader(raw))
+	url := req.BaseURL + "/chat/completions"
+	if p.spec.chatURL != nil {
+		url = p.spec.chatURL(req)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(raw))
 	if err != nil {
 		return nil, fmt.Errorf("llm.%s: new request: %w", p.spec.name, err)
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
-	httpReq.Header.Set("Authorization", "Bearer "+req.Key)
+	if p.spec.auth != nil {
+		p.spec.auth(httpReq.Header, req.Key)
+	} else {
+		httpReq.Header.Set("Authorization", "Bearer "+req.Key)
+	}
 	return httpReq, nil
 }
 

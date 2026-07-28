@@ -132,6 +132,7 @@ func buildProviderRegistry() map[string]Provider {
 		"moonshot":   newMoonshotProvider(),
 		"openrouter": newOpenRouterProvider(),
 		"ollama":     newOllamaProvider(),
+		"azure":      newAzureProvider(),
 		"custom":     newCustomProvider(),
 		"anselm":     newAnselmProvider(),
 	}
