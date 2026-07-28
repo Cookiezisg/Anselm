@@ -11,6 +11,7 @@ package scenarios
 import (
 	"encoding/base64"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -216,5 +217,98 @@ func TestLiveBYOK_OpenAIImageInput(t *testing.T) {
 	}
 	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || len(got.Raw) != len(liveManagedPNG) {
 		t.Fatalf("uploaded image must survive the BYOK multimodal turn: HTTP %d, %d bytes", got.Status, len(got.Raw))
+	}
+}
+
+// TestLiveHybrid_OpenAIPlansManagedImage proves the product's intended mixed ownership: the user
+// supplies the dialogue model, while Anselm supplies and pays for the generation route. It is a
+// deliberately tiny paid sample: at most two loop steps, with the prompt requiring one image call
+// followed by a final answer. A regression may therefore spend no more than two images before the
+// durable loop stops, rather than silently burning an unbounded allowance.
+func TestLiveHybrid_OpenAIPlansManagedImage(t *testing.T) {
+	if os.Getenv("EVALS_HYBRID") != "1" {
+		t.Skip("set EVALS_HYBRID=1 (and EVALS_MANAGED=1) for the real mixed-route acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_HYBRID=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	wc := liveManagedWorkspace(t, "live-hybrid-openai-managed-image")
+	var keys []struct {
+		ID       string `json:"id"`
+		Provider string `json:"provider"`
+	}
+	wc.GET("/api/v1/api-keys").OK(t, &keys)
+	managedKeyID := ""
+	for _, row := range keys {
+		if row.Provider == "anselm" {
+			managedKeyID = row.ID
+			break
+		}
+	}
+	if managedKeyID == "" {
+		t.Fatal("hybrid generation requires the provisioned managed key")
+	}
+
+	byokKeyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-hybrid", "key": key,
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+byokKeyID+":test", nil).OK(t, nil)
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Tools    bool   `json:"tools"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	toolCapable := false
+	for _, cap := range caps {
+		if cap.APIKeyID == byokKeyID && cap.Provider == "openai" && cap.ModelID == "gpt-4.1-mini" && cap.Tools {
+			toolCapable = true
+			break
+		}
+	}
+	if !toolCapable {
+		t.Fatalf("probed BYOK model must advertise tools before hybrid selection: %+v", caps)
+	}
+	wsID := wc.WorkspaceID()
+	var workspace struct {
+		DefaultImage *struct {
+			APIKeyID string `json:"apiKeyId"`
+			ModelID  string `json:"modelId"`
+		} `json:"defaultImage"`
+	}
+	wc.GET("/api/v1/workspaces/"+wsID).OK(t, &workspace)
+	if workspace.DefaultImage == nil || workspace.DefaultImage.APIKeyID != managedKeyID || workspace.DefaultImage.ModelID == "" {
+		t.Fatalf("hybrid image scenario must remain managed before the BYOK dialogue override: %+v", workspace.DefaultImage)
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": byokKeyID, "modelId": "gpt-4.1-mini"}).OK(t, nil)
+
+	// Two steps allow the required tool call plus its answer, and bound an accidental re-draw loop.
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	conv := convCreate(t, wc, "BYOK plans, Anselm renders")
+	msg := sendMsg(t, wc, conv, "请调用 generate_image **恰好一次**，画一个白底红色圆形。工具成功后只用一句简短中文确认，绝不再次调用任何生成工具。")
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("hybrid image turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	attID := attachmentFrom(t, turn, "generate_image")
+	callCount := 0
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_image"`) {
+			callCount++
+			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+				t.Fatalf("hybrid generation receipt must name the managed provider, got %s", block.Content)
+			}
+		}
+	}
+	if callCount != 1 {
+		t.Fatalf("hybrid turn generated %d images, want exactly one within its bounded budget", callCount)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) {
+		t.Fatalf("managed hybrid artifact must round-trip as an image: HTTP %d, %d bytes", content.Status, len(content.Raw))
 	}
 }
