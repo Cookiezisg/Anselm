@@ -1920,7 +1920,18 @@
       "speechNoRoute": "当前没有能合成语音的 key",
       "scenarioVideo": "视频生成",
       "scenarioVideoDesc": "generate_video 走哪把 key(未设=自动,免费档优先)",
-      "videoNoRoute": "当前没有能生成视频的 key"
+      "videoNoRoute": "当前没有能生成视频的 key",
+      "searchProviders": "搜索供应商",
+      "noProviderMatch": "没有匹配的供应商",
+      "modelCount": "$n 个模型",
+      "unverified": "未验证",
+      "unverifiedHint": "这家直接来自 models.dev 目录。它多半能用，但我们从没试过。",
+      "alreadyConfigured": "已配置",
+      "addKeyCta": "添加密钥",
+      "addKeyNamed": "为 $name 添加密钥",
+      "diagCheckBaseUrl": "鉴权失败也可能是 Base URL 指错了地方——先看那一栏，再去重抄你的 key。",
+      "diagUnverified": "这家我们从没试过。如果你的 key 没错，过错可能在我们这边。",
+      "baseUrlSuspect": "可疑：一个错的地址，答出来的话与一把错的 key 一模一样。"
     },
     "ws": {
       "section": "工作区",

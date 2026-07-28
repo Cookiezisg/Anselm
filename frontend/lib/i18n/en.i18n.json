@@ -1920,7 +1920,18 @@
       "speechNoRoute": "No configured key can synthesize speech",
       "scenarioVideo": "Video generation",
       "scenarioVideoDesc": "Which key generate_video uses (unset = automatic, free tier first)",
-      "videoNoRoute": "No configured key can generate video"
+      "videoNoRoute": "No configured key can generate video",
+      "searchProviders": "Search providers",
+      "noProviderMatch": "No provider matches that",
+      "modelCount": "$n models",
+      "unverified": "Untested",
+      "unverifiedHint": "This provider comes straight from the models.dev catalog. It should work, but nothing here has tried it.",
+      "alreadyConfigured": "Configured",
+      "addKeyCta": "Add key",
+      "addKeyNamed": "Add a key for $name",
+      "diagCheckBaseUrl": "An auth failure can also mean the Base URL points somewhere else — check that field before re-copying your key.",
+      "diagUnverified": "We have never tested this provider. If your key is right, the fault may be on our side.",
+      "baseUrlSuspect": "Suspect: a wrong address answers exactly like a wrong key."
     },
     "ws": {
       "section": "Workspaces",

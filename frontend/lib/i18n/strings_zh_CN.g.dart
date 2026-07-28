@@ -2130,6 +2130,17 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get scenarioVideo => '视频生成';
 	@override String get scenarioVideoDesc => 'generate_video 走哪把 key(未设=自动,免费档优先)';
 	@override String get videoNoRoute => '当前没有能生成视频的 key';
+	@override String get searchProviders => '搜索供应商';
+	@override String get noProviderMatch => '没有匹配的供应商';
+	@override String modelCount({required Object n}) => '${n} 个模型';
+	@override String get unverified => '未验证';
+	@override String get unverifiedHint => '这家直接来自 models.dev 目录。它多半能用，但我们从没试过。';
+	@override String get alreadyConfigured => '已配置';
+	@override String get addKeyCta => '添加密钥';
+	@override String addKeyNamed({required Object name}) => '为 ${name} 添加密钥';
+	@override String get diagCheckBaseUrl => '鉴权失败也可能是 Base URL 指错了地方——先看那一栏，再去重抄你的 key。';
+	@override String get diagUnverified => '这家我们从没试过。如果你的 key 没错，过错可能在我们这边。';
+	@override String get baseUrlSuspect => '可疑：一个错的地址，答出来的话与一把错的 key 一模一样。';
 }
 
 // Path: settings.ws
@@ -4728,6 +4739,17 @@ extension on TranslationsZhCn {
 			'settings.keys.scenarioVideo' => '视频生成',
 			'settings.keys.scenarioVideoDesc' => 'generate_video 走哪把 key(未设=自动,免费档优先)',
 			'settings.keys.videoNoRoute' => '当前没有能生成视频的 key',
+			'settings.keys.searchProviders' => '搜索供应商',
+			'settings.keys.noProviderMatch' => '没有匹配的供应商',
+			'settings.keys.modelCount' => ({required Object n}) => '${n} 个模型',
+			'settings.keys.unverified' => '未验证',
+			'settings.keys.unverifiedHint' => '这家直接来自 models.dev 目录。它多半能用，但我们从没试过。',
+			'settings.keys.alreadyConfigured' => '已配置',
+			'settings.keys.addKeyCta' => '添加密钥',
+			'settings.keys.addKeyNamed' => ({required Object name}) => '为 ${name} 添加密钥',
+			'settings.keys.diagCheckBaseUrl' => '鉴权失败也可能是 Base URL 指错了地方——先看那一栏，再去重抄你的 key。',
+			'settings.keys.diagUnverified' => '这家我们从没试过。如果你的 key 没错，过错可能在我们这边。',
+			'settings.keys.baseUrlSuspect' => '可疑：一个错的地址，答出来的话与一把错的 key 一模一样。',
 			'settings.ws.section' => '工作区',
 			'settings.ws.current' => '当前',
 			'settings.ws.newWorkspace' => '新建工作区',

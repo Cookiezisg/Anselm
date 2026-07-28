@@ -73,6 +73,17 @@ abstract class ProviderMeta with _$ProviderMeta {
     /// **JSON 文件**,而一个写着「API key」的文本框对它是**错的控件**——用户会去找一把在他项目里
     /// 根本不存在的 key。
     @Default('api_key') String credential, // api_key | service_account_json
+    /// How many models the catalog lists for this provider — the one number that separates a
+    /// first-party vendor from an aggregator when 173 cards are laid out at once.
+    ///
+    /// **0 means「we do not know」, not「none」**: the local entries (ollama, custom, mock, the
+    /// search providers) have no catalog inventory at all. Omit the line rather than print a zero.
+    ///
+    /// 目录为这家收录的模型数——173 张卡一次铺开时,把一手厂商与聚合器分开的**就是这个数**。
+    ///
+    /// **0 的意思是「我们不知道」、不是「一个也没有」**:本地条目(ollama / custom / mock / 搜索家)
+    /// 根本没有目录清单。该**不渲那一行**,而不是印一个零。
+    @Default(0) int models,
   }) = _ProviderMeta;
 
   factory ProviderMeta.fromJson(Map<String, dynamic> json) =>

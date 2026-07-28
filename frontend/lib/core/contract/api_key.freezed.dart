@@ -335,7 +335,18 @@ mixin _$ProviderMeta {
 /// 凭证字段**实际装的是什么**。除一家外每家都收一个粘贴的字符串;Vertex 收的是一个服务账号
 /// **JSON 文件**,而一个写着「API key」的文本框对它是**错的控件**——用户会去找一把在他项目里
 /// 根本不存在的 key。
- String get credential;
+ String get credential;// api_key | service_account_json
+/// How many models the catalog lists for this provider — the one number that separates a
+/// first-party vendor from an aggregator when 173 cards are laid out at once.
+///
+/// **0 means「we do not know」, not「none」**: the local entries (ollama, custom, mock, the
+/// search providers) have no catalog inventory at all. Omit the line rather than print a zero.
+///
+/// 目录为这家收录的模型数——173 张卡一次铺开时,把一手厂商与聚合器分开的**就是这个数**。
+///
+/// **0 的意思是「我们不知道」、不是「一个也没有」**:本地条目(ollama / custom / mock / 搜索家)
+/// 根本没有目录清单。该**不渲那一行**,而不是印一个零。
+ int get models;
 /// Create a copy of ProviderMeta
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -348,16 +359,16 @@ $ProviderMetaCopyWith<ProviderMeta> get copyWith => _$ProviderMetaCopyWithImpl<P
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProviderMeta&&(identical(other.name, name) || other.name == name)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.defaultBaseUrl, defaultBaseUrl) || other.defaultBaseUrl == defaultBaseUrl)&&(identical(other.baseUrlRequired, baseUrlRequired) || other.baseUrlRequired == baseUrlRequired)&&(identical(other.managed, managed) || other.managed == managed)&&(identical(other.category, category) || other.category == category)&&(identical(other.curated, curated) || other.curated == curated)&&(identical(other.dialect, dialect) || other.dialect == dialect)&&(identical(other.baseUrlHint, baseUrlHint) || other.baseUrlHint == baseUrlHint)&&(identical(other.credential, credential) || other.credential == credential));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ProviderMeta&&(identical(other.name, name) || other.name == name)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.defaultBaseUrl, defaultBaseUrl) || other.defaultBaseUrl == defaultBaseUrl)&&(identical(other.baseUrlRequired, baseUrlRequired) || other.baseUrlRequired == baseUrlRequired)&&(identical(other.managed, managed) || other.managed == managed)&&(identical(other.category, category) || other.category == category)&&(identical(other.curated, curated) || other.curated == curated)&&(identical(other.dialect, dialect) || other.dialect == dialect)&&(identical(other.baseUrlHint, baseUrlHint) || other.baseUrlHint == baseUrlHint)&&(identical(other.credential, credential) || other.credential == credential)&&(identical(other.models, models) || other.models == models));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,name,displayName,defaultBaseUrl,baseUrlRequired,managed,category,curated,dialect,baseUrlHint,credential);
+int get hashCode => Object.hash(runtimeType,name,displayName,defaultBaseUrl,baseUrlRequired,managed,category,curated,dialect,baseUrlHint,credential,models);
 
 @override
 String toString() {
-  return 'ProviderMeta(name: $name, displayName: $displayName, defaultBaseUrl: $defaultBaseUrl, baseUrlRequired: $baseUrlRequired, managed: $managed, category: $category, curated: $curated, dialect: $dialect, baseUrlHint: $baseUrlHint, credential: $credential)';
+  return 'ProviderMeta(name: $name, displayName: $displayName, defaultBaseUrl: $defaultBaseUrl, baseUrlRequired: $baseUrlRequired, managed: $managed, category: $category, curated: $curated, dialect: $dialect, baseUrlHint: $baseUrlHint, credential: $credential, models: $models)';
 }
 
 
@@ -368,7 +379,7 @@ abstract mixin class $ProviderMetaCopyWith<$Res>  {
   factory $ProviderMetaCopyWith(ProviderMeta value, $Res Function(ProviderMeta) _then) = _$ProviderMetaCopyWithImpl;
 @useResult
 $Res call({
- String name, String displayName, String defaultBaseUrl, bool baseUrlRequired, bool managed, String category, bool curated, String dialect, String baseUrlHint, String credential
+ String name, String displayName, String defaultBaseUrl, bool baseUrlRequired, bool managed, String category, bool curated, String dialect, String baseUrlHint, String credential, int models
 });
 
 
@@ -385,7 +396,7 @@ class _$ProviderMetaCopyWithImpl<$Res>
 
 /// Create a copy of ProviderMeta
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? displayName = null,Object? defaultBaseUrl = null,Object? baseUrlRequired = null,Object? managed = null,Object? category = null,Object? curated = null,Object? dialect = null,Object? baseUrlHint = null,Object? credential = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? name = null,Object? displayName = null,Object? defaultBaseUrl = null,Object? baseUrlRequired = null,Object? managed = null,Object? category = null,Object? curated = null,Object? dialect = null,Object? baseUrlHint = null,Object? credential = null,Object? models = null,}) {
   return _then(_self.copyWith(
 name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
@@ -397,7 +408,8 @@ as String,curated: null == curated ? _self.curated : curated // ignore: cast_nul
 as bool,dialect: null == dialect ? _self.dialect : dialect // ignore: cast_nullable_to_non_nullable
 as String,baseUrlHint: null == baseUrlHint ? _self.baseUrlHint : baseUrlHint // ignore: cast_nullable_to_non_nullable
 as String,credential: null == credential ? _self.credential : credential // ignore: cast_nullable_to_non_nullable
-as String,
+as String,models: null == models ? _self.models : models // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 
@@ -482,10 +494,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category,  bool curated,  String dialect,  String baseUrlHint,  String credential)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category,  bool curated,  String dialect,  String baseUrlHint,  String credential,  int models)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ProviderMeta() when $default != null:
-return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category,_that.curated,_that.dialect,_that.baseUrlHint,_that.credential);case _:
+return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category,_that.curated,_that.dialect,_that.baseUrlHint,_that.credential,_that.models);case _:
   return orElse();
 
 }
@@ -503,10 +515,10 @@ return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlR
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category,  bool curated,  String dialect,  String baseUrlHint,  String credential)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category,  bool curated,  String dialect,  String baseUrlHint,  String credential,  int models)  $default,) {final _that = this;
 switch (_that) {
 case _ProviderMeta():
-return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category,_that.curated,_that.dialect,_that.baseUrlHint,_that.credential);case _:
+return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category,_that.curated,_that.dialect,_that.baseUrlHint,_that.credential,_that.models);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -523,10 +535,10 @@ return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlR
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category,  bool curated,  String dialect,  String baseUrlHint,  String credential)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String name,  String displayName,  String defaultBaseUrl,  bool baseUrlRequired,  bool managed,  String category,  bool curated,  String dialect,  String baseUrlHint,  String credential,  int models)?  $default,) {final _that = this;
 switch (_that) {
 case _ProviderMeta() when $default != null:
-return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category,_that.curated,_that.dialect,_that.baseUrlHint,_that.credential);case _:
+return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlRequired,_that.managed,_that.category,_that.curated,_that.dialect,_that.baseUrlHint,_that.credential,_that.models);case _:
   return null;
 
 }
@@ -538,7 +550,7 @@ return $default(_that.name,_that.displayName,_that.defaultBaseUrl,_that.baseUrlR
 @JsonSerializable()
 
 class _ProviderMeta implements ProviderMeta {
-  const _ProviderMeta({required this.name, required this.displayName, this.defaultBaseUrl = '', this.baseUrlRequired = false, this.managed = false, this.category = 'llm', this.curated = true, this.dialect = 'openai-compatible', this.baseUrlHint = '', this.credential = 'api_key'});
+  const _ProviderMeta({required this.name, required this.displayName, this.defaultBaseUrl = '', this.baseUrlRequired = false, this.managed = false, this.category = 'llm', this.curated = true, this.dialect = 'openai-compatible', this.baseUrlHint = '', this.credential = 'api_key', this.models = 0});
   factory _ProviderMeta.fromJson(Map<String, dynamic> json) => _$ProviderMetaFromJson(json);
 
 @override final  String name;
@@ -578,6 +590,18 @@ class _ProviderMeta implements ProviderMeta {
 /// **JSON 文件**,而一个写着「API key」的文本框对它是**错的控件**——用户会去找一把在他项目里
 /// 根本不存在的 key。
 @override@JsonKey() final  String credential;
+// api_key | service_account_json
+/// How many models the catalog lists for this provider — the one number that separates a
+/// first-party vendor from an aggregator when 173 cards are laid out at once.
+///
+/// **0 means「we do not know」, not「none」**: the local entries (ollama, custom, mock, the
+/// search providers) have no catalog inventory at all. Omit the line rather than print a zero.
+///
+/// 目录为这家收录的模型数——173 张卡一次铺开时,把一手厂商与聚合器分开的**就是这个数**。
+///
+/// **0 的意思是「我们不知道」、不是「一个也没有」**:本地条目(ollama / custom / mock / 搜索家)
+/// 根本没有目录清单。该**不渲那一行**,而不是印一个零。
+@override@JsonKey() final  int models;
 
 /// Create a copy of ProviderMeta
 /// with the given fields replaced by the non-null parameter values.
@@ -592,16 +616,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProviderMeta&&(identical(other.name, name) || other.name == name)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.defaultBaseUrl, defaultBaseUrl) || other.defaultBaseUrl == defaultBaseUrl)&&(identical(other.baseUrlRequired, baseUrlRequired) || other.baseUrlRequired == baseUrlRequired)&&(identical(other.managed, managed) || other.managed == managed)&&(identical(other.category, category) || other.category == category)&&(identical(other.curated, curated) || other.curated == curated)&&(identical(other.dialect, dialect) || other.dialect == dialect)&&(identical(other.baseUrlHint, baseUrlHint) || other.baseUrlHint == baseUrlHint)&&(identical(other.credential, credential) || other.credential == credential));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ProviderMeta&&(identical(other.name, name) || other.name == name)&&(identical(other.displayName, displayName) || other.displayName == displayName)&&(identical(other.defaultBaseUrl, defaultBaseUrl) || other.defaultBaseUrl == defaultBaseUrl)&&(identical(other.baseUrlRequired, baseUrlRequired) || other.baseUrlRequired == baseUrlRequired)&&(identical(other.managed, managed) || other.managed == managed)&&(identical(other.category, category) || other.category == category)&&(identical(other.curated, curated) || other.curated == curated)&&(identical(other.dialect, dialect) || other.dialect == dialect)&&(identical(other.baseUrlHint, baseUrlHint) || other.baseUrlHint == baseUrlHint)&&(identical(other.credential, credential) || other.credential == credential)&&(identical(other.models, models) || other.models == models));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,name,displayName,defaultBaseUrl,baseUrlRequired,managed,category,curated,dialect,baseUrlHint,credential);
+int get hashCode => Object.hash(runtimeType,name,displayName,defaultBaseUrl,baseUrlRequired,managed,category,curated,dialect,baseUrlHint,credential,models);
 
 @override
 String toString() {
-  return 'ProviderMeta(name: $name, displayName: $displayName, defaultBaseUrl: $defaultBaseUrl, baseUrlRequired: $baseUrlRequired, managed: $managed, category: $category, curated: $curated, dialect: $dialect, baseUrlHint: $baseUrlHint, credential: $credential)';
+  return 'ProviderMeta(name: $name, displayName: $displayName, defaultBaseUrl: $defaultBaseUrl, baseUrlRequired: $baseUrlRequired, managed: $managed, category: $category, curated: $curated, dialect: $dialect, baseUrlHint: $baseUrlHint, credential: $credential, models: $models)';
 }
 
 
@@ -612,7 +636,7 @@ abstract mixin class _$ProviderMetaCopyWith<$Res> implements $ProviderMetaCopyWi
   factory _$ProviderMetaCopyWith(_ProviderMeta value, $Res Function(_ProviderMeta) _then) = __$ProviderMetaCopyWithImpl;
 @override @useResult
 $Res call({
- String name, String displayName, String defaultBaseUrl, bool baseUrlRequired, bool managed, String category, bool curated, String dialect, String baseUrlHint, String credential
+ String name, String displayName, String defaultBaseUrl, bool baseUrlRequired, bool managed, String category, bool curated, String dialect, String baseUrlHint, String credential, int models
 });
 
 
@@ -629,7 +653,7 @@ class __$ProviderMetaCopyWithImpl<$Res>
 
 /// Create a copy of ProviderMeta
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? displayName = null,Object? defaultBaseUrl = null,Object? baseUrlRequired = null,Object? managed = null,Object? category = null,Object? curated = null,Object? dialect = null,Object? baseUrlHint = null,Object? credential = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? name = null,Object? displayName = null,Object? defaultBaseUrl = null,Object? baseUrlRequired = null,Object? managed = null,Object? category = null,Object? curated = null,Object? dialect = null,Object? baseUrlHint = null,Object? credential = null,Object? models = null,}) {
   return _then(_ProviderMeta(
 name: null == name ? _self.name : name // ignore: cast_nullable_to_non_nullable
 as String,displayName: null == displayName ? _self.displayName : displayName // ignore: cast_nullable_to_non_nullable
@@ -641,7 +665,8 @@ as String,curated: null == curated ? _self.curated : curated // ignore: cast_nul
 as bool,dialect: null == dialect ? _self.dialect : dialect // ignore: cast_nullable_to_non_nullable
 as String,baseUrlHint: null == baseUrlHint ? _self.baseUrlHint : baseUrlHint // ignore: cast_nullable_to_non_nullable
 as String,credential: null == credential ? _self.credential : credential // ignore: cast_nullable_to_non_nullable
-as String,
+as String,models: null == models ? _self.models : models // ignore: cast_nullable_to_non_nullable
+as int,
   ));
 }
 

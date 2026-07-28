@@ -48,6 +48,7 @@ _ProviderMeta _$ProviderMetaFromJson(Map<String, dynamic> json) =>
       dialect: json['dialect'] as String? ?? 'openai-compatible',
       baseUrlHint: json['baseUrlHint'] as String? ?? '',
       credential: json['credential'] as String? ?? 'api_key',
+      models: (json['models'] as num?)?.toInt() ?? 0,
     );
 
 Map<String, dynamic> _$ProviderMetaToJson(_ProviderMeta instance) =>
@@ -62,6 +63,7 @@ Map<String, dynamic> _$ProviderMetaToJson(_ProviderMeta instance) =>
       'dialect': instance.dialect,
       'baseUrlHint': instance.baseUrlHint,
       'credential': instance.credential,
+      'models': instance.models,
     };
 
 _FreetierQuota _$FreetierQuotaFromJson(Map<String, dynamic> json) =>

@@ -105,6 +105,16 @@ type ProviderMeta struct {
 	// Credential names what the key field holds — see [CredentialKind].
 	// Credential 说明 key 字段装的是什么——见 [CredentialKind]。
 	Credential CredentialKind `json:"credential"`
+	// Models is how many models the catalog lists for this provider — the one number that separates
+	// a first-party vendor from an aggregator when 173 cards are laid out at once. It is 0 for the
+	// local entries, which have no catalog inventory (ollama lists whatever the daemon has pulled;
+	// custom is whatever the user pointed at), and 0 there means「we do not know」, not「none」 —
+	// so the UI must omit the line rather than print a zero.
+	//
+	// Models 是目录为这家收录的模型数——173 张卡一次铺开时,把一手厂商与聚合器分开的**就是这个数**。
+	// 本地条目为 0,因为它们没有目录清单(ollama 有的是 daemon 拉过什么、custom 是用户指向了哪);
+	// 那里的 0 意思是**「我们不知道」而不是「一个也没有」**,故 UI 必须**不渲那一行**、而不是印一个零。
+	Models int `json:"models"`
 }
 
 // localProviders are the entries models.dev does NOT describe, and each is absent for a reason
@@ -294,6 +304,7 @@ func catalogMeta(p llminfra.ProviderInfo) ProviderMeta {
 		Curated:         p.Curated,
 		Dialect:         string(p.Dialect),
 		Credential:      credentialFor(p.Dialect),
+		Models:          p.Models,
 	}
 }
 

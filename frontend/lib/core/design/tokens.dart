@@ -302,8 +302,6 @@ abstract final class AnSize {
       380; // extra-wide slot (long-label 3-seg: «streamable-http») 特宽槽(长标签三段)
   static const double numField =
       140; // standalone numeric input (limits values) 独立数字输入
-  static const double providerCell =
-      132; // vendor logo-grid cell (add-key stage 0) 厂家网格格
 
   static const double tabPane =
       480; // settings tab-pane fixed height (mcp/sandbox aligned, 批7 拍板) tab 面板定高

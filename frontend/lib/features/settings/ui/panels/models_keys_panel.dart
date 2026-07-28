@@ -14,10 +14,12 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/model/model_capabilities.dart';
 import '../../../../core/notice/notice_center.dart';
 import '../../../../core/overlay/an_overlay.dart';
+import '../../../../core/ui/an_auto_grid.dart';
 import '../../../../core/ui/an_brand_icon.dart';
 import '../../../../core/ui/an_card.dart';
 import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_form_field.dart';
+import '../../../../core/ui/an_hover_region.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_dropdown.dart';
 import '../../../../core/ui/an_input.dart';
@@ -473,6 +475,8 @@ class _KeyFormState extends ConsumerState<KeyForm> {
   final _baseUrl = TextEditingController();
   String _apiFormat = 'openai-compatible';
   String? _error;
+  String _errorCode = '';
+  int _errorStatus = 0;
   bool _saving = false;
 
   @override
@@ -511,11 +515,45 @@ class _KeyFormState extends ConsumerState<KeyForm> {
     super.dispose();
   }
 
+  /// Which KIND of failure the last attempt was — three kinds, and telling them apart is the whole
+  /// point (WRK-085 §7):
+  ///
+  ///   - **the key is wrong** — the ordinary case, and the backend's own message already says it;
+  ///   - **we have never tried this provider** (`curated == false`) — reached by the mechanical
+  ///     `npm` → dialect mapping out of models.dev. It probably works. But if it does not, the fault
+  ///     may well be ours, and letting the user re-copy a correct key three times while we say
+  ///     nothing is the dishonest option;
+  ///   - **the address is wrong** — indistinguishable from a bad key at the wire (a base URL that
+  ///     points somewhere real but wrong answers 401 exactly like a bad key does). Whenever the base
+  ///     URL is one the USER supplied, an auth failure must point at that field too.
+  ///
+  /// 上一次尝试是**哪一种**失败——三种,而把它们分开正是全部要点(WRK-085 §7):
+  ///
+  ///   - **key 不对**——寻常情形,后端自己的消息已经说了;
+  ///   - **这家我们没试过**(`curated == false`)——靠 models.dev 的机械 `npm` → 方言映射抵达。它
+  ///     **多半能用**。但万一不能,过错很可能在我们这边,而让用户在我们一声不吭的情况下把一把**正确的**
+  ///     key 重抄三遍,是那个不诚实的选项;
+  ///   - **地址不对**——在线缆上与「key 不对」**无法区分**(一个指向真实但错误的地方的 base URL,
+  ///     答的 401 与一把坏 key 一模一样)。凡 base URL 是**用户自己填的**,鉴权失败就必须**同时指向那一栏**。
+  bool get _looksLikeAuth =>
+      _errorStatus == 401 ||
+      _errorStatus == 403 ||
+      _errorCode == 'API_KEY_TEST_FAILED' ||
+      _errorCode.contains('AUTH');
+
+  bool _blameBaseUrl(ProviderMeta? meta) =>
+      _error != null &&
+      _looksLikeAuth &&
+      (meta?.baseUrlRequired ?? false) &&
+      _baseUrl.text.trim().isNotEmpty;
+
   Future<void> _save() async {
     if (_saving) return;
     setState(() {
       _saving = true;
       _error = null;
+      _errorCode = '';
+      _errorStatus = 0;
     });
     final keys = ref.read(apiKeysProvider.notifier);
     try {
@@ -540,9 +578,21 @@ class _KeyFormState extends ConsumerState<KeyForm> {
       await keys.test(_boundId!);
       if (mounted) ref.read(settingsDetailProvider.notifier).pop();
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      // The code and status are kept so the form can say WHICH KIND of failure this is. The backend's
+      // own message is never replaced — it may be the only true sentence we have.
+      // 存下 code 与 status,好让表单能说清这是**哪一种**失败。后端自己的消息**绝不替换**——它可能是
+      // 我们手上唯一一句真话。
+      setState(() {
+        _error = e.message;
+        _errorCode = e.code;
+        _errorStatus = e.httpStatus;
+      });
     } catch (e) {
-      setState(() => _error = '$e');
+      setState(() {
+        _error = '$e';
+        _errorCode = '';
+        _errorStatus = 0;
+      });
     } finally {
       if (mounted) setState(() => _saving = false);
     }
@@ -562,58 +612,14 @@ class _KeyFormState extends ConsumerState<KeyForm> {
     final meta = providers.where((p) => p.name == _provider).firstOrNull;
     final editing = widget.editingId != null;
 
-    // ADD stage 0 — the vendor logo grid: pick the provider by its mark, then the form. 添加第 0
-    // 段:厂家 logo 网格,按牌选商再进表单。
+    // ADD stage 0 — the provider market. 添加第 0 段:供应商市场。
     if (!editing && _provider.isEmpty) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            t.settings.keys.pickProvider,
-            style: AnText.label.copyWith(color: c.inkMuted),
-          ),
-          const SizedBox(height: AnSpace.s12),
-          Wrap(
-            spacing: AnSpace.s8,
-            runSpacing: AnSpace.s8,
-            children: [
-              for (final p in providers)
-                SizedBox(
-                  width: AnSize.providerCell,
-                  child: AnCard(
-                    selectable: true,
-                    onSelect: () => setState(() {
-                      _provider = p.name;
-                      if (_baseUrl.text.isEmpty) {
-                        _baseUrl.text = p.defaultBaseUrl;
-                      }
-                    }),
-                    child: Column(
-                      children: [
-                        brandIconOr(
-                          kProviderBrand[p.name],
-                          fallbackLabel: p.displayName,
-                        ),
-                        const SizedBox(height: AnSpace.s6),
-                        Text(
-                          p.displayName,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          textAlign: TextAlign.center,
-                          style: AnText.label.copyWith(color: c.ink),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(height: AnSpace.s16),
-          AnButton(
-            label: t.settings.keys.cancel,
-            onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
-          ),
-        ],
+      return _ProviderMarket(
+        providers: providers,
+        onPick: (p) => setState(() {
+          _provider = p.name;
+          if (_baseUrl.text.isEmpty) _baseUrl.text = p.defaultBaseUrl;
+        }),
       );
     }
 
@@ -701,13 +707,19 @@ class _KeyFormState extends ConsumerState<KeyForm> {
               // A catalog TEMPLATE outranks the generic「required」note: it says WHERE the account
               // name goes, which is the only thing the user is actually missing.
               // 目录**模板**压过那句笼统的「必填」:它说的是**账号名填在哪**,而那正是用户唯一缺的东西。
-              desc: (meta?.baseUrlHint.isNotEmpty ?? false)
-                  ? t.settings.keys.baseUrlTemplateHint(
-                      shape: meta!.baseUrlHint,
-                    )
-                  : ((meta?.baseUrlRequired ?? false)
-                        ? t.settings.keys.baseUrlRequiredHint
-                        : null),
+              // An auth failure on a user-supplied address outranks both hints: at that moment the
+              // most useful sentence on the form is「it might be this field, not your key」.
+              // 用户自填地址上的鉴权失败**压过**两条提示:那一刻表单上最有用的一句话是
+              // 「可能是这一栏、不是你的 key」。
+              desc: _blameBaseUrl(meta)
+                  ? t.settings.keys.baseUrlSuspect
+                  : ((meta?.baseUrlHint.isNotEmpty ?? false)
+                        ? t.settings.keys.baseUrlTemplateHint(
+                            shape: meta!.baseUrlHint,
+                          )
+                        : ((meta?.baseUrlRequired ?? false)
+                              ? t.settings.keys.baseUrlRequiredHint
+                              : null)),
               child: AnInput(controller: _baseUrl, block: true, mono: true),
             ),
           ],
@@ -731,7 +743,7 @@ class _KeyFormState extends ConsumerState<KeyForm> {
               ),
             ),
           ],
-          if (_error != null)
+          if (_error != null) ...[
             Padding(
               // Match the other settings forms' inline-error idiom (label + s8), not meta + s12. 与其余设置表一致。
               padding: const EdgeInsets.only(top: AnSpace.s8),
@@ -740,6 +752,27 @@ class _KeyFormState extends ConsumerState<KeyForm> {
                 style: AnText.label.copyWith(color: c.danger),
               ),
             ),
+            // The second line names the KIND. Never replaces the backend's own sentence above it —
+            // this one is our guess, that one is what actually happened.
+            // 第二行给出**种类**。绝不替换上面那句后端自己的话——这一句是我们的**猜测**,那一句是
+            // **真正发生的事**。
+            if (_blameBaseUrl(meta))
+              Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s4),
+                child: Text(
+                  t.settings.keys.diagCheckBaseUrl,
+                  style: AnText.meta.copyWith(color: c.warn),
+                ),
+              )
+            else if (!(meta?.curated ?? true))
+              Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s4),
+                child: Text(
+                  t.settings.keys.diagUnverified,
+                  style: AnText.meta.copyWith(color: c.warn),
+                ),
+              ),
+          ],
           const SizedBox(height: AnSpace.s16),
           Row(
             children: [
@@ -2015,6 +2048,226 @@ class _ServiceAccountFieldState extends State<_ServiceAccountField> {
           ],
         ),
       ],
+    );
+  }
+}
+
+/// The provider market — the WHOLE catalog laid out by default, search is a filter and never a gate.
+/// Same grammar as [McpMarket] (`mcp_forms.dart`), deliberately: two-column [AnAutoGrid] of brand
+/// cards, an autofocus search that narrows, an [AnState] empty face, hover/focus-revealed CTA, whole
+/// card taps through.
+///
+/// **The old face was a `Wrap` of logo tiles with no search.** That was right for ten providers and
+/// is unusable for 173: the ones that sort first are aggregators (NanoGPT ~600 models, Kilo ~350),
+/// so a first-party vendor is buried below the fold. A user configuring BYOK already has one company
+/// in mind — they are not browsing — which is why the search box is the answer and grouping is not:
+/// a grouping is itself a table someone has to maintain.
+///
+/// 供应商市场——**整个目录默认全铺**,搜索只是过滤、绝不是门。文法与 [McpMarket](`mcp_forms.dart`)
+/// **刻意相同**:双列 [AnAutoGrid] 品牌卡、autofocus 搜索逐渐收窄、[AnState] 空脸、hover/focus 揭示
+/// CTA、整卡点击进表单。
+///
+/// **旧脸是一个没有搜索的 logo `Wrap`。** 十家时它是对的,173 家时它不能用:排在前面的是聚合器
+/// (NanoGPT 约 600 模型、Kilo 约 350),一手厂商被压到屏幕之外。来配 BYOK 的用户**心里已经有一家了**
+/// ——他不是来浏览的——所以答案是搜索框、而不是分组:**分组本身就是一张要人维护的表**。
+class _ProviderMarket extends ConsumerStatefulWidget {
+  const _ProviderMarket({required this.providers, required this.onPick});
+
+  final List<ProviderMeta> providers;
+  final void Function(ProviderMeta) onPick;
+
+  @override
+  ConsumerState<_ProviderMarket> createState() => _ProviderMarketState();
+}
+
+class _ProviderMarketState extends ConsumerState<_ProviderMarket> {
+  String _query = '';
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    final q = _query.toLowerCase();
+    // Match the id too, not just the display name: someone who knows `togetherai` should not have to
+    // guess that we render it「Together AI」. 也匹配 id、不只显示名:知道 `togetherai` 的人不该还要
+    // 猜我们把它渲成「Together AI」。
+    final rows = widget.providers
+        .where(
+          (p) =>
+              q.isEmpty ||
+              p.displayName.toLowerCase().contains(q) ||
+              p.name.toLowerCase().contains(q),
+        )
+        .toList();
+    // The rows that already have a key wear the「已配置」face instead of a CTA.
+    // 已经有 key 的那些家戴「已配置」脸、不给 CTA。
+    final configured = {
+      for (final k in ref.watch(apiKeysProvider).value ?? const <ApiKey>[])
+        k.provider,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          t.settings.keys.pickProvider,
+          style: AnText.label.copyWith(color: c.inkMuted),
+        ),
+        const SizedBox(height: AnSpace.s8),
+        AnInput(
+          placeholder: t.settings.keys.searchProviders,
+          autofocus: true,
+          onChanged: (v) => setState(() => _query = v.trim()),
+        ),
+        const SizedBox(height: AnSpace.s12),
+        AnAutoGrid(
+          minColWidth: AnSize.block,
+          children: [
+            for (final p in rows)
+              _ProviderCard(
+                key: ValueKey(p.name),
+                meta: p,
+                configured: configured.contains(p.name),
+                onPick: () => widget.onPick(p),
+              ),
+          ],
+        ),
+        if (rows.isEmpty)
+          AnState(
+            kind: AnStateKind.empty,
+            size: AnStateSize.inset,
+            title: t.settings.keys.noProviderMatch,
+          ),
+        const SizedBox(height: AnSpace.s16),
+        Row(
+          children: [
+            AnButton(
+              label: t.settings.keys.cancel,
+              onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+/// One provider card. Carries the two facts that matter when 173 of these are on screen at once:
+/// **how many models** (the only thing separating a first-party vendor from an aggregator) and
+/// **whether anything here vouches for it** — `curated=false` means we reached it by the mechanical
+/// `npm` → dialect mapping and never tried it, and the user deserves to know that BEFORE a failure,
+/// not as an excuse afterwards.
+///
+/// 一张供应商卡。带着 173 张同时在屏时**真正要紧的两个事实**:**有多少模型**(把一手厂商与聚合器
+/// 分开的唯一东西)与**这里有没有为它背书**——`curated=false` 意思是我们靠机械的 `npm` → 方言映射
+/// 抵达它、从没试过,而用户有权在**失败之前**知道这件事,而不是把它当事后的托辞。
+class _ProviderCard extends StatefulWidget {
+  const _ProviderCard({
+    required this.meta,
+    required this.configured,
+    required this.onPick,
+    super.key,
+  });
+
+  final ProviderMeta meta;
+  final bool configured;
+  final VoidCallback onPick;
+
+  @override
+  State<_ProviderCard> createState() => _ProviderCardState();
+}
+
+class _ProviderCardState extends State<_ProviderCard> {
+  bool _hovered = false;
+  bool _focusWithin = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    final p = widget.meta;
+    final reveal = _hovered || _focusWithin;
+    return Focus(
+      canRequestFocus: false,
+      skipTraversal: true,
+      onFocusChange: (has) => setState(() => _focusWithin = has),
+      child: AnHoverRegion(
+        onEnter: (_) => setState(() => _hovered = true),
+        onExit: (_) => setState(() => _hovered = false),
+        child: AnCard(
+          selectable: true,
+          onSelect: widget.onPick,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  brandIconOr(
+                    kProviderBrand[p.name],
+                    fallbackLabel: p.displayName,
+                    size: AnBrandSize.sm,
+                  ),
+                  const SizedBox(width: AnSpace.s8),
+                  Expanded(
+                    child: Text(
+                      p.displayName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: AnText.body.copyWith(color: c.ink),
+                    ),
+                  ),
+                  const SizedBox(width: AnSpace.s8),
+                  _trailing(t, reveal),
+                ],
+              ),
+              // `models == 0` means「no catalog inventory」(ollama, custom, the search providers),
+              // NOT「zero models」 — printing a zero would be a fact we do not have.
+              // `models == 0` 的意思是**「没有目录清单」**(ollama / custom / 搜索家),**不是**「零个
+              // 模型」——印一个零等于印一个我们**并不掌握**的事实。
+              if (p.models > 0) ...[
+                const SizedBox(height: AnSpace.s6),
+                Text(
+                  t.settings.keys.modelCount(n: p.models),
+                  style: AnText.meta.copyWith(color: c.inkMuted),
+                ),
+              ],
+              if (!p.curated) ...[
+                const SizedBox(height: AnSpace.s6),
+                AnChip(
+                  t.settings.keys.unverified,
+                  tone: AnTone.warn,
+                  tooltip: t.settings.keys.unverifiedHint,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Reveal-gated CTA, laid out at rest so nothing reflows on hover and inert when hidden so a rest
+  /// click falls through to the whole-card tap — the [McpMarket] `_MarketCard` trick verbatim.
+  /// 揭示门控 CTA:闲时也占位(hover 不重排)、隐时惰化(静止点击透传给整卡)——逐字照抄
+  /// [McpMarket] 的 `_MarketCard`。
+  Widget _trailing(Translations t, bool reveal) {
+    if (widget.configured) {
+      return AnChip(t.settings.keys.alreadyConfigured, tone: AnTone.ok);
+    }
+    return IgnorePointer(
+      ignoring: !reveal,
+      child: Opacity(
+        opacity: reveal ? 1 : 0,
+        child: AnButton(
+          label: t.settings.keys.addKeyCta,
+          variant: AnButtonVariant.primary,
+          size: AnButtonSize.sm,
+          semanticLabel: t.settings.keys.addKeyNamed(
+            name: widget.meta.displayName,
+          ),
+          onPressed: widget.onPick,
+        ),
+      ),
     );
   }
 }

@@ -5229,6 +5229,39 @@ class Translations$settings$keys$en {
 
 	/// en: 'No configured key can generate video'
 	String get videoNoRoute => 'No configured key can generate video';
+
+	/// en: 'Search providers'
+	String get searchProviders => 'Search providers';
+
+	/// en: 'No provider matches that'
+	String get noProviderMatch => 'No provider matches that';
+
+	/// en: '$n models'
+	String modelCount({required Object n}) => '${n} models';
+
+	/// en: 'Untested'
+	String get unverified => 'Untested';
+
+	/// en: 'This provider comes straight from the models.dev catalog. It should work, but nothing here has tried it.'
+	String get unverifiedHint => 'This provider comes straight from the models.dev catalog. It should work, but nothing here has tried it.';
+
+	/// en: 'Configured'
+	String get alreadyConfigured => 'Configured';
+
+	/// en: 'Add key'
+	String get addKeyCta => 'Add key';
+
+	/// en: 'Add a key for $name'
+	String addKeyNamed({required Object name}) => 'Add a key for ${name}';
+
+	/// en: 'An auth failure can also mean the Base URL points somewhere else — check that field before re-copying your key.'
+	String get diagCheckBaseUrl => 'An auth failure can also mean the Base URL points somewhere else — check that field before re-copying your key.';
+
+	/// en: 'We have never tested this provider. If your key is right, the fault may be on our side.'
+	String get diagUnverified => 'We have never tested this provider. If your key is right, the fault may be on our side.';
+
+	/// en: 'Suspect: a wrong address answers exactly like a wrong key.'
+	String get baseUrlSuspect => 'Suspect: a wrong address answers exactly like a wrong key.';
 }
 
 // Path: settings.ws
@@ -8813,6 +8846,17 @@ extension on Translations {
 			'settings.keys.scenarioVideo' => 'Video generation',
 			'settings.keys.scenarioVideoDesc' => 'Which key generate_video uses (unset = automatic, free tier first)',
 			'settings.keys.videoNoRoute' => 'No configured key can generate video',
+			'settings.keys.searchProviders' => 'Search providers',
+			'settings.keys.noProviderMatch' => 'No provider matches that',
+			'settings.keys.modelCount' => ({required Object n}) => '${n} models',
+			'settings.keys.unverified' => 'Untested',
+			'settings.keys.unverifiedHint' => 'This provider comes straight from the models.dev catalog. It should work, but nothing here has tried it.',
+			'settings.keys.alreadyConfigured' => 'Configured',
+			'settings.keys.addKeyCta' => 'Add key',
+			'settings.keys.addKeyNamed' => ({required Object name}) => 'Add a key for ${name}',
+			'settings.keys.diagCheckBaseUrl' => 'An auth failure can also mean the Base URL points somewhere else — check that field before re-copying your key.',
+			'settings.keys.diagUnverified' => 'We have never tested this provider. If your key is right, the fault may be on our side.',
+			'settings.keys.baseUrlSuspect' => 'Suspect: a wrong address answers exactly like a wrong key.',
 			'settings.ws.section' => 'Workspaces',
 			'settings.ws.current' => 'Current',
 			'settings.ws.newWorkspace' => 'New workspace',
