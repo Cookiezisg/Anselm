@@ -36,6 +36,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-019 | backend 在 handler 媒体调用进行中硬崩溃并重启后，boot sweep 会把 chat 回合对账为 `cancelled`，废弃调用没有晚到附件行 | crash recovery / handler media cleanup | `TestChatCrash_HandlerArtifactLeavesNoOrphan`：真实在途 call_handler、SSE 边界、Kill9→Restart、durable cancelled 状态、SQLite attachment count 不变 | 当前提交 |
 | 2026-07-29 | EVO-020 | attachment 的 image preparation 是真实异步、可恢复的用户侧车：有效 PNG 从 queued/processing 到 ready 并暴露 proxy 尺寸；不可解码 image 仍先保留原件、再诚实进入 failed，可 cancel 为 cancelled、retry 后重新失败；非 image 明确为 not_required | attachment / media worker / preparation API | `TestAttachmentPreparation_ManagedImageLifecycle`：真实 HTTP upload→GET 轮询、派生元数据、坏图 failed→cancelled→retry、原件逐字节回读、text not_required | 当前提交 |
 | 2026-07-29 | EVO-021 | media cache 超过机器级预算时不会静默丢原件：boot GC 清理派生 CAS、把 ready 行标成 `MEDIA_ARTIFACT_EVICTED` 且可 retry；同一 source/transform identity 可在重启后重新生成 | media cache / boot GC / resource hygiene | `TestAttachmentPreparation_MediaBudgetEvictsAndRegenerates`：真实 `/limits` 设 1MB、>1MB JPEG proxy、Restart、sidecar eviction/error、media CAS 文件清理、原件逐字节回读、retry ready | 当前提交 |
+| 2026-07-29 | EVO-022 | `inspect_media` 对 audio/video 当前诚实地只返回本地 metadata capsule：保留 attachment id、kind、mime、size 与 start/end intent，明确写出不含 transcript；下一次模型请求只收到 JSON evidence，原始媒体字节不会泄漏 | attachment tool / temporal media read | `TestInspectMedia_AudioVideoMetadataCapsule`：真实 HTTP upload、lazy `search_tools`、两次 inspect_media、llmmock tool-message JSON 与 raw-byte negative assertion | 当前提交 |
 
 ## 追加格式
 
