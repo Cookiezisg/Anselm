@@ -85,6 +85,47 @@ func TestHandler_ArtifactPerCallProduct(t *testing.T) {
 	}
 }
 
+// TestHandler_ArtifactReachesVisionModel proves the handler producer's EXPAND branch through chat:
+// the lazy call_handler tool invokes a resident method, its MediaRef is fed back, and the next
+// vision-capable request carries the exact PNG bytes. This is model-wire evidence, not a text reply.
+//
+// TestHandler_ArtifactReachesVisionModel 经 chat 证明 handler 产地的展开分支：懒加载 call_handler 调驻留
+// 方法，MediaRef 回喂后，下一次具备视觉能力的请求携带原始 PNG 字节。证据来自模型线缆，而不是文案。
+func TestHandler_ArtifactReachesVisionModel(t *testing.T) {
+	t.Parallel()
+	wc, mock := chatSetup(t, false)
+	pngB64 := base64.StdEncoding.EncodeToString(tinyPNG)
+	hdID := hdCreate(t, wc, "chat_artifact_keeper", map[string]any{
+		"methods": []map[string]any{{
+			"name": "plot", "inputs": []any{},
+			"body": "import base64, os\nraw = base64.b64decode('" + pngB64 + "')\nopen(os.path.join(os.environ['ANSELM_OUT'], 'plot.png'), 'wb').write(raw)\nreturn {'chart': {'$media': 'plot.png'}}",
+		}},
+	})
+	mock.Enqueue(dlgModel,
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "search_tools", Args: fw(map[string]any{"query": "chat_artifact_keeper"})}}},
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "call_handler", Args: fw(map[string]any{
+			"handlerId": hdID, "method": "plot", "args": map[string]any{},
+		})}}},
+		harness.LLMTurn{Text: "收到 handler 图片"},
+	)
+	convID := convCreate(t, wc, "handler media wire")
+	mid := sendMsg(t, wc, convID, "搜索 handler 并调用一次 plot，把返回的图片交给我。")
+	turn := waitTurn(t, wc, convID, mid, 30000)
+	if turn.Status != "completed" {
+		t.Fatalf("handler media chat must complete, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	attID := attachmentFrom(t, turn, "handler_artifact")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) || string(content.Raw) != string(tinyPNG) {
+		t.Fatalf("handler artifact must round-trip through chat: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+
+	dumps := mock.WaitDumps(t, dlgModel, 3, 10000)
+	if !dumps[2].HasImagePart(base64.StdEncoding.EncodeToString(tinyPNG)) {
+		t.Fatalf("handler artifact never reached the next model request as exact image bytes: %+v", dumps)
+	}
+}
+
 // TestHandler_ResidentLifecycleAndCalls: A2 核心——首调 spawn、状态保持（常驻的灵魂）、
 // 调用台账 logs、restart 重置状态。
 func TestHandler_ResidentLifecycleAndCalls(t *testing.T) {

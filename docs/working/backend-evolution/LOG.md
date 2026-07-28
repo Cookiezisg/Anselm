@@ -30,6 +30,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-013 | function 与驻留 handler 的声明式二进制产物都能经共享 `mediaartifact` collector 落为一等附件；handler 连续调用各自拿到不同 receipt，来源与附件字节均保真，且不需 provider key | function / handler artifact producer | `TestFunction_ArtifactProduct`、`TestHandler_ArtifactPerCallProduct`：真实 HTTP、有效 PNG、连续运行/调用、receipt source、附件逐字节回读 | 当前提交 |
 | 2026-07-29 | EVO-014 | MCP stdio server 的 image content 会经 `mcp_media` receipt 进入同一附件库，并在下一轮视觉对话请求中以原始 base64 `image_url` 送达；模型文案不是证据，抓包字节与附件回读一致才算通过 | MCP producer / chat media expansion | `TestMCP_ArtifactReachesVisionModel`：真实 Python JSON-RPC server、64×64 PNG、receipt、附件回读、llmmock 线缆 exact-byte 断言、chat 触发台账 | 当前提交 |
 | 2026-07-29 | EVO-015 | workflow 可把 function 产物的 MediaRef 从上游 agent 节点的终答交给下游 agent；下游请求包含与附件库逐字节一致的原始 image part，且不需要受管生成或 provider key | workflow / agent-to-agent media | `TestWorkflowMedia_FunctionArtifactToVisionAgent`：真实 function sandbox、flowrun 节点结果、附件回读、第三个模型请求 exact-byte 断言 | 当前提交 |
+| 2026-07-29 | EVO-016 | 驻留 handler 的二进制产物也能经 chat 的 lazy `call_handler` 进入视觉消费咽喉；第三次模型请求携带与附件库一致的 PNG，而不是 receipt/占位文本 | handler producer / chat media expansion | `TestHandler_ArtifactReachesVisionModel`：真实 handler sandbox、call_handler 工具、handler_artifact receipt、附件逐字节回读、llmmock 第三请求 exact-byte 断言 | 当前提交 |
 
 ## 追加格式
 
