@@ -59,7 +59,12 @@ type (
 
 type toolAccum struct {
 	id, name string
-	args     strings.Builder
+	// signature is an opaque provider-issued function-call signature. Gemini 3 requires
+	// this value on the exact functionCall part when the tool result is sent back.
+	// signature 是 provider 颁发的不透明 function-call 签名；Gemini 3 回传 tool result
+	// 时要求它仍在原来的 functionCall part 上。
+	signature string
+	args      strings.Builder
 	// entityName is the resolved display name of the call's primary target entity, stamped once at close
 	// (args are complete only then) so toolCallSnapshot + assembleBlocks can carry it. "" = no nameable
 	// target. entityName 是本次调用主目标实体的解析显示名,关帧时(args 此刻才全)盖一次供快照/落库携带;""=无可命名目标。
@@ -174,6 +179,7 @@ func streamLLM(
 			// finalize 撞 UNIQUE、整回合丢失。provider id 只是响应内关联句柄（accums 本就按 ToolIndex
 			// 键控）；历史回喂用本 id 配对 assistant tool_calls 与 tool 结果，provider 照单全收。
 			a := &toolAccum{id: idgenpkg.New("blk"), name: event.ToolName}
+			a.signature = event.Signature
 			accums[event.ToolIndex] = a
 			em.open(ctx, a.id, msgID, messagesdomain.BlockTypeToolCall,
 				streamdomain.JSONContent(toolCallContent{Name: event.ToolName}))
@@ -326,6 +332,9 @@ func assembleBlocks(text string, reason reasonAccum, accums map[int]*toolAccum) 
 		// tool / summary / danger 落在 block 上，使 DB 重建的历史（replay 淘汰后）保留调用名与
 		// 自报风险，与 live 快照一致。
 		attrs := map[string]any{"tool": a.name}
+		if a.signature != "" {
+			attrs["signature"] = a.signature
+		}
 		if fields.Summary != "" {
 			attrs["summary"] = fields.Summary
 		}

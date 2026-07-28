@@ -115,7 +115,7 @@ func measureRequest(req llminfra.Request) requestFootprint {
 	for _, m := range req.Messages {
 		fp.history += len(m.Role) + len(m.Content) + len(m.ReasoningContent) + len(m.ReasoningSignature) + 32
 		for _, tc := range m.ToolCalls {
-			fp.history += len(tc.ID) + len(tc.Name) + len(tc.Arguments) + 24
+			fp.history += len(tc.ID) + len(tc.Name) + len(tc.Arguments) + len(tc.Signature) + 24
 		}
 		for _, p := range m.Parts {
 			switch p.Type {

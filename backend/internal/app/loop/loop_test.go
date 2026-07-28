@@ -590,7 +590,7 @@ func TestStreamLLM_AssemblesBlocksAndDanger(t *testing.T) {
 	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
 		llminfra.StreamEvent{Type: llminfra.EventReasoning, Delta: "thinking"},
 		textEv("answer"),
-		toolStartEv(0, "tc_1", "writer"),
+		llminfra.StreamEvent{Type: llminfra.EventToolStart, ToolIndex: 0, ToolID: "tc_1", ToolName: "writer", Signature: "sig-call"},
 		toolDeltaEv(0, `{"summary":"writing","danger":"dangerous","path":"/x"}`),
 		finishEv(),
 	}}}
@@ -618,7 +618,7 @@ func TestStreamLLM_AssemblesBlocksAndDanger(t *testing.T) {
 			toolCallBlk = &blocks[i]
 		}
 	}
-	if toolCallBlk == nil || toolCallBlk.Attrs["danger"] != "dangerous" {
+	if toolCallBlk == nil || toolCallBlk.Attrs["danger"] != "dangerous" || toolCallBlk.Attrs["signature"] != "sig-call" {
 		t.Fatalf("tool_call block missing danger attr: %+v", blocks)
 	}
 }
@@ -629,7 +629,7 @@ func TestBlocksToAssistantLLM(t *testing.T) {
 	blocks := []messagesdomain.Block{
 		{Type: messagesdomain.BlockTypeReasoning, Content: "hmm", Attrs: map[string]any{"signature": "sig1"}},
 		{Type: messagesdomain.BlockTypeText, Content: "hi"},
-		{ID: "tc_1", Type: messagesdomain.BlockTypeToolCall, Content: `{"x":1}`, Attrs: map[string]any{"tool": "echo"}},
+		{ID: "tc_1", Type: messagesdomain.BlockTypeToolCall, Content: `{"x":1}`, Attrs: map[string]any{"tool": "echo", "signature": "sig-call"}},
 		{Type: messagesdomain.BlockTypeToolResult, Content: "out", ParentBlockID: "tc_1"},
 		{Type: messagesdomain.BlockTypeCompaction, Content: "dropme"},
 	}
@@ -641,7 +641,7 @@ func TestBlocksToAssistantLLM(t *testing.T) {
 	if a.Role != llminfra.RoleAssistant || a.Content != "hi" || a.ReasoningContent != "hmm" || a.ReasoningSignature != "sig1" {
 		t.Fatalf("assistant msg wrong: %+v", a)
 	}
-	if len(a.ToolCalls) != 1 || a.ToolCalls[0].Name != "echo" || a.ToolCalls[0].ID != "tc_1" {
+	if len(a.ToolCalls) != 1 || a.ToolCalls[0].Name != "echo" || a.ToolCalls[0].ID != "tc_1" || a.ToolCalls[0].Signature != "sig-call" {
 		t.Fatalf("assistant tool calls wrong: %+v", a.ToolCalls)
 	}
 	if msgs[1].Role != llminfra.RoleTool || msgs[1].Content != "out" || msgs[1].ToolCallID != "tc_1" {

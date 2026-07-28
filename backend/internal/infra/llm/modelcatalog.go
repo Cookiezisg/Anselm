@@ -359,3 +359,19 @@ func catalogSpecs(provider string, spelling knobSpelling) []modelSpec {
 	})
 	return specs
 }
+
+// catalogModel returns the active followed facts for one provider/model pair. Native providers
+// whose live listing omits a capability bit (notably Gemini's function-calling support) use this
+// narrow lookup to retain the catalog fact without replacing the provider's live model inventory.
+//
+// catalogModel 返回活动目录中一对 provider/model 的事实。某些原生 provider 的 live listing 会省略
+// 能力位（尤其是 Gemini 的 function-calling），这些 provider 用这个窄查询保留目录事实，同时不以
+// 静态目录替换 provider 自己的 live 模型清单。
+func catalogModel(provider, modelID string) (CatalogModel, bool) {
+	cat := currentCatalog.Load()
+	if cat == nil {
+		return CatalogModel{}, false
+	}
+	models, ok := cat.Providers[catalogKey(provider)].Models[modelID]
+	return models, ok
+}

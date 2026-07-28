@@ -64,6 +64,24 @@ func TestGeminiBuildRequest(t *testing.T) {
 	}
 }
 
+func TestGeminiDescribeModelsPreservesCatalogToolFact(t *testing.T) {
+	raw := `{"models":[{"name":"models/gemini-3-flash-preview","inputTokenLimit":1048576,"outputTokenLimit":65536},{"name":"models/gemini-3-pro-image","inputTokenLimit":65536,"outputTokenLimit":8192}]}`
+	models, err := newGeminiProvider().DescribeModels(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := make(map[string]ModelInfo, len(models))
+	for _, m := range models {
+		got[m.ID] = m
+	}
+	if !got["gemini-3-flash-preview"].Tools {
+		t.Fatalf("gemini-3-flash-preview tools = false, want catalog tools fact true")
+	}
+	if got["gemini-3-pro-image"].Tools {
+		t.Fatalf("gemini-3-pro-image tools = true, want catalog tools fact false")
+	}
+}
+
 // TestGeminiThinkingKnobs drives Gemini's native thinking knobs from Options:
 // thinkingBudget (Gemini-2.5 int: 0 off / -1 dynamic / positive) and thinkingLevel
 // (Gemini-3 enum). Values pass through verbatim; includeThoughts is surfaced unless budget is 0.
@@ -133,11 +151,29 @@ func TestGeminiToolResponseResolvesName(t *testing.T) {
 	}
 }
 
+func TestGeminiFunctionCallThoughtSignatureRoundTrips(t *testing.T) {
+	gr := geminiBody(t, Request{
+		ModelID: "gemini-3-flash-preview",
+		Messages: []LLMMessage{
+			{Role: RoleUser, Content: "q"},
+			{Role: RoleAssistant, ToolCalls: []LLMToolCall{{ID: "c1", Name: "square", Arguments: `{"n":12}`, Signature: "sig-call"}}},
+			{Role: RoleTool, ToolCallID: "c1", Content: `{"square":144}`},
+		},
+	})
+	model := gr.Contents[1]
+	if model.Role != "model" || len(model.Parts) != 1 || model.Parts[0].FunctionCall == nil {
+		t.Fatalf("assistant tool call = %+v", model)
+	}
+	if got := model.Parts[0].ThoughtSignature; got != "sig-call" {
+		t.Fatalf("functionCall thoughtSignature = %q, want sig-call", got)
+	}
+}
+
 func TestGeminiParseStream(t *testing.T) {
 	sse := strings.Join([]string{
 		`data: {"candidates":[{"content":{"parts":[{"text":"Hel"}]}}]}`,
 		`data: {"candidates":[{"content":{"parts":[{"thought":true,"text":"reason"},{"thought":true,"thoughtSignature":"sig9"}]}}]}`,
-		`data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"f","args":{"x":1}}}]}}]}`,
+		`data: {"candidates":[{"content":{"parts":[{"functionCall":{"name":"f","args":{"x":1}},"thoughtSignature":"sig-call"}]}}]}`,
 		`data: {"candidates":[{"content":{"parts":[]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":3,"candidatesTokenCount":2,"thoughtsTokenCount":4}}`,
 	}, "\n\n") + "\n\n"
 
@@ -159,6 +195,9 @@ func TestGeminiParseStream(t *testing.T) {
 			sawToolStart = true
 			if ev.ToolName != "f" {
 				t.Errorf("tool_start = %+v", ev)
+			}
+			if ev.Signature != "sig-call" {
+				t.Errorf("tool_start signature = %q, want sig-call", ev.Signature)
 			}
 		case EventToolDelta:
 			toolArgs = ev.ArgsDelta

@@ -48,8 +48,14 @@ func BlocksToAssistantLLM(blocks []messagesdomain.Block) []llminfra.LLMMessage {
 			assistant.Content = b.Content
 
 		case messagesdomain.BlockTypeToolCall:
+			var signature string
+			if b.Attrs != nil {
+				if sig, ok := b.Attrs["signature"].(string); ok {
+					signature = sig
+				}
+			}
 			assistant.ToolCalls = append(assistant.ToolCalls, llminfra.LLMToolCall{
-				ID: b.ID, Name: blockToolName(b), Arguments: b.Content,
+				ID: b.ID, Name: blockToolName(b), Arguments: b.Content, Signature: signature,
 			})
 
 		case messagesdomain.BlockTypeToolResult:

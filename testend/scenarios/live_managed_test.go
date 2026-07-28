@@ -1086,6 +1086,82 @@ func TestLiveBYOK_GoogleImageInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_GoogleToolContinuation exercises Gemini's native functionCall/functionResponse
+// round-trip through the ordinary chat loop. It is deliberately one tiny deterministic function:
+// the real provider must request it, the sandbox must execute it, and the second model turn must
+// report the returned value.
+func TestLiveBYOK_GoogleToolContinuation(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("GEMINI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires GEMINI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://generativelanguage.googleapis.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-google-tool-continuation"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "google", "displayName": "live-google-byok-tool", "key": key, "baseUrl": rec.URL() + "/v1beta",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gemini-3-flash-preview"}).OK(t, nil)
+	fnCreate(t, wc, "gemini_eval_square", "def gemini_eval_square(n: int) -> dict:\n    return {\"square\": n * n}\n")
+	conv := convCreate(t, wc, "Google BYOK tool continuation")
+	msg := sendMsg(t, wc, conv, "请调用 gemini_eval_square，参数 n=12。不要自己计算；工具返回后报告结果。")
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		for _, call := range rec.Calls() {
+			if strings.Contains(call.Path, "streamGenerateContent") {
+				t.Logf("Google provider request path=%s bytes=%d has_tools=%v has_function_call=%v has_function_response=%v has_thought_signature=%v",
+					call.Path, len(call.Body), bytes.Contains(call.Body, []byte(`"tools"`)),
+					bytes.Contains(call.Body, []byte(`"functionCall"`)), bytes.Contains(call.Body, []byte(`"functionResponse"`)),
+					bytes.Contains(call.Body, []byte(`"thoughtSignature"`)))
+			}
+		}
+		t.Fatalf("Google BYOK tool continuation must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	toolCall, toolResult, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			if strings.Contains(block.Content, "gemini_eval_square") {
+				toolCall = true
+			}
+		case "tool_result":
+			if strings.Contains(block.Content, "gemini_eval_square") || strings.Contains(block.Content, `"square":144`) {
+				toolResult = true
+			}
+		case "text":
+			answer += block.Content
+		}
+	}
+	seenFunctionCall, seenFunctionResponse, seenThoughtSignature := false, false, false
+	streamCalls := 0
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "streamGenerateContent") {
+			continue
+		}
+		streamCalls++
+		seenFunctionCall = seenFunctionCall || bytes.Contains(call.Body, []byte(`"functionCall"`))
+		seenFunctionResponse = seenFunctionResponse || bytes.Contains(call.Body, []byte(`"functionResponse"`))
+		seenThoughtSignature = seenThoughtSignature || bytes.Contains(call.Body, []byte(`"thoughtSignature"`))
+	}
+	if !toolCall || !toolResult || !strings.Contains(answer, "144") || streamCalls < 2 || !seenFunctionCall || !seenFunctionResponse || !seenThoughtSignature {
+		for _, call := range rec.Calls() {
+			t.Logf("Google provider call path=%s bytes=%d body_has_tools=%v body_has_function_call=%v body_has_function_response=%v body_has_thought_signature=%v",
+				call.Path, len(call.Body), bytes.Contains(call.Body, []byte(`"tools"`)), bytes.Contains(call.Body, []byte(`"functionCall"`)),
+				bytes.Contains(call.Body, []byte(`"functionResponse"`)), bytes.Contains(call.Body, []byte(`"thoughtSignature"`)))
+		}
+		t.Fatalf("Google tool continuation lost the call/result/wire round-trip: call=%v result=%v answer=%q streamCalls=%d functionCall=%v functionResponse=%v thoughtSignature=%v blocks=%+v",
+			toolCall, toolResult, answer, streamCalls, seenFunctionCall, seenFunctionResponse, seenThoughtSignature, turn.Blocks)
+	}
+}
+
 // TestLiveHybrid_OpenAIPlansManagedImage proves the product's intended mixed ownership: the user
 // supplies the dialogue model, while Anselm supplies and pays for the generation route. It is a
 // deliberately tiny paid sample: at most two loop steps, with the prompt requiring one image call
