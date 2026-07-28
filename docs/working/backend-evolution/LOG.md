@@ -26,6 +26,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-009 | 混合路径可以让 BYOK 对话模型调度、但由 Anselm 受管路由出图；默认图像场景仍指向 managed key，receipt 标明 `anselm`，一次受限回合只铸一件真实图片 | hybrid / BYOK planner + managed writer | `EVALS_HYBRID=1 EVALS_MANAGED=1` + `OPENAI_API_KEY` 的 `TestLiveHybrid_OpenAIPlansManagedImage`；受管 route、tool receipt、一次调用和产物字节均断言 | 当前提交 |
 | 2026-07-29 | EVO-010 | 默认受管 MP4 输入可走完上传、device-proof staging/lease、部署网关与 durable 对话；规范短片未越过网关发布的 3MiB 解码预算，附件字节保持不变 | managed read / video input | `EVALS_MANAGED=1` 的 `TestLiveManaged_DefaultChatWithVideoAttachment`；SHA 校验 fixture、能力投影、回合终态与附件逐字节回读 | 当前提交 |
 | 2026-07-29 | EVO-011 | 文档 Markdown 中的 `anselm://media/<attachmentId>` 不会停留为 system prompt 的字面字符串：附图经文档扫描后可进入受管媒体消费路径并完成新对话 | managed read / document media reference | `EVALS_MANAGED=1` 的 `TestLiveManaged_DocumentImageReference`；文档挂载、新对话终态与附件逐字节回读 | 当前提交 |
+| 2026-07-29 | EVO-012 | Qwen BYOK 的目录默认 endpoint 与 video 方言可实际接收 MP4：真实 key 的 probe、`qwen3.7-plus` 能力投影、默认模型和附件对话均不借用受管 fallback | BYOK read / Qwen video input | `EVALS_BYOK=1 QWEN_API_KEY=…` 的 `TestLiveBYOK_QwenVideoInput`；harness 默认关闭 gateway，MP4 终态与逐字节回读 | 当前提交 |
 
 ## 追加格式
 

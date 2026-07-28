@@ -130,11 +130,11 @@ func TestLiveManaged_DefaultChatWithImageAttachment(t *testing.T) {
 	}
 }
 
-// managedShortVideoFixture uses the canonical, SHA-verified multimodal fixture rather than a
+// shortVideoFixture uses the canonical, SHA-verified multimodal fixture rather than a
 // made-up ftyp header. A caller may reuse EVALS_FIXTURE_DIR, otherwise this opt-in test materializes
 // the fixture into its own temporary directory; the materializer fails loudly if the pinned source
 // drifts or ffmpeg cannot derive the rest of the fixture set.
-func managedShortVideoFixture(t *testing.T) []byte {
+func shortVideoFixture(t *testing.T) []byte {
 	t.Helper()
 	if dir := strings.TrimSpace(os.Getenv("EVALS_FIXTURE_DIR")); dir != "" {
 		data, err := os.ReadFile(filepath.Join(dir, "short.mp4"))
@@ -194,7 +194,7 @@ func TestLiveManaged_DefaultChatWithVideoAttachment(t *testing.T) {
 		t.Fatalf("managed default must advertise MP4 input before accepting a video attachment: %+v", caps)
 	}
 
-	clip := managedShortVideoFixture(t)
+	clip := shortVideoFixture(t)
 	if !bytes2IsMP4(clip) || len(clip) > 3*1024*1024 {
 		t.Fatalf("managed MP4 fixture must be valid and within the published 3MiB decoded budget: %d bytes", len(clip))
 	}
@@ -331,6 +331,64 @@ func TestLiveBYOK_OpenAIImageInput(t *testing.T) {
 	}
 	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || len(got.Raw) != len(liveManagedPNG) {
 		t.Fatalf("uploaded image must survive the BYOK multimodal turn: HTTP %d, %d bytes", got.Status, len(got.Raw))
+	}
+}
+
+// TestLiveBYOK_QwenVideoInput exercises a second real BYOK behavior class: the catalog-derived
+// Qwen endpoint and dialect must carry a normal MP4 attachment as a video part. The harness keeps
+// its managed gateway closed, so an apparent success cannot be a free-tier fallback.
+func TestLiveBYOK_QwenVideoInput(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("QWEN_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires QWEN_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-qwen-video-input"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "qwen", "displayName": "live-qwen-byok", "key": key,
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Video    bool   `json:"video"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	video := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "qwen" && cap.ModelID == "qwen3.7-plus" && cap.Video {
+			video = true
+			break
+		}
+	}
+	if !video {
+		t.Fatalf("probed Qwen BYOK key must expose qwen3.7-plus video input before selection: %+v", caps)
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "qwen3.7-plus"}).OK(t, nil)
+
+	clip := shortVideoFixture(t)
+	attID := uploadAtt(t, wc, "short.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "BYOK Qwen video input")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认请求已收到。不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("Qwen BYOK video-input chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, clip) {
+		t.Fatalf("uploaded MP4 must survive the Qwen BYOK turn: HTTP %d, %d bytes", content.Status, len(content.Raw))
 	}
 }
 
