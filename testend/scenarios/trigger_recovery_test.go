@@ -87,3 +87,84 @@ func TestTrigger_WebhookFiringSurvivesRestartBeforeDrain(t *testing.T) {
 		t.Fatalf("started firing ledger must stay singular and linked: %+v", rows)
 	}
 }
+
+// TestTrigger_WebhookDuplicateBodyDedupsWithinMinute proves the webhook retry contract that is
+// easy to confuse with workflow overlap: two identical raw bodies in the same minute collapse to
+// one durable firing/run, while a different body creates a second independent execution.
+//
+// TestTrigger_WebhookDuplicateBodyDedupsWithinMinute 证明 webhook 重试契约，避免与 workflow overlap
+// 混淆：同一分钟两次相同 raw body 折成一条 durable firing/run；body 不同才产生第二次独立执行。
+func TestTrigger_WebhookDuplicateBodyDedupsWithinMinute(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "webhook-dedup-retry"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+	secret := "dedup-webhook-secret"
+	trgID := trgCreate(t, wc, "dedup_hook", "webhook", map[string]any{
+		"path": "dedup-inbound", "secret": secret,
+	})
+	wfID, _ := wfWithTrigger(t, wc, "dedup_hook_pipe", trgID)
+	url := srv.BaseURL + "/api/v1/webhooks/" + trgID + "/dedup-inbound"
+	hdr := map[string]string{"X-Webhook-Secret": secret}
+
+	// Network retry: same raw body twice. Both HTTP calls are accepted, but the second must hit the
+	// body-hash + minute-bucket unique key and not mint another workflow run.
+	// 网络重试：相同 raw body 两次。两次 HTTP 都可接受，但第二次必须命中 body-hash+分钟桶唯一键，不得新建 run。
+	body := `{"event":"retry-same"}`
+	if st := workflowC_rawPost(t, url, body, hdr); st < 200 || st >= 300 {
+		t.Fatalf("first webhook retry probe must be accepted, got %d", st)
+	}
+	if st := workflowC_rawPost(t, url, body, hdr); st < 200 || st >= 300 {
+		t.Fatalf("duplicate webhook retry must be accepted idempotently, got %d", st)
+	}
+	harness.Eventually(t, 30000, "duplicate body collapses to one run", func() bool {
+		rows := listFirings(t, wc, trgID, "limit=50")
+		if len(rows) != 1 || rows[0].Status != "started" {
+			return false
+		}
+		var runs []struct {
+			Status    string `json:"status"`
+			Origin    string `json:"origin"`
+			TriggerID string `json:"triggerId"`
+		}
+		r := wc.GET("/api/v1/flowruns?workflowId=" + wfID)
+		if r.Status != 200 || json.Unmarshal(r.Data, &runs) != nil || len(runs) != 1 {
+			return false
+		}
+		return runs[0].Status == "completed" && runs[0].Origin == "webhook" && runs[0].TriggerID == trgID
+	})
+
+	// Different payloads are not retries of the same event and must produce a second firing/run.
+	// body 不同不是同一事件的重试，必须产生第二条 firing/run。
+	if st := workflowC_rawPost(t, url, `{"event":"retry-different"}`, hdr); st < 200 || st >= 300 {
+		t.Fatalf("different webhook body must be accepted, got %d", st)
+	}
+	harness.Eventually(t, 30000, "different body produces a second run", func() bool {
+		rows := listFirings(t, wc, trgID, "limit=50")
+		if len(rows) != 2 {
+			return false
+		}
+		seenFiringIDs := map[string]bool{}
+		for _, row := range rows {
+			if row.Status != "started" || seenFiringIDs[row.ID] {
+				return false
+			}
+			seenFiringIDs[row.ID] = true
+		}
+		var runs []struct {
+			Status string `json:"status"`
+			Origin string `json:"origin"`
+		}
+		r := wc.GET("/api/v1/flowruns?workflowId=" + wfID)
+		if r.Status != 200 || json.Unmarshal(r.Data, &runs) != nil || len(runs) != 2 {
+			return false
+		}
+		for _, run := range runs {
+			if run.Status != "completed" || run.Origin != "webhook" {
+				return false
+			}
+		}
+		return true
+	})
+}
