@@ -409,6 +409,23 @@ func TestRun_StreamError_EmptyErrFillsActionableMsg(t *testing.T) {
 	}
 }
 
+func TestRun_StreamError_PreservesModelNotFoundCode(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{errorEv(fmt.Errorf("%w (404)", llminfra.ErrModelNotFound))}}}
+	host := &fakeHost{history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "hi"}}}
+
+	res := Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+
+	if host.fin.status != messagesdomain.StatusError || host.fin.errCode != "LLM_MODEL_NOT_FOUND" {
+		t.Fatalf("status=%q errCode=%q, want error/LLM_MODEL_NOT_FOUND", host.fin.status, host.fin.errCode)
+	}
+	if !strings.Contains(host.fin.errMsg, "model not found") {
+		t.Fatalf("errMsg=%q, want the classified model-not-found cause", host.fin.errMsg)
+	}
+	if res.ErrCode != "LLM_MODEL_NOT_FOUND" || res.ErrMsg != host.fin.errMsg {
+		t.Fatalf("Result must carry the classified terminal cause; got code=%q msg=%q", res.ErrCode, res.ErrMsg)
+	}
+}
+
 func TestRun_LoadHistoryError(t *testing.T) {
 	host := &errHistoryHost{}
 	client := &fakeClient{}

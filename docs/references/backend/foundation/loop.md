@@ -34,4 +34,4 @@ audience: [human, ai]
 
 ## 3. 契约（引用）
 
-无表无端点。回合级错误码（MAX_STEPS_REACHED / TOOL_ERROR_STORM / CONTEXT_INPUT_TOO_LARGE / LLM_STREAM_ERROR；LoadHistory 失败走通用 INTERNAL_ERROR）落 message.error_code（与 HTTP wire code 两个命名空间，见 [chat.md](../domains/chat.md)#6）。StopReason 词表仍兼容 end_turn / max_tokens / max_steps / context_budget / cancelled / error；新上下文引擎不再主动产 `context_budget` 软停。ToolProgress（ctx 注入的进度 writer）是工具流 progress 块的唯一通道。
+无表无端点。回合级错误码（MAX_STEPS_REACHED / TOOL_ERROR_STORM / CONTEXT_INPUT_TOO_LARGE / LLM_STREAM_ERROR / **LLM_MODEL_NOT_FOUND**；LoadHistory 失败走通用 INTERNAL_ERROR）落 message.error_code（与 HTTP wire code 两个命名空间，见 [chat.md](../domains/chat.md)#6）。`LLM_MODEL_NOT_FOUND` 保留 transport 对 404 的稳定分类：目录仍列出但当前账号不可生成的模型只发一次、不进入重试，前端可提供重选模型入口；未分类的断流仍使用 `LLM_STREAM_ERROR`。StopReason 词表仍兼容 end_turn / max_tokens / max_steps / context_budget / cancelled / error；新上下文引擎不再主动产 `context_budget` 软停。ToolProgress（ctx 注入的进度 writer）是工具流 progress 块的唯一通道。

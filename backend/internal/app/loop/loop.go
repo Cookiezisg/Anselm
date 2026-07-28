@@ -12,6 +12,7 @@ package loop
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"go.uber.org/zap"
@@ -29,6 +30,25 @@ import (
 // maxConsecutiveAllFailTurns 限定连续多少轮全员失败后熔断（TOOL_ERROR_STORM）。3 是给 LLM 自纠
 // 机会的最小值；burn-in 撞过 LLM 连建 4 个废 handler 才放弃，此熔断早停类似漂移。
 const maxConsecutiveAllFailTurns = 3
+
+// streamErrorCode preserves the stable LLM error category when the provider transport has
+// already classified the failure. A model can remain visible in a provider's catalog while the
+// current account is unable to generate with it; collapsing that fact into LLM_STREAM_ERROR makes
+// the durable turn indistinguishable from a transient stream break and leaves the client without
+// the right recovery affordance. Unknown failures keep the historical generic code.
+//
+// streamErrorCode 保留 provider transport 已经判定的稳定 LLM 错误类别。模型可能仍出现在 provider
+// 目录里、但当前账号已无法用它生成；把这个事实压成 LLM_STREAM_ERROR 会让持久回合无法与瞬时流断
+// 区分，客户端也拿不到正确的恢复入口。未知错误继续使用历史通用码。
+func streamErrorCode(err error) string {
+	if llminfra.IsContextLengthError(err) {
+		return "CONTEXT_INPUT_TOO_LARGE"
+	}
+	if errors.Is(err, llminfra.ErrModelNotFound) {
+		return "LLM_MODEL_NOT_FOUND"
+	}
+	return "LLM_STREAM_ERROR"
+}
 
 // Host is the per-run hook surface: the loop asks it for the starting history and the
 // current tool set, and hands it the terminal write. Block persistence is the host's job —
@@ -282,12 +302,11 @@ func Run(
 			status := messagesdomain.StatusCancelled
 			if stopReason == messagesdomain.StopReasonError {
 				status = messagesdomain.StatusError
-				errCode = "LLM_STREAM_ERROR"
+				errCode = streamErrorCode(streamErr)
 				if streamErr != nil {
 					errMsg = streamErr.Error()
 				}
-				if llminfra.IsContextLengthError(streamErr) {
-					errCode = "CONTEXT_INPUT_TOO_LARGE"
+				if errCode == "CONTEXT_INPUT_TOO_LARGE" {
 					errMsg = "the current indivisible input still exceeds the model context after automatic compaction; reduce or split the newest attachment/content and retry"
 				}
 				// A provider can end the stream with stopReason=error yet an empty message (e.g. a
