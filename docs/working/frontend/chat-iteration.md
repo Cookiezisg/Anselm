@@ -27,9 +27,9 @@ landed-into:
 >
 > **真机已验(0725 深夜,用户机器)**:⓪ @ 提及全链(面板→检索→插药丸,嫌疑②③ 就此排除)· app 在真后端下起停、四海洋可达 · 附件三入口与图片/HEIC/音频回合 · 麦克风全状态机。这一夜的真机跑还**反向抓出五个真缺陷**(受管 install 死结、媒体上游运输形态、WS `Hijacker`、SSE 关停并发修改、两处可诊断性缺口),各自已修并配反证过的回归测试——**这正是「代码门禁全绿 ≠ 产品可用」的实证**。
 >
-> **本册仍未归档**,因为归档闸是「真机验收过一遍」,而余下的是一批**只有人能判的视觉观感项**:WD1/WD3 的驻地按钮与护栏截图 · ES 批 `fieldList` 空表那行「Inputs —」是否读作重复 · RI 做法#3(窄窗下 transcript 跨重排是否仍有可感漂移)· TS 装饰性元数据(时间戳/计数)是否该退出选区 · 驻地按钮在极长目录名下的截断。**全部已收拢进** `docs/working/app-hardening/ACCEPTANCE-GUIDE.md` 的 C 类(C4/C5),那里是唯一待办清单。
+> WRK-083 的人工验收清单已由用户裁定不再追踪，并归档至 [`archive/app-hardening/ACCEPTANCE-GUIDE.md`](../../archive/app-hardening/ACCEPTANCE-GUIDE.md)。它不再构成本册的归档闸。
 >
-> 归档条件:C 类观感项过一遍且无新工单 → `status: landed` + 填 `landed-into` + 移 `docs/archive/`。
+> 本册其余归档处置另行决定；不得再以 WRK-083 的 C 类项目阻塞。
 
 # WRK-077 · Chat 迭代:驻地(可选工作目录)+ 会话操作补全
 

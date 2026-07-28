@@ -142,7 +142,12 @@ func TestCreate_Validation(t *testing.T) {
 	}{
 		{"unknown provider", CreateInput{Provider: "nope", Key: "k"}, apikeydomain.ErrInvalidProvider},
 		{"empty key", CreateInput{Provider: "openai", Key: "  "}, apikeydomain.ErrKeyRequired},
-		{"ollama needs baseURL", CreateInput{Provider: "ollama", Key: "k"}, apikeydomain.ErrBaseURLRequired},
+		// Ollama used to be the example here; H12-f gave it the standard local port as a prefill, so the
+		// rule needs a provider whose address is genuinely per-user. GitLab Duo is one: the base is the
+		// customer's own instance URL, and no table can hold it.
+		// 这里的例子原本是 ollama;H12-f 给了它标准本地端口作预填,故这条规则要换一个**地址真的逐用户**
+		// 的家。GitLab Duo 就是:base 是客户自己的实例 URL,没有任何表装得下它。
+		{"a per-instance provider needs baseURL", CreateInput{Provider: "gitlab", Key: "k"}, apikeydomain.ErrBaseURLRequired},
 		{"custom needs apiFormat", CreateInput{Provider: "custom", Key: "k", BaseURL: "http://x"}, apikeydomain.ErrAPIFormatRequired},
 	}
 	for _, c := range cases {

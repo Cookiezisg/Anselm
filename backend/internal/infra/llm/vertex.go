@@ -101,17 +101,37 @@ func vertexChatURL(req Request) string {
 		"/locations/" + url.PathEscape(location) + "/endpoints/openapi/chat/completions"
 }
 
-// vertexLocationFromBase reads the region out of `{region}-aiplatform.googleapis.com`, and answers
-// "global" for the region-less host — Google's own name for that endpoint, not an invention.
+// vertexLocationFromBase reads the region back out of the host. Google has THREE host shapes, and
+// they are not guesses — `@ai-sdk/google-vertex` derives them in exactly this order (read from the
+// published bundle, H12-f):
 //
-// vertexLocationFromBase 从 `{region}-aiplatform.googleapis.com` 里读区域;对**没有区域**的那个主机名
-// 答 "global"——那是 Google 自己给那个端点起的名字、不是我们编的。
+//	region === "global"        → aiplatform.googleapis.com
+//	region === "eu" | "us"     → aiplatform.{region}.rep.googleapis.com   (data-residency endpoints)
+//	otherwise                  → {region}-aiplatform.googleapis.com
+//
+// The middle case is why this function is not a one-liner: `aiplatform.eu.rep.googleapis.com` has no
+// `-aiplatform.` in it, so a parser that only knows the third shape silently answers "global" and
+// builds a URL for the wrong location — a 404 that reads like「这个模型不存在」.
+//
+// vertexLocationFromBase 从主机名把区域**读回来**。Google 有**三种**主机形状,而这不是猜的——
+// `@ai-sdk/google-vertex` 就是按上面这个顺序派生的(H12-f 从已发布的包里读出)。
+//
+// 中间那一种正是本函数不是一行的原因:`aiplatform.eu.rep.googleapis.com` 里**没有** `-aiplatform.`,
+// 故一个只认识第三种形状的解析器会**静默地**答 "global"、去为**错误的 location** 拼 URL——换来一个
+// 读起来像「这个模型不存在」的 404。
 func vertexLocationFromBase(base string) string {
 	u, err := url.Parse(base)
 	if err != nil || u.Host == "" {
 		return "global"
 	}
 	host, _, _ := strings.Cut(u.Host, ":")
+	if region, ok := strings.CutPrefix(host, "aiplatform."); ok {
+		region, rest, found := strings.Cut(region, ".rep.")
+		if found && rest != "" && region != "" {
+			return region
+		}
+		return "global"
+	}
 	region, rest, found := strings.Cut(host, "-aiplatform.")
 	if !found || rest == "" || region == "" {
 		return "global"

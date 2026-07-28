@@ -158,6 +158,37 @@ Azure 与 Vertex **都不是新的 ParseStream**——它们各自只填 `compat
 **不是同一个 base**;venice 是 `api/v1`;gitlab / sap 的 base **因实例而异**,归用户填 ——
 后两家因此**留在未验证**(`Curated=false`),UI 会说「这家我们没试过」。
 
+### 4.2 base URL 三层兜底(H12-f)
+
+目录 `api`(149 家) → `knownBaseURLs` 预填 → `knownBaseURLHints` 形状 → 空着要用户填。
+
+`knownBaseURLs` 的每一行都是**从已发布的 SDK 包源码里读出来的**:
+
+```
+curl https://cdn.jsdelivr.net/npm/<pkg>/dist/index.mjs
+grep 'baseURL = withoutTrailingSlash(options.baseURL) ?? "…"'
+```
+
+**凭记忆写不算证据。** 一个记错的 URL 会以「你的 key 无效」的形态失败,而那句话是**假的**——
+用户会跑去重抄一把本来就没错的 key。读源码当场逮到两个反直觉的事实:
+
+| 家 | 我以为 | 包里真正写的 |
+|---|---|---|
+| perplexity | `https://api.perplexity.ai/v1` | `https://api.perplexity.ai`(**没有 `/v1`**) |
+| deepinfra | `https://api.deepinfra.com/v1` | `https://api.deepinfra.com/v1/openai`(`/v1` 是它的**原生** inference API) |
+
+`knownBaseURLHints` 是**地址真的没法预填**的那些家:azure 的 resource、bedrock 的 region、
+cloudflare gateway 的 account+gateway、vertex 的 region。它们拿到**形状**、仍然必填。
+光一句「必填」**没法照着做**——一个盯着空栏的用户不知道该填的是他自己的 resource 名;模板说了。
+
+顺带修掉两个:**ollama** 拿到 `http://localhost:11434/v1`(它自己文档每个例子都印着的标准端口——
+让用户手打一个刚装好的 daemon 的标准端口,等于要求他知道一个我们已经知道的常量);
+**vertex 的区域解析**补上 `aiplatform.{eu|us}.rep.googleapis.com` 这一形状——
+它里面**没有** `-aiplatform.`,只认第三种形状的解析器会静默答 "global"、去为错误的 location 拼 URL。
+
+收口:**166 家预填 / 10 家给形状 / 5 家纯空**(custom · mock 按定义无址可填;
+gitlab · sap-ai-core 的 base 在客户自己的实例里)。
+
 ---
 
 ## 5. 现状:10 份 ParseStream,其中 8 份重复

@@ -3,6 +3,8 @@ package apikey
 import (
 	"strings"
 	"testing"
+
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 // The provider CATALOG hides the mock fixture outside dev (WRK-062 S-5) while key creation keeps
@@ -140,5 +142,63 @@ func TestProviderMeta_EveryOfferedProviderIsReachable(t *testing.T) {
 	}
 	if !m.BaseURLRequired {
 		t.Error("the bedrock endpoint carries a region, so the user must supply the base URL")
+	}
+}
+
+// TestProviderMeta_HandWrittenURLTablesStayHonest guards the two hand-written maps H12-f added, in
+// the three ways a hand-written table rots:
+//
+//   - a row for a provider the catalog no longer has is DEAD — it will never be read again, and it
+//     reads like a maintained fact;
+//   - a row that duplicates what the catalog already publishes is WORSE than dead: the catalog moves
+//     on and our copy silently wins;
+//   - a hint that is a real address (or a value that is a template) inverts the whole point —
+//     `BaseURLRequired` would come out backwards and the user would be asked for something we have,
+//     or handed a `{region}` to call.
+//
+// TestProviderMeta_HandWrittenURLTablesStayHonest 守住 H12-f 加的两张手写表,按手写表腐烂的三种方式:
+//
+//   - 目录已经没有的那家的行是**死的**——它再也不会被读到,却读起来像一条在维护的事实;
+//   - 与目录**已经公布**的重复的行比死的更糟:目录往前走,而我们的副本静默地赢;
+//   - 一条是真地址的 hint(或一个是模板的值)把整件事**反过来了**——`BaseURLRequired` 会算反,
+//     用户会被要求填一样我们本来就有的东西、或者拿到一个 `{region}` 去调用。
+func TestProviderMeta_HandWrittenURLTablesStayHonest(t *testing.T) {
+	for id, url := range knownBaseURLs {
+		p, ok := llminfra.CatalogProvider(id)
+		if !ok {
+			t.Errorf("knownBaseURLs has %q, which the catalog no longer names", id)
+			continue
+		}
+		if p.BaseURL != "" {
+			t.Errorf("knownBaseURLs duplicates %q — the catalog publishes %q", id, p.BaseURL)
+		}
+		if strings.Contains(url, "{") || strings.Contains(url, "$") {
+			t.Errorf("knownBaseURLs[%q] = %q is a template, not an address", id, url)
+		}
+		if !strings.HasPrefix(url, "https://") {
+			t.Errorf("knownBaseURLs[%q] = %q is not an https URL", id, url)
+		}
+	}
+	for id, hint := range knownBaseURLHints {
+		p, ok := llminfra.CatalogProvider(id)
+		if !ok {
+			t.Errorf("knownBaseURLHints has %q, which the catalog no longer names", id)
+			continue
+		}
+		if p.BaseURL != "" {
+			t.Errorf("knownBaseURLHints duplicates %q — the catalog publishes %q", id, p.BaseURL)
+		}
+		if _, dup := knownBaseURLs[id]; dup {
+			t.Errorf("%q is in BOTH tables — the value wins and the hint is dead", id)
+		}
+		if !strings.Contains(hint, "{") {
+			t.Errorf("knownBaseURLHints[%q] = %q has no placeholder — if it is a real address it belongs in knownBaseURLs", id, hint)
+		}
+		// A hint must still leave the field required — it is a shape, not a value.
+		// hint 必须仍然让那一栏是必填的——它是形状、不是值。
+		m, _ := GetProviderMeta(id)
+		if !m.BaseURLRequired || m.DefaultBaseURL != "" {
+			t.Errorf("%q has a hint but is not asking the user for a value (required=%v default=%q)", id, m.BaseURLRequired, m.DefaultBaseURL)
+		}
 	}
 }

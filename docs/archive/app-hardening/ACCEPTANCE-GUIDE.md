@@ -1,16 +1,18 @@
 ---
 id: WRK-081
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-25
 reviewed: 2026-07-25
 review-due: 2026-10-23
 audience: [human, ai]
-landed-into:
+landed-into: docs/archive/app-hardening/README.md
 ---
 
 # WRK-078 · 真实环境验收指南
+
+> **状态（2026-07-29，归档）**：这是 WRK-083 的历史验收记录；其中未执行的人工、密钥或跨平台项目不再作为当前工作追踪。
 
 > **这一页是「代码完成」与「产品可用」之间的那道桥。** 每一项写清:**跑什么、看到什么算过、花多少钱、
 > 谁能跑**。

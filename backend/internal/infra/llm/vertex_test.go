@@ -58,10 +58,23 @@ func TestVertex_ProjectAndRegionComeFromWhatTheUserAlreadyGaveUs(t *testing.T) {
 	if got != want {
 		t.Errorf("url = %s\nwant %s", got, want)
 	}
-	// The region-less host is Google's own "global" endpoint — that name is theirs, not ours.
-	// 没有区域的那个主机名是 Google 自己的 "global" 端点——那个名字是他们的、不是我们编的。
-	if loc := vertexLocationFromBase("https://aiplatform.googleapis.com"); loc != "global" {
-		t.Errorf("region-less host = %q, want global", loc)
+	// All three host shapes `@ai-sdk/google-vertex` can produce (read from its published bundle,
+	// H12-f). The `.rep.` pair are Google's data-residency endpoints, and they are the ones a parser
+	// that only knows `{region}-aiplatform.` gets SILENTLY wrong: it answers "global" and builds a URL
+	// for the wrong location — a 404 that reads like「这个模型不存在」.
+	// `@ai-sdk/google-vertex` 能产出的**三种**主机形状(H12-f 从它已发布的包里读出)。`.rep.` 那两个是
+	// Google 的数据驻留端点,也正是只认识 `{region}-aiplatform.` 的解析器会**静默搞错**的那两个:
+	// 它会答 "global"、去为错误的 location 拼 URL——换来一个读起来像「这个模型不存在」的 404。
+	for host, want := range map[string]string{
+		"https://aiplatform.googleapis.com":              "global",
+		"https://aiplatform.eu.rep.googleapis.com":       "eu",
+		"https://aiplatform.us.rep.googleapis.com":       "us",
+		"https://us-central1-aiplatform.googleapis.com":  "us-central1",
+		"https://europe-west4-aiplatform.googleapis.com": "europe-west4",
+	} {
+		if loc := vertexLocationFromBase(host); loc != want {
+			t.Errorf("%s → %q, want %q", host, loc, want)
+		}
 	}
 	// An explicit option still wins, for a user whose host and region genuinely differ.
 	// 显式指定仍然优先,给那些主机名与区域确实不同的用户。

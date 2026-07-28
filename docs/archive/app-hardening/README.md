@@ -1,16 +1,18 @@
 ---
 id: WRK-083
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-26
 reviewed: 2026-07-26
 review-due: 2026-10-24
 audience: [human, ai]
-landed-into:
+landed-into: CLAUDE.md, concepts/architecture.md, references/backend/api.md, references/backend/domains/chat.md, references/frontend/architecture.md, references/frontend/contract.md, references/frontend/design-system.md
 ---
 
 # WRK-083 · 真机全面验收与缺陷清零
+
+> **状态（2026-07-29，归档）**：工程验收已于 2026-07-26 收口；其结论已落入上述权威文档，未由 AI 物理执行的人工/真实环境验收保留在同目录的历史指南中，不再构成在研工作。
 
 > **本册的存在理由**:两仓门禁全绿 ≠ 产品可用。WRK-078 收口当晚,门禁全绿之后真机上仍当场
 > 抓到**五条**缺陷(网关内联、install 死结、`Hijacker` 缺转发致所有 WebSocket 裸 500……)。

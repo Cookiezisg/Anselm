@@ -132,7 +132,13 @@ type ProviderMeta struct {
 // 其余一律来自目录。**这张表不得为 models.dev 已经描述的家新增一行**——那正是 H12-c 拆掉的手工表。
 var localProviders = map[string]ProviderMeta{
 	"anselm": {Name: "anselm", DisplayName: "Anselm Free", DefaultBaseURL: "https://api.anselm.website/v1", TestMethod: TestMethodGetModels, Category: CategoryLLM, Managed: true, Curated: true, Dialect: string(llminfra.DialectOpenAICompat), Credential: CredentialAPIKey},
-	"ollama": {Name: "ollama", DisplayName: "Ollama (local)", BaseURLRequired: true, TestMethod: TestMethodOllamaTags, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat), Credential: CredentialAPIKey},
+	// Ollama's port is not a per-user fact — `http://localhost:11434/v1` is what its own docs print in
+	// every example (docs/api/openai-compatibility.mdx). Asking every user to type the standard port of
+	// a daemon they just installed is asking them to know a constant we already know.
+	// Ollama 的端口**不是逐用户的事实**——`http://localhost:11434/v1` 是它自己文档里每个例子都印着的
+	// (docs/api/openai-compatibility.mdx)。让每个用户去手打一个刚装好的 daemon 的**标准端口**,
+	// 等于要求他知道一个我们已经知道的常量。
+	"ollama": {Name: "ollama", DisplayName: "Ollama (local)", DefaultBaseURL: "http://localhost:11434/v1", TestMethod: TestMethodOllamaTags, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat), Credential: CredentialAPIKey},
 	"custom": {Name: "custom", DisplayName: "Custom (OpenAI/Anthropic compatible)", BaseURLRequired: true, TestMethod: TestMethodCustom, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat), Credential: CredentialAPIKey},
 	"mock":   {Name: "mock", DisplayName: "Mock (dev)", TestMethod: TestMethodAlwaysOK, Category: CategoryLLM, Curated: true, Dialect: string(llminfra.DialectOpenAICompat), Credential: CredentialAPIKey},
 
@@ -174,6 +180,64 @@ var knownBaseURLs = map[string]string{
 	"cohere": "https://api.cohere.ai/compatibility/v1",
 	// 来源:https://docs.venice.ai/api-reference/api-spec —— "implements the OpenAI API specification"。
 	"venice": "https://api.venice.ai/api/v1",
+
+	// —— H12-f:以下每一行都是**从已发布的 SDK 包源码里读出来的**默认 baseURL,不是凭记忆写的。
+	// 取法:`curl https://cdn.jsdelivr.net/npm/<pkg>/dist/index.mjs`,再找
+	// `baseURL = withoutTrailingSlash(options.baseURL) ?? "…"` 那一句。凭记忆写下的 URL 会以
+	// 「你的 key 无效」的形态失败,而那句话是**假的**——用户会去重抄一把没错的 key。
+	//
+	// Each row below was READ OUT OF the published SDK bundle, not written from memory. A remembered
+	// URL fails as「your key is invalid」, and that sentence is a LIE — it sends the user to re-copy
+	// a key that was right all along.
+	"groq":          "https://api.groq.com/openai/v1",          // @ai-sdk/groq
+	"xai":           "https://api.x.ai/v1",                     // @ai-sdk/xai
+	"mistral":       "https://api.mistral.ai/v1",               // @ai-sdk/mistral
+	"cerebras":      "https://api.cerebras.ai/v1",              // @ai-sdk/cerebras
+	"togetherai":    "https://api.together.xyz/v1",             // @ai-sdk/togetherai(源码带尾斜杠,此处去掉)
+	"v0":            "https://api.v0.dev/v1",                   // @ai-sdk/vercel
+	"vercel":        "https://ai-gateway.vercel.sh/v3/ai",      // @ai-sdk/gateway
+	"merge-gateway": "https://api-gateway.merge.dev/v1/ai-sdk", // merge-gateway-ai-sdk-provider
+	"aihubmix":      "https://aihubmix.com/v1",                 // @aihubmix/ai-sdk-provider(DEFAULT_BASE_URL + `/v1${path}`)
+
+	// Perplexity has NO `/v1`: the bundle builds `${baseURL}/chat/completions` off a bare host.
+	// Perplexity **没有 `/v1`**:包里是拿裸主机名直接拼 `${baseURL}/chat/completions`。
+	"perplexity": "https://api.perplexity.ai",
+
+	// DeepInfra's OpenAI-compatible surface is a SUBPATH of its own API — the bundle literally does
+	// `baseUrl.replace("/inference", "/openai")` and `${baseURL}/openai${path}`. The `/v1` alone is
+	// DeepInfra's native inference API and speaks a different body.
+	// DeepInfra 的 OpenAI 兼容面是它自己 API 的**子路径**——包里就是
+	// `baseUrl.replace("/inference", "/openai")` 与 `${baseURL}/openai${path}`。光一个 `/v1` 是
+	// DeepInfra 的原生 inference API、讲的是另一种 body。
+	"deepinfra": "https://api.deepinfra.com/v1/openai",
+}
+
+// knownBaseURLHints are the providers whose address genuinely CANNOT be prefilled — the URL contains
+// something only this user knows. They get the SHAPE and are still required to type a real value.
+//
+// The distinction matters because「必填」alone is not actionable: a user staring at an empty Azure
+// base-URL field does not know that what goes there is their own resource name. The template says it.
+//
+// knownBaseURLHints 是**地址真的没法预填**的那些家——URL 里有一样只有这个用户知道的东西。它们拿到
+// **形状**、并且仍然必须填一个真值。
+//
+// 这个区分是要紧的,因为光一句「必填」**没法照着做**:一个盯着空的 Azure base URL 栏的用户,不知道
+// 该填的是**他自己的 resource 名**。模板把这件事说出来。
+var knownBaseURLHints = map[string]string{
+	// @ai-sdk/azure builds from AZURE_RESOURCE_NAME; we take the whole URL instead (azure.go).
+	"azure":                    "https://{resource}.openai.azure.com",
+	"azure-cognitive-services": "https://{resource}.openai.azure.com",
+	// @ai-sdk/amazon-bedrock: `https://bedrock-runtime.${region}.amazonaws.com`; the OpenAI-compatible
+	// surface hangs off `/openai/v1`(H12-d).
+	"amazon-bedrock": "https://bedrock-runtime.{region}.amazonaws.com/openai/v1",
+	// ai-gateway-provider: `https://gateway.ai.cloudflare.com/v1/${accountId}/${gateway}` — the gateway
+	// is a thing the user CREATED, so no默认 exists at all.
+	"cloudflare-ai-gateway": "https://gateway.ai.cloudflare.com/v1/{accountId}/{gateway}",
+	// @ai-sdk/google-vertex derives the host from the region: `${region}-aiplatform.googleapis.com`,
+	// with `aiplatform.googleapis.com` for global and `aiplatform.{eu|us}.rep.googleapis.com` for the
+	// two data-residency endpoints. vertex.go reads the region back OFF this host (vertexLocationFromBase).
+	"google-vertex":           "https://{region}-aiplatform.googleapis.com",
+	"google-vertex-anthropic": "https://{region}-aiplatform.googleapis.com",
 }
 
 // testMethodFor picks how to knock on a provider's door from its dialect — the same fact that
@@ -215,6 +279,9 @@ func catalogMeta(p llminfra.ProviderInfo) ProviderMeta {
 	}
 	if base == "" && hint == "" {
 		base = knownBaseURLs[p.ID]
+		if base == "" {
+			hint = knownBaseURLHints[p.ID]
+		}
 	}
 	return ProviderMeta{
 		Name:            p.ID,
