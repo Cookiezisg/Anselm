@@ -465,6 +465,17 @@ func (m *LLMMock) handleImages(w http.ResponseWriter, r *http.Request) {
 // 理由通过(或因错误的理由失败)。
 var MockWAV = buildMockWAV(240) // 240 samples ≈ 10ms
 
+// MockOpenAIWAV is a provider-compliant two-second silence fixture for the real OpenAI audio
+// acceptance. The tiny MockWAV is intentionally ideal for local artifact tests, but the live
+// OpenAI endpoint rejects that tiny WAV payload before model execution; keeping the fixtures
+// separate prevents a zero-cost unit helper from making a real-provider test fail for the wrong
+// reason.
+//
+// MockOpenAIWAV 是真实 OpenAI 音频验收用的、符合供应商要求的两秒静音样本。极小的 MockWAV 刻意服务
+// 本地产物测试，但 live OpenAI endpoint 会在模型执行前拒绝这份过小 WAV；分开两份 fixture，避免零成本
+// 单测 helper 让真实供应商测试因错误理由失败。
+var MockOpenAIWAV = buildMockWAV(48_000) // 2 seconds at 24 kHz
+
 func buildMockWAV(samples int) []byte {
 	pcm := make([]byte, samples*2)
 	out := make([]byte, 44, 44+len(pcm))

@@ -1190,7 +1190,7 @@ func TestLiveBYOK_OpenAIAudioInput(t *testing.T) {
 	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
 		map[string]any{"apiKeyId": keyID, "modelId": model}).OK(t, nil)
 
-	attID := uploadAtt(t, wc, "input.wav", "audio/wav", harness.MockWAV)
+	attID := uploadAtt(t, wc, "input.wav", "audio/wav", harness.MockOpenAIWAV)
 	conv := convCreate(t, wc, "OpenAI BYOK audio input")
 	msg := sendWith(t, wc, conv, map[string]any{
 		"content":       "请简短确认收到了音频。不要调用工具。",
@@ -1200,10 +1200,10 @@ func TestLiveBYOK_OpenAIAudioInput(t *testing.T) {
 	if turn.Status != "completed" {
 		t.Fatalf("OpenAI BYOK audio-input chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
 	}
-	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || !bytes.Equal(got.Raw, harness.MockWAV) {
+	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || !bytes.Equal(got.Raw, harness.MockOpenAIWAV) {
 		t.Fatalf("uploaded WAV must survive the OpenAI BYOK audio turn: HTTP %d, %d bytes", got.Status, len(got.Raw))
 	}
-	encoded := base64.StdEncoding.EncodeToString(harness.MockWAV)
+	encoded := base64.StdEncoding.EncodeToString(harness.MockOpenAIWAV)
 	wireAudio, wireEncoded := false, false
 	for _, call := range rec.Calls() {
 		if !strings.Contains(call.Path, "/chat/completions") {
