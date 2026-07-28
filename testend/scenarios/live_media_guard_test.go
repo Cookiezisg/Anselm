@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"bytes"
 	"encoding/base64"
 	"testing"
 )
@@ -117,5 +118,72 @@ func TestLiveMedia_SpendLedgerRecordsRealMoney(t *testing.T) {
 	// 价目表认识 qwen 的图像模型,故这里为 0 意味着估算根本没跑——面板会为**真花掉的钱**显示破折号。
 	if r.EstPUSD <= 0 {
 		t.Fatalf("est = %d, want a non-zero estimate for a priced model", r.EstPUSD)
+	}
+}
+
+// TestLiveMedia_EditImageRoundTrip is H9's acceptance for the X→X path, on real money. It proves
+// the thing no unit test can: that an attachment WE hold becomes an input the upstream accepts, and
+// that what comes back is a DIFFERENT picture — not the source echoed, not a fresh generation
+// ignoring the source.
+//
+// The chain is deliberately two paid calls: generate, then edit the result. That is the shape the
+// feature exists for ("change the one you just made"), and it is the only way to have a source
+// attachment that certainly exists in this workspace.
+//
+// TestLiveMedia_EditImageRoundTrip 是 X→X 路径的 H9 验收,真钱。它证明单测证不了的那件事:**我们持有的**
+// 一个附件成为上游接受的输入,且回来的是一张**不同的**图——不是源图回显、也不是无视源图的一次新生成。
+//
+// 链条刻意是**两次付费调用**:先生成、再改那个结果。那正是本功能存在的形态(「改你刚做的那张」),
+// 也是唯一能保证源附件确实存在于本 workspace 的办法。
+func TestLiveMedia_EditImageRoundTrip(t *testing.T) {
+	t.Parallel()
+	wc, rec, _ := liveQwen(t, "live-edit")
+
+	convID := convCreate(t, wc, "改图验收")
+	mid := sendMsg(t, wc, convID,
+		"先画一座**白天**的红色灯塔,然后用 edit_image 把它改成夜景。两步都做完再回答。")
+	turn := waitTurn(t, wc, convID, mid, 300000)
+	if turn.Status != "completed" && turn.ErrorCode != "MAX_STEPS_REACHED" {
+		traceModel(t, rec)
+		t.Fatalf("turn must finish, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+
+	// Two artifacts with two DIFFERENT producers — the receipts' own `source` is what tells them
+	// apart, and an edit that quietly ran as a generation would fail right here.
+	// 两件产物、两个**不同的**产地——receipt 自己的 `source` 正是区分它们的东西,而一次悄悄以「生成」
+	// 跑掉的改图会恰好死在这里。
+	genID := attachmentFrom(t, turn, "generate_image")
+	editID := attachmentFrom(t, turn, "edit_image")
+	if genID == editID {
+		t.Fatal("the edit returned the source attachment — nothing was edited")
+	}
+
+	gen := wc.DoRaw("GET", "/api/v1/attachments/"+genID+"/content", "", nil)
+	edited := wc.DoRaw("GET", "/api/v1/attachments/"+editID+"/content", "", nil)
+	if edited.Status != 200 || !bytes2IsImage(edited.Raw) {
+		t.Fatalf("the edited artifact must be a real image: HTTP %d, %d bytes", edited.Status, len(edited.Raw))
+	}
+	if bytes.Equal(gen.Raw, edited.Raw) {
+		t.Fatal("the edited image is byte-identical to its source — the upstream ignored the edit")
+	}
+
+	// The spend ledger books the edit on the IMAGE allowance: an artifact is one picture however it
+	// was made. Two paid image calls in this turn, so two rows' worth of units.
+	// 支出台账把改图记在**图的额度**上:不管怎么做出来的,产物就是一张图。本回合两次付费出图,故用量为二。
+	var spend struct {
+		Rows []struct {
+			Category string `json:"category"`
+			Units    int64  `json:"units"`
+		} `json:"rows"`
+	}
+	wc.GET("/api/v1/spend").OK(t, &spend)
+	var images int64
+	for _, r := range spend.Rows {
+		if r.Category == "image" {
+			images += r.Units
+		}
+	}
+	if images != 2 {
+		t.Fatalf("image units = %d, want 2 (one generate + one edit)", images)
 	}
 }
