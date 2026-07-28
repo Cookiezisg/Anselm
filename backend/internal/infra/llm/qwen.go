@@ -154,8 +154,8 @@ func emitQwenChunk(chunk qwenChunk, state *qwenToolState, yield func(StreamEvent
 				return false
 			}
 		}
-		if tc.Function.Arguments != "" {
-			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: idx, ArgsDelta: tc.Function.Arguments}) {
+		if d := state.args.delta(idx, tc.Function.Arguments); d != "" {
+			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: idx, ArgsDelta: d}) {
 				return false
 			}
 		}
@@ -324,10 +324,13 @@ type qwenToolState struct {
 	nameSent     map[int]bool
 	idToIdx      map[string]int
 	nextSynthIdx int
+	// args normalizes incremental vs cumulative tool arguments — see toolargs.go.
+	// args 归一「增量 vs 累积」的工具参数——见 toolargs.go。
+	args *toolArgs
 }
 
 func newQwenToolState() *qwenToolState {
-	return &qwenToolState{nameSent: map[int]bool{}, idToIdx: map[string]int{}}
+	return &qwenToolState{nameSent: map[int]bool{}, idToIdx: map[string]int{}, args: newToolArgs()}
 }
 
 func (s *qwenToolState) resolveIndex(tc qwenToolCallDelta) int {

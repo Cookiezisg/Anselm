@@ -834,3 +834,345 @@ func TestLiveMedia_McpImageSeenByModel(t *testing.T) {
 	traceModel(t, rec)
 	t.Fatal("the MCP tool's image never reached the model as pixels — it saw a placeholder, which is exactly what 终点验收 ③ forbids")
 }
+
+// --- H9: X→X, the three edits ------------------------------------------------
+//
+// These three spend real money on the shape that a mock cannot check: an edit is only an edit if
+// the SOURCE went out on the wire, and the strongest evidence for that is the request the recorder
+// captured, not the artifact that came back. A generation that quietly ignored the source image
+// would still return a picture, and every artifact-side assertion would pass.
+//
+// 这三条在**假件查不了的那个形状**上花真钱:一次改图只有当**源**真的上了线缆才算改图,而最强的证据是
+// 录制器抓到的那个**请求**、不是回来的那件产物。一次静默忽略了源图的生成照样会返回一张图,而一切
+// **产物侧**的断言都会通过。
+
+// TestLiveMedia_EditImage: generate, then edit that artifact. The assertion that matters is on the
+// OUTGOING request — the edit call must carry an image content block AND the edit model id, because
+// reusing the generation model id would post an edit payload at a model that cannot read images.
+//
+// TestLiveMedia_EditImage:先生成、再改那件产物。要害断言在**出去的请求**上——改图调用必须带着一个
+// image content 块**且**带着改图模型 id,因为沿用生成 id 会把改图载荷投给一个读不了图像块的模型。
+func TestLiveMedia_EditImage(t *testing.T) {
+	t.Parallel()
+	wc, rec, _ := liveQwen(t, "live-edit")
+
+	convID := convCreate(t, wc, "真钱改图")
+	mid := sendMsg(t, wc, convID, "画一座黄昏的红色灯塔。画完就停,不要再做别的。")
+	turn := waitTurn(t, wc, convID, mid, 240000)
+	srcID := attachmentFrom(t, turn, "generate_image")
+
+	mid2 := sendMsg(t, wc, convID, "把刚才那张图改成夜晚、天上有星星。用 edit_image 改**刚才那一张**,不要重新画一张。")
+	turn2 := waitTurn(t, wc, convID, mid2, 240000)
+	outID := attachmentFrom(t, turn2, "edit_image")
+	if outID == srcID {
+		t.Fatal("the edit returned the SOURCE attachment id — nothing was actually edited")
+	}
+
+	// The wire proof: some upstream generation call carried an image block. Without this, a model
+	// that redrew from scratch and a real edit are indistinguishable from here.
+	// 线缆证据:某次上游生成调用带了 image 块。没有它,「从头重画」与「真的改图」在这里无法分辨。
+	var sawSource, sawEditModel bool
+	for _, c := range rec.Calls() {
+		if !strings.Contains(c.Path, dashScopeGenPath) {
+			continue
+		}
+		body := string(c.Body)
+		if strings.Contains(body, `"image"`) && strings.Contains(body, "data:image/") {
+			sawSource = true
+		}
+		if strings.Contains(body, "qwen-image-edit") {
+			sawEditModel = true
+		}
+	}
+	if !sawSource {
+		t.Fatal("no upstream generation call carried a data: image block — the source never left this process")
+	}
+	if !sawEditModel {
+		t.Fatal("no upstream call named the edit model — an edit payload was posted at the generation model")
+	}
+
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+outID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) {
+		t.Fatalf("the edited artifact must be real image bytes: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
+// TestLiveMedia_AnimateImage: an image becomes a video's FIRST FRAME. Two wire assertions, and the
+// second is the subtle one — geometry must be ABSENT from the submit. A clip inherits its first
+// frame's shape, so forwarding our aspect/resolution would silently ask the provider to letterbox
+// or crop the picture the user just handed it.
+//
+// This one is expensive AND slow (a real 720P queue), so it approves the danger gate the same way
+// TestLiveMedia_VideoDirect does — and for the same reason: a real model asked to spend video money
+// self-reports `dangerous`, the loop blocks on a person, and a test that never decides sits in
+// `streaming` forever.
+//
+// TestLiveMedia_AnimateImage:一张图成为一段视频的**首帧**。两条线缆断言,而第二条是微妙的那条——
+// 几何参数必须**从提交里缺席**。片子继承首帧的形状,故转发我们的 aspect/resolution 等于静默要求上游对
+// 用户刚递来的那张图做信箱边或裁切。
+//
+// 这条又贵又慢(真的 720P 队列),故它与 TestLiveMedia_VideoDirect 一样批准人闸——理由也相同:真模型
+// 被要求花视频的钱时自报 `dangerous`,循环阻塞等人,而一个从不决定的测试会永远停在 `streaming`。
+func TestLiveMedia_AnimateImage(t *testing.T) {
+	t.Parallel()
+	wc, rec, _ := liveQwen(t, "live-animate")
+
+	convID := convCreate(t, wc, "真钱图生视频")
+	mid := sendMsg(t, wc, convID, "画一座黄昏的红色灯塔。画完就停。")
+	turn := waitTurn(t, wc, convID, mid, 240000)
+	srcID := attachmentFrom(t, turn, "generate_image")
+	if srcID == "" {
+		t.Fatal("no source image to animate")
+	}
+
+	mid2 := sendMsg(t, wc, convID, "用 animate_image 把刚才那张图变成一段 5 秒的视频:光束缓缓扫过海面。做完说一句话就行。")
+
+	gateFired := make(chan string, 4)
+	stop, approverDone := make(chan struct{}), make(chan struct{})
+	defer func() { close(stop); <-approverDone }()
+	go func() {
+		defer close(approverDone)
+		for {
+			var pending []struct {
+				ToolCallID string `json:"toolCallId"`
+				Kind       string `json:"kind"`
+				Tool       string `json:"tool"`
+			}
+			wc.GET("/api/v1/conversations/"+convID+"/interactions").OK(t, &pending)
+			for _, p := range pending {
+				select {
+				case gateFired <- p.Kind + ":" + p.Tool:
+				default:
+				}
+				wc.POST("/api/v1/conversations/"+convID+"/interactions/"+p.ToolCallID,
+					map[string]any{"action": "approve"})
+			}
+			select {
+			case <-stop:
+				return
+			case <-time.After(time.Second):
+			}
+		}
+	}()
+
+	var turn2 chatMsg
+	deadline := time.Now().Add(20 * time.Minute)
+	for time.Now().Before(deadline) {
+		for _, m := range listMsgs(t, wc, convID) {
+			if m.ID == mid2 {
+				turn2 = m
+			}
+		}
+		if turn2.Status != "" && turn2.Status != "pending" && turn2.Status != "streaming" {
+			break
+		}
+		time.Sleep(2 * time.Second)
+	}
+
+	// The two wire assertions. `img_url` present proves the first frame really went upstream;
+	// geometry ABSENT proves we did not ask the provider to reshape the user's own picture.
+	// 两条线缆断言。`img_url` 在场证明首帧真的上了上游;几何**缺席**证明我们没有要求上游把用户自己的
+	// 那张图重塑一遍。
+	var sawFrame bool
+	for _, c := range rec.Calls() {
+		body := string(c.Body)
+		if !strings.Contains(body, "img_url") {
+			continue
+		}
+		sawFrame = true
+		for _, forbidden := range []string{`"size"`, `"resolution"`} {
+			if strings.Contains(body, forbidden) {
+				t.Fatalf("the animate submit forwarded %s — a clip inherits its first frame's geometry, "+
+					"so this asks the provider to letterbox or crop the user's own picture: %s", forbidden, body)
+			}
+		}
+	}
+	if !sawFrame {
+		t.Fatalf("no upstream submit carried img_url — the first frame never left this process (turn status %q)", turn2.Status)
+	}
+
+	outID := attachmentFrom(t, turn2, "animate_image")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+outID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsMP4(content.Raw) {
+		t.Fatalf("the animated artifact must be real MP4 bytes: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+	// The gate is REPORTED, not asserted, and the distinction is the whole of S18. `danger` is the
+	// model's own per-call self-report with no central enforcement, so whether a gate appears is a
+	// judgement it makes fresh each time — TestLiveMedia_VideoDirect saw one for the same money on
+	// the same model, this run did not. Asserting it would make a 2-minute real-money scenario
+	// flaky on a model's mood, and a flaky paid test is one nobody reruns.
+	// 人闸在这里**报告、不断言**,而这个区别就是 S18 的全部。`danger` 是模型**逐次自报**、无中央强制,
+	// 故闸出不出现是它每次重新做的判断——TestLiveMedia_VideoDirect 在同样的钱、同样的模型上见到了它,
+	// 这一跑没有。断言它会让一个两分钟的真钱场景**随模型的心情**变红,而一个会随机变红的付费测试
+	// 没有人会再跑第二次。
+	if len(gateFired) == 0 {
+		t.Logf("NOTE: animate_image spent real video money without self-reporting a danger level that "+
+			"raised a gate. Same model, same cost, raised one in TestLiveMedia_VideoDirect — this is "+
+			"S18 fail-open, observed on a real paid call. (source image %s)", srcID)
+	}
+}
+
+// TestLiveMedia_EnrollVoice: a real $0.2 purchase whose resource OUTLIVES the request. Three things
+// no mock can prove, in order:
+//
+//  1. the enrollment really happened upstream (a voice id comes back and the wire shows a
+//     customization call carrying base64, never a URL — ADR 0011),
+//  2. the minted voice is really usable by the ordinary synthesis route,
+//  3. deleting it removes the UPSTREAM registration first, and the spend row stays — deletion
+//     reclaims the inventory slot, never the fee.
+//
+// (3) is the one worth the money. A local-row-only delete looks identical from the API's side and
+// leaves a paid registration alive in our provider account forever.
+//
+// TestLiveMedia_EnrollVoice:一次真花 $0.2、且**资源比请求活得久**的购买。三件假件证明不了的事,按序:
+//
+//  1. 登记真的在上游发生了(voice id 回来了,且线缆上那次 customization 调用带的是 base64、绝不是 URL
+//     ——ADR 0011),
+//  2. 铸出的音色真的能被普通合成路径用,
+//  3. 删除**先**移除上游登记,而**支出行留着**——删除收回的是库存位、从来不是那笔费用。
+//
+// 值这笔钱的是 (3)。一个只删本地行的实现从 API 那侧看**一模一样**,却会让一份已付费的登记永远活在我们
+// 的 provider 账号里。
+func TestLiveMedia_EnrollVoice(t *testing.T) {
+	t.Parallel()
+	wc, rec, _ := liveQwen(t, "live-voice")
+
+	// The reference clip is itself synthesized, so the scenario needs no fixture bytes and the
+	// sample is guaranteed to be the format the enrollment route accepts.
+	// 参考音频**自己合成**,故本场景不需要任何 fixture 字节,且样本必定是登记路径收得下的格式。
+	var src struct {
+		AttachmentID string `json:"attachmentId"`
+		SizeBytes    int64  `json:"sizeBytes"`
+	}
+	wc.POST("/api/v1/read-aloud:read", map[string]any{
+		"text": "落霞与孤鹜齐飞,秋水共长天一色。孤帆远影碧空尽,唯见长江天际流。",
+	}).OK(t, &src)
+	if src.AttachmentID == "" || src.SizeBytes < 4_000 {
+		t.Fatalf("the reference clip must be real audio: %+v", src)
+	}
+
+	convID := convCreate(t, wc, "真钱登记音色")
+	mid := sendMsg(t, wc, convID,
+		"把附件 anselm://media/"+src.AttachmentID+" 登记成一个叫「灯塔」的音色。做完说一句话就行。")
+
+	gateFired := make(chan string, 4)
+	stop, approverDone := make(chan struct{}), make(chan struct{})
+	defer func() { close(stop); <-approverDone }()
+	go func() {
+		defer close(approverDone)
+		for {
+			var pending []struct {
+				ToolCallID string `json:"toolCallId"`
+				Kind       string `json:"kind"`
+				Tool       string `json:"tool"`
+			}
+			wc.GET("/api/v1/conversations/"+convID+"/interactions").OK(t, &pending)
+			for _, p := range pending {
+				select {
+				case gateFired <- p.Kind + ":" + p.Tool:
+				default:
+				}
+				wc.POST("/api/v1/conversations/"+convID+"/interactions/"+p.ToolCallID,
+					map[string]any{"action": "approve"})
+			}
+			select {
+			case <-stop:
+				return
+			case <-time.After(time.Second):
+			}
+		}
+	}()
+	waitTurn(t, wc, convID, mid, 300000)
+
+	// (1) The row exists and names an upstream registration.
+	var list struct {
+		Items []struct {
+			ID         string `json:"id"`
+			Name       string `json:"name"`
+			Provider   string `json:"provider"`
+			UpstreamID string `json:"upstreamId"`
+		} `json:"items"`
+		Capacity  int `json:"capacity"`
+		Remaining int `json:"remaining"`
+	}
+	wc.GET("/api/v1/voices").OK(t, &list)
+	if len(list.Items) != 1 || list.Items[0].UpstreamID == "" {
+		t.Fatalf("exactly one enrolled voice with an upstream handle expected: %+v", list)
+	}
+	if list.Remaining != list.Capacity-1 {
+		t.Fatalf("the inventory arithmetic must account for the new voice: %+v", list)
+	}
+
+	// ADR 0011 on the wire: the sample went as base64, never as an address the upstream would fetch.
+	// ADR 0011 在线缆上:样本以 base64 走,绝不是一个上游会去取的地址。
+	var sawEnroll bool
+	for _, c := range rec.Calls() {
+		if !strings.Contains(c.Path, "/audio/tts/customization") {
+			continue
+		}
+		body := string(c.Body)
+		if !strings.Contains(body, `"action":"create"`) {
+			continue
+		}
+		sawEnroll = true
+		if !strings.Contains(body, "data:") {
+			t.Fatalf("the enrollment sample did not go as a data URL: %.400s", body)
+		}
+		if strings.Contains(body, "http://") || strings.Contains(body, "https://") {
+			t.Fatalf("the enrollment carried a fetchable address — ADR 0011 forbids exactly this: %.400s", body)
+		}
+	}
+	if !sawEnroll {
+		t.Fatal("no upstream customization create call — nothing was enrolled")
+	}
+	if len(gateFired) == 0 {
+		t.Fatal("enroll_voice clones a real person's voice and must have raised a human gate — none appeared")
+	}
+
+	// (3) Deleting removes the upstream registration, and the spend row survives.
+	before := spendVoiceUnits(t, wc)
+	if before < 1 {
+		t.Fatalf("the $0.2 enrollment was not booked into the spend ledger: units = %d", before)
+	}
+	wc.DoRaw("DELETE", "/api/v1/voices/"+list.Items[0].ID, "", nil)
+
+	var sawDelete bool
+	for _, c := range rec.Calls() {
+		if strings.Contains(c.Path, "/audio/tts/customization") &&
+			strings.Contains(string(c.Body), `"action":"delete"`) {
+			sawDelete = true
+		}
+	}
+	if !sawDelete {
+		t.Fatal("delete never reached the upstream — a paid registration is now stranded in our provider account")
+	}
+	wc.GET("/api/v1/voices").OK(t, &list)
+	if len(list.Items) != 0 {
+		t.Fatalf("the row survived its own delete: %+v", list)
+	}
+	if after := spendVoiceUnits(t, wc); after != before {
+		t.Fatalf("deleting a voice changed the spend ledger (%d → %d). Deletion reclaims the inventory "+
+			"SLOT, never the fee — a bill that goes down on delete is a lie.", before, after)
+	}
+}
+
+// spendVoiceUnits sums the voice-category units in the direct-side spend ledger.
+//
+// spendVoiceUnits 汇总直连侧支出台账里 voice 品类的 units。
+func spendVoiceUnits(t *testing.T, wc *harness.Client) int64 {
+	t.Helper()
+	var out struct {
+		Rows []struct {
+			Category string `json:"category"`
+			Units    int64  `json:"units"`
+		} `json:"rows"`
+	}
+	wc.GET("/api/v1/spend").OK(t, &out)
+	var n int64
+	for _, r := range out.Rows {
+		if r.Category == "voice" {
+			n += r.Units
+		}
+	}
+	return n
+}

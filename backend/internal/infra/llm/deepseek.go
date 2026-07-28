@@ -145,8 +145,8 @@ func emitDeepSeekChunk(chunk dsChunk, state *dsToolState, yield func(StreamEvent
 				return false
 			}
 		}
-		if tc.Function.Arguments != "" {
-			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: idx, ArgsDelta: tc.Function.Arguments}) {
+		if d := state.args.delta(idx, tc.Function.Arguments); d != "" {
+			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: idx, ArgsDelta: d}) {
 				return false
 			}
 		}
@@ -357,10 +357,13 @@ type dsToolState struct {
 	nameSent     map[int]bool
 	idToIdx      map[string]int
 	nextSynthIdx int
+	// args normalizes incremental vs cumulative tool arguments — see toolargs.go.
+	// args 归一「增量 vs 累积」的工具参数——见 toolargs.go。
+	args *toolArgs
 }
 
 func newDeepSeekToolState() *dsToolState {
-	return &dsToolState{nameSent: map[int]bool{}, idToIdx: map[string]int{}}
+	return &dsToolState{nameSent: map[int]bool{}, idToIdx: map[string]int{}, args: newToolArgs()}
 }
 
 func (s *dsToolState) resolveIndex(tc dsToolCallDelta) int {

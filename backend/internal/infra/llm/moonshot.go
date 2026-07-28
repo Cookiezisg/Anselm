@@ -128,8 +128,8 @@ func emitmoonshotChunk(chunk moonshotChunk, state *moonshotToolState, yield func
 				return false
 			}
 		}
-		if tc.Function.Arguments != "" {
-			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: idx, ArgsDelta: tc.Function.Arguments}) {
+		if d := state.args.delta(idx, tc.Function.Arguments); d != "" {
+			if !yield(StreamEvent{Type: EventToolDelta, ToolIndex: idx, ArgsDelta: d}) {
 				return false
 			}
 		}
@@ -264,10 +264,13 @@ type moonshotToolState struct {
 	nameSent     map[int]bool
 	idToIdx      map[string]int
 	nextSynthIdx int
+	// args normalizes incremental vs cumulative tool arguments — see toolargs.go.
+	// args 归一「增量 vs 累积」的工具参数——见 toolargs.go。
+	args *toolArgs
 }
 
 func newmoonshotToolState() *moonshotToolState {
-	return &moonshotToolState{nameSent: map[int]bool{}, idToIdx: map[string]int{}}
+	return &moonshotToolState{nameSent: map[int]bool{}, idToIdx: map[string]int{}, args: newToolArgs()}
 }
 
 func (s *moonshotToolState) resolveIndex(tc moonshotToolCallDelta) int {
