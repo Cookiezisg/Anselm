@@ -2,6 +2,7 @@ package scenarios
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
 
 	"github.com/sunweilin/anselm/testend/harness"
@@ -175,4 +176,90 @@ func TestWorkflow_FailedReplayReusesCompletedNodes(t *testing.T) {
 	// A completed run is terminal-final and cannot be replayed a second time.
 	// completed run 已终局，不得第二次 replay。
 	wc.POST("/api/v1/flowruns/"+runID+":replay", nil).Fail(t, 422, "FLOWRUN_NOT_REPLAYABLE")
+}
+
+// TestWorkflow_ReplayKeepsOriginalFunctionPin proves the version boundary users depend on when
+// recovering a failed run: editing a function after failure does not silently change that run's
+// replay. The pinned v1 fails twice; only a fresh run sees active v2 and completes.
+//
+// TestWorkflow_ReplayKeepsOriginalFunctionPin 证明失败 run 的版本边界：失败后编辑 function 不会悄悄
+// 改变该 run 的 replay。钉死的 v1 两次都失败；只有 fresh run 才看到 active v2 并完成。
+func TestWorkflow_ReplayKeepsOriginalFunctionPin(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wc := c.WS(c.POST("/api/v1/workspaces", map[string]any{"name": "wf-replay-pin"}).OK(t, nil).Field(t, "id"))
+
+	fnID := fnCreate(t, wc, "replay_pinned_function", "def f() -> dict:\n    raise RuntimeError('v1 broken')\n")
+	wfID := wfCreate(t, wc, "replay_function_pin", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "boom", "kind": "action", "ref": fnID}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e-start-boom", "from": "start", "to": "boom"}},
+	})
+
+	firstRun, status, _ := runAndWait(t, wc, wfID, map[string]any{}, 60000)
+	if status != "failed" {
+		t.Fatalf("v1 function run must fail before the edit, got %s", status)
+	}
+
+	// Change the active function to a known-good v2 after the run already captured its pin.
+	// run 已捕获 pin 后，把 active function 编辑成确定可用的 v2。
+	wc.POST("/api/v1/functions/"+fnID+":edit", map[string]any{
+		"ops": []map[string]any{{"op": "set_code", "code": "def f() -> dict:\n    return {'version': 'v2'}\n"}},
+	}).OK(t, nil)
+
+	var replay struct {
+		Flowrun struct {
+			ID          string `json:"id"`
+			Status      string `json:"status"`
+			ReplayCount int    `json:"replayCount"`
+		} `json:"flowrun"`
+	}
+	wc.POST("/api/v1/flowruns/"+firstRun+":replay", nil).OK(t, &replay)
+	if replay.Flowrun.ID != firstRun || replay.Flowrun.Status != "failed" || replay.Flowrun.ReplayCount != 1 {
+		t.Fatalf("replay must remain failed under the original function pin: %+v", replay.Flowrun)
+	}
+
+	var replayExecs struct {
+		Executions []struct {
+			VersionID        string `json:"versionId"`
+			Status           string `json:"status"`
+			FlowrunID        string `json:"flowrunId"`
+			FlowrunNodeID    string `json:"flowrunNodeId"`
+			FlowrunIteration int    `json:"flowrunIteration"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+fnID+"/executions?flowrunId="+firstRun).OK(t, &replayExecs)
+	if len(replayExecs.Executions) != 2 {
+		t.Fatalf("failed replay must append one v1 execution, got %+v", replayExecs.Executions)
+	}
+	oldVersion := replayExecs.Executions[0].VersionID
+	if oldVersion == "" {
+		t.Fatalf("pinned v1 execution must expose versionId: %+v", replayExecs.Executions)
+	}
+	for _, exec := range replayExecs.Executions {
+		if exec.VersionID != oldVersion || exec.Status != "failed" || exec.FlowrunID != firstRun || exec.FlowrunNodeID != "boom" || exec.FlowrunIteration != 0 {
+			t.Fatalf("replay must use the original v1 execution pin: %+v", replayExecs.Executions)
+		}
+	}
+
+	// A new run is the explicit opt-in to the edited version; it must complete and carry a new pin.
+	// fresh run 才是显式切到编辑后版本的入口；它应完成并带新 pin。
+	freshRun, freshStatus, freshNodes := runAndWait(t, wc, wfID, map[string]any{}, 60000)
+	if freshStatus != "completed" || !strings.Contains(string(freshNodes), `"version":"v2"`) {
+		t.Fatalf("fresh run must use v2 and complete, status=%s nodes=%s", freshStatus, freshNodes)
+	}
+	var freshExecs struct {
+		Executions []struct {
+			VersionID        string `json:"versionId"`
+			Status           string `json:"status"`
+			FlowrunID        string `json:"flowrunId"`
+			FlowrunNodeID    string `json:"flowrunNodeId"`
+			FlowrunIteration int    `json:"flowrunIteration"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+fnID+"/executions?flowrunId="+freshRun).OK(t, &freshExecs)
+	if len(freshExecs.Executions) != 1 || freshExecs.Executions[0].Status != "ok" || freshExecs.Executions[0].VersionID == oldVersion || freshExecs.Executions[0].FlowrunNodeID != "boom" || freshExecs.Executions[0].FlowrunIteration != 0 {
+		t.Fatalf("fresh run must execute the edited v2 exactly once: %+v", freshExecs.Executions)
+	}
 }
