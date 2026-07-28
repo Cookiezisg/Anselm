@@ -186,7 +186,7 @@ make qwen-asr-evals   # 需 EVALS_ASR_WAV 才要求真实转写文本,否则只�
 
 ### B5. 全模态产出真钱金标(WRK-082 批B/C/D)
 
-代码与机械证据已收口(见 [`multimodal-output/README.md`](../multimodal-output/README.md) §0.2 的逐条核对);
+代码与机械证据已收口(见 [`multimodal-output/README.md`](../../archive/multimodal-output/README.md) §0.2 的逐条核对);
 下面四条是**只有真 key 能给**的那一半。**先确认你愿意花这笔钱**——每条都是真实计费调用。
 
 ```bash

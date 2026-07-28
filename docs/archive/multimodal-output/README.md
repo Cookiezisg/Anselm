@@ -1,58 +1,25 @@
 ---
 id: WRK-082
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-26
-reviewed: 2026-07-27
+reviewed: 2026-07-28
 review-due: 2026-10-25
 audience: [human, ai]
-landed-into:
+landed-into: references/backend/api.md, references/backend/database.md, references/backend/error-codes.md, references/backend/domains/chat.md, concepts/architecture.md, decisions/0013-video-generation-synchronous-tool.md, decisions/0014-mediaref-one-currency.md, decisions/0015-managed-video-signed-handle.md, decisions/0019-vendor-media-kit-video-linux-only.md, decisions/0020-capability-decides-model-input.md
 ---
 
 # WRK-082 · 全模态平台:MediaRef 值类型、生成即工具与全执行面贯通
 
-> **状态(2026-07-27,H8 收口重述):A–G 八批 + H0–H8 已施工;终点验收七条的模型侧全过、人眼侧未验。**
+> **状态(2026-07-28,收口):A–G 八批 + H0–H11 全部施工完毕,本页 landed 归档。** 结论已按 #9 落进
+> [ADR 0013](../../decisions/0013-video-generation-synchronous-tool.md) / [0014](../../decisions/0014-mediaref-one-currency.md) /
+> [0015](../../decisions/0015-managed-video-signed-handle.md) / [0019](../../decisions/0019-vendor-media-kit-video-linux-only.md) /
+> [0020](../../decisions/0020-capability-decides-model-input.md)、`concepts/architecture.md`、CLAUDE.md 与
+> `references/backend/{api,database,error-codes}.md` + `domains/chat.md`。**收官全貌见文末 §17。**
 >
-> **本页刻意不 archive、`landed-into` 刻意留空**——工单没做完,而一份被归档的工单会读作「这件事结束了」。
-> 结论已按 #9 落进 [ADR 0013](../../decisions/0013-video-generation-synchronous-tool.md) /
-> [ADR 0014](../../decisions/0014-mediaref-one-currency.md) / [ADR 0015](../../decisions/0015-managed-video-signed-handle.md) /
-> [ADR 0017](../../decisions/0017-producer-decides-model-input.md) / [ADR 0019](../../decisions/0019-vendor-media-kit-video-linux-only.md) /
-> `concepts/architecture.md` §3.5b / CLAUDE.md 与各 reference,但**本页仍是未了事项的唯一去处**:
->
-> - **✅ 真钱真机侧已走完**:key 已落位(H0)、网关已部署并线上验(H3)、七条验收的**模型侧**全部有真钱真线缆
->   证据(H7,载具 `testend/scenarios/live_media_test.go`,`EVALS_MEDIA=1` 门控)。逐条见 §0.2。
-> - **⚠️ 人眼侧五格:静态渲染已验、交互与时序未验**(B1)。载具 `frontend/test/dev/capture_media_b1.dart`
->   截了五张真 PNG 并逐张看过:图表卡 · 朗读三态 · 编辑器里的图 **过**;chat 图卡与视频产物卡 **半过**。
->   查出三条:**F1** 截图夹具自己在画豆腐(已修)· **F2** 生成的语音在加载时宣布「暂不能播放」(已修+守卫)
->   · **F3 「点开大图」这个功能根本不存在**(**拍板点**)。剩下未验的是**时序**——生成过程中的进度、
->   对话冻不冻结、真的按下播放——截图看不见,要真机。
-> - **❌ Windows / Linux 播放未验**(B2):vendored 的 `media_kit_video` Linux CMake **一次都没编过**,
->   [ADR 0019](../../decisions/0019-vendor-media-kit-video-linux-only.md) 目前只有 macOS 侧证据。
-> - **⏳ 两笔价格债仍未销账**(卡 ID 带 `assumed-`,代拍 B3/C2):`qwen-image-assumed-*` 与
->   `qwen3-tts-flash-assumed-*`。**H7 没能销掉它,而且原因是结构性的**——真钱花出去了,但权威数字在
->   **供应商的账单控制台**里,那要用户自己的账号登录看,不是本地跑一个测试能拿到的东西。原计划写的
->   「晨间对账」把它当成一件我能做的事,那是错的。**销账条件**:用户在 DashScope 控制台核对
->   qwen-image 每张与 qwen3-tts 每万字符的实际扣费,报数给我 → 改两张卡的 ID(去掉 `assumed-`)与费率。
->   在此之前 `assumed-` **必须留着**——它是代码里唯一明说「这个数可能不对」的地方。
-> - **📋 已被后续批次推翻/完成的旧条目**(留痕防误读):D1「视频渲文件卡、不内联播放」已被 H5.5/H5.5R 推翻
->   (内联播放建成,底座按平台选,见 ADR 0019);E5(handler 媒体产物)已在 H5 施工;批F 的 `/media` slash
->   命令已在 H6 施工。
-> - **▶ 施工中:收官三连(§16,用户 2026-07-28 拍板全案后开 loop)**:①烧钱修复(生成循环已被对照实验
->   定罪为 ADR 0017 所致,见 §0.2 findings 第 4 条)→ ②H10 支出可见性 → ③H9 X→X 编辑(三能力
->   **全进免费档**,用户原话「我都要进免费档」)。A2(`danger` fail-open)**用户已裁定不改**。
->
-> 方向与全部参数见 §1(**按证据分级**:哪些有原话、哪些是我提议未被否决);施工期新拍板记在 §1.1,可随时翻案。
->
-> **这是一个大 Goal**:A–G 八批、两仓全部完成、§0.2 终点验收七条全过才算收口——由自主循环推进,
-> 以本页 + 会话任务清单 + git 为盘上真相,任何中断幂等续跑(施工中新拍板按「代拍」记入 §1.1,
-> 用户可随时翻案,零包袱直接改)。
->
-> 承接 WRK-078(1M 全模态**输入**,chat 侧已收口)。本战役把 Anselm 从「文本为主、chat 里能看图」
-> 变成**全模态平台**:图/音/视频/文档,进出双向,执行面 + 编辑面全通。跨两仓:桌面端 + sidecar 在
-> Anselm;受管免费档网关在 `Anselm-API-Serve`(它有自己的最高法与 GW-INV 登记册,对应 working 文档
-> 落该仓 `docs/working/multimodal-generation.md`,两仓各过各的门禁)。
-
+> **本页此后是历史,不是待办**——三项**真正**的残留各有自己的去处(§17.4),留在这里只会让一份已归档的
+> 文档看起来还在等人。
 ---
 
 ## §0 目标:媒体的一生、终点验收与四条不变量
@@ -978,3 +945,62 @@ H9 施工时一并核,或降级为缺行(缺行估 0 = 诚实的未知,好过一
   改图/i2v 同既有生成族词表。
 - **CosyVoice 价格卡**大概率 `assumed-`,入债池。
 - **前端零新渲染代码**(一族卡红利);受管媒体输入走既有 device-proof 断点上传。
+
+---
+
+## §17 收官(2026-07-28)
+
+### 17.1 最后一次转向:「写」留给自己,「读」交给目录(H11)
+
+本战役最初的形状是**两侧都做**:受管档一套生成方言、直连档一套。H11 把直连那一套**整体删掉**
+(图五家 / 语音三 wire / 视频两家×三动词,约 1700 行),六个生成工具与朗读**只在受管档**。
+
+判据不是「文本 vs 多模态」——那会误伤多模态**输入**(用户拿自己的 vision 模型看一张图:没有方言问题、
+没有维护成本、不花我们的钱,而且**今天就是通的**)。判据是**成本线**:一天里踩的五个坑**全部**落在
+「写」那一侧——同一供应商两个域名对工具参数一个发增量一个发累积(七个方言全废)· TTS 只有 WebSocket ·
+`voice-enrollment` 只收公网 URL · `qwen-tts` 那个 model id 根本不存在 · 登记其实是异步的。
+「读」那一侧一个都没有,因为它是 OpenAI 兼容协议里最标准化的部分。完整治理见
+[WRK-085](../byok-governance/README.md)。
+
+### 17.2 参考音色(H9/H9a/H9b):这条链上每一个契约都曾经是编的
+
+第一版实现的 model id、传输方式、同步性**三样全错**,而单元测试全绿——**假件永远同意代码相信的东西**。
+真 API 逐条推翻后重写:`voice-enrollment` 三动词(create/query/delete)· 只收**公网可取的 URL**(上游
+自己来拉,故网关必须有一台**非 `api.`** 的公开媒体主机,推开了 [ADR 0012](../../decisions/0012-gateway-media-inline-upstream.md)
+第 4 条留的那扇门)· 登记**异步**(DEPLOYING→OK,不等就交给用户一个还不能用的音色)· 合成走**双工
+WebSocket**、返回**裸音频字节**(故 P13 的 URL 直通契约在语音上根本无从适用)。
+
+### 17.3 真钱验收(`EVALS_VOICE=1`,打**生产**网关):它一路上修好了六个各自 100% 触发的缺陷
+
+载具 `testend/scenarios/live_voice_test.go`:朗读出一段真音频当样本 → 模型调 `enroll_voice`(危险闸
+真的挡下来、真的批准)→ 库存算术 → **用那个克隆音色说话、字节与预置音色不同** → 删除 204、位置归还。
+
+**它必须打生产**:上游自己来拉样本,而本地网关没有公网名字——本地跑这条链**在物理上不可能**,
+不是配置问题。沿途抓到的六个缺陷,**每一个都 100% 触发,而 mock 全程是绿的**:
+
+| # | 缺陷 | 后果 | 复发保险 |
+|---|---|---|---|
+| 1 | 部署把默认音色覆盖成 `Cherry`(cosyvoice 引擎直接拒) | 受管语音**从未成功过** | 舞台**不得**钉 `TTS_DEFAULT_VOICE`(值属于模型) |
+| 2 | run-task 不发 `format` → 拿回**裸无头 PCM**、却标 `audio/wav` | 播放器打不开、拼接器不收 | 断言**帧本身**带 `format:wav`+`sample_rate` |
+| 3 | `MEDIA_DOMAIN` 只给了 Caddy、没给网关进程 | 每次登记 503,与「语音关掉了」无从分辨 | 两半必须**逐字相同** |
+| 4 | 克隆音色句柄**两跳翻译都缺** | 登记成功、付了钱,然后永远说不了话 | 能解析自己的、**解析不出别人的** |
+| 5 | 删除成功是 204,而共用的图像 helper 只认 200 | 把网关**正确的**回答报成失败 | 音色一族自己发 HTTP、收 2xx |
+| 6 | `errorspkg.Surface` 丢掉 `%w` 尾巴 | 精心写的「有界人话原因」**谁也到不了** | 原因改走 `details.upstream` |
+
+第 4 个值得单说:句柄**刻意不是**供应商 id——否则任一 install 能**指名**别人的克隆音色去合成,与
+[ADR 0015](../../decisions/0015-managed-video-signed-handle.md) 签名句柄同一条理由。
+
+**顺带补上两个跑不到的门禁**:网关 `make verify` 现在含 `lint` 与 `-tags=integration` 的 e2e——那个包
+**整包红了三个提交没人知道**(撤 deepseek 后 13 个用例全灭);部署的 `build_stage_test.sh` 现在比对
+载荷契约两半(`meta/media-domain` 漏登记,让服务器拒收了三次)。**跑不到的测试等于没有测试。**
+
+### 17.4 三项残留与它们真正的去处
+
+- **人眼侧时序未验**(B1 余项:生成过程中的进度、对话冻不冻结、真的按下播放)——截图看不见,要真机。
+  去处:前端 hub [`working/frontend/`](../frontend/README.md) 的真机验收清单。
+- **Windows / Linux 播放未验**(B2)——[ADR 0019](../../decisions/0019-vendor-media-kit-video-linux-only.md)
+  的正文已诚实记着「目前只有 macOS 侧证据」,那就是它的去处;需要那两台机器,不是需要一份工单。
+- **三张 `assumed-` 价卡**(`qwen-image-2.0` / `qwen-audio-3.0-tts-flash` / `wan2.7-t2v`)——桌面侧的
+  `prices.go` 已随 H11 整表删除,债**只剩在网关** `internal/domain/billing/billing.go`。销账条件是
+  用户在 DashScope 控制台核对实际扣费,**不是本地跑测试能拿到的东西**;在那之前 `assumed-` 前缀必须
+  留着——它是代码里唯一明说「这个数可能不对」的地方。

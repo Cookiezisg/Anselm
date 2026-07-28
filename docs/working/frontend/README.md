@@ -74,6 +74,7 @@ Anselm 前端 = 一个 **Flutter 桌面 app**,是内嵌 **Go sidecar** 的纯客
 | **Phase 4.3 Scheduler** | 🔨 规范草案待拍板 | 中央调度器海洋(轴=workflow,rail=运营投影/Overview 看板/运营主页/run 旗舰详情+右岛双脸)。**超巨调研已完成**(2026-07-16,26-agent:6 后端契约+4 自家盘点+7 业界扫描→三哲学方案比稿→三判官→合成):终案=渐进披露主胎+活性军规宪法+矩阵降级收编;后端工单 10 张;建造批次 S0–S5;6 项 open questions 待用户拍板 | [`scheduler.md`](scheduler.md) |
 | **Phase 4.4 Documents** | ✅ | 文档+skill 两类 file-like 知识一海洋:树 rail 全 CRUD+拖拽 → **原生编辑器**(`core/editor/AnEditor`,super_editor 门面:同滚头/slash 11 命令/@ 药丸/划选条含 link/语法高亮/表格/`[[id]]`+语言标保真 codec)→ 右岛大纲·属性·反链 → SSE 树自刷新 → 路由化。编辑器史:super_editor→Milkdown-webview(废弃归档)→原生 super_editor(现行) | [`features/documents`](../../references/frontend/features/library.md) · 归档 [`WRK-060`](../../archive/doc-editor-webview/README.md) |
 | **右岛三段式文法(全右岛收敛)** | 🔨 在建 | 用户 0719 定:右岛「小灰标题+平坦大块」寡淡 → **三段式文法**(§1 身份头 `AnPanelHead` icon+标题+⋯+✕ / §2 速览带有信号才在 / §3 分组内容 AnRow 组头,三处一语言)。**批 0+1 已落**(地基 `AnPanelHead` 原语 + chat「活动」范例田:头收编 ⋯+速览带+按 kind 分组);批 2 documents / 批 3 entities 调试台+scheduler open | [`right-island-grammar.md`](right-island-grammar.md) |
+| **全模态媒体(WRK-082)** | ✅ 代码收口 / ⏳ 真机时序待验 | 生成即工具 + 一族卡 + 内联播放;**六个生成工具与朗读只在受管档**(H11)。**仍欠一次真机会话**——截图看不见的那三样:生成过程中的进度、对话冻不冻结、真的按下播放;Windows/Linux 播放同样未验(证据只有 macOS 侧,见 [ADR 0019](../../decisions/0019-vendor-media-kit-video-linux-only.md)) | 归档 [`WRK-082`](../../archive/multimodal-output/README.md) §17.4 |
 
 ### 3.2 当前焦点 + 总路线(2026-07-08 用户拍板的执行序,逐段做完再进下一段)
 

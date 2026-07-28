@@ -16,7 +16,7 @@ landed-into:
 > 抓到**五条**缺陷(网关内联、install 死结、`Hijacker` 缺转发致所有 WebSocket 裸 500……)。
 > 本册把「真机点点点」变成**有信号源、有覆盖矩阵、不重不漏**的一轮扫查,并要求**发现即修**。
 >
-> **前置于 [WRK-082](../multimodal-output/README.md)**:先一身干净,再上大工单(用户 0726 决定
+> **前置于 [WRK-082](../../archive/multimodal-output/README.md)**:先一身干净,再上大工单(用户 0726 决定
 > WRK-082 暂缓,今天只保产品质量)。
 >
 > **本轮无产品决策**——已建成的功能只有「对不对」,没有「要不要」。发现分歧按既定 working
@@ -546,7 +546,7 @@ P1 一致性扫荡把「标题重复」与「空态零人话」双双列为**已
    `driftSignalVocabulary`(events.md 与 Dart 动词表逐词 diff)· `api_surface_guard`(Go 路由表 × Dart 调用点对账)·
    `sidestage_invariants` 等。
 
-> **1–8 全勾,故轮到 [WRK-082](../multimodal-output/README.md)。** 这是用户 0726 定的顺序:先一身干净,再上大工单。
+> **1–8 全勾,故轮到 [WRK-082](../../archive/multimodal-output/README.md)。** 这是用户 0726 定的顺序:先一身干净,再上大工单。
 
 ---
 

@@ -7,7 +7,7 @@ created: 2026-07-23
 reviewed: 2026-07-24
 review-due: 2026-10-21
 audience: [human, ai]
-landed-into: docs/references/backend/domains/ · docs/working/multimodal-output/README.md（承接输入侧收口）· docs/working/app-hardening/ACCEPTANCE-GUIDE.md（验收清单已迁出）
+landed-into: docs/references/backend/domains/ · docs/archive/multimodal-output/README.md（承接输入侧收口）· docs/working/app-hardening/ACCEPTANCE-GUIDE.md（验收清单已迁出）
 ---
 
 # WRK-078 · 1M 全模态 Agent：上下文、媒体摄取、Qwen 路由与语音交互
