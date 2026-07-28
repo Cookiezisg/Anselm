@@ -125,6 +125,63 @@ func TestLiveManaged_GenerateImageArtifact(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_EditImageArtifact proves the managed X→X path: the model must first create an
+// image, pass that attachment id to edit_image, and receive a distinct sibling artifact. Four steps
+// permit generate → edit → confirmation while bounding accidental redraws.
+func TestLiveManaged_EditImageArtifact(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-image-edit")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	conv := convCreate(t, wc, "managed image edit")
+	msg := sendMsg(t, wc, conv,
+		"先调用 generate_image 恰好一次，画一个白底红色圆形；然后必须把刚生成的 attachmentId 传给 edit_image 恰好一次，把它改成蓝色圆形。两次工具都成功后只用一句简短中文确认，不要再次调用生成工具。")
+	turn := waitTurn(t, wc, conv, msg, 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed image-edit turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	var generatedID, editedID string
+	generateCount, editCount := 0, 0
+	for _, block := range turn.Blocks {
+		if block.Type != "tool_result" {
+			continue
+		}
+		switch {
+		case strings.Contains(block.Content, `"source":"generate_image"`):
+			generateCount++
+			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+				t.Fatalf("managed generate receipt must name anselm: %s", block.Content)
+			}
+			if generatedID == "" {
+				generatedID = attIDShape.FindString(block.Content)
+			}
+		case strings.Contains(block.Content, `"source":"edit_image"`):
+			editCount++
+			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+				t.Fatalf("managed edit receipt must name anselm: %s", block.Content)
+			}
+			if editedID == "" {
+				editedID = attIDShape.FindString(block.Content)
+			}
+			if generatedID != "" && !strings.Contains(block.Content, `"sourceAttachmentId":"`+generatedID+`"`) {
+				t.Fatalf("managed edit receipt must point to generated source %s: %s", generatedID, block.Content)
+			}
+		}
+	}
+	if generateCount != 1 || editCount != 1 || generatedID == "" || editedID == "" {
+		t.Fatalf("managed edit must produce one generate and one edit receipt: generate=%d edit=%d genID=%q editID=%q", generateCount, editCount, generatedID, editedID)
+	}
+	if generatedID == editedID {
+		t.Fatalf("managed edit must create a sibling attachment, got the same id %q", generatedID)
+	}
+	generated := wc.DoRaw("GET", "/api/v1/attachments/"+generatedID+"/content", "", nil)
+	edited := wc.DoRaw("GET", "/api/v1/attachments/"+editedID+"/content", "", nil)
+	if generated.Status != 200 || !bytes2IsImage(generated.Raw) || edited.Status != 200 || !bytes2IsImage(edited.Raw) {
+		t.Fatalf("managed edit artifacts must both be real images: source HTTP %d/%d bytes, edited HTTP %d/%d bytes", generated.Status, len(generated.Raw), edited.Status, len(edited.Raw))
+	}
+	if bytes.Equal(generated.Raw, edited.Raw) {
+		t.Fatal("managed edit returned byte-identical source; edit input was ignored")
+	}
+}
+
 // TestLiveManaged_GenerateSpeechArtifact is the managed speech counterpart: the default Anselm
 // dialogue model must call generate_speech once, the gateway's returned bytes must be a real WAV,
 // and the tool receipt must identify the managed provider. The two-step cap bounds paid retries.

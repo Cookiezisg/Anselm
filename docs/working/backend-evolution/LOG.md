@@ -48,6 +48,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-031 | 默认 Anselm managed `generate_image` 写路径通过：默认 dialogue 模型恰调用一次工具，receipt 标出 `provider=anselm`，真实图片附件可解码且字节可回读；回合上限为两步，避免模型重画失控 | managed write / image generation | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_GenerateImageArtifact$' -count=1` → PASS 28.11s；无本机 provider key | 当前提交 |
 | 2026-07-29 | EVO-032 | 默认 Anselm managed `generate_speech` 写路径通过：默认 dialogue 模型恰调用一次工具，receipt 标出 `provider=anselm`，网关返回真实 RIFF/WAVE 音频附件并可回读；两步上限约束付费重试 | managed write / speech generation / API Serve TTS | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_GenerateSpeechArtifact$' -count=1` → PASS 12.42s；无本机 provider key | 当前提交 |
 | 2026-07-29 | EVO-033 | H11 边界审计确认：`live_media_test.go` 与 `live_media_guard_test.go` 仍绑定 `EVALS_MEDIA`、DashScope 录制代理和本机 provider secret，属于历史直连线缆；当前生成实际由 Router 派发到 `anselm`，`EVALS_VOICE` 已走生产 managed。旧文件保留作历史证据，不作为产品入口 | H11 routing boundary / live acceptance governance | `rg` 审计旧测试入口与 `Router.{Image,Speech,Video}Available` / dispatch；working CURRENT/README 与文件注释已明确分层 | 当前提交 |
+| 2026-07-29 | EVO-034 | 默认 Anselm managed `generate_image` → `edit_image` 写路径通过：模型先铸一张图，再以 receipt 的 attachmentId 改图；两件均为有效、不同字节的图片，edit receipt 保留 `sourceAttachmentId` 且两次 provider 均为 `anselm`，回合最多四步 | managed write / image edit / MediaRef lineage | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_EditImageArtifact$' -count=1` → PASS 78.28s；无本机 provider key | 当前提交 |
 
 ## 追加格式
 
