@@ -923,6 +923,75 @@ func TestLiveBYOK_QwenVideoInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_TextProviderSmoke exercises two additional real read-side protocol classes
+// through the product API: DeepSeek's OpenAI-compatible endpoint and Google's native Gemini
+// generateContent endpoint. The managed gateway stays closed for this lane, so a completed turn
+// must come from the explicitly selected BYOK key and its probed model capability.
+func TestLiveBYOK_TextProviderSmoke(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+
+	cases := []struct {
+		name     string
+		env      string
+		provider string
+		model    string
+	}{
+		{name: "deepseek", env: "DEEPSEEK_API_KEY", provider: "deepseek", model: "deepseek-v4-flash"},
+		{name: "google", env: "GEMINI_API_KEY", provider: "google", model: "gemini-3-flash-preview"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			key := os.Getenv(tc.env)
+			if key == "" {
+				t.Skipf("EVALS_BYOK=1 requires %s; key material is never logged", tc.env)
+			}
+
+			srv := harness.Start(t)
+			c := srv.Client(t)
+			wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-" + tc.name + "-text"}).Field(t, "id")
+			wc := c.WS(wsID)
+			keyID := wc.POST("/api/v1/api-keys", map[string]any{
+				"provider": tc.provider, "displayName": "live-" + tc.name + "-byok", "key": key,
+			}).Field(t, "id")
+			wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+			var caps []struct {
+				APIKeyID string `json:"apiKeyId"`
+				Provider string `json:"provider"`
+				ModelID  string `json:"modelId"`
+			}
+			wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+			found := false
+			for _, cap := range caps {
+				if cap.APIKeyID == keyID && cap.Provider == tc.provider && cap.ModelID == tc.model {
+					found = true
+					break
+				}
+			}
+			if !found {
+				t.Fatalf("probed %s BYOK key must expose %s before selection: %+v", tc.provider, tc.model, caps)
+			}
+			wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+				map[string]any{"apiKeyId": keyID, "modelId": tc.model}).OK(t, nil)
+
+			conv := convCreate(t, wc, tc.name+" BYOK text")
+			msg := sendMsg(t, wc, conv, "请用一句简短中文回答：连接测试通过了吗？不要调用工具。")
+			turn := waitTurn(t, wc, conv, msg, 180000)
+			if turn.Status != "completed" {
+				t.Fatalf("%s BYOK text chat must complete: status=%s code=%s message=%s", tc.provider, turn.Status, turn.ErrorCode, turn.ErrorMessage)
+			}
+			for _, block := range turn.Blocks {
+				if block.Type == "text" && strings.TrimSpace(block.Content) != "" {
+					return
+				}
+			}
+			t.Fatalf("%s BYOK text chat completed without an assistant text block: %+v", tc.provider, turn.Blocks)
+		})
+	}
+}
+
 // TestLiveHybrid_OpenAIPlansManagedImage proves the product's intended mixed ownership: the user
 // supplies the dialogue model, while Anselm supplies and pays for the generation route. It is a
 // deliberately tiny paid sample: at most two loop steps, with the prompt requiring one image call
