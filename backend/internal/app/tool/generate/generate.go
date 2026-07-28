@@ -90,13 +90,15 @@ var imageProviderOrder = []string{"anselm", "openai", "google", "qwen", "zhipu"}
 
 // speechProviders is the closed set of direct-connection speech-capable providers, plus the
 // managed gateway. It is hand-written for a sharper reason than the image table: the capability
-// catalog CANNOT discover any of it. `TrimUpstreamCatalog`'s chat predicate keeps only models with
-// tool_call and text output, which filters every pure-TTS model out of the catalog entirely — so
-// there is nothing to read even if we wanted to.
+// catalog CANNOT discover any of it: `TrimUpstreamCatalog` keeps only models that can ANSWER IN
+// TEXT, and a pure-TTS model answers in audio — so it is not in the catalog and there is nothing to
+// read even if we wanted to. (That clause survived H12-b's widening precisely because it is about
+// whether a chat can happen at all, unlike `tool_call`, which became a carried fact.)
 //
 // speechProviders 是直连语音家的封闭集 + 受管网关。它手写的理由比图像表更硬:能力目录**发现不了**
-// 它的任何一项——`TrimUpstreamCatalog` 的 chat 谓词只留有 tool_call 且输出含文本的模型,这把每个
-// 纯 TTS 模型整个滤出了目录,故即使想读也无物可读。
+// 它的任何一项——`TrimUpstreamCatalog` 只留**能用文本作答**的模型,而纯 TTS 模型用**音频**作答,故它
+// 根本不在目录里、即使想读也无物可读。(这一条在 H12-b 放宽时**留了下来**,恰恰因为它讲的是「一场聊天
+// 到底能不能发生」——不像 `tool_call`,那一条已变成随行的事实。)
 var speechProviders = map[string]providerSpec{
 	"anselm": {},
 	"openai": {defaultModel: "gpt-4o-mini-tts"},

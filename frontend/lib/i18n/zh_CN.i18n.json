@@ -1890,6 +1890,7 @@
       "nativeSettingsUnsupported": "JSON 包含此模型未公开的设置",
       "nativeSettingsInvalidValue": "一个或多个值不符合此模型的契约",
       "visionBadge": "视觉",
+      "chatOnlyBadge": "仅聊天 · 不能当 agent",
       "videoBadge": "视频",
       "audioBadge": "音频",
       "docsBadge": "文档",

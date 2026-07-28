@@ -165,15 +165,21 @@ type ModelInfo struct {
 	MaxOutput     int    `json:"maxOutput"`
 	// Route-specific input limits are set by capability-routing providers such
 	// as Anselm. Zero means the model has one ordinary ContextWindow envelope.
-	TextInputLimit       int    `json:"textInputLimit,omitempty"`
-	MultimodalInputLimit int    `json:"multimodalInputLimit,omitempty"`
-	Vision               bool   `json:"vision"`                  // accepts image input natively / 原生接收图片
-	Video                bool   `json:"video"`                   // accepts native video input / 原生接收视频
-	Audio                bool   `json:"audio"`                   // accepts native audio input / 原生接收音频
-	NativeDocs           bool   `json:"nativeDocs"`              // accepts an inline document (PDF) natively / 原生接收内联文档(PDF)
-	MaxMediaParts        int    `json:"maxMediaParts,omitempty"` // 0 = provider-specific / no app-side cap；0=仅 provider 限制/无 app 侧上限
-	MaxMediaBytes        int64  `json:"maxMediaBytes,omitempty"` // total decoded bytes; 0 = no app-side cap / 解码字节总数；0=无 app 侧上限
-	Knobs                []Knob `json:"knobs"`
+	TextInputLimit       int  `json:"textInputLimit,omitempty"`
+	MultimodalInputLimit int  `json:"multimodalInputLimit,omitempty"`
+	Vision               bool `json:"vision"`     // accepts image input natively / 原生接收图片
+	Video                bool `json:"video"`      // accepts native video input / 原生接收视频
+	Audio                bool `json:"audio"`      // accepts native audio input / 原生接收音频
+	NativeDocs           bool `json:"nativeDocs"` // accepts an inline document (PDF) natively / 原生接收内联文档(PDF)
+	// Tools reports whether the model can call tools. A false here does NOT hide the model — it is
+	// a good chat model and a useless agent, and the picker says so (H12-b). Hiding it used to be
+	// the behaviour, and it was invisible: the model simply "was not there".
+	// Tools 报告模型会不会调工具。false **不隐藏**这个模型——它是个好聊天模型、一个没用的 agent,
+	// 而选择器直说(H12-b)。此前的行为是**藏起来**,且藏得看不见:那个模型就是「不在那儿」。
+	Tools         bool   `json:"tools"`
+	MaxMediaParts int    `json:"maxMediaParts,omitempty"` // 0 = provider-specific / no app-side cap；0=仅 provider 限制/无 app 侧上限
+	MaxMediaBytes int64  `json:"maxMediaBytes,omitempty"` // total decoded bytes; 0 = no app-side cap / 解码字节总数；0=无 app 侧上限
+	Knobs         []Knob `json:"knobs"`
 }
 
 // Knob describes one configurable parameter as a render-ready descriptor: a uniform container

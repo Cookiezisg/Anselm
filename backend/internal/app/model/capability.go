@@ -26,22 +26,28 @@ import (
 // CapabilityView 是一个可用的 (key, model) 对，带能力规格与原生可调旋钮——前端做模型选择渲染的
 // 单元。Knobs 直接复用 llm 描述符（key/取值全原生、不归一），故此处不另造一份同形结构。
 type CapabilityView struct {
-	APIKeyID             string        `json:"apiKeyId"`
-	KeyName              string        `json:"keyName"`
-	Provider             string        `json:"provider"`
-	ModelID              string        `json:"modelId"`
-	DisplayName          string        `json:"displayName"`
-	ContextWindow        int           `json:"contextWindow"`
-	MaxOutput            int           `json:"maxOutput"`
-	TextInputLimit       int           `json:"textInputLimit,omitempty"`
-	MultimodalInputLimit int           `json:"multimodalInputLimit,omitempty"`
-	Vision               bool          `json:"vision"`     // accepts image input natively / 原生接收图片
-	Video                bool          `json:"video"`      // accepts native video input / 原生接收视频
-	Audio                bool          `json:"audio"`      // accepts native audio input / 原生接收音频
-	NativeDocs           bool          `json:"nativeDocs"` // accepts an inline document (PDF) natively / 原生接收内联文档(PDF)
-	MaxMediaParts        int           `json:"maxMediaParts,omitempty"`
-	MaxMediaBytes        int64         `json:"maxMediaBytes,omitempty"`
-	Knobs                []llmpkg.Knob `json:"knobs"`
+	APIKeyID             string `json:"apiKeyId"`
+	KeyName              string `json:"keyName"`
+	Provider             string `json:"provider"`
+	ModelID              string `json:"modelId"`
+	DisplayName          string `json:"displayName"`
+	ContextWindow        int    `json:"contextWindow"`
+	MaxOutput            int    `json:"maxOutput"`
+	TextInputLimit       int    `json:"textInputLimit,omitempty"`
+	MultimodalInputLimit int    `json:"multimodalInputLimit,omitempty"`
+	Vision               bool   `json:"vision"`     // accepts image input natively / 原生接收图片
+	Video                bool   `json:"video"`      // accepts native video input / 原生接收视频
+	Audio                bool   `json:"audio"`      // accepts native audio input / 原生接收音频
+	NativeDocs           bool   `json:"nativeDocs"` // accepts an inline document (PDF) natively / 原生接收内联文档(PDF)
+	// Tools: the model can call tools, i.e. it can drive the agent runtime. A false is DISPLAYED,
+	// never used to hide the row — 能聊天、不能当 agent is a description, not a disqualification
+	// (H12-b).
+	// Tools:模型会调工具,也就是它能驱动 agent 运行时。false 是**拿来显示**的、绝不用来藏行——
+	// 「能聊天、不能当 agent」是一句描述、不是一次取消资格(H12-b)。
+	Tools         bool          `json:"tools"`
+	MaxMediaParts int           `json:"maxMediaParts,omitempty"`
+	MaxMediaBytes int64         `json:"maxMediaBytes,omitempty"`
+	Knobs         []llmpkg.Knob `json:"knobs"`
 }
 
 // CapabilityService aggregates the model catalog across a workspace's probed keys.
@@ -103,6 +109,7 @@ func (s *CapabilityService) List(ctx context.Context) ([]CapabilityView, error) 
 				Video:                m.Video,
 				Audio:                m.Audio,
 				NativeDocs:           m.NativeDocs,
+				Tools:                m.Tools,
 				MaxMediaParts:        m.MaxMediaParts,
 				MaxMediaBytes:        m.MaxMediaBytes,
 				Knobs:                m.Knobs,

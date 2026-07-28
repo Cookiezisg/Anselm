@@ -5137,6 +5137,9 @@ class Translations$settings$keys$en {
 	/// en: 'Vision'
 	String get visionBadge => 'Vision';
 
+	/// en: 'Chat only — no tools'
+	String get chatOnlyBadge => 'Chat only — no tools';
+
 	/// en: 'Video'
 	String get videoBadge => 'Video';
 
@@ -8761,6 +8764,7 @@ extension on Translations {
 			'settings.keys.nativeSettingsUnsupported' => 'This JSON includes a setting this model has not published',
 			'settings.keys.nativeSettingsInvalidValue' => 'One or more values are not valid for this model',
 			'settings.keys.visionBadge' => 'Vision',
+			'settings.keys.chatOnlyBadge' => 'Chat only — no tools',
 			'settings.keys.videoBadge' => 'Video',
 			'settings.keys.audioBadge' => 'Audio',
 			'settings.keys.docsBadge' => 'Docs',

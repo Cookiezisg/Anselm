@@ -21,6 +21,7 @@ type modelSpec struct {
 	knobs  []Knob
 	in     []string // input modalities the MODEL accepts (text/image/audio/video/pdf), per catalog
 	outMod []string // output modalities the model produces, per catalog (批B consumes this)
+	tools  bool     // model can call tools — i.e. can drive the agent runtime (H12-b)
 }
 
 // partMask declares which ContentPart kinds a provider's BuildRequest can actually render on its
@@ -148,6 +149,7 @@ func describeFromSpecs(specs []modelSpec, raw string, mask partMask) []ModelInfo
 			Video:         mask.video && hasModality(s.in, "video"),
 			Audio:         mask.audio && hasModality(s.in, "audio"),
 			NativeDocs:    mask.file && hasModality(s.in, "pdf"),
+			Tools:         s.tools,
 		})
 	}
 	return out

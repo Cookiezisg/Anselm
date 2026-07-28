@@ -49,6 +49,20 @@ abstract class ModelCapability with _$ModelCapability {
     @Default(false) bool video,
     @Default(false) bool audio,
     @Default(false) bool nativeDocs,
+
+    /// Whether the model can call tools — i.e. whether it can drive the agent runtime at all.
+    ///
+    /// **A false is shown, never used to hide the model.** It is a good chat model and a useless
+    /// agent, and those are two facts about the same row; the picker says which one it is. The
+    /// catalog used to drop these models entirely, and it did so invisibly — the model simply "was
+    /// not there" with no way to learn why (H12-b).
+    ///
+    /// 模型会不会调工具——也就是它到底能不能驱动 agent 运行时。
+    ///
+    /// **false 是拿来显示的、绝不用来藏模型。** 它是个好聊天模型、一个没用的 agent,那是同一行上的
+    /// 两个事实,而选择器直说是哪一个。此前目录**整个丢掉**这些模型,且丢得看不见——那个模型就是
+    /// 「不在那儿」,没有任何途径知道为什么(H12-b)。
+    @Default(true) bool tools,
     @Default(0) int maxMediaParts,
     @Default(0) int maxMediaBytes,
     @Default(<ModelKnob>[]) List<ModelKnob> knobs,

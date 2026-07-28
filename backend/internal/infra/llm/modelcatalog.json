@@ -12,7 +12,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "claude-haiku-4-5": {
         "in": [
@@ -24,7 +25,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 64000
+        "maxOut": 64000,
+        "tools": true
       },
       "claude-haiku-4-5-20251001": {
         "in": [
@@ -36,7 +38,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 64000
+        "maxOut": 64000,
+        "tools": true
       },
       "claude-opus-4-1": {
         "in": [
@@ -48,7 +51,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 32000
+        "maxOut": 32000,
+        "tools": true
       },
       "claude-opus-4-1-20250805": {
         "in": [
@@ -60,7 +64,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 32000
+        "maxOut": 32000,
+        "tools": true
       },
       "claude-opus-4-5": {
         "in": [
@@ -72,7 +77,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 64000
+        "maxOut": 64000,
+        "tools": true
       },
       "claude-opus-4-5-20251101": {
         "in": [
@@ -84,7 +90,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 64000
+        "maxOut": 64000,
+        "tools": true
       },
       "claude-opus-4-6": {
         "in": [
@@ -96,7 +103,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "claude-opus-4-7": {
         "in": [
@@ -108,7 +116,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "claude-opus-4-8": {
         "in": [
@@ -120,7 +129,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "claude-opus-5": {
         "in": [
@@ -132,7 +142,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "claude-sonnet-4-5": {
         "in": [
@@ -144,7 +155,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 64000
+        "maxOut": 64000,
+        "tools": true
       },
       "claude-sonnet-4-5-20250929": {
         "in": [
@@ -156,7 +168,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 64000
+        "maxOut": 64000,
+        "tools": true
       },
       "claude-sonnet-4-6": {
         "in": [
@@ -168,7 +181,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "claude-sonnet-5": {
         "in": [
@@ -180,7 +194,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       }
     },
     "deepseek": {
@@ -192,7 +207,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 384000
+        "maxOut": 384000,
+        "tools": true
       },
       "deepseek-reasoner": {
         "in": [
@@ -202,7 +218,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 384000
+        "maxOut": 384000,
+        "tools": true
       },
       "deepseek-v4-flash": {
         "in": [
@@ -212,7 +229,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 384000
+        "maxOut": 384000,
+        "tools": true
       },
       "deepseek-v4-pro": {
         "in": [
@@ -222,7 +240,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 384000
+        "maxOut": 384000,
+        "tools": true
       }
     },
     "moonshot": {
@@ -234,7 +253,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "kimi-k2-0905-preview": {
         "in": [
@@ -244,7 +264,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 262144
+        "maxOut": 262144,
+        "tools": true
       },
       "kimi-k2-thinking": {
         "in": [
@@ -254,7 +275,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 262144
+        "maxOut": 262144,
+        "tools": true
       },
       "kimi-k2-thinking-turbo": {
         "in": [
@@ -264,7 +286,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 262144
+        "maxOut": 262144,
+        "tools": true
       },
       "kimi-k2-turbo-preview": {
         "in": [
@@ -274,7 +297,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 262144
+        "maxOut": 262144,
+        "tools": true
       },
       "kimi-k2.5": {
         "in": [
@@ -286,7 +310,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 262144
+        "maxOut": 262144,
+        "tools": true
       },
       "kimi-k2.6": {
         "in": [
@@ -298,7 +323,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 262144
+        "maxOut": 262144,
+        "tools": true
       },
       "kimi-k2.7-code": {
         "in": [
@@ -310,7 +336,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 262144
+        "maxOut": 262144,
+        "tools": true
       },
       "kimi-k2.7-code-highspeed": {
         "in": [
@@ -322,7 +349,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 262144
+        "maxOut": 262144,
+        "tools": true
       },
       "kimi-k3": {
         "in": [
@@ -334,10 +362,22 @@
           "text"
         ],
         "ctx": 1048576,
-        "maxOut": 131072
+        "maxOut": 131072,
+        "tools": true
       }
     },
     "openai": {
+      "gpt-3.5-turbo": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 16385,
+        "maxOut": 4096,
+        "tools": false
+      },
       "gpt-4": {
         "in": [
           "text"
@@ -346,7 +386,8 @@
           "text"
         ],
         "ctx": 8192,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "gpt-4-turbo": {
         "in": [
@@ -357,7 +398,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 4096
+        "maxOut": 4096,
+        "tools": true
       },
       "gpt-4.1": {
         "in": [
@@ -369,7 +411,8 @@
           "text"
         ],
         "ctx": 1047576,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "gpt-4.1-mini": {
         "in": [
@@ -381,7 +424,8 @@
           "text"
         ],
         "ctx": 1047576,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "gpt-4.1-nano": {
         "in": [
@@ -392,7 +436,8 @@
           "text"
         ],
         "ctx": 1047576,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "gpt-4o": {
         "in": [
@@ -404,7 +449,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "gpt-4o-2024-05-13": {
         "in": [
@@ -415,7 +461,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 4096
+        "maxOut": 4096,
+        "tools": true
       },
       "gpt-4o-2024-08-06": {
         "in": [
@@ -426,7 +473,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "gpt-4o-2024-11-20": {
         "in": [
@@ -437,7 +485,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "gpt-4o-mini": {
         "in": [
@@ -449,7 +498,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "gpt-5": {
         "in": [
@@ -460,7 +510,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5-mini": {
         "in": [
@@ -471,7 +522,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5-nano": {
         "in": [
@@ -482,7 +534,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5-pro": {
         "in": [
@@ -493,7 +546,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 272000
+        "maxOut": 272000,
+        "tools": true
       },
       "gpt-5.1": {
         "in": [
@@ -504,7 +558,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.2": {
         "in": [
@@ -515,7 +570,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.2-chat-latest": {
         "in": [
@@ -526,7 +582,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "gpt-5.2-pro": {
         "in": [
@@ -537,7 +594,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.3-chat-latest": {
         "in": [
@@ -548,7 +606,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "gpt-5.3-codex": {
         "in": [
@@ -560,7 +619,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.3-codex-spark": {
         "in": [
@@ -572,7 +632,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 32000
+        "maxOut": 32000,
+        "tools": true
       },
       "gpt-5.4": {
         "in": [
@@ -584,7 +645,8 @@
           "text"
         ],
         "ctx": 1050000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.4-mini": {
         "in": [
@@ -595,7 +657,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.4-nano": {
         "in": [
@@ -606,7 +669,8 @@
           "text"
         ],
         "ctx": 400000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.4-pro": {
         "in": [
@@ -617,7 +681,8 @@
           "text"
         ],
         "ctx": 1050000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.5": {
         "in": [
@@ -629,7 +694,8 @@
           "text"
         ],
         "ctx": 1050000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.5-pro": {
         "in": [
@@ -641,7 +707,8 @@
           "text"
         ],
         "ctx": 1050000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.6": {
         "in": [
@@ -653,7 +720,8 @@
           "text"
         ],
         "ctx": 1050000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.6-luna": {
         "in": [
@@ -665,7 +733,8 @@
           "text"
         ],
         "ctx": 1050000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.6-sol": {
         "in": [
@@ -677,7 +746,8 @@
           "text"
         ],
         "ctx": 1050000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "gpt-5.6-terra": {
         "in": [
@@ -689,7 +759,8 @@
           "text"
         ],
         "ctx": 1050000,
-        "maxOut": 128000
+        "maxOut": 128000,
+        "tools": true
       },
       "o1": {
         "in": [
@@ -701,7 +772,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 100000
+        "maxOut": 100000,
+        "tools": true
       },
       "o1-pro": {
         "in": [
@@ -712,7 +784,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 100000
+        "maxOut": 100000,
+        "tools": true
       },
       "o3": {
         "in": [
@@ -724,7 +797,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 100000
+        "maxOut": 100000,
+        "tools": true
       },
       "o3-mini": {
         "in": [
@@ -734,7 +808,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 100000
+        "maxOut": 100000,
+        "tools": true
       },
       "o3-pro": {
         "in": [
@@ -745,7 +820,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 100000
+        "maxOut": 100000,
+        "tools": true
       },
       "o4-mini": {
         "in": [
@@ -756,7 +832,41 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 100000
+        "maxOut": 100000,
+        "tools": true
+      },
+      "text-embedding-3-large": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 8191,
+        "maxOut": 3072,
+        "tools": false
+      },
+      "text-embedding-3-small": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 8191,
+        "maxOut": 1536,
+        "tools": false
+      },
+      "text-embedding-ada-002": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 8192,
+        "maxOut": 1536,
+        "tools": false
       }
     },
     "qwen": {
@@ -769,7 +879,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "qwen-flash": {
         "in": [
@@ -779,7 +890,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "qwen-max": {
         "in": [
@@ -789,7 +901,30 @@
           "text"
         ],
         "ctx": 32768,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
+      },
+      "qwen-mt-plus": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 16384,
+        "maxOut": 8192,
+        "tools": false
+      },
+      "qwen-mt-turbo": {
+        "in": [
+          "text"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 16384,
+        "maxOut": 8192,
+        "tools": false
       },
       "qwen-omni-turbo": {
         "in": [
@@ -803,7 +938,8 @@
           "audio"
         ],
         "ctx": 32768,
-        "maxOut": 2048
+        "maxOut": 2048,
+        "tools": true
       },
       "qwen-plus": {
         "in": [
@@ -813,7 +949,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "qwen-plus-character-ja": {
         "in": [
@@ -823,7 +960,8 @@
           "text"
         ],
         "ctx": 8192,
-        "maxOut": 512
+        "maxOut": 512,
+        "tools": true
       },
       "qwen-turbo": {
         "in": [
@@ -833,7 +971,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "qwen-vl-max": {
         "in": [
@@ -844,7 +983,20 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
+      },
+      "qwen-vl-ocr": {
+        "in": [
+          "text",
+          "image"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 34096,
+        "maxOut": 4096,
+        "tools": false
       },
       "qwen-vl-plus": {
         "in": [
@@ -855,7 +1007,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "qwen2-5-14b-instruct": {
         "in": [
@@ -865,7 +1018,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "qwen2-5-32b-instruct": {
         "in": [
@@ -875,7 +1029,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "qwen2-5-72b-instruct": {
         "in": [
@@ -885,7 +1040,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "qwen2-5-7b-instruct": {
         "in": [
@@ -895,7 +1051,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "qwen2-5-omni-7b": {
         "in": [
@@ -909,7 +1066,8 @@
           "audio"
         ],
         "ctx": 32768,
-        "maxOut": 2048
+        "maxOut": 2048,
+        "tools": true
       },
       "qwen2-5-vl-72b-instruct": {
         "in": [
@@ -920,7 +1078,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "qwen2-5-vl-7b-instruct": {
         "in": [
@@ -931,7 +1090,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "qwen3-14b": {
         "in": [
@@ -941,7 +1101,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       },
       "qwen3-235b-a22b": {
         "in": [
@@ -951,7 +1112,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "qwen3-32b": {
         "in": [
@@ -961,7 +1123,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "qwen3-8b": {
         "in": [
@@ -971,7 +1134,19 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
+      },
+      "qwen3-asr-flash": {
+        "in": [
+          "audio"
+        ],
+        "out": [
+          "text"
+        ],
+        "ctx": 53248,
+        "maxOut": 4096,
+        "tools": false
       },
       "qwen3-coder-30b-a3b-instruct": {
         "in": [
@@ -981,7 +1156,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3-coder-480b-a35b-instruct": {
         "in": [
@@ -991,7 +1167,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3-coder-flash": {
         "in": [
@@ -1001,7 +1178,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3-coder-plus": {
         "in": [
@@ -1011,7 +1189,8 @@
           "text"
         ],
         "ctx": 1048576,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3-max": {
         "in": [
@@ -1021,7 +1200,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3-next-80b-a3b-instruct": {
         "in": [
@@ -1031,7 +1211,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "qwen3-next-80b-a3b-thinking": {
         "in": [
@@ -1041,7 +1222,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "qwen3-omni-flash": {
         "in": [
@@ -1055,7 +1237,8 @@
           "audio"
         ],
         "ctx": 65536,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "qwen3-vl-235b-a22b": {
         "in": [
@@ -1066,7 +1249,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "qwen3-vl-30b-a3b": {
         "in": [
@@ -1077,7 +1261,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "qwen3-vl-plus": {
         "in": [
@@ -1088,7 +1273,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "qwen3.5-122b-a10b": {
         "in": [
@@ -1101,7 +1287,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.5-27b": {
         "in": [
@@ -1114,7 +1301,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.5-35b-a3b": {
         "in": [
@@ -1127,7 +1315,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.5-397b-a17b": {
         "in": [
@@ -1140,7 +1329,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.5-plus": {
         "in": [
@@ -1152,7 +1342,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.6-27b": {
         "in": [
@@ -1165,7 +1356,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.6-35b-a3b": {
         "in": [
@@ -1178,7 +1370,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.6-flash": {
         "in": [
@@ -1190,7 +1383,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.6-max-preview": {
         "in": [
@@ -1200,7 +1394,8 @@
           "text"
         ],
         "ctx": 262144,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.6-plus": {
         "in": [
@@ -1212,7 +1407,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.7-max": {
         "in": [
@@ -1222,7 +1418,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwen3.7-plus": {
         "in": [
@@ -1234,7 +1431,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 65536
+        "maxOut": 65536,
+        "tools": true
       },
       "qwq-plus": {
         "in": [
@@ -1244,7 +1442,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 8192
+        "maxOut": 8192,
+        "tools": true
       }
     },
     "zhipu": {
@@ -1256,7 +1455,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 98304
+        "maxOut": 98304,
+        "tools": true
       },
       "glm-4.5-air": {
         "in": [
@@ -1266,7 +1466,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 98304
+        "maxOut": 98304,
+        "tools": true
       },
       "glm-4.5-flash": {
         "in": [
@@ -1276,7 +1477,8 @@
           "text"
         ],
         "ctx": 131072,
-        "maxOut": 98304
+        "maxOut": 98304,
+        "tools": true
       },
       "glm-4.5v": {
         "in": [
@@ -1288,7 +1490,8 @@
           "text"
         ],
         "ctx": 64000,
-        "maxOut": 16384
+        "maxOut": 16384,
+        "tools": true
       },
       "glm-4.6": {
         "in": [
@@ -1298,7 +1501,8 @@
           "text"
         ],
         "ctx": 204800,
-        "maxOut": 131072
+        "maxOut": 131072,
+        "tools": true
       },
       "glm-4.6v": {
         "in": [
@@ -1310,7 +1514,8 @@
           "text"
         ],
         "ctx": 128000,
-        "maxOut": 32768
+        "maxOut": 32768,
+        "tools": true
       },
       "glm-4.7": {
         "in": [
@@ -1320,7 +1525,8 @@
           "text"
         ],
         "ctx": 204800,
-        "maxOut": 131072
+        "maxOut": 131072,
+        "tools": true
       },
       "glm-4.7-flash": {
         "in": [
@@ -1330,7 +1536,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 131072
+        "maxOut": 131072,
+        "tools": true
       },
       "glm-4.7-flashx": {
         "in": [
@@ -1340,7 +1547,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 131072
+        "maxOut": 131072,
+        "tools": true
       },
       "glm-5": {
         "in": [
@@ -1350,7 +1558,8 @@
           "text"
         ],
         "ctx": 204800,
-        "maxOut": 131072
+        "maxOut": 131072,
+        "tools": true
       },
       "glm-5.1": {
         "in": [
@@ -1360,7 +1569,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 131072
+        "maxOut": 131072,
+        "tools": true
       },
       "glm-5.2": {
         "in": [
@@ -1370,7 +1580,8 @@
           "text"
         ],
         "ctx": 1000000,
-        "maxOut": 131072
+        "maxOut": 131072,
+        "tools": true
       },
       "glm-5v-turbo": {
         "in": [
@@ -1383,7 +1594,8 @@
           "text"
         ],
         "ctx": 200000,
-        "maxOut": 131072
+        "maxOut": 131072,
+        "tools": true
       }
     }
   }

@@ -1394,6 +1394,12 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
                   if (m.video) t.settings.keys.videoBadge,
                   if (m.audio) t.settings.keys.audioBadge,
                   if (m.nativeDocs) t.settings.keys.docsBadge,
+                  // A model without tools is LISTED and labelled, never hidden. It is a good chat
+                  // model and a useless agent; the catalog used to drop it, which read as「that
+                  // model does not exist」with no way to learn otherwise (H12-b).
+                  // 没有工具的模型**列出来并标注**、绝不隐藏。它是个好聊天模型、一个没用的 agent;
+                  // 此前目录直接丢掉它,读起来是「那个模型不存在」,且无从知道并非如此(H12-b)。
+                  if (!m.tools) t.settings.keys.chatOnlyBadge,
                 ].join(' · '),
                 selected: m.modelId == _modelId,
                 onSelect: () => _selectModel(m),

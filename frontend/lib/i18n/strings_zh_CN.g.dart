@@ -2099,6 +2099,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get nativeSettingsUnsupported => 'JSON 包含此模型未公开的设置';
 	@override String get nativeSettingsInvalidValue => '一个或多个值不符合此模型的契约';
 	@override String get visionBadge => '视觉';
+	@override String get chatOnlyBadge => '仅聊天 · 不能当 agent';
 	@override String get videoBadge => '视频';
 	@override String get audioBadge => '音频';
 	@override String get docsBadge => '文档';
@@ -4690,6 +4691,7 @@ extension on TranslationsZhCn {
 			'settings.keys.nativeSettingsUnsupported' => 'JSON 包含此模型未公开的设置',
 			'settings.keys.nativeSettingsInvalidValue' => '一个或多个值不符合此模型的契约',
 			'settings.keys.visionBadge' => '视觉',
+			'settings.keys.chatOnlyBadge' => '仅聊天 · 不能当 agent',
 			'settings.keys.videoBadge' => '视频',
 			'settings.keys.audioBadge' => '音频',
 			'settings.keys.docsBadge' => '文档',

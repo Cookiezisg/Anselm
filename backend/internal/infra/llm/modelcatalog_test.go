@@ -64,12 +64,22 @@ func TestVendoredCatalog_ShapeGuard(t *testing.T) {
 	}
 }
 
-// TestTrimUpstreamCatalog_ChatPredicate exercises all three trim axes on a synthetic upstream:
-// tool_call=false dropped, no-text-output dropped, realtime dropped; a missing followed provider
-// is a loud error (never a silently thinner catalog).
+// TestTrimUpstreamCatalog_ChatPredicate exercises the trim axes that remain EXCLUSIONS on a
+// synthetic upstream: no-text-output dropped, realtime dropped, and a missing followed provider is
+// a loud error (never a silently thinner catalog).
 //
-// TestTrimUpstreamCatalog_ChatPredicate 用合成上游走全三条裁剪轴:tool_call=false 落选、输出无
-// text 落选、realtime 落选;follow 家缺席大声报错(绝不静默变薄)。
+// `tool_call=false` used to be a fourth axis here and is no longer one — a tool-less model now
+// survives carrying `tools:false` (H12-b). That half moved to
+// [TestTrimUpstreamCatalog_ToolCallIsCarriedNotFiltered], which asserts the new law rather than
+// the old one; the axis was rewritten, not deleted, because「一个模型能不能装下一次 chat」与
+// 「它能不能当 agent」始终是两个问题,只是从前被同一个 continue 回答了。
+//
+// TestTrimUpstreamCatalog_ChatPredicate 用合成上游走**仍然是排除**的那几条裁剪轴:输出无 text 落选、
+// realtime 落选、follow 家缺席大声报错(绝不静默变薄)。
+//
+// `tool_call=false` 曾是这里的第四条轴、现在不是了——没有工具的模型如今带着 `tools:false` 活下来
+// (H12-b)。那一半搬去了 [TestTrimUpstreamCatalog_ToolCallIsCarriedNotFiltered],断言的是**新律**
+// 而非旧律;这条轴是被**改写**、不是被删掉的。
 func TestTrimUpstreamCatalog_ChatPredicate(t *testing.T) {
 	mk := func(models string) []byte {
 		base := `{
@@ -83,7 +93,6 @@ func TestTrimUpstreamCatalog_ChatPredicate(t *testing.T) {
 	}
 	cat, err := TrimUpstreamCatalog(mk(`
 		"chat-ok":{"tool_call":true,"modalities":{"input":["text","image"],"output":["text"]},"limit":{"context":1000,"output":100}},
-		"embed-no-tools":{"tool_call":false,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":1000,"output":100}},
 		"image-only-out":{"tool_call":true,"modalities":{"input":["text"],"output":["image"]},"limit":{"context":1000,"output":100}},
 		"gpt-realtime-x":{"tool_call":true,"modalities":{"input":["text","audio"],"output":["text","audio"]},"limit":{"context":1000,"output":100}}`))
 	if err != nil {
@@ -93,7 +102,7 @@ func TestTrimUpstreamCatalog_ChatPredicate(t *testing.T) {
 	if _, ok := oa["chat-ok"]; !ok {
 		t.Errorf("chat-ok missing: %v", oa)
 	}
-	for _, dropped := range []string{"embed-no-tools", "image-only-out", "gpt-realtime-x"} {
+	for _, dropped := range []string{"image-only-out", "gpt-realtime-x"} {
 		if _, ok := oa[dropped]; ok {
 			t.Errorf("%s survived the trim, want dropped", dropped)
 		}
@@ -209,5 +218,54 @@ func TestKnobsByPrefix_MostSpecificWins(t *testing.T) {
 	}
 	if ks := f("unrelated"); ks != nil {
 		t.Errorf("unmatched id knobs = %v, want nil", ks)
+	}
+}
+
+// TestTrimUpstreamCatalog_ToolCallIsCarriedNotFiltered is the H12-b decision written as a test: a
+// model that cannot call tools STAYS in the catalog carrying `tools:false`, and one that cannot
+// answer in text (or declares no window) does not.
+//
+// The distinction is the whole point. "No tools" is a limit on what the model can DO for you — a
+// user may still want to chat with it, and the picker labels it. "No text output" and "no context
+// window" are limits on whether a chat can happen at all: one cannot answer, the other cannot be
+// sized. Filtering the first was throwing away usable models on the user's behalf, invisibly.
+//
+// TestTrimUpstreamCatalog_ToolCallIsCarriedNotFiltered 把 H12-b 的裁决写成测试:不会调工具的模型
+// **留在**目录里、带着 `tools:false`;不会用文本作答(或没有声明窗口)的**不留**。
+//
+// 这个区分就是全部要点。「没有工具」限制的是模型能为你**做**什么——用户仍然可能想跟它聊天,而选择器
+// 会标注它。「输出没有文本」与「没有上下文窗口」限制的是**一场聊天到底能不能发生**:一个答不了,
+// 一个量不出信封。过滤掉前者,是**替用户**扔掉可用的模型,而且扔得看不见。
+func TestTrimUpstreamCatalog_ToolCallIsCarriedNotFiltered(t *testing.T) {
+	raw := []byte(`{
+      "openai":{"models":{
+        "chatty-no-tools":{"tool_call":false,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":8000,"output":1000}},
+        "agentic":{"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":8000,"output":1000}},
+        "image-only":{"tool_call":true,"modalities":{"input":["text"],"output":["image"]},"limit":{"context":8000,"output":1000}},
+        "no-window":{"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":0,"output":1000}},
+        "gpt-realtime":{"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":8000,"output":1000}}}},
+      "anthropic":{"models":{"c":{"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":8000,"output":1000}}}},
+      "deepseek":{"models":{"d":{"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":8000,"output":1000}}}},
+      "alibaba":{"models":{"q":{"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":8000,"output":1000}}}},
+      "moonshotai":{"models":{"k":{"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":8000,"output":1000}}}},
+      "zhipuai":{"models":{"g":{"tool_call":true,"modalities":{"input":["text"],"output":["text"]},"limit":{"context":8000,"output":1000}}}}}`)
+
+	cat, err := TrimUpstreamCatalog(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := cat.Providers["openai"]
+	if m, ok := got["chatty-no-tools"]; !ok {
+		t.Error("a tool-less model must SURVIVE the trim — hiding it is deciding for the user, invisibly")
+	} else if m.Tools {
+		t.Error("chatty-no-tools must carry tools:false so the picker can say 能聊天、不能当 agent")
+	}
+	if m, ok := got["agentic"]; !ok || !m.Tools {
+		t.Errorf("a tool-calling model must survive carrying tools:true, got %+v ok=%v", m, ok)
+	}
+	for _, id := range []string{"image-only", "no-window", "gpt-realtime"} {
+		if _, ok := got[id]; ok {
+			t.Errorf("%q must NOT survive: it cannot hold a chat completion at all", id)
+		}
 	}
 }

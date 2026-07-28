@@ -41,6 +41,7 @@ _ModelCapability _$ModelCapabilityFromJson(Map<String, dynamic> json) =>
       video: json['video'] as bool? ?? false,
       audio: json['audio'] as bool? ?? false,
       nativeDocs: json['nativeDocs'] as bool? ?? false,
+      tools: json['tools'] as bool? ?? true,
       maxMediaParts: (json['maxMediaParts'] as num?)?.toInt() ?? 0,
       maxMediaBytes: (json['maxMediaBytes'] as num?)?.toInt() ?? 0,
       knobs:
@@ -65,6 +66,7 @@ Map<String, dynamic> _$ModelCapabilityToJson(_ModelCapability instance) =>
       'video': instance.video,
       'audio': instance.audio,
       'nativeDocs': instance.nativeDocs,
+      'tools': instance.tools,
       'maxMediaParts': instance.maxMediaParts,
       'maxMediaBytes': instance.maxMediaBytes,
       'knobs': instance.knobs.map((e) => e.toJson()).toList(),

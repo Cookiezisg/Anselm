@@ -1890,6 +1890,7 @@
       "nativeSettingsUnsupported": "This JSON includes a setting this model has not published",
       "nativeSettingsInvalidValue": "One or more values are not valid for this model",
       "visionBadge": "Vision",
+      "chatOnlyBadge": "Chat only — no tools",
       "videoBadge": "Video",
       "audioBadge": "Audio",
       "docsBadge": "Docs",

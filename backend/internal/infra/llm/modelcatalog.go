@@ -33,6 +33,14 @@ type CatalogModel struct {
 	Out    []string `json:"out"`
 	Ctx    int      `json:"ctx"`
 	MaxOut int      `json:"maxOut"`
+	// Tools reports whether the model can call tools — i.e. whether it can drive the agent runtime
+	// at all. A model without it is a perfectly good CHAT model and a useless AGENT, and those are
+	// two different facts about the same row; see the trim predicate for why it is carried rather
+	// than used as a filter.
+	// Tools 报告模型会不会调工具——也就是它到底能不能驱动 agent 运行时。没有它的模型是一个**完全
+	// 合格的聊天模型**、一个**没用的 agent**,而那是同一行上的**两个不同事实**;为什么把它**带出来**
+	// 而不是拿它当过滤器,见裁剪谓词。
+	Tools bool `json:"tools"`
 }
 
 // ModelCatalog is the trimmed models.dev projection keyed by OUR provider names.
@@ -111,17 +119,40 @@ func (c *ModelCatalog) validate() error {
 	return nil
 }
 
-// TrimUpstreamCatalog projects a raw models.dev api.json onto our catalog: six providers renamed
-// to our vocabulary, chat-capable models only. The chat predicate is mechanical (WRK-082 §1.1 代拍):
-//   - tool_call == true — Anselm's agent runtime is tool-driven; embeddings / image-generation /
-//     ASR / MT / OCR models all fail this and stay out of the chat picker.
-//   - "text" ∈ modalities.output — a chat completion must be able to answer in text.
-//   - id does not contain "realtime" — realtime models do not speak /chat/completions; listing
-//     them would violate "功能诚实地不出现,而非调用后失败" (WRK-082 §0).
+// TrimUpstreamCatalog projects a raw models.dev api.json onto our catalog. What is kept is
+// everything that can actually hold a chat completion, and the predicate is deliberately narrower
+// than it used to be (H12-b):
 //
-// TrimUpstreamCatalog 把原始 api.json 投影成我们的目录:六家改名到我们的词表、只收 chat 可用模型。
-// chat 谓词是机械的(代拍):tool_call 为真(嵌入/生图/ASR/MT/OCR 全数落选)+ 输出含 text +
-// id 不含 "realtime"(realtime 不讲 /chat/completions,列出即违背「绝无调了才失败」)。
+//   - "text" ∈ modalities.output — a chat completion must be able to answer in text. A model that
+//     only emits images or audio is not a chat model at all; the generation TOOLS reach those, and
+//     putting them in the chat picker would offer a conversation that cannot happen.
+//   - id does not contain "realtime" — realtime models do not speak /chat/completions; listing them
+//     would violate "功能诚实地不出现,而非调用后失败" (WRK-082 §0).
+//   - limit.context > 0 — with no declared window there is no envelope to size, so compaction and
+//     the attachment budget would both be computing against zero. This one surfaced the moment the
+//     predicate widened: `gpt-image-1.5` declares text output and NO context, and it is the reason
+//     this clause is written down rather than assumed.
+//
+// **`tool_call` is no longer a filter — it is a FACT we carry** (H12-b, 用户 2026-07-28 拍板).
+// Dropping a model for lacking tools threw away a whole class of perfectly usable chat models on
+// behalf of a user who never asked; and it did so INVISIBLY, so the model simply "was not there"
+// with no way to learn why. Now the row survives carrying `tools:false`, and the picker says what
+// it is: 能聊天、不能当 agent.
+//
+// TrimUpstreamCatalog 把原始 api.json 投影成我们的目录。留下的是**真正能装下一次 chat completion**
+// 的一切,而这个谓词比从前**刻意更窄**(H12-b):
+//
+//   - 输出含 "text"——一次 chat completion 必须能用文本作答。只出图或只出音频的模型**根本不是**
+//     聊天模型;生成**工具**够得到它们,把它们放进聊天选择器等于提供一场不可能发生的对话。
+//   - id 不含 "realtime"——realtime 不讲 /chat/completions,列出即违背「绝无调了才失败」。
+//   - limit.context > 0——没有声明窗口就没有信封可量,压缩与附件预算都会对着 0 计算。这一条是谓词
+//     放宽的**当场**冒出来的:`gpt-image-1.5` 声明输出含文本、却**没有** context,它正是这一条被
+//     写下来、而不是被默认的理由。
+//
+// **`tool_call` 不再是过滤器、而是我们带出来的一个事实**(H12-b,用户 2026-07-28 拍板)。因为没有工具
+// 就丢掉一个模型,是**替一个从没这么要求过的用户**扔掉一整类完全可用的聊天模型;而且扔得**看不见**
+// ——那个模型就是「不在那儿」,没有任何途径知道为什么。现在这一行带着 `tools:false` 活下来,选择器
+// 直说它是什么:**能聊天、不能当 agent**。
 func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 	var upstream map[string]struct {
 		Models map[string]struct {
@@ -150,7 +181,7 @@ func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 		}
 		models := make(map[string]CatalogModel, len(prov.Models))
 		for id, m := range prov.Models {
-			if !m.ToolCall || !hasModality(m.Modalities.Output, "text") || strings.Contains(id, "realtime") {
+			if !hasModality(m.Modalities.Output, "text") || strings.Contains(id, "realtime") || m.Limit.Context <= 0 {
 				continue
 			}
 			models[id] = CatalogModel{
@@ -158,6 +189,7 @@ func TrimUpstreamCatalog(raw []byte) (*ModelCatalog, error) {
 				Out:    append([]string(nil), m.Modalities.Output...),
 				Ctx:    m.Limit.Context,
 				MaxOut: m.Limit.Output,
+				Tools:  m.ToolCall,
 			}
 		}
 		out.Providers[ours] = models
@@ -211,7 +243,7 @@ func catalogSpecs(provider string, knobsFor func(id string) []Knob) []modelSpec 
 		if knobsFor != nil {
 			knobs = knobsFor(id)
 		}
-		specs = append(specs, modelSpec{prefix: id, ctx: m.Ctx, out: m.MaxOut, knobs: knobs, in: m.In, outMod: m.Out})
+		specs = append(specs, modelSpec{prefix: id, ctx: m.Ctx, out: m.MaxOut, knobs: knobs, in: m.In, outMod: m.Out, tools: m.Tools})
 	}
 	sort.Slice(specs, func(i, j int) bool {
 		if len(specs[i].prefix) != len(specs[j].prefix) {
