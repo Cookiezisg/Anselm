@@ -214,6 +214,33 @@ func TestLiveManaged_DefaultChatWithVideoAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DocumentImageReference verifies the third media-consumption entry: an image
+// referenced from a document's Markdown must be discovered, expanded out of the system-prompt
+// text into the managed media route, and survive a fresh conversation. A successful direct
+// attachment test cannot prove this path — it bypasses document rendering entirely.
+func TestLiveManaged_DocumentImageReference(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-document-image")
+	attID := uploadAtt(t, wc, "evidence.png", "image/png", liveManagedPNG)
+	docID := wc.POST("/api/v1/documents", map[string]any{
+		"name":    "visual-evidence",
+		"content": "# Evidence\n\n![attached visual](anselm://media/" + attID + ")\n",
+	}).Field(t, "id")
+
+	conv := convCreate(t, wc, "managed document image")
+	wc.PATCH("/api/v1/conversations/"+conv, map[string]any{
+		"attachedDocuments": []map[string]any{{"documentId": docID}},
+	}).OK(t, nil)
+	msg := sendMsg(t, wc, conv, "请简短确认请求已收到。不要调用工具。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed document-image chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+		t.Fatalf("document-referenced image must survive its managed turn: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_Quota proves the settings-facing product seam: the sidecar retains the device
 // proof privately, resolves this workspace's managed install, and proxies the deployed gateway's
 // live quota rather than presenting an inferred local counter.
