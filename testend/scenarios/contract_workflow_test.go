@@ -1530,6 +1530,89 @@ func TestContractWorkflow_DeletedTriggerRebindsActiveWorkflow(t *testing.T) {
 	}
 }
 
+// B-wf-15/B-trg-11 (restart half) — a deleted trigger's dangling active workflow survives a hard
+// restart as an explicit repair state: boot must not resurrect the old path or silently bind a
+// same-name replacement. Only an explicit workflow edit may reattach the listener after restart.
+//
+// B-wf-15/B-trg-11（重启半边）——删 trigger 后 active workflow 的悬空状态跨硬重启保留；boot 不得复活旧
+// path，也不得把同名新 trigger 暗中换绑。只有显式 edit workflow 才能在重启后重新挂 listener。
+func TestContractWorkflow_DeletedTriggerRebindsAfterRestart(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-trigger-rebind-restart")
+	wsID := wc.WorkspaceID()
+
+	oldTrigger := trgCreate(t, wc, "rebind_restart_source", "webhook", map[string]any{"path": "rebind-restart-old"})
+	wfID := workflowC_trgOnly(t, wc, "rebind_restart_workflow", oldTrigger)
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+	oldURL := srv.BaseURL + "/api/v1/webhooks/" + oldTrigger + "/rebind-restart-old"
+	if code := workflowC_rawPost(t, oldURL, `{"generation":1}`, nil); code != 202 {
+		t.Fatalf("baseline webhook must return 202, got %d", code)
+	}
+	harness.Eventually(t, 30000, "baseline restart-rebind run completes", func() bool {
+		return len(workflowC_runsOf(t, wc, wfID, "completed")) == 1
+	})
+
+	if r := wc.DELETE("/api/v1/triggers/" + oldTrigger); r.Status != 204 {
+		t.Fatalf("delete source before restart must 204, got %d %s", r.Status, r.Raw)
+	}
+	srv.Restart(t)
+	wc = srv.Client(t).WS(wsID)
+	if code := workflowC_rawPost(t, oldURL, `{"generation":2}`, nil); code != 404 {
+		t.Fatalf("old webhook path must stay cold after restart, got %d", code)
+	}
+	var wf struct {
+		Active         bool   `json:"active"`
+		LifecycleState string `json:"lifecycleState"`
+	}
+	wc.GET("/api/v1/workflows/"+wfID).OK(t, &wf)
+	if !wf.Active || wf.LifecycleState != "active" {
+		t.Fatalf("deleted-trigger workflow should remain an explicitly active repair state, got %+v", wf)
+	}
+
+	newTrigger := trgCreate(t, wc, "rebind_restart_source", "webhook", map[string]any{"path": "rebind-restart-new"})
+	newURL := srv.BaseURL + "/api/v1/webhooks/" + newTrigger + "/rebind-restart-new"
+	var runtime struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}
+	wc.GET("/api/v1/triggers/"+newTrigger).OK(t, &runtime)
+	if runtime.RefCount != 0 || runtime.Listening {
+		t.Fatalf("same-name replacement must stay cold after restart, got %+v", runtime)
+	}
+	wc.Do("POST", "/api/v1/workflows/"+wfID+":activate", map[string]any{}).Fail(t, 422, "WORKFLOW_NOT_RUNNABLE")
+	if code := workflowC_rawPost(t, newURL, `{"generation":3}`, nil); code != 404 {
+		t.Fatalf("replacement path must stay cold before explicit edit, got %d", code)
+	}
+
+	wc.POST("/api/v1/workflows/"+wfID+":edit", map[string]any{"ops": []map[string]any{
+		{"op": "update_node", "id": "start", "patch": map[string]any{"ref": newTrigger}},
+	}}).OK(t, nil)
+	wc.GET("/api/v1/triggers/"+newTrigger).OK(t, &runtime)
+	if runtime.RefCount != 1 || !runtime.Listening {
+		t.Fatalf("explicit post-restart rebind must attach replacement listener, got %+v", runtime)
+	}
+	var report struct {
+		Resolved bool     `json:"resolved"`
+		Problems []string `json:"problems"`
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":capability-check", map[string]any{}).OK(t, &report)
+	if !report.Resolved || len(report.Problems) != 0 {
+		t.Fatalf("post-restart explicit rebind must repair capability report: %+v", report)
+	}
+	if code := workflowC_rawPost(t, newURL, `{"generation":4}`, nil); code != 202 {
+		t.Fatalf("rebound replacement path must return 202, got %d", code)
+	}
+	harness.Eventually(t, 30000, "post-restart rebound run completes", func() bool {
+		return len(workflowC_runsOf(t, wc, wfID, "completed")) == 2
+	})
+	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
+	wc.GET("/api/v1/triggers/"+newTrigger).OK(t, &runtime)
+	if runtime.RefCount != 0 || runtime.Listening {
+		t.Fatalf("post-restart deactivate must detach replacement listener, got %+v", runtime)
+	}
+}
+
 // B-wf-16/B-trg-12 — deleting an active workflow must detach its live trigger listeners without
 // erasing the workflow's durable run/history log. Reusing the workflow name on the same trigger
 // must not inherit a stale listener from the deleted workflow.
@@ -1805,6 +1888,86 @@ func TestContractWorkflow_WorkspaceIsolationAcrossActionsAndHistory(t *testing.T
 	}
 	if rows := workflowC_runsOf(t, wc1, wfID, ""); len(rows) != 1 {
 		t.Fatalf("foreign action attempts must not alter owning history, got %+v", rows)
+	}
+}
+
+// B-wf-19/B-trg-14 — a queued firing that was accepted before deletion must not become a run after
+// the workflow disappears. Serial overlap makes the pending state deterministic: the first webhook
+// parks at approval, the second stays pending, DELETE cancels the first and the next drain sheds only
+// the orphaned second firing while retaining both activation/firing audit rows.
+//
+// B-wf-19/B-trg-14 —— 删除前已接收但排队中的 firing 不得在 workflow 消失后变成 run。用 serial overlap
+// 确定制造 pending：第一条 webhook 停在审批、第二条保持 pending；DELETE 取消第一条，下一次 drain 只把
+// 孤儿第二条记为 shed，同时保留两条 activation/firing 审计。
+func TestContractWorkflow_DeletedWorkflowShedsQueuedFiring(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-workflow-delete-queued")
+
+	trgID := trgCreate(t, wc, "delete_queued_hook", "webhook", map[string]any{"path": "delete-queued"})
+	apfID := workflowC_apf(t, wc, "delete_queued_gate")
+	wfID := workflowC_apfGraph(t, wc, "delete_queued", trgID, apfID,
+		map[string]any{"op": "set_meta", "concurrency": "serial"})
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	fireConcurrencyWebhook(t, srv, trgID, "delete-queued", `{"seq":1}`)
+	var firstRunID string
+	harness.Eventually(t, 20000, "first queued-delete run parks", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 {
+			return false
+		}
+		firstRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, firstRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+
+	// A distinct body avoids webhook retry dedup and creates a second durable firing while serial
+	// overlap deliberately leaves it pending behind the parked first run.
+	fireConcurrencyWebhook(t, srv, trgID, "delete-queued", `{"seq":2}`)
+	harness.Eventually(t, 20000, "second firing remains pending behind parked run", func() bool {
+		rows := listConcurrencyFirings(t, wc, trgID)
+		counts := countFiringStatuses(rows)
+		return len(rows) == 2 && counts["started"] == 1 && counts["pending"] == 1
+	})
+
+	if r := wc.DELETE("/api/v1/workflows/" + wfID); r.Status != 204 {
+		t.Fatalf("delete with queued firing must 204, got %d %s", r.Status, r.Raw)
+	}
+	wc.Do("GET", "/api/v1/workflows/"+wfID, nil).Fail(t, 404, "WORKFLOW_NOT_FOUND")
+	workflowC_waitRunStatus(t, wc, firstRunID, "cancelled", 20000)
+
+	var finalFirings []firingRow
+	harness.Eventually(t, 20000, "queued firing is shed after workflow delete", func() bool {
+		finalFirings = listFirings(t, wc, trgID, "limit=50")
+		counts := map[string]int{}
+		for _, firing := range finalFirings {
+			counts[firing.Status]++
+		}
+		return len(finalFirings) == 2 && counts["started"] == 1 && counts["shed"] == 1
+	})
+	var shedCount int
+	for _, firing := range finalFirings {
+		if firing.Status == "shed" {
+			shedCount++
+			if firing.FlowrunID != "" || firing.WorkflowID != wfID {
+				t.Fatalf("shed firing must retain workflow audit but no run link, got %+v", firing)
+			}
+		}
+	}
+	if shedCount != 1 {
+		t.Fatalf("exactly one queued firing must be shed, got %+v", finalFirings)
+	}
+	if rows := workflowC_runsOf(t, wc, wfID, ""); len(rows) != 1 || rows[0].ID != firstRunID || rows[0].Status != "cancelled" {
+		t.Fatalf("delete must not create a run for the queued firing, got %+v", rows)
+	}
+	var runtime struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}
+	wc.GET("/api/v1/triggers/"+trgID).OK(t, &runtime)
+	if runtime.RefCount != 0 || runtime.Listening {
+		t.Fatalf("queued-delete workflow must leave no trigger listener, got %+v", runtime)
 	}
 }
 
