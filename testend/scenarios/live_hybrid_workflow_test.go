@@ -147,6 +147,138 @@ func TestLiveHybrid_WorkflowManagedImageToOpenAIViewer(t *testing.T) {
 	}
 }
 
+// TestLiveHybrid_WorkflowManagedFunctionToOpenAIViewer covers a different producer than the
+// generation-tool lane above: a managed agent runs a real function, the sandbox writes a PNG and
+// returns a function_artifact MediaRef, and a downstream OpenAI viewer must receive those exact
+// bytes. This is the current product path for user-authored functions, not an archived direct
+// provider test.
+func TestLiveHybrid_WorkflowManagedFunctionToOpenAIViewer(t *testing.T) {
+	if os.Getenv("EVALS_HYBRID") != "1" {
+		t.Skip("set EVALS_HYBRID=1 (and EVALS_MANAGED=1) for the real mixed workflow acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_HYBRID=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	wc := liveManagedWorkspace(t, "live-hybrid-workflow-managed-function-to-openai")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+
+	var keys []struct {
+		ID       string `json:"id"`
+		Provider string `json:"provider"`
+	}
+	wc.GET("/api/v1/api-keys").OK(t, &keys)
+	managedKeyID := ""
+	for _, row := range keys {
+		if row.Provider == "anselm" {
+			managedKeyID = row.ID
+			break
+		}
+	}
+	if managedKeyID == "" {
+		t.Fatal("hybrid function workflow requires the provisioned managed key")
+	}
+
+	byokKeyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-workflow-function-viewer", "key": key,
+		"baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+byokKeyID+":test", nil).OK(t, nil)
+
+	const viewerModel = "gpt-4.1-mini"
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	viewerReady := false
+	for _, cap := range caps {
+		if cap.APIKeyID == byokKeyID && cap.Provider == "openai" && cap.ModelID == viewerModel && cap.Vision {
+			viewerReady = true
+			break
+		}
+	}
+	if !viewerReady {
+		t.Fatalf("function workflow viewer requires a real BYOK vision capability: %+v", caps)
+	}
+
+	var ws struct {
+		DefaultAgent *struct {
+			APIKeyID string `json:"apiKeyId"`
+			ModelID  string `json:"modelId"`
+		} `json:"defaultAgent"`
+	}
+	wc.GET("/api/v1/workspaces/"+wc.WorkspaceID()).OK(t, &ws)
+	if ws.DefaultAgent == nil || ws.DefaultAgent.ModelID == "" {
+		t.Fatalf("managed function workflow painter requires a default agent model: %+v", ws.DefaultAgent)
+	}
+	managedModel := ws.DefaultAgent.ModelID
+	if ws.DefaultAgent.APIKeyID != managedKeyID {
+		wc.PUT("/api/v1/workspaces/"+wc.WorkspaceID()+"/default-models/agent",
+			map[string]any{"apiKeyId": managedKeyID, "modelId": managedModel}).OK(t, nil)
+	}
+
+	pngB64 := base64.StdEncoding.EncodeToString(liveManagedPNG)
+	fnID := fnCreate(t, wc, "render_managed_workflow_png", "import base64, os\nPNG = '"+pngB64+"'\ndef render_managed_workflow_png() -> dict:\n    path = os.path.join(os.environ['ANSELM_OUT'], 'plot.png')\n    with open(path, 'wb') as handle:\n        handle.write(base64.b64decode(PNG))\n    return {'chart': {'$media': 'plot.png'}}\n")
+	painter := agCreate(t, wc, map[string]any{
+		"name":          "Managed Function Painter",
+		"description":   "runs a user function that returns a PNG MediaRef",
+		"prompt":        "请调用 render_managed_workflow_png 恰好一次；工具成功后把工具 receipt 原样写进最终回答，不要再次调用工具。",
+		"tools":         []map[string]any{{"ref": fnID, "name": "render_managed_workflow_png"}},
+		"modelOverride": map[string]any{"apiKeyId": managedKeyID, "modelId": managedModel},
+	})
+	viewer := agCreate(t, wc, map[string]any{
+		"name":        "OpenAI Function Workflow Viewer",
+		"description": "receives a user-function PNG over a BYOK vision route",
+		"prompt":      "用一句简短中文确认你收到上游函数生成的图像。不要调用工具。",
+		"modelOverride": map[string]any{
+			"apiKeyId": byokKeyID,
+			"modelId":  viewerModel,
+		},
+	})
+	wfID := wfCreate(t, wc, "managed_function_to_byok_workflow_media", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "paint", "kind": "agent", "ref": painter,
+			"input": map[string]any{"task": "start.topic"}}},
+		{"op": "add_node", "node": map[string]any{"id": "look", "kind": "agent", "ref": viewer,
+			"input": map[string]any{"picture": "paint.text"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "paint"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e2", "from": "paint", "to": "look"}},
+	})
+
+	_, status, nodes := runAndWait(t, wc, wfID, map[string]any{"topic": "让下游查看函数产出的图片"}, 360000)
+	if status != "completed" {
+		t.Fatalf("managed-function-to-BYOK workflow must complete: status=%s nodes=%s", status, nodes)
+	}
+	nodeText := string(nodes)
+	if !strings.Contains(nodeText, "function_artifact") {
+		t.Fatalf("workflow result must preserve the function_artifact producer source: %s", nodeText)
+	}
+	attID := attIDShape.FindString(nodeText)
+	if attID == "" {
+		t.Fatalf("function workflow result must carry a MediaRef attachment id: %s", nodeText)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+		t.Fatalf("function workflow PNG must round-trip exact bytes: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+
+	seen := false
+	for _, dump := range rec.DumpsFor(viewerModel) {
+		if dump.HasImagePart(pngB64) {
+			seen = true
+			break
+		}
+	}
+	if !seen {
+		t.Fatal("BYOK workflow viewer never received the function artifact bytes as a native image part")
+	}
+}
+
 // TestLiveHybrid_WorkflowManagedImageToGoogleViewer is the same ownership boundary through
 // Gemini's native contents/parts dialect. The OpenAI-compatible lane above cannot prove this:
 // Google receives inlineData, puts the model in the path, and has its own request envelope.
