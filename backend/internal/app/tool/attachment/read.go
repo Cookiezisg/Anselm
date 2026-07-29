@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
@@ -27,7 +28,7 @@ const (
 	readAttachmentMaxQueryChars             = 512
 )
 
-const readAttachmentDescription = `Read an uploaded attachment by id (find ids via list_attachments). Optional query/contextChars/maxMatches search large text or documents without dumping the body; optional index/offset/limitChars page bounded slices. Text and document files (PDF/Office) are text-extracted. Large text/doc attachments automatically return a compact chunk/page index with offsets and previews when called without query, offset, or limitChars; pass index:true explicitly to request the index at any size. Page mode limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. Query mode returns bounded snippets around literal matches. Images/audio/video and other binaries return descriptors; use inspect_media for bounded image evidence or audio/video metadata capsules.`
+const readAttachmentDescription = `Read uploaded attachment by id. Large text/docs: index:boolean; offset,limitChars,contextChars,maxMatches:integer; query:string. Emit JSON types (never quote booleans/integers). Find ids via list_attachments. Text and document files (PDF/Office) are text-extracted; index:true returns a compact chunk/page map, while offset/limitChars page bounded slices and query returns bounded literal-match snippets. Images/audio/video return descriptors; use inspect_media for bounded media evidence.`
 
 var readAttachmentSchema = json.RawMessage(`{
 	"type": "object",
@@ -167,6 +168,92 @@ type readArgs struct {
 	Query        string `json:"query"`
 	ContextChars int    `json:"contextChars"`
 	MaxMatches   int    `json:"maxMatches"`
+}
+
+// UnmarshalJSON tolerates the stringified scalar values emitted by some managed tool callers
+// while keeping the public schema strongly typed. A rejected first call forces an avoidable retry
+// and can consume the agent's step budget before it can summarize a successful bounded read.
+func (a *readArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		ID           string          `json:"id"`
+		Index        json.RawMessage `json:"index"`
+		Offset       json.RawMessage `json:"offset"`
+		LimitChars   json.RawMessage `json:"limitChars"`
+		Query        string          `json:"query"`
+		ContextChars json.RawMessage `json:"contextChars"`
+		MaxMatches   json.RawMessage `json:"maxMatches"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	index, err := decodeLooseBool(raw.Index)
+	if err != nil {
+		return fmt.Errorf("index: %w", err)
+	}
+	offset, err := decodeLooseInt(raw.Offset)
+	if err != nil {
+		return fmt.Errorf("offset: %w", err)
+	}
+	limitChars, err := decodeLooseInt(raw.LimitChars)
+	if err != nil {
+		return fmt.Errorf("limitChars: %w", err)
+	}
+	contextChars, err := decodeLooseInt(raw.ContextChars)
+	if err != nil {
+		return fmt.Errorf("contextChars: %w", err)
+	}
+	maxMatches, err := decodeLooseInt(raw.MaxMatches)
+	if err != nil {
+		return fmt.Errorf("maxMatches: %w", err)
+	}
+	*a = readArgs{
+		ID:           raw.ID,
+		Index:        index,
+		Offset:       offset,
+		LimitChars:   limitChars,
+		Query:        raw.Query,
+		ContextChars: contextChars,
+		MaxMatches:   maxMatches,
+	}
+	return nil
+}
+
+func decodeLooseBool(raw json.RawMessage) (bool, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return false, nil
+	}
+	var value bool
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return false, fmt.Errorf("must be boolean, got %s", string(raw))
+	}
+	value, err := strconv.ParseBool(strings.TrimSpace(text))
+	if err != nil {
+		return false, fmt.Errorf("must be boolean, got %q", text)
+	}
+	return value, nil
+}
+
+func decodeLooseInt(raw json.RawMessage) (int, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, nil
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return 0, fmt.Errorf("must be integer, got %s", string(raw))
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(text))
+	if err != nil {
+		return 0, fmt.Errorf("must be integer, got %q", text)
+	}
+	return value, nil
 }
 
 // flattenText joins the text of every text part into one tool-result string. ToContentParts on a

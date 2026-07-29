@@ -193,6 +193,22 @@ func TestReadAttachment_IndexReturnsChunkOffsetsWithoutDumpingBody(t *testing.T)
 	}
 }
 
+func TestReadAttachment_IndexAcceptsStringBooleanFromManagedCaller(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "managed-index.txt", "text/plain", []byte(strings.Repeat("body\n", readAttachmentIndexChunkChars*2)))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","index":"true"}`)
+	if err != nil {
+		t.Fatalf("stringified index should be accepted for managed callers: %v", err)
+	}
+	var idx attachmentTextIndex
+	if err := json.Unmarshal([]byte(out), &idx); err != nil || idx.AttachmentID != a.ID {
+		t.Fatalf("stringified index should still return the compact index JSON: err=%v index=%+v out=%q", err, idx, out)
+	}
+}
+
 func TestReadAttachment_IndexContinuesFromOffset(t *testing.T) {
 	text := strings.Repeat("a", 12) + strings.Repeat("b", 12) + strings.Repeat("c", 12)
 	chunks, truncated, next := chunkAttachmentText(text, 0, 10, 2)

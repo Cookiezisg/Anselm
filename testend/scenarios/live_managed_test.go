@@ -273,7 +273,7 @@ func TestLiveManaged_WorkflowGenerateImageToViewer(t *testing.T) {
 func TestLiveManaged_SubagentGenerateImageArtifact(t *testing.T) {
 	wc := liveManagedWorkspace(t, "live-managed-subagent-image")
 	// Parent steps are: delegate → receive the subagent result → final confirmation. The child has
-	// its own loop budget; capping the parent at two stops before it can acknowledge the result.
+	// its own loop budget; capping the parent at three stops before it can acknowledge the result.
 	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
 	conv := convCreate(t, wc, "managed subagent image")
 	msg := sendMsg(t, wc, conv,
@@ -1309,6 +1309,44 @@ func TestLiveManaged_ReadAttachmentLargeTextQuery(t *testing.T) {
 	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
 	if content.Status != 200 || !bytes.Equal(content.Raw, textBytes) {
 		t.Fatalf("large read_attachment query must not mutate source text: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
+// TestLiveManaged_ReadAttachmentLargeTextIndex proves the managed model can request the compact
+// index explicitly instead of dumping a large text attachment; the body sentinel must stay out of
+// the tool result while the parent turn continues.
+func TestLiveManaged_ReadAttachmentLargeTextIndex(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-read-attachment-large-index")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	const token = "INDEX_BODY_SECRET_7F3A"
+	textBytes := []byte(strings.Repeat("index body line for compact preview\n", 1000) + token + " appears in the body\n" + strings.Repeat("index tail line\n", 5000))
+	attID := uploadAtt(t, wc, "large-index.txt", "text/plain", textBytes)
+	conv := convCreate(t, wc, "managed large read index")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 read_attachment 工具读取附件 "+attID+"，id 使用该附件，index 写 true，只要返回紧凑索引不要读取正文；不要调用其他工具。工具返回后只回复‘索引已返回’。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed large read_attachment index turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, compact, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "read_attachment" || strings.Contains(block.Content, "read_attachment")
+		case "tool_result":
+			compact = compact || (strings.Contains(block.Content, attID) && strings.Contains(block.Content, `"chunks"`) &&
+				strings.Contains(block.Content, `"totalChars"`) && strings.Contains(block.Content, `"usage"`) &&
+				!strings.Contains(block.Content, token) && len(block.Content) < 12000)
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !compact || !strings.Contains(answer, "索引") {
+		t.Fatalf("managed large read_attachment must return compact index/continue: called=%v compact=%v answer=%q blocks=%+v", called, compact, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, textBytes) {
+		t.Fatalf("large read_attachment index must not mutate source text: HTTP %d, %d bytes", content.Status, len(content.Raw))
 	}
 }
 
