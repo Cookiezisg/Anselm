@@ -816,3 +816,98 @@ func TestTrigger_SensorHandlerTargetAndInvokeFailure(t *testing.T) {
 	}
 	wc.POST("/api/v1/triggers/"+trgID+":pause", map[string]any{}).OK(t, nil)
 }
+
+// TestTrigger_SensorMCPTargetReachesWorkflow covers the third sensor execution surface: a real
+// stdio MCP server's text tool result is normalized into payload.text, evaluated by CEL, and
+// delivered to a workflow. The MCP call ledger must identify the trigger as a workflow caller.
+//
+// TestTrigger_SensorMCPTargetReachesWorkflow 覆盖 sensor 第三条执行面：真实 stdio MCP server 的文本
+// tool result 归一为 payload.text，经 CEL 判断后交付 workflow；MCP calls 台账必须标明 caller=workflow。
+func TestTrigger_SensorMCPTargetReachesWorkflow(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "sensor-mcp-target"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	var st mcpStatus
+	wc.PUT("/api/v1/mcp-servers/sensor_mcp", map[string]any{
+		"description": "sensor MCP probe",
+		"command":     "python3",
+		"args":        []string{writeScriptedMCP(t)},
+	}).OK(t, &st)
+	if st.Status != "ready" || st.ID == "" {
+		t.Fatalf("sensor MCP server must be ready before binding: %+v", st)
+	}
+
+	trgID := trgCreate(t, wc, "mcp_sensor", "sensor", map[string]any{
+		"targetKind": "mcp", "targetId": st.ID, "method": "echo", "intervalSec": 5,
+		"condition": "payload.text == 'echo:'", "output": "{'seen': payload.text}",
+	})
+	wfID, _ := wfWithTrigger(t, wc, "mcp_sensor_pipe", trgID)
+
+	type activation struct {
+		Fired       bool           `json:"fired"`
+		ReturnValue map[string]any `json:"returnValue"`
+		Payload     map[string]any `json:"payload"`
+		FiringCount int            `json:"firingCount"`
+	}
+	var acts []activation
+	var run struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+		Origin string `json:"origin"`
+	}
+	harness.Eventually(t, 30000, "MCP sensor drives a workflow", func() bool {
+		r := wc.GET("/api/v1/triggers/" + trgID + "/activations")
+		if r.Status != 200 || json.Unmarshal(r.Data, &acts) != nil {
+			return false
+		}
+		seenFire := false
+		for _, act := range acts {
+			if act.Fired && act.FiringCount > 0 && act.ReturnValue["text"] == "echo:" && act.Payload["seen"] == "echo:" {
+				seenFire = true
+				break
+			}
+		}
+		if !seenFire {
+			return false
+		}
+		var runs []struct {
+			ID     string `json:"id"`
+			Status string `json:"status"`
+			Origin string `json:"origin"`
+		}
+		r = wc.GET("/api/v1/flowruns?workflowId=" + wfID)
+		if r.Status != 200 || json.Unmarshal(r.Data, &runs) != nil {
+			return false
+		}
+		for _, candidate := range runs {
+			if candidate.Status == "completed" && candidate.Origin == "sensor" {
+				run = candidate
+				return true
+			}
+		}
+		return false
+	})
+	if run.ID == "" {
+		t.Fatalf("MCP sensor must create a completed sensor-origin run: %+v", run)
+	}
+
+	wc.POST("/api/v1/triggers/"+trgID+":pause", map[string]any{}).OK(t, nil)
+	var calls mcpCallsPage
+	wc.GET("/api/v1/mcp-servers/sensor_mcp/calls").OK(t, &calls)
+	if len(calls.Calls) == 0 {
+		t.Fatalf("MCP sensor must leave a call ledger row: %+v", calls)
+	}
+	hasWorkflowCall := false
+	for _, call := range calls.Calls {
+		if call.Tool == "echo" && call.Status == "ok" && call.TriggeredBy == "workflow" {
+			hasWorkflowCall = true
+			break
+		}
+	}
+	if !hasWorkflowCall {
+		t.Fatalf("MCP sensor call must be attributed to workflow: %+v", calls.Calls)
+	}
+}
