@@ -1979,6 +1979,72 @@ capabilityFound:
 	}
 }
 
+// TestLiveManaged_DefaultChatWithTextImageAndVideoAttachments proves the three-way ordinary
+// upload shape: a text answer, a vision part, and an MP4 video all share one managed turn. The
+// text evidence must remain answerable while both media branches stay native and byte-stable.
+func TestLiveManaged_DefaultChatWithTextImageAndVideoAttachments(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-text-image-video-attachments")
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+		Video    bool   `json:"video"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" && cap.Vision && cap.Video {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatalf("managed default must advertise vision+video before accepting text+image+video: %+v", caps)
+	}
+
+	const token = "TRIPLE_TEXT_IMAGE_VIDEO_4B7E"
+	textBytes := []byte("The companion note contains the only answer token: " + token + ".")
+	textID := uploadAtt(t, wc, "triple-note.txt", "text/plain", textBytes)
+	imageID := uploadAtt(t, wc, "triple-note.png", "image/png", liveManagedPNG)
+	clip := shortVideoFixture(t)
+	if !bytes2IsMP4(clip) || len(clip) > 3*1024*1024 {
+		t.Fatalf("managed MP4 fixture must be valid and within the published 3MiB decoded budget: %d bytes", len(clip))
+	}
+	videoID := uploadAtt(t, wc, "triple-note.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "managed text image and video attachments")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请从文字附件中找出唯一英文 token，只输出该 token；同时确认图片和视频都已收到，不要调用工具。",
+		"attachmentIds": []string{textID, imageID, videoID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed text-image-video fusion chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	answer := ""
+	for _, block := range turn.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, token) {
+		t.Fatalf("managed text-image-video answer must contain the text token, got %q", answer)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "text", id: textID, want: textBytes},
+		{name: "image", id: imageID, want: liveManagedPNG},
+		{name: "video", id: videoID, want: clip},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("managed triple %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_DefaultChatWithMultipleImageAttachments proves the common screenshot-comparison
 // shape on the managed route: two distinct image attachments share one user turn and both survive
 // the gateway's media staging/lease path without degrading the conversation.
