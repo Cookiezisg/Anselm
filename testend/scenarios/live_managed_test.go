@@ -1812,6 +1812,83 @@ func TestLiveBYOK_OpenAIDocumentImageReference(t *testing.T) {
 	t.Fatal("BYOK document image never reached OpenAI as the exact native image part")
 }
 
+// TestLiveBYOK_OpenAIPDFInput proves the OpenAI-native document lane end to end: the PDF is
+// uploaded through Anselm, survives the conversation unchanged, and reaches the real OpenAI wire
+// as a `file` part with inline file_data rather than extracted prompt prose.
+func TestLiveBYOK_OpenAIPDFInput(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK PDF acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-openai-pdf-input"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-byok-pdf", "key": key,
+		"baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	const model = "gpt-4.1-mini"
+	var caps []struct {
+		APIKeyID   string `json:"apiKeyId"`
+		Provider   string `json:"provider"`
+		ModelID    string `json:"modelId"`
+		NativeDocs bool   `json:"nativeDocs"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	nativeDocs := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "openai" && cap.ModelID == model && cap.NativeDocs {
+			nativeDocs = true
+			break
+		}
+	}
+	if !nativeDocs {
+		t.Skip("probed OpenAI BYOK account/catalog does not currently expose native PDF input for gpt-4.1-mini")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": model}).OK(t, nil)
+
+	pdf := buildPDF("PDFLIVE alpha")
+	attID := uploadAtt(t, wc, "native-evidence.pdf", "application/pdf", pdf)
+	conv := convCreate(t, wc, "BYOK OpenAI PDF input")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认收到了 PDF。不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		if turn.ErrorCode == "LLM_RATE_LIMITED" {
+			t.Logf("OpenAI BYOK PDF lane reached the provider's current rate window: %s", turn.ErrorMessage)
+			t.Skip("OpenAI provider rate-limited this live PDF sample; structured LLM_RATE_LIMITED classification verified")
+		}
+		t.Fatalf("OpenAI BYOK PDF chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, pdf) {
+		t.Fatalf("uploaded PDF must survive the OpenAI BYOK turn unchanged: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+
+	dumps := rec.DumpsFor(model)
+	if len(dumps) == 0 {
+		t.Fatal("BYOK PDF turn produced no recorded OpenAI request")
+	}
+	wire := `"file_data":"data:application/pdf;base64,` + base64.StdEncoding.EncodeToString(pdf) + `"`
+	for _, dump := range dumps {
+		if strings.Contains(string(dump.Raw), `"type":"file"`) && strings.Contains(string(dump.Raw), wire) {
+			return
+		}
+	}
+	t.Fatal("BYOK PDF never reached OpenAI as the exact native file part")
+}
+
 // TestLiveBYOK_QwenVideoInput exercises a second real BYOK behavior class: the catalog-derived
 // Qwen endpoint and dialect must carry a normal MP4 attachment as a video part. The harness keeps
 // its managed gateway closed, so an apparent success cannot be a free-tier fallback.
