@@ -860,6 +860,40 @@ func TestLiveManaged_DefaultChatWithImageAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_InspectMediaImage proves the nested real vision path: the outer managed model
+// calls inspect_media, the tool's internal vision request completes through the deployed gateway,
+// and only bounded JSON evidence is returned to the parent conversation.
+func TestLiveManaged_InspectMediaImage(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-inspect-image")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	attID := uploadAtt(t, wc, "inspect-evidence.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed inspect image")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 inspect_media 工具检查附件 "+attID+"，question 写“描述图片中的主要颜色”，不要调用 read_attachment；工具返回后用一句话总结。")
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed inspect_media image turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, evidence, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || strings.Contains(block.Content, "inspect_media") || block.Attrs["tool"] == "inspect_media"
+		case "tool_result":
+			evidence = evidence || (strings.Contains(block.Content, attID) && strings.Contains(block.Content, `"answer"`))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !evidence || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed inspect_media must call/return bounded evidence/continue: called=%v evidence=%v answer=%q blocks=%+v", called, evidence, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+		t.Fatalf("inspect_media must not mutate the source image: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_DefaultChatWithPDFAttachment proves the managed model's non-native document
 // route: the default Anselm capability intentionally does not advertise NativeDocs, so a PDF must
 // be extracted in the sandbox and its text made available to the real managed conversation.
