@@ -396,6 +396,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-366 | 聊天 parked approval 场景、backend 回归后的主仓跨层总门禁再次闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-chat-approval-workflow | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-367 | 聊天失败 FlowRun replay 闭环补齐：真实托管回合先触发带 stable 前缀与 resident flaky handler 的 workflow，故意失败后下一回合读取 durable failed run，第三回合调用 `replay_flowrun`；原 run 恢复 completed，已完成节点不重跑，handler 第二次调用成功并进入 finish，function/handler execution ledger 保留同一 flowrun 身份与一次 failed + 一次 ok。首轮断言误把公开列表当作时间正序（实际默认最新在前），修正为状态计数后两次规范复跑通过，未形成后端缺陷 | FRT-13 / managed-read/default / chat → failed flowrun → replay_flowrun → durable execution ledger | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatFlowrunReplay$' -count=1` → PASS 53.730s；复跑 PASS 50.552s；无 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

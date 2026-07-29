@@ -45,6 +45,8 @@ audience: [human, ai]
 
 同日补充人在环闭环：聊天触发的 webhook workflow 先在 `human` approval 节点 durable park，第二轮只经 `search_tools`→`get_flowrun` 读取 parked 状态，第三轮才经 `search_tools`→`decide_approval(yes)` 恢复并完成下游 publish；两次真实 managed 复跑均保留 `flowrunId`、审批决策、completed 状态与下游 marker。
 
+同日补充失败 run 的聊天 replay 闭环：首轮经 `search_tools`→`trigger_workflow` 启动带稳定前缀与常驻 flaky handler 的 workflow，handler 首次失败后 durable 记录 `origin=chat` 的 failed run；第二轮只经 `search_tools`→`get_flowrun` 读取 failed 节点，第三轮经 `search_tools`→`replay_flowrun` 恢复同一 `flowrunId`。replay 复用已完成的 stable 节点、只重跑失败 handler，随后 finish 节点完成；function execution 与 handler call ledger 均证明稳定前缀/finish 各一次、handler 恰一次 failed + 一次 ok。两次真实 managed 复跑通过（53.730s、50.552s）。首轮断言曾错误假设列表按时间正序，实际公开列表默认最新在前；改为校验 append-only 状态计数后通过，未形成后端缺陷。
+
 ## 历史高频 reprobe 组
 
 这些不是“已覆盖所以跳过”。当任一承重面改变时，按组抽取代表路径重测：

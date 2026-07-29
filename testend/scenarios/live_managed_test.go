@@ -1119,6 +1119,190 @@ trigger_workflow 的 args 必须同时包含 workflowId 和 payload，payload �
 	}
 }
 
+// TestLiveManaged_ChatFlowrunReplay proves chat can recover a durable failed run rather than
+// merely inspect it: a resident handler fails on its first call, get_flowrun exposes the failed
+// node, replay_flowrun reuses the completed prefix and the handler succeeds on its second call.
+func TestLiveManaged_ChatFlowrunReplay(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-chat-flowrun-replay")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+
+	const marker = "CHAT_FLOWRUN_REPLAY_4F6C"
+	stableFn := fnCreate(t, wc, "chat_flowrun_replay_stable", "def stable() -> dict:\n    return {'stable': 'kept'}\n")
+	finishFn := fnCreate(t, wc, "chat_flowrun_replay_finish", fmt.Sprintf(`def finish(n: int) -> dict:
+    return {"marker": "%s", "final": n}
+`, marker))
+	hdID := hdCreate(t, wc, "chat_flowrun_replay_flaky", map[string]any{
+		"initBody": "self.count = 0",
+		"methods": []map[string]any{{
+			"name": "flaky", "inputs": []any{},
+			"body": "self.count += 1\nif self.count == 1:\n    raise RuntimeError('first replay attempt fails')\nreturn {'n': self.count}",
+		}},
+	})
+	trgID := trgCreate(t, wc, "chat_flowrun_replay_webhook", "webhook", map[string]any{"path": "chat-flowrun-replay"})
+	wfID := wfCreate(t, wc, "managed_chat_flowrun_replay", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": trgID}},
+		{"op": "add_node", "node": map[string]any{"id": "stable", "kind": "action", "ref": stableFn}},
+		{"op": "add_node", "node": map[string]any{"id": "flaky", "kind": "action", "ref": hdID + ".flaky"}},
+		{"op": "add_node", "node": map[string]any{"id": "finish", "kind": "action", "ref": finishFn,
+			"input": map[string]any{"n": "flaky.n"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "stable"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e2", "from": "stable", "to": "flaky"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e3", "from": "flaky", "to": "finish"}},
+	})
+	wc.GET("/api/v1/workflows/"+wfID).OK(t, nil)
+
+	convID := convCreate(t, wc, "managed chat flowrun replay")
+	firstPrompt := fmt.Sprintf(`先调用 search_tools 查找名为 trigger_workflow 的工作流工具；等它返回工具 schema 后，只调用 trigger_workflow 一次来运行 workflowId=%s（必须逐字复制这个 workflowId），然后告诉我返回的 flowrunId。除这一次 search_tools 外不要调用其他工具。
+trigger_workflow 的 args 必须同时包含 workflowId 和 payload，payload 严格使用 webhook 入口形状：{"body":{"task":"replay probe"}}。`, wfID)
+	first := waitTurn(t, wc, convID, sendMsg(t, wc, convID, firstPrompt), 300000)
+	if first.Status != "completed" {
+		t.Fatalf("chat replay-trigger turn must complete: status=%s code=%s message=%s blocks=%+v", first.Status, first.ErrorCode, first.ErrorMessage, first.Blocks)
+	}
+	searchCalls, triggerCalls, triggerResults := 0, 0, 0
+	for _, block := range first.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "trigger_workflow":
+			switch block.Type {
+			case "tool_call":
+				triggerCalls++
+			case "tool_result":
+				triggerResults++
+				if !strings.Contains(block.Content, wfID) {
+					t.Fatalf("replay trigger result must name workflow %s: %s", wfID, block.Content)
+				}
+			}
+		}
+	}
+	if searchCalls < 1 || triggerCalls != 1 || triggerResults != 1 {
+		t.Fatalf("replay trigger turn must discover trigger_workflow then persist exactly one call/result: search=%d calls=%d results=%d blocks=%+v", searchCalls, triggerCalls, triggerResults, first.Blocks)
+	}
+
+	var rows []struct {
+		ID             string `json:"id"`
+		Status         string `json:"status"`
+		Origin         string `json:"origin"`
+		ConversationID string `json:"conversationId"`
+	}
+	harness.Eventually(t, 240000, "chat-triggered replay run fails at flaky handler", func() bool {
+		r := wc.GET("/api/v1/flowruns?workflowId=" + wfID + "&origin=chat&status=failed")
+		if r.Status != 200 || json.Unmarshal(r.Data, &rows) != nil {
+			return false
+		}
+		return len(rows) == 1 && rows[0].ID != "" && rows[0].Origin == "chat" && rows[0].ConversationID == convID
+	})
+	if len(rows) != 1 {
+		t.Fatalf("chat replay trigger must produce one failed run, got %+v", rows)
+	}
+	runID := rows[0].ID
+
+	secondPrompt := fmt.Sprintf(`先调用 search_tools 查找名为 get_flowrun 的工具；等它返回工具 schema 后，只调用 get_flowrun 一次，参数必须是精确的 flowrunId=%s。确认 flaky 节点已经 failed 且 stable 节点已经 completed；不要调用 replay_flowrun 或任何其他工具，只告诉我这个 run 可以重放。`, runID)
+	second := waitTurn(t, wc, convID, sendMsg(t, wc, convID, secondPrompt), 300000)
+	if second.Status != "completed" {
+		t.Fatalf("chat failed-run observation turn must complete: status=%s code=%s message=%s blocks=%+v", second.Status, second.ErrorCode, second.ErrorMessage, second.Blocks)
+	}
+	searchCalls, getCalls, getResults := 0, 0, 0
+	for _, block := range second.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "get_flowrun":
+			switch block.Type {
+			case "tool_call":
+				getCalls++
+			case "tool_result":
+				getResults++
+				if !strings.Contains(block.Content, runID) || !strings.Contains(block.Content, `"status":"failed"`) || !strings.Contains(block.Content, `"nodeId":"stable"`) || !strings.Contains(block.Content, `"nodeId":"flaky"`) {
+					t.Fatalf("get_flowrun must expose failed run %s with stable/flaky nodes: %s", runID, block.Content)
+				}
+			}
+		case "replay_flowrun":
+			t.Fatalf("failed-run observation turn must not replay early: blocks=%+v", second.Blocks)
+		}
+	}
+	if searchCalls < 1 || getCalls != 1 || getResults != 1 {
+		t.Fatalf("failed-run observation must discover get_flowrun exactly once: search=%d calls=%d results=%d blocks=%+v", searchCalls, getCalls, getResults, second.Blocks)
+	}
+
+	thirdPrompt := fmt.Sprintf(`先调用 search_tools 查找名为 replay_flowrun 的工具；等它返回工具 schema 后，只调用 replay_flowrun 一次，参数必须是精确的 flowrunId=%s。读取返回的完整 run，确认状态为 completed、stable 节点结果仍保留、flaky 第二次调用成功且 finish 节点结果包含 marker %s；最终答复原样输出 marker。除这一次 search_tools 和这一次 replay_flowrun 外不要调用其他工具。`, runID, marker)
+	third := waitTurn(t, wc, convID, sendMsg(t, wc, convID, thirdPrompt), 300000)
+	if third.Status != "completed" {
+		t.Fatalf("chat replay turn must complete: status=%s code=%s message=%s blocks=%+v", third.Status, third.ErrorCode, third.ErrorMessage, third.Blocks)
+	}
+	searchCalls, replayCalls, replayResults := 0, 0, 0
+	for _, block := range third.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "replay_flowrun":
+			switch block.Type {
+			case "tool_call":
+				replayCalls++
+			case "tool_result":
+				replayResults++
+				if !strings.Contains(block.Content, runID) || !strings.Contains(block.Content, `"status":"completed"`) || !strings.Contains(block.Content, marker) || !strings.Contains(block.Content, `"stable":"kept"`) {
+					t.Fatalf("replay_flowrun must complete run %s with memoized prefix and marker %s: %s", runID, marker, block.Content)
+				}
+			}
+		}
+	}
+	if searchCalls < 1 || replayCalls != 1 || replayResults != 1 {
+		t.Fatalf("replay turn must discover replay_flowrun then persist exactly one call/result: search=%d calls=%d results=%d blocks=%+v", searchCalls, replayCalls, replayResults, third.Blocks)
+	}
+	answer := ""
+	for _, block := range third.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, marker) {
+		t.Fatalf("replay turn must surface finish marker %s in assistant text, blocks=%+v", marker, third.Blocks)
+	}
+
+	// Durable execution ledgers make the replay claim falsifiable: the stable prefix and finish run
+	// exactly once, while the flaky resident handler records one failed and one successful call.
+	var stableExecutions struct {
+		Executions []json.RawMessage `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+stableFn+"/executions?flowrunId="+runID).OK(t, &stableExecutions)
+	if len(stableExecutions.Executions) != 1 {
+		t.Fatalf("replay must reuse stable prefix, got %d executions", len(stableExecutions.Executions))
+	}
+	var finishExecutions struct {
+		Executions []json.RawMessage `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+finishFn+"/executions?flowrunId="+runID).OK(t, &finishExecutions)
+	if len(finishExecutions.Executions) != 1 {
+		t.Fatalf("replay must run finish exactly once after flaky recovery, got %d executions", len(finishExecutions.Executions))
+	}
+	var calls struct {
+		Calls []struct {
+			Status string `json:"status"`
+		} `json:"calls"`
+	}
+	wc.GET("/api/v1/handlers/"+hdID+"/calls?flowrunId="+runID).OK(t, &calls)
+	seenCallStatus := map[string]int{}
+	for _, call := range calls.Calls {
+		seenCallStatus[call.Status]++
+	}
+	// Handler call lists use the public default keyset order (newest first), so the
+	// replay success normally precedes the original failure.  The invariant here is
+	// append-only auditability: exactly one failed attempt and one successful replay.
+	if len(calls.Calls) != 2 || seenCallStatus["failed"] != 1 || seenCallStatus["ok"] != 1 {
+		t.Fatalf("replay handler ledger must retain exactly one failed and one ok attempt: %+v", calls.Calls)
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.
