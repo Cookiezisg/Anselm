@@ -157,6 +157,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-137 | 作为默认受管路径的上游服务，当前 `Anselm-API-Serve` 网关仓在本轮多模态降级验收后仍全绿：静态、race、集成 e2e、lint 与文档门禁没有回归；网关工作树保持干净 | gateway cross-repo gate / managed dependency | `cd ../Anselm-API-Serve && make verify` → `go vet`、`go build`、`go test -race ./...`、`go test -tags=integration -race -count=1 ./internal/e2e/...`（6.605s）、golangci-lint `0 issues`、docs lint `0 warning`；无 provider secret 输出 | 当前工作树 |
 | 2026-07-29 | EVO-138 | OpenAI BYOK `gpt-4.1-mini` 同一回合附两张 PNG：两个 attachment receipt 均保持 98-byte 原样，recorder 在同一 `/chat/completions` 请求中捕获两个精确 `image_url` parts；没有把同类媒体错误折叠成第一件或重复为额外回合 | byok-read / OpenAI / multiple same-kind media / recorder wire | `set -a; source ../.env; set +a; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIMultipleImages$' -count=1 -parallel 1 -timeout 8m -v` → PASS 7.94s（go test 总计 9.110s）；两件附件 HTTP 200/98 bytes；key 未输出 | 当前工作树 |
 | 2026-07-29 | EVO-139 | 多图 live 场景落地后，backend 本身常规门禁仍闭合：格式、vet、全量 Go build 与单测均通过，没有因验收测试扩展造成后端装配回归 | backend verify / post-live-test gate | `make -C backend verify` → `✓ backend verified`；未注入 provider secret | 当前工作树 |
+| 2026-07-29 | EVO-140 | 多图验收再加一条成本守卫并真实重跑：OpenAI `gpt-4.1-mini` 同轮两个 PNG 仍只产生一次上游 `/chat/completions`，两个 native `image_url` parts 与附件完整性均保持；避免“重试后才成功”被误计为通过 | byok-read / OpenAI / duplicate-call guard | `set -a; source ../.env; set +a; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIMultipleImages$' -count=1 -parallel 1 -timeout 8m -v` → PASS 6.75s（go test 总计 7.939s）；`chat/completions=1`、两件附件 HTTP 200/98 bytes；key 未输出 | 当前工作树 |
 
 ## 追加格式
 

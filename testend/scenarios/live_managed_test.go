@@ -1270,6 +1270,9 @@ func TestLiveBYOK_OpenAIMultipleImages(t *testing.T) {
 	if !seenTwo {
 		t.Fatalf("OpenAI multiple-image wire must contain two exact image parts: chatCalls=%d", rec.CallsTo("/chat/completions"))
 	}
+	if got := rec.CallsTo("/chat/completions"); got != 1 {
+		t.Fatalf("OpenAI multiple-image turn must use one upstream chat request, got %d", got)
+	}
 }
 
 // TestLiveBYOK_OpenAIImageAndUnsupportedAudio proves that a common drag-and-drop combination does
