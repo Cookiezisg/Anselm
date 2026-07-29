@@ -309,6 +309,7 @@ audience: [human, ai]
 | 2026-07-30 | EVO-287 | `inspect_media` 文档分页场景与 backend 回归后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-inspect-page-coercion | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret | 当前提交 |
 | 2026-07-30 | EVO-288 | 托管 `inspect_media` 文本窗口真实闭合：模型传入 offset 与 limitChars 后返回 `mode=window`、包含唯一 token 的 bounded evidence，父回合继续且源文本字节不变 | FRT-01 / managed-read/default / inspect_media offset window | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_InspectMediaTextWindow$' -count=1 -parallel 1 -timeout 12m -v` → PASS 27.623s；无 provider secret | 当前提交 |
 | 2026-07-30 | EVO-289 | 新增 managed `inspect_media` 文本窗口场景后的完整 backend 黑盒回归仍闭合；chat、agent/subagent、workflow/trigger、MCP/function/handler、附件发现/抽取/大文本 bounded query/index/page、多模态、媒体 inspect（query/page/window/tiles/crop/range）、取消/重试/崩溃恢复、资源卫生共同通过，未启用 EVALS/provider secret | full backend testend regression / post-inspect-window evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 320.510s`；无 provider secret、EVALS 未开启 | 当前提交 |
+| 2026-07-30 | EVO-290 | `inspect_media` 文本窗口场景后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-inspect-window | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 
 ## 追加格式
 
