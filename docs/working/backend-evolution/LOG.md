@@ -333,6 +333,7 @@ audience: [human, ai]
 | 2026-07-30 | EVO-311 | text+video 混合回合后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-text-video-fusion | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 | 2026-07-30 | EVO-312 | managed chat 同一回合混合接收 text 与不支持原生 chat audio 的 WAV，模型仍从文字 part 找到唯一 token，回合完成且音频明确降级而非污染请求；两份源附件字节均不变，补齐普通“说明文档+语音附件”输入 | FRT-01 / managed-read/default / text+unsupported-audio same-turn honest degrade | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DefaultChatWithTextAndUnsupportedAudio$' -count=1 -parallel 1 -timeout 12m -v` → PASS 12.50s（包 13.898s）；无 provider secret | 当前提交 |
 | 2026-07-30 | EVO-313 | text+unsupported-audio 混合场景加入后的完整 backend 黑盒回归仍闭合；chat、agent/subagent、workflow/trigger、MCP/function/handler、附件发现/抽取/大文本 bounded query/index/page、多模态、媒体 inspect、取消/重试/崩溃恢复、资源卫生共同通过，未启用 EVALS/provider secret | full backend testend regression / post-text-audio-degrade evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 305.812s`；无 provider secret、EVALS 未开启 | 当前提交 |
+| 2026-07-30 | EVO-314 | text+unsupported-audio 场景及 backend 回归后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-text-audio-degrade | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret | 当前提交 |
 
 ## 追加格式
 
