@@ -1252,6 +1252,116 @@ func TestLiveBYOK_OpenAIImageInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_OpenAIImageRetryPreservesNativeHistory proves the user-facing regenerate path for
+// a multimodal turn. The retry creates a new assistant version without creating a second user row;
+// both real OpenAI-compatible requests must still carry the original image part, otherwise a
+// visually grounded answer silently becomes a text-only retry.
+//
+// TestLiveBYOK_OpenAIImageRetryPreservesNativeHistory 覆盖多模态回合的真实“重新生成”：重试只铸造
+// 新 assistant 版本、不重复 user 行；两次真实 OpenAI-compatible 请求都必须携带原始图片 part，
+// 否则一次视觉回答会静默退化成纯文本重试。
+func TestLiveBYOK_OpenAIImageRetryPreservesNativeHistory(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK retry acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-openai-image-retry"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-byok-image-retry", "key": key,
+		"baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "openai" && cap.ModelID == "gpt-4.1-mini" && cap.Vision {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Skip("current followed OpenAI catalog does not expose gpt-4.1-mini vision capability; retry reprobe is not constructible")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gpt-4.1-mini"}).OK(t, nil)
+
+	attID := uploadAtt(t, wc, "retry-input.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "OpenAI image retry")
+	first := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认收到了图片。不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	firstTurn := waitTurn(t, wc, conv, first, 180000)
+	if firstTurn.Status != "completed" {
+		t.Fatalf("OpenAI image source turn must complete: status=%s code=%s message=%s", firstTurn.Status, firstTurn.ErrorCode, firstTurn.ErrorMessage)
+	}
+
+	regenerated := retryPost(t, wc, conv, "")
+	regeneratedTurn := waitTurn(t, wc, conv, regenerated, 180000)
+	if regeneratedTurn.Status != "completed" {
+		t.Fatalf("OpenAI image regenerate turn must complete: status=%s code=%s message=%s", regeneratedTurn.Status, regeneratedTurn.ErrorCode, regeneratedTurn.ErrorMessage)
+	}
+
+	msgs := retryList(t, wc, conv)
+	users, assistantVersions := 0, make([]retryMsg, 0, 2)
+	for _, msg := range msgs {
+		if msg.Role == "user" {
+			users++
+		}
+		if msg.Role == "assistant" {
+			assistantVersions = append(assistantVersions, msg)
+		}
+	}
+	if users != 1 || len(assistantVersions) != 2 {
+		t.Fatalf("image regenerate must keep one user row and append one assistant version: users=%d assistants=%d messages=%+v", users, len(assistantVersions), msgs)
+	}
+	var oldAnswer, newAnswer retryMsg
+	for _, msg := range assistantVersions {
+		if msg.retryOf() == "" {
+			oldAnswer = msg
+		} else {
+			newAnswer = msg
+		}
+	}
+	if oldAnswer.ID == "" || newAnswer.ID == "" || newAnswer.ID != regenerated || newAnswer.retryOf() != oldAnswer.ID || oldAnswer.SupersededBy != newAnswer.ID {
+		t.Fatalf("image regenerate version chain must point newest→oldest and oldest→newest: old=%+v new=%+v returned=%s", oldAnswer, newAnswer, regenerated)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(liveManagedPNG)
+	chatCalls := 0
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		chatCalls++
+		if !bytes.Contains(call.Body, []byte(`"image_url"`)) || !bytes.Contains(call.Body, []byte(encoded)) {
+			t.Fatalf("every OpenAI image retry request must carry the exact native image part: call=%d bytes=%d", chatCalls, len(call.Body))
+		}
+	}
+	if chatCalls != 2 {
+		t.Fatalf("image source + regenerate must make exactly two upstream chat requests, got %d", chatCalls)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+		t.Fatalf("retry must leave the source image byte-identical: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveBYOK_OpenAIMultipleImages proves that a same-kind attachment list is not accidentally
 // collapsed to its first item. Both source receipts must survive and both exact image parts must
 // cross the real OpenAI-compatible wire in one turn.
