@@ -1234,6 +1234,97 @@ func TestLiveBYOK_QwenVideoInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_QwenImageAndVideoFusion exercises Qwen's OpenAI-compatible multimodal dialect with
+// two different native media parts in one real turn. The recorder is the authority here: a text
+// answer cannot prove that the image and video were both sent rather than one being silently
+// reduced to a filename or an attachment note.
+func TestLiveBYOK_QwenImageAndVideoFusion(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("QWEN_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires QWEN_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://dashscope-intl.aliyuncs.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-qwen-image-video-fusion"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "qwen", "displayName": "live-qwen-byok-image-video-fusion", "key": key,
+		"baseUrl": rec.URL() + "/compatible-mode/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	const model = "qwen3.7-plus"
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+		Video    bool   `json:"video"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "qwen" && cap.ModelID == model && cap.Vision && cap.Video {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatalf("probed Qwen BYOK key must expose image+video fusion for %s: %+v", model, caps)
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": model}).OK(t, nil)
+
+	image := liveManagedPNG
+	clip := shortVideoFixture(t)
+	if !bytes2IsMP4(clip) || len(clip) > 3*1024*1024 {
+		t.Fatalf("Qwen fusion MP4 fixture must be valid and within the published 3MiB decoded budget: %d bytes", len(clip))
+	}
+	imageID := uploadAtt(t, wc, "qwen-fusion.png", "image/png", image)
+	videoID := uploadAtt(t, wc, "qwen-fusion.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "Qwen image and video fusion")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认同时收到图片和视频。不要调用工具。",
+		"attachmentIds": []string{imageID, videoID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("Qwen image+video fusion chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "image", id: imageID, want: image},
+		{name: "video", id: videoID, want: clip},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("Qwen fused %s must survive unchanged: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+
+	imageB64 := base64.StdEncoding.EncodeToString(image)
+	videoB64 := base64.StdEncoding.EncodeToString(clip)
+	seenImage, seenVideo := false, false
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		seenImage = seenImage || bytes.Contains(call.Body, []byte(`"image_url"`)) && bytes.Contains(call.Body, []byte(imageB64))
+		seenVideo = seenVideo || bytes.Contains(call.Body, []byte(`"video_url"`)) && bytes.Contains(call.Body, []byte(videoB64))
+	}
+	if !seenImage || !seenVideo {
+		t.Fatalf("Qwen fusion wire lost one native part: image=%v video=%v chatCalls=%d", seenImage, seenVideo, rec.CallsTo("/chat/completions"))
+	}
+}
+
 // TestLiveBYOK_QwenChatOnlyAgentRejected proves the user-facing agent boundary for a real
 // chat-only model. The key is probed and selected through the ordinary workspace API, then the
 // agent invocation is rejected before any upstream generation; a text-capable model must remain
