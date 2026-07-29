@@ -124,6 +124,11 @@ type ContentCapabilities struct {
 	// 有限内联媒体额度。
 	MaxMediaParts int
 	MaxMediaBytes int64
+	// MaxDistinctMediaKinds limits how many different native media kinds (image, video,
+	// audio) may appear in one user turn. Zero means no finite cross-kind constraint is known.
+	// MaxDistinctMediaKinds 限制单个 user 回合可出现多少种不同的原生媒体类型（图、视频、音频）。
+	// 零表示未知或没有有限的跨类型约束。
+	MaxDistinctMediaKinds int
 	// ManagedGateway is present only for Anselm's built-in, device-proven gateway. It tells the
 	// attachment adapter to stage native image/video bytes once and hand the provider an expiring
 	// HTTPS source instead of embedding base64 in every sampling request. It contains the public

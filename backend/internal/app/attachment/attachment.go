@@ -251,6 +251,12 @@ type Capabilities struct {
 	// 可选的单回合解码媒体额度。零值表示解析模型未发布 app 侧上限；provider 专属校验仍由 provider 执行。
 	MaxMediaParts int
 	MaxMediaBytes int64
+	// MaxDistinctMediaKinds is an optional cross-kind guard for native image/video/audio parts.
+	// It is separate from MaxMediaParts: a model may accept several images while allowing only
+	// one distinct non-text media kind in a turn. Zero means no finite constraint is known.
+	// MaxDistinctMediaKinds 是原生图/视频/音频 part 的跨类型闸，与 MaxMediaParts 分开：模型可能接受
+	// 多张图片，却只允许单回合一种非文本媒体类型。零表示未知或没有有限约束。
+	MaxDistinctMediaKinds int
 	// RemoteMedia, when set by the composition root for the managed gateway, replaces inline
 	// image/video data URLs with a short-lived remote source. This package owns the decision of
 	// which attachment kinds may use it; bootstrap owns the transport implementation.
@@ -302,6 +308,8 @@ type RemoteMedia struct {
 //     extractor / extraction fails.
 //   - video → video_url when caps.Video and the attachment is an MP4; else a text note.
 //   - audio → input_audio when caps.Audio and it is WAV/MP3; else a text note.
+//   - when MaxDistinctMediaKinds is set, only that many distinct native media kinds are emitted;
+//     extra kinds become an explanatory text note rather than a provider-level 400.
 //   - other → a text placeholder.
 //
 // Order follows ids. A missing/unreadable blob is skipped with a warning — a stale id must never
@@ -333,6 +341,7 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 	out := make([]llminfra.ContentPart, 0, len(ids))
 	mediaParts := 0
 	var mediaBytes int64
+	nativeMediaKinds := make(map[string]struct{})
 	// A duplicate attachment in one user turn must not create multiple leases or send the same
 	// bytes twice. The URL is intentionally per-turn only: leases are install-bound and expiring.
 	//
@@ -358,6 +367,10 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 		}
 		switch a.Kind {
 		case attachmentdomain.KindImage:
+			if caps.Vision && exceedsNativeMediaKinds(caps, nativeMediaKinds, "image") {
+				out = append(out, distinctMediaKindNote("image", a.Filename, caps.MaxDistinctMediaKinds))
+				continue
+			}
 			// The envelope binds the REMOTE path too. Lease media used to contribute zero decoded
 			// bytes (it was a reference the provider fetched), but ADR 0012 made the gateway INLINE
 			// the lease content into the upstream body — so the bytes are back on the meter, and the
@@ -387,14 +400,20 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartImageURL, ImageURL: source})
 				mediaParts++
 				mediaBytes += int64(len(data))
+				nativeMediaKinds["image"] = struct{}{}
 			} else if caps.Vision && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartImageURL, ImageURL: dataURL(a.MimeType, data)})
 				mediaParts++
 				mediaBytes += int64(len(data))
+				nativeMediaKinds["image"] = struct{}{}
 			} else {
 				out = append(out, unavailableMediaNote("image", a.Filename, caps.Vision, "vision", caps, mediaParts, mediaBytes, int64(len(data))))
 			}
 		case attachmentdomain.KindVideo:
+			if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && exceedsNativeMediaKinds(caps, nativeMediaKinds, "video") {
+				out = append(out, distinctMediaKindNote("video", a.Filename, caps.MaxDistinctMediaKinds))
+				continue
+			}
 			if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && caps.RemoteMedia != nil &&
 				fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				source, err := stagedMediaURL(ctx, caps.RemoteMedia, remoteURLs, a, normalizedMIME(a.MimeType), data)
@@ -404,16 +423,22 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartVideoURL, VideoURL: source})
 				mediaParts++
 				mediaBytes += int64(len(data))
+				nativeMediaKinds["video"] = struct{}{}
 			} else if caps.Video && normalizedMIME(a.MimeType) == "video/mp4" && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{Type: llminfra.PartVideoURL, VideoURL: dataURL("video/mp4", data)})
 				mediaParts++
 				mediaBytes += int64(len(data))
+				nativeMediaKinds["video"] = struct{}{}
 			} else if caps.Video && normalizedMIME(a.MimeType) != "video/mp4" {
 				out = append(out, textNote("video %q attached, but this model accepts inline video only as MP4", a.Filename))
 			} else {
 				out = append(out, unavailableMediaNote("video", a.Filename, caps.Video, "video", caps, mediaParts, mediaBytes, int64(len(data))))
 			}
 		case attachmentdomain.KindAudio:
+			if caps.Audio && audioFormat(a.MimeType) != "" && exceedsNativeMediaKinds(caps, nativeMediaKinds, "audio") {
+				out = append(out, distinctMediaKindNote("audio", a.Filename, caps.MaxDistinctMediaKinds))
+				continue
+			}
 			if caps.Audio && audioFormat(a.MimeType) != "" && fitsMediaEnvelope(caps, mediaParts, mediaBytes, int64(len(data))) {
 				out = append(out, llminfra.ContentPart{
 					Type: llminfra.PartInputAudio, MediaType: normalizedMIME(a.MimeType),
@@ -421,6 +446,7 @@ func (s *Service) ToContentParts(ctx context.Context, ids []string, caps Capabil
 				})
 				mediaParts++
 				mediaBytes += int64(len(data))
+				nativeMediaKinds["audio"] = struct{}{}
 			} else if caps.Audio && audioFormat(a.MimeType) == "" {
 				out = append(out, textNote("audio %q attached, but this model accepts inline audio only as WAV or MP3", a.Filename))
 			} else {
@@ -524,6 +550,20 @@ func fitsMediaEnvelope(caps Capabilities, usedParts int, usedBytes, nextBytes in
 		return false
 	}
 	return caps.MaxMediaBytes <= 0 || nextBytes <= caps.MaxMediaBytes-usedBytes
+}
+
+func exceedsNativeMediaKinds(caps Capabilities, used map[string]struct{}, kind string) bool {
+	if caps.MaxDistinctMediaKinds <= 0 {
+		return false
+	}
+	if _, ok := used[kind]; ok {
+		return false
+	}
+	return len(used) >= caps.MaxDistinctMediaKinds
+}
+
+func distinctMediaKindNote(kind, filename string, max int) llminfra.ContentPart {
+	return textNote("%s %q attached, but this model accepts at most %d distinct native media type per turn; send it in a separate turn or choose a model that supports mixed media", kind, filename, max)
 }
 
 func unavailableMediaNote(kind, filename string, enabled bool, capability string, caps Capabilities, usedParts int, usedBytes, nextBytes int64) llminfra.ContentPart {

@@ -58,6 +58,7 @@ func (l ModelInfoLookup) contentCaps(ctx context.Context, provider, modelID stri
 		Vision: v.Vision, Video: v.Video, Audio: v.Audio, NativeDocs: v.NativeDocs,
 		Tools: v.Tools, ToolsKnown: ok,
 		MaxMediaParts: v.MaxMediaParts, MaxMediaBytes: v.MaxMediaBytes,
+		MaxDistinctMediaKinds: v.MaxDistinctMediaKinds,
 	}
 }
 

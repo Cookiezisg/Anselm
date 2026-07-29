@@ -553,6 +553,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			return attachmentapp.Capabilities{
 				Vision: c.Vision, Video: c.Video, Audio: c.Audio, NativeDocs: c.NativeDocs,
 				MaxMediaParts: c.MaxMediaParts, MaxMediaBytes: c.MaxMediaBytes,
+				MaxDistinctMediaKinds: c.MaxDistinctMediaKinds,
 			}
 		},
 		EntitiesBridge: bus.entities, // SSE-C: agent run mirrors its ReAct trace to the agent panel
@@ -570,6 +571,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 			return attachmentapp.Capabilities{
 				Vision: c.Vision, Video: c.Video, Audio: c.Audio, NativeDocs: c.NativeDocs,
 				MaxMediaParts: c.MaxMediaParts, MaxMediaBytes: c.MaxMediaBytes,
+				MaxDistinctMediaKinds: c.MaxDistinctMediaKinds,
 			}
 		})
 	// workflow ref resolution (CapabilityCheck + pin closure determinism).

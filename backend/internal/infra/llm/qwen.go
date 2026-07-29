@@ -132,5 +132,19 @@ var qwenWire = partMask{image: true, video: true, audio: true}
 //
 // DescribeModels 解析 Qwen 仅含 id 的 /models 返回,查 follow 目录。
 func describeQwen(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(catalogSpecs("qwen", qwenKnobs), raw, qwenWire), nil
+	models := describeFromSpecs(catalogSpecs("qwen", qwenKnobs), raw, qwenWire)
+	for i := range models {
+		// Qwen3-Omni-Flash's live contract is text plus ONE other modality (image OR
+		// audio OR video). The catalog correctly exposes each modality independently,
+		// but cannot express this cross-kind constraint. Keep the constraint beside the
+		// Qwen dialect so the attachment renderer can prevent an opaque upstream 400.
+		//
+		// Qwen3-Omni-Flash 的真实契约是文字加一种其它模态（图/音/视频三选一）。目录
+		// 能正确逐项暴露每种模态，却无法表达跨类型约束；把约束放在 Qwen 方言侧，
+		// 由附件 renderer 防止上游只返一个不透明 400。
+		if strings.HasPrefix(models[i].ID, "qwen3-omni-flash") {
+			models[i].MaxDistinctMediaKinds = 1
+		}
+	}
+	return models, nil
 }

@@ -355,6 +355,26 @@ func TestToContentParts_MediaEnvelopeDegradesWithoutDroppingOrder(t *testing.T) 
 	}
 }
 
+func TestToContentParts_DistinctNativeMediaKindLimitDegradesMixedTurn(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	image, _ := svc.Upload(ctx, "photo.png", "image/png", []byte("image bytes"))
+	audio, _ := svc.Upload(ctx, "voice.wav", "audio/wav", []byte("audio bytes"))
+
+	parts, err := svc.ToContentParts(ctx, []string{image.ID, audio.ID}, Capabilities{
+		Vision: true, Audio: true, MaxDistinctMediaKinds: 1,
+	})
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if len(parts) != 2 || parts[0].Type != llminfra.PartImageURL || parts[1].Type != llminfra.PartText {
+		t.Fatalf("parts = %+v, want native image + explanatory audio note", parts)
+	}
+	if !strings.Contains(parts[1].Text, "at most 1 distinct native media type") ||
+		!strings.Contains(parts[1].Text, "voice.wav") || strings.Contains(parts[1].Text, base64.StdEncoding.EncodeToString([]byte("audio bytes"))) {
+		t.Fatalf("mixed-media note = %q, want clear cross-kind note without audio payload", parts[1].Text)
+	}
+}
+
 func TestToContentParts_NativeDocCountsAgainstMediaEnvelope(t *testing.T) {
 	svc, _, ctx := newSvc(t)
 	pdfBytes := []byte("%PDF bytes")

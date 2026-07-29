@@ -1325,6 +1325,101 @@ func TestLiveBYOK_QwenImageAndVideoFusion(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_QwenImageAndAudioFusion covers the common “photo + voice note” shape through the
+// Qwen Omni dialect. Qwen3 Omni Flash advertises all three native media kinds but accepts only one
+// non-text kind per turn; the product must therefore keep the turn alive, send the first native
+// kind, and explain the second one instead of forwarding an upstream-invalid combination.
+func TestLiveBYOK_QwenImageAndAudioFusion(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("QWEN_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires QWEN_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://dashscope-intl.aliyuncs.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-qwen-image-audio-fusion"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "qwen", "displayName": "live-qwen-byok-image-audio-fusion", "key": key,
+		"baseUrl": rec.URL() + "/compatible-mode/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	const model = "qwen3-omni-flash"
+	var caps []struct {
+		APIKeyID              string `json:"apiKeyId"`
+		Provider              string `json:"provider"`
+		ModelID               string `json:"modelId"`
+		Vision                bool   `json:"vision"`
+		Audio                 bool   `json:"audio"`
+		MaxDistinctMediaKinds int    `json:"maxDistinctMediaKinds"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "qwen" && cap.ModelID == model && cap.Vision && cap.Audio && cap.MaxDistinctMediaKinds == 1 {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatalf("probed Qwen BYOK key must expose image+audio fusion for %s: %+v", model, caps)
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": model}).OK(t, nil)
+
+	image := liveManagedPNG
+	audio := harness.MockOpenAIWAV
+	imageID := uploadAtt(t, wc, "qwen-fusion.png", "image/png", image)
+	audioID := uploadAtt(t, wc, "qwen-fusion.wav", "audio/wav", audio)
+	conv := convCreate(t, wc, "Qwen image and audio fusion")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认同时收到图片和语音。不要调用工具。",
+		"attachmentIds": []string{imageID, audioID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 300000)
+	if turn.Status != "completed" {
+		for _, call := range rec.Calls() {
+			if strings.Contains(call.Path, "/chat/completions") {
+				t.Logf("Qwen image+audio upstream call: bodyBytes=%d imagePart=%v audioPart=%v imageBytes=%v audioBytes=%v", len(call.Body), bytes.Contains(call.Body, []byte(`"image_url"`)), bytes.Contains(call.Body, []byte(`"input_audio"`)), bytes.Contains(call.Body, []byte(base64.StdEncoding.EncodeToString(image))), bytes.Contains(call.Body, []byte(base64.StdEncoding.EncodeToString(audio))))
+			}
+		}
+		t.Fatalf("Qwen image+audio fusion chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "image", id: imageID, want: image},
+		{name: "audio", id: audioID, want: audio},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("Qwen fused %s must survive unchanged: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+
+	imageB64 := base64.StdEncoding.EncodeToString(image)
+	audioB64 := base64.StdEncoding.EncodeToString(audio)
+	seenImage, seenAudio, seenConstraintNote := false, false, false
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		seenImage = seenImage || bytes.Contains(call.Body, []byte(`"image_url"`)) && bytes.Contains(call.Body, []byte(imageB64))
+		seenAudio = seenAudio || bytes.Contains(call.Body, []byte(`"input_audio"`)) && bytes.Contains(call.Body, []byte(audioB64))
+		seenConstraintNote = seenConstraintNote || bytes.Contains(call.Body, []byte("at most 1 distinct native media type"))
+	}
+	if !seenImage || seenAudio || !seenConstraintNote {
+		t.Fatalf("Qwen image+audio wire must keep image native and explain audio constraint: image=%v audio=%v note=%v chatCalls=%d", seenImage, seenAudio, seenConstraintNote, rec.CallsTo("/chat/completions"))
+	}
+}
+
 // TestLiveBYOK_QwenChatOnlyAgentRejected proves the user-facing agent boundary for a real
 // chat-only model. The key is probed and selected through the ordinary workspace API, then the
 // agent invocation is rejected before any upstream generation; a text-capable model must remain

@@ -59,6 +59,7 @@ func (a attachmentRenderer) bridge(caps chatapp.ContentCapabilities) attachmenta
 	attachmentCaps := attachmentapp.Capabilities{
 		Vision: caps.Vision, Video: caps.Video, Audio: caps.Audio, NativeDocs: caps.NativeDocs,
 		MaxMediaParts: caps.MaxMediaParts, MaxMediaBytes: caps.MaxMediaBytes,
+		MaxDistinctMediaKinds: caps.MaxDistinctMediaKinds,
 	}
 	if caps.ManagedGateway != nil && a.media != nil {
 		attachmentCaps.RemoteMedia = &attachmentapp.RemoteMedia{

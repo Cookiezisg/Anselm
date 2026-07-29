@@ -240,10 +240,20 @@ type ModelInfo struct {
 	// the behaviour, and it was invisible: the model simply "was not there".
 	// Tools 报告模型会不会调工具。false **不隐藏**这个模型——它是个好聊天模型、一个没用的 agent,
 	// 而选择器直说(H12-b)。此前的行为是**藏起来**,且藏得看不见:那个模型就是「不在那儿」。
-	Tools         bool   `json:"tools"`
-	MaxMediaParts int    `json:"maxMediaParts,omitempty"` // 0 = provider-specific / no app-side cap；0=仅 provider 限制/无 app 侧上限
-	MaxMediaBytes int64  `json:"maxMediaBytes,omitempty"` // total decoded bytes; 0 = no app-side cap / 解码字节总数；0=无 app 侧上限
-	Knobs         []Knob `json:"knobs"`
+	Tools         bool  `json:"tools"`
+	MaxMediaParts int   `json:"maxMediaParts,omitempty"` // 0 = provider-specific / no app-side cap；0=仅 provider 限制/无 app 侧上限
+	MaxMediaBytes int64 `json:"maxMediaBytes,omitempty"` // total decoded bytes; 0 = no app-side cap / 解码字节总数；0=无 app 侧上限
+	// MaxDistinctMediaKinds is an optional app-side guard for models whose native
+	// multimodal contract permits only one distinct media kind (for example, Qwen3
+	// Omni Flash accepts text plus image OR audio OR video, not several together).
+	// Zero means the provider has not published a finite cross-kind constraint.
+	//
+	// MaxDistinctMediaKinds 是模型原生多模态契约的可选 app 侧闸；有些模型只允许
+	// 一种不同媒体类型（例如 Qwen3 Omni Flash 是文字+图/音/视频三选一），不能把
+	// Vision/Audio/Video 三个独立布尔值误读成任意组合都可用。零表示 provider 未发布
+	// 有限的跨类型约束。
+	MaxDistinctMediaKinds int    `json:"maxDistinctMediaKinds,omitempty"`
+	Knobs                 []Knob `json:"knobs"`
 }
 
 // Knob describes one configurable parameter as a render-ready descriptor: a uniform container
