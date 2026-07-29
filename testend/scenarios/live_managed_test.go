@@ -860,6 +860,52 @@ func TestLiveManaged_DefaultChatWithImageAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ListAttachments proves the discovery half of the attachment tool contract:
+// the managed model must call list_attachments, receive metadata for every active upload, and
+// continue the same turn without reading or mutating the underlying bytes.
+func TestLiveManaged_ListAttachments(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-list-attachments")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	textBytes := []byte("LIST_ATTACHMENT_TOKEN_7F3A")
+	textID := uploadAtt(t, wc, "discovery-note.txt", "text/plain", textBytes)
+	imageID := uploadAtt(t, wc, "discovery-image.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed list attachments")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 list_attachments 工具发现当前工作区的附件，不要调用其他工具；工具返回后用一句话确认已发现 discovery-note.txt 和 discovery-image.png。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed list_attachments turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, listed, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "list_attachments" || strings.Contains(block.Content, "list_attachments")
+		case "tool_result":
+			listed = listed || (strings.Contains(block.Content, textID) && strings.Contains(block.Content, imageID) &&
+				strings.Contains(block.Content, "discovery-note.txt") && strings.Contains(block.Content, "discovery-image.png") &&
+				strings.Contains(block.Content, `"count"`))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !listed || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed list_attachments must discover/return metadata/continue: called=%v listed=%v answer=%q blocks=%+v", called, listed, answer, turn.Blocks)
+	}
+	for _, tc := range []struct {
+		id   string
+		want []byte
+	}{
+		{id: textID, want: textBytes},
+		{id: imageID, want: liveManagedPNG},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("list_attachments must not mutate %s: HTTP %d, %d bytes", tc.id, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_InspectMediaImage proves the nested real vision path: the outer managed model
 // calls inspect_media, the tool's internal vision request completes through the deployed gateway,
 // and only bounded JSON evidence is returned to the parent conversation.
