@@ -37,6 +37,10 @@ audience: [human, ai]
 | FRT-14 | provider 模型资格漂移 | byok-read | `/models` 可见不等于当前账号可生成；选择后 404 应可解释、不可重试且不污染回合 | `/models` 与最小 generate 对照 + 产品选择/失败状态 | Google `gemini-2.5-flash` 真实通过：可见、可保存选择，首发单次 404、error turn 无 assistant 文本；回合级 code 现保留为 `LLM_MODEL_NOT_FOUND`，失败横幅提供重选模型入口；同一会话切换 `gemini-3-flash-preview` 后恢复完成且仅多一次 generate；2026-07-30 当前 GEMINI key 两次真实复跑仍复现同一资格边界；模型失效记忆/目录自动降级仍待后续 |
 | FRT-15 | workflow 大图扇出与 AND-join | managed-write / hybrid | 多路 live 入边必须全部完成后才 join；节点按 `(node, iteration)` 只落一次，终值不丢；失败/崩溃后可从断点恢复且遵守 run 起跑时的版本 pin | HTTP flowrun、节点 durable rows、终点结果、replay/boot recovery 后的调用台账与 versionId | 12 节点/8 路扇出/两级 join、25 迭代深循环（含 REST 节点分页、function flowrunIteration）、真实 failed replay（已完成节点复用、驻留 handler 第二次成功、二次 replay 拒绝）、function v1→v2 编辑后的原 pin/fresh run 分界及 SIGKILL→boot recovery 的唯一节点/执行审计均通过；reprobe on scheduler/storage changes |
 
+### FRT-04 最新证据
+
+2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
+
 ## 历史高频 reprobe 组
 
 这些不是“已覆盖所以跳过”。当任一承重面改变时，按组抽取代表路径重测：

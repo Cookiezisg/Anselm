@@ -378,6 +378,8 @@ audience: [human, ai]
 | 2026-07-30 | EVO-356 | 真实 BYOK 模型切换收尾首次暴露 search semantic backfill 的 shutdown 竞态：`Service.Close` 只关闭 worker 信号却不等待，backfill 使用永不取消的 detached context，可能在 DB close 后执行 `UpsertEmbedding`。新增生命周期回归先按预期复现失败；修复为 service-scope cancellable context + worker WaitGroup，关停取消并等待 in-flight embed，取消后禁止进入写入。修复后二次模型切换无 warning；search 全量与 race、backend verify、backend 全量黑盒均通过，未形成残留资源 | FRT-13 / R-D+R-E / search semantic backfill shutdown → database close | 基线 `TestEmbedWorker_CloseCancelsInFlightBackfill` FAIL（Close 未取消）；修复后该测试及 search package PASS，`go test -race ./internal/app/search` PASS 1.840s，`make -C backend verify` PASS，修复后二次 `TestLiveBYOK_ModelSwitchReprojectsHistoryMedia` PASS 17.59s（warning markers 为空），`make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 372.104s`；无 provider secret |
 | 2026-07-30 | EVO-357 | search semantic backfill shutdown 修复、backend 回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-search-backfill-shutdown-fix | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-358 | 聊天侧 workflow 可观测闭环补齐：首轮真实对话经 `search_tools` 发现并调用 `trigger_workflow`，等 run 完成后下一轮再经 `search_tools` 发现并调用 `get_flowrun`；`origin=chat`、`conversationId`、completed 状态、函数节点 marker 与 assistant 最终回答均保留，两次真实复跑通过，未形成稳定后端缺陷 | FRT-04 / managed-read/default / chat → search_tools → trigger_workflow → get_flowrun | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatFlowrunObservability$' -count=1` → PASS 36.44s；复跑 PASS 35.628s；无 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

@@ -739,6 +739,113 @@ trigger_workflow 的 args 必须同时包含 workflowId 和 payload，不能省�
 	}
 }
 
+// TestLiveManaged_ChatFlowrunObservability closes the chat-side execution loop: the first turn
+// discovers trigger_workflow and starts a real workflow, then a second turn discovers get_flowrun
+// and reads the completed run back through the LLM tool surface. The REST poll between turns only
+// removes an async race; the user-facing assertions are deliberately on the two chat transcripts.
+func TestLiveManaged_ChatFlowrunObservability(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-chat-flowrun-observability")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+
+	const marker = "CHAT_FLOWRUN_OBSERVABILITY_7B2D"
+	fnID := fnCreate(t, wc, "chat_flowrun_observer", fmt.Sprintf(`def observe(task: str) -> dict:
+    return {"marker": "%s", "echo": task}
+`, marker))
+	trgID := trgCreate(t, wc, "chat_flowrun_observability_webhook", "webhook", map[string]any{"path": "chat-flowrun-observability"})
+	wfID := wfCreate(t, wc, "managed_chat_flowrun_observability", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": trgID}},
+		{"op": "add_node", "node": map[string]any{"id": "observe", "kind": "action", "ref": fnID,
+			"input": map[string]any{"task": "start.body.task"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "observe"}},
+	})
+
+	convID := convCreate(t, wc, "managed chat flowrun observability")
+	firstPrompt := fmt.Sprintf(`先调用 search_tools 查找名为 trigger_workflow 的工作流工具；等它返回工具 schema 后，只调用 trigger_workflow 一次来运行 workflowId=%s，然后告诉我返回的 flowrunId。除这一次 search_tools 外不要调用其他工具。
+trigger_workflow 的 args 必须同时包含 workflowId 和 payload，payload 严格使用 webhook 入口形状：{"body":{"task":"run the observability probe"}}。`, wfID)
+	first := waitTurn(t, wc, convID, sendMsg(t, wc, convID, firstPrompt), 300000)
+	if first.Status != "completed" {
+		t.Fatalf("chat trigger turn must complete: status=%s code=%s message=%s blocks=%+v", first.Status, first.ErrorCode, first.ErrorMessage, first.Blocks)
+	}
+	searchCalls, triggerCalls, triggerResults := 0, 0, 0
+	for _, block := range first.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "trigger_workflow":
+			switch block.Type {
+			case "tool_call":
+				triggerCalls++
+			case "tool_result":
+				triggerResults++
+				if !strings.Contains(block.Content, wfID) {
+					t.Fatalf("trigger_workflow result must name workflow %s: %s", wfID, block.Content)
+				}
+			}
+		}
+	}
+	if searchCalls < 1 || triggerCalls != 1 || triggerResults != 1 {
+		t.Fatalf("first chat turn must discover trigger_workflow then persist exactly one call/result: search=%d calls=%d results=%d blocks=%+v", searchCalls, triggerCalls, triggerResults, first.Blocks)
+	}
+
+	var rows []struct {
+		ID             string `json:"id"`
+		Status         string `json:"status"`
+		Origin         string `json:"origin"`
+		ConversationID string `json:"conversationId"`
+	}
+	harness.Eventually(t, 240000, "chat-triggered observability run completes", func() bool {
+		r := wc.GET("/api/v1/flowruns?workflowId=" + wfID + "&origin=chat&status=completed")
+		if r.Status != 200 || json.Unmarshal(r.Data, &rows) != nil {
+			return false
+		}
+		return len(rows) == 1 && rows[0].ID != "" && rows[0].Origin == "chat" && rows[0].ConversationID == convID
+	})
+	if len(rows) != 1 {
+		t.Fatalf("chat trigger_workflow must produce one completed observability run, got %+v", rows)
+	}
+
+	secondPrompt := fmt.Sprintf(`先调用 search_tools 查找名为 get_flowrun 的工具；等它返回工具 schema 后，只调用 get_flowrun 一次，参数必须是精确的 flowrunId=%s。读取返回的 flowrun 状态和 observe 节点结果，确认状态为 completed，并在最终答复中原样输出唯一 marker：%s。除这一次 search_tools 和这一次 get_flowrun 外不要调用其他工具。`, rows[0].ID, marker)
+	second := waitTurn(t, wc, convID, sendMsg(t, wc, convID, secondPrompt), 300000)
+	if second.Status != "completed" {
+		t.Fatalf("chat get_flowrun turn must complete: status=%s code=%s message=%s blocks=%+v", second.Status, second.ErrorCode, second.ErrorMessage, second.Blocks)
+	}
+	searchCalls, getCalls, getResults := 0, 0, 0
+	for _, block := range second.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "get_flowrun":
+			switch block.Type {
+			case "tool_call":
+				getCalls++
+			case "tool_result":
+				getResults++
+				if !strings.Contains(block.Content, rows[0].ID) || !strings.Contains(block.Content, `"status":"completed"`) || !strings.Contains(block.Content, marker) {
+					t.Fatalf("get_flowrun result must expose completed run %s and marker %s: %s", rows[0].ID, marker, block.Content)
+				}
+			}
+		}
+	}
+	if searchCalls < 1 || getCalls != 1 || getResults != 1 {
+		t.Fatalf("second chat turn must discover get_flowrun then persist exactly one call/result: search=%d calls=%d results=%d blocks=%+v", searchCalls, getCalls, getResults, second.Blocks)
+	}
+	answer := ""
+	for _, block := range second.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, marker) {
+		t.Fatalf("second chat turn must surface flowrun marker %s in assistant text, blocks=%+v", marker, second.Blocks)
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.
