@@ -265,6 +265,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-245 | 受管默认 PDF 抽取路径闭合：`anselm-auto` 明确不宣称 `nativeDocs`，540-byte PDF 经 Anselm 附件上传后在 sandbox 抽取，真实受管对话准确返回唯一 token，原始附件仍逐字节可读；首跑发现并收紧了测试 token 断言，未发现产品失败 | FRT-01 / managed-read/default / PDF sandbox extraction | `set -a; source ../.env; set +a; EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DefaultChatWithPDFAttachment$' -count=1 -parallel 1 -timeout 12m -v` → 首次断言过严（回答只返回 token 后缀），调整为单一 token 后 PASS 12.88s（PDF 540 bytes；无 provider secret） | 当前提交 |
 | 2026-07-29 | EVO-246 | 原生 PDF 验收新增、受管 PDF 抽取断言修正后，完整 backend 黑盒回归仍闭合；chat、agent/subagent、workflow/trigger、MCP/function/handler、媒体、多模态、取消/重试/崩溃恢复、资源卫生与新 live 场景共同通过，未启用 EVALS/provider secret | full backend testend regression / post-PDF evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 375.428s`；无 provider secret、EVALS 未开启 | 当前提交 |
 | 2026-07-29 | EVO-247 | PDF 受管/BYOK 验收与 backend 黑盒回归之后，主仓跨层总门禁仍闭合：backend、Flutter frontend、docs、web demo 全绿；没有改动 API Serve，未输出 provider secret | cross-repo gate / workspace verification / post-PDF evolution | `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified` | 当前提交 |
+| 2026-07-29 | EVO-248 | 部署网关仓独立门禁复核闭合：Go vet/build、全量 race 单测、integration e2e、golangci-lint 与 35 份 docs lint 全绿；API Serve 工作树保持 clean，本轮没有改动部署仓代码 | API Serve / gateway gate / post-PDF evolution | `cd ../Anselm-API-Serve && make verify` → integration e2e 7.177s、golangci-lint `0 issues`、docs lint `35 file(s) ok, 0 warning(s)` | 当前提交 |
 
 ## 追加格式
 
