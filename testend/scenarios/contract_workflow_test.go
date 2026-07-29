@@ -1305,6 +1305,81 @@ func TestContractWorkflow_TriggerRefCountedListener(t *testing.T) {
 	}
 }
 
+// B-wf-13/B-trg-9 — 多入口 trigger 的挂载去重、重复激活幂等、全量解绑。
+// Multi-trigger workflows must attach every distinct trigger ref exactly once; a duplicate
+// trigger node must not inflate the listener refcount. Re-activating the same workflow is also
+// idempotent, and deactivation must detach every entry so both webhook paths go cold.
+//
+// B-wf-13/B-trg-9 —— 多入口 trigger 的挂载去重、重复激活幂等、全量解绑：workflow 图里每个不同
+// trigger ref 恰挂一次；同 ref 的重复 trigger 节点不得把 listener refcount 撑大；重复激活不重复计数；
+// 停用必须摘掉全部入口，使两个 webhook 路径都回到 404。
+func TestContractWorkflow_MultiTriggerAttachDetachAndDedup(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-multi-trigger")
+
+	trgA := trgCreate(t, wc, "multi_a", "webhook", map[string]any{"path": "multi-a"})
+	trgB := trgCreate(t, wc, "multi_b", "webhook", map[string]any{"path": "multi-b"})
+	// The duplicate A node is intentional: entryTriggerRefsOf must dedupe entity refs while the
+	// scheduler still resolves a firing to one concrete entry node.
+	wfID := wfCreate(t, wc, "multi_entry_wf", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "entry_a1", "kind": "trigger", "ref": trgA}},
+		{"op": "add_node", "node": map[string]any{"id": "entry_a2", "kind": "trigger", "ref": trgA}},
+		{"op": "add_node", "node": map[string]any{"id": "entry_b", "kind": "trigger", "ref": trgB}},
+	})
+
+	readRefCount := func(triggerID string) (int, bool) {
+		t.Helper()
+		var got struct {
+			RefCount  int  `json:"refCount"`
+			Listening bool `json:"listening"`
+		}
+		wc.GET("/api/v1/triggers/"+triggerID).OK(t, &got)
+		return got.RefCount, got.Listening
+	}
+	assertHot := func(triggerID string, wantCount int) {
+		t.Helper()
+		if rc, listening := readRefCount(triggerID); rc != wantCount || listening != (wantCount > 0) {
+			t.Fatalf("trigger %s runtime projection: want %d/%v, got %d/%v", triggerID, wantCount, wantCount > 0, rc, listening)
+		}
+	}
+
+	// Both distinct refs attach, but the duplicate A node contributes only one reference.
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+	assertHot(trgA, 1)
+	assertHot(trgB, 1)
+	// The lifecycle endpoint is idempotent: no second workflow reference is created.
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+	assertHot(trgA, 1)
+	assertHot(trgB, 1)
+
+	urlA := srv.BaseURL + "/api/v1/webhooks/" + trgA + "/multi-a"
+	urlB := srv.BaseURL + "/api/v1/webhooks/" + trgB + "/multi-b"
+	if code := workflowC_rawPost(t, urlA, `{"entry":"a"}`, nil); code != 202 {
+		t.Fatalf("active multi-trigger A path must return 202, got %d", code)
+	}
+	harness.Eventually(t, 30000, "A entry creates the first run", func() bool {
+		return len(workflowC_runsOf(t, wc, wfID, "completed")) == 1
+	})
+	if code := workflowC_rawPost(t, urlB, `{"entry":"b"}`, nil); code != 202 {
+		t.Fatalf("active multi-trigger B path must return 202, got %d", code)
+	}
+	harness.Eventually(t, 30000, "B entry creates the second run", func() bool {
+		return len(workflowC_runsOf(t, wc, wfID, "completed")) == 2
+	})
+
+	// Deactivation must detach every distinct entry, including the one that had a duplicate node.
+	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
+	assertHot(trgA, 0)
+	assertHot(trgB, 0)
+	if code := workflowC_rawPost(t, urlA, `{"entry":"a-off"}`, nil); code != 404 {
+		t.Fatalf("deactivated A path must return 404, got %d", code)
+	}
+	if code := workflowC_rawPost(t, urlB, `{"entry":"b-off"}`, nil); code != 404 {
+		t.Fatalf("deactivated B path must return 404, got %d", code)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // B-trg-8 — webhook 明文式两载体（X-Webhook-Secret 头 / ?token= 查询）+ signatureHeader 改头名
 // ---------------------------------------------------------------------------
