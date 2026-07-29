@@ -1426,6 +1426,44 @@ func TestLiveManaged_ReadAttachmentLargeTextIndex(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ReadAttachmentLargeTextAutoIndex proves the default safety boundary for a
+// large text upload: when the caller omits index/page/query controls, read_attachment must still
+// return a compact index rather than dumping the full body into the managed context.
+func TestLiveManaged_ReadAttachmentLargeTextAutoIndex(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-read-attachment-large-auto-index")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	const token = "AUTO_INDEX_BODY_SECRET_7F3A"
+	textBytes := []byte(strings.Repeat("auto-index body line for default safety\n", 1200) + token + " appears in the body\n" + strings.Repeat("auto-index tail line\n", 5200))
+	attID := uploadAtt(t, wc, "large-auto-index.txt", "text/plain", textBytes)
+	conv := convCreate(t, wc, "managed large read auto index")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 read_attachment 工具读取附件 "+attID+"；id 使用该附件，不要传 index、offset、limitChars 或 query 参数，只要返回紧凑索引，不要读取正文；不要调用其他工具。工具返回后只回复‘默认索引已返回’。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed read_attachment auto-index turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, compact, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "read_attachment" || strings.Contains(block.Content, "read_attachment")
+		case "tool_result":
+			compact = compact || (strings.Contains(block.Content, attID) && strings.Contains(block.Content, `"chunks"`) &&
+				strings.Contains(block.Content, `"totalChars"`) && strings.Contains(block.Content, `"usage"`) &&
+				!strings.Contains(block.Content, token) && len(block.Content) < 12000)
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !compact || !strings.Contains(answer, "索引") {
+		t.Fatalf("managed read_attachment default must auto-index/continue: called=%v compact=%v answer=%q blocks=%+v", called, compact, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, textBytes) {
+		t.Fatalf("large read_attachment auto-index must not mutate source text: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_ReadAttachmentTextPage proves the managed model can follow a bounded page
 // request with an explicit offset/limitChars and receive the unique token without dumping the
 // rest of the attachment.
