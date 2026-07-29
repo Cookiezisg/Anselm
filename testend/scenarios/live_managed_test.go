@@ -940,6 +940,41 @@ func TestLiveManaged_InspectMediaImage(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_InspectMediaImageTiles proves the large-image escape hatch: the managed model
+// must request tiles=true, receive a compact deterministic tile map without a nested vision call,
+// and continue the outer turn while preserving the original image bytes.
+func TestLiveManaged_InspectMediaImageTiles(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-inspect-image-tiles")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	attID := uploadAtt(t, wc, "inspect-tiles.png", "image/png", liveManagedAnimationPNG)
+	conv := convCreate(t, wc, "managed inspect image tiles")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 inspect_media 工具检查图片附件 "+attID+"，question 写‘给出图片分块地图’，tiles 写 true，tileRows 写 2，tileCols 写 3；不要调用其他工具。工具返回后用一句话确认已得到 tile map。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed inspect_media image tiles turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, tiles, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "inspect_media" || strings.Contains(block.Content, "inspect_media")
+		case "tool_result":
+			tiles = tiles || (strings.Contains(block.Content, attID) && strings.Contains(block.Content, `"tileRows":2`) &&
+				strings.Contains(block.Content, `"tileCols":3`) && strings.Contains(block.Content, `"tiles"`) && strings.Contains(block.Content, `"usage"`))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !tiles || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed inspect_media image tiles must call/return map/continue: called=%v tiles=%v answer=%q blocks=%+v", called, tiles, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedAnimationPNG) {
+		t.Fatalf("inspect_media tiles must not mutate source image: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_InspectMediaVideo proves the temporal boundary honestly: inspect_media returns
 // a bounded local metadata capsule for a real MP4, without pretending that a text-only metadata
 // probe produced transcript, scenes, or raw-video understanding.

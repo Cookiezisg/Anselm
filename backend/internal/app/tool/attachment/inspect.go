@@ -28,7 +28,7 @@ const (
 	inspectMediaMaxTileCols           = 8
 )
 
-const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId and return bounded evidence. Optional query/contextChars/maxMatches search text or documents; optional page/offset/limitChars select bounded slices; optional startMs/endMs scope audio/video metadata. For images, this uses the default vision-capable Anselm route and sends only one bounded image proxy/crop; it does not dump image bytes into the conversation. For long or dense images, pass tiles:true first to get a compact normalized tile map without calling a model, then inspect a chosen crop. For text/documents, it reuses local extraction plus query/page/offset windows and does not call a model, so large files are returned as evidence slices instead of flooding context. For audio/video, it currently returns a local metadata capsule; it does not fake transcript, OCR, scenes, or raw-media understanding.`
+const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId and return bounded evidence. For images, tiles (boolean) with tileRows/tileCols (integers) returns a compact map without vision; crop/detail are optional. Optional query/contextChars/maxMatches search text or documents; optional page/offset/limitChars select bounded slices; optional startMs/endMs scope audio/video metadata. Images otherwise use the default vision-capable Anselm route and send only one bounded proxy/crop. Text/documents use local extraction; audio/video return metadata only, never fake transcript/OCR/scenes.`
 
 var inspectMediaSchema = json.RawMessage(`{
 	"type": "object",
