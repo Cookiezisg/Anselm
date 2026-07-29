@@ -1613,6 +1613,90 @@ func TestContractWorkflow_DeletedTriggerRebindsAfterRestart(t *testing.T) {
 	}
 }
 
+// B-wf-20/B-trg-15 — deleting the source does not erase an event that was already accepted into
+// the durable inbox. A pending firing remains a valid historical event: after the parked first run
+// settles, the second run starts against the pinned graph even though trigger provenance is now
+// unavailable (origin is omitted), and the deleted source path stays cold for future events.
+//
+// B-wf-20/B-trg-15 —— 删除 trigger 不抹掉已落入 durable inbox 的事件。pending firing 仍是合法历史：第一条
+// parked run 结算后，第二条用已 pin 的图启动；但 trigger 已删，溯源 origin 诚实缺席。未来事件入口保持冷。
+func TestContractWorkflow_DeletedTriggerKeepsAcceptedFiring(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-trigger-delete-accepted")
+
+	trgID := trgCreate(t, wc, "accepted_trigger_hook", "webhook", map[string]any{"path": "accepted-trigger"})
+	apfID := workflowC_apf(t, wc, "accepted_trigger_gate")
+	wfID := workflowC_apfGraph(t, wc, "accepted_trigger_workflow", trgID, apfID,
+		map[string]any{"op": "set_meta", "concurrency": "serial"})
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	fireConcurrencyWebhook(t, srv, trgID, "accepted-trigger", `{"seq":1}`)
+	var firstRunID string
+	harness.Eventually(t, 20000, "first accepted run parks", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 {
+			return false
+		}
+		firstRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, firstRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+	fireConcurrencyWebhook(t, srv, trgID, "accepted-trigger", `{"seq":2}`)
+	harness.Eventually(t, 20000, "second accepted firing is pending", func() bool {
+		rows := listConcurrencyFirings(t, wc, trgID)
+		counts := countFiringStatuses(rows)
+		return len(rows) == 2 && counts["started"] == 1 && counts["pending"] == 1
+	})
+
+	oldURL := srv.BaseURL + "/api/v1/webhooks/" + trgID + "/accepted-trigger"
+	if r := wc.DELETE("/api/v1/triggers/" + trgID); r.Status != 204 {
+		t.Fatalf("delete source with accepted firing must 204, got %d %s", r.Status, r.Raw)
+	}
+	wc.Do("GET", "/api/v1/triggers/"+trgID, nil).Fail(t, 404, "TRIGGER_NOT_FOUND")
+	if code := workflowC_rawPost(t, oldURL, `{"seq":3}`, nil); code != 404 {
+		t.Fatalf("deleted source path must reject future events, got %d", code)
+	}
+
+	// Resolve the first run through the public human decision path; the second pending firing should
+	// then be released by the next scheduler drain despite its source entity being gone.
+	wc.POST("/api/v1/flowruns/"+firstRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, firstRunID, "completed", 20000)
+	var secondRunID string
+	harness.Eventually(t, 30000, "accepted firing starts after trigger deletion", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 || runs[0].ID == firstRunID {
+			return false
+		}
+		secondRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, secondRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+	var secondDetail struct {
+		Flowrun struct {
+			TriggerID string  `json:"triggerId"`
+			Origin    *string `json:"origin"`
+		} `json:"flowrun"`
+	}
+	wc.GET("/api/v1/flowruns/"+secondRunID).OK(t, &secondDetail)
+	if secondDetail.Flowrun.TriggerID != trgID || secondDetail.Flowrun.Origin != nil {
+		t.Fatalf("run from deleted trigger must retain trigger id but omit unavailable origin: %+v", secondDetail.Flowrun)
+	}
+	wc.POST("/api/v1/flowruns/"+secondRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, secondRunID, "completed", 20000)
+
+	finalFirings := listFirings(t, wc, trgID, "limit=50")
+	if len(finalFirings) != 2 {
+		t.Fatalf("accepted firing audit must survive trigger deletion, got %+v", finalFirings)
+	}
+	for _, firing := range finalFirings {
+		if firing.Status != "started" || firing.WorkflowID != wfID || firing.FlowrunID == "" {
+			t.Fatalf("both accepted firings must remain started and linked after source delete, got %+v", finalFirings)
+		}
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
+}
+
 // B-wf-16/B-trg-12 — deleting an active workflow must detach its live trigger listeners without
 // erasing the workflow's durable run/history log. Reusing the workflow name on the same trigger
 // must not inherit a stale listener from the deleted workflow.
