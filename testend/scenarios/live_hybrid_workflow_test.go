@@ -407,3 +407,135 @@ func TestLiveHybrid_WorkflowManagedSpeechToQwenViewer(t *testing.T) {
 		t.Fatal("BYOK Qwen workflow viewer never received the managed WAV bytes as native input_audio")
 	}
 }
+
+// TestLiveHybrid_WorkflowManagedVideoToQwenViewer closes the video branch of the mixed workflow
+// contract. The upstream workflow agent spends once on the managed asynchronous video writer;
+// the downstream Qwen BYOK agent must receive that exact MP4 as a native video_url part, not the
+// receipt text alone. Workflow agents intentionally run in the scheduler's pure-trust context,
+// so this also proves the dangerous long tool is executable in a trusted workflow boundary.
+func TestLiveHybrid_WorkflowManagedVideoToQwenViewer(t *testing.T) {
+	if os.Getenv("EVALS_HYBRID") != "1" {
+		t.Skip("set EVALS_HYBRID=1 (and EVALS_MANAGED=1) for the real mixed workflow acceptance")
+	}
+	key := os.Getenv("QWEN_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_HYBRID=1 requires QWEN_API_KEY; key material is never logged")
+	}
+
+	wc := liveManagedWorkspace(t, "live-hybrid-workflow-managed-to-qwen-video")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	rec := harness.NewRecorder(t, "https://dashscope-intl.aliyuncs.com")
+
+	var keys []struct {
+		ID       string `json:"id"`
+		Provider string `json:"provider"`
+	}
+	wc.GET("/api/v1/api-keys").OK(t, &keys)
+	managedKeyID := ""
+	for _, row := range keys {
+		if row.Provider == "anselm" {
+			managedKeyID = row.ID
+			break
+		}
+	}
+	if managedKeyID == "" {
+		t.Fatal("hybrid workflow requires the provisioned managed key")
+	}
+
+	byokKeyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "qwen", "displayName": "live-qwen-workflow-video-viewer", "key": key,
+		"baseUrl": rec.URL() + "/compatible-mode/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+byokKeyID+":test", nil).OK(t, nil)
+
+	const viewerModel = "qwen3.7-plus"
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Video    bool   `json:"video"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	viewerReady := false
+	for _, cap := range caps {
+		if cap.APIKeyID == byokKeyID && cap.Provider == "qwen" && cap.ModelID == viewerModel && cap.Video {
+			viewerReady = true
+			break
+		}
+	}
+	if !viewerReady {
+		t.Fatalf("workflow viewer requires a real BYOK Qwen video capability: %+v", caps)
+	}
+
+	var ws struct {
+		DefaultAgent *struct {
+			APIKeyID string `json:"apiKeyId"`
+			ModelID  string `json:"modelId"`
+		} `json:"defaultAgent"`
+	}
+	wc.GET("/api/v1/workspaces/"+wc.WorkspaceID()).OK(t, &ws)
+	if ws.DefaultAgent == nil || ws.DefaultAgent.ModelID == "" {
+		t.Fatalf("managed workflow painter requires a default agent model: %+v", ws.DefaultAgent)
+	}
+	managedModel := ws.DefaultAgent.ModelID
+	if ws.DefaultAgent.APIKeyID != managedKeyID {
+		wc.PUT("/api/v1/workspaces/"+wc.WorkspaceID()+"/default-models/agent",
+			map[string]any{"apiKeyId": managedKeyID, "modelId": managedModel}).OK(t, nil)
+	}
+
+	painter := agCreate(t, wc, map[string]any{
+		"name":          "Managed Workflow Filmmaker",
+		"description":   "generates one managed MP4 and hands its receipt to a Qwen viewer",
+		"prompt":        "请调用 generate_video 恰好一次，生成一段 5 秒横向、白天海边微风吹动棕榈树的视频；工具成功后把工具 receipt 原样写进最终回答，不要再次调用生成工具。",
+		"tools":         []map[string]any{{"ref": "sys:generate_video", "name": "generate video"}},
+		"modelOverride": map[string]any{"apiKeyId": managedKeyID, "modelId": managedModel},
+	})
+	viewer := agCreate(t, wc, map[string]any{
+		"name":        "Qwen Video Workflow Viewer",
+		"description": "receives the managed MP4 over a BYOK Qwen video route",
+		"prompt":      "用一句简短中文确认你收到上游视频。不要调用工具。",
+		"modelOverride": map[string]any{
+			"apiKeyId": byokKeyID,
+			"modelId":  viewerModel,
+		},
+	})
+	wfID := wfCreate(t, wc, "managed_to_qwen_workflow_video", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "film", "kind": "agent", "ref": painter,
+			"input": map[string]any{"task": "start.topic"}}},
+		{"op": "add_node", "node": map[string]any{"id": "watch", "kind": "agent", "ref": viewer,
+			"input": map[string]any{"video": "film.text"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "film"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e2", "from": "film", "to": "watch"}},
+	})
+
+	_, status, nodes := runAndWait(t, wc, wfID, map[string]any{"topic": "make the short palm-tree video"}, 600000)
+	if status != "completed" {
+		t.Fatalf("managed-to-Qwen video workflow must complete: status=%s nodes=%s", status, nodes)
+	}
+	nodeText := string(nodes)
+	if !strings.Contains(nodeText, "generate_video") || !strings.Contains(nodeText, "provider") || !strings.Contains(nodeText, "anselm") {
+		t.Fatalf("upstream workflow result must preserve the managed video receipt: %s", nodeText)
+	}
+	attID := attIDShape.FindString(nodeText)
+	if attID == "" {
+		t.Fatalf("workflow result must carry a video MediaRef attachment id: %s", nodeText)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsMP4(content.Raw) || len(content.Raw) < 10000 {
+		t.Fatalf("managed workflow artifact must be real MP4 video: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(content.Raw)
+	seen := false
+	for _, call := range rec.Calls() {
+		if strings.Contains(call.Path, "/chat/completions") &&
+			bytes.Contains(call.Body, []byte(`"video_url"`)) && bytes.Contains(call.Body, []byte(b64)) {
+			seen = true
+			break
+		}
+	}
+	if !seen {
+		t.Fatal("BYOK Qwen workflow viewer never received the managed MP4 bytes as native video_url")
+	}
+}
