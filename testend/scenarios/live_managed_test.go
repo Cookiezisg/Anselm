@@ -387,6 +387,63 @@ func TestLiveManaged_GenerateSpeechDeniedNoSpend(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_GenerateVideoDeniedNoSpend applies the same cost boundary to the asynchronous
+// video writer: the danger gate must happen before the gateway job is submitted, not merely before
+// the eventual MP4 is downloaded.
+func TestLiveManaged_GenerateVideoDeniedNoSpend(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-video-denied")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	var before struct {
+		Limit     int64 `json:"limit"`
+		Used      int64 `json:"used"`
+		Remaining int64 `json:"remaining"`
+		Available bool  `json:"available"`
+	}
+	wc.GET("/api/v1/freetier/quota").OK(t, &before)
+	if !before.Available || before.Limit <= 0 || before.Used < 0 || before.Remaining < 0 || before.Used+before.Remaining > before.Limit {
+		t.Fatalf("managed quota must be coherent before denial: %+v", before)
+	}
+
+	conv := convCreate(t, wc, "managed video denied")
+	msg := sendMsg(t, wc, conv,
+		"请调用 generate_video 恰好一次，生成一段 5 秒横向视频：海边灯塔；先等待危险操作审批，不要自行批准。")
+	var pending []struct {
+		ToolCallID string `json:"toolCallId"`
+		Kind       string `json:"kind"`
+		Tool       string `json:"tool"`
+	}
+	harness.Eventually(t, 60000, "generate_video asks for dangerous approval", func() bool {
+		pending = nil
+		wc.GET("/api/v1/conversations/"+conv+"/interactions").OK(t, &pending)
+		return len(pending) == 1
+	})
+	if pending[0].Kind != "danger" || pending[0].Tool != "generate_video" {
+		t.Fatalf("generate_video must pause at its danger gate: %+v", pending[0])
+	}
+	wc.POST("/api/v1/conversations/"+conv+"/interactions/"+pending[0].ToolCallID,
+		map[string]any{"action": "deny"}).OK(t, nil)
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("denied managed video turn must complete without submission: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_video"`) {
+			t.Fatalf("denied generate_video must not leave a tool receipt: %s", block.Content)
+		}
+	}
+	var after struct {
+		Limit     int64 `json:"limit"`
+		Used      int64 `json:"used"`
+		Remaining int64 `json:"remaining"`
+		Available bool  `json:"available"`
+	}
+	wc.GET("/api/v1/freetier/quota").OK(t, &after)
+	delta := after.Used - before.Used
+	if delta > 2 || after.Limit != before.Limit || after.Remaining != before.Remaining-delta || !after.Available {
+		t.Fatalf("denied video must not add a managed generation reservation: before=%+v after=%+v", before, after)
+	}
+}
+
 // TestLiveManaged_ReadAloudCache is the managed read-aloud acceptance: the first press really
 // synthesizes, the identical second press returns the same attachment from the local cache without
 // consuming another gateway request, and a different text gets a fresh artifact. The gateway quota
