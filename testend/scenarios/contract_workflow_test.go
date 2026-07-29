@@ -1697,6 +1697,106 @@ func TestContractWorkflow_DeletedTriggerKeepsAcceptedFiring(t *testing.T) {
 	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
 }
 
+// B-wf-21/B-trg-16 — the accepted-firing guarantee crosses a hard process restart. The source is
+// deleted before boot, so replay leaves an active workflow in explicit dangling-repair state; the
+// parked run and pending inbox row must nevertheless survive and drain exactly once afterwards.
+//
+// B-wf-21/B-trg-16 —— 已接受 firing 的保证跨硬重启仍成立。boot 前先删 source，重放后 workflow 保持
+// 明确的 dangling-repair 状态；停泊 run 与 pending inbox 行仍须存活，并在之后恰好消费一次。
+func TestContractWorkflow_DeletedTriggerAcceptedFiringSurvivesRestart(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-trigger-delete-accepted-restart")
+	wsID := wc.WorkspaceID()
+
+	trgID := trgCreate(t, wc, "accepted_restart_trigger", "webhook", map[string]any{"path": "accepted-restart"})
+	apfID := workflowC_apf(t, wc, "accepted_restart_gate")
+	wfID := workflowC_apfGraph(t, wc, "accepted_restart_workflow", trgID, apfID,
+		map[string]any{"op": "set_meta", "concurrency": "serial"})
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	fireConcurrencyWebhook(t, srv, trgID, "accepted-restart", `{"seq":1}`)
+	var firstRunID string
+	harness.Eventually(t, 20000, "first restart-accepted run parks", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 {
+			return false
+		}
+		firstRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, firstRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+	fireConcurrencyWebhook(t, srv, trgID, "accepted-restart", `{"seq":2}`)
+	harness.Eventually(t, 20000, "restart-accepted second firing is pending", func() bool {
+		rows := listConcurrencyFirings(t, wc, trgID)
+		counts := countFiringStatuses(rows)
+		return len(rows) == 2 && counts["started"] == 1 && counts["pending"] == 1
+	})
+
+	if r := wc.DELETE("/api/v1/triggers/" + trgID); r.Status != 204 {
+		t.Fatalf("delete source before accepted-firing restart must 204, got %d %s", r.Status, r.Raw)
+	}
+	srv.Kill9(t)
+	srv.Restart(t)
+	wc = srv.Client(t).WS(wsID)
+
+	// Boot replay must preserve the active repair state but never resurrect a deleted source path.
+	var wf struct {
+		Active         bool   `json:"active"`
+		LifecycleState string `json:"lifecycleState"`
+	}
+	wc.GET("/api/v1/workflows/"+wfID).OK(t, &wf)
+	if !wf.Active || wf.LifecycleState != "active" {
+		t.Fatalf("accepted-firing workflow must survive restart as active repair state, got %+v", wf)
+	}
+	if code := workflowC_rawPost(t, srv.BaseURL+"/api/v1/webhooks/"+trgID+"/accepted-restart", `{"seq":3}`, nil); code != 404 {
+		t.Fatalf("deleted source path must stay cold after accepted-firing restart, got %d", code)
+	}
+	if rows := listFirings(t, wc, trgID, "limit=50"); len(rows) != 2 {
+		t.Fatalf("restart must retain both accepted firing rows before drain, got %+v", rows)
+	}
+	wc.Do("POST", "/api/v1/workflows/"+wfID+":activate", map[string]any{}).Fail(t, 422, "WORKFLOW_NOT_RUNNABLE")
+
+	// The parked run is durable across SIGKILL. Resolve it, then let the scheduler drain the old
+	// pending firing once; the deleted trigger only affects optional provenance metadata.
+	workflowC_waitParked(t, wc, firstRunID, 20000)
+	wc.POST("/api/v1/flowruns/"+firstRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, firstRunID, "completed", 20000)
+	var secondRunID string
+	harness.Eventually(t, 30000, "restart-accepted firing drains after trigger deletion", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 || runs[0].ID == firstRunID {
+			return false
+		}
+		secondRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, secondRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+	var secondDetail struct {
+		Flowrun struct {
+			TriggerID string  `json:"triggerId"`
+			Origin    *string `json:"origin"`
+		} `json:"flowrun"`
+	}
+	wc.GET("/api/v1/flowruns/"+secondRunID).OK(t, &secondDetail)
+	if secondDetail.Flowrun.TriggerID != trgID || secondDetail.Flowrun.Origin != nil {
+		t.Fatalf("post-restart run must retain deleted trigger id but omit unavailable origin: %+v", secondDetail.Flowrun)
+	}
+	wc.POST("/api/v1/flowruns/"+secondRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, secondRunID, "completed", 20000)
+
+	finalFirings := listFirings(t, wc, trgID, "limit=50")
+	if len(finalFirings) != 2 {
+		t.Fatalf("restart must not duplicate or erase accepted firing audit, got %+v", finalFirings)
+	}
+	for _, firing := range finalFirings {
+		if firing.Status != "started" || firing.WorkflowID != wfID || firing.FlowrunID == "" {
+			t.Fatalf("both post-restart accepted firings must remain started and linked, got %+v", finalFirings)
+		}
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
+}
+
 // B-wf-16/B-trg-12 — deleting an active workflow must detach its live trigger listeners without
 // erasing the workflow's durable run/history log. Reusing the workflow name on the same trigger
 // must not inherit a stale listener from the deleted workflow.
