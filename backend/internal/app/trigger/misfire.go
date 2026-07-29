@@ -313,7 +313,8 @@ func (s *Service) accountableTicks(t *triggerdomain.Trigger, from, until time.Ti
 // 刻度仍是 missed」——言下之意被补的那个不是），且那会是 dedup 索引唯一管不到的开火径：唯一还能铸出双跑的
 // 地方。何况「恰一次」本就不归键管——调用方只为**刚落账**的刻度走到这里，而一个刻度至多落账一次。
 func (s *Service) catchupOne(ctx context.Context, t *triggerdomain.Trigger, tick time.Time) {
-	listeners := s.listeningSince(t.ID)
+	release, listeners := s.admitListeningSince(t.ID)
+	defer release()
 	workflows := make([]string, 0, len(listeners))
 	for wf, since := range listeners {
 		if !since.IsZero() && tick.Before(since) {

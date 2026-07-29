@@ -32,12 +32,29 @@ func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 		s.mu.RUnlock()
 		return // detached / paused mid-flight — drop. 半途被摘 / 被暂停——丢弃。
 	}
+	gate := e.reportGate
+	s.mu.RUnlock()
+	// Admit the report while the registry read lock is held. Detach cannot remove the entry before
+	// this read-side gate is acquired; after the snapshot it waits on the write side before returning.
+	// Gate is acquired before the second registry read so a detach writer cannot strand a report
+	// while holding the registry lock.
+	// 先确认 entry，再拿 report 读侧 gate，随后重新读 registry；Detach writer 不会在持有 registry 锁时等
+	// gate，故不会把 report 卡在锁序环里。快照之后它会在返回前等写侧 gate。
+	gate.RLock()
+	s.mu.RLock()
+	e, ok = s.listeners[triggerID]
+	if !ok || e.paused {
+		s.mu.RUnlock()
+		gate.RUnlock()
+		return // detached / paused while acquiring the gate — drop.
+	}
 	wsID, kind := e.workspaceID, e.kind
 	workflows := make([]string, 0, len(e.workflows))
 	for wf := range e.workflows {
 		workflows = append(workflows, wf)
 	}
 	s.mu.RUnlock()
+	defer gate.RUnlock()
 
 	// Detached context seeded with the trigger's workspace — the listener fired off-request.
 	// Detached ctx 种入 trigger 的 workspace——listener 在请求之外触发。
@@ -179,14 +196,8 @@ func (s *Service) FireManual(ctx context.Context, triggerID string) (string, err
 	if t.Paused {
 		return "", triggerdomain.ErrPaused
 	}
-	s.mu.RLock()
-	var workflows []string
-	if e, ok := s.listeners[triggerID]; ok {
-		for wf := range e.workflows {
-			workflows = append(workflows, wf)
-		}
-	}
-	s.mu.RUnlock()
+	release, workflows := s.admitFanOut(triggerID)
+	defer release()
 	// NOTE: a manual :fire deliberately does NOT advance the misfire watermark — it is not a
 	// scheduled tick, so it accounts for nothing on the cron timeline (工单⑨).
 	// 注：手动 :fire 刻意**不**推水位——它不是调度刻度，在 cron 时间线上什么都没入账（工单⑨）。
@@ -196,6 +207,66 @@ func (s *Service) FireManual(ctx context.Context, triggerID string) (string, err
 		DedupKey: triggerID + "|manual|" + strconv.FormatInt(time.Now().UnixNano(), 10),
 	})
 	return actID, nil
+}
+
+// admitFanOut snapshots the currently listening workflows and holds the trigger's report read
+// gate until the caller's fan-out has fully written its durable rows. It is used by manual fires as
+// well as listener reports: :deactivate must fence both sources of accepted work.
+//
+// admitFanOut 快照当前监听 workflow，并持有 trigger 的 report 读侧 gate，直到调用方完成 durable 行扇出。
+// 手动 fire 与 listener report 都走它：`:deactivate` 必须 fence 两种已接受工作来源。
+func (s *Service) admitFanOut(triggerID string) (func(), []string) {
+	// Acquire the report gate before the registry lock. Detach releases s.mu before waiting on the
+	// gate; reversing this order could deadlock a report that needs s.mu for a one-shot claim while a
+	// new manual fire waits for the gate.
+	// 先拿 report gate 再拿 registry 锁。Detach 会先释放 s.mu 再等 gate；反过来会让需要 s.mu 做 one-shot
+	// claim 的旧 report 与等待 gate 的新 manual fire 互相死锁。
+	s.mu.RLock()
+	gate := s.reportGates[triggerID]
+	s.mu.RUnlock()
+	if gate == nil {
+		s.mu.Lock()
+		gate = s.reportGateLocked(triggerID)
+		s.mu.Unlock()
+	}
+	gate.RLock()
+	s.mu.RLock()
+	var workflows []string
+	if e, ok := s.listeners[triggerID]; ok && !e.paused {
+		workflows = make([]string, 0, len(e.workflows))
+		for wf := range e.workflows {
+			workflows = append(workflows, wf)
+		}
+	}
+	s.mu.RUnlock()
+	return gate.RUnlock, workflows
+}
+
+// admitListeningSince is the misfire-sweep variant of admitFanOut; it preserves each workflow's
+// attach epoch while fencing the subsequent catch-up fan-out against Detach.
+//
+// admitListeningSince 是 misfire sweep 的 admitFanOut 变体；保留 workflow 挂载纪元，并用 gate fence
+// 后续 catch-up 扇出与 Detach 的交错。
+func (s *Service) admitListeningSince(triggerID string) (func(), map[string]time.Time) {
+	s.mu.RLock()
+	gate := s.reportGates[triggerID]
+	s.mu.RUnlock()
+	if gate == nil {
+		s.mu.Lock()
+		gate = s.reportGateLocked(triggerID)
+		s.mu.Unlock()
+	}
+	gate.RLock()
+	s.mu.RLock()
+	listeners := map[string]time.Time{}
+	if e, ok := s.listeners[triggerID]; ok && !e.paused {
+		listeners = make(map[string]time.Time, len(e.workflows))
+		for wf, since := range e.workflows {
+			listeners[wf] = since
+		}
+	}
+	s.mu.RUnlock()
+	return gate.RUnlock, listeners
 }
 
 // listeningSince returns the workflows currently attached to triggerID with each one's attach epoch

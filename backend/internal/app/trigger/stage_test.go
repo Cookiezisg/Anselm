@@ -168,3 +168,58 @@ func TestAttachOnce_ConcurrentReportsConsumeSingleBudget(t *testing.T) {
 		t.Fatalf("concurrent staged reports must create one firing, got %d", len(firings))
 	}
 }
+
+// TestDetachWaitsForInFlightReport: once a source report has crossed the listener snapshot, a
+// graceful detach must wait for its durable firing append. Otherwise workflow :deactivate can
+// count zero and return inactive, then observe the accepted firing only after the lifecycle decision.
+//
+// TestDetachWaitsForInFlightReport：report 一旦跨过 listener snapshot，优雅 detach 必须等 durable firing append
+// 完成。否则 workflow `:deactivate` 可能先数到 0 返回 inactive，之后才看见这条已接受 firing。
+func TestDetachWaitsForInFlightReport(t *testing.T) {
+	s, st := newTestService(t)
+	ctx := ctxWS("ws_1")
+	s.cron = &fakeListener{}
+	tr := mkCron(t, s, ctx, "detach-fence")
+	if err := s.Attach(ctx, tr.ID, "wf_1"); err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+
+	release := make(chan struct{})
+	s.repo = &blockingFiringRepo{Repository: st, calls: make(chan struct{}, 1), release: release}
+	reportDone := make(chan struct{})
+	go func() {
+		s.onReport(tr.ID, triggerinfra.Activity{Fired: true, DedupKey: "detach-fence"})
+		close(reportDone)
+	}()
+	select {
+	case <-s.repo.(*blockingFiringRepo).calls:
+	case <-time.After(5 * time.Second):
+		t.Fatal("timed out waiting for in-flight AppendFiring")
+	}
+
+	detachDone := make(chan struct{})
+	go func() {
+		s.Detach(tr.ID, "wf_1")
+		close(detachDone)
+	}()
+	select {
+	case <-detachDone:
+		t.Fatal("Detach returned before in-flight firing append settled")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	close(release)
+	select {
+	case <-reportDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("in-flight report did not settle after release")
+	}
+	select {
+	case <-detachDone:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Detach did not return after in-flight report settled")
+	}
+	if firings, err := st.ListPendingFirings(ctx, 0); err != nil || len(firings) != 1 {
+		t.Fatalf("accepted report must remain durable after detach, firings=%d err=%v", len(firings), err)
+	}
+}
