@@ -1797,6 +1797,77 @@ func TestContractWorkflow_DeletedTriggerAcceptedFiringSurvivesRestart(t *testing
 	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
 }
 
+// B-wf-22/B-trg-17 — an accepted firing whose source is removed from the active graph must not
+// spin forever in pending. Editing an active workflow hot-swaps the listener to a new trigger; the
+// old parked run keeps its pin, while the older queued event has no legal entry in the new graph and
+// must settle as neutral `shed` rather than retrying every drain tick.
+//
+// B-wf-22/B-trg-17 —— 已接受但其 source 已从 active 图移除的 firing 不得永久 pending 自旋。active workflow
+// 编辑会把 listener 热换到新 trigger；旧停泊 run 保持自己的 pin，而旧排队事件在新图中没有合法入口，须中性
+// 终结为 `shed`，不能每个 drain tick 重试。
+func TestContractWorkflow_PendingFiringShedsAfterEntryRebind(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-trigger-rebind-pending")
+
+	oldTrigger := trgCreate(t, wc, "pending_old_trigger", "webhook", map[string]any{"path": "pending-old"})
+	newTrigger := trgCreate(t, wc, "pending_new_trigger", "webhook", map[string]any{"path": "pending-new"})
+	apfID := workflowC_apf(t, wc, "pending_rebind_gate")
+	wfID := workflowC_apfGraph(t, wc, "pending_rebind_workflow", oldTrigger, apfID,
+		map[string]any{"op": "set_meta", "concurrency": "serial"})
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	fireConcurrencyWebhook(t, srv, oldTrigger, "pending-old", `{"seq":1}`)
+	var firstRunID string
+	harness.Eventually(t, 20000, "rebind-pending first run parks", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 {
+			return false
+		}
+		firstRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, firstRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+	fireConcurrencyWebhook(t, srv, oldTrigger, "pending-old", `{"seq":2}`)
+	harness.Eventually(t, 20000, "rebind-pending second firing is pending", func() bool {
+		rows := listConcurrencyFirings(t, wc, oldTrigger)
+		counts := countFiringStatuses(rows)
+		return len(rows) == 2 && counts["started"] == 1 && counts["pending"] == 1
+	})
+
+	wc.POST("/api/v1/workflows/"+wfID+":edit", map[string]any{"ops": []map[string]any{
+		{"op": "update_node", "id": "start", "patch": map[string]any{"ref": newTrigger}},
+	}}).OK(t, nil)
+	var oldRuntime, newRuntime struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}
+	wc.GET("/api/v1/triggers/"+oldTrigger).OK(t, &oldRuntime)
+	wc.GET("/api/v1/triggers/"+newTrigger).OK(t, &newRuntime)
+	if oldRuntime.RefCount != 0 || oldRuntime.Listening || newRuntime.RefCount != 1 || !newRuntime.Listening {
+		t.Fatalf("active edit must move listener old→new before pending drain: old=%+v new=%+v", oldRuntime, newRuntime)
+	}
+	if code := workflowC_rawPost(t, srv.BaseURL+"/api/v1/webhooks/"+oldTrigger+"/pending-old", `{"seq":3}`, nil); code != 404 {
+		t.Fatalf("old source path must be cold after entry rebind, got %d", code)
+	}
+
+	wc.POST("/api/v1/flowruns/"+firstRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, firstRunID, "completed", 20000)
+	var finalFirings []firingRow
+	harness.Eventually(t, 15000, "old pending firing settles after entry rebind", func() bool {
+		finalFirings = listFirings(t, wc, oldTrigger, "limit=50")
+		counts := map[string]int{}
+		for _, firing := range finalFirings {
+			counts[firing.Status]++
+		}
+		return len(finalFirings) == 2 && counts["started"] == 1 && counts["shed"] == 1
+	})
+	if rows := workflowC_runsOf(t, wc, wfID, ""); len(rows) != 1 || rows[0].ID != firstRunID {
+		t.Fatalf("a firing with no entry in the fresh graph must not create a phantom run, got %+v", rows)
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
+}
+
 // B-wf-16/B-trg-12 — deleting an active workflow must detach its live trigger listeners without
 // erasing the workflow's durable run/history log. Reusing the workflow name on the same trigger
 // must not inherit a stale listener from the deleted workflow.

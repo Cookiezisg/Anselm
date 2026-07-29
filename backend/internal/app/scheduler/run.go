@@ -283,6 +283,21 @@ func (s *Service) claimFiring(ctx context.Context, f *triggerdomain.Firing) (str
 		Origin:     origin,
 	})
 	if err != nil {
+		// The active graph may have been hot-edited after this firing entered the inbox. If its
+		// source trigger is no longer an entry node, retrying can never produce a legal run: every
+		// drain would leave the same row pending forever. Shed this structural, non-retryable event
+		// while preserving its audit row; transient active-version/pin failures remain retryable.
+		// firing 入 inbox 后，active 图可能热编辑过：若其 source trigger 已不再是入口节点，重试永远
+		// 不会造出合法 run，行会每次 drain 都 pending 自旋。把这类结构性、不可重试事件中性 shed，
+		// 同时保留审计行；暂时性的 active-version/pin 错误仍可重试。
+		if errors.Is(err, flowrundomain.ErrInvalidEntry) {
+			if serr := s.inbox.MarkFiringOutcome(fctx, f.ID, triggerdomain.FiringShed); serr != nil {
+				return "", fctx, fmt.Errorf("schedulerapp.claimFiring: shed invalid entry: %w", serr)
+			}
+			s.log.Warn("schedulerapp: shed firing with no entry in active graph",
+				zap.String("firing", f.ID), zap.String("workflow", f.WorkflowID), zap.String("trigger", f.TriggerID))
+			return "", fctx, nil
+		}
 		return "", fctx, err
 	}
 
