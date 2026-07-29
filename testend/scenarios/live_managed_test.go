@@ -1196,6 +1196,82 @@ func TestLiveBYOK_OpenAIImageInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_OpenAIMultipleImages proves that a same-kind attachment list is not accidentally
+// collapsed to its first item. Both source receipts must survive and both exact image parts must
+// cross the real OpenAI-compatible wire in one turn.
+func TestLiveBYOK_OpenAIMultipleImages(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-openai-multiple-images"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-byok-multiple-images", "key": key, "baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "openai" && cap.ModelID == "gpt-4.1-mini" && cap.Vision {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Skip("current followed OpenAI catalog does not expose gpt-4.1-mini vision capability; multiple-image reprobe is not constructible")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gpt-4.1-mini"}).OK(t, nil)
+
+	firstID := uploadAtt(t, wc, "first.png", "image/png", liveManagedPNG)
+	secondID := uploadAtt(t, wc, "second.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "OpenAI multiple images")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认两张图片都已收到。不要调用工具。",
+		"attachmentIds": []string{firstID, secondID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("OpenAI multiple-image turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, id := range []string{firstID, secondID} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+			t.Fatalf("OpenAI image attachment %s must remain byte-identical: HTTP %d, %d bytes", id, content.Status, len(content.Raw))
+		}
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(liveManagedPNG)
+	seenTwo := false
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		if bytes.Count(call.Body, []byte(`"image_url"`)) >= 2 && bytes.Count(call.Body, []byte(encoded)) >= 2 {
+			seenTwo = true
+			break
+		}
+	}
+	if !seenTwo {
+		t.Fatalf("OpenAI multiple-image wire must contain two exact image parts: chatCalls=%d", rec.CallsTo("/chat/completions"))
+	}
+}
+
 // TestLiveBYOK_OpenAIImageAndUnsupportedAudio proves that a common drag-and-drop combination does
 // not let an image-capable, audio-incapable BYOK model fail the entire turn. The image must remain
 // an exact native part on the recorder wire while the WAV becomes an explicit text note.
