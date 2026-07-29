@@ -336,6 +336,82 @@ func TestTrigger_FsnotifyFiltersCreateEvents(t *testing.T) {
 	}
 }
 
+// TestTrigger_FsnotifyEditHotSwapsWatch proves an active fsnotify trigger edit is a real source
+// re-registration, not merely a persisted config change: the old directory stops producing events
+// and the new directory starts producing them, with exactly one durable run per accepted create.
+//
+// TestTrigger_FsnotifyEditHotSwapsWatch 证明 active fsnotify trigger 的 edit 是真实 source 重注册，而不只是
+// 改了持久化配置：旧目录不再产事件，新目录开始产事件，每个被接受的 create 恰有一条 durable run。
+func TestTrigger_FsnotifyEditHotSwapsWatch(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fsnotify-edit-swap"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	oldDir := t.TempDir()
+	newDir := t.TempDir()
+	trgID := trgCreate(t, wc, "editable_file_watch", "fsnotify", map[string]any{
+		"path": oldDir, "pattern": "*.txt", "events": []string{"create"},
+	})
+	wfID, _ := wfWithTrigger(t, wc, "editable_file_pipe", trgID)
+
+	oldBefore := filepath.Join(oldDir, "before.txt")
+	if err := os.WriteFile(oldBefore, []byte("before"), 0o644); err != nil {
+		t.Fatalf("create old watched file: %v", err)
+	}
+	harness.Eventually(t, 30000, "old fsnotify directory produces baseline run", func() bool {
+		rows := listRunRows(t, wc, "?workflowId="+wfID)
+		return len(rows) == 1 && rows[0].Status == "completed"
+	})
+
+	wc.PATCH("/api/v1/triggers/"+trgID, map[string]any{
+		"config": map[string]any{"path": newDir, "pattern": "*.txt", "events": []string{"create"}},
+	}).OK(t, nil)
+	// Give the re-registration a scheduling turn before the negative old-directory event.
+	// 给重注册一个调度机会，再造旧目录负控事件。
+	time.Sleep(300 * time.Millisecond)
+	if err := os.WriteFile(filepath.Join(oldDir, "stale.txt"), []byte("stale"), 0o644); err != nil {
+		t.Fatalf("create stale old file: %v", err)
+	}
+	time.Sleep(900 * time.Millisecond)
+	if rows := listRunRows(t, wc, "?workflowId="+wfID); len(rows) != 1 {
+		t.Fatalf("old fsnotify directory must be detached after edit: %+v", rows)
+	}
+
+	newPath := filepath.Join(newDir, "after.txt")
+	if err := os.WriteFile(newPath, []byte("after"), 0o644); err != nil {
+		t.Fatalf("create new watched file: %v", err)
+	}
+	harness.Eventually(t, 30000, "new fsnotify directory produces post-edit run", func() bool {
+		rows := listRunRows(t, wc, "?workflowId="+wfID)
+		return len(rows) == 2 && rows[1].Status == "completed" && rows[1].Origin == "fsnotify"
+	})
+
+	var acts []struct {
+		Fired   bool           `json:"fired"`
+		Payload map[string]any `json:"payload"`
+	}
+	wc.GET("/api/v1/triggers/"+trgID+"/activations").OK(t, &acts)
+	if len(acts) != 2 {
+		t.Fatalf("hot-swapped fsnotify trigger must retain exactly two activations: %+v", acts)
+	}
+	paths := map[string]bool{}
+	for _, act := range acts {
+		if !act.Fired || act.Payload["eventKind"] != "create" {
+			t.Fatalf("hot-swapped fsnotify activation must be a create fire: %+v", acts)
+		}
+		path, _ := act.Payload["path"].(string)
+		paths[path] = true
+	}
+	if !paths[oldBefore] || !paths[newPath] || paths[filepath.Join(oldDir, "stale.txt")] {
+		t.Fatalf("hot-swapped fsnotify paths wrong: %+v", paths)
+	}
+	if firings := listFirings(t, wc, trgID, "limit=50"); len(firings) != 2 {
+		t.Fatalf("hot-swapped fsnotify must leave two firing rows: %+v", firings)
+	}
+}
+
 // TestTrigger_SensorFalseProbeThenFiresAfterEdit proves both halves of a polling sensor through
 // product HTTP: a false condition is still an activation with ReturnValue and zero firings; after
 // the target function is edited, the next probe fires a sensor-origin workflow with the output.
