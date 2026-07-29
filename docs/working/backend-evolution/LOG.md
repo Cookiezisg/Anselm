@@ -312,6 +312,7 @@ audience: [human, ai]
 | 2026-07-30 | EVO-290 | `inspect_media` 文本窗口场景后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-inspect-window | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 | 2026-07-30 | EVO-291 | 托管 `read_attachment` 默认读取大文本时，即使省略 index/offset/limit/query 也自动返回紧凑索引，正文 sentinel 不进入工具结果，父回合继续且源文本字节不变；首次运行出现一次 `id is required` 后重试，立即复跑无警告，未形成稳定缺陷 | FRT-01 / managed-read/default / read_attachment auto-index | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ReadAttachmentLargeTextAutoIndex$' -count=1 -parallel 1 -timeout 12m -v` → PASS 29.968s；复跑 PASS 20.23s；无 provider secret | 当前提交 |
 | 2026-07-30 | EVO-292 | 自动索引场景加入后的完整 backend 黑盒回归仍闭合；既有对话、agent/subagent、workflow/trigger、MCP/function/handler、附件与多模态、取消/重试/崩溃恢复、资源卫生未受影响 | full backend testend regression / post-auto-index evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 318.192s`；无 provider secret、EVALS 未开启 | 当前提交 |
+| 2026-07-30 | EVO-293 | 自动索引场景后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-auto-index | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 
 ## 追加格式
 
