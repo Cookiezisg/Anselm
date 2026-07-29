@@ -860,6 +860,57 @@ func TestLiveManaged_DefaultChatWithImageAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithPDFAttachment proves the managed model's non-native document
+// route: the default Anselm capability intentionally does not advertise NativeDocs, so a PDF must
+// be extracted in the sandbox and its text made available to the real managed conversation.
+func TestLiveManaged_DefaultChatWithPDFAttachment(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-pdf-input")
+	var caps []struct {
+		Provider   string `json:"provider"`
+		ModelID    string `json:"modelId"`
+		NativeDocs bool   `json:"nativeDocs"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	found := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			if cap.NativeDocs {
+				t.Fatalf("managed default must keep the non-native PDF extraction contract: %+v", cap)
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Fatal("managed default capability row anselm-auto not found")
+	}
+
+	pdf := buildPDF("PDFTOKEN_7F3A")
+	attID := uploadAtt(t, wc, "managed-evidence.pdf", "application/pdf", pdf)
+	conv := convCreate(t, wc, "managed PDF input")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请从 PDF 中找出唯一的英文 token，只输出该 token，不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed PDF chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	answer := ""
+	for _, block := range turn.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, "PDFTOKEN_7F3A") {
+		t.Fatalf("managed PDF answer must contain the extracted token, got %q", answer)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, pdf) {
+		t.Fatalf("managed PDF attachment must survive extraction unchanged: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_DefaultChatWithAudioAttachmentDegrades covers the user-facing boundary for a
 // WAV dropped into ordinary Anselm chat. The default managed model deliberately does not advertise
 // chat audio (realtime ASR is a separate proof-bound route), so the attachment must become an
