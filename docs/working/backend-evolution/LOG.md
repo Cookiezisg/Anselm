@@ -177,6 +177,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-157 | 图片原地重试验收落地后，docs 与 backend 常规门禁仍通过；既有 DTO drift warning 未扩大为失败，未发现 retry/media 共同层回归 | docs / backend verification / post-retry gate | `make -C docs verify` → documentation verified（1 个既有 drift warning）；`make -C backend verify` → `✓ backend verified`；未注入 provider secret | 当前提交 |
 | 2026-07-29 | EVO-158 | OpenAI BYOK 图片编辑重发闭合：编辑文本后旧 user+assistant 版本被正确 supersede，新版本 `retryOf` 双链成立，原始 attachment 快照和 exact image part 在第二次 `/chat/completions` 保留，源字节不变 | BYOK-read / OpenAI / edit-resend / multimodal history | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIImageEditResendPreservesAttachment$' -count=1 -parallel 1 -timeout 8m -v` → PASS 8.73s（上游 chat requests=2；key 未输出） | `ee7e9693` |
 | 2026-07-29 | EVO-159 | edit-resend 验收落地后 docs/backend 门禁仍闭合；retry/media 只新增测试与事实记录，没有触发共同层代码回归 | docs / backend verification / post-edit-resend gate | `make -C docs verify` → documentation verified（1 个既有 drift warning）；`make -C backend verify` → `✓ backend verified`；未注入 provider secret | 当前提交 |
+| 2026-07-29 | EVO-160 | Google Gemini 原生工具续接在本次 provider 窗口恢复：真实 `functionCall`→Anselm function→`functionResponse`→最终回答完成，`thoughtSignature` 保持在后续原生 contents 请求；此前 429 仅是外部 rate window，本次不再 skip | BYOK-read / Google native / tool continuation / rate-window reprobe | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_GoogleToolContinuation$' -count=1 -parallel 1 -timeout 8m -v` → PASS 13.72s；key 未输出 | 当前提交 |
 
 ## 追加格式
 
