@@ -165,6 +165,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-145 | 本轮 producer workflow 与多模态输入扩展后，根目录跨层总门禁仍闭合：backend、frontend、docs、web demo 全部通过，未出现主仓装配漂移 | workspace verification / post-producer-workflow gate | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未开启 EVALS、未注入 provider secret | 当前工作树 |
 | 2026-07-29 | EVO-146 | 默认 Anselm API 同一回合混合 MP4 与不支持原生 chat audio 的 WAV：视频仍走受管视频路由，音频独立降级为文本注记，回合完成且两件附件逐字节回读；证明降级不会因视频分支而退化成整回合 400 | managed-read/default / mixed multimodal downgrade / video + audio attachment | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DefaultChatWithVideoAndUnsupportedAudio$' -count=1 -parallel 1 -timeout 8m -v` → PASS 45.26s（go test 总计 45.912s）；MP4 HTTP 200/2,969,360 bytes、WAV HTTP 200/96,044 bytes；未输出 provider secret | 当前工作树 |
 | 2026-07-29 | EVO-147 | 视频+不支持音频混合场景加入后，backend 全黑盒 acceptance 矩阵仍闭合；既有 chat、agent/subagent、workflow/trigger、MCP/function/handler、媒体准备、取消/重试/崩溃恢复与资源卫生没有回归 | full backend testend regression / post-managed-video-audio gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 368.254s`；EVALS 未开启、未注入 provider secret | 当前工作树 |
+| 2026-07-29 | EVO-148 | 新增受管视频+音频混合降级验收提交后，主仓跨层总门禁仍闭合；backend、frontend、docs 与 web demo 均通过，网关仓保持独立且干净 | workspace verification / post-managed-video-audio gate | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未开启 EVALS、未注入 provider secret；`Anselm-API-Serve` 工作树 clean | 当前工作树 |
 
 ## 追加格式
 
