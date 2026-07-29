@@ -566,6 +566,26 @@ func (f *fakeProvider) Embed(_ context.Context, texts []string) ([][]float32, er
 	return out, nil
 }
 
+// blockingProvider makes an in-flight embed observable so shutdown can prove it cancels the
+// service-lifetime context instead of closing the database underneath the backfill goroutine.
+// blockingProvider 让在飞嵌入可观测，关停必须取消 service 生命周期 context，不能把数据库关在补算
+// goroutine 身下。
+type blockingProvider struct {
+	started    chan struct{}
+	canceled   chan struct{}
+	startOnce  sync.Once
+	cancelOnce sync.Once
+}
+
+func (p *blockingProvider) Model() string { return "blocking" }
+
+func (p *blockingProvider) Embed(ctx context.Context, _ []string) ([][]float32, error) {
+	p.startOnce.Do(func() { close(p.started) })
+	<-ctx.Done()
+	p.cancelOnce.Do(func() { close(p.canceled) })
+	return nil, ctx.Err()
+}
+
 func TestHybrid_SemanticOnlyHitSurfaces(t *testing.T) {
 	repo := newFakeRepo()
 	// Lexical finds doc A; doc B matches only semantically (vector near query).
@@ -702,6 +722,37 @@ func TestEmbedWorker_BackfillsAndInvalidates(t *testing.T) {
 		defer repo.mu.Unlock()
 		return len(repo.embedded) == 2
 	})
+}
+
+// TestEmbedWorker_CloseCancelsInFlightBackfill guards the shutdown boundary: a running semantic
+// backfill must observe Service.Close and finish before the owner can close the SQLite database.
+// TestEmbedWorker_CloseCancelsInFlightBackfill 守住关停边界：在飞语义补算必须观察到
+// Service.Close，并在 owner 关闭 SQLite 之前结束。
+func TestEmbedWorker_CloseCancelsInFlightBackfill(t *testing.T) {
+	repo := newFakeRepo()
+	repo.embedQueue = []searchdomain.EmbedDoc{{DocID: "sd_1", Title: "标题", Body: "正文"}}
+	provider := &blockingProvider{started: make(chan struct{}), canceled: make(chan struct{})}
+	svc := NewService(repo, nil)
+	svc.SetEmbeddingProviders(provider, nil)
+	svc.Start(nil)
+	svc.kickEmbed("ws_a")
+	select {
+	case <-provider.started:
+	case <-time.After(3 * time.Second):
+		t.Fatal("embed worker did not reach the in-flight provider")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	svc.Close(ctx)
+	select {
+	case <-provider.canceled:
+	case <-time.After(time.Second):
+		t.Fatal("Service.Close returned without cancelling the in-flight embed")
+	}
+	if n := atomic.LoadInt32(&repo.upsertEmbeds); n != 0 {
+		t.Fatalf("cancelled backfill must not write after shutdown, got %d upserts", n)
+	}
 }
 
 type sizeLimitedEmbedder struct {

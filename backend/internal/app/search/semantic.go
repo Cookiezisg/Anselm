@@ -225,12 +225,18 @@ func (s *Service) embedWorker() {
 			s.backfill(ws)
 		case <-s.embedQuit:
 			return
+		case <-s.embedCtx.Done():
+			return
 		}
 	}
 }
 
 func (s *Service) backfill(ws string) {
-	ctx := reqctxpkg.Detached(ws)
+	// The worker must outlive the request that kicked it, but not the Service itself. A plain
+	// reqctx.Detached context survives app shutdown and can write into the database after db.Close.
+	// worker 要比触发请求活得久，但不能比 Service 活得久；纯 reqctx.Detached 会穿过 app shutdown，
+	// 在 db.Close 后继续写库。
+	ctx := reqctxpkg.SetWorkspaceID(s.embedCtx, ws)
 	prov := s.provider(ctx)
 	if prov == nil {
 		return
@@ -268,6 +274,11 @@ func (s *Service) backfill(ws string) {
 			s.log.Info("search embed: provider unavailable, staying lexical", zap.Error(err))
 			break
 		}
+		select {
+		case <-s.embedCtx.Done():
+			return
+		default:
+		}
 		// Track per-batch persistence: if a whole batch fails to write (disk full,
 		// corrupt table, a wedged write holding the single conn), MissingEmbeddings
 		// returns the SAME rows next pass — re-embedding them forever is a hot loop
@@ -278,6 +289,11 @@ func (s *Service) backfill(ws string) {
 		// 重试（与上方 Embed 错误路径同约）（R9）。
 		wroteThisBatch := false
 		for i, d := range missing {
+			select {
+			case <-s.embedCtx.Done():
+				return
+			default:
+			}
 			if err := s.repo.UpsertEmbedding(ctx, d.DocID, model, vecs[i]); err != nil {
 				s.log.Warn("search embed: upsert failed", zap.String("doc", d.DocID), zap.Error(err))
 			} else {

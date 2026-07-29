@@ -89,6 +89,9 @@ type Service struct {
 	vectors       *vecCache
 	embedKick     chan string
 	embedQuit     chan struct{}
+	embedCtx      context.Context
+	embedCancel   context.CancelFunc
+	embedWG       sync.WaitGroup
 }
 
 // NewService builds the Service; register sources before Start.
@@ -98,14 +101,17 @@ func NewService(repo searchdomain.Repository, log *zap.Logger) *Service {
 	if log == nil {
 		log = zap.NewNop()
 	}
+	embedCtx, embedCancel := context.WithCancel(context.Background())
 	s := &Service{
-		repo:       repo,
-		sources:    map[searchdomain.EntityType]Source{},
-		log:        log,
-		vectors:    newVecCache(),
-		reindexing: map[string]struct{}{},
-		embedKick:  make(chan string, embedKickQueue),
-		embedQuit:  make(chan struct{}),
+		repo:        repo,
+		sources:     map[searchdomain.EntityType]Source{},
+		log:         log,
+		vectors:     newVecCache(),
+		reindexing:  map[string]struct{}{},
+		embedKick:   make(chan string, embedKickQueue),
+		embedQuit:   make(chan struct{}),
+		embedCtx:    embedCtx,
+		embedCancel: embedCancel,
 	}
 	s.indexer = newIndexer(repo, s.sources, log)
 	s.indexer.onApplied = s.kickEmbed
@@ -131,7 +137,11 @@ func (s *Service) Notifier() searchdomain.Notifier { return s.indexer }
 // 绝不阻塞 boot。
 func (s *Service) Start(workspaceIDs []string) {
 	s.indexer.start()
-	go s.embedWorker()
+	s.embedWG.Add(1)
+	go func() {
+		defer s.embedWG.Done()
+		s.embedWorker()
+	}()
 	go func() {
 		ctx := reqctxpkg.Detached("")
 		v, err := s.repo.GetMeta(ctx, metaSchemaKey)
@@ -162,7 +172,18 @@ func (s *Service) Start(workspaceIDs []string) {
 // 不能拖住 App.Shutdown（及其后 db.Close）。provider 的 Close 遵从 ctx（R14）。
 func (s *Service) Close(ctx context.Context) {
 	close(s.embedQuit)
+	s.embedCancel()
 	s.indexer.close()
+	done := make(chan struct{})
+	go func() {
+		s.embedWG.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		s.log.Warn("search: embed worker did not stop before shutdown deadline")
+	}
 	for _, p := range []searchdomain.EmbeddingProvider{s.builtinProv, s.ollamaProv} {
 		if c, ok := p.(ProviderCloser); ok {
 			c.Close(ctx)
