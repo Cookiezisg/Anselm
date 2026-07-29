@@ -278,6 +278,7 @@ audience: [human, ai]
 
 | 2026-07-29 | EVO-257 | 新增 managed 音频 `inspect_media` 场景后，完整 backend 黑盒回归仍闭合；chat、agent/subagent、workflow/trigger、MCP/function/handler、PDF/附件工具、多模态、取消/重试/崩溃恢复、资源卫生共同通过，未启用 EVALS/provider secret | full backend testend regression / post-audio-inspect evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 362.409s`；无 provider secret、EVALS 未开启 | 当前提交 |
 | 2026-07-29 | EVO-258 | 受管附件发现路径闭合：真实 workspace 上传独立 TXT 与 PNG 后，`anselm-auto` 恰调用一次 `list_attachments`，tool result 返回两件附件的 id/filename/count，父回合继续完成；随后两份源字节均逐字节不变，没有被隐式读取或改写 | FRT-01 / managed-read/default / list_attachments discovery | `set -a; source ../.env; set +e; EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ListAttachments$' -count=1 -parallel 1 -timeout 12m -v` → PASS 11.540s（TXT 26 bytes、PNG 98 bytes；无 provider secret） | 当前提交 |
+| 2026-07-29 | EVO-259 | 新增 managed `list_attachments` 场景后，完整 backend 黑盒回归仍闭合；chat、agent/subagent、workflow/trigger、MCP/function/handler、PDF/附件发现与读取、多模态、取消/重试/崩溃恢复、资源卫生共同通过，未启用 EVALS/provider secret | full backend testend regression / post-list-attachments evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 328.342s`；无 provider secret、EVALS 未开启 | 当前提交 |
 
 ## 追加格式
 
