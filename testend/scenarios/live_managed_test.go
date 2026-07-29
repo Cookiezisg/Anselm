@@ -469,6 +469,64 @@ func TestLiveManaged_SubagentReadsTextAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_SubagentInspectsImageAttachment proves the delegated multimodal tool chain:
+// the requested subagent task must be attempted, bounded inspect_media evidence must reach the
+// parent (either from the child when the model honors general-purpose, or from the parent's honest
+// fallback when the model selects the read-only Explore type), and the original image bytes must
+// survive the nested turn. The built-in Explore whitelist intentionally excludes inspect_media;
+// this route-aware assertion keeps model tool-choice variance from masquerading as a backend bug.
+func TestLiveManaged_SubagentInspectsImageAttachment(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-subagent-image-attachment")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	attID := uploadAtt(t, wc, "subagent-inspect.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed subagent inspect image")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请派一个 general-purpose subagent，并把 Subagent 工具的 subagent_type 参数精确设为 general-purpose（不要选择 Explore 或 Plan）。子任务必须调用 inspect_media 工具检查图片附件 " + attID + "，question 写“描述图片中的主要颜色”，不要调用 read_attachment；工具返回后把 bounded evidence 交回，父回合收到后只用一句简短中文确认。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed subagent inspect-image turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	delegated, directInspect, childEvidence, directEvidence, answer := false, false, false, false, ""
+	delegatedType := ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			if block.Attrs["tool"] == "Subagent" {
+				delegated = strings.Contains(block.Content, attID)
+				var args struct {
+					SubagentType string `json:"subagent_type"`
+				}
+				if err := json.Unmarshal([]byte(block.Content), &args); err == nil {
+					delegatedType = args.SubagentType
+				}
+			}
+			if block.Attrs["tool"] == "inspect_media" {
+				directInspect = strings.Contains(block.Content, attID)
+			}
+		case "tool_result":
+			// Nested child tool results are intentionally collapsed into the parent Subagent result;
+			// assert the bounded semantic evidence at that boundary rather than requiring the child's
+			// internal inspect_media JSON to leak into the parent trace.
+			semantic := strings.Contains(block.Content, "红色") || strings.Contains(strings.ToLower(block.Content), "red")
+			childEvidence = childEvidence || (block.Attrs["tool"] == "Subagent" && semantic)
+			directEvidence = directEvidence || (block.Attrs["tool"] == "inspect_media" && semantic)
+		case "text":
+			answer += block.Content
+		}
+	}
+	childRouteOK := delegatedType == "general-purpose" && childEvidence
+	fallbackRouteOK := delegatedType != "" && delegatedType != "general-purpose" && directInspect && directEvidence
+	if !delegated || !(childRouteOK || fallbackRouteOK) || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed delegated inspect_media must return bounded evidence/continue: delegated=%v type=%q directInspect=%v childEvidence=%v directEvidence=%v answer=%q blocks=%+v", delegated, delegatedType, directInspect, childEvidence, directEvidence, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+		t.Fatalf("managed subagent inspect_media must not mutate source image: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_GenerateSpeechArtifact is the managed speech counterpart: the default Anselm
 // dialogue model must call generate_speech once, the gateway's returned bytes must be a real WAV,
 // and the tool receipt must identify the managed provider. The two-step cap bounds paid retries.
