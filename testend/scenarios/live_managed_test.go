@@ -1926,6 +1926,41 @@ func TestLiveManaged_DeletedAttachmentDegradesInHistory(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_AttachmentHistoryReprojection proves a normal multi-turn media conversation:
+// the second user message omits attachmentIds, so the chat history loader must re-project the
+// first turn's image through the managed lease path and still complete the follow-up.
+func TestLiveManaged_AttachmentHistoryReprojection(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-attachment-history-reprojection")
+	attID := uploadAtt(t, wc, "history-image.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed attachment history reprojection")
+	first := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认已收到图片，第一轮不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	firstTurn := waitTurn(t, wc, conv, first, 180000)
+	if firstTurn.Status != "completed" {
+		t.Fatalf("initial managed history image turn must complete: status=%s code=%s message=%s", firstTurn.Status, firstTurn.ErrorCode, firstTurn.ErrorMessage)
+	}
+	second := sendMsg(t, wc, conv, "继续此对话，请用一句话确认你仍能处理上一轮图片。不要调用工具。")
+	secondTurn := waitTurn(t, wc, conv, second, 180000)
+	if secondTurn.Status != "completed" {
+		t.Fatalf("managed image history follow-up must complete: status=%s code=%s message=%s", secondTurn.Status, secondTurn.ErrorCode, secondTurn.ErrorMessage)
+	}
+	answer := ""
+	for _, block := range secondTurn.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed image history follow-up must contain assistant text: %+v", secondTurn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+		t.Fatalf("reprojected history image must remain byte-identical: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_DocumentImageReference verifies the third media-consumption entry: an image
 // referenced from a document's Markdown must be discovered, expanded out of the system-prompt
 // text into the managed media route, and survive a fresh conversation. A successful direct

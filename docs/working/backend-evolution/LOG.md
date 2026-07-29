@@ -325,6 +325,7 @@ audience: [human, ai]
 | 2026-07-30 | EVO-303 | managed 对话首轮消费图片后删除附件，后续回合仍完成；删除接口返回 204、内容返回 404，历史重放明确记录 missing attachment 并诚实降级，没有 400/孤儿媒体 | FRT-01 / R-D / managed attachment deletion + stale history | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DeletedAttachmentDegradesInHistory$' -count=1 -parallel 1 -timeout 12m -v` → PASS 15.589s；预期 `attachment not found, noting` 警告；无 provider secret | 当前提交 |
 | 2026-07-30 | EVO-304 | 删除附件历史降级场景加入后的完整 backend 黑盒回归仍闭合；既有对话、agent/subagent、workflow/trigger、MCP/function/handler、附件与多模态、取消/重试/崩溃恢复、资源卫生未受影响 | full backend testend regression / post-deleted-attachment evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 352.265s`；无 provider secret、EVALS 未开启 | 当前提交 |
 | 2026-07-30 | EVO-305 | 删除附件历史降级场景后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-deleted-attachment | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
+| 2026-07-30 | EVO-306 | managed 会话首轮带图片、第二轮省略 attachmentIds 继续追问，历史媒体重新投影后回合仍完成且源字节不变；补齐多轮媒体上下文的真实 lease 路径 | FRT-01 / managed-read/default / attachment history multi-turn reprojection | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_AttachmentHistoryReprojection$' -count=1 -parallel 1 -timeout 12m -v` → PASS 14.796s；无 provider secret | 当前提交 |
 
 ## 追加格式
 
