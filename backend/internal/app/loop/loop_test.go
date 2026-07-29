@@ -426,6 +426,35 @@ func TestRun_StreamError_PreservesModelNotFoundCode(t *testing.T) {
 	}
 }
 
+func TestRun_StreamError_PreservesClassifiedProviderCodes(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		code string
+	}{
+		{name: "auth", err: llminfra.ErrAuthFailed, code: "LLM_AUTH_FAILED"},
+		{name: "bad request", err: llminfra.ErrBadRequest, code: "LLM_BAD_REQUEST"},
+		{name: "model not found", err: llminfra.ErrModelNotFound, code: "LLM_MODEL_NOT_FOUND"},
+		{name: "quota exhausted", err: llminfra.ErrQuotaExhausted, code: "LLM_QUOTA_EXHAUSTED"},
+		{name: "rate limited", err: llminfra.ErrRateLimited, code: "LLM_RATE_LIMITED"},
+		{name: "provider", err: llminfra.ErrProviderError, code: "LLM_PROVIDER_ERROR"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &fakeClient{scripts: [][]llminfra.StreamEvent{{errorEv(fmt.Errorf("classified: %w", tc.err))}}}
+			host := &fakeHost{history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "hi"}}}
+
+			res := Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+			if host.fin.status != messagesdomain.StatusError || host.fin.errCode != tc.code {
+				t.Fatalf("status=%q errCode=%q, want error/%s", host.fin.status, host.fin.errCode, tc.code)
+			}
+			if res.ErrCode != tc.code || res.ErrMsg == "" {
+				t.Fatalf("result code=%q message=%q, want %s with a cause", res.ErrCode, res.ErrMsg, tc.code)
+			}
+		})
+	}
+}
+
 func TestRun_LoadHistoryError(t *testing.T) {
 	host := &errHistoryHost{}
 	client := &fakeClient{}

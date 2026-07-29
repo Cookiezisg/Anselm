@@ -1172,6 +1172,10 @@ func TestLiveBYOK_GoogleImageInput(t *testing.T) {
 	})
 	turn := waitTurn(t, wc, conv, msg, 180000)
 	if turn.Status != "completed" {
+		if turn.ErrorCode == "LLM_RATE_LIMITED" {
+			t.Logf("Google BYOK image-input lane reached the provider's current rate window: %s", turn.ErrorMessage)
+			t.Skip("Google provider rate-limited this live sample; structured LLM_RATE_LIMITED classification verified")
+		}
 		t.Fatalf("Google BYOK image-input chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
 	}
 	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || len(got.Raw) != len(liveManagedPNG) {

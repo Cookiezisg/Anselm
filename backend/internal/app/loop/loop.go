@@ -33,19 +33,32 @@ const maxConsecutiveAllFailTurns = 3
 
 // streamErrorCode preserves the stable LLM error category when the provider transport has
 // already classified the failure. A model can remain visible in a provider's catalog while the
-// current account is unable to generate with it; collapsing that fact into LLM_STREAM_ERROR makes
-// the durable turn indistinguishable from a transient stream break and leaves the client without
-// the right recovery affordance. Unknown failures keep the historical generic code.
+// current account is unable to generate with it; collapsing that fact (or an auth, rate-limit,
+// quota, bad-request, or provider failure) into LLM_STREAM_ERROR makes the durable turn
+// indistinguishable from the actual recovery path. Unknown failures keep the historical generic
+// code.
 //
 // streamErrorCode 保留 provider transport 已经判定的稳定 LLM 错误类别。模型可能仍出现在 provider
-// 目录里、但当前账号已无法用它生成；把这个事实压成 LLM_STREAM_ERROR 会让持久回合无法与瞬时流断
-// 区分，客户端也拿不到正确的恢复入口。未知错误继续使用历史通用码。
+// 目录里、但当前账号已无法用它生成；把这个事实（或鉴权、限流、额度、请求、上游错误）压成
+// LLM_STREAM_ERROR 会让持久回合无法与真实恢复路径对应，客户端也拿不到正确的解释。未知错误继续
+// 使用历史通用码。
 func streamErrorCode(err error) string {
 	if llminfra.IsContextLengthError(err) {
 		return "CONTEXT_INPUT_TOO_LARGE"
 	}
-	if errors.Is(err, llminfra.ErrModelNotFound) {
+	switch {
+	case errors.Is(err, llminfra.ErrAuthFailed):
+		return "LLM_AUTH_FAILED"
+	case errors.Is(err, llminfra.ErrBadRequest):
+		return "LLM_BAD_REQUEST"
+	case errors.Is(err, llminfra.ErrModelNotFound):
 		return "LLM_MODEL_NOT_FOUND"
+	case errors.Is(err, llminfra.ErrQuotaExhausted):
+		return "LLM_QUOTA_EXHAUSTED"
+	case errors.Is(err, llminfra.ErrRateLimited):
+		return "LLM_RATE_LIMITED"
+	case errors.Is(err, llminfra.ErrProviderError):
+		return "LLM_PROVIDER_ERROR"
 	}
 	return "LLM_STREAM_ERROR"
 }
