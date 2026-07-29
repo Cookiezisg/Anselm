@@ -527,6 +527,59 @@ func TestLiveManaged_SubagentInspectsImageAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_SubagentReadsPDFAttachment proves that a delegated general-purpose run can
+// consume a non-native document through the same sandbox extraction tool as the parent. The child
+// must return the unique token, the parent must continue, and the original PDF bytes must remain
+// immutable.
+func TestLiveManaged_SubagentReadsPDFAttachment(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-subagent-pdf-attachment")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	pdf := buildPDF("SUBAGENT_PDF_4E21")
+	attID := uploadAtt(t, wc, "subagent-evidence.pdf", "application/pdf", pdf)
+	conv := convCreate(t, wc, "managed subagent PDF attachment")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请派一个 general-purpose subagent，并把 Subagent 工具的 subagent_type 参数精确设为 general-purpose（不要选择 Explore 或 Plan）。子任务必须调用 read_attachment 工具读取 PDF 附件 " + attID + "，找出唯一英文 token SUBAGENT_PDF_4E21，不要调用 inspect_media；工具返回后把 token 原样交回，父回合收到后只用一句简短中文确认。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed subagent PDF turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	delegated, parentRead, childEvidence, answer := false, false, false, ""
+	delegatedType := ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			if block.Attrs["tool"] == "Subagent" {
+				delegated = strings.Contains(block.Content, attID)
+				var args struct {
+					SubagentType string `json:"subagent_type"`
+				}
+				if err := json.Unmarshal([]byte(block.Content), &args); err == nil {
+					delegatedType = args.SubagentType
+				}
+			}
+			if block.Attrs["tool"] == "read_attachment" {
+				parentRead = strings.Contains(block.Content, attID)
+			}
+		case "tool_result":
+			childEvidence = childEvidence || (block.Attrs["tool"] == "Subagent" && strings.Contains(block.Content, "SUBAGENT_PDF_4E21"))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !delegated || delegatedType != "general-purpose" || !childEvidence || strings.TrimSpace(answer) == "" || parentRead {
+		t.Fatalf("managed subagent PDF must delegate read_attachment and return token: delegated=%v type=%q parentRead=%v childEvidence=%v answer=%q blocks=%+v", delegated, delegatedType, parentRead, childEvidence, answer, turn.Blocks)
+	}
+	if !strings.Contains(answer, "SUBAGENT_PDF_4E21") {
+		t.Fatalf("managed subagent PDF parent answer must contain token: answer=%q blocks=%+v", answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, pdf) {
+		t.Fatalf("managed subagent PDF attachment must remain byte-identical: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_GenerateSpeechArtifact is the managed speech counterpart: the default Anselm
 // dialogue model must call generate_speech once, the gateway's returned bytes must be a real WAV,
 // and the tool receipt must identify the managed provider. The two-step cap bounds paid retries.
