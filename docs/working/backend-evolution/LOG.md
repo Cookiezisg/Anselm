@@ -127,6 +127,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-108 | media race fixture 收口后的完整产品黑盒回归无回归：当前源下 chat、agent/subagent、附件/文档、多模态、MCP/function/handler、workflow、trigger 生命周期、取消/重试/崩溃恢复与资源卫生场景共同通过 | full testend regression / cross-domain reprobe | `go test -count=1 -parallel 16 -timeout 15m ./scenarios/...` → PASS 327.505s；未注入 provider secret | 当前工作树 |
 | 2026-07-29 | EVO-108 | media race fixture 修复后的完整产品黑盒回归无回归：当前源下 chat、附件/文档、多模态、MCP/function/handler、workflow、trigger、取消/重试/崩溃恢复与资源卫生套件全部通过 | full backend testend regression | `make testend`（backend）→ `ok github.com/sunweilin/anselm/testend/scenarios 337.395s` | 当前工作树 |
 | 2026-07-29 | EVO-109 | 当前源在 backend race、完整 testend 与 media fixture 修复后通过整仓门禁；前端、文档与 web demo 仍与后端演进保持一致 | workspace verification / cross-layer regression | 根目录 `make verify` → backend ✓、frontend ✓、docs ✓（保留既有 DTO drift warning）、demo ✓、workspace verified | 当前工作树 |
+| 2026-07-29 | EVO-110 | 当前 trigger/workflow 生命周期承重面在全量 race black-box 下保持稳定：多入口 listener、pending firing、deactivate/kill、审批停泊与重启、删除/重绑、版本 pin、结构性 shed 与恢复路径均未出现新的数据竞争或状态回归 | workflow / trigger / lifecycle / black-box race | `go test -race ./scenarios -run '^TestContractWorkflow_' -count=1 -parallel 4 -timeout 20m` → PASS 68.472s | 当前工作树 |
 
 ## 追加格式
 
