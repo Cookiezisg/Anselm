@@ -1028,6 +1028,62 @@ func TestLiveManaged_DefaultChatWithVideoAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithVideoAndUnsupportedAudio keeps the supported video branch alive
+// when a user drops a WAV in the same ordinary chat turn. Video must still select the managed
+// video route; chat audio remains an explicit text downgrade rather than poisoning the request.
+func TestLiveManaged_DefaultChatWithVideoAndUnsupportedAudio(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-video-unsupported-audio")
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Video    bool   `json:"video"`
+		Audio    bool   `json:"audio"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			if !cap.Video || cap.Audio {
+				t.Fatalf("managed default must expose video but not chat audio for mixed downgrade: %+v", cap)
+			}
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatal("managed default capability row anselm-auto not found")
+	}
+
+	clip := shortVideoFixture(t)
+	if !bytes2IsMP4(clip) || len(clip) > 3*1024*1024 {
+		t.Fatalf("managed MP4 fixture must be valid and within the published 3MiB decoded budget: %d bytes", len(clip))
+	}
+	videoID := uploadAtt(t, wc, "mixed.mp4", "video/mp4", clip)
+	audioID := uploadAtt(t, wc, "mixed.wav", "audio/wav", harness.MockOpenAIWAV)
+	conv := convCreate(t, wc, "managed video and unsupported audio")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认视频已收到，并说明语音附件会如何处理。不要调用工具。",
+		"attachmentIds": []string{videoID, audioID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed video+unsupported-audio turn must complete via honest degrade: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "video", id: videoID, want: clip},
+		{name: "audio", id: audioID, want: harness.MockOpenAIWAV},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("mixed %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_DefaultChatWithImageAndVideoAttachments proves the actual fusion seam rather
 // than two isolated modality probes: one managed Anselm turn receives both a PNG and an MP4, and
 // both originals remain readable after the same route has prepared and consumed them.
