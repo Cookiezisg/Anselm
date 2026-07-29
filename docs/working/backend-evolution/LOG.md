@@ -318,6 +318,7 @@ audience: [human, ai]
 | 2026-07-30 | EVO-296 | 普通 text 附件直投影场景后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-text-attachment | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 | 2026-07-30 | EVO-297 | managed chat 同一回合混合接收 text 与 image 附件，文本 token 可直接回答、整回合无工具/400，两个源附件字节均保持不变；补齐普通用户多模态融合的另一条高频形状 | FRT-01 / managed-read/default / text+image direct fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DefaultChatWithTextAndImageAttachments$' -count=1 -parallel 1 -timeout 12m -v` → PASS 12.212s；无 provider secret | 当前提交 |
 | 2026-07-30 | EVO-298 | text+image 混合回合加入后的完整 backend 黑盒回归仍闭合；既有对话、agent/subagent、workflow/trigger、MCP/function/handler、附件与多模态、取消/重试/崩溃恢复、资源卫生未受影响 | full backend testend regression / post-text-image-fusion evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 322.901s`；无 provider secret、EVALS 未开启 | 当前提交 |
+| 2026-07-30 | EVO-299 | text+image 混合回合后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-text-image-fusion | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 
 ## 追加格式
 
