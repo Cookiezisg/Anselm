@@ -315,6 +315,7 @@ audience: [human, ai]
 | 2026-07-30 | EVO-293 | 自动索引场景后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-auto-index | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 | 2026-07-30 | EVO-294 | 默认 managed chat 直接接收普通 text 附件并从标注文本 part 找到唯一 token，未调用工具，父回合完成且源附件字节不变；补齐了“普通上传→直接问答”高频路径 | FRT-01 / managed-read/default / plain-text attachment projection | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DefaultChatWithTextAttachment$' -count=1 -parallel 1 -timeout 12m -v` → PASS 13.226s；无 provider secret | 当前提交 |
 | 2026-07-30 | EVO-295 | 普通 text 附件直投影场景加入后的完整 backend 黑盒回归仍闭合；既有对话、agent/subagent、workflow/trigger、MCP/function/handler、附件与多模态、取消/重试/崩溃恢复、资源卫生未受影响 | full backend testend regression / post-text-attachment evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 327.195s`；无 provider secret、EVALS 未开启 | 当前提交 |
+| 2026-07-30 | EVO-296 | 普通 text 附件直投影场景后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-text-attachment | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 
 ## 追加格式
 
