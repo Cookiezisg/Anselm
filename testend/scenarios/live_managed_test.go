@@ -1013,6 +1013,42 @@ func TestLiveManaged_InspectMediaVideo(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_InspectMediaVideoTimeRange proves the managed tool path preserves an explicit
+// temporal request instead of silently falling back to the whole-file metadata capsule.
+func TestLiveManaged_InspectMediaVideoTimeRange(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-inspect-video-range")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	clip := shortVideoFixture(t)
+	attID := uploadAtt(t, wc, "inspect-video-range.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "managed inspect video range")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 inspect_media 工具检查视频附件 "+attID+"，question 写‘给出这个视频指定时间段的本地媒体元数据’，startMs 写 1000，endMs 写 2000；不要调用其他工具。工具返回后用一句话确认时间范围已保留。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed inspect_media video range turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, capsule, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "inspect_media" || strings.Contains(block.Content, "inspect_media")
+		case "tool_result":
+			capsule = capsule || (strings.Contains(block.Content, attID) && strings.Contains(block.Content, `"kind":"video"`) &&
+				strings.Contains(block.Content, `"startMs":1000`) && strings.Contains(block.Content, `"endMs":2000`) &&
+				strings.Contains(block.Content, `"mode":"metadata"`) && strings.Contains(block.Content, `"usage"`))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !capsule || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed inspect_media video range must preserve range/continue: called=%v capsule=%v answer=%q blocks=%+v", called, capsule, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, clip) {
+		t.Fatalf("inspect_media video range must not mutate source video: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_InspectMediaAudio is the audio counterpart: ordinary chat does not advertise
 // native audio perception, but inspect_media still provides a truthful local metadata capsule.
 func TestLiveManaged_InspectMediaAudio(t *testing.T) {
