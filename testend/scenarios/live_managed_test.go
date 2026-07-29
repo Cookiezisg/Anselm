@@ -894,6 +894,44 @@ func TestLiveManaged_InspectMediaImage(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_InspectMediaVideo proves the temporal boundary honestly: inspect_media returns
+// a bounded local metadata capsule for a real MP4, without pretending that a text-only metadata
+// probe produced transcript, scenes, or raw-video understanding.
+func TestLiveManaged_InspectMediaVideo(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-inspect-video")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	clip := shortVideoFixture(t)
+	if !bytes2IsMP4(clip) {
+		t.Fatalf("inspect_media video fixture must be a valid MP4: %d bytes", len(clip))
+	}
+	attID := uploadAtt(t, wc, "inspect-video.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "managed inspect video")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 inspect_media 工具检查视频附件 "+attID+"，question 写“给出这个视频的本地媒体元数据”，不要调用其他工具；工具返回后用一句话说明它没有做转录。")
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed inspect_media video turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, capsule, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "inspect_media" || strings.Contains(block.Content, "inspect_media")
+		case "tool_result":
+			capsule = capsule || (strings.Contains(block.Content, attID) && strings.Contains(block.Content, `"kind":"video"`) && strings.Contains(block.Content, `"usage"`))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !capsule || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed inspect_media video must call/return metadata/continue: called=%v capsule=%v answer=%q blocks=%+v", called, capsule, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, clip) {
+		t.Fatalf("inspect_media must not mutate the source video: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_DefaultChatWithPDFAttachment proves the managed model's non-native document
 // route: the default Anselm capability intentionally does not advertise NativeDocs, so a PDF must
 // be extracted in the sandbox and its text made available to the real managed conversation.
