@@ -580,6 +580,110 @@ func TestLiveManaged_SubagentReadsPDFAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_SubagentInspectsVideoAttachment proves the delegated temporal boundary: a
+// general-purpose child can call inspect_media for a bounded video metadata capsule (including an
+// explicit time range), return it to the parent, and leave the MP4 untouched.
+func TestLiveManaged_SubagentInspectsVideoAttachment(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-subagent-video-attachment")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 5}}).OK(t, nil)
+	clip := shortVideoFixture(t)
+	attID := uploadAtt(t, wc, "subagent-inspect.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "managed subagent video inspect")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请派一个 general-purpose subagent，并把 Subagent 工具的 subagent_type 参数精确设为 general-purpose（不要选择 Explore 或 Plan）。子任务必须调用 inspect_media 工具检查视频附件 " + attID + "，question 写‘给出这个视频指定时间段的本地媒体元数据’，startMs 写 1000，endMs 写 2000，不要调用 read_attachment；把工具返回的 bounded metadata 原样交回，父回合收到后只用一句简短中文确认。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed subagent video inspect turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	delegated, parentInspect, childEvidence, answer := false, false, false, ""
+	delegatedType := ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			if block.Attrs["tool"] == "Subagent" {
+				delegated = strings.Contains(block.Content, attID)
+				var args struct {
+					SubagentType string `json:"subagent_type"`
+				}
+				if err := json.Unmarshal([]byte(block.Content), &args); err == nil {
+					delegatedType = args.SubagentType
+				}
+			}
+			if block.Attrs["tool"] == "inspect_media" {
+				parentInspect = strings.Contains(block.Content, attID)
+			}
+		case "tool_result":
+			normalized := strings.Join(strings.Fields(block.Content), "")
+			childEvidence = childEvidence || (block.Attrs["tool"] == "Subagent" && strings.Contains(normalized, attID) &&
+				strings.Contains(normalized, `"kind":"video"`) && strings.Contains(normalized, `"mode":"metadata"`) &&
+				strings.Contains(normalized, `"startMs":1000`) && strings.Contains(normalized, `"endMs":2000`))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !delegated || delegatedType != "general-purpose" || parentInspect || !childEvidence || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed subagent video must return bounded metadata from child: delegated=%v type=%q parentInspect=%v childEvidence=%v answer=%q blocks=%+v", delegated, delegatedType, parentInspect, childEvidence, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, clip) {
+		t.Fatalf("managed subagent video must not mutate source MP4: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
+// TestLiveManaged_SubagentInspectsAudioAttachment proves the audio counterpart: temporal inspect
+// remains a local metadata capsule rather than fabricated transcript/scene understanding, even
+// when the call is delegated to a general-purpose child.
+func TestLiveManaged_SubagentInspectsAudioAttachment(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-subagent-audio-attachment")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 5}}).OK(t, nil)
+	audio := harness.MockOpenAIWAV
+	attID := uploadAtt(t, wc, "subagent-inspect.wav", "audio/wav", audio)
+	conv := convCreate(t, wc, "managed subagent audio inspect")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请派一个 general-purpose subagent，并把 Subagent 工具的 subagent_type 参数精确设为 general-purpose（不要选择 Explore 或 Plan）。子任务必须调用 inspect_media 工具检查音频附件 " + attID + "，question 写‘给出这个音频指定时间段的本地媒体元数据’，startMs 写 1200，endMs 写 2600，不要调用 read_attachment；明确不要伪造转录，把工具返回的 bounded metadata 原样交回，父回合收到后只用一句简短中文确认。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed subagent audio inspect turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	delegated, parentInspect, childEvidence, answer := false, false, false, ""
+	delegatedType := ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			if block.Attrs["tool"] == "Subagent" {
+				delegated = strings.Contains(block.Content, attID)
+				var args struct {
+					SubagentType string `json:"subagent_type"`
+				}
+				if err := json.Unmarshal([]byte(block.Content), &args); err == nil {
+					delegatedType = args.SubagentType
+				}
+			}
+			if block.Attrs["tool"] == "inspect_media" {
+				parentInspect = strings.Contains(block.Content, attID)
+			}
+		case "tool_result":
+			normalized := strings.Join(strings.Fields(block.Content), "")
+			childEvidence = childEvidence || (block.Attrs["tool"] == "Subagent" && strings.Contains(normalized, attID) &&
+				strings.Contains(normalized, `"kind":"audio"`) && strings.Contains(normalized, `"mode":"metadata"`) &&
+				strings.Contains(normalized, `"startMs":1200`) && strings.Contains(normalized, `"endMs":2600`))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !delegated || delegatedType != "general-purpose" || parentInspect || !childEvidence || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed subagent audio must return bounded metadata from child: delegated=%v type=%q parentInspect=%v childEvidence=%v answer=%q blocks=%+v", delegated, delegatedType, parentInspect, childEvidence, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, audio) {
+		t.Fatalf("managed subagent audio must not mutate source WAV: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_GenerateSpeechArtifact is the managed speech counterpart: the default Anselm
 // dialogue model must call generate_speech once, the gateway's returned bytes must be a real WAV,
 // and the tool receipt must identify the managed provider. The two-step cap bounds paid retries.
