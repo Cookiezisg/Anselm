@@ -198,7 +198,7 @@ type DeleteWorkflow struct {
 func (t *DeleteWorkflow) Name() string { return "delete_workflow" }
 
 func (t *DeleteWorkflow) Description() string {
-	return "Delete a workflow and all its graph versions. This is not reversible. The result reports how many other entities referenced it (and may now fail) — to check dependents BEFORE deleting, use get_relations."
+	return "Soft-delete a workflow and stop its automation (listeners and in-flight runs). This is not reversible for the workflow row; immutable graph versions and flowrun history remain readable for audit. The result reports how many other entities referenced it (and may now fail) — to check dependents BEFORE deleting, use get_relations."
 }
 
 func (t *DeleteWorkflow) Parameters() json.RawMessage {

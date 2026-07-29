@@ -815,7 +815,7 @@ active 指针移到旧版本号,然后**重启实例**跑它。name/description/
 
 ## 4. delete_workflow(build.go)
 
-删 workflow 及全部图版本,**不可逆**;结果报告哪些实体曾引用它(可能因此坏掉)。
+软删 workflow 并停止其自动化（摘 listener、取消在途 run）,workflow 行不可逆；immutable 图版本与 flowrun 历史保留供审计。结果报告哪些实体曾引用它(可能因此坏掉)。
 
 **Parameters**:`workflowId` string(唯一,必填)。
 **Execute 返回**:基础 `{"id":"wf_…","deleted":true}`;若删前查到依赖(relation equip/link 入边),追加三键:`"dependents":[{"kind":"agent","id":"ag_…"},…]`、`"dependentCount":N`、`"note":"this entity was referenced by other entities…"`(固定修复提示句)。依赖读取 advisory——读失败不阻删。

@@ -1530,6 +1530,152 @@ func TestContractWorkflow_DeletedTriggerRebindsActiveWorkflow(t *testing.T) {
 	}
 }
 
+// B-wf-16/B-trg-12 — deleting an active workflow must detach its live trigger listeners without
+// erasing the workflow's durable run/history log. Reusing the workflow name on the same trigger
+// must not inherit a stale listener from the deleted workflow.
+//
+// B-wf-16/B-trg-12 —— 删除 active workflow 必须摘掉 live trigger listener，但不抹掉 durable run/历史账；
+// 同 trigger 复用 workflow 名时不能继承已删 workflow 的悬空 listener。
+func TestContractWorkflow_DeletedActiveWorkflowDetachesTriggerAndKeepsLogs(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-workflow-delete-runtime")
+
+	trgID := trgCreate(t, wc, "delete_workflow_hook", "webhook", map[string]any{"path": "delete-workflow"})
+	wfID := workflowC_trgOnly(t, wc, "delete_workflow", trgID)
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	aid := workflowC_fire(t, wc, trgID)
+	if n := workflowC_activationFiringCount(t, wc, aid); n != 1 {
+		t.Fatalf("baseline trigger fire must fan out to one workflow, got %d", n)
+	}
+	harness.Eventually(t, 30000, "baseline workflow run completes", func() bool {
+		return len(workflowC_runsOf(t, wc, wfID, "completed")) == 1
+	})
+	baselineRuns := workflowC_runsOf(t, wc, wfID, "")
+	if len(baselineRuns) != 1 {
+		t.Fatalf("baseline history must contain one run, got %+v", baselineRuns)
+	}
+	baselineRunID := baselineRuns[0].ID
+
+	if r := wc.DELETE("/api/v1/workflows/" + wfID); r.Status != 204 {
+		t.Fatalf("delete active workflow must 204, got %d %s", r.Status, r.Raw)
+	}
+	wc.Do("GET", "/api/v1/workflows/"+wfID, nil).Fail(t, 404, "WORKFLOW_NOT_FOUND")
+	var deletedVersions []struct {
+		ID      string `json:"id"`
+		Version int    `json:"version"`
+	}
+	wc.GET("/api/v1/workflows/"+wfID+"/versions").OK(t, &deletedVersions)
+	if len(deletedVersions) != 1 || deletedVersions[0].Version != 1 {
+		t.Fatalf("soft-delete must retain immutable version history for audit, got %+v", deletedVersions)
+	}
+
+	var runtime struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}
+	wc.GET("/api/v1/triggers/"+trgID).OK(t, &runtime)
+	if runtime.RefCount != 0 || runtime.Listening {
+		t.Fatalf("deleting active workflow must detach its trigger listener, got %+v", runtime)
+	}
+	if code := workflowC_rawPost(t, srv.BaseURL+"/api/v1/webhooks/"+trgID+"/delete-workflow", `{"after":"delete"}`, nil); code != 404 {
+		t.Fatalf("webhook must go cold after workflow deletion, got %d", code)
+	}
+
+	// The trigger entity remains usable as a source, but with no workflow listener its explicit fire
+	// must produce an auditable zero-fanout activation and no phantom run for the deleted workflow.
+	aid = workflowC_fire(t, wc, trgID)
+	if n := workflowC_activationFiringCount(t, wc, aid); n != 0 {
+		t.Fatalf("fire after deleting its only workflow must fan out to zero, got %d", n)
+	}
+	if rows := workflowC_runsOf(t, wc, wfID, ""); len(rows) != 1 {
+		t.Fatalf("deleted workflow must not gain a phantom run, got %+v", rows)
+	}
+	if r := wc.GET("/api/v1/flowruns/" + baselineRunID); r.Status != 200 {
+		t.Fatalf("durable run history must survive workflow soft-delete, got %d %s", r.Status, r.Raw)
+	}
+
+	// Reusing the workflow name on the surviving trigger must start with exactly one fresh listener.
+	newWorkflow := workflowC_trgOnly(t, wc, "delete_workflow", trgID)
+	if newWorkflow == wfID {
+		t.Fatalf("recreated workflow must get a fresh id")
+	}
+	wc.POST("/api/v1/workflows/"+newWorkflow+":activate", map[string]any{}).OK(t, nil)
+	wc.GET("/api/v1/triggers/"+trgID).OK(t, &runtime)
+	if runtime.RefCount != 1 || !runtime.Listening {
+		t.Fatalf("recreated workflow must be the only live listener, got %+v", runtime)
+	}
+	aid = workflowC_fire(t, wc, trgID)
+	if n := workflowC_activationFiringCount(t, wc, aid); n != 1 {
+		t.Fatalf("recreated workflow fire must fan out exactly once, got %d", n)
+	}
+	harness.Eventually(t, 30000, "recreated workflow run completes", func() bool {
+		return len(workflowC_runsOf(t, wc, newWorkflow, "completed")) == 1
+	})
+	wc.POST("/api/v1/workflows/"+newWorkflow+":deactivate", map[string]any{}).OK(t, nil)
+	wc.GET("/api/v1/triggers/"+trgID).OK(t, &runtime)
+	if runtime.RefCount != 0 || runtime.Listening {
+		t.Fatalf("deactivate after workflow recreation must fully detach trigger, got %+v", runtime)
+	}
+}
+
+// B-wf-16/B-trg-12 (in-flight half) — deleting a workflow is a hard automation stop: a parked
+// approval run is cancelled, its trigger is detached, and its activation/firing audit remains.
+//
+// B-wf-16/B-trg-12（在途半边）——删 workflow 是自动化硬停：停在 approval 的 run 变 cancelled，入口摘掉，
+// activation/firing 审计仍保留。
+func TestContractWorkflow_DeleteCancelsInFlightRunAndKeepsAudit(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-workflow-delete-inflight")
+
+	trgID := trgCreate(t, wc, "delete_inflight_hook", "webhook", map[string]any{"path": "delete-inflight"})
+	apfID := workflowC_apf(t, wc, "delete_inflight_gate")
+	wfID := workflowC_apfGraph(t, wc, "delete_inflight", trgID, apfID)
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	aid := workflowC_fire(t, wc, trgID)
+	if n := workflowC_activationFiringCount(t, wc, aid); n != 1 {
+		t.Fatalf("in-flight trigger fire must fan out once, got %d", n)
+	}
+	harness.Eventually(t, 30000, "triggered run parks at approval", func() bool {
+		rows := workflowC_runsOf(t, wc, wfID, "running")
+		if len(rows) != 1 {
+			return false
+		}
+		status, nodes := workflowC_run(t, wc, rows[0].ID)
+		return status == "running" && strings.Contains(nodes, `"parked"`)
+	})
+	running := workflowC_runsOf(t, wc, wfID, "running")
+	if len(running) != 1 {
+		t.Fatalf("expected one parked run before delete, got %+v", running)
+	}
+	runID := running[0].ID
+
+	if r := wc.DELETE("/api/v1/workflows/" + wfID); r.Status != 204 {
+		t.Fatalf("delete workflow with parked run must 204, got %d %s", r.Status, r.Raw)
+	}
+	wc.Do("GET", "/api/v1/workflows/"+wfID, nil).Fail(t, 404, "WORKFLOW_NOT_FOUND")
+	workflowC_waitRunStatus(t, wc, runID, "cancelled", 20000)
+
+	var runtime struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}
+	wc.GET("/api/v1/triggers/"+trgID).OK(t, &runtime)
+	if runtime.RefCount != 0 || runtime.Listening {
+		t.Fatalf("deleting workflow with parked run must detach trigger, got %+v", runtime)
+	}
+	wc.GET("/api/v1/trigger-activations/"+aid).OK(t, &struct {
+		ID          string `json:"id"`
+		FiringCount int    `json:"firingCount"`
+	}{})
+	if rows := workflowC_runsOf(t, wc, wfID, ""); len(rows) != 1 || rows[0].Status != "cancelled" {
+		t.Fatalf("cancelled run audit must remain queryable after delete, got %+v", rows)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // B-trg-8 — webhook 明文式两载体（X-Webhook-Secret 头 / ?token= 查询）+ signatureHeader 改头名
 // ---------------------------------------------------------------------------
