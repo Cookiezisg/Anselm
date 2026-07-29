@@ -891,6 +891,59 @@ capabilityFound:
 	}
 }
 
+// TestLiveManaged_DefaultChatWithImageAndUnsupportedAudio keeps the multimodal route alive when
+// the same user turn mixes a supported image with an unsupported WAV. The image must still select
+// the managed vision route; the audio must degrade independently rather than poisoning the whole
+// request or being mistaken for a native audio capability.
+func TestLiveManaged_DefaultChatWithImageAndUnsupportedAudio(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-image-unsupported-audio")
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+		Audio    bool   `json:"audio"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			if !cap.Vision || cap.Audio {
+				t.Fatalf("managed default must expose vision but not chat audio for mixed downgrade: %+v", cap)
+			}
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatal("managed default capability row anselm-auto not found")
+	}
+
+	imageID := uploadAtt(t, wc, "mixed.png", "image/png", liveManagedPNG)
+	audioID := uploadAtt(t, wc, "mixed.wav", "audio/wav", harness.MockOpenAIWAV)
+	conv := convCreate(t, wc, "managed image and unsupported audio")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认图片已收到，并说明语音附件会如何处理。不要调用工具。",
+		"attachmentIds": []string{imageID, audioID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed image+unsupported-audio turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "image", id: imageID, want: liveManagedPNG},
+		{name: "audio", id: audioID, want: harness.MockOpenAIWAV},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("mixed %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // shortVideoFixture uses the canonical, SHA-verified multimodal fixture rather than a
 // made-up ftyp header. A caller may reuse EVALS_FIXTURE_DIR, otherwise this opt-in test materializes
 // the fixture into its own temporary directory; the materializer fails loudly if the pinned source
