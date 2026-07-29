@@ -210,6 +210,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-190 | 生产网关仓独立门禁复核闭合：Go vet/build、全量 race 单测、integration e2e、golangci-lint 与 35 份 docs lint 全绿；API Serve 工作树保持 clean，未改变部署仓代码 | API Serve / gateway gate / post-live-evolution | `cd ../Anselm-API-Serve && make verify` → race 全包通过、`internal/e2e` 8.491s、golangci-lint `0 issues`、docs lint `35 file(s) ok, 0 warning(s)` | 当前提交 |
 | 2026-07-29 | EVO-191 | managed 图片编辑复核闭合：同一回合先生成原图，再仅调用一次 `edit_image`，新产物与原图字节不同且均为有效图片；edit receipt 保留 `sourceAttachmentId`/provider 血缘，回合续接和两件附件回读完整 | FRT-09 / managed-write / generate_image → edit_image / MediaRef lineage | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_EditImageArtifact$' -count=1 -parallel 1 -timeout 15m -v` → PASS 93.654s（原/编辑图片 1,080,557/1,668,015 bytes；未输出 provider secret） | 当前提交 |
 | 2026-07-29 | EVO-192 | managed 直接语音生成复核闭合：默认对话模型恰调用一次 `generate_speech`，危险/工具回合续接完成，receipt 标记 `provider=anselm` 并绑定真实 RIFF/WAVE 附件，可逐字节回读且无重复合成 | FRT-09 / managed-write / generate_speech + MediaRef | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_GenerateSpeechArtifact$' -count=1 -parallel 1 -timeout 12m -v` → PASS 15.521s（WAV 80,684 bytes；未输出 provider secret） | 当前提交 |
+| 2026-07-29 | EVO-193 | managed 直接图像生成复核闭合：默认模型只铸造一次 `generate_image` receipt，provider 明确为 `anselm`，真实 PNG 附件可回读并继续同一回合；两步上限守住了重复付费边界 | FRT-03 / FRT-09 / managed-write / generate_image | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_GenerateImageArtifact$' -count=1 -parallel 1 -timeout 12m -v` → PASS 35.132s（PNG 1,092,047 bytes；未输出 provider secret） | 当前提交 |
 
 ## 追加格式
 
