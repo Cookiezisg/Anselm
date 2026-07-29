@@ -498,6 +498,119 @@ func TestLiveManaged_WorkflowUserAttachmentFusion(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_WorkflowWebhookUserAttachmentFusion proves the public trigger path for the same
+// value: a real webhook body wraps the user's MediaRefs under `start.body`, then CEL wiring passes
+// them to a managed agent. Manual flowrun input and webhook input deliberately have separate tests;
+// accepting one shape while dropping the other is an easy static-test blind spot.
+func TestLiveManaged_WorkflowWebhookUserAttachmentFusion(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-workflow-webhook-attachments")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+
+	var caps []struct {
+		Provider   string `json:"provider"`
+		ModelID    string `json:"modelId"`
+		Vision     bool   `json:"vision"`
+		NativeDocs bool   `json:"nativeDocs"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			if !cap.Vision || cap.NativeDocs {
+				t.Fatalf("managed webhook fusion requires vision plus non-native PDF extraction: %+v", cap)
+			}
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatal("managed default capability row anselm-auto not found")
+	}
+
+	const token = "WORKFLOW_WEBHOOK_FUSION_9C2D"
+	pdf := buildPDF(token)
+	pdfID := uploadAtt(t, wc, "workflow-webhook-evidence.pdf", "application/pdf", pdf)
+	imageID := uploadAtt(t, wc, "workflow-webhook-evidence.png", "image/png", liveManagedPNG)
+
+	trgID := trgCreate(t, wc, "workflow_user_webhook", "webhook", map[string]any{"path": "workflow-user-webhook"})
+	reader := agCreate(t, wc, map[string]any{
+		"name":        "Managed Webhook Attachment Reader",
+		"description": "reads user-uploaded PDF and image delivered by a webhook workflow trigger",
+		"prompt":      "Input data contains a webhook-delivered user picture and document. Read the attached document, find its only English token, and briefly acknowledge the picture. Output only the token; do not call tools and do not guess.",
+	})
+	wfID := wfCreate(t, wc, "managed_webhook_user_attachment_fusion", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": trgID}},
+		{"op": "add_node", "node": map[string]any{"id": "read", "kind": "agent", "ref": reader,
+			"input": map[string]any{"task": "start.body.task", "picture": "start.body.picture", "document": "start.body.document"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "read"}},
+	})
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	payload := map[string]any{
+		"task": "从 document 找出唯一英文 token，同时确认 picture 已收到。",
+		"picture": map[string]any{
+			"attachmentId": imageID,
+			"filename":     "workflow-webhook-evidence.png",
+			"mime":         "image/png",
+			"source":       "user_upload",
+		},
+		"document": map[string]any{
+			"attachmentId": pdfID,
+			"filename":     "workflow-webhook-evidence.pdf",
+			"mime":         "application/pdf",
+			"source":       "user_upload",
+		},
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal webhook payload: %v", err)
+	}
+	resp := wc.DoRaw("POST", "/api/v1/webhooks/"+trgID+"/workflow-user-webhook", "application/json", body)
+	if resp.Status < 200 || resp.Status >= 300 {
+		t.Fatalf("webhook must accept user attachment payload: HTTP %d %s", resp.Status, resp.Raw)
+	}
+
+	var rows []frRow
+	harness.Eventually(t, 240000, "webhook workflow user attachment run completes", func() bool {
+		r := wc.GET("/api/v1/flowruns?workflowId=" + wfID + "&origin=webhook&status=completed")
+		if r.Status != 200 || json.Unmarshal(r.Data, &rows) != nil {
+			return false
+		}
+		return len(rows) == 1 && rows[0].Origin == "webhook" && rows[0].TriggerID == trgID
+	})
+	if len(rows) != 1 {
+		t.Fatalf("webhook workflow must produce one completed run, got %+v", rows)
+	}
+	var detail struct {
+		Flowrun struct {
+			Status string `json:"status"`
+			Origin string `json:"origin"`
+		} `json:"flowrun"`
+		Nodes json.RawMessage `json:"nodes"`
+	}
+	wc.GET("/api/v1/flowruns/"+rows[0].ID).OK(t, &detail)
+	if detail.Flowrun.Status != "completed" || detail.Flowrun.Origin != "webhook" {
+		t.Fatalf("webhook workflow run provenance must remain completed/webhook: %+v", detail.Flowrun)
+	}
+	nodeText := string(detail.Nodes)
+	if !strings.Contains(nodeText, token) || !strings.Contains(nodeText, imageID) || !strings.Contains(nodeText, pdfID) {
+		t.Fatalf("webhook workflow must preserve body MediaRefs and answer from extracted PDF: %s", nodeText)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "pdf", id: pdfID, want: pdf},
+		{name: "image", id: imageID, want: liveManagedPNG},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("webhook workflow %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.
