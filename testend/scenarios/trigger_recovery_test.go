@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/sunweilin/anselm/testend/harness"
 )
@@ -375,5 +376,265 @@ func TestTrigger_SensorFalseProbeThenFiresAfterEdit(t *testing.T) {
 		if firing.Status != "started" || firing.FlowrunID == "" {
 			t.Fatalf("sensor firing must be started and linked: %+v", firings)
 		}
+	}
+}
+
+// TestTrigger_FsnotifyPauseRestartResume proves that a filesystem source is actually removed
+// while paused, stays removed across a hard restart, and is reattached with the same workflow
+// references on resume. Files created during the pause must not be replayed as synthetic events;
+// only a new post-resume create may mint one firing/run.
+//
+// TestTrigger_FsnotifyPauseRestartResume 证明文件系统 source 在暂停时确实摘除、硬重启后仍摘除，恢复时
+// 用原 workflow 引用重挂。暂停期间创建的文件不得被捏造成补发事件；只有恢复后的新 create 才能铸一条 firing/run。
+func TestTrigger_FsnotifyPauseRestartResume(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fsnotify-pause-restart"}).OK(t, nil)
+	wsID := ws.Field(t, "id")
+	wc := c.WS(wsID)
+
+	watchDir := t.TempDir()
+	trgID := trgCreate(t, wc, "paused_file_watch", "fsnotify", map[string]any{
+		"path": watchDir, "pattern": "*.txt", "events": []string{"create"},
+	})
+	wfID, fnID := wfWithTrigger(t, wc, "paused_file_pipe", trgID)
+
+	var paused trgRow
+	wc.POST("/api/v1/triggers/"+trgID+":pause", map[string]any{}).OK(t, &paused)
+	if !paused.Paused || paused.Listening || paused.NextFireAt != "" {
+		t.Fatalf("fsnotify pause projection wrong: %+v", paused)
+	}
+	baseRuns := len(listRunRows(t, wc, "?workflowId="+wfID))
+	baseFirings := len(listFirings(t, wc, trgID, "limit=50"))
+
+	// This create happens after the source was paused. It must not be buffered as a later run.
+	// 这个 create 发生在 source 已暂停之后，不得被缓冲成之后的 run。
+	if err := os.WriteFile(filepath.Join(watchDir, "paused-before-restart.txt"), []byte("paused"), 0o644); err != nil {
+		t.Fatalf("create paused file: %v", err)
+	}
+	time.Sleep(1200 * time.Millisecond)
+	if got := len(listRunRows(t, wc, "?workflowId=" + wfID)); got != baseRuns {
+		t.Fatalf("paused fsnotify must not start a run before restart: %d → %d", baseRuns, got)
+	}
+	if got := len(listFirings(t, wc, trgID, "limit=50")); got != baseFirings {
+		t.Fatalf("paused fsnotify must not mint a firing before restart: %d → %d", baseFirings, got)
+	}
+
+	srv.Kill9(t)
+	srv.Restart(t)
+	wc = srv.Client(t).WS(wsID)
+	if tr := getTrg(t, wc, trgID); !tr.Paused || tr.Listening || tr.NextFireAt != "" {
+		t.Fatalf("fsnotify pause must survive restart with source detached: %+v", tr)
+	}
+
+	// A second create while the restarted process is still paused is another negative control.
+	// 重启后的进程仍暂停，再造一个文件作为第二个负控。
+	if err := os.WriteFile(filepath.Join(watchDir, "paused-after-restart.txt"), []byte("still-paused"), 0o644); err != nil {
+		t.Fatalf("create paused-after-restart file: %v", err)
+	}
+	time.Sleep(1200 * time.Millisecond)
+	if got := len(listRunRows(t, wc, "?workflowId=" + wfID)); got != baseRuns {
+		t.Fatalf("paused fsnotify must not start a run after restart: %d → %d", baseRuns, got)
+	}
+	if got := len(listFirings(t, wc, trgID, "limit=50")); got != baseFirings {
+		t.Fatalf("paused fsnotify must not mint a firing after restart: %d → %d", baseFirings, got)
+	}
+
+	var resumed trgRow
+	wc.POST("/api/v1/triggers/"+trgID+":resume", map[string]any{}).OK(t, &resumed)
+	if resumed.Paused || !resumed.Listening {
+		t.Fatalf("fsnotify resume projection wrong: %+v", resumed)
+	}
+	resumedPath := filepath.Join(watchDir, "resumed.txt")
+	if err := os.WriteFile(resumedPath, []byte("resumed"), 0o644); err != nil {
+		t.Fatalf("create resumed file: %v", err)
+	}
+
+	var run struct {
+		ID        string `json:"id"`
+		Status    string `json:"status"`
+		Origin    string `json:"origin"`
+		TriggerID string `json:"triggerId"`
+		FiringID  string `json:"firingId"`
+	}
+	harness.Eventually(t, 30000, "resumed fsnotify event reaches a run", func() bool {
+		var runs []struct {
+			ID        string `json:"id"`
+			Status    string `json:"status"`
+			Origin    string `json:"origin"`
+			TriggerID string `json:"triggerId"`
+			FiringID  string `json:"firingId"`
+		}
+		r := wc.GET("/api/v1/flowruns?workflowId=" + wfID)
+		if r.Status != 200 || json.Unmarshal(r.Data, &runs) != nil || len(runs) != baseRuns+1 {
+			return false
+		}
+		for _, candidate := range runs {
+			if candidate.Status == "completed" && candidate.Origin == "fsnotify" && candidate.TriggerID == trgID && candidate.FiringID != "" {
+				run = candidate
+				return true
+			}
+		}
+		return false
+	})
+	if run.ID == "" {
+		t.Fatalf("resumed fsnotify must create one linked run: %+v", run)
+	}
+
+	var detail struct {
+		Nodes []struct {
+			NodeID string         `json:"nodeId"`
+			Status string         `json:"status"`
+			Result map[string]any `json:"result"`
+		} `json:"nodes"`
+	}
+	wc.GET("/api/v1/flowruns/"+run.ID).OK(t, &detail)
+	if len(detail.Nodes) != 2 {
+		t.Fatalf("resumed fsnotify graph must persist two nodes: %+v", detail.Nodes)
+	}
+	for _, node := range detail.Nodes {
+		if node.Status != "completed" {
+			t.Fatalf("resumed fsnotify graph node must complete: %+v", detail.Nodes)
+		}
+	}
+	firings := listFirings(t, wc, trgID, "limit=50")
+	if len(firings) != baseFirings+1 || firings[len(firings)-1].Status != "started" || firings[len(firings)-1].FlowrunID != run.ID {
+		t.Fatalf("resumed fsnotify firing ledger wrong: %+v", firings)
+	}
+	var executions struct {
+		Executions []struct {
+			Status           string `json:"status"`
+			FlowrunID        string `json:"flowrunId"`
+			FlowrunNodeID    string `json:"flowrunNodeId"`
+			FlowrunIteration int    `json:"flowrunIteration"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+fnID+"/executions?flowrunId="+run.ID).OK(t, &executions)
+	if len(executions.Executions) != 1 || executions.Executions[0].Status != "ok" || executions.Executions[0].FlowrunID != run.ID || executions.Executions[0].FlowrunNodeID != "step" || executions.Executions[0].FlowrunIteration != 0 {
+		t.Fatalf("resumed fsnotify execution provenance wrong: %+v", executions.Executions)
+	}
+}
+
+// TestTrigger_SensorPauseRestartResume proves that a polling source's pause is durable and stops
+// the probe goroutine, including after a hard restart. Editing the target while paused must not
+// fire early; resume must re-register the current config and immediately observe the new version.
+//
+// TestTrigger_SensorPauseRestartResume 证明轮询 source 的暂停是耐久的，并在硬重启后仍停止 probe goroutine。
+// 暂停期间编辑目标不得提前触发；resume 必须用当前配置重挂并立即观察新版本。
+func TestTrigger_SensorPauseRestartResume(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "sensor-pause-restart"}).OK(t, nil)
+	wsID := ws.Field(t, "id")
+	wc := c.WS(wsID)
+
+	probeFn := fnCreate(t, wc, "paused_sensor_probe", "def f() -> dict:\n    return {'level': 1}\n")
+	trgID := trgCreate(t, wc, "paused_sensor", "sensor", map[string]any{
+		"targetKind": "function", "targetId": probeFn, "intervalSec": 5,
+		"condition": "payload.level > 10", "output": "{'level': payload.level}",
+	})
+	wfID, _ := wfWithTrigger(t, wc, "paused_sensor_pipe", trgID)
+
+	type activation struct {
+		Fired       bool           `json:"fired"`
+		ReturnValue map[string]any `json:"returnValue"`
+		Payload     map[string]any `json:"payload"`
+		FiringCount int            `json:"firingCount"`
+	}
+	var acts []activation
+	harness.Eventually(t, 15000, "sensor records its initial false probe", func() bool {
+		r := wc.GET("/api/v1/triggers/" + trgID + "/activations")
+		return r.Status == 200 && json.Unmarshal(r.Data, &acts) == nil && len(acts) > 0 && !acts[0].Fired && acts[0].ReturnValue["level"] == float64(1)
+	})
+	baseActivations := len(acts)
+	baseFirings := len(listFirings(t, wc, trgID, "limit=50"))
+
+	var paused trgRow
+	wc.POST("/api/v1/triggers/"+trgID+":pause", map[string]any{}).OK(t, &paused)
+	if !paused.Paused || paused.Listening || paused.NextFireAt != "" {
+		t.Fatalf("sensor pause projection wrong: %+v", paused)
+	}
+
+	srv.Kill9(t)
+	srv.Restart(t)
+	wc = srv.Client(t).WS(wsID)
+	if tr := getTrg(t, wc, trgID); !tr.Paused || tr.Listening || tr.NextFireAt != "" {
+		t.Fatalf("sensor pause must survive restart with polling stopped: %+v", tr)
+	}
+
+	// Change the active target while the source is stopped. The edit is intentionally before resume:
+	// the first post-resume probe must see level=42, while the pause window must stay quiet.
+	// source 停止时改 active target，刻意早于 resume：恢复后的第一轮 probe 必须看到 level=42，暂停窗必须安静。
+	wc.POST("/api/v1/functions/"+probeFn+":edit", map[string]any{
+		"ops": []map[string]any{{"op": "set_code", "code": "def f() -> dict:\n    return {'level': 42}\n"}},
+	}).OK(t, nil)
+	time.Sleep(6500 * time.Millisecond)
+	var pausedActs []activation
+	wc.GET("/api/v1/triggers/"+trgID+"/activations").OK(t, &pausedActs)
+	if len(pausedActs) != baseActivations {
+		t.Fatalf("paused sensor must not probe after restart/edit: %d → %d", baseActivations, len(pausedActs))
+	}
+	if got := len(listFirings(t, wc, trgID, "limit=50")); got != baseFirings {
+		t.Fatalf("paused sensor must not mint a firing after restart/edit: %d → %d", baseFirings, got)
+	}
+	if rows := listRunRows(t, wc, "?workflowId="+wfID); len(rows) != 0 {
+		t.Fatalf("false sensor must not have started a workflow before resume: %+v", rows)
+	}
+
+	var resumed trgRow
+	wc.POST("/api/v1/triggers/"+trgID+":resume", map[string]any{}).OK(t, &resumed)
+	if resumed.Paused || !resumed.Listening {
+		t.Fatalf("sensor resume projection wrong: %+v", resumed)
+	}
+
+	var run struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+		Origin string `json:"origin"`
+	}
+	harness.Eventually(t, 30000, "resumed sensor observes edited target", func() bool {
+		var current []activation
+		r := wc.GET("/api/v1/triggers/" + trgID + "/activations")
+		if r.Status != 200 || json.Unmarshal(r.Data, &current) != nil {
+			return false
+		}
+		seenNew := false
+		for _, act := range current {
+			if act.Fired && act.ReturnValue["level"] == float64(42) && act.Payload["level"] == float64(42) && act.FiringCount > 0 {
+				seenNew = true
+				break
+			}
+		}
+		if !seenNew {
+			return false
+		}
+		var runs []struct {
+			ID     string `json:"id"`
+			Status string `json:"status"`
+			Origin string `json:"origin"`
+		}
+		r = wc.GET("/api/v1/flowruns?workflowId=" + wfID)
+		if r.Status != 200 || json.Unmarshal(r.Data, &runs) != nil {
+			return false
+		}
+		for _, candidate := range runs {
+			if candidate.Status == "completed" && candidate.Origin == "sensor" {
+				run = candidate
+				return true
+			}
+		}
+		return false
+	})
+	if run.ID == "" {
+		t.Fatalf("resumed sensor must create a completed sensor-origin run: %+v", run)
+	}
+	// Stop the five-second poll once the transition is observed so the assertions remain about one
+	// deliberate edge, not an unbounded stream of equal true probes.
+	wc.POST("/api/v1/triggers/"+trgID+":pause", map[string]any{}).OK(t, nil)
+	firings := listFirings(t, wc, trgID, "limit=50")
+	if len(firings) != baseFirings+1 || firings[len(firings)-1].Status != "started" || firings[len(firings)-1].FlowrunID != run.ID {
+		t.Fatalf("resumed sensor firing ledger wrong: %+v", firings)
 	}
 }
