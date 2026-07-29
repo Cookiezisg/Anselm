@@ -1998,6 +1998,10 @@ func TestLiveBYOK_GoogleToolContinuation(t *testing.T) {
 	msg := sendMsg(t, wc, conv, "请调用 gemini_eval_square，参数 n=12。不要自己计算；工具返回后报告结果。")
 	turn := waitTurn(t, wc, conv, msg, 240000)
 	if turn.Status != "completed" {
+		if turn.ErrorCode == "LLM_RATE_LIMITED" {
+			t.Logf("Google BYOK tool continuation reached the provider's current rate window: %s", turn.ErrorMessage)
+			t.Skip("Google provider rate-limited this live sample; structured LLM_RATE_LIMITED classification verified")
+		}
 		for _, call := range rec.Calls() {
 			if strings.Contains(call.Path, "streamGenerateContent") {
 				t.Logf("Google provider request path=%s bytes=%d has_tools=%v has_function_call=%v has_function_response=%v has_thought_signature=%v",
