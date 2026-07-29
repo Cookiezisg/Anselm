@@ -321,6 +321,7 @@ audience: [human, ai]
 | 2026-07-30 | EVO-299 | text+image 混合回合后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-text-image-fusion | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 | 2026-07-30 | EVO-300 | managed chat 同一回合接收两张独立图片，回合完成且两份源附件字节保持不变；补齐截图对比/多图上传的高频多 image parts 形状 | FRT-01 / managed-read/default / multiple-image same-turn fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DefaultChatWithMultipleImageAttachments$' -count=1 -parallel 1 -timeout 12m -v` → PASS 10.572s；无 provider secret | 当前提交 |
 | 2026-07-30 | EVO-301 | managed 多图同回合场景加入后的完整 backend 黑盒回归仍闭合；既有对话、agent/subagent、workflow/trigger、MCP/function/handler、附件与多模态、取消/重试/崩溃恢复、资源卫生未受影响 | full backend testend regression / post-multiple-image evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 326.393s`；无 provider secret、EVALS 未开启 | 当前提交 |
+| 2026-07-30 | EVO-302 | managed 多图同回合场景后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-multiple-image | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 
 ## 追加格式
 
