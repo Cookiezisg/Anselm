@@ -11,6 +11,7 @@ package scenarios
 import (
 	"bytes"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -19,6 +20,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -391,6 +393,99 @@ func TestLiveManaged_ReadAloudCache(t *testing.T) {
 	}
 	if content := wc.DoRaw("GET", "/api/v1/attachments/"+first.AttachmentID+"/content", "", nil); content.Status != 200 || !bytes2IsWAV(content.Raw) {
 		t.Fatalf("cached managed audio must remain playable: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
+// TestLiveManaged_ReadAloudConcurrentDedup covers the money boundary the sequential cache probe
+// cannot see: two browser presses can arrive before either request has written the cache row. The
+// product must serialize that miss per workspace/key, so one request synthesizes and the other
+// observes the same attachment; a unique DB index alone is too late because both upstream calls
+// have already spent the user's managed allowance.
+func TestLiveManaged_ReadAloudConcurrentDedup(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-read-aloud-concurrent-dedup")
+	readQuota := func() int64 {
+		t.Helper()
+		var q struct {
+			Used      int64 `json:"used"`
+			Remaining int64 `json:"remaining"`
+			Limit     int64 `json:"limit"`
+			Available bool  `json:"available"`
+		}
+		wc.GET("/api/v1/freetier/quota").OK(t, &q)
+		if !q.Available || q.Limit <= 0 || q.Used < 0 || q.Remaining < 0 || q.Used+q.Remaining > q.Limit {
+			t.Fatalf("managed quota must remain coherent and available: %+v", q)
+		}
+		return q.Used
+	}
+
+	// Equal-length warm-up establishes the exact per-request character charge without populating
+	// the target key. The warm-up is intentionally a different text so the concurrent pair is a
+	// genuine miss rather than a sequential cache hit.
+	warmText := "一二三四五六七八"
+	targetText := "九十甲乙丙丁戊己"
+	before := readQuota()
+	warm := liveRead(t, wc, warmText, "")
+	if warm.Cached || warm.AttachmentID == "" {
+		t.Fatalf("warm-up read must synthesize a fresh artifact: %+v", warm)
+	}
+	afterWarm := readQuota()
+	singleCost := afterWarm - before
+	if singleCost <= 0 {
+		t.Fatalf("warm-up synthesis must consume managed quota: before=%d after=%d", before, afterWarm)
+	}
+
+	type result struct {
+		resp *harness.Resp
+		err  error
+	}
+	start := make(chan struct{})
+	results := make(chan result, 2)
+	var wg sync.WaitGroup
+	for i := 0; i < 2; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			resp, err := wc.Try("POST", "/api/v1/read-aloud:read", map[string]any{"text": targetText})
+			results <- result{resp: resp, err: err}
+		}()
+	}
+	close(start)
+	wg.Wait()
+	close(results)
+
+	var outputs []struct {
+		AttachmentID string `json:"attachmentId"`
+		Cached       bool   `json:"cached"`
+	}
+	for got := range results {
+		if got.err != nil {
+			t.Fatalf("concurrent read-aloud request failed at transport: %v", got.err)
+		}
+		if got.resp.Status != 200 {
+			t.Fatalf("concurrent read-aloud request must succeed: status=%d code=%s body=%s", got.resp.Status, got.resp.Code, got.resp.Raw)
+		}
+		var out struct {
+			AttachmentID string `json:"attachmentId"`
+			Cached       bool   `json:"cached"`
+		}
+		if err := json.Unmarshal(got.resp.Data, &out); err != nil {
+			t.Fatalf("decode concurrent read-aloud response: %v", err)
+		}
+		if out.AttachmentID == "" {
+			t.Fatalf("concurrent read-aloud response has no attachment: %+v", out)
+		}
+		outputs = append(outputs, out)
+	}
+	if len(outputs) != 2 || outputs[0].AttachmentID != outputs[1].AttachmentID {
+		t.Fatalf("concurrent identical reads must share one attachment: %+v", outputs)
+	}
+	if outputs[0].Cached == outputs[1].Cached {
+		t.Fatalf("one concurrent reader should synthesize and the other observe the cache: %+v", outputs)
+	}
+	afterConcurrent := readQuota()
+	if afterConcurrent-afterWarm != singleCost {
+		t.Fatalf("concurrent identical reads must spend once: singleCost=%d concurrentDelta=%d outputs=%+v", singleCost, afterConcurrent-afterWarm, outputs)
 	}
 }
 
