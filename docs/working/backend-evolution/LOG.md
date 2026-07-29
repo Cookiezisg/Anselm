@@ -195,6 +195,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-175 | 同一 BYOK 会话的模型切换 history re-projection 复核闭合：Qwen 首轮接收图片+视频后切到 OpenAI，图片仍走 native `image_url`，视频因新模型能力不足转为明确降级注记且不发送 `video_url`/原始 base64；会话完成，两个附件未被改写 | FRT-02 / BYOK-read / model switch / history media projection | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_ModelSwitchReprojectsHistoryMedia$' -count=1 -parallel 1 -timeout 8m -v` → PASS 15.201s；key 未输出 | 当前提交 |
 | 2026-07-29 | EVO-176 | 默认受管图片+视频同回合融合复核闭合：两件附件均真实进入对话并逐字节回读（PNG 98 bytes、MP4 2,969,360 bytes），回合完成且多附件组合没有退化为上游 400 | FRT-01 / managed-read/default / same-turn multimodal fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DefaultChatWithImageAndVideoAttachments$' -count=1 -parallel 1 -timeout 8m -v` → PASS 48.082s；无 provider secret | 当前提交 |
 | 2026-07-29 | EVO-177 | OpenAI BYOK 同轮多图复核闭合：两个独立 PNG 均被真实请求按 native image parts 传递，顺序与原始字节保持一致，两个附件均可逐字节回读 | FRT-02 / BYOK-read / OpenAI / multiple images | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIMultipleImages$' -count=1 -parallel 1 -timeout 8m -v` → PASS 10.642s；key 未输出 | 当前提交 |
+| 2026-07-29 | EVO-178 | 生产 managed realtime ASR 复核闭合：workspace 开通后 `/api/v1/speech/asr` WebSocket 握手、会话结束帧与最终文本状态均成立，未读取本地 provider secret | FRT-01 / managed-read/default / realtime speech input | `EVALS_VOICE=1 go test ./scenarios -run '^TestLiveVoice_SpeechInputASR$' -count=1 -parallel 1 -timeout 12m -v` → PASS 6.065s；API Serve 真实链路 | 当前提交 |
 
 ## 追加格式
 
