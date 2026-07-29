@@ -398,6 +398,93 @@ func TestLiveManaged_WorkflowGenerateVideoToManagedViewer(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_WorkflowUserAttachmentFusion proves the other workflow direction: user-uploaded
+// MediaRefs enter through the trigger payload, survive CEL input wiring, and become the managed
+// agent's actual multimodal input. This is intentionally separate from producer→viewer tests above:
+// no workflow node creates the files, so a receipt-only implementation cannot accidentally pass.
+func TestLiveManaged_WorkflowUserAttachmentFusion(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-workflow-user-attachments")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+
+	var caps []struct {
+		Provider   string `json:"provider"`
+		ModelID    string `json:"modelId"`
+		Vision     bool   `json:"vision"`
+		NativeDocs bool   `json:"nativeDocs"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			if !cap.Vision || cap.NativeDocs {
+				t.Fatalf("managed workflow user fusion requires vision plus non-native PDF extraction: %+v", cap)
+			}
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatal("managed default capability row anselm-auto not found")
+	}
+
+	const token = "WORKFLOW_USER_FUSION_7F3A"
+	pdf := buildPDF(token)
+	pdfID := uploadAtt(t, wc, "workflow-user-evidence.pdf", "application/pdf", pdf)
+	imageID := uploadAtt(t, wc, "workflow-user-evidence.png", "image/png", liveManagedPNG)
+
+	reader := agCreate(t, wc, map[string]any{
+		"name":        "Managed Workflow User Attachment Reader",
+		"description": "reads a user-uploaded PDF and receives a user-uploaded image through the trigger payload",
+		"prompt":      "Input data contains a user-uploaded picture and document. Read the attached document, find its only English token, and briefly acknowledge that the picture is also attached. Output only the token; do not call tools and do not guess.",
+	})
+	wfID := wfCreate(t, wc, "managed_user_attachment_fusion", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "read", "kind": "agent", "ref": reader,
+			"input": map[string]any{"task": "start.task", "picture": "start.picture", "document": "start.document"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "read"}},
+	})
+
+	payload := map[string]any{
+		"task": "从 document 找出唯一英文 token，同时确认 picture 已收到。",
+		"picture": map[string]any{
+			"attachmentId": imageID,
+			"filename":     "workflow-user-evidence.png",
+			"mime":         "image/png",
+			"source":       "user_upload",
+		},
+		"document": map[string]any{
+			"attachmentId": pdfID,
+			"filename":     "workflow-user-evidence.pdf",
+			"mime":         "application/pdf",
+			"source":       "user_upload",
+		},
+	}
+	_, status, nodes := runAndWait(t, wc, wfID, payload, 240000)
+	if status != "completed" {
+		t.Fatalf("managed workflow user-attachment fusion must complete: status=%s nodes=%s", status, nodes)
+	}
+	nodeText := string(nodes)
+	if !strings.Contains(nodeText, token) {
+		t.Fatalf("workflow agent must answer from the uploaded PDF's extracted text, got nodes=%s", nodes)
+	}
+	if !strings.Contains(nodeText, imageID) || !strings.Contains(nodeText, pdfID) {
+		t.Fatalf("workflow trigger result must preserve both user MediaRefs: %s", nodes)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "pdf", id: pdfID, want: pdf},
+		{name: "image", id: imageID, want: liveManagedPNG},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("workflow user %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.
