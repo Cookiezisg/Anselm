@@ -860,6 +860,38 @@ func TestLiveManaged_DefaultChatWithImageAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithTextAttachment proves the ordinary upload boundary for a plain
+// text file: the managed default chat receives a labelled text part, answers from its contents,
+// and leaves the content-addressed source bytes untouched without needing a tool call.
+func TestLiveManaged_DefaultChatWithTextAttachment(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-text-attachment")
+	const token = "DIRECT_TEXT_ATTACHMENT_7F3A"
+	textBytes := []byte(strings.Repeat("ordinary text attachment context\n", 420) + token + " is the only answer token\n" + strings.Repeat("ordinary trailing context\n", 420))
+	attID := uploadAtt(t, wc, "direct-note.txt", "text/plain", textBytes)
+	conv := convCreate(t, wc, "managed text attachment")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请从附件中找出唯一的英文 token，只输出该 token，不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed text attachment chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	answer := ""
+	for _, block := range turn.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, token) {
+		t.Fatalf("managed text attachment answer must contain the extracted token, got %q", answer)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, textBytes) {
+		t.Fatalf("managed text attachment must survive direct projection unchanged: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_ListAttachments proves the discovery half of the attachment tool contract:
 // the managed model must call list_attachments, receive metadata for every active upload, and
 // continue the same turn without reading or mutating the underlying bytes.
