@@ -1444,6 +1444,92 @@ func TestContractWorkflow_MultiTriggerAttachDetachAndDedup(t *testing.T) {
 	}
 }
 
+// B-wf-15/B-trg-11 — trigger 软删后的 active workflow 悬空引用可审计、可通过 edit rebind 修复。
+// Deleting a source stops its listener but keeps the workflow row/history. Capability-check must
+// expose the dangling ref; recreating the trigger with the same name is not an implicit rebind.
+// Explicitly editing the workflow ref should reattach the live workflow to the new source.
+//
+// B-wf-15/B-trg-11 —— trigger 软删后 active workflow 的悬空 ref 可被审计、可经 edit rebind 修复：删源
+// 必须停 listener 但保留 workflow 行/历史；capability-check 大声报 dangling；同名重建不暗中换绑，只有
+// 显式 edit workflow ref 才重挂 active listener。
+func TestContractWorkflow_DeletedTriggerRebindsActiveWorkflow(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-trigger-rebind")
+
+	oldTrigger := trgCreate(t, wc, "rebind_source", "webhook", map[string]any{"path": "rebind-old"})
+	wfID := workflowC_trgOnly(t, wc, "rebind_after_delete", oldTrigger)
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+	oldURL := srv.BaseURL + "/api/v1/webhooks/" + oldTrigger + "/rebind-old"
+	if code := workflowC_rawPost(t, oldURL, `{"generation":1}`, nil); code != 202 {
+		t.Fatalf("baseline webhook must return 202, got %d", code)
+	}
+	harness.Eventually(t, 30000, "baseline run completes before source deletion", func() bool {
+		return len(workflowC_runsOf(t, wc, wfID, "completed")) == 1
+	})
+
+	if r := wc.DELETE("/api/v1/triggers/" + oldTrigger); r.Status != 204 {
+		t.Fatalf("soft-delete active trigger must 204, got %d %s", r.Status, r.Raw)
+	}
+	if code := workflowC_rawPost(t, oldURL, `{"generation":2}`, nil); code != 404 {
+		t.Fatalf("deleted trigger path must stop immediately, got %d", code)
+	}
+	wc.Do("GET", "/api/v1/triggers/"+oldTrigger, nil).Fail(t, 404, "TRIGGER_NOT_FOUND")
+
+	// The workflow remains a durable entity, but its capability report must not pretend the old
+	// trigger ref still resolves. This is the repair hand-off, not a silent success state.
+	var report struct {
+		Resolved bool     `json:"resolved"`
+		Problems []string `json:"problems"`
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":capability-check", map[string]any{}).OK(t, &report)
+	if len(report.Problems) == 0 {
+		t.Fatalf("deleted trigger must remain auditable as a dangling workflow ref: %+v", report)
+	}
+
+	// Same-name recreation gets a fresh id and does not implicitly retarget the old graph.
+	newTrigger := trgCreate(t, wc, "rebind_source", "webhook", map[string]any{"path": "rebind-new"})
+	if newTrigger == oldTrigger {
+		t.Fatalf("recreated trigger must get a fresh id after soft delete")
+	}
+	newURL := srv.BaseURL + "/api/v1/webhooks/" + newTrigger + "/rebind-new"
+	if code := workflowC_rawPost(t, newURL, `{"generation":3}`, nil); code != 404 {
+		t.Fatalf("recreated trigger must stay cold until workflow rebind, got %d", code)
+	}
+
+	wc.POST("/api/v1/workflows/"+wfID+":edit", map[string]any{"ops": []map[string]any{
+		{"op": "update_node", "id": "start", "patch": map[string]any{"ref": newTrigger}},
+	}}).OK(t, nil)
+	var newRuntime struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}
+	wc.GET("/api/v1/triggers/"+newTrigger).OK(t, &newRuntime)
+	if newRuntime.RefCount != 1 || !newRuntime.Listening {
+		t.Fatalf("editing an active workflow onto the new trigger must rebind listener, got %+v", newRuntime)
+	}
+	var reboundReport struct {
+		Resolved bool     `json:"resolved"`
+		Problems []string `json:"problems"`
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":capability-check", map[string]any{}).OK(t, &reboundReport)
+	if !reboundReport.Resolved || len(reboundReport.Problems) != 0 {
+		t.Fatalf("explicit rebind must repair capability report: %+v", reboundReport)
+	}
+	if code := workflowC_rawPost(t, newURL, `{"generation":4}`, nil); code != 202 {
+		t.Fatalf("rebound trigger path must return 202, got %d", code)
+	}
+	harness.Eventually(t, 30000, "rebound source creates the second run", func() bool {
+		return len(workflowC_runsOf(t, wc, wfID, "completed")) == 2
+	})
+
+	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
+	wc.GET("/api/v1/triggers/"+newTrigger).OK(t, &newRuntime)
+	if newRuntime.RefCount != 0 || newRuntime.Listening {
+		t.Fatalf("deactivate after rebind must detach the replacement trigger, got %+v", newRuntime)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // B-trg-8 — webhook 明文式两载体（X-Webhook-Secret 头 / ?token= 查询）+ signatureHeader 改头名
 // ---------------------------------------------------------------------------
