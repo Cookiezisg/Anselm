@@ -522,6 +522,70 @@ func TestContractWorkflow_StageOneShotAndKill(t *testing.T) {
 	}
 }
 
+// B-wf-14/B-trg-10 — 多入口 :stage 是“任一入口下一次触发”，而不是每个入口各跑一次。
+// Staging a workflow with two trigger refs arms both sources, but the first fire must consume the
+// single trial-run budget and detach the workflow from every source. Otherwise a second source
+// can silently produce an extra run after the user believes the trial has ended.
+//
+// B-wf-14/B-trg-10 —— 多入口 :stage 语义是「任一入口的下一次触发」，而非每个入口各跑一次：两条
+// source 都待命，但第一火消耗唯一试跑额度，并从所有 source 摘除；否则用户以为试跑结束后，第二条
+// source 仍会悄悄再跑一遍。
+func TestContractWorkflow_StageMultiTriggerDisarmsAllEntries(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-stage-multi")
+
+	trgA := trgCreate(t, wc, "stage_multi_a", "webhook", map[string]any{"path": "stage-multi-a"})
+	trgB := trgCreate(t, wc, "stage_multi_b", "webhook", map[string]any{"path": "stage-multi-b"})
+	wfID := wfCreate(t, wc, "stage_multi_wf", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "entry_a", "kind": "trigger", "ref": trgA}},
+		{"op": "add_node", "node": map[string]any{"id": "entry_b", "kind": "trigger", "ref": trgB}},
+	})
+	wc.POST("/api/v1/workflows/"+wfID+":stage", map[string]any{}).OK(t, nil)
+
+	readRuntime := func(triggerID string) (int, bool) {
+		t.Helper()
+		var got struct {
+			RefCount  int  `json:"refCount"`
+			Listening bool `json:"listening"`
+		}
+		wc.GET("/api/v1/triggers/"+triggerID).OK(t, &got)
+		return got.RefCount, got.Listening
+	}
+	if rc, listening := readRuntime(trgA); rc != 1 || !listening {
+		t.Fatalf("stage must arm A exactly once, got refCount/listening=%d/%v", rc, listening)
+	}
+	if rc, listening := readRuntime(trgB); rc != 1 || !listening {
+		t.Fatalf("stage must arm B exactly once, got refCount/listening=%d/%v", rc, listening)
+	}
+
+	urlA := srv.BaseURL + "/api/v1/webhooks/" + trgA + "/stage-multi-a"
+	urlB := srv.BaseURL + "/api/v1/webhooks/" + trgB + "/stage-multi-b"
+	if code := workflowC_rawPost(t, urlA, `{"entry":"first"}`, nil); code != 202 {
+		t.Fatalf("first staged entry must return 202, got %d", code)
+	}
+	harness.Eventually(t, 30000, "staged multi-entry run completes", func() bool {
+		return len(workflowC_runsOf(t, wc, wfID, "completed")) == 1
+	})
+
+	// The first fire consumes the one-shot on BOTH refs, not only on the source that fired.
+	harness.Eventually(t, 5000, "first staged fire disarms every entry", func() bool {
+		rcA, listeningA := readRuntime(trgA)
+		rcB, listeningB := readRuntime(trgB)
+		return rcA == 0 && !listeningA && rcB == 0 && !listeningB
+	})
+	if code := workflowC_rawPost(t, urlB, `{"entry":"second"}`, nil); code != 404 {
+		t.Fatalf("second staged entry must be detached after first fire, got %d", code)
+	}
+	aid := workflowC_fire(t, wc, trgB)
+	if n := workflowC_activationFiringCount(t, wc, aid); n != 0 {
+		t.Fatalf("manual fire after staged budget is consumed must fan out to 0, got %d", n)
+	}
+	if n := len(workflowC_runsOf(t, wc, wfID, "")); n != 1 {
+		t.Fatalf("multi-entry stage must create exactly one run, got %d", n)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // B-wf-7 — 手动 :trigger 绕过并发策略：replace 下两手动 run 同途、互不取消
 // ---------------------------------------------------------------------------

@@ -92,6 +92,12 @@ func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows 
 	actID := idgenpkg.New("tra")
 	fired := 0
 	if act.Fired {
+		// Claim staged workflows BEFORE the durable append. Two source reports can carry the same
+		// listener snapshot; claiming first gives exactly one of them the one-shot budget. The
+		// claimed set is retained for this fan-out even though claimOneShots removes the listener
+		// entries, while a stale concurrent snapshot is filtered out below.
+		claimed := s.claimOneShots(triggerID, workflows)
+		workflows = s.activeFanOutWorkflows(triggerID, workflows, claimed)
 		dedup := act.DedupKey
 		if dedup == "" {
 			dedup = triggerID + "|" + strconv.FormatInt(time.Now().UnixNano(), 10)
@@ -122,9 +128,6 @@ func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows 
 			}
 			fired++
 		}
-		// stage_workflow: a one-shot listener fires exactly once, then auto-disarms.
-		// stage_workflow：一次性监听者只扇出一次，随即自动撤防。
-		s.detachOneShots(triggerID, workflows)
 	}
 	if err := s.repo.AppendActivation(ctx, &triggerdomain.Activation{
 		ID:          actID,
@@ -215,27 +218,75 @@ func (s *Service) listeningSince(triggerID string) map[string]time.Time {
 	return out
 }
 
-// detachOneShots drops every one-shot (staged) workflow among `workflows` that just received this
-// fire — read the once set under the lock, then Detach each (Detach re-locks). A staged arm thus
-// runs on exactly the next fire, then disarms (possibly taking the listener 1→0 and stopping it).
+// claimOneShots atomically claims every one-shot (staged) workflow among `workflows` that just
+// received this fire — across ALL trigger entries for that workflow, not only the source that
+// fired. Stage arms every entry of a multi-trigger workflow as one trial budget: the first source
+// to fire consumes that budget and must disarm the other sources too. Claiming happens before the
+// durable append so two concurrent reports cannot both spend the same budget. The returned set is
+// allowed to pass through the current fan-out even though its listener entries were removed.
 //
-// detachOneShots 摘掉 `workflows` 中刚收到本次扇出的每个一次性（试运行）workflow——在锁内读 once 集，
-// 再逐个 Detach（Detach 自己重新加锁）。一个试运行待命因此恰在下一次扇出时运行、随即撤防（可能把 listener
-// 1→0 停掉）。
-func (s *Service) detachOneShots(triggerID string, workflows []string) {
-	s.mu.RLock()
-	var drop []string
-	if e, ok := s.listeners[triggerID]; ok {
-		for _, wf := range workflows {
-			if e.once[wf] {
-				drop = append(drop, wf)
-			}
+// claimOneShots 摘掉 `workflows` 中刚收到本次扇出的每个一次性（试运行）workflow——**跨该 workflow
+// 的全部 trigger entry**，不只当前发火的 source。多入口 workflow 的 stage 把所有入口视为一个试跑额度：
+// 第一条 source 发火即消耗额度，其他 source 也必须撤防。claim 在 durable append **之前**完成，故两个
+// 并发报告不能同时花掉同一额度；返回集合允许当前 fan-out 继续走，即使 listener entry 已被摘掉。
+func (s *Service) claimOneShots(triggerID string, workflows []string) map[string]bool {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	entry, ok := s.listeners[triggerID]
+	if !ok || entry.paused {
+		return nil
+	}
+	// Only workflows marked one-shot on the source that fired can be claimed by this report. This
+	// prevents a continuous listener that merely shares another entry from being detached.
+	claim := make(map[string]bool, len(workflows))
+	for _, wf := range workflows {
+		if entry.once[wf] {
+			claim[wf] = true
 		}
 	}
-	s.mu.RUnlock()
-	for _, wf := range drop {
-		s.Detach(triggerID, wf)
+	if len(claim) == 0 {
+		return nil
 	}
+	// A multi-trigger stage has one budget. Remove each claimed workflow from every entry while the
+	// registry lock is held, so another report cannot snapshot a second live one-shot in between.
+	for ref, e := range s.listeners {
+		for wf := range claim {
+			if !e.once[wf] {
+				continue
+			}
+			delete(e.once, wf)
+			delete(e.workflows, wf)
+		}
+		if len(e.workflows) == 0 {
+			if l := s.listenerFor(e.kind); l != nil {
+				l.Unregister(ref)
+			}
+			delete(s.listeners, ref)
+		}
+	}
+	return claim
+}
+
+// activeFanOutWorkflows filters a listener snapshot against the current registry. A concurrent
+// one-shot claim removes stale snapshots from the source that lost the race, while the winner's
+// claimed set lets its own in-flight report proceed once. Continuous listeners are retained only
+// while the source is still live and not paused.
+func (s *Service) activeFanOutWorkflows(triggerID string, workflows []string, claimed map[string]bool) []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	entry, ok := s.listeners[triggerID]
+	active := make([]string, 0, len(workflows))
+	for _, wf := range workflows {
+		if claimed[wf] || (ok && !entry.paused && hasWorkflow(entry, wf)) {
+			active = append(active, wf)
+		}
+	}
+	return active
+}
+
+func hasWorkflow(entry *listenEntry, workflowID string) bool {
+	_, ok := entry.workflows[workflowID]
+	return ok
 }
 
 func zapTrigger(id string) zap.Field { return zap.String("triggerId", id) }
