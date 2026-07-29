@@ -2059,6 +2059,124 @@ func TestLiveBYOK_TextProviderSmoke(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_DeepSeekToolContinuation exercises the second half of the DeepSeek compatibility
+// contract that a text-only smoke cannot prove: an OpenAI-compatible model must preserve the
+// assistant tool call, the function result, and the next assistant sampling on the real wire. The
+// recorder is only an observation proxy; the function still runs in Anselm's real sandbox and the
+// managed gateway remains absent from this BYOK-only workspace.
+//
+// TestLiveBYOK_DeepSeekToolContinuation 覆盖 DeepSeek 兼容契约中纯文本 smoke 证明不了的后半段：
+// OpenAI-compatible 模型必须在真实线缆上保住 assistant tool call、函数结果和下一次 assistant
+// sampling。recorder 只是观察代理；函数仍在 Anselm 真 sandbox 执行，这个 BYOK-only workspace
+// 也没有受管 gateway 兜底。
+func TestLiveBYOK_DeepSeekToolContinuation(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("DEEPSEEK_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires DEEPSEEK_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://api.deepseek.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-deepseek-tool-continuation"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "deepseek", "displayName": "live-deepseek-byok-tool", "key": key,
+		"baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	const modelID = "deepseek-v4-flash"
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Tools    bool   `json:"tools"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	toolReady := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "deepseek" && cap.ModelID == modelID && cap.Tools {
+			toolReady = true
+			break
+		}
+	}
+	if !toolReady {
+		t.Skip("current DeepSeek account/catalog does not expose deepseek-v4-flash tools; continuation is not constructible")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": modelID}).OK(t, nil)
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+
+	fnID := fnCreate(t, wc, "deepseek_eval_square", "def deepseek_eval_square(n: int) -> dict:\n    return {\"square\": n * n}\n")
+	harness.Eventually(t, 30000, "the DeepSeek continuation function environment becomes ready", func() bool {
+		var detail struct {
+			ActiveVersion struct {
+				EnvStatus string `json:"envStatus"`
+			} `json:"activeVersion"`
+		}
+		wc.GET("/api/v1/functions/"+fnID).OK(t, &detail)
+		return detail.ActiveVersion.EnvStatus == "ready"
+	})
+
+	conv := convCreate(t, wc, "DeepSeek BYOK tool continuation")
+	msg := sendMsg(t, wc, conv,
+		"请调用 deepseek_eval_square，参数 n=12。不要自己计算；工具返回后报告结果。")
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		if turn.ErrorCode == "LLM_RATE_LIMITED" {
+			t.Logf("DeepSeek BYOK tool continuation reached the provider's current rate window: %s", turn.ErrorMessage)
+			t.Skip("DeepSeek provider rate-limited this live sample; structured LLM_RATE_LIMITED classification verified")
+		}
+		t.Fatalf("DeepSeek BYOK tool continuation must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+
+	toolCall, toolResult, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			toolCall = toolCall || strings.Contains(block.Content, fnID) || strings.Contains(block.Content, "deepseek_eval_square")
+		case "tool_result":
+			toolResult = toolResult || strings.Contains(block.Content, "deepseek_eval_square") || strings.Contains(block.Content, `"square":144`)
+		case "text":
+			answer += block.Content
+		}
+	}
+
+	chatCalls := 0
+	seenTools, seenToolCalls, seenToolResult := false, false, false
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		chatCalls++
+		seenTools = seenTools || bytes.Contains(call.Body, []byte(`"tools"`))
+		seenToolCalls = seenToolCalls || bytes.Contains(call.Body, []byte(`"tool_calls"`))
+		// DeepSeek's compatible request is the evidence, not a provider-specific role spelling:
+		// the result payload is escaped inside the historical message list and its stable function
+		// output markers survive that encoding. Requiring a literal `role:"tool"` or unescaped JSON
+		// quotes here would make the
+		// product acceptance depend on one serializer detail while the real continuation already
+		// proves that the tool result crossed the boundary.
+		seenToolResult = seenToolResult || (bytes.Contains(call.Body, []byte("square")) && bytes.Contains(call.Body, []byte(`144`)))
+	}
+	if !toolCall || !toolResult || !strings.Contains(answer, "144") || chatCalls < 2 || !seenTools || !seenToolCalls || !seenToolResult {
+		for _, call := range rec.Calls() {
+			if strings.Contains(call.Path, "/chat/completions") {
+				t.Logf("DeepSeek provider call path=%s bytes=%d has_tools=%v has_tool_calls=%v has_square=%v has_144=%v",
+					call.Path, len(call.Body), bytes.Contains(call.Body, []byte(`"tools"`)),
+					bytes.Contains(call.Body, []byte(`"tool_calls"`)), bytes.Contains(call.Body, []byte("square")),
+					bytes.Contains(call.Body, []byte(`144`)))
+			}
+		}
+		t.Fatalf("DeepSeek tool continuation lost call/result/text or OpenAI-compatible wire: call=%v result=%v answer=%q chatCalls=%d tools=%v toolCalls=%v toolResult=%v blocks=%+v",
+			toolCall, toolResult, answer, chatCalls, seenTools, seenToolCalls, seenToolResult, turn.Blocks)
+	}
+}
+
 // TestLiveBYOK_GoogleListedModelCanBeAccountUnavailable proves the honest failure boundary for
 // a model that remains visible in Google's ListModels inventory but is rejected by the current
 // account at generate time. Selection may persist the user's explicit choice; the first turn must
