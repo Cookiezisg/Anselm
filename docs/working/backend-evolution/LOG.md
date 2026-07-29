@@ -386,6 +386,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-361 | 聊天失败诊断链路补齐：首轮 `search_tools`→`trigger_workflow` 启动故意失败的 workflow，下一轮 `search_tools`→`search_flowruns(status=failed)`→`get_flowrun` 读取 durable 节点错误；`origin=chat`、`conversationId`、错误 marker 与 assistant 的 failed/失败回答均保留。初次探索因模型偏离精确 workflowId 得到一次 `workflow not found`，增加实体读回与逐字 ID 约束后两次规范复跑通过，未形成稳定后端缺陷 | FRT-04 / FRT-13 / managed-read/default / chat workflow failure diagnosis | 首跑 FAIL 32.03s（模型参数偏离，workflow not found）；修正后 `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatFlowrunFailureDiagnosis$' -count=1` → PASS 48.019s；复跑 PASS 44.959s；无 provider secret |
 
+| 2026-07-30 | EVO-362 | 聊天失败诊断场景加入后的 backend 全量黑盒回归闭合；既有 chat、agent/subagent、workflow/trigger（含成功/失败 chat observability）、附件发现/抽取/inspect、多模态、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-chat-flowrun-failure-diagnosis | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 352.275s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
