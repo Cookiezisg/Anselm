@@ -276,6 +276,8 @@ audience: [human, ai]
 | 2026-07-29 | EVO-255 | 新增 managed 视频 `inspect_media` 场景后，完整 backend 黑盒回归仍闭合；chat、agent/subagent、workflow/trigger、MCP/function/handler、PDF/附件工具、多模态、取消/重试/崩溃恢复、资源卫生共同通过，未启用 EVALS/provider secret | full backend testend regression / post-temporal-inspect evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 320.217s`；无 provider secret、EVALS 未开启 | 当前提交 |
 | 2026-07-29 | EVO-256 | 受管音频 `inspect_media` 元数据路径闭合：真实 96,044-byte WAV 通过工具返回带 `kind=audio`/usage 的 bounded local capsule，父回合明确说明未做转录，原始音频逐字节不变；普通 chat audio 能力仍未被误宣称 | FRT-01 / managed-read/default / inspect_media audio metadata | `set -a; source ../.env; set +e; EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_InspectMediaAudio$' -count=1 -parallel 1 -timeout 12m -v` → PASS 15.72s（无 provider secret） | 当前提交 |
 
+| 2026-07-29 | EVO-257 | 新增 managed 音频 `inspect_media` 场景后，完整 backend 黑盒回归仍闭合；chat、agent/subagent、workflow/trigger、MCP/function/handler、PDF/附件工具、多模态、取消/重试/崩溃恢复、资源卫生共同通过，未启用 EVALS/provider secret | full backend testend regression / post-audio-inspect evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 362.409s`；无 provider secret、EVALS 未开启 | 当前提交 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
