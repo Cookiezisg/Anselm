@@ -932,6 +932,39 @@ func TestLiveManaged_InspectMediaVideo(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_InspectMediaAudio is the audio counterpart: ordinary chat does not advertise
+// native audio perception, but inspect_media still provides a truthful local metadata capsule.
+func TestLiveManaged_InspectMediaAudio(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-inspect-audio")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	attID := uploadAtt(t, wc, "inspect-audio.wav", "audio/wav", harness.MockOpenAIWAV)
+	conv := convCreate(t, wc, "managed inspect audio")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 inspect_media 工具检查音频附件 "+attID+"，question 写“给出这个音频的本地媒体元数据”，不要调用其他工具；工具返回后用一句话说明它没有做转录。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed inspect_media audio turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, capsule, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "inspect_media" || strings.Contains(block.Content, "inspect_media")
+		case "tool_result":
+			capsule = capsule || (strings.Contains(block.Content, attID) && strings.Contains(block.Content, `"kind":"audio"`) && strings.Contains(block.Content, `"usage"`))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !capsule || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed inspect_media audio must call/return metadata/continue: called=%v capsule=%v answer=%q blocks=%+v", called, capsule, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, harness.MockOpenAIWAV) {
+		t.Fatalf("inspect_media must not mutate the source audio: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_DefaultChatWithPDFAttachment proves the managed model's non-native document
 // route: the default Anselm capability intentionally does not advertise NativeDocs, so a PDF must
 // be extracted in the sandbox and its text made available to the real managed conversation.
