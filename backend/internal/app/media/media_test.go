@@ -34,41 +34,96 @@ func (f fakeAttachments) Download(_ context.Context, id string) (*attachmentdoma
 }
 
 type fakeRepo struct {
+	mu         sync.RWMutex
 	derivative *mediadomain.Derivative
 	ready      []*mediadomain.Derivative
 	perception *mediadomain.Perception
 }
 
-func (f *fakeRepo) ClaimDerivative(_ context.Context, d *mediadomain.Derivative) (*mediadomain.Derivative, bool, error) {
-	if f.derivative != nil && f.derivative.AttachmentID == d.AttachmentID && f.derivative.Kind == d.Kind && f.derivative.SourceSHA256 == d.SourceSHA256 && f.derivative.ParamsHash == d.ParamsHash {
-		return f.derivative, false, nil
+func cloneDerivative(in *mediadomain.Derivative) *mediadomain.Derivative {
+	if in == nil {
+		return nil
 	}
-	f.derivative = d
-	return d, true, nil
+	out := *in
+	return &out
+}
+
+func clonePerception(in *mediadomain.Perception) *mediadomain.Perception {
+	if in == nil {
+		return nil
+	}
+	out := *in
+	return &out
+}
+
+func (f *fakeRepo) derivativeSnapshot() *mediadomain.Derivative {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return cloneDerivative(f.derivative)
+}
+
+func (f *fakeRepo) ClaimDerivative(_ context.Context, d *mediadomain.Derivative) (*mediadomain.Derivative, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.derivative != nil && f.derivative.AttachmentID == d.AttachmentID && f.derivative.Kind == d.Kind && f.derivative.SourceSHA256 == d.SourceSHA256 && f.derivative.ParamsHash == d.ParamsHash {
+		return cloneDerivative(f.derivative), false, nil
+	}
+	f.derivative = cloneDerivative(d)
+	return cloneDerivative(f.derivative), true, nil
 }
 func (f *fakeRepo) ClaimPerception(_ context.Context, p *mediadomain.Perception) (*mediadomain.Perception, bool, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if f.perception != nil && f.perception.AttachmentID == p.AttachmentID && f.perception.Kind == p.Kind &&
 		f.perception.SourceSHA256 == p.SourceSHA256 && f.perception.TaskHash == p.TaskHash &&
 		f.perception.Provider == p.Provider && f.perception.Model == p.Model && f.perception.ParamsHash == p.ParamsHash {
-		return f.perception, false, nil
+		return clonePerception(f.perception), false, nil
 	}
-	f.perception = p
-	return p, true, nil
+	f.perception = clonePerception(p)
+	return clonePerception(f.perception), true, nil
 }
 func (f *fakeRepo) GetDerivative(_ context.Context, id string) (*mediadomain.Derivative, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	if f.derivative == nil || f.derivative.ID != id {
 		return nil, mediadomain.ErrNotFound
 	}
-	return f.derivative, nil
+	return cloneDerivative(f.derivative), nil
 }
 func (f *fakeRepo) GetPerception(_ context.Context, id string) (*mediadomain.Perception, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	if f.perception == nil || f.perception.ID != id {
 		return nil, mediadomain.ErrNotFound
 	}
-	return f.perception, nil
+	return clonePerception(f.perception), nil
 }
-func (f *fakeRepo) SaveDerivative(context.Context, *mediadomain.Derivative) error { return nil }
-func (f *fakeRepo) SavePerception(context.Context, *mediadomain.Perception) error { return nil }
+func (f *fakeRepo) SaveDerivative(_ context.Context, derivative *mediadomain.Derivative) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.derivative != nil && f.derivative.ID == derivative.ID {
+		*f.derivative = *derivative
+		return nil
+	}
+	for _, row := range f.ready {
+		if row != nil && row.ID == derivative.ID {
+			*row = *derivative
+			return nil
+		}
+	}
+	f.derivative = cloneDerivative(derivative)
+	return nil
+}
+func (f *fakeRepo) SavePerception(_ context.Context, perception *mediadomain.Perception) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.perception != nil && f.perception.ID == perception.ID {
+		*f.perception = *perception
+		return nil
+	}
+	f.perception = clonePerception(perception)
+	return nil
+}
 func (f *fakeRepo) ListPendingDerivatives(context.Context, int) ([]*mediadomain.Derivative, error) {
 	return nil, nil
 }
@@ -77,6 +132,8 @@ func (f *fakeRepo) ListPendingPerceptions(context.Context, int) ([]*mediadomain.
 }
 func (f *fakeRepo) RequeueRunning(context.Context) (int, error) { return 0, nil }
 func (f *fakeRepo) ListReadyDerivativeBlobs(context.Context) ([]string, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	rows := f.ready
 	if len(rows) == 0 && f.derivative != nil && f.derivative.Status == mediadomain.StatusReady {
 		rows = []*mediadomain.Derivative{f.derivative}
@@ -92,6 +149,8 @@ func (f *fakeRepo) ListReadyDerivativeBlobs(context.Context) ([]string, error) {
 	return out, nil
 }
 func (f *fakeRepo) ListReadyDerivatives(context.Context) ([]*mediadomain.Derivative, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	if len(f.ready) > 0 {
 		return f.ready, nil
 	}
@@ -105,17 +164,25 @@ type fakeArtifacts struct {
 	data map[string][]byte
 }
 
+var fakeArtifactsMu sync.RWMutex
+
 func (f fakeArtifacts) Put(_ context.Context, data []byte) (string, error) {
 	sha := mediadomain.Hash(data)
+	fakeArtifactsMu.Lock()
+	defer fakeArtifactsMu.Unlock()
 	if f.data != nil {
 		f.data[sha] = data
 	}
 	return sha, nil
 }
 func (f fakeArtifacts) Get(_ context.Context, sha string) ([]byte, error) {
+	fakeArtifactsMu.RLock()
+	defer fakeArtifactsMu.RUnlock()
 	return f.data[sha], nil
 }
 func (f fakeArtifacts) Sweep(_ context.Context, keep map[string]bool) (int, error) {
+	fakeArtifactsMu.Lock()
+	defer fakeArtifactsMu.Unlock()
 	removed := 0
 	for sha := range f.data {
 		if !keep[sha] {
@@ -209,16 +276,17 @@ func TestWorker_ProcessesOneDurableIdentityOnlyOnce(t *testing.T) {
 		t.Fatal("worker did not process pending derivative")
 	}
 	deadline := time.After(time.Second)
-	for first.Status != mediadomain.StatusReady || first.BlobSHA256 != mediadomain.Hash([]byte("proxy")) {
+	for {
+		got := repo.derivativeSnapshot()
+		if got != nil && got.Status == mediadomain.StatusReady && got.BlobSHA256 == mediadomain.Hash([]byte("proxy")) {
+			break
+		}
 		select {
 		case <-deadline:
-			t.Fatalf("worker result was not persisted on durable work: %+v", first)
+			t.Fatalf("worker result was not persisted on durable work: %+v", repo.derivativeSnapshot())
 		default:
 			time.Sleep(time.Millisecond)
 		}
-	}
-	if first.Status != mediadomain.StatusReady || first.BlobSHA256 != mediadomain.Hash([]byte("proxy")) {
-		t.Fatalf("worker result was not persisted on durable work: %+v", first)
 	}
 	second, created, err := svc.ClaimDerivative(ctx, "att_1", "model-default", map[string]any{"width": 320})
 	if err != nil || created || second.ID != first.ID {
@@ -499,15 +567,19 @@ func TestCancelDerivativeDuringProcessingWinsOverReadyWrite(t *testing.T) {
 	close(processor.block)
 
 	deadline := time.After(time.Second)
-	for repo.derivative.Status != mediadomain.StatusCancelled {
+	for {
+		got := repo.derivativeSnapshot()
+		if got != nil && got.Status == mediadomain.StatusCancelled {
+			break
+		}
 		select {
 		case <-deadline:
-			t.Fatalf("processing completion overwrote cancellation: %+v", repo.derivative)
+			t.Fatalf("processing completion overwrote cancellation: %+v", repo.derivativeSnapshot())
 		default:
 			time.Sleep(time.Millisecond)
 		}
 	}
-	if repo.derivative.BlobSHA256 != "" {
-		t.Fatalf("cancelled work must not publish a blob: %+v", repo.derivative)
+	if got := repo.derivativeSnapshot(); got.BlobSHA256 != "" {
+		t.Fatalf("cancelled work must not publish a blob: %+v", got)
 	}
 }
