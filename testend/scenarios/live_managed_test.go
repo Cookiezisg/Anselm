@@ -324,6 +324,80 @@ func TestLiveManaged_WorkflowGenerateSpeechToManagedViewer(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_WorkflowGenerateVideoToManagedViewer proves the managed asynchronous video
+// seam inside one default workflow: a trusted upstream agent spends once on generate_video, the
+// downstream managed agent receives the resulting MP4 MediaRef, and the durable run completes
+// without a lost lease, a second generation, or a receipt-only placeholder.
+func TestLiveManaged_WorkflowGenerateVideoToManagedViewer(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-workflow-video")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Video    bool   `json:"video"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" && cap.Video {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatalf("managed default must advertise video before starting a video workflow: %+v", caps)
+	}
+
+	var ws struct {
+		DefaultAgent *struct {
+			APIKeyID string `json:"apiKeyId"`
+			ModelID  string `json:"modelId"`
+		} `json:"defaultAgent"`
+	}
+	wc.GET("/api/v1/workspaces/"+wc.WorkspaceID()).OK(t, &ws)
+	if ws.DefaultAgent == nil || ws.DefaultAgent.APIKeyID == "" || ws.DefaultAgent.ModelID == "" {
+		t.Fatalf("managed video workflow probe requires a ready default agent model: %+v", ws.DefaultAgent)
+	}
+
+	filmmaker := agCreate(t, wc, map[string]any{
+		"name":        "Managed Workflow Filmmaker",
+		"description": "generates one managed MP4 and hands its receipt to a managed viewer",
+		"prompt":      "请调用 generate_video 恰好一次，生成一段 5 秒横向、白天海边微风吹动棕榈树的视频；工具成功后把工具 receipt 原样写进最终回答，不要再次调用生成工具。",
+		"tools":       []map[string]any{{"ref": "sys:generate_video", "name": "generate video"}},
+	})
+	viewer := agCreate(t, wc, map[string]any{
+		"name":        "Managed Video Workflow Viewer",
+		"description": "receives the managed MP4 over the default video route",
+		"prompt":      "用一句简短中文确认你收到上游视频。不要调用工具。",
+	})
+	wfID := wfCreate(t, wc, "managed_video_pipe", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "film", "kind": "agent", "ref": filmmaker,
+			"input": map[string]any{"task": "start.topic"}}},
+		{"op": "add_node", "node": map[string]any{"id": "watch", "kind": "agent", "ref": viewer,
+			"input": map[string]any{"video": "film.text"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "film"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e2", "from": "film", "to": "watch"}},
+	})
+
+	_, status, nodes := runAndWait(t, wc, wfID, map[string]any{"topic": "make the short palm-tree video"}, 600000)
+	if status != "completed" {
+		t.Fatalf("managed video workflow must complete through the managed viewer: status=%s nodes=%s", status, nodes)
+	}
+	nodeText := string(nodes)
+	if !strings.Contains(nodeText, "generate_video") || !strings.Contains(nodeText, "provider") || !strings.Contains(nodeText, "anselm") {
+		t.Fatalf("managed video workflow result must preserve the generation receipt: %s", nodeText)
+	}
+	attID := attIDShape.FindString(nodeText)
+	if attID == "" {
+		t.Fatalf("managed video workflow result must carry a video MediaRef attachment id: %s", nodeText)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsMP4(content.Raw) || len(content.Raw) < 10000 {
+		t.Fatalf("managed video workflow artifact must be real MP4 video: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.
