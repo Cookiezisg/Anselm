@@ -129,6 +129,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-109 | 当前源在 backend race、完整 testend 与 media fixture 修复后通过整仓门禁；前端、文档与 web demo 仍与后端演进保持一致 | workspace verification / cross-layer regression | 根目录 `make verify` → backend ✓、frontend ✓、docs ✓（保留既有 DTO drift warning）、demo ✓、workspace verified | 当前工作树 |
 | 2026-07-29 | EVO-110 | 当前 trigger/workflow 生命周期承重面在全量 race black-box 下保持稳定：多入口 listener、pending firing、deactivate/kill、审批停泊与重启、删除/重绑、版本 pin、结构性 shed 与恢复路径均未出现新的数据竞争或状态回归 | workflow / trigger / lifecycle / black-box race | `go test -race ./scenarios -run '^TestContractWorkflow_' -count=1 -parallel 4 -timeout 20m` → PASS 68.472s | 当前工作树 |
 | 2026-07-29 | EVO-111 | chat、消息重试/分支/子代理、模型配置与 key 生命周期、文档附件、platform contract 和跨 workspace 隔离在 race black-box 下保持稳定；无新的并发错误或持久化状态漂移 | chat / contract / attachment / platform / black-box race | `go test -race ./scenarios -run '^(TestChat|TestContractChat|TestContractDocsAtt|TestPlatform)' -count=1 -parallel 4 -timeout 25m` → PASS 127.588s | 当前工作树 |
+| 2026-07-29 | EVO-112 | 当前已配置 BYOK 的 DeepSeek v4 与 Google Gemini 3 文本路径再次闭合：真实探针成功、模型能力投影可选、产品默认模型保存后首轮均完成；未走受管 gateway，日志不含 key | BYOK-read / provider behavior / text smoke | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_TextProviderSmoke$' -count=1 -timeout 8m -v` → PASS 14.29s（DeepSeek 7.39s；Google 6.90s） | 当前工作树 |
 
 ## 追加格式
 
