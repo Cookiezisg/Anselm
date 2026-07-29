@@ -1858,6 +1858,67 @@ func TestLiveManaged_DefaultChatWithImageAndVideoAttachments(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithTextAndVideoAttachments proves another mixed ordinary upload
+// shape: a labelled text file and an MP4 share one managed user turn, the text evidence remains
+// answerable, and the video lease does not poison the request or mutate either source.
+func TestLiveManaged_DefaultChatWithTextAndVideoAttachments(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-text-video-attachments")
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Video    bool   `json:"video"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" && cap.Video {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatalf("managed default must advertise video before accepting text+video: %+v", caps)
+	}
+	const token = "MIXED_TEXT_VIDEO_7F3A"
+	textBytes := []byte("The companion note contains the only answer token: " + token + ".")
+	textID := uploadAtt(t, wc, "video-note.txt", "text/plain", textBytes)
+	clip := shortVideoFixture(t)
+	if !bytes2IsMP4(clip) || len(clip) > 3*1024*1024 {
+		t.Fatalf("managed MP4 fixture must be valid and within the published 3MiB decoded budget: %d bytes", len(clip))
+	}
+	videoID := uploadAtt(t, wc, "mixed-note.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "managed text and video attachments")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请从文字附件中找出唯一英文 token，只输出该 token；同时确认视频已收到，不要调用工具。",
+		"attachmentIds": []string{textID, videoID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed mixed text-video chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	answer := ""
+	for _, block := range turn.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, token) {
+		t.Fatalf("managed mixed text-video answer must contain the text token, got %q", answer)
+	}
+	for _, tc := range []struct {
+		id   string
+		want []byte
+	}{
+		{id: textID, want: textBytes},
+		{id: videoID, want: clip},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("managed mixed text-video turn must preserve %s: HTTP %d, %d bytes", tc.id, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_DefaultChatWithMultipleImageAttachments proves the common screenshot-comparison
 // shape on the managed route: two distinct image attachments share one user turn and both survive
 // the gateway's media staging/lease path without degrading the conversation.
