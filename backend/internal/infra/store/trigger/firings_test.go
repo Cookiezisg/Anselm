@@ -72,6 +72,9 @@ func TestShedPendingFiringsByWorkflow(t *testing.T) {
 	appendFiring(ctx, "trf_k3", "wf_1", triggerdomain.FiringStarted)
 	appendFiring(ctx, "trf_k4", "wf_2", triggerdomain.FiringPending)
 	appendFiring(ctxWS("ws_2"), "trf_k5", "wf_1", triggerdomain.FiringPending)
+	if n, err := s.CountPendingFiringsByWorkflow(ctx, "wf_1"); err != nil || n != 2 {
+		t.Fatalf("pending count should be workflow/workspace scoped, n=%d err=%v", n, err)
+	}
 
 	n, err := s.ShedPendingFiringsByWorkflow(ctx, "wf_1")
 	if err != nil || n != 2 {
@@ -93,6 +96,9 @@ func TestShedPendingFiringsByWorkflow(t *testing.T) {
 	}
 	if n2, err := s.ShedPendingFiringsByWorkflow(ctx, "wf_1"); err != nil || n2 != 0 {
 		t.Fatalf("kill fence must be idempotent, n=%d err=%v", n2, err)
+	}
+	if n3, err := s.CountPendingFiringsByWorkflow(ctx, "wf_1"); err != nil || n3 != 0 {
+		t.Fatalf("shed rows must leave no pending outstanding count, n=%d err=%v", n3, err)
 	}
 	if rows2, _, err := s.SearchFirings(ctxWS("ws_2"), triggerdomain.FiringFilter{}); err != nil || len(rows2) != 1 || rows2[0].ID != "trf_k5" || rows2[0].Status != triggerdomain.FiringPending {
 		t.Fatalf("kill fence must not cross workspace boundary: rows=%+v err=%v", rows2, err)

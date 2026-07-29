@@ -177,6 +177,19 @@ func (s *Service) DrainFirings(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("schedulerapp.DrainFirings: list pending: %w", err)
 	}
+	// Keep a scope set for lifecycle reconciliation after this batch. Some pending rows settle as
+	// skipped/superseded/shed without ever creating a run, so waiting only for markRunTerminal would
+	// leave a draining workflow stuck forever with no run callback left to flip it inactive.
+	// 为本批次记 scope，供末尾 lifecycle 对账。有些 pending 行会 skipped/superseded/shed、根本不造 run；若只等
+	// markRunTerminal，draining workflow 会因没有 run callback 而永久卡住，无法翻 inactive。
+	type workflowScope struct {
+		workspaceID string
+		workflowID  string
+	}
+	scopes := make(map[workflowScope]struct{}, len(firings))
+	for _, f := range firings {
+		scopes[workflowScope{workspaceID: f.WorkspaceID, workflowID: f.WorkflowID}] = struct{}{}
+	}
 	// Two phases so the overlap policy can SEE siblings: phase 1 decides + claims every firing IN ORDER
 	// (each survivor is committed as a running run before the next firing is decided); phase 2 ENQUEUES
 	// each seeded run onto the Advance worker pool. Deciding and advancing a firing together (the old
@@ -215,6 +228,13 @@ func (s *Service) DrainFirings(ctx context.Context) error {
 	}
 	for _, p := range pending {
 		s.enqueueAdvance(p.fctx, p.runID) // pooled (or inline if no pool) — see pool.go
+	}
+	for scope := range scopes {
+		rctx := ctx
+		if scope.workspaceID != "" {
+			rctx = reqctxpkg.SetWorkspaceID(ctx, scope.workspaceID)
+		}
+		s.afterRunSettled(rctx, scope.workflowID)
 	}
 	return nil
 }

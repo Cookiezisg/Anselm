@@ -262,9 +262,11 @@ func (h *WorkflowHandler) activate(w http.ResponseWriter, r *http.Request, id st
 }
 
 // deactivate backs :deactivate — take the workflow offline gracefully (stop listening; in-flight
-// runs finish). Lands in draining if runs are still flying, else inactive.
+// runs and accepted pending firings finish). Lands in draining while either class is outstanding,
+// else inactive.
 //
-// deactivate 支撑 :deactivate——优雅下线（停监听；在途 run 跑完）。仍有 run 在飞则落 draining，否则 inactive。
+// deactivate 支撑 :deactivate——优雅下线（停监听；在途 run 与已接受 pending firing 排空）。任一 outstanding
+// 工作仍在则落 draining，否则 inactive。
 func (h *WorkflowHandler) deactivate(w http.ResponseWriter, r *http.Request, id string) {
 	wf, err := h.svc.Deactivate(r.Context(), id)
 	if err != nil {

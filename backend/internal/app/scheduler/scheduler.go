@@ -118,6 +118,12 @@ type ApprovalResolver interface {
 // missed 计数为 0 是**真相**、而非搪塞。
 type FiringInbox interface {
 	ListPendingFirings(ctx context.Context, limit int) ([]*triggerdomain.Firing, error)
+	// CountPendingFiringsByWorkflow counts accepted-but-not-yet-claimed events for lifecycle drain
+	// reconciliation. Pending rows are outstanding work during :deactivate even though they are not
+	// flowruns yet; the count is workspace-scoped by the store/ORM context.
+	// CountPendingFiringsByWorkflow 统计已接受但尚未 claim 的 workflow 事件，供 lifecycle 排空对账。
+	// pending 行虽还不是 flowrun，却是 :deactivate 的 outstanding 工作；store/ORM 按 workspace 隔离。
+	CountPendingFiringsByWorkflow(ctx context.Context, workflowID string) (int, error)
 	// CountFirings counts the firings matching a filter (工单⑭) — the "错过 N" KPI card's number.
 	// CountFirings 数匹配 filter 的 firing（工单⑭）——「错过 N」KPI 牌的那个数字。
 	CountFirings(ctx context.Context, filter triggerdomain.FiringFilter) (int, error)

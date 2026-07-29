@@ -776,6 +776,155 @@ func TestContractWorkflow_DeactivateDrainsToInactive(t *testing.T) {
 	})
 }
 
+// B-wf-26/B-trg-20 — graceful deactivate must drain an already-accepted firing without lying about
+// lifecycle. The listener is detached immediately, but a serial pending firing is still outstanding;
+// draining must remain visible until that second run also settles, then flip inactive.
+//
+// B-wf-26/B-trg-20 —— 优雅 deactivate 必须排空已经接受的 firing，不能在 lifecycle 上撒谎。listener 立即摘掉，
+// 但 serial 的 pending firing 仍是 outstanding；第二 run 结算前必须保持 draining，之后才翻 inactive。
+func TestContractWorkflow_DeactivateDrainsAcceptedFiring(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-deactivate-queued")
+
+	trgID := trgCreate(t, wc, "deactivate_queued_hook", "webhook", map[string]any{"path": "deactivate-queued"})
+	apfID := workflowC_apf(t, wc, "deactivate_queued_gate")
+	wfID := workflowC_apfGraph(t, wc, "deactivate_queued_workflow", trgID, apfID,
+		map[string]any{"op": "set_meta", "concurrency": "serial"})
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	fireConcurrencyWebhook(t, srv, trgID, "deactivate-queued", `{"seq":1}`)
+	var firstRunID string
+	harness.Eventually(t, 20000, "deactivate-queued first run parks", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 {
+			return false
+		}
+		firstRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, firstRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+	fireConcurrencyWebhook(t, srv, trgID, "deactivate-queued", `{"seq":2}`)
+	harness.Eventually(t, 20000, "deactivate-queued second firing is pending", func() bool {
+		rows := listConcurrencyFirings(t, wc, trgID)
+		counts := countFiringStatuses(rows)
+		return len(rows) == 2 && counts["started"] == 1 && counts["pending"] == 1
+	})
+
+	var deactivated struct {
+		LifecycleState string `json:"lifecycleState"`
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, &deactivated)
+	if deactivated.LifecycleState != "draining" {
+		t.Fatalf("deactivate with run+accepted firing must land draining, got %q", deactivated.LifecycleState)
+	}
+	if code := workflowC_rawPost(t, srv.BaseURL+"/api/v1/webhooks/"+trgID+"/deactivate-queued", `{"seq":3}`, nil); code != 404 {
+		t.Fatalf("deactivate must detach listener for future events, got %d", code)
+	}
+
+	wc.POST("/api/v1/flowruns/"+firstRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, firstRunID, "completed", 20000)
+	var secondRunID string
+	harness.Eventually(t, 30000, "accepted firing drains as second run", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 || runs[0].ID == firstRunID {
+			return false
+		}
+		secondRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, secondRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+	state, active, _ := workflowC_wfState(t, wc, wfID)
+	if state != "draining" || active {
+		t.Fatalf("accepted pending firing must keep workflow draining until its run settles: state=%q active=%v", state, active)
+	}
+
+	wc.POST("/api/v1/flowruns/"+secondRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, secondRunID, "completed", 20000)
+	harness.Eventually(t, 20000, "deactivate drains all accepted work", func() bool {
+		state, active, _ := workflowC_wfState(t, wc, wfID)
+		return state == "inactive" && !active
+	})
+	finalFirings := listFirings(t, wc, trgID, "limit=50")
+	counts := map[string]int{}
+	for _, firing := range finalFirings {
+		counts[firing.Status]++
+	}
+	if len(finalFirings) != 2 || counts["started"] != 2 {
+		t.Fatalf("deactivate drain must close both accepted firings exactly once, got %+v", finalFirings)
+	}
+}
+
+// B-wf-27/B-trg-21 — a draining pending firing can become structurally invalid after an edit and
+// settle as shed without ever creating a run. That terminal inbox transition must still reconcile
+// draining→inactive; otherwise the workflow has no run callback left to close the lifecycle.
+//
+// B-wf-27/B-trg-21 —— draining 队列里的 pending firing 可能在 edit 后结构性失效，直接 shed、从不造 run。
+// 这条 inbox 终态也必须触发 draining→inactive 对账；否则 workflow 没有 run callback 可收口 lifecycle。
+func TestContractWorkflow_DeactivateShedsInvalidPendingAndSettles(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-deactivate-invalid-pending")
+
+	oldTrigger := trgCreate(t, wc, "deactivate_invalid_old", "webhook", map[string]any{"path": "deactivate-invalid-old"})
+	newTrigger := trgCreate(t, wc, "deactivate_invalid_new", "webhook", map[string]any{"path": "deactivate-invalid-new"})
+	apfID := workflowC_apf(t, wc, "deactivate_invalid_gate")
+	wfID := workflowC_apfGraph(t, wc, "deactivate_invalid_workflow", oldTrigger, apfID,
+		map[string]any{"op": "set_meta", "concurrency": "serial"})
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	fireConcurrencyWebhook(t, srv, oldTrigger, "deactivate-invalid-old", `{"seq":1}`)
+	var firstRunID string
+	harness.Eventually(t, 20000, "deactivate-invalid first run parks", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 {
+			return false
+		}
+		firstRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, firstRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+	fireConcurrencyWebhook(t, srv, oldTrigger, "deactivate-invalid-old", `{"seq":2}`)
+	harness.Eventually(t, 20000, "deactivate-invalid second firing is pending", func() bool {
+		rows := listConcurrencyFirings(t, wc, oldTrigger)
+		counts := countFiringStatuses(rows)
+		return len(rows) == 2 && counts["started"] == 1 && counts["pending"] == 1
+	})
+	var deactivated struct {
+		LifecycleState string `json:"lifecycleState"`
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, &deactivated)
+	if deactivated.LifecycleState != "draining" {
+		t.Fatalf("deactivate with pending firing must land draining, got %q", deactivated.LifecycleState)
+	}
+
+	// Edit while draining so the queued old-trigger event has no entry in the active graph. The
+	// parked first run remains pinned to its old topology, while the queue row must be shed.
+	// draining 期间 edit，使旧 trigger 队列事件在 active 图中没有入口；第一 run 保持旧拓扑 pin，队列行必须 shed。
+	wc.POST("/api/v1/workflows/"+wfID+":edit", map[string]any{"ops": []map[string]any{
+		{"op": "update_node", "id": "start", "patch": map[string]any{"ref": newTrigger}},
+	}}).OK(t, nil)
+	wc.POST("/api/v1/flowruns/"+firstRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, firstRunID, "completed", 20000)
+
+	var finalFirings []firingRow
+	harness.Eventually(t, 20000, "invalid pending firing sheds", func() bool {
+		finalFirings = listFirings(t, wc, oldTrigger, "limit=50")
+		counts := map[string]int{}
+		for _, firing := range finalFirings {
+			counts[firing.Status]++
+		}
+		return len(finalFirings) == 2 && counts["started"] == 1 && counts["shed"] == 1
+	})
+	if rows := workflowC_runsOf(t, wc, wfID, ""); len(rows) != 1 || rows[0].ID != firstRunID {
+		t.Fatalf("invalid pending firing must not create a second run, got %+v", rows)
+	}
+	harness.Eventually(t, 15000, "shed-only drain reconciles inactive", func() bool {
+		state, active, _ := workflowC_wfState(t, wc, wfID)
+		return state == "inactive" && !active
+	})
+}
+
 // ---------------------------------------------------------------------------
 // A-trg-3 + A-trg-4 — :fire 202 单 id 闭环 + activations/firings cursor 往返 + ?status 枚举
 // ---------------------------------------------------------------------------

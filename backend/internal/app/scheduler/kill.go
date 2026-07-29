@@ -249,6 +249,28 @@ func (s *Service) CountRunning(ctx context.Context, workflowID string) (int, err
 	return s.runs.CountRunningByWorkflow(ctx, workflowID)
 }
 
+// CountOutstanding reports all work that a graceful workflow drain still owes: running flowruns
+// plus durable pending firings that have been accepted but not claimed. A pending firing is not a
+// run yet, but dropping it from this count would let :deactivate flip inactive before the event is
+// consumed, making lifecycle state lie about the remaining drain.
+//
+// CountOutstanding 报告优雅 workflow drain 尚欠的全部工作：running flowrun 加上已接受但尚未 claim 的 durable
+// pending firing。pending 还不是 run，却不能从计数剔除；否则 :deactivate 会在事件消费前翻 inactive，lifecycle 撒谎。
+func (s *Service) CountOutstanding(ctx context.Context, workflowID string) (int, error) {
+	running, err := s.runs.CountRunningByWorkflow(ctx, workflowID)
+	if err != nil {
+		return 0, err
+	}
+	if s.inbox == nil {
+		return running, nil
+	}
+	pending, err := s.inbox.CountPendingFiringsByWorkflow(ctx, workflowID)
+	if err != nil {
+		return 0, fmt.Errorf("schedulerapp.CountOutstanding: pending firings: %w", err)
+	}
+	return running + pending, nil
+}
+
 // markRunTerminal flips a run terminal then reconciles its workflow's drain state — the one
 // chokepoint for a run reaching completed/failed (kill/:cancel write cancelled directly via the
 // store: kill's lifecycle flip is the workflow service's, :cancel reconciles inline in CancelRun).
@@ -301,18 +323,19 @@ func (s *Service) markRunTerminal(ctx context.Context, run *flowrundomain.FlowRu
 	return nil
 }
 
-// afterRunSettled flips a draining workflow to inactive once it has no running runs left. Best-effort
-// + nil-tolerant: a count/reconcile error is logged, never failing the run that just settled.
+// afterRunSettled flips a draining workflow to inactive once it has no running runs AND no pending
+// accepted firings left. Best-effort + nil-tolerant: a count/reconcile error is logged, never
+// failing the run that just settled.
 //
-// afterRunSettled 在某 workflow 无 running run 后把 draining 翻 inactive。best-effort + nil-tolerant：
-// count/reconcile 出错只记日志，绝不连累刚结算的 run。
+// afterRunSettled 在某 workflow 既无 running run **又无 pending accepted firing** 后把 draining 翻 inactive。
+// best-effort + nil-tolerant：count/reconcile 出错只记日志，绝不连累刚结算的 run。
 func (s *Service) afterRunSettled(ctx context.Context, workflowID string) {
 	if s.recon == nil {
 		return
 	}
-	n, err := s.runs.CountRunningByWorkflow(ctx, workflowID)
+	n, err := s.CountOutstanding(ctx, workflowID)
 	if err != nil {
-		s.log.Warn("schedulerapp: count running for drain reconcile", zap.String("workflow", workflowID), zap.Error(err))
+		s.log.Warn("schedulerapp: count outstanding for drain reconcile", zap.String("workflow", workflowID), zap.Error(err))
 		return
 	}
 	if n > 0 {

@@ -81,7 +81,7 @@ audience: [human, ai]
 | `POST /workflows` · `GET /workflows` · `GET /workflows/{id}` · `PATCH /workflows/{id}` · `DELETE /workflows/{id}` | CRUD（PATCH=meta 不升版本；列表 `?search`：`name` 大小写不敏感子串过滤；DELETE 先摘入口 listener、取消在途 run，再软删主行/清 relation，activation/firing、flowrun 与 immutable versions 历史保留可审计）（含 `concurrency`: serial\|skip\|buffer_one\|replace\|allow_all——overlap 政策，下一次 drain 生效） |
 | `POST /workflows/{id}:trigger` | 立即跑一次（任何 lifecycle 下可跑），body `{payload?}`（只读 payload），返 flowrun id |
 | `POST /workflows/{id}:stage` | 待命恰一次真实触发后自动撤防（已 active → 409） |
-| `POST /workflows/{id}:activate` / `:deactivate` | 上线（挂监听+active）/ 优雅下线（摘监听+inactive 或 draining） |
+| `POST /workflows/{id}:activate` / `:deactivate` | 上线（挂监听+active）/ 优雅下线（摘监听；running run 与已接受 pending firing 排空前为 draining，完成后 inactive） |
 | `POST /workflows/{id}:kill` | 硬停：摘监听 + 取消全部在途 run + 将已接受但仍 pending 的 firing 记为 `shed` + inactive，返动作后 workflow 实体快照（状态变更动作铁律，非裸计数） |
 | `POST /workflows/{id}:edit` / `:revert` | 图 ops 构建新版本 / 移 active 指针 |
 | `POST /workflows/{id}:capability-check` | ref 解析体检（实体在吗/kind 对吗/port·method 在吗）；返 `problems`（阻断）+ `warnings`（建议——含 F156 未声明输出读：读 `producer.field` 而 producer 声明输出不含 field） |

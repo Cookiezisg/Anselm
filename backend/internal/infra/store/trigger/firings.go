@@ -114,6 +114,23 @@ func (s *Store) ListPendingFirings(ctx context.Context, limit int) ([]*triggerdo
 	return rows, nil
 }
 
+// CountPendingFiringsByWorkflow counts accepted events that have not become flowruns yet. The
+// workflow lifecycle uses this alongside running-run count: :deactivate is a graceful drain, so
+// pending inbox rows keep the workflow in `draining` until the scheduler consumes them.
+//
+// CountPendingFiringsByWorkflow 统计已接受但尚未变成 flowrun 的事件。workflow lifecycle 把它与 running
+// run 数相加：:deactivate 是优雅排空，pending 收件箱行存在时 workflow 必须保持 `draining`，直到 scheduler 消费。
+func (s *Store) CountPendingFiringsByWorkflow(ctx context.Context, workflowID string) (int, error) {
+	n, err := s.frs.
+		WhereEq("workflow_id", workflowID).
+		WhereEq("status", triggerdomain.FiringPending).
+		Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("triggerstore.CountPendingFiringsByWorkflow: %w", err)
+	}
+	return int(n), nil
+}
+
 // firingQuery applies every FiringFilter predicate — the SINGLE place the filter's meaning is
 // expressed, shared by SearchFirings (the page) and CountFirings (the number). The "错过 N" KPI card
 // deep-links to the very list it counts, so a second copy of these predicates would be a bug with a
