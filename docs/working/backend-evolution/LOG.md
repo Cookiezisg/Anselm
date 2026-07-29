@@ -372,6 +372,7 @@ audience: [human, ai]
 | 2026-07-30 | EVO-350 | FRT-14 资格复核文档变更后的受影响门禁通过；文档索引、锚点与 drift 检查保持可用，唯一既有提示仍是未声明同名 Go struct 的 21 个 anchor（非失败） | docs gate / post-model-qualification-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 内容未变化 |
 | 2026-07-30 | EVO-351 | provider 行为类 reprobe 闭合：DeepSeek OpenAI-compatible 文本、Google Gemini 3 文本和 DeepSeek function continuation 均经当前 BYOK key 完成；DeepSeek 续接保留 assistant tool call、函数结果与第二次采样，未走 managed fallback；Google 本轮未遇 429，未形成新 provider 缺陷 | FRT-11 / byok-read / DeepSeek+Google text smoke + DeepSeek tool continuation | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_(TextProviderSmoke|DeepSeekToolContinuation)$' -count=1 -parallel 1 -timeout 20m -v` → PASS 22.658s（DeepSeek 6.74s + 8.79s；Google 6.21s）；key 只从 `.env` 注入、未输出 |
 | 2026-07-30 | EVO-352 | Qwen Omni 多模态组合 reprobe 闭合：图片+WAV 同轮在 `maxDistinctMediaKinds=1` 约束下保留 image 原生 `image_url` 及精确字节，audio 不进入上游原生 part 而以明确 constraint note 降级；两份附件均 98/96,044 bytes 原样回读，未把供应商 400 留给用户 | FRT-02 / byok-read / Qwen Omni image+audio fusion and honest degrade | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_QwenImageAndAudioFusion$' -count=1 -parallel 1 -timeout 15m -v` → PASS 5.67s；复跑 PASS 4.53s；key 只从 `.env` 注入、未输出 |
+| 2026-07-30 | EVO-353 | provider 行为与 Qwen 多模态复核记录后的 docs 门禁通过；frontier/LOG 锚点与追加格式保持有效，既有 DTO drift warning 未变化且不阻断门禁 | docs gate / post-provider-and-qwen-fusion-reprobes | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 内容未变化 |
 
 ## 追加格式
 
