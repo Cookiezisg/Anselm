@@ -851,6 +851,46 @@ func TestLiveManaged_DefaultChatWithImageAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithAudioAttachmentDegrades covers the user-facing boundary for a
+// WAV dropped into ordinary Anselm chat. The default managed model deliberately does not advertise
+// chat audio (realtime ASR is a separate proof-bound route), so the attachment must become an
+// honest text note and the turn must still complete; it must never be forwarded as an unsupported
+// native audio part that turns into a gateway 400.
+func TestLiveManaged_DefaultChatWithAudioAttachmentDegrades(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-audio-attachment-degrade")
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Audio    bool   `json:"audio"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			if cap.Audio {
+				t.Fatalf("managed default must not advertise chat audio while realtime ASR remains separate: %+v", cap)
+			}
+			goto capabilityFound
+		}
+	}
+	t.Fatal("managed default capability row anselm-auto not found")
+
+capabilityFound:
+	attID := uploadAtt(t, wc, "voice-note.wav", "audio/wav", harness.MockOpenAIWAV)
+	conv := convCreate(t, wc, "managed audio attachment degrade")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认这个附件请求已收到。不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed chat with unsupported audio attachment must complete via honest degrade: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, harness.MockOpenAIWAV) {
+		t.Fatalf("audio attachment must remain byte-identical after managed degrade: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // shortVideoFixture uses the canonical, SHA-verified multimodal fixture rather than a
 // made-up ftyp header. A caller may reuse EVALS_FIXTURE_DIR, otherwise this opt-in test materializes
 // the fixture into its own temporary directory; the materializer fails loudly if the pinned source
