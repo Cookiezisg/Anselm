@@ -1356,6 +1356,139 @@ func TestContractWorkflow_ApprovalEmptyTimeoutNeverDecides(t *testing.T) {
 	workflowC_waitRunStatus(t, wc, runID, "completed", 20000)
 }
 
+// B-apf-10/B-wf-25 — a parked approval keeps the form version pinned at run birth. Editing the
+// approval to a short timeout/new prompt must not rewrite the durable parked row, its inbox
+// deadline, or the post-restart timeout decision; the human can still decide the original run.
+//
+// B-apf-10/B-wf-25 —— run 起跑时钉死 approval 版本。停泊后把表单改成短 timeout/新 prompt 不能改写
+// durable parked 行、收件箱 deadline 或重启后的超时语义；原 run 仍可按旧版本等人决策。
+func TestContractWorkflow_ApprovalPinnedAcrossEditAndRestart(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "apvc-pinned-restart")
+
+	apfID := wc.POST("/api/v1/approvals", map[string]any{
+		"name": "pinned_restart_gate", "template": "v1 approval prompt",
+		"timeout": "30d", "timeoutBehavior": "reject",
+	}).Field(t, "id")
+	var apfBefore struct {
+		ActiveVersion struct {
+			ID      string `json:"id"`
+			Version int    `json:"version"`
+		} `json:"activeVersion"`
+	}
+	wc.GET("/api/v1/approvals/"+apfID).OK(t, &apfBefore)
+	if apfBefore.ActiveVersion.Version != 1 || apfBefore.ActiveVersion.ID == "" {
+		t.Fatalf("approval must expose its v1 active version: %+v", apfBefore.ActiveVersion)
+	}
+	v1ID := apfBefore.ActiveVersion.ID
+
+	wfID := workflowC_apfGraph(t, wc, "pinned_restart_workflow", "trg_pinned_restart000", apfID)
+	runID := workflowC_startRun(t, wc, wfID)
+	workflowC_waitParked(t, wc, runID, 15000)
+
+	var before struct {
+		Flowrun struct {
+			Status     string            `json:"status"`
+			PinnedRefs map[string]string `json:"pinnedRefs"`
+		} `json:"flowrun"`
+		Nodes json.RawMessage `json:"nodes"`
+	}
+	wc.GET("/api/v1/flowruns/"+runID).OK(t, &before)
+	if before.Flowrun.Status != "running" || before.Flowrun.PinnedRefs[apfID] != v1ID {
+		t.Fatalf("parked run must pin approval v1: %+v", before.Flowrun)
+	}
+	if !strings.Contains(string(before.Nodes), `"rendered":"v1 approval prompt"`) {
+		t.Fatalf("parked node must render the pinned v1 prompt: %s", before.Nodes)
+	}
+
+	// Change both the prompt and timeout while the run is parked. The active entity is now v2, but
+	// this run must continue to resolve the immutable v1 snapshot.
+	// 停泊期间同时改 prompt 与 timeout。实体 active 已到 v2，但该 run 必须继续解析不可变 v1。
+	wc.POST("/api/v1/approvals/"+apfID+":edit", map[string]any{
+		"template": "v2 approval prompt", "timeout": "1s", "timeoutBehavior": "reject",
+	}).OK(t, nil)
+	var apfAfter struct {
+		ActiveVersion struct {
+			ID      string `json:"id"`
+			Version int    `json:"version"`
+			Timeout string `json:"timeout"`
+		} `json:"activeVersion"`
+	}
+	wc.GET("/api/v1/approvals/"+apfID).OK(t, &apfAfter)
+	if apfAfter.ActiveVersion.Version != 2 || apfAfter.ActiveVersion.ID == v1ID || apfAfter.ActiveVersion.Timeout != "1s" {
+		t.Fatalf("approval edit must activate v2 short timeout: %+v", apfAfter.ActiveVersion)
+	}
+
+	// Inspect the inbox before boot: it must use the parked row's v1 pin, not the entity's v2.
+	// 重启前先看收件箱：必须用 parked 行的 v1 pin，不能偷读实体 v2。
+	assertPinnedApprovalInbox := func(client *harness.Client) time.Time {
+		t.Helper()
+		var inbox struct {
+			Parked []struct {
+				FlowRunID string         `json:"flowrunId"`
+				NodeID    string         `json:"nodeId"`
+				Status    string         `json:"status"`
+				CreatedAt time.Time      `json:"createdAt"`
+				Result    map[string]any `json:"result"`
+				Deadline  *time.Time     `json:"deadline"`
+			} `json:"parked"`
+		}
+		client.GET("/api/v1/flowrun-inbox").OK(t, &inbox)
+		for _, row := range inbox.Parked {
+			if row.FlowRunID == runID && row.NodeID == "hold" {
+				if row.Status != "parked" || row.Deadline == nil {
+					t.Fatalf("pinned approval inbox row must remain parked with a deadline: %+v", row)
+				}
+				if got, _ := row.Result["rendered"].(string); got != "v1 approval prompt" {
+					t.Fatalf("inbox must retain v1 rendered prompt, got %#v", row.Result)
+				}
+				want := row.CreatedAt.Add(30 * 24 * time.Hour)
+				if !row.Deadline.Equal(want) {
+					t.Fatalf("inbox deadline must remain parkedAt+30d, got %v want %v", *row.Deadline, want)
+				}
+				return *row.Deadline
+			}
+		}
+		t.Fatalf("pinned approval must remain visible in inbox: %+v", inbox.Parked)
+		return time.Time{}
+	}
+	oldDeadline := assertPinnedApprovalInbox(wc)
+
+	// Hard boot recovery must preserve the run pin and keep the v2 1s timeout from deciding it.
+	// 硬重启恢复必须保留 run pin，且不能让 v2 的 1s timeout 替它决策。
+	srv.Kill9(t)
+	srv.Restart(t)
+	wc = srv.Client(t).WS(wc.WorkspaceID())
+	for i := 0; i < 14; i++ { // > one scheduler timeout tick, still far below v1's 30d.
+		var got struct {
+			Flowrun struct {
+				Status     string            `json:"status"`
+				PinnedRefs map[string]string `json:"pinnedRefs"`
+			} `json:"flowrun"`
+			Nodes json.RawMessage `json:"nodes"`
+		}
+		r := wc.GET("/api/v1/flowruns/" + runID)
+		if r.Status != 200 || json.Unmarshal(r.Data, &got) != nil {
+			t.Fatalf("recovered pinned run must remain readable: %d %s", r.Status, r.Raw)
+		}
+		if got.Flowrun.Status != "running" || got.Flowrun.PinnedRefs[apfID] != v1ID || !strings.Contains(string(got.Nodes), `"rendered":"v1 approval prompt"`) {
+			t.Fatalf("v2 edit must not leak into recovered v1 run at beat %d: %+v nodes=%s", i, got.Flowrun, got.Nodes)
+		}
+		time.Sleep(500 * time.Millisecond)
+	}
+	if gotDeadline := assertPinnedApprovalInbox(wc); !gotDeadline.Equal(oldDeadline) {
+		t.Fatalf("restart must preserve the same v1 deadline: before=%v after=%v", oldDeadline, gotDeadline)
+	}
+
+	wc.POST("/api/v1/flowruns/"+runID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, runID, "completed", 20000)
+	_, finalNodes := workflowC_run(t, wc, runID)
+	if !strings.Contains(finalNodes, `"decision":"yes"`) || strings.Contains(finalNodes, `"v2 approval prompt"`) {
+		t.Fatalf("human decision must close the pinned v1 approval, not v2: %s", finalNodes)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // B-trg-5 — 引用计数监听：N active workflow 共享一个 listener（0→1 起、1→0 停）
 // ---------------------------------------------------------------------------
