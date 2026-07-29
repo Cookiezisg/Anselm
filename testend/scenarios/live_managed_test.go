@@ -611,6 +611,134 @@ func TestLiveManaged_WorkflowWebhookUserAttachmentFusion(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ChatTriggerWorkflowUserAttachmentFusion proves the user-facing chat entry to
+// the same contract: the default managed dialogue agent discovers trigger_workflow, sends a
+// webhook-shaped payload containing user MediaRefs, and the workflow's managed agent consumes the
+// document/image. This is intentionally not a direct POST to /flowruns: direct HTTP proves the
+// engine, while this path proves chat tool discovery, chat provenance, and the workflow hand-off.
+func TestLiveManaged_ChatTriggerWorkflowUserAttachmentFusion(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-chat-trigger-workflow-attachments")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+
+	var caps []struct {
+		Provider   string `json:"provider"`
+		ModelID    string `json:"modelId"`
+		Vision     bool   `json:"vision"`
+		NativeDocs bool   `json:"nativeDocs"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			if !cap.Vision || cap.NativeDocs {
+				t.Fatalf("managed chat-trigger fusion requires vision plus non-native PDF extraction: %+v", cap)
+			}
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatal("managed default capability row anselm-auto not found")
+	}
+
+	const token = "CHAT_TRIGGER_WORKFLOW_FUSION_5E8A"
+	pdf := buildPDF(token)
+	pdfID := uploadAtt(t, wc, "chat-trigger-workflow-evidence.pdf", "application/pdf", pdf)
+	imageID := uploadAtt(t, wc, "chat-trigger-workflow-evidence.png", "image/png", liveManagedPNG)
+
+	trgID := trgCreate(t, wc, "chat_trigger_workflow_webhook", "webhook", map[string]any{"path": "chat-trigger-workflow"})
+	reader := agCreate(t, wc, map[string]any{
+		"name":        "Managed Chat Trigger Attachment Reader",
+		"description": "reads user-uploaded PDF and image delivered by a chat-triggered workflow",
+		"prompt":      "Input data contains a webhook-delivered user picture and document. Read the attached document, find its only English token, and briefly acknowledge the picture. Output only the token; do not call tools and do not guess.",
+	})
+	wfID := wfCreate(t, wc, "managed_chat_trigger_user_attachment_fusion", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": trgID}},
+		{"op": "add_node", "node": map[string]any{"id": "read", "kind": "agent", "ref": reader,
+			"input": map[string]any{"task": "start.body.task", "picture": "start.body.picture", "document": "start.body.document"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "read"}},
+	})
+
+	convID := convCreate(t, wc, "managed chat trigger workflow attachments")
+	prompt := fmt.Sprintf(`先调用 search_tools 查找名为 trigger_workflow 的工作流工具；等它返回工具 schema 后，只调用 trigger_workflow 一次来运行 workflowId=%s，然后直接告诉我返回的 flowrunId。除这一次 search_tools 外不要调用其他工具。
+trigger_workflow 的 args 必须同时包含 workflowId 和 payload，不能省略 payload。payload 必须严格使用 webhook 入口形状，并保留这两个用户附件引用：
+{"body":{"task":"从 document 找出唯一英文 token，同时确认 picture 已收到。","picture":{"attachmentId":"%s","filename":"chat-trigger-workflow-evidence.png","mime":"image/png","source":"user_upload"},"document":{"attachmentId":"%s","filename":"chat-trigger-workflow-evidence.pdf","mime":"application/pdf","source":"user_upload"}}}
+不要平铺 body 内字段，也不要改写 attachmentId。`, wfID, imageID, pdfID)
+	turn := waitTurn(t, wc, convID, sendMsg(t, wc, convID, prompt), 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("chat trigger_workflow turn must complete: status=%s code=%s message=%s blocks=%+v", turn.Status, turn.ErrorCode, turn.ErrorMessage, turn.Blocks)
+	}
+	searchCalls, triggerCalls, triggerResults := 0, 0, 0
+	for _, block := range turn.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "trigger_workflow":
+			switch block.Type {
+			case "tool_call":
+				triggerCalls++
+			case "tool_result":
+				triggerResults++
+				if !strings.Contains(block.Content, wfID) {
+					t.Fatalf("trigger_workflow result must name workflow %s: %s", wfID, block.Content)
+				}
+			}
+		}
+	}
+	if searchCalls < 1 || triggerCalls != 1 || triggerResults != 1 {
+		t.Fatalf("chat must discover trigger_workflow then persist exactly one call/result: search=%d calls=%d results=%d blocks=%+v", searchCalls, triggerCalls, triggerResults, turn.Blocks)
+	}
+
+	var rows []struct {
+		ID             string `json:"id"`
+		Status         string `json:"status"`
+		Origin         string `json:"origin"`
+		ConversationID string `json:"conversationId"`
+	}
+	harness.Eventually(t, 240000, "chat-triggered workflow run completes", func() bool {
+		r := wc.GET("/api/v1/flowruns?workflowId=" + wfID + "&origin=chat&status=completed")
+		if r.Status != 200 || json.Unmarshal(r.Data, &rows) != nil {
+			return false
+		}
+		return len(rows) == 1 && rows[0].Origin == "chat" && rows[0].ConversationID == convID
+	})
+	if len(rows) != 1 {
+		t.Fatalf("chat trigger_workflow must produce one completed chat run, got %+v", rows)
+	}
+	var detail struct {
+		Flowrun struct {
+			Status         string `json:"status"`
+			Origin         string `json:"origin"`
+			ConversationID string `json:"conversationId"`
+		} `json:"flowrun"`
+		Nodes json.RawMessage `json:"nodes"`
+	}
+	wc.GET("/api/v1/flowruns/"+rows[0].ID).OK(t, &detail)
+	if detail.Flowrun.Status != "completed" || detail.Flowrun.Origin != "chat" || detail.Flowrun.ConversationID != convID {
+		t.Fatalf("chat workflow provenance must remain completed/chat/%s: %+v", convID, detail.Flowrun)
+	}
+	nodeText := string(detail.Nodes)
+	if !strings.Contains(nodeText, token) || !strings.Contains(nodeText, imageID) || !strings.Contains(nodeText, pdfID) {
+		t.Fatalf("chat workflow must preserve payload MediaRefs and answer from extracted PDF: %s", nodeText)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "pdf", id: pdfID, want: pdf},
+		{name: "image", id: imageID, want: liveManagedPNG},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("chat workflow %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.
