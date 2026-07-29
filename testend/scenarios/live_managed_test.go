@@ -328,6 +328,65 @@ func TestLiveManaged_GenerateSpeechArtifact(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_GenerateSpeechDeniedNoSpend proves the danger gate is a real money boundary:
+// denying a managed TTS request must feed a refusal back into the same turn without reaching the
+// gateway, minting an audio attachment, or consuming the speech quota.
+func TestLiveManaged_GenerateSpeechDeniedNoSpend(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-speech-denied")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	var before struct {
+		Limit     int64 `json:"limit"`
+		Used      int64 `json:"used"`
+		Remaining int64 `json:"remaining"`
+		Available bool  `json:"available"`
+	}
+	wc.GET("/api/v1/freetier/quota").OK(t, &before)
+	if !before.Available || before.Limit <= 0 || before.Used < 0 || before.Remaining < 0 || before.Used+before.Remaining > before.Limit {
+		t.Fatalf("managed quota must be coherent before denial: %+v", before)
+	}
+
+	conv := convCreate(t, wc, "managed speech denied")
+	msg := sendMsg(t, wc, conv,
+		"请调用 generate_speech 恰好一次，把‘这次请求将被拒绝’读出来；先等待危险操作审批，不要自行批准。")
+	var pending []struct {
+		ToolCallID string `json:"toolCallId"`
+		Kind       string `json:"kind"`
+		Tool       string `json:"tool"`
+	}
+	harness.Eventually(t, 60000, "generate_speech asks for dangerous approval", func() bool {
+		pending = nil
+		wc.GET("/api/v1/conversations/"+conv+"/interactions").OK(t, &pending)
+		return len(pending) == 1
+	})
+	if pending[0].Kind != "danger" || pending[0].Tool != "generate_speech" {
+		t.Fatalf("generate_speech must pause at its danger gate: %+v", pending[0])
+	}
+	wc.POST("/api/v1/conversations/"+conv+"/interactions/"+pending[0].ToolCallID,
+		map[string]any{"action": "deny"}).OK(t, nil)
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("denied managed speech turn must complete without synthesis: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_speech"`) {
+			t.Fatalf("denied generate_speech must not leave a tool receipt: %s", block.Content)
+		}
+	}
+	var after struct {
+		Limit     int64 `json:"limit"`
+		Used      int64 `json:"used"`
+		Remaining int64 `json:"remaining"`
+		Available bool  `json:"available"`
+	}
+	wc.GET("/api/v1/freetier/quota").OK(t, &after)
+	// The gateway's public monthly counter includes the two dialogue requests (tool proposal +
+	// denial continuation), so it is not a speech-only ledger. A denied request must nevertheless
+	// stay within that two-turn envelope; a TTS execution would add a third managed reservation.
+	if after.Used-before.Used > 2 || after.Limit != before.Limit || after.Remaining != before.Remaining-(after.Used-before.Used) || !after.Available {
+		t.Fatalf("denied speech must not add a managed synthesis reservation: before=%+v after=%+v", before, after)
+	}
+}
+
 // TestLiveManaged_ReadAloudCache is the managed read-aloud acceptance: the first press really
 // synthesizes, the identical second press returns the same attachment from the local cache without
 // consuming another gateway request, and a different text gets a fresh artifact. The gateway quota
