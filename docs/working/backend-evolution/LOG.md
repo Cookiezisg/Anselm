@@ -380,6 +380,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-358 | 聊天侧 workflow 可观测闭环补齐：首轮真实对话经 `search_tools` 发现并调用 `trigger_workflow`，等 run 完成后下一轮再经 `search_tools` 发现并调用 `get_flowrun`；`origin=chat`、`conversationId`、completed 状态、函数节点 marker 与 assistant 最终回答均保留，两次真实复跑通过，未形成稳定后端缺陷 | FRT-04 / managed-read/default / chat → search_tools → trigger_workflow → get_flowrun | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatFlowrunObservability$' -count=1` → PASS 36.44s；复跑 PASS 35.628s；无 provider secret |
 
+| 2026-07-30 | EVO-359 | 聊天 FlowRun 可观测场景加入后的 backend 全量黑盒回归闭合；既有 chat、agent/subagent、workflow/trigger（含 chat 触发）、附件发现/抽取/inspect、多模态、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-chat-flowrun-observability | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 300.838s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
