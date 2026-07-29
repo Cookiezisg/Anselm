@@ -1189,6 +1189,43 @@ func TestLiveManaged_InspectMediaTextQuery(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_InspectMediaTextPage proves the document/page branch returns a compact
+// extracted page through the managed tool loop, preserving page and limit intent.
+func TestLiveManaged_InspectMediaTextPage(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-inspect-text-page")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	const token = "INSPECT_PAGE_TOKEN_7F3A"
+	textBytes := []byte("# Page 1\n" + strings.Repeat("first page context\n", 300) + "# Page 2\n" + token + " appears on page two\n" + strings.Repeat("second page bounded context\n", 300))
+	attID := uploadAtt(t, wc, "inspect-page.txt", "text/plain", textBytes)
+	conv := convCreate(t, wc, "managed inspect text page")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 inspect_media 工具检查附件 "+attID+"，question 写‘找到第 2 页 token’，page 写 2，limitChars 写 128，不要调用 read_attachment；工具返回后只回复 token。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed inspect_media text page turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, page, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "inspect_media" || strings.Contains(block.Content, "inspect_media")
+		case "tool_result":
+			page = page || (strings.Contains(block.Content, attID) && strings.Contains(block.Content, token) &&
+				strings.Contains(block.Content, `"mode":"page"`) && strings.Contains(block.Content, `"page":2`) &&
+				strings.Contains(block.Content, `"limitChars":128`) && len(block.Content) < 5000)
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !page || !strings.Contains(answer, token) {
+		t.Fatalf("managed inspect_media must return bounded page/continue: called=%v page=%v answer=%q blocks=%+v", called, page, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, textBytes) {
+		t.Fatalf("inspect_media page must not mutate source text: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_DefaultChatWithPDFAttachment proves the managed model's non-native document
 // route: the default Anselm capability intentionally does not advertise NativeDocs, so a PDF must
 // be extracted in the sandbox and its text made available to the real managed conversation.

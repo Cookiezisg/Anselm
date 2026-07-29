@@ -209,6 +209,13 @@ func TestReadAttachment_IndexAcceptsStringBooleanFromManagedCaller(t *testing.T)
 	}
 }
 
+func TestInspectMedia_ValidateAcceptsStringifiedScalarsFromManagedCaller(t *testing.T) {
+	err := (&InspectMedia{}).ValidateInput([]byte(`{"attachmentId":"att_test","question":"page","page":"2","limitChars":"128","startMs":"100","endMs":"200","tiles":"false"}`))
+	if err != nil {
+		t.Fatalf("stringified inspect scalars should be accepted for managed callers: %v", err)
+	}
+}
+
 func TestReadAttachment_IndexContinuesFromOffset(t *testing.T) {
 	text := strings.Repeat("a", 12) + strings.Repeat("b", 12) + strings.Repeat("c", 12)
 	chunks, truncated, next := chunkAttachmentText(text, 0, 10, 2)
