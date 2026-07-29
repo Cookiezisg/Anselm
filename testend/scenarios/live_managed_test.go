@@ -1196,6 +1196,95 @@ func TestLiveBYOK_OpenAIImageInput(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_OpenAIImageAndUnsupportedAudio proves that a common drag-and-drop combination does
+// not let an image-capable, audio-incapable BYOK model fail the entire turn. The image must remain
+// an exact native part on the recorder wire while the WAV becomes an explicit text note.
+func TestLiveBYOK_OpenAIImageAndUnsupportedAudio(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-openai-image-unsupported-audio"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-byok-image-audio", "key": key, "baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+		Audio    bool   `json:"audio"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "openai" && cap.ModelID == "gpt-4.1-mini" {
+			if !cap.Vision || cap.Audio {
+				t.Fatalf("OpenAI image-only model must expose vision but not chat audio: %+v", cap)
+			}
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Skip("current followed OpenAI catalog does not expose gpt-4.1-mini image-only capability; mixed downgrade reprobe is not constructible")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gpt-4.1-mini"}).OK(t, nil)
+
+	image := liveManagedPNG
+	audio := harness.MockOpenAIWAV
+	imageID := uploadAtt(t, wc, "openai-mixed.png", "image/png", image)
+	audioID := uploadAtt(t, wc, "openai-mixed.wav", "audio/wav", audio)
+	conv := convCreate(t, wc, "OpenAI image and unsupported audio")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认图片已收到，并说明语音附件会如何处理。不要调用工具。",
+		"attachmentIds": []string{imageID, audioID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("OpenAI image+unsupported-audio turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "image", id: imageID, want: image},
+		{name: "audio", id: audioID, want: audio},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("OpenAI mixed %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+
+	imageB64 := base64.StdEncoding.EncodeToString(image)
+	audioB64 := base64.StdEncoding.EncodeToString(audio)
+	seenImage, seenAudio, seenNote := false, false, false
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		seenImage = seenImage || bytes.Contains(call.Body, []byte(`"image_url"`)) && bytes.Contains(call.Body, []byte(imageB64))
+		seenAudio = seenAudio || bytes.Contains(call.Body, []byte(`"input_audio"`)) || bytes.Contains(call.Body, []byte(audioB64))
+		seenNote = seenNote || bytes.Contains(call.Body, []byte("no native audio input"))
+	}
+	if !seenImage || seenAudio || !seenNote {
+		t.Fatalf("OpenAI image+audio wire must keep image native and explain audio downgrade: image=%v audio=%v note=%v chatCalls=%d", seenImage, seenAudio, seenNote, rec.CallsTo("/chat/completions"))
+	}
+}
+
 // TestLiveBYOK_OpenAIDocumentImageReference proves that the document renderer does not leave an
 // anselm://media URL as system-prompt prose on a BYOK route: the fresh conversation must deliver
 // the referenced attachment as the exact native image part on the real OpenAI wire.
