@@ -1858,6 +1858,46 @@ func TestLiveManaged_DefaultChatWithImageAndVideoAttachments(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithMultipleImageAttachments proves the common screenshot-comparison
+// shape on the managed route: two distinct image attachments share one user turn and both survive
+// the gateway's media staging/lease path without degrading the conversation.
+func TestLiveManaged_DefaultChatWithMultipleImageAttachments(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-multiple-image-attachments")
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" && cap.Vision {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatalf("managed default must advertise vision before accepting multiple images: %+v", caps)
+	}
+	firstID := uploadAtt(t, wc, "compare-first.png", "image/png", liveManagedPNG)
+	secondID := uploadAtt(t, wc, "compare-second.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed multiple images")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认两张图片都已收到，不要调用工具。",
+		"attachmentIds": []string{firstID, secondID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed multiple-image turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, id := range []string{firstID, secondID} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+			t.Fatalf("managed image attachment %s must remain byte-identical: HTTP %d, %d bytes", id, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_DocumentImageReference verifies the third media-consumption entry: an image
 // referenced from a document's Markdown must be discovered, expanded out of the system-prompt
 // text into the managed media route, and survive a fresh conversation. A successful direct
