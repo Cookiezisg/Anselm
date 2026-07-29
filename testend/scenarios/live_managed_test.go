@@ -19,6 +19,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"sync"
 	"testing"
@@ -28,6 +29,14 @@ import (
 )
 
 const liveManagedGateway = "https://api.anselm.website/v1"
+
+// receiptField matches a semantic JSON string field inside a tool result. Real models are free to
+// pretty-print the receipt (for example, `"source": "generate_image"`), so acceptance tests must
+// not make whitespace part of the product contract.
+func receiptField(content, key, value string) bool {
+	pattern := `"` + regexp.QuoteMeta(key) + `"\s*:\s*"` + regexp.QuoteMeta(value) + `"`
+	return regexp.MustCompile(pattern).MatchString(content)
+}
 
 // liveManagedPNG is a decoder-valid 32×32 RGB PNG. A 1×1 fixture is below real visual providers'
 // useful-size floor, so it is unsuitable for a production multimodal acceptance.
@@ -136,9 +145,9 @@ func TestLiveManaged_GenerateImageArtifact(t *testing.T) {
 	}
 	count := 0
 	for _, block := range turn.Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_image"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "generate_image") {
 			count++
-			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+			if !receiptField(block.Content, "provider", "anselm") {
 				t.Fatalf("managed image-generation receipt must name anselm: %s", block.Content)
 			}
 		}
@@ -168,23 +177,23 @@ func TestLiveManaged_EditImageArtifact(t *testing.T) {
 			continue
 		}
 		switch {
-		case strings.Contains(block.Content, `"source":"generate_image"`):
+		case receiptField(block.Content, "source", "generate_image"):
 			generateCount++
-			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+			if !receiptField(block.Content, "provider", "anselm") {
 				t.Fatalf("managed generate receipt must name anselm: %s", block.Content)
 			}
 			if generatedID == "" {
 				generatedID = attIDShape.FindString(block.Content)
 			}
-		case strings.Contains(block.Content, `"source":"edit_image"`):
+		case receiptField(block.Content, "source", "edit_image"):
 			editCount++
-			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+			if !receiptField(block.Content, "provider", "anselm") {
 				t.Fatalf("managed edit receipt must name anselm: %s", block.Content)
 			}
 			if editedID == "" {
 				editedID = attIDShape.FindString(block.Content)
 			}
-			if generatedID != "" && !strings.Contains(block.Content, `"sourceAttachmentId":"`+generatedID+`"`) {
+			if generatedID != "" && !receiptField(block.Content, "sourceAttachmentId", generatedID) {
 				t.Fatalf("managed edit receipt must point to generated source %s: %s", generatedID, block.Content)
 			}
 		}
@@ -276,11 +285,11 @@ func TestLiveManaged_SubagentGenerateImageArtifact(t *testing.T) {
 	count := 0
 	var attID string
 	for _, block := range turn.Blocks {
-		if block.Type != "tool_result" || !strings.Contains(block.Content, `"source":"generate_image"`) {
+		if block.Type != "tool_result" || !receiptField(block.Content, "source", "generate_image") {
 			continue
 		}
 		count++
-		if !strings.Contains(block.Content, `"provider":"anselm"`) {
+		if !receiptField(block.Content, "provider", "anselm") {
 			t.Fatalf("subagent generation receipt must name anselm: %s", block.Content)
 		}
 		if attID == "" {
@@ -316,9 +325,9 @@ func TestLiveManaged_GenerateSpeechArtifact(t *testing.T) {
 	}
 	count := 0
 	for _, block := range turn.Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_speech"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "generate_speech") {
 			count++
-			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+			if !receiptField(block.Content, "provider", "anselm") {
 				t.Fatalf("managed speech-generation receipt must name anselm: %s", block.Content)
 			}
 		}
@@ -368,7 +377,7 @@ func TestLiveManaged_GenerateSpeechDeniedNoSpend(t *testing.T) {
 		t.Fatalf("denied managed speech turn must complete without synthesis: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
 	}
 	for _, block := range turn.Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_speech"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "generate_speech") {
 			t.Fatalf("denied generate_speech must not leave a tool receipt: %s", block.Content)
 		}
 	}
@@ -427,7 +436,7 @@ func TestLiveManaged_GenerateVideoDeniedNoSpend(t *testing.T) {
 		t.Fatalf("denied managed video turn must complete without submission: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
 	}
 	for _, block := range turn.Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_video"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "generate_video") {
 			t.Fatalf("denied generate_video must not leave a tool receipt: %s", block.Content)
 		}
 	}
@@ -482,7 +491,7 @@ func TestLiveManaged_GenerateVideoCancelAfterSubmitLeavesNoOrphan(t *testing.T) 
 		t.Fatalf("cancelled managed video turn must be terminal cancelled: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
 	}
 	for _, block := range turn.Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_video"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "generate_video") {
 			t.Fatalf("cancelled submitted video must not leave a local tool receipt: %s", block.Content)
 		}
 	}
@@ -490,7 +499,7 @@ func TestLiveManaged_GenerateVideoCancelAfterSubmitLeavesNoOrphan(t *testing.T) 
 	// terminal and must not later backfill an attachment after the conversation has ended.
 	time.Sleep(3000 * time.Millisecond)
 	for _, block := range waitTurn(t, wc, conv, msg, 1000).Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_video"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "generate_video") {
 			t.Fatalf("cancelled submitted video backfilled a late receipt: %s", block.Content)
 		}
 	}
@@ -692,9 +701,9 @@ func TestLiveManaged_GenerateVideoArtifact(t *testing.T) {
 	}
 	count := 0
 	for _, block := range turn.Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_video"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "generate_video") {
 			count++
-			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+			if !receiptField(block.Content, "provider", "anselm") {
 				t.Fatalf("managed video-generation receipt must name anselm: %s", block.Content)
 			}
 		}
@@ -744,10 +753,10 @@ func TestLiveManaged_AnimateImageArtifact(t *testing.T) {
 	}
 	count := 0
 	for _, block := range turn.Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"animate_image"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "animate_image") {
 			count++
-			if !strings.Contains(block.Content, `"provider":"anselm"`) ||
-				!strings.Contains(block.Content, `"sourceAttachmentId":"`+sourceID+`"`) {
+			if !receiptField(block.Content, "provider", "anselm") ||
+				!receiptField(block.Content, "sourceAttachmentId", sourceID) {
 				t.Fatalf("managed image-animation receipt must name anselm and preserve its source: %s", block.Content)
 			}
 		}
@@ -800,10 +809,10 @@ func TestLiveManaged_AnimateImageArtifactTextOnly(t *testing.T) {
 	}
 	count := 0
 	for _, block := range turn.Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"animate_image"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "animate_image") {
 			count++
-			if !strings.Contains(block.Content, `"provider":"anselm"`) ||
-				!strings.Contains(block.Content, `"sourceAttachmentId":"`+sourceID+`"`) {
+			if !receiptField(block.Content, "provider", "anselm") ||
+				!receiptField(block.Content, "sourceAttachmentId", sourceID) {
 				t.Fatalf("text-only managed image-animation receipt must name anselm and preserve its source: %s", block.Content)
 			}
 		}
@@ -2877,9 +2886,9 @@ func TestLiveHybrid_OpenAIPlansManagedImage(t *testing.T) {
 	attID := attachmentFrom(t, turn, "generate_image")
 	callCount := 0
 	for _, block := range turn.Blocks {
-		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_image"`) {
+		if block.Type == "tool_result" && receiptField(block.Content, "source", "generate_image") {
 			callCount++
-			if !strings.Contains(block.Content, `"provider":"anselm"`) {
+			if !receiptField(block.Content, "provider", "anselm") {
 				t.Fatalf("hybrid generation receipt must name the managed provider, got %s", block.Content)
 			}
 		}
