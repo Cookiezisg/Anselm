@@ -1898,6 +1898,34 @@ func TestLiveManaged_DefaultChatWithMultipleImageAttachments(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DeletedAttachmentDegradesInHistory proves the stale-history boundary: deleting
+// an attachment after one completed turn must make the next turn honest and recoverable, rather
+// than replaying a missing media blob into a gateway 400 or silently poisoning the conversation.
+func TestLiveManaged_DeletedAttachmentDegradesInHistory(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-deleted-attachment-history")
+	attID := uploadAtt(t, wc, "will-delete.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed deleted attachment history")
+	first := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认已收到这张图片，不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	firstTurn := waitTurn(t, wc, conv, first, 180000)
+	if firstTurn.Status != "completed" {
+		t.Fatalf("initial managed image turn must complete before deletion: status=%s code=%s message=%s", firstTurn.Status, firstTurn.ErrorCode, firstTurn.ErrorMessage)
+	}
+	if deleted := wc.DELETE("/api/v1/attachments/" + attID); deleted.Status != 204 {
+		t.Fatalf("attachment delete must return 204, got %d code=%s body=%s", deleted.Status, deleted.Code, deleted.Raw)
+	}
+	if gone := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); gone.Status != 404 {
+		t.Fatalf("deleted attachment content must be unavailable, got HTTP %d", gone.Status)
+	}
+	second := sendMsg(t, wc, conv, "继续对话。请用一句话确认你可以继续回答，即使上一轮图片已被删除。不要调用工具。")
+	secondTurn := waitTurn(t, wc, conv, second, 180000)
+	if secondTurn.Status != "completed" {
+		t.Fatalf("managed follow-up after deleted attachment must complete honestly: status=%s code=%s message=%s", secondTurn.Status, secondTurn.ErrorCode, secondTurn.ErrorMessage)
+	}
+}
+
 // TestLiveManaged_DocumentImageReference verifies the third media-consumption entry: an image
 // referenced from a document's Markdown must be discovered, expanded out of the system-prompt
 // text into the managed media route, and survive a fresh conversation. A successful direct
