@@ -1919,6 +1919,66 @@ func TestLiveManaged_DefaultChatWithTextAndVideoAttachments(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithTextAndUnsupportedAudio proves that a text answer remains
+// available when the same ordinary turn also carries a chat-audio attachment the managed model
+// does not advertise. The unsupported audio must degrade independently and neither source may be
+// rewritten while the gateway assembles the mixed request.
+func TestLiveManaged_DefaultChatWithTextAndUnsupportedAudio(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-text-unsupported-audio")
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Audio    bool   `json:"audio"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			if cap.Audio {
+				t.Fatalf("managed default must not advertise chat audio while realtime ASR remains separate: %+v", cap)
+			}
+			goto capabilityFound
+		}
+	}
+	t.Fatal("managed default capability row anselm-auto not found")
+
+capabilityFound:
+	const token = "MIXED_TEXT_AUDIO_9C2D"
+	textBytes := []byte("The companion note contains the only answer token: " + token + ".")
+	textID := uploadAtt(t, wc, "audio-note.txt", "text/plain", textBytes)
+	audioID := uploadAtt(t, wc, "voice-note.wav", "audio/wav", harness.MockOpenAIWAV)
+	conv := convCreate(t, wc, "managed text and unsupported audio attachments")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请从文字附件中找出唯一英文 token，只输出该 token；同时说明语音附件会如何处理。不要调用工具。",
+		"attachmentIds": []string{textID, audioID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed mixed text-unsupported-audio chat must complete via honest degrade: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	answer := ""
+	for _, block := range turn.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, token) {
+		t.Fatalf("managed mixed text-audio answer must contain the text token, got %q", answer)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "text", id: textID, want: textBytes},
+		{name: "audio", id: audioID, want: harness.MockOpenAIWAV},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("managed mixed %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_DefaultChatWithMultipleImageAttachments proves the common screenshot-comparison
 // shape on the managed route: two distinct image attachments share one user turn and both survive
 // the gateway's media staging/lease path without degrading the conversation.
