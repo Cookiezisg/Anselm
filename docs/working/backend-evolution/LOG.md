@@ -191,6 +191,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-171 | 本轮 provider/multimodal/workflow/read-aloud/subagent 守卫落地后，主仓跨层总门禁仍闭合；后端、前端、文档和 web demo 全绿，API Serve 工作树未被触碰 | workspace verification / post-evolution gate | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；无 EVALS、无 provider secret，工作树 clean | 当前提交 |
 | 2026-07-29 | EVO-172 | OpenAI `gpt-audio` provider-owned bridge 复核闭合：真实 WAV 以原生音频输入进入 BYOK 对话，随后真实 `run_function` 工具续接完成，附件与多请求 continuation 均成立，没有回退到文本占位 | FRT-02 / BYOK-read / OpenAI audio / tool continuation | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIAudioToolContinuation$' -count=1 -parallel 1 -timeout 8m -v` → PASS 12.782s；key 未输出 | 当前提交 |
 | 2026-07-29 | EVO-173 | Qwen-MT chat-only 能力边界复核闭合：真实 probe 成功后，agent invoke 在任何 step/provider 调用前明确失败并保持 0 steps；本轮 capability tools 注入没有把 chat-only 模型误露为 agent 可用 | FRT-10 / BYOK-read / Qwen chat-only / capability honesty | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_QwenChatOnlyAgentRejected$' -count=1 -parallel 1 -timeout 8m -v` → PASS 5.263s；key 未输出 | 当前提交 |
+| 2026-07-29 | EVO-174 | Qwen Omni 图片+音频融合复核闭合：模型的同轮单一媒体类型限制被能力投影诚实执行，图片保留原生 part、音频降级为明确文本注记；回合完成，两件附件（PNG 98 bytes、WAV 96,044 bytes）仍逐字节可读 | FRT-02 / BYOK-read / Qwen Omni / mixed multimodal degradation | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_QwenImageAndAudioFusion$' -count=1 -parallel 1 -timeout 8m -v` → PASS 7.138s；key 未输出 | 当前提交 |
 
 ## 追加格式
 
