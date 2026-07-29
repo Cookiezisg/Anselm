@@ -892,6 +892,47 @@ func TestLiveManaged_DefaultChatWithTextAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithTextAndImageAttachments proves a mixed ordinary upload turn:
+// a text file and an image are projected together in one managed user message, the model can use
+// the text evidence without a tool call, and both original attachment byte streams remain intact.
+func TestLiveManaged_DefaultChatWithTextAndImageAttachments(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-text-image-attachments")
+	const token = "MIXED_TEXT_IMAGE_7F3A"
+	textBytes := []byte("This note accompanies the image. The only answer token is " + token + ".")
+	textID := uploadAtt(t, wc, "mixed-note.txt", "text/plain", textBytes)
+	imageID := uploadAtt(t, wc, "mixed-image.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed text and image attachments")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请从混合附件中找出文本里的唯一英文 token，只输出该 token，不要调用工具。",
+		"attachmentIds": []string{textID, imageID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed mixed text-image chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	answer := ""
+	for _, block := range turn.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, token) {
+		t.Fatalf("managed mixed text-image answer must contain the text token, got %q", answer)
+	}
+	for _, tc := range []struct {
+		id   string
+		want []byte
+	}{
+		{id: textID, want: textBytes},
+		{id: imageID, want: liveManagedPNG},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("managed mixed text-image turn must preserve %s: HTTP %d, %d bytes", tc.id, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_ListAttachments proves the discovery half of the attachment tool contract:
 // the managed model must call list_attachments, receive metadata for every active upload, and
 // continue the same turn without reading or mutating the underlying bytes.
