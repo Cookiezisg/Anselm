@@ -1676,6 +1676,138 @@ func TestContractWorkflow_DeleteCancelsInFlightRunAndKeepsAudit(t *testing.T) {
 	}
 }
 
+// B-wf-16/B-wf-17 — a soft-deleted workflow keeps immutable reads but every mutable/action face
+// must reject the id. This closes the resurrection boundary around :activate/:stage/:edit/:revert,
+// execution verbs, capability-check, PATCH, and :iterate (the latter must not spawn a phantom chat).
+//
+// B-wf-16/B-wf-17 —— workflow 软删后仍可读不可变历史，但所有可变/动作入口都必须拒绝该 id。
+// 覆盖 activate/stage/edit/revert、执行动词、能力检查、PATCH 与 :iterate（不得生成幻影对话）。
+func TestContractWorkflow_DeletedWorkflowRejectsMutationActions(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-workflow-delete-actions")
+
+	trgID := trgCreate(t, wc, "delete_actions_hook", "webhook", map[string]any{"path": "delete-actions"})
+	wfID := workflowC_trgOnly(t, wc, "delete_actions", trgID)
+	// A second immutable version makes :revert exercise a real retained target rather than
+	// failing early on malformed input or an absent version.
+	wc.POST("/api/v1/workflows/"+wfID+":edit", map[string]any{"ops": []map[string]any{
+		{"op": "update_node", "id": "start", "patch": map[string]any{"notes": "v2"}},
+	}}).OK(t, nil)
+	if r := wc.DELETE("/api/v1/workflows/" + wfID); r.Status != 204 {
+		t.Fatalf("delete workflow must 204, got %d %s", r.Status, r.Raw)
+	}
+
+	// Version reads are deliberately retained for audit/replay; the mutation/action surface is not.
+	var versions []struct {
+		Version int `json:"version"`
+	}
+	wc.GET("/api/v1/workflows/"+wfID+"/versions").OK(t, &versions)
+	if len(versions) != 2 {
+		t.Fatalf("deleted workflow must retain two immutable versions, got %+v", versions)
+	}
+	var version struct {
+		Version int `json:"version"`
+	}
+	wc.GET("/api/v1/workflows/"+wfID+"/versions/1").OK(t, &version)
+	if version.Version != 1 {
+		t.Fatalf("deleted workflow version read must remain available, got %+v", version)
+	}
+
+	checks := []struct {
+		name   string
+		method string
+		path   string
+		body   any
+	}{
+		{"patch", "PATCH", "/api/v1/workflows/" + wfID, map[string]any{"description": "must not mutate"}},
+		{"edit", "POST", "/api/v1/workflows/" + wfID + ":edit", map[string]any{"ops": []map[string]any{{"op": "update_node", "id": "start", "patch": map[string]any{"notes": "no"}}}}},
+		{"revert", "POST", "/api/v1/workflows/" + wfID + ":revert", map[string]any{"version": 1}},
+		{"trigger", "POST", "/api/v1/workflows/" + wfID + ":trigger", map[string]any{"payload": map[string]any{"after": "delete"}}},
+		{"stage", "POST", "/api/v1/workflows/" + wfID + ":stage", map[string]any{}},
+		{"activate", "POST", "/api/v1/workflows/" + wfID + ":activate", map[string]any{}},
+		{"deactivate", "POST", "/api/v1/workflows/" + wfID + ":deactivate", map[string]any{}},
+		{"kill", "POST", "/api/v1/workflows/" + wfID + ":kill", map[string]any{}},
+		{"capability-check", "POST", "/api/v1/workflows/" + wfID + ":capability-check", map[string]any{}},
+		{"iterate", "POST", "/api/v1/workflows/" + wfID + ":iterate", map[string]any{"request": "must not spawn"}},
+	}
+	for _, tc := range checks {
+		t.Run(tc.name, func(t *testing.T) {
+			wc.Do(tc.method, tc.path, tc.body).Fail(t, 404, "WORKFLOW_NOT_FOUND")
+		})
+	}
+	if r := wc.DELETE("/api/v1/workflows/" + wfID); r.Status != 404 || r.Code != "WORKFLOW_NOT_FOUND" {
+		t.Fatalf("second delete must stay a not-found no-op, got %d/%s %s", r.Status, r.Code, r.Raw)
+	}
+
+	// The source entity survives, but the deleted workflow never comes back as a listener.
+	var runtime struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}
+	wc.GET("/api/v1/triggers/"+trgID).OK(t, &runtime)
+	if runtime.RefCount != 0 || runtime.Listening {
+		t.Fatalf("action attempts must not resurrect deleted listener, got %+v", runtime)
+	}
+}
+
+// B-wf-18/B-trg-13 — workflow and trigger ids, action verbs, version reads and flowrun lists are
+// workspace-scoped even though ids are globally shaped. A second workspace can neither inspect nor
+// mutate the first workspace's workflow, and sees an empty run projection rather than a foreign row.
+//
+// B-wf-18/B-trg-13 —— workflow/trigger id、动作、版本读取与 flowrun 列表均按 workspace 隔离；第二个
+// workspace 既不能查看/修改第一个的 workflow，也不会在 run 投影里看到外部行。
+func TestContractWorkflow_WorkspaceIsolationAcrossActionsAndHistory(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws1 := c.POST("/api/v1/workspaces", map[string]any{"name": "wfc-workflow-iso-one"}).Field(t, "id")
+	ws2 := c.POST("/api/v1/workspaces", map[string]any{"name": "wfc-workflow-iso-two"}).Field(t, "id")
+	wc1, wc2 := c.WS(ws1), c.WS(ws2)
+
+	trgID := trgCreate(t, wc1, "iso_action_hook", "webhook", map[string]any{"path": "iso-actions"})
+	wfID := workflowC_trgOnly(t, wc1, "iso_action_workflow", trgID)
+	// Keep one run in the owning workspace so the cross-workspace flowrun list has a positive
+	// control to distinguish from a legitimate empty projection.
+	workflowC_startRun(t, wc1, wfID)
+
+	wc2.Do("GET", "/api/v1/workflows/"+wfID, nil).Fail(t, 404, "WORKFLOW_NOT_FOUND")
+	wc2.Do("GET", "/api/v1/triggers/"+trgID, nil).Fail(t, 404, "TRIGGER_NOT_FOUND")
+	if r := wc2.GET("/api/v1/workflows/" + wfID + "/versions"); r.Status != 200 || string(r.Data) != "[]" {
+		t.Fatalf("cross-workspace version history must be an empty projection, got %d %s", r.Status, r.Raw)
+	}
+	if rows := workflowC_runsOf(t, wc2, wfID, ""); len(rows) != 0 {
+		t.Fatalf("cross-workspace flowrun list leaked foreign rows: %+v", rows)
+	}
+
+	for _, tc := range []struct {
+		name   string
+		method string
+		path   string
+		body   any
+		code   string
+	}{
+		{"activate", "POST", "/api/v1/workflows/" + wfID + ":activate", map[string]any{}, "WORKFLOW_NOT_FOUND"},
+		{"stage", "POST", "/api/v1/workflows/" + wfID + ":stage", map[string]any{}, "WORKFLOW_NOT_FOUND"},
+		{"trigger", "POST", "/api/v1/workflows/" + wfID + ":trigger", map[string]any{}, "WORKFLOW_NOT_FOUND"},
+		{"capability-check", "POST", "/api/v1/workflows/" + wfID + ":capability-check", map[string]any{}, "WORKFLOW_NOT_FOUND"},
+		{"delete", "DELETE", "/api/v1/workflows/" + wfID, nil, "WORKFLOW_NOT_FOUND"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			wc2.Do(tc.method, tc.path, tc.body).Fail(t, 404, tc.code)
+		})
+	}
+
+	// The owning workspace remains fully functional after all foreign attempts.
+	state, active, version := workflowC_wfState(t, wc1, wfID)
+	if state != "inactive" || active || version != 1 {
+		t.Fatalf("foreign action attempts changed owning workflow: state=%q active=%v version=%d", state, active, version)
+	}
+	if rows := workflowC_runsOf(t, wc1, wfID, ""); len(rows) != 1 {
+		t.Fatalf("foreign action attempts must not alter owning history, got %+v", rows)
+	}
+}
+
 // ---------------------------------------------------------------------------
 // B-trg-8 — webhook 明文式两载体（X-Webhook-Secret 头 / ?token= 查询）+ signatureHeader 改头名
 // ---------------------------------------------------------------------------
