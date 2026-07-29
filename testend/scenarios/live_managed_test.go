@@ -968,6 +968,157 @@ trigger_workflow 的 args 必须同时包含 workflowId 和 payload，payload �
 	}
 }
 
+// TestLiveManaged_ChatFlowrunApprovalDecision covers the human-in-the-loop workflow seam from
+// chat: one turn starts a run that parks at an approval, a later turn reads the parked node, and a
+// final turn discovers decide_approval and resumes the pinned run into its downstream function.
+func TestLiveManaged_ChatFlowrunApprovalDecision(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-chat-flowrun-approval")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+
+	const marker = "CHAT_FLOWRUN_APPROVAL_C7E4"
+	fnID := fnCreate(t, wc, "chat_flowrun_approval_publish", fmt.Sprintf(`def publish(decision: str) -> dict:
+    return {"marker": "%s", "decision": decision}
+`, marker))
+	apfID := wc.POST("/api/v1/approvals", map[string]any{
+		"name": "chat_flowrun_release_gate", "template": "Approve release {{ input.task }}?", "allowReason": true,
+	}).Field(t, "id")
+	trgID := trgCreate(t, wc, "chat_flowrun_approval_webhook", "webhook", map[string]any{"path": "chat-flowrun-approval"})
+	wfID := wfCreate(t, wc, "managed_chat_flowrun_approval", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": trgID}},
+		{"op": "add_node", "node": map[string]any{"id": "human", "kind": "approval", "ref": apfID,
+			"input": map[string]any{"task": "start.body.task"}}},
+		{"op": "add_node", "node": map[string]any{"id": "publish", "kind": "action", "ref": fnID,
+			"input": map[string]any{"decision": "human.decision"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "human"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e2", "from": "human", "to": "publish", "fromPort": "yes"}},
+	})
+	wc.GET("/api/v1/workflows/"+wfID).OK(t, nil)
+
+	convID := convCreate(t, wc, "managed chat flowrun approval")
+	firstPrompt := fmt.Sprintf(`先调用 search_tools 查找名为 trigger_workflow 的工作流工具；等它返回工具 schema 后，只调用 trigger_workflow 一次来运行 workflowId=%s（必须逐字复制这个 workflowId），然后告诉我返回的 flowrunId。除这一次 search_tools 外不要调用其他工具。
+trigger_workflow 的 args 必须同时包含 workflowId 和 payload，payload 严格使用 webhook 入口形状：{"body":{"task":"release candidate 7"}}。`, wfID)
+	first := waitTurn(t, wc, convID, sendMsg(t, wc, convID, firstPrompt), 300000)
+	if first.Status != "completed" {
+		t.Fatalf("chat approval-trigger turn must complete: status=%s code=%s message=%s blocks=%+v", first.Status, first.ErrorCode, first.ErrorMessage, first.Blocks)
+	}
+	searchCalls, triggerCalls, triggerResults := 0, 0, 0
+	for _, block := range first.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "trigger_workflow":
+			switch block.Type {
+			case "tool_call":
+				triggerCalls++
+			case "tool_result":
+				triggerResults++
+				if !strings.Contains(block.Content, wfID) {
+					t.Fatalf("approval trigger result must name workflow %s: %s", wfID, block.Content)
+				}
+			}
+		}
+	}
+	if searchCalls < 1 || triggerCalls != 1 || triggerResults != 1 {
+		t.Fatalf("approval trigger turn must discover trigger_workflow then persist exactly one call/result: search=%d calls=%d results=%d blocks=%+v", searchCalls, triggerCalls, triggerResults, first.Blocks)
+	}
+
+	var parkedID, parkedNode string
+	harness.Eventually(t, 240000, "chat-triggered approval run parks", func() bool {
+		var inbox struct {
+			Parked []struct {
+				FlowRunID string `json:"flowrunId"`
+				NodeID    string `json:"nodeId"`
+			} `json:"parked"`
+		}
+		r := wc.GET("/api/v1/flowrun-inbox")
+		if r.Status != 200 || json.Unmarshal(r.Data, &inbox) != nil {
+			return false
+		}
+		for _, row := range inbox.Parked {
+			if row.FlowRunID != "" && row.NodeID == "human" {
+				parkedID, parkedNode = row.FlowRunID, row.NodeID
+				return true
+			}
+		}
+		return false
+	})
+	if parkedID == "" || parkedNode != "human" {
+		t.Fatalf("chat trigger must park at human approval node: flowrun=%q node=%q", parkedID, parkedNode)
+	}
+
+	secondPrompt := fmt.Sprintf(`先调用 search_tools 查找名为 get_flowrun 的工具；等它返回工具 schema 后，只调用 get_flowrun 一次，参数必须是精确的 flowrunId=%s。确认节点 %s 的状态为 parked，并告诉我正在等待人工批准；本轮严禁调用 decide_approval 或任何其他工具。`, parkedID, parkedNode)
+	second := waitTurn(t, wc, convID, sendMsg(t, wc, convID, secondPrompt), 300000)
+	if second.Status != "completed" {
+		t.Fatalf("chat parked-observation turn must complete: status=%s code=%s message=%s blocks=%+v", second.Status, second.ErrorCode, second.ErrorMessage, second.Blocks)
+	}
+	searchCalls, getCalls, getResults := 0, 0, 0
+	for _, block := range second.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "get_flowrun":
+			switch block.Type {
+			case "tool_call":
+				getCalls++
+			case "tool_result":
+				getResults++
+				if !strings.Contains(block.Content, parkedID) || !strings.Contains(block.Content, `"status":"parked"`) || !strings.Contains(block.Content, `"nodeId":"human"`) {
+					t.Fatalf("get_flowrun must expose parked run %s at human: %s", parkedID, block.Content)
+				}
+			}
+		case "decide_approval":
+			t.Fatalf("parked-observation turn must not decide approval: blocks=%+v", second.Blocks)
+		}
+	}
+	if searchCalls < 1 || getCalls != 1 || getResults != 1 {
+		t.Fatalf("parked-observation turn must discover get_flowrun exactly once: search=%d calls=%d results=%d blocks=%+v", searchCalls, getCalls, getResults, second.Blocks)
+	}
+
+	thirdPrompt := fmt.Sprintf(`先调用 search_tools 查找名为 decide_approval 的工具；等它返回工具 schema 后，只调用 decide_approval 一次，参数必须精确使用 flowrunId=%s、nodeId=%s、decision=yes、reason="release approved by user"。读取工具返回的完整 run，确认状态为 completed 且 publish 节点结果包含 marker %s；最终答复原样输出 marker。除这一次 search_tools 和这一次 decide_approval 外不要调用其他工具。`, parkedID, parkedNode, marker)
+	third := waitTurn(t, wc, convID, sendMsg(t, wc, convID, thirdPrompt), 300000)
+	if third.Status != "completed" {
+		t.Fatalf("chat approval-decision turn must complete: status=%s code=%s message=%s blocks=%+v", third.Status, third.ErrorCode, third.ErrorMessage, third.Blocks)
+	}
+	searchCalls, decideCalls, decideResults := 0, 0, 0
+	for _, block := range third.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "decide_approval":
+			switch block.Type {
+			case "tool_call":
+				decideCalls++
+			case "tool_result":
+				decideResults++
+				if !strings.Contains(block.Content, parkedID) || !strings.Contains(block.Content, `"status":"completed"`) || !strings.Contains(block.Content, marker) || !strings.Contains(block.Content, `"decision":"yes"`) {
+					t.Fatalf("decide_approval result must complete run %s with marker %s: %s", parkedID, marker, block.Content)
+				}
+			}
+		}
+	}
+	if searchCalls < 1 || decideCalls != 1 || decideResults != 1 {
+		t.Fatalf("approval decision turn must discover decide_approval then persist exactly one call/result: search=%d calls=%d results=%d blocks=%+v", searchCalls, decideCalls, decideResults, third.Blocks)
+	}
+	answer := ""
+	for _, block := range third.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, marker) {
+		t.Fatalf("approval decision must surface downstream marker %s in assistant text, blocks=%+v", marker, third.Blocks)
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.
