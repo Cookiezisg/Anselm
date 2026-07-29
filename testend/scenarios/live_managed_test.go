@@ -911,6 +911,41 @@ func TestLiveManaged_DefaultChatWithPDFAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ReadAttachmentPDF proves the tool-mediated document path separately from the
+// direct attachment projection: the real managed model must call read_attachment for a PDF, the
+// shared extractor must return the token as a tool result, and the parent turn must continue.
+func TestLiveManaged_ReadAttachmentPDF(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-read-attachment-pdf")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	pdf := buildPDF("PDFTOOL_7F3A")
+	attID := uploadAtt(t, wc, "tool-evidence.pdf", "application/pdf", pdf)
+	conv := convCreate(t, wc, "managed read PDF tool")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 read_attachment 工具读取附件 "+attID+"，从 PDF 找出唯一 token，然后只回复这个 token；不要调用其他工具。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed read_attachment PDF turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, result, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || strings.Contains(block.Content, "read_attachment")
+		case "tool_result":
+			result = result || strings.Contains(block.Content, "PDFTOOL_7F3A")
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !result || !strings.Contains(answer, "PDFTOOL_7F3A") {
+		t.Fatalf("managed read_attachment PDF must call/extract/continue: called=%v result=%v answer=%q blocks=%+v", called, result, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, pdf) {
+		t.Fatalf("read_attachment must not mutate the source PDF: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_DefaultChatWithAudioAttachmentDegrades covers the user-facing boundary for a
 // WAV dropped into ordinary Anselm chat. The default managed model deliberately does not advertise
 // chat audio (realtime ASR is a separate proof-bound route), so the attachment must become an
