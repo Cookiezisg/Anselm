@@ -1389,6 +1389,68 @@ func TestLiveManaged_DefaultChatWithPDFAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithPDFAndImageAttachments proves that a non-native PDF's sandbox
+// extraction can coexist with a native vision part in one ordinary managed turn. The extracted
+// document token must remain answerable while the image route completes and neither source changes.
+func TestLiveManaged_DefaultChatWithPDFAndImageAttachments(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-pdf-image-fusion")
+	var caps []struct {
+		Provider   string `json:"provider"`
+		ModelID    string `json:"modelId"`
+		NativeDocs bool   `json:"nativeDocs"`
+		Vision     bool   `json:"vision"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" {
+			if cap.NativeDocs || !cap.Vision {
+				t.Fatalf("managed default must expose vision but keep PDF extraction non-native for mixed input: %+v", cap)
+			}
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatal("managed default capability row anselm-auto not found")
+	}
+
+	pdf := buildPDF("PDF_IMAGE_FUSION_6A4C")
+	pdfID := uploadAtt(t, wc, "fusion-evidence.pdf", "application/pdf", pdf)
+	imageID := uploadAtt(t, wc, "fusion-evidence.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed PDF and image fusion")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请从 PDF 中找出唯一的英文 token，只输出该 token；同时确认图片已收到，不要调用工具。",
+		"attachmentIds": []string{pdfID, imageID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed PDF-image fusion chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	answer := ""
+	for _, block := range turn.Blocks {
+		if block.Type == "text" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, "PDF_IMAGE_FUSION_6A4C") {
+		t.Fatalf("managed PDF-image fusion answer must contain the extracted token, got %q", answer)
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "pdf", id: pdfID, want: pdf},
+		{name: "image", id: imageID, want: liveManagedPNG},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("managed PDF-image %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveManaged_ReadAttachmentPDF proves the tool-mediated document path separately from the
 // direct attachment projection: the real managed model must call read_attachment for a PDF, the
 // shared extractor must return the token as a tool result, and the parent turn must continue.
