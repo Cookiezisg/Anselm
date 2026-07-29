@@ -190,6 +190,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-170 | subagent receipt 守卫修复与本轮 managed/hybrid/provider 真实验收后，完整静态 backend 黑盒矩阵仍无回归：chat、agent/subagent、workflow/trigger、MCP/function/handler、媒体、多模态、取消/重试/崩溃恢复、资源卫生共同通过 | full backend testend regression / post-evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 323.182s`；EVALS 未开启、未注入 provider secret | 当前提交 |
 | 2026-07-29 | EVO-171 | 本轮 provider/multimodal/workflow/read-aloud/subagent 守卫落地后，主仓跨层总门禁仍闭合；后端、前端、文档和 web demo 全绿，API Serve 工作树未被触碰 | workspace verification / post-evolution gate | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；无 EVALS、无 provider secret，工作树 clean | 当前提交 |
 | 2026-07-29 | EVO-172 | OpenAI `gpt-audio` provider-owned bridge 复核闭合：真实 WAV 以原生音频输入进入 BYOK 对话，随后真实 `run_function` 工具续接完成，附件与多请求 continuation 均成立，没有回退到文本占位 | FRT-02 / BYOK-read / OpenAI audio / tool continuation | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIAudioToolContinuation$' -count=1 -parallel 1 -timeout 8m -v` → PASS 12.782s；key 未输出 | 当前提交 |
+| 2026-07-29 | EVO-173 | Qwen-MT chat-only 能力边界复核闭合：真实 probe 成功后，agent invoke 在任何 step/provider 调用前明确失败并保持 0 steps；本轮 capability tools 注入没有把 chat-only 模型误露为 agent 可用 | FRT-10 / BYOK-read / Qwen chat-only / capability honesty | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_QwenChatOnlyAgentRejected$' -count=1 -parallel 1 -timeout 8m -v` → PASS 5.263s；key 未输出 | 当前提交 |
 
 ## 追加格式
 
