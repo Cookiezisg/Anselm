@@ -384,6 +384,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-360 | 聊天 FlowRun 可观测场景、backend 全量回归后的主仓跨层总门禁再次闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-chat-flowrun-observability | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-361 | 聊天失败诊断链路补齐：首轮 `search_tools`→`trigger_workflow` 启动故意失败的 workflow，下一轮 `search_tools`→`search_flowruns(status=failed)`→`get_flowrun` 读取 durable 节点错误；`origin=chat`、`conversationId`、错误 marker 与 assistant 的 failed/失败回答均保留。初次探索因模型偏离精确 workflowId 得到一次 `workflow not found`，增加实体读回与逐字 ID 约束后两次规范复跑通过，未形成稳定后端缺陷 | FRT-04 / FRT-13 / managed-read/default / chat workflow failure diagnosis | 首跑 FAIL 32.03s（模型参数偏离，workflow not found）；修正后 `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatFlowrunFailureDiagnosis$' -count=1` → PASS 48.019s；复跑 PASS 44.959s；无 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

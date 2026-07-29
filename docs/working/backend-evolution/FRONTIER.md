@@ -41,6 +41,8 @@ audience: [human, ai]
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
 
+同日补充失败诊断闭环：首轮触发故意失败的 workflow，下一轮经 `search_tools` 发现 `search_flowruns` 找到 `status=failed` 的 run，再发现 `get_flowrun` 读取节点错误；`origin=chat`、错误 marker 与 assistant 的 failed/失败回答均保留。初次探索曾因模型偏离精确 `workflowId` 得到一次 `workflow not found`，增加实体读回与逐字 ID 约束后两次规范复跑通过，归类为模型参数遵循观察而非稳定后端缺陷。
+
 ## 历史高频 reprobe 组
 
 这些不是“已覆盖所以跳过”。当任一承重面改变时，按组抽取代表路径重测：
