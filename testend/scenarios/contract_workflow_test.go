@@ -1868,6 +1868,183 @@ func TestContractWorkflow_PendingFiringShedsAfterEntryRebind(t *testing.T) {
 	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
 }
 
+// B-wf-23/B-trg-18 — a queued firing follows the active graph pointer across an edit→revert
+// round-trip and a hard restart. The parked first run keeps its original topology pin; the
+// pending second firing is not consumed while the listener is temporarily rebound to the new
+// trigger, then drains exactly once after the old entry is restored.
+//
+// B-wf-23/B-trg-18 —— 排队 firing 穿过 edit→revert 与硬重启仍跟随 active 图指针。第一条停泊 run
+// 保持起跑时的拓扑 pin；监听临时换到新 trigger 期间，第二条 pending 不被错误消费；旧入口恢复后，
+// 重启仍只消费一次并闭合两条 firing/run 审计。
+func TestContractWorkflow_PendingFiringFollowsActiveRevertAcrossRestart(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "wfc-revert-pending"}).OK(t, nil).Field(t, "id")
+	wc := c.WS(wsID)
+
+	oldTrigger := trgCreate(t, wc, "revert_old_trigger", "webhook", map[string]any{"path": "revert-old"})
+	newTrigger := trgCreate(t, wc, "revert_new_trigger", "webhook", map[string]any{"path": "revert-new"})
+	apfID := workflowC_apf(t, wc, "revert_pending_gate")
+	wfID := workflowC_apfGraph(t, wc, "revert_pending_workflow", oldTrigger, apfID,
+		map[string]any{"op": "set_meta", "concurrency": "serial"})
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	fireConcurrencyWebhook(t, srv, oldTrigger, "revert-old", `{"seq":1}`)
+	var firstRunID string
+	harness.Eventually(t, 20000, "revert-pending first run parks", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 {
+			return false
+		}
+		firstRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, firstRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+
+	var firstHeader struct {
+		Flowrun struct {
+			VersionID string `json:"versionId"`
+		} `json:"flowrun"`
+	}
+	wc.GET("/api/v1/flowruns/"+firstRunID).OK(t, &firstHeader)
+	if firstHeader.Flowrun.VersionID == "" {
+		t.Fatalf("parked run must expose its frozen workflow version: %+v", firstHeader.Flowrun)
+	}
+	firstVersionID := firstHeader.Flowrun.VersionID
+
+	fireConcurrencyWebhook(t, srv, oldTrigger, "revert-old", `{"seq":2}`)
+	harness.Eventually(t, 20000, "revert-pending second firing is pending", func() bool {
+		rows := listConcurrencyFirings(t, wc, oldTrigger)
+		counts := countFiringStatuses(rows)
+		return len(rows) == 2 && counts["started"] == 1 && counts["pending"] == 1
+	})
+
+	// Edit the active graph to the new entry, then immediately revert to v1 before the parked
+	// run is decided. Both operations must update the live listener projection, not only the row.
+	// active 图先编辑到新入口，再在停泊 run 结算前回 v1；两次都必须同步真实 listener。
+	wc.POST("/api/v1/workflows/"+wfID+":edit", map[string]any{"ops": []map[string]any{
+		{"op": "update_node", "id": "start", "patch": map[string]any{"ref": newTrigger}},
+	}}).OK(t, nil)
+	state, active, version := workflowC_wfState(t, wc, wfID)
+	if state != "active" || !active || version != 2 {
+		t.Fatalf("active edit must move pointer to v2 without leaving active state: state=%q active=%v version=%d", state, active, version)
+	}
+	var oldRuntime, newRuntime struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}
+	wc.GET("/api/v1/triggers/"+oldTrigger).OK(t, &oldRuntime)
+	wc.GET("/api/v1/triggers/"+newTrigger).OK(t, &newRuntime)
+	if oldRuntime.RefCount != 0 || oldRuntime.Listening || newRuntime.RefCount != 1 || !newRuntime.Listening {
+		t.Fatalf("edit must move listener old→new: old=%+v new=%+v", oldRuntime, newRuntime)
+	}
+
+	var reverted struct {
+		Version int `json:"version"`
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":revert", map[string]any{"version": 1}).OK(t, &reverted)
+	if reverted.Version != 1 {
+		t.Fatalf(":revert must select v1, got %+v", reverted)
+	}
+	state, active, version = workflowC_wfState(t, wc, wfID)
+	if state != "active" || !active || version != 1 {
+		t.Fatalf(":revert must restore v1 while remaining active: state=%q active=%v version=%d", state, active, version)
+	}
+	oldRuntime, newRuntime = struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}{}, struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}{}
+	wc.GET("/api/v1/triggers/"+oldTrigger).OK(t, &oldRuntime)
+	wc.GET("/api/v1/triggers/"+newTrigger).OK(t, &newRuntime)
+	if oldRuntime.RefCount != 1 || !oldRuntime.Listening || newRuntime.RefCount != 0 || newRuntime.Listening {
+		t.Fatalf("revert must move listener new→old: old=%+v new=%+v", oldRuntime, newRuntime)
+	}
+	rows := listConcurrencyFirings(t, wc, oldTrigger)
+	counts := countFiringStatuses(rows)
+	if len(rows) != 2 || counts["started"] != 1 || counts["pending"] != 1 {
+		t.Fatalf("edit→revert must preserve the queued firing: %+v", rows)
+	}
+
+	// Boot must reattach the CURRENT (reverted) graph, preserve the parked/pending inbox, and not
+	// create a duplicate run while rebuilding scheduler state.
+	// 重启必须按当前（已回 v1）图恢复 listener，保留 parked/pending inbox，且不得重复铸造 run。
+	srv.Kill9(t)
+	srv.Restart(t)
+	wc = srv.Client(t).WS(wsID)
+	state, active, version = workflowC_wfState(t, wc, wfID)
+	if state != "active" || !active || version != 1 {
+		t.Fatalf("restart must preserve active reverted workflow: state=%q active=%v version=%d", state, active, version)
+	}
+	oldRuntime, newRuntime = struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}{}, struct {
+		RefCount  int  `json:"refCount"`
+		Listening bool `json:"listening"`
+	}{}
+	wc.GET("/api/v1/triggers/"+oldTrigger).OK(t, &oldRuntime)
+	wc.GET("/api/v1/triggers/"+newTrigger).OK(t, &newRuntime)
+	if oldRuntime.RefCount != 1 || !oldRuntime.Listening || newRuntime.RefCount != 0 || newRuntime.Listening {
+		t.Fatalf("restart must reattach reverted listener only: old=%+v new=%+v", oldRuntime, newRuntime)
+	}
+	rows = listConcurrencyFirings(t, wc, oldTrigger)
+	counts = countFiringStatuses(rows)
+	if len(rows) != 2 || counts["started"] != 1 || counts["pending"] != 1 {
+		t.Fatalf("restart must preserve exactly one pending firing: %+v", rows)
+	}
+	if len(workflowC_runsOf(t, wc, wfID, "")) != 1 {
+		t.Fatalf("restart must not duplicate the parked run")
+	}
+
+	wc.POST("/api/v1/flowruns/"+firstRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, firstRunID, "completed", 20000)
+	var secondRunID, secondVersionID string
+	harness.Eventually(t, 25000, "reverted pending firing starts one run", func() bool {
+		var runs []struct {
+			ID        string `json:"id"`
+			Status    string `json:"status"`
+			VersionID string `json:"versionId"`
+		}
+		wc.GET("/api/v1/flowruns?workflowId="+wfID).OK(t, &runs)
+		if len(runs) != 2 {
+			return false
+		}
+		for _, run := range runs {
+			if run.ID != firstRunID && run.Status == "running" {
+				_, nodes := workflowC_run(t, wc, run.ID)
+				if strings.Contains(nodes, `"parked"`) {
+					secondRunID, secondVersionID = run.ID, run.VersionID
+					return true
+				}
+			}
+		}
+		return false
+	})
+	if secondVersionID != firstVersionID {
+		t.Fatalf("pending firing claimed after revert must pin active v1: first=%q second=%q", firstVersionID, secondVersionID)
+	}
+	wc.POST("/api/v1/flowruns/"+secondRunID+"/approvals/hold:decide", map[string]any{"decision": "yes"}).OK(t, nil)
+	workflowC_waitRunStatus(t, wc, secondRunID, "completed", 20000)
+
+	finalFirings := listFirings(t, wc, oldTrigger, "limit=50")
+	if len(finalFirings) != 2 {
+		t.Fatalf("edit→revert→restart must leave exactly two firing rows, got %+v", finalFirings)
+	}
+	for _, firing := range finalFirings {
+		if firing.Status != "started" || firing.WorkflowID != wfID || firing.FlowrunID == "" {
+			t.Fatalf("every accepted firing must finish started and link its workflow/run: %+v", finalFirings)
+		}
+	}
+	if len(workflowC_runsOf(t, wc, wfID, "completed")) != 2 {
+		t.Fatalf("both reverted serial runs must complete exactly once, got %+v", workflowC_runsOf(t, wc, wfID, ""))
+	}
+	wc.POST("/api/v1/workflows/"+wfID+":deactivate", map[string]any{}).OK(t, nil)
+}
+
 // B-wf-16/B-trg-12 — deleting an active workflow must detach its live trigger listeners without
 // erasing the workflow's durable run/history log. Reusing the workflow name on the same trigger
 // must not inherit a stale listener from the deleted workflow.
