@@ -1350,6 +1350,46 @@ func TestLiveManaged_ReadAttachmentLargeTextIndex(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ReadAttachmentTextPage proves the managed model can follow a bounded page
+// request with an explicit offset/limitChars and receive the unique token without dumping the
+// rest of the attachment.
+func TestLiveManaged_ReadAttachmentTextPage(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-read-attachment-page")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	prefix := strings.Repeat("page prefix line for bounded read\n", 1200)
+	const token = "PAGE_READ_TOKEN_7F3A"
+	textBytes := []byte(prefix + token + " appears at the requested page start\n" + strings.Repeat("page tail line\n", 2500))
+	attID := uploadAtt(t, wc, "page-read.txt", "text/plain", textBytes)
+	conv := convCreate(t, wc, "managed read attachment page")
+	offset := len(prefix)
+	msg := sendMsg(t, wc, conv,
+		"必须调用 read_attachment 工具读取附件 "+attID+"；id 使用该附件，offset 写 "+fmt.Sprint(offset)+"，limitChars 写 128，只返回这个 bounded page；不要调用其他工具。工具返回后只回复找到的 token。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed read_attachment page turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, page, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "read_attachment" || strings.Contains(block.Content, "read_attachment")
+		case "tool_result":
+			page = page || (strings.Contains(block.Content, token) &&
+				strings.Contains(block.Content, fmt.Sprintf("offset=%d", offset)) && strings.Contains(block.Content, "chars=128") &&
+				strings.Contains(block.Content, "totalChars=") && len(block.Content) < 5000)
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !page || !strings.Contains(answer, token) {
+		t.Fatalf("managed read_attachment must return bounded page/continue: called=%v page=%v answer=%q blocks=%+v", called, page, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, textBytes) {
+		t.Fatalf("read_attachment page must not mutate source text: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_DefaultChatWithAudioAttachmentDegrades covers the user-facing boundary for a
 // WAV dropped into ordinary Anselm chat. The default managed model deliberately does not advertise
 // chat audio (realtime ASR is a separate proof-bound route), so the attachment must become an
