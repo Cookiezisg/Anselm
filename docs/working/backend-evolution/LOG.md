@@ -330,6 +330,7 @@ audience: [human, ai]
 | 2026-07-30 | EVO-308 | 多轮媒体历史重投影场景后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-history-reprojection | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 | 2026-07-30 | EVO-309 | managed chat 同一回合混合接收 text 与 2.97MB MP4，模型从文本 part 找到唯一 token，整回合完成且两份源附件字节不变；补齐普通“说明文档+视频”输入 | FRT-01 / managed-read/default / text+video direct fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DefaultChatWithTextAndVideoAttachments$' -count=1 -parallel 1 -timeout 12m -v` → PASS 50.234s；无 provider secret | 当前提交 |
 | 2026-07-30 | EVO-310 | text+video 混合回合加入后的完整 backend 黑盒回归仍闭合；既有对话、agent/subagent、workflow/trigger、MCP/function/handler、附件与多模态、取消/重试/崩溃恢复、资源卫生未受影响 | full backend testend regression / post-text-video-fusion evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 322.377s`；无 provider secret、EVALS 未开启 | 当前提交 |
+| 2026-07-30 | EVO-311 | text+video 混合回合后的主仓跨层总门禁仍闭合；backend、Flutter frontend、docs、web demo 全绿，工作区装配无回归，API Serve 工作树未被触碰 | cross-repo gate / workspace verification / post-text-video-fusion | 根目录 `make verify` → ✓ backend、✓ frontend、✓ docs、✓ demo、✓ workspace verified；未输出 provider secret | 当前提交 |
 
 ## 追加格式
 
