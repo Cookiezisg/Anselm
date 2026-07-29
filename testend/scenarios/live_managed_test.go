@@ -1420,6 +1420,127 @@ func TestLiveBYOK_QwenImageAndAudioFusion(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_ModelSwitchReprojectsHistoryMedia proves a common user action that isolated
+// modality tests miss: send image+video on one BYOK model, switch the conversation's default to a
+// second model, then continue the same thread. History must be re-rendered for the new model's
+// capabilities — the image remains native, unsupported video becomes an explanatory text note,
+// and the old video bytes never leak onto an OpenAI image-only wire.
+func TestLiveBYOK_ModelSwitchReprojectsHistoryMedia(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	qwenKey := os.Getenv("QWEN_API_KEY")
+	openAIKey := os.Getenv("OPENAI_API_KEY")
+	if qwenKey == "" || openAIKey == "" {
+		t.Skip("EVALS_BYOK=1 requires QWEN_API_KEY and OPENAI_API_KEY; key material is never logged")
+	}
+
+	const qwenModel = "qwen3.7-plus"
+	const openAIModel = "gpt-4.1-mini"
+	qwenRec := harness.NewRecorder(t, "https://dashscope-intl.aliyuncs.com")
+	openAIRec := harness.NewRecorder(t, "https://api.openai.com")
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-model-switch-media"}).Field(t, "id")
+	wc := c.WS(wsID)
+	qwenID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "qwen", "displayName": "live-qwen-switch-media", "key": qwenKey,
+		"baseUrl": qwenRec.URL() + "/compatible-mode/v1",
+	}).Field(t, "id")
+	openAIID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-switch-media", "key": openAIKey,
+		"baseUrl": openAIRec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+qwenID+":test", nil).OK(t, nil)
+	wc.POST("/api/v1/api-keys/"+openAIID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+		Video    bool   `json:"video"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	qwenReady, openAIReady := false, false
+	for _, cap := range caps {
+		if cap.APIKeyID == qwenID && cap.Provider == "qwen" && cap.ModelID == qwenModel && cap.Vision && cap.Video {
+			qwenReady = true
+		}
+		if cap.APIKeyID == openAIID && cap.Provider == "openai" && cap.ModelID == openAIModel && cap.Vision && !cap.Video {
+			openAIReady = true
+		}
+	}
+	if !qwenReady || !openAIReady {
+		t.Fatalf("model-switch reprobe needs Qwen image+video and OpenAI image-only capabilities: qwen=%v openai=%v", qwenReady, openAIReady)
+	}
+
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": qwenID, "modelId": qwenModel}).OK(t, nil)
+	image := liveManagedPNG
+	clip := shortVideoFixture(t)
+	if !bytes2IsMP4(clip) || len(clip) > 3*1024*1024 {
+		t.Fatalf("model-switch MP4 fixture must be valid and within the published 3MiB budget: %d bytes", len(clip))
+	}
+	imageID := uploadAtt(t, wc, "switch.png", "image/png", image)
+	videoID := uploadAtt(t, wc, "switch.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "BYOK model switch with media history")
+	first := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认同时收到图片和视频。不要调用工具。",
+		"attachmentIds": []string{imageID, videoID},
+	})
+	firstTurn := waitTurn(t, wc, conv, first, 240000)
+	if firstTurn.Status != "completed" {
+		t.Fatalf("Qwen image+video source turn must complete: status=%s code=%s message=%s", firstTurn.Status, firstTurn.ErrorCode, firstTurn.ErrorMessage)
+	}
+	imageB64 := base64.StdEncoding.EncodeToString(image)
+	videoB64 := base64.StdEncoding.EncodeToString(clip)
+	qwenImage, qwenVideo := false, false
+	for _, call := range qwenRec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		qwenImage = qwenImage || bytes.Contains(call.Body, []byte(`"image_url"`)) && bytes.Contains(call.Body, []byte(imageB64))
+		qwenVideo = qwenVideo || bytes.Contains(call.Body, []byte(`"video_url"`)) && bytes.Contains(call.Body, []byte(videoB64))
+	}
+	if !qwenImage || !qwenVideo {
+		t.Fatalf("source Qwen turn must receive both exact native media parts: image=%v video=%v chatCalls=%d", qwenImage, qwenVideo, qwenRec.CallsTo("/chat/completions"))
+	}
+
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": openAIID, "modelId": openAIModel}).OK(t, nil)
+	second := sendMsg(t, wc, conv, "我刚切换到图片模型，请简短确认仍能继续这个会话。不要调用工具。")
+	secondTurn := waitTurn(t, wc, conv, second, 180000)
+	if secondTurn.Status != "completed" {
+		t.Fatalf("OpenAI continuation after model switch must complete: status=%s code=%s message=%s", secondTurn.Status, secondTurn.ErrorCode, secondTurn.ErrorMessage)
+	}
+	openAIImage, openAIVideo, openAINote := false, false, false
+	for _, call := range openAIRec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		openAIImage = openAIImage || bytes.Contains(call.Body, []byte(`"image_url"`)) && bytes.Contains(call.Body, []byte(imageB64))
+		openAIVideo = openAIVideo || bytes.Contains(call.Body, []byte(`"video_url"`)) || bytes.Contains(call.Body, []byte(videoB64))
+		openAINote = openAINote || bytes.Contains(call.Body, []byte("no native video input"))
+	}
+	if !openAIImage || openAIVideo || !openAINote {
+		t.Fatalf("switched OpenAI wire must keep image native and degrade history video without bytes: image=%v video=%v note=%v chatCalls=%d", openAIImage, openAIVideo, openAINote, openAIRec.CallsTo("/chat/completions"))
+	}
+	for _, tc := range []struct {
+		name string
+		id   string
+		want []byte
+	}{
+		{name: "image", id: imageID, want: image},
+		{name: "video", id: videoID, want: clip},
+	} {
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+tc.id+"/content", "", nil)
+		if content.Status != 200 || !bytes.Equal(content.Raw, tc.want) {
+			t.Fatalf("switched %s attachment must remain byte-identical: HTTP %d, %d bytes", tc.name, content.Status, len(content.Raw))
+		}
+	}
+}
+
 // TestLiveBYOK_QwenChatOnlyAgentRejected proves the user-facing agent boundary for a real
 // chat-only model. The key is probed and selected through the ordinary workspace API, then the
 // agent invocation is rejected before any upstream generation; a text-capable model must remain
