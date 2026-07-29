@@ -392,6 +392,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-364 | 聊天侧 workflow 人在环闭环补齐：首轮 `trigger_workflow` 令 run 在 `human` approval 节点 durable park，第二轮仅 `get_flowrun` 读取 parked 状态，第三轮发现并调用 `decide_approval(yes)`，下游 publish action 完成且 marker/决策/flowrunId 保留；两次真实复跑通过，收尾仅有优雅关停时 search embed provider context-canceled info，无 warning/error 或稳定缺陷 | FRT-13 / managed-read/default / chat → parked approval → decide_approval → downstream action | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatFlowrunApprovalDecision$' -count=1` → PASS 61.424s；复跑 PASS 65.893s；无 provider secret |
 
+| 2026-07-30 | EVO-365 | 聊天 parked approval 场景加入后的 backend 全量黑盒回归闭合；既有 chat、agent/subagent、workflow/trigger（含人在环）、附件发现/抽取/inspect、多模态、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-chat-approval-workflow | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 305.181s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
