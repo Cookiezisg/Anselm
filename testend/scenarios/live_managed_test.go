@@ -940,6 +940,41 @@ func TestLiveManaged_InspectMediaImage(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_InspectMediaImageCropDetail proves the user-facing local-derivative controls
+// survive the managed model boundary: crop and high detail must reach inspect_media, the nested
+// vision helper must inspect only that bounded derivative, and the original bytes remain intact.
+func TestLiveManaged_InspectMediaImageCropDetail(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-inspect-image-crop")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	attID := uploadAtt(t, wc, "inspect-crop.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "managed inspect image crop")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 inspect_media 工具检查附件 "+attID+"，question 写‘描述裁剪区域的主要颜色’，crop 使用归一化 x=0.25、y=0.25、width=0.5、height=0.5，detail 写 high；不要调用 read_attachment。工具返回后用一句话总结。")
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed inspect_media image crop turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, evidence, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "inspect_media" || strings.Contains(block.Content, "inspect_media")
+		case "tool_result":
+			evidence = evidence || (strings.Contains(block.Content, attID) && strings.Contains(block.Content, `"detail":"high"`) &&
+				strings.Contains(block.Content, `"crop"`) && strings.Contains(block.Content, `"answer"`))
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !evidence || strings.TrimSpace(answer) == "" {
+		t.Fatalf("managed inspect_media image crop must preserve crop/detail/continue: called=%v evidence=%v answer=%q blocks=%+v", called, evidence, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+		t.Fatalf("inspect_media crop must not mutate the source image: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_InspectMediaImageTiles proves the large-image escape hatch: the managed model
 // must request tiles=true, receive a compact deterministic tile map without a nested vision call,
 // and continue the outer turn while preserving the original image bytes.
