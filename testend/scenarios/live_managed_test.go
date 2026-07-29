@@ -267,6 +267,63 @@ func TestLiveManaged_WorkflowGenerateImageToViewer(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_WorkflowGenerateSpeechToManagedViewer proves the managed workflow audio seam:
+// the upstream trusted node generates one real WAV, the downstream managed node receives the
+// MediaRef in the same run, and the default chat model completes with an honest audio downgrade
+// instead of attempting an unsupported native audio request or redrawing the artifact.
+func TestLiveManaged_WorkflowGenerateSpeechToManagedViewer(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-workflow-speech")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	var ws struct {
+		DefaultAgent *struct {
+			APIKeyID string `json:"apiKeyId"`
+			ModelID  string `json:"modelId"`
+		} `json:"defaultAgent"`
+	}
+	wc.GET("/api/v1/workspaces/"+wc.WorkspaceID()).OK(t, &ws)
+	if ws.DefaultAgent == nil || ws.DefaultAgent.APIKeyID == "" || ws.DefaultAgent.ModelID == "" {
+		t.Fatalf("managed speech workflow probe requires a ready default agent model: %+v", ws.DefaultAgent)
+	}
+
+	speaker := agCreate(t, wc, map[string]any{
+		"name":        "Managed Workflow Speaker",
+		"description": "generates one managed WAV and hands its receipt to a managed listener",
+		"prompt":      "请调用 generate_speech 恰好一次，把‘海内存知己’读出来；工具成功后把工具 receipt 原样写进最终回答，不要再次调用生成工具。",
+		"tools":       []map[string]any{{"ref": "sys:generate_speech", "name": "generate speech"}},
+	})
+	listener := agCreate(t, wc, map[string]any{
+		"name":        "Managed Workflow Listener",
+		"description": "receives the managed WAV and degrades honestly if native chat audio is unavailable",
+		"prompt":      "用一句简短中文确认你已收到上游音频；如果当前模型不能原生理解音频，请诚实说明。不要调用工具。",
+	})
+	wfID := wfCreate(t, wc, "managed_speech_pipe", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "speak", "kind": "agent", "ref": speaker,
+			"input": map[string]any{"task": "start.topic"}}},
+		{"op": "add_node", "node": map[string]any{"id": "listen", "kind": "agent", "ref": listener,
+			"input": map[string]any{"audio": "speak.text"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "speak"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e2", "from": "speak", "to": "listen"}},
+	})
+
+	_, status, nodes := runAndWait(t, wc, wfID, map[string]any{"topic": "read the short Chinese sentence"}, 360000)
+	if status != "completed" {
+		t.Fatalf("managed speech workflow must complete through honest downstream degrade: status=%s nodes=%s", status, nodes)
+	}
+	nodeText := string(nodes)
+	if !strings.Contains(nodeText, "generate_speech") || !strings.Contains(nodeText, "provider") || !strings.Contains(nodeText, "anselm") {
+		t.Fatalf("managed speech workflow result must preserve the generation receipt: %s", nodeText)
+	}
+	attID := attIDShape.FindString(nodeText)
+	if attID == "" {
+		t.Fatalf("managed speech workflow result must carry an audio MediaRef attachment id: %s", nodeText)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsWAV(content.Raw) || len(content.Raw) < 4000 {
+		t.Fatalf("managed speech workflow artifact must be real WAV audio: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.
