@@ -119,6 +119,18 @@ func TestRankLazy_ScoreOrderAndLimit(t *testing.T) {
 	}
 }
 
+func TestRankLazy_PrefersExactUnderscoredToolNameOverDescriptionMentions(t *testing.T) {
+	lazy := []toolapp.Tool{
+		fakeTool{name: "list_attachments", desc: "List uploaded attachments; use read_attachment for text and document files."},
+		fakeTool{name: "read_attachment", desc: "Read an uploaded attachment by id. Query mode returns bounded search snippets."},
+		fakeTool{name: "search_conversations", desc: "Search conversations and attachment references."},
+	}
+	got := rankLazy(lazy, "read attachment search", 2)
+	if len(got) != 2 || got[0].Name() != "read_attachment" {
+		t.Fatalf("exact read_attachment name should win the discovery query, got %+v", got)
+	}
+}
+
 // TestSearchTools_RanksDynamicMCPTools — F52: a per-request dynamic tool (an MCP server tool from the
 // ctx workspace) is discoverable via search_tools alongside the static lazy set, and is marked
 // discovered so the host then offers it.

@@ -1097,6 +1097,43 @@ func TestLiveManaged_ReadAttachmentPDF(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ReadAttachmentLargeTextQuery proves the bounded search contract on a large
+// text upload: the model must use query mode instead of asking the tool to dump the full body,
+// receive the unique match with total-size metadata, and continue the parent turn.
+func TestLiveManaged_ReadAttachmentLargeTextQuery(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-read-attachment-large-query")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	const token = "LARGE_READ_QUERY_7F3A"
+	textBytes := []byte(strings.Repeat("background context line for bounded attachment search\n", 1800) + token + " appears exactly once near the tail\n" + strings.Repeat("trailing context line\n", 1800))
+	attID := uploadAtt(t, wc, "large-query.txt", "text/plain", textBytes)
+	conv := convCreate(t, wc, "managed large read query")
+	msg := sendMsg(t, wc, conv,
+		"必须调用 read_attachment 工具读取附件 "+attID+"；id 使用该附件，query 精确写 "+token+"，contextChars 写 64，maxMatches 写 1，不要调用其他工具。工具返回后只回复找到的 token。")
+	turn := waitTurn(t, wc, conv, msg, 180000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed large read_attachment turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	called, bounded, answer := false, false, ""
+	for _, block := range turn.Blocks {
+		switch block.Type {
+		case "tool_call":
+			called = called || block.Attrs["tool"] == "read_attachment" || strings.Contains(block.Content, "read_attachment")
+		case "tool_result":
+			bounded = bounded || (strings.Contains(block.Content, "read_attachment search") && strings.Contains(block.Content, token) &&
+				strings.Contains(block.Content, "totalChars=") && len(block.Content) < 5000)
+		case "text":
+			answer += block.Content
+		}
+	}
+	if !called || !bounded || !strings.Contains(answer, token) {
+		t.Fatalf("managed large read_attachment must query/bound/continue: called=%v bounded=%v answer=%q blocks=%+v", called, bounded, answer, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, textBytes) {
+		t.Fatalf("large read_attachment query must not mutate source text: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_DefaultChatWithAudioAttachmentDegrades covers the user-facing boundary for a
 // WAV dropped into ordinary Anselm chat. The default managed model deliberately does not advertise
 // chat audio (realtime ASR is a separate proof-bound route), so the attachment must become an

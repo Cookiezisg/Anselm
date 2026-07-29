@@ -27,7 +27,7 @@ const (
 	readAttachmentMaxQueryChars             = 512
 )
 
-const readAttachmentDescription = `Read an uploaded attachment's content back into the conversation by id (find ids via list_attachments). Text and document files (PDF/Office) are text-extracted. Large text/doc attachments automatically return a compact chunk/page index with offsets and previews instead of body text when called without query, offset, or limitChars; pass index:true explicitly to request the index at any size. Then use query mode or explicit offset/limitChars to fetch only the relevant slice. Page mode limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. Query mode returns bounded snippets around literal matches. Images/audio/video and other binaries return descriptors; use inspect_media for bounded image evidence or audio/video metadata capsules.`
+const readAttachmentDescription = `Read an uploaded attachment by id (find ids via list_attachments). Optional query/contextChars/maxMatches search large text or documents without dumping the body; optional index/offset/limitChars page bounded slices. Text and document files (PDF/Office) are text-extracted. Large text/doc attachments automatically return a compact chunk/page index with offsets and previews when called without query, offset, or limitChars; pass index:true explicitly to request the index at any size. Page mode limitChars defaults to 80000, max 120000; pass offset with the returned nextOffset to continue. Query mode returns bounded snippets around literal matches. Images/audio/video and other binaries return descriptors; use inspect_media for bounded image evidence or audio/video metadata capsules.`
 
 var readAttachmentSchema = json.RawMessage(`{
 	"type": "object",
