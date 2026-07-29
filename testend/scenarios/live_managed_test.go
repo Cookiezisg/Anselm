@@ -935,6 +935,54 @@ func TestLiveManaged_DefaultChatWithVideoAttachment(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_DefaultChatWithImageAndVideoAttachments proves the actual fusion seam rather
+// than two isolated modality probes: one managed Anselm turn receives both a PNG and an MP4, and
+// both originals remain readable after the same route has prepared and consumed them.
+func TestLiveManaged_DefaultChatWithImageAndVideoAttachments(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-image-video-fusion")
+	var caps []struct {
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+		Video    bool   `json:"video"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.Provider == "anselm" && cap.ModelID == "anselm-auto" && cap.Vision && cap.Video {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Fatalf("managed default must advertise image+video fusion before accepting both attachments: %+v", caps)
+	}
+
+	imageID := uploadAtt(t, wc, "fusion.png", "image/png", liveManagedPNG)
+	clip := shortVideoFixture(t)
+	if !bytes2IsMP4(clip) || len(clip) > 3*1024*1024 {
+		t.Fatalf("managed MP4 fixture must be valid and within the published 3MiB decoded budget: %d bytes", len(clip))
+	}
+	videoID := uploadAtt(t, wc, "fusion.mp4", "video/mp4", clip)
+	conv := convCreate(t, wc, "managed image and video fusion")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请简短确认同时收到图片和视频。不要调用工具。",
+		"attachmentIds": []string{imageID, videoID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 240000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed image+video fusion chat must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	image := wc.DoRaw("GET", "/api/v1/attachments/"+imageID+"/content", "", nil)
+	if image.Status != 200 || !bytes.Equal(image.Raw, liveManagedPNG) {
+		t.Fatalf("fused image must survive the managed turn unchanged: HTTP %d, %d bytes", image.Status, len(image.Raw))
+	}
+	video := wc.DoRaw("GET", "/api/v1/attachments/"+videoID+"/content", "", nil)
+	if video.Status != 200 || !bytes.Equal(video.Raw, clip) {
+		t.Fatalf("fused video must survive the managed turn unchanged: HTTP %d, %d bytes", video.Status, len(video.Raw))
+	}
+}
+
 // TestLiveManaged_DocumentImageReference verifies the third media-consumption entry: an image
 // referenced from a document's Markdown must be discovered, expanded out of the system-prompt
 // text into the managed media route, and survive a fresh conversation. A successful direct
