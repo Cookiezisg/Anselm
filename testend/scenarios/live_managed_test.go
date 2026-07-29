@@ -436,6 +436,39 @@ func TestLiveManaged_SubagentGenerateImageArtifact(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_SubagentReadsTextAttachment proves that a parent turn's ordinary text upload
+// survives delegation: the child must find the unique token (using the attachment projection or
+// read_attachment), return it to the parent, and leave the source bytes untouched.
+func TestLiveManaged_SubagentReadsTextAttachment(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-subagent-text-attachment")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 3}}).OK(t, nil)
+	const token = "SUBAGENT_ATTACHMENT_6D91"
+	textBytes := []byte("The delegated task has exactly one answer token: " + token + ".")
+	attID := uploadAtt(t, wc, "subagent-note.txt", "text/plain", textBytes)
+	conv := convCreate(t, wc, "managed subagent text attachment")
+	msg := sendWith(t, wc, conv, map[string]any{
+		"content":       "请派一个 general-purpose subagent。子任务必须从文字附件中找出唯一英文 token，并把 token 原样交回；父回合收到后只用一句简短中文确认，不要调用其他工具。",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, msg, 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed subagent text-attachment turn must complete: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	answer := ""
+	for _, block := range turn.Blocks {
+		if block.Type == "text" || block.Type == "tool_result" {
+			answer += block.Content
+		}
+	}
+	if !strings.Contains(answer, token) {
+		t.Fatalf("managed subagent must return the attachment token to the parent: token=%q blocks=%+v", token, turn.Blocks)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, textBytes) {
+		t.Fatalf("managed subagent text attachment must remain byte-identical: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveManaged_GenerateSpeechArtifact is the managed speech counterpart: the default Anselm
 // dialogue model must call generate_speech once, the gateway's returned bytes must be a real WAV,
 // and the tool receipt must identify the managed provider. The two-step cap bounds paid retries.
