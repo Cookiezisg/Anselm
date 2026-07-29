@@ -414,6 +414,142 @@ func TestLiveHybrid_WorkflowManagedHandlerToOpenAIViewer(t *testing.T) {
 	}
 }
 
+// TestLiveHybrid_WorkflowManagedMCPToOpenAIViewer closes the process-boundary producer in the
+// same current route: a real stdio MCP server returns an image content block, the managed painter
+// preserves its mcp_media receipt, and the BYOK viewer receives the exact collected PNG bytes.
+func TestLiveHybrid_WorkflowManagedMCPToOpenAIViewer(t *testing.T) {
+	if os.Getenv("EVALS_HYBRID") != "1" {
+		t.Skip("set EVALS_HYBRID=1 (and EVALS_MANAGED=1) for the real mixed workflow acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_HYBRID=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	wc := liveManagedWorkspace(t, "live-hybrid-workflow-managed-mcp-to-openai")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+
+	var keys []struct {
+		ID       string `json:"id"`
+		Provider string `json:"provider"`
+	}
+	wc.GET("/api/v1/api-keys").OK(t, &keys)
+	managedKeyID := ""
+	for _, row := range keys {
+		if row.Provider == "anselm" {
+			managedKeyID = row.ID
+			break
+		}
+	}
+	if managedKeyID == "" {
+		t.Fatal("hybrid MCP workflow requires the provisioned managed key")
+	}
+
+	byokKeyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-workflow-mcp-viewer", "key": key,
+		"baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+byokKeyID+":test", nil).OK(t, nil)
+
+	const viewerModel = "gpt-4.1-mini"
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	viewerReady := false
+	for _, cap := range caps {
+		if cap.APIKeyID == byokKeyID && cap.Provider == "openai" && cap.ModelID == viewerModel && cap.Vision {
+			viewerReady = true
+			break
+		}
+	}
+	if !viewerReady {
+		t.Fatalf("MCP workflow viewer requires a real BYOK vision capability: %+v", caps)
+	}
+
+	var ws struct {
+		DefaultAgent *struct {
+			APIKeyID string `json:"apiKeyId"`
+			ModelID  string `json:"modelId"`
+		} `json:"defaultAgent"`
+	}
+	wc.GET("/api/v1/workspaces/"+wc.WorkspaceID()).OK(t, &ws)
+	if ws.DefaultAgent == nil || ws.DefaultAgent.ModelID == "" {
+		t.Fatalf("managed MCP workflow painter requires a default agent model: %+v", ws.DefaultAgent)
+	}
+	managedModel := ws.DefaultAgent.ModelID
+	if ws.DefaultAgent.APIKeyID != managedKeyID {
+		wc.PUT("/api/v1/workspaces/"+wc.WorkspaceID()+"/default-models/agent",
+			map[string]any{"apiKeyId": managedKeyID, "modelId": managedModel}).OK(t, nil)
+	}
+
+	var st mcpStatus
+	wc.PUT("/api/v1/mcp-servers/workflowshots", map[string]any{
+		"description": "returns a picture for the workflow", "command": "python3", "args": []string{writeScriptedMCP(t)},
+	}).OK(t, &st)
+	if st.Status != "ready" {
+		t.Fatalf("workflow MCP server must be ready before agent creation: %+v", st)
+	}
+	painter := agCreate(t, wc, map[string]any{
+		"name":          "Managed MCP Painter",
+		"description":   "calls an MCP snapshot tool and hands its MediaRef to a BYOK viewer",
+		"prompt":        "请调用 mcp__workflowshots__snapshot 恰好一次；工具成功后把工具 receipt 原样写进最终回答，不要再次调用工具。",
+		"tools":         []map[string]any{{"ref": "mcp:workflowshots/snapshot", "name": "workflow snapshot"}},
+		"modelOverride": map[string]any{"apiKeyId": managedKeyID, "modelId": managedModel},
+	})
+	viewer := agCreate(t, wc, map[string]any{
+		"name":        "OpenAI MCP Workflow Viewer",
+		"description": "receives an MCP PNG over a BYOK vision route",
+		"prompt":      "用一句简短中文确认你收到上游 MCP 图像。不要调用工具。",
+		"modelOverride": map[string]any{
+			"apiKeyId": byokKeyID,
+			"modelId":  viewerModel,
+		},
+	})
+	wfID := wfCreate(t, wc, "managed_mcp_to_byok_workflow_media", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "paint", "kind": "agent", "ref": painter,
+			"input": map[string]any{"task": "start.topic"}}},
+		{"op": "add_node", "node": map[string]any{"id": "look", "kind": "agent", "ref": viewer,
+			"input": map[string]any{"picture": "paint.text"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "paint"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e2", "from": "paint", "to": "look"}},
+	})
+
+	_, status, nodes := runAndWait(t, wc, wfID, map[string]any{"topic": "让下游查看 MCP 返回的图片"}, 360000)
+	if status != "completed" {
+		t.Fatalf("managed-MCP-to-BYOK workflow must complete: status=%s nodes=%s", status, nodes)
+	}
+	nodeText := string(nodes)
+	if !strings.Contains(nodeText, "mcp_media") {
+		t.Fatalf("workflow result must preserve the mcp_media producer source: %s", nodeText)
+	}
+	attID := attIDShape.FindString(nodeText)
+	if attID == "" {
+		t.Fatalf("MCP workflow result must carry a MediaRef attachment id: %s", nodeText)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) {
+		t.Fatalf("MCP workflow PNG must round-trip as a real image: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+
+	b64 := base64.StdEncoding.EncodeToString(content.Raw)
+	seen := false
+	for _, dump := range rec.DumpsFor(viewerModel) {
+		if dump.HasImagePart(b64) {
+			seen = true
+			break
+		}
+	}
+	if !seen {
+		t.Fatal("BYOK workflow viewer never received the MCP artifact bytes as a native image part")
+	}
+}
+
 // TestLiveHybrid_WorkflowManagedImageToGoogleViewer is the same ownership boundary through
 // Gemini's native contents/parts dialect. The OpenAI-compatible lane above cannot prove this:
 // Google receives inlineData, puts the model in the path, and has its own request envelope.
