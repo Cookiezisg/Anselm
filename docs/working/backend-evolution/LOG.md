@@ -194,6 +194,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-174 | Qwen Omni 图片+音频融合复核闭合：模型的同轮单一媒体类型限制被能力投影诚实执行，图片保留原生 part、音频降级为明确文本注记；回合完成，两件附件（PNG 98 bytes、WAV 96,044 bytes）仍逐字节可读 | FRT-02 / BYOK-read / Qwen Omni / mixed multimodal degradation | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_QwenImageAndAudioFusion$' -count=1 -parallel 1 -timeout 8m -v` → PASS 7.138s；key 未输出 | 当前提交 |
 | 2026-07-29 | EVO-175 | 同一 BYOK 会话的模型切换 history re-projection 复核闭合：Qwen 首轮接收图片+视频后切到 OpenAI，图片仍走 native `image_url`，视频因新模型能力不足转为明确降级注记且不发送 `video_url`/原始 base64；会话完成，两个附件未被改写 | FRT-02 / BYOK-read / model switch / history media projection | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_ModelSwitchReprojectsHistoryMedia$' -count=1 -parallel 1 -timeout 8m -v` → PASS 15.201s；key 未输出 | 当前提交 |
 | 2026-07-29 | EVO-176 | 默认受管图片+视频同回合融合复核闭合：两件附件均真实进入对话并逐字节回读（PNG 98 bytes、MP4 2,969,360 bytes），回合完成且多附件组合没有退化为上游 400 | FRT-01 / managed-read/default / same-turn multimodal fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_DefaultChatWithImageAndVideoAttachments$' -count=1 -parallel 1 -timeout 8m -v` → PASS 48.082s；无 provider secret | 当前提交 |
+| 2026-07-29 | EVO-177 | OpenAI BYOK 同轮多图复核闭合：两个独立 PNG 均被真实请求按 native image parts 传递，顺序与原始字节保持一致，两个附件均可逐字节回读 | FRT-02 / BYOK-read / OpenAI / multiple images | `set -a; source ../.env; set +e; EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIMultipleImages$' -count=1 -parallel 1 -timeout 8m -v` → PASS 10.642s；key 未输出 | 当前提交 |
 
 ## 追加格式
 
