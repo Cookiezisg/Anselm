@@ -444,6 +444,58 @@ func TestLiveManaged_GenerateVideoDeniedNoSpend(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_GenerateVideoCancelAfterSubmitLeavesNoOrphan covers the opposite side of the
+// danger boundary: once the user approves and the gateway has accepted the paid async job, a
+// conversation cancel must stop the local wait without fabricating a video attachment or receipt.
+// The gateway intentionally keeps the upstream job alive after client cancellation (submission is
+// the billing point), so this is an honest "paid but no local artifact" recovery state, not a claim
+// that cancellation refunds an already-submitted provider job.
+func TestLiveManaged_GenerateVideoCancelAfterSubmitLeavesNoOrphan(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-video-cancel-after-submit")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 2}}).OK(t, nil)
+	conv := convCreate(t, wc, "managed video cancel after submit")
+	sse := wc.Subscribe(t, "messages")
+	msg := sendMsg(t, wc, conv,
+		"请调用 generate_video 恰好一次，生成一段 5 秒横向视频：雨夜街道；先等待危险操作审批。批准后开始生成，我会立刻取消等待。")
+	var pending []struct {
+		ToolCallID string `json:"toolCallId"`
+		Kind       string `json:"kind"`
+		Tool       string `json:"tool"`
+	}
+	harness.Eventually(t, 60000, "generate_video asks for dangerous approval", func() bool {
+		pending = nil
+		wc.GET("/api/v1/conversations/"+conv+"/interactions").OK(t, &pending)
+		return len(pending) == 1
+	})
+	if pending[0].Kind != "danger" || pending[0].Tool != "generate_video" {
+		t.Fatalf("generate_video must pause at its danger gate: %+v", pending[0])
+	}
+	wc.POST("/api/v1/conversations/"+conv+"/interactions/"+pending[0].ToolCallID,
+		map[string]any{"action": "approve"}).OK(t, nil)
+	// This progress line is emitted only after POST /v1/videos/generations returns 202. It is the
+	// product-side evidence that cancellation races with an already-paid gateway job, not the
+	// cheaper no-submit path covered by TestLiveManaged_GenerateVideoDeniedNoSpend.
+	sse.WaitFor(t, 60000, "managed video gateway submission", "submitted to anselm")
+	wc.POST("/api/v1/conversations/"+conv+":cancel", nil).OK(t, nil)
+	turn := waitTurn(t, wc, conv, msg, 120000)
+	if turn.Status != "cancelled" {
+		t.Fatalf("cancelled managed video turn must be terminal cancelled: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_video"`) {
+			t.Fatalf("cancelled submitted video must not leave a local tool receipt: %s", block.Content)
+		}
+	}
+	// Give a fast provider job time to finish on the gateway. The local cancellation must remain
+	// terminal and must not later backfill an attachment after the conversation has ended.
+	time.Sleep(3000 * time.Millisecond)
+	for _, block := range waitTurn(t, wc, conv, msg, 1000).Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, `"source":"generate_video"`) {
+			t.Fatalf("cancelled submitted video backfilled a late receipt: %s", block.Content)
+		}
+	}
+}
+
 // TestLiveManaged_ReadAloudCache is the managed read-aloud acceptance: the first press really
 // synthesizes, the identical second press returns the same attachment from the local cache without
 // consuming another gateway request, and a different text gets a fresh artifact. The gateway quota

@@ -140,6 +140,7 @@ audience: [human, ai]
 | 2026-07-29 | EVO-120 | 异步视频 writer 的危险审批也在提交 gateway job 之前生效：真实 managed `generate_video` 请求被挂起后 deny，同一回合完成、无视频 receipt/附件，monthly quota 只落两次对话请求，没有第三个视频生成 reservation；语音与视频两条不同生成路由共享相同的成本闸语义 | managed-write / video / danger approval / async resource / quota | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_GenerateVideoDeniedNoSpend$' -count=1 -parallel 1 -timeout 15m -v` → PASS 17.37s；quota delta≤2、无 video receipt/attachment；无 provider secret 输出 | 当前工作树 |
 | 2026-07-29 | EVO-121 | read-aloud miss gate 与 managed danger-deny acceptance 落地后，完整黑盒产品面无回归：chat、agent/subagent、workflow/trigger、MCP/function/handler、文档/附件、多模态、媒体准备、取消/重试/崩溃恢复与资源卫生仍全部通过 | full backend testend regression / post-iteration gate | `make testend` → `ok github.com/sunweilin/anselm/testend/scenarios 343.726s`；未注入 provider secret | 当前工作树 |
 | 2026-07-29 | EVO-122 | read-aloud 并发 miss gate 与语音/视频 danger-deny 验收之后，backend 全量 race 仍保持无数据竞争；共同层并发缓存、媒体审批边界与现有全域实现未引入新的 race | full backend race / post-fix concurrency gate | `go test -race ./...` → PASS；未见 race 报告，未注入 provider secret | 当前工作树 |
+| 2026-07-29 | EVO-123 | 已批准且网关返回 202 后取消视频等待，受管对话落为本地 `cancelled` 终态，不晚写 `generate_video` receipt 或附件；提交点之后的上游任务/费用按网关合同保持在服务侧，客户端取消不被伪装成退款 | managed-write / async video / cancellation / orphan prevention | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_GenerateVideoCancelAfterSubmitLeavesNoOrphan$' -count=1 -parallel 1 -timeout 5m -v` → PASS 16.01s；SSE 见 `submitted to anselm`，取消后无 receipt，延迟 3s 仍无晚到附件；未注入 provider secret | 当前工作树 |
 
 ## 追加格式
 
