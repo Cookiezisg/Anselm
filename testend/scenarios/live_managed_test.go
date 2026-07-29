@@ -1362,6 +1362,116 @@ func TestLiveBYOK_OpenAIImageRetryPreservesNativeHistory(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_OpenAIImageEditResendPreservesAttachment covers the other retry branch: editing
+// the user's wording replaces both the user and assistant rows, but the attachment snapshot is
+// deliberately carried to the new user version and rendered again for the real provider.
+//
+// TestLiveBYOK_OpenAIImageEditResendPreservesAttachment 覆盖另一条重试分支：编辑用户文字会替换
+// user+assistant 两行，但附件快照必须带到新 user 版本，并在真实 provider 请求里再次渲染。
+func TestLiveBYOK_OpenAIImageEditResendPreservesAttachment(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK edit-resend acceptance")
+	}
+	key := os.Getenv("OPENAI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires OPENAI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://api.openai.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-openai-image-edit-resend"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "live-openai-byok-image-edit", "key": key,
+		"baseUrl": rec.URL() + "/v1",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Vision   bool   `json:"vision"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	ready := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "openai" && cap.ModelID == "gpt-4.1-mini" && cap.Vision {
+			ready = true
+			break
+		}
+	}
+	if !ready {
+		t.Skip("current followed OpenAI catalog does not expose gpt-4.1-mini vision capability; edit-resend reprobe is not constructible")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gpt-4.1-mini"}).OK(t, nil)
+
+	attID := uploadAtt(t, wc, "edit-resend-input.png", "image/png", liveManagedPNG)
+	conv := convCreate(t, wc, "OpenAI image edit resend")
+	first := sendWith(t, wc, conv, map[string]any{
+		"content":       "ORIGINAL-IMAGE-QUESTION：请简短确认收到图片。不要调用工具。",
+		"attachmentIds": []string{attID},
+	})
+	firstTurn := waitTurn(t, wc, conv, first, 180000)
+	if firstTurn.Status != "completed" {
+		if firstTurn.ErrorCode == "LLM_RATE_LIMITED" {
+			t.Skip("OpenAI provider rate-limited the edit-resend live sample; structured LLM_RATE_LIMITED classification verified")
+		}
+		t.Fatalf("OpenAI image source turn must complete before edit-resend: status=%s code=%s message=%s", firstTurn.Status, firstTurn.ErrorCode, firstTurn.ErrorMessage)
+	}
+
+	editedAssistant := retryPost(t, wc, conv, "EDITED-IMAGE-QUESTION：请改用一句更短的中文确认收到图片。")
+	editedTurn := waitTurn(t, wc, conv, editedAssistant, 180000)
+	if editedTurn.Status != "completed" {
+		if editedTurn.ErrorCode == "LLM_RATE_LIMITED" {
+			t.Skip("OpenAI provider rate-limited the edit-resend continuation; structured LLM_RATE_LIMITED classification verified")
+		}
+		t.Fatalf("OpenAI image edit-resend turn must complete: status=%s code=%s message=%s", editedTurn.Status, editedTurn.ErrorCode, editedTurn.ErrorMessage)
+	}
+
+	msgs := retryList(t, wc, conv)
+	oldQuestion := retryFind(t, msgs, "ORIGINAL-IMAGE-QUESTION：请简短确认收到图片。不要调用工具。")
+	newQuestion := retryFind(t, msgs, "EDITED-IMAGE-QUESTION：请改用一句更短的中文确认收到图片。")
+	if oldQuestion.SupersededBy != newQuestion.ID || newQuestion.retryOf() != oldQuestion.ID {
+		t.Fatalf("edit-resend user version chain must point old↔new: old=%+v new=%+v", oldQuestion, newQuestion)
+	}
+	var oldAnswer, newAnswer retryMsg
+	for _, msg := range msgs {
+		if msg.Role != "assistant" {
+			continue
+		}
+		if msg.retryOf() == "" {
+			oldAnswer = msg
+		} else {
+			newAnswer = msg
+		}
+	}
+	if oldAnswer.ID == "" || newAnswer.ID == "" || newAnswer.ID != editedAssistant || newAnswer.retryOf() != oldAnswer.ID || oldAnswer.SupersededBy != newAnswer.ID {
+		t.Fatalf("edit-resend assistant version chain must point old↔new: old=%+v new=%+v returned=%s", oldAnswer, newAnswer, editedAssistant)
+	}
+
+	encoded := base64.StdEncoding.EncodeToString(liveManagedPNG)
+	chatCalls := 0
+	for _, call := range rec.Calls() {
+		if !strings.Contains(call.Path, "/chat/completions") {
+			continue
+		}
+		chatCalls++
+		if !bytes.Contains(call.Body, []byte(`"image_url"`)) || !bytes.Contains(call.Body, []byte(encoded)) {
+			t.Fatalf("every OpenAI edit-resend request must carry the exact original image part: call=%d bytes=%d", chatCalls, len(call.Body))
+		}
+	}
+	if chatCalls != 2 {
+		t.Fatalf("image source + edit-resend must make exactly two upstream chat requests, got %d", chatCalls)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, liveManagedPNG) {
+		t.Fatalf("edit-resend must leave the source image byte-identical: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestLiveBYOK_OpenAIMultipleImages proves that a same-kind attachment list is not accidentally
 // collapsed to its first item. Both source receipts must survive and both exact image parts must
 // cross the real OpenAI-compatible wire in one turn.
