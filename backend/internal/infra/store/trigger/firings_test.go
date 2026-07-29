@@ -50,6 +50,55 @@ func TestSupersedeAllButNewestPending(t *testing.T) {
 	}
 }
 
+// TestShedPendingFiringsByWorkflow — :kill's durable fence is workflow- and workspace-scoped,
+// idempotent, and leaves already-terminal rows untouched.
+func TestShedPendingFiringsByWorkflow(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	appendFiring := func(ctx context.Context, id, wf, status string) {
+		t.Helper()
+		f := &triggerdomain.Firing{ID: id, TriggerID: "trg_a", WorkflowID: wf, ActivationID: "tra_1", DedupKey: id, Status: status}
+		if _, err := s.AppendFiring(ctx, f); err != nil {
+			t.Fatalf("AppendFiring %s: %v", id, err)
+		}
+		if status != triggerdomain.FiringPending {
+			if err := s.MarkFiringOutcome(ctx, id, status); err != nil {
+				t.Fatalf("MarkFiringOutcome %s: %v", id, err)
+			}
+		}
+	}
+	appendFiring(ctx, "trf_k1", "wf_1", triggerdomain.FiringPending)
+	appendFiring(ctx, "trf_k2", "wf_1", triggerdomain.FiringPending)
+	appendFiring(ctx, "trf_k3", "wf_1", triggerdomain.FiringStarted)
+	appendFiring(ctx, "trf_k4", "wf_2", triggerdomain.FiringPending)
+	appendFiring(ctxWS("ws_2"), "trf_k5", "wf_1", triggerdomain.FiringPending)
+
+	n, err := s.ShedPendingFiringsByWorkflow(ctx, "wf_1")
+	if err != nil || n != 2 {
+		t.Fatalf("kill fence should shed exactly wf_1 pending rows in ws_1, n=%d err=%v", n, err)
+	}
+	rows, _, err := s.SearchFirings(ctx, triggerdomain.FiringFilter{})
+	if err != nil {
+		t.Fatalf("SearchFirings: %v", err)
+	}
+	statuses := map[string]string{}
+	for _, row := range rows {
+		statuses[row.ID] = row.Status
+	}
+	if statuses["trf_k1"] != triggerdomain.FiringShed || statuses["trf_k2"] != triggerdomain.FiringShed {
+		t.Fatalf("wf_1 pending rows must be shed: %v", statuses)
+	}
+	if statuses["trf_k3"] != triggerdomain.FiringStarted || statuses["trf_k4"] != triggerdomain.FiringPending {
+		t.Fatalf("other wf/terminal rows must remain untouched: %v", statuses)
+	}
+	if n2, err := s.ShedPendingFiringsByWorkflow(ctx, "wf_1"); err != nil || n2 != 0 {
+		t.Fatalf("kill fence must be idempotent, n=%d err=%v", n2, err)
+	}
+	if rows2, _, err := s.SearchFirings(ctxWS("ws_2"), triggerdomain.FiringFilter{}); err != nil || len(rows2) != 1 || rows2[0].ID != "trf_k5" || rows2[0].Status != triggerdomain.FiringPending {
+		t.Fatalf("kill fence must not cross workspace boundary: rows=%+v err=%v", rows2, err)
+	}
+}
+
 // TestSearchFirings_FilterAndOrder: the inbox pages newest-first, filters by trigger and
 // status, and stays inside the workspace (D2).
 //

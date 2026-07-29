@@ -205,6 +205,22 @@ func (s *Store) MarkFiringOutcome(ctx context.Context, firingID, status string) 
 	return nil
 }
 
+// ShedPendingFiringsByWorkflow settles every still-pending firing for a workflow as `shed`.
+// It is the durable fence for a hard workflow kill: already-accepted events remain auditable but
+// cannot be drained into a new run after the user has stopped the workflow.
+//
+// ShedPendingFiringsByWorkflow 把 workflow 尚未消费的 pending firing 全部收口为 `shed`。这是 workflow
+// 硬 kill 的耐久闸：已接受事件仍可审计，但用户停掉 workflow 后不能再被 drain 成新 run。
+func (s *Store) ShedPendingFiringsByWorkflow(ctx context.Context, workflowID string) (int64, error) {
+	n, err := s.frs.WhereEq("workflow_id", workflowID).
+		WhereEq("status", triggerdomain.FiringPending).
+		Update(ctx, "status", triggerdomain.FiringShed)
+	if err != nil {
+		return 0, fmt.Errorf("triggerstore.ShedPendingFiringsByWorkflow: %w", err)
+	}
+	return n, nil
+}
+
 // SupersedeAllButNewestPending collapses a workflow's PENDING firings to the latest — buffer_one's
 // "keep only the latest waiting" disposition. It finds the newest pending firing (created_at, then id,
 // DESC for a deterministic same-instant tiebreak) and marks every OTHER pending firing for that

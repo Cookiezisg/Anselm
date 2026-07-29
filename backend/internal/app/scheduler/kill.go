@@ -101,6 +101,18 @@ func (s *Service) Shutdown() {
 // agent / function 立即返回），再把头标 cancelled（first-wins；同一瞬间结束的 run 保留其真实终态）。摘 trigger
 // 监听、翻 lifecycle 是 workflow service 的事（它在 Detach 后调本法）。返被杀 run 数。按 workspace 隔离。
 func (s *Service) KillWorkflow(ctx context.Context, workflowID string) (int, error) {
+	// Fence the durable inbox BEFORE listing/cancelling running runs. Otherwise a pending firing
+	// can observe the first run's cancellation on the next drain tick and seed a fresh run after
+	// :kill has already promised a hard stop. The firing remains in the audit log as neutral `shed`.
+	// 先封住 durable inbox，再列举/取消 running run。否则 pending firing 可能在下一 tick 观察到第一条 run
+	// 已取消，并在 :kill 已承诺硬停之后铸造新 run；行仍留审计但中性落为 `shed`。
+	if s.inbox != nil {
+		if n, err := s.inbox.ShedPendingFiringsByWorkflow(ctx, workflowID); err != nil {
+			return 0, fmt.Errorf("schedulerapp.KillWorkflow: shed pending firings: %w", err)
+		} else if n > 0 {
+			s.log.Info("schedulerapp.KillWorkflow: shed pending firings", zap.String("workflow", workflowID), zap.Int64("count", n))
+		}
+	}
 	runs, err := s.runs.ListRunningByWorkflow(ctx, workflowID)
 	if err != nil {
 		return 0, err

@@ -522,6 +522,68 @@ func TestContractWorkflow_StageOneShotAndKill(t *testing.T) {
 	}
 }
 
+// B-wf-24/B-trg-19 — :kill is a hard execution stop, not merely a listener detach. A firing
+// accepted before the kill but still waiting behind a parked serial run must be settled as neutral
+// `shed`; it must not wake up after the cancelled run disappears and create a post-kill flowrun.
+//
+// B-wf-24/B-trg-19 —— :kill 是执行面的硬停，不只是摘 listener。kill 前已接受、但因 serial 停泊 run
+// 而 pending 的 firing 必须中性收口为 `shed`；不能等被取消的 run 消失后在 kill 之后偷偷铸造新 run。
+func TestContractWorkflow_KillShedsQueuedFiring(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	wc := workflowC_ws(t, srv, "wfc-kill-queued")
+
+	trgID := trgCreate(t, wc, "kill_queued_hook", "webhook", map[string]any{"path": "kill-queued"})
+	apfID := workflowC_apf(t, wc, "kill_queued_gate")
+	wfID := workflowC_apfGraph(t, wc, "kill_queued_wf", trgID, apfID,
+		map[string]any{"op": "set_meta", "concurrency": "serial"})
+	wc.POST("/api/v1/workflows/"+wfID+":activate", map[string]any{}).OK(t, nil)
+
+	fireConcurrencyWebhook(t, srv, trgID, "kill-queued", `{"seq":1}`)
+	var firstRunID string
+	harness.Eventually(t, 20000, "kill-queued first run parks", func() bool {
+		runs := workflowC_runsOf(t, wc, wfID, "running")
+		if len(runs) != 1 {
+			return false
+		}
+		firstRunID = runs[0].ID
+		_, nodes := workflowC_run(t, wc, firstRunID)
+		return strings.Contains(nodes, `"parked"`)
+	})
+	fireConcurrencyWebhook(t, srv, trgID, "kill-queued", `{"seq":2}`)
+	harness.Eventually(t, 20000, "kill-queued second firing is pending", func() bool {
+		rows := listConcurrencyFirings(t, wc, trgID)
+		counts := countFiringStatuses(rows)
+		return len(rows) == 2 && counts["started"] == 1 && counts["pending"] == 1
+	})
+
+	resp := wc.POST("/api/v1/workflows/"+wfID+":kill", map[string]any{})
+	if resp.Status != 200 {
+		t.Fatalf(":kill must 200, got %d %s", resp.Status, resp.Raw)
+	}
+	state, active, _ := workflowC_wfState(t, wc, wfID)
+	if state != "inactive" || active {
+		t.Fatalf(":kill must land inactive before queued firing can drain: state=%q active=%v", state, active)
+	}
+	workflowC_waitRunStatus(t, wc, firstRunID, "cancelled", 20000)
+
+	var finalFirings []firingRow
+	harness.Eventually(t, 15000, "kill sheds queued firing", func() bool {
+		finalFirings = listFirings(t, wc, trgID, "limit=50")
+		counts := map[string]int{}
+		for _, firing := range finalFirings {
+			counts[firing.Status]++
+		}
+		return len(finalFirings) == 2 && counts["started"] == 1 && counts["shed"] == 1
+	})
+	if rows := workflowC_runsOf(t, wc, wfID, ""); len(rows) != 1 || rows[0].ID != firstRunID || rows[0].Status != "cancelled" {
+		t.Fatalf("hard-killed workflow must not create a post-kill run from queued firing, got %+v", rows)
+	}
+	if code := workflowC_rawPost(t, srv.BaseURL+"/api/v1/webhooks/"+trgID+"/kill-queued", `{"seq":3}`, nil); code != 404 {
+		t.Fatalf("killed workflow listener must stay detached, got webhook status %d", code)
+	}
+}
+
 // B-wf-14/B-trg-10 — 多入口 :stage 是“任一入口下一次触发”，而不是每个入口各跑一次。
 // Staging a workflow with two trigger refs arms both sources, but the first fire must consume the
 // single trial-run budget and detach the workflow from every source. Otherwise a second source
