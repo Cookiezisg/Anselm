@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -273,6 +274,68 @@ func TestTrigger_FsnotifyEventReachesWorkflow(t *testing.T) {
 	}
 }
 
+// TestTrigger_FsnotifyFiltersCreateEvents proves the source-side filter vocabulary is enforced
+// before durable reporting: a non-matching extension and a modify event produce no run, while one
+// matching create produces exactly one activation/firing/run.
+//
+// TestTrigger_FsnotifyFiltersCreateEvents 证明 source 侧过滤词汇在 durable report 之前生效：不匹配扩展名
+// 与 modify 事件都不产生 run；一个匹配的 create 恰产生一条 activation/firing/run。
+func TestTrigger_FsnotifyFiltersCreateEvents(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fsnotify-filtering"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	watchDir := t.TempDir()
+	trgID := trgCreate(t, wc, "filtered_file_watch", "fsnotify", map[string]any{
+		"path": watchDir, "pattern": "*.txt", "events": []string{"create"},
+	})
+	wfID, _ := wfWithTrigger(t, wc, "filtered_file_pipe", trgID)
+
+	if err := os.WriteFile(filepath.Join(watchDir, "ignored.log"), []byte("wrong suffix"), 0o644); err != nil {
+		t.Fatalf("create ignored file: %v", err)
+	}
+	time.Sleep(700 * time.Millisecond)
+	if rows := listRunRows(t, wc, "?workflowId="+wfID); len(rows) != 0 {
+		t.Fatalf("pattern-mismatched file must not start a run: %+v", rows)
+	}
+
+	acceptedPath := filepath.Join(watchDir, "accepted.txt")
+	if err := os.WriteFile(acceptedPath, []byte("create"), 0o644); err != nil {
+		t.Fatalf("create accepted file: %v", err)
+	}
+	// This is a modify event, not another create. The trigger's events filter must discard it.
+	// 这是 modify 而非另一个 create，trigger 的 events 过滤必须丢弃它。
+	if err := os.WriteFile(acceptedPath, []byte("modify"), 0o644); err != nil {
+		t.Fatalf("modify accepted file: %v", err)
+	}
+
+	harness.Eventually(t, 30000, "one filtered create reaches the workflow", func() bool {
+		rows := listRunRows(t, wc, "?workflowId="+wfID)
+		if len(rows) != 1 {
+			return false
+		}
+		return rows[0].Status == "completed" && rows[0].Origin == "fsnotify"
+	})
+	time.Sleep(1200 * time.Millisecond)
+	if rows := listRunRows(t, wc, "?workflowId="+wfID); len(rows) != 1 {
+		t.Fatalf("filtered modify/mismatch events must not create a second run: %+v", rows)
+	}
+	var acts []struct {
+		Fired       bool           `json:"fired"`
+		Payload     map[string]any `json:"payload"`
+		FiringCount int            `json:"firingCount"`
+	}
+	wc.GET("/api/v1/triggers/"+trgID+"/activations").OK(t, &acts)
+	if len(acts) != 1 || !acts[0].Fired || acts[0].FiringCount != 1 || acts[0].Payload["eventKind"] != "create" || acts[0].Payload["path"] != acceptedPath {
+		t.Fatalf("filtered fsnotify activation must describe only the accepted create: %+v", acts)
+	}
+	if firings := listFirings(t, wc, trgID, "limit=50"); len(firings) != 1 || firings[0].Status != "started" {
+		t.Fatalf("filtered fsnotify must leave one started firing: %+v", firings)
+	}
+}
+
 // TestTrigger_SensorFalseProbeThenFiresAfterEdit proves both halves of a polling sensor through
 // product HTTP: a false condition is still an activation with ReturnValue and zero firings; after
 // the target function is edited, the next probe fires a sensor-origin workflow with the output.
@@ -414,7 +477,7 @@ func TestTrigger_FsnotifyPauseRestartResume(t *testing.T) {
 		t.Fatalf("create paused file: %v", err)
 	}
 	time.Sleep(1200 * time.Millisecond)
-	if got := len(listRunRows(t, wc, "?workflowId=" + wfID)); got != baseRuns {
+	if got := len(listRunRows(t, wc, "?workflowId="+wfID)); got != baseRuns {
 		t.Fatalf("paused fsnotify must not start a run before restart: %d → %d", baseRuns, got)
 	}
 	if got := len(listFirings(t, wc, trgID, "limit=50")); got != baseFirings {
@@ -434,7 +497,7 @@ func TestTrigger_FsnotifyPauseRestartResume(t *testing.T) {
 		t.Fatalf("create paused-after-restart file: %v", err)
 	}
 	time.Sleep(1200 * time.Millisecond)
-	if got := len(listRunRows(t, wc, "?workflowId=" + wfID)); got != baseRuns {
+	if got := len(listRunRows(t, wc, "?workflowId="+wfID)); got != baseRuns {
 		t.Fatalf("paused fsnotify must not start a run after restart: %d → %d", baseRuns, got)
 	}
 	if got := len(listFirings(t, wc, trgID, "limit=50")); got != baseFirings {
@@ -637,4 +700,119 @@ func TestTrigger_SensorPauseRestartResume(t *testing.T) {
 	if len(firings) != baseFirings+1 || firings[len(firings)-1].Status != "started" || firings[len(firings)-1].FlowrunID != run.ID {
 		t.Fatalf("resumed sensor firing ledger wrong: %+v", firings)
 	}
+}
+
+// TestTrigger_SensorHandlerTargetAndInvokeFailure covers the resident-handler sensor adapter,
+// not only the function adapter. Its first probe deliberately raises; the activation must retain
+// the invoke failure, while the next cadence returns a valid payload and drives a real workflow.
+//
+// TestTrigger_SensorHandlerTargetAndInvokeFailure 覆盖驻留 handler sensor adapter，而不只 function
+// adapter。第一次 probe 刻意抛错，activation 必须保留 invoke failure；下一 cadence 返回有效 payload
+// 并驱动真实 workflow。
+func TestTrigger_SensorHandlerTargetAndInvokeFailure(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "sensor-handler-target"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	hdID := hdCreate(t, wc, "sensor_handler_probe", map[string]any{
+		"initBody": "self.calls = 0",
+		"methods": []map[string]any{{
+			"name": "probe", "inputs": []any{},
+			"body": "self.calls += 1\nif self.calls == 1:\n    raise Exception('sensor probe boom')\nreturn {'level': 42, 'calls': self.calls}",
+		}},
+	})
+	trgID := trgCreate(t, wc, "handler_sensor", "sensor", map[string]any{
+		"targetKind": "handler", "targetId": hdID, "method": "probe", "intervalSec": 5,
+		"condition": "payload.level > 10", "output": "{'level': payload.level, 'sourceCalls': payload.calls}",
+	})
+	wfID, _ := wfWithTrigger(t, wc, "handler_sensor_pipe", trgID)
+
+	type activation struct {
+		Fired       bool           `json:"fired"`
+		ReturnValue map[string]any `json:"returnValue"`
+		Payload     map[string]any `json:"payload"`
+		Error       string         `json:"error"`
+		Detail      string         `json:"detail"`
+		FiringCount int            `json:"firingCount"`
+	}
+	var acts []activation
+	harness.Eventually(t, 15000, "handler sensor records invoke failure", func() bool {
+		r := wc.GET("/api/v1/triggers/" + trgID + "/activations")
+		if r.Status != 200 || json.Unmarshal(r.Data, &acts) != nil {
+			return false
+		}
+		for _, act := range acts {
+			if !act.Fired && act.Detail == "invoke failed" && strings.Contains(act.Error, "sensor probe boom") && act.FiringCount == 0 {
+				return true
+			}
+		}
+		return false
+	})
+
+	var run struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+		Origin string `json:"origin"`
+	}
+	harness.Eventually(t, 30000, "handler sensor succeeds on the next probe", func() bool {
+		r := wc.GET("/api/v1/triggers/" + trgID + "/activations")
+		if r.Status != 200 || json.Unmarshal(r.Data, &acts) != nil {
+			return false
+		}
+		seenSuccess := false
+		for _, act := range acts {
+			if act.Fired && act.FiringCount > 0 && act.ReturnValue["level"] == float64(42) && act.Payload["level"] == float64(42) && act.Payload["sourceCalls"] == float64(2) {
+				seenSuccess = true
+				break
+			}
+		}
+		if !seenSuccess {
+			return false
+		}
+		var runs []struct {
+			ID     string `json:"id"`
+			Status string `json:"status"`
+			Origin string `json:"origin"`
+		}
+		r = wc.GET("/api/v1/flowruns?workflowId=" + wfID)
+		if r.Status != 200 || json.Unmarshal(r.Data, &runs) != nil {
+			return false
+		}
+		for _, candidate := range runs {
+			if candidate.Status == "completed" && candidate.Origin == "sensor" {
+				run = candidate
+				return true
+			}
+		}
+		return false
+	})
+	if run.ID == "" {
+		t.Fatalf("handler sensor success must create a completed sensor-origin run: %+v", run)
+	}
+
+	var calls struct {
+		Calls []struct {
+			Status string `json:"status"`
+		} `json:"calls"`
+	}
+	wc.GET("/api/v1/handlers/"+hdID+"/calls").OK(t, &calls)
+	if len(calls.Calls) < 2 {
+		t.Fatalf("handler sensor must leave both failed and successful call rows: %+v", calls.Calls)
+	}
+	hasOK := false
+	hasFailed := false
+	for _, call := range calls.Calls {
+		if call.Status == "ok" {
+			hasOK = true
+		}
+		if call.Status == "failed" {
+			hasFailed = true
+		}
+	}
+	if !hasOK || !hasFailed {
+		t.Fatalf("handler sensor call ledger must retain failed+ok attempts: %+v", calls.Calls)
+	}
+	wc.POST("/api/v1/triggers/"+trgID+":pause", map[string]any{}).OK(t, nil)
 }
