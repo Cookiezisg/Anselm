@@ -1019,6 +1019,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-678 | 子代理 managed image writer 红绿哨兵本轮两次均通过：general-purpose child 最终只执行一次 `generate_image`，真实 PNG receipt/附件可读回且父回合完成；第二次虽先出现非法 `subagent_type` schema warning，随后自纠，没有 `MAX_STEPS_REACHED`、重复生成或媒体孤儿 | FRT-05 / managed-write / subagent generation recovery | `cd testend; set -o pipefail; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentGenerateImageArtifact$' -count=1 -parallel 1 -timeout 30m -json` → PASS 56.913s、60.863s；未输出 provider secret |
 
+| 2026-07-31 | EVO-679 | stdio MCP→workflow agent→OpenAI vision viewer 真实产物链连续两轮通过：MCP 只生成一份 PNG MediaRef，workflow node/producer source 与附件内容闭合，下游 BYOK OpenAI recorder 收到同一 exact-byte image part，无 receipt-only 占位、重复生成或跨 workflow 丢失 | FRT-05 + FRT-04 / hybrid / MCP producer to BYOK viewer | `cd testend; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedMCPToOpenAIViewer$' -count=1 -parallel 1 -timeout 30m -v` → PASS 18.418s、16.672s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
