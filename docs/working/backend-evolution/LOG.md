@@ -886,6 +886,14 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-611 | 隔离后的两个独立 `EnrollSpeakDelete` 进程均完成危险审批→异步登记→克隆合成→删除（44.75s、54.67s），首轮 interaction 缺失归类为 managed 模型/网关时序波动；库存、句柄与最终清理没有稳定后端回归 | FRT-07 / managed-write / voice lifecycle independent reprobe | `EVALS_VOICE=1 go test ./scenarios -run '^TestLiveVoice_EnrollSpeakDelete$' -count=1 -parallel 1 -timeout 30m -json` → PASS（两次独立进程）；未输出 provider secret |
 
+| 2026-07-31 | EVO-612 | hybrid 最小 ownership 组合首轮通过：OpenAI BYOK planner 只规划一次并交给 managed image route；managed image MediaRef 再由 OpenAI BYOK viewer 以 native image 消费，附件/receipt/ownership 边界闭合 | FRT-03 + FRT-04 / hybrid / managed generation ↔ BYOK vision | `EVALS_MANAGED=1 EVALS_HYBRID=1 go test ./scenarios -run '^TestLiveHybrid_(OpenAIPlansManagedImage|WorkflowManagedImageToOpenAIViewer)$' -count=1 -parallel 1 -timeout 60m -json` → PASS，包 62.764s；未输出 provider secret |
+
+| 2026-07-31 | EVO-613 | 同一 hybrid 组合第二个独立进程仍全绿（60.281s），确认 planner→managed 计费与 managed→BYOK exact-byte viewer 不依赖一次性模型/网关时序，未形成产品缺陷 | FRT-03 + FRT-04 / hybrid / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
+| 2026-07-31 | EVO-614 | workflow producer→OpenAI viewer 首轮覆盖 function、resident handler、stdio MCP 三种产物来源，均保留 MediaRef、附件字节与 viewer native image 线缆 | FRT-03 + FRT-05 / hybrid / producer fan-in | `EVALS_MANAGED=1 EVALS_HYBRID=1 go test ./scenarios -run '^TestLiveHybrid_WorkflowManaged(Function|Handler|MCP)ToOpenAIViewer$' -count=1 -parallel 1 -timeout 90m -json` → PASS，包 49.855s；未输出 provider secret |
+
+| 2026-07-31 | EVO-615 | 三种 producer→viewer 路径第二个独立组合再次全绿（48.202s），确认 function/handler/MCP 产物不会在 workflow 跨 provider 边界退化成占位 receipt 或丢失附件，未形成产品缺陷 | FRT-03 + FRT-05 / hybrid / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

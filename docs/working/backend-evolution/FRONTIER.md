@@ -56,6 +56,10 @@ audience: [human, ai]
 
 Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview` 探针能力含 vision，PNG 经 Gemini contents/parts 完成 BYOK 回合，原始 98-byte 附件逐字节可回读；两次通过（7.085s、5.820s），未遇到 rate-limit，也未形成 Google native part 或 capability projection 缺陷。
 
+### FRT-03 最新证据
+
+本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
@@ -145,6 +149,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日复探子代理音视频时序边界：两个独立 managed 进程中，general-purpose child 均真实调用 `inspect_media`，视频回传 `kind=video/mode=metadata/startMs=1000/endMs=2000`，音频回传对应 `kind=audio/mode=metadata/startMs=1200/endMs=2600`；父层没有偷调，父回合完成，MP4/WAV 源字节均原样回读，未伪造 transcript。两轮组合均通过（包 130.455s、136.764s），未形成产品缺陷。
 
 随后做子代理附件读取的对照复探：同一真实 managed 进程内，`general-purpose` child 分别读取 text 与 PDF，前者回传唯一 token，后者经 sandbox `read_attachment` 回传唯一 token；父层没有直接调用附件工具，两个源附件都逐字节保持不变，父回合均完成。组合包通过（115.530s；PDF 子场景 31.34s），说明前述 image writer 的两红一绿更像媒体写入路径叠加低 `maxSteps` 与模型 schema recovery 的可靠性边界，而不是通用 subagent/attachment read 缺陷。
+
+本轮把同一 workflow producer→viewer 交叉面扩展到三种非 agent 产物：managed function、resident handler 与 stdio MCP 各自生成 MediaRef，再由 OpenAI BYOK vision viewer 接收并验证原始字节。三条路径首轮和第二个独立组合均通过（包 49.855s、48.202s；各单项约 13–20s），没有把产物降成 receipt 文本，也没有跨 workflow 或跨 provider 丢失附件；FRT-03/FRT-05 的 producer 共同层未形成回归。
 
 ### FRT-11 最新证据
 
