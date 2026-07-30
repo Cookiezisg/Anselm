@@ -246,6 +246,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日复核 Kimi/Moonshot 凭证错误边界：当前 key 连续两次由 `:test` 稳定落 422 `API_KEY_TEST_FAILED`，结构化保留 `HTTP 401` 原因，没有被误报成模型不存在、网络错误或可用能力。
 
+同日切到 sibling `Anselm-API-Serve` 做一次完整契约门禁：vet、trimpath build、race 测试、integration-tag 真 HTTP+SQLite e2e、golangci-lint 与 docs lint 全绿；其工作树保持 clean，主仓本轮 managed/BYOK 证据与 gateway 公共合同未出现漂移。
+
 同日再做会话生命周期组合的独立复探：普通 fork、retry continuation 与旧版本 retry→fork continuation 仍保持同一组 durable lineage 约束，两轮均全绿；两次运行均未观察到源历史改写、跨线程 message/block 指针或旧 tool execution 复活。
 
 同日复探聊天侧人在环 workflow：第一回合让 `trigger_workflow` 在 `human` approval 节点 durable park，第二回合只读 parked 状态，第三回合调用 `decide_approval(yes)` 继续下游 publish action。两次独立 managed 进程通过（53.682s、47.580s），decision、marker、`flowrunId`、`origin=chat` 与下游 execution ledger 均闭合，未形成审批恢复缺陷。

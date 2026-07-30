@@ -958,6 +958,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-647 | 当前 Kimi/Moonshot key 的产品 `:test` 连续两次稳定返回 422 `API_KEY_TEST_FAILED`，并保留 provider `HTTP 401` 原因；没有被错误分类为缺失模型、网络故障或成功能力 | FRT-11 / byok-read / credential error taxonomy | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_KimiCredentialProbe$' -count=1 -parallel 1 -timeout 15m -json` → PASS 4.682s、3.082s；未输出 provider secret |
 
+| 2026-07-31 | EVO-648 | sibling `Anselm-API-Serve` 网关全栈门禁通过：vet、trimpath build、race 单测、integration-tag 真 HTTP+SQLite e2e、golangci-lint 与 docs lint 全绿；主仓 managed/BYOK 复探未发现网关合同漂移 | FRT-04 + gateway contract / API Serve / post-reprobe gate | `make -C ../Anselm-API-Serve verify` → PASS；integration e2e 6.979s、lint `0 issues`、docs `35 file(s) ok`；sibling 工作树保持 clean，未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
