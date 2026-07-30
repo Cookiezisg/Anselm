@@ -1141,6 +1141,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-739 | sibling `Anselm-API-Serve` 当前完整网关门禁全绿：vet、trimpath build、全包 race、真实 SQLite+HTTP integration e2e（6.831s）、golangci-lint 0 issues 与 35-file docs lint 均通过，仓库工作树保持 clean；主仓 live acceptance 与网关公共契约未见漂移 | gateway repository / code + integration gate | `cd ../Anselm-API-Serve; set -o pipefail; make verify 2>&1 | tee /tmp/anselm-api-serve-verify-20260731-evo739.log` → OK；未输出 provider secret |
 
+| 2026-07-31 | EVO-740 | voice 真实生命周期与 ASR 当前全绿：realtime `speech/asr` 5.57s 返回成功事件；managed voice enroll→cloned speak→delete 40.85s 完成，源/克隆 WAV 分别 357,164/337,964 bytes 可回读，删除后 `/voices` inventory 归零，无句柄孤儿或音频附件丢失 | FRT-07 + FRT-08 / voice + managed-read/write / ASR + enroll→speak→delete | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_(EnrollSpeakDelete|SpeechInputASR)$' -count=1 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo740-voice-lifecycle-asr.jsonl` → PASS：包 47.134s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
