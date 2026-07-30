@@ -852,6 +852,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-594 | Qwen 多模态三件套第二个独立进程全绿（16.582s；8.07s、6.07s、2.14s），确认 video 方言、双 native part 和单一非文本模态约束不依赖单次响应窗口，未形成产品缺陷 | FRT-02 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-30 | EVO-595 | OpenAI `gpt-audio` BYOK 音频+工具首轮组合通过：WAV 原生 `input_audio` 与 `tools` 同时进入首发，function result 回灌后第二次请求完成，durable history 保留完整调用链 | FRT-02 / FRT-11 / byok-read / audio + tool continuation | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIAudio' -count=1 -parallel 1 -timeout 20m -v` → PASS 15.334s（audio 6.25s、tool 8.33s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-596 | OpenAI 音频/工具交叉组合第二个独立进程全绿（12.211s；5.17s、6.73s），确认 `input_audio`、tools、sandbox result 与第二次采样的共同 loop 不依赖单次时序 | FRT-02 / FRT-11 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

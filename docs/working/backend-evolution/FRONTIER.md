@@ -52,6 +52,8 @@ audience: [human, ai]
 
 同日补做 Qwen 方言三件套：`qwen3.7-plus` 单视频真实 BYOK 回合完成且 2,969,360-byte MP4 保持不变；同模型 image+video 同回合经 recorder 同时捕获 exact-byte `image_url`/`video_url`；`qwen3-omni-flash` image+WAV 遵守 `maxDistinctMediaKinds=1`，保留 image native、把 audio 变成明确约束注记而不发上游非法组合。两轮独立组合均通过（21.755s、16.582s），未形成 Qwen provider 方言或多模态降级缺陷。
 
+随后复探 OpenAI `gpt-audio` 的交叉边界：单音频回合的 WAV 以 exact-byte `input_audio` 到达 recorder；音频+`run_function` 首轮保留音频与 tools，sandbox 结果回灌后第二次 `/chat/completions` 完成，durable history 同时保留 tool call/result/最终文本。两轮独立组合全绿（15.334s、12.211s），未形成音频 encoder、agent loop 或工具续接回归。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
