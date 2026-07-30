@@ -108,6 +108,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后单独复探 realtime ASR：proof-bound WebSocket 接受 100ms PCM、完成 finish，并从部署网关收到 `session.finished`（1.69s）；未把静音帧误当成转写语义，传输与会话生命周期闭合。
 
+本轮再做 deployed gateway 音色全生命周期单样本：参考朗读 WAV、danger approve、异步登记完成、克隆音色合成与删除后的 inventory 收口均通过（46.397s）；源/克隆音频附件可回读，未形成异步登记、句柄映射、库存或清理孤儿。
+
 ### FRT-08 最新证据
 
 同日复探 managed 朗读成本闸：顺序路径第一次合成、同文本同音色命中同一缓存、换文本生成新 WAV；并发路径在同 workspace 同 key 下同时发起两次相同请求，两个响应共享同一附件且 quota 只增加一次。两条场景在两个独立进程均通过（顺序 10.11s/9.93s，并发 5.81s/5.25s），未复现重复付费竞态；provider wire 计数仍受 API Serve 公网不暴露 raw wire 的设计边界约束。

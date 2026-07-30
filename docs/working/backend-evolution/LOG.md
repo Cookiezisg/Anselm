@@ -1033,6 +1033,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-685 | managed video 已批准并提交后立即取消的资源卫生隔离复探通过：提交后 `:cancel` 204，父回合保持 cancelled，历史与附件端点没有迟到 receipt/视频产物；取消时底层任务 WARN 可解释且未改变 durable 终态 | FRT-09 + FRT-13 / managed-write / submitted async cancellation | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateVideoCancelAfterSubmitLeavesNoOrphan$' -count=1 -parallel 1 -timeout 15m -v` → PASS 16.256s；未输出 provider secret |
 
+| 2026-07-31 | EVO-686 | deployed Anselm gateway 音色全生命周期单样本当前复探通过：managed 朗读生成参考 WAV，danger approve 后异步 enroll 完成，克隆音色再合成真实 WAV，最后删除并确认 inventory 归零；源/克隆附件与上游句柄均闭合，无 voice 孤儿 | FRT-07 / managed-write / voice enroll→speak→delete | `cd testend; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_EnrollSpeakDelete$' -count=1 -parallel 1 -timeout 20m -v` → PASS 46.397s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
