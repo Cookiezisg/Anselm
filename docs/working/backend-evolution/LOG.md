@@ -1137,6 +1137,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-737 | 高风险成本/资源控制面当前组合全绿：`generate_speech` deny 14.09s、`generate_video` deny 9.88s 均在 interaction→deny 后 completed 且没有 receipt、附件或 quota 消费；video approve→submit→cancel 13.92s 返回 204 并保持 cancelled、无迟到 MP4/孤儿；空闲 workspace quota 1.26s 返回自洽快照。未见 danger gate、reservation rollback、异步取消或 quota 投影回归 | FRT-08 + FRT-09 + FRT-13 / managed-write / denial + async cancellation + quota | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveManaged_(GenerateSpeechDeniedNoSpend|GenerateVideoDeniedNoSpend|GenerateVideoCancelAfterSubmitLeavesNoOrphan|Quota))$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo737-managed-cost-cancel-quota.jsonl` → PASS：包 39.613s；未输出 provider secret |
 
+| 2026-07-31 | EVO-738 | 完成 EVO-733～737 后 backend 全量黑盒总闸通过：子代理可靠性哨兵、核心 fork/retry、workflow 三入口多模态、BYOK→managed 图像 ownership 与 danger/quota/cancel focused 探针没有回归既有 contract、durable、chat、agent/subagent、workflow、MCP/function/handler、媒体、附件、provider 或资源卫生基线 | full backend testend regression / post-EVO-733~737 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo737.log` → `ok github.com/sunweilin/anselm/testend/scenarios 293.610s`；未启用 EVALS/provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
