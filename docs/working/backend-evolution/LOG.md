@@ -874,6 +874,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-605 | 全量后端黑盒回归在本轮所有 live 探针与文档变更后仍全绿；没有新增稳定产品缺陷或未收敛的测试失败 | regression gate / backend-wide | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 328.040s`；未输出 provider secret |
 
+| 2026-07-30 | EVO-606 | Google 原生 `functionCall/functionResponse` 工具续接在限流窗口恢复后首轮全绿：真实签名/工具结果回灌后得到最终回答，durable history 闭合，没有错误重试或伪造文本 | FRT-11 / byok-read / Google native tool continuation | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleToolContinuation$' -count=1 -parallel 1 -timeout 10m -v` → PASS 12.816s；未输出 provider secret |
+
+| 2026-07-30 | EVO-607 | 同一 Google native 工具续接第二个独立进程再次全绿（11.452s）；此前 429 仅保留为历史 provider rate-window 证据，当前窗口未形成产品或 parser 回归 | FRT-11 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
