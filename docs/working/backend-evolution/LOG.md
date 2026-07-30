@@ -1105,6 +1105,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-721 | provider 资格边界当前组合全绿且分流清晰：Kimi/Moonshot 当前凭证上游 401，`:test` 稳定返回 422 `API_KEY_TEST_FAILED` 并保留安全 reason；Qwen chat-only 模型设置为 agent 时在 0 steps 明确拒绝；Google stale model 连续两次各只发一次上游请求并落 `LLM_MODEL_NOT_FOUND`，无 fallback/伪造 assistant/无限重试 | FRT-10 + FRT-11 + FRT-14 / byok-read / credential + capability + stale model | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(KimiCredentialProbe|QwenChatOnlyAgentRejected|GoogleListedModelRepeatedFailure)$' -count=1 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo721-byok-qualification-boundaries.jsonl` → PASS，包 7.973s（3.71s、1.08s、2.14s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-722 | deployed gateway 语音两面当前全绿：realtime ASR WebSocket 真实收到 `session.finished`（4.77s）；voice enroll→danger approval→异步就绪→克隆朗读→删除完整收口（39.78s），原始/克隆 WAV 357,164/337,964 bytes 可回读，删除后 voice inventory 无残留，无上游句柄或附件孤儿 | FRT-07 / managed-write / realtime ASR + voice identity lifecycle | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_(SpeechInputASR|EnrollSpeakDelete)$' -count=1 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo722-voice-lifecycle.jsonl` → PASS，包 45.347s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
