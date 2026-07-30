@@ -954,6 +954,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-645 | OpenAI `gpt-audio` 原生 `input_audio` 与 agent tool continuation 组合连续两轮通过；WAV exact bytes、tools、第一次 function call、sandbox result 与第二次采样均闭合，未丢失媒体或重复函数执行 | FRT-02 + FRT-05 / byok-read / audio + tools | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIAudio(Input|ToolContinuation)$' -count=1 -parallel 1 -timeout 30m -json` → PASS 14.159s、12.925s；未输出 provider secret |
 
+| 2026-07-31 | EVO-646 | Google Gemini 原生 `functionCall`/`functionResponse`/`thoughtSignature` tool continuation 连续两次通过；sandbox function 结果与第二次 streaming generateContent 均闭合，未出现 429/错误回合污染或工具结果丢失 | FRT-05 + FRT-11 / byok-read / native tool continuation | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_GoogleToolContinuation$' -count=1 -parallel 1 -timeout 30m -json` → PASS 11.117s、10.627s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
