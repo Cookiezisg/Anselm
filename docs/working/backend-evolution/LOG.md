@@ -1095,6 +1095,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-716 | managed 子代理状态矩阵把两类边界分开：`SubagentFunctionFailureContinues` 因模型先发非法 `subagent_type` 后纠正而多派一次，严格 parent-call 计数失败；`ParallelSubagentTrees` 一次观察到同一 function、conversation 与 child message 的两条 `status=ok` execution。其余取消终态与成功/失败/取消树 fork 全部通过；随后该并发树隔离复跑再以 64.91s、61.49s 两次通过，未复现重复 execution。当前证据仍是 managed schema recovery/重复派发时序哨兵，没有稳定后端 ledger、锚点、终态或孤儿缺陷，不改生产代码 | FRT-05 + FRT-13 / managed-read / subagent state matrix + duplicate-dispatch sentinel | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(SubagentFunctionFailureContinues|ParallelSubagentTrees|SubagentCancelTerminal|ForkPreservesParallelSubagentTrees|ForkPreservesFailedSubagentTree|ForkPreservesCancelledSubagentTree)$' -count=1 -parallel 1 -timeout 75m -json` → 矩阵 FAIL 357.170s（前两项分别 54.60s、58.30s；后四项 80.05s、59.53s、52.95s、51.08s 均 PASS）；`TestLiveManaged_ParallelSubagentTrees` 隔离 clean `-count=2` PASS 64.91s、61.49s（包 127.086s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-717 | EVO-716 后执行完整 backend 黑盒总闸，当前 acceptance suite 仍全绿；workflow、媒体、多模态、会话血缘、BYOK、MCP/function/handler、取消/重试、崩溃恢复与资源卫生基线均未被本轮 focused/live 探针或测试 oracle 变更回归 | full backend testend regression / post-EVO-716 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo716.log | tail -n 120` → `ok github.com/sunweilin/anselm/testend/scenarios 312.302s`；未启用 EVALS/provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
