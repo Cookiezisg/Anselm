@@ -664,6 +664,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-500 | async video 与 speech producer→managed viewer 双跑事实加入 Frontier 后文档门禁通过；FRT-04 真实产物、下游消费、诚实 audio degrade 与源字节证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-producer-viewer-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
 
+| 2026-07-30 | EVO-501 | managed workflow image producer→managed viewer 首跑通过：上游只调用一次 `generate_image` 生成真实 PNG MediaRef，下游节点消费实际图片并完成 flowrun，1,115,024-byte 产物可回读，非 receipt-only 占位 | FRT-04 / managed-write→managed-read / image producer to viewer | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerateImageToViewer$' -count=1 -timeout 12m -v` → PASS 64.514s；未输出 provider secret |
+
+| 2026-07-30 | EVO-502 | 同一 image producer→viewer 场景第二个独立进程通过（57.82s），生成 PNG 1,096,630 bytes 可从 attachment content 完整回读；确认 workflow MediaRef 传递、下游消费与单次生成不是一次性模型配合，未形成产品缺陷 | FRT-04 / managed-write→managed-read / independent reprobe | 同一命令第二次独立运行 → PASS 57.82s；未输出 provider secret |
+
+| 2026-07-30 | EVO-503 | image producer→managed viewer 双跑事实加入 Frontier 后文档门禁通过；FRT-04 已覆盖 image/video/speech 三种 managed producer→viewer 资源方向，唯一 DTO drift warning 未变化 | docs gate / post-managed-image-workflow-viewer-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
