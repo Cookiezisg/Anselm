@@ -146,6 +146,8 @@ audience: [human, ai]
 
 同日再补用户入口组合：默认 managed chat 先经 `search_tools` 发现 `trigger_workflow`，再以 webhook-shaped payload 启动 4 路 fanout/双 join workflow；`origin=chat`、`conversationId`、8 条 durable node rows 及 branch execution ledger 均闭合。前两次探索分别受 managed gateway 响应头 timeout 与上游 502 阻断，未进入 workflow 断言；随后两次规范复跑通过（总计 30.092s、29.445s），因此红灯归类为外部 provider 窗口而非产品缺陷。
 
+同日复探 workflow 并发核心与聊天入口组合：manual flowrun 的 8 branch/双四输入 join，以及 chat→`search_tools`→`trigger_workflow` 的 4 branch/双 join 均在两轮独立 managed 进程中通过（包总计 26.704s、26.876s）。所有 branch/join/finish execution 绑定同一 `flowrunId` 且各执行一次，chat 路径的 `origin=chat`、`conversationId` 与 durable node rows 保持闭合，未形成后端缺陷。
+
 ### FRT-16 最新证据
 
 同日补上真实对话分叉闭环：先完成一轮默认 managed chat，再从该 assistant 消息调用 `:fork`；源会话仍保持原 2 条 append-only 消息，新会话复制同一前缀但不复用源 assistant ID，返回的 `forkedFromConversationId`、`forkedFromMessageId` 与 `(fork)` 标题后缀均正确。随后在新分支继续发送 follow-up，仍经默认 Anselm 路由完成；源会话消息数保持不变。两次真实 managed 复跑通过（总计 13.209s、12.768s），未形成后端缺陷。

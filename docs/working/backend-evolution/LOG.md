@@ -762,6 +762,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-549 | 聊天 workflow 生命周期双跑事实加入 Frontier 后文档门禁通过；FRT-04/FRT-13 的可观测、失败诊断、replay 与 durable execution 证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-chat-flowrun-lifecycle-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-550 | managed workflow 并发组合首轮独立进程全绿：manual flowrun 的 8 branch/双四输入 join 与 chat→trigger_workflow 的 4 branch/双 join 均各执行一次，flowrunId/node ledger 与 chat origin/conversation lineage 闭合 | FRT-04 / FRT-15 / managed-write + managed-read/default / workflow fanout + chat trigger | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowFanoutJoin|ChatTriggerWorkflowFanoutJoin)$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 26.704s（manual 8.55s；chat 17.23s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-551 | 同一 workflow 并发组合第二个独立进程再次全绿（包总计 26.876s；chat 17.34s），确认 AND-join 一次性消费、分支执行账本和 chat 入口投影不是单次窗口结果，未形成后端缺陷 | FRT-04 / FRT-15 / independent reprobe | 同一命令第二次独立运行（输出收敛为末 90 行）→ PASS，包总计 26.876s；未输出 provider secret |
+
+| 2026-07-30 | EVO-552 | workflow fanout/join 双跑事实加入 Frontier 后文档门禁通过；FRT-04/FRT-15 的 manual 与 chat 入口、分支/连接点计数、origin 与 execution ledger 证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-workflow-fanout-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
