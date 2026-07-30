@@ -184,6 +184,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日补做 managed quota 设置面 fresh smoke：两个独立新 workspace 都读到自洽的 live `limit/used/remaining`、`available=true` 与 RFC3339 `resetAt`（5.158s、3.667s），没有触发模型或生成消费；配额投影当前没有回归。
 
+本轮控制面双跑补验证 key/quota 相关边界：API key rotation 保留默认模型并能恢复、managed key 的 API format/探针投影、空 capability workspace 隔离、limits reset/patch 与 loopback host/bearer 门均通过；未 provisioning 的 quota 404 通过，而真实 quota 消费子探针在无可用 managed 消费时按合同结构化 skip，不把缺少消费前提伪造成绿灯。
+
 本轮再次独立双跑朗读成本边界：顺序首读真实合成、同文本同音色复用同一 WAV 缓存、换文本产生新附件并可回读；同 key 并发双请求返回同一附件、一个响应标记缓存命中且 quota 只增加一次。`ReadAloudCache` 10.50s/7.07s、`ReadAloudConcurrentDedup` 5.47s/5.06s，包 28.931s；没有重复扣费、缓存穿透或附件孤儿。provider wire 仍以 API Serve 的产品可见 quota/attachment 投影为证，不臆造公网不可见的 raw wire 计数。
 
 ### FRT-09 最新证据

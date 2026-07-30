@@ -1157,6 +1157,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-747 | 将 EVO-746 的 OpenAI `gpt-audio` 工具续接单独隔离三跑后 3/3 通过（9.67s、7.48s、7.25s）：两次 `/chat/completions`、原生 `input_audio` exact bytes、tools/tool result 与最终文本均闭合；第二轮“函数不存在”未复现，归类为 provider/model 瞬态选择波动而非产品 loop 或函数注册缺陷 | FRT-02 + FRT-11 / byok-read / isolated audio+tool continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIAudioToolContinuation$' -count=3 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo747-byok-openai-audio-tool-isolated-count3.jsonl` → PASS，包 24.965s；未输出 provider secret |
 
+| 2026-07-31 | EVO-748 | 产品控制面当前双跑全绿：API key 轮换保持默认模型并可恢复、managed key API format/探针形状正确、空 capability workspace 隔离、limits reset/patch 边界与 loopback host/bearer 门均通过；freetier quota 的未 provisioning 404 通过，真实 quota 子探针因无可用 managed 消费合同而结构化 skip，未伪造绿灯。包 78.109s | control-plane / API key + capability + quota + limits + loopback | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractPlatform_(APIKeyRotationManagedAPIFormat|APIKeyRotationPreservesDefaultAndRecovers|ModelCapabilitiesEmptyAndIsolation|FreetierQuota|LimitsResetAndPatchEdges|LoopbackDoors)$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo748-contract-platform-control-double.jsonl` → PASS（quota `QuotaShapeOrClassifiedError` 两轮均按合同 skip）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
