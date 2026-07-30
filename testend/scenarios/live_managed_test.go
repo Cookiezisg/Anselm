@@ -1392,6 +1392,98 @@ func TestLiveManaged_SubagentFunctionFailureContinues(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_SubagentCancelTerminal proves cancellation while a real child tool is in flight:
+// the parent and nested sub-message both leave streaming, the running function leaves one
+// cancelled audit row, and the same conversation accepts a follow-up after the cancellation.
+func TestLiveManaged_SubagentCancelTerminal(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-subagent-cancel")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+
+	const marker = "SUBAGENT_CANCEL_STALL_5A17"
+	fnID := fnCreate(t, wc, "subagent_cancel_stall", fmt.Sprintf(`import time
+def stall() -> dict:
+    time.sleep(60)
+    return {"marker": "%s"}
+`, marker))
+	convID := convCreate(t, wc, "managed subagent cancel")
+	prompt := fmt.Sprintf(`请只派一个 general-purpose 子代理。
+子任务必须在子代理内部先调用 search_tools 搜索 run_function；等 schema 返回后，只调用一次 run_function，参数严格使用 functionId=%s 和 args={}，不要调用其他工具，也不要提前结束。这个 function 会运行约 60 秒，正在运行时父对话会发出取消。`, fnID)
+	messageID := sendMsg(t, wc, convID, prompt)
+	// The REST history endpoint intentionally batches nested blocks until the child turn is
+	// durable; a real user cancellation arrives from the live UI/SSE path rather than waiting for
+	// that history projection. Give the managed model enough time to enter the 60-second function,
+	// then issue the same conversation action a user would click.
+	timer := time.NewTimer(45 * time.Second)
+	<-timer.C
+	wc.POST("/api/v1/conversations/"+convID+":cancel", nil).OK(t, nil)
+
+	var terminal []struct {
+		ID         string `json:"id"`
+		SubagentID string `json:"subagentId"`
+		Status     string `json:"status"`
+	}
+	var lastMessagesRaw []byte
+	deadline := time.Now().Add(30 * time.Second)
+	settled := false
+	for time.Now().Before(deadline) {
+		r := wc.GET("/api/v1/conversations/" + convID + "/messages?limit=50")
+		lastMessagesRaw = append(lastMessagesRaw[:0], r.Data...)
+		if r.Status != 200 || json.Unmarshal(r.Data, &terminal) != nil {
+			time.Sleep(100 * time.Millisecond)
+			continue
+		}
+		parentCancelled, childCancelled := false, false
+		allTerminal := true
+		for _, message := range terminal {
+			if message.ID == messageID {
+				parentCancelled = message.Status == "cancelled"
+			}
+			if message.SubagentID != "" {
+				childCancelled = message.Status == "cancelled"
+			}
+			if message.Status == "streaming" || message.Status == "pending" {
+				allTerminal = false
+			}
+		}
+		if parentCancelled && childCancelled && allTerminal {
+			settled = true
+			break
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !settled {
+		t.Fatalf("parent and child leave streaming after cancel — not within 30000ms; messages=%s", string(lastMessagesRaw))
+	}
+
+	var executions struct {
+		Executions []struct {
+			Status      string `json:"status"`
+			TriggeredBy string `json:"triggeredBy"`
+			MessageID   string `json:"messageId"`
+		} `json:"executions"`
+	}
+	harness.Eventually(t, 30000, "cancelled function leaves one audit row", func() bool {
+		r := wc.GET("/api/v1/functions/" + fnID + "/executions")
+		if r.Status != 200 || json.Unmarshal(r.Data, &executions) != nil {
+			return false
+		}
+		return len(executions.Executions) == 1
+	})
+	if len(executions.Executions) != 1 || executions.Executions[0].Status != "cancelled" || executions.Executions[0].TriggeredBy != "agent" || executions.Executions[0].MessageID == "" {
+		t.Fatalf("cancelled child function must leave one agent execution tied to a child message: %+v", executions.Executions)
+	}
+
+	followUp := waitTurn(t, wc, convID, sendMsg(t, wc, convID, "刚才的子任务已经取消。请只用一句简短中文确认对话仍可继续，不要调用工具。"), 120000)
+	if followUp.Status != "completed" {
+		t.Fatalf("same conversation must accept a follow-up after subagent cancel: status=%s code=%s message=%s blocks=%+v", followUp.Status, followUp.ErrorCode, followUp.ErrorMessage, followUp.Blocks)
+	}
+	for _, block := range followUp.Blocks {
+		if block.Type == "tool_call" && block.Attrs["tool"] != nil {
+			t.Fatalf("follow-up after cancellation must not resurrect the cancelled tool call: %+v", followUp.Blocks)
+		}
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.
