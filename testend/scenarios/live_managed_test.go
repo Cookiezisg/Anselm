@@ -1793,6 +1793,127 @@ func TestLiveManaged_SubagentFunctionFailureContinues(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ParallelSubagentTrees proves two real managed child runs can return to one
+// parent without tree mixing: each child invokes its own function, each durable child stays anchored
+// to a distinct parent Subagent tool_call, and the parent continues without a direct function call.
+func TestLiveManaged_ParallelSubagentTrees(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-parallel-subagent-trees")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 5}}).OK(t, nil)
+	const alphaMarker = "PARALLEL_SUBAGENT_ALPHA_6A1F"
+	const betaMarker = "PARALLEL_SUBAGENT_BETA_9C42"
+	alphaFn := fnCreate(t, wc, "parallel_subagent_alpha", fmt.Sprintf(`def alpha() -> dict:
+    return {"marker": "%s"}
+`, alphaMarker))
+	betaFn := fnCreate(t, wc, "parallel_subagent_beta", fmt.Sprintf(`def beta() -> dict:
+    return {"marker": "%s"}
+`, betaMarker))
+	convID := convCreate(t, wc, "managed parallel subagents")
+	prompt := fmt.Sprintf(`请只派两个 general-purpose 子代理，两个子任务彼此独立；父回合不要直接调用任何其他工具。
+第一个子代理的任务：先用 search_tools 搜索 run_function，等 schema 返回后只调用一次 run_function，参数必须逐字使用 functionId=%s 和 args={}，成功后原样带回标记 %s。
+第二个子代理的任务：先用 search_tools 搜索 run_function，等 schema 返回后只调用一次 run_function，参数必须逐字使用 functionId=%s 和 args={}，成功后原样带回标记 %s。
+两个 Subagent 调用都应设置 execution_group=1；两个子代理都完成后，父回合不要再调用工具，只用一句简短中文确认并同时保留两个标记。`, alphaFn, alphaMarker, betaFn, betaMarker)
+	turn := waitTurn(t, wc, convID, sendMsg(t, wc, convID, prompt), 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed parent must complete after two child runs: status=%s code=%s message=%s blocks=%+v", turn.Status, turn.ErrorCode, turn.ErrorMessage, turn.Blocks)
+	}
+	parentCalls := map[string]bool{}
+	childResults := ""
+	directFunctionCalls := 0
+	for _, block := range turn.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "Subagent":
+			if block.Type == "tool_call" {
+				parentCalls[block.ID] = true
+			}
+			if block.Type == "tool_result" {
+				childResults += block.Content
+			}
+		case "run_function":
+			if block.Type == "tool_call" {
+				directFunctionCalls++
+			}
+		}
+	}
+	// A real model may first emit a malformed Subagent call (for example, omit
+	// subagent_type) and then self-correct after the gateway's validation result.
+	// That recoverable turn is not a second child tree: the durable child/ledger
+	// assertions below are the contract. Count the calls for diagnostics, but do
+	// not make the parent retry itself a product failure.
+	if len(parentCalls) < 2 || directFunctionCalls != 0 || !strings.Contains(childResults, alphaMarker) || !strings.Contains(childResults, betaMarker) {
+		t.Fatalf("parent must delegate at least two children, receive both markers, and avoid direct function calls: calls=%d direct=%d results=%q blocks=%+v", len(parentCalls), directFunctionCalls, childResults, turn.Blocks)
+	}
+
+	var messages []struct {
+		ID         string         `json:"id"`
+		SubagentID string         `json:"subagentId"`
+		Status     string         `json:"status"`
+		Attrs      map[string]any `json:"attrs"`
+		Blocks     []struct {
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	wc.GET("/api/v1/conversations/"+convID+"/messages?limit=50").OK(t, &messages)
+	children := 0
+	anchors := map[string]bool{}
+	seenMarkers := map[string]bool{}
+	for _, message := range messages {
+		if message.SubagentID == "" {
+			continue
+		}
+		children++
+		if message.Status != "completed" {
+			t.Fatalf("child %s must reach completed status, got %s", message.SubagentID, message.Status)
+		}
+		anchor, _ := message.Attrs["parentBlockId"].(string)
+		if !parentCalls[anchor] || anchors[anchor] {
+			t.Fatalf("child %s must resolve to a distinct parent Subagent tool_call: anchor=%q calls=%v seen=%v", message.SubagentID, anchor, parentCalls, anchors)
+		}
+		anchors[anchor] = true
+		for _, block := range message.Blocks {
+			if block.Type != "text" {
+				continue
+			}
+			if strings.Contains(block.Content, alphaMarker) {
+				seenMarkers[alphaMarker] = true
+			}
+			if strings.Contains(block.Content, betaMarker) {
+				seenMarkers[betaMarker] = true
+			}
+		}
+	}
+	if children != 2 || len(anchors) != 2 || len(seenMarkers) != 2 {
+		t.Fatalf("durable child trees must preserve two distinct anchors and both markers: children=%d anchors=%v markers=%v messages=%+v", children, anchors, seenMarkers, messages)
+	}
+
+	for _, want := range []struct {
+		id     string
+		marker string
+	}{
+		{id: alphaFn, marker: alphaMarker},
+		{id: betaFn, marker: betaMarker},
+	} {
+		var executions struct {
+			Executions []struct {
+				Status         string         `json:"status"`
+				TriggeredBy    string         `json:"triggeredBy"`
+				ConversationID string         `json:"conversationId"`
+				MessageID      string         `json:"messageId"`
+				Output         map[string]any `json:"output"`
+			} `json:"executions"`
+		}
+		wc.GET("/api/v1/functions/"+want.id+"/executions").OK(t, &executions)
+		if len(executions.Executions) != 1 {
+			t.Fatalf("child function %s must execute exactly once: %+v", want.id, executions.Executions)
+		}
+		exec := executions.Executions[0]
+		if exec.Status != "ok" || exec.TriggeredBy != "agent" || exec.ConversationID != convID || exec.MessageID == "" || exec.Output["marker"] != want.marker {
+			t.Fatalf("child function %s execution provenance/result wrong: %+v", want.id, exec)
+		}
+	}
+}
+
 // TestLiveManaged_SubagentCancelTerminal proves cancellation while a real child tool is in flight:
 // the parent and nested sub-message both leave streaming, the running function leaves one
 // cancelled audit row, and the same conversation accepts a follow-up after the cancellation.
