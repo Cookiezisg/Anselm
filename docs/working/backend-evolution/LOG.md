@@ -1079,6 +1079,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-708 | managed `generate_video` 批准后异步生命周期当前通过：danger interaction 明确 approve，单次提交等待真实 gateway terminal，回合 completed，唯一 4,314,423-byte MP4 附件可回读且只铸一份 receipt；未出现重复生成、迟到孤儿或 receipt-only | FRT-09 + FRT-13 / managed-write / approved async video | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateVideoArtifact$' -count=1 -parallel 1 -timeout 30m -json` → PASS 102.77s（包 103.475s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-709 | 完成 EVO-707～708 后的 backend 全量黑盒总闸：图像生成/编辑、动画与批准视频异步探针没有回归 chat、agent/subagent、workflow/trigger、附件/多模态、MCP/function/handler、取消/重试、崩溃恢复或资源卫生 | full backend testend regression / post-EVO-707~708 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo708.log | tail -n 100` → `ok github.com/sunweilin/anselm/testend/scenarios 320.167s`；未启用 EVALS/provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
