@@ -910,6 +910,10 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-623 | 同一多模态矩阵第二个独立组合再次 8/8 全绿（257.708s），2.97MB MP4/96KB WAV 的跨回合字节与三模态同回合边界均稳定，未形成产品缺陷 | FRT-01 / managed-read/default / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-624 | managed `inspect_media` 工具面首轮 10/10 通过：图片普通/crop/tiles、视频/音频 metadata 与时间窗、文本 query/page/window 均 bounded 且源件不变；一次漏填 `question` 由模型重试修正 | FRT-01 / managed-read/default / lazy tool discovery + bounded media inspection | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(InspectMediaImage|InspectMediaImageCropDetail|InspectMediaImageTiles|InspectMediaVideo|InspectMediaVideoTimeRange|InspectMediaAudio|InspectMediaAudioTimeRange|InspectMediaTextQuery|InspectMediaTextPage|InspectMediaTextWindow)$' -count=1 -parallel 1 -timeout 90m -json` → PASS，包 163.419s；未输出 provider secret |
+
+| 2026-07-31 | EVO-625 | `inspect_media` 十条路径第二个独立进程再次 10/10 全绿（189.649s），时间窗、tile、bounded 文本窗口和 metadata-only 合同均稳定，未形成参数/发现面回归 | FRT-01 / managed-read/default / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
