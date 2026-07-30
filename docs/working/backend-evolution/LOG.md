@@ -1139,6 +1139,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-738 | 完成 EVO-733～737 后 backend 全量黑盒总闸通过：子代理可靠性哨兵、核心 fork/retry、workflow 三入口多模态、BYOK→managed 图像 ownership 与 danger/quota/cancel focused 探针没有回归既有 contract、durable、chat、agent/subagent、workflow、MCP/function/handler、媒体、附件、provider 或资源卫生基线 | full backend testend regression / post-EVO-733~737 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo737.log` → `ok github.com/sunweilin/anselm/testend/scenarios 293.610s`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-739 | sibling `Anselm-API-Serve` 当前完整网关门禁全绿：vet、trimpath build、全包 race、真实 SQLite+HTTP integration e2e（6.831s）、golangci-lint 0 issues 与 35-file docs lint 均通过，仓库工作树保持 clean；主仓 live acceptance 与网关公共契约未见漂移 | gateway repository / code + integration gate | `cd ../Anselm-API-Serve; set -o pipefail; make verify 2>&1 | tee /tmp/anselm-api-serve-verify-20260731-evo739.log` → OK；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
