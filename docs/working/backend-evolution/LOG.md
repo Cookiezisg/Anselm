@@ -914,6 +914,14 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-625 | `inspect_media` 十条路径第二个独立进程再次 10/10 全绿（189.649s），时间窗、tile、bounded 文本窗口和 metadata-only 合同均稳定，未形成参数/发现面回归 | FRT-01 / managed-read/default / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-626 | managed 子代理并行状态机聚合复探结束为非稳定红：`SubagentFunctionFailureContinues` 与 `ParallelSubagentContextContinues` 未满足严格模型行为断言，而 `SubagentCancelTerminal` 通过；拆分前没有发现 backend 级孤儿、错误终态或持久化崩溃 | FRT-05 / managed / subagent state-machine aggregate sentinel | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(SubagentFunctionFailureContinues|ParallelSubagentTrees|ParallelSubagentContextContinues|SubagentCancelTerminal)$' -count=1 -parallel 1 -timeout 90m` → FAIL，包 248.957s；未输出 provider secret |
+
+| 2026-07-31 | EVO-627 | `SubagentFunctionFailureContinues` 两个独立进程均红，但一次是 child 拒绝调用预期失败函数，另一次没有 child execution；父回合仍 completed，红灯发生在“模型必须按指令调用一次并带回 marker”的行为层，不构成已确认的 function ledger 或子消息持久化缺陷 | FRT-05 / managed / subagent function-failure adherence | 同一测试独立运行两次 → FAIL（51.74s、29.85s）；一次 `parentSubagentCalls=1` 但 child 未执行，另一次 child execution 列表为空；未输出 provider secret |
+
+| 2026-07-31 | EVO-628 | `ParallelSubagentTrees` 独立复探通过：两个 child 均 completed，锚点、marker、`agent/ok` execution 与父级无直调全部闭合；取消场景在聚合中亦通过并落 204/父子 cancelled 终态，未形成后端缺陷 | FRT-05 / managed / parallel tree + cancellation | `ParallelSubagentTrees` 独立运行 → PASS 69.80s；聚合内 `SubagentCancelTerminal` PASS 51.77s；未输出 provider secret |
+
+| 2026-07-31 | EVO-629 | `ParallelSubagentContextContinues` 一绿一红：绿跑在无工具 follow-up 中恢复两个 marker 且各函数只执行一次；红跑中模型先拒绝/重试，最终两个 marker 与执行都正确，但耐久历史保留 4 个 child 而非严格断言的 2 个，属于托管模型重试遵循波动而非状态/锚点丢失 | FRT-05 / managed / subagent context continuation | 独立运行两次 → PASS 64.57s、FAIL 88.61s（失败断言 `children=4`）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
