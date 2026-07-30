@@ -60,6 +60,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
 
+随后把 viewer 方言扩展到 native Gemini 与 Qwen：managed image→Gemini inlineData 两次通过（56.34s、65.18s）；managed speech→Qwen audio viewer 两次通过（17.86s、18.55s）；managed async video→Qwen video viewer 两次通过（122.77s、119.56s，MP4 约 9.7MB/9.2MB）。每条路径都等待真实 MediaRef、回读原始附件并完成下游回合，未形成跨 provider 编码、异步等待或 ownership 回归。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。

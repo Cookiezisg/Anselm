@@ -894,6 +894,14 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-615 | 三种 producer→viewer 路径第二个独立组合再次全绿（48.202s），确认 function/handler/MCP 产物不会在 workflow 跨 provider 边界退化成占位 receipt 或丢失附件，未形成产品缺陷 | FRT-03 + FRT-05 / hybrid / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-616 | managed speech→Qwen viewer 与 managed async video→Qwen viewer 首轮均闭合：WAV/MP4 MediaRef 真实生成、下游方言消费、附件回读均通过；视频长尾约 122.77s、源 MP4 约 9.7MB | FRT-03 + FRT-04 / hybrid / managed media → Qwen native viewer | `EVALS_MANAGED=1 EVALS_HYBRID=1 go test ./scenarios -run '^TestLiveHybrid_WorkflowManaged(SpeechToQwen|VideoToQwen)Viewer$' -count=1 -parallel 1 -timeout 120m -json` → PASS，包 141.883s；未输出 provider secret |
+
+| 2026-07-31 | EVO-617 | speech/video hybrid 第二个独立组合仍全绿（包 138.281s；视频 119.56s、约 9.2MB），确认长尾异步媒体不会在跨 provider viewer 边界丢失或重复消费 | FRT-03 + FRT-04 / hybrid / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
+| 2026-07-31 | EVO-618 | managed image→Google native viewer 首轮通过：下游 Gemini 以 `inlineData` 消费真实 PNG MediaRef，flowrun、receipt 和附件字节均闭合 | FRT-03 + FRT-04 + FRT-11 / hybrid / Google native viewer | `EVALS_MANAGED=1 EVALS_HYBRID=1 go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedImageToGoogleViewer$' -count=1 -parallel 1 -timeout 60m -json` → PASS 57.078s；未输出 provider secret |
+
+| 2026-07-31 | EVO-619 | Google native viewer 第二个独立进程再次通过（65.987s），当前 Gemini inlineData workflow 线路未复现 429 或 parser/attachment 回归 | FRT-03 + FRT-04 + FRT-11 / hybrid / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
