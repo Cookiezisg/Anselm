@@ -972,6 +972,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-654 | workflow 并发核心与聊天触发入口连续两轮通过：manual 8-branch/双四输入 join 与 chat→`trigger_workflow` 4-branch/双 join 均各执行一次，`flowrunId`、`origin=chat`、节点行与 execution ledger 闭合 | FRT-04 + FRT-15 / managed / fanout and join | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(WorkflowFanoutJoin|ChatTriggerWorkflowFanoutJoin)$' -count=1 -parallel 1 -timeout 60m -json` → PASS 27.515s、24.543s；未输出 provider secret |
 
+| 2026-07-31 | EVO-655 | 聊天→`trigger_workflow` 多模态入口连续两次通过：PDF+PNG+MP4 MediaRef 穿过 payload 到 managed workflow agent，PDF sandbox token 与三份源字节保持可审计，`origin=chat`/`conversationId`/flowrun node rows 闭合 | FRT-01 + FRT-04 / managed-read / chat multimodal workflow fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatTriggerWorkflowUserAttachmentFusion$' -count=1 -parallel 1 -timeout 60m -json` → PASS 35.714s、27.445s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
