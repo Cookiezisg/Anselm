@@ -138,6 +138,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做附件/文档读取长尾组合：`list_attachments`、纯文本、PDF、PDF+图片、PDF 工具读取，以及大文本 query/index/auto-index/page 共九条路径中七条首轮通过（129.417s）。PDF 工具路径实际先用 `attachmentId` 触发 `id is required`，随后用正确的 `id` 成功抽取 token；原断言漏看 block 的 `tool` 属性，已在 `4e33cd6a` 修正并由真实 managed 复跑通过（22.94s）。默认大文本 auto-index 在组合中一次触发 `MAX_STEPS_REACHED`，隔离后两次均通过（15.42s、27.17s），因此仍归类为模型参数纠错/步预算窗口信号；query/index/page 与源字节保真均成立。
 
+同组第二个独立组合的七条稳定路径再次 7/7 通过（包 76.492s）：附件发现、纯文本、PDF、PDF+图片与大文本 query/index/page 均完成，PDF/PNG/文本源件逐字节保持；多条测试仍可见模型先传错 `id` 字段后自行修正的校验警告，但没有持久化或读取结果回归。
+
 ### FRT-05 最新证据
 
 同日补充真实并行子代理树闭环：父聊天只派两个独立 `general-purpose` 子代理，两个子任务各自经 `search_tools`→`run_function` 执行不同 function；两个 child message 都以不同 `parentBlockId` 锚回父级 `Subagent` tool_call，父回合同时收到两个 marker 且没有直接调用 `run_function`。两个 function execution 各恰一条 `status=ok`、`triggeredBy=agent` 记录，并绑定同一 conversation 与 child message。探索阶段一次上游 502、两次测试 oracle 校准（模型先纠正缺失 `subagent_type`；执行台账结果字段为 `output` 而非 `result`）均未形成产品缺陷；校准后两次真实 managed 复跑通过（93.71s、76.33s）。关停阶段的本地 search embedder `context canceled` 仍归类为 shutdown 噪声。

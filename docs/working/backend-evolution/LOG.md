@@ -930,6 +930,10 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-633 | 附件/文档读取长尾证据加入 Frontier 后文档门禁通过；既有 DTO drift warning 未变化 | docs gate / post-attachment-read-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-31 | EVO-634 | 附件/文档读取长尾第二个独立组合 7/7 全绿：附件发现、纯文本、PDF、PDF+图片、大文本 query/index/page 的真实回合与源字节均稳定，未形成后端缺陷 | FRT-01 / managed-read/default / independent reprobe | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(ListAttachments|DefaultChatWithTextAttachment|DefaultChatWithPDFAttachment|DefaultChatWithPDFAndImageAttachments|ReadAttachmentLargeTextQuery|ReadAttachmentLargeTextIndex|ReadAttachmentTextPage)$' -count=1 -parallel 1 -timeout 60m -json` → PASS，包 76.492s；未输出 provider secret |
+
+| 2026-07-31 | EVO-635 | 附件/文档读取长尾双跑证据加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-attachment-read-independent-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
