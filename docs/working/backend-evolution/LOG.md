@@ -1143,6 +1143,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-740 | voice 真实生命周期与 ASR 当前全绿：realtime `speech/asr` 5.57s 返回成功事件；managed voice enroll→cloned speak→delete 40.85s 完成，源/克隆 WAV 分别 357,164/337,964 bytes 可回读，删除后 `/voices` inventory 归零，无句柄孤儿或音频附件丢失 | FRT-07 + FRT-08 / voice + managed-read/write / ASR + enroll→speak→delete | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_(EnrollSpeakDelete|SpeechInputASR)$' -count=1 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo740-voice-lifecycle-asr.jsonl` → PASS：包 47.134s；未输出 provider secret |
 
+| 2026-07-31 | EVO-741 | managed 朗读成本边界再次双跑全绿：顺序路径首读真实合成、同文本同音色命中同一 WAV 缓存、换文本生成新附件并保持可播放；并发同 key 双发共享同一附件且 quota 只增加一次。`ReadAloudCache` 10.50s/7.07s、`ReadAloudConcurrentDedup` 5.47s/5.06s，包 28.931s；未见重复扣费、缓存穿透或附件孤儿 | FRT-08 / managed-write / read-aloud cache + concurrent dedup | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveManaged_(ReadAloudCache|ReadAloudConcurrentDedup))$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo741-managed-read-aloud-cost.jsonl` → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
