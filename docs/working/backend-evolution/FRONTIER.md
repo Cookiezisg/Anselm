@@ -202,6 +202,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后补做批准后的直接 `generate_video`：danger interaction→approve 后只提交一次异步任务，等待 gateway durable terminal，回合 completed，唯一 4,314,423-byte MP4 content 可回读且 receipt 恰一条。当前进程通过（102.77s；包 103.475s），未形成重复生成、迟到附件或取消/异步资源回归。
 
+本轮成本/资源控制面当前组合再次全绿：`generate_speech` deny 14.09s、`generate_video` deny 9.88s 均在 interaction→deny 后 completed 且无 receipt、附件或 quota 消费；video approve→submit→cancel 13.92s 返回 204，父回合 durable `cancelled` 且无迟到 MP4/孤儿；空闲 workspace quota 1.26s 返回自洽快照。未形成 danger gate、reservation rollback、异步取消或 quota projection 回归。
+
 本轮再做高风险控制面三件套：语音与视频 danger deny 分别 16.36s、11.16s 完成，拒绝后无 receipt/quota；视频批准后提交再取消 10.86s 完成，父回合落 durable `cancelled` 且无迟到 MP4/附件。三条均未形成成本闸、broker 或异步资源孤儿。
 
 随后对同一 managed 图像写入链做当前窗口复探：独立 `generate_image` 回读 1,101,958-byte PNG；`edit_image` 保留 1,083,251-byte source sibling 并产出 1,677,425-byte 不同 edited sibling；文字-only `animate_image` 经 danger approval 进入异步路由，源 lineage 保留且唯一 7,026,354-byte MP4 可回读。三项分别 28.85s、77.03s、131.39s 通过，未出现重复 receipt、迟到产物或孤儿附件；动画中段的高频 messages 轮询最终正常收口，不构成 durable 卡死。
