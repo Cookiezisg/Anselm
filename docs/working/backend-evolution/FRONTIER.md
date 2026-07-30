@@ -102,6 +102,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做 OpenAI BYOK planner→Anselm managed image writer 混合入口两次：planner 只发一次工具请求，managed 只铸造一份真实 PNG receipt/附件，续接请求把同一图片字节送回 BYOK recorder；两轮 13.15s、10.18s 完成，没有重复生成、receipt-only 占位或 ownership 串线。
 
+本轮把 workflow producer→viewer 的跨 provider 组合再做真实双跑：managed image→OpenAI BYOK vision、managed speech→Qwen `input_audio`、managed async video→Qwen `video_url` 均 2/2 完成。两轮耗时分别为 image 39.46s/36.65s、speech 33.41s/22.12s、video 126.28s/200.81s；每条都从 durable flowrun/MediaRef 到附件 content 与 recorder exact-byte native part 闭合，未见重复提交、receipt-only、异步孤儿或 ownership 串线。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
@@ -117,6 +119,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 随后复探异步 video producer→managed viewer：两次独立真实 managed flowrun 均完成，下游拿到 producer 的同一 MP4 MediaRef，源视频可回读（7.18–10.94MB），无重复生成、孤儿 receipt 或 viewer 只读到文本。两轮通过（132.522s、119.756s），确认长尾异步等待和同 run 线缆仍闭合。
 
 同日复核 gateway-side 观测边界：`Anselm-API-Serve` 的 tagged full-stack e2e 在真实 `router → middleware → SQLite → upstream` 装配上通过，覆盖 install/chat/quota、Qwen 多模态、tool loop、stream/non-stream settle、额度/预算、拒绝 rollback、异步图像/语音/视频、混合模态与 debug 计费。部署公网面只返回规范化 completion、quota 和 liveness；`/metrics`、`/readyz`、pprof、expvar 均由独立 loopback admin listener 提供，原始 provider body/header/key 按设计不出端。因此 FRT-04 的用户可见媒体/flowrun/附件证据已闭合，但“部署公网可录制原始 provider wire”不能在不改变 API Serve 安全边界的前提下补齐，不能把该缺口伪装成已覆盖。
+
+本轮 workflow 跨 provider 观看链再次双跑通过：image producer 的真实 PNG 进入 OpenAI native image part，speech producer 的 WAV 进入 Qwen native `input_audio`，异步 video producer 的 MP4 进入 Qwen native `video_url`；三个下游回合都建立在同一 flowrun 的 durable completed 与附件 content 上，未把 receipt 文本当媒体。该证据补强 FRT-04 的下游请求/产物一致性，但不改变公网不暴露 raw provider wire 的边界。
 
 同日复跑 workflow 用户附件融合的 manual-trigger 入口：上传 PDF+PNG+MP4 后，payload 经 trigger → CEL → managed agent 完整穿线，flowrun completed；agent 从 PDF sandbox 提取唯一 token，同时保留三份 MediaRef，源字节分别为 552、98、2,969,360 bytes。两个独立 backend 进程通过（63.203s、62.185s），未形成 workflow 或多模态产品缺陷。
 
