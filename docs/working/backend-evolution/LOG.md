@@ -1109,6 +1109,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-723 | managed 朗读成本闸当前组合全绿：同文本顺序重听命中缓存且只产生一次消费，换文本生成新 WAV；同 key 并发双请求共享结果且只增加一次 quota；空闲 workspace quota 快照自洽，未出现重复扣费、缓存污染或附件孤儿 | FRT-08 + FRT-07 / managed-write / read-aloud cache + concurrent dedup + quota | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ReadAloudCache|ReadAloudConcurrentDedup|Quota)$' -count=1 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo723-managed-readaloud-quota.jsonl` → PASS，包 18.743s（10.48s、5.63s、1.70s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-724 | managed 高风险写入控制面当前三项全绿：语音 danger deny 16.36s、视频 danger deny 11.16s 均返回 204 后 completed 且无 receipt/quota 消费；视频批准后提交再 cancel 10.86s，父回合 durable cancelled，未出现迟到 MP4、receipt 或附件孤儿 | FRT-09 + FRT-13 / managed-write / danger denial + async cancellation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_Generate(SpeechDeniedNoSpend|VideoDeniedNoSpend|VideoCancelAfterSubmitLeavesNoOrphan)$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo724-managed-denial-cancel.jsonl` → PASS，包 38.751s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

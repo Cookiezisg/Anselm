@@ -192,6 +192,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后补做批准后的直接 `generate_video`：danger interaction→approve 后只提交一次异步任务，等待 gateway durable terminal，回合 completed，唯一 4,314,423-byte MP4 content 可回读且 receipt 恰一条。当前进程通过（102.77s；包 103.475s），未形成重复生成、迟到附件或取消/异步资源回归。
 
+本轮再做高风险控制面三件套：语音与视频 danger deny 分别 16.36s、11.16s 完成，拒绝后无 receipt/quota；视频批准后提交再取消 10.86s 完成，父回合落 durable `cancelled` 且无迟到 MP4/附件。三条均未形成成本闸、broker 或异步资源孤儿。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
