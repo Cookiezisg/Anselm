@@ -1087,6 +1087,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-712 | 真实 managed workflow 产物链当前单轮全绿：image producer→managed viewer 46.36s、speech producer→managed viewer 39.01s、异步 video producer→managed viewer 109.29s；每条 flowrun completed，下游消费同一 MediaRef，PNG/WAV/8,944,565-byte MP4 均可从附件端点回读，无 receipt-only、重复生成、孤儿或长尾未收口 | FRT-04 + FRT-09 / managed-write→managed-read / workflow media producer→viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerate(ImageToViewer|SpeechToManagedViewer|VideoToManagedViewer)$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo712-managed-workflow-media.jsonl | tail -n 160` → PASS，包 195.530s；未输出 provider secret |
 
+| 2026-07-31 | EVO-713 | 同一份 PDF+PNG+MP4 多模态 workflow 从三个真实用户入口全绿：manual trigger 56.45s、外部 webhook 17.28s、chat→`trigger_workflow` 44.67s；各自 `origin`/`conversationId`/`triggerId`、flowrun terminal、PDF token 与源附件字节均闭合，没有入口专属的丢媒体、错误路由或状态漂移 | FRT-01 + FRT-04 + FRT-15 / managed-read / manual + webhook + chat multimodal workflow fusion | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowUserAttachmentFusion|WorkflowWebhookUserAttachmentFusion|ChatTriggerWorkflowUserAttachmentFusion)$' -count=1 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo713-managed-workflow-user-fusion.jsonl | tail -n 160` → PASS，包 118.840s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

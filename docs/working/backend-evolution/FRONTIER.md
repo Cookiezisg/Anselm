@@ -130,6 +130,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做纯 managed workflow 产物链当前复探：image producer→managed viewer、speech producer→managed viewer 与异步 video producer→managed viewer 均完成（46.36s、39.01s、109.29s；包 195.530s）。每条 flowrun 的 producer receipt/MediaRef、下游消费与 attachment content 闭合，PNG/WAV/8,944,565-byte MP4 均为真实可回读内容；没有把 receipt 文本冒充媒体、重复生成或让长尾视频停在非终态。
 
+同轮再复探用户附件融合的三入口：manual trigger、外部 webhook、chat→`trigger_workflow` 分别承载同一 PDF+PNG+MP4 payload，均完成真实 managed agent flowrun（56.45s、17.28s、44.67s；包 118.840s）。三路的 origin/provenance、chat `conversationId`、webhook `triggerId`、PDF sandbox token、三份源字节与终态均闭合，没有入口特有的媒体丢失或路由漂移。
+
 ### FRT-07 最新证据
 
 本轮先把语音输入与音色全生命周期放在同一 managed 组中复探：realtime ASR 独立通过（10.01s），但首个 `EnrollSpeakDelete` 进程在等待 60s 内没有得到 `enroll_voice` danger interaction，测试在审批断言前退出，未提交登记任务，不能把该红灯误判成库存、异步状态或删除语义缺陷。随后将生命周期场景隔离并以两个独立进程复跑，均完整通过危险审批→异步登记→克隆音色合成→删除，耗时 44.75s、54.67s；voice inventory/上游句柄和最终本地清理均闭合。当前结论是受管模型/网关时序可靠性哨兵，保留首轮 60s stall 证据，未改生产代码。
@@ -321,6 +323,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日复探 workflow 并发核心与聊天入口组合：manual flowrun 的 8 branch/双四输入 join，以及 chat→`search_tools`→`trigger_workflow` 的 4 branch/双 join 均在两轮独立 managed 进程中通过（包总计 26.704s、26.876s）。所有 branch/join/finish execution 绑定同一 `flowrunId` 且各执行一次，chat 路径的 `origin=chat`、`conversationId` 与 durable node rows 保持闭合，未形成后端缺陷。
 
 同日复探 workflow 内用户多模态融合三入口：manual trigger、真实 webhook 与 chat→`trigger_workflow` 均把 PDF+PNG+MP4 MediaRef 送入 managed agent；PDF 继续由 sandbox 抽取 token，PNG/MP4 走原生媒体分支，flowrun origin/`conversationId` 与三份源附件字节均保持可审计。两轮独立进程全绿（包总计 131.513s、177.032s），未形成入口间的媒体映射或 lazy-tool 回归。
+
+本轮对同一三入口组合做当前窗口复探：manual、webhook、chat 三条分别 56.45s、17.28s、44.67s 通过，包 118.840s；较小的 PDF+PNG+MP4 fixture 在三路都保留 origin/trigger/conversation provenance、PDF token 与源字节，未出现入口特有的 payload/CEL 装配回归。
 
 ### FRT-16 最新证据
 
