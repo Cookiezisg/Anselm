@@ -704,6 +704,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-520 | 视频提交后取消的红绿分叉与两次完整通过已加入 Frontier，文档门禁通过；保留审批前 stall 作为 gateway/provider 观察项，不掩盖测试事实 | docs gate / post-managed-video-cancel-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-521 | `inspect_media` 时序参数组合首轮全绿（图片 crop/high、视频 1,000–2,000ms、音频 1,200–2,600ms），但第二个组合在音频项暴露真实用户体验红灯：模型把 lazy 目录卡误读为只支持 `attachmentId/question`，拒绝合法 `startMs/endMs`，未进入工具执行 | FRT-01 / managed-read / inspect_media temporal range / lazy discovery | 首轮组合 `TestLiveManaged_InspectMedia(ImageCropDetail|VideoTimeRange|AudioTimeRange)` → PASS 90.245s；第二轮同命令 → FAIL 105.595s（音频拒答，业务断言前）；无 provider secret |
+
+| 2026-07-30 | EVO-522 | 定位并修复共同层提示缺口：`inspect_media` 是 lazy 工具，目录卡只保留描述首行前 180 字，原 `startMs/endMs` 位于截断尾部；把时间窗能力前置到首行并加离线回归断言，完整工具 schema/执行逻辑不变 | FRT-01 / toolset / lazy overview / inspect_media | `go test ./internal/app/tool/attachment ./internal/app/tool/toolset` → PASS 1.232s；未输出 provider secret |
+
+| 2026-07-30 | EVO-523 | 修复后的真实 managed 音频时间窗首个独立进程通过（30.93s）：模型直接调用 `inspect_media` 并保留 1,200–2,600ms capsule，源 WAV 可回读，未形成后端缺陷 | FRT-01 / managed-read / regression reprobe | `TestLiveManaged_InspectMediaAudioTimeRange` → PASS 31.465s（场景 30.93s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-524 | 同一修复后的音频时间窗第二个独立进程通过（17.25s），确认目录卡修复消除了模型拒答窗口而不是偶然绿灯；未形成稳定缺陷 | FRT-01 / managed-read / independent reprobe | 同一场景第二次独立运行 → PASS 17.551s（场景 17.25s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-525 | `inspect_media` 时间窗红灯、根因、修复与双跑证据加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-inspect-media-range-fix | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

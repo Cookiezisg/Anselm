@@ -28,7 +28,14 @@ const (
 	inspectMediaMaxTileCols           = 8
 )
 
-const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId and return bounded evidence. For images, tiles (boolean) with tileRows/tileCols (integers) returns a compact map without vision; crop/detail are optional. Optional query/contextChars/maxMatches search text or documents; optional page/offset/limitChars select bounded slices; optional startMs/endMs scope audio/video metadata. Images otherwise use the default vision-capable Anselm route and send only one bounded proxy/crop. Text/documents use local extraction; audio/video return metadata only, never fake transcript/OCR/scenes.`
+// Keep the first line useful as well as short: lazy-tool overviews intentionally keep only the
+// first 180 characters, so the temporal range knobs must be visible before a model decides to
+// call inspect_media directly (without a preceding search_tools activation).
+//
+// 首行既要短又要有用：lazy 工具目录刻意只保留前 180 个字符，因此时间范围旋钮必须在模型
+// 未先 search_tools、准备直接调用 inspect_media 时就可见。
+const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId with bounded evidence; audio/video accept optional startMs/endMs metadata ranges, images accept crop/detail/tiles.
+For images, tiles (boolean) with tileRows/tileCols (integers) returns a compact map without vision; crop/detail are optional. Optional query/contextChars/maxMatches search text or documents; optional page/offset/limitChars select bounded slices. Images otherwise use the default vision-capable Anselm route and send only one bounded proxy/crop. Text/documents use local extraction; audio/video return metadata only, never fake transcript/OCR/scenes.`
 
 var inspectMediaSchema = json.RawMessage(`{
 	"type": "object",

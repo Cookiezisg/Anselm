@@ -92,6 +92,13 @@ func TestAttachmentTools_WithInspectMedia(t *testing.T) {
 	}
 }
 
+func TestInspectMediaDescriptionOverviewNamesTemporalRange(t *testing.T) {
+	firstLine := strings.SplitN(inspectMediaDescription, "\n", 2)[0]
+	if !strings.Contains(firstLine, "startMs/endMs") {
+		t.Fatalf("lazy overview first line must expose temporal range args: %q", firstLine)
+	}
+}
+
 func TestListAttachments_ReturnsUploaded(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	a, err := svc.Upload(ctx, "notes.txt", "text/plain", []byte("hello world"))
