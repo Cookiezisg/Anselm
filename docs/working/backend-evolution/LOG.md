@@ -628,6 +628,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-482 | 最终追加三模态 sentinel 双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-01 三模态事实与 FRT-04/FRT-08 gateway observability boundary 均保持可读，唯一 DTO drift warning 未变化 | docs gate / final post-managed-triple-modality-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-483 | 默认 managed image+unsupported-audio 交叉首跑通过：能力面保留 vision、关闭 chat audio；同回合完成且 PNG 98 bytes/WAV 96,044 bytes 均保持字节不变，音频诚实降级、未污染视觉路由 | FRT-01 / managed-read / supported image + unsupported audio | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DefaultChatWithImageAndUnsupportedAudio$' -count=1 -timeout 8m -v` → PASS 14.902s；无 provider secret；shutdown embedder `context canceled` 为既知噪声 |
+
+| 2026-07-30 | EVO-484 | 同一 image+unsupported-audio sentinel 第二个独立进程通过（10.285s），确认 capability downgrade 与源字节守卫不是偶然 provider 窗口结果；未形成产品缺陷 | FRT-01 / managed-read / independent reprobe | 同一命令第二次独立运行 → PASS 10.285s；Frontier 已补 FRT-01 最新证据；未输出 provider secret |
+
+| 2026-07-30 | EVO-485 | image+unsupported-audio 双跑事实加入 Frontier 后文档门禁通过；FRT-01 的 vision 保持/音频诚实降级边界与既知 shutdown 噪声均可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-image-audio-degrade-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
