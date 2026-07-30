@@ -790,6 +790,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-563 | 子代理 text/PDF 读取对照复探通过：同一真实 managed 进程内，general-purpose child 分别经文本读取与 sandbox `read_attachment` 抽取唯一 token，父层无直接附件工具调用，源附件逐字节不变；这把 image writer 的红绿信号进一步收窄到媒体写入 + 低步预算/schema recovery 边界，未形成通用 subagent/attachment read 缺陷 | FRT-05 / managed-read / subagent attachment contrast | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentReads(Text|PDF)Attachment$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 115.530s（PDF 31.34s）；未输出 provider secret |
 
+| 2026-07-30 | EVO-564 | 直接 managed `inspect_media` 图像/音视频七路径首轮全绿：普通图片视觉、crop+high detail、2×3 tiles、视频普通/时间范围、音频普通/时间范围均保留 bounded evidence 或 metadata capsule，源媒体逐字节不变 | FRT-01 / managed-read / inspect_media image + temporal media | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_InspectMedia(Image|ImageCropDetail|ImageTiles|Video|VideoTimeRange|Audio|AudioTimeRange)$' -count=1 -parallel 1 -timeout 30m -v` → PASS，包总计 135.017s；未输出 provider secret |
+
+| 2026-07-30 | EVO-565 | 同一 `inspect_media` 七路径第二个独立进程再次全绿（包总计 113.666s），确认 crop/detail/tiles、音视频时间窗和 metadata-only 边界不依赖一次性模型配合，未形成后端缺陷 | FRT-01 / managed-read / independent reprobe | 同一命令第二次独立运行（输出收敛为末 140 行）→ PASS，包总计 113.666s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
