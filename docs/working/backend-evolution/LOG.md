@@ -1085,6 +1085,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-711 | EVO-710 后 backend 全量黑盒总闸通过：子代理上下文哨兵的模型重试红灯没有扩散到 chat、workflow/trigger、MCP/function/handler、附件/多模态、媒体生成、取消/重试、崩溃恢复或资源卫生基线 | full backend testend regression / post-EVO-710 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo710.log | tail -n 120` → `ok github.com/sunweilin/anselm/testend/scenarios 307.546s`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-712 | 真实 managed workflow 产物链当前单轮全绿：image producer→managed viewer 46.36s、speech producer→managed viewer 39.01s、异步 video producer→managed viewer 109.29s；每条 flowrun completed，下游消费同一 MediaRef，PNG/WAV/8,944,565-byte MP4 均可从附件端点回读，无 receipt-only、重复生成、孤儿或长尾未收口 | FRT-04 + FRT-09 / managed-write→managed-read / workflow media producer→viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerate(ImageToViewer|SpeechToManagedViewer|VideoToManagedViewer)$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo712-managed-workflow-media.jsonl | tail -n 160` → PASS，包 195.530s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
