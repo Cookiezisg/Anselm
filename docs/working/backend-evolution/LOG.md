@@ -440,6 +440,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-388 | managed workflow 扇出/AND-join 场景、backend 全量回归与文档门禁后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-workflow-fanout-join | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-389 | chat→workflow 扇出/AND-join 真实用户入口补齐：managed chat 先发现 `trigger_workflow`，再启动 4 路 branch、双 join、finish；`origin=chat`/`conversationId`、8 条 durable node rows 与 branch ledger 均闭合。前两次探索被外部 gateway 阻断（首轮 `LLM_STREAM_ERROR`/HTTP2 响应头 timeout；次轮 `LLM_PROVIDER_ERROR`/上游 502），随后两次规范复跑通过，未形成产品缺陷 | FRT-04 / FRT-15 / managed-read/default / chat → search_tools → trigger_workflow → fanout/join | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatTriggerWorkflowFanoutJoin$' -count=1 -v` → 首跑 FAIL 68.880s（响应头 timeout）；次跑 FAIL 12.950s（502）；第三次 PASS 30.092s；第四次 PASS 29.445s；无 provider secret |
+
+| 2026-07-30 | EVO-390 | chat→workflow 扇出/AND-join 场景加入后的 docs 门禁通过；Frontier 补充 FRT-15 用户入口证据与 gateway 红灯分类，working 索引、锚点与 drift 检查保持可用，既有 DTO drift warning 未变化且不阻断门禁 | docs gate / post-chat-workflow-fanout-join | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 内容未变化 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
