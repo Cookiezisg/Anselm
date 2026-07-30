@@ -276,6 +276,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日复探 Qwen chat-only 模型的 agent 资格闸：API key 探测与能力投影允许该模型作为对话模型，但把它显式设置到 agent 后，真实 `:invoke` 在 0 steps 直接落 `failed`，错误说明为 `cannot run as an agent`，未产生 tool call、function execution、模型回退或消费。两次独立 BYOK 进程通过（3.656s、3.050s），未形成目录裁剪或路由边界缺陷。
 
+本轮资格边界组合再次通过：Qwen chat-only agent 仍在 0 steps 明确拒绝，未发工具或 provider 请求；该项单场景 1.08s，未形成能力投影回归。
+
 ### FRT-11 最新证据
 
 本轮先做 DeepSeek 兼容线缆的真实双跑：`deepseek-v4-flash` 在产品 API 内完成 `run_function`，函数结果回灌后第二次 chat/completions 采样完成；durable history 同时保留 tool call、tool result 和最终 `144`，recorder 观察到至少两次请求且请求携带 `tools`、`tool_calls` 与结果载荷。两次独立进程通过（12.52s、9.52s），未形成产品缺陷；关停阶段的 embedder `context canceled` 仍是已知 shutdown 噪声。
@@ -299,6 +301,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 本轮在当前窗口再次抽样 provider 续接：DeepSeek `deepseek-v4-flash` 的兼容 tool loop 通过（10.31s），第二次请求与 durable tool history 均闭合；Gemini 文本 smoke（1.59s）及原生 `functionCall/functionResponse`（3.39s）均收到 429 并结构化为 `LLM_RATE_LIMITED` skip，没有伪造回答或错误降级。该结果与既有 Google rate-window 证据一致，不改后端 parser 或重试策略。
 
 本轮再做资格/续接交叉抽样：DeepSeek 文本与 tool continuation 分别 6.19s、9.24s 通过；Google 文本、原生 tool continuation 与 stale-model 恢复分别 1.64s、3.50s、2.14s 触达当前 429 并结构化 skip；stale model 连续失败两次仍以单次请求/回合落 `LLM_MODEL_NOT_FOUND`（2.19s），没有 fallback 或无界重试。
+
+随后补做当前凭证/资格边界组合：Kimi/Moonshot `:test` 仍把上游 401 安全映射为 422 `API_KEY_TEST_FAILED`（3.71s）；Google stale model 连续失败各只发一次并保持 `LLM_MODEL_NOT_FOUND`（2.14s）。两项均没有伪造 assistant 或 managed fallback；Kimi 当前 key 仍不可用，Google 自动失效/降级仍是显式策略缺口。
 
 ### FRT-13 最新证据
 
@@ -325,6 +329,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 随后复探“失效后主动切换恢复”：两次测试均先真实验证旧模型的单次 404→`LLM_MODEL_NOT_FOUND`，但恢复模型的下一次发送均落当前 Google provider 429，按合同结构化 skip；因此恢复成功路径仍未宣称通过，当前缺口是 provider rate window，不是错误回合或隐藏 fallback。
 
 同日补做资格错误后的显式恢复：旧 Gemini 模型首发只调用一次并落 `LLM_MODEL_NOT_FOUND`，用户随后明确切换到 `gemini-3-flash-preview`，同一 conversation 恢复 completed 且总上游调用恰两次；两次独立复跑通过（6.959s、6.412s），没有错误回合污染后续历史。
+
+本轮再次复探 Google stale-model 的重复失败边界（2.14s）：两次显式选择各只触发一次上游请求，均落 `LLM_MODEL_NOT_FOUND`；该行为与 Kimi 401、Qwen chat-only 拒绝组成当前 BYOK 资格三分法，未形成重试、回退或历史污染回归。
 
 本轮所有 live 探针与文档变更后执行一次全量后端黑盒回归：`testend/scenarios` 用时 328.040s 全绿，未引入新的稳定产品缺陷；该门禁只证明当前已落地行为没有被本轮工作回归，不替代各 provider/managed 场景的独立真线缆证据。
 

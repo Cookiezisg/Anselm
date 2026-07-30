@@ -1103,6 +1103,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-720 | Qwen 原生 workflow viewer 两条下游线当前全绿：managed speech producer→Qwen `input_audio` 26.47s，managed async video producer→Qwen `video_url` 135.89s；各自 flowrun 等到 durable completed，WAV/9,393,843-byte MP4 附件可回读且 viewer 收到同一 MediaRef，无重复提交、receipt-only 或跨方言丢媒体 | FRT-03 + FRT-04 / hybrid / managed speech/video → Qwen native viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManaged(SpeechToQwenViewer|VideoToQwenViewer)$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo720-hybrid-qwen-media-viewers.jsonl` → PASS，包 163.170s；未输出 provider secret |
 
+| 2026-07-31 | EVO-721 | provider 资格边界当前组合全绿且分流清晰：Kimi/Moonshot 当前凭证上游 401，`:test` 稳定返回 422 `API_KEY_TEST_FAILED` 并保留安全 reason；Qwen chat-only 模型设置为 agent 时在 0 steps 明确拒绝；Google stale model 连续两次各只发一次上游请求并落 `LLM_MODEL_NOT_FOUND`，无 fallback/伪造 assistant/无限重试 | FRT-10 + FRT-11 + FRT-14 / byok-read / credential + capability + stale model | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(KimiCredentialProbe|QwenChatOnlyAgentRejected|GoogleListedModelRepeatedFailure)$' -count=1 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo721-byok-qualification-boundaries.jsonl` → PASS，包 7.973s（3.71s、1.08s、2.14s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
