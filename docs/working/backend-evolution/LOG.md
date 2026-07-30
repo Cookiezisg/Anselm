@@ -1145,6 +1145,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-741 | managed 朗读成本边界再次双跑全绿：顺序路径首读真实合成、同文本同音色命中同一 WAV 缓存、换文本生成新附件并保持可播放；并发同 key 双发共享同一附件且 quota 只增加一次。`ReadAloudCache` 10.50s/7.07s、`ReadAloudConcurrentDedup` 5.47s/5.06s，包 28.931s；未见重复扣费、缓存穿透或附件孤儿 | FRT-08 / managed-write / read-aloud cache + concurrent dedup | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveManaged_(ReadAloudCache|ReadAloudConcurrentDedup))$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo741-managed-read-aloud-cost.jsonl` → PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-742 | 聊天入口 workflow 控制面真实双跑全绿：`trigger_workflow→get_flowrun` 能读到已完成 run，失败 run 经 `search_flowruns→get_flowrun` 暴露 durable 节点错误，human approval 能停泊后由 `decide_approval` 续到下游，失败 run 经 `replay_flowrun` 只重跑失败节点并完成；Observability 34.80s/38.72s、FailureDiagnosis 45.71s/47.27s、ApprovalDecision 44.71s/56.51s、Replay 60.79s/48.94s，包 378.238s。未把中间消息或模型自述当状态真相，未见 flowrun/ledger/replay 回归 | FRT-04 + FRT-13 + FRT-15 / managed-read+write / chat workflow control plane | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrun(Observability|FailureDiagnosis|ApprovalDecision|Replay)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo742-managed-chat-workflow-control-double.jsonl` → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

@@ -354,11 +354,15 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做聊天侧 workflow 状态机交叉复探：`search_tools → trigger_workflow → get_flowrun` 可观测读取、失败 run 的 `search_flowruns → get_flowrun` 诊断、human approval durable park→`decide_approval`→下游 publish，以及失败后的 `replay_flowrun` 都在首个独立组合中完成（包 180.391s）。第二个组合出现一次单场景红灯，但其余三项通过；将疑似失败的 `ChatFlowrunFailureDiagnosis` 隔离后连续两次通过（42.362s、58.943s），没有稳定错误、孤儿 run 或错误恢复缺陷，因此只保留为 managed 模型/工具序列波动哨兵，不改生产代码。
 
+本轮对同一聊天 workflow 控制面做真实双跑：可观测读取、失败诊断、human approval 停泊/决定与失败 replay 共 8/8 通过。前两轮分别为 Observability 38.72s/34.80s、FailureDiagnosis 45.71s/47.27s、ApprovalDecision 44.71s/56.51s、Replay 60.79s/48.94s；durable flowrun、节点错误、审批决定、下游 marker 与 replay 的完成节点均闭合，没有把中间消息或模型自述当作状态证据。
+
 本轮图像写入复探同时补足异步终态证据：动画回合在长轮询期间始终读取同一 durable conversation，最终明确完成并只出现一份真实 MP4，随后附件 content 端点可回读；没有用中途的空消息响应替代最终状态，也没有在异步完成后重复铸造 artifact。
 
 同轮复探 `SubagentCancelTerminal` 的取消时序：组合 `-count=2` 一次通过、一次在取消后 30s settle 窗内未同时观察到父/子终态。绿灯确认 `:cancel` 204、父/child durable `cancelled`、单条 `agent/cancelled` function execution 与 follow-up 不复活；红灯发生在模型仍处于子代理工具发现/执行的长尾窗口，结合既有两次隔离绿跑，没有稳定的取消 ledger、锚点、迟到产物或终态复活证据，继续保留为 managed 模型/stream 时序哨兵而非后端缺陷。
 
 本轮再做核心用户生命周期 sanity gate：默认 managed 对话、普通 conversation fork、assistant retry continuation 各独立运行两次，6/6 完成。源历史保持 append-only，fork 分支可继续，retry 版本链没有跨线程指针或旧终态复活；包总计 50.126s，未形成当前窗口的消息投影或会话血缘回归。
+
+聊天入口 workflow 控制面随后做真实双跑：`trigger_workflow→get_flowrun` 的成功读取、失败 run 的 `search_flowruns→get_flowrun` 诊断、approval park→`decide_approval` 续接以及 `replay_flowrun` 的失败节点重跑全部通过（包 378.238s）。结果进一步确认 durable flowrun/interaction/节点台账与聊天续接一致，未出现审批后重复执行、失败 replay 重跑已完成节点或旧终态复活。
 
 ### FRT-14 最新证据
 
@@ -387,6 +391,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日复探 workflow 内用户多模态融合三入口：manual trigger、真实 webhook 与 chat→`trigger_workflow` 均把 PDF+PNG+MP4 MediaRef 送入 managed agent；PDF 继续由 sandbox 抽取 token，PNG/MP4 走原生媒体分支，flowrun origin/`conversationId` 与三份源附件字节均保持可审计。两轮独立进程全绿（包总计 131.513s、177.032s），未形成入口间的媒体映射或 lazy-tool 回归。
 
 本轮对同一三入口组合做当前窗口复探：manual、webhook、chat 三条分别 56.45s、17.28s、44.67s 通过，包 118.840s；较小的 PDF+PNG+MP4 fixture 在三路都保留 origin/trigger/conversation provenance、PDF token 与源字节，未出现入口特有的 payload/CEL 装配回归。
+
+同一聊天入口控制面真实双跑也覆盖了 workflow 的状态分支：成功、失败、approval park/resume 与 failed replay 八次全部闭合（EVO-742）；因此 FRT-15 的节点/执行台账之外，聊天侧对 flowrun 状态的读取、诊断和恢复没有新增缺口。
 
 ### FRT-16 最新证据
 
