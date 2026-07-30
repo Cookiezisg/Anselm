@@ -1121,6 +1121,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-729 | 文档渲染/原生文档媒体入口当前全绿：managed `anselm://media` 图片引用 6.80s、OpenAI BYOK 文档图片 3.52s 均将同一 98-byte PNG 作为真实 native image；OpenAI BYOK 原生 PDF 3.12s 以 540-byte file wire 完成；Qwen BYOK 原生视频 6.67s 以 exact-byte 2,969,360-byte MP4 完成。四项总计 20.485s，URL 未退化成提示词文本，未发生 managed fallback 或源件改写 | FRT-02 + FRT-06 / managed-read + byok-read / document renderer + native PDF/video | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveManaged_DocumentImageReference|TestLiveBYOK_(OpenAIDocumentImageReference|OpenAIPDFInput|QwenVideoInput))$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo729-doc-media-entries.jsonl` → PASS，包 20.485s；未输出 provider secret |
 
+| 2026-07-31 | EVO-730 | provider 当前窗口复探分流明确：DeepSeek 文本 5.03s 与兼容 tool continuation 7.76s 通过；Google 文本与原生工具续接分别结构化 SKIP `LLM_RATE_LIMITED (429)`（1.73s、3.18s），stale-model 恢复先稳定得到单次 404→`LLM_MODEL_NOT_FOUND` 后恢复请求因 429 skip；重复 stale failure 2.10s 仍每轮只发一次并保持 `LLM_MODEL_NOT_FOUND`。包 22.102s，无伪造 assistant、fallback 或无界重试 | FRT-11 + FRT-14 / byok-read / provider rate-window + stale-model classification | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveBYOK_(TextProviderSmoke|DeepSeekToolContinuation|GoogleToolContinuation|GoogleListedModelCanBeAccountUnavailable|GoogleListedModelRepeatedFailure))$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo730-byok-provider-window.jsonl` → PASS，包 22.102s（Google provider 场景按合同结构化 skip）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
