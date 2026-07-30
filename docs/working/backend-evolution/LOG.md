@@ -988,6 +988,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-662 | Google Gemini 原生 image-input 再次连续两次触达 provider 当前 429；产品稳定落 `LLM_RATE_LIMITED` 结构化 skip，无 assistant 文本、managed fallback 或媒体编码误报；视觉 wire 仍不能宣称通过 | FRT-02 + FRT-11 / byok-read / Google rate window | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleImageInput$' -count=1 -parallel 1 -timeout 15m -json` → structured SKIP 5.17s、3.10s（测试包 RC=0）；未输出 provider secret |
 
+| 2026-07-31 | EVO-663 | OpenAI 同回合多图当前配置连续两次通过：两张独立 PNG 均进入真实视觉回合，native parts、durable assistant history 与两份 98-byte 附件回读闭合；BYOK workspace 未启用 managed fallback | FRT-02 / byok-read / multiple-image fusion | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIMultipleImages$' -count=1 -parallel 1 -timeout 20m -json` → PASS 6.62s、5.51s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

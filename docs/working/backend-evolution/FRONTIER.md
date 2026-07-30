@@ -54,6 +54,8 @@ audience: [human, ai]
 
 同日补做 Qwen 方言三件套：`qwen3.7-plus` 单视频真实 BYOK 回合完成且 2,969,360-byte MP4 保持不变；同模型 image+video 同回合经 recorder 同时捕获 exact-byte `image_url`/`video_url`；`qwen3-omni-flash` image+WAV 遵守 `maxDistinctMediaKinds=1`，保留 image native、把 audio 变成明确约束注记而不发上游非法组合。两轮独立组合均通过（21.755s、16.582s），未形成 Qwen provider 方言或多模态降级缺陷。
 
+同日复探 OpenAI 同回合多图：两个独立进程都把两份 98-byte PNG 送入真实视觉回合，durable history 完成且两份附件逐字节回读（6.62s、5.51s）；BYOK workspace 未安装 managed fallback，未形成多 part 编码或附件列表投影回归。
+
 随后复探 OpenAI `gpt-audio` 的交叉边界：单音频回合的 WAV 以 exact-byte `input_audio` 到达 recorder；音频+`run_function` 首轮保留音频与 tools，sandbox 结果回灌后第二次 `/chat/completions` 完成，durable history 同时保留 tool call/result/最终文本。两轮独立组合全绿（15.334s、12.211s），未形成音频 encoder、agent loop 或工具续接回归。
 
 Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview` 探针能力含 vision，PNG 经 Gemini contents/parts 完成 BYOK 回合，原始 98-byte 附件逐字节可回读；两次通过（7.085s、5.820s），未遇到 rate-limit，也未形成 Google native part 或 capability projection 缺陷。
