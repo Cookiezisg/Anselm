@@ -144,6 +144,8 @@ audience: [human, ai]
 
 随后补齐对称的 `custom + openai-compatible` 入口：`:test` 使用 OpenAI 风格 `GET /models` + Bearer，聊天使用 `/chat/completions` + Bearer、`stream_options.include_usage` 与 data-only SSE；同一产品 API 把 wire 上的 `finish_reason=stop` 规范化为 durable history 的 `stopReason=end_turn`，token usage 与回答均落盘，且没有误走 `/v1/messages`/`x-api-key`。两次独立 backend 进程通过（5.31s、3.30s）；第一次 focused 红灯只是测试 oracle 错把 provider wire 的 `stop` 当成 durable 合同，修正为 `end_turn` 后未形成产品缺陷。
 
+随后做当前 DeepSeek BYOK continuation 的稳定性对照：首轮三场景批次通过；第二轮在 `maxSteps=4` 下真实出现 `MAX_STEPS_REACHED`，回合保留诚实 partial 语义而不是伪造最终答案。该场景随后两个独立默认预算进程均通过（13.202s、14.912s），再以临时 `maxSteps=8` 控制实验通过（14.548s），且实验参数已恢复、未进入工作树。四次抽样合并为三绿一红，证据指向模型偶尔消耗额外工具/schema recovery 步数，而非共享 loop 的终态、tool-call/tool-result 投影或 DeepSeek wire 稳定损坏；低预算组合继续保留为 provider/模型升级时的可靠性哨兵。
+
 ### FRT-13 最新证据
 
 同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。

@@ -826,6 +826,14 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-581 | quota 双跑证据加入 LOG 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-quota-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-582 | BYOK capability boundary 首轮批次通过：DeepSeek/Google 文本 smoke、DeepSeek tool continuation 与 Qwen chat-only agent rejection 共享同一真实产品启动链，未启用 managed fallback | FRT-10 / FRT-11 / byok-read / provider boundary | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(TextProviderSmoke|DeepSeekToolContinuation|QwenChatOnlyAgentRejected)$' -count=1 -parallel 1 -timeout 30m -v` → PASS，包总计 24.587s；未输出 provider secret |
+
+| 2026-07-30 | EVO-583 | 同一 BYOK 批次第二轮出现真实红灯：DeepSeek continuation 在测试声明的 `maxSteps=4` 下以 `MAX_STEPS_REACHED` 结束，错误码与 partial 语义诚实落盘；没有据此改共享 loop 或伪造成功 | FRT-11 / byok-read / model-tool recovery sentinel | 同一批次独立运行 → FAIL，包总计 24.559s；失败发生在 DeepSeek continuation（约 10.69s），其余 provider 边界未见产品错误；未输出 provider secret |
+
+| 2026-07-30 | EVO-584 | DeepSeek 红灯隔离后的两个默认预算复跑均完成（13.202s、14.912s），临时将同一测试预算提高到 8 的控制实验也完成（14.548s）；实验改动已恢复，四次抽样三绿一红，当前判为低步预算下模型 schema/tool recovery 波动，不是已证实的 loop/provider wire 缺陷 | FRT-11 / byok-read / max-step control | `TestLiveBYOK_DeepSeekToolContinuation` 独立复跑两次；临时 `maxSteps=8` 单次控制；所有运行均来自 `../.env`，未输出 provider secret |
+
+| 2026-07-30 | EVO-585 | Qwen chat-only 能力边界独立复跑通过：agent invoke 在任何步骤或上游调用前以 failed/0 steps 返回可理解 capability 错误，chat-only 模型没有被误当成 agent 能力 | FRT-10 / byok-read / capability rejection | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_QwenChatOnlyAgentRejected$' -count=1 -parallel 1 -timeout 10m -v` → PASS 4.632s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
