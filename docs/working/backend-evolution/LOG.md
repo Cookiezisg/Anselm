@@ -676,6 +676,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-506 | 附件生命周期双跑事实加入 Frontier 后文档门禁通过；FRT-01 的多图、删除后历史与省略 ID 重投影证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-attachment-lifecycle-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
 
+| 2026-07-30 | EVO-507 | managed 朗读缓存/并发去重首轮独立进程通过：顺序路径验证首次扣 quota、同文本缓存、换文本新附件；并发路径两请求共享同一附件且 quota 只增加一次，未重现历史双付费竞态 | FRT-08 / managed-write / read-aloud cache + concurrent dedup | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ReadAloud(Cache|ConcurrentDedup)$' -count=1 -parallel 1 -timeout 12m -v` → PASS（Cache 10.11s；ConcurrentDedup 5.81s；包 16.375s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-508 | 同一朗读缓存/并发去重组合第二个独立进程通过（Cache 9.93s；ConcurrentDedup 5.25s；包 15.473s），确认 quota/cache 共同层不是一次性状态或模型配合；未形成产品缺陷 | FRT-08 / managed-write / independent reprobe | 同一命令第二次独立运行 → PASS，包总计 15.473s；未输出 provider secret |
+
+| 2026-07-30 | EVO-509 | 朗读缓存/并发去重双跑事实加入 Frontier 后文档门禁通过；FRT-08 的 quota/cache 结论与公网 raw-wire 设计边界保持可读，唯一 DTO drift warning 未变化 | docs gate / post-read-aloud-cache-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
