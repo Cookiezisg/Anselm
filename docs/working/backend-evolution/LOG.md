@@ -1111,6 +1111,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-724 | managed 高风险写入控制面当前三项全绿：语音 danger deny 16.36s、视频 danger deny 11.16s 均返回 204 后 completed 且无 receipt/quota 消费；视频批准后提交再 cancel 10.86s，父回合 durable cancelled，未出现迟到 MP4、receipt 或附件孤儿 | FRT-09 + FRT-13 / managed-write / danger denial + async cancellation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_Generate(SpeechDeniedNoSpend|VideoDeniedNoSpend|VideoCancelAfterSubmitLeavesNoOrphan)$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo724-managed-denial-cancel.jsonl` → PASS，包 38.751s；未输出 provider secret |
 
+| 2026-07-31 | EVO-725 | managed 图像写入链当前窗口全绿：独立 `generate_image` 产出并回读 1,101,958-byte PNG（28.85s）；`edit_image` 保留 1,083,251-byte source sibling 并产出不同的 1,677,425-byte edited sibling（77.03s）；文字-only `animate_image` 经 danger approval 进入异步路由，保留源 lineage 并回读唯一 7,026,354-byte MP4（131.39s）。三项总计 238.022s，未见重复 receipt、迟到产物或孤儿附件 | FRT-09 + FRT-13 / managed-write / image generate→edit→async animation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(GenerateImageArtifact|EditImageArtifact|AnimateImageArtifactTextOnly)$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo725-managed-image-edit-animate.jsonl` → PASS：GenerateImage 28.85s、EditImage 77.03s、AnimateTextOnly 131.39s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

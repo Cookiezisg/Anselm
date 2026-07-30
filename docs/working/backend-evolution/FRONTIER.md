@@ -194,6 +194,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做高风险控制面三件套：语音与视频 danger deny 分别 16.36s、11.16s 完成，拒绝后无 receipt/quota；视频批准后提交再取消 10.86s 完成，父回合落 durable `cancelled` 且无迟到 MP4/附件。三条均未形成成本闸、broker 或异步资源孤儿。
 
+随后对同一 managed 图像写入链做当前窗口复探：独立 `generate_image` 回读 1,101,958-byte PNG；`edit_image` 保留 1,083,251-byte source sibling 并产出 1,677,425-byte 不同 edited sibling；文字-only `animate_image` 经 danger approval 进入异步路由，源 lineage 保留且唯一 7,026,354-byte MP4 可回读。三项分别 28.85s、77.03s、131.39s 通过，未出现重复 receipt、迟到产物或孤儿附件；动画中段的高频 messages 轮询最终正常收口，不构成 durable 卡死。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
@@ -325,6 +327,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 本轮以 BYOK OpenAI 图片为载荷复核重试语义：`retry` 不复制 user 消息，追加的 assistant 版本仍指向正确历史并携带原生图片；编辑文字的 resend 复用同一附件而非新铸媒体。两条路径均保持 durable history 与附件字节闭合（6.340s、4.810s），未形成重试/重投影回归。
 
 本轮再做聊天侧 workflow 状态机交叉复探：`search_tools → trigger_workflow → get_flowrun` 可观测读取、失败 run 的 `search_flowruns → get_flowrun` 诊断、human approval durable park→`decide_approval`→下游 publish，以及失败后的 `replay_flowrun` 都在首个独立组合中完成（包 180.391s）。第二个组合出现一次单场景红灯，但其余三项通过；将疑似失败的 `ChatFlowrunFailureDiagnosis` 隔离后连续两次通过（42.362s、58.943s），没有稳定错误、孤儿 run 或错误恢复缺陷，因此只保留为 managed 模型/工具序列波动哨兵，不改生产代码。
+
+本轮图像写入复探同时补足异步终态证据：动画回合在长轮询期间始终读取同一 durable conversation，最终明确完成并只出现一份真实 MP4，随后附件 content 端点可回读；没有用中途的空消息响应替代最终状态，也没有在异步完成后重复铸造 artifact。
 
 ### FRT-14 最新证据
 
