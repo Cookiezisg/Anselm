@@ -532,6 +532,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-434 | 最终追加 DeepSeek 成功、Google 429 分类、backend 全量与跨层门禁证据后的文档门禁再次通过；Frontier/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-provider-tool-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-435 | Qwen `qwen3.7-plus` 直接 image+MP4 融合双跑闭合：同一回合 recorder 捕获原始 `image_url` 与 `video_url`，98-byte PNG 与 2,969,360-byte MP4 均逐字节回读且回合 completed，未发生 managed fallback、文本占位或产品缺陷 | FRT-02 / byok-read / Qwen native image+video fusion | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_QwenImageAndVideoFusion$' -count=1 -v` → PASS 12.93s；独立复跑 PASS 10.10s；未输出 provider secret |
+
+| 2026-07-30 | EVO-436 | Qwen 直接 image+video 融合证据加入 Frontier 后文档门禁通过；FRT-02 的 native part/exact-byte 结论、既有锚点与 drift 检查保持可读 | docs gate / post-qwen-image-video-fusion | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-437 | Qwen 直接 image+video 融合场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent、workflow/trigger、附件/多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-qwen-image-video-fusion | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 284.884s`；failure markers 为空；未开启 EVALS、未输出 provider secret |
+
+| 2026-07-30 | EVO-438 | Qwen 直接 image+video 融合、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-qwen-image-video-fusion | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-439 | 最终追加 Qwen native image+video 双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-02/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-qwen-image-video-fusion | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
