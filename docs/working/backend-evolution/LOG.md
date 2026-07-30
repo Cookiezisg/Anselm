@@ -1003,6 +1003,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-670 | 文档内图片引用双侧真实闭环连续复探通过：managed 默认入口与 OpenAI BYOK 入口都把文档中的图片引用、附件行与模型消费保持同一 MediaRef/源字节，回合完成且没有把引用降成孤立文本或切错路由 | FRT-06 + FRT-01/FRT-02 / managed-read + byok-read / document image reference | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DocumentImageReference$' -count=1 -parallel 1 -timeout 20m -v` → PASS 5.974s、7.793s；`cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIDocumentImageReference$' -count=1 -parallel 1 -timeout 20m -v` → PASS 4.796s、4.795s；两侧均未输出 provider secret |
 
+| 2026-07-31 | EVO-671 | Qwen chat-only 模型资格边界连续两次通过：模型可保留对话用途，但设置到 agent 后 `:invoke` 在 0 steps 明确以 failed/“cannot run as an agent”拒绝，没有发工具调用、执行台账或 managed fallback | FRT-10 / byok-read / chat-only capability boundary | `cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_QwenChatOnlyAgentRejected$' -count=1 -parallel 1 -timeout 20m -v` → PASS 3.656s、3.050s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

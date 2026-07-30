@@ -194,6 +194,10 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
 
+### FRT-10 最新证据
+
+同日复探 Qwen chat-only 模型的 agent 资格闸：API key 探测与能力投影允许该模型作为对话模型，但把它显式设置到 agent 后，真实 `:invoke` 在 0 steps 直接落 `failed`，错误说明为 `cannot run as an agent`，未产生 tool call、function execution、模型回退或消费。两次独立 BYOK 进程通过（3.656s、3.050s），未形成目录裁剪或路由边界缺陷。
+
 ### FRT-11 最新证据
 
 本轮先做 DeepSeek 兼容线缆的真实双跑：`deepseek-v4-flash` 在产品 API 内完成 `run_function`，函数结果回灌后第二次 chat/completions 采样完成；durable history 同时保留 tool call、tool result 和最终 `144`，recorder 观察到至少两次请求且请求携带 `tools`、`tool_calls` 与结果载荷。两次独立进程通过（12.52s、9.52s），未形成产品缺陷；关停阶段的 embedder `context canceled` 仍是已知 shutdown 噪声。
