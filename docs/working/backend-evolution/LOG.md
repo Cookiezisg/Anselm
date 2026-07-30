@@ -816,6 +816,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-576 | 朗读缓存/并发去重双跑事实加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-read-aloud-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-577 | 本轮真实 managed 多模态、subagent、workflow producer→viewer、附件生命周期、朗读成本闸与 `inspect_media` 修复之后，完整 backend 黑盒共同回归仍闭合；chat、agent/subagent、workflow/trigger、MCP/function/handler、附件、多模态、取消/重试/恢复和资源卫生均通过，无 FAIL/panic/race/`database is closed` | full backend testend regression / post-live-evolution gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 354.218s`；EVALS 未开启、未输出 provider secret |
+
+| 2026-07-30 | EVO-578 | 本轮文档与代码变更后的整仓最终门禁闭合：backend、Flutter frontend、docs、web demo 与 workspace 均通过，未观察到跨层回归 | workspace gate / post-live-evolution final gate | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
