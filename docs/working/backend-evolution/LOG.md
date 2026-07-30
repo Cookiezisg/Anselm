@@ -974,6 +974,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-655 | 聊天→`trigger_workflow` 多模态入口连续两次通过：PDF+PNG+MP4 MediaRef 穿过 payload 到 managed workflow agent，PDF sandbox token 与三份源字节保持可审计，`origin=chat`/`conversationId`/flowrun node rows 闭合 | FRT-01 + FRT-04 / managed-read / chat multimodal workflow fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatTriggerWorkflowUserAttachmentFusion$' -count=1 -parallel 1 -timeout 60m -json` → PASS 35.714s、27.445s；未输出 provider secret |
 
+| 2026-07-31 | EVO-656 | workflow 用户附件融合的 manual 与 webhook 入口连续两轮通过：PDF+PNG(+MP4) MediaRef 经各自 payload/CEL 接线到 managed agent，PDF token、origin/trigger provenance、flowrun 状态与所有源字节均闭合 | FRT-01 + FRT-04 / managed-read / trigger-source multimodal fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_Workflow(UserAttachmentFusion|WebhookUserAttachmentFusion)$' -count=1 -parallel 1 -timeout 90m -json` → PASS 81.211s、75.980s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
