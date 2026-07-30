@@ -62,6 +62,8 @@ audience: [human, ai]
 
 同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。
 
+同日补上 retry 与 fork 的交互证据：先在真实 managed chat 生成 assistant，再走无 content `:retry` 形成两版本链，随后走空 body 的 latest `:fork`。分支耐久历史保留 user + 两个 assistant 版本，但 `supersededBy`/`attrs.retryOf` 均重定基到分支自己的新 message ID；分支 follow-up 只使用当前版本并完成，源历史仍保持 3 行。两次真实复跑通过（28.37s、20.98s），未形成后端缺陷。
+
 ### FRT-15 最新证据
 
 同日补上真实 managed workspace 的大图扇出/AND-join 闭环：一个 manual flowrun 展开 8 条 action 分支，两个四输入 join 在所有上游完成后各执行一次，finish 汇总 12 条 durable node rows；function ledger 同时证明 8 次 branch、2 次 join、1 次 finish 均绑定同一 `flowrunId`、`flowrunNodeId` 唯一且成功。两次真实复跑通过（总计 9.109s、9.867s），未形成后端缺陷；关停阶段 search embedder `context canceled` 仍归类为服务 shutdown 噪声。
@@ -73,6 +75,8 @@ audience: [human, ai]
 同日补上真实对话分叉闭环：先完成一轮默认 managed chat，再从该 assistant 消息调用 `:fork`；源会话仍保持原 2 条 append-only 消息，新会话复制同一前缀但不复用源 assistant ID，返回的 `forkedFromConversationId`、`forkedFromMessageId` 与 `(fork)` 标题后缀均正确。随后在新分支继续发送 follow-up，仍经默认 Anselm 路由完成；源会话消息数保持不变。两次真实 managed 复跑通过（总计 13.209s、12.768s），未形成后端缺陷。
 
 同日再补并行 subagent 树的真实分叉闭环：源对话先由两个 `general-purpose` child 各自发现 `run_function`、执行不同 function 并留下两个 marker；空 body 的最新分叉路径复制完整耐久树，child message 与 block 均铸造新 ID，两个 `Attrs.parentBlockId` 都重定基到分支自己的父 `Subagent` tool_call，源线程保持原集合；分支 follow-up 不调用工具却能恢复两个 marker。探索时显式切在 parent message 的首次断言误把“前缀不含后续 child”当成缺陷，改用 rail 的 latest fork 语义后，真实运行确认了一个后端缺陷：分叉复制了 child 行，却把消息 Attrs 中的 `parentBlockId` 留成源 block ID；`Fork` 现与 `Block.ParentBlockID`、`retryOf` 一起重映射该消息级 E3 锚，并由真实 store 单测锁住。修复后两次独立 managed 复跑通过（67.90s、72.20s）；中间模型未稳定产出双 child 的红灯未进入分叉断言，归类为 managed 波动而非产品缺陷。
+
+同日补上版本链分叉交互：这条路径与上面的并行 subagent 树分叉互补，证明 `Fork` 的同一份预铸 message remap 表同时覆盖 `retryOf`/`supersededBy` 与消息级 E3 锚；真实 retry→latest fork→branch continuation 两次通过（28.37s、20.98s），源分支均未出现跨线程指针。
 
 ## 历史高频 reprobe 组
 

@@ -480,6 +480,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-408 | 最终追加分叉修复证据后的文档门禁再次闭合；Frontier/LOG 的 nested fork 事实、红灯分类、commit reference 与既有 drift 规则均通过 | docs gate / final post-managed-nested-fork-remap | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-409 | managed retry×fork 交互场景闭合：首轮回答经 `:retry` 形成 append-only 两版本链，空 body latest fork 携带 user+两版耐久历史并把 `supersededBy`/`attrs.retryOf` 只指向分支自身，分支 follow-up 完成且源历史保持 3 行，未形成后端缺陷 | FRT-13 / FRT-16 / managed-read/default / retry version chain → latest fork → continuation | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatRetryThenForkContinues$' -count=1 -v` → PASS 28.37s；复跑 PASS 20.98s；commit `cd8b1d86`；无 provider secret |
+
+| 2026-07-30 | EVO-410 | retry×fork 交互场景加入后的文档门禁通过；FRT-13/FRT-16 的版本链与分叉交互证据、测试入口和既有 drift 检查保持可用 | docs gate / post-managed-retry-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-411 | managed retry×fork 交互场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent（含并行树、跨回合、nested fork 与版本链分叉）、workflow/trigger、附件发现/抽取/inspect、多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-managed-retry-fork | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 340.160s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
+| 2026-07-30 | EVO-412 | retry×fork 交互后的主仓跨层门禁暴露一个与本轮后端无关的既有 frontend 格式漂移：backend、docs、web demo 子门禁均绿，但 `frontend/test/features/settings/vertex_credential_test.dart`（当前 HEAD 的 `c41ce063` 已提交文件，工作树无 diff）被当前 Dart formatter 判定需格式化，故 workspace 未宣称 verified；API Serve 工作树保持 clean，不计 backend 产品缺陷 | cross-repo gate / pre-existing frontend format drift / post-managed-retry-fork | `make verify`：backend/docs/demo 子日志均通过；frontend log → `Changed test/features/settings/vertex_credential_test.dart`、`✗ Dart files need formatting. Run: make -C frontend format`；未修改该非本轮文件、未输出 provider secret |
+
+| 2026-07-30 | EVO-413 | 最终追加 retry×fork 证据与 frontend gate 分类后的文档门禁通过；后端结论、未宣称的 workspace 状态和既有 drift warning 均如实保留 | docs gate / final post-managed-retry-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
