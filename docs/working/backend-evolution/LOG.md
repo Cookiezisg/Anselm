@@ -464,6 +464,22 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-400 | 并行子代理跨回合上下文场景、backend 全量回归与文档门禁后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-subagent-context-continuation | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-401 | 真实 managed 并行 subagent 树分叉探索先校准 fork 语义：显式切在 parent message 只复制耐久前缀，后续 child 行不在窗口；改走空 body 的 latest fork 后，两个 child 行确实随分支复制，但消息 `Attrs.parentBlockId` 仍指向源 block，确认了会破坏树归属的真实 backend 缺陷 | FRT-16 / managed-read/default / fork prefix semantics + nested subagent anchor | 探索首轮 FAIL 58.03s（显式前缀切点的测试期待错误）；latest 路径 FAIL 60.96s（分叉 child anchor 泄漏 source block，非模型/解析误判）；无 provider secret |
+
+| 2026-07-30 | EVO-402 | 修复分叉的消息级 E3 锚：`Fork` 将 `Attrs.parentBlockId` 与 block `ParentBlockID`、`retryOf` 一起基于预铸 remap 表重定基；窗口外目标统一删除，新增共享 `messages.AttrParentBlockID` 契约，真实 store 分叉单测同时锁住 block 与 message 两种锚，源线程仍纯追加 | FRT-16 / R-D+R-E / chat fork durable copy + subagent tree projection | `/opt/homebrew/bin/mise exec -- go test ./internal/app/chat ./internal/app/subagent ./internal/app/tool/subagent ./internal/domain/messages -count=1` → PASS；commit `a69cd898` |
+
+| 2026-07-30 | EVO-403 | 修复后真实 managed 分叉复探出现两次模型未稳定产出完整双 child 的红灯（子代理把 `search_tools` 当成不可用或未形成完整 child 历史），均未进入分叉锚断言；按独立重跑继续，未形成新的后端缺陷 | FRT-16 / managed-read/default / model-following observation | 修复后探索红灯未进入 backend fork assertions；未输出 provider secret；随后两次完整绿跑见 EVO-404 |
+
+| 2026-07-30 | EVO-404 | 真实 managed 并行 subagent 树分叉修复双次闭合：两个 child marker、独立父锚、全新消息/块 ID、分支 follow-up 无工具复活、源历史不变均通过；确认 `Attrs.parentBlockId` 不再泄漏到源线程 | FRT-16 / managed-read/default / nested fork remap + branch continuation | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ForkPreservesParallelSubagentTrees$' -count=1 -v` → PASS 67.90s；复跑 PASS 72.20s；无 provider secret；关停时偶见 search embedder `context canceled`，归类为 shutdown 噪声 |
+
+| 2026-07-30 | EVO-405 | 并行 subagent 树分叉修复及真实复跑后的文档门禁闭合；Frontier/LOG 锚点、追加格式与 drift 检查保持可用，唯一既有 DTO drift warning 未变化且不阻断门禁 | docs gate / post-managed-nested-fork-remap | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-406 | 分叉消息级 E3 锚修复后的 backend 全量黑盒回归闭合；chat、agent/subagent（含并行树、跨回合、nested fork）、workflow/trigger、附件发现/抽取/inspect、多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-managed-nested-fork-remap | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 388.171s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
+| 2026-07-30 | EVO-407 | 分叉消息级 E3 锚修复、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-nested-fork-remap | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-408 | 最终追加分叉修复证据后的文档门禁再次闭合；Frontier/LOG 的 nested fork 事实、红灯分类、commit reference 与既有 drift 规则均通过 | docs gate / final post-managed-nested-fork-remap | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
