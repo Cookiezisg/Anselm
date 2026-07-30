@@ -130,6 +130,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做纯 managed workflow 产物链当前复探：image producer→managed viewer、speech producer→managed viewer 与异步 video producer→managed viewer 均完成（46.36s、39.01s、109.29s；包 195.530s）。每条 flowrun 的 producer receipt/MediaRef、下游消费与 attachment content 闭合，PNG/WAV/8,944,565-byte MP4 均为真实可回读内容；没有把 receipt 文本冒充媒体、重复生成或让长尾视频停在非终态。
 
+同轮复探聊天 workflow 控制面四件套：observability、failure diagnosis、human approval park→decide、failed replay 分别在 36.04s、45.96s、49.01s、55.46s 完成（包 187.106s）。真实 flowrun/interaction/node error 与 function/handler ledger 均闭合，replay 仅重跑失败节点，未发现模型文本与 durable 状态不一致。
+
 同轮再复探用户附件融合的三入口：manual trigger、外部 webhook、chat→`trigger_workflow` 分别承载同一 PDF+PNG+MP4 payload，均完成真实 managed agent flowrun（56.45s、17.28s、44.67s；包 118.840s）。三路的 origin/provenance、chat `conversationId`、webhook `triggerId`、PDF sandbox token、三份源字节与终态均闭合，没有入口特有的媒体丢失或路由漂移。
 
 ### FRT-07 最新证据

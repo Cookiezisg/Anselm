@@ -1089,6 +1089,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-713 | 同一份 PDF+PNG+MP4 多模态 workflow 从三个真实用户入口全绿：manual trigger 56.45s、外部 webhook 17.28s、chat→`trigger_workflow` 44.67s；各自 `origin`/`conversationId`/`triggerId`、flowrun terminal、PDF token 与源附件字节均闭合，没有入口专属的丢媒体、错误路由或状态漂移 | FRT-01 + FRT-04 + FRT-15 / managed-read / manual + webhook + chat multimodal workflow fusion | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowUserAttachmentFusion|WorkflowWebhookUserAttachmentFusion|ChatTriggerWorkflowUserAttachmentFusion)$' -count=1 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo713-managed-workflow-user-fusion.jsonl | tail -n 160` → PASS，包 118.840s；未输出 provider secret |
 
+| 2026-07-31 | EVO-714 | 聊天入口 workflow 控制面当前组合全绿：observability 36.04s、失败诊断 45.96s、human approval park→decide 49.01s、failed replay 55.46s；每条 flowrun/interaction/节点错误与 function/handler execution ledger 均耐久闭合，replay 只重跑失败节点，没有把模型回答当作状态真相 | FRT-04 + FRT-13 + FRT-15 / managed-read/write / chat workflow observability + approval + replay | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrun(Observability|FailureDiagnosis|ApprovalDecision|Replay)$' -count=1 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo714-managed-chat-workflow-control.jsonl | tail -n 160` → PASS，包 187.106s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
