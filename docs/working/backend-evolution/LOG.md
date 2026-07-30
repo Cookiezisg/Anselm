@@ -428,6 +428,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-382 | managed 原地重试场景加入后的 docs 门禁通过；Frontier 新增 FRT-13 真实证据，working 索引、锚点与 drift 检查保持可用，既有 DTO drift warning 未变化且不阻断门禁 | docs gate / post-managed-chat-retry | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 内容未变化 |
 
+| 2026-07-30 | EVO-383 | managed 原地重试场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent（含 nested function failure/cancel）、workflow/trigger、附件发现/抽取/inspect、多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-managed-chat-retry | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 328.014s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
