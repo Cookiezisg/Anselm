@@ -86,6 +86,10 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日复探聊天入口的 workflow 生命周期组合：默认 managed chat 先发现并调用 `trigger_workflow`，随后分别通过 `get_flowrun` 读取 completed run、通过 `search_flowruns(status=failed)` 加 `get_flowrun` 诊断 durable 节点错误、再调用 `replay_flowrun` 恢复同一失败 run。三条路径在两个独立进程中全部通过（包总计 134.638s、126.102s）；`origin=chat`、`conversationId`、节点错误、已完成节点不重跑与 function/handler execution ledger 均闭合，未形成后端缺陷。
 
+### FRT-07 最新证据
+
+本轮先把语音输入与音色全生命周期放在同一 managed 组中复探：realtime ASR 独立通过（10.01s），但首个 `EnrollSpeakDelete` 进程在等待 60s 内没有得到 `enroll_voice` danger interaction，测试在审批断言前退出，未提交登记任务，不能把该红灯误判成库存、异步状态或删除语义缺陷。随后将生命周期场景隔离并以两个独立进程复跑，均完整通过危险审批→异步登记→克隆音色合成→删除，耗时 44.75s、54.67s；voice inventory/上游句柄和最终本地清理均闭合。当前结论是受管模型/网关时序可靠性哨兵，保留首轮 60s stall 证据，未改生产代码。
+
 ### FRT-08 最新证据
 
 同日复探 managed 朗读成本闸：顺序路径第一次合成、同文本同音色命中同一缓存、换文本生成新 WAV；并发路径在同 workspace 同 key 下同时发起两次相同请求，两个响应共享同一附件且 quota 只增加一次。两条场景在两个独立进程均通过（顺序 10.11s/9.93s，并发 5.81s/5.25s），未复现重复付费竞态；provider wire 计数仍受 API Serve 公网不暴露 raw wire 的设计边界约束。

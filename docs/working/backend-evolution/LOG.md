@@ -882,6 +882,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-609 | 同一组合第二个独立进程出现一次非稳定红灯，其他三个场景通过；隔离 `ChatFlowrunFailureDiagnosis` 随后两次独立复跑均通过（42.362s、58.943s），未形成可复现后端缺陷，保留为 managed 模型/工具序列可靠性哨兵 | FRT-13 / managed-read / reprobe classification | 组合第二轮 → FAIL 158.992s；失败场景隔离后两次 → PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-610 | 受管语音组首轮出现一个红灯：ASR 通过，但 `enroll_voice` 危险交互在 60s 内未出现；该进程未进入审批、登记或删除断言，不能据此判为生命周期缺陷 | FRT-01 + FRT-07 / managed voice / approval stall sentinel | `EVALS_VOICE=1 go test ./scenarios -run '^TestLiveVoice_(SpeechInputASR|EnrollSpeakDelete)$' -count=1 -parallel 1 -timeout 30m -v` → ASR PASS 10.01s；Enroll FAIL 69.50s（`enroll_voice asks a human` 超时）；未输出 provider secret |
+
+| 2026-07-31 | EVO-611 | 隔离后的两个独立 `EnrollSpeakDelete` 进程均完成危险审批→异步登记→克隆合成→删除（44.75s、54.67s），首轮 interaction 缺失归类为 managed 模型/网关时序波动；库存、句柄与最终清理没有稳定后端回归 | FRT-07 / managed-write / voice lifecycle independent reprobe | `EVALS_VOICE=1 go test ./scenarios -run '^TestLiveVoice_EnrollSpeakDelete$' -count=1 -parallel 1 -timeout 30m -json` → PASS（两次独立进程）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
