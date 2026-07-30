@@ -744,6 +744,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-540 | 直接 image/speech 生成双跑事实加入 Frontier 后文档门禁通过；FRT-09 的 receipt、真实媒体和单次调用证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-direct-generation-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-541 | managed 编辑/动画写路径首轮通过：`generate_image → edit_image` 恰一条生成+一条编辑 receipt，编辑保留 `sourceAttachmentId` 且 sibling 图片不同；文字-only `animate_image` 通过 danger approval 后产出真实 MP4（9,644,957 bytes），源图片与回合均保持可审计 | FRT-09 / managed-write / edit image + animate image | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(EditImageArtifact|AnimateImageArtifactTextOnly)$' -count=1 -parallel 1 -timeout 30m -v` → PASS，包总计 207.653s；未输出 provider secret |
+
+| 2026-07-30 | EVO-542 | 同一编辑/动画组合第二个独立进程再次通过（包 211.655s；动画真实 MP4 18,423,870 bytes），确认 source lineage、危险审批、专用异步路由与单一 receipt 不是一次性窗口结果，未形成产品缺陷 | FRT-09 / managed-write / independent reprobe | 同一命令第二次独立运行 → PASS，包总计 211.655s；未输出 provider secret |
+
+| 2026-07-30 | EVO-543 | 编辑/动画双跑事实加入 Frontier 后文档门禁通过；FRT-09 的 sourceAttachmentId、真实 sibling 媒体、审批与异步资源边界保持可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-edit-animation-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

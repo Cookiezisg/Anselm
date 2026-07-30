@@ -82,6 +82,8 @@ audience: [human, ai]
 
 同日复探直接 managed 生成低成本路径：`generate_image` 与 `generate_speech` 各自只执行一次，receipt 均标注受管 provider，PNG/WAV 真实附件可逐字节回读，回合完成且没有重复工具调用。两轮独立组合均通过（包 42.248s、44.673s；首轮 image 31.46s、speech 10.01s；复跑 speech 9.31s），未形成生成路由或成本闸回归。
 
+同日复探编辑与动画专用写路径：`generate_image → edit_image` 两条 receipt 各恰一条，编辑 receipt 的 `sourceAttachmentId` 指向生成 sibling 且两份图片字节不同；文字-only `animate_image` 经过 danger approval 后走独立异步动画路由，source lineage 保留、单一真实 MP4 可回读。两轮独立组合均通过（包 207.653s、211.655s；动画分别 9,644,957 与 18,423,870 bytes），未形成编辑血缘、审批或异步产物孤儿。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
