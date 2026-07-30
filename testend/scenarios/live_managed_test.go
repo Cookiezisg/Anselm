@@ -228,6 +228,150 @@ func TestLiveManaged_ChatRetryContinues(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_WorkflowFanoutJoin proves the real default-workspace workflow rail for a
+// high-cardinality graph: eight branches must all finish before either four-input join runs, and
+// the final node must see every branch result exactly once. The assertions use public flowrun rows
+// plus function execution provenance, so a green terminal status cannot hide a dropped branch.
+func TestLiveManaged_WorkflowFanoutJoin(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-workflow-fanout-join")
+	branchFn := fnCreate(t, wc, "managed_parallel_branch", "def branch(seed: str, label: str) -> dict:\n    return {'label': label + ':' + seed}\n")
+	joinFn := fnCreate(t, wc, "managed_parallel_join", "def join(a: str, b: str, c: str, d: str) -> dict:\n    return {'joined': a + ',' + b + ',' + c + ',' + d}\n")
+	finishFn := fnCreate(t, wc, "managed_parallel_finish", "def finish(left: str, right: str) -> dict:\n    return {'complete': left + '|' + right}\n")
+
+	ops := []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+	}
+	for i := 1; i <= 8; i++ {
+		id := fmt.Sprintf("p%d", i)
+		ops = append(ops,
+			map[string]any{"op": "add_node", "node": map[string]any{
+				"id": id, "kind": "action", "ref": branchFn,
+				"input": map[string]any{"seed": "start.seed", "label": fmt.Sprintf("'%s'", id)},
+			}},
+			map[string]any{"op": "add_edge", "edge": map[string]any{
+				"id": "e-start-" + id, "from": "start", "to": id,
+			}},
+		)
+	}
+	ops = append(ops,
+		map[string]any{"op": "add_node", "node": map[string]any{
+			"id": "join_left", "kind": "action", "ref": joinFn,
+			"input": map[string]any{"a": "p1.label", "b": "p2.label", "c": "p3.label", "d": "p4.label"},
+		}},
+		map[string]any{"op": "add_node", "node": map[string]any{
+			"id": "join_right", "kind": "action", "ref": joinFn,
+			"input": map[string]any{"a": "p5.label", "b": "p6.label", "c": "p7.label", "d": "p8.label"},
+		}},
+	)
+	for i := 1; i <= 4; i++ {
+		id := fmt.Sprintf("p%d", i)
+		ops = append(ops, map[string]any{"op": "add_edge", "edge": map[string]any{
+			"id": "e-" + id + "-join-left", "from": id, "to": "join_left",
+		}})
+	}
+	for i := 5; i <= 8; i++ {
+		id := fmt.Sprintf("p%d", i)
+		ops = append(ops, map[string]any{"op": "add_edge", "edge": map[string]any{
+			"id": "e-" + id + "-join-right", "from": id, "to": "join_right",
+		}})
+	}
+	ops = append(ops,
+		map[string]any{"op": "add_node", "node": map[string]any{
+			"id": "finish", "kind": "action", "ref": finishFn,
+			"input": map[string]any{"left": "join_left.joined", "right": "join_right.joined"},
+		}},
+		map[string]any{"op": "add_edge", "edge": map[string]any{"id": "e-left-finish", "from": "join_left", "to": "finish"}},
+		map[string]any{"op": "add_edge", "edge": map[string]any{"id": "e-right-finish", "from": "join_right", "to": "finish"}},
+	)
+
+	wfID := wfCreate(t, wc, "managed_parallel_join", ops)
+	runID, status, nodes := runAndWait(t, wc, wfID, map[string]any{"seed": "managed"}, 120000)
+	if status != "completed" {
+		t.Fatalf("managed parallel graph must complete, got %s nodes=%s", status, nodes)
+	}
+
+	var rows []struct {
+		NodeID    string         `json:"nodeId"`
+		Status    string         `json:"status"`
+		Iteration int            `json:"iteration"`
+		Result    map[string]any `json:"result"`
+	}
+	if err := json.Unmarshal(nodes, &rows); err != nil {
+		t.Fatalf("decode managed parallel graph nodes: %v %s", err, nodes)
+	}
+	if len(rows) != 12 {
+		t.Fatalf("managed parallel graph must persist exactly 12 node rows, got %d: %s", len(rows), nodes)
+	}
+	seen := make(map[string]bool, len(rows))
+	for _, row := range rows {
+		if seen[row.NodeID] {
+			t.Fatalf("managed node %s executed more than once at iteration %d", row.NodeID, row.Iteration)
+		}
+		seen[row.NodeID] = true
+		if row.Status != "completed" || row.Iteration != 0 {
+			t.Fatalf("managed node %s must complete once at iteration 0: %+v", row.NodeID, row)
+		}
+	}
+	for _, id := range []string{"start", "p1", "p2", "p3", "p4", "p5", "p6", "p7", "p8", "join_left", "join_right", "finish"} {
+		if !seen[id] {
+			t.Fatalf("managed parallel graph lost node %s: %v", id, seen)
+		}
+	}
+	want := "p1:managed,p2:managed,p3:managed,p4:managed|p5:managed,p6:managed,p7:managed,p8:managed"
+	if !strings.Contains(string(nodes), want) {
+		t.Fatalf("managed final join must carry every branch result in declaration order; want %q in %s", want, nodes)
+	}
+
+	// The same graph must be auditable through the public execution ledgers: eight branch calls,
+	// two joins, and one finish, all tied to this flowrun and to distinct node identities.
+	var branchExecutions struct {
+		Executions []struct {
+			FlowrunID     string `json:"flowrunId"`
+			FlowrunNodeID string `json:"flowrunNodeId"`
+			Status        string `json:"status"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+branchFn+"/executions?flowrunId="+runID).OK(t, &branchExecutions)
+	if len(branchExecutions.Executions) != 8 {
+		t.Fatalf("managed branch ledger must contain eight calls, got %+v", branchExecutions.Executions)
+	}
+	branchNodes := map[string]bool{}
+	for _, execution := range branchExecutions.Executions {
+		if execution.FlowrunID != runID || execution.Status != "ok" || branchNodes[execution.FlowrunNodeID] {
+			t.Fatalf("managed branch execution provenance/uniqueness wrong: %+v", branchExecutions.Executions)
+		}
+		branchNodes[execution.FlowrunNodeID] = true
+	}
+	for i := 1; i <= 8; i++ {
+		if !branchNodes[fmt.Sprintf("p%d", i)] {
+			t.Fatalf("managed branch ledger missing p%d: %+v", i, branchNodes)
+		}
+	}
+
+	var joinExecutions struct {
+		Executions []struct {
+			FlowrunID     string `json:"flowrunId"`
+			FlowrunNodeID string `json:"flowrunNodeId"`
+			Status        string `json:"status"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+joinFn+"/executions?flowrunId="+runID).OK(t, &joinExecutions)
+	if len(joinExecutions.Executions) != 2 || joinExecutions.Executions[0].FlowrunID != runID || joinExecutions.Executions[1].FlowrunID != runID || joinExecutions.Executions[0].Status != "ok" || joinExecutions.Executions[1].Status != "ok" {
+		t.Fatalf("managed join ledger must contain two successful calls: %+v", joinExecutions.Executions)
+	}
+	var finishExecutions struct {
+		Executions []struct {
+			FlowrunID     string `json:"flowrunId"`
+			FlowrunNodeID string `json:"flowrunNodeId"`
+			Status        string `json:"status"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+finishFn+"/executions?flowrunId="+runID).OK(t, &finishExecutions)
+	if len(finishExecutions.Executions) != 1 || finishExecutions.Executions[0].FlowrunID != runID || finishExecutions.Executions[0].FlowrunNodeID != "finish" || finishExecutions.Executions[0].Status != "ok" {
+		t.Fatalf("managed finish ledger must contain one successful finish call: %+v", finishExecutions.Executions)
+	}
+}
+
 // TestLiveManaged_GenerateImageArtifact is the smallest managed-write acceptance: the default
 // Anselm dialogue model must discover and call generate_image once, the managed gateway must return
 // a decoder-valid image, and the tool receipt must land as a first-class attachment owned by Anselm.
