@@ -348,6 +348,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同轮复探 `SubagentCancelTerminal` 的取消时序：组合 `-count=2` 一次通过、一次在取消后 30s settle 窗内未同时观察到父/子终态。绿灯确认 `:cancel` 204、父/child durable `cancelled`、单条 `agent/cancelled` function execution 与 follow-up 不复活；红灯发生在模型仍处于子代理工具发现/执行的长尾窗口，结合既有两次隔离绿跑，没有稳定的取消 ledger、锚点、迟到产物或终态复活证据，继续保留为 managed 模型/stream 时序哨兵而非后端缺陷。
 
+本轮再做核心用户生命周期 sanity gate：默认 managed 对话、普通 conversation fork、assistant retry continuation 各独立运行两次，6/6 完成。源历史保持 append-only，fork 分支可继续，retry 版本链没有跨线程指针或旧终态复活；包总计 50.126s，未形成当前窗口的消息投影或会话血缘回归。
+
 ### FRT-14 最新证据
 
 同日复探 Google 目录资格漂移：`gemini-2.5-flash` 仍在当前 `/models` 投影，但同一显式选择连续发送两次时，每回合只发一次上游请求并分别落 `LLM_MODEL_NOT_FOUND`，没有 assistant 文本、managed fallback 或无界重试；两次独立进程通过（6.282s、4.212s）。自动失效/降级仍保留为待产品决策的策略缺口。
