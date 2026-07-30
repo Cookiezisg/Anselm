@@ -312,6 +312,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮补做 support 生态的真实双跑：MCP 5 次调用的 cursor 分页保持 3 页、ID 无重复，未知字段在 AddServer 前即落 `INVALID_REQUEST`；将 `mcpCallSec` 热调到 1 秒后，慢工具返回 `MCP_TOOL_TIMEOUT` 且 call ledger 为 timeout。relation read/list 与 diff-sync、notification durable 投影、search settings 校验也全部通过，6 个场景两轮共 12/12（包 42.418s）。关停阶段偶见 search engine `context canceled`/lexical fallback 日志，但没有改变 API 或 durable 断言，归类为测试服务 shutdown 噪声。
 
+本轮补做实体执行面 contract 双跑：agent invoke 的 wall-clock timeout 与 mount health matrix、嵌套 human loop、flowrun entry/decide/error 读写，function 的 cursor/unknown-field/env lifecycle/version-cap trim，以及 handler 的 cursor/soft-delete/resident/config merge-patch/revert/iterate 全部闭合。11 个场景共 22/22（包 86.083s），没有 execution/environment 泄漏、错误版本复用或软删穿透。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
