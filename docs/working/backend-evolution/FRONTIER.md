@@ -50,6 +50,8 @@ audience: [human, ai]
 
 随后复探 OpenAI 异构附件边界：同一回合的 image+WAV 与 image+MP4 均保持 image 的 exact-byte `image_url`，不支持的音频/视频被写成明确 capability note，原始 PNG/WAV/MP4 均逐字节可回读；两个独立组合进程全绿（16.351s、9.644s）。原生 PDF 路径也在两个独立进程中完成，recorder 观察到 file part/inline file_data，PDF 原件保持 540 bytes（9.593s、5.300s），未形成降级、附件或文档编码缺陷。
 
+同日补做 Qwen 方言三件套：`qwen3.7-plus` 单视频真实 BYOK 回合完成且 2,969,360-byte MP4 保持不变；同模型 image+video 同回合经 recorder 同时捕获 exact-byte `image_url`/`video_url`；`qwen3-omni-flash` image+WAV 遵守 `maxDistinctMediaKinds=1`，保留 image native、把 audio 变成明确约束注记而不发上游非法组合。两轮独立组合均通过（21.755s、16.582s），未形成 Qwen provider 方言或多模态降级缺陷。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。

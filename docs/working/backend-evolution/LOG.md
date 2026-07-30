@@ -848,6 +848,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-592 | OpenAI 异构附件第二轮独立复跑全绿（9.644s），原生 PDF 第二轮也通过（5.300s）；当前能力掩码、降级注记、file encoder 与附件存储未形成回归 | FRT-02 / byok-read / independent reprobe | 同一两组命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-30 | EVO-593 | Qwen BYOK 多模态首轮组合通过：单视频真实回合完成，image+video recorder 同时看到两个 native parts，Qwen Omni image+audio 保留 image 并诚实降级 audio，源附件均逐字节可回读 | FRT-02 / byok-read / Qwen video + multimodal constraint | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_Qwen(VideoInput|ImageAndVideoFusion|ImageAndAudioFusion)$' -count=1 -parallel 1 -timeout 30m -v` → PASS 21.755s（11.07s、8.38s、2.01s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-594 | Qwen 多模态三件套第二个独立进程全绿（16.582s；8.07s、6.07s、2.14s），确认 video 方言、双 native part 和单一非文本模态约束不依赖单次响应窗口，未形成产品缺陷 | FRT-02 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
