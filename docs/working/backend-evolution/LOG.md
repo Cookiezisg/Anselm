@@ -1179,6 +1179,10 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-758 | workflow 剩余 contract 双跑全绿：iterate/lifecycle verbs、manual trigger 不受 replace 策略影响、trigger fire ledger/cursor、ref-count listener、soft-delete log、unknown/config tolerance、webhook secret carriers、versions cursor 与 workspace isolation 全部闭合；11 个场景共 22 次顶层运行，未见 firing 审计断裂、listener 引用计数漂移、跨 workspace 读取或严格字段回退。包 77.238s | FRT-13 + FRT-15 / contract / trigger ledger + listener + workflow verbs + isolation | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractWorkflow_(IterateVerbs|LifecycleVerbFaces|ManualTriggerBypassesReplace|SoftDeleteUnknownFieldBackEdge|TriggerFireLedgerAndCursor|TriggerRefCountedListener|TriggerSoftDeleteKeepsLog|TriggerUnknownFieldAndConfigTolerance|TriggerWebhookSecretCarriers|VersionsCursorRoundtrip|WorkspaceIsolationAcrossActionsAndHistory)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo758-contract-workflow-remaining-double.jsonl` → PASS 77.238s；未输出 provider secret |
 
+| 2026-07-31 | EVO-759 | trigger→notification 系统链双跑全绿：真实 firing 经过 workflow trigger、durable flowrun 与 notification 投影后可读，终态/消息关联保持一致；两次通过（9.41s、6.13s），未见跨层丢通知、重复投影或幽灵 run。 | FRT-13 + FRT-15 / contract / trigger → workflow → notification | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractMega_TriggerToNotificationChain$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo759-contract-mega-trigger-notification-double.jsonl` → PASS，包 15.984s；未输出 provider secret |
+
+| 2026-07-31 | EVO-760 | fsnotify durable end-to-end 双跑全绿：文件事件 payload/filter、pause→SIGKILL→resume 与 durable 投影在真实进程重启后均闭合，未见重复消费、事件丢失或恢复后幽灵执行；两次通过（8.64s、6.18s），包 14.823s。 | FRT-13 / contract / fsnotify durable event + pause/resume/restart | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractDurable_FsnotifyEndToEnd$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo760-contract-durable-fsnotify-double.jsonl` → PASS，包 14.823s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
