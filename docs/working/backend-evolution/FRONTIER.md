@@ -188,6 +188,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮把并行子代理四项状态机组合拆成独立复测：聚合运行包在 248.957s 结束为 FAIL，其中 `SubagentCancelTerminal` 仍通过，取消 204、父子消息/函数 execution 均落 `cancelled`；`ParallelSubagentTrees` 独立通过（69.80s），两个 child、两个不同 `parentBlockId`、两个 marker 与各自唯一 function execution 均闭合。`SubagentFunctionFailureContinues` 连续两个独立进程均红，但红法不同：一次子代理拒绝调用预期失败函数，另一次没有产生 child execution；父回合都能 completed，却未满足测试要求的“确实执行一次失败函数并把 marker 带回”。`ParallelSubagentContextContinues` 一次独立进程通过（64.57s），另一次在模型先拒绝/重试后生成 4 个 durable child（两个重试 child + 两个最终成功 child）而非测试期望的 2 个，两个 marker 与函数执行本身均正确。当前证据指向 managed 模型的工具可用性判断、提示注入/安全拒绝与重试遵循波动，不是 backend 的孤儿、重复执行或锚点丢失；保留为 FRT-05 可靠性哨兵，不改生产代码，后续在模型/提示词/步预算变更时复探。
 
+最新同一组合独立复跑重新全绿：`SubagentFunctionFailureContinues` 确实产生 `failed + triggeredBy=agent` execution，错误 marker 经 child message 与父 `Subagent` tool result 续接，父回合 completed；`ParallelSubagentContextContinues` 的两个 child 均完成，下一轮无工具 follow-up 逐字恢复两个 marker，历史锚点与各自 function execution 均闭合。该包 110.627s 全部通过，推翻不了前述红绿波动的事实，但进一步支持其为 managed 模型工具遵循/重试时序哨兵，而非已确认的 backend 状态机缺陷；继续保留低频复探，不改生产代码。
+
 ### FRT-11 最新证据
 
 本轮先做 DeepSeek 兼容线缆的真实双跑：`deepseek-v4-flash` 在产品 API 内完成 `run_function`，函数结果回灌后第二次 chat/completions 采样完成；durable history 同时保留 tool call、tool result 和最终 `144`，recorder 观察到至少两次请求且请求携带 `tools`、`tool_calls` 与结果载荷。两次独立进程通过（12.52s、9.52s），未形成产品缺陷；关停阶段的 embedder `context canceled` 仍是已知 shutdown 噪声。

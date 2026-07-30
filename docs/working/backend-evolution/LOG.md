@@ -999,6 +999,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-668 | 本轮 managed 读侧/多模态/语音成本真实复探后，完整 backend 黑盒回归仍通过；既有 chat、agent/subagent、workflow/trigger、MCP/function/handler、附件抽取、多模态、取消/重试/崩溃恢复与资源卫生未出现基线回归 | full backend testend regression / post-EVO-665~667 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731.log | tail -n 80` → `ok github.com/sunweilin/anselm/testend/scenarios 298.106s`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-669 | managed 子代理失败续接与并行跨回合上下文复探重新全绿：故意失败 function 的错误 marker 能回到父回合，父/child 与 execution ledger 闭合；并行 child 的两个 marker 可在无工具 follow-up 中逐字恢复，未出现孤儿、重复 execution 或 `parentBlockId` 丢失 | FRT-05 / managed / subagent failure continuation + parallel context | `cd testend; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(SubagentFunctionFailureContinues|ParallelSubagentContextContinues)$' -count=1 -parallel 1 -timeout 45m -json` → PASS，包 110.627s（两项均通过）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
