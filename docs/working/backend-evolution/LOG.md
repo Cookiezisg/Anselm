@@ -750,6 +750,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-543 | 编辑/动画双跑事实加入 Frontier 后文档门禁通过；FRT-09 的 sourceAttachmentId、真实 sibling 媒体、审批与异步资源边界保持可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-edit-animation-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-544 | managed 会话生命周期组合首轮独立进程全绿：普通 conversation fork、latest retry continuation、旧版本 retry→fork continuation 均保持源历史 append-only、分支血缘闭合与 follow-up 完成，未复活旧工具调用 | FRT-13 / FRT-16 / managed-read/default / conversation lifecycle | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ConversationForkContinues|ChatRetryContinues|ChatRetryForkAtOlderVersionContinues)$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 34.598s（旧版本 fork 13.01s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-545 | 同一会话生命周期组合第二个独立进程再次全绿（包总计 27.400s；旧版本 fork 8.67s），确认 retry/fork 指针重映射与分支续接不是一次性窗口结果，未形成后端缺陷 | FRT-13 / FRT-16 / managed-read/default / independent reprobe | 同一命令第二次独立运行 → PASS，包总计 27.400s；未输出 provider secret |
+
+| 2026-07-30 | EVO-546 | 会话生命周期双跑事实加入 Frontier 后文档门禁通过；FRT-13/FRT-16 的普通 fork、retry continuation、旧版本切点与 durable lineage 证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-conversation-lifecycle-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
