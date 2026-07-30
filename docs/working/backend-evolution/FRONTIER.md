@@ -390,6 +390,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮继续补 workflow 版本与软删边界：approval timeout/版本列表与 run 起跑时 version pin 跨 edit→SIGKILL→restart，control branch validation/revert，active listener edit，deleted workflow 的全 mutation action 拒绝，以及 deleted trigger accepted firing 保留、跨重启显式 rebind 均双跑通过（13 个场景 26 次顶层运行，包 158.187s）。结果没有旧版本泄漏、幽灵 listener、隐式换绑或删除后写入，和 EVO-749 的 firing drain/shed 证据互补。
 
+本轮收口 workflow 剩余 contract：iterate/lifecycle verbs、manual trigger 与 overlap 策略边界、fire ledger/cursor、ref-count listener、soft-delete log、unknown/config/secret carrier、versions cursor 与 workspace isolation 双跑通过（11 个场景 22 次顶层运行，包 77.238s）。与 EVO-749/757 合并后，trigger ledger、listener 投影、版本 pin、删除/重绑、跨租户动作拒绝均有当前窗口双跑证据。
+
 随后补做实时协议耐久双跑：SSE replay 环挤出后返回 `SEQ_TOO_OLD` 并要求 REST 全量重取，再从新 seq 连续接收；messages/entities/notifications 三流不串线，三个订阅者看到同一 durable 顺序；interaction 的 danger pending/resolved 仍是 seq=0 的对称 ephemeral signal；cron dedup 在重启后仍折叠同一分钟 firing；webhook 明文 secret 与 SSE bearer 鉴权门的错误/成功状态均按合同落地。7 个场景两轮共 14/14 通过（包 139.603s），未见协议帧缺口、重复、跨流污染或重启重复执行。
 
 ### FRT-14 最新证据
