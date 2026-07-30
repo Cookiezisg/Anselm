@@ -1037,6 +1037,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-687 | managed workflow 图像 producer→OpenAI BYOK vision viewer 当前双跑通过：上游只铸一份真实 PNG MediaRef，flowrun 节点/附件 content 与 receipt 闭合，下游 recorder 收到同一 exact-byte native image part；两次均 completed，无 receipt-only 占位、重复生成或跨 provider 丢图 | FRT-03 + FRT-04 / hybrid / workflow managed image→BYOK viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedImageToOpenAIViewer$' -count=1 -parallel 1 -timeout 20m -v` → PASS 42.049s、35.691s；未输出 provider secret |
 
+| 2026-07-31 | EVO-688 | managed workflow 音频 producer→Qwen BYOK viewer 当前双跑通过：上游只铸一份真实 WAV MediaRef，flowrun/附件 content 闭合，下游 recorder 收到同一 exact-byte `input_audio`；两次均 completed，无 receipt-only 占位、重复合成或跨 provider 丢音频 | FRT-03 + FRT-04 / hybrid / workflow managed speech→BYOK Qwen audio viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedSpeechToQwenViewer$' -count=1 -parallel 1 -timeout 20m -v` → PASS 20.557s、19.261s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
