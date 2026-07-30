@@ -640,6 +640,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-488 | workflow 用户附件融合双跑事实加入 Frontier 后文档门禁通过；FRT-04 的 PDF sandbox、MediaRef 穿线、agent 回答与源字节证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-workflow-user-attachment-fusion-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
 
+| 2026-07-30 | EVO-489 | chat→`search_tools`→`trigger_workflow` 的用户附件 workflow 首跑通过：webhook-shaped PDF+image payload 从对话进入 managed agent，`origin=chat`、`conversationId`、flowrun completed、PDF token 与 560/98-byte MediaRef 均保留 | FRT-04 / managed-read / chat-trigger workflow multimodal fusion | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatTriggerWorkflowUserAttachmentFusion$' -count=1 -timeout 12m -v` → PASS 35.060s；未输出 provider secret |
+
+| 2026-07-30 | EVO-490 | 同一 chat-trigger workflow 用户附件场景第二个独立进程通过（34.883s），确认 chat 工具发现、payload 接线、来源标记与附件保真不是一次性模型配合 | FRT-04 / managed-read / independent reprobe | 同一命令第二次独立运行 → PASS 34.883s；Frontier 已补 FRT-04 最新证据；未输出 provider secret |
+
+| 2026-07-30 | EVO-491 | chat-trigger workflow 多模态双跑事实加入 Frontier 后文档门禁通过；FRT-04 的 manual/chat 两种入口、来源与 MediaRef 证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-chat-trigger-workflow-fusion-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
