@@ -730,6 +730,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-533 | 文本 `inspect_media` 红灯、根因、修复与双绿证据加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-inspect-media-text-args-fix | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-534 | `inspect_media` lazy 目录卡修复后的 backend 全量黑盒回归闭合；对话、agent/subagent、workflow/trigger、MCP/function/handler、附件/多模态、媒体检查、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-inspect-media-text-args-fix gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 352.151s`；EVALS 未开启、未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
