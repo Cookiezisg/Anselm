@@ -4158,7 +4158,7 @@ func TestLiveManaged_ReadAttachmentPDF(t *testing.T) {
 	for _, block := range turn.Blocks {
 		switch block.Type {
 		case "tool_call":
-			called = called || strings.Contains(block.Content, "read_attachment")
+			called = called || block.Attrs["tool"] == "read_attachment" || strings.Contains(block.Content, "read_attachment")
 		case "tool_result":
 			result = result || strings.Contains(block.Content, "PDFTOOL_7F3A")
 		case "text":
