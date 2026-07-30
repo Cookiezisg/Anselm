@@ -21,6 +21,7 @@ import (
 //	msg_u1  user      text "turn 1"                        seq 1
 //	msg_a1  assistant tool_call "spawn" + text "answer 1"   seq 2,3
 //	msg_s1  subagent  text "subagent work" parent=<seq 2>   seq 4   ← nesting ACROSS messages
+//	         Attrs.parentBlockId = the same parent block (the message-level E3 anchor)
 //	msg_u2  user      text "turn 2"                         seq 5
 //	msg_a2  assistant text "answer 2"                       seq 6
 //
@@ -45,15 +46,18 @@ func forkFixture(t *testing.T) (*Service, messagesdomain.Repository, *forkRec, *
 	svc := NewService(store, Deps{Conversations: fakeConvs{conv: src, fork: rec}}, zap.NewNop())
 	ctx := ctxWS("ws_1")
 
-	mk := func(id, subagentID, role string, blocks []messagesdomain.Block) []messagesdomain.Block {
+	mkAttrs := func(id, subagentID, role string, attrs map[string]any, blocks []messagesdomain.Block) []messagesdomain.Block {
 		m := &messagesdomain.Message{
 			ID: id, ConversationID: "cv_src", SubagentID: subagentID,
-			Role: role, Status: messagesdomain.StatusCompleted,
+			Role: role, Status: messagesdomain.StatusCompleted, Attrs: attrs,
 		}
 		if err := store.CreateMessage(ctx, m, blocks); err != nil {
 			t.Fatalf("seed %s: %v", id, err)
 		}
 		return blocks // CreateMessage fills each block's assigned id + seq in place
+	}
+	mk := func(id, subagentID, role string, blocks []messagesdomain.Block) []messagesdomain.Block {
+		return mkAttrs(id, subagentID, role, nil, blocks)
 	}
 	mk("msg_u1", "", messagesdomain.RoleUser, []messagesdomain.Block{
 		{Type: messagesdomain.BlockTypeText, Content: "turn 1"},
@@ -62,7 +66,9 @@ func forkFixture(t *testing.T) (*Service, messagesdomain.Repository, *forkRec, *
 		{Type: messagesdomain.BlockTypeToolCall, Content: "spawn"},
 		{Type: messagesdomain.BlockTypeText, Content: "answer 1"},
 	})
-	mk("msg_s1", "sub_1", messagesdomain.RoleAssistant, []messagesdomain.Block{
+	mkAttrs("msg_s1", "sub_1", messagesdomain.RoleAssistant, map[string]any{
+		messagesdomain.AttrParentBlockID: a1[0].ID,
+	}, []messagesdomain.Block{
 		{Type: messagesdomain.BlockTypeText, Content: "subagent work", ParentBlockID: a1[0].ID},
 	})
 	mk("msg_u2", "", messagesdomain.RoleUser, []messagesdomain.Block{
@@ -150,6 +156,9 @@ func TestFork_PrefixWindowSeqRenumberAndNestedRemap(t *testing.T) {
 	parent := got[1].Blocks[0]
 	if child.ParentBlockID != parent.ID {
 		t.Fatalf("parentBlockId = %q, want the fork's tool_call block %q", child.ParentBlockID, parent.ID)
+	}
+	if got := got[2].Attrs[messagesdomain.AttrParentBlockID]; got != parent.ID {
+		t.Fatalf("message attrs parentBlockId = %v, want the fork's tool_call block %q", got, parent.ID)
 	}
 	if !forkBlockIDs[child.ParentBlockID] {
 		t.Fatalf("parentBlockId %q escapes the fork's own blocks", child.ParentBlockID)

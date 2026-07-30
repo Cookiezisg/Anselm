@@ -13,13 +13,12 @@ import (
 
 var _ toolapp.Tool = (*TraceTool)(nil)
 
-// attrParentBlockID is the sub-message Attrs key under which subagentapp stamps the spawning
-// tool_call's block id (the E3 anchor). Re-declared here (not imported) because that const lives
-// in the subagentapp package and crossing app→app just for a string key is not worth a dependency.
+// attrParentBlockID is the shared sub-message Attrs key under which subagentapp stamps the spawning
+// tool_call's block id (the E3 anchor). It lives in the messages domain because durable projections
+// such as conversation fork need to rebase the same pointer.
 //
-// attrParentBlockID 是 subagentapp 在 sub-message Attrs 里打入派它的 tool_call block id（E3 锚）的键。
-// 此处重声明（不导入）：该 const 在 subagentapp 包，为一个字符串键拉 app→app 依赖不值当。
-const attrParentBlockID = "parentBlockId"
+// attrParentBlockID 是 subagentapp 在 sub-message Attrs 里打入派它的 tool_call block id（E3 锚）的共享键。
+const attrParentBlockID = messagesdomain.AttrParentBlockID
 
 // Reader is the narrow slice of the messages repository the trace tool needs — a DIP port so this
 // package never depends on the messages store. *messagesstore.Store satisfies it. LoadThread is

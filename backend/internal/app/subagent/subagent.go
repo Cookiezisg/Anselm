@@ -35,13 +35,13 @@ import (
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
-// attrParentBlockID is the sub-message Attrs key holding the spawning tool_call's block id —
-// the anchor a reload uses to nest the subagent subtree under its tool_call (the live stream
+// attrParentBlockID aliases the shared messages-domain key holding the spawning tool_call's block
+// id — the anchor a reload uses to nest the subagent subtree under its tool_call (the live stream
 // carries the same link as the message node's Open.ParentID).
 //
-// attrParentBlockID 是 sub-message Attrs 里存派它的 tool_call block id 的键——reload 据此把
+// attrParentBlockID 是 sub-message Attrs 里存派它的 tool_call block id 的共享键——reload 据此把
 // subagent 子树嵌在其 tool_call 下（live 流由 message 节点的 Open.ParentID 携同一链接）。
-const attrParentBlockID = "parentBlockId"
+const attrParentBlockID = messagesdomain.AttrParentBlockID
 
 // Bundle is a ready-to-run LLM client + pre-filled base Request, self-contained so subagent
 // doesn't import chatapp. The bootstrap resolver fills it (model.Resolve(ScenarioDialogue, …)).

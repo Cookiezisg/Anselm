@@ -114,12 +114,12 @@ func (s *Service) Fork(ctx context.Context, conversationID, atMessageID string) 
 			OutputTokens:   m.OutputTokens,
 			Provider:       m.Provider,
 			ModelID:        m.ModelID,
-			// Attrs rides verbatim EXCEPT the version pointer, which is remapped (see forkAttrs): the
-			// attachment / mention snapshots inside it are ids and frozen content, both of which the fork
-			// legitimately shares with the source.
-			// Attrs 逐字带走、**除**版本指针（见 forkAttrs，它被 remap）：里面的附件 / 提及快照是 id 与冻结
-			// 内容，两者分叉与源都可正当共享。
-			Attrs: forkAttrs(m.Attrs, newMsgID),
+			// Attrs rides verbatim EXCEPT the version and subagent-tree pointers, which are remapped (see
+			// forkAttrs): the attachment / mention snapshots inside it are ids and frozen content, both of
+			// which the fork legitimately shares with the source.
+			// Attrs 逐字带走、**除**版本与 subagent 树指针（见 forkAttrs，它们被 remap）：里面的附件 / 提及快照
+			// 是 id 与冻结内容，两者分叉与源都可正当共享。
+			Attrs: forkAttrs(m.Attrs, newMsgID, newBlockID),
 			// The version pointer follows the copy: a superseding row cut AWAY by the prefix window leaves
 			// the zero value, which is exactly right — inside the fork, with no newer version present, this
 			// row IS the current one.
@@ -165,34 +165,47 @@ func (s *Service) Fork(ctx context.Context, conversationID, atMessageID string) 
 	return fork, nil
 }
 
-// forkAttrs copies one row's Attrs with the version pointer re-based onto the fork's own message ids.
-// Every other key (attachment ids, frozen @-mention snapshots, contextUsage) rides verbatim, so the map
-// is only cloned when there is actually a pointer to rewrite — an ordinary turn keeps sharing the
-// loaded map, which is safe because nothing mutates it.
+// forkAttrs copies one row's Attrs with its intra-thread pointers re-based onto the fork's own ids.
+// retryOf points at a message; parentBlockId points at the spawning tool_call block of a subagent
+// message. Every other key (attachment ids, frozen @-mention snapshots, contextUsage) rides verbatim,
+// so the map is only cloned when there is actually a pointer to rewrite — an ordinary turn keeps
+// sharing the loaded map, which is safe because nothing mutates it.
 //
-// A retryOf whose target fell outside the prefix window is DROPPED rather than left dangling: the front
-// end groups versions by that chain, and a pointer to a row the fork does not contain would make this
-// version the root of a group of one — which is the truth about it inside the fork.
+// A pointer whose target fell outside the prefix window is DROPPED rather than left dangling: the front
+// end groups versions and subagent rows by these anchors, and a pointer to a row/block the fork does not
+// contain would either make this version the root of a group of one or leak a child into the SOURCE tree.
 //
-// forkAttrs 复制一行的 Attrs，并把版本指针重定基到分叉自己的 message id 上。其余每个键（附件 id、冻结的 @ 提及
-// 快照、contextUsage）逐字带走，故只有**真有指针要改写**时才克隆这个 map——普通回合继续共享加载来的那份，这是
-// 安全的，因为没有任何东西改它。
+// forkAttrs 复制一行的 Attrs，并把其中的线程内指针重定基到分叉自己的 id：retryOf 指向 message，
+// parentBlockId 指向 subagent 所挂的 tool_call block。其余每个键（附件 id、冻结的 @ 提及快照、contextUsage）
+// 逐字带走，故只有**真有指针要改写**时才克隆这个 map——普通回合继续共享加载来的那份，这是安全的，因为没有任何东西改它。
 //
-// 目标落在前缀窗之外的 retryOf 被**丢弃**、而非留成悬空指针：前端按那条链组版本组，而一个指向分叉根本没有的行的
-// 指针会让这个版本成为**只有一个成员的组的根**——那在分叉里正是关于它的事实。
-func forkAttrs(attrs map[string]any, newMsgID map[string]string) map[string]any {
-	old, ok := attrs[messagesdomain.AttrRetryOf].(string)
-	if !ok || old == "" {
+// 目标落在前缀窗之外的指针被**丢弃**、而非留成悬空指针：前端按 retry 链分版本组，而 subagent 的树锚若
+// 指向分叉根本没有的 block，就会把子树泄漏回**源**线程。
+func forkAttrs(attrs map[string]any, newMsgID, newBlockID map[string]string) map[string]any {
+	oldRetry, hasRetry := attrs[messagesdomain.AttrRetryOf].(string)
+	hasRetry = hasRetry && oldRetry != ""
+	oldParent, hasParent := attrs[messagesdomain.AttrParentBlockID].(string)
+	hasParent = hasParent && oldParent != ""
+	if !hasRetry && !hasParent {
 		return attrs
 	}
 	out := make(map[string]any, len(attrs))
 	for k, v := range attrs {
 		out[k] = v
 	}
-	if mapped := newMsgID[old]; mapped != "" {
-		out[messagesdomain.AttrRetryOf] = mapped
-	} else {
-		delete(out, messagesdomain.AttrRetryOf)
+	if hasRetry {
+		if mapped := newMsgID[oldRetry]; mapped != "" {
+			out[messagesdomain.AttrRetryOf] = mapped
+		} else {
+			delete(out, messagesdomain.AttrRetryOf)
+		}
+	}
+	if hasParent {
+		if mapped := newBlockID[oldParent]; mapped != "" {
+			out[messagesdomain.AttrParentBlockID] = mapped
+		} else {
+			delete(out, messagesdomain.AttrParentBlockID)
+		}
 	}
 	return out
 }

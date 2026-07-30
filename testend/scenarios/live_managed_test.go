@@ -2024,6 +2024,155 @@ func TestLiveManaged_ParallelSubagentContextContinues(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ForkPreservesParallelSubagentTrees proves a real fork copies a nested managed
+// prefix without leaving child anchors in the source tree: both child rows travel, their
+// parentBlockId values are remapped into the fork, and the new branch can continue normally.
+func TestLiveManaged_ForkPreservesParallelSubagentTrees(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-fork-parallel-subagent-trees")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 5}}).OK(t, nil)
+	const alphaMarker = "FORK_PARALLEL_ALPHA_41C8"
+	const betaMarker = "FORK_PARALLEL_BETA_7B25"
+	alphaFn := fnCreate(t, wc, "fork_parallel_alpha", fmt.Sprintf(`def alpha() -> dict:
+    return {"marker": "%s"}
+`, alphaMarker))
+	betaFn := fnCreate(t, wc, "fork_parallel_beta", fmt.Sprintf(`def beta() -> dict:
+    return {"marker": "%s"}
+`, betaMarker))
+	sourceID := convCreate(t, wc, "managed fork parallel subagents")
+	prompt := fmt.Sprintf(`请只派两个 general-purpose 子代理，两个子任务彼此独立；父回合不要直接调用任何其他工具。
+第一个子代理先用 search_tools 搜索 run_function，等 schema 返回后只调用一次 run_function，参数必须逐字使用 functionId=%s 和 args={}，成功后原样带回标记 %s。
+第二个子代理先用 search_tools 搜索 run_function，等 schema 返回后只调用一次 run_function，参数必须逐字使用 functionId=%s 和 args={}，成功后原样带回标记 %s。
+两个 Subagent 调用都应设置 execution_group=1；两个子代理都完成后，父回合只用一句简短中文确认并同时保留两个标记，不要再调用工具。`, alphaFn, alphaMarker, betaFn, betaMarker)
+	firstID := sendMsg(t, wc, sourceID, prompt)
+	first := waitTurn(t, wc, sourceID, firstID, 300000)
+	if first.Status != "completed" {
+		t.Fatalf("source managed parallel turn must complete before fork: status=%s code=%s message=%s blocks=%+v", first.Status, first.ErrorCode, first.ErrorMessage, first.Blocks)
+	}
+	var sourceMessages []struct {
+		ID         string         `json:"id"`
+		SubagentID string         `json:"subagentId"`
+		Status     string         `json:"status"`
+		Attrs      map[string]any `json:"attrs"`
+		Blocks     []struct {
+			ID      string `json:"id"`
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	wc.GET("/api/v1/conversations/"+sourceID+"/messages?limit=50").OK(t, &sourceMessages)
+	sourceIDs := map[string]bool{}
+	sourceBlockIDs := map[string]bool{}
+	sourceAnchors := map[string]bool{}
+	sourceChildren, sourceMarkers := 0, map[string]bool{}
+	for _, message := range sourceMessages {
+		sourceIDs[message.ID] = true
+		for _, block := range message.Blocks {
+			sourceBlockIDs[block.ID] = true
+		}
+	}
+	for _, message := range sourceMessages {
+		if message.SubagentID == "" {
+			continue
+		}
+		sourceChildren++
+		anchor, _ := message.Attrs["parentBlockId"].(string)
+		if anchor == "" || sourceAnchors[anchor] {
+			t.Fatalf("source child trees must have distinct parent anchors: anchor=%q seen=%v messages=%+v", anchor, sourceAnchors, sourceMessages)
+		}
+		sourceAnchors[anchor] = true
+		for _, block := range message.Blocks {
+			if strings.Contains(block.Content, alphaMarker) {
+				sourceMarkers[alphaMarker] = true
+			}
+			if strings.Contains(block.Content, betaMarker) {
+				sourceMarkers[betaMarker] = true
+			}
+		}
+	}
+	if sourceChildren != 2 || len(sourceAnchors) != 2 || len(sourceMarkers) != 2 {
+		t.Fatalf("source must contain two completed child trees before fork: children=%d anchors=%v markers=%v messages=%+v", sourceChildren, sourceAnchors, sourceMarkers, sourceMessages)
+	}
+
+	// The explicit parent message cut is intentionally a prefix window: nested child rows are
+	// newer durable rows and are not in that window. The left-rail/latest fork path is the contract
+	// that copies the complete nested tree, so exercise it with the empty body here.
+	fork := forkAt(t, wc, sourceID, "")
+	head := forkGetConv(t, wc, fork.ID)
+	if head.ForkedFromConversationID != sourceID || len(sourceMessages) == 0 || head.ForkedFromMessageID != sourceMessages[0].ID || head.Title != "managed fork parallel subagents (fork)" || head.AutoTitled {
+		t.Fatalf("latest fork lineage/title must point at the newest managed source row: source=%s latest=%s fork=%+v", sourceID, sourceMessages[0].ID, head)
+	}
+	var forkMessages []struct {
+		ID         string         `json:"id"`
+		SubagentID string         `json:"subagentId"`
+		Status     string         `json:"status"`
+		Attrs      map[string]any `json:"attrs"`
+		Blocks     []struct {
+			ID      string `json:"id"`
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	wc.GET("/api/v1/conversations/"+fork.ID+"/messages?limit=50").OK(t, &forkMessages)
+	forkIDs := map[string]bool{}
+	forkBlockIDs := map[string]bool{}
+	forkAnchors := map[string]bool{}
+	forkChildren, forkMarkers := 0, map[string]bool{}
+	for _, message := range forkMessages {
+		forkIDs[message.ID] = true
+		if sourceIDs[message.ID] {
+			t.Fatalf("fork must mint fresh message ids, reused %s", message.ID)
+		}
+		for _, block := range message.Blocks {
+			forkBlockIDs[block.ID] = true
+		}
+	}
+	for _, message := range forkMessages {
+		if message.SubagentID == "" {
+			continue
+		}
+		forkChildren++
+		if message.Status != "completed" {
+			t.Fatalf("forked child tree must remain completed: %+v", message)
+		}
+		anchor, _ := message.Attrs["parentBlockId"].(string)
+		if anchor == "" || !forkBlockIDs[anchor] || sourceBlockIDs[anchor] || forkAnchors[anchor] {
+			t.Fatalf("forked child anchor must resolve to a distinct fork block, never source: anchor=%q forkBlocks=%v sourceBlocks=%v seen=%v", anchor, forkBlockIDs, sourceBlockIDs, forkAnchors)
+		}
+		forkAnchors[anchor] = true
+		for _, block := range message.Blocks {
+			if strings.Contains(block.Content, alphaMarker) {
+				forkMarkers[alphaMarker] = true
+			}
+			if strings.Contains(block.Content, betaMarker) {
+				forkMarkers[betaMarker] = true
+			}
+		}
+	}
+	if forkChildren != 2 || len(forkAnchors) != 2 || len(forkMarkers) != 2 {
+		t.Fatalf("fork must preserve two child trees with remapped anchors and markers: children=%d anchors=%v markers=%v messages=%+v", forkChildren, forkAnchors, forkMarkers, forkMessages)
+	}
+
+	continued := waitTurn(t, wc, fork.ID, sendMsg(t, wc, fork.ID, "这是分支。不要调用任何工具，只用一句简短中文确认两个子任务结果仍已保留，并逐字包含 "+alphaMarker+" 和 "+betaMarker+"。"), 180000)
+	if continued.Status != "completed" {
+		t.Fatalf("forked managed conversation must continue: status=%s code=%s message=%s blocks=%+v", continued.Status, continued.ErrorCode, continued.ErrorMessage, continued.Blocks)
+	}
+	continuedText := ""
+	for _, block := range continued.Blocks {
+		if block.Type == "tool_call" {
+			t.Fatalf("fork continuation must not resurrect a nested tool: %+v", continued.Blocks)
+		}
+		if block.Type == "text" {
+			continuedText += block.Content
+		}
+	}
+	if !strings.Contains(continuedText, alphaMarker) || !strings.Contains(continuedText, betaMarker) {
+		t.Fatalf("fork continuation must recall both child markers: %q blocks=%+v", continuedText, continued.Blocks)
+	}
+	if len(listMsgs(t, wc, sourceID)) != len(sourceMessages) {
+		t.Fatalf("continuing the fork must not append to the source history: before=%d after=%d", len(sourceMessages), len(listMsgs(t, wc, sourceID)))
+	}
+}
+
 // TestLiveManaged_SubagentCancelTerminal proves cancellation while a real child tool is in flight:
 // the parent and nested sub-message both leave streaming, the running function leaves one
 // cancelled audit row, and the same conversation accepts a follow-up after the cancellation.
