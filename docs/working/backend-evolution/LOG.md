@@ -542,6 +542,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-439 | 最终追加 Qwen native image+video 双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-02/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-qwen-image-video-fusion | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-440 | OpenAI `gpt-audio` 音频+工具交叉边界双跑闭合：WAV 原生 `input_audio` 在首发与第二次工具结果回灌请求中保真，`run_function`、tool result、最终文本、`tools` 与音频原始字节均成立；两次均通过，未复现此前瞬时 provider stall | FRT-02 / byok-read / OpenAI native audio + run_function continuation | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIAudioToolContinuation$' -count=1 -v` → PASS 11.18s；独立复跑 PASS 9.32s；未输出 provider secret |
+
+| 2026-07-30 | EVO-441 | OpenAI gpt-audio 音频+工具证据加入 FRT-02 后文档门禁通过；native input_audio、第二次请求、瞬时 stall 分类与既有 drift 规则保持可读 | docs gate / post-openai-audio-tool-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-442 | OpenAI gpt-audio 音频+工具复探后的 backend 全量黑盒回归闭合；chat、agent/subagent、workflow/trigger、附件/多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-openai-audio-tool-reprobe | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 331.709s`；failure markers 为空；未开启 EVALS、未输出 provider secret |
+
+| 2026-07-30 | EVO-443 | OpenAI gpt-audio 音频+工具复探、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-openai-audio-tool-reprobe | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-444 | 最终追加 OpenAI native audio+tool 双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-02/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-openai-audio-tool-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
