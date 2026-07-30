@@ -1015,6 +1015,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-676 | 完成 EVO-669~675 后的全量 backend 黑盒回归仍全绿；新增子代理、文档引用、chat-only 资格、附件历史、模型切换与会话血缘探针没有回归既有 chat、workflow、MCP/function/handler、媒体、取消/重试/资源卫生基线 | full backend testend regression / post-EVO-669~675 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-post-evo675.log | tail -n 80` → `ok github.com/sunweilin/anselm/testend/scenarios 340.144s`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-677 | Google stale-model 主动恢复复探保持诚实的结构化 skip：两次都先验证旧模型只发一次并落 `LLM_MODEL_NOT_FOUND`，切换到可恢复模型后的发送触达当前 provider 429，故未把恢复路径宣称通过，也未伪造 assistant 或 fallback | FRT-14 / byok-read / stale model recovery under provider rate window | `cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleListedModelCanBeAccountUnavailable$' -count=1 -parallel 1 -timeout 20m -v` → 两次 structured SKIP（5.886s、3.984s；stale 404 已验证，recovery 429）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

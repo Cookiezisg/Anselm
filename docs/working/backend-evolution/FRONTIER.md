@@ -240,6 +240,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再次对该重复失败边界做两次独立复跑：同一显式模型连续两轮各自只产生一次非重试 generate，两个 error turn 都是 `LLM_MODEL_NOT_FOUND`，没有 assistant 文本或受管回退；两次包级通过（5.157s、3.934s）。证据继续支持“错误分类与重试上限已闭合”，而不是替产品决定自动失效/降级策略。
 
+随后复探“失效后主动切换恢复”：两次测试均先真实验证旧模型的单次 404→`LLM_MODEL_NOT_FOUND`，但恢复模型的下一次发送均落当前 Google provider 429，按合同结构化 skip；因此恢复成功路径仍未宣称通过，当前缺口是 provider rate window，不是错误回合或隐藏 fallback。
+
 同日补做资格错误后的显式恢复：旧 Gemini 模型首发只调用一次并落 `LLM_MODEL_NOT_FOUND`，用户随后明确切换到 `gemini-3-flash-preview`，同一 conversation 恢复 completed 且总上游调用恰两次；两次独立复跑通过（6.959s、6.412s），没有错误回合污染后续历史。
 
 本轮所有 live 探针与文档变更后执行一次全量后端黑盒回归：`testend/scenarios` 用时 328.040s 全绿，未引入新的稳定产品缺陷；该门禁只证明当前已落地行为没有被本轮工作回归，不替代各 provider/managed 场景的独立真线缆证据。
