@@ -1303,6 +1303,95 @@ trigger_workflow 的 args 必须同时包含 workflowId 和 payload，payload �
 	}
 }
 
+// TestLiveManaged_SubagentFunctionFailureContinues proves the real managed nested failure path:
+// a child invokes a function that raises, the failed execution is recorded against the child
+// message, and the parent still completes with the failure visible instead of receiving a false
+// success or an HTTP-level turn error.
+func TestLiveManaged_SubagentFunctionFailureContinues(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-subagent-function-failure")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+
+	const marker = "SUBAGENT_FUNCTION_FAILURE_8B2D"
+	fnID := fnCreate(t, wc, "subagent_function_failure", fmt.Sprintf(`def explode() -> dict:
+    raise RuntimeError("%s")
+`, marker))
+	convID := convCreate(t, wc, "managed subagent function failure")
+	prompt := fmt.Sprintf(`请只派一个 general-purpose 子代理，不要在父回合直接调用其他工具。
+子任务必须在子代理内部先调用 search_tools 搜索名为 run_function 的工具；等 schema 返回后，只调用 run_function 一次，参数必须逐字使用 functionId=%s 和 args={}，不要猜测或替换 functionId。
+这个函数会故意失败并返回错误标记 %s。子代理不得把失败伪装成成功，必须把错误标记原样带回父回合。
+父回合收到子代理结果后不要再调用任何工具，只用一句简短中文确认已经记录这次失败，并保留错误标记。`, fnID, marker)
+	turn := waitTurn(t, wc, convID, sendMsg(t, wc, convID, prompt), 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("managed parent must complete after child function failure: status=%s code=%s message=%s blocks=%+v", turn.Status, turn.ErrorCode, turn.ErrorMessage, turn.Blocks)
+	}
+	parentSubagentCalls, parentDirectFunctionCalls := 0, 0
+	parentSawFailure := false
+	parentSawText := false
+	for _, block := range turn.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "Subagent":
+			if block.Type == "tool_call" {
+				parentSubagentCalls++
+			}
+			if block.Type == "tool_result" && strings.Contains(block.Content, marker) {
+				parentSawFailure = true
+			}
+		case "run_function":
+			if block.Type == "tool_call" {
+				parentDirectFunctionCalls++
+			}
+		}
+		if block.Type == "text" && strings.Contains(block.Content, marker) {
+			parentSawText = true
+		}
+	}
+	if parentSubagentCalls != 1 || parentDirectFunctionCalls != 0 || !parentSawFailure || !parentSawText {
+		t.Fatalf("parent must delegate once, surface the child failure, and continue without a direct function call: subagent=%d directFunction=%d sawFailure=%v sawText=%v blocks=%+v", parentSubagentCalls, parentDirectFunctionCalls, parentSawFailure, parentSawText, turn.Blocks)
+	}
+
+	var executions struct {
+		Executions []struct {
+			Status         string `json:"status"`
+			TriggeredBy    string `json:"triggeredBy"`
+			ConversationID string `json:"conversationId"`
+			MessageID      string `json:"messageId"`
+			ErrorMessage   string `json:"errorMessage"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+fnID+"/executions").OK(t, &executions)
+	if len(executions.Executions) != 1 {
+		t.Fatalf("child must execute the failing function exactly once: %+v", executions.Executions)
+	}
+	exec := executions.Executions[0]
+	if exec.Status != "failed" || exec.TriggeredBy != "agent" || exec.ConversationID != convID || exec.MessageID == "" || !strings.Contains(exec.ErrorMessage, marker) {
+		t.Fatalf("child failure must be a durable agent execution tied to the conversation and marker: %+v", exec)
+	}
+
+	var messages []struct {
+		SubagentID string `json:"subagentId"`
+		Status     string `json:"status"`
+		Blocks     []struct {
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	wc.GET("/api/v1/conversations/"+convID+"/messages?limit=50").OK(t, &messages)
+	childFound, childSawFailure := false, false
+	for _, message := range messages {
+		if message.SubagentID == "" {
+			continue
+		}
+		childFound = true
+		for _, block := range message.Blocks {
+			childSawFailure = childSawFailure || strings.Contains(block.Content, marker)
+		}
+	}
+	if !childFound || !childSawFailure {
+		t.Fatalf("the child failure must remain in the durable sub-message tree: found=%v sawFailure=%v messages=%+v", childFound, childSawFailure, messages)
+	}
+}
+
 // TestLiveManaged_SubagentGenerateImageArtifact covers the subagent-specific multimodal seam:
 // capability tools and the tool-result media expander must survive the depth-1 delegated run, and
 // the parent must receive the child's managed receipt without paying for a redraw.

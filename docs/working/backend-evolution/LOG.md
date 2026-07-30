@@ -402,6 +402,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-369 | 聊天失败 FlowRun replay 场景、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-chat-flowrun-replay | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-370 | 真实 managed 嵌套失败续接补齐：父回合只派 `general-purpose` 子代理，子代理发现并调用故意抛错的 `run_function`；function execution 以 `failed + triggeredBy=agent` 记录同一 conversation/message，错误 marker 保留在 durable 子消息与父 `Subagent` tool result，父回合仍 completed 且没有直接越权 function 调用。两次真实复跑通过，未形成后端缺陷 | FRT-05 / managed-read/default / parent chat → subagent → failed function → parent continuation | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_SubagentFunctionFailureContinues$' -count=1` → PASS 49.94s；复跑 PASS 55.356s；无 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
