@@ -612,6 +612,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-474 | 最终追加 custom OpenAI-compatible 双跑、durable stopReason oracle 校准、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-11 的 Azure/Vertex 凭证缺口与唯一 DTO drift warning 继续如实保留 | docs gate / final post-custom-openai-probe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-475 | 只读复核并运行 `Anselm-API-Serve` 的 loopback full-stack integration：真实 router→middleware→SQLite→upstream 装配覆盖 install/chat/quota、Qwen 多模态、tool loop、stream/non-stream settle、额度/预算、拒绝 rollback、PoW、异步图像/语音/视频、混合模态、能力关闭降级与 debug 计费；公网 raw provider wire 仍按安全边界不可见，未把它误记为产品证据 | API Serve sibling / integration e2e / FRT-04 FRT-08 evidence boundary | `make e2e`（sibling）→ `ok github.com/sunweilin/anselm/gateway/internal/e2e 7.751s`；sibling 工作树保持 clean；未输出 provider secret |
+
+| 2026-07-30 | EVO-476 | API Serve sibling 常规 race 全量通过，确认上述网关结论不只来自 tagged e2e：app/domain/infra/transport/bootstrap 全包无 race；sibling 仍保持 clean | API Serve sibling / race unit regression | `make test`（sibling）→ 全部 `ok` / `[no test files]`；未改动 sibling、未输出 provider secret |
+
+| 2026-07-30 | EVO-477 | gateway-side 观测边界落入 Frontier：FRT-04 的用户可见媒体/flowrun/附件链保持已闭合，FRT-08 的 quota/cache/settle 证据保持已闭合；原始 provider body/header/key 仅在 loopback admin/内部，公网 recorder 缺口明确标为设计边界而非漏测 | docs / FRT-04 FRT-08 / gateway observability boundary | 更新 `docs/working/backend-evolution/FRONTIER.md`；随后 `make -C docs verify` → `✓ documentation verified`，唯一既知 DTO drift warning 未变化；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
