@@ -991,6 +991,8 @@ audience: [human, ai]
 | 2026-07-31 | EVO-663 | OpenAI 同回合多图当前配置连续两次通过：两张独立 PNG 均进入真实视觉回合，native parts、durable assistant history 与两份 98-byte 附件回读闭合；BYOK workspace 未启用 managed fallback | FRT-02 / byok-read / multiple-image fusion | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIMultipleImages$' -count=1 -parallel 1 -timeout 20m -json` → PASS 6.62s、5.51s；未输出 provider secret |
 | 2026-07-31 | EVO-664 | OpenAI image + unsupported audio/video honest downgrade 当前配置连续两轮全绿：image native path remains accepted，WAV/MP4 是明确能力降级说明而非非法组合，三份附件源字节仍可读回；未触发 provider 400 或 managed fallback | FRT-02 / byok-read / heterogeneous media downgrade | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIImageAndUnsupported(Audio|Video)$' -count=1 -parallel 1 -timeout 20m -json` → PASS 13.416s、10.074s（audio/video 首轮 7.22/5.50s；次轮 5.12/4.64s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-665 | managed 读侧与多模态交叉独立进程 5/5 通过：subagent 经 sandbox 读取 PDF、直接 `inspect_media` 视觉、文本 bounded query、PDF+图片同回合，以及修复后的 PDF `read_attachment` oracle 均完成；源附件可回读，未出现 durable 读错或工具结果污染 | FRT-01 / managed-read/default / attachment + subagent + bounded multimodal | `cd testend; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ReadAttachmentPDF|SubagentReadsPDFAttachment|InspectMediaImage|InspectMediaTextQuery|DefaultChatWithPDFAndImageAttachments)$' -count=1 -parallel 1 -timeout 30m -json` → PASS 83.988s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
