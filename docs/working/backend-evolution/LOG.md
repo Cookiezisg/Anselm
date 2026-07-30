@@ -658,6 +658,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-497 | async video producer→viewer 双跑事实加入 Frontier 后文档门禁通过；FRT-04 的生成→下游消费、MediaRef 与异步产物字节证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-video-workflow-viewer-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
 
+| 2026-07-30 | EVO-498 | managed workflow speech producer→managed viewer 首跑通过：真实 WAV 生成后作为 MediaRef 进入下游 agent，flowrun completed，80,684-byte 音频可回读；viewer 对默认 chat audio 诚实降级而不伪造转录 | FRT-04 / managed-write→managed-read / speech producer to viewer | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerateSpeechToManagedViewer$' -count=1 -timeout 12m -v` → PASS 28.138s；未输出 provider secret |
+
+| 2026-07-30 | EVO-499 | 同一 speech producer→viewer 场景第二个独立进程通过（36.435s），WAV/flowrun/downgrade 事实一致；未形成产品缺陷 | FRT-04 / managed-write→managed-read / independent reprobe | 同一命令第二次独立运行 → PASS 36.435s；Frontier 已补 producer→viewer 证据；未输出 provider secret |
+
+| 2026-07-30 | EVO-500 | async video 与 speech producer→managed viewer 双跑事实加入 Frontier 后文档门禁通过；FRT-04 真实产物、下游消费、诚实 audio degrade 与源字节证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-producer-viewer-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
