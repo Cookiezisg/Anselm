@@ -820,6 +820,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-578 | 本轮文档与代码变更后的整仓最终门禁闭合：backend、Flutter frontend、docs、web demo 与 workspace 均通过，未观察到跨层回归 | workspace gate / post-live-evolution final gate | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-579 | managed quota 首轮真实探针通过：managed key provision、workspace quota 查询与空消费初始状态一致，未出现错误扣费或状态漂移 | FRT-08 / managed-write / quota ledger | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_Quota$' -count=1 -parallel 1 -timeout 20m -v` → PASS 6.329s；未输出 provider secret |
+
+| 2026-07-30 | EVO-580 | quota 探针第二个独立进程再次通过（5.029s），确认 provision/quota 读侧边界不依赖一次性初始化时序，未形成后端缺陷 | FRT-08 / managed-write / independent reprobe | 同一命令第二次独立运行（输出收敛为末 90 行）→ PASS 5.029s；未输出 provider secret |
+
+| 2026-07-30 | EVO-581 | quota 双跑证据加入 LOG 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-quota-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
