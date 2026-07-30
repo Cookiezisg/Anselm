@@ -264,6 +264,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日补做非聊天触发源对照：manual trigger 与 webhook body 的用户附件融合连续两轮全绿，PDF token、`origin`/`triggerId`、flowrun 状态、CEL 接线及 PDF+PNG(+MP4) 源字节均保持闭合，未发现 chat 之外的 MediaRef 丢失。
 
+同日以完整 `make -C backend testend` 收口本轮工作：`testend/scenarios` 342.216s 全绿，未见本轮 live 场景或测试 oracle 变更造成黑盒回归；该门禁继续只作为当前落地行为的基线，不替代各 provider/managed 的独立真实证据。
+
 同日再做会话生命周期组合的独立复探：普通 fork、retry continuation 与旧版本 retry→fork continuation 仍保持同一组 durable lineage 约束，两轮均全绿；两次运行均未观察到源历史改写、跨线程 message/block 指针或旧 tool execution 复活。
 
 同日复探聊天侧人在环 workflow：第一回合让 `trigger_workflow` 在 `human` approval 节点 durable park，第二回合只读 parked 状态，第三回合调用 `decide_approval(yes)` 继续下游 publish action。两次独立 managed 进程通过（53.682s、47.580s），decision、marker、`flowrunId`、`origin=chat` 与下游 execution ledger 均闭合，未形成审批恢复缺陷。

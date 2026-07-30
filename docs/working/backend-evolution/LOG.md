@@ -976,6 +976,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-656 | workflow 用户附件融合的 manual 与 webhook 入口连续两轮通过：PDF+PNG(+MP4) MediaRef 经各自 payload/CEL 接线到 managed agent，PDF token、origin/trigger provenance、flowrun 状态与所有源字节均闭合 | FRT-01 + FRT-04 / managed-read / trigger-source multimodal fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_Workflow(UserAttachmentFusion|WebhookUserAttachmentFusion)$' -count=1 -parallel 1 -timeout 90m -json` → PASS 81.211s、75.980s；未输出 provider secret |
 
+| 2026-07-31 | EVO-657 | 本轮 live 探针与文档门禁后完整 backend 黑盒回归全绿；独立 acceptance suite 未出现稳定产品缺陷、孤儿终态、panic/race 或 `database is closed` | full backend testend regression / post-live gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 342.216s`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
