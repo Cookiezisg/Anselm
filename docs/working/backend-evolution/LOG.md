@@ -448,6 +448,14 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-392 | chat→workflow 扇出/AND-join 场景、backend 全量回归与文档门禁后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-chat-workflow-fanout-join | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-393 | 真实 managed 并行子代理树闭环补齐：父回合派出两个独立 `general-purpose` 子代理，两个 child message 以不同 `parentBlockId` 锚回各自父级 `Subagent` tool_call；两个 function 各恰一次 `ok + triggeredBy=agent` 且绑定同一 conversation/child message，父回合收到两个 marker 且无直接 `run_function`。首轮探索受上游 502 阻断；随后测试先放宽可恢复的 malformed `Subagent` retry，再按真实 execution DTO 使用 `output` 字段，均属测试 oracle 校准而非产品缺陷；校准后两次通过，关停时仅有已知 search embedder context-canceled 噪声 | FRT-05 / managed-read/default / parent chat → parallel subagent trees → function execution ledgers → parent continuation | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ParallelSubagentTrees$' -count=1 -v` → 首轮 FAIL 9.30s（`LLM_PROVIDER_ERROR`/502）；校准后 PASS 93.71s；复跑 PASS 76.33s；无 provider secret |
+
+| 2026-07-30 | EVO-394 | 并行子代理树场景加入后的文档门禁通过；Frontier/LOG 新增 FRT-05 证据、探索红灯分类与 DTO 线缆校准记录，working 索引、锚点和既有 drift 检查保持可用 | docs gate / post-managed-parallel-subagent-trees | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过，未变化 |
+
+| 2026-07-30 | EVO-395 | 并行子代理树场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent（含 nested function failure/cancel 与 parallel tree isolation）、workflow/trigger（含 manual 与 chat fanout/AND-join）、附件发现/抽取/inspect、多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-managed-parallel-subagent-trees | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 343.986s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
+| 2026-07-30 | EVO-396 | 并行子代理树场景及 backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-parallel-subagent-trees | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
