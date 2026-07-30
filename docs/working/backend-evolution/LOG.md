@@ -1131,6 +1131,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-734 | 核心用户生命周期当前窗口全绿：默认 managed 对话、普通 conversation fork、assistant retry continuation 各独立跑两次均完成（6/6），源会话 append-only、分支可继续、retry 版本链无跨线程污染；包总计 50.126s，未见模型工具、消息血缘或终态回归 | FRT-13 + FRT-16 / managed-read / default chat + fork + retry sanity gate | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveManaged_(DefaultChat|ConversationForkContinues|ChatRetryContinues))$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo734-managed-core-lifecycle.jsonl` → PASS：DefaultChat 7.14s/4.35s、ConversationFork 10.22s/9.25s、ChatRetry 9.25s/9.51s；未输出 provider secret |
 
+| 2026-07-31 | EVO-735 | 混合 ownership 的关键多模态链当前双跑通过：OpenAI BYOK `gpt-4.1-mini` 只负责规划/续接，Anselm managed route 只执行一次 `generate_image` 并铸造真实 PNG；两次均以 managed receipt 完成，附件内容可读，BYOK recorder 的 planner 首轮与续接请求均收到同一图片字节（13.15s、10.18s），没有重复生成、receipt-only 占位或 ownership 串线 | FRT-03 + FRT-09 / hybrid / BYOK planner → managed image writer → BYOK pixel viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_OpenAIPlansManagedImage$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo735-hybrid-openai-plans-managed-image.jsonl` → PASS：包 23.932s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

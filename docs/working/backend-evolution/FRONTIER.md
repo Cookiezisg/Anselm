@@ -100,6 +100,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮补上 workflow 的三类非媒体直写 producer→OpenAI viewer 对照：managed function、resident handler、stdio MCP 各自只铸一份 MediaRef，flowrun 节点与 producer source 闭合，OpenAI recorder 收到同一 exact-byte image part；function/handler 源 PNG 各 98 bytes，MCP 源附件 196 bytes。三条分别 19.35s、14.64s、14.80s 通过，未形成 producer ownership、workflow ledger、MCP/handler/function 接线或跨 provider renderer 回归。
 
+本轮再做 OpenAI BYOK planner→Anselm managed image writer 混合入口两次：planner 只发一次工具请求，managed 只铸造一份真实 PNG receipt/附件，续接请求把同一图片字节送回 BYOK recorder；两轮 13.15s、10.18s 完成，没有重复生成、receipt-only 占位或 ownership 串线。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
