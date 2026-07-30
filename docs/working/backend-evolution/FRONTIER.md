@@ -82,6 +82,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
 
+本轮单独复探 OpenAI planner→managed writer 混合入口，两次均通过（15.11s、10.17s）：planner 的 tool-call/continuation 线缆保留，Anselm receipt 只铸一份真实 PNG，后续请求携带同一图片字节，managed/BYOK ownership 与附件回读闭合。
+
 随后把 viewer 方言扩展到 native Gemini 与 Qwen：managed image→Gemini inlineData 两次通过（56.34s、65.18s）；managed speech→Qwen audio viewer 两次通过（17.86s、18.55s）；managed async video→Qwen video viewer 两次通过（122.77s、119.56s，MP4 约 9.7MB/9.2MB）。每条路径都等待真实 MediaRef、回读原始附件并完成下游回合，未形成跨 provider 编码、异步等待或 ownership 回归。
 
 本轮补做 workflow 版本的 managed image→OpenAI BYOK viewer 当前双跑：上游 agent 仅执行一次 `generate_image`，flowrun 节点保留 MediaRef/receipt，附件 content 端点回读真实 PNG，下游 recorder 观察到同一 exact-byte native image part；两次通过（42.049s、35.691s），未形成 workflow 接线、ownership 或跨 provider 编码缺陷。
@@ -133,6 +135,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同轮复探聊天 workflow 控制面四件套：observability、failure diagnosis、human approval park→decide、failed replay 分别在 36.04s、45.96s、49.01s、55.46s 完成（包 187.106s）。真实 flowrun/interaction/node error 与 function/handler ledger 均闭合，replay 仅重跑失败节点，未发现模型文本与 durable 状态不一致。
 
 同轮再复探用户附件融合的三入口：manual trigger、外部 webhook、chat→`trigger_workflow` 分别承载同一 PDF+PNG+MP4 payload，均完成真实 managed agent flowrun（56.45s、17.28s、44.67s；包 118.840s）。三路的 origin/provenance、chat `conversationId`、webhook `triggerId`、PDF sandbox token、三份源字节与终态均闭合，没有入口特有的媒体丢失或路由漂移。
+
+同日复探 workflow managed image→Gemini native viewer：上游 painter 已完成并留下 `generate_image` receipt、MediaRef 与真实 PNG，flowrun 的 viewer 节点耐久落 `failed`，错误为 `llm: rate limited (429)`。该次没有暴露 flowrun、MediaRef 或附件装配缺陷；Google 原生视觉仍保留为 provider rate-window 缺口，不能把它计为稳定绿格。
 
 ### FRT-07 最新证据
 

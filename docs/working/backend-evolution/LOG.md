@@ -1097,6 +1097,10 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-717 | EVO-716 后执行完整 backend 黑盒总闸，当前 acceptance suite 仍全绿；workflow、媒体、多模态、会话血缘、BYOK、MCP/function/handler、取消/重试、崩溃恢复与资源卫生基线均未被本轮 focused/live 探针或测试 oracle 变更回归 | full backend testend regression / post-EVO-716 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo716.log | tail -n 120` → `ok github.com/sunweilin/anselm/testend/scenarios 312.302s`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-718 | hybrid ownership 当前双跑通过：OpenAI BYOK planner 只发起一次工具规划，实际图像由 Anselm managed route 生成；真实 PNG 作为同一 MediaRef 回灌 planner 的后续请求，receipt/provider、附件 content 与 exact-byte wire 均闭合，没有重复生成或 ownership 串线 | FRT-03 + FRT-04 / hybrid / BYOK planner → managed writer → BYOK viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_OpenAIPlansManagedImage$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo718-hybrid-openai-plans-managed-image.jsonl` → PASS 15.11s、10.17s（包 26.343s）；未输出 provider secret |
+
+| 2026-07-31 | EVO-719 | managed workflow→Gemini native viewer 当前窗口再次触达 provider 429：上游 painter 已 completed 并保留 `generate_image` receipt、MediaRef 与真实 PNG，viewer 节点 durable failed 且错误明确为 `llm: rate limited (429)`；失败发生在 Google provider window，不是 flowrun/MediaRef 装配或 managed 产物后端回归 | FRT-03 + FRT-04 + FRT-11 / hybrid / managed image → Google native `inlineData` viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedImageToGoogleViewer$' -count=1 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo719-hybrid-google-image-viewer.jsonl` → FAIL 29.03s，viewer node `LLM_RATE_LIMITED (429)`，painter/flowrun 上游结果耐久闭合；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
