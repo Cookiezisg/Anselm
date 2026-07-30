@@ -220,6 +220,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮重新复探子代理 image writer：两次独立 managed 进程均最终只执行一条 `generate_image`，PNG receipt 与 content 端点闭合，父回合 completed（56.913s、60.863s）。第二次仍出现一次非法 `subagent_type` 的 schema warning 后自我修正，但没有步数耗尽、重复生成或附件孤儿；这降低了当前红灯频率，却继续证明该项应作为模型 schema recovery/步预算哨兵保留，而非宣称后端缺陷已修复。
 
+本轮再做子代理媒体读侧当前双路径：video 与 audio 附件各由 general-purpose child 真实调用 `inspect_media`，分别回传 bounded temporal metadata，父层无偷调，原始 MP4/WAV 字节可回读，child execution/message 与父回合闭合。两项通过（97.380s、31.740s；包 129.945s），未形成媒体读取或子代理接线缺陷。
+
 随后复探 stdio MCP 产物→workflow 下游 viewer：MCP producer 的单一 PNG MediaRef 穿过 agent node，workflow 结果保留 `mcp_media` source 与 attachment id，附件 content 端点回读真实图片，OpenAI BYOK viewer recorder 收到同一原始 image part。两次独立 hybrid 进程通过（18.418s、16.672s），未形成 producer ownership、workflow node 或跨 provider 编码缺陷。
 
 紧接着做 function producer 的对称复探：managed function execution 只铸一份 PNG MediaRef，flowrun 节点和 producer source 保持闭合，OpenAI BYOK viewer recorder 收到 exact-byte image part，附件可回读。两次独立 hybrid 进程通过（19.034s、16.626s），未形成 function artifact ownership、workflow 接线或跨 provider 编码缺陷。

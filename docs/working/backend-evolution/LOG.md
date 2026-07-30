@@ -1049,6 +1049,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-693 | 当前所有已纳入 backend acceptance 的黑盒总闸通过；本轮媒体融合、workflow producer/viewer、语音生命周期、Google 限流分类、审批/replay、缓存/quota 探针没有回归 chat、agent/subagent、workflow/trigger、附件抽取、取消/重试、崩溃恢复与资源卫生基线 | full backend testend regression / post-EVO-687~692 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo692.log | tail -n 100` → `ok github.com/sunweilin/anselm/testend/scenarios 290.548s`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-694 | general-purpose 子代理当前真实消费视频/音频附件双路径通过：child 各自调用 `inspect_media` 返回 bounded temporal metadata，父层没有偷调，child message/执行台账、父回合与原始 MP4/WAV 字节均闭合，无伪造 transcript 或媒体孤儿 | FRT-05 + FRT-01 / managed-read / subagent video+audio attachment inspection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentInspects(Video|Audio)Attachment$' -count=1 -parallel 1 -timeout 45m -json` → PASS：Video 97.380s、Audio 31.740s；包 129.945s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
