@@ -372,6 +372,159 @@ func TestLiveManaged_WorkflowFanoutJoin(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ChatTriggerWorkflowFanoutJoin proves the user-facing composition of the two
+// real rails above: default managed chat discovers trigger_workflow, starts a webhook-shaped
+// workflow, and the asynchronous run still honors the full fanout/join durable contract.
+func TestLiveManaged_ChatTriggerWorkflowFanoutJoin(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-chat-trigger-fanout-join")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	branchFn := fnCreate(t, wc, "chat_parallel_branch", "def branch(seed: str, label: str) -> dict:\n    return {'label': label + ':' + seed}\n")
+	joinFn := fnCreate(t, wc, "chat_parallel_join", "def join(a: str, b: str) -> dict:\n    return {'joined': a + ',' + b}\n")
+	finishFn := fnCreate(t, wc, "chat_parallel_finish", "def finish(left: str, right: str) -> dict:\n    return {'complete': left + '|' + right}\n")
+	trgID := trgCreate(t, wc, "chat_parallel_webhook", "webhook", map[string]any{"path": "chat-parallel-fanout"})
+	ops := []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": trgID}},
+	}
+	for i := 1; i <= 4; i++ {
+		id := fmt.Sprintf("p%d", i)
+		ops = append(ops,
+			map[string]any{"op": "add_node", "node": map[string]any{
+				"id": id, "kind": "action", "ref": branchFn,
+				"input": map[string]any{"seed": "start.body.seed", "label": fmt.Sprintf("'%s'", id)},
+			}},
+			map[string]any{"op": "add_edge", "edge": map[string]any{"id": "e-start-" + id, "from": "start", "to": id}},
+		)
+	}
+	ops = append(ops,
+		map[string]any{"op": "add_node", "node": map[string]any{
+			"id": "join_left", "kind": "action", "ref": joinFn,
+			"input": map[string]any{"a": "p1.label", "b": "p2.label"},
+		}},
+		map[string]any{"op": "add_node", "node": map[string]any{
+			"id": "join_right", "kind": "action", "ref": joinFn,
+			"input": map[string]any{"a": "p3.label", "b": "p4.label"},
+		}},
+		map[string]any{"op": "add_node", "node": map[string]any{
+			"id": "finish", "kind": "action", "ref": finishFn,
+			"input": map[string]any{"left": "join_left.joined", "right": "join_right.joined"},
+		}},
+	)
+	for i := 1; i <= 2; i++ {
+		id := fmt.Sprintf("p%d", i)
+		ops = append(ops, map[string]any{"op": "add_edge", "edge": map[string]any{"id": "e-" + id + "-join-left", "from": id, "to": "join_left"}})
+	}
+	for i := 3; i <= 4; i++ {
+		id := fmt.Sprintf("p%d", i)
+		ops = append(ops, map[string]any{"op": "add_edge", "edge": map[string]any{"id": "e-" + id + "-join-right", "from": id, "to": "join_right"}})
+	}
+	ops = append(ops,
+		map[string]any{"op": "add_edge", "edge": map[string]any{"id": "e-left-finish", "from": "join_left", "to": "finish"}},
+		map[string]any{"op": "add_edge", "edge": map[string]any{"id": "e-right-finish", "from": "join_right", "to": "finish"}},
+	)
+	wfID := wfCreate(t, wc, "chat_parallel_join", ops)
+	convID := convCreate(t, wc, "managed chat trigger parallel workflow")
+	prompt := fmt.Sprintf(`先调用 search_tools 查找名为 trigger_workflow 的工作流工具；等它返回工具 schema 后，只调用 trigger_workflow 一次来运行 workflowId=%s，然后只告诉我返回的 flowrunId。除这一次 search_tools 外不要调用其他工具。
+trigger_workflow 的 args 必须同时包含 workflowId 和 payload，workflowId 必须逐字复制；payload 严格使用 webhook 入口形状：{"body":{"seed":"chat-managed"}}。不要平铺 body，也不要调用任何其他工具。`, wfID)
+	turn := waitTurn(t, wc, convID, sendMsg(t, wc, convID, prompt), 300000)
+	if turn.Status != "completed" {
+		t.Fatalf("chat trigger fanout turn must complete: status=%s code=%s message=%s blocks=%+v", turn.Status, turn.ErrorCode, turn.ErrorMessage, turn.Blocks)
+	}
+	searchCalls, triggerCalls, triggerResults := 0, 0, 0
+	for _, block := range turn.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		switch tool {
+		case "search_tools":
+			if block.Type == "tool_call" {
+				searchCalls++
+			}
+		case "trigger_workflow":
+			switch block.Type {
+			case "tool_call":
+				triggerCalls++
+			case "tool_result":
+				triggerResults++
+				if !strings.Contains(block.Content, wfID) {
+					t.Fatalf("chat trigger result must name workflow %s: %s", wfID, block.Content)
+				}
+			}
+		}
+	}
+	if searchCalls < 1 || triggerCalls != 1 || triggerResults != 1 {
+		t.Fatalf("chat must discover trigger_workflow then persist exactly one call/result: search=%d calls=%d results=%d blocks=%+v", searchCalls, triggerCalls, triggerResults, turn.Blocks)
+	}
+
+	var runs []struct {
+		ID             string `json:"id"`
+		Status         string `json:"status"`
+		Origin         string `json:"origin"`
+		ConversationID string `json:"conversationId"`
+	}
+	harness.Eventually(t, 240000, "chat-triggered fanout run completes", func() bool {
+		r := wc.GET("/api/v1/flowruns?workflowId=" + wfID + "&origin=chat&status=completed")
+		if r.Status != 200 || json.Unmarshal(r.Data, &runs) != nil {
+			return false
+		}
+		return len(runs) == 1 && runs[0].ID != "" && runs[0].Origin == "chat" && runs[0].ConversationID == convID
+	})
+	if len(runs) != 1 {
+		t.Fatalf("chat trigger must produce one completed fanout run, got %+v", runs)
+	}
+	var detail struct {
+		Flowrun struct {
+			Status         string `json:"status"`
+			Origin         string `json:"origin"`
+			ConversationID string `json:"conversationId"`
+		} `json:"flowrun"`
+		Nodes json.RawMessage `json:"nodes"`
+	}
+	wc.GET("/api/v1/flowruns/"+runs[0].ID).OK(t, &detail)
+	if detail.Flowrun.Status != "completed" || detail.Flowrun.Origin != "chat" || detail.Flowrun.ConversationID != convID {
+		t.Fatalf("chat fanout provenance must remain completed/chat/%s: %+v", convID, detail.Flowrun)
+	}
+	var nodes []struct {
+		NodeID    string `json:"nodeId"`
+		Status    string `json:"status"`
+		Iteration int    `json:"iteration"`
+	}
+	if err := json.Unmarshal(detail.Nodes, &nodes); err != nil {
+		t.Fatalf("decode chat fanout nodes: %v %s", err, detail.Nodes)
+	}
+	if len(nodes) != 8 {
+		t.Fatalf("chat fanout must persist start + 4 branches + 2 joins + finish, got %d: %s", len(nodes), detail.Nodes)
+	}
+	seen := map[string]bool{}
+	for _, node := range nodes {
+		if seen[node.NodeID] || node.Status != "completed" || node.Iteration != 0 {
+			t.Fatalf("chat fanout node must complete once at iteration 0: %+v", node)
+		}
+		seen[node.NodeID] = true
+	}
+	for _, id := range []string{"start", "p1", "p2", "p3", "p4", "join_left", "join_right", "finish"} {
+		if !seen[id] {
+			t.Fatalf("chat fanout lost node %s: %+v", id, seen)
+		}
+	}
+	if !strings.Contains(string(detail.Nodes), "p1:chat-managed,p2:chat-managed|p3:chat-managed,p4:chat-managed") {
+		t.Fatalf("chat fanout finish must preserve both joined branch groups: %s", detail.Nodes)
+	}
+
+	var branchExecutions struct {
+		Executions []struct {
+			FlowrunID string `json:"flowrunId"`
+			Status    string `json:"status"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+branchFn+"/executions?flowrunId="+runs[0].ID).OK(t, &branchExecutions)
+	if len(branchExecutions.Executions) != 4 {
+		t.Fatalf("chat branch ledger must contain four successful calls, got %+v", branchExecutions.Executions)
+	}
+	for _, execution := range branchExecutions.Executions {
+		if execution.FlowrunID != runs[0].ID || execution.Status != "ok" {
+			t.Fatalf("chat branch execution provenance wrong: %+v", branchExecutions.Executions)
+		}
+	}
+}
+
 // TestLiveManaged_GenerateImageArtifact is the smallest managed-write acceptance: the default
 // Anselm dialogue model must discover and call generate_image once, the managed gateway must return
 // a decoder-valid image, and the tool receipt must land as a first-class attachment owned by Anselm.
