@@ -984,6 +984,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-660 | BYOK 文档/视频读侧当前配置连续两轮全绿：OpenAI 原生 PDF 走 `file_data`/document wire，Qwen 视频走 native `video_url`，两者均保持真实回合与附件源字节，未启用 managed fallback | FRT-02 / byok-read / native document + video | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(OpenAIPDFInput|QwenVideoInput)$' -count=1 -parallel 1 -timeout 20m -json` → PASS 15.923s、15.675s（PDF 7.61s/6.80s；video 7.95s/8.56s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-661 | managed quota 设置面当前 fresh smoke 连续两轮通过：新 workspace 的 live limit/used/remaining 自洽、available=true、resetAt 可解析 RFC3339；未触发任何模型或生成消费 | FRT-08 / managed-read / quota projection | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_Quota$' -count=1 -parallel 1 -timeout 10m -json` → PASS 5.158s、3.667s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

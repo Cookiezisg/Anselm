@@ -104,6 +104,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日再次对 managed 朗读做真实双跑：顺序缓存与并发 dedup 两条都通过（组合 18.784s、16.756s），quota 变化、共享附件和换文本新产物均符合预期；没有重复消费或缓存穿透。
 
+同日补做 managed quota 设置面 fresh smoke：两个独立新 workspace 都读到自洽的 live `limit/used/remaining`、`available=true` 与 RFC3339 `resetAt`（5.158s、3.667s），没有触发模型或生成消费；配额投影当前没有回归。
+
 ### FRT-09 最新证据
 
 同日复探 managed 高风险消费闸：`generate_speech` 与异步 `generate_video` 均先出现 danger interaction，客户端明确拒绝后回合完成；两轮独立进程均未进入合成、未铸造 provider receipt、未增加 generation reservation/quota。两轮整组通过（28.254s、27.967s；第二轮视频拒绝 11.64s），确认拒绝路径不会因上游窗口或重复点击而产生隐形消费，未形成产品缺陷。
