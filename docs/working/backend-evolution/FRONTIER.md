@@ -230,6 +230,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日补上取消树分叉交互：取消 child 与失败 child 一样是可读的 durable terminal history，而不是被 fork 丢弃的 transient；两次通过（54.58s、54.88s），补足 FRT-13 取消恢复与 FRT-16 分支自洽的交集。
 
+同日再做成功/失败/取消三类子代理树的 fork 聚合复探：失败与取消路径继续通过；并行路径一次由托管模型重复派发到 4 个 child，两个 marker、4 个父锚点和父回合完成态都存在，但严格“恰好两个 child”断言未满足。独立复跑在 104.552s 通过，未见 fork 消息/block 铸造、`parentBlockId` 重映射、终态或 function ledger 缺陷，因此保留为 managed 重复派发波动哨兵，不改生产代码。
+
 同日再做会话生命周期组合的独立复探：普通 fork、retry continuation 与旧版本 retry→fork continuation 仍保持同一组 durable lineage 约束，两轮均全绿；两次运行均未观察到源历史改写、跨线程 message/block 指针或旧 tool execution 复活。
 
 同日复探聊天侧人在环 workflow：第一回合让 `trigger_workflow` 在 `human` approval 节点 durable park，第二回合只读 parked 状态，第三回合调用 `decide_approval(yes)` 继续下游 publish action。两次独立 managed 进程通过（53.682s、47.580s），decision、marker、`flowrunId`、`origin=chat` 与下游 execution ledger 均闭合，未形成审批恢复缺陷。

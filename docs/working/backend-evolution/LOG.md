@@ -942,6 +942,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-639 | 测试 oracle 修复与本轮 live 探针后完整 backend 黑盒回归仍全绿；未出现稳定产品缺陷、孤儿终态、panic/race 或 `database is closed` | full backend testend regression / post-oracle-fix gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 316.634s`；未输出 provider secret |
 
+| 2026-07-31 | EVO-640 | managed 成功/失败/取消三类子代理树的 fork 聚合复探中，失败与取消均通过；并行树组合一次出现 4 个 child（两个 marker 与锚点均存在）而非严格断言的 2 个，隔离后同一用例通过（104.552s），因此归类为托管模型重复派发波动，未确认 fork remap、终态或执行 ledger 缺陷 | FRT-05 + FRT-16 / managed / subagent fork state matrix | 三用例组合 → FAIL（250.540s；并行源树 `children=4`），`ForkPreservesParallelSubagentTrees` 独立复跑 → PASS 104.552s；失败/取消用例组合内均 PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
