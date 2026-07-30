@@ -246,6 +246,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 紧接着做 function producer 的对称复探：managed function execution 只铸一份 PNG MediaRef，flowrun 节点和 producer source 保持闭合，OpenAI BYOK viewer recorder 收到 exact-byte image part，附件可回读。两次独立 hybrid 进程通过（19.034s、16.626s），未形成 function artifact ownership、workflow 接线或跨 provider 编码缺陷。
 
+本轮再次复探并行子代理的跨回合上下文：clean `-count=2` 两个独立 managed 回合都在 follow-up 后的 child-tree 数量断言处失败，模型先拒绝或重试 `search_tools`/`subagent_type`，最终 durable history 含 6 个 child 而不是测试要求的 2 个；一轮能同时保留两个 marker，另一轮则出现一个 child 拒绝执行而父层诚实报告。此前只读诊断在 follow-up 前看到各 function 恰一条、另一次隔离运行通过，当前没有稳定的后端重复 execution、孤儿、锚点丢失或终态复活证据；因此继续把它归类为 managed 模型工具发现/安全拒绝/重试遵循哨兵，不改生产代码。
+
 再补 resident handler producer：每次 handler 调用各自铸一份 PNG MediaRef，flowrun/producer source、节点与附件 content 保持闭合，OpenAI BYOK viewer 收到同一 exact-byte image part。两次独立 hybrid 进程通过（20.866s、16.635s），未形成 handler 调用级产物串线、ownership、workflow 或 provider 编码缺陷。
 
 三类 producer 复探后执行 backend 常规代码门禁：`make -C backend verify` 全绿，覆盖编译、vet、race/unit 与领域包测试；当前没有证据表明本轮多媒体、会话血缘或资格边界工作引入代码级回归。
@@ -339,6 +341,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日复探 BYOK 读取协议的产品入口：DeepSeek OpenAI-compatible 与 Google Gemini 原生文本 smoke 连续两个独立进程均通过，key probe、model-capabilities、显式 default model、真实 conversation turn 与 assistant 文本保持闭合；managed gateway 在 BYOK-only workspace 中未介入，未形成 provider 方言或路由回归。
 
 同日继续沿 DeepSeek 兼容层下钻 tool continuation：两次独立进程都保住 assistant `tool_call`、sandbox function 的 `144` 结果和第二次 assistant sampling；录制请求同时含 `tools`、`tool_calls` 与工具结果，未发现重复执行、managed fallback 或兼容序列回归。
+
+本轮的并行子代理跨回合 clean `-count=2` 复探没有形成新的会话恢复缺陷：两次均因 managed 模型在 `search_tools`/`subagent_type` 纠错与安全拒绝后重复派发，导致 durable child 数量为 6 而非严格哨兵期望的 2；父 follow-up 仍能完成并保留可见 marker，失败发生在 child-count oracle 而非 fork、retry、消息锚或终态恢复。此前诊断与隔离绿跑仍显示各 function 可保持单次 execution，故该结果继续记录为模型/提示词时序信号，不改会话持久化代码。
 
 同日复探 Qwen `qwen3.7-plus` 的双原生媒体入口：image+video 同回合融合连续两次通过，能力投影、录制 wire 的 exact-byte `image_url`/`video_url`、附件回读与无上游 400 均闭合，未形成 renderer 或组合契约回归。
 

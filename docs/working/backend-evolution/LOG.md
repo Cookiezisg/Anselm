@@ -1081,6 +1081,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-709 | 完成 EVO-707～708 后的 backend 全量黑盒总闸：图像生成/编辑、动画与批准视频异步探针没有回归 chat、agent/subagent、workflow/trigger、附件/多模态、MCP/function/handler、取消/重试、崩溃恢复或资源卫生 | full backend testend regression / post-EVO-707~708 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo708.log | tail -n 100` → `ok github.com/sunweilin/anselm/testend/scenarios 320.167s`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-710 | managed 并行子代理跨回合哨兵本轮 clean `-count=2` 两次都在 durable child 数量断言处失败：托管模型先把 `search_tools`/`subagent_type` 判为不可用或安全可疑，随后反复重试，历史落 6 棵 child 而非期望的 2 棵；markers、父回合完成与部分 function 结果仍可见。此前只读诊断曾在 follow-up 前观察到各 function 恰一条、随后隔离复跑通过，当前没有稳定的后端重复执行、孤儿、锚点泄漏或终态损坏证据；保留为 managed 模型工具发现/安全拒绝/重试遵循可靠性哨兵，不改生产代码 | FRT-05 + FRT-13 / managed-read / subagent context and duplicate-dispatch sentinel | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ParallelSubagentContextContinues$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo710-parallel-context-clean-rerun.jsonl | tail -n 160` → 两个独立回合均 FAIL（135.94s、133.16s；包 270.120s，均为 childCount=6）；此前诊断隔离复跑 PASS 74.77s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
