@@ -944,6 +944,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-640 | managed 成功/失败/取消三类子代理树的 fork 聚合复探中，失败与取消均通过；并行树组合一次出现 4 个 child（两个 marker 与锚点均存在）而非严格断言的 2 个，隔离后同一用例通过（104.552s），因此归类为托管模型重复派发波动，未确认 fork remap、终态或执行 ledger 缺陷 | FRT-05 + FRT-16 / managed / subagent fork state matrix | 三用例组合 → FAIL（250.540s；并行源树 `children=4`），`ForkPreservesParallelSubagentTrees` 独立复跑 → PASS 104.552s；失败/取消用例组合内均 PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-641 | DeepSeek OpenAI-compatible 与 Google Gemini 原生读取路径的产品级文本 smoke 连续两个独立进程均通过；key probe、能力投影、显式模型选择、真实回合与 assistant 文本均闭合，managed fallback 未介入 | FRT-02 + FRT-11 / byok-read / provider smoke | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_TextProviderSmoke$' -count=1 -parallel 1 -timeout 30m -json` → PASS 13.319s、11.462s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
