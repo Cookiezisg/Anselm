@@ -97,6 +97,9 @@ func TestInspectMediaDescriptionOverviewNamesTemporalRange(t *testing.T) {
 	if !strings.Contains(firstLine, "startMs/endMs") {
 		t.Fatalf("lazy overview first line must expose temporal range args: %q", firstLine)
 	}
+	if !strings.Contains(firstLine, "page/offset/limitChars") {
+		t.Fatalf("lazy overview first line must expose bounded text args: %q", firstLine)
+	}
 }
 
 func TestListAttachments_ReturnsUploaded(t *testing.T) {
