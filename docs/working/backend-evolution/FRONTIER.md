@@ -110,6 +110,8 @@ audience: [human, ai]
 
 同日补做单子代理附件消费三件套：文字附件由 child 读取并回传唯一 token，PDF 由 child 经 sandbox `read_attachment` 抽取 token，图片由 child 通过 `inspect_media` 产生 bounded evidence；父层均不偷调、源附件保持字节不变。首轮组合中文字/PDF 通过（32.11s/31.37s），图片链连续两次快速收到 managed `LLM_PROVIDER_ERROR (502)`，随后隔离重跑在长尾约 105.077s 完整通过；直接父层 `inspect_media` 对照也通过（20.394s），故当前把 502 归类为 subagent→nested-vision 的上游瞬态/长尾，不宣称稳定 backend 缺陷。第二个独立组合进程三条均通过（包 124.774s），FRT-05 仍保留该红绿分叉供后续 gateway/模型变更时复探。
 
+同日复探子代理音视频时序边界：两个独立 managed 进程中，general-purpose child 均真实调用 `inspect_media`，视频回传 `kind=video/mode=metadata/startMs=1000/endMs=2000`，音频回传对应 `kind=audio/mode=metadata/startMs=1200/endMs=2600`；父层没有偷调，父回合完成，MP4/WAV 源字节均原样回读，未伪造 transcript。两轮组合均通过（包 130.455s、136.764s），未形成产品缺陷。
+
 ### FRT-11 最新证据
 
 本轮先做 DeepSeek 兼容线缆的真实双跑：`deepseek-v4-flash` 在产品 API 内完成 `run_function`，函数结果回灌后第二次 chat/completions 采样完成；durable history 同时保留 tool call、tool result 和最终 `144`，recorder 观察到至少两次请求且请求携带 `tools`、`tool_calls` 与结果载荷。两次独立进程通过（12.52s、9.52s），未形成产品缺陷；关停阶段的 embedder `context canceled` 仍是已知 shutdown 噪声。

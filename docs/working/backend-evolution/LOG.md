@@ -732,6 +732,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-534 | `inspect_media` lazy 目录卡修复后的 backend 全量黑盒回归闭合；对话、agent/subagent、workflow/trigger、MCP/function/handler、附件/多模态、媒体检查、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-inspect-media-text-args-fix gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 352.151s`；EVALS 未开启、未输出 provider secret |
 
+| 2026-07-30 | EVO-535 | managed `general-purpose` 子代理音视频时序边界首轮组合通过：child 分别调用 `inspect_media` 并回传 video 1,000–2,000ms、audio 1,200–2,600ms bounded metadata；父层无偷调，MP4/WAV 源字节保真 | FRT-05 / managed-read / subagent temporal media | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentInspects(Video|Audio)Attachment$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 130.455s（Audio 25.30s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-536 | 同一子代理音视频组合第二个独立进程再次全绿（包 136.764s；Audio 29.66s），确认父子 evidence、时间范围与源媒体守卫不是一次性模型配合，未形成后端缺陷 | FRT-05 / managed-read / independent reprobe | 同一命令第二次独立运行 → PASS，包总计 136.764s；未输出 provider secret |
+
+| 2026-07-30 | EVO-537 | 子代理音视频双跑事实加入 Frontier 后文档门禁通过；FRT-05 的 temporal metadata、父层不越权与源字节边界保持可读，唯一 DTO drift warning 未变化 | docs gate / post-subagent-temporal-media-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
