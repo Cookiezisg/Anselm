@@ -104,11 +104,15 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮先把语音输入与音色全生命周期放在同一 managed 组中复探：realtime ASR 独立通过（10.01s），但首个 `EnrollSpeakDelete` 进程在等待 60s 内没有得到 `enroll_voice` danger interaction，测试在审批断言前退出，未提交登记任务，不能把该红灯误判成库存、异步状态或删除语义缺陷。随后将生命周期场景隔离并以两个独立进程复跑，均完整通过危险审批→异步登记→克隆音色合成→删除，耗时 44.75s、54.67s；voice inventory/上游句柄和最终本地清理均闭合。当前结论是受管模型/网关时序可靠性哨兵，保留首轮 60s stall 证据，未改生产代码。
 
+随后单独复探 realtime ASR：proof-bound WebSocket 接受 100ms PCM、完成 finish，并从部署网关收到 `session.finished`（1.69s）；未把静音帧误当成转写语义，传输与会话生命周期闭合。
+
 ### FRT-08 最新证据
 
 同日复探 managed 朗读成本闸：顺序路径第一次合成、同文本同音色命中同一缓存、换文本生成新 WAV；并发路径在同 workspace 同 key 下同时发起两次相同请求，两个响应共享同一附件且 quota 只增加一次。两条场景在两个独立进程均通过（顺序 10.11s/9.93s，并发 5.81s/5.25s），未复现重复付费竞态；provider wire 计数仍受 API Serve 公网不暴露 raw wire 的设计边界约束。
 
 同日再次对 managed 朗读做真实双跑：顺序缓存与并发 dedup 两条都通过（组合 18.784s、16.756s），quota 变化、共享附件和换文本新产物均符合预期；没有重复消费或缓存穿透。
+
+本轮再次独立复探朗读与语音入口：顺序缓存、并发相同 key 去重和 realtime ASR 共 3/3 通过（包 18.649s；cache 10.19s、concurrent 5.97s、ASR 1.69s）；quota delta、共享附件与 `session.finished` 均闭合，未出现重复消费或资源孤儿。
 
 同日补做 managed quota 设置面 fresh smoke：两个独立新 workspace 都读到自洽的 live `limit/used/remaining`、`available=true` 与 RFC3339 `resetAt`（5.158s、3.667s），没有触发模型或生成消费；配额投影当前没有回归。
 

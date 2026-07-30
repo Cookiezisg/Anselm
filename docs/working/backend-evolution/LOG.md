@@ -993,6 +993,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-665 | managed 读侧与多模态交叉独立进程 5/5 通过：subagent 经 sandbox 读取 PDF、直接 `inspect_media` 视觉、文本 bounded query、PDF+图片同回合，以及修复后的 PDF `read_attachment` oracle 均完成；源附件可回读，未出现 durable 读错或工具结果污染 | FRT-01 / managed-read/default / attachment + subagent + bounded multimodal | `cd testend; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ReadAttachmentPDF|SubagentReadsPDFAttachment|InspectMediaImage|InspectMediaTextQuery|DefaultChatWithPDFAndImageAttachments)$' -count=1 -parallel 1 -timeout 30m -json` → PASS 83.988s；未输出 provider secret |
 
+| 2026-07-31 | EVO-666 | managed 语音/成本路径当前配置独立复探全绿：实时 ASR WebSocket 收到 `session.finished`，朗读顺序缓存命中与换文本新产物、并发相同 key 去重及 quota delta 均闭合；未出现重复消费或媒体孤儿 | FRT-07 + FRT-08 / managed-read/write / realtime ASR + read-aloud spend gate | `cd testend; set -a; source ../.env; set +a; EVALS_MANAGED=1 EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveVoice_SpeechInputASR|TestLiveManaged_ReadAloud(Cache|ConcurrentDedup))$' -count=1 -parallel 1 -timeout 30m -json` → PASS 18.649s（cache 10.19s；concurrent 5.97s；ASR 1.69s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
