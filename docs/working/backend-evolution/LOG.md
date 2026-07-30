@@ -810,6 +810,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-573 | workflow image/speech/video producer→viewer 双跑事实加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-workflow-media-viewer-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-574 | managed 朗读缓存与并发去重首轮通过：同文本同音色第二次复用同一 WAV/不增 quota，换文本生成新附件；并发相同 key 两次响应共享结果且只消费一次 | FRT-08 / managed-write / read-aloud cache + concurrent dedup | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ReadAloud(Cache|ConcurrentDedup)$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 18.784s；未输出 provider secret |
+
+| 2026-07-30 | EVO-575 | 同一朗读成本组合第二个独立进程再次全绿（包总计 16.756s；顺序 11.05s、并发 5.27s），确认缓存/并发闸不依赖一次性时序，未形成后端缺陷 | FRT-08 / managed-write / independent reprobe | 同一命令第二次独立运行（输出收敛为末 120 行）→ PASS，包总计 16.756s；未输出 provider secret |
+
+| 2026-07-30 | EVO-576 | 朗读缓存/并发去重双跑事实加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-read-aloud-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
