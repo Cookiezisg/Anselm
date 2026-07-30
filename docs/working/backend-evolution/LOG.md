@@ -682,6 +682,14 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-509 | 朗读缓存/并发去重双跑事实加入 Frontier 后文档门禁通过；FRT-08 的 quota/cache 结论与公网 raw-wire 设计边界保持可读，唯一 DTO drift warning 未变化 | docs gate / post-read-aloud-cache-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
 
+| 2026-07-30 | EVO-510 | subagent 附件三件套首轮出现可区分分叉：文字附件 child 读取通过（32.11s）、PDF sandbox 读取通过（31.37s）；图片 child 在进入业务断言前落 `LLM_PROVIDER_ERROR (502)`，不是测试 oracle 红灯 | FRT-05 / managed-read / subagent text+image+PDF attachment | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_Subagent(ReadsTextAttachment|InspectsImageAttachment|ReadsPDFAttachment)$' -count=1 -parallel 1 -timeout 20m -v` → image 502，其他两项 PASS；未输出 provider secret |
+
+| 2026-07-30 | EVO-511 | 图片 subagent 隔离复核先连续两次快速收到同一 502（7.50s、约 3s），但第三次在约 105.077s 长尾后完整通过；直接父层 `inspect_media` 图片对照 20.394s 通过，说明红灯集中在 subagent→nested-vision 的 managed 上游瞬态/长尾，未改产品代码 | FRT-05 / managed-read / nested vision transient classification | `TestLiveManaged_SubagentInspectsImageAttachment`：两次 `LLM_PROVIDER_ERROR (502)` 后独立运行 → PASS 105.077s；`TestLiveManaged_InspectMediaImage` → PASS 20.394s；未输出 provider secret |
+
+| 2026-07-30 | EVO-512 | subagent 文本/图片/PDF 三件套第二个独立组合进程全绿，三条均完成且源附件保真；包总计 124.774s，未形成稳定后端缺陷，但保留前两次图片 502 作为后续 gateway/模型窗口观察项 | FRT-05 / managed-read / independent reprobe | 同一组合命令第二次独立运行 → PASS，包总计 124.774s；未输出 provider secret |
+
+| 2026-07-30 | EVO-513 | subagent 附件三件套红绿分叉与最终组合通过事实加入 Frontier 后文档门禁通过；FRT-05 明确保留上游瞬态边界，唯一 DTO drift warning 未变化 | docs gate / post-subagent-attachment-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
