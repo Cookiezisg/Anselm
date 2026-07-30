@@ -1025,6 +1025,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-681 | resident handler→workflow agent→OpenAI vision viewer 三方产物链连续两轮通过：handler 按调用铸一份 PNG MediaRef，flowrun producer source/节点/附件 content 闭合，下游 recorder 收到 exact-byte image part，没有跨调用串产物、receipt-only 降级或重复执行 | FRT-05 + FRT-04 / hybrid / resident handler producer to BYOK viewer | `cd testend; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedHandlerToOpenAIViewer$' -count=1 -parallel 1 -timeout 30m -v` → PASS 20.866s、16.635s；未输出 provider secret |
 
+| 2026-07-31 | EVO-682 | 三类 workflow producer 复探后 backend 常规代码门禁全绿：编译、vet、race/unit 包及各领域测试均通过，未因近期 MediaRef、会话血缘或模型资格探针引入代码级回归 | backend verify / post-EVO-679~681 code gate | `make -C backend verify` → `✓ backend verified`；未启用 EVALS/provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

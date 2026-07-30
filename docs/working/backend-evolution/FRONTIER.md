@@ -202,6 +202,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 再补 resident handler producer：每次 handler 调用各自铸一份 PNG MediaRef，flowrun/producer source、节点与附件 content 保持闭合，OpenAI BYOK viewer 收到同一 exact-byte image part。两次独立 hybrid 进程通过（20.866s、16.635s），未形成 handler 调用级产物串线、ownership、workflow 或 provider 编码缺陷。
 
+三类 producer 复探后执行 backend 常规代码门禁：`make -C backend verify` 全绿，覆盖编译、vet、race/unit 与领域包测试；当前没有证据表明本轮多媒体、会话血缘或资格边界工作引入代码级回归。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
