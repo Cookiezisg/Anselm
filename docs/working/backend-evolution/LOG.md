@@ -1023,6 +1023,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-680 | managed function→workflow agent→OpenAI vision viewer 对称产物链连续两轮通过：function execution 只铸一份 PNG MediaRef，workflow 节点/producer source 与 attachment content 闭合，下游 recorder 收到同一 exact-byte image part，没有 receipt-only 降级、重复执行或跨 provider 丢失 | FRT-05 + FRT-04 / hybrid / function producer to BYOK viewer | `cd testend; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedFunctionToOpenAIViewer$' -count=1 -parallel 1 -timeout 30m -v` → PASS 19.034s、16.626s；未输出 provider secret |
 
+| 2026-07-31 | EVO-681 | resident handler→workflow agent→OpenAI vision viewer 三方产物链连续两轮通过：handler 按调用铸一份 PNG MediaRef，flowrun producer source/节点/附件 content 闭合，下游 recorder 收到 exact-byte image part，没有跨调用串产物、receipt-only 降级或重复执行 | FRT-05 + FRT-04 / hybrid / resident handler producer to BYOK viewer | `cd testend; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedHandlerToOpenAIViewer$' -count=1 -parallel 1 -timeout 30m -v` → PASS 20.866s、16.635s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
