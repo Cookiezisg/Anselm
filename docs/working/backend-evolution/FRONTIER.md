@@ -312,6 +312,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日复探聊天侧人在环 workflow：第一回合让 `trigger_workflow` 在 `human` approval 节点 durable park，第二回合只读 parked 状态，第三回合调用 `decide_approval(yes)` 继续下游 publish action。两次独立 managed 进程通过（53.682s、47.580s），decision、marker、`flowrunId`、`origin=chat` 与下游 execution ledger 均闭合，未形成审批恢复缺陷。
 
+完成 EVO-669~675 后再次执行完整 backend 黑盒门禁：`testend/scenarios` 340.144s 全绿，新增子代理失败续接、文档图片引用、chat-only agent 资格、附件删除/历史投影、跨 provider 媒体切换和普通 fork/retry 均未回归既有 chat、workflow、MCP/function/handler、媒体、取消/重试或资源卫生基线；该门禁仍只作为整体回归证据，不替代各真实 provider/managed 线缆证据。
+
 ## 历史高频 reprobe 组
 
 这些不是“已覆盖所以跳过”。当任一承重面改变时，按组抽取代表路径重测：

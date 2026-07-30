@@ -1013,6 +1013,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-675 | managed 会话最常用的 fork/retry 双路径连续两轮全绿：fork 后源会话保持 append-only、分支可继续；retry 追加新 assistant 版本并保留版本指针，后续消息继续完成，未复活旧工具或跨线程污染 | FRT-13 + FRT-16 / managed-read/default / conversation lineage | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ConversationForkContinues|ChatRetryContinues)$' -count=1 -parallel 1 -timeout 30m -v` → 两轮均 PASS（19.203s、24.079s；四项单场景均通过）；未输出 provider secret |
 
+| 2026-07-31 | EVO-676 | 完成 EVO-669~675 后的全量 backend 黑盒回归仍全绿；新增子代理、文档引用、chat-only 资格、附件历史、模型切换与会话血缘探针没有回归既有 chat、workflow、MCP/function/handler、媒体、取消/重试/资源卫生基线 | full backend testend regression / post-EVO-669~675 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-post-evo675.log | tail -n 80` → `ok github.com/sunweilin/anselm/testend/scenarios 340.144s`；未启用 EVALS/provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
