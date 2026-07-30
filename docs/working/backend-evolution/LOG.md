@@ -756,6 +756,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-546 | 会话生命周期双跑事实加入 Frontier 后文档门禁通过；FRT-13/FRT-16 的普通 fork、retry continuation、旧版本切点与 durable lineage 证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-conversation-lifecycle-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-547 | 聊天入口 workflow 生命周期组合首轮独立进程全绿：可观测性读取 completed run、失败诊断读取 durable 节点错误、失败后 replay 恢复原 flowrun；origin/conversation lineage 与 function/handler ledger 闭合，未复活已完成节点 | FRT-04 / FRT-13 / managed-read/default / chat workflow lifecycle | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrun(Observability|FailureDiagnosis|Replay)$' -count=1 -parallel 1 -timeout 30m -v` → PASS，包总计 134.638s；未输出 provider secret |
+
+| 2026-07-30 | EVO-548 | 同一聊天 workflow 生命周期组合第二个独立进程再次全绿（包总计 126.102s），确认 completed/failed/replay 三种状态投影和执行账本不是一次性模型窗口结果，未形成后端缺陷 | FRT-04 / FRT-13 / managed-read/default / independent reprobe | 同一命令第二次独立运行（输出收敛为末 100 行）→ PASS，包总计 126.102s；未输出 provider secret |
+
+| 2026-07-30 | EVO-549 | 聊天 workflow 生命周期双跑事实加入 Frontier 后文档门禁通过；FRT-04/FRT-13 的可观测、失败诊断、replay 与 durable execution 证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-chat-flowrun-lifecycle-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

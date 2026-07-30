@@ -70,6 +70,8 @@ audience: [human, ai]
 
 同日补做 image producer→managed viewer：workflow 上游只调用一次 `generate_image` 生成真实 PNG MediaRef，下游 managed agent 消费同一产物后 flowrun completed；两次独立进程均能从 attachment content 端点回读完整 PNG（1,115,024 bytes、1,096,630 bytes），viewer 不是只看到 receipt 文本，未发生重复生成或媒体丢失，未形成产品缺陷。
 
+同日复探聊天入口的 workflow 生命周期组合：默认 managed chat 先发现并调用 `trigger_workflow`，随后分别通过 `get_flowrun` 读取 completed run、通过 `search_flowruns(status=failed)` 加 `get_flowrun` 诊断 durable 节点错误、再调用 `replay_flowrun` 恢复同一失败 run。三条路径在两个独立进程中全部通过（包总计 134.638s、126.102s）；`origin=chat`、`conversationId`、节点错误、已完成节点不重跑与 function/handler execution ledger 均闭合，未形成后端缺陷。
+
 ### FRT-08 最新证据
 
 同日复探 managed 朗读成本闸：顺序路径第一次合成、同文本同音色命中同一缓存、换文本生成新 WAV；并发路径在同 workspace 同 key 下同时发起两次相同请求，两个响应共享同一附件且 quota 只增加一次。两条场景在两个独立进程均通过（顺序 10.11s/9.93s，并发 5.81s/5.25s），未复现重复付费竞态；provider wire 计数仍受 API Serve 公网不暴露 raw wire 的设计边界约束。
