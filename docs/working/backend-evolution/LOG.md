@@ -1165,6 +1165,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-751 | support 生态边界双跑全绿：MCP 调用日志分页 5/3 页无重复、未知字段在落库前严格拒绝，1 秒机器级 call timeout 返回 `MCP_TOOL_TIMEOUT` 且写入 timeout ledger；relation 只读/列表与 diff-sync 终态幂等，通知投影与搜索设置校验均闭合。6 个场景共 12/12 通过，未形成支撑服务或工具调用台账缺陷。包 42.418s | FRT-05 / contract / MCP + relation + notifications + search settings | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractSupport_(MCPCallTimeout|MCPCallsAndPut|Notifications|RelationListAndDiffSync|RelationReadFaces|SearchSettingsValidation)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo751-contract-support-double.jsonl` → PASS 42.418s；未输出 provider secret |
 
+| 2026-07-31 | EVO-752 | 附件/文档耐久边界双跑全绿：CAS 相同内容去重与 REST content 回读、文档 attach scope/iterate、children duplicate/move、软删后名称守卫、音频 playback lease 以及聊天附件不支持模态的诚实降级均闭合；6 个场景共 12/12 通过，未见跨 workspace 泄漏、重复 blob、租约孤儿或错误 400。包 16.314s | FRT-01 + FRT-06 + FRT-07 / contract / attachment CAS + document tree + audio lease + degrade | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractDocsAtt_(AttachmentChatDegradeFaces|AttachmentRestAndCASDedup|AudioPlaybackLease|DocumentAttachScopeAndIterate|DocumentChildrenDuplicateMove|DocumentNameGuardsSoftDelete)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo752-contract-docs-attachments-double.jsonl` → PASS 16.314s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
