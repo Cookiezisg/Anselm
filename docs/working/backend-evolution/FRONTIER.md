@@ -170,6 +170,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日复探批准后异步视频取消：danger approve 后观察到 gateway submission，再发 `:cancel` 204；父回合落 `cancelled`，随后等待仍没有本地 video receipt 或迟到附件。底层任务被杀时的 `tool execute failed` WARN 是取消噪声，durable/history/attachment 语义保持正确，未形成资源孤儿或重复消费缺陷。
 
+本轮独立复探 managed 写入面：`generate_image` 铸造 1,100,089-byte PNG，随后 `edit_image` 仅生成一个不同 sibling（1,670,170 bytes）并保留源附件指针；text-only `animate_image` 经 danger approve 进入独立异步动画路由，保留首帧 lineage 并回读 4,961,161-byte MP4。三项同一进程全绿（包 220.230s），未出现重复工具调用、孤儿附件或 receipt-only 结果。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
