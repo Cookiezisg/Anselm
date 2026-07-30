@@ -1047,6 +1047,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-692 | managed 朗读成本面当前组合通过：同文本/同音色顺序调用命中同一缓存、换文本生成新 WAV；同 key 并发双请求只增加一次 quota 且共享附件；quota 端点在空闲 workspace 仍保持一致快照，无重复扣费或缓存污染 | FRT-08 + FRT-07 / managed-write / read-aloud cache + concurrent dedup + quota | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ReadAloudCache|ReadAloudConcurrentDedup|Quota)$' -count=1 -parallel 1 -timeout 30m -json` → PASS：ReadAloudCache 9.780s、ReadAloudConcurrentDedup 5.700s、Quota 1.520s；包 17.635s；未输出 provider secret |
 
+| 2026-07-31 | EVO-693 | 当前所有已纳入 backend acceptance 的黑盒总闸通过；本轮媒体融合、workflow producer/viewer、语音生命周期、Google 限流分类、审批/replay、缓存/quota 探针没有回归 chat、agent/subagent、workflow/trigger、附件抽取、取消/重试、崩溃恢复与资源卫生基线 | full backend testend regression / post-EVO-687~692 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo692.log | tail -n 100` → `ok github.com/sunweilin/anselm/testend/scenarios 290.548s`；未启用 EVALS/provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
