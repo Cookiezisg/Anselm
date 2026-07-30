@@ -58,6 +58,10 @@ audience: [human, ai]
 
 同日复核 gateway-side 观测边界：`Anselm-API-Serve` 的 tagged full-stack e2e 在真实 `router → middleware → SQLite → upstream` 装配上通过，覆盖 install/chat/quota、Qwen 多模态、tool loop、stream/non-stream settle、额度/预算、拒绝 rollback、异步图像/语音/视频、混合模态与 debug 计费。部署公网面只返回规范化 completion、quota 和 liveness；`/metrics`、`/readyz`、pprof、expvar 均由独立 loopback admin listener 提供，原始 provider body/header/key 按设计不出端。因此 FRT-04 的用户可见媒体/flowrun/附件证据已闭合，但“部署公网可录制原始 provider wire”不能在不改变 API Serve 安全边界的前提下补齐，不能把该缺口伪装成已覆盖。
 
+### FRT-01 最新证据
+
+同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
+
 ### FRT-05 最新证据
 
 同日补充真实并行子代理树闭环：父聊天只派两个独立 `general-purpose` 子代理，两个子任务各自经 `search_tools`→`run_function` 执行不同 function；两个 child message 都以不同 `parentBlockId` 锚回父级 `Subagent` tool_call，父回合同时收到两个 marker 且没有直接调用 `run_function`。两个 function execution 各恰一条 `status=ok`、`triggeredBy=agent` 记录，并绑定同一 conversation 与 child message。探索阶段一次上游 502、两次测试 oracle 校准（模型先纠正缺失 `subagent_type`；执行台账结果字段为 `output` 而非 `result`）均未形成产品缺陷；校准后两次真实 managed 复跑通过（93.71s、76.33s）。关停阶段的本地 search embedder `context canceled` 仍归类为 shutdown 噪声。

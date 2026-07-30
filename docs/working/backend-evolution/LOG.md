@@ -618,6 +618,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-477 | gateway-side 观测边界落入 Frontier：FRT-04 的用户可见媒体/flowrun/附件链保持已闭合，FRT-08 的 quota/cache/settle 证据保持已闭合；原始 provider body/header/key 仅在 loopback admin/内部，公网 recorder 缺口明确标为设计边界而非漏测 | docs / FRT-04 FRT-08 / gateway observability boundary | 更新 `docs/working/backend-evolution/FRONTIER.md`；随后 `make -C docs verify` → `✓ documentation verified`，唯一既知 DTO drift warning 未变化；未输出 provider secret |
 
+| 2026-07-30 | EVO-478 | 默认 managed 三模态同回合 sentinel 首次独立复跑通过：text+PNG+MP4 由同一消息进入真实 Anselm API Serve 路由，durable turn completed，80-byte text fixture、98-byte PNG、2,969,360-byte MP4 均成功回读且未生成占位文本或错误拆回合 | FRT-01 / managed-read / text+image+video same-turn fusion | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DefaultChatWithTextImageAndVideoAttachments$' -count=1 -timeout 8m -v` → PASS 53.209s；无 provider secret；关停 `context canceled` 为既知噪声 |
+
+| 2026-07-30 | EVO-479 | 同一三模态 sentinel 第二个独立进程再次通过，确认首跑不是 provider 窗口偶然绿灯；三份附件字节、durable 完成与 managed 路由事实一致，未形成产品缺陷 | FRT-01 / managed-read / independent reprobe | 同一命令第二次独立运行 → PASS 48.321s；Frontier 已补 FRT-01 最新证据；未输出 provider secret |
+
+| 2026-07-30 | EVO-480 | 三模态 sentinel 后 backend 黑盒全量回归闭合；chat、agent/subagent、workflow/trigger/fanout、附件/多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-managed-triple-modality-reprobe | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 342.651s`；未开启额外 EVALS、未输出 provider secret |
+
+| 2026-07-30 | EVO-481 | 三模态 sentinel、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树仍保持 clean | cross-repo gate / workspace verification / post-managed-triple-modality-reprobe | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-482 | 最终追加三模态 sentinel 双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-01 三模态事实与 FRT-04/FRT-08 gateway observability boundary 均保持可读，唯一 DTO drift warning 未变化 | docs gate / final post-managed-triple-modality-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
