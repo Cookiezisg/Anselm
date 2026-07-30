@@ -774,6 +774,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-555 | 聊天 approval 双跑事实加入 Frontier 后文档门禁通过；FRT-13 的 park/read/decide/continue 与审计字段证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-chat-approval-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-556 | workflow 用户多模态融合三入口首轮独立进程全绿：manual trigger、真实 webhook、chat→trigger_workflow 均传递 PDF+PNG+MP4，PDF sandbox token、native image/video 分支、origin/conversation lineage 与源附件保真全部成立 | FRT-04 / managed-read/default / workflow manual + webhook + chat multimodal fusion | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowUserAttachmentFusion|WorkflowWebhookUserAttachmentFusion|ChatTriggerWorkflowUserAttachmentFusion)$' -count=1 -parallel 1 -timeout 30m -v` → PASS，包总计 131.513s（manual 62.23s；webhook 27.18s；chat 41.67s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-557 | 同一多模态 workflow 三入口第二个独立进程再次全绿（包总计 177.032s；chat 85.42s），确认 PDF/图像/视频映射和 chat lazy discovery 在长尾响应下仍闭合，未形成后端缺陷 | FRT-04 / managed-read/default / independent reprobe | 同一命令第二次独立运行（输出收敛为末 110 行）→ PASS，包总计 177.032s；未输出 provider secret |
+
+| 2026-07-30 | EVO-558 | workflow 多模态三入口双跑事实加入 Frontier 后文档门禁通过；FRT-04 的 manual/webhook/chat MediaRef 接线、sandbox/native 分支与 durable lineage 证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-workflow-multimodal-fusion-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

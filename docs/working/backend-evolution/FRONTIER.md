@@ -148,6 +148,8 @@ audience: [human, ai]
 
 同日复探 workflow 并发核心与聊天入口组合：manual flowrun 的 8 branch/双四输入 join，以及 chat→`search_tools`→`trigger_workflow` 的 4 branch/双 join 均在两轮独立 managed 进程中通过（包总计 26.704s、26.876s）。所有 branch/join/finish execution 绑定同一 `flowrunId` 且各执行一次，chat 路径的 `origin=chat`、`conversationId` 与 durable node rows 保持闭合，未形成后端缺陷。
 
+同日复探 workflow 内用户多模态融合三入口：manual trigger、真实 webhook 与 chat→`trigger_workflow` 均把 PDF+PNG+MP4 MediaRef 送入 managed agent；PDF 继续由 sandbox 抽取 token，PNG/MP4 走原生媒体分支，flowrun origin/`conversationId` 与三份源附件字节均保持可审计。两轮独立进程全绿（包总计 131.513s、177.032s），未形成入口间的媒体映射或 lazy-tool 回归。
+
 ### FRT-16 最新证据
 
 同日补上真实对话分叉闭环：先完成一轮默认 managed chat，再从该 assistant 消息调用 `:fork`；源会话仍保持原 2 条 append-only 消息，新会话复制同一前缀但不复用源 assistant ID，返回的 `forkedFromConversationId`、`forkedFromMessageId` 与 `(fork)` 标题后缀均正确。随后在新分支继续发送 follow-up，仍经默认 Anselm 路由完成；源会话消息数保持不变。两次真实 managed 复跑通过（总计 13.209s、12.768s），未形成后端缺陷。
