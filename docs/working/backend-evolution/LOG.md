@@ -1011,6 +1011,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-674 | 跨 provider 模型切换的历史媒体投影连续两轮通过：Qwen 首回合真实 recorder 观察到 image/video 原生字节，切到 OpenAI 后同一会话只保留图片 native、对历史视频写明确不支持注记且不发送视频字节；两个附件始终可读且无 managed fallback | FRT-02 + FRT-13 / byok-read / model switch + media reprojection | `cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_ModelSwitchReprojectsHistoryMedia$' -count=1 -parallel 1 -timeout 30m -v` → PASS 12.527s、11.959s；未输出 provider secret |
 
+| 2026-07-31 | EVO-675 | managed 会话最常用的 fork/retry 双路径连续两轮全绿：fork 后源会话保持 append-only、分支可继续；retry 追加新 assistant 版本并保留版本指针，后续消息继续完成，未复活旧工具或跨线程污染 | FRT-13 + FRT-16 / managed-read/default / conversation lineage | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ConversationForkContinues|ChatRetryContinues)$' -count=1 -parallel 1 -timeout 30m -v` → 两轮均 PASS（19.203s、24.079s；四项单场景均通过）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
