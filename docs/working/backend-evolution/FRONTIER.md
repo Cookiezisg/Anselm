@@ -198,6 +198,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后复探 stdio MCP 产物→workflow 下游 viewer：MCP producer 的单一 PNG MediaRef 穿过 agent node，workflow 结果保留 `mcp_media` source 与 attachment id，附件 content 端点回读真实图片，OpenAI BYOK viewer recorder 收到同一原始 image part。两次独立 hybrid 进程通过（18.418s、16.672s），未形成 producer ownership、workflow node 或跨 provider 编码缺陷。
 
+紧接着做 function producer 的对称复探：managed function execution 只铸一份 PNG MediaRef，flowrun 节点和 producer source 保持闭合，OpenAI BYOK viewer recorder 收到 exact-byte image part，附件可回读。两次独立 hybrid 进程通过（19.034s、16.626s），未形成 function artifact ownership、workflow 接线或跨 provider 编码缺陷。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
