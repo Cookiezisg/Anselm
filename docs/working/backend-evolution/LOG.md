@@ -1063,6 +1063,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-700 | BYOK 文档/视频单模态当前组合通过：OpenAI `gpt-4.1-mini` 原生 PDF wire 完成，Qwen `qwen3.7-plus` 单 MP4 以 native `video_url` 完成；PDF/MP4 源附件逐字节可回读，BYOK workspace 未装 managed fallback | FRT-02 + FRT-06 / byok-read / native PDF + video | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(OpenAIPDFInput|QwenVideoInput)$' -count=1 -parallel 1 -timeout 30m -json` → PASS：OpenAIPDFInput 6.570s、QwenVideoInput 9.230s；包 16.207s；未输出 provider secret |
 
+| 2026-07-31 | EVO-701 | OpenAI 多图同回合当前双跑通过：两张独立 98-byte PNG 都进入原生视觉请求，durable turn 完成且两份附件逐字节可回读；BYOK workspace 没有 managed fallback，没有只取首图或多 part 编码退化 | FRT-02 + FRT-01 / byok-read / same-turn multiple images | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIMultipleImages$' -count=1 -parallel 1 -timeout 20m -v` → PASS 6.062s、5.632s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

@@ -62,6 +62,8 @@ audience: [human, ai]
 
 本轮补做 BYOK 单模态对照：OpenAI `gpt-4.1-mini` native PDF 与 Qwen `qwen3.7-plus` native MP4 当前组合均通过（6.570s、9.230s；包 16.207s），源附件字节与 provider 选择闭合，没有 managed fallback 或文档/视频编码回归。
 
+随后复探 OpenAI multiple-image 当前双跑：同回合两份 98-byte PNG 都被 recorder 验证为原生 image parts，durable turn 与两个附件内容闭合（6.062s、5.632s），没有只发送第一张、文本占位或 managed fallback。
+
 同日复探 OpenAI image 与不支持的音频/视频异构组合：两轮独立组合均通过（13.416s、10.074s）；PNG 继续走 native image，WAV/MP4 被写成明确能力降级而不是发非法组合，三份附件源字节仍可逐字节回读，未触发 provider 400、managed fallback 或历史媒体丢失。
 
 同日补做 managed 读侧与多模态交叉独立进程：subagent 经 sandbox 读取 PDF、直接 `inspect_media` 图片、文本 bounded query、PDF+图片同回合，以及修复后的 PDF `read_attachment` oracle 共 5/5 通过（包总计 83.988s）；源附件均可回读，未出现 durable 读错、工具结果污染或多模态投影回归。
