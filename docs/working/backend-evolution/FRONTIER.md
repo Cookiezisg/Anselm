@@ -156,6 +156,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后做当前 DeepSeek BYOK continuation 的稳定性对照：首轮三场景批次通过；第二轮在 `maxSteps=4` 下真实出现 `MAX_STEPS_REACHED`，回合保留诚实 partial 语义而不是伪造最终答案。该场景随后两个独立默认预算进程均通过（13.202s、14.912s），再以临时 `maxSteps=8` 控制实验通过（14.548s），且实验参数已恢复、未进入工作树。四次抽样合并为三绿一红，证据指向模型偶尔消耗额外工具/schema recovery 步数，而非共享 loop 的终态、tool-call/tool-result 投影或 DeepSeek wire 稳定损坏；低预算组合继续保留为 provider/模型升级时的可靠性哨兵。
 
+同日复核 Kimi 凭证边界：当前 `KIMI_API_KEY` 两次独立 `:test` 都收到上游 401，产品稳定返回 422 `API_KEY_TEST_FAILED`，`details.reason` 保留 `HTTP 401` 且没有把失败误报为 model-not-found 或 generic transport；当前凭证仍不可用，未宣称 Kimi chat 绿。
+
 ### FRT-13 最新证据
 
 同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。

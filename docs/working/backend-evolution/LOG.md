@@ -860,6 +860,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-598 | Google 原生视觉第二个独立进程再次通过（5.820s），当前 provider rate window、能力投影与 native image part 均稳定，未形成产品缺陷 | FRT-02 / FRT-11 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-30 | EVO-599 | Kimi 当前凭证首轮 probe 按预期失败并被产品结构化分类：上游 401 → 422 `API_KEY_TEST_FAILED`，安全 reason 保留且不泄露 key；未把不可用凭证伪装成模型或 transport 成功 | FRT-11 / byok-read / credential error classification | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_KimiCredentialProbe$' -count=1 -parallel 1 -timeout 10m -v` → PASS 4.265s；未输出 provider secret |
+
+| 2026-07-30 | EVO-600 | Kimi credential probe 第二个独立进程同样保留 401→`API_KEY_TEST_FAILED` 边界（3.451s）；当前 key 仍不可用，未宣称 Kimi 对话能力 | FRT-11 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
