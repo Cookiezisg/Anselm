@@ -74,6 +74,10 @@ audience: [human, ai]
 
 同日复探 managed 朗读成本闸：顺序路径第一次合成、同文本同音色命中同一缓存、换文本生成新 WAV；并发路径在同 workspace 同 key 下同时发起两次相同请求，两个响应共享同一附件且 quota 只增加一次。两条场景在两个独立进程均通过（顺序 10.11s/9.93s，并发 5.81s/5.25s），未复现重复付费竞态；provider wire 计数仍受 API Serve 公网不暴露 raw wire 的设计边界约束。
 
+### FRT-09 最新证据
+
+同日复探 managed 高风险消费闸：`generate_speech` 与异步 `generate_video` 均先出现 danger interaction，客户端明确拒绝后回合完成；两轮独立进程均未进入合成、未铸造 provider receipt、未增加 generation reservation/quota。两轮整组通过（28.254s、27.967s；第二轮视频拒绝 11.64s），确认拒绝路径不会因上游窗口或重复点击而产生隐形消费，未形成产品缺陷。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。

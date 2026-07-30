@@ -690,6 +690,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-513 | subagent 附件三件套红绿分叉与最终组合通过事实加入 Frontier 后文档门禁通过；FRT-05 明确保留上游瞬态边界，唯一 DTO drift warning 未变化 | docs gate / post-subagent-attachment-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
 
+| 2026-07-30 | EVO-514 | managed 高风险消费闸首轮通过：语音与异步视频均先出现 danger interaction，拒绝后回合完成且没有合成 receipt 或额外 generation reservation/quota；未形成隐形消费 | FRT-09 / managed-write / approval denial / spend safety | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_Generate(SpeechDeniedNoSpend|VideoDeniedNoSpend)$' -count=1 -parallel 1 -timeout 15m -v` → PASS，包总计 28.254s；未输出 provider secret |
+
+| 2026-07-30 | EVO-515 | 同一语音/视频拒绝组合第二个独立进程全绿（包总计 27.967s；视频拒绝 11.64s），确认拒绝先行与 no-spend 账本边界不是一次性 managed/provider 窗口结果；未形成产品缺陷 | FRT-09 / managed-write / independent reprobe / spend safety | 同一命令第二次独立运行 → PASS，包总计 27.967s；未输出 provider secret |
+
+| 2026-07-30 | EVO-516 | managed 高风险拒绝双跑事实加入 Frontier 后文档门禁通过；FRT-09 明确 speech/video 拒绝不铸造 receipt、不增加 reservation/quota，唯一 DTO drift warning 未变化 | docs gate / post-managed-danger-denial-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
