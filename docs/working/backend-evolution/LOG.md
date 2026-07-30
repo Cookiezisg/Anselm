@@ -1163,6 +1163,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-750 | 实时协议耐久边界双跑全绿：SSE replay 环淘汰后的 `410 SEQ_TOO_OLD→REST 全量→新 seq 重订` 无漏无重，三流物理隔离与三个订阅者 durable 顺序一致，interaction danger/resolved ephemeral 信号对称，cron dedup 跨重启不复制，webhook 明文 secret 与三条 SSE bearer 门均按合同拒绝/放行；7 个场景共 14/14 通过，未形成协议或 durable 投影缺陷。包 139.603s | FRT-13 / contract / SSE + replay + cron dedup + webhook auth | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractProtocol_(CronDedupAcrossRestart|InteractionEphemeralSignals|ReplayRingEvictionAndRecovery|SSEStreamsBearerGate|ThreeStreamSeparation|ThreeSubscribersSameDurableOrder|WebhookPlainSecret)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo750-contract-protocol-durable-double.jsonl` → PASS 139.603s；未输出 provider secret |
 
+| 2026-07-31 | EVO-751 | support 生态边界双跑全绿：MCP 调用日志分页 5/3 页无重复、未知字段在落库前严格拒绝，1 秒机器级 call timeout 返回 `MCP_TOOL_TIMEOUT` 且写入 timeout ledger；relation 只读/列表与 diff-sync 终态幂等，通知投影与搜索设置校验均闭合。6 个场景共 12/12 通过，未形成支撑服务或工具调用台账缺陷。包 42.418s | FRT-05 / contract / MCP + relation + notifications + search settings | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractSupport_(MCPCallTimeout|MCPCallsAndPut|Notifications|RelationListAndDiffSync|RelationReadFaces|SearchSettingsValidation)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo751-contract-support-double.jsonl` → PASS 42.418s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
