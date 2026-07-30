@@ -1009,6 +1009,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-673 | Google 目录资格漂移的重复失败边界连续两次通过：同一显式选择的过期/不可用模型连续发送两次，各只产生一次上游 generate，均落 `LLM_MODEL_NOT_FOUND` error turn、无 assistant 文本、无 managed fallback 或无界重试；自动失效/降级仍保持为待产品决策策略 | FRT-14 / byok-read / stale model repeated failure | `cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleListedModelRepeatedFailure$' -count=1 -parallel 1 -timeout 20m -v` → PASS 5.157s、3.934s；未输出 provider secret |
 
+| 2026-07-31 | EVO-674 | 跨 provider 模型切换的历史媒体投影连续两轮通过：Qwen 首回合真实 recorder 观察到 image/video 原生字节，切到 OpenAI 后同一会话只保留图片 native、对历史视频写明确不支持注记且不发送视频字节；两个附件始终可读且无 managed fallback | FRT-02 + FRT-13 / byok-read / model switch + media reprojection | `cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_ModelSwitchReprojectsHistoryMedia$' -count=1 -parallel 1 -timeout 30m -v` → PASS 12.527s、11.959s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

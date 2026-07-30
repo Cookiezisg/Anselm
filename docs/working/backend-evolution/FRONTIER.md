@@ -64,6 +64,8 @@ audience: [human, ai]
 
 Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview` 探针能力含 vision，PNG 经 Gemini contents/parts 完成 BYOK 回合，原始 98-byte 附件逐字节可回读；两次通过（7.085s、5.820s），未遇到 rate-limit，也未形成 Google native part 或 capability projection 缺陷。
 
+本轮再次复探跨 provider 模型切换：Qwen `qwen3.7-plus` 首回合把 image+video 的 exact bytes 送入 recorder；切到 OpenAI `gpt-4.1-mini` 后，历史只保留 image native，video 变成明确 capability note 且不发送其字节，两个附件仍可逐字节回读。两次独立进程通过（12.527s、11.959s），未形成历史语义回填、能力门控或 provider 路由回归。
+
 ### FRT-03 最新证据
 
 本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
