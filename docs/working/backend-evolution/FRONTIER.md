@@ -246,6 +246,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后换到 Gemini 原生 `functionCall/functionResponse` + `thoughtSignature` 线缆。两次独立进程都在首轮 generate 收到上游 429，产品把回合落为结构化 `LLM_RATE_LIMITED` 并停止，没有重试成 404、没有生成 assistant 文本，也没有进入错误的 parser 断言；这记录为当前 Google provider rate window，而不是后端工具参数缺陷。FRT-12 的累积/增量本地 fixture 仍全绿，真实 parser 组合在 provider 窗口恢复或 parser 承重变更时再复探。
 
+本轮再做 BYOK 文本 smoke：DeepSeek `deepseek-v4-flash` 当前 5.89s 完成，Google `gemini-3-flash-preview` 当前 1.70s 结构化 SKIP `LLM_RATE_LIMITED (429)`；兼容/native 两侧仍把 provider 限流与产品状态分开，没有伪造答案或隐式 fallback。
+
 本轮补做原生 Anthropic 黑盒闭环：本地 Anthropic-shaped upstream 先由真实 backend 以 `GET /v1/models` + `x-api-key` + `anthropic-version: 2023-06-01` 探测，随后同一 key 的能力面保留 `claude-opus-4-8`、image/PDF 与 `thinking`/`effort` 原生旋钮；对话调用严格落到 `/v1/messages`，请求是 block-form `messages` + `stream:true`，没有 Bearer/OpenAI 兼容退路；命名 SSE 的 `message_start`、text delta、`message_delta(end_turn)` 产生的文本、stop reason 与 input/output usage 全部落入 durable turn。两次独立 backend 进程通过（6.47s、4.30s），未形成产品缺陷；测试隔离 free-tier install 失败与 shutdown embedder `context canceled` 仍为已知噪声。Azure/Vertex 仍需真实凭证才能补证，当前不伪造其结果。
 
 紧接着补上 `custom + anthropic-compatible` 的产品入口：同一类本地端点通过 custom key 的闭合 `apiFormat` 白名单进入，`:test` 仍敲 `/v1/models`，model capability 只呈现 live model id、不凭空声称 image/PDF/旋钮，实际对话却通过 `lookupProvider` 切到原生 `/v1/messages`，同样使用 `x-api-key`、Anthropic 版本头、block-form body 与命名 SSE。两次独立 backend 进程通过（6.42s、4.07s），未形成产品缺陷；这证明「未知 custom 能力保守」与「用户明确选择 Anthropic 方言后 wire 正确」可以同时成立。
