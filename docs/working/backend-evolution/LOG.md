@@ -940,6 +940,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-638 | 成本/人闸证据加入 Frontier 后文档门禁通过；既有 DTO drift warning 未变化 | docs gate / post-spend-gate-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-31 | EVO-639 | 测试 oracle 修复与本轮 live 探针后完整 backend 黑盒回归仍全绿；未出现稳定产品缺陷、孤儿终态、panic/race 或 `database is closed` | full backend testend regression / post-oracle-fix gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 316.634s`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
