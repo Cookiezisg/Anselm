@@ -64,6 +64,8 @@ audience: [human, ai]
 
 同日补上 retry 与 fork 的交互证据：先在真实 managed chat 生成 assistant，再走无 content `:retry` 形成两版本链，随后走空 body 的 latest `:fork`。分支耐久历史保留 user + 两个 assistant 版本，但 `supersededBy`/`attrs.retryOf` 均重定基到分支自己的新 message ID；分支 follow-up 只使用当前版本并完成，源历史仍保持 3 行。两次真实复跑通过（28.37s、20.98s），未形成后端缺陷。
 
+同日补上显式旧版本切点：在 retry 链上以旧 assistant 的 message id 调 `:fork`，分支只复制 user + 旧 assistant；被切掉的新版本不留下悬空 `supersededBy` 或 `attrs.retryOf`，旧回答在分支内重新成为 current，分支 follow-up 完成且源仍保留三行历史。两次真实 managed 复跑通过（13.70s、12.32s），未形成后端缺陷。
+
 ### FRT-15 最新证据
 
 同日补上真实 managed workspace 的大图扇出/AND-join 闭环：一个 manual flowrun 展开 8 条 action 分支，两个四输入 join 在所有上游完成后各执行一次，finish 汇总 12 条 durable node rows；function ledger 同时证明 8 次 branch、2 次 join、1 次 finish 均绑定同一 `flowrunId`、`flowrunNodeId` 唯一且成功。两次真实复跑通过（总计 9.109s、9.867s），未形成后端缺陷；关停阶段 search embedder `context canceled` 仍归类为服务 shutdown 噪声。

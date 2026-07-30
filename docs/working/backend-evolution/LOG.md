@@ -490,6 +490,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-413 | 最终追加 retry×fork 证据与 frontend gate 分类后的文档门禁通过；后端结论、未宣称的 workspace 状态和既有 drift warning 均如实保留 | docs gate / final post-managed-retry-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-414 | managed retry 链显式切在旧版本的 fork 边界闭合：分支只复制切点前缀，旧 assistant 在分支内清除窗口外的版本指针并恢复 current，分支续接完成且源三行 retry 历史不变，未形成后端缺陷 | FRT-13 / FRT-16 / managed-read/default / retry chain → explicit older fork cut → continuation | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatRetryForkAtOlderVersionContinues$' -count=1 -v` → PASS 13.70s；复跑 PASS 12.32s；commit `4e887e9f`；无 provider secret |
+
+| 2026-07-30 | EVO-415 | retry 旧版本 fork 场景加入后的文档门禁通过；FRT-13/FRT-16 的 prefix window 边界、窗口外指针清理与两次真实证据保持可读，既有 drift warning 未变化 | docs gate / post-managed-older-retry-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-416 | retry 旧版本 fork 边界场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent（含并行树、跨回合、nested fork 与 retry prefix boundary）、workflow/trigger、附件发现/抽取/inspect、多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-managed-older-retry-fork | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 369.614s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
+| 2026-07-30 | EVO-417 | retry 旧版本 fork 边界、backend 全量回归后的主仓跨层门禁最终闭合；一次并行 frontend formatter 红灯未复现且工作树无 diff，独立 rerun 的 backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树保持 clean | cross-repo gate / transient frontend formatter red → rerun / post-managed-older-retry-fork | 首次 `make verify` 的 frontend 子日志提示 `vertex_credential_test.dart` 需格式化；未修改该文件；独立重跑 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-418 | 最终追加旧版本 fork 边界与跨层 rerun 证据后的文档门禁通过；prefix window、窗口外版本指针清理、transient frontend 红灯分类与既有 drift warning 均如实保留 | docs gate / final post-managed-older-retry-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
