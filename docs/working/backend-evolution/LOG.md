@@ -856,6 +856,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-596 | OpenAI 音频/工具交叉组合第二个独立进程全绿（12.211s；5.17s、6.73s），确认 `input_audio`、tools、sandbox result 与第二次采样的共同 loop 不依赖单次时序 | FRT-02 / FRT-11 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-30 | EVO-597 | Google Gemini 原生视觉首轮通过：探针后 `gemini-3-flash-preview` 以 contents/parts 接收 PNG，回合完成且 98-byte 源附件保持不变 | FRT-02 / FRT-11 / byok-read / Google native image | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleImageInput$' -count=1 -parallel 1 -timeout 15m -v` → PASS 7.085s；未输出 provider secret |
+
+| 2026-07-30 | EVO-598 | Google 原生视觉第二个独立进程再次通过（5.820s），当前 provider rate window、能力投影与 native image part 均稳定，未形成产品缺陷 | FRT-02 / FRT-11 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
