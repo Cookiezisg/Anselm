@@ -90,6 +90,8 @@ audience: [human, ai]
 
 同日复探 `inspect_media` 的参数下沉：图片 crop+high detail、视频 `startMs=1000/endMs=2000`、音频 `startMs=1200/endMs=2600` 均能返回带范围/模式/usage 的 bounded metadata capsule，PNG/MP4/WAV 源字节均未变。首轮三项组合通过（56.66s/16.15s/16.71s，包 90.245s）；第二个组合在音频项出现一次可区分的模型拒答——lazy 目录卡只暴露了必填参数，模型误以为 `startMs/endMs` 不在 schema。将时间窗能力前移到 `inspect_media` 目录卡首行并加离线断言后，音频时间窗两次独立真实复跑通过（30.93s、17.25s），确认是发现面提示缺口而非执行层不支持。
 
+同日补做大文本读取三件套：对 136,890/116,043/157,248-byte 级别的文本附件，managed 模型分别真实完成 `read_attachment` 的 query、显式 compact index 与省略控制参数的 auto-index；每条返回均保持 bounded，query/index 没有把正文整段泄漏到回合，源附件仍可逐字节回读。两轮独立进程三项全通过（首轮包 42.727s，Query/Index/AutoIndex 为 13.86s/7.88s/20.36s；复跑包 30.145s，Index/AutoIndex 为 7.52s/9.45s，Query 亦通过），没有再出现参数类型校验警告或隐式全文投影。
+
 ### FRT-05 最新证据
 
 同日补充真实并行子代理树闭环：父聊天只派两个独立 `general-purpose` 子代理，两个子任务各自经 `search_tools`→`run_function` 执行不同 function；两个 child message 都以不同 `parentBlockId` 锚回父级 `Subagent` tool_call，父回合同时收到两个 marker 且没有直接调用 `run_function`。两个 function execution 各恰一条 `status=ok`、`triggeredBy=agent` 记录，并绑定同一 conversation 与 child message。探索阶段一次上游 502、两次测试 oracle 校准（模型先纠正缺失 `subagent_type`；执行台账结果字段为 `output` 而非 `result`）均未形成产品缺陷；校准后两次真实 managed 复跑通过（93.71s、76.33s）。关停阶段的本地 search embedder `context canceled` 仍归类为 shutdown 噪声。

@@ -714,6 +714,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-525 | `inspect_media` 时间窗红灯、根因、修复与双跑证据加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-inspect-media-range-fix | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-526 | managed 大文本读取三件套首轮独立进程全绿：query、显式 compact index、默认参数 auto-index 均返回 bounded 证据，未泄漏整篇正文，源附件内容仍可逐字节回读 | FRT-01 / managed-read / large attachment query + index | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ReadAttachmentLargeText(Query|Index|AutoIndex)$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 42.727s（Query 13.86s；Index 7.88s；AutoIndex 20.36s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-527 | 同一大文本三件套第二个独立进程再次全绿（包总计 30.145s；Index 7.52s；AutoIndex 9.45s，Query 同样通过），没有复现正文泄漏、参数 warning 或源字节变化，未形成后端缺陷 | FRT-01 / managed-read / independent reprobe | 同一命令第二次独立运行 → PASS，包总计 30.145s；未输出 provider secret |
+
+| 2026-07-30 | EVO-528 | 大文本 query/index/auto-index 双跑事实加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-large-attachment-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
