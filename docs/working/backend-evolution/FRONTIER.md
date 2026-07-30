@@ -258,6 +258,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日对 Google Gemini 原生 image-input 做两次真实探针，均触达当前 provider 429；产品稳定归类 `LLM_RATE_LIMITED` 并停止，没有错误回合 assistant 文本、managed fallback 或媒体编码误报。视觉 wire 证据暂留待 provider rate window 恢复后再取，不能把这两次限流当成视觉能力通过。
 
+同日对 Google Gemini 原生 image-input 做第二轮当前窗口复探，两个独立进程仍均收到 provider 429，并由产品结构化归类 `LLM_RATE_LIMITED` 后 skip（5.17s、3.10s）；OpenAI/Qwen 视觉与 Google 原生工具续接仍各自有真实通过证据，但 Google image-input 的 native wire 继续保留为 provider rate-window 缺口，不改 parser 或能力投影。
+
 同日补一条 OpenAI `gpt-4.1-mini` 真实 image-input 对照：连续两次完成，能力投影、回合终态与附件源字节均闭合；这给 FRT-02 保留了当前可用 provider 的视觉用户路径证据，不把 Google 的限流窗口扩大解释成共享后端故障。
 
 同日复探 OpenAI 多模态历史生命周期：image retry 与 edit/resend 连续两轮均保留 native image wire、原附件字节和正确 assistant 版本关系，未重复 user 消息或退化成 text-only retry。

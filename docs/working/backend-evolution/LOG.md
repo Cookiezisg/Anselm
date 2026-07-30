@@ -986,6 +986,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-661 | managed quota 设置面当前 fresh smoke 连续两轮通过：新 workspace 的 live limit/used/remaining 自洽、available=true、resetAt 可解析 RFC3339；未触发任何模型或生成消费 | FRT-08 / managed-read / quota projection | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_Quota$' -count=1 -parallel 1 -timeout 10m -json` → PASS 5.158s、3.667s；未输出 provider secret |
 
+| 2026-07-31 | EVO-662 | Google Gemini 原生 image-input 再次连续两次触达 provider 当前 429；产品稳定落 `LLM_RATE_LIMITED` 结构化 skip，无 assistant 文本、managed fallback 或媒体编码误报；视觉 wire 仍不能宣称通过 | FRT-02 + FRT-11 / byok-read / Google rate window | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleImageInput$' -count=1 -parallel 1 -timeout 15m -json` → structured SKIP 5.17s、3.10s（测试包 RC=0）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
