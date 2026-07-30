@@ -62,6 +62,8 @@ audience: [human, ai]
 
 同日补做 chat 入口的同形 payload：managed 对话经 `search_tools` 发现 `trigger_workflow`，把 PDF+image 的 webhook-shaped body 交给 workflow agent；两次独立复跑均保留 `origin=chat`、`conversationId`、flowrun completed、PDF token 与两份 MediaRef（560-byte PDF、98-byte PNG），证明从 chat 工具进入不会绕过或削弱 workflow 的多模态接线。
 
+同日补做外部 webhook 入口：真实 `POST /api/v1/webhooks/{triggerId}/{path}` 接收 PDF+image body，flowrun 以 `origin=webhook`、正确 `triggerId` 完成，agent 经 `start.body.*` 读取 PDF token 并保留 555-byte PDF 与 98-byte PNG。两个独立 backend 进程通过（31.469s、24.281s），manual/chat/webhook 三入口均未形成产品缺陷。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
