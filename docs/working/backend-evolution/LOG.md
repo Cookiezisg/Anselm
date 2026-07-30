@@ -1071,6 +1071,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-704 | BYOK provider 续接复探分流明确：DeepSeek 兼容层 tool continuation 10.31s 通过，第二次请求携带 tools/tool_calls/函数结果且 durable history 闭合；Gemini 文本 smoke 与原生 tool continuation 均触达当前 429 并结构化 SKIP `LLM_RATE_LIMITED`，没有伪造 assistant、错误回退或 parser 误报 | FRT-11 + FRT-14 / byok-read / provider wire + rate-window classification | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveBYOK_(DeepSeekToolContinuation|GoogleToolContinuation|TextProviderSmoke))$' -count=1 -parallel 1 -timeout 30m -json` → PASS 包 21.176s（Text smoke：DeepSeek 5.54s、Google SKIP 1.59s；DeepSeek tool 10.31s；Google tool SKIP 3.39s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-705 | 完成 EVO-702～704 后的 backend 全量黑盒总闸：当前 acceptance suite 全绿，未见 OpenAI 图片历史、managed 附件生命周期或 provider 续接探针引入 chat、agent/subagent、workflow/trigger、MCP/function/handler、媒体、取消/重试、崩溃恢复与资源卫生回归 | full backend testend regression / post-EVO-702~704 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo704.log | tail -n 100` → `ok github.com/sunweilin/anselm/testend/scenarios 339.189s`；未启用 EVALS/provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
