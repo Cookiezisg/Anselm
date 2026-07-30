@@ -952,6 +952,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-644 | Qwen Omni image+audio 组合连续两次通过；能力投影明确 `maxDistinctMediaKinds=1`，产品保留图片原生 wire 并把第二种媒体转为诚实降级，附件字节和回合终态稳定，无供应商 400 | FRT-02 / byok-read / multimodal combination downgrade | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_QwenImageAndAudioFusion$' -count=1 -parallel 1 -timeout 30m -json` → PASS 4.95s、3.69s；未输出 provider secret |
 
+| 2026-07-31 | EVO-645 | OpenAI `gpt-audio` 原生 `input_audio` 与 agent tool continuation 组合连续两轮通过；WAV exact bytes、tools、第一次 function call、sandbox result 与第二次采样均闭合，未丢失媒体或重复函数执行 | FRT-02 + FRT-05 / byok-read / audio + tools | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIAudio(Input|ToolContinuation)$' -count=1 -parallel 1 -timeout 30m -json` → PASS 14.159s、12.925s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

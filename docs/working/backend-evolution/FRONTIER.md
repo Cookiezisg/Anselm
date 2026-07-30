@@ -240,6 +240,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日补测 Qwen Omni 的组合限制：image+audio 连续两次通过，`maxDistinctMediaKinds=1` 能力契约被 renderer 遵守，图片保留原生 wire、音频明确降级而不是把供应商 400 暴露给用户；附件字节与回合终态稳定。
 
+同日补上 OpenAI `gpt-audio` 的音频+agent 交叉面：原生 `input_audio` 的 exact bytes、tools、sandbox function 与第二次采样连续两轮闭合，未出现媒体丢失、工具结果截断或重复执行。
+
 同日再做会话生命周期组合的独立复探：普通 fork、retry continuation 与旧版本 retry→fork continuation 仍保持同一组 durable lineage 约束，两轮均全绿；两次运行均未观察到源历史改写、跨线程 message/block 指针或旧 tool execution 复活。
 
 同日复探聊天侧人在环 workflow：第一回合让 `trigger_workflow` 在 `human` approval 节点 durable park，第二回合只读 parked 状态，第三回合调用 `decide_approval(yes)` 继续下游 publish action。两次独立 managed 进程通过（53.682s、47.580s），decision、marker、`flowrunId`、`origin=chat` 与下游 execution ledger 均闭合，未形成审批恢复缺陷。
