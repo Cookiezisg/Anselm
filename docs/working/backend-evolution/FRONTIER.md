@@ -288,6 +288,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮在当前窗口再次抽样 provider 续接：DeepSeek `deepseek-v4-flash` 的兼容 tool loop 通过（10.31s），第二次请求与 durable tool history 均闭合；Gemini 文本 smoke（1.59s）及原生 `functionCall/functionResponse`（3.39s）均收到 429 并结构化为 `LLM_RATE_LIMITED` skip，没有伪造回答或错误降级。该结果与既有 Google rate-window 证据一致，不改后端 parser 或重试策略。
 
+本轮再做资格/续接交叉抽样：DeepSeek 文本与 tool continuation 分别 6.19s、9.24s 通过；Google 文本、原生 tool continuation 与 stale-model 恢复分别 1.64s、3.50s、2.14s 触达当前 429 并结构化 skip；stale model 连续失败两次仍以单次请求/回合落 `LLM_MODEL_NOT_FOUND`（2.19s），没有 fallback 或无界重试。
+
 ### FRT-13 最新证据
 
 同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。
@@ -351,6 +353,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日继续沿 DeepSeek 兼容层下钻 tool continuation：两次独立进程都保住 assistant `tool_call`、sandbox function 的 `144` 结果和第二次 assistant sampling；录制请求同时含 `tools`、`tool_calls` 与工具结果，未发现重复执行、managed fallback 或兼容序列回归。
 
 本轮的并行子代理跨回合 clean `-count=2` 复探没有形成新的会话恢复缺陷：两次均因 managed 模型在 `search_tools`/`subagent_type` 纠错与安全拒绝后重复派发，导致 durable child 数量为 6 而非严格哨兵期望的 2；父 follow-up 仍能完成并保留可见 marker，失败发生在 child-count oracle 而非 fork、retry、消息锚或终态恢复。此前诊断与隔离绿跑仍显示各 function 可保持单次 execution，故该结果继续记录为模型/提示词时序信号，不改会话持久化代码。
+
+本轮 provider 边界复探保持同一分流：DeepSeek 文本与兼容 tool loop 真实完成；Google 文本、原生 function continuation 与 stale-model 恢复请求均遇当前 provider 429，产品统一归类 `LLM_RATE_LIMITED`；同一 Google stale model 的两次重复发送仍只各发一次并落 `LLM_MODEL_NOT_FOUND`，没有 fallback、伪造 assistant 或无限重试。该窗口不构成后端协议缺陷，继续保留 provider rate-window 证据。
 
 同日复探 Qwen `qwen3.7-plus` 的双原生媒体入口：image+video 同回合融合连续两次通过，能力投影、录制 wire 的 exact-byte `image_url`/`video_url`、附件回读与无上游 400 均闭合，未形成 renderer 或组合契约回归。
 

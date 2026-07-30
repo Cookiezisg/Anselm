@@ -1091,6 +1091,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-714 | 聊天入口 workflow 控制面当前组合全绿：observability 36.04s、失败诊断 45.96s、human approval park→decide 49.01s、failed replay 55.46s；每条 flowrun/interaction/节点错误与 function/handler execution ledger 均耐久闭合，replay 只重跑失败节点，没有把模型回答当作状态真相 | FRT-04 + FRT-13 + FRT-15 / managed-read/write / chat workflow observability + approval + replay | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrun(Observability|FailureDiagnosis|ApprovalDecision|Replay)$' -count=1 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo714-managed-chat-workflow-control.jsonl | tail -n 160` → PASS，包 187.106s；未输出 provider secret |
 
+| 2026-07-31 | EVO-715 | BYOK 资格/续接当前窗口复探分流明确：DeepSeek 文本 6.19s 与兼容 tool continuation 9.24s 通过；Google 文本 1.64s、原生 tool continuation 3.50s 与 stale-model 恢复 2.14s 均触达上游 429，结构化 SKIP `LLM_RATE_LIMITED`；Google stale-model 连续失败 2.19s 两次仍落 `LLM_MODEL_NOT_FOUND`，无 fallback/伪造 assistant/无限重试 | FRT-11 + FRT-14 / byok-read / provider qualification + continuation + stale model | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveBYOK_(TextProviderSmoke|DeepSeekToolContinuation|GoogleToolContinuation|GoogleListedModelCanBeAccountUnavailable|GoogleListedModelRepeatedFailure))$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo715-byok-provider-boundaries.jsonl | tail -n 160` → PASS，包 25.561s（Google 三项为结构化 skip）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
