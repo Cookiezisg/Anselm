@@ -562,6 +562,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-449 | 最终追加模型切换媒体重投影双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-02/FRT-13/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-model-switch-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-450 | 新增默认模型绑定 key 的真实轮换恢复哨兵：同一 dialogue 默认先完成，key/endpoint 旋转到不可达后 PATCH 仍诚实落 `testStatus=error`，下一回合以结构化失败收口且无 assistant 伪文案；修复 key 并自动重探回 `ok` 后无需重写默认模型，同一会话继续完成。两次独立黑盒复跑通过；异步 free-tier 在测试隔离环境的 install 失败与 shutdown embedder `context canceled` 均为既知 best-effort/关停噪声，未形成后端缺陷 | API key lifecycle / default-model binding / failure recovery / byok-read | 新增 `TestContractPlatform_APIKeyRotationPreservesDefaultAndRecovers`；`/opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractPlatform_APIKeyRotationPreservesDefaultAndRecovers$' -count=1 -v` → PASS 4.74s；独立复跑 PASS 4.87s；无 provider secret |
+
+| 2026-07-30 | EVO-451 | 默认模型 key 轮换恢复哨兵事实加入后文档门禁通过；既有 DTO drift 规则保持唯一 warning，未新增文档或契约漂移 | docs gate / post-api-key-rotation-recovery | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；12 对 anchored DTO mirror 检查、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-452 | 默认模型 key 轮换恢复哨兵加入后的 backend 全量黑盒回归闭合；chat、agent/subagent（含失败/取消/分叉）、workflow/trigger/fanout、附件/多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-api-key-rotation-recovery | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 309.253s`；failure markers 为空；未开启 EVALS、未输出 provider secret |
+
+| 2026-07-30 | EVO-453 | 默认模型 key 轮换恢复哨兵、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-api-key-rotation-recovery | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-454 | 最终追加 API key 轮换恢复哨兵、backend 全量与跨层门禁证据后的文档门禁再次通过；Frontier/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-api-key-rotation-recovery | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

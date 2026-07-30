@@ -336,6 +336,80 @@ func TestContractPlatform_APIKeyRotationManagedAPIFormat(t *testing.T) {
 	}).OK(t, nil)
 }
 
+// TestContractPlatform_APIKeyRotationPreservesDefaultAndRecovers proves the user-facing seam
+// around a key rotation: a default model keeps its durable reference while the rotated credential
+// is unhealthy, the failed turn is honest (no managed fallback or fabricated assistant text), and
+// the same conversation recovers after the key is repaired and auto-reprobed.
+//
+// TestContractPlatform_APIKeyRotationPreservesDefaultAndRecovers 验证 key 轮换的用户闭环：默认模型的耐久
+// 引用在凭证失效期间仍保留，失败回合诚实收口（不借受管 fallback、不伪造 assistant 文本），修复并自动
+// 重探后同一会话可以继续。
+func TestContractPlatform_APIKeyRotationPreservesDefaultAndRecovers(t *testing.T) {
+	t.Parallel()
+	wc, mock := chatSetup(t, false)
+
+	var keys []platformC_keyRow
+	wc.GET("/api/v1/api-keys?provider=openai&limit=200").OK(t, &keys)
+	keyID := ""
+	for _, k := range keys {
+		if k.DisplayName == "llmmock" {
+			keyID = k.ID
+			break
+		}
+	}
+	if keyID == "" {
+		t.Fatalf("chat setup must expose the BYOK key used by the default dialogue route: %+v", keys)
+	}
+
+	convID := convCreate(t, wc, "key rotation recovery")
+	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "before rotation"})
+	first := sendMsg(t, wc, convID, "first turn")
+	if turn := waitTurn(t, wc, convID, first, 30000); turn.Status != "completed" {
+		t.Fatalf("baseline turn must complete before rotation, got %s %s", turn.Status, turn.ErrorMessage)
+	}
+
+	// Rotate both secret and endpoint to an unreachable address. PATCH itself succeeds, but its
+	// response must expose the post-rotation probe failure instead of hiding a pending archive.
+	var broken platformC_keyRow
+	wc.PATCH("/api/v1/api-keys/"+keyID, map[string]any{
+		"key": "sk-rotated-dead", "baseUrl": "http://127.0.0.1:1",
+	}).OK(t, &broken)
+	if broken.TestStatus != "error" {
+		t.Fatalf("unhealthy rotation must persist testStatus=error, got %q", broken.TestStatus)
+	}
+
+	failedID := sendMsg(t, wc, convID, "turn while rotated key is unhealthy")
+	failed := waitTurn(t, wc, convID, failedID, 30000)
+	if failed.Status != "error" {
+		t.Fatalf("turn on unhealthy default key must fail honestly, got status=%s code=%s msg=%s", failed.Status, failed.ErrorCode, failed.ErrorMessage)
+	}
+	if failed.ErrorCode == "" || failed.ErrorMessage == "" {
+		t.Fatalf("unhealthy default key failure must carry a structured error: %+v", failed)
+	}
+	if _, ok := blockOfType(failed, "text"); ok {
+		t.Fatalf("unhealthy default key must not fabricate an assistant text block: %+v", failed.Blocks)
+	}
+
+	// Repair in place. Auto-probe should restore the same key's model catalog, so no default-model
+	// rewrite is needed and the next turn can continue on the original conversation.
+	var repaired platformC_keyRow
+	wc.PATCH("/api/v1/api-keys/"+keyID, map[string]any{
+		"key": "sk-rotated-live", "baseUrl": mock.URL(),
+	}).OK(t, &repaired)
+	if repaired.TestStatus != "ok" {
+		t.Fatalf("repaired rotation must auto-reprobe to ok, got %q", repaired.TestStatus)
+	}
+	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "after recovery"})
+	recoveredID := sendMsg(t, wc, convID, "continue after key recovery")
+	recovered := waitTurn(t, wc, convID, recoveredID, 30000)
+	if recovered.Status != "completed" {
+		t.Fatalf("same conversation must recover after key repair, got status=%s code=%s msg=%s", recovered.Status, recovered.ErrorCode, recovered.ErrorMessage)
+	}
+	if text, ok := blockOfType(recovered, "text"); !ok || !strings.Contains(text, "after recovery") {
+		t.Fatalf("recovered turn must persist the provider answer, got %+v", recovered.Blocks)
+	}
+}
+
 // ── A-model-4 + A-model-5：capabilities 空态形状 + 跨 ws 不串 ───────────────────
 
 // TestContractPlatform_ModelCapabilitiesEmptyAndIsolation:
