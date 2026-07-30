@@ -1031,6 +1031,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-684 | 语音 danger denial 隔离复探也重新通过：interaction 出现、deny 204、回合约 17s 完成，未铸造 `generate_speech` receipt 或 quota 消费；与 EVO-683 组成当前两类高风险拒绝路径的最新绿灯，对此前长尾红灯保持历史可追溯 | FRT-09 / managed-write / speech denial continuation | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateSpeechDeniedNoSpend$' -count=1 -parallel 1 -timeout 15m -v` → PASS 17.271s；未输出 provider secret |
 
+| 2026-07-31 | EVO-685 | managed video 已批准并提交后立即取消的资源卫生隔离复探通过：提交后 `:cancel` 204，父回合保持 cancelled，历史与附件端点没有迟到 receipt/视频产物；取消时底层任务 WARN 可解释且未改变 durable 终态 | FRT-09 + FRT-13 / managed-write / submitted async cancellation | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateVideoCancelAfterSubmitLeavesNoOrphan$' -count=1 -parallel 1 -timeout 15m -v` → PASS 16.256s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

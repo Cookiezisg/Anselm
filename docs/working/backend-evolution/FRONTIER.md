@@ -138,6 +138,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 紧接着语音 denial 也在隔离进程中完成同一合同：interaction→deny 204→约 17s completed，历史没有 `generate_speech` receipt，quota 没有消费。当前视频/语音两条最新拒绝路径均有绿灯，对此前的长尾红灯只保留为时序哨兵与后续 gateway request-level 观测线索，不再把它们视作稳定后端 defect。
 
+同日复探批准后异步视频取消：danger approve 后观察到 gateway submission，再发 `:cancel` 204；父回合落 `cancelled`，随后等待仍没有本地 video receipt 或迟到附件。底层任务被杀时的 `tool execute failed` WARN 是取消噪声，durable/history/attachment 语义保持正确，未形成资源孤儿或重复消费缺陷。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
