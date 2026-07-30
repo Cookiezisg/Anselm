@@ -670,6 +670,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-503 | image producer→managed viewer 双跑事实加入 Frontier 后文档门禁通过；FRT-04 已覆盖 image/video/speech 三种 managed producer→viewer 资源方向，唯一 DTO drift warning 未变化 | docs gate / post-managed-image-workflow-viewer-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
 
+| 2026-07-30 | EVO-504 | managed 附件生命周期三场景首轮独立进程全绿：同回合双图、删除后历史诚实降级、下一轮省略 `attachmentIds` 的历史重投影均完成，源媒体保真且无 400/孤儿 | FRT-01 / managed-read / attachment lifecycle sentinel | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(DefaultChatWithMultipleImageAttachments|DeletedAttachmentDegradesInHistory|AttachmentHistoryReprojection)$' -count=1 -parallel 1 -timeout 12m -v` → PASS，包总计 30.287s；未输出 provider secret |
+
+| 2026-07-30 | EVO-505 | 同一附件生命周期三场景第二个独立进程全绿（包总计 29.376s），确认多图输入、删除后的 missing-media 投影与跨回合重投影不是一次性模型配合；未形成产品缺陷 | FRT-01 / managed-read / independent reprobe | 同一命令第二次独立运行 → PASS，包总计 29.376s；未输出 provider secret |
+
+| 2026-07-30 | EVO-506 | 附件生命周期双跑事实加入 Frontier 后文档门禁通过；FRT-01 的多图、删除后历史与省略 ID 重投影证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-attachment-lifecycle-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
