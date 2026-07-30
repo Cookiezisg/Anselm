@@ -1039,6 +1039,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-688 | managed workflow 音频 producer→Qwen BYOK viewer 当前双跑通过：上游只铸一份真实 WAV MediaRef，flowrun/附件 content 闭合，下游 recorder 收到同一 exact-byte `input_audio`；两次均 completed，无 receipt-only 占位、重复合成或跨 provider 丢音频 | FRT-03 + FRT-04 / hybrid / workflow managed speech→BYOK Qwen audio viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedSpeechToQwenViewer$' -count=1 -parallel 1 -timeout 20m -v` → PASS 20.557s、19.261s；未输出 provider secret |
 
+| 2026-07-31 | EVO-689 | managed workflow 异步视频 producer→Qwen BYOK viewer 当前双跑通过：上游每次只提交/完成一条真实 MP4，flowrun 等待 durable terminal，附件 content 可回读 9.19MB/12.71MB，Qwen recorder 收到同一 native `video_url`；两次均 completed，无重复生成、孤儿附件或 receipt-only viewer | FRT-03 + FRT-04 + FRT-13 / hybrid / workflow managed video→BYOK Qwen viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedVideoToQwenViewer$' -count=1 -parallel 1 -timeout 30m -v` → PASS 117.005s、130.147s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

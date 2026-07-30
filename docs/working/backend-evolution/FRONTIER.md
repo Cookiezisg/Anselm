@@ -76,6 +76,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 紧接着复探 workflow 版本的 managed speech→Qwen BYOK audio viewer：上游只执行一次 `generate_speech`，WAV MediaRef 从 flowrun 节点落到附件 content，下游 Qwen recorder 收到同一 exact-byte `input_audio`；两次通过（20.557s、19.261s），未形成异步音频产物、ownership 或 input_audio 编码缺陷。
 
+随后复探 workflow 版本的 managed async video→Qwen BYOK video viewer：每个 flowrun 都等待真实视频 job 的 durable terminal，再把唯一 MP4 MediaRef 交给下游；附件 content 回读 9.19MB/12.71MB，recorder 观察到 exact-byte native `video_url`。两次通过（117.005s、130.147s），未形成长尾等待、重复提交、附件孤儿或跨 provider video 编码缺陷。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
@@ -107,6 +109,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 本轮再补 workflow image producer→OpenAI BYOK viewer：上游 managed image、flowrun node、MediaRef attachment 与下游 OpenAI recorder 的 exact-byte image part 在两个当前独立进程均闭合（42.049s、35.691s）；这条混合 ownership 入口没有把生成 receipt 当作媒体，也没有因跨 provider 重投影而丢图。
 
 本轮再补 workflow speech producer→Qwen BYOK viewer：上游 managed WAV、flowrun node、MediaRef attachment 与下游 Qwen recorder 的 exact-byte `input_audio` 在两个当前独立进程均闭合（20.557s、19.261s）；该音频入口没有把 receipt 当作内容，也没有因跨 provider 重投影而丢失源字节。
+
+本轮再补 workflow async video producer→Qwen BYOK viewer：上游 managed video、flowrun node、MediaRef attachment 与下游 Qwen recorder 的 exact-byte `video_url` 在两个当前独立进程均闭合（117.005s、130.147s）；长尾 job 的等待与清理均收口，没有把 receipt 文本冒充视频，也没有迟到孤儿产物。
 
 同日复探聊天入口的 workflow 生命周期组合：默认 managed chat 先发现并调用 `trigger_workflow`，随后分别通过 `get_flowrun` 读取 completed run、通过 `search_flowruns(status=failed)` 加 `get_flowrun` 诊断 durable 节点错误、再调用 `replay_flowrun` 恢复同一失败 run。三条路径在两个独立进程中全部通过（包总计 134.638s、126.102s）；`origin=chat`、`conversationId`、节点错误、已完成节点不重跑与 function/handler execution ledger 均闭合，未形成后端缺陷。
 
