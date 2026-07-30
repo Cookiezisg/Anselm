@@ -49,6 +49,8 @@ audience: [human, ai]
 
 同日补上真实嵌套失败证据：父聊天只派一个 `general-purpose` 子代理，子代理经 `search_tools` 发现 `run_function` 并调用一个必然抛错的 function；失败 execution 记录 `status=failed`、`triggeredBy=agent`、同一 `conversationId/messageId`，错误 marker 同时留在子消息树与父 `Subagent` tool result，父回合仍以 completed 结束且没有越权的父级 function 调用。两次真实 managed 复跑通过（49.94s、55.356s），补足 FRT-05 原先仅 mock 的失败续接证据，未形成后端缺陷。
 
+同日补上真实嵌套取消证据：父聊天派出 `general-purpose` 子代理，子代理进入一个 60 秒 function 后，客户端按真实 `:cancel` 动作中止父回合；取消接口返回 204，父消息与带 `SubagentID` 的子消息均落 `cancelled`，function execution 恰一条、`status=cancelled`、`triggeredBy=agent` 且绑定 child `messageId`，同一对话的 follow-up 完成且没有复活旧 tool call。修订后的真实 managed 复跑通过两次（55.39s、53.93s）。初次探索曾等待 REST `/messages` 出现子代理的 streaming tool block，128.65s 后超时；期间历史端点只返回父侧短投影，直到子回合自然终态才批量出现嵌套 blocks。改用与 UI/SSE 等价的定时取消，再从 durable history/ledger 验证终态，证明这是 REST 历史投影的批处理边界而非取消后端缺陷。取消时 `run_function` 的底层进程组被杀并留下 `spawn process failed` WARN，但 durable/wire 语义正确；该日志目前归为可解释的取消噪声，不计稳定产品 bug。
+
 ## 历史高频 reprobe 组
 
 这些不是“已覆盖所以跳过”。当任一承重面改变时，按组抽取代表路径重测：

@@ -408,6 +408,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-372 | managed 子代理失败续接场景、backend 回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-subagent-failure | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-373 | managed 子代理真实取消闭环补齐：父聊天在子代理的长 function 运行中收到 `:cancel`（204），父消息与嵌套 sub-message 都落 `cancelled`，function execution 恰一条 `cancelled + triggeredBy=agent` 并绑定 child message，follow-up 同会话完成且没有复活旧调用。修订前的探索首跑曾因等待 REST 历史端点实时投影嵌套 streaming block 而在 128.65s 超时；改用真实定时取消后两次复跑通过，归类为 REST 历史批处理边界而非后端缺陷。取消杀进程组时日志有可解释的 `spawn process failed` WARN，durable 状态正确，暂不计稳定 bug | FRT-05 / FRT-13 / managed-read/default / parent chat → subagent → in-flight function → cancel → continuation | 初始探索 FAIL 128.65s（REST `/messages` 未实时投影 nested block，函数自然结束后才出现完整历史）；修订后 `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_SubagentCancelTerminal$' -count=1 -v` → PASS 55.39s；复跑 PASS 53.93s；无 provider secret |
+
+| 2026-07-30 | EVO-374 | managed 子代理取消场景加入后的 docs 门禁通过；新增 REST/SSE 投影边界与可解释取消 WARN 分类，working 索引、锚点与 drift 检查保持可用，既有 DTO drift warning 未变化且不阻断门禁 | docs gate / post-managed-subagent-cancel | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 内容未变化 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
