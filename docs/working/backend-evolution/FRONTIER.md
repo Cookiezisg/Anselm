@@ -154,6 +154,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后复探默认 managed 的音视频能力矩阵：纯 WAV、image+WAV、MP4、MP4+WAV、image+MP4、text+MP4、text+WAV、text+image+MP4 八条入口首轮与第二个独立进程均 8/8 通过（包 251.428s、257.708s）。支持的 image/video 分支保持 native/字节保真，不支持的 audio 只形成明确降级注记，三模态同回合不拆回合、不产生 400 或伪造音频理解；源 MP4（2,969,360 bytes）与 WAV（96,044 bytes）均可回读。
 
+本轮再做 managed 音视频与时序边界第二独立组合：视频+不支持音频、文字+图片+视频三路融合、视频/音频时间窗 `inspect_media` 共 4/4 通过（包 119.233s）；PNG、MP4、WAV 源字节均可回读，时间窗结果保持 bounded metadata，未出现 provider 400、错误转录或能力投影退化。
+
 紧接着复探 `inspect_media` 工具面十条路径：图片普通/crop/high-detail/tiles、视频普通与时间窗、音频 metadata 与时间窗、文本 query/page/window，两次独立进程均 10/10 通过（163.419s、189.649s）。工具结果保持 bounded，音视频只返回 metadata capsule；首轮文本 query/page 出现过模型漏填必填 `question` 的校验警告但随后自我修正，复跑无警告，未形成后端执行或参数下沉缺陷。
 
 本轮再做附件/文档读取长尾组合：`list_attachments`、纯文本、PDF、PDF+图片、PDF 工具读取，以及大文本 query/index/auto-index/page 共九条路径中七条首轮通过（129.417s）。PDF 工具路径实际先用 `attachmentId` 触发 `id is required`，随后用正确的 `id` 成功抽取 token；原断言漏看 block 的 `tool` 属性，已在 `4e33cd6a` 修正并由真实 managed 复跑通过（22.94s）。默认大文本 auto-index 在组合中一次触发 `MAX_STEPS_REACHED`，隔离后两次均通过（15.42s、27.17s），因此仍归类为模型参数纠错/步预算窗口信号；query/index/page 与源字节保真均成立。

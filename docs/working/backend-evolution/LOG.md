@@ -995,6 +995,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-666 | managed 语音/成本路径当前配置独立复探全绿：实时 ASR WebSocket 收到 `session.finished`，朗读顺序缓存命中与换文本新产物、并发相同 key 去重及 quota delta 均闭合；未出现重复消费或媒体孤儿 | FRT-07 + FRT-08 / managed-read/write / realtime ASR + read-aloud spend gate | `cd testend; set -a; source ../.env; set +a; EVALS_MANAGED=1 EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveVoice_SpeechInputASR|TestLiveManaged_ReadAloud(Cache|ConcurrentDedup))$' -count=1 -parallel 1 -timeout 30m -json` → PASS 18.649s（cache 10.19s；concurrent 5.97s；ASR 1.69s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-667 | managed 音视频与时序边界第二独立组合 4/4 通过：视频+不支持音频保持诚实降级、文字+图片+视频三路融合完成、视频/音频 `inspect_media` 时间窗返回 bounded metadata；源 MP4/WAV/PNG 字节均可回读，未出现 400 或伪造转录 | FRT-01 / managed-read/default / multimodal fusion + temporal inspection | `cd testend; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(DefaultChatWithVideoAndUnsupportedAudio|DefaultChatWithTextImageAndVideoAttachments|InspectMediaVideoTimeRange|InspectMediaAudioTimeRange)$' -count=1 -parallel 1 -timeout 30m -json` → PASS 119.233s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
