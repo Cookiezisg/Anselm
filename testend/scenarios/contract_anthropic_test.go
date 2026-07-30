@@ -347,3 +347,129 @@ func TestContractProvider_CustomAnthropicCompatibleRoutesNativeWire(t *testing.T
 		t.Fatalf("custom Anthropic message content was not block-form text: %s (err=%v)", request.Messages[len(request.Messages)-1].Content, err)
 	}
 }
+
+const customOpenAIContractSSE = `data: {"choices":[{"delta":{"role":"assistant","content":"custom-openai-ok"},"finish_reason":null}]}
+
+data: {"choices":[{"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":7,"completion_tokens":8}}
+
+data: [DONE]
+
+`
+
+// TestContractProvider_CustomOpenAICompatibleRoutesCompatWire is the other half of the custom
+// dialect split: explicit openai-compatible must retain the generic Bearer/chat-completions wire,
+// not inherit the native Anthropic branch merely because the key provider is named "custom".
+func TestContractProvider_CustomOpenAICompatibleRoutesCompatWire(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	var probeCount, messageCount int
+	var probePath, messagePath, probeAuthorization, messageAuthorization, probeKey, messageKey string
+	var messageBody []byte
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/models":
+			probeCount++
+			probePath, probeAuthorization, probeKey = r.URL.Path, r.Header.Get("Authorization"), r.Header.Get("x-api-key")
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"data":[{"id":"custom-gpt","object":"model","owned_by":"custom"}]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/chat/completions":
+			messageCount++
+			messagePath, messageAuthorization, messageKey = r.URL.Path, r.Header.Get("Authorization"), r.Header.Get("x-api-key")
+			messageBody, _ = io.ReadAll(r.Body)
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, customOpenAIContractSSE)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "custom-openai-contract"}).Field(t, "id")
+	wc := c.WS(wsID)
+
+	const fakeKey = "custom-openai-contract-key"
+	var keyRow struct {
+		ID        string `json:"id"`
+		APIFormat string `json:"apiFormat"`
+	}
+	wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "custom", "displayName": "custom-openai-contract", "key": fakeKey,
+		"baseUrl": upstream.URL, "apiFormat": "openai-compatible",
+	}).OK(t, &keyRow)
+	if keyRow.ID == "" || keyRow.APIFormat != "openai-compatible" {
+		t.Fatalf("custom OpenAI key must preserve APIFormat on the product surface: %+v", keyRow)
+	}
+	wc.POST("/api/v1/api-keys/"+keyRow.ID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+		Knobs    []struct {
+			Key string `json:"key"`
+		} `json:"knobs"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	found := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyRow.ID && cap.Provider == "custom" && cap.ModelID == "custom-gpt" {
+			found = true
+			if len(cap.Knobs) != 0 {
+				t.Fatalf("custom OpenAI endpoint must not fabricate knobs: %+v", cap.Knobs)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("custom OpenAI model id missing from capabilities: %+v", caps)
+	}
+
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyRow.ID, "modelId": "custom-gpt"}).OK(t, nil)
+	convID := convCreate(t, wc, "custom OpenAI compat wire")
+	msgID := sendMsg(t, wc, convID, "Prove the custom compat route.")
+	turn := waitTurn(t, wc, convID, msgID, 30000)
+	if turn.Status != "completed" {
+		t.Fatalf("custom OpenAI-compatible turn must complete, got status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	if text, ok := blockOfType(turn, "text"); !ok || text != "custom-openai-ok" {
+		t.Fatalf("custom compat SSE text missing: %+v", turn.Blocks)
+	}
+	// The OpenAI wire says finish_reason=stop; the product's durable message contract normalizes
+	// every successful text turn to stopReason=end_turn (the provider-specific spelling is not
+	// exposed through the chat history API).
+	if turn.StopReason != "end_turn" || turn.InputTokens != 7 || turn.OutputTokens != 8 {
+		t.Fatalf("custom compat SSE usage/finish missing: stop=%q input=%d output=%d", turn.StopReason, turn.InputTokens, turn.OutputTokens)
+	}
+
+	mu.Lock()
+	gotProbeCount, gotMessageCount := probeCount, messageCount
+	gotProbePath, gotMessagePath := probePath, messagePath
+	gotProbeAuthorization, gotMessageAuthorization := probeAuthorization, messageAuthorization
+	gotProbeKey, gotMessageKey := probeKey, messageKey
+	body := append([]byte(nil), messageBody...)
+	mu.Unlock()
+	if gotProbeCount != 1 || gotMessageCount != 1 || gotProbePath != "/models" || gotMessagePath != "/chat/completions" || gotProbeAuthorization != "Bearer "+fakeKey || gotMessageAuthorization != "Bearer "+fakeKey || gotProbeKey != "" || gotMessageKey != "" {
+		t.Fatalf("custom openai-compatible wire drifted: probe=%d/%s message=%d/%s bearer=%v/%v x-api-key=%v/%v", gotProbeCount, gotProbePath, gotMessageCount, gotMessagePath, gotProbeAuthorization == "Bearer "+fakeKey, gotMessageAuthorization == "Bearer "+fakeKey, gotProbeKey != "", gotMessageKey != "")
+	}
+	var request struct {
+		Model         string `json:"model"`
+		Stream        bool   `json:"stream"`
+		StreamOptions struct {
+			IncludeUsage bool `json:"include_usage"`
+		} `json:"stream_options"`
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &request); err != nil || request.Model != "custom-gpt" || !request.Stream || !request.StreamOptions.IncludeUsage || len(request.Messages) == 0 {
+		t.Fatalf("custom OpenAI request body did not use compat shape: err=%v model=%q stream=%v usage=%v messages=%d", err, request.Model, request.Stream, request.StreamOptions.IncludeUsage, len(request.Messages))
+	}
+	if request.Messages[len(request.Messages)-1].Role != "user" || !strings.Contains(request.Messages[len(request.Messages)-1].Content, "custom compat route") {
+		t.Fatalf("custom OpenAI user message missing: %+v", request.Messages)
+	}
+}

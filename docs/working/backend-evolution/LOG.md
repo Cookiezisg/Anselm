@@ -602,6 +602,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-469 | 最终追加 custom Anthropic-compatible 双跑、瞬时全量红灯审计、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-11 的 Azure/Vertex 凭证缺口与唯一 DTO drift warning 均如实保留 | docs gate / final post-custom-anthropic-probe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-470 | `custom + openai-compatible` 产品入口黑盒闭环双跑：APIFormat 写回，探测用 `/models` + Bearer，聊天用 `/chat/completions` + Bearer/`stream_options.include_usage`/data-only SSE，durable usage 与 `stopReason=end_turn` 均正确，未串到 Anthropic wire；第一次 focused 红灯仅为测试 oracle 把 wire `stop` 错当 durable `stop`，修正后未形成产品缺陷 | FRT-11 / byok-read / custom OpenAI-compatible dialect | 新增 `TestContractProvider_CustomOpenAICompatibleRoutesCompatWire`；首次 focused 失败定位为 oracle 后修正；`/opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractProvider_CustomOpenAICompatibleRoutesCompatWire$' -count=1 -timeout 3m -v` → PASS 5.31s；独立复跑 PASS 3.30s；仅使用本地假上游与假 key，未输出 provider secret；测试隔离 free-tier install failure 与 shutdown `context canceled` 为既知噪声 |
+
+| 2026-07-30 | EVO-471 | custom OpenAI-compatible 黑盒事实加入 Frontier/LOG 后文档门禁通过；FRT-11 的 Bearer/compat SSE 与 durable stopReason 归一化证据保持可读，既有 DTO drift warning 未变化 | docs gate / post-custom-openai-probe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-472 | custom OpenAI-compatible 黑盒场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent、workflow/trigger/fanout、附件/多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-custom-openai-probe | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 342.242s`；failure markers 为空；未开启 EVALS、未输出 provider secret |
+
+| 2026-07-30 | EVO-473 | custom OpenAI-compatible 黑盒、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-custom-openai-probe | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-474 | 最终追加 custom OpenAI-compatible 双跑、durable stopReason oracle 校准、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-11 的 Azure/Vertex 凭证缺口与唯一 DTO drift warning 继续如实保留 | docs gate / final post-custom-openai-probe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
