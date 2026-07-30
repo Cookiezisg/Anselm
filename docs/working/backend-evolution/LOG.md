@@ -1183,6 +1183,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-760 | fsnotify durable end-to-end 双跑全绿：文件事件 payload/filter、pause→SIGKILL→resume 与 durable 投影在真实进程重启后均闭合，未见重复消费、事件丢失或恢复后幽灵执行；两次通过（8.64s、6.18s），包 14.823s。 | FRT-13 / contract / fsnotify durable event + pause/resume/restart | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractDurable_FsnotifyEndToEnd$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo760-contract-durable-fsnotify-double.jsonl` → PASS，包 14.823s；未输出 provider secret |
 
+| 2026-07-31 | EVO-761 | provider 方言 wire 回归双跑全绿：Anthropic 原生 `/v1/models`→`/v1/messages` block/SSE/usage durable persistence、custom+anthropic-compatible 的原生 header/路由、custom+openai-compatible 的 Bearer `/models`/`chat/completions`/usage/stop normalization 均闭合；3 个场景共 6/6 通过，未见方言串路由或持久化字段漂移。包 9.635s | FRT-11 / contract / Anthropic native + custom provider wire | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestContractProvider_(AnthropicNativeHTTPAndPersistence|CustomAnthropicCompatibleRoutesNativeWire|CustomOpenAICompatibleRoutesCompatWire))$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo761-contract-provider-wire-double.jsonl` → PASS 9.635s；使用测试内本地 upstream，未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

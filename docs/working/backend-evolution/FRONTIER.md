@@ -352,6 +352,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后补做当前凭证/资格边界组合：Kimi/Moonshot `:test` 仍把上游 401 安全映射为 422 `API_KEY_TEST_FAILED`（3.71s）；Google stale model 连续失败各只发一次并保持 `LLM_MODEL_NOT_FOUND`（2.14s）。两项均没有伪造 assistant 或 managed fallback；Kimi 当前 key 仍不可用，Google 自动失效/降级仍是显式策略缺口。
 
+本轮对 Anthropic/兼容方言做 contract 双跑复核：原生 `/v1/models` 探测、`x-api-key`/版本头、`/v1/messages` block/SSE/usage durable persistence，以及 custom+anthropic-compatible 与 custom+openai-compatible 的各自 auth/path/stop normalization 均 6/6 通过（包 9.635s）。本地 upstream 只用于 wire 断言，不替代 Azure/Vertex 真实凭证证据，也没有输出 provider secret。
+
 本轮 provider 窗口复探再次把可用性与产品分类分开：DeepSeek 文本与兼容 tool continuation 5.03s/7.76s 通过；Google 文本与原生工具续接各收到 429 并结构化为 `LLM_RATE_LIMITED` skip；stale-model 恢复先保留单次 404→`LLM_MODEL_NOT_FOUND`，恢复发送再遇 429；重复 stale failure 仍每轮只发一次并保持同一错误码。未出现伪造 assistant、managed fallback 或无界重试，不改 parser/重试策略。
 
 本轮视觉 provider 对照继续支持同一结论：managed workflow image→OpenAI BYOK viewer 34.93s 完成，flowrun/PNG/recorder exact-byte 证据闭合；Google 原生 image-input 仅遇当前 429 并结构化 skip。Google 的 rate window 没有扩散到 managed 产物或 OpenAI viewer，不改共享 MediaRef/renderer。
