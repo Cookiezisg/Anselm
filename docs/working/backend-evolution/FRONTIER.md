@@ -62,6 +62,8 @@ audience: [human, ai]
 
 随后复探 OpenAI `gpt-audio` 的交叉边界：单音频回合的 WAV 以 exact-byte `input_audio` 到达 recorder；音频+`run_function` 首轮保留音频与 tools，sandbox 结果回灌后第二次 `/chat/completions` 完成，durable history 同时保留 tool call/result/最终文本。两轮独立组合全绿（15.334s、12.211s），未形成音频 encoder、agent loop 或工具续接回归。
 
+本轮再做 OpenAI `gpt-audio` 当前双跑：AudioInput 6.330s、AudioToolContinuation 7.820s 均通过（包 14.766s），原生 `input_audio`、tools、函数结果回灌与 durable turn 仍闭合。
+
 Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview` 探针能力含 vision，PNG 经 Gemini contents/parts 完成 BYOK 回合，原始 98-byte 附件逐字节可回读；两次通过（7.085s、5.820s），未遇到 rate-limit，也未形成 Google native part 或 capability projection 缺陷。
 
 本轮再次复探跨 provider 模型切换：Qwen `qwen3.7-plus` 首回合把 image+video 的 exact bytes 送入 recorder；切到 OpenAI `gpt-4.1-mini` 后，历史只保留 image native，video 变成明确 capability note 且不发送其字节，两个附件仍可逐字节回读。两次独立进程通过（12.527s、11.959s），未形成历史语义回填、能力门控或 provider 路由回归。

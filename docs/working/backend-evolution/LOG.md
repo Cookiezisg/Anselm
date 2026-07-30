@@ -1055,6 +1055,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-696 | BYOK 文本协议当前烟测分流清晰：DeepSeek `deepseek-v4-flash` 真实对话完成；Gemini `gemini-3-flash-preview` 同一组合明确结构化 SKIP `LLM_RATE_LIMITED (429)`，没有伪造 assistant 文本或错误归类为 backend/provider parser 缺陷 | FRT-11 + FRT-14 / byok-read / compat/native text smoke | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_TextProviderSmoke$' -count=1 -parallel 1 -timeout 20m -v` → PASS 7.964s（DeepSeek 5.89s；Google structured SKIP 1.70s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-697 | OpenAI `gpt-audio` 当前双路径通过：WAV 以 exact-byte `input_audio` 到达首轮，音频回合完成；音频+`run_function` 首轮保留 tools 与原始音频，函数结果回灌后第二次请求完成，durable history 保留 tool call/result/最终文本，无附件改写 | FRT-02 + FRT-11 / byok-read / OpenAI native audio + tool continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIAudio(Input|ToolContinuation)$' -count=1 -parallel 1 -timeout 30m -json` → PASS：AudioInput 6.330s、AudioToolContinuation 7.820s；包 14.766s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
