@@ -384,6 +384,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 聊天入口 workflow 控制面随后做真实双跑：`trigger_workflow→get_flowrun` 的成功读取、失败 run 的 `search_flowruns→get_flowrun` 诊断、approval park→`decide_approval` 续接以及 `replay_flowrun` 的失败节点重跑全部通过（包 378.238s）。结果进一步确认 durable flowrun/interaction/节点台账与聊天续接一致，未出现审批后重复执行、失败 replay 重跑已完成节点或旧终态复活。
 
+本轮补做 chat 基础 contract 双跑：消息/块 durable 物理投影、generating/finalize 窗、progress 与 approve-always、crash sweep/graceful shutdown、空板/跨 workspace、model override/activity order、search cursor、todo、touchpoint 和严格 action/unknown-field 面全部通过，13 个场景共 26/26（包 359.539s）。crash 与 graceful 场景各约 61s 是主动验证连接收口的长尾，最终均无 orphan 或终态错序，不构成产品缺陷。
+
 本轮补上 workflow trigger 的耐久边界双跑：13 个 contract 场景共 26/26 通过（包 220.280s），覆盖 deactivate 的 accepted firing drain 与 structural pending shed、deleted workflow/trigger 的 queued/accepted firing 处理、`:kill` shed、删除后跨重启 drain、active edit→revert 与 entry rebind、stage one-shot、多 trigger attach/detach/dedup、webhook edit hot-swap，以及删除在途 run 的取消与审计保留。所有终态均由 durable flowrun/firing/listener 审计确认，没有幽灵 run、重复 firing、旧 listener 复活或删除后审计丢失。
 
 随后补做实时协议耐久双跑：SSE replay 环挤出后返回 `SEQ_TOO_OLD` 并要求 REST 全量重取，再从新 seq 连续接收；messages/entities/notifications 三流不串线，三个订阅者看到同一 durable 顺序；interaction 的 danger pending/resolved 仍是 seq=0 的对称 ephemeral signal；cron dedup 在重启后仍折叠同一分钟 firing；webhook 明文 secret 与 SSE bearer 鉴权门的错误/成功状态均按合同落地。7 个场景两轮共 14/14 通过（包 139.603s），未见协议帧缺口、重复、跨流污染或重启重复执行。
