@@ -56,6 +56,8 @@ audience: [human, ai]
 
 同日复探 OpenAI 同回合多图：两个独立进程都把两份 98-byte PNG 送入真实视觉回合，durable history 完成且两份附件逐字节回读（6.62s、5.51s）；BYOK workspace 未安装 managed fallback，未形成多 part 编码或附件列表投影回归。
 
+同日复探 OpenAI image 与不支持的音频/视频异构组合：两轮独立组合均通过（13.416s、10.074s）；PNG 继续走 native image，WAV/MP4 被写成明确能力降级而不是发非法组合，三份附件源字节仍可逐字节回读，未触发 provider 400、managed fallback 或历史媒体丢失。
+
 随后复探 OpenAI `gpt-audio` 的交叉边界：单音频回合的 WAV 以 exact-byte `input_audio` 到达 recorder；音频+`run_function` 首轮保留音频与 tools，sandbox 结果回灌后第二次 `/chat/completions` 完成，durable history 同时保留 tool call/result/最终文本。两轮独立组合全绿（15.334s、12.211s），未形成音频 encoder、agent loop 或工具续接回归。
 
 Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview` 探针能力含 vision，PNG 经 Gemini contents/parts 完成 BYOK 回合，原始 98-byte 附件逐字节可回读；两次通过（7.085s、5.820s），未遇到 rate-limit，也未形成 Google native part 或 capability projection 缺陷。
