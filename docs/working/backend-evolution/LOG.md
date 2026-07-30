@@ -1167,6 +1167,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-752 | 附件/文档耐久边界双跑全绿：CAS 相同内容去重与 REST content 回读、文档 attach scope/iterate、children duplicate/move、软删后名称守卫、音频 playback lease 以及聊天附件不支持模态的诚实降级均闭合；6 个场景共 12/12 通过，未见跨 workspace 泄漏、重复 blob、租约孤儿或错误 400。包 16.314s | FRT-01 + FRT-06 + FRT-07 / contract / attachment CAS + document tree + audio lease + degrade | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractDocsAtt_(AttachmentChatDegradeFaces|AttachmentRestAndCASDedup|AudioPlaybackLease|DocumentAttachScopeAndIterate|DocumentChildrenDuplicateMove|DocumentNameGuardsSoftDelete)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo752-contract-docs-attachments-double.jsonl` → PASS 16.314s；未输出 provider secret |
 
+| 2026-07-31 | EVO-753 | knowledge/skills 支撑面双跑全绿：memory upsert/list/pinned filter/pin-unpin-curation 与错误/空列表形状闭合；skill CRUD/删除重建、目录锚点、文件 raw CRUD/manifest 特殊处理、双尺寸 guard、路径 traversal/escape audit、frontmatter 规则、坏文件隔离、activate 无 shell injection 与 agent-only 限制均通过；6 个场景的全部子断言共 2 轮通过，未见 workspace 泄漏、路径穿越或持久化污染。包 16.074s | contract / knowledge memory + skill CRUD/files/activate/guards | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractKnowledge_(MemorySurface|SkillActivateSurface|SkillCRUDSurface|SkillDirAnchor|SkillFilesSurface|SkillGuards)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo753-contract-knowledge-double.jsonl` → PASS 16.074s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
