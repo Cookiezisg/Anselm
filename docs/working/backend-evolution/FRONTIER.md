@@ -84,6 +84,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮单独复探 OpenAI planner→managed writer 混合入口，两次均通过（15.11s、10.17s）：planner 的 tool-call/continuation 线缆保留，Anselm receipt 只铸一份真实 PNG，后续请求携带同一图片字节，managed/BYOK ownership 与附件回读闭合。
 
+同一轮再做 Qwen 原生下游对照：managed speech producer→Qwen `input_audio` 与 managed async video producer→Qwen `video_url` 分别 26.47s、135.89s 通过，真实 WAV/9,393,843-byte MP4 MediaRef、附件 content 与 provider wire 闭合；Google 的 429 窗口没有扩散到 Qwen 方言。
+
 随后把 viewer 方言扩展到 native Gemini 与 Qwen：managed image→Gemini inlineData 两次通过（56.34s、65.18s）；managed speech→Qwen audio viewer 两次通过（17.86s、18.55s）；managed async video→Qwen video viewer 两次通过（122.77s、119.56s，MP4 约 9.7MB/9.2MB）。每条路径都等待真实 MediaRef、回读原始附件并完成下游回合，未形成跨 provider 编码、异步等待或 ownership 回归。
 
 本轮补做 workflow 版本的 managed image→OpenAI BYOK viewer 当前双跑：上游 agent 仅执行一次 `generate_image`，flowrun 节点保留 MediaRef/receipt，附件 content 端点回读真实 PNG，下游 recorder 观察到同一 exact-byte native image part；两次通过（42.049s、35.691s），未形成 workflow 接线、ownership 或跨 provider 编码缺陷。
@@ -137,6 +139,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同轮再复探用户附件融合的三入口：manual trigger、外部 webhook、chat→`trigger_workflow` 分别承载同一 PDF+PNG+MP4 payload，均完成真实 managed agent flowrun（56.45s、17.28s、44.67s；包 118.840s）。三路的 origin/provenance、chat `conversationId`、webhook `triggerId`、PDF sandbox token、三份源字节与终态均闭合，没有入口特有的媒体丢失或路由漂移。
 
 同日复探 workflow managed image→Gemini native viewer：上游 painter 已完成并留下 `generate_image` receipt、MediaRef 与真实 PNG，flowrun 的 viewer 节点耐久落 `failed`，错误为 `llm: rate limited (429)`。该次没有暴露 flowrun、MediaRef 或附件装配缺陷；Google 原生视觉仍保留为 provider rate-window 缺口，不能把它计为稳定绿格。
+
+同日的 Qwen 原生 speech/video viewer 对照均 completed：speech 26.47s、video 135.89s，异步视频等待到 durable terminal 后再验证 9,393,843-byte MP4 和 `video_url`；两条路径均无重复提交、receipt-only 或跨方言丢媒体。
 
 ### FRT-07 最新证据
 

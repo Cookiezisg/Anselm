@@ -1101,6 +1101,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-719 | managed workflow→Gemini native viewer 当前窗口再次触达 provider 429：上游 painter 已 completed 并保留 `generate_image` receipt、MediaRef 与真实 PNG，viewer 节点 durable failed 且错误明确为 `llm: rate limited (429)`；失败发生在 Google provider window，不是 flowrun/MediaRef 装配或 managed 产物后端回归 | FRT-03 + FRT-04 + FRT-11 / hybrid / managed image → Google native `inlineData` viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedImageToGoogleViewer$' -count=1 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo719-hybrid-google-image-viewer.jsonl` → FAIL 29.03s，viewer node `LLM_RATE_LIMITED (429)`，painter/flowrun 上游结果耐久闭合；未输出 provider secret |
 
+| 2026-07-31 | EVO-720 | Qwen 原生 workflow viewer 两条下游线当前全绿：managed speech producer→Qwen `input_audio` 26.47s，managed async video producer→Qwen `video_url` 135.89s；各自 flowrun 等到 durable completed，WAV/9,393,843-byte MP4 附件可回读且 viewer 收到同一 MediaRef，无重复提交、receipt-only 或跨方言丢媒体 | FRT-03 + FRT-04 / hybrid / managed speech/video → Qwen native viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManaged(SpeechToQwenViewer|VideoToQwenViewer)$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo720-hybrid-qwen-media-viewers.jsonl` → PASS，包 163.170s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
