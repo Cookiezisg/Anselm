@@ -194,6 +194,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 最新同一组合独立复跑重新全绿：`SubagentFunctionFailureContinues` 确实产生 `failed + triggeredBy=agent` execution，错误 marker 经 child message 与父 `Subagent` tool result 续接，父回合 completed；`ParallelSubagentContextContinues` 的两个 child 均完成，下一轮无工具 follow-up 逐字恢复两个 marker，历史锚点与各自 function execution 均闭合。该包 110.627s 全部通过，推翻不了前述红绿波动的事实，但进一步支持其为 managed 模型工具遵循/重试时序哨兵，而非已确认的 backend 状态机缺陷；继续保留低频复探，不改生产代码。
 
+本轮重新复探子代理 image writer：两次独立 managed 进程均最终只执行一条 `generate_image`，PNG receipt 与 content 端点闭合，父回合 completed（56.913s、60.863s）。第二次仍出现一次非法 `subagent_type` 的 schema warning 后自我修正，但没有步数耗尽、重复生成或附件孤儿；这降低了当前红灯频率，却继续证明该项应作为模型 schema recovery/步预算哨兵保留，而非宣称后端缺陷已修复。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。

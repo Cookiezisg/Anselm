@@ -1017,6 +1017,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-677 | Google stale-model 主动恢复复探保持诚实的结构化 skip：两次都先验证旧模型只发一次并落 `LLM_MODEL_NOT_FOUND`，切换到可恢复模型后的发送触达当前 provider 429，故未把恢复路径宣称通过，也未伪造 assistant 或 fallback | FRT-14 / byok-read / stale model recovery under provider rate window | `cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleListedModelCanBeAccountUnavailable$' -count=1 -parallel 1 -timeout 20m -v` → 两次 structured SKIP（5.886s、3.984s；stale 404 已验证，recovery 429）；未输出 provider secret |
 
+| 2026-07-31 | EVO-678 | 子代理 managed image writer 红绿哨兵本轮两次均通过：general-purpose child 最终只执行一次 `generate_image`，真实 PNG receipt/附件可读回且父回合完成；第二次虽先出现非法 `subagent_type` schema warning，随后自纠，没有 `MAX_STEPS_REACHED`、重复生成或媒体孤儿 | FRT-05 / managed-write / subagent generation recovery | `cd testend; set -o pipefail; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentGenerateImageArtifact$' -count=1 -parallel 1 -timeout 30m -json` → PASS 56.913s、60.863s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
