@@ -58,6 +58,8 @@ audience: [human, ai]
 
 同日复核 gateway-side 观测边界：`Anselm-API-Serve` 的 tagged full-stack e2e 在真实 `router → middleware → SQLite → upstream` 装配上通过，覆盖 install/chat/quota、Qwen 多模态、tool loop、stream/non-stream settle、额度/预算、拒绝 rollback、异步图像/语音/视频、混合模态与 debug 计费。部署公网面只返回规范化 completion、quota 和 liveness；`/metrics`、`/readyz`、pprof、expvar 均由独立 loopback admin listener 提供，原始 provider body/header/key 按设计不出端。因此 FRT-04 的用户可见媒体/flowrun/附件证据已闭合，但“部署公网可录制原始 provider wire”不能在不改变 API Serve 安全边界的前提下补齐，不能把该缺口伪装成已覆盖。
 
+同日复跑 workflow 用户附件融合的 manual-trigger 入口：上传 PDF+PNG+MP4 后，payload 经 trigger → CEL → managed agent 完整穿线，flowrun completed；agent 从 PDF sandbox 提取唯一 token，同时保留三份 MediaRef，源字节分别为 552、98、2,969,360 bytes。两个独立 backend 进程通过（63.203s、62.185s），未形成 workflow 或多模态产品缺陷。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。

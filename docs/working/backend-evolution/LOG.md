@@ -634,6 +634,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-485 | image+unsupported-audio 双跑事实加入 Frontier 后文档门禁通过；FRT-01 的 vision 保持/音频诚实降级边界与既知 shutdown 噪声均可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-image-audio-degrade-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
 
+| 2026-07-30 | EVO-486 | workflow 用户附件融合 manual-trigger 首跑通过：PDF+PNG+MP4 经 trigger payload 与 CEL 映射进入 managed agent，flowrun completed，agent 从 PDF sandbox 得到 token，三份 MediaRef 和 552/98/2,969,360-byte 源文件均保真 | FRT-04 / managed-read / workflow manual trigger multimodal fusion | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowUserAttachmentFusion$' -count=1 -timeout 10m -v` → PASS 63.203s；未输出 provider secret |
+
+| 2026-07-30 | EVO-487 | 同一 workflow 用户附件融合第二个独立进程通过（62.185s），确认 trigger→CEL→agent 的 MediaRef 保留不是一次性绿灯；未形成产品缺陷 | FRT-04 / managed-read / independent reprobe | 同一命令第二次独立运行 → PASS 62.185s；Frontier 已补 FRT-04 最新证据；未输出 provider secret |
+
+| 2026-07-30 | EVO-488 | workflow 用户附件融合双跑事实加入 Frontier 后文档门禁通过；FRT-04 的 PDF sandbox、MediaRef 穿线、agent 回答与源字节证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-workflow-user-attachment-fusion-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
