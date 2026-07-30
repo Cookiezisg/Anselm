@@ -228,6 +228,89 @@ func TestLiveManaged_ChatRetryContinues(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ChatRetryThenForkContinues proves the interaction between two append-only
+// projections: a real managed retry chain must remain a self-contained version chain after the
+// latest fork, and the branch must feed only its current answer to the next managed turn. This is
+// deliberately distinct from the isolated retry and fork scenarios: a shallow copy can pass both
+// while leaving supersededBy/retryOf pointers aimed at the SOURCE rows.
+func TestLiveManaged_ChatRetryThenForkContinues(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-chat-retry-then-fork")
+	convID := convCreate(t, wc, "managed retry then fork")
+	firstID := sendMsg(t, wc, convID, "请用一句简短中文回答：这是原始回答。不要调用工具。")
+	first := waitTurn(t, wc, convID, firstID, 180000)
+	if first.Status != "completed" {
+		t.Fatalf("first managed turn must complete before retry/fork: status=%s code=%s message=%s", first.Status, first.ErrorCode, first.ErrorMessage)
+	}
+
+	secondID := retryPost(t, wc, convID, "")
+	second := waitTurn(t, wc, convID, secondID, 180000)
+	if second.Status != "completed" {
+		t.Fatalf("managed regenerated turn must complete before fork: status=%s code=%s message=%s", second.Status, second.ErrorCode, second.ErrorMessage)
+	}
+	source := retryList(t, wc, convID)
+	if len(source) != 3 {
+		t.Fatalf("source must contain one user and two assistant versions before fork, got %d", len(source))
+	}
+	oldSource, currentSource := retryMsg{}, retryMsg{}
+	for _, msg := range source {
+		if msg.ID == firstID {
+			oldSource = msg
+		}
+		if msg.ID == secondID {
+			currentSource = msg
+		}
+	}
+	if oldSource.ID == "" || currentSource.ID == "" || oldSource.SupersededBy != secondID || currentSource.retryOf() != firstID || currentSource.SupersededBy != "" {
+		t.Fatalf("source retry chain must be linear before fork: old=%+v current=%+v", oldSource, currentSource)
+	}
+
+	// Empty body is the rail's latest-fork path: it must carry both durable versions, not just the
+	// current LLM projection. The fork head records the newest source row as its lineage coordinate.
+	fork := forkAt(t, wc, convID, "")
+	head := forkGetConv(t, wc, fork.ID)
+	if head.ForkedFromConversationID != convID || head.ForkedFromMessageID != secondID || head.Title != "managed retry then fork (fork)" || head.AutoTitled {
+		t.Fatalf("retry/fork lineage must point at the latest source version: source=%s latest=%s fork=%+v", convID, secondID, head)
+	}
+
+	forkMsgs := retryList(t, wc, fork.ID)
+	if len(forkMsgs) != 3 {
+		t.Fatalf("latest fork must carry one user and both durable assistant versions, got %d", len(forkMsgs))
+	}
+	oldFork, currentFork := retryMsg{}, retryMsg{}
+	sourceIDs := map[string]bool{firstID: true, secondID: true}
+	for _, msg := range forkMsgs {
+		if sourceIDs[msg.ID] {
+			t.Fatalf("fork must mint fresh message ids, reused source row %s", msg.ID)
+		}
+		if msg.Role != "assistant" {
+			continue
+		}
+		if msg.retryOf() == "" {
+			oldFork = msg
+		} else {
+			currentFork = msg
+		}
+	}
+	if oldFork.ID == "" || currentFork.ID == "" || oldFork.SupersededBy != currentFork.ID || currentFork.retryOf() != oldFork.ID || currentFork.SupersededBy != "" {
+		t.Fatalf("fork must remap the retry chain into its own rows: old=%+v current=%+v", oldFork, currentFork)
+	}
+	if currentFork.retryOf() == firstID || oldFork.SupersededBy == secondID {
+		t.Fatalf("fork retry pointers must never target source rows: old=%+v current=%+v", oldFork, currentFork)
+	}
+
+	continuedID := sendMsg(t, wc, fork.ID, "现在只用一句简短中文确认：分支在重试版本之后仍可继续。不要调用工具。")
+	continued := waitTurn(t, wc, fork.ID, continuedID, 180000)
+	if continued.Status != "completed" {
+		t.Fatalf("fork continuation after retry chain must complete: status=%s code=%s message=%s", continued.Status, continued.ErrorCode, continued.ErrorMessage)
+	}
+	if text, ok := blockOfType(continued, "text"); !ok || strings.TrimSpace(text) == "" {
+		t.Fatalf("fork continuation after retry chain must persist assistant text: %+v", continued.Blocks)
+	}
+	if len(retryList(t, wc, convID)) != 3 {
+		t.Fatalf("continuing the fork must not append to source retry history: %+v", retryList(t, wc, convID))
+	}
+}
+
 // TestLiveManaged_WorkflowFanoutJoin proves the real default-workspace workflow rail for a
 // high-cardinality graph: eight branches must all finish before either four-input join runs, and
 // the final node must see every branch result exactly once. The assertions use public flowrun rows
