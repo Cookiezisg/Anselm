@@ -92,6 +92,8 @@ audience: [human, ai]
 
 同日补做大文本读取三件套：对 136,890/116,043/157,248-byte 级别的文本附件，managed 模型分别真实完成 `read_attachment` 的 query、显式 compact index 与省略控制参数的 auto-index；每条返回均保持 bounded，query/index 没有把正文整段泄漏到回合，源附件仍可逐字节回读。两轮独立进程三项全通过（首轮包 42.727s，Query/Index/AutoIndex 为 13.86s/7.88s/20.36s；复跑包 30.145s，Index/AutoIndex 为 7.52s/9.45s，Query 亦通过），没有再出现参数类型校验警告或隐式全文投影。
 
+同日复探文本 `inspect_media` 的两个 bounded 形状时，首轮真实暴露了同一 lazy 目录卡缺口：`read_attachment` page 通过，但模型把 `inspect_media` 误读为只有 `attachmentId/question`，拒绝 page/limitChars，且 offset-window 只能走默认 12,000 字符窗口并找不到位于目标 offset 的 token。执行层 schema 本来已声明这些可选字段；将 `page/offset/limitChars` 与时间窗一起前置到首行后，两个场景连续两轮独立进程完成（首轮 20.59s/17.60s，包 38.479s；复跑包 38.252s），均返回 bounded 证据且源文本不变，确认是发现面提示问题而非 extractor/分页实现缺陷。
+
 ### FRT-05 最新证据
 
 同日补充真实并行子代理树闭环：父聊天只派两个独立 `general-purpose` 子代理，两个子任务各自经 `search_tools`→`run_function` 执行不同 function；两个 child message 都以不同 `parentBlockId` 锚回父级 `Subagent` tool_call，父回合同时收到两个 marker 且没有直接调用 `run_function`。两个 function execution 各恰一条 `status=ok`、`triggeredBy=agent` 记录，并绑定同一 conversation 与 child message。探索阶段一次上游 502、两次测试 oracle 校准（模型先纠正缺失 `subagent_type`；执行台账结果字段为 `output` 而非 `result`）均未形成产品缺陷；校准后两次真实 managed 复跑通过（93.71s、76.33s）。关停阶段的本地 search embedder `context canceled` 仍归类为 shutdown 噪声。

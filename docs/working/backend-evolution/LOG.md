@@ -720,6 +720,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-528 | 大文本 query/index/auto-index 双跑事实加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-large-attachment-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-529 | 文本 bounded 工具复探首轮抓到真实用户体验红灯：`read_attachment` page 通过，但 `inspect_media` page 被模型拒绝、offset-window 未带参数而返回默认窗口，两个场景均未进入所需 bounded 断言；根因指向 lazy 目录卡只展示必填参数，不是执行层 schema 缺失 | FRT-01 / managed-read / inspect_media text page + window / lazy discovery | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ReadAttachmentTextPage|InspectMediaTextPage|InspectMediaTextWindow)$' -count=1 -parallel 1 -timeout 20m -v` → `ReadAttachmentTextPage` PASS 14.44s；`InspectMediaTextPage` FAIL 12.50s（模型拒绝 page/limitChars）；`InspectMediaTextWindow` FAIL 22.50s（默认 offset=0 window，目标 token 不见）；包 50.151s；未输出 provider secret |
+
+| 2026-07-30 | EVO-530 | 修复共同层提示缺口：`inspect_media` lazy 首行新增 text/docs 的 `page/offset/limitChars`，与已有 `startMs/endMs` 同时在 180 字目录卡内可见；完整参数 schema、验证与 extractor 逻辑不变，离线附件/toolset 测试通过 | FRT-01 / toolset / lazy overview / inspect_media | `go test ./internal/app/tool/attachment ./internal/app/tool/toolset` → PASS（attachment 1.099s；toolset cached）；commit `8abaeeb9`；未输出 provider secret |
+
+| 2026-07-30 | EVO-531 | 修复后的真实 managed `inspect_media` page 与 offset-window 首个独立进程均通过：模型带上 page/limitChars 或 offset/limitChars，工具结果 bounded，源文本逐字节保持 | FRT-01 / managed-read / regression reprobe | `TestLiveManaged_InspectMediaTextPage` 20.59s；`TestLiveManaged_InspectMediaTextWindow` 17.60s；组合包 38.479s；未输出 provider secret |
+
+| 2026-07-30 | EVO-532 | 同一修复后的两个文本 bounded 场景第二个独立进程再次全绿（包 38.252s），确认目录卡修复消除了模型拒答/默认窗口分叉而非一次性模型配合，未形成稳定 extractor 缺陷 | FRT-01 / managed-read / independent reprobe | 同一命令第二次独立运行 → PASS，包总计 38.252s；未输出 provider secret |
+
+| 2026-07-30 | EVO-533 | 文本 `inspect_media` 红灯、根因、修复与双绿证据加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-inspect-media-text-args-fix | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
