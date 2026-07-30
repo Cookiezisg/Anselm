@@ -284,6 +284,10 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后补图片对照：general-purpose child 真实调用 `inspect_media` 取得 bounded image evidence，父回合续接、源 PNG 字节与 child execution/message/`parentBlockId` 均闭合（30.198s）；本次未复现 nested-vision 502、Explore 越权或媒体孤儿。
 
+本轮再做子代理失败/取消/媒体写入窗口：故意失败函数两次都真实执行并把错误标记经 child 与父层带回，但严格父层单次派发断言两次都被模型先发非法 `subagent_type` 后纠正击穿；取消一轮在 30s settle 窗内未同时观察父/子 terminal、另一轮完整通过；子代理 image writer 两次都只铸一份真实 PNG。该组包级失败不包含稳定的 ledger、锚点、孤儿或媒体状态异常，继续归类为 managed schema recovery/stream 时序可靠性哨兵。
+
+随后把实际函数名为 `ParallelSubagentTrees` 的并行树单独双跑：两轮均只创建两个 child，各自 function execution 恰一条，两个 `parentBlockId`、marker、父回合续接与 `agent/ok` ledger 一一闭合（64.93s、61.39s；包 126.967s）。未复现此前重复派发或跨树串线。
+
 随后复探 stdio MCP 产物→workflow 下游 viewer：MCP producer 的单一 PNG MediaRef 穿过 agent node，workflow 结果保留 `mcp_media` source 与 attachment id，附件 content 端点回读真实图片，OpenAI BYOK viewer recorder 收到同一原始 image part。两次独立 hybrid 进程通过（18.418s、16.672s），未形成 producer ownership、workflow node 或跨 provider 编码缺陷。
 
 紧接着做 function producer 的对称复探：managed function execution 只铸一份 PNG MediaRef，flowrun 节点和 producer source 保持闭合，OpenAI BYOK viewer recorder 收到 exact-byte image part，附件可回读。两次独立 hybrid 进程通过（19.034s、16.626s），未形成 function artifact ownership、workflow 接线或跨 provider 编码缺陷。
@@ -363,6 +367,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 本轮图像写入复探同时补足异步终态证据：动画回合在长轮询期间始终读取同一 durable conversation，最终明确完成并只出现一份真实 MP4，随后附件 content 端点可回读；没有用中途的空消息响应替代最终状态，也没有在异步完成后重复铸造 artifact。
 
 同轮复探 `SubagentCancelTerminal` 的取消时序：组合 `-count=2` 一次通过、一次在取消后 30s settle 窗内未同时观察到父/子终态。绿灯确认 `:cancel` 204、父/child durable `cancelled`、单条 `agent/cancelled` function execution 与 follow-up 不复活；红灯发生在模型仍处于子代理工具发现/执行的长尾窗口，结合既有两次隔离绿跑，没有稳定的取消 ledger、锚点、迟到产物或终态复活证据，继续保留为 managed 模型/stream 时序哨兵而非后端缺陷。
+
+本轮 EVO-744/EVO-745 对取消与并行树做了当前窗口复核：取消仍是一绿一红（红灯只在 30s settle 窗观察不到父/子同时 terminal），绿灯保持 `:cancel` 204、父/child `cancelled`、单条 `agent/cancelled` execution 且 follow-up 不复活；并行树独立双跑 2/2 通过，未见终态、锚点或重复 execution 回归。失败续接两次虽未满足“只派一次”模型行为断言，但真实 child failure/错误标记与 durable parent continuation 均存在，不能据此宣称后端 ledger 缺陷。
 
 本轮再做核心用户生命周期 sanity gate：默认 managed 对话、普通 conversation fork、assistant retry continuation 各独立运行两次，6/6 完成。源历史保持 append-only，fork 分支可继续，retry 版本链没有跨线程指针或旧终态复活；包总计 50.126s，未形成当前窗口的消息投影或会话血缘回归。
 
