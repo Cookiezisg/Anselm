@@ -978,6 +978,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-657 | 本轮 live 探针与文档门禁后完整 backend 黑盒回归全绿；独立 acceptance suite 未出现稳定产品缺陷、孤儿终态、panic/race 或 `database is closed` | full backend testend regression / post-live gate | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 342.216s`；未输出 provider secret |
 
+| 2026-07-31 | EVO-658 | 成本/人闸 denial 最新复探：语音两次仍有一次在 60s 内未形成 danger interaction；视频两次虽稳定形成 interaction 且 deny 返回 204，却各有一次回合等待 180s 未终态；临时黑盒诊断随后观察到同一视频拒绝反馈完整落成 `tool_call → denied tool_result → reasoning/text` 并在 21.45s 完成，无生成提交/receipt，故当前仍归 managed 模型/上游续接时序哨兵，未确认后端计费或 broker 缺陷 | FRT-09 / managed-write / denial continuation reprobe | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_Generate(SpeechDeniedNoSpend|VideoDeniedNoSpend)$' -count=1 -parallel 1 -timeout 45m -json` → speech FAIL 65.26s（无 interaction），video FAIL 186.85s（deny 后未终态）；video 隔离复跑 FAIL 191.81s；临时诊断独立进程 PASS 21.45s（已删除，不入 suite）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

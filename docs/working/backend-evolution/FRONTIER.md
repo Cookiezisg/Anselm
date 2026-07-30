@@ -114,6 +114,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮成本/人闸组合首个 managed 进程中，`generate_video` 拒绝、朗读顺序缓存、并发去重与 quota 均通过；`generate_speech` 首次未在 60s 内出现 danger interaction。将语音拒绝场景隔离后得到一绿一红（20.04s、64.62s）：绿色路径确认拒绝不铸造 receipt/不扣 quota，红灯仍停在 interaction 出现前，没有提交上游合成或状态断言。结合既有音色/视频审批复探，当前保留为 managed 模型/网关时序哨兵，不改成本或审批后端。
 
+同日继续复探 denial continuation：语音成本闸再次在 60s 内缺失 danger interaction；视频两次均出现 danger interaction，deny 请求均返回 204，但正式断言各在 180s 内看不到回合终态。一个临时黑盒诊断进程在相同拒绝路径中捕获了完整 durable 序列 `tool_call → tool_result(The user denied...) → reasoning/text`，约 21.45s completed，且没有 generation receipt、附件或提交证据；因此把两类红灯保留为 managed 模型/上游流式续接时序哨兵，下一步应优先取得 gateway/stream request-level 观测再决定是否修产品层，不改成本闸或 broker。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
