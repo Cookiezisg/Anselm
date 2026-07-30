@@ -878,6 +878,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-607 | 同一 Google native 工具续接第二个独立进程再次全绿（11.452s）；此前 429 仅保留为历史 provider rate-window 证据，当前窗口未形成产品或 parser 回归 | FRT-11 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-30 | EVO-608 | managed 聊天侧 workflow 状态机首轮组合全绿：observability、failure diagnosis、approval decision、replay 均完成，错误/停泊/恢复状态与 durable flowrun ledger 闭合 | FRT-13 / managed-read / chat workflow state machine | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrun(FailureDiagnosis|Replay|ApprovalDecision|Observability)$' -count=1 -parallel 1 -timeout 30m -v` → PASS 180.391s；未输出 provider secret |
+
+| 2026-07-30 | EVO-609 | 同一组合第二个独立进程出现一次非稳定红灯，其他三个场景通过；隔离 `ChatFlowrunFailureDiagnosis` 随后两次独立复跑均通过（42.362s、58.943s），未形成可复现后端缺陷，保留为 managed 模型/工具序列可靠性哨兵 | FRT-13 / managed-read / reprobe classification | 组合第二轮 → FAIL 158.992s；失败场景隔离后两次 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
