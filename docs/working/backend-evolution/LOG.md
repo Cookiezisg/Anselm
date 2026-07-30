@@ -800,6 +800,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-568 | 同一附件生命周期组合第二个独立进程再次全绿（包总计 19.490s），确认 404 降级与跨回合重投影不是一次性模型窗口结果，未形成后端缺陷 | FRT-01 / managed-read / independent reprobe | 同一命令第二次独立运行（输出收敛为末 120 行）→ PASS，包总计 19.490s；未输出 provider secret |
 
+| 2026-07-30 | EVO-569 | workflow managed image→viewer 与 speech→managed viewer 首轮通过：producer 各恰一次生成并保留 anselm receipt，viewer 在同一 flowrun 消费真实 MediaRef，PNG/WAV 附件可回读，音频默认能力降级诚实 | FRT-04 / managed-write + managed-read / workflow producer→viewer | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerate(ImageToViewer|SpeechToManagedViewer)$' -count=1 -parallel 1 -timeout 30m -v` → PASS，包总计 101.747s（image 67.21s；speech 34.13s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-570 | image/speech workflow producer→viewer 第二个独立进程再次通过（包总计 81.150s；image 57.62s；speech 23.20s），未出现重复生成、receipt-only 或附件丢失 | FRT-04 / managed / independent reprobe | 同一命令第二次独立运行（输出收敛为末 120 行）→ PASS，包总计 81.150s；未输出 provider secret |
+
+| 2026-07-30 | EVO-571 | managed 异步 video→managed viewer 首轮通过：flowrun 完成、producer receipt 与 downstream MediaRef 闭合、真实 MP4 10,940,531 bytes 可回读，无重复或孤儿产物 | FRT-04 / managed-write + managed-read / async video workflow | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerateVideoToManagedViewer$' -count=1 -parallel 1 -timeout 30m -v` → PASS 132.522s；未输出 provider secret |
+
+| 2026-07-30 | EVO-572 | 同一 managed 异步 video workflow 第二个独立进程再次通过（119.756s；MP4 7,180,610 bytes），确认长尾等待与下游消费不依赖一次性窗口，未形成后端缺陷 | FRT-04 / managed / independent reprobe | 同一命令第二次独立运行（输出收敛为末 100 行）→ PASS 119.756s；未输出 provider secret |
+
+| 2026-07-30 | EVO-573 | workflow image/speech/video producer→viewer 双跑事实加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-workflow-media-viewer-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

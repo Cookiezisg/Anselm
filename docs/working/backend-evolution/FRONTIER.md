@@ -56,6 +56,10 @@ audience: [human, ai]
 
 同日补充失败 run 的聊天 replay 闭环：首轮经 `search_tools`→`trigger_workflow` 启动带稳定前缀与常驻 flaky handler 的 workflow，handler 首次失败后 durable 记录 `origin=chat` 的 failed run；第二轮只经 `search_tools`→`get_flowrun` 读取 failed 节点，第三轮经 `search_tools`→`replay_flowrun` 恢复同一 `flowrunId`。replay 复用已完成的 stable 节点、只重跑失败 handler，随后 finish 节点完成；function execution 与 handler call ledger 均证明稳定前缀/finish 各一次、handler 恰一次 failed + 一次 ok。两次真实 managed 复跑通过（53.730s、50.552s）。首轮断言曾错误假设列表按时间正序，实际公开列表默认最新在前；改为校验 append-only 状态计数后通过，未形成后端缺陷。
 
+同日补做 workflow producer→viewer 的真实 managed 产物链：image producer→managed viewer 与 speech producer→managed viewer 各自只生成一次真实 MediaRef，下游节点在同一 flowrun 中消费并完成；PNG（约 1.07–1.12MB）与 WAV（80,684 bytes）均可从附件端点回读，音频仍按默认模型能力诚实降级。两次独立组合均通过（首轮 101.747s、复跑 81.150s），未出现 receipt 文本冒充媒体、重复生成或附件丢失。
+
+随后复探异步 video producer→managed viewer：两次独立真实 managed flowrun 均完成，下游拿到 producer 的同一 MP4 MediaRef，源视频可回读（7.18–10.94MB），无重复生成、孤儿 receipt 或 viewer 只读到文本。两轮通过（132.522s、119.756s），确认长尾异步等待和同 run 线缆仍闭合。
+
 同日复核 gateway-side 观测边界：`Anselm-API-Serve` 的 tagged full-stack e2e 在真实 `router → middleware → SQLite → upstream` 装配上通过，覆盖 install/chat/quota、Qwen 多模态、tool loop、stream/non-stream settle、额度/预算、拒绝 rollback、异步图像/语音/视频、混合模态与 debug 计费。部署公网面只返回规范化 completion、quota 和 liveness；`/metrics`、`/readyz`、pprof、expvar 均由独立 loopback admin listener 提供，原始 provider body/header/key 按设计不出端。因此 FRT-04 的用户可见媒体/flowrun/附件证据已闭合，但“部署公网可录制原始 provider wire”不能在不改变 API Serve 安全边界的前提下补齐，不能把该缺口伪装成已覆盖。
 
 同日复跑 workflow 用户附件融合的 manual-trigger 入口：上传 PDF+PNG+MP4 后，payload 经 trigger → CEL → managed agent 完整穿线，flowrun completed；agent 从 PDF sandbox 提取唯一 token，同时保留三份 MediaRef，源字节分别为 552、98、2,969,360 bytes。两个独立 backend 进程通过（63.203s、62.185s），未形成 workflow 或多模态产品缺陷。
