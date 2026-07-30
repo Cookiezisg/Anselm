@@ -276,6 +276,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮做 managed 子代理状态矩阵：失败续接、并行树、取消终态以及成功/失败/取消树 fork 共六项中，取消与三类 fork 全部通过；失败续接一次因模型先发非法 `subagent_type` 后纠正而多派一次，严格 parent-call 计数未满足；并行树一次出现同一 function、conversation 与 child message 的两条 `status=ok` execution。随后并发树隔离 clean `-count=2` 两次通过（64.91s、61.49s），没有复现重复 execution；父/child durable 状态、锚点和终态没有稳定异常。该红灯继续作为 managed schema recovery/重复派发时序哨兵，不改生产代码。
 
+本轮再做子代理媒体/文档消费组合：text 与 PDF child 分别真实读取并回传唯一 token，父层没有偷调，74/544-byte 源附件可回读；子代理 image writer 首轮在父层 `maxSteps=3` 下因非法 `subagent_type` 自我纠错耗尽步数并落 `MAX_STEPS_REACHED`，随后同一测试两次独立运行均各执行一条 managed `generate_image`、PNG content 可回读。该红绿分叉与既有 image writer 证据一致，继续保留为模型 schema recovery/步预算哨兵，不改生产代码。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
