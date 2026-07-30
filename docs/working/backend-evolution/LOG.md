@@ -970,6 +970,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-653 | 聊天入口 workflow 状态机四件套连续两轮通过：observability、失败诊断、human approval park→decide、replay 均保持 durable flowrun/node、interaction 与后续恢复闭合，无孤儿 run 或错误回合污染 | FRT-04 + FRT-13 + FRT-15 / managed / chat workflow state machine | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatFlowrun(Observability|FailureDiagnosis|Replay|ApprovalDecision)$' -count=1 -parallel 1 -timeout 90m -json` → PASS 201.130s、195.860s；未输出 provider secret |
 
+| 2026-07-31 | EVO-654 | workflow 并发核心与聊天触发入口连续两轮通过：manual 8-branch/双四输入 join 与 chat→`trigger_workflow` 4-branch/双 join 均各执行一次，`flowrunId`、`origin=chat`、节点行与 execution ledger 闭合 | FRT-04 + FRT-15 / managed / fanout and join | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(WorkflowFanoutJoin|ChatTriggerWorkflowFanoutJoin)$' -count=1 -parallel 1 -timeout 60m -json` → PASS 27.515s、24.543s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
