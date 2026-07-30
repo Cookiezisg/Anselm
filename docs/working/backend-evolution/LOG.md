@@ -432,6 +432,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-384 | managed 原地重试场景、backend 全量回归与文档门禁后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-chat-retry | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-385 | 真实 managed workflow 扇出/AND-join 闭环补齐：manual flowrun 展开 8 条 branch，两个四输入 join 等齐全部上游后各执行一次，finish 汇总 12 条 durable node rows；8+2+1 function execution ledger 均绑定同一 flowrun 且 node 唯一，未形成后端缺陷 | FRT-15 / managed-write / workflow fanout → AND-join → finish | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowFanoutJoin$' -count=1 -v` → PASS 9.109s；复跑 PASS 9.867s；无 provider secret |
+
+| 2026-07-30 | EVO-386 | managed workflow 扇出/AND-join 场景加入后的 docs 门禁通过；Frontier 新增 FRT-15 真实证据，working 索引、锚点与 drift 检查保持可用，既有 DTO drift warning 未变化且不阻断门禁 | docs gate / post-managed-workflow-fanout-join | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 内容未变化 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

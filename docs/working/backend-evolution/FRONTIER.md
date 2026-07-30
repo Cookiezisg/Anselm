@@ -56,6 +56,10 @@ audience: [human, ai]
 
 同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。
 
+### FRT-15 最新证据
+
+同日补上真实 managed workspace 的大图扇出/AND-join 闭环：一个 manual flowrun 展开 8 条 action 分支，两个四输入 join 在所有上游完成后各执行一次，finish 汇总 12 条 durable node rows；function ledger 同时证明 8 次 branch、2 次 join、1 次 finish 均绑定同一 `flowrunId`、`flowrunNodeId` 唯一且成功。两次真实复跑通过（总计 9.109s、9.867s），未形成后端缺陷；关停阶段 search embedder `context canceled` 仍归类为服务 shutdown 噪声。
+
 ### FRT-16 最新证据
 
 同日补上真实对话分叉闭环：先完成一轮默认 managed chat，再从该 assistant 消息调用 `:fork`；源会话仍保持原 2 条 append-only 消息，新会话复制同一前缀但不复用源 assistant ID，返回的 `forkedFromConversationId`、`forkedFromMessageId` 与 `(fork)` 标题后缀均正确。随后在新分支继续发送 follow-up，仍经默认 Anselm 路由完成；源会话消息数保持不变。两次真实 managed 复跑通过（总计 13.209s、12.768s），未形成后端缺陷。
