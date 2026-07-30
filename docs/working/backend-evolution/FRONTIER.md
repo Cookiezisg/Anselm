@@ -48,11 +48,15 @@ audience: [human, ai]
 
 同日补充失败 run 的聊天 replay 闭环：首轮经 `search_tools`→`trigger_workflow` 启动带稳定前缀与常驻 flaky handler 的 workflow，handler 首次失败后 durable 记录 `origin=chat` 的 failed run；第二轮只经 `search_tools`→`get_flowrun` 读取 failed 节点，第三轮经 `search_tools`→`replay_flowrun` 恢复同一 `flowrunId`。replay 复用已完成的 stable 节点、只重跑失败 handler，随后 finish 节点完成；function execution 与 handler call ledger 均证明稳定前缀/finish 各一次、handler 恰一次 failed + 一次 ok。两次真实 managed 复跑通过（53.730s、50.552s）。首轮断言曾错误假设列表按时间正序，实际公开列表默认最新在前；改为校验 append-only 状态计数后通过，未形成后端缺陷。
 
+### FRT-05 最新证据
+
 同日补充真实并行子代理树闭环：父聊天只派两个独立 `general-purpose` 子代理，两个子任务各自经 `search_tools`→`run_function` 执行不同 function；两个 child message 都以不同 `parentBlockId` 锚回父级 `Subagent` tool_call，父回合同时收到两个 marker 且没有直接调用 `run_function`。两个 function execution 各恰一条 `status=ok`、`triggeredBy=agent` 记录，并绑定同一 conversation 与 child message。探索阶段一次上游 502、两次测试 oracle 校准（模型先纠正缺失 `subagent_type`；执行台账结果字段为 `output` 而非 `result`）均未形成产品缺陷；校准后两次真实 managed 复跑通过（93.71s、76.33s）。关停阶段的本地 search embedder `context canceled` 仍归类为 shutdown 噪声。
 
 同日补上真实嵌套失败证据：父聊天只派一个 `general-purpose` 子代理，子代理经 `search_tools` 发现 `run_function` 并调用一个必然抛错的 function；失败 execution 记录 `status=failed`、`triggeredBy=agent`、同一 `conversationId/messageId`，错误 marker 同时留在子消息树与父 `Subagent` tool result，父回合仍以 completed 结束且没有越权的父级 function 调用。两次真实 managed 复跑通过（49.94s、55.356s），补足 FRT-05 原先仅 mock 的失败续接证据，未形成后端缺陷。
 
 同日补上真实嵌套取消证据：父聊天派出 `general-purpose` 子代理，子代理进入一个 60 秒 function 后，客户端按真实 `:cancel` 动作中止父回合；取消接口返回 204，父消息与带 `SubagentID` 的子消息均落 `cancelled`，function execution 恰一条、`status=cancelled`、`triggeredBy=agent` 且绑定 child `messageId`，同一对话的 follow-up 完成且没有复活旧 tool call。修订后的真实 managed 复跑通过两次（55.39s、53.93s）。初次探索曾等待 REST `/messages` 出现子代理的 streaming tool block，128.65s 后超时；期间历史端点只返回父侧短投影，直到子回合自然终态才批量出现嵌套 blocks。改用与 UI/SSE 等价的定时取消，再从 durable history/ledger 验证终态，证明这是 REST 历史投影的批处理边界而非取消后端缺陷。取消时 `run_function` 的底层进程组被杀并留下 `spawn process failed` WARN，但 durable/wire 语义正确；该日志目前归为可解释的取消噪声，不计稳定产品 bug。
+
+同日补充并行子代理的跨回合上下文续接：首轮两个 child 均完成后，第二轮用户追问只要求复述两个 marker；父回合在不调用任何工具的情况下逐字恢复两份结果，历史仍保留恰两个 completed child、原 `parentBlockId` 锚点和两条唯一 `agent/ok` function execution。两次真实 managed 复跑通过（74.62s、59.65s），未形成后端缺陷。
 
 ### FRT-13 最新证据
 

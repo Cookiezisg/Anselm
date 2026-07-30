@@ -456,6 +456,14 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-396 | 并行子代理树场景及 backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-parallel-subagent-trees | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-397 | 并行子代理跨回合上下文续接补齐：首轮两个独立 child 完成后，下一轮父对话不调用任何工具即可逐字恢复两个 marker；两个 completed child、原 `parentBlockId` 锚点和两条唯一 `agent/ok` function execution 均保持不变，未形成后端缺陷 | FRT-05 / managed-read/default / parallel subagent trees → next-turn context recall | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ParallelSubagentContextContinues$' -count=1 -v` → PASS 74.62s；复跑 PASS 59.65s（进程总计约 60.23s）；无 provider secret |
+
+| 2026-07-30 | EVO-398 | 并行子代理跨回合上下文场景加入后的文档门禁通过；FRT-05 证据分段、跨回合历史投影与 DTO 线缆说明均保持可读，既有 drift warning 未变化 | docs gate / post-managed-subagent-context-continuation | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-399 | 并行子代理跨回合上下文场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent（含 nested function failure/cancel、parallel tree isolation 与 next-turn context）、workflow/trigger、附件发现/抽取/inspect、多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-managed-subagent-context-continuation | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 389.782s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
+| 2026-07-30 | EVO-400 | 并行子代理跨回合上下文场景、backend 全量回归与文档门禁后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-subagent-context-continuation | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
