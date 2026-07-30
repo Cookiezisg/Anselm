@@ -652,6 +652,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-494 | workflow manual/chat/webhook 三入口的多模态事实加入 Frontier 后文档门禁通过；FRT-04 来源、MediaRef、PDF sandbox 与源字节证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-workflow-three-entry-fusion-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
 
+| 2026-07-30 | EVO-495 | managed workflow video producer→managed viewer 首跑通过：真实 `generate_video` 异步提交/轮询完成后，下游节点消费实际 MP4 MediaRef，flowrun completed，11,165,527-byte 产物可回读，非 receipt-only 占位 | FRT-04 / managed-write→managed-read / async video producer to viewer | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerateVideoToManagedViewer$' -count=1 -timeout 15m -v` → PASS 127.383s；未输出 provider secret |
+
+| 2026-07-30 | EVO-496 | 同一异步 video producer→viewer 场景第二个独立进程通过（124.229s），真实 MP4 10,657,043 bytes 可回读；长延迟属于 gateway job 的真实任务时间，不是测试超时或伪造成功 | FRT-04 / managed-write→managed-read / independent reprobe | 同一命令第二次独立运行 → PASS 124.229s；Frontier 已补 producer→viewer 证据；未输出 provider secret |
+
+| 2026-07-30 | EVO-497 | async video producer→viewer 双跑事实加入 Frontier 后文档门禁通过；FRT-04 的生成→下游消费、MediaRef 与异步产物字节证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-video-workflow-viewer-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

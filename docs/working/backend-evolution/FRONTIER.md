@@ -64,6 +64,8 @@ audience: [human, ai]
 
 同日补做外部 webhook 入口：真实 `POST /api/v1/webhooks/{triggerId}/{path}` 接收 PDF+image body，flowrun 以 `origin=webhook`、正确 `triggerId` 完成，agent 经 `start.body.*` 读取 PDF token 并保留 555-byte PDF 与 98-byte PNG。两个独立 backend 进程通过（31.469s、24.281s），manual/chat/webhook 三入口均未形成产品缺陷。
 
+同日复跑 producer→viewer 的异步资源方向：managed workflow 先经 `generate_video` 提交并轮询真实 gateway job，再把视频 MediaRef 交给下游 managed viewer；两次独立复跑均 flowrun completed，最终 MP4 可回读（11,165,527 bytes、10,657,043 bytes），viewer 读取的是实际产物而非 receipt-only 占位。单次耗时约两分钟，符合异步视频任务的真实延迟，未形成产品缺陷。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
