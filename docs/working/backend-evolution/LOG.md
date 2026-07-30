@@ -922,6 +922,14 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-629 | `ParallelSubagentContextContinues` 一绿一红：绿跑在无工具 follow-up 中恢复两个 marker 且各函数只执行一次；红跑中模型先拒绝/重试，最终两个 marker 与执行都正确，但耐久历史保留 4 个 child 而非严格断言的 2 个，属于托管模型重试遵循波动而非状态/锚点丢失 | FRT-05 / managed / subagent context continuation | 独立运行两次 → PASS 64.57s、FAIL 88.61s（失败断言 `children=4`）；未输出 provider secret |
 
+| 2026-07-31 | EVO-630 | managed 附件/文档读取长尾组合首轮 9 条中 7 条通过：附件发现、纯文本、PDF、PDF+图片、大文本 query/index/page 均闭合；两个红灯分别是 PDF 测试 oracle 漏看 tool 属性，以及 auto-index 在组合中的一次 `MAX_STEPS_REACHED`，未观察到源件改变或读取服务错误 | FRT-01 / managed-read/default / attachment and document tail | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(ListAttachments|DefaultChatWithTextAttachment|DefaultChatWithPDFAttachment|DefaultChatWithPDFAndImageAttachments|ReadAttachmentPDF|ReadAttachmentLargeTextQuery|ReadAttachmentLargeTextIndex|ReadAttachmentLargeTextAutoIndex|ReadAttachmentTextPage)$' -count=1 -parallel 1 -timeout 60m` → FAIL，包 129.417s；未输出 provider secret |
+
+| 2026-07-31 | EVO-631 | 修复 `ReadAttachmentPDF` 测试 oracle：tool 名称位于 block attrs 而非 JSON content 时也计为真实调用；修复后真实 managed PDF 工具读取通过，错误参数后的 `id` 自纠错仍被完整保留为证据 | FRT-01 / test oracle / read_attachment PDF | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ReadAttachmentPDF$' -count=1 -parallel 1 -timeout 20m -json` → PASS 22.944s；代码提交 `4e33cd6a`；未输出 provider secret |
+
+| 2026-07-31 | EVO-632 | 大文本默认 auto-index 隔离复跑连续两次通过，均返回 bounded compact index 且源文本逐字节不变；组合批次中的唯一红灯归类为 managed 模型在参数纠错时耗尽三步预算，不改生产读取路径 | FRT-01 / managed-read/default / large text auto-index reprobe | 同一测试独立运行两次 → PASS 15.424s、27.166s；未输出 provider secret |
+
+| 2026-07-31 | EVO-633 | 附件/文档读取长尾证据加入 Frontier 后文档门禁通过；既有 DTO drift warning 未变化 | docs gate / post-attachment-read-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
