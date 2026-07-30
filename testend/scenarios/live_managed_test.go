@@ -169,6 +169,65 @@ func TestLiveManaged_ConversationForkContinues(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ChatRetryContinues proves the real managed version rail: regenerating a completed
+// answer appends a new assistant row, keeps the old row reachable, exposes the retry chain on the wire,
+// and leaves the newest version usable as the context for a follow-up turn.
+func TestLiveManaged_ChatRetryContinues(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-chat-retry")
+	convID := convCreate(t, wc, "managed chat retry")
+	firstID := sendMsg(t, wc, convID, "请用一句简短中文回答：这是第一次回答。不要调用工具。")
+	first := waitTurn(t, wc, convID, firstID, 180000)
+	if first.Status != "completed" {
+		t.Fatalf("first managed turn must complete before retry: status=%s code=%s message=%s", first.Status, first.ErrorCode, first.ErrorMessage)
+	}
+	if text, ok := blockOfType(first, "text"); !ok || strings.TrimSpace(text) == "" {
+		t.Fatalf("first managed turn must persist assistant text: %+v", first.Blocks)
+	}
+
+	secondID := retryPost(t, wc, convID, "")
+	second := waitTurn(t, wc, convID, secondID, 180000)
+	if second.Status != "completed" {
+		t.Fatalf("managed regenerated turn must complete: status=%s code=%s message=%s", second.Status, second.ErrorCode, second.ErrorMessage)
+	}
+	if text, ok := blockOfType(second, "text"); !ok || strings.TrimSpace(text) == "" {
+		t.Fatalf("managed regenerated turn must persist assistant text: %+v", second.Blocks)
+	}
+
+	msgs := retryList(t, wc, convID)
+	if len(msgs) != 3 {
+		t.Fatalf("managed regenerate must keep one user row and append one assistant version, got %d rows", len(msgs))
+	}
+	users, assistants := 0, make(map[string]retryMsg, 2)
+	for _, msg := range msgs {
+		switch msg.Role {
+		case "user":
+			users++
+		case "assistant":
+			assistants[msg.ID] = msg
+		}
+	}
+	if users != 1 || len(assistants) != 2 {
+		t.Fatalf("managed regenerate must expose one user and two assistant versions, users=%d assistants=%d msgs=%+v", users, len(assistants), msgs)
+	}
+	old, oldOK := assistants[firstID]
+	current, currentOK := assistants[secondID]
+	if !oldOK || !currentOK {
+		t.Fatalf("retry response ids must remain addressable in history: first=%s second=%s msgs=%+v", firstID, secondID, msgs)
+	}
+	if old.SupersededBy != secondID || current.retryOf() != firstID || current.SupersededBy != "" {
+		t.Fatalf("managed retry version chain is not linear: old=%+v current=%+v", old, current)
+	}
+
+	followID := sendMsg(t, wc, convID, "现在只用一句简短中文确认：重试后的对话仍可继续。不要调用工具。")
+	follow := waitTurn(t, wc, convID, followID, 180000)
+	if follow.Status != "completed" {
+		t.Fatalf("follow-up after managed retry must complete: status=%s code=%s message=%s", follow.Status, follow.ErrorCode, follow.ErrorMessage)
+	}
+	if text, ok := blockOfType(follow, "text"); !ok || strings.TrimSpace(text) == "" {
+		t.Fatalf("follow-up after managed retry must persist assistant text: %+v", follow.Blocks)
+	}
+}
+
 // TestLiveManaged_GenerateImageArtifact is the smallest managed-write acceptance: the default
 // Anselm dialogue model must discover and call generate_image once, the managed gateway must return
 // a decoder-valid image, and the tool receipt must land as a first-class attachment owned by Anselm.
