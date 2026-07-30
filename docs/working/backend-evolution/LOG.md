@@ -696,6 +696,14 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-516 | managed 高风险拒绝双跑事实加入 Frontier 后文档门禁通过；FRT-09 明确 speech/video 拒绝不铸造 receipt、不增加 reservation/quota，唯一 DTO drift warning 未变化 | docs gate / post-managed-danger-denial-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-517 | managed 视频批准后取消首轮在审批前 60s 未出现 `generate_video` danger interaction，测试在业务断言前超时；没有提交任务、没有产生 receipt，归类为 managed/provider 瞬态观察，不判为取消语义缺陷 | FRT-09 + FRT-13 / managed-write / async video / approval stall | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateVideoCancelAfterSubmitLeavesNoOrphan$' -count=1 -parallel 1 -timeout 20m -v` → FAIL 66.17s（`interaction` 未在 60s 出现）；未输出 provider secret |
+
+| 2026-07-30 | EVO-518 | 隔离复跑进入完整批准→提交→取消路径：`:cancel` 204，父回合与历史无迟到视频/孤儿 receipt；底层 `generate_video` failed WARN 随取消出现但 durable 语义正确 | FRT-09 + FRT-13 / managed-write / async cancellation / resource hygiene | 同一场景独立运行 → PASS 15.89s；未输出 provider secret |
+
+| 2026-07-30 | EVO-519 | 第三个独立进程再次通过视频提交后取消（31.58s），确认 no-orphan 结论在不同上游延迟下仍成立；未形成稳定后端缺陷 | FRT-09 + FRT-13 / managed-write / independent reprobe | 同一场景第三次独立运行 → PASS 31.58s；未输出 provider secret |
+
+| 2026-07-30 | EVO-520 | 视频提交后取消的红绿分叉与两次完整通过已加入 Frontier，文档门禁通过；保留审批前 stall 作为 gateway/provider 观察项，不掩盖测试事实 | docs gate / post-managed-video-cancel-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
