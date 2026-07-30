@@ -592,6 +592,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-464 | 最终追加原生 Anthropic 探测/请求/SSE/usage 双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-11 的 Azure/Vertex 凭证缺口仍如实保留，Frontier/LOG drift 无新增问题 | docs gate / final post-native-anthropic-probe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-465 | `custom + anthropic-compatible` 产品入口黑盒双跑：APIFormat 持久化、`:test` 的 `/v1/models` 探测、custom 无目录时的保守能力面，以及实际 `/v1/messages` 原生 headers/block body/命名 SSE/usage 全部闭合；未形成产品缺陷 | FRT-11 / byok-read / custom Anthropic-compatible dialect | 新增 `TestContractProvider_CustomAnthropicCompatibleRoutesNativeWire`；`/opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestContractProvider_CustomAnthropicCompatibleRoutesNativeWire$' -count=1 -timeout 3m -v` → PASS 6.42s；独立复跑 PASS 4.07s；仅使用本地假上游与假 key，未输出 provider secret；测试隔离 free-tier install failure 与 shutdown `context canceled` 为既知噪声 |
+
+| 2026-07-30 | EVO-466 | custom Anthropic-compatible 黑盒事实加入 Frontier/LOG 后文档门禁通过；FRT-11 的 APIFormat、保守能力面与 native wire 证据保持可读，既有 DTO drift warning 未变化 | docs gate / post-custom-anthropic-probe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-467 | custom Anthropic-compatible 场景后的 backend 全量门禁先出现一次 311.248s 并行红灯（输出被并发日志截断、未留下可定位 FAIL 断言），随后 JSON-filtered 全量复跑无任何 fail/panic/race 事件，原命令再次通过 `332.570s`；归类为一次未定位的测试基础设施瞬时 flake，不归因于新 provider 场景 | full backend testend regression / post-custom-anthropic-probe / transient flake audit | 首轮 `make -C backend testend` → exit 2（无可定位断言）；复跑 `/opt/homebrew/bin/mise exec -- go test -count=1 -parallel 16 -timeout 15m -json ./scenarios` → PASS；随后 `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 332.570s`；failure markers 为空；未开启 EVALS、未输出 provider secret |
+
+| 2026-07-30 | EVO-468 | custom Anthropic-compatible 黑盒与 backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-custom-anthropic-probe | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-469 | 最终追加 custom Anthropic-compatible 双跑、瞬时全量红灯审计、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-11 的 Azure/Vertex 凭证缺口与唯一 DTO drift warning 均如实保留 | docs gate / final post-custom-anthropic-probe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

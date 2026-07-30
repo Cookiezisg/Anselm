@@ -202,3 +202,148 @@ func TestContractProvider_AnthropicNativeHTTPAndPersistence(t *testing.T) {
 		t.Fatal("Anthropic body used an invalid prompt role")
 	}
 }
+
+const customAnthropicContractSSE = `event: message_start
+data: {"type":"message_start","message":{"id":"msg_custom_contract_1","type":"message","role":"assistant","content":[],"model":"custom-claude","stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":5,"output_tokens":0}}}
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"text_delta","text":"custom-anthropic-ok"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0}
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"output_tokens":6}}
+
+event: message_stop
+data: {"type":"message_stop"}
+
+`
+
+// TestContractProvider_CustomAnthropicCompatibleRoutesNativeWire proves the user-defined endpoint
+// branch keeps its conservative capability contract (no invented catalog knobs) while APIFormat
+// still selects the full native Anthropic transport for both probe and chat.
+func TestContractProvider_CustomAnthropicCompatibleRoutesNativeWire(t *testing.T) {
+	t.Parallel()
+	var mu sync.Mutex
+	var probeCount, messageCount int
+	var probePath, messagePath, probeKey, messageKey, probeVersion, messageVersion string
+	var probeAuthorization, messageAuthorization string
+	var messageBody []byte
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		defer mu.Unlock()
+		switch {
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/models":
+			probeCount++
+			probePath, probeKey, probeVersion = r.URL.Path, r.Header.Get("x-api-key"), r.Header.Get("anthropic-version")
+			probeAuthorization = r.Header.Get("Authorization")
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = io.WriteString(w, `{"data":[{"id":"custom-claude","type":"model","display_name":"Custom Claude","created_at":"2026-01-01T00:00:00Z"}]}`)
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/messages":
+			messageCount++
+			messagePath, messageKey, messageVersion = r.URL.Path, r.Header.Get("x-api-key"), r.Header.Get("anthropic-version")
+			messageAuthorization = r.Header.Get("Authorization")
+			messageBody, _ = io.ReadAll(r.Body)
+			w.Header().Set("Content-Type", "text/event-stream")
+			_, _ = io.WriteString(w, customAnthropicContractSSE)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer upstream.Close()
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "custom-anthropic-contract"}).Field(t, "id")
+	wc := c.WS(wsID)
+
+	const fakeKey = "custom-anthropic-contract-key"
+	var keyRow struct {
+		ID        string `json:"id"`
+		APIFormat string `json:"apiFormat"`
+	}
+	wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "custom", "displayName": "custom-anthropic-contract", "key": fakeKey,
+		"baseUrl": upstream.URL, "apiFormat": "anthropic-compatible",
+	}).OK(t, &keyRow)
+	if keyRow.ID == "" || keyRow.APIFormat != "anthropic-compatible" {
+		t.Fatalf("custom Anthropic key must preserve APIFormat on the product surface: %+v", keyRow)
+	}
+	wc.POST("/api/v1/api-keys/"+keyRow.ID+":test", nil).OK(t, nil)
+
+	// A custom endpoint has no catalog facts. It must still expose the probed id, but not invent
+	// image/PDF windows or Anthropic knobs merely because its APIFormat selects the Anthropic wire.
+	var caps []struct {
+		APIKeyID   string `json:"apiKeyId"`
+		Provider   string `json:"provider"`
+		ModelID    string `json:"modelId"`
+		Vision     bool   `json:"vision"`
+		NativeDocs bool   `json:"nativeDocs"`
+		Knobs      []struct {
+			Key string `json:"key"`
+		} `json:"knobs"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	var found bool
+	for _, cap := range caps {
+		if cap.APIKeyID != keyRow.ID || cap.Provider != "custom" || cap.ModelID != "custom-claude" {
+			continue
+		}
+		found = true
+		if cap.Vision || cap.NativeDocs || len(cap.Knobs) != 0 {
+			t.Fatalf("custom endpoint must not fabricate catalog capabilities: %+v", cap)
+		}
+	}
+	if !found {
+		t.Fatalf("custom Anthropic model id missing from capabilities: %+v", caps)
+	}
+
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyRow.ID, "modelId": "custom-claude"}).OK(t, nil)
+	convID := convCreate(t, wc, "custom Anthropic native wire")
+	msgID := sendMsg(t, wc, convID, "Prove the custom native route.")
+	turn := waitTurn(t, wc, convID, msgID, 30000)
+	if turn.Status != "completed" {
+		t.Fatalf("custom Anthropic-compatible turn must complete, got status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	if text, ok := blockOfType(turn, "text"); !ok || text != "custom-anthropic-ok" {
+		t.Fatalf("custom native SSE text missing: %+v", turn.Blocks)
+	}
+	if turn.InputTokens != 5 || turn.OutputTokens != 6 || turn.StopReason != "end_turn" {
+		t.Fatalf("custom native SSE usage/finish missing: stop=%q input=%d output=%d", turn.StopReason, turn.InputTokens, turn.OutputTokens)
+	}
+
+	mu.Lock()
+	gotProbeCount, gotMessageCount := probeCount, messageCount
+	gotProbePath, gotMessagePath := probePath, messagePath
+	gotProbeKey, gotMessageKey := probeKey, messageKey
+	gotProbeVersion, gotMessageVersion := probeVersion, messageVersion
+	gotProbeAuthorization, gotMessageAuthorization := probeAuthorization, messageAuthorization
+	body := append([]byte(nil), messageBody...)
+	mu.Unlock()
+	if gotProbeCount != 1 || gotMessageCount != 1 || gotProbePath != "/v1/models" || gotMessagePath != "/v1/messages" || gotProbeKey != fakeKey || gotMessageKey != fakeKey || gotProbeVersion != "2023-06-01" || gotMessageVersion != "2023-06-01" || gotProbeAuthorization != "" || gotMessageAuthorization != "" {
+		t.Fatalf("custom APIFormat did not select the native Anthropic wire: probe=%d/%s message=%d/%s versions=%q/%q authorization-present=%v/%v", gotProbeCount, gotProbePath, gotMessageCount, gotMessagePath, gotProbeVersion, gotMessageVersion, gotProbeAuthorization != "", gotMessageAuthorization != "")
+	}
+	var request struct {
+		Model    string `json:"model"`
+		Stream   bool   `json:"stream"`
+		Messages []struct {
+			Role    string          `json:"role"`
+			Content json.RawMessage `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &request); err != nil || request.Model != "custom-claude" || !request.Stream || len(request.Messages) == 0 {
+		t.Fatalf("custom Anthropic request body did not use native shape: err=%v model=%q stream=%v messages=%d", err, request.Model, request.Stream, len(request.Messages))
+	}
+	var blocks []struct {
+		Type string `json:"type"`
+		Text string `json:"text"`
+	}
+	if err := json.Unmarshal(request.Messages[len(request.Messages)-1].Content, &blocks); err != nil || len(blocks) != 1 || blocks[0].Type != "text" || !strings.Contains(blocks[0].Text, "custom native route") {
+		t.Fatalf("custom Anthropic message content was not block-form text: %s (err=%v)", request.Messages[len(request.Messages)-1].Content, err)
+	}
+}
