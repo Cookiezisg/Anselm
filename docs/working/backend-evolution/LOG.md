@@ -400,6 +400,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-368 | 聊天失败 FlowRun replay 场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent、workflow/trigger（含失败诊断、人在环与 replay）、附件发现/抽取/inspect、多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-chat-flowrun-replay | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 322.177s`；failure markers 为空；无 provider secret、EVALS 未开启 |
 
+| 2026-07-30 | EVO-369 | 聊天失败 FlowRun replay 场景、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-chat-flowrun-replay | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
