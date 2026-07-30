@@ -76,6 +76,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再次复探跨 provider 模型切换：Qwen `qwen3.7-plus` 首回合把 image+video 的 exact bytes 送入 recorder；切到 OpenAI `gpt-4.1-mini` 后，历史只保留 image native，video 变成明确 capability note 且不发送其字节，两个附件仍可逐字节回读。两次独立进程通过（12.527s、11.959s），未形成历史语义回填、能力门控或 provider 路由回归。
 
+本轮独立复探 OpenAI 图片历史交互：无内容 `retry` 连续保留单一 user 行、assistant 版本指针与 exact-byte native `image_url`；编辑文字的 resend 继续从附件历史重投影同一原图，未重复 user、丢失附件或退化成 text-only。两条路径当前进程均通过（6.340s、4.810s；包 11.445s），未形成历史装配或 part encoder 回归。
+
 ### FRT-03 最新证据
 
 本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
@@ -281,6 +283,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日补上显式旧版本切点：在 retry 链上以旧 assistant 的 message id 调 `:fork`，分支只复制 user + 旧 assistant；被切掉的新版本不留下悬空 `supersededBy` 或 `attrs.retryOf`，旧回答在分支内重新成为 current，分支 follow-up 完成且源仍保留三行历史。两次真实 managed 复跑通过（13.70s、12.32s），未形成后端缺陷。
 
 同日复探会话生命周期组合：普通 conversation fork、最新 assistant retry 后继续对话、旧版本 retry→fork 后继续对话三条路径在两个独立 managed 进程中全部通过（包总计 34.598s、27.400s）。源会话保持 append-only，retry 的 `retryOf`/`supersededBy` 与 fork 后的分支指针均落在新分支，旧版本切点没有悬空指针，分支 follow-up 完成且没有复活旧工具调用；未形成后端缺陷。
+
+本轮以 BYOK OpenAI 图片为载荷复核重试语义：`retry` 不复制 user 消息，追加的 assistant 版本仍指向正确历史并携带原生图片；编辑文字的 resend 复用同一附件而非新铸媒体。两条路径均保持 durable history 与附件字节闭合（6.340s、4.810s），未形成重试/重投影回归。
 
 本轮再做聊天侧 workflow 状态机交叉复探：`search_tools → trigger_workflow → get_flowrun` 可观测读取、失败 run 的 `search_flowruns → get_flowrun` 诊断、human approval durable park→`decide_approval`→下游 publish，以及失败后的 `replay_flowrun` 都在首个独立组合中完成（包 180.391s）。第二个组合出现一次单场景红灯，但其余三项通过；将疑似失败的 `ChatFlowrunFailureDiagnosis` 隔离后连续两次通过（42.362s、58.943s），没有稳定错误、孤儿 run 或错误恢复缺陷，因此只保留为 managed 模型/工具序列波动哨兵，不改生产代码。
 

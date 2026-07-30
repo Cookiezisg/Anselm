@@ -1065,6 +1065,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-701 | OpenAI 多图同回合当前双跑通过：两张独立 98-byte PNG 都进入原生视觉请求，durable turn 完成且两份附件逐字节可回读；BYOK workspace 没有 managed fallback，没有只取首图或多 part 编码退化 | FRT-02 + FRT-01 / byok-read / same-turn multiple images | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIMultipleImages$' -count=1 -parallel 1 -timeout 20m -v` → PASS 6.062s、5.632s；未输出 provider secret |
 
+| 2026-07-31 | EVO-702 | OpenAI 图片历史交互当前双跑通过：无内容 `retry` 保留单一 user 行与 assistant 版本链，并在重试请求中继续发送 exact-byte native image；编辑文字的 resend 同样保留原附件并重投影原生 image part，未重复 user、退化 text-only 或丢失媒体 | FRT-02 + FRT-13 / byok-read / image retry + edit-resend history | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIImage(RetryPreservesNativeHistory|EditResendPreservesAttachment)$' -count=1 -parallel 1 -timeout 30m -json` → PASS：Retry 6.340s、EditResend 4.810s；包 11.445s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
