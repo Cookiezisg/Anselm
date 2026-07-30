@@ -960,6 +960,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-648 | sibling `Anselm-API-Serve` 网关全栈门禁通过：vet、trimpath build、race 单测、integration-tag 真 HTTP+SQLite e2e、golangci-lint 与 docs lint 全绿；主仓 managed/BYOK 复探未发现网关合同漂移 | FRT-04 + gateway contract / API Serve / post-reprobe gate | `make -C ../Anselm-API-Serve verify` → PASS；integration e2e 6.979s、lint `0 issues`、docs `35 file(s) ok`；sibling 工作树保持 clean，未输出 provider secret |
 
+| 2026-07-31 | EVO-649 | Google Gemini 原生 image-input 真实路径连续两次触达上游当前 429；产品都准确落 `LLM_RATE_LIMITED` 并停止，没有伪造 assistant 文本、managed fallback 或把限流误报成媒体编码错误，故未宣称本轮视觉 wire 通过 | FRT-02 + FRT-11 / byok-read / provider rate window | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_GoogleImageInput$' -count=1 -parallel 1 -timeout 30m -json` → 两次均结构化 skip（5.410s、3.311s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
