@@ -44,6 +44,8 @@ audience: [human, ai]
 
 同轮复探 OpenAI `gpt-audio` 的音频+agent 交叉边界：两次独立进程都把 WAV 作为原生 `input_audio` 送入首发，完成一次 `run_function` 后将结果回灌第二次 `/chat/completions`；recorder 同时钉住音频原始 base64 与 `tools`，durable history 保留 tool call/result/最终文本，附件字节不变。两次通过（11.18s、9.32s），未复现此前的瞬时 provider stall。
 
+模型切换回归哨兵随后再次通过：同一会话先由 Qwen `qwen3.7-plus` 接收 image+video，再切到 OpenAI `gpt-4.1-mini`；第二轮只保留 image native，video 明确降级为 capability 注记，两个源附件仍逐字节回读。两次独立进程通过（12.75s、10.26s），未复现历史 semantic backfill 关闭竞态或 `database is closed`。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。

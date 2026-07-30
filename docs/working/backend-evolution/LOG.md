@@ -552,6 +552,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-444 | 最终追加 OpenAI native audio+tool 双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-02/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-openai-audio-tool-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-445 | Qwen→OpenAI 模型切换历史媒体回归哨兵双跑闭合：第一轮 Qwen 双 native，第二轮 OpenAI 仅保留 image native 并对 video 诚实降级，源 PNG/MP4 字节不变；未复现 semantic backfill 关闭竞态或 `database is closed` | FRT-02 / FRT-13 / byok-read / model switch history media reprojection | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_ModelSwitchReprojectsHistoryMedia$' -count=1 -v` → PASS 12.75s；独立复跑 PASS 10.26s；未输出 provider secret |
+
+| 2026-07-30 | EVO-446 | Qwen→OpenAI 模型切换回归哨兵事实加入 Frontier 后文档门禁通过；FRT-02/FRT-13 的媒体重投影、shutdown 竞态分类与既有 drift 检查保持可读 | docs gate / post-model-switch-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-447 | Qwen→OpenAI 模型切换历史媒体回归哨兵后的 backend 全量黑盒回归闭合；chat、agent/subagent、workflow/trigger、附件/多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-model-switch-reprobe | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 312.078s`；failure markers 为空；未开启 EVALS、未输出 provider secret |
+
+| 2026-07-30 | EVO-448 | Qwen→OpenAI 模型切换回归哨兵、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-model-switch-reprobe | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-449 | 最终追加模型切换媒体重投影双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；FRT-02/FRT-13/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-model-switch-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
