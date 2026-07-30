@@ -948,6 +948,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-642 | DeepSeek OpenAI-compatible tool continuation 两次通过：真实产品回合保留 assistant tool call，sandbox function 返回 `144`，第二次采样带回结果；录制请求同时保留 tools/tool_calls/tool result，未出现重复执行或 managed 兜底 | FRT-05 + FRT-11 / byok-read / tool continuation | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_DeepSeekToolContinuation$' -count=1 -parallel 1 -timeout 20m -json` → PASS 14.14s、9.89s；未输出 provider secret |
 
+| 2026-07-31 | EVO-643 | Qwen `qwen3.7-plus` image+video 同回合融合连续两次通过；能力投影声明双原生媒体，录制的 OpenAI-compatible wire 同时包含 exact-byte `image_url`/`video_url`，附件回读字节不变且无上游 400 | FRT-02 / byok-read / multimodal fusion | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_QwenImageAndVideoFusion$' -count=1 -parallel 1 -timeout 30m -json` → PASS 10.47s、9.05s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
