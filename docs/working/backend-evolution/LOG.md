@@ -1007,6 +1007,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-672 | managed 附件历史生命周期四场景连续两轮全绿：保留附件的跨回合重投影继续完成并保持 98-byte PNG 原样；删除附件后 content 端点 404，后续回合仍完成且不伪造已删除媒体，未出现历史装配、lease 或附件孤儿 | FRT-01 + FRT-13 / managed-read / attachment deletion + history reprojection | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(DeletedAttachmentDegradesInHistory|AttachmentHistoryReprojection)$' -count=1 -parallel 1 -timeout 30m -v` → 两轮均 PASS（21.646s、16.020s；四项单场景均通过）；未输出 provider secret |
 
+| 2026-07-31 | EVO-673 | Google 目录资格漂移的重复失败边界连续两次通过：同一显式选择的过期/不可用模型连续发送两次，各只产生一次上游 generate，均落 `LLM_MODEL_NOT_FOUND` error turn、无 assistant 文本、无 managed fallback 或无界重试；自动失效/降级仍保持为待产品决策策略 | FRT-14 / byok-read / stale model repeated failure | `cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleListedModelRepeatedFailure$' -count=1 -parallel 1 -timeout 20m -v` → PASS 5.157s、3.934s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

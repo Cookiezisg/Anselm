@@ -234,6 +234,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日复探 Google 目录资格漂移：`gemini-2.5-flash` 仍在当前 `/models` 投影，但同一显式选择连续发送两次时，每回合只发一次上游请求并分别落 `LLM_MODEL_NOT_FOUND`，没有 assistant 文本、managed fallback 或无界重试；两次独立进程通过（6.282s、4.212s）。自动失效/降级仍保留为待产品决策的策略缺口。
 
+本轮再次对该重复失败边界做两次独立复跑：同一显式模型连续两轮各自只产生一次非重试 generate，两个 error turn 都是 `LLM_MODEL_NOT_FOUND`，没有 assistant 文本或受管回退；两次包级通过（5.157s、3.934s）。证据继续支持“错误分类与重试上限已闭合”，而不是替产品决定自动失效/降级策略。
+
 同日补做资格错误后的显式恢复：旧 Gemini 模型首发只调用一次并落 `LLM_MODEL_NOT_FOUND`，用户随后明确切换到 `gemini-3-flash-preview`，同一 conversation 恢复 completed 且总上游调用恰两次；两次独立复跑通过（6.959s、6.412s），没有错误回合污染后续历史。
 
 本轮所有 live 探针与文档变更后执行一次全量后端黑盒回归：`testend/scenarios` 用时 328.040s 全绿，未引入新的稳定产品缺陷；该门禁只证明当前已落地行为没有被本轮工作回归，不替代各 provider/managed 场景的独立真线缆证据。
