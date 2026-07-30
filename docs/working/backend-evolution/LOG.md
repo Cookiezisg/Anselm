@@ -997,6 +997,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-667 | managed 音视频与时序边界第二独立组合 4/4 通过：视频+不支持音频保持诚实降级、文字+图片+视频三路融合完成、视频/音频 `inspect_media` 时间窗返回 bounded metadata；源 MP4/WAV/PNG 字节均可回读，未出现 400 或伪造转录 | FRT-01 / managed-read/default / multimodal fusion + temporal inspection | `cd testend; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(DefaultChatWithVideoAndUnsupportedAudio|DefaultChatWithTextImageAndVideoAttachments|InspectMediaVideoTimeRange|InspectMediaAudioTimeRange)$' -count=1 -parallel 1 -timeout 30m -json` → PASS 119.233s；未输出 provider secret |
 
+| 2026-07-31 | EVO-668 | 本轮 managed 读侧/多模态/语音成本真实复探后，完整 backend 黑盒回归仍通过；既有 chat、agent/subagent、workflow/trigger、MCP/function/handler、附件抽取、多模态、取消/重试/崩溃恢复与资源卫生未出现基线回归 | full backend testend regression / post-EVO-665~667 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731.log | tail -n 80` → `ok github.com/sunweilin/anselm/testend/scenarios 298.106s`；未启用 EVALS/provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
