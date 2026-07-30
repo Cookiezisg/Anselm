@@ -404,6 +404,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-370 | 真实 managed 嵌套失败续接补齐：父回合只派 `general-purpose` 子代理，子代理发现并调用故意抛错的 `run_function`；function execution 以 `failed + triggeredBy=agent` 记录同一 conversation/message，错误 marker 保留在 durable 子消息与父 `Subagent` tool result，父回合仍 completed 且没有直接越权 function 调用。两次真实复跑通过，未形成后端缺陷 | FRT-05 / managed-read/default / parent chat → subagent → failed function → parent continuation | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_SubagentFunctionFailureContinues$' -count=1` → PASS 49.94s；复跑 PASS 55.356s；无 provider secret |
 
+| 2026-07-30 | EVO-371 | managed 子代理失败续接场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent（含真实 nested function failure）、workflow/trigger、附件发现/抽取/inspect、多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-managed-subagent-failure | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 355.035s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
