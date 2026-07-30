@@ -794,6 +794,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-565 | 同一 `inspect_media` 七路径第二个独立进程再次全绿（包总计 113.666s），确认 crop/detail/tiles、音视频时间窗和 metadata-only 边界不依赖一次性模型配合，未形成后端缺陷 | FRT-01 / managed-read / independent reprobe | 同一命令第二次独立运行（输出收敛为末 140 行）→ PASS，包总计 113.666s；未输出 provider secret |
 
+| 2026-07-30 | EVO-566 | 直接 `inspect_media` 图像/音视频双跑事实加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-inspect-media-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-567 | managed 附件删除降级与历史媒体重投影首轮组合通过：删除后的 follow-up 读取 404 仍完成并写 missing attachment 语义，省略 `attachmentIds` 的后续回合重新投影历史图片，源字节保持 | FRT-01 / managed-read / attachment lifecycle | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(DeletedAttachmentDegradesInHistory|AttachmentHistoryReprojection)$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 18.790s；未输出 provider secret |
+
+| 2026-07-30 | EVO-568 | 同一附件生命周期组合第二个独立进程再次全绿（包总计 19.490s），确认 404 降级与跨回合重投影不是一次性模型窗口结果，未形成后端缺陷 | FRT-01 / managed-read / independent reprobe | 同一命令第二次独立运行（输出收敛为末 120 行）→ PASS，包总计 19.490s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

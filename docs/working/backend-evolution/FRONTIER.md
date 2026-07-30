@@ -94,6 +94,8 @@ audience: [human, ai]
 
 同日补做附件生命周期哨兵：同回合两张独立图片均可回读；首轮消费图片后删除附件，后续回合面对 404 仍把历史媒体明确降级为 missing attachment 而完成；另一条会话在首轮带图后省略 `attachmentIds` 继续追问，历史媒体重新投影后仍完成且源字节不变。三条场景在两个独立 managed 进程中均通过（包总计 30.287s、29.376s），没有 400、孤儿媒体或跨回合丢失；关停阶段偶见 search embedder `context canceled` 仍归类为已知 shutdown 噪声。
 
+同日再做附件删除/历史重投影两条最小组合的独立进程复探：删除后的历史回合继续诚实产出 missing-attachment 注记，省略 `attachmentIds` 的后续回合仍从历史投影得到原图语义，源字节守卫均通过。两轮组合均全绿（18.790s、19.490s），未形成生命周期回归。
+
 同日复探 `inspect_media` 的参数下沉：图片 crop+high detail、视频 `startMs=1000/endMs=2000`、音频 `startMs=1200/endMs=2600` 均能返回带范围/模式/usage 的 bounded metadata capsule，PNG/MP4/WAV 源字节均未变。首轮三项组合通过（56.66s/16.15s/16.71s，包 90.245s）；第二个组合在音频项出现一次可区分的模型拒答——lazy 目录卡只暴露了必填参数，模型误以为 `startMs/endMs` 不在 schema。将时间窗能力前移到 `inspect_media` 目录卡首行并加离线断言后，音频时间窗两次独立真实复跑通过（30.93s、17.25s），确认是发现面提示缺口而非执行层不支持。
 
 同日补做大文本读取三件套：对 136,890/116,043/157,248-byte 级别的文本附件，managed 模型分别真实完成 `read_attachment` 的 query、显式 compact index 与省略控制参数的 auto-index；每条返回均保持 bounded，query/index 没有把正文整段泄漏到回合，源附件仍可逐字节回读。两轮独立进程三项全通过（首轮包 42.727s，Query/Index/AutoIndex 为 13.86s/7.88s/20.36s；复跑包 30.145s，Index/AutoIndex 为 7.52s/9.45s，Query 亦通过），没有再出现参数类型校验警告或隐式全文投影。
