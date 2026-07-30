@@ -842,6 +842,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-589 | OpenAI 图片历史/多图事实加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-openai-image-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-590 | OpenAI BYOK image+unsupported-audio/video 首轮组合通过：image 保持原生 exact-byte part，WAV/MP4 变成明确 capability note，三份附件均可回读且未把混合请求错误发成 400 | FRT-02 / byok-read / heterogeneous attachment downgrade | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIImageAndUnsupported' -count=1 -parallel 1 -timeout 20m -v` → PASS 16.351s（audio 8.73s、video 7.03s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-591 | OpenAI BYOK 原生 PDF 首轮通过：产品上传的 540-byte PDF 经 file part/inline file_data 送到 recorder，durable 回合完成且原件逐字节保持 | FRT-02 / byok-read / native PDF wire | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIPDFInput$' -count=1 -parallel 1 -timeout 15m -v` → PASS 9.593s；未输出 provider secret |
+
+| 2026-07-30 | EVO-592 | OpenAI 异构附件第二轮独立复跑全绿（9.644s），原生 PDF 第二轮也通过（5.300s）；当前能力掩码、降级注记、file encoder 与附件存储未形成回归 | FRT-02 / byok-read / independent reprobe | 同一两组命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
