@@ -1061,6 +1061,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-699 | Qwen `qwen3.7-plus` 图片+视频当前双跑通过：同一回合 recorder 观察到 98-byte PNG 的 `image_url` 与 2,969,360-byte MP4 的 `video_url` exact-byte native parts，回合完成且附件原样可回读，无 text-only 降级、400 或 managed fallback | FRT-02 / byok-read / Qwen native image+video fusion | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_QwenImageAndVideoFusion$' -count=1 -parallel 1 -timeout 20m -v` → PASS 5.463s、10.585s；未输出 provider secret |
 
+| 2026-07-31 | EVO-700 | BYOK 文档/视频单模态当前组合通过：OpenAI `gpt-4.1-mini` 原生 PDF wire 完成，Qwen `qwen3.7-plus` 单 MP4 以 native `video_url` 完成；PDF/MP4 源附件逐字节可回读，BYOK workspace 未装 managed fallback | FRT-02 + FRT-06 / byok-read / native PDF + video | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(OpenAIPDFInput|QwenVideoInput)$' -count=1 -parallel 1 -timeout 30m -json` → PASS：OpenAIPDFInput 6.570s、QwenVideoInput 9.230s；包 16.207s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
