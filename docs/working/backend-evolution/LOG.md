@@ -1001,6 +1001,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-669 | managed 子代理失败续接与并行跨回合上下文复探重新全绿：故意失败 function 的错误 marker 能回到父回合，父/child 与 execution ledger 闭合；并行 child 的两个 marker 可在无工具 follow-up 中逐字恢复，未出现孤儿、重复 execution 或 `parentBlockId` 丢失 | FRT-05 / managed / subagent failure continuation + parallel context | `cd testend; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(SubagentFunctionFailureContinues|ParallelSubagentContextContinues)$' -count=1 -parallel 1 -timeout 45m -json` → PASS，包 110.627s（两项均通过）；未输出 provider secret |
 
+| 2026-07-31 | EVO-670 | 文档内图片引用双侧真实闭环连续复探通过：managed 默认入口与 OpenAI BYOK 入口都把文档中的图片引用、附件行与模型消费保持同一 MediaRef/源字节，回合完成且没有把引用降成孤立文本或切错路由 | FRT-06 + FRT-01/FRT-02 / managed-read + byok-read / document image reference | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DocumentImageReference$' -count=1 -parallel 1 -timeout 20m -v` → PASS 5.974s、7.793s；`cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIDocumentImageReference$' -count=1 -parallel 1 -timeout 20m -v` → PASS 4.796s、4.795s；两侧均未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

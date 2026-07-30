@@ -190,6 +190,10 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 最新同一组合独立复跑重新全绿：`SubagentFunctionFailureContinues` 确实产生 `failed + triggeredBy=agent` execution，错误 marker 经 child message 与父 `Subagent` tool result 续接，父回合 completed；`ParallelSubagentContextContinues` 的两个 child 均完成，下一轮无工具 follow-up 逐字恢复两个 marker，历史锚点与各自 function execution 均闭合。该包 110.627s 全部通过，推翻不了前述红绿波动的事实，但进一步支持其为 managed 模型工具遵循/重试时序哨兵，而非已确认的 backend 状态机缺陷；继续保留低频复探，不改生产代码。
 
+### FRT-06 最新证据
+
+同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
+
 ### FRT-11 最新证据
 
 本轮先做 DeepSeek 兼容线缆的真实双跑：`deepseek-v4-flash` 在产品 API 内完成 `run_function`，函数结果回灌后第二次 chat/completions 采样完成；durable history 同时保留 tool call、tool result 和最终 `144`，recorder 观察到至少两次请求且请求携带 `tools`、`tool_calls` 与结果载荷。两次独立进程通过（12.52s、9.52s），未形成产品缺陷；关停阶段的 embedder `context canceled` 仍是已知 shutdown 噪声。
