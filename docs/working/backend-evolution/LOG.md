@@ -946,6 +946,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-641 | DeepSeek OpenAI-compatible 与 Google Gemini 原生读取路径的产品级文本 smoke 连续两个独立进程均通过；key probe、能力投影、显式模型选择、真实回合与 assistant 文本均闭合，managed fallback 未介入 | FRT-02 + FRT-11 / byok-read / provider smoke | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_TextProviderSmoke$' -count=1 -parallel 1 -timeout 30m -json` → PASS 13.319s、11.462s；未输出 provider secret |
 
+| 2026-07-31 | EVO-642 | DeepSeek OpenAI-compatible tool continuation 两次通过：真实产品回合保留 assistant tool call，sandbox function 返回 `144`，第二次采样带回结果；录制请求同时保留 tools/tool_calls/tool result，未出现重复执行或 managed 兜底 | FRT-05 + FRT-11 / byok-read / tool continuation | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_DeepSeekToolContinuation$' -count=1 -parallel 1 -timeout 20m -json` → PASS 14.14s、9.89s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
