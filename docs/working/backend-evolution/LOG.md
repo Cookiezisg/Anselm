@@ -864,6 +864,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-600 | Kimi credential probe 第二个独立进程同样保留 401→`API_KEY_TEST_FAILED` 边界（3.451s）；当前 key 仍不可用，未宣称 Kimi 对话能力 | FRT-11 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-30 | EVO-601 | Google 目录资格漂移首轮通过：仍可见但不可用的 `gemini-2.5-flash` 连续两次发送各只触发一次上游请求，均落 `LLM_MODEL_NOT_FOUND`，无 assistant 文本或 fallback | FRT-14 / byok-read / stale model repeated failure | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleListedModelRepeatedFailure$' -count=1 -parallel 1 -timeout 15m -v` → PASS 6.282s；未输出 provider secret |
+
+| 2026-07-30 | EVO-602 | 同一 stale-model 资格边界第二个独立进程再次通过（4.212s）；自动失效/降级仍未擅自实现，保留产品策略决策项 | FRT-14 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

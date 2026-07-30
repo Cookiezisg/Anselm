@@ -168,6 +168,10 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日复探会话生命周期组合：普通 conversation fork、最新 assistant retry 后继续对话、旧版本 retry→fork 后继续对话三条路径在两个独立 managed 进程中全部通过（包总计 34.598s、27.400s）。源会话保持 append-only，retry 的 `retryOf`/`supersededBy` 与 fork 后的分支指针均落在新分支，旧版本切点没有悬空指针，分支 follow-up 完成且没有复活旧工具调用；未形成后端缺陷。
 
+### FRT-14 最新证据
+
+同日复探 Google 目录资格漂移：`gemini-2.5-flash` 仍在当前 `/models` 投影，但同一显式选择连续发送两次时，每回合只发一次上游请求并分别落 `LLM_MODEL_NOT_FOUND`，没有 assistant 文本、managed fallback 或无界重试；两次独立进程通过（6.282s、4.212s）。自动失效/降级仍保留为待产品决策的策略缺口。
+
 ### FRT-15 最新证据
 
 同日补上真实 managed workspace 的大图扇出/AND-join 闭环：一个 manual flowrun 展开 8 条 action 分支，两个四输入 join 在所有上游完成后各执行一次，finish 汇总 12 条 durable node rows；function ledger 同时证明 8 次 branch、2 次 join、1 次 finish 均绑定同一 `flowrunId`、`flowrunNodeId` 唯一且成功。两次真实复跑通过（总计 9.109s、9.867s），未形成后端缺陷；关停阶段 search embedder `context canceled` 仍归类为服务 shutdown 噪声。
