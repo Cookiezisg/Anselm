@@ -1914,6 +1914,116 @@ func TestLiveManaged_ParallelSubagentTrees(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ParallelSubagentContextContinues proves the next user turn sees the completed
+// child trees as ordinary conversation context: the parent can recall both results without
+// resurrecting a child or duplicating either function execution.
+func TestLiveManaged_ParallelSubagentContextContinues(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-parallel-subagent-context")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 5}}).OK(t, nil)
+	const alphaMarker = "PARALLEL_CONTEXT_ALPHA_2E71"
+	const betaMarker = "PARALLEL_CONTEXT_BETA_8D34"
+	alphaFn := fnCreate(t, wc, "parallel_context_alpha", fmt.Sprintf(`def alpha() -> dict:
+    return {"marker": "%s"}
+`, alphaMarker))
+	betaFn := fnCreate(t, wc, "parallel_context_beta", fmt.Sprintf(`def beta() -> dict:
+    return {"marker": "%s"}
+`, betaMarker))
+	convID := convCreate(t, wc, "managed parallel subagent context")
+	firstPrompt := fmt.Sprintf(`请只派两个 general-purpose 子代理，两个子任务彼此独立；父回合不要直接调用任何其他工具。
+第一个子代理先用 search_tools 搜索 run_function，等 schema 返回后只调用一次 run_function，参数必须逐字使用 functionId=%s 和 args={}，成功后原样带回标记 %s。
+第二个子代理先用 search_tools 搜索 run_function，等 schema 返回后只调用一次 run_function，参数必须逐字使用 functionId=%s 和 args={}，成功后原样带回标记 %s。
+两个 Subagent 调用都应设置 execution_group=1；两个子代理都完成后，父回合只用一句简短中文确认并同时保留两个标记，不要再调用工具。`, alphaFn, alphaMarker, betaFn, betaMarker)
+	firstID := sendMsg(t, wc, convID, firstPrompt)
+	first := waitTurn(t, wc, convID, firstID, 300000)
+	if first.Status != "completed" {
+		t.Fatalf("managed parent must complete before context follow-up: status=%s code=%s message=%s blocks=%+v", first.Status, first.ErrorCode, first.ErrorMessage, first.Blocks)
+	}
+	parentCalls := map[string]bool{}
+	childResults := ""
+	for _, block := range first.Blocks {
+		tool, _ := block.Attrs["tool"].(string)
+		if tool == "Subagent" && block.Type == "tool_call" {
+			parentCalls[block.ID] = true
+		}
+		if tool == "Subagent" && block.Type == "tool_result" {
+			childResults += block.Content
+		}
+		if tool == "run_function" && block.Type == "tool_call" {
+			t.Fatalf("parent must not call run_function directly before context follow-up: %+v", first.Blocks)
+		}
+	}
+	if len(parentCalls) < 2 || !strings.Contains(childResults, alphaMarker) || !strings.Contains(childResults, betaMarker) {
+		t.Fatalf("initial parent turn must preserve both delegated results: calls=%d results=%q blocks=%+v", len(parentCalls), childResults, first.Blocks)
+	}
+
+	followPrompt := fmt.Sprintf("上一回合的两个独立子任务已经完成。不要调用任何工具，只用一句简短中文复述两个结果标记，必须逐字包含 %s 和 %s，并确认两个子任务都已记录。", alphaMarker, betaMarker)
+	follow := waitTurn(t, wc, convID, sendMsg(t, wc, convID, followPrompt), 180000)
+	if follow.Status != "completed" {
+		t.Fatalf("same conversation must continue after parallel child trees: status=%s code=%s message=%s blocks=%+v", follow.Status, follow.ErrorCode, follow.ErrorMessage, follow.Blocks)
+	}
+	followText := ""
+	for _, block := range follow.Blocks {
+		if block.Type == "tool_call" {
+			t.Fatalf("context follow-up must not resurrect a child or any tool call: %+v", follow.Blocks)
+		}
+		if block.Type == "text" {
+			followText += block.Content
+		}
+	}
+	if !strings.Contains(followText, alphaMarker) || !strings.Contains(followText, betaMarker) {
+		t.Fatalf("context follow-up must recall both child markers without tools: %q blocks=%+v", followText, follow.Blocks)
+	}
+
+	var messages []struct {
+		SubagentID string         `json:"subagentId"`
+		Status     string         `json:"status"`
+		Attrs      map[string]any `json:"attrs"`
+		Blocks     []struct {
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	wc.GET("/api/v1/conversations/"+convID+"/messages?limit=50").OK(t, &messages)
+	childCount, anchoredMarkers := 0, map[string]bool{}
+	for _, message := range messages {
+		if message.SubagentID == "" {
+			continue
+		}
+		childCount++
+		if message.Status != "completed" {
+			t.Fatalf("completed child tree must remain terminal after follow-up: %+v", message)
+		}
+		anchor, _ := message.Attrs["parentBlockId"].(string)
+		if !parentCalls[anchor] {
+			t.Fatalf("child anchor must still resolve to the first parent turn after follow-up: %q calls=%v", anchor, parentCalls)
+		}
+		for _, block := range message.Blocks {
+			if strings.Contains(block.Content, alphaMarker) {
+				anchoredMarkers[alphaMarker] = true
+			}
+			if strings.Contains(block.Content, betaMarker) {
+				anchoredMarkers[betaMarker] = true
+			}
+		}
+	}
+	if childCount != 2 || len(anchoredMarkers) != 2 {
+		t.Fatalf("follow-up must preserve exactly two completed child trees and both markers: children=%d markers=%v messages=%+v", childCount, anchoredMarkers, messages)
+	}
+	for _, fnID := range []string{alphaFn, betaFn} {
+		var executions struct {
+			Executions []struct {
+				Status         string `json:"status"`
+				TriggeredBy    string `json:"triggeredBy"`
+				ConversationID string `json:"conversationId"`
+			} `json:"executions"`
+		}
+		wc.GET("/api/v1/functions/"+fnID+"/executions").OK(t, &executions)
+		if len(executions.Executions) != 1 || executions.Executions[0].Status != "ok" || executions.Executions[0].TriggeredBy != "agent" || executions.Executions[0].ConversationID != convID {
+			t.Fatalf("context follow-up must not duplicate child function execution %s: %+v", fnID, executions.Executions)
+		}
+	}
+}
+
 // TestLiveManaged_SubagentCancelTerminal proves cancellation while a real child tool is in flight:
 // the parent and nested sub-message both leave streaming, the running function leaves one
 // cancelled audit row, and the same conversation accepts a follow-up after the cancellation.
