@@ -572,6 +572,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-454 | 最终追加 API key 轮换恢复哨兵、backend 全量与跨层门禁证据后的文档门禁再次通过；Frontier/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-api-key-rotation-recovery | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-455 | FRT-14 stale-model 重复发送真实双跑闭合：Google 目录仍列出但账号不可生成的 `gemini-2.5-flash`，用户不改显式选择连续发送两次时，每回合各只产生一次上游 `streamGenerateContent`，均落结构化 `LLM_MODEL_NOT_FOUND`，没有 managed fallback、assistant 伪文案或单回合重试；这确认了“诚实失败”而不是自动失效/降级，后者仍是待产品决策的策略缺口 | FRT-14 / BYOK-read / repeated model-qualification failure | 新增 `TestLiveBYOK_GoogleListedModelRepeatedFailure`；`set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleListedModelRepeatedFailure$' -count=1 -timeout 8m -v` → PASS 5.95s；独立复跑 PASS 4.55s；key 未输出；测试隔离 free-tier install failure 与 shutdown `context canceled` 为既知噪声 |
+
+| 2026-07-30 | EVO-456 | FRT-14 stale-model 重复发送事实加入 Frontier 后文档门禁通过；模型资格策略缺口被明确保留，既有 DTO drift warning 未变化 | docs gate / post-repeated-stale-model-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；12 对 anchored DTO mirror 检查、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-457 | FRT-14 stale-model 重复发送场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent（含失败/取消/分叉）、workflow/trigger/fanout、附件/多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-repeated-stale-model-reprobe | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 343.289s`；failure markers 为空；未开启 EVALS、未输出 provider secret |
+
+| 2026-07-30 | EVO-458 | FRT-14 stale-model 重复发送、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-repeated-stale-model-reprobe | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-459 | 最终追加 FRT-14 stale-model 重复失败双跑、backend 全量与跨层门禁证据后的文档门禁再次通过；模型自动失效/降级策略缺口被如实保留，Frontier/LOG drift 无新增问题 | docs gate / final post-repeated-stale-model-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

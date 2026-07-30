@@ -6337,6 +6337,75 @@ func TestLiveBYOK_GoogleListedModelCanBeAccountUnavailable(t *testing.T) {
 	}
 }
 
+// TestLiveBYOK_GoogleListedModelRepeatedFailure keeps the unresolved FRT-14 policy boundary
+// observable: after a non-retryable model-qualification 404, sending again without changing the
+// user's explicit model must produce another honest error turn, not a hidden managed fallback,
+// fabricated answer, or an unbounded retry inside either turn. Automatic invalidation/downgrade is
+// intentionally not inferred from this probe; the evidence is recorded for the product decision.
+//
+// TestLiveBYOK_GoogleListedModelRepeatedFailure 把尚未定策略的 FRT-14 边界变成可观测证据：一次不可重试的
+// 模型资格 404 后，用户不改显式选择再次发送时，应再落一个诚实错误回合，不得暗中借 managed fallback、
+// 伪造回答，也不得在单回合内无界重试。该 probe 不擅自推断自动失效/降级策略，只记录供产品决策。
+func TestLiveBYOK_GoogleListedModelRepeatedFailure(t *testing.T) {
+	if os.Getenv("EVALS_BYOK") != "1" {
+		t.Skip("set EVALS_BYOK=1 to run the real-provider BYOK product acceptance")
+	}
+	key := os.Getenv("GEMINI_API_KEY")
+	if key == "" {
+		t.Skip("EVALS_BYOK=1 requires GEMINI_API_KEY; key material is never logged")
+	}
+
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	rec := harness.NewRecorder(t, "https://generativelanguage.googleapis.com")
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "live-byok-google-repeated-stale"}).Field(t, "id")
+	wc := c.WS(wsID)
+	keyID := wc.POST("/api/v1/api-keys", map[string]any{
+		"provider": "google", "displayName": "live-google-repeated-stale", "key": key, "baseUrl": rec.URL() + "/v1beta",
+	}).Field(t, "id")
+	wc.POST("/api/v1/api-keys/"+keyID+":test", nil).OK(t, nil)
+
+	var caps []struct {
+		APIKeyID string `json:"apiKeyId"`
+		Provider string `json:"provider"`
+		ModelID  string `json:"modelId"`
+	}
+	wc.GET("/api/v1/model-capabilities").OK(t, &caps)
+	listed := false
+	for _, cap := range caps {
+		if cap.APIKeyID == keyID && cap.Provider == "google" && cap.ModelID == "gemini-2.5-flash" {
+			listed = true
+			break
+		}
+	}
+	if !listed {
+		t.Skip("current Google account no longer lists gemini-2.5-flash; repeated stale-model reprobe is not constructible")
+	}
+	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keyID, "modelId": "gemini-2.5-flash"}).OK(t, nil)
+
+	conv := convCreate(t, wc, "Google repeated stale model")
+	for i, prompt := range []string{
+		"请用一句简短中文回答：第一次连接测试。不要调用工具。",
+		"请用一句简短中文回答：第二次连接测试。不要调用工具。",
+	} {
+		msg := sendMsg(t, wc, conv, prompt)
+		turn := waitTurn(t, wc, conv, msg, 180000)
+		if turn.Status != "error" || turn.ErrorCode != "LLM_MODEL_NOT_FOUND" {
+			t.Fatalf("stale-model send %d must be an explicit model-not-found error: status=%s code=%s message=%s", i+1, turn.Status, turn.ErrorCode, turn.ErrorMessage)
+		}
+		if got := rec.CallsTo("streamGenerateContent"); got != i+1 {
+			t.Fatalf("stale-model send %d must perform exactly one non-retryable generate, total calls=%d", i+1, got)
+		}
+		for _, block := range turn.Blocks {
+			if block.Type == "text" && strings.TrimSpace(block.Content) != "" {
+				t.Fatalf("stale-model send %d must not persist assistant text: %+v", i+1, turn.Blocks)
+			}
+		}
+	}
+	t.Log("repeated stale-model sends remain explicit LLM_MODEL_NOT_FOUND turns; automatic invalidation/downgrade remains an intentional policy gap")
+}
+
 // TestLiveBYOK_GoogleImageInput covers Google's native Gemini wire on the multimodal read
 // boundary. Unlike the OpenAI-compatible image lane above, this exercises contents/parts mapping,
 // native x-goog-api-key auth and the model-in-path request while keeping the managed gateway closed.
