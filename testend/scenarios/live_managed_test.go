@@ -311,6 +311,63 @@ func TestLiveManaged_ChatRetryThenForkContinues(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ChatRetryForkAtOlderVersionContinues proves the other side of the prefix
+// contract: cutting at the older assistant version must exclude the newer retry entirely. Inside
+// that branch the old answer is current again, so a copy must clear both version pointers rather
+// than leave a dangling reference to a row that the branch does not contain.
+func TestLiveManaged_ChatRetryForkAtOlderVersionContinues(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-retry-fork-older-version")
+	convID := convCreate(t, wc, "managed retry older fork")
+	firstID := sendMsg(t, wc, convID, "请用一句简短中文回答：这是旧版本回答。不要调用工具。")
+	first := waitTurn(t, wc, convID, firstID, 180000)
+	if first.Status != "completed" {
+		t.Fatalf("first managed turn must complete before retry/older fork: status=%s code=%s message=%s", first.Status, first.ErrorCode, first.ErrorMessage)
+	}
+	secondID := retryPost(t, wc, convID, "")
+	second := waitTurn(t, wc, convID, secondID, 180000)
+	if second.Status != "completed" {
+		t.Fatalf("managed regenerated turn must complete before older fork: status=%s code=%s message=%s", second.Status, second.ErrorCode, second.ErrorMessage)
+	}
+	source := retryList(t, wc, convID)
+	if len(source) != 3 {
+		t.Fatalf("source must contain both versions before older fork, got %d", len(source))
+	}
+
+	fork := forkAt(t, wc, convID, firstID)
+	head := forkGetConv(t, wc, fork.ID)
+	if head.ForkedFromConversationID != convID || head.ForkedFromMessageID != firstID || head.Title != "managed retry older fork (fork)" || head.AutoTitled {
+		t.Fatalf("older-version fork lineage must stop at the requested source row: source=%s cut=%s fork=%+v", convID, firstID, head)
+	}
+	forkMsgs := retryList(t, wc, fork.ID)
+	if len(forkMsgs) != 2 {
+		t.Fatalf("older-version fork must contain only user + older assistant, got %d", len(forkMsgs))
+	}
+	var copiedOld retryMsg
+	for _, msg := range forkMsgs {
+		if msg.ID == firstID || msg.ID == secondID {
+			t.Fatalf("older-version fork must mint a fresh message id, reused source row %s", msg.ID)
+		}
+		if msg.Role == "assistant" {
+			copiedOld = msg
+		}
+	}
+	if copiedOld.ID == "" || copiedOld.SupersededBy != "" || copiedOld.retryOf() != "" {
+		t.Fatalf("a newer version outside the prefix must leave the copied older row current, got %+v", copiedOld)
+	}
+
+	continuedID := sendMsg(t, wc, fork.ID, "现在只用一句简短中文确认：旧版本分支仍可继续。不要调用工具。")
+	continued := waitTurn(t, wc, fork.ID, continuedID, 180000)
+	if continued.Status != "completed" {
+		t.Fatalf("older-version fork continuation must complete: status=%s code=%s message=%s", continued.Status, continued.ErrorCode, continued.ErrorMessage)
+	}
+	if text, ok := blockOfType(continued, "text"); !ok || strings.TrimSpace(text) == "" {
+		t.Fatalf("older-version fork continuation must persist assistant text: %+v", continued.Blocks)
+	}
+	if len(retryList(t, wc, convID)) != 3 {
+		t.Fatalf("continuing the older fork must not append to source retry history: %+v", retryList(t, wc, convID))
+	}
+}
+
 // TestLiveManaged_WorkflowFanoutJoin proves the real default-workspace workflow rail for a
 // high-cardinality graph: eight branches must all finish before either four-input join runs, and
 // the final node must see every branch result exactly once. The assertions use public flowrun rows
