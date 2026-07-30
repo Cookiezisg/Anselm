@@ -380,6 +380,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮补上 workflow trigger 的耐久边界双跑：13 个 contract 场景共 26/26 通过（包 220.280s），覆盖 deactivate 的 accepted firing drain 与 structural pending shed、deleted workflow/trigger 的 queued/accepted firing 处理、`:kill` shed、删除后跨重启 drain、active edit→revert 与 entry rebind、stage one-shot、多 trigger attach/detach/dedup、webhook edit hot-swap，以及删除在途 run 的取消与审计保留。所有终态均由 durable flowrun/firing/listener 审计确认，没有幽灵 run、重复 firing、旧 listener 复活或删除后审计丢失。
 
+随后补做实时协议耐久双跑：SSE replay 环挤出后返回 `SEQ_TOO_OLD` 并要求 REST 全量重取，再从新 seq 连续接收；messages/entities/notifications 三流不串线，三个订阅者看到同一 durable 顺序；interaction 的 danger pending/resolved 仍是 seq=0 的对称 ephemeral signal；cron dedup 在重启后仍折叠同一分钟 firing；webhook 明文 secret 与 SSE bearer 鉴权门的错误/成功状态均按合同落地。7 个场景两轮共 14/14 通过（包 139.603s），未见协议帧缺口、重复、跨流污染或重启重复执行。
+
 ### FRT-14 最新证据
 
 同日复探 Google 目录资格漂移：`gemini-2.5-flash` 仍在当前 `/models` 投影，但同一显式选择连续发送两次时，每回合只发一次上游请求并分别落 `LLM_MODEL_NOT_FOUND`，没有 assistant 文本、managed fallback 或无界重试；两次独立进程通过（6.282s、4.212s）。自动失效/降级仍保留为待产品决策的策略缺口。
