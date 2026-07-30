@@ -1051,6 +1051,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-694 | general-purpose 子代理当前真实消费视频/音频附件双路径通过：child 各自调用 `inspect_media` 返回 bounded temporal metadata，父层没有偷调，child message/执行台账、父回合与原始 MP4/WAV 字节均闭合，无伪造 transcript 或媒体孤儿 | FRT-05 + FRT-01 / managed-read / subagent video+audio attachment inspection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentInspects(Video|Audio)Attachment$' -count=1 -parallel 1 -timeout 45m -json` → PASS：Video 97.380s、Audio 31.740s；包 129.945s；未输出 provider secret |
 
+| 2026-07-31 | EVO-695 | general-purpose 子代理当前图片消费通过：child 真实调用 `inspect_media` 获得 bounded image evidence，父回合可继续且没有父层偷调，98-byte PNG 源附件逐字节可回读，child execution/message 与 `parentBlockId` 闭合，无 nested-vision 502 或媒体孤儿 | FRT-05 + FRT-01 / managed-read / subagent image attachment inspection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentInspectsImageAttachment$' -count=1 -parallel 1 -timeout 30m -json` → PASS 30.198s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
