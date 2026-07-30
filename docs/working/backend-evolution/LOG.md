@@ -868,6 +868,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-602 | 同一 stale-model 资格边界第二个独立进程再次通过（4.212s）；自动失效/降级仍未擅自实现，保留产品策略决策项 | FRT-14 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-30 | EVO-603 | Google stale-model 显式恢复首轮通过：旧模型一次 404 后用户切换有效模型，同一 conversation 恢复完成且只有两次上游调用，错误回合无 assistant 文本 | FRT-14 / byok-read / model switch recovery | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_GoogleListedModelCanBeAccountUnavailable$' -count=1 -parallel 1 -timeout 15m -v` → PASS 6.959s；未输出 provider secret |
+
+| 2026-07-30 | EVO-604 | 同一 stale-model→显式切换恢复第二个独立进程通过（6.412s），错误状态不会污染后续有效模型回合，未形成产品缺陷 | FRT-14 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
