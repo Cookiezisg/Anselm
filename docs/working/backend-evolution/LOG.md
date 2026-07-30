@@ -1027,6 +1027,10 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-682 | 三类 workflow producer 复探后 backend 常规代码门禁全绿：编译、vet、race/unit 包及各领域测试均通过，未因近期 MediaRef、会话血缘或模型资格探针引入代码级回归 | backend verify / post-EVO-679~681 code gate | `make -C backend verify` → `✓ backend verified`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-683 | 视频 danger denial 隔离复探重新通过：interaction 正常出现，deny 返回 204，回合约 16s 内落 completed，未铸造 `generate_video` receipt、附件或 quota 消费；此前 180s 非终态仍保留为瞬态时序证据，不构成稳定后端缺陷 | FRT-09 / managed-write / denial continuation | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateVideoDeniedNoSpend$' -count=1 -parallel 1 -timeout 15m -v` → PASS 16.227s；未输出 provider secret |
+
+| 2026-07-31 | EVO-684 | 语音 danger denial 隔离复探也重新通过：interaction 出现、deny 204、回合约 17s 完成，未铸造 `generate_speech` receipt 或 quota 消费；与 EVO-683 组成当前两类高风险拒绝路径的最新绿灯，对此前长尾红灯保持历史可追溯 | FRT-09 / managed-write / speech denial continuation | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateSpeechDeniedNoSpend$' -count=1 -parallel 1 -timeout 15m -v` → PASS 17.271s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

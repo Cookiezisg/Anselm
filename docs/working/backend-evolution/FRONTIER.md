@@ -134,6 +134,10 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 紧接着做批准后的语音生成对照：`generate_speech` 连续两个独立 managed 进程各只调用一次，真实 WAV 可回读、receipt 标注 `provider=anselm` 且回合 completed（13.56s、10.70s）。这证明生成 route、artifact store 与 receipt ledger 没有随 denial 复探发生共享层回归；当前待查仍局限在 danger deny 后的 managed stream continuation 时序。
 
+随后将视频 denial 场景隔离复探一次：danger interaction 正常出现，deny 204 后约 16s 完成，quota projection 可读，历史没有 `generate_video` receipt 或附件。该绿灯与此前两次 180s 非终态并存，继续把红灯归类为 managed/upstream stream continuation 时序波动，不改 broker、reservation 或计费实现。
+
+紧接着语音 denial 也在隔离进程中完成同一合同：interaction→deny 204→约 17s completed，历史没有 `generate_speech` receipt，quota 没有消费。当前视频/语音两条最新拒绝路径均有绿灯，对此前的长尾红灯只保留为时序哨兵与后续 gateway request-level 观测线索，不再把它们视作稳定后端 defect。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
