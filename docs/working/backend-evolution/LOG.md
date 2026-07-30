@@ -962,6 +962,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-649 | Google Gemini 原生 image-input 真实路径连续两次触达上游当前 429；产品都准确落 `LLM_RATE_LIMITED` 并停止，没有伪造 assistant 文本、managed fallback 或把限流误报成媒体编码错误，故未宣称本轮视觉 wire 通过 | FRT-02 + FRT-11 / byok-read / provider rate window | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_GoogleImageInput$' -count=1 -parallel 1 -timeout 30m -json` → 两次均结构化 skip（5.410s、3.311s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-650 | OpenAI `gpt-4.1-mini` 真实 image-input 连续两次通过；能力投影、真实回合完成与上传图源字节保持闭合，未发生 provider 限流或 managed fallback | FRT-02 / byok-read / native vision | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_OpenAIImageInput$' -count=1 -parallel 1 -timeout 30m -json` → PASS 5.794s、5.465s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

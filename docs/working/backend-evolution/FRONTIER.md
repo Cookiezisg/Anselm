@@ -250,6 +250,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日对 Google Gemini 原生 image-input 做两次真实探针，均触达当前 provider 429；产品稳定归类 `LLM_RATE_LIMITED` 并停止，没有错误回合 assistant 文本、managed fallback 或媒体编码误报。视觉 wire 证据暂留待 provider rate window 恢复后再取，不能把这两次限流当成视觉能力通过。
 
+同日补一条 OpenAI `gpt-4.1-mini` 真实 image-input 对照：连续两次完成，能力投影、回合终态与附件源字节均闭合；这给 FRT-02 保留了当前可用 provider 的视觉用户路径证据，不把 Google 的限流窗口扩大解释成共享后端故障。
+
 同日再做会话生命周期组合的独立复探：普通 fork、retry continuation 与旧版本 retry→fork continuation 仍保持同一组 durable lineage 约束，两轮均全绿；两次运行均未观察到源历史改写、跨线程 message/block 指针或旧 tool execution 复活。
 
 同日复探聊天侧人在环 workflow：第一回合让 `trigger_workflow` 在 `human` approval 节点 durable park，第二回合只读 parked 状态，第三回合调用 `decide_approval(yes)` 继续下游 publish action。两次独立 managed 进程通过（53.682s、47.580s），decision、marker、`flowrunId`、`origin=chat` 与下游 execution ledger 均闭合，未形成审批恢复缺陷。
