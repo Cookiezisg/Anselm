@@ -132,6 +132,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做默认入口附件高频组合：单图、文本+图、多图、删除附件后的历史降级、保留附件的跨回合重投影，以及文档内图片引用，首轮与第二个独立进程均 6/6 通过（包 38.941s、48.030s）。PNG/文本源件均可回读，删除只产生诚实的 missing-attachment 注记，历史重投影没有跨回合丢图或占位 receipt；关停阶段的本地 search embed `context canceled` 仍是已知噪声。
 
+随后复探默认 managed 的音视频能力矩阵：纯 WAV、image+WAV、MP4、MP4+WAV、image+MP4、text+MP4、text+WAV、text+image+MP4 八条入口首轮与第二个独立进程均 8/8 通过（包 251.428s、257.708s）。支持的 image/video 分支保持 native/字节保真，不支持的 audio 只形成明确降级注记，三模态同回合不拆回合、不产生 400 或伪造音频理解；源 MP4（2,969,360 bytes）与 WAV（96,044 bytes）均可回读。
+
 ### FRT-05 最新证据
 
 同日补充真实并行子代理树闭环：父聊天只派两个独立 `general-purpose` 子代理，两个子任务各自经 `search_tools`→`run_function` 执行不同 function；两个 child message 都以不同 `parentBlockId` 锚回父级 `Subagent` tool_call，父回合同时收到两个 marker 且没有直接调用 `run_function`。两个 function execution 各恰一条 `status=ok`、`triggeredBy=agent` 记录，并绑定同一 conversation 与 child message。探索阶段一次上游 502、两次测试 oracle 校准（模型先纠正缺失 `subagent_type`；执行台账结果字段为 `output` 而非 `result`）均未形成产品缺陷；校准后两次真实 managed 复跑通过（93.71s、76.33s）。关停阶段的本地 search embedder `context canceled` 仍归类为 shutdown 噪声。

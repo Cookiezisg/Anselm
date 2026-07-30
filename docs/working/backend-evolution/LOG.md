@@ -906,6 +906,10 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-621 | 同一附件组合第二个独立进程再次 6/6 全绿（48.030s），删除后的缺失注记、跨回合媒体重投影和文档图像引用均未出现回归 | FRT-01 / managed-read/default / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-622 | 默认 managed 音视频能力矩阵首轮 8/8 通过：WAV、image+WAV、MP4、MP4+WAV、image+MP4、text+MP4、text+WAV、text+image+MP4 均保持真实附件与诚实降级 | FRT-01 / managed-read/default / multimodal fusion + capability downgrade | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(DefaultChatWithAudioAttachmentDegrades|DefaultChatWithImageAndUnsupportedAudio|DefaultChatWithVideoAttachment|DefaultChatWithVideoAndUnsupportedAudio|DefaultChatWithImageAndVideoAttachments|DefaultChatWithTextAndVideoAttachments|DefaultChatWithTextAndUnsupportedAudio|DefaultChatWithTextImageAndVideoAttachments)$' -count=1 -parallel 1 -timeout 90m -json` → PASS，包 251.428s；未输出 provider secret |
+
+| 2026-07-31 | EVO-623 | 同一多模态矩阵第二个独立组合再次 8/8 全绿（257.708s），2.97MB MP4/96KB WAV 的跨回合字节与三模态同回合边界均稳定，未形成产品缺陷 | FRT-01 / managed-read/default / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
