@@ -324,6 +324,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮 provider 窗口复探再次把可用性与产品分类分开：DeepSeek 文本与兼容 tool continuation 5.03s/7.76s 通过；Google 文本与原生工具续接各收到 429 并结构化为 `LLM_RATE_LIMITED` skip；stale-model 恢复先保留单次 404→`LLM_MODEL_NOT_FOUND`，恢复发送再遇 429；重复 stale failure 仍每轮只发一次并保持同一错误码。未出现伪造 assistant、managed fallback 或无界重试，不改 parser/重试策略。
 
+本轮视觉 provider 对照继续支持同一结论：managed workflow image→OpenAI BYOK viewer 34.93s 完成，flowrun/PNG/recorder exact-byte 证据闭合；Google 原生 image-input 仅遇当前 429 并结构化 skip。Google 的 rate window 没有扩散到 managed 产物或 OpenAI viewer，不改共享 MediaRef/renderer。
+
 ### FRT-13 最新证据
 
 同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。

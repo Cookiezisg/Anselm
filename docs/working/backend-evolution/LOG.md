@@ -1125,6 +1125,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-731 | 完成 EVO-725～730 后 backend 全量黑盒总闸通过：managed 图像/动画与子代理媒体、workflow function/handler/MCP 跨 provider、BYOK 模型切换/文档媒体/provider 错误分类等 focused 探针没有回归 contract、durable、chat、agent/subagent、workflow、MCP/function/handler、附件、多模态、取消/恢复或资源卫生基线 | full backend testend regression / post-EVO-725~730 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo730.log` → `ok github.com/sunweilin/anselm/testend/scenarios 292.907s`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-732 | 视觉跨 provider 对照当前分流清晰：managed workflow image→OpenAI BYOK viewer 34.93s 通过，flowrun completed、真实 PNG 1,106,954 bytes 与 viewer exact-byte wire 闭合；Google 原生 image-input 1.78s 触达 429 并按合同结构化 SKIP `LLM_RATE_LIMITED`，没有把 provider 限流误报成共享媒体链缺陷 | FRT-03 + FRT-11 / hybrid + byok-read / managed image workflow → OpenAI viewer versus Google native image | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveBYOK_GoogleImageInput|TestLiveHybrid_WorkflowManagedImageToOpenAIViewer)$' -count=1 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo732-google-image-openai-viewer.jsonl` → PASS，包 37.349s（Google 场景结构化 skip）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
