@@ -788,6 +788,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-562 | 子代理 image 红绿复探（两红一绿）加入 Frontier 后文档门禁通过；FRT-05 明确区分模型步预算耗尽与 durable 媒体缺陷，既有 DTO drift warning 未变化 | docs gate / post-subagent-image-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-563 | 子代理 text/PDF 读取对照复探通过：同一真实 managed 进程内，general-purpose child 分别经文本读取与 sandbox `read_attachment` 抽取唯一 token，父层无直接附件工具调用，源附件逐字节不变；这把 image writer 的红绿信号进一步收窄到媒体写入 + 低步预算/schema recovery 边界，未形成通用 subagent/attachment read 缺陷 | FRT-05 / managed-read / subagent attachment contrast | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentReads(Text|PDF)Attachment$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 115.530s（PDF 31.34s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

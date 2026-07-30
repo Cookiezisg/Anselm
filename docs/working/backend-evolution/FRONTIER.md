@@ -120,6 +120,8 @@ audience: [human, ai]
 
 同日复探子代理音视频时序边界：两个独立 managed 进程中，general-purpose child 均真实调用 `inspect_media`，视频回传 `kind=video/mode=metadata/startMs=1000/endMs=2000`，音频回传对应 `kind=audio/mode=metadata/startMs=1200/endMs=2600`；父层没有偷调，父回合完成，MP4/WAV 源字节均原样回读，未伪造 transcript。两轮组合均通过（包 130.455s、136.764s），未形成产品缺陷。
 
+随后做子代理附件读取的对照复探：同一真实 managed 进程内，`general-purpose` child 分别读取 text 与 PDF，前者回传唯一 token，后者经 sandbox `read_attachment` 回传唯一 token；父层没有直接调用附件工具，两个源附件都逐字节保持不变，父回合均完成。组合包通过（115.530s；PDF 子场景 31.34s），说明前述 image writer 的两红一绿更像媒体写入路径叠加低 `maxSteps` 与模型 schema recovery 的可靠性边界，而不是通用 subagent/attachment read 缺陷。
+
 ### FRT-11 最新证据
 
 本轮先做 DeepSeek 兼容线缆的真实双跑：`deepseek-v4-flash` 在产品 API 内完成 `run_function`，函数结果回灌后第二次 chat/completions 采样完成；durable history 同时保留 tool call、tool result 和最终 `144`，recorder 观察到至少两次请求且请求携带 `tools`、`tool_calls` 与结果载荷。两次独立进程通过（12.52s、9.52s），未形成产品缺陷；关停阶段的 embedder `context canceled` 仍是已知 shutdown 噪声。
