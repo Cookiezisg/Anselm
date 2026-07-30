@@ -520,6 +520,18 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-428 | 最终追加取消 subagent fork 证据后的文档门禁通过；FRT-05/FRT-13/FRT-16 的取消终态、唯一 execution、shutdown 噪声分类与跨层结果均如实保留 | docs gate / final post-managed-cancelled-subagent-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-429 | DeepSeek 兼容 provider 的真实工具续接双跑闭合：`deepseek-v4-flash` 两次均完成 `run_function`→函数结果→第二次 chat/completions 采样；durable tool_call/tool_result/最终 `144`、请求 `tools`/`tool_calls`/结果载荷与调用次数均满足，未形成产品缺陷 | FRT-11 / FRT-12 / byok-read / DeepSeek OpenAI-compatible tool continuation | `set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_DeepSeekToolContinuation$' -count=1 -v` → PASS 12.52s；独立复跑 PASS 9.52s；未输出 provider secret；关停 embedder `context canceled` 为已知噪声 |
+
+| 2026-07-30 | EVO-430 | Gemini 原生 function-call 续接双跑均被当前上游 429 阻断，但产品稳定返回结构化 `LLM_RATE_LIMITED`：没有伪造 assistant 文本、错误重试或把 provider 限流误报成 parser/模型资格故障；FRT-12 本地累积/增量 fixture 仍通过，真实原生线缆待限流窗口恢复后再抽样 | FRT-11 / FRT-12 / byok-read / Google native functionCall → functionResponse boundary | `EVALS_BYOK=1 ... -run '^TestLiveBYOK_GoogleToolContinuation$'` → 首跑 SKIP 10.64s（HTTP 429）、独立复跑 SKIP 4.87s（HTTP 429）；两次均验证 structured `LLM_RATE_LIMITED`；无 provider secret |
+
+| 2026-07-30 | EVO-431 | DeepSeek/Google provider 复探事实加入 Frontier 后文档门禁通过；FRT-11 的成功与限流分类、FRT-12 的本地 fixture 边界、既有锚点与 drift 检查均保持可读 | docs gate / post-provider-tool-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-432 | provider 工具续接复探后的 backend 全量黑盒回归闭合；chat、agent/subagent（含并行/失败/取消/分叉）、workflow/trigger/fanout、附件/多模态、MCP/function/handler、取消/重试/崩溃恢复与资源卫生共同通过，无 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-provider-tool-reprobe | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 298.637s`；failure markers 为空；未开启 EVALS、未输出 provider secret |
+
+| 2026-07-30 | EVO-433 | provider 工具续接复探、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 与 workspace 装配全部通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-provider-tool-reprobe | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-434 | 最终追加 DeepSeek 成功、Google 429 分类、backend 全量与跨层门禁证据后的文档门禁再次通过；Frontier/LOG 结构与既有 drift 规则无新增问题 | docs gate / final post-provider-tool-reprobe | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO drift warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
