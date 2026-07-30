@@ -1067,6 +1067,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-702 | OpenAI 图片历史交互当前双跑通过：无内容 `retry` 保留单一 user 行与 assistant 版本链，并在重试请求中继续发送 exact-byte native image；编辑文字的 resend 同样保留原附件并重投影原生 image part，未重复 user、退化 text-only 或丢失媒体 | FRT-02 + FRT-13 / byok-read / image retry + edit-resend history | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIImage(RetryPreservesNativeHistory|EditResendPreservesAttachment)$' -count=1 -parallel 1 -timeout 30m -json` → PASS：Retry 6.340s、EditResend 4.810s；包 11.445s；未输出 provider secret |
 
+| 2026-07-31 | EVO-703 | managed 默认附件历史与多图当前双跑全绿：同回合两张图片均被消费；删除首轮附件后 content 端点 404、后续历史只给诚实 missing-attachment 降级；省略 `attachmentIds` 的后续回合仍从历史重投影原图语义，源 PNG 字节不变，无 400、孤儿或占位 receipt | FRT-01 + FRT-13 / managed-read / multiple images + delete + history reprojection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(DefaultChatWithMultipleImageAttachments|AttachmentHistoryReprojection|DeletedAttachmentDegradesInHistory)$' -count=1 -parallel 1 -timeout 30m -json` → 两个独立进程均 PASS：包 22.576s、22.677s（各项约 8.10/6.52/7.28s 与 8.68/6.96/6.75s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
