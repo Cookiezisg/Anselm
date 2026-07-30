@@ -1045,6 +1045,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-691 | workflow 控制面当前组合重新闭合：聊天触发的失败 run 可诊断，human approval 可停泊后决定恢复，replay 只重跑失败节点并保留已完成前缀；三个 flowrun/消息/执行台账均 durable 收口，无重复 function、孤儿 handler 或状态漂移 | FRT-04 + FRT-13 / managed-read/write / chat workflow observability + approval + replay | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ChatFlowrunApprovalDecision|ChatFlowrunReplay|ChatFlowrunFailureDiagnosis)$' -count=1 -parallel 1 -timeout 45m -json` → PASS：FailureDiagnosis 47.010s、ApprovalDecision 45.660s、Replay 45.430s；包 138.878s；未输出 provider secret |
 
+| 2026-07-31 | EVO-692 | managed 朗读成本面当前组合通过：同文本/同音色顺序调用命中同一缓存、换文本生成新 WAV；同 key 并发双请求只增加一次 quota 且共享附件；quota 端点在空闲 workspace 仍保持一致快照，无重复扣费或缓存污染 | FRT-08 + FRT-07 / managed-write / read-aloud cache + concurrent dedup + quota | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ReadAloudCache|ReadAloudConcurrentDedup|Quota)$' -count=1 -parallel 1 -timeout 30m -json` → PASS：ReadAloudCache 9.780s、ReadAloudConcurrentDedup 5.700s、Quota 1.520s；包 17.635s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
