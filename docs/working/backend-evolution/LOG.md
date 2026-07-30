@@ -968,6 +968,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-652 | managed 会话生命周期三件套连续两轮通过：普通 fork、retry→fork、旧版本 retry→fork 均保持 source append-only、版本指针自洽、分支继续完成且不复活旧工具/跨线程消息 | FRT-13 + FRT-16 / managed / conversation lineage | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(ConversationForkContinues|ChatRetryThenForkContinues|ChatRetryForkAtOlderVersionContinues)$' -count=1 -parallel 1 -timeout 45m -json` → PASS 33.568s、28.027s；未输出 provider secret |
 
+| 2026-07-31 | EVO-653 | 聊天入口 workflow 状态机四件套连续两轮通过：observability、失败诊断、human approval park→decide、replay 均保持 durable flowrun/node、interaction 与后续恢复闭合，无孤儿 run 或错误回合污染 | FRT-04 + FRT-13 + FRT-15 / managed / chat workflow state machine | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_ChatFlowrun(Observability|FailureDiagnosis|Replay|ApprovalDecision)$' -count=1 -parallel 1 -timeout 90m -json` → PASS 201.130s、195.860s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

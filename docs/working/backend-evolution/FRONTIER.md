@@ -256,6 +256,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日复探 managed 会话血缘三件套：普通 fork、retry→fork 与旧版本 retry→fork 连续两轮保持 source append-only、版本指针与分支 continuation 自洽，未复活旧工具或产生跨线程消息。
 
+同日复探聊天入口 workflow 状态机四件套：observability、失败诊断、human approval park→decide 与 replay 连续两轮全绿，durable flowrun/node、interaction、下游恢复与错误分类均闭合，未形成孤儿 run 或错误回合污染。
+
 同日再做会话生命周期组合的独立复探：普通 fork、retry continuation 与旧版本 retry→fork continuation 仍保持同一组 durable lineage 约束，两轮均全绿；两次运行均未观察到源历史改写、跨线程 message/block 指针或旧 tool execution 复活。
 
 同日复探聊天侧人在环 workflow：第一回合让 `trigger_workflow` 在 `human` approval 节点 durable park，第二回合只读 parked 状态，第三回合调用 `decide_approval(yes)` 继续下游 publish action。两次独立 managed 进程通过（53.682s、47.580s），decision、marker、`flowrunId`、`origin=chat` 与下游 execution ledger 均闭合，未形成审批恢复缺陷。
