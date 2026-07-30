@@ -768,6 +768,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-552 | workflow fanout/join 双跑事实加入 Frontier 后文档门禁通过；FRT-04/FRT-15 的 manual 与 chat 入口、分支/连接点计数、origin 与 execution ledger 证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-workflow-fanout-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-553 | 聊天侧人在环 workflow 首轮独立进程全绿：`trigger_workflow` 在 human approval durable park，下一回合只读 parked 状态，随后 `decide_approval(yes)` 令下游 publish action 完成；decision/marker/flowrun lineage 与 ledger 闭合 | FRT-13 / managed-read/default / chat approval park → decide → downstream action | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunApprovalDecision$' -count=1 -parallel 1 -timeout 20m -v` → PASS 53.682s；未输出 provider secret |
+
+| 2026-07-30 | EVO-554 | 同一聊天 approval 场景第二个独立进程再次通过（47.580s），确认 parked 状态读取、单次决策与下游 action 不依赖一次性模型响应窗口，未形成后端缺陷 | FRT-13 / managed-read/default / independent reprobe | 同一命令第二次独立运行（输出收敛为末 90 行）→ PASS 47.580s；未输出 provider secret |
+
+| 2026-07-30 | EVO-555 | 聊天 approval 双跑事实加入 Frontier 后文档门禁通过；FRT-13 的 park/read/decide/continue 与审计字段证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-chat-approval-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

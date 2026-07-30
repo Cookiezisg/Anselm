@@ -164,6 +164,8 @@ audience: [human, ai]
 
 同日再做会话生命周期组合的独立复探：普通 fork、retry continuation 与旧版本 retry→fork continuation 仍保持同一组 durable lineage 约束，两轮均全绿；两次运行均未观察到源历史改写、跨线程 message/block 指针或旧 tool execution 复活。
 
+同日复探聊天侧人在环 workflow：第一回合让 `trigger_workflow` 在 `human` approval 节点 durable park，第二回合只读 parked 状态，第三回合调用 `decide_approval(yes)` 继续下游 publish action。两次独立 managed 进程通过（53.682s、47.580s），decision、marker、`flowrunId`、`origin=chat` 与下游 execution ledger 均闭合，未形成审批恢复缺陷。
+
 ## 历史高频 reprobe 组
 
 这些不是“已覆盖所以跳过”。当任一承重面改变时，按组抽取代表路径重测：
