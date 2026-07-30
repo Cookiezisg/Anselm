@@ -258,6 +258,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 三类 producer 复探后执行 backend 常规代码门禁：`make -C backend verify` 全绿，覆盖编译、vet、race/unit 与领域包测试；当前没有证据表明本轮多媒体、会话血缘或资格边界工作引入代码级回归。
 
+本轮做 managed 子代理状态矩阵：失败续接、并行树、取消终态以及成功/失败/取消树 fork 共六项中，取消与三类 fork 全部通过；失败续接一次因模型先发非法 `subagent_type` 后纠正而多派一次，严格 parent-call 计数未满足；并行树一次出现同一 function、conversation 与 child message 的两条 `status=ok` execution。随后并发树隔离 clean `-count=2` 两次通过（64.91s、61.49s），没有复现重复 execution；父/child durable 状态、锚点和终态没有稳定异常。该红灯继续作为 managed schema recovery/重复派发时序哨兵，不改生产代码。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
@@ -353,6 +355,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日继续沿 DeepSeek 兼容层下钻 tool continuation：两次独立进程都保住 assistant `tool_call`、sandbox function 的 `144` 结果和第二次 assistant sampling；录制请求同时含 `tools`、`tool_calls` 与工具结果，未发现重复执行、managed fallback 或兼容序列回归。
 
 本轮的并行子代理跨回合 clean `-count=2` 复探没有形成新的会话恢复缺陷：两次均因 managed 模型在 `search_tools`/`subagent_type` 纠错与安全拒绝后重复派发，导致 durable child 数量为 6 而非严格哨兵期望的 2；父 follow-up 仍能完成并保留可见 marker，失败发生在 child-count oracle 而非 fork、retry、消息锚或终态恢复。此前诊断与隔离绿跑仍显示各 function 可保持单次 execution，故该结果继续记录为模型/提示词时序信号，不改会话持久化代码。
+
+本轮状态矩阵的并行树一次观测到同一 child message 的两条成功 execution，但随后隔离 clean `-count=2` 均通过；取消终态与成功/失败/取消树 fork 仍分别闭合，未见 fork remap、terminal state、ledger 或孤儿回归。因此与跨回合 child-count 红灯一样，当前只记录为 managed 重复派发/模型 schema recovery 波动，后续在模型或提示词变更时继续复探。
 
 本轮 provider 边界复探保持同一分流：DeepSeek 文本与兼容 tool loop 真实完成；Google 文本、原生 function continuation 与 stale-model 恢复请求均遇当前 provider 429，产品统一归类 `LLM_RATE_LIMITED`；同一 Google stale model 的两次重复发送仍只各发一次并落 `LLM_MODEL_NOT_FOUND`，没有 fallback、伪造 assistant 或无限重试。该窗口不构成后端协议缺陷，继续保留 provider rate-window 证据。
 
