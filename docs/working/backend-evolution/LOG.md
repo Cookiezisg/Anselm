@@ -834,6 +834,14 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-585 | Qwen chat-only 能力边界独立复跑通过：agent invoke 在任何步骤或上游调用前以 failed/0 steps 返回可理解 capability 错误，chat-only 模型没有被误当成 agent 能力 | FRT-10 / byok-read / capability rejection | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_QwenChatOnlyAgentRejected$' -count=1 -parallel 1 -timeout 10m -v` → PASS 4.632s；未输出 provider secret |
 
+| 2026-07-30 | EVO-586 | OpenAI BYOK 图片 retry/edit-resend 首轮通过：重试只追加 assistant 版本、编辑重发同步重投影原图，两个上游请求均含 exact-byte native image，源附件不变 | FRT-02 / byok-read / image history + retry | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIImage(RetryPreservesNativeHistory|EditResendPreservesAttachment)$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 16.919s（11.19s、5.02s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-587 | OpenAI BYOK 同回合多图首轮通过：两个独立 PNG 附件均逐字节回读，单次 `/chat/completions` 同时包含两个 exact native image parts，无折叠或重复调用 | FRT-02 / byok-read / multiple-image wire | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIMultipleImages$' -count=1 -parallel 1 -timeout 10m -v` → PASS 7.687s；未输出 provider secret |
+
+| 2026-07-30 | EVO-588 | OpenAI 图片 retry/edit/multiple 三件套第二个独立进程全绿；retry 长尾至 37.54s 仍保持 durable 版本链和 exact-byte wire，未形成时序或资源回归 | FRT-02 / byok-read / independent reprobe | `EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(OpenAIImage(RetryPreservesNativeHistory|EditResendPreservesAttachment)|OpenAIMultipleImages)$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 48.955s（37.54s、7.56s、3.48s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-589 | OpenAI 图片历史/多图事实加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-openai-image-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

@@ -46,6 +46,8 @@ audience: [human, ai]
 
 模型切换回归哨兵随后再次通过：同一会话先由 Qwen `qwen3.7-plus` 接收 image+video，再切到 OpenAI `gpt-4.1-mini`；第二轮只保留 image native，video 明确降级为 capability 注记，两个源附件仍逐字节回读。两次独立进程通过（12.75s、10.26s），未复现历史 semantic backfill 关闭竞态或 `database is closed`。
 
+同日补做 OpenAI 图片历史与多图高频交互：`retry` 的无内容 regenerate 保留单一 user 行、追加 assistant 版本链，并让首轮与重试都携带 exact-byte `image_url`；编辑文字的 resend 同样重投影原图；同一回合两张图片各自保留附件并同时穿过原生线缆。首轮组合与独立多图补跑全绿（retry/edit 包 16.919s；multiple 7.687s），第二个三场景独立进程也全绿（包 48.955s；retry 37.54s、edit 7.56s、multiple 3.48s），未形成历史、附件或 part encoder 回归。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
