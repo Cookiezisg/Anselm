@@ -1073,6 +1073,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-705 | 完成 EVO-702～704 后的 backend 全量黑盒总闸：当前 acceptance suite 全绿，未见 OpenAI 图片历史、managed 附件生命周期或 provider 续接探针引入 chat、agent/subagent、workflow/trigger、MCP/function/handler、媒体、取消/重试、崩溃恢复与资源卫生回归 | full backend testend regression / post-EVO-702~704 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo704.log | tail -n 100` → `ok github.com/sunweilin/anselm/testend/scenarios 339.189s`；未启用 EVALS/provider secret |
 
+| 2026-07-31 | EVO-706 | sibling `Anselm-API-Serve` 当前完整契约门禁通过：vet、trimpath build、race/unit、integration-tag 真 HTTP+SQLite E2E、golangci-lint 与 docs lint 全绿；网关工作树保持 clean，未发现主仓 acceptance 所依赖的 chat/quota、Qwen 多模态、tool loop、stream settle、异步媒体、拒绝 rollback 或计费边界回归 | Anselm-API-Serve / gateway verify / cross-repo contract gate | `cd ../Anselm-API-Serve; set -o pipefail; make verify 2>&1 | tee /tmp/anselm-api-serve-verify-20260731-evo706.log | tail -n 120` → PASS（integration e2e 6.806s；0 golangci issues；docs lint 35 files clean）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
