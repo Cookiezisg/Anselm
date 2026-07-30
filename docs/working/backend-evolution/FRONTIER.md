@@ -54,6 +54,8 @@ audience: [human, ai]
 
 同日补做 Qwen 方言三件套：`qwen3.7-plus` 单视频真实 BYOK 回合完成且 2,969,360-byte MP4 保持不变；同模型 image+video 同回合经 recorder 同时捕获 exact-byte `image_url`/`video_url`；`qwen3-omni-flash` image+WAV 遵守 `maxDistinctMediaKinds=1`，保留 image native、把 audio 变成明确约束注记而不发上游非法组合。两轮独立组合均通过（21.755s、16.582s），未形成 Qwen provider 方言或多模态降级缺陷。
 
+本轮 BYOK 多模态组合继续双跑：Qwen image+video 原生 `image_url`/`video_url`、Qwen image+audio 的单异构模态降级、Qwen→OpenAI 历史媒体重投影与 OpenAI `gpt-audio` 原生音频入口均稳定通过。音频+工具续接在组合第二轮出现一次“函数 ID 不存在”的模型选择红灯，但音频 exact bytes、两次请求与 tools 仍已到达；立即隔离同场景三跑全部通过（9.67s、7.48s、7.25s），未形成 provider wire、函数注册或历史投影缺陷。
+
 同日复探 OpenAI 同回合多图：两个独立进程都把两份 98-byte PNG 送入真实视觉回合，durable history 完成且两份附件逐字节回读（6.62s、5.51s）；BYOK workspace 未安装 managed fallback，未形成多 part 编码或附件列表投影回归。
 
 本轮再做 Qwen Omni image+WAV 当前双跑：同回合保留图片 native wire、把音频写成明确能力降级注记，两个附件分别 98 bytes/96,044 bytes 且逐字节可回读；两次通过（5.463s、3.647s），没有发非法组合、400 或 managed fallback。
@@ -437,6 +439,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日补测 Qwen Omni 的组合限制：image+audio 连续两次通过，`maxDistinctMediaKinds=1` 能力契约被 renderer 遵守，图片保留原生 wire、音频明确降级而不是把供应商 400 暴露给用户；附件字节与回合终态稳定。
 
 同日补上 OpenAI `gpt-audio` 的音频+agent 交叉面：原生 `input_audio` 的 exact bytes、tools、sandbox function 与第二次采样连续两轮闭合，未出现媒体丢失、工具结果截断或重复执行。
+
+同一窗口的 OpenAI `gpt-audio` 音频+工具续接出现一轮组合红灯：模型在第二次请求中把已注册函数 ID 判为不存在，但 recorder 仍捕获 native `input_audio`、tools 与两次请求。隔离三跑全部完成 `run_function→tool result→最终文本`，因此继续作为 provider/model 选择瞬态哨兵，不改函数路由或 continuation loop。
 
 同日复探 Google Gemini 原生工具线缆：`functionCall`、`functionResponse`、`thoughtSignature` 与第二次 streaming `generateContent` 连续两次闭合，未出现 429、错误回合污染或工具结果丢失。
 

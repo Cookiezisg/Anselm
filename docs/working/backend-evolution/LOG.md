@@ -1153,6 +1153,10 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-745 | managed 并行子代理树独立双跑全绿：父层只派两个 child，各自执行不同 function，child message 的 `parentBlockId`、两个 marker、父回合续接与 `agent/ok` execution ledger 均一一闭合；耗时 64.93s/61.39s，包 126.967s，未复现重复派发、跨树串线或终态缺失 | FRT-05 + FRT-13 / managed / parallel subagent tree | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ParallelSubagentTrees$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo745-managed-parallel-subagent-trees-double.jsonl` → PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-746 | BYOK 多模态当前组合 9/10 严格通过：Qwen image+video 原生融合、Qwen image+audio 诚实降级、Qwen→OpenAI 历史重投影、OpenAI `gpt-audio` 原生音频入口均双跑；音频+工具续接首轮通过，第二轮仅因模型把函数 ID 判为不存在而缺少函数结果（原生 audio/两次请求/tools 证据仍在）。包 62.983s，未见附件字节、能力投影或 renderer 回归 | FRT-02 + FRT-11 + FRT-13 / byok-read / multimodal fusion + audio tool continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(OpenAIAudioInput|OpenAIAudioToolContinuation|QwenImageAndAudioFusion|QwenImageAndVideoFusion|ModelSwitchReprojectsHistoryMedia)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo746-byok-multimodal-double.jsonl` → 包级 FAIL（其余 9 次 PASS）；未输出 provider secret |
+
+| 2026-07-31 | EVO-747 | 将 EVO-746 的 OpenAI `gpt-audio` 工具续接单独隔离三跑后 3/3 通过（9.67s、7.48s、7.25s）：两次 `/chat/completions`、原生 `input_audio` exact bytes、tools/tool result 与最终文本均闭合；第二轮“函数不存在”未复现，归类为 provider/model 瞬态选择波动而非产品 loop 或函数注册缺陷 | FRT-02 + FRT-11 / byok-read / isolated audio+tool continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_OpenAIAudioToolContinuation$' -count=3 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo747-byok-openai-audio-tool-isolated-count3.jsonl` → PASS，包 24.965s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
