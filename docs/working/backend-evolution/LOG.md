@@ -872,6 +872,8 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-604 | 同一 stale-model→显式切换恢复第二个独立进程通过（6.412s），错误状态不会污染后续有效模型回合，未形成产品缺陷 | FRT-14 / byok-read / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-30 | EVO-605 | 全量后端黑盒回归在本轮所有 live 探针与文档变更后仍全绿；没有新增稳定产品缺陷或未收敛的测试失败 | regression gate / backend-wide | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 328.040s`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
