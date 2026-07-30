@@ -1119,6 +1119,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-728 | BYOK 多模态能力与模型切换当前全绿：OpenAI 图片+不支持音频 6.32s、图片+不支持视频 4.84s 均只发 native image 并写 capability note，PNG/WAV/2,969,360-byte MP4 源件原样可回读；Qwen image+video 后切 OpenAI `gpt-4.1-mini` 继续同会话 9.31s，第二轮保留图片 native、视频不带字节并明确降级，三项总计 21.125s，无 400、managed fallback 或历史媒体泄漏 | FRT-02 + FRT-13 / byok-read / capability degrade + cross-model history reprojection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(ModelSwitchReprojectsHistoryMedia|OpenAIImageAndUnsupported(Audio|Video))$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo728-byok-switch-degrade.jsonl` → PASS，包 21.125s；未输出 provider secret |
 
+| 2026-07-31 | EVO-729 | 文档渲染/原生文档媒体入口当前全绿：managed `anselm://media` 图片引用 6.80s、OpenAI BYOK 文档图片 3.52s 均将同一 98-byte PNG 作为真实 native image；OpenAI BYOK 原生 PDF 3.12s 以 540-byte file wire 完成；Qwen BYOK 原生视频 6.67s 以 exact-byte 2,969,360-byte MP4 完成。四项总计 20.485s，URL 未退化成提示词文本，未发生 managed fallback 或源件改写 | FRT-02 + FRT-06 / managed-read + byok-read / document renderer + native PDF/video | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveManaged_DocumentImageReference|TestLiveBYOK_(OpenAIDocumentImageReference|OpenAIPDFInput|QwenVideoInput))$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo729-doc-media-entries.jsonl` → PASS，包 20.485s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

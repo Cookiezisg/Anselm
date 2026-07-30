@@ -80,6 +80,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做能力降级与跨模型历史切换：OpenAI 图片+不支持音频（6.32s）与图片+不支持视频（4.84s）均只发送 native image、明确写 capability note，PNG/WAV/2,969,360-byte MP4 源件逐字节可回读；Qwen image+video 首轮后切 OpenAI `gpt-4.1-mini` 继续同一会话（9.31s），第二轮保留 image native、完全不带 video 字节并诚实降级。未形成 provider 400、managed fallback、历史媒体泄漏或能力门控回归。
 
+本轮补齐文档渲染与原生文档媒体对照：managed `anselm://media` 文档图片与 OpenAI BYOK 文档图片均将同一 98-byte PNG 送入真实 native image 路由；OpenAI BYOK 原生 PDF 以 540-byte file wire 完成；Qwen BYOK 原生视频以 exact-byte 2,969,360-byte MP4 完成。四项当前运行均通过，文档 URL 没有退化成 prompt prose，BYOK workspace 没有 managed fallback，源附件保持逐字节不变。
+
 ### FRT-03 最新证据
 
 本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
@@ -285,6 +287,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
+
+本轮在当前 provider 窗口再跑文档图片入口：managed 与 OpenAI BYOK 两侧分别 6.80s、3.52s 完成，`anselm://media` 没有留在 system prompt 作为 URL，98-byte PNG 均以真实 image 语义抵达模型且附件原样可回读；未形成 renderer、lease 或 provider 路由回归。
 
 ### FRT-10 最新证据
 
