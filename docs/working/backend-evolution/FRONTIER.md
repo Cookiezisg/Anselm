@@ -162,6 +162,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再次独立复探朗读与语音入口：顺序缓存、并发相同 key 去重和 realtime ASR 共 3/3 通过（包 18.649s；cache 10.19s、concurrent 5.97s、ASR 1.69s）；quota delta、共享附件与 `session.finished` 均闭合，未出现重复消费或资源孤儿。
 
+本轮在 voice 生命周期之后再做朗读成本闸：顺序缓存、同 key 并发 dedup 与空闲 quota 各自通过（10.48s、5.63s、1.70s；包 18.743s），同文本不重复消费、并发响应共享附件且 quota 只增加一次，未形成缓存穿透或账本漂移。
+
 同日补做 managed quota 设置面 fresh smoke：两个独立新 workspace 都读到自洽的 live `limit/used/remaining`、`available=true` 与 RFC3339 `resetAt`（5.158s、3.667s），没有触发模型或生成消费；配额投影当前没有回归。
 
 ### FRT-09 最新证据
