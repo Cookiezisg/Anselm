@@ -1041,6 +1041,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-689 | managed workflow 异步视频 producer→Qwen BYOK viewer 当前双跑通过：上游每次只提交/完成一条真实 MP4，flowrun 等待 durable terminal，附件 content 可回读 9.19MB/12.71MB，Qwen recorder 收到同一 native `video_url`；两次均 completed，无重复生成、孤儿附件或 receipt-only viewer | FRT-03 + FRT-04 + FRT-13 / hybrid / workflow managed video→BYOK Qwen viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedVideoToQwenViewer$' -count=1 -parallel 1 -timeout 30m -v` → PASS 117.005s、130.147s；未输出 provider secret |
 
+| 2026-07-31 | EVO-690 | Google 大图 workflow 边界做了交叉复探：managed painter 两次都完成并留下约 1MB PNG；下游 Gemini viewer 首轮 50.44s 通过并观察到 inlineData，第二轮明确落 `LLM_RATE_LIMITED (429)`；独立 98-byte Google image probe 同样结构化 SKIP 429。失败发生在 provider 请求而非 flowrun/MediaRef 装配，当前不宣称稳定通过，也不改后端 | FRT-04 + FRT-11 / hybrid/byok-read / Google rate-window classification | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedImageToGoogleViewer$' -count=1 -parallel 1 -timeout 20m -v` → PASS 51.470s、FAIL 35.591s (`llm: rate limited (429)`); `EVALS_BYOK=1 ... -run '^TestLiveBYOK_GoogleImageInput$'` → structured SKIP 3.924s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
