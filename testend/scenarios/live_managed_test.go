@@ -2313,6 +2313,144 @@ func TestLiveManaged_ForkPreservesParallelSubagentTrees(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ForkPreservesFailedSubagentTree proves that a fork carries durable failure
+// evidence, not just successful child answers: the failed child row, its error marker, and its
+// message-level E3 anchor must be remapped into the branch, while the source execution ledger stays
+// single and a branch follow-up does not resurrect the failed function.
+func TestLiveManaged_ForkPreservesFailedSubagentTree(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-fork-failed-subagent-tree")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	const marker = "FORK_FAILED_SUBAGENT_6D21"
+	fnID := fnCreate(t, wc, "fork_failed_subagent", fmt.Sprintf(`def explode() -> dict:
+    raise RuntimeError("%s")
+`, marker))
+	sourceID := convCreate(t, wc, "managed fork failed subagent")
+	prompt := fmt.Sprintf(`请只派一个 general-purpose 子代理，父回合不要直接调用其他工具。
+子任务必须在子代理内部先调用 search_tools 搜索名为 run_function 的工具；等 schema 返回后，只调用 run_function 一次，参数必须逐字使用 functionId=%s 和 args={}，不要猜测或替换 functionId。
+这个函数会故意失败并返回错误标记 %s。子代理不得把失败伪装成成功，必须把错误标记原样带回父回合。
+父回合收到子代理结果后不要再调用任何工具，只用一句简短中文确认已经记录失败，并保留错误标记。`, fnID, marker)
+	firstID := sendMsg(t, wc, sourceID, prompt)
+	first := waitTurn(t, wc, sourceID, firstID, 300000)
+	if first.Status != "completed" {
+		t.Fatalf("source managed failure turn must complete: status=%s code=%s message=%s blocks=%+v", first.Status, first.ErrorCode, first.ErrorMessage, first.Blocks)
+	}
+
+	var sourceMessages []struct {
+		ID         string         `json:"id"`
+		SubagentID string         `json:"subagentId"`
+		Status     string         `json:"status"`
+		Attrs      map[string]any `json:"attrs"`
+		Blocks     []struct {
+			ID      string `json:"id"`
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	wc.GET("/api/v1/conversations/"+sourceID+"/messages?limit=50").OK(t, &sourceMessages)
+	sourceIDs, sourceBlockIDs := map[string]bool{}, map[string]bool{}
+	sourceChild := 0
+	sourceMarker := false
+	for _, message := range sourceMessages {
+		sourceIDs[message.ID] = true
+		for _, block := range message.Blocks {
+			sourceBlockIDs[block.ID] = true
+		}
+	}
+	for _, message := range sourceMessages {
+		if message.SubagentID == "" {
+			continue
+		}
+		sourceChild++
+		anchor, _ := message.Attrs["parentBlockId"].(string)
+		if anchor == "" || !sourceBlockIDs[anchor] {
+			t.Fatalf("failed child must retain a source parent anchor: anchor=%q blocks=%v messages=%+v", anchor, sourceBlockIDs, sourceMessages)
+		}
+		for _, block := range message.Blocks {
+			sourceMarker = sourceMarker || strings.Contains(block.Content, marker)
+		}
+	}
+	if sourceChild != 1 || !sourceMarker {
+		t.Fatalf("source must contain one completed failed child tree with marker %s: children=%d marker=%v messages=%+v", marker, sourceChild, sourceMarker, sourceMessages)
+	}
+
+	fork := forkAt(t, wc, sourceID, "")
+	head := forkGetConv(t, wc, fork.ID)
+	if len(sourceMessages) == 0 || head.ForkedFromConversationID != sourceID || head.ForkedFromMessageID != sourceMessages[0].ID || head.Title != "managed fork failed subagent (fork)" || head.AutoTitled {
+		t.Fatalf("failed-tree fork lineage/title must point at latest source row: source=%s fork=%+v", sourceID, head)
+	}
+	var forkMessages []struct {
+		ID         string         `json:"id"`
+		SubagentID string         `json:"subagentId"`
+		Status     string         `json:"status"`
+		Attrs      map[string]any `json:"attrs"`
+		Blocks     []struct {
+			ID      string `json:"id"`
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	wc.GET("/api/v1/conversations/"+fork.ID+"/messages?limit=50").OK(t, &forkMessages)
+	forkBlockIDs := map[string]bool{}
+	forkChild, forkMarker := 0, false
+	for _, message := range forkMessages {
+		if sourceIDs[message.ID] {
+			t.Fatalf("failed-tree fork must mint fresh message ids, reused source row %s", message.ID)
+		}
+		for _, block := range message.Blocks {
+			forkBlockIDs[block.ID] = true
+		}
+	}
+	for _, message := range forkMessages {
+		if message.SubagentID == "" {
+			continue
+		}
+		forkChild++
+		if message.Status != "completed" {
+			t.Fatalf("forked failed child must retain its terminal subagent row: %+v", message)
+		}
+		anchor, _ := message.Attrs["parentBlockId"].(string)
+		if anchor == "" || !forkBlockIDs[anchor] || sourceBlockIDs[anchor] {
+			t.Fatalf("forked failed child anchor must resolve only inside fork: anchor=%q forkBlocks=%v sourceBlocks=%v", anchor, forkBlockIDs, sourceBlockIDs)
+		}
+		for _, block := range message.Blocks {
+			forkMarker = forkMarker || strings.Contains(block.Content, marker)
+		}
+	}
+	if forkChild != 1 || !forkMarker {
+		t.Fatalf("fork must preserve one failed child tree and marker %s: children=%d marker=%v messages=%+v", marker, forkChild, forkMarker, forkMessages)
+	}
+
+	var executions struct {
+		Executions []struct {
+			Status      string `json:"status"`
+			TriggeredBy string `json:"triggeredBy"`
+			MessageID   string `json:"messageId"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+fnID+"/executions").OK(t, &executions)
+	if len(executions.Executions) != 1 || executions.Executions[0].Status != "failed" || executions.Executions[0].TriggeredBy != "agent" || executions.Executions[0].MessageID == "" {
+		t.Fatalf("fork must not duplicate the failed function execution ledger: %+v", executions.Executions)
+	}
+
+	continuedID := sendMsg(t, wc, fork.ID, "这是失败分支。不要调用任何工具，只用一句简短中文确认失败标记仍已保留，并逐字包含 "+marker+"。")
+	continued := waitTurn(t, wc, fork.ID, continuedID, 180000)
+	if continued.Status != "completed" {
+		t.Fatalf("failed-tree fork continuation must complete: status=%s code=%s message=%s blocks=%+v", continued.Status, continued.ErrorCode, continued.ErrorMessage, continued.Blocks)
+	}
+	continuedText := ""
+	for _, block := range continued.Blocks {
+		if block.Type == "tool_call" {
+			t.Fatalf("failed-tree fork continuation must not resurrect a nested tool: %+v", continued.Blocks)
+		}
+		if block.Type == "text" {
+			continuedText += block.Content
+		}
+	}
+	if !strings.Contains(continuedText, marker) || len(listMsgs(t, wc, sourceID)) != len(sourceMessages) {
+		t.Fatalf("failed-tree continuation must recall marker without appending to source: text=%q before=%d after=%d", continuedText, len(sourceMessages), len(listMsgs(t, wc, sourceID)))
+	}
+}
+
 // TestLiveManaged_SubagentCancelTerminal proves cancellation while a real child tool is in flight:
 // the parent and nested sub-message both leave streaming, the running function leaves one
 // cancelled audit row, and the same conversation accepts a follow-up after the cancellation.
