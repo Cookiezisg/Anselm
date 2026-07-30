@@ -274,6 +274,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后 Google 原生工具续接的 provider 窗口恢复：`gemini-3-flash-preview` 两个独立 backend 进程均真实完成 `functionCall → functionResponse → 最终回答`，上游请求继续携带原生 `thoughtSignature`，durable history 保留工具调用、结果与最终文本，没有再出现 429、错误重试或 parser 误报（12.816s、11.452s）。此前的 429 仍作为历史 rate-window 证据保留，当前不再阻断该 lane。
 
+本轮在当前窗口再次抽样 provider 续接：DeepSeek `deepseek-v4-flash` 的兼容 tool loop 通过（10.31s），第二次请求与 durable tool history 均闭合；Gemini 文本 smoke（1.59s）及原生 `functionCall/functionResponse`（3.39s）均收到 429 并结构化为 `LLM_RATE_LIMITED` skip，没有伪造回答或错误降级。该结果与既有 Google rate-window 证据一致，不改后端 parser 或重试策略。
+
 ### FRT-13 最新证据
 
 同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。

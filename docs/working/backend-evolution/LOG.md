@@ -1069,6 +1069,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-703 | managed 默认附件历史与多图当前双跑全绿：同回合两张图片均被消费；删除首轮附件后 content 端点 404、后续历史只给诚实 missing-attachment 降级；省略 `attachmentIds` 的后续回合仍从历史重投影原图语义，源 PNG 字节不变，无 400、孤儿或占位 receipt | FRT-01 + FRT-13 / managed-read / multiple images + delete + history reprojection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(DefaultChatWithMultipleImageAttachments|AttachmentHistoryReprojection|DeletedAttachmentDegradesInHistory)$' -count=1 -parallel 1 -timeout 30m -json` → 两个独立进程均 PASS：包 22.576s、22.677s（各项约 8.10/6.52/7.28s 与 8.68/6.96/6.75s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-704 | BYOK provider 续接复探分流明确：DeepSeek 兼容层 tool continuation 10.31s 通过，第二次请求携带 tools/tool_calls/函数结果且 durable history 闭合；Gemini 文本 smoke 与原生 tool continuation 均触达当前 429 并结构化 SKIP `LLM_RATE_LIMITED`，没有伪造 assistant、错误回退或 parser 误报 | FRT-11 + FRT-14 / byok-read / provider wire + rate-window classification | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveBYOK_(DeepSeekToolContinuation|GoogleToolContinuation|TextProviderSmoke))$' -count=1 -parallel 1 -timeout 30m -json` → PASS 包 21.176s（Text smoke：DeepSeek 5.54s、Google SKIP 1.59s；DeepSeek tool 10.31s；Google tool SKIP 3.39s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
