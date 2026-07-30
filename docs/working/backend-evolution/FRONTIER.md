@@ -130,6 +130,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日补做 image producer→managed viewer：workflow 上游只调用一次 `generate_image` 生成真实 PNG MediaRef，下游 managed agent 消费同一产物后 flowrun completed；两次独立进程均能从 attachment content 端点回读完整 PNG（1,115,024 bytes、1,096,630 bytes），viewer 不是只看到 receipt 文本，未发生重复生成或媒体丢失，未形成产品缺陷。
 
+本轮对 workflow 用户多模态融合做三入口当前窗口复探：manual trigger 的 PDF+PNG+MP4 进入 managed agent 并回读 552/98/2,969,360 bytes，webhook 入口保留 `origin=webhook`/`triggerId` 并回读 555/98-byte PDF/PNG，chat→`trigger_workflow` 保留 `origin=chat`/`conversationId` 并回读 560/98-byte PDF/PNG；三条 flowrun 均 completed，PDF token、PNG/MP4 MediaRef 与源字节闭合，未出现入口特有的 payload/CEL 或媒体映射回归。
+
 本轮再补 workflow image producer→OpenAI BYOK viewer：上游 managed image、flowrun node、MediaRef attachment 与下游 OpenAI recorder 的 exact-byte image part 在两个当前独立进程均闭合（42.049s、35.691s）；这条混合 ownership 入口没有把生成 receipt 当作媒体，也没有因跨 provider 重投影而丢图。
 
 本轮再补 workflow speech producer→Qwen BYOK viewer：上游 managed WAV、flowrun node、MediaRef attachment 与下游 Qwen recorder 的 exact-byte `input_audio` 在两个当前独立进程均闭合（20.557s、19.261s）；该音频入口没有把 receipt 当作内容，也没有因跨 provider 重投影而丢失源字节。

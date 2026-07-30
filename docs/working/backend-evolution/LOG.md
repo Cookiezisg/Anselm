@@ -1133,6 +1133,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-735 | 混合 ownership 的关键多模态链当前双跑通过：OpenAI BYOK `gpt-4.1-mini` 只负责规划/续接，Anselm managed route 只执行一次 `generate_image` 并铸造真实 PNG；两次均以 managed receipt 完成，附件内容可读，BYOK recorder 的 planner 首轮与续接请求均收到同一图片字节（13.15s、10.18s），没有重复生成、receipt-only 占位或 ownership 串线 | FRT-03 + FRT-09 / hybrid / BYOK planner → managed image writer → BYOK pixel viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_OpenAIPlansManagedImage$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo735-hybrid-openai-plans-managed-image.jsonl` → PASS：包 23.932s；未输出 provider secret |
 
+| 2026-07-31 | EVO-736 | workflow 用户多模态融合当前三入口复探全绿：manual trigger 56.73s 把 PDF+PNG+MP4 穿到 managed agent 并回读 552/98/2,969,360 bytes；外部 webhook 19.49s 保留 `origin=webhook`/`triggerId` 与 555/98-byte PDF/PNG；chat→`trigger_workflow` 31.98s 保留 `origin=chat`/`conversationId` 与 560/98-byte PDF/PNG。三条 flowrun 均 durable completed，PDF token 抽取、PNG/MP4 MediaRef 与源附件闭合，没有入口特有的 payload/CEL、媒体映射或 lazy-tool 回归 | FRT-01 + FRT-04 / managed-write+read / manual + webhook + chat multimodal workflow | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveManaged_(WorkflowUserAttachmentFusion|WorkflowWebhookUserAttachmentFusion|ChatTriggerWorkflowUserAttachmentFusion))$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo736-managed-workflow-multimodal-entries.jsonl` → PASS：包 108.583s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
