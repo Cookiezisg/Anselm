@@ -934,6 +934,12 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-635 | 附件/文档读取长尾双跑证据加入 Frontier 后文档门禁通过；唯一 DTO drift warning 未变化 | docs gate / post-attachment-read-independent-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-31 | EVO-636 | managed 成本/人闸首轮组合 5 项中 4 项通过：视频拒绝、朗读顺序缓存、并发去重与 quota 均闭合；语音拒绝未在 60s 内出现 danger interaction，未进入合成/receipt/quota 断言 | FRT-08 + FRT-09 / managed-write / approval and spend gates | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(GenerateSpeechDeniedNoSpend|GenerateVideoDeniedNoSpend|ReadAloudCache|ReadAloudConcurrentDedup|Quota)$' -count=1 -parallel 1 -timeout 45m -json` → FAIL，包 94.582s；未输出 provider secret |
+
+| 2026-07-31 | EVO-637 | `generate_speech` 拒绝场景隔离一绿一红：绿跑确认 danger deny 后不产生 synthesis receipt、不增加 quota；红跑仍在 interaction 出现前超时，未观察到错误扣费、孤儿产物或错误终态，因此归类为 managed 模型/网关时序波动 | FRT-09 / managed-write / speech approval independent reprobe | 同一测试独立运行两次 → PASS 20.038s、FAIL 64.616s；未输出 provider secret |
+
+| 2026-07-31 | EVO-638 | 成本/人闸证据加入 Frontier 后文档门禁通过；既有 DTO drift warning 未变化 | docs gate / post-spend-gate-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
