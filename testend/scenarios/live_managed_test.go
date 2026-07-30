@@ -124,6 +124,51 @@ func TestLiveManaged_DefaultChat(t *testing.T) {
 	t.Fatalf("managed default chat completed without an assistant text block: %+v", turn.Blocks)
 }
 
+// TestLiveManaged_ConversationForkContinues proves the real chat rail path after a managed turn:
+// :fork copies an append-only prefix with lineage, leaves the source untouched, and the new branch
+// can immediately continue through the same Anselm default route.
+func TestLiveManaged_ConversationForkContinues(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-conversation-fork")
+	sourceID := convCreate(t, wc, "managed fork source")
+	firstID := sendMsg(t, wc, sourceID, "请只用一句简短中文回答：分支前的原始问题。不要调用工具。")
+	first := waitTurn(t, wc, sourceID, firstID, 180000)
+	if first.Status != "completed" {
+		t.Fatalf("source managed turn must complete before fork: status=%s code=%s message=%s", first.Status, first.ErrorCode, first.ErrorMessage)
+	}
+
+	fork := forkAt(t, wc, sourceID, firstID)
+	forkHead := forkGetConv(t, wc, fork.ID)
+	if fork.ID == sourceID || forkHead.ForkedFromConversationID != sourceID || forkHead.ForkedFromMessageID != firstID {
+		t.Fatalf("managed fork lineage must point at the source turn: source=%s first=%s fork=%+v", sourceID, firstID, forkHead)
+	}
+	if forkHead.Title != "managed fork source (fork)" || forkHead.AutoTitled {
+		t.Fatalf("managed fork must carry the deterministic fork title without auto-title state: %+v", forkHead)
+	}
+
+	sourceHistory := listMsgs(t, wc, sourceID)
+	forkHistory := listMsgs(t, wc, fork.ID)
+	if len(sourceHistory) != 2 || len(forkHistory) != 2 {
+		t.Fatalf("fork must copy exactly the completed source prefix without mutating it: source=%d fork=%d", len(sourceHistory), len(forkHistory))
+	}
+	for _, message := range forkHistory {
+		if message.ID == firstID {
+			t.Fatalf("fork must mint fresh message ids instead of reusing source assistant %s", firstID)
+		}
+	}
+
+	continuedID := sendMsg(t, wc, fork.ID, "现在只用一句简短中文确认：分支可以继续。不要调用工具。")
+	continued := waitTurn(t, wc, fork.ID, continuedID, 180000)
+	if continued.Status != "completed" {
+		t.Fatalf("managed fork continuation must complete: status=%s code=%s message=%s", continued.Status, continued.ErrorCode, continued.ErrorMessage)
+	}
+	if text, ok := blockOfType(continued, "text"); !ok || strings.TrimSpace(text) == "" {
+		t.Fatalf("managed fork continuation must persist assistant text: %+v", continued.Blocks)
+	}
+	if len(listMsgs(t, wc, sourceID)) != 2 {
+		t.Fatalf("continuing the fork must not append to the source history: %+v", listMsgs(t, wc, sourceID))
+	}
+}
+
 // TestLiveManaged_GenerateImageArtifact is the smallest managed-write acceptance: the default
 // Anselm dialogue model must discover and call generate_image once, the managed gateway must return
 // a decoder-valid image, and the tool receipt must land as a first-class attachment owned by Anselm.
