@@ -44,6 +44,8 @@ audience: [human, ai]
 
 同轮复探 OpenAI `gpt-audio` 的音频+agent 交叉边界：两次独立进程都把 WAV 作为原生 `input_audio` 送入首发，完成一次 `run_function` 后将结果回灌第二次 `/chat/completions`；recorder 同时钉住音频原始 base64 与 `tools`，durable history 保留 tool call/result/最终文本，附件字节不变。两次通过（11.18s、9.32s），未复现此前的瞬时 provider stall。
 
+同日复探 BYOK 文档/视频读侧当前配置：OpenAI `gpt-4.1-mini` 原生 PDF 与 Qwen `qwen3.7-plus` 视频连续两轮独立组合全绿（15.923s、15.675s）；PDF 仍经 native `file_data`/document wire，视频仍保留 `video_url` 与源附件字节，workspace 未安装 managed fallback，未形成 provider encoder 或文档/视频投影回归。
+
 模型切换回归哨兵随后再次通过：同一会话先由 Qwen `qwen3.7-plus` 接收 image+video，再切到 OpenAI `gpt-4.1-mini`；第二轮只保留 image native，video 明确降级为 capability 注记，两个源附件仍逐字节回读。两次独立进程通过（12.75s、10.26s），未复现历史 semantic backfill 关闭竞态或 `database is closed`。
 
 同日补做 OpenAI 图片历史与多图高频交互：`retry` 的无内容 regenerate 保留单一 user 行、追加 assistant 版本链，并让首轮与重试都携带 exact-byte `image_url`；编辑文字的 resend 同样重投影原图；同一回合两张图片各自保留附件并同时穿过原生线缆。首轮组合与独立多图补跑全绿（retry/edit 包 16.919s；multiple 7.687s），第二个三场景独立进程也全绿（包 48.955s；retry 37.54s、edit 7.56s、multiple 3.48s），未形成历史、附件或 part encoder 回归。
