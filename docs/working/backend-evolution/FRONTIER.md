@@ -72,6 +72,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后把 viewer 方言扩展到 native Gemini 与 Qwen：managed image→Gemini inlineData 两次通过（56.34s、65.18s）；managed speech→Qwen audio viewer 两次通过（17.86s、18.55s）；managed async video→Qwen video viewer 两次通过（122.77s、119.56s，MP4 约 9.7MB/9.2MB）。每条路径都等待真实 MediaRef、回读原始附件并完成下游回合，未形成跨 provider 编码、异步等待或 ownership 回归。
 
+本轮补做 workflow 版本的 managed image→OpenAI BYOK viewer 当前双跑：上游 agent 仅执行一次 `generate_image`，flowrun 节点保留 MediaRef/receipt，附件 content 端点回读真实 PNG，下游 recorder 观察到同一 exact-byte native image part；两次通过（42.049s、35.691s），未形成 workflow 接线、ownership 或跨 provider 编码缺陷。
+
 ### FRT-04 最新证据
 
 2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
@@ -99,6 +101,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日补做 speech producer→managed viewer：workflow 生成真实 WAV 后交给下游默认 managed agent；两次独立复跑均 flowrun completed，WAV（80,684 bytes）可回读，viewer 对 chat audio 维持诚实降级而未伪造转录或 native audio 能力，未形成产品缺陷。
 
 同日补做 image producer→managed viewer：workflow 上游只调用一次 `generate_image` 生成真实 PNG MediaRef，下游 managed agent 消费同一产物后 flowrun completed；两次独立进程均能从 attachment content 端点回读完整 PNG（1,115,024 bytes、1,096,630 bytes），viewer 不是只看到 receipt 文本，未发生重复生成或媒体丢失，未形成产品缺陷。
+
+本轮再补 workflow image producer→OpenAI BYOK viewer：上游 managed image、flowrun node、MediaRef attachment 与下游 OpenAI recorder 的 exact-byte image part 在两个当前独立进程均闭合（42.049s、35.691s）；这条混合 ownership 入口没有把生成 receipt 当作媒体，也没有因跨 provider 重投影而丢图。
 
 同日复探聊天入口的 workflow 生命周期组合：默认 managed chat 先发现并调用 `trigger_workflow`，随后分别通过 `get_flowrun` 读取 completed run、通过 `search_flowruns(status=failed)` 加 `get_flowrun` 诊断 durable 节点错误、再调用 `replay_flowrun` 恢复同一失败 run。三条路径在两个独立进程中全部通过（包总计 134.638s、126.102s）；`origin=chat`、`conversationId`、节点错误、已完成节点不重跑与 function/handler execution ledger 均闭合，未形成后端缺陷。
 

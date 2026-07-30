@@ -1035,6 +1035,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-686 | deployed Anselm gateway 音色全生命周期单样本当前复探通过：managed 朗读生成参考 WAV，danger approve 后异步 enroll 完成，克隆音色再合成真实 WAV，最后删除并确认 inventory 归零；源/克隆附件与上游句柄均闭合，无 voice 孤儿 | FRT-07 / managed-write / voice enroll→speak→delete | `cd testend; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_EnrollSpeakDelete$' -count=1 -parallel 1 -timeout 20m -v` → PASS 46.397s；未输出 provider secret |
 
+| 2026-07-31 | EVO-687 | managed workflow 图像 producer→OpenAI BYOK vision viewer 当前双跑通过：上游只铸一份真实 PNG MediaRef，flowrun 节点/附件 content 与 receipt 闭合，下游 recorder 收到同一 exact-byte native image part；两次均 completed，无 receipt-only 占位、重复生成或跨 provider 丢图 | FRT-03 + FRT-04 / hybrid / workflow managed image→BYOK viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManagedImageToOpenAIViewer$' -count=1 -parallel 1 -timeout 20m -v` → PASS 42.049s、35.691s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
