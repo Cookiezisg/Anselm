@@ -950,6 +950,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-643 | Qwen `qwen3.7-plus` image+video 同回合融合连续两次通过；能力投影声明双原生媒体，录制的 OpenAI-compatible wire 同时包含 exact-byte `image_url`/`video_url`，附件回读字节不变且无上游 400 | FRT-02 / byok-read / multimodal fusion | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_QwenImageAndVideoFusion$' -count=1 -parallel 1 -timeout 30m -json` → PASS 10.47s、9.05s；未输出 provider secret |
 
+| 2026-07-31 | EVO-644 | Qwen Omni image+audio 组合连续两次通过；能力投影明确 `maxDistinctMediaKinds=1`，产品保留图片原生 wire 并把第二种媒体转为诚实降级，附件字节和回合终态稳定，无供应商 400 | FRT-02 / byok-read / multimodal combination downgrade | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_QwenImageAndAudioFusion$' -count=1 -parallel 1 -timeout 30m -json` → PASS 4.95s、3.69s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
