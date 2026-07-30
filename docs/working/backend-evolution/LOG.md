@@ -424,6 +424,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-380 | managed 对话分叉场景、backend 全量回归与文档门禁后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-conversation-fork | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-381 | 默认 managed 原地重试闭环补齐：首轮完成后 `:retry` 只追加新 assistant 版本，旧行仍可读且 `supersededBy`/`retryOf` 线性相连，历史只保留一条 user 行；重试后的最新版本继续对话并完成，未形成后端缺陷 | FRT-13 / managed-read/default / chat → retry → version chain → continuation | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatRetryContinues$' -count=1 -v` → PASS 11.951s；复跑 PASS 12.262s；无 provider secret |
+
+| 2026-07-30 | EVO-382 | managed 原地重试场景加入后的 docs 门禁通过；Frontier 新增 FRT-13 真实证据，working 索引、锚点与 drift 检查保持可用，既有 DTO drift warning 未变化且不阻断门禁 | docs gate / post-managed-chat-retry | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 内容未变化 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
