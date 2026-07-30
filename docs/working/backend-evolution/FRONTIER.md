@@ -78,6 +78,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮独立复探 OpenAI 图片历史交互：无内容 `retry` 连续保留单一 user 行、assistant 版本指针与 exact-byte native `image_url`；编辑文字的 resend 继续从附件历史重投影同一原图，未重复 user、丢失附件或退化成 text-only。两条路径当前进程均通过（6.340s、4.810s；包 11.445s），未形成历史装配或 part encoder 回归。
 
+本轮再做能力降级与跨模型历史切换：OpenAI 图片+不支持音频（6.32s）与图片+不支持视频（4.84s）均只发送 native image、明确写 capability note，PNG/WAV/2,969,360-byte MP4 源件逐字节可回读；Qwen image+video 首轮后切 OpenAI `gpt-4.1-mini` 继续同一会话（9.31s），第二轮保留 image native、完全不带 video 字节并诚实降级。未形成 provider 400、managed fallback、历史媒体泄漏或能力门控回归。
+
 ### FRT-03 最新证据
 
 本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。

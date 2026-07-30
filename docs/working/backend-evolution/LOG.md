@@ -1117,6 +1117,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-727 | workflow 的 function、resident handler、stdio MCP 三类 managed producer→OpenAI BYOK vision viewer 当前组合全绿：每条 flowrun 均 completed，producer MediaRef/节点台账与 viewer recorder 同一图片 wire 闭合；function/handler 源 PNG 各 98 bytes，MCP 源附件 196 bytes，三条分别 19.35s、14.64s、14.80s，未见 receipt-only、ownership 串线、跨 provider 丢图或重复产物 | FRT-03 + FRT-04 + FRT-05 / hybrid / workflow function+handler+MCP producer → OpenAI viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_HYBRID=1 EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveHybrid_WorkflowManaged(Function|Handler|MCP)ToOpenAIViewer$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo727-hybrid-workflow-producers-openai.jsonl` → PASS，包 49.705s；未输出 provider secret |
 
+| 2026-07-31 | EVO-728 | BYOK 多模态能力与模型切换当前全绿：OpenAI 图片+不支持音频 6.32s、图片+不支持视频 4.84s 均只发 native image 并写 capability note，PNG/WAV/2,969,360-byte MP4 源件原样可回读；Qwen image+video 后切 OpenAI `gpt-4.1-mini` 继续同会话 9.31s，第二轮保留图片 native、视频不带字节并明确降级，三项总计 21.125s，无 400、managed fallback 或历史媒体泄漏 | FRT-02 + FRT-13 / byok-read / capability degrade + cross-model history reprojection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_(ModelSwitchReprojectsHistoryMedia|OpenAIImageAndUnsupported(Audio|Video))$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo728-byok-switch-degrade.jsonl` → PASS，包 21.125s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
