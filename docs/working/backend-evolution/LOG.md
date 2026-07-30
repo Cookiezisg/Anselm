@@ -1005,6 +1005,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-671 | Qwen chat-only 模型资格边界连续两次通过：模型可保留对话用途，但设置到 agent 后 `:invoke` 在 0 steps 明确以 failed/“cannot run as an agent”拒绝，没有发工具调用、执行台账或 managed fallback | FRT-10 / byok-read / chat-only capability boundary | `cd testend; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_QwenChatOnlyAgentRejected$' -count=1 -parallel 1 -timeout 20m -v` → PASS 3.656s、3.050s；未输出 provider secret |
 
+| 2026-07-31 | EVO-672 | managed 附件历史生命周期四场景连续两轮全绿：保留附件的跨回合重投影继续完成并保持 98-byte PNG 原样；删除附件后 content 端点 404，后续回合仍完成且不伪造已删除媒体，未出现历史装配、lease 或附件孤儿 | FRT-01 + FRT-13 / managed-read / attachment deletion + history reprojection | `cd testend; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(DeletedAttachmentDegradesInHistory|AttachmentHistoryReprojection)$' -count=1 -parallel 1 -timeout 30m -v` → 两轮均 PASS（21.646s、16.020s；四项单场景均通过）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

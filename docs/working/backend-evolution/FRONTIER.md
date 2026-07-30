@@ -138,6 +138,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日再复探支持/不支持模态交叉：默认 managed 同一回合携带 PNG 与 WAV，能力面继续只宣称 vision、不宣称 chat audio；两次独立进程均完成，PNG（98 bytes）与 WAV（96,044 bytes）原样回读，音频以诚实降级留在产品边界，没有把整回合变成 gateway 400 或伪造 native audio。关停阶段的 embedder `context canceled` 仍为已知噪声。
 
+随后复探 managed 附件历史生命周期：一条路径在第二轮省略 `attachmentIds` 仍通过历史 re-projection 继续使用首轮图片，另一条路径删除首轮图片后 content 端点正确 404，后续对话仍 completed 且没有把已删媒体冒充为可读内容。两轮独立组合均通过（包 21.646s、16.020s），源 PNG 保持字节一致，未形成附件归属、lease、删除或历史装配缺陷。
+
 同日补做附件生命周期哨兵：同回合两张独立图片均可回读；首轮消费图片后删除附件，后续回合面对 404 仍把历史媒体明确降级为 missing attachment 而完成；另一条会话在首轮带图后省略 `attachmentIds` 继续追问，历史媒体重新投影后仍完成且源字节不变。三条场景在两个独立 managed 进程中均通过（包总计 30.287s、29.376s），没有 400、孤儿媒体或跨回合丢失；关停阶段偶见 search embedder `context canceled` 仍归类为已知 shutdown 噪声。
 
 同日再做附件删除/历史重投影两条最小组合的独立进程复探：删除后的历史回合继续诚实产出 missing-attachment 注记，省略 `attachmentIds` 的后续回合仍从历史投影得到原图语义，源字节守卫均通过。两轮组合均全绿（18.790s、19.490s），未形成生命周期回归。
