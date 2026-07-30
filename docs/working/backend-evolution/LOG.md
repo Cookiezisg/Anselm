@@ -956,6 +956,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-646 | Google Gemini 原生 `functionCall`/`functionResponse`/`thoughtSignature` tool continuation 连续两次通过；sandbox function 结果与第二次 streaming generateContent 均闭合，未出现 429/错误回合污染或工具结果丢失 | FRT-05 + FRT-11 / byok-read / native tool continuation | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_GoogleToolContinuation$' -count=1 -parallel 1 -timeout 30m -json` → PASS 11.117s、10.627s；未输出 provider secret |
 
+| 2026-07-31 | EVO-647 | 当前 Kimi/Moonshot key 的产品 `:test` 连续两次稳定返回 422 `API_KEY_TEST_FAILED`，并保留 provider `HTTP 401` 原因；没有被错误分类为缺失模型、网络故障或成功能力 | FRT-11 / byok-read / credential error taxonomy | `EVALS_BYOK=1 go test ./scenarios -run '^TestLiveBYOK_KimiCredentialProbe$' -count=1 -parallel 1 -timeout 15m -json` → PASS 4.682s、3.082s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
