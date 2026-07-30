@@ -80,6 +80,8 @@ audience: [human, ai]
 
 同日再探批准后取消边界：视频任务在批准并提交后由客户端 `:cancel`，本地回合落 cancelled，历史与附件查询均不出现迟到视频或孤儿 receipt；底层 `generate_video` 的取消 WARN 是任务进程被杀后的可解释噪声。首轮在审批前 60s 未出现 interaction，随后两次隔离复跑完整通过（15.89s、31.58s），将红灯归类为 managed/provider 瞬态而非稳定产品回归。
 
+同日复探直接 managed 生成低成本路径：`generate_image` 与 `generate_speech` 各自只执行一次，receipt 均标注受管 provider，PNG/WAV 真实附件可逐字节回读，回合完成且没有重复工具调用。两轮独立组合均通过（包 42.248s、44.673s；首轮 image 31.46s、speech 10.01s；复跑 speech 9.31s），未形成生成路由或成本闸回归。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。

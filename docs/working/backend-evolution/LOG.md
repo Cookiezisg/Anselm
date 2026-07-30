@@ -738,6 +738,12 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-537 | 子代理音视频双跑事实加入 Frontier 后文档门禁通过；FRT-05 的 temporal metadata、父层不越权与源字节边界保持可读，唯一 DTO drift warning 未变化 | docs gate / post-subagent-temporal-media-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-538 | managed 直接低成本生成首轮通过：`generate_image`/`generate_speech` 各恰一次，receipt 标出受管 provider，真实 PNG（1,146,958 bytes）与 WAV（80,684 bytes）附件可回读，回合均完成 | FRT-09 / managed-write / direct image + speech generation | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_Generate(ImageArtifact|SpeechArtifact)$' -count=1 -parallel 1 -timeout 20m -v` → PASS，包总计 42.248s（Image 31.46s；Speech 10.01s）；未输出 provider secret |
+
+| 2026-07-30 | EVO-539 | 同一 image/speech 生成组合第二个独立进程再次全绿（包 44.673s；Speech 9.31s），没有重复 receipt、附件丢失或回合续接异常，未形成产品缺陷 | FRT-09 / managed-write / independent reprobe | 同一命令第二次独立运行 → PASS，包总计 44.673s；未输出 provider secret |
+
+| 2026-07-30 | EVO-540 | 直接 image/speech 生成双跑事实加入 Frontier 后文档门禁通过；FRT-09 的 receipt、真实媒体和单次调用证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-managed-direct-generation-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
