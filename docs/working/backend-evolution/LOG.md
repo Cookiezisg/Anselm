@@ -510,6 +510,16 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-423 | 最终追加失败 subagent fork 证据后的文档门禁通过；FRT-05/FRT-16 的错误树交集、oracle 校准、全量与跨层结果及既有 drift warning 均如实保留 | docs gate / final post-managed-failed-subagent-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
 
+| 2026-07-30 | EVO-424 | managed 取消 subagent 树分叉闭合：真实 `:cancel` 后父/child durable 状态均为 cancelled，latest fork 保留 child terminal 证据并重映射 E3 锚，唯一 agent execution 仍为 cancelled，分支续接不复活工具，未形成后端缺陷 | FRT-05 / FRT-13 / FRT-16 / managed-read/default / cancelled subagent → latest fork → continuation | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ForkPreservesCancelledSubagentTree$' -count=1 -v` → PASS 54.58s；复跑 PASS 54.88s；commit `ae5853e7`；无 provider secret；shutdown 时的 embedder `context canceled` 归类为噪声 |
+
+| 2026-07-30 | EVO-425 | 取消 subagent 树分叉场景加入后的文档门禁通过；FRT-05/FRT-13/FRT-16 的取消 durable 证据、shutdown 噪声分类与真实双跑记录保持可读，既有 drift warning 未变化 | docs gate / post-managed-cancelled-subagent-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
+| 2026-07-30 | EVO-426 | 取消 subagent 树分叉场景加入后的 backend 全量黑盒回归闭合；chat、agent/subagent（含 failure/cancel、取消×fork、并行树、跨回合、nested fork 与 retry boundary）、workflow/trigger、附件发现/抽取/inspect、多模态、MCP/function/handler、重试/崩溃恢复与资源卫生共同通过，未出现 FAIL、panic、race 或 `database is closed` | full backend testend regression / post-managed-cancelled-subagent-fork | `make -C backend testend` → `ok github.com/sunweilin/anselm/testend/scenarios 313.165s`；failure markers 为空；无 provider secret、EVALS 未开启 |
+
+| 2026-07-30 | EVO-427 | 取消 subagent 树分叉、backend 全量回归后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-cancelled-subagent-fork | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
+
+| 2026-07-30 | EVO-428 | 最终追加取消 subagent fork 证据后的文档门禁通过；FRT-05/FRT-13/FRT-16 的取消终态、唯一 execution、shutdown 噪声分类与跨层结果均如实保留 | docs gate / final post-managed-cancelled-subagent-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；唯一 DTO warning 仍为 12 对 anchored DTO mirror、21 个无同名 Go struct 跳过 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

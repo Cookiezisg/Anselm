@@ -58,6 +58,8 @@ audience: [human, ai]
 
 同日补上失败 subagent 树的真实分叉：child 的 function 真实落一条 `failed + triggeredBy=agent` execution，错误 marker 与 completed child row 随 latest fork 携带，消息级 `parentBlockId` 重定基到分支自己的 `Subagent` tool_call；分支 follow-up 不复活失败工具、ledger 仍只有一条 execution，源历史不变。首轮探索只暴露了测试按最新在前历史过早校验 parent anchor 的 oracle 顺序问题，改为先收集全部 block 再验证后，两次真实 managed 复跑通过（62.26s、36.45s），未形成 backend 缺陷。
 
+同日补上取消 subagent 树的真实分叉：父/child 通过真实 `:cancel` 都落 `cancelled` 后，latest fork 保留 child 的 terminal 状态与重定基后的 `parentBlockId`；底层 function ledger 仍恰一条 `cancelled + triggeredBy=agent`，分支 follow-up 不复活在途工具。两次真实 managed 复跑通过（54.58s、54.88s），关停时偶见 search embedder `context canceled`，归类为 shutdown 噪声。
+
 同日补充并行子代理的跨回合上下文续接：首轮两个 child 均完成后，第二轮用户追问只要求复述两个 marker；父回合在不调用任何工具的情况下逐字恢复两份结果，历史仍保留恰两个 completed child、原 `parentBlockId` 锚点和两条唯一 `agent/ok` function execution。两次真实 managed 复跑通过（74.62s、59.65s），未形成后端缺陷。
 
 ### FRT-13 最新证据
@@ -83,6 +85,8 @@ audience: [human, ai]
 同日补上版本链分叉交互：这条路径与上面的并行 subagent 树分叉互补，证明 `Fork` 的同一份预铸 message remap 表同时覆盖 `retryOf`/`supersededBy` 与消息级 E3 锚；真实 retry→latest fork→branch continuation 两次通过（28.37s、20.98s），源分支均未出现跨线程指针。
 
 同日补上失败树分叉交互：失败 child 的 durable error 证据与 E3 锚和成功 child 使用同一套 fork remap 语义；这条路径两次通过（62.26s、36.45s），补足了 FRT-05 “failure is durable” 与 FRT-16 “fork is self-contained” 的交集。
+
+同日补上取消树分叉交互：取消 child 与失败 child 一样是可读的 durable terminal history，而不是被 fork 丢弃的 transient；两次通过（54.58s、54.88s），补足 FRT-13 取消恢复与 FRT-16 分支自洽的交集。
 
 ## 历史高频 reprobe 组
 
