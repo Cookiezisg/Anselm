@@ -1123,6 +1123,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-730 | provider 当前窗口复探分流明确：DeepSeek 文本 5.03s 与兼容 tool continuation 7.76s 通过；Google 文本与原生工具续接分别结构化 SKIP `LLM_RATE_LIMITED (429)`（1.73s、3.18s），stale-model 恢复先稳定得到单次 404→`LLM_MODEL_NOT_FOUND` 后恢复请求因 429 skip；重复 stale failure 2.10s 仍每轮只发一次并保持 `LLM_MODEL_NOT_FOUND`。包 22.102s，无伪造 assistant、fallback 或无界重试 | FRT-11 + FRT-14 / byok-read / provider rate-window + stale-model classification | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveBYOK_(TextProviderSmoke|DeepSeekToolContinuation|GoogleToolContinuation|GoogleListedModelCanBeAccountUnavailable|GoogleListedModelRepeatedFailure))$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo730-byok-provider-window.jsonl` → PASS，包 22.102s（Google provider 场景按合同结构化 skip）；未输出 provider secret |
 
+| 2026-07-31 | EVO-731 | 完成 EVO-725～730 后 backend 全量黑盒总闸通过：managed 图像/动画与子代理媒体、workflow function/handler/MCP 跨 provider、BYOK 模型切换/文档媒体/provider 错误分类等 focused 探针没有回归 contract、durable、chat、agent/subagent、workflow、MCP/function/handler、附件、多模态、取消/恢复或资源卫生基线 | full backend testend regression / post-EVO-725~730 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-backend-testend-20260731-evo730.log` → `ok github.com/sunweilin/anselm/testend/scenarios 292.907s`；未启用 EVALS/provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
