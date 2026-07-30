@@ -2451,6 +2451,170 @@ func TestLiveManaged_ForkPreservesFailedSubagentTree(t *testing.T) {
 	}
 }
 
+// TestLiveManaged_ForkPreservesCancelledSubagentTree proves the cancellation counterpart of the
+// failed-tree fork: a child and its parent can be durably cancelled, the branch carries that
+// terminal evidence with a remapped E3 anchor, the cancelled execution is not duplicated, and a
+// branch follow-up does not resurrect the in-flight tool.
+func TestLiveManaged_ForkPreservesCancelledSubagentTree(t *testing.T) {
+	wc := liveManagedWorkspace(t, "live-managed-fork-cancelled-subagent-tree")
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	const marker = "FORK_CANCELLED_SUBAGENT_9E42"
+	fnID := fnCreate(t, wc, "fork_cancelled_subagent", fmt.Sprintf(`import time
+def stall() -> dict:
+    time.sleep(60)
+    return {"marker": "%s"}
+`, marker))
+	sourceID := convCreate(t, wc, "managed fork cancelled subagent")
+	prompt := fmt.Sprintf(`请只派一个 general-purpose 子代理，父回合不要直接调用其他工具。
+子任务必须在子代理内部先调用 search_tools 搜索名为 run_function 的工具；等 schema 返回后，只调用 run_function 一次，参数必须逐字使用 functionId=%s 和 args={}，不要猜测或替换 functionId。
+这个函数会运行约 60 秒并返回标记 %s；在它运行时客户端会取消父对话。`, fnID, marker)
+	firstID := sendMsg(t, wc, sourceID, prompt)
+	// Match the real UI action: give the model enough time to enter the long function, then cancel
+	// through the conversation endpoint instead of waiting for REST history to expose streaming
+	// child blocks (that projection is intentionally batched).
+	timer := time.NewTimer(45 * time.Second)
+	<-timer.C
+	if !timer.Stop() {
+		select {
+		case <-timer.C:
+		default:
+		}
+	}
+	r := wc.POST("/api/v1/conversations/"+sourceID+":cancel", nil)
+	if r.Status != 204 {
+		t.Fatalf("cancel must return 204 during the child function: got %d %s", r.Status, r.Raw)
+	}
+
+	var sourceMessages []struct {
+		ID         string         `json:"id"`
+		SubagentID string         `json:"subagentId"`
+		Status     string         `json:"status"`
+		Attrs      map[string]any `json:"attrs"`
+		Blocks     []struct {
+			ID      string `json:"id"`
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	settled := false
+	deadline := time.Now().Add(30000 * time.Millisecond)
+	for time.Now().Before(deadline) {
+		r := wc.GET("/api/v1/conversations/" + sourceID + "/messages?limit=50")
+		if r.Status == 200 && json.Unmarshal(r.Data, &sourceMessages) == nil {
+			parentCancelled, childCancelled := false, false
+			allTerminal := true
+			for _, message := range sourceMessages {
+				if message.ID == firstID {
+					parentCancelled = message.Status == "cancelled"
+				}
+				if message.SubagentID != "" {
+					childCancelled = message.Status == "cancelled"
+				}
+				if message.Status == "streaming" || message.Status == "pending" {
+					allTerminal = false
+				}
+			}
+			if parentCancelled && childCancelled && allTerminal {
+				settled = true
+				break
+			}
+		}
+		time.Sleep(100 * time.Millisecond)
+	}
+	if !settled {
+		t.Fatalf("source parent and child must settle cancelled before fork: messages=%+v", sourceMessages)
+	}
+
+	sourceIDs, sourceBlockIDs := map[string]bool{}, map[string]bool{}
+	for _, message := range sourceMessages {
+		sourceIDs[message.ID] = true
+		for _, block := range message.Blocks {
+			sourceBlockIDs[block.ID] = true
+		}
+	}
+	sourceChildren := 0
+	for _, message := range sourceMessages {
+		if message.SubagentID == "" {
+			continue
+		}
+		sourceChildren++
+		anchor, _ := message.Attrs["parentBlockId"].(string)
+		if message.Status != "cancelled" || anchor == "" || !sourceBlockIDs[anchor] {
+			t.Fatalf("source cancelled child must retain terminal status and parent anchor: %+v blocks=%v", message, sourceBlockIDs)
+		}
+	}
+	if sourceChildren != 1 {
+		t.Fatalf("source must contain exactly one cancelled child tree, got %d messages=%+v", sourceChildren, sourceMessages)
+	}
+
+	fork := forkAt(t, wc, sourceID, "")
+	head := forkGetConv(t, wc, fork.ID)
+	if len(sourceMessages) == 0 || head.ForkedFromConversationID != sourceID || head.ForkedFromMessageID != sourceMessages[0].ID || head.Title != "managed fork cancelled subagent (fork)" || head.AutoTitled {
+		t.Fatalf("cancelled-tree fork lineage/title must point at latest source row: source=%s fork=%+v", sourceID, head)
+	}
+	var forkMessages []struct {
+		ID         string         `json:"id"`
+		SubagentID string         `json:"subagentId"`
+		Status     string         `json:"status"`
+		Attrs      map[string]any `json:"attrs"`
+		Blocks     []struct {
+			ID      string `json:"id"`
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	wc.GET("/api/v1/conversations/"+fork.ID+"/messages?limit=50").OK(t, &forkMessages)
+	forkBlockIDs := map[string]bool{}
+	for _, message := range forkMessages {
+		if sourceIDs[message.ID] {
+			t.Fatalf("cancelled-tree fork must mint fresh message ids, reused source row %s", message.ID)
+		}
+		for _, block := range message.Blocks {
+			forkBlockIDs[block.ID] = true
+		}
+	}
+	forkChildren := 0
+	for _, message := range forkMessages {
+		if message.SubagentID == "" {
+			continue
+		}
+		forkChildren++
+		anchor, _ := message.Attrs["parentBlockId"].(string)
+		if forkChildren != 1 || message.Status != "cancelled" || anchor == "" || !forkBlockIDs[anchor] || sourceBlockIDs[anchor] {
+			t.Fatalf("forked cancelled child must remain terminal and point only inside fork: message=%+v forkBlocks=%v sourceBlocks=%v", message, forkBlockIDs, sourceBlockIDs)
+		}
+	}
+	if forkChildren != 1 {
+		t.Fatalf("fork must preserve exactly one cancelled child tree, got %d messages=%+v", forkChildren, forkMessages)
+	}
+
+	var executions struct {
+		Executions []struct {
+			Status      string `json:"status"`
+			TriggeredBy string `json:"triggeredBy"`
+			MessageID   string `json:"messageId"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+fnID+"/executions").OK(t, &executions)
+	if len(executions.Executions) != 1 || executions.Executions[0].Status != "cancelled" || executions.Executions[0].TriggeredBy != "agent" || executions.Executions[0].MessageID == "" {
+		t.Fatalf("fork must not duplicate the cancelled function execution ledger: %+v", executions.Executions)
+	}
+
+	continuedID := sendMsg(t, wc, fork.ID, "这是取消分支。不要调用任何工具，只用一句简短中文确认对话可以继续。")
+	continued := waitTurn(t, wc, fork.ID, continuedID, 120000)
+	if continued.Status != "completed" {
+		t.Fatalf("cancelled-tree fork continuation must complete: status=%s code=%s message=%s blocks=%+v", continued.Status, continued.ErrorCode, continued.ErrorMessage, continued.Blocks)
+	}
+	for _, block := range continued.Blocks {
+		if block.Type == "tool_call" {
+			t.Fatalf("cancelled-tree fork continuation must not resurrect a nested tool: %+v", continued.Blocks)
+		}
+	}
+	if len(listMsgs(t, wc, sourceID)) != len(sourceMessages) {
+		t.Fatalf("continuing cancelled fork must not append to source history: before=%d after=%d", len(sourceMessages), len(listMsgs(t, wc, sourceID)))
+	}
+}
+
 // TestLiveManaged_SubagentCancelTerminal proves cancellation while a real child tool is in flight:
 // the parent and nested sub-message both leave streaming, the running function leaves one
 // cancelled audit row, and the same conversation accepts a follow-up after the cancellation.
