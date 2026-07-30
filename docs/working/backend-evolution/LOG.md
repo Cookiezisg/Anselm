@@ -902,6 +902,10 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-619 | Google native viewer 第二个独立进程再次通过（65.987s），当前 Gemini inlineData workflow 线路未复现 429 或 parser/attachment 回归 | FRT-03 + FRT-04 + FRT-11 / hybrid / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-620 | 默认 managed 附件高频组合首轮 6/6 通过：单图、文本+图、多图、删除后历史降级、历史重投影、文档内图片引用均保持 durable 语义与源附件字节 | FRT-01 / managed-read/default / attachment lifecycle + multimodal fusion | `EVALS_MANAGED=1 go test ./scenarios -run '^TestLiveManaged_(DefaultChatWithImageAttachment|DefaultChatWithTextAndImageAttachments|DefaultChatWithMultipleImageAttachments|DeletedAttachmentDegradesInHistory|AttachmentHistoryReprojection|DocumentImageReference)$' -count=1 -parallel 1 -timeout 60m -json` → PASS，包 38.941s；未输出 provider secret |
+
+| 2026-07-31 | EVO-621 | 同一附件组合第二个独立进程再次 6/6 全绿（48.030s），删除后的缺失注记、跨回合媒体重投影和文档图像引用均未出现回归 | FRT-01 / managed-read/default / independent reprobe | 同一命令第二次独立运行 → PASS；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
