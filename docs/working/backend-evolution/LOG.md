@@ -780,6 +780,14 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-558 | workflow 多模态三入口双跑事实加入 Frontier 后文档门禁通过；FRT-04 的 manual/webhook/chat MediaRef 接线、sandbox/native 分支与 durable lineage 证据保持可读，唯一 DTO drift warning 未变化 | docs gate / post-workflow-multimodal-fusion-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-559 | 子代理 managed image writer 首次独立复探暴露真实红灯：父层 maxSteps=3 下模型先传非法 `subagent_type`，随后回合以 `MAX_STEPS_REACHED` 终止，尚未进入 image receipt 断言；未见 durable 媒体孤儿证据 | FRT-05 / managed-write / subagent / tool-schema recovery + low step budget | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentGenerateImageArtifact$' -count=1 -parallel 1 -timeout 20m -v` → FAIL 17.901s（`MAX_STEPS_REACHED`）；未输出 provider secret |
+
+| 2026-07-30 | EVO-560 | 同一子代理 image 场景第二个独立进程通过（52.834s）：子代理最终恰一次 `generate_image`，父回合 receipt/provider/attachment 血缘闭合，PNG 可回读；与上一红灯共同指向模型参数纠错消耗父步预算，而非稳定媒体后端失败 | FRT-05 / managed-write / independent reprobe | 同一命令第二次独立运行 → PASS 52.834s；未输出 provider secret |
+
+| 2026-07-30 | EVO-561 | 第三个独立进程再次以同一 `MAX_STEPS_REACHED` 红灯结束（60.827s），两红一绿确认低 maxSteps 下的模型/tool-schema recovery 是可复现可靠性信号；当前不改产品代码，保留为提示词/预算/模型升级哨兵 | FRT-05 / managed-write / nondeterministic model recovery | 同一命令第三次独立运行 → FAIL 60.827s；未输出 provider secret |
+
+| 2026-07-30 | EVO-562 | 子代理 image 红绿复探（两红一绿）加入 Frontier 后文档门禁通过；FRT-05 明确区分模型步预算耗尽与 durable 媒体缺陷，既有 DTO drift warning 未变化 | docs gate / post-subagent-image-reprobe | `make -C docs verify` → `✓ docs lint clean (1 warning(s))`；`✓ documentation verified`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
