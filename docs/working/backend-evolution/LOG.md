@@ -416,6 +416,10 @@ audience: [human, ai]
 
 | 2026-07-30 | EVO-376 | managed 子代理取消场景、backend 全量回归与文档门禁后的主仓跨层总门禁闭合；backend、Flutter frontend、docs、web demo 全绿，workspace 装配验证通过，API Serve 工作树保持 clean | cross-repo gate / workspace verification / post-managed-subagent-cancel | 根目录 `make verify` → `✓ backend`、`✓ frontend`、`✓ docs`、`✓ demo`、`✓ workspace verified`；未输出 provider secret |
 
+| 2026-07-30 | EVO-377 | 默认 managed 对话分叉闭环补齐：源回合完成后从 assistant 消息创建分支，源会话保持 append-only，分支保留 conversation/message 血缘且不复用源 assistant ID；分支 follow-up 再次完成，未形成后端缺陷 | FRT-16 / managed-read/default / conversation fork → branch continuation | `EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ConversationForkContinues$' -count=1 -v` → PASS 13.209s；复跑 PASS 12.768s；无 provider secret |
+
+| 2026-07-30 | EVO-378 | managed 对话分叉场景加入后的 docs 门禁通过；Frontier 新增 FRT-16 及两轮真实证据，working 索引、锚点与 drift 检查保持可用，既有 DTO drift warning 未变化且不阻断门禁 | docs gate / post-managed-conversation-fork | `make -C docs verify` → `✓ documentation verified`；`✓ docs lint clean (1 warning(s))`；warning 内容未变化 |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
