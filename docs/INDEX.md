@@ -13,7 +13,7 @@
 | 某个域怎么设计的（心智模型 / 生命周期 / 坑） | `references/backend/domains/<域>.md` |
 | 地基与引擎（orm / reqctx / **scheduler-flowrun** / loop / stream-llm / sandbox / bootstrap / 小件） | `references/backend/foundation/` |
 | **前端怎么组成、怎么流动（第 0 篇）** | `references/frontend/overview.md` |
-| **前端怎么协作 / 到哪了 / 去哪走（一站式 hub）** | `working/frontend/README.md` |
+| **前端当前产品与工程心智** | `references/frontend/overview.md` |
 | **后端如何持续用真实场景自我迭代** | `working/backend-evolution/README.md` |
 | 架构决策（直装运行时 / 统一错误类型 / API 契约 / Flutter / mise / MCP / scheduler / 主密钥 / editor / gateway 设备证明 / 媒体 lease 契约 / 媒体内联上游 / 视频同步工具 / MediaRef 唯一货币 / 受管视频签名句柄 / 内联播放[已被 0018 取代] / 产地决定模型输入[已被 0020 取代] / 播放底座按平台选[已被 0019 取代] / vendor linux-only 播放插件·拆 CocoaPods / 能力决定模型输入） | `decisions/000{1,2,3,4,5,6,7,8,9}-*.md` · `decisions/001{0,1,2,3,4,5,6,7,8,9}-*.md` · `decisions/0020-*.md` |
 | 数据目录 / 备份 / 跨机迁移 | `how-to/data-migration.md` |
@@ -25,7 +25,7 @@
 
 - **domains/**（21 篇）：function · handler · agent · workflow · trigger · control · approval · skill · mcp · document · chat · messages · conversation · subagent · attachment · memory · todo · relation · touchpoint · search · support-services（十一微域合篇）
 - **foundation/**（8 篇）：orm · reqctx · scheduler-flowrun（durable 引擎）· loop（ReAct）· stream-llm · sandbox（含 envfix）· platform-pkgs · bootstrap
-- **frontend/**（ADR 0004）：**先读 [overview](references/frontend/overview.md)**（鸟瞰第 0 篇:三岛壳 + 海洋 + sidecar + 三流）· [architecture](references/frontend/architecture.md)（物理文件图 + 路由 + 装配）· [design-system](references/frontend/design-system.md)（设计令牌 + An* 套件 G0–G6）· [contract](references/frontend/contract.md)（后端线缆的 Dart 投影）· [features/](references/frontend/features/)（各 feature 当前形态:entities · documents…）。**协作 / 进展 / 路线 → 一站式 hub [working/frontend/](working/frontend/README.md)**
+- **frontend/**（ADR 0004）：**先读 [overview](references/frontend/overview.md)**（三岛壳 + 五个产品面 + sidecar + 三流）· [architecture](references/frontend/architecture.md)（物理文件图 + 路由 + 装配）· [design-system](references/frontend/design-system.md)（设计令牌 + An* 原语）· [contract](references/frontend/contract.md)（后端线缆的 Dart 投影）· [platform](references/frontend/platform.md)（桌面宿主）· [features/](references/frontend/features/)（Chat · Entities · Library · Scheduler · Notifications · Settings 当前形态）。
 
 ## 权威层级
 

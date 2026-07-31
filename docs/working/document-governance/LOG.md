@@ -39,3 +39,14 @@ landed-into:
 - 旧 iteration 七篇材料迁入唯一墓地 `docs/archive/backend-evolution-v1/`，保留历史 frontmatter 并标 `status: archived` / `landed-into`；current HISTORY、README 与 testend R23 链接已改到新路径。
 - GOVERNANCE §3/§4/§5/§11 与 CLAUDE 文档门禁摘要同步到实际实现；同时纠正 GOVERNANCE 旧文中“ADR git 历史已机械校验”的不实陈述——该项仍靠人工清单。
 - 当前唯一 warning 仍是 DTO 镜像覆盖统计（12 checked / 21 skipped），留待 G1/G5 依据类名投影语义逐项裁决。
+
+## 2026-07-31 · G1-001 · 前端入口、缺失事实源与施工面退役
+
+- 逐项核对 `frontend/lib/app/router.dart`、`app_shell.dart`、六个 `features/*`、`core/*`、三平台宿主、`pubspec.yaml`、前端 Makefile 与测试目录；确认产品当前有 Chat、Entities、Library、Scheduler 四个业务海洋、Settings 设置海洋与 Notifications 跨壳能力。
+- 新增 Chat、Scheduler 与平台层 current reference；重述前端 overview、architecture、Entities reference 与 `frontend/README.md`，修正旧文中的 `features/documents`、`/documents/*`、显式 `/chat` landing、旧海洋数量和“重建中/在建”描述。
+- 路由事实已对齐：壳内 canonical 路由为 `/chat/:id`、`/library/:id`、`/library/skill/:name`、Scheduler 三级路由；`/scheduler/runs/:frId` 是 run-id 中继；Entities 关系图与 workflow 编辑器是两个壳外全屏页。
+- 已完成的 12 篇前端施工材料全部填入 current 落点并迁入 `docs/archive/frontend-construction/`：Chat 主迭代、工具卡三册、Entities/Workflow、右岛两轮、Scheduler、sidestage 与旧 working hub。`docs/working/frontend/` 已物理消失。
+- CLAUDE、INDEX、concept architecture 与 design-system 的 active 入口已改指 current reference，不再把已完成施工日志当当前协作入口。
+- 代码核对发现 `frontend/lib/app/app_shell.dart` 仍有把已存在海洋称作“未建/即将推出”的源代码注释。它不改变运行时，但属于产品代码，按 CHARTER 的授权边界只登记、不在文档战役中修改。
+- 验证：`make -C docs verify` 通过；`backend/` 下 `go test ./cmd/docs` 通过；active 文档中已无 `working/frontend`、旧 `/documents/*` 路由或“前端重建中”命中。DTO 镜像覆盖 warning 保持 12 checked / 21 skipped，未被隐藏。
+- 本批只完成 G1 的入口、核心 current 面与归档；contract、design-system、Library、Notifications、Settings、Chat sidestage 的可读性与历史噪音仍需继续做 G1 对抗精炼，不能据此宣称 G1 完成。

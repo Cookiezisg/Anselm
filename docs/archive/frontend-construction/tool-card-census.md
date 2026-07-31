@@ -1,13 +1,13 @@
 ---
 id: WRK-057
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-06
 reviewed: 2026-07-24
 review-due: 2026-10-04
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/frontend/features/chat.md
 ---
 
 # 工具卡线缆普查底册 —— 蓝图的证据基座

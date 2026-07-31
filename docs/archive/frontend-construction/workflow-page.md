@@ -1,13 +1,13 @@
 ---
 id: WRK-055
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-03
 reviewed: 2026-07-03
 review-due: 2026-10-01
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/frontend/features/entities.md
 ---
 
 # Workflow 实体页 — 编排图画布 + 驾驶舱 + 编辑器(WRK-054 第二站)
