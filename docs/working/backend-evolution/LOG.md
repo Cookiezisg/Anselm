@@ -1327,6 +1327,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-832 | EVO-831 后执行 backend 全量黑盒总闸：完整 `testend/scenarios` 在保留系统 PATH、Go 1.25.11 与 gateway managed 装配下通过，contract/chat、agent/subagent、workflow/trigger、附件/文档、多模态、MCP/function/handler、provider wire、取消/恢复与资源卫生均未出现回归 | full backend testend regression / post-EVO-831 gate | `set -o pipefail; env -u GOROOT -u GOTOOLCHAIN PATH=/Users/SP14921/.local/share/mise/installs/go/1.25.11/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin MISE=/opt/homebrew/bin/mise make -C backend testend 2>&1 | tee /tmp/anselm-evo832-backend-testend-full.log | tail -n 180` → `ok github.com/sunweilin/anselm/testend/scenarios 330.704s`；未输出 provider secret |
 
+| 2026-07-31 | EVO-833 | 子代理 contract 三件套当前双跑全绿（6/6）：父模型 follow-up 的 LoadHistory 排除 child 内部 reasoning、最终答案仍以 tool_result 保留；Explore/Plan/general-purpose 的工具白名单与 Explore 30 轮上限/`max_steps` 终态严格闭合；conversation model override 只作用父回合，subagent 仍使用 workspace dialogue 模型且结果回灌父层。未见 trace 泄漏、递归工具、模型串线或终态缺失 | FRT-05 + FRT-13 / contract / subagent trace isolation + toolset caps + model inheritance | `cd testend; env -u GOROOT -u GOTOOLCHAIN GOCACHE=$(mktemp -d /tmp/anselm-evo833-go-cache.XXXXXX) PATH=/Users/SP14921/.local/share/mise/installs/go/1.25.11/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin go test ./scenarios -run '^TestContractChat_(SubagentTraceIsolation|SubagentTypesAndRoundCap|SubagentModelNotOverridden)$' -count=2 -parallel 1 -timeout 45m -json` → PASS，包 24.289s；contract harness 的 managed install 127.0.0.1:1 与 search context-canceled 为预期噪声；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

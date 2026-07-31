@@ -412,6 +412,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再次复探并行子代理跨回合上下文：第一次尝试因隔离 PATH 漏掉 macOS `/usr/sbin/ioreg`，managed provision 被 harness 明确跳过，未进入产品断言；补齐系统路径并钉定 Go 1.25.11 后，两次真实 managed 运行均通过（84.70s、75.64s；包 161.089s）。两 child 各执行一次 function，下一轮父回合无工具调用却逐字恢复两个 marker，历史仍只有两个 completed child、原 `parentBlockId` 和两条唯一 `agent/ok` execution。模型偶发非法 `subagent_type` 警告后自纠，但没有形成重复 child、孤儿或终态缺陷；该次把 PATH/onboarding 误报与 managed 工具 schema recovery 分开。
 
+本轮补上子代理 contract 三件套的当前双跑：父模型的下一轮历史排除 child 内部 reasoning、保留 child 最终答案；Explore/Plan/general-purpose 工具白名单与 Explore 30 轮上限的 `max_steps` 终态闭合；conversation override 只改变父回合，subagent 仍落 workspace dialogue 队列并将答案回灌父层。6/6 通过（包 24.289s），未形成 trace 泄漏、递归工具、模型串线或终态缺失；contract harness 的 managed install 失败和 search teardown 日志不影响断言。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
