@@ -185,3 +185,12 @@ landed-into:
 - Memory 与 Todo 分别收敛为跨对话文件事实和逐执行 scope 的短期清单，明确 pinned 策展不可被内容 Upsert 覆盖、Todo reminder 不污染历史且 todo_read 可读全完成清单。
 - 发现两处未授权产品代码注释漂移：Attachment domain 顶层仍称 provenance “尚不执行”，但 `originToolCallId` 已强制；另一个映射注释仍称 audio/video 抽取为未来插件，但 `ToContentParts` 已支持能力门控的原生音视频。仅登记，未改代码。
 - 验证：`make -C docs verify`、`git diff --check` 与八篇施工词扫描通过；扫描命中仅是“阶段/尚未”在 Boot/ready 当前机制中的普通语义，DTO warning 未变化。
+
+## 2026-07-31 · G2-015 · 后端与 API Serve 边界阶段验收
+
+- 重新盘点 backend reference：四索引、23 篇 domain/foundation、overview 与 managed gateway 边界均已在 2026-07-31 按现行代码审阅；每篇 domain/foundation 均有真实 package 或明确跨域平台归属，没有指向已删除实现。
+- 对抗扫描 `WRK/工单/Phase/批次/施工/旧版/事故/真钱/实测` 后，backend current reference 仅剩 `TODO_*` 稳定错误码及“本轮”作为运行时单次处理语义；无施工历史或阶段状态残留。
+- 复读 CLAUDE、concept architecture、backend overview 与 managed gateway：四者一致声明本地单用户 sidecar、Quadrinity、durable execution、系统级多模态、默认 managed 路径、可选 BYOK，以及本地与已部署 API Serve 的 secret/运维责任边界。
+- 四索引继续由 docs checker 对 error code、event、endpoint resource 与 table 做代码漂移核对；本阶段没有通过减少登记或放松门禁换取通过。
+- 验证：`make -C docs verify`、`mise exec -- go test ./cmd/docs` 与 `git diff --check` 通过；唯一 warning 仍是 DTO mirror 12 checked / 21 skipped，已持续显式保留。
+- G2 完成。G3 开始处理 working/archive 生命周期；`backend-evolution` 的 CURRENT/FRONTIER/LOG/HISTORY 分工将在该阶段单独验收。
