@@ -434,6 +434,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮对 Anthropic/兼容方言做 contract 双跑复核：原生 `/v1/models` 探测、`x-api-key`/版本头、`/v1/messages` block/SSE/usage durable persistence，以及 custom+anthropic-compatible 与 custom+openai-compatible 的各自 auth/path/stop normalization 均 6/6 通过（包 9.635s）。本地 upstream 只用于 wire 断言，不替代 Azure/Vertex 真实凭证证据，也没有输出 provider secret。
 
+本轮再次验证 DeepSeek thinking/tool continuation：两次 `deepseek-v4-flash` 均在专用 `maxSteps=8` wire lane 内完成 `tool_call→run_function→tool_result→第二次 /chat/completions→144`；recorder 看到 `tools`/`tool_calls` 与包含函数结果的续接 body，durable history 和助手文本一致。16.12s/8.14s 双跑未复现缺失 `reasoning_content` 400；该专用预算不改变默认低预算边界。
+
 本轮 provider 窗口复探再次把可用性与产品分类分开：DeepSeek 文本与兼容 tool continuation 5.03s/7.76s 通过；Google 文本与原生工具续接各收到 429 并结构化为 `LLM_RATE_LIMITED` skip；stale-model 恢复先保留单次 404→`LLM_MODEL_NOT_FOUND`，恢复发送再遇 429；重复 stale failure 仍每轮只发一次并保持同一错误码。未出现伪造 assistant、managed fallback 或无界重试，不改 parser/重试策略。
 
 本轮 BYOK 文本 smoke 双跑继续验证同一分类：DeepSeek 两轮均完成真实无工具文本；Google 一轮完成、另一轮上游 429，产品回合诚实落 `LLM_RATE_LIMITED` 并结构化 skip。四次 `:test`/能力探针均先返回成功，未发生 managed fallback、伪造 assistant 或无界重试；Google 当前 rate window 仍是外部可用性边界，不是兼容层回归。

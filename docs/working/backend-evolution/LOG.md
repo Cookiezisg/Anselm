@@ -1297,6 +1297,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-817 | BYOK DeepSeek/Google 文本 smoke 当前双跑：DeepSeek 两轮均完成 `:test→能力目录→显式模型选择→无工具文本`；Google 第一轮完成，第二轮上游 429，产品将回合结构化为 `LLM_RATE_LIMITED` 并跳过，不伪造文本或 fallback。四个 provider probe 均 `ok=true`，包级通过，总 16.408s；测试收尾的 search engine context-canceled 仍是本地 teardown 噪声 | FRT-11 + FRT-14 / byok-read / provider credential, capability and rate-window classification | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_TextProviderSmoke$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo817-byok-text-provider-smoke-double.jsonl` → PASS：DeepSeek 5.54s/3.30s，Google 5.08s/1.49s（第二轮 structured SKIP）；包 16.408s；未输出 provider secret |
 
+| 2026-07-31 | EVO-818 | DeepSeek `deepseek-v4-flash` thinking/tool continuation 当前双跑全绿：两轮均在 `maxSteps=8` wire lane 内完成工具调用→真实函数 `square=144`→第二次兼容 `/chat/completions` 采样→最终文本，recorder 与 durable history 同时保留 `tools`/`tool_calls`/结果；未再出现缺 `reasoning_content` 的 400、重复 execution 或非终态。该预算只属于 continuation 探针，默认低预算合同未改 | FRT-11 + FRT-13 / byok-read / DeepSeek reasoning-content compatibility and tool continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_DeepSeekToolContinuation$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo818-byok-deepseek-tool-continuation-double.jsonl` → PASS：16.12s、8.14s（包 25.028s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
