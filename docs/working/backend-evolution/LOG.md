@@ -1291,6 +1291,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-814 | managed 直接 `generate_video` artifact 当前双跑全绿：两轮均完成 danger approval→单次异步 gateway submission→durable completed，真实 MP4 content 可回读（3,010,585 / 4,261,660 bytes），各自只保留一条 receipt 与对应 attachment；收尾时 sandbox 正常清空，未见重复提交、迟到产物或孤儿。两轮分别 139.03s/113.76s，收尾的本地 embedding `context canceled` 仍是 shutdown lexical fallback 噪声，不是视频链路故障 | FRT-09 + FRT-13 / managed-write / direct async video artifact and resource hygiene | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateVideoArtifact$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo814-managed-video-artifact-double.jsonl` → PASS：139.03s、113.76s（包 253.324s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-815 | 聊天入口 workflow 故意失败→诊断当前双跑全绿：两轮首回合均先发现 `trigger_workflow` 后恰调用一次，单一 failed run 的 `origin=chat`、`conversationId` 与 `CHAT_FLOWRUN_FAILURE_C1A9` durable 错误闭合；第二回合再经 `search_flowruns(status=failed)` 与 `get_flowrun` 各一次读取同一 run，并在助手文本中复述 `failed`/marker。未见重复 run、错误节点丢失、跨会话泄漏或父回合非终态 | FRT-04 + FRT-13 / managed-read+write / chat flowrun failure diagnosis | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunFailureDiagnosis$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo815-managed-chat-flowrun-failure-diagnosis-double.jsonl` → PASS：47.63s、42.45s（包 90.831s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
