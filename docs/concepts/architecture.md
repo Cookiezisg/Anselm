@@ -113,9 +113,7 @@ Function/Handler 跑真实代码 → 经 **sandbox** 隔离运行；env 缺失�
 
 **生成是工具、不是第五个实体**(设计原则 #1 的封闭集不动):`generate_image` / `generate_speech` / `generate_video` 是 Tool,经 **CapabilityTools 缝**逐请求 resident 注入 chat、经 **`sys:` 第四挂载词法**进 agent 与 subagent。三者皆**诚实缺席**——运行期无可用路由时,整个工具不存在,而不是存在且必失败。视频是其中唯一的**长**工具:各家全异步,故它同步等完并经既有 `progress` 块流状态行(**不给百分比**,理由见 [ADR 0013](../decisions/0013-video-generation-synchronous-tool.md))。
 
-**受管档三个全开**——图、语音、视频。视频的受管路由是**唯一的两次请求**形态(提交拿签名句柄 → 轮询),
-故它比另两个多两条律:句柄由网关签名并绑到付过钱的那个 install(见 [ADR 0015](../decisions/0015-managed-video-signed-handle.md)),
-钱落在**提交**、轮询绝不动钱。免费额度:图 10 张/天、语音 5 万字符/天、视频 **10 条/天**(均 per-install)。
+**受管与 BYOK 的边界**：默认产品路径通过 device proof 使用已部署 Anselm API；provider secret、路由、成本账本、配额和部署都归 API Serve。主仓拥有 install、workspace 默认、附件/MediaRef、能力工具与本地业务真相。BYOK 负责文本和支持的多模态读取；生成工具只随受管 capability route 出现。完整接缝见 [`managed-gateway.md`](../references/backend/managed-gateway.md)，网关内部数字和 provider 选择不在主仓重复维护。
 
 ### 3.6 AI 工作会话
 

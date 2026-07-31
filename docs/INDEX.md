@@ -10,6 +10,7 @@
 | 系统架构 / 路线 / 愿景 | `concepts/architecture.md` |
 | 工程纪律 + 代码规则（S/T/N/D/E） | `../CLAUDE.md` |
 | **HTTP 端点 / DB 表 / 错误码 / SSE 事件**（四索引，与代码逐字同步） | `references/backend/{api,database,error-codes,events}.md` |
+| **本地 sidecar 与已部署 Anselm API 的责任边界** | `references/backend/managed-gateway.md` |
 | 某个域怎么设计的（心智模型 / 生命周期 / 坑） | `references/backend/domains/<域>.md` |
 | 地基与引擎（orm / reqctx / **scheduler-flowrun** / loop / stream-llm / sandbox / bootstrap / 小件） | `references/backend/foundation/` |
 | **前端怎么组成、怎么流动（第 0 篇）** | `references/frontend/overview.md` |

@@ -61,3 +61,14 @@ landed-into:
 - 复核所有文档声明的测试目录/文件；修正重写时误换的 DOC ID（Library 保持 DOC-052、Chat sidestage 保持 DOC-051）与不存在的媒体测试目录。
 - 验证：`make -C docs verify` 通过，`git diff --check` 通过；warning 仍为 12 个 DTO mirror pair checked / 21 个无同名 Go struct 的 anchor skipped。
 - G1 完成。仍发现的 `app_shell.dart` 过时产品代码注释继续作为未授权代码 finding 保留，不影响 current 文档事实。
+
+## 2026-07-31 · G2-001 · 已部署 API Serve 责任边界与易漂移复制收口
+
+- 只读核对同级 `Anselm-API-Serve` 的 AGENTS、CLAUDE、INDEX/GOVERNANCE、中英文 README、deploy 文件树、公开 backend references、近期提交与当前工作树；该仓有用户正在收尾的未提交治理/实现改动，本战役未写入、未暂存、未提交其中任何文件。
+- 主仓代码确认默认 managed base 由 `infra/llm/anselm.go` 持有，空配置直达生产 API，`ANSELM_GATEWAY_URL` 只作显式覆盖；`app/freetier`、`infra/deviceproof`、managed media/ASR/generation 客户端共同证明本地 sidecar 与部署服务已完整接缝。
+- 主仓 backend-evolution 的真实 live 记录已在 2026-07-29 通过 managed provision/probe、`anselm-auto` 默认中文 chat 与终态，证明默认产品路径不要求本机 provider secret。
+- 新增 `references/backend/managed-gateway.md`：本仓只登记 install/device-proof、managed 行、workspace 默认、附件/MediaRef、loopback API 与 BYOK 本地职责；API Serve 独占 provider secret、路由、费率/账本、部署/回滚/监控。明确默认路径不需要任何用户 provider key，`DASHSCOPE_API_KEY` / `ANSELM_DASHSCOPE_BASE` 不属于主仓启动配置。
+- `foundation/stream-llm.md` 与 `domains/support-services.md` 整体重述，删除主仓对网关内部 provider 名单、模型数字、生成方言历史和配额实现的复制；managed/BYOK 只保留公开产品边界并链接新 reference。
+- backend overview、concept architecture、INDEX 同步新边界；overview、database、error-codes 去掉易漂移的域/handler/provider/错误码手工总数。error registry 仍由 `cmd/docs/drift.go` 对具体 code 双向严格校验。
+- `make -C docs verify` 通过；四索引漂移检测保持 error code 双向、event 双向/族、endpoint 资源词与 table 双向覆盖，warning 仍仅 DTO mirror 12 checked / 21 skipped。裸 shell `go test ./cmd/docs` 因系统 go1.26.2 与项目缓存/标准库 go1.25.11 混用失败；改用仓库锁定工具链 `mise exec -- go test ./cmd/docs`（go1.25.11）通过，确认是环境选择而非代码失败。
+- G2 尚未完成：当前 backend reference 仍有大量 WRK/工单/批次历史标签，且 CLAUDE 当前快照复制了 API Serve 内部 provider 数字；后续批次必须继续整体重述，不能把本节视为 G2 完成。

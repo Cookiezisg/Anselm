@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
@@ -19,7 +19,7 @@ audience: [human, ai]
 
 ```
 ┌─ transport ───────────────────────────────────────────────────────────┐
-│  HTTP（统一 Envelope·28 资源 handler）+ 3 条 SSE 流（messages/entities/notifications）│
+│  HTTP（统一 Envelope）+ 3 条 SSE 流（messages/entities/notifications）                │
 ├─ app ────────────────────────────────────────────────────────────────┤
 │  对话运行时        编排与执行              能力实体           支撑服务      │
 │  chat ──┐         scheduler（解释器）      function           workspace    │
@@ -28,20 +28,20 @@ audience: [human, ai]
 │  conversation     flowrun（记忆化真相表）   control/approval   catalog/...  │
 │  messages/todo/attachment/memory          skill/mcp/document  humanloop   │
 ├─ domain（纯 struct + 端口，零外部依赖）∪ infra/store（orm 三表范式）────────┤
-├─ infra：llm（11 provider 一端口）· sandbox（直装运行时）· stream（Bus）· crypto│
+├─ infra：llm（provider-neutral 端口）· sandbox（直装运行时）· stream（Bus）· crypto│
 ├─ pkg 地基：orm · reqctx · errors · cel · schema · idgen · …（无上层依赖）  │
 └─ bootstrap（composition root：唯一全知者，装配一切）────────────────────────┘
 依赖单向：transport → app → (domain ∪ infra/store) → infra/db；pkg 全层可用
 ```
 
-## 2. 模块地图（32 域 → 28 篇文档：domains/ 20 + foundation/ 8）
+## 2. 模块地图
 
 | 组 | 域（→ 文档） | 一句话 |
 |---|---|---|
 | **能力实体**（Quadrinity 前三 + 周边） | [function](domains/function.md) · [handler](domains/handler.md) · [agent](domains/agent.md) · [skill](domains/skill.md) · [mcp](domains/mcp.md) · [document](domains/document.md) | fn=每调用一进程的无状态代码；hd=常驻进程的有状态类（RPC）；ag=挂载能力的 LLM 员工；skill/document=指令与知识载体；mcp=外部工具网桥 |
 | **编排与执行**（Quadrinity 第四 + 引擎） | [workflow](domains/workflow.md) · [trigger](domains/trigger.md) · [control](domains/control.md) · [approval](domains/approval.md) · [scheduler-flowrun](foundation/scheduler-flowrun.md) | wf=静态图（存/校验/pin）；trg=四源信号+durable 收件箱；ctl/apf=图的路由闸与人在环闸；引擎=幂等 advance 走记忆化 |
 | **对话运行时** | [chat](domains/chat.md) · [messages](domains/messages.md) · [conversation](domains/conversation.md) · [subagent](domains/subagent.md) · [attachment](domains/attachment.md) · [memory](domains/memory.md) · [todo](domains/todo.md) | chat=枢纽但一无所有（全 DIP）；messages=中立块模型；subagent=递归子对话 |
-| **支撑** | [relation](domains/relation.md) · [search](domains/search.md) · [微域合篇](domains/support-services.md) | 拓扑图 / 综搜垂搜积木 RAG 引擎 / 平台配置 + 横切服务 |
+| **支撑** | [relation](domains/relation.md) · [search](domains/search.md) · [微域合篇](domains/support-services.md) · [managed gateway 边界](managed-gateway.md) | 拓扑图 / 综搜垂搜积木 RAG 引擎 / 平台配置 + 横切服务 / 已部署 Anselm API 接缝 |
 | **地基** | [orm](foundation/orm.md) · [reqctx](foundation/reqctx.md) · [loop](foundation/loop.md) · [stream-llm](foundation/stream-llm.md) · [sandbox](foundation/sandbox.md) · [platform-pkgs](foundation/platform-pkgs.md) · [bootstrap](foundation/bootstrap.md) | 自研 ORM / ctx 载体 / ReAct 引擎 / SSE 总线 + LLM 端口 / 隔离运行时 / 小件 / 装配根 |
 
 ## 3. 三条端到端数据流（系统的"整体感"在这）
@@ -92,7 +92,7 @@ LLM 调 create_function（ops 数组，jsonrepair 容错）
 ## 4. 全局统一的横切机制（每个域都遵守）
 
 - **workspace 隔离链**：HTTP 中间件注入 → ctx 一路下传 → orm 自动过滤/填充（D2）；异步用 `reqctx.Detached(wsID)` 重播种；**后台入口逐 workspace 播种**（`forEachWorkspace` 铁律 + 守护测试）。
-- **错误系统**：一个类型（`pkg/errors`）、一种造法（`errorspkg.New(kind, code, msg)`）、298 码全 registry 登记；HTTP 读 Kind/Code、LLM 读 Message；机械守卫防回退（`standard_test.go`：sentinel 全用 errorspkg.New · 码全库唯一 · transport 走 FromDomainError）。
+- **错误系统**：一个类型（`pkg/errors`）、一种造法（`errorspkg.New(kind, code, msg)`）、全 wire code 在 registry 登记；HTTP 读 Kind/Code、LLM 读 Message；机械守卫防回退（`standard_test.go`：sentinel 全用 errorspkg.New · 码全库唯一 · transport 走 FromDomainError）。
 - **版本模型（方案 A，全实体统一）**：线性只增版本 + 自由 active 指针；无 pending/accept；revert=移指针；Trim cap 50 放过 active；**create（实体行+v1）与 edit（新版本+移指针）各为单事务**（store 复合方法 CreateWithVersion / SaveVersionAndActivate——不留无版本实体或孤儿版本+旧指针）。
 - **执行审计（四执行单元统一）**：Log 表只增（D1）+ 溯源 6 列（conversation/message/toolCall 由 loop 注入 ctx；flowrun 3 列 id/node_id/iteration 由调度器派发注入，F175-M12）+ Detached 记账（被取消也落账）。
 - **ID 体系**：`<prefix>_<16hex>`（S15）；infra 侧自有前缀（fnenv_/hdenv_）。
