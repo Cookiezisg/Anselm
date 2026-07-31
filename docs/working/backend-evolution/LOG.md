@@ -1283,6 +1283,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-810 | 聊天入口 workflow failed→replay 当前双跑全绿：两轮先通过 durable `search_flowruns(status=failed)`/`get_flowrun` 暴露失败节点，再调用 `replay_flowrun`；已完成 stable 前缀只保留一次，flaky handler 恰一次 failed+一次 ok，finish 与父回合最终 completed，未见重复节点、孤儿 run 或旧终态复活 | FRT-04 + FRT-13 + FRT-15 / managed-read+write / flowrun failure diagnosis and replay | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunReplay$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo810-managed-chat-flowrun-replay-double.jsonl` → PASS：54.01s、51.35s（包 105.927s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-811 | 聊天入口 workflow human approval 当前双跑全绿：两轮 `trigger_workflow` 都在 `human` 节点 durable park，停泊观察期没有下游 publish；随后 `decide_approval(yes)` 只恢复一次下游 action，decision、flowrun/interaction、function/handler ledger 与父回合 completed 均闭合，未见提前执行或重复恢复 | FRT-04 + FRT-13 + FRT-15 / managed-read+write / flowrun human approval park and resume | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunApprovalDecision$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo811-managed-chat-flowrun-approval-double.jsonl` → PASS：48.79s、43.29s（包 92.546s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

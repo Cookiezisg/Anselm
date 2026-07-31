@@ -176,6 +176,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮对聊天 workflow replay 单独做当前窗口双跑：两轮均先由 `search_flowruns(status=failed)`/`get_flowrun` 读取 durable 失败节点，再由 `replay_flowrun` 沿同一 `flowrunId` 恢复；stable 前缀与 finish 各一次，flaky handler 恰一次 failed+一次 ok（54.01s、51.35s）。该恢复体验与三入口多模态链互不干扰，没有重复节点、孤儿 run 或旧终态复活。
 
+紧接着复探 human approval：两轮 chat workflow 都在 `human` 节点 durable park，停泊期间下游没有提前 publish；`decide_approval(yes)` 后仅恢复一次下游 action，interaction/decision、flowrun、function/handler ledger 与父回合均 completed（48.79s、43.29s）。审批状态与 replay/多模态入口共享同一耐久控制面，未形成重复恢复或旧终态复活。
+
 ### FRT-07 最新证据
 
 本轮对 managed 音色全生命周期做当前双跑：参考 WAV 朗读后，`enroll_voice` 均出现 danger interaction 并完成批准，登记可见；克隆音色随后真实朗读并产出第二份 WAV，最后删除后 `/voices` inventory 归零。两轮 43.93s/40.48s（包 84.993s），源/克隆附件可逐字节回读，无句柄、receipt 或媒体孤儿；继续证明 speech denial 的时序红灯不代表公共 voice/TTS 路由回归。
@@ -481,6 +483,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 本轮对失败 subagent 树 fork 的当前窗口复探补入 FRT-13：一轮 fork 后继续对话时保留唯一 failed child、父子终态与单条 `triggeredBy=agent` execution，另一轮因非法 `subagent_type` 后重复派遣，在 durable child/fork 后续断言前即因 child 数量为 2 失败。红跑仍有 `FORK_FAILED_SUBAGENT_6D21`、父锚点与 completed child 证据，没有稳定的取消/恢复、execution ledger、孤儿或终态复活缺陷；继续作为 managed schema recovery/duplicate-dispatch 哨兵。
 
 本轮对 FRT-13 的异步媒体终态再加一条真实多模态证据：图像首帧 `animate_image` 两次都在 danger approval 后只提交一次任务，父回合等待 MP4 durable completion 后才收口，receipt/MediaRef/source attachment lineage 与 content endpoint 一一对应；未观察到提前 completed、迟到产物、重复提交或终态后写入。
+
+本轮补入 human approval 的恢复证据：两次 chat flowrun 在 approval 节点保持 durable `waiting`/parked，客户端先只读状态，再发送 `decide_approval(yes)`；下游 publish 恰一次、父回合最终 completed，未见审批窗口内的副作用、重复决定或恢复后的旧节点重跑。
 
 随后做复杂 live lane 后的默认聊天 sanity triple：三个新 workspace 的 managed provision 与普通无工具中文回合均完成（7.41s、9.82s、4.16s），durable turn 没有错误、残留工具或异步多模态状态，确认本轮媒体/子代理/取消复探没有污染基础 chat loop。
 
