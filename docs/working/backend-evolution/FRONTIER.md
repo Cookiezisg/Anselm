@@ -320,6 +320,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后做子代理附件读取的对照复探：同一真实 managed 进程内，`general-purpose` child 分别读取 text 与 PDF，前者回传唯一 token，后者经 sandbox `read_attachment` 回传唯一 token；父层没有直接调用附件工具，两个源附件都逐字节保持不变，父回合均完成。组合包通过（115.530s；PDF 子场景 31.34s），说明前述 image writer 的两红一绿更像媒体写入路径叠加低 `maxSteps` 与模型 schema recovery 的可靠性边界，而不是通用 subagent/attachment read 缺陷。
 
+本轮对失败 subagent 树的 fork 做当前窗口双跑：一轮保留唯一 completed child、`failed + triggeredBy=agent` execution、`FORK_FAILED_SUBAGENT_6D21` marker 与父 `parentBlockId`，fork 后可继续且不复活失败工具；另一轮模型先发非法 `subagent_type`，随后重复派遣，源历史落两个 child，严格“只派一个”断言在 fork/ledger 后续检查前结束。红跑仍可见真实 child failure 与父层错误结果，没有稳定的 execution、锚点、孤儿或终态损坏证据；继续作为 managed schema recovery/duplicate-dispatch 哨兵，不改生产代码。
+
 本轮把同一 workflow producer→viewer 交叉面扩展到三种非 agent 产物：managed function、resident handler 与 stdio MCP 各自生成 MediaRef，再由 OpenAI BYOK vision viewer 接收并验证原始字节。三条路径首轮和第二个独立组合均通过（包 49.855s、48.202s；各单项约 13–20s），没有把产物降成 receipt 文本，也没有跨 workflow 或跨 provider 丢失附件；FRT-03/FRT-05 的 producer 共同层未形成回归。
 
 本轮把并行子代理四项状态机组合拆成独立复测：聚合运行包在 248.957s 结束为 FAIL，其中 `SubagentCancelTerminal` 仍通过，取消 204、父子消息/函数 execution 均落 `cancelled`；`ParallelSubagentTrees` 独立通过（69.80s），两个 child、两个不同 `parentBlockId`、两个 marker 与各自唯一 function execution 均闭合。`SubagentFunctionFailureContinues` 连续两个独立进程均红，但红法不同：一次子代理拒绝调用预期失败函数，另一次没有产生 child execution；父回合都能 completed，却未满足测试要求的“确实执行一次失败函数并把 marker 带回”。`ParallelSubagentContextContinues` 一次独立进程通过（64.57s），另一次在模型先拒绝/重试后生成 4 个 durable child（两个重试 child + 两个最终成功 child）而非测试期望的 2 个，两个 marker 与函数执行本身均正确。当前证据指向 managed 模型的工具可用性判断、提示注入/安全拒绝与重试遵循波动，不是 backend 的孤儿、重复执行或锚点丢失；保留为 FRT-05 可靠性哨兵，不改生产代码，后续在模型/提示词/步预算变更时复探。
@@ -467,6 +469,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 本轮继续补 workflow 版本与软删边界：approval timeout/版本列表与 run 起跑时 version pin 跨 edit→SIGKILL→restart，control branch validation/revert，active listener edit，deleted workflow 的全 mutation action 拒绝，以及 deleted trigger accepted firing 保留、跨重启显式 rebind 均双跑通过（13 个场景 26 次顶层运行，包 158.187s）。结果没有旧版本泄漏、幽灵 listener、隐式换绑或删除后写入，和 EVO-749 的 firing drain/shed 证据互补。
 
 本轮收口 workflow 剩余 contract：iterate/lifecycle verbs、manual trigger 与 overlap 策略边界、fire ledger/cursor、ref-count listener、soft-delete log、unknown/config/secret carrier、versions cursor 与 workspace isolation 双跑通过（11 个场景 22 次顶层运行，包 77.238s）。与 EVO-749/757 合并后，trigger ledger、listener 投影、版本 pin、删除/重绑、跨租户动作拒绝均有当前窗口双跑证据。
+
+本轮对失败 subagent 树 fork 的当前窗口复探补入 FRT-13：一轮 fork 后继续对话时保留唯一 failed child、父子终态与单条 `triggeredBy=agent` execution，另一轮因非法 `subagent_type` 后重复派遣，在 durable child/fork 后续断言前即因 child 数量为 2 失败。红跑仍有 `FORK_FAILED_SUBAGENT_6D21`、父锚点与 completed child 证据，没有稳定的取消/恢复、execution ledger、孤儿或终态复活缺陷；继续作为 managed schema recovery/duplicate-dispatch 哨兵。
 
 本轮再做系统级交叉链：trigger→workflow→notification 的 firing/flowrun/notification 关联双跑通过（EVO-759），fsnotify 事件 payload/filter 与 pause→SIGKILL→resume 的 durable 投影也双跑通过（EVO-760）；两条路径均未见跨层丢失、重复消费或恢复后的幽灵执行。
 

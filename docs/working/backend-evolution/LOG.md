@@ -1273,6 +1273,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-805 | proof-bound realtime ASR WebSocket 当前双跑全绿：真实连接均接受 100ms PCM16/16k/mono 二进制帧并收到 `session.finished`，没有 error event、错误 session 终态或把静音帧误判成转写语义；与 voice writer 生命周期互不回归 | FRT-07 / voice input / ASR WebSocket session lifecycle | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_SpeechInputASR$' -count=2 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo805-voice-asr-double.jsonl` → PASS：4.88s/2.13s（包 8.069s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-806 | managed 失败 subagent 树 fork 当前双跑呈 1 红 1 绿：绿跑保留唯一 completed child、故意失败函数的 `FORK_FAILED_SUBAGENT_6D21`、父锚点与 failed execution；红跑在同一 durable child/failure 断言之前，模型先发非法 `subagent_type` 后重复派遣，源历史出现 2 个 child，严格的“只派一个”oracle 提前失败。红跑仍能看到 marker、child completed 与父回合结果，未形成稳定 ledger、`parentBlockId`、孤儿或终态损坏证据；继续归类为 managed schema recovery/重复 dispatch 时序哨兵，不改生产代码 | FRT-05 + FRT-13 / managed / failed subagent fork + duplicate-dispatch sentinel | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ForkPreservesFailedSubagentTree$' -count=2 -parallel 1 -timeout 90m -json 2>&1 | tee /tmp/anselm-evo806-managed-fork-failed-subagent-double.jsonl` → 包级 FAIL：100.78s FAIL、47.01s PASS（包 148.137s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
