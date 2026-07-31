@@ -1271,6 +1271,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-804 | managed 音色生命周期当前双跑闭合：参考 WAV 朗读后，`enroll_voice` 均经 danger approval 完成登记，克隆音色朗读产出第二份真实 WAV，最后删除上游/本地 voice 后 inventory 归零；源/克隆附件分别可逐字节回读，无句柄、receipt 或媒体孤儿 | FRT-07 + FRT-09 / managed voice / enroll→clone speak→delete | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_EnrollSpeakDelete$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo804-voice-enroll-speak-delete-double.jsonl` → PASS：43.93s/40.48s（包 84.993s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-805 | proof-bound realtime ASR WebSocket 当前双跑全绿：真实连接均接受 100ms PCM16/16k/mono 二进制帧并收到 `session.finished`，没有 error event、错误 session 终态或把静音帧误判成转写语义；与 voice writer 生命周期互不回归 | FRT-07 / voice input / ASR WebSocket session lifecycle | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_SpeechInputASR$' -count=2 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo805-voice-asr-double.jsonl` → PASS：4.88s/2.13s（包 8.069s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
