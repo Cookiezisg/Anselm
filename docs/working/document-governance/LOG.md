@@ -147,3 +147,12 @@ landed-into:
 - Subagent 明确为父对话内的深度 1 运行机制：无独立表，内部 trace 落 sub-message，父历史只见最终 tool result；general-purpose 可继承真实可用的生成能力，Explore/Plan 继续保持只读。
 - 校验门禁发现重写时误用了 MCP 的 `DOC-020`；从提交前版本恢复 Conversation 的稳定 ID `DOC-023` 后通过，证明 ID 唯一检查有效拦截了人工改写错误。
 - 验证：`make -C docs verify`、`git diff --check` 与四篇文档施工词扫描通过；DTO warning 未变化。
+
+## 2026-07-31 · G2-011 · HTTP API 索引全量重建
+
+- 从全部 HTTP handler 的 `Register` 路由与 action dispatcher 重新生成 API 心智结构，不再保留“核心区较新、支撑域/系统区是一行超长施工史”的混合状态。
+- 按 Streams、Callable entities、Workflow execution、Graph authoring、Knowledge/Conversation、Media/Memory、Discovery、Workspace/Model/Managed service、Sandbox、Notifications/Settings、System/Storage 分组登记公开 method/path。
+- 补齐并显式登记 attachment playback/preparation、Conversation workdir groups/git actions、sandbox conversation env reset、storage compact、read-aloud、voice、free-tier provision、execution triage 与 system data-dir 等容易被大段正文淹没的端点。
+- Flowrun 复杂统计从逐字段立法长文收敛为端点、分页/窗口、批查上限与关键聚合语义；完整运行正确性转交 `scheduler-flowrun.md`、`workflow.md` 与 `trigger.md`，API 索引只承担 wire 注册职责。
+- 代码复核修正一次重写误述：`POST /search:reindex` 是无可轮询产物的 fire-and-forget，返回 204，不是 `202 {id}`。
+- 验证：`make -C docs verify`、`git diff --check` 与 API 施工词扫描通过；route resource drift gate 继续通过，DTO warning 未变化。
