@@ -278,6 +278,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮补做附件/文档支撑面的 contract 双跑：CAS 相同内容只保留一份 blob 且 REST content 可回读，文档 attach scope/iterate 与 children duplicate/move 保持父子关系，软删后名称冲突被守住，音频 playback lease 正确续租/释放，聊天对不支持模态维持诚实降级；6 个场景共 12/12 通过（包 16.314s），未见跨 workspace 泄漏、重复 blob、租约孤儿或错误 400。
 
+本轮对普通 managed 聊天附件/融合/历史做当前双跑：纯文本附件直接投影并回答，PDF+PNG 同回合完成 sandbox/视觉消费，text+PNG+MP4 三模态保持同一回合完成，跨回合省略新 `attachmentIds` 仍从历史重投影原 PNG。8/8 通过（Text 9.27/5.19s、PDF+image 10.60/10.14s、三模态 43.93/40.92s、history 8.26/7.20s；包 136.288s），源附件 content、durable turn 与能力降级均闭合，未形成 400、媒体丢失、重复回合或占位文本。
+
 ### FRT-05 最新证据
 
 同日补充真实并行子代理树闭环：父聊天只派两个独立 `general-purpose` 子代理，两个子任务各自经 `search_tools`→`run_function` 执行不同 function；两个 child message 都以不同 `parentBlockId` 锚回父级 `Subagent` tool_call，父回合同时收到两个 marker 且没有直接调用 `run_function`。两个 function execution 各恰一条 `status=ok`、`triggeredBy=agent` 记录，并绑定同一 conversation 与 child message。探索阶段一次上游 502、两次测试 oracle 校准（模型先纠正缺失 `subagent_type`；执行台账结果字段为 `output` 而非 `result`）均未形成产品缺陷；校准后两次真实 managed 复跑通过（93.71s、76.33s）。关停阶段的本地 search embedder `context canceled` 仍归类为 shutdown 噪声。
