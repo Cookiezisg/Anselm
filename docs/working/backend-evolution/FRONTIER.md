@@ -532,6 +532,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 
 随后补做实时协议耐久双跑：SSE replay 环挤出后返回 `SEQ_TOO_OLD` 并要求 REST 全量重取，再从新 seq 连续接收；messages/entities/notifications 三流不串线，三个订阅者看到同一 durable 顺序；interaction 的 danger pending/resolved 仍是 seq=0 的对称 ephemeral signal；cron dedup 在重启后仍折叠同一分钟 firing；webhook 明文 secret 与 SSE bearer 鉴权门的错误/成功状态均按合同落地。7 个场景两轮共 14/14 通过（包 139.603s），未见协议帧缺口、重复、跨流污染或重启重复执行。
 
+本轮把对话 lineage 四条高频路径再做当前双跑：普通 `:fork`、`:retry` 版本链、retry 后 latest fork，以及显式旧版本切点 fork 均 2/2 完成（包 70.896s；单项 11.88/7.46/8.13/8.40s 与 7.06/8.32/9.05/9.94s）。源线程保持 append-only，retry 的版本指针与 fork 后 `retryOf`/`supersededBy` 只指向分支内新 ID，分支 follow-up 均完成且没有旧工具复活或跨线程消息；未形成会话生命周期回归。
+
 ### FRT-14 最新证据
 
 同日复探 Google 目录资格漂移：`gemini-2.5-flash` 仍在当前 `/models` 投影，但同一显式选择连续发送两次时，每回合只发一次上游请求并分别落 `LLM_MODEL_NOT_FOUND`，没有 assistant 文本、managed fallback 或无界重试；两次独立进程通过（6.282s、4.212s）。自动失效/降级仍保留为待产品决策的策略缺口。
@@ -573,6 +575,8 @@ EVO-790 的同批次 stale-model 资格探针被 Google 当前 429 窗口覆盖�
 同日补上真实对话分叉闭环：先完成一轮默认 managed chat，再从该 assistant 消息调用 `:fork`；源会话仍保持原 2 条 append-only 消息，新会话复制同一前缀但不复用源 assistant ID，返回的 `forkedFromConversationId`、`forkedFromMessageId` 与 `(fork)` 标题后缀均正确。随后在新分支继续发送 follow-up，仍经默认 Anselm 路由完成；源会话消息数保持不变。两次真实 managed 复跑通过（总计 13.209s、12.768s），未形成后端缺陷。
 
 同一轮的普通 fork/retry 复探再次确认会话血缘没有被近期媒体与工具路径改变：两轮组合均通过，源历史、分支 follow-up 与 retry 版本链保持前述约束，未形成新的生命周期缺陷。
+
+本轮对话生命周期四路径再次拆开独立复跑：普通 fork、retry continuation、retry→latest fork、retry→older-version fork 各自两轮均通过；REST 记录同时观察到 `:retry`/`:fork` 202/201、源/分支消息集合与后续 202 turn，未见源历史改写、悬空版本指针、跨线程消息或旧 execution 复活。该轮为 EVO-826，继续支持会话 lineage 当前无稳定后端缺陷。
 
 同日再补并行 subagent 树的真实分叉闭环：源对话先由两个 `general-purpose` child 各自发现 `run_function`、执行不同 function 并留下两个 marker；空 body 的最新分叉路径复制完整耐久树，child message 与 block 均铸造新 ID，两个 `Attrs.parentBlockId` 都重定基到分支自己的父 `Subagent` tool_call，源线程保持原集合；分支 follow-up 不调用工具却能恢复两个 marker。探索时显式切在 parent message 的首次断言误把“前缀不含后续 child”当成缺陷，改用 rail 的 latest fork 语义后，真实运行确认了一个后端缺陷：分叉复制了 child 行，却把消息 Attrs 中的 `parentBlockId` 留成源 block ID；`Fork` 现与 `Block.ParentBlockID`、`retryOf` 一起重映射该消息级 E3 锚，并由真实 store 单测锁住。修复后两次独立 managed 复跑通过（67.90s、72.20s）；中间模型未稳定产出双 child 的红灯未进入分叉断言，归类为 managed 波动而非产品缺陷。
 

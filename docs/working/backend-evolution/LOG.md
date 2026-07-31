@@ -1313,6 +1313,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-825 | managed 语音写入与成本共同层当前双跑全绿（8/8）：`generate_speech` 两轮各只执行一次并落真实 80,684-byte WAV；顺序朗读首次合成、同文本同音色命中同一附件且 quota 不变、换文本生成新附件；并发同 key 双请求共享一附件且 quota 只增加一次；空闲 workspace quota 快照保持 `limit/used/remaining/resetAt` 自洽。未见重复扣费、缓存污染、附件孤儿或 receipt-only | FRT-08 + FRT-09 / managed-write / speech artifact, read-aloud cache+dedup, quota | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(GenerateSpeechArtifact|ReadAloudCache|ReadAloudConcurrentDedup|Quota)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo825-managed-speech-cost-double.jsonl` → PASS：GenerateSpeech 15.02s/9.36s；ReadAloudCache 7.24s/7.50s；ConcurrentDedup 5.23s/4.95s；Quota 1.31s/1.71s；包 53.228s；未输出 provider secret |
 
+| 2026-07-31 | EVO-826 | managed 对话 lineage 四路径当前双跑全绿（8/8）：普通 `:fork`、`:retry` 版本链、retry 后 latest fork、retry 后显式旧版本切点 fork 均完成；源线程始终 append-only，分支内 `retryOf`/`supersededBy` 指针重定基且 follow-up completed，没有跨线程消息、悬空版本指针或旧工具 execution 复活 | FRT-13 + FRT-16 / managed-read / fork-retry lineage and continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ConversationForkContinues|ChatRetryContinues|ChatRetryThenForkContinues|ChatRetryForkAtOlderVersionContinues)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo826-managed-conversation-lineage-double.jsonl` → PASS：第一轮 11.88/7.46/8.13/8.40s；第二轮 7.06/8.32/9.05/9.94s；包 70.896s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
