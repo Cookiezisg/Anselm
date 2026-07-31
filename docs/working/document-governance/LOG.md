@@ -165,3 +165,12 @@ landed-into:
 - Search 保留 source projection、非阻塞通知 + boot reconcile、Conversation anchor 增量、force-reconcile reindex、FTS/短词 fallback、cursor query hash、semantic 自动降级、embedding backfill/cache 与 search_blocks/Retrieve 边界。
 - 代码复核修正 API 对 reindex 的措辞：当前实现重新排队所有 live entities、就地覆盖并清孤儿，不先 purge workspace；同时修正 MCP Call 稳定 ID 为 `mcl_`。
 - 验证：`make -C docs verify`、`git diff --check` 与本批施工词扫描通过；DTO warning 未变化。
+
+## 2026-07-31 · G2-013 · 后端基础设施 reference 重建
+
+- 从现行 `app/loop`、Sandbox、request context、ORM、Bootstrap 与平台 packages 重建六篇 foundation reference；删除施工工单、事故复盘、过时数字和源码级长篇转录，保留跨域必须共同理解的不变量。
+- Loop 统一登记 ReAct step、Host 能力、动态 tools/blocks、上下文 checkpoint、HumanLoop workdir 闸、多模态 tool result 与终止错误；Sandbox 统一登记 runtime/env/process group、恢复和 envfix；request context 与 ORM 明确 workspace 缺席、越权和 filter 缺失是不同错误边界。
+- Bootstrap 代码反查修正启动次序：Scheduler pool 必须先于 Recover；Media worker 必须晚于逐 workspace Attachment/Media GC；Shutdown 明确 Scheduler、Search、MCP/Handler、Media、Sandbox、Shell 与 DB 的依赖顺序。
+- HTTP chain 代码反查补回 `RequireLoopbackHost`、`RequireBearerToken` 和最内层 404/405 Envelope；workspace 豁免集补全 version、attachment playback 与 webhook 的不同授权来源。
+- `app/search` 实现确认 reindex 是 force reconcile，而 HTTP handler 注释仍写“purge + rebuild”；这是产品代码注释漂移，按 CHARTER 授权边界只登记，不在文档战役中修改。
+- 验证：`make -C docs verify`、`git diff --check` 与六篇文档施工词扫描通过；扫描仅命中 SQLite schema migration 与“尚未产生 block”的当前机制语义，DTO warning 仍为 12 checked / 21 skipped。

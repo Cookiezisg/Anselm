@@ -4,19 +4,83 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# sandbox + envfix —— 隔离插件运行时
+# Sandbox 与 Envfix
 
-## 1. 定位 + 心智模型
+## 1. 定位
 
-**sandbox** 掌管 Runtime/Env 生命周期：按 kind 的 `RuntimeInstaller` + `EnvManager` 两套注册表（`EnvManager` 4 家：python/node/docker/dotnet），per-owner env 构建（owner = `{Kind, ID}` 复合键，如 function 的 `functionID + "_" + envID`，envID 即 `fnenv_…` 版本 env 记录）、懒装、GC、spawn（一次性 `Spawn` / 长跑 `SpawnLongLived` 带 handle 追踪——infra `SpawnLongLived` 刻意丢弃 ctx：常驻进程须活得比拉起它的请求长）。**进程一律自成进程组**（unix `Setpgid`），杀进程一律杀整组（负 pgid SIGKILL），使 uvx/npx 的 python/node 孙进程随包装器一同死；windows 走 per-process Job Object（`taskkill /T`），无进程组时退化单 pid。`Shutdown` 收割两类进程：所有活跃 `SpawnLongLived` handle **与**在途一次性 `Spawn` 进程（后者登记在 `oneShots`，其 ctx 在 shutdown 时可能永不取消，故须显式整组杀）。**运行时不预装**——`directInstaller`（[ADR 0001](../../../decisions/0001-sandbox-runtime-direct-install.md)）首用时从上游直拉钉死版本的 tarball/zip，4 家自研 installer（python-build-standalone / node 官方 / uv / dotnet）+ docker installer（`docker pull`，image=runtime/container=env，无宿主装机）+ 引擎 installer（搜索 embedder 的 llama-server + GGUF 模型走同一注册表）；下载后 sha256/512 校验、staging 原子 rename 入正式目录，跨平台 `GOOS/GOARCH` 直出、无内嵌。Bootstrap 只建根目录（失败 = degraded 模式，`:retry-bootstrap` 可救）；boot 时 `RestoreOrCleanupOnBoot` 回收上次残留的 running_pid 进程（对记录 pid 的整个进程组发 SIGKILL——记录的是 spawn 的直接子 = 组长，杀整组连 uvx/npx 孙进程一并收割，再清零 pid）。安装/构建用 per-key 锁防并发重复（`envLocks` 的 per-owner 锁在 env `Destroy` 时随锁逐出，不随进程整生命周期堆积）。
+Sandbox 管理 Runtime、per-owner Env 与进程；Envfix 在其上提供依赖安装的共享
+修复循环。
 
-**envfix** 是共享的**自愈构建循环**：`Provision(owner, runtime, deps)` 失败时把安装错误喂给 utility LLM 改依赖列表重试（默认 ≤3 次），返回 `Result`（终态 OK + 修正后的 deps + 尝试历史）——**从不返回 Go error**：基础设施失败或未配 utility 模型只是以 `OK=false` 结束、stderr 留在 History，由调用方上呈给建构 LLM 自行改代码。function/handler（+ 未来轮询触发源）共用——"装不上就让 LLM 修"只写一处。
+```text
+RuntimeInstaller
+→ runtime manifest/files
+→ EnvManager(owner kind + owner ID)
+→ Spawn | SpawnLongLived
+```
 
-## 2. 契约（引用）
+Owner 是复合身份，不等同于 Sandbox row ID。Function/Handler 使用 per-version
+owner；MCP、Attachment extractor、Skill script、Conversation scratch env 与
+Search engine 复用同一底座。
 
-表 `sandbox_runtimes`（`sr_`，`UNIQUE(kind,version)`）+ `sandbox_envs`（`se_`，`UNIQUE(owner_kind,owner_id)`）——皆 manifest、系统级（无 ws 列）、硬删（盘上镜像/目录才是实体）→ [database.md](../database.md) · 码 `SANDBOX_*` 15 → [error-codes.md](../error-codes.md) · ID：sandbox 行自有 `sr_`/`se_`；owner_id 复用消费方前缀（function/handler env 记录 `fnenv_`/`hdenv_`，S15）。端点（`/api/v1/sandbox/*`）：runtimes 列表/装/删/可装版本目录（`runtimes/available`——`AvailableRuntimes` 经各 installer 的可选 `UserFacing`/`AvailableVersions` 投影出用户可装运行时 + 默认 + 钉死版本：python 3.11/3.12/3.13、node 22 为闭集，uv/dotnet 开放任意；引擎产物 llamasrv/embedmodel 与 docker 不实现该可选能力故自然不列）· envs 列表（`ownerKind` 必填）/查/销毁 · `GET .../disk-usage` · `GET .../bootstrap-status` · `POST .../sandbox:gc` · `POST .../sandbox:retry-bootstrap`；另有 per-conversation scratch-env 路由（`/conversations/{id}/sandbox-envs` 列表 + `:reset` / `:reset-all`）。消费方：function（Run/Destroy）、handler（SpawnLongLived）、mcp（EnsureEnv+SpawnLongLived）、attachment（抽取脚本，固定 owner `attachment/extractor`）、envfix（SandboxPort）、**skill（`run_skill_script`：owner=`skill/<name>`，EnsureEnv+Spawn 执行捆绑脚本——`SpawnOpts.Cwd` 覆写 EnvManager 解析出的工作目录为 skill 目录，使脚本相对读 references/；python 捆绑 requirements.txt 即 env deps，WRK-076 B3）**。
+## 2. Runtime 与 Env
+
+Runtime 首用安装，不要求宿主预装。Direct installer：
+
+- 下载平台匹配且钉版本的 archive/image；
+- 校验 SHA；
+- 在 staging 解包；
+- 原子 rename 到正式目录；
+- 写 runtime manifest。
+
+Python、Node、uv、dotnet、Docker 与 Search engine artifact 使用 installer
+registry；用户可安装目录只投影明确实现 UserFacing/AvailableVersions 的类型。
+
+Env 由 `(owner_kind,owner_id)` 唯一确定。Ensure/Destroy/GC 使用 per-key lock，
+Destroy 同时逐出 lock，避免长期构建过的 owner 无限累积 mutex。
+
+Bootstrap 只确保根目录/基础状态；失败进入 degraded，用户可
+`:retry-bootstrap`。Runtime/Env 是可再生派生物，因此表与磁盘镜像可硬删。
+
+## 3. 进程
+
+一次性 `Spawn` 受调用 context 控制。`SpawnLongLived` 的生命周期脱离创建请求，
+返回可关闭 handle。
+
+Unix 子进程自成 process group，终止时杀整组，使 npx/uvx wrapper 的后代不会
+成为孤儿；Windows 使用 Job Object/task tree，无法建组时退回单进程。
+
+Service 同时跟踪 long-lived 与 in-flight one-shot。Shutdown 显式收割两类，
+不能假定所有 caller context 都及时取消。
+
+Env manifest 保存 running PID。Boot 的 `RestoreOrCleanupOnBoot` 验证并回收
+异常退出遗留的 process group，再清 PID，防止 PID 重用时误杀无关进程。
+
+## 4. Envfix
+
+`Provision(owner,runtime,deps)`：
+
+1. 尝试创建/同步 env；
+2. 失败时可把安装错误交给 utility model 修正 dependency list；
+3. 有界重试；
+4. 返回 `OK`、最终 deps 与完整 attempts。
+
+Envfix 用 Result 表达构建失败，不把“模型未配置/依赖无法安装”伪装为基础设施
+panic。调用方将 attempts 流到 Entity build terminal，并把终态写入自己的
+Version env mirror。
+
+Function/Handler 额外拒绝通过删除声明依赖来制造假 ready；这一业务诚实边界由
+实体 app 层执行。
+
+## 5. 契约
+
+精确 runtime/env/disk/bootstrap/GC 与 Conversation scratch env 端点见
+[`api.md`](../api.md)。表见 [`database.md`](../database.md)，错误见
+[`error-codes.md`](../error-codes.md)。ID：runtime `sr_`、env `se_`。
+
+Runtime 直接安装取舍见
+[`ADR 0001`](../../../decisions/0001-sandbox-runtime-direct-install.md)。
